@@ -1,86 +1,114 @@
-From: "Maulik" <x0082077@ti.com>
-Subject: RE: [PATCH 1/1] NET: usb: Adding URB_ZERO_PACKET flag to usbnet.c
-Date: Wed, 7 Apr 2010 11:16:12 +0530
-Message-ID: <002801cad615$a352f2a0$808918ac@apr.dhcp.ti.com>
-References: <1270599787.8900.8.camel@Linuxdev4-laptop>
+From: Robert Olsson <robert@herjulf.net>
+Subject: Re: RCU problems in fib_table_insert
+Date: Wed, 7 Apr 2010 08:10:13 +0200
+Message-ID: <19388.8645.99295.495371@gargle.gargle.HOWL>
+References: <20100321202525.GA966@basil.fritz.box>
+	<19367.3002.324694.563877@gargle.gargle.HOWL>
+	<20100322065133.GG2517@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <rfiler@sierrawireless.com>, <netdev@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>
-To: "'Elina Pasheva'" <epasheva@sierrawireless.com>,
-	<dbrownell@users.sourceforge.net>
+Cc: Robert Olsson <robert@herjulf.net>,
+	Andi Kleen <andi@firstfloor.org>, robert.olsson@its.uu.se,
+	netdev@vger.kernel.org, Jens.Laas@its.uu.se
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:50216 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752549Ab0DGFq0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Apr 2010 01:46:26 -0400
-In-Reply-To: <1270599787.8900.8.camel@Linuxdev4-laptop>
+Received: from av10-1-sn2.hy.skanova.net ([81.228.8.181]:43373 "EHLO
+	av10-1-sn2.hy.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752963Ab0DGGIQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 02:08:16 -0400
+In-Reply-To: <20100322065133.GG2517@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+Paul E. McKenney writes:
+ > On Mon, Mar 22, 2010 at 07:18:34AM +0100, Robert Olsson wrote:
+ > > 
+ > > Seems like Paul and Eric fixed this problem... We use fib_trie with 
+ > > major infrastructure but always disable preempt. It was unsafe w.
+ > > preempt at least before Jareks P. patches about a year ago. I havn't
+ > > tested w. preempt after that but maybe someone else have...
 
-> -----Original Message-----
-> From: linux-usb-owner@vger.kernel.org [mailto:linux-usb-
-> owner@vger.kernel.org] On Behalf Of Elina Pasheva
-> Sent: Wednesday, April 07, 2010 5:53 AM
-> To: dbrownell@users.sourceforge.net
-> Cc: epasheva@sierrawireless.com; rfiler@sierrawireless.com;
-> netdev@vger.kernel.org; linux-usb@vger.kernel.org
-> Subject: [PATCH 1/1] NET: usb: Adding URB_ZERO_PACKET flag to usbnet.c
-> 
-> Subject: [PATCH 1/1] NET: usb: Adding URB_ZERO_PACKET flag to usbnet.c
-> From: Elina Pasheva <epasheva@sierrawireless.com>
-> This patch adds setting of the urb transfer flag URB_ZERO_PACKET  before
-> submitting an urb for drivers that have requested it (by advertising flag
-> FLAG_SEND_ZLP).
-> The modification is in usbnet.c function usbnet_start_xmit().
-> This patch only adds the zero length flag.
-> A subsequent patch will address the buggy code we found when devices do
-> not
-> advertise FLAG_SEND_ZLP in which case there is a possibility of
-> transferring
-> packets with non-deterministic length.
-> 
-> This patch has been tested on kernel-2.6.34-rc3.
-> This patch has been checked against net-2.6 tree.
-> Signed-off-by: Elina Pasheva <epasheva@sierrawireless.com>
-> Signed-off-by: Rory Filer <rfiler@sierrawireless.com>
-> ---
-> 
->  drivers/net/usb/usbnet.c |   15 +++++++++------
->  1 file changed, 9 insertions(+), 6 deletions(-)
-> 
-> --- a/drivers/net/usb/usbnet.c	2010-04-06 10:52:54.000000000 -0700
-> +++ b/drivers/net/usb/usbnet.c	2010-04-06 16:54:44.000000000 -0700
-> @@ -1068,12 +1068,15 @@ netdev_tx_t usbnet_start_xmit (struct sk
->  	 * NOTE:  strictly conforming cdc-ether devices should expect
->  	 * the ZLP here, but ignore the one-byte packet.
->  	 */
-> -	if (!(info->flags & FLAG_SEND_ZLP) && (length % dev->maxpacket) ==
-> 0) {
-> -		urb->transfer_buffer_length++;
-> -		if (skb_tailroom(skb)) {
-> -			skb->data[skb->len] = 0;
-> -			__skb_put(skb, 1);
-> -		}
-> +	if (length % dev->maxpacket == 0) {
-> +		if (!(info->flags & FLAG_SEND_ZLP)) {
-> +			urb->transfer_buffer_length++;
-> +			if (skb_tailroom(skb)) {
-> +				skb->data[skb->len] = 0;
-> +				__skb_put(skb, 1);
-> +			}
-> +		} else
-> +			urb->transfer_flags |= URB_ZERO_PACKET;
 
-You should place braces for the else case as well. See
-Documentation/CodingStyle.
+ > Though I must admit that I would be surprised if there wasn't
+ > more adjustment required in net/ipv4/fib_trie.c -- lots of
+ > rcu_dereference()s in there.
 
-It states to use braces in both the branches since the if() case 
-contains multiple statements. 
+ Hi, a follow on this thread. 
 
-Maulik
+ Maybe I was to pessimistic... we've setup  for stress test running during 
+ easter vacation
 
+ Testing the fib_trie with preempt enabled. Continuesly loading/flushing  
+ "full BGP" via a test script, while routing without the route cache 
+ to further stress locking. Average load about 300 kpps. Some more test 
+ details below.
+
+ The test was manually stopped after 6 days. So it seems like preempt/rcu 
+ has been improved with fib_trie.
+ 
+ Thanks
+					--ro
+
+HW
+--
+CPU  Opteron 2 * 6174, TYAN S8230. Intel 82599
+
+Kernel from net-next-2.6
+------------------------
+Version 2.6.34-rc1bifrost-x86_64 (gcc version 4.3.2 (GCC) ) #4 SMP PREEMPT
+CONFIG_PREEMPT=y
+CONFIG_DEBUG_PREEMPT=y
+CONFIG_IP_FIB_TRIE=y
+CONFIG_FIB_RULES=y
+CONFIG_TREE_RCU=y
+CONFIG_RCU_FANOUT=64
+
+IP table
+--------
+"BGP" 279 k routes
+
+Test duration
+-------------
+09:34:14 up 6 days, 20:57,  4 users,  load average: 5.28, 5.87, 5.53
+
+Test script
+-----------
+#! /bin/bash
+while(true) do
+  ip -batch /etc/inet_route_add.bat; 
+  ip route list | wc -l;  ( 279 k routes )
+  ifconfig eth1 down 
+  ifconfig eth1 10.10.11.1 netmask 255.255.255.0
+  ip route list | wc -l;  ( 3 routes )
+done;
+
+/proc/net/softnet_stat
+
+0000d503 00000000 00000014 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+4cc1ecfb 00000000 02bb1bcb 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+4cb95da1 00000000 02cc6574 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+4cb17932 00000000 02e1abdf 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+4cc40ad9 00000000 02f53db0 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+4cbfe34f 00000000 0306a88d 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+4ccb10e9 00000000 03d3a11d 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+4ca84c29 00000000 03be0ca1 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+4cb710f8 00000000 04070289 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+0b505d55 00000000 038a9bc0 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+0b54a7be 00000000 03a5de6d 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+0b5be81f 00000000 03be018c 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+0b51fdd0 00000000 0559fdd6 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+0b4fa6fd 00000000 056311dc 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+0b4a61d3 00000000 056a9276 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+0b454970 00000000 0572add1 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+
+FYI. CPU0 is resvered for BGP/ssh/stats etc
