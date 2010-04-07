@@ -1,169 +1,50 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] IPVS: replace sprintf to snprintf to avoid stack buffer
- overflow
-Date: Wed, 07 Apr 2010 18:09:54 +0200
-Message-ID: <4BBCAE52.9080501@trash.net>
-References: <20100406025020.GA2741@localhost.localdomain> <20100406032248.GF30359@verge.net.au>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [RFC PATCH net-next 2/4] gianfar: Added timer feature for eTSEC
+Date: Wed, 7 Apr 2010 11:21:09 -0500
+Message-ID: <20100407162109.GA9220@loki.buserror.net>
+References: <95DC1AA8EC908B48939B72CF375AA5E311A9F4E0@alice.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070109050004060302030809"
-Cc: wzt.wzt@gmail.com, linux-kernel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100406032248.GF30359@verge.net.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "'sandeep.kumar@freescale.com'" <sandeep.kumar@freescale.com>,
+	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
+	"'linuxppc-dev@lists.ozlabs.org'" <linuxppc-dev@lists.ozlabs.org>
+To: Manfred Rudigier <Manfred.Rudigier@omicron.at>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:65199 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932614Ab0DGQV0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 12:21:26 -0400
+Content-Disposition: inline
+In-Reply-To: <95DC1AA8EC908B48939B72CF375AA5E311A9F4E0@alice.at.omicron.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------070109050004060302030809
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+On Wed, Apr 07, 2010 at 11:46:24AM +0200, Manfred Rudigier wrote:
+>  	switch (config.tx_type) {
+>  	case HWTSTAMP_TX_OFF:
+> +		priv->hwts_tx_en = 0;
+>  		break;
+>  	case HWTSTAMP_TX_ON:
+> +		if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_TIMER))
+> +			return -ERANGE;
+> +		priv->hwts_tx_en = 1;
+>  		return -ERANGE;
+>  	default:
+>  		return -ERANGE;
+> @@ -796,8 +802,12 @@ static int gfar_hwtstamp_ioctl(struct net_device *netdev,
+>  
+>  	switch (config.rx_filter) {
+>  	case HWTSTAMP_FILTER_NONE:
+> +		priv->hwts_rx_en = 0;
+>  		break;
+>  	default:
+> +		if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_TIMER))
+> +			return -ERANGE;
+> +		priv->hwts_rx_en = 1;
+>  		return -ERANGE;
+>  	}
 
-Simon Horman wrote:
-> On Tue, Apr 06, 2010 at 10:50:20AM +0800, wzt.wzt@gmail.com wrote:
->> IPVS not check the length of pp->name, use sprintf will cause stack buffer overflow.
->> struct ip_vs_protocol{} declare name as char *, if register a protocol as:
->> struct ip_vs_protocol ip_vs_test = {
->>         .name =			"aaaaaaaa....128...aaa",
->> 	.debug_packet =         ip_vs_tcpudp_debug_packet,
->> };
->>
->> when called ip_vs_tcpudp_debug_packet(), sprintf(buf, "%s TRUNCATED", pp->name); 
->> will cause stack buffer overflow.
->>
->> Signed-off-by: Zhitong Wang <zhitong.wangzt@alibaba-inc.com>
-> 
-> I think that the simple answer is, don't do that.
+You need to acquire bflock (or avoid using bitfields for this), or you could
+race with the setting of wol_en or rx_csum_enable.
 
-Indeed.
-
-> But your patch seems entirely reasonable to me.
-> 
-> Acked-by: Simon Horman <horms@verge.net.au>
-> 
-> Patrick, please consider merging this.
-
-I think this fix is a bit silly, we can simply print the name in
-the pr_debug() statement and avoid both the potential overflow
-and truncation.
-
-How does this look?
-
---------------070109050004060302030809
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
-index 0e58455..27add97 100644
---- a/net/netfilter/ipvs/ip_vs_proto.c
-+++ b/net/netfilter/ipvs/ip_vs_proto.c
-@@ -166,26 +166,24 @@ ip_vs_tcpudp_debug_packet_v4(struct ip_vs_protocol *pp,
- 
- 	ih = skb_header_pointer(skb, offset, sizeof(_iph), &_iph);
- 	if (ih == NULL)
--		sprintf(buf, "%s TRUNCATED", pp->name);
-+		sprintf(buf, "TRUNCATED");
- 	else if (ih->frag_off & htons(IP_OFFSET))
--		sprintf(buf, "%s %pI4->%pI4 frag",
--			pp->name, &ih->saddr, &ih->daddr);
-+		sprintf(buf, "%pI4->%pI4 frag", &ih->saddr, &ih->daddr);
- 	else {
- 		__be16 _ports[2], *pptr
- ;
- 		pptr = skb_header_pointer(skb, offset + ih->ihl*4,
- 					  sizeof(_ports), _ports);
- 		if (pptr == NULL)
--			sprintf(buf, "%s TRUNCATED %pI4->%pI4",
--				pp->name, &ih->saddr, &ih->daddr);
-+			sprintf(buf, "TRUNCATED %pI4->%pI4",
-+				&ih->saddr, &ih->daddr);
- 		else
--			sprintf(buf, "%s %pI4:%u->%pI4:%u",
--				pp->name,
-+			sprintf(buf, "%pI4:%u->%pI4:%u",
- 				&ih->saddr, ntohs(pptr[0]),
- 				&ih->daddr, ntohs(pptr[1]));
- 	}
- 
--	pr_debug("%s: %s\n", msg, buf);
-+	pr_debug("%s: %s %s\n", msg, pp->name, buf);
- }
- 
- #ifdef CONFIG_IP_VS_IPV6
-@@ -200,26 +198,24 @@ ip_vs_tcpudp_debug_packet_v6(struct ip_vs_protocol *pp,
- 
- 	ih = skb_header_pointer(skb, offset, sizeof(_iph), &_iph);
- 	if (ih == NULL)
--		sprintf(buf, "%s TRUNCATED", pp->name);
-+		sprintf(buf, "TRUNCATED");
- 	else if (ih->nexthdr == IPPROTO_FRAGMENT)
--		sprintf(buf, "%s %pI6->%pI6 frag",
--			pp->name, &ih->saddr, &ih->daddr);
-+		sprintf(buf, "%pI6->%pI6 frag",	&ih->saddr, &ih->daddr);
- 	else {
- 		__be16 _ports[2], *pptr;
- 
- 		pptr = skb_header_pointer(skb, offset + sizeof(struct ipv6hdr),
- 					  sizeof(_ports), _ports);
- 		if (pptr == NULL)
--			sprintf(buf, "%s TRUNCATED %pI6->%pI6",
--				pp->name, &ih->saddr, &ih->daddr);
-+			sprintf(buf, "TRUNCATED %pI6->%pI6",
-+				&ih->saddr, &ih->daddr);
- 		else
--			sprintf(buf, "%s %pI6:%u->%pI6:%u",
--				pp->name,
-+			sprintf(buf, "%pI6:%u->%pI6:%u",
- 				&ih->saddr, ntohs(pptr[0]),
- 				&ih->daddr, ntohs(pptr[1]));
- 	}
- 
--	pr_debug("%s: %s\n", msg, buf);
-+	pr_debug("%s: %s %s\n", msg, pp->name, buf);
- }
- #endif
- 
-diff --git a/net/netfilter/ipvs/ip_vs_proto_ah_esp.c b/net/netfilter/ipvs/ip_vs_proto_ah_esp.c
-index c30b43c..1892dfc 100644
---- a/net/netfilter/ipvs/ip_vs_proto_ah_esp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_ah_esp.c
-@@ -136,12 +136,11 @@ ah_esp_debug_packet_v4(struct ip_vs_protocol *pp, const struct sk_buff *skb,
- 
- 	ih = skb_header_pointer(skb, offset, sizeof(_iph), &_iph);
- 	if (ih == NULL)
--		sprintf(buf, "%s TRUNCATED", pp->name);
-+		sprintf(buf, "TRUNCATED");
- 	else
--		sprintf(buf, "%s %pI4->%pI4",
--			pp->name, &ih->saddr, &ih->daddr);
-+		sprintf(buf, "%pI4->%pI4", &ih->saddr, &ih->daddr);
- 
--	pr_debug("%s: %s\n", msg, buf);
-+	pr_debug("%s: %s %s\n", msg, pp->name, buf);
- }
- 
- #ifdef CONFIG_IP_VS_IPV6
-@@ -154,12 +153,11 @@ ah_esp_debug_packet_v6(struct ip_vs_protocol *pp, const struct sk_buff *skb,
- 
- 	ih = skb_header_pointer(skb, offset, sizeof(_iph), &_iph);
- 	if (ih == NULL)
--		sprintf(buf, "%s TRUNCATED", pp->name);
-+		sprintf(buf, "TRUNCATED");
- 	else
--		sprintf(buf, "%s %pI6->%pI6",
--			pp->name, &ih->saddr, &ih->daddr);
-+		sprintf(buf, "%pI6->%pI6", &ih->saddr, &ih->daddr);
- 
--	pr_debug("%s: %s\n", msg, buf);
-+	pr_debug("%s: %s %s\n", msg, pp->name, buf);
- }
- #endif
- 
-
---------------070109050004060302030809--
+-Scott
