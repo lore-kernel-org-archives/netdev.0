@@ -1,42 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 15682] New: XFRM is not updating RTAX_ADVMSS
- metric
-Date: Wed, 07 Apr 2010 16:47:23 -0700 (PDT)
-Message-ID: <20100407.164723.85535751.davem@davemloft.net>
-References: <20100405125055.cdc1e279.akpm@linux-foundation.org>
-	<1270561240.7198.3.camel@bigi>
-	<20100407135446.GA13394@gondor.apana.org.au>
+Subject: Re: [PATCH v3 0/4] xfrm: add x86 CONFIG_COMPAT support
+Date: Wed, 07 Apr 2010 16:48:42 -0700 (PDT)
+Message-ID: <20100407.164842.54065324.davem@davemloft.net>
+References: <20100407.030850.04450543.davem@davemloft.net>
+	<20100407133528.GD22518@Chamillionaire.breakpoint.cc>
+	<4BBC8C8F.9020907@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, akpm@linux-foundation.org, netdev@vger.kernel.org,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, eduardo.panisset@gmail.com
-To: herbert@gondor.apana.org.au
+Cc: fw@strlen.de, netdev@vger.kernel.org, johannes@sipsolutions.net
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55003
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48195
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756418Ab0DGXrU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 19:47:20 -0400
-In-Reply-To: <20100407135446.GA13394@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1756122Ab0DGXsj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 19:48:39 -0400
+In-Reply-To: <4BBC8C8F.9020907@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 7 Apr 2010 21:54:46 +0800
+From: Patrick McHardy <kaber@trash.net>
+Date: Wed, 07 Apr 2010 15:45:51 +0200
 
-> Dave, what do you think about us starting to update ADVMSS on
-> the fly, just like the MTU?
-
-This sounds fine.
-
-> The only risk is that existing users who are forcing ADVMSS to
-> a value higher than what it would otherwise be would now get a
-> lower value, if they're not using the "lock" keyword.
+> Florian Westphal wrote:
+>> David Miller <davem@davemloft.net> wrote:
+>>> From: Florian Westphal <fw@strlen.de>
+>>> Date: Tue,  6 Apr 2010 00:27:07 +0200
+>> 
+>> [..]
+>> 
+>>>> I sent a patch that solved this by adding a sys_compat_write syscall
+>>>> and a ->compat_aio_write() to struct file_operations to the
+>>>> vfs mailing list, but that patch was ignored by the vfs people,
+>>>> and the x86 folks did not exactly like the idea either.
+>>>>
+>>>> So this leaves three alternatives:
+>>>> 1 - drop the whole idea and keep the current status.
+>>>> 2 - Add new structure definitions (with new numbering) that would work
+>>>>     everywhere, keep the old ones for backwards compatibility (This
+>>>>     was suggested by Arnd Bergmann).
 > 
-> This shouldn't be fatal as it would only result in smaller packets
-> which should still work, and they can always start using the
-> "lock" keyword to get back the old behaviour.
+> Given that there is only a quite small number of users of this
+> interface, that would in my opinion be the best way.
 
-And if we get them to fix their kit and use the lock setting,
-it'll work in older kernels too.
+Can you explain that line of reasoning?
+
+It's not that there are only "3 or 4 tools" using these interfaces,
+it's the fact that 32-bit binaries of those tools are on millions and
+millions of systems out there.
