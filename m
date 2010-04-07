@@ -1,31 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] change dst_entry padding from using an array to using
- __attribute__
-Date: Wed, 07 Apr 2010 18:56:32 +0200
-Message-ID: <1270659392.8141.41.camel@edumazet-laptop>
-References: <t2o97949e3e1004070946mfacef7c0la6bddc38d29720ae@mail.gmail.com>
-	 <1270659329.8141.40.camel@edumazet-laptop>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: linux-next: Tree for April 7 (net/core/dev_addr_lists)
+Date: Wed, 7 Apr 2010 09:58:45 -0700
+Message-ID: <20100407095845.f29ebf48.randy.dunlap@oracle.com>
+References: <20100407174123.81b32310.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Laurent Chavey <chavey@google.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:60852 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758117Ab0DGQ4h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 12:56:37 -0400
-Received: by bwz1 with SMTP id 1so1026785bwz.21
-        for <netdev@vger.kernel.org>; Wed, 07 Apr 2010 09:56:36 -0700 (PDT)
-In-Reply-To: <1270659329.8141.40.camel@edumazet-laptop>
+Received: from rcsinet11.oracle.com ([148.87.113.123]:37501 "EHLO
+	rcsinet11.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932873Ab0DGROb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 13:14:31 -0400
+In-Reply-To: <20100407174123.81b32310.sfr@canb.auug.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 07 avril 2010 =C3=A0 18:55 +0200, Eric Dumazet a =C3=A9crit=
- :
+On Wed, 7 Apr 2010 17:41:23 +1000 Stephen Rothwell wrote:
 
-> We dont want a huge hole (say.. 120 bytes) being not noticed.
+> Hi all,
+> 
+> Changes since 20100401:
 
-sorry, 60 bytes of course.
 
+when CONFIG_PROC_FS is disabled:
 
+linux-next-20100407/net/core/dev_addr_lists.c: In function 'dev_mc_net_init':
+linux-next-20100407/net/core/dev_addr_lists.c:722: error: implicit declaration of function 'proc_net_fops_create'
+linux-next-20100407/net/core/dev_addr_lists.c:722: error: 'dev_mc_seq_fops' undeclared (first use in this function)
+linux-next-20100407/net/core/dev_addr_lists.c:722: error: (Each undeclared identifier is reported only once
+linux-next-20100407/net/core/dev_addr_lists.c:722: error: for each function it appears in.)
+linux-next-20100407/net/core/dev_addr_lists.c: In function 'dev_mc_net_exit':
+linux-next-20100407/net/core/dev_addr_lists.c:729: error: implicit declaration of function 'proc_net_remove'
+make[3]: *** [net/core/dev_addr_lists.o] Error 1
+
+---
+~Randy
