@@ -1,57 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH] [V3] Add non-Virtex5 support for LL TEMAC driver
-Date: Wed, 07 Apr 2010 15:31:23 +0200
-Message-ID: <1270647083.8141.0.camel@edumazet-laptop>
-References: <d9134316-bd07-46a8-91d4-c30f27baeb60@SG2EHSMHS007.ehs.local>
-	 <1270502993.9013.36.camel@edumazet-laptop>
-	 <20100406.195204.165441511.davem@davemloft.net>
-	 <b8be47d5-5db7-4e72-a45f-94fc54b7f370@VA3EHSMHS036.ehs.local>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH v3 0/4] xfrm: add x86 CONFIG_COMPAT support
+Date: Wed, 7 Apr 2010 15:35:28 +0200
+Message-ID: <20100407133528.GD22518@Chamillionaire.breakpoint.cc>
+References: <1270506431-25578-1-git-send-email-fw@strlen.de>
+ <20100407.030850.04450543.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, grant.likely@secretlab.ca,
-	jwboyer@linux.vnet.ibm.com, john.williams@petalogix.com,
-	michal.simek@petalogix.com, jtyner@cs.ucr.edu
-To: John Linn <John.Linn@xilinx.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: fw@strlen.de, netdev@vger.kernel.org, johannes@sipsolutions.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:64199 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757943Ab0DGNba (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 09:31:30 -0400
-Received: by bwz1 with SMTP id 1so812139bwz.21
-        for <netdev@vger.kernel.org>; Wed, 07 Apr 2010 06:31:28 -0700 (PDT)
-In-Reply-To: <b8be47d5-5db7-4e72-a45f-94fc54b7f370@VA3EHSMHS036.ehs.local>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:37845 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757718Ab0DGNfa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 09:35:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20100407.030850.04450543.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 07 avril 2010 =C3=A0 07:25 -0600, John Linn a =C3=A9crit :
-> > -----Original Message-----
-> > From: David Miller [mailto:davem@davemloft.net]
-> > Sent: Tuesday, April 06, 2010 8:52 PM
-> > To: eric.dumazet@gmail.com
-> > Cc: John Linn; netdev@vger.kernel.org; linuxppc-dev@ozlabs.org;
-> grant.likely@secretlab.ca;
-> > jwboyer@linux.vnet.ibm.com; john.williams@petalogix.com;
-> michal.simek@petalogix.com; jtyner@cs.ucr.edu
-> > Subject: Re: [PATCH] [V3] Add non-Virtex5 support for LL TEMAC driv=
-er
-> >=20
-> > From: Eric Dumazet <eric.dumazet@gmail.com>
-> > Date: Mon, 05 Apr 2010 23:29:53 +0200
-> >=20
-> > > So, I ask, cant you use netdev_alloc_skb_ip_align() in this drive=
-r ?
-> >=20
-> > Thanks to everyone for getting this patch into shape.
-> >=20
-> > I applied version 4 of the patch to net-next-2.6, thanks!
->=20
-> Thanks David, appreciate everyone's help and patience.
->=20
+David Miller <davem@davemloft.net> wrote:
+> From: Florian Westphal <fw@strlen.de>
+> Date: Tue,  6 Apr 2010 00:27:07 +0200
 
-You're welcome ;)
+[..]
 
-Thanks
+> > I sent a patch that solved this by adding a sys_compat_write syscall
+> > and a ->compat_aio_write() to struct file_operations to the
+> > vfs mailing list, but that patch was ignored by the vfs people,
+> > and the x86 folks did not exactly like the idea either.
+> >
+> > So this leaves three alternatives:
+> > 1 - drop the whole idea and keep the current status.
+> > 2 - Add new structure definitions (with new numbering) that would work
+> >     everywhere, keep the old ones for backwards compatibility (This
+> >     was suggested by Arnd Bergmann).
+> > 3 - apply this patch set and tell userspace to move the sendmsg() when
+> >     they want to work with xfrm on x86_64 with 32 bit userland.
+>
+> So do we know of any xfrm netlink apps that do not use sendmsg()?
+>
+> I doubt there are any, and if that's true for the most part, then
+> option #3 seems the best.
 
+Open- and strongswan do (in pluto/kernel_netlink.c), strongswan also uses
+sendto() in charon (their ikev2 daemon); sendto does not work at the
+moment either.
 
+That being said, this is only in a single spot.
+The openswan people indicated they'd accept a patch that converts the
+write to a sendmsg call.
+
+openikev2 also uses write on a netlink socket (looks rather similar
+to the one in open/strongswan).
+
+AFAICS, all the receive functions use recvfrom (which sets CMSG_COMPAT).
+
+I did not find other ike software that uses xfrm.
+
+> If we find a non-trivial number of apps using plain write() then
+> we might have to consider championing your vfs patch to the
+> lkml and vfs folks again.
+
+There is probably no "nontrivial" number, simply because there are not
+that many user apps out there to begin with.
+
+But whats really bothering me is the number of sys_compat_* functions
+needed to make all possibilities work;. e.g. to make (unmodified)
+strongwan work, sys_compat_write and sys_compat_sendto are needed.
+
+What about applications that use any of the other countless
+write functions?  Right now these do not set CMSG_COMPAT either.
+
+And lets not get started with the abdunance of read() like functions...
+
+[ I do not know about any such applications, but still ...]
+
+> I'll help if this is needed.
+
+Thank you.
+
+Personally I hope that we can move the affected userspace tools to
+sendmsg() and avoid introducing new compat syscalls, simply because
+there is no telling what kind of mess we'd be walking into :-)
