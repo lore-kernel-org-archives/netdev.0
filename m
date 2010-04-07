@@ -1,50 +1,32 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: [PATCH] CAIF: write check
-Date: Wed, 7 Apr 2010 14:17:03 +0100
-Message-ID: <20100407141703.7c0a4a65@lxorguk.ukuu.org.uk>
-References: <20100401160916.2a2574f4@lxorguk.ukuu.org.uk>
-	<81C3A93C17462B4BBD7E272753C105791696B5DCF0@EXDCVYMBSTM005.EQ1STM.local>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH 5/5] netfilter: xt_TEE: have cloned packet travel through
+ Xtables too
+Date: Wed, 7 Apr 2010 15:26:21 +0200 (CEST)
+Message-ID: <alpine.LSU.2.01.1004071526001.10943@obet.zrqbmnf.qr>
+References: <1270031934-15940-1-git-send-email-jengelh@medozas.de> <1270031934-15940-6-git-send-email-jengelh@medozas.de> <4BB47768.1050405@trash.net> <alpine.LSU.2.01.1004011258060.17429@obet.zrqbmnf.qr> <4BB47EEA.4020809@trash.net>
+ <alpine.LSU.2.01.1004011511180.1174@obet.zrqbmnf.qr> <4BB49E10.8080608@trash.net> <alpine.LSU.2.01.1004061814120.13186@obet.zrqbmnf.qr> <4BBB634D.6050109@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Sjur BRENDELAND <sjur.brandeland@stericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from earthlight.etchedpixels.co.uk ([81.2.110.250]:57679 "EHLO
-	www.etchedpixels.co.uk" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757943Ab0DGNM6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 09:12:58 -0400
-In-Reply-To: <81C3A93C17462B4BBD7E272753C105791696B5DCF0@EXDCVYMBSTM005.EQ1STM.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-caif: check write operations
-
-From: Alan Cox <alan@linux.intel.com>
-
-write is optional for a tty device. Check that we have a write op rather
-than calling NULL.
-
-Signed-off-by: Alan Cox <alan@linux.intel.com>
----
-
- drivers/net/caif/caif_serial.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4BBB634D.6050109@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-diff --git a/drivers/net/caif/caif_serial.c b/drivers/net/caif/caif_serial.c
-index b271aa0..38c0186 100644
---- a/drivers/net/caif/caif_serial.c
-+++ b/drivers/net/caif/caif_serial.c
-@@ -312,6 +312,10 @@ static int ldisc_open(struct tty_struct *tty)
- 	char name[64];
- 	int result;
- 
-+	/* No write no play */
-+	if (tty->ops->write == NULL)
-+		return -EOPNOTSUPP;
-+
- 	sprintf(name, "cf%s", tty->name);
- 	dev = alloc_netdev(sizeof(*ser), name, caifdev_setup);
- 	ser = netdev_priv(dev);
+On Tuesday 2010-04-06 18:37, Patrick McHardy wrote:
+>Jan Engelhardt wrote:
+>> On Thursday 2010-04-01 15:22, Patrick McHardy wrote:
+>>>> Or should we be using skb_alloc and copying the data portion over, like 
+>>>> ipt_REJECT does since v2.6.24-2931-g9ba99b0?
+>>> I guess pskb_copy() would be most optimal since we can modify
+>>> the header, but the non-linear area could be shared
+>> 
+>> Trying to improve my understanding: when doing skb_pull,
+>> does the skb->head that is relevant for pskb_copy move?
+>
+>skb_pull() only changes skb->data.
 
+But how does it interact, with, say, xt_TCPMSS which modifies not
+only the L3 header, but also the L4 header?
