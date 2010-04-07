@@ -1,28 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/7] au1000-eth cleanups
-Date: Wed, 07 Apr 2010 02:09:22 -0700 (PDT)
-Message-ID: <20100407.020922.170043711.davem@davemloft.net>
-References: <201004071008.49457.florian@openwrt.org>
+Subject: Re: [PATCH 1/4] flow: virtualize flow cache entry methods
+Date: Wed, 07 Apr 2010 02:15:16 -0700 (PDT)
+Message-ID: <20100407.021516.166296092.davem@davemloft.net>
+References: <1270486884-10905-1-git-send-email-timo.teras@iki.fi>
+	<20100406123404.GA24294@gondor.apana.org.au>
+	<4BBB3684.8070807@iki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: florian@openwrt.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36275
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48479
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752478Ab0DGJJT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 05:09:19 -0400
-In-Reply-To: <201004071008.49457.florian@openwrt.org>
+	by vger.kernel.org with ESMTP id S1752353Ab0DGJPO convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Apr 2010 05:15:14 -0400
+In-Reply-To: <4BBB3684.8070807@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <florian@openwrt.org>
-Date: Wed, 7 Apr 2010 10:08:49 +0200
+=46rom: Timo Ter=E4s <timo.teras@iki.fi>
+Date: Tue, 06 Apr 2010 16:26:28 +0300
 
-> Hi David,
-> 
-> Here comes a serie of 7 cleanups and small enhancements for the Au1000 
-> ethernet driver.
+> As noticed in review of 2/4, this needs to be fixed by calling
+> flow object delete() unconditionally if genid is outdated. I'll
+> repost with this fixed for next iteration.
 
-All applied to net-next-2.6, thanks Florian.
+I went over the current versions of these patches and
+the general scheme looks fine to me.
+
+Please resubmit a new set of patches with the final fixes to the genid
+delete handlign.
+
+Thanks a lot for doing this work!
