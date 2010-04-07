@@ -1,36 +1,46 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 7/7] au1000-eth: bump to 1.7
-Date: Wed, 7 Apr 2010 10:09:20 +0200
-Message-ID: <201004071009.20700.florian@openwrt.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 1/3] A device for zero-copy based on KVM virtio-net.
+Date: Wed, 7 Apr 2010 11:15:32 +0300
+Message-ID: <20100407081532.GB9550@redhat.com>
+References: <20100308112849.GI7482@redhat.com> <1270114038-5048-1-git-send-email-xiaohui.xin@intel.com> <20100401110841.GE3323@redhat.com> <97F6D3BD476C464182C1B7BABF0B0AF5C183234A@shzsmsx502.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mingo@elte.hu" <mingo@elte.hu>,
+	"jdike@c2.user-mode-linux.org" <jdike@c2.user-mode-linux.org>,
+	"yzhao81@gmail.com" <yzhao81@gmail.com>
+To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.24]:51097 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932269Ab0DGIK0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 04:10:26 -0400
-Received: by ey-out-2122.google.com with SMTP id d26so91625eyd.19
-        for <netdev@vger.kernel.org>; Wed, 07 Apr 2010 01:10:26 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:40895 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756064Ab0DGITn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 7 Apr 2010 04:19:43 -0400
+Content-Disposition: inline
+In-Reply-To: <97F6D3BD476C464182C1B7BABF0B0AF5C183234A@shzsmsx502.ccr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Apr 07, 2010 at 10:41:08AM +0800, Xin, Xiaohui wrote:
+> Michael,
+>  
+> >> Qemu needs a userspace write, is that a synchronous one or
+> >>asynchronous one?
+> 
+> >It's a synchronous non-blocking write.
+> Sorry, why the Qemu live migration needs the device have a userspace write?
+> how does the write operation work? And why a read operation is not cared here?
+> 
+> Thanks
+> Xiaohui
 
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
----
-diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
-index 5afca6c..7abb2c8 100644
---- a/drivers/net/au1000_eth.c
-+++ b/drivers/net/au1000_eth.c
-@@ -80,7 +80,7 @@ static int au1000_debug = 3;
- 				NETIF_MSG_LINK)
- 
- #define DRV_NAME	"au1000_eth"
--#define DRV_VERSION	"1.6"
-+#define DRV_VERSION	"1.7"
- #define DRV_AUTHOR	"Pete Popov <ppopov@embeddedalley.com>"
- #define DRV_DESC	"Au1xxx on-chip Ethernet driver"
- 
+Roughly, with ethernet bridges, moving a device from one location in
+the network to another makes forwarding tables incorrect (or incomplete),
+until outgoing traffic from the device causes these tables
+to be updated. Since there's no guarantee that guest
+will generate outgoing traffic, after migration qemu sends out several
+dummy packets itself.
+
+-- 
+MST
