@@ -1,39 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r6040: fix r6040_multicast_list
-Date: Wed, 07 Apr 2010 16:51:09 -0700 (PDT)
-Message-ID: <20100407.165109.212914225.davem@davemloft.net>
-References: <201004071318.48883.florian@openwrt.org>
+Subject: Re: [PATCH 1/1] qlcnic: fix set mac addr
+Date: Wed, 07 Apr 2010 16:51:56 -0700 (PDT)
+Message-ID: <20100407.165156.168164798.davem@davemloft.net>
+References: <1270638114-15323-1-git-send-email-amit.salecha@qlogic.com>
+	<1270638114-15323-2-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, darkadept@hispeed.ch
-To: florian@openwrt.org
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
+To: amit.salecha@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48213
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48216
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751831Ab0DGXvI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 19:51:08 -0400
-In-Reply-To: <201004071318.48883.florian@openwrt.org>
+	by vger.kernel.org with ESMTP id S1753199Ab0DGXvx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 19:51:53 -0400
+In-Reply-To: <1270638114-15323-2-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <florian@openwrt.org>
-Date: Wed, 7 Apr 2010 13:18:48 +0200
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Date: Wed,  7 Apr 2010 04:01:54 -0700
 
-> As reported in <https://bugzilla.kernel.org/show_bug.cgi?id=15355>, r6040_
-> multicast_list currently crashes. This is due a wrong maximum of multicast
-> entries. This patch fixes the following issues with multicast:
+> If interface is down, mac address request are not sent to fw
+> but it is getting add in driver mac list.
+> Driver mac list should be in sync with fw i.e addresses communicated
+> to fw.
 > 
-> - number of maximum entries if off-by-one (4 instead of 3)
-> 
-> - the writing of the hash table index is not necessary and leads to invalid
-> values being written into the MCR1 register, so the MAC is simply put in a non
-> coherent state
-> 
-> - when we exceed the maximum number of mutlticast address, writing the
-> broadcast address should be done in registers MID_1{L,M,H} instead of
-> MID_O{L,M,H}, otherwise we would loose the adapter's MAC address
-> 
-> Signed-off-by: Florian Fainelli <florian@openwrt.org>
+> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 
-Applied, thanks Florian.
+Applied, thanks.
