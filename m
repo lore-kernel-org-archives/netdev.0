@@ -1,543 +1,66 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v3] Add Mergeable receive buffer support to vhost_net
-Date: Wed, 7 Apr 2010 21:09:30 +0300
-Message-ID: <20100407180929.GB26186@redhat.com>
-References: <20100407105910.GD9550@redhat.com> <OFC2D0B87C.35124B1B-ON882576FE.005ADDB2-882576FE.0060CB7B@us.ibm.com>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: hackbench regression due to commit 9dfc6e68bfe6e
+Date: Wed, 7 Apr 2010 13:18:00 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1004071316390.16159@router.home>
+References: <1269506457.4513.141.camel@alexs-hp.sh.intel.com>  <alpine.DEB.2.00.1003250942080.2670@router.home>  <1269570902.9614.92.camel@alexs-hp.sh.intel.com>  <1270114166.2078.107.camel@ymzhang.sh.intel.com>  <alpine.DEB.2.00.1004011050340.16531@router.home>
+  <1270195589.2078.116.camel@ymzhang.sh.intel.com>  <alpine.DEB.2.00.1004050853300.23149@router.home>  <i2z84144f021004051030k7ff5190cyc083aa12c552dfac@mail.gmail.com>  <4BBA8DF9.8010409@kernel.org>  <1270542497.2078.123.camel@ymzhang.sh.intel.com>
+ <alpine.DEB.2.00.1004061033330.18750@router.home>  <alpine.DEB.2.00.1004061552500.19151@router.home>  <1270591841.2091.170.camel@edumazet-laptop> <1270607668.2078.259.camel@ymzhang.sh.intel.com> <alpine.DEB.2.00.1004071130260.13261@router.home>
+ <4BBCB7B7.4040901@cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, kvm-owner@vger.kernel.org,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au,
-	virtualization@lists.osdl.org
-To: David Stevens <dlstevens@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <OFC2D0B87C.35124B1B-ON882576FE.005ADDB2-882576FE.0060CB7B@us.ibm.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>,
+	alex.shi@intel.com,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Ma, Ling" <ling.ma@intel.com>,
+	"Chen, Tim C" <tim.c.chen@intel.com>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Pekka Enberg <penberg@cs.helsinki.fi>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4BBCB7B7.4040901@cs.helsinki.fi>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 07, 2010 at 10:37:17AM -0700, David Stevens wrote:
-> > 
-> > Thanks!
-> > There's some whitespace damage, are you sending with your new
-> > sendmail setup? It seems to have worked for qemu patches ...
-> 
->         Yes, I saw some line wraps in what I received, but I checked
-> the original draft to be sure and they weren't there. Possibly from
-> the relay; Sigh.
-> 
-> 
-> > > @@ -167,8 +166,15 @@ static void handle_tx(struct vhost_net *
-> > >        /* TODO: Check specific error and bomb out unless ENOBUFS? */
-> > >        err = sock->ops->sendmsg(NULL, sock, &msg, len);
-> > >        if (unlikely(err < 0)) {
-> > > -         vhost_discard_vq_desc(vq);
-> > > -         tx_poll_start(net, sock);
-> > > +         if (err == -EAGAIN) {
-> > > +            vhost_discard_desc(vq, 1);
-> > > +            tx_poll_start(net, sock);
-> > > +         } else {
-> > > +            vq_err(vq, "sendmsg: errno %d\n", -err);
-> > > +            /* drop packet; do not discard/resend */
-> > > +            vhost_add_used_and_signal(&net->dev, vq, head,
-> > > +                       0);
-> > 
-> > vhost does not currently has a consistent error handling strategy:
-> > if we drop packets, need to think which other errors should cause
-> > packet drops.  I prefer to just call vq_err for now,
-> > and have us look at handling segfaults etc in a consistent way
-> > separately.
-> 
-> I had to add this to avoid an infinite loop when I wrote a bad
-> packet on the socket. I agree error handling needs a better look,
-> but retrying a bad packet continuously while dumping in the log
-> is what it was doing when I hit an error before this code. Isn't
-> this better, at least until a second look?
-> 
+On Wed, 7 Apr 2010, Pekka Enberg wrote:
 
-Hmm, what do you mean 'continuously'? Don't we only try again
-on next kick?
+> Christoph Lameter wrote:
+> > I wonder if this is not related to the kmem_cache_cpu structure straggling
+> > cache line boundaries under some conditions. On 2.6.33 the kmem_cache_cpu
+> > structure was larger and therefore tight packing resulted in different
+> > alignment.
+> >
+> > Could you see how the following patch affects the results. It attempts to
+> > increase the size of kmem_cache_cpu to a power of 2 bytes. There is also
+> > the potential that other per cpu fetches to neighboring objects affect the
+> > situation. We could cacheline align the whole thing.
+> >
+> > ---
+> >  include/linux/slub_def.h |    5 +++++
+> >  1 file changed, 5 insertions(+)
+> >
+> > Index: linux-2.6/include/linux/slub_def.h
+> > ===================================================================
+> > --- linux-2.6.orig/include/linux/slub_def.h	2010-04-07 11:33:50.000000000
+> > -0500
+> > +++ linux-2.6/include/linux/slub_def.h	2010-04-07 11:35:18.000000000
+> > -0500
+> > @@ -38,6 +38,11 @@ struct kmem_cache_cpu {
+> >  	void **freelist;	/* Pointer to first free per cpu object */
+> >  	struct page *page;	/* The slab from which we are allocating */
+> >  	int node;		/* The node of the page (or -1 for debug) */
+> > +#ifndef CONFIG_64BIT
+> > +	int dummy1;
+> > +#endif
+> > +	unsigned long dummy2;
+> > +
+> >  #ifdef CONFIG_SLUB_STATS
+> >  	unsigned stat[NR_SLUB_STAT_ITEMS];
+> >  #endif
+>
+> Would __cacheline_aligned_in_smp do the trick here?
 
-> > > +}
-> > > +
-> > 
-> > I wonder whether it makes sense to check
-> > skb_queue_empty(&sk->sk_receive_queue)
-> > outside the lock, to reduce the cost of this call
-> > on an empty queue (we know that it happens at least once
-> > each time we exit the loop on rx)?
-> 
->         I was looking at alternatives to adding the lock in the
-> first place, but I found I couldn't measure a difference in the
-> cost with and without the lock.
-> 
-> 
-> > > +   int retries = 0;
-> > >     size_t len, total_len = 0;
-> > > -   int err;
-> > > +   int err, headcount, datalen;
-> > >     size_t hdr_size;
-> > >     struct socket *sock = rcu_dereference(vq->private_data);
-> > >     if (!sock || skb_queue_empty(&sock->sk->sk_receive_queue))
-> > > @@ -222,31 +242,25 @@ static void handle_rx(struct vhost_net *
-> > >     vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) ?
-> > >        vq->log : NULL;
-> > > 
-> > > -   for (;;) {
-> > > -      head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
-> > > -                ARRAY_SIZE(vq->iov),
-> > > -                &out, &in,
-> > > -                vq_log, &log);
-> > > +   while ((datalen = vhost_head_len(sock->sk))) {
-> > > +      headcount = vhost_get_desc_n(vq, vq->heads, datalen, &in,
-> > > +                    vq_log, &log);
-> > 
-> > This looks like a bug, I think we need to pass
-> > datalen + header size to vhost_get_desc_n.
-> > Not sure how we know the header size that backend will use though.
-> > Maybe just look at our features.
-> 
->         Yes; we have hdr_size, so I can add it here. It'll be 0 for
-> the cases where the backend and guest both have vnet header (either
-> the regular or larger mergeable buffers one), but should be added
-> in for future raw socket support.
-
-So hdr_size is the wrong thing to add then.
-We need to add non-zero value for tap now.
-
-> > 
-> > >        /* OK, now we need to know about added descriptors. */
-> > > -      if (head == vq->num) {
-> > > -         if (unlikely(vhost_enable_notify(vq))) {
-> > > +      if (!headcount) {
-> > > +         if (retries == 0 && unlikely(vhost_enable_notify(vq))) {
-> > >              /* They have slipped one in as we were
-> > >               * doing that: check again. */
-> > >              vhost_disable_notify(vq);
-> > > +            retries++;
-> > >              continue;
-> > >           }
-> > 
-> > Hmm. The reason we have the code at all, as the comment says, is because
-> > guest could have added more buffers between the time we read last index
-> > and the time we enabled notification. So if we just break like this
-> > the race still exists. We could remember the
-> > last head value we observed, and have vhost_enable_notify check
-> > against this value?
-> 
->         This is to prevent a spin loop in the case where we have some
-> buffers available, but not enough for the current packet (ie, this
-> is the replacement code for the "rxmaxheadcount" business). If they
-> actually added something new, retrying once should see it, but what
-> vhost_enable_notify() returns non-zero on is not "new buffers" but
-> rather "not empty". In the case mentioned, we aren't empty, so
-> vhost_enable_notify() returns nonzero every time, but the guest hasn't
-> given us enough buffers to proceed, so we continuously retry; this
-> code breaks the spin loop until we've really got new buffers from
-> the guest.
-
-What about the race I point out above? It seems to potentially
-cause a deadlock.
-
-> > 
-> > Need to think about it.
-> > 
-> > Another concern here is that on retries vhost_get_desc_n
-> > is doing extra work, rescanning the same descriptor
-> > again and again. Not sure how common this is, might be
-> > worthwhile to add a TODO to consider this at least.
-> 
->         I had a printk in there to test the code and with the
-> retries counter, it happens when we fill the ring (once,
-> because of the retries checks), and then proceeds as
-> desired when the guest gives us more buffers. Without the
-> check, it spews until we hear from the guest.
-
-I don't understand whether what you write above means 'yes this happens
-and is worth optimizing for' or 'this happens very rarely
-and is not worth optimizing for'.
-
-> > > @@ -261,14 +275,33 @@ static void handle_rx(struct vhost_net *
-> > >                  len, MSG_DONTWAIT | MSG_TRUNC);
-> > >        /* TODO: Check specific error and bomb out unless EAGAIN? */
-> > >        if (err < 0) {
-> > 
-> > I think we need to compare err and datalen and drop packet on mismatch 
-> as well.
-> > The check err > len won't be needed then.
-> 
->         OK, but this is the original code, unchanged by my patch. :-)
-
-Right. original code does not know the datalen.
-
-> > > -         vhost_discard_vq_desc(vq);
-> > > +         vhost_discard_desc(vq, headcount);
-> > >           break;
-> > >        }
-> > >        /* TODO: Should check and handle checksum. */
-> > > +      if (vhost_has_feature(&net->dev, VIRTIO_NET_F_MRG_RXBUF)) {
-> > > +         struct virtio_net_hdr_mrg_rxbuf *vhdr =
-> > > +            (struct virtio_net_hdr_mrg_rxbuf *)
-> > > +            vq->iov[0].iov_base;
-> > > +         /* add num_buffers */
-> > > +         if (vhost_has_feature(&net->dev,
-> > > +                     VHOST_NET_F_VIRTIO_NET_HDR))
-> > > +            hdr.num_buffers = headcount;
-> > 
-> > Why is the above necessary?
-> 
->         This adds mergeable buffer support for the raw case.
-
-So my suggestion is to have a copy of the header
-and then same code will fill in the field for
-both raw and tap.
-
-> > 
-> > > +         else if (vq->iov[0].iov_len < sizeof(*vhdr)) {
-> > 
-> > I think length check is already done when we copy the header. No?
-> 
->         This sets num_buffers for the tap case (where hdr_size is 0).
-
-Ah, right. So let's just check the total length is > sizeof(*vhdr).
-
-> We don't copy any headers at all for this case, but we need to
-> add num_buffers at offset 10 in the user buffer already read by
-> recvmsg().
-> 
-> > 
-> > > +            vq_err(vq, "tiny buffers < %d unsupported",
-> > > +               vq->iov[0].iov_len);
-> > > +            vhost_discard_desc(vq, headcount);
-> > > +            break;
-> > 
-> > Problem here is that recvmsg might modify iov.
-> > This is why I think we need to use vq->hdr here.
-> 
->         rcvmsg() can never modify the iovec;
-
-
-Look at af_packet code for an example where it does.
-The pointer is non-const, it's OK to modify.
-tap used to modify iovec as well, the fact it doesn't
-now is a side-effect of reusing same code for
-recvmsg and aio read.
-
-> it's the standard socket call.
-
-It's an internal API that is used to implement the call.
-iovec it gets is a kernel side copy of what user passed in.
-
-> To use vq->hdr, we'd have to copy
-> it in from user space, modify it, and then copy it back
-> in to user space, on every packet. In the normal tap case,
-> hdr_size is 0 and we read it directly from the socket to
-> user space. It is already correct for mergeable buffers,
-> except for the num_buffers value added here.
-
-
-I don't understand what you write above, sorry.
-We have iov, all we need is store the first address+length
-in the hdr field.
-This should be close to free and does not involve any copies
-from/to userspace. All the branching and special-casing
-is possibly more expensive.
-
-
-> > 
-> > > +         } else if (put_user(headcount, &vhdr->num_buffers)) {
-> > 
-> > The above put_user writes out a 32 bit value, right?
-> > This seems wrong.
-> 
->         I'll recheck this -- I'll make the type of "headcount" be
-> the type of "num_buffers" in the MRXB vnet header, if it isn't
-> already.
-
-No, I was confused Sorry about the noise.
-
-> > 
-> > How about using
-> >    memcpy_toiovecend(vq->hdr, &headcount,
-> >            offsetof(struct virtio_net_hdr_mrg_rxbuf, num_buffers),
-> >            sizeof headcount);
-> > 
-> > this way we also do not make any assumptions about layout.
-> 
->         Because this overwrites the valid vnet header we got from
-> the tap socket with a local copy that isn't correct.
-
-It does? I think that this only writes out 2 bytes at an offset.
-
-> For this to
-> work, we first need to copy_from_user() the vnet header from the
-> socket into vq->hdr (on every packet).
-
-copy_from_user from vnet header to vq->hdr does not
-seem to make any sense and is not what I suggested.
-
->         It doesn't assume anything here-- it requires (and checks)
-> that the user didn't give us a <12 byte buffer, which I think is
-> reasonable.
-> That's about the size of the descriptor for the buffer,
-> and I'd call that a broken guest.
-
-I think it's better not to assume this. virtio spec does
-mentions layout assumptions as legacy limitations.
-Guest can post descriptor consisting of 2 buffers:
-1. 10 bytes. 2. 2 bytes. and I don't see a reason
-not to support this unless this makes code simpler.
-In this case code is more complex.
-
-
-> The cost of supporting those
-> tiny buffers in the general case would be a copy_from_user() and
-> copy_to_user() of the vnet_hdr on every packet, which I think is
-> not worth it (and especially since I don't expect any guest is
-> ever going to give us a <12 byte buffer in the first place).
-
-You keep saying this, but I do not see any need for extra
-copy_to_user. Just use memcpy_toiovecend instead of put_user.
-
-
-> > > @@ -560,9 +593,14 @@ done:
-> > > 
-> > >  static int vhost_net_set_features(struct vhost_net *n, u64 features)
-> > >  {
-> > > -   size_t hdr_size = features & (1 << VHOST_NET_F_VIRTIO_NET_HDR) ?
-> > > -      sizeof(struct virtio_net_hdr) : 0;
-> > > +   size_t hdr_size = 0;
-> > >     int i;
-> > > +
-> > > +   if (features & (1 << VHOST_NET_F_VIRTIO_NET_HDR)) {
-> > > +      hdr_size = sizeof(struct virtio_net_hdr);
-> > > +      if (features & (1 << VIRTIO_NET_F_MRG_RXBUF))
-> > > +         hdr_size = sizeof(struct virtio_net_hdr_mrg_rxbuf);
-> > 
-> > My personal style for this would be:
-> >      if (!(features & (1 << VHOST_NET_F_VIRTIO_NET_HDR)))
-> >       hdr_size = 0
-> >    else if (!(features & (1 << VIRTIO_NET_F_MRG_RXBUF)))
-> >       hdr_size = sizeof(virtio_net_hdr);
-> >    else
-> >       hdr_size = sizeof(struct virtio_net_hdr_mrg_rxbuf);
-> > 
-> > which results in more symmetry and less nesting.
-> 
-> OK.
-> 
-> > 
-> > >     mutex_lock(&n->dev.mutex);
-> > >     if ((features & (1 << VHOST_F_LOG_ALL)) &&
-> > >         !vhost_log_access_ok(&n->dev)) {
-> > > diff -ruNp net-next-p0/drivers/vhost/vhost.c
-> > > net-next-v3/drivers/vhost/vhost.c
-> > > --- net-next-p0/drivers/vhost/vhost.c   2010-03-22 12:04:38.000000000
-> > > -0700
-> > > +++ net-next-v3/drivers/vhost/vhost.c   2010-04-06 12:57:51.000000000
-> > > -0700
-> > > @@ -856,6 +856,47 @@ static unsigned get_indirect(struct vhos
-> > >     return 0;
-> > >  }
-> > > 
-> > > +/* This is a multi-buffer version of vhost_get_vq_desc
-> > > + * @vq      - the relevant virtqueue
-> > > + * datalen   - data length we'll be reading
-> > > + * @iovcount   - returned count of io vectors we fill
-> > > + * @log      - vhost log
-> > > + * @log_num   - log offset
-> > > + *   returns number of buffer heads allocated, 0 on error
-> > 
-> > This is unusual. Let's return a negative error code on error.
-> 
->         This is like malloc -- "0" is never a valid return value, and
-> we don't have actual error values to return and handle; they generate
-> vq_err() messages within the code itself. In all cases,
-> it is the count of buffers we allocated (which is 0 when we fail to
-> allocate). So, I don't agree with this, but can do it if you insist.
-
-malloc returns NULL, not zero.
-standard error handling approaches are:
-- NULL on error
-- ERR_PTR on error
-- >= 0 for success, -errno for error
-- true for success false for error
-
-And of course
-- some custom strategy so you need to read documentation to figure out
-  how to use a function
-which is where this one gets classified.
-So I am not saying 0 won't work, just that standard stuff is better.
-
-> > 
-> > > + */
-> > > +int vhost_get_desc_n(struct vhost_virtqueue *vq, struct 
-> vring_used_elem
-> > > *heads,
-> > > +           int datalen, int *iovcount, struct vhost_log *log,
-> > > +           unsigned int *log_num)
-> > > +{
-> > > +   int out, in;
-> > > +   int seg = 0;      /* iov index */
-> > > +   int hc = 0;      /* head count */
-> > > +
-> > > +   while (datalen > 0) {
-> > > +      if (hc >= VHOST_NET_MAX_SG)
-> > > +         goto err;
-> > > +      heads[hc].id = vhost_get_desc(vq->dev, vq, vq->iov+seg,
-> > > +                     ARRAY_SIZE(vq->iov)-seg, &out,
-> > > +                     &in, log, log_num);
-> > > +      if (heads[hc].id == vq->num)
-> > > +         goto err;
-> > > +      if (out || in <= 0) {
-> > > +         vq_err(vq, "unexpected descriptor format for RX: "
-> > > +            "out %d, in %d\n", out, in);
-> > > +         goto err;
-> > > +      }
-> > > +      heads[hc].len = iov_length(vq->iov+seg, in);
-> > > +      datalen -= heads[hc].len;
-> > 
-> > This signed/unsigned mix makes me nervuous.
-> > Let's make datalen unsigned, add unsigned total_len, and
-> > while (datalen < total_len).
-> > 
-> > > +      hc++;
-> > > +      seg += in;
-> > > +   }
-> > > +   *iovcount = seg;
-> > > +   return hc;
-> > > +err:
-> > > +   vhost_discard_desc(vq, hc);
-> > > +   return 0;
-> > > +}
-> > > +
-> > >  /* This looks in the virtqueue and for the first available buffer, 
-> and
-> > > converts
-> > >   * it to an iovec for convenient access.  Since descriptors consist 
-> of
-> > > some
-> > >   * number of output then some number of input descriptors, it's
-> > > actually two
-> > > @@ -863,7 +904,7 @@ static unsigned get_indirect(struct vhos
-> > >   *
-> > >   * This function returns the descriptor number found, or vq->num 
-> (which
-> > >   * is never a valid descriptor number) if none was found. */
-> > > -unsigned vhost_get_vq_desc(struct vhost_dev *dev, struct
-> > > vhost_virtqueue *vq,
-> > > +unsigned vhost_get_desc(struct vhost_dev *dev, struct vhost_virtqueue
-> > > *vq,
-> > >              struct iovec iov[], unsigned int iov_size,
-> > >              unsigned int *out_num, unsigned int *in_num,
-> > >              struct vhost_log *log, unsigned int *log_num)
-> > > @@ -981,31 +1022,42 @@ unsigned vhost_get_vq_desc(struct vhost_
-> > >  }
-> > > 
-> > >  /* Reverse the effect of vhost_get_vq_desc. Useful for error 
-> handling.
-> > > */
-> > > -void vhost_discard_vq_desc(struct vhost_virtqueue *vq)
-> > > +void vhost_discard_desc(struct vhost_virtqueue *vq, int n)
-> > >  {
-> > > -   vq->last_avail_idx--;
-> > > +   vq->last_avail_idx -= n;
-> > >  }
-> > > 
-> > >  /* After we've used one of their buffers, we tell them about it. 
-> We'll
-> > > then
-> > >   * want to notify the guest, using eventfd. */
-> > > -int vhost_add_used(struct vhost_virtqueue *vq, unsigned int head, int
-> > > len)
-> > > +int vhost_add_used(struct vhost_virtqueue *vq, struct vring_used_elem
-> > > *heads,
-> > > +         int count)
-> > 
-> > I think we are better off with vhost_add_used and vhost_add_used_n:
-> > the version with _n has a lot of extra complexity, and tx always
-> > adds them 1 by one.
-> 
->         The external code only calls vhost_add_used_and_signal(), so I
-> split that. I can add a single variant of vhost_add_used() too, but
-> I was trying to avoid adding duplicate code and external interface.
-> I don't actually agree with splitting these; isn't it better to have
-> them going through the same code path whether it's single or multiple?
-> A bug in one would show up as an intermittent failure, and a change
-> to one requires changing both.
-
-It's a small function so I am not really worried about maintainance.
-
-> I don't think the multiple should just
-> do the single repeatedly, either, since the multiple variant now can
-> do the work in one or two copy_to_user()'s, without a loop;
-
-Yes.
-
-> so splitting
-> these just makes a special case for single to carry in code maintenance
-> with no benefit, I think.
-
-I donnu, I have a feeling all these loops and memory accesses
-on data path won't be free, and for tx this just adds overhead.
-
-> > 
-> > >  {
-> > >     struct vring_used_elem *used;
-> > > +   int start, n;
-> > > +
-> > > +   if (count <= 0)
-> > > +      return -EINVAL;
-> > > 
-> > > -   /* The virtqueue contains a ring of used buffers.  Get a pointer 
-> to
-> > > the
-> > > -    * next entry in that used ring. */
-> > > -   used = &vq->used->ring[vq->last_used_idx % vq->num];
-> > > -   if (put_user(head, &used->id)) {
-> > > -      vq_err(vq, "Failed to write used id");
-> > > +   start = vq->last_used_idx % vq->num;
-> > > +   if (vq->num - start < count)
-> > > +      n = vq->num - start;
-> > > +   else
-> > > +      n = count;
-> > 
-> > use min?
-> 
->         Sure.
-> 
-> > 
-> > > +   used = vq->used->ring + start;
-> > > +   if (copy_to_user(used, heads, sizeof(heads[0])*n)) {
-> > > +      vq_err(vq, "Failed to write used");
-> > >        return -EFAULT;
-> > >     }
-> > > -   if (put_user(len, &used->len)) {
-> > > -      vq_err(vq, "Failed to write used len");
-> > > -      return -EFAULT;
-> > > +   if (n < count) {   /* wrapped the ring */
-> > > +      used = vq->used->ring;
-> > > +      if (copy_to_user(used, heads+n, sizeof(heads[0])*(count-n))) {
-> > > +         vq_err(vq, "Failed to write used");
-> > > +         return -EFAULT;
-> > > +      }
-> > >     }
-> > >     /* Make sure buffer is written before we update index. */
-> > >     smp_wmb();
-> > > -   if (put_user(vq->last_used_idx + 1, &vq->used->idx)) {
-> > > +   if (put_user(vq->last_used_idx+count, &vq->used->idx)) {
-> > 
-> > I am a bit confused ... will this write a 32 or 16 bit value?
-> > count is 32 bit ... Maybe we are better off with
-> >   u16 idx = vq->last_used_idx + count
-> >   put_user(idx, &vq->used->idx)
-> >   vq->last_used_idx = idx
-> 
->         How about a cast?:
-> 
->         if (put_user((u16)(vq->last_used_idx+count), &vq->used->idx)) {
-> 
-> 
->                                         +-DLS
-
-No, I was confused. Code is ok (just whitespace damaged).
-
+This is allocated via the percpu allocator. We could specify cacheline
+alignment there but that would reduce the density. You basically need 4
+words for a kmem_cache_cpu structure. A number of those fit into one 64
+byte cacheline.
