@@ -1,34 +1,40 @@
-From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Subject: RE: [PATCH 1/3] A device for zero-copy based on KVM virtio-net.
-Date: Wed, 7 Apr 2010 10:41:08 +0800
-Message-ID: <97F6D3BD476C464182C1B7BABF0B0AF5C183234A@shzsmsx502.ccr.corp.intel.com>
-References: <20100308112849.GI7482@redhat.com>
- <1270114038-5048-1-git-send-email-xiaohui.xin@intel.com>
- <20100401110841.GE3323@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] NET: usb: Adding URB_ZERO_PACKET flag to usbnet.c
+Date: Tue, 06 Apr 2010 19:50:37 -0700 (PDT)
+Message-ID: <20100406.195037.247530407.davem@davemloft.net>
+References: <1270599787.8900.8.camel@Linuxdev4-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mingo@elte.hu" <mingo@elte.hu>,
-	"jdike@c2.user-mode-linux.org" <jdike@c2.user-mode-linux.org>,
-	"yzhao81@gmail.com" <yzhao81@gmail.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20100401110841.GE3323@redhat.com>
-Content-Language: en-US
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dbrownell@users.sourceforge.net, rfiler@sierrawireless.com,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: epasheva@sierrawireless.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47023
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750921Ab0DGCug (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 6 Apr 2010 22:50:36 -0400
+In-Reply-To: <1270599787.8900.8.camel@Linuxdev4-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Michael,
- 
->> Qemu needs a userspace write, is that a synchronous one or
->>asynchronous one?
+From: Elina Pasheva <epasheva@sierrawireless.com>
+Date: Tue, 6 Apr 2010 17:23:07 -0700
 
->It's a synchronous non-blocking write.
-Sorry, why the Qemu live migration needs the device have a userspace write?
-how does the write operation work? And why a read operation is not cared here?
+> Subject: [PATCH 1/1] NET: usb: Adding URB_ZERO_PACKET flag to usbnet.c
+> From: Elina Pasheva <epasheva@sierrawireless.com>
+> This patch adds setting of the urb transfer flag URB_ZERO_PACKET  before
+> submitting an urb for drivers that have requested it (by advertising flag
+> FLAG_SEND_ZLP).
+> The modification is in usbnet.c function usbnet_start_xmit().
+> This patch only adds the zero length flag.
+> A subsequent patch will address the buggy code we found when devices do not
+> advertise FLAG_SEND_ZLP in which case there is a possibility of transferring
+> packets with non-deterministic length.
+> 
+> This patch has been tested on kernel-2.6.34-rc3.
+> This patch has been checked against net-2.6 tree.
+> Signed-off-by: Elina Pasheva <epasheva@sierrawireless.com>
+> Signed-off-by: Rory Filer <rfiler@sierrawireless.com>
 
-Thanks
-Xiaohui
+Applied to net-next-2.6, thanks.
