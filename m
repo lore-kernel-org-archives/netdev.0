@@ -1,33 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Caif: Ref counting
-Date: Wed, 07 Apr 2010 16:50:11 -0700 (PDT)
-Message-ID: <20100407.165011.189431619.davem@davemloft.net>
-References: <20100401160916.2a2574f4@lxorguk.ukuu.org.uk>
-	<81C3A93C17462B4BBD7E272753C105791696B5DCF0@EXDCVYMBSTM005.EQ1STM.local>
-	<20100407141319.318ebb6f@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] r6040: fix r6040_multicast_list
+Date: Wed, 07 Apr 2010 16:51:09 -0700 (PDT)
+Message-ID: <20100407.165109.212914225.davem@davemloft.net>
+References: <201004071318.48883.florian@openwrt.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sjur.brandeland@stericsson.com, netdev@vger.kernel.org
-To: alan@lxorguk.ukuu.org.uk
+Cc: netdev@vger.kernel.org, darkadept@hispeed.ch
+To: florian@openwrt.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48206
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48213
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756475Ab0DGXuI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 19:50:08 -0400
-In-Reply-To: <20100407141319.318ebb6f@lxorguk.ukuu.org.uk>
+	by vger.kernel.org with ESMTP id S1751831Ab0DGXvI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 19:51:08 -0400
+In-Reply-To: <201004071318.48883.florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Wed, 7 Apr 2010 14:13:19 +0100
+From: Florian Fainelli <florian@openwrt.org>
+Date: Wed, 7 Apr 2010 13:18:48 +0200
 
-> caif: tty's are kref objects so take a reference
+> As reported in <https://bugzilla.kernel.org/show_bug.cgi?id=15355>, r6040_
+> multicast_list currently crashes. This is due a wrong maximum of multicast
+> entries. This patch fixes the following issues with multicast:
 > 
-> From: Alan Cox <alan@linux.intel.com>
+> - number of maximum entries if off-by-one (4 instead of 3)
 > 
-> I don't think this can be abused in this case but do things properly.
+> - the writing of the hash table index is not necessary and leads to invalid
+> values being written into the MCR1 register, so the MAC is simply put in a non
+> coherent state
 > 
-> Signed-off-by: Alan Cox <alan@linux.intel.com>
+> - when we exceed the maximum number of mutlticast address, writing the
+> broadcast address should be done in registers MID_1{L,M,H} instead of
+> MID_O{L,M,H}, otherwise we would loose the adapter's MAC address
+> 
+> Signed-off-by: Florian Fainelli <florian@openwrt.org>
 
-Also applied, thanks Alan.
+Applied, thanks Florian.
