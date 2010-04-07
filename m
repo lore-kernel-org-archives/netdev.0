@@ -1,48 +1,62 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH Resubmission] drivers/net/usb: Add new driver ipheth
-Date: Wed, 07 Apr 2010 15:37:15 -0700
-Message-ID: <ada6342zy78.fsf@roland-alpha.cisco.com>
-References: <1269984864-28159-1-git-send-email-agimenez@sysvalve.es>
-	<1270678281-20750-1-git-send-email-agimenez@sysvalve.es>
+From: Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+Subject: Re: 2.6.34-rc3-git6: Reported regressions from 2.6.33
+Date: Thu, 8 Apr 2010 00:06:07 +0100
+Message-ID: <20100407230607.GM30031@ZenIV.linux.org.uk>
+References: <6Pphclm24fK.A.lSF.qsPvLB@chimera>
+ <alpine.LFD.2.00.1004071444440.3586@i5.linux-foundation.org>
+ <20100407221941.GL30031@ZenIV.linux.org.uk>
+ <alpine.LFD.2.00.1004071521500.3586@i5.linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, dgiagio@gmail.com, dborca@yahoo.com,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jonas =?utf-8?Q?Sj=C3=B6quist?= <jonas.sjoquist@ericsson.com>,
-	Steve Glendinning <steve.glendinning@smsc.com>,
-	Torgny Johansson <torgny.johansson@gmail.com>,
-	David Brownell <dbrownell@users.sourceforge.net>,
-	Omar Laazimani <omar.oberthur@gmail.com>,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: "L. Alberto =?utf-8?Q?Gim=C3=A9nez?=" <agimenez@sysvalve.es>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-5.cisco.com ([171.68.10.87]:41833 "EHLO
-	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751929Ab0DGWh3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 18:37:29 -0400
-In-Reply-To: <1270678281-20750-1-git-send-email-agimenez@sysvalve.es>
-	("L. Alberto =?utf-8?Q?Gim=C3=A9nez=22's?= message of "Thu, 8 Apr 2010
- 00:11:20 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.1004071521500.3586-GpypE611fyS63QaFMGN2QEqCLAeBNdoH@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-These are a few of the cosmetic issues alluded to, and by no means merge
-blockers, but:
+On Wed, Apr 07, 2010 at 03:22:20PM -0700, Linus Torvalds wrote:
+> 
+> 
+> On Wed, 7 Apr 2010, Al Viro wrote:
+> > 
+> > No, it's not the same thing; the fix is to have nfs ->d_revalidate()
+> > return an error on failing open attempt (in insane codepath that has
+> > ->d_revalidate() handling open()).  Confirmed to work by reporter...
+> 
+> Ok, can you do the proper changelog description and sign-offs etc?
 
- > +	schedule_delayed_work(&dev->carrier_work, IPHETH_CARRIER_CHECK_TIMEOUT);
+[PATCH] Have nfs ->d_revalidate() report errors properly
 
-Seems this might as well be round_jiffies_relative(IPHETH_CARRIER_CHECK_TIMEOUT)
-to avoid extra wakeups.
+	If nfs atomic open implementation ends up doing open request from
+->d_revalidate() codepath and gets an error from server, return that error
+to caller explicitly and don't bother with lookup_instantiate_filp() at all.
+->d_revalidate() can return an error itself just fine...
 
- > +	netdev = alloc_etherdev(sizeof(struct ipheth_device));
-
-This means that the interface will get an ethX name and look to
-networkmanager et al like an ethernet device.  Seems we would maybe want
-to make this a "wwan" type device (cf drivers/net/usb/usbnet.c and how
-it handles FLAG_WWAN)?
-
- - R.
--- 
-Roland Dreier <rolandd@cisco.com> || For corporate legal information go to:
-http://www.cisco.com/web/about/doing_business/legal/cri/index.html
+Signed-off-by: Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+---
+diff --git a/fs/nfs/nfs4proc.c b/fs/nfs/nfs4proc.c
+index d79a7b3..fe0cd9e 100644
+--- a/fs/nfs/nfs4proc.c
++++ b/fs/nfs/nfs4proc.c
+@@ -2068,8 +2068,7 @@ nfs4_open_revalidate(struct inode *dir, struct dentry *dentry, int openflags, st
+ 			case -EDQUOT:
+ 			case -ENOSPC:
+ 			case -EROFS:
+-				lookup_instantiate_filp(nd, (struct dentry *)state, NULL);
+-				return 1;
++				return PTR_ERR(state);
+ 			default:
+ 				goto out_drop;
+ 		}
