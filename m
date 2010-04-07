@@ -1,121 +1,100 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [v2 Patch 3/3] bonding: make bonding support netpoll
-Date: Wed, 7 Apr 2010 00:02:39 -0400
-Message-ID: <70501020920527933@unknownmsgid>
-References: <20100405091605.4890.31181.sendpatchset@localhost.localdomain>
-	<20100405091628.4890.30541.sendpatchset@localhost.localdomain>
-	<20100405194356.GA10488@gospo.rdu.redhat.com>
-	<4BBA9FDB.4040909@redhat.com> <4BBABAB8.4010401@redhat.com>
-	<20100406144824.GB10488@gospo.rdu.redhat.com>
-	<4BBBEEAA.1050100@redhat.com>
-Mime-Version: 1.0 (iPhone Mail 7E18)
-Content-Type: text/plain; charset="us-ascii"
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the pcmcia tree with the net tree
+Date: Wed, 7 Apr 2010 14:17:07 +1000
+Message-ID: <20100407141707.e80c8768.sfr@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>, Neil Horman <nhorman@tuxdriver.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        Matt Mackall <mpm@selenic.com>,
-        "bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        David Miller <davem@davemloft.net>, Jeff Moyer <jmoyer@redhat.com>,
-        Andy Gospodarek <gospo@redhat.com>,
-        "bonding-devel@lists.sourceforge.net"
-	<bonding-devel@lists.sourceforge.net>
-To: Cong Wang <amwang@redhat.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <4BBBEEAA.1050100@redhat.com>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Alexander Kurz <linux@kbdbabel.org>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Dominik Brodowski <linux@dominikbrodowski.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Apr 6, 2010, at 10:32 PM, Cong Wang <amwang@redhat.com> wrote:
+Hi Dominik,
 
-> Andy Gospodarek wrote:
->> On Tue, Apr 06, 2010 at 12:38:16PM +0800, Cong Wang wrote:
->>> Cong Wang wrote:
->>>> Before I try to reproduce it, could you please try to replace
->>>> the  'read_lock()'
->>>> in slaves_support_netpoll() with 'read_lock_bh()'? (read_unlock()
->>>> too)  Try if this helps.
->>>>
->>> Confirmed. Please use the attached patch instead, for your testing.
->>>
->>> Thanks!
->>>
->> Moving those locks to bh-locks will not resolve this.  I tried that
->> yesterday and tried your new patch today without success.  That
->> warning
->> is a WARN_ON_ONCE so you need to reboot to see that it is still a
->> problem.  Simply unloading and loading the new module is not an
->> accurate
->> test.
->> Also, my system still hangs when removing the bonding module.  I do
->> not
->> think you intended to fix this with the patch, but wanted it to be
->> clear
->> to everyone on the list.
->
->
-> Actually I did reboot and then tested the module. I didn't get any
-> warning.
-> I just tried again today, and no warnings at all.
->
-> For removing bonding module, you may need another fix of mine,
-> which is to fix a potential deadlock of workqueue. Try:
->
-> http://lkml.org/lkml/2010/4/1/58
->
->> You should also configure your kernel with a some of the lock
->> debugging
->> enabled.  I've been using the following:
->> CONFIG_DETECT_HUNG_TASK=y
->> CONFIG_DEBUG_SPINLOCK=y
->> CONFIG_DEBUG_MUTEXES=y
->> CONFIG_DEBUG_LOCK_ALLOC=y
->> CONFIG_PROVE_LOCKING=y
->> CONFIG_LOCKDEP=y
->> CONFIG_LOCK_STAT=y
->> CONFIG_DEBUG_LOCKDEP=y
->
->
-> Sure, I always keep these.
->
->> Here is the output when I remove a slave from the bond.  My
->> xmit_roundrobin patch from earlier (replacing read_lock with
->> read_trylock) was applied.  It might be helpful for you when
->> debugging
->> these issues.
->
->
-> I don't apply your patch, just tested my patch.
->
->> Dead loop on virtual device bond0, fix it urgently!
->
-> Please provide your bonding configuration and steps to reproduce it.
->
+Today's linux-next merge of the pcmcia tree got a conflict in
+drivers/net/pcmcia/3c589_cs.c between commit
+f64e96973a1fa885ce6e4f7e3fdbae83de98fcab ("net/pcmcia/3c589_cs: using
+netdev_info and friends where appropriate") from the net tree and commits
+cbd8ca0260b78f3b4157dc8ff23edbd211c4eef5 ("pcmcia: re-work
+pcmcia_request_irq()") and cc25a704447fad12205ca8c7c42d6bba1c1590b0
+("pcmcia: dev_node removal (drivers with unregister_netdev check)") from
+the pcmcia tree.
 
-My first response in this thread provides the commands and
-configuration needed to reproduce this.
+Most of these conflicts are just due to unrelated white space changes in
+the net tree commit.  I fixed it up (see below) and can carry the fix as
+necessary.
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-> What I did is:
->
-> 1. Load bonding module with "mode=0 miimon=100"
-> 2. Enslave eth0 and active bond0
-> 3. Load netconsole and send messages via bond0
-> 4. Remove eth0 from bond0
-> 5. Remove bonding module
-> 6. Remove netconsole module
-
-Thanks for sending your configuration.
-
-What values are in /proc/sys/kernel/printk?
-
-> And no deadlocks, no warnings.
->
-> Thanks.
+diff --cc drivers/net/pcmcia/3c589_cs.c
+index 580977f,5ab589d..0000000
+--- a/drivers/net/pcmcia/3c589_cs.c
++++ b/drivers/net/pcmcia/3c589_cs.c
+@@@ -129,13 -106,12 +129,12 @@@ enum RxFilter 
+  
+  struct el3_private {
+  	struct pcmcia_device	*p_dev;
+- 	dev_node_t		node;
+ -    /* For transceiver monitoring */
+ -    struct timer_list	media;
+ -    u16			media_status;
+ -    u16			fast_poll;
+ -    unsigned long	last_irq;
+ -    spinlock_t		lock;
+ +	/* For transceiver monitoring */
+ +	struct timer_list	media;
+ +	u16			media_status;
+ +	u16			fast_poll;
+ +	unsigned long		last_irq;
+ +	spinlock_t		lock;
+  };
+  
+  static const char *if_names[] = { "auto", "10baseT", "10base2", "AUI" };
+@@@ -301,8 -274,8 +297,8 @@@ static int tc589_config(struct pcmcia_d
+      ret = pcmcia_request_configuration(link, &link->conf);
+      if (ret)
+  	    goto failed;
+ -	
+ +
+-     dev->irq = link->irq.AssignedIRQ;
++     dev->irq = link->irq;
+      dev->base_addr = link->io.BasePort1;
+      ioaddr = dev->base_addr;
+      EL3WINDOW(0);
+@@@ -335,8 -308,7 +331,7 @@@
+  	dev->if_port = if_port;
+      else
+  	printk(KERN_ERR "3c589_cs: invalid if_port requested\n");
+ -    
+ +
+-     link->dev_node = &lp->node;
+      SET_NETDEV_DEV(dev, &link->dev);
+  
+      if (register_netdev(dev) != 0) {
+@@@ -344,15 -316,13 +339,12 @@@
+  	goto failed;
+      }
+  
+-     strcpy(lp->node.dev_name, dev->name);
+- 
+ -    printk(KERN_INFO "%s: 3Com 3c%s, io %#3lx, irq %d, "
+ -	   "hw_addr %pM\n",
+ -	   dev->name, (multi ? "562" : "589"), dev->base_addr, dev->irq,
+ -	   dev->dev_addr);
+ -    printk(KERN_INFO "  %dK FIFO split %s Rx:Tx, %s xcvr\n",
+ -	   (fifo & 7) ? 32 : 8, ram_split[(fifo >> 16) & 3],
+ -	   if_names[dev->if_port]);
+ +    netdev_info(dev, "3Com 3c%s, io %#3lx, irq %d, hw_addr %pM\n",
+ +		(multi ? "562" : "589"), dev->base_addr, dev->irq,
+ +		dev->dev_addr);
+ +    netdev_info(dev, "  %dK FIFO split %s Rx:Tx, %s xcvr\n",
+ +		(fifo & 7) ? 32 : 8, ram_split[(fifo >> 16) & 3],
+ +		if_names[dev->if_port]);
+      return 0;
+  
+  failed:
