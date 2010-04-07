@@ -1,58 +1,102 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH] PCI: Disable MSI for MCP55 on P5N32-E SLI
-Date: Wed, 07 Apr 2010 03:27:29 +0100
-Message-ID: <1270607249.2178.8.camel@localhost>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [v2 Patch 3/3] bonding: make bonding support netpoll
+Date: Wed, 07 Apr 2010 10:32:10 +0800
+Message-ID: <4BBBEEAA.1050100@redhat.com>
+References: <20100405091605.4890.31181.sendpatchset@localhost.localdomain> <20100405091628.4890.30541.sendpatchset@localhost.localdomain> <20100405194356.GA10488@gospo.rdu.redhat.com> <4BBA9FDB.4040909@redhat.com> <4BBABAB8.4010401@redhat.com> <20100406144824.GB10488@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: 552299@bugs.debian.org
-To: linux-pci <linux-pci@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Matt Mackall <mpm@selenic.com>,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	Andy Gospodarek <gospo@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Jeff Moyer <jmoyer@redhat.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	bonding-devel@lists.sourceforge.net,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	David Miller <davem@davemloft.net>
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:58689 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751448Ab0DGC1i convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 6 Apr 2010 22:27:38 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:42159 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752242Ab0DGC2t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 6 Apr 2010 22:28:49 -0400
+In-Reply-To: <20100406144824.GB10488@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As reported in <http://bugs.debian.org/552299>, MSI appears to be
-broken for this on-board device.  We already have a quirk for the
-P5N32-SLI Premium; extend it to cover both variants of the board.
-
-Reported-by: Romain DEGEZ <romain.degez@smartjog.com>
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-Cc: stable@kernel.org
----
- drivers/pci/quirks.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index 27c0e6e..4807825 100644
---- a/drivers/pci/quirks.c
-+++ b/drivers/pci/quirks.c
-@@ -2218,15 +2218,16 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_SERVERWORKS,
- DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_8132_BRIDGE,
- 			 ht_enable_msi_mapping);
- 
--/* The P5N32-SLI Premium motherboard from Asus has a problem with msi
-+/* The P5N32-SLI motherboards from Asus have a problem with msi
-  * for the MCP55 NIC. It is not yet determined whether the msi problem
-  * also affects other devices. As for now, turn off msi for this device.
-  */
- static void __devinit nvenet_msi_disable(struct pci_dev *dev)
- {
--	if (dmi_name_in_vendors("P5N32-SLI PREMIUM")) {
-+	if (dmi_name_in_vendors("P5N32-SLI PREMIUM") ||
-+	    dmi_name_in_vendors("P5N32-E SLI")) {
- 		dev_info(&dev->dev,
--			 "Disabling msi for MCP55 NIC on P5N32-SLI Premium\n");
-+			 "Disabling msi for MCP55 NIC on P5N32-SLI\n");
- 		dev->no_msi = 1;
- 	}
- }
--- 
-1.7.0.3
+Andy Gospodarek wrote:
+> On Tue, Apr 06, 2010 at 12:38:16PM +0800, Cong Wang wrote:
+>> Cong Wang wrote:
+>>> Before I try to reproduce it, could you please try to replace the  
+>>> 'read_lock()'
+>>> in slaves_support_netpoll() with 'read_lock_bh()'? (read_unlock() too)  
+>>> Try if this helps.
+>>>
+>> Confirmed. Please use the attached patch instead, for your testing.
+>>
+>> Thanks!
+>>
+> 
+> Moving those locks to bh-locks will not resolve this.  I tried that
+> yesterday and tried your new patch today without success.  That warning
+> is a WARN_ON_ONCE so you need to reboot to see that it is still a
+> problem.  Simply unloading and loading the new module is not an accurate
+> test.
+> 
+> Also, my system still hangs when removing the bonding module.  I do not
+> think you intended to fix this with the patch, but wanted it to be clear
+> to everyone on the list.
 
 
+Actually I did reboot and then tested the module. I didn't get any warning.
+I just tried again today, and no warnings at all.
+
+For removing bonding module, you may need another fix of mine,
+which is to fix a potential deadlock of workqueue. Try:
+
+http://lkml.org/lkml/2010/4/1/58
+
+> 
+> You should also configure your kernel with a some of the lock debugging
+> enabled.  I've been using the following:
+> 
+> CONFIG_DETECT_HUNG_TASK=y
+> CONFIG_DEBUG_SPINLOCK=y
+> CONFIG_DEBUG_MUTEXES=y
+> CONFIG_DEBUG_LOCK_ALLOC=y
+> CONFIG_PROVE_LOCKING=y
+> CONFIG_LOCKDEP=y
+> CONFIG_LOCK_STAT=y
+> CONFIG_DEBUG_LOCKDEP=y
+
+
+Sure, I always keep these.
+
+> 
+> Here is the output when I remove a slave from the bond.  My
+> xmit_roundrobin patch from earlier (replacing read_lock with
+> read_trylock) was applied.  It might be helpful for you when debugging
+> these issues.
+
+
+I don't apply your patch, just tested my patch.
+
+> 
+> Dead loop on virtual device bond0, fix it urgently!
+> 
+
+Please provide your bonding configuration and steps to reproduce it.
+
+What I did is:
+
+1. Load bonding module with "mode=0 miimon=100"
+2. Enslave eth0 and active bond0
+3. Load netconsole and send messages via bond0
+4. Remove eth0 from bond0
+5. Remove bonding module
+6. Remove netconsole module
+
+And no deadlocks, no warnings.
+
+Thanks.
