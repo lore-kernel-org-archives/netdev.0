@@ -1,550 +1,315 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v3] Add Mergeable receive buffer support to vhost_net
-Date: Wed, 7 Apr 2010 13:59:10 +0300
-Message-ID: <20100407105910.GD9550@redhat.com>
-References: <1270585973.28407.3.camel@lab1.dls>
+From: Matthias Fuchs <matthias.fuchs@esd.eu>
+Subject: [PATCH v2] can: Add esd board support to plx_pci CAN driver
+Date: Wed, 7 Apr 2010 13:09:56 +0200
+Message-ID: <201004071309.56518.matthias.fuchs@esd.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, rusty@rustcorp.com.au,
-	virtualization@lists.osdl.org
-To: David L Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Socketcan-core@lists.berlios.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11023 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752307Ab0DGLDG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 7 Apr 2010 07:03:06 -0400
+Received: from moutng.kundenserver.de ([212.227.126.171]:64239 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752307Ab0DGLMP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 07:12:15 -0400
 Content-Disposition: inline
-In-Reply-To: <1270585973.28407.3.camel@lab1.dls>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 06, 2010 at 01:32:53PM -0700, David L Stevens wrote:
-> 
-> This patch adds support for the Mergeable Receive Buffers feature to
-> vhost_net.
-> 
-> 						+-DLS
-> 
-> Changes from previous revision:
-> 1) renamed:
-> 	vhost_discard_vq_desc -> vhost_discard_desc
-> 	vhost_get_heads -> vhost_get_desc_n
-> 	vhost_get_vq_desc -> vhost_get_desc
-> 2) added heads as argument to ghost_get_desc_n
-> 3) changed "vq->heads" from iovec to vring_used_elem, removed casts
-> 4) changed vhost_add_used to do multiple elements in a single
-> copy_to_user,
-> 	or two when we wrap the ring.
-> 5) removed rxmaxheadcount and available buffer checks in favor of
-> running until
-> 	an allocation failure, but making sure we break the loop if we get
-> 	two in a row, indicating we have at least 1 buffer, but not enough
-> 	for the current receive packet
-> 6) restore non-vnet header handling
-> 
-> Signed-Off-By: David L Stevens <dlstevens@us.ibm.com>
+This patch adds support for SJA1000 based PCI CAN interface cards
+from electronic system design gmbh.
 
-Thanks!
-There's some whitespace damage, are you sending with your new
-sendmail setup? It seems to have worked for qemu patches ...
+Some changes have been done on the common code:
+ - esd boards must not have the 2nd local interupt enabled (PLX9030/9050)
+ - a new path for PLX9056/PEX8311 chips has been added
+ - new plx9056 reset function has been implemented
+ - struct plx_card_info got a reset function entry
 
-> diff -ruNp net-next-p0/drivers/vhost/net.c
-> net-next-v3/drivers/vhost/net.c
-> --- net-next-p0/drivers/vhost/net.c	2010-03-22 12:04:38.000000000 -0700
-> +++ net-next-v3/drivers/vhost/net.c	2010-04-06 12:54:56.000000000 -0700
-> @@ -130,9 +130,8 @@ static void handle_tx(struct vhost_net *
->  	hdr_size = vq->hdr_size;
->  
->  	for (;;) {
-> -		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
-> -					 ARRAY_SIZE(vq->iov),
-> -					 &out, &in,
-> +		head = vhost_get_desc(&net->dev, vq, vq->iov,
-> +					 ARRAY_SIZE(vq->iov), &out, &in,
->  					 NULL, NULL);
->  		/* Nothing new?  Wait for eventfd to tell us they refilled. */
->  		if (head == vq->num) {
-> @@ -167,8 +166,15 @@ static void handle_tx(struct vhost_net *
->  		/* TODO: Check specific error and bomb out unless ENOBUFS? */
->  		err = sock->ops->sendmsg(NULL, sock, &msg, len);
->  		if (unlikely(err < 0)) {
-> -			vhost_discard_vq_desc(vq);
-> -			tx_poll_start(net, sock);
-> +			if (err == -EAGAIN) {
-> +				vhost_discard_desc(vq, 1);
-> +				tx_poll_start(net, sock);
-> +			} else {
-> +				vq_err(vq, "sendmsg: errno %d\n", -err);
-> +				/* drop packet; do not discard/resend */
-> +				vhost_add_used_and_signal(&net->dev, vq, head,
-> +							  0);
+In detail the following additional boards are now supported:
 
-vhost does not currently has a consistent error handling strategy:
-if we drop packets, need to think which other errors should cause
-packet drops.  I prefer to just call vq_err for now,
-and have us look at handling segfaults etc in a consistent way
-separately.
+        CAN-PCI/200 (PCI)
+        CAN-PCI/266 (PCI)
+        CAN-PMC266 (PMC module)
+        CAN-PCIe/2000 (PCI Express)
+        CAN-CPCI/200 (Compact PCI, 3U)
+        CAN-PCI104 (PCI104)
 
-> +			}
->  			break;
->  		}
->  		if (err != len)
-> @@ -186,12 +192,25 @@ static void handle_tx(struct vhost_net *
->  	unuse_mm(net->dev.mm);
->  }
->  
-> +static int vhost_head_len(struct sock *sk)
-> +{
-> +	struct sk_buff *head;
-> +	int len = 0;
-> +
-> +	lock_sock(sk);
-> +	head = skb_peek(&sk->sk_receive_queue);
-> +	if (head)
-> +		len = head->len;
-> +	release_sock(sk);
-> +	return len;
-> +}
-> +
+Signed-off-by: Matthias Fuchs <matthias.fuchs@esd.eu>
+---
+v2:
+ - update Kconfig
+ - add proper plx9056 reset function
+ - add reset function pointer to plx_card_info structure
+ - use card's reset function in plx_pci_del_card()
 
-I wonder whether it makes sense to check
-skb_queue_empty(&sk->sk_receive_queue)
-outside the lock, to reduce the cost of this call
-on an empty queue (we know that it happens at least once
-each time we exit the loop on rx)?
+ drivers/net/can/sja1000/Kconfig   |    4 +-
+ drivers/net/can/sja1000/plx_pci.c |  153 ++++++++++++++++++++++++++++++++++---
+ 2 files changed, 145 insertions(+), 12 deletions(-)
 
->  /* Expects to be always run from workqueue - which acts as
->   * read-size critical section for our kind of RCU. */
->  static void handle_rx(struct vhost_net *net)
->  {
->  	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_RX];
-> -	unsigned head, out, in, log, s;
-> +	unsigned in, log, s;
->  	struct vhost_log *vq_log;
->  	struct msghdr msg = {
->  		.msg_name = NULL,
-> @@ -202,13 +221,14 @@ static void handle_rx(struct vhost_net *
->  		.msg_flags = MSG_DONTWAIT,
->  	};
->  
-> -	struct virtio_net_hdr hdr = {
-> -		.flags = 0,
-> -		.gso_type = VIRTIO_NET_HDR_GSO_NONE
-> +	struct virtio_net_hdr_mrg_rxbuf hdr = {
-> +		.hdr.flags = 0,
-> +		.hdr.gso_type = VIRTIO_NET_HDR_GSO_NONE
->  	};
->  
-> +	int retries = 0;
->  	size_t len, total_len = 0;
-> -	int err;
-> +	int err, headcount, datalen;
->  	size_t hdr_size;
->  	struct socket *sock = rcu_dereference(vq->private_data);
->  	if (!sock || skb_queue_empty(&sock->sk->sk_receive_queue))
-> @@ -222,31 +242,25 @@ static void handle_rx(struct vhost_net *
->  	vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) ?
->  		vq->log : NULL;
->  
-> -	for (;;) {
-> -		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
-> -					 ARRAY_SIZE(vq->iov),
-> -					 &out, &in,
-> -					 vq_log, &log);
-> +	while ((datalen = vhost_head_len(sock->sk))) {
-> +		headcount = vhost_get_desc_n(vq, vq->heads, datalen, &in,
-> +					     vq_log, &log);
+diff --git a/drivers/net/can/sja1000/Kconfig b/drivers/net/can/sja1000/Kconfig
+index c01eb4e..b49f609 100644
+--- a/drivers/net/can/sja1000/Kconfig
++++ b/drivers/net/can/sja1000/Kconfig
+@@ -62,7 +62,9 @@ config CAN_PLX_PCI
+ 	  Driver supports now:
+ 	   - Adlink PCI-7841/cPCI-7841 card (http://www.adlinktech.com/)
+ 	   - Adlink PCI-7841/cPCI-7841 SE card
++	   - esd CAN-PCI/CPCI/PCI104/200 (http://www.esd.eu/)
++	   - esd CAN-PCI/PMC/266
++	   - esd CAN-PCIe/2000
+ 	   - Marathon CAN-bus-PCI card (http://www.marathon.ru/)
+ 	   - TEWS TECHNOLOGIES TPMC810 card (http://www.tews.com/)
+-
+ endif
+diff --git a/drivers/net/can/sja1000/plx_pci.c b/drivers/net/can/sja1000/plx_pci.c
+index 6b46a63..8c8ed15 100644
+--- a/drivers/net/can/sja1000/plx_pci.c
++++ b/drivers/net/can/sja1000/plx_pci.c
+@@ -40,7 +40,10 @@ MODULE_DESCRIPTION("Socket-CAN driver for PLX90xx PCI-bridge cards with "
+ MODULE_SUPPORTED_DEVICE("Adlink PCI-7841/cPCI-7841, "
+ 			"Adlink PCI-7841/cPCI-7841 SE, "
+ 			"Marathon CAN-bus-PCI, "
+-			"TEWS TECHNOLOGIES TPMC810");
++			"TEWS TECHNOLOGIES TPMC810, "
++			"esd CAN-PCI/CPCI/PCI104/200, "
++			"esd CAN-PCI/PMC/266, "
++			"esd CAN-PCIe/2000")
+ MODULE_LICENSE("GPL v2");
+ 
+ #define PLX_PCI_MAX_CHAN 2
+@@ -49,11 +52,14 @@ struct plx_pci_card {
+ 	int channels;			/* detected channels count */
+ 	struct net_device *net_dev[PLX_PCI_MAX_CHAN];
+ 	void __iomem *conf_addr;
++
++	/* Pointer to device-dependent reset function */
++	void (*reset_func)(struct pci_dev *pdev);
+ };
+ 
+ #define PLX_PCI_CAN_CLOCK (16000000 / 2)
+ 
+-/* PLX90xx registers */
++/* PLX9030/9050/9052 registers */
+ #define PLX_INTCSR	0x4c		/* Interrupt Control/Status */
+ #define PLX_CNTRL	0x50		/* User I/O, Direct Slave Response,
+ 					 * Serial EEPROM, and Initialization
+@@ -65,6 +71,14 @@ struct plx_pci_card {
+ #define PLX_PCI_INT_EN	(1 << 6)	/* PCI Interrupt Enable */
+ #define PLX_PCI_RESET	(1 << 30)	/* PCI Adapter Software Reset */
+ 
++/* PLX9056 registers */
++#define PLX9056_INTCSR	0x68		/* Interrupt Control/Status */
++#define PLX9056_CNTRL	0x6c		/* Control / Software Reset */
++
++#define PLX9056_LINTI	(1 << 11)
++#define PLX9056_PCI_INT_EN (1 << 8)
++#define PLX9056_PCI_RCR	(1 << 29)	/* Read Configuration Registers */
++
+ /*
+  * The board configuration is probably following:
+  * RX1 is connected to ground.
+@@ -100,6 +114,13 @@ struct plx_pci_card {
+ #define ADLINK_PCI_VENDOR_ID		0x144A
+ #define ADLINK_PCI_DEVICE_ID		0x7841
+ 
++#define ESD_PCI_SUB_SYS_ID_PCI200	0x0004
++#define ESD_PCI_SUB_SYS_ID_PCI266	0x0009
++#define ESD_PCI_SUB_SYS_ID_PMC266	0x000e
++#define ESD_PCI_SUB_SYS_ID_CPCI200	0x010b
++#define ESD_PCI_SUB_SYS_ID_PCIE2000	0x0200
++#define ESD_PCI_SUB_SYS_ID_PCI104200	0x0501
++
+ #define MARATHON_PCI_DEVICE_ID		0x2715
+ 
+ #define TEWS_PCI_VENDOR_ID		0x1498
+@@ -107,6 +128,7 @@ struct plx_pci_card {
+ 
+ static void plx_pci_reset_common(struct pci_dev *pdev);
+ static void plx_pci_reset_marathon(struct pci_dev *pdev);
++static void plx9056_pci_reset_common(struct pci_dev *pdev);
+ 
+ struct plx_pci_channel_map {
+ 	u32 bar;
+@@ -147,6 +169,30 @@ static struct plx_pci_card_info plx_pci_card_info_adlink_se __devinitdata = {
+ 	/* based on PLX9052 */
+ };
+ 
++static struct plx_pci_card_info plx_pci_card_info_esd200 __devinitdata = {
++	"esd CAN-PCI/CPCI/PCI104/200", 2,
++	PLX_PCI_CAN_CLOCK, PLX_PCI_OCR, PLX_PCI_CDR,
++	{0, 0x00, 0x00}, { {2, 0x00, 0x80}, {2, 0x100, 0x80} },
++	&plx_pci_reset_common
++	/* based on PLX9030/9050 */
++};
++
++static struct plx_pci_card_info plx_pci_card_info_esd266 __devinitdata = {
++	"esd CAN-PCI/PMC/266", 2,
++	PLX_PCI_CAN_CLOCK, PLX_PCI_OCR, PLX_PCI_CDR,
++	{0, 0x00, 0x00}, { {2, 0x00, 0x80}, {2, 0x100, 0x80} },
++	&plx9056_pci_reset_common
++	/* based on PLX9056 */
++};
++
++static struct plx_pci_card_info plx_pci_card_info_esd2000 __devinitdata = {
++	"esd CAN-PCIe/2000", 2,
++	PLX_PCI_CAN_CLOCK, PLX_PCI_OCR, PLX_PCI_CDR,
++	{0, 0x00, 0x00}, { {2, 0x00, 0x80}, {2, 0x100, 0x80} },
++	&plx9056_pci_reset_common
++	/* based on PEX8311 */
++};
++
+ static struct plx_pci_card_info plx_pci_card_info_marathon __devinitdata = {
+ 	"Marathon CAN-bus-PCI", 2,
+ 	PLX_PCI_CAN_CLOCK, PLX_PCI_OCR, PLX_PCI_CDR,
+@@ -179,6 +225,48 @@ static DEFINE_PCI_DEVICE_TABLE(plx_pci_tbl) = {
+ 		(kernel_ulong_t)&plx_pci_card_info_adlink_se
+ 	},
+ 	{
++		/* esd CAN-PCI/200 */
++		PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_9050,
++		PCI_VENDOR_ID_ESDGMBH, ESD_PCI_SUB_SYS_ID_PCI200,
++		0, 0,
++		(kernel_ulong_t)&plx_pci_card_info_esd200
++	},
++	{
++		/* esd CAN-CPCI/200 */
++		PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_9030,
++		PCI_VENDOR_ID_ESDGMBH, ESD_PCI_SUB_SYS_ID_CPCI200,
++		0, 0,
++		(kernel_ulong_t)&plx_pci_card_info_esd200
++	},
++	{
++		/* esd CAN-PCI104/200 */
++		PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_9030,
++		PCI_VENDOR_ID_ESDGMBH, ESD_PCI_SUB_SYS_ID_PCI104200,
++		0, 0,
++		(kernel_ulong_t)&plx_pci_card_info_esd200
++	},
++	{
++		/* esd CAN-PCI/266 */
++		PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_9056,
++		PCI_VENDOR_ID_ESDGMBH, ESD_PCI_SUB_SYS_ID_PCI266,
++		0, 0,
++		(kernel_ulong_t)&plx_pci_card_info_esd266
++	},
++	{
++		/* esd CAN-PMC/266 */
++		PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_9056,
++		PCI_VENDOR_ID_ESDGMBH, ESD_PCI_SUB_SYS_ID_PMC266,
++		0, 0,
++		(kernel_ulong_t)&plx_pci_card_info_esd266
++	},
++	{
++		/* esd CAN-PCIE/2000 */
++		PCI_VENDOR_ID_PLX, PCI_DEVICE_ID_PLX_9056,
++		PCI_VENDOR_ID_ESDGMBH, ESD_PCI_SUB_SYS_ID_PCIE2000,
++		0, 0,
++		(kernel_ulong_t)&plx_pci_card_info_esd2000
++	},
++	{
+ 		/* Marathon CAN-bus-PCI card */
+ 		PCI_VENDOR_ID_PLX, MARATHON_PCI_DEVICE_ID,
+ 		PCI_ANY_ID, PCI_ANY_ID,
+@@ -241,7 +329,7 @@ static inline int plx_pci_check_sja1000(const struct sja1000_priv *priv)
+ }
+ 
+ /*
+- * PLX90xx software reset
++ * PLX9030/50/52 software reset
+  * Also LRESET# asserts and brings to reset device on the Local Bus (if wired).
+  * For most cards it's enough for reset the SJA1000 chips.
+  */
+@@ -258,6 +346,38 @@ static void plx_pci_reset_common(struct pci_dev *pdev)
+ 	iowrite32(cntrl, card->conf_addr + PLX_CNTRL);
+ };
+ 
++/*
++ * PLX9056 software reset
++ * Assert LRESET# and reset device(s) on the Local Bus (if wired).
++ */
++static void plx9056_pci_reset_common(struct pci_dev *pdev)
++{
++	struct plx_pci_card *card = pci_get_drvdata(pdev);
++	u32 cntrl;
++
++	/* issue a local bus reset */
++	cntrl = ioread32(card->conf_addr + PLX9056_CNTRL);
++	cntrl |= PLX_PCI_RESET;
++	iowrite32(cntrl, card->conf_addr + PLX9056_CNTRL);
++	udelay(100);
++	cntrl ^= PLX_PCI_RESET;
++	iowrite32(cntrl, card->conf_addr + PLX9056_CNTRL);
++
++	/* reload local configuration from EEPROM */
++	cntrl |= PLX9056_PCI_RCR;
++	iowrite32(cntrl, card->conf_addr + PLX9056_CNTRL);
++
++	/*
++	 * There is no safe way to poll for the end
++	 * of reconfiguration process. Waiting for 10ms
++	 * is safe.
++	 */
++	mdelay(10);
++
++	cntrl ^= PLX9056_PCI_RCR;
++	iowrite32(cntrl, card->conf_addr + PLX9056_CNTRL);
++};
++
+ /* Special reset function for Marathon card */
+ static void plx_pci_reset_marathon(struct pci_dev *pdev)
+ {
+@@ -301,13 +421,16 @@ static void plx_pci_del_card(struct pci_dev *pdev)
+ 		free_sja1000dev(dev);
+ 	}
+ 
+-	plx_pci_reset_common(pdev);
++	card->reset_func(pdev);
+ 
+ 	/*
+-	 * Disable interrupts from PCI-card (PLX90xx) and disable Local_1,
+-	 * Local_2 interrupts
++	 * Disable interrupts from PCI-card and disable local
++	 * interrupts
+ 	 */
+-	iowrite32(0x0, card->conf_addr + PLX_INTCSR);
++	if (pdev->device != PCI_DEVICE_ID_PLX_9056)
++		iowrite32(0x0, card->conf_addr + PLX_INTCSR);
++	else
++		iowrite32(0x0, card->conf_addr + PLX9056_INTCSR);
+ 
+ 	if (card->conf_addr)
+ 		pci_iounmap(pdev, card->conf_addr);
+@@ -366,6 +489,7 @@ static int __devinit plx_pci_add_card(struct pci_dev *pdev,
+ 	card->conf_addr = addr + ci->conf_map.offset;
+ 
+ 	ci->reset_func(pdev);
++	card->reset_func = ci->reset_func;
+ 
+ 	/* Detect available channels */
+ 	for (i = 0; i < ci->channel_count; i++) {
+@@ -437,10 +561,17 @@ static int __devinit plx_pci_add_card(struct pci_dev *pdev,
+ 	 * Enable interrupts from PCI-card (PLX90xx) and enable Local_1,
+ 	 * Local_2 interrupts from the SJA1000 chips
+ 	 */
+-	val = ioread32(card->conf_addr + PLX_INTCSR);
+-	val |= PLX_LINT1_EN | PLX_LINT2_EN | PLX_PCI_INT_EN;
+-	iowrite32(val, card->conf_addr + PLX_INTCSR);
+-
++	if (pdev->device != PCI_DEVICE_ID_PLX_9056) {
++		val = ioread32(card->conf_addr + PLX_INTCSR);
++		if (pdev->subsystem_vendor == PCI_VENDOR_ID_ESDGMBH)
++			val |= PLX_LINT1_EN | PLX_PCI_INT_EN;
++		else
++			val |= PLX_LINT1_EN | PLX_LINT2_EN | PLX_PCI_INT_EN;
++		iowrite32(val, card->conf_addr + PLX_INTCSR);
++	} else {
++		iowrite32(PLX9056_LINTI | PLX9056_PCI_INT_EN,
++			  card->conf_addr + PLX9056_INTCSR);
++	}
+ 	return 0;
+ 
+ failure_cleanup:
+-- 
+1.6.1
 
-This looks like a bug, I think we need to pass
-datalen + header size to vhost_get_desc_n.
-Not sure how we know the header size that backend will use though.
-Maybe just look at our features.
-
->  		/* OK, now we need to know about added descriptors. */
-> -		if (head == vq->num) {
-> -			if (unlikely(vhost_enable_notify(vq))) {
-> +		if (!headcount) {
-> +			if (retries == 0 && unlikely(vhost_enable_notify(vq))) {
->  				/* They have slipped one in as we were
->  				 * doing that: check again. */
->  				vhost_disable_notify(vq);
-> +				retries++;
->  				continue;
->  			}
-
-Hmm. The reason we have the code at all, as the comment says, is because
-guest could have added more buffers between the time we read last index
-and the time we enabled notification. So if we just break like this
-the race still exists. We could remember the
-last head value we observed, and have vhost_enable_notify check
-against this value?
-
-Need to think about it.
-
-Another concern here is that on retries vhost_get_desc_n
-is doing extra work, rescanning the same descriptor
-again and again. Not sure how common this is, might be
-worthwhile to add a TODO to consider this at least.
-
-> +			retries = 0;
->  			/* Nothing new?  Wait for eventfd to tell us
->  			 * they refilled. */
->  			break;
->  		}
->  		/* We don't need to be notified again. */
-> -		if (out) {
-> -			vq_err(vq, "Unexpected descriptor format for RX: "
-> -			       "out %d, int %d\n",
-> -			       out, in);
-> -			break;
-> -		}
-> -		/* Skip header. TODO: support TSO/mergeable rx buffers. */
-> +		/* Skip header. TODO: support TSO. */
->  		s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, in);
->  		msg.msg_iovlen = in;
->  		len = iov_length(vq->iov, in);
-> @@ -261,14 +275,33 @@ static void handle_rx(struct vhost_net *
->  					 len, MSG_DONTWAIT | MSG_TRUNC);
->  		/* TODO: Check specific error and bomb out unless EAGAIN? */
->  		if (err < 0) {
-
-I think we need to compare err and datalen and drop packet on mismatch as well.
-The check err > len won't be needed then.
-
-> -			vhost_discard_vq_desc(vq);
-> +			vhost_discard_desc(vq, headcount);
->  			break;
->  		}
->  		/* TODO: Should check and handle checksum. */
-> +		if (vhost_has_feature(&net->dev, VIRTIO_NET_F_MRG_RXBUF)) {
-> +			struct virtio_net_hdr_mrg_rxbuf *vhdr =
-> +				(struct virtio_net_hdr_mrg_rxbuf *)
-> +				vq->iov[0].iov_base;
-> +			/* add num_buffers */
-> +			if (vhost_has_feature(&net->dev,
-> +					      VHOST_NET_F_VIRTIO_NET_HDR))
-> +				hdr.num_buffers = headcount;
-
-Why is the above necessary?
-
-> +			else if (vq->iov[0].iov_len < sizeof(*vhdr)) {
-
-I think length check is already done when we copy the header. No?
-
-> +				vq_err(vq, "tiny buffers < %d unsupported",
-> +					vq->iov[0].iov_len);
-> +				vhost_discard_desc(vq, headcount);
-> +				break;
-
-Problem here is that recvmsg might modify iov.
-This is why I think we need to use vq->hdr here.
-
-> +			} else if (put_user(headcount, &vhdr->num_buffers)) {
-
-The above put_user writes out a 32 bit value, right?
-This seems wrong.
-
-How about using
-	memcpy_toiovecend(vq->hdr, &headcount,
-			  offsetof(struct virtio_net_hdr_mrg_rxbuf, num_buffers),
-			  sizeof headcount);
-
-this way we also do not make any assumptions about layout.
-
-> +				vq_err(vq, "Failed num_buffers write");
-> +				vhost_discard_desc(vq, headcount);
-> +				break;
-> +			}
-> +		}
->  		if (err > len) {
->  			pr_err("Discarded truncated rx packet: "
->  			       " len %d > %zd\n", err, len);
-> -			vhost_discard_vq_desc(vq);
-> +			vhost_discard_desc(vq, headcount);
->  			continue;
->  		}
->  		len = err;
-> @@ -279,7 +312,7 @@ static void handle_rx(struct vhost_net *
->  			break;
->  		}
->  		len += hdr_size;
-> -		vhost_add_used_and_signal(&net->dev, vq, head, len);
-> +		vhost_add_used_and_signal_n(&net->dev, vq, vq->heads, headcount);
->  		if (unlikely(vq_log))
->  			vhost_log_write(vq, vq_log, log, len);
->  		total_len += len;
-> @@ -560,9 +593,14 @@ done:
->  
->  static int vhost_net_set_features(struct vhost_net *n, u64 features)
->  {
-> -	size_t hdr_size = features & (1 << VHOST_NET_F_VIRTIO_NET_HDR) ?
-> -		sizeof(struct virtio_net_hdr) : 0;
-> +	size_t hdr_size = 0;
->  	int i;
-> +
-> +	if (features & (1 << VHOST_NET_F_VIRTIO_NET_HDR)) {
-> +		hdr_size = sizeof(struct virtio_net_hdr);
-> +		if (features & (1 << VIRTIO_NET_F_MRG_RXBUF))
-> +			hdr_size = sizeof(struct virtio_net_hdr_mrg_rxbuf);
-
-My personal style for this would be:
-  	if (!(features & (1 << VHOST_NET_F_VIRTIO_NET_HDR)))
-		hdr_size = 0
-	else if (!(features & (1 << VIRTIO_NET_F_MRG_RXBUF)))
-		hdr_size = sizeof(virtio_net_hdr);
-	else
-		hdr_size = sizeof(struct virtio_net_hdr_mrg_rxbuf);
-
-which results in more symmetry and less nesting.
-
->  	mutex_lock(&n->dev.mutex);
->  	if ((features & (1 << VHOST_F_LOG_ALL)) &&
->  	    !vhost_log_access_ok(&n->dev)) {
-> diff -ruNp net-next-p0/drivers/vhost/vhost.c
-> net-next-v3/drivers/vhost/vhost.c
-> --- net-next-p0/drivers/vhost/vhost.c	2010-03-22 12:04:38.000000000
-> -0700
-> +++ net-next-v3/drivers/vhost/vhost.c	2010-04-06 12:57:51.000000000
-> -0700
-> @@ -856,6 +856,47 @@ static unsigned get_indirect(struct vhos
->  	return 0;
->  }
->  
-> +/* This is a multi-buffer version of vhost_get_vq_desc
-> + * @vq		- the relevant virtqueue
-> + * datalen	- data length we'll be reading
-> + * @iovcount	- returned count of io vectors we fill
-> + * @log		- vhost log
-> + * @log_num	- log offset
-> + *	returns number of buffer heads allocated, 0 on error
-
-This is unusual. Let's return a negative error code on error.
-
-> + */
-> +int vhost_get_desc_n(struct vhost_virtqueue *vq, struct vring_used_elem
-> *heads,
-> +		     int datalen, int *iovcount, struct vhost_log *log,
-> +		     unsigned int *log_num)
-> +{
-> +	int out, in;
-> +	int seg = 0;		/* iov index */
-> +	int hc = 0;		/* head count */
-> +
-> +	while (datalen > 0) {
-> +		if (hc >= VHOST_NET_MAX_SG)
-> +			goto err;
-> +		heads[hc].id = vhost_get_desc(vq->dev, vq, vq->iov+seg,
-> +					      ARRAY_SIZE(vq->iov)-seg, &out,
-> +					      &in, log, log_num);
-> +		if (heads[hc].id == vq->num)
-> +			goto err;
-> +		if (out || in <= 0) {
-> +			vq_err(vq, "unexpected descriptor format for RX: "
-> +				"out %d, in %d\n", out, in);
-> +			goto err;
-> +		}
-> +		heads[hc].len = iov_length(vq->iov+seg, in);
-> +		datalen -= heads[hc].len;
-
-This signed/unsigned mix makes me nervuous.
-Let's make datalen unsigned, add unsigned total_len, and
-while (datalen < total_len).
-
-> +		hc++;
-> +		seg += in;
-> +	}
-> +	*iovcount = seg;
-> +	return hc;
-> +err:
-> +	vhost_discard_desc(vq, hc);
-> +	return 0;
-> +}
-> +
->  /* This looks in the virtqueue and for the first available buffer, and
-> converts
->   * it to an iovec for convenient access.  Since descriptors consist of
-> some
->   * number of output then some number of input descriptors, it's
-> actually two
-> @@ -863,7 +904,7 @@ static unsigned get_indirect(struct vhos
->   *
->   * This function returns the descriptor number found, or vq->num (which
->   * is never a valid descriptor number) if none was found. */
-> -unsigned vhost_get_vq_desc(struct vhost_dev *dev, struct
-> vhost_virtqueue *vq,
-> +unsigned vhost_get_desc(struct vhost_dev *dev, struct vhost_virtqueue
-> *vq,
->  			   struct iovec iov[], unsigned int iov_size,
->  			   unsigned int *out_num, unsigned int *in_num,
->  			   struct vhost_log *log, unsigned int *log_num)
-> @@ -981,31 +1022,42 @@ unsigned vhost_get_vq_desc(struct vhost_
->  }
->  
->  /* Reverse the effect of vhost_get_vq_desc. Useful for error handling.
-> */
-> -void vhost_discard_vq_desc(struct vhost_virtqueue *vq)
-> +void vhost_discard_desc(struct vhost_virtqueue *vq, int n)
->  {
-> -	vq->last_avail_idx--;
-> +	vq->last_avail_idx -= n;
->  }
->  
->  /* After we've used one of their buffers, we tell them about it.  We'll
-> then
->   * want to notify the guest, using eventfd. */
-> -int vhost_add_used(struct vhost_virtqueue *vq, unsigned int head, int
-> len)
-> +int vhost_add_used(struct vhost_virtqueue *vq, struct vring_used_elem
-> *heads,
-> +		   int count)
-
-I think we are better off with vhost_add_used and vhost_add_used_n:
-the version with _n has a lot of extra complexity, and tx always
-adds them 1 by one.
-
->  {
->  	struct vring_used_elem *used;
-> +	int start, n;
-> +
-> +	if (count <= 0)
-> +		return -EINVAL;
->  
-> -	/* The virtqueue contains a ring of used buffers.  Get a pointer to
-> the
-> -	 * next entry in that used ring. */
-> -	used = &vq->used->ring[vq->last_used_idx % vq->num];
-> -	if (put_user(head, &used->id)) {
-> -		vq_err(vq, "Failed to write used id");
-> +	start = vq->last_used_idx % vq->num;
-> +	if (vq->num - start < count)
-> +		n = vq->num - start;
-> +	else
-> +		n = count;
-
-use min?
-
-> +	used = vq->used->ring + start;
-> +	if (copy_to_user(used, heads, sizeof(heads[0])*n)) {
-> +		vq_err(vq, "Failed to write used");
->  		return -EFAULT;
->  	}
-> -	if (put_user(len, &used->len)) {
-> -		vq_err(vq, "Failed to write used len");
-> -		return -EFAULT;
-> +	if (n < count) {	/* wrapped the ring */
-> +		used = vq->used->ring;
-> +		if (copy_to_user(used, heads+n, sizeof(heads[0])*(count-n))) {
-> +			vq_err(vq, "Failed to write used");
-> +			return -EFAULT;
-> +		}
->  	}
->  	/* Make sure buffer is written before we update index. */
->  	smp_wmb();
-> -	if (put_user(vq->last_used_idx + 1, &vq->used->idx)) {
-> +	if (put_user(vq->last_used_idx+count, &vq->used->idx)) {
-
-I am a bit confused ... will this write a 32 or 16 bit value?
-count is 32 bit ... Maybe we are better off with
-  u16 idx = vq->last_used_idx + count
-  put_user(idx, &vq->used->idx)
-  vq->last_used_idx = idx
-
->  		vq_err(vq, "Failed to increment used idx");
->  		return -EFAULT;
->  	}
-> @@ -1023,7 +1075,7 @@ int vhost_add_used(struct vhost_virtqueu
->  		if (vq->log_ctx)
->  			eventfd_signal(vq->log_ctx, 1);
->  	}
-> -	vq->last_used_idx++;
-> +	vq->last_used_idx += count;
->  	return 0;
->  }
->  
-> @@ -1049,10 +1101,23 @@ void vhost_signal(struct vhost_dev *dev,
->  
->  /* And here's the combo meal deal.  Supersize me! */
->  void vhost_add_used_and_signal(struct vhost_dev *dev,
-> -			       struct vhost_virtqueue *vq,
-> -			       unsigned int head, int len)
-> +			       struct vhost_virtqueue *vq, unsigned int id,
-> +			       int len)
-> +{
-> +	struct vring_used_elem head;
-> +
-> +	head.id = id;
-> +	head.len = len;
-> +	vhost_add_used(vq, &head, 1);
-> +	vhost_signal(dev, vq);
-> +}
-> +
-> +/* multi-buffer version of vhost_add_used_and_signal */
-> +void vhost_add_used_and_signal_n(struct vhost_dev *dev,
-> +				 struct vhost_virtqueue *vq,
-> +				 struct vring_used_elem *heads, int count)
->  {
-> -	vhost_add_used(vq, head, len);
-> +	vhost_add_used(vq, heads, count);
->  	vhost_signal(dev, vq);
->  }
->  
-> diff -ruNp net-next-p0/drivers/vhost/vhost.h
-> net-next-v3/drivers/vhost/vhost.h
-> --- net-next-p0/drivers/vhost/vhost.h	2010-03-22 12:04:38.000000000
-> -0700
-> +++ net-next-v3/drivers/vhost/vhost.h	2010-04-05 20:33:57.000000000
-> -0700
-> @@ -85,6 +85,7 @@ struct vhost_virtqueue {
->  	struct iovec iov[VHOST_NET_MAX_SG];
->  	struct iovec hdr[VHOST_NET_MAX_SG];
->  	size_t hdr_size;
-> +	struct vring_used_elem heads[VHOST_NET_MAX_SG];
->  	/* We use a kind of RCU to access private pointer.
->  	 * All readers access it from workqueue, which makes it possible to
->  	 * flush the workqueue instead of synchronize_rcu. Therefore readers
-> do
-> @@ -120,16 +121,22 @@ long vhost_dev_ioctl(struct vhost_dev *,
->  int vhost_vq_access_ok(struct vhost_virtqueue *vq);
->  int vhost_log_access_ok(struct vhost_dev *);
->  
-> -unsigned vhost_get_vq_desc(struct vhost_dev *, struct vhost_virtqueue
-> *,
-> +int vhost_get_desc_n(struct vhost_virtqueue *, struct vring_used_elem
-> *heads,
-> +		     int datalen, int *iovcount, struct vhost_log *log,
-> +		     unsigned int *log_num);
-> +unsigned vhost_get_desc(struct vhost_dev *, struct vhost_virtqueue *,
->  			   struct iovec iov[], unsigned int iov_count,
->  			   unsigned int *out_num, unsigned int *in_num,
->  			   struct vhost_log *log, unsigned int *log_num);
-> -void vhost_discard_vq_desc(struct vhost_virtqueue *);
-> +void vhost_discard_desc(struct vhost_virtqueue *, int);
->  
-> -int vhost_add_used(struct vhost_virtqueue *, unsigned int head, int
-> len);
-> -void vhost_signal(struct vhost_dev *, struct vhost_virtqueue *);
-> +int vhost_add_used(struct vhost_virtqueue *, struct vring_used_elem
-> *heads,
-> +		    int count);
->  void vhost_add_used_and_signal(struct vhost_dev *, struct
-> vhost_virtqueue *,
-> -			       unsigned int head, int len);
-> +			       unsigned int id, int len);
-> +void vhost_add_used_and_signal_n(struct vhost_dev *, struct
-> vhost_virtqueue *,
-> +			       struct vring_used_elem *heads, int count);
-> +void vhost_signal(struct vhost_dev *, struct vhost_virtqueue *);
->  void vhost_disable_notify(struct vhost_virtqueue *);
->  bool vhost_enable_notify(struct vhost_virtqueue *);
->  
-> @@ -149,7 +156,8 @@ enum {
->  	VHOST_FEATURES = (1 << VIRTIO_F_NOTIFY_ON_EMPTY) |
->  			 (1 << VIRTIO_RING_F_INDIRECT_DESC) |
->  			 (1 << VHOST_F_LOG_ALL) |
-> -			 (1 << VHOST_NET_F_VIRTIO_NET_HDR),
-> +			 (1 << VHOST_NET_F_VIRTIO_NET_HDR) |
-> +			 (1 << VIRTIO_NET_F_MRG_RXBUF),
->  };
->  
->  static inline int vhost_has_feature(struct vhost_dev *dev, int bit)
-> 
