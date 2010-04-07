@@ -1,243 +1,52 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: [PATCH 4/4] flow: delayed deletion of flow cache entries
-Date: Wed,  7 Apr 2010 13:30:07 +0300
-Message-ID: <1270636207-20933-5-git-send-email-timo.teras@iki.fi>
-References: <1270636207-20933-1-git-send-email-timo.teras@iki.fi>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Timo Teras <timo.teras@iki.fi>
-To: netdev@vger.kernel.org
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Subject: Re: hackbench regression due to commit 9dfc6e68bfe6e
+Date: Wed, 07 Apr 2010 13:47:37 +0300
+Message-ID: <4BBC62C9.80802@cs.helsinki.fi>
+References: <1269506457.4513.141.camel@alexs-hp.sh.intel.com>	 <alpine.DEB.2.00.1003250942080.2670@router.home>	 <1269570902.9614.92.camel@alexs-hp.sh.intel.com>	 <1270114166.2078.107.camel@ymzhang.sh.intel.com>	 <alpine.DEB.2.00.1004011050340.16531@router.home>	 <1270195589.2078.116.camel@ymzhang.sh.intel.com>	 <alpine.DEB.2.00.1004050853300.23149@router.home>	 <i2z84144f021004051030k7ff5190cyc083aa12c552dfac@mail.gmail.com>	 <4BBA8DF9.8010409@kernel.org>	 <1270542497.2078.123.camel@ymzhang.sh.intel.com>	 <alpine.DEB.2.00.1004061033330.18750@router.home>	 <alpine.DEB.2.00.1004061552500.19151@router.home>	 <1270591841.2091.170.camel@edumazet-laptop> <1270607668.2078.259.camel@ymzhang.sh.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	netdev <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>,
+	alex.shi@intel.com,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Ma, Ling" <ling.ma@intel.com>,
+	"Chen, Tim C" <tim.c.chen@intel.com>,
+	Andrew Morton <akpm@linux-foundation.org>, mingo@elte.hu
+To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f220.google.com ([209.85.219.220]:57426 "EHLO
-	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757731Ab0DGKaf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 06:30:35 -0400
-Received: by mail-ew0-f220.google.com with SMTP id 20so440306ewy.1
-        for <netdev@vger.kernel.org>; Wed, 07 Apr 2010 03:30:35 -0700 (PDT)
-In-Reply-To: <1270636207-20933-1-git-send-email-timo.teras@iki.fi>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:36952 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752556Ab0DGKrk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 06:47:40 -0400
+In-Reply-To: <1270607668.2078.259.camel@ymzhang.sh.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Speed up lookups by freeing flow cache entries later. After
-virtualizing flow cache entry operations, the flow cache may now
-end up calling policy or bundle destructor which can be slowish.
+Zhang, Yanmin kirjoitti:
+> Kernel 2.6.34-rc3:
+> # Samples: 13079611308 LLC-load-misses
+> #
+> # Overhead          Command                                                         Shared Object  Symbol
+> # ........  ...............  ....................................................................  ......
+> #
+>     18.55%        hackbench  [kernel.kallsyms]                                                     [k] copy_user_generic_str
+> ing
+>     13.19%        hackbench  [kernel.kallsyms]                                                     [k] unix_stream_recvmsg
+>     11.62%        hackbench  [kernel.kallsyms]                                                     [k] kfree
+>      8.54%        hackbench  [kernel.kallsyms]                                                     [k] kmem_cache_free
+>      7.88%        hackbench  [kernel.kallsyms]                                                     [k] __kmalloc_node_track_
+> caller
+>      6.54%        hackbench  [kernel.kallsyms]                                                     [k] kmem_cache_alloc_node
+>      5.94%        hackbench  [kernel.kallsyms]                                                     [k] kfree_skb
+>      3.48%        hackbench  [kernel.kallsyms]                                                     [k] __slab_free
+>      2.15%        hackbench  [kernel.kallsyms]                                                     [k] _raw_spin_lock
+>      1.83%        hackbench  [kernel.kallsyms]                                                     [k] schedule
+>      1.82%        hackbench  [kernel.kallsyms]                                                     [k] get_partial_node
+>      1.59%        hackbench  hackbench                                                             [.] receiver
+>      1.37%        hackbench  libpthread-2.9.so                                                     [.] __read
 
-As gc_list is more effective with double linked list, the flow cache
-is converted to use common hlist and list macroes where appropriate.
-
-Signed-off-by: Timo Teras <timo.teras@iki.fi>
----
- net/core/flow.c |  100 ++++++++++++++++++++++++++++++++++++++-----------------
- 1 files changed, 69 insertions(+), 31 deletions(-)
-
-diff --git a/net/core/flow.c b/net/core/flow.c
-index 521df52..1619006 100644
---- a/net/core/flow.c
-+++ b/net/core/flow.c
-@@ -26,7 +26,10 @@
- #include <linux/security.h>
- 
- struct flow_cache_entry {
--	struct flow_cache_entry		*next;
-+	union {
-+		struct hlist_node	hlist;
-+		struct list_head	gc_list;
-+	} u;
- 	u16				family;
- 	u8				dir;
- 	u32				genid;
-@@ -35,7 +38,7 @@ struct flow_cache_entry {
- };
- 
- struct flow_cache_percpu {
--	struct flow_cache_entry		**hash_table;
-+	struct hlist_head		*hash_table;
- 	int				hash_count;
- 	u32				hash_rnd;
- 	int				hash_rnd_recalc;
-@@ -62,6 +65,9 @@ atomic_t flow_cache_genid = ATOMIC_INIT(0);
- static struct flow_cache flow_cache_global;
- static struct kmem_cache *flow_cachep;
- 
-+static DEFINE_SPINLOCK(flow_cache_gc_lock);
-+static LIST_HEAD(flow_cache_gc_list);
-+
- #define flow_cache_hash_size(cache)	(1 << (cache)->hash_shift)
- #define FLOW_HASH_RND_PERIOD		(10 * 60 * HZ)
- 
-@@ -86,38 +92,66 @@ static int flow_entry_valid(struct flow_cache_entry *fle)
- 	return 1;
- }
- 
--static void flow_entry_kill(struct flow_cache *fc,
--			    struct flow_cache_percpu *fcp,
--			    struct flow_cache_entry *fle)
-+static void flow_entry_kill(struct flow_cache_entry *fle)
- {
- 	if (fle->object)
- 		fle->object->ops->delete(fle->object);
- 	kmem_cache_free(flow_cachep, fle);
--	fcp->hash_count--;
-+}
-+
-+static void flow_cache_gc_task(struct work_struct *work)
-+{
-+	struct list_head gc_list;
-+	struct flow_cache_entry *fce, *n;
-+
-+	INIT_LIST_HEAD(&gc_list);
-+	spin_lock_bh(&flow_cache_gc_lock);
-+	list_splice_tail_init(&flow_cache_gc_list, &gc_list);
-+	spin_unlock_bh(&flow_cache_gc_lock);
-+
-+	list_for_each_entry_safe(fce, n, &gc_list, u.gc_list)
-+		flow_entry_kill(fce);
-+}
-+static DECLARE_WORK(flow_cache_gc_work, flow_cache_gc_task);
-+
-+static void flow_cache_queue_garbage(struct flow_cache_percpu *fcp,
-+				     int deleted, struct list_head *gc_list)
-+{
-+	if (deleted) {
-+		fcp->hash_count -= deleted;
-+		spin_lock_bh(&flow_cache_gc_lock);
-+		list_splice_tail(gc_list, &flow_cache_gc_list);
-+		spin_unlock_bh(&flow_cache_gc_lock);
-+		schedule_work(&flow_cache_gc_work);
-+	}
- }
- 
- static void __flow_cache_shrink(struct flow_cache *fc,
- 				struct flow_cache_percpu *fcp,
- 				int shrink_to)
- {
--	struct flow_cache_entry *fle, **flp;
--	int i;
-+	struct flow_cache_entry *fle;
-+	struct hlist_node *entry, *tmp;
-+	LIST_HEAD(gc_list);
-+	int i, deleted = 0;
- 
- 	for (i = 0; i < flow_cache_hash_size(fc); i++) {
- 		int saved = 0;
- 
--		flp = &fcp->hash_table[i];
--		while ((fle = *flp) != NULL) {
-+		hlist_for_each_entry_safe(fle, entry, tmp,
-+					  &fcp->hash_table[i], u.hlist) {
- 			if (saved < shrink_to &&
- 			    flow_entry_valid(fle)) {
- 				saved++;
--				flp = &fle->next;
- 			} else {
--				*flp = fle->next;
--				flow_entry_kill(fc, fcp, fle);
-+				deleted++;
-+				hlist_del(&fle->u.hlist);
-+				list_add_tail(&fle->u.gc_list, &gc_list);
- 			}
- 		}
- 	}
-+
-+	flow_cache_queue_garbage(fcp, deleted, &gc_list);
- }
- 
- static void flow_cache_shrink(struct flow_cache *fc,
-@@ -182,7 +216,8 @@ flow_cache_lookup(struct net *net, struct flowi *key, u16 family, u8 dir,
- {
- 	struct flow_cache *fc = &flow_cache_global;
- 	struct flow_cache_percpu *fcp;
--	struct flow_cache_entry *fle, **head;
-+	struct flow_cache_entry *fle, *tfle;
-+	struct hlist_node *entry;
- 	struct flow_cache_object *flo;
- 	unsigned int hash;
- 
-@@ -200,12 +235,13 @@ flow_cache_lookup(struct net *net, struct flowi *key, u16 family, u8 dir,
- 		flow_new_hash_rnd(fc, fcp);
- 
- 	hash = flow_hash_code(fc, fcp, key);
--	head = &fcp->hash_table[hash];
--	for (fle = *head; fle; fle = fle->next) {
--		if (fle->family == family &&
--		    fle->dir == dir &&
--		    flow_key_compare(key, &fle->key) == 0)
-+	hlist_for_each_entry(tfle, entry, &fcp->hash_table[hash], u.hlist) {
-+		if (tfle->family == family &&
-+		    tfle->dir == dir &&
-+		    flow_key_compare(key, &tfle->key) == 0) {
-+			fle = tfle;
- 			break;
-+		}
- 	}
- 
- 	if (unlikely(!fle)) {
-@@ -214,12 +250,11 @@ flow_cache_lookup(struct net *net, struct flowi *key, u16 family, u8 dir,
- 
- 		fle = kmem_cache_alloc(flow_cachep, GFP_ATOMIC);
- 		if (fle) {
--			fle->next = *head;
--			*head = fle;
- 			fle->family = family;
- 			fle->dir = dir;
- 			memcpy(&fle->key, key, sizeof(*key));
- 			fle->object = NULL;
-+			hlist_add_head(&fle->u.hlist, &fcp->hash_table[hash]);
- 			fcp->hash_count++;
- 		}
- 	} else if (likely(fle->genid == atomic_read(&flow_cache_genid))) {
-@@ -262,23 +297,26 @@ static void flow_cache_flush_tasklet(unsigned long data)
- 	struct flow_flush_info *info = (void *)data;
- 	struct flow_cache *fc = info->cache;
- 	struct flow_cache_percpu *fcp;
--	int i;
-+	struct flow_cache_entry *fle;
-+	struct hlist_node *entry, *tmp;
-+	LIST_HEAD(gc_list);
-+	int i, deleted = 0;
- 
- 	fcp = per_cpu_ptr(fc->percpu, smp_processor_id());
- 	for (i = 0; i < flow_cache_hash_size(fc); i++) {
--		struct flow_cache_entry *fle;
--
--		fle = fcp->hash_table[i];
--		for (; fle; fle = fle->next) {
-+		hlist_for_each_entry_safe(fle, entry, tmp,
-+					  &fcp->hash_table[i], u.hlist) {
- 			if (flow_entry_valid(fle))
- 				continue;
- 
--			if (fle->object)
--				fle->object->ops->delete(fle->object);
--			fle->object = NULL;
-+			deleted++;
-+			hlist_del(&fle->u.hlist);
-+			list_add_tail(&fle->u.gc_list, &gc_list);
- 		}
- 	}
- 
-+	flow_cache_queue_garbage(fcp, deleted, &gc_list);
-+
- 	if (atomic_dec_and_test(&info->cpuleft))
- 		complete(&info->completion);
- }
-@@ -320,7 +358,7 @@ void flow_cache_flush(void)
- static void __init flow_cache_cpu_prepare(struct flow_cache *fc,
- 					  struct flow_cache_percpu *fcp)
- {
--	fcp->hash_table = (struct flow_cache_entry **)
-+	fcp->hash_table = (struct hlist_head *)
- 		__get_free_pages(GFP_KERNEL|__GFP_ZERO, fc->order);
- 	if (!fcp->hash_table)
- 		panic("NET: failed to allocate flow cache order %lu\n", fc->order);
-@@ -354,7 +392,7 @@ static int flow_cache_init(struct flow_cache *fc)
- 
- 	for (order = 0;
- 	     (PAGE_SIZE << order) <
--		     (sizeof(struct flow_cache_entry *)*flow_cache_hash_size(fc));
-+		     (sizeof(struct hlist_head)*flow_cache_hash_size(fc));
- 	     order++)
- 		/* NOTHING */;
- 	fc->order = order;
--- 
-1.6.3.3
-
+Btw, you might want to try out "perf record -g" and "perf report 
+--callchain fractal,5" to get a better view of where we're spending 
+time. Perhaps you can spot the difference with that more easily.
