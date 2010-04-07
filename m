@@ -1,84 +1,97 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH] xtables: make XT_ALIGN() usable in exported headers by
- exporting __ALIGN_KERNEL()
-Date: Wed, 7 Apr 2010 19:22:46 +0300
-Message-ID: <20100407162245.GA4557@x200>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [Bug 15703] New: Getting "MD5 Hash failed for" for fragmented
+ IP packets.
+Date: Wed, 7 Apr 2010 09:28:22 -0700
+Message-ID: <20100407092822.39f6ea2a@nehalam>
+References: <bug-15703-100@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	shemminger@vyatta.com, bhutchings@solarflare.com, andreas@fatal.se,
-	hadi@cyberus.ca, hideaki@yoshifuji.org
-To: kaber@trash.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: bugzilla-daemon@bugzilla.kernel.org, vishal.swarnkar@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:60170 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753535Ab0DGQ3N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 12:29:13 -0400
+In-Reply-To: <bug-15703-100@https.bugzilla.kernel.org/>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-XT_ALIGN() was rewritten through ALIGN() by commit 42107f5009da223daa800d6da6904d77297ae829
-"netfilter: xtables: symmetric COMPAT_XT_ALIGN definition".
-ALIGN() is not exported in userspace headers, which created compile problem for tc(8)
-and will create problem for iptables(8).
+On Tue, 6 Apr 2010 09:52:46 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
 
-We can't export generic looking name ALIGN() but we can export less generic
-__ALIGN_KERNEL() (suggested by Ben Hutchings).
-Google knows nothing about __ALIGN_KERNEL().
+> https://bugzilla.kernel.org/show_bug.cgi?id=15703
+> 
+>            Summary: Getting "MD5 Hash failed for" for fragmented IP
+>                     packets.
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 2.6.31-14-generic
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV4
+>         AssignedTo: shemminger@linux-foundation.org
+>         ReportedBy: vishal.swarnkar@gmail.com
+>                 CC: vishal.swarnkar@gmail.com
+>         Regression: No
+> 
+> 
+> I am using Ubuntu 9.10 with a kernel 2.6.31-14-generic.
+> 
+> At my linux box I am receiving IP packets with TCP as payload with TCP-MD5
+> option as its a BGP update.
+> 
+> If I am getting fragmented IP packets on my Linux box then I am receiving only
+> one fragment of the IP packet and I don't receive the second fragments because
+> of some settings at my firewall ( I discard small packets, and the second
+> fragment has only 20 bytes of data, so I consider it as small packet and always
+> discard it).
+> 
+> I have ensured that I am not receiving the second fragment of the packet all
+> the time ( in all further retransmission ) using sniffers.
+> 
+> Now for a IP fragmented packet I keep on getting messages 
+> "MD5 hash failed for IP(src)--> IP(Dst)". I receive this message for all
+> fragmented packets. The message is in tcp_ipv4.c - >tcp_v4_inbound_md5_hash
+> method.
+> 
+> I hope I should not be getting these message because the fragmented packets
+> should not be pushed to the upper layer( TCP) for further sanity checks(
+> MD5-check sum verification), until all fragments are assembled together.
+> 
+> I tried to look at the ip_rcv code and found that ip_local_deliver(struct
+> sk_buff* skb) is calling ip_defrag() function to check if the fragmentation
+> task is still in progress or not.
+> 
+> I tried to dig down more into ip_defrag function and the return values from
+> ip_defrag function and I hope that the check in the ip_local_deliver function
+> is not correct.
+> 
+> int ip_local_deliver(struct sk_buff *skb)
+> {
+>     /*
+>      *    Reassemble IP fragments.
+>      */
+> 
+>     if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
+>         if (ip_defrag(skb, IP_DEFRAG_LOCAL_DELIVER))
+>             return 0;
+>     }
+> 
+>     return NF_HOOK(PF_INET, NF_INET_LOCAL_IN, skb, skb->dev, NULL,
+>                ip_local_deliver_finish);
+> }
+> 
+> 
+> I think the check for ip_defrag should be like this 
+> ------>>>>if (ip_defrag(skb, IP_DEFRAG_LOCAL_DELIVER) < 0) 
+> 
+> we should check the negative return to avoid ip_local_deliver_finish, instead
+> of checking the null return.
 
-COMPAT_XT_ALIGN() changed for symmetry.
-
-Reported-by: Andreas Henriksson <andreas@fatal.se>
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
-
- include/linux/kernel.h             |    5 +++--
- include/linux/netfilter/x_tables.h |    6 +++---
- 2 files changed, 6 insertions(+), 5 deletions(-)
-
---- a/include/linux/kernel.h
-+++ b/include/linux/kernel.h
-@@ -4,6 +4,8 @@
- /*
-  * 'kernel.h' contains some often-used function prototypes etc
-  */
-+#define __ALIGN_KERNEL(x, a)		__ALIGN_KERNEL_MASK(x, (typeof(x))(a) - 1)
-+#define __ALIGN_KERNEL_MASK(x, mask)	(((x) + (mask)) & ~(mask))
- 
- #ifdef __KERNEL__
- 
-@@ -37,8 +39,7 @@ extern const char linux_proc_banner[];
- 
- #define STACK_MAGIC	0xdeadbeef
- 
--#define ALIGN(x,a)		__ALIGN_MASK(x,(typeof(x))(a)-1)
--#define __ALIGN_MASK(x,mask)	(((x)+(mask))&~(mask))
-+#define ALIGN(x, a)		__ALIGN_KERNEL((x), (a))
- #define PTR_ALIGN(p, a)		((typeof(p))ALIGN((unsigned long)(p), (a)))
- #define IS_ALIGNED(x, a)		(((x) & ((typeof(x))(a) - 1)) == 0)
- 
---- a/include/linux/netfilter/x_tables.h
-+++ b/include/linux/netfilter/x_tables.h
-@@ -1,6 +1,6 @@
- #ifndef _X_TABLES_H
- #define _X_TABLES_H
--
-+#include <linux/kernel.h>
- #include <linux/types.h>
- 
- #define XT_FUNCTION_MAXNAMELEN 30
-@@ -93,7 +93,7 @@ struct _xt_align {
- 	__u64 u64;
- };
- 
--#define XT_ALIGN(s) ALIGN((s), __alignof__(struct _xt_align))
-+#define XT_ALIGN(s) __ALIGN_KERNEL((s), __alignof__(struct _xt_align))
- 
- /* Standard return verdict, or do jump. */
- #define XT_STANDARD_TARGET ""
-@@ -598,7 +598,7 @@ struct _compat_xt_align {
- 	compat_u64 u64;
- };
- 
--#define COMPAT_XT_ALIGN(s) ALIGN((s), __alignof__(struct _compat_xt_align))
-+#define COMPAT_XT_ALIGN(s) __ALIGN_KERNEL((s), __alignof__(struct _compat_xt_align))
- 
- extern void xt_compat_lock(u_int8_t af);
- extern void xt_compat_unlock(u_int8_t af);
+Maybe path MTU discovery can help with this.
