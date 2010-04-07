@@ -1,29 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix definition of netdev_for_each_mc_addr()
-Date: Wed, 07 Apr 2010 16:40:17 -0700 (PDT)
-Message-ID: <20100407.164017.238909355.davem@davemloft.net>
-References: <20100407220100.13604.6636.stgit@mj.roinet.com>
+Subject: Re: pull request: wireless-2.6 2010-04-07
+Date: Wed, 07 Apr 2010 16:42:24 -0700 (PDT)
+Message-ID: <20100407.164224.60848141.davem@davemloft.net>
+References: <20100407182832.GA2995@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: proski@gnu.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59037
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751451Ab0DGXkP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 7 Apr 2010 19:40:15 -0400
-In-Reply-To: <20100407220100.13604.6636.stgit@mj.roinet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100407182832.GA2995@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pavel Roskin <proski@gnu.org>
-Date: Wed, 07 Apr 2010 18:01:52 -0400
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 7 Apr 2010 14:28:32 -0400
 
-> The first argument should be called ha, not mclist.  All callers use the
-> name "ha", but if they used a different name, there would be a compile
-> error.
-> 
-> Signed-off-by: Pavel Roskin <proski@gnu.org>
+> Here is a batch of fixes intended for 2.6.34.  Included is a variable
+> initialization required for some ath9k hardware to function reliably,
+> some RCU annotation to avoid some warnings in mac80211, and a fix for
+> a regression relating to 802.11s mesh networking.  Also included are
+> several iwlwifi fixes, include the elimination of an order-4 allocation
+> during resume, avoidance of a the BUG_ON in the rate scaling routines,
+> and the elimination of a DMA API warning during module removal.
+> The iwlwifi patches are a little larger than I would like, but the
+> fixes seem legitimate and worthwhile to me.
 
-Applied, thank you.
+I guess nobody takes me seriously when I say tone down the rate
+of fixes to the absolute minimum.
+
+Oh well, what can I do, if even the most core people can't be bothered
+to listen to my requests.
+
+And people wonder why we need 8 or 9 RCs to get a release out.
+
+Pulled.
