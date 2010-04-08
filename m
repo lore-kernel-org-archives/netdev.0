@@ -1,44 +1,58 @@
-From: "ZioPRoTo (Saverio Proto)" <zioproto@gmail.com>
-Subject: Re: IP/UDP encapsulation
-Date: Thu, 8 Apr 2010 12:39:24 +0200
-Message-ID: <l2ka5e23ab91004080339mf2ac0b2bq2d02fb1c8d1def09@mail.gmail.com>
-References: <20100408074247.GA19798@vigoh>
-	 <20100408191831.08cd8d7b@opy.nosense.org>
-	 <1270722573.2215.47.camel@edumazet-laptop>
+From: Matthias Kaehlcke <matthias@kaehlcke.net>
+Subject: FEC driver: rcv is not +last
+Date: Thu, 8 Apr 2010 12:40:33 +0200
+Message-ID: <20100408104033.GI3787@darwin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Mark Smith <lk-netdev@lk-netdev.nosense.org>,
-	"Gustavo F. Padovan" <gustavo@padovan.org>,
-	netdev <netdev@vger.kernel.org>,
-	marco bonola <marco.bonola@gmail.com>,
-	Behling Mario <mb@mariobehling.de>,
-	"L. Aaron Kaplan" <aaron@lo-res.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sascha Hauer <s.hauer@pengutronix.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f191.google.com ([209.85.210.191]:59154 "EHLO
-	mail-yx0-f191.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751410Ab0DHKjZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 06:39:25 -0400
-Received: by yxe29 with SMTP id 29so553197yxe.4
-        for <netdev@vger.kernel.org>; Thu, 08 Apr 2010 03:39:25 -0700 (PDT)
-In-Reply-To: <1270722573.2215.47.camel@edumazet-laptop>
+Received: from slow3-v.mail.gandi.net ([217.70.178.89]:49694 "EHLO
+	slow3-v.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755212Ab0DHKmt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 06:42:49 -0400
+Received: from relay1-v.mail.gandi.net (relay1-v.mail.gandi.net [217.70.178.75])
+	by slow3-v.mail.gandi.net (Postfix) with ESMTP id 7C8A239A2A
+	for <netdev@vger.kernel.org>; Thu,  8 Apr 2010 12:42:46 +0200 (CEST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> I'm a bit confused. How can tunnelling IP in UDP in IP be faster than IP in IP?
->>
->
-> Maybe the 'gateway' doesnt handle IPIP at all ;)
+hi,
 
-Yes that's the point. IP in UDP is more supported. It has much an
-easier way when your traffic travels over the Internet, and maybe you
-have to pass some NAT. Some NAT will not handle at all IP in IP
-packets.
+i have problems with the FEC on a i.MX25 3-Stack board. the kernel is
+v2.6.34-rc2 plus the following patch:
+http://patchwork.ozlabs.org/patch/41235/
 
-IP in IP has of course less overhead but you can experience problems
-and many network setups. This is why at Freifunk we are thinking of
-developing this kernel module.
+the following traces are generated at boot time:
 
-Regards
+FEC Ethernet Driver
+fec: PHY @ 0x1, ID 0x20005ce1 -- unknown PHY!
+...
+eth0: config: auto-negotiation on, 100FDX, 100HDX, 10FDX, 10HDX.
+...
+FEC ENET: rcv is not +last
+FEC ENET: rcv is not +last
+FEC ENET: rcv is not +last
+FEC ENET: rcv is not +last
+...
 
-Saverio Proto
+the PHY of the board is a DP83840, which is not supported by the
+driver. could this be the problem? i tried to make the kernel think
+the DP83840 is a DP83848, which is supported, but the behaviour is the
+same except the 'unknown PHY' warning.
+
+any idea what could be wrong?
+
+-- 
+Matthias Kaehlcke
+Embedded Linux Developer
+Barcelona
+
+              You can't separate peace from freedom because no
+               one can be at peace unless he has his freedom
+                              (Malcolm X)
+                                                                 .''`.
+    using free software / Debian GNU/Linux | http://debian.org  : :'  :
+                                                                `. `'`
+gpg --keyserver pgp.mit.edu --recv-keys 47D8E5D4                  `-
