@@ -1,42 +1,86 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH net-next-2.6 1/3 (TAKE 3)] ipv6 mcast: Introduce include/net/mld.h
- for MLD definitions.
-Date: Thu, 08 Apr 2010 15:57:03 +0900
-Message-ID: <4BBD7E3F.5070804@linux-ipv6.org>
-References: <201004080611.o386BUQx014996@94.43.138.210.xn.2iij.net> <20100407.233712.27089436.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: powerpc boot failure
+Date: Thu, 8 Apr 2010 16:58:48 +1000
+Message-ID: <20100408165848.38f75f40.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Thu__8_Apr_2010_16_58_48_+1000_YAINVecS+pk+udO."
+Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Timo =?UTF-8?B?VGVyw6Rz?= <timo.teras@iki.fi>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:58794 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758335Ab0DHG5l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 02:57:41 -0400
-In-Reply-To: <20100407.233712.27089436.davem@davemloft.net>
+Received: from chilli.pcug.org.au ([203.10.76.44]:52555 "EHLO smtps.tip.net.au"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758408Ab0DHG65 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 8 Apr 2010 02:58:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(2010/04/08 15:37), David Miller wrote:
-> From: YOSHIFUJI Hideaki<yoshfuji@linux-ipv6.org>
-> Date: Sun, 14 Mar 2010 13:47:16 +0900
->
-> Hrm...
->
-> This 3 week old date on this patch posting screws up patchwork as it
-> lists patches in order by email date, and I therefore nearly could not
-> match things up with the other two patches in this set.
->
-> In fact I initially thought patchwork didn't pick up this patch at
-> all, and it was only able to see the other two.
+--Signature=_Thu__8_Apr_2010_16_58_48_+1000_YAINVecS+pk+udO.
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Oh...
+Hi ,
 
-I'll remove Date: headers from files generated
-by git format-patchin future submissions.
+Today's linux-next (20100408) failed a powerpc boot test like this:
 
-Regards,
+[While bringing up the network interfaces ...]
 
---yoshfuji
+Unable to handle kernel paging request for data at address 0x200000025
+Faulting instruction address: 0xc00000000053d32c
+cpu 0x5: Vector: 300 (Data Access) at [c0000000bb277680]
+    pc: c00000000053d32c: .__xfrm_lookup+0x32c/0x4c0
+    lr: c0000000004e6e10: .ip_route_output_flow+0xb0/0x300
+    sp: c0000000bb277900
+   msr: 8000000000009032
+   dar: 200000025
+ dsisr: 40000000
+  current =3D 0xc0000000bce55640
+  paca    =3D 0xc000000007691a00
+    pid   =3D 4106, comm =3D ntpdate
+[c0000000bb277a20] c0000000004e6e10 .ip_route_output_flow+0xb0/0x300
+[c0000000bb277ad0] c0000000005158c8 .ip4_datagram_connect+0x1a8/0x2f0
+[c0000000bb277bd0] c000000000523dc0 .inet_dgram_connect+0x80/0x110
+[c0000000bb277c60] c0000000004a6904 .SyS_connect+0xa4/0xf0
+[c0000000bb277d90] c0000000004d5f48 .compat_sys_socketcall+0x128/0x2f0
+[c0000000bb277e30] c00000000000852c syscall_exit+0x0/0x40
+
+The most obvious suspect is commit
+80c802f3073e84c956846e921e8a0b02dfa3755f ("xfrm: cache bundles instead of
+policies for outgoing flows") and the couple of commits around that
+(these are new to linux-next today).
+
+The above pc is in this piece of code (I think - I don't have the actual
+kernel) from __xfrm_lookup (in net/xfrm/xfrm_policy.c):
+
+        if ((flags & XFRM_LOOKUP_ICMP) &&
+            !(pols[0]->flags & XFRM_POLICY_ICMP)) {
+                err =3D -ENOENT;
+                goto error;
+        }
+
+        for (i =3D 0; i < num_pols; i++)
+                pols[i]->curlft.use_time =3D get_seconds(); <-------- (line=
+ 1845)
+
+And the 0x200000025 is probably &(pols[i]) (which actually seems unlikely
+since pols is an array on the stack).
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Thu__8_Apr_2010_16_58_48_+1000_YAINVecS+pk+udO.
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAku9fqgACgkQjjKRsyhoI8wiKQCfat2gTZuQik7gOjMylG7fmovw
+PQkAoI8+Oi+1/zWus+GaB5GahEQ+vZs5
+=ty+C
+-----END PGP SIGNATURE-----
+
+--Signature=_Thu__8_Apr_2010_16_58_48_+1000_YAINVecS+pk+udO.--
