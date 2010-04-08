@@ -1,38 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Patch to fix kernel bug 15678 - x25 code accesses fields
- beyond the end of packet.
-Date: Wed, 07 Apr 2010 21:29:36 -0700 (PDT)
-Message-ID: <20100407.212936.09766299.davem@davemloft.net>
-References: <4BB8C0F1.2090100@Calva.COM>
+Subject: Re: patch to improve x.25 throughput negotiation
+Date: Wed, 07 Apr 2010 21:33:14 -0700 (PDT)
+Message-ID: <20100407.213314.156725109.davem@davemloft.net>
+References: <4BB8C2CA.6040102@Calva.COM>
+	<v2jd45a3acc1004060509u88f32fa1va0c374154806535b@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: john@Calva.COM
+Cc: john@calva.com, netdev@vger.kernel.org
+To: andrew.hendry@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39786
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38438
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751022Ab0DHE3d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 00:29:33 -0400
-In-Reply-To: <4BB8C0F1.2090100@Calva.COM>
+	by vger.kernel.org with ESMTP id S1750746Ab0DHEdM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 00:33:12 -0400
+In-Reply-To: <v2jd45a3acc1004060509u88f32fa1va0c374154806535b@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Hughes <john@Calva.COM>
-Date: Sun, 04 Apr 2010 18:40:17 +0200
+From: andrew hendry <andrew.hendry@gmail.com>
+Date: Tue, 6 Apr 2010 22:09:10 +1000
 
-> From: John Hughes <john@calva.com>
-> Subject: Patch to fix bug 15678 - x25 accesses fields beyond end of packet.
+> I have reproduced a few ways.
+> 1. X25_MASK_THROUGHPUT on the x25_subscript_struct, then call
+> SIOCX25SSUBSCRIP, then call SIOCX25FACILITIES without setting the
+> throughput field. Call connect.
+> 2. No subscrip setting, call SIOCX25FACILITIES without setting the
+> throughput field. Call connect.
+> 3. No subcrip, no facilities ioctl, call connect.
 > 
-> Here is a patch to stop X.25 examining fields beyond the end of the packet.
+> The patch removes the bad facility and makes the router accept the
+> call for the above cases.
+> I don't currently have a setup to test both direction throughput negotiation.
 > 
-> For example, when a simple CALL ACCEPTED was received:
-> 
-> 	10 10 0f
-> 
-> x25_parse_facilities was attempting to decode the FACILITIES field, but this
-> packet contains no facilities field.
-> 
-> Signed-off-by: John Hughes <john@calva.com>
+> Tested-by: Andrew Hendry <andrew.hendry@gmail.com>
 
-Applied, thanks John.
+Patch applied, thanks everyone.
