@@ -1,74 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: hackbench regression due to commit 9dfc6e68bfe6e
-Date: Thu, 08 Apr 2010 10:09:55 +0200
-Message-ID: <1270714195.2215.14.camel@edumazet-laptop>
-References: <1269506457.4513.141.camel@alexs-hp.sh.intel.com>
-	 <alpine.DEB.2.00.1003250942080.2670@router.home>
-	 <1269570902.9614.92.camel@alexs-hp.sh.intel.com>
-	 <1270114166.2078.107.camel@ymzhang.sh.intel.com>
-	 <alpine.DEB.2.00.1004011050340.16531@router.home>
-	 <1270195589.2078.116.camel@ymzhang.sh.intel.com>
-	 <alpine.DEB.2.00.1004050853300.23149@router.home>
-	 <i2z84144f021004051030k7ff5190cyc083aa12c552dfac@mail.gmail.com>
-	 <4BBA8DF9.8010409@kernel.org>
-	 <1270542497.2078.123.camel@ymzhang.sh.intel.com>
-	 <alpine.DEB.2.00.1004061033330.18750@router.home>
-	 <alpine.DEB.2.00.1004061552500.19151@router.home>
-	 <1270591841.2091.170.camel@edumazet-laptop>
-	 <1270607668.2078.259.camel@ymzhang.sh.intel.com>
-	 <alpine.DEB.2.00.1004071130260.13261@router.home>
-	 <4BBCB7B7.4040901@cs.helsinki.fi> <4BBCB868.2000705@cs.helsinki.fi>
-	 <alpine.DEB.2.00.1004071319320.16159@router.home>
-	 <1270665484.8141.47.camel@edumazet-laptop>
-	 <1270688747.2078.383.camel@ymzhang.sh.intel.com>
-	 <1270702774.8141.49.camel@edumazet-laptop>
-	 <1270705153.8141.58.camel@edumazet-laptop>
-	 <1270710019.2215.4.camel@edumazet-laptop>
-	 <1270713290.2078.402.camel@ymzhang.sh.intel.com>
-	 <1270713272.2215.6.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] tcp: Set CHECKSUM_UNNECESSARY in tcp_init_nondata_skb
+Date: Thu, 08 Apr 2010 01:26:17 -0700 (PDT)
+Message-ID: <20100408.012617.98660541.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Lameter <cl@linux-foundation.org>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	netdev <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>,
-	alex.shi@intel.com,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Ma, Ling" <ling.ma@intel.com>,
-	"Chen, Tim C" <tim.c.chen@intel.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Ingo Molnar <mingo@elte.hu>
-To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1270713272.2215.6.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56216
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752675Ab0DHI0O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 04:26:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 08 avril 2010 =C3=A0 09:54 +0200, Eric Dumazet a =C3=A9crit :
-> Le jeudi 08 avril 2010 =C3=A0 15:54 +0800, Zhang, Yanmin a =C3=A9crit=
- :
->=20
-> > If there are 2 nodes in the machine, processes on node 0 will conta=
-ct MCH of
-> > node 1 to access memory of node 1. I suspect the MCH of node 1 migh=
-t enter
-> > a power-saving mode when all the cpus of node 1 are free. So the tr=
-ansactions
-> > from MCH 1 to MCH 0 has a larger latency.
-> >=20
->=20
-> Hmm, thanks for the hint, I will investigate this.
 
-Oh well,=20
+Back in commit 04a0551c87363f100b04d28d7a15a632b70e18e7
+("loopback: Drop obsolete ip_summed setting") we stopped
+setting CHECKSUM_UNNECESSARY in the loopback xmit.
 
-perf timechart record &
+This is because such a setting was a lie since it implies that the
+checksum field of the packet is properly filled in.
 
-Instant crash
+Instead what happens normally is that CHECKSUM_PARTIAL is set and
+skb->csum is calculated as needed.
 
-Call Trace:
- perf_trace_sched_switch+0xd5/0x120
- schedule+0x6b5/0x860
- retint_careful+0xd/0x21
-=20
-RIP ffffffff81010955 perf_arch_fetch_caller_regs+0x15/0x40
-CR2: 00000000d21f1422
+But this was only happening for TCP data packets (via the
+skb->ip_summed assignment done in tcp_sendmsg()).  It doesn't
+happen for non-data packets like ACKs etc.
+
+Fix this by setting skb->ip_summed in the common non-data packet
+constructor.  It already is setting skb->csum to zero.
+
+But this reminds us that we still have things like ip_output.c's
+ip_dev_loopback_xmit() which sets skb->ip_summed to the value
+CHECKSUM_UNNECESSARY, which Herbert's patch teaches us is not
+valid.  So we'll have to address that at some point too.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index f181b78..00afbb0 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -349,6 +349,7 @@ static inline void TCP_ECN_send(struct sock *sk, struct sk_buff *skb,
+  */
+ static void tcp_init_nondata_skb(struct sk_buff *skb, u32 seq, u8 flags)
+ {
++	skb->ip_summed = CHECKSUM_PARTIAL;
+ 	skb->csum = 0;
+ 
+ 	TCP_SKB_CB(skb)->flags = flags;
