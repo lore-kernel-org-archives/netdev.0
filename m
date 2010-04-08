@@ -1,57 +1,59 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: dhcp client packet sniffing...
-Date: Thu, 8 Apr 2010 21:12:54 +0800
-Message-ID: <20100408131254.GA24262@gondor.apana.org.au>
-References: <20100408.035049.177640912.davem@davemloft.net> <20100408114738.GA23329@gondor.apana.org.au> <20100408.051144.183699401.davem@davemloft.net> <20100408123025.GA23762@gondor.apana.org.au> <4BBDD0ED.1010203@trash.net>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: FEC driver: rcv is not +last
+Date: Thu, 8 Apr 2010 15:20:33 +0200
+Message-ID: <20100408132033.GJ3688@pengutronix.de>
+References: <20100408104033.GI3787@darwin>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org
+To: Matthias Kaehlcke <matthias@kaehlcke.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:60954 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758711Ab0DHNNC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 09:13:02 -0400
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:56150 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758623Ab0DHNUe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 09:20:34 -0400
 Content-Disposition: inline
-In-Reply-To: <4BBDD0ED.1010203@trash.net>
+In-Reply-To: <20100408104033.GI3787@darwin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 08, 2010 at 02:49:49PM +0200, Patrick McHardy wrote:
+On Thu, Apr 08, 2010 at 12:40:33PM +0200, Matthias Kaehlcke wrote:
+> hi,
 > 
-> Yes, that looks difficult. What might work is to pass the skb->data
-> offsets resulting from those modifications to sk_run_filter to
-> adjust the postition when loading data from the packet. That would
-> allow to run the filter on the original packet before cloning it.
-
-The thing is we can't express those offsets as constants so we'll
-need to run protocol-specific code (i.e., an indirect function
-call) prior to calling the filter.
-
-At that point I'd just give up and go back to the skb_share idea :)
-
-If we're concerned about atomic counter performance, we could even
-do a non-atomic version of skb_share and use it here.  We're the
-sole owner of the skb at this point.
-
-> Regarding your idea of only receiving incoming packets, userspace could
-> use the SKF_AD_PKTTYPE filter with PACKET_HOST. During filter attachment
-> and checks, we could mark the socket as only interested in incoming or
-> outgoing packets.
+> i have problems with the FEC on a i.MX25 3-Stack board. the kernel is
+> v2.6.34-rc2 plus the following patch:
+> http://patchwork.ozlabs.org/patch/41235/
 > 
-> This would require userspace changes of course, but we should be able
-> to avoid passing outgoing packets to af_packet with very low overhead.
+> the following traces are generated at boot time:
+> 
+> FEC Ethernet Driver
+> fec: PHY @ 0x1, ID 0x20005ce1 -- unknown PHY!
+> ...
+> eth0: config: auto-negotiation on, 100FDX, 100HDX, 10FDX, 10HDX.
+> ...
+> FEC ENET: rcv is not +last
+> FEC ENET: rcv is not +last
+> FEC ENET: rcv is not +last
+> FEC ENET: rcv is not +last
+> ...
 
-As kernel programmers, we reject in principle any solution that
-involves user-space coding :)
+No idea, I have never seen this message. Does the controller work
+besides these messages?
 
-Seriously, with the number of DHCP clients out there, any solution
-that requires changing the client is not going to achieve the
-objective in a reasonable time-frame.
+> 
+> the PHY of the board is a DP83840, which is not supported by the
+> driver. could this be the problem? i tried to make the kernel think
+> the DP83840 is a DP83848, which is supported, but the behaviour is the
+> same except the 'unknown PHY' warning.
 
-Cheers,
+This should be solved by the phylib patches recently posted for the fec
+driver.
+
+Sascha
+
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
