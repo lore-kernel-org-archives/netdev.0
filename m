@@ -1,47 +1,33 @@
-From: Mark Brown <broonie@opensource.wolfsonmicro.com>
-Subject: [PATCH] xfrm: Fix double dst_release() in xfrm_lookup() -EREMOTE case
-Date: Thu,  8 Apr 2010 13:29:33 +0100
-Message-ID: <1270729773-1758-1-git-send-email-broonie@opensource.wolfsonmicro.com>
-Cc: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>,
-	netdev@vger.kernel.org,
-	Mark Brown <broonie@opensource.wolfsonmicro.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: dhcp client packet sniffing...
+Date: Thu, 8 Apr 2010 20:30:25 +0800
+Message-ID: <20100408123025.GA23762@gondor.apana.org.au>
+References: <20100408.035049.177640912.davem@davemloft.net> <20100408114738.GA23329@gondor.apana.org.au> <20100408.051144.183699401.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from opensource.wolfsonmicro.com ([80.75.67.52]:38899 "EHLO
-	opensource2.wolfsonmicro.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753940Ab0DHM3g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 08:29:36 -0400
+Received: from ringil.hengli.com.au ([216.59.3.182]:45811 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758597Ab0DHMa2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 08:30:28 -0400
+Content-Disposition: inline
+In-Reply-To: <20100408.051144.183699401.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 80c802 ("xfrm: cache bundles instead of policies for outgoing
-flows") changed __xfrm_policy() to call dst_release() when returning
--EREMOTE. In the case where this is called from xfrm_lookup() a double
-call to dst_release() would result due to the existing dst_release()
-there. Remove the dst_release() in xfrm_lookup().
+On Thu, Apr 08, 2010 at 05:11:44AM -0700, David Miller wrote:
+>
+> We have the socket pointer etc. already in dev_queue_xmit_nit(), so we
+> can easily do it.
 
-Signed-off-by: Mark Brown <broonie@opensource.wolfsonmicro.com>
----
+It doesn't look trivial to me since AF_PACKET fiddles with packet
+headers before running the filter...
 
-I'm not sure if this is correct or not - there may a reference been
-taken earlier in __xfrm_lookup() that's being dropped but I didn't spot
-it.
-
- net/xfrm/xfrm_policy.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
-
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 7430ac2..f133036 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1881,7 +1881,6 @@ int xfrm_lookup(struct net *net, struct dst_entry **dst_p, struct flowi *fl,
- 	int err = __xfrm_lookup(net, dst_p, fl, sk, flags);
- 
- 	if (err == -EREMOTE) {
--		dst_release(*dst_p);
- 		*dst_p = NULL;
- 		err = -EAGAIN;
- 	}
+Cheers,
 -- 
-1.7.0.3
-
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
