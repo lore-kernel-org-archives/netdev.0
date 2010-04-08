@@ -1,54 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] tcp: Set CHECKSUM_UNNECESSARY in tcp_init_nondata_skb
-Date: Thu, 08 Apr 2010 01:26:17 -0700 (PDT)
-Message-ID: <20100408.012617.98660541.davem@davemloft.net>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: linux-next: powerpc boot failure
+Date: Thu, 08 Apr 2010 11:40:13 +0300
+Message-ID: <4BBD966D.8020404@iki.fi>
+References: <20100408165848.38f75f40.sfr@canb.auug.org.au>	<4BBD81B3.3030500@iki.fi>	<20100408172316.e6ee451d.sfr@canb.auug.org.au>	<4BBD85ED.4090209@iki.fi> <20100408174549.2f45ceea.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56216
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752675Ab0DHI0O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 04:26:14 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20100408174549.2f45ceea.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Stephen Rothwell wrote:
+> On Thu, 08 Apr 2010 10:29:49 +0300 Timo Ter=E4s <timo.teras@iki.fi> w=
+rote:
+>> You don't probably have any xfrm policies then. And that code should=
+ not
+>> really get executed.
+>>
+>> Some of the changes touch globally visible structs, and inline funct=
+ions.
+>> Was this a clean rebuild? And did you update all kernel modules, als=
+o in
+>> the initramfs?
+>=20
+> Yes, the build is started from scratch and the kernel and modules are
+> updated (this is our automated build and test system).
+>=20
+> I have attached the config in case that is of use.
 
-Back in commit 04a0551c87363f100b04d28d7a15a632b70e18e7
-("loopback: Drop obsolete ip_summed setting") we stopped
-setting CHECKSUM_UNNECESSARY in the loopback xmit.
+It looks like my new code uses xfrm_pols_put assuming it always does th=
+e
+proper thing. But seems like it's doing funny stuff if CONFIG_XFRM_SUB_=
+POLICY
+is not set, which is your case.
 
-This is because such a setting was a lie since it implies that the
-checksum field of the packet is properly filled in.
+Can you try if this helps?
 
-Instead what happens normally is that CHECKSUM_PARTIAL is set and
-skb->csum is calculated as needed.
-
-But this was only happening for TCP data packets (via the
-skb->ip_summed assignment done in tcp_sendmsg()).  It doesn't
-happen for non-data packets like ACKs etc.
-
-Fix this by setting skb->ip_summed in the common non-data packet
-constructor.  It already is setting skb->csum to zero.
-
-But this reminds us that we still have things like ip_output.c's
-ip_dev_loopback_xmit() which sets skb->ip_summed to the value
-CHECKSUM_UNNECESSARY, which Herbert's patch teaches us is not
-valid.  So we'll have to address that at some point too.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index f181b78..00afbb0 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -349,6 +349,7 @@ static inline void TCP_ECN_send(struct sock *sk, struct sk_buff *skb,
-  */
- static void tcp_init_nondata_skb(struct sk_buff *skb, u32 seq, u8 flags)
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 625dd61..cccb049 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -735,19 +735,12 @@ static inline void xfrm_pol_put(struct xfrm_polic=
+y *policy
+                xfrm_policy_destroy(policy);
+ }
+=20
+-#ifdef CONFIG_XFRM_SUB_POLICY
+ static inline void xfrm_pols_put(struct xfrm_policy **pols, int npols)
  {
-+	skb->ip_summed = CHECKSUM_PARTIAL;
- 	skb->csum = 0;
- 
- 	TCP_SKB_CB(skb)->flags = flags;
+        int i;
+        for (i =3D npols - 1; i >=3D 0; --i)
+                xfrm_pol_put(pols[i]);
+ }
+-#else
+-static inline void xfrm_pols_put(struct xfrm_policy **pols, int npols)
+-{
+-       xfrm_pol_put(pols[0]);
+-}
+-#endif
+=20
+ extern void __xfrm_state_destroy(struct xfrm_state *);
+=20
