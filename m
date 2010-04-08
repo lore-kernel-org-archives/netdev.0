@@ -1,54 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] rfs: Receive Flow Steering
-Date: Wed, 07 Apr 2010 21:40:39 -0700 (PDT)
-Message-ID: <20100407.214039.67944635.davem@davemloft.net>
-References: <alpine.DEB.1.00.1004052248390.29212@pokey.mtv.corp.google.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: re-submit3 [ANNOUNCEMENT] NET: usb: sierra_net.c driver
+Date: Wed, 07 Apr 2010 21:45:30 -0700 (PDT)
+Message-ID: <20100407.214530.05341654.davem@davemloft.net>
+References: <1270517948.14692.9.camel@Linuxdev4-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.com, netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: therbert@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41466
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750746Ab0DHEkh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 00:40:37 -0400
-In-Reply-To: <alpine.DEB.1.00.1004052248390.29212@pokey.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, rfiler-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1270517948.14692.9.camel@Linuxdev4-laptop>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <therbert@google.com>
-Date: Mon, 5 Apr 2010 22:56:50 -0700 (PDT)
+From: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
+Date: Mon, 5 Apr 2010 18:39:08 -0700
 
-> @@ -2342,6 +2387,10 @@ static int enqueue_to_backlog(struct sk_buff *skb, int cpu)
->  		if (queue->input_pkt_queue.qlen) {
->  enqueue:
->  			__skb_queue_tail(&queue->input_pkt_queue, skb);
-> +#ifdef CONFIG_RPS
-> +			*qtail = queue->input_queue_head +
-> +			    queue->input_pkt_queue.qlen;
-> +#endif
->  			rps_unlock(queue);
->  			local_irq_restore(flags);
->  			return NET_RX_SUCCESS;
- ...
-> @@ -2801,6 +2864,9 @@ static void flush_backlog(void *arg)
->  		if (skb->dev == dev) {
->  			__skb_unlink(skb, &queue->input_pkt_queue);
->  			kfree_skb(skb);
-> +#ifdef CONFIG_RPS
-> +			queue->input_queue_head++;
-> +#endif
->  		}
->  	rps_unlock(queue);
->  }
+> Subject: re-submit3 [ANNOUNCEMENT] NET: usb: sierra_net.c driver
+> From: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
 
-Please abstract these behind inline functions that live in
-some header file, so we don't need to continually pepper
-dev.c with countless ifdefs.
+I want you to tell me exactly how you generated this patch.
 
-If you fix this and the kernel command line --> sysctl thing
-Eric pointed out, I think I can apply this to net-next-2.6
+It doesn't apply, and I suspect that you tried to fix the excess empty
+lines at the end of certain files by editing the patch by hand.
 
-Thanks.
+If so, did you test the result?
 
+The patch is corrupted and more importantly git won't accept it.
+
+davem@sunset:~/src/GIT/net-2.6$ git am --signoff re-submit3-ANNOUNCEMENT-NET-usb-sierra_net.c-driver.patch 
+Applying: re-submit3 [ANNOUNCEMENT] NET: usb: sierra_net.c driver
+/home/davem/src/GIT/net-2.6/.git/rebase-apply/patch:36: new blank line at EOF.
++
+error: drivers/net/usb/sierra_net.c: does not exist in index
+Patch failed at 0001 re-submit3 [ANNOUNCEMENT] NET: usb: sierra_net.c driver
+When you have resolved this problem run "git am --resolved".
+If you would prefer to skip this patch, instead run "git am --skip".
+To restore the original branch and stop patching run "git am --abort".
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
