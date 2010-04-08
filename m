@@ -1,36 +1,94 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: dhcp client packet sniffing...
-Date: Thu, 08 Apr 2010 05:11:44 -0700 (PDT)
-Message-ID: <20100408.051144.183699401.davem@davemloft.net>
-References: <20100408.035049.177640912.davem@davemloft.net>
-	<20100408114738.GA23329@gondor.apana.org.au>
+From: Rakesh Ranjan <rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH 1/3] cxgb4i: add build support
+Date: Thu,  8 Apr 2010 17:44:13 +0530
+Message-ID: <1270728855-20951-2-git-send-email-rakesh@chelsio.com>
+References: <1270728855-20951-1-git-send-email-rakesh@chelsio.com>
+Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41473
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758511Ab0DHMLn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 08:11:43 -0400
-In-Reply-To: <20100408114738.GA23329@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kxie-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+        James.Bottomley-JuX6DAaQMKPCXq6kfMZ53/egYHeGw8Jk@public.gmane.org, michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org,
+        Rakesh Ranjan <rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Return-path: <35ci9SwYLCrcoXhbpeZebipfl.Zljlmbk-fpZpfdlldibdolrmp.Zlj-WNnxsJb2WYALHLMFiseIBxPsWskHk0ljAL8bYrjMMd8@public.gmane.org>
+In-Reply-To: <1270728855-20951-1-git-send-email-rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+List-Post: <http://groups.google.com/group/open-iscsi/post?hl=en_US>,
+	<mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/?hl=en_US>, <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/open-iscsi?hl=en_US>
+Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/open-iscsi/subscribe?hl=en_US>,
+	<mailto:open-iscsi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/open-iscsi/subscribe?hl=en_US>,
+	<mailto:open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 8 Apr 2010 19:47:38 +0800
+From: Rakesh Ranjan <rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 
-> Another approach is to use skb_share.  At some point all protocols
-> were designed to handle shared skbs.
-> 
-> If we could tap into that then it would be an obvious way to
-> eliminate the clone.  To do this we'd need to audit all the
-> protocols to ensure that they can still handle shared packets
-> safely.
 
-I don't even want to call down into the AF_PACKET code for
-the case where the filter doesn't pass.
+Signed-off-by: Rakesh Ranjan <rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+---
+ drivers/scsi/Kconfig        |    1 +
+ drivers/scsi/Makefile       |    1 +
+ drivers/scsi/cxgb4i/Kbuild  |    4 ++++
+ drivers/scsi/cxgb4i/Kconfig |    7 +++++++
+ 4 files changed, 13 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/scsi/cxgb4i/Kbuild
+ create mode 100644 drivers/scsi/cxgb4i/Kconfig
 
-We have the socket pointer etc. already in dev_queue_xmit_nit(), so we
-can easily do it.
+diff --git a/drivers/scsi/Kconfig b/drivers/scsi/Kconfig
+index 75f2336..fc3810a 100644
+--- a/drivers/scsi/Kconfig
++++ b/drivers/scsi/Kconfig
+@@ -371,6 +371,7 @@ config ISCSI_TCP
+ 	 http://open-iscsi.org
+ 
+ source "drivers/scsi/cxgb3i/Kconfig"
++source "drivers/scsi/cxgb4i/Kconfig"
+ source "drivers/scsi/bnx2i/Kconfig"
+ source "drivers/scsi/be2iscsi/Kconfig"
+ 
+diff --git a/drivers/scsi/Makefile b/drivers/scsi/Makefile
+index 92a8c50..d8a90f5 100644
+--- a/drivers/scsi/Makefile
++++ b/drivers/scsi/Makefile
+@@ -133,6 +133,7 @@ obj-$(CONFIG_SCSI_STEX)		+= stex.o
+ obj-$(CONFIG_SCSI_MVSAS)	+= mvsas/
+ obj-$(CONFIG_PS3_ROM)		+= ps3rom.o
+ obj-$(CONFIG_SCSI_CXGB3_ISCSI)	+= libiscsi.o libiscsi_tcp.o cxgb3i/
++obj-$(CONFIG_SCSI_CXGB4_ISCSI)	+= libiscsi.o libiscsi_tcp.o cxgb4i/
+ obj-$(CONFIG_SCSI_BNX2_ISCSI)	+= libiscsi.o bnx2i/
+ obj-$(CONFIG_BE2ISCSI)		+= libiscsi.o be2iscsi/
+ obj-$(CONFIG_SCSI_PMCRAID)	+= pmcraid.o
+diff --git a/drivers/scsi/cxgb4i/Kbuild b/drivers/scsi/cxgb4i/Kbuild
+new file mode 100644
+index 0000000..4c5c40e
+--- /dev/null
++++ b/drivers/scsi/cxgb4i/Kbuild
+@@ -0,0 +1,4 @@
++EXTRA_CFLAGS += -I$(srctree)/drivers/net/cxgb4
++
++cxgb4i-y := cxgb4i_snic.o cxgb4i_iscsi.o cxgb4i_pdu.o cxgb4i_offload.o cxgb4i_ddp.o
++obj-$(CONFIG_SCSI_CXGB4_ISCSI) += cxgb4i.o
+diff --git a/drivers/scsi/cxgb4i/Kconfig b/drivers/scsi/cxgb4i/Kconfig
+new file mode 100644
+index 0000000..3f33dc2
+--- /dev/null
++++ b/drivers/scsi/cxgb4i/Kconfig
+@@ -0,0 +1,7 @@
++config SCSI_CXGB4_ISCSI
++	tristate "Chelsio T4 iSCSI support"
++	depends on CHELSIO_T4_DEPENDS
++	select CHELSIO_T4
++	select SCSI_ISCSI_ATTRS
++	---help---
++	This driver supports iSCSI offload for the Chelsio T4 series devices.
+-- 
+1.6.6.1
+
+-- 
+You received this message because you are subscribed to the Google Groups "open-iscsi" group.
+To post to this group, send email to open-iscsi-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+To unsubscribe from this group, send email to open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit this group at http://groups.google.com/group/open-iscsi?hl=en.
