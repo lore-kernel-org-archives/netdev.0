@@ -1,33 +1,27 @@
-From: Rakesh Ranjan <rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: cxgb4i submission
-Date: Thu,  8 Apr 2010 17:44:12 +0530
-Message-ID: <1270728855-20951-1-git-send-email-rakesh@chelsio.com>
-Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: cxgb4i submission
+Date: Thu, 08 Apr 2010 05:18:50 -0700 (PDT)
+Message-ID: <20100408.051850.51394263.davem@davemloft.net>
+References: <1270728855-20951-1-git-send-email-rakesh@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kxie-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-        James.Bottomley-JuX6DAaQMKPCXq6kfMZ53/egYHeGw8Jk@public.gmane.org, michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Return-path: <3Ocm9SwYLCgw3mwq4totqx4u0.o0y01qz-u4o4us00sxqs30614.o0y-WNnxsJb2WYALHLMFiseIBxPsWskHk0ljAL8bYrjMMd8@public.gmane.org>
-List-Post: <http://groups.google.com/group/open-iscsi/post?hl=en_US>,
-	<mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/?hl=en_US>, <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/open-iscsi?hl=en_US>
-Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/open-iscsi/subscribe?hl=en_US>,
-	<mailto:open-iscsi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/open-iscsi/subscribe?hl=en_US>,
-	<mailto:open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	open-iscsi@googlegroups.com, linux-kernel@vger.kernel.org,
+	kxie@chelsio.com, James.Bottomley@hansenpartnership.com,
+	michaelc@cs.wisc.edu
+To: rakesh@chelsio.com
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1270728855-20951-1-git-send-email-rakesh@chelsio.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The following 3 patche add a new iscsi LLD driver cxgb4i to enable iscsi offload
-support on Chelsio's new 1G and 10G cards. This driver depends upon cxgb4 driver,
-posted recently on netdev and now part of net-next repo. Please share you commnets
-after review. I will be sending updated patches after getting feedback/commnets.
+From: Rakesh Ranjan <rakesh@chelsio.com>
+Date: Thu,  8 Apr 2010 17:44:12 +0530
 
--- 
-You received this message because you are subscribed to the Google Groups "open-iscsi" group.
-To post to this group, send email to open-iscsi-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-To unsubscribe from this group, send email to open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-For more options, visit this group at http://groups.google.com/group/open-iscsi?hl=en.
+> This driver depends upon cxgb4 driver, posted recently on netdev and
+> now part of net-next repo.
+
+It went into the net-2.6 repo, not net-next-2.6
+
+And it is even in Linus's tree now.
