@@ -1,68 +1,96 @@
-From: Tony Luck <tony.luck@intel.com>
-Subject: Re: linux-next: powerpc boot failure
-Date: Thu, 8 Apr 2010 11:55:34 -0700
-Message-ID: <o2s12c511ca1004081155o9b28c9f5hdfadd075913f1fcf@mail.gmail.com>
-References: <20100408165848.38f75f40.sfr@canb.auug.org.au>
-	 <4BBD81B3.3030500@iki.fi>
-	 <20100408172316.e6ee451d.sfr@canb.auug.org.au>
-	 <4BBD85ED.4090209@iki.fi>
-	 <20100408174549.2f45ceea.sfr@canb.auug.org.au>
-	 <4BBD966D.8020404@iki.fi>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: panic in net-next almost immediately on ifup
+Date: Thu, 8 Apr 2010 12:57:27 -0600
+Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FE4F6AC08@rrsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <4BBD966D.8020404@iki.fi>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>,
+	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:8834 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932642Ab0DHS5b convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 14:57:31 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I'm seeing an oops in the same routine on ia64 built from next-20100408
+I am seeing the following panic on a fresh net-next pull. 
 
-My setup is a SLES11 installation.  next-20100407 booted with no proble=
-ms.
-I'm also clueless about xfrm_policy.
+Seems like ipv6/mcast related issue? Panic points to /net/ipv6/mcast.c:1490
 
-Here's an abbreviated copy of the first (of several) oops.  The code
-dereferences a bad pointer:
+[   49.375726] BUG: unable to handle kernel paging request at fffffffe81bf1048
+[   49.382833] IP: [<ffffffff8143971b>] mld_sendpack+0x2bd/0x2f1
+[   49.388668] PGD 1a0a067 PUD 0 
+[   49.391858] Oops: 0000 [#1] SMP 
+[   49.395228] last sysfs file: /sys/devices/pci0000:00/0000:00:1d.0/usb2/2-1/2-1.1/devnum
+[   49.403251] CPU 2 
+[   49.405124] Modules linked in: e1000 [last unloaded: scsi_wait_scan]
+[   49.411883] 
+[   49.413416] Pid: 2235, comm: grep Not tainted 2.6.34-rc2-net-next-master #7 X8SIL/X8SIL
+[   49.421442] RIP: 0010:[<ffffffff8143971b>]  [<ffffffff8143971b>] mld_sendpack+0x2bd/0x2f1
+[   49.429689] RSP: 0000:ffff880001e83d50  EFLAGS: 00010202
+[   49.435220] RAX: 000060fffde056e8 RBX: ffff8801b605fc00 RCX: ffff8801b605ff00
+[   49.442565] RDX: ffff880001e90880 RSI: ffff880001e83aa0 RDI: ffffffff8139e741
+[   49.449913] RBP: ffff880001e83de0 R08: ffffffff81a63f9c R09: 000000000000004c
+[   49.457258] R10: 000000000947d5de R11: ffff880180000000 R12: ffff8801bce62800
+[   49.464606] R13: fffffffe81bf0ee0 R14: 000000000000004c R15: 000000000000001c
+[   49.471953] FS:  0000000000000000(0000) GS:ffff880001e80000(0000) knlGS:0000000000000000
+[   49.480440] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[   49.486403] CR2: fffffffe81bf1048 CR3: 00000001b61d1000 CR4: 00000000000006e0
+[   49.493750] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[   49.501097] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+[   49.508444] Process grep (pid: 2235, threadinfo ffff8801b609e000, task ffff8801bcda6320)
+[   49.516928] Stack:
+[   49.519168]  ffff8801b61cd010 0000004000000002 0000000000000003 000002ff00000000
+[   49.526773] <0> 0000000000000000 0000000016000000 0000000000000000 0000000000000000
+[   49.535106] <0> 0000008f0000003a 0000000000000000 ffff880001e83db0 ffff8801b6024500
+[   49.543851] Call Trace:
+[   49.546522]  <IRQ> 
+[   49.548902]  [<ffffffff81439e3f>] mld_ifc_timer_expire+0x236/0x26f
+[   49.555301]  [<ffffffff8102ad26>] ? task_tick_fair+0x28/0x108
+[   49.561261]  [<ffffffff81439c09>] ? mld_ifc_timer_expire+0x0/0x26f
+[   49.567661]  [<ffffffff81042f71>] run_timer_softirq+0x1b3/0x250
+[   49.573805]  [<ffffffff810177e4>] ? apic_write+0x11/0x13
+[   49.579335]  [<ffffffff8103c87d>] __do_softirq+0xda/0x195
+[   49.584954]  [<ffffffff8105b3b9>] ? tick_program_event+0x25/0x27
+[   49.591183]  [<ffffffff8100384c>] call_softirq+0x1c/0x28
+[   49.596714]  [<ffffffff81004e47>] do_softirq+0x33/0x68
+[   49.602074]  [<ffffffff8103c6fd>] irq_exit+0x36/0x78
+[   49.607261]  [<ffffffff81018028>] smp_apic_timer_interrupt+0x80/0x8e
+[   49.613830]  [<ffffffff81003313>] apic_timer_interrupt+0x13/0x20
+[   49.620049]  <EOI> 
+[   49.622011] Code: 25 80 d1 00 00 48 8d 04 02 48 ff 80 b0 00 00 00 4c 01 b0 e0 00 00 00 eb 1e 4d 85 e4 74 0d 49 8b 84 24 68 01 00 00 65 48 ff 40 60 <49> 8b 85 68 01 00 00 65 48 ff 40 60 4d 85 e4 74 14 4c 89 e7 e8 
+[   49.645200] RIP  [<ffffffff8143971b>] mld_sendpack+0x2bd/0x2f1
+[   49.651310]  RSP <ffff880001e83d50>
+[   49.655018] CR2: fffffffe81bf1048
+[   49.658556] ---[ end trace be71aeb787ca2f3b ]---
+[   49.663395] Kernel panic - not syncing: Fatal exception in interrupt
+[   49.669964] Pid: 2235, comm: grep Tainted: G      D    2.6.34-rc2-net-next-master #7
+[   49.678104] Call Trace:
+[   49.680775]  <IRQ>  [<ffffffff814b25f7>] panic+0x73/0xe8
+[   49.686361]  [<ffffffff814b5268>] oops_end+0xa9/0xb9
+[   49.691547]  [<ffffffff810208e5>] no_context+0x1f7/0x206
+[   49.697077]  [<ffffffff81020a6d>] __bad_area_nosemaphore+0x179/0x19c
+[   49.703647]  [<ffffffff81020a9e>] bad_area_nosemaphore+0xe/0x10
+[   49.709783]  [<ffffffff814b70f1>] do_page_fault+0x135/0x273
+[   49.715574]  [<ffffffff814b479f>] page_fault+0x1f/0x30
+[   49.720935]  [<ffffffff8139e741>] ? dev_queue_xmit+0x403/0x437
+[   49.726982]  [<ffffffff8143971b>] ? mld_sendpack+0x2bd/0x2f1
+[   49.732858]  [<ffffffff81439e3f>] mld_ifc_timer_expire+0x236/0x26f
+[   49.739255]  [<ffffffff8102ad26>] ? task_tick_fair+0x28/0x108
+[   49.745219]  [<ffffffff81439c09>] ? mld_ifc_timer_expire+0x0/0x26f
+[   49.751615]  [<ffffffff81042f71>] run_timer_softirq+0x1b3/0x250
+[   49.757752]  [<ffffffff810177e4>] ? apic_write+0x11/0x13
+[   49.763281]  [<ffffffff8103c87d>] __do_softirq+0xda/0x195
+[   49.768901]  [<ffffffff8105b3b9>] ? tick_program_event+0x25/0x27
+[   49.775124]  [<ffffffff8100384c>] call_softirq+0x1c/0x28
+[   49.780653]  [<ffffffff81004e47>] do_softirq+0x33/0x68
+[   49.786014]  [<ffffffff8103c6fd>] irq_exit+0x36/0x78
+[   49.791200]  [<ffffffff81018028>] smp_apic_timer_interrupt+0x80/0x8e
+[   49.797767]  [<ffffffff81003313>] apic_timer_interrupt+0x13/0x20
+[   49.803987]  <EOI> 
 
-Unable to handle kernel paging request at virtual address 480cb78f00000=
-024
-mount.nfs[7289]: Oops 8821862825984 [1]
-Modules linked in: nfs lockd auth_rpcgss sunrpc binfmt_misc loop
-dm_mod sr_mod usb_storage sg button container usbhid uhci_hcd ehci_hcd
-usbcore fan processor thermal thermal_sys
-
-Pid: 7289, CPU 16, comm:            mount.nfs
-psr : 0000101008526030 ifs : 8000000000000e22 ip  :
-[<a000000100888f10>]    Not tainted
-(2.6.34-rc3-generic-smp-next-20100408)
-ip is at __xfrm_lookup+0x650/0x760
-
-Call Trace:
- [<a000000100015950>] show_stack+0x50/0xa0
- [<a0000001000161c0>] show_regs+0x820/0x860
- [<a00000010003ac00>] die+0x1a0/0x300
- [<a000000100068b40>] ia64_do_page_fault+0x8c0/0x9e0
- [<a00000010000bb00>] ia64_native_leave_kernel+0x0/0x270
- [<a000000100888f10>] __xfrm_lookup+0x650/0x760
- [<a0000001007ec410>] ip_route_output_flow+0xf0/0x480
- [<a000000100846c30>] ip4_datagram_connect+0x330/0x5e0
- [<a00000010085f420>] inet_dgram_connect+0x140/0x180
- [<a0000001007854f0>] sys_connect+0xf0/0x1a0
- [<a00000010000b980>] ia64_ret_from_syscall+0x0/0x20
- [<a000000000010720>] __kernel_syscall_via_break+0x0/0x20
-
-I tried the patch you just posted.  Compiling with it gave this warning=
-:
-
-net/xfrm/xfrm_policy.c: In function =91__xfrm_lookup=92:
-net/xfrm/xfrm_policy.c:1735: warning: =91num_xfrms=92 may be used
-uninitialized in this function
-
-but the patched kernel booted ok.
-
--Tony
+Emil
