@@ -1,125 +1,69 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: mmotm 2010-04-05-16-09 uploaded
-Date: Thu, 08 Apr 2010 13:41:00 +0200
-Message-ID: <4BBDC0CC.7080305@trash.net>
-References: <201004052336.o35NaeSE015814@imap1.linux-foundation.org> <13074.1270663309@localhost>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: dhcp client packet sniffing...
+Date: Thu, 8 Apr 2010 19:47:38 +0800
+Message-ID: <20100408114738.GA23329@gondor.apana.org.au>
+References: <20100408.035049.177640912.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030704070607030103010608"
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Valdis.Kletnieks@vt.edu
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35541 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752156Ab0DHLlC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 07:41:02 -0400
-In-Reply-To: <13074.1270663309@localhost>
+Received: from ringil.hengli.com.au ([216.59.3.182]:39577 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750768Ab0DHLrm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 07:47:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20100408.035049.177640912.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------030704070607030103010608
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-
-Valdis.Kletnieks@vt.edu wrote:
-> On Mon, 05 Apr 2010 16:09:45 PDT, akpm@linux-foundation.org said:
->> The mm-of-the-moment snapshot 2010-04-05-16-09 has been uploaded to
->>
->>    http://userweb.kernel.org/~akpm/mmotm/
+On Thu, Apr 08, 2010 at 03:50:49AM -0700, David Miller wrote:
 > 
-> Seen in dmesg, 2.6.34-rc2-mmotm0323 didn't do this. Tossing it at all the
-> likely suspects, hopefully somebody will recognize it and save me the
-> bisecting. ;)
+> This is an old topic, but looking at traces tonight I was reminded
+> about it.
 > 
-> [   11.488535] ctnetlink v0.93: registering with nfnetlink.
-> [   11.488579] 
-> [   11.488579] ===================================================
-> [   11.489529] [ INFO: suspicious rcu_dereference_check() usage. ]
-> [   11.489988] ---------------------------------------------------
-> [   11.490494] net/netfilter/nf_conntrack_ecache.c:88 invoked rcu_dereference_check() without protection!
-> [   11.491024] 
-> [   11.491024] other info that might help us debug this:
-> [   11.491025] 
-> [   11.492834] 
-> [   11.492835] rcu_scheduler_active = 1, debug_locks = 0
-> [   11.494124] 1 lock held by swapper/1:
-> [   11.494776]  #0:  (nf_ct_ecache_mutex){+.+...}, at: [<ffffffff8148c606>] nf_conntrack_register_notifier+0x1a/0x76
-> [   11.495505] 
+> dhcp clients sniff every packet in the system, the reason it does this
+> and the things we can do to make it not have to do so have been
+> discussed before.  Actually, I don't remember where we got with
+> that and if we were able to make it such that the dhcp client
+> doesn't have to do this any more.  Herbert?
 
-There are some unnecessary rcu_dereference() calls in the conntrack
-notifier registration and unregistration functions.
+The main problem is that it needs to be able to receive packets
+destined to an address which is not yet a local address.  IOW,
+it needs to be able to bypass the routing table and receive
+non-local traffic.
 
-Does this fix it?
+> This means every packet in the machine gets sniffed.
+> 
+> The DHCP client at least installs a socket filter that only accepts
+> the packets that the DHCP client is actually interested in.
+> 
+> The problem is that we clone the SKB and do some other operations
+> before running the socket filter.
+> 
+> I was thinking, what if we simply move the sk_filter() call up to
+> dev_queue_xmit_nit()?  And if sk_filter() rejects we don't even need
+> to clone the packet.
 
+Since you're talking about dev_queue_xmit_nit, I presume you're
+mainly concerned about the TX direction?
 
---------------030704070607030103010608
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+FWIW the DHCP client does not need to see any packets in the TX
+direction.  So if we could provide a way to only sniff RX traffic
+then that would remove the need to clone for TX.  However, this
+may require user-space modifications.
 
-diff --git a/net/netfilter/nf_conntrack_ecache.c b/net/netfilter/nf_conntrack_ecache.c
-index d5a9bcd..849614a 100644
---- a/net/netfilter/nf_conntrack_ecache.c
-+++ b/net/netfilter/nf_conntrack_ecache.c
-@@ -81,11 +81,9 @@ EXPORT_SYMBOL_GPL(nf_ct_deliver_cached_events);
- int nf_conntrack_register_notifier(struct nf_ct_event_notifier *new)
- {
- 	int ret = 0;
--	struct nf_ct_event_notifier *notify;
- 
- 	mutex_lock(&nf_ct_ecache_mutex);
--	notify = rcu_dereference(nf_conntrack_event_cb);
--	if (notify != NULL) {
-+	if (nf_conntrack_event_cb != NULL) {
- 		ret = -EBUSY;
- 		goto out_unlock;
- 	}
-@@ -101,11 +99,8 @@ EXPORT_SYMBOL_GPL(nf_conntrack_register_notifier);
- 
- void nf_conntrack_unregister_notifier(struct nf_ct_event_notifier *new)
- {
--	struct nf_ct_event_notifier *notify;
--
- 	mutex_lock(&nf_ct_ecache_mutex);
--	notify = rcu_dereference(nf_conntrack_event_cb);
--	BUG_ON(notify != new);
-+	BUG_ON(nf_conntrack_event_cb != new);
- 	rcu_assign_pointer(nf_conntrack_event_cb, NULL);
- 	mutex_unlock(&nf_ct_ecache_mutex);
- }
-@@ -114,11 +109,9 @@ EXPORT_SYMBOL_GPL(nf_conntrack_unregister_notifier);
- int nf_ct_expect_register_notifier(struct nf_exp_event_notifier *new)
- {
- 	int ret = 0;
--	struct nf_exp_event_notifier *notify;
- 
- 	mutex_lock(&nf_ct_ecache_mutex);
--	notify = rcu_dereference(nf_expect_event_cb);
--	if (notify != NULL) {
-+	if (nf_expect_event_cb != NULL) {
- 		ret = -EBUSY;
- 		goto out_unlock;
- 	}
-@@ -134,11 +127,8 @@ EXPORT_SYMBOL_GPL(nf_ct_expect_register_notifier);
- 
- void nf_ct_expect_unregister_notifier(struct nf_exp_event_notifier *new)
- {
--	struct nf_exp_event_notifier *notify;
--
- 	mutex_lock(&nf_ct_ecache_mutex);
--	notify = rcu_dereference(nf_expect_event_cb);
--	BUG_ON(notify != new);
-+	BUG_ON(nf_expect_event_cb != new);
- 	rcu_assign_pointer(nf_expect_event_cb, NULL);
- 	mutex_unlock(&nf_ct_ecache_mutex);
- }
+Another approach is to use skb_share.  At some point all protocols
+were designed to handle shared skbs.
 
---------------030704070607030103010608--
+If we could tap into that then it would be an obvious way to
+eliminate the clone.  To do this we'd need to audit all the
+protocols to ensure that they can still handle shared packets
+safely.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
