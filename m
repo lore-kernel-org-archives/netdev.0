@@ -1,123 +1,121 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: Re: 2.6.34-rc3-git6: Reported regressions from 2.6.33
-Date: Thu, 8 Apr 2010 22:24:42 +0200
-Message-ID: <201004082224.42633.rjw@sisk.pl>
-References: <6Pphclm24fK.A.lSF.qsPvLB@chimera> <alpine.LFD.2.00.1004071444440.3586@i5.linux-foundation.org>
+From: Laurent Chavey <chavey@google.com>
+Subject: Re: [PATCH 1/1] add ethtool loopback support
+Date: Thu, 8 Apr 2010 14:18:38 -0700
+Message-ID: <u2w97949e3e1004081418t8d47e25aoe999d29c6409de45@mail.gmail.com>
+References: <pvmbpdtn8yh.fsf@chavey.mtv.corp.google.com> <1270751373.5055.22.camel@achroite.uk.solarflarecom.com>
+	<4BBE33C9.5000507@garzik.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
-To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LFD.2.00.1004071444440.3586-GpypE611fyS63QaFMGN2QEqCLAeBNdoH@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, therbert@google.com
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([74.125.121.35]:34096 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754061Ab0DHVTD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 17:19:03 -0400
+Received: from hpaq2.eem.corp.google.com (hpaq2.eem.corp.google.com [10.3.21.2])
+	by smtp-out.google.com with ESMTP id o38LJ1fP017952
+	for <netdev@vger.kernel.org>; Thu, 8 Apr 2010 23:19:01 +0200
+Received: from gxk25 (gxk25.prod.google.com [10.202.11.25])
+	by hpaq2.eem.corp.google.com with ESMTP id o38LIfQ5018080
+	for <netdev@vger.kernel.org>; Thu, 8 Apr 2010 23:19:00 +0200
+Received: by gxk25 with SMTP id 25so264694gxk.11
+        for <netdev@vger.kernel.org>; Thu, 08 Apr 2010 14:19:00 -0700 (PDT)
+In-Reply-To: <4BBE33C9.5000507@garzik.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 08 April 2010, Linus Torvalds wrote:
-> 
-> On Wed, 7 Apr 2010, Rafael J. Wysocki wrote:
-> > 
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=15718
-> > Subject		: File corruption regression on NFS related to commit 1f36f774
-> > Submitter	: Boaz Harrosh <bharrosh-C4P08NqkoRlBDgjK7y7TUQ@public.gmane.org>
-> > Date		: 2010-03-24 15:49 (15 days old)
-> > First-Bad-Commit: http://git.kernel.org/git/linus/1f36f774b22a0ceb7dd33eca626746c81a97b6a5
-> > Message-ID	: <4BAA3493.1030802-C4P08NqkoRlBDgjK7y7TUQ@public.gmane.org>
-> > References	: http://marc.info/?l=linux-kernel&m=126944579810350&w=4
-> > Handled-By	: Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
-> 
-> I think this one is fixed by commit 3e297b61349.
+On Thu, Apr 8, 2010 at 12:51 PM, Jeff Garzik <jeff@garzik.org> wrote:
+> On 04/08/2010 02:29 PM, Ben Hutchings wrote:
+>>
+>> On Thu, 2010-04-08 at 10:35 -0700, chavey@google.com wrote:
+>>>
+>>> From: Ranjit Manomohan<ranjitm@google.com>
+>>> Date: Wed, 7 Apr 2010 15:19:48 -0700
+>>>
+>>> Add an ethtool option to use internal loopback mode for testing.
+>>> This feature is used for component and driver test coverage by putt=
+ing
+>>> the device in hardware loopback mode and sending / receiving networ=
+k
+>>> traffic from a user application to test the hardware and driver
+>>> transmit / receive paths.
+>>>
+>>> Signed-off-by: laurent chavey<chavey@google.com>
+>>> ---
+>>> =A0include/linux/ethtool.h | =A0 16 ++++++++++++++++
+>>> =A0net/core/ethtool.c =A0 =A0 =A0| =A0 40 +++++++++++++++++++++++++=
++++++++++++++++
+>>> =A02 files changed, 56 insertions(+), 0 deletions(-)
+>>>
+>>> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+>>> index b33f316..df1dcc7 100644
+>>> --- a/include/linux/ethtool.h
+>>> +++ b/include/linux/ethtool.h
+>>> @@ -292,6 +292,18 @@ struct ethtool_stats {
+>>> =A0 =A0 =A0 =A0__u64 =A0 data[0];
+>>> =A0};
+>>>
+>>> +/* for setting the NIC into loopback mode */
+>>> +struct ethtool_loopback {
+>>> + =A0 =A0 =A0 u32 cmd; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/* ETHTOOL_SL=
+OOPBACK */
+>>> + =A0 =A0 =A0 u32 type; =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* ethtool_loop=
+back_type */
+>>> +};
+>>> +
+>>> +enum ethtool_loopback_type {
+>>> + =A0 =A0 =A0 ETH_MAC =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =3D 0x0000000=
+1,
+>>> + =A0 =A0 =A0 ETH_PHY_INT =A0 =A0 =A0 =A0 =A0 =A0 =3D 0x00000002,
+>>> + =A0 =A0 =A0 ETH_PHY_EXT =A0 =A0 =A0 =A0 =A0 =A0 =3D 0x00000004
+>>> +};
+>>
+>> [...]
+>>
+>> There are many different places you can loop back within a MAC or PH=
+Y,
+>> not to mention bypassing the MAC altogether. =A0See
+>> drivers/net/sfc/mcdi_pcol.h, starting from the line
+>> '#define MC_CMD_LOOPBACK_NONE 0'. =A0I believe we implement all of t=
+hose
+>> loopback modes on at least one board.
+>>
+>> Also are these supposed to be an enumeration or flags? =A0In theory =
+you
+>> could use wire-side and host-side loopback at the same time if they
+>> don't overlap, but it's probably too much trouble to bother with. =A0=
+Any
+>> other combination is meaningless.
+>
+>
+> Additionally, ethtool is intended as an interface that exports capabi=
+lities
+> generally useful to users. =A0Is this feature really something that u=
+sers will
+> make use of? =A0It seems more in the realm of design validation
+>
+> The existing ETHTOOL_TEST ioctl was intended as a coarse-grained meth=
+od of
+> verifying that the NIC is working, because fine-grained tests are ine=
+vitably
+> both NIC-specific, and too involved for all but the most sophisticate=
+d users
+> (read: the designers who built the NIC).
+>
+> So, consider this a _weak_ objection. =A0Sure we could implement this=
+, but
+> will it really be useful to most users?
 
-Closed.
-
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=15716
-> > Subject		: ata2: lost interrupt with kernel 2.6.34-rc1
-> > Submitter	: Andrew Benton <b3nton-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > Date		: 2010-03-11 16:57 (28 days old)
-> > Message-ID	: <4B992110.2090300-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > References	: http://marc.info/?l=linux-kernel&m=126832670609705&w=4
-> > Handled-By	: Jeff Garzik <jeff-o2qLIJkoznsdnm+yROfE0A@public.gmane.org>
-> 
-> And isn't this the already long-fixed commit 332ac7ff77cd?
-> 
-> That bugzilla entry is a duplicate of 
-> 
-> 	https://bugzilla.kernel.org/show_bug.cgi?id=15537
-> 
-> as far as I can see.
-
-Yes, my bad, sorry.  Closed.
-
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=15715
-> > Subject		: vmscan: underflow for get_scan_ratio
-> > Submitter	: Shaohua Li <shaohua.li-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> > Date		: 2010-03-30 5:53 (9 days old)
-> > First-Bad-Commit: http://git.kernel.org/git/linus/84b18490d1f1bc7ed5095c929f78bc002eb70f26
-> > Message-ID	: <20100330055304.GA2983-U5EdaLXB8smDugQYiPIPGdh3ngVCH38I@public.gmane.org>
-> > References	: http://marc.info/?l=linux-kernel&m=126992842105754&w=4
-> > Handled-By	: KOSAKI Motohiro <kosaki.motohiro-+CUm20s59erQFUHtdCDX3A@public.gmane.org>
-> > 		  Wu Fengguang <fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> 
-> That commit got reverted. See commit d6da1a5abc.
-
-Closed.
-
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=15674
-> > Subject		: [2.6.34-rc2 NFS4 oops] open error path failure...
-> > Submitter	: Daniel J Blueman <daniel.blueman-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> > Date		: 2010-03-29 18:36 (10 days old)
-> > Message-ID	: <6278d2221003291136p6481fe8emfb039403343c082-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-> > References	: http://marc.info/?l=linux-kernel&m=126988782722711&w=2
-> 
-> This smells like the same LOOKUP_DIRECTORY thing as the first entry, but.. 
-> 
-> Al?
-
-This one has been fixed too, I see, so closed.
-
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=15600
-> > Subject		: CONFIG_NO_BOOTMEM woes, 2.6.34-rc1
-> > Submitter	: Avi Kivity <avi-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> > Date		: 2010-03-15 15:28 (24 days old)
-> > Message-ID	: <4B9E5211.9000204-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> > References	: http://marc.info/?l=linux-kernel&m=126866691701926&w=2
-> 
-> These should hopefully be all fixed. There was some confusion over this, 
-> but the report that said it wasn't fixed in -rc3 was apparently not true 
-> after all. Several commits, but mainly commit eed63519e, iirc.
-
-Closed.
-
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=15518
-> > Subject		: CONFIG_NO_BOOTMEM=y breaks boot on 32bit
-> > Submitter	: Daniel Vetter <daniel-/w4YWyX8dFk@public.gmane.org>
-> > Date		: 2010-03-11 15:37 (28 days old)
-> 
-> Duplicate entry. See above.
-
-Closed.
-
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=15480
-> > Subject		: [regression] Fails to boot properly unless given pci=nocrs
-> > Submitter	: Yanko Kaneti <yaneti-jUE9FD3ILm5BDgjK7y7TUQ@public.gmane.org>
-> > Date		: 2010-03-09 01:24 (30 days old)
-> > Handled-By	: Bjorn Helgaas <bjorn.helgaas-VXdhtT5mjnY@public.gmane.org>
-> > Patch		: http://lkml.org/lkml/2010/3/11/512
-> 
-> These are merged already. Commits d558b483d5, eb9fc8ef7cb etc.
-
-Closed.
-
-Thanks,
-Rafael
+we have some autotests that make use of this feature for e1000(e), forc=
+edeth and
+tg3 that we would like to share with the community to do perf / functio=
+nal tests
+regression.
+>
+> =A0 =A0 =A0 =A0Jeff
+>
+>
+>
