@@ -1,593 +1,269 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next-2.6 3/3 (TAKE 3)] bridge br_multicast: IPv6 MLD support.
-Date: Thu, 8 Apr 2010 14:52:30 +0900
-Message-ID: <201004080611.o386BbdW015020@94.43.138.210.xn.2iij.net>
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	shemminger@vyatta.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:60042 "EHLO
-	94.43.138.210.xn.2iij.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756299Ab0DHGLm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 02:11:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Amerigo Wang <amwang@redhat.com>
+Subject: [v3 Patch 1/3] netpoll: add generic support for bridge and bonding devices
+Date: Thu, 8 Apr 2010 02:18:46 -0400
+Message-ID: <20100408062234.4499.17042.sendpatchset@localhost.localdomain>
+Cc: Matt Mackall <mpm@selenic.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org,
+	Andy Gospodarek <gospo@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Amerigo Wang <amwang@redhat.com>,
+	Jeff Moyer <jmoyer@redhat.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	bonding-devel@lists.sourceforge.net,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	David Miller <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+V3:
+Update to latest Linus' tree.
+Fix deadlocks when releasing slaves of bonding devices.
+Thanks to Andy.
+
+V2:
+Fix some bugs of previous version.
+Remove ->netpoll_setup and ->netpoll_xmit, they are not necessary.
+Don't poll all underlying devices, poll ->real_dev in struct netpoll.
+Thanks to David for suggesting above.
+
+--------->
+
+This whole patchset is for adding netpoll support to bridge and bonding
+devices. I already tested it for bridge, bonding, bridge over bonding,
+and bonding over bridge. It looks fine now.
+
+Please comment.
+
+
+To make bridge and bonding support netpoll, we need to adjust
+some netpoll generic code. This patch does the following things:
+
+1) introduce two new priv_flags for struct net_device:
+   IFF_IN_NETPOLL which identifies we are processing a netpoll;
+   IFF_DISABLE_NETPOLL is used to disable netpoll support for a device
+   at run-time;
+
+2) introduce one new method for netdev_ops:
+   ->ndo_netpoll_cleanup() is used to clean up netpoll when a device is
+     removed.
+
+3) introduce netpoll_poll_dev() which takes a struct net_device * parameter;
+   export netpoll_send_skb() and netpoll_poll_dev() which will be used later;
+
+4) hide a pointer to struct netpoll in struct netpoll_info, ditto.
+
+5) introduce ->real_dev for struct netpoll.
+
+6) introduce a new status NETDEV_BONDING_DESLAE, which is used to disable
+   netconsole before releasing a slave, to avoid deadlocks.
+
+Cc: David Miller <davem@davemloft.net>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: WANG Cong <amwang@redhat.com>
+
 ---
- net/bridge/Kconfig        |    6 +-
- net/bridge/br_multicast.c |  419 ++++++++++++++++++++++++++++++++++++++++++++-
- net/bridge/br_private.h   |    3 +
- 3 files changed, 424 insertions(+), 4 deletions(-)
 
-diff --git a/net/bridge/Kconfig b/net/bridge/Kconfig
-index d115d5c..9190ae4 100644
---- a/net/bridge/Kconfig
-+++ b/net/bridge/Kconfig
-@@ -33,14 +33,14 @@ config BRIDGE
- 	  If unsure, say N.
+Index: linux-2.6/include/linux/if.h
+===================================================================
+--- linux-2.6.orig/include/linux/if.h
++++ linux-2.6/include/linux/if.h
+@@ -71,6 +71,8 @@
+ 					 * release skb->dst
+ 					 */
+ #define IFF_DONT_BRIDGE 0x800		/* disallow bridging this ether dev */
++#define IFF_IN_NETPOLL	0x1000		/* whether we are processing netpoll */
++#define IFF_DISABLE_NETPOLL	0x2000	/* disable netpoll at run-time */
  
- config BRIDGE_IGMP_SNOOPING
--	bool "IGMP snooping"
-+	bool "IGMP/MLD snooping"
- 	depends on BRIDGE
- 	depends on INET
- 	default y
- 	---help---
- 	  If you say Y here, then the Ethernet bridge will be able selectively
--	  forward multicast traffic based on IGMP traffic received from each
--	  port.
-+	  forward multicast traffic based on IGMP/MLD traffic received from
-+	  each port.
+ #define IF_GET_IFACE	0x0001		/* for querying only */
+ #define IF_GET_PROTO	0x0002
+Index: linux-2.6/include/linux/netdevice.h
+===================================================================
+--- linux-2.6.orig/include/linux/netdevice.h
++++ linux-2.6/include/linux/netdevice.h
+@@ -667,6 +667,7 @@ struct net_device_ops {
+ 						        unsigned short vid);
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	void                    (*ndo_poll_controller)(struct net_device *dev);
++	void			(*ndo_netpoll_cleanup)(struct net_device *dev);
+ #endif
+ 	int			(*ndo_set_vf_mac)(struct net_device *dev,
+ 						  int queue, u8 *mac);
+Index: linux-2.6/include/linux/netpoll.h
+===================================================================
+--- linux-2.6.orig/include/linux/netpoll.h
++++ linux-2.6/include/linux/netpoll.h
+@@ -14,6 +14,7 @@
  
- 	  Say N to exclude this support and reduce the binary size.
+ struct netpoll {
+ 	struct net_device *dev;
++	struct net_device *real_dev;
+ 	char dev_name[IFNAMSIZ];
+ 	const char *name;
+ 	void (*rx_hook)(struct netpoll *, int, char *, int);
+@@ -36,8 +37,11 @@ struct netpoll_info {
+ 	struct sk_buff_head txq;
  
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 8e98546..db0de7a 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -24,9 +24,18 @@
- #include <linux/slab.h>
- #include <linux/timer.h>
- #include <net/ip.h>
-+#include <net/ipv6.h>
-+#include <net/mld.h>
- 
- #include "br_private.h"
- 
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+static inline int ipv6_addr_is_mc_linklocal(const struct in6_addr *addr)
-+{
-+	return addr->s6_addr16[0] == htons(0xff02);
-+}
-+#endif
+ 	struct delayed_work tx_work;
 +
- static inline int br_ip_equal(const struct br_ip *a, const struct br_ip *b)
- {
- 	if (a->proto != b->proto)
-@@ -34,6 +43,10 @@ static inline int br_ip_equal(const struct br_ip *a, const struct br_ip *b)
- 	switch (a->proto) {
- 	case htons(ETH_P_IP):
- 		return a->u.ip4 == b->u.ip4;
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+	case htons(ETH_P_IPV6):
-+		return ipv6_addr_equal(&a->u.ip6, &b->u.ip6);
-+#endif
- 	}
- 	return 0;
- }
-@@ -43,12 +56,24 @@ static inline int __br_ip4_hash(struct net_bridge_mdb_htable *mdb, __be32 ip)
- 	return jhash_1word(mdb->secret, (u32)ip) & (mdb->max - 1);
- }
- 
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+static inline int __br_ip6_hash(struct net_bridge_mdb_htable *mdb,
-+				const struct in6_addr *ip)
-+{
-+	return jhash2(ip->s6_addr32, 4, mdb->secret) & (mdb->max - 1);
-+}
-+#endif
-+
- static inline int br_ip_hash(struct net_bridge_mdb_htable *mdb,
- 			     struct br_ip *ip)
- {
- 	switch (ip->proto) {
- 	case htons(ETH_P_IP):
- 		return __br_ip4_hash(mdb, ip->u.ip4);
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+	case htons(ETH_P_IPV6):
-+		return __br_ip6_hash(mdb, &ip->u.ip6);
-+#endif
- 	}
- 	return 0;
- }
-@@ -78,6 +103,19 @@ static struct net_bridge_mdb_entry *br_mdb_ip4_get(
- 	return __br_mdb_ip_get(mdb, &br_dst, __br_ip4_hash(mdb, dst));
- }
- 
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+static struct net_bridge_mdb_entry *br_mdb_ip6_get(
-+	struct net_bridge_mdb_htable *mdb, const struct in6_addr *dst)
-+{
-+	struct br_ip br_dst;
-+
-+	ipv6_addr_copy(&br_dst.u.ip6, dst);
-+	br_dst.proto = htons(ETH_P_IPV6);
-+
-+	return __br_mdb_ip_get(mdb, &br_dst, __br_ip6_hash(mdb, dst));
-+}
-+#endif
-+
- static struct net_bridge_mdb_entry *br_mdb_ip_get(
- 	struct net_bridge_mdb_htable *mdb, struct br_ip *dst)
- {
-@@ -102,6 +140,11 @@ struct net_bridge_mdb_entry *br_mdb_get(struct net_bridge *br,
- 	case htons(ETH_P_IP):
- 		ip.u.ip4 = ip_hdr(skb)->daddr;
- 		break;
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+	case htons(ETH_P_IPV6):
-+		ipv6_addr_copy(&ip.u.ip6, &ipv6_hdr(skb)->daddr);
-+		break;
-+#endif
- 	default:
- 		return NULL;
- 	}
-@@ -352,12 +395,95 @@ out:
- 	return skb;
- }
- 
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+static struct sk_buff *br_ip6_multicast_alloc_query(struct net_bridge *br,
-+						    struct in6_addr *group)
-+{
-+	struct sk_buff *skb;
-+	struct ipv6hdr *ip6h;
-+	struct mld_msg *mldq;
-+	struct ethhdr *eth;
-+	u8 *hopopt;
-+	unsigned long interval;
-+
-+	skb = netdev_alloc_skb_ip_align(br->dev, sizeof(*eth) + sizeof(*ip6h) +
-+						 8 + sizeof(*mldq));
-+	if (!skb)
-+		goto out;
-+
-+	skb->protocol = htons(ETH_P_IPV6);
-+
-+	/* Ethernet header */
-+	skb_reset_mac_header(skb);
-+	eth = eth_hdr(skb);
-+
-+	memcpy(eth->h_source, br->dev->dev_addr, 6);
-+	ipv6_eth_mc_map(group, eth->h_dest);
-+	eth->h_proto = htons(ETH_P_IPV6);
-+	skb_put(skb, sizeof(*eth));
-+
-+	/* IPv6 header + HbH option */
-+	skb_set_network_header(skb, skb->len);
-+	ip6h = ipv6_hdr(skb);
-+
-+	*(__force __be32 *)ip6h = htonl(0x60000000);
-+	ip6h->payload_len = 8 + sizeof(*mldq);
-+	ip6h->nexthdr = IPPROTO_HOPOPTS;
-+	ip6h->hop_limit = 1;
-+	ipv6_addr_copy(&ip6h->saddr, &in6addr_any);
-+	ipv6_addr_copy(&ip6h->daddr, &in6addr_linklocal_allnodes);
-+	ipv6_addr_copy(&ip6h->daddr, group);
-+
-+	hopopt = (u8 *)(ip6h + 1);
-+	hopopt[0] = IPPROTO_ICMPV6;		/* next hdr */
-+	hopopt[1] = 0;				/* length of HbH */
-+	hopopt[2] = IPV6_TLV_ROUTERALERT;	/* Router Alert */
-+	hopopt[3] = 2;				/* Length of RA Option */
-+	hopopt[4] = 0;				/* Type = 0x0000 (MLD) */
-+	hopopt[5] = 0;
-+	hopopt[6] = IPV6_TLV_PAD0;		/* Pad0 */
-+	hopopt[7] = IPV6_TLV_PAD0;		/* Pad0 */
-+
-+	skb_put(skb, sizeof(*ip6h) + 8);
-+
-+	/* ICMPv6 */
-+	skb_set_transport_header(skb, skb->len);
-+	mldq = (struct mld_msg *) icmp6_hdr(skb);
-+
-+	interval = ipv6_addr_any(group) ? br->multicast_last_member_interval :
-+					  br->multicast_query_response_interval;
-+
-+	mldq->mld_type = ICMPV6_MGM_QUERY;
-+	mldq->mld_code = 0;
-+	mldq->mld_cksum = 0;
-+	mldq->mld_maxdelay = htons((u16)jiffies_to_msecs(interval));
-+	mldq->mld_reserved = 0;
-+	ipv6_addr_copy(&mldq->mld_mca, group);
-+
-+	/* checksum */
-+	mldq->mld_cksum = csum_ipv6_magic(&in6addr_any, group,
-+					  sizeof(*mldq), IPPROTO_ICMPV6,
-+					  csum_partial(mldq,
-+						       sizeof(*mldq), 0));
-+	skb_put(skb, sizeof(*mldq));
-+
-+	__skb_pull(skb, sizeof(*eth));
-+
-+out:
-+	return skb;
-+}
-+#endif
-+
- static struct sk_buff *br_multicast_alloc_query(struct net_bridge *br,
- 						struct br_ip *addr)
- {
- 	switch (addr->proto) {
- 	case htons(ETH_P_IP):
- 		return br_ip4_multicast_alloc_query(br, addr->u.ip4);
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+	case htons(ETH_P_IPV6):
-+		return br_ip6_multicast_alloc_query(br, &addr->u.ip6);
-+#endif
- 	}
- 	return NULL;
- }
-@@ -631,6 +757,23 @@ static int br_ip4_multicast_add_group(struct net_bridge *br,
- 	return br_multicast_add_group(br, port, &br_group);
- }
- 
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+static int br_ip6_multicast_add_group(struct net_bridge *br,
-+				      struct net_bridge_port *port,
-+				      const struct in6_addr *group)
-+{
-+	struct br_ip br_group;
-+
-+	if (ipv6_addr_is_mc_linklocal(group))
-+		return 0;
-+
-+	ipv6_addr_copy(&br_group.u.ip6, group);
-+	br_group.proto = htons(ETH_P_IP);
-+
-+	return br_multicast_add_group(br, port, &br_group);
-+}
-+#endif
-+
- static void br_multicast_router_expired(unsigned long data)
- {
- 	struct net_bridge_port *port = (void *)data;
-@@ -681,10 +824,15 @@ static void br_multicast_send_query(struct net_bridge *br,
- 	    timer_pending(&br->multicast_querier_timer))
- 		return;
- 
--	br_group.u.ip4 = 0;
-+	memset(&br_group.u, 0, sizeof(br_group.u));
-+
- 	br_group.proto = htons(ETH_P_IP);
-+	__br_multicast_send_query(br, port, &br_group);
- 
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+	br_group.proto = htons(ETH_P_IPV6);
- 	__br_multicast_send_query(br, port, &br_group);
-+#endif
- 
- 	time = jiffies;
- 	time += sent < br->multicast_startup_query_count ?
-@@ -825,6 +973,66 @@ static int br_ip4_multicast_igmp3_report(struct net_bridge *br,
- 	return err;
- }
- 
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+static int br_ip6_multicast_mld2_report(struct net_bridge *br,
-+					struct net_bridge_port *port,
-+					struct sk_buff *skb)
-+{
-+	struct icmp6hdr *icmp6h;
-+	struct mld2_grec *grec;
-+	int i;
-+	int len;
-+	int num;
-+	int err = 0;
-+
-+	if (!pskb_may_pull(skb, sizeof(*icmp6h)))
-+		return -EINVAL;
-+
-+	icmp6h = icmp6_hdr(skb);
-+	num = ntohs(icmp6h->icmp6_dataun.un_data16[1]);
-+	len = sizeof(*icmp6h);
-+
-+	for (i = 0; i < num; i++) {
-+		__be16 *nsrcs, _nsrcs;
-+
-+		nsrcs = skb_header_pointer(skb,
-+					   len + offsetof(struct mld2_grec,
-+							  grec_mca),
-+					   sizeof(_nsrcs), &_nsrcs);
-+		if (!nsrcs)
-+			return -EINVAL;
-+
-+		if (!pskb_may_pull(skb,
-+				   len + sizeof(*grec) +
-+				   sizeof(struct in6_addr) * (*nsrcs)))
-+			return -EINVAL;
-+
-+		grec = (struct mld2_grec *)(skb->data + len);
-+		len += sizeof(*grec) + sizeof(struct in6_addr) * (*nsrcs);
-+
-+		/* We treat these as MLDv1 reports for now. */
-+		switch (grec->grec_type) {
-+		case MLD2_MODE_IS_INCLUDE:
-+		case MLD2_MODE_IS_EXCLUDE:
-+		case MLD2_CHANGE_TO_INCLUDE:
-+		case MLD2_CHANGE_TO_EXCLUDE:
-+		case MLD2_ALLOW_NEW_SOURCES:
-+		case MLD2_BLOCK_OLD_SOURCES:
-+			break;
-+
-+		default:
-+			continue;
-+		}
-+
-+		err = br_ip6_multicast_add_group(br, port, &grec->grec_mca);
-+		if (!err)
-+			break;
-+	}
-+
-+	return err;
-+}
-+#endif
-+
- static void br_multicast_add_router(struct net_bridge *br,
- 				    struct net_bridge_port *port)
- {
-@@ -955,6 +1163,75 @@ out:
- 	return err;
- }
- 
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+static int br_ip6_multicast_query(struct net_bridge *br,
-+				  struct net_bridge_port *port,
-+				  struct sk_buff *skb)
-+{
-+	struct ipv6hdr *ip6h = ipv6_hdr(skb);
-+	struct mld_msg *mld = (struct mld_msg *) icmp6_hdr(skb);
-+	struct net_bridge_mdb_entry *mp;
-+	struct mld2_query *mld2q;
-+	struct net_bridge_port_group *p, **pp;
-+	unsigned long max_delay;
-+	unsigned long now = jiffies;
-+	struct in6_addr *group = NULL;
-+	int err = 0;
-+
-+	spin_lock(&br->multicast_lock);
-+	if (!netif_running(br->dev) ||
-+	    (port && port->state == BR_STATE_DISABLED))
-+		goto out;
-+
-+	br_multicast_query_received(br, port, !ipv6_addr_any(&ip6h->saddr));
-+
-+	if (skb->len == sizeof(*mld)) {
-+		if (!pskb_may_pull(skb, sizeof(*mld))) {
-+			err = -EINVAL;
-+			goto out;
-+		}
-+		mld = (struct mld_msg *) icmp6_hdr(skb);
-+		max_delay = msecs_to_jiffies(htons(mld->mld_maxdelay));
-+		if (max_delay)
-+			group = &mld->mld_mca;
-+	} else if (skb->len >= sizeof(*mld2q)) {
-+		if (!pskb_may_pull(skb, sizeof(*mld2q))) {
-+			err = -EINVAL;
-+			goto out;
-+		}
-+		mld2q = (struct mld2_query *)icmp6_hdr(skb);
-+		if (!mld2q->mld2q_nsrcs)
-+			group = &mld2q->mld2q_mca;
-+		max_delay = mld2q->mld2q_mrc ? MLDV2_MRC(mld2q->mld2q_mrc) : 1;
-+	}
-+
-+	if (!group)
-+		goto out;
-+
-+	mp = br_mdb_ip6_get(br->mdb, group);
-+	if (!mp)
-+		goto out;
-+
-+	max_delay *= br->multicast_last_member_count;
-+	if (!hlist_unhashed(&mp->mglist) &&
-+	    (timer_pending(&mp->timer) ?
-+	     time_after(mp->timer.expires, now + max_delay) :
-+	     try_to_del_timer_sync(&mp->timer) >= 0))
-+		mod_timer(&mp->timer, now + max_delay);
-+
-+	for (pp = &mp->ports; (p = *pp); pp = &p->next) {
-+		if (timer_pending(&p->timer) ?
-+		    time_after(p->timer.expires, now + max_delay) :
-+		    try_to_del_timer_sync(&p->timer) >= 0)
-+			mod_timer(&mp->timer, now + max_delay);
-+	}
-+
-+out:
-+	spin_unlock(&br->multicast_lock);
-+	return err;
-+}
-+#endif
-+
- static void br_multicast_leave_group(struct net_bridge *br,
- 				     struct net_bridge_port *port,
- 				     struct br_ip *group)
-@@ -1030,6 +1307,22 @@ static void br_ip4_multicast_leave_group(struct net_bridge *br,
- 	br_multicast_leave_group(br, port, &br_group);
- }
- 
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+static void br_ip6_multicast_leave_group(struct net_bridge *br,
-+					 struct net_bridge_port *port,
-+					 const struct in6_addr *group)
-+{
-+	struct br_ip br_group;
-+
-+	if (ipv6_addr_is_mc_linklocal(group))
-+		return;
-+
-+	ipv6_addr_copy(&br_group.u.ip6, group);
-+	br_group.proto = htons(ETH_P_IPV6);
-+
-+	br_multicast_leave_group(br, port, &br_group);
-+}
-+#endif
- 
- static int br_multicast_ipv4_rcv(struct net_bridge *br,
- 				 struct net_bridge_port *port,
-@@ -1129,6 +1422,126 @@ err_out:
- 	return err;
- }
- 
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+static int br_multicast_ipv6_rcv(struct net_bridge *br,
-+				 struct net_bridge_port *port,
-+				 struct sk_buff *skb)
-+{
-+	struct sk_buff *skb2 = skb;
-+	struct ipv6hdr *ip6h;
-+	struct icmp6hdr *icmp6h;
-+	u8 nexthdr;
-+	unsigned len;
-+	unsigned offset;
-+	int err;
-+
-+	BR_INPUT_SKB_CB(skb)->igmp = 0;
-+	BR_INPUT_SKB_CB(skb)->mrouters_only = 0;
-+
-+	if (!pskb_may_pull(skb, sizeof(*ip6h)))
-+		return -EINVAL;
-+
-+	ip6h = ipv6_hdr(skb);
-+
-+	/*
-+	 * We're interested in MLD messages only.
-+	 *  - Version is 6
-+	 *  - MLD has always Router Alert hop-by-hop option
-+	 *  - But we do not support jumbrograms.
-+	 */
-+	if (ip6h->version != 6 ||
-+	    ip6h->nexthdr != IPPROTO_HOPOPTS ||
-+	    ip6h->payload_len == 0)
-+		return 0;
-+
-+	len = ntohs(ip6h->payload_len);
-+	if (skb->len < len)
-+		return -EINVAL;
-+
-+	nexthdr = ip6h->nexthdr;
-+	offset = ipv6_skip_exthdr(skb, sizeof(*ip6h), &nexthdr);
-+
-+	if (offset < 0 || nexthdr != IPPROTO_ICMPV6)
-+		return 0;
-+
-+	/* Okay, we found ICMPv6 header */
-+	skb2 = skb_clone(skb, GFP_ATOMIC);
-+	if (!skb2)
-+		return -ENOMEM;
-+
-+	len -= offset - skb_network_offset(skb2);
-+
-+	__skb_pull(skb2, offset);
-+	skb_reset_transport_header(skb2);
-+
-+	err = -EINVAL;
-+	if (!pskb_may_pull(skb2, sizeof(*icmp6h)))
-+		goto out;
-+
-+	icmp6h = icmp6_hdr(skb2);
-+
-+	switch (icmp6h->icmp6_type) {
-+	case ICMPV6_MGM_QUERY:
-+	case ICMPV6_MGM_REPORT:
-+	case ICMPV6_MGM_REDUCTION:
-+	case ICMPV6_MLD2_REPORT:
-+		break;
-+	default:
-+		err = 0;
-+		goto out;
-+	}
-+
-+	/* Okay, we found MLD message. Check further. */
-+	if (skb2->len > len) {
-+		err = pskb_trim_rcsum(skb2, len);
-+		if (err)
-+			goto out;
-+	}
-+
-+	switch (skb2->ip_summed) {
-+	case CHECKSUM_COMPLETE:
-+		if (!csum_fold(skb2->csum))
-+			break;
-+		/*FALLTHROUGH*/
-+	case CHECKSUM_NONE:
-+		skb2->csum = 0;
-+		if (skb_checksum_complete(skb2))
-+			goto out;
-+	}
-+
-+	err = 0;
-+
-+	BR_INPUT_SKB_CB(skb)->igmp = 1;
-+
-+	switch (icmp6h->icmp6_type) {
-+	case ICMPV6_MGM_REPORT:
-+	    {
-+		struct mld_msg *mld = (struct mld_msg *)icmp6h;
-+		BR_INPUT_SKB_CB(skb2)->mrouters_only = 1;
-+		err = br_ip6_multicast_add_group(br, port, &mld->mld_mca);
-+		break;
-+	    }
-+	case ICMPV6_MLD2_REPORT:
-+		err = br_ip6_multicast_mld2_report(br, port, skb2);
-+		break;
-+	case ICMPV6_MGM_QUERY:
-+		err = br_ip6_multicast_query(br, port, skb2);
-+		break;
-+	case ICMPV6_MGM_REDUCTION:
-+	    {
-+		struct mld_msg *mld = (struct mld_msg *)icmp6h;
-+		br_ip6_multicast_leave_group(br, port, &mld->mld_mca);
-+	    }
-+	}
-+
-+out:
-+	__skb_push(skb2, offset);
-+	if (skb2 != skb)
-+		kfree_skb(skb2);
-+	return err;
-+}
-+#endif
-+
- int br_multicast_rcv(struct net_bridge *br, struct net_bridge_port *port,
- 		     struct sk_buff *skb)
- {
-@@ -1138,6 +1551,10 @@ int br_multicast_rcv(struct net_bridge *br, struct net_bridge_port *port,
- 	switch (skb->protocol) {
- 	case htons(ETH_P_IP):
- 		return br_multicast_ipv4_rcv(br, port, skb);
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+	case htons(ETH_P_IPV6):
-+		return br_multicast_ipv6_rcv(br, port, skb);
-+#endif
- 	}
- 
- 	return 0;
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index b55de82..da37715 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -49,6 +49,9 @@ struct br_ip
- {
- 	union {
- 		__be32	ip4;
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+		struct in6_addr ip6;
-+#endif
- 	} u;
- 	__be16		proto;
++	struct netpoll *netpoll;
  };
--- 
-1.5.6.5
-
+ 
++void netpoll_poll_dev(struct net_device *dev);
+ void netpoll_poll(struct netpoll *np);
+ void netpoll_send_udp(struct netpoll *np, const char *msg, int len);
+ void netpoll_print_options(struct netpoll *np);
+@@ -47,6 +51,7 @@ int netpoll_trap(void);
+ void netpoll_set_trap(int trap);
+ void netpoll_cleanup(struct netpoll *np);
+ int __netpoll_rx(struct sk_buff *skb);
++void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb);
+ 
+ 
+ #ifdef CONFIG_NETPOLL
+Index: linux-2.6/net/core/netpoll.c
+===================================================================
+--- linux-2.6.orig/net/core/netpoll.c
++++ linux-2.6/net/core/netpoll.c
+@@ -179,9 +179,8 @@ static void service_arp_queue(struct net
+ 	}
+ }
+ 
+-void netpoll_poll(struct netpoll *np)
++void netpoll_poll_dev(struct net_device *dev)
+ {
+-	struct net_device *dev = np->dev;
+ 	const struct net_device_ops *ops;
+ 
+ 	if (!dev || !netif_running(dev))
+@@ -201,6 +200,11 @@ void netpoll_poll(struct netpoll *np)
+ 	zap_completion_queue();
+ }
+ 
++void netpoll_poll(struct netpoll *np)
++{
++	netpoll_poll_dev(np->dev);
++}
++
+ static void refill_skbs(void)
+ {
+ 	struct sk_buff *skb;
+@@ -282,7 +286,7 @@ static int netpoll_owner_active(struct n
+ 	return 0;
+ }
+ 
+-static void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
++void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
+ {
+ 	int status = NETDEV_TX_BUSY;
+ 	unsigned long tries;
+@@ -308,7 +312,9 @@ static void netpoll_send_skb(struct netp
+ 		     tries > 0; --tries) {
+ 			if (__netif_tx_trylock(txq)) {
+ 				if (!netif_tx_queue_stopped(txq)) {
++					dev->priv_flags |= IFF_IN_NETPOLL;
+ 					status = ops->ndo_start_xmit(skb, dev);
++					dev->priv_flags &= ~IFF_IN_NETPOLL;
+ 					if (status == NETDEV_TX_OK)
+ 						txq_trans_update(txq);
+ 				}
+@@ -756,7 +762,10 @@ int netpoll_setup(struct netpoll *np)
+ 		atomic_inc(&npinfo->refcnt);
+ 	}
+ 
+-	if (!ndev->netdev_ops->ndo_poll_controller) {
++	npinfo->netpoll = np;
++
++	if (ndev->priv_flags & IFF_DISABLE_NETPOLL
++			|| !ndev->netdev_ops->ndo_poll_controller) {
+ 		printk(KERN_ERR "%s: %s doesn't support polling, aborting.\n",
+ 		       np->name, np->dev_name);
+ 		err = -ENOTSUPP;
+@@ -878,6 +887,7 @@ void netpoll_cleanup(struct netpoll *np)
+ 			}
+ 
+ 			if (atomic_dec_and_test(&npinfo->refcnt)) {
++				const struct net_device_ops *ops;
+ 				skb_queue_purge(&npinfo->arp_tx);
+ 				skb_queue_purge(&npinfo->txq);
+ 				cancel_rearming_delayed_work(&npinfo->tx_work);
+@@ -885,7 +895,11 @@ void netpoll_cleanup(struct netpoll *np)
+ 				/* clean after last, unfinished work */
+ 				__skb_queue_purge(&npinfo->txq);
+ 				kfree(npinfo);
+-				np->dev->npinfo = NULL;
++				ops = np->dev->netdev_ops;
++				if (ops->ndo_netpoll_cleanup)
++					ops->ndo_netpoll_cleanup(np->dev);
++				else
++					np->dev->npinfo = NULL;
+ 			}
+ 		}
+ 
+@@ -908,6 +922,7 @@ void netpoll_set_trap(int trap)
+ 		atomic_dec(&trapped);
+ }
+ 
++EXPORT_SYMBOL(netpoll_send_skb);
+ EXPORT_SYMBOL(netpoll_set_trap);
+ EXPORT_SYMBOL(netpoll_trap);
+ EXPORT_SYMBOL(netpoll_print_options);
+@@ -915,4 +930,5 @@ EXPORT_SYMBOL(netpoll_parse_options);
+ EXPORT_SYMBOL(netpoll_setup);
+ EXPORT_SYMBOL(netpoll_cleanup);
+ EXPORT_SYMBOL(netpoll_send_udp);
++EXPORT_SYMBOL(netpoll_poll_dev);
+ EXPORT_SYMBOL(netpoll_poll);
+Index: linux-2.6/drivers/net/netconsole.c
+===================================================================
+--- linux-2.6.orig/drivers/net/netconsole.c
++++ linux-2.6/drivers/net/netconsole.c
+@@ -665,7 +665,8 @@ static int netconsole_netdev_event(struc
+ 	struct netconsole_target *nt;
+ 	struct net_device *dev = ptr;
+ 
+-	if (!(event == NETDEV_CHANGENAME || event == NETDEV_UNREGISTER))
++	if (!(event == NETDEV_CHANGENAME || event == NETDEV_UNREGISTER ||
++	      event == NETDEV_BONDING_DESLAVE))
+ 		goto done;
+ 
+ 	spin_lock_irqsave(&target_list_lock, flags);
+@@ -677,19 +678,20 @@ static int netconsole_netdev_event(struc
+ 				strlcpy(nt->np.dev_name, dev->name, IFNAMSIZ);
+ 				break;
+ 			case NETDEV_UNREGISTER:
+-				if (!nt->enabled)
+-					break;
+ 				netpoll_cleanup(&nt->np);
++				/* Fall through */
++			case NETDEV_BONDING_DESLAVE:
+ 				nt->enabled = 0;
+-				printk(KERN_INFO "netconsole: network logging stopped"
+-					", interface %s unregistered\n",
+-					dev->name);
+ 				break;
+ 			}
+ 		}
+ 		netconsole_target_put(nt);
+ 	}
+ 	spin_unlock_irqrestore(&target_list_lock, flags);
++	if (event == NETDEV_UNREGISTER || event == NETDEV_BONDING_DESLAVE)
++		printk(KERN_INFO "netconsole: network logging stopped, "
++			"interface %s %s\n",  dev->name,
++			event == NETDEV_UNREGISTER ? "unregistered" : "released slaves");
+ 
+ done:
+ 	return NOTIFY_DONE;
+Index: linux-2.6/include/linux/notifier.h
+===================================================================
+--- linux-2.6.orig/include/linux/notifier.h
++++ linux-2.6/include/linux/notifier.h
+@@ -203,6 +203,7 @@ static inline int notifier_to_errno(int 
+ #define NETDEV_BONDING_NEWTYPE  0x000F
+ #define NETDEV_POST_INIT	0x0010
+ #define NETDEV_UNREGISTER_BATCH 0x0011
++#define NETDEV_BONDING_DESLAVE  0x0012
+ 
+ #define SYS_DOWN	0x0001	/* Notify of system down */
+ #define SYS_RESTART	SYS_DOWN
