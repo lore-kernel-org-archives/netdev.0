@@ -1,23 +1,26 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
+From: Matthias Kaehlcke <matthias@kaehlcke.net>
 Subject: Re: FEC driver: rcv is not +last
-Date: Thu, 8 Apr 2010 18:05:13 +0200
-Message-ID: <20100408160513.GN3688@pengutronix.de>
-References: <20100408104033.GI3787@darwin> <20100408132033.GJ3688@pengutronix.de> <20100408145324.GH29538@darwin>
+Date: Thu, 8 Apr 2010 18:04:46 +0200
+Message-ID: <20100408160446.GL29538@darwin>
+References: <20100408104033.GI3787@darwin>
+ <20100408132033.GJ3688@pengutronix.de>
+ <20100408145324.GH29538@darwin>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Matthias Kaehlcke <matthias@kaehlcke.net>
+To: Sascha Hauer <s.hauer@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:48397 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932684Ab0DHQFP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 12:05:15 -0400
+Received: from relay2-d.mail.gandi.net ([217.70.183.194]:39379 "EHLO
+	relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753954Ab0DHQG0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 12:06:26 -0400
 Content-Disposition: inline
 In-Reply-To: <20100408145324.GH29538@darwin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 08, 2010 at 04:53:24PM +0200, Matthias Kaehlcke wrote:
+El Thu, Apr 08, 2010 at 04:53:24PM +0200 Matthias Kaehlcke ha dit:
+
 > El Thu, Apr 08, 2010 at 03:20:33PM +0200 Sascha Hauer ha dit:
 > 
 > > On Thu, Apr 08, 2010 at 12:40:33PM +0200, Matthias Kaehlcke wrote:
@@ -59,20 +62,22 @@ On Thu, Apr 08, 2010 at 04:53:24PM +0200, Matthias Kaehlcke wrote:
 > the 'FEC ENET: rcv is not +last' messages disappear, but networking
 > still doesn't work
 
-AFAIK there is nothing special about the fec in the i.MX25 except the
-RMII mode, so just some more things you can check:
+i just received a mail from our distributor:
 
-- Does it work in the bootloader? (Are you using barebox?)
-- Are packets transmitted/received at all?
-- Have you configured the MAC address? currently the fec driver relies
-  on finding a valid MAC address in the FEC_ADDR_LOW/FEC_ADDR_HIGH
-  registers
+the PDK board they gave us for evaluation is a preliminary version,
+with a slightly different hardware than the official one. they suppose
+that's the reason of our problem
 
-Sascha
-
+sorry for the noise
 
 -- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+Matthias Kaehlcke
+Embedded Linux Developer
+Barcelona
+
+      Debugging is like alien abduction. Large blocks of time disappear,
+                    for which you have no explanation
+                                                                 .''`.
+    using free software / Debian GNU/Linux | http://debian.org  : :'  :
+                                                                `. `'`
+gpg --keyserver pgp.mit.edu --recv-keys 47D8E5D4                  `-
