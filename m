@@ -1,57 +1,134 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: linux-next: powerpc boot failure
-Date: Thu, 08 Apr 2010 10:29:49 +0300
-Message-ID: <4BBD85ED.4090209@iki.fi>
-References: <20100408165848.38f75f40.sfr@canb.auug.org.au>	<4BBD81B3.3030500@iki.fi> <20100408172316.e6ee451d.sfr@canb.auug.org.au>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: [PATCH] r6040: use (dev|netdev)_<level> macros helpers
+Date: Thu, 8 Apr 2010 09:39:27 +0200
+Message-ID: <201004080939.27917.florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100408172316.e6ee451d.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f178.google.com ([209.85.223.178]:57068 "EHLO
+	mail-iw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932183Ab0DHHkf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 03:40:35 -0400
+Received: by iwn8 with SMTP id 8so1181041iwn.16
+        for <netdev@vger.kernel.org>; Thu, 08 Apr 2010 00:40:34 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stephen Rothwell wrote:
-> On Thu, 08 Apr 2010 10:11:47 +0300 Timo Ter=E4s <timo.teras@iki.fi> w=
-rote:
->>> The above pc is in this piece of code (I think - I don't have the a=
-ctual
->>> kernel) from __xfrm_lookup (in net/xfrm/xfrm_policy.c):
->>>
->>>         if ((flags & XFRM_LOOKUP_ICMP) &&
->>>             !(pols[0]->flags & XFRM_POLICY_ICMP)) {
->>>                 err =3D -ENOENT;
->>>                 goto error;
->>>         }
->>>
->>>         for (i =3D 0; i < num_pols; i++)
->>>                 pols[i]->curlft.use_time =3D get_seconds(); <------=
--- (line 1845)
->>>
->>> And the 0x200000025 is probably &(pols[i]) (which actually seems un=
-likely
->>> since pols is an array on the stack).
->> What kind of xfrm policies the system has?
->=20
-> I don't even know what an xfrm policy is :-).  This is a pretty norma=
-l Ubuntu
-> Gutsy install and wouldn't have anything special in its network setup=
-=2E
->=20
-> The above code fragment may be not quite the right place, sorry.  But=
- it
-> is the right function.
 
-You don't probably have any xfrm policies then. And that code should no=
-t
-really get executed.
-
-Some of the changes touch globally visible structs, and inline function=
-s.
-Was this a clean rebuild? And did you update all kernel modules, also i=
-n
-the initramfs?
+Signed-off-by: Florian Fainelli <florian@openwrt.org>
+---
+diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
+index 83ebc75..c1f203b 100644
+--- a/drivers/net/r6040.c
++++ b/drivers/net/r6040.c
+@@ -331,7 +331,7 @@ static int r6040_alloc_rxbufs(struct net_device *dev)
+ 	do {
+ 		skb = netdev_alloc_skb(dev, MAX_BUF_SIZE);
+ 		if (!skb) {
+-			printk(KERN_ERR DRV_NAME "%s: failed to alloc skb for rx\n", dev->name);
++			netdev_err(dev, "failed to alloc skb for rx\n");
+ 			rc = -ENOMEM;
+ 			goto err_exit;
+ 		}
+@@ -411,9 +411,9 @@ static void r6040_tx_timeout(struct net_device *dev)
+ 	struct r6040_private *priv = netdev_priv(dev);
+ 	void __iomem *ioaddr = priv->base;
+ 
+-	printk(KERN_WARNING "%s: transmit timed out, int enable %4.4x "
++	netdev_warn(dev, "transmit timed out, int enable %4.4x "
+ 		"status %4.4x, PHY status %4.4x\n",
+-		dev->name, ioread16(ioaddr + MIER),
++		ioread16(ioaddr + MIER),
+ 		ioread16(ioaddr + MISR),
+ 		r6040_mdio_read(dev, priv->mii_if.phy_id, MII_BMSR));
+ 
+@@ -898,7 +898,7 @@ static netdev_tx_t r6040_start_xmit(struct sk_buff *skb,
+ 	if (!lp->tx_free_desc) {
+ 		spin_unlock_irqrestore(&lp->lock, flags);
+ 		netif_stop_queue(dev);
+-		printk(KERN_ERR DRV_NAME ": no tx descriptor\n");
++		netdev_err(dev, ": no tx descriptor\n");
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
+@@ -1091,20 +1091,20 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
+ 	/* this should always be supported */
+ 	err = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
+ 	if (err) {
+-		printk(KERN_ERR DRV_NAME ": 32-bit PCI DMA addresses"
++		dev_err(&pdev->dev, "32-bit PCI DMA addresses"
+ 				"not supported by the card\n");
+ 		goto err_out;
+ 	}
+ 	err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32));
+ 	if (err) {
+-		printk(KERN_ERR DRV_NAME ": 32-bit PCI DMA addresses"
++		dev_err(&pdev->dev, "32-bit PCI DMA addresses"
+ 				"not supported by the card\n");
+ 		goto err_out;
+ 	}
+ 
+ 	/* IO Size check */
+ 	if (pci_resource_len(pdev, bar) < io_size) {
+-		printk(KERN_ERR DRV_NAME ": Insufficient PCI resources, aborting\n");
++		dev_err(&pdev->dev, "Insufficient PCI resources, aborting\n");
+ 		err = -EIO;
+ 		goto err_out;
+ 	}
+@@ -1113,7 +1113,7 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
+ 
+ 	dev = alloc_etherdev(sizeof(struct r6040_private));
+ 	if (!dev) {
+-		printk(KERN_ERR DRV_NAME ": Failed to allocate etherdev\n");
++		dev_err(&pdev->dev, "Failed to allocate etherdev\n");
+ 		err = -ENOMEM;
+ 		goto err_out;
+ 	}
+@@ -1123,14 +1123,13 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
+ 	err = pci_request_regions(pdev, DRV_NAME);
+ 
+ 	if (err) {
+-		printk(KERN_ERR DRV_NAME ": Failed to request PCI regions\n");
++		dev_err(&pdev->dev, "Failed to request PCI regions\n");
+ 		goto err_out_free_dev;
+ 	}
+ 
+ 	ioaddr = pci_iomap(pdev, bar, io_size);
+ 	if (!ioaddr) {
+-		printk(KERN_ERR DRV_NAME ": ioremap failed for device %s\n",
+-			pci_name(pdev));
++		dev_err(&pdev->dev, "ioremap failed for device\n");
+ 		err = -EIO;
+ 		goto err_out_free_res;
+ 	}
+@@ -1157,7 +1156,7 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
+ 	/* Some bootloader/BIOSes do not initialize
+ 	 * MAC address, warn about that */
+ 	if (!(adrp[0] || adrp[1] || adrp[2])) {
+-		printk(KERN_WARNING DRV_NAME ": MAC address not initialized, generating random\n");
++		netdev_warn(dev, "MAC address not initialized, generating random\n");
+ 		random_ether_addr(dev->dev_addr);
+ 	}
+ 
+@@ -1185,7 +1184,7 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
+ 
+ 	/* Check the vendor ID on the PHY, if 0xffff assume none attached */
+ 	if (r6040_phy_read(ioaddr, lp->phy_addr, 2) == 0xffff) {
+-		printk(KERN_ERR DRV_NAME ": Failed to detect an attached PHY\n");
++		dev_err(&pdev->dev, "Failed to detect an attached PHY\n");
+ 		err = -ENODEV;
+ 		goto err_out_unmap;
+ 	}
+@@ -1193,7 +1192,7 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
+ 	/* Register net device. After this dev->name assign */
+ 	err = register_netdev(dev);
+ 	if (err) {
+-		printk(KERN_ERR DRV_NAME ": Failed to register net device\n");
++		dev_err(&pdev->dev, "Failed to register net device\n");
+ 		goto err_out_unmap;
+ 	}
+ 	return 0;
