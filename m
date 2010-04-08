@@ -1,100 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: hackbench regression due to commit 9dfc6e68bfe6e
-Date: Thu, 08 Apr 2010 17:52:19 +0200
-Message-ID: <1270741939.2215.68.camel@edumazet-laptop>
-References: <1270705153.8141.58.camel@edumazet-laptop>
-	 <alpine.DEB.2.00.1004081033420.6321@router.home>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: FEC driver: rcv is not +last
+Date: Thu, 8 Apr 2010 18:05:13 +0200
+Message-ID: <20100408160513.GN3688@pengutronix.de>
+References: <20100408104033.GI3787@darwin> <20100408132033.GJ3688@pengutronix.de> <20100408145324.GH29538@darwin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	netdev <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>,
-	alex.shi@intel.com,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Ma, Ling" <ling.ma@intel.com>,
-	"Chen, Tim C" <tim.c.chen@intel.com>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: Christoph Lameter <cl@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Matthias Kaehlcke <matthias@kaehlcke.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:63288 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932763Ab0DHPwZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 11:52:25 -0400
-In-Reply-To: <alpine.DEB.2.00.1004081033420.6321@router.home>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:48397 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932684Ab0DHQFP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 12:05:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20100408145324.GH29538@darwin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 08 avril 2010 =C3=A0 10:34 -0500, Christoph Lameter a =C3=A9cr=
-it :
-> On Thu, 8 Apr 2010, Eric Dumazet wrote:
->=20
-> > I suspect NUMA is completely out of order on current kernel, or my
-> > Nehalem machine NUMA support is a joke
-> >
-> > # numactl --hardware
-> > available: 2 nodes (0-1)
-> > node 0 size: 3071 MB
-> > node 0 free: 2637 MB
-> > node 1 size: 3062 MB
-> > node 1 free: 2909 MB
->=20
-> How do the cpus map to the nodes? cpu 0 and 1 both on the same node?
+On Thu, Apr 08, 2010 at 04:53:24PM +0200, Matthias Kaehlcke wrote:
+> El Thu, Apr 08, 2010 at 03:20:33PM +0200 Sascha Hauer ha dit:
+> 
+> > On Thu, Apr 08, 2010 at 12:40:33PM +0200, Matthias Kaehlcke wrote:
+> > > hi,
+> > > 
+> > > i have problems with the FEC on a i.MX25 3-Stack board. the kernel is
+> > > v2.6.34-rc2 plus the following patch:
+> > > http://patchwork.ozlabs.org/patch/41235/
+> > > 
+> > > the following traces are generated at boot time:
+> > > 
+> > > FEC Ethernet Driver
+> > > fec: PHY @ 0x1, ID 0x20005ce1 -- unknown PHY!
+> > > ...
+> > > eth0: config: auto-negotiation on, 100FDX, 100HDX, 10FDX, 10HDX.
+> > > ...
+> > > FEC ENET: rcv is not +last
+> > > FEC ENET: rcv is not +last
+> > > FEC ENET: rcv is not +last
+> > > FEC ENET: rcv is not +last
+> > > ...
+> > 
+> > No idea, I have never seen this message. Does the controller work
+> > besides these messages?
+> 
+> nope
+> 
+> > > the PHY of the board is a DP83840, which is not supported by the
+> > > driver. could this be the problem? i tried to make the kernel think
+> > > the DP83840 is a DP83848, which is supported, but the behaviour is the
+> > > same except the 'unknown PHY' warning.
+> > 
+> > This should be solved by the phylib patches recently posted for the fec
+> > driver.
+> 
+> thanks for the pointer!
+> 
+> i just applied the patch. it actually makes the 'unkown PHY' and even
+> the 'FEC ENET: rcv is not +last' messages disappear, but networking
+> still doesn't work
 
-one socket maps to 0 2 4 6 8 10 12 14 (Node 0)
-one socket maps to 1 3 5 7 9 11 13 15 (Node 1)
+AFAIK there is nothing special about the fec in the i.MX25 except the
+RMII mode, so just some more things you can check:
 
-# numactl --cpubind=3D0 --membind=3D0 numactl --show
-policy: bind
-preferred node: 0
-interleavemask:=20
-interleavenode: 0
-nodebind: 0=20
-membind: 0=20
-cpubind: 1 3 5 7 9 11 13 15 1024=20
+- Does it work in the bootloader? (Are you using barebox?)
+- Are packets transmitted/received at all?
+- Have you configured the MAC address? currently the fec driver relies
+  on finding a valid MAC address in the FEC_ADDR_LOW/FEC_ADDR_HIGH
+  registers
 
-(strange 1024 report...)
-
-# numactl --cpubind=3D1 --membind=3D1 numactl --show
-policy: bind
-preferred node: 1
-interleavemask:=20
-interleavenode: 0
-nodebind:=20
-membind: 1=20
-cpubind: 0 2 4 6 8 10 12 14=20
-
-
-
-[    0.161170] Booting Node   0, Processors  #1
-[    0.248995] CPU 1 MCA banks CMCI:2 CMCI:3 CMCI:5 CMCI:6 SHD:8
-[    0.269177]  Ok.
-[    0.269453] Booting Node   1, Processors  #2
-[    0.356965] CPU 2 MCA banks CMCI:2 CMCI:3 CMCI:5 SHD:6 SHD:8
-[    0.377207]  Ok.
-[    0.377485] Booting Node   0, Processors  #3
-[    0.464935] CPU 3 MCA banks CMCI:2 CMCI:3 CMCI:5 SHD:6 SHD:8
-[    0.485065]  Ok.
-[    0.485217] Booting Node   1, Processors  #4
-[    0.572906] CPU 4 MCA banks CMCI:2 CMCI:3 CMCI:5 SHD:6 SHD:8
-[    0.593044]  Ok.
-=2E..
-grep "physical id" /proc/cpuinfo=20
-physical id	: 1
-physical id	: 0
-physical id	: 1
-physical id	: 0
-physical id	: 1
-physical id	: 0
-physical id	: 1
-physical id	: 0
-physical id	: 1
-physical id	: 0
-physical id	: 1
-physical id	: 0
-physical id	: 1
-physical id	: 0
-physical id	: 1
-physical id	: 0
+Sascha
 
 
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
