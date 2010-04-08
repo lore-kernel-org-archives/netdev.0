@@ -1,55 +1,69 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: netfilter: Only do skb_checksum_help on CHECKSUM_PARTIAL in
-	ip6_queue
-Date: Thu, 8 Apr 2010 20:39:30 +0800
-Message-ID: <20100408123930.GA23910@gondor.apana.org.au>
-References: <20100408123545.GA23829@gondor.apana.org.au>
+From: Rakesh Ranjan <rakesh@chelsio.com>
+Subject: Re: cxgb4i submission
+Date: Thu, 08 Apr 2010 18:11:41 +0530
+Message-ID: <4BBDCF05.80206@chelsio.com>
+References: <1270728855-20951-1-git-send-email-rakesh@chelsio.com> <20100408.051850.51394263.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:52448 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750771Ab0DHMjh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 08:39:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20100408123545.GA23829@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="------------enig6A3A66817034D5DB0FB78FFB"
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	open-iscsi@googlegroups.com, linux-kernel@vger.kernel.org,
+	kxie@chelsio.com, James.Bottomley@hansenpartnership.com,
+	michaelc@cs.wisc.edu
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20100408.051850.51394263.davem@davemloft.net>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 08, 2010 at 08:35:45PM +0800, Herbert Xu wrote:
-> 
-> netfilter: Only do skb_checksum_help on CHECKSUM_PARTIAL in ip_queue
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig6A3A66817034D5DB0FB78FFB
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Doh! There are three of these queue beasts.
+On 04/08/2010 05:48 PM, David Miller wrote:
+> From: Rakesh Ranjan <rakesh@chelsio.com>
+> Date: Thu,  8 Apr 2010 17:44:12 +0530
+>=20
+>> This driver depends upon cxgb4 driver, posted recently on netdev and
+>> now part of net-next repo.
+>=20
+> It went into the net-2.6 repo, not net-next-2.6
+>=20
+> And it is even in Linus's tree now.
 
-netfilter: Only do skb_checksum_help on CHECKSUM_PARTIAL in ip6_queue
+Hi Dave,
 
-As we will set ip_summed to CHECKSUM_NONE when necessary in
-ipq_mangle_ipv6, there is no need to zap CHECKSUM_COMPLETE in
-ipq_build_packet_message.
+Thanks for updates, somehow I missed that part.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Regards
+Rakesh Ranjan
 
-diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
-index 6a68a74..8656eb7 100644
---- a/net/ipv6/netfilter/ip6_queue.c
-+++ b/net/ipv6/netfilter/ip6_queue.c
-@@ -162,8 +162,7 @@ ipq_build_packet_message(struct nf_queue_entry *entry, int *errp)
- 		break;
- 
- 	case IPQ_COPY_PACKET:
--		if ((entry->skb->ip_summed == CHECKSUM_PARTIAL ||
--		     entry->skb->ip_summed == CHECKSUM_COMPLETE) &&
-+		if (entry->skb->ip_summed == CHECKSUM_PARTIAL &&
- 		    (*errp = skb_checksum_help(entry->skb))) {
- 			read_unlock_bh(&queue_lock);
- 			return NULL;
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--------------enig6A3A66817034D5DB0FB78FFB
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Fedora - http://enigmail.mozdev.org/
+
+iQIcBAEBCgAGBQJLvc8FAAoJEBqoHbxtDU4JdH0P/RtWoO9iEmEPsNm2ZyDIz7JR
+rVZEorOVSmngsqaY63ll7+IC7HoA0gTX4djiV48YFzvloI6N3ZGLpmuJX+CC2Vpx
+y9h3veQLpTjkM35QceYVJC/721VeGgbdj0CxSFnFTnzIO6JDHc6yHmKqzoPKHIEU
+YMpDS+K/IpLzsTRkLutDEUY8ybrlTzkttVnQCTCj3CszhHv0mLB/9FbCEyA/JKtW
+SCfwFfGQJET3lHPhTIpGFYgIQNLRTO6k+lWzlToEkBH/taQxw6ZdKcDA+6WRHIDQ
+I1Z3aP6RNrJomhah30w0Zop1F+Nn6Oy9oGj81KuIfwRULxFJxA660xP2cE3yW4TG
+Vih4c4b2EbgeA/jarlCo32cAMxAMc9p4EJxBe7+1PiNYqKjks4P7dRolHV4auLOX
+GXog8BcJTHhCfpXvBd0AElppeQz+zf52P+4U3Fu5y5TV2K574z33NmJKFQn5h2hO
++fpCObiDpT7RnY6JxIXn/lZyYppxFkSNcc/WEIJPNuZls5UiB6uxiZXc8mzIQpwA
+aBohlML5KJhtX76bnbwgN/l1WXdUeow5TcKmian1UpLPC4k1Eo4CtMzRZmyvt/OQ
+sNc9UTMuDrmjGvdvRZXoBbtCL6zt85nVMachiN8O3S2R6CcjSmfLzIk9luBIF3nu
+hUOiYJwrXCpTRxJUlnTu
+=GEQK
+-----END PGP SIGNATURE-----
+
+--------------enig6A3A66817034D5DB0FB78FFB--
