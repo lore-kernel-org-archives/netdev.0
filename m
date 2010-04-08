@@ -1,55 +1,55 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: Re: [PATCH] xfrm: Fix double dst_release() in xfrm_lookup() -EREMOTE
- case
-Date: Thu, 08 Apr 2010 15:39:38 +0300
-Message-ID: <4BBDCE8A.7040106@iki.fi>
-References: <1270729773-1758-1-git-send-email-broonie@opensource.wolfsonmicro.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: netfilter: Only do skb_checksum_help on CHECKSUM_PARTIAL in
+	ip6_queue
+Date: Thu, 8 Apr 2010 20:39:30 +0800
+Message-ID: <20100408123930.GA23910@gondor.apana.org.au>
+References: <20100408123545.GA23829@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Content-Type: text/plain; charset=us-ascii
+To: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f222.google.com ([209.85.219.222]:38635 "EHLO
-	mail-ew0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758634Ab0DHMjl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 08:39:41 -0400
-Received: by ewy22 with SMTP id 22so971487ewy.37
-        for <netdev@vger.kernel.org>; Thu, 08 Apr 2010 05:39:40 -0700 (PDT)
-In-Reply-To: <1270729773-1758-1-git-send-email-broonie@opensource.wolfsonmicro.com>
+Received: from ringil.hengli.com.au ([216.59.3.182]:52448 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750771Ab0DHMjh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 08:39:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20100408123545.GA23829@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mark Brown wrote:
-> Commit 80c802 ("xfrm: cache bundles instead of policies for outgoing
-> flows") changed __xfrm_policy() to call dst_release() when returning
-> -EREMOTE. In the case where this is called from xfrm_lookup() a double
-> call to dst_release() would result due to the existing dst_release()
-> there. Remove the dst_release() in xfrm_lookup().
+On Thu, Apr 08, 2010 at 08:35:45PM +0800, Herbert Xu wrote:
 > 
-> Signed-off-by: Mark Brown <broonie@opensource.wolfsonmicro.com>
-> ---
-> 
-> I'm not sure if this is correct or not - there may a reference been
-> taken earlier in __xfrm_lookup() that's being dropped but I didn't spot
-> it.
+> netfilter: Only do skb_checksum_help on CHECKSUM_PARTIAL in ip_queue
 
-This is not correct.
+Doh! There are three of these queue beasts.
 
-The only case we return -EREMOTE from __xfrm_policy() is at:
-                if (net->xfrm.sysctl_larval_drop) {
-                        /* EREMOTE tells the caller to generate
-                         * a one-shot blackhole route. */
-                        dst_release(dst);
-                        xfrm_pols_put(pols, num_pols);
-                        XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTNOSTATES);
-                        return -EREMOTE;
-                }
+netfilter: Only do skb_checksum_help on CHECKSUM_PARTIAL in ip6_queue
 
-It drops the inner xfrm_dst returned from flow cache lookup / resolver.
-xfrm_lookup() will drop the original dst (which is not xfrm_dst).
+As we will set ip_summed to CHECKSUM_NONE when necessary in
+ipq_mangle_ipv6, there is no need to zap CHECKSUM_COMPLETE in
+ipq_build_packet_message.
 
-This semantics is important because __xfrm_lookup() is also called
-from other places, that do other things when they get -EREMOTE.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-- TImo
+diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
+index 6a68a74..8656eb7 100644
+--- a/net/ipv6/netfilter/ip6_queue.c
++++ b/net/ipv6/netfilter/ip6_queue.c
+@@ -162,8 +162,7 @@ ipq_build_packet_message(struct nf_queue_entry *entry, int *errp)
+ 		break;
+ 
+ 	case IPQ_COPY_PACKET:
+-		if ((entry->skb->ip_summed == CHECKSUM_PARTIAL ||
+-		     entry->skb->ip_summed == CHECKSUM_COMPLETE) &&
++		if (entry->skb->ip_summed == CHECKSUM_PARTIAL &&
+ 		    (*errp = skb_checksum_help(entry->skb))) {
+ 			read_unlock_bh(&queue_lock);
+ 			return NULL;
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
