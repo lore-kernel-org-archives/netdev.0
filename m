@@ -1,46 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: bridge: Fix IGMP3 report parsing
-Date: Wed, 07 Apr 2010 21:21:02 -0700 (PDT)
-Message-ID: <20100407.212102.46860906.davem@davemloft.net>
-References: <20100408012634.GC18649@gondor.apana.org.au>
-	<20100407.205248.113724360.davem@davemloft.net>
-	<20100408040709.GA19944@gondor.apana.org.au>
+Subject: Re: [PATCH] myri10ge: fix rx_pause in myri10ge_set_pauseparam
+Date: Wed, 07 Apr 2010 21:26:27 -0700 (PDT)
+Message-ID: <20100407.212627.136549050.davem@davemloft.net>
+References: <4BB8ADE4.5090304@myri.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, banyeer@yahoo.com
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org, gallatin@myri.com
+To: brice@myri.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38659
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58980
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751454Ab0DHEVA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 00:21:00 -0400
-In-Reply-To: <20100408040709.GA19944@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S1751022Ab0DHE0Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 00:26:24 -0400
+In-Reply-To: <4BB8ADE4.5090304@myri.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 8 Apr 2010 12:07:09 +0800
+From: Brice Goglin <brice@myri.com>
+Date: Sun, 04 Apr 2010 17:19:00 +0200
 
-> On Wed, Apr 07, 2010 at 08:52:48PM -0700, David Miller wrote:
->> 
->> If pskb_may_pull() actually does anything non-trivial,
->> skb->data will change and you'll be referring to freed
->> up memory.
->> 
->> That's probably why you had the grec assignment where
->> you originally had it in the first place :-)
+> Fix rx_pause in myri10ge_set_pauseparam().
 > 
-> Heh, you're clearly more awake than I was :)
+> Signed-off-by: Brice Goglin <brice@myri.com>
 
-:-)
+Your patch is tab/whitespace damaged by your email client.
 
-> bridge: Fix IGMP3 report parsing
-> 
-> The IGMP3 report parsing is looking at the wrong address for
-> group records.  This patch fixes it.
-> 
-> Reported-by: Banyeer <banyeer@yahoo.com>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Applied, thanks Herbert.
+Fix this up and resubmit, thanks.
