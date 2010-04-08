@@ -1,34 +1,53 @@
-From: Mark Brown <broonie@opensource.wolfsonmicro.com>
-Subject: Re: Crashes in xfrm_lookup
-Date: Thu, 8 Apr 2010 12:31:59 +0100
-Message-ID: <20100408113158.GA30647@rakim.wolfsonmicro.main>
-References: <20100408111441.GA14241@sirena.org.uk>
- <4BBDBCF9.5060906@iki.fi>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] IPVS: replace sprintf to snprintf to avoid stack buffer
+ overflow
+Date: Thu, 08 Apr 2010 13:37:44 +0200
+Message-ID: <4BBDC008.2050306@trash.net>
+References: <20100406025020.GA2741@localhost.localdomain> <20100406032248.GF30359@verge.net.au> <4BBCAE52.9080501@trash.net> <20100407223445.GA15810@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from opensource.wolfsonmicro.com ([80.75.67.52]:50061 "EHLO
-	opensource2.wolfsonmicro.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750768Ab0DHLcC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 07:32:02 -0400
-Content-Disposition: inline
-In-Reply-To: <4BBDBCF9.5060906@iki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: wzt.wzt@gmail.com, linux-kernel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20100407223445.GA15810@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 08, 2010 at 02:24:41PM +0300, Timo Ter=E4s wrote:
+Simon Horman wrote:
+> On Wed, Apr 07, 2010 at 06:09:54PM +0200, Patrick McHardy wrote:
+>> Simon Horman wrote:
+>>> On Tue, Apr 06, 2010 at 10:50:20AM +0800, wzt.wzt@gmail.com wrote:
+>>>> IPVS not check the length of pp->name, use sprintf will cause stack buffer overflow.
+>>>> struct ip_vs_protocol{} declare name as char *, if register a protocol as:
+>>>> struct ip_vs_protocol ip_vs_test = {
+>>>>         .name =			"aaaaaaaa....128...aaa",
+>>>> 	.debug_packet =         ip_vs_tcpudp_debug_packet,
+>>>> };
+>>>>
+>>>> when called ip_vs_tcpudp_debug_packet(), sprintf(buf, "%s TRUNCATED", pp->name); 
+>>>> will cause stack buffer overflow.
+>>>>
+>>>> Signed-off-by: Zhitong Wang <zhitong.wangzt@alibaba-inc.com>
+>>> I think that the simple answer is, don't do that.
+>> Indeed.
+>>
+>>> But your patch seems entirely reasonable to me.
+>>>
+>>> Acked-by: Simon Horman <horms@verge.net.au>
+>>>
+>>> Patrick, please consider merging this.
+>> I think this fix is a bit silly, we can simply print the name in
+>> the pr_debug() statement and avoid both the potential overflow
+>> and truncation.
+>>
+>> How does this look?
+> 
+> Looks good to me:
+> 
+> Acked-by: Simon Horman <horms@verge.net.au>
 
-> Probably the same as http://marc.info/?t=3D127071006600005&r=3D1&w=3D=
-2
-
-> Happens because CONFIG_XFRM_SUB_POLICY is not enabled, and one of
-> the helper functions I used did unexpected things in that case.
-
-> Try the following:
-
-Yes, that seems to make things much happier - thanks!  I do have one
-patch I came up with while I was looking at the code (though I'm not
-sure it's correct), I'll post that once I've had lunch.
+Thanks, I've applied the patch.
