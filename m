@@ -1,58 +1,41 @@
-From: Matthias Kaehlcke <matthias@kaehlcke.net>
-Subject: FEC driver: rcv is not +last
-Date: Thu, 8 Apr 2010 12:40:33 +0200
-Message-ID: <20100408104033.GI3787@darwin>
+From: David Miller <davem@davemloft.net>
+Subject: dhcp client packet sniffing...
+Date: Thu, 08 Apr 2010 03:50:49 -0700 (PDT)
+Message-ID: <20100408.035049.177640912.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sascha Hauer <s.hauer@pengutronix.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from slow3-v.mail.gandi.net ([217.70.178.89]:49694 "EHLO
-	slow3-v.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755212Ab0DHKmt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 06:42:49 -0400
-Received: from relay1-v.mail.gandi.net (relay1-v.mail.gandi.net [217.70.178.75])
-	by slow3-v.mail.gandi.net (Postfix) with ESMTP id 7C8A239A2A
-	for <netdev@vger.kernel.org>; Thu,  8 Apr 2010 12:42:46 +0200 (CEST)
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53950
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751410Ab0DHKuq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 06:50:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hi,
 
-i have problems with the FEC on a i.MX25 3-Stack board. the kernel is
-v2.6.34-rc2 plus the following patch:
-http://patchwork.ozlabs.org/patch/41235/
+This is an old topic, but looking at traces tonight I was reminded
+about it.
 
-the following traces are generated at boot time:
+dhcp clients sniff every packet in the system, the reason it does this
+and the things we can do to make it not have to do so have been
+discussed before.  Actually, I don't remember where we got with
+that and if we were able to make it such that the dhcp client
+doesn't have to do this any more.  Herbert?
 
-FEC Ethernet Driver
-fec: PHY @ 0x1, ID 0x20005ce1 -- unknown PHY!
-...
-eth0: config: auto-negotiation on, 100FDX, 100HDX, 10FDX, 10HDX.
-...
-FEC ENET: rcv is not +last
-FEC ENET: rcv is not +last
-FEC ENET: rcv is not +last
-FEC ENET: rcv is not +last
-...
+But, in any event, the fact of the matter is that currently it still
+does on many machines.
 
-the PHY of the board is a DP83840, which is not supported by the
-driver. could this be the problem? i tried to make the kernel think
-the DP83840 is a DP83848, which is supported, but the behaviour is the
-same except the 'unknown PHY' warning.
+This means every packet in the machine gets sniffed.
 
-any idea what could be wrong?
+The DHCP client at least installs a socket filter that only accepts
+the packets that the DHCP client is actually interested in.
 
--- 
-Matthias Kaehlcke
-Embedded Linux Developer
-Barcelona
+The problem is that we clone the SKB and do some other operations
+before running the socket filter.
 
-              You can't separate peace from freedom because no
-               one can be at peace unless he has his freedom
-                              (Malcolm X)
-                                                                 .''`.
-    using free software / Debian GNU/Linux | http://debian.org  : :'  :
-                                                                `. `'`
-gpg --keyserver pgp.mit.edu --recv-keys 47D8E5D4                  `-
+I was thinking, what if we simply move the sk_filter() call up to
+dev_queue_xmit_nit()?  And if sk_filter() rejects we don't even need
+to clone the packet.
