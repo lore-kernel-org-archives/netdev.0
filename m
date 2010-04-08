@@ -1,81 +1,52 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] tcp: Set CHECKSUM_UNNECESSARY in tcp_init_nondata_skb
-Date: Thu, 08 Apr 2010 02:20:35 -0700
-Message-ID: <1270718435.19154.44.camel@Joe-Laptop.home>
-References: <20100408.012617.98660541.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH v3 0/4] xfrm: add x86 CONFIG_COMPAT support
+Date: Thu, 08 Apr 2010 11:44:43 +0200
+Message-ID: <4BBDA58B.8090301@trash.net>
+References: <20100407.030850.04450543.davem@davemloft.net>	<20100407133528.GD22518@Chamillionaire.breakpoint.cc>	<4BBC8C8F.9020907@trash.net> <20100407.164842.54065324.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.apana.org.au
+Cc: fw@strlen.de, netdev@vger.kernel.org, johannes@sipsolutions.net
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1432 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753756Ab0DHJUh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 8 Apr 2010 05:20:37 -0400
-In-Reply-To: <20100408.012617.98660541.davem@davemloft.net>
+Received: from stinky.trash.net ([213.144.137.162]:33736 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758306Ab0DHJoq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 05:44:46 -0400
+In-Reply-To: <20100407.164842.54065324.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-04-08 at 01:26 -0700, David Miller wrote:
-> Fix this by setting skb->ip_summed in the common non-data packet
-> constructor.  It already is setting skb->csum to zero.
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+David Miller wrote:
+> From: Patrick McHardy <kaber@trash.net>
+> Date: Wed, 07 Apr 2010 15:45:51 +0200
 > 
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index f181b78..00afbb0 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -349,6 +349,7 @@ static inline void TCP_ECN_send(struct sock *sk, struct sk_buff *skb,
->   */
->  static void tcp_init_nondata_skb(struct sk_buff *skb, u32 seq, u8 flags)
->  {
-> +	skb->ip_summed = CHECKSUM_PARTIAL;
->  	skb->csum = 0;
->  
->  	TCP_SKB_CB(skb)->flags = flags;
+>> Florian Westphal wrote:
+>>> David Miller <davem@davemloft.net> wrote:
+>>>> From: Florian Westphal <fw@strlen.de>
+>>>> Date: Tue,  6 Apr 2010 00:27:07 +0200
+>>> [..]
+>>>
+>>>>> I sent a patch that solved this by adding a sys_compat_write syscall
+>>>>> and a ->compat_aio_write() to struct file_operations to the
+>>>>> vfs mailing list, but that patch was ignored by the vfs people,
+>>>>> and the x86 folks did not exactly like the idea either.
+>>>>>
+>>>>> So this leaves three alternatives:
+>>>>> 1 - drop the whole idea and keep the current status.
+>>>>> 2 - Add new structure definitions (with new numbering) that would work
+>>>>>     everywhere, keep the old ones for backwards compatibility (This
+>>>>>     was suggested by Arnd Bergmann).
+>> Given that there is only a quite small number of users of this
+>> interface, that would in my opinion be the best way.
+> 
+> Can you explain that line of reasoning?
+> 
+> It's not that there are only "3 or 4 tools" using these interfaces,
+> it's the fact that 32-bit binaries of those tools are on millions and
+> millions of systems out there.
 
-There might be trivial value in using the
-struct layout order for the sets avoiding
-crossing cachelines.
-
-from:
-
-static void tcp_init_nondata_skb(struct sk_buff *skb, u32 seq, u8 flags)
-{
-	skb->ip_summed = CHECKSUM_PARTIAL;
-	skb->csum = 0;
-
-	TCP_SKB_CB(skb)->flags = flags;
-	TCP_SKB_CB(skb)->sacked = 0;
-
-	skb_shinfo(skb)->gso_segs = 1;
-	skb_shinfo(skb)->gso_size = 0;
-	skb_shinfo(skb)->gso_type = 0;
-
-	TCP_SKB_CB(skb)->seq = seq;
-	if (flags & (TCPCB_FLAG_SYN | TCPCB_FLAG_FIN))
-		seq++;
-	TCP_SKB_CB(skb)->end_seq = seq;
-}
-
-to:
-
-static void tcp_init_nondata_skb(struct sk_buff *skb, u32 seq, u8 flags)
-{
-	skb->ip_summed = CHECKSUM_PARTIAL; 
-	skb->csum = 0;
-
-	TCP_SKB_CB(skb)->seq = seq;
-	if (flags & (TCPCB_FLAG_SYN | TCPCB_FLAG_FIN))
-		seq++;
-	TCP_SKB_CB(skb)->end_seq = seq;
-	TCP_SKB_CB(skb)->sacked = 0;
-	TCP_SKB_CB(skb)->flags = flags;
-
-	skb_shinfo(skb)->gso_size = 0;
-	skb_shinfo(skb)->gso_segs = 1;
-	skb_shinfo(skb)->gso_type = 0;
-}
-
-
+Yeah, but they're currently not working if used on 64 bit hosts,
+so I don't think its unreasonable to consider just the number of
+tools that need to be fixed. Either the kernel or the userspace
+programs have to be updated either way.
