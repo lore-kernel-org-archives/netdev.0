@@ -1,38 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the final tree
-Date: Wed, 07 Apr 2010 23:25:00 -0700 (PDT)
-Message-ID: <20100407.232500.184442638.davem@davemloft.net>
-References: <20100408153505.eb205158.sfr@canb.auug.org.au>
+Subject: Re: [PATCH net-next-2.6 1/3 (TAKE 3)] ipv6 mcast: Introduce
+ include/net/mld.h for MLD definitions.
+Date: Wed, 07 Apr 2010 23:37:12 -0700 (PDT)
+Message-ID: <20100407.233712.27089436.davem@davemloft.net>
+References: <201004080611.o386BUQx014996@94.43.138.210.xn.2iij.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, john.linn@xilinx.com,
-	jtyner@cs.ucr.edu
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100408153505.eb205158.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com
+To: yoshfuji@linux-ipv6.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51641
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757004Ab0DHGhJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 02:37:09 -0400
+In-Reply-To: <201004080611.o386BUQx014996@94.43.138.210.xn.2iij.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Thu, 8 Apr 2010 15:35:05 +1000
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Sun, 14 Mar 2010 13:47:16 +0900
 
-> After merging the final tree, today's linux-next build (powerpc
-> allyesconfig) failed like this:
-> 
-> drivers/net/ll_temac_main.c: In function 'll_temac_recv':
-> drivers/net/ll_temac_main.c:695: error: implicit declaration of function 'virt_to_bus'
-> 
-> Caused by commit 459569145516f7967b916c57445feb02c600668c ("Add
-> non-Virtex5 support for LL TEMAC driver") from the net tree.
-> 
-> I have reverted that commit for today.
+Hrm...
 
-And I'm reverting it too, it's illegal to use virt_to_bus()
-in new code in this day and age.
+This 3 week old date on this patch posting screws up patchwork as it
+lists patches in order by email date, and I therefore nearly could not
+match things up with the other two patches in this set.
 
-John, you'll need to use the DMA mapping APIs in this change when you
-resubmit it.
-
-Thanks.
+In fact I initially thought patchwork didn't pick up this patch at
+all, and it was only able to see the other two.
