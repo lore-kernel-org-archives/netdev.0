@@ -1,62 +1,80 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: hackbench regression due to commit 9dfc6e68bfe6e
-Date: Thu, 08 Apr 2010 09:54:32 +0200
-Message-ID: <1270713272.2215.6.camel@edumazet-laptop>
-References: <1269506457.4513.141.camel@alexs-hp.sh.intel.com>
-	 <alpine.DEB.2.00.1003250942080.2670@router.home>
-	 <1269570902.9614.92.camel@alexs-hp.sh.intel.com>
-	 <1270114166.2078.107.camel@ymzhang.sh.intel.com>
-	 <alpine.DEB.2.00.1004011050340.16531@router.home>
-	 <1270195589.2078.116.camel@ymzhang.sh.intel.com>
-	 <alpine.DEB.2.00.1004050853300.23149@router.home>
-	 <i2z84144f021004051030k7ff5190cyc083aa12c552dfac@mail.gmail.com>
-	 <4BBA8DF9.8010409@kernel.org>
-	 <1270542497.2078.123.camel@ymzhang.sh.intel.com>
-	 <alpine.DEB.2.00.1004061033330.18750@router.home>
-	 <alpine.DEB.2.00.1004061552500.19151@router.home>
-	 <1270591841.2091.170.camel@edumazet-laptop>
-	 <1270607668.2078.259.camel@ymzhang.sh.intel.com>
-	 <alpine.DEB.2.00.1004071130260.13261@router.home>
-	 <4BBCB7B7.4040901@cs.helsinki.fi> <4BBCB868.2000705@cs.helsinki.fi>
-	 <alpine.DEB.2.00.1004071319320.16159@router.home>
-	 <1270665484.8141.47.camel@edumazet-laptop>
-	 <1270688747.2078.383.camel@ymzhang.sh.intel.com>
-	 <1270702774.8141.49.camel@edumazet-laptop>
-	 <1270705153.8141.58.camel@edumazet-laptop>
-	 <1270710019.2215.4.camel@edumazet-laptop>
-	 <1270713290.2078.402.camel@ymzhang.sh.intel.com>
+Subject: Re: IP/UDP encapsulation
+Date: Thu, 08 Apr 2010 09:58:54 +0200
+Message-ID: <1270713534.2215.10.camel@edumazet-laptop>
+References: <20100408074247.GA19798@vigoh>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christoph Lameter <cl@linux-foundation.org>,
-	Pekka Enberg <penberg@cs.helsinki.fi>,
-	netdev <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>,
-	alex.shi@intel.com,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Ma, Ling" <ling.ma@intel.com>,
-	"Chen, Tim C" <tim.c.chen@intel.com>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Cc: netdev@vger.kernel.org, marco bonola <marco.bonola@gmail.com>,
+	"ZioPRoTo (Saverio Proto)" <zioproto@gmail.com>,
+	Behling Mario <mb@mariobehling.de>,
+	"L. Aaron Kaplan" <aaron@lo-res.org>
+To: "Gustavo F. Padovan" <gustavo@padovan.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:53789 "EHLO
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:54542 "EHLO
 	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751092Ab0DHHyg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 03:54:36 -0400
-In-Reply-To: <1270713290.2078.402.camel@ymzhang.sh.intel.com>
+	with ESMTP id S1751778Ab0DHH67 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 03:58:59 -0400
+Received: by bwz1 with SMTP id 1so1541604bwz.21
+        for <netdev@vger.kernel.org>; Thu, 08 Apr 2010 00:58:57 -0700 (PDT)
+In-Reply-To: <20100408074247.GA19798@vigoh>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 08 avril 2010 =C3=A0 15:54 +0800, Zhang, Yanmin a =C3=A9crit :
-
-> If there are 2 nodes in the machine, processes on node 0 will contact=
- MCH of
-> node 1 to access memory of node 1. I suspect the MCH of node 1 might =
-enter
-> a power-saving mode when all the cpus of node 1 are free. So the tran=
-sactions
-> from MCH 1 to MCH 0 has a larger latency.
+Le jeudi 08 avril 2010 =C3=A0 04:42 -0300, Gustavo F. Padovan a =C3=A9c=
+rit :
+> Hi,
+>=20
+> I'm looking for some advice on that work. The Freifunk organization i=
+s
+> planning work on the IP/UDP encapsulation kernel module as a GSoC
+> project. The idea is to create a IP-in-UDP tunnel like we do for
+> IP-in-IP or IP-in-GRE tunnels. The only way to do that today is to us=
+e
+> some VPN software.
+>=20
+> The module will export its virtual interface through sockets and will
+> have support for the standard syscalls like the others encapsulation
+> modules.
+>=20
+> It will improve the performance of mesh networks that will we be able
+> to use IP-in-UDP rather than IP-in-IP. So, instead of push all data t=
+o
+> local gateway into the mesh all the data can be tunneled to a faster
+> server and from there to the Internet. With all the data exiting with
+> the same IP address (the fast server IP). That will improve bandwidth=
+,
+> especially for upload.
+>=20
+> Is such module acceptable for merge into the Linux Kernel?
+>=20
+> Any comments or suggestions to the module architecture and
+> implementation? If you want more information about the module I can
+> provide that.
+>=20
+> Regards,
 >=20
 
-Hmm, thanks for the hint, I will investigate this.
+My suggestion would be to take a look at l2tp, which uses udp
+encapsulation.
+
+net-next-2.6
+
+net/l2tp/l2tp_core.c:1108:		(udp_sk(sk))->encap_type =3D 0;
+net/l2tp/l2tp_core.c:1304:	enum l2tp_encap_type encap =3D L2TP_ENCAPTYP=
+E_UDP;
+net/l2tp/l2tp_core.c:1383:		udp_sk(sk)->encap_type =3D UDP_ENCAP_L2TPIN=
+UDP;
+net/l2tp/l2tp_core.h:148:	enum l2tp_encap_type	encap;
+net/l2tp/l2tp_core.h:171:	enum l2tp_encap_type	encap;
+net/ipv4/udp.c:1299:	if (up->encap_type) {
+net/ipv4/udp.c:1660:			up->encap_type =3D val;
+net/ipv4/udp.c:1747:		val =3D up->encap_type;
+include/linux/l2tp.h:81:	L2TP_ATTR_ENCAP_TYPE,		/* u16, enum l2tp_encap=
+_type */
+include/linux/l2tp.h:146:enum l2tp_encap_type {
+include/linux/udp.h:63:  	__u16		 encap_type;	/* Is this an Encapsulati=
+on socket? */
 
 
