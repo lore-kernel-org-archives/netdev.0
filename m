@@ -1,46 +1,60 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH v3 0/4] xfrm: add x86 CONFIG_COMPAT support
-Date: Thu, 08 Apr 2010 13:24:17 +0200
-Message-ID: <4BBDBCE1.7090003@trash.net>
-References: <4BBC8C8F.9020907@trash.net>	<20100407.164842.54065324.davem@davemloft.net>	<4BBDA58B.8090301@trash.net> <20100408.025412.247148013.davem@davemloft.net>
+From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
+Subject: Re: Crashes in xfrm_lookup
+Date: Thu, 08 Apr 2010 14:24:41 +0300
+Message-ID: <4BBDBCF9.5060906@iki.fi>
+References: <20100408111441.GA14241@sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: fw@strlen.de, netdev@vger.kernel.org, johannes@sipsolutions.net
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Mark Brown <broonie@opensource.wolfsonmicro.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35289 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758227Ab0DHLYT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 07:24:19 -0400
-In-Reply-To: <20100408.025412.247148013.davem@davemloft.net>
+Received: from mail-ew0-f222.google.com ([209.85.219.222]:55092 "EHLO
+	mail-ew0-f222.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758552Ab0DHLYo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 07:24:44 -0400
+Received: by ewy22 with SMTP id 22so948403ewy.37
+        for <netdev@vger.kernel.org>; Thu, 08 Apr 2010 04:24:43 -0700 (PDT)
+In-Reply-To: <20100408111441.GA14241@sirena.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Patrick McHardy <kaber@trash.net>
-> Date: Thu, 08 Apr 2010 11:44:43 +0200
-> 
->> Either the kernel or the userspace programs have to be updated
->> either way.
-> 
-> The only case in which we only have to change one side is if we add
-> the full set of compat support to the kernel.
-> 
-> If we take any other option (new XFRM numbers and new datastructures,
-> or only convert sendmsg() to do compat translations), it requires both
-> the kernel and userspace to change.
+Mark Brown wrote:
+> With -next as of today I'm experiencing crashes in the xfrm_lookup code
+> when attempting to boot from an NFS root on a SMDK6410 (an ARM based
+> development board).  I'm currently investigating what's gone wrong, but
+> thought it was better to report early in case it's obvious to someone
+> familiar with the code or there's a fix already.
 
-You're right of course.
+Probably the same as http://marc.info/?t=127071006600005&r=1&w=2
 
-> And the currently existing 32-bit binaries don't work on 64-bit
-> kernels because of something that cannot be classified any other way
-> than as being a kernel bug.
+Happens because CONFIG_XFRM_SUB_POLICY is not enabled, and one of
+the helper functions I used did unexpected things in that case.
 
-Agreed, but since its not a new bug, I think we have some flexibility
-in how to fix it. In the wireless case we had no real choice but to
-add the COMPAT_NETLINK thing, but its a bit sad to add more of this
-crap to netlink.
+Try the following:
 
-Anyways, I guess there's no reason why we couldn't do both and
-transistion to a fixed API in the long term.
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index 625dd61..cccb049 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -735,19 +735,12 @@ static inline void xfrm_pol_put(struct xfrm_policy *policy)
+ 		xfrm_policy_destroy(policy);
+ }
+ 
+-#ifdef CONFIG_XFRM_SUB_POLICY
+ static inline void xfrm_pols_put(struct xfrm_policy **pols, int npols)
+ {
+ 	int i;
+ 	for (i = npols - 1; i >= 0; --i)
+ 		xfrm_pol_put(pols[i]);
+ }
+-#else
+-static inline void xfrm_pols_put(struct xfrm_policy **pols, int npols)
+-{
+-	xfrm_pol_put(pols[0]);
+-}
+-#endif
+ 
+ extern void __xfrm_state_destroy(struct xfrm_state *);
+ 
+
