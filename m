@@ -1,56 +1,95 @@
-From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Subject: [RFC PATCH 0/2] netdev: Add tracepoint to network/driver interface
-Date: Fri, 09 Apr 2010 16:37:53 +0900
-Message-ID: <4BBED951.8040406@jp.fujitsu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3] rfs: Receive Flow Steering
+Date: Fri, 09 Apr 2010 09:37:50 +0200
+Message-ID: <1270798670.2623.33.camel@edumazet-laptop>
+References: <alpine.DEB.1.00.1004082331250.19688@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: izumi.taku@jp.fujitsu.com, kaneshige.kenji@jp.fujitsu.com,
-	davem@davemloft.net, nhorman@tuxdriver.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail7.fujitsu.co.jp ([192.51.44.37]:44385 "EHLO
-	fgwmail7.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754142Ab0DIHhf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 03:37:35 -0400
-Received: from m4.gw.fujitsu.co.jp ([10.0.50.74])
-	by fgwmail7.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o397bXnJ024017
-	for <netdev@vger.kernel.org> (envelope-from sanagi.koki@jp.fujitsu.com);
-	Fri, 9 Apr 2010 16:37:34 +0900
-Received: from smail (m4 [127.0.0.1])
-	by outgoing.m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 98E5D45DE6F
-	for <netdev@vger.kernel.org>; Fri,  9 Apr 2010 16:37:33 +0900 (JST)
-Received: from s4.gw.fujitsu.co.jp (s4.gw.fujitsu.co.jp [10.0.50.94])
-	by m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 7498D45DE4D
-	for <netdev@vger.kernel.org>; Fri,  9 Apr 2010 16:37:33 +0900 (JST)
-Received: from s4.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
-	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id 5C70A1DB8037
-	for <netdev@vger.kernel.org>; Fri,  9 Apr 2010 16:37:33 +0900 (JST)
-Received: from ml14.s.css.fujitsu.com (ml14.s.css.fujitsu.com [10.249.87.104])
-	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id 1B1701DB803E
-	for <netdev@vger.kernel.org>; Fri,  9 Apr 2010 16:37:30 +0900 (JST)
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:63815 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755386Ab0DIHhz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 03:37:55 -0400
+Received: by bwz1 with SMTP id 1so2317954bwz.21
+        for <netdev@vger.kernel.org>; Fri, 09 Apr 2010 00:37:53 -0700 (PDT)
+In-Reply-To: <alpine.DEB.1.00.1004082331250.19688@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These patches add tracepoints to network/driver interface.
+Le jeudi 08 avril 2010 =C3=A0 23:33 -0700, Tom Herbert a =C3=A9crit :
 
-These tracepoints are helpful to investigate whether a packet passes or not.
-For example, when Heart Beat is disconnected, that information is helpful
-to investigate the cause is whether driver/device side or not.
+>  #ifdef CONFIG_RPS
+> +/* One global table that all flow-based protocols share. */
+> +struct rps_sock_flow_table *rps_sock_flow_table;
+> +EXPORT_SYMBOL(rps_sock_flow_table);
+> +
+> +int rps_sock_flow_sysctl(ctl_table *table, int write, void __user *b=
+uffer,
+> +			 size_t *lenp, loff_t *ppos)
+> +{
+> +	unsigned int orig_size, size;
+> +	int ret, i;
+> +	ctl_table tmp =3D {
+> +		.data =3D &size,
+> +		.maxlen =3D sizeof(size),
+> +		.mode =3D table->mode
+> +	};
+> +	struct rps_sock_flow_table *orig_sock_table, *sock_table;
+> +
+> +	rcu_read_lock();
+> +
+> +	orig_sock_table =3D rcu_dereference(rps_sock_flow_table);
+> +	size =3D orig_size =3D orig_sock_table ? orig_sock_table->mask + 1 =
+: 0;
+> +
+> +	ret =3D proc_dointvec(&tmp, write, buffer, lenp, ppos);
+> +
+> +	if (write) {
+> +		if (size) {
+> +			size =3D roundup_pow_of_two(size);
+> +			if (size !=3D orig_size) {
+> +				sock_table =3D
+> +				    vmalloc(RPS_SOCK_FLOW_TABLE_SIZE(size));
+> +				if (!sock_table) {
+> +					rcu_read_unlock();
+> +					return -ENOMEM;
+> +				}
+> +
+> +				sock_table->mask =3D size - 1;
+> +			} else
+> +				sock_table =3D orig_sock_table;
+> +
+> +			for (i =3D 0; i < size; i++)
+> +				sock_table->ents[i] =3D RPS_NO_CPU;
+> +		} else
+> +			sock_table =3D NULL;
+> +
+> +		if (sock_table !=3D orig_sock_table) {
+> +			rcu_assign_pointer(rps_sock_flow_table, sock_table);
+> +			synchronize_rcu();
+> +			vfree(orig_sock_table);
+> +		}
+> +	}
+> +
+> +	rcu_read_unlock();
+> +
+> +	return ret;
+> +}
+> +
+>  /
 
-An output is below.
+It is not allowed to call vmalloc() inside rcu_read_unlock() section.
 
-   sshd-2443  [001] 68238.415621: netdev_start_xmit: dev=eth3 skbaddr=f3db5138 len=114
-<idle>-0     [001] 68238.417058: netdev_receive_skb: dev=eth3 skbaddr=f3c81540 len=52
-<idle>-0     [001] 68238.704363: netdev_receive_skb: dev=eth3 skbaddr=f3c81540 len=100
-   sshd-2443  [001] 68238.705459: netdev_start_xmit: dev=eth3 skbaddr=f3db5138 len=114
-<idle>-0     [001] 68238.706891: netdev_receive_skb: dev=eth3 skbaddr=f3c81540 len=52
-<idle>-0     [001] 68238.878736: netdev_receive_skb: dev=eth3 skbaddr=f3c81540 len=100
-   sshd-2443  [001] 68238.880361: netdev_start_xmit: dev=eth3 skbaddr=f3db5138 len=114
+Anyway, rcu_read_unlock() is not appropriate (you want mutual exclusion
+betwen concurrent writers here)
 
-As other use case I have, we can get throughput per interface with some sort of
-perf scripts. I plan to create it.
+You should use a mutex here.
+Or a spinlock (if you do the vmalloc()/vfree() things outside of the
+locked section)
 
-Thanks
-Koki Sanagi
+
+
 
