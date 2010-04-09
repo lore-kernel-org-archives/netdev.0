@@ -1,83 +1,57 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] vhost: Make it more scalable by creating a vhost	thread
- per device.
-Date: Thu, 08 Apr 2010 17:14:35 -0700
-Message-ID: <4BBE716B.7050904@hp.com>
-References: <1270229480.13897.8.camel@w-sridhar.beaverton.ibm.com>	<1270488911.27874.43.camel@w-sridhar.beaverton.ibm.com> <1270771542.31186.397.camel@w-sridhar.beaverton.ibm.com>
+From: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
+Subject: Re: re-submit3 [ANNOUNCEMENT] NET: usb: sierra_net.c driver
+Date: Thu, 8 Apr 2010 17:39:43 -0700
+Message-ID: <1270773583.6293.13.camel@Linuxdev4-laptop>
+References: <1270517948.14692.9.camel@Linuxdev4-laptop>
+	 <20100407.214530.05341654.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Tom Lendacky <toml@us.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:29732 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933563Ab0DIAOi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 20:14:38 -0400
-In-Reply-To: <1270771542.31186.397.camel@w-sridhar.beaverton.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org" <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	Rory Filer <rfiler-usJ8hg9QsBLWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>,
+	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100407.214530.05341654.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-
-> Here are the results with netperf TCP_STREAM 64K guest to host on a
-> 8-cpu Nehalem system.
-
-I presume you mean 8 core Nehalem-EP, or did you mean 8 processor Nehalem-EX?
-
-Don't get me wrong, I *like* the netperf 64K TCP_STREAM test, I lik it a lot!-) 
-but I find it incomplete and also like to run things like single-instance TCP_RR 
-and multiple-instance, multiple "transaction" (./configure --enable-burst) 
-TCP_RR tests, particularly when concerned with "scaling" issues.
-
-happy benchmarking,
-
-rick jones
-
-> It shows cumulative bandwidth in Mbps and host 
-> CPU utilization.
+On Wed, 2010-04-07 at 21:45 -0700, David Miller wrote:
+> From: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
+> Date: Mon, 5 Apr 2010 18:39:08 -0700
 > 
-> Current default single vhost thread
-> -----------------------------------
-> 1 guest:  12500  37%    
-> 2 guests: 12800  46%
-> 3 guests: 12600  47%
-> 4 guests: 12200  47%
-> 5 guests: 12000  47%
-> 6 guests: 11700  47%
-> 7 guests: 11340  47%
-> 8 guests: 11200  48%
+> > Subject: re-submit3 [ANNOUNCEMENT] NET: usb: sierra_net.c driver
+> > From: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
 > 
-> vhost thread per cpu
-> --------------------
-> 1 guest:   4900 25%
-> 2 guests: 10800 49%
-> 3 guests: 17100 67%
-> 4 guests: 20400 84%
-> 5 guests: 21000 90%
-> 6 guests: 22500 92%
-> 7 guests: 23500 96%
-> 8 guests: 24500 99%
+> I want you to tell me exactly how you generated this patch.
 > 
-> vhost thread per guest interface
-> --------------------------------
-> 1 guest:  12500 37%
-> 2 guests: 21000 72%
-> 3 guests: 21600 79%
-> 4 guests: 21600 85%
-> 5 guests: 22500 89%
-> 6 guests: 22800 94%
-> 7 guests: 24500 98%
-> 8 guests: 26400 99%
+> It doesn't apply, and I suspect that you tried to fix the excess empty
+> lines at the end of certain files by editing the patch by hand.
 > 
-> Thanks
-> Sridhar
+> If so, did you test the result?
 > 
+> The patch is corrupted and more importantly git won't accept it.
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> davem@sunset:~/src/GIT/net-2.6$ git am --signoff re-submit3-ANNOUNCEMENT-NET-usb-sierra_net.c-driver.patch 
+> Applying: re-submit3 [ANNOUNCEMENT] NET: usb: sierra_net.c driver
+> /home/davem/src/GIT/net-2.6/.git/rebase-apply/patch:36: new blank line at EOF.
+> +
+> error: drivers/net/usb/sierra_net.c: does not exist in index
+> Patch failed at 0001 re-submit3 [ANNOUNCEMENT] NET: usb: sierra_net.c driver
+> When you have resolved this problem run "git am --resolved".
+> If you would prefer to skip this patch, instead run "git am --skip".
+> To restore the original branch and stop patching run "git am --abort".
+> 
+Hi Dave,
+I reproduced the problem here.
+I fixed it by adding an empty sierra_net.c file in my master branch
+(net-2.6).
+Regards,
+Elina
 
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
