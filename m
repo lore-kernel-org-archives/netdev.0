@@ -1,142 +1,92 @@
 From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH] stmmac: fix Transmit FIFO flush operation
-Date: Fri,  9 Apr 2010 12:24:18 +0200
-Message-ID: <1270808662-7115-4-git-send-email-peppe.cavallaro@st.com>
+Subject: [PATCH] stmmac: get the descriptor structure from platform
+Date: Fri,  9 Apr 2010 12:24:20 +0200
+Message-ID: <1270808662-7115-6-git-send-email-peppe.cavallaro@st.com>
 References: <1270808662-7115-1-git-send-email-peppe.cavallaro@st.com>
  <1270808662-7115-2-git-send-email-peppe.cavallaro@st.com>
  <1270808662-7115-3-git-send-email-peppe.cavallaro@st.com>
+ <1270808662-7115-4-git-send-email-peppe.cavallaro@st.com>
+ <1270808662-7115-5-git-send-email-peppe.cavallaro@st.com>
 Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:34941 "EHLO
+Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:35011 "EHLO
 	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757633Ab0DIKYr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 06:24:47 -0400
+	by vger.kernel.org with ESMTP id S1757706Ab0DIKY4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 06:24:56 -0400
 Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 0704C14F
-	for <netdev@vger.kernel.org>; Fri,  9 Apr 2010 10:24:45 +0000 (GMT)
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 59D0A139
+	for <netdev@vger.kernel.org>; Fri,  9 Apr 2010 10:24:54 +0000 (GMT)
 Received: from mail3.ctn.st.com (mail3.ctn.st.com [164.130.116.150])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id B37E01953
-	for <netdev@vger.kernel.org>; Fri,  9 Apr 2010 10:24:44 +0000 (GMT)
-In-Reply-To: <1270808662-7115-3-git-send-email-peppe.cavallaro@st.com>
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 231851953
+	for <netdev@vger.kernel.org>; Fri,  9 Apr 2010 10:24:54 +0000 (GMT)
+In-Reply-To: <1270808662-7115-5-git-send-email-peppe.cavallaro@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix the Transmit FIFO flush operation; it was
-disabled while reworking the descriptor structures.
+Output for chip that uses the Enhanced descriptors:
+[snip]
+STMMAC driver:
+	platform registration... done!
+	DWMAC1000 - user ID: 0x10, Synopsys ID: 0x33
+	Enhanced descriptor structure
+	no valid MAC address;please, use ifconfig or nwhwconfig!
+	eth0 - (dev. name: stmmaceth - id: 0, IRQ #134
+	IO base addr: 0xfd110000)
+STMMAC MII Bus: probed
+[snip]
 
 Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
- drivers/net/stmmac/common.h        |    1 +
- drivers/net/stmmac/dwmac1000.h     |    1 -
- drivers/net/stmmac/dwmac1000_dma.c |    9 ---------
- drivers/net/stmmac/dwmac_dma.h     |    1 +
- drivers/net/stmmac/dwmac_lib.c     |    7 +++++++
- drivers/net/stmmac/enh_desc.c      |    6 +++---
- 6 files changed, 12 insertions(+), 13 deletions(-)
+ drivers/net/stmmac/stmmac.h      |    1 +
+ drivers/net/stmmac/stmmac_main.c |   12 ++++++++----
+ 2 files changed, 9 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/stmmac/common.h b/drivers/net/stmmac/common.h
-index bd3b785..27a05b4 100644
---- a/drivers/net/stmmac/common.h
-+++ b/drivers/net/stmmac/common.h
-@@ -244,3 +244,4 @@ extern void stmmac_set_mac_addr(unsigned long ioaddr, u8 addr[6],
- 				unsigned int high, unsigned int low);
- extern void stmmac_get_mac_addr(unsigned long ioaddr, unsigned char *addr,
- 				unsigned int high, unsigned int low);
-+extern void dwmac_dma_flush_tx_fifo(unsigned long ioaddr);
-diff --git a/drivers/net/stmmac/dwmac1000.h b/drivers/net/stmmac/dwmac1000.h
-index 3b784fc..d8d0f35 100644
---- a/drivers/net/stmmac/dwmac1000.h
-+++ b/drivers/net/stmmac/dwmac1000.h
-@@ -172,7 +172,6 @@ enum rfd {
- 	deac_full_minus_4 = 0x00401800,
+diff --git a/drivers/net/stmmac/stmmac.h b/drivers/net/stmmac/stmmac.h
+index 55b9aca..0d776bc 100644
+--- a/drivers/net/stmmac/stmmac.h
++++ b/drivers/net/stmmac/stmmac.h
+@@ -93,6 +93,7 @@ struct stmmac_priv {
+ #ifdef STMMAC_VLAN_TAG_USED
+ 	struct vlan_group *vlgrp;
+ #endif
++	int enh_desc;
  };
- #define DMA_CONTROL_TSF		0x00200000 /* Transmit  Store and Forward */
--#define DMA_CONTROL_FTF		0x00100000 /* Flush transmit FIFO */
  
- enum ttc_control {
- 	DMA_CONTROL_TTC_64 = 0x00000000,
-diff --git a/drivers/net/stmmac/dwmac1000_dma.c b/drivers/net/stmmac/dwmac1000_dma.c
-index 8d3ea99..a547aa9 100644
---- a/drivers/net/stmmac/dwmac1000_dma.c
-+++ b/drivers/net/stmmac/dwmac1000_dma.c
-@@ -58,15 +58,6 @@ static int dwmac1000_dma_init(unsigned long ioaddr, int pbl, u32 dma_tx,
- 	return 0;
- }
+ #ifdef CONFIG_STM_DRIVERS
+diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
+index b95fa84..b3d3f7f 100644
+--- a/drivers/net/stmmac/stmmac_main.c
++++ b/drivers/net/stmmac/stmmac_main.c
+@@ -1581,13 +1581,16 @@ static int stmmac_mac_device_setup(struct net_device *dev)
  
--/* Transmit FIFO flush operation */
--static void dwmac1000_flush_tx_fifo(unsigned long ioaddr)
--{
--	u32 csr6 = readl(ioaddr + DMA_CONTROL);
--	writel((csr6 | DMA_CONTROL_FTF), ioaddr + DMA_CONTROL);
--
--	do {} while ((readl(ioaddr + DMA_CONTROL) & DMA_CONTROL_FTF));
--}
--
- static void dwmac1000_dma_operation_mode(unsigned long ioaddr, int txmode,
- 				    int rxmode)
- {
-diff --git a/drivers/net/stmmac/dwmac_dma.h b/drivers/net/stmmac/dwmac_dma.h
-index de848d9..7b815a1 100644
---- a/drivers/net/stmmac/dwmac_dma.h
-+++ b/drivers/net/stmmac/dwmac_dma.h
-@@ -95,6 +95,7 @@
- #define DMA_STATUS_TU	0x00000004	/* Transmit Buffer Unavailable */
- #define DMA_STATUS_TPS	0x00000002	/* Transmit Process Stopped */
- #define DMA_STATUS_TI	0x00000001	/* Transmit Interrupt */
-+#define DMA_CONTROL_FTF		0x00100000 /* Flush transmit FIFO */
+ 	struct mac_device_info *device;
  
- extern void dwmac_enable_dma_transmission(unsigned long ioaddr);
- extern void dwmac_enable_dma_irq(unsigned long ioaddr);
-diff --git a/drivers/net/stmmac/dwmac_lib.c b/drivers/net/stmmac/dwmac_lib.c
-index d4adb1e..0a504ad 100644
---- a/drivers/net/stmmac/dwmac_lib.c
-+++ b/drivers/net/stmmac/dwmac_lib.c
-@@ -227,6 +227,13 @@ int dwmac_dma_interrupt(unsigned long ioaddr,
- 	return ret;
- }
- 
-+void dwmac_dma_flush_tx_fifo(unsigned long ioaddr)
-+{
-+	u32 csr6 = readl(ioaddr + DMA_CONTROL);
-+	writel((csr6 | DMA_CONTROL_FTF), ioaddr + DMA_CONTROL);
+-	if (priv->is_gmac) {
++	if (priv->is_gmac)
+ 		device = dwmac1000_setup(ioaddr);
+-		device->desc = &enh_desc_ops;
+-	} else {
++	else
+ 		device = dwmac100_setup(ioaddr);
 +
-+	do {} while ((readl(ioaddr + DMA_CONTROL) & DMA_CONTROL_FTF));
-+}
++	if (priv->enh_desc) {
++		device->desc = &enh_desc_ops;
++		pr_info("\tEnhanced descriptor structure\n");
++	} else
+ 		device->desc = &ndesc_ops;
+-	}
  
- void stmmac_set_mac_addr(unsigned long ioaddr, u8 addr[6],
- 			 unsigned int high, unsigned int low)
-diff --git a/drivers/net/stmmac/enh_desc.c b/drivers/net/stmmac/enh_desc.c
-index e5ac259..eb5684a 100644
---- a/drivers/net/stmmac/enh_desc.c
-+++ b/drivers/net/stmmac/enh_desc.c
-@@ -40,7 +40,7 @@ static int enh_desc_get_tx_status(void *data, struct stmmac_extra_stats *x,
- 		if (unlikely(p->des01.etx.frame_flushed)) {
- 			CHIP_DBG(KERN_ERR "\tframe_flushed error\n");
- 			x->tx_frame_flushed++;
--			/*enh_desc_flush_tx_fifo(ioaddr);*/
-+			dwmac_dma_flush_tx_fifo(ioaddr);
- 		}
+ 	if (!device)
+ 		return -ENOMEM;
+@@ -1728,6 +1731,7 @@ static int stmmac_dvr_probe(struct platform_device *pdev)
+ 	priv->bus_id = plat_dat->bus_id;
+ 	priv->pbl = plat_dat->pbl;	/* TLI */
+ 	priv->is_gmac = plat_dat->has_gmac;	/* GMAC is on board */
++	priv->enh_desc = plat_dat->enh_desc;
  
- 		if (unlikely(p->des01.etx.loss_carrier)) {
-@@ -68,7 +68,7 @@ static int enh_desc_get_tx_status(void *data, struct stmmac_extra_stats *x,
+ 	platform_set_drvdata(pdev, ndev);
  
- 		if (unlikely(p->des01.etx.underflow_error)) {
- 			CHIP_DBG(KERN_ERR "\tunderflow error\n");
--			/*enh_desc_flush_tx_fifo(ioaddr);*/
-+			dwmac_dma_flush_tx_fifo(ioaddr);
- 			x->tx_underflow++;
- 		}
- 
-@@ -80,7 +80,7 @@ static int enh_desc_get_tx_status(void *data, struct stmmac_extra_stats *x,
- 		if (unlikely(p->des01.etx.payload_error)) {
- 			CHIP_DBG(KERN_ERR "\tAddr/Payload csum error\n");
- 			x->tx_payload_error++;
--			/*enh_desc_flush_tx_fifo(ioaddr);*/
-+			dwmac_dma_flush_tx_fifo(ioaddr);
- 		}
- 
- 		ret = -1;
 -- 
 1.6.0.4
 
