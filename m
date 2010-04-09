@@ -1,7 +1,7 @@
 From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Subject: [RFC PATCH 1/2] netdev: Add tracepoint to dev_hard_start_xmit
-Date: Fri, 09 Apr 2010 16:39:56 +0900
-Message-ID: <4BBED9CC.2050709@jp.fujitsu.com>
+Subject: [RFC PATCH 2/2] netdev: Add tracepoint to netif_receive_skb
+Date: Fri, 09 Apr 2010 16:41:27 +0900
+Message-ID: <4BBEDA27.7000502@jp.fujitsu.com>
 References: <4BBED951.8040406@jp.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
@@ -10,57 +10,58 @@ Cc: izumi.taku@jp.fujitsu.com, kaneshige.kenji@jp.fujitsu.com,
 	davem@davemloft.net, nhorman@tuxdriver.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail7.fujitsu.co.jp ([192.51.44.37]:44457 "EHLO
+Received: from fgwmail7.fujitsu.co.jp ([192.51.44.37]:44521 "EHLO
 	fgwmail7.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752806Ab0DIHj3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 03:39:29 -0400
-Received: from m3.gw.fujitsu.co.jp ([10.0.50.73])
-	by fgwmail7.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o397dSxH024802
+	with ESMTP id S1754160Ab0DIHlB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 03:41:01 -0400
+Received: from m6.gw.fujitsu.co.jp ([10.0.50.76])
+	by fgwmail7.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o397f0HF025345
 	for <netdev@vger.kernel.org> (envelope-from sanagi.koki@jp.fujitsu.com);
-	Fri, 9 Apr 2010 16:39:28 +0900
-Received: from smail (m3 [127.0.0.1])
-	by outgoing.m3.gw.fujitsu.co.jp (Postfix) with ESMTP id EBF4545DE51
-	for <netdev@vger.kernel.org>; Fri,  9 Apr 2010 16:39:27 +0900 (JST)
-Received: from s3.gw.fujitsu.co.jp (s3.gw.fujitsu.co.jp [10.0.50.93])
-	by m3.gw.fujitsu.co.jp (Postfix) with ESMTP id CA82545DE4E
-	for <netdev@vger.kernel.org>; Fri,  9 Apr 2010 16:39:27 +0900 (JST)
-Received: from s3.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
-	by s3.gw.fujitsu.co.jp (Postfix) with ESMTP id 7B59B1DB8040
-	for <netdev@vger.kernel.org>; Fri,  9 Apr 2010 16:39:27 +0900 (JST)
-Received: from ml13.s.css.fujitsu.com (ml13.s.css.fujitsu.com [10.249.87.103])
-	by s3.gw.fujitsu.co.jp (Postfix) with ESMTP id 3041E1DB803C
-	for <netdev@vger.kernel.org>; Fri,  9 Apr 2010 16:39:27 +0900 (JST)
+	Fri, 9 Apr 2010 16:41:00 +0900
+Received: from smail (m6 [127.0.0.1])
+	by outgoing.m6.gw.fujitsu.co.jp (Postfix) with ESMTP id E97A745DE52
+	for <netdev@vger.kernel.org>; Fri,  9 Apr 2010 16:40:59 +0900 (JST)
+Received: from s6.gw.fujitsu.co.jp (s6.gw.fujitsu.co.jp [10.0.50.96])
+	by m6.gw.fujitsu.co.jp (Postfix) with ESMTP id B5DA545DE4C
+	for <netdev@vger.kernel.org>; Fri,  9 Apr 2010 16:40:59 +0900 (JST)
+Received: from s6.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
+	by s6.gw.fujitsu.co.jp (Postfix) with ESMTP id 7C49E1DB801B
+	for <netdev@vger.kernel.org>; Fri,  9 Apr 2010 16:40:59 +0900 (JST)
+Received: from m105.s.css.fujitsu.com (m105.s.css.fujitsu.com [10.249.87.105])
+	by s6.gw.fujitsu.co.jp (Postfix) with ESMTP id 12E231DB8012
+	for <netdev@vger.kernel.org>; Fri,  9 Apr 2010 16:40:59 +0900 (JST)
 In-Reply-To: <4BBED951.8040406@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds tracepoint to dev_hard_start_xmit.
-It notices that xmit packet passes network/driver interface.
+This patch adds tracepoint to netif_receive_skb.
+It notices that receive packet passes network/driver interface.
 An output is below.
 
-   sshd-2443  [001] 68238.415621: netdev_start_xmit: dev=eth3 skbaddr=f3db5138 len=114
-   sshd-2443  [001] 68238.705459: netdev_start_xmit: dev=eth3 skbaddr=f3db5138 len=114
-   sshd-2443  [001] 68238.880361: netdev_start_xmit: dev=eth3 skbaddr=f3db5138 len=114
+<idle>-0     [001] 68238.417058: netdev_receive_skb: dev=eth3 skbaddr=f3c81540 len=52
+<idle>-0     [001] 68238.704363: netdev_receive_skb: dev=eth3 skbaddr=f3c81540 len=100
+<idle>-0     [001] 68238.706891: netdev_receive_skb: dev=eth3 skbaddr=f3c81540 len=52
+<idle>-0     [001] 68238.878736: netdev_receive_skb: dev=eth3 skbaddr=f3c81540 len=100
 
 Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
 ---
   include/trace/events/skb.h |   28 ++++++++++++++++++++++++++++
-  net/core/dev.c             |    3 +++
-  2 files changed, 31 insertions(+), 0 deletions(-)
+  net/core/dev.c             |    1 +
+  2 files changed, 29 insertions(+), 0 deletions(-)
 
 diff --git a/include/trace/events/skb.h b/include/trace/events/skb.h
-index 4b2be6d..425a062 100644
+index 425a062..ca78d49 100644
 --- a/include/trace/events/skb.h
 +++ b/include/trace/events/skb.h
-@@ -9,6 +9,34 @@
-  #include <linux/tracepoint.h>
+@@ -37,6 +37,34 @@ TRACE_EVENT(netdev_start_xmit,
+  );
   
   /*
-+ *  netdev_start_xmit - invoked when skb is passed to the driver
-+ *  @skb:		pointer to struct sk_buff
-+ *  @dev:		pointer to struct net_device
++ * netdev_receive_skb - invoked when skb is received from the driver
++ * @skb:		pointer to struct sk_buff
++ * @dev:		pointer to struct net_device
 + */
-+TRACE_EVENT(netdev_start_xmit,
++TRACE_EVENT(netdev_receive_skb,
 +
 +	TP_PROTO(struct sk_buff *skb,
 +		 struct net_device *dev),
@@ -88,32 +89,15 @@ index 4b2be6d..425a062 100644
    */
   TRACE_EVENT(kfree_skb,
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 2a9b7dd..4667a96 100644
+index 4667a96..7281286 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -129,6 +129,7 @@
-  #include <linux/jhash.h>
-  #include <linux/random.h>
-  #include <trace/events/napi.h>
-+#include <trace/events/skb.h>
-  #include <linux/pci.h>
+@@ -2683,6 +2683,7 @@ static int __netif_receive_skb(struct sk_buff *skb)
   
-  #include "net-sysfs.h"
-@@ -1903,6 +1904,7 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
-  		if (dev->priv_flags & IFF_XMIT_DST_RELEASE)
-  			skb_dst_drop(skb);
+  	__get_cpu_var(netdev_rx_stat).total++;
   
-+		trace_netdev_start_xmit(skb, dev);
-  		rc = ops->ndo_start_xmit(skb, dev);
-  		if (rc == NETDEV_TX_OK)
-  			txq_trans_update(txq);
-@@ -1937,6 +1939,7 @@ gso:
-  		if (dev->priv_flags & IFF_XMIT_DST_RELEASE)
-  			skb_dst_drop(nskb);
-  
-+		trace_netdev_start_xmit(nskb, dev);
-  		rc = ops->ndo_start_xmit(nskb, dev);
-  		if (unlikely(rc != NETDEV_TX_OK)) {
-  			if (rc & ~NETDEV_TX_MASK)
-
++	trace_netdev_receive_skb(skb, orig_dev);
+  	skb_reset_network_header(skb);
+  	skb_reset_transport_header(skb);
+  	skb->mac_len = skb->network_header - skb->mac_header;
 
