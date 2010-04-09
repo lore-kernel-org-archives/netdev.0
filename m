@@ -1,48 +1,49 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH] skbuff: remove unused dev_consume_skb macro
-	definition
-Date: Fri, 09 Apr 2010 13:01:37 -0700
-Message-ID: <20100409200116.31057.29639.stgit@localhost.localdomain>
+Subject: [net-2.6 PATCH] e1000e: stop cleaning when we reach
+	tx_ring->next_to_use
+Date: Fri, 09 Apr 2010 13:29:49 -0700
+Message-ID: <20100409202917.31293.79618.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Terry Loftin <terry.loftin@hp.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.westchester.pa.mail.comcast.net ([76.96.62.96]:43603
-	"EHLO qmta09.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755231Ab0DIUBz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 16:01:55 -0400
+Received: from qmta10.emeryville.ca.mail.comcast.net ([76.96.30.17]:56429 "EHLO
+	qmta10.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757088Ab0DIUa5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 16:30:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Terry Loftin <terry.loftin@hp.com>
 
-dev_consume_skb and kfree_skb_clean have no users and in the case of
-kfree_skb_clean could cause potential build issues since I cannot find
-where it is defined.  Based on the patch in which it was introduced it
-appears to have been a bit of leftover code from an earlier version of the
-patch in which kfree_skb_clean was dropped in favor of consume_skb.
+Tx ring buffers after tx_ring->next_to_use are volatile and could
+change, possibly causing a crash.  Stop cleaning when we hit
+tx_ring->next_to_use.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Terry Loftin <terry.loftin@hp.com>
+Acked-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- include/linux/skbuff.h |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ drivers/net/e1000e/netdev.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index cf42f19..38501d2 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -470,7 +470,6 @@ extern int	       skb_cow_data(struct sk_buff *skb, int tailbits,
- 				    struct sk_buff **trailer);
- extern int	       skb_pad(struct sk_buff *skb, int pad);
- #define dev_kfree_skb(a)	consume_skb(a)
--#define dev_consume_skb(a)	kfree_skb_clean(a)
- extern void	      skb_over_panic(struct sk_buff *skb, int len,
- 				     void *here);
- extern void	      skb_under_panic(struct sk_buff *skb, int len,
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index e1cceb6..60288e4 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -660,6 +660,8 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter)
+ 				i = 0;
+ 		}
+ 
++		if (i == tx_ring->next_to_use)
++			break;
+ 		eop = tx_ring->buffer_info[i].next_to_watch;
+ 		eop_desc = E1000_TX_DESC(*tx_ring, eop);
+ 	}
 
