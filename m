@@ -1,88 +1,143 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Benny Amorsen <benny+usenet@amorsen.dk>
 Subject: Re: Strange packet drops with heavy firewalling
-Date: Fri, 09 Apr 2010 13:47:42 +0200
-Message-ID: <1270813662.2623.85.camel@edumazet-laptop>
+Date: Fri, 09 Apr 2010 14:33:31 +0200
+Message-ID: <m3vdc0ztyc.fsf@ursa.amorsen.dk>
 References: <m339z50x1l.fsf@ursa.amorsen.dk>
+	<1270813662.2623.85.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Benny Amorsen <benny+usenet@amorsen.dk>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:61058 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750977Ab0DILrr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 07:47:47 -0400
-Received: by bwz1 with SMTP id 1so2473937bwz.21
-        for <netdev@vger.kernel.org>; Fri, 09 Apr 2010 04:47:45 -0700 (PDT)
-In-Reply-To: <m339z50x1l.fsf@ursa.amorsen.dk>
+Received: from gate1.ipvision.dk ([94.127.49.2]:33235 "EHLO gate1.ipvision.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751077Ab0DIMdi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Apr 2010 08:33:38 -0400
+In-Reply-To: <1270813662.2623.85.camel@edumazet-laptop> (Eric Dumazet's
+	message of "Fri, 09 Apr 2010 13:47:42 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 09 avril 2010 =C3=A0 11:56 +0200, Benny Amorsen a =C3=A9cri=
-t :
-> I have a netfilter-box which is dropping packets. ethtool -S counts
-> 10-20 rx_discards per second on the interface.
->=20
-> The switch does not have flow control enabled; with flow control enab=
-led
-> the rx_discards turn into tx_on_sent which ultimately cause the same
-> problem (the load is pretty constant so the switch has to drop the
-> packets instead).
->=20
-> perf top shows something like:
->              5201.00 -  6.7% : _spin_unlock_irqrestore
->              4232.00 -  5.5% : finish_task_switch
->              3597.00 -  4.6% : tg3_poll	[tg3]
->              3257.00 -  4.2% : handle_IRQ_event
->              2515.00 -  3.2% : tick_nohz_restart_sched_tick
->              1947.00 -  2.5% : nf_ct_tuple_equal
->              1927.00 -  2.5% : tg3_start_xmit	[tg3]
->              1879.00 -  2.4% : kmem_cache_alloc_node
->              1625.00 -  2.1% : tick_nohz_stop_sched_tick
->              1619.00 -  2.1% : ipt_do_table
->              1595.00 -  2.1% : ip_route_input
->              1547.00 -  2.0% : kmem_cache_free
->              1474.00 -  1.9% : __alloc_skb
->              1424.00 -  1.8% : fget_light
->              1391.00 -  1.8% : nf_iterate
->=20
-> The rule set is quite large (more than 4000 rules), but organized so
-> that each packet only has to traverse a few rules before getting
-> accepted or rejected.
->=20
-> When the problem started we were using a different server, an old
-> two-socket 32-bit Xeon with hyperthreading. CPU usage often hit 100% =
-on
-> one CPU with that server. After replacing the server with a ProLiant
-> DL160 G5 with a quad-core Xeon (without hyperthreading) the CPU usage
-> rarely exceeds 10% on any CPU, but the packet loss persists.
->=20
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
-might be micro bursts, check 'ethtool -g eth0' RX parameters (increase
-RX ring from 200 to 511 if you want more buffers ?)
+> might be micro bursts, check 'ethtool -g eth0' RX parameters (increase
+> RX ring from 200 to 511 if you want more buffers ?)
 
-> We're using the built-in dual Broadcom Corporation NetXtreme BCM5722 =
-Gigabit
-> Ethernet PCI Express nics, and the kernel is
-> kernel-2.6.32.9-70.fc12.x86_64 from Fedora. Next step is probably
-> installing a better ethernet card, perhaps an Intel 82576-based one, =
-so
-> that we can get multiqueue support.
->=20
+I tried that already actually. (I didn't expect it to cause traffic
+interruption, but it did. Oh well.)
 
-Sure, but before this, could you check
+It didn't make a difference, at least not one I could detect from the
+number of packet drops and the CPU utilization.
 
-cat /proc/net/softnet_stat
-cat /proc/interrupts
-(check eth0 IRQS are delivered to one cpu)
+> cat /proc/net/softnet_stat
 
-grep . /proc/sys/net/ipv4/netfilter/ip_conntrack_*
-(might need to increase ip_conntrack_buckets)
+000002d9 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+42bc8143 00000000 0000024c 00000000 00000000 00000000 00000000 00000000 00000000
+0000031b 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+1c5a35e9 00000000 000005f7 00000000 00000000 00000000 00000000 00000000 00000000
 
-ethtool -c eth0
-(might change coalesce params to reduce number of irqs)
+I am not quite sure how to interpret that...
 
-ethtool -g eth0
+> cat /proc/interrupts
+
+  79:       1240 4050590849       1253       1263   PCI-MSI-edge      eth0
+  80:         12          9         14 3613521843   PCI-MSI-edge      eth1
+
+> (check eth0 IRQS are delivered to one cpu)
+
+Yes CPU1 handles eth0 and CPU3 handles eth1.
+
+> grep . /proc/sys/net/ipv4/netfilter/ip_conntrack_*
+
+nf_conntrack_acct:1
+nf_conntrack_buckets:8192
+nf_conntrack_checksum:1
+nf_conntrack_count:49311
+nf_conntrack_events:1
+nf_conntrack_events_retry_timeout:15
+nf_conntrack_expect_max:2048
+nf_conntrack_generic_timeout:600
+nf_conntrack_icmp_timeout:30
+nf_conntrack_log_invalid:1
+nf_conntrack_max:1048576
+nf_conntrack_tcp_be_liberal:0
+nf_conntrack_tcp_loose:1
+nf_conntrack_tcp_max_retrans:3
+nf_conntrack_tcp_timeout_close:10
+nf_conntrack_tcp_timeout_close_wait:60
+nf_conntrack_tcp_timeout_established:432000
+nf_conntrack_tcp_timeout_fin_wait:120
+nf_conntrack_tcp_timeout_last_ack:30
+nf_conntrack_tcp_timeout_max_retrans:300
+nf_conntrack_tcp_timeout_syn_recv:60
+nf_conntrack_tcp_timeout_syn_sent:120
+nf_conntrack_tcp_timeout_time_wait:120
+nf_conntrack_tcp_timeout_unacknowledged:300
+nf_conntrack_udp_timeout:30
+nf_conntrack_udp_timeout_stream:180
+
+> (might need to increase ip_conntrack_buckets)
+
+You got me there. I had forgotten nf_conntrack.hashsize=1048576
+and nf_conntrack.expect_hashsize=32768 on the kernel command line. It
+was on the hot standby firewall, but not on the primary one. I will do a
+failover to the hot standby sometime during the weekend.
+
+It still isn't possible to change without a reboot, is it?
+
+> ethtool -c eth0
+> (might change coalesce params to reduce number of irqs)
+
+Coalesce parameters for eth0:
+Adaptive RX: off  TX: off
+stats-block-usecs: 0
+sample-interval: 0
+pkt-rate-low: 0
+pkt-rate-high: 0
+
+rx-usecs: 20
+rx-frames: 5
+rx-usecs-irq: 0
+rx-frames-irq: 5
+
+tx-usecs: 72
+tx-frames: 53
+tx-usecs-irq: 0
+tx-frames-irq: 5
+
+rx-usecs-low: 0
+rx-frame-low: 0
+tx-usecs-low: 0
+tx-frame-low: 0
+
+rx-usecs-high: 0
+rx-frame-high: 0
+tx-usecs-high: 0
+tx-frame-high: 0
+
+I played quite a lot with the parameters but it did not seem to make any
+difference. I didn't try adaptive though, but the load is fairly static
+so it didn't seem appropriate.
+
+> ethtool -g eth0
+
+Ring parameters for eth0:
+Pre-set maximums:
+RX:		511
+RX Mini:	0
+RX Jumbo:	0
+TX:		511
+Current hardware settings:
+RX:		200
+RX Mini:	0
+RX Jumbo:	0
+TX:		511
+
+Right now RX is 200, but when it was 511 it didn't seem to make a
+difference.
+
+Thank you very much for the help! I will report back whether it was the
+hash buckets.
 
 
+/Benny
