@@ -1,58 +1,48 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [RFC PATCH 0/2] netdev: Add tracepoint to network/driver
- interface
-Date: Fri, 9 Apr 2010 07:04:20 -0400
-Message-ID: <20100409110420.GA16609@hmsreliant.think-freely.org>
-References: <4BBED951.8040406@jp.fujitsu.com>
+From: Florian Fainelli <ffainelli@freebox.fr>
+Subject: [PATCH 2/2] bcm63xx_enet: do not overwrite ENET_CTL_REG value
+Date: Fri, 9 Apr 2010 13:04:52 +0200
+Message-ID: <201004091304.52540.ffainelli@freebox.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, izumi.taku@jp.fujitsu.com,
-	kaneshige.kenji@jp.fujitsu.com, davem@davemloft.net
-To: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Maxime Bizon <mbizon@freebox.fr>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:43416 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751927Ab0DILE0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 07:04:26 -0400
-Content-Disposition: inline
-In-Reply-To: <4BBED951.8040406@jp.fujitsu.com>
+Received: from zmc.proxad.net ([212.27.53.206]:34060 "EHLO zmc.proxad.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752247Ab0DILON (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Apr 2010 07:14:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 09, 2010 at 04:37:53PM +0900, Koki Sanagi wrote:
-> These patches add tracepoints to network/driver interface.
-> 
-> These tracepoints are helpful to investigate whether a packet passes or not.
-> For example, when Heart Beat is disconnected, that information is helpful
-> to investigate the cause is whether driver/device side or not.
-> 
-> An output is below.
-> 
->   sshd-2443  [001] 68238.415621: netdev_start_xmit: dev=eth3 skbaddr=f3db5138 len=114
-> <idle>-0     [001] 68238.417058: netdev_receive_skb: dev=eth3 skbaddr=f3c81540 len=52
-> <idle>-0     [001] 68238.704363: netdev_receive_skb: dev=eth3 skbaddr=f3c81540 len=100
->   sshd-2443  [001] 68238.705459: netdev_start_xmit: dev=eth3 skbaddr=f3db5138 len=114
-> <idle>-0     [001] 68238.706891: netdev_receive_skb: dev=eth3 skbaddr=f3c81540 len=52
-> <idle>-0     [001] 68238.878736: netdev_receive_skb: dev=eth3 skbaddr=f3c81540 len=100
->   sshd-2443  [001] 68238.880361: netdev_start_xmit: dev=eth3 skbaddr=f3db5138 len=114
-> 
-> As other use case I have, we can get throughput per interface with some sort of
-> perf scripts. I plan to create it.
-> 
-> Thanks
-> Koki Sanagi
-> 
-You can get a reasonable estimate of per-interface throughput using ethtool or
-even ifconfig in a script.  What are the tracepoints needed for that?  Don't get
-me wrong, I think these tracepoints could have some potential use thats not
-covered by other tools, I just don't see the above as a conclusive reason to add
-them.
+bcm_enet_hw_preinit will correctly set values in ENET_CTL_REG for internal
+or external MII operations, however, bcm_enet_open will blindly overwrite the
+ENET_CTL_REG register value and thus we will loose any changes to it that
+were made in bcm_enet_hw_preinit, rendering external MII operations non-working.
 
-Regards
-Neil
+This would lead to the driver not being able to check for link availability on
+external PHY setups, and thus we would never get to sending packets because
+link was down from the driver side.
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+This was completely un-noticed because all boards out there but BCM6338-based
+ones use internal phy on their enet0 interface.
+
+Signed-off-by: Florian Fainelli <ffainelli@freebox.fr>
+---
+diff --git a/drivers/net/bcm63xx_enet.c b/drivers/net/bcm63xx_enet.c
+index 5173340..14ab4dc 100644
+--- a/drivers/net/bcm63xx_enet.c
++++ b/drivers/net/bcm63xx_enet.c
+@@ -958,7 +958,9 @@ static int bcm_enet_open(struct net_device *dev)
+ 	/* all set, enable mac and interrupts, start dma engine and
+ 	 * kick rx dma channel */
+ 	wmb();
+-	enet_writel(priv, ENET_CTL_ENABLE_MASK, ENET_CTL_REG);
++	val = enet_readl(priv, ENET_CTL_REG);
++	val |= ENET_CTL_ENABLE_MASK;
++	enet_writel(priv, val, ENET_CTL_REG);
+ 	enet_dma_writel(priv, ENETDMA_CFG_EN_MASK, ENETDMA_CFG_REG);
+ 	enet_dma_writel(priv, ENETDMA_CHANCFG_EN_MASK,
+ 			ENETDMA_CHANCFG_REG(priv->rx_chan));
