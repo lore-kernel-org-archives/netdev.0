@@ -1,44 +1,64 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net tree with Linus' tree
-Date: Fri, 9 Apr 2010 10:41:35 +1000
-Message-ID: <20100409104135.d6008487.sfr@canb.auug.org.au>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH 1/1] add ethtool loopback support
+Date: Thu, 08 Apr 2010 20:46:26 -0400
+Message-ID: <4BBE78E2.2000709@garzik.org>
+References: <pvmbpdtn8yh.fsf@chavey.mtv.corp.google.com> <1270751373.5055.22.camel@achroite.uk.solarflarecom.com>  <w2i97949e3e1004081217jdeca953dz162c62b61c0e8f72@mail.gmail.com>  <1270755356.5055.23.camel@achroite.uk.solarflarecom.com> <j2r97949e3e1004081543h6258125dm60083556ff28fa88@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	chavey <chavey@google.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Ben Hutchings <bhutchings@solarflare.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, therbert@google.com
+To: Laurent Chavey <chavey@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:47676 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750743Ab0DIAq3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 20:46:29 -0400
+Received: by gwb19 with SMTP id 19so1493755gwb.19
+        for <netdev@vger.kernel.org>; Thu, 08 Apr 2010 17:46:28 -0700 (PDT)
+In-Reply-To: <j2r97949e3e1004081543h6258125dm60083556ff28fa88@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+On 04/08/2010 06:43 PM, Laurent Chavey wrote:
+> On Thu, Apr 8, 2010 at 12:35 PM, Ben Hutchings
+> <bhutchings@solarflare.com>  wrote:
+>> On Thu, 2010-04-08 at 12:17 -0700, Laurent Chavey wrote:
+>>> On Thu, Apr 8, 2010 at 11:29 AM, Ben Hutchings
+>>> <bhutchings@solarflare.com>  wrote:
+>>>> On Thu, 2010-04-08 at 10:35 -0700, chavey@google.com wrote:
+>> [...]
+>>>>> +enum ethtool_loopback_type {
+>>>>> +     ETH_MAC                 = 0x00000001,
+>>>>> +     ETH_PHY_INT             = 0x00000002,
+>>>>> +     ETH_PHY_EXT             = 0x00000004
+>>>>> +};
+>>>> [...]
+>>>>
+>>>> There are many different places you can loop back within a MAC or PHY,
+>>>> not to mention bypassing the MAC altogether.  See
+>>>> drivers/net/sfc/mcdi_pcol.h, starting from the line
+>>>> '#define MC_CMD_LOOPBACK_NONE 0'.  I believe we implement all of those
+>>>> loopback modes on at least one board.
+>>>>
+>>>> Also are these supposed to be an enumeration or flags?  In theory you
+>>> those are enums that can be or together.
+>>
+>> I.e. they are flags.  So how do you answer this:
+>>
+>>>> could use wire-side and host-side loopback at the same time if they
+>>>> don't overlap, but it's probably too much trouble to bother with.  Any
+>>>> other combination is meaningless.
+> since the intent is to enable the sending and receiving of packets at
+> the hw/driver interfaces, a simple loopback mode on/off is sufficient
+> and the ethtool_loopback_type are not necessary. the implementor can choose
+> how to implement the loopback. From drivers/net/sfc/mcdi_pcol.h it is clear
+> that unless ethtool_loopback_type as defined are meaningless.
 
-Today's linux-next merge of the net tree got a conflict in
-net/core/ethtool.c between commit
-5a0e3ad6af8660be21ca98a971cd00f331318c05 ("include cleanup: Update gfp.h
-and slab.h includes to prepare for breaking implicit slab.h inclusion
-from percpu.h") from Linus' tree and commit
-97f8aefbbfb5aa5c9944e5fa8149f1fdaf71c7b6 ("net: fix ethtool coding style
-errors and warnings") from the net tree.
+If an off/on switch is sufficient, the existing ethtool flags interface 
+should work just fine.
 
-Just context changes.  I fixed it up (see below) and can carry the fix
-for a while.
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+	Jeff
 
-diff --cc net/core/ethtool.c
-index 9d55c57,99e9f85..0000000
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@@ -18,8 -18,7 +18,8 @@@
-  #include <linux/ethtool.h>
-  #include <linux/netdevice.h>
-  #include <linux/bitops.h>
-+ #include <linux/uaccess.h>
- +#include <linux/slab.h>
-- #include <asm/uaccess.h>
-  
-  /*
-   * Some useful ethtool_ops methods that're device independent.
+
+
