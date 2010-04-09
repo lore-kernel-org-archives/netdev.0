@@ -1,35 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2010-04-09
-Date: Fri, 09 Apr 2010 10:03:41 -0700 (PDT)
-Message-ID: <20100409.100341.268115452.davem@davemloft.net>
-References: <20100408200218.GC2999@tuxdriver.com>
-	<1270762107.20845.3.camel@wwguy-ubuntu>
-	<20100409153807.GA3014@tuxdriver.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] vhost: Make it more scalable by creating a vhost	thread
+ per device.
+Date: Fri, 09 Apr 2010 10:13:08 -0700
+Message-ID: <4BBF6024.6060809@hp.com>
+References: <1270229480.13897.8.camel@w-sridhar.beaverton.ibm.com>	<1270488911.27874.43.camel@w-sridhar.beaverton.ibm.com>	<1270771542.31186.397.camel@w-sridhar.beaverton.ibm.com>	<4BBE716B.7050904@hp.com> <1270827580.25555.13.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jeff.chua.linux@gmail.com, shanyu.zhao@intel.com,
-	reinette.chatre@intel.com, stable@kernel.org,
-	linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
-	viro@zeniv.linux.org.uk, wey-yi.w.guy@intel.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100409153807.GA3014@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Tom Lendacky <toml@us.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>
+To: Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1270827580.25555.13.camel@w-sridhar.beaverton.ibm.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Fri, 9 Apr 2010 11:38:07 -0400
-
-> This fix is intended for 2.6.34.  It resolves an issue involving an
-> Oops on boxes w/ iwl4965 hardware, apparently introduced by another
-> recent patch.  The thread describing the issue and the resolution
-> is here:
+Sridhar Samudrala wrote:
+> On Thu, 2010-04-08 at 17:14 -0700, Rick Jones wrote:
 > 
-> 	http://marc.info/?l=linux-kernel&m=127074721531649&w=2
+>>>Here are the results with netperf TCP_STREAM 64K guest to host on a
+>>>8-cpu Nehalem system.
+>>
+>>I presume you mean 8 core Nehalem-EP, or did you mean 8 processor Nehalem-EX?
 > 
-> In order to avoid reverting that patch, please accept this fix instead.
-> As usual, please let me know if there are problems!
+> 
+> Yes. It is a 2 socket quad-core Nehalem. so i guess it is a 8 core
+> Nehalem-EP.
+> 
+>>Don't get me wrong, I *like* the netperf 64K TCP_STREAM test, I lik it a lot!-) 
+>>but I find it incomplete and also like to run things like single-instance TCP_RR 
+>>and multiple-instance, multiple "transaction" (./configure --enable-burst) 
+>>TCP_RR tests, particularly when concerned with "scaling" issues.
+> 
+> 
+> Can we run multiple instance and multiple transaction tests with a
+> single netperf commandline?
 
-Pulled, thanks John.
+Do you count a shell for loop as a single command line?
+
+> Is there any easy way to get consolidated throughput when a netserver on
+> the host is servicing netperf clients from multiple guests?
+
+I tend to use a script such as:
+
+ftp://ftp.netperf.org/netperf/misc/runemomniagg2.sh
+
+which presumes that netperf/netserver have been built with:
+
+./configure --enable-omni --enable-burst ...
+
+and uses the CSV output format of the omni tests.  When I want sums I then turn 
+to a spreadsheet, or I suppose I could turn to awk etc.
+
+The TCP_RR test can be flipped around request size for response size etc, so 
+when I have a single sustem under test, I initiate the netperf commands on it, 
+targetting netservers on the clients.  If I want inbound bulk throughput I use 
+the TCP_MAERTS test rather than the TCP_STREAM test.
+
+happy benchmarking,
+
+rick jones
