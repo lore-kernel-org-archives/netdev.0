@@ -1,8 +1,8 @@
 From: Manfred Rudigier <Manfred.Rudigier@omicron.at>
-Subject: [PATCH v2 net-next 1/2] gianfar: Add hardware RX timestamping
+Subject: [PATCH v2 net-next 2/2] gianfar: Add hardware TX timestamping
  support
-Date: Fri, 9 Apr 2010 11:10:03 +0200
-Message-ID: <95DC1AA8EC908B48939B72CF375AA5E311B26A77@alice.at.omicron.at>
+Date: Fri, 9 Apr 2010 11:10:35 +0200
+Message-ID: <95DC1AA8EC908B48939B72CF375AA5E311B26A78@alice.at.omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -12,190 +12,267 @@ Cc: "'sandeep.kumar@freescale.com'" <sandeep.kumar@freescale.com>,
 To: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
 	"'linuxppc-dev@lists.ozlabs.org'" <linuxppc-dev@lists.ozlabs.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.omicron.at ([212.183.10.25]:55719 "EHLO ns.omicron.at"
+Received: from ns.omicron.at ([212.183.10.25]:55812 "EHLO ns.omicron.at"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754478Ab0DIJKT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 05:10:19 -0400
+	id S1755130Ab0DIJKv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 05:10:51 -0400
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The device is configured to insert hardware timestamps into all
-received packets. The RX timestamps are extracted from the padding
-alingment bytes during the clean_rx_ring operation and copied into the
-skb_shared_hwtstamps struct of the skb. This extraction only happens if
-the rx_filter was set to something else than HWTSTAMP_FILTER_NONE with
-the SIOCSHWTSTAMP ioctl command.
+If a packet has the skb_shared_tx->hardware flag set the device is
+instructed to generate a TX timestamp and write it back to memory after
+the frame is transmitted. During the clean_tx_ring operation the
+timestamp will be extracted and copied into the skb_shared_hwtstamps
+struct of the skb.
 
-Hardware timestamping is only supported for eTSEC devices. To indicate
-device support the new FSL_GIANFAR_DEV_HAS_TIMER flag was introduced.
+TX timestamping is enabled by setting the tx_type to something else
+than HWTSTAMP_TX_OFF with the SIOCSHWTSTAMP ioctl command. It is only
+supported by eTSEC devices.
 
 Signed-off-by: Manfred Rudigier <manfred.rudigier@omicron.at>
 ---
- drivers/net/gianfar.c |   66 +++++++++++++++++++++++++++++++++++++++++++++---
- drivers/net/gianfar.h |    5 +++
- 2 files changed, 66 insertions(+), 5 deletions(-)
+ drivers/net/gianfar.c |  118 +++++++++++++++++++++++++++++++++++++++++--------
+ drivers/net/gianfar.h |    3 +-
+ 2 files changed, 101 insertions(+), 20 deletions(-)
 
 diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 080d1ce..552e10d 100644
+index 552e10d..becc3f3 100644
 --- a/drivers/net/gianfar.c
 +++ b/drivers/net/gianfar.c
-@@ -82,6 +82,7 @@
- #include <linux/tcp.h>
- #include <linux/udp.h>
- #include <linux/in.h>
-+#include <linux/net_tstamp.h>
- 
- #include <asm/io.h>
- #include <asm/irq.h>
-@@ -377,6 +378,13 @@ static void gfar_init_mac(struct net_device *ndev)
- 		rctrl |= RCTRL_PADDING(priv->padding);
- 	}
- 
-+	/* Insert receive time stamps into padding alignment bytes */
-+	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_TIMER) {
-+		rctrl &= ~RCTRL_PAL_MASK;
-+		rctrl |= RCTRL_PRSDEP_INIT | RCTRL_TS_ENABLE | RCTRL_PADDING(8);
-+		priv->padding = 8;
-+	}
-+
- 	/* keep vlan related bits if it's enabled */
- 	if (priv->vlgrp) {
- 		rctrl |= RCTRL_VLEX | RCTRL_PRSDEP_INIT;
-@@ -501,7 +509,8 @@ void unlock_tx_qs(struct gfar_private *priv)
- /* Returns 1 if incoming frames use an FCB */
- static inline int gfar_uses_fcb(struct gfar_private *priv)
- {
--	return priv->vlgrp || priv->rx_csum_enable;
-+	return priv->vlgrp || priv->rx_csum_enable ||
-+		(priv->device_flags & FSL_GIANFAR_DEV_HAS_TIMER);
- }
- 
- static void free_tx_pointers(struct gfar_private *priv)
-@@ -742,7 +751,8 @@ static int gfar_of_init(struct of_device *ofdev, struct net_device **pdev)
- 			FSL_GIANFAR_DEV_HAS_CSUM |
- 			FSL_GIANFAR_DEV_HAS_VLAN |
- 			FSL_GIANFAR_DEV_HAS_MAGIC_PACKET |
--			FSL_GIANFAR_DEV_HAS_EXTENDED_HASH;
-+			FSL_GIANFAR_DEV_HAS_EXTENDED_HASH |
-+			FSL_GIANFAR_DEV_HAS_TIMER;
- 
- 	ctype = of_get_property(np, "phy-connection-type", NULL);
- 
-@@ -772,6 +782,38 @@ err_grp_init:
- 	return err;
- }
- 
-+static int gfar_hwtstamp_ioctl(struct net_device *netdev,
-+			struct ifreq *ifr, int cmd)
-+{
-+	struct hwtstamp_config config;
-+	struct gfar_private *priv = netdev_priv(netdev);
-+
-+	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
-+		return -EFAULT;
-+
-+	/* reserved for future extensions */
-+	if (config.flags)
-+		return -EINVAL;
-+
-+	if (config.tx_type)
-+		return -ERANGE;
-+
-+	switch (config.rx_filter) {
-+	case HWTSTAMP_FILTER_NONE:
-+		priv->hwts_rx_en = 0;
-+		break;
-+	default:
-+		if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_TIMER))
-+			return -ERANGE;
-+		priv->hwts_rx_en = 1;
-+		config.rx_filter = HWTSTAMP_FILTER_ALL;
-+		break;
-+	}
-+
-+	return copy_to_user(ifr->ifr_data, &config, sizeof(config)) ?
-+		-EFAULT : 0;
-+}
-+
- /* Ioctl MII Interface */
- static int gfar_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- {
-@@ -780,6 +822,9 @@ static int gfar_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 	if (!netif_running(dev))
+@@ -795,8 +795,18 @@ static int gfar_hwtstamp_ioctl(struct net_device *netdev,
+ 	if (config.flags)
  		return -EINVAL;
  
-+	if (cmd == SIOCSHWTSTAMP)
-+		return gfar_hwtstamp_ioctl(dev, rq, cmd);
+-	if (config.tx_type)
++	switch (config.tx_type) {
++	case HWTSTAMP_TX_OFF:
++		priv->hwts_tx_en = 0;
++		break;
++	case HWTSTAMP_TX_ON:
++		if (!(priv->device_flags & FSL_GIANFAR_DEV_HAS_TIMER))
++			return -ERANGE;
++		priv->hwts_tx_en = 1;
++		break;
++	default:
+ 		return -ERANGE;
++	}
+ 
+ 	switch (config.rx_filter) {
+ 	case HWTSTAMP_FILTER_NONE:
+@@ -1972,23 +1982,29 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	struct netdev_queue *txq;
+ 	struct gfar __iomem *regs = NULL;
+ 	struct txfcb *fcb = NULL;
+-	struct txbd8 *txbdp, *txbdp_start, *base;
++	struct txbd8 *txbdp, *txbdp_start, *base, *txbdp_tstamp = NULL;
+ 	u32 lstatus;
+-	int i, rq = 0;
++	int i, rq = 0, do_tstamp = 0;
+ 	u32 bufaddr;
+ 	unsigned long flags;
+-	unsigned int nr_frags, length;
+-
++	unsigned int nr_frags, nr_txbds, length;
++	union skb_shared_tx *shtx;
+ 
+ 	rq = skb->queue_mapping;
+ 	tx_queue = priv->tx_queue[rq];
+ 	txq = netdev_get_tx_queue(dev, rq);
+ 	base = tx_queue->tx_bd_base;
+ 	regs = tx_queue->grp->regs;
++	shtx = skb_tx(skb);
 +
- 	if (!priv->phydev)
- 		return -ENODEV;
++	/* check if time stamp should be generated */
++	if (unlikely(shtx->hardware && priv->hwts_tx_en))
++		do_tstamp = 1;
  
-@@ -982,7 +1027,8 @@ static int gfar_probe(struct of_device *ofdev,
- 	else
- 		priv->padding = 0;
+ 	/* make space for additional header when fcb is needed */
+ 	if (((skb->ip_summed == CHECKSUM_PARTIAL) ||
+-			(priv->vlgrp && vlan_tx_tag_present(skb))) &&
++			(priv->vlgrp && vlan_tx_tag_present(skb)) ||
++			unlikely(do_tstamp)) &&
+ 			(skb_headroom(skb) < GMAC_FCB_LEN)) {
+ 		struct sk_buff *skb_new;
  
--	if (dev->features & NETIF_F_IP_CSUM)
-+	if (dev->features & NETIF_F_IP_CSUM ||
-+			priv->device_flags & FSL_GIANFAR_DEV_HAS_TIMER)
- 		dev->hard_header_len += GMAC_FCB_LEN;
+@@ -2005,8 +2021,14 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	/* total number of fragments in the SKB */
+ 	nr_frags = skb_shinfo(skb)->nr_frags;
  
- 	/* Program the isrg regs only if number of grps > 1 */
-@@ -2474,6 +2520,17 @@ static int gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
- 		skb_pull(skb, amount_pull);
++	/* calculate the required number of TxBDs for this skb */
++	if (unlikely(do_tstamp))
++		nr_txbds = nr_frags + 2;
++	else
++		nr_txbds = nr_frags + 1;
++
+ 	/* check if there is space to queue this packet */
+-	if ((nr_frags+1) > tx_queue->num_txbdfree) {
++	if (nr_txbds > tx_queue->num_txbdfree) {
+ 		/* no space, stop the queue */
+ 		netif_tx_stop_queue(txq);
+ 		dev->stats.tx_fifo_errors++;
+@@ -2018,9 +2040,19 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	txq->tx_packets ++;
+ 
+ 	txbdp = txbdp_start = tx_queue->cur_tx;
++	lstatus = txbdp->lstatus;
++
++	/* Time stamp insertion requires one additional TxBD */
++	if (unlikely(do_tstamp))
++		txbdp_tstamp = txbdp = next_txbd(txbdp, base,
++				tx_queue->tx_ring_size);
+ 
+ 	if (nr_frags == 0) {
+-		lstatus = txbdp->lstatus | BD_LFLAG(TXBD_LAST | TXBD_INTERRUPT);
++		if (unlikely(do_tstamp))
++			txbdp_tstamp->lstatus |= BD_LFLAG(TXBD_LAST |
++					TXBD_INTERRUPT);
++		else
++			lstatus |= BD_LFLAG(TXBD_LAST | TXBD_INTERRUPT);
+ 	} else {
+ 		/* Place the fragment addresses and lengths into the TxBDs */
+ 		for (i = 0; i < nr_frags; i++) {
+@@ -2066,11 +2098,32 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		gfar_tx_vlan(skb, fcb);
  	}
  
-+	/* Get receive timestamp from the skb */
-+	if (priv->hwts_rx_en) {
-+		struct skb_shared_hwtstamps *shhwtstamps = skb_hwtstamps(skb);
-+		u64 *ns = (u64 *) skb->data;
-+		memset(shhwtstamps, 0, sizeof(*shhwtstamps));
-+		shhwtstamps->hwtstamp = ns_to_ktime(*ns);
+-	/* setup the TxBD length and buffer pointer for the first BD */
++	/* Setup tx hardware time stamping if requested */
++	if (unlikely(do_tstamp)) {
++		shtx->in_progress = 1;
++		if (fcb == NULL)
++			fcb = gfar_add_fcb(skb);
++		fcb->ptp = 1;
++		lstatus |= BD_LFLAG(TXBD_TOE);
 +	}
 +
-+	if (priv->padding)
-+		skb_pull(skb, priv->padding);
+ 	txbdp_start->bufPtr = dma_map_single(&priv->ofdev->dev, skb->data,
+ 			skb_headlen(skb), DMA_TO_DEVICE);
+ 
+-	lstatus |= BD_LFLAG(TXBD_CRC | TXBD_READY) | skb_headlen(skb);
++	/*
++	 * If time stamping is requested one additional TxBD must be set up. The
++	 * first TxBD points to the FCB and must have a data length of
++	 * GMAC_FCB_LEN. The second TxBD points to the actual frame data with
++	 * the full frame length.
++	 */
++	if (unlikely(do_tstamp)) {
++		txbdp_tstamp->bufPtr = txbdp_start->bufPtr + GMAC_FCB_LEN;
++		txbdp_tstamp->lstatus |= BD_LFLAG(TXBD_READY) |
++				(skb_headlen(skb) - GMAC_FCB_LEN);
++		lstatus |= BD_LFLAG(TXBD_CRC | TXBD_READY) | GMAC_FCB_LEN;
++	} else {
++		lstatus |= BD_LFLAG(TXBD_CRC | TXBD_READY) | skb_headlen(skb);
++	}
+ 
+ 	/*
+ 	 * We can work in parallel with gfar_clean_tx_ring(), except
+@@ -2110,7 +2163,7 @@ static int gfar_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	tx_queue->cur_tx = next_txbd(txbdp, base, tx_queue->tx_ring_size);
+ 
+ 	/* reduce TxBD free count */
+-	tx_queue->num_txbdfree -= (nr_frags + 1);
++	tx_queue->num_txbdfree -= (nr_txbds);
+ 
+ 	dev->trans_start = jiffies;
+ 
+@@ -2301,16 +2354,18 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
+ 	struct net_device *dev = tx_queue->dev;
+ 	struct gfar_private *priv = netdev_priv(dev);
+ 	struct gfar_priv_rx_q *rx_queue = NULL;
+-	struct txbd8 *bdp;
++	struct txbd8 *bdp, *next = NULL;
+ 	struct txbd8 *lbdp = NULL;
+ 	struct txbd8 *base = tx_queue->tx_bd_base;
+ 	struct sk_buff *skb;
+ 	int skb_dirtytx;
+ 	int tx_ring_size = tx_queue->tx_ring_size;
+-	int frags = 0;
++	int frags = 0, nr_txbds = 0;
+ 	int i;
+ 	int howmany = 0;
+ 	u32 lstatus;
++	size_t buflen;
++	union skb_shared_tx *shtx;
+ 
+ 	rx_queue = priv->rx_queue[tx_queue->qindex];
+ 	bdp = tx_queue->dirty_tx;
+@@ -2320,7 +2375,18 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
+ 		unsigned long flags;
+ 
+ 		frags = skb_shinfo(skb)->nr_frags;
+-		lbdp = skip_txbd(bdp, frags, base, tx_ring_size);
 +
- 	if (priv->rx_csum_enable)
- 		gfar_rx_checksum(skb, fcb);
++		/*
++		 * When time stamping, one additional TxBD must be freed.
++		 * Also, we need to dma_unmap_single() the TxPAL.
++		 */
++		shtx = skb_tx(skb);
++		if (unlikely(shtx->in_progress))
++			nr_txbds = frags + 2;
++		else
++			nr_txbds = frags + 1;
++
++		lbdp = skip_txbd(bdp, nr_txbds - 1, base, tx_ring_size);
  
-@@ -2510,8 +2567,7 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
- 	bdp = rx_queue->cur_rx;
- 	base = rx_queue->rx_bd_base;
+ 		lstatus = lbdp->lstatus;
  
--	amount_pull = (gfar_uses_fcb(priv) ? GMAC_FCB_LEN : 0) +
--		priv->padding;
-+	amount_pull = (gfar_uses_fcb(priv) ? GMAC_FCB_LEN : 0);
+@@ -2329,10 +2395,24 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
+ 				(lstatus & BD_LENGTH_MASK))
+ 			break;
  
- 	while (!((bdp->status & RXBD_EMPTY) || (--rx_work_limit < 0))) {
- 		struct sk_buff *newskb;
+-		dma_unmap_single(&priv->ofdev->dev,
+-				bdp->bufPtr,
+-				bdp->length,
+-				DMA_TO_DEVICE);
++		if (unlikely(shtx->in_progress)) {
++			next = next_txbd(bdp, base, tx_ring_size);
++			buflen = next->length + GMAC_FCB_LEN;
++		} else
++			buflen = bdp->length;
++
++		dma_unmap_single(&priv->ofdev->dev, bdp->bufPtr,
++				buflen, DMA_TO_DEVICE);
++
++		if (unlikely(shtx->in_progress)) {
++			struct skb_shared_hwtstamps shhwtstamps;
++			u64 *ns = (u64*) (((u32)skb->data + 0x10) & ~0x7);
++			memset(&shhwtstamps, 0, sizeof(shhwtstamps));
++			shhwtstamps.hwtstamp = ns_to_ktime(*ns);
++			skb_tstamp_tx(skb, &shhwtstamps);
++			bdp->lstatus &= BD_LFLAG(TXBD_WRAP);
++			bdp = next;
++		}
+ 
+ 		bdp->lstatus &= BD_LFLAG(TXBD_WRAP);
+ 		bdp = next_txbd(bdp, base, tx_ring_size);
+@@ -2364,7 +2444,7 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
+ 
+ 		howmany++;
+ 		spin_lock_irqsave(&tx_queue->txlock, flags);
+-		tx_queue->num_txbdfree += frags + 1;
++		tx_queue->num_txbdfree += nr_txbds;
+ 		spin_unlock_irqrestore(&tx_queue->txlock, flags);
+ 	}
+ 
 diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
-index 17d25e7..1ea287c 100644
+index 1ea287c..ac4a92e 100644
 --- a/drivers/net/gianfar.h
 +++ b/drivers/net/gianfar.h
-@@ -262,6 +262,7 @@ extern const char gfar_driver_version[];
+@@ -540,7 +540,7 @@ struct txbd8
  
- #define next_bd(bdp, base, ring_size) skip_bd(bdp, 1, base, ring_size)
+ struct txfcb {
+ 	u8	flags;
+-	u8	reserved;
++	u8	ptp;    /* Flag to enable tx timestamping */
+ 	u8	l4os;	/* Level 4 Header Offset */
+ 	u8	l3os; 	/* Level 3 Header Offset */
+ 	u16	phcs;	/* Pseudo-header Checksum */
+@@ -1105,6 +1105,7 @@ struct gfar_private {
  
-+#define RCTRL_TS_ENABLE 	0x01000000
- #define RCTRL_PAL_MASK		0x001f0000
- #define RCTRL_VLEX		0x00002000
- #define RCTRL_FILREN		0x00001000
-@@ -885,6 +886,7 @@ struct gfar {
- #define FSL_GIANFAR_DEV_HAS_MAGIC_PACKET	0x00000100
- #define FSL_GIANFAR_DEV_HAS_BD_STASHING		0x00000200
- #define FSL_GIANFAR_DEV_HAS_BUF_STASHING	0x00000400
-+#define FSL_GIANFAR_DEV_HAS_TIMER		0x00000800
- 
- #if (MAXGROUPS == 2)
- #define DEFAULT_MAPPING 	0xAA
-@@ -1100,6 +1102,9 @@ struct gfar_private {
- 
- 	/* Network Statistics */
- 	struct gfar_extra_stats extra_stats;
-+
-+	/* HW time stamping enabled flag */
-+	int hwts_rx_en;
+ 	/* HW time stamping enabled flag */
+ 	int hwts_rx_en;
++	int hwts_tx_en;
  };
  
  extern unsigned int ftp_rqfpr[MAX_FILER_IDX + 1];
