@@ -1,95 +1,119 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3] rfs: Receive Flow Steering
-Date: Fri, 09 Apr 2010 09:37:50 +0200
-Message-ID: <1270798670.2623.33.camel@edumazet-laptop>
-References: <alpine.DEB.1.00.1004082331250.19688@pokey.mtv.corp.google.com>
+From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+Subject: [RFC PATCH 1/2] netdev: Add tracepoint to dev_hard_start_xmit
+Date: Fri, 09 Apr 2010 16:39:56 +0900
+Message-ID: <4BBED9CC.2050709@jp.fujitsu.com>
+References: <4BBED951.8040406@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: izumi.taku@jp.fujitsu.com, kaneshige.kenji@jp.fujitsu.com,
+	davem@davemloft.net, nhorman@tuxdriver.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:63815 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755386Ab0DIHhz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 03:37:55 -0400
-Received: by bwz1 with SMTP id 1so2317954bwz.21
-        for <netdev@vger.kernel.org>; Fri, 09 Apr 2010 00:37:53 -0700 (PDT)
-In-Reply-To: <alpine.DEB.1.00.1004082331250.19688@pokey.mtv.corp.google.com>
+Received: from fgwmail7.fujitsu.co.jp ([192.51.44.37]:44457 "EHLO
+	fgwmail7.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752806Ab0DIHj3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 03:39:29 -0400
+Received: from m3.gw.fujitsu.co.jp ([10.0.50.73])
+	by fgwmail7.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o397dSxH024802
+	for <netdev@vger.kernel.org> (envelope-from sanagi.koki@jp.fujitsu.com);
+	Fri, 9 Apr 2010 16:39:28 +0900
+Received: from smail (m3 [127.0.0.1])
+	by outgoing.m3.gw.fujitsu.co.jp (Postfix) with ESMTP id EBF4545DE51
+	for <netdev@vger.kernel.org>; Fri,  9 Apr 2010 16:39:27 +0900 (JST)
+Received: from s3.gw.fujitsu.co.jp (s3.gw.fujitsu.co.jp [10.0.50.93])
+	by m3.gw.fujitsu.co.jp (Postfix) with ESMTP id CA82545DE4E
+	for <netdev@vger.kernel.org>; Fri,  9 Apr 2010 16:39:27 +0900 (JST)
+Received: from s3.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
+	by s3.gw.fujitsu.co.jp (Postfix) with ESMTP id 7B59B1DB8040
+	for <netdev@vger.kernel.org>; Fri,  9 Apr 2010 16:39:27 +0900 (JST)
+Received: from ml13.s.css.fujitsu.com (ml13.s.css.fujitsu.com [10.249.87.103])
+	by s3.gw.fujitsu.co.jp (Postfix) with ESMTP id 3041E1DB803C
+	for <netdev@vger.kernel.org>; Fri,  9 Apr 2010 16:39:27 +0900 (JST)
+In-Reply-To: <4BBED951.8040406@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 08 avril 2010 =C3=A0 23:33 -0700, Tom Herbert a =C3=A9crit :
+This patch adds tracepoint to dev_hard_start_xmit.
+It notices that xmit packet passes network/driver interface.
+An output is below.
 
->  #ifdef CONFIG_RPS
-> +/* One global table that all flow-based protocols share. */
-> +struct rps_sock_flow_table *rps_sock_flow_table;
-> +EXPORT_SYMBOL(rps_sock_flow_table);
-> +
-> +int rps_sock_flow_sysctl(ctl_table *table, int write, void __user *b=
-uffer,
-> +			 size_t *lenp, loff_t *ppos)
-> +{
-> +	unsigned int orig_size, size;
-> +	int ret, i;
-> +	ctl_table tmp =3D {
-> +		.data =3D &size,
-> +		.maxlen =3D sizeof(size),
-> +		.mode =3D table->mode
-> +	};
-> +	struct rps_sock_flow_table *orig_sock_table, *sock_table;
-> +
-> +	rcu_read_lock();
-> +
-> +	orig_sock_table =3D rcu_dereference(rps_sock_flow_table);
-> +	size =3D orig_size =3D orig_sock_table ? orig_sock_table->mask + 1 =
-: 0;
-> +
-> +	ret =3D proc_dointvec(&tmp, write, buffer, lenp, ppos);
-> +
-> +	if (write) {
-> +		if (size) {
-> +			size =3D roundup_pow_of_two(size);
-> +			if (size !=3D orig_size) {
-> +				sock_table =3D
-> +				    vmalloc(RPS_SOCK_FLOW_TABLE_SIZE(size));
-> +				if (!sock_table) {
-> +					rcu_read_unlock();
-> +					return -ENOMEM;
-> +				}
-> +
-> +				sock_table->mask =3D size - 1;
-> +			} else
-> +				sock_table =3D orig_sock_table;
-> +
-> +			for (i =3D 0; i < size; i++)
-> +				sock_table->ents[i] =3D RPS_NO_CPU;
-> +		} else
-> +			sock_table =3D NULL;
-> +
-> +		if (sock_table !=3D orig_sock_table) {
-> +			rcu_assign_pointer(rps_sock_flow_table, sock_table);
-> +			synchronize_rcu();
-> +			vfree(orig_sock_table);
-> +		}
-> +	}
-> +
-> +	rcu_read_unlock();
-> +
-> +	return ret;
-> +}
-> +
->  /
+   sshd-2443  [001] 68238.415621: netdev_start_xmit: dev=eth3 skbaddr=f3db5138 len=114
+   sshd-2443  [001] 68238.705459: netdev_start_xmit: dev=eth3 skbaddr=f3db5138 len=114
+   sshd-2443  [001] 68238.880361: netdev_start_xmit: dev=eth3 skbaddr=f3db5138 len=114
 
-It is not allowed to call vmalloc() inside rcu_read_unlock() section.
+Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+---
+  include/trace/events/skb.h |   28 ++++++++++++++++++++++++++++
+  net/core/dev.c             |    3 +++
+  2 files changed, 31 insertions(+), 0 deletions(-)
 
-Anyway, rcu_read_unlock() is not appropriate (you want mutual exclusion
-betwen concurrent writers here)
-
-You should use a mutex here.
-Or a spinlock (if you do the vmalloc()/vfree() things outside of the
-locked section)
-
-
+diff --git a/include/trace/events/skb.h b/include/trace/events/skb.h
+index 4b2be6d..425a062 100644
+--- a/include/trace/events/skb.h
++++ b/include/trace/events/skb.h
+@@ -9,6 +9,34 @@
+  #include <linux/tracepoint.h>
+  
+  /*
++ *  netdev_start_xmit - invoked when skb is passed to the driver
++ *  @skb:		pointer to struct sk_buff
++ *  @dev:		pointer to struct net_device
++ */
++TRACE_EVENT(netdev_start_xmit,
++
++	TP_PROTO(struct sk_buff *skb,
++		 struct net_device *dev),
++
++	TP_ARGS(skb, dev),
++
++	TP_STRUCT__entry(
++		__field(	const void *, 	skbaddr		)
++		__field(	unsigned int, 	len		)
++		__string(	name, 		dev->name	)
++       ),
++
++	TP_fast_assign(
++		__entry->skbaddr = skb;
++		__entry->len = skb->len;
++		__assign_str(name, dev->name);
++	),
++
++	TP_printk("dev=%s skbaddr=%p len=%u",
++		__get_str(name), __entry->skbaddr, __entry->len)
++);
++
++/*
+   * Tracepoint for free an sk_buff:
+   */
+  TRACE_EVENT(kfree_skb,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 2a9b7dd..4667a96 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -129,6 +129,7 @@
+  #include <linux/jhash.h>
+  #include <linux/random.h>
+  #include <trace/events/napi.h>
++#include <trace/events/skb.h>
+  #include <linux/pci.h>
+  
+  #include "net-sysfs.h"
+@@ -1903,6 +1904,7 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+  		if (dev->priv_flags & IFF_XMIT_DST_RELEASE)
+  			skb_dst_drop(skb);
+  
++		trace_netdev_start_xmit(skb, dev);
+  		rc = ops->ndo_start_xmit(skb, dev);
+  		if (rc == NETDEV_TX_OK)
+  			txq_trans_update(txq);
+@@ -1937,6 +1939,7 @@ gso:
+  		if (dev->priv_flags & IFF_XMIT_DST_RELEASE)
+  			skb_dst_drop(nskb);
+  
++		trace_netdev_start_xmit(nskb, dev);
+  		rc = ops->ndo_start_xmit(nskb, dev);
+  		if (unlikely(rc != NETDEV_TX_OK)) {
+  			if (rc & ~NETDEV_TX_MASK)
 
 
