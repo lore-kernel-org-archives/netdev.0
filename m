@@ -1,64 +1,53 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] vhost: Make it more scalable by creating a vhost	thread
- per device.
-Date: Fri, 09 Apr 2010 10:13:08 -0700
-Message-ID: <4BBF6024.6060809@hp.com>
-References: <1270229480.13897.8.camel@w-sridhar.beaverton.ibm.com>	<1270488911.27874.43.camel@w-sridhar.beaverton.ibm.com>	<1270771542.31186.397.camel@w-sridhar.beaverton.ibm.com>	<4BBE716B.7050904@hp.com> <1270827580.25555.13.camel@w-sridhar.beaverton.ibm.com>
+From: Sachin Sant <sachinp@in.ibm.com>
+Subject: Re: [-next April 8] eHEA driver failure on powerpc
+Date: Fri, 09 Apr 2010 23:18:18 +0530
+Message-ID: <4BBF6862.3010600@in.ibm.com>
+References: <20100408155113.ef8df30c.sfr@canb.auug.org.au> <4BBDC447.3040901@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Tom Lendacky <toml@us.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1270827580.25555.13.camel@w-sridhar.beaverton.ibm.com>
-Sender: kvm-owner@vger.kernel.org
+Cc: linux-next@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	HERING2@de.ibm.com, Anton Blanchard <anton@samba.org>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>
+To: Linux/PPC Development <linuxppc-dev@ozlabs.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <4BBDC447.3040901@in.ibm.com>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sridhar Samudrala wrote:
-> On Thu, 2010-04-08 at 17:14 -0700, Rick Jones wrote:
-> 
->>>Here are the results with netperf TCP_STREAM 64K guest to host on a
->>>8-cpu Nehalem system.
->>
->>I presume you mean 8 core Nehalem-EP, or did you mean 8 processor Nehalem-EX?
-> 
-> 
-> Yes. It is a 2 socket quad-core Nehalem. so i guess it is a 8 core
-> Nehalem-EP.
-> 
->>Don't get me wrong, I *like* the netperf 64K TCP_STREAM test, I lik it a lot!-) 
->>but I find it incomplete and also like to run things like single-instance TCP_RR 
->>and multiple-instance, multiple "transaction" (./configure --enable-burst) 
->>TCP_RR tests, particularly when concerned with "scaling" issues.
-> 
-> 
-> Can we run multiple instance and multiple transaction tests with a
-> single netperf commandline?
+Sachin Sant wrote:
+> With today's next release, eHEA network interface on couple
+> of power6 boxes fails to initialize.
+>
+> # modprobe ehea
+> IBM eHEA ethernet device driver (Release EHEA_0102)
+>  alloc irq_desc for 256 on node 0
+>  alloc kstat_irqs on node 0
+> irq: irq 590080 on host null mapped to virtual irq 256
+> ehea: Error in ehea_plpar_hcall_norets: opcode=26c 
+> ret=fffffffffffffffc arg1=8000000003000000 arg2=0 
+> arg3=7000000000050400 arg4=fc9b0000 arg5=200 arg6=0 arg7=0
+> ehea: Error in ehea_reg_mr_section: register_rpage_mr failed
+> ehea: Error in ehea_reg_kernel_mr: registering mr failed
+> ehea: Error in ehea_setup_ports: creating MR failed
+> ehea 23c00200.lhea: setup_ports failed
+> ehea: probe of 23c00200.lhea failed with error -5
+I tracked this problem to the following commit.
 
-Do you count a shell for loop as a single command line?
+commit 7545ba6f82924d4523f8f8a2baf2e517a750265d
+powerpc/mm: Bump SECTION_SIZE_BITS from 16MB to 256MB
 
-> Is there any easy way to get consolidated throughput when a netserver on
-> the host is servicing netperf clients from multiple guests?
+If i revert this commit, the network interface is initialized
+properly. Verified this on two different power6 boxes.
 
-I tend to use a script such as:
+Thanks
+-Sachin
 
-ftp://ftp.netperf.org/netperf/misc/runemomniagg2.sh
+-- 
 
-which presumes that netperf/netserver have been built with:
-
-./configure --enable-omni --enable-burst ...
-
-and uses the CSV output format of the omni tests.  When I want sums I then turn 
-to a spreadsheet, or I suppose I could turn to awk etc.
-
-The TCP_RR test can be flipped around request size for response size etc, so 
-when I have a single sustem under test, I initiate the netperf commands on it, 
-targetting netservers on the clients.  If I want inbound bulk throughput I use 
-the TCP_MAERTS test rather than the TCP_STREAM test.
-
-happy benchmarking,
-
-rick jones
+---------------------------------
+Sachin Sant
+IBM Linux Technology Center
+India Systems and Technology Labs
+Bangalore, India
+---------------------------------
