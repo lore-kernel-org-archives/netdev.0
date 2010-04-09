@@ -1,100 +1,84 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH] vhost: Make it more scalable by creating a vhost
-	thread per device.
-Date: Fri, 09 Apr 2010 08:39:40 -0700
-Message-ID: <1270827580.25555.13.camel@w-sridhar.beaverton.ibm.com>
-References: <1270229480.13897.8.camel@w-sridhar.beaverton.ibm.com>
-	 <1270488911.27874.43.camel@w-sridhar.beaverton.ibm.com>
-	 <1270771542.31186.397.camel@w-sridhar.beaverton.ibm.com>
-	 <4BBE716B.7050904@hp.com>
+From: Antonio Almeida <vexwek@gmail.com>
+Subject: Re: HTB - What's the minimal value for 'rate' parameter?
+Date: Fri, 9 Apr 2010 16:40:44 +0100
+Message-ID: <i2k298f5c051004090840y7e47a53eqd17b0685088551ac@mail.gmail.com>
+References: <z2q298f5c051004080407r5dfb27fai74c5cf74d0048ca5@mail.gmail.com>
+	 <4BBE4BB4.1060209@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Tom Lendacky <toml@us.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4BBE716B.7050904@hp.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, kaber@trash.net, davem@davemloft.net,
+	devik@cdi.cz
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.155]:63967 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754184Ab0DIPkq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 11:40:46 -0400
+Received: by fg-out-1718.google.com with SMTP id d23so1252299fga.1
+        for <netdev@vger.kernel.org>; Fri, 09 Apr 2010 08:40:45 -0700 (PDT)
+In-Reply-To: <4BBE4BB4.1060209@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-04-08 at 17:14 -0700, Rick Jones wrote:
-> > Here are the results with netperf TCP_STREAM 64K guest to host on a
-> > 8-cpu Nehalem system.
-> 
-> I presume you mean 8 core Nehalem-EP, or did you mean 8 processor Nehalem-EX?
+So, what about the rate limit miss?
+As you can see the ceil of class 1:2 is set to 4096Kbit but its
+sending rate is actually 8071Kbit!
+It looks like classes 1:10 and 1:11 are ignoring hierarchical rate
+restrictions of class 1:2
+Here:
+class htb 1:2 parent 1:1 rate 4096Kbit ceil 4096Kbit burst 3655b cburst 3655b
+ Sent 84285894 bytes 55671 pkt (dropped 0, overlimits 0 requeues 0)
+ rate 8071Kbit 666pps backlog 0b 0p requeues 0
+ lended: 0 borrowed: 0 giants: 0
+ tokens: -937499999 ctokens: -937499999
 
-Yes. It is a 2 socket quad-core Nehalem. so i guess it is a 8 core
-Nehalem-EP.
-> 
-> Don't get me wrong, I *like* the netperf 64K TCP_STREAM test, I lik it a lot!-) 
-> but I find it incomplete and also like to run things like single-instance TCP_RR 
-> and multiple-instance, multiple "transaction" (./configure --enable-burst) 
-> TCP_RR tests, particularly when concerned with "scaling" issues.
 
-Can we run multiple instance and multiple transaction tests with a
-single netperf commandline?
 
-Is there any easy way to get consolidated throughput when a netserver on
-the host is servicing netperf clients from multiple guests?
 
-Thanks
-Sridhar
-
-> 
-> happy benchmarking,
-> 
-> rick jones
-> 
-> > It shows cumulative bandwidth in Mbps and host 
-> > CPU utilization.
-> > 
-> > Current default single vhost thread
-> > -----------------------------------
-> > 1 guest:  12500  37%    
-> > 2 guests: 12800  46%
-> > 3 guests: 12600  47%
-> > 4 guests: 12200  47%
-> > 5 guests: 12000  47%
-> > 6 guests: 11700  47%
-> > 7 guests: 11340  47%
-> > 8 guests: 11200  48%
-> > 
-> > vhost thread per cpu
-> > --------------------
-> > 1 guest:   4900 25%
-> > 2 guests: 10800 49%
-> > 3 guests: 17100 67%
-> > 4 guests: 20400 84%
-> > 5 guests: 21000 90%
-> > 6 guests: 22500 92%
-> > 7 guests: 23500 96%
-> > 8 guests: 24500 99%
-> > 
-> > vhost thread per guest interface
-> > --------------------------------
-> > 1 guest:  12500 37%
-> > 2 guests: 21000 72%
-> > 3 guests: 21600 79%
-> > 4 guests: 21600 85%
-> > 5 guests: 22500 89%
-> > 6 guests: 22800 94%
-> > 7 guests: 24500 98%
-> > 8 guests: 26400 99%
-> > 
-> > Thanks
-> > Sridhar
-> > 
-> > 
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+On Thu, Apr 8, 2010 at 10:33 PM, Jarek Poplawski <jarkao2@gmail.com> wrote:
+> Antonio Almeida wrote, On 04/08/2010 01:07 PM:
+>
+>> Hi!
+>
+> Hi!
+>
+>> I've been using HTB for a while, and we've already sent some e-mails
+>> each other when resolving HTB accuracy issue.
+>> When using HTB, I realised that for some configurations the rate limit
+>> doesn't work.
+>> I suspect that the problem is the minimum value of rate parameter,
+>> which I cant figure out what is.
+>>
+>> I simple configuration that turns out to be wrong is as fallows: The
+>> root (1:1) gets the link bandwidth configuration; the second (1:2) is
+>> set to 4096Kbit; then I have two branches (1:10 and 1:11) with rate
+>> 1024Kbit and ceil 4096Kbit; and finally a leaf class in each branch
+>> (1:111 below 1:11, and 1:101 below 1:10) with rate 8bit and ceil
+>> 4096Kbit, and the same priority.
+>> I don't want to have sustained rate, and since I must configure 'rate'
+>> parameter I decide to set it to 8bits - which is the minimal accepted
+>> value. My cue goes for 'rate' parameter. If I set 'rate' parameter to
+>> 1Kbit for instance, the problem disappears and the shaping is done
+>> perfectly.
+>>
+>> So, I'm looking for help to find out if the problem is actually in
+>> this parameter configuration or if it's just coincidence and I'll get
+>> the same problem ahead :(
+>> What's the minimal value for 'rate' parameter using HTB qdisc?
+>
+>
+> I think "reasonable" or "minimally useful" (for common use) should be
+> enough, and 8bits meaning one 1500 byte packet per 25 minutes or
+> something, doesn't look like this to me.
+>
+> This changelog:
+> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=a4a710c4a7490587406462bf1d54504b7783d7d7
+> mentions ~2 minutes as max time for accounting, so 1 max packet
+> per 2 minutes should give such a minimal rate, I guess, but I'd
+> still multiply it a few times to call it useful.
+>
+> Regards,
+> Jarek P.
+>
+>
+>
