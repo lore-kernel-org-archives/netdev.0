@@ -1,60 +1,39 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: mmotm 2010-04-05-16-09 uploaded
-Date: Thu, 08 Apr 2010 20:50:06 -0400
-Message-ID: <8356.1270774206@localhost>
-References: <201004052336.o35NaeSE015814@imap1.linux-foundation.org> <13074.1270663309@localhost> <4BBDC0CC.7080305@trash.net> <6795.1270740197@localhost>
-            <4BBDF7E7.708@trash.net>
+From: Gertjan van Wingerde <gwingerde@gmail.com>
+Subject: Re: 2.6.34-rc3-git8: Reported regressions 2.6.32 -> 2.6.33
+Date: Fri, 09 Apr 2010 04:36:30 +0200
+Message-ID: <4BBE92AE.6090301@gmail.com>
+References: <cjwJ7Pf9h0L.A.9pB.1DmvLB@chimera>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1270774206_4354P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.sourceforge.net>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: Your message of "Thu, 08 Apr 2010 17:36:07 +0200."
-             <4BBDF7E7.708@trash.net>
+In-Reply-To: <cjwJ7Pf9h0L.A.9pB.1DmvLB@chimera>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_1270774206_4354P
-Content-Type: text/plain; charset=us-ascii
-
-On Thu, 08 Apr 2010 17:36:07 +0200, Patrick McHardy said:
-
-> Valdis.Kletnieks@vt.edu wrote:
-
-> > Well, it *changed* it.  Does the rcu_defererence_check() only fire on the
-> > first time it hits something, so we've fixed the first one and now we get to
-> > see the second one?
+On 04/09/10 00:54, Rafael J. Wysocki wrote:
 > 
-> It appears that way, otherwise you should have seen a second warning in
-> nf_conntrack_ecache the last time.
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=15699
+> Subject		: rt2500usb driver cannot remain connected
+> Submitter	:  <abcd@gentoo.org>
+> Date		: 2010-04-05 19:30 (4 days old)
+> Handled-By	: Ivo van Doorn <IvDoorn@gmail.com>
 > 
-> > (For what it's worth, if this is going to be one-at-a-time whack-a-mole, I'm
-> > OK on that, just want to know up front.)
-> 
-> I went through the other files and I believe this should be it.
-> We already removed most of these incorrect rcu_dereference()
-> calls a while back.
 
-Confirming - the second version of the patch fixes all the network-related
-RCU complaints I've been able to trigger...
+This one ought to be fixed by commit 9e76ad2a27f592c1390248867391880c7efe78b3
+in Linus' tree.
 
---==_Exmh_1270774206_4354P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFLvnm+cC3lWbTT17ARAlV4AJ9LeqKJxNKJHopdR6TZztZiQKqb6wCfXlAs
-6+jWKabDR4mVLHFUHMYljSA=
-=guT+
------END PGP SIGNATURE-----
-
---==_Exmh_1270774206_4354P--
+---
+Gertjan.
