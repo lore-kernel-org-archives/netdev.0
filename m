@@ -1,84 +1,104 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: pull request: wireless-2.6 2010-04-09
-Date: Fri, 9 Apr 2010 11:38:07 -0400
-Message-ID: <20100409153807.GA3014@tuxdriver.com>
-References: <Pine.LNX.4.64.1004090251210.11582@boston.corp.fedex.com> <Pine.LNX.4.64.1004090336410.22139@boston.corp.fedex.com> <1270759800.19330.19.camel@wwguy-ubuntu> <20100408200218.GC2999@tuxdriver.com> <1270762107.20845.3.camel@wwguy-ubuntu>
+From: Laurent Chavey <chavey@google.com>
+Subject: Re: [PATCH 1/1] add ethtool loopback support
+Date: Fri, 9 Apr 2010 09:43:59 -0700
+Message-ID: <x2o97949e3e1004090943o4b6b29e5pd261e2cb4c7f421d@mail.gmail.com>
+References: <pvmbpdtn8yh.fsf@chavey.mtv.corp.google.com> <1270751373.5055.22.camel@achroite.uk.solarflarecom.com>
+	<w2i97949e3e1004081217jdeca953dz162c62b61c0e8f72@mail.gmail.com>
+	<1270755356.5055.23.camel@achroite.uk.solarflarecom.com> <j2r97949e3e1004081543h6258125dm60083556ff28fa88@mail.gmail.com>
+	<4BBE78E2.2000709@garzik.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Chua <jeff.chua.linux-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"Zhao, Shanyu" <shanyu.zhao-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Chatre, Reinette" <reinette.chatre-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org" <stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
-	"Guy, Wey-Yi" <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1270762107.20845.3.camel@wwguy-ubuntu>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, therbert@google.com
+To: Jeff Garzik <jeff@garzik.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.44.51]:39002 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753128Ab0DIQod convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 12:44:33 -0400
+Received: from hpaq1.eem.corp.google.com (hpaq1.eem.corp.google.com [10.3.21.1])
+	by smtp-out.google.com with ESMTP id o39GiV2V015443
+	for <netdev@vger.kernel.org>; Fri, 9 Apr 2010 09:44:31 -0700
+Received: from gxk26 (gxk26.prod.google.com [10.202.11.26])
+	by hpaq1.eem.corp.google.com with ESMTP id o39GiQsF027851
+	for <netdev@vger.kernel.org>; Fri, 9 Apr 2010 18:44:30 +0200
+Received: by gxk26 with SMTP id 26so1852314gxk.17
+        for <netdev@vger.kernel.org>; Fri, 09 Apr 2010 09:44:25 -0700 (PDT)
+In-Reply-To: <4BBE78E2.2000709@garzik.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dave,
+isn't the existing ETHTOOL_TEST ioctl use for something like self test =
+?
 
-This fix is intended for 2.6.34.  It resolves an issue involving an
-Oops on boxes w/ iwl4965 hardware, apparently introduced by another
-recent patch.  The thread describing the issue and the resolution
-is here:
+the intent of this patch is to enable a mode whereby one could run
+netperf / iperf and other application  and have the packets sent and
+received by the driver.
 
-	http://marc.info/?l=linux-kernel&m=127074721531649&w=2
 
-In order to avoid reverting that patch, please accept this fix instead.
-As usual, please let me know if there are problems!
-
-Thanks,
-
-John
-
----
-
-The following changes since commit 2626419ad5be1a054d350786b684b41d23de1538:
-  David S. Miller (1):
-        tcp: Set CHECKSUM_UNNECESSARY in tcp_init_nondata_skb
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
-
-Wey-Yi Guy (1):
-      iwlwifi: need check for valid qos packet before free
-
- drivers/net/wireless/iwlwifi/iwl-4965.c |   13 +++++++++----
- 1 files changed, 9 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/wireless/iwlwifi/iwl-4965.c b/drivers/net/wireless/iwlwifi/iwl-4965.c
-index 83c52a6..8972166 100644
---- a/drivers/net/wireless/iwlwifi/iwl-4965.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-4965.c
-@@ -2015,7 +2015,9 @@ static void iwl4965_rx_reply_tx(struct iwl_priv *priv,
- 			IWL_DEBUG_TX_REPLY(priv, "Retry scheduler reclaim scd_ssn "
- 					   "%d index %d\n", scd_ssn , index);
- 			freed = iwl_tx_queue_reclaim(priv, txq_id, index);
--			iwl_free_tfds_in_queue(priv, sta_id, tid, freed);
-+			if (qc)
-+				iwl_free_tfds_in_queue(priv, sta_id,
-+						       tid, freed);
- 
- 			if (priv->mac80211_registered &&
- 			    (iwl_queue_space(&txq->q) > txq->q.low_mark) &&
-@@ -2041,14 +2043,17 @@ static void iwl4965_rx_reply_tx(struct iwl_priv *priv,
- 				   tx_resp->failure_frame);
- 
- 		freed = iwl_tx_queue_reclaim(priv, txq_id, index);
--		iwl_free_tfds_in_queue(priv, sta_id, tid, freed);
-+		if (qc && likely(sta_id != IWL_INVALID_STATION))
-+			iwl_free_tfds_in_queue(priv, sta_id, tid, freed);
-+		else if (sta_id == IWL_INVALID_STATION)
-+			IWL_DEBUG_TX_REPLY(priv, "Station not known\n");
- 
- 		if (priv->mac80211_registered &&
- 		    (iwl_queue_space(&txq->q) > txq->q.low_mark))
- 			iwl_wake_queue(priv, txq_id);
- 	}
+On Thu, Apr 8, 2010 at 5:46 PM, Jeff Garzik <jeff@garzik.org> wrote:
+> On 04/08/2010 06:43 PM, Laurent Chavey wrote:
+>>
+>> On Thu, Apr 8, 2010 at 12:35 PM, Ben Hutchings
+>> <bhutchings@solarflare.com> =A0wrote:
+>>>
+>>> On Thu, 2010-04-08 at 12:17 -0700, Laurent Chavey wrote:
+>>>>
+>>>> On Thu, Apr 8, 2010 at 11:29 AM, Ben Hutchings
+>>>> <bhutchings@solarflare.com> =A0wrote:
+>>>>>
+>>>>> On Thu, 2010-04-08 at 10:35 -0700, chavey@google.com wrote:
+>>>
+>>> [...]
+>>>>>>
+>>>>>> +enum ethtool_loopback_type {
+>>>>>> + =A0 =A0 ETH_MAC =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =3D 0x00000001=
+,
+>>>>>> + =A0 =A0 ETH_PHY_INT =A0 =A0 =A0 =A0 =A0 =A0 =3D 0x00000002,
+>>>>>> + =A0 =A0 ETH_PHY_EXT =A0 =A0 =A0 =A0 =A0 =A0 =3D 0x00000004
+>>>>>> +};
+>>>>>
+>>>>> [...]
+>>>>>
+>>>>> There are many different places you can loop back within a MAC or=
+ PHY,
+>>>>> not to mention bypassing the MAC altogether. =A0See
+>>>>> drivers/net/sfc/mcdi_pcol.h, starting from the line
+>>>>> '#define MC_CMD_LOOPBACK_NONE 0'. =A0I believe we implement all o=
+f those
+>>>>> loopback modes on at least one board.
+>>>>>
+>>>>> Also are these supposed to be an enumeration or flags? =A0In theo=
+ry you
+>>>>
+>>>> those are enums that can be or together.
+>>>
+>>> I.e. they are flags. =A0So how do you answer this:
+>>>
+>>>>> could use wire-side and host-side loopback at the same time if th=
+ey
+>>>>> don't overlap, but it's probably too much trouble to bother with.=
+ =A0Any
+>>>>> other combination is meaningless.
+>>
+>> since the intent is to enable the sending and receiving of packets a=
+t
+>> the hw/driver interfaces, a simple loopback mode on/off is sufficien=
+t
+>> and the ethtool_loopback_type are not necessary. the implementor can
+>> choose
+>> how to implement the loopback. From drivers/net/sfc/mcdi_pcol.h it i=
+s
+>> clear
+>> that unless ethtool_loopback_type as defined are meaningless.
+>
+> If an off/on switch is sufficient, the existing ethtool flags interfa=
+ce
+> should work just fine.
+>
+> =A0 =A0 =A0 =A0Jeff
+>
+>
+>
+>
