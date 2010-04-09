@@ -1,57 +1,44 @@
-From: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
-Subject: Re: re-submit3 [ANNOUNCEMENT] NET: usb: sierra_net.c driver
-Date: Thu, 8 Apr 2010 17:39:43 -0700
-Message-ID: <1270773583.6293.13.camel@Linuxdev4-laptop>
-References: <1270517948.14692.9.camel@Linuxdev4-laptop>
-	 <20100407.214530.05341654.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net tree with Linus' tree
+Date: Fri, 9 Apr 2010 10:41:35 +1000
+Message-ID: <20100409104135.d6008487.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org" <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	Rory Filer <rfiler-usJ8hg9QsBLWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100407.214530.05341654.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	chavey <chavey@google.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2010-04-07 at 21:45 -0700, David Miller wrote:
-> From: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
-> Date: Mon, 5 Apr 2010 18:39:08 -0700
-> 
-> > Subject: re-submit3 [ANNOUNCEMENT] NET: usb: sierra_net.c driver
-> > From: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
-> 
-> I want you to tell me exactly how you generated this patch.
-> 
-> It doesn't apply, and I suspect that you tried to fix the excess empty
-> lines at the end of certain files by editing the patch by hand.
-> 
-> If so, did you test the result?
-> 
-> The patch is corrupted and more importantly git won't accept it.
-> 
-> davem@sunset:~/src/GIT/net-2.6$ git am --signoff re-submit3-ANNOUNCEMENT-NET-usb-sierra_net.c-driver.patch 
-> Applying: re-submit3 [ANNOUNCEMENT] NET: usb: sierra_net.c driver
-> /home/davem/src/GIT/net-2.6/.git/rebase-apply/patch:36: new blank line at EOF.
-> +
-> error: drivers/net/usb/sierra_net.c: does not exist in index
-> Patch failed at 0001 re-submit3 [ANNOUNCEMENT] NET: usb: sierra_net.c driver
-> When you have resolved this problem run "git am --resolved".
-> If you would prefer to skip this patch, instead run "git am --skip".
-> To restore the original branch and stop patching run "git am --abort".
-> 
-Hi Dave,
-I reproduced the problem here.
-I fixed it by adding an empty sierra_net.c file in my master branch
-(net-2.6).
-Regards,
-Elina
+Hi all,
 
+Today's linux-next merge of the net tree got a conflict in
+net/core/ethtool.c between commit
+5a0e3ad6af8660be21ca98a971cd00f331318c05 ("include cleanup: Update gfp.h
+and slab.h includes to prepare for breaking implicit slab.h inclusion
+from percpu.h") from Linus' tree and commit
+97f8aefbbfb5aa5c9944e5fa8149f1fdaf71c7b6 ("net: fix ethtool coding style
+errors and warnings") from the net tree.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Just context changes.  I fixed it up (see below) and can carry the fix
+for a while.
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc net/core/ethtool.c
+index 9d55c57,99e9f85..0000000
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@@ -18,8 -18,7 +18,8 @@@
+  #include <linux/ethtool.h>
+  #include <linux/netdevice.h>
+  #include <linux/bitops.h>
++ #include <linux/uaccess.h>
+ +#include <linux/slab.h>
+- #include <asm/uaccess.h>
+  
+  /*
+   * Some useful ethtool_ops methods that're device independent.
