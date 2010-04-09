@@ -1,49 +1,115 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 PATCH] e1000e: stop cleaning when we reach
-	tx_ring->next_to_use
-Date: Fri, 09 Apr 2010 13:29:49 -0700
-Message-ID: <20100409202917.31293.79618.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH] e1000e: use static params to save stack space
+Date: Fri, 09 Apr 2010 13:51:09 -0700
+Message-ID: <20100409205044.32158.23239.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Terry Loftin <terry.loftin@hp.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta10.emeryville.ca.mail.comcast.net ([76.96.30.17]:56429 "EHLO
-	qmta10.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757088Ab0DIUa5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 16:30:57 -0400
+Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:53906 "EHLO
+	qmta09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756535Ab0DIUv1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 16:51:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Terry Loftin <terry.loftin@hp.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Tx ring buffers after tx_ring->next_to_use are volatile and could
-change, possibly causing a crash.  Stop cleaning when we hit
-tx_ring->next_to_use.
+used a modified checkstack to get the 56 number
+(normally checkstack wouldn't show this low a value)
 
-Signed-off-by: Terry Loftin <terry.loftin@hp.com>
-Acked-by: Bruce Allan <bruce.w.allan@intel.com>
+checkstack before:
+0x0000012f e1000e_check_options [e1000e]:               272
+
+after:
+0x0000012f e1000e_check_options [e1000e]:                56
+
+
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/netdev.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ drivers/net/e1000e/param.c |   16 ++++++++--------
+ 1 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index e1cceb6..60288e4 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -660,6 +660,8 @@ static bool e1000_clean_tx_irq(struct e1000_adapter *adapter)
- 				i = 0;
- 		}
- 
-+		if (i == tx_ring->next_to_use)
-+			break;
- 		eop = tx_ring->buffer_info[i].next_to_watch;
- 		eop_desc = E1000_TX_DESC(*tx_ring, eop);
+diff --git a/drivers/net/e1000e/param.c b/drivers/net/e1000e/param.c
+index 2e39977..f775a48 100644
+--- a/drivers/net/e1000e/param.c
++++ b/drivers/net/e1000e/param.c
+@@ -248,7 +248,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
  	}
+ 
+ 	{ /* Transmit Interrupt Delay */
+-		const struct e1000_option opt = {
++		static const struct e1000_option opt = {
+ 			.type = range_option,
+ 			.name = "Transmit Interrupt Delay",
+ 			.err  = "using default of "
+@@ -267,7 +267,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
+ 		}
+ 	}
+ 	{ /* Transmit Absolute Interrupt Delay */
+-		const struct e1000_option opt = {
++		static const struct e1000_option opt = {
+ 			.type = range_option,
+ 			.name = "Transmit Absolute Interrupt Delay",
+ 			.err  = "using default of "
+@@ -305,7 +305,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
+ 		}
+ 	}
+ 	{ /* Receive Absolute Interrupt Delay */
+-		const struct e1000_option opt = {
++		static const struct e1000_option opt = {
+ 			.type = range_option,
+ 			.name = "Receive Absolute Interrupt Delay",
+ 			.err  = "using default of "
+@@ -324,7 +324,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
+ 		}
+ 	}
+ 	{ /* Interrupt Throttling Rate */
+-		const struct e1000_option opt = {
++		static const struct e1000_option opt = {
+ 			.type = range_option,
+ 			.name = "Interrupt Throttling Rate (ints/sec)",
+ 			.err  = "using default of "
+@@ -399,7 +399,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
+ 		}
+ 	}
+ 	{ /* Smart Power Down */
+-		const struct e1000_option opt = {
++		static const struct e1000_option opt = {
+ 			.type = enable_option,
+ 			.name = "PHY Smart Power Down",
+ 			.err  = "defaulting to Disabled",
+@@ -415,7 +415,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
+ 		}
+ 	}
+ 	{ /* CRC Stripping */
+-		const struct e1000_option opt = {
++		static const struct e1000_option opt = {
+ 			.type = enable_option,
+ 			.name = "CRC Stripping",
+ 			.err  = "defaulting to enabled",
+@@ -432,7 +432,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
+ 		}
+ 	}
+ 	{ /* Kumeran Lock Loss Workaround */
+-		const struct e1000_option opt = {
++		static const struct e1000_option opt = {
+ 			.type = enable_option,
+ 			.name = "Kumeran Lock Loss Workaround",
+ 			.err  = "defaulting to Enabled",
+@@ -452,7 +452,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
+ 		}
+ 	}
+ 	{ /* Write-protect NVM */
+-		const struct e1000_option opt = {
++		static const struct e1000_option opt = {
+ 			.type = enable_option,
+ 			.name = "Write-protect NVM",
+ 			.err  = "defaulting to Enabled",
 
