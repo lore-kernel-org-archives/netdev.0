@@ -1,42 +1,71 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: HTB - What's the minimal value for 'rate' parameter?
-Date: Fri, 9 Apr 2010 23:26:57 +0200
-Message-ID: <20100409212657.GA3560@del.dom.local>
-References: <z2q298f5c051004080407r5dfb27fai74c5cf74d0048ca5@mail.gmail.com>
- <4BBE4BB4.1060209@gmail.com>
- <i2k298f5c051004090840y7e47a53eqd17b0685088551ac@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: net-next: 2.6.34-rc1 regression: panic when running diagnostic
+ on interface with IPv6
+Date: Fri, 9 Apr 2010 15:19:16 -0700
+Message-ID: <20100409151916.633fc58c@nehalam>
+References: <EA929A9653AAE14F841771FB1DE5A1365FE4E2E26C@rrsmsx501.amr.corp.intel.com>
+ <20100405.161221.159637463.davem@davemloft.net>
+ <EA929A9653AAE14F841771FB1DE5A1365FE4E2E334@rrsmsx501.amr.corp.intel.com>
+ <20100405.165317.89399272.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kaber@trash.net, davem@davemloft.net,
-	devik@cdi.cz
-To: Antonio Almeida <vexwek@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: emil.s.tantilov@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f223.google.com ([209.85.220.223]:64869 "EHLO
-	mail-fx0-f223.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757371Ab0DIV1F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 17:27:05 -0400
-Received: by fxm23 with SMTP id 23so3108393fxm.21
-        for <netdev@vger.kernel.org>; Fri, 09 Apr 2010 14:27:02 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <i2k298f5c051004090840y7e47a53eqd17b0685088551ac@mail.gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:52400 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752285Ab0DIWTT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 9 Apr 2010 18:19:19 -0400
+In-Reply-To: <20100405.165317.89399272.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 09, 2010 at 04:40:44PM +0100, Antonio Almeida wrote:
-> So, what about the rate limit miss?
-> As you can see the ceil of class 1:2 is set to 4096Kbit but its
-> sending rate is actually 8071Kbit!
-> It looks like classes 1:10 and 1:11 are ignoring hierarchical rate
-> restrictions of class 1:2
-> Here:
-> class htb 1:2 parent 1:1 rate 4096Kbit ceil 4096Kbit burst 3655b cburst 3655b
->  Sent 84285894 bytes 55671 pkt (dropped 0, overlimits 0 requeues 0)
->  rate 8071Kbit 666pps backlog 0b 0p requeues 0
->  lended: 0 borrowed: 0 giants: 0
->  tokens: -937499999 ctokens: -937499999
+On Mon, 05 Apr 2010 16:53:17 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-Yes, since 1:2 has grandchildren with overflown rate tables, they
-could behave as if they had set rates higher than their parents or
-grandparent (and HTB doesn't restrict it hierarchically).
+> From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+> Date: Mon, 5 Apr 2010 17:50:38 -0600
+> 
+> > David Miller wrote:
+> >> From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+> >> Date: Mon, 5 Apr 2010 17:03:56 -0600
+> >> 
+> >>> David Miller wrote:
+> >>>> From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+> >>>> Date: Tue, 23 Mar 2010 12:28:08 -0600
+> >>>> 
+> >>>>> Bisecting points to this patch:
+> >>>>> http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commitdiff;h=84e8b803f1e16f3a2b8b80f80a63fa2f2f8a9be6
+> >>>>> 
+> >>>>> And I confirmed that the issue goes away after reverting it.
+> >>>>> 
+> >>>>> Steps to reproduce:
+> >>>>> 1. Load the driver and configure IPv6 address.
+> >>>>> 2. Run ethtool diag:
+> >>>>> ethtool -t eth0
+> >>>>> 
+> >>>>> 3. If this doesn't brake it try again, or just do ifdown/up. Other
+> >>>>> operations on the interface will eventually panic the system:
+> >>>> 
+> >>>> Stephen please fix this, thanks.
+> >>> 
+> >>> Just FYI - I still see this issue with latest pull from net-2.6.
+> >> 
+> >> It's net-next-2.6 that introduced the problem and has the follow-on
+> >> fixes, not net-2.6
+> > 
+> > Same in net-next:
 
-Jarek P.
+Are you using the standard e1000e driver from net-next or some other
+Intel version.  It works fine on my e1000e doing online or offline
+tests.
+
+# ethtool -i eth4
+driver: e1000e
+version: 1.0.2-k2
+firmware-version: 5.11-2
+bus-info: 0000:03:00.0
+
+Do you have any other suggestions (script or anything), that makes
+the problem happen.
