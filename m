@@ -1,115 +1,42 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH] e1000e: use static params to save stack space
-Date: Fri, 09 Apr 2010 13:51:09 -0700
-Message-ID: <20100409205044.32158.23239.stgit@localhost.localdomain>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: HTB - What's the minimal value for 'rate' parameter?
+Date: Fri, 9 Apr 2010 23:26:57 +0200
+Message-ID: <20100409212657.GA3560@del.dom.local>
+References: <z2q298f5c051004080407r5dfb27fai74c5cf74d0048ca5@mail.gmail.com>
+ <4BBE4BB4.1060209@gmail.com>
+ <i2k298f5c051004090840y7e47a53eqd17b0685088551ac@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kaber@trash.net, davem@davemloft.net,
+	devik@cdi.cz
+To: Antonio Almeida <vexwek@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:53906 "EHLO
-	qmta09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756535Ab0DIUv1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 16:51:27 -0400
+Received: from mail-fx0-f223.google.com ([209.85.220.223]:64869 "EHLO
+	mail-fx0-f223.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757371Ab0DIV1F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 17:27:05 -0400
+Received: by fxm23 with SMTP id 23so3108393fxm.21
+        for <netdev@vger.kernel.org>; Fri, 09 Apr 2010 14:27:02 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <i2k298f5c051004090840y7e47a53eqd17b0685088551ac@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+On Fri, Apr 09, 2010 at 04:40:44PM +0100, Antonio Almeida wrote:
+> So, what about the rate limit miss?
+> As you can see the ceil of class 1:2 is set to 4096Kbit but its
+> sending rate is actually 8071Kbit!
+> It looks like classes 1:10 and 1:11 are ignoring hierarchical rate
+> restrictions of class 1:2
+> Here:
+> class htb 1:2 parent 1:1 rate 4096Kbit ceil 4096Kbit burst 3655b cburst 3655b
+>  Sent 84285894 bytes 55671 pkt (dropped 0, overlimits 0 requeues 0)
+>  rate 8071Kbit 666pps backlog 0b 0p requeues 0
+>  lended: 0 borrowed: 0 giants: 0
+>  tokens: -937499999 ctokens: -937499999
 
-used a modified checkstack to get the 56 number
-(normally checkstack wouldn't show this low a value)
+Yes, since 1:2 has grandchildren with overflown rate tables, they
+could behave as if they had set rates higher than their parents or
+grandparent (and HTB doesn't restrict it hierarchically).
 
-checkstack before:
-0x0000012f e1000e_check_options [e1000e]:               272
-
-after:
-0x0000012f e1000e_check_options [e1000e]:                56
-
-
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-
- drivers/net/e1000e/param.c |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/e1000e/param.c b/drivers/net/e1000e/param.c
-index 2e39977..f775a48 100644
---- a/drivers/net/e1000e/param.c
-+++ b/drivers/net/e1000e/param.c
-@@ -248,7 +248,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 	}
- 
- 	{ /* Transmit Interrupt Delay */
--		const struct e1000_option opt = {
-+		static const struct e1000_option opt = {
- 			.type = range_option,
- 			.name = "Transmit Interrupt Delay",
- 			.err  = "using default of "
-@@ -267,7 +267,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 		}
- 	}
- 	{ /* Transmit Absolute Interrupt Delay */
--		const struct e1000_option opt = {
-+		static const struct e1000_option opt = {
- 			.type = range_option,
- 			.name = "Transmit Absolute Interrupt Delay",
- 			.err  = "using default of "
-@@ -305,7 +305,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 		}
- 	}
- 	{ /* Receive Absolute Interrupt Delay */
--		const struct e1000_option opt = {
-+		static const struct e1000_option opt = {
- 			.type = range_option,
- 			.name = "Receive Absolute Interrupt Delay",
- 			.err  = "using default of "
-@@ -324,7 +324,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 		}
- 	}
- 	{ /* Interrupt Throttling Rate */
--		const struct e1000_option opt = {
-+		static const struct e1000_option opt = {
- 			.type = range_option,
- 			.name = "Interrupt Throttling Rate (ints/sec)",
- 			.err  = "using default of "
-@@ -399,7 +399,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 		}
- 	}
- 	{ /* Smart Power Down */
--		const struct e1000_option opt = {
-+		static const struct e1000_option opt = {
- 			.type = enable_option,
- 			.name = "PHY Smart Power Down",
- 			.err  = "defaulting to Disabled",
-@@ -415,7 +415,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 		}
- 	}
- 	{ /* CRC Stripping */
--		const struct e1000_option opt = {
-+		static const struct e1000_option opt = {
- 			.type = enable_option,
- 			.name = "CRC Stripping",
- 			.err  = "defaulting to enabled",
-@@ -432,7 +432,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 		}
- 	}
- 	{ /* Kumeran Lock Loss Workaround */
--		const struct e1000_option opt = {
-+		static const struct e1000_option opt = {
- 			.type = enable_option,
- 			.name = "Kumeran Lock Loss Workaround",
- 			.err  = "defaulting to Enabled",
-@@ -452,7 +452,7 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 		}
- 	}
- 	{ /* Write-protect NVM */
--		const struct e1000_option opt = {
-+		static const struct e1000_option opt = {
- 			.type = enable_option,
- 			.name = "Write-protect NVM",
- 			.err  = "defaulting to Enabled",
-
+Jarek P.
