@@ -1,64 +1,76 @@
-From: Matthias Kaehlcke <matthias@kaehlcke.net>
-Subject: Re: FEC driver: rcv is not +last
-Date: Fri, 9 Apr 2010 10:17:59 +0200
-Message-ID: <20100409081759.GR29538@darwin>
-References: <20100408104033.GI3787@darwin>
- <4BBEBE57.8020800@canonical.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: net-next: 2.6.34-rc1 regression: panic when running diagnostic
+ on interface with IPv6
+Date: Fri, 9 Apr 2010 02:19:45 -0600
+Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FE4F6B39F@rrsmsx501.amr.corp.intel.com>
+References: <EA929A9653AAE14F841771FB1DE5A1365FE4E2E26C@rrsmsx501.amr.corp.intel.com>
+	<20100405.161221.159637463.davem@davemloft.net>
+	<EA929A9653AAE14F841771FB1DE5A1365FE4E2E334@rrsmsx501.amr.corp.intel.com>
+	<20100405.165317.89399272.davem@davemloft.net>
+ <20100408175444.1e0da2c6@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Sascha Hauer <s.hauer@pengutronix.de>
-To: Bryan Wu <bryan.wu@canonical.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2-d.mail.gandi.net ([217.70.183.194]:40092 "EHLO
-	relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754050Ab0DIITl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 04:19:41 -0400
-Content-Disposition: inline
-In-Reply-To: <4BBEBE57.8020800@canonical.com>
+Received: from mga02.intel.com ([134.134.136.20]:40740 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756448Ab0DIITt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 04:19:49 -0400
+In-Reply-To: <20100408175444.1e0da2c6@nehalam>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Bryan,
+Stephen Hemminger wrote:
+> On Mon, 05 Apr 2010 16:53:17 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
+> 
+>> From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+>> Date: Mon, 5 Apr 2010 17:50:38 -0600
+>> 
+>>> David Miller wrote:
+>>>> From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+>>>> Date: Mon, 5 Apr 2010 17:03:56 -0600
+>>>> 
+>>>>> David Miller wrote:
+>>>>>> From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+>>>>>> Date: Tue, 23 Mar 2010 12:28:08 -0600
+>>>>>> 
+>>>>>>> Bisecting points to this patch:
+>>>>>>> http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commitdiff;h=84e8b803f1e16f3a2b8b80f80a63fa2f2f8a9be6
+>>>>>>> 
+>>>>>>> And I confirmed that the issue goes away after reverting it.
+>>>>>>> 
+>>>>>>> Steps to reproduce:
+>>>>>>> 1. Load the driver and configure IPv6 address.
+>>>>>>> 2. Run ethtool diag:
+>>>>>>> ethtool -t eth0
+>>>>>>> 
+>>>>>>> 3. If this doesn't brake it try again, or just do ifdown/up.
+>>>>>>> Other operations on the interface will eventually panic the
+>>>>>>> system: 
+>>>>>> 
+>>>>>> Stephen please fix this, thanks.
+>>>>> 
+>>>>> Just FYI - I still see this issue with latest pull from net-2.6.
+>>>> 
+>>>> It's net-next-2.6 that introduced the problem and has the follow-on
+>>>> fixes, not net-2.6
+>>> 
+>>> Same in net-next:
+>> 
+>> Ok, Stephen please look into this, we've had this regression
+>> for almost two weeks now.
+> 
+> I can't reproduce it, on e1000e.
+> Since the symptoms match the original problem that you already fixed,
+> I have to assume that it is fixed but the reporter (Emil) had not
+> updated his kernel correctly.
 
-El Fri, Apr 09, 2010 at 01:42:47PM +0800 Bryan Wu ha dit:
+My tree is up to date, but can you point me to the patch that is supposed to fix this?
 
-> On 04/08/2010 06:40 PM, Matthias Kaehlcke wrote:
-> >hi,
-> >
-> >i have problems with the FEC on a i.MX25 3-Stack board. the kernel is
-> >v2.6.34-rc2 plus the following patch:
-> >http://patchwork.ozlabs.org/patch/41235/
-> >
-> >the following traces are generated at boot time:
-> >
-> >FEC Ethernet Driver
-> >fec: PHY @ 0x1, ID 0x20005ce1 -- unknown PHY!
-> >...
-
-> please try this patch on your hardware, it introduced phylib
-> supporting in fec.c driver:
-> http://lists.infradead.org/pipermail/linux-arm-kernel/2010-March/012214.html
-
-sascha pointed me yesterday to your patch, i tried it with v2
-(http://lkml.org/lkml/2010/3/31/130), but without success.
-
-our distributor informed us that the board they let us is a
-preliminary hardware version and that this is probably the cause of
-the problem :/
-
-i hope i'll get soon my hands on an offical board release and can
-verify that the FEC just works ;)
-
-thanks for your help!
-
--- 
-Matthias Kaehlcke
-Embedded Linux Developer
-Barcelona
-
-               If sharing a thing in no way diminishes it,
-               it is not rightly owned if it is not shared
-                                                                 .''`.
-    using free software / Debian GNU/Linux | http://debian.org  : :'  :
-                                                                `. `'`
-gpg --keyserver pgp.mit.edu --recv-keys 47D8E5D4                  `-
+Thanks,
+Emil
