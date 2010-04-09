@@ -1,55 +1,83 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: powerpc boot failure
-Date: Fri, 9 Apr 2010 10:08:58 +1000
-Message-ID: <20100409100858.149feccc.sfr@canb.auug.org.au>
-References: <20100408165848.38f75f40.sfr@canb.auug.org.au>
-	<4BBD81B3.3030500@iki.fi>
-	<20100408172316.e6ee451d.sfr@canb.auug.org.au>
-	<4BBD85ED.4090209@iki.fi>
-	<20100408174549.2f45ceea.sfr@canb.auug.org.au>
-	<4BBD966D.8020404@iki.fi>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] vhost: Make it more scalable by creating a vhost	thread
+ per device.
+Date: Thu, 08 Apr 2010 17:14:35 -0700
+Message-ID: <4BBE716B.7050904@hp.com>
+References: <1270229480.13897.8.camel@w-sridhar.beaverton.ibm.com>	<1270488911.27874.43.camel@w-sridhar.beaverton.ibm.com> <1270771542.31186.397.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Fri__9_Apr_2010_10_08_58_+1000_HEJRLD/N5y2v5aDn"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Timo =?UTF-8?B?VGVyw6Rz?= <timo.teras@iki.fi>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <4BBD966D.8020404@iki.fi>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Tom Lendacky <toml@us.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>
+To: Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:29732 "EHLO
+	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933563Ab0DIAOi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 8 Apr 2010 20:14:38 -0400
+In-Reply-To: <1270771542.31186.397.camel@w-sridhar.beaverton.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__9_Apr_2010_10_08_58_+1000_HEJRLD/N5y2v5aDn
-Content-Type: text/plain; charset=UTF-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-Hi Timo,
+> Here are the results with netperf TCP_STREAM 64K guest to host on a
+> 8-cpu Nehalem system.
 
-On Thu, 08 Apr 2010 11:40:13 +0300 Timo Ter=C3=A4s <timo.teras@iki.fi> wrot=
-e:
->
-> Can you try if this helps?
+I presume you mean 8 core Nehalem-EP, or did you mean 8 processor Nehalem-EX?
 
-That patch allows my machine to boot.
+Don't get me wrong, I *like* the netperf 64K TCP_STREAM test, I lik it a lot!-) 
+but I find it incomplete and also like to run things like single-instance TCP_RR 
+and multiple-instance, multiple "transaction" (./configure --enable-burst) 
+TCP_RR tests, particularly when concerned with "scaling" issues.
 
-Thanks.
+happy benchmarking,
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+rick jones
 
---Signature=_Fri__9_Apr_2010_10_08_58_+1000_HEJRLD/N5y2v5aDn
-Content-Type: application/pgp-signature
+> It shows cumulative bandwidth in Mbps and host 
+> CPU utilization.
+> 
+> Current default single vhost thread
+> -----------------------------------
+> 1 guest:  12500  37%    
+> 2 guests: 12800  46%
+> 3 guests: 12600  47%
+> 4 guests: 12200  47%
+> 5 guests: 12000  47%
+> 6 guests: 11700  47%
+> 7 guests: 11340  47%
+> 8 guests: 11200  48%
+> 
+> vhost thread per cpu
+> --------------------
+> 1 guest:   4900 25%
+> 2 guests: 10800 49%
+> 3 guests: 17100 67%
+> 4 guests: 20400 84%
+> 5 guests: 21000 90%
+> 6 guests: 22500 92%
+> 7 guests: 23500 96%
+> 8 guests: 24500 99%
+> 
+> vhost thread per guest interface
+> --------------------------------
+> 1 guest:  12500 37%
+> 2 guests: 21000 72%
+> 3 guests: 21600 79%
+> 4 guests: 21600 85%
+> 5 guests: 22500 89%
+> 6 guests: 22800 94%
+> 7 guests: 24500 98%
+> 8 guests: 26400 99%
+> 
+> Thanks
+> Sridhar
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAku+cBoACgkQjjKRsyhoI8wk4gCdGPjIZLArsbPae/gChDy/Wa+P
-bBUAoLYU4GfeOd81j2FtkCsYLuxVKBYc
-=fpg6
------END PGP SIGNATURE-----
-
---Signature=_Fri__9_Apr_2010_10_08_58_+1000_HEJRLD/N5y2v5aDn--
