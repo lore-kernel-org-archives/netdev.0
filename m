@@ -1,42 +1,99 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.34-rc3-git8: Reported regressions 2.6.32 -> 2.6.33
-Date: Fri, 9 Apr 2010 21:56:05 +0200
-Message-ID: <201004092156.05674.rjw@sisk.pl>
-References: <cjwJ7Pf9h0L.A.9pB.1DmvLB@chimera> <4BBE92AE.6090301@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH] igb: add support for reporting 5GT/s during
+	probe on PCIe Gen2
+Date: Fri, 09 Apr 2010 12:52:47 -0700
+Message-ID: <20100409195246.30654.40319.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Maciej Rutecki <maciej.rutecki@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.sourceforge.net>
-To: Gertjan van Wingerde <gwingerde@gmail.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <4BBE92AE.6090301@gmail.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta05.westchester.pa.mail.comcast.net ([76.96.62.48]:39517
+	"EHLO qmta05.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756572Ab0DITxG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 9 Apr 2010 15:53:06 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 09 April 2010, Gertjan van Wingerde wrote:
-> On 04/09/10 00:54, Rafael J. Wysocki wrote:
-> > 
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=15699
-> > Subject		: rt2500usb driver cannot remain connected
-> > Submitter	:  <abcd@gentoo.org>
-> > Date		: 2010-04-05 19:30 (4 days old)
-> > Handled-By	: Ivo van Doorn <IvDoorn@gmail.com>
-> > 
-> 
-> This one ought to be fixed by commit 9e76ad2a27f592c1390248867391880c7efe78b3
-> in Linus' tree.
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Thanks, closing.
+This change corrects the fact that we were not reporting Gen2 link speeds
+when we were in fact connected at Gen2 rates.
 
-Rafael
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/igb/e1000_defines.h |    3 +++
+ drivers/net/igb/e1000_mac.c     |   19 ++++++++++++++++---
+ drivers/net/igb/igb_main.c      |    1 +
+ 3 files changed, 20 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/igb/e1000_defines.h b/drivers/net/igb/e1000_defines.h
+index 31d24e0..8e440e8 100644
+--- a/drivers/net/igb/e1000_defines.h
++++ b/drivers/net/igb/e1000_defines.h
+@@ -615,6 +615,9 @@
+ 
+ #define PCIE_LINK_WIDTH_MASK         0x3F0
+ #define PCIE_LINK_WIDTH_SHIFT        4
++#define PCIE_LINK_SPEED_MASK         0x0F
++#define PCIE_LINK_SPEED_2500         0x01
++#define PCIE_LINK_SPEED_5000         0x02
+ #define PCIE_DEVICE_CONTROL2_16ms    0x0005
+ 
+ #define PHY_REVISION_MASK      0xFFFFFFF0
+diff --git a/drivers/net/igb/e1000_mac.c b/drivers/net/igb/e1000_mac.c
+index be8d010..4371835 100644
+--- a/drivers/net/igb/e1000_mac.c
++++ b/drivers/net/igb/e1000_mac.c
+@@ -53,17 +53,30 @@ s32 igb_get_bus_info_pcie(struct e1000_hw *hw)
+ 	u16 pcie_link_status;
+ 
+ 	bus->type = e1000_bus_type_pci_express;
+-	bus->speed = e1000_bus_speed_2500;
+ 
+ 	ret_val = igb_read_pcie_cap_reg(hw,
+ 					  PCIE_LINK_STATUS,
+ 					  &pcie_link_status);
+-	if (ret_val)
++	if (ret_val) {
+ 		bus->width = e1000_bus_width_unknown;
+-	else
++		bus->speed = e1000_bus_speed_unknown;
++	} else {
++		switch (pcie_link_status & PCIE_LINK_SPEED_MASK) {
++		case PCIE_LINK_SPEED_2500:
++			bus->speed = e1000_bus_speed_2500;
++			break;
++		case PCIE_LINK_SPEED_5000:
++			bus->speed = e1000_bus_speed_5000;
++			break;
++		default:
++			bus->speed = e1000_bus_speed_unknown;
++			break;
++		}
++
+ 		bus->width = (enum e1000_bus_width)((pcie_link_status &
+ 						     PCIE_LINK_WIDTH_MASK) >>
+ 						     PCIE_LINK_WIDTH_SHIFT);
++	}
+ 
+ 	reg = rd32(E1000_STATUS);
+ 	bus->func = (reg & E1000_STATUS_FUNC_MASK) >> E1000_STATUS_FUNC_SHIFT;
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 876a49b..a3c79ad 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -1637,6 +1637,7 @@ static int __devinit igb_probe(struct pci_dev *pdev,
+ 	dev_info(&pdev->dev, "%s: (PCIe:%s:%s) %pM\n",
+ 		 netdev->name,
+ 		 ((hw->bus.speed == e1000_bus_speed_2500) ? "2.5Gb/s" :
++		  (hw->bus.speed == e1000_bus_speed_5000) ? "5.0Gb/s" :
+ 		                                            "unknown"),
+ 		 ((hw->bus.width == e1000_bus_width_pcie_x4) ? "Width x4" :
+ 		  (hw->bus.width == e1000_bus_width_pcie_x2) ? "Width x2" :
+
