@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: Linux 2.6.34-rc3 + CAN build problem
-Date: Sat, 10 Apr 2010 15:48:56 -0700 (PDT)
-Message-ID: <20100410.154856.54433341.davem@davemloft.net>
-References: <4BC03340.5020500@freemail.hu>
-	<1270892851.2093.32.camel@edumazet-laptop>
+Date: Sat, 10 Apr 2010 15:50:09 -0700 (PDT)
+Message-ID: <20100410.155009.66184583.davem@davemloft.net>
+References: <1270892851.2093.32.camel@edumazet-laptop>
+	<4BC054AE.7040303@freemail.hu>
+	<4BC070E0.6070601@hartkopp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nm127@freemail.hu, socketcan@hartkopp.net,
+Cc: nm127@freemail.hu, eric.dumazet@gmail.com,
 	oliver.hartkopp@volkswagen.de, urs.thuermann@volkswagen.de,
 	socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: socketcan@hartkopp.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1270892851.2093.32.camel@edumazet-laptop>
+In-Reply-To: <4BC070E0.6070601@hartkopp.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 10 Apr 2010 11:47:31 +0200
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Date: Sat, 10 Apr 2010 14:36:48 +0200
 
-> Could you give us your compiler version ?
-> 
-> Code is fine, but compiler a bit dumb :(
+> So i wonder why Nemeth trapped into this problem ... probably an include file
+> mix-up?
 
-Build failures happen all over the kernel with that
-USER_COPY_CHECK config option enabled, it's not really
-a bug report and I've even told people like Stephen
-Rothwell to do their allmodconfig builds on platforms
-like sparc64 with this option hard disabled.
+Do you have CONFIG_DEBUG_STRICT_USER_COPY_CHECKS enabled in your
+kernel config?
+
+That's the only way you get an actual failure of a build when
+the user copy size can't be proven to be in range by the
+compiler, otherwise it just warns.
