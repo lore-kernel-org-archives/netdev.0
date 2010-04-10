@@ -1,78 +1,75 @@
-From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-Subject: [PATCH  kernel 2.6.34-rc3-git9] smc91c92_cs: define multicast_table
- as unsigned char
-Date: Sun, 11 Apr 2010 07:50:14 +0900
-Message-ID: <20100411075014.d3e80847.ken_kawasaki@spring.nifty.jp>
-References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
-	<20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
-	<20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
-	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
-	<20091004073257.52a6624b.ken_kawasaki@spring.nifty.jp>
-	<20091221205849.dae4e929.ken_kawasaki@spring.nifty.jp>
-	<20091223171004.77316fa5.ken_kawasaki@spring.nifty.jp>
-	<20100123065625.db751a12.ken_kawasaki@spring.nifty.jp>
-	<20100228083420.9ca8e285.ken_kawasaki@spring.nifty.jp>
-	<20100328055537.13ef6c01.ken_kawasaki@spring.nifty.jp>
-	<20100404061434.eb98ef3e.ken_kawasaki@spring.nifty.jp>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: forcedeth driver hangs under heavy load
+Date: Sun, 11 Apr 2010 00:36:46 +0100
+Message-ID: <1270942606.6179.64.camel@localhost>
+References: <4B9E6C60.7030300@atlanticlinux.ie>
+	 <20100315182220.GQ2763@decadent.org.uk> <4B9F5E5E.2060209@atlanticlinux.ie>
+	 <1270393967.8341.11.camel@localhost> <4BBCA19C.5080204@atlanticlinux.ie>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-YarqaRxEWnZ0eND/lNxD"
+Cc: stephen mulcahy <smulcahy@atlanticlinux.ie>, 572201@bugs.debian.org
+To: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ayaz Abdulla <aabdulla@nvidia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userg507.nifty.com ([202.248.238.87]:60733 "EHLO
-	userg507.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752357Ab0DJWu7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Apr 2010 18:50:59 -0400
-Received: from localhost.localdomain (eaoska170123.adsl.ppp.infoweb.ne.jp [219.116.19.123])by userg507.nifty.com with SMTP id o3AMoj6p012527
-	for <netdev@vger.kernel.org>; Sun, 11 Apr 2010 07:50:45 +0900
-In-Reply-To: <20100404061434.eb98ef3e.ken_kawasaki@spring.nifty.jp>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:43981 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752298Ab0DJXjJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Apr 2010 19:39:09 -0400
+In-Reply-To: <4BBCA19C.5080204@atlanticlinux.ie>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-smc91c92_cs:
-  * define multicast_table as unsigned char
-  * remove unnecessary "#ifndef final_version"
+--=-YarqaRxEWnZ0eND/lNxD
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Stephen Mulcahy reported a regression in forcedeth at
+<http://bugs.debian.org/572201>.  The system information and some
+diagnostic information can be found there.  Anyone able to help?
 
----
+Ben.
 
---- linux-2.6.34-rc3-git9/drivers/net/pcmcia/smc91c92_cs.c.orig	2010-04-10 07:08:09.000000000 +0900
-+++ linux-2.6.34-rc3-git9/drivers/net/pcmcia/smc91c92_cs.c	2010-04-10 07:31:47.000000000 +0900
-@@ -1608,9 +1608,12 @@ static void set_rx_mode(struct net_devic
- {
-     unsigned int ioaddr = dev->base_addr;
-     struct smc_private *smc = netdev_priv(dev);
--    u_int multicast_table[ 2 ] = { 0, };
-+    unsigned char multicast_table[8];
-     unsigned long flags;
-     u_short rx_cfg_setting;
-+    int i;
-+
-+    memset(multicast_table, 0, sizeof(multicast_table));
- 
-     if (dev->flags & IFF_PROMISC) {
- 	rx_cfg_setting = RxStripCRC | RxEnable | RxPromisc | RxAllMulti;
-@@ -1622,10 +1625,6 @@ static void set_rx_mode(struct net_devic
- 
- 	    netdev_for_each_mc_addr(mc_addr, dev) {
- 		u_int position = ether_crc(6, mc_addr->dmi_addr);
--#ifndef final_version		/* Verify multicast address. */
--		if ((mc_addr->dmi_addr[0] & 1) == 0)
--		    continue;
--#endif
- 		multicast_table[position >> 29] |= 1 << ((position >> 26) & 7);
- 	    }
- 	}
-@@ -1635,8 +1634,8 @@ static void set_rx_mode(struct net_devic
-     /* Load MC table and Rx setting into the chip without interrupts. */
-     spin_lock_irqsave(&smc->lock, flags);
-     SMC_SELECT_BANK(3);
--    outl(multicast_table[0], ioaddr + MULTICAST0);
--    outl(multicast_table[1], ioaddr + MULTICAST4);
-+    for (i = 0; i < 8; i++)
-+	outb(multicast_table[i], ioaddr + MULTICAST0 + i);
-     SMC_SELECT_BANK(0);
-     outw(rx_cfg_setting, ioaddr + RCR);
-     SMC_SELECT_BANK(2);
+stephen mulcahy wrote:
+> When running linux-image-2.6.32-trunk-amd64, the network stops=20
+> responding if large amounts of traffic are transmitted/received. Running=20
+> ifdown eth0 followed by ifup eth0 restores operation of the network.=20
+> There are no errors relating to this failure logged in /var/log that I=20
+> could see.
+>=20
+> Downgrading to linux-image-2.6.30-2-amd64 results in a stable network.=20
+> Not sure if this is a forcedeth specific problem or a general problem in=20
+> the newer kernel (I have seen problems with forcedeth on other=20
+> distro/kernel combinations).
+>=20
+> Happy to run further diagnostics to tie this down if you let me know=20
+> what to run.
+
+--=20
+Ben Hutchings
+Once a job is fouled up, anything done to improve it makes it worse.
+
+--=-YarqaRxEWnZ0eND/lNxD
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQIVAwUAS8ELiee/yOyVhhEJAQJwpxAAgWi4nK/MzzSjuewV7oYz7mg95QkXwFmI
+uE1SbX8G5ysJHQqjhyKf2TdDKXyx/1+8eQn6jzk4j0zcLikh0ehBFfT/KvSIRaU+
+NGznmo2Du+fbDPBWbcOQX+nOho4Qh24vnanuAiSlti8IRzw12nk4dVvs3PJHLvK2
+84+Ekv+uW4k74VEfwZFDv3JhxYbWluEMuNeOKYByVJGFXX5E8qIybczsLIjommUC
+2lripSzsGrYhbg1h5uNWybL9QA9mrziTEAkSe5AW6tpigCFDx9nu3EURwNZbqZic
+z/VcMLJ3xKmgzZJSDqlnyGQJSb+PRjbPTSuY3JQYUw3o3Xyglwt6ElOVEHhFwfxJ
+R4+AO0PwU0paVrK7tZNyOAkSVRZXfFH1w+PKdWtPE/odq+sX6veuH5PGUfYr+OUF
+J3qu2Euz4Ng0YkV9cs/JpUeKKzbXebYh+YUjLXwmupQ8hVNsBAlxh9Z1ruaBLOjT
+dzb+3QYrJvNFe4/N56bRyk5rBD8sgxuGRdnC2uwCA9Kp/vkuEAU7rADy0eX6aZsn
+YciEw0GbMfHVGEYQQJt2aX8w3wgs634BO2Fiy5ylHkXm5Yk8QAiugo9fLYkQ4kr5
+dH4ugVxKCjJK1QoOefOqKW7aq/J8lWfUK85Kp2vzegsZ1NN+k99u/uBbWTTd/ME2
+3/qgbhk5M+o=
+=tZdN
+-----END PGP SIGNATURE-----
+
+--=-YarqaRxEWnZ0eND/lNxD--
