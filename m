@@ -1,82 +1,31 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: Linux 2.6.34-rc3 + CAN build problem
-Date: Sat, 10 Apr 2010 14:36:48 +0200
-Message-ID: <4BC070E0.6070601@hartkopp.net>
-References: <4BC03340.5020500@freemail.hu>
-	<1270892851.2093.32.camel@edumazet-laptop>
-	<4BC054AE.7040303@freemail.hu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: add setsockopt to disable slow start after idle
+Date: Sat, 10 Apr 2010 15:47:09 -0700 (PDT)
+Message-ID: <20100410.154709.201110995.davem@davemloft.net>
+References: <1270863015-19597-1-git-send-email-cristiklein@gmail.com>
+	<20100409.221307.246951787.davem@davemloft.net>
+	<4BC06A5F.6070804@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Oliver Hartkopp <oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Urs Thuermann <urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org>
-To: =?UTF-8?B?TsOpbWV0aCBNw6FydG9u?= <nm127-Y8qEzhMunLyT9ig0jae3mg@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4BC054AE.7040303-Y8qEzhMunLyT9ig0jae3mg@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: cristiklein@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52959
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752063Ab0DJWrI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Apr 2010 18:47:08 -0400
+In-Reply-To: <4BC06A5F.6070804@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-TsOpbWV0aCBNw6FydG9uIHdyb3RlOgo+IEVyaWMgRHVtYXpldCDDrXJ0YToKPj4gTGUgc2FtZWRp
-IDEwIGF2cmlsIDIwMTAgw6AgMTA6MTMgKzAyMDAsIE7DqW1ldGggTcOhcnRvbiBhIMOpY3JpdCA6
-Cj4+PiBIaSwKPj4+Cj4+PiBJIGhhdmUgc29tZSBwcm9ibGVtIGJ1aWxkaW5nIExpdW51eCBrZXJu
-ZWwgMi42LjM0LXJjMyB3aXRoIHRoZSBhdHRhY2hlZCAuY29uZmlnOgo+Pj4KPj4+ICQgbWFrZSBj
-bGVhbiBiekltYWdlIG1vZHVsZXMKPj4+IFsuLi5dCj4+PiAgIENDICAgICAgbmV0L3NvY2tldC5v
-Cj4+PiAgIExEICAgICAgbmV0LzgwMi9idWlsdC1pbi5vCj4+PiAgIExEICAgICAgbmV0L2Nhbi9i
-dWlsdC1pbi5vCj4+PiAgIENDIFtNXSAgbmV0L2Nhbi9iY20ubwo+Pj4gICBDQyBbTV0gIG5ldC9j
-YW4vcmF3Lm8KPj4+IEluIGZpbGUgaW5jbHVkZWQgZnJvbSAvbW50L3N0b3JlL25tYXJjaS9zcmMv
-bGludXgtMi42LjM0LXJjMy9hcmNoL3g4Ni9pbmNsdWRlL2FzbS91YWNjZXNzLmg6NTcxLAo+Pj4g
-ICAgICAgICAgICAgICAgICBmcm9tIGluY2x1ZGUvbmV0L2NoZWNrc3VtLmg6MjUsCj4+PiAgICAg
-ICAgICAgICAgICAgIGZyb20gaW5jbHVkZS9saW51eC9za2J1ZmYuaDoyOCwKPj4+ICAgICAgICAg
-ICAgICAgICAgZnJvbSBpbmNsdWRlL2xpbnV4L2lmX2V0aGVyLmg6MTI0LAo+Pj4gICAgICAgICAg
-ICAgICAgICBmcm9tIGluY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmg6MjksCj4+PiAgICAgICAgICAg
-ICAgICAgIGZyb20gbmV0L2Nhbi9yYXcuYzo0ODoKPj4+IEluIGZ1bmN0aW9uIOKAmGNvcHlfZnJv
-bV91c2Vy4oCZLAo+Pj4gICAgIGlubGluZWQgZnJvbSDigJhyYXdfc2V0c29ja29wdOKAmSBhdCBu
-ZXQvY2FuL3Jhdy5jOjQ0NzoKPj4+IC9tbnQvc3RvcmUvbm1hcmNpL3NyYy9saW51eC0yLjYuMzQt
-cmMzL2FyY2gveDg2L2luY2x1ZGUvYXNtL3VhY2Nlc3NfMzIuaDoyMTI6IGVycm9yOiBjYWxsIHRv
-IOKAmGNvcHlfZnJvbV91c2VyX292ZXJmbG934oCZIGRlY2xhcmVkIHdpdGggYXR0cmlidXRlIGVy
-cm9yOgo+Pj4gY29weV9mcm9tX3VzZXIoKSBidWZmZXIgc2l6ZSBpcyBub3QgcHJvdmFibHkgY29y
-cmVjdAo+Pj4gbWFrZVsyXTogKioqIFtuZXQvY2FuL3Jhdy5vXSBFcnJvciAxCj4+PiBtYWtlWzFd
-OiAqKiogW25ldC9jYW5dIEVycm9yIDIKPj4+IG1ha2U6ICoqKiBbbmV0XSBFcnJvciAyCj4+Pgo+
-Pj4KPj4gQ291bGQgeW91IGdpdmUgdXMgeW91ciBjb21waWxlciB2ZXJzaW9uID8KPiAKPiAkIGdj
-YyAtLXZlcnNpb24KPiBnY2MgKERlYmlhbiA0LjQuMi05KSA0LjQuMyAyMDEwMDEwOCAocHJlcmVs
-ZWFzZSkKPiBDb3B5cmlnaHQgKEMpIDIwMDkgRnJlZSBTb2Z0d2FyZSBGb3VuZGF0aW9uLCBJbmMu
-Cj4gVGhpcyBpcyBmcmVlIHNvZnR3YXJlOyBzZWUgdGhlIHNvdXJjZSBmb3IgY29weWluZyBjb25k
-aXRpb25zLiAgVGhlcmUgaXMgTk8KPiB3YXJyYW50eTsgbm90IGV2ZW4gZm9yIE1FUkNIQU5UQUJJ
-TElUWSBvciBGSVRORVNTIEZPUiBBIFBBUlRJQ1VMQVIgUFVSUE9TRS4KPiAKPj4gQ29kZSBpcyBm
-aW5lLCBidXQgY29tcGlsZXIgYSBiaXQgZHVtYiA6KAo+Pgo+PiBbUEFUQ0hdIGNhbjogYXZvaWRz
-IGEgZmFsc2Ugd2FybmluZwo+Pgo+PiBBdCB0aGlzIHBvaW50IG9wdGxlbiA9PSBzaXplb2Yoc2Zp
-bHRlcikgYnV0IHNvbWUgY29tcGlsZXJzIGFyZSBkdW1iLgo+Pgo+PiBSZXBvcnRlZC1ieTogTsOp
-bWV0aCBNw6FydG9uIDxubTEyN0BmcmVlbWFpbC5oCj4+IFNpZ25lZC1vZmYtYnk6IEVyaWMgRHVt
-YXpldCA8ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT4KCkFja2VkLWJ5OiBPbGl2ZXIgSGFydGtvcHAg
-PG9saXZlckBoYXJ0a29wcC5uZXQ+CgpCdHcuIGknbSB1c2luZyB0aGUgc2FtZSBjb21waWxlciBo
-ZXJlIChEZWJpYW4gU3F1ZWV6ZSksIGFuZCBpIGRpZCBub3QgaGF2ZSBhbnkKYnVpbGQgcHJvYmxl
-bXMgd2l0aCAyLjYuMjQtcmMzIGFuZCB0aGUgZm9sbG93aW5nIGtlcm5lbHMgbGlrZSB0aGUgY3Vy
-cmVudGx5CnJ1bm5pbmcgMi42LjM0LXJjMy0wMDI4OC1nYWIxOTVjNToKCiQgY2F0IC9wcm9jL3Zl
-cnNpb24KTGludXggdmVyc2lvbiAyLjYuMzQtcmMzLTAwMjg4LWdhYjE5NWM1IChoYXJ0a29Adndh
-Z3dvbGtmMzIwKSAoZ2NjIHZlcnNpb24KNC40LjMgMjAxMDAxMDggKHByZXJlbGVhc2UpIChEZWJp
-YW4gNC40LjItOSkgKSAjNzAgU01QIFR1ZSBBcHIgNiAxOToxNDo1MiBDRVNUCjIwMTAKClNvIGkg
-d29uZGVyIHdoeSBOZW1ldGggdHJhcHBlZCBpbnRvIHRoaXMgcHJvYmxlbSAuLi4gcHJvYmFibHkg
-YW4gaW5jbHVkZSBmaWxlCm1peC11cD8KClJlZ2FyZHMsCk9saXZlcgoKCj4+IC0tLQo+PiBkaWZm
-IC0tZ2l0IGEvbmV0L2Nhbi9yYXcuYyBiL25ldC9jYW4vcmF3LmMKPj4gaW5kZXggM2E3ZGZmYi4u
-ZGE5OWNmMSAxMDA2NDQKPj4gLS0tIGEvbmV0L2Nhbi9yYXcuYwo+PiArKysgYi9uZXQvY2FuL3Jh
-dy5jCj4+IEBAIC00NDUsNyArNDQ1LDcgQEAgc3RhdGljIGludCByYXdfc2V0c29ja29wdChzdHJ1
-Y3Qgc29ja2V0ICpzb2NrLCBpbnQgbGV2ZWwsIGludCBvcHRuYW1lLAo+PiAgCQkJCXJldHVybiAt
-RUZBVUxUOwo+PiAgCQkJfQo+PiAgCQl9IGVsc2UgaWYgKGNvdW50ID09IDEpIHsKPj4gLQkJCWlm
-IChjb3B5X2Zyb21fdXNlcigmc2ZpbHRlciwgb3B0dmFsLCBvcHRsZW4pKQo+PiArCQkJaWYgKGNv
-cHlfZnJvbV91c2VyKCZzZmlsdGVyLCBvcHR2YWwsIHNpemVvZihzZmlsdGVyKSkpCj4+ICAJCQkJ
-cmV0dXJuIC1FRkFVTFQ7Cj4+ICAJCX0KPj4gIApfX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fXwpTb2NrZXRjYW4tY29yZSBtYWlsaW5nIGxpc3QKU29ja2V0Y2Fu
-LWNvcmVAbGlzdHMuYmVybGlvcy5kZQpodHRwczovL2xpc3RzLmJlcmxpb3MuZGUvbWFpbG1hbi9s
-aXN0aW5mby9zb2NrZXRjYW4tY29yZQo=
+From: Cristian KLEIN <cristiklein@gmail.com>
+Date: Sat, 10 Apr 2010 14:09:03 +0200
+
+> Could you please explain me why it is dangerous? To me it seems that
+> it's just like allowing applications to disable NAGLE or to choose a
+> congestion control algorithm.
+
+Because you can cause undue congestion to other people on the network
+because you are believing path information that has been outdated and
+has not been validated by sending data for a certain amount of time.
