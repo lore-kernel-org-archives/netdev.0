@@ -1,33 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: IGB handling of zero length checksumming?
-Date: Sun, 11 Apr 2010 14:42:35 -0700 (PDT)
-Message-ID: <20100411.144235.226765248.davem@davemloft.net>
-References: <20100411.024027.120459168.davem@davemloft.net>
+Subject: Re: ssh server etc doesn't work anymore with net-2.6
+Date: Sun, 11 Apr 2010 14:43:13 -0700 (PDT)
+Message-ID: <20100411.144313.71127091.davem@davemloft.net>
+References: <20100411100902.GA20141@gondor.apana.org.au>
+	<20100411120403.GA20565@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, alexander.h.duyck@intel.com,
-	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42359
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752702Ab0DKVmb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Apr 2010 17:42:31 -0400
-In-Reply-To: <20100411.024027.120459168.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: yinghai@kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, torvalds@linux-foundation.org
+To: herbert@gondor.apana.org.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100411120403.GA20565@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Sun, 11 Apr 2010 02:40:27 -0700 (PDT)
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sun, 11 Apr 2010 20:04:03 +0800
 
+> Herbert Xu <herbert@gondor.apana.org.au> wrote:
+>> 
+>> After looking at the actual net-2.6 tree I see that it is actually
+>> CHECKSUM_PARTIAL that caused this breakage.
+>> 
+>> The fact that when this was first implemented we didn't use hw
+>> checksums on dataless packets might not have been an oversight
+>> after all.
 > 
-> If the IGB is given a "skb->ip_summed === CHECKSUM_PARTIAL" packet and
-> the data area past the TCP header is of zero length, will it do the
-> right thing?
+> Looks like I was too quick to blame the hardware, the synack
+> code can't handle CHECKSUM_PARTIAL so this is probably the real
+> cause.
+> 
+> I will send patches to fix this.
 
-Hey guys you don't have to worry about this.
+Thanks a lot for figuring this out.
 
-The problem turned out to be somewhere else. :-)
-
+I'll put my original patch (with fixed commit log message!)
+and your fixes into net-next-2.6
