@@ -1,39 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: ssh server etc doesn't work anymore with net-2.6
-Date: Sun, 11 Apr 2010 14:43:13 -0700 (PDT)
-Message-ID: <20100411.144313.71127091.davem@davemloft.net>
+Subject: Re: [PATCH 1/3] tcp: Handle CHECKSUM_PARTIAL for SYNACK packets
+ for IPv4
+Date: Sun, 11 Apr 2010 15:00:04 -0700 (PDT)
+Message-ID: <20100411.150004.104064842.davem@davemloft.net>
 References: <20100411100902.GA20141@gondor.apana.org.au>
-	<20100411120403.GA20565@gondor.apana.org.au>
+	<E1O0w4v-0005UZ-GF@gondolin.me.apana.org.au>
+	<4BC23A1C.9020607@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yinghai@kernel.org, linux-kernel@vger.kernel.org,
+Cc: herbert@gondor.hengli.com.au, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, torvalds@linux-foundation.org
-To: herbert@gondor.apana.org.au
+To: yinghai.lu@oracle.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100411120403.GA20565@gondor.apana.org.au>
+In-Reply-To: <4BC23A1C.9020607@oracle.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sun, 11 Apr 2010 20:04:03 +0800
+From: Yinghai <yinghai.lu@oracle.com>
+Date: Sun, 11 Apr 2010 14:07:40 -0700
 
-> Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> On 04/11/2010 05:15 AM, Herbert Xu wrote:
+>> tcp: Handle CHECKSUM_PARTIAL for SYNACK packets for IPv4
 >> 
->> After looking at the actual net-2.6 tree I see that it is actually
->> CHECKSUM_PARTIAL that caused this breakage.
+>> This patch moves the common code between tcp_v4_send_check and
+>> tcp_v4_gso_send_check into a new function __tcp_v4_send_check.
 >> 
->> The fact that when this was first implemented we didn't use hw
->> checksums on dataless packets might not have been an oversight
->> after all.
-> 
-> Looks like I was too quick to blame the hardware, the synack
-> code can't handle CHECKSUM_PARTIAL so this is probably the real
-> cause.
-> 
-> I will send patches to fix this.
+>> It then uses the new function in tcp_v4_send_synack so that it
+>> handles CHECKSUM_PARTIAL properly.
+>> 
+> Good, three patches fix the problem.
 
-Thanks a lot for figuring this out.
-
-I'll put my original patch (with fixed commit log message!)
-and your fixes into net-next-2.6
+Thanks for testing.
