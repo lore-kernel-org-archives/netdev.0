@@ -1,46 +1,35 @@
-From: Denys Fedorysychenko <nuclearcat@nuclearcat.com>
-Subject: Re: HFSC classes going out of bounds, regression in recent kernels?
-Date: Sun, 11 Apr 2010 05:10:06 +0300
-Message-ID: <201004110510.06162.nuclearcat@nuclearcat.com>
-References: <201004061822.21735.nuclearcat@nuclearcat.com> <4BBB5543.40607@trash.net>
+From: =?UTF-8?B?TsOpbWV0aCBNw6FydG9u?= <nm127@freemail.hu>
+Subject: Re: Linux 2.6.34-rc3 + CAN build problem
+Date: Sun, 11 Apr 2010 07:14:47 +0200
+Message-ID: <4BC15AC7.3010904@freemail.hu>
+References: <1270892851.2093.32.camel@edumazet-laptop>	<4BC054AE.7040303@freemail.hu>	<4BC070E0.6070601@hartkopp.net> <20100410.155009.66184583.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:32775 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751135Ab0DKCLh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Apr 2010 22:11:37 -0400
-In-Reply-To: <4BBB5543.40607@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan@hartkopp.net, eric.dumazet@gmail.com,
+	oliver.hartkopp@volkswagen.de, urs.thuermann@volkswagen.de,
+	socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100410.155009.66184583.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 06 April 2010 18:37:39 Patrick McHardy wrote:
-> Denys Fedorysychenko wrote:
-> > I notice on one of my QoS machines that HFSC start going out of bandwidth
-> > limits. The most terrible thing - it happens suddenly, and if i just
-> > relaunch QoS script - everything will work fine.
+David Miller wrote:
+> From: Oliver Hartkopp <socketcan@hartkopp.net>
+> Date: Sat, 10 Apr 2010 14:36:48 +0200
 > 
-> That sounds like there's an overflow somewhere.
+>> So i wonder why Nemeth trapped into this problem ... probably an include file
+>> mix-up?
 > 
-> > I'm not sure it is not my mistake, but most probably it is a bug.
-> > I can't tell for sure when it is happened, last kernel was on this
-> > machine 2.6.28 i guess, or maybe even older.
-> 
-> Looking through the recent patches in this area, my prime suspect
-> is the attached patch. Does reverting it make any difference?
-> 
-Hi, i made sure - bug not related to this patch. I try to patch (also had to 
-test latest stable release, to make sure it is appearing on it), and each test 
-taking 1 day. If i "restart" script to resetup HFSC - it works for a while 
-fine. At next day, peak time period - it goes wild.
+> Do you have CONFIG_DEBUG_STRICT_USER_COPY_CHECKS enabled in your
+> kernel config?
 
-There is another thing also, i am going to try now, old kernel was 64-bit, but 
-now 32bit, so i will try to shift to 64bit again.
+CONFIG_DEBUG_STRICT_USER_COPY_CHECKS=y
 
-It can be not regression, but a bug. I guess not many people use HFSC, even it 
-is definitely better than HTB. Or i'm wrong?
+> That's the only way you get an actual failure of a build when
+> the user copy size can't be proven to be in range by the
+> compiler, otherwise it just warns.
+> 
+> 
