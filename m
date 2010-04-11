@@ -1,47 +1,50 @@
-From: Cristian KLEIN <cristiklein@gmail.com>
-Subject: Re: [PATCH] tcp: add setsockopt to disable slow start after idle
-Date: Sun, 11 Apr 2010 20:45:10 +0200
-Message-ID: <4BC218B6.8050703@gmail.com>
-References: <1270863015-19597-1-git-send-email-cristiklein@gmail.com>	<20100409.221307.246951787.davem@davemloft.net>	<4BC06A5F.6070804@gmail.com> <20100410.154709.201110995.davem@davemloft.net>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: Linux 2.6.34-rc3 + CAN build problem
+Date: Sun, 11 Apr 2010 20:53:56 +0200
+Message-ID: <4BC21AC4.8060403@hartkopp.net>
+References: <1270892851.2093.32.camel@edumazet-laptop>	<4BC054AE.7040303@freemail.hu>	<4BC070E0.6070601@hartkopp.net>
+	<20100410.155009.66184583.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:59249 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752739Ab0DKSpR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Apr 2010 14:45:17 -0400
-In-Reply-To: <20100410.154709.201110995.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nm127-Y8qEzhMunLyT9ig0jae3mg@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, urs.thuermann-l29pVbxQd1IUtdQbppsyvg@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20100410.155009.66184583.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 11/04/2010 00:47, David Miller wrote:
-> From: Cristian KLEIN<cristiklein@gmail.com>
-> Date: Sat, 10 Apr 2010 14:09:03 +0200
->
->> Could you please explain me why it is dangerous? To me it seems that
->> it's just like allowing applications to disable NAGLE or to choose a
->> congestion control algorithm.
->
-> Because you can cause undue congestion to other people on the network
-> because you are believing path information that has been outdated and
-> has not been validated by sending data for a certain amount of time.
+David Miller wrote:
+> From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+> Date: Sat, 10 Apr 2010 14:36:48 +0200
+> 
+>> So i wonder why Nemeth trapped into this problem ... probably an include file
+>> mix-up?
+> 
+> Do you have CONFIG_DEBUG_STRICT_USER_COPY_CHECKS enabled in your
+> kernel config?
+> 
+> That's the only way you get an actual failure of a build when
+> the user copy size can't be proven to be in range by the
+> compiler, otherwise it just warns.
 
-I consider your argument an important concern, but I'm not quite 
-convinced this patch is so bad.
+No, indeed i do not have it set.
 
-An application which does not need this behaviour will continue to slow 
-start after idle by default.
+# CONFIG_DEBUG_STRICT_USER_COPY_CHECKS is not set
 
-Without this patch, an application which needs this behaviour (i.e. not 
-to slow start after idle) is forced to implement its own UDP-based 
-protocol with all the congestion control, retransmission etc. Undue 
-congestion might still occur.
+What would be the best approach to fix this build failure then?
 
+By applying the patch thankfully provided by Eric?
 
-If you don't agree with the above two points, would you consider 
-accepting a patch with an allow_user_fast_start_after_idle sysctl?
-
-Cristi.
+Regards,
+Oliver
