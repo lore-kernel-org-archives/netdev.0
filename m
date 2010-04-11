@@ -1,154 +1,117 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 3/3] inet: Remove unused send_check length argument
-Date: Sun, 11 Apr 2010 20:15:55 +0800
-Message-ID: <E1O0w4x-0005VA-LH@gondolin.me.apana.org.au>
+Subject: [PATCH 2/3] tcp: Handle CHECKSUM_PARTIAL for SYNACK packets for IPv6
+Date: Sun, 11 Apr 2010 20:15:54 +0800
+Message-ID: <E1O0w4w-0005V0-Ip@gondolin.me.apana.org.au>
 References: <20100411100902.GA20141@gondor.apana.org.au>
 To: davem@davemloft.net, yinghai@kernel.org,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:55361 "EHLO
+Received: from ringil.hengli.com.au ([216.59.3.182]:55358 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751338Ab0DKMQE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Apr 2010 08:16:04 -0400
+	with ESMTP id S1751247Ab0DKMQF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Apr 2010 08:16:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-inet: Remove unused send_check length argument
+tcp: Handle CHECKSUM_PARTIAL for SYNACK packets for IPv6
 
-This patch removes the unused length argument from the send_check
-function in struct inet_connection_sock_af_ops.
+This patch moves the common code between tcp_v6_send_check and
+tcp_v6_gso_send_check into a new function __tcp_v6_send_check.
+
+It then uses the new function in tcp_v6_send_synack as well as
+tcp_v6_send_response so that they handle CHECKSUM_PARTIAL properly.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/net/inet_connection_sock.h |    3 +--
- include/net/tcp.h                  |    2 +-
- net/dccp/dccp.h                    |    2 +-
- net/dccp/ipv4.c                    |    2 +-
- net/dccp/ipv6.c                    |    3 +--
- net/dccp/output.c                  |    2 +-
- net/ipv4/tcp_ipv4.c                |    2 +-
- net/ipv4/tcp_output.c              |    2 +-
- net/ipv6/tcp_ipv6.c                |    2 +-
- 9 files changed, 9 insertions(+), 11 deletions(-)
+ net/ipv6/tcp_ipv6.c |   37 +++++++++++++++++++------------------
+ 1 file changed, 19 insertions(+), 18 deletions(-)
 
-diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
-index 696d6e4..52c8b8b 100644
---- a/include/net/inet_connection_sock.h
-+++ b/include/net/inet_connection_sock.h
-@@ -37,8 +37,7 @@ struct tcp_congestion_ops;
-  */
- struct inet_connection_sock_af_ops {
- 	int	    (*queue_xmit)(struct sk_buff *skb, int ipfragok);
--	void	    (*send_check)(struct sock *sk, int len,
--				  struct sk_buff *skb);
-+	void	    (*send_check)(struct sock *sk, struct sk_buff *skb);
- 	int	    (*rebuild_header)(struct sock *sk);
- 	int	    (*conn_request)(struct sock *sk, struct sk_buff *skb);
- 	struct sock *(*syn_recv_sock)(struct sock *sk, struct sk_buff *skb,
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 75be5a2..70c5159 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -423,7 +423,7 @@ extern u8			*tcp_parse_md5sig_option(struct tcphdr *th);
-  *	TCP v4 functions exported for the inet6 API
-  */
- 
--extern void		       	tcp_v4_send_check(struct sock *sk, int len,
-+extern void		       	tcp_v4_send_check(struct sock *sk,
- 						  struct sk_buff *skb);
- 
- extern int			tcp_v4_conn_request(struct sock *sk,
-diff --git a/net/dccp/dccp.h b/net/dccp/dccp.h
-index 5ef32c2..33035ab 100644
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -223,7 +223,7 @@ static inline void dccp_csum_outgoing(struct sk_buff *skb)
- 	skb->csum = skb_checksum(skb, 0, (cov > skb->len)? skb->len : cov, 0);
- }
- 
--extern void dccp_v4_send_check(struct sock *sk, int len, struct sk_buff *skb);
-+extern void dccp_v4_send_check(struct sock *sk, struct sk_buff *skb);
- 
- extern int  dccp_retransmit_skb(struct sock *sk);
- 
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index 52ffa1c..d9b11ef 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -349,7 +349,7 @@ static inline __sum16 dccp_v4_csum_finish(struct sk_buff *skb,
- 	return csum_tcpudp_magic(src, dst, skb->len, IPPROTO_DCCP, skb->csum);
- }
- 
--void dccp_v4_send_check(struct sock *sk, int unused, struct sk_buff *skb)
-+void dccp_v4_send_check(struct sock *sk, struct sk_buff *skb)
- {
- 	const struct inet_sock *inet = inet_sk(sk);
- 	struct dccp_hdr *dh = dccp_hdr(skb);
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 3b11e41..ab1ab95 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -60,8 +60,7 @@ static inline __sum16 dccp_v6_csum_finish(struct sk_buff *skb,
- 	return csum_ipv6_magic(saddr, daddr, skb->len, IPPROTO_DCCP, skb->csum);
- }
- 
--static inline void dccp_v6_send_check(struct sock *sk, int unused_value,
--				      struct sk_buff *skb)
-+static inline void dccp_v6_send_check(struct sock *sk, struct sk_buff *skb)
- {
- 	struct ipv6_pinfo *np = inet6_sk(sk);
- 	struct dccp_hdr *dh = dccp_hdr(skb);
-diff --git a/net/dccp/output.c b/net/dccp/output.c
-index fc3f436..b8d98e3 100644
---- a/net/dccp/output.c
-+++ b/net/dccp/output.c
-@@ -129,7 +129,7 @@ static int dccp_transmit_skb(struct sock *sk, struct sk_buff *skb)
- 			break;
- 		}
- 
--		icsk->icsk_af_ops->send_check(sk, 0, skb);
-+		icsk->icsk_af_ops->send_check(sk, skb);
- 
- 		if (set_ack)
- 			dccp_event_ack_sent(sk);
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index aebfd28..a24995c 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -537,7 +537,7 @@ static void __tcp_v4_send_check(struct sk_buff *skb,
- }
- 
- /* This routine computes an IPv4 TCP checksum. */
--void tcp_v4_send_check(struct sock *sk, int len, struct sk_buff *skb)
-+void tcp_v4_send_check(struct sock *sk, struct sk_buff *skb)
- {
- 	struct inet_sock *inet = inet_sk(sk);
- 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 0dda86e..0ae7ce7 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -878,7 +878,7 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 	}
- #endif
- 
--	icsk->icsk_af_ops->send_check(sk, skb->len, skb);
-+	icsk->icsk_af_ops->send_check(sk, skb);
- 
- 	if (likely(tcb->flags & TCPCB_FLAG_ACK))
- 		tcp_event_ack_sent(sk, tcp_skb_pcount(skb));
 diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index f84c506..b429dfd 100644
+index c92ebe8..f84c506 100644
 --- a/net/ipv6/tcp_ipv6.c
 +++ b/net/ipv6/tcp_ipv6.c
-@@ -933,7 +933,7 @@ static void __tcp_v6_send_check(struct sk_buff *skb,
+@@ -75,6 +75,9 @@ static void	tcp_v6_reqsk_send_ack(struct sock *sk, struct sk_buff *skb,
+ 				      struct request_sock *req);
+ 
+ static int	tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb);
++static void	__tcp_v6_send_check(struct sk_buff *skb,
++				    struct in6_addr *saddr,
++				    struct in6_addr *daddr);
+ 
+ static const struct inet_connection_sock_af_ops ipv6_mapped;
+ static const struct inet_connection_sock_af_ops ipv6_specific;
+@@ -503,11 +506,7 @@ static int tcp_v6_send_synack(struct sock *sk, struct request_sock *req,
+ 
+ 	skb = tcp_make_synack(sk, dst, req, rvp);
+ 	if (skb) {
+-		struct tcphdr *th = tcp_hdr(skb);
+-
+-		th->check = tcp_v6_check(skb->len,
+-					 &treq->loc_addr, &treq->rmt_addr,
+-					 csum_partial(th, skb->len, skb->csum));
++		__tcp_v6_send_check(skb, &treq->loc_addr, &treq->rmt_addr);
+ 
+ 		ipv6_addr_copy(&fl.fl6_dst, &treq->rmt_addr);
+ 		err = ip6_xmit(sk, skb, &fl, opt, 0);
+@@ -918,22 +917,29 @@ static struct timewait_sock_ops tcp6_timewait_sock_ops = {
+ 	.twsk_destructor= tcp_twsk_destructor,
+ };
+ 
+-static void tcp_v6_send_check(struct sock *sk, int len, struct sk_buff *skb)
++static void __tcp_v6_send_check(struct sk_buff *skb,
++				struct in6_addr *saddr, struct in6_addr *daddr)
+ {
+-	struct ipv6_pinfo *np = inet6_sk(sk);
+ 	struct tcphdr *th = tcp_hdr(skb);
+ 
+ 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-		th->check = ~csum_ipv6_magic(&np->saddr, &np->daddr, len, IPPROTO_TCP,  0);
++		th->check = ~tcp_v6_check(skb->len, saddr, daddr, 0);
+ 		skb->csum_start = skb_transport_header(skb) - skb->head;
+ 		skb->csum_offset = offsetof(struct tcphdr, check);
+ 	} else {
+-		th->check = csum_ipv6_magic(&np->saddr, &np->daddr, len, IPPROTO_TCP,
+-					    csum_partial(th, th->doff<<2,
+-							 skb->csum));
++		th->check = tcp_v6_check(skb->len, saddr, daddr,
++					 csum_partial(th, th->doff << 2,
++						      skb->csum));
  	}
  }
  
--static void tcp_v6_send_check(struct sock *sk, int len, struct sk_buff *skb)
-+static void tcp_v6_send_check(struct sock *sk, struct sk_buff *skb)
++static void tcp_v6_send_check(struct sock *sk, int len, struct sk_buff *skb)
++{
++	struct ipv6_pinfo *np = inet6_sk(sk);
++
++	__tcp_v6_send_check(skb, &np->saddr, &np->daddr);
++}
++
+ static int tcp_v6_gso_send_check(struct sk_buff *skb)
  {
- 	struct ipv6_pinfo *np = inet6_sk(sk);
+ 	struct ipv6hdr *ipv6h;
+@@ -946,11 +952,8 @@ static int tcp_v6_gso_send_check(struct sk_buff *skb)
+ 	th = tcp_hdr(skb);
  
+ 	th->check = 0;
+-	th->check = ~csum_ipv6_magic(&ipv6h->saddr, &ipv6h->daddr, skb->len,
+-				     IPPROTO_TCP, 0);
+-	skb->csum_start = skb_transport_header(skb) - skb->head;
+-	skb->csum_offset = offsetof(struct tcphdr, check);
+ 	skb->ip_summed = CHECKSUM_PARTIAL;
++	__tcp_v6_send_check(skb, &ipv6h->saddr, &ipv6h->daddr);
+ 	return 0;
+ }
+ 
+@@ -1053,9 +1056,7 @@ static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
+ 	ipv6_addr_copy(&fl.fl6_dst, &ipv6_hdr(skb)->saddr);
+ 	ipv6_addr_copy(&fl.fl6_src, &ipv6_hdr(skb)->daddr);
+ 
+-	t1->check = csum_ipv6_magic(&fl.fl6_src, &fl.fl6_dst,
+-				    tot_len, IPPROTO_TCP,
+-				    buff->csum);
++	__tcp_v6_send_check(buff, &fl.fl6_src, &fl.fl6_dst);
+ 
+ 	fl.proto = IPPROTO_TCP;
+ 	fl.oif = inet6_iif(skb);
