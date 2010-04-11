@@ -1,55 +1,97 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH v2] can: Add esd board support to plx_pci CAN driver
-Date: Sun, 11 Apr 2010 16:50:46 +0200
-Message-ID: <4BC1E1C6.1050405@grandegger.com>
-References: <201004071309.56518.matthias.fuchs@esd.eu>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] vhost: Make it more scalable by creating a vhost
+	thread per device.
+Date: Sun, 11 Apr 2010 18:47:20 +0300
+Message-ID: <20100411154719.GA9681@redhat.com>
+References: <1270229480.13897.8.camel@w-sridhar.beaverton.ibm.com> <1270488911.27874.43.camel@w-sridhar.beaverton.ibm.com> <1270771542.31186.397.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Matthias Fuchs <matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <201004071309.56518.matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Tom Lendacky <toml@us.ibm.com>, netdev <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>
+To: Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1270771542.31186.397.camel@w-sridhar.beaverton.ibm.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Matthias Fuchs wrote:
-> This patch adds support for SJA1000 based PCI CAN interface cards
-> from electronic system design gmbh.
+On Thu, Apr 08, 2010 at 05:05:42PM -0700, Sridhar Samudrala wrote:
+> On Mon, 2010-04-05 at 10:35 -0700, Sridhar Samudrala wrote:
+> > On Sun, 2010-04-04 at 14:14 +0300, Michael S. Tsirkin wrote:
+> > > On Fri, Apr 02, 2010 at 10:31:20AM -0700, Sridhar Samudrala wrote:
+> > > > Make vhost scalable by creating a separate vhost thread per vhost
+> > > > device. This provides better scaling across multiple guests and with
+> > > > multiple interfaces in a guest.
+> > > 
+> > > Thanks for looking into this. An alternative approach is
+> > > to simply replace create_singlethread_workqueue with
+> > > create_workqueue which would get us a thread per host CPU.
+> > > 
+> > > It seems that in theory this should be the optimal approach
+> > > wrt CPU locality, however, in practice a single thread
+> > > seems to get better numbers. I have a TODO to investigate this.
+> > > Could you try looking into this?
+> > 
+> > Yes. I tried using create_workqueue(), but the results were not good
+> > atleast when the number of guest interfaces is less than the number
+> > of CPUs. I didn't try more than 8 guests.
+> > Creating a separate thread per guest interface seems to be more
+> > scalable based on the testing i have done so far.
+> > 
+> > I will try some more tests and get some numbers to compare the following
+> > 3 options.
+> > - single vhost thread
+> > - vhost thread per cpu
+> > - vhost thread per guest virtio interface
 > 
-> Some changes have been done on the common code:
->  - esd boards must not have the 2nd local interupt enabled (PLX9030/9050)
->  - a new path for PLX9056/PEX8311 chips has been added
->  - new plx9056 reset function has been implemented
->  - struct plx_card_info got a reset function entry
+> Here are the results with netperf TCP_STREAM 64K guest to host on a
+> 8-cpu Nehalem system. It shows cumulative bandwidth in Mbps and host 
+> CPU utilization.
 > 
-> In detail the following additional boards are now supported:
+> Current default single vhost thread
+> -----------------------------------
+> 1 guest:  12500  37%    
+> 2 guests: 12800  46%
+> 3 guests: 12600  47%
+> 4 guests: 12200  47%
+> 5 guests: 12000  47%
+> 6 guests: 11700  47%
+> 7 guests: 11340  47%
+> 8 guests: 11200  48%
 > 
->         CAN-PCI/200 (PCI)
->         CAN-PCI/266 (PCI)
->         CAN-PMC266 (PMC module)
->         CAN-PCIe/2000 (PCI Express)
->         CAN-CPCI/200 (Compact PCI, 3U)
->         CAN-PCI104 (PCI104)
+> vhost thread per cpu
+> --------------------
+> 1 guest:   4900 25%
+> 2 guests: 10800 49%
+> 3 guests: 17100 67%
+> 4 guests: 20400 84%
+> 5 guests: 21000 90%
+> 6 guests: 22500 92%
+> 7 guests: 23500 96%
+> 8 guests: 24500 99%
 > 
-> Signed-off-by: Matthias Fuchs <matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
-> ---
-> v2:
->  - update Kconfig
->  - add proper plx9056 reset function
->  - add reset function pointer to plx_card_info structure
->  - use card's reset function in plx_pci_del_card()
+> vhost thread per guest interface
+> --------------------------------
+> 1 guest:  12500 37%
+> 2 guests: 21000 72%
+> 3 guests: 21600 79%
+> 4 guests: 21600 85%
+> 5 guests: 22500 89%
+> 6 guests: 22800 94%
+> 7 guests: 24500 98%
+> 8 guests: 26400 99%
+> 
+> Thanks
+> Sridhar
 
-Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 
-Thanks.
+Consider using Ingo's perf tool to get error bars, but looks good
+overall. One thing I note though is that we seem to be able to
+consume up to 99% CPU now. So I think with this approach
+we can no longer claim that we are just like some other parts of
+networking stack, doing work outside any cgroup, and we should
+make the vhost thread inherit the cgroup and cpu mask
+from the process calling SET_OWNER.
 
-Wolfgang.
+-- 
+MST
