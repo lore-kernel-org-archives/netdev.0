@@ -1,75 +1,46 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: forcedeth driver hangs under heavy load
-Date: Sun, 11 Apr 2010 00:36:46 +0100
-Message-ID: <1270942606.6179.64.camel@localhost>
-References: <4B9E6C60.7030300@atlanticlinux.ie>
-	 <20100315182220.GQ2763@decadent.org.uk> <4B9F5E5E.2060209@atlanticlinux.ie>
-	 <1270393967.8341.11.camel@localhost> <4BBCA19C.5080204@atlanticlinux.ie>
+From: Denys Fedorysychenko <nuclearcat@nuclearcat.com>
+Subject: Re: HFSC classes going out of bounds, regression in recent kernels?
+Date: Sun, 11 Apr 2010 05:10:06 +0300
+Message-ID: <201004110510.06162.nuclearcat@nuclearcat.com>
+References: <201004061822.21735.nuclearcat@nuclearcat.com> <4BBB5543.40607@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-YarqaRxEWnZ0eND/lNxD"
-Cc: stephen mulcahy <smulcahy@atlanticlinux.ie>, 572201@bugs.debian.org
-To: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ayaz Abdulla <aabdulla@nvidia.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:43981 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752298Ab0DJXjJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 10 Apr 2010 19:39:09 -0400
-In-Reply-To: <4BBCA19C.5080204@atlanticlinux.ie>
+Received: from hosting.visp.net.lb ([194.146.153.11]:32775 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751135Ab0DKCLh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 10 Apr 2010 22:11:37 -0400
+In-Reply-To: <4BBB5543.40607@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tuesday 06 April 2010 18:37:39 Patrick McHardy wrote:
+> Denys Fedorysychenko wrote:
+> > I notice on one of my QoS machines that HFSC start going out of bandwidth
+> > limits. The most terrible thing - it happens suddenly, and if i just
+> > relaunch QoS script - everything will work fine.
+> 
+> That sounds like there's an overflow somewhere.
+> 
+> > I'm not sure it is not my mistake, but most probably it is a bug.
+> > I can't tell for sure when it is happened, last kernel was on this
+> > machine 2.6.28 i guess, or maybe even older.
+> 
+> Looking through the recent patches in this area, my prime suspect
+> is the attached patch. Does reverting it make any difference?
+> 
+Hi, i made sure - bug not related to this patch. I try to patch (also had to 
+test latest stable release, to make sure it is appearing on it), and each test 
+taking 1 day. If i "restart" script to resetup HFSC - it works for a while 
+fine. At next day, peak time period - it goes wild.
 
---=-YarqaRxEWnZ0eND/lNxD
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+There is another thing also, i am going to try now, old kernel was 64-bit, but 
+now 32bit, so i will try to shift to 64bit again.
 
-Stephen Mulcahy reported a regression in forcedeth at
-<http://bugs.debian.org/572201>.  The system information and some
-diagnostic information can be found there.  Anyone able to help?
-
-Ben.
-
-stephen mulcahy wrote:
-> When running linux-image-2.6.32-trunk-amd64, the network stops=20
-> responding if large amounts of traffic are transmitted/received. Running=20
-> ifdown eth0 followed by ifup eth0 restores operation of the network.=20
-> There are no errors relating to this failure logged in /var/log that I=20
-> could see.
->=20
-> Downgrading to linux-image-2.6.30-2-amd64 results in a stable network.=20
-> Not sure if this is a forcedeth specific problem or a general problem in=20
-> the newer kernel (I have seen problems with forcedeth on other=20
-> distro/kernel combinations).
->=20
-> Happy to run further diagnostics to tie this down if you let me know=20
-> what to run.
-
---=20
-Ben Hutchings
-Once a job is fouled up, anything done to improve it makes it worse.
-
---=-YarqaRxEWnZ0eND/lNxD
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQIVAwUAS8ELiee/yOyVhhEJAQJwpxAAgWi4nK/MzzSjuewV7oYz7mg95QkXwFmI
-uE1SbX8G5ysJHQqjhyKf2TdDKXyx/1+8eQn6jzk4j0zcLikh0ehBFfT/KvSIRaU+
-NGznmo2Du+fbDPBWbcOQX+nOho4Qh24vnanuAiSlti8IRzw12nk4dVvs3PJHLvK2
-84+Ekv+uW4k74VEfwZFDv3JhxYbWluEMuNeOKYByVJGFXX5E8qIybczsLIjommUC
-2lripSzsGrYhbg1h5uNWybL9QA9mrziTEAkSe5AW6tpigCFDx9nu3EURwNZbqZic
-z/VcMLJ3xKmgzZJSDqlnyGQJSb+PRjbPTSuY3JQYUw3o3Xyglwt6ElOVEHhFwfxJ
-R4+AO0PwU0paVrK7tZNyOAkSVRZXfFH1w+PKdWtPE/odq+sX6veuH5PGUfYr+OUF
-J3qu2Euz4Ng0YkV9cs/JpUeKKzbXebYh+YUjLXwmupQ8hVNsBAlxh9Z1ruaBLOjT
-dzb+3QYrJvNFe4/N56bRyk5rBD8sgxuGRdnC2uwCA9Kp/vkuEAU7rADy0eX6aZsn
-YciEw0GbMfHVGEYQQJt2aX8w3wgs634BO2Fiy5ylHkXm5Yk8QAiugo9fLYkQ4kr5
-dH4ugVxKCjJK1QoOefOqKW7aq/J8lWfUK85Kp2vzegsZ1NN+k99u/uBbWTTd/ME2
-3/qgbhk5M+o=
-=tZdN
------END PGP SIGNATURE-----
-
---=-YarqaRxEWnZ0eND/lNxD--
+It can be not regression, but a bug. I guess not many people use HFSC, even it 
+is definitely better than HTB. Or i'm wrong?
