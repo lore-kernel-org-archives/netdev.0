@@ -1,39 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: IGB handling of zero length checksumming?
-Date: Sun, 11 Apr 2010 02:40:27 -0700 (PDT)
-Message-ID: <20100411.024027.120459168.davem@davemloft.net>
+Subject: Re: ssh server etc doesn't work anymore with net-2.6
+Date: Sun, 11 Apr 2010 02:43:52 -0700 (PDT)
+Message-ID: <20100411.024352.209996508.davem@davemloft.net>
+References: <r2v86802c441004110217u15591f95ydd1e8e1466a36dc2@mail.gmail.com>
+	<20100411.022416.107236208.davem@davemloft.net>
+	<u2v86802c441004110232l99be1450w4e629ab2bde9bc0c@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, alexander.h.duyck@intel.com,
-	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com
-To: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	torvalds@linux-foundation.org
+To: yinghai@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33593
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33603
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751577Ab0DKJkX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Apr 2010 05:40:23 -0400
+	by vger.kernel.org with ESMTP id S1751615Ab0DKJnt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 11 Apr 2010 05:43:49 -0400
+In-Reply-To: <u2v86802c441004110232l99be1450w4e629ab2bde9bc0c@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Yinghai Lu <yinghai@kernel.org>
+Date: Sun, 11 Apr 2010 02:32:33 -0700
 
-If the IGB is given a "skb->ip_summed === CHECKSUM_PARTIAL" packet and
-the data area past the TCP header is of zero length, will it do the
-right thing?
+> server side: 82576 with net-2.6
+> client side: opensuse 11.2 on thinkpad T61 wireless + vpnc
 
-I'm asking because I made a change recently in net-2.6 that causes TCP
-packets with no data (ACKs, etc.) to start using CHECKSUM_PARTIAL.
+I've pushed out a revert, we'll sort this out in net-next-2.6
+and meanwhile I've started a dialog with the Intel driver
+folks to see if there IGB chip has a problem with handling
+CHECKSUM_PARTIAL packets with a zero length data area.
 
-And a user with IGB interfaces on a system running net-2.6 is getting
-failures connecting to SSH and stuff like that and it is known that
-this TCP commit of mine is the culprit.  See:
-
-http://marc.info/?l=linux-netdev&m=127097744616962&w=2
-
-I'm very likely to just revert this change regardless of what the
-problem is, and try to sort this out in net-next-2.6, but it'd be nice
-to know if IGB indeed has a problem in this area and that's the true
-cause of the issue.
-
-Thanks!
+Thanks for your report.
