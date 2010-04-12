@@ -1,64 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: NULL pointer dereference panic in stable (2.6.33.2), amd64
-Date: Mon, 12 Apr 2010 11:31:43 +0200
-Message-ID: <1271064703.16881.16.camel@edumazet-laptop>
-References: <201004112338.47019.nuclearcat@nuclearcat.com>
-	 <1271025353.2078.155.camel@edumazet-laptop>
-	 <OF19A2A36F.5B268C61-ON65257703.0012EB6A-65257703.0013F81C@in.ibm.com>
-	 <1271052111.2078.168.camel@edumazet-laptop>
-	 <OF802D1BE7.C2709B61-ON65257703.00235EF5-65257703.002B5F38@in.ibm.com>
+From: stephen mulcahy <smulcahy@atlanticlinux.ie>
+Subject: Bug#572201: forcedeth driver hangs under heavy load
+Date: Mon, 12 Apr 2010 11:01:44 +0100
+Message-ID: <4BC2EF88.3060203@atlanticlinux.ie>
+References: <4B9E6C60.7030300@atlanticlinux.ie>	 <20100315182220.GQ2763@decadent.org.uk> <4B9F5E5E.2060209@atlanticlinux.ie>	 <1270393967.8341.11.camel@localhost> <4BBCA19C.5080204@atlanticlinux.ie> <1270942606.6179.64.camel@localhost>
+Reply-To: stephen mulcahy <smulcahy@atlanticlinux.ie>, 572201@bugs.debian.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Denys Fedorysychenko <nuclearcat@nuclearcat.com>
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:42539 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753272Ab0DLJbu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 05:31:50 -0400
-Received: by bwz19 with SMTP id 19so22031bwz.21
-        for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 02:31:48 -0700 (PDT)
-In-Reply-To: <OF802D1BE7.C2709B61-ON65257703.00235EF5-65257703.002B5F38@in.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <ben@decadent.org.uk>,
+ Eric Dumazet <eric.dumazet@gmail.com>,
+ Ayaz Abdulla <aabdulla@nvidia.com>, 572201@bugs.debian.org
+To: netdev <netdev@vger.kernel.org>
+Return-path: <bounce-debian-bugs-dist=glddb-debian-bugs-dist=m.gmane.org@lists.debian.org>
+Resent-Message-ID: <handler.572201.B572201.127106652517034@bugs.debian.org>
+In-Reply-To: <1270942606.6179.64.camel@localhost>
+List-Post: <mailto:debian-bugs-dist@lists.debian.org>
+List-Help: <mailto:debian-bugs-dist-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=unsubscribe>
+List-Id: netdev.vger.kernel.org
 
-Le lundi 12 avril 2010 =C3=A0 13:24 +0530, Krishna Kumar2 a =C3=A9crit =
-:
+Ben Hutchings wrote:
+> Stephen Mulcahy reported a regression in forcedeth at
+> <http://bugs.debian.org/572201>.  The system information and some
+> diagnostic information can be found there.  Anyone able to help?
 
-> If the dst got changed between call to vlan_dev_hwaccel_hard_start_xm=
-it
-> and it's call to dev_queue_xmit, that change to dst should have reset
-> sk_tx_queue_mapping to -1 by calling sk_tx_queue_clear (assuming that=
- I
-> have changed in all paths, eg __sk_dst_reset), and thus result in a n=
-ew
-> mapping in dev_pick_tx. Would the patch hide the actual bug where we =
-do
-> not clear sk_tx_queue_mapping, eg __sk_dst_set does it? I agree the
-> patch will fix the panic, but this check could be removed if the code
-> which changes the dst is fixed to clear the mapping. I could check th=
-at
-> if you think this assumption is correct.
->=20
+Incidentally, I also tried the 2.6.33.2 kernel with 
+CONFIG_FORCEDETH_NAPI set to "y" to see if that made a difference.
 
-I believe you focus on another problem. I am not saying we dont have
-another bug (forgetting to reset sk_dst_cache somewhere).
+It doesn't - further testing over the weekend saw 6 of 45 machines drop 
+off the network with this problem. Nothing in dmesg or system logs. 
+Happy to run more tests if someone can advise on what should be run.
 
-I am only saying that when we want to cache the queue number on a given
-socket, we have to make sure current packet routing decision was taken
-on same dst_entries than current and future ones. Denys hit the problem
-because of long delays caused by traffic shaping.
+-stephen
 
-So the cache renew must be safe, which I tried to fix.
-
-You are saying that cache invalidation might be missing from some paths=
-=2E
-I dont think so because I took an extensive look at these spots when
-working on yet another RCU conversion two days ago (sk_dst_lock becomes
-a spinlock). This was fresh in my mind, this is why I probably found
-Denys problem origin so quickly ;)
-
-
-
+-- 
+Stephen Mulcahy     Atlantic Linux         http://www.atlanticlinux.ie
+Registered in Ireland, no. 376591 (144 Ros Caoin, Roscam, Galway)
