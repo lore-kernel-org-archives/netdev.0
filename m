@@ -1,45 +1,32 @@
-From: Sathya Perla <sathyap@serverengines.com>
-Subject: [PATCH net-next-2.6] be2net: clarify promiscuous cmd with a comment
-Date: Mon, 12 Apr 2010 14:05:27 +0530
-Message-ID: <20100412083527.GA27023@serverengines.com>
-Reply-To: Sathya Perla <sathyap@serverengines.com>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: Re: [RFC] random SYN drops causing connect() delays
+Date: Mon, 12 Apr 2010 04:39:03 -0400
+Message-ID: <20100412083903.GA19763@bombadil.infradead.org>
+References: <20100412080633.GA27418@bombadil.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: pugs@cisco.com
-To: netdev <netdev@vger.kernel.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:61222 "EHLO
-	sperla-laptop.localdomain" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753105Ab0DLIgJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 04:36:09 -0400
+Received: from bombadil.infradead.org ([18.85.46.34]:46747 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752525Ab0DLIjE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 04:39:04 -0400
+Received: from tgr by bombadil.infradead.org with local (Exim 4.69 #1 (Red Hat Linux))
+	id 1O1FAd-0005ns-LV
+	for netdev@vger.kernel.org; Mon, 12 Apr 2010 08:39:03 +0000
 Content-Disposition: inline
+In-Reply-To: <20100412080633.GA27418@bombadil.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The promiscous cmd config code gives an impression that
-setting a port to promisc mode will unset the other port.
-This is not the case and is clarified with a comment.
+On Mon, Apr 12, 2010 at 04:06:33AM -0400, Thomas Graf wrote:
+>  - While the issue is appearing, the acceptq seems to be overflowing. Both
+>    LISTENOVERFLOWS and LISTENDROPS are increasing although not by the exact
+>    number of delay occurences. inetdiag reports sk_max_ack_backlog to be 0
+>    therefore one possibility that comes to mind is that sk_ack_backlog
+>    underflows due to a race.
 
-Signed-off-by: Sathya Perla <sathyap@serverengines.com>
----
- drivers/net/benet/be_cmds.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-index da87930..e79bf8b 100644
---- a/drivers/net/benet/be_cmds.c
-+++ b/drivers/net/benet/be_cmds.c
-@@ -1113,6 +1113,10 @@ int be_cmd_promiscuous_config(struct be_adapter *adapter, u8 port_num, bool en)
- 	be_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_ETH,
- 		OPCODE_ETH_PROMISCUOUS, sizeof(*req));
- 
-+	/* In FW versions X.102.149/X.101.487 and later,
-+	 * the port setting associated only with the
-+	 * issuing pci function will take effect
-+	 */
- 	if (port_num)
- 		req->port1_promiscuous = en;
- 	else
--- 
-1.6.3.3
-
+Forget about the underflow thought, inetdiag was reporting falsely.
+sk_max_ack_backlog is set to 128 as it should and the listen overflow
+happens normally. Still the fact remains that while the issue is appearing
+listen overflows are counted.
