@@ -1,40 +1,51 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 1/4] IPv6: keep route for tentative address
-Date: Mon, 12 Apr 2010 08:41:31 -0700
-Message-ID: <20100412154255.641453741@vyatta.com>
+Subject: [PATCH 3/4] ipv6: additional ref count for hash list unnecessary
+Date: Mon, 12 Apr 2010 08:41:33 -0700
+Message-ID: <20100412154255.811051512@vyatta.com>
 References: <20100412154130.397252857@vyatta.com>
 Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:47327 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:47333 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751999Ab0DLPqi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Apr 2010 11:46:38 -0400
-Content-Disposition: inline; filename=ipv6-addrconf1.patch
+	id S1752540Ab0DLPqr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Apr 2010 11:46:47 -0400
+Content-Disposition: inline; filename=ipv6-addrconf3.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recent changes preserve IPv6 address when link goes down (good).
-But would cause address to point to dead dst entry (bad).
-The simplest fix is to just not delete route if address is
-being held for later use.
+Since an address in hash list has to already have a ref count,
+no additional ref count is needed. 
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 
---- a/net/ipv6/addrconf.c	2010-04-11 12:19:37.938082190 -0700
-+++ b/net/ipv6/addrconf.c	2010-04-11 12:25:05.349309074 -0700
-@@ -4046,7 +4046,8 @@ static void __ipv6_ifa_notify(int event,
- 			addrconf_leave_anycast(ifp);
- 		addrconf_leave_solict(ifp->idev, &ifp->addr);
- 		dst_hold(&ifp->rt->u.dst);
--		if (ip6_del_rt(ifp->rt))
-+
-+		if (ifp->dead && ip6_del_rt(ifp->rt))
- 			dst_free(&ifp->rt->u.dst);
- 		break;
- 	}
+--- a/net/ipv6/addrconf.c	2010-04-11 12:25:32.609002374 -0700
++++ b/net/ipv6/addrconf.c	2010-04-11 12:26:52.715246164 -0700
+@@ -675,7 +675,6 @@ ipv6_add_addr(struct inet6_dev *idev, co
+ 	hash = ipv6_addr_hash(addr);
+ 
+ 	hlist_add_head_rcu(&ifa->addr_lst, &inet6_addr_lst[hash]);
+-	in6_ifa_hold(ifa);
+ 	spin_unlock(&addrconf_hash_lock);
+ 
+ 	write_lock(&idev->lock);
+@@ -723,7 +722,6 @@ static void ipv6_del_addr(struct inet6_i
+ 
+ 	spin_lock_bh(&addrconf_hash_lock);
+ 	hlist_del_init_rcu(&ifp->addr_lst);
+-	__in6_ifa_put(ifp);
+ 	spin_unlock_bh(&addrconf_hash_lock);
+ 
+ 	write_lock_bh(&idev->lock);
+@@ -2712,7 +2710,6 @@ static int addrconf_ifdown(struct net_de
+ 			/* clear hash table */
+ 			spin_lock_bh(&addrconf_hash_lock);
+ 			hlist_del_init_rcu(&ifa->addr_lst);
+-			__in6_ifa_put(ifa);
+ 			spin_unlock_bh(&addrconf_hash_lock);
+ 		}
+ 
 
 -- 
 
