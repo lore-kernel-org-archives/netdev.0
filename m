@@ -1,206 +1,161 @@
-From: stephen mulcahy <smulcahy@gmail.com>
-Subject: Re: forcedeth driver hangs under heavy load
-Date: Mon, 12 Apr 2010 17:11:09 +0100
-Message-ID: <4BC3461D.3070002@gmail.com>
-References: <4B9E6C60.7030300@atlanticlinux.ie>	 <20100315182220.GQ2763@decadent.org.uk> <4B9F5E5E.2060209@atlanticlinux.ie>	 <1270393967.8341.11.camel@localhost> <4BBCA19C.5080204@atlanticlinux.ie>	 <1270942606.6179.64.camel@localhost> <4BC2EF88.3060203@atlanticlinux.ie>	 <4BC31486.1090603@gmail.com> <1271076426.16881.21.camel@edumazet-laptop>	 <4BC31AA0.5070006@gmail.com>  <4BC31DDE.7010005@gmail.com> <1271085862.16881.38.camel@edumazet-laptop>
+From: Denys Fedorysychenko <nuclearcat@nuclearcat.com>
+Subject: Re: NULL pointer dereference panic in stable (2.6.33.2), amd64
+Date: Mon, 12 Apr 2010 19:11:27 +0300
+Message-ID: <201004121911.27955.nuclearcat@nuclearcat.com>
+References: <201004112338.47019.nuclearcat@nuclearcat.com> <OF802D1BE7.C2709B61-ON65257703.00235EF5-65257703.002B5F38@in.ibm.com> <1271064703.16881.16.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Ayaz Abdulla <aabdulla@nvidia.com>, 572201@bugs.debian.org
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_vY0wLNx1Y+ok6WN"
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep11-int.chello.at ([62.179.121.31]:47652 "EHLO
-	viefep11-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752532Ab0DLQLQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 12:11:16 -0400
-In-Reply-To: <1271085862.16881.38.camel@edumazet-laptop>
+Received: from hosting.visp.net.lb ([194.146.153.11]:36502 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752675Ab0DLQNN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 12:13:13 -0400
+In-Reply-To: <1271064703.16881.16.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Le lundi 12 avril 2010 =C3=A0 14:19 +0100, stephen mulcahy a =C3=A9cr=
-it :
->=20
-> Do you have some netfilters rules ?
->=20
+--Boundary-00=_vY0wLNx1Y+ok6WN
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
 
-Hi Eric,
+On Monday 12 April 2010 12:31:43 Eric Dumazet wrote:
+.
+Seems problem still remain. Patched kernel, but paniced now.
+Btw, i dont have any multiqueue card, i think.
 
-I don't have any netfilters rules:
+--Boundary-00=_vY0wLNx1Y+ok6WN
+Content-Type: text/plain;
+  charset="utf-8";
+  name="x.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+	filename="x.txt"
 
-root@node34:~# for table in filter nat mangle raw; do iptables -t $tabl=
-e=20
--L; done
-Chain INPUT (policy ACCEPT)
-target     prot opt source               destination
+Apr 12 18:46:58 80.83.17.1 dropbear[4843]: exit before auth: Disconnect received
+Apr 12 18:46:59 80.83.17.1 dropbear[4845]: Child connection from 82.113.44.186:48692
+Apr 12 18:46:59 80.83.17.1 dropbear[4844]: exit before auth: Disconnect received
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.956375] BUG: unable to handle kernel NULL pointer dereference at (null)
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.956571] IP: [<ffffffff811e587f>] dev_queue_xmit+0x28c/0x46d
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.956762] PGD 21debc067 PUD 21c881067 PMD 0 
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.956947] Oops: 0000 [#1] SMP 
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957126] last sysfs file: /sys/devices/virtual/vc/vcs3/dev
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957311] CPU 0 
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342] Pid: 0, comm: swapper Not tainted 2.6.33.2-build-0052test-64 #2         /        
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342] RIP: 0010:[<ffffffff811e587f>]  [<ffffffff811e587f>] dev_queue_xmit+0x28c/0x46d
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342] RSP: 0000:ffff880028203a30  EFLAGS: 00010202
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342] RAX: 0000000000002000 RBX: 0000000000000000 RCX: ffff880209d8a900
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342] RDX: ffff88021d870000 RSI: 0000000000000000 RDI: ffff88020a7b48e8
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342] RBP: ffff880028203a60 R08: ffff88021c8be89c R09: ffff88021c8bec00
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342] R10: dead000000200200 R11: dead000000100100 R12: ffff88021f98a880
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342] R13: ffff88021d5c0900 R14: ffff88020a7b48e8 R15: ffff88021cbad000
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342] FS:  0000000000000000(0000) GS:ffff880028200000(0000) knlGS:0000000000000000
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342] CR2: 0000000000000000 CR3: 000000021c9d8000 CR4: 00000000000006f0
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342] Process swapper (pid: 0, threadinfo ffffffff81392000, task ffffffff813a1020)
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342] Stack:
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  ffff88021d870000 ffff88021d5c0900 0000000000000042 ffff88021d5c0900
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342] <0> ffff88021cbad000 ffff88021cbad000 ffff880028203a80 ffffffffa01c12a9
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342] <0> 0000000000000000 ffff88020a7b48e8 ffff880028203ad0 ffffffff811e540e
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342] Call Trace:
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  <IRQ> 
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffffa01c12a9>] vlan_dev_hwaccel_hard_start_xmit+0x68/0x86 [8021q]
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff811e540e>] dev_hard_start_xmit+0x232/0x304
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff811f648a>] sch_direct_xmit+0x5d/0x16b
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff811f6654>] __qdisc_run+0xbc/0xdc
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff811e5939>] dev_queue_xmit+0x346/0x46d
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff8120a384>] ip_finish_output2+0x1c2/0x206
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff8120a430>] ip_finish_output+0x68/0x6a
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff8120a4d2>] ip_output+0xa0/0xa5
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff81206d2e>] ip_forward_finish+0x2e/0x32
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff81206ff4>] ip_forward+0x2c2/0x322
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff81205ae0>] ip_rcv_finish+0x2f0/0x30a
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff81205d77>] ip_rcv+0x27d/0x2a4
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff8124ad48>] ? vlan_hwaccel_do_receive+0x2b/0xda
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff811e47b6>] netif_receive_skb+0x450/0x475
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff811e4909>] napi_skb_finish+0x24/0x3b
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff8124b01b>] vlan_gro_receive+0x7c/0x81
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffffa015d6c5>] e1000_receive_skb+0x4a/0x65 [e1000e]
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffffa015d8cb>] e1000_clean_rx_irq+0x1eb/0x29c [e1000e]
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffffa015ebfb>] e1000_clean+0x75/0x22e [e1000e]
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffffa0234d6c>] ? hfsc_dequeue+0x171/0x2a6 [sch_hfsc]
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff811e4e56>] net_rx_action+0xa7/0x17a
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff81039670>] __do_softirq+0x96/0x11a
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff810037cc>] call_softirq+0x1c/0x28
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff81005543>] do_softirq+0x33/0x68
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff81039407>] irq_exit+0x36/0x75
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff81004c3e>] do_IRQ+0xaa/0xc1
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff8125ba93>] ret_from_intr+0x0/0xa
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  <EOI> 
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff8100a0c7>] ? mwait_idle+0x66/0x6b
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff81001d24>] ? enter_idle+0x20/0x22
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff81001d7b>] cpu_idle+0x55/0x8d
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff8124bba5>] rest_init+0x79/0x7b
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff813fca70>] start_kernel+0x362/0x36d
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff813fc0a8>] x86_64_start_reservations+0xa5/0xa9
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  [<ffffffff813fc189>] x86_64_start_kernel+0xdd/0xe4
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342] Code: e2 48 8b 55 d0 49 c1 e4 07 66 41 8b 86 a6 00 00 00 4c 03 a2 00 03 00 00 80 e4 cf 80 cc 20 49 8b 5c 24 08 66 41 89 86 a6 00 00 00 <48> 83 3b 00 0f 84 bb 00 00 00 4c 8d ab 9c 00 00 00 4c 89 ef e8 
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342] RIP  [<ffffffff811e587f>] dev_queue_xmit+0x28c/0x46d
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342]  RSP <ffff880028203a30>
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.957342] CR2: 0000000000000000
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.974856] ---[ end trace 739e5480c8ab784f ]---
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.975082] Kernel panic - not syncing: Fatal exception in interrupt
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.975311] Pid: 0, comm: swapper Tainted: G      D    2.6.33.2-build-0052test-64 #2
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.975706] Call Trace:
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.975920]  <IRQ>  [<ffffffff81259753>] panic+0xa0/0x161
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.976200]  [<ffffffff81003293>] ? apic_timer_interrupt+0x13/0x20
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.976431]  [<ffffffff81035673>] ? kmsg_dump+0x112/0x12c
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.976657]  [<ffffffff81006651>] oops_end+0xaa/0xba
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.976882]  [<ffffffff8101e653>] no_context+0x1f3/0x202
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.977113]  [<ffffffff8101e81c>] __bad_area_nosemaphore+0x1ba/0x1e0
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.977347]  [<ffffffff8113f8b3>] ? swiotlb_map_page+0x0/0xd5
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.977577]  [<ffffffffa015c55a>] ? pci_map_single+0x8a/0x99 [e1000e]
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.977806]  [<ffffffff8113f0c0>] ? swiotlb_dma_mapping_error+0x18/0x25
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.978045]  [<ffffffffa015a2e0>] ? pci_dma_mapping_error+0x31/0x3d [e1000e]
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.978282]  [<ffffffffa015cc37>] ? e1000_xmit_frame+0x6ce/0xa43 [e1000e]
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.978513]  [<ffffffff8101e850>] bad_area_nosemaphore+0xe/0x10
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.978741]  [<ffffffff8101eb32>] do_page_fault+0x114/0x24a
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.978967]  [<ffffffff8125bc9f>] page_fault+0x1f/0x30
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.979196]  [<ffffffff811e587f>] ? dev_queue_xmit+0x28c/0x46d
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.979426]  [<ffffffffa01c12a9>] vlan_dev_hwaccel_hard_start_xmit+0x68/0x86 [8021q]
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.979821]  [<ffffffff811e540e>] dev_hard_start_xmit+0x232/0x304
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.980055]  [<ffffffff811f648a>] sch_direct_xmit+0x5d/0x16b
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.980284]  [<ffffffff811f6654>] __qdisc_run+0xbc/0xdc
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.980514]  [<ffffffff811e5939>] dev_queue_xmit+0x346/0x46d
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.980740]  [<ffffffff8120a384>] ip_finish_output2+0x1c2/0x206
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.980966]  [<ffffffff8120a430>] ip_finish_output+0x68/0x6a
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.981197]  [<ffffffff8120a4d2>] ip_output+0xa0/0xa5
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.981427]  [<ffffffff81206d2e>] ip_forward_finish+0x2e/0x32
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.981654]  [<ffffffff81206ff4>] ip_forward+0x2c2/0x322
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.981880]  [<ffffffff81205ae0>] ip_rcv_finish+0x2f0/0x30a
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.982111]  [<ffffffff81205d77>] ip_rcv+0x27d/0x2a4
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.982337]  [<ffffffff8124ad48>] ? vlan_hwaccel_do_receive+0x2b/0xda
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.982566]  [<ffffffff811e47b6>] netif_receive_skb+0x450/0x475
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.982793]  [<ffffffff811e4909>] napi_skb_finish+0x24/0x3b
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.983025]  [<ffffffff8124b01b>] vlan_gro_receive+0x7c/0x81
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.983260]  [<ffffffffa015d6c5>] e1000_receive_skb+0x4a/0x65 [e1000e]
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.983492]  [<ffffffffa015d8cb>] e1000_clean_rx_irq+0x1eb/0x29c [e1000e]
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.983727]  [<ffffffffa015ebfb>] e1000_clean+0x75/0x22e [e1000e]
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.983955]  [<ffffffffa0234d6c>] ? hfsc_dequeue+0x171/0x2a6 [sch_hfsc]
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.984190]  [<ffffffff811e4e56>] net_rx_action+0xa7/0x17a
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.984416]  [<ffffffff81039670>] __do_softirq+0x96/0x11a
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.984642]  [<ffffffff810037cc>] call_softirq+0x1c/0x28
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.984866]  [<ffffffff81005543>] do_softirq+0x33/0x68
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.985097]  [<ffffffff81039407>] irq_exit+0x36/0x75
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.985323]  [<ffffffff81004c3e>] do_IRQ+0xaa/0xc1
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.985546]  [<ffffffff8125ba93>] ret_from_intr+0x0/0xa
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.985770]  <EOI>  [<ffffffff8100a0c7>] ? mwait_idle+0x66/0x6b
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.986048]  [<ffffffff81001d24>] ? enter_idle+0x20/0x22
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.986284]  [<ffffffff81001d7b>] cpu_idle+0x55/0x8d
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.986507]  [<ffffffff8124bba5>] rest_init+0x79/0x7b
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.986730]  [<ffffffff813fca70>] start_kernel+0x362/0x36d
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.986955]  [<ffffffff813fc0a8>] x86_64_start_reservations+0xa5/0xa9
+Apr 12 18:46:59 80.83.17.1 kernel: [12598.987189]  [<ffffffff813fc189>] x86_64_start_kernel+0xdd/0xe4
 
-Chain FORWARD (policy ACCEPT)
-target     prot opt source               destination
-
-Chain OUTPUT (policy ACCEPT)
-target     prot opt source               destination
-Chain PREROUTING (policy ACCEPT)
-target     prot opt source               destination
-
-Chain POSTROUTING (policy ACCEPT)
-target     prot opt source               destination
-
-Chain OUTPUT (policy ACCEPT)
-target     prot opt source               destination
-Chain PREROUTING (policy ACCEPT)
-target     prot opt source               destination
-
-Chain INPUT (policy ACCEPT)
-target     prot opt source               destination
-
-Chain FORWARD (policy ACCEPT)
-target     prot opt source               destination
-
-Chain OUTPUT (policy ACCEPT)
-target     prot opt source               destination
-
-Chain POSTROUTING (policy ACCEPT)
-target     prot opt source               destination
-Chain PREROUTING (policy ACCEPT)
-target     prot opt source               destination
-
-Chain OUTPUT (policy ACCEPT)
-target     prot opt source               destination
-
-
-I re-ran this on the 2.6.32 kernel (with the 2.6.32 forcedeth module)=20
-just in case that was screwing something up.
-
-node33 is in the unresponsive state this time. I'm running tcpdump on=20
-node34. on node33 I try to ssh to node34 (using ip address of node34). =
-I=20
-note that I can ping between node33 and node34.
-
-root@node34:~# tcpdump -v host node34 and node33
-tcpdump: listening on eth0, link-type EN10MB (Ethernet), capture size 9=
-6=20
-bytes
-17:05:19.622384 IP (tos 0x0, ttl 64, id 21435, offset 0, flags [DF],=20
-proto TCP (6), length 60)
-     node33.webstar.cnet.43653 > node34.ssh: Flags [S], cksum 0xb994=20
-(correct), seq 1675314077, win 5840, options [mss 1460,sackOK,TS val=20
-331814 ecr 0,nop,wscale 7], length 0
-17:05:19.622754 IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto=20
-TCP (6), length 60)
-     node34.ssh > node33.webstar.cnet.43653: Flags [S.], cksum 0x9d81=20
-(correct), seq 1669769379, ack 1675314078, win 5792, options [mss=20
-1460,sackOK,TS val 331779 ecr 331814,nop,wscale 7], length 0
-17:05:19.622813 IP (tos 0x0, ttl 64, id 21436, offset 0, flags [DF],=20
-proto TCP (6), length 52)
-     node33.webstar.cnet.43653 > node34.ssh: Flags [.], cksum 0xe2bf=20
-(correct), ack 1, win 46, options [nop,nop,TS val 331814 ecr 331779],=20
-length 0
-17:05:19.627666 IP (tos 0x0, ttl 64, id 47271, offset 0, flags [DF],=20
-proto TCP (6), length 84)
-     node34.ssh > node33.webstar.cnet.43653: Flags [P.], seq 1:33, ack=20
-1, win 46, options [nop,nop,TS val 331780 ecr 331814], length 32
-17:05:19.627748 IP (tos 0x0, ttl 64, id 21437, offset 0, flags [DF],=20
-proto TCP (6), length 52)
-     node33.webstar.cnet.43653 > node34.ssh: Flags [.], cksum 0xe29c=20
-(correct), ack 33, win 46, options [nop,nop,TS val 331816 ecr 331780],=20
-length 0
-17:05:19.627833 IP (tos 0x0, ttl 64, id 21438, offset 0, flags [DF],=20
-proto TCP (6), length 84, bad cksum 1f8a (->d189)!)
-     node33.webstar.cnet.43653 > node34.ssh: Flags [P.], seq=20
-23413:23445, ack 2749038625, win 46, options [nop,nop,TS val 331816 ecr=
-=20
-331780], length 32
-17:05:19.831634 IP (tos 0x0, ttl 64, id 21439, offset 0, flags [DF],=20
-proto TCP (6), length 84, bad cksum d189 (->d188)!)
-     node33.webstar.cnet.43653 > node34.ssh: Flags [P.], seq 1:33, ack=20
-33, win 46, options [nop,nop,TS val 331867 ecr 331780], length 32
-17:05:20.239603 IP (tos 0x0, ttl 64, id 21440, offset 0, flags [DF],=20
-proto TCP (6), length 84, bad cksum 15c6 (->d187)!)
-     node33.webstar.cnet.43653 > node34.ssh: Flags [P.], seq=20
-30492:30524, ack 809893921, win 46, options [nop,nop,TS val 331969 ecr=20
-331780], length 32
-17:05:21.055534 IP (tos 0x0, ttl 64, id 21441, offset 0, flags [DF],=20
-proto TCP (6), length 84, bad cksum d187 (->d186)!)
-     node33.webstar.cnet.43653 > node34.ssh: Flags [P.], seq 1:33, ack=20
-33, win 46, options [nop,nop,TS val 332173 ecr 331780], length 32
-17:05:22.687386 IP (tos 0x0, ttl 64, id 21442, offset 0, flags [DF],=20
-proto TCP (6), length 84, bad cksum d186 (->d185)!)
-     node33.webstar.cnet.43653 > node34.ssh: Flags [P.], seq 1:33, ack=20
-33, win 46, options [nop,nop,TS val 332581 ecr 331780], length 32
-17:05:25.950935 IP (tos 0x0, ttl 64, id 21443, offset 0, flags [DF],=20
-proto TCP (6), length 84, bad cksum 15c4 (->d184)!)
-     node33.webstar.cnet.43653 > node34.ssh: Flags [P.], seq=20
-30492:30524, ack 809893921, win 46, options [nop,nop,TS val 333397 ecr=20
-331780], length 32
-17:05:32.478527 IP (tos 0x0, ttl 64, id 21444, offset 0, flags [DF],=20
-proto TCP (6), length 84, bad cksum c01 (->d183)!)
-     node33.webstar.cnet.43653 > node34.ssh: Flags [P.], seq=20
-43997:44029, ack 1311047713, win 46, options [nop,nop,TS val 335029 ecr=
-=20
-331780], length 32
-17:05:45.533370 IP (tos 0x0, ttl 64, id 21445, offset 0, flags [DF],=20
-proto TCP (6), length 84, bad cksum 23d (->d182)!)
-     node33.webstar.cnet.43653 > node34.ssh: Flags [P.], seq 3348:3380,=
-=20
-ack 4054450209, win 46, options [nop,nop,TS val 338293 ecr 331780],=20
-length 32
-17:06:08.719187 IP (tos 0x0, ttl 64, id 27660, offset 0, flags [DF],=20
-proto TCP (6), length 1500, bad cksum 5360 (->b3b3)!)
-     node33.webstar.cnet.50060 > node34.35725: Flags [.], seq=20
-1203473738:1203475186, ack 1191452767, win 54, options [nop,nop,TS val=20
-344089 ecr 256770], length 1448
-17:06:11.643080 IP (tos 0x0, ttl 64, id 21446, offset 0, flags [DF],=20
-proto TCP (6), length 84, bad cksum e4f2 (->d181)!)
-     node33.webstar.cnet.43653 > node34.ssh: Flags [P.], seq=20
-47331:47363, ack 4110811169, win 46, options [nop,nop,TS val 344821 ecr=
-=20
-331780], length 32
-17:06:13.715233 ARP, Ethernet (len 6), IPv4 (len 4), Request who-has=20
-node34 tell node33.webstar.cnet, length 46
-17:06:13.715257 ARP, Ethernet (len 6), IPv4 (len 4), Reply node34 is-at=
-=20
-00:30:48:f0:06:72 (oui Unknown), length 28
-17:07:03.866492 IP (tos 0x0, ttl 64, id 21447, offset 0, flags [DF],=20
-proto TCP (6), length 84, bad cksum b413 (->d180)!)
-     node33.webstar.cnet.43653 > node34.ssh: Flags [P.], seq=20
-28939:28971, ack 1913782305, win 46, options [nop,nop,TS val 357877 ecr=
-=20
-331780], length 32
-17:07:08.862055 ARP, Ethernet (len 6), IPv4 (len 4), Request who-has=20
-node34 tell node33.webstar.cnet, length 46
-17:07:08.862370 ARP, Ethernet (len 6), IPv4 (len 4), Reply node34 is-at=
-=20
-00:30:48:f0:06:72 (oui Unknown), length 28
-17:07:19.627910 IP (tos 0x0, ttl 64, id 47272, offset 0, flags [DF],=20
-proto TCP (6), length 52)
-     node34.ssh > node33.webstar.cnet.43653: Flags [F.], cksum 0x6d6b=20
-(correct), seq 33, ack 1, win 46, options [nop,nop,TS val 361780 ecr=20
-331816], length 0
-17:07:19.628403 IP (tos 0x0, ttl 64, id 21448, offset 0, flags [DF],=20
-proto TCP (6), length 844, bad cksum aa4d (->ce87)!)
-     node33.webstar.cnet.43653 > node34.ssh: Flags [FP.], seq=20
-20399:21191, ack 2356871202, win 46, options [nop,nop,TS val 361818 ecr=
-=20
-361780], length 792
-17:07:19.833456 IP (tos 0x0, ttl 64, id 47273, offset 0, flags [DF],=20
-proto TCP (6), length 52)
-     node34.ssh > node33.webstar.cnet.43653: Flags [F.], cksum 0x6d37=20
-(correct), seq 33, ack 1, win 46, options [nop,nop,TS val 361832 ecr=20
-331816], length 0
-17:07:19.833517 IP (tos 0x0, ttl 64, id 21449, offset 0, flags [DF],=20
-proto TCP (6), length 64)
-     node33.webstar.cnet.43653 > node34.ssh: Flags [.], cksum 0xa5e9=20
-(correct), ack 34, win 46, options [nop,nop,TS val 361870 ecr=20
-361832,nop,nop,sack 1 {33:34}], length 0
-
-At this point, I see a "Connection closed by 10.141.0.34" message on=20
-node33 (from where I am attempting to ssh).
-
-Again, if I ifdown on node33 and ifup again - I can then see from node3=
-3=20
-to node34 without problems.
-
--stephen
+--Boundary-00=_vY0wLNx1Y+ok6WN--
