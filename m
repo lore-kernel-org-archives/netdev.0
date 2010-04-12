@@ -1,89 +1,152 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: NULL pointer dereference panic in stable (2.6.33.2), amd64
-Date: Mon, 12 Apr 2010 13:24:11 +0530
-Message-ID: <OF802D1BE7.C2709B61-ON65257703.00235EF5-65257703.002B5F38@in.ibm.com>
-References: <201004112338.47019.nuclearcat@nuclearcat.com>	 <1271025353.2078.155.camel@edumazet-laptop>
-	 <OF19A2A36F.5B268C61-ON65257703.0012EB6A-65257703.0013F81C@in.ibm.com> <1271052111.2078.168.camel@edumazet-laptop>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: [RFC] random SYN drops causing connect() delays
+Date: Mon, 12 Apr 2010 04:06:33 -0400
+Message-ID: <20100412080633.GA27418@bombadil.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Denys Fedorysychenko <nuclearcat@nuclearcat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp01.in.ibm.com ([122.248.162.1]:47831 "EHLO
-	e28smtp01.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751180Ab0DLHxy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 03:53:54 -0400
-Received: from d28relay03.in.ibm.com (d28relay03.in.ibm.com [9.184.220.60])
-	by e28smtp01.in.ibm.com (8.14.3/8.13.1) with ESMTP id o3C7rm5G014429
-	for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 13:23:48 +0530
-Received: from d28av01.in.ibm.com (d28av01.in.ibm.com [9.184.220.63])
-	by d28relay03.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o3C7rmg13256412
-	for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 13:23:48 +0530
-Received: from d28av01.in.ibm.com (loopback [127.0.0.1])
-	by d28av01.in.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o3C7rlfw022731
-	for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 13:23:48 +0530
-In-Reply-To: <1271052111.2078.168.camel@edumazet-laptop>
+Received: from bombadil.infradead.org ([18.85.46.34]:51982 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752641Ab0DLIGe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 04:06:34 -0400
+Received: from tgr by bombadil.infradead.org with local (Exim 4.69 #1 (Red Hat Linux))
+	id 1O1EfB-0007SR-Tv
+	for netdev@vger.kernel.org; Mon, 12 Apr 2010 08:06:33 +0000
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+Hello,
 
-Thanks for your patch, just one question on it though:
+I have been tracking down an issue commonly referred to as the 3-sec
+connect() delay. It exists since recent 2.6.x kernels and has never
+been fixed even though it disappeared in recent releases unless
+sched_child_runs_first is set to 1 again.
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote on 04/12/2010 11:31:51 AM:
+What happens is that if a client attemps to open many connections to
+a socket with only minimal delay inbetween attemps some SYNs are
+randomly dropped on the server side causing the client to resend after
+the 3 sec TCP timeout and thus causing connect()s to be randomly delayed.
 
-> > When route changes, I think my patch had reset sk->sk_tx_queue_mapping
-> > by calling sk_tx_queue_clear. I don't know if I missed any path where
-> > the route changes and sk_dst_reset() was not called.
-> >
->
-> Problem is when you reset sk->sk_tx_queue_mapping at the very moment
-> route (or destination) changes, we might have old packets queued in tx
-> queues, of the old ethernet device (eth0 : multi queue compatable)
+Steps to reproduce:
+ 1. Compile reproducer attached below
+ 2. run ./test_delay 127.0.0.1 22 10000 0 > log
+ 3. awk -F: '{if ($2>2990) print $1 $2;}' log
+ 4. all listed connection attemps will have been delayed for >3s
 
-> 2) Application does a sendmsg() or connect() call and sk->sk_dst_cache
-> is rebuild, it points to a dst_entry referring a new device (eth1 : non
-> multiqueue)
->
-> 3) When one old packet finally is transmitted, we do :
->
->    queue_index = 1; // any value > 0
->
->    if (sk && sk->sk_dst_cache)
->       sk_tx_queue_set(sk, queue_index); // remember a >0 value
->
-> 4) application does a sendmsg(), enqueues a new skb on eth1
->
-> 5) We re-enter dev_pick_tx(), and consider cached value in 3) is valid.
->    we pick a non existent txq for eth1 device.
->
-> 6) We crash.
->
-> > The following might be better to prove the panic is due to this, since
-> > your suggestion will hide a panic that happens somewhat rare (according
-> > to Denys):
-> >
-> >       if (sk_tx_queue_recorded(sk)) {
-> >             queue_index = sk_tx_queue_get(sk);
-> > +           queue_index = dev_cap_txqueue(dev, queue_index);
-> >       } else {
-> >
->
-> Sure, but I thought I was clear enough to prove this commit was wrong,
-> and we have to find a fix.
+Facts:
+ - Issue can be reproduced over loopback or real networks.
+ - Enabling SO_LINGER on the client side will make the issue disappear!!
+ - While the issue is appearing, the acceptq seems to be overflowing. Both
+   LISTENOVERFLOWS and LISTENDROPS are increasing although not by the exact
+   number of delay occurences. inetdiag reports sk_max_ack_backlog to be 0
+   therefore one possibility that comes to mind is that sk_ack_backlog
+   underflows due to a race.
+ - The issue disappeared in recent kernels, I bisected it down to the following
+   commit:
+	commit 2bba22c50b06abe9fd0d23933b1e64d35b419262
+	Author: Mike Galbraith <efault@gmx.de>
+	Date:   Wed Sep 9 15:41:37 2009 +0200
 
-If the dst got changed between call to vlan_dev_hwaccel_hard_start_xmit
-and it's call to dev_queue_xmit, that change to dst should have reset
-sk_tx_queue_mapping to -1 by calling sk_tx_queue_clear (assuming that I
-have changed in all paths, eg __sk_dst_reset), and thus result in a new
-mapping in dev_pick_tx. Would the patch hide the actual bug where we do
-not clear sk_tx_queue_mapping, eg __sk_dst_set does it? I agree the
-patch will fix the panic, but this check could be removed if the code
-which changes the dst is fixed to clear the mapping. I could check that
-if you think this assumption is correct.
+	    sched: Turn off child_runs_first
+	    
+	    Set child_runs_first default to off.
+
+   Setting kernel.sched_child_runs_first=1 makes the isssue reappear in recent
+   kernels.  This hardens the theory of a race condition.
+ - It looks like that the issue can only be reproduced if the server
+   socket sends out data immediately after the connection has been established
+   but I cannot proof this theory.
+
+I will continue to look into the sk_ack_backlog underflow theory but would
+appreciate any comments or theories.
 
 Thanks,
 
-- KK
+Reproducer:
+
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+#include <time.h>
+#include <sys/time.h>
+
+int main(int argc, char *argv[])
+{
+
+        int sock,i;  
+        struct timeval tim;
+        double start,end;  
+
+        struct hostent *host;
+        struct sockaddr_in server_addr, local;
+	socklen_t len = sizeof(local);
+
+        char* hostname;
+        int port, count, delay;
+
+        if( argc < 3 ){
+           printf("Usage:\n\t%s host port [count=1000] [delay=0]\n",argv[0]);
+           return 1;
+        }
+
+        hostname = argv[1];
+        port = atoi(argv[2]);
+
+        if( argc > 3 )
+           count = atoi(argv[3]);
+	else
+           count = 1000;
+
+        if( argc > 4 )
+           delay = atoi(argv[4]);
+	else
+           delay = 0;
+
+        host = gethostbyname(hostname);
+
+        server_addr.sin_family = AF_INET;     
+        server_addr.sin_port = htons(port);   
+        server_addr.sin_addr = *((struct in_addr *)host->h_addr);
+        bzero(&(server_addr.sin_zero),8); 
+
+        for(i=0; i< count; i=i+1){
+          gettimeofday(&tim, NULL);
+          start=tim.tv_sec*1000+(tim.tv_usec/1000);
+
+          if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+            perror("Socket");
+            exit(1);
+          }
+
+          if (connect(sock, (struct sockaddr *)&server_addr,
+                    sizeof(struct sockaddr)) == -1) 
+          {
+            perror("Connect");
+            exit(1);
+          }
+
+	  getsockname(sock, (struct sockaddr *) &local, &len);
+          close(sock);
+
+          gettimeofday(&tim, NULL);
+          end=tim.tv_sec*1000+(tim.tv_usec/1000);
+          printf("[%d] %u-> Time to open socket (clock): %d\n",
+	  	i, ntohs(local.sin_port), (int)(end - start));
+	  usleep(delay*1000);
+        }
+/*
+        printf("Time to open socket (ms): %d\n", ((end - start)*1000)/CLOCKS_PER_SEC);
+*/
+
+        return 0;
+}
+
 
