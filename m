@@ -1,118 +1,41 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] vhost: Make it more scalable by creating a vhost
-	thread per device.
-Date: Mon, 12 Apr 2010 20:42:59 +0300
-Message-ID: <20100412174259.GA18507@redhat.com>
-References: <1270229480.13897.8.camel@w-sridhar.beaverton.ibm.com> <1270488911.27874.43.camel@w-sridhar.beaverton.ibm.com> <1270771542.31186.397.camel@w-sridhar.beaverton.ibm.com> <20100411154719.GA9681@redhat.com> <1271093731.1467.25.camel@w-sridhar.beaverton.ibm.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH] vhost: Make it more scalable by creating a vhost	thread
+ per device.
+Date: Mon, 12 Apr 2010 10:50:43 -0700
+Message-ID: <4BC35D73.8080801@hp.com>
+References: <1270229480.13897.8.camel@w-sridhar.beaverton.ibm.com>	<1270488911.27874.43.camel@w-sridhar.beaverton.ibm.com>	<1270771542.31186.397.camel@w-sridhar.beaverton.ibm.com>	<20100411154719.GA9681@redhat.com>	<1271093731.1467.25.camel@w-sridhar.beaverton.ibm.com> <20100412174259.GA18507@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom Lendacky <toml@us.ibm.com>, netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Sridhar Samudrala <sri@us.ibm.com>, Tom Lendacky <toml@us.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
 	"kvm@vger.kernel.org" <kvm@vger.kernel.org>
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1271093731.1467.25.camel@w-sridhar.beaverton.ibm.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g6t0186.atlanta.hp.com ([15.193.32.63]:11089 "EHLO
+	g6t0186.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751515Ab0DLRuq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 13:50:46 -0400
+In-Reply-To: <20100412174259.GA18507@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 12, 2010 at 10:35:31AM -0700, Sridhar Samudrala wrote:
-> On Sun, 2010-04-11 at 18:47 +0300, Michael S. Tsirkin wrote:
-> > On Thu, Apr 08, 2010 at 05:05:42PM -0700, Sridhar Samudrala wrote:
-> > > On Mon, 2010-04-05 at 10:35 -0700, Sridhar Samudrala wrote:
-> > > > On Sun, 2010-04-04 at 14:14 +0300, Michael S. Tsirkin wrote:
-> > > > > On Fri, Apr 02, 2010 at 10:31:20AM -0700, Sridhar Samudrala wrote:
-> > > > > > Make vhost scalable by creating a separate vhost thread per vhost
-> > > > > > device. This provides better scaling across multiple guests and with
-> > > > > > multiple interfaces in a guest.
-> > > > > 
-> > > > > Thanks for looking into this. An alternative approach is
-> > > > > to simply replace create_singlethread_workqueue with
-> > > > > create_workqueue which would get us a thread per host CPU.
-> > > > > 
-> > > > > It seems that in theory this should be the optimal approach
-> > > > > wrt CPU locality, however, in practice a single thread
-> > > > > seems to get better numbers. I have a TODO to investigate this.
-> > > > > Could you try looking into this?
-> > > > 
-> > > > Yes. I tried using create_workqueue(), but the results were not good
-> > > > atleast when the number of guest interfaces is less than the number
-> > > > of CPUs. I didn't try more than 8 guests.
-> > > > Creating a separate thread per guest interface seems to be more
-> > > > scalable based on the testing i have done so far.
-> > > > 
-> > > > I will try some more tests and get some numbers to compare the following
-> > > > 3 options.
-> > > > - single vhost thread
-> > > > - vhost thread per cpu
-> > > > - vhost thread per guest virtio interface
-> > > 
-> > > Here are the results with netperf TCP_STREAM 64K guest to host on a
-> > > 8-cpu Nehalem system. It shows cumulative bandwidth in Mbps and host 
-> > > CPU utilization.
-> > > 
-> > > Current default single vhost thread
-> > > -----------------------------------
-> > > 1 guest:  12500  37%    
-> > > 2 guests: 12800  46%
-> > > 3 guests: 12600  47%
-> > > 4 guests: 12200  47%
-> > > 5 guests: 12000  47%
-> > > 6 guests: 11700  47%
-> > > 7 guests: 11340  47%
-> > > 8 guests: 11200  48%
-> > > 
-> > > vhost thread per cpu
-> > > --------------------
-> > > 1 guest:   4900 25%
-> > > 2 guests: 10800 49%
-> > > 3 guests: 17100 67%
-> > > 4 guests: 20400 84%
-> > > 5 guests: 21000 90%
-> > > 6 guests: 22500 92%
-> > > 7 guests: 23500 96%
-> > > 8 guests: 24500 99%
-> > > 
-> > > vhost thread per guest interface
-> > > --------------------------------
-> > > 1 guest:  12500 37%
-> > > 2 guests: 21000 72%
-> > > 3 guests: 21600 79%
-> > > 4 guests: 21600 85%
-> > > 5 guests: 22500 89%
-> > > 6 guests: 22800 94%
-> > > 7 guests: 24500 98%
-> > > 8 guests: 26400 99%
-> > > 
-> > > Thanks
-> > > Sridhar
-> > 
-> > 
-> > Consider using Ingo's perf tool to get error bars, but looks good
-> > overall. 
+>>>
+>>>Consider using Ingo's perf tool to get error bars, but looks good
+>>>overall. 
+>>
+>>What do you mean by getting error bars?
 > 
-> What do you mean by getting error bars?
-
-How noisy are the numbers?
-I'd like to see something along the lines of 85% +- 2%
-
-> > One thing I note though is that we seem to be able to
-> > consume up to 99% CPU now. So I think with this approach
-> > we can no longer claim that we are just like some other parts of
-> > networking stack, doing work outside any cgroup, and we should
-> > make the vhost thread inherit the cgroup and cpu mask
-> > from the process calling SET_OWNER.
 > 
-> Yes. I am not sure what is the right interface to do this,
+> How noisy are the numbers?
+> I'd like to see something along the lines of 85% +- 2%
 
-I think we'll have to extend work queue API for this.
+In netperf terms that would be adding the confidence intervals calculations to 
+the results - which will be done by that "runemomniagg2.sh" script I mentioned. 
+When running multiple instance tests, it is very important to set the min and 
+max iterations to the same value so no instance thinks to finish early.  The 
+script does that, just want to make sure that those leveraging it do the same.
 
-> but this should also allow binding qemu to a set of cpus and
-> automatically having vhost thread inherit the same cpu mask.
+happy benchmarking,
 
-For numa, yes. Also need to inherit cgroup.
-
-> Thanks
-> Sridhar
-
--- 
-MST
+rick jones
