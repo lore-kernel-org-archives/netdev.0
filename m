@@ -1,183 +1,330 @@
-From: stephen mulcahy <smulcahy@gmail.com>
-Subject: Re: forcedeth driver hangs under heavy load
-Date: Mon, 12 Apr 2010 14:19:26 +0100
-Message-ID: <4BC31DDE.7010005@gmail.com>
-References: <4B9E6C60.7030300@atlanticlinux.ie>	 <20100315182220.GQ2763@decadent.org.uk> <4B9F5E5E.2060209@atlanticlinux.ie>		 <1270393967.8341.11.camel@localhost> <4BBCA19C.5080204@atlanticlinux.ie>	 <1270942606.6179.64.camel@localhost> <4BC2EF88.3060203@atlanticlinux.ie>	  <4BC31486.1090603@gmail.com> <1271076426.16881.21.camel@edumazet-laptop> <4BC31AA0.5070006@gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH] rps: add flow director support
+Date: Mon, 12 Apr 2010 06:34:20 -0700
+Message-ID: <z2o65634d661004120634h8336409er33af1fb75c2a9d1b@mail.gmail.com>
+References: <1271022140-3917-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Ayaz Abdulla <aabdulla@nvidia.com>, 572201@bugs.debian.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep20-int.chello.at ([62.179.121.40]:39812 "EHLO
-	viefep20-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750740Ab0DLNTe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 09:19:34 -0400
-In-Reply-To: <4BC31AA0.5070006@gmail.com>
+Received: from smtp-out.google.com ([216.239.44.51]:21391 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750740Ab0DLNeW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 09:34:22 -0400
+Received: from kpbe16.cbf.corp.google.com (kpbe16.cbf.corp.google.com [172.25.105.80])
+	by smtp-out.google.com with ESMTP id o3CDYLfA018758
+	for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 06:34:22 -0700
+Received: from pvg16 (pvg16.prod.google.com [10.241.210.144])
+	by kpbe16.cbf.corp.google.com with ESMTP id o3CDYKjv027116
+	for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 06:34:20 -0700
+Received: by pvg16 with SMTP id 16so2799651pvg.40
+        for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 06:34:20 -0700 (PDT)
+In-Reply-To: <1271022140-3917-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-stephen mulcahy wrote:
->> Are both way non functional (RX and TX), or only one side ?
-> 
-> Whats the best way of testing this? (tcpdump listening on both hosts and 
-> then running pings between the systems?)
+On Sun, Apr 11, 2010 at 2:42 PM, Changli Gao <xiaosuo@gmail.com> wrote:
+> add rps flow director support
+>
+> with rps flow director, users can do weighted packet dispatching amon=
+g CPUs.
+> For example, CPU0:CPU1 is 1:3 for eth0's rx-0:
+>
+"Flow director" is a misnomer here in that it has no per flow
+awareness, that is what RFS provides.  Please use a different name.
 
+> =A0localhost linux # echo 4 > /sys/class/net/eth0/queues/rx-0/rps_flo=
+ws
+> =A0localhost linux # echo 0 > /sys/class/net/eth0/queues/rx-0/rps_flo=
+w_0
+> =A0localhost linux # echo 1 > /sys/class/net/eth0/queues/rx-0/rps_flo=
+w_1
+> =A0localhost linux # echo 1 > /sys/class/net/eth0/queues/rx-0/rps_flo=
+w_2
+> =A0localhost linux # echo 1 > /sys/class/net/eth0/queues/rx-0/rps_flo=
+w_3
+>
+It might be better to put this in its own directory and also do it per
+CPU instead of hash entry.  This should result in a lot fewer entries
+and I'm not sure how you would deal with holes in the hash table for
+unspecified entries.  Also, it would be nice not to have to specify a
+number of entries.  Maybe something like:
 
-stephen mulcahy wrote:
- >> Are both way non functional (RX and TX), or only one side ?
- >
- > Whats the best way of testing this? (tcpdump listening on both hosts and
- > then running pings between the systems?)
+localhost linux # echo 1 > /sys/class/net/eth0/queues/rx-0/rps_cpu_map/=
+0
+localhost linux # echo 3 > /sys/class/net/eth0/queues/rx-0/rps_cpu_map/=
+1
 
-On one of the nodes that is in the malfunctioning state (node05), I ran
+To specify CPU 0 with weight 1, CPU 1 with weight 3.
 
-ssh node20
-
-and grabbed the following output from running tcpdump on node20
-
-root@node20:~# tcpdump host node20 and node05
-tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-listening on eth0, link-type EN10MB (Ethernet), capture size 96 bytes
-14:12:59.612626 IP node05.webstar.cnet.36295 > node20.ssh: Flags [S], 
-seq 3677858646, win 5840, options [mss 1460,sackOK,TS val 1599534 ecr 
-0,nop,wscale 7], length 0
-14:12:59.612656 IP node20.ssh > node05.webstar.cnet.36295: Flags [S.], 
-seq 3610575850, ack 3677858647, win 5792, options [mss 1460,sackOK,TS 
-val 1598775 ecr 1599534,nop,wscale 7], length 0
-14:12:59.612718 IP node05.webstar.cnet.36295 > node20.ssh: Flags [.], 
-ack 1, win 46, options [nop,nop,TS val 1599534 ecr 1598775], length 0
-14:12:59.617434 IP node20.ssh > node05.webstar.cnet.36295: Flags [P.], 
-seq 1:33, ack 1, win 46, options [nop,nop,TS val 1598776 ecr 1599534], 
-length 32
-14:12:59.617522 IP node05.webstar.cnet.36295 > node20.ssh: Flags [.], 
-ack 33, win 46, options [nop,nop,TS val 1599535 ecr 1598776], length 0
-14:12:59.617609 IP node05.webstar.cnet.36295 > node20.ssh: Flags [P.], 
-seq 1:33, ack 33, win 46, options [nop,nop,TS val 1599535 ecr 1598776], 
-length 32
-14:12:59.820434 IP node05.webstar.cnet.36295 > node20.ssh: Flags [P.], 
-seq 4294936586:4294936618, ack 2620194849, win 46, options [nop,nop,TS 
-val 1599586 ecr 1598776], length 32
-14:13:00.229069 IP node05.webstar.cnet.36295 > node20.ssh: Flags [P.], 
-seq 4294961734:4294961766, ack 3928358945, win 46, options [nop,nop,TS 
-val 1599688 ecr 1598776], length 32
-14:13:01.044396 IP node05.webstar.cnet.36295 > node20.ssh: Flags [P.], 
-seq 4294964167:4294964199, ack 410320929, win 46, options [nop,nop,TS 
-val 1599892 ecr 1598776], length 32
-14:13:02.676308 IP node05.webstar.cnet.36295 > node20.ssh: Flags [P.], 
-seq 1:33, ack 33, win 46, options [nop,nop,TS val 1600300 ecr 1598776], 
-length 32
-14:13:05.940804 IP node05.webstar.cnet.36295 > node20.ssh: Flags [P.], 
-seq 17294:17326, ack 3045851169, win 46, options [nop,nop,TS val 1601116 
-ecr 1598776], length 32
-14:13:12.468484 IP node05.webstar.cnet.36295 > node20.ssh: Flags [P.], 
-seq 17294:17326, ack 3045851169, win 46, options [nop,nop,TS val 1602748 
-ecr 1598776], length 32
-14:13:23.846891 IP node20.ssh > node05.webstar.cnet.36084: Flags [F.], 
-seq 2093054475, ack 2175389538, win 46, options [nop,nop,TS val 1604834 
-ecr 1575591], length 0
-14:13:23.847278 IP node05.webstar.cnet.36084 > node20.ssh: Flags [R], 
-seq 2175389538, win 0, length 0
-14:13:25.523850 IP node05.webstar.cnet.36295 > node20.ssh: Flags [P.], 
-seq 1:33, ack 33, win 46, options [nop,nop,TS val 1606012 ecr 1598776], 
-length 32
-14:13:50.127509 IP node20.ssh > node05.webstar.cnet.36143: Flags [F.], 
-seq 2526196657, ack 2590340885, win 46, options [nop,nop,TS val 1611404 
-ecr 1582161], length 0
-14:13:50.127879 IP node05.webstar.cnet.36143 > node20.ssh: Flags [R], 
-seq 2590340885, win 0, length 0
-14:13:51.633934 IP node05.webstar.cnet.36295 > node20.ssh: Flags [P.], 
-seq 4294963190:4294963222, ack 9830433, win 46, options [nop,nop,TS val 
-1612540 ecr 1598776], length 32
-14:13:55.125525 ARP, Request who-has node05.webstar.cnet tell node20, 
-length 28
-14:13:55.125886 ARP, Reply node05.webstar.cnet is-at 00:30:48:ce:dc:02 
-(oui Unknown), length 46
-14:14:43.855380 IP node05.webstar.cnet.36295 > node20.ssh: Flags [P.], 
-seq 1:33, ack 33, win 46, options [nop,nop,TS val 1625596 ecr 1598776], 
-length 32
-14:14:48.855143 ARP, Request who-has node20 tell node05.webstar.cnet, 
-length 46
-14:14:48.855469 ARP, Reply node20 is-at 00:30:48:ce:de:34 (oui Unknown), 
-length 28
-14:14:59.617675 IP node20.ssh > node05.webstar.cnet.36295: Flags [F.], 
-seq 33, ack 1, win 46, options [nop,nop,TS val 1628777 ecr 1599535], 
-length 0
-14:14:59.618202 IP node05.webstar.cnet.36295 > node20.ssh: Flags [FP.], 
-seq 4294959654:4294960446, ack 3930456098, win 46, options [nop,nop,TS 
-val 1629536 ecr 1628777], length 792
-14:14:59.821527 IP node20.ssh > node05.webstar.cnet.36295: Flags [F.], 
-seq 33, ack 1, win 46, options [nop,nop,TS val 1628828 ecr 1599535], 
-length 0
-14:14:59.821598 IP node05.webstar.cnet.36295 > node20.ssh: Flags [.], 
-ack 34, win 46, options [nop,nop,TS val 1629587 ecr 1628828,nop,nop,sack 
-1 {33:34}], length 0
-^C^
-27 packets captured
-31 packets received by filter
-0 packets dropped by kernel
-
-
-I then did ifdown and ifup on node05 and again ran
-
-ssh node20
-
-and grabbed the following output from running tcpdump on node20
-
-root@node20:~# tcpdump host node20 and node05
-tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-listening on eth0, link-type EN10MB (Ethernet), capture size 96 bytes
-14:15:50.626410 IP node05.webstar.cnet.36690 > node20.ssh: Flags [S], 
-seq 2044900531, win 5840, options [mss 1460,sackOK,TS val 1642289 ecr 
-0,nop,wscale 7], length 0
-14:15:50.626441 IP node20.ssh > node05.webstar.cnet.36690: Flags [S.], 
-seq 1976694445, ack 2044900532, win 5792, options [mss 1460,sackOK,TS 
-val 1641529 ecr 1642289,nop,wscale 7], length 0
-14:15:50.626482 IP node05.webstar.cnet.36690 > node20.ssh: Flags [.], 
-ack 1, win 46, options [nop,nop,TS val 1642289 ecr 1641529], length 0
-14:15:50.631138 IP node20.ssh > node05.webstar.cnet.36690: Flags [P.], 
-seq 1:33, ack 1, win 46, options [nop,nop,TS val 1641530 ecr 1642289], 
-length 32
-14:15:50.631218 IP node05.webstar.cnet.36690 > node20.ssh: Flags [.], 
-ack 33, win 46, options [nop,nop,TS val 1642290 ecr 1641530], length 0
-14:15:50.631267 IP node05.webstar.cnet.36690 > node20.ssh: Flags [P.], 
-seq 1:33, ack 33, win 46, options [nop,nop,TS val 1642290 ecr 1641530], 
-length 32
-14:15:50.631281 IP node20.ssh > node05.webstar.cnet.36690: Flags [.], 
-ack 33, win 46, options [nop,nop,TS val 1641530 ecr 1642290], length 0
-14:15:50.631367 IP node05.webstar.cnet.36690 > node20.ssh: Flags [P.], 
-seq 33:825, ack 33, win 46, options [nop,nop,TS val 1642290 ecr 
-1641530], length 792
-14:15:50.631376 IP node20.ssh > node05.webstar.cnet.36690: Flags [.], 
-ack 825, win 58, options [nop,nop,TS val 1641530 ecr 1642290], length 0
-14:15:50.631808 IP node20.ssh > node05.webstar.cnet.36690: Flags [P.], 
-seq 33:817, ack 825, win 58, options [nop,nop,TS val 1641530 ecr 
-1642290], length 784
-14:15:50.631950 IP node05.webstar.cnet.36690 > node20.ssh: Flags [P.], 
-seq 825:849, ack 817, win 58, options [nop,nop,TS val 1642290 ecr 
-1641530], length 24
-14:15:50.633353 IP node20.ssh > node05.webstar.cnet.36690: Flags [P.], 
-seq 817:969, ack 849, win 58, options [nop,nop,TS val 1641530 ecr 
-1642290], length 152
-14:15:50.633932 IP node05.webstar.cnet.36690 > node20.ssh: Flags [P.], 
-seq 849:993, ack 969, win 71, options [nop,nop,TS val 1642291 ecr 
-1641530], length 144
-14:15:50.637998 IP node20.ssh > node05.webstar.cnet.36690: Flags [P.], 
-seq 969:1689, ack 993, win 70, options [nop,nop,TS val 1641532 ecr 
-1642291], length 720
-14:15:50.676465 IP node05.webstar.cnet.36690 > node20.ssh: Flags [.], 
-ack 1689, win 83, options [nop,nop,TS val 1642302 ecr 1641532], length 0
-14:16:09.776134 IP node05.webstar.cnet.49671 > node20.50060: Flags [S], 
-seq 2348078217, win 5840, options [mss 1460,sackOK,TS val 1647077 ecr 
-0,nop,wscale 7], length 0
-14:16:09.776498 IP node20.50060 > node05.webstar.cnet.49671: Flags [R.], 
-seq 0, ack 2348078218, win 0, length 0
-^C
-17 packets captured
-21 packets received by filter
-0 packets dropped by kernel
-
-
-Does that help?
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> ----
+> =A0net/core/net-sysfs.c | =A0176 ++++++++++++++++++++++++++++++++++++=
++++++++++++++--
+> =A01 file changed, 172 insertions(+), 4 deletions(-)
+> diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+> index 1e7fdd6..d904610 100644
+> --- a/net/core/net-sysfs.c
+> +++ b/net/core/net-sysfs.c
+> @@ -511,6 +511,109 @@ static struct sysfs_ops rx_queue_sysfs_ops =3D =
+{
+> =A0 =A0 =A0 =A0.store =3D rx_queue_attr_store,
+> =A0};
+>
+> +static DEFINE_MUTEX(rps_map_lock);
+> +
+> +static ssize_t show_rps_flow(struct netdev_rx_queue *queue,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct rx_qu=
+eue_attribute *attribute, char *buf)
+> +{
+> + =A0 =A0 =A0 unsigned long flowid;
+> + =A0 =A0 =A0 struct rps_map *map;
+> + =A0 =A0 =A0 u16 cpu;
+> +
+> + =A0 =A0 =A0 strict_strtoul(attribute->attr.name + strlen("rps_flow_=
+"), 10, &flowid);
+> + =A0 =A0 =A0 rcu_read_lock();
+> + =A0 =A0 =A0 map =3D rcu_dereference(queue->rps_map);
+> + =A0 =A0 =A0 if (map && flowid < map->len)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 cpu =3D map->cpus[flowid];
+> + =A0 =A0 =A0 else
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 cpu =3D 0;
+> + =A0 =A0 =A0 rcu_read_unlock();
+> + =A0 =A0 =A0 return sprintf(buf, "%hu\n", cpu);
+> +}
+> +
+> +static ssize_t store_rps_flow(struct netdev_rx_queue *queue,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct rx_q=
+ueue_attribute *attribute,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 const char =
+*buf, size_t len)
+> +{
+> + =A0 =A0 =A0 unsigned long flowid, cpu;
+> + =A0 =A0 =A0 struct rps_map *map;
+> +
+> + =A0 =A0 =A0 if (!capable(CAP_NET_ADMIN))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EPERM;
+> +
+> + =A0 =A0 =A0 if (strict_strtoul(buf, 0, &cpu))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EINVAL;
+> + =A0 =A0 =A0 strict_strtoul(attribute->attr.name + strlen("rps_flow_=
+"), 10, &flowid);
+> +
+> + =A0 =A0 =A0 mutex_lock(&rps_map_lock);
+> + =A0 =A0 =A0 map =3D queue->rps_map;
+> + =A0 =A0 =A0 if (map && flowid < map->len)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 map->cpus[flowid] =3D cpu;
+> + =A0 =A0 =A0 mutex_unlock(&rps_map_lock);
+> +
+> + =A0 =A0 =A0 return len;
+> +}
+> +
+> +static struct rx_queue_attribute **rps_flow_attribute;
+> +static int rps_flow_attribute_size;
+> +
+> +/* must be called with rps_map_lock locked */
+> +static int update_rps_flow_files(struct kobject *kobj,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0stru=
+ct rps_map *old_map, struct rps_map *map)
+> +{
+> + =A0 =A0 =A0 int i;
+> + =A0 =A0 =A0 int old_map_len =3D old_map ? old_map->len : 0;
+> + =A0 =A0 =A0 int map_len =3D map ? map->len : 0;
+> +
+> + =A0 =A0 =A0 if (old_map_len >=3D map_len) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 for (i =3D map_len; i < old_map_len; i+=
++)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 sysfs_remove_file(kobj,=
+ &rps_flow_attribute[i]->attr);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return 0;
+> + =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 if (map_len > rps_flow_attribute_size) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct rx_queue_attribute **attrs;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 char name[sizeof("rps_flow_4294967295")=
+];
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 char *pname;
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 attrs =3D krealloc(rps_flow_attribute, =
+map_len * sizeof(void *),
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0GFP_=
+KERNEL);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (attrs =3D=3D NULL)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENOMEM;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 rps_flow_attribute =3D attrs;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 for (i =3D rps_flow_attribute_size; i <=
+ map_len; i++) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 rps_flow_attribute[i] =3D=
+ kmalloc(sizeof(**attrs),
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 GFP_KERNEL);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (rps_flow_attribute[=
+i] =3D=3D NULL)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 sprintf(name, "rps_flow=
+_%d", i);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 pname =3D kstrdup(name,=
+ GFP_KERNEL);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (pname =3D=3D NULL) =
+{
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 kfree(r=
+ps_flow_attribute[i]);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 rps_flow_attribute[i]->=
+attr.name =3D pname;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 rps_flow_attribute[i]->=
+attr.mode =3D S_IRUGO | S_IWUSR;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 rps_flow_attribute[i]->=
+show =3D show_rps_flow;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 rps_flow_attribute[i]->=
+store =3D store_rps_flow;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 rps_flow_attribute_size =3D i;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (i !=3D map_len)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENOMEM;
+> + =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 for (i =3D old_map_len; i < map_len; i++) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (sysfs_create_file(kobj, &rps_flow_a=
+ttribute[i]->attr)) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 while (--i >=3D old_map=
+_len)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 sysfs_r=
+emove_file(kobj,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 &rps_flow_attribute[i]->attr);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENOMEM;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> + =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 return 0;
+> +}
+> +
+> =A0static ssize_t show_rps_map(struct netdev_rx_queue *queue,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct rx_queu=
+e_attribute *attribute, char *buf)
+> =A0{
+> @@ -555,7 +658,6 @@ ssize_t store_rps_map(struct netdev_rx_queue *que=
+ue,
+> =A0 =A0 =A0 =A0struct rps_map *old_map, *map;
+> =A0 =A0 =A0 =A0cpumask_var_t mask;
+> =A0 =A0 =A0 =A0int err, cpu, i;
+> - =A0 =A0 =A0 static DEFINE_SPINLOCK(rps_map_lock);
+>
+> =A0 =A0 =A0 =A0if (!capable(CAP_NET_ADMIN))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -EPERM;
+> @@ -588,10 +690,15 @@ ssize_t store_rps_map(struct netdev_rx_queue *q=
+ueue,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0map =3D NULL;
+> =A0 =A0 =A0 =A0}
+>
+> - =A0 =A0 =A0 spin_lock(&rps_map_lock);
+> + =A0 =A0 =A0 mutex_lock(&rps_map_lock);
+> =A0 =A0 =A0 =A0old_map =3D queue->rps_map;
+> - =A0 =A0 =A0 rcu_assign_pointer(queue->rps_map, map);
+> - =A0 =A0 =A0 spin_unlock(&rps_map_lock);
+> + =A0 =A0 =A0 err =3D update_rps_flow_files(&queue->kobj, old_map, ma=
+p);
+> + =A0 =A0 =A0 if (!err)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 rcu_assign_pointer(queue->rps_map, map)=
+;
+> + =A0 =A0 =A0 mutex_unlock(&rps_map_lock);
+> +
+> + =A0 =A0 =A0 if (err)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return err;
+>
+> =A0 =A0 =A0 =A0if (old_map)
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0call_rcu(&old_map->rcu, rps_map_releas=
+e);
+> @@ -603,8 +710,69 @@ ssize_t store_rps_map(struct netdev_rx_queue *qu=
+eue,
+> =A0static struct rx_queue_attribute rps_cpus_attribute =3D
+> =A0 =A0 =A0 =A0__ATTR(rps_cpus, S_IRUGO | S_IWUSR, show_rps_map, stor=
+e_rps_map);
+>
+> +static ssize_t show_rps_flows(struct netdev_rx_queue *queue,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct rx_queue_attribute *attribute, c=
+har *buf)
+> +{
+> + =A0 =A0 =A0 struct rps_map *map;
+> + =A0 =A0 =A0 unsigned int len;
+> +
+> + =A0 =A0 =A0 rcu_read_lock();
+> + =A0 =A0 =A0 map =3D rcu_dereference(queue->rps_map);
+> + =A0 =A0 =A0 len =3D map ? map->len : 0;
+> + =A0 =A0 =A0 rcu_read_unlock();
+> + =A0 =A0 =A0 return sprintf(buf, "%u\n", len);
+> +}
+> +
+> +static ssize_t store_rps_flows(struct netdev_rx_queue *queue,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0struct r=
+x_queue_attribute *attribute,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0const ch=
+ar *buf, size_t len)
+> +{
+> + =A0 =A0 =A0 struct rps_map *old_map, *map;
+> + =A0 =A0 =A0 unsigned long flows;
+> + =A0 =A0 =A0 int err;
+> +
+> + =A0 =A0 =A0 if (!capable(CAP_NET_ADMIN))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EPERM;
+> +
+> + =A0 =A0 =A0 if (strict_strtoul(buf, 0, &flows))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EINVAL;
+> + =A0 =A0 =A0 if (flows !=3D 0) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 map =3D kzalloc(max_t(unsigned, RPS_MAP=
+_SIZE(flows),
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ L1_CACHE_BYTES), GFP_KERNEL);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (map =3D=3D NULL)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENOMEM;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 map->len =3D flows;
+> + =A0 =A0 =A0 } else {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 map =3D NULL;
+> + =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 mutex_lock(&rps_map_lock);
+> + =A0 =A0 =A0 old_map =3D queue->rps_map;
+> + =A0 =A0 =A0 err =3D update_rps_flow_files(&queue->kobj, old_map, ma=
+p);
+> + =A0 =A0 =A0 if (!err) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (old_map && map)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 memcpy(map->cpus, old_m=
+ap->cpus,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0sizeof(m=
+ap->cpus[0]) *
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0min_t(un=
+signed int, flows, old_map->len));
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 rcu_assign_pointer(queue->rps_map, map)=
+;
+> + =A0 =A0 =A0 }
+> + =A0 =A0 =A0 mutex_unlock(&rps_map_lock);
+> +
+> + =A0 =A0 =A0 if (err)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return err;
+> +
+> + =A0 =A0 =A0 if (old_map)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 call_rcu(&old_map->rcu, rps_map_release=
+);
+> +
+> + =A0 =A0 =A0 return len;
+> +}
+> +
+> +static struct rx_queue_attribute rps_flows_attribute =3D
+> + =A0 =A0 =A0 __ATTR(rps_flows, S_IRUGO | S_IWUSR, show_rps_flows, st=
+ore_rps_flows);
+> +
+> =A0static struct attribute *rx_queue_default_attrs[] =3D {
+> =A0 =A0 =A0 =A0&rps_cpus_attribute.attr,
+> + =A0 =A0 =A0 &rps_flows_attribute.attr,
+> =A0 =A0 =A0 =A0NULL
+> =A0};
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
