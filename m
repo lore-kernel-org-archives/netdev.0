@@ -1,154 +1,69 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [Patch 1/3] sysctl: refactor integer handling proc code
-Date: Mon, 12 Apr 2010 10:18:02 +0000 (UTC)
-Message-ID: <20100413111814.GB4396__41099.8992891566$1271067482$gmane$org@x200>
-References: <20100412100744.5302.92442.sendpatchset@localhost.localdomain>
- <20100412100754.5302.99552.sendpatchset@localhost.localdomain>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [v3 Patch 2/3] bridge: make bridge support netpoll
+Date: Mon, 12 Apr 2010 18:37:22 +0800
+Message-ID: <4BC2F7E2.7020309@redhat.com>
+References: <20100408062234.4499.17042.sendpatchset@localhost.localdomain>	<20100408062246.4499.5670.sendpatchset@localhost.localdomain> <20100408083710.2b61ee44@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Octavian Purdila <opurdila@ixiacom.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	penguin-kernel@I-love.SAKURA.ne.jp, netdev@vger.kernel.org,
-	Neil Horman <nhorman@tuxdriver.com>, ebiederm@xmission.com,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org,
+	Andy Gospodarek <gospo@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Jeff Moyer <jmoyer@redhat.com>, Matt Mackall <mpm@selenic.com>,
+	bonding-devel@lists.sourceforge.net,
+	Jay Vosburgh <fubar@us.ibm.com>,
 	David Miller <davem@davemloft.net>
-To: Amerigo Wang <amwang@redhat.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.158]:51444 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753147Ab0DLKRk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 06:17:40 -0400
-Date: Tue, 13 Apr 2010 14:18:15 +0300
-Content-Disposition: inline
-In-Reply-To: <20100412100754.5302.99552.sendpatchset@localhost.localdomain>
+Received: from mx1.redhat.com ([209.132.183.28]:2675 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753445Ab0DLKeF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Apr 2010 06:34:05 -0400
+In-Reply-To: <20100408083710.2b61ee44@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 12, 2010 at 06:04:04AM -0400, Amerigo Wang wrote:
-> As we are about to add another integer handling proc function a little
-> bit of cleanup is in order: add a few helper functions to improve code
-> readability and decrease code duplication.
+Stephen Hemminger wrote:
+>> Index: linux-2.6/net/bridge/br_forward.c
+>> ===================================================================
+>> --- linux-2.6.orig/net/bridge/br_forward.c
+>> +++ linux-2.6/net/bridge/br_forward.c
+>> @@ -15,6 +15,7 @@
+>>  #include <linux/slab.h>
+>>  #include <linux/kernel.h>
+>>  #include <linux/netdevice.h>
+>> +#include <linux/netpoll.h>
+>>  #include <linux/skbuff.h>
+>>  #include <linux/if_vlan.h>
+>>  #include <linux/netfilter_bridge.h>
+>> @@ -50,7 +51,13 @@ int br_dev_queue_push_xmit(struct sk_buf
+>>  		else {
+>>  			skb_push(skb, ETH_HLEN);
+>>  
+>> -			dev_queue_xmit(skb);
+>> +#ifdef CONFIG_NET_POLL_CONTROLLER
+>> +			if (skb->dev->priv_flags & IFF_IN_NETPOLL) {
+>> +				netpoll_send_skb(skb->dev->npinfo->netpoll, skb);
+>> +				skb->dev->priv_flags &= ~IFF_IN_NETPOLL;
+>> +			} else
+>> +#endif
 > 
-> In the process a bug is also fixed: if the user specifies a number
-> with more then 20 digits it will be interpreted as two integers
-> (e.g. 10000...13 will be interpreted as 100.... and 13).
+> There is no protection on dev->priv_flags for SMP access.
+> It would better bit value in dev->state if you are using it as control flag.
+> 
+> Then you could use 
+> 			if (unlikely(test_and_clear_bit(__IN_NETPOLL, &skb->dev->state)))
+> 				netpoll_send_skb(...)
+> 
+> 
 
-ULONG_MAX is not 22 digits always.
+Hmm, I think we can't use ->state here, it is not for this kind of purpose,
+according to its comments.
 
-The fix is to not rely on simple_strtoul()
+Also, I find other usages of IFF_XXX flags of ->priv_flags are also using
+&, | to set or clear the flags. So there must be some other things preventing
+the race...
 
-I guess it's time to finally remove it. :-(
 
-Also, it's better to copy_from user stuff once.
-Without looking at non-trivial users, one page should be enough.
-
-> Behavior for EFAULT handling was changed as well. Previous to this
-> patch, when an EFAULT error occurred in the middle of a write
-> operation, although some of the elements were set, that was not
-> acknowledged to the user (by shorting the write and returning the
-> number of bytes accepted). EFAULT is now treated just like any other
-> errors by acknowledging the amount of bytes accepted.
-
-> +static int proc_skip_wspace(char __user **buf, size_t *size)
-> +{
-> +	char c;
-> +
-> +	while (*size) {
-> +		if (get_user(c, *buf))
-> +			return -EFAULT;
-> +		if (!isspace(c))
-> +			break;
-> +		(*size)--;
-> +		(*buf)++;
-> +	}
-> +
-> +	return 0;
-> +}
-
-yeah, copy_from_user once, so we won't have this.
-
-> +static bool isanyof(char c, const char *v, unsigned len)
-
-A what?
-this is memchr()
-
-> +{
-> +	int i;
-> +
-> +	if (!len)
-> +		return false;
-> +
-> +	for (i = 0; i < len; i++)
-> +		if (c == v[i])
-> +			break;
-> +	if (i == len)
-> +		return false;
-> +
-> +	return true;
-> +}
-> +
-> +#define TMPBUFLEN 22
-> +/**
-> + * proc_get_long - reads an ASCII formated integer from a user buffer
-> + *
-> + * @buf - user buffer
-> + * @size - size of the user buffer
-> + * @val - this is where the number will be stored
-> + * @neg - set to %TRUE if number is negative
-> + * @perm_tr - a vector which contains the allowed trailers
-> + * @perm_tr_len - size of the perm_tr vector
-> + * @tr - pointer to store the trailer character
-> + *
-> + * In case of success 0 is returned and buf and size are updated with
-> + * the amount of bytes read. If tr is non NULL and a trailing
-> + * character exist (size is non zero after returning from this
-> + * function) tr is updated with the trailing character.
-> + */
-> +static int proc_get_long(char __user **buf, size_t *size,
-> +			  unsigned long *val, bool *neg,
-> +			  const char *perm_tr, unsigned perm_tr_len, char *tr)
-> +{
-> +	int len;
-> +	char *p, tmp[TMPBUFLEN];
-> +
-> +	if (!*size)
-> +		return -EINVAL;
-> +
-> +	len = *size;
-> +	if (len > TMPBUFLEN-1)
-> +		len = TMPBUFLEN-1;
-> +
-> +	if (copy_from_user(tmp, *buf, len))
-> +		return -EFAULT;
-> +
-> +	tmp[len] = 0;
-> +	p = tmp;
-> +	if (*p == '-' && *size > 1) {
-> +		*neg = 1;
-> +		p++;
-> +	} else
-> +		*neg = 0;
-> +	if (!isdigit(*p))
-> +		return -EINVAL;
-> +
-> +	*val = simple_strtoul(p, &p, 0);
-> +
-> +	len = p - tmp;
-> +
-> +	/* We don't know if the next char is whitespace thus we may accept
-> +	 * invalid integers (e.g. 1234...a) or two integers instead of one
-> +	 * (e.g. 123...1). So lets not allow such large numbers. */
-> +	if (len == TMPBUFLEN - 1)
-> +		return -EINVAL;
-> +
-> +	if (len < *size && perm_tr_len && !isanyof(*p, perm_tr, perm_tr_len))
-> +		return -EINVAL;
-> +
-> +	if (tr && (len < *size))
-> +		*tr = *p;
-> +
-> +	*buf += len;
-> +	*size -= len;
-> +
-> +	return 0;
-> +}
+Thanks.
