@@ -1,225 +1,65 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: Receive issues with bonding and vlans
-Date: Mon, 12 Apr 2010 16:10:51 -0700
-Message-ID: <29849.1271113851@death.nxdomain.ibm.com>
-References: <20100412221645.8068.71073.stgit@localhost6.localdomain6>
-Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>,
-	Patrick McHardy <kaber@trash.net>,
-	bonding-devel@lists.sourceforge.net
-To: Chris Leech <christopher.leech@intel.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: Strange packet drops with heavy firewalling
+Date: Tue, 13 Apr 2010 07:18:42 +0800
+Message-ID: <u2y412e6f7f1004121618p6d6eff30q8a45a03faa59a912@mail.gmail.com>
+References: <m339z50x1l.fsf@ursa.amorsen.dk> <q2v40c9f5b21004120116p766df82dj88c6af4e4cad55f@mail.gmail.com>
+	<1271083479.2858.377.camel@ursa.amorsen.dk> <p2x40c9f5b21004120833jd7a749cak6ea69cebd28f8352@mail.gmail.com>
+	<1271091990.2858.409.camel@ursa.amorsen.dk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+Cc: zhigang gong <zhigang.gong@gmail.com>, netdev@vger.kernel.org
+To: Benny Amorsen <benny+usenet@amorsen.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:55945 "EHLO e4.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752649Ab0DLXK4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Apr 2010 19:10:56 -0400
-Received: from d01relay07.pok.ibm.com (d01relay07.pok.ibm.com [9.56.227.147])
-	by e4.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o3CMx7m6005819
-	for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 18:59:07 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay07.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o3CNAtbC1339642
-	for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 19:10:55 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o3CNArp3004772
-	for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 20:10:55 -0300
-In-reply-to: <20100412221645.8068.71073.stgit@localhost6.localdomain6>
+Received: from mail-yx0-f171.google.com ([209.85.210.171]:63173 "EHLO
+	mail-yx0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750776Ab0DLXTF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 19:19:05 -0400
+Received: by yxe1 with SMTP id 1so2818347yxe.33
+        for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 16:19:03 -0700 (PDT)
+In-Reply-To: <1271091990.2858.409.camel@ursa.amorsen.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chris Leech <christopher.leech@intel.com> wrote:
-
->Quick summary: VLANs and bonding are interacting in strange ways in the
->receive path, VLAN devices do not act the same as real Ethernet devices,
->hardware accelerated VLANs do not act the same as software tagged VLANs,
->and I think frames are incorrectly being passed up to protocols from
->inactive bonding links.
->
->I've been looking at high availability configurations for converged LAN
->+ SAN networking, trying to see what running FCoE and IP traffic looked
->like with bonding and dm_multipath.  The goal is to allow sysadmins to
->use the tools they are already using with separate LAN and SAN adapters,
->now on a single converged adapter.
->
->The setup I'm trying to use looks like this; with IP traffic running on
->bond0, storage VLANs created on eth0 and eth1, and FCoE running on the
->VLANs.  Both switches provide Fiber Channel Forwarder (FCF) services,
->and connect to the same LAN and SAN.
->
->	 .-----------------------------------------.
->	 |             .--------------.            |
->	 |             | dm_multipath |            |
->	 |             '--------------'            |
->	 |                     ^                   |
->	 | .----------.        |      .----------. |
->	 | | fc_host0 |--------'------| fc_host1 | |
->	 | '----------'               '----------' |
->	 |       ^                          ^      |
->	 |       |                          |      |
->	 | .----------.   .-------.   .----------. |
->	 | | eth0.101 |   | bond0 |   | eth1.101 | |
->	 | '----------'   '-------'   '----------' |
->	 |       ^            ^             ^      |
->	 |       | .------.   |    .------. |      |
->	 |       '-| eth0 |---'----| eth1 |-'      |
->	 |         '------'        '------'        |
->	 '-------------|---------------|-----------'
->	               |               |
->	               v               v
->	         .----------.    .----------.
->	         | switch A |----| switch B |
->	         '----------'    '----------'
->	             |  |            |  |
->	          .--'--'------------'--'-.
->	          |                       |
->	          v                       v
->	     .-,(  ),-.               .-,(  ),-.    
->	  .-(          )-.         .-(          )-. 
->	 (     FC SAN     )       (     IP LAN     )
->	  '-(          ).-'        '-(          ).-'
->	      '-.( ).-'                '-.( ).-'    
->
->bond0 is in active-backup mode, but FCoE is actively running on both
->links providing two different paths into the SAN.  This configuration
->matches a typical HA setup with separate Ethernet + FC adapters.  In
->this case I'm interested in software convergence where all traffic
->passes through the standard network transmit and receive paths.
->
->The VLANs aren't strictly required by FCoE, but it is the recommended
->best practice by switch vendors.  The FCF switches map FC VSANs to
->VLANs.
->
->Ever since this series of changes to net/core/dev.c
->
->  Author: Joe Eykholt <jre@nuovasystems.com>
->  Date:   Wed Jul 2 18:22:02 2008 -0700
->  net/core: Uninline skb_bond().
->  net/core: Allow certain receives on inactive slave.
->  net/core: Allow receive on active slaves.
->
->it has been possible to receive directly on both active and inactive
->slave links if the packet_type specifies the slave device.  This
->combined with the PACKET_ORIGDEV socket option allowed for FCoE to run
->on the slave devices (DCB link configuration uses a userspace LLDP
->agent, and FCoE includes a VLAN discovery protocol that is implemented
->in userspace as well).
-
-	Is the FCoE supposed to run over the inactive bonding slave?  Or
-am I misunderstanding what you're saying?  I had thought the LLDP, et
-al, special case in bonding was to permit, essentially, path discovery,
-not necessarily active use of the inactive slave.
-
-	Not that this is necessarily bad; the "drop stuff on inactive
-slaves" is really there for duplicate suppression, but it also can
-uncover network topology issues, e.g., network layouts that won't work
-if the devices fail, but appear to work during testing because the
-"inactive" slave still receives traffic (it hasn't really failed).
-
->The problem is that it doesn't work for hardware accelerated VLAN
->devices, because the VLAN receive paths have their own
->skb_bond_should_drop calls that were not updated.
->
->From what I can tell, VLAN receives always end up going through
->netif_receive_skb anyway, so skb_bond_should_drop gets called twice if
->the frame isn't dropped the first time.  I think the bonding checks in
->__vlan_hwaccel_rx and vlan_gro_common should just be removed.
-
-	I'm not so sure.  The checks in __vlan_hwaccel_rx are done with
-the original receiving device in skb->dev; by the time the packet gets
-to netif_receive_skb, the original slave the packet was received on has
-been lost (and replaced with the VLAN device).  Various things are
-interested in that, in particular the "arp_validate" and the "inactive
-slave drop" logic for bonding depend on knowing the real device the
-packet arrived on.
-
-	I note that the vlan accel logic doesn't change skb_iif to the
-VLAN device; it remains as the original device.  I suppose one
-alternative would be to convert the bonding drop, et al, logic to use
-skb_iif instead of skb->dev; if that works, then I think the VLAN core
-would not need to call skb_bond_should_drop, which in turn would be a
-bit more complicated as it would have to look up the dev from the
-skb_iif.  There's already some code in bonding that takes advantage of
-this property of the VLANs, so maybe this is the way to go.
-
->@@ -11,9 +11,6 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
-> 	if (netpoll_rx(skb))
-> 		return NET_RX_DROP;
->
->-	if (skb_bond_should_drop(skb, ACCESS_ONCE(skb->dev->master)))
->-		goto drop;
->-
-> 	skb->skb_iif = skb->dev->ifindex;
-> 	__vlan_hwaccel_put_tag(skb, vlan_tci);
-> 	skb->dev = vlan_group_get_device(grp, vlan_tci & VLAN_VID_MASK);
->@@ -83,9 +80,6 @@ vlan_gro_common(struct napi_struct *napi, struct vlan_group *grp,
-> {
-> 	struct sk_buff *p;
->
->-	if (skb_bond_should_drop(skb, ACCESS_ONCE(skb->dev->master)))
->-		goto drop;
->-
-> 	skb->skb_iif = skb->dev->ifindex;
-> 	__vlan_hwaccel_put_tag(skb, vlan_tci);
-> 	skb->dev = vlan_group_get_device(grp, vlan_tci & VLAN_VID_MASK);
->
->That fixes my setup ... but thinking about it raised some more
->questions.  The VLAN discovery tool I wrote shouldn't have worked, I
->didn't bother to bind a packet socket to each interface I wanted to use.
->So a single unbound packet socket is successfully passing traffic on
->both active and inactive slave interfaces, which from my understanding
->shouldn't work.  It's easier for me this way, but it still seems wrong.
-
-	There is no logic to block transmission on bonding slave
-devices; anything is free to bind to the slave and send whatever it
-wants.
-
-	The reception logic (to drop most traffic on the inactive slave
-in an active-backup bond) was originally put in place to prevent
-duplicate packets from being received for broadcasts and for unicasts
-when the switch floods to all ports (which can happen during the
-interval that a switch is still learning the MAC address).
-
->I think the problem was introduced with these changes.
->
->  Author: Andy Gospodarek <andy@greyhouse.net>
->  Date:   Wed Jan 6 12:56:37 2010 +0000
->  fix bonding: allow arp_ip_targets on separate vlans to use arp validation
->  Date:   Mon Dec 14 10:48:58 2009 +0000
->  bonding: allow arp_ip_targets on separate vlans to use arp validation
->
->The use of null_or_bond in netif_receive_skb looks suspicious to me.  In
->the presence of both bonding and VLANs it probably does what was
->intended.  Without VLANs however, it is always set to NULL which matches
->unbound packet_types.  So unbound packet_types will process all frames
->received on an inactive slave link, ignoring the result of
->skb_bond_should_drop.
->
->I haven't quite figured out what I think the correct change for
->null_or_bond is.  I suspect it involves not using NULL at all.  I can
->see how it addresses the arp_ip_target on a VLAN issue, but this is also
->changing the receive matching rules for other traffic in unexpected
->ways.
-
-	I'll hazard a guess that something like this might do it:
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b98ddc6..cc665bb 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2735,7 +2735,7 @@ ncls:
- 			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
- 		if (ptype->type == type && (ptype->dev == null_or_orig ||
- 		     ptype->dev == skb->dev || ptype->dev == orig_dev ||
--		     ptype->dev == null_or_bond)) {
-+		     (null_or_bond && (ptype->dev == null_or_bond))) {
- 			if (pt_prev)
- 				ret = deliver_skb(skb, pt_prev, orig_dev);
- 			pt_prev = ptype;
-
-
-	I haven't tested this, but the theory is to only test against
-null_or_bond if null_or_bond isn't NULL, which is only the case for VLAN
-traffic over bonding.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+T24gVHVlLCBBcHIgMTMsIDIwMTAgYXQgMTowNiBBTSwgQmVubnkgQW1vcnNlbiA8YmVubnkrdXNl
+bmV0QGFtb3JzZW4uZGs+IHdyb3RlOgo+Cj4gwqA5OTogwqAgwqAgwqAgwqAgMjQgwqAgwqAxMzA2
+MjI2IMKgIMKgIMKgIMKgIMKgMyDCoCDCoCDCoCDCoCDCoDIgwqAgUENJLU1TSS1lZGdlIMKgIMKg
+IMKgZXRoMS10eC0wCj4gwqAxMDA6IMKgIMKgIMKgMTU3MzUgwqAgwqAxNjQ4Nzc0IMKgIMKgIMKg
+IMKgIMKgMyDCoCDCoCDCoCDCoCDCoDcgwqAgUENJLU1TSS1lZGdlIMKgIMKgIMKgZXRoMS10eC0x
+Cj4gwqAxMDE6IMKgIMKgIMKgIMKgIMKgOCDCoCDCoCDCoCDCoCAxMSDCoCDCoCDCoCDCoCDCoDkg
+wqAgwqAxMDgzMDIyIMKgIFBDSS1NU0ktZWRnZSDCoCDCoCDCoGV0aDEtdHgtMgo+IMKgMTAyOiDC
+oCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDC
+oCDCoDAgwqAgUENJLU1TSS1lZGdlIMKgIMKgIMKgZXRoMS10eC0zCj4gwqAxMDM6IMKgIMKgIMKg
+IMKgIDE4IMKgIMKgIMKgIMKgIDE1IMKgIMKgIMKgIDYxMzEgwqAgwqAxMDk1MzgzIMKgIFBDSS1N
+U0ktZWRnZSDCoCDCoCDCoGV0aDEtcngtMAo+IMKgMTA0OiDCoCDCoCDCoCDCoDIxNyDCoCDCoCDC
+oCDCoCAzMiDCoCDCoCDCoDQ2NTQ0IMKgIMKgMTMzNTMyNSDCoCBQQ0ktTVNJLWVkZ2UgwqAgwqAg
+wqBldGgxLXJ4LTEKPiDCoDEwNTogwqAgwqAgwqAgwqAxNTQgwqAgwqAxMzA1NTk1IMKgIMKgIMKg
+IMKgMjE4IMKgIMKgIMKgIMKgIDE2IMKgIFBDSS1NU0ktZWRnZSDCoCDCoCDCoGV0aDEtcngtMgo+
+IMKgMTA2OiDCoCDCoCDCoCDCoCAxNyDCoCDCoCDCoCDCoCAxNiDCoCDCoCDCoCA4MjI5IMKgIMKg
+MTQ2NzUwOSDCoCBQQ0ktTVNJLWVkZ2UgwqAgwqAgwqBldGgxLXJ4LTMKPiDCoDEwNzogwqAgwqAg
+wqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDEgwqAgwqAgwqAgwqAgwqAw
+IMKgIFBDSS1NU0ktZWRnZSDCoCDCoCDCoGV0aDEKPiDCoDEwODogwqAgwqAgwqAgwqAgwqAyIMKg
+IMKgIMKgIMKgIDE0IMKgIMKgIMKgIMKgIDE1IMKgIMKgMTAwMzA1MyDCoCBQQ0ktTVNJLWVkZ2Ug
+wqAgwqAgwqBldGgwLXR4LTAKPiDCoDEwOTogwqAgwqAgwqAgODIyNiDCoCDCoDE2Njg5MjQgwqAg
+wqAgwqAgwqA0NzggwqAgwqAgwqAgwqA0ODcgwqAgUENJLU1TSS1lZGdlIMKgIMKgIMKgZXRoMC10
+eC0xCj4gwqAxMTA6IMKgIMKgIMKgIMKgIMKgMyDCoCDCoDExODg4NzQgwqAgwqAgwqAgwqAgMTcg
+wqAgwqAgwqAgwqAgMTIgwqAgUENJLU1TSS1lZGdlIMKgIMKgIMKgZXRoMC10eC0yCj4gwqAxMTE6
+IMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKg
+IMKgIMKgMCDCoCBQQ0ktTVNJLWVkZ2UgwqAgwqAgwqBldGgwLXR4LTMKPiDCoDExMjogwqAgwqAg
+wqAgwqAyMDMgwqAgwqAgwqAgwqAxODUgwqAgwqAgwqAgNTMyNCDCoCDCoDEwMTUyNjMgwqAgUENJ
+LU1TSS1lZGdlIMKgIMKgIMKgZXRoMC1yeC0wCj4gwqAxMTM6IMKgIMKgIMKgIDQxNDEgwqAgwqAx
+NjAwNzkzIMKgIMKgIMKgIMKgMTUzIMKgIMKgIMKgIMKgMTU5IMKgIFBDSS1NU0ktZWRnZSDCoCDC
+oCDCoGV0aDAtcngtMQo+IMKgMTE0OiDCoCDCoCDCoDE2MjQyIMKgIMKgMTIxMDEwOCDCoCDCoCDC
+oCDCoDQzNiDCoCDCoCDCoCAzMTI0IMKgIFBDSS1NU0ktZWRnZSDCoCDCoCDCoGV0aDAtcngtMgo+
+IMKgMTE1OiDCoCDCoCDCoCDCoDI2NyDCoCDCoCDCoCA0MTczIMKgIMKgIMKgMTk0NzEgwqAgwqAx
+MzIxMjUyIMKgIFBDSS1NU0ktZWRnZSDCoCDCoCDCoGV0aDAtcngtMwo+IMKgMTE2OiDCoCDCoCDC
+oCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAxIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAg
+wqAgUENJLU1TSS1lZGdlIMKgIMKgIMKgZXRoMAo+Cj4KPiBpcnFiYWxhbmNlZCBzZWVtcyB0byBo
+YXZlIHBpY2tlZCBDUFUxIGFuZCBDUFUzIGZvciBhbGwgdGhlIGludGVycnVwdHMsCj4gd2hpY2gg
+dG8gbXkgbWluZCBzaG91bGQgY2F1c2UgdGhlIHNhbWUgcHJvYmxlbSBhcyBiZWZvcmUgKHdoZXJl
+IENQVTEgYW5kCj4gQ1BVMyB3YXMgaGFuZGxpbmcgYWxsIHBhY2tldHMpLiBZZXQgdGhlIGJveCBj
+bGVhcmx5IHdvcmtzIG11Y2ggYmV0dGVyCj4gdGhhbiBiZWZvcmUuCgppcnFiYWxhbmNlZD8gSSBk
+b24ndCB0aGluayBpdCBjYW4gd29yayBwcm9wZXJseS4gVHJ5IFJQUyBpbiBuZXRkZXYgYW5kCmxp
+bnV4LW5leHQgdHJlZSwgYW5kIGlmIGNwdSBsb2FkIGlzbid0IGV2ZW4sIHRyeSB0aGlzIHBhdGNo
+OgpodHRwOi8vcGF0Y2h3b3JrLm96bGFicy5vcmcvcGF0Y2gvNDk5MTUvIC4KCgotLSAKUmVnYXJk
+c++8jApDaGFuZ2xpIEdhbyh4aWFvc3VvQGdtYWlsLmNvbSkK
