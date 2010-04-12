@@ -1,49 +1,55 @@
-From: Michael Barkowski <michaelbarkowski@ruggedcom.com>
-Subject: Re: hdlc_ppp: why no detach()?
-Date: Mon, 12 Apr 2010 10:34:34 -0400
-Message-ID: <4BC32F7A.4040809@ruggedcom.com>
-References: <4BC32B00.1030600@ruggedcom.com>
+From: Benny Lyne Amorsen <benny@amorsen.dk>
+Subject: Re: Strange packet drops with heavy firewalling
+Date: Mon, 12 Apr 2010 16:44:39 +0200
+Message-ID: <1271083479.2858.377.camel@ursa.amorsen.dk>
+References: <m339z50x1l.fsf@ursa.amorsen.dk>
+	 <q2v40c9f5b21004120116p766df82dj88c6af4e4cad55f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Julia Lawall <julia@diku.dk>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Krzysztof Halasa <khc@pm.waw.pl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4BC32B00.1030600@ruggedcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: zhigang gong <zhigang.gong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate1.ipvision.dk ([94.127.49.2]:45303 "EHLO gate1.ipvision.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751388Ab0DLOor (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Apr 2010 10:44:47 -0400
+In-Reply-To: <q2v40c9f5b21004120116p766df82dj88c6af4e4cad55f@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Michael Barkowski wrote:
-> Hello Krzyztof,
-> 
-> I am looking at your hdlc_ppp code and I don't understand: why is there
-> not the equivalent of fr_detach() in there?
-> 
-> pc8300_drv:cpc_remove_one() frees netdevs quite confidently but I wonder
-> how it can be so sure that there are not skbs in hdlc_ppp's tx_queue
-> associated with those devices before freeing them....
-> 
+man, 12 04 2010 kl. 16:16 +0800, skrev zhigang gong:
 
-the above is the real danger I see - free the netdev, then ppp's timer
-comes along and dequeues from tx_queue an skb with invalid device.
+> How do you know the per CPU usage data, by oprofile? I'm just a little
+> surprised with the result, as it shows your new core is running 10x
+> faster than your old core :). 
 
-> Even if you wanted to switch a device from PPP to Frame Relay, I don't
-> see the method right now.  If I may ask, please, what am I missing?
-> 
+Well the old server had only two CPU's plus hyperthreading, and the
+CPU's were Pentium-4-based. Add a slow memory bus to that and you have a
+fairly slow system. It's almost 5 years old, so Moore's law says 2**3
+increase in number of transistors...
 
-Ok - this part was a momentary lapse on my part - please strike from
-the record :)
+In about the same time frame Linux has gone from being able to fill
+1Gbps ethernet to being able to fill 10Gbps ethernet 
 
-> If you agree there is a need for detach(), I would be happy to work on
-> it and make a submission.
-> 
-> thanks for your time,
-> 
+> What's the average packet size?
+
+I asked the switch (I can't find a handy equivalent to ifstat which
+counts packets instead of bytes). The 5 minute average packet sizes seem
+to vary in the range 450 to 550 bytes.
+
+> If your packet size is 64 bytes, then the pps(packet per second) rate
+> should be about 585Kpps. As I know, this value is almost the best
+> result when the standard linux kernel is processing the networking
+> traffic with a normal 1Gb ethernet card (without multi-queue support)
+> on a intel box. If it is the case, to buy a better ethernet card with
+> multi-queue support should be a good choice. Otherwise, it may not
+> help. 
+
+I am far from that, perhaps 1/10th of that. I do a lot more processing
+on at least some of the packets though (the ones starting new flows).
 
 
--- 
-Michael Barkowski
-905-482-4577
+/Benny
+
+
