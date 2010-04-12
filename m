@@ -1,130 +1,112 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 4/8] tg3: Optimize rx double copy test
-Date: Mon, 12 Apr 2010 09:58:27 -0700
-Message-ID: <1271091511-11173-5-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 7/8] tg3: Remove function errors flagged by
+ checkpatch
+Date: Mon, 12 Apr 2010 09:58:30 -0700
+Message-ID: <1271091511-11173-8-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1825 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4916 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753187Ab0DLQ66 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Apr 2010 12:58:58 -0400
+	id S1752891Ab0DLQ6u (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Apr 2010 12:58:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On a PCIX bus, the 5701 has a bug which requires the driver to double
-copy all rx packets.  The rx code uses the rx_offset device member as a
-flag to determine if this workaround should take effect.  The following
-patch will modify the rx_offset member such that this test will become
-less clear.
+This patch removes the following checkpatch errors:
 
-The patch starts by integrating the workaround check into the packet
-length check.  It rounds out the implementation by relaxing the
-workaround restrictions if the platform has efficient unaligned
-accesses.
+* return is not a function, parentheses are not required
+* space prohibited between function name and open parenthesis '('
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   32 +++++++++++++++++++++++++-------
- drivers/net/tg3.h |    5 ++---
- 2 files changed, 27 insertions(+), 10 deletions(-)
+ drivers/net/tg3.c |   18 +++++++++---------
+ 1 files changed, 9 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 3e89323..5791405 100644
+index a331ec5..3f8feb1 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -144,6 +144,24 @@
+@@ -383,7 +383,7 @@ static void tg3_write32(struct tg3 *tp, u32 off, u32 val)
  
- #define TG3_RSS_MIN_NUM_MSIX_VECS	2
+ static u32 tg3_read32(struct tg3 *tp, u32 off)
+ {
+-	return (readl(tp->regs + off));
++	return readl(tp->regs + off);
+ }
  
-+/* Due to a hardware bug, the 5701 can only DMA to memory addresses
-+ * that are at least dword aligned when used in PCIX mode.  The driver
-+ * works around this bug by double copying the packet.  This workaround
-+ * is built into the normal double copy length check for efficiency.
-+ *
-+ * However, the double copy is only necessary on those architectures
-+ * where unaligned memory accesses are inefficient.  For those architectures
-+ * where unaligned memory accesses incur little penalty, we can reintegrate
-+ * the 5701 in the normal rx path.  Doing so saves a device structure
-+ * dereference by hardcoding the double copy threshold in place.
-+ */
-+#define TG3_RX_COPY_THRESHOLD		256
-+#if NET_IP_ALIGN == 0 || defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
-+	#define TG3_RX_COPY_THRESH(tp)	TG3_RX_COPY_THRESHOLD
-+#else
-+	#define TG3_RX_COPY_THRESH(tp)	((tp)->rx_copy_thresh)
-+#endif
-+
- /* minimum number of free TX descriptors required to wake up TX process */
- #define TG3_TX_WAKEUP_THRESH(tnapi)		((tnapi)->tx_pending / 4)
+ static void tg3_ape_write32(struct tg3 *tp, u32 off, u32 val)
+@@ -393,7 +393,7 @@ static void tg3_ape_write32(struct tg3 *tp, u32 off, u32 val)
  
-@@ -4639,12 +4657,7 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
- 		len = ((desc->idx_len & RXD_LEN_MASK) >> RXD_LEN_SHIFT) -
- 		      ETH_FCS_LEN;
+ static u32 tg3_ape_read32(struct tg3 *tp, u32 off)
+ {
+-	return (readl(tp->aperegs + off));
++	return readl(tp->aperegs + off);
+ }
  
--		if (len > RX_COPY_THRESHOLD &&
--		    tp->rx_offset == NET_IP_ALIGN) {
--		    /* rx_offset will likely not equal NET_IP_ALIGN
--		     * if this is a 5701 card running in PCI-X mode
--		     * [see tg3_get_invariants()]
--		     */
-+		if (len > TG3_RX_COPY_THRESH(tp)) {
- 			int skb_size;
+ static void tg3_write_indirect_reg32(struct tg3 *tp, u32 off, u32 val)
+@@ -511,7 +511,7 @@ static void tg3_write32_tx_mbox(struct tg3 *tp, u32 off, u32 val)
  
- 			skb_size = tg3_alloc_rx_skb(tp, tpr, opaque_key,
-@@ -13469,9 +13482,14 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 		tp->tg3_flags &= ~TG3_FLAG_POLL_SERDES;
+ static u32 tg3_read32_mbox_5906(struct tg3 *tp, u32 off)
+ {
+-	return (readl(tp->regs + off + GRCMBOX_BASE));
++	return readl(tp->regs + off + GRCMBOX_BASE);
+ }
  
- 	tp->rx_offset = NET_IP_ALIGN;
-+	tp->rx_copy_thresh = TG3_RX_COPY_THRESHOLD;
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701 &&
--	    (tp->tg3_flags & TG3_FLAG_PCIX_MODE) != 0)
-+	    (tp->tg3_flags & TG3_FLAG_PCIX_MODE) != 0) {
- 		tp->rx_offset = 0;
-+#ifndef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
-+		tp->rx_copy_thresh = ~0;
-+#endif
-+	}
+ static void tg3_write32_mbox_5906(struct tg3 *tp, u32 off, u32 val)
+@@ -5775,7 +5775,7 @@ static netdev_tx_t tg3_start_xmit_dma_bug(struct sk_buff *skb,
+ 		hdr_len = ip_tcp_len + tcp_opt_len;
+ 		if (unlikely((ETH_HLEN + hdr_len) > 80) &&
+ 			     (tp->tg3_flags2 & TG3_FLG2_TSO_BUG))
+-			return (tg3_tso_bug(tp, skb));
++			return tg3_tso_bug(tp, skb);
  
- 	tp->rx_std_max_post = TG3_RX_RING_SIZE;
+ 		base_flags |= (TXD_FLAG_CPU_PRE_DMA |
+ 			       TXD_FLAG_CPU_POST_DMA);
+@@ -9285,10 +9285,10 @@ static void __tg3_set_rx_mode(struct net_device *dev)
+ 		rx_mode |= RX_MODE_PROMISC;
+ 	} else if (dev->flags & IFF_ALLMULTI) {
+ 		/* Accept all multicast. */
+-		tg3_set_multi (tp, 1);
++		tg3_set_multi(tp, 1);
+ 	} else if (netdev_mc_empty(dev)) {
+ 		/* Reject all multicast. */
+-		tg3_set_multi (tp, 0);
++		tg3_set_multi(tp, 0);
+ 	} else {
+ 		/* Accept one or more multicast(s). */
+ 		struct netdev_hw_addr *ha;
+@@ -10030,7 +10030,7 @@ static int tg3_set_tx_csum(struct net_device *dev, u32 data)
+ 	return 0;
+ }
  
-diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 9e7fe0e..43dd1d2 100644
---- a/drivers/net/tg3.h
-+++ b/drivers/net/tg3.h
-@@ -23,8 +23,6 @@
- #define TG3_BDINFO_NIC_ADDR		0xcUL /* 32-bit */
- #define TG3_BDINFO_SIZE			0x10UL
+-static int tg3_get_sset_count (struct net_device *dev, int sset)
++static int tg3_get_sset_count(struct net_device *dev, int sset)
+ {
+ 	switch (sset) {
+ 	case ETH_SS_TEST:
+@@ -10042,7 +10042,7 @@ static int tg3_get_sset_count (struct net_device *dev, int sset)
+ 	}
+ }
  
--#define RX_COPY_THRESHOLD		256
--
- #define TG3_RX_INTERNAL_RING_SZ_5906	32
+-static void tg3_get_strings (struct net_device *dev, u32 stringset, u8 *buf)
++static void tg3_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
+ {
+ 	switch (stringset) {
+ 	case ETH_SS_STATS:
+@@ -10089,7 +10089,7 @@ static int tg3_phys_id(struct net_device *dev, u32 data)
+ 	return 0;
+ }
  
- #define RX_STD_MAX_SIZE			1536
-@@ -2754,9 +2752,11 @@ struct tg3 {
- 	struct tg3_napi			napi[TG3_IRQ_MAX_VECS];
- 	void				(*write32_rx_mbox) (struct tg3 *, u32,
- 							    u32);
-+	u32				rx_copy_thresh;
- 	u32				rx_pending;
- 	u32				rx_jumbo_pending;
- 	u32				rx_std_max_post;
-+	u32				rx_offset;
- 	u32				rx_pkt_map_sz;
- #if TG3_VLAN_TAG_USED
- 	struct vlan_group		*vlgrp;
-@@ -2776,7 +2776,6 @@ struct tg3 {
- 	unsigned long			last_event_jiffies;
- 	};
- 
--	u32				rx_offset;
- 	u32				tg3_flags;
- #define TG3_FLAG_TAGGED_STATUS		0x00000001
- #define TG3_FLAG_TXD_MBOX_HWBUG		0x00000002
+-static void tg3_get_ethtool_stats (struct net_device *dev,
++static void tg3_get_ethtool_stats(struct net_device *dev,
+ 				   struct ethtool_stats *estats, u64 *tmp_stats)
+ {
+ 	struct tg3 *tp = netdev_priv(dev);
 -- 
 1.6.4.4
 
