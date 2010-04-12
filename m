@@ -1,7 +1,7 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
 Subject: Re: [Patch 1/3] sysctl: refactor integer handling proc code
-Date: Mon, 12 Apr 2010 10:18:01 +0000 (UTC)
-Message-ID: <20100413111814.GB4396@x200>
+Date: Mon, 12 Apr 2010 10:18:02 +0000 (UTC)
+Message-ID: <20100413111814.GB4396__41099.8992891566$1271067482$gmane$org@x200>
 References: <20100412100744.5302.92442.sendpatchset@localhost.localdomain>
  <20100412100754.5302.99552.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
@@ -13,12 +13,16 @@ Cc: linux-kernel@vger.kernel.org,
 	Neil Horman <nhorman@tuxdriver.com>, ebiederm@xmission.com,
 	David Miller <davem@davemloft.net>
 To: Amerigo Wang <amwang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.158]:51444 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753147Ab0DLKRk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 06:17:40 -0400
 Date: Tue, 13 Apr 2010 14:18:15 +0300
 Content-Disposition: inline
 In-Reply-To: <20100412100754.5302.99552.sendpatchset@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On Mon, Apr 12, 2010 at 06:04:04AM -0400, Amerigo Wang wrote:
 > As we are about to add another integer handling proc function a little
