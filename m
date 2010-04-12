@@ -1,41 +1,53 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] vhost: Make it more scalable by creating a vhost	thread
- per device.
-Date: Mon, 12 Apr 2010 10:50:43 -0700
-Message-ID: <4BC35D73.8080801@hp.com>
-References: <1270229480.13897.8.camel@w-sridhar.beaverton.ibm.com>	<1270488911.27874.43.camel@w-sridhar.beaverton.ibm.com>	<1270771542.31186.397.camel@w-sridhar.beaverton.ibm.com>	<20100411154719.GA9681@redhat.com>	<1271093731.1467.25.camel@w-sridhar.beaverton.ibm.com> <20100412174259.GA18507@redhat.com>
+From: Andreas Henriksson <andreas@fatal.se>
+Subject: Re: [PATCH] iproute2: add option to build m_xt as a tc module.
+Date: Mon, 12 Apr 2010 20:13:59 +0200
+Message-ID: <20100412181359.GA4612@amd64.fatal.se>
+References: <20100412115538.GA28338@amd64.fatal.se>
+ <20100412083317.0d9e9f3f@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Sridhar Samudrala <sri@us.ibm.com>, Tom Lendacky <toml@us.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0186.atlanta.hp.com ([15.193.32.63]:11089 "EHLO
-	g6t0186.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751515Ab0DLRuq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 13:50:46 -0400
-In-Reply-To: <20100412174259.GA18507@redhat.com>
+Received: from smtprelay-h21.telenor.se ([195.54.99.196]:40551 "EHLO
+	smtprelay-h21.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750776Ab0DLSM3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 14:12:29 -0400
+Received: from ipb3.telenor.se (ipb3.telenor.se [195.54.127.166])
+	by smtprelay-h21.telenor.se (Postfix) with ESMTP id 74C47E855A
+	for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 20:12:27 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <20100412083317.0d9e9f3f@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>
->>>Consider using Ingo's perf tool to get error bars, but looks good
->>>overall. 
->>
->>What do you mean by getting error bars?
+On Mon, Apr 12, 2010 at 08:33:17AM -0700, Stephen Hemminger wrote:
+> On Mon, 12 Apr 2010 13:55:38 +0200
+> Andreas Henriksson <andreas@fatal.se> wrote:
 > 
+> > Add TC_CONFIG_XT_MODULE option that can be added
+> > either to Config (after ./configure) or as an argument to "make".
 > 
-> How noisy are the numbers?
-> I'd like to see something along the lines of 85% +- 2%
+> I like the idea and will incorporate it, but do not like having more
+> build options. Adding more configuration options like this is just
+> lazy design "we can't figure this out, let's make the user do it".
+> 
+> So put the patch in but there it will always be true.
 
-In netperf terms that would be adding the confidence intervals calculations to 
-the results - which will be done by that "runemomniagg2.sh" script I mentioned. 
-When running multiple instance tests, it is very important to set the min and 
-max iterations to the same value so no instance thinks to finish early.  The 
-script does that, just want to make sure that those leveraging it do the same.
+Sure..... unfortunately I found problems for the patch to work.
+(dlopen needs full path and module name needs to match action name)
+Will send new patch as a followup to this mail.
 
-happy benchmarking,
+Note: I'm not a user of any of this functionality. (including "make install"!)
+I've tried testing "action ipt" with m_xt.so now, but m_xt_old.so is
+completely untested!
 
-rick jones
+I used the following command when testing m_xt.so:
+tc qdisc add dev lo ingress
+tc filter add dev lo parent ffff: protocol ip prio 1 u32  match ip src 127.1.1.1/32 action ipt -j FOOBAR
+
+...which gave me the error "failed to find target FOOBAR",
+and this is to me an indication of success since I don't have that target.
+
+-- 
+Andreas Henriksson
