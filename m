@@ -1,125 +1,130 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 5/8] tg3: Re-inline VLAN tags when appropriate
-Date: Mon, 12 Apr 2010 09:58:28 -0700
-Message-ID: <1271091511-11173-6-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 4/8] tg3: Optimize rx double copy test
+Date: Mon, 12 Apr 2010 09:58:27 -0700
+Message-ID: <1271091511-11173-5-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1830 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1825 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753196Ab0DLQ66 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753187Ab0DLQ66 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 12 Apr 2010 12:58:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The tg3 driver is written so that VLAN tagged packets can be accepted,
-even if CONFIG_VLAN_8021Q or CONFIG_VLAN_8021Q_MODULE is not defined.
-(Think raw interfaces.)  If the device has ASF support enabled, the
-firmware requires the driver to enable VLAN tag stripping.  If VLAN
-tagging is not explicitly supported by the kernel and ASF is enabled,
-the driver will have to reinject the VLAN tag back into the packet
-stream.
+On a PCIX bus, the 5701 has a bug which requires the driver to double
+copy all rx packets.  The rx code uses the rx_offset device member as a
+flag to determine if this workaround should take effect.  The following
+patch will modify the rx_offset member such that this test will become
+less clear.
+
+The patch starts by integrating the workaround check into the packet
+length check.  It rounds out the implementation by relaxing the
+workaround restrictions if the platform has efficient unaligned
+accesses.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   44 +++++++++++++++++++++++++++++++++-----------
- 1 files changed, 33 insertions(+), 11 deletions(-)
+ drivers/net/tg3.c |   32 +++++++++++++++++++++++++-------
+ drivers/net/tg3.h |    5 ++---
+ 2 files changed, 27 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 5791405..3263f50 100644
+index 3e89323..5791405 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -126,6 +126,9 @@
- 				 TG3_TX_RING_SIZE)
- #define NEXT_TX(N)		(((N) + 1) & (TG3_TX_RING_SIZE - 1))
+@@ -144,6 +144,24 @@
  
-+#define TG3_RX_DMA_ALIGN		16
-+#define TG3_RX_HEADROOM			ALIGN(VLAN_HLEN, TG3_RX_DMA_ALIGN)
-+
- #define TG3_DMA_BYTE_ENAB		64
+ #define TG3_RSS_MIN_NUM_MSIX_VECS	2
  
- #define TG3_RX_STD_DMA_SZ		1536
-@@ -4624,6 +4627,8 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
- 		struct sk_buff *skb;
- 		dma_addr_t dma_addr;
- 		u32 opaque_key, desc_idx, *post_ptr;
-+		bool hw_vlan __maybe_unused = false;
-+		u16 vtag __maybe_unused = 0;
- 
- 		desc_idx = desc->opaque & RXD_OPAQUE_INDEX_MASK;
- 		opaque_key = desc->opaque & RXD_OPAQUE_RING_MASK;
-@@ -4682,12 +4687,12 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
- 			tg3_recycle_rx(tnapi, tpr, opaque_key,
- 				       desc_idx, *post_ptr);
- 
--			copy_skb = netdev_alloc_skb(tp->dev,
--						    len + TG3_RAW_IP_ALIGN);
-+			copy_skb = netdev_alloc_skb(tp->dev, len + VLAN_HLEN +
-+						    TG3_RAW_IP_ALIGN);
- 			if (copy_skb == NULL)
- 				goto drop_it_no_recycle;
- 
--			skb_reserve(copy_skb, TG3_RAW_IP_ALIGN);
-+			skb_reserve(copy_skb, TG3_RAW_IP_ALIGN + VLAN_HLEN);
- 			skb_put(copy_skb, len);
- 			pci_dma_sync_single_for_cpu(tp->pdev, dma_addr, len, PCI_DMA_FROMDEVICE);
- 			skb_copy_from_linear_data(skb, copy_skb->data, len);
-@@ -4713,12 +4718,29 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
- 			goto next_pkt;
- 		}
- 
-+		if (desc->type_flags & RXD_FLAG_VLAN &&
-+		    !(tp->rx_mode & RX_MODE_KEEP_VLAN_TAG)) {
-+			vtag = desc->err_vlan & RXD_VLAN_MASK;
- #if TG3_VLAN_TAG_USED
--		if (tp->vlgrp != NULL &&
--		    desc->type_flags & RXD_FLAG_VLAN) {
--			vlan_gro_receive(&tnapi->napi, tp->vlgrp,
--					 desc->err_vlan & RXD_VLAN_MASK, skb);
--		} else
-+			if (tp->vlgrp)
-+				hw_vlan = true;
-+			else
++/* Due to a hardware bug, the 5701 can only DMA to memory addresses
++ * that are at least dword aligned when used in PCIX mode.  The driver
++ * works around this bug by double copying the packet.  This workaround
++ * is built into the normal double copy length check for efficiency.
++ *
++ * However, the double copy is only necessary on those architectures
++ * where unaligned memory accesses are inefficient.  For those architectures
++ * where unaligned memory accesses incur little penalty, we can reintegrate
++ * the 5701 in the normal rx path.  Doing so saves a device structure
++ * dereference by hardcoding the double copy threshold in place.
++ */
++#define TG3_RX_COPY_THRESHOLD		256
++#if NET_IP_ALIGN == 0 || defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS)
++	#define TG3_RX_COPY_THRESH(tp)	TG3_RX_COPY_THRESHOLD
++#else
++	#define TG3_RX_COPY_THRESH(tp)	((tp)->rx_copy_thresh)
 +#endif
-+			{
-+				struct vlan_ethhdr *ve = (struct vlan_ethhdr *)
-+						    __skb_push(skb, VLAN_HLEN);
 +
-+				memmove(ve, skb->data + VLAN_HLEN,
-+					ETH_ALEN * 2);
-+				ve->h_vlan_proto = htons(ETH_P_8021Q);
-+				ve->h_vlan_TCI = htons(vtag);
-+			}
-+		}
-+
-+#if TG3_VLAN_TAG_USED
-+		if (hw_vlan)
-+			vlan_gro_receive(&tnapi->napi, tp->vlgrp, vtag, skb);
-+		else
- #endif
- 			napi_gro_receive(&tnapi->napi, skb);
+ /* minimum number of free TX descriptors required to wake up TX process */
+ #define TG3_TX_WAKEUP_THRESH(tnapi)		((tnapi)->tx_pending / 4)
  
-@@ -13481,13 +13503,13 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 	else
+@@ -4639,12 +4657,7 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
+ 		len = ((desc->idx_len & RXD_LEN_MASK) >> RXD_LEN_SHIFT) -
+ 		      ETH_FCS_LEN;
+ 
+-		if (len > RX_COPY_THRESHOLD &&
+-		    tp->rx_offset == NET_IP_ALIGN) {
+-		    /* rx_offset will likely not equal NET_IP_ALIGN
+-		     * if this is a 5701 card running in PCI-X mode
+-		     * [see tg3_get_invariants()]
+-		     */
++		if (len > TG3_RX_COPY_THRESH(tp)) {
+ 			int skb_size;
+ 
+ 			skb_size = tg3_alloc_rx_skb(tp, tpr, opaque_key,
+@@ -13469,9 +13482,14 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
  		tp->tg3_flags &= ~TG3_FLAG_POLL_SERDES;
  
--	tp->rx_offset = NET_IP_ALIGN;
-+	tp->rx_offset = NET_IP_ALIGN + TG3_RX_HEADROOM;
- 	tp->rx_copy_thresh = TG3_RX_COPY_THRESHOLD;
+ 	tp->rx_offset = NET_IP_ALIGN;
++	tp->rx_copy_thresh = TG3_RX_COPY_THRESHOLD;
  	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701 &&
- 	    (tp->tg3_flags & TG3_FLAG_PCIX_MODE) != 0) {
--		tp->rx_offset = 0;
-+		tp->rx_offset -= NET_IP_ALIGN;
- #ifndef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
--		tp->rx_copy_thresh = ~0;
-+		tp->rx_copy_thresh = ~(u16)0;
- #endif
- 	}
+-	    (tp->tg3_flags & TG3_FLAG_PCIX_MODE) != 0)
++	    (tp->tg3_flags & TG3_FLAG_PCIX_MODE) != 0) {
+ 		tp->rx_offset = 0;
++#ifndef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
++		tp->rx_copy_thresh = ~0;
++#endif
++	}
  
+ 	tp->rx_std_max_post = TG3_RX_RING_SIZE;
+ 
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index 9e7fe0e..43dd1d2 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -23,8 +23,6 @@
+ #define TG3_BDINFO_NIC_ADDR		0xcUL /* 32-bit */
+ #define TG3_BDINFO_SIZE			0x10UL
+ 
+-#define RX_COPY_THRESHOLD		256
+-
+ #define TG3_RX_INTERNAL_RING_SZ_5906	32
+ 
+ #define RX_STD_MAX_SIZE			1536
+@@ -2754,9 +2752,11 @@ struct tg3 {
+ 	struct tg3_napi			napi[TG3_IRQ_MAX_VECS];
+ 	void				(*write32_rx_mbox) (struct tg3 *, u32,
+ 							    u32);
++	u32				rx_copy_thresh;
+ 	u32				rx_pending;
+ 	u32				rx_jumbo_pending;
+ 	u32				rx_std_max_post;
++	u32				rx_offset;
+ 	u32				rx_pkt_map_sz;
+ #if TG3_VLAN_TAG_USED
+ 	struct vlan_group		*vlgrp;
+@@ -2776,7 +2776,6 @@ struct tg3 {
+ 	unsigned long			last_event_jiffies;
+ 	};
+ 
+-	u32				rx_offset;
+ 	u32				tg3_flags;
+ #define TG3_FLAG_TAGGED_STATUS		0x00000001
+ #define TG3_FLAG_TXD_MBOX_HWBUG		0x00000002
 -- 
 1.6.4.4
 
