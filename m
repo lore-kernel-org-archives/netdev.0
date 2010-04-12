@@ -1,52 +1,58 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [PATCH 1/4] IPv6: keep route for tentative address
-Date: Mon, 12 Apr 2010 14:17:49 -0600
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FE4FCE12C@rrsmsx501.amr.corp.intel.com>
-References: <20100412154130.397252857@vyatta.com>
- <20100412154255.641453741@vyatta.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: BUG: using smp_processor_id() in preemptible [00000000] code:
+	avahi-daemon: caller is netif_rx
+Date: Mon, 12 Apr 2010 13:54:28 -0700
+Message-ID: <m2m65634d661004121354ta0189542l80473b82911e43f4@mail.gmail.com>
+References: <1271100042.9831.20.camel@localhost>
+	 <1271101251.16881.135.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Paris <eparis@redhat.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:54615 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752876Ab0DLURy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 16:17:54 -0400
-In-Reply-To: <20100412154255.641453741@vyatta.com>
-Content-Language: en-US
+Received: from smtp-out.google.com ([74.125.121.35]:15402 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753633Ab0DLUyc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 16:54:32 -0400
+Received: from wpaz9.hot.corp.google.com (wpaz9.hot.corp.google.com [172.24.198.73])
+	by smtp-out.google.com with ESMTP id o3CKsUdC006165
+	for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 22:54:30 +0200
+Received: from pzk31 (pzk31.prod.google.com [10.243.19.159])
+	by wpaz9.hot.corp.google.com with ESMTP id o3CKsSYQ004560
+	for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 13:54:29 -0700
+Received: by pzk31 with SMTP id 31so2101918pzk.33
+        for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 13:54:28 -0700 (PDT)
+In-Reply-To: <1271101251.16881.135.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> Recent changes preserve IPv6 address when link goes down (good).
-> But would cause address to point to dead dst entry (bad).
-> The simplest fix is to just not delete route if address is
-> being held for later use.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> 
-> --- a/net/ipv6/addrconf.c	2010-04-11 12:19:37.938082190 -0700
-> +++ b/net/ipv6/addrconf.c	2010-04-11 12:25:05.349309074 -0700
-> @@ -4046,7 +4046,8 @@ static void __ipv6_ifa_notify(int event,
->  			addrconf_leave_anycast(ifp);
->  		addrconf_leave_solict(ifp->idev, &ifp->addr);
->  		dst_hold(&ifp->rt->u.dst);
-> -		if (ip6_del_rt(ifp->rt))
-> +
-> +		if (ifp->dead && ip6_del_rt(ifp->rt))
->  			dst_free(&ifp->rt->u.dst);
->  		break;
->  	}
+> I would change ip_dev_loopback_xmit() to call netif_rx_ni() instead..=
+=2E
+>
+> David, Tom ?
+>
 
-Stephen,
+Would it be better to disable preemption in netif_rx?  Also note that
+with RFS we would be taking rcu_read_lock in netif_rx anyway and that
+could cover all the instances of smp_processor_id().
 
-With these series of patches (1-4) applied I am no longer seeing the
-hangs and warnings associated with ipv6. I ran few rounds of
-tests with resetting the interface and loading/unloading modules.
-
-Thanks a lot for looking into this!
-Emil
+> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+> index c65f18e..d1bcc9f 100644
+> --- a/net/ipv4/ip_output.c
+> +++ b/net/ipv4/ip_output.c
+> @@ -120,7 +120,7 @@ static int ip_dev_loopback_xmit(struct sk_buff *n=
+ewskb)
+> =A0 =A0 =A0 =A0newskb->pkt_type =3D PACKET_LOOPBACK;
+> =A0 =A0 =A0 =A0newskb->ip_summed =3D CHECKSUM_UNNECESSARY;
+> =A0 =A0 =A0 =A0WARN_ON(!skb_dst(newskb));
+> - =A0 =A0 =A0 netif_rx(newskb);
+> + =A0 =A0 =A0 netif_rx_ni(newskb);
+> =A0 =A0 =A0 =A0return 0;
+> =A0}
+>
+>
+>
+>
+>
