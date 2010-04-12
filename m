@@ -1,67 +1,125 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: Re: tulip_stop_rxtx() failed (CSR5 0xf0260000 CSR6 0xb3862002) on
-	DEC Alpha Personal Workstation 433au
-Date: Sun, 11 Apr 2010 21:44:52 -0600
-Message-ID: <20100412034452.GA22957@lackof.org>
-References: <20100405171318.GA18915@physik.fu-berlin.de>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] rps: add flow director support
+Date: Mon, 12 Apr 2010 11:58:55 +0800
+Message-ID: <r2s412e6f7f1004112058uf90bee88ud93690368ea59051@mail.gmail.com>
+References: <1271022140-3917-1-git-send-email-xiaosuo@gmail.com>
+	<1271001939.2078.61.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Grant Grundler <grundler@parisc-linux.org>,
-	Kyle McMartin <kyle@mcmartin.ca>,
-	"David S. Miller" <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Tom Herbert <therbert@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from complete.lackof.org ([198.49.126.79]:55435 "EHLO
-	complete.lackof.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751655Ab0DLDox (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 11 Apr 2010 23:44:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20100405171318.GA18915@physik.fu-berlin.de>
+Received: from mail-iw0-f197.google.com ([209.85.223.197]:58464 "EHLO
+	mail-iw0-f197.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750702Ab0DLEBJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 00:01:09 -0400
+Received: by iwn35 with SMTP id 35so810236iwn.21
+        for <netdev@vger.kernel.org>; Sun, 11 Apr 2010 21:01:09 -0700 (PDT)
+In-Reply-To: <1271001939.2078.61.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 05, 2010 at 07:13:18PM +0200, Adrian Glaubitz wrote:
-> Hi guys,
-> 
-> I installed Debian unstable on an old digital workstation "DEC Digital
-> Personal Workstation 433au" (Miata) which has an on-board tulip
-> network controller. I'm not really using that network controller but
-> an off-board intel e1000 controller. However, I found that the tulip
-> driver produces a lot of noise in the message log, the following
-> message is repated periodically and spams the whole message log:
-> 
-> 0000:00:03.0: tulip_stop_rxtx() failed (CSR5 0xf0260000 CSR6 0xb3862002)
-> 
-> Do you think this is related to the fact that no cable is connected to
-> the network controller?
+On Mon, Apr 12, 2010 at 12:05 AM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> Le lundi 12 avril 2010 =C3=A0 05:42 +0800, Changli Gao a =C3=A9crit :
+>
+> Changli
+>
+> I am a bit disappointed to find so many bugs in your patch.
 
-It shouldn't be. The "stop_rxtx failed" error is because either 
-CSR5_TS or CSR5_RS are still set in CSR5. This means the chip
-thinks the transmit or receive protocol engines are still running.
+:(. Thanks for your patiently review.
 
-What I suspect is the state isn't "running" by rather some other
-"hung" state caused by failed (lack of) link. This has been reported
-before but I've not looked that closely yet.
+>
+> I believe this is over engineering at this stage, we yet have to get
+> some benches or real world results.
 
-> The lspci output of the hardware looks like this:
-> 
-> test-adrian1:~# lspci
-> 00:03.0 Ethernet controller: Digital Equipment Corporation DECchip 21142/43 (rev 30)
-> 00:07.0 ISA bridge: Contaq Microsystems 82c693
-> 00:07.1 IDE interface: Contaq Microsystems 82c693
-> 00:07.2 IDE interface: Contaq Microsystems 82c693
-> 00:07.3 USB Controller: Contaq Microsystems 82c693
-> 00:0b.0 VGA compatible controller: Matrox Graphics, Inc. MGA 2064W [Millennium] (rev 01)
-> 00:14.0 PCI bridge: Digital Equipment Corporation DECchip 21152 (rev 03)
-> 01:04.0 SCSI storage controller: QLogic Corp. ISP1020 Fast-wide SCSI (rev 05)
-> 01:09.0 Ethernet controller: Intel Corporation 82541GI Gigabit Ethernet Controller
-> 
-> If you need anymore verbose or debug output, please let me know.
+OK. Leave this patch here for testing. And I'll post benchmarking after=
+ I do.
 
-I might. I first have to stare at the tulip programmers guide a while
-sort.
+>
+> Plus it conflicts with the much more interesting upcoming stuff (RFS)=
+=2E
+> You name this patch 'flow director', to get our attention, but it's a=
+n
+> old idea of you, to get different weights on cpus, that RPS is not ye=
+t
+> able to perform.
+>
 
-cheers,
-grant
+I don't think it conflicts with RFS. RFS is for applications, and RPS
+flow director is for firewalls and routers. Because softirqs aren't
+under scheduler control, in order to do softirq load balancing, we
+have to scheduler flows internally. At the same time, RPS flow
+director exposes more than the old design, and keeps the interface
+rps_cpus there.
+
+> Maybe this is the reason you forgot to CC Tom Herbert (and me) ?
+>
+
+Sorry for forgetting adding you and Tom to CC list.
+
+> Consider now :
+>
+> 1) echo 65000 >/sys/class/net/eth0/queues/rx-0/rps_flow_0
+> =C2=A0 possible crash, dereferencing a smaller cpumap.
+
+Yea, I supposed cpu_online() would check cpu was valid or not. After
+checking the code, I found that you were right. OK, I'll add this
+sanity check.
+
+if (cpu >=3D nr_cpumask_bits)
+      return -EINVAL;
+
+>
+> 2) echo 3000000000 >/sys/class/net/eth0/queues/rx-0/rps_flow_0
+> =C2=A0 probable crash, because of overflow in RPS_MAP_SIZE(flows)
+
+did you mean rps_flows? Yea, RPS_MAP_SIZE may overflow. Maybe I need
+check the upper boundary.
+
+if (flows > USHORT_MAX)
+     return -EINVAL;
+
+>
+> 3) How can rps_flow_attribute & rps_flow_attribute_size be static (on=
+e
+> instance for whole kernel), if your intent is to have a per rxqueue
+> attributes ? (/sys/class/net/eth0/queues/rx-0/ ...). Or the first lin=
+es
+> of update_rps_flow_files() are completely wrong...
+>
+> echo 10 > /sys/class/net/eth0/queues/rx-0/rps_flows
+> echo 2 > /sys/class/net/eth1/queues/rx-0/rps_flows
+> cat /sys/class/net/eth0/queues/rx-0/rps_flow_9
+
+Yea, each rxqueue has his own attributes. rps_flow_attribute is much
+like rps_cpus_attribute. As sysfs_create_file() and
+sysfs_remove_file() don't modify them, and only use them constantly,
+we can make them static for all the rxqueues.
+
+>
+> 4) Lack of atomic changes of the RPS flows -> many packet reordering =
+can
+> occur.
+
+Yea, if you do packet dispatching dynamically. I don't know how to
+avoid packet reordering totally. If OOO doesn't occur frequently, it
+isn't a real problem.
+
+>
+> 5) Many possible memory leaks in update_rps_flow_files(), you obvious=
+ly
+> were very lazy. We try to build a bug-free kernel, not only a 'cool
+> kernel', and if you are lazy, your patches wont be accepted.
+>
+
+Yea, I was lazy, and didn't shrink the rps_flow_attribute. I'll add
+reference counters for rps_flow_attributes to trace them usage, and
+free them when they aren't needed.
+
+
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
