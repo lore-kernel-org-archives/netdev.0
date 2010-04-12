@@ -1,65 +1,80 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: Strange packet drops with heavy firewalling
-Date: Tue, 13 Apr 2010 07:18:42 +0800
-Message-ID: <u2y412e6f7f1004121618p6d6eff30q8a45a03faa59a912@mail.gmail.com>
-References: <m339z50x1l.fsf@ursa.amorsen.dk> <q2v40c9f5b21004120116p766df82dj88c6af4e4cad55f@mail.gmail.com>
-	<1271083479.2858.377.camel@ursa.amorsen.dk> <p2x40c9f5b21004120833jd7a749cak6ea69cebd28f8352@mail.gmail.com>
-	<1271091990.2858.409.camel@ursa.amorsen.dk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: zhigang gong <zhigang.gong@gmail.com>, netdev@vger.kernel.org
-To: Benny Amorsen <benny+usenet@amorsen.dk>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH] vlan: remove receive checks for bonding
+Date: Mon, 12 Apr 2010 16:19:56 -0700
+Message-ID: <30741.1271114396@death.nxdomain.ibm.com>
+References: <20100412221645.8068.71073.stgit@localhost6.localdomain6> <20100412221723.8068.75393.stgit@localhost6.localdomain6>
+Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>,
+	Patrick McHardy <kaber@trash.net>,
+	bonding-devel@lists.sourceforge.net
+To: Chris Leech <christopher.leech@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f171.google.com ([209.85.210.171]:63173 "EHLO
-	mail-yx0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750776Ab0DLXTF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 19:19:05 -0400
-Received: by yxe1 with SMTP id 1so2818347yxe.33
-        for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 16:19:03 -0700 (PDT)
-In-Reply-To: <1271091990.2858.409.camel@ursa.amorsen.dk>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:60812 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751693Ab0DLXT7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 19:19:59 -0400
+Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
+	by e32.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id o3CNDAUu010187
+	for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 17:13:10 -0600
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o3CNJwe5133422
+	for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 17:19:58 -0600
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o3CGJvLA000336
+	for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 10:19:57 -0600
+In-reply-to: <20100412221723.8068.75393.stgit@localhost6.localdomain6>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCBBcHIgMTMsIDIwMTAgYXQgMTowNiBBTSwgQmVubnkgQW1vcnNlbiA8YmVubnkrdXNl
-bmV0QGFtb3JzZW4uZGs+IHdyb3RlOgo+Cj4gwqA5OTogwqAgwqAgwqAgwqAgMjQgwqAgwqAxMzA2
-MjI2IMKgIMKgIMKgIMKgIMKgMyDCoCDCoCDCoCDCoCDCoDIgwqAgUENJLU1TSS1lZGdlIMKgIMKg
-IMKgZXRoMS10eC0wCj4gwqAxMDA6IMKgIMKgIMKgMTU3MzUgwqAgwqAxNjQ4Nzc0IMKgIMKgIMKg
-IMKgIMKgMyDCoCDCoCDCoCDCoCDCoDcgwqAgUENJLU1TSS1lZGdlIMKgIMKgIMKgZXRoMS10eC0x
-Cj4gwqAxMDE6IMKgIMKgIMKgIMKgIMKgOCDCoCDCoCDCoCDCoCAxMSDCoCDCoCDCoCDCoCDCoDkg
-wqAgwqAxMDgzMDIyIMKgIFBDSS1NU0ktZWRnZSDCoCDCoCDCoGV0aDEtdHgtMgo+IMKgMTAyOiDC
-oCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDC
-oCDCoDAgwqAgUENJLU1TSS1lZGdlIMKgIMKgIMKgZXRoMS10eC0zCj4gwqAxMDM6IMKgIMKgIMKg
-IMKgIDE4IMKgIMKgIMKgIMKgIDE1IMKgIMKgIMKgIDYxMzEgwqAgwqAxMDk1MzgzIMKgIFBDSS1N
-U0ktZWRnZSDCoCDCoCDCoGV0aDEtcngtMAo+IMKgMTA0OiDCoCDCoCDCoCDCoDIxNyDCoCDCoCDC
-oCDCoCAzMiDCoCDCoCDCoDQ2NTQ0IMKgIMKgMTMzNTMyNSDCoCBQQ0ktTVNJLWVkZ2UgwqAgwqAg
-wqBldGgxLXJ4LTEKPiDCoDEwNTogwqAgwqAgwqAgwqAxNTQgwqAgwqAxMzA1NTk1IMKgIMKgIMKg
-IMKgMjE4IMKgIMKgIMKgIMKgIDE2IMKgIFBDSS1NU0ktZWRnZSDCoCDCoCDCoGV0aDEtcngtMgo+
-IMKgMTA2OiDCoCDCoCDCoCDCoCAxNyDCoCDCoCDCoCDCoCAxNiDCoCDCoCDCoCA4MjI5IMKgIMKg
-MTQ2NzUwOSDCoCBQQ0ktTVNJLWVkZ2UgwqAgwqAgwqBldGgxLXJ4LTMKPiDCoDEwNzogwqAgwqAg
-wqAgwqAgwqAwIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDEgwqAgwqAgwqAgwqAgwqAw
-IMKgIFBDSS1NU0ktZWRnZSDCoCDCoCDCoGV0aDEKPiDCoDEwODogwqAgwqAgwqAgwqAgwqAyIMKg
-IMKgIMKgIMKgIDE0IMKgIMKgIMKgIMKgIDE1IMKgIMKgMTAwMzA1MyDCoCBQQ0ktTVNJLWVkZ2Ug
-wqAgwqAgwqBldGgwLXR4LTAKPiDCoDEwOTogwqAgwqAgwqAgODIyNiDCoCDCoDE2Njg5MjQgwqAg
-wqAgwqAgwqA0NzggwqAgwqAgwqAgwqA0ODcgwqAgUENJLU1TSS1lZGdlIMKgIMKgIMKgZXRoMC10
-eC0xCj4gwqAxMTA6IMKgIMKgIMKgIMKgIMKgMyDCoCDCoDExODg4NzQgwqAgwqAgwqAgwqAgMTcg
-wqAgwqAgwqAgwqAgMTIgwqAgUENJLU1TSS1lZGdlIMKgIMKgIMKgZXRoMC10eC0yCj4gwqAxMTE6
-IMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAwIMKgIMKgIMKg
-IMKgIMKgMCDCoCBQQ0ktTVNJLWVkZ2UgwqAgwqAgwqBldGgwLXR4LTMKPiDCoDExMjogwqAgwqAg
-wqAgwqAyMDMgwqAgwqAgwqAgwqAxODUgwqAgwqAgwqAgNTMyNCDCoCDCoDEwMTUyNjMgwqAgUENJ
-LU1TSS1lZGdlIMKgIMKgIMKgZXRoMC1yeC0wCj4gwqAxMTM6IMKgIMKgIMKgIDQxNDEgwqAgwqAx
-NjAwNzkzIMKgIMKgIMKgIMKgMTUzIMKgIMKgIMKgIMKgMTU5IMKgIFBDSS1NU0ktZWRnZSDCoCDC
-oCDCoGV0aDAtcngtMQo+IMKgMTE0OiDCoCDCoCDCoDE2MjQyIMKgIMKgMTIxMDEwOCDCoCDCoCDC
-oCDCoDQzNiDCoCDCoCDCoCAzMTI0IMKgIFBDSS1NU0ktZWRnZSDCoCDCoCDCoGV0aDAtcngtMgo+
-IMKgMTE1OiDCoCDCoCDCoCDCoDI2NyDCoCDCoCDCoCA0MTczIMKgIMKgIMKgMTk0NzEgwqAgwqAx
-MzIxMjUyIMKgIFBDSS1NU0ktZWRnZSDCoCDCoCDCoGV0aDAtcngtMwo+IMKgMTE2OiDCoCDCoCDC
-oCDCoCDCoDAgwqAgwqAgwqAgwqAgwqAxIMKgIMKgIMKgIMKgIMKgMCDCoCDCoCDCoCDCoCDCoDAg
-wqAgUENJLU1TSS1lZGdlIMKgIMKgIMKgZXRoMAo+Cj4KPiBpcnFiYWxhbmNlZCBzZWVtcyB0byBo
-YXZlIHBpY2tlZCBDUFUxIGFuZCBDUFUzIGZvciBhbGwgdGhlIGludGVycnVwdHMsCj4gd2hpY2gg
-dG8gbXkgbWluZCBzaG91bGQgY2F1c2UgdGhlIHNhbWUgcHJvYmxlbSBhcyBiZWZvcmUgKHdoZXJl
-IENQVTEgYW5kCj4gQ1BVMyB3YXMgaGFuZGxpbmcgYWxsIHBhY2tldHMpLiBZZXQgdGhlIGJveCBj
-bGVhcmx5IHdvcmtzIG11Y2ggYmV0dGVyCj4gdGhhbiBiZWZvcmUuCgppcnFiYWxhbmNlZD8gSSBk
-b24ndCB0aGluayBpdCBjYW4gd29yayBwcm9wZXJseS4gVHJ5IFJQUyBpbiBuZXRkZXYgYW5kCmxp
-bnV4LW5leHQgdHJlZSwgYW5kIGlmIGNwdSBsb2FkIGlzbid0IGV2ZW4sIHRyeSB0aGlzIHBhdGNo
-OgpodHRwOi8vcGF0Y2h3b3JrLm96bGFicy5vcmcvcGF0Y2gvNDk5MTUvIC4KCgotLSAKUmVnYXJk
-c++8jApDaGFuZ2xpIEdhbyh4aWFvc3VvQGdtYWlsLmNvbSkK
+Chris Leech <christopher.leech@intel.com> wrote:
+
+>The checks in the hardware accelerated receive path are not up to date
+>with what's in netif_receive_skb, which will get called anyway if the
+>frame is not dropped in the vlan code.
+>
+>Signed-off-by: Chris Leech <christopher.leech@intel.com>
+
+NAK.
+
+	As I explained in a reply to Chris's separate message detailing
+the problem he sees, the skb_bond_should_drop logic as implemented is
+dependent upon knowing the original skb->dev the packet arrived on,
+prior to VLAN reassigning it.
+
+	That's not to say there's nothing wrong here, but removing the
+calls with break other things.
+
+	-J
+
+>---
+>
+> net/8021q/vlan_core.c |    6 ------
+> 1 files changed, 0 insertions(+), 6 deletions(-)
+>
+>diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+>index c584a0a..7576f9c 100644
+>--- a/net/8021q/vlan_core.c
+>+++ b/net/8021q/vlan_core.c
+>@@ -11,9 +11,6 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
+> 	if (netpoll_rx(skb))
+> 		return NET_RX_DROP;
+>
+>-	if (skb_bond_should_drop(skb, ACCESS_ONCE(skb->dev->master)))
+>-		goto drop;
+>-
+> 	skb->skb_iif = skb->dev->ifindex;
+> 	__vlan_hwaccel_put_tag(skb, vlan_tci);
+> 	skb->dev = vlan_group_get_device(grp, vlan_tci & VLAN_VID_MASK);
+>@@ -83,9 +80,6 @@ vlan_gro_common(struct napi_struct *napi, struct vlan_group *grp,
+> {
+> 	struct sk_buff *p;
+>
+>-	if (skb_bond_should_drop(skb, ACCESS_ONCE(skb->dev->master)))
+>-		goto drop;
+>-
+> 	skb->skb_iif = skb->dev->ifindex;
+> 	__vlan_hwaccel_put_tag(skb, vlan_tci);
+> 	skb->dev = vlan_group_get_device(grp, vlan_tci & VLAN_VID_MASK);
+>
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
