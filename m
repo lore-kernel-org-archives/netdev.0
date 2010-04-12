@@ -1,104 +1,104 @@
-From: Benny Amorsen <benny+usenet@amorsen.dk>
-Subject: Re: Strange packet drops with heavy firewalling
-Date: Mon, 12 Apr 2010 19:06:30 +0200
-Message-ID: <1271091990.2858.409.camel@ursa.amorsen.dk>
-References: <m339z50x1l.fsf@ursa.amorsen.dk>
-	 <q2v40c9f5b21004120116p766df82dj88c6af4e4cad55f@mail.gmail.com>
-	 <1271083479.2858.377.camel@ursa.amorsen.dk>
-	 <p2x40c9f5b21004120833jd7a749cak6ea69cebd28f8352@mail.gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH] rps: add flow director support
+Date: Mon, 12 Apr 2010 10:13:03 -0700
+Message-ID: <h2m65634d661004121013uf2c86b81ndded3bb138dee7a9@mail.gmail.com>
+References: <1271022140-3917-1-git-send-email-xiaosuo@gmail.com>
+	 <z2o65634d661004120634h8336409er33af1fb75c2a9d1b@mail.gmail.com>
+	 <u2m412e6f7f1004120727ga219ab9dr75ee522fba6f63c6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: zhigang gong <zhigang.gong@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate1.ipvision.dk ([94.127.49.2]:36779 "EHLO gate1.ipvision.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751515Ab0DLRIe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Apr 2010 13:08:34 -0400
-In-Reply-To: <p2x40c9f5b21004120833jd7a749cak6ea69cebd28f8352@mail.gmail.com>
+Received: from smtp-out.google.com ([74.125.121.35]:56343 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753414Ab0DLRNJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 13:13:09 -0400
+Received: from kpbe15.cbf.corp.google.com (kpbe15.cbf.corp.google.com [172.25.105.79])
+	by smtp-out.google.com with ESMTP id o3CHD6uK019648
+	for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 19:13:07 +0200
+Received: from pvc22 (pvc22.prod.google.com [10.241.209.150])
+	by kpbe15.cbf.corp.google.com with ESMTP id o3CHD4GK011108
+	for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 10:13:05 -0700
+Received: by pvc22 with SMTP id 22so3313760pvc.25
+        for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 10:13:04 -0700 (PDT)
+In-Reply-To: <u2m412e6f7f1004120727ga219ab9dr75ee522fba6f63c6@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-man, 12 04 2010 kl. 23:33 +0800, skrev zhigang gong:
+On Mon, Apr 12, 2010 at 7:27 AM, Changli Gao <xiaosuo@gmail.com> wrote:
+> On Mon, Apr 12, 2010 at 9:34 PM, Tom Herbert <therbert@google.com> wr=
+ote:
+>> On Sun, Apr 11, 2010 at 2:42 PM, Changli Gao <xiaosuo@gmail.com> wro=
+te:
+>>> add rps flow director support
+>>>
+>>> with rps flow director, users can do weighted packet dispatching am=
+ong CPUs.
+>>> For example, CPU0:CPU1 is 1:3 for eth0's rx-0:
+>>>
+>> "Flow director" is a misnomer here in that it has no per flow
+>> awareness, that is what RFS provides. =C2=A0Please use a different n=
+ame.
+>
+> Flow here is a bundle of flow, not the original meaning. How about
+> "rps_buckets" and "rps_bucket_x"?
+>
 
->  
-> Now, I agree with Eric's analysis, there may be some bursts, for
-> example a burst of a bunch of first packets for different new flows.
-> What mode are you using the ethernet driver in? I guess it's NAPI,
-> right?
+Ideally, this should replace rps_cpus if it's a better interface....
+right now these would be conflicting interfaces.
 
-I presume so.
+>>
+>>> =C2=A0localhost linux # echo 4 > /sys/class/net/eth0/queues/rx-0/rp=
+s_flows
+>>> =C2=A0localhost linux # echo 0 > /sys/class/net/eth0/queues/rx-0/rp=
+s_flow_0
+>>> =C2=A0localhost linux # echo 1 > /sys/class/net/eth0/queues/rx-0/rp=
+s_flow_1
+>>> =C2=A0localhost linux # echo 1 > /sys/class/net/eth0/queues/rx-0/rp=
+s_flow_2
+>>> =C2=A0localhost linux # echo 1 > /sys/class/net/eth0/queues/rx-0/rp=
+s_flow_3
+>>>
+>> It might be better to put this in its own directory
+>
+> I have thought that before, but since they control the same data in
+> kernel as rps_cpus does, I put them in the same directory.
+>
+>> and also do it per
+>> CPU instead of hash entry. =C2=A0This should result in a lot fewer e=
+ntries
+>> and I'm not sure how you would deal with holes in the hash table for
+>> unspecified entries. =C2=A0Also, it would be nice not to have to spe=
+cify a
+>> number of entries. =C2=A0Maybe something like:
+>>
+>> localhost linux # echo 1 > /sys/class/net/eth0/queues/rx-0/rps_cpu_m=
+ap/0
+>> localhost linux # echo 3 > /sys/class/net/eth0/queues/rx-0/rps_cpu_m=
+ap/1
+>>
+>> To specify CPU 0 with weight 1, CPU 1 with weight 3.
+>>
+>
+> Your way is more simple and straightforward. My idea has it own advan=
+tage:
+> 1. control the rate precision through rps_flows.
+> 2. do dynamic weighted packet dispatching by migrating some flows fro=
+m
+> some CPUs to other CPUs. During this operations, only the flows
+> migrated are affected, and OOO only occurs in these flows.
 
->  And whether your time consumption workload is handled in soft-irq
-> context or in a user space process? 
+It's probably a little more work, but the CPU->weight mappings could
+be implemented to cause minimal disruption in the rps_map.  Also, if
+OOO is an issue, then the mitigation technique in RFS could be applied
+(this will work best when hash table is larger I believe).
 
-soft-irq, the box is doing pure iptables. The only time it does a little
-bit of user-space work is when I use conntrackd, but killing conntrackd
-does not affect the packet loss measurably.
+Tom
 
-I switched to a 82576-based card, and now I get:
-
-             3341.00 -  4.9% : _spin_lock
-             2506.00 -  3.7% : irq_entries_start
-             2163.00 -  3.2% : _spin_lock_irqsave
-             1616.00 -  2.4% : native_read_tsc
-             1572.00 -  2.3% : igb_poll	[igb]
-             1386.00 -  2.0% : get_partial_node
-             1236.00 -  1.8% : igb_clean_tx_irq	[igb]
-             1205.00 -  1.8% : igb_xmit_frame_adv	[igb]
-             1170.00 -  1.7% : ipt_do_table
-             1049.00 -  1.6% : fget_light
-             1015.00 -  1.5% : tick_nohz_stop_sched_tick
-              967.00 -  1.4% : fput
-              945.00 -  1.4% : __slab_free
-              919.00 -  1.4% : datagram_poll
-              874.00 -  1.3% : dev_queue_xmit
-
-And it seems the packet loss is gone!
-
-# ethtool -S eth0|fgrep drop
-     tx_dropped: 0
-     rx_queue_drop_packet_count: 0
-     dropped_smbus: 0
-     rx_queue_0_drops: 0
-     rx_queue_1_drops: 0
-     rx_queue_2_drops: 0
-     rx_queue_3_drops: 0
-
-I'm a bit surprised by this though:
- 
-  99:         24    1306226          3          2   PCI-MSI-edge      eth1-tx-0
- 100:      15735    1648774          3          7   PCI-MSI-edge      eth1-tx-1
- 101:          8         11          9    1083022   PCI-MSI-edge      eth1-tx-2
- 102:          0          0          0          0   PCI-MSI-edge      eth1-tx-3
- 103:         18         15       6131    1095383   PCI-MSI-edge      eth1-rx-0
- 104:        217         32      46544    1335325   PCI-MSI-edge      eth1-rx-1
- 105:        154    1305595        218         16   PCI-MSI-edge      eth1-rx-2
- 106:         17         16       8229    1467509   PCI-MSI-edge      eth1-rx-3
- 107:          0          0          1          0   PCI-MSI-edge      eth1
- 108:          2         14         15    1003053   PCI-MSI-edge      eth0-tx-0
- 109:       8226    1668924        478        487   PCI-MSI-edge      eth0-tx-1
- 110:          3    1188874         17         12   PCI-MSI-edge      eth0-tx-2
- 111:          0          0          0          0   PCI-MSI-edge      eth0-tx-3
- 112:        203        185       5324    1015263   PCI-MSI-edge      eth0-rx-0
- 113:       4141    1600793        153        159   PCI-MSI-edge      eth0-rx-1
- 114:      16242    1210108        436       3124   PCI-MSI-edge      eth0-rx-2
- 115:        267       4173      19471    1321252   PCI-MSI-edge      eth0-rx-3
- 116:          0          1          0          0   PCI-MSI-edge      eth0
-
-
-irqbalanced seems to have picked CPU1 and CPU3 for all the interrupts,
-which to my mind should cause the same problem as before (where CPU1 and
-CPU3 was handling all packets). Yet the box clearly works much better
-than before.
-
-Anyway, this brings the saga to an end from my point of view. Thank you
-very much for looking into this, you and Eric Dumazet have been
-invaluable!
-
-
-/Benny
-
-
-
+>
+> --
+> Regards=EF=BC=8C
+> Changli Gao(xiaosuo@gmail.com)
+>
