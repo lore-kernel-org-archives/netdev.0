@@ -1,104 +1,110 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH] rps: add flow director support
-Date: Mon, 12 Apr 2010 10:13:03 -0700
-Message-ID: <h2m65634d661004121013uf2c86b81ndded3bb138dee7a9@mail.gmail.com>
-References: <1271022140-3917-1-git-send-email-xiaosuo@gmail.com>
-	 <z2o65634d661004120634h8336409er33af1fb75c2a9d1b@mail.gmail.com>
-	 <u2m412e6f7f1004120727ga219ab9dr75ee522fba6f63c6@mail.gmail.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [PATCH] vhost: Make it more scalable by creating a vhost
+	thread per device.
+Date: Mon, 12 Apr 2010 10:35:31 -0700
+Message-ID: <1271093731.1467.25.camel@w-sridhar.beaverton.ibm.com>
+References: <1270229480.13897.8.camel@w-sridhar.beaverton.ibm.com>
+	 <1270488911.27874.43.camel@w-sridhar.beaverton.ibm.com>
+	 <1270771542.31186.397.camel@w-sridhar.beaverton.ibm.com>
+	 <20100411154719.GA9681@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:56343 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753414Ab0DLRNJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 13:13:09 -0400
-Received: from kpbe15.cbf.corp.google.com (kpbe15.cbf.corp.google.com [172.25.105.79])
-	by smtp-out.google.com with ESMTP id o3CHD6uK019648
-	for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 19:13:07 +0200
-Received: from pvc22 (pvc22.prod.google.com [10.241.209.150])
-	by kpbe15.cbf.corp.google.com with ESMTP id o3CHD4GK011108
-	for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 10:13:05 -0700
-Received: by pvc22 with SMTP id 22so3313760pvc.25
-        for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 10:13:04 -0700 (PDT)
-In-Reply-To: <u2m412e6f7f1004120727ga219ab9dr75ee522fba6f63c6@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Tom Lendacky <toml@us.ibm.com>, netdev <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20100411154719.GA9681@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 12, 2010 at 7:27 AM, Changli Gao <xiaosuo@gmail.com> wrote:
-> On Mon, Apr 12, 2010 at 9:34 PM, Tom Herbert <therbert@google.com> wr=
-ote:
->> On Sun, Apr 11, 2010 at 2:42 PM, Changli Gao <xiaosuo@gmail.com> wro=
-te:
->>> add rps flow director support
->>>
->>> with rps flow director, users can do weighted packet dispatching am=
-ong CPUs.
->>> For example, CPU0:CPU1 is 1:3 for eth0's rx-0:
->>>
->> "Flow director" is a misnomer here in that it has no per flow
->> awareness, that is what RFS provides. =C2=A0Please use a different n=
-ame.
->
-> Flow here is a bundle of flow, not the original meaning. How about
-> "rps_buckets" and "rps_bucket_x"?
->
+On Sun, 2010-04-11 at 18:47 +0300, Michael S. Tsirkin wrote:
+> On Thu, Apr 08, 2010 at 05:05:42PM -0700, Sridhar Samudrala wrote:
+> > On Mon, 2010-04-05 at 10:35 -0700, Sridhar Samudrala wrote:
+> > > On Sun, 2010-04-04 at 14:14 +0300, Michael S. Tsirkin wrote:
+> > > > On Fri, Apr 02, 2010 at 10:31:20AM -0700, Sridhar Samudrala wrote:
+> > > > > Make vhost scalable by creating a separate vhost thread per vhost
+> > > > > device. This provides better scaling across multiple guests and with
+> > > > > multiple interfaces in a guest.
+> > > > 
+> > > > Thanks for looking into this. An alternative approach is
+> > > > to simply replace create_singlethread_workqueue with
+> > > > create_workqueue which would get us a thread per host CPU.
+> > > > 
+> > > > It seems that in theory this should be the optimal approach
+> > > > wrt CPU locality, however, in practice a single thread
+> > > > seems to get better numbers. I have a TODO to investigate this.
+> > > > Could you try looking into this?
+> > > 
+> > > Yes. I tried using create_workqueue(), but the results were not good
+> > > atleast when the number of guest interfaces is less than the number
+> > > of CPUs. I didn't try more than 8 guests.
+> > > Creating a separate thread per guest interface seems to be more
+> > > scalable based on the testing i have done so far.
+> > > 
+> > > I will try some more tests and get some numbers to compare the following
+> > > 3 options.
+> > > - single vhost thread
+> > > - vhost thread per cpu
+> > > - vhost thread per guest virtio interface
+> > 
+> > Here are the results with netperf TCP_STREAM 64K guest to host on a
+> > 8-cpu Nehalem system. It shows cumulative bandwidth in Mbps and host 
+> > CPU utilization.
+> > 
+> > Current default single vhost thread
+> > -----------------------------------
+> > 1 guest:  12500  37%    
+> > 2 guests: 12800  46%
+> > 3 guests: 12600  47%
+> > 4 guests: 12200  47%
+> > 5 guests: 12000  47%
+> > 6 guests: 11700  47%
+> > 7 guests: 11340  47%
+> > 8 guests: 11200  48%
+> > 
+> > vhost thread per cpu
+> > --------------------
+> > 1 guest:   4900 25%
+> > 2 guests: 10800 49%
+> > 3 guests: 17100 67%
+> > 4 guests: 20400 84%
+> > 5 guests: 21000 90%
+> > 6 guests: 22500 92%
+> > 7 guests: 23500 96%
+> > 8 guests: 24500 99%
+> > 
+> > vhost thread per guest interface
+> > --------------------------------
+> > 1 guest:  12500 37%
+> > 2 guests: 21000 72%
+> > 3 guests: 21600 79%
+> > 4 guests: 21600 85%
+> > 5 guests: 22500 89%
+> > 6 guests: 22800 94%
+> > 7 guests: 24500 98%
+> > 8 guests: 26400 99%
+> > 
+> > Thanks
+> > Sridhar
+> 
+> 
+> Consider using Ingo's perf tool to get error bars, but looks good
+> overall. 
 
-Ideally, this should replace rps_cpus if it's a better interface....
-right now these would be conflicting interfaces.
+What do you mean by getting error bars?
 
->>
->>> =C2=A0localhost linux # echo 4 > /sys/class/net/eth0/queues/rx-0/rp=
-s_flows
->>> =C2=A0localhost linux # echo 0 > /sys/class/net/eth0/queues/rx-0/rp=
-s_flow_0
->>> =C2=A0localhost linux # echo 1 > /sys/class/net/eth0/queues/rx-0/rp=
-s_flow_1
->>> =C2=A0localhost linux # echo 1 > /sys/class/net/eth0/queues/rx-0/rp=
-s_flow_2
->>> =C2=A0localhost linux # echo 1 > /sys/class/net/eth0/queues/rx-0/rp=
-s_flow_3
->>>
->> It might be better to put this in its own directory
->
-> I have thought that before, but since they control the same data in
-> kernel as rps_cpus does, I put them in the same directory.
->
->> and also do it per
->> CPU instead of hash entry. =C2=A0This should result in a lot fewer e=
-ntries
->> and I'm not sure how you would deal with holes in the hash table for
->> unspecified entries. =C2=A0Also, it would be nice not to have to spe=
-cify a
->> number of entries. =C2=A0Maybe something like:
->>
->> localhost linux # echo 1 > /sys/class/net/eth0/queues/rx-0/rps_cpu_m=
-ap/0
->> localhost linux # echo 3 > /sys/class/net/eth0/queues/rx-0/rps_cpu_m=
-ap/1
->>
->> To specify CPU 0 with weight 1, CPU 1 with weight 3.
->>
->
-> Your way is more simple and straightforward. My idea has it own advan=
-tage:
-> 1. control the rate precision through rps_flows.
-> 2. do dynamic weighted packet dispatching by migrating some flows fro=
-m
-> some CPUs to other CPUs. During this operations, only the flows
-> migrated are affected, and OOO only occurs in these flows.
+> One thing I note though is that we seem to be able to
+> consume up to 99% CPU now. So I think with this approach
+> we can no longer claim that we are just like some other parts of
+> networking stack, doing work outside any cgroup, and we should
+> make the vhost thread inherit the cgroup and cpu mask
+> from the process calling SET_OWNER.
 
-It's probably a little more work, but the CPU->weight mappings could
-be implemented to cause minimal disruption in the rps_map.  Also, if
-OOO is an issue, then the mitigation technique in RFS could be applied
-(this will work best when hash table is larger I believe).
+Yes. I am not sure what is the right interface to do this, but this
+should also allow binding qemu to a set of cpus and automatically having
+vhost thread inherit the same cpu mask.
 
-Tom
+Thanks
+Sridhar
 
->
-> --
-> Regards=EF=BC=8C
-> Changli Gao(xiaosuo@gmail.com)
->
