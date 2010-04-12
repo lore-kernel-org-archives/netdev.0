@@ -1,52 +1,40 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 2/4] IPv6: keep tentative addresses in hash table
-Date: Mon, 12 Apr 2010 08:41:32 -0700
-Message-ID: <20100412154255.722417369@vyatta.com>
+Subject: [PATCH 1/4] IPv6: keep route for tentative address
+Date: Mon, 12 Apr 2010 08:41:31 -0700
+Message-ID: <20100412154255.641453741@vyatta.com>
 References: <20100412154130.397252857@vyatta.com>
 Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+To: "David S. Miller" <davem@davemloft.net>,
+	"Tantilov, Emil S" <emil.s.tantilov@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:47330 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:47327 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751388Ab0DLPql (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Apr 2010 11:46:41 -0400
-Content-Disposition: inline; filename=ipv6-addrconf2.patch
+	id S1751999Ab0DLPqi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Apr 2010 11:46:38 -0400
+Content-Disposition: inline; filename=ipv6-addrconf1.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When link goes down, want address to be preserved but in a tentative
-state, therefore it has to stay in hash list.
+Recent changes preserve IPv6 address when link goes down (good).
+But would cause address to point to dead dst entry (bad).
+The simplest fix is to just not delete route if address is
+being held for later use.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/net/ipv6/addrconf.c	2010-04-11 12:25:05.349309074 -0700
-+++ b/net/ipv6/addrconf.c	2010-04-11 12:25:10.408996382 -0700
-@@ -2703,17 +2703,18 @@ static int addrconf_ifdown(struct net_de
- 			/* Flag it for later restoration when link comes up */
- 			ifa->flags |= IFA_F_TENTATIVE;
- 			in6_ifa_hold(ifa);
-+			write_unlock_bh(&idev->lock);
- 		} else {
- 			list_del(&ifa->if_list);
- 			ifa->dead = 1;
--		}
--		write_unlock_bh(&idev->lock);
-+			write_unlock_bh(&idev->lock);
- 
--		/* clear hash table */
--		spin_lock_bh(&addrconf_hash_lock);
--		hlist_del_init_rcu(&ifa->addr_lst);
--		__in6_ifa_put(ifa);
--		spin_unlock_bh(&addrconf_hash_lock);
-+			/* clear hash table */
-+			spin_lock_bh(&addrconf_hash_lock);
-+			hlist_del_init_rcu(&ifa->addr_lst);
-+			__in6_ifa_put(ifa);
-+			spin_unlock_bh(&addrconf_hash_lock);
-+		}
- 
- 		__ipv6_ifa_notify(RTM_DELADDR, ifa);
- 		atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
+
+--- a/net/ipv6/addrconf.c	2010-04-11 12:19:37.938082190 -0700
++++ b/net/ipv6/addrconf.c	2010-04-11 12:25:05.349309074 -0700
+@@ -4046,7 +4046,8 @@ static void __ipv6_ifa_notify(int event,
+ 			addrconf_leave_anycast(ifp);
+ 		addrconf_leave_solict(ifp->idev, &ifp->addr);
+ 		dst_hold(&ifp->rt->u.dst);
+-		if (ip6_del_rt(ifp->rt))
++
++		if (ifp->dead && ip6_del_rt(ifp->rt))
+ 			dst_free(&ifp->rt->u.dst);
+ 		break;
+ 	}
 
 -- 
 
