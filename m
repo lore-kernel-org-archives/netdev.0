@@ -1,50 +1,143 @@
-From: stephen mulcahy <smulcahy@gmail.com>
-Subject: Re: forcedeth driver hangs under heavy load
-Date: Tue, 13 Apr 2010 16:00:25 +0100
-Message-ID: <4BC48709.7060600@gmail.com>
-References: <4B9E6C60.7030300@atlanticlinux.ie>	 <20100315182220.GQ2763@decadent.org.uk> <4B9F5E5E.2060209@atlanticlinux.ie>				 <1270393967.8341.11.camel@localhost> <4BBCA19C.5080204@atlanticlinux.ie>				 <1270942606.6179.64.camel@localhost> <4BC2EF88.3060203@atlanticlinux.ie>				 <4BC31486.1090603@gmail.com> <1271076426.16881.21.camel@edumazet-laptop>				 <4BC31AA0.5070006@gmail.com> <4BC31DDE.7010005@gmail.com>				 <1271085862.16881.38.camel@edumazet-laptop> <4BC3461D.3070002@gmail.com>			 <1271091581.16881.41.camel@edumazet-laptop> <4BC44167.4080807@gmail.com>		 <1271155766.16881.245.camel@edumazet-laptop> <4BC44EC8.1010104@gmail.com>	 <1271160298.2098.0.camel@achroite.uk.solarflarecom.com>	 <4BC47F38.5040509@gmail.com> <1271169741.16881.437.camel@edumazet-laptop> <4BC48460.4040001@gma
- il.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	netdev <netdev@vger.kernel.org>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Ayaz Abdulla <aabdulla@nvidia.com>, 572201@bugs.debian.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH 1/9] net: fib_rules: consolidate IPv4 and DECnet ->default_pref() functions.
+Date: Tue, 13 Apr 2010 17:03:15 +0200
+Message-ID: <1271171003-11901-2-git-send-email-kaber@trash.net>
+References: <1271171003-11901-1-git-send-email-kaber@trash.net>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from viefep14-int.chello.at ([62.179.121.34]:9715 "EHLO
-	viefep14-int.chello.at" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752356Ab0DMPAh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 11:00:37 -0400
-In-Reply-To: <4BC48460.4040001@gmail.com>
+Received: from stinky.trash.net ([213.144.137.162]:51252 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752165Ab0DMPD0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 11:03:26 -0400
+In-Reply-To: <1271171003-11901-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-stephen mulcahy wrote:
->> Now some brave fouls to check the 6410 lines of this driver ? ;)
->>
->> Question of the day : Why TSO is broken in forcedeth ?
->> Is it generically broken or is it broken for specific NICS ?
->>
-> 
-> Actually, it is only when tx-checksumming is turned off that the problem 
->  doesn't occur (so I'm not sure TSO is the problem).
-> 
-> Additionally, a google also turns up this existing Debian bug 
-> http://bugs.debian.org/506419 which seems to be related.
+Both functions are equivalent, consolidate them since a following patch
+needs a third implementation for multicast routing.
 
-As mentioned in the original Debian bug - I can reproduce this by 
-running Hadoop[1] TeraSort[2] but I haven't identified a simpler 
-reproducer. I tried to recreate this with iperf and ping -f but neither 
-helped - it may be that the problem only occurs when systems are passing 
-large amounts of traffic and have very high cpu utilisation (when 
-running the Hadoop TeraSort all 8 cores run at 70-100% utilisation as 
-measure with htop - I plan to instrument the nodes with something like 
-Zabbix or Ganglia but it hasn't happened yet).
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ include/net/fib_rules.h |    1 +
+ net/core/fib_rules.c    |   18 ++++++++++++++++++
+ net/decnet/dn_rules.c   |   19 +------------------
+ net/ipv4/fib_rules.c    |   19 +------------------
+ 4 files changed, 21 insertions(+), 36 deletions(-)
 
--stephen
+diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+index c49086d..52bd9e6 100644
+--- a/include/net/fib_rules.h
++++ b/include/net/fib_rules.h
+@@ -114,4 +114,5 @@ extern int			fib_rules_lookup(struct fib_rules_ops *,
+ extern int			fib_default_rule_add(struct fib_rules_ops *,
+ 						     u32 pref, u32 table,
+ 						     u32 flags);
++extern u32			fib_default_rule_pref(struct fib_rules_ops *ops);
+ #endif
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 05cce4e..1eb3227 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -39,6 +39,24 @@ int fib_default_rule_add(struct fib_rules_ops *ops,
+ }
+ EXPORT_SYMBOL(fib_default_rule_add);
+ 
++u32 fib_default_rule_pref(struct fib_rules_ops *ops)
++{
++	struct list_head *pos;
++	struct fib_rule *rule;
++
++	if (!list_empty(&ops->rules_list)) {
++		pos = ops->rules_list.next;
++		if (pos->next != &ops->rules_list) {
++			rule = list_entry(pos->next, struct fib_rule, list);
++			if (rule->pref)
++				return rule->pref - 1;
++		}
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL(fib_default_rule_pref);
++
+ static void notify_rule_change(int event, struct fib_rule *rule,
+ 			       struct fib_rules_ops *ops, struct nlmsghdr *nlh,
+ 			       u32 pid);
+diff --git a/net/decnet/dn_rules.c b/net/decnet/dn_rules.c
+index 7466c54..2d14093 100644
+--- a/net/decnet/dn_rules.c
++++ b/net/decnet/dn_rules.c
+@@ -212,23 +212,6 @@ nla_put_failure:
+ 	return -ENOBUFS;
+ }
+ 
+-static u32 dn_fib_rule_default_pref(struct fib_rules_ops *ops)
+-{
+-	struct list_head *pos;
+-	struct fib_rule *rule;
+-
+-	if (!list_empty(&dn_fib_rules_ops->rules_list)) {
+-		pos = dn_fib_rules_ops->rules_list.next;
+-		if (pos->next != &dn_fib_rules_ops->rules_list) {
+-			rule = list_entry(pos->next, struct fib_rule, list);
+-			if (rule->pref)
+-				return rule->pref - 1;
+-		}
+-	}
+-
+-	return 0;
+-}
+-
+ static void dn_fib_rule_flush_cache(struct fib_rules_ops *ops)
+ {
+ 	dn_rt_cache_flush(-1);
+@@ -243,7 +226,7 @@ static struct fib_rules_ops dn_fib_rules_ops_template = {
+ 	.configure	= dn_fib_rule_configure,
+ 	.compare	= dn_fib_rule_compare,
+ 	.fill		= dn_fib_rule_fill,
+-	.default_pref	= dn_fib_rule_default_pref,
++	.default_pref	= fib_default_rule_pref,
+ 	.flush_cache	= dn_fib_rule_flush_cache,
+ 	.nlgroup	= RTNLGRP_DECnet_RULE,
+ 	.policy		= dn_fib_rule_policy,
+diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
+index ca2d07b..73b6784 100644
+--- a/net/ipv4/fib_rules.c
++++ b/net/ipv4/fib_rules.c
+@@ -234,23 +234,6 @@ nla_put_failure:
+ 	return -ENOBUFS;
+ }
+ 
+-static u32 fib4_rule_default_pref(struct fib_rules_ops *ops)
+-{
+-	struct list_head *pos;
+-	struct fib_rule *rule;
+-
+-	if (!list_empty(&ops->rules_list)) {
+-		pos = ops->rules_list.next;
+-		if (pos->next != &ops->rules_list) {
+-			rule = list_entry(pos->next, struct fib_rule, list);
+-			if (rule->pref)
+-				return rule->pref - 1;
+-		}
+-	}
+-
+-	return 0;
+-}
+-
+ static size_t fib4_rule_nlmsg_payload(struct fib_rule *rule)
+ {
+ 	return nla_total_size(4) /* dst */
+@@ -272,7 +255,7 @@ static struct fib_rules_ops fib4_rules_ops_template = {
+ 	.configure	= fib4_rule_configure,
+ 	.compare	= fib4_rule_compare,
+ 	.fill		= fib4_rule_fill,
+-	.default_pref	= fib4_rule_default_pref,
++	.default_pref	= fib_default_rule_pref,
+ 	.nlmsg_payload	= fib4_rule_nlmsg_payload,
+ 	.flush_cache	= fib4_rule_flush_cache,
+ 	.nlgroup	= RTNLGRP_IPV4_RULE,
+-- 
+1.7.0.4
 
-[1] http://hadoop.apache.org/
-[2] 
-http://hadoop.apache.org/common/docs/current/api/org/apache/hadoop/examples/terasort/package-summary.html
