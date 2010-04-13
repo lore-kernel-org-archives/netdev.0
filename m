@@ -1,74 +1,88 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] tun: orphan an skb on tx
-Date: Tue, 13 Apr 2010 17:59:44 +0300
-Message-ID: <20100413145944.GA7716@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: forcedeth driver hangs under heavy load
+Date: Tue, 13 Apr 2010 17:05:07 +0200
+Message-ID: <1271171107.16881.465.camel@edumazet-laptop>
+References: <4B9E6C60.7030300@atlanticlinux.ie>
+	 <20100315182220.GQ2763@decadent.org.uk> <4B9F5E5E.2060209@atlanticlinux.ie>
+	 <1270393967.8341.11.camel@localhost> <4BBCA19C.5080204@atlanticlinux.ie>
+	 <1270942606.6179.64.camel@localhost> <4BC2EF88.3060203@atlanticlinux.ie>
+					 <4BC31486.1090603@gmail.com>
+	 <1271076426.16881.21.camel@edumazet-laptop> <4BC31AA0.5070006@gmail.com>
+	 <4BC31DDE.7010005@gmail.com> <1271085862.16881.38.camel@edumazet-laptop>
+	 <4BC3461D.3070002@gmail.com>			 <1271091581.16881.41.camel@edumazet-laptop>
+	 <4BC44167.4080807@gmail.com>		 <1271155766.16881.245.camel@edumazet-laptop>
+	 <4BC44EC8.1010104@gmail.com>
+	 <1271160298.2098.0.camel@achroite.uk.solarflarecom.com>
+	 <4BC47F38.5040509@gmail.com> <1271169741.16881.437.camel@edumazet-laptop>
+	 <4BC48460.4040001@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Paul Moore <paul.moore@hp.com>,
-	David Woodhouse <David.Woodhouse@intel.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jan Kiszka <jan.kiszka@siemens.com>,
-	qemu-devel <qemu-devel@nongnu.org>
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	netdev <netdev@vger.kernel.org>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Ayaz Abdulla <aabdulla@nvidia.com>, 572201@bugs.debian.org
+To: stephen mulcahy <smulcahy@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:53494 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752201Ab0DMPFQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 11:05:16 -0400
+Received: by bwz19 with SMTP id 19so2577bwz.21
+        for <netdev@vger.kernel.org>; Tue, 13 Apr 2010 08:05:13 -0700 (PDT)
+In-Reply-To: <4BC48460.4040001@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The following situation was observed in the field:
-tap1 sends packets, tap2 does not consume them, as a result
-tap1 can not be closed. This happens because
-tun/tap devices can hang on to skbs undefinitely.
+Le mardi 13 avril 2010 =C3=A0 15:49 +0100, stephen mulcahy a =C3=A9crit=
+ :
+> Eric Dumazet wrote:
+> > Le mardi 13 avril 2010 =C3=A0 15:27 +0100, stephen mulcahy a =C3=A9=
+crit :
+> >> Ok, I've tried both of the following with my reproducer
+> >>
+> >> 1. ethtool -K eth0 tso off
+> >>
+> >> RESULT: reproducer causes multiple hosts to be come unresponsive o=
+n=20
+> >> first run.
+> >>
+> >> 2. ethtool -K eth0 tx off
+> >>
+> >> RESULT: reproducer runs three times without any hosts becoming unr=
+esponsive.
+> >>
+> >> -stephen
+> >=20
+> > Thanks Stephen !
+> >=20
+> > Now some brave fouls to check the 6410 lines of this driver ? ;)
+> >=20
+> > Question of the day : Why TSO is broken in forcedeth ?
+> > Is it generically broken or is it broken for specific NICS ?
+> >=20
+>=20
+> Actually, it is only when tx-checksumming is turned off that the prob=
+lem=20
+>   doesn't occur (so I'm not sure TSO is the problem).
+>=20
+> Additionally, a google also turns up this existing Debian bug=20
+> http://bugs.debian.org/506419 which seems to be related.
+>=20
+> -stephen
+>=20
 
-As noted by Herbert, possible solutions include a timeout followed by a
-copy/change of ownership of the skb, or always copying/changing
-ownership if we're going into a hostile device.
+I am scratching my head, but I thought you told me that
 
-This patch implements the second approach.
+ethtool -K eth0 tso off
+ethtool -K eth0 tx on=20
 
-Note: one issue still remaining is that since skbs
-keep reference to tun socket and tun socket has a
-reference to tun device, we won't flush backlog,
-instead simply waiting for all skbs to get transmitted.
-At least this is not user-triggerable, and
-this was not reported in practice, my assumption is
-other devices besides tap complete an skb
-within finite time after it has been queued.
+was working ?
 
-A possible solution for the second issue
-would not to have socket reference the device,
-instead, implement dev->destructor for tun, and
-wait for all skbs to complete there, but this
-needs some thought, probably too risky for 2.6.34.
+And, given that when you perform "ethtool -K eth0 tx off", TSO is
+automatically off...
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-Tested-by: Yan Vugenfirer <yvugenfi@redhat.com>
+tx checksums work, TSO doesnt work, therefore TSO is broken ?
 
----
 
-Please review the below, and consider for 2.6.34,
-and stable trees.
 
- drivers/net/tun.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 96c39bd..4326520 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -387,6 +387,10 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 		}
- 	}
- 
-+	/* Orphan the skb - required as we might hang on to it
-+	 * for indefinite time. */
-+	skb_orphan(skb);
-+
- 	/* Enqueue packet */
- 	skb_queue_tail(&tun->socket.sk->sk_receive_queue, skb);
- 	dev->trans_start = jiffies;
--- 
-1.7.0.2.280.gc6f05
