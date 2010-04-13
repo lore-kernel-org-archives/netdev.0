@@ -1,27 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] IPv6 addrconf related fixes
-Date: Tue, 13 Apr 2010 02:29:45 -0700 (PDT)
-Message-ID: <20100413.022945.254205251.davem@davemloft.net>
-References: <20100412154130.397252857@vyatta.com>
+From: gopala krishnan <gopu.0206@gmail.com>
+Subject: Re: Flooded with bonding: bond0: doing slave updates when interface is down.
+Date: Tue, 13 Apr 2010 07:55:01 +0000 (UTC)
+Message-ID: <loom.20100413T095142-137@post.gmane.org>
+References: <87mxzj6eyx.fsf@tac.ki.iif.hu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59986
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752428Ab0DMJ3l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 05:29:41 -0400
-In-Reply-To: <20100412154130.397252857@vyatta.com>
+Received: from lo.gmane.org ([80.91.229.12]:38184 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751305Ab0DMJkF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Apr 2010 05:40:05 -0400
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1O1cbD-0005Bo-OX
+	for netdev@vger.kernel.org; Tue, 13 Apr 2010 11:40:04 +0200
+Received: from ABTS-TN-Static-236.54.165.122.airtelbroadband.in ([ABTS-TN-Static-236.54.165.122.airtelbroadband.in])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 13 Apr 2010 11:40:03 +0200
+Received: from gopu.0206 by ABTS-TN-Static-236.54.165.122.airtelbroadband.in with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 13 Apr 2010 11:40:03 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Mon, 12 Apr 2010 08:41:30 -0700
+Hi I have a question, 
+Before adding a slave to a bond, is it we require to mave the slave interface
+down and add the slave to the bond and make the slave up.
+Then the traffic will be disruptive when adding a slave to the bond.
 
-> These apply to net-next, the problems do not exist in earlier kernels.
-> The problems started when I added changes to retain IPv6 addresses
-> when link goes down.
 
-All aplied, thanks for fixing these bugs Stephen.
