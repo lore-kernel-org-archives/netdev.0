@@ -1,128 +1,172 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: SO_REUSEADDR with UDP (again)
-Date: Tue, 13 Apr 2010 14:21:37 +0200
-Message-ID: <1271161297.16881.293.camel@edumazet-laptop>
-References: <20100413093408.GA16595@myhost.felk.cvut.cz>
-	 <1271155163.16881.244.camel@edumazet-laptop>
-	 <20100413112726.GB16595@myhost.felk.cvut.cz>
+From: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
+Subject: Re: Strange packet drops with heavy firewalling
+Date: Tue, 13 Apr 2010 14:33:42 +0200
+Message-ID: <4BC464A6.9000307@itcare.pl>
+References: <m339z50x1l.fsf@ursa.amorsen.dk> <q2v40c9f5b21004120116p766df82dj88c6af4e4cad55f@mail.gmail.com> 	<1271083479.2858.377.camel@ursa.amorsen.dk> <p2x40c9f5b21004120833jd7a749cak6ea69cebd28f8352@mail.gmail.com> 	<1271091990.2858.409.camel@ursa.amorsen.dk> <u2y412e6f7f1004121618p6d6eff30q8a45a03faa59a912@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Michal Svoboda <michal.svoboda@agents.felk.cvut.cz>
+Content-Type: multipart/mixed;
+ boundary="------------040207010803020302000109"
+Cc: Benny Amorsen <benny+usenet@amorsen.dk>,
+	zhigang gong <zhigang.gong@gmail.com>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:38127 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751161Ab0DMMWG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 08:22:06 -0400
-Received: by bwz19 with SMTP id 19so375bwz.21
-        for <netdev@vger.kernel.org>; Tue, 13 Apr 2010 05:22:02 -0700 (PDT)
-In-Reply-To: <20100413112726.GB16595@myhost.felk.cvut.cz>
+Received: from smtp.iq.pl ([86.111.241.19]:37511 "EHLO smtp.iq.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750997Ab0DMMdq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Apr 2010 08:33:46 -0400
+In-Reply-To: <u2y412e6f7f1004121618p6d6eff30q8a45a03faa59a912@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 13 avril 2010 =C3=A0 13:27 +0200, Michal Svoboda a =C3=A9crit =
-:
-> Eric Dumazet wrote:
-> > Why do you use REUSEADDR ? This is doing what is documented.
-> >=20
-> >        SO_REUSEADDR
-> >               Indicates that the rules used in validating addresses=
-  supplied
-> >               in  a  bind(2) call should allow reuse of local addre=
-sses.  For
-> >               AF_INET sockets this means that a socket may bind, ex=
-cept  when
-> >               there is an active listening socket bound to the addr=
-ess.  When
-> >               the listening socket is bound to  INADDR_ANY  with  a=
-  specific
-> >               port then it is not possible to bind to this port for=
- any local
-> >               address.  Argument is an integer boolean flag.
->=20
-> I read it 10 times but it doesn't say anything about stealing frames,=
- or
-> implementation-defined behavior in this case.
+This is a multi-part message in MIME format.
+--------------040207010803020302000109
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-If it is not documented, it is implementation defined.
+W dniu 2010-04-13 01:18, Changli Gao pisze:
+> On Tue, Apr 13, 2010 at 1:06 AM, Benny Amorsen<benny+usenet@amorsen.dk>  wrote:
+>    
+>>   99:         24    1306226          3          2   PCI-MSI-edge      eth1-tx-0
+>>   100:      15735    1648774          3          7   PCI-MSI-edge      eth1-tx-1
+>>   101:          8         11          9    1083022   PCI-MSI-edge      eth1-tx-2
+>>   102:          0          0          0          0   PCI-MSI-edge      eth1-tx-3
+>>   103:         18         15       6131    1095383   PCI-MSI-edge      eth1-rx-0
+>>   104:        217         32      46544    1335325   PCI-MSI-edge      eth1-rx-1
+>>   105:        154    1305595        218         16   PCI-MSI-edge      eth1-rx-2
+>>   106:         17         16       8229    1467509   PCI-MSI-edge      eth1-rx-3
+>>   107:          0          0          1          0   PCI-MSI-edge      eth1
+>>   108:          2         14         15    1003053   PCI-MSI-edge      eth0-tx-0
+>>   109:       8226    1668924        478        487   PCI-MSI-edge      eth0-tx-1
+>>   110:          3    1188874         17         12   PCI-MSI-edge      eth0-tx-2
+>>   111:          0          0          0          0   PCI-MSI-edge      eth0-tx-3
+>>   112:        203        185       5324    1015263   PCI-MSI-edge      eth0-rx-0
+>>   113:       4141    1600793        153        159   PCI-MSI-edge      eth0-rx-1
+>>   114:      16242    1210108        436       3124   PCI-MSI-edge      eth0-rx-2
+>>   115:        267       4173      19471    1321252   PCI-MSI-edge      eth0-rx-3
+>>   116:          0          1          0          0   PCI-MSI-edge      eth0
+>>
+>>
+>> irqbalanced seems to have picked CPU1 and CPU3 for all the interrupts,
+>> which to my mind should cause the same problem as before (where CPU1 and
+>> CPU3 was handling all packets). Yet the box clearly works much better
+>> than before.
+>>      
+> irqbalanced? I don't think it can work properly. Try RPS in netdev and
+> linux-next tree, and if cpu load isn't even, try this patch:
+> http://patchwork.ozlabs.org/patch/49915/ .
+>
+>
+>    
+Yes without irqbalance - and with irq affinity set by hand router will 
+work much better.
 
->=20
-> > An UDP application wanting a port for its exclusive use dont set
-> > REUSEADDR, or basically allows anybody to bind an udp socket to sam=
-e
-> > port, and potentially steal incoming frames.
->=20
-> That's fair enough, I will talk to the developers of the "very buggy"
-> applications that use this flag and ask them to reconsider.
-
-;)
-
-> =20
-> > REUSEADDR is usually used when an application has several sockets b=
-ound
-> > to same port, but different IP addresses (or bound to different dev=
-ices)
->=20
-> I just tried that and you can bind to different IPs without REUSEADDR=
-=2E
-
-Of course it is possible !
-
-REUSEADDR allows following :
-
-(Note that both sockets MUST have requested REUSEADDR=3D1)
-
-
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <string.h>
-
-main()
-{
-int sock1, sock2;
-struct sockaddr_in addr;
-int on =3D 1;
-
-memset(&addr, 0, sizeof(addr));
-addr.sin_port =3D htons(3444);
-addr.sin_family =3D AF_INET;
-
-sock1 =3D socket(AF_INET, SOCK_DGRAM, 0);
-setsockopt(sock1, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
-addr.sin_addr.s_addr =3D htonl(0x7f000001);
-if (bind(sock1, (struct sockaddr *)&addr, sizeof(addr)))
-	perror("bind1");
-
-sock2 =3D socket(AF_INET, SOCK_DGRAM, 0);
-setsockopt(sock2, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
-addr.sin_addr.s_addr =3D INADDR_ANY; /* or htonl(0x7f000001); */
-if (bind(sock2, (struct sockaddr *)&addr, sizeof(addr)))
-	perror("bind2");
-}
+But I don't think that RPS will help him - I make some tests with RPS 
+and AFFINITY - results in attached file.
+Test router make traffic management (hfsc) for almost 9k users
 
 
 
-If an application didnt specified REUSEADDR=3D1, then its UDP port is
-private, it cannot be stolen.
-
-Therefore, applications should not use REUSEADDR on unicast UDP, unless
-it is a non security issue (for example, if it is able to react to any
-new IP addresses added by the administrator on the machine, and complai=
-n
-loudly if another application could bind() before itself)
-
-REUSADDR has a meaning for multicast, but for unicast... this is hardly
-useful ?
 
 
-About the connect() thing, its also a fact that connected sockets have =
-a
-higher priority (they'll receive incoming frames, their score his highe=
-r
-than a non connected socket, if source of the packet matches the connec=
-t
-destination of course). Same thing if you play with BINDTODEVICE.
+--------------040207010803020302000109
+Content-Type: text/plain;
+ name="RPS_AFFINITY_TEST.txt"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="RPS_AFFINITY_TEST.txt"
 
-
-
+IyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMj
+IyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjDQpldGgwIC0+IENQVTANCmV0aDEgLT4gQ1BVNQ0K
+UlBTOg0KZWNobyAwMGUwID4gL3N5cy9jbGFzcy9uZXQvZXRoMS9xdWV1ZXMvcngtMC9ycHNf
+Y3B1cw0KZWNobyAwMDBlID4gL3N5cy9jbGFzcy9uZXQvZXRoMC9xdWV1ZXMvcngtMC9ycHNf
+Y3B1cw0KDQotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCiAgIFBlcmZUb3A6ICAgODUyMDUg
+aXJxcy9zZWMgIGtlcm5lbDo5Ny4xJSBbMTAwMDAwIGN5Y2xlc10sICAoYWxsLCA4IENQVXMp
+DQotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCg0KICAgICAgICAgICAgIHNhbXBsZXMgICAg
+cGNudCAgIGtlcm5lbCBmdW5jdGlvbg0KICAgICAgICAgICAgIF9fX19fX18gICBfX19fXyAg
+IF9fX19fX19fX19fX19fXw0KDQogICAgICAgICAgIDIxNDkzMC4wMCAtIDI0LjUlIDogX3Jh
+d19zcGluX2xvY2sNCiAgICAgICAgICAgIDYzODQ0LjAwIC0gIDcuMyUgOiB1MzJfY2xhc3Np
+ZnkNCiAgICAgICAgICAgIDQ4MzgxLjAwIC0gIDUuNSUgOiBlMTAwMF9jbGVhbg0KICAgICAg
+ICAgICAgNDc3NTQuMDAgLSAgNS41JSA6IHJiX25leHQNCiAgICAgICAgICAgIDM3MjIyLjAw
+IC0gIDQuMiUgOiBlMTAwMF9pbnRyX21zaQ0KICAgICAgICAgICAgMjYyOTUuMDAgLSAgMy4w
+JSA6IGhmc2NfZW5xdWV1ZQ0KICAgICAgICAgICAgMTczNzEuMDAgLSAgMi4wJSA6IHJiX2Vy
+YXNlDQogICAgICAgICAgICAxNTI5MC4wMCAtICAxLjclIDogX3Jhd19zcGluX2xvY2tfaXJx
+c2F2ZQ0KICAgICAgICAgICAgMTQ5NTguMDAgLSAgMS43JSA6IHJiX2luc2VydF9jb2xvcg0K
+ICAgICAgICAgICAgMTQ0MzkuMDAgLSAgMS42JSA6IHVwZGF0ZV92Zg0KICAgICAgICAgICAg
+MTQzODQuMDAgLSAgMS42JSA6IGUxMDAwX3htaXRfZnJhbWUNCiAgICAgICAgICAgIDE0MzU2
+LjAwIC0gIDEuNiUgOiBoZnNjX2RlcXVldWUNCiAgICAgICAgICAgIDEzODA0LjAwIC0gIDEu
+NiUgOiBlMTAwMF9jbGVhbl90eF9pcnENCiAgICAgICAgICAgIDEzNDEzLjAwIC0gIDEuNSUg
+OiBpcHRfZG9fdGFibGUNCiAgICAgICAgICAgICA5NjU0LjAwIC0gIDEuMSUgOiBpcF9yb3V0
+ZV9pbnB1dA0KDQojIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMj
+IyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMNCmV0aDAgLT4gQ1BVMA0KZXRo
+MSAtPiBDUFU1DQpOTyBSUFMNCg0KLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQogICBQZXJm
+VG9wOiAgIDMzODAwIGlycXMvc2VjICBrZXJuZWw6OTYuOSUgWzEwMDAwMCBjeWNsZXNdLCAg
+KGFsbCwgOCBDUFVzKQ0KLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQoNCiAgICAgICAgICAg
+ICBzYW1wbGVzICAgIHBjbnQgICBrZXJuZWwgZnVuY3Rpb24NCiAgICAgICAgICAgICBfX19f
+X19fICAgX19fX18gICBfX19fX19fX19fX19fX18NCg0KICAgICAgICAgICAgMTkzNjEuMDAg
+LSAxMS4yJSA6IGUxMDAwX2NsZWFuDQogICAgICAgICAgICAxNjQyNC4wMCAtICA5LjUlIDog
+cmJfbmV4dA0KICAgICAgICAgICAgMTMwNjAuMDAgLSAgNy41JSA6IGUxMDAwX2ludHJfbXNp
+DQogICAgICAgICAgICAgNzI5My4wMCAtICA0LjIlIDogdTMyX2NsYXNzaWZ5DQogICAgICAg
+ICAgICAgNjg3NS4wMCAtICA0LjAlIDogaXB0X2RvX3RhYmxlDQogICAgICAgICAgICAgNTgx
+MS4wMCAtICAzLjQlIDogX3Jhd19zcGluX2xvY2sNCiAgICAgICAgICAgICA1NzU0LjAwIC0g
+IDMuMyUgOiBlMTAwMF94bWl0X2ZyYW1lDQogICAgICAgICAgICAgNTY3MS4wMCAtICAzLjMl
+IDogaGZzY19kZXF1ZXVlDQogICAgICAgICAgICAgNDUwMy4wMCAtICAyLjYlIDogX19hbGxv
+Y19za2INCiAgICAgICAgICAgICA0MTU2LjAwIC0gIDIuNCUgOiBoZnNjX2VucXVldWUNCiAg
+ICAgICAgICAgICA0MDkwLjAwIC0gIDIuNCUgOiBlMTAwMF9jbGVhbl90eF9pcnENCiAgICAg
+ICAgICAgICAzODA5LjAwIC0gIDIuMiUgOiBlMTAwMF9jbGVhbl9yeF9pcnENCiAgICAgICAg
+ICAgICAzNDI0LjAwIC0gIDIuMCUgOiB1cGRhdGVfdmYNCiAgICAgICAgICAgICAzMDI4LjAw
+IC0gIDEuNyUgOiByYl9lcmFzZQ0KICAgICAgICAgICAgIDI3MTQuMDAgLSAgMS42JSA6IGlw
+X3JvdXRlX2lucHV0DQoNCiMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMj
+IyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIw0KZXRoMCAtPiBDUFUw
+LENQVTEsQ1BVMixDUFU0IC0+IGFmZmluaXR5IGVjaG8gMGYgPiAvcHJvYy9pcnEvMzAvc21w
+X2FmZmluaXR5DQpldGgxIC0+IENQVTUsQ1BVNixDUFU3LENQVTggLT4gYWZmaW5pdHkgZWNo
+byBmMCA+IC9wcm9jL2lycS8zMS9zbXBfYWZmaW5pdHkNCk5PIFJQUw0KLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tDQogICBQZXJmVG9wOiAgIDQyMzYyIGlycXMvc2VjICBrZXJuZWw6OTYu
+MCUgWzEwMDAwMCBjeWNsZXNdLCAgKGFsbCwgOCBDUFVzKQ0KLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tDQoNCiAgICAgICAgICAgICBzYW1wbGVzICAgIHBjbnQgICBrZXJuZWwgZnVuY3Rp
+b24NCiAgICAgICAgICAgICBfX19fX19fICAgX19fX18gICBfX19fX19fX19fX19fX18NCg0K
+ICAgICAgICAgICAgMzM4MTUuMDAgLSAxMC42JSA6IHJiX25leHQNCiAgICAgICAgICAgIDIx
+MzU3LjAwIC0gIDYuNyUgOiB1MzJfY2xhc3NpZnkNCiAgICAgICAgICAgIDE0NTI1LjAwIC0g
+IDQuNiUgOiBfcmF3X3NwaW5fbG9jaw0KICAgICAgICAgICAgMTQzNDYuMDAgLSAgNC41JSA6
+IGUxMDAwX2NsZWFuDQogICAgICAgICAgICAxMjc5OC4wMCAtICA0LjAlIDogaGZzY19lbnF1
+ZXVlDQogICAgICAgICAgICAxMDUyNi4wMCAtICAzLjMlIDogaXB0X2RvX3RhYmxlDQogICAg
+ICAgICAgICAgOTk5OS4wMCAtICAzLjElIDogaGZzY19kZXF1ZXVlDQogICAgICAgICAgICAg
+OTk3Ni4wMCAtICAzLjElIDogZTEwMDBfaW50cl9tc2kNCiAgICAgICAgICAgICA5Nzg3LjAw
+IC0gIDMuMSUgOiByYl9lcmFzZQ0KICAgICAgICAgICAgIDgyNTkuMDAgLSAgMi42JSA6IGUx
+MDAwX3htaXRfZnJhbWUNCiAgICAgICAgICAgICA4MDE1LjAwIC0gIDIuNSUgOiByYl9pbnNl
+cnRfY29sb3INCiAgICAgICAgICAgICA3OTQ4LjAwIC0gIDIuNSUgOiB1cGRhdGVfdmYNCiAg
+ICAgICAgICAgICA2ODY4LjAwIC0gIDIuMiUgOiBlMTAwMF9jbGVhbl90eF9pcnENCiAgICAg
+ICAgICAgICA2ODIyLjAwIC0gIDIuMSUgOiBlMTAwMF9jbGVhbl9yeF9pcnENCiAgICAgICAg
+ICAgICA2MzY4LjAwIC0gIDIuMCUgOiBfX2FsbG9jX3NrYg0KDQojIyMjIyMjIyMjIyMjIyMj
+IyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMj
+IyMjIyMjIyMNCmV0aDAgLT4gQ1BVMCxDUFUxLENQVTIsQ1BVNCAtPiBhZmZpbml0eSBlY2hv
+IDBmID4gL3Byb2MvaXJxLzMwL3NtcF9hZmZpbml0eQ0KZXRoMSAtPiBDUFU1LENQVTYsQ1BV
+NyxDUFU4IC0+IGFmZmluaXR5IGVjaG8gZjAgPiAvcHJvYy9pcnEvMzEvc21wX2FmZmluaXR5
+DQpSUFM6DQplY2hvIDBmID4gL3N5cy9jbGFzcy9uZXQvZXRoMC9xdWV1ZXMvcngtMC9ycHNf
+Y3B1cw0KZWNobyBmMCA+IC9zeXMvY2xhc3MvbmV0L2V0aDEvcXVldWVzL3J4LTAvcnBzX2Nw
+dXMNCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KICAgUGVyZlRvcDogICA4MTA1MSBpcnFz
+L3NlYyAga2VybmVsOjk2LjklIFsxMDAwMDAgY3ljbGVzXSwgIChhbGwsIDggQ1BVcykNCi0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KDQogICAgICAgICAgICAgc2FtcGxlcyAgICBwY250
+ICAga2VybmVsIGZ1bmN0aW9uDQogICAgICAgICAgICAgX19fX19fXyAgIF9fX19fICAgX19f
+X19fX19fX19fX19fDQoNCiAgICAgICAgICAgMTY3MTEwLjAwIC0gMjIuMyUgOiBfcmF3X3Nw
+aW5fbG9jaw0KICAgICAgICAgICAgNTgyMjEuMDAgLSAgNy44JSA6IHUzMl9jbGFzc2lmeQ0K
+ICAgICAgICAgICAgNDYzNzkuMDAgLSAgNi4yJSA6IHJiX25leHQNCiAgICAgICAgICAgIDM1
+MTg5LjAwIC0gIDQuNyUgOiBlMTAwMF9jbGVhbg0KICAgICAgICAgICAgMjU2MTQuMDAgLSAg
+My40JSA6IGUxMDAwX2ludHJfbXNpDQogICAgICAgICAgICAyNDA5NC4wMCAtICAzLjIlIDog
+aGZzY19lbnF1ZXVlDQogICAgICAgICAgICAxNjIzMS4wMCAtICAyLjIlIDogcmJfZXJhc2UN
+CiAgICAgICAgICAgIDE0Mjk4LjAwIC0gIDEuOSUgOiByYl9pbnNlcnRfY29sb3INCiAgICAg
+ICAgICAgIDEzNzUxLjAwIC0gIDEuOCUgOiB1cGRhdGVfdmYNCiAgICAgICAgICAgIDEzNzEy
+LjAwIC0gIDEuOCUgOiBpcHRfZG9fdGFibGUNCiAgICAgICAgICAgIDEzNTg4LjAwIC0gIDEu
+OCUgOiBoZnNjX2RlcXVldWUNCiAgICAgICAgICAgIDEzMzM1LjAwIC0gIDEuOCUgOiBlMTAw
+MF94bWl0X2ZyYW1lDQogICAgICAgICAgICAxMjQ0OS4wMCAtICAxLjclIDogZTEwMDBfY2xl
+YW5fdHhfaXJxDQogICAgICAgICAgICAxMTUxMC4wMCAtICAxLjUlIDogbmV0X3R4X2FjdGlv
+bg0KICAgICAgICAgICAgMTE0MjguMDAgLSAgMS41JSA6IF9yYXdfc3Bpbl9sb2NrX2lycXNh
+dmUNCg0K
+--------------040207010803020302000109--
