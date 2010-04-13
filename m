@@ -1,15 +1,16 @@
 From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: [PATCH] cxgb3: use the DMA state API instead of the pci equivalents
-Date: Tue, 13 Apr 2010 09:32:12 +0900
-Message-ID: <1271118734-28353-4-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+Subject: [PATCH] myri10ge: use the DMA state API instead of the pci equivalents
+Date: Tue, 13 Apr 2010 09:32:10 +0900
+Message-ID: <1271118734-28353-2-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 References: <1271118734-28353-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
-Cc: fujita.tomonori@lab.ntt.co.jp, Divy Le Ray <divy@chelsio.com>
+Cc: fujita.tomonori@lab.ntt.co.jp, Andrew Gallatin <gallatin@myri.com>,
+	Brice Goglin <brice@myri.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sh.osrg.net ([192.16.179.4]:38873 "EHLO sh.osrg.net"
+Received: from sh.osrg.net ([192.16.179.4]:38875 "EHLO sh.osrg.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754461Ab0DMAdf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 12 Apr 2010 20:33:35 -0400
+	id S1754471Ab0DMAeT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 12 Apr 2010 20:34:19 -0400
 In-Reply-To: <1271118734-28353-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -24,101 +25,151 @@ For further information about the background:
 http://marc.info/?l=linux-netdev&m=127037540020276&w=2
 
 Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Cc: Divy Le Ray <divy@chelsio.com>
+Cc: Andrew Gallatin <gallatin@myri.com>
+Cc: Brice Goglin <brice@myri.com>
 ---
- drivers/net/cxgb3/sge.c |   20 ++++++++++----------
- 1 files changed, 10 insertions(+), 10 deletions(-)
+ drivers/net/myri10ge/myri10ge.c |   44 +++++++++++++++++++-------------------
+ 1 files changed, 22 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/net/cxgb3/sge.c b/drivers/net/cxgb3/sge.c
-index 07d7e7f..5962b91 100644
---- a/drivers/net/cxgb3/sge.c
-+++ b/drivers/net/cxgb3/sge.c
-@@ -118,7 +118,7 @@ struct rx_sw_desc {                /* SW state per Rx descriptor */
- 		struct sk_buff *skb;
- 		struct fl_pg_chunk pg_chunk;
- 	};
--	DECLARE_PCI_UNMAP_ADDR(dma_addr);
-+	DEFINE_DMA_UNMAP_ADDR(dma_addr);
+diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
+index 72b4b19..958dc28 100644
+--- a/drivers/net/myri10ge/myri10ge.c
++++ b/drivers/net/myri10ge/myri10ge.c
+@@ -110,15 +110,15 @@ MODULE_LICENSE("Dual BSD/GPL");
+ struct myri10ge_rx_buffer_state {
+ 	struct page *page;
+ 	int page_offset;
+-	 DECLARE_PCI_UNMAP_ADDR(bus)
+-	 DECLARE_PCI_UNMAP_LEN(len)
++	DEFINE_DMA_UNMAP_ADDR(bus);
++	DEFINE_DMA_UNMAP_LEN(len);
  };
  
- struct rsp_desc {		/* response queue descriptor */
-@@ -208,7 +208,7 @@ static inline int need_skb_unmap(void)
- 	 * unmapping by checking if DECLARE_PCI_UNMAP_ADDR defines anything.
- 	 */
- 	struct dummy {
--		DECLARE_PCI_UNMAP_ADDR(addr);
-+		DEFINE_DMA_UNMAP_ADDR(addr);
- 	};
+ struct myri10ge_tx_buffer_state {
+ 	struct sk_buff *skb;
+ 	int last;
+-	 DECLARE_PCI_UNMAP_ADDR(bus)
+-	 DECLARE_PCI_UNMAP_LEN(len)
++	DEFINE_DMA_UNMAP_ADDR(bus);
++	DEFINE_DMA_UNMAP_LEN(len);
+ };
  
- 	return sizeof(struct dummy) != 0;
-@@ -363,7 +363,7 @@ static void clear_rx_desc(struct pci_dev *pdev, const struct sge_fl *q,
- 		put_page(d->pg_chunk.page);
- 		d->pg_chunk.page = NULL;
- 	} else {
--		pci_unmap_single(pdev, pci_unmap_addr(d, dma_addr),
-+		pci_unmap_single(pdev, dma_unmap_addr(d, dma_addr),
- 				 q->buf_size, PCI_DMA_FROMDEVICE);
- 		kfree_skb(d->skb);
- 		d->skb = NULL;
-@@ -419,7 +419,7 @@ static inline int add_one_rx_buf(void *va, unsigned int len,
- 	if (unlikely(pci_dma_mapping_error(pdev, mapping)))
- 		return -ENOMEM;
+ struct myri10ge_cmd {
+@@ -1234,7 +1234,7 @@ myri10ge_alloc_rx_pages(struct myri10ge_priv *mgp, struct myri10ge_rx_buf *rx,
+ 		rx->info[idx].page_offset = rx->page_offset;
+ 		/* note that this is the address of the start of the
+ 		 * page */
+-		pci_unmap_addr_set(&rx->info[idx], bus, rx->bus);
++		dma_unmap_addr_set(&rx->info[idx], bus, rx->bus);
+ 		rx->shadow[idx].addr_low =
+ 		    htonl(MYRI10GE_LOWPART_TO_U32(rx->bus) + rx->page_offset);
+ 		rx->shadow[idx].addr_high =
+@@ -1266,7 +1266,7 @@ myri10ge_unmap_rx_page(struct pci_dev *pdev,
+ 	/* unmap the recvd page if we're the only or last user of it */
+ 	if (bytes >= MYRI10GE_ALLOC_SIZE / 2 ||
+ 	    (info->page_offset + 2 * bytes) > MYRI10GE_ALLOC_SIZE) {
+-		pci_unmap_page(pdev, (pci_unmap_addr(info, bus)
++		pci_unmap_page(pdev, (dma_unmap_addr(info, bus)
+ 				      & ~(MYRI10GE_ALLOC_SIZE - 1)),
+ 			       MYRI10GE_ALLOC_SIZE, PCI_DMA_FROMDEVICE);
+ 	}
+@@ -1373,21 +1373,21 @@ myri10ge_tx_done(struct myri10ge_slice_state *ss, int mcp_index)
+ 			tx->info[idx].last = 0;
+ 		}
+ 		tx->done++;
+-		len = pci_unmap_len(&tx->info[idx], len);
+-		pci_unmap_len_set(&tx->info[idx], len, 0);
++		len = dma_unmap_len(&tx->info[idx], len);
++		dma_unmap_len_set(&tx->info[idx], len, 0);
+ 		if (skb) {
+ 			ss->stats.tx_bytes += skb->len;
+ 			ss->stats.tx_packets++;
+ 			dev_kfree_skb_irq(skb);
+ 			if (len)
+ 				pci_unmap_single(pdev,
+-						 pci_unmap_addr(&tx->info[idx],
++						 dma_unmap_addr(&tx->info[idx],
+ 								bus), len,
+ 						 PCI_DMA_TODEVICE);
+ 		} else {
+ 			if (len)
+ 				pci_unmap_page(pdev,
+-					       pci_unmap_addr(&tx->info[idx],
++					       dma_unmap_addr(&tx->info[idx],
+ 							      bus), len,
+ 					       PCI_DMA_TODEVICE);
+ 		}
+@@ -2094,20 +2094,20 @@ static void myri10ge_free_rings(struct myri10ge_slice_state *ss)
+ 		/* Mark as free */
+ 		tx->info[idx].skb = NULL;
+ 		tx->done++;
+-		len = pci_unmap_len(&tx->info[idx], len);
+-		pci_unmap_len_set(&tx->info[idx], len, 0);
++		len = dma_unmap_len(&tx->info[idx], len);
++		dma_unmap_len_set(&tx->info[idx], len, 0);
+ 		if (skb) {
+ 			ss->stats.tx_dropped++;
+ 			dev_kfree_skb_any(skb);
+ 			if (len)
+ 				pci_unmap_single(mgp->pdev,
+-						 pci_unmap_addr(&tx->info[idx],
++						 dma_unmap_addr(&tx->info[idx],
+ 								bus), len,
+ 						 PCI_DMA_TODEVICE);
+ 		} else {
+ 			if (len)
+ 				pci_unmap_page(mgp->pdev,
+-					       pci_unmap_addr(&tx->info[idx],
++					       dma_unmap_addr(&tx->info[idx],
+ 							      bus), len,
+ 					       PCI_DMA_TODEVICE);
+ 		}
+@@ -2761,8 +2761,8 @@ again:
+ 	idx = tx->req & tx->mask;
+ 	tx->info[idx].skb = skb;
+ 	bus = pci_map_single(mgp->pdev, skb->data, len, PCI_DMA_TODEVICE);
+-	pci_unmap_addr_set(&tx->info[idx], bus, bus);
+-	pci_unmap_len_set(&tx->info[idx], len, len);
++	dma_unmap_addr_set(&tx->info[idx], bus, bus);
++	dma_unmap_len_set(&tx->info[idx], len, len);
  
--	pci_unmap_addr_set(sd, dma_addr, mapping);
-+	dma_unmap_addr_set(sd, dma_addr, mapping);
+ 	frag_cnt = skb_shinfo(skb)->nr_frags;
+ 	frag_idx = 0;
+@@ -2865,8 +2865,8 @@ again:
+ 		len = frag->size;
+ 		bus = pci_map_page(mgp->pdev, frag->page, frag->page_offset,
+ 				   len, PCI_DMA_TODEVICE);
+-		pci_unmap_addr_set(&tx->info[idx], bus, bus);
+-		pci_unmap_len_set(&tx->info[idx], len, len);
++		dma_unmap_addr_set(&tx->info[idx], bus, bus);
++		dma_unmap_len_set(&tx->info[idx], len, len);
+ 	}
  
- 	d->addr_lo = cpu_to_be32(mapping);
- 	d->addr_hi = cpu_to_be32((u64) mapping >> 32);
-@@ -515,7 +515,7 @@ nomem:				q->alloc_failed++;
- 				break;
- 			}
- 			mapping = sd->pg_chunk.mapping + sd->pg_chunk.offset;
--			pci_unmap_addr_set(sd, dma_addr, mapping);
-+			dma_unmap_addr_set(sd, dma_addr, mapping);
- 
- 			add_one_rx_chunk(mapping, d, q->gen);
- 			pci_dma_sync_single_for_device(adap->pdev, mapping,
-@@ -791,11 +791,11 @@ static struct sk_buff *get_packet(struct adapter *adap, struct sge_fl *fl,
- 		if (likely(skb != NULL)) {
- 			__skb_put(skb, len);
- 			pci_dma_sync_single_for_cpu(adap->pdev,
--					    pci_unmap_addr(sd, dma_addr), len,
-+					    dma_unmap_addr(sd, dma_addr), len,
- 					    PCI_DMA_FROMDEVICE);
- 			memcpy(skb->data, sd->skb->data, len);
- 			pci_dma_sync_single_for_device(adap->pdev,
--					    pci_unmap_addr(sd, dma_addr), len,
-+					    dma_unmap_addr(sd, dma_addr), len,
- 					    PCI_DMA_FROMDEVICE);
- 		} else if (!drop_thres)
- 			goto use_orig_buf;
-@@ -810,7 +810,7 @@ recycle:
- 		goto recycle;
- 
- use_orig_buf:
--	pci_unmap_single(adap->pdev, pci_unmap_addr(sd, dma_addr),
-+	pci_unmap_single(adap->pdev, dma_unmap_addr(sd, dma_addr),
- 			 fl->buf_size, PCI_DMA_FROMDEVICE);
- 	skb = sd->skb;
- 	skb_put(skb, len);
-@@ -843,7 +843,7 @@ static struct sk_buff *get_packet_pg(struct adapter *adap, struct sge_fl *fl,
- 	struct sk_buff *newskb, *skb;
- 	struct rx_sw_desc *sd = &fl->sdesc[fl->cidx];
- 
--	dma_addr_t dma_addr = pci_unmap_addr(sd, dma_addr);
-+	dma_addr_t dma_addr = dma_unmap_addr(sd, dma_addr);
- 
- 	newskb = skb = q->pg_skb;
- 	if (!skb && (len <= SGE_RX_COPY_THRES)) {
-@@ -2097,7 +2097,7 @@ static void lro_add_page(struct adapter *adap, struct sge_qset *qs,
- 	fl->credits--;
- 
- 	pci_dma_sync_single_for_cpu(adap->pdev,
--				    pci_unmap_addr(sd, dma_addr),
-+				    dma_unmap_addr(sd, dma_addr),
- 				    fl->buf_size - SGE_PG_RSVD,
- 				    PCI_DMA_FROMDEVICE);
- 
+ 	(req - rdma_count)->rdma_count = rdma_count;
+@@ -2903,19 +2903,19 @@ abort_linearize:
+ 	idx = tx->req & tx->mask;
+ 	tx->info[idx].skb = NULL;
+ 	do {
+-		len = pci_unmap_len(&tx->info[idx], len);
++		len = dma_unmap_len(&tx->info[idx], len);
+ 		if (len) {
+ 			if (tx->info[idx].skb != NULL)
+ 				pci_unmap_single(mgp->pdev,
+-						 pci_unmap_addr(&tx->info[idx],
++						 dma_unmap_addr(&tx->info[idx],
+ 								bus), len,
+ 						 PCI_DMA_TODEVICE);
+ 			else
+ 				pci_unmap_page(mgp->pdev,
+-					       pci_unmap_addr(&tx->info[idx],
++					       dma_unmap_addr(&tx->info[idx],
+ 							      bus), len,
+ 					       PCI_DMA_TODEVICE);
+-			pci_unmap_len_set(&tx->info[idx], len, 0);
++			dma_unmap_len_set(&tx->info[idx], len, 0);
+ 			tx->info[idx].skb = NULL;
+ 		}
+ 		idx = (idx + 1) & tx->mask;
 -- 
 1.6.5
 
