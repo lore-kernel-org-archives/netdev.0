@@ -1,117 +1,122 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Strange packet drops with heavy firewalling
-Date: Tue, 13 Apr 2010 14:53:04 +0200
-Message-ID: <1271163184.16881.307.camel@edumazet-laptop>
-References: <m339z50x1l.fsf@ursa.amorsen.dk>
-	 <q2v40c9f5b21004120116p766df82dj88c6af4e4cad55f@mail.gmail.com>
-	 <1271083479.2858.377.camel@ursa.amorsen.dk>
-	 <p2x40c9f5b21004120833jd7a749cak6ea69cebd28f8352@mail.gmail.com>
-	 <1271091990.2858.409.camel@ursa.amorsen.dk>
-	 <u2y412e6f7f1004121618p6d6eff30q8a45a03faa59a912@mail.gmail.com>
-	 <4BC464A6.9000307@itcare.pl>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH v2] net: batch skb dequeueing from softnet input_pkt_queue
+Date: Tue, 13 Apr 2010 20:53:42 +0800
+Message-ID: <n2t412e6f7f1004130553x85452fc0u22e512cad412abd3@mail.gmail.com>
+References: <1271173102-2980-1-git-send-email-xiaosuo@gmail.com>
+	<1271146112.16881.213.camel@edumazet-laptop> <o2v412e6f7f1004130250rdbe17c5dr5c11c3cbbb2f6dbb@mail.gmail.com>
+	<1271153942.16881.233.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	Benny Amorsen <benny+usenet@amorsen.dk>,
-	zhigang gong <zhigang.gong@gmail.com>, netdev@vger.kernel.org
-To: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:43885 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750906Ab0DMMxT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 08:53:19 -0400
-Received: by bwz19 with SMTP id 19so1657bwz.21
-        for <netdev@vger.kernel.org>; Tue, 13 Apr 2010 05:53:17 -0700 (PDT)
-In-Reply-To: <4BC464A6.9000307@itcare.pl>
+Received: from mail-iw0-f197.google.com ([209.85.223.197]:42611 "EHLO
+	mail-iw0-f197.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750963Ab0DMMyE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 08:54:04 -0400
+Received: by iwn35 with SMTP id 35so1841835iwn.21
+        for <netdev@vger.kernel.org>; Tue, 13 Apr 2010 05:54:02 -0700 (PDT)
+In-Reply-To: <1271153942.16881.233.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 13 avril 2010 =C3=A0 14:33 +0200, Pawe=C5=82 Staszewski a =C3=A9=
-crit :
-> W dniu 2010-04-13 01:18, Changli Gao pisze:
-> > On Tue, Apr 13, 2010 at 1:06 AM, Benny Amorsen<benny+usenet@amorsen=
-=2Edk>  wrote:
-> >   =20
-> >>   99:         24    1306226          3          2   PCI-MSI-edge  =
-    eth1-tx-0
-> >>   100:      15735    1648774          3          7   PCI-MSI-edge =
-     eth1-tx-1
-> >>   101:          8         11          9    1083022   PCI-MSI-edge =
-     eth1-tx-2
-> >>   102:          0          0          0          0   PCI-MSI-edge =
-     eth1-tx-3
-> >>   103:         18         15       6131    1095383   PCI-MSI-edge =
-     eth1-rx-0
-> >>   104:        217         32      46544    1335325   PCI-MSI-edge =
-     eth1-rx-1
-> >>   105:        154    1305595        218         16   PCI-MSI-edge =
-     eth1-rx-2
-> >>   106:         17         16       8229    1467509   PCI-MSI-edge =
-     eth1-rx-3
-> >>   107:          0          0          1          0   PCI-MSI-edge =
-     eth1
-> >>   108:          2         14         15    1003053   PCI-MSI-edge =
-     eth0-tx-0
-> >>   109:       8226    1668924        478        487   PCI-MSI-edge =
-     eth0-tx-1
-> >>   110:          3    1188874         17         12   PCI-MSI-edge =
-     eth0-tx-2
-> >>   111:          0          0          0          0   PCI-MSI-edge =
-     eth0-tx-3
-> >>   112:        203        185       5324    1015263   PCI-MSI-edge =
-     eth0-rx-0
-> >>   113:       4141    1600793        153        159   PCI-MSI-edge =
-     eth0-rx-1
-> >>   114:      16242    1210108        436       3124   PCI-MSI-edge =
-     eth0-rx-2
-> >>   115:        267       4173      19471    1321252   PCI-MSI-edge =
-     eth0-rx-3
-> >>   116:          0          1          0          0   PCI-MSI-edge =
-     eth0
-> >>
-> >>
-> >> irqbalanced seems to have picked CPU1 and CPU3 for all the interru=
-pts,
-> >> which to my mind should cause the same problem as before (where CP=
-U1 and
-> >> CPU3 was handling all packets). Yet the box clearly works much bet=
-ter
-> >> than before.
-> >>     =20
-> > irqbalanced? I don't think it can work properly. Try RPS in netdev =
-and
-> > linux-next tree, and if cpu load isn't even, try this patch:
-> > http://patchwork.ozlabs.org/patch/49915/ .
-> >
-> >
-> >   =20
-> Yes without irqbalance - and with irq affinity set by hand router wil=
-l=20
-> work much better.
->=20
-> But I don't think that RPS will help him - I make some tests with RPS=
-=20
-> and AFFINITY - results in attached file.
-> Test router make traffic management (hfsc) for almost 9k users
+On Tue, Apr 13, 2010 at 6:19 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le mardi 13 avril 2010 =C3=A0 17:50 +0800, Changli Gao a =C3=A9crit :
+>> On Tue, Apr 13, 2010 at 4:08 PM, Eric Dumazet <eric.dumazet@gmail.co=
+m> wrote:
+>> >
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Probably not necessary.
+>> >
+>> >> + =C2=A0 =C2=A0 volatile bool =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+flush_processing_queue;
+>> >
+>> > Use of 'volatile' is strongly discouraged, I would say, forbidden.
+>> >
+>>
+>> volatile is used to avoid compiler optimization.
+>
+> volatile might be used on special macros only, not to guard a variabl=
+e.
+> volatile was pre SMP days. We need something better defined these day=
+s.
+>
 
-Thanks for sharing Pawel.
+flush_processing_queue is only accessed on the same CPU, so no
+volatile is needed. I'll remove it in the next version.
 
-But obviously you are mixing apples and oranges.
+>> >> @@ -2803,6 +2808,7 @@ static void flush_backlog(void *arg)
+>> >> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 __skb_unlink(skb, &queue->input_pkt_queue);
+>> >> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 kfree_skb(skb);
+>> >> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 }
+>> >> + =C2=A0 =C2=A0 queue->flush_processing_queue =3D true;
+>> >
+>> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Probably not necessary
+>> >
+>>
+>> If flush_backlog() is called when there are still packets in
+>> processing_queue, there maybe some packets refer to the netdev gone,
+>> if we remove this line.
+>
+> We dont need this "processing_queue". Once you remove it, there is no
+> extra work to perform.
 
- Are you aware that HFSC and other trafic shapers do serialize access t=
-o
-data structures ? If many cpus try to access these structures in //, yo=
-u
-have a lot of cache line misses. HFSC is a real memory hog :(
+OK. If we make processing_queue is a stack variable. When quota or
+jiffies limit is reached, we have to splice processing_queue back to
+input_pkt_queue. If flush_backlog() is called before the
+processing_queue is spliced, there will still packets which refer to
+the NIC going. Then these packets are queued to input_pkt_queue. When
+process_backlog() is called again, the dev field of these skbs are
+wild...
 
-Benny do have firewalling (highly parallelized these days, iptables was
-well improved in this area), but no traffic control.
+Oh, my GOD. When RPS is enabled, if flush_backlog(eth0) is called on
+CPU1 when a skb0(eth0) is dequeued from CPU0's softnet and isn't
+queued to CPU1's softnet, what will happen?
 
-Anyway, Benny has now multiqueue devices, and therefore RPS will not
-help him. I suggested RPS before his move to multiqueue, and multiqueue
-is the most sensible way to improve things, when no central lock is
-used. Every cpu can really work in //.
+>
+>> >
+>> >>
+>> >
+>> > I advise to keep it simple.
+>> >
+>> > My suggestion would be to limit this patch only to process_backlog=
+().
+>> >
+>> > Really if you touch other areas, there is too much risk.
+>> >
+>> > Perform sort of skb_queue_splice_tail_init() into a local (stack) =
+queue,
+>> > but the trick is to not touch input_pkt_queue.qlen, so that we don=
+t slow
+>> > down enqueue_to_backlog().
+>> >
+>> > Process at most 'quota' skbs (or jiffies limit).
+>> >
+>> > relock queue.
+>> > input_pkt_queue.qlen -=3D number_of_handled_skbs;
+>> >
+>>
+>> Oh no, in order to let latter packets in as soon as possible, we hav=
+e
+>> to update qlen immediately.
+>>
+>
+> Absolutely not. You missed something apparently.
+>
+> You pay the price at each packet enqueue, because you have to compute
+> the sum of two lengthes, and guess what, if you do this you have a ca=
+che
+> line miss in one of the operand. Your patch as is is suboptimal.
+>
+> Remember : this batch mode should not change packet queueing at all,
+> only speed it because of less cache line misses.
+>
 
+WoW, is it really so expensive?
 
-
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
