@@ -1,39 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix some #includes in CAN drivers
-Date: Tue, 13 Apr 2010 01:36:14 -0700 (PDT)
-Message-ID: <20100413.013614.200995710.davem@davemloft.net>
-References: <20100408192545.GD2004@bluebox.local>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch 3/3] net: reserve ports for applications using fixed port
+ numbers
+Date: Tue, 13 Apr 2010 16:48:32 +0800
+Message-ID: <4BC42FE0.4040601@redhat.com>
+References: <20100412100744.5302.92442.sendpatchset@localhost.localdomain> <20100412100816.5302.74919.sendpatchset@localhost.localdomain> <201004130121.o3D1Lhh7099571@www262.sakura.ne.jp> <4BC41994.7030707@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
-	kernel@pengutronix.de, 21cnbao@gmail.com, celston@katalix.com,
-	chripell@evolware.org, wg@grandegger.com, haas@ems-wuenche.com,
-	per.dalen@cnw.se, P.B.Cheblakov@inp.nsk.su,
-	oliver.hartkopp@volkswagen.de, anantgole@ti.com
-To: hjk@linutronix.de
+Cc: opurdila@ixiacom.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, nhorman@tuxdriver.com, davem@davemloft.net,
+	ebiederm@xmission.com, linux-kernel@vger.kernel.org
+To: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38283
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752172Ab0DMIgL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 04:36:11 -0400
-In-Reply-To: <20100408192545.GD2004@bluebox.local>
+Received: from mx1.redhat.com ([209.132.183.28]:30767 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752514Ab0DMIo5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Apr 2010 04:44:57 -0400
+In-Reply-To: <4BC41994.7030707@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Hans J. Koch" <hjk@linutronix.de>
-Date: Thu, 8 Apr 2010 21:25:45 +0200
-
-> In the current implementation, CAN drivers need to #include <linux/can.h>
-> _before_ they #include <linux/can/dev.h>, which is both ugly and
-> unnecessary.
+Cong Wang wrote:
+> Tetsuo Handa wrote:
+>> Hello.
+>>
+>>> --- linux-2.6.orig/drivers/infiniband/core/cma.c
+>>> +++ linux-2.6/drivers/infiniband/core/cma.c
+>>> @@ -1980,6 +1980,8 @@ retry:
+>>>  	/* FIXME: add proper port randomization per like inet_csk_get_port */
+>>>  	do {
+>>>  		ret = idr_get_new_above(ps, bind_list, next_port, &port);
+>>> +		if (!ret && inet_is_reserved_local_port(port))
+>>> +			ret = -EAGAIN;
+>>>  	} while ((ret == -EAGAIN) && idr_pre_get(ps, GFP_KERNEL));
+>>>  
+>>>  	if (ret)
+>>>
+>> I think above part is wrong. Below program
+> ...
+>> This result suggests that above loop will continue until idr_pre_get() fails
+>> due to out of memory if all ports were reserved.
+>>
+>> Also, if idr_get_new_above() returned 0, bind_list (which is a kmalloc()ed
+>> pointer) is already installed into a free slot (see comment on
+>> idr_get_new_above_int()). Thus, simply calling idr_get_new_above() again will
+>> install the same pointer into multiple slots. I guess it will malfunction later.
 > 
-> Fix this by including <linux/can.h> in <linux/can/dev.h> and remove the
-> #include <linux/can.h> lines from drivers.
+> Thanks for testing!
 > 
-> Signed-off-by: Hans J. Koch <hjk@linutronix.de>
+> How about:
+> 
+> +		if (!ret && inet_is_reserved_local_port(port))
+> +			ret = -EBUSY;
+> 
+> ? So that it will break the loop and return error.
+> 
 
-This doesn't apply cleanly to net-next-2.6, please respin your patch
-and resubmit.
+Or use the similar trick:
 
-Thanks.
+ int tries = 10;
+...
+
+ if(!ret && inet_is_reserved_local_port(port)) {
+   if (tries--)
+     ret = -EAGAIN;
+   else
+     ret = -EBUSY;
+ }
+
+Any comments?
