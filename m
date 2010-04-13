@@ -1,36 +1,28 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] xtables: make XT_ALIGN() usable in exported headers by
- exporting __ALIGN_KERNEL()
-Date: Tue, 13 Apr 2010 11:22:14 +0200
-Message-ID: <4BC437C6.8020602@trash.net>
-References: <20100407162245.GA4557@x200>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/8] tg3 updates
+Date: Tue, 13 Apr 2010 02:26:27 -0700 (PDT)
+Message-ID: <20100413.022627.161837404.davem@davemloft.net>
+References: <1271091511-11173-1-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	shemminger@vyatta.com, bhutchings@solarflare.com, andreas@fatal.se,
-	hadi@cyberus.ca, hideaki@yoshifuji.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
+Cc: netdev@vger.kernel.org, andy@greyhouse.net
+To: mcarlson@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:45363 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751796Ab0DMJWQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 05:22:16 -0400
-In-Reply-To: <20100407162245.GA4557@x200>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41304
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752533Ab0DMJ0Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 05:26:25 -0400
+In-Reply-To: <1271091511-11173-1-git-send-email-mcarlson@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Alexey Dobriyan wrote:
-> XT_ALIGN() was rewritten through ALIGN() by commit 42107f5009da223daa800d6da6904d77297ae829
-> "netfilter: xtables: symmetric COMPAT_XT_ALIGN definition".
-> ALIGN() is not exported in userspace headers, which created compile problem for tc(8)
-> and will create problem for iptables(8).
-> 
-> We can't export generic looking name ALIGN() but we can export less generic
-> __ALIGN_KERNEL() (suggested by Ben Hutchings).
-> Google knows nothing about __ALIGN_KERNEL().
-> 
-> COMPAT_XT_ALIGN() changed for symmetry.
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Date: Mon, 12 Apr 2010 09:58:23 -0700
 
-Since there haven't been any objections, I've applied your patch.
-Thanks.
+> This patchset adds code to support the 57765 OTP ROM bootcode, fixes
+> bug related to VLANs and adds some minor improvements.
+
+These all look good, applied to net-next-2.6
+
+Thanks!
