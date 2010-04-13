@@ -1,122 +1,184 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH v2] net: batch skb dequeueing from softnet input_pkt_queue
-Date: Tue, 13 Apr 2010 20:53:42 +0800
-Message-ID: <n2t412e6f7f1004130553x85452fc0u22e512cad412abd3@mail.gmail.com>
-References: <1271173102-2980-1-git-send-email-xiaosuo@gmail.com>
-	<1271146112.16881.213.camel@edumazet-laptop> <o2v412e6f7f1004130250rdbe17c5dr5c11c3cbbb2f6dbb@mail.gmail.com>
-	<1271153942.16881.233.camel@edumazet-laptop>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [Patch 3/3] net: reserve ports for applications using fixed port numbers
+Date: Tue, 13 Apr 2010 22:07:19 +0900
+Message-ID: <201004132207.GAJ52684.OJFtMQVFHOSFLO@I-love.SAKURA.ne.jp>
+References: <20100412100744.5302.92442.sendpatchset@localhost.localdomain>
+	<20100412100816.5302.74919.sendpatchset@localhost.localdomain>
+	<201004130121.o3D1Lhh7099571@www262.sakura.ne.jp>
+	<4BC41994.7030707@redhat.com>
+	<4BC42FE0.4040601@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f197.google.com ([209.85.223.197]:42611 "EHLO
-	mail-iw0-f197.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750963Ab0DMMyE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 08:54:04 -0400
-Received: by iwn35 with SMTP id 35so1841835iwn.21
-        for <netdev@vger.kernel.org>; Tue, 13 Apr 2010 05:54:02 -0700 (PDT)
-In-Reply-To: <1271153942.16881.233.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: opurdila@ixiacom.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, nhorman@tuxdriver.com, davem@davemloft.net,
+	ebiederm@xmission.com, linux-kernel@vger.kernel.org
+To: amwang@redhat.com, sean.hefty@intel.com, rolandd@cisco.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4BC42FE0.4040601@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 13, 2010 at 6:19 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le mardi 13 avril 2010 =C3=A0 17:50 +0800, Changli Gao a =C3=A9crit :
->> On Tue, Apr 13, 2010 at 4:08 PM, Eric Dumazet <eric.dumazet@gmail.co=
-m> wrote:
->> >
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Probably not necessary.
->> >
->> >> + =C2=A0 =C2=A0 volatile bool =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-flush_processing_queue;
->> >
->> > Use of 'volatile' is strongly discouraged, I would say, forbidden.
->> >
->>
->> volatile is used to avoid compiler optimization.
->
-> volatile might be used on special macros only, not to guard a variabl=
-e.
-> volatile was pre SMP days. We need something better defined these day=
-s.
->
+Hello.
 
-flush_processing_queue is only accessed on the same CPU, so no
-volatile is needed. I'll remove it in the next version.
+Adding Sean Hefty and Roland Dreier as drivers/infiniband/core/cma.c maintainer.
 
->> >> @@ -2803,6 +2808,7 @@ static void flush_backlog(void *arg)
->> >> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 __skb_unlink(skb, &queue->input_pkt_queue);
->> >> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 kfree_skb(skb);
->> >> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 }
->> >> + =C2=A0 =C2=A0 queue->flush_processing_queue =3D true;
->> >
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Probably not necessary
->> >
->>
->> If flush_backlog() is called when there are still packets in
->> processing_queue, there maybe some packets refer to the netdev gone,
->> if we remove this line.
->
-> We dont need this "processing_queue". Once you remove it, there is no
-> extra work to perform.
+Cong Wang wrote:
+> Cong Wang wrote:
+> > Tetsuo Handa wrote:
+> >> Hello.
+> >>
+> >>> --- linux-2.6.orig/drivers/infiniband/core/cma.c
+> >>> +++ linux-2.6/drivers/infiniband/core/cma.c
+> >>> @@ -1980,6 +1980,8 @@ retry:
+> >>>  	/* FIXME: add proper port randomization per like inet_csk_get_port */
+> >>>  	do {
+> >>>  		ret = idr_get_new_above(ps, bind_list, next_port, &port);
+> >>> +		if (!ret && inet_is_reserved_local_port(port))
+> >>> +			ret = -EAGAIN;
+> >>>  	} while ((ret == -EAGAIN) && idr_pre_get(ps, GFP_KERNEL));
+> >>>  
+> >>>  	if (ret)
+> >>>
+> >> I think above part is wrong. Below program
+> > ...
+> >> This result suggests that above loop will continue until idr_pre_get() fails
+> >> due to out of memory if all ports were reserved.
+> >>
+> >> Also, if idr_get_new_above() returned 0, bind_list (which is a kmalloc()ed
+> >> pointer) is already installed into a free slot (see comment on
+> >> idr_get_new_above_int()). Thus, simply calling idr_get_new_above() again will
+> >> install the same pointer into multiple slots. I guess it will malfunction later.
+> > 
+> > Thanks for testing!
+> > 
+> > How about:
+> > 
+> > +		if (!ret && inet_is_reserved_local_port(port))
+> > +			ret = -EBUSY;
+> > 
+> > ? So that it will break the loop and return error.
+> > 
+> 
+> Or use the similar trick:
+> 
+>  int tries = 10;
+> ...
+> 
+>  if(!ret && inet_is_reserved_local_port(port)) {
+>    if (tries--)
+>      ret = -EAGAIN;
+>    else
+>      ret = -EBUSY;
+>  }
+> 
+> Any comments?
+> 
+I don't like above change. Above change makes local port assignment from
+"likely-succeed" (succeeds if one port is available from thousands of ports) to
+"unlikely-succeed" (fail if randomly chosen port is already in use).
+We should repeat for all ranges specified in /proc/sys/net/ipv4/ip_local_port_range .
 
-OK. If we make processing_queue is a stack variable. When quota or
-jiffies limit is reached, we have to splice processing_queue back to
-input_pkt_queue. If flush_backlog() is called before the
-processing_queue is spliced, there will still packets which refer to
-the NIC going. Then these packets are queued to input_pkt_queue. When
-process_backlog() is called again, the dev field of these skbs are
-wild...
+cma_alloc_any_port() and cma_alloc_port() are almost identical.
+Thus, I think we can call cma_alloc_port() from cma_alloc_any_port().
 
-Oh, my GOD. When RPS is enabled, if flush_backlog(eth0) is called on
-CPU1 when a skb0(eth0) is dequeued from CPU0's softnet and isn't
-queued to CPU1's softnet, what will happen?
+Sean and Roland, is below patch correct?
+inet_is_reserved_local_port() is the new function proposed in this patchset.
 
->
->> >
->> >>
->> >
->> > I advise to keep it simple.
->> >
->> > My suggestion would be to limit this patch only to process_backlog=
-().
->> >
->> > Really if you touch other areas, there is too much risk.
->> >
->> > Perform sort of skb_queue_splice_tail_init() into a local (stack) =
-queue,
->> > but the trick is to not touch input_pkt_queue.qlen, so that we don=
-t slow
->> > down enqueue_to_backlog().
->> >
->> > Process at most 'quota' skbs (or jiffies limit).
->> >
->> > relock queue.
->> > input_pkt_queue.qlen -=3D number_of_handled_skbs;
->> >
->>
->> Oh no, in order to let latter packets in as soon as possible, we hav=
-e
->> to update qlen immediately.
->>
->
-> Absolutely not. You missed something apparently.
->
-> You pay the price at each packet enqueue, because you have to compute
-> the sum of two lengthes, and guess what, if you do this you have a ca=
-che
-> line miss in one of the operand. Your patch as is is suboptimal.
->
-> Remember : this batch mode should not change packet queueing at all,
-> only speed it because of less cache line misses.
->
+---
+ drivers/infiniband/core/cma.c |   68 ++++++++++++++----------------------------
+ 1 file changed, 23 insertions(+), 45 deletions(-)
 
-WoW, is it really so expensive?
-
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
+--- linux-2.6.34-rc4.orig/drivers/infiniband/core/cma.c
++++ linux-2.6.34-rc4/drivers/infiniband/core/cma.c
+@@ -79,7 +79,6 @@ static DEFINE_IDR(sdp_ps);
+ static DEFINE_IDR(tcp_ps);
+ static DEFINE_IDR(udp_ps);
+ static DEFINE_IDR(ipoib_ps);
+-static int next_port;
+ 
+ struct cma_device {
+ 	struct list_head	list;
+@@ -1970,47 +1969,31 @@ err1:
+ 
+ static int cma_alloc_any_port(struct idr *ps, struct rdma_id_private *id_priv)
+ {
+-	struct rdma_bind_list *bind_list;
+-	int port, ret, low, high;
+-
+-	bind_list = kzalloc(sizeof *bind_list, GFP_KERNEL);
+-	if (!bind_list)
+-		return -ENOMEM;
+-
+-retry:
+-	/* FIXME: add proper port randomization per like inet_csk_get_port */
+-	do {
+-		ret = idr_get_new_above(ps, bind_list, next_port, &port);
+-	} while ((ret == -EAGAIN) && idr_pre_get(ps, GFP_KERNEL));
+-
+-	if (ret)
+-		goto err1;
++	static unsigned int last_used_port;
++	int low, high, remaining;
++	unsigned int rover;
+ 
+ 	inet_get_local_port_range(&low, &high);
+-	if (port > high) {
+-		if (next_port != low) {
+-			idr_remove(ps, port);
+-			next_port = low;
+-			goto retry;
++	remaining = (high - low) + 1;
++	rover = net_random() % remaining + low;
++	do {
++		rover++;
++		if ((rover < low) || (rover > high))
++			rover = low;
++		if (last_used_port != rover &&
++		    !inet_is_reserved_local_port(rover) &&
++		    !idr_find(ps, (unsigned short) rover) &&
++		    !cma_alloc_port(ps, id_priv, rover)) {
++			/*
++			 * Remember previously used port number in order to
++			 * avoid re-using same port immediately after it is
++			 * closed.
++			 */
++			last_used_port = rover;
++			return 0;
+ 		}
+-		ret = -EADDRNOTAVAIL;
+-		goto err2;
+-	}
+-
+-	if (port == high)
+-		next_port = low;
+-	else
+-		next_port = port + 1;
+-
+-	bind_list->ps = ps;
+-	bind_list->port = (unsigned short) port;
+-	cma_bind_port(bind_list, id_priv);
+-	return 0;
+-err2:
+-	idr_remove(ps, port);
+-err1:
+-	kfree(bind_list);
+-	return ret;
++	} while (--remaining > 0);
++	return -EADDRNOTAVAIL;
+ }
+ 
+ static int cma_use_port(struct idr *ps, struct rdma_id_private *id_priv)
+@@ -2995,12 +2978,7 @@ static void cma_remove_one(struct ib_dev
+ 
+ static int __init cma_init(void)
+ {
+-	int ret, low, high, remaining;
+-
+-	get_random_bytes(&next_port, sizeof next_port);
+-	inet_get_local_port_range(&low, &high);
+-	remaining = (high - low) + 1;
+-	next_port = ((unsigned int) next_port % remaining) + low;
++	int ret;
+ 
+ 	cma_wq = create_singlethread_workqueue("rdma_cm");
+ 	if (!cma_wq)
