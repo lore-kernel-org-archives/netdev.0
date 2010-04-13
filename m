@@ -1,125 +1,49 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH iproute] ip: add support for multicast rules
-Date: Tue, 13 Apr 2010 17:06:24 +0200
-Message-ID: <4BC48870.7070704@trash.net>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [Bugme-new] [Bug 15720] New: IPv6's ipv4-compatibility addresses
+ don't bind
+Date: Tue, 13 Apr 2010 11:06:38 -0400
+Message-ID: <4BC4887E.1050801@hp.com>
+References: <bug-15720-10286@https.bugzilla.kernel.org/> <20100412212241.d8bf4185.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060304040000040606040002"
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: charles@kde.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51328 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752157Ab0DMPGZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 11:06:25 -0400
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:12038 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752545Ab0DMPGn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 11:06:43 -0400
+In-Reply-To: <20100412212241.d8bf4185.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------060304040000040606040002
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+Andrew Morton wrote:
+>> When attempting to bind to an address using ipv4-compatibility, for example,
+>> "::ffff:127.0.0.1", Linux refuses to bind to that address when
+>> /proc/sys/net/ipv6/bindv6only is set.
 
-This patch adds support for a "ip mrule" command, which is used
-to configure multicast routing rules.
+This is actually not a (deprecated) IPv4-compatible IPv6 address (::127.0.0.1),
+but an IPv4-mapped IPv6 address.
 
-The corresponding kernel patches have been sent to Dave and
-should (hopefully) appear in net-next soon.
+>> It seems to me that the intent of "bindv6only" was to not bind to the ipv4
+>> address when you bind to all addresses (specifically ipv6 address "::"). So
+>> when you bind to ::, an ipv4 client connects to you, and it appears to be
+>> connecting from ::ffff:192.168.5.5. I don't think its intent was to effectively
+>> disable binding to ::ffff:x.x.x.x addresses - just breaking that feature makes
+>> no sense.
 
---------------060304040000040606040002
-Content-Type: text/x-patch;
- name="mrule.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="mrule.diff"
+It is documented in ip-sysctl.txt:
 
->From 1c21ad3ad0a5cd10d1f8cf9c7c5f5b28ae558103 Mon Sep 17 00:00:00 2001
-From: Patrick McHardy <kaber@trash.net>
-Date: Tue, 13 Apr 2010 17:03:47 +0200
-Subject: [PATCH] ip: add support for multicast rules
+bindv6only - BOOLEAN
+        Default value for IPV6_V6ONLY socket option,
+        which restricts use of the IPv6 socket to IPv6 communication
+        only.
+                TRUE: disable IPv4-mapped address feature
+                FALSE: enable IPv4-mapped address feature
 
-Signed-off-by: Patrick McHardy <kaber@trash.net>
----
- include/linux/fib_rules.h |    8 ++++++++
- ip/ip.c                   |    3 ++-
- ip/ip_common.h            |    1 +
- ip/iprule.c               |   12 ++++++++++++
- 4 files changed, 23 insertions(+), 1 deletions(-)
+        Default: FALSE (as specified in RFC2553bis)
 
-diff --git a/include/linux/fib_rules.h b/include/linux/fib_rules.h
-index 51da65b..04a3976 100644
---- a/include/linux/fib_rules.h
-+++ b/include/linux/fib_rules.h
-@@ -15,6 +15,14 @@
- /* try to find source address in routing lookups */
- #define FIB_RULE_FIND_SADDR	0x00010000
- 
-+/* fib_rules families. values up to 127 are reserved for real address
-+ * families, values above 128 may be used arbitrarily.
-+ */
-+#define FIB_RULES_IPV4		AF_INET
-+#define FIB_RULES_IPV6		AF_INET6
-+#define FIB_RULES_DECNET	AF_DECnet
-+#define FIB_RULES_IPMR		128
-+
- struct fib_rule_hdr {
- 	__u8		family;
- 	__u8		dst_len;
-diff --git a/ip/ip.c b/ip/ip.c
-index e0cf175..9f29533 100644
---- a/ip/ip.c
-+++ b/ip/ip.c
-@@ -42,7 +42,7 @@ static void usage(void)
- "Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }\n"
- "       ip [ -force ] -batch filename\n"
- "where  OBJECT := { link | addr | addrlabel | route | rule | neigh | ntable |\n"
--"                   tunnel | tuntap | maddr | mroute | monitor | xfrm }\n"
-+"                   tunnel | tuntap | maddr | mroute | mrule | monitor | xfrm }\n"
- "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |\n"
- "                    -f[amily] { inet | inet6 | ipx | dnet | link } |\n"
- "                    -o[neline] | -t[imestamp] | -b[atch] [filename] |\n"
-@@ -76,6 +76,7 @@ static const struct cmd {
- 	{ "monitor",	do_ipmonitor },
- 	{ "xfrm",	do_xfrm },
- 	{ "mroute",	do_multiroute },
-+	{ "mrule",	do_multirule },
- 	{ "help",	do_help },
- 	{ 0 }
- };
-diff --git a/ip/ip_common.h b/ip/ip_common.h
-index c857667..a114186 100644
---- a/ip/ip_common.h
-+++ b/ip/ip_common.h
-@@ -37,6 +37,7 @@ extern int do_iplink(int argc, char **argv);
- extern int do_ipmonitor(int argc, char **argv);
- extern int do_multiaddr(int argc, char **argv);
- extern int do_multiroute(int argc, char **argv);
-+extern int do_multirule(int argc, char **argv);
- extern int do_xfrm(int argc, char **argv);
- 
- static inline int rtm_get_table(struct rtmsg *r, struct rtattr **tb)
-diff --git a/ip/iprule.c b/ip/iprule.c
-index 7140375..abb8752 100644
---- a/ip/iprule.c
-+++ b/ip/iprule.c
-@@ -436,3 +436,15 @@ int do_iprule(int argc, char **argv)
- 	exit(-1);
- }
- 
-+int do_multirule(int argc, char **argv)
-+{
-+	if (preferred_family == AF_UNSPEC ||
-+	    preferred_family == AF_INET)
-+		preferred_family = FIB_RULES_IPMR;
-+	else {
-+		fprintf(stderr, "Multicast rules are only supported for IPv4\n");
-+		exit(-1);
-+	}
-+
-+	return do_iprule(argc, argv);
-+}
--- 
-1.7.0.4
-
-
---------------060304040000040606040002--
+-Brian
