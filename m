@@ -2,7 +2,7 @@ From: Alexey Dobriyan <adobriyan@gmail.com>
 Subject: Re: [PATCH v2] xtables: make XT_ALIGN() usable in exported headers
  by exporting __ALIGN_KERNEL()
 Date: Tue, 13 Apr 2010 11:50:03 +0000 (UTC)
-Message-ID: <20100414125007.GB25686@x200>
+Message-ID: <20100414125007.GB25686__21047.6753688001$1271159403$gmane$org@x200>
 References: <20100407162245.GA4557@x200>
  <4BC437C6.8020602@trash.net>
  <4BC44117.80901@trash.net>
@@ -14,12 +14,16 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	shemminger@vyatta.com, bhutchings@solarflare.com, andreas@fatal.se,
 	hadi@cyberus.ca, hideaki@yoshifuji.org
 To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:62388 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751099Ab0DMLtl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 07:49:41 -0400
 Date: Wed, 14 Apr 2010 15:50:07 +0300
 Content-Disposition: inline
 In-Reply-To: <4BC450A4.1010200@trash.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On Tue, Apr 13, 2010 at 01:08:20PM +0200, Patrick McHardy wrote:
 > Alexey Dobriyan wrote:
