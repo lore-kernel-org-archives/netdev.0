@@ -1,55 +1,70 @@
-From: =?ISO-8859-1?Q?=22L=2E_Alberto_Gim=E9nez=22?=
-	<agimenez@sysvalve.es>
-Subject: Re: [PATCH Resubmission] drivers/net/usb: Add new driver ipheth
-Date: Tue, 13 Apr 2010 21:03:25 +0200
-Message-ID: <4BC4BFFD.9040802@sysvalve.es>
-References: <1269984864-28159-1-git-send-email-agimenez@sysvalve.es>	<1270678281-20750-1-git-send-email-agimenez@sysvalve.es> <20100413.011540.115903049.davem@davemloft.net>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 15777] New: Changing MTU after enabling
+ GSO/GRO breaks incoming IPv6 neighbour discovery
+Date: Tue, 13 Apr 2010 12:37:31 -0700
+Message-ID: <20100413123731.63a31ff7.akpm@linux-foundation.org>
+References: <bug-15777-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, dgiagio@gmail.com, dborca@yahoo.com,
-	gregkh@suse.de, jonas.sjoquist@ericsson.com,
-	steve.glendinning@smsc.com, torgny.johansson@gmail.com,
-	dbrownell@users.sourceforge.net, omar.oberthur@gmail.com,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, roman@rm.pp.ru
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from capside.net ([81.19.98.74]:44769 "EHLO eul0600410.eu.verio.net"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751385Ab0DMTEd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 13 Apr 2010 15:04:33 -0400
-In-Reply-To: <20100413.011540.115903049.davem@davemloft.net>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:39919 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751737Ab0DMTik (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 15:38:40 -0400
+In-Reply-To: <bug-15777-10286@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> Unless you add a rule to drivers/net/Makefile, the build won't
-> actually get to your driver unless one of the other USB networking
-> devices are configured.
->  =20
 
-Hi David,
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-Thanks for the info. I didn't know that I had to add an entry on the=20
-upper level Makefile. I guess that something like=20
-obj-$(CONFIG_USB_IPHETH) +=3D usb/ should be enough? (I got it from the=
-=20
-other USB net drivers).
+On Tue, 13 Apr 2010 16:17:44 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
 
-I won't be able to work on it today, I've been very busy today and can'=
-t=20
-look into this, but I've not given up :)
+> https://bugzilla.kernel.org/show_bug.cgi?id=15777
+> 
+>            Summary: Changing MTU after enabling GSO/GRO breaks incoming
+>                     IPv6 neighbour discovery
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 2.6.33
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV6
+>         AssignedTo: yoshfuji@linux-ipv6.org
+>         ReportedBy: roman@rm.pp.ru
+>         Regression: No
+> 
+> 
+> I have discovered that on one machine, if I enable either GSO or GRO (with
+> ethtool -K), and then change the interface MTU, the machine ceases to be IPv6
+> neighbour-discoverable. After the following commands:
+> 
+>   ethtool -K eth0 gro on gso on # doesn't matter which of them, or both
+>   ifconfig eth0 mtu 4082
+> 
+> the machine is no longer ping6'able from LAN by "new" hosts (which haven't seen
+> it recently) -- until something ELSE is adjusted on the same interface of that
+> machine, e.g. the following command helps (I don't know why, the PROMISC mode
+> is already disabled when it runs):
+> 
+>   ifconfig eth0 -promisc
+> 
+> The NIC (using the "skge" driver):
+> 
+>   00:08.0 Ethernet controller: 3Com Corporation 3c940 10/100/1000Base-T
+> [Marvell] (rev 10)
+> 
+> The system is a  Debian Squeeze with 2.6.33 kernel and ethtool 2.6.33.
+> 
+> The issue is 100% reproducible.
 
-> Please fix this up and resubmit.=20
-
-I have also in my queue a patch sent from upstream to fix the latest=20
-issues pointed out by Roland Dreier, and I need to test it a little bit=
-=20
-more.
-
-Thanks for your comments and patience!
-
-
-Best regards,
-L. Alberto Gim=E9nez
