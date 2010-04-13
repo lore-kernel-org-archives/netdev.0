@@ -1,96 +1,33 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: [PATCH v2] xtables: make XT_ALIGN() usable in exported headers by
- exporting __ALIGN_KERNEL()
-Date: Tue, 13 Apr 2010 11:06:56 +0000 (UTC)
-Message-ID: <20100414120712.GA25686__44199.4795030498$1271156816$gmane$org@x200>
-References: <20100407162245.GA4557@x200>
- <4BC437C6.8020602@trash.net>
- <4BC44117.80901@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH 2/9] net: fib_rules: set family in fib_rule_hdr
+ centrally
+Date: Tue, 13 Apr 2010 04:06:56 -0700 (PDT)
+Message-ID: <20100413.040656.112169085.davem@davemloft.net>
+References: <1271007435-20035-1-git-send-email-kaber@trash.net>
+	<1271007435-20035-3-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	shemminger@vyatta.com, bhutchings@solarflare.com, andreas@fatal.se,
-	hadi@cyberus.ca, hideaki@yoshifuji.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f220.google.com ([209.85.219.220]:48778 "EHLO
-	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752694Ab0DMLGh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 07:06:37 -0400
-Date: Wed, 14 Apr 2010 15:07:12 +0300
-Content-Disposition: inline
-In-Reply-To: <4BC44117.80901@trash.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46763
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753155Ab0DMLGw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 07:06:52 -0400
+In-Reply-To: <1271007435-20035-3-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-XT_ALIGN() was rewritten through ALIGN() by commit 42107f5009da223daa800d6da6904d77297ae829
-"netfilter: xtables: symmetric COMPAT_XT_ALIGN definition".
-ALIGN() is not exported in userspace headers, which created compile problem for tc(8)
-and will create problem for iptables(8).
+From: kaber@trash.net
+Date: Sun, 11 Apr 2010 19:37:08 +0200
 
-We can't export generic looking name ALIGN() but we can export less generic
-__ALIGN_KERNEL() (suggested by Ben Hutchings).
-Google knows nothing about __ALIGN_KERNEL().
+> From: Patrick McHardy <kaber@trash.net>
+> 
+> All fib_rules implementations need to set the family in their ->fill()
+> functions. Since the value is available to the generic fib_nl_fill_rule()
+> function, set it there.
+> 
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-COMPAT_XT_ALIGN() changed for symmetry.
-
-Reported-by: Andreas Henriksson <andreas@fatal.se>
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
-
- include/linux/kernel.h             |    6 ++++--
- include/linux/netfilter/x_tables.h |    6 +++---
- 2 files changed, 7 insertions(+), 5 deletions(-)
-
---- a/include/linux/kernel.h
-+++ b/include/linux/kernel.h
-@@ -4,6 +4,8 @@
- /*
-  * 'kernel.h' contains some often-used function prototypes etc
-  */
-+#define __ALIGN_KERNEL(x, a)		__ALIGN_KERNEL_MASK(x, (typeof(x))(a) - 1)
-+#define __ALIGN_KERNEL_MASK(x, mask)	(((x) + (mask)) & ~(mask))
- 
- #ifdef __KERNEL__
- 
-@@ -37,8 +39,8 @@ extern const char linux_proc_banner[];
- 
- #define STACK_MAGIC	0xdeadbeef
- 
--#define ALIGN(x,a)		__ALIGN_MASK(x,(typeof(x))(a)-1)
--#define __ALIGN_MASK(x,mask)	(((x)+(mask))&~(mask))
-+#define ALIGN(x, a)		__ALIGN_KERNEL((x), (a))
-+#define __ALIGN_MASK(x, mask)	__ALIGN_KERNEL_MASK((x), (mask))
- #define PTR_ALIGN(p, a)		((typeof(p))ALIGN((unsigned long)(p), (a)))
- #define IS_ALIGNED(x, a)		(((x) & ((typeof(x))(a) - 1)) == 0)
- 
-diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
-index 84c7c92..f01ddbe 100644
---- a/include/linux/netfilter/x_tables.h
-+++ b/include/linux/netfilter/x_tables.h
-@@ -1,6 +1,6 @@
- #ifndef _X_TABLES_H
- #define _X_TABLES_H
--
-+#include <linux/kernel.h>
- #include <linux/types.h>
- 
- #define XT_FUNCTION_MAXNAMELEN 30
-@@ -93,7 +93,7 @@ struct _xt_align {
- 	__u64 u64;
- };
- 
--#define XT_ALIGN(s) ALIGN((s), __alignof__(struct _xt_align))
-+#define XT_ALIGN(s) __ALIGN_KERNEL((s), __alignof__(struct _xt_align))
- 
- /* Standard return verdict, or do jump. */
- #define XT_STANDARD_TARGET ""
-@@ -598,7 +598,7 @@ struct _compat_xt_align {
- 	compat_u64 u64;
- };
- 
--#define COMPAT_XT_ALIGN(s) ALIGN((s), __alignof__(struct _compat_xt_align))
-+#define COMPAT_XT_ALIGN(s) __ALIGN_KERNEL((s), __alignof__(struct _compat_xt_align))
- 
- extern void xt_compat_lock(u_int8_t af);
- extern void xt_compat_unlock(u_int8_t af);
+Looks good.
