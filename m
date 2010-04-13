@@ -1,117 +1,69 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [Bonding-devel] [v3 Patch 2/3] bridge: make bridge support
- netpoll
-Date: Tue, 13 Apr 2010 10:33:20 -0700
-Message-ID: <20100413103320.11a2a4f7@nehalam>
-References: <20100408062234.4499.17042.sendpatchset@localhost.localdomain>
-	<20100408062246.4499.5670.sendpatchset@localhost.localdomain>
-	<20100408083710.2b61ee44@nehalam>
-	<4BC2F7E2.7020309@redhat.com>
-	<1271068737.16881.18.camel@edumazet-laptop>
-	<20100412083842.26d71bda@nehalam>
-	<4BC43214.6030009@redhat.com>
-	<8304.1271177567@death.nxdomain.ibm.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] tun: orphan an skb on tx
+Date: Tue, 13 Apr 2010 20:39:19 +0300
+Message-ID: <20100413173919.GC26011@redhat.com>
+References: <20100413145944.GA7716@redhat.com> <4BC48F79.5090409@siemens.com> <1271176838.16881.537.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Cong Wang <amwang@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	Andy Gospodarek <gospo@redhat.com>,
-	bridge@lists.linux-foundation.org, linux-kernel@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net,
-	Jeff Moyer <jmoyer@redhat.com>, Matt Mackall <mpm@selenic.com>,
-	David Miller <davem@davemloft.net>
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <8304.1271177567@death.nxdomain.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Jan Kiszka <jan.kiszka@siemens.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	Paul Moore <paul.moore@hp.com>,
+	David Woodhouse <David.Woodhouse@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	qemu-devel <qemu-devel@nongnu.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:39307 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751983Ab0DMRoc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Apr 2010 13:44:32 -0400
+Content-Disposition: inline
+In-Reply-To: <1271176838.16881.537.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 13 Apr 2010 09:52:47 -0700
-Jay Vosburgh <fubar@us.ibm.com> wrote:
+On Tue, Apr 13, 2010 at 06:40:38PM +0200, Eric Dumazet wrote:
+> Le mardi 13 avril 2010 =E0 17:36 +0200, Jan Kiszka a =E9crit :
+> > Michael S. Tsirkin wrote:
+> > > The following situation was observed in the field:
+> > > tap1 sends packets, tap2 does not consume them, as a result
+> > > tap1 can not be closed.
+> >=20
+> > And before that, tap1 may not be able to send further packets to an=
+yone
+> > else on the bridge as its TX resources were blocked by tap2 - that'=
+s
+> > what we saw in the field.
+> >=20
+>=20
+> After the patch, tap1 is able to flood tap2, and tap3/tap4 not able t=
+o
+> send one single frame. Is it OK ?
 
-> Cong Wang <amwang@redhat.com> wrote:
+Yes :) This was always possible. Number of senders needed to flood
+a receiver might vary depending on send/recv queue size
+that you set. External sources can also fill your RX queue
+if you let them. In the end, we need to rely on the scheduler for fairn=
+ess,
+or apply packet shaping.
+
+> Back to the problem : tap1 cannot be closed.
 >=20
-> >Stephen Hemminger wrote:
-> >> On Mon, 12 Apr 2010 12:38:57 +0200
-> >> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >>=20
-> >>> Le lundi 12 avril 2010 =C3=A0 18:37 +0800, Cong Wang a =C3=A9crit=
- :
-> >>>> Stephen Hemminger wrote:
-> >>>>> There is no protection on dev->priv_flags for SMP access.
-> >>>>> It would better bit value in dev->state if you are using it as =
-control flag.
-> >>>>>
-> >>>>> Then you could use=20
-> >>>>> 			if (unlikely(test_and_clear_bit(__IN_NETPOLL, &skb->dev->sta=
-te)))
-> >>>>> 				netpoll_send_skb(...)
-> >>>>>
-> >>>>>
-> >>>> Hmm, I think we can't use ->state here, it is not for this kind =
-of purpose,
-> >>>> according to its comments.
-> >>>>
-> >>>> Also, I find other usages of IFF_XXX flags of ->priv_flags are a=
-lso using
-> >>>> &, | to set or clear the flags. So there must be some other thin=
-gs preventing
-> >>>> the race...
-> >>> Yes, its RTNL that protects priv_flags changes, hopefully...
-> >>>
-> >>=20
-> >> The patch was not protecting priv_flags with RTNL.
-> >> For example..
-> >>=20
-> >>=20
-> >> @@ -308,7 +312,9 @@ static void netpoll_send_skb(struct netp
-> >>  		     tries > 0; --tries) {
-> >>  			if (__netif_tx_trylock(txq)) {
-> >>  				if (!netif_tx_queue_stopped(txq)) {
-> >> +					dev->priv_flags |=3D IFF_IN_NETPOLL;
-> >>  					status =3D ops->ndo_start_xmit(skb, dev);
-> >> +					dev->priv_flags &=3D ~IFF_IN_NETPOLL;
-> >>  					if (status =3D=3D NETDEV_TX_OK)
-> >>  						txq_trans_update(txq);
-> >
-> >Hmm, but I checked the bonding case (IFF_BONDING), it doesn't
-> >hold rtnl_lock. Strange.
->=20
-> 	I looked, and there are a couple of cases in bonding that don't
-> have RTNL for adjusting priv_flags (in bond_ab_arp_probe when no slav=
-es
-> are up, and a couple of cases in 802.3ad).  I think the solution ther=
-e
-> is to move bonding away from priv_flags for some of this (e.g., conve=
-rt
-> bonding to use a frame hook like bridge and macvlan, and greatly
-> simplify skb_bond_should_drop), but that's a separate topic.
->=20
-> 	The majority of the cases, however, do hold RTNL.  Bonding
-> generally doesn't have to acquire RTNL itself, since whatever called
-> into bonding is holding it already.  For example, the slave add and
-> remove paths (bond_enslave, bond_release) are called either via sysfs=
- or
-> ioctl, both of which acquire RTNL.  All of the set and clear operatio=
-ns
-> for IFF_BONDING fall into this category; look at bonding_store_slaves
-> for an example.
->=20
-> 	Bonding does acquire RTNL itself when performing failovers,
-> e.g., bond_mii_monitor holds RTNL prior to calling bond_miimon_commit=
-,
-> which will change priv_flags.
+> Why ? because of refcounts ?
+
+Yes.
+
+> When a socket with inflight tx packets is closed, we dont block the
+> close, we only delay the socket freeing once all packets were deliver=
+ed
+> and freed.
 >=20
 
-All this was related to netpoll. And netpoll processing often needs to =
-occur
-in hard IRQ context. Therefor netpoll stuff and RTNL (which is a mutex)=
-,
-really don't mix well.  Keep RTNL for what it was meant for network
-reconfiguration. Don't turn it into a network special BKL.
-
-
+Which is wrong, since this is under userspace control, so you get
+unkillable processes.
 
 --=20
+MST
