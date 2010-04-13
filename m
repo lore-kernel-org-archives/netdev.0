@@ -1,314 +1,261 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 6/9] ipv4: ipmr: remove net pointer from struct mfc_cache
-Date: Tue, 13 Apr 2010 17:03:20 +0200
-Message-ID: <1271171003-11901-7-git-send-email-kaber@trash.net>
+Subject: [PATCH 5/9] ipv4: ipmr: move unres_queue and timer to per-namespace data
+Date: Tue, 13 Apr 2010 17:03:19 +0200
+Message-ID: <1271171003-11901-6-git-send-email-kaber@trash.net>
 References: <1271171003-11901-1-git-send-email-kaber@trash.net>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51256 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:51255 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751806Ab0DMPD2 (ORCPT
+	with ESMTP id S1752342Ab0DMPD2 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 11:03:28 -0400
 In-Reply-To: <1271171003-11901-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that cache entries in unres_queue don't need to be distinguished by their
-network namespace pointer anymore, we can remove it from struct mfc_cache
-add pass the namespace as function argument to the functions that need it.
+The unres_queue is currently shared between all namespaces. Following patches
+will additionally allow to create multiple multicast routing tables in each
+namespace. Having a single shared queue for all these users seems to excessive,
+move the queue and the cleanup timer to the per-namespace data to unshare it.
+
+As a side-effect, this fixes a bug in the seq file iteration functions: the
+first entry returned is always from the current namespace, entries returned
+after that may belong to any namespace.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/linux/mroute.h |   15 -----------
- net/ipv4/ipmr.c        |   65 +++++++++++++++++++++++------------------------
- 2 files changed, 32 insertions(+), 48 deletions(-)
+ include/net/netns/ipv4.h |    2 +
+ net/ipv4/ipmr.c          |   70 +++++++++++++++++++---------------------------
+ 2 files changed, 31 insertions(+), 41 deletions(-)
 
-diff --git a/include/linux/mroute.h b/include/linux/mroute.h
-index c5f3d53..de7780a 100644
---- a/include/linux/mroute.h
-+++ b/include/linux/mroute.h
-@@ -192,9 +192,6 @@ struct vif_device {
+diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
+index 2764994..b15e518 100644
+--- a/include/net/netns/ipv4.h
++++ b/include/net/netns/ipv4.h
+@@ -60,6 +60,8 @@ struct netns_ipv4 {
  
- struct mfc_cache {
- 	struct mfc_cache *next;			/* Next entry on cache line 	*/
--#ifdef CONFIG_NET_NS
--	struct net *mfc_net;
--#endif
- 	__be32 mfc_mcastgrp;			/* Group the entry belongs to 	*/
- 	__be32 mfc_origin;			/* Source of packet 		*/
- 	vifi_t mfc_parent;			/* Source interface		*/
-@@ -217,18 +214,6 @@ struct mfc_cache {
- 	} mfc_un;
- };
- 
--static inline
--struct net *mfc_net(const struct mfc_cache *mfc)
--{
--	return read_pnet(&mfc->mfc_net);
--}
--
--static inline
--void mfc_net_set(struct mfc_cache *mfc, struct net *net)
--{
--	write_pnet(&mfc->mfc_net, hold_net(net));
--}
--
- #define MFC_STATIC		1
- #define MFC_NOTIFY		2
- 
+ #ifdef CONFIG_IP_MROUTE
+ 	struct sock		*mroute_sk;
++	struct timer_list	ipmr_expire_timer;
++	struct mfc_cache	*mfc_unres_queue;
+ 	struct mfc_cache	**mfc_cache_array;
+ 	struct vif_device	*vif_table;
+ 	int			maxvif;
 diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index d6aa65e..f8e25c8 100644
+index 9d4f6d1..d6aa65e 100644
 --- a/net/ipv4/ipmr.c
 +++ b/net/ipv4/ipmr.c
-@@ -93,10 +93,12 @@ static DEFINE_SPINLOCK(mfc_unres_lock);
+@@ -80,8 +80,6 @@ static DEFINE_RWLOCK(mrt_lock);
  
- static struct kmem_cache *mrt_cachep __read_mostly;
+ #define VIF_EXISTS(_net, _idx) ((_net)->ipv4.vif_table[_idx].dev != NULL)
  
--static int ip_mr_forward(struct sk_buff *skb, struct mfc_cache *cache, int local);
-+static int ip_mr_forward(struct net *net, struct sk_buff *skb,
-+			 struct mfc_cache *cache, int local);
- static int ipmr_cache_report(struct net *net,
+-static struct mfc_cache *mfc_unres_queue;		/* Queue of unresolved entries */
+-
+ /* Special spinlock for queue of unresolved entries */
+ static DEFINE_SPINLOCK(mfc_unres_lock);
+ 
+@@ -100,8 +98,6 @@ static int ipmr_cache_report(struct net *net,
  			     struct sk_buff *pkt, vifi_t vifi, int assert);
--static int ipmr_fill_mroute(struct sk_buff *skb, struct mfc_cache *c, struct rtmsg *rtm);
-+static int ipmr_fill_mroute(struct net *net, struct sk_buff *skb,
-+			    struct mfc_cache *c, struct rtmsg *rtm);
+ static int ipmr_fill_mroute(struct sk_buff *skb, struct mfc_cache *c, struct rtmsg *rtm);
  
+-static struct timer_list ipmr_expire_timer;
+-
  /* Service routines creating virtual interfaces: DVMRP tunnels and PIMREG */
  
-@@ -325,7 +327,6 @@ static int vif_delete(struct net *net, int vifi, int notify,
- 
- static inline void ipmr_cache_free(struct mfc_cache *c)
- {
--	release_net(mfc_net(c));
- 	kmem_cache_free(mrt_cachep, c);
+ static void ipmr_del_tunnel(struct net_device *dev, struct vifctl *v)
+@@ -364,25 +360,26 @@ static void ipmr_destroy_unres(struct mfc_cache *c)
  }
  
-@@ -333,11 +334,10 @@ static inline void ipmr_cache_free(struct mfc_cache *c)
-    and reporting error to netlink readers.
-  */
  
--static void ipmr_destroy_unres(struct mfc_cache *c)
-+static void ipmr_destroy_unres(struct net *net, struct mfc_cache *c)
+-/* Single timer process for all the unresolved queue. */
++/* Timer process for the unresolved queue. */
+ 
+-static void ipmr_expire_process(unsigned long dummy)
++static void ipmr_expire_process(unsigned long arg)
  {
- 	struct sk_buff *skb;
- 	struct nlmsgerr *e;
--	struct net *net = mfc_net(c);
++	struct net *net = (struct net *)arg;
+ 	unsigned long now;
+ 	unsigned long expires;
+ 	struct mfc_cache *c, **cp;
  
- 	atomic_dec(&net->ipv4.cache_resolve_queue_len);
- 
-@@ -392,7 +392,7 @@ static void ipmr_expire_process(unsigned long arg)
- 
- 		*cp = c->next;
- 
--		ipmr_destroy_unres(c);
-+		ipmr_destroy_unres(net, c);
+ 	if (!spin_trylock(&mfc_unres_lock)) {
+-		mod_timer(&ipmr_expire_timer, jiffies+HZ/10);
++		mod_timer(&net->ipv4.ipmr_expire_timer, jiffies+HZ/10);
+ 		return;
  	}
  
- 	if (net->ipv4.mfc_unres_queue != NULL)
-@@ -404,10 +404,10 @@ out:
+-	if (mfc_unres_queue == NULL)
++	if (net->ipv4.mfc_unres_queue == NULL)
+ 		goto out;
  
- /* Fill oifs list. It is called under write locked mrt_lock. */
+ 	now = jiffies;
+ 	expires = 10*HZ;
+-	cp = &mfc_unres_queue;
++	cp = &net->ipv4.mfc_unres_queue;
  
--static void ipmr_update_thresholds(struct mfc_cache *cache, unsigned char *ttls)
-+static void ipmr_update_thresholds(struct net *net, struct mfc_cache *cache,
-+				   unsigned char *ttls)
- {
- 	int vifi;
--	struct net *net = mfc_net(cache);
- 
- 	cache->mfc_un.res.minvif = MAXVIFS;
- 	cache->mfc_un.res.maxvif = 0;
-@@ -547,24 +547,22 @@ static struct mfc_cache *ipmr_cache_find(struct net *net,
- /*
-  *	Allocate a multicast cache entry
-  */
--static struct mfc_cache *ipmr_cache_alloc(struct net *net)
-+static struct mfc_cache *ipmr_cache_alloc(void)
- {
- 	struct mfc_cache *c = kmem_cache_zalloc(mrt_cachep, GFP_KERNEL);
- 	if (c == NULL)
- 		return NULL;
- 	c->mfc_un.res.minvif = MAXVIFS;
--	mfc_net_set(c, net);
- 	return c;
- }
- 
--static struct mfc_cache *ipmr_cache_alloc_unres(struct net *net)
-+static struct mfc_cache *ipmr_cache_alloc_unres(void)
- {
- 	struct mfc_cache *c = kmem_cache_zalloc(mrt_cachep, GFP_ATOMIC);
- 	if (c == NULL)
- 		return NULL;
- 	skb_queue_head_init(&c->mfc_un.unres.unresolved);
- 	c->mfc_un.unres.expires = jiffies + 10*HZ;
--	mfc_net_set(c, net);
- 	return c;
- }
- 
-@@ -572,7 +570,8 @@ static struct mfc_cache *ipmr_cache_alloc_unres(struct net *net)
-  *	A cache entry has gone into a resolved state from queued
-  */
- 
--static void ipmr_cache_resolve(struct mfc_cache *uc, struct mfc_cache *c)
-+static void ipmr_cache_resolve(struct net *net, struct mfc_cache *uc,
-+			       struct mfc_cache *c)
- {
- 	struct sk_buff *skb;
- 	struct nlmsgerr *e;
-@@ -585,7 +584,7 @@ static void ipmr_cache_resolve(struct mfc_cache *uc, struct mfc_cache *c)
- 		if (ip_hdr(skb)->version == 0) {
- 			struct nlmsghdr *nlh = (struct nlmsghdr *)skb_pull(skb, sizeof(struct iphdr));
- 
--			if (ipmr_fill_mroute(skb, c, NLMSG_DATA(nlh)) > 0) {
-+			if (ipmr_fill_mroute(net, skb, c, NLMSG_DATA(nlh)) > 0) {
- 				nlh->nlmsg_len = (skb_tail_pointer(skb) -
- 						  (u8 *)nlh);
- 			} else {
-@@ -597,9 +596,9 @@ static void ipmr_cache_resolve(struct mfc_cache *uc, struct mfc_cache *c)
- 				memset(&e->msg, 0, sizeof(e->msg));
- 			}
- 
--			rtnl_unicast(skb, mfc_net(c), NETLINK_CB(skb).pid);
-+			rtnl_unicast(skb, net, NETLINK_CB(skb).pid);
- 		} else
--			ip_mr_forward(skb, c, 0);
-+			ip_mr_forward(net, skb, c, 0);
+ 	while ((c=*cp) != NULL) {
+ 		if (time_after(c->mfc_un.unres.expires, now)) {
+@@ -398,8 +395,8 @@ static void ipmr_expire_process(unsigned long dummy)
+ 		ipmr_destroy_unres(c);
  	}
- }
  
-@@ -717,7 +716,7 @@ ipmr_cache_unresolved(struct net *net, vifi_t vifi, struct sk_buff *skb)
- 		 */
+-	if (mfc_unres_queue != NULL)
+-		mod_timer(&ipmr_expire_timer, jiffies + expires);
++	if (net->ipv4.mfc_unres_queue != NULL)
++		mod_timer(&net->ipv4.ipmr_expire_timer, jiffies + expires);
  
- 		if (atomic_read(&net->ipv4.cache_resolve_queue_len) >= 10 ||
--		    (c = ipmr_cache_alloc_unres(net)) == NULL) {
-+		    (c = ipmr_cache_alloc_unres()) == NULL) {
- 			spin_unlock_bh(&mfc_unres_lock);
+ out:
+ 	spin_unlock(&mfc_unres_lock);
+@@ -708,9 +705,8 @@ ipmr_cache_unresolved(struct net *net, vifi_t vifi, struct sk_buff *skb)
+ 	const struct iphdr *iph = ip_hdr(skb);
  
- 			kfree_skb(skb);
-@@ -814,7 +813,7 @@ static int ipmr_mfc_add(struct net *net, struct mfcctl *mfc, int mrtsock)
- 	if (c != NULL) {
- 		write_lock_bh(&mrt_lock);
- 		c->mfc_parent = mfc->mfcc_parent;
--		ipmr_update_thresholds(c, mfc->mfcc_ttls);
-+		ipmr_update_thresholds(net, c, mfc->mfcc_ttls);
- 		if (!mrtsock)
- 			c->mfc_flags |= MFC_STATIC;
- 		write_unlock_bh(&mrt_lock);
-@@ -824,14 +823,14 @@ static int ipmr_mfc_add(struct net *net, struct mfcctl *mfc, int mrtsock)
- 	if (!ipv4_is_multicast(mfc->mfcc_mcastgrp.s_addr))
- 		return -EINVAL;
+ 	spin_lock_bh(&mfc_unres_lock);
+-	for (c=mfc_unres_queue; c; c=c->next) {
+-		if (net_eq(mfc_net(c), net) &&
+-		    c->mfc_mcastgrp == iph->daddr &&
++	for (c=net->ipv4.mfc_unres_queue; c; c=c->next) {
++		if (c->mfc_mcastgrp == iph->daddr &&
+ 		    c->mfc_origin == iph->saddr)
+ 			break;
+ 	}
+@@ -751,10 +747,10 @@ ipmr_cache_unresolved(struct net *net, vifi_t vifi, struct sk_buff *skb)
+ 		}
  
--	c = ipmr_cache_alloc(net);
-+	c = ipmr_cache_alloc();
- 	if (c == NULL)
- 		return -ENOMEM;
+ 		atomic_inc(&net->ipv4.cache_resolve_queue_len);
+-		c->next = mfc_unres_queue;
+-		mfc_unres_queue = c;
++		c->next = net->ipv4.mfc_unres_queue;
++		net->ipv4.mfc_unres_queue = c;
  
- 	c->mfc_origin = mfc->mfcc_origin.s_addr;
- 	c->mfc_mcastgrp = mfc->mfcc_mcastgrp.s_addr;
- 	c->mfc_parent = mfc->mfcc_parent;
--	ipmr_update_thresholds(c, mfc->mfcc_ttls);
-+	ipmr_update_thresholds(net, c, mfc->mfcc_ttls);
- 	if (!mrtsock)
- 		c->mfc_flags |= MFC_STATIC;
+-		mod_timer(&ipmr_expire_timer, c->mfc_un.unres.expires);
++		mod_timer(&net->ipv4.ipmr_expire_timer, c->mfc_un.unres.expires);
+ 	}
  
-@@ -859,7 +858,7 @@ static int ipmr_mfc_add(struct net *net, struct mfcctl *mfc, int mrtsock)
+ 	/*
+@@ -849,18 +845,17 @@ static int ipmr_mfc_add(struct net *net, struct mfcctl *mfc, int mrtsock)
+ 	 *	need to send on the frames and tidy up.
+ 	 */
+ 	spin_lock_bh(&mfc_unres_lock);
+-	for (cp = &mfc_unres_queue; (uc=*cp) != NULL;
++	for (cp = &net->ipv4.mfc_unres_queue; (uc=*cp) != NULL;
+ 	     cp = &uc->next) {
+-		if (net_eq(mfc_net(uc), net) &&
+-		    uc->mfc_origin == c->mfc_origin &&
++		if (uc->mfc_origin == c->mfc_origin &&
+ 		    uc->mfc_mcastgrp == c->mfc_mcastgrp) {
+ 			*cp = uc->next;
+ 			atomic_dec(&net->ipv4.cache_resolve_queue_len);
+ 			break;
+ 		}
+ 	}
+-	if (mfc_unres_queue == NULL)
+-		del_timer(&ipmr_expire_timer);
++	if (net->ipv4.mfc_unres_queue == NULL)
++		del_timer(&net->ipv4.ipmr_expire_timer);
  	spin_unlock_bh(&mfc_unres_lock);
  
  	if (uc) {
--		ipmr_cache_resolve(uc, c);
-+		ipmr_cache_resolve(net, uc, c);
- 		ipmr_cache_free(uc);
- 	}
- 	return 0;
-@@ -910,7 +909,7 @@ static void mroute_clean_tables(struct net *net)
- 		cp = &net->ipv4.mfc_unres_queue;
+@@ -912,14 +907,9 @@ static void mroute_clean_tables(struct net *net)
+ 		struct mfc_cache *c, **cp;
+ 
+ 		spin_lock_bh(&mfc_unres_lock);
+-		cp = &mfc_unres_queue;
++		cp = &net->ipv4.mfc_unres_queue;
  		while ((c = *cp) != NULL) {
+-			if (!net_eq(mfc_net(c), net)) {
+-				cp = &c->next;
+-				continue;
+-			}
  			*cp = c->next;
--			ipmr_destroy_unres(c);
-+			ipmr_destroy_unres(net, c);
+-
+ 			ipmr_destroy_unres(c);
  		}
  		spin_unlock_bh(&mfc_unres_lock);
- 	}
-@@ -1221,9 +1220,9 @@ static inline int ipmr_forward_finish(struct sk_buff *skb)
-  *	Processing handlers for ipmr_forward
-  */
- 
--static void ipmr_queue_xmit(struct sk_buff *skb, struct mfc_cache *c, int vifi)
-+static void ipmr_queue_xmit(struct net *net, struct sk_buff *skb,
-+			    struct mfc_cache *c, int vifi)
- {
--	struct net *net = mfc_net(c);
- 	const struct iphdr *iph = ip_hdr(skb);
- 	struct vif_device *vif = &net->ipv4.vif_table[vifi];
- 	struct net_device *dev;
-@@ -1335,11 +1334,11 @@ static int ipmr_find_vif(struct net_device *dev)
- 
- /* "local" means that we should preserve one skb (for local delivery) */
- 
--static int ip_mr_forward(struct sk_buff *skb, struct mfc_cache *cache, int local)
-+static int ip_mr_forward(struct net *net, struct sk_buff *skb,
-+			 struct mfc_cache *cache, int local)
- {
- 	int psend = -1;
- 	int vif, ct;
--	struct net *net = mfc_net(cache);
- 
- 	vif = cache->mfc_parent;
- 	cache->mfc_un.res.pkt++;
-@@ -1396,7 +1395,7 @@ static int ip_mr_forward(struct sk_buff *skb, struct mfc_cache *cache, int local
- 			if (psend != -1) {
- 				struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
- 				if (skb2)
--					ipmr_queue_xmit(skb2, cache, psend);
-+					ipmr_queue_xmit(net, skb2, cache, psend);
- 			}
- 			psend = ct;
- 		}
-@@ -1405,9 +1404,9 @@ static int ip_mr_forward(struct sk_buff *skb, struct mfc_cache *cache, int local
- 		if (local) {
- 			struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
- 			if (skb2)
--				ipmr_queue_xmit(skb2, cache, psend);
-+				ipmr_queue_xmit(net, skb2, cache, psend);
- 		} else {
--			ipmr_queue_xmit(skb, cache, psend);
-+			ipmr_queue_xmit(net, skb, cache, psend);
- 			return 0;
- 		}
- 	}
-@@ -1488,7 +1487,7 @@ int ip_mr_input(struct sk_buff *skb)
- 		return -ENODEV;
- 	}
- 
--	ip_mr_forward(skb, cache, local);
-+	ip_mr_forward(net, skb, cache, local);
- 
+@@ -1819,11 +1809,10 @@ static struct mfc_cache *ipmr_mfc_seq_idx(struct net *net,
+ 				return mfc;
  	read_unlock(&mrt_lock);
  
-@@ -1602,11 +1601,11 @@ drop:
+-	it->cache = &mfc_unres_queue;
++	it->cache = &net->ipv4.mfc_unres_queue;
+ 	spin_lock_bh(&mfc_unres_lock);
+-	for (mfc = mfc_unres_queue; mfc; mfc = mfc->next)
+-		if (net_eq(mfc_net(mfc), net) &&
+-		    pos-- == 0)
++	for (mfc = net->ipv4.mfc_unres_queue; mfc; mfc = mfc->next)
++		if (pos-- == 0)
+ 			return mfc;
+ 	spin_unlock_bh(&mfc_unres_lock);
+ 
+@@ -1857,7 +1846,7 @@ static void *ipmr_mfc_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ 	if (mfc->next)
+ 		return mfc->next;
+ 
+-	if (it->cache == &mfc_unres_queue)
++	if (it->cache == &net->ipv4.mfc_unres_queue)
+ 		goto end_of_list;
+ 
+ 	BUG_ON(it->cache != net->ipv4.mfc_cache_array);
+@@ -1870,13 +1859,11 @@ static void *ipmr_mfc_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ 
+ 	/* exhausted cache_array, show unresolved */
+ 	read_unlock(&mrt_lock);
+-	it->cache = &mfc_unres_queue;
++	it->cache = &net->ipv4.mfc_unres_queue;
+ 	it->ct = 0;
+ 
+ 	spin_lock_bh(&mfc_unres_lock);
+-	mfc = mfc_unres_queue;
+-	while (mfc && !net_eq(mfc_net(mfc), net))
+-		mfc = mfc->next;
++	mfc = net->ipv4.mfc_unres_queue;
+ 	if (mfc)
+ 		return mfc;
+ 
+@@ -1892,7 +1879,7 @@ static void ipmr_mfc_seq_stop(struct seq_file *seq, void *v)
+ 	struct ipmr_mfc_iter *it = seq->private;
+ 	struct net *net = seq_file_net(seq);
+ 
+-	if (it->cache == &mfc_unres_queue)
++	if (it->cache == &net->ipv4.mfc_unres_queue)
+ 		spin_unlock_bh(&mfc_unres_lock);
+ 	else if (it->cache == net->ipv4.mfc_cache_array)
+ 		read_unlock(&mrt_lock);
+@@ -1915,7 +1902,7 @@ static int ipmr_mfc_seq_show(struct seq_file *seq, void *v)
+ 			   (unsigned long) mfc->mfc_origin,
+ 			   mfc->mfc_parent);
+ 
+-		if (it->cache != &mfc_unres_queue) {
++		if (it->cache != &net->ipv4.mfc_unres_queue) {
+ 			seq_printf(seq, " %8lu %8lu %8lu",
+ 				   mfc->mfc_un.res.pkt,
+ 				   mfc->mfc_un.res.bytes,
+@@ -1992,6 +1979,9 @@ static int __net_init ipmr_net_init(struct net *net)
+ 		goto fail_mfc_cache;
+ 	}
+ 
++	setup_timer(&net->ipv4.ipmr_expire_timer, ipmr_expire_process,
++		    (unsigned long)net);
++
+ #ifdef CONFIG_IP_PIMSM
+ 	net->ipv4.mroute_reg_vif_num = -1;
  #endif
+@@ -2047,7 +2037,6 @@ int __init ip_mr_init(void)
+ 	if (err)
+ 		goto reg_pernet_fail;
  
- static int
--ipmr_fill_mroute(struct sk_buff *skb, struct mfc_cache *c, struct rtmsg *rtm)
-+ipmr_fill_mroute(struct net *net, struct sk_buff *skb, struct mfc_cache *c,
-+		 struct rtmsg *rtm)
- {
- 	int ct;
- 	struct rtnexthop *nhp;
--	struct net *net = mfc_net(c);
- 	u8 *b = skb_tail_pointer(skb);
- 	struct rtattr *mp_head;
- 
-@@ -1686,7 +1685,7 @@ int ipmr_get_route(struct net *net,
- 
- 	if (!nowait && (rtm->rtm_flags&RTM_F_NOTIFY))
- 		cache->mfc_flags |= MFC_NOTIFY;
--	err = ipmr_fill_mroute(skb, cache, rtm);
-+	err = ipmr_fill_mroute(net, skb, cache, rtm);
- 	read_unlock(&mrt_lock);
- 	return err;
- }
+-	setup_timer(&ipmr_expire_timer, ipmr_expire_process, 0);
+ 	err = register_netdevice_notifier(&ip_mr_notifier);
+ 	if (err)
+ 		goto reg_notif_fail;
+@@ -2065,7 +2054,6 @@ add_proto_fail:
+ 	unregister_netdevice_notifier(&ip_mr_notifier);
+ #endif
+ reg_notif_fail:
+-	del_timer(&ipmr_expire_timer);
+ 	unregister_pernet_subsys(&ipmr_net_ops);
+ reg_pernet_fail:
+ 	kmem_cache_destroy(mrt_cachep);
 -- 
 1.7.0.4
 
