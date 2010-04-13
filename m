@@ -1,42 +1,34 @@
-From: Xose Vazquez Perez <xose.vazquez@gmail.com>
-Subject: Re: forcedeth driver hangs under heavy load
-Date: Tue, 13 Apr 2010 19:22:32 +0200
-Message-ID: <4BC4A858.9010009@gmail.com>
+From: Jan Ceuleers <jan.ceuleers@computer.org>
+Subject: Re: Network protocol (IP,IPv6,...) and TC actions
+Date: Tue, 13 Apr 2010 19:31:07 +0200
+Message-ID: <4BC4AA5B.8040901@computer.org>
+References: <20100411190845.GA18383@n7mm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Gr=E9goire_Baron?= <baronchon@n7mm.org>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:60442 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751143Ab0DMRWh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 13:22:37 -0400
-Received: by wwb34 with SMTP id 34so168480wwb.19
-        for <netdev@vger.kernel.org>; Tue, 13 Apr 2010 10:22:36 -0700 (PDT)
+Received: from mailrelay006.isp.belgacom.be ([195.238.6.172]:64400 "EHLO
+	mailrelay006.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751143Ab0DMRcD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 13:32:03 -0400
+In-Reply-To: <20100411190845.GA18383@n7mm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-stephen mulcahy  wrote:
+Gr=E9goire Baron wrote:
+> As this .protocol member seems to be used at different moments when a
+> packet is received, forwared or sent, and could contain something lik=
+e
+> ETH_P_8021Q which isn't a network protocol Id, can we say the struct
+> sk_buff .protocol member is guaranteed to contain a network protocol =
+Id
+> in the struct sb_buff used in the TC action executions ?
 
-> running Hadoop[1] TeraSort[2] but I haven't identified a simpler=20
-> reproducer. I tried to recreate this with iperf and ping -f but neith=
-er=20
-> helped - it may be that the problem only occurs when systems are pass=
-ing=20
-> large amounts of traffic and have very high cpu utilisation (when=20
+Gr=E9goire,
 
-Did you try ISIC(IP Stack Integrity Checker)[1] tools ?
+I suggest that you ask your question on the netdev mailing list (netdev=
+@vger.kernel.org).
 
-Net-drivers usually break running these tools.
-
-
-[1] http://isic.sf.net needs libnet[2]
-[2] http://github.com/sam-github/libnet
-
---=20
-=ABAll=E1 muevan feroz guerra, ciegos reyes por un palmo m=E1s de tierr=
-a;
-que yo aqu=ED tengo por m=EDo cuanto abarca el mar brav=EDo, a quien na=
-die
-impuso leyes. Y no hay playa, sea cualquiera, ni bandera de esplendor,
-que no sienta mi derecho y d=E9 pecho a mi valor.=BB
+Cheers, Jan
