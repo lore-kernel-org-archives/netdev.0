@@ -1,183 +1,112 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: Re: [PATCH] ARM: dmabounce: fix partial sync in dma_sync_single_* API
-Date: Tue, 13 Apr 2010 14:27:04 +0900
-Message-ID: <20100413142607V.fujita.tomonori@lab.ntt.co.jp>
-References: <20100405123847C.fujita.tomonori@lab.ntt.co.jp>
-	<20100412193536.GO3048@n2100.arm.linux.org.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Strange packet drops with heavy firewalling
+Date: Tue, 13 Apr 2010 07:56:26 +0200
+Message-ID: <1271138186.16881.168.camel@edumazet-laptop>
+References: <m339z50x1l.fsf@ursa.amorsen.dk>
+	 <q2v40c9f5b21004120116p766df82dj88c6af4e4cad55f@mail.gmail.com>
+	 <1271083479.2858.377.camel@ursa.amorsen.dk>
+	 <p2x40c9f5b21004120833jd7a749cak6ea69cebd28f8352@mail.gmail.com>
+	 <1271091990.2858.409.camel@ursa.amorsen.dk>
+	 <u2y412e6f7f1004121618p6d6eff30q8a45a03faa59a912@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: fujita.tomonori@lab.ntt.co.jp, netdev@vger.kernel.org, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: linux@arm.linux.org.uk
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20100412193536.GO3048@n2100.arm.linux.org.uk>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Benny Amorsen <benny+usenet@amorsen.dk>,
+	zhigang gong <zhigang.gong@gmail.com>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:59625 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750772Ab0DMF4d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 01:56:33 -0400
+Received: by bwz19 with SMTP id 19so92457bwz.21
+        for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 22:56:31 -0700 (PDT)
+In-Reply-To: <u2y412e6f7f1004121618p6d6eff30q8a45a03faa59a912@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 12 Apr 2010 20:35:36 +0100
-Russell King - ARM Linux <linux@arm.linux.org.uk> wrote:
+Le mardi 13 avril 2010 =C3=A0 07:18 +0800, Changli Gao a =C3=A9crit :
+> On Tue, Apr 13, 2010 at 1:06 AM, Benny Amorsen <benny+usenet@amorsen.=
+dk> wrote:
+> >
+> >  99:         24    1306226          3          2   PCI-MSI-edge    =
+  eth1-tx-0
+> >  100:      15735    1648774          3          7   PCI-MSI-edge   =
+   eth1-tx-1
+> >  101:          8         11          9    1083022   PCI-MSI-edge   =
+   eth1-tx-2
+> >  102:          0          0          0          0   PCI-MSI-edge   =
+   eth1-tx-3
+> >  103:         18         15       6131    1095383   PCI-MSI-edge   =
+   eth1-rx-0
+> >  104:        217         32      46544    1335325   PCI-MSI-edge   =
+   eth1-rx-1
+> >  105:        154    1305595        218         16   PCI-MSI-edge   =
+   eth1-rx-2
+> >  106:         17         16       8229    1467509   PCI-MSI-edge   =
+   eth1-rx-3
+> >  107:          0          0          1          0   PCI-MSI-edge   =
+   eth1
+> >  108:          2         14         15    1003053   PCI-MSI-edge   =
+   eth0-tx-0
+> >  109:       8226    1668924        478        487   PCI-MSI-edge   =
+   eth0-tx-1
+> >  110:          3    1188874         17         12   PCI-MSI-edge   =
+   eth0-tx-2
+> >  111:          0          0          0          0   PCI-MSI-edge   =
+   eth0-tx-3
+> >  112:        203        185       5324    1015263   PCI-MSI-edge   =
+   eth0-rx-0
+> >  113:       4141    1600793        153        159   PCI-MSI-edge   =
+   eth0-rx-1
+> >  114:      16242    1210108        436       3124   PCI-MSI-edge   =
+   eth0-rx-2
+> >  115:        267       4173      19471    1321252   PCI-MSI-edge   =
+   eth0-rx-3
+> >  116:          0          1          0          0   PCI-MSI-edge   =
+   eth0
+> >
+> >
+> > irqbalanced seems to have picked CPU1 and CPU3 for all the interrup=
+ts,
+> > which to my mind should cause the same problem as before (where CPU=
+1 and
+> > CPU3 was handling all packets). Yet the box clearly works much bett=
+er
+> > than before.
+>=20
+> irqbalanced? I don't think it can work properly. Try RPS in netdev an=
+d
+> linux-next tree, and if cpu load isn't even, try this patch:
+> http://patchwork.ozlabs.org/patch/49915/ .
+>=20
+>=20
 
-> On Mon, Apr 05, 2010 at 12:39:32PM +0900, FUJITA Tomonori wrote:
-> > I don't have arm hardware that uses dmabounce so I can't confirm the
-> > problem but seems that dmabounce doesn't work for some drivers...
-> 
-> Patch reviews fine, except for one niggle.  I too don't have hardware
-> I can test (well, I do except the kernel stopped supporting the UDA1341
-> audio codec on the SA1110 Neponset.)
+Dont try RPS on multiqueue devices !
 
-Thanks for reviewing.
+If number of queues matches CPU numbers, it brings nothing but extra
+latencies !
 
-> > @@ -171,10 +172,17 @@ find_safe_buffer(struct dmabounce_device_info *device_info, dma_addr_t safe_dma_
-> >  	read_lock_irqsave(&device_info->lock, flags);
-> >  
-> >  	list_for_each_entry(b, &device_info->safe_buffers, node)
-> > -		if (b->safe_dma_addr == safe_dma_addr) {
-> > -			rb = b;
-> > -			break;
-> > -		}
-> > +		if (for_sync) {
-> > +			if (b->safe_dma_addr <= safe_dma_addr &&
-> > +			    safe_dma_addr < b->safe_dma_addr + b->size) {
-> > +				rb = b;
-> > +				break;
-> > +			}
-> > +		} else
-> > +			if (b->safe_dma_addr == safe_dma_addr) {
-> > +				rb = b;
-> > +				break;
-> > +			}
-> 
-> This is the niggle; I don't like this indentation style.  If you want to
-> indent this if () statement, then please format like this:
-> 
-> 		} else {
-> 			if (b->safe...) {
-> 				...
-> 			}
-> 		}
-> 
-> or format it as:
-> 
-> 		} else if (b->safe...) {
-> 			...
-> 		}
+Benny, I am not sure your irqbalance is up2date with multiqueue devices=
+,
+you might need to disable it and manually irqaffine each interrupt
 
-ok, here's the fixed patch.
+echo 01 >/proc/irq/100/smp_affinity
+echo 02 >/proc/irq/101/smp_affinity
+echo 04 >/proc/irq/102/smp_affinity
+echo 08 >/proc/irq/103/smp_affinity
+echo 10 >/proc/irq/104/smp_affinity
+echo 20 >/proc/irq/105/smp_affinity
+echo 40 >/proc/irq/106/smp_affinity
+echo 80 >/proc/irq/107/smp_affinity
 
-=
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: [PATCH] ARM: dmabounce: fix partial sync in dma_sync_single_* API
+echo 01 >/proc/irq/108/smp_affinity
+echo 02 >/proc/irq/109/smp_affinity
+echo 04 >/proc/irq/110/smp_affinity
+echo 08 >/proc/irq/111/smp_affinity
+echo 10 >/proc/irq/112/smp_affinity
+echo 20 >/proc/irq/113/smp_affinity
+echo 40 >/proc/irq/114/smp_affinity
+echo 80 >/proc/irq/115/smp_affinity
 
-Some network drivers do a partial sync with
-dma_sync_single_for_{device|cpu}. The dma_addr argument might not be
-the same as one as passed into the mapping API.
 
-This adds some tricks to find_safe_buffer() for
-dma_sync_single_for_{device|cpu}.
-
-Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
----
- arch/arm/common/dmabounce.c |   30 +++++++++++++++++++++---------
- 1 files changed, 21 insertions(+), 9 deletions(-)
-
-diff --git a/arch/arm/common/dmabounce.c b/arch/arm/common/dmabounce.c
-index cc0a932..2e6deec 100644
---- a/arch/arm/common/dmabounce.c
-+++ b/arch/arm/common/dmabounce.c
-@@ -163,7 +163,8 @@ alloc_safe_buffer(struct dmabounce_device_info *device_info, void *ptr,
- 
- /* determine if a buffer is from our "safe" pool */
- static inline struct safe_buffer *
--find_safe_buffer(struct dmabounce_device_info *device_info, dma_addr_t safe_dma_addr)
-+find_safe_buffer(struct dmabounce_device_info *device_info, dma_addr_t safe_dma_addr,
-+		 int for_sync)
- {
- 	struct safe_buffer *b, *rb = NULL;
- 	unsigned long flags;
-@@ -171,9 +172,17 @@ find_safe_buffer(struct dmabounce_device_info *device_info, dma_addr_t safe_dma_
- 	read_lock_irqsave(&device_info->lock, flags);
- 
- 	list_for_each_entry(b, &device_info->safe_buffers, node)
--		if (b->safe_dma_addr == safe_dma_addr) {
--			rb = b;
--			break;
-+		if (for_sync) {
-+			if (b->safe_dma_addr <= safe_dma_addr &&
-+			    safe_dma_addr < b->safe_dma_addr + b->size) {
-+				rb = b;
-+				break;
-+			}
-+		} else {
-+			if (b->safe_dma_addr == safe_dma_addr) {
-+				rb = b;
-+				break;
-+			}
- 		}
- 
- 	read_unlock_irqrestore(&device_info->lock, flags);
-@@ -205,7 +214,8 @@ free_safe_buffer(struct dmabounce_device_info *device_info, struct safe_buffer *
- /* ************************************************** */
- 
- static struct safe_buffer *find_safe_buffer_dev(struct device *dev,
--		dma_addr_t dma_addr, const char *where)
-+						dma_addr_t dma_addr, const char *where,
-+						int for_sync)
- {
- 	if (!dev || !dev->archdata.dmabounce)
- 		return NULL;
-@@ -216,7 +226,7 @@ static struct safe_buffer *find_safe_buffer_dev(struct device *dev,
- 			pr_err("unknown device: Trying to %s invalid mapping\n", where);
- 		return NULL;
- 	}
--	return find_safe_buffer(dev->archdata.dmabounce, dma_addr);
-+	return find_safe_buffer(dev->archdata.dmabounce, dma_addr, for_sync);
- }
- 
- static inline dma_addr_t map_single(struct device *dev, void *ptr, size_t size,
-@@ -286,7 +296,7 @@ static inline dma_addr_t map_single(struct device *dev, void *ptr, size_t size,
- static inline void unmap_single(struct device *dev, dma_addr_t dma_addr,
- 		size_t size, enum dma_data_direction dir)
- {
--	struct safe_buffer *buf = find_safe_buffer_dev(dev, dma_addr, "unmap");
-+	struct safe_buffer *buf = find_safe_buffer_dev(dev, dma_addr, "unmap", 0);
- 
- 	if (buf) {
- 		BUG_ON(buf->size != size);
-@@ -398,7 +408,7 @@ int dmabounce_sync_for_cpu(struct device *dev, dma_addr_t addr,
- 	dev_dbg(dev, "%s(dma=%#x,off=%#lx,sz=%zx,dir=%x)\n",
- 		__func__, addr, off, sz, dir);
- 
--	buf = find_safe_buffer_dev(dev, addr, __func__);
-+	buf = find_safe_buffer_dev(dev, addr, __func__, 1);
- 	if (!buf)
- 		return 1;
- 
-@@ -411,6 +421,8 @@ int dmabounce_sync_for_cpu(struct device *dev, dma_addr_t addr,
- 	DO_STATS(dev->archdata.dmabounce->bounce_count++);
- 
- 	if (dir == DMA_FROM_DEVICE || dir == DMA_BIDIRECTIONAL) {
-+		if (addr != buf->safe_dma_addr)
-+			off = addr - buf->safe_dma_addr;
- 		dev_dbg(dev, "%s: copy back safe %p to unsafe %p size %d\n",
- 			__func__, buf->safe + off, buf->ptr + off, sz);
- 		memcpy(buf->ptr + off, buf->safe + off, sz);
-@@ -427,7 +439,7 @@ int dmabounce_sync_for_device(struct device *dev, dma_addr_t addr,
- 	dev_dbg(dev, "%s(dma=%#x,off=%#lx,sz=%zx,dir=%x)\n",
- 		__func__, addr, off, sz, dir);
- 
--	buf = find_safe_buffer_dev(dev, addr, __func__);
-+	buf = find_safe_buffer_dev(dev, addr, __func__, 1);
- 	if (!buf)
- 		return 1;
- 
--- 
-1.6.5
