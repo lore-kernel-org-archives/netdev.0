@@ -1,59 +1,71 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] rps: add flow director support
-Date: Tue, 13 Apr 2010 11:11:06 +0800
-Message-ID: <k2k412e6f7f1004122011ra459e1b5q6baa235d7a0e4d7@mail.gmail.com>
-References: <1271022140-3917-1-git-send-email-xiaosuo@gmail.com>
-	<z2o65634d661004120634h8336409er33af1fb75c2a9d1b@mail.gmail.com>
-	<u2m412e6f7f1004120727ga219ab9dr75ee522fba6f63c6@mail.gmail.com>
-	<h2m65634d661004121013uf2c86b81ndded3bb138dee7a9@mail.gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 15720] New: IPv6's ipv4-compatibility
+ addresses don't bind
+Date: Mon, 12 Apr 2010 21:22:41 -0400
+Message-ID: <20100412212241.d8bf4185.akpm@linux-foundation.org>
+References: <bug-15720-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, charles@kde.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f197.google.com ([209.85.223.197]:50315 "EHLO
-	mail-iw0-f197.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754683Ab0DMDL1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 12 Apr 2010 23:11:27 -0400
-Received: by iwn35 with SMTP id 35so1623278iwn.21
-        for <netdev@vger.kernel.org>; Mon, 12 Apr 2010 20:11:26 -0700 (PDT)
-In-Reply-To: <h2m65634d661004121013uf2c86b81ndded3bb138dee7a9@mail.gmail.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:54932 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750727Ab0DMEZl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 00:25:41 -0400
+In-Reply-To: <bug-15720-10286@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 13, 2010 at 1:13 AM, Tom Herbert <therbert@google.com> wrot=
-e:
-> On Mon, Apr 12, 2010 at 7:27 AM, Changli Gao <xiaosuo@gmail.com> wrot=
-e:
->> On Mon, Apr 12, 2010 at 9:34 PM, Tom Herbert <therbert@google.com> w=
-rote:
->>
->
-> Ideally, this should replace rps_cpus if it's a better interface....
-> right now these would be conflicting interfaces.
->
 
-How about sw-rxs and sw-rx-$ (SoftWare Receive queue). It is a
-software emulation of hardware receive queue, as softnet to NIC.
-sw-rx-$ is equivalent of /proc/irq/$/smp_affinity, only cpuid is
-instead of cpumask.
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-Does anyone support this interface replacing the current rps_cpus? I do=
-=2E :)
+On Wed, 7 Apr 2010 23:17:32 GMT bugzilla-daemon@bugzilla.kernel.org wrote:
 
->
-> It's probably a little more work, but the CPU->weight mappings could
-> be implemented to cause minimal disruption in the rps_map. =C2=A0Also=
-, if
-> OOO is an issue, then the mitigation technique in RFS could be applie=
-d
-> (this will work best when hash table is larger I believe).
->
+> https://bugzilla.kernel.org/show_bug.cgi?id=15720
+> 
+>            Summary: IPv6's ipv4-compatibility addresses don't bind
 
-I am thinking about the cost of keeping packets in order. Is it really
-worth for this kind of random migration?
+A 2.6.9 -> 2.6.32 regression ;)
 
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 2.6.32-2-686-bigmem
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV6
+>         AssignedTo: yoshfuji@linux-ipv6.org
+>         ReportedBy: charles@kde.org
+>         Regression: Yes
+> 
+> 
+> When attempting to bind to an address using ipv4-compatibility, for example,
+> "::ffff:127.0.0.1", Linux refuses to bind to that address when
+> /proc/sys/net/ipv6/bindv6only is set.
+> 
+> Yes, you could say "but you specifically told ipv6 to not bind to ipv4
+> addresses!" However, ::ffff:127.0.0.1 is *clearly* an ipv4 address, it's not an
+> alternate representation of an ipv6 address, it's an ipv4 address and only
+> ipv4.
+> 
+> This seems to not have been the case as of linux 2.6.9, although I'm not sure
+> at what version this changed.
+> 
+> It seems to me that the intent of "bindv6only" was to not bind to the ipv4
+> address when you bind to all addresses (specifically ipv6 address "::"). So
+> when you bind to ::, an ipv4 client connects to you, and it appears to be
+> connecting from ::ffff:192.168.5.5. I don't think its intent was to effectively
+> disable binding to ::ffff:x.x.x.x addresses - just breaking that feature makes
+> no sense.
+> 
+> The Linux 2.6.9 approach seems to match MacOS's (and I'm pretty sure Solaris's,
+> too).
+
+
