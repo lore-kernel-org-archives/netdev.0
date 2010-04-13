@@ -1,59 +1,65 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tun: orphan an skb on tx
-Date: Tue, 13 Apr 2010 20:31:03 +0200
-Message-ID: <1271183463.16881.545.camel@edumazet-laptop>
-References: <20100413145944.GA7716@redhat.com>
-	 <4BC48F79.5090409@siemens.com> <1271176838.16881.537.camel@edumazet-laptop>
-	 <20100413173919.GC26011@redhat.com>
+Subject: Re: [PATCH] Add somaxconn to Documentation/sysctl/net.txt
+Date: Tue, 13 Apr 2010 20:40:12 +0200
+Message-ID: <1271184012.16881.549.camel@edumazet-laptop>
+References: <201004131325.29104.rob@landley.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jan Kiszka <jan.kiszka@siemens.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Paul Moore <paul.moore@hp.com>,
-	David Woodhouse <David.Woodhouse@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	qemu-devel <qemu-devel@nongnu.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: Rob Landley <rob@landley.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:33126 "EHLO
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:42208 "EHLO
 	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752757Ab0DMSbJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 14:31:09 -0400
-In-Reply-To: <20100413173919.GC26011@redhat.com>
+	with ESMTP id S1751227Ab0DMSkS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 14:40:18 -0400
+In-Reply-To: <201004131325.29104.rob@landley.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 13 avril 2010 =C3=A0 20:39 +0300, Michael S. Tsirkin a =C3=A9c=
-rit :
-
-> > When a socket with inflight tx packets is closed, we dont block the
-> > close, we only delay the socket freeing once all packets were deliv=
-ered
-> > and freed.
-> >=20
+Le mardi 13 avril 2010 =C3=A0 13:25 -0500, Rob Landley a =C3=A9crit :
+> From: Rob Landley <rob@landley.net>
 >=20
-> Which is wrong, since this is under userspace control, so you get
-> unkillable processes.
+> Add somaxconn to Documentation/sysctl/net.txt
+>=20
+> Signed-off-by: Rob Landley <rob@landley.net>
+> ---
+>=20
+>  Documentation/sysctl/net.txt |    6 ++++++
+>  1 file changed, 6 insertions(+)
+>=20
+> diff --git a/Documentation/sysctl/net.txt b/Documentation/sysctl/net.=
+txt
+> index df38ef0..2740085 100644
+> --- a/Documentation/sysctl/net.txt
+> +++ b/Documentation/sysctl/net.txt
+> @@ -90,6 +90,12 @@ optmem_max
+>  Maximum ancillary buffer size allowed per socket. Ancillary data is =
+a sequence
+>  of struct cmsghdr structures with appended data.
+> =20
+> +somaxconn
+> +---------
+> +
+> +Maximum backlog of unanswered connections for a listening socket.  P=
+rovides
+> +an upper bound on the "backlog" parameter of the listen() syscall.
+> +
+>  2. /proc/sys/net/unix - Parameters for Unix domain sockets
+>  -------------------------------------------------------
+> =20
 >=20
 
-We do not get unkillable processes, at least with sockets I was thinkin=
-g
-about (TCP/UDP ones).
+Please cc netdev for such patches
 
-Maybe tun sockets can behave the same ?
+Extract of Documentation/networking/ip-sysctl.txt
 
-Herbert Acked your patch, so I guess its OK, but I think it can be
-dangerous.
+somaxconn - INTEGER
+	Limit of socket listen() backlog, known in userspace as SOMAXCONN.
+	Defaults to 128.  See also tcp_max_syn_backlog for additional tuning
+	for TCP sockets.
 
-Anyway my feeling is that we try to add various mechanisms to keep a
-hostile user flooding another one.
-
-=46or example, UDP got memory accounting quite recently, and we added
-socket backlog limits very recently. It was considered not needed few
-years ago.
-
+I guess you need to change both files ?
 
 
