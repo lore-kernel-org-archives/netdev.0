@@ -1,37 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] bcm63xx_enet: do not overwrite ENET_CTL_REG value
-Date: Tue, 13 Apr 2010 03:30:30 -0700 (PDT)
-Message-ID: <20100413.033030.144455634.davem@davemloft.net>
-References: <201004091304.52540.ffainelli@freebox.fr>
+Subject: Re: [PATCH - resubmit] Fix some #includes in CAN drivers (rebased
+ for net-next-2.6)
+Date: Tue, 13 Apr 2010 03:33:17 -0700 (PDT)
+Message-ID: <20100413.033317.77905087.davem@davemloft.net>
+References: <20100413100324.GC2011@bluebox.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mbizon@freebox.fr
-To: ffainelli@freebox.fr
+Cc: netdev@vger.kernel.org, socketcan-core@lists.berlios.de,
+	kernel@pengutronix.de, 21cnbao@gmail.com, celston@katalix.com,
+	chripell@evolware.org, wg@grandegger.com, haas@ems-wuenche.com,
+	per.dalen@gmail.com, P.B.Cheblakov@inp.nsk.su,
+	oliver.hartkopp@volkswagen.de, anantgole@ti.com
+To: hjk@linutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46131
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46145
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753008Ab0DMKa0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 06:30:26 -0400
-In-Reply-To: <201004091304.52540.ffainelli@freebox.fr>
+	by vger.kernel.org with ESMTP id S1752002Ab0DMKdP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 06:33:15 -0400
+In-Reply-To: <20100413100324.GC2011@bluebox.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <ffainelli@freebox.fr>
-Date: Fri, 9 Apr 2010 13:04:52 +0200
+From: "Hans J. Koch" <hjk@linutronix.de>
+Date: Tue, 13 Apr 2010 12:03:25 +0200
 
-> bcm_enet_hw_preinit will correctly set values in ENET_CTL_REG for internal
-> or external MII operations, however, bcm_enet_open will blindly overwrite the
-> ENET_CTL_REG register value and thus we will loose any changes to it that
-> were made in bcm_enet_hw_preinit, rendering external MII operations non-working.
+> In the current implementation, CAN drivers need to #include <linux/can.h>
+> _before_ they #include <linux/can/dev.h>, which is both ugly and
+> unnecessary.
 > 
-> This would lead to the driver not being able to check for link availability on
-> external PHY setups, and thus we would never get to sending packets because
-> link was down from the driver side.
+> Fix this by including <linux/can.h> in <linux/can/dev.h> and remove the
+> #include <linux/can.h> lines from drivers.
 > 
-> This was completely un-noticed because all boards out there but BCM6338-based
-> ones use internal phy on their enet0 interface.
-> 
-> Signed-off-by: Florian Fainelli <ffainelli@freebox.fr>
+> Signed-off-by: Hans J. Koch <hjk@linutronix.de>
 
-Applied.
+Applied, thank you.
