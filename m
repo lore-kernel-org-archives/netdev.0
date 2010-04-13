@@ -1,36 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH] skbuff: remove unused dev_consume_skb
- macro definition
-Date: Tue, 13 Apr 2010 02:59:20 -0700 (PDT)
-Message-ID: <20100413.025920.129317386.davem@davemloft.net>
-References: <20100409200116.31057.29639.stgit@localhost.localdomain>
+Subject: Re: [net-next-2.6 PATCH] e1000e: use static params to save stack
+ space
+Date: Tue, 13 Apr 2010 02:59:30 -0700 (PDT)
+Message-ID: <20100413.025930.261419141.davem@davemloft.net>
+References: <20100409205044.32158.23239.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	alexander.h.duyck@intel.com
+	jesse.brandeburg@intel.com
 To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49676
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49680
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752412Ab0DMJ7Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 05:59:16 -0400
-In-Reply-To: <20100409200116.31057.29639.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1752448Ab0DMJ70 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 05:59:26 -0400
+In-Reply-To: <20100409205044.32158.23239.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 09 Apr 2010 13:01:37 -0700
+Date: Fri, 09 Apr 2010 13:51:09 -0700
 
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 > 
-> dev_consume_skb and kfree_skb_clean have no users and in the case of
-> kfree_skb_clean could cause potential build issues since I cannot find
-> where it is defined.  Based on the patch in which it was introduced it
-> appears to have been a bit of leftover code from an earlier version of the
-> patch in which kfree_skb_clean was dropped in favor of consume_skb.
+> used a modified checkstack to get the 56 number
+> (normally checkstack wouldn't show this low a value)
 > 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> checkstack before:
+> 0x0000012f e1000e_check_options [e1000e]:               272
+> 
+> after:
+> 0x0000012f e1000e_check_options [e1000e]:                56
+> 
+> 
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied.
