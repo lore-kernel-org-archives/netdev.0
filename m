@@ -1,41 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/9] net: support multiple independant multicast
- routing instances
-Date: Tue, 13 Apr 2010 14:51:32 -0700 (PDT)
-Message-ID: <20100413.145132.86961768.davem@davemloft.net>
-References: <1271171003-11901-1-git-send-email-kaber@trash.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kaber@trash.net
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH] Fix SCTP failure with ipv6 source address routing
+Date: Tue, 13 Apr 2010 18:37:36 -0400
+Message-ID: <1271198256-20477-1-git-send-email-paul.gortmaker@windriver.com>
+Cc: vladislav.yasevich@hp.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58445
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752246Ab0DMVv2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 17:51:28 -0400
-In-Reply-To: <1271171003-11901-1-git-send-email-kaber@trash.net>
+Received: from mail.windriver.com ([147.11.1.11]:50565 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750854Ab0DMWhk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 18:37:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Tue, 13 Apr 2010 17:03:14 +0200
+From: Weixing Shi <Weixing.Shi@windriver.com>
 
-> this is an updated patchset of my patches to support multiple independant
-> multicast routing instances. Changes since the last posting are:
-> 
-> - rebase to the current net-next-2.6.git tree
-> - fix up patch subjects to consistently refer to "ipv4: ipmr:"
-> - fix up list_head conversion patch to add new elements at the head of
->   the list instead of at the tail
-> 
-> Please apply or pull from:
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/ipmr-2.6.git master
+Given the below test case, using source address routing, SCTP
+does not work.
 
-I applied the patches instead of pulling just to check your email
-patch submission format, and it was perfect! :-)
+Node-A:
+  1)ifconfig eth0 inet6 add 2001:1::1/64
+  2)ip -6 rule add from 2001:1::1 table 100 pref 100
+  3)ip -6 route add 2001:2::1 dev eth0 table 100
+  4)sctp_darn -H 2001:1::1 -P 250 -l &
 
-I'll do a git pull next time.
+Node-B:
+  1)ifconfig eth0 inet6 add 2001:2::1/64
+  2)ip -6 rule add from 2001:2::1 table 100 pref 100
+  3)ip -6 route add 2001:1::1 dev eth0 table 100
+  4)sctp_darn -H 2001:2::1 -P 250 -h 2001:1::1 -p 250 -s
 
-All applied to net-next-2.6, thanks!
+Root cause:
+  Node-A and Node-B use source address routing, and in the
+  begining, the source address will be NULL.  So SCTP will search
+  the routing table by the destination address (because it is using
+  the source address routing table), and hence the resulting dst_entry
+  will be NULL.
+
+Solution:
+  After SCTP gets the correct source address, then we search for
+  dst_entry again, and then we will get the correct value.
+
+Signed-off-by: Weixing Shi <Weixing.Shi@windriver.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+ net/sctp/transport.c |   11 +++++++++--
+ 1 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+index be4d63d..b5ae18c 100644
+--- a/net/sctp/transport.c
++++ b/net/sctp/transport.c
+@@ -295,9 +295,16 @@ void sctp_transport_route(struct sctp_transport *transport,
+ 
+ 	if (saddr)
+ 		memcpy(&transport->saddr, saddr, sizeof(union sctp_addr));
+-	else
++	else {
+ 		af->get_saddr(opt, asoc, dst, daddr, &transport->saddr);
+-
++		/* When using source address routing, since dst was
++		 * looked up prior to filling in the source address, dst
++		 * needs to be looked up again to get the correct dst
++		 */
++		if (dst)
++			dst_release(dst);
++		dst = af->get_dst(asoc, daddr, &transport->saddr);
++	}
+ 	transport->dst = dst;
+ 	if ((transport->param_flags & SPP_PMTUD_DISABLE) && transport->pathmtu) {
+ 		return;
+-- 
+1.6.5.2
+
