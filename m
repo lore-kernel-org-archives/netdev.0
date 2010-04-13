@@ -1,44 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-next-2.6] net: sk_dst_cache RCUification
-Date: Wed, 14 Apr 2010 01:04:05 +0200
-Message-ID: <1271199845.16881.586.camel@edumazet-laptop>
+Date: Tue, 13 Apr 2010 16:11:53 -0700 (PDT)
+Message-ID: <20100413.161153.135265420.davem@davemloft.net>
 References: <1270803809.2623.69.camel@edumazet-laptop>
-	 <20100413.015232.67916764.davem@davemloft.net>
+	<20100413.015232.67916764.davem@davemloft.net>
+	<1271199845.16881.586.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com
-To: David Miller <davem@davemloft.net>
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:44600 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752901Ab0DMXEL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 19:04:11 -0400
-Received: by bwz19 with SMTP id 19so84611bwz.21
-        for <netdev@vger.kernel.org>; Tue, 13 Apr 2010 16:04:09 -0700 (PDT)
-In-Reply-To: <20100413.015232.67916764.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39272
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752215Ab0DMXLu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 19:11:50 -0400
+In-Reply-To: <1271199845.16881.586.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 13 avril 2010 =C3=A0 01:52 -0700, David Miller a =C3=A9crit :
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 14 Apr 2010 01:04:05 +0200
 
-> Applied, thanks for doing this work Eric.
+> Instead of using rcu on whole "struct socket", my plan is to use a small
+> structure :
+> 
+> struct wait_queue_head_rcu {
+> 	wait_queue_head_t wait;
+> 	struct rcu_head	  rcu;
+> } ____cacheline_aligned_in_smp;
+> 
+> and make sk->sk_sleep points to this 'wait' field.
 
-Thanks David :)
-
-I am now working on sk_callback_lock case, to speedup
-sock_def_readable(), sock_def_write_space() in typical cases
-(SOCK_FASYNC not set)
-
-Instead of using rcu on whole "struct socket", my plan is to use a smal=
-l
-structure :
-
-struct wait_queue_head_rcu {
-	wait_queue_head_t wait;
-	struct rcu_head	  rcu;
-} ____cacheline_aligned_in_smp;
-
-and make sk->sk_sleep points to this 'wait' field.
-
-
+So you're relying upon the fact that in the non-FASYNC case
+the struct socket's wait queue is never actually used?
