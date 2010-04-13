@@ -1,102 +1,48 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH v2] net: batch skb dequeueing from softnet input_pkt_queue
-Date: Tue, 13 Apr 2010 17:50:29 +0800
-Message-ID: <o2v412e6f7f1004130250rdbe17c5dr5c11c3cbbb2f6dbb@mail.gmail.com>
-References: <1271173102-2980-1-git-send-email-xiaosuo@gmail.com>
-	<1271146112.16881.213.camel@edumazet-laptop>
+From: "Hans J. Koch" <hjk-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Subject: Re: [PATCH] Fix some #includes in CAN drivers
+Date: Tue, 13 Apr 2010 11:51:26 +0200
+Message-ID: <20100413095125.GB2011@bluebox.local>
+References: <20100408192545.GD2004@bluebox.local>
+	<20100413.013614.200995710.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f197.google.com ([209.85.223.197]:36229 "EHLO
-	mail-iw0-f197.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751059Ab0DMJuu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 05:50:50 -0400
-Received: by iwn35 with SMTP id 35so1769513iwn.21
-        for <netdev@vger.kernel.org>; Tue, 13 Apr 2010 02:50:49 -0700 (PDT)
-In-Reply-To: <1271146112.16881.213.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: haas-zsNKPWJ8Piak0Ce0JJ2bFg@public.gmane.org, celston-Bm0nJX+W7e9BDgjK7y7TUQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, per.dalen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	oliver.hartkopp-l29pVbxQd1IUtdQbppsyvg@public.gmane.org, kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
+	wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, chripell-LERDrqjqfvZg9hUCZPvPmw@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20100413.013614.200995710.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 13, 2010 at 4:08 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0Probably not necessary.
->
->> + =C2=A0 =C2=A0 volatile bool =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 flu=
-sh_processing_queue;
->
-> Use of 'volatile' is strongly discouraged, I would say, forbidden.
->
+On Tue, Apr 13, 2010 at 01:36:14AM -0700, David Miller wrote:
+> From: "Hans J. Koch" <hjk-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+> Date: Thu, 8 Apr 2010 21:25:45 +0200
+> 
+> > In the current implementation, CAN drivers need to #include <linux/can.h>
+> > _before_ they #include <linux/can/dev.h>, which is both ugly and
+> > unnecessary.
+> > 
+> > Fix this by including <linux/can.h> in <linux/can/dev.h> and remove the
+> > #include <linux/can.h> lines from drivers.
+> > 
+> > Signed-off-by: Hans J. Koch <hjk-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+> 
+> This doesn't apply cleanly to net-next-2.6, please respin your patch
+> and resubmit.
 
-volatile is used to avoid compiler optimization.
+Ooops, sorry. Will resubmit immediately.
 
-> Its usually a sign of 'I dont exactly what memory ordering I need, so=
- I
-> throw a volatile just in case'. We live in a world full of RCU, read =
-,
-> write, full barriers. And these apis are well documented.
->
-
-There isn't memory accessing order problem.
-
->> @@ -2803,6 +2808,7 @@ static void flush_backlog(void *arg)
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 __skb_unlink(skb, &queue->input_pkt_queue);
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 kfree_skb(skb);
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 }
->> + =C2=A0 =C2=A0 queue->flush_processing_queue =3D true;
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0Probably not necessary
->
-
-If flush_backlog() is called when there are still packets in
-processing_queue, there maybe some packets refer to the netdev gone,
-if we remove this line.
-
->> =C2=A0 =C2=A0 =C2=A0 rps_unlock(queue);
->> =C2=A0}
->>
->> @@ -3112,14 +3118,23 @@ static int process_backlog(struct napi_struc=
-t *napi, int quota)
->> =C2=A0 =C2=A0 =C2=A0 struct softnet_data *queue =3D &__get_cpu_var(s=
-oftnet_data);
->> =C2=A0 =C2=A0 =C2=A0 unsigned long start_time =3D jiffies;
->>
->> + =C2=A0 =C2=A0 if (queue->flush_processing_queue) {
->
-> Really... this is bloat IMHO
-
-
-Any better idea?
-
->
->>
->
-> I advise to keep it simple.
->
-> My suggestion would be to limit this patch only to process_backlog().
->
-> Really if you touch other areas, there is too much risk.
->
-> Perform sort of skb_queue_splice_tail_init() into a local (stack) que=
-ue,
-> but the trick is to not touch input_pkt_queue.qlen, so that we dont s=
-low
-> down enqueue_to_backlog().
->
-> Process at most 'quota' skbs (or jiffies limit).
->
-> relock queue.
-> input_pkt_queue.qlen -=3D number_of_handled_skbs;
->
-
-Oh no, in order to let latter packets in as soon as possible, we have
-to update qlen immediately.
-
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
+Thanks,
+Hans
