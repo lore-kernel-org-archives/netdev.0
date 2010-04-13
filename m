@@ -1,8 +1,8 @@
 From: Alexey Dobriyan <adobriyan@gmail.com>
 Subject: [PATCH v2] xtables: make XT_ALIGN() usable in exported headers by
  exporting __ALIGN_KERNEL()
-Date: Tue, 13 Apr 2010 11:06:55 +0000 (UTC)
-Message-ID: <20100414120712.GA25686@x200>
+Date: Tue, 13 Apr 2010 11:06:56 +0000 (UTC)
+Message-ID: <20100414120712.GA25686__44199.4795030498$1271156816$gmane$org@x200>
 References: <20100407162245.GA4557@x200>
  <4BC437C6.8020602@trash.net>
  <4BC44117.80901@trash.net>
@@ -12,12 +12,16 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	shemminger@vyatta.com, bhutchings@solarflare.com, andreas@fatal.se,
 	hadi@cyberus.ca, hideaki@yoshifuji.org
 To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:48778 "EHLO
+	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752694Ab0DMLGh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 07:06:37 -0400
 Date: Wed, 14 Apr 2010 15:07:12 +0300
 Content-Disposition: inline
 In-Reply-To: <4BC44117.80901@trash.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 XT_ALIGN() was rewritten through ALIGN() by commit 42107f5009da223daa800d6da6904d77297ae829
 "netfilter: xtables: symmetric COMPAT_XT_ALIGN definition".
