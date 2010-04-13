@@ -1,145 +1,43 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH v2] net: batch skb dequeueing from softnet input_pkt_queue
-Date: Tue, 13 Apr 2010 23:38:22 +0800
-Message-ID: <1271173102-2980-1-git-send-email-xiaosuo@gmail.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Benny Amorsen <benny+usenet@amorsen.dk>
+Subject: Re: Strange packet drops with heavy firewalling
+Date: Tue, 13 Apr 2010 09:56:25 +0200
+Message-ID: <m3hbnfzsye.fsf@ursa.amorsen.dk>
+References: <m339z50x1l.fsf@ursa.amorsen.dk>
+	<q2v40c9f5b21004120116p766df82dj88c6af4e4cad55f@mail.gmail.com>
+	<1271083479.2858.377.camel@ursa.amorsen.dk>
+	<p2x40c9f5b21004120833jd7a749cak6ea69cebd28f8352@mail.gmail.com>
+	<1271091990.2858.409.camel@ursa.amorsen.dk>
+	<u2y412e6f7f1004121618p6d6eff30q8a45a03faa59a912@mail.gmail.com>
+	<1271138186.16881.168.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Changli Gao <xiaosuo@gmail.com>,
+	zhigang gong <zhigang.gong@gmail.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:34165 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751432Ab0DMHiR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 03:38:17 -0400
-Received: by vws18 with SMTP id 18so1543645vws.19
-        for <netdev@vger.kernel.org>; Tue, 13 Apr 2010 00:38:16 -0700 (PDT)
+Received: from gate1.ipvision.dk ([94.127.49.2]:50336 "EHLO gate1.ipvision.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751112Ab0DMH4c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Apr 2010 03:56:32 -0400
+In-Reply-To: <1271138186.16881.168.camel@edumazet-laptop> (Eric Dumazet's
+	message of "Tue, 13 Apr 2010 07:56:26 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-batch skb dequeueing from softnet input_pkt_queue
+Eric Dumazet <eric.dumazet@gmail.com> writes:
 
-batch skb dequeueing from softnet input_pkt_queue to reduce potential lock
-contention and irq disabling/enabling.
+> Benny, I am not sure your irqbalance is up2date with multiqueue devices,
+> you might need to disable it and manually irqaffine each interrupt
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- include/linux/netdevice.h |    2 ++
- net/core/dev.c            |   45 +++++++++++++++++++++++++++++++++++++++------
- 2 files changed, 41 insertions(+), 6 deletions(-)
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index d1a21b5..bc7a0d7 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1335,6 +1335,8 @@ struct softnet_data {
- 	struct call_single_data	csd ____cacheline_aligned_in_smp;
- #endif
- 	struct sk_buff_head	input_pkt_queue;
-+	struct sk_buff_head	processing_queue;
-+	volatile bool		flush_processing_queue;
- 	struct napi_struct	backlog;
- };
- 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a10a216..ac24293 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2324,6 +2324,11 @@ static void trigger_softirq(void *data)
- }
- #endif /* CONFIG_SMP */
- 
-+static inline u32 softnet_input_qlen(struct softnet_data *queue)
-+{
-+	return queue->input_pkt_queue.qlen + queue->processing_queue.qlen;
-+}
-+
- /*
-  * enqueue_to_backlog is called to queue an skb to a per CPU backlog
-  * queue (may be a remote CPU queue).
-@@ -2339,8 +2344,8 @@ static int enqueue_to_backlog(struct sk_buff *skb, int cpu)
- 	__get_cpu_var(netdev_rx_stat).total++;
- 
- 	rps_lock(queue);
--	if (queue->input_pkt_queue.qlen <= netdev_max_backlog) {
--		if (queue->input_pkt_queue.qlen) {
-+	if (softnet_input_qlen(queue) <= netdev_max_backlog) {
-+		if (softnet_input_qlen(queue)) {
- enqueue:
- 			__skb_queue_tail(&queue->input_pkt_queue, skb);
- 			rps_unlock(queue);
-@@ -2803,6 +2808,7 @@ static void flush_backlog(void *arg)
- 			__skb_unlink(skb, &queue->input_pkt_queue);
- 			kfree_skb(skb);
- 		}
-+	queue->flush_processing_queue = true;
- 	rps_unlock(queue);
- }
- 
-@@ -3112,14 +3118,23 @@ static int process_backlog(struct napi_struct *napi, int quota)
- 	struct softnet_data *queue = &__get_cpu_var(softnet_data);
- 	unsigned long start_time = jiffies;
- 
-+	if (queue->flush_processing_queue) {
-+		struct sk_buff *skb;
-+
-+		queue->flush_processing_queue = false;
-+		while ((skb = __skb_dequeue(&queue->processing_queue)))
-+			kfree_skb(skb);
-+	}
-+
- 	napi->weight = weight_p;
- 	do {
- 		struct sk_buff *skb;
- 
- 		local_irq_disable();
- 		rps_lock(queue);
--		skb = __skb_dequeue(&queue->input_pkt_queue);
--		if (!skb) {
-+		skb_queue_splice_tail_init(&queue->input_pkt_queue,
-+					   &queue->processing_queue);
-+		if (skb_queue_empty(&queue->processing_queue)) {
- 			__napi_complete(napi);
- 			rps_unlock(queue);
- 			local_irq_enable();
-@@ -3128,9 +3143,22 @@ static int process_backlog(struct napi_struct *napi, int quota)
- 		rps_unlock(queue);
- 		local_irq_enable();
- 
--		__netif_receive_skb(skb);
--	} while (++work < quota && jiffies == start_time);
-+		while ((skb = __skb_dequeue(&queue->processing_queue))) {
-+			__netif_receive_skb(skb);
-+			if (++work < quota && jiffies == start_time)
-+				continue;
-+			if (!queue->flush_processing_queue)
-+				goto out;
-+			queue->flush_processing_queue = false;
-+			while ((skb = __skb_dequeue(&queue->processing_queue))) {
-+				__netif_receive_skb(skb);
-+				++work;
-+			}
-+			goto out;
-+		}
-+	} while (1);
- 
-+out:
- 	return work;
- }
- 
-@@ -5487,6 +5515,9 @@ static int dev_cpu_callback(struct notifier_block *nfb,
- 	raise_softirq_irqoff(NET_TX_SOFTIRQ);
- 	local_irq_enable();
- 
-+	while ((skb = __skb_dequeue(&oldsd->processing_queue)))
-+		netif_rx(skb);
-+
- 	/* Process offline CPU's input_pkt_queue */
- 	while ((skb = __skb_dequeue(&oldsd->input_pkt_queue)))
- 		netif_rx(skb);
-@@ -5709,6 +5740,8 @@ static int __init net_dev_init(void)
- 
- 		queue = &per_cpu(softnet_data, i);
- 		skb_queue_head_init(&queue->input_pkt_queue);
-+		skb_queue_head_init(&queue->processing_queue);
-+		queue->flush_processing_queue = false;
- 		queue->completion_queue = NULL;
- 		INIT_LIST_HEAD(&queue->poll_list);
- 
+True, that would probably help. Irqbalance might just believe that the
+load is so low that it isn't worth rebalancing. The CPU's are spending
+more than 90% of their time idling.
+
+I'll keep monitoring the server, and if it starts dropping packets again
+or load increases I'll check whether irqbalanced does the right thing,
+and if not I'll implement your suggestion.
+
+Thank you very much!
+
+
+/Benny
