@@ -1,54 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] can: Add esd board support to plx_pci CAN driver
-Date: Tue, 13 Apr 2010 01:23:47 -0700 (PDT)
-Message-ID: <20100413.012347.156262210.davem@davemloft.net>
-References: <201004071309.56518.matthias.fuchs@esd.eu>
-	<4BC1E1C6.1050405@grandegger.com>
+Subject: Re: KS8851: Possible NULL dereferenced in ks8851_rx_pkts
+Date: Tue, 13 Apr 2010 01:28:44 -0700 (PDT)
+Message-ID: <20100413.012844.26960227.davem@davemloft.net>
+References: <z2ocb8016981004080003h7f5ca358r7a1a4106809909ce@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: matthias.fuchs@esd.eu, netdev@vger.kernel.org,
-	Socketcan-core@lists.berlios.de
-To: wg@grandegger.com
+Cc: netdev@vger.kernel.org
+To: abraham.arce.moreno@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37421
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38243
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751307Ab0DMIXn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 04:23:43 -0400
-In-Reply-To: <4BC1E1C6.1050405@grandegger.com>
+	by vger.kernel.org with ESMTP id S1751307Ab0DMI2k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 04:28:40 -0400
+In-Reply-To: <z2ocb8016981004080003h7f5ca358r7a1a4106809909ce@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wolfgang Grandegger <wg@grandegger.com>
-Date: Sun, 11 Apr 2010 16:50:46 +0200
+From: Abraham Arce <abraham.arce.moreno@gmail.com>
+Date: Thu, 8 Apr 2010 02:03:57 -0500
 
-> Matthias Fuchs wrote:
->> This patch adds support for SJA1000 based PCI CAN interface cards
->> from electronic system design gmbh.
->> 
->> Some changes have been done on the common code:
->>  - esd boards must not have the 2nd local interupt enabled (PLX9030/9050)
->>  - a new path for PLX9056/PEX8311 chips has been added
->>  - new plx9056 reset function has been implemented
->>  - struct plx_card_info got a reset function entry
->> 
->> In detail the following additional boards are now supported:
->> 
->>         CAN-PCI/200 (PCI)
->>         CAN-PCI/266 (PCI)
->>         CAN-PMC266 (PMC module)
->>         CAN-PCIe/2000 (PCI Express)
->>         CAN-CPCI/200 (Compact PCI, 3U)
->>         CAN-PCI104 (PCI104)
->> 
->> Signed-off-by: Matthias Fuchs <matthias.fuchs@esd.eu>
->> ---
->> v2:
->>  - update Kconfig
->>  - add proper plx9056 reset function
->>  - add reset function pointer to plx_card_info structure
->>  - use card's reset function in plx_pci_del_card()
+> Hi,
 > 
-> Acked-by: Wolfgang Grandegger <wg@grandegger.com>
+> These changes avoid a possible dereference in skb_reserve when skb is
+> NULL. I am increasing rx dropped packet count but not sure about how
+> to handle the dump of frames. Any advice is appreciated.
 
-Applied to net-next-2.6, thanks.
+This isn't sufficient to handle the NULL pointer.
+
+At a minimum you're going to have to do something about
+the fact that the chip has already been told to start
+bringing the packet into the RX fifo.
+
+If we just return without finishing up the hardware
+operation, the chip is probably going to hang the next
+time we come in here and tell it to start another RX
+DMA operation without having completed the previous one.
+
+The bug definitely needs to be fixed, however, but someone who knows
+this hardware and has access to it for testing will need to implement
+the fix.
