@@ -1,47 +1,44 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH v2] net: batch skb dequeueing from softnet input_pkt_queue
-Date: Wed, 14 Apr 2010 06:43:07 +0800
-Message-ID: <y2j412e6f7f1004131543m500ef7f3q2b9210ea58a80755@mail.gmail.com>
-References: <1271173102-2980-1-git-send-email-xiaosuo@gmail.com>
-	<1271146112.16881.213.camel@edumazet-laptop> <o2v412e6f7f1004130250rdbe17c5dr5c11c3cbbb2f6dbb@mail.gmail.com>
-	<20100413155227.GC2538@linux.vnet.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: sk_dst_cache RCUification
+Date: Wed, 14 Apr 2010 01:04:05 +0200
+Message-ID: <1271199845.16881.586.camel@edumazet-laptop>
+References: <1270803809.2623.69.camel@edumazet-laptop>
+	 <20100413.015232.67916764.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: paulmck@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:64038 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751662Ab0DMWnb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 18:43:31 -0400
-Received: by gwaa18 with SMTP id a18so831800gwa.19
-        for <netdev@vger.kernel.org>; Tue, 13 Apr 2010 15:43:30 -0700 (PDT)
-In-Reply-To: <20100413155227.GC2538@linux.vnet.ibm.com>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:44600 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752901Ab0DMXEL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 19:04:11 -0400
+Received: by bwz19 with SMTP id 19so84611bwz.21
+        for <netdev@vger.kernel.org>; Tue, 13 Apr 2010 16:04:09 -0700 (PDT)
+In-Reply-To: <20100413.015232.67916764.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 13, 2010 at 11:52 PM, Paul E. McKenney
-<paulmck@linux.vnet.ibm.com> wrote:
-> On Tue, Apr 13, 2010 at 05:50:29PM +0800, Changli Gao wrote:
->> On Tue, Apr 13, 2010 at 4:08 PM, Eric Dumazet <eric.dumazet@gmail.co=
-m> wrote:
->> >
->> > =C2=A0 =C2=A0 =C2=A0 =C2=A0Probably not necessary.
->> >
->> >> + =C2=A0 =C2=A0 volatile bool =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-flush_processing_queue;
->> >
->> > Use of 'volatile' is strongly discouraged, I would say, forbidden.
->>
->> volatile is used to avoid compiler optimization.
->
-> Would it be reasonable to use ACCESS_ONCE() where this variable is us=
-ed?
+Le mardi 13 avril 2010 =C3=A0 01:52 -0700, David Miller a =C3=A9crit :
 
-Oh, thanks. ACCESS_ONCE() is just what I need.
+> Applied, thanks for doing this work Eric.
 
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
+Thanks David :)
+
+I am now working on sk_callback_lock case, to speedup
+sock_def_readable(), sock_def_write_space() in typical cases
+(SOCK_FASYNC not set)
+
+Instead of using rcu on whole "struct socket", my plan is to use a smal=
+l
+structure :
+
+struct wait_queue_head_rcu {
+	wait_queue_head_t wait;
+	struct rcu_head	  rcu;
+} ____cacheline_aligned_in_smp;
+
+and make sk->sk_sleep points to this 'wait' field.
+
+
