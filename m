@@ -1,31 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Linux 2.6.34-rc3 + CAN build problem
-Date: Tue, 13 Apr 2010 03:09:30 -0700 (PDT)
-Message-ID: <20100413.030930.106805212.davem@davemloft.net>
-References: <4BC03340.5020500@freemail.hu>
-	<1270892851.2093.32.camel@edumazet-laptop>
+Subject: Re: [PATCH kernel 2.6.34-rc3-git9] smc91c92_cs: define
+ multicast_table as unsigned char
+Date: Tue, 13 Apr 2010 03:09:54 -0700 (PDT)
+Message-ID: <20100413.030954.171491080.davem@davemloft.net>
+References: <20100328055537.13ef6c01.ken_kawasaki@spring.nifty.jp>
+	<20100404061434.eb98ef3e.ken_kawasaki@spring.nifty.jp>
+	<20100411075014.d3e80847.ken_kawasaki@spring.nifty.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: nm127@freemail.hu, socketcan@hartkopp.net,
-	oliver.hartkopp@volkswagen.de, urs.thuermann@volkswagen.de,
-	socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1270892851.2093.32.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: ken_kawasaki@spring.nifty.jp
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49672
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752567Ab0DMKJv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 06:09:51 -0400
+In-Reply-To: <20100411075014.d3e80847.ken_kawasaki@spring.nifty.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 10 Apr 2010 11:47:31 +0200
+From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Date: Sun, 11 Apr 2010 07:50:14 +0900
 
-> [PATCH] can: avoids a false warning
->=20
-> At this point optlen =3D=3D sizeof(sfilter) but some compilers are du=
-mb.
->=20
-> Reported-by: N=E9meth M=E1rton <nm127@freemail.h
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> 
+> smc91c92_cs:
+>   * define multicast_table as unsigned char
+>   * remove unnecessary "#ifndef final_version"
+> 
+> Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
 
-Applied, thanks Eric.
+It is clear there are not too many testers of multicast
+with this driver :-)
+
+Thanks for fixing this bug, patch applied.
