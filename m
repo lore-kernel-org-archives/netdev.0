@@ -1,207 +1,97 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH net-next-2.6] fasync: RCU locking
-Date: Wed, 14 Apr 2010 08:41:19 -0700
-Message-ID: <20100414154119.GB2516@linux.vnet.ibm.com>
-References: <1271230961.16881.630.camel@edumazet-laptop>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [RFC][PATCH v3 1/3] A device for zero-copy based on KVM virtio-net.
+Date: Wed, 14 Apr 2010 17:57:54 +0200
+Message-ID: <201004141757.54829.arnd@arndb.de>
+References: <1270805865-16901-1-git-send-email-xiaohui.xin@intel.com> <201004141655.21885.arnd@arndb.de> <20100414152615.GA8079@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mingo@elte.hu, davem@davemloft.net,
+	jdike@linux.intel.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:51965 "EHLO e2.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756158Ab0DNPlY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 14 Apr 2010 11:41:24 -0400
-Content-Disposition: inline
-In-Reply-To: <1271230961.16881.630.camel@edumazet-laptop>
+Received: from moutng.kundenserver.de ([212.227.126.186]:62275 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755784Ab0DNP6O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Apr 2010 11:58:14 -0400
+In-Reply-To: <20100414152615.GA8079@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 14, 2010 at 09:42:41AM +0200, Eric Dumazet wrote:
-> Paul, could you please check this patch, I am not sure
-> of the IRQ safety thing...
+On Wednesday 14 April 2010, Michael S. Tsirkin wrote:
+> On Wed, Apr 14, 2010 at 04:55:21PM +0200, Arnd Bergmann wrote:
+> > On Friday 09 April 2010, xiaohui.xin@intel.com wrote:
+> > > From: Xin Xiaohui <xiaohui.xin@intel.com>
+>
+> > It seems that you are duplicating a lot of functionality that
+> > is already in macvtap. I've asked about this before but then
+> > didn't look at your newer versions. Can you explain the value
+> > of introducing another interface to user land?
 > 
-> Is call_rcu() the right method to use in this case ?
+> Hmm, I have not noticed a lot of duplication.
 
-It looks like all the read-side critical sections are protected by
-rcu_read_lock(), so call_rcu() should be OK.  And it is OK to invoke
-call_rcu() with irqs disabled.  (Just don't try it in an NMI handler.)
+The code is indeed quite distinct, but the idea of adding another
+character device to pass into vhost for direct device access is.
 
-Or am I missing some code path that tries to use disabling of irqs
-instead of using rcu_read_lock()?  That happens to work in the current
-implementation, but...
+> BTW macvtap also duplicates tun code, it might be
+> a good idea for tun to export some functionality.
 
-							Thanx, Paul
+Yes, that's something I plan to look into.
 
-> Thanks
+> > I'm still planning to add zero-copy support to macvtap,
+> > hopefully reusing parts of your code, but do you think there
+> > is value in having both?
 > 
-> [PATCH net-next-2.6] fasync: RCU locking
+> If macvtap would get zero copy tx and rx, maybe not. But
+> it's not immediately obvious whether zero-copy support
+> for macvtap might work, though, especially for zero copy rx.
+> The approach with mpassthru is much simpler in that
+> it takes complete control of the device.
+
+As far as I can tell, the most significant limitation of mpassthru
+is that there can only ever be a single guest on a physical NIC.
+
+Given that limitation, I believe we can do the same on macvtap,
+and simply disable zero-copy RX when you want to use more than one
+guest, or both guest and host on the same NIC.
+
+The logical next step here would be to allow VMDq and similar
+technologies to separate out the RX traffic in the hardware.
+We don't have a configuration interface for that yet, but
+since this is logically the same as macvlan, I think we should
+use the same interfaces for both, essentially treating VMDq
+as a hardware acceleration for macvlan. We can probably handle
+it in similar ways to how we handle hardware support for vlan.
+
+At that stage, macvtap would be the logical interface for
+connecting a VMDq (hardware macvlan) device to a guest!
+
+> > > +static ssize_t mp_chr_aio_write(struct kiocb *iocb, const struct iovec *iov,
+> > > +				unsigned long count, loff_t pos)
+> > > +{
+> > > +	struct file *file = iocb->ki_filp;
+> > > +	struct mp_struct *mp = mp_get(file->private_data);
+> > > +	struct sock *sk = mp->socket.sk;
+> > > +	struct sk_buff *skb;
+> > > +	int len, err;
+> > > +	ssize_t result;
+> > 
+> > Can you explain what this function is even there for? AFAICT, vhost-net
+> > doesn't call it, the interface is incompatible with the existing
+> > tap interface, and you don't provide a read function.
 > 
-> kill_fasync() uses a central rwlock, candidate for RCU conversion.
-> 
-> We can remove __kill_fasync() direct use in net, and rename it to
-> kill_fasync_rcu()
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
->  fs/fcntl.c         |   36 +++++++++++++++++++++---------------
->  include/linux/fs.h |   11 +++++------
->  net/socket.c       |    4 ++--
->  3 files changed, 28 insertions(+), 23 deletions(-)
-> 
-> diff --git a/fs/fcntl.c b/fs/fcntl.c
-> index 452d02f..33cb3ee 100644
-> --- a/fs/fcntl.c
-> +++ b/fs/fcntl.c
-> @@ -614,9 +614,15 @@ int send_sigurg(struct fown_struct *fown)
->  	return ret;
->  }
-> 
-> -static DEFINE_RWLOCK(fasync_lock);
-> +static DEFINE_SPINLOCK(fasync_lock);
->  static struct kmem_cache *fasync_cache __read_mostly;
-> 
-> +static void fasync_free_rcu(struct rcu_head *head)
-> +{
-> +	kmem_cache_free(fasync_cache,
-> +			container_of(head, struct fasync_struct, fa_rcu));
-> +}
-> +
->  /*
->   * Remove a fasync entry. If successfully removed, return
->   * positive and clear the FASYNC flag. If no entry exists,
-> @@ -634,17 +640,17 @@ static int fasync_remove_entry(struct file *filp, struct fasync_struct **fapp)
->  	int result = 0;
-> 
->  	spin_lock(&filp->f_lock);
-> -	write_lock_irq(&fasync_lock);
-> +	spin_lock_irq(&fasync_lock);
->  	for (fp = fapp; (fa = *fp) != NULL; fp = &fa->fa_next) {
->  		if (fa->fa_file != filp)
->  			continue;
->  		*fp = fa->fa_next;
-> -		kmem_cache_free(fasync_cache, fa);
-> +		call_rcu(&fa->fa_rcu, fasync_free_rcu);
->  		filp->f_flags &= ~FASYNC;
->  		result = 1;
->  		break;
->  	}
-> -	write_unlock_irq(&fasync_lock);
-> +	spin_unlock_irq(&fasync_lock);
->  	spin_unlock(&filp->f_lock);
->  	return result;
->  }
-> @@ -666,7 +672,7 @@ static int fasync_add_entry(int fd, struct file *filp, struct fasync_struct **fa
->  		return -ENOMEM;
-> 
->  	spin_lock(&filp->f_lock);
-> -	write_lock_irq(&fasync_lock);
-> +	spin_lock_irq(&fasync_lock);
->  	for (fp = fapp; (fa = *fp) != NULL; fp = &fa->fa_next) {
->  		if (fa->fa_file != filp)
->  			continue;
-> @@ -679,12 +685,12 @@ static int fasync_add_entry(int fd, struct file *filp, struct fasync_struct **fa
->  	new->fa_file = filp;
->  	new->fa_fd = fd;
->  	new->fa_next = *fapp;
-> -	*fapp = new;
-> +	rcu_assign_pointer(*fapp, new);
->  	result = 1;
->  	filp->f_flags |= FASYNC;
-> 
->  out:
-> -	write_unlock_irq(&fasync_lock);
-> +	spin_unlock_irq(&fasync_lock);
->  	spin_unlock(&filp->f_lock);
->  	return result;
->  }
-> @@ -704,7 +710,10 @@ int fasync_helper(int fd, struct file * filp, int on, struct fasync_struct **fap
-> 
->  EXPORT_SYMBOL(fasync_helper);
-> 
-> -void __kill_fasync(struct fasync_struct *fa, int sig, int band)
-> +/*
-> + * rcu_read_lock() is held
-> + */
-> +static void kill_fasync_rcu(struct fasync_struct *fa, int sig, int band)
->  {
->  	while (fa) {
->  		struct fown_struct * fown;
-> @@ -719,22 +728,19 @@ void __kill_fasync(struct fasync_struct *fa, int sig, int band)
->  		   mechanism. */
->  		if (!(sig == SIGURG && fown->signum == 0))
->  			send_sigio(fown, fa->fa_fd, band);
-> -		fa = fa->fa_next;
-> +		fa = rcu_dereference(fa->fa_next);
->  	}
->  }
-> 
-> -EXPORT_SYMBOL(__kill_fasync);
-> -
->  void kill_fasync(struct fasync_struct **fp, int sig, int band)
->  {
->  	/* First a quick test without locking: usually
->  	 * the list is empty.
->  	 */
->  	if (*fp) {
-> -		read_lock(&fasync_lock);
-> -		/* reread *fp after obtaining the lock */
-> -		__kill_fasync(*fp, sig, band);
-> -		read_unlock(&fasync_lock);
-> +		rcu_read_lock();
-> +		kill_fasync_rcu(rcu_dereference(*fp), sig, band);
-> +		rcu_read_unlock();
->  	}
->  }
->  EXPORT_SYMBOL(kill_fasync);
-> diff --git a/include/linux/fs.h b/include/linux/fs.h
-> index 39d57bc..158b2cc 100644
-> --- a/include/linux/fs.h
-> +++ b/include/linux/fs.h
-> @@ -1280,10 +1280,11 @@ static inline int lock_may_write(struct inode *inode, loff_t start,
-> 
-> 
->  struct fasync_struct {
-> -	int	magic;
-> -	int	fa_fd;
-> -	struct	fasync_struct	*fa_next; /* singly linked list */
-> -	struct	file 		*fa_file;
-> +	int			magic;
-> +	int			fa_fd;
-> +	struct fasync_struct	*fa_next; /* singly linked list */
-> +	struct file		*fa_file;
-> +	struct rcu_head		fa_rcu;
->  };
-> 
->  #define FASYNC_MAGIC 0x4601
-> @@ -1292,8 +1293,6 @@ struct fasync_struct {
->  extern int fasync_helper(int, struct file *, int, struct fasync_struct **);
->  /* can be called from interrupts */
->  extern void kill_fasync(struct fasync_struct **, int, int);
-> -/* only for net: no internal synchronization */
-> -extern void __kill_fasync(struct fasync_struct *, int, int);
-> 
->  extern int __f_setown(struct file *filp, struct pid *, enum pid_type, int force);
->  extern int f_setown(struct file *filp, unsigned long arg, int force);
-> diff --git a/net/socket.c b/net/socket.c
-> index 35bc198..846739c 100644
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -1159,10 +1159,10 @@ int sock_wake_async(struct socket *sock, int how, int band)
->  		/* fall through */
->  	case SOCK_WAKE_IO:
->  call_kill:
-> -		__kill_fasync(sock->fasync_list, SIGIO, band);
-> +		kill_fasync(sock->fasync_list, SIGIO, band);
->  		break;
->  	case SOCK_WAKE_URG:
-> -		__kill_fasync(sock->fasync_list, SIGURG, band);
-> +		kill_fasync(sock->fasync_list, SIGURG, band);
->  	}
->  	return 0;
->  }
-> 
-> 
+> qemu needs the ability to inject raw packets into device
+> from userspace, bypassing vhost/virtio (for live migration).
+
+Ok, but since there is only a write callback and no read, it won't
+actually be able to do this with the current code, right?
+
+Moreover, it seems weird to have a new type of interface here that
+duplicates tap/macvtap with less functionality. Coming back
+to your original comment, this means that while mpassthru is currently
+not duplicating the actual code from macvtap, it would need to do
+exactly that to get the qemu interface right!
+
+	Arnd
