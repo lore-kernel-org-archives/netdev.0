@@ -1,62 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: rps perfomance WAS(Re: rps: question
-Date: Wed, 14 Apr 2010 22:57:41 +0200
-Message-ID: <1271278661.16881.1761.camel@edumazet-laptop>
-References: <1265568122.3688.36.camel@bigi>
-	 <65634d661002072158r48ec15cag1ca58e704114a358@mail.gmail.com>
-	 <1265641748.3688.56.camel@bigi> <1271245986.3943.55.camel@bigi>
-	 <t2p65634d661004141031xf80f62e7sb64362ea1ce10a1f@mail.gmail.com>
-	 <1271268242.16881.1719.camel@edumazet-laptop>
-	 <1271271222.4567.51.camel@bigi> <20100414124426.6aee95c3@nehalam>
-	 <1271276568.4567.59.camel@bigi>
-	 <1271276855.16881.1756.camel@edumazet-laptop>
-	 <z2y65634d661004141345o9bdcf759sf266866931823baf@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: HTB - What's the minimal value for 'rate' parameter?
+Date: Wed, 14 Apr 2010 23:45:10 +0200
+Message-ID: <4BC63766.5080104@gmail.com>
+References: <z2q298f5c051004080407r5dfb27fai74c5cf74d0048ca5@mail.gmail.com>	 <4BBE4BB4.1060209@gmail.com>	 <i2k298f5c051004090840y7e47a53eqd17b0685088551ac@mail.gmail.com>	 <20100409212657.GA3560@del.dom.local> <p2q298f5c051004140322hc54f5315taa5c7d85cb74f06@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hadi@cyberus.ca, Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, robert@herjulf.net,
-	David Miller <davem@davemloft.net>,
-	Changli Gao <xiaosuo@gmail.com>,
-	Andi Kleen <andi@firstfloor.org>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kaber@trash.net, davem@davemloft.net,
+	devik@cdi.cz
+To: Antonio Almeida <vexwek@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:56345 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756105Ab0DNU5w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Apr 2010 16:57:52 -0400
-Received: by bwz1 with SMTP id 1so962183bwz.2
-        for <netdev@vger.kernel.org>; Wed, 14 Apr 2010 13:57:49 -0700 (PDT)
-In-Reply-To: <z2y65634d661004141345o9bdcf759sf266866931823baf@mail.gmail.com>
+Received: from fg-out-1718.google.com ([72.14.220.158]:34637 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757000Ab0DNVpR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Apr 2010 17:45:17 -0400
+Received: by fg-out-1718.google.com with SMTP id 22so232920fge.1
+        for <netdev@vger.kernel.org>; Wed, 14 Apr 2010 14:45:15 -0700 (PDT)
+In-Reply-To: <p2q298f5c051004140322hc54f5315taa5c7d85cb74f06@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 14 avril 2010 =C3=A0 13:45 -0700, Tom Herbert a =C3=A9crit =
-:
-> > Only if more than one flow is involved.
-> >
-> > And if you have many flows, chance they will spread several queues.=
-=2E.
-> >
->=20
-> But use too many queues and the efficiency of NAPI drops and cost of
-> device interrupts becomes dominant, so that the overhead from
-> additional hard interrupts can surpass the overhead of doing RPS and
-> the IPIs.  I believe we are seeing this is in some of our results
-> which shows that a combination of multi-queue and RPS can be better
-> than just multi-queue (see rps changelog).  Again, I'm not claiming
-> that is generally true, but there are a lot of factors to consider.
-> --
+Antonio Almeida wrote, On 04/14/2010 12:22 PM:
 
-RPS can be tuned (Changli wants a finer tuning...), it would be
-intereting to tune multiqueue devices too. I dont know if its possible
-right now.
-
-On my Nehalem machine (16 logical cpus), its NetXtreme II BCM57711E
-10Gigabit has 16 queues. It might be good to use less queues according
-to your results on some workloads, and eventually use RPS on a second
-layering.
+> What do you mean with "1:2 has grandchildren with overflown rate tables"?
+> I couldn't understand your idea. Is there any mistake in the
+> configuration I sent?
+> How would you set rates for this particular example?
 
 
+class htb 1:1 root rate 1000Mbit ceil 1000Mbit
+class htb 1:2 parent 1:1 rate 4096Kbit ceil 4096Kbit
+class htb 1:10 parent 1:2 rate 1024Kbit ceil 4096Kbit
+class htb 1:11 parent 1:2 rate 1024Kbit ceil 4096Kbit
+class htb 1:101 parent 1:10 prio 3 rate 8bit ceil 4096Kbit
+class htb 1:111 parent 1:11 prio 3 rate 8bit ceil 4096Kbit
 
+Classes 1:101 and 1:111 have too low rates, which causes wrong (overflowed!)
+values in their rate tables, so their rates could be practically
+uncontrollable. They are limited by their ceils instead, so something like:
 
+class htb 1:101 parent 1:10 leaf 101: prio 3 rate 4096Kbit ceil 4096Kbit
+class htb 1:111 parent 1:11 leaf 111: prio 3 rate 4096Kbit ceil 4096Kbit
+
+But then their guaranteed rates are higher than their parents, and the
+sum is higher than grandparent's rate, which means the config is wrong.
+(You have to control these sums - HTB doesn't.)
+
+As I wrote before, the minimal (overflow safe) rate depends on max
+packet size, and for 1500 byte it would be something around:
+1500b/2min, so if your clients can wait so long, try this:
+
+class htb 1:101 parent 1:10 leaf 101: prio 3 rate 100bit ceil 4096Kbit
+class htb 1:111 parent 1:11 leaf 111: prio 3 rate 100bit ceil 4096Kbit
+
+Regards,
+Jarek P.
