@@ -1,57 +1,216 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: HTB - What's the minimal value for 'rate' parameter?
-Date: Wed, 14 Apr 2010 23:45:10 +0200
-Message-ID: <4BC63766.5080104@gmail.com>
-References: <z2q298f5c051004080407r5dfb27fai74c5cf74d0048ca5@mail.gmail.com>	 <4BBE4BB4.1060209@gmail.com>	 <i2k298f5c051004090840y7e47a53eqd17b0685088551ac@mail.gmail.com>	 <20100409212657.GA3560@del.dom.local> <p2q298f5c051004140322hc54f5315taa5c7d85cb74f06@mail.gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH] ixgbe: fix bug with vlan strip in promsic mode
+Date: Wed, 14 Apr 2010 15:11:12 -0700
+Message-ID: <20100414221015.11752.42490.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net, davem@davemloft.net,
-	devik@cdi.cz
-To: Antonio Almeida <vexwek@gmail.com>
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.158]:34637 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757000Ab0DNVpR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Apr 2010 17:45:17 -0400
-Received: by fg-out-1718.google.com with SMTP id 22so232920fge.1
-        for <netdev@vger.kernel.org>; Wed, 14 Apr 2010 14:45:15 -0700 (PDT)
-In-Reply-To: <p2q298f5c051004140322hc54f5315taa5c7d85cb74f06@mail.gmail.com>
+Received: from qmta11.emeryville.ca.mail.comcast.net ([76.96.27.211]:48396
+	"EHLO qmta11.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756692Ab0DNWLa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Apr 2010 18:11:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Antonio Almeida wrote, On 04/14/2010 12:22 PM:
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-> What do you mean with "1:2 has grandchildren with overflown rate tables"?
-> I couldn't understand your idea. Is there any mistake in the
-> configuration I sent?
-> How would you set rates for this particular example?
+The ixgbe driver was setting up 82598 hardware correctly, so that
+when promiscuous mode was enabled hardware stripping was turned
+off.  But on 82599 the logic to disable/enable hardware stripping
+is different, and the code was not updated correctly when the
+hardware vlan stripping was enabled as default.
 
+This change comprises the creation of two new helper functions
+and calling them from the right locations to disable and enable
+hardware stripping of vlan tags at appropriate times.
 
-class htb 1:1 root rate 1000Mbit ceil 1000Mbit
-class htb 1:2 parent 1:1 rate 4096Kbit ceil 4096Kbit
-class htb 1:10 parent 1:2 rate 1024Kbit ceil 4096Kbit
-class htb 1:11 parent 1:2 rate 1024Kbit ceil 4096Kbit
-class htb 1:101 parent 1:10 prio 3 rate 8bit ceil 4096Kbit
-class htb 1:111 parent 1:11 prio 3 rate 8bit ceil 4096Kbit
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-Classes 1:101 and 1:111 have too low rates, which causes wrong (overflowed!)
-values in their rate tables, so their rates could be practically
-uncontrollable. They are limited by their ceils instead, so something like:
+ drivers/net/ixgbe/ixgbe_main.c |  115 +++++++++++++++++++++++++---------------
+ 1 files changed, 72 insertions(+), 43 deletions(-)
 
-class htb 1:101 parent 1:10 leaf 101: prio 3 rate 4096Kbit ceil 4096Kbit
-class htb 1:111 parent 1:11 leaf 111: prio 3 rate 4096Kbit ceil 4096Kbit
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 1b1419c..a98ff0e 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -2482,12 +2482,74 @@ static void ixgbe_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
+ 	hw->mac.ops.set_vfta(&adapter->hw, vid, pool_ndx, false);
+ }
+ 
++/**
++ * ixgbe_vlan_filter_disable - helper to disable hw vlan filtering
++ * @adapter: driver data
++ */
++static void ixgbe_vlan_filter_disable(struct ixgbe_adapter *adapter)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	u32 vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
++	int i, j;
++
++	switch (hw->mac.type) {
++	case ixgbe_mac_82598EB:
++		vlnctrl &= ~(IXGBE_VLNCTRL_VME | IXGBE_VLNCTRL_VFE);
++		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
++		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
++		break;
++	case ixgbe_mac_82599EB:
++		vlnctrl &= ~IXGBE_VLNCTRL_VFE;
++		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
++		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
++		for (i = 0; i < adapter->num_rx_queues; i++) {
++			j = adapter->rx_ring[i]->reg_idx;
++			vlnctrl = IXGBE_READ_REG(hw, IXGBE_RXDCTL(j));
++			vlnctrl &= ~IXGBE_RXDCTL_VME;
++			IXGBE_WRITE_REG(hw, IXGBE_RXDCTL(j), vlnctrl);
++		}
++		break;
++	default:
++		break;
++	}
++}
++
++/**
++ * ixgbe_vlan_filter_enable - helper to enable hw vlan filtering
++ * @adapter: driver data
++ */
++static void ixgbe_vlan_filter_enable(struct ixgbe_adapter *adapter)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
++	u32 vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
++	int i, j;
++
++	switch (hw->mac.type) {
++	case ixgbe_mac_82598EB:
++		vlnctrl |= IXGBE_VLNCTRL_VME | IXGBE_VLNCTRL_VFE;
++		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
++		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
++		break;
++	case ixgbe_mac_82599EB:
++		vlnctrl |= IXGBE_VLNCTRL_VFE;
++		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
++		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
++		for (i = 0; i < adapter->num_rx_queues; i++) {
++			j = adapter->rx_ring[i]->reg_idx;
++			vlnctrl = IXGBE_READ_REG(hw, IXGBE_RXDCTL(j));
++			vlnctrl |= IXGBE_RXDCTL_VME;
++			IXGBE_WRITE_REG(hw, IXGBE_RXDCTL(j), vlnctrl);
++		}
++		break;
++	default:
++		break;
++	}
++}
++
+ static void ixgbe_vlan_rx_register(struct net_device *netdev,
+                                    struct vlan_group *grp)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+-	u32 ctrl;
+-	int i, j;
+ 
+ 	if (!test_bit(__IXGBE_DOWN, &adapter->state))
+ 		ixgbe_irq_disable(adapter);
+@@ -2498,25 +2560,7 @@ static void ixgbe_vlan_rx_register(struct net_device *netdev,
+ 	 * still receive traffic from a DCB-enabled host even if we're
+ 	 * not in DCB mode.
+ 	 */
+-	ctrl = IXGBE_READ_REG(&adapter->hw, IXGBE_VLNCTRL);
+-
+-	/* Disable CFI check */
+-	ctrl &= ~IXGBE_VLNCTRL_CFIEN;
+-
+-	/* enable VLAN tag stripping */
+-	if (adapter->hw.mac.type == ixgbe_mac_82598EB) {
+-		ctrl |= IXGBE_VLNCTRL_VME;
+-	} else if (adapter->hw.mac.type == ixgbe_mac_82599EB) {
+-		for (i = 0; i < adapter->num_rx_queues; i++) {
+-			u32 ctrl;
+-			j = adapter->rx_ring[i]->reg_idx;
+-			ctrl = IXGBE_READ_REG(&adapter->hw, IXGBE_RXDCTL(j));
+-			ctrl |= IXGBE_RXDCTL_VME;
+-			IXGBE_WRITE_REG(&adapter->hw, IXGBE_RXDCTL(j), ctrl);
+-		}
+-	}
+-
+-	IXGBE_WRITE_REG(&adapter->hw, IXGBE_VLNCTRL, ctrl);
++	ixgbe_vlan_filter_enable(adapter);
+ 
+ 	ixgbe_vlan_rx_add_vid(netdev, 0);
+ 
+@@ -2551,17 +2595,17 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	u32 fctrl, vlnctrl;
++	u32 fctrl;
+ 
+ 	/* Check for Promiscuous and All Multicast modes */
+ 
+ 	fctrl = IXGBE_READ_REG(hw, IXGBE_FCTRL);
+-	vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
+ 
+ 	if (netdev->flags & IFF_PROMISC) {
+ 		hw->addr_ctrl.user_set_promisc = 1;
+ 		fctrl |= (IXGBE_FCTRL_UPE | IXGBE_FCTRL_MPE);
+-		vlnctrl &= ~IXGBE_VLNCTRL_VFE;
++		/* don't hardware filter vlans in promisc mode */
++		ixgbe_vlan_filter_disable(adapter);
+ 	} else {
+ 		if (netdev->flags & IFF_ALLMULTI) {
+ 			fctrl |= IXGBE_FCTRL_MPE;
+@@ -2569,12 +2613,11 @@ void ixgbe_set_rx_mode(struct net_device *netdev)
+ 		} else {
+ 			fctrl &= ~(IXGBE_FCTRL_UPE | IXGBE_FCTRL_MPE);
+ 		}
+-		vlnctrl |= IXGBE_VLNCTRL_VFE;
++		ixgbe_vlan_filter_enable(adapter);
+ 		hw->addr_ctrl.user_set_promisc = 0;
+ 	}
+ 
+ 	IXGBE_WRITE_REG(hw, IXGBE_FCTRL, fctrl);
+-	IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
+ 
+ 	/* reprogram secondary unicast list */
+ 	hw->mac.ops.update_uc_addr_list(hw, netdev);
+@@ -2641,7 +2684,7 @@ static void ixgbe_napi_disable_all(struct ixgbe_adapter *adapter)
+ static void ixgbe_configure_dcb(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	u32 txdctl, vlnctrl;
++	u32 txdctl;
+ 	int i, j;
+ 
+ 	ixgbe_dcb_check_config(&adapter->dcb_cfg);
+@@ -2659,22 +2702,8 @@ static void ixgbe_configure_dcb(struct ixgbe_adapter *adapter)
+ 		IXGBE_WRITE_REG(hw, IXGBE_TXDCTL(j), txdctl);
+ 	}
+ 	/* Enable VLAN tag insert/strip */
+-	vlnctrl = IXGBE_READ_REG(hw, IXGBE_VLNCTRL);
+-	if (hw->mac.type == ixgbe_mac_82598EB) {
+-		vlnctrl |= IXGBE_VLNCTRL_VME | IXGBE_VLNCTRL_VFE;
+-		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
+-		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
+-	} else if (hw->mac.type == ixgbe_mac_82599EB) {
+-		vlnctrl |= IXGBE_VLNCTRL_VFE;
+-		vlnctrl &= ~IXGBE_VLNCTRL_CFIEN;
+-		IXGBE_WRITE_REG(hw, IXGBE_VLNCTRL, vlnctrl);
+-		for (i = 0; i < adapter->num_rx_queues; i++) {
+-			j = adapter->rx_ring[i]->reg_idx;
+-			vlnctrl = IXGBE_READ_REG(hw, IXGBE_RXDCTL(j));
+-			vlnctrl |= IXGBE_RXDCTL_VME;
+-			IXGBE_WRITE_REG(hw, IXGBE_RXDCTL(j), vlnctrl);
+-		}
+-	}
++	ixgbe_vlan_filter_enable(adapter);
++
+ 	hw->mac.ops.set_vfta(&adapter->hw, 0, 0, true);
+ }
+ 
 
-But then their guaranteed rates are higher than their parents, and the
-sum is higher than grandparent's rate, which means the config is wrong.
-(You have to control these sums - HTB doesn't.)
-
-As I wrote before, the minimal (overflow safe) rate depends on max
-packet size, and for 1500 byte it would be something around:
-1500b/2min, so if your clients can wait so long, try this:
-
-class htb 1:101 parent 1:10 leaf 101: prio 3 rate 100bit ceil 4096Kbit
-class htb 1:111 parent 1:11 leaf 111: prio 3 rate 100bit ceil 4096Kbit
-
-Regards,
-Jarek P.
