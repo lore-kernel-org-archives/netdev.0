@@ -1,73 +1,75 @@
-From: Charles Slivkoff <slivkoff@cmu.edu>
-Subject: Re: e1000e/netdev.c patch -- tx_ring->next_to_use
-Date: Wed, 14 Apr 2010 14:47:58 -0400
-Message-ID: <4BC60DDE.2060102@cmu.edu>
-References: <4BC5E563.9050206@cmu.edu>
-	<alpine.WNT.2.00.1004141105060.4368@jbrandeb-desk1.amr.corp.intel.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: rps perfomance WAS(Re: rps: question
+Date: Wed, 14 Apr 2010 14:53:42 -0400
+Message-ID: <1271271222.4567.51.camel@bigi>
+References: <1265568122.3688.36.camel@bigi>
+	 <65634d661002072158r48ec15cag1ca58e704114a358@mail.gmail.com>
+	 <1265641748.3688.56.camel@bigi> <1271245986.3943.55.camel@bigi>
+	 <t2p65634d661004141031xf80f62e7sb64362ea1ce10a1f@mail.gmail.com>
+	 <1271268242.16881.1719.camel@edumazet-laptop>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: emil.s.tantilov@intel.com,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	netdev@vger.kernel.org,
-	"terry.loftin@hp.com" <terry.loftin@hp.com>, "Kirsher,
-	Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <alpine.WNT.2.00.1004141105060.4368@jbrandeb-desk1.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
+	robert@herjulf.net, David Miller <davem@davemloft.net>,
+	Changli Gao <xiaosuo@gmail.com>,
+	Andi Kleen <andi@firstfloor.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gx0-f227.google.com ([209.85.217.227]:61464 "EHLO
+	mail-gx0-f227.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756176Ab0DNSxp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Apr 2010 14:53:45 -0400
+Received: by gxk27 with SMTP id 27so299180gxk.1
+        for <netdev@vger.kernel.org>; Wed, 14 Apr 2010 11:53:44 -0700 (PDT)
+In-Reply-To: <1271268242.16881.1719.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/14/2010 02:12 PM, Brandeburg, Jesse wrote:
-...
+On Wed, 2010-04-14 at 20:04 +0200, Eric Dumazet wrote:
 
-> have you filed a bug at launchpad?  if so what is the number?  I just want 
-> to unite all the information we have.
+> Yes, multiqueue is far better of course, but in case of hardware lacking
+> multiqueue, RPS can help many workloads, where application has _some_
+> work to do, not only counting frames or so...
 
-I just submitted one, using "ubuntu-bug", so a number of associated 
-system details are included as attachments.
+Agreed. So to enumerate, the benefits come in if:
+a) you have many processors
+b) you have single-queue nic
+c) at sub-threshold traffic you dont care about a little latency
+d) you have a specific cache hierachy
+e) app is working hard to process incoming messages
 
-https://bugs.launchpad.net/ubuntu/+source/linux/+bug/563267
+> RPS overhead (IPI, cache misses, ...) must be amortized by
+> parallelization or we lose.
 
-...
+Indeed. 
+How well they can be amortized seems very cpu or board specific.
 
-> As a workaround you can try disabling TSO using ethtool to see if that 
-> helps.  We need to reproduce this here if possible.
-> 
-> ethtool -K eth0 tso off
+I think the main challenge for my pedantic mind is missing details. Is
+there a paper on rps? Example for #d above, the commit log mentions that
+rps benefits if you have certain types of "cache hierachy". Probably
+some arch with large shared L2/3 (maybe inclusive) cache will benefit.
+example: it does well on Nehalem and probably opterons as long (as you
+dont start stacking these things on some interconnect like QPI or HT).
+But what happens when you have FSB sharing across cores (still a very
+common setup)? etc etc
 
-I will give this a try.
+Can I ask what hardware you run this on?
 
-> Do you happen to *not* have irqbalance installed or enabled?  I was 
-> confused by the move_irq in one of the stack traces.  In any case it 
-> probably doesn't matter but I was not expecting to see that there.
+> A ping test is not an ideal candidate for RPS, since everything is done
+> at softirq level, and should be faster without RPS...
 
-irqbalance is *not* installed.
+ping wont do justice to the possible potential of rps mostly because it
+generates very little traffic i.e the part #c above. But it helps me at
+least boot a machine with proper setup - but it is not totally useless
+because i think the cost of IPI can be deduced from the results.
+I am going to put together some udp app with variable think-time to see
+what happens. Would that be a reasonable thing to test on?
 
-...
+It would be valuable to have something like Documentation/networking/rps
+to detail things a little more. 
 
+cheers,
+jamal
 
-Thanks,
-
--Charles
-
-
-------------------------------------------------------------------------------
-Download Intel&#174; Parallel Studio Eval
-Try the new software tools for yourself. Speed compiling, find bugs
-proactively, and fine-tune applications for parallel performance.
-See why Intel Parallel Studio got high marks during beta.
-http://p.sf.net/sfu/intel-sw-dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
