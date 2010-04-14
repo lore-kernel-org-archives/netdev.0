@@ -1,51 +1,43 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] fix potential wild pointer when NIC is dying
-Date: Wed, 14 Apr 2010 12:24:22 +0800
-Message-ID: <m2m412e6f7f1004132124y9ff2eeddwa2bbcaaa5d1f894f@mail.gmail.com>
-References: <1271247503-2973-1-git-send-email-xiaosuo@gmail.com>
-	<1271218986.1555.29.camel@Joe-Laptop.home>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH] Infiniband: Randomize local port allocation.
+Date: Wed, 14 Apr 2010 12:38:39 +0800
+Message-ID: <4BC546CF.9020004@redhat.com>
+References: <20100412100744.5302.92442.sendpatchset@localhost.localdomain>	<20100412100816.5302.74919.sendpatchset@localhost.localdomain>	<201004130121.o3D1Lhh7099571@www262.sakura.ne.jp>	<4BC41994.7030707@redhat.com>	<4BC42FE0.4040601@redhat.com> <201004132207.GAJ52684.OJFtMQVFHOSFLO@I-love.SAKURA.ne.jp> <21DAC78125424ED291B5D6477CFF9657@amr.corp.intel.com> <201004140201.o3E21Aqn075978@www262.sakura.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f194.google.com ([209.85.211.194]:57820 "EHLO
-	mail-yw0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750781Ab0DNEYn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Apr 2010 00:24:43 -0400
-Received: by ywh32 with SMTP id 32so2655876ywh.33
-        for <netdev@vger.kernel.org>; Tue, 13 Apr 2010 21:24:42 -0700 (PDT)
-In-Reply-To: <1271218986.1555.29.camel@Joe-Laptop.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: rolandd@cisco.com, sean.hefty@intel.com, opurdila@ixiacom.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	nhorman@tuxdriver.com, davem@davemloft.net, ebiederm@xmission.com,
+	linux-kernel@vger.kernel.org
+To: penguin-kernel@i-love.sakura.ne.jp
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201004140201.o3E21Aqn075978@www262.sakura.ne.jp>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 14, 2010 at 12:23 PM, Joe Perches <joe@perches.com> wrote:
-> On Wed, 2010-04-14 at 20:18 +0800, Changli Gao wrote:
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index a10a216..fe4a821 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
-> []
->> -static void flush_backlog(void *arg)
->> +static int flush_backlog(void *arg)
->
-> Why change this to return int?
->
->> + =C2=A0 =C2=A0 return 0;
->
-> It seems to always return 0.
->
->
+penguin-kernel@i-love.sakura.ne.jp wrote:
+> Sean Hefty wrote:
+>> Sean and Roland, is below patch correct?
+>>> inet_is_reserved_local_port() is the new function proposed in this patchset.
+>> It looks correct to me.  I didn't test the patch series, but if I comment out
+>> the call to inet_is_reserved_local_port() in the provided below, the changes
+>> worked fine for me.
+>>
+>> Acked-by: Sean Hefty <sean.hefty@intel.com>
+>>
+> Thank you for testing.
+> 
+> I think it is better to split this patch into
+> 
+> Part 1: Make cma_alloc_any_port() to use cma_alloc_port().
+> 
+> Part 2: Insert "!inet_is_reserved_local_port(rover) &&" line.
+> 
+> for future "git bisect".
+> 
 
-Keep stop_machine() happy.
-int stop_machine(int (*fn)(void *), void *data, const struct cpumask *c=
-pus);
+Right, thanks a lot for your work!
 
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
+So, I will rebase my patch 3/3 on top of this patch. I hope someone
+could take this one asap.
