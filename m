@@ -1,143 +1,44 @@
-From: penguin-kernel@i-love.sakura.ne.jp
-Subject: [PATCH] Infiniband: Randomize local port allocation.
-Date: Wed, 14 Apr 2010 11:01:10 +0900
-Message-ID: <201004140201.o3E21Aqn075978@www262.sakura.ne.jp>
-References: <20100412100744.5302.92442.sendpatchset@localhost.localdomain>	<20100412100816.5302.74919.sendpatchset@localhost.localdomain>	<201004130121.o3D1Lhh7099571@www262.sakura.ne.jp>	<4BC41994.7030707@redhat.com>	<4BC42FE0.4040601@redhat.com> <201004132207.GAJ52684.OJFtMQVFHOSFLO@I-love.SAKURA.ne.jp> <21DAC78125424ED291B5D6477CFF9657@amr.corp.intel.com>
+From: Jeff Haran <jharan@Brocade.COM>
+Subject: kernel never returns rtm_protocol of RTPROT_RA?
+Date: Tue, 13 Apr 2010 19:04:54 -0700
+Message-ID: <D67825C5985D0647BE40A5F5B0B70D110D404A3AB5@HQ-EXCH-7.corp.brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
-Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, opurdila@ixiacom.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, nhorman@tuxdriver.com, davem@davemloft.net,
-	ebiederm@xmission.com, linux-kernel@vger.kernel.org
-To: rolandd@cisco.com, sean.hefty@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <21DAC78125424ED291B5D6477CFF9657@amr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:39319 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754369Ab0DNCQD convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 13 Apr 2010 22:16:03 -0400
+Received: from pps.filterd (m0000700 [127.0.0.1])
+	by mx0b-000f0801.pphosted.com (8.14.3/8.14.3) with SMTP id o3E24xRl031289
+	for <netdev@vger.kernel.org>; Tue, 13 Apr 2010 19:04:59 -0700
+Received: from hq-exedge.brocade.com (hq-exedge.brocade.com [66.243.153.83])
+	by mx0b-000f0801.pphosted.com with ESMTP id n52qa01h0-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 13 Apr 2010 19:04:58 -0700
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sean Hefty wrote:
-> Sean and Roland, is below patch correct?
-> >inet_is_reserved_local_port() is the new function proposed in this patchset.
-> 
-> It looks correct to me.  I didn't test the patch series, but if I comment out
-> the call to inet_is_reserved_local_port() in the provided below, the changes
-> worked fine for me.
-> 
-> Acked-by: Sean Hefty <sean.hefty@intel.com>
-> 
-Thank you for testing.
+Hi,
 
-I think it is better to split this patch into
+Perhaps I am misreading the kernel sources, but it looks to me like an IPv6 default gateway that is discovered via the receipt of the Router Advertisement will not be reported in a netlink RTM_NEWROUTE message with the rtm_protocol field == RTPROT_RA, though that seems to be the defined purpose for RTPROT_RA. It seems like such addresses are going to be reported with rtm_protocol == RTPROT_KERNEL.
 
-Part 1: Make cma_alloc_any_port() to use cma_alloc_port().
+This is what I observe reading the sources to our old kernel (2.6.14) and actually running the data through it, and later sources seem to be doing the same thing though I haven't studied them as closely.
 
-Part 2: Insert "!inet_is_reserved_local_port(rover) &&" line.
+Is this the expected behavior?
 
-for future "git bisect".
+Does anybody see any problems if I change rt6_fill_node() to put RTPROT_RA into rtm_protocol when rt6i_flags has both the RTF_ADDRCONF and RTF_DEFAULT bits set?
 
-Roland, will you review below patch for part 1?
---------------------
-[PATCH] Infiniband: Randomize local port allocation.
+I am writing an application that distinguishes different sources of IPv6 routes and would like be able to count on RTPROT_RA meaning the default router address originated from a Router Advertisements.
 
-Randomize local port allocation in a way sctp_get_port_local() does.
+Please include my email address in response as I do not subscribe to this list.
 
-Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
----
- drivers/infiniband/core/cma.c |   69 ++++++++++++++----------------------------
- 1 file changed, 24 insertions(+), 45 deletions(-)
+Thanks,
 
---- linux-2.6.34-rc4.orig/drivers/infiniband/core/cma.c
-+++ linux-2.6.34-rc4/drivers/infiniband/core/cma.c
-@@ -79,7 +79,6 @@ static DEFINE_IDR(sdp_ps);
- static DEFINE_IDR(tcp_ps);
- static DEFINE_IDR(udp_ps);
- static DEFINE_IDR(ipoib_ps);
--static int next_port;
- 
- struct cma_device {
- 	struct list_head	list;
-@@ -1970,47 +1969,32 @@ err1:
- 
- static int cma_alloc_any_port(struct idr *ps, struct rdma_id_private *id_priv)
- {
--	struct rdma_bind_list *bind_list;
--	int port, ret, low, high;
--
--	bind_list = kzalloc(sizeof *bind_list, GFP_KERNEL);
--	if (!bind_list)
--		return -ENOMEM;
--
--retry:
--	/* FIXME: add proper port randomization per like inet_csk_get_port */
--	do {
--		ret = idr_get_new_above(ps, bind_list, next_port, &port);
--	} while ((ret == -EAGAIN) && idr_pre_get(ps, GFP_KERNEL));
--
--	if (ret)
--		goto err1;
-+	static unsigned int last_used_port;
-+	int low, high, remaining;
-+	unsigned int rover;
- 
- 	inet_get_local_port_range(&low, &high);
--	if (port > high) {
--		if (next_port != low) {
--			idr_remove(ps, port);
--			next_port = low;
--			goto retry;
-+	remaining = (high - low) + 1;
-+	rover = net_random() % remaining + low;
-+	do {
-+		rover++;
-+		if ((rover < low) || (rover > high))
-+			rover = low;
-+		if (last_used_port != rover &&
-+		    !idr_find(ps, (unsigned short) rover)) {
-+			int ret = cma_alloc_port(ps, id_priv, rover);
-+			/*
-+			 * Remember previously used port number in order to
-+			 * avoid re-using same port immediately after it is
-+			 * closed.
-+			 */
-+			if (!ret)
-+				last_used_port = rover;
-+			if (ret != -EADDRNOTAVAIL)
-+				return ret;
- 		}
--		ret = -EADDRNOTAVAIL;
--		goto err2;
--	}
--
--	if (port == high)
--		next_port = low;
--	else
--		next_port = port + 1;
--
--	bind_list->ps = ps;
--	bind_list->port = (unsigned short) port;
--	cma_bind_port(bind_list, id_priv);
--	return 0;
--err2:
--	idr_remove(ps, port);
--err1:
--	kfree(bind_list);
--	return ret;
-+	} while (--remaining > 0);
-+	return -EADDRNOTAVAIL;
- }
- 
- static int cma_use_port(struct idr *ps, struct rdma_id_private *id_priv)
-@@ -2995,12 +2979,7 @@ static void cma_remove_one(struct ib_dev
- 
- static int __init cma_init(void)
- {
--	int ret, low, high, remaining;
--
--	get_random_bytes(&next_port, sizeof next_port);
--	inet_get_local_port_range(&low, &high);
--	remaining = (high - low) + 1;
--	next_port = ((unsigned int) next_port % remaining) + low;
-+	int ret;
- 
- 	cma_wq = create_singlethread_workqueue("rdma_cm");
- 	if (!cma_wq)
+Jeff Haran
+Brocade
+
