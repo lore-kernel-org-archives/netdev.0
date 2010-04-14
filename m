@@ -1,41 +1,143 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net tree with Linus' tree
-Date: Tue, 13 Apr 2010 19:00:53 -0700 (PDT)
-Message-ID: <20100413.190053.222629252.davem@davemloft.net>
-References: <20100414114556.97d7583d.sfr@canb.auug.org.au>
-	<20100413.184724.112842393.davem@davemloft.net>
-	<20100414115244.f97ca080.sfr@canb.auug.org.au>
+From: penguin-kernel@i-love.sakura.ne.jp
+Subject: [PATCH] Infiniband: Randomize local port allocation.
+Date: Wed, 14 Apr 2010 11:01:10 +0900
+Message-ID: <201004140201.o3E21Aqn075978@www262.sakura.ne.jp>
+References: <20100412100744.5302.92442.sendpatchset@localhost.localdomain>	<20100412100816.5302.74919.sendpatchset@localhost.localdomain>	<201004130121.o3D1Lhh7099571@www262.sakura.ne.jp>	<4BC41994.7030707@redhat.com>	<4BC42FE0.4040601@redhat.com> <201004132207.GAJ52684.OJFtMQVFHOSFLO@I-love.SAKURA.ne.jp> <21DAC78125424ED291B5D6477CFF9657@amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-2022-JP"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ken_kawasaki@spring.nifty.jp,
-	jpirko@redhat.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100414115244.f97ca080.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+Cc: amwang@redhat.com, opurdila@ixiacom.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, nhorman@tuxdriver.com, davem@davemloft.net,
+	ebiederm@xmission.com, linux-kernel@vger.kernel.org
+To: rolandd@cisco.com, sean.hefty@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <21DAC78125424ED291B5D6477CFF9657@amr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 14 Apr 2010 11:52:44 +1000
-
-> Hi Dave,
+Sean Hefty wrote:
+> Sean and Roland, is below patch correct?
+> >inet_is_reserved_local_port() is the new function proposed in this patchset.
 > 
-> On Tue, 13 Apr 2010 18:47:24 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
->>
->> Thanks a lot Stephen, I'll merge net-2.6 into net-next-2.6 to
->> fix this up for you.
+> It looks correct to me.  I didn't test the patch series, but if I comment out
+> the call to inet_is_reserved_local_port() in the provided below, the changes
+> worked fine for me.
 > 
-> Thanks.
+> Acked-by: Sean Hefty <sean.hefty@intel.com>
 > 
-> There was another conflict in drivers/net/virtio_net.c (because there is
-> a patch in both your tree and Linus' (via net-current)) that git did not
-> quite resolve correctly.  The sg_init_table() in add_recvbuf_small() was
-> reinserted by the automatic merge ... I removed it in my merge.
+Thank you for testing.
 
-Yes I expected that, the cherrypicked fix gets changed by a subsequent
-commit in net-next-2.6 that changes where the scatterlist entries are
-stored in that driver.
+I think it is better to split this patch into
 
-Anyways, thanks for the heads up.
+Part 1: Make cma_alloc_any_port() to use cma_alloc_port().
+
+Part 2: Insert "!inet_is_reserved_local_port(rover) &&" line.
+
+for future "git bisect".
+
+Roland, will you review below patch for part 1?
+--------------------
+[PATCH] Infiniband: Randomize local port allocation.
+
+Randomize local port allocation in a way sctp_get_port_local() does.
+
+Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+---
+ drivers/infiniband/core/cma.c |   69 ++++++++++++++----------------------------
+ 1 file changed, 24 insertions(+), 45 deletions(-)
+
+--- linux-2.6.34-rc4.orig/drivers/infiniband/core/cma.c
++++ linux-2.6.34-rc4/drivers/infiniband/core/cma.c
+@@ -79,7 +79,6 @@ static DEFINE_IDR(sdp_ps);
+ static DEFINE_IDR(tcp_ps);
+ static DEFINE_IDR(udp_ps);
+ static DEFINE_IDR(ipoib_ps);
+-static int next_port;
+ 
+ struct cma_device {
+ 	struct list_head	list;
+@@ -1970,47 +1969,32 @@ err1:
+ 
+ static int cma_alloc_any_port(struct idr *ps, struct rdma_id_private *id_priv)
+ {
+-	struct rdma_bind_list *bind_list;
+-	int port, ret, low, high;
+-
+-	bind_list = kzalloc(sizeof *bind_list, GFP_KERNEL);
+-	if (!bind_list)
+-		return -ENOMEM;
+-
+-retry:
+-	/* FIXME: add proper port randomization per like inet_csk_get_port */
+-	do {
+-		ret = idr_get_new_above(ps, bind_list, next_port, &port);
+-	} while ((ret == -EAGAIN) && idr_pre_get(ps, GFP_KERNEL));
+-
+-	if (ret)
+-		goto err1;
++	static unsigned int last_used_port;
++	int low, high, remaining;
++	unsigned int rover;
+ 
+ 	inet_get_local_port_range(&low, &high);
+-	if (port > high) {
+-		if (next_port != low) {
+-			idr_remove(ps, port);
+-			next_port = low;
+-			goto retry;
++	remaining = (high - low) + 1;
++	rover = net_random() % remaining + low;
++	do {
++		rover++;
++		if ((rover < low) || (rover > high))
++			rover = low;
++		if (last_used_port != rover &&
++		    !idr_find(ps, (unsigned short) rover)) {
++			int ret = cma_alloc_port(ps, id_priv, rover);
++			/*
++			 * Remember previously used port number in order to
++			 * avoid re-using same port immediately after it is
++			 * closed.
++			 */
++			if (!ret)
++				last_used_port = rover;
++			if (ret != -EADDRNOTAVAIL)
++				return ret;
+ 		}
+-		ret = -EADDRNOTAVAIL;
+-		goto err2;
+-	}
+-
+-	if (port == high)
+-		next_port = low;
+-	else
+-		next_port = port + 1;
+-
+-	bind_list->ps = ps;
+-	bind_list->port = (unsigned short) port;
+-	cma_bind_port(bind_list, id_priv);
+-	return 0;
+-err2:
+-	idr_remove(ps, port);
+-err1:
+-	kfree(bind_list);
+-	return ret;
++	} while (--remaining > 0);
++	return -EADDRNOTAVAIL;
+ }
+ 
+ static int cma_use_port(struct idr *ps, struct rdma_id_private *id_priv)
+@@ -2995,12 +2979,7 @@ static void cma_remove_one(struct ib_dev
+ 
+ static int __init cma_init(void)
+ {
+-	int ret, low, high, remaining;
+-
+-	get_random_bytes(&next_port, sizeof next_port);
+-	inet_get_local_port_range(&low, &high);
+-	remaining = (high - low) + 1;
+-	next_port = ((unsigned int) next_port % remaining) + low;
++	int ret;
+ 
+ 	cma_wq = create_singlethread_workqueue("rdma_cm");
+ 	if (!cma_wq)
