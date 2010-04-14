@@ -1,56 +1,52 @@
-From: Lennart Schulte <lennart.schulte@nets.rwth-aachen.de>
-Subject: Re: [RFC] random SYN drops causing connect() delays
-Date: Wed, 14 Apr 2010 13:37:17 +0200
-Message-ID: <4BC5A8ED.6040908@nets.rwth-aachen.de>
-References: <20100412080633.GA27418@bombadil.infradead.org>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH v3] net: batch skb dequeueing from softnet input_pkt_queue
+Date: Wed, 14 Apr 2010 20:13:20 +0800
+Message-ID: <o2k412e6f7f1004140513h8de62790tb775bb357e2db6b1@mail.gmail.com>
+References: <1271238738-8386-1-git-send-email-xiaosuo@gmail.com>
+	<1271246304.3943.60.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: <tgraf@infradead.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-i4.informatik.RWTH-Aachen.DE ([137.226.12.21]:4638 "EHLO
-	mail-i4.informatik.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755115Ab0DNMAO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Apr 2010 08:00:14 -0400
-In-Reply-To: <20100412080633.GA27418@bombadil.infradead.org>
+Received: from mail-yx0-f199.google.com ([209.85.210.199]:38966 "EHLO
+	mail-yx0-f199.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755073Ab0DNMNu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Apr 2010 08:13:50 -0400
+Received: by yxe37 with SMTP id 37so19910yxe.21
+        for <netdev@vger.kernel.org>; Wed, 14 Apr 2010 05:13:49 -0700 (PDT)
+In-Reply-To: <1271246304.3943.60.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-this is very similar to what i have noticed, but up to now I couldn't figure out where it came from. 
-Thanks very much for clearing it up!
+On Wed, Apr 14, 2010 at 7:58 PM, jamal <hadi@cyberus.ca> wrote:
+>
+> It seems we are now going to generate a lot more IPIs with such a
+> change. At least this is what i am imagining.
+> CPU0: packet comes in,queue empty, generate an IPI to CPU1
+> CPU0: second packet comes in, enqueue
+> CPU1: grab two packets to process and run with them
+> CPU0: packet comes in,queue empty, generate an IPI to CPU1
 
-> I have been tracking down an issue commonly referred to as the 3-sec
-> connect() delay. It exists since recent 2.6.x kernels and has never
-> been fixed even though it disappeared in recent releases unless
-> sched_child_runs_first is set to 1 again.
+No extra IPI is needed.
+
++       qlen =3D queue->input_pkt_queue.qlen + queue->processing_queue.=
+qlen;
++       if (qlen <=3D netdev_max_backlog) {
++               if (qlen) {
+
+the packets in processing_queue are counted too.
+
 >
-> What happens is that if a client attemps to open many connections to
-> a socket with only minimal delay inbetween attemps some SYNs are
-> randomly dropped on the server side causing the client to resend after
-> the 3 sec TCP timeout and thus causing connect()s to be randomly delayed.
+> IPIs add to latency (refer to my other email). Did you test this
+> to reach some conclusion that it improves thing or was it just by
+> inspection?
 >
-> Facts:
->  - Issue can be reproduced over loopback or real networks.
->  - Enabling SO_LINGER on the client side will make the issue disappear!!
->  - While the issue is appearing, the acceptq seems to be overflowing. Both
->    LISTENOVERFLOWS and LISTENDROPS are increasing although not by the exact
->    number of delay occurences. inetdiag reports sk_max_ack_backlog to be 0
->    therefore one possibility that comes to mind is that sk_ack_backlog
->    underflows due to a race.
->  - The issue disappeared in recent kernels, I bisected it down to the following
->    commit:
-> 	commit 2bba22c50b06abe9fd0d23933b1e64d35b419262
-> 	Author: Mike Galbraith <efault@gmx.de>
-> 	Date:   Wed Sep 9 15:41:37 2009 +0200
->
-> 	    sched: Turn off child_runs_first
-> 	    
-> 	    Set child_runs_first default to off.
->
->    Setting kernel.sched_child_runs_first=1 makes the isssue reappear in recent
->    kernels.  This hardens the theory of a race condition.
->  - It looks like that the issue can only be reproduced if the server
->    socket sends out data immediately after the connection has been established
->    but I cannot proof this theory.
+
+:( only insepection.
+
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
