@@ -1,92 +1,51 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] Fix SCTP failure with ipv6 source address routing
-Date: Tue, 13 Apr 2010 20:47:30 -0400
-Message-ID: <4BC510A2.1070105@hp.com>
-References: <1271198256-20477-1-git-send-email-paul.gortmaker@windriver.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] tun: orphan an skb on tx
+Date: Wed, 14 Apr 2010 08:58:22 +0800
+Message-ID: <20100414005822.GD18044@gondor.apana.org.au>
+References: <20100413145944.GA7716@redhat.com> <4BC48F79.5090409@siemens.com> <1271176838.16881.537.camel@edumazet-laptop> <20100413173919.GC26011@redhat.com> <1271183463.16881.545.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Jan Kiszka <jan.kiszka@siemens.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Paul Moore <paul.moore@hp.com>,
+	David Woodhouse <David.Woodhouse@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	qemu-devel <qemu-devel@nongnu.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:15807 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752506Ab0DNArc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 20:47:32 -0400
-In-Reply-To: <1271198256-20477-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from ringil.hengli.com.au ([216.59.3.182]:59438 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752711Ab0DNA6l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 20:58:41 -0400
+Content-Disposition: inline
+In-Reply-To: <1271183463.16881.545.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Apr 13, 2010 at 08:31:03PM +0200, Eric Dumazet wrote:
+>
+> Herbert Acked your patch, so I guess its OK, but I think it can be
+> dangerous.
 
+The tun socket accounting was never designed to stop it from
+flooding another tun interface.  It's there to stop it from
+transmitting above a destination interface TX bandwidth and
+cause unnecessary packet drops.  It also limits the total amount
+of kernel memory that can be pinned down by a single tun interface.
 
-Paul Gortmaker wrote:
-> From: Weixing Shi <Weixing.Shi@windriver.com>
-> 
-> Given the below test case, using source address routing, SCTP
-> does not work.
-> 
-> Node-A:
->   1)ifconfig eth0 inet6 add 2001:1::1/64
->   2)ip -6 rule add from 2001:1::1 table 100 pref 100
->   3)ip -6 route add 2001:2::1 dev eth0 table 100
->   4)sctp_darn -H 2001:1::1 -P 250 -l &
-> 
-> Node-B:
->   1)ifconfig eth0 inet6 add 2001:2::1/64
->   2)ip -6 rule add from 2001:2::1 table 100 pref 100
->   3)ip -6 route add 2001:1::1 dev eth0 table 100
->   4)sctp_darn -H 2001:2::1 -P 250 -h 2001:1::1 -p 250 -s
-> 
-> Root cause:
->   Node-A and Node-B use source address routing, and in the
->   begining, the source address will be NULL.  So SCTP will search
->   the routing table by the destination address (because it is using
->   the source address routing table), and hence the resulting dst_entry
->   will be NULL.
-> 
-> Solution:
->   After SCTP gets the correct source address, then we search for
->   dst_entry again, and then we will get the correct value.
+In this case, all we're doing is shifting the accounting from the
+"hardware" queue to the qdisc queue.
 
-The problem here is that ipv6 route lookup code in sctp doesn't bother
-searching for the source address, unlike the v4 route lookup code.
+So your ability to flood a tun interface is essentially unchanged.
 
-Compare sctp_v4_get_dst() and sctp_v6_get_dst.  The v4 version bends over
-backwards trying to get the correct route, while the v6 version simple does
-a single lookup and returns the result.
+BTW we do the same thing in a number of hardware drivers, as well
+as virtio-net.
 
-The v6 route lookup code needs to be fixed to take into account the bound
-address list.
-
--vlad
-	
-> 
-> Signed-off-by: Weixing Shi <Weixing.Shi@windriver.com>
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-> ---
->  net/sctp/transport.c |   11 +++++++++--
->  1 files changed, 9 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-> index be4d63d..b5ae18c 100644
-> --- a/net/sctp/transport.c
-> +++ b/net/sctp/transport.c
-> @@ -295,9 +295,16 @@ void sctp_transport_route(struct sctp_transport *transport,
->  
->  	if (saddr)
->  		memcpy(&transport->saddr, saddr, sizeof(union sctp_addr));
-> -	else
-> +	else {
->  		af->get_saddr(opt, asoc, dst, daddr, &transport->saddr);
-> -
-> +		/* When using source address routing, since dst was
-> +		 * looked up prior to filling in the source address, dst
-> +		 * needs to be looked up again to get the correct dst
-> +		 */
-> +		if (dst)
-> +			dst_release(dst);
-> +		dst = af->get_dst(asoc, daddr, &transport->saddr);
-> +	}
->  	transport->dst = dst;
->  	if ((transport->param_flags & SPP_PMTUD_DISABLE) && transport->pathmtu) {
->  		return;
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
