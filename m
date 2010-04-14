@@ -1,51 +1,67 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] tun: orphan an skb on tx
-Date: Wed, 14 Apr 2010 08:58:22 +0800
-Message-ID: <20100414005822.GD18044@gondor.apana.org.au>
-References: <20100413145944.GA7716@redhat.com> <4BC48F79.5090409@siemens.com> <1271176838.16881.537.camel@edumazet-laptop> <20100413173919.GC26011@redhat.com> <1271183463.16881.545.camel@edumazet-laptop>
+From: Ayaz Abdulla <aabdulla@nvidia.com>
+Subject: Bug#572201: forcedeth driver hangs under heavy load
+Date: Wed, 14 Apr 2010 01:33:15 -0400
+Message-ID: <4BC5539B.6050908@nvidia.com>
+References: <1271160298.2098.0.camel@achroite.uk.solarflarecom.com>	 <4BC47F38.5040509@gmail.com> <1271169741.16881.437.camel@edumazet-laptop>	 <20100413.144340.138717714.davem@davemloft.net> <1271195179.16881.575.camel@edumazet-laptop>
+Reply-To: Ayaz Abdulla <aabdulla@nvidia.com>, 572201@bugs.debian.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Jan Kiszka <jan.kiszka@siemens.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Paul Moore <paul.moore@hp.com>,
-	David Woodhouse <David.Woodhouse@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	qemu-devel <qemu-devel@nongnu.org>
+Content-Type: multipart/mixed;
+ boundary="------------070606080700040903080308"
+Cc: David Miller <davem@davemloft.net>,
+ "smulcahy@gmail.com" <smulcahy@gmail.com>,
+ "bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "ben@decadent.org.uk" <ben@decadent.org.uk>,
+ "572201@bugs.debian.org" <572201@bugs.debian.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:59438 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752711Ab0DNA6l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 13 Apr 2010 20:58:41 -0400
-Content-Disposition: inline
-In-Reply-To: <1271183463.16881.545.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <bounce-debian-bugs-dist=glddb-debian-bugs-dist=m.gmane.org@lists.debian.org>
+Resent-Message-ID: <handler.572201.B572201.127120903229193@bugs.debian.org>
+In-Reply-To: <1271195179.16881.575.camel@edumazet-laptop>
+List-Post: <mailto:debian-bugs-dist@lists.debian.org>
+List-Help: <mailto:debian-bugs-dist-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=unsubscribe>
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 13, 2010 at 08:31:03PM +0200, Eric Dumazet wrote:
->
-> Herbert Acked your patch, so I guess its OK, but I think it can be
-> dangerous.
+This is a multi-part message in MIME format.
+--------------070606080700040903080308
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: quoted-printable
 
-The tun socket accounting was never designed to stop it from
-flooding another tun interface.  It's there to stop it from
-transmitting above a destination interface TX bandwidth and
-cause unnecessary packet drops.  It also limits the total amount
-of kernel memory that can be pinned down by a single tun interface.
+Attached fix has been submitted to netdev.
 
-In this case, all we're doing is shifting the accounting from the
-"hardware" queue to the qdisc queue.
+Ayaz
 
-So your ability to flood a tun interface is essentially unchanged.
 
-BTW we do the same thing in a number of hardware drivers, as well
-as virtio-net.
+Eric Dumazet wrote:
+> Le mardi 13 avril 2010 =C3=A0 14:43 -0700, David Miller a =C3=A9crit :
+>=20
+>>Do you really come to the conclusion that TSO is broken with the above
+>>test results?
+>>
+>>I would conclude that there is a TX checksumming issue, since merely
+>>turning TSO off does not fix the problem whereas turning TX
+>>checksumming off does.
+>=20
+>=20
+> Indeed, we clarified the point and it is a TX checksum issue.
+>=20
+>=20
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--------------070606080700040903080308
+Content-Type: text/plain;
+ name="patch-forcedeth-tx-limit2-fix"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="patch-forcedeth-tx-limit2-fix"
+
+LS0tIG9sZC9kcml2ZXJzL25ldC9mb3JjZWRldGguYwkyMDEwLTA0LTE0IDAxOjE4OjUxLjAw
+MDAwMDAwMCAtMDQwMAorKysgbmV3L2RyaXZlcnMvbmV0L2ZvcmNlZGV0aC5jCTIwMTAtMDQt
+MTQgMDE6MjA6NDAuMDAwMDAwMDAwIC0wNDAwCkBAIC01OTAxLDcgKzU5MDEsNyBAQAogCS8q
+IExpbWl0IHRoZSBudW1iZXIgb2YgdHgncyBvdXRzdGFuZGluZyBmb3IgaHcgYnVnICovCiAJ
+aWYgKGlkLT5kcml2ZXJfZGF0YSAmIERFVl9ORUVEX1RYX0xJTUlUKSB7CiAJCW5wLT50eF9s
+aW1pdCA9IDE7Ci0JCWlmICgoaWQtPmRyaXZlcl9kYXRhICYgREVWX05FRURfVFhfTElNSVQy
+KSAmJgorCQlpZiAoKChpZC0+ZHJpdmVyX2RhdGEgJiBERVZfTkVFRF9UWF9MSU1JVDIpID09
+IERFVl9ORUVEX1RYX0xJTUlUMikgJiYKIAkJICAgIHBjaV9kZXYtPnJldmlzaW9uID49IDB4
+QTIpCiAJCQlucC0+dHhfbGltaXQgPSAwOwogCX0K
+--------------070606080700040903080308--
