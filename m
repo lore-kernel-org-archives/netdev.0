@@ -1,142 +1,87 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: RE: [PATCH] Infiniband: Randomize local port allocation.
-Date: Thu, 15 Apr 2010 11:29:04 +0900
-Message-ID: <201004150229.o3F2T4dZ054768@www262.sakura.ne.jp>
-References: <20100412100744.5302.92442.sendpatchset@localhost.localdomain>	<20100412100816.5302.74919.sendpatchset@localhost.localdomain>	<201004130121.o3D1Lhh7099571@www262.sakura.ne.jp>	<4BC41994.7030707@redhat.com>	<4BC42FE0.4040601@redhat.com> <201004132207.GAJ52684.OJFtMQVFHOSFLO@I-love.SAKURA.ne.jp> <21DAC78125424ED291B5D6477CFF9657@amr.corp.intel.com> <201004140201.o3E21Aqn075978@www262.sakura.ne.jp> <195EB1AD388F455AA386EB214FCD09F4@amr.corp.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: rps perfomance WAS(Re: rps: question
+Date: Thu, 15 Apr 2010 04:40:06 +0200
+Message-ID: <1271299206.16881.1764.camel@edumazet-laptop>
+References: <1265568122.3688.36.camel@bigi> <1271245986.3943.55.camel@bigi>
+	 <t2p65634d661004141031xf80f62e7sb64362ea1ce10a1f@mail.gmail.com>
+	 <1271268242.16881.1719.camel@edumazet-laptop>
+	 <1271271222.4567.51.camel@bigi> <20100414124426.6aee95c3@nehalam>
+	 <1271276568.4567.59.camel@bigi>
+	 <1271276855.16881.1756.camel@edumazet-laptop>
+	 <z2y65634d661004141345o9bdcf759sf266866931823baf@mail.gmail.com>
+	 <1271278661.16881.1761.camel@edumazet-laptop>
+	 <v2s412e6f7f1004141551u5764604h3ab092ee9e70a650@mail.gmail.com>
+	 <20100414160220.43a62999@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
-Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, opurdila@ixiacom.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, nhorman@tuxdriver.com, davem@davemloft.net,
-	ebiederm@xmission.com, linux-kernel@vger.kernel.org,
-	rolandd@cisco.com
-To: sean.hefty@intel.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Changli Gao <xiaosuo@gmail.com>, Tom Herbert <therbert@google.com>,
+	hadi@cyberus.ca, netdev@vger.kernel.org, robert@herjulf.net,
+	David Miller <davem@davemloft.net>,
+	Andi Kleen <andi@firstfloor.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www262.sakura.ne.jp ([202.181.97.72]:53093 "EHLO
-	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755493Ab0DOC35 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Apr 2010 22:29:57 -0400
-In-Reply-To: <195EB1AD388F455AA386EB214FCD09F4@amr.corp.intel.com>
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:40749 "EHLO
+	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755783Ab0DOCkP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Apr 2010 22:40:15 -0400
+Received: by bwz25 with SMTP id 25so959677bwz.28
+        for <netdev@vger.kernel.org>; Wed, 14 Apr 2010 19:40:12 -0700 (PDT)
+In-Reply-To: <20100414160220.43a62999@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sean Hefty wrote:
-> >+	remaining = (high - low) + 1;
-> >+	rover = net_random() % remaining + low;
-> >+	do {
-> >+		rover++;
-> >+		if ((rover < low) || (rover > high))
-> >+			rover = low;
-> 
-> Assuming that we're likely to pick a valid port on the first try, it would be
-> more efficient to move the above 3 lines to the end of the while loop.
-> 
-Indeed. I moved these lines to "if (--remaining) { ... }" block.
---------------------
-[PATCH] Infiniband: Randomize local port allocation.
+Le mercredi 14 avril 2010 =C3=A0 16:02 -0700, Stephen Hemminger a =C3=A9=
+crit :
+> On Thu, 15 Apr 2010 06:51:29 +0800
+> Changli Gao <xiaosuo@gmail.com> wrote:
+>=20
+> > On Thu, Apr 15, 2010 at 4:57 AM, Eric Dumazet <eric.dumazet@gmail.c=
+om> wrote:
+> > >
+> > > RPS can be tuned (Changli wants a finer tuning...), it would be
+> > > intereting to tune multiqueue devices too. I dont know if its pos=
+sible
+> > > right now.
+> > >
+> > > On my Nehalem machine (16 logical cpus), its NetXtreme II BCM5771=
+1E
+> > > 10Gigabit has 16 queues. It might be good to use less queues acco=
+rding
+> > > to your results on some workloads, and eventually use RPS on a se=
+cond
+> > > layering.
+> >=20
+> > My idear is: run a daemon in userland to monitor the softnet
+> > statistics, and tun the RPS setting if necessary. It seems that the
+> > current softnet statistics data isn't correct.
+> >=20
+> > Long time ago, I did a test, and the conclution was
+> > call_function_single IPI was more expensive than resched IPI, so I
+> > moved to kernel thread from softirq for packet processing. I'll red=
+o
+> > the test later.
+> >=20
+>=20
+> The big thing is data, data, data... Performance can only be examined
+> with real hard data with multiple different kind of hardware.  Also, =
+check for
+> regressions in lmbench and TPC benchmarks. Yes this is hard, but pape=
+rs
+> on this would allow for rational rather than speculative choices.
+>=20
+> Adding more tuning knobs is not the answer unless you can show when
+> the tuning helps.
+>=20
 
-Randomize local port allocation in a way sctp_get_port_local() does.
-Update rover at the end of loop since we're likely to pick a valid port
-on the first try.
+Agree 100%, and irqbalance is the existing daemon. It should be used an=
+d
+changed if necessary.
 
-Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
----
- drivers/infiniband/core/cma.c |   70 +++++++++++++++---------------------------
- 1 file changed, 25 insertions(+), 45 deletions(-)
+Changli, my stronges argument about your patches is that our scheduler
+and memory affinity api (numactl driven) is bitmask oriented, giving th=
+e
+same weight to individual cpu or individual memory node.
 
---- linux-2.6.34-rc4.orig/drivers/infiniband/core/cma.c
-+++ linux-2.6.34-rc4/drivers/infiniband/core/cma.c
-@@ -79,7 +79,6 @@ static DEFINE_IDR(sdp_ps);
- static DEFINE_IDR(tcp_ps);
- static DEFINE_IDR(udp_ps);
- static DEFINE_IDR(ipoib_ps);
--static int next_port;
- 
- struct cma_device {
- 	struct list_head	list;
-@@ -1970,47 +1969,33 @@ err1:
- 
- static int cma_alloc_any_port(struct idr *ps, struct rdma_id_private *id_priv)
- {
--	struct rdma_bind_list *bind_list;
--	int port, ret, low, high;
--
--	bind_list = kzalloc(sizeof *bind_list, GFP_KERNEL);
--	if (!bind_list)
--		return -ENOMEM;
--
--retry:
--	/* FIXME: add proper port randomization per like inet_csk_get_port */
--	do {
--		ret = idr_get_new_above(ps, bind_list, next_port, &port);
--	} while ((ret == -EAGAIN) && idr_pre_get(ps, GFP_KERNEL));
--
--	if (ret)
--		goto err1;
-+	static unsigned int last_used_port;
-+	int low, high, remaining;
-+	unsigned int rover;
- 
- 	inet_get_local_port_range(&low, &high);
--	if (port > high) {
--		if (next_port != low) {
--			idr_remove(ps, port);
--			next_port = low;
--			goto retry;
--		}
--		ret = -EADDRNOTAVAIL;
--		goto err2;
-+	remaining = (high - low) + 1;
-+	rover = net_random() % remaining + low;
-+retry:
-+	if (last_used_port != rover &&
-+	    !idr_find(ps, (unsigned short) rover)) {
-+		int ret = cma_alloc_port(ps, id_priv, rover);
-+		/*
-+		 * Remember previously used port number in order to avoid
-+		 * re-using same port immediately after it is closed.
-+		 */
-+		if (!ret)
-+			last_used_port = rover;
-+		if (ret != -EADDRNOTAVAIL)
-+			return ret;
- 	}
--
--	if (port == high)
--		next_port = low;
--	else
--		next_port = port + 1;
--
--	bind_list->ps = ps;
--	bind_list->port = (unsigned short) port;
--	cma_bind_port(bind_list, id_priv);
--	return 0;
--err2:
--	idr_remove(ps, port);
--err1:
--	kfree(bind_list);
--	return ret;
-+	if (--remaining) {
-+		rover++;
-+		if ((rover < low) || (rover > high))
-+			rover = low;
-+		goto retry;
-+	}
-+	return -EADDRNOTAVAIL;
- }
- 
- static int cma_use_port(struct idr *ps, struct rdma_id_private *id_priv)
-@@ -2995,12 +2980,7 @@ static void cma_remove_one(struct ib_dev
- 
- static int __init cma_init(void)
- {
--	int ret, low, high, remaining;
--
--	get_random_bytes(&next_port, sizeof next_port);
--	inet_get_local_port_range(&low, &high);
--	remaining = (high - low) + 1;
--	next_port = ((unsigned int) next_port % remaining) + low;
-+	int ret;
- 
- 	cma_wq = create_singlethread_workqueue("rdma_cm");
- 	if (!cma_wq)
+
+
