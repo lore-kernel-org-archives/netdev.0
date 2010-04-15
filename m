@@ -1,94 +1,142 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH v2] net: fix softnet_stat
-Date: Thu, 15 Apr 2010 13:30:53 +0800
-Message-ID: <1271309453-14987-1-git-send-email-xiaosuo@gmail.com>
-Cc: Tom Herbert <therbert@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: RE: [PATCH] Infiniband: Randomize local port allocation.
+Date: Thu, 15 Apr 2010 14:46:30 +0900
+Message-ID: <201004150546.o3F5kUtb094163@www262.sakura.ne.jp>
+References: <20100412100744.5302.92442.sendpatchset@localhost.localdomain>	<20100412100816.5302.74919.sendpatchset@localhost.localdomain>	<201004130121.o3D1Lhh7099571@www262.sakura.ne.jp>	<4BC41994.7030707@redhat.com>	<4BC42FE0.4040601@redhat.com> <201004132207.GAJ52684.OJFtMQVFHOSFLO@I-love.SAKURA.ne.jp> <21DAC78125424ED291B5D6477CFF9657@amr.corp.intel.com> <201004140201.o3E21Aqn075978@www262.sakura.ne.jp> <195EB1AD388F455AA386EB214FCD09F4@amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, rolandd@cisco.com, amwang@redhat.com
+To: sean.hefty@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f204.google.com ([209.85.222.204]:49476 "EHLO
-	mail-pz0-f204.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754698Ab0DOFaa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 01:30:30 -0400
-Received: by pzk42 with SMTP id 42so813019pzk.4
-        for <netdev@vger.kernel.org>; Wed, 14 Apr 2010 22:30:29 -0700 (PDT)
+Received: from www262.sakura.ne.jp ([202.181.97.72]:49821 "EHLO
+	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754875Ab0DOFqv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 01:46:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fix softnet_stat
+Tetsuo Handa wrote:
+> Sean Hefty wrote:
+> > >+	remaining = (high - low) + 1;
+> > >+	rover = net_random() % remaining + low;
+> > >+	do {
+> > >+		rover++;
+> > >+		if ((rover < low) || (rover > high))
+> > >+			rover = low;
+> > 
+> > Assuming that we're likely to pick a valid port on the first try, it would be
+> > more efficient to move the above 3 lines to the end of the while loop.
+> > 
+> Indeed. I moved these lines to "if (--remaining) { ... }" block.
 
-Per cpu variable softnet_data.total was shared between IRQ and SoftIRQ context
-without any protection. And enqueue_to_backlog should update the netdev_rx_stat
-of the target CPU.
+Oh, I made more changes than needed.
+Adding "goto start;" and "start:" are sufficient.
+Please use whichever you like.
+--------------------
+[PATCH] Infiniband: Randomize local port allocation.
 
-This patch splits softnet_data.total into softnet_data.received and
-softnet_data.dropped internally, in order to avoid it sharing between IRQ and
-SoftIRQ. The old ABI softnet_data.total is kept by summing softnet_data.received
-and softnet_data.dropped when exporting it to userland. And softnet_data.dropped
-is protected in the corresponding input_pkt_queue.lock, if RPS is enabled.
+Randomize local port allocation in a way sctp_get_port_local() does.
 
-This patch also fixed a bug: packets received by enqueue_to_backlog() were
-counted twice: one in enqueue_to_backlog(), and the other in
-__netif_receive_skb(), although they maybe not on the same CPUs, if RPS is
-involved.
+Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+---
+ drivers/infiniband/core/cma.c |   71 +++++++++++++++---------------------------
+ 1 file changed, 26 insertions(+), 45 deletions(-)
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- include/linux/netdevice.h |    2 +-
- net/core/dev.c            |    7 +++----
- 2 files changed, 4 insertions(+), 5 deletions(-)
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index d1a21b5..394e850 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -219,7 +219,7 @@ struct neigh_parms;
- struct sk_buff;
+--- linux-2.6.34-rc4.orig/drivers/infiniband/core/cma.c
++++ linux-2.6.34-rc4/drivers/infiniband/core/cma.c
+@@ -79,7 +79,6 @@ static DEFINE_IDR(sdp_ps);
+ static DEFINE_IDR(tcp_ps);
+ static DEFINE_IDR(udp_ps);
+ static DEFINE_IDR(ipoib_ps);
+-static int next_port;
  
- struct netif_rx_stats {
--	unsigned total;
-+	unsigned received;
- 	unsigned dropped;
- 	unsigned time_squeeze;
- 	unsigned cpu_collision;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a10a216..5817f0e 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2336,7 +2336,6 @@ static int enqueue_to_backlog(struct sk_buff *skb, int cpu)
- 	queue = &per_cpu(softnet_data, cpu);
+ struct cma_device {
+ 	struct list_head	list;
+@@ -1970,47 +1969,34 @@ err1:
  
- 	local_irq_save(flags);
--	__get_cpu_var(netdev_rx_stat).total++;
+ static int cma_alloc_any_port(struct idr *ps, struct rdma_id_private *id_priv)
+ {
+-	struct rdma_bind_list *bind_list;
+-	int port, ret, low, high;
+-
+-	bind_list = kzalloc(sizeof *bind_list, GFP_KERNEL);
+-	if (!bind_list)
+-		return -ENOMEM;
+-
+-retry:
+-	/* FIXME: add proper port randomization per like inet_csk_get_port */
+-	do {
+-		ret = idr_get_new_above(ps, bind_list, next_port, &port);
+-	} while ((ret == -EAGAIN) && idr_pre_get(ps, GFP_KERNEL));
+-
+-	if (ret)
+-		goto err1;
++	static unsigned int last_used_port;
++	int low, high, remaining;
++	unsigned int rover;
  
- 	rps_lock(queue);
- 	if (queue->input_pkt_queue.qlen <= netdev_max_backlog) {
-@@ -2366,9 +2365,9 @@ enqueue:
- 		goto enqueue;
- 	}
+ 	inet_get_local_port_range(&low, &high);
+-	if (port > high) {
+-		if (next_port != low) {
+-			idr_remove(ps, port);
+-			next_port = low;
+-			goto retry;
++	remaining = (high - low) + 1;
++	rover = net_random() % remaining + low;
++	goto start;
++	do {
++		rover++;
++		if ((rover < low) || (rover > high))
++			rover = low;
++start:
++		if (last_used_port != rover &&
++		    !idr_find(ps, (unsigned short) rover)) {
++			int ret = cma_alloc_port(ps, id_priv, rover);
++			/*
++			 * Remember previously used port number in order to
++			 * avoid re-using same port immediately after it is
++			 * closed.
++			 */
++			if (!ret)
++				last_used_port = rover;
++			if (ret != -EADDRNOTAVAIL)
++				return ret;
+ 		}
+-		ret = -EADDRNOTAVAIL;
+-		goto err2;
+-	}
+-
+-	if (port == high)
+-		next_port = low;
+-	else
+-		next_port = port + 1;
+-
+-	bind_list->ps = ps;
+-	bind_list->port = (unsigned short) port;
+-	cma_bind_port(bind_list, id_priv);
+-	return 0;
+-err2:
+-	idr_remove(ps, port);
+-err1:
+-	kfree(bind_list);
+-	return ret;
++	} while (--remaining);
++	return -EADDRNOTAVAIL;
+ }
  
-+	per_cpu(netdev_rx_stat, cpu).dropped++;
- 	rps_unlock(queue);
+ static int cma_use_port(struct idr *ps, struct rdma_id_private *id_priv)
+@@ -2995,12 +2981,7 @@ static void cma_remove_one(struct ib_dev
  
--	__get_cpu_var(netdev_rx_stat).dropped++;
- 	local_irq_restore(flags);
+ static int __init cma_init(void)
+ {
+-	int ret, low, high, remaining;
+-
+-	get_random_bytes(&next_port, sizeof next_port);
+-	inet_get_local_port_range(&low, &high);
+-	remaining = (high - low) + 1;
+-	next_port = ((unsigned int) next_port % remaining) + low;
++	int ret;
  
- 	kfree_skb(skb);
-@@ -2679,7 +2678,7 @@ static int __netif_receive_skb(struct sk_buff *skb)
- 			skb->dev = master;
- 	}
- 
--	__get_cpu_var(netdev_rx_stat).total++;
-+	__get_cpu_var(netdev_rx_stat).received++;
- 
- 	skb_reset_network_header(skb);
- 	skb_reset_transport_header(skb);
-@@ -3565,7 +3564,7 @@ static int softnet_seq_show(struct seq_file *seq, void *v)
- 	struct netif_rx_stats *s = v;
- 
- 	seq_printf(seq, "%08x %08x %08x %08x %08x %08x %08x %08x %08x %08x\n",
--		   s->total, s->dropped, s->time_squeeze, 0,
-+		   s->received + s->dropped, s->dropped, s->time_squeeze, 0,
- 		   0, 0, 0, 0, /* was fastroute */
- 		   s->cpu_collision, s->received_rps);
- 	return 0;
+ 	cma_wq = create_singlethread_workqueue("rdma_cm");
+ 	if (!cma_wq)
