@@ -1,59 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: BUG: using smp_processor_id() in preemptible [00000000] code:
- avahi-daemon: caller is netif_rx
-Date: Thu, 15 Apr 2010 00:57:26 -0700 (PDT)
-Message-ID: <20100415.005726.205428265.davem@davemloft.net>
-References: <l2p412e6f7f1004150030o8a406133s91d6614cbb106796@mail.gmail.com>
-	<20100415.003711.159334670.davem@davemloft.net>
-	<u2o412e6f7f1004150047nc9250ffuaef68be066a7575c@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: NULL pointer dereference panic in stable (2.6.33.2), amd64
+Date: Thu, 15 Apr 2010 10:02:33 +0200
+Message-ID: <1271318553.16881.2161.camel@edumazet-laptop>
+References: <OF19A2A36F.5B268C61-ON65257703.0012EB6A-65257703.0013F81C@in.ibm.com>
+	 <1271052111.2078.168.camel@edumazet-laptop>
+	 <1271056697.16881.7.camel@edumazet-laptop>
+	 <20100414.235256.190096561.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, therbert@google.com, eparis@redhat.com,
-	netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: krkumar2@in.ibm.com, netdev@vger.kernel.org,
+	nuclearcat@nuclearcat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59004
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752342Ab0DOH5X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 03:57:23 -0400
-In-Reply-To: <u2o412e6f7f1004150047nc9250ffuaef68be066a7575c@mail.gmail.com>
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:55385 "EHLO
+	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752342Ab0DOICl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 04:02:41 -0400
+Received: by bwz25 with SMTP id 25so1145745bwz.28
+        for <netdev@vger.kernel.org>; Thu, 15 Apr 2010 01:02:40 -0700 (PDT)
+In-Reply-To: <20100414.235256.190096561.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Thu, 15 Apr 2010 15:47:26 +0800
+Le mercredi 14 avril 2010 =C3=A0 23:52 -0700, David Miller a =C3=A9crit=
+ :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 12 Apr 2010 09:18:17 +0200
+>=20
+> > [PATCH] net: dev_pick_tx() fix
+> >=20
+> > When dev_pick_tx() caches tx queue_index on a socket, we must check
+> > socket dst_entry matches skb one, or risk a crash later, as reporte=
+d by
+> > Denys Fedorysychenko, if old packets are in flight during a route
+> > change, involving devices with different number of queues.
+> >=20
+> > Bug introduced by commit a4ee3ce3
+> > (net: Use sk_tx_queue_mapping for connected sockets)
+> >=20
+> > Reported-by: Denys Fedorysychenko <nuclearcat@nuclearcat.com>
+> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+> It looks like Denys is still getting crashes even with this patch
+> applied.  And I also think there is some meric to some of Krishna's
+> analysis.
+>=20
 
-> On Thu, Apr 15, 2010 at 3:37 PM, David Miller <davem@davemloft.net> wrote:
->> From: Changli Gao <xiaosuo@gmail.com>
->> Date: Thu, 15 Apr 2010 15:30:44 +0800
->>
->>> Should netif_rx() be used only when preemption is disabled? If not,
->>> netif_rx_ni() should be used instead.?
->>
->> netif_rx() must be invoked from a hardware or software interrupt,
->> which implies preemption disabled.
->>
->> In netif_rx_ni(), the "ni" means "not interrupt".
->>
-> 
-> yea, I know netif_rx_ni()'s meaning. It means that the following
-> changes aren't necessary.
-> 
->  #else
-> -       cpu = smp_processor_id();
-> +       ret = enqueue_to_backlog(skb, get_cpu());
-> +       put_cpu();
-> 
 
-Why?  If we are in an interrupt (either soft or hard) then
-smp_processor_id() is stable, and valid.
+> To me it seems to make more sense to validate the SKB's queue against
+> the real actual choosen device's range.
+>=20
+> The socket queue index will catch up and eventually become valid
+> because the dst reset will invalidate the queue setting, and we'll
+> thus recompute it as needed, as Krishna stated.
+>=20
 
-Changli, I find it very frustrating to communicate with you, you are
-very terse in your descriptions and analysis and you make many simple
-errors that would be avoided if you spent more time thinking about
-things before sending your emails. :-/
+???=20
 
-Instead of just showing some pseudo patch, state WHY it is needed.
-Talk about the execution state of environment and what rules or other
-things are being violated which must be corrected.
+
+> So I'm tossing this patch for now since it doesn't even aparently
+> fix the bug.
+
+I am a bit lost here David.
+
+Denys got a crash that we cannot explain yet. He said he has no
+multiqueue devices, so obviously my patch cant help him.
+
+But this patch was fixing a real issue, I believe I pointed it twice
+already...
+
+I'll try to setup an environment to trigger this bug for real, but this
+will take time, my dev machines are not multiqueue.
+
+
+
