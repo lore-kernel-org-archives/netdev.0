@@ -1,35 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next-2.6 2010-04-15
-Date: Thu, 15 Apr 2010 14:31:53 -0700 (PDT)
-Message-ID: <20100415.143153.44946237.davem@davemloft.net>
-References: <20100415205358.GA6659@tuxdriver.com>
+Subject: Re: NULL pointer dereference panic in stable (2.6.33.2), amd64
+Date: Thu, 15 Apr 2010 14:33:21 -0700 (PDT)
+Message-ID: <20100415.143321.200497785.davem@davemloft.net>
+References: <20100415.020619.00349859.davem@davemloft.net>
+	<1271363432.16881.3080.camel@edumazet-laptop>
+	<1271364375.16881.3099.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: krkumar2@in.ibm.com, netdev@vger.kernel.org,
+	nuclearcat@nuclearcat.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50554
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50558
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757210Ab0DOVbt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 17:31:49 -0400
-In-Reply-To: <20100415205358.GA6659@tuxdriver.com>
+	by vger.kernel.org with ESMTP id S1757230Ab0DOVdR convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Apr 2010 17:33:17 -0400
+In-Reply-To: <1271364375.16881.3099.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Thu, 15 Apr 2010 16:53:59 -0400
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 15 Apr 2010 22:46:15 +0200
 
-> Here is another huge dump of wireless bits intended for 2.6.35...  It is
-> mostly drivers, and mostly the "usual suspects" of those -- ath5k,
-> ath9k, iwlwifi, rt2x00, wl1271, and others.  There are also some
-> infrastructure bits from Johannes and Jouni, including some tracing
-> stuff.
-> 
-> Please let me know if there are problems!
+> Le jeudi 15 avril 2010 =E0 22:30 +0200, Eric Dumazet a =E9crit :
+>> =20
+>> @@ -1938,6 +1928,8 @@ gso:
+>>  		if (dev->priv_flags & IFF_XMIT_DST_RELEASE)
+>>  			skb_dst_drop(nskb);
+>> =20
+>> +		skb_orphan(nskb);
+>> +
+>>  		rc =3D ops->ndo_start_xmit(nskb, dev);
+>>  		if (unlikely(rc !=3D NETDEV_TX_OK)) {
+>>  			if (rc & ~NETDEV_TX_MASK)
+>=20
+> Well, might need to test if skb is not shared before orphaning it
+>=20
+> 	if (!skb_shared(skb))
+> 		skb_orphan(nskb);
 
-Pulled, thanks John!
+If it's not legal to skb_orphan() here then it would not be legal for
+the drivers to unconditionally skb_orphan(), which they do.
 
-> P.S.  Please note the "for-davem" after the git url... :-)
+So either your test is unnecessary, or we have a big existing problem
+:-)
 
-Yep, saw it :-)
