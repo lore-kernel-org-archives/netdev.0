@@ -1,80 +1,109 @@
-From: Kelly Burkhart <kelly.burkhart@gmail.com>
-Subject: Poor localhost net performance on recent stable kernel
-Date: Thu, 15 Apr 2010 10:44:44 -0500
-Message-ID: <q2gfa1e4ce71004150844of9c3aaaeh5e5cc7c20d263a41@mail.gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@dev.6wind.com>
+Subject: [RFC][PATCH] xfrm6 refcnt problem in bundle creation
+Date: Thu, 15 Apr 2010 18:32:55 +0200
+Message-ID: <4BC73FB7.9090106@dev.6wind.com>
+Reply-To: nicolas.dichtel@dev.6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------010804040007070907050607"
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:35550 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752540Ab0DOPop (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 11:44:45 -0400
+Received: from smtp4-g21.free.fr ([212.27.42.4]:59843 "EHLO smtp4-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753915Ab0DOQdG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Apr 2010 12:33:06 -0400
+Received: from smtp4-g21.free.fr (localhost [127.0.0.1])
+	by smtp4-g21.free.fr (Postfix) with ESMTP id 295FF4C80D0
+	for <netdev@vger.kernel.org>; Thu, 15 Apr 2010 18:32:58 +0200 (CEST)
+Received: from [192.168.1.1] (shm67-6-88-178-145-40.fbx.proxad.net [88.178.145.40])
+	by smtp4-g21.free.fr (Postfix) with ESMTP id 2AEC64C8185
+	for <netdev@vger.kernel.org>; Thu, 15 Apr 2010 18:32:56 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+This is a multi-part message in MIME format.
+--------------010804040007070907050607
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-While working on upgrading distributions, I've noticed that local
-network communication is much slower on 2.6.33.2 than on our old
-kernel 2.6.16.60 (sles 10.2).
+Hi all,
 
-Results of netperf, UDP_RR against localhost I get around 150000 tps
-on the new kernel vs. 290000 tps with the old kernel.  The netperf
-command:
+I got a ref count problem in xfrm IPv6 part, but I don't really know what is the 
+best way to fix it.
 
-netperf -T 1 -H 127.0.0.1 -t UDP_RR -c -C -- -r 100
+When xfrm6_fill_dst() is called, a dev is given as parameter:
 
-TCP_RR had similar results.  The problem did not exist with TCP_STREAM.
-
-While trying to track this down, I wrote a test program that writes
-then reads a 32 bit integer to a pipe:
-
-static void tst_pipe0( int sleep_us )
+static int xfrm6_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
+                           struct flowi *fl)
 {
-    int pipefd[2];
-    int idx;
-    uint32_t tarr[ITERS];
+         struct rt6_info *rt = (struct rt6_info*)xdst->route;
 
-    printf("tst_pipe0 -- sleep %dus\n", sleep_us);
+         xdst->u.dst.dev = dev;
+         dev_hold(dev);
 
-    if (pipe(pipefd) < 0)
-        err_exit("pipe");
+         xdst->u.rt6.rt6i_idev = in6_dev_get(rt->u.dst.dev);
+         if (!xdst->u.rt6.rt6i_idev)
+                 return -ENODEV;
+[snip]
 
-    for(idx=0; idx<ITERS; ++idx) {
-        uint32_t btsc;
-        uint32_t rtsc;
-        uint32_t etsc;
-        get_tscl(btsc);
-        write(pipefd[1], (char *)&btsc, sizeof(btsc));
-        read(pipefd[0], (char *)&rtsc, sizeof(rtsc));
-        get_tscl(etsc);
-        tarr[idx] = etsc-btsc;
-        do_sleep(sleep_us);
-    }
-    prt_avg(tarr, ITERS);
-    close(pipefd[0]);
-    close(pipefd[1]);
-    printf("\n");
-}
+In my case, dev points to an ethernet device and the route (rt->u.dst.dev) 
+points to a tunnel interface (ip6 over ip6). This function will get a ref on the 
+idev of the tunnel (xdst->u.rt6.rt6i_idev = in6_dev_get(rt->u.dst.dev)), but dev 
+of the dst is set to the ethernet interface (xdst->u.dst.dev = dev).
+After, when we try to remove the tunnel interface, the xfrm gc function will 
+never check rt6i_idev, it will only check u.dst.dev, hence it will not remove 
+the dst.
+The consequence is that the interface cannot be removed.
 
-There's a dramatic difference if there's a sleep between iterations on
-the new kernel.  On the old kernel the write/read round trip takes
-1100-1300 cycles with or without sleep.  On the new kernel, with no
-sleep the round trip is about 1400 cycles.  It doubles with a 1us
-sleep then gradually increases to 12000-14000 cycles then stabilizes
-as I increase the sleep time to 1500us.  I'm not sure if this is
-related to the netperf difference or is a completely different
-scheduling issue.
+IPv4 code takes the same dev to get idev, rather than using rt->u.dst.dev. Is it 
+right to do the same in IPv6?
+A proposal patch is attached.
 
-I'm running on an Intel Xeon X5570 @ 2.93GHz.  Different tick/notick,
-preemption, HZ kernel config option values doesn't substantially change
-the magnitude of the difference.
+Code, before the patch of the bundle creation merge, takes 'rt->u.dst.dev' to 
+get idev and to set dst.dev.
 
-Does anyone have any ideas regarding what could be causing the netperf
-issue?  And is the pipe microbenchmark meaningful and if so what does
-it mean?
+Suggestions are welcome.
 
-Thanks,
 
--Kelly
+Regards,
+Nicolas
+
+--------------010804040007070907050607
+Content-Type: text/x-diff;
+ name="0001-xfrm6-ensure-to-use-the-same-dev-when-building-a-bu.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename*0="0001-xfrm6-ensure-to-use-the-same-dev-when-building-a-bu.pat";
+ filename*1="ch"
+
+>From 80432d47369925d4e9e38bcb1068ebf923de3a8f Mon Sep 17 00:00:00 2001
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Thu, 15 Apr 2010 18:27:30 +0200
+Subject: [PATCH] xfrm6: ensure to use the same dev when building a bundle
+
+When building a bundle, we set dst.dev and rt6.rt6i_idev.
+We must ensure to set the same device for both fields.
+
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/ipv6/xfrm6_policy.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index ae18165..00bf7c9 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -124,7 +124,7 @@ static int xfrm6_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
+ 	xdst->u.dst.dev = dev;
+ 	dev_hold(dev);
+ 
+-	xdst->u.rt6.rt6i_idev = in6_dev_get(rt->u.dst.dev);
++	xdst->u.rt6.rt6i_idev = in6_dev_get(dev);
+ 	if (!xdst->u.rt6.rt6i_idev)
+ 		return -ENODEV;
+ 
+-- 
+1.5.4.5
+
+
+--------------010804040007070907050607--
