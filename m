@@ -1,45 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: rps perfomance WAS(Re: rps: question
-Date: Thu, 15 Apr 2010 01:57:56 -0700 (PDT)
-Message-ID: <20100415.015756.67917222.davem@davemloft.net>
-References: <1271276855.16881.1756.camel@edumazet-laptop>
-	<z2y65634d661004141345o9bdcf759sf266866931823baf@mail.gmail.com>
-	<1271278661.16881.1761.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: BUG: using smp_processor_id() in preemptible [00000000] code:
+ avahi-daemon: caller is netif_rx
+Date: Thu, 15 Apr 2010 10:58:26 +0200
+Message-ID: <1271321906.16881.2257.camel@edumazet-laptop>
+References: <u2o412e6f7f1004150047nc9250ffuaef68be066a7575c@mail.gmail.com>
+	 <20100415.005726.205428265.davem@davemloft.net>
+	 <k2y412e6f7f1004150127u4e7ec668r80f066bfb3efea81@mail.gmail.com>
+	 <20100415.013347.98375530.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, hadi@cyberus.ca, shemminger@vyatta.com,
-	netdev@vger.kernel.org, robert@herjulf.net, xiaosuo@gmail.com,
-	andi@firstfloor.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: xiaosuo@gmail.com, therbert@google.com, eparis@redhat.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53728
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757499Ab0DOI5w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 04:57:52 -0400
-In-Reply-To: <1271278661.16881.1761.camel@edumazet-laptop>
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:54375 "EHLO
+	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757449Ab0DOI6g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 04:58:36 -0400
+Received: by bwz25 with SMTP id 25so1218059bwz.28
+        for <netdev@vger.kernel.org>; Thu, 15 Apr 2010 01:58:35 -0700 (PDT)
+In-Reply-To: <20100415.013347.98375530.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 14 Apr 2010 22:57:41 +0200
+Le jeudi 15 avril 2010 =C3=A0 01:33 -0700, David Miller a =C3=A9crit :
 
-> RPS can be tuned (Changli wants a finer tuning...), it would be
-> intereting to tune multiqueue devices too. I dont know if its possible
-> right now.
+> Yes, this looks more reasonable.  Eric if you agree please (re-)submi=
+t
+> this formally, I must have missed this somehow, sorry.
+>=20
+> And this is a bug fix in any kernel, not just one's that have RPS
+> patches applied.
+>=20
+> If we are not called from some interrupt context, there is no sure
+> trigger to make sure software interrupts will be executed after the
+> packet is queued locally.  netif_rx_ni() makes sure that any pending
+> software interrupts will run in such cases.
 
-Only NIU allows real detailed control over queue selection and
-stuff like that, because the hardware has a real TCAM for
-packet matching and packets which match in TCAM entries can
-steer to different collections of queues.
+Our mails crossed ;)
 
-We have ethtool interfaces for this (ETHTOOL_GRXCLS*), so you can
-change it.
+Yes I think it's more reasonable to fix it like this, I'll submit a
+patch after fully testing it :)
 
-For most other chips we only have interfaces for modifying the
-RX hashing algorithm or what the RX hash covers, stuff like
-that.
 
-See also ETHTOOL_GRXFH, ETHTOOL_SRXFH, ETHTOOL_SRXNTUPLE, and
-ETHTOOL_GRXNTUPLE, the latter two of which were added for Intel
-NICs.
+
