@@ -1,50 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [linux-2.6.34-rc3] drivers/net: ks8851 MLL ethernet network
- driver
-Date: Wed, 14 Apr 2010 23:38:13 -0700 (PDT)
-Message-ID: <20100414.233813.219246642.davem@davemloft.net>
+Subject: Re: [PATCH] drivers/net: remove network drivers' last few uses of
+ IRQF_SAMPLE_RANDOM
+Date: Wed, 14 Apr 2010 23:42:42 -0700 (PDT)
+Message-ID: <20100414.234242.159666963.davem@davemloft.net>
+References: <1270877380-23813-1-git-send-email-cpeterso@cpeterso.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David.Choi@Micrel.Com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37610
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751325Ab0DOGiJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 02:38:09 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	mpm@selenic.com
+To: cpeterso@cpeterso.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1270877380-23813-1-git-send-email-cpeterso@cpeterso.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Chris Peterson <cpeterso@cpeterso.com>
+Date: Sat, 10 Apr 2010 01:29:40 -0400
 
-I cannot apply this, there are too many issues:
+> feature-removal-schedule.txt says a new /dev/random entropy model is planned 
+> (for July 2009). Until then, this patch removes the few remaining uses of 
+> IRQF_SAMPLE_RANDOM from drivers/net/*. 12 network drivers are affected, one 
+> more than last year (netxen_nic_main.c). If idle servers need more entropy, 
+> they ought to use a hardware RNG or an entropy-gathering userspace daemon.
+> 
+> Signed-off-by: Chris Peterson <cpeterso@cpeterso.com>
 
-@@ -378,34 +384,34 @@ union ks_tx_hdr {
- 
- /**
-  * struct ks_net - KS8851 driver private data
-- * @net_device 	: The network device we're bound to
-+ * @net_device	: The network device we're bound to
-  * @hw_addr	: start address of data register.
+Well, that feature-removal-schedule.txt entry states that new
+add_*_randomness() interfaces will be created such that things
+like network devices can indicate what kind of entropy they
+are providing.
 
-Do not mix lots of coding style and functional changes.
+Those interfaces have not yet been created as far as I can tell, and
+the idea is that network drivers could use those not-yet-written new
+interfaces.
 
-If you want to fix coding style, do it later in a seperate
-patch after you implement your functional change.
+Until that time I feel it does more harm than good to remove these
+annotations since frankly there never ever was good agreement about
+whether we should do this or not.
 
-+	if (!reg_data & CCR_ENDIAN) {
+It may seem stupid and pointless to just do nothing, but at this time
+I think that's still the best thing to do.
 
-This test will never do what you want it to do.
-
-First the compiler will evaluate "!reg_data" which will be either "0"
-or "1", then it will and it with the CCR_ENDIAN mask, which is (1 <<
-10).  And this can never be true.
-
-I also do not like all of the endian ifdefs peppered all over the
-driver.  Try consolidate this by creating a header file that contains
-the structure and macro definitions, and in there create helper inline
-functions which do the ifdefs.  This way the ks8851_mll.c file can
-stay ifdef clean.
-
-Thanks.
-
+Therefore, I'm not applying your patch, sorry.
