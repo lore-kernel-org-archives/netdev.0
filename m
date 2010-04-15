@@ -1,65 +1,51 @@
 From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] net: fix softnet_stat
-Date: Thu, 15 Apr 2010 11:01:53 +0800
-Message-ID: <1271300513-9995-1-git-send-email-xiaosuo@gmail.com>
+Subject: Re: [PATCH] net: fix softnet_stat
+Date: Thu, 15 Apr 2010 11:08:47 +0800
+Message-ID: <h2i412e6f7f1004142008s567de0c1racb27c4e24b11b57@mail.gmail.com>
+References: <1271300513-9995-1-git-send-email-xiaosuo@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Tom Herbert <therbert@google.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
 	Changli Gao <xiaosuo@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:56294 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756519Ab0DODBf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 14 Apr 2010 23:01:35 -0400
-Received: by pva18 with SMTP id 18so544451pva.19
-        for <netdev@vger.kernel.org>; Wed, 14 Apr 2010 20:01:34 -0700 (PDT)
+Received: from mail-yw0-f194.google.com ([209.85.211.194]:55265 "EHLO
+	mail-yw0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756408Ab0DODJI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 14 Apr 2010 23:09:08 -0400
+Received: by ywh32 with SMTP id 32so466200ywh.33
+        for <netdev@vger.kernel.org>; Wed, 14 Apr 2010 20:09:07 -0700 (PDT)
+In-Reply-To: <1271300513-9995-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fix softnet_stat
+On Thu, Apr 15, 2010 at 11:01 AM, Changli Gao <xiaosuo@gmail.com> wrote=
+:
+> fix softnet_stat
+>
+> Per cpu variable softnet_data.total was shared between IRQ and SoftIR=
+Q context
+> without any protection. And enqueue_to_backlog should update the netd=
+ev_rx_stat
+> of the target CPU.
+>
+> This patch changes the meaning of softnet_data.total to the number of=
+ packets
+> processed, not includes dropped, in order to avoid it sharing between=
+ IRQ and
+> SoftIRQ. And softnet_data.dropped is protected in the corresponding
+> input_pkt_queue.lock, if RPS is enabled.
+>
 
-Per cpu variable softnet_data.total was shared between IRQ and SoftIRQ context
-without any protection. And enqueue_to_backlog should update the netdev_rx_stat
-of the target CPU.
+I forget a comment:
 
-This patch changes the meaning of softnet_data.total to the number of packets
-processed, not includes dropped, in order to avoid it sharing between IRQ and
-SoftIRQ. And softnet_data.dropped is protected in the corresponding
-input_pkt_queue.lock, if RPS is enabled.
+This patch also fixed a bug: packets received by enqueue_to_backlog()
+was counted twice: one in enqueue_to_backlog(), and one in
+__netif_receive_skb(), although they may not on the same CPUs.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- net/core/dev.c |    5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a10a216..b38a991 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2336,7 +2336,6 @@ static int enqueue_to_backlog(struct sk_buff *skb, int cpu)
- 	queue = &per_cpu(softnet_data, cpu);
- 
- 	local_irq_save(flags);
--	__get_cpu_var(netdev_rx_stat).total++;
- 
- 	rps_lock(queue);
- 	if (queue->input_pkt_queue.qlen <= netdev_max_backlog) {
-@@ -2366,9 +2365,9 @@ enqueue:
- 		goto enqueue;
- 	}
- 
-+	per_cpu(netdev_rx_stat, cpu).dropped++;
- 	rps_unlock(queue);
- 
--	__get_cpu_var(netdev_rx_stat).dropped++;
- 	local_irq_restore(flags);
- 
- 	kfree_skb(skb);
-@@ -3565,7 +3564,7 @@ static int softnet_seq_show(struct seq_file *seq, void *v)
- 	struct netif_rx_stats *s = v;
- 
- 	seq_printf(seq, "%08x %08x %08x %08x %08x %08x %08x %08x %08x %08x\n",
--		   s->total, s->dropped, s->time_squeeze, 0,
-+		   s->total + s->dropped, s->dropped, s->time_squeeze, 0,
- 		   0, 0, 0, 0, /* was fastroute */
- 		   s->cpu_collision, s->received_rps);
- 	return 0;
+
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
