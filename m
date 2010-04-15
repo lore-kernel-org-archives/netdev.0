@@ -1,68 +1,51 @@
 From: jamal <hadi@cyberus.ca>
 Subject: Re: rps perfomance WAS(Re: rps: question
-Date: Thu, 15 Apr 2010 07:55:28 -0400
-Message-ID: <1271332528.4567.150.camel@bigi>
-References: <t2p65634d661004141031xf80f62e7sb64362ea1ce10a1f@mail.gmail.com>
+Date: Thu, 15 Apr 2010 08:10:28 -0400
+Message-ID: <1271333428.23780.3.camel@bigi>
+References: <1265568122.3688.36.camel@bigi>
+	 <65634d661002072158r48ec15cag1ca58e704114a358@mail.gmail.com>
+	 <1265641748.3688.56.camel@bigi> <1271245986.3943.55.camel@bigi>
+	 <t2p65634d661004141031xf80f62e7sb64362ea1ce10a1f@mail.gmail.com>
 	 <1271268242.16881.1719.camel@edumazet-laptop>
-	 <1271271222.4567.51.camel@bigi>
-	 <20100415.014857.168270765.davem@davemloft.net>
+	 <1271271222.4567.51.camel@bigi> <20100414124426.6aee95c3@nehalam>
+	 <1271276568.4567.59.camel@bigi>
+	 <1271276855.16881.1756.camel@edumazet-laptop>
+	 <z2y65634d661004141345o9bdcf759sf266866931823baf@mail.gmail.com>
+	 <1271278661.16881.1761.camel@edumazet-laptop>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, therbert@google.com,
-	netdev@vger.kernel.org, robert@herjulf.net, xiaosuo@gmail.com,
-	andi@firstfloor.org
-To: David Miller <davem@davemloft.net>
+Cc: Tom Herbert <therbert@google.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org, robert@herjulf.net,
+	David Miller <davem@davemloft.net>,
+	Changli Gao <xiaosuo@gmail.com>,
+	Andi Kleen <andi@firstfloor.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f189.google.com ([209.85.221.189]:53194 "EHLO
+Received: from mail-qy0-f189.google.com ([209.85.221.189]:43358 "EHLO
 	mail-qy0-f189.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752142Ab0DOMGd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 08:06:33 -0400
-Received: by qyk27 with SMTP id 27so1541671qyk.23
-        for <netdev@vger.kernel.org>; Thu, 15 Apr 2010 05:06:32 -0700 (PDT)
-In-Reply-To: <20100415.014857.168270765.davem@davemloft.net>
+	with ESMTP id S1753136Ab0DOMKg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 08:10:36 -0400
+Received: by qyk27 with SMTP id 27so1545446qyk.23
+        for <netdev@vger.kernel.org>; Thu, 15 Apr 2010 05:10:35 -0700 (PDT)
+In-Reply-To: <1271278661.16881.1761.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-04-15 at 01:48 -0700, David Miller wrote:
+On Wed, 2010-04-14 at 22:57 +0200, Eric Dumazet wrote:
 
-> A single-queue NIC is actually not a requirement, 
-> RPS helps also in cases where you have 'N' application threads 
-> and N is less than the number of CPUs your multi-queue NIC is 
-> distributing traffic to.
+> On my Nehalem machine (16 logical cpus), its NetXtreme II BCM57711E
+> 10Gigabit has 16 queues. It might be good to use less queues according
+> to your results on some workloads, and eventually use RPS on a second
+> layering.
 
-sure..
-
-> Moving the bulk of the input packet processing to the cpus where
-> the applications actually sit had a non-trivial benefit.  
-
-This is true regardless of rps though. 
-
-> RFS takes this aspect to yet another level.
-
-rfs looks quiet interesting;-> I think with some twist it could be
-used with multiqueue nics as well
-
-> I think for the case where application locality is important,
-> RPS/RFS can help regardless of cache details.
-
-Generally true, as long as there's not much shared data across the cpus
-or the cost of a cache miss is reasonably tolerable. The socket layer
-just happens to be not sharing much with ingress packet path and
-for a single processor Nehalem, the caching system works so well that
-the cost of cache misses is not as an important a variable. Everything
-is on the same die including the MM controller etc.
-I am speculating (didnt get any answer to the question i asked) that
-people running rps use such hardware;->
-
-I speculate again that it may be too costly to run rps on something like
-a tigerton or intel clovertown where you have cores sharing/contending
-for an FSB. If I can get answers to the question: "What h/ware are
-people running?" i could be proven wrong.
-[Note: I am not against RPS - i think it has its place; so i hope my
-desire to find out when to use rps doesnt show as hostility towards
-rps.]
+Ok Eric, you seem to be running a system with two Nehalems
+interconnected by QPI.
+Is there any difference, performance-wise, between redirecting from
+coreX to coreY when they are on the same Nehalem vs when you
+are going across QPI?
 
 cheers,
 jamal
