@@ -1,36 +1,58 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC][PATCH v3 1/3] A device for zero-copy based on KVM
-	virtio-net.
-Date: Thu, 15 Apr 2010 12:03:24 +0300
-Message-ID: <20100415090324.GA15135@redhat.com>
-References: <1270805865-16901-1-git-send-email-xiaohui.xin@intel.com> <1270805865-16901-2-git-send-email-xiaohui.xin@intel.com> <201004141655.21885.arnd@arndb.de> <97F6D3BD476C464182C1B7BABF0B0AF5C18969A5@shzsmsx502.ccr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mingo@elte.hu" <mingo@elte.hu>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>
-To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <97F6D3BD476C464182C1B7BABF0B0AF5C18969A5@shzsmsx502.ccr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Subject: [PATCH net-2.6] packet : remove init_net restriction
+Date: Thu, 15 Apr 2010 11:11:14 +0200
+Message-ID: <1271322674-21726-1-git-send-email-daniel.lezcano@free.fr>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate4.uk.ibm.com ([194.196.100.164]:60432 "EHLO
+	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757181Ab0DOJLS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 05:11:18 -0400
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate4.uk.ibm.com (8.13.1/8.13.1) with ESMTP id o3F9BH6s001856
+	for <netdev@vger.kernel.org>; Thu, 15 Apr 2010 09:11:17 GMT
+Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o3F9BHC9618514
+	for <netdev@vger.kernel.org>; Thu, 15 Apr 2010 10:11:17 +0100
+Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id o3F9BGth017393
+	for <netdev@vger.kernel.org>; Thu, 15 Apr 2010 10:11:16 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 15, 2010 at 05:01:10PM +0800, Xin, Xiaohui wrote:
-> >It smells like a layering violation to look at the iocb->private field
-> >from a lower-level driver. I would have hoped that it's possible to implement
-> >this without having this driver know about the higher-level vhost driver
-> >internals. Can you explain why this is needed?
-> 
-> I don't like this too, but since the kiocb is maintained by vhost with a list_head.
-> And mp device is responsible to collect the kiocb into the list_head,
-> We need something known by vhost/mp both.
+The af_packet protocol is used by Perl to do ioctls as reported by
+Stephane Riviere:
 
-Can't vhost supply a kiocb completion callback that will handle the list?
+"Net::RawIP relies on SIOCGIFADDR et SIOCGIFHWADDR to get the IP and MAC
+addresses of the network interface."
 
+But in a new network namespace these ioctl fail because it is disabled for
+a namespace different from the init_net_ns.
+
+These two lines should not be there as af_inet and af_packet are
+namespace aware since a long time now. I suppose we forget to remove these
+lines because we sent the af_packet first, before af_inet was supported.
+
+Signed-off-by: Daniel Lezcano <daniel.lezcano@free.fr>
+Reported-by: Stephane Riviere <stephane.riviere@regis-dgac.net>
+---
+ net/packet/af_packet.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index cc90363..243946d 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2169,8 +2169,6 @@ static int packet_ioctl(struct socket *sock, unsigned int cmd,
+ 	case SIOCGIFDSTADDR:
+ 	case SIOCSIFDSTADDR:
+ 	case SIOCSIFFLAGS:
+-		if (!net_eq(sock_net(sk), &init_net))
+-			return -ENOIOCTLCMD;
+ 		return inet_dgram_ops.ioctl(sock, cmd, arg);
+ #endif
+ 
 -- 
-MST
+1.6.3.3
+
