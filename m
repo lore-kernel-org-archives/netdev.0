@@ -1,52 +1,59 @@
-From: Changli Gao <xiaosuo@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: BUG: using smp_processor_id() in preemptible [00000000] code:
-	avahi-daemon: caller is netif_rx
-Date: Thu, 15 Apr 2010 15:47:26 +0800
-Message-ID: <u2o412e6f7f1004150047nc9250ffuaef68be066a7575c@mail.gmail.com>
-References: <1271142857.16881.193.camel@edumazet-laptop> <20100415.001446.244372815.davem@davemloft.net>
-	<l2p412e6f7f1004150030o8a406133s91d6614cbb106796@mail.gmail.com>
+ avahi-daemon: caller is netif_rx
+Date: Thu, 15 Apr 2010 00:57:26 -0700 (PDT)
+Message-ID: <20100415.005726.205428265.davem@davemloft.net>
+References: <l2p412e6f7f1004150030o8a406133s91d6614cbb106796@mail.gmail.com>
 	<20100415.003711.159334670.davem@davemloft.net>
+	<u2o412e6f7f1004150047nc9250ffuaef68be066a7575c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: eric.dumazet@gmail.com, therbert@google.com, eparis@redhat.com,
 	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: xiaosuo@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:56180 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756173Ab0DOHrq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 03:47:46 -0400
-Received: by gyg13 with SMTP id 13so601759gyg.19
-        for <netdev@vger.kernel.org>; Thu, 15 Apr 2010 00:47:46 -0700 (PDT)
-In-Reply-To: <20100415.003711.159334670.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59004
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752342Ab0DOH5X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 03:57:23 -0400
+In-Reply-To: <u2o412e6f7f1004150047nc9250ffuaef68be066a7575c@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 15, 2010 at 3:37 PM, David Miller <davem@davemloft.net> wrote:
-> From: Changli Gao <xiaosuo@gmail.com>
-> Date: Thu, 15 Apr 2010 15:30:44 +0800
->
->> Should netif_rx() be used only when preemption is disabled? If not,
->> netif_rx_ni() should be used instead.?
->
-> netif_rx() must be invoked from a hardware or software interrupt,
-> which implies preemption disabled.
->
-> In netif_rx_ni(), the "ni" means "not interrupt".
->
+From: Changli Gao <xiaosuo@gmail.com>
+Date: Thu, 15 Apr 2010 15:47:26 +0800
 
-yea, I know netif_rx_ni()'s meaning. It means that the following
-changes aren't necessary.
+> On Thu, Apr 15, 2010 at 3:37 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Changli Gao <xiaosuo@gmail.com>
+>> Date: Thu, 15 Apr 2010 15:30:44 +0800
+>>
+>>> Should netif_rx() be used only when preemption is disabled? If not,
+>>> netif_rx_ni() should be used instead.?
+>>
+>> netif_rx() must be invoked from a hardware or software interrupt,
+>> which implies preemption disabled.
+>>
+>> In netif_rx_ni(), the "ni" means "not interrupt".
+>>
+> 
+> yea, I know netif_rx_ni()'s meaning. It means that the following
+> changes aren't necessary.
+> 
+>  #else
+> -       cpu = smp_processor_id();
+> +       ret = enqueue_to_backlog(skb, get_cpu());
+> +       put_cpu();
+> 
 
- #else
--       cpu = smp_processor_id();
-+       ret = enqueue_to_backlog(skb, get_cpu());
-+       put_cpu();
+Why?  If we are in an interrupt (either soft or hard) then
+smp_processor_id() is stable, and valid.
 
-ret = enqueue_to_backlog(skb, smp_processor_id()); should be OK.
+Changli, I find it very frustrating to communicate with you, you are
+very terse in your descriptions and analysis and you make many simple
+errors that would be avoided if you spent more time thinking about
+things before sending your emails. :-/
 
- #endif
--
--       return enqueue_to_backlog(skb, cpu);
-+       return ret;
- }
+Instead of just showing some pseudo patch, state WHY it is needed.
+Talk about the execution state of environment and what rules or other
+things are being violated which must be corrected.
