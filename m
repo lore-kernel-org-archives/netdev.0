@@ -1,52 +1,50 @@
-From: Nikanth Karthikesan <knikanth@suse.de>
-Subject: [PATCH] net: small cleanup of lib8390
-Date: Thu, 15 Apr 2010 17:51:23 +0530
-Message-ID: <201004151751.23899.knikanth@suse.de>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: rps perfomance WAS(Re: rps: question
+Date: Thu, 15 Apr 2010 20:32:19 +0800
+Message-ID: <s2p412e6f7f1004150532y4b13a0bfgadab3e6f2f4aecd@mail.gmail.com>
+References: <1265568122.3688.36.camel@bigi> <t2p65634d661004141031xf80f62e7sb64362ea1ce10a1f@mail.gmail.com>
+	<1271268242.16881.1719.camel@edumazet-laptop> <1271271222.4567.51.camel@bigi>
+	<20100414124426.6aee95c3@nehalam> <1271276568.4567.59.camel@bigi>
+	<1271276855.16881.1756.camel@edumazet-laptop> <z2y65634d661004141345o9bdcf759sf266866931823baf@mail.gmail.com>
+	<1271278661.16881.1761.camel@edumazet-laptop> <1271333428.23780.3.camel@bigi>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Al Viro <viro@ftp.linux.org.uk>,
-	Jeff Garzik <jeff@garzik.org>
-To: Paul Gortmaker <p_gortmaker@yahoo.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <therbert@google.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org, robert@herjulf.net,
+	David Miller <davem@davemloft.net>,
+	Andi Kleen <andi@firstfloor.org>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:37355 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752330Ab0DOMTw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Apr 2010 08:19:52 -0400
+Received: from mail-iw0-f178.google.com ([209.85.223.178]:64736 "EHLO
+	mail-iw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752407Ab0DOMcj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 08:32:39 -0400
+Received: by iwn8 with SMTP id 8so561349iwn.16
+        for <netdev@vger.kernel.org>; Thu, 15 Apr 2010 05:32:39 -0700 (PDT)
+In-Reply-To: <1271333428.23780.3.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove the always true #if 1. Also the unecessary re-test of ei_local->irqlock
-and the unreachable printk format string.
+On Thu, Apr 15, 2010 at 8:10 PM, jamal <hadi@cyberus.ca> wrote:
+> On Wed, 2010-04-14 at 22:57 +0200, Eric Dumazet wrote:
+>
+>> On my Nehalem machine (16 logical cpus), its NetXtreme II BCM57711E
+>> 10Gigabit has 16 queues. It might be good to use less queues accordi=
+ng
+>> to your results on some workloads, and eventually use RPS on a secon=
+d
+>> layering.
+>
 
-Signed-off-by: Nikanth Karthikesan <knikanth@suse.de>
+=46or historical reason, we use Linux-2.6.18. Our company have several
+products with CPU Xen, P4, or i7. Some of them are SMP, Multi-Core and
+Multi-Threaded. We use the similar mechanism like dynamic weighted
+RPS. The total throughput is increased nearly linear with the number
+of the worker threads(one worker thread per CPU).
 
----
-
-diff --git a/drivers/net/lib8390.c b/drivers/net/lib8390.c
-index 56f66f4..6e1dcd3 100644
---- a/drivers/net/lib8390.c
-+++ b/drivers/net/lib8390.c
-@@ -445,14 +445,14 @@ static irqreturn_t __ei_interrupt(int irq, void *dev_id)
- 
- 	if (ei_local->irqlock)
- 	{
--#if 1 /* This might just be an interrupt for a PCI device sharing this line */
--		/* The "irqlock" check is only for testing. */
--		printk(ei_local->irqlock
--			   ? "%s: Interrupted while interrupts are masked! isr=%#2x imr=%#2x.\n"
--			   : "%s: Reentering the interrupt handler! isr=%#2x imr=%#2x.\n",
-+		/*
-+		 * This might just be an interrupt for a PCI device sharing
-+		 * this line
-+		 */
-+		printk("%s: Interrupted while interrupts are masked!"
-+			   " isr=%#2x imr=%#2x.\n",
- 			   dev->name, ei_inb_p(e8390_base + EN0_ISR),
- 			   ei_inb_p(e8390_base + EN0_IMR));
--#endif
- 		spin_unlock(&ei_local->page_lock);
- 		return IRQ_NONE;
- 	}
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
