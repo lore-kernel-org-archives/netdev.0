@@ -1,30 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3]: fixes for multicast routing rules
-Date: Thu, 15 Apr 2010 14:14:24 -0700 (PDT)
-Message-ID: <20100415.141424.129437153.davem@davemloft.net>
-References: <1271335678-20961-1-git-send-email-kaber@trash.net>
+Subject: Re: [PATCH] ip: Fix ip_dev_loopback_xmit()
+Date: Thu, 15 Apr 2010 14:26:41 -0700 (PDT)
+Message-ID: <20100415.142641.125242830.davem@davemloft.net>
+References: <1271101251.16881.135.camel@edumazet-laptop>
+	<1271337401.16881.2563.camel@edumazet-laptop>
+	<1271358783.16881.2949.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: eparis@redhat.com, netdev@vger.kernel.org, therbert@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41002
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45725
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756686Ab0DOVOU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 17:14:20 -0400
-In-Reply-To: <1271335678-20961-1-git-send-email-kaber@trash.net>
+	by vger.kernel.org with ESMTP id S1756940Ab0DOV0h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 17:26:37 -0400
+In-Reply-To: <1271358783.16881.2949.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Thu, 15 Apr 2010 14:47:55 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 15 Apr 2010 21:13:03 +0200
 
-> the following three patches fix a few bugs introduced by the multicast routing
-> rule patches:
- ...
-> Please apply or pull from:
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/ipmr-2.6.git master
+> [PATCH] ip: Fix ip_dev_loopback_xmit()
 
-Pulled, thanks a lot Patrick!
+Applied to net-2.6, thanks Eric.
