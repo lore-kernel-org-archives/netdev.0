@@ -1,97 +1,80 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [RFC][PATCH v3 1/3] A device for zero-copy based on KVM virtio-net.
-Date: Thu, 15 Apr 2010 17:06:43 +0200
-Message-ID: <201004151706.43582.arnd@arndb.de>
-References: <1270805865-16901-1-git-send-email-xiaohui.xin@intel.com> <201004141655.21885.arnd@arndb.de> <97F6D3BD476C464182C1B7BABF0B0AF5C18969A5@shzsmsx502.ccr.corp.intel.com>
+From: Kelly Burkhart <kelly.burkhart@gmail.com>
+Subject: Poor localhost net performance on recent stable kernel
+Date: Thu, 15 Apr 2010 10:44:44 -0500
+Message-ID: <q2gfa1e4ce71004150844of9c3aaaeh5e5cc7c20d263a41@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>
-To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <97F6D3BD476C464182C1B7BABF0B0AF5C18969A5@shzsmsx502.ccr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:35550 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752540Ab0DOPop (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 11:44:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 15 April 2010, Xin, Xiaohui wrote:
-> 
-> >It seems that you are duplicating a lot of functionality that
-> >is already in macvtap. I've asked about this before but then
-> >didn't look at your newer versions. Can you explain the value
-> >of introducing another interface to user land?
-> 
-> >I'm still planning to add zero-copy support to macvtap,
-> >hopefully reusing parts of your code, but do you think there
-> >is value in having both?
-> 
-> I have not looked into your macvtap code in detail before.
-> Does the two interface exactly the same? We just want to create a simple
-> way to do zero-copy. Now it can only support vhost, but in future
-> we also want it to support directly read/write operations from user space too.
+Hello,
 
-Right now, the features are mostly distinct. Macvtap first of all provides
-a "tap" style interface for users, and can also be used by vhost-net.
-It also provides a way to share a NIC among a number of guests by software,
-though I indent to add support for VMDq and SR-IOV as well. Zero-copy
-is also not yet done in macvtap but should be added.
+While working on upgrading distributions, I've noticed that local
+network communication is much slower on 2.6.33.2 than on our old
+kernel 2.6.16.60 (sles 10.2).
 
-mpassthru right now does not allow sharing a NIC between guests, and
-does not have a tap interface for non-vhost operation, but does the
-zero-copy that is missing in macvtap.
+Results of netperf, UDP_RR against localhost I get around 150000 tps
+on the new kernel vs. 290000 tps with the old kernel.  The netperf
+command:
 
-> Basically, compared to the interface, I'm more worried about the modification
-> to net core we have made to implement zero-copy now. If this hardest part
-> can be done, then any user space interface modifications or integrations are 
-> more easily to be done after that.
+netperf -T 1 -H 127.0.0.1 -t UDP_RR -c -C -- -r 100
 
-I agree that the network stack modifications are the hard part for zero-copy,
-and your work on that looks very promising and is complementary to what I've
-done with macvtap. Your current user interface looks good for testing this out,
-but I think we should not merge it (the interface) upstream if we can get the
-same or better result by integrating your buffer management code into macvtap.
+TCP_RR had similar results.  The problem did not exist with TCP_STREAM.
 
-I can try to merge your code into macvtap myself if you agree, so you
-can focus on getting the internals right.
+While trying to track this down, I wrote a test program that writes
+then reads a 32 bit integer to a pipe:
 
-> >Not sure what I'm missing, but who calls the vq->receiver? This seems
-> >to be neither in the upstream version of vhost nor introduced by your
-> >patch.
-> 
-> See Patch v3 2/3 I have sent out, it is called by handle_rx() in vhost.
+static void tst_pipe0( int sleep_us )
+{
+    int pipefd[2];
+    int idx;
+    uint32_t tarr[ITERS];
 
-Ok, I see. As a general rule, it's preferred to split a patch series
-in a way that makes it possible to apply each patch separately and still
-get a working kernel, ideally with more features than the version before
-the patch. I believe you could get there by reordering your patches to
-make the actual driver the last one in the series.
+    printf("tst_pipe0 -- sleep %dus\n", sleep_us);
 
-Not a big problem though, I was mostly looking in the wrong place.
+    if (pipe(pipefd) < 0)
+        err_exit("pipe");
 
-> >> +		ifr.ifr_name[IFNAMSIZ-1] = '\0';
-> >> +
-> >> +		ret = -EBUSY;
-> >> +
-> >> +		if (ifr.ifr_flags & IFF_MPASSTHRU_EXCL)
-> >> +			break;
-> 
-> >Your current use of the IFF_MPASSTHRU* flags does not seem to make
-> >any sense whatsoever. You check that this flag is never set, but set
-> >it later yourself and then ignore all flags.
-> 
-> Using that flag is tried to prevent if another one wants to bind the same device
-> Again. But I will see if it really ignore all other flags.
+    for(idx=0; idx<ITERS; ++idx) {
+        uint32_t btsc;
+        uint32_t rtsc;
+        uint32_t etsc;
+        get_tscl(btsc);
+        write(pipefd[1], (char *)&btsc, sizeof(btsc));
+        read(pipefd[0], (char *)&rtsc, sizeof(rtsc));
+        get_tscl(etsc);
+        tarr[idx] = etsc-btsc;
+        do_sleep(sleep_us);
+    }
+    prt_avg(tarr, ITERS);
+    close(pipefd[0]);
+    close(pipefd[1]);
+    printf("\n");
+}
 
-The ifr variable is on the stack of the mp_chr_ioctl function, and you never
-look at the value after setting it. In order to prevent multiple opens
-of that device, you probably need to lock out any other users as well,
-and make it a property of the underlying device. E.g. you also want to
-prevent users on the host from setting an IP address on the NIC and
-using it to send and receive data there.
+There's a dramatic difference if there's a sleep between iterations on
+the new kernel.  On the old kernel the write/read round trip takes
+1100-1300 cycles with or without sleep.  On the new kernel, with no
+sleep the round trip is about 1400 cycles.  It doubles with a 1us
+sleep then gradually increases to 12000-14000 cycles then stabilizes
+as I increase the sleep time to 1500us.  I'm not sure if this is
+related to the netperf difference or is a completely different
+scheduling issue.
 
-	Arnd
+I'm running on an Intel Xeon X5570 @ 2.93GHz.  Different tick/notick,
+preemption, HZ kernel config option values doesn't substantially change
+the magnitude of the difference.
+
+Does anyone have any ideas regarding what could be causing the netperf
+issue?  And is the pipe microbenchmark meaningful and if so what does
+it mean?
+
+Thanks,
+
+-Kelly
