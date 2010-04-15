@@ -1,47 +1,45 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: BUG: using smp_processor_id() in preemptible [00000000] code:
- avahi-daemon: caller is netif_rx
-Date: Thu, 15 Apr 2010 12:29:02 +0200
-Message-ID: <1271327342.16881.2355.camel@edumazet-laptop>
-References: <20100415.003711.159334670.davem@davemloft.net>
-	 <u2o412e6f7f1004150047nc9250ffuaef68be066a7575c@mail.gmail.com>
-	 <1271321358.16881.2240.camel@edumazet-laptop>
-	 <20100415.020246.218622820.davem@davemloft.net>
+Subject: Re: NULL pointer dereference panic in stable (2.6.33.2), amd64
+Date: Thu, 15 Apr 2010 12:37:10 +0200
+Message-ID: <1271327830.16881.2370.camel@edumazet-laptop>
+References: <1271318553.16881.2161.camel@edumazet-laptop>
+	 <1271321507.16881.2244.camel@edumazet-laptop>
+	 <20100415.020619.00349859.davem@davemloft.net>
+	 <201004151211.28315.nuclearcat@nuclearcat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: xiaosuo@gmail.com, therbert@google.com, eparis@redhat.com,
+Cc: David Miller <davem@davemloft.net>, krkumar2@in.ibm.com,
 	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Denys Fedorysychenko <nuclearcat@nuclearcat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:60668 "EHLO
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:48463 "EHLO
 	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752863Ab0DOK3N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 06:29:13 -0400
-Received: by bwz25 with SMTP id 25so1342038bwz.28
-        for <netdev@vger.kernel.org>; Thu, 15 Apr 2010 03:29:11 -0700 (PDT)
-In-Reply-To: <20100415.020246.218622820.davem@davemloft.net>
+	with ESMTP id S1752889Ab0DOKhU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 06:37:20 -0400
+Received: by bwz25 with SMTP id 25so1353306bwz.28
+        for <netdev@vger.kernel.org>; Thu, 15 Apr 2010 03:37:19 -0700 (PDT)
+In-Reply-To: <201004151211.28315.nuclearcat@nuclearcat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 15 avril 2010 =C3=A0 02:02 -0700, David Miller a =C3=A9crit :
+Le jeudi 15 avril 2010 =C3=A0 12:11 +0300, Denys Fedorysychenko a =C3=A9=
+crit :
+> Btw i have application using tun.
 
-> Since we keep coming back to this issue why don't we simply
-> solve it forever?  Let's make netif_rx() work in all contexts
-> and get rid of netif_rx_ni().
->=20
-> I think this is the thing to do because this whole netif_rx_ni()
-> vs. netif_rx() thing was meant to be an optimization of sorts (this
-> goes back to like 8+ years ago :-), and really I doubt it really
-> matters on that level any more.
->=20
-> What do you think?
+Could you add following sanity test to catch the error ?
 
-I was about to come to same idea indeed.
-
-netif_receive_skb() is supposed to be used for modern devices anyway,
-avoiding netif_rx() overhead...
-
-
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index fa8b476..b67274a 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -988,6 +988,7 @@ static inline
+ struct netdev_queue *netdev_get_tx_queue(const struct net_device *dev,
+ 					 unsigned int index)
+ {
++	WARN_ON(index >=3D dev->num_tx_queues);
+ 	return &dev->_tx[index];
+ }
+=20
 
 
