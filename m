@@ -1,52 +1,69 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: NULL pointer dereference panic in stable (2.6.33.2), amd64
-Date: Wed, 14 Apr 2010 23:52:56 -0700 (PDT)
-Message-ID: <20100414.235256.190096561.davem@davemloft.net>
-References: <OF19A2A36F.5B268C61-ON65257703.0012EB6A-65257703.0013F81C@in.ibm.com>
-	<1271052111.2078.168.camel@edumazet-laptop>
-	<1271056697.16881.7.camel@edumazet-laptop>
+Subject: Re: [PATCH 2.6.34-git] 8139too: fix Coding Styles
+Date: Thu, 15 Apr 2010 00:08:48 -0700 (PDT)
+Message-ID: <20100415.000848.204966269.davem@davemloft.net>
+References: <ba865f7b49c5df1b71bc393ad42ff40a.squirrel@neurowork.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: krkumar2@in.ibm.com, netdev@vger.kernel.org,
-	nuclearcat@nuclearcat.com
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: jblanco@neurowork.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59772
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39768
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751608Ab0DOGwx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 02:52:53 -0400
-In-Reply-To: <1271056697.16881.7.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1752016Ab0DOHIn convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Apr 2010 03:08:43 -0400
+In-Reply-To: <ba865f7b49c5df1b71bc393ad42ff40a.squirrel@neurowork.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 12 Apr 2010 09:18:17 +0200
+=46rom: "Javier Blanco de Torres (Neurowork)" <jblanco@neurowork.net>
+Date: Mon, 12 Apr 2010 09:36:43 +0200
 
-> [PATCH] net: dev_pick_tx() fix
-> 
-> When dev_pick_tx() caches tx queue_index on a socket, we must check
-> socket dst_entry matches skb one, or risk a crash later, as reported by
-> Denys Fedorysychenko, if old packets are in flight during a route
-> change, involving devices with different number of queues.
-> 
-> Bug introduced by commit a4ee3ce3
-> (net: Use sk_tx_queue_mapping for connected sockets)
-> 
-> Reported-by: Denys Fedorysychenko <nuclearcat@nuclearcat.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Fixed coding styles in the 8139too net driver.
+>=20
+> Signed-off-by: Javier Blanco de Torres <jblanco@neurowork.net>
+> Signed-off-by: Alejandro S=E1nchez Acosta <asanchez@neurowork.net>
 
-It looks like Denys is still getting crashes even with this patch
-applied.  And I also think there is some meric to some of Krishna's
-analysis.
+This is why I absolutely hate pure checkpatch.pl patches, people just
+try to make the tool happy and don't think about what the tool is
+trying to tell them.
 
-To me it seems to make more sense to validate the SKB's queue against
-the real actual choosen device's range.
+The worst of this is this "typedef enum" part of your changes:
 
-The socket queue index will catch up and eventually become valid
-because the dst reset will invalidate the queue setting, and we'll
-thus recompute it as needed, as Krishna stated.
+-typedef enum {
++enum {
+ 	RTL8139 =3D 0,
+ 	RTL8129,
+ } board_t;
 
-So I'm tossing this patch for now since it doesn't even aparently
-fix the bug.
+and checkpatch was telling you:
 
+WARNING: do not add new typedefs
+#220: FILE: net/8139too.c:220:
++typedef enum {
+
+Well, you're still adding a new type!  Getting rid of the type name is
+what it's telling you to stop doing.
+
+It's still a newly named type after your change, it wants you to get
+rid of the "board_t" thing altogether.
+
+Give the enum a real "enum" name like:
+
+enum rtl8139_board_t {
+
+Then use _THAT_ in the sources:
+
+	enum rtl8139_board_t x;
+
+The typedef section of Documentation/CodingStyle makes this very
+clear.
+
+But your entire patch is like this, the changes are largely pointless
+and many of them are false interpreations of what checkpatch complains
+about.
+
+Therefore I really don't encourage that you pursue this any further,
+sorry.
