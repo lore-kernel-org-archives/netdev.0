@@ -1,65 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: NULL pointer dereference panic in stable (2.6.33.2), amd64
-Date: Thu, 15 Apr 2010 10:51:47 +0200
-Message-ID: <1271321507.16881.2244.camel@edumazet-laptop>
-References: <1271056697.16881.7.camel@edumazet-laptop>
-	 <20100414.235256.190096561.davem@davemloft.net>
-	 <1271318553.16881.2161.camel@edumazet-laptop>
-	 <20100415.012607.15449571.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: rps perfomance WAS(Re: rps: question
+Date: Thu, 15 Apr 2010 01:57:56 -0700 (PDT)
+Message-ID: <20100415.015756.67917222.davem@davemloft.net>
+References: <1271276855.16881.1756.camel@edumazet-laptop>
+	<z2y65634d661004141345o9bdcf759sf266866931823baf@mail.gmail.com>
+	<1271278661.16881.1761.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: krkumar2@in.ibm.com, netdev@vger.kernel.org,
-	nuclearcat@nuclearcat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: therbert@google.com, hadi@cyberus.ca, shemminger@vyatta.com,
+	netdev@vger.kernel.org, robert@herjulf.net, xiaosuo@gmail.com,
+	andi@firstfloor.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:52332 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757499Ab0DOIv4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 04:51:56 -0400
-Received: by bwz25 with SMTP id 25so1209415bwz.28
-        for <netdev@vger.kernel.org>; Thu, 15 Apr 2010 01:51:54 -0700 (PDT)
-In-Reply-To: <20100415.012607.15449571.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53728
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757499Ab0DOI5w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 04:57:52 -0400
+In-Reply-To: <1271278661.16881.1761.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 15 avril 2010 =C3=A0 01:26 -0700, David Miller a =C3=A9crit :
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Thu, 15 Apr 2010 10:02:33 +0200
->=20
-> > Denys got a crash that we cannot explain yet. He said he has no
-> > multiqueue devices, so obviously my patch cant help him.
-> >=20
-> > But this patch was fixing a real issue, I believe I pointed it twic=
-e
-> > already...
->=20
-> Ok, I thought your patch was specifically meant to fix Denys's bug.
->=20
-> The confusion comes from the fact that you mention Denys's crash in
-> your commit message:
->=20
-> --------------------
-> When dev_pick_tx() caches tx queue_index on a socket, we must check
-> socket dst_entry matches skb one, or risk a crash later, as reported =
-by
-> Denys Fedorysychenko, if old packets are in flight during a route
-> change, involving devices with different number of queues.
-> --------------------
->=20
-> Anyways, I studied your patch once more and read the thread discussio=
-n
-> with Krishna again and your patch looks fine.  I'll apply it to
-> net-2.6, thanks!
->=20
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 14 Apr 2010 22:57:41 +0200
 
-In any case, I think there is a fundamental problem with this sk
-caching. Because one packet can travel in many stacked devices before
-hitting the wire.
+> RPS can be tuned (Changli wants a finer tuning...), it would be
+> intereting to tune multiqueue devices too. I dont know if its possible
+> right now.
 
-(bonding, vlan, ethernet) for example.
+Only NIU allows real detailed control over queue selection and
+stuff like that, because the hardware has a real TCAM for
+packet matching and packets which match in TCAM entries can
+steer to different collections of queues.
 
-Socket cache is meaningfull for one level only...
+We have ethtool interfaces for this (ETHTOOL_GRXCLS*), so you can
+change it.
 
+For most other chips we only have interfaces for modifying the
+RX hashing algorithm or what the RX hash covers, stuff like
+that.
 
-
+See also ETHTOOL_GRXFH, ETHTOOL_SRXFH, ETHTOOL_SRXNTUPLE, and
+ETHTOOL_GRXNTUPLE, the latter two of which were added for Intel
+NICs.
