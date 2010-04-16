@@ -1,44 +1,68 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] rdma/cm: Randomize local port allocation.
-Date: Fri, 16 Apr 2010 13:30:01 -0700 (PDT)
-Message-ID: <20100416.133001.262206466.davem@davemloft.net>
-References: <5CE6BC7B954643FAAFFD2AD66F673CBD@amr.corp.intel.com>
-	<4BC7C9CF.20403@redhat.com>
-	<201004162254.FJF73478.SHOOMOFtQFVJLF@I-love.SAKURA.ne.jp>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH v5] rfs: Receive Flow Steering
+Date: Fri, 16 Apr 2010 13:42:57 -0700
+Message-ID: <u2t65634d661004161342zeadb5602w73c369ec717dc6e1@mail.gmail.com>
+References: <alpine.DEB.1.00.1004152243470.15102@pokey.mtv.corp.google.com>
+	 <20100415.233334.242114544.davem@davemloft.net>
+	 <1271401007.16881.3762.camel@edumazet-laptop>
+	 <l2m65634d661004161135h1c1466afi54787022bfc2ce12@mail.gmail.com>
+	 <1271443994.16881.4249.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, opurdila-+zzKsuq53OdBDgjK7y7TUQ@public.gmane.org,
-	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: penguin-kernel-JPay3/Yim36HaxMnTkn67Xf5DAMn2ifp@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201004162254.FJF73478.SHOOMOFtQFVJLF-JPay3/Yim36HaxMnTkn67Xf5DAMn2ifp@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([74.125.121.35]:29241 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932379Ab0DPUnB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Apr 2010 16:43:01 -0400
+Received: from kpbe13.cbf.corp.google.com (kpbe13.cbf.corp.google.com [172.25.105.77])
+	by smtp-out.google.com with ESMTP id o3GKgxPs015188
+	for <netdev@vger.kernel.org>; Fri, 16 Apr 2010 22:42:59 +0200
+Received: from pvb32 (pvb32.prod.google.com [10.241.209.96])
+	by kpbe13.cbf.corp.google.com with ESMTP id o3GKgvHF012031
+	for <netdev@vger.kernel.org>; Fri, 16 Apr 2010 15:42:58 -0500
+Received: by pvb32 with SMTP id 32so1822983pvb.34
+        for <netdev@vger.kernel.org>; Fri, 16 Apr 2010 13:42:57 -0700 (PDT)
+In-Reply-To: <1271443994.16881.4249.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tetsuo Handa <penguin-kernel-JPay3/Yim36HaxMnTkn67Xf5DAMn2ifp@public.gmane.org>
-Date: Fri, 16 Apr 2010 22:54:22 +0900
+On Fri, Apr 16, 2010 at 11:53 AM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> Le vendredi 16 avril 2010 =E0 11:35 -0700, Tom Herbert a =E9crit :
+>> Results with "tbench 16" on an 8 core Intel machine.
+>>
+>> No RPS/RFS: =A02155 MB/sec
+>> RPS (0ff mask): 1700 MB/sec
+>> RFS: 1097
+>>
 
-> Cong Wang wrote:
->> Sean Hefty wrote:
->> > I like this version, thanks!  I'm not sure which tree to merge it through.
->> > Are you needing this for 2.6.34, or is 2.6.35 okay?
->> > 
->> 
->> As soon as possible, so 2.6.34. :)
->> 
-> Cong, merge window for 2.6.34 was already closed.
-> You need to make your patchset towards 2.6.35 (using net-next-2.6 tree)
-> rather than 2.6.34 (using linux-2.6 tree). Therefore, this patch being
-> queued for 2.6.35 (through net-next-2.6 tree) should be okay for you.
+Blah, I mistakingly reported that... should have been:
 
-I don't take RDMA patches into net-next-2.6, the less I touch this
-stack avoiding stuff the better and Roland has been taking this stuff
-into his own tree for some time now.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+No RPS/RFS:  2155 MB/sec
+RPS (0ff mask): 1097 MB/sec
+RFS: 1700 MB/sec
+
+Sorry about that!
+
+>> I am not particularly surprised by the results, using loopback
+>> interface already provides good parallelism and RPS/RFS really would
+>> only add overhead and more trips between CPUs (last part is why RPS =
+<
+>> RFS I suspect)-- I guess this is why we've never enabled RPS on
+>> loopback :-)
+>>
+>> Eric, do you have a particular concern that this could affect a real=
+ workload?
+>>
+>
+> I was expecting RFS to be better than RPS at least, for this particul=
+ar
+> workload (tcp over loopback)
+>
+This was my expectation too, and what my "corrected" numbers show :-)
+But, I take it this is different in your results?
+
+Tom
