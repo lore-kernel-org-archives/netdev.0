@@ -1,166 +1,137 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH] gigaset: include cleanup cleanup
-Date: Sat, 17 Apr 2010 00:08:58 +0200 (CEST)
-Message-ID: <20100416220858.A19F540123@xenon.ts.pxnet.com>
-Cc: Tejun Heo <tj@kernel.org>, Hansjoerg Lipp <hjlipp@web.de>,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Karsten Keil <isdn@linux-pingi.de>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] net: Introduce skb_orphan_try()
+Date: Sat, 17 Apr 2010 00:18:22 +0200
+Message-ID: <1271456302.16881.4559.camel@edumazet-laptop>
+References: <20100415.020619.00349859.davem@davemloft.net>
+	 <1271363432.16881.3080.camel@edumazet-laptop>
+	 <1271364375.16881.3099.camel@edumazet-laptop>
+	 <20100415.143321.200497785.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:55680 "EHLO
+	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932646Ab0DPWS0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Apr 2010 18:18:26 -0400
+Received: by bwz25 with SMTP id 25so3687456bwz.28
+        for <netdev@vger.kernel.org>; Fri, 16 Apr 2010 15:18:25 -0700 (PDT)
+In-Reply-To: <20100415.143321.200497785.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 5a0e3ad causes slab.h to be included twice in many of the
-Gigaset driver's source files, first via the common include file
-gigaset.h and then a second time directly. Drop the spares, and
-use the opportunity to clean up a few more similar cases.
+Le jeudi 15 avril 2010 =C3=A0 14:33 -0700, David Miller a =C3=A9crit :
 
-Impact: cleanup, no functional change
-Signed-off-by: Tilman Schmidt <tilman@imap.cc>
-CC: Tejun Heo <tj@kernel.org>
+> If it's not legal to skb_orphan() here then it would not be legal for
+> the drivers to unconditionally skb_orphan(), which they do.
+>=20
+> So either your test is unnecessary, or we have a big existing problem
+> :-)
+
+I cooked following patch, introducing skb_orphan_try() helper, to
+document all known exceptions.
+
+I have a possible followup for this patch :
+
+Orphaning skbs earlier could also make dev_kfree_skb_irq() faster.
+Instead of queing skb into completion_queue and triggering
+NET_TX_SOFTIRQ, we would directly free an orphaned skb ?
+
+
+
+[PATCH net-next-2.6] net: Introduce skb_orphan_try()
+
+Transmitted skb might be attached to a socket and a destructor, for
+memory accounting purposes.
+
+Traditionally, this destructor is called at tx completion time, when sk=
+b
+is freed.
+
+When tx completion is performed by another cpu than the sender, this
+forces some cache lines to change ownership. XPS was an attempt to give
+tx completion to initial cpu.
+
+David idea is to call destructor right before giving skb to device (cal=
+l
+to ndo_start_xmit()). Because device queues are usually small, orphanin=
+g
+skb before tx completion is not a big deal. Some drivers already do
+this, we could do it in upper level.
+
+There is one known exception to this early orphaning, called tx
+timestamping. It needs to keep a reference to socket until device can
+give a hardware or software timestamp.
+
+This patch adds a skb_orphan_try() helper, to centralize all exceptions
+to early orphaning in one spot, and use it in dev_hard_start_xmit().
+
+"tbench 16" results on a Nehalem machine (2 X5570  @ 2.93GHz)
+before: Throughput 4428.9 MB/sec 16 procs
+after: Throughput 4448.14 MB/sec 16 procs
+
+UDP should get even better results, its destructor being more complex,
+since SOCK_USE_WRITE_QUEUE is not set (four atomic ops instead of one)
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
-Seeing that the "include cleanup" patch triggering this was accepted
-after the merge window, I have hopes this one will be accepted, too.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index e8041eb..acae5fe 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1880,6 +1880,17 @@ static int dev_gso_segment(struct sk_buff *skb)
+ 	return 0;
+ }
+=20
++/*
++ * Try to orphan skb early, right before transmission by the device.
++ * We cannot orphan skb if tx timestamp is requested, since
++ * drivers need to call skb_tstamp_tx() to send the timestamp.
++ */
++static inline void skb_orphan_try(struct sk_buff *skb)
++{
++	if (!skb_tx(skb)->flags)
++		skb_orphan(skb);
++}
++
+ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 			struct netdev_queue *txq)
+ {
+@@ -1904,23 +1915,10 @@ int dev_hard_start_xmit(struct sk_buff *skb, st=
+ruct net_device *dev,
+ 		if (dev->priv_flags & IFF_XMIT_DST_RELEASE)
+ 			skb_dst_drop(skb);
+=20
++		skb_orphan_try(skb);
+ 		rc =3D ops->ndo_start_xmit(skb, dev);
+ 		if (rc =3D=3D NETDEV_TX_OK)
+ 			txq_trans_update(txq);
+-		/*
+-		 * TODO: if skb_orphan() was called by
+-		 * dev->hard_start_xmit() (for example, the unmodified
+-		 * igb driver does that; bnx2 doesn't), then
+-		 * skb_tx_software_timestamp() will be unable to send
+-		 * back the time stamp.
+-		 *
+-		 * How can this be prevented? Always create another
+-		 * reference to the socket before calling
+-		 * dev->hard_start_xmit()? Prevent that skb_orphan()
+-		 * does anything in dev->hard_start_xmit() by clearing
+-		 * the skb destructor before the call and restoring it
+-		 * afterwards, then doing the skb_orphan() ourselves?
+-		 */
+ 		return rc;
+ 	}
+=20
+@@ -1938,6 +1936,7 @@ gso:
+ 		if (dev->priv_flags & IFF_XMIT_DST_RELEASE)
+ 			skb_dst_drop(nskb);
+=20
++		skb_orphan_try(nskb);
+ 		rc =3D ops->ndo_start_xmit(nskb, dev);
+ 		if (unlikely(rc !=3D NETDEV_TX_OK)) {
+ 			if (rc & ~NETDEV_TX_MASK)
 
- drivers/isdn/gigaset/bas-gigaset.c |    5 -----
- drivers/isdn/gigaset/capi.c        |    2 --
- drivers/isdn/gigaset/common.c      |    2 --
- drivers/isdn/gigaset/gigaset.h     |    2 +-
- drivers/isdn/gigaset/i4l.c         |    1 -
- drivers/isdn/gigaset/interface.c   |    1 -
- drivers/isdn/gigaset/proc.c        |    1 -
- drivers/isdn/gigaset/ser-gigaset.c |    3 ---
- drivers/isdn/gigaset/usb-gigaset.c |    4 ----
- 9 files changed, 1 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/isdn/gigaset/bas-gigaset.c b/drivers/isdn/gigaset/bas-gigaset.c
-index 0be15c7..47a5ffe 100644
---- a/drivers/isdn/gigaset/bas-gigaset.c
-+++ b/drivers/isdn/gigaset/bas-gigaset.c
-@@ -14,11 +14,6 @@
-  */
- 
- #include "gigaset.h"
--
--#include <linux/errno.h>
--#include <linux/init.h>
--#include <linux/slab.h>
--#include <linux/timer.h>
- #include <linux/usb.h>
- #include <linux/module.h>
- #include <linux/moduleparam.h>
-diff --git a/drivers/isdn/gigaset/capi.c b/drivers/isdn/gigaset/capi.c
-index eb7e271..964a55f 100644
---- a/drivers/isdn/gigaset/capi.c
-+++ b/drivers/isdn/gigaset/capi.c
-@@ -12,8 +12,6 @@
-  */
- 
- #include "gigaset.h"
--#include <linux/slab.h>
--#include <linux/ctype.h>
- #include <linux/proc_fs.h>
- #include <linux/seq_file.h>
- #include <linux/isdn/capilli.h>
-diff --git a/drivers/isdn/gigaset/common.c b/drivers/isdn/gigaset/common.c
-index 0b39b38..f6f45f2 100644
---- a/drivers/isdn/gigaset/common.c
-+++ b/drivers/isdn/gigaset/common.c
-@@ -14,10 +14,8 @@
-  */
- 
- #include "gigaset.h"
--#include <linux/ctype.h>
- #include <linux/module.h>
- #include <linux/moduleparam.h>
--#include <linux/slab.h>
- 
- /* Version Information */
- #define DRIVER_AUTHOR "Hansjoerg Lipp <hjlipp@web.de>, Tilman Schmidt <tilman@imap.cc>, Stefan Eilers"
-diff --git a/drivers/isdn/gigaset/gigaset.h b/drivers/isdn/gigaset/gigaset.h
-index 9ef5b04..d32efb6 100644
---- a/drivers/isdn/gigaset/gigaset.h
-+++ b/drivers/isdn/gigaset/gigaset.h
-@@ -22,9 +22,9 @@
- #include <linux/kernel.h>
- #include <linux/compiler.h>
- #include <linux/types.h>
-+#include <linux/ctype.h>
- #include <linux/slab.h>
- #include <linux/spinlock.h>
--#include <linux/usb.h>
- #include <linux/skbuff.h>
- #include <linux/netdevice.h>
- #include <linux/ppp_defs.h>
-diff --git a/drivers/isdn/gigaset/i4l.c b/drivers/isdn/gigaset/i4l.c
-index c99fb97..c22e5ac 100644
---- a/drivers/isdn/gigaset/i4l.c
-+++ b/drivers/isdn/gigaset/i4l.c
-@@ -15,7 +15,6 @@
- 
- #include "gigaset.h"
- #include <linux/isdnif.h>
--#include <linux/slab.h>
- 
- #define HW_HDR_LEN	2	/* Header size used to store ack info */
- 
-diff --git a/drivers/isdn/gigaset/interface.c b/drivers/isdn/gigaset/interface.c
-index f0dc6c9..c9f28dd 100644
---- a/drivers/isdn/gigaset/interface.c
-+++ b/drivers/isdn/gigaset/interface.c
-@@ -13,7 +13,6 @@
- 
- #include "gigaset.h"
- #include <linux/gigaset_dev.h>
--#include <linux/tty.h>
- #include <linux/tty_flip.h>
- 
- /*** our ioctls ***/
-diff --git a/drivers/isdn/gigaset/proc.c b/drivers/isdn/gigaset/proc.c
-index b69f73a..b943efb 100644
---- a/drivers/isdn/gigaset/proc.c
-+++ b/drivers/isdn/gigaset/proc.c
-@@ -14,7 +14,6 @@
-  */
- 
- #include "gigaset.h"
--#include <linux/ctype.h>
- 
- static ssize_t show_cidmode(struct device *dev,
- 			    struct device_attribute *attr, char *buf)
-diff --git a/drivers/isdn/gigaset/ser-gigaset.c b/drivers/isdn/gigaset/ser-gigaset.c
-index 8b0afd2..e96c058 100644
---- a/drivers/isdn/gigaset/ser-gigaset.c
-+++ b/drivers/isdn/gigaset/ser-gigaset.c
-@@ -11,13 +11,10 @@
-  */
- 
- #include "gigaset.h"
--
- #include <linux/module.h>
- #include <linux/moduleparam.h>
- #include <linux/platform_device.h>
--#include <linux/tty.h>
- #include <linux/completion.h>
--#include <linux/slab.h>
- 
- /* Version Information */
- #define DRIVER_AUTHOR "Tilman Schmidt"
-diff --git a/drivers/isdn/gigaset/usb-gigaset.c b/drivers/isdn/gigaset/usb-gigaset.c
-index 9430a2b..76dbb20 100644
---- a/drivers/isdn/gigaset/usb-gigaset.c
-+++ b/drivers/isdn/gigaset/usb-gigaset.c
-@@ -16,10 +16,6 @@
-  */
- 
- #include "gigaset.h"
--
--#include <linux/errno.h>
--#include <linux/init.h>
--#include <linux/slab.h>
- #include <linux/usb.h>
- #include <linux/module.h>
- #include <linux/moduleparam.h>
--- 
-1.6.5.3.298.g39add
