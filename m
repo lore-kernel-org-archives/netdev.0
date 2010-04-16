@@ -1,9 +1,9 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [net-next-2.6 PATCH 2/2] net: replace ipfragok with
 	skb->local_df
-Date: Fri, 16 Apr 2010 14:43:44 +0800
-Message-ID: <20100416064344.GA12412@gondor.apana.org.au>
-References: <4BC70EF1.6080400@cn.fujitsu.com> <20100415151926.GA4813@gondor.apana.org.au> <4BC7CAC1.4000803@cn.fujitsu.com>
+Date: Fri, 16 Apr 2010 14:49:00 +0800
+Message-ID: <20100416064900.GA12516@gondor.apana.org.au>
+References: <4BC70EF1.6080400@cn.fujitsu.com> <20100415151926.GA4813@gondor.apana.org.au> <4BC7CAC1.4000803@cn.fujitsu.com> <20100416064344.GA12412@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, yinghai.lu@oracle.com,
@@ -16,25 +16,28 @@ Cc: David Miller <davem@davemloft.net>, yinghai.lu@oracle.com,
 	acme@xconectiva.com.br
 To: Shan Wei <shanwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:38985 "EHLO
+Received: from ringil.hengli.com.au ([216.59.3.182]:50851 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755465Ab0DPGoZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Apr 2010 02:44:25 -0400
+	with ESMTP id S1756940Ab0DPGtc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Apr 2010 02:49:32 -0400
 Content-Disposition: inline
-In-Reply-To: <4BC7CAC1.4000803@cn.fujitsu.com>
+In-Reply-To: <20100416064344.GA12412@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 16, 2010 at 10:26:09AM +0800, Shan Wei wrote:
+On Fri, Apr 16, 2010 at 02:43:44PM +0800, Herbert Xu wrote:
+> On Fri, Apr 16, 2010 at 10:26:09AM +0800, Shan Wei wrote:
+> > 
+> > Now, PPPoX/PPPoL2TP driver still use ip_queue_xmit to send packets with ipfragok == 1.
+> > So, now we can't remove the && ... bit. 
 > 
-> Now, PPPoX/PPPoL2TP driver still use ip_queue_xmit to send packets with ipfragok == 1.
-> So, now we can't remove the && ... bit. 
+> Huh? If they still call ip_queue_xmit with ipfragok then surely
+> the build will fail after your patch as it removes the ipfragok
+> argument?
 
-Huh? If they still call ip_queue_xmit with ipfragok then surely
-the build will fail after your patch as it removes the ipfragok
-argument?
+Nevermind, I was looking at the wrong tree.
 
-Cheers,
+Thanks,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
