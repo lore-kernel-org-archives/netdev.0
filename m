@@ -1,37 +1,40 @@
-From: Tetsuo Handa <penguin-kernel-JPay3/Yim36HaxMnTkn67Xf5DAMn2ifp@public.gmane.org>
-Subject: Re: [PATCH] rdma/cm: Randomize local port allocation.
-Date: Fri, 16 Apr 2010 22:54:22 +0900
-Message-ID: <201004162254.FJF73478.SHOOMOFtQFVJLF@I-love.SAKURA.ne.jp>
-References: <201004140201.o3E21Aqn075978@www262.sakura.ne.jp>
-	<195EB1AD388F455AA386EB214FCD09F4@amr.corp.intel.com>
-	<201004150229.o3F2T4dZ054768@www262.sakura.ne.jp>
-	<5CE6BC7B954643FAAFFD2AD66F673CBD@amr.corp.intel.com>
-	<4BC7C9CF.20403@redhat.com>
+From: Finn Thain <fthain@telegraphics.com.au>
+Subject: Re: [PATCH] mac8390: fix pr_info() calls and change return code
+Date: Fri, 16 Apr 2010 23:57:34 +1000 (EST)
+Message-ID: <alpine.OSX.2.00.1004162340370.271@localhost>
+References: <alpine.OSX.2.00.1004161214270.271@localhost>  <20100415.200113.215578006.davem@davemloft.net>  <alpine.OSX.2.00.1004161323340.271@localhost>  <alpine.OSX.2.00.1004161403160.271@localhost> <1271392454.2298.37.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: opurdila-+zzKsuq53OdBDgjK7y7TUQ@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4BC7C9CF.20403-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, p_gortmaker@yahoo.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-m68k@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <1271392454.2298.37.camel@Joe-Laptop.home>
+Sender: linux-m68k-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Cong Wang wrote:
-> Sean Hefty wrote:
-> > I like this version, thanks!  I'm not sure which tree to merge it through.
-> > Are you needing this for 2.6.34, or is 2.6.35 okay?
-> > 
+
+On Thu, 15 Apr 2010, Joe Perches wrote:
+
+> ...Why is it better to use -EBUSY?
+
+Nubus slots are geographically addressed and their irqs are equally 
+inflexible. -EAGAIN is misleading because retrying will not help fix 
+whatever bug caused the irq to unavailable.
+
+> ...It'd be better to prefix this with the driver name
+> or use something like netdev_dbg with #define DEBUG
+> otherwise it's "huh? what device emits this message?"
+> when reading the logs.
 > 
-> As soon as possible, so 2.6.34. :)
-> 
-Cong, merge window for 2.6.34 was already closed.
-You need to make your patchset towards 2.6.35 (using net-next-2.6 tree)
-rather than 2.6.34 (using linux-2.6 tree). Therefore, this patch being
-queued for 2.6.35 (through net-next-2.6 tree) should be okay for you.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Something like:
+> 	printk(KERN_DEBUG pr_fmt("reset not supported\n"));
+
+Thanks for the suggestion. I'll resend again.
+
+> ...unnecessary conversion.
+
+I guess some prefer consistency, some prefer symmetry.
+
+Finn
