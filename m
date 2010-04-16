@@ -1,36 +1,42 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] ip: Fix ip_dev_loopback_xmit()
-Date: Fri, 16 Apr 2010 08:19:23 +0800
-Message-ID: <l2q412e6f7f1004151719g7979d181kfd34f1eabd9fdcf9@mail.gmail.com>
-References: <1271358783.16881.2949.camel@edumazet-laptop> <20100415.142641.125242830.davem@davemloft.net>
-	<w2o412e6f7f1004151703xdcc4da16s4eb6308f2578b531@mail.gmail.com>
-	<20100415.171548.179331927.davem@davemloft.net>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH] rdma/cm: Randomize local port allocation.
+Date: Fri, 16 Apr 2010 10:22:07 +0800
+Message-ID: <4BC7C9CF.20403@redhat.com>
+References: <20100412100744.5302.92442.sendpatchset@localhost.localdomain>	<20100412100816.5302.74919.sendpatchset@localhost.localdomain>	<201004130121.o3D1Lhh7099571@www262.sakura.ne.jp>	<4BC41994.7030707@redhat.com>	<4BC42FE0.4040601@redhat.com> <201004132207.GAJ52684.OJFtMQVFHOSFLO@I-love.SAKURA.ne.jp> <21DAC78125424ED291B5D6477CFF9657@amr.corp.intel.com> <201004140201.o3E21Aqn075978@www262.sakura.ne.jp> <195EB1AD388F455AA386EB214FCD09F4@amr.corp.intel.com> <201004150229.o3F2T4dZ054768@www262.sakura.ne.jp> <5CE6BC7B954643FAAFFD2AD66F673CBD@amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, eparis@redhat.com, netdev@vger.kernel.org,
-	therbert@google.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "'Tetsuo Handa'" <penguin-kernel@I-love.SAKURA.ne.jp>,
+	opurdila@ixiacom.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, nhorman@tuxdriver.com, davem@davemloft.net,
+	ebiederm@xmission.com, linux-kernel@vger.kernel.org,
+	rolandd@cisco.com, linux-rdma@vger.kernel.org
+To: Sean Hefty <sean.hefty@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f197.google.com ([209.85.223.197]:45601 "EHLO
-	mail-iw0-f197.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758178Ab0DPATo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 15 Apr 2010 20:19:44 -0400
-Received: by iwn35 with SMTP id 35so976056iwn.21
-        for <netdev@vger.kernel.org>; Thu, 15 Apr 2010 17:19:43 -0700 (PDT)
-In-Reply-To: <20100415.171548.179331927.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:32371 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753024Ab0DPCSj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 15 Apr 2010 22:18:39 -0400
+In-Reply-To: <5CE6BC7B954643FAAFFD2AD66F673CBD@amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 16, 2010 at 8:15 AM, David Miller <davem@davemloft.net> wro=
-te:
->
-> The ->hard_start_xmit() method always executes with software
-> interrupts disabled.
->
+Sean Hefty wrote:
+> From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+> 
+>> Randomize local port allocation in a way sctp_get_port_local() does.
+>> Update rover at the end of loop since we're likely to pick a valid port
+>> on the first try.
+>>
+>> Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+> Reviewed-by: Sean Hefty <sean.hefty@intel.com>
+> 
 
-Oh, sorry. I traced to the wrong function.
+Thanks, everyone!
 
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
+> 
+> I like this version, thanks!  I'm not sure which tree to merge it through.
+> Are you needing this for 2.6.34, or is 2.6.35 okay?
+> 
+
+As soon as possible, so 2.6.34. :)
