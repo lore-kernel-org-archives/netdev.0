@@ -1,44 +1,38 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: rps perfomance WAS(Re: rps: question
-Date: Fri, 16 Apr 2010 08:57:20 -0700
-Message-ID: <u2p65634d661004160857kc346860dg73daa71769a5f86f@mail.gmail.com>
-References: <1265568122.3688.36.camel@bigi>
-	 <65634d661002072158r48ec15cag1ca58e704114a358@mail.gmail.com>
-	 <1265641748.3688.56.camel@bigi> <1271245986.3943.55.camel@bigi>
-	 <t2p65634d661004141031xf80f62e7sb64362ea1ce10a1f@mail.gmail.com>
-	 <1271268242.16881.1719.camel@edumazet-laptop>
-	 <1271271222.4567.51.camel@bigi>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH v4] rfs: Receive Flow Steering
+Date: Fri, 16 Apr 2010 10:33:33 -0700
+Message-ID: <4BC89F6D.2080604@hp.com>
+References: <alpine.DEB.1.00.1004121651460.31468@pokey.mtv.corp.google.com>	<20100412171205.561a1aec@nehalam> <o2k65634d661004160851wc00c609p7136a22fd07503c1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	robert@herjulf.net, David Miller <davem@davemloft.net>,
-	Changli Gao <xiaosuo@gmail.com>,
-	Andi Kleen <andi@firstfloor.org>
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	Ingo Molnar <mingo@elte.hu>, Paul Turner <pjt@google.com>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:56724 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932274Ab0DPP50 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Apr 2010 11:57:26 -0400
-Received: from wpaz13.hot.corp.google.com (wpaz13.hot.corp.google.com [172.24.198.77])
-	by smtp-out.google.com with ESMTP id o3GFvNCU027321
-	for <netdev@vger.kernel.org>; Fri, 16 Apr 2010 17:57:23 +0200
-Received: from pzk38 (slb0.cbf.corp.google.com [172.25.126.53])
-	by wpaz13.hot.corp.google.com with ESMTP id o3GFuvST020448
-	for <netdev@vger.kernel.org>; Fri, 16 Apr 2010 08:57:21 -0700
-Received: by pzk38 with SMTP id 38so2129209pzk.25
-        for <netdev@vger.kernel.org>; Fri, 16 Apr 2010 08:57:21 -0700 (PDT)
-In-Reply-To: <1271271222.4567.51.camel@bigi>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:10744 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751352Ab0DPRdg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Apr 2010 13:33:36 -0400
+In-Reply-To: <o2k65634d661004160851wc00c609p7136a22fd07503c1@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> It would be valuable to have something like Documentation/networking/rps
-> to detail things a little more.
->
+> 
+> This is true.  There is a fundamental question of whether scheduler
+> should lead networking or vice versa.  The advantages of networking
+> following scheduler seem to become more apparent on heavily loaded
+> systems or with threads that handle more than one flow.
 
-Working on it.  Will try to post data for several platforms soon.
+I will confess to being in the networking should follow the scheduler camp :)
 
-> cheers,
-> jamal
->
->
+> I'm not sure these two models have to be mutually exclusive, we are
+> looking at some ways to make a hybrid model.
+
+It is perhaps too speculative on my part, but if the host has no control over 
+the remote addressing of the connections to/from it, doesn't that suggest that 
+allowing networking to lead the scheduler gives "external forces" more say in 
+intra-system resource consumption than we might want them to have?
+
+rick jones
