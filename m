@@ -1,32 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5] rfs: Receive Flow Steering
-Date: Thu, 15 Apr 2010 23:33:34 -0700 (PDT)
-Message-ID: <20100415.233334.242114544.davem@davemloft.net>
-References: <alpine.DEB.1.00.1004152243470.15102@pokey.mtv.corp.google.com>
+Subject: Re: [net-next-2.6 PATCH 1/3 v2] ipv6: cancel to setting local_df
+ in ip6_xmit()
+Date: Thu, 15 Apr 2010 23:37:27 -0700 (PDT)
+Message-ID: <20100415.233727.02312488.davem@davemloft.net>
+References: <4BC7CDD2.5020004@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: therbert@google.com
+Cc: herbert@gondor.apana.org.au, emils.tantilov@gmail.com,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: shanwei@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56742
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51935
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752375Ab0DPGda (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Apr 2010 02:33:30 -0400
-In-Reply-To: <alpine.DEB.1.00.1004152243470.15102@pokey.mtv.corp.google.com>
+	by vger.kernel.org with ESMTP id S1754568Ab0DPGhY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Apr 2010 02:37:24 -0400
+In-Reply-To: <4BC7CDD2.5020004@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Thu, 15 Apr 2010 22:47:08 -0700 (PDT)
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Date: Fri, 16 Apr 2010 10:39:14 +0800
 
-> Version 5 of RFS:
-> - Moved rps_sock_flow_sysctl into net/core/sysctl_net_core.c as a
-> static function.
-> - Apply limits to rps_sock_flow_entires systcl and rps_flow_count
-> sysfs variable.
+> commit f88037(sctp: Drop ipfargok in sctp_xmit function)
+> has droped ipfragok and set local_df value properly.
+> 
+> So the change of commit 77e2f1(ipv6: Fix ip6_xmit to 
+> send fragments if ipfragok is true) is not needed. 
+> So the patch remove them.
+> 
+> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
 
-I've read this over a few times and I think it's ready to go into
-net-next-2.6, we can tweak things as-needed from here on out.
-
-Eric, what do you think?
+Applied.
