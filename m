@@ -1,76 +1,166 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v5] rfs: Receive Flow Steering
-Date: Fri, 16 Apr 2010 23:25:33 +0200
-Message-ID: <1271453133.16881.4505.camel@edumazet-laptop>
-References: <alpine.DEB.1.00.1004152243470.15102@pokey.mtv.corp.google.com>
-	 <20100415.233334.242114544.davem@davemloft.net>
-	 <1271401007.16881.3762.camel@edumazet-laptop>
-	 <l2m65634d661004161135h1c1466afi54787022bfc2ce12@mail.gmail.com>
-	 <1271443994.16881.4249.camel@edumazet-laptop>
-	 <u2t65634d661004161342zeadb5602w73c369ec717dc6e1@mail.gmail.com>
-	 <1271452358.16881.4486.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:39693 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932414Ab0DPVZh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Apr 2010 17:25:37 -0400
-Received: by bwz25 with SMTP id 25so3650015bwz.28
-        for <netdev@vger.kernel.org>; Fri, 16 Apr 2010 14:25:36 -0700 (PDT)
-In-Reply-To: <1271452358.16881.4486.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: [PATCH] gigaset: include cleanup cleanup
+Date: Sat, 17 Apr 2010 00:08:58 +0200 (CEST)
+Message-ID: <20100416220858.A19F540123@xenon.ts.pxnet.com>
+Cc: Tejun Heo <tj@kernel.org>, Hansjoerg Lipp <hjlipp@web.de>,
+	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 16 avril 2010 =C3=A0 23:12 +0200, Eric Dumazet a =C3=A9crit=
- :
-> Le vendredi 16 avril 2010 =C3=A0 13:42 -0700, Tom Herbert a =C3=A9cri=
-t :
-> > On Fri, Apr 16, 2010 at 11:53 AM, Eric Dumazet <eric.dumazet@gmail.=
-com> wrote:
-> > > Le vendredi 16 avril 2010 =C3=A0 11:35 -0700, Tom Herbert a =C3=A9=
-crit :
-> > >> Results with "tbench 16" on an 8 core Intel machine.
-> > >>
-> > >> No RPS/RFS:  2155 MB/sec
-> > >> RPS (0ff mask): 1700 MB/sec
-> > >> RFS: 1097
-> > >>
-> >=20
-> > Blah, I mistakingly reported that... should have been:
-> >=20
-> > No RPS/RFS:  2155 MB/sec
-> > RPS (0ff mask): 1097 MB/sec
-> > RFS: 1700 MB/sec
-> >=20
-> > Sorry about that!
->=20
-> > This was my expectation too, and what my "corrected" numbers show :=
--)
-> > But, I take it this is different in your results?
->=20
->=20
-> My results are on a "tbench 16" on an dual X5570  @ 2.93GHz.
-> (16 logical cpus)
->=20
-> No RPS , no RFS : 4448.14 MB/sec=20
-> RPS : 2298.00 MB/sec (but lot of variation)
-> RFS : 2600 MB/sec
->=20
-> Maybe my RFS setup is bad ?
-> (8192 flows)
->=20
+Commit 5a0e3ad causes slab.h to be included twice in many of the
+Gigaset driver's source files, first via the common include file
+gigaset.h and then a second time directly. Drop the spares, and
+use the opportunity to clean up a few more similar cases.
 
-Very strange, a second tbench-16 RFS=3Dy run gave me 2134.08 MB/sec=20
+Impact: cleanup, no functional change
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+CC: Tejun Heo <tj@kernel.org>
+---
+Seeing that the "include cleanup" patch triggering this was accepted
+after the merge window, I have hopes this one will be accepted, too.
 
-A third run gave me 1813.21 MB/sec=20
-A fourth run gave me 2472.91 MB/sec=20
+ drivers/isdn/gigaset/bas-gigaset.c |    5 -----
+ drivers/isdn/gigaset/capi.c        |    2 --
+ drivers/isdn/gigaset/common.c      |    2 --
+ drivers/isdn/gigaset/gigaset.h     |    2 +-
+ drivers/isdn/gigaset/i4l.c         |    1 -
+ drivers/isdn/gigaset/interface.c   |    1 -
+ drivers/isdn/gigaset/proc.c        |    1 -
+ drivers/isdn/gigaset/ser-gigaset.c |    3 ---
+ drivers/isdn/gigaset/usb-gigaset.c |    4 ----
+ 9 files changed, 1 insertions(+), 20 deletions(-)
 
-Hmm...
-
-
-
-
+diff --git a/drivers/isdn/gigaset/bas-gigaset.c b/drivers/isdn/gigaset/bas-gigaset.c
+index 0be15c7..47a5ffe 100644
+--- a/drivers/isdn/gigaset/bas-gigaset.c
++++ b/drivers/isdn/gigaset/bas-gigaset.c
+@@ -14,11 +14,6 @@
+  */
+ 
+ #include "gigaset.h"
+-
+-#include <linux/errno.h>
+-#include <linux/init.h>
+-#include <linux/slab.h>
+-#include <linux/timer.h>
+ #include <linux/usb.h>
+ #include <linux/module.h>
+ #include <linux/moduleparam.h>
+diff --git a/drivers/isdn/gigaset/capi.c b/drivers/isdn/gigaset/capi.c
+index eb7e271..964a55f 100644
+--- a/drivers/isdn/gigaset/capi.c
++++ b/drivers/isdn/gigaset/capi.c
+@@ -12,8 +12,6 @@
+  */
+ 
+ #include "gigaset.h"
+-#include <linux/slab.h>
+-#include <linux/ctype.h>
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+ #include <linux/isdn/capilli.h>
+diff --git a/drivers/isdn/gigaset/common.c b/drivers/isdn/gigaset/common.c
+index 0b39b38..f6f45f2 100644
+--- a/drivers/isdn/gigaset/common.c
++++ b/drivers/isdn/gigaset/common.c
+@@ -14,10 +14,8 @@
+  */
+ 
+ #include "gigaset.h"
+-#include <linux/ctype.h>
+ #include <linux/module.h>
+ #include <linux/moduleparam.h>
+-#include <linux/slab.h>
+ 
+ /* Version Information */
+ #define DRIVER_AUTHOR "Hansjoerg Lipp <hjlipp@web.de>, Tilman Schmidt <tilman@imap.cc>, Stefan Eilers"
+diff --git a/drivers/isdn/gigaset/gigaset.h b/drivers/isdn/gigaset/gigaset.h
+index 9ef5b04..d32efb6 100644
+--- a/drivers/isdn/gigaset/gigaset.h
++++ b/drivers/isdn/gigaset/gigaset.h
+@@ -22,9 +22,9 @@
+ #include <linux/kernel.h>
+ #include <linux/compiler.h>
+ #include <linux/types.h>
++#include <linux/ctype.h>
+ #include <linux/slab.h>
+ #include <linux/spinlock.h>
+-#include <linux/usb.h>
+ #include <linux/skbuff.h>
+ #include <linux/netdevice.h>
+ #include <linux/ppp_defs.h>
+diff --git a/drivers/isdn/gigaset/i4l.c b/drivers/isdn/gigaset/i4l.c
+index c99fb97..c22e5ac 100644
+--- a/drivers/isdn/gigaset/i4l.c
++++ b/drivers/isdn/gigaset/i4l.c
+@@ -15,7 +15,6 @@
+ 
+ #include "gigaset.h"
+ #include <linux/isdnif.h>
+-#include <linux/slab.h>
+ 
+ #define HW_HDR_LEN	2	/* Header size used to store ack info */
+ 
+diff --git a/drivers/isdn/gigaset/interface.c b/drivers/isdn/gigaset/interface.c
+index f0dc6c9..c9f28dd 100644
+--- a/drivers/isdn/gigaset/interface.c
++++ b/drivers/isdn/gigaset/interface.c
+@@ -13,7 +13,6 @@
+ 
+ #include "gigaset.h"
+ #include <linux/gigaset_dev.h>
+-#include <linux/tty.h>
+ #include <linux/tty_flip.h>
+ 
+ /*** our ioctls ***/
+diff --git a/drivers/isdn/gigaset/proc.c b/drivers/isdn/gigaset/proc.c
+index b69f73a..b943efb 100644
+--- a/drivers/isdn/gigaset/proc.c
++++ b/drivers/isdn/gigaset/proc.c
+@@ -14,7 +14,6 @@
+  */
+ 
+ #include "gigaset.h"
+-#include <linux/ctype.h>
+ 
+ static ssize_t show_cidmode(struct device *dev,
+ 			    struct device_attribute *attr, char *buf)
+diff --git a/drivers/isdn/gigaset/ser-gigaset.c b/drivers/isdn/gigaset/ser-gigaset.c
+index 8b0afd2..e96c058 100644
+--- a/drivers/isdn/gigaset/ser-gigaset.c
++++ b/drivers/isdn/gigaset/ser-gigaset.c
+@@ -11,13 +11,10 @@
+  */
+ 
+ #include "gigaset.h"
+-
+ #include <linux/module.h>
+ #include <linux/moduleparam.h>
+ #include <linux/platform_device.h>
+-#include <linux/tty.h>
+ #include <linux/completion.h>
+-#include <linux/slab.h>
+ 
+ /* Version Information */
+ #define DRIVER_AUTHOR "Tilman Schmidt"
+diff --git a/drivers/isdn/gigaset/usb-gigaset.c b/drivers/isdn/gigaset/usb-gigaset.c
+index 9430a2b..76dbb20 100644
+--- a/drivers/isdn/gigaset/usb-gigaset.c
++++ b/drivers/isdn/gigaset/usb-gigaset.c
+@@ -16,10 +16,6 @@
+  */
+ 
+ #include "gigaset.h"
+-
+-#include <linux/errno.h>
+-#include <linux/init.h>
+-#include <linux/slab.h>
+ #include <linux/usb.h>
+ #include <linux/module.h>
+ #include <linux/moduleparam.h>
+-- 
+1.6.5.3.298.g39add
