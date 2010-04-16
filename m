@@ -1,33 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] WAN: flush tx_queue in hdlc_ppp to prevent panic on
- rmmod hw_driver.
-Date: Fri, 16 Apr 2010 15:41:17 -0700 (PDT)
-Message-ID: <20100416.154117.164075021.davem@davemloft.net>
-References: <m3mxx5mv8v.fsf@intrepid.localdomain>
+Subject: Re: [PATCH net-2.6] packet : remove init_net restriction
+Date: Fri, 16 Apr 2010 15:41:26 -0700 (PDT)
+Message-ID: <20100416.154126.152614206.davem@davemloft.net>
+References: <1271322674-21726-1-git-send-email-daniel.lezcano@free.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: khc@pm.waw.pl
+To: daniel.lezcano@free.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36972
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36976
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932710Ab0DPWlP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Apr 2010 18:41:15 -0400
-In-Reply-To: <m3mxx5mv8v.fsf@intrepid.localdomain>
+	by vger.kernel.org with ESMTP id S932716Ab0DPWlW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Apr 2010 18:41:22 -0400
+In-Reply-To: <1271322674-21726-1-git-send-email-daniel.lezcano@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Krzysztof Halasa <khc@pm.waw.pl>
-Date: Thu, 15 Apr 2010 02:09:52 +0200
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Date: Thu, 15 Apr 2010 11:11:14 +0200
 
-> tx_queue is used as a temporary queue when not allowed to queue skb
-> directly to the hw device driver (which may sleep). Most paths flush
-> it before returning, but ppp_start() currently cannot. Make sure we
-> don't leave skbs pointing to a non-existent device.
->=20
-> Thanks to Michael Barkowski for reporting this problem.
->=20
-> Signed-off-by: Krzysztof Ha=A9=A9asa <khc@pm.waw.pl>
+> The af_packet protocol is used by Perl to do ioctls as reported by
+> Stephane Riviere:
+> 
+> "Net::RawIP relies on SIOCGIFADDR et SIOCGIFHWADDR to get the IP and MAC
+> addresses of the network interface."
+> 
+> But in a new network namespace these ioctl fail because it is disabled for
+> a namespace different from the init_net_ns.
+> 
+> These two lines should not be there as af_inet and af_packet are
+> namespace aware since a long time now. I suppose we forget to remove these
+> lines because we sent the af_packet first, before af_inet was supported.
+> 
+> Signed-off-by: Daniel Lezcano <daniel.lezcano@free.fr>
+> Reported-by: Stephane Riviere <stephane.riviere@regis-dgac.net>
 
-Applied, thank you.
+Applied, thanks!
