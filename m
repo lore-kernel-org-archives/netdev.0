@@ -1,76 +1,54 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] mac8390: fix pr_info() calls and change return code
-Date: Thu, 15 Apr 2010 21:34:14 -0700
-Message-ID: <1271392454.2298.37.camel@Joe-Laptop.home>
-References: <alpine.OSX.2.00.1004161214270.271@localhost>
-	 <20100415.200113.215578006.davem@davemloft.net>
-	 <alpine.OSX.2.00.1004161323340.271@localhost>
-	 <alpine.OSX.2.00.1004161403160.271@localhost>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Network multiqueue question
+Date: Fri, 16 Apr 2010 06:53:53 +0200
+Message-ID: <1271393633.16881.3606.camel@edumazet-laptop>
+References: <i2tb65cae941004150958n5c66dc42j26724bbb075125a0@mail.gmail.com>
+	 <1271353637.16881.2846.camel@edumazet-laptop>
+	 <j2gb65cae941004152100je5a3c3c9lba9e96ecb95bf04c@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, p_gortmaker@yahoo.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-m68k@vger.kernel.org
-To: Finn Thain <fthain@telegraphics.com.au>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <alpine.OSX.2.00.1004161403160.271@localhost>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: "George B." <georgeb@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:55305 "EHLO
+	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752455Ab0DPEyE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Apr 2010 00:54:04 -0400
+Received: by bwz25 with SMTP id 25so2523943bwz.28
+        for <netdev@vger.kernel.org>; Thu, 15 Apr 2010 21:54:00 -0700 (PDT)
+In-Reply-To: <j2gb65cae941004152100je5a3c3c9lba9e96ecb95bf04c@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-04-16 at 14:21 +1000, Finn Thain wrote:
-> Signed-off-by: Finn Thain <fthain@telegraphics.com.au>
-> 
-> --- a/drivers/net/mac8390.c	2010-04-16 13:31:04.000000000 +1000
-> +++ b/drivers/net/mac8390.c	2010-04-16 14:02:29.000000000 +1000
-> @@ -554,7 +554,7 @@
->  	case MAC8390_APPLE:
->  		switch (mac8390_testio(dev->mem_start)) {
->  		case ACCESS_UNKNOWN:
-> -			pr_info("Don't know how to access card memory!\n");
-> +			pr_err("Don't know how to access card memory!\n");
->  			return -ENODEV;
->  			break;
->  
-> @@ -643,8 +643,8 @@
->  {
->  	__ei_open(dev);
->  	if (request_irq(dev->irq, __ei_interrupt, 0, "8390 Ethernet", dev)) {
-> -		pr_info("%s: unable to get IRQ %d.\n", dev->name, dev->irq);
-> -		return -EAGAIN;
-> +		pr_err("%s: unable to get IRQ %d.\n", dev->name, dev->irq);
-> +		return -EBUSY;
+Le jeudi 15 avril 2010 =C3=A0 21:00 -0700, George B. a =C3=A9crit :
+> On Thu, Apr 15, 2010 at 10:47 AM, Eric Dumazet <eric.dumazet@gmail.co=
+m> wrote:
+>=20
+>=20
+>=20
+> > Since this bothers me a bit, I will probably work on this in a near
+> > future. (adding real multiqueue capability and RCU to bonding fast
+> > paths)
+> >
+> > Ref: http://permalink.gmane.org/gmane.linux.network/152987
+>=20
+> That would be great and you would have my sincere thanks..  And if
+> anyone is interested, what we do is take a pair of "top of rack"
+> switches and cluster them together so they appear as one switch.
+> Configure a LAG consisting of a port on each physical switch to a pai=
+r
+> of bonded interfaces on the server and use mode 2 bonding.  In normal
+> operation, both interfaces are active.  Should one switch experience =
+a
+> power or interface failure, the server sees one of the interfaces fai=
+l
+> but just keeps working on the remaining interface.  There is no
+> "failover" event going on.
+>=20
 
-You should document the reason for the
-return code change in the changelog.
-Why is it better to use -EBUSY?
+What kind of traffic do your machines manage exactly ?
 
->  	}
->  	return 0;
->  }
-> @@ -660,7 +660,7 @@
->  {
->  	ei_status.txing = 0;
->  	if (ei_debug > 1)
-> -		pr_info("reset not supported\n");
-> +		printk(KERN_DEBUG "reset not supported\n");
+On server, you use two ports of the same kind (same number of queues) ?
 
-It'd be better to prefix this with the driver name
-or use something like netdev_dbg with #define DEBUG
-otherwise it's "huh? what device emits this message?"
-when reading the logs.
 
-Something like:
-	printk(KERN_DEBUG pr_fmt("reset not supported\n"));
-or
-#define DEBUG
-	netdev_dbg(dev, "reset not supported\n");
-or
-#define DEBUG
-	pr_debug("reset not supported\n");
-
->  	if (ei_debug > 1)
-> -		pr_cont("reset complete\n");
-> +		printk(KERN_CONT "reset complete\n");
-
-unnecessary conversion.
