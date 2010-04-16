@@ -1,29 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] packet : remove init_net restriction
-Date: Fri, 16 Apr 2010 13:23:12 -0700 (PDT)
-Message-ID: <20100416.132312.56913628.davem@davemloft.net>
-References: <1271322674-21726-1-git-send-email-daniel.lezcano@free.fr>
-	<4BC87C7C.4060407@free.fr>
+Subject: Re: [PATCH] mac8390: fix pr_info() calls and change return code
+Date: Fri, 16 Apr 2010 13:28:55 -0700 (PDT)
+Message-ID: <20100416.132855.230883346.davem@davemloft.net>
+References: <alpine.OSX.2.00.1004161403160.271@localhost>
+	<1271392454.2298.37.camel@Joe-Laptop.home>
+	<alpine.OSX.2.00.1004162340370.271@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: daniel.lezcano@free.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55969
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932379Ab0DPUXJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Apr 2010 16:23:09 -0400
-In-Reply-To: <4BC87C7C.4060407@free.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: joe@perches.com, p_gortmaker@yahoo.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-m68k@vger.kernel.org
+To: fthain@telegraphics.com.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.OSX.2.00.1004162340370.271@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Date: Fri, 16 Apr 2010 17:04:28 +0200
+From: Finn Thain <fthain@telegraphics.com.au>
+Date: Fri, 16 Apr 2010 23:57:34 +1000 (EST)
 
-> Shall I send it against net-next-2.6 ?
+> 
+> On Thu, 15 Apr 2010, Joe Perches wrote:
+> 
+>> ...Why is it better to use -EBUSY?
+> 
+> Nubus slots are geographically addressed and their irqs are equally 
+> inflexible. -EAGAIN is misleading because retrying will not help fix 
+> whatever bug caused the irq to unavailable.
 
-No, I'll likely add it to net-2.6, I just haven't gotten around
-to it yet.
+This is exactly the kind of background information and verbose
+explanation that belongs in the commit message.
+
+Yet in your recent version of the patch, you're still being extremely
+terse as per the reasoning for using -EBUSY
+
+Just saying it's "misleading" doesn't tell anyone anything if they
+have to go back in the commit history and try to figure out why this
+change was made if it's causing problems later.
+
+Please make the verbose and complete explanation in your commit
+message, and resubmit your patch.
+
+I just want to point out that with all the trouble you gave about
+Joe's work, you're having one heck of a time even submitting your
+changes properly. :-)
 
 Thanks.
