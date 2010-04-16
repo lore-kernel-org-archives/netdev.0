@@ -1,54 +1,69 @@
-From: Andi Kleen <andi@halobates.de>
-Subject: Re: [PATCH v5] rfs: Receive Flow Steering
-Date: Fri, 16 Apr 2010 13:57:18 +0200
-Message-ID: <87r5mf8va9.fsf@basil.nowhere.org>
-References: <alpine.DEB.1.00.1004152243470.15102@pokey.mtv.corp.google.com>
+From: Dominik Brodowski <linux@dominikbrodowski.net>
+Subject: Re: [PATCH] drivers/net/pcmcia/3c574_cs: fixing stats.tx_bytes
+ counter
+Date: Fri, 16 Apr 2010 15:01:01 +0200
+Message-ID: <20100416130101.GB7877@comet.dominikbrodowski.net>
+References: <alpine.DEB.1.10.1003312014120.9974@blala.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: Tom Herbert <therbert@google.com>
+Cc: netdev@vger.kernel.org
+To: Alexander Kurz <akurz@blala.de>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:37261 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932123Ab0DPL5U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Apr 2010 07:57:20 -0400
-In-Reply-To: <alpine.DEB.1.00.1004152243470.15102@pokey.mtv.corp.google.com> (Tom Herbert's message of "Thu, 15 Apr 2010 22:47:08 -0700 (PDT)")
+Received: from isilmar.linta.de ([213.133.102.198]:48851 "EHLO linta.de"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752555Ab0DPNBN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 16 Apr 2010 09:01:13 -0400
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.1.10.1003312014120.9974@blala.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tom Herbert <therbert@google.com> writes:
-> +
-> +		/*
-> +		 * If the desired CPU (where last recvmsg was done) is
-> +		 * different from current CPU (one in the rx-queue flow
-> +		 * table entry), switch if one of the following holds:
-> +		 *   - Current CPU is unset (equal to RPS_NO_CPU).
-> +		 *   - Current CPU is offline.
-> +		 *   - The current CPU's queue tail has advanced beyond the
-> +		 *     last packet that was enqueued using this table entry.
-> +		 *     This guarantees that all previous packets for the flow
-> +		 *     have been dequeued, thus preserving in order delivery.
-> +		 */
-> +		if (unlikely(tcpu != next_cpu) &&
-> +		    (tcpu == RPS_NO_CPU || !cpu_online(tcpu) ||
-> +		     ((int)(per_cpu(softnet_data, tcpu).input_queue_head -
+David,
 
-One thing I've been wondering while reading if this should be made
-socket or SMT aware.
+as this is more netdev-related than PCMCIA-related, could you pick it up?
+Else, I'm willing to take it upstream, but would prefer your ACK on this.
 
-If you're on a hyperthreaded system and sending a IPI
-to your core sibling, which has a completely shared cache hierarchy,
-might not be the best use of cycles.
+Thanks & best wishes,
 
-The same could potentially true for shared L2 or shared L3 cache
-(e.g. only redirect flows between different sockets)
+	Dominik
 
-Have you ever considered that?
+From: Alexander Kurz <akurz@blala.de>
+Date: Wed, 31 Mar 2010 20:21:29 +0400
+Subject: [PATCH] net: 3c574_cs fix stats.tx_bytes counter
 
-This is of course something that could be addressed post-merge, not
-a blocker.
+Update the stats counter calculation in 3c574_cs, similar
+to the method used in 3c589_cs. This corrects the contents
+of the counter on tests using a "Megahertz 574B" card.
 
--Andi
+[linux@dominikbrodowski.net: clean up commit message]
+Signed-off-by: Alexander Kurz <linux@kbdbabel.org>
+Signed-off-by: Dominik Brodowski <linux@dominikbrodowski.net>
 
--- 
-ak@linux.intel.com -- Speaking for myself only.
+diff --git a/drivers/net/pcmcia/3c574_cs.c b/drivers/net/pcmcia/3c574_cs.c
+index 727bb38..30b7cf7 100644
+--- a/drivers/net/pcmcia/3c574_cs.c
++++ b/drivers/net/pcmcia/3c574_cs.c
+@@ -772,8 +772,13 @@ static netdev_tx_t el3_start_xmit(struct sk_buff *skb,
+ 		  inw(ioaddr + EL3_STATUS));
+ 
+ 	spin_lock_irqsave(&lp->window_lock, flags);
++
++	dev->stats.tx_bytes += skb->len;
++
++	/* Put out the doubleword header... */
+ 	outw(skb->len, ioaddr + TX_FIFO);
+ 	outw(0, ioaddr + TX_FIFO);
++	/* ... and the packet rounded to a doubleword. */
+ 	outsl(ioaddr + TX_FIFO, skb->data, (skb->len+3)>>2);
+ 
+ 	dev->trans_start = jiffies;
+@@ -1012,8 +1017,6 @@ static void update_stats(struct net_device *dev)
+ 	/* BadSSD */				   inb(ioaddr + 12);
+ 	up					 = inb(ioaddr + 13);
+ 
+-	dev->stats.tx_bytes 			+= tx + ((up & 0xf0) << 12);
+-
+ 	EL3WINDOW(1);
+ }
+ 
