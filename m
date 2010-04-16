@@ -1,71 +1,90 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: Re: [net-next-2.6 PATCH 2/2] net: replace ipfragok with	skb->local_df
-Date: Fri, 16 Apr 2010 10:26:09 +0800
-Message-ID: <4BC7CAC1.4000803@cn.fujitsu.com>
-References: <4BC70EF1.6080400@cn.fujitsu.com> <20100415151926.GA4813@gondor.apana.org.au>
+From: Finn Thain <fthain@telegraphics.com.au>
+Subject: another cleanup patch gone wrong
+Date: Fri, 16 Apr 2010 12:34:24 +1000 (EST)
+Message-ID: <alpine.OSX.2.00.1004161214270.271@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, yinghai.lu@oracle.com,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	"yoshfuji@linux-ipv6.org >> YOSHIFUJI Hideaki"
-	<yoshfuji@linux-ipv6.org>, Patrick McHardy <kaber@trash.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	dccp@vger.kernel.org, linux-sctp@vger.kernel.org,
-	kleptog@svana.org, jchapman@katalix.com, mostrows@speakeasy.net,
-	acme@xconectiva.com.br
-To: Herbert Xu <herbert@gondor.hengli.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:56360 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753516Ab0DPC1Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 15 Apr 2010 22:27:24 -0400
-In-Reply-To: <20100415151926.GA4813@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Herbert Xu wrote, at 04/15/2010 11:19 PM:
-> On Thu, Apr 15, 2010 at 09:04:49PM +0800, Shan Wei wrote:
->> As Herbert Xu said: we should be able to simply replace ipfragok
->> with skb->local_df. commit f88037(sctp: Drop ipfargok in sctp_xmit function)
->> has droped ipfragok and set local_df value properly.
->>
->> The patch kills the ipfragok parameter of .queue_xmit().
-> 
-> Both patches look good to me.
-> 
->> @@ -370,7 +370,7 @@ packet_routed:
->>  	skb_reset_network_header(skb);
->>  	iph = ip_hdr(skb);
->>  	*((__be16 *)iph) = htons((4 << 12) | (5 << 8) | (inet->tos & 0xff));
->> -	if (ip_dont_fragment(sk, &rt->u.dst) && !ipfragok)
->> +	if (ip_dont_fragment(sk, &rt->u.dst) && !skb->local_df)
->>  		iph->frag_off = htons(IP_DF);
->>  	else
->>  		iph->frag_off = 0;
-> 
-> This hunk looked suspecious at first.  However, it is OK because
-> ever calls this with ipfragok == 1, or local_df == 1.
-> 
-> The first is obvious from this patch itself, the second not quite
-> so obvious.
-> 
-> As nobody calls it with local_df == 1 anyway, and strictly speaking
-> local_df shouldn't be set at all by the caller of ip_queue_xmit, we
-> should simply remove the && ... bit and have 
-> 
-> 	if (ip_dont_fragment(sk, &rt->u.dst))
-
-Now, PPPoX/PPPoL2TP driver still use ip_queue_xmit to send packets with ipfragok == 1.
-So, now we can't remove the && ... bit. 
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Paul Gortmaker <p_gortmaker@yahoo.com>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux/m68k <linux-m68k@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
--- 
-Best Regards
------
-Shan Wei
+...but this one was already merged, unfortunately.
 
+> Use printk_once
+> Add #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> Convert printks without KERN_<level> to pr_info and pr_cont
 > 
-> Cheers,
+> Signed-off-by: Joe Perches <joe@perches.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> 
+> diff --git a/drivers/net/mac8390.c b/drivers/net/mac8390.c
+> index 517cee4..8bd09e2 100644 (file)
+> --- a/drivers/net/mac8390.c
+> +++ b/drivers/net/mac8390.c
+> @@ -17,6 +17,8 @@
+>  /* 2002-12-30: Try to support more cards, some clues from NetBSD driver */
+>  /* 2003-12-26: Make sure Asante cards always work. */
+>  
+> +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> +
 
+Why the macro? You only used it once.
 
+The pr_xxx naming convention belongs to a kernel-wide include file. Is it 
+really a good idea to start repurposing it in .c files?
+
+> @@ -545,7 +537,7 @@ static int __init mac8390_initdev(struct net_device * dev, struct nubus_dev * nd
+>         case MAC8390_APPLE:
+>                 switch (mac8390_testio(dev->mem_start)) {
+>                 case ACCESS_UNKNOWN:
+> -                       printk("Don't know how to access card memory!\n");
+> +                       pr_info("Don't know how to access card memory!\n");
+
+No, this is pr_err. The driver sets dev->mem_start expecting it to work, 
+obviously.
+
+>                         return -ENODEV;
+>                         break;
+>  
+
+> @@ -633,7 +626,7 @@ static int mac8390_open(struct net_device *dev)
+>  {
+>         __ei_open(dev);
+>         if (request_irq(dev->irq, __ei_interrupt, 0, "8390 Ethernet", dev)) {
+> -               printk ("%s: unable to get IRQ %d.\n", dev->name, dev->irq);
+> +               pr_info("%s: unable to get IRQ %d.\n", dev->name, dev->irq);
+>                 return -EAGAIN;
+
+Same here.
+
+>         }
+>         return 0;
+> @@ -650,7 +643,7 @@ static void mac8390_no_reset(struct net_device *dev)
+>  {
+>         ei_status.txing = 0;
+>         if (ei_debug > 1)
+> -               printk("reset not supported\n");
+> +               pr_info("reset not supported\n");
+
+I think you meant pr_debug().
+
+>         return;
+>  }
+>  
+> @@ -658,11 +651,11 @@ static void interlan_reset(struct net_device *dev)
+>  {
+>         unsigned char *target=nubus_slot_addr(IRQ2SLOT(dev->irq));
+>         if (ei_debug > 1)
+> -               printk("Need to reset the NS8390 t=%lu...", jiffies);
+> +               pr_info("Need to reset the NS8390 t=%lu...", jiffies);
+
+Same here.
+
+Finn
