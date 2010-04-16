@@ -1,48 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mac8390: fix pr_info() calls and change return code
-Date: Fri, 16 Apr 2010 13:28:55 -0700 (PDT)
-Message-ID: <20100416.132855.230883346.davem@davemloft.net>
-References: <alpine.OSX.2.00.1004161403160.271@localhost>
-	<1271392454.2298.37.camel@Joe-Laptop.home>
-	<alpine.OSX.2.00.1004162340370.271@localhost>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] rdma/cm: Randomize local port allocation.
+Date: Fri, 16 Apr 2010 13:30:01 -0700 (PDT)
+Message-ID: <20100416.133001.262206466.davem@davemloft.net>
+References: <5CE6BC7B954643FAAFFD2AD66F673CBD@amr.corp.intel.com>
+	<4BC7C9CF.20403@redhat.com>
+	<201004162254.FJF73478.SHOOMOFtQFVJLF@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, p_gortmaker@yahoo.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-m68k@vger.kernel.org
-To: fthain@telegraphics.com.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.OSX.2.00.1004162340370.271@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, opurdila-+zzKsuq53OdBDgjK7y7TUQ@public.gmane.org,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: penguin-kernel-JPay3/Yim36HaxMnTkn67Xf5DAMn2ifp@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201004162254.FJF73478.SHOOMOFtQFVJLF-JPay3/Yim36HaxMnTkn67Xf5DAMn2ifp@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Finn Thain <fthain@telegraphics.com.au>
-Date: Fri, 16 Apr 2010 23:57:34 +1000 (EST)
+From: Tetsuo Handa <penguin-kernel-JPay3/Yim36HaxMnTkn67Xf5DAMn2ifp@public.gmane.org>
+Date: Fri, 16 Apr 2010 22:54:22 +0900
 
-> 
-> On Thu, 15 Apr 2010, Joe Perches wrote:
-> 
->> ...Why is it better to use -EBUSY?
-> 
-> Nubus slots are geographically addressed and their irqs are equally 
-> inflexible. -EAGAIN is misleading because retrying will not help fix 
-> whatever bug caused the irq to unavailable.
+> Cong Wang wrote:
+>> Sean Hefty wrote:
+>> > I like this version, thanks!  I'm not sure which tree to merge it through.
+>> > Are you needing this for 2.6.34, or is 2.6.35 okay?
+>> > 
+>> 
+>> As soon as possible, so 2.6.34. :)
+>> 
+> Cong, merge window for 2.6.34 was already closed.
+> You need to make your patchset towards 2.6.35 (using net-next-2.6 tree)
+> rather than 2.6.34 (using linux-2.6 tree). Therefore, this patch being
+> queued for 2.6.35 (through net-next-2.6 tree) should be okay for you.
 
-This is exactly the kind of background information and verbose
-explanation that belongs in the commit message.
-
-Yet in your recent version of the patch, you're still being extremely
-terse as per the reasoning for using -EBUSY
-
-Just saying it's "misleading" doesn't tell anyone anything if they
-have to go back in the commit history and try to figure out why this
-change was made if it's causing problems later.
-
-Please make the verbose and complete explanation in your commit
-message, and resubmit your patch.
-
-I just want to point out that with all the trouble you gave about
-Joe's work, you're having one heck of a time even submitting your
-changes properly. :-)
-
-Thanks.
+I don't take RDMA patches into net-next-2.6, the less I touch this
+stack avoiding stuff the better and Roland has been taking this stuff
+into his own tree for some time now.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
