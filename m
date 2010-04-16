@@ -1,54 +1,59 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Network multiqueue question
-Date: Fri, 16 Apr 2010 06:53:53 +0200
-Message-ID: <1271393633.16881.3606.camel@edumazet-laptop>
-References: <i2tb65cae941004150958n5c66dc42j26724bbb075125a0@mail.gmail.com>
-	 <1271353637.16881.2846.camel@edumazet-laptop>
-	 <j2gb65cae941004152100je5a3c3c9lba9e96ecb95bf04c@mail.gmail.com>
+Subject: Re: rps perfomance WAS(Re: rps: question
+Date: Fri, 16 Apr 2010 07:18:26 +0200
+Message-ID: <1271395106.16881.3645.camel@edumazet-laptop>
+References: <t2p65634d661004141031xf80f62e7sb64362ea1ce10a1f@mail.gmail.com>
+	 <1271268242.16881.1719.camel@edumazet-laptop>
+	 <1271271222.4567.51.camel@bigi>
+	 <20100415.014857.168270765.davem@davemloft.net>
+	 <1271332528.4567.150.camel@bigi>  <4BC741AE.3000108@hp.com>
+	 <1271362581.23780.12.camel@bigi>
+	 <n2p412e6f7f1004151656q5f3f2cbeh324a859b88688398@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: "George B." <georgeb@gmail.com>
+Cc: hadi@cyberus.ca, Rick Jones <rick.jones2@hp.com>,
+	David Miller <davem@davemloft.net>, therbert@google.com,
+	netdev@vger.kernel.org, robert@herjulf.net, andi@firstfloor.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:55305 "EHLO
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:50111 "EHLO
 	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752455Ab0DPEyE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Apr 2010 00:54:04 -0400
-Received: by bwz25 with SMTP id 25so2523943bwz.28
-        for <netdev@vger.kernel.org>; Thu, 15 Apr 2010 21:54:00 -0700 (PDT)
-In-Reply-To: <j2gb65cae941004152100je5a3c3c9lba9e96ecb95bf04c@mail.gmail.com>
+	with ESMTP id S1752629Ab0DPFSh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Apr 2010 01:18:37 -0400
+Received: by bwz25 with SMTP id 25so2533879bwz.28
+        for <netdev@vger.kernel.org>; Thu, 15 Apr 2010 22:18:35 -0700 (PDT)
+In-Reply-To: <n2p412e6f7f1004151656q5f3f2cbeh324a859b88688398@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 15 avril 2010 =C3=A0 21:00 -0700, George B. a =C3=A9crit :
-> On Thu, Apr 15, 2010 at 10:47 AM, Eric Dumazet <eric.dumazet@gmail.co=
-m> wrote:
->=20
->=20
->=20
-> > Since this bothers me a bit, I will probably work on this in a near
-> > future. (adding real multiqueue capability and RCU to bonding fast
-> > paths)
+Le vendredi 16 avril 2010 =C3=A0 07:56 +0800, Changli Gao a =C3=A9crit =
+:
+> On Fri, Apr 16, 2010 at 4:16 AM, jamal <hadi@cyberus.ca> wrote:
 > >
-> > Ref: http://permalink.gmane.org/gmane.linux.network/152987
+> > Sounds interesting.
+> > Wikipedia information overload. Any arch description of the HP9000?
+> > Did your scheme use IPIs to message the other CPUs?
+> >
 >=20
-> That would be great and you would have my sincere thanks..  And if
-> anyone is interested, what we do is take a pair of "top of rack"
-> switches and cluster them together so they appear as one switch.
-> Configure a LAG consisting of a port on each physical switch to a pai=
-r
-> of bonded interfaces on the server and use mode 2 bonding.  In normal
-> operation, both interfaces are active.  Should one switch experience =
-a
-> power or interface failure, the server sees one of the interfaces fai=
-l
-> but just keeps working on the remaining interface.  There is no
-> "failover" event going on.
+> If you doubt the cost of smp_call_function_single(), how about having
+> a try with my another patch, which implements the similar of RPS, but
+> uses kernel threads instead, so no explicit IPI.
+>=20
+> http://patchwork.ozlabs.org/patch/38319/
+>=20
 >=20
 
-What kind of traffic do your machines manage exactly ?
+Come on Changli.
 
-On server, you use two ports of the same kind (same number of queues) ?
+How do you wake up a thread on a remote cpu ?
+
+To answer Jamal question, we need to answer to Jamal question, that is
+timing cost of IPIS.
+
+A kernel module might do this, this could be integrated in perf bench s=
+o
+that we can regression tests upcoming kernels.
+
 
 
