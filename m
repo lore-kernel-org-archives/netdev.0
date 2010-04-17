@@ -1,53 +1,92 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: rps perfomance WAS(Re: rps: question
-Date: Sat, 17 Apr 2010 10:26:14 -0700
-Message-ID: <m2o65634d661004171026v5473b1f4yaa4fdfdd05293649@mail.gmail.com>
-References: <t2p65634d661004141031xf80f62e7sb64362ea1ce10a1f@mail.gmail.com>
-	 <4BC741AE.3000108@hp.com> <1271362581.23780.12.camel@bigi>
-	 <n2p412e6f7f1004151656q5f3f2cbeh324a859b88688398@mail.gmail.com>
-	 <1271395106.16881.3645.camel@edumazet-laptop>
-	 <1271424065.4606.31.camel@bigi>
-	 <1271489739.16881.4586.camel@edumazet-laptop>
-	 <z2q65634d661004170143nb35ec784mbedd003565410cfb@mail.gmail.com>
-	 <1271496229.16881.4602.camel@edumazet-laptop>
-	 <1271514445.16881.4746.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: hadi@cyberus.ca, Changli Gao <xiaosuo@gmail.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	robert@herjulf.net, andi@firstfloor.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Flavio Leitner <fleitner@redhat.com>
+Subject: [PATCH] TCP: avoid to send keepalive probes if it is receiving data
+Date: Sat, 17 Apr 2010 14:28:25 -0300
+Message-ID: <1271525305-28423-1-git-send-email-fleitner@redhat.com>
+References: <20100416150644.GA2641@sysclose.org>
+Cc: Flavio Leitner <fleitner@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:15299 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752748Ab0DQR0T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Apr 2010 13:26:19 -0400
-Received: from wpaz5.hot.corp.google.com (wpaz5.hot.corp.google.com [172.24.198.69])
-	by smtp-out.google.com with ESMTP id o3HHQGG0025412
-	for <netdev@vger.kernel.org>; Sat, 17 Apr 2010 19:26:17 +0200
-Received: from pwj4 (pwj4.prod.google.com [10.241.219.68])
-	by wpaz5.hot.corp.google.com with ESMTP id o3HHQF66013834
-	for <netdev@vger.kernel.org>; Sat, 17 Apr 2010 10:26:15 -0700
-Received: by pwj4 with SMTP id 4so2691211pwj.36
-        for <netdev@vger.kernel.org>; Sat, 17 Apr 2010 10:26:15 -0700 (PDT)
-In-Reply-To: <1271514445.16881.4746.camel@edumazet-laptop>
+Received: from mx1.redhat.com ([209.132.183.28]:5068 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752902Ab0DQR3E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 17 Apr 2010 13:29:04 -0400
+Received: from int-mx02.intmail.prod.int.phx2.redhat.com (int-mx02.intmail.prod.int.phx2.redhat.com [10.5.11.12])
+	by mx1.redhat.com (8.13.8/8.13.8) with ESMTP id o3HHT2Wg002940
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Sat, 17 Apr 2010 13:29:02 -0400
+In-Reply-To: <20100416150644.GA2641@sysclose.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Tom, I am not sure what you describe is even respected for NAPI devices.
-> (I hope you use napi devices in your company ;) )
->
-> If we enqueue a skb to backlog, we also link our backlog napi into our
-> poll_list, if not already there.
->
-> So the loop in net_rx_action() will make us handle our backlog napi a
-> bit after this network device napi (if time limit of 2 jiffies not
-> elapsed) and *before* sending IPIS to remote cpus anyway.
->
-Then I think that's a bug you've identified ;-)
+RFC 1122 says the following:
+...
+  Keep-alive packets MUST only be sent when no data or
+  acknowledgement packets have been received for the
+  connection within an interval.
+...
 
->
->
->
->
+Fix this by storing the timestamp of last received data
+packet and checking for it when the keepalive timer expires.
+
+Signed-off-by: Flavio Leitner <fleitner@redhat.com>
+---
+ include/linux/tcp.h  |    1 +
+ net/ipv4/tcp_input.c |    3 +++
+ net/ipv4/tcp_timer.c |    8 ++++++++
+ 3 files changed, 12 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+index a778ee0..405678f 100644
+--- a/include/linux/tcp.h
++++ b/include/linux/tcp.h
+@@ -314,6 +314,7 @@ struct tcp_sock {
+  	u32	snd_sml;	/* Last byte of the most recently transmitted small packet */
+ 	u32	rcv_tstamp;	/* timestamp of last received ACK (for keepalives) */
+ 	u32	lsndtime;	/* timestamp of last sent data packet (for restart window) */
++	u32	lrcvtime;	/* timestamp of last received data packet (for keepalives) */
+ 
+ 	/* Data for direct copy to user */
+ 	struct {
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index f240f57..60d2980 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5391,6 +5391,8 @@ no_ack:
+ 				__kfree_skb(skb);
+ 			else
+ 				sk->sk_data_ready(sk, 0);
++
++			tp->lrcvtime = tcp_time_stamp;
+ 			return 0;
+ 		}
+ 	}
+@@ -5421,6 +5423,7 @@ step5:
+ 
+ 	tcp_data_snd_check(sk);
+ 	tcp_ack_snd_check(sk);
++	tp->lrcvtime = tcp_time_stamp;
+ 	return 0;
+ 
+ csum_error:
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 8a0ab29..74dd804 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -554,6 +554,14 @@ static void tcp_keepalive_timer (unsigned long data)
+ 	if (tp->packets_out || tcp_send_head(sk))
+ 		goto resched;
+ 
++	elapsed = tcp_time_stamp - tp->lrcvtime;
++	
++	/* receiving data means alive */
++	if (elapsed < keepalive_time_when(tp)) {
++		elapsed = keepalive_time_when(tp) - elapsed;
++		goto resched;
++	}
++
+ 	elapsed = tcp_time_stamp - tp->rcv_tstamp;
+ 
+ 	if (elapsed >= keepalive_time_when(tp)) {
+-- 
+1.6.6.1
+
