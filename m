@@ -1,89 +1,121 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH v5] rfs: Receive Flow Steering
-Date: Sat, 17 Apr 2010 10:38:25 -0700
-Message-ID: <h2h65634d661004171038g75160e7avae118dfd1cb1441d@mail.gmail.com>
-References: <alpine.DEB.1.00.1004152243470.15102@pokey.mtv.corp.google.com>
-	 <20100415.233334.242114544.davem@davemloft.net>
-	 <1271401007.16881.3762.camel@edumazet-laptop>
-	 <l2m65634d661004161135h1c1466afi54787022bfc2ce12@mail.gmail.com>
-	 <1271443994.16881.4249.camel@edumazet-laptop>
-	 <u2t65634d661004161342zeadb5602w73c369ec717dc6e1@mail.gmail.com>
-	 <1271452358.16881.4486.camel@edumazet-laptop>
-	 <1271520633.16881.4754.camel@edumazet-laptop>
+From: unni krishnan <unnikrishnan.a@gmail.com>
+Subject: Re: Duplicate IP false alerts from arping
+Date: Sun, 18 Apr 2010 01:09:13 +0530
+Message-ID: <u2o1f8bbe3c1004171239wbab76e2l7c41b8e608450bc6@mail.gmail.com>
+References: <m2v1f8bbe3c1004152351o580b37ebx55e428fb106b09bd@mail.gmail.com>
+	 <j2m1f8bbe3c1004162111mf87a7fbck9e8eafb36be48687@mail.gmail.com>
+	 <4BC9784B.3020103@plouf.fr.eu.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:17919 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750769Ab0DQRia convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Apr 2010 13:38:30 -0400
-Received: from kpbe17.cbf.corp.google.com (kpbe17.cbf.corp.google.com [172.25.105.81])
-	by smtp-out.google.com with ESMTP id o3HHcSb7021942
-	for <netdev@vger.kernel.org>; Sat, 17 Apr 2010 19:38:28 +0200
-Received: from pwj5 (pwj5.prod.google.com [10.241.219.69])
-	by kpbe17.cbf.corp.google.com with ESMTP id o3HHcQGg018768
-	for <netdev@vger.kernel.org>; Sat, 17 Apr 2010 10:38:27 -0700
-Received: by pwj5 with SMTP id 5so2369794pwj.20
-        for <netdev@vger.kernel.org>; Sat, 17 Apr 2010 10:38:25 -0700 (PDT)
-In-Reply-To: <1271520633.16881.4754.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org
+To: Pascal Hambourg <pascal.mail@plouf.fr.eu.org>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <4BC9784B.3020103@plouf.fr.eu.org>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Ok, then what is the best method to find the duplicate IP ( same IP
+address assigned to different machines ) ?
+
+On Sat, Apr 17, 2010 at 2:28 PM, Pascal Hambourg
+<pascal.mail@plouf.fr.eu.org> wrote:
+> Hello,
 >
-> With attached patch, I reached
+> unni krishnan a =E9crit :
+>>
+>> I am trying to find a duplicate IP in the network using arping.
+>>
+>> =A0-------------------------
+>> =A0[root@vps1 ~]# ping -c 3 192.168.1.212
+>> =A0PING 192.168.1.212 (192.168.1.212) 56(84) bytes of data.
+>> =A064 bytes from 192.168.1.212: icmp_seq=3D1 ttl=3D64 time=3D1.33 ms
+>> =A064 bytes from 192.168.1.212: icmp_seq=3D2 ttl=3D64 time=3D0.280 m=
+s
+>> =A064 bytes from 192.168.1.212: icmp_seq=3D3 ttl=3D64 time=3D0.306 m=
+s
+>>
+>> =A0--- 192.168.1.212 ping statistics ---
+>> =A03 packets transmitted, 3 received, 0% packet loss, time 1999ms
+>> =A0rtt min/avg/max/mdev =3D 0.280/0.641/1.339/0.494 ms
+>> =A0[root@vps1 ~]# arping -D -I eth0 -c 5 192.168.1.212 ; echo $?
+>> =A0ARPING 192.168.1.212 from 0.0.0.0 eth0
+>> =A00
+>> =A0-------------------------
+>>
+>> =A0As per arping that IP is duplicate.
 >
-> Throughput 4465.13 MB/sec 16 procs
+> I disagree. According to man arping :
 >
-> RFS better than no RPS/RFS :)
+> =A0 =A0-D =A0Duplicate =A0address =A0detection =A0mode =A0(DAD). =A0S=
+ee RFC2131, 4.4.1.
+> =A0 =A0 =A0 =A0Returns 0, if DAD succeeded i.e. no replies are receiv=
+ed
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 ^^^^^^^^^^^^^^^^^^^^^^^
+> -D (DAD) is meant for DHCP to find out if the proposed IP address is =
+not
+> already assigned to another host. Its purpose is not to find out if
+> multiple hosts have the same IP address. Besides, a return value of 0
+> means that no ARP replies were received (IOW -D inverts the return va=
+lue
+> logic), which is weird since the target IP address replies to ICMP pi=
+ng
+> unless that address is assigned to the local host.
 >
-> So, the old idea to make rxhash consistent (same value in both
-> directions) is a win for some workloads (Consider connection tracking=
- /
-> firewalling)
+> Here :
 >
-> port1 =3D ...
-> port2 =3D ...
-> addr1 =3D ...
-> addr2 =3D ...
-> if (addr1 > addr2)
-> =A0 =A0 =A0 =A0exchange(addr1, addr2)
-> if (port1 > port2)
-> =A0 =A0 =A0 =A0exchange(port, port2)
+> # arping -DI eth0 -c 1 192.168.0.246 ; echo result=3D$?
+> ARPING 192.168.0.246 from 0.0.0.0 eth0
+> Unicast reply from 192.168.0.246 [xx:xx:xx:xx:xx:xx] =A00.964ms
+> Sent 1 probes (1 broadcast(s))
+> Received 1 response(s)
+> result=3D1
 >
-> hash =3D jhash(addr1, addr2, (port1<<16)+port2, ...)
+> # arping -DI eth0 -c 1 192.168.0.24 ; echo result=3D$?
+> ARPING 192.168.0.24 from 0.0.0.0 eth0
+> Sent 1 probes (1 broadcast(s))
+> Received 0 response(s)
+> result=3D0
 >
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 7abf959..6b757ff 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2280,8 +2280,10 @@ static int get_rps_cpu(struct net_device *dev,
-> struct sk_buff *skb,
-> =A0 =A0 =A0 =A0case IPPROTO_AH:
-> =A0 =A0 =A0 =A0case IPPROTO_SCTP:
-> =A0 =A0 =A0 =A0case IPPROTO_UDPLITE:
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (pskb_may_pull(skb, (ihl * 4) + 4))
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ports =3D *((u32 *) (sk=
-b->data + (ihl * 4)));
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (pskb_may_pull(skb, (ihl * 4) + 4)) =
-{
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 u16 *_ports =3D (u16 *)=
-(skb->data + (ihl * 4));
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ports =3D _ports[0] ^ _=
-ports[1];
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
+>> But if I go ahead and ifdown the
+>> =A0IP in the known location I cant ping that IP ( That means that IP=
+ is
+>> =A0not duplicated ? ). This is the result after shutting down the IP=
+=2E
+>>
+>> =A0--------------------------
+>> =A0[root@vps1 ~]# ping -c 3 192.168.1.212
+>> =A0PING 192.168.1.212 (192.168.1.212) 56(84) bytes of data.
+>> =A0From 192.168.1.63 icmp_seq=3D1 Destination Host Unreachable
+>> =A0From 192.168.1.63 icmp_seq=3D2 Destination Host Unreachable
+>> =A0From 192.168.1.63 icmp_seq=3D3 Destination Host Unreachable
 >
-> =A0 =A0 =A0 =A0default:
+> Ok, that means no ARP reply.
 >
-That's cool!, but I still like the idea that this hash is treated as
-an opaque value, getting the hash from the device to avoid the jhash
-or cache misses on the packet can also be a win...  Maybe connection
-tracking/firewall could use the skb->rxhash which provides the
-consistency and also eliminates the need to do more jhashes.
+>> =A0[root@vps1 ~]# arping -D -I eth0 -c 5 192.168.1.212 ; echo $?
+>> =A0ARPING 192.168.1.212 from 0.0.0.0 eth0
+>> =A0Sent 5 probes (5 broadcast(s))
+>> =A0Received 0 response(s)
+>> =A00
+>
+> Same as above.
+>
+>> =A0My question is, in this case IP 192.168.1.212 is not duplicated. =
+But
+>> =A0still arping gives duplicate status. Why it is like that ?
+>
+> A situation of real duplicate ARP replies may occur when the address =
+is
+> assigned to a host which has multiple interfaces connected to the sam=
+e
+> network, so it receives and replies to ARP queries on each interface.
+>
 
 
->
->
+
+--=20
+Regards,
+Unni
+http://mutexes.org/
+http://twitter.com/webofunni
