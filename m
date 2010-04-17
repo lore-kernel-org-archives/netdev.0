@@ -1,72 +1,107 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: rps perfomance WAS(Re: rps: question
-Date: Sat, 17 Apr 2010 16:27:25 +0200
-Message-ID: <1271514445.16881.4746.camel@edumazet-laptop>
-References: <t2p65634d661004141031xf80f62e7sb64362ea1ce10a1f@mail.gmail.com>
-	 <1271271222.4567.51.camel@bigi>
-	 <20100415.014857.168270765.davem@davemloft.net>
-	 <1271332528.4567.150.camel@bigi> <4BC741AE.3000108@hp.com>
-	 <1271362581.23780.12.camel@bigi>
-	 <n2p412e6f7f1004151656q5f3f2cbeh324a859b88688398@mail.gmail.com>
-	 <1271395106.16881.3645.camel@edumazet-laptop>
-	 <1271424065.4606.31.camel@bigi>
-	 <1271489739.16881.4586.camel@edumazet-laptop>
-	 <z2q65634d661004170143nb35ec784mbedd003565410cfb@mail.gmail.com>
-	 <1271496229.16881.4602.camel@edumazet-laptop>
+Subject: Re: [PATCH v5] rfs: Receive Flow Steering
+Date: Sat, 17 Apr 2010 18:10:33 +0200
+Message-ID: <1271520633.16881.4754.camel@edumazet-laptop>
+References: <alpine.DEB.1.00.1004152243470.15102@pokey.mtv.corp.google.com>
+	 <20100415.233334.242114544.davem@davemloft.net>
+	 <1271401007.16881.3762.camel@edumazet-laptop>
+	 <l2m65634d661004161135h1c1466afi54787022bfc2ce12@mail.gmail.com>
+	 <1271443994.16881.4249.camel@edumazet-laptop>
+	 <u2t65634d661004161342zeadb5602w73c369ec717dc6e1@mail.gmail.com>
+	 <1271452358.16881.4486.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hadi@cyberus.ca, Changli Gao <xiaosuo@gmail.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	robert@herjulf.net, andi@firstfloor.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:37838 "EHLO
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:40561 "EHLO
 	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752165Ab0DQO1p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Apr 2010 10:27:45 -0400
-Received: by bwz25 with SMTP id 25so4033536bwz.28
-        for <netdev@vger.kernel.org>; Sat, 17 Apr 2010 07:27:43 -0700 (PDT)
-In-Reply-To: <1271496229.16881.4602.camel@edumazet-laptop>
+	with ESMTP id S1751679Ab0DQQKl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 17 Apr 2010 12:10:41 -0400
+Received: by bwz25 with SMTP id 25so4090647bwz.28
+        for <netdev@vger.kernel.org>; Sat, 17 Apr 2010 09:10:40 -0700 (PDT)
+In-Reply-To: <1271452358.16881.4486.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 17 avril 2010 =C3=A0 11:23 +0200, Eric Dumazet a =C3=A9crit :
-> Le samedi 17 avril 2010 =C3=A0 01:43 -0700, Tom Herbert a =C3=A9crit =
-:
-> > > So the cost of queing the packet into our own queue (netif_receiv=
-e_skb
-> > > -> enqueue_to_backlog) is about 0.74 us  (74 ms / 100000)
-> > >
-> > > I personally think we should process packet instead of queeing it=
-, but
-> > > Tom disagree with me.
-> > >
-> > You could do that, but then the packet processing becomes HOL block=
-ing
-> > on all the packets that are being sent to other queues for
-> > processing-- remember the IPIs is only sent at the end of the NAPI.
-> > So unless the upper stack processing is <0.74us in your case, I thi=
-nk
-> > processing packets directly on the local queue would improve best c=
-ase
-> > latency, but would increase average latency and even more likely wo=
-rse
-> > case latency on loads with multiple flows.
+Le vendredi 16 avril 2010 =C3=A0 23:12 +0200, Eric Dumazet a =C3=A9crit=
+ :
+> Le vendredi 16 avril 2010 =C3=A0 13:42 -0700, Tom Herbert a =C3=A9cri=
+t :
+> > On Fri, Apr 16, 2010 at 11:53 AM, Eric Dumazet <eric.dumazet@gmail.=
+com> wrote:
+> > > Le vendredi 16 avril 2010 =C3=A0 11:35 -0700, Tom Herbert a =C3=A9=
+crit :
+> > >> Results with "tbench 16" on an 8 core Intel machine.
+> > >>
+> > >> No RPS/RFS:  2155 MB/sec
+> > >> RPS (0ff mask): 1700 MB/sec
+> > >> RFS: 1097
+> > >>
+> >=20
+> > Blah, I mistakingly reported that... should have been:
+> >=20
+> > No RPS/RFS:  2155 MB/sec
+> > RPS (0ff mask): 1097 MB/sec
+> > RFS: 1700 MB/sec
+> >=20
+> > Sorry about that!
+>=20
+> > This was my expectation too, and what my "corrected" numbers show :=
+-)
+> > But, I take it this is different in your results?
+>=20
+>=20
+> My results are on a "tbench 16" on an dual X5570  @ 2.93GHz.
+> (16 logical cpus)
+>=20
+> No RPS , no RFS : 4448.14 MB/sec=20
+> RPS : 2298.00 MB/sec (but lot of variation)
+> RFS : 2600 MB/sec
+>=20
+> Maybe my RFS setup is bad ?
+> (8192 flows)
+>=20
 
+With attached patch, I reached=20
 
-Tom, I am not sure what you describe is even respected for NAPI devices=
-=2E
-(I hope you use napi devices in your company ;) )
+Throughput 4465.13 MB/sec 16 procs
 
-If we enqueue a skb to backlog, we also link our backlog napi into our
-poll_list, if not already there.
+RFS better than no RPS/RFS :)
 
-So the loop in net_rx_action() will make us handle our backlog napi a
-bit after this network device napi (if time limit of 2 jiffies not
-elapsed) and *before* sending IPIS to remote cpus anyway.
+So, the old idea to make rxhash consistent (same value in both
+directions) is a win for some workloads (Consider connection tracking /
+firewalling)=20
 
+port1 =3D ...
+port2 =3D ...
+addr1 =3D ...
+addr2 =3D ...
+if (addr1 > addr2)
+	exchange(addr1, addr2)
+if (port1 > port2)
+	exchange(port, port2)
 
+hash =3D jhash(addr1, addr2, (port1<<16)+port2, ...)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 7abf959..6b757ff 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2280,8 +2280,10 @@ static int get_rps_cpu(struct net_device *dev,
+struct sk_buff *skb,
+        case IPPROTO_AH:
+        case IPPROTO_SCTP:
+        case IPPROTO_UDPLITE:
+-               if (pskb_may_pull(skb, (ihl * 4) + 4))
+-                       ports =3D *((u32 *) (skb->data + (ihl * 4)));
++               if (pskb_may_pull(skb, (ihl * 4) + 4)) {
++                       u16 *_ports =3D (u16 *)(skb->data + (ihl * 4));
++                       ports =3D _ports[0] ^ _ports[1];
++               }
+                break;
+=20
+        default:
 
 
