@@ -1,48 +1,60 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH v5] rfs: Receive Flow Steering
-Date: Fri, 16 Apr 2010 17:22:49 -0700
-Message-ID: <i2s65634d661004161722hece6f9d4naf528c37b63fffbc@mail.gmail.com>
-References: <1271446679.16881.4298.camel@edumazet-laptop>
-	 <20100416.154932.147279343.davem@davemloft.net>
-	 <20100416.155340.256882855.davem@davemloft.net>
-	 <20100416.155707.66748057.davem@davemloft.net>
+From: Abraham Arce <abraham.arce.moreno@gmail.com>
+Subject: [PATCH] KS8851: NULL pointer dereference if list is empty
+Date: Fri, 16 Apr 2010 19:48:43 -0500
+Message-ID: <k2ocb8016981004161748s1a91f926x3c29b3fbd45ad46c@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:49287 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932497Ab0DQAWw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 16 Apr 2010 20:22:52 -0400
-Received: from wpaz33.hot.corp.google.com (wpaz33.hot.corp.google.com [172.24.198.97])
-	by smtp-out.google.com with ESMTP id o3H0Mo2e027109
-	for <netdev@vger.kernel.org>; Fri, 16 Apr 2010 17:22:51 -0700
-Received: from pwi9 (pwi9.prod.google.com [10.241.219.9])
-	by wpaz33.hot.corp.google.com with ESMTP id o3H0MnUs032701
-	for <netdev@vger.kernel.org>; Fri, 16 Apr 2010 17:22:50 -0700
-Received: by pwi9 with SMTP id 9so2458672pwi.27
-        for <netdev@vger.kernel.org>; Fri, 16 Apr 2010 17:22:49 -0700 (PDT)
-In-Reply-To: <20100416.155707.66748057.davem@davemloft.net>
+Received: from mail-gx0-f217.google.com ([209.85.217.217]:51225 "EHLO
+	mail-gx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757894Ab0DQAsp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 16 Apr 2010 20:48:45 -0400
+Received: by gxk9 with SMTP id 9so1843492gxk.8
+        for <netdev@vger.kernel.org>; Fri, 16 Apr 2010 17:48:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ugh, vmalloc.h must be sneaking in through some other header file for
-me :-(  Sorry about that.  Do you need me to respin the patch?
+Fix NULL pointer dereference in ks8851_tx_work by checking if dequeued
+list is already empty before writing the packet to TX FIFO
 
-Tom
+ Unable to handle kernel NULL pointer dereference at virtual address 00000050
+ PC is at ks8851_tx_work+0xdc/0x1b0
+ LR is at wait_for_common+0x148/0x164
+ pc : [<c01c0df4>]    lr : [<c025a980>]    psr: 20000013
+ Backtrace:
+  ks8851_tx_work+0x0/0x1b0
+  worker_thread+0x0/0x190
+  kthread+0x0/0x90
 
-On Fri, Apr 16, 2010 at 3:57 PM, David Miller <davem@davemloft.net> wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Fri, 16 Apr 2010 15:53:40 -0700 (PDT)
->
->> From: David Miller <davem@davemloft.net>
->> Date: Fri, 16 Apr 2010 15:49:32 -0700 (PDT)
->>
->>> Great, I'll add this to net-next-2.6 right now.
->>
->> I had to add an include of linux/vmalloc.h to net/core/sysctl_net_core.c
->> to fix the build while committing this.
->
-> net/core/net-sysfs.c needed it too :-/
->
+Signed-off-by: Abraham Arce <x0066660@ti.com>
+---
+ drivers/net/ks8851.c |   12 +++++++-----
+ 1 files changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ks8851.c b/drivers/net/ks8851.c
+index 13cc1ca..9e9f9b3 100644
+--- a/drivers/net/ks8851.c
++++ b/drivers/net/ks8851.c
+@@ -722,12 +722,14 @@ static void ks8851_tx_work(struct work_struct *work)
+ 		txb = skb_dequeue(&ks->txq);
+ 		last = skb_queue_empty(&ks->txq);
+
+-		ks8851_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr | RXQCR_SDA);
+-		ks8851_wrpkt(ks, txb, last);
+-		ks8851_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr);
+-		ks8851_wrreg16(ks, KS_TXQCR, TXQCR_METFE);
++		if (txb != NULL) {
++			ks8851_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr | RXQCR_SDA);
++			ks8851_wrpkt(ks, txb, last);
++			ks8851_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr);
++			ks8851_wrreg16(ks, KS_TXQCR, TXQCR_METFE);
+
+-		ks8851_done_tx(ks, txb);
++			ks8851_done_tx(ks, txb);
++		}
+ 	}
+
+ 	mutex_unlock(&ks->lock);
+-- 
+1.5.4.3
