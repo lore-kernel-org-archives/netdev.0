@@ -1,42 +1,55 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: [PATCH] gianfar: Wait for both RX and TX to stop
-Date: Sun, 18 Apr 2010 18:13:21 -0500
-Message-ID: <1271632401-2472-1-git-send-email-afleming@freescale.com>
+From: andrew hendry <andrew.hendry@gmail.com>
+Subject: Re: [PATCH 1/6] X25: Use identifiers for X25 to device interface
+Date: Mon, 19 Apr 2010 09:51:01 +1000
+Message-ID: <h2td45a3acc1004181651xd70115dr5671210761035838@mail.gmail.com>
+References: <1271584310.6280.425.camel@ibex> <4BCAE509.9000209@Calva.COM>
+	 <4BCAE84A.2030701@Calva.COM>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+To: John Hughes <john@calva.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:54853 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752858Ab0DRXNl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Apr 2010 19:13:41 -0400
+Received: from mail-iw0-f199.google.com ([209.85.223.199]:62671 "EHLO
+	mail-iw0-f199.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753261Ab0DRXvE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Apr 2010 19:51:04 -0400
+Received: by iwn37 with SMTP id 37so49881iwn.15
+        for <netdev@vger.kernel.org>; Sun, 18 Apr 2010 16:51:01 -0700 (PDT)
+In-Reply-To: <4BCAE84A.2030701@Calva.COM>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When gracefully stopping the controller, the driver was continuing if
-*either* RX or TX had stopped.  We need to wait for both, or the
-controller could get into an invalid state.
+Hi John,
 
-Signed-off-by: Andy Fleming <afleming@freescale.com>
----
- drivers/net/gianfar.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+Thanks, missed that, ill see if any of the driver areas have comments
+and make a V2 patch with explicit values.
 
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 032073d..6038397 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -1571,8 +1571,9 @@ static void gfar_halt_nodisable(struct net_device *dev)
- 		tempval |= (DMACTRL_GRS | DMACTRL_GTS);
- 		gfar_write(&regs->dmactrl, tempval);
- 
--		while (!(gfar_read(&regs->ievent) &
--			 (IEVENT_GRSC | IEVENT_GTSC)))
-+		while ((gfar_read(&regs->ievent) &
-+			 (IEVENT_GRSC | IEVENT_GTSC)) !=
-+			 (IEVENT_GRSC | IEVENT_GTSC))
- 			cpu_relax();
- 	}
- }
--- 
-1.6.5.2.g6ff9a
+Your right, it would be nice if xotd/xoe could pickup the same
+definition from user space.
+include/net/x25device.h is not intended as a user space header.
+include/linux/net/x25.h is the user space header for the x25 socket
+layer interface, so I don't think these definitions should go there.
 
+I think the right way to do it is add a new userspace header
+include/linux/if_x25.h then include that from net/x25_device.h?
+
+Regards,
+Andrew.
+
+
+On Sun, Apr 18, 2010 at 9:08 PM, John Hughes <john@calva.com> wrote:
+> John Hughes wrote:
+>>
+>> Shouldn't you use explicit values here?
+>>
+>> enum {
+>> =A0 =A0X25_IFACE_DATA =3D 0x00, /* explicit value for ABI stability =
+*/
+>> =A0 =A0...
+>
+> Oh, and is net/x25device.h suitable for inclusion from user space (xo=
+td for
+> example)?
+>
+>
