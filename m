@@ -1,184 +1,102 @@
 From: Andrew Hendry <andrew.hendry@gmail.com>
-Subject: [PATCH 1/6] X25: Use identifiers for X25 to device interface
-Date: Sun, 18 Apr 2010 19:51:50 +1000
-Message-ID: <1271584310.6280.425.camel@ibex>
+Subject: [PATCH 2/6] X25: Use identifiers for isdn device to x25 interface
+Date: Sun, 18 Apr 2010 19:52:25 +1000
+Message-ID: <1271584345.6280.426.camel@ibex>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+To: netdev@vger.kernel.org, isdn@linux-pingi.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f204.google.com ([209.85.222.204]:51633 "EHLO
-	mail-pz0-f204.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755938Ab0DRJv4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Apr 2010 05:51:56 -0400
-Received: by pzk42 with SMTP id 42so2814816pzk.4
-        for <netdev@vger.kernel.org>; Sun, 18 Apr 2010 02:51:55 -0700 (PDT)
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:50091 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756154Ab0DRJwa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Apr 2010 05:52:30 -0400
+Received: by pva18 with SMTP id 18so2510701pva.19
+        for <netdev@vger.kernel.org>; Sun, 18 Apr 2010 02:52:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Use identifiers in x25_device.h instead of magic numbers for X25 layer 3 to device interface.
-Also fixed checkpatch notes on updated code.
+Change magic numbers to identifiers for X25 interface.
+also minor check patch formatting.
 
 Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
 
 ---
- Documentation/networking/x25-iface.txt |   16 +++++++-------
- include/net/x25device.h                |    8 +++++++
- net/x25/x25_dev.c                      |   36 +++++++++++++++++--------------
- 3 files changed, 36 insertions(+), 24 deletions(-)
+ drivers/isdn/i4l/isdn_x25iface.c |   17 +++++++++--------
+ 1 files changed, 9 insertions(+), 8 deletions(-)
 
-diff --git a/Documentation/networking/x25-iface.txt b/Documentation/networking/x25-iface.txt
-index 975cc87..78f662e 100644
---- a/Documentation/networking/x25-iface.txt
-+++ b/Documentation/networking/x25-iface.txt
-@@ -20,23 +20,23 @@ the rest of the skbuff, if any more information does exist.
- Packet Layer to Device Driver
- -----------------------------
+diff --git a/drivers/isdn/i4l/isdn_x25iface.c b/drivers/isdn/i4l/isdn_x25iface.c
+index efcf1f9..fd10d7c 100644
+--- a/drivers/isdn/i4l/isdn_x25iface.c
++++ b/drivers/isdn/i4l/isdn_x25iface.c
+@@ -194,7 +194,7 @@ static int isdn_x25iface_receive(struct concap_proto *cprot, struct sk_buff *skb
+ 	if ( ( (ix25_pdata_t*) (cprot->proto_data) ) 
+ 	     -> state == WAN_CONNECTED ){
+ 		if( skb_push(skb, 1)){
+-			skb -> data[0]=0x00;
++			skb->data[0] = X25_IFACE_DATA;
+ 			skb->protocol = x25_type_trans(skb, cprot->net_dev);
+ 			netif_rx(skb);
+ 			return 0;
+@@ -224,7 +224,7 @@ static int isdn_x25iface_connect_ind(struct concap_proto *cprot)
  
--First Byte = 0x00
-+First Byte = 0x00 (X25_IFACE_DATA)
- 
- This indicates that the rest of the skbuff contains data to be transmitted
- over the LAPB link. The LAPB link should already exist before any data is
- passed down.
- 
--First Byte = 0x01
-+First Byte = 0x01 (X25_IFACE_CONNECT)
- 
- Establish the LAPB link. If the link is already established then the connect
- confirmation message should be returned as soon as possible.
- 
--First Byte = 0x02
-+First Byte = 0x02 (X25_IFACE_DISCONNECT)
- 
- Terminate the LAPB link. If it is already disconnected then the disconnect
- confirmation message should be returned as soon as possible.
- 
--First Byte = 0x03
-+First Byte = 0x03 (X25_IFACE_PARAMS)
- 
- LAPB parameters. To be defined.
- 
-@@ -44,22 +44,22 @@ LAPB parameters. To be defined.
- Device Driver to Packet Layer
- -----------------------------
- 
--First Byte = 0x00
-+First Byte = 0x00 (X25_IFACE_DATA)
- 
- This indicates that the rest of the skbuff contains data that has been
- received over the LAPB link.
- 
--First Byte = 0x01
-+First Byte = 0x01 (X25_IFACE_CONNECT)
- 
- LAPB link has been established. The same message is used for both a LAPB
- link connect_confirmation and a connect_indication.
- 
--First Byte = 0x02
-+First Byte = 0x02 (X25_IFACE_DISCONNECT)
- 
- LAPB link has been terminated. This same message is used for both a LAPB
- link disconnect_confirmation and a disconnect_indication.
- 
--First Byte = 0x03
-+First Byte = 0x03 (X25_IFACE_PARAMS)
- 
- LAPB parameters. To be defined.
- 
-diff --git a/include/net/x25device.h b/include/net/x25device.h
-index 1415bcf..51f8902 100644
---- a/include/net/x25device.h
-+++ b/include/net/x25device.h
-@@ -13,4 +13,12 @@ static inline __be16 x25_type_trans(struct sk_buff *skb, struct net_device *dev)
- 	
- 	return htons(ETH_P_X25);
- }
-+
-+enum {
-+	X25_IFACE_DATA,
-+	X25_IFACE_CONNECT,
-+	X25_IFACE_DISCONNECT,
-+	X25_IFACE_PARAMS
-+};
-+
- #endif
-diff --git a/net/x25/x25_dev.c b/net/x25/x25_dev.c
-index b9ef682..9005f6d 100644
---- a/net/x25/x25_dev.c
-+++ b/net/x25/x25_dev.c
-@@ -24,6 +24,7 @@
- #include <net/sock.h>
- #include <linux/if_arp.h>
- #include <net/x25.h>
-+#include <net/x25device.h>
- 
- static int x25_receive_data(struct sk_buff *skb, struct x25_neigh *nb)
- {
-@@ -115,19 +116,22 @@ int x25_lapb_receive_frame(struct sk_buff *skb, struct net_device *dev,
- 	}
- 
- 	switch (skb->data[0]) {
--		case 0x00:
--			skb_pull(skb, 1);
--			if (x25_receive_data(skb, nb)) {
--				x25_neigh_put(nb);
--				goto out;
--			}
--			break;
--		case 0x01:
--			x25_link_established(nb);
--			break;
--		case 0x02:
--			x25_link_terminated(nb);
--			break;
-+
+ 	skb = dev_alloc_skb(1);
+ 	if( skb ){
+-		*( skb_put(skb, 1) ) = 0x01;
++		*(skb_put(skb, 1)) = X25_IFACE_CONNECT;
+ 		skb->protocol = x25_type_trans(skb, cprot->net_dev);
+ 		netif_rx(skb);
+ 		return 0;
+@@ -253,7 +253,7 @@ static int isdn_x25iface_disconn_ind(struct concap_proto *cprot)
+ 	*state_p = WAN_DISCONNECTED;
+ 	skb = dev_alloc_skb(1);
+ 	if( skb ){
+-		*( skb_put(skb, 1) ) = 0x02;
++		*(skb_put(skb, 1)) = X25_IFACE_DISCONNECT;
+ 		skb->protocol = x25_type_trans(skb, cprot->net_dev);
+ 		netif_rx(skb);
+ 		return 0;
+@@ -272,9 +272,10 @@ static int isdn_x25iface_xmit(struct concap_proto *cprot, struct sk_buff *skb)
+ 	unsigned char firstbyte = skb->data[0];
+ 	enum wan_states *state = &((ix25_pdata_t*)cprot->proto_data)->state;
+ 	int ret = 0;
+-	IX25DEBUG( "isdn_x25iface_xmit: %s first=%x state=%d \n", MY_DEVNAME(cprot -> net_dev), firstbyte, *state );
++	IX25DEBUG("isdn_x25iface_xmit: %s first=%x state=%d\n",
++		MY_DEVNAME(cprot->net_dev), firstbyte, *state);
+ 	switch ( firstbyte ){
+-	case 0x00: /* dl_data request */
 +	case X25_IFACE_DATA:
-+		skb_pull(skb, 1);
-+		if (x25_receive_data(skb, nb)) {
-+			x25_neigh_put(nb);
-+			goto out;
-+		}
-+		break;
-+
+ 		if( *state == WAN_CONNECTED ){
+ 			skb_pull(skb, 1);
+ 			cprot -> net_dev -> trans_start = jiffies;
+@@ -285,7 +286,7 @@ static int isdn_x25iface_xmit(struct concap_proto *cprot, struct sk_buff *skb)
+ 		}
+ 		illegal_state_warn( *state, firstbyte ); 
+ 		break;
+-	case 0x01: /* dl_connect request */
 +	case X25_IFACE_CONNECT:
-+		x25_link_established(nb);
-+		break;
-+
+ 		if( *state == WAN_DISCONNECTED ){
+ 			*state = WAN_CONNECTING;
+ 		        ret = cprot -> dops -> connect_req(cprot);
+@@ -298,7 +299,7 @@ static int isdn_x25iface_xmit(struct concap_proto *cprot, struct sk_buff *skb)
+ 			illegal_state_warn( *state, firstbyte );
+ 		}
+ 		break;
+-	case 0x02: /* dl_disconnect request */
 +	case X25_IFACE_DISCONNECT:
-+		x25_link_terminated(nb);
-+		break;
- 	}
- 	x25_neigh_put(nb);
- drop:
-@@ -148,7 +152,7 @@ void x25_establish_link(struct x25_neigh *nb)
- 				return;
- 			}
- 			ptr  = skb_put(skb, 1);
--			*ptr = 0x01;
-+			*ptr = X25_IFACE_CONNECT;
- 			break;
- 
- #if defined(CONFIG_LLC) || defined(CONFIG_LLC_MODULE)
-@@ -184,7 +188,7 @@ void x25_terminate_link(struct x25_neigh *nb)
- 	}
- 
- 	ptr  = skb_put(skb, 1);
--	*ptr = 0x02;
-+	*ptr = X25_IFACE_DISCONNECT;
- 
- 	skb->protocol = htons(ETH_P_X25);
- 	skb->dev      = nb->dev;
-@@ -200,7 +204,7 @@ void x25_send_frame(struct sk_buff *skb, struct x25_neigh *nb)
- 	switch (nb->dev->type) {
- 		case ARPHRD_X25:
- 			dptr  = skb_push(skb, 1);
--			*dptr = 0x00;
-+			*dptr = X25_IFACE_DATA;
- 			break;
- 
- #if defined(CONFIG_LLC) || defined(CONFIG_LLC_MODULE)
+ 		switch ( *state ){
+ 		case WAN_DISCONNECTED: 
+ 			/* Should not happen. However, give upper layer a
+@@ -318,7 +319,7 @@ static int isdn_x25iface_xmit(struct concap_proto *cprot, struct sk_buff *skb)
+ 			illegal_state_warn( *state, firstbyte );
+ 		}
+ 		break;
+-	case 0x03: /* changing lapb parameters requested */
++	case X25_IFACE_PARAMS:
+ 		printk(KERN_WARNING "isdn_x25iface_xmit: setting of lapb"
+ 		       " options not yet supported\n");
+ 		break;
 -- 
 1.5.6.5
 
