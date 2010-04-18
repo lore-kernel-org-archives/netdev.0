@@ -1,59 +1,47 @@
 From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: [PATCH 12/13] bnx2x: Don't report link down if has been already
- down
-Date: Sun, 18 Apr 2010 17:51:11 +0300
-Message-ID: <1271602271.27235.203.camel@lb-tlvb-vladz>
+Subject: [PATCH 13/13] bnx2x: Date and version
+Date: Sun, 18 Apr 2010 17:51:20 +0300
+Message-ID: <1271602280.27235.204.camel@lb-tlvb-vladz>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: "Eilon Greenstein" <eilong@broadcom.com>,
-	"netdev list" <netdev@vger.kernel.org>, yanivr@broadcom.com
+	"netdev list" <netdev@vger.kernel.org>
 To: "Dave Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1823 "EHLO mms2.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2016 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755609Ab0DROvX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 Apr 2010 10:51:23 -0400
+	id S1755609Ab0DROv2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Apr 2010 10:51:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Don't report link down if has been already down.
+Set version to 1.52.53-1.
 
-Author: Yaniv Rosner <yanivr@broadcom.com>
-Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
 Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_main.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/bnx2x_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index ab9a9eb..c4aac38 100644
+index a0e01bc..42d5af4 100644
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -2469,6 +2469,7 @@ static void bnx2x_init_vn_minmax(struct bnx2x *bp, int func)
- /* This function is called upon link interrupt */
- static void bnx2x_link_attn(struct bnx2x *bp)
- {
-+	u32 prev_link_status = bp->link_vars.link_status;
- 	/* Make sure that we are synced with the current statistics */
- 	bnx2x_stats_handle(bp, STATS_EVENT_STOP);
+@@ -61,8 +61,8 @@
+ #include "bnx2x_init_ops.h"
+ #include "bnx2x_dump.h"
  
-@@ -2501,8 +2502,9 @@ static void bnx2x_link_attn(struct bnx2x *bp)
- 			bnx2x_stats_handle(bp, STATS_EVENT_LINK_UP);
- 	}
+-#define DRV_MODULE_VERSION	"1.52.1-8"
+-#define DRV_MODULE_RELDATE	"2010/04/01"
++#define DRV_MODULE_VERSION	"1.52.53-1"
++#define DRV_MODULE_RELDATE	"2010/18/04"
+ #define BNX2X_BC_VER		0x040200
  
--	/* indicate link status */
--	bnx2x_link_report(bp);
-+	/* indicate link status only if link status actually changed */
-+	if (prev_link_status != bp->link_vars.link_status)
-+		bnx2x_link_report(bp);
- 
- 	if (IS_E1HMF(bp)) {
- 		int port = BP_PORT(bp);
+ #include <linux/firmware.h>
 -- 
-1.6.3.3
+1.7.0.4
 
 
 
