@@ -1,44 +1,60 @@
 From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: [PATCH 8/13] bnx2x: use mask in test_registers() to avoid
- parity error
-Date: Sun, 18 Apr 2010 17:49:45 +0300
-Message-ID: <1271602186.27235.193.camel@lb-tlvb-vladz>
+Subject: [PATCH 9/13] bnx2x: Rework power state handling code
+Date: Sun, 18 Apr 2010 17:50:06 +0300
+Message-ID: <1271602206.27235.194.camel@lb-tlvb-vladz>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev list" <netdev@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>
+Cc: "Eilon Greenstein" <eilong@broadcom.com>,
+	"netdev list" <netdev@vger.kernel.org>
 To: "Dave Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4833 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:2984 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755557Ab0DROuD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 Apr 2010 10:50:03 -0400
+	id S1755513Ab0DROuM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Apr 2010 10:50:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Properly mask the value to be written to the register during self-test.
+Move "don't shut down the power" logic into bnx2x_set_power_state() to make the code cleaner.
 
 Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/bnx2x_main.c |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 484ff2b..d311476 100644
+index d311476..2eb9a3b 100644
 --- a/drivers/net/bnx2x_main.c
 +++ b/drivers/net/bnx2x_main.c
-@@ -11219,7 +11219,7 @@ static int bnx2x_test_registers(struct bnx2x *bp)
+@@ -12017,6 +12017,14 @@ static int bnx2x_set_power_state(struct bnx2x *bp, pci_power_t state)
+ 		break;
  
- 			save_val = REG_RD(bp, offset);
+ 	case PCI_D3hot:
++		/* If there are other clients above don't
++		   shut down the power */
++		if (atomic_read(&bp->pdev->enable_cnt) != 1)
++			return 0;
++		/* Don't shut down the power for emulation and FPGA */
++		if (CHIP_REV_IS_SLOW(bp))
++			return 0;
++
+ 		pmcsr &= ~PCI_PM_CTRL_STATE_MASK;
+ 		pmcsr |= 3;
  
--			REG_WR(bp, offset, wr_val);
-+			REG_WR(bp, offset, (wr_val & mask));
- 			val = REG_RD(bp, offset);
+@@ -12629,9 +12637,7 @@ static int bnx2x_close(struct net_device *dev)
  
- 			/* Restore the original register's value */
+ 	/* Unload the driver, release IRQs */
+ 	bnx2x_nic_unload(bp, UNLOAD_CLOSE);
+-	if (atomic_read(&bp->pdev->enable_cnt) == 1)
+-		if (!CHIP_REV_IS_SLOW(bp))
+-			bnx2x_set_power_state(bp, PCI_D3hot);
++	bnx2x_set_power_state(bp, PCI_D3hot);
+ 
+ 	return 0;
+ }
 -- 
 1.6.3.3
 
