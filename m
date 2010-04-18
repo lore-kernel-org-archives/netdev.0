@@ -1,102 +1,86 @@
 From: Andrew Hendry <andrew.hendry@gmail.com>
-Subject: [PATCH 2/6] X25: Use identifiers for isdn device to x25 interface
-Date: Sun, 18 Apr 2010 19:52:25 +1000
-Message-ID: <1271584345.6280.426.camel@ibex>
+Subject: [PATCH 3/6] X25: Use identifiers for x25 async device to x25
+ interface
+Date: Sun, 18 Apr 2010 19:53:01 +1000
+Message-ID: <1271584381.6280.431.camel@ibex>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, isdn@linux-pingi.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:50091 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756154Ab0DRJwa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Apr 2010 05:52:30 -0400
-Received: by pva18 with SMTP id 18so2510701pva.19
-        for <netdev@vger.kernel.org>; Sun, 18 Apr 2010 02:52:30 -0700 (PDT)
+Received: from mail-pz0-f204.google.com ([209.85.222.204]:37498 "EHLO
+	mail-pz0-f204.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756154Ab0DRJxF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Apr 2010 05:53:05 -0400
+Received: by pzk42 with SMTP id 42so2815000pzk.4
+        for <netdev@vger.kernel.org>; Sun, 18 Apr 2010 02:53:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 Change magic numbers to identifiers for X25 interface.
-also minor check patch formatting.
 
 Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
 
 ---
- drivers/isdn/i4l/isdn_x25iface.c |   17 +++++++++--------
- 1 files changed, 9 insertions(+), 8 deletions(-)
+ drivers/net/wan/x25_asy.c |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/isdn/i4l/isdn_x25iface.c b/drivers/isdn/i4l/isdn_x25iface.c
-index efcf1f9..fd10d7c 100644
---- a/drivers/isdn/i4l/isdn_x25iface.c
-+++ b/drivers/isdn/i4l/isdn_x25iface.c
-@@ -194,7 +194,7 @@ static int isdn_x25iface_receive(struct concap_proto *cprot, struct sk_buff *skb
- 	if ( ( (ix25_pdata_t*) (cprot->proto_data) ) 
- 	     -> state == WAN_CONNECTED ){
- 		if( skb_push(skb, 1)){
--			skb -> data[0]=0x00;
-+			skb->data[0] = X25_IFACE_DATA;
- 			skb->protocol = x25_type_trans(skb, cprot->net_dev);
- 			netif_rx(skb);
- 			return 0;
-@@ -224,7 +224,7 @@ static int isdn_x25iface_connect_ind(struct concap_proto *cprot)
+diff --git a/drivers/net/wan/x25_asy.c b/drivers/net/wan/x25_asy.c
+index 80d5c58..166e77d 100644
+--- a/drivers/net/wan/x25_asy.c
++++ b/drivers/net/wan/x25_asy.c
+@@ -29,12 +29,12 @@
+ #include <linux/etherdevice.h>
+ #include <linux/skbuff.h>
+ #include <linux/if_arp.h>
+-#include <linux/x25.h>
+ #include <linux/lapb.h>
+ #include <linux/init.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/compat.h>
+ #include <linux/slab.h>
++#include <net/x25device.h>
+ #include "x25_asy.h"
  
- 	skb = dev_alloc_skb(1);
- 	if( skb ){
--		*( skb_put(skb, 1) ) = 0x01;
-+		*(skb_put(skb, 1)) = X25_IFACE_CONNECT;
- 		skb->protocol = x25_type_trans(skb, cprot->net_dev);
- 		netif_rx(skb);
- 		return 0;
-@@ -253,7 +253,7 @@ static int isdn_x25iface_disconn_ind(struct concap_proto *cprot)
- 	*state_p = WAN_DISCONNECTED;
- 	skb = dev_alloc_skb(1);
- 	if( skb ){
--		*( skb_put(skb, 1) ) = 0x02;
-+		*(skb_put(skb, 1)) = X25_IFACE_DISCONNECT;
- 		skb->protocol = x25_type_trans(skb, cprot->net_dev);
- 		netif_rx(skb);
- 		return 0;
-@@ -272,9 +272,10 @@ static int isdn_x25iface_xmit(struct concap_proto *cprot, struct sk_buff *skb)
- 	unsigned char firstbyte = skb->data[0];
- 	enum wan_states *state = &((ix25_pdata_t*)cprot->proto_data)->state;
- 	int ret = 0;
--	IX25DEBUG( "isdn_x25iface_xmit: %s first=%x state=%d \n", MY_DEVNAME(cprot -> net_dev), firstbyte, *state );
-+	IX25DEBUG("isdn_x25iface_xmit: %s first=%x state=%d\n",
-+		MY_DEVNAME(cprot->net_dev), firstbyte, *state);
- 	switch ( firstbyte ){
--	case 0x00: /* dl_data request */
+ #include <net/x25device.h>
+@@ -315,15 +315,15 @@ static netdev_tx_t x25_asy_xmit(struct sk_buff *skb,
+ 	}
+ 
+ 	switch (skb->data[0]) {
+-	case 0x00:
 +	case X25_IFACE_DATA:
- 		if( *state == WAN_CONNECTED ){
- 			skb_pull(skb, 1);
- 			cprot -> net_dev -> trans_start = jiffies;
-@@ -285,7 +286,7 @@ static int isdn_x25iface_xmit(struct concap_proto *cprot, struct sk_buff *skb)
- 		}
- 		illegal_state_warn( *state, firstbyte ); 
  		break;
--	case 0x01: /* dl_connect request */
-+	case X25_IFACE_CONNECT:
- 		if( *state == WAN_DISCONNECTED ){
- 			*state = WAN_CONNECTING;
- 		        ret = cprot -> dops -> connect_req(cprot);
-@@ -298,7 +299,7 @@ static int isdn_x25iface_xmit(struct concap_proto *cprot, struct sk_buff *skb)
- 			illegal_state_warn( *state, firstbyte );
- 		}
- 		break;
--	case 0x02: /* dl_disconnect request */
-+	case X25_IFACE_DISCONNECT:
- 		switch ( *state ){
- 		case WAN_DISCONNECTED: 
- 			/* Should not happen. However, give upper layer a
-@@ -318,7 +319,7 @@ static int isdn_x25iface_xmit(struct concap_proto *cprot, struct sk_buff *skb)
- 			illegal_state_warn( *state, firstbyte );
- 		}
- 		break;
--	case 0x03: /* changing lapb parameters requested */
-+	case X25_IFACE_PARAMS:
- 		printk(KERN_WARNING "isdn_x25iface_xmit: setting of lapb"
- 		       " options not yet supported\n");
- 		break;
+-	case 0x01: /* Connection request .. do nothing */
++	case X25_IFACE_CONNECT: /* Connection request .. do nothing */
+ 		err = lapb_connect_request(dev);
+ 		if (err != LAPB_OK)
+ 			printk(KERN_ERR "x25_asy: lapb_connect_request error - %d\n", err);
+ 		kfree_skb(skb);
+ 		return NETDEV_TX_OK;
+-	case 0x02: /* Disconnect request .. do nothing - hang up ?? */
++	case X25_IFACE_DISCONNECT: /* do nothing - hang up ?? */
+ 		err = lapb_disconnect_request(dev);
+ 		if (err != LAPB_OK)
+ 			printk(KERN_ERR "x25_asy: lapb_disconnect_request error - %d\n", err);
+@@ -411,7 +411,7 @@ static void x25_asy_connected(struct net_device *dev, int reason)
+ 	}
+ 
+ 	ptr  = skb_put(skb, 1);
+-	*ptr = 0x01;
++	*ptr = X25_IFACE_CONNECT;
+ 
+ 	skb->protocol = x25_type_trans(skb, sl->dev);
+ 	netif_rx(skb);
+@@ -430,7 +430,7 @@ static void x25_asy_disconnected(struct net_device *dev, int reason)
+ 	}
+ 
+ 	ptr  = skb_put(skb, 1);
+-	*ptr = 0x02;
++	*ptr = X25_IFACE_DISCONNECT;
+ 
+ 	skb->protocol = x25_type_trans(skb, sl->dev);
+ 	netif_rx(skb);
 -- 
 1.5.6.5
 
