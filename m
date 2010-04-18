@@ -1,50 +1,32 @@
 From: Karsten Keil <isdn@linux-pingi.de>
-Subject: Re: [PATCH] gigaset: include cleanup cleanup
-Date: Sun, 18 Apr 2010 15:31:14 +0200
-Message-ID: <201004181531.14871.isdn@linux-pingi.de>
-References: <20100416220858.A19F540123@xenon.ts.pxnet.com> <4BCA6B8E.9000408@kernel.org>
+Subject: Re: [PATCH 2/6] X25: Use identifiers for isdn device to x25 interface
+Date: Sun, 18 Apr 2010 15:41:53 +0200
+Message-ID: <201004181541.53997.isdn@linux-pingi.de>
+References: <1271584345.6280.426.camel@ibex>
 Reply-To: isdn@linux-pingi.de
 Mime-Version: 1.0
 Content-Type: Text/Plain;
-  charset="iso-8859-1"
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Tilman Schmidt <tilman@imap.cc>,
-	David Miller <davem@davemloft.net>,
-	Hansjoerg Lipp <hjlipp@web.de>,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4BCA6B8E.9000408@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Andrew Hendry <andrew.hendry@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.17.9]:62521 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753002Ab0DRNl4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Apr 2010 09:41:56 -0400
+In-Reply-To: <1271584345.6280.426.camel@ibex>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sonntag, 18. April 2010 04:16:46 Tejun Heo wrote:
-> Hello,
+On Sonntag, 18. April 2010 11:52:25 Andrew Hendry wrote:
+> Change magic numbers to identifiers for X25 interface.
+> also minor check patch formatting.
 > 
-> On 04/17/2010 07:08 AM, Tilman Schmidt wrote:
-> > Commit 5a0e3ad causes slab.h to be included twice in many of the
-> > Gigaset driver's source files, first via the common include file
-> > gigaset.h and then a second time directly. Drop the spares, and
-> > use the opportunity to clean up a few more similar cases.
-> >
-> > Impact: cleanup, no functional change
-> > Signed-off-by: Tilman Schmidt <tilman@imap.cc>
-> > CC: Tejun Heo <tj@kernel.org>
+> Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
 > 
-> Acked-by: Tejun Heo <tj@kernel.org>
 Acked-by: Karsten Keil <isdn@linux-pingi.de>
 
-> 
-> Thanks for the clean up.
-> 
-> > Seeing that the "include cleanup" patch triggering this was accepted
-> > after the merge window, I have hopes this one will be accepted, too.
-> 
-> Hmm... through which tree should this go through?  I can route it
-> through percpu but maybe taking the usual isdn patch path would be
-> better?
-> 
-I think David Miller will take it.
+Thanks for improving the readability of the code.
 
 Karsten
