@@ -1,89 +1,67 @@
-From: Andrew Hendry <andrew.hendry@gmail.com>
-Subject: [PATCH 6/6] X25: Use identifiers for hdlc x25 device to x25
- interface
-Date: Sun, 18 Apr 2010 19:53:49 +1000
-Message-ID: <1271584429.6280.435.camel@ibex>
+From: Franco Fichtner <franco@lastsummer.de>
+Subject: Re: [PATCH v5] rfs: Receive Flow Steering
+Date: Sun, 18 Apr 2010 12:06:24 +0100
+Message-ID: <4BCAE7B0.6070200@lastsummer.de>
+References: <alpine.DEB.1.00.1004152243470.15102@pokey.mtv.corp.google.com> 	<20100415.233334.242114544.davem@davemloft.net> <1271401007.16881.3762.camel@edumazet-laptop> 	<l2m65634d661004161135h1c1466afi54787022bfc2ce12@mail.gmail.com> 	<1271443994.16881.4249.camel@edumazet-laptop> <u2t65634d661004161342zeadb5602w73c369ec717dc6e1@mail.gmail.com> 	<1271452358.16881.4486.camel@edumazet-laptop> <1271520633.16881.4754.camel@edumazet-laptop> 	<h2h65634d661004171038g75160e7avae118dfd1cb1441d@mail.gmail.com> <h2q412e6f7f1004171706w905cc5c8u51f82cad221642f4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, khc@pm.waw.pl
+Cc: Tom Herbert <therbert@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:47339 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756503Ab0DRJxy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Apr 2010 05:53:54 -0400
-Received: by pva18 with SMTP id 18so2510920pva.19
-        for <netdev@vger.kernel.org>; Sun, 18 Apr 2010 02:53:53 -0700 (PDT)
+Received: from host64.kissl.de ([213.239.241.64]:53570 "EHLO host64.kissl.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756576Ab0DRK2p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 18 Apr 2010 06:28:45 -0400
+In-Reply-To: <h2q412e6f7f1004171706w905cc5c8u51f82cad221642f4@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Changli Gao wrote:
+> On Sun, Apr 18, 2010 at 1:38 AM, Tom Herbert <therbert@google.com> wrote:
+>   
+>> That's cool!, but I still like the idea that this hash is treated as
+>> an opaque value getting the hash from the device to avoid the jhash
+>> or cache misses on the packet can also be a win...  Maybe connection
+>> tracking/firewall could use the skb->rxhash which provides the
+>> consistency and also eliminates the need to do more jhashes.
+>>
+>>     
+>
+> consistent rxhash only adds the risk of the hash collision, and I
+> don't think it is a big problem. For connection tracking/firewall use,
+> I am afraid that we have to recompute this value after defrag.  So we
+> have to export the hash function we used in RPS.
+>
+> As NIC's hash function can be changed dynamically, the rxhash isn't
+> consistent, so the rxhash can't be used by connection tracking, socket
+> lookup and others come later.
+>
+>   
+I have to agree with Eric and Changli here.
 
-Change magic numbers to identifiers for X25 interface.
-Note, x25_connect_disconnect 'reason' appears unimplemented?
-Have left that part as is for the moment.
+It's especially true if you're passively tracking via one NIC, where all 
+traffic is just forwarded.
+In this scenario, you need to compute consistent hashes. rxhashes by NIC 
+will be different for
+"incoming" and "outgoing" traffic...
 
-Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
+Where rxhash by NIC can be used (note: didn't say _useful_) are 
+scenarios with different net
+ports for incoming and outgoing traffic (in active but also passive 
+traffic scenarios). Here,
+rxhashes could be used on a per-port basis, but associating two 
+seemingly separate rxhashes
+with one another to match CPUs is a really annoying task. This would 
+involve computing the
+corresponding "txhash" and looking it up, which is what we'd be doing 
+with the jhash anyway.
 
----
- drivers/net/wan/hdlc_x25.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/wan/hdlc_x25.c b/drivers/net/wan/hdlc_x25.c
-index c7adbb7..70527e5 100644
---- a/drivers/net/wan/hdlc_x25.c
-+++ b/drivers/net/wan/hdlc_x25.c
-@@ -49,14 +49,14 @@ static void x25_connect_disconnect(struct net_device *dev, int reason, int code)
- 
- static void x25_connected(struct net_device *dev, int reason)
- {
--	x25_connect_disconnect(dev, reason, 1);
-+	x25_connect_disconnect(dev, reason, X25_IFACE_CONNECT);
- }
- 
- 
- 
- static void x25_disconnected(struct net_device *dev, int reason)
- {
--	x25_connect_disconnect(dev, reason, 2);
-+	x25_connect_disconnect(dev, reason, X25_IFACE_DISCONNECT);
- }
- 
- 
-@@ -71,7 +71,7 @@ static int x25_data_indication(struct net_device *dev, struct sk_buff *skb)
- 		return NET_RX_DROP;
- 
- 	ptr  = skb->data;
--	*ptr = 0;
-+	*ptr = X25_IFACE_DATA;
- 
- 	skb->protocol = x25_type_trans(skb, dev);
- 	return netif_rx(skb);
-@@ -94,13 +94,13 @@ static netdev_tx_t x25_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	/* X.25 to LAPB */
- 	switch (skb->data[0]) {
--	case 0:		/* Data to be transmitted */
-+	case X25_IFACE_DATA:	/* Data to be transmitted */
- 		skb_pull(skb, 1);
- 		if ((result = lapb_data_request(dev, skb)) != LAPB_OK)
- 			dev_kfree_skb(skb);
- 		return NETDEV_TX_OK;
- 
--	case 1:
-+	case X25_IFACE_CONNECT:
- 		if ((result = lapb_connect_request(dev))!= LAPB_OK) {
- 			if (result == LAPB_CONNECTED)
- 				/* Send connect confirm. msg to level 3 */
-@@ -112,7 +112,7 @@ static netdev_tx_t x25_xmit(struct sk_buff *skb, struct net_device *dev)
- 		}
- 		break;
- 
--	case 2:
-+	case X25_IFACE_DISCONNECT:
- 		if ((result = lapb_disconnect_request(dev)) != LAPB_OK) {
- 			if (result == LAPB_NOTCONNECTED)
- 				/* Send disconnect confirm. msg to level 3 */
--- 
-1.5.6.5
+For proper flow tracking Eric's suggestion is the way to go. And if 
+there are worries about
+collisions, why not add IPPROTO_* to the mix.
 
 
+Franco
