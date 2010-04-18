@@ -1,50 +1,136 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] ks8842: Add module param for setting mac address
-Date: Sun, 18 Apr 2010 20:50:21 +0100
-Message-ID: <1271620221.3679.265.camel@localhost>
-References: <1271611557.24099.11.camel@debian>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH v2] TCP: avoid to send keepalive probes if it is receiving
+ data
+Date: Sun, 18 Apr 2010 23:34:15 +0300 (EEST)
+Message-ID: <alpine.DEB.2.00.1004182328370.19304@melkinpaasi.cs.helsinki.fi>
+References: <1271581560.16881.4769.camel@edumazet-laptop>  <1271602519-6805-1-git-send-email-fleitner@redhat.com> <1271610919.16881.5564.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Richard =?ISO-8859-1?Q?R=F6jfors?=
-	<richard.rojfors@pelagicore.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-696250871-1974661236-1271622855=:19304"
+Cc: Flavio Leitner <fleitner@redhat.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:37481 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752182Ab0DRTu0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Apr 2010 15:50:26 -0400
-In-Reply-To: <1271611557.24099.11.camel@debian>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:55301 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752443Ab0DRUeR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Apr 2010 16:34:17 -0400
+In-Reply-To: <1271610919.16881.5564.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2010-04-18 at 19:25 +0200, Richard R=C3=B6jfors wrote:
-> This patch adds a module parameter for setting the MAC address.
->=20
-> To ensure this MAC address is used, the MAC address is written
-> after each hardware reset.
-[...]
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-This is not an accepted way of setting the MAC address.  The accepted
-ways to initialise a network controller's address are:
+---696250871-1974661236-1271622855=:19304
+Content-Type: TEXT/PLAIN; charset=utf-8
+Content-Transfer-Encoding: 8BIT
 
-1. a. Controller reads it from dedicated NVRAM.  Driver reads it from
-      controller.
-   b. Driver reads it from dedicated NVRAM.
-2. Platform firmware or boot loader passes platform data (OpenFirmware,
-   device tree, etc.) to the kernel, which includes the assigned MAC
-   address.  Driver uses kernel functions to read it from platform data=
-=2E
-3. Platform firmware or boot loader programs it into the controller.
-   Driver reads it from the controller.
-4. Driver generates random address.
+On Sun, 18 Apr 2010, Eric Dumazet wrote:
 
-In any case, userland can change the MAC address later.
+> Le dimanche 18 avril 2010 à 11:55 -0300, Flavio Leitner a écrit :
+> > RFC 1122 says the following:
+> > ...
+> >   Keep-alive packets MUST only be sent when no data or
+> >   acknowledgement packets have been received for the
+> >   connection within an interval.
+> > ...
+> > 
+> > Fix this by storing the timestamp of last received data
+> > packet and checking for it when the keepalive timer expires.
+> > 
+> > -v2 fix do_tcp_setsockopt() as pointed by Eric Dumazet <eric.dumazet@gmail.com>
+> > 
+> > Signed-off-by: Flavio Leitner <fleitner@redhat.com>
+> 
+> 
+> I find this patch very welcome, and we could easily use this new
+> lrcvtime information available in diagnostic tools (ss command)
+> 
+> But are you sure you update it for all valid packets ?
+> 
+> If we receive a pure ACK, it seems you do not ...
 
-Ben.
+I fail to see why the addition of this new variable is necessary at all, 
+could either of you enlight me why exactly it's necessary and rcv_tstamp 
+will not suffice?
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> > ---
+> >  include/linux/tcp.h  |    1 +
+> >  net/ipv4/tcp.c       |    5 ++++-
+> >  net/ipv4/tcp_input.c |    3 +++
+> >  net/ipv4/tcp_timer.c |    8 ++++++++
+> >  4 files changed, 16 insertions(+), 1 deletions(-)
+> > 
+> > diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+> > index a778ee0..405678f 100644
+> > --- a/include/linux/tcp.h
+> > +++ b/include/linux/tcp.h
+> > @@ -314,6 +314,7 @@ struct tcp_sock {
+> >   	u32	snd_sml;	/* Last byte of the most recently transmitted small packet */
+> >  	u32	rcv_tstamp;	/* timestamp of last received ACK (for keepalives) */
+> >  	u32	lsndtime;	/* timestamp of last sent data packet (for restart window) */
+> > +	u32	lrcvtime;	/* timestamp of last received data packet (for keepalives) */
+> >  
+> >  	/* Data for direct copy to user */
+> >  	struct {
+> > diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> > index 0f8caf6..a4048d7 100644
+> > --- a/net/ipv4/tcp.c
+> > +++ b/net/ipv4/tcp.c
+> > @@ -2298,7 +2298,10 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+> >  			if (sock_flag(sk, SOCK_KEEPOPEN) &&
+> >  			    !((1 << sk->sk_state) &
+> >  			      (TCPF_CLOSE | TCPF_LISTEN))) {
+> > -				__u32 elapsed = tcp_time_stamp - tp->rcv_tstamp;
+> > +				u32 elapsed = min_t(u32,
+> > +						      tcp_time_stamp - tp->rcv_tstamp,
+> > +						      tcp_time_stamp - tp->lrcvtime);
+> > +
+> >  				if (tp->keepalive_time > elapsed)
+> >  					elapsed = tp->keepalive_time - elapsed;
+> >  				else
+> > diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> > index f240f57..60d2980 100644
+> > --- a/net/ipv4/tcp_input.c
+> > +++ b/net/ipv4/tcp_input.c
+> > @@ -5391,6 +5391,8 @@ no_ack:
+> >  				__kfree_skb(skb);
+> >  			else
+> >  				sk->sk_data_ready(sk, 0);
+> > +
+> > +			tp->lrcvtime = tcp_time_stamp;
+> >  			return 0;
+> >  		}
+> >  	}
+> > @@ -5421,6 +5423,7 @@ step5:
+> >  
+> >  	tcp_data_snd_check(sk);
+> >  	tcp_ack_snd_check(sk);
+> > +	tp->lrcvtime = tcp_time_stamp;
+> >  	return 0;
+> >  
+> >  csum_error:
+> > diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+> > index 8a0ab29..74dd804 100644
+> > --- a/net/ipv4/tcp_timer.c
+> > +++ b/net/ipv4/tcp_timer.c
+> > @@ -554,6 +554,14 @@ static void tcp_keepalive_timer (unsigned long data)
+> >  	if (tp->packets_out || tcp_send_head(sk))
+> >  		goto resched;
+> >  
+> > +	elapsed = tcp_time_stamp - tp->lrcvtime;
+> > +	
+> > +	/* receiving data means alive */
+> > +	if (elapsed < keepalive_time_when(tp)) {
+> > +		elapsed = keepalive_time_when(tp) - elapsed;
+> > +		goto resched;
+> > +	}
+> > +
+> >  	elapsed = tcp_time_stamp - tp->rcv_tstamp;
+> >  
+> >  	if (elapsed >= keepalive_time_when(tp)) {
 
+
+-- 
+ i.
+---696250871-1974661236-1271622855=:19304--
