@@ -1,115 +1,707 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: Bug#577640: linux-image-2.6.33-2-amd64: Kernel warnings in
- netns thread
-Date: Sun, 18 Apr 2010 18:33:25 +0100
-Message-ID: <1271612005.3679.248.camel@localhost>
-References: <20100413112017.8505.36380.reportbug@japot.localdomain>
+From: =?UTF-8?q?L=2E=20Alberto=20Gim=C3=A9nez?= <agimenez-lqZFv/KUvpAxAGwisGp4zA@public.gmane.org>
+Subject: [PATCH] drivers/net/usb: Add new driver ipheth
+Date: Sun, 18 Apr 2010 20:35:16 +0200
+Message-ID: <1271615719-14928-1-git-send-email-agimenez@sysvalve.es>
+References: <1269984864-28159-1-git-send-email-agimenez@sysvalve.es>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-rWvstrAH0LFbnoRb/H2e"
-Cc: netdev <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@aristanetworks.com>,
-	Alexey Dobriyan <adobriyan@gmail.com>
-To: Martin Ferrari <martin.ferrari@gmail.com>, 577640@bugs.debian.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:55438 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751442Ab0DRRdm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Apr 2010 13:33:42 -0400
-In-Reply-To: <20100413112017.8505.36380.reportbug@japot.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dgiagio-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, dborca-/E1597aS9LQAvxtiuMwx3w@public.gmane.org,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	James Bottomley <James.Bottomley-d9PhHud1JfjCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>,
+	Ralf Baechle <ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>,
+	=?UTF-8?q?Jonas=20Sj=C3=B6quist?= <jonas.sjoquist-IzeFyvvaP7pWk0Htik3J/w@public.gmane.org>,
+	Torgny Johansson <torgny.johansson-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Steve Glendinning <steve.glendinning-sdUf+H5yV5I@public.gmane.org>,
+	David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
+	Omar Laazimani <omar.oberthur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	=?UTF-8?q?R=C3=A9mi=20Denis-Courmont?=
+	<remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>,
+	=?UTF-8?q?L=2E=20Alberto=20Gim=C3=A9nez?= <agimenez-lqZFv/KUvpAxAGwisGp4zA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1269984864-28159-1-git-send-email-agimenez-lqZFv/KUvpAxAGwisGp4zA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+=46rom: Diego Giagio <diego-KR0zwsgql1HQT0dZR+AlfA@public.gmane.org>
 
---=-rWvstrAH0LFbnoRb/H2e
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Add new driver to use tethering with an iPhone device. After initial su=
+bmission,
+apply fixes to fit the new driver into the kernel standards.
 
-On Tue, 2010-04-13 at 13:20 +0200, Martin Ferrari wrote:
-> Package: linux-2.6
-> Version: 2.6.33-1~experimental.4
-> Severity: normal
-> Tags: experimental
->=20
-> Firstly, please note that I'm running this inside a Qemu, but I
-> imagine that it should not change things much.
->=20
-> I installed 2.6.33 to try out the new improvements regarding network
-> namespaces, and while creating and killing hundreds of them, I got
-> many warnings from the kernel that might indicate a bug somewhere.
-> Please see the log already included by reportbug.
+There are still a couple of minor (almost cosmetic-level) issues, but t=
+he driver
+is fully functional right now.
 
-I'm forwarding this to the upstream maintainers.
+Signed-off-by: L. Alberto Gim=C3=A9nez <agimenez-lqZFv/KUvpAxAGwisGp4zA@public.gmane.org>
+---
+This time I've cleared the authorship as requested by David. Diego is t=
+he
+original author of the code, although Daniel Borca has contributed a lo=
+t of
+changes as well (I did the kernel-tree integration and fixed checkpatch=
+ issues
+as well as some of the problems pointed out in the list on previous
+submissions).
 
-Ben.
+Diego and/or Daniel: please sign-off (specially Diego since he is the o=
+ne who
+will be officially attributed as the driver author) this patch so the a=
+uthorship
+and DCO is clear.
 
-[...]
-> [ 6696.035331] ------------[ cut here ]------------
-> [ 6696.035334] WARNING: at /build/mattems-linux-2.6_2.6.33-1~experimental=
-.4-amd64-ieqSsa/linux-2.6-2.6.33-1~experimental.4/debian/build/source_amd64=
-_none/kernel/sysctl.c:1894 unregister_sysctl_table+0xa6/0xd1()
-> [ 6696.035336] Hardware name:=20
-> [ 6696.035337] Modules linked in: veth loop parport_pc parport snd_pcm tp=
-m_tis evdev snd_timer i2c_piix4 tpm tpm_bios button processor serio_raw i2c=
-_core snd soundcore snd_page_alloc pcspkr psmouse ext3 jbd mbcache sg sr_mo=
-d cdrom sd_mod crc_t10dif ata_generic ata_piix libata floppy 8139cp thermal=
- thermal_sys 8139too mii scsi_mod [last unloaded: veth]
-> [ 6696.035354] Pid: 9, comm: netns Tainted: G        W  2.6.33-2-amd64 #1
-> [ 6696.035355] Call Trace:
-> [ 6696.035357]  [<ffffffff8104e303>] ? unregister_sysctl_table+0xa6/0xd1
-> [ 6696.035360]  [<ffffffff8104e303>] ? unregister_sysctl_table+0xa6/0xd1
-> [ 6696.035362]  [<ffffffff81046b81>] ? warn_slowpath_common+0x77/0xa3
-> [ 6696.035364]  [<ffffffff8104e303>] ? unregister_sysctl_table+0xa6/0xd1
-> [ 6696.035367]  [<ffffffff812b1205>] ? addrconf_ifdown+0x26f/0x2cc
-> [ 6696.035369]  [<ffffffff81247edc>] ? neigh_sysctl_unregister+0x1a/0x31
-> [ 6696.035371]  [<ffffffff812b1211>] ? addrconf_ifdown+0x27b/0x2cc
-> [ 6696.035374]  [<ffffffff812b2b0c>] ? addrconf_notify+0x714/0x7ea
-> [ 6696.035376]  [<ffffffff811eb2e7>] ? extract_entropy+0x6a/0x125
-> [ 6696.035379]  [<ffffffff81053aaf>] ? lock_timer_base+0x26/0x4b
-> [ 6696.035382]  [<ffffffff8123951c>] ? skb_dequeue+0x50/0x58
-> [ 6696.035384]  [<ffffffff812482c8>] ? pneigh_queue_purge+0x25/0x2f
-> [ 6696.035386]  [<ffffffff81249a91>] ? neigh_ifdown+0xba/0xc9
-> [ 6696.035389]  [<ffffffff81062f6d>] ? notifier_call_chain+0x29/0x4c
-> [ 6696.035392]  [<ffffffff81243662>] ? rollback_registered_many+0xed/0x19=
-c
-> [ 6696.035394]  [<ffffffff8124371f>] ? unregister_netdevice_many+0xe/0x57
-> [ 6696.035397]  [<ffffffff812438a3>] ? default_device_exit_batch+0x92/0xa=
-3
-> [ 6696.035399]  [<ffffffff8123e97a>] ? cleanup_net+0xfd/0x1af
-> [ 6696.035402]  [<ffffffff8105bd0d>] ? worker_thread+0x188/0x21d
-> [ 6696.035404]  [<ffffffff8123e87d>] ? cleanup_net+0x0/0x1af
-> [ 6696.035406]  [<ffffffff8105f2d2>] ? autoremove_wake_function+0x0/0x2e
-> [ 6696.035409]  [<ffffffff8105bb85>] ? worker_thread+0x0/0x21d
-> [ 6696.035411]  [<ffffffff8105ee99>] ? kthread+0x79/0x81
-> [ 6696.035414]  [<ffffffff810098e4>] ? kernel_thread_helper+0x4/0x10
-> [ 6696.035416]  [<ffffffff8105ee20>] ? kthread+0x0/0x81
-> [ 6696.035418]  [<ffffffff810098e0>] ? kernel_thread_helper+0x0/0x10
-> [ 6696.035419] ---[ end trace ef7b93cb006e989e ]---
-[...]
+ drivers/net/Makefile     |    1 +
+ drivers/net/usb/Kconfig  |   12 +
+ drivers/net/usb/Makefile |    1 +
+ drivers/net/usb/ipheth.c |  568 ++++++++++++++++++++++++++++++++++++++=
+++++++++
+ 4 files changed, 582 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/usb/ipheth.c
 
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index a583b50..12b280a 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -273,6 +273,7 @@ obj-$(CONFIG_USB_RTL8150)       +=3D usb/
+ obj-$(CONFIG_USB_HSO)		+=3D usb/
+ obj-$(CONFIG_USB_USBNET)        +=3D usb/
+ obj-$(CONFIG_USB_ZD1201)        +=3D usb/
++obj-$(CONFIG_USB_IPHETH)        +=3D usb/
+=20
+ obj-y +=3D wireless/
+ obj-$(CONFIG_NET_TULIP) +=3D tulip/
+diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
+index ba56ce4..63be4ca 100644
+--- a/drivers/net/usb/Kconfig
++++ b/drivers/net/usb/Kconfig
+@@ -385,4 +385,16 @@ config USB_CDC_PHONET
+ 	  cellular modem, as found on most Nokia handsets with the
+ 	  "PC suite" USB profile.
+=20
++config USB_IPHETH
++	tristate "Apple iPhone USB Ethernet driver"
++	default n
++	---help---
++	  Module used to share Internet connection (tethering) from your
++	  iPhone (Original, 3G and 3GS) to your system.
++	  Note that you need userspace libraries and programs that are needed
++	  to pair your device with your system and that understand the iPhone
++	  protocol.
++
++	  For more information: http://giagio.com/wiki/moin.cgi/iPhoneEtherne=
+tDriver
++
+ endmenu
+diff --git a/drivers/net/usb/Makefile b/drivers/net/usb/Makefile
+index 82ea629..edb09c0 100644
+--- a/drivers/net/usb/Makefile
++++ b/drivers/net/usb/Makefile
+@@ -23,4 +23,5 @@ obj-$(CONFIG_USB_NET_MCS7830)	+=3D mcs7830.o
+ obj-$(CONFIG_USB_USBNET)	+=3D usbnet.o
+ obj-$(CONFIG_USB_NET_INT51X1)	+=3D int51x1.o
+ obj-$(CONFIG_USB_CDC_PHONET)	+=3D cdc-phonet.o
++obj-$(CONFIG_USB_IPHETH)	+=3D ipheth.o
+=20
+diff --git a/drivers/net/usb/ipheth.c b/drivers/net/usb/ipheth.c
+new file mode 100644
+index 0000000..fd10331
+--- /dev/null
++++ b/drivers/net/usb/ipheth.c
+@@ -0,0 +1,568 @@
++/*
++ * ipheth.c - Apple iPhone USB Ethernet driver
++ *
++ * Copyright (c) 2009 Diego Giagio <diego-KR0zwsgql1HQT0dZR+AlfA@public.gmane.org>
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyrigh=
+t
++ *    notice, this list of conditions and the following disclaimer in =
+the
++ *    documentation and/or other materials provided with the distribut=
+ion.
++ * 3. Neither the name of GIAGIO.COM nor the names of its contributors
++ *    may be used to endorse or promote products derived from this sof=
+tware
++ *    without specific prior written permission.
++ *
++ * Alternatively, provided that this notice is retained in full, this
++ * software may be distributed under the terms of the GNU General
++ * Public License ("GPL") version 2, in which case the provisions of t=
+he
++ * GPL apply INSTEAD OF those given above.
++ *
++ * The provided data structures and external interfaces from this code
++ * are not restricted to be used by modules with a GPL compatible lice=
+nse.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS F=
+OR
++ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGH=
+T
++ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTA=
+L,
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF US=
+E,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON A=
+NY
++ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
++ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE U=
+SE
++ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
++ * DAMAGE.
++ *
++ *
++ * Attention: iPhone device must be paired, otherwise it won't respond=
+ to our
++ * driver. For more info: http://giagio.com/wiki/moin.cgi/iPhoneEthern=
+etDriver
++ *
++ */
++
++#include <linux/kernel.h>
++#include <linux/errno.h>
++#include <linux/init.h>
++#include <linux/slab.h>
++#include <linux/module.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/ethtool.h>
++#include <linux/usb.h>
++#include <linux/workqueue.h>
++
++#define USB_VENDOR_APPLE        0x05ac
++#define USB_PRODUCT_IPHONE      0x1290
++#define USB_PRODUCT_IPHONE_3G   0x1292
++#define USB_PRODUCT_IPHONE_3GS  0x1294
++
++#define IPHETH_USBINTF_CLASS    255
++#define IPHETH_USBINTF_SUBCLASS 253
++#define IPHETH_USBINTF_PROTO    1
++
++#define IPHETH_BUF_SIZE         1516
++#define IPHETH_TX_TIMEOUT       (5 * HZ)
++
++#define IPHETH_INTFNUM          2
++#define IPHETH_ALT_INTFNUM      1
++
++#define IPHETH_CTRL_ENDP        0x00
++#define IPHETH_CTRL_BUF_SIZE    0x40
++#define IPHETH_CTRL_TIMEOUT     (5 * HZ)
++
++#define IPHETH_CMD_GET_MACADDR   0x00
++#define IPHETH_CMD_CARRIER_CHECK 0x45
++
++#define IPHETH_CARRIER_CHECK_TIMEOUT round_jiffies_relative(1 * HZ)
++#define IPHETH_CARRIER_ON       0x04
++
++static struct usb_device_id ipheth_table[] =3D {
++	{ USB_DEVICE_AND_INTERFACE_INFO(
++		USB_VENDOR_APPLE, USB_PRODUCT_IPHONE,
++		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
++		IPHETH_USBINTF_PROTO) },
++	{ USB_DEVICE_AND_INTERFACE_INFO(
++		USB_VENDOR_APPLE, USB_PRODUCT_IPHONE_3G,
++		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
++		IPHETH_USBINTF_PROTO) },
++	{ USB_DEVICE_AND_INTERFACE_INFO(
++		USB_VENDOR_APPLE, USB_PRODUCT_IPHONE_3GS,
++		IPHETH_USBINTF_CLASS, IPHETH_USBINTF_SUBCLASS,
++		IPHETH_USBINTF_PROTO) },
++	{ }
++};
++MODULE_DEVICE_TABLE(usb, ipheth_table);
++
++struct ipheth_device {
++	struct usb_device *udev;
++	struct usb_interface *intf;
++	struct net_device *net;
++	struct sk_buff *tx_skb;
++	struct urb *tx_urb;
++	struct urb *rx_urb;
++	unsigned char *tx_buf;
++	unsigned char *rx_buf;
++	unsigned char *ctrl_buf;
++	u8 bulk_in;
++	u8 bulk_out;
++	struct delayed_work carrier_work;
++};
++
++static int ipheth_rx_submit(struct ipheth_device *dev, gfp_t mem_flags=
+);
++
++static int ipheth_alloc_urbs(struct ipheth_device *iphone)
++{
++	struct urb *tx_urb =3D NULL;
++	struct urb *rx_urb =3D NULL;
++	u8 *tx_buf =3D NULL;
++	u8 *rx_buf =3D NULL;
++
++	tx_urb =3D usb_alloc_urb(0, GFP_KERNEL);
++	if (tx_urb =3D=3D NULL)
++		goto error;
++
++	rx_urb =3D usb_alloc_urb(0, GFP_KERNEL);
++	if (rx_urb =3D=3D NULL)
++		goto error;
++
++	tx_buf =3D usb_buffer_alloc(iphone->udev,
++				  IPHETH_BUF_SIZE,
++				  GFP_KERNEL,
++				  &tx_urb->transfer_dma);
++	if (tx_buf =3D=3D NULL)
++		goto error;
++
++	rx_buf =3D usb_buffer_alloc(iphone->udev,
++				  IPHETH_BUF_SIZE,
++				  GFP_KERNEL,
++				  &rx_urb->transfer_dma);
++	if (rx_buf =3D=3D NULL)
++		goto error;
++
++
++	iphone->tx_urb =3D tx_urb;
++	iphone->rx_urb =3D rx_urb;
++	iphone->tx_buf =3D tx_buf;
++	iphone->rx_buf =3D rx_buf;
++	return 0;
++
++error:
++	usb_buffer_free(iphone->udev, IPHETH_BUF_SIZE, rx_buf,
++			rx_urb->transfer_dma);
++	usb_buffer_free(iphone->udev, IPHETH_BUF_SIZE, tx_buf,
++			tx_urb->transfer_dma);
++	usb_free_urb(rx_urb);
++	usb_free_urb(tx_urb);
++	return -ENOMEM;
++}
++
++static void ipheth_free_urbs(struct ipheth_device *iphone)
++{
++	usb_buffer_free(iphone->udev, IPHETH_BUF_SIZE, iphone->rx_buf,
++			iphone->rx_urb->transfer_dma);
++	usb_buffer_free(iphone->udev, IPHETH_BUF_SIZE, iphone->tx_buf,
++			iphone->tx_urb->transfer_dma);
++	usb_free_urb(iphone->rx_urb);
++	usb_free_urb(iphone->tx_urb);
++}
++
++static void ipheth_kill_urbs(struct ipheth_device *dev)
++{
++	usb_kill_urb(dev->tx_urb);
++	usb_kill_urb(dev->rx_urb);
++}
++
++static void ipheth_rcvbulk_callback(struct urb *urb)
++{
++	struct ipheth_device *dev;
++	struct sk_buff *skb;
++	int status;
++	char *buf;
++	int len;
++
++	dev =3D urb->context;
++	if (dev =3D=3D NULL)
++		return;
++
++	status =3D urb->status;
++	switch (status) {
++	case -ENOENT:
++	case -ECONNRESET:
++	case -ESHUTDOWN:
++		return;
++	case 0:
++		break;
++	default:
++		err("%s: urb status: %d", __func__, urb->status);
++		return;
++	}
++
++	len =3D urb->actual_length;
++	buf =3D urb->transfer_buffer;
++
++	skb =3D dev_alloc_skb(NET_IP_ALIGN + len);
++	if (!skb) {
++		err("%s: dev_alloc_skb: -ENOMEM", __func__);
++		dev->net->stats.rx_dropped++;
++		return;
++	}
++
++	skb_reserve(skb, NET_IP_ALIGN);
++	memcpy(skb_put(skb, len), buf + NET_IP_ALIGN, len - NET_IP_ALIGN);
++	skb->dev =3D dev->net;
++	skb->protocol =3D eth_type_trans(skb, dev->net);
++
++	dev->net->stats.rx_packets++;
++	dev->net->stats.rx_bytes +=3D len;
++
++	netif_rx(skb);
++	ipheth_rx_submit(dev, GFP_ATOMIC);
++}
++
++static void ipheth_sndbulk_callback(struct urb *urb)
++{
++	struct ipheth_device *dev;
++
++	dev =3D urb->context;
++	if (dev =3D=3D NULL)
++		return;
++
++	if (urb->status !=3D 0 &&
++	    urb->status !=3D -ENOENT &&
++	    urb->status !=3D -ECONNRESET &&
++	    urb->status !=3D -ESHUTDOWN)
++		err("%s: urb status: %d", __func__, urb->status);
++
++	dev_kfree_skb_irq(dev->tx_skb);
++	netif_wake_queue(dev->net);
++}
++
++static int ipheth_carrier_set(struct ipheth_device *dev)
++{
++	struct usb_device *udev =3D dev->udev;
++	int retval;
++
++	retval =3D usb_control_msg(udev,
++			usb_rcvctrlpipe(udev, IPHETH_CTRL_ENDP),
++			IPHETH_CMD_CARRIER_CHECK, /* request */
++			0xc0, /* request type */
++			0x00, /* value */
++			0x02, /* index */
++			dev->ctrl_buf, IPHETH_CTRL_BUF_SIZE,
++			IPHETH_CTRL_TIMEOUT);
++	if (retval < 0) {
++		err("%s: usb_control_msg: %d", __func__, retval);
++		return retval;
++	}
++
++	if (dev->ctrl_buf[0] =3D=3D IPHETH_CARRIER_ON)
++		netif_carrier_on(dev->net);
++	else
++		netif_carrier_off(dev->net);
++
++	return 0;
++}
++
++static void ipheth_carrier_check_work(struct work_struct *work)
++{
++	struct ipheth_device *dev =3D container_of(work, struct ipheth_device=
+,
++						 carrier_work.work);
++
++	ipheth_carrier_set(dev);
++	schedule_delayed_work(&dev->carrier_work, IPHETH_CARRIER_CHECK_TIMEOU=
+T);
++}
++
++static int ipheth_get_macaddr(struct ipheth_device *dev)
++{
++	struct usb_device *udev =3D dev->udev;
++	struct net_device *net =3D dev->net;
++	int retval;
++
++	retval =3D usb_control_msg(udev,
++				 usb_rcvctrlpipe(udev, IPHETH_CTRL_ENDP),
++				 IPHETH_CMD_GET_MACADDR, /* request */
++				 0xc0, /* request type */
++				 0x00, /* value */
++				 0x02, /* index */
++				 dev->ctrl_buf,
++				 IPHETH_CTRL_BUF_SIZE,
++				 IPHETH_CTRL_TIMEOUT);
++	if (retval < 0) {
++		err("%s: usb_control_msg: %d", __func__, retval);
++	} else if (retval < ETH_ALEN) {
++		err("%s: usb_control_msg: short packet: %d bytes",
++			__func__, retval);
++		retval =3D -EINVAL;
++	} else {
++		memcpy(net->dev_addr, dev->ctrl_buf, ETH_ALEN);
++		retval =3D 0;
++	}
++
++	return retval;
++}
++
++static int ipheth_rx_submit(struct ipheth_device *dev, gfp_t mem_flags=
+)
++{
++	struct usb_device *udev =3D dev->udev;
++	int retval;
++
++	usb_fill_bulk_urb(dev->rx_urb, udev,
++			  usb_rcvbulkpipe(udev, dev->bulk_in),
++			  dev->rx_buf, IPHETH_BUF_SIZE,
++			  ipheth_rcvbulk_callback,
++			  dev);
++	dev->rx_urb->transfer_flags |=3D URB_NO_TRANSFER_DMA_MAP;
++
++	retval =3D usb_submit_urb(dev->rx_urb, mem_flags);
++	if (retval)
++		err("%s: usb_submit_urb: %d", __func__, retval);
++	return retval;
++}
++
++static int ipheth_open(struct net_device *net)
++{
++	struct ipheth_device *dev =3D netdev_priv(net);
++	struct usb_device *udev =3D dev->udev;
++	int retval =3D 0;
++
++	usb_set_interface(udev, IPHETH_INTFNUM, IPHETH_ALT_INTFNUM);
++
++	retval =3D ipheth_carrier_set(dev);
++	if (retval)
++		return retval;
++
++	retval =3D ipheth_rx_submit(dev, GFP_KERNEL);
++	if (retval)
++		return retval;
++
++	schedule_delayed_work(&dev->carrier_work, IPHETH_CARRIER_CHECK_TIMEOU=
+T);
++	netif_start_queue(net);
++	return retval;
++}
++
++static int ipheth_close(struct net_device *net)
++{
++	struct ipheth_device *dev =3D netdev_priv(net);
++
++	cancel_delayed_work_sync(&dev->carrier_work);
++	netif_stop_queue(net);
++	return 0;
++}
++
++static int ipheth_tx(struct sk_buff *skb, struct net_device *net)
++{
++	struct ipheth_device *dev =3D netdev_priv(net);
++	struct usb_device *udev =3D dev->udev;
++	int retval;
++
++	/* Paranoid */
++	if (skb->len > IPHETH_BUF_SIZE) {
++		WARN(1, "%s: skb too large: %d bytes", __func__, skb->len);
++		dev->net->stats.tx_dropped++;
++		dev_kfree_skb_irq(skb);
++		return NETDEV_TX_OK;
++	}
++
++	memcpy(dev->tx_buf, skb->data, skb->len);
++	if (skb->len < IPHETH_BUF_SIZE)
++		memset(dev->tx_buf + skb->len, 0, IPHETH_BUF_SIZE - skb->len);
++
++	usb_fill_bulk_urb(dev->tx_urb, udev,
++			  usb_sndbulkpipe(udev, dev->bulk_out),
++			  dev->tx_buf, IPHETH_BUF_SIZE,
++			  ipheth_sndbulk_callback,
++			  dev);
++	dev->tx_urb->transfer_flags |=3D URB_NO_TRANSFER_DMA_MAP;
++
++	retval =3D usb_submit_urb(dev->tx_urb, GFP_ATOMIC);
++	if (retval) {
++		err("%s: usb_submit_urb: %d", __func__, retval);
++		dev->net->stats.tx_errors++;
++		dev_kfree_skb_irq(skb);
++	} else {
++		dev->tx_skb =3D skb;
++
++		dev->net->stats.tx_packets++;
++		dev->net->stats.tx_bytes +=3D skb->len;
++		netif_stop_queue(net);
++	}
++
++	return NETDEV_TX_OK;
++}
++
++static void ipheth_tx_timeout(struct net_device *net)
++{
++	struct ipheth_device *dev =3D netdev_priv(net);
++
++	err("%s: TX timeout", __func__);
++	dev->net->stats.tx_errors++;
++	usb_unlink_urb(dev->tx_urb);
++}
++
++static struct net_device_stats *ipheth_stats(struct net_device *net)
++{
++	struct ipheth_device *dev =3D netdev_priv(net);
++	return &dev->net->stats;
++}
++
++static u32 ipheth_ethtool_op_get_link(struct net_device *net)
++{
++	struct ipheth_device *dev =3D netdev_priv(net);
++	return netif_carrier_ok(dev->net);
++}
++
++static struct ethtool_ops ops =3D {
++	.get_link =3D ipheth_ethtool_op_get_link
++};
++
++static const struct net_device_ops ipheth_netdev_ops =3D {
++	.ndo_open =3D &ipheth_open,
++	.ndo_stop =3D &ipheth_close,
++	.ndo_start_xmit =3D &ipheth_tx,
++	.ndo_tx_timeout =3D &ipheth_tx_timeout,
++	.ndo_get_stats =3D &ipheth_stats,
++};
++
++static struct device_type ipheth_type =3D {
++	.name	=3D "wwan",
++};
++
++static int ipheth_probe(struct usb_interface *intf,
++			const struct usb_device_id *id)
++{
++	struct usb_device *udev =3D interface_to_usbdev(intf);
++	struct usb_host_interface *hintf;
++	struct usb_endpoint_descriptor *endp;
++	struct ipheth_device *dev;
++	struct net_device *netdev;
++	int i;
++	int retval;
++
++	netdev =3D alloc_etherdev(sizeof(struct ipheth_device));
++	if (!netdev)
++		return -ENOMEM;
++
++	netdev->netdev_ops =3D &ipheth_netdev_ops;
++	netdev->watchdog_timeo =3D IPHETH_TX_TIMEOUT;
++	strcpy(netdev->name, "wwan%d");
++
++	dev =3D netdev_priv(netdev);
++	dev->udev =3D udev;
++	dev->net =3D netdev;
++	dev->intf =3D intf;
++
++	/* Set up endpoints */
++	hintf =3D usb_altnum_to_altsetting(intf, IPHETH_ALT_INTFNUM);
++	if (hintf =3D=3D NULL) {
++		retval =3D -ENODEV;
++		err("Unable to find alternate settings interface");
++		goto err_endpoints;
++	}
++
++	for (i =3D 0; i < hintf->desc.bNumEndpoints; i++) {
++		endp =3D &hintf->endpoint[i].desc;
++		if (usb_endpoint_is_bulk_in(endp))
++			dev->bulk_in =3D endp->bEndpointAddress;
++		else if (usb_endpoint_is_bulk_out(endp))
++			dev->bulk_out =3D endp->bEndpointAddress;
++	}
++	if (!(dev->bulk_in && dev->bulk_out)) {
++		retval =3D -ENODEV;
++		err("Unable to find endpoints");
++		goto err_endpoints;
++	}
++
++	dev->ctrl_buf =3D kmalloc(IPHETH_CTRL_BUF_SIZE, GFP_KERNEL);
++	if (dev->ctrl_buf =3D=3D NULL) {
++		retval =3D -ENOMEM;
++		goto err_alloc_ctrl_buf;
++	}
++
++	retval =3D ipheth_get_macaddr(dev);
++	if (retval)
++		goto err_get_macaddr;
++
++	INIT_DELAYED_WORK(&dev->carrier_work, ipheth_carrier_check_work);
++
++	retval =3D ipheth_alloc_urbs(dev);
++	if (retval) {
++		err("error allocating urbs: %d", retval);
++		goto err_alloc_urbs;
++	}
++
++	usb_set_intfdata(intf, dev);
++
++	SET_NETDEV_DEV(netdev, &intf->dev);
++	SET_ETHTOOL_OPS(netdev, &ops);
++	SET_NETDEV_DEVTYPE(netdev, &ipheth_type);
++
++	retval =3D register_netdev(netdev);
++	if (retval) {
++		err("error registering netdev: %d", retval);
++		retval =3D -EIO;
++		goto err_register_netdev;
++	}
++
++	dev_info(&intf->dev, "Apple iPhone USB Ethernet device attached\n");
++	return 0;
++
++err_register_netdev:
++	ipheth_free_urbs(dev);
++err_alloc_urbs:
++err_get_macaddr:
++err_alloc_ctrl_buf:
++	kfree(dev->ctrl_buf);
++err_endpoints:
++	free_netdev(netdev);
++	return retval;
++}
++
++static void ipheth_disconnect(struct usb_interface *intf)
++{
++	struct ipheth_device *dev;
++
++	dev =3D usb_get_intfdata(intf);
++	if (dev !=3D NULL) {
++		unregister_netdev(dev->net);
++		ipheth_kill_urbs(dev);
++		ipheth_free_urbs(dev);
++		kfree(dev->ctrl_buf);
++		free_netdev(dev->net);
++	}
++	usb_set_intfdata(intf, NULL);
++	dev_info(&intf->dev, "Apple iPhone USB Ethernet now disconnected\n");
++}
++
++static struct usb_driver ipheth_driver =3D {
++	.name =3D		"ipheth",
++	.probe =3D	ipheth_probe,
++	.disconnect =3D	ipheth_disconnect,
++	.id_table =3D	ipheth_table,
++};
++
++static int __init ipheth_init(void)
++{
++	int retval;
++
++	retval =3D usb_register(&ipheth_driver);
++	if (retval) {
++		err("usb_register failed: %d", retval);
++		return retval;
++	}
++	return 0;
++}
++
++static void __exit ipheth_exit(void)
++{
++	usb_deregister(&ipheth_driver);
++}
++
++module_init(ipheth_init);
++module_exit(ipheth_exit);
++
++MODULE_AUTHOR("Diego Giagio <diego-KR0zwsgql1HQT0dZR+AlfA@public.gmane.org>");
++MODULE_DESCRIPTION("Apple iPhone USB Ethernet driver");
++MODULE_LICENSE("Dual BSD/GPL");
 --=20
-Ben Hutchings
-Once a job is fouled up, anything done to improve it makes it worse.
+1.7.0
 
---=-rWvstrAH0LFbnoRb/H2e
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQIVAwUAS8tCYOe/yOyVhhEJAQJerA/+NRfPcFSytTkMQD4shWtNqEA6u36oVDvV
-yY77mmLfZ1HiR3YjQ3bjffQu5gcnd7nGCtpYICKVicCzBIN39vnauLFWgNlfduLk
-6oQ9NFQG41HUFqi+wV+Npa7EVbVk3HUzKMkSSrev21eS4TIFKpjBnn/QivtIl1Mp
-s+ujGFhnga0RAJHuHsnqxKNWHZw1JhKwBBoGzRp2x9GKoE8SHulggr6spgSRxblX
-8XhIstcadYAfkVEv8tlAoCGVxRBpZdtYVNEaPpIchbwJ49OrNvTCgb1GAHHepLbj
-Ls6ekeh440T9QWxBt037a+h4f/DsRSJ43pnDmTTxRD9k+8aROrh826M1PnVSlD8t
-VrxveoGT/YWGXraA0gou23wHacJhGUsqPU6eLSkAca+IgtE+K2Meidy7enfLwiz+
-cJXTm2pgtJVIdyuyK/qEdB5jKhsl9joch1lmzRX6UzWuQOl8b2DKIOJGmDuprPAk
-ep36Ouk8gAw2wX0lS2tZi7KRQy/uA63ncH7eV6oQvk72M8kHkjDHNTyGA6qpZbPB
-3Zn2UKOPDn6zEU0nNSxzF/xV0ObdOZyeAIpMWuLK96z+kiokhE/lkoXhEFtSdDqz
-EEuxN8sKeTR/IfgunCV+a4O8dTnRazwIkcGpeGwcrMpxTP7f6RwKYL3/nEPxjdIz
-6k8Qxq0j3Ag=
-=N7NR
------END PGP SIGNATURE-----
-
---=-rWvstrAH0LFbnoRb/H2e--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
