@@ -1,133 +1,166 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] TCP: avoid to send keepalive probes if it is
- receiving data
-Date: Sun, 18 Apr 2010 19:15:19 +0200
-Message-ID: <1271610919.16881.5564.camel@edumazet-laptop>
-References: <1271581560.16881.4769.camel@edumazet-laptop>
-	 <1271602519-6805-1-git-send-email-fleitner@redhat.com>
+From: Richard =?ISO-8859-1?Q?R=F6jfors?=
+	<richard.rojfors@pelagicore.com>
+Subject: [PATCH] ks8842: Add module param for setting mac address
+Date: Sun, 18 Apr 2010 19:25:57 +0200
+Message-ID: <1271611557.24099.11.camel@debian>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Flavio Leitner <fleitner@redhat.com>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:61189 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754796Ab0DRRP3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Apr 2010 13:15:29 -0400
-Received: by bwz25 with SMTP id 25so4673372bwz.28
-        for <netdev@vger.kernel.org>; Sun, 18 Apr 2010 10:15:27 -0700 (PDT)
-In-Reply-To: <1271602519-6805-1-git-send-email-fleitner@redhat.com>
+Received: from smtprelay-h21.telenor.se ([195.54.99.196]:38395 "EHLO
+	smtprelay-h21.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753967Ab0DRR0B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Apr 2010 13:26:01 -0400
+Received: from ipb3.telenor.se (ipb3.telenor.se [195.54.127.166])
+	by smtprelay-h21.telenor.se (Postfix) with ESMTP id 21297D421
+	for <netdev@vger.kernel.org>; Sun, 18 Apr 2010 19:25:58 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 18 avril 2010 =C3=A0 11:55 -0300, Flavio Leitner a =C3=A9cr=
-it :
-> RFC 1122 says the following:
-> ...
->   Keep-alive packets MUST only be sent when no data or
->   acknowledgement packets have been received for the
->   connection within an interval.
-> ...
->=20
-> Fix this by storing the timestamp of last received data
-> packet and checking for it when the keepalive timer expires.
->=20
-> -v2 fix do_tcp_setsockopt() as pointed by Eric Dumazet <eric.dumazet@=
-gmail.com>
->=20
-> Signed-off-by: Flavio Leitner <fleitner@redhat.com>
+This patch adds a module parameter for setting the MAC address.
 
+To ensure this MAC address is used, the MAC address is written
+after each hardware reset.
 
-I find this patch very welcome, and we could easily use this new
-lrcvtime information available in diagnostic tools (ss command)
-
-But are you sure you update it for all valid packets ?
-
-If we receive a pure ACK, it seems you do not ...
-
-
-
-> ---
->  include/linux/tcp.h  |    1 +
->  net/ipv4/tcp.c       |    5 ++++-
->  net/ipv4/tcp_input.c |    3 +++
->  net/ipv4/tcp_timer.c |    8 ++++++++
->  4 files changed, 16 insertions(+), 1 deletions(-)
->=20
-> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-> index a778ee0..405678f 100644
-> --- a/include/linux/tcp.h
-> +++ b/include/linux/tcp.h
-> @@ -314,6 +314,7 @@ struct tcp_sock {
->   	u32	snd_sml;	/* Last byte of the most recently transmitted small p=
-acket */
->  	u32	rcv_tstamp;	/* timestamp of last received ACK (for keepalives) =
-*/
->  	u32	lsndtime;	/* timestamp of last sent data packet (for restart wi=
-ndow) */
-> +	u32	lrcvtime;	/* timestamp of last received data packet (for keepal=
-ives) */
-> =20
->  	/* Data for direct copy to user */
->  	struct {
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 0f8caf6..a4048d7 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -2298,7 +2298,10 @@ static int do_tcp_setsockopt(struct sock *sk, =
-int level,
->  			if (sock_flag(sk, SOCK_KEEPOPEN) &&
->  			    !((1 << sk->sk_state) &
->  			      (TCPF_CLOSE | TCPF_LISTEN))) {
-> -				__u32 elapsed =3D tcp_time_stamp - tp->rcv_tstamp;
-> +				u32 elapsed =3D min_t(u32,
-> +						      tcp_time_stamp - tp->rcv_tstamp,
-> +						      tcp_time_stamp - tp->lrcvtime);
-> +
->  				if (tp->keepalive_time > elapsed)
->  					elapsed =3D tp->keepalive_time - elapsed;
->  				else
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index f240f57..60d2980 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -5391,6 +5391,8 @@ no_ack:
->  				__kfree_skb(skb);
->  			else
->  				sk->sk_data_ready(sk, 0);
-> +
-> +			tp->lrcvtime =3D tcp_time_stamp;
->  			return 0;
->  		}
->  	}
-> @@ -5421,6 +5423,7 @@ step5:
-> =20
->  	tcp_data_snd_check(sk);
->  	tcp_ack_snd_check(sk);
-> +	tp->lrcvtime =3D tcp_time_stamp;
->  	return 0;
-> =20
->  csum_error:
-> diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-> index 8a0ab29..74dd804 100644
-> --- a/net/ipv4/tcp_timer.c
-> +++ b/net/ipv4/tcp_timer.c
-> @@ -554,6 +554,14 @@ static void tcp_keepalive_timer (unsigned long d=
-ata)
->  	if (tp->packets_out || tcp_send_head(sk))
->  		goto resched;
-> =20
-> +	elapsed =3D tcp_time_stamp - tp->lrcvtime;
-> +=09
-> +	/* receiving data means alive */
-> +	if (elapsed < keepalive_time_when(tp)) {
-> +		elapsed =3D keepalive_time_when(tp) - elapsed;
-> +		goto resched;
-> +	}
-> +
->  	elapsed =3D tcp_time_stamp - tp->rcv_tstamp;
-> =20
->  	if (elapsed >=3D keepalive_time_when(tp)) {
-
+Signed-off-by: Richard R=C3=B6jfors <richard.rojfors@pelagicore.com>
+---
+diff --git a/drivers/net/ks8842.c b/drivers/net/ks8842.c
+index 5c45cb5..a013662 100644
+--- a/drivers/net/ks8842.c
++++ b/drivers/net/ks8842.c
+@@ -1,5 +1,5 @@
+ /*
+- * ks8842_main.c timberdale KS8842 ethernet driver
++ * ks8842.c timberdale KS8842 ethernet driver
+  * Copyright (c) 2009 Intel Corporation
+  *
+  * This program is free software; you can redistribute it and/or modif=
+y
+@@ -119,6 +119,8 @@ struct ks8842_adapter {
+ 	struct platform_device *pdev;
+ };
+=20
++static u8 __devinitdata macaddr[ETH_ALEN];
++
+ static inline void ks8842_select_bank(struct ks8842_adapter *adapter, =
+u16 bank)
+ {
+ 	iowrite16(bank, adapter->hw_addr + REG_SELECT_BANK);
+@@ -302,6 +304,20 @@ static void ks8842_read_mac_addr(struct ks8842_ada=
+pter *adapter, u8 *dest)
+ 	ks8842_write16(adapter, 39, mac, REG_MACAR3);
+ }
+=20
++static void ks8842_write_mac_addr(struct ks8842_adapter *adapter, u8 *=
+mac)
++{
++	unsigned long flags;
++	unsigned i;
++
++	spin_lock_irqsave(&adapter->lock, flags);
++	for (i =3D 0; i < ETH_ALEN; i++) {
++		ks8842_write8(adapter, 2, mac[ETH_ALEN - i - 1], REG_MARL + i);
++		ks8842_write8(adapter, 39, mac[ETH_ALEN - i - 1],
++			REG_MACAR1 + i);
++	}
++	spin_unlock_irqrestore(&adapter->lock, flags);
++}
++
+ static inline u16 ks8842_tx_fifo_space(struct ks8842_adapter *adapter)
+ {
+ 	return ks8842_read16(adapter, 16, REG_TXMIR) & 0x1fff;
+@@ -520,6 +536,8 @@ static int ks8842_open(struct net_device *netdev)
+ 	/* reset the HW */
+ 	ks8842_reset_hw(adapter);
+=20
++	ks8842_write_mac_addr(adapter, netdev->dev_addr);
++
+ 	ks8842_update_link_status(netdev, adapter);
+=20
+ 	err =3D request_irq(adapter->irq, ks8842_irq, IRQF_SHARED, DRV_NAME,
+@@ -567,10 +585,8 @@ static netdev_tx_t ks8842_xmit_frame(struct sk_buf=
+f *skb,
+ static int ks8842_set_mac(struct net_device *netdev, void *p)
+ {
+ 	struct ks8842_adapter *adapter =3D netdev_priv(netdev);
+-	unsigned long flags;
+ 	struct sockaddr *addr =3D p;
+ 	char *mac =3D (u8 *)addr->sa_data;
+-	int i;
+=20
+ 	dev_dbg(&adapter->pdev->dev, "%s: entry\n", __func__);
+=20
+@@ -579,13 +595,7 @@ static int ks8842_set_mac(struct net_device *netde=
+v, void *p)
+=20
+ 	memcpy(netdev->dev_addr, mac, netdev->addr_len);
+=20
+-	spin_lock_irqsave(&adapter->lock, flags);
+-	for (i =3D 0; i < ETH_ALEN; i++) {
+-		ks8842_write8(adapter, 2, mac[ETH_ALEN - i - 1], REG_MARL + i);
+-		ks8842_write8(adapter, 39, mac[ETH_ALEN - i - 1],
+-			REG_MACAR1 + i);
+-	}
+-	spin_unlock_irqrestore(&adapter->lock, flags);
++	ks8842_write_mac_addr(adapter, mac);
+ 	return 0;
+ }
+=20
+@@ -604,6 +614,8 @@ static void ks8842_tx_timeout(struct net_device *ne=
+tdev)
+=20
+ 	ks8842_reset_hw(adapter);
+=20
++	ks8842_write_mac_addr(adapter, netdev->dev_addr);
++
+ 	ks8842_update_link_status(netdev, adapter);
+ }
+=20
+@@ -627,6 +639,7 @@ static int __devinit ks8842_probe(struct platform_d=
+evice *pdev)
+ 	struct net_device *netdev;
+ 	struct ks8842_adapter *adapter;
+ 	u16 id;
++	unsigned i;
+=20
+ 	iomem =3D platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	if (!request_mem_region(iomem->start, resource_size(iomem), DRV_NAME)=
+)
+@@ -657,7 +670,20 @@ static int __devinit ks8842_probe(struct platform_=
+device *pdev)
+ 	netdev->netdev_ops =3D &ks8842_netdev_ops;
+ 	netdev->ethtool_ops =3D &ks8842_ethtool_ops;
+=20
+-	ks8842_read_mac_addr(adapter, netdev->dev_addr);
++	/* Check if a mac address was given */
++	for (i =3D 0; i < netdev->addr_len; i++)
++		if (macaddr[i] !=3D 0)
++			break;
++
++	if (i < netdev->addr_len)
++		/* an address was passed, use it */
++		memcpy(netdev->dev_addr, macaddr, netdev->addr_len);
++	else {
++		ks8842_read_mac_addr(adapter, netdev->dev_addr);
++
++		if (!is_valid_ether_addr(netdev->dev_addr))
++			random_ether_addr(netdev->dev_addr);
++	}
+=20
+ 	id =3D ks8842_read16(adapter, 32, REG_SW_ID_AND_ENABLE);
+=20
+@@ -723,6 +749,10 @@ static void __exit ks8842_exit(void)
+ module_init(ks8842_init);
+ module_exit(ks8842_exit);
+=20
++/* accept MAC address of the form macaddr=3D0x08,0x00,0x20,0x30,0x40,0=
+x50 */
++module_param_array(macaddr, byte, NULL, 0);
++MODULE_PARM_DESC(macaddr, "KS8842 MAC address to set");
++
+ MODULE_DESCRIPTION("Timberdale KS8842 ethernet driver");
+ MODULE_AUTHOR("Mocean Laboratories <info@mocean-labs.com>");
+ MODULE_LICENSE("GPL v2");
 
