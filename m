@@ -1,49 +1,46 @@
-From: Andrew Hendry <andrew.hendry@gmail.com>
-Subject: [PATCH] X25 fix dead unaccepted sockets
-Date: Sun, 18 Apr 2010 10:17:32 +1000
-Message-ID: <1271549852.2802.37.camel@ibex>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH] gigaset: include cleanup cleanup
+Date: Sun, 18 Apr 2010 11:16:46 +0900
+Message-ID: <4BCA6B8E.9000408@kernel.org>
+References: <20100416220858.A19F540123@xenon.ts.pxnet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:48443 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755954Ab0DRARh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 17 Apr 2010 20:17:37 -0400
-Received: by pva18 with SMTP id 18so2415461pva.19
-        for <netdev@vger.kernel.org>; Sat, 17 Apr 2010 17:17:36 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Karsten Keil <isdn@linux-pingi.de>,
+	David Miller <davem@davemloft.net>,
+	Hansjoerg Lipp <hjlipp@web.de>,
+	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Tilman Schmidt <tilman@imap.cc>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100416220858.A19F540123@xenon.ts.pxnet.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hello,
 
-1, An X25 program binds and listens
-2, calls arrive waiting to be accepted
-3, Program exits without accepting
-4, Sockets time out but don't get correctly cleaned up
-5, cat /proc/net/x25/socket shows the dead sockets with bad inode fields.
+On 04/17/2010 07:08 AM, Tilman Schmidt wrote:
+> Commit 5a0e3ad causes slab.h to be included twice in many of the
+> Gigaset driver's source files, first via the common include file
+> gigaset.h and then a second time directly. Drop the spares, and
+> use the opportunity to clean up a few more similar cases.
+> 
+> Impact: cleanup, no functional change
+> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+> CC: Tejun Heo <tj@kernel.org>
 
-This line borrowed from AX25 sets the dying socket so the timers clean up later.
+Acked-by: Tejun Heo <tj@kernel.org>
 
-Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
+Thanks for the clean up.
 
----
- net/x25/af_x25.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+> Seeing that the "include cleanup" patch triggering this was accepted
+> after the merge window, I have hopes this one will be accepted, too.
 
-diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index cbddd0c..36e84e1 100644
---- a/net/x25/af_x25.c
-+++ b/net/x25/af_x25.c
-@@ -402,6 +402,7 @@ static void __x25_destroy_socket(struct sock *sk)
- 			/*
- 			 * Queue the unaccepted socket for death
- 			 */
-+			skb->sk->sk_state = TCP_LISTEN;
- 			sock_set_flag(skb->sk, SOCK_DEAD);
- 			x25_start_heartbeat(skb->sk);
- 			x25_sk(skb->sk)->state = X25_STATE_0;
+Hmm... through which tree should this go through?  I can route it
+through percpu but maybe taking the usual isdn patch path would be
+better?
+
+Thanks.
+
 -- 
-1.5.6.5
-
-
+tejun
