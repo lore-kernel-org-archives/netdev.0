@@ -1,130 +1,30 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] TCP: avoid to send keepalive probes if it is receiving
- data
-Date: Sun, 18 Apr 2010 11:06:00 +0200
-Message-ID: <1271581560.16881.4769.camel@edumazet-laptop>
-References: <20100416150644.GA2641@sysclose.org>
-	 <1271525305-28423-1-git-send-email-fleitner@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] gigaset: include cleanup cleanup
+Date: Sun, 18 Apr 2010 02:13:18 -0700 (PDT)
+Message-ID: <20100418.021318.169745594.davem@davemloft.net>
+References: <20100416220858.A19F540123@xenon.ts.pxnet.com>
+	<4BCA6B8E.9000408@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Flavio Leitner <fleitner@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:34904 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753109Ab0DRJGJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Apr 2010 05:06:09 -0400
-Received: by bwz25 with SMTP id 25so4420085bwz.28
-        for <netdev@vger.kernel.org>; Sun, 18 Apr 2010 02:06:07 -0700 (PDT)
-In-Reply-To: <1271525305-28423-1-git-send-email-fleitner@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tilman@imap.cc, isdn@linux-pingi.de, hjlipp@web.de,
+	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: tj@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4BCA6B8E.9000408@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le samedi 17 avril 2010 =C3=A0 14:28 -0300, Flavio Leitner a =C3=A9crit=
- :
-> RFC 1122 says the following:
-> ...
->   Keep-alive packets MUST only be sent when no data or
->   acknowledgement packets have been received for the
->   connection within an interval.
-> ...
->=20
-> Fix this by storing the timestamp of last received data
-> packet and checking for it when the keepalive timer expires.
->=20
-> Signed-off-by: Flavio Leitner <fleitner@redhat.com>
+From: Tejun Heo <tj@kernel.org>
+Date: Sun, 18 Apr 2010 11:16:46 +0900
 
-Thanks Flavio !
+> 
+>> Seeing that the "include cleanup" patch triggering this was accepted
+>> after the merge window, I have hopes this one will be accepted, too.
+> 
+> Hmm... through which tree should this go through?  I can route it
+> through percpu but maybe taking the usual isdn patch path would be
+> better?
 
-Shouldnt you also change do_tcp_setsockopt() TCP_KEEPIDLE for
-consistency ?
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 0f8caf6..a4048d7 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2298,7 +2298,10 @@ static int do_tcp_setsockopt(struct sock *sk, in=
-t level,
- 			if (sock_flag(sk, SOCK_KEEPOPEN) &&
- 			    !((1 << sk->sk_state) &
- 			      (TCPF_CLOSE | TCPF_LISTEN))) {
--				__u32 elapsed =3D tcp_time_stamp - tp->rcv_tstamp;
-+				u32 elapsed =3D min_t(u32,
-+						      tcp_time_stamp - tp->rcv_tstamp,
-+						      tcp_time_stamp - tp->lrcvtime);
-+
- 				if (tp->keepalive_time > elapsed)
- 					elapsed =3D tp->keepalive_time - elapsed;
- 				else
-
-
-
-
-
-
-> ---
->  include/linux/tcp.h  |    1 +
->  net/ipv4/tcp_input.c |    3 +++
->  net/ipv4/tcp_timer.c |    8 ++++++++
->  3 files changed, 12 insertions(+), 0 deletions(-)
->=20
-> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-> index a778ee0..405678f 100644
-> --- a/include/linux/tcp.h
-> +++ b/include/linux/tcp.h
-> @@ -314,6 +314,7 @@ struct tcp_sock {
->   	u32	snd_sml;	/* Last byte of the most recently transmitted small p=
-acket */
->  	u32	rcv_tstamp;	/* timestamp of last received ACK (for keepalives) =
-*/
->  	u32	lsndtime;	/* timestamp of last sent data packet (for restart wi=
-ndow) */
-> +	u32	lrcvtime;	/* timestamp of last received data packet (for keepal=
-ives) */
-> =20
->  	/* Data for direct copy to user */
->  	struct {
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index f240f57..60d2980 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -5391,6 +5391,8 @@ no_ack:
->  				__kfree_skb(skb);
->  			else
->  				sk->sk_data_ready(sk, 0);
-> +
-> +			tp->lrcvtime =3D tcp_time_stamp;
->  			return 0;
->  		}
->  	}
-> @@ -5421,6 +5423,7 @@ step5:
-> =20
->  	tcp_data_snd_check(sk);
->  	tcp_ack_snd_check(sk);
-> +	tp->lrcvtime =3D tcp_time_stamp;
->  	return 0;
-> =20
->  csum_error:
-> diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-> index 8a0ab29..74dd804 100644
-> --- a/net/ipv4/tcp_timer.c
-> +++ b/net/ipv4/tcp_timer.c
-> @@ -554,6 +554,14 @@ static void tcp_keepalive_timer (unsigned long d=
-ata)
->  	if (tp->packets_out || tcp_send_head(sk))
->  		goto resched;
-> =20
-> +	elapsed =3D tcp_time_stamp - tp->lrcvtime;
-> +=09
-> +	/* receiving data means alive */
-> +	if (elapsed < keepalive_time_when(tp)) {
-> +		elapsed =3D keepalive_time_when(tp) - elapsed;
-> +		goto resched;
-> +	}
-> +
->  	elapsed =3D tcp_time_stamp - tp->rcv_tstamp;
-> =20
->  	if (elapsed >=3D keepalive_time_when(tp)) {
-
-
+I'll take it into net-2.6, no worries.
