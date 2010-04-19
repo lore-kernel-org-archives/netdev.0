@@ -1,38 +1,46 @@
-From: Alexander Kuznetsov <alr.kuznetsov@gmail.com>
-Subject: [PATCH] 8139too: Fix a typo in the function name.
-Date: Mon, 19 Apr 2010 23:43:37 +0300
-Message-ID: <1271709817-11169-1-git-send-email-alr.kuznetsov@gmail.com>
-Cc: netdev@vger.kernel.org,
-	Alexander Kuznetsov <alr.kuznetsov@gmail.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:46565 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751201Ab0DSUpb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 16:45:31 -0400
-Received: by bwz19 with SMTP id 19so3036bwz.21
-        for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 13:45:27 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: tip: origin tree build failure, [patch] fix isdn/gigaset build
+ failure
+Date: Mon, 19 Apr 2010 23:01:42 +0200
+Message-ID: <20100419210142.GA21440@elte.hu>
+References: <20100419180520.GA9244@elte.hu>
+ <alpine.LFD.2.00.1004191112550.14500@i5.linux-foundation.org>
+ <alpine.LFD.2.00.1004191200050.14500@i5.linux-foundation.org>
+ <20100419.120600.82034948.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: torvalds@linux-foundation.org, tilman@imap.cc,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100419.120600.82034948.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Alexander Kuznetsov <alr.kuznetsov@gmail.com>
----
- drivers/net/8139too.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
-index a03d291..f0d23de 100644
---- a/drivers/net/8139too.c
-+++ b/drivers/net/8139too.c
-@@ -1944,7 +1944,7 @@ static int rtl8139_rx(struct net_device *dev, struct rtl8139_private *tp,
- 		netif_dbg(tp, rx_status, dev, "%s() status %04x, size %04x, cur %04x\n",
- 			  __func__, rx_status, rx_size, cur_rx);
- #if RTL8139_DEBUG > 2
--		print_dump_hex(KERN_DEBUG, "Frame contents: ",
-+		print_hex_dump(KERN_DEBUG, "Frame contents: ",
- 			       DUMP_PREFIX_OFFSET, 16, 1,
- 			       &rx_ring[ring_offset], 70, true);
- #endif
--- 
-1.6.4.4
+* David Miller <davem@davemloft.net> wrote:
 
+> From: Linus Torvalds <torvalds@linux-foundation.org>
+> Date: Mon, 19 Apr 2010 12:00:49 -0700 (PDT)
+> 
+> > On Mon, 19 Apr 2010, Linus Torvalds wrote:
+> >> 
+> >> Maybe add the #include <linux/sched.h> into gigaset.h, instead of 
+> >> common.c?
+> > 
+> > This compiled for me, although the only thing I tried was just turning all 
+> > the gigaset options to 'y'. Maybe some other config doesn't work. So I 
+> > committed it as likely to fix things.
+> 
+> Thanks Linus.
+> 
+> Ingo, let us know if there is still some problems in your
+> build tests.
+
+I did a few tests and it looks good here!
+
+Thanks,
+
+	Ingo
