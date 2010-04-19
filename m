@@ -1,103 +1,64 @@
-From: Thomas Klein <osstklei@de.ibm.com>
-Subject: [PATCH 2/2] ehea: fix possible DLPAR/mem deadlock
-Date: Mon, 19 Apr 2010 14:08:47 +0200
-Message-ID: <4BCC47CF.8060107@de.ibm.com>
-References: <1221140080-9853-1-git-send-email-sebastien.dugue@bull.net>	<1221140080-9853-3-git-send-email-sebastien.dugue@bull.net>	<48CE7CC3.8040902@de.ibm.com> <20080916085746.194c1510@bull.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] rps: shortcut net_rps_action()
+Date: Mon, 19 Apr 2010 14:14:04 +0200
+Message-ID: <1271679244.3845.43.camel@edumazet-laptop>
+References: <t2p65634d661004141031xf80f62e7sb64362ea1ce10a1f@mail.gmail.com>
+	 <1271362581.23780.12.camel@bigi>
+	 <n2p412e6f7f1004151656q5f3f2cbeh324a859b88688398@mail.gmail.com>
+	 <1271395106.16881.3645.camel@edumazet-laptop>
+	 <1271424065.4606.31.camel@bigi>
+	 <1271489739.16881.4586.camel@edumazet-laptop>
+	 <1271525519.3929.3.camel@bigi>
+	 <1271583573.16881.4798.camel@edumazet-laptop>
+	 <1271590476.16881.4925.camel@edumazet-laptop>
+	 <1271669822.16881.7520.camel@edumazet-laptop>
+	 <k2u412e6f7f1004190248s8ac633beof2475645e799f2ea@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Raisch <raisch@de.ibm.com>,
-	Jan-Bernd Themann <themann@de.ibm.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-ppc <linuxppc-dev@ozlabs.org>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Tom Herbert <therbert@google.com>,
+	David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20080916085746.194c1510@bull.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:61880 "EHLO
+	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753899Ab0DSMOL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 08:14:11 -0400
+Received: by bwz25 with SMTP id 25so5476893bwz.28
+        for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 05:14:09 -0700 (PDT)
+In-Reply-To: <k2u412e6f7f1004190248s8ac633beof2475645e799f2ea@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Force serialization of userspace-triggered DLPAR/mem operations
+Le lundi 19 avril 2010 =C3=A0 17:48 +0800, Changli Gao a =C3=A9crit :
+> On Mon, Apr 19, 2010 at 5:37 PM, Eric Dumazet <eric.dumazet@gmail.com=
+> wrote:
+> > net_rps_action() is a bit expensive on NR_CPUS=3D64..4096 kernels, =
+even if
+> > RPS is not active.
+> >
+> > I add a flag to scan cpumask only if at least one IPI was scheduled=
+=2E
+> > Even cpumask_weight() might be expensive on some setups, where
+> > nr_cpumask_bits could be very big (4096 for example)
+>=20
+> How about using a array to save the cpu IDs. The number of CPUs, to
+> which the IPI will be sent, should be small.
+>=20
 
-Signed-off-by: Thomas Klein <tklein@de.ibm.com>
----
+Yes it should be small, yet the two arrays would be big enough to make
+softnet_data first part use at least two cache lines instead of one,
+even in the case we handle one cpu/IPI per net_rps_action()
 
-Patch created against 2.6.34-rc4
+As several packets can be enqueued for a given cpu, we would need to
+keep bitmasks.
+We would have to add one test in enqueue_to_backlog()
 
-diff -Nurp linux-2.6.34-rc4.orig//drivers/net/ehea/ehea.h linux-2.6.34-rc4//drivers/net/ehea/ehea.h
---- linux-2.6.34-rc4.orig//drivers/net/ehea/ehea.h	2010-04-19 11:54:07.000000000 +0200
-+++ linux-2.6.34-rc4//drivers/net/ehea/ehea.h	2010-04-19 12:00:14.000000000 +0200
-@@ -40,7 +40,7 @@
-  #include <asm/io.h>
+if (cpu_test_and_set(cpu, mask)) {
+	__raise_softirq_irqoff(NET_RX_SOFTIRQ);
+	array[nb++] =3D cpu;
+}
 
-  #define DRV_NAME	"ehea"
--#define DRV_VERSION	"EHEA_0102"
-+#define DRV_VERSION	"EHEA_0103"
 
-  /* eHEA capability flags */
-  #define DLPAR_PORT_ADD_REM 1
-diff -Nurp linux-2.6.34-rc4.orig//drivers/net/ehea/ehea_main.c linux-2.6.34-rc4//drivers/net/ehea/ehea_main.c
---- linux-2.6.34-rc4.orig//drivers/net/ehea/ehea_main.c	2010-04-19 11:59:11.000000000 +0200
-+++ linux-2.6.34-rc4//drivers/net/ehea/ehea_main.c	2010-04-19 11:59:50.000000000 +0200
-@@ -2889,7 +2889,6 @@ static void ehea_rereg_mrs(struct work_s
-  	int ret, i;
-  	struct ehea_adapter *adapter;
 
--	mutex_lock(&dlpar_mem_lock);
-  	ehea_info("LPAR memory changed - re-initializing driver");
-
-  	list_for_each_entry(adapter, &adapter_list, list)
-@@ -2959,7 +2958,6 @@ static void ehea_rereg_mrs(struct work_s
-  		}
-  	ehea_info("re-initializing driver complete");
-  out:
--	mutex_unlock(&dlpar_mem_lock);
-  	return;
-  }
-
-@@ -3542,7 +3540,14 @@ void ehea_crash_handler(void)
-  static int ehea_mem_notifier(struct notifier_block *nb,
-                               unsigned long action, void *data)
-  {
-+	int ret = NOTIFY_BAD;
-  	struct memory_notify *arg = data;
-+
-+	if (!mutex_trylock(&dlpar_mem_lock)) {
-+		ehea_info("ehea_mem_notifier must not be called parallelized");
-+		goto out;
-+	}
-+
-  	switch (action) {
-  	case MEM_CANCEL_OFFLINE:
-  		ehea_info("memory offlining canceled");
-@@ -3551,14 +3556,14 @@ static int ehea_mem_notifier(struct noti
-  		ehea_info("memory is going online");
-  		set_bit(__EHEA_STOP_XFER, &ehea_driver_flags);
-  		if (ehea_add_sect_bmap(arg->start_pfn, arg->nr_pages))
--			return NOTIFY_BAD;
-+			goto out_unlock;
-  		ehea_rereg_mrs(NULL);
-  		break;
-  	case MEM_GOING_OFFLINE:
-  		ehea_info("memory is going offline");
-  		set_bit(__EHEA_STOP_XFER, &ehea_driver_flags);
-  		if (ehea_rem_sect_bmap(arg->start_pfn, arg->nr_pages))
--			return NOTIFY_BAD;
-+			goto out_unlock;
-  		ehea_rereg_mrs(NULL);
-  		break;
-  	default:
-@@ -3566,8 +3571,12 @@ static int ehea_mem_notifier(struct noti
-  	}
-
-  	ehea_update_firmware_handles();
-+	ret = NOTIFY_OK;
-
--	return NOTIFY_OK;
-+out_unlock:
-+	mutex_unlock(&dlpar_mem_lock);
-+out:
-+	return ret;
-  }
-
-  static struct notifier_block ehea_mem_nb = {
