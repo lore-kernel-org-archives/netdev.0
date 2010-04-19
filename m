@@ -1,57 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RFC]: soreuseport: Bind multiple sockets to same port
-Date: Mon, 19 Apr 2010 19:16:58 +0200
-Message-ID: <1271697418.3845.92.camel@edumazet-laptop>
-References: <alpine.DEB.1.00.1004182321480.1822@pokey.mtv.corp.google.com>
-	 <1271662103.16881.7300.camel@edumazet-laptop>
-	 <m2z65634d661004190838hd16ab01dpa074ce6aeb3572e8@mail.gmail.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: tip: origin tree build failure, [patch] fix isdn/gigaset build
+ failure
+Date: Mon, 19 Apr 2010 19:27:31 +0200
+Message-ID: <20100419172731.GA4358@elte.hu>
+References: <20100419.003857.260094283.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, Tilman Schmidt <tilman@imap.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:52019 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754456Ab0DSRRE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 13:17:04 -0400
-Received: by bwz25 with SMTP id 25so5874015bwz.28
-        for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 10:17:03 -0700 (PDT)
-In-Reply-To: <m2z65634d661004190838hd16ab01dpa074ce6aeb3572e8@mail.gmail.com>
+Received: from mx2.mail.elte.hu ([157.181.151.9]:50594 "EHLO mx2.mail.elte.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754331Ab0DSR1p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Apr 2010 13:27:45 -0400
+Content-Disposition: inline
+In-Reply-To: <20100419.003857.260094283.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 19 avril 2010 =C3=A0 08:38 -0700, Tom Herbert a =C3=A9crit :
 
-> Calling it a nightmare be be a little strong.  It is true that this
-> could create long chains that need to be walked, but this might be
-> done with good cache locality of the structures.  In any case, the
-> lock contention seems to overshadow the cost of this; we were able to
-> increase max number of DNS queries/sec by about 60% (I will try to
-> publish some numbers this week).
->=20
+* David Miller <davem@davemloft.net> wrote:
 
-I have no doubt this patch increases performances, but I think its not =
-a
-long term solution. We can do better ;)
+> Tilman Schmidt (1):
+>       gigaset: include cleanup cleanup
+> 
+>  drivers/isdn/gigaset/bas-gigaset.c       |    5 -----
+>  drivers/isdn/gigaset/capi.c              |    2 --
+>  drivers/isdn/gigaset/common.c            |    2 --
+>  drivers/isdn/gigaset/gigaset.h           |    2 +-
+>  drivers/isdn/gigaset/i4l.c               |    1 -
+>  drivers/isdn/gigaset/interface.c         |    1 -
+>  drivers/isdn/gigaset/proc.c              |    1 -
+>  drivers/isdn/gigaset/ser-gigaset.c       |    3 ---
+>  drivers/isdn/gigaset/usb-gigaset.c       |    4 ----
 
+-tip testing triggered the following build failure (x86 allyesconfig):
 
-> >
-> I agree that CPU awareness is desirable, but I'm really hesitant to
-> resort to pinning; this can become pretty tangled on a shared server
-> running a bunch of different applications-- would be nice if the
-> kernel can just figure out the right thing to do :-)
->=20
+drivers/isdn/gigaset/common.c: In function 'setflags':
+drivers/isdn/gigaset/common.c:99: error: implicit declaration of function 'set_current_state'
+drivers/isdn/gigaset/common.c:99: error: 'TASK_INTERRUPTIBLE' undeclared (first use in this function)
+drivers/isdn/gigaset/common.c:99: error: (Each undeclared identifier is reported only once
+drivers/isdn/gigaset/common.c:99: error: for each function it appears in.)
+drivers/isdn/gigaset/common.c:100: error: implicit declaration of function 'schedule_timeout'
+drivers/isdn/gigaset/common.c: In function 'cleanup_cs':
+drivers/isdn/gigaset/common.c:900: error: 'TASK_INTERRUPTIBLE' undeclared (first use in this function)
+drivers/isdn/gigaset/common.c: In function 'gigaset_start':
+drivers/isdn/gigaset/common.c:942: error: 'TASK_UNINTERRUPTIBLE' undeclared (first use in this function)
+drivers/isdn/gigaset/common.c:942: error: implicit declaration of function 'schedule'
+drivers/isdn/gigaset/common.c: In function 'gigaset_shutdown':
+drivers/isdn/gigaset/common.c:978: error: 'TASK_UNINTERRUPTIBLE' undeclared (first use in this function)
+drivers/isdn/gigaset/common.c: In function 'gigaset_stop':
+drivers/isdn/gigaset/common.c:1005: error: 'TASK_UNINTERRUPTIBLE' undeclared (first use in this function)
+make[1]: *** [drivers/isdn/gigaset/common.o] Error 1
+make: *** [drivers/isdn/gigaset/common.o] Error 2
 
-OK I can understand this, but please use an array of sockets bound to
-same tuple, so that lookup stay constant, regardless of number of
-sockets. UDP fast path is a sensible area for financial applications.
+Introduced by commit b91ecb00 that got pushed out today. That change removed 
+an implicit sched.h inclusion that came in via slab.h.
 
-Once anchor is found in normal udp hashtable, the choice of a random
-target in its array is O(1) too (you could use skb->rxhash if not null)
+The patch below fixes it by adding the sched.h dependency.
 
-Hmm, maybe we even could use same mechanism for multicast, since we
-currently perform a very expensive loop.
+	Ingo
 
-
-
+diff --git a/drivers/isdn/gigaset/common.c b/drivers/isdn/gigaset/common.c
+index f6f45f2..a3aa17f 100644
+--- a/drivers/isdn/gigaset/common.c
++++ b/drivers/isdn/gigaset/common.c
+@@ -16,6 +16,7 @@
+ #include "gigaset.h"
+ #include <linux/module.h>
+ #include <linux/moduleparam.h>
++#include <linux/sched.h>
+ 
+ /* Version Information */
+ #define DRIVER_AUTHOR "Hansjoerg Lipp <hjlipp@web.de>, Tilman Schmidt <tilman@imap.cc>, Stefan Eilers"
