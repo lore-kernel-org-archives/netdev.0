@@ -1,52 +1,34 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 11/13] bnx2x: Forbid LRO on when XEN is enabled
-Date: Mon, 19 Apr 2010 09:14:46 -0700
-Message-ID: <20100419091446.39e2510c@nehalam>
-References: <1271602258.27235.200.camel@lb-tlvb-vladz>
-	<1271603485.3679.210.camel@localhost>
-	<20100418.205858.193699902.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6 0/11] bnx2x: Bug fixes and enhancements
+Date: Mon, 19 Apr 2010 13:17:57 -0700 (PDT)
+Message-ID: <20100419.131757.45886571.davem@davemloft.net>
+References: <1271675582.6900.265.camel@lb-tlvb-vladz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, vladz@broadcom.com, eilong@broadcom.com,
-	netdev@vger.kernel.org, dmitry@broadcom.com
-To: David Miller <davem@davemloft.net>
+Cc: eilong@broadcom.com, netdev@vger.kernel.org
+To: vladz@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34224 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750891Ab0DSUOc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Apr 2010 16:14:32 -0400
-In-Reply-To: <20100418.205858.193699902.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40040
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751583Ab0DSURw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 16:17:52 -0400
+In-Reply-To: <1271675582.6900.265.camel@lb-tlvb-vladz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 18 Apr 2010 20:58:58 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Date: Mon, 19 Apr 2010 14:13:02 +0300
 
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Sun, 18 Apr 2010 16:11:25 +0100
+> Resubmitting this patch series with the following changes:
+> - patch 2 VPD: using generic infrastructures for VPD access
+> - omitting patch 11 (disabling LRO and leaving only GRO on XEN kernel at
+> compile time)
+> - omitting patch 10: changing the default queues to 1 on 32 bits system.
 > 
-> > On Sun, 2010-04-18 at 17:50 +0300, Vladislav Zolotarov wrote:
-> >> LRO cannot be used on virtualized environment, so it is best
-> >> to disable it on compile time in XEN kernel.
-> > [...]
-> > 
-> > If you want to cripple your performance, I'm not going to stand in your
-> > way, but be aware that most distribution kernels now enable CONFIG_XEN.
+> We are looking into using kmalloc() instead of vmalloc() to overcome the
+> issue on 32 bits kernels.
 > 
-> There is also zero reason to do this.
-> 
-> When the XEN code or whatever setups up the bridge, LRO will be
-> disabled by the bridge code.
-> 
-> It automatically issues ethtool LRO disable commands to the devices
-> involved in the bridge configuration.  And it has done this for
-> a _long_ time.  The ipv4 routing code will do the same.
-> 
-> This change is bogus and likely based upon behavior in some ancient
-> distribution kernel that lacks the ethtool facilities.
-> 
-> I absolutely refuse to apply this.
+> Please consider applying these changes to net-next.
 
-Agreed. It is often devices that implement LRO, but don't have way
-to turn it off.
+This looks a lot better, applied to net-next-2.6 thanks!
