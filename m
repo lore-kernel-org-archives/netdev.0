@@ -1,45 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 11/13] bnx2x: Forbid LRO on when XEN is enabled
-Date: Sun, 18 Apr 2010 20:58:58 -0700 (PDT)
-Message-ID: <20100418.205858.193699902.davem@davemloft.net>
-References: <1271602258.27235.200.camel@lb-tlvb-vladz>
-	<1271603485.3679.210.camel@localhost>
+Subject: Re: [PATCH 2/13] bnx2x: Use VPD-R V0 entry to display firmware
+ revision
+Date: Sun, 18 Apr 2010 21:00:22 -0700 (PDT)
+Message-ID: <20100418.210022.226782192.davem@davemloft.net>
+References: <1271602093.27235.179.camel@lb-tlvb-vladz>
+	<1271603308.3679.208.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vladz@broadcom.com, eilong@broadcom.com, netdev@vger.kernel.org,
-	dmitry@broadcom.com
+Cc: vladz@broadcom.com, netdev@vger.kernel.org, eilong@broadcom.com,
+	dmitry@broadcom.com, mcarlson@broadcom.com
 To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56714
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39402
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753846Ab0DSD6x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 18 Apr 2010 23:58:53 -0400
-In-Reply-To: <1271603485.3679.210.camel@localhost>
+	by vger.kernel.org with ESMTP id S1750766Ab0DSEAS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 00:00:18 -0400
+In-Reply-To: <1271603308.3679.208.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Sun, 18 Apr 2010 16:11:25 +0100
+Date: Sun, 18 Apr 2010 16:08:28 +0100
 
-> On Sun, 2010-04-18 at 17:50 +0300, Vladislav Zolotarov wrote:
->> LRO cannot be used on virtualized environment, so it is best
->> to disable it on compile time in XEN kernel.
+> On Sun, 2010-04-18 at 17:48 +0300, Vladislav Zolotarov wrote:
+>> Use VPD-R V0 entry to display firmware revision
 > [...]
 > 
-> If you want to cripple your performance, I'm not going to stand in your
-> way, but be aware that most distribution kernels now enable CONFIG_XEN.
+> Matt Carlson already added VPD support functions and definitions to the
+> PCI core; you should use them.
 
-There is also zero reason to do this.
+Agreed.
 
-When the XEN code or whatever setups up the bridge, LRO will be
-disabled by the bridge code.
+Really disappointed that you guy's can't keep track of generic
+infrastructure created by co-workers let alone other people
+in the networking developer community.
 
-It automatically issues ethtool LRO disable commands to the devices
-involved in the bridge configuration.  And it has done this for
-a _long_ time.  The ipv4 routing code will do the same.
-
-This change is bogus and likely based upon behavior in some ancient
-distribution kernel that lacks the ethtool facilities.
-
-I absolutely refuse to apply this.
+Judging by this and the LRO disabling change, I can only
+come to the conclusion that you do development in something
+similar to a bubble and are impervious to what's going on
+outside of your domain :-)
