@@ -1,61 +1,90 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH RFC]: soreuseport: Bind multiple sockets to same port
-Date: Mon, 19 Apr 2010 08:31:41 -0400
-Message-ID: <1271680301.32453.23.camel@bigi>
-References: <alpine.DEB.1.00.1004182321480.1822@pokey.mtv.corp.google.com>
-	 <1271662103.16881.7300.camel@edumazet-laptop>
-Reply-To: hadi@cyberus.ca
+From: "Masayuki Ohtake" <masa-korg@dsn.okisemi.com>
+Subject: Re: [PATCH]Add device drivers (GbE, Packet Hub) for Topcliff
+Date: Mon, 19 Apr 2010 21:34:26 +0900
+Message-ID: <002301cadfbc$ab2e1490$66f8800a@maildom.okisemi.com>
+References: <000b01cadd4c$e2f94380$66f8800a@maildom.okisemi.com> <20100416083508.64199657@tpl.lwn.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+	charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f182.google.com ([209.85.221.182]:63259 "EHLO
-	mail-qy0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751408Ab0DSMbu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 08:31:50 -0400
-Received: by qyk12 with SMTP id 12so5193172qyk.21
-        for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 05:31:49 -0700 (PDT)
-In-Reply-To: <1271662103.16881.7300.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <andrew.chih.howe.khor@intel.com>,
+	"Intel OTC" <joel.clark@intel.com>,
+	"LKML" <linux-kernel@vger.kernel.org>,
+	"Wang, Qi" <qi.wang@intel.com>,
+	"Wang, Yong Y" <yong.y.wang@intel.com>
+To: "Jonathan Corbet" <corbet@lwn.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2010-04-19 at 09:28 +0200, Eric Dumazet wrote:
+Hi jon,
+Thanks for your suggestion again.
+I joined the netdev and send my patch to "netdev <netdev@vger.kernel.org>".
 
-> High perf DNS server on such machine would have 16 threads, and probably
-> 64 threads in two years.
+--
+Hello netdev users,
 
-if you dont care about x86, 64 SMT threads is already there
-yesterday ;->
+I developed the device drivers for Linux kernel 2.6.33-1.
+This time, I added the following drivers
+  - GbE device
+  - Packet HUB device
 
-> I understand you want 16 UDP sockets to avoid lock contention, but
-> __udp4_lib_lookup() becomes a nightmare (It may already be ...)
-> 
-> My idea was to add a cpu lookup key.
+The GbE and Packet Hub device drivers are related with each other.
+Because I send patch to LKML <linux-kernel@vger.kernel.org> and the netdev
+<netdev@vger.kernel.org> mailing list.
 
-I like this idea better. 
-Staring at data i collected over the weekend, I am scratching my head
-trying to find some correlation. I see socket flows  bouncing around
-CPUs other than what RPS directs to. The scheduler seems to have a mind
-of its own. What is clear is if i can localize a flow/socket to a single
-cpu i get best performance. RPS, when there is enough load, does better
-because of this localization (DaveM made this statement earlier
-actually).
+Would you check them?
 
-I was hoping i could do a connect() + sched_setaffinity() and have RPS
-direct that flow to me - but alas even RFS still depends on hashing.
-Unless there is an easier way to do this, I was planning to look
-at the RPS hashing and manually cook flows which end up on a cpu where 
-I do sched_setaffinity()...
+The patch is uploaded to our WEB site in Sourceforge.net,
+Because the patch size was large.
 
-> thread0 would use a new setsockopt() option to bind a socket to a
-> virtual cpu0. Then do its normal bind( port=53)
+[Our WEB site in Sourceforge.net.]
+http://sourceforge.net/projects/generalembedded/files/
+"All Files" -> "Downloads" -> "Dev" -> "kernel 2.6.33-1"
+  - pch_gbe.patch  (for GbE device)
+  - pch_phub.patch (for Packet HUB device)
 
-So question: Why not tie to sched_setaffinity? i.e at bind time you
-lookup what cpu this socket is affined to?
 
-cheers,
-jamal
+[About our development product]
+Topcliff is a chip that has many peripherals.
+The chip has UART, I2C, SPI, IEEE1588, CAN, Packet HUB, SATA, USB host, USB
+device, SDIO, Gigabit Ethernet, GPIO and DMA.
 
+Best regards,
+Masayuki Ohtake <masa-korg@dsn.okisemi.com>
+----- Original Message ----- 
+From: "Jonathan Corbet" <corbet@lwn.net>
+To: "Masayuki Ohtake" <masa-korg@dsn.okisemi.com>
+Cc: "LKML" <linux-kernel@vger.kernel.org>; "Intel OTC"
+<joel.clark@intel.com>; <andrew.chih.howe.khor@intel.com>
+Sent: Friday, April 16, 2010 11:35 PM
+Subject: Re: [PATCH]Add device drivers (GbE, Packet Hub) for Topcliff
+
+
+> On Fri, 16 Apr 2010 19:09:04 +0900
+> "Masayuki Ohtake" <masa-korg@dsn.okisemi.com> wrote:
+>
+> > I developed the device drivers for Linux kernel 2.6.33-1.
+> > This time, I added the following drivers
+> >   - GbE device
+> >   - Packet HUB device
+> >
+> > Would you check them?
+>
+> Thanks for making your code available.  May I suggest, though, that you
+> will get a much better response if you post the patches directly to the
+> mailing list?  That is how our process works; it is simply harder to
+> review code if you have to do digging through web sites to find it.
+>
+> Networking-specific patches should be posted to the netdev list as well.
+>
+> More information on how to post code for review can be found in the
+> kernel source tree:
+>
+> Documentation/HOWTO
+> Documentation/development-process
+>
+> Thanks,
+>
+> jon
+>
