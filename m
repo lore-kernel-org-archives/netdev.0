@@ -1,34 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5] rfs: Receive Flow Steering
-Date: Mon, 19 Apr 2010 14:19:47 -0700 (PDT)
-Message-ID: <20100419.141947.129754682.davem@davemloft.net>
-References: <20100419.130905.210660275.davem@davemloft.net>
-	<20100419.132318.192086187.davem@davemloft.net>
-	<1271709121.3845.94.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] rps: static functions
+Date: Mon, 19 Apr 2010 23:26:35 +0200
+Message-ID: <1271712395.3845.98.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58431
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752063Ab0DSVTp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 17:19:45 -0400
-In-Reply-To: <1271709121.3845.94.camel@edumazet-laptop>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:45503 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751258Ab0DSVcr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 17:32:47 -0400
+Received: by bwz19 with SMTP id 19so435bwz.21
+        for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 14:32:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 19 Apr 2010 22:32:01 +0200
+store_rps_map() & store_rps_dev_flow_table_cnt() are static.
 
-> Hmm, this was not a formal patch, just an information.
-> 
-> Problem is if hardware provides rxhash, will it be "consistent" too ?
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 143052a..c57c4b2 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -550,7 +550,7 @@ static void rps_map_release(struct rcu_head *rcu)
+ 	kfree(map);
+ }
+ 
+-ssize_t store_rps_map(struct netdev_rx_queue *queue,
++static ssize_t store_rps_map(struct netdev_rx_queue *queue,
+ 		      struct rx_queue_attribute *attribute,
+ 		      const char *buf, size_t len)
+ {
+@@ -635,7 +635,7 @@ static void rps_dev_flow_table_release(struct rcu_head *rcu)
+ 	schedule_work(&table->free_work);
+ }
+ 
+-ssize_t store_rps_dev_flow_table_cnt(struct netdev_rx_queue *queue,
++static ssize_t store_rps_dev_flow_table_cnt(struct netdev_rx_queue *queue,
+ 				     struct rx_queue_attribute *attr,
+ 				     const char *buf, size_t len)
+ {
 
-Yes, it is an issue.  I am not aware of whether the Toeplitz
-hash computed by cards is impervious to the order of the
-input bits of not, probably it is.
 
-I was thinking also about how we could compute rxhash in the
-loopback driver :-)
