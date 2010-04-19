@@ -1,42 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/13] bnx2x: Use VPD-R V0 entry to display firmware
- revision
-Date: Sun, 18 Apr 2010 21:00:22 -0700 (PDT)
-Message-ID: <20100418.210022.226782192.davem@davemloft.net>
-References: <1271602093.27235.179.camel@lb-tlvb-vladz>
-	<1271603308.3679.208.camel@localhost>
+Subject: Re: [PATCH 0/13] bnx2x: Buf fixes and enhancements
+Date: Sun, 18 Apr 2010 21:07:23 -0700 (PDT)
+Message-ID: <20100418.210723.71102685.davem@davemloft.net>
+References: <1271602046.27235.165.camel@lb-tlvb-vladz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vladz@broadcom.com, netdev@vger.kernel.org, eilong@broadcom.com,
-	dmitry@broadcom.com, mcarlson@broadcom.com
-To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org, eilong@broadcom.com, dmitry@broadcom.com,
+	yanivr@broadcom.com
+To: vladz@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39402
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59282
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750766Ab0DSEAS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 00:00:18 -0400
-In-Reply-To: <1271603308.3679.208.camel@localhost>
+	by vger.kernel.org with ESMTP id S1750706Ab0DSEHS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 00:07:18 -0400
+In-Reply-To: <1271602046.27235.165.camel@lb-tlvb-vladz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Sun, 18 Apr 2010 16:08:28 +0100
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Date: Sun, 18 Apr 2010 17:47:26 +0300
 
-> On Sun, 2010-04-18 at 17:48 +0300, Vladislav Zolotarov wrote:
->> Use VPD-R V0 entry to display firmware revision
-> [...]
-> 
-> Matt Carlson already added VPD support functions and definitions to the
-> PCI core; you should use them.
+> Dave, hi.
+> Pls., apply the following series of patches.
+> It includes a few bug fixes and enhancements.
 
-Agreed.
+Several of these patches are inappropriate or need corrections, and
+you also have not specified where you want these patches applied
+(net-2.6 or net-next-2.6)
 
-Really disappointed that you guy's can't keep track of generic
-infrastructure created by co-workers let alone other people
-in the networking developer community.
+You also misspelled "bug" in the subject line here, which to me is yet
+another sign that you put very little care into this patch series.  It
+feels very "rushed" and "reactionary" rather than a well thought out
+set of changes.
 
-Judging by this and the LRO disabling change, I can only
-come to the conclusion that you do development in something
-similar to a bubble and are impervious to what's going on
-outside of your domain :-)
+You really need to fix all of these issues, do the necessary
+research, take your time, and resubmit a higher quality set
+of well documented changes.
+
+Thanks.
+
