@@ -1,73 +1,72 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: [PATCH BUG-FIX] ipv6: allow to send packet after receiving ICMPv6
- Too Big message with MTU field less than  IPV6_MIN_MTU
-Date: Mon, 19 Apr 2010 10:58:22 +0800
-Message-ID: <4BCBC6CE.9020302@cn.fujitsu.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH BUG-FIX] ipv6: allow to send packet after receiving
+	ICMPv6 Too Big message with MTU field less than  IPV6_MIN_MTU
+Date: Mon, 19 Apr 2010 11:55:35 +0800
+Message-ID: <20100419035535.GA7011@gondor.apana.org.au>
+References: <4BCBC6CE.9020302@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	Patrick McHardy <kaber@trash.net>, eric.dumazet@gmail.com,
-	Shan Wei <shanwei@cn.fujitsu.com>, sri@us.ibm.com,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-sctp@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
 	"yoshfuji@linux-ipv6.org >> YOSHIFUJI Hideaki"
 	<yoshfuji@linux-ipv6.org>,
-	=?UTF-8?B?6a2P5YuH5Yab?= <yjwei@cn.fujitsu.com>,
-	vladislav.yasevich@hp.com
+	=?utf-8?B?6a2P5YuH5Yab?= <yjwei@cn.fujitsu.com>,
+	vladislav.yasevich@hp.com, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, Patrick McHardy <kaber@trash.net>,
+	eric.dumazet@gmail.com, sri@us.ibm.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-sctp@vger.kernel.org
+To: Shan Wei <shanwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:60352 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753488Ab0DSDAF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 18 Apr 2010 23:00:05 -0400
+Received: from ringil.hengli.com.au ([216.59.3.182]:47729 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753021Ab0DSD42 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 18 Apr 2010 23:56:28 -0400
+Content-Disposition: inline
+In-Reply-To: <4BCBC6CE.9020302@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Apr 19, 2010 at 10:58:22AM +0800, Shan Wei wrote:
+> 
+> According to RFC2460, PMTU is set to the IPv6 Minimum Link
+> MTU (1280) and a fragment header should always be included
+> after a node receiving Too Big message reporting PMTU is
+> less than the IPv6 Minimum Link MTU.
+> 
+> After receiving a ICMPv6 Too Big message reporting PMTU is
+> less than the IPv6 Minimum Link MTU, sctp *can't* send any
+> data/control chunk that total length including IPv6 head 
+> and IPv6 extend head is less than IPV6_MIN_MTU(1280 bytes).
+> 
+> The failure occured in p6_fragment(), about reason 
+> see following(take SHUTDOWN chunk for example):
+> sctp_packet_transmit (SHUTDOWN chunk, len=16 byte)
+> |------sctp_v6_xmit (local_df=0)
+>    |------ip6_xmit
+>        |------ip6_output (dst_allfrag is ture)
+>            |------ip6_fragment
+> 
+> In ip6_fragment(), for local_df=0, drops the the packet
+> and returns EMSGSIZE.
+> 
+> The patch fixes it with adding check length of skb->len.
+> In this case, Ipv6 not to fragment upper protocol data,
+> just only add a fragment header before it. 
+> 
+> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
 
-According to RFC2460, PMTU is set to the IPv6 Minimum Link
-MTU (1280) and a fragment header should always be included
-after a node receiving Too Big message reporting PMTU is
-less than the IPv6 Minimum Link MTU.
+The patch looks good to me.
 
-After receiving a ICMPv6 Too Big message reporting PMTU is
-less than the IPv6 Minimum Link MTU, sctp *can't* send any
-data/control chunk that total length including IPv6 head 
-and IPv6 extend head is less than IPV6_MIN_MTU(1280 bytes).
+If we wanted to optimise the allfrags case it may be better
+to reserve the space beforehand and generate the fragment header
+at the same time as we're doing the IPv6 header.
 
-The failure occured in p6_fragment(), about reason 
-see following(take SHUTDOWN chunk for example):
-sctp_packet_transmit (SHUTDOWN chunk, len=16 byte)
-|------sctp_v6_xmit (local_df=0)
-   |------ip6_xmit
-       |------ip6_output (dst_allfrag is ture)
-           |------ip6_fragment
+But it can't be all that important as it's been broken for so
+many years.
 
-In ip6_fragment(), for local_df=0, drops the the packet
-and returns EMSGSIZE.
-
-The patch fixes it with adding check length of skb->len.
-In this case, Ipv6 not to fragment upper protocol data,
-just only add a fragment header before it. 
-
-Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
----
- net/ipv6/ip6_output.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 5129a16..c3edb6c 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -625,7 +625,7 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
- 	/* We must not fragment if the socket is set to force MTU discovery
- 	 * or if the skb it not generated by a local socket.
- 	 */
--	if (!skb->local_df) {
-+	if (!skb->local_df && skb->len > mtu) {
- 		skb->dev = skb_dst(skb)->dev;
- 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
- 		IP6_INC_STATS(net, ip6_dst_idev(skb_dst(skb)),
---
-1.6.3.3 
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
