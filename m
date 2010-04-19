@@ -1,47 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH] ixgbe: add IntMode module parameter
-Date: Sun, 18 Apr 2010 22:09:31 -0700 (PDT)
-Message-ID: <20100418.220931.39174434.davem@davemloft.net>
-References: <20100419050315.24758.62479.stgit@localhost.localdomain>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCH 0/13] bnx2x: Buf fixes and enhancements
+Date: Mon, 19 Apr 2010 09:06:11 +0300
+Message-ID: <1271657171.27125.19.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <1271602046.27235.165.camel@lb-tlvb-vladz>
+ <20100418.210723.71102685.davem@davemloft.net>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	nicholasx.d.nunley@intel.com, john.ronciak@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: "Vladislav Zolotarov" <vladz@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Yaniv Rosner" <yaniv.rosner@broadcom.com>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47476
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751095Ab0DSFJ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 01:09:26 -0400
-In-Reply-To: <20100419050315.24758.62479.stgit@localhost.localdomain>
+Received: from mms1.broadcom.com ([216.31.210.17]:3657 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751350Ab0DSGGY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Apr 2010 02:06:24 -0400
+In-Reply-To: <20100418.210723.71102685.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sun, 18 Apr 2010 22:03:59 -0700
+On Sun, 2010-04-18 at 21:07 -0700, David Miller wrote:
+> From: "Vladislav Zolotarov" <vladz@broadcom.com>
+> Date: Sun, 18 Apr 2010 17:47:26 +0300
+> 
+> > Dave, hi.
+> > Pls., apply the following series of patches.
+> > It includes a few bug fixes and enhancements.
+> 
+> Several of these patches are inappropriate or need corrections, and
+> you also have not specified where you want these patches applied
+> (net-2.6 or net-next-2.6)
+> 
 
-> This patch adds the IntMode module parameter to ixgbe to allow
-> user selection of interrupt mode (MSI-X, MSI, legacy) on driver
-> load.  To work around the errata described above, ixgbe needs to
-> be able to disable MSI-X for affected configurations.
+We will re-submit the path series with the following fixes:
+- Omitting patch 11 (disabling LRO and leaving only GRO on XEN kernel on
+compile time)
+- restructuring patch 2 (using generic infrastructures for VPD-R-V0
+access)
+- Better description - especially on email 0...
+- I'm sending another email regrading the number of queues on 32 bits
+kernel.
 
-This is not how we handle situations like this.
 
-Here is one acceptable way to handle this:
+Thanks for all the inputs,
+Eilon
 
-Turn MSI/MSI-X off for every system that uses this PCI-E
-complex chipset.  Add a whitelist that allows enabling.
 
-Here is another:
-
-Turn MSI/MSI-X on by default and have blacklists.
-
-Anything that requires unusual user interactions, such as specifying
-special module parameters, for correct operations is absolutely
-unacceptable.
-
-I don't want to hear how difficult it is to determine whether a
-system will hit this bug or not.  If it's hard, just turn MSI
-off unconditionally with this chipset until you can detect things
-properly.
