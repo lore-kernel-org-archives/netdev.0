@@ -1,90 +1,91 @@
-From: "Masayuki Ohtake" <masa-korg@dsn.okisemi.com>
-Subject: Re: [PATCH]Add device drivers (GbE, Packet Hub) for Topcliff
-Date: Mon, 19 Apr 2010 21:34:26 +0900
-Message-ID: <002301cadfbc$ab2e1490$66f8800a@maildom.okisemi.com>
-References: <000b01cadd4c$e2f94380$66f8800a@maildom.okisemi.com> <20100416083508.64199657@tpl.lwn.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: rps perfomance WAS(Re: rps: question
+Date: Mon, 19 Apr 2010 08:48:03 -0400
+Message-ID: <1271681283.32453.39.camel@bigi>
+References: <t2p65634d661004141031xf80f62e7sb64362ea1ce10a1f@mail.gmail.com>
+	 <4BC741AE.3000108@hp.com> <1271362581.23780.12.camel@bigi>
+	 <n2p412e6f7f1004151656q5f3f2cbeh324a859b88688398@mail.gmail.com>
+	 <1271395106.16881.3645.camel@edumazet-laptop>
+	 <1271424065.4606.31.camel@bigi>
+	 <k2h412e6f7f1004160634v88440075p6e4cb2404abdb006@mail.gmail.com>
+	 <1271425753.4606.65.camel@bigi>
+	 <r2q412e6f7f1004160710j6d575f36t8e39a283328cf2d7@mail.gmail.com>
+	 <1271429025.4606.149.camel@bigi>
+	 <s2z412e6f7f1004160758l823ea0cah61a409972d4865fe@mail.gmail.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="ISO-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: <andrew.chih.howe.khor@intel.com>,
-	"Intel OTC" <joel.clark@intel.com>,
-	"LKML" <linux-kernel@vger.kernel.org>,
-	"Wang, Qi" <qi.wang@intel.com>,
-	"Wang, Yong Y" <yong.y.wang@intel.com>
-To: "Jonathan Corbet" <corbet@lwn.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Hi jon,
-Thanks for your suggestion again.
-I joined the netdev and send my patch to "netdev <netdev@vger.kernel.org>".
-
---
-Hello netdev users,
-
-I developed the device drivers for Linux kernel 2.6.33-1.
-This time, I added the following drivers
-  - GbE device
-  - Packet HUB device
-
-The GbE and Packet Hub device drivers are related with each other.
-Because I send patch to LKML <linux-kernel@vger.kernel.org> and the netdev
-<netdev@vger.kernel.org> mailing list.
-
-Would you check them?
-
-The patch is uploaded to our WEB site in Sourceforge.net,
-Because the patch size was large.
-
-[Our WEB site in Sourceforge.net.]
-http://sourceforge.net/projects/generalembedded/files/
-"All Files" -> "Downloads" -> "Dev" -> "kernel 2.6.33-1"
-  - pch_gbe.patch  (for GbE device)
-  - pch_phub.patch (for Packet HUB device)
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	David Miller <davem@davemloft.net>, therbert@google.com,
+	netdev@vger.kernel.org, robert@herjulf.net, andi@firstfloor.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qy0-f182.google.com ([209.85.221.182]:39240 "EHLO
+	mail-qy0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754756Ab0DSMsI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 08:48:08 -0400
+Received: by qyk12 with SMTP id 12so5219527qyk.21
+        for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 05:48:07 -0700 (PDT)
+In-Reply-To: <s2z412e6f7f1004160758l823ea0cah61a409972d4865fe@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-[About our development product]
-Topcliff is a chip that has many peripherals.
-The chip has UART, I2C, SPI, IEEE1588, CAN, Packet HUB, SATA, USB host, USB
-device, SDIO, Gigabit Ethernet, GPIO and DMA.
+Sorry, didnt respond to you - busyed out setting up before trying
+to think a little more about this..
 
-Best regards,
-Masayuki Ohtake <masa-korg@dsn.okisemi.com>
------ Original Message ----- 
-From: "Jonathan Corbet" <corbet@lwn.net>
-To: "Masayuki Ohtake" <masa-korg@dsn.okisemi.com>
-Cc: "LKML" <linux-kernel@vger.kernel.org>; "Intel OTC"
-<joel.clark@intel.com>; <andrew.chih.howe.khor@intel.com>
-Sent: Friday, April 16, 2010 11:35 PM
-Subject: Re: [PATCH]Add device drivers (GbE, Packet Hub) for Topcliff
+On Fri, 2010-04-16 at 22:58 +0800, Changli Gao wrote:
 
-
-> On Fri, 16 Apr 2010 19:09:04 +0900
-> "Masayuki Ohtake" <masa-korg@dsn.okisemi.com> wrote:
->
-> > I developed the device drivers for Linux kernel 2.6.33-1.
-> > This time, I added the following drivers
-> >   - GbE device
-> >   - Packet HUB device
 > >
-> > Would you check them?
->
-> Thanks for making your code available.  May I suggest, though, that you
-> will get a much better response if you post the patches directly to the
-> mailing list?  That is how our process works; it is simply harder to
-> review code if you have to do digging through web sites to find it.
->
-> Networking-specific patches should be posted to the netdev list as well.
->
-> More information on how to post code for review can be found in the
-> kernel source tree:
->
-> Documentation/HOWTO
-> Documentation/development-process
->
-> Thanks,
->
-> jon
->
+> > cpu   Total     |rps_recv |rps_ipi
+> > -----+----------+---------+---------
+> > cpu0 | 002dc7f1 |00000000 |000f4246
+> > cpu1 | 002dc804 |000f4240 |00000000
+> > -------------------------------------
+> >
+> > So: cpu0 receive 0x2dc7f1 pkts accummulative over time and
+> > redirected to cpu1 (mostly, the extra 5 maybe to leftover since i clear
+> > the data) and for the test 0xf4246 times it generated an IPI. It can be
+> > seen that total running for CPU1 is 0x2dc804 but in this one run it
+> > received 1M packets (0xf4240).
+> 
+> I remeber you redirected all the traffic from cpu0 to cpu1, and the data shows:
+> 
+> about 0x2dc7f1 packets are processed, and about 0xf4240 IPI are generated.
+
+If you look at the patch, I am zeroing those stats - so 0xf4240 is only
+one test (decimal 1M). I think there is something to what you are
+saying; rps_ipi on cpu0 is ambigous because it counts the number of
+times cpu0 softirq was scheduled as well as the number of times cpu0
+scheduled other cpus. 
+The extra six for cpu0 turn out to be the times an ethernet interrupt
+scheduled the cpu0 softirq.
+
+> a single packet is counted twice by CPU0 and CPU1. 
+
+Well, the counts have different meanings; rps_ipi applies to source cpu
+activity and rps_recv applies to destination. Example, if cpu0 in total
+6 times found some destination cpu to be empty and 2 of those happen to
+be on cpu1, cpu2, cpu3 then
+cpu0: ipi_rps = 6
+cpu1: rps_recv = 2
+cpu2: rps_recv = 2
+cpu3: rps_recv = 2
+
+
+> If you change RPS setting by:
+> 
+> echo 1 > ..../rps_cpus
+> 
+> you will find the total number are doubled.
+
+This is true. But IMO deserving and should be double counted.
+It is just more fine-grained accounting.
+IOW, I am not sure we need your patch because we will loose the
+fine-grain accounting - and mine requires more work to be less ambigous.
+
+cheers,
+jamal 
+
