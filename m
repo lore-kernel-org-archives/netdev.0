@@ -1,412 +1,242 @@
-From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: [PATCH v3 3/3] ixgbe: add registers etc. printout code just before
- resetting adapters
-Date: Mon, 19 Apr 2010 20:28:08 +0900
-Message-ID: <4BCC3E48.3000005@jp.fujitsu.com>
-References: <4BCC3C9B.3000901@jp.fujitsu.com>
+From: Thomas Klein <osstklei@de.ibm.com>
+Subject: [PATCH 1/2] ehea: error handling improvement
+Date: Mon, 19 Apr 2010 14:08:11 +0200
+Message-ID: <4BCC47AB.2090600@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>, chavey@google.com
-To: Bruce Allan <bruce.w.allan@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	"Kirsher, Jeffre
+Cc: Christoph Raisch <raisch@de.ibm.com>,
+	Jan-Bernd Themann <themann@de.ibm.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-ppc <linuxppc-dev@ozlabs.org>,
+	netdev <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail7.fujitsu.co.jp ([192.51.44.37]:41863 "EHLO
-	fgwmail7.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753580Ab0DSL2Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 07:28:25 -0400
-Received: from m2.gw.fujitsu.co.jp ([10.0.50.72])
-	by fgwmail7.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o3JBSNLh016047
-	for <netdev@vger.kernel.org> (envelope-from izumi.taku@jp.fujitsu.com);
-	Mon, 19 Apr 2010 20:28:24 +0900
-Received: from smail (m2 [127.0.0.1])
-	by outgoing.m2.gw.fujitsu.co.jp (Postfix) with ESMTP id 7E68845DE51
-	for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 20:28:23 +0900 (JST)
-Received: from s2.gw.fujitsu.co.jp (s2.gw.fujitsu.co.jp [10.0.50.92])
-	by m2.gw.fujitsu.co.jp (Postfix) with ESMTP id 55EFF45DE4F
-	for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 20:28:23 +0900 (JST)
-Received: from s2.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
-	by s2.gw.fujitsu.co.jp (Postfix) with ESMTP id 3BF0CE08001
-	for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 20:28:23 +0900 (JST)
-Received: from m105.s.css.fujitsu.com (m105.s.css.fujitsu.com [10.249.87.105])
-	by s2.gw.fujitsu.co.jp (Postfix) with ESMTP id D5A6C1DB8038
-	for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 20:28:22 +0900 (JST)
-In-Reply-To: <4BCC3C9B.3000901@jp.fujitsu.com>
+Received: from mtagate6.de.ibm.com ([195.212.17.166]:33411 "EHLO
+	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753899Ab0DSMIP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 08:08:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Reset a port's resources only if they're actually in an error state
 
-This patch adds registers (,tx/rx rings' status and so on) printout
-code just before resetting adapters. This will be helpful for detecting
-the root cause of adapters reset.
-
-Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+Signed-off-by: Thomas Klein <tklein@de.ibm.com>
 ---
- drivers/net/ixgbe/ixgbe_main.c |  341 +++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 341 insertions(+)
 
-Index: net-next-2.6.34/drivers/net/ixgbe/ixgbe_main.c
-===================================================================
---- net-next-2.6.34.orig/drivers/net/ixgbe/ixgbe_main.c
-+++ net-next-2.6.34/drivers/net/ixgbe/ixgbe_main.c
-@@ -175,6 +175,345 @@ static inline void ixgbe_disable_sriov(s
- 	adapter->flags &= ~IXGBE_FLAG_SRIOV_ENABLED;
- }
+Patch created against 2.6.34-rc4
 
-+struct ixgbe_reg_info {
-+	u32 ofs;
-+	char *name;
-+};
+diff -Nurp linux-2.6.34-rc4.orig//drivers/net/ehea/ehea_main.c linux-2.6.34-rc4//drivers/net/ehea/ehea_main.c
+--- linux-2.6.34-rc4.orig//drivers/net/ehea/ehea_main.c	2010-04-19 11:54:07.000000000 +0200
++++ linux-2.6.34-rc4//drivers/net/ehea/ehea_main.c	2010-04-19 11:55:43.000000000 +0200
+@@ -791,11 +791,17 @@ static struct ehea_cqe *ehea_proc_cqes(s
+  		cqe_counter++;
+  		rmb();
+  		if (cqe->status & EHEA_CQE_STAT_ERR_MASK) {
+-			ehea_error("Send Completion Error: Resetting port");
++			ehea_error("Bad send completion status=0x%04X",
++				   cqe->status);
 +
-+static const struct ixgbe_reg_info ixgbe_reg_info_tbl[] = {
+  			if (netif_msg_tx_err(pr->port))
+  				ehea_dump(cqe, sizeof(*cqe), "Send CQE");
+-			ehea_schedule_port_reset(pr->port);
+-			break;
 +
-+	/* General Registers */
-+	{IXGBE_CTRL, "CTRL"},
-+	{IXGBE_STATUS, "STATUS"},
-+	{IXGBE_CTRL_EXT, "CTRL_EXT"},
-+
-+	/* Interrupt Registers */
-+	{IXGBE_EICR, "EICR"},
-+
-+	/* RX Registers */
-+	{IXGBE_SRRCTL(0), "SRRCTL"},
-+	{IXGBE_DCA_RXCTRL(0), "DRXCTL"},
-+	{IXGBE_RDLEN(0), "RDLEN"},
-+	{IXGBE_RDH(0), "RDH"},
-+	{IXGBE_RDT(0), "RDT"},
-+	{IXGBE_RXDCTL(0), "RXDCTL"},
-+	{IXGBE_RDBAL(0), "RDBAL"},
-+	{IXGBE_RDBAH(0), "RDBAH"},
-+
-+	/* TX Registers */
-+	{IXGBE_TDBAL(0), "TDBAL"},
-+	{IXGBE_TDBAH(0), "TDBAH"},
-+	{IXGBE_TDLEN(0), "TDLEN"},
-+	{IXGBE_TDH(0), "TDH"},
-+	{IXGBE_TDT(0), "TDT"},
-+	{IXGBE_TXDCTL(0), "TXDCTL"},
-+
-+	/* List Terminator */
-+	{}
-+};
-+
-+
-+/*
-+ * ixgbe_regdump - register printout routine
-+ */
-+static void ixgbe_regdump(struct ixgbe_hw *hw, struct ixgbe_reg_info *reginfo)
-+{
-+	int i = 0, j = 0;
-+	char rname[16];
-+	u32 regs[64];
-+
-+	switch (reginfo->ofs) {
-+	case IXGBE_SRRCTL(0):
-+		for (i = 0; i < 64; i++)
-+			regs[i] = IXGBE_READ_REG(hw, IXGBE_SRRCTL(i));
-+		break;
-+	case IXGBE_DCA_RXCTRL(0):
-+		for (i = 0; i < 64; i++)
-+			regs[i] = IXGBE_READ_REG(hw, IXGBE_DCA_RXCTRL(i));
-+		break;
-+	case IXGBE_RDLEN(0):
-+		for (i = 0; i < 64; i++)
-+			regs[i] = IXGBE_READ_REG(hw, IXGBE_RDLEN(i));
-+		break;
-+	case IXGBE_RDH(0):
-+		for (i = 0; i < 64; i++)
-+			regs[i] = IXGBE_READ_REG(hw, IXGBE_RDH(i));
-+		break;
-+	case IXGBE_RDT(0):
-+		for (i = 0; i < 64; i++)
-+			regs[i] = IXGBE_READ_REG(hw, IXGBE_RDT(i));
-+		break;
-+	case IXGBE_RXDCTL(0):
-+		for (i = 0; i < 64; i++)
-+			regs[i] = IXGBE_READ_REG(hw, IXGBE_RXDCTL(i));
-+		break;
-+	case IXGBE_RDBAL(0):
-+		for (i = 0; i < 64; i++)
-+			regs[i] = IXGBE_READ_REG(hw, IXGBE_RDBAL(i));
-+		break;
-+	case IXGBE_RDBAH(0):
-+		for (i = 0; i < 64; i++)
-+			regs[i] = IXGBE_READ_REG(hw, IXGBE_RDBAH(i));
-+		break;
-+	case IXGBE_TDBAL(0):
-+		for (i = 0; i < 64; i++)
-+			regs[i] = IXGBE_READ_REG(hw, IXGBE_TDBAL(i));
-+		break;
-+	case IXGBE_TDBAH(0):
-+		for (i = 0; i < 64; i++)
-+			regs[i] = IXGBE_READ_REG(hw, IXGBE_TDBAH(i));
-+		break;
-+	case IXGBE_TDLEN(0):
-+		for (i = 0; i < 64; i++)
-+			regs[i] = IXGBE_READ_REG(hw, IXGBE_TDLEN(i));
-+		break;
-+	case IXGBE_TDH(0):
-+		for (i = 0; i < 64; i++)
-+			regs[i] = IXGBE_READ_REG(hw, IXGBE_TDH(i));
-+		break;
-+	case IXGBE_TDT(0):
-+		for (i = 0; i < 64; i++)
-+			regs[i] = IXGBE_READ_REG(hw, IXGBE_TDT(i));
-+		break;
-+	case IXGBE_TXDCTL(0):
-+		for (i = 0; i < 64; i++)
-+			regs[i] = IXGBE_READ_REG(hw, IXGBE_TXDCTL(i));
-+		break;
-+	default:
-+		printk(KERN_INFO "%-15s %08x\n", reginfo->name,
-+			IXGBE_READ_REG(hw, reginfo->ofs));
-+		return;
-+	}
-+
-+	for (i = 0; i < 8; i++) {
-+		snprintf(rname, 16, "%s[%d-%d]", reginfo->name, i*8, i*8+7);
-+		printk(KERN_ERR "%-15s ", rname);
-+		for (j = 0; j < 8; j++)
-+			printk(KERN_CONT "%08x ", regs[i*8+j]);
-+		printk(KERN_CONT "\n");
-+	}
-+
-+}
-+
-+/*
-+ * ixgbe_dump - Print registers, tx-rings and rx-rings
-+ */
-+static void ixgbe_dump(struct ixgbe_adapter *adapter)
-+{
-+	struct net_device *netdev = adapter->netdev;
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	struct ixgbe_reg_info *reginfo;
-+	int n = 0;
-+	struct ixgbe_ring *tx_ring;
-+	struct ixgbe_tx_buffer *tx_buffer_info;
-+	union ixgbe_adv_tx_desc *tx_desc;
-+	struct my_u0 { u64 a; u64 b; } *u0;
-+	struct ixgbe_ring *rx_ring;
-+	union ixgbe_adv_rx_desc *rx_desc;
-+	struct ixgbe_rx_buffer *rx_buffer_info;
-+	u32 staterr;
-+	int i = 0;
-+
-+	if (!netif_msg_hw(adapter))
-+		return;
-+
-+	/* Print netdevice Info */
-+	if (netdev) {
-+		dev_info(&adapter->pdev->dev, "Net device Info\n");
-+		printk(KERN_INFO "Device Name     state            "
-+			"trans_start      last_rx\n");
-+		printk(KERN_INFO "%-15s %016lX %016lX %016lX\n",
-+		netdev->name,
-+		netdev->state,
-+		netdev->trans_start,
-+		netdev->last_rx);
-+	}
-+
-+	/* Print Registers */
-+	dev_info(&adapter->pdev->dev, "Register Dump\n");
-+	printk(KERN_INFO " Register Name   Value\n");
-+	for (reginfo = (struct ixgbe_reg_info *)ixgbe_reg_info_tbl;
-+	     reginfo->name; reginfo++) {
-+		ixgbe_regdump(hw, reginfo);
-+	}
-+
-+	/* Print TX Ring Summary */
-+	if (!netdev || !netif_running(netdev))
-+		goto exit;
-+
-+	dev_info(&adapter->pdev->dev, "TX Rings Summary\n");
-+	printk(KERN_INFO "Queue [NTU] [NTC] [bi(ntc)->dma  ] "
-+		"leng ntw timestamp\n");
-+	for (n = 0; n < adapter->num_tx_queues; n++) {
-+		tx_ring = adapter->tx_ring[n];
-+		tx_buffer_info =
-+			&tx_ring->tx_buffer_info[tx_ring->next_to_clean];
-+		printk(KERN_INFO " %5d %5X %5X %016llX %04X %3X %016llX\n",
-+			   n, tx_ring->next_to_use, tx_ring->next_to_clean,
-+			   (u64)tx_buffer_info->dma,
-+			   tx_buffer_info->length,
-+			   tx_buffer_info->next_to_watch,
-+			   (u64)tx_buffer_info->time_stamp);
-+	}
-+
-+	/* Print TX Rings */
-+	if (!netif_msg_tx_done(adapter))
-+		goto rx_ring_summary;
-+
-+	dev_info(&adapter->pdev->dev, "TX Rings Dump\n");
-+
-+	/* Transmit Descriptor Formats
-+	 *
-+	 * Advanced Transmit Descriptor
-+	 *   +--------------------------------------------------------------+
-+	 * 0 |         Buffer Address [63:0]                                |
-+	 *   +--------------------------------------------------------------+
-+	 * 8 |  PAYLEN  | PORTS  | IDX | STA | DCMD  |DTYP |  RSV |  DTALEN |
-+	 *   +--------------------------------------------------------------+
-+	 *   63       46 45    40 39 36 35 32 31   24 23 20 19              0
-+	 */
-+
-+	for (n = 0; n < adapter->num_tx_queues; n++) {
-+		tx_ring = adapter->tx_ring[n];
-+		printk(KERN_INFO "------------------------------------\n");
-+		printk(KERN_INFO "TX QUEUE INDEX = %d\n", tx_ring->queue_index);
-+		printk(KERN_INFO "------------------------------------\n");
-+		printk(KERN_INFO "T [desc]     [address 63:0  ] "
-+			"[PlPOIdStDDt Ln] [bi->dma       ] "
-+			"leng  ntw timestamp        bi->skb\n");
-+
-+		for (i = 0; tx_ring->desc && (i < tx_ring->count); i++) {
-+			tx_desc = IXGBE_TX_DESC_ADV(*tx_ring, i);
-+			tx_buffer_info = &tx_ring->tx_buffer_info[i];
-+			u0 = (struct my_u0 *)tx_desc;
-+			printk(KERN_INFO "T [0x%03X]    %016llX %016llX %016llX"
-+				" %04X  %3X %016llX %p", i,
-+				le64_to_cpu(u0->a),
-+				le64_to_cpu(u0->b),
-+				(u64)tx_buffer_info->dma,
-+				tx_buffer_info->length,
-+				tx_buffer_info->next_to_watch,
-+				(u64)tx_buffer_info->time_stamp,
-+				tx_buffer_info->skb);
-+			if (i == tx_ring->next_to_use &&
-+				i == tx_ring->next_to_clean)
-+				printk(KERN_CONT " NTC/U\n");
-+			else if (i == tx_ring->next_to_use)
-+				printk(KERN_CONT " NTU\n");
-+			else if (i == tx_ring->next_to_clean)
-+				printk(KERN_CONT " NTC\n");
-+			else
-+				printk(KERN_CONT "\n");
-+
-+			if (netif_msg_pktdata(adapter) &&
-+				tx_buffer_info->dma != 0)
-+				print_hex_dump(KERN_INFO, "",
-+					DUMP_PREFIX_ADDRESS, 16, 1,
-+					phys_to_virt(tx_buffer_info->dma),
-+					tx_buffer_info->length, true);
-+		}
-+	}
-+
-+	/* Print RX Rings Summary */
-+rx_ring_summary:
-+	dev_info(&adapter->pdev->dev, "RX Rings Summary\n");
-+	printk(KERN_INFO "Queue [NTU] [NTC]\n");
-+	for (n = 0; n < adapter->num_rx_queues; n++) {
-+		rx_ring = adapter->rx_ring[n];
-+		printk(KERN_INFO "%5d %5X %5X\n", n,
-+			   rx_ring->next_to_use, rx_ring->next_to_clean);
-+	}
-+
-+	/* Print RX Rings */
-+	if (!netif_msg_rx_status(adapter))
-+		goto exit;
-+
-+	dev_info(&adapter->pdev->dev, "RX Rings Dump\n");
-+
-+	/* Advanced Receive Descriptor (Read) Format
-+	 *    63                                           1        0
-+	 *    +-----------------------------------------------------+
-+	 *  0 |       Packet Buffer Address [63:1]           |A0/NSE|
-+	 *    +----------------------------------------------+------+
-+	 *  8 |       Header Buffer Address [63:1]           |  DD  |
-+	 *    +-----------------------------------------------------+
-+	 *
-+	 *
-+	 * Advanced Receive Descriptor (Write-Back) Format
-+	 *
-+	 *   63       48 47    32 31  30      21 20 16 15   4 3     0
-+	 *   +------------------------------------------------------+
-+	 * 0 | Packet     IP     |SPH| HDR_LEN   | RSV|Packet|  RSS |
-+	 *   | Checksum   Ident  |   |           |    | Type | Type |
-+	 *   +------------------------------------------------------+
-+	 * 8 | VLAN Tag | Length | Extended Error | Extended Status |
-+	 *   +------------------------------------------------------+
-+	 *   63       48 47    32 31            20 19               0
-+	 */
-+	for (n = 0; n < adapter->num_rx_queues; n++) {
-+		rx_ring = adapter->rx_ring[n];
-+		printk(KERN_INFO "------------------------------------\n");
-+		printk(KERN_INFO "RX QUEUE INDEX = %d\n", rx_ring->queue_index);
-+		printk(KERN_INFO "------------------------------------\n");
-+		printk(KERN_INFO "R  [desc]      [ PktBuf     A0] "
-+			"[  HeadBuf   DD] [bi->dma       ] [bi->skb] "
-+			"<-- Adv Rx Read format\n");
-+		printk(KERN_INFO "RWB[desc]      [PcsmIpSHl PtRs] "
-+			"[vl er S cks ln] ---------------- [bi->skb] "
-+			"<-- Adv Rx Write-Back format\n");
-+
-+		for (i = 0; i < rx_ring->count; i++) {
-+			rx_buffer_info = &rx_ring->rx_buffer_info[i];
-+			rx_desc = IXGBE_RX_DESC_ADV(*rx_ring, i);
-+			u0 = (struct my_u0 *)rx_desc;
-+			staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
-+			if (staterr & IXGBE_RXD_STAT_DD) {
-+				/* Descriptor Done */
-+				printk(KERN_INFO "RWB[0x%03X]     %016llX "
-+					"%016llX ---------------- %p", i,
-+					le64_to_cpu(u0->a),
-+					le64_to_cpu(u0->b),
-+					rx_buffer_info->skb);
-+			} else {
-+				printk(KERN_INFO "R  [0x%03X]     %016llX "
-+					"%016llX %016llX %p", i,
-+					le64_to_cpu(u0->a),
-+					le64_to_cpu(u0->b),
-+					(u64)rx_buffer_info->dma,
-+					rx_buffer_info->skb);
-+
-+				if (netif_msg_pktdata(adapter)) {
-+					print_hex_dump(KERN_INFO, "",
-+					   DUMP_PREFIX_ADDRESS, 16, 1,
-+					   phys_to_virt(rx_buffer_info->dma),
-+					   rx_ring->rx_buf_len, true);
-+
-+					if (rx_ring->rx_buf_len
-+						< IXGBE_RXBUFFER_2048)
-+						print_hex_dump(KERN_INFO, "",
-+						  DUMP_PREFIX_ADDRESS, 16, 1,
-+						  phys_to_virt(
-+						    rx_buffer_info->page_dma +
-+						    rx_buffer_info->page_offset
-+						  ),
-+						  PAGE_SIZE/2, true);
-+				}
++			if (cqe->status & EHEA_CQE_STAT_RESET_MASK) {
++				ehea_error("Resetting port");
++				ehea_schedule_port_reset(pr->port);
++				break;
 +			}
+  		}
+
+  		if (netif_msg_tx_done(pr->port))
+@@ -901,6 +907,8 @@ static irqreturn_t ehea_qp_aff_irq_handl
+  	struct ehea_eqe *eqe;
+  	struct ehea_qp *qp;
+  	u32 qp_token;
++	u64 resource_type, aer, aerr;
++	int reset_port = 0;
+
+  	eqe = ehea_poll_eq(port->qp_eq);
+
+@@ -910,11 +918,24 @@ static irqreturn_t ehea_qp_aff_irq_handl
+  			   eqe->entry, qp_token);
+
+  		qp = port->port_res[qp_token].qp;
+-		ehea_error_data(port->adapter, qp->fw_handle);
 +
-+			if (i == rx_ring->next_to_use)
-+				printk(KERN_CONT " NTU\n");
-+			else if (i == rx_ring->next_to_clean)
-+				printk(KERN_CONT " NTC\n");
-+			else
-+				printk(KERN_CONT "\n");
++		resource_type = ehea_error_data(port->adapter, qp->fw_handle,
++						&aer, &aerr);
 +
-+		}
++		if (resource_type == EHEA_AER_RESTYPE_QP) {
++			if ((aer & EHEA_AER_RESET_MASK) ||
++			    (aerr & EHEA_AERR_RESET_MASK))
++				 reset_port = 1;
++		} else
++			reset_port = 1;   /* Reset in case of CQ or EQ error */
++
+  		eqe = ehea_poll_eq(port->qp_eq);
+  	}
+
+-	ehea_schedule_port_reset(port);
++	if (reset_port) {
++		ehea_error("Resetting port");
++		ehea_schedule_port_reset(port);
 +	}
+
+  	return IRQ_HANDLED;
+  }
+diff -Nurp linux-2.6.34-rc4.orig//drivers/net/ehea/ehea_qmr.c linux-2.6.34-rc4//drivers/net/ehea/ehea_qmr.c
+--- linux-2.6.34-rc4.orig//drivers/net/ehea/ehea_qmr.c	2010-04-19 11:54:07.000000000 +0200
++++ linux-2.6.34-rc4//drivers/net/ehea/ehea_qmr.c	2010-04-19 11:56:36.000000000 +0200
+@@ -229,14 +229,14 @@ u64 ehea_destroy_cq_res(struct ehea_cq *
+
+  int ehea_destroy_cq(struct ehea_cq *cq)
+  {
+-	u64 hret;
++	u64 hret, aer, aerr;
+  	if (!cq)
+  		return 0;
+
+  	hcp_epas_dtor(&cq->epas);
+  	hret = ehea_destroy_cq_res(cq, NORMAL_FREE);
+  	if (hret == H_R_STATE) {
+-		ehea_error_data(cq->adapter, cq->fw_handle);
++		ehea_error_data(cq->adapter, cq->fw_handle, &aer, &aerr);
+  		hret = ehea_destroy_cq_res(cq, FORCE_FREE);
+  	}
+
+@@ -357,7 +357,7 @@ u64 ehea_destroy_eq_res(struct ehea_eq *
+
+  int ehea_destroy_eq(struct ehea_eq *eq)
+  {
+-	u64 hret;
++	u64 hret, aer, aerr;
+  	if (!eq)
+  		return 0;
+
+@@ -365,7 +365,7 @@ int ehea_destroy_eq(struct ehea_eq *eq)
+
+  	hret = ehea_destroy_eq_res(eq, NORMAL_FREE);
+  	if (hret == H_R_STATE) {
+-		ehea_error_data(eq->adapter, eq->fw_handle);
++		ehea_error_data(eq->adapter, eq->fw_handle, &aer, &aerr);
+  		hret = ehea_destroy_eq_res(eq, FORCE_FREE);
+  	}
+
+@@ -540,7 +540,7 @@ u64 ehea_destroy_qp_res(struct ehea_qp *
+
+  int ehea_destroy_qp(struct ehea_qp *qp)
+  {
+-	u64 hret;
++	u64 hret, aer, aerr;
+  	if (!qp)
+  		return 0;
+
+@@ -548,7 +548,7 @@ int ehea_destroy_qp(struct ehea_qp *qp)
+
+  	hret = ehea_destroy_qp_res(qp, NORMAL_FREE);
+  	if (hret == H_R_STATE) {
+-		ehea_error_data(qp->adapter, qp->fw_handle);
++		ehea_error_data(qp->adapter, qp->fw_handle, &aer, &aerr);
+  		hret = ehea_destroy_qp_res(qp, FORCE_FREE);
+  	}
+
+@@ -986,42 +986,45 @@ void print_error_data(u64 *data)
+  	if (length > EHEA_PAGESIZE)
+  		length = EHEA_PAGESIZE;
+
+-	if (type == 0x8) /* Queue Pair */
++	if (type == EHEA_AER_RESTYPE_QP)
+  		ehea_error("QP (resource=%llX) state: AER=0x%llX, AERR=0x%llX, "
+  			   "port=%llX", resource, data[6], data[12], data[22]);
+-
+-	if (type == 0x4) /* Completion Queue */
++	else if (type == EHEA_AER_RESTYPE_CQ)
+  		ehea_error("CQ (resource=%llX) state: AER=0x%llX", resource,
+  			   data[6]);
+-
+-	if (type == 0x3) /* Event Queue */
++	else if (type == EHEA_AER_RESTYPE_EQ)
+  		ehea_error("EQ (resource=%llX) state: AER=0x%llX", resource,
+  			   data[6]);
+
+  	ehea_dump(data, length, "error data");
+  }
+
+-void ehea_error_data(struct ehea_adapter *adapter, u64 res_handle)
++u64 ehea_error_data(struct ehea_adapter *adapter, u64 res_handle,
++		    u64 *aer, u64 *aerr)
+  {
+  	unsigned long ret;
+  	u64 *rblock;
++	u64 type = 0;
+
+  	rblock = (void *)get_zeroed_page(GFP_KERNEL);
+  	if (!rblock) {
+  		ehea_error("Cannot allocate rblock memory.");
+-		return;
++		goto out;
+  	}
+
+-	ret = ehea_h_error_data(adapter->handle,
+-				res_handle,
+-				rblock);
++	ret = ehea_h_error_data(adapter->handle, res_handle, rblock);
+
+-	if (ret == H_R_STATE)
+-		ehea_error("No error data is available: %llX.", res_handle);
+-	else if (ret == H_SUCCESS)
++	if (ret == H_SUCCESS) {
++		type = EHEA_BMASK_GET(ERROR_DATA_TYPE, rblock[2]);
++		*aer = rblock[6];
++		*aerr = rblock[12];
+  		print_error_data(rblock);
+-	else
++	} else if (ret == H_R_STATE) {
++		ehea_error("No error data available: %llX.", res_handle);
++	} else
+  		ehea_error("Error data could not be fetched: %llX", res_handle);
+
+  	free_page((unsigned long)rblock);
++out:
++	return type;
+  }
+diff -Nurp linux-2.6.34-rc4.orig//drivers/net/ehea/ehea_qmr.h linux-2.6.34-rc4//drivers/net/ehea/ehea_qmr.h
+--- linux-2.6.34-rc4.orig//drivers/net/ehea/ehea_qmr.h	2010-04-19 11:54:07.000000000 +0200
++++ linux-2.6.34-rc4//drivers/net/ehea/ehea_qmr.h	2010-04-19 11:57:12.000000000 +0200
+@@ -154,6 +154,9 @@ struct ehea_rwqe {
+  #define EHEA_CQE_STAT_ERR_IP       0x2000
+  #define EHEA_CQE_STAT_ERR_CRC      0x1000
+
++/* Defines which bad send cqe stati lead to a port reset */
++#define EHEA_CQE_STAT_RESET_MASK   0x0002
 +
-+exit:
-+	return;
-+}
+  struct ehea_cqe {
+  	u64 wr_id;		/* work request ID from WQE */
+  	u8 type;
+@@ -187,6 +190,14 @@ struct ehea_cqe {
+  #define EHEA_EQE_SM_MECH_NUMBER  EHEA_BMASK_IBM(48, 55)
+  #define EHEA_EQE_SM_PORT_NUMBER  EHEA_BMASK_IBM(56, 63)
+
++#define EHEA_AER_RESTYPE_QP  0x8
++#define EHEA_AER_RESTYPE_CQ  0x4
++#define EHEA_AER_RESTYPE_EQ  0x3
 +
- static void ixgbe_release_hw_control(struct ixgbe_adapter *adapter)
- {
- 	u32 ctrl_ext;
-@@ -3380,6 +3719,8 @@ static void ixgbe_reset_task(struct work
++/* Defines which affiliated errors lead to a port reset */
++#define EHEA_AER_RESET_MASK   0xFFFFFFFFFEFFFFFFULL
++#define EHEA_AERR_RESET_MASK  0xFFFFFFFFFFFFFFFFULL
++
+  struct ehea_eqe {
+  	u64 entry;
+  };
+@@ -379,7 +390,8 @@ int ehea_gen_smr(struct ehea_adapter *ad
 
- 	adapter->tx_timeout_count++;
+  int ehea_rem_mr(struct ehea_mr *mr);
 
-+	ixgbe_dump(adapter);
-+	netdev_err(adapter->netdev, "Reset adapter\n");
- 	ixgbe_reinit_locked(adapter);
- }
+-void ehea_error_data(struct ehea_adapter *adapter, u64 res_handle);
++u64 ehea_error_data(struct ehea_adapter *adapter, u64 res_handle,
++		    u64 *aer, u64 *aerr);
 
-
-
+  int ehea_add_sect_bmap(unsigned long pfn, unsigned long nr_pages);
+  int ehea_rem_sect_bmap(unsigned long pfn, unsigned long nr_pages);
