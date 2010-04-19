@@ -1,44 +1,54 @@
-From: =?ISO-8859-1?Q?Richard_R=F6jfors?= <richard.rojfors@pelagicore.com>
-Subject: Re: [PATCH] ks8842: Add module param for setting mac address
-Date: Mon, 19 Apr 2010 08:46:58 +0200
-Message-ID: <4BCBFC62.8010200@pelagicore.com>
-References: <1271611557.24099.11.camel@debian>	<20100418.211800.112605815.davem@davemloft.net>	<4BCBF53D.1040800@pelagicore.com> <20100418.233631.115927208.davem@davemloft.net>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: Re: [PATCH BUG-FIX] ipv6: allow to send packet after receiving	ICMPv6
+ Too Big message with MTU field less than  IPV6_MIN_MTU
+Date: Mon, 19 Apr 2010 14:49:02 +0800
+Message-ID: <4BCBFCDE.7090206@cn.fujitsu.com>
+References: <4BCBC6CE.9020302@cn.fujitsu.com> <20100419035535.GA7011@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"yoshfuji@linux-ipv6.org >> YOSHIFUJI Hideaki"
+	<yoshfuji@linux-ipv6.org>,
+	=?UTF-8?B?6a2P5YuH5Yab?= <yjwei@cn.fujitsu.com>,
+	vladislav.yasevich@hp.com, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, Patrick McHardy <kaber@trash.net>,
+	eric.dumazet@gmail.com, sri@us.ibm.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-sctp@vger.kernel.org
+To: Herbert Xu <herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay-b11.telenor.se ([62.127.194.20]:55255 "EHLO
-	smtprelay-b11.telenor.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751877Ab0DSGrn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 02:47:43 -0400
-Received: from ipb3.telenor.se (ipb3.telenor.se [195.54.127.166])
-	by smtprelay-b11.telenor.se (Postfix) with ESMTP id 9FCCDE3F4
-	for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 08:47:01 +0200 (CEST)
-In-Reply-To: <20100418.233631.115927208.davem@davemloft.net>
+Received: from cn.fujitsu.com ([222.73.24.84]:63753 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751282Ab0DSGum (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Apr 2010 02:50:42 -0400
+In-Reply-To: <20100419035535.GA7011@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/19/2010 08:36 AM, David Miller wrote:
-> From: Richard R=F6jfors<richard.rojfors@pelagicore.com>
-> Date: Mon, 19 Apr 2010 08:16:29 +0200
->
->> I posted a new patch where the MAC address is passed via
->> platform data, hope that's an accepted way.
->
-> I saw also that you mentioned that there is no real
-> way to probe this information.
->
-> Therefore I worry that your plan might be to simply
-> use some kernel command line or module option somewhere
-> else to fill in this platform_device value.
->
-> Is that what you plan to do?
+Herbert Xu wrote, at 04/19/2010 11:55 AM:
+> 
+> The patch looks good to me.
 
-In the lab; yes.
-In the end, there will be a flash available to store
-system wide parameters.
+Thanks for reviewing this patch.
 
---Richard
+> If we wanted to optimise the allfrags case it may be better
+> to reserve the space beforehand and generate the fragment header
+> at the same time as we're doing the IPv6 header.
+> 
+> But it can't be all that important as it's been broken for so
+> many years.
+
+If somebody needs one patch to fix the broken,
+I am pleased to do so. 
+
+-- 
+Best Regards
+-----
+Shan Wei
+
+
+> 
+> Thanks,
+
+
