@@ -1,35 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: tip: origin tree build failure, [patch] fix isdn/gigaset build
- failure
-Date: Mon, 19 Apr 2010 12:06:00 -0700 (PDT)
-Message-ID: <20100419.120600.82034948.davem@davemloft.net>
-References: <20100419180520.GA9244@elte.hu>
-	<alpine.LFD.2.00.1004191112550.14500@i5.linux-foundation.org>
-	<alpine.LFD.2.00.1004191200050.14500@i5.linux-foundation.org>
+From: Scott Feldman <scofeldm@cisco.com>
+Subject: [net-next PATCH 0/2] iovnl netlink ops + enic dynamic vnics
+Date: Mon, 19 Apr 2010 12:18:02 -0700
+Message-ID: <20100419191425.10423.88005.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: mingo@elte.hu, tilman@imap.cc, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.1004191200050.14500@i5.linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, chrisw@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-4.cisco.com ([171.68.10.86]:10548 "EHLO
+	sj-iport-4.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752344Ab0DSTSF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 15:18:05 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Mon, 19 Apr 2010 12:00:49 -0700 (PDT)
+Patch 1/2 adds new I/O Virtualization netlink ops:
 
-> On Mon, 19 Apr 2010, Linus Torvalds wrote:
->> 
->> Maybe add the #include <linux/sched.h> into gigaset.h, instead of 
->> common.c?
-> 
-> This compiled for me, although the only thing I tried was just turning all 
-> the gigaset options to 'y'. Maybe some other config doesn't work. So I 
-> committed it as likely to fix things.
+  IOV netlink (IOVNL) adds I/O Virtualization control support to a master
+  device (MD) netdev interface.  The MD (e.g. SR-IOV PF) will set/get
+  control settings on behalf of a slave netdevice (e.g. SR-IOV VF).  The
+  design allows for the case where master and slave are the
+  same netdev interface.
 
-Thanks Linus.
+  The ops currently defined are:
+  	set_mac_vlan: set mac+vlan on VF
+	set_port_profile: set port-profile on VF
+	unset_port_profile: unset port-profile on VF
 
-Ingo, let us know if there is still some problems in your
-build tests.
+Patch 2/2 adds IOV netlink ops support to enic dynamic vnics:
+
+  Add enic iovnl ops to support setting port-profile for dynamic vnics.  Enic
+  dynamic vnics are just like normal enic eth vnics except dynamic vnics require
+  an extra configuration step to assign a port-profile identifier to the
+  interface before the interface is useable. Once assigned, link comes up
+  on the interface and is ready for I/O.  The port-profile is used to configure
+  the network port assigned to the interface.  The network port configuration
+  includes VLAN membership, QoS policies, and port security settings typical
+  of a data center network.
+
+Signed-off-by: Scott Feldman <scofeldm@cisco.com>
+Signed-off-by: Roopa Prabhu<roprabhu@cisco.com>
