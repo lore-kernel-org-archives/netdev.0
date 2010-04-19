@@ -1,8 +1,8 @@
 From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Subject: [PATCH v3 1/3] e1000e: add registers etc. printout code just before
+Subject: [PATCH v3 2/3] igb: add registers etc. printout code just before
  resetting adapters
-Date: Mon, 19 Apr 2010 20:25:13 +0900
-Message-ID: <4BCC3D99.8060303@jp.fujitsu.com>
+Date: Mon, 19 Apr 2010 20:26:44 +0900
+Message-ID: <4BCC3DF4.4080106@jp.fujitsu.com>
 References: <4BCC3C9B.3000901@jp.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
@@ -14,29 +14,30 @@ To: Bruce Allan <bruce.w.allan@intel.com>,
 	John Ronciak <john.ronciak@intel.com>,
 	"Kirsher, Jeffre
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail6.fujitsu.co.jp ([192.51.44.36]:51628 "EHLO
-	fgwmail6.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753005Ab0DSLZ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 07:25:28 -0400
-Received: from m6.gw.fujitsu.co.jp ([10.0.50.76])
-	by fgwmail6.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o3JBPRiB026083
+Received: from fgwmail7.fujitsu.co.jp ([192.51.44.37]:41817 "EHLO
+	fgwmail7.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753005Ab0DSL05 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 07:26:57 -0400
+Received: from m1.gw.fujitsu.co.jp ([10.0.50.71])
+	by fgwmail7.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o3JBQuCZ015300
 	for <netdev@vger.kernel.org> (envelope-from izumi.taku@jp.fujitsu.com);
-	Mon, 19 Apr 2010 20:25:27 +0900
-Received: from smail (m6 [127.0.0.1])
-	by outgoing.m6.gw.fujitsu.co.jp (Postfix) with ESMTP id C78F345DE53
-	for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 20:25:26 +0900 (JST)
-Received: from s6.gw.fujitsu.co.jp (s6.gw.fujitsu.co.jp [10.0.50.96])
-	by m6.gw.fujitsu.co.jp (Postfix) with ESMTP id AB2C045DE50
-	for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 20:25:26 +0900 (JST)
-Received: from s6.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
-	by s6.gw.fujitsu.co.jp (Postfix) with ESMTP id 88CA61DB8012
-	for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 20:25:26 +0900 (JST)
-Received: from ml13.s.css.fujitsu.com (ml13.s.css.fujitsu.com [10.249.87.103])
-	by s6.gw.fujitsu.co.jp (Postfix) with ESMTP id 373BA1DB8015
-	for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 20:25:26 +0900 (JST)
+	Mon, 19 Apr 2010 20:26:56 +0900
+Received: from smail (m1 [127.0.0.1])
+	by outgoing.m1.gw.fujitsu.co.jp (Postfix) with ESMTP id EA86D45DE4D
+	for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 20:26:55 +0900 (JST)
+Received: from s1.gw.fujitsu.co.jp (s1.gw.fujitsu.co.jp [10.0.50.91])
+	by m1.gw.fujitsu.co.jp (Postfix) with ESMTP id B15BB45DE50
+	for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 20:26:55 +0900 (JST)
+Received: from s1.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
+	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id 914691DB8040
+	for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 20:26:55 +0900 (JST)
+Received: from ml14.s.css.fujitsu.com (ml14.s.css.fujitsu.com [10.249.87.104])
+	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id 1D72D1DB8045
+	for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 20:26:55 +0900 (JST)
 In-Reply-To: <4BCC3C9B.3000901@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
 
 This patch adds registers (,tx/rx rings' status and so on) printout
 code just before resetting adapters. This will be helpful for detecting
@@ -45,34 +46,23 @@ the root cause of adapters reset.
 Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
 Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
 ---
- drivers/net/e1000e/netdev.c |  357 ++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 357 insertions(+)
-Index: net-next-2.6.34/drivers/net/e1000e/netdev.c
-===================================================================
---- net-next-2.6.34.orig/drivers/net/e1000e/netdev.c
-+++ net-next-2.6.34/drivers/net/e1000e/netdev.c
-@@ -69,6 +69,361 @@ static const struct e1000_info *e1000_in
- 	[board_pchlan]		= &e1000_pch_info,
- };
+ drivers/net/igb/igb_main.c |  332 +++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 332 insertions(+)
 
-+struct e1000_reg_info {
+Index: net-next-2.6.34/drivers/net/igb/igb_main.c
+===================================================================
+--- net-next-2.6.34.orig/drivers/net/igb/igb_main.c
++++ net-next-2.6.34/drivers/net/igb/igb_main.c
+@@ -201,6 +201,336 @@ MODULE_DESCRIPTION("Intel(R) Gigabit Eth
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(DRV_VERSION);
+
++struct igb_reg_info {
 +	u32 ofs;
 +	char *name;
 +};
 +
-+#define E1000_RDFH	0x02410 /* Rx Data FIFO Head - RW */
-+#define E1000_RDFT	0x02418 /* Rx Data FIFO Tail - RW */
-+#define E1000_RDFHS	0x02420 /* Rx Data FIFO Head Saved - RW */
-+#define E1000_RDFTS	0x02428 /* Rx Data FIFO Tail Saved - RW */
-+#define E1000_RDFPC	0x02430 /* Rx Data FIFO Packet Count - RW */
-+
-+#define E1000_TDFH	0x03410 /* Tx Data FIFO Head - RW */
-+#define E1000_TDFT	0x03418 /* Tx Data FIFO Tail - RW */
-+#define E1000_TDFHS	0x03420 /* Tx Data FIFO Head Saved - RW */
-+#define E1000_TDFTS	0x03428 /* Tx Data FIFO Tail Saved - RW */
-+#define E1000_TDFPC	0x03430 /* Tx Data FIFO Packet Count - RW */
-+
-+static const struct e1000_reg_info e1000_reg_info_tbl[] = {
++static const struct igb_reg_info igb_reg_info_tbl[] = {
 +
 +	/* General Registers */
 +	{E1000_CTRL, "CTRL"},
@@ -84,35 +74,24 @@ Index: net-next-2.6.34/drivers/net/e1000e/netdev.c
 +
 +	/* RX Registers */
 +	{E1000_RCTL, "RCTL"},
-+	{E1000_RDLEN, "RDLEN"},
-+	{E1000_RDH, "RDH"},
-+	{E1000_RDT, "RDT"},
-+	{E1000_RDTR, "RDTR"},
++	{E1000_RDLEN(0), "RDLEN"},
++	{E1000_RDH(0), "RDH"},
++	{E1000_RDT(0), "RDT"},
 +	{E1000_RXDCTL(0), "RXDCTL"},
-+	{E1000_ERT, "ERT"},
-+	{E1000_RDBAL, "RDBAL"},
-+	{E1000_RDBAH, "RDBAH"},
-+	{E1000_RDFH, "RDFH"},
-+	{E1000_RDFT, "RDFT"},
-+	{E1000_RDFHS, "RDFHS"},
-+	{E1000_RDFTS, "RDFTS"},
-+	{E1000_RDFPC, "RDFPC"},
++	{E1000_RDBAL(0), "RDBAL"},
++	{E1000_RDBAH(0), "RDBAH"},
 +
 +	/* TX Registers */
 +	{E1000_TCTL, "TCTL"},
-+	{E1000_TDBAL, "TDBAL"},
-+	{E1000_TDBAH, "TDBAH"},
-+	{E1000_TDLEN, "TDLEN"},
-+	{E1000_TDH, "TDH"},
-+	{E1000_TDT, "TDT"},
-+	{E1000_TIDV, "TIDV"},
++	{E1000_TDBAL(0), "TDBAL"},
++	{E1000_TDBAH(0), "TDBAH"},
++	{E1000_TDLEN(0), "TDLEN"},
++	{E1000_TDH(0), "TDH"},
++	{E1000_TDT(0), "TDT"},
 +	{E1000_TXDCTL(0), "TXDCTL"},
-+	{E1000_TADV, "TADV"},
-+	{E1000_TARC(0), "TARC"},
 +	{E1000_TDFH, "TDFH"},
 +	{E1000_TDFT, "TDFT"},
 +	{E1000_TDFHS, "TDFHS"},
-+	{E1000_TDFTS, "TDFTS"},
 +	{E1000_TDFPC, "TDFPC"},
 +
 +	/* List Terminator */
@@ -120,57 +99,91 @@ Index: net-next-2.6.34/drivers/net/e1000e/netdev.c
 +};
 +
 +/*
-+ * e1000_regdump - register printout routine
++ * igb_regdump - register printout routine
 + */
-+static void e1000_regdump(struct e1000_hw *hw, struct e1000_reg_info *reginfo)
++static void igb_regdump(struct e1000_hw *hw, struct igb_reg_info *reginfo)
 +{
 +	int n = 0;
 +	char rname[16];
 +	u32 regs[8];
 +
 +	switch (reginfo->ofs) {
++	case E1000_RDLEN(0):
++		for (n = 0; n < 4; n++)
++			regs[n] = rd32(E1000_RDLEN(n));
++		break;
++	case E1000_RDH(0):
++		for (n = 0; n < 4; n++)
++			regs[n] = rd32(E1000_RDH(n));
++		break;
++	case E1000_RDT(0):
++		for (n = 0; n < 4; n++)
++			regs[n] = rd32(E1000_RDT(n));
++		break;
 +	case E1000_RXDCTL(0):
-+		for (n = 0; n < 2; n++)
-+			regs[n] = __er32(hw, E1000_RXDCTL(n));
++		for (n = 0; n < 4; n++)
++			regs[n] = rd32(E1000_RXDCTL(n));
++		break;
++	case E1000_RDBAL(0):
++		for (n = 0; n < 4; n++)
++			regs[n] = rd32(E1000_RDBAL(n));
++		break;
++	case E1000_RDBAH(0):
++		for (n = 0; n < 4; n++)
++			regs[n] = rd32(E1000_RDBAH(n));
++		break;
++	case E1000_TDBAL(0):
++		for (n = 0; n < 4; n++)
++			regs[n] = rd32(E1000_RDBAL(n));
++		break;
++	case E1000_TDBAH(0):
++		for (n = 0; n < 4; n++)
++			regs[n] = rd32(E1000_TDBAH(n));
++		break;
++	case E1000_TDLEN(0):
++		for (n = 0; n < 4; n++)
++			regs[n] = rd32(E1000_TDLEN(n));
++		break;
++	case E1000_TDH(0):
++		for (n = 0; n < 4; n++)
++			regs[n] = rd32(E1000_TDH(n));
++		break;
++	case E1000_TDT(0):
++		for (n = 0; n < 4; n++)
++			regs[n] = rd32(E1000_TDT(n));
 +		break;
 +	case E1000_TXDCTL(0):
-+		for (n = 0; n < 2; n++)
-+			regs[n] = __er32(hw, E1000_TXDCTL(n));
-+		break;
-+	case E1000_TARC(0):
-+		for (n = 0; n < 2; n++)
-+			regs[n] = __er32(hw, E1000_TARC(n));
++		for (n = 0; n < 4; n++)
++			regs[n] = rd32(E1000_TXDCTL(n));
 +		break;
 +	default:
 +		printk(KERN_INFO "%-15s %08x\n",
-+			reginfo->name, __er32(hw, reginfo->ofs));
++			reginfo->name, rd32(reginfo->ofs));
 +		return;
 +	}
 +
-+	snprintf(rname, 16, "%s%s", reginfo->name, "[0-1]");
++	snprintf(rname, 16, "%s%s", reginfo->name, "[0-3]");
 +	printk(KERN_INFO "%-15s ", rname);
-+	for (n = 0; n < 2; n++)
++	for (n = 0; n < 4; n++)
 +		printk(KERN_CONT "%08x ", regs[n]);
 +	printk(KERN_CONT "\n");
 +}
 +
-+
 +/*
-+ * e1000e_dump - Print registers, tx-ring and rx-ring
++ * igb_dump - Print registers, tx-rings and rx-rings
 + */
-+static void e1000e_dump(struct e1000_adapter *adapter)
++static void igb_dump(struct igb_adapter *adapter)
 +{
 +	struct net_device *netdev = adapter->netdev;
 +	struct e1000_hw *hw = &adapter->hw;
-+	struct e1000_reg_info *reginfo;
-+	struct e1000_ring *tx_ring = adapter->tx_ring;
-+	struct e1000_tx_desc *tx_desc;
++	struct igb_reg_info *reginfo;
++	int n = 0;
++	struct igb_ring *tx_ring;
++	union e1000_adv_tx_desc *tx_desc;
 +	struct my_u0 { u64 a; u64 b; } *u0;
-+	struct e1000_buffer *buffer_info;
-+	struct e1000_ring *rx_ring = adapter->rx_ring;
-+	union e1000_rx_desc_packet_split *rx_desc_ps;
-+	struct e1000_rx_desc *rx_desc;
-+	struct my_u1 { u64 a; u64 b; u64 c; u64 d; } *u1;
++	struct igb_buffer *buffer_info;
++	struct igb_ring *rx_ring;
++	union e1000_adv_rx_desc *rx_desc;
 +	u32 staterr;
 +	int i = 0;
 +
@@ -183,18 +196,18 @@ Index: net-next-2.6.34/drivers/net/e1000e/netdev.c
 +		printk(KERN_INFO "Device Name     state            "
 +			"trans_start      last_rx\n");
 +		printk(KERN_INFO "%-15s %016lX %016lX %016lX\n",
-+			netdev->name,
-+			netdev->state,
-+			netdev->trans_start,
-+			netdev->last_rx);
++		netdev->name,
++		netdev->state,
++		netdev->trans_start,
++		netdev->last_rx);
 +	}
 +
 +	/* Print Registers */
 +	dev_info(&adapter->pdev->dev, "Register Dump\n");
 +	printk(KERN_INFO " Register Name   Value\n");
-+	for (reginfo = (struct e1000_reg_info *)e1000_reg_info_tbl;
++	for (reginfo = (struct igb_reg_info *)igb_reg_info_tbl;
 +	     reginfo->name; reginfo++) {
-+		e1000_regdump(hw, reginfo);
++		igb_regdump(hw, reginfo);
 +	}
 +
 +	/* Print TX Ring Summary */
@@ -204,13 +217,16 @@ Index: net-next-2.6.34/drivers/net/e1000e/netdev.c
 +	dev_info(&adapter->pdev->dev, "TX Rings Summary\n");
 +	printk(KERN_INFO "Queue [NTU] [NTC] [bi(ntc)->dma  ]"
 +		" leng ntw timestamp\n");
-+	buffer_info = &tx_ring->buffer_info[tx_ring->next_to_clean];
-+	printk(KERN_INFO " %5d %5X %5X %016llX %04X %3X %016llX\n",
-+		0, tx_ring->next_to_use, tx_ring->next_to_clean,
-+		(u64)buffer_info->dma,
-+		buffer_info->length,
-+		buffer_info->next_to_watch,
-+		(u64)buffer_info->time_stamp);
++	for (n = 0; n < adapter->num_tx_queues; n++) {
++		tx_ring = adapter->tx_ring[n];
++		buffer_info = &tx_ring->buffer_info[tx_ring->next_to_clean];
++		printk(KERN_INFO " %5d %5X %5X %016llX %04X %3X %016llX\n",
++			   n, tx_ring->next_to_use, tx_ring->next_to_clean,
++			   (u64)buffer_info->dma,
++			   buffer_info->length,
++			   buffer_info->next_to_watch,
++			   (u64)buffer_info->time_stamp);
++	}
 +
 +	/* Print TX Rings */
 +	if (!netif_msg_tx_done(adapter))
@@ -218,147 +234,142 @@ Index: net-next-2.6.34/drivers/net/e1000e/netdev.c
 +
 +	dev_info(&adapter->pdev->dev, "TX Rings Dump\n");
 +
-+	/* Transmit Descriptor Formats - DEXT[29] is 0 (Legacy) or 1 (Extended)
++	/* Transmit Descriptor Formats
 +	 *
-+	 * Legacy Transmit Descriptor
++	 * Advanced Transmit Descriptor
 +	 *   +--------------------------------------------------------------+
-+	 * 0 |         Buffer Address [63:0] (Reserved on Write Back)       |
++	 * 0 |         Buffer Address [63:0]                                |
 +	 *   +--------------------------------------------------------------+
-+	 * 8 | Special  |    CSS     | Status |  CMD    |  CSO   |  Length  |
++	 * 8 | PAYLEN  | PORTS  |CC|IDX | STA | DCMD  |DTYP|MAC|RSV| DTALEN |
 +	 *   +--------------------------------------------------------------+
-+	 *   63       48 47        36 35    32 31     24 23    16 15        0
-+	 *
-+	 * Extended Context Descriptor (DTYP=0x0) for TSO or checksum offload
-+	 *   63      48 47    40 39       32 31             16 15    8 7      0
-+	 *   +----------------------------------------------------------------+
-+	 * 0 |  TUCSE  | TUCS0  |   TUCSS   |     IPCSE       | IPCS0 | IPCSS |
-+	 *   +----------------------------------------------------------------+
-+	 * 8 |   MSS   | HDRLEN | RSV | STA | TUCMD | DTYP |      PAYLEN      |
-+	 *   +----------------------------------------------------------------+
-+	 *   63      48 47    40 39 36 35 32 31   24 23  20 19                0
-+	 *
-+	 * Extended Data Descriptor (DTYP=0x1)
-+	 *   +----------------------------------------------------------------+
-+	 * 0 |                     Buffer Address [63:0]                      |
-+	 *   +----------------------------------------------------------------+
-+	 * 8 | VLAN tag |  POPTS  | Rsvd | Status | Command | DTYP |  DTALEN  |
-+	 *   +----------------------------------------------------------------+
-+	 *   63       48 47     40 39  36 35    32 31     24 23  20 19        0
++	 *   63      46 45    40 39 38 36 35 32 31   24             15       0
 +	 */
-+	printk(KERN_INFO "Tl[desc]     [address 63:0  ] [SpeCssSCmCsLen]"
-+		" [bi->dma       ] leng  ntw timestamp        bi->skb "
-+		"<-- Legacy format\n");
-+	printk(KERN_INFO "Tc[desc]     [Ce CoCsIpceCoS] [MssHlRSCm0Plen]"
-+		" [bi->dma       ] leng  ntw timestamp        bi->skb "
-+		"<-- Ext Context format\n");
-+	printk(KERN_INFO "Td[desc]     [address 63:0  ] [VlaPoRSCm1Dlen]"
-+		" [bi->dma       ] leng  ntw timestamp        bi->skb "
-+		"<-- Ext Data format\n");
-+	for (i = 0; tx_ring->desc && (i < tx_ring->count); i++) {
-+		tx_desc = E1000_TX_DESC(*tx_ring, i);
-+		buffer_info = &tx_ring->buffer_info[i];
-+		u0 = (struct my_u0 *)tx_desc;
-+		printk(KERN_INFO "T%c[0x%03X]    %016llX %016llX %016llX "
-+			"%04X  %3X %016llX %p",
-+		       (!(le64_to_cpu(u0->b) & (1<<29)) ? 'l' :
-+			((le64_to_cpu(u0->b) & (1<<20)) ? 'd' : 'c')), i,
-+		       le64_to_cpu(u0->a), le64_to_cpu(u0->b),
-+		       (u64)buffer_info->dma, buffer_info->length,
-+		       buffer_info->next_to_watch, (u64)buffer_info->time_stamp,
-+		       buffer_info->skb);
-+		if (i == tx_ring->next_to_use && i == tx_ring->next_to_clean)
-+			printk(KERN_CONT " NTC/U\n");
-+		else if (i == tx_ring->next_to_use)
-+			printk(KERN_CONT " NTU\n");
-+		else if (i == tx_ring->next_to_clean)
-+			printk(KERN_CONT " NTC\n");
-+		else
-+			printk(KERN_CONT "\n");
 +
-+		if (netif_msg_pktdata(adapter) && buffer_info->dma != 0)
-+			print_hex_dump(KERN_INFO, "", DUMP_PREFIX_ADDRESS,
++	for (n = 0; n < adapter->num_tx_queues; n++) {
++		tx_ring = adapter->tx_ring[n];
++		printk(KERN_INFO "------------------------------------\n");
++		printk(KERN_INFO "TX QUEUE INDEX = %d\n", tx_ring->queue_index);
++		printk(KERN_INFO "------------------------------------\n");
++		printk(KERN_INFO "T [desc]     [address 63:0  ] "
++			"[PlPOCIStDDM Ln] [bi->dma       ] "
++			"leng  ntw timestamp        bi->skb\n");
++
++		for (i = 0; tx_ring->desc && (i < tx_ring->count); i++) {
++			tx_desc = E1000_TX_DESC_ADV(*tx_ring, i);
++			buffer_info = &tx_ring->buffer_info[i];
++			u0 = (struct my_u0 *)tx_desc;
++			printk(KERN_INFO "T [0x%03X]    %016llX %016llX %016llX"
++				" %04X  %3X %016llX %p", i,
++				le64_to_cpu(u0->a),
++				le64_to_cpu(u0->b),
++				(u64)buffer_info->dma,
++				buffer_info->length,
++				buffer_info->next_to_watch,
++				(u64)buffer_info->time_stamp,
++				buffer_info->skb);
++			if (i == tx_ring->next_to_use &&
++				i == tx_ring->next_to_clean)
++				printk(KERN_CONT " NTC/U\n");
++			else if (i == tx_ring->next_to_use)
++				printk(KERN_CONT " NTU\n");
++			else if (i == tx_ring->next_to_clean)
++				printk(KERN_CONT " NTC\n");
++			else
++				printk(KERN_CONT "\n");
++
++			if (netif_msg_pktdata(adapter) && buffer_info->dma != 0)
++				print_hex_dump(KERN_INFO, "",
++					DUMP_PREFIX_ADDRESS,
 +					16, 1, phys_to_virt(buffer_info->dma),
 +					buffer_info->length, true);
++		}
 +	}
 +
 +	/* Print RX Rings Summary */
 +rx_ring_summary:
 +	dev_info(&adapter->pdev->dev, "RX Rings Summary\n");
 +	printk(KERN_INFO "Queue [NTU] [NTC]\n");
-+	printk(KERN_INFO " %5d %5X %5X\n", 0,
-+		rx_ring->next_to_use, rx_ring->next_to_clean);
++	for (n = 0; n < adapter->num_rx_queues; n++) {
++		rx_ring = adapter->rx_ring[n];
++		printk(KERN_INFO " %5d %5X %5X\n", n,
++			   rx_ring->next_to_use, rx_ring->next_to_clean);
++	}
 +
 +	/* Print RX Rings */
 +	if (!netif_msg_rx_status(adapter))
 +		goto exit;
 +
 +	dev_info(&adapter->pdev->dev, "RX Rings Dump\n");
-+	switch (adapter->rx_ps_pages) {
-+	case 1:
-+	case 2:
-+	case 3:
-+		/* [Extended] Packet Split Receive Descriptor Format
-+		 *
-+		 *    +-----------------------------------------------------+
-+		 *  0 |                Buffer Address 0 [63:0]              |
-+		 *    +-----------------------------------------------------+
-+		 *  8 |                Buffer Address 1 [63:0]              |
-+		 *    +-----------------------------------------------------+
-+		 * 16 |                Buffer Address 2 [63:0]              |
-+		 *    +-----------------------------------------------------+
-+		 * 24 |                Buffer Address 3 [63:0]              |
-+		 *    +-----------------------------------------------------+
-+		 */
-+		printk(KERN_INFO "R  [desc]      [buffer 0 63:0 ] "
-+			"[buffer 1 63:0 ] "
-+		       "[buffer 2 63:0 ] [buffer 3 63:0 ] [bi->dma       ] "
-+		       "[bi->skb] <-- Ext Pkt Split format\n");
-+		/* [Extended] Receive Descriptor (Write-Back) Format
-+		 *
-+		 *   63       48 47    32 31     13 12    8 7    4 3        0
-+		 *   +------------------------------------------------------+
-+		 * 0 | Packet   | IP     |  Rsvd   | MRQ   | Rsvd | MRQ RSS |
-+		 *   | Checksum | Ident  |         | Queue |      |  Type   |
-+		 *   +------------------------------------------------------+
-+		 * 8 | VLAN Tag | Length | Extended Error | Extended Status |
-+		 *   +------------------------------------------------------+
-+		 *   63       48 47    32 31            20 19               0
-+		 */
-+		printk(KERN_INFO "RWB[desc]      [ck ipid mrqhsh] "
-+			"[vl   l0 ee  es] "
-+		       "[ l3  l2  l1 hs] [reserved      ] ---------------- "
-+		       "[bi->skb] <-- Ext Rx Write-Back format\n");
++
++	/* Advanced Receive Descriptor (Read) Format
++	 *    63                                           1        0
++	 *    +-----------------------------------------------------+
++	 *  0 |       Packet Buffer Address [63:1]           |A0/NSE|
++	 *    +----------------------------------------------+------+
++	 *  8 |       Header Buffer Address [63:1]           |  DD  |
++	 *    +-----------------------------------------------------+
++	 *
++	 *
++	 * Advanced Receive Descriptor (Write-Back) Format
++	 *
++	 *   63       48 47    32 31  30      21 20 17 16   4 3     0
++	 *   +------------------------------------------------------+
++	 * 0 | Packet     IP     |SPH| HDR_LEN   | RSV|Packet|  RSS |
++	 *   | Checksum   Ident  |   |           |    | Type | Type |
++	 *   +------------------------------------------------------+
++	 * 8 | VLAN Tag | Length | Extended Error | Extended Status |
++	 *   +------------------------------------------------------+
++	 *   63       48 47    32 31            20 19               0
++	 */
++
++	for (n = 0; n < adapter->num_rx_queues; n++) {
++		rx_ring = adapter->rx_ring[n];
++		printk(KERN_INFO "------------------------------------\n");
++		printk(KERN_INFO "RX QUEUE INDEX = %d\n", rx_ring->queue_index);
++		printk(KERN_INFO "------------------------------------\n");
++		printk(KERN_INFO "R  [desc]      [ PktBuf     A0] "
++			"[  HeadBuf   DD] [bi->dma       ] [bi->skb] "
++			"<-- Adv Rx Read format\n");
++		printk(KERN_INFO "RWB[desc]      [PcsmIpSHl PtRs] "
++			"[vl er S cks ln] ---------------- [bi->skb] "
++			"<-- Adv Rx Write-Back format\n");
++
 +		for (i = 0; i < rx_ring->count; i++) {
 +			buffer_info = &rx_ring->buffer_info[i];
-+			rx_desc_ps = E1000_RX_DESC_PS(*rx_ring, i);
-+			u1 = (struct my_u1 *)rx_desc_ps;
-+			staterr =
-+				le32_to_cpu(rx_desc_ps->wb.middle.status_error);
++			rx_desc = E1000_RX_DESC_ADV(*rx_ring, i);
++			u0 = (struct my_u0 *)rx_desc;
++			staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
 +			if (staterr & E1000_RXD_STAT_DD) {
 +				/* Descriptor Done */
 +				printk(KERN_INFO "RWB[0x%03X]     %016llX "
-+					"%016llX %016llX %016llX "
-+					"---------------- %p", i,
-+					le64_to_cpu(u1->a),
-+					le64_to_cpu(u1->b),
-+					le64_to_cpu(u1->c),
-+					le64_to_cpu(u1->d),
++					"%016llX ---------------- %p", i,
++					le64_to_cpu(u0->a),
++					le64_to_cpu(u0->b),
 +					buffer_info->skb);
 +			} else {
 +				printk(KERN_INFO "R  [0x%03X]     %016llX "
-+					"%016llX %016llX %016llX %016llX %p", i,
-+					le64_to_cpu(u1->a),
-+					le64_to_cpu(u1->b),
-+					le64_to_cpu(u1->c),
-+					le64_to_cpu(u1->d),
++					"%016llX %016llX %p", i,
++					le64_to_cpu(u0->a),
++					le64_to_cpu(u0->b),
 +					(u64)buffer_info->dma,
 +					buffer_info->skb);
 +
-+				if (netif_msg_pktdata(adapter))
++				if (netif_msg_pktdata(adapter)) {
 +					print_hex_dump(KERN_INFO, "",
-+						DUMP_PREFIX_ADDRESS, 16, 1,
++						DUMP_PREFIX_ADDRESS,
++						16, 1,
 +						phys_to_virt(buffer_info->dma),
-+						adapter->rx_ps_bsize0, true);
++						rx_ring->rx_buffer_len, true);
++					if (rx_ring->rx_buffer_len
++						< IGB_RXBUFFER_1024)
++						print_hex_dump(KERN_INFO, "",
++						  DUMP_PREFIX_ADDRESS,
++						  16, 1,
++						  phys_to_virt(
++						    buffer_info->page_dma +
++						    buffer_info->page_offset),
++						  PAGE_SIZE/2, true);
++				}
 +			}
 +
 +			if (i == rx_ring->next_to_use)
@@ -367,42 +378,7 @@ Index: net-next-2.6.34/drivers/net/e1000e/netdev.c
 +				printk(KERN_CONT " NTC\n");
 +			else
 +				printk(KERN_CONT "\n");
-+		}
-+		break;
-+	default:
-+	case 0:
-+		/* Legacy Receive Descriptor Format
-+		 *
-+		 * +-----------------------------------------------------+
-+		 * |                Buffer Address [63:0]                |
-+		 * +-----------------------------------------------------+
-+		 * | VLAN Tag | Errors | Status 0 | Packet csum | Length |
-+		 * +-----------------------------------------------------+
-+		 * 63       48 47    40 39      32 31         16 15      0
-+		 */
-+		printk(KERN_INFO "Rl[desc]     [address 63:0  ] "
-+			"[vl er S cks ln] [bi->dma       ] [bi->skb] "
-+			"<-- Legacy format\n");
-+		for (i = 0; rx_ring->desc && (i < rx_ring->count); i++) {
-+			rx_desc = E1000_RX_DESC(*rx_ring, i);
-+			buffer_info = &rx_ring->buffer_info[i];
-+			u0 = (struct my_u0 *)rx_desc;
-+			printk(KERN_INFO "Rl[0x%03X]    %016llX %016llX "
-+				"%016llX %p",
-+				i, le64_to_cpu(u0->a), le64_to_cpu(u0->b),
-+				(u64)buffer_info->dma, buffer_info->skb);
-+			if (i == rx_ring->next_to_use)
-+				printk(KERN_CONT " NTU\n");
-+			else if (i == rx_ring->next_to_clean)
-+				printk(KERN_CONT " NTC\n");
-+			else
-+				printk(KERN_CONT "\n");
 +
-+			if (netif_msg_pktdata(adapter))
-+				print_hex_dump(KERN_INFO, "",
-+					DUMP_PREFIX_ADDRESS,
-+					16, 1, phys_to_virt(buffer_info->dma),
-+					adapter->rx_buffer_len, true);
 +		}
 +	}
 +
@@ -410,16 +386,17 @@ Index: net-next-2.6.34/drivers/net/e1000e/netdev.c
 +	return;
 +}
 +
++
  /**
-  * e1000_desc_unused - calculate if we have unused descriptors
-  **/
-@@ -4268,6 +4623,8 @@ static void e1000_reset_task(struct work
- 	struct e1000_adapter *adapter;
- 	adapter = container_of(work, struct e1000_adapter, reset_task);
+  * igb_read_clock - read raw cycle counter (to be used by time counter)
+  */
+@@ -3854,6 +4184,8 @@ static void igb_reset_task(struct work_s
+ 	struct igb_adapter *adapter;
+ 	adapter = container_of(work, struct igb_adapter, reset_task);
 
-+	e1000e_dump(adapter);
-+	e_err("Reset adapter\n");
- 	e1000e_reinit_locked(adapter);
++	igb_dump(adapter);
++	netdev_err(adapter->netdev, "Reset adapter\n");
+ 	igb_reinit_locked(adapter);
  }
 
 
