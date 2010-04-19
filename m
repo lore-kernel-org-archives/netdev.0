@@ -1,140 +1,319 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: [PATCH RFC: linux-next 2/2] ixgbe: Example usage of the new IRQ
-	affinity_hint callback
-Date: Sun, 18 Apr 2010 21:58:09 -0700
-Message-ID: <20100419045809.30276.50652.stgit@ppwaskie-hc2.jf.intel.com>
-References: <20100419045741.30276.23233.stgit@ppwaskie-hc2.jf.intel.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 PATCH] ixgbe: add IntMode module parameter
+Date: Sun, 18 Apr 2010 22:03:59 -0700
+Message-ID: <20100419050315.24758.62479.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: tglx@linutronix.de, davem@davemloft.net, arjan@linux.jf.intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100419045741.30276.23233.stgit@ppwaskie-hc2.jf.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Nicholas Nunley <nicholasx.d.nunley@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta13.emeryville.ca.mail.comcast.net ([76.96.27.243]:40574
+	"EHLO qmta13.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750920Ab0DSFEX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 01:04:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch uses the new IRQ affinity_hint callback mechanism.
-It serves purely as an example of how a low-level driver can
-utilize this new interface.
+From: Nick Nunley <nicholasx.d.nunley@intel.com>
 
-An official ixgbe patch will be pushed through netdev once the
-IRQ patches have been accepted and merged.
+The 82598 has an erratum where some system designs can increase the
+likelihood of a system hang due to a PCIe resource contention between the
+82598 and another device in legacy INTx mode.
 
-Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+This issue can happen in any number of configurations with the 82598
+and another device in legacy interrupt mode.  While we know of a
+specific case where this is happening, this can happen with other
+devices as well if configured in a certain way depending on the
+system's slot configuration among other things.  This is alos why we
+need to have the flexibility to disable MSI-X interrupts for the 82598
+when these configurations are found having this deadlock situation.
+
+The errata being worked - around with this patch - has to do with
+any type of device that has a pending legacy INTx to the IOH's
+internal IOAPIC which has priority from the shared resources
+(round-robin to ensure forward progress / fairness).  The internal
+IOAPIC is a PCI-E endpoint hence transactions to it are viewed as
+peer-to-peer from a shared resource perspective.  To make forward
+progress on the legacy INTx, the outbound completion FIFOs for the
+IOU (resource pool1) are checked for available space due to shared
+resources.  The IOH is allowed to have in/out dependency as a root
+is full and not making forward progress because the 82598 has entered
+its "erratum window"  where the 82598 is throttling the release of posted
+credits back to the IOH as it has pending MSI-X interrupts to the IOH.
+The 82598 will only release the posted credits back to IOH after the
+inbound posted writes are serviced and the IOH releases the posted
+credits back to the 82598 (i.e., the 82598 in/out dependency
+erratum).  Since the priority is on the other device's legacy INTx,
+the 82598 inbound posted transaction cannot make forward progress
+that results in a link/forward progress deadlock condition.
+
+The 82598 Specification Update has the errata list and can be found
+here, it's erratum 38:
+http://www.intel.com/design/network/specupdt/321040.pdf
+
+This patch adds the IntMode module parameter to ixgbe to allow
+user selection of interrupt mode (MSI-X, MSI, legacy) on driver
+load.  To work around the errata described above, ixgbe needs to
+be able to disable MSI-X for affected configurations.
+
+Signed-off-by: Nicholas Nunley <nicholasx.d.nunley@intel.com>
+Signed-off-by: John Ronciak <john.ronciak@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe.h      |    2 ++
- drivers/net/ixgbe/ixgbe_main.c |   51 +++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 52 insertions(+), 1 deletions(-)
+ drivers/net/ixgbe/Makefile      |    2 -
+ drivers/net/ixgbe/ixgbe.h       |    1 
+ drivers/net/ixgbe/ixgbe_main.c  |   26 ++++---
+ drivers/net/ixgbe/ixgbe_param.c |  153 +++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 172 insertions(+), 10 deletions(-)
+ create mode 100644 drivers/net/ixgbe/ixgbe_param.c
 
+diff --git a/drivers/net/ixgbe/Makefile b/drivers/net/ixgbe/Makefile
+index 8f81efb..820491f 100644
+--- a/drivers/net/ixgbe/Makefile
++++ b/drivers/net/ixgbe/Makefile
+@@ -34,7 +34,7 @@ obj-$(CONFIG_IXGBE) += ixgbe.o
+ 
+ ixgbe-objs := ixgbe_main.o ixgbe_common.o ixgbe_ethtool.o \
+               ixgbe_82599.o ixgbe_82598.o ixgbe_phy.o ixgbe_sriov.o \
+-              ixgbe_mbx.o
++              ixgbe_mbx.o ixgbe_param.o
+ 
+ ixgbe-$(CONFIG_IXGBE_DCB) +=  ixgbe_dcb.o ixgbe_dcb_82598.o \
+                               ixgbe_dcb_82599.o ixgbe_dcb_nl.o
 diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
-index 79c35ae..c220b9f 100644
+index 79c35ae..106f197 100644
 --- a/drivers/net/ixgbe/ixgbe.h
 +++ b/drivers/net/ixgbe/ixgbe.h
-@@ -32,6 +32,7 @@
- #include <linux/pci.h>
- #include <linux/netdevice.h>
- #include <linux/aer.h>
-+#include <linux/cpumask.h>
+@@ -436,6 +436,7 @@ extern int ixgbe_copy_dcb_cfg(struct ixgbe_dcb_config *src_dcb_cfg,
+ extern char ixgbe_driver_name[];
+ extern const char ixgbe_driver_version[];
  
- #include "ixgbe_type.h"
- #include "ixgbe_common.h"
-@@ -236,6 +237,7 @@ struct ixgbe_q_vector {
- 	u8 tx_itr;
- 	u8 rx_itr;
- 	u32 eitr;
-+	cpumask_var_t affinity_mask;
- };
- 
- /* Helper macros to switch between ints/sec and what the register uses.
++extern void ixgbe_check_options(struct ixgbe_adapter *adapter);
+ extern int ixgbe_up(struct ixgbe_adapter *adapter);
+ extern void ixgbe_down(struct ixgbe_adapter *adapter);
+ extern void ixgbe_reinit_locked(struct ixgbe_adapter *adapter);
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 1b1419c..3e00d41 100644
+index a98ff0e..d04e095 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -1031,6 +1031,36 @@ next_desc:
- 	return cleaned;
- }
+@@ -3949,6 +3949,9 @@ static int ixgbe_set_interrupt_capability(struct ixgbe_adapter *adapter)
+ 	int err = 0;
+ 	int vector, v_budget;
  
-+static unsigned int ixgbe_irq_affinity_callback(cpumask_var_t mask,
-+                                                unsigned int irq, void *dev)
-+{
-+	struct ixgbe_adapter *adapter = (struct ixgbe_adapter *)dev;
-+	int i, q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
++	if (!(adapter->flags & IXGBE_FLAG_MSIX_CAPABLE))
++		goto try_msi;
 +
-+	if (test_bit(__IXGBE_DOWN, &adapter->state))
-+		return -EINVAL;
-+
-+	/*
-+	 * Loop through the msix_entries array, looking for the vector that
-+	 * matches the irq passed to us.  Once we find it, use that index to
-+	 * grab the corresponding q_vector (1 to 1 mapping), and grab the
-+	 * cpumask from that q_vector.
-+	 */
-+	for (i = 0; i < q_vectors; i++)
-+		if (adapter->msix_entries[i].vector == irq)
-+			break;
-+
-+	if (i == q_vectors)
-+		return -EINVAL;
-+
-+	if (adapter->q_vector[i]->affinity_mask)
-+		cpumask_copy(mask, adapter->q_vector[i]->affinity_mask);
-+	else
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+
- static int ixgbe_clean_rxonly(struct napi_struct *, int);
- /**
-  * ixgbe_configure_msix - Configure MSI-X hardware
-@@ -1083,6 +1113,16 @@ static void ixgbe_configure_msix(struct ixgbe_adapter *adapter)
- 			q_vector->eitr = adapter->rx_eitr_param;
- 
- 		ixgbe_write_eitr(q_vector);
-+
-+		/*
-+		 * Allocate the affinity_hint cpumask, assign the mask for
-+		 * this vector, and register our affinity_hint callback.
-+		 */
-+		alloc_cpumask_var(&q_vector->affinity_mask, GFP_KERNEL);
-+		cpumask_set_cpu(v_idx, q_vector->affinity_mask);
-+		irq_register_affinity_hint(adapter->msix_entries[v_idx].vector,
-+		                           adapter,
-+		                           &ixgbe_irq_affinity_callback);
+ 	/*
+ 	 * It's easy to be greedy for MSI-X vectors, but it really
+ 	 * doesn't do us much good if we have a lot more vectors
+@@ -3981,16 +3984,10 @@ static int ixgbe_set_interrupt_capability(struct ixgbe_adapter *adapter)
+ 			goto out;
  	}
  
- 	if (adapter->hw.mac.type == ixgbe_mac_82598EB)
-@@ -3218,7 +3258,7 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	u32 rxctrl;
- 	u32 txdctl;
--	int i, j;
-+	int i, j, num_q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
+-	adapter->flags &= ~IXGBE_FLAG_DCB_ENABLED;
+-	adapter->flags &= ~IXGBE_FLAG_RSS_ENABLED;
+-	adapter->flags &= ~IXGBE_FLAG_FDIR_HASH_CAPABLE;
+-	adapter->flags &= ~IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
+-	adapter->atr_sample_rate = 0;
+-	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
+-		ixgbe_disable_sriov(adapter);
+-
+-	ixgbe_set_num_queues(adapter);
  
- 	/* signal that we are down to the interrupt handler */
- 	set_bit(__IXGBE_DOWN, &adapter->state);
-@@ -3251,6 +3291,14 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
++try_msi:
++	if (!(adapter->flags & IXGBE_FLAG_MSI_CAPABLE))
++		goto legacy;
+ 	err = pci_enable_msi(adapter->pdev);
+ 	if (!err) {
+ 		adapter->flags |= IXGBE_FLAG_MSI_ENABLED;
+@@ -4000,7 +3997,16 @@ static int ixgbe_set_interrupt_capability(struct ixgbe_adapter *adapter)
+ 		/* reset err */
+ 		err = 0;
+ 	}
++legacy:
++	adapter->flags &= ~IXGBE_FLAG_DCB_ENABLED;
++	adapter->flags &= ~IXGBE_FLAG_RSS_ENABLED;
++	adapter->flags &= ~IXGBE_FLAG_FDIR_HASH_CAPABLE;
++	adapter->flags &= ~IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
++	adapter->atr_sample_rate = 0;
++	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
++		ixgbe_disable_sriov(adapter);
  
- 	ixgbe_napi_disable_all(adapter);
++	ixgbe_set_num_queues(adapter);
+ out:
+ 	return err;
+ }
+@@ -6199,6 +6205,8 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 		goto err_sw_init;
+ 	}
  
-+	for (i = 0; i < num_q_vectors; i++) {
-+		struct ixgbe_q_vector *q_vector = adapter->q_vector[i];
-+		/* unregister the affinity_hint callback */
-+		irq_unregister_affinity_hint(adapter->msix_entries[i].vector);
-+		/* release the CPU mask memory */
-+		free_cpumask_var(q_vector->affinity_mask);
++	ixgbe_check_options(adapter);
++
+ 	ixgbe_probe_vf(adapter, ii);
+ 
+ 	netdev->features = NETIF_F_SG |
+diff --git a/drivers/net/ixgbe/ixgbe_param.c b/drivers/net/ixgbe/ixgbe_param.c
+new file mode 100644
+index 0000000..98c5626
+--- /dev/null
++++ b/drivers/net/ixgbe/ixgbe_param.c
+@@ -0,0 +1,153 @@
++/*******************************************************************************
++
++  Intel 10 Gigabit PCI Express Linux driver
++  Copyright(c) 1999 - 2010 Intel Corporation.
++
++  This program is free software; you can redistribute it and/or modify it
++  under the terms and conditions of the GNU General Public License,
++  version 2, as published by the Free Software Foundation.
++
++  This program is distributed in the hope it will be useful, but WITHOUT
++  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++  more details.
++
++  You should have received a copy of the GNU General Public License along with
++  this program; if not, write to the Free Software Foundation, Inc.,
++  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++
++  The full GNU General Public License is included in this distribution in
++  the file called "COPYING".
++
++  Contact Information:
++  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++
++*******************************************************************************/
++
++#include <linux/types.h>
++#include <linux/module.h>
++
++#include "ixgbe.h"
++
++/* This is the only thing that needs to be changed to adjust the
++ * maximum number of ports that the driver can manage.
++ */
++
++#define IXGBE_MAX_NIC 32
++
++#define OPTION_UNSET    -1
++
++/* All parameters are treated the same, as an integer array of values.
++ * This macro just reduces the need to repeat the same declaration code
++ * over and over (plus this helps to avoid typo bugs).
++ */
++
++#define IXGBE_PARAM_INIT { [0 ... IXGBE_MAX_NIC] = OPTION_UNSET }
++#define IXGBE_PARAM(X, desc) \
++	static int __devinitdata X[IXGBE_MAX_NIC+1] = IXGBE_PARAM_INIT; \
++	static unsigned int num_##X; \
++	module_param_array_named(X, X, int, &num_##X, 0); \
++	MODULE_PARM_DESC(X, desc);
++
++/* IntMode (Interrupt Mode)
++ *
++ * Valid Range: 0-2
++ *  - 0 - Legacy Interrupt
++ *  - 1 - MSI Interrupt
++ *  - 2 - MSI-X Interrupt(s)
++ *
++ * Default Value: 2
++ */
++IXGBE_PARAM(IntMode, "Change Interrupt Mode (0=Legacy, 1=MSI, 2=MSI-X), default 2");
++#define IXGBE_INT_LEGACY		      0
++#define IXGBE_INT_MSI			      1
++#define IXGBE_INT_MSIX			      2
++#define IXGBE_DEFAULT_INT	 IXGBE_INT_MSIX
++
++struct ixgbe_option {
++	const char *name;
++	const char *err;
++	int def;
++	int min;
++	int max;
++};
++
++static int __devinit ixgbe_validate_option(unsigned int *value,
++					   struct ixgbe_option *opt,
++					   struct ixgbe_adapter *adapter)
++{
++	if (*value == OPTION_UNSET) {
++		*value = opt->def;
++		return 0;
 +	}
 +
- 	clear_bit(__IXGBE_SFP_MODULE_NOT_FOUND, &adapter->state);
- 	del_timer_sync(&adapter->sfp_timer);
- 	del_timer_sync(&adapter->watchdog_timer);
-@@ -4052,6 +4100,7 @@ static void ixgbe_free_q_vectors(struct ixgbe_adapter *adapter)
- 		struct ixgbe_q_vector *q_vector = adapter->q_vector[q_idx];
- 		adapter->q_vector[q_idx] = NULL;
- 		netif_napi_del(&q_vector->napi);
-+		free_cpumask_var(q_vector->affinity_mask);
- 		kfree(q_vector);
- 	}
- }
++	if (*value >= opt->min && *value <= opt->max) {
++		dev_info(&adapter->pdev->dev,
++			 "%s set to %d\n", opt->name, *value);
++		return 0;
++	} else {
++		dev_info(&adapter->pdev->dev,
++			 "Invalid %s specified (%d),  %s\n",
++			 opt->name, *value, opt->err);
++		*value = opt->def;
++		return -1;
++	}
++}
++
++/**
++ * ixgbe_check_options - Range Checking for Command Line Parameters
++ * @adapter: board private structure
++ *
++ * This routine checks all command line parameters for valid user
++ * input.  If an invalid value is given, or if no user specified
++ * value exists, a default value is used.  The final value is stored
++ * in a variable in the adapter structure.
++ **/
++void __devinit ixgbe_check_options(struct ixgbe_adapter *adapter)
++{
++	int bd = adapter->bd_number;
++	u32 *aflags = &adapter->flags;
++
++	if (bd >= IXGBE_MAX_NIC) {
++		dev_notice(&adapter->pdev->dev,
++			   "Warning: no configuration for board #%d\n", bd);
++		dev_notice(&adapter->pdev->dev,
++			   "Using defaults for all values\n");
++	}
++
++	{ /* Interrupt Mode */
++		unsigned int int_mode;
++		static struct ixgbe_option opt = {
++			.name = "Interrupt Mode",
++			.err =
++			  "using default of "__MODULE_STRING(IXGBE_DEFAULT_INT),
++			.def = IXGBE_DEFAULT_INT,
++			.min = IXGBE_INT_LEGACY,
++			.max = IXGBE_INT_MSIX
++		};
++
++		if (num_IntMode > bd) {
++			int_mode = IntMode[bd];
++			ixgbe_validate_option(&int_mode, &opt, adapter);
++			switch (int_mode) {
++			case IXGBE_INT_MSIX:
++				*aflags |= IXGBE_FLAG_MSIX_CAPABLE;
++				*aflags |= IXGBE_FLAG_MSI_CAPABLE;
++				break;
++			case IXGBE_INT_MSI:
++				*aflags &= ~IXGBE_FLAG_MSIX_CAPABLE;
++				*aflags |= IXGBE_FLAG_MSI_CAPABLE;
++				break;
++			case IXGBE_INT_LEGACY:
++			default:
++				*aflags &= ~IXGBE_FLAG_MSIX_CAPABLE;
++				*aflags &= ~IXGBE_FLAG_MSI_CAPABLE;
++				break;
++			}
++		} else {
++			*aflags |= IXGBE_FLAG_MSIX_CAPABLE;
++			*aflags |= IXGBE_FLAG_MSI_CAPABLE;
++		}
++	}
++}
+
