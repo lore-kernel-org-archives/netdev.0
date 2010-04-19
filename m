@@ -1,55 +1,45 @@
-From: Ingo Molnar <mingo@elte.hu>
+From: Linus Torvalds <torvalds@linux-foundation.org>
 Subject: Re: tip: origin tree build failure, [patch] fix isdn/gigaset build
  failure
-Date: Mon, 19 Apr 2010 20:05:20 +0200
-Message-ID: <20100419180520.GA9244@elte.hu>
-References: <20100419.003857.260094283.davem@davemloft.net>
- <20100419172731.GA4358@elte.hu>
- <20100419.103304.35342954.davem@davemloft.net>
+Date: Mon, 19 Apr 2010 11:14:55 -0700 (PDT)
+Message-ID: <alpine.LFD.2.00.1004191112550.14500@i5.linux-foundation.org>
+References: <20100419.003857.260094283.davem@davemloft.net> <20100419172731.GA4358@elte.hu> <20100419.103304.35342954.davem@davemloft.net> <20100419180520.GA9244@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tilman@imap.cc, torvalds@linux-foundation.org,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, tilman@imap.cc,
 	akpm@linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Ingo Molnar <mingo@elte.hu>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100419.103304.35342954.davem@davemloft.net>
+In-Reply-To: <20100419180520.GA9244@elte.hu>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-* David Miller <davem@davemloft.net> wrote:
 
-> From: Ingo Molnar <mingo@elte.hu>
-> Date: Mon, 19 Apr 2010 19:27:31 +0200
+On Mon, 19 Apr 2010, Ingo Molnar wrote:
 > 
-> > Introduced by commit b91ecb00 that got pushed out today. That change removed 
-> > an implicit sched.h inclusion that came in via slab.h.
-> > 
-> > The patch below fixes it by adding the sched.h dependency.
-> 
-> Thanks Ingo, Linus please apply:
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
+> Note, i just found that my patch is not enough as we fail the build elsewhere as well:
 
-Note, i just found that my patch is not enough as we fail the build elsewhere as well:
+Maybe add the #include <linux/sched.h> into gigaset.h, instead of 
+common.c?
 
-drivers/isdn/gigaset/proc.c:52: error: 'TASK_UNINTERRUPTIBLE' undeclared (first use in this function)
-drivers/isdn/gigaset/proc.c:52: error: (Each undeclared identifier is reported only once
-drivers/isdn/gigaset/proc.c:52: error: for each function it appears in.)
-drivers/isdn/gigaset/proc.c:52: error: implicit declaration of function 'schedule'
-drivers/isdn/gigaset/interface.c:49: error: 'TASK_UNINTERRUPTIBLE' undeclared (first use in this function)
-drivers/isdn/gigaset/interface.c:49: error: (Each undeclared identifier is reported only once
-drivers/isdn/gigaset/interface.c:49: error: for each function it appears in.)
-drivers/isdn/gigaset/interface.c:49: error: implicit declaration of function 'schedule'
-drivers/isdn/gigaset/interface.c:83: error: 'TASK_UNINTERRUPTIBLE' undeclared (first use in this function)
-drivers/isdn/gigaset/ev-layer.c:981: error: 'TASK_NORMAL' undeclared (first use in this function)
-drivers/isdn/gigaset/ev-layer.c:981: error: (Each undeclared identifier is reported only once
-drivers/isdn/gigaset/ev-layer.c:981: error: for each function it appears in.)
-drivers/isdn/gigaset/ev-layer.c:1001: error: 'TASK_NORMAL' undeclared (first use in this function)
-drivers/isdn/gigaset/ev-layer.c:1495: error: 'TASK_NORMAL' undeclared (first use in this function)
+IOW..
 
-i'd suggest a revert of b91ecb00 instead.
+		Linus
+---
+ drivers/isdn/gigaset/gigaset.h |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-	Ingo
+diff --git a/drivers/isdn/gigaset/gigaset.h b/drivers/isdn/gigaset/gigaset.h
+index d32efb6..05947f9 100644
+--- a/drivers/isdn/gigaset/gigaset.h
++++ b/drivers/isdn/gigaset/gigaset.h
+@@ -20,6 +20,7 @@
+ #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+ 
+ #include <linux/kernel.h>
++#include <linux/sched.h>
+ #include <linux/compiler.h>
+ #include <linux/types.h>
+ #include <linux/ctype.h>
