@@ -1,48 +1,55 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: [PATCH net-next-2.6 11/11] bnx2x: Date and version
-Date: Mon, 19 Apr 2010 14:15:17 +0300
-Message-ID: <1271675717.6900.285.camel@lb-tlvb-vladz>
+From: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Subject: [PATCH v3 0/3] e1000e,igb,ixgbe: add registers etc. printout code
+ just before resetting adapters
+Date: Mon, 19 Apr 2010 20:20:59 +0900
+Message-ID: <4BCC3C9B.3000901@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: "Eilon Greenstein" <eilong@broadcom.com>,
-	"netdev list" <netdev@vger.kernel.org>
-To: "Dave Miller" <davem@davemloft.net>
+Cc: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>, chavey@google.com
+To: Bruce Allan <bruce.w.allan@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	"Kirsher, Jeffre
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2214 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754589Ab0DSLPW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Apr 2010 07:15:22 -0400
+Received: from fgwmail6.fujitsu.co.jp ([192.51.44.36]:51476 "EHLO
+	fgwmail6.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753580Ab0DSLV1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 07:21:27 -0400
+Received: from m6.gw.fujitsu.co.jp ([10.0.50.76])
+	by fgwmail6.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o3JBLPdR024409
+	for <netdev@vger.kernel.org> (envelope-from izumi.taku@jp.fujitsu.com);
+	Mon, 19 Apr 2010 20:21:26 +0900
+Received: from smail (m6 [127.0.0.1])
+	by outgoing.m6.gw.fujitsu.co.jp (Postfix) with ESMTP id B606A45DE4F
+	for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 20:21:25 +0900 (JST)
+Received: from s6.gw.fujitsu.co.jp (s6.gw.fujitsu.co.jp [10.0.50.96])
+	by m6.gw.fujitsu.co.jp (Postfix) with ESMTP id 8D35F45DE4C
+	for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 20:21:25 +0900 (JST)
+Received: from s6.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
+	by s6.gw.fujitsu.co.jp (Postfix) with ESMTP id 798C61DB8015
+	for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 20:21:25 +0900 (JST)
+Received: from m105.s.css.fujitsu.com (m105.s.css.fujitsu.com [10.249.87.105])
+	by s6.gw.fujitsu.co.jp (Postfix) with ESMTP id 1CA731DB8014
+	for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 20:21:25 +0900 (JST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Set version to 1.52.53-1.
+Hi Jeff,
 
-Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+This patchset is the update version of "register etc. printout code" patch.
+The old ones are
+ http://kerneltrap.org/mailarchive/linux-netdev/2010/1/7/6265865
+ http://kerneltrap.org/mailarchive/linux-netdev/2010/1/22/6267176
 
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index a0e01bc..42d5af4 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -61,8 +61,8 @@
- #include "bnx2x_init_ops.h"
- #include "bnx2x_dump.h"
- 
--#define DRV_MODULE_VERSION	"1.52.1-8"
--#define DRV_MODULE_RELDATE	"2010/04/01"
-+#define DRV_MODULE_VERSION	"1.52.53-1"
-+#define DRV_MODULE_RELDATE	"2010/18/04"
- #define BNX2X_BC_VER		0x040200
- 
- #include <linux/firmware.h>
--- 
-1.7.0.4
+v2 -> v3:
+ - avoid modifying headers
+ - delete "dump_flag" module parameter and use msglvl instead.
 
+ To enable the printout, it is necessary to specify msglvl like the following.
+ #	 ethtool -s eth0 msglvl 0x2003
 
-
+Best regards,
+Taku Izumi
 
