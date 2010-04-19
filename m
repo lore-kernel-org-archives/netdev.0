@@ -1,9 +1,10 @@
 From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH 0/13] bnx2x: Buf fixes and enhancements
-Date: Mon, 19 Apr 2010 09:06:11 +0300
-Message-ID: <1271657171.27125.19.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1271602046.27235.165.camel@lb-tlvb-vladz>
- <20100418.210723.71102685.davem@davemloft.net>
+Subject: Re: [PATCH 10/13] bnx2x: Set default value of num_queues to 1
+ on 32-bit platforms
+Date: Mon, 19 Apr 2010 09:06:21 +0300
+Message-ID: <1271657181.27125.20.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <1271602224.27235.199.camel@lb-tlvb-vladz>
+ <20100418.211023.104052199.davem@davemloft.net>
 Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -11,42 +12,53 @@ Content-Type: text/plain;
 Content-Transfer-Encoding: 7bit
 Cc: "Vladislav Zolotarov" <vladz@broadcom.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Yaniv Rosner" <yaniv.rosner@broadcom.com>
+	"Dmitry Kravkov" <dmitry@broadcom.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3657 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4260 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751350Ab0DSGGY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 19 Apr 2010 02:06:24 -0400
-In-Reply-To: <20100418.210723.71102685.davem@davemloft.net>
+	id S1751562Ab0DSGGf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Apr 2010 02:06:35 -0400
+In-Reply-To: <20100418.211023.104052199.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2010-04-18 at 21:07 -0700, David Miller wrote:
+On Sun, 2010-04-18 at 21:10 -0700, David Miller wrote:
 > From: "Vladislav Zolotarov" <vladz@broadcom.com>
-> Date: Sun, 18 Apr 2010 17:47:26 +0300
+> Date: Sun, 18 Apr 2010 17:50:24 +0300
 > 
-> > Dave, hi.
-> > Pls., apply the following series of patches.
-> > It includes a few bug fixes and enhancements.
+> > The default was changed to save memory on 32bits systems.
+> > 
+> > Author: Dmitry Kravkov <dmitry@broadcom.com>
+> > Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+> > Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
+> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 > 
-> Several of these patches are inappropriate or need corrections, and
-> you also have not specified where you want these patches applied
-> (net-2.6 or net-next-2.6)
+> This is absolutely rediculious.
 > 
+> There is no reason in the world to restrict multiqueue to only 64-bit
+> systems.
+> 
+> If there is a memory allocation issue, fix that!  Is it vmalloc() space
+> usage?
 
-We will re-submit the path series with the following fixes:
-- Omitting patch 11 (disabling LRO and leaving only GRO on XEN kernel on
-compile time)
-- restructuring patch 2 (using generic infrastructures for VPD-R-V0
-access)
-- Better description - especially on email 0...
-- I'm sending another email regrading the number of queues on 32 bits
-kernel.
+Yes - running low on vmalloc is the reason. This patch does not restrict
+the usage of multi queue on 32bits - it is just changing the default
+queues values from the number of available CPUs to 1. If the user will
+use another value, it will work as before.
 
+We encounter few issues were a 32bit kernel was installed on a
+multi-core platform and the driver allocated "too many" queues. One way
+to go is to limit the queue size and the other is the number of queues -
+leaving it as is caused issues due to running low on kernel virtual
+memory so a change was needed.
 
-Thanks for all the inputs,
+Dave, what is your preference:
+- re-submitting this patch with a proper description?
+- limit the size of each queue?
+- other?
+
+Thanks,
 Eilon
 
 
