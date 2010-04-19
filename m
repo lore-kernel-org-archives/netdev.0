@@ -1,57 +1,86 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH v3 0/3] e1000e,igb,ixgbe: add registers etc. printout code
-	just before resetting adapters
-Date: Mon, 19 Apr 2010 15:44:17 -0700
-Message-ID: <s2q9929d2391004191544p1b9e51b5q9a425a44927e1321@mail.gmail.com>
-References: <4BCC3C9B.3000901@jp.fujitsu.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH] rndis_host: Poll status channel before control channel
+Date: Tue, 20 Apr 2010 00:08:28 +0100
+Message-ID: <1271718508.2197.12.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Bruce Allan <bruce.w.allan@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>,
-	chavey@google.com
-To: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	Mark Glassberg <vzeeaxwl@myfairpoint.net>,
+	Herton Ronaldo Krzesinski <herton@mandriva.com.br>
+To: David Brownell <dbrownell@users.sourceforge.net>,
+	David Miller <davem@davemloft.net>,
+	John Carr <john.carr@unrouted.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f171.google.com ([209.85.210.171]:63009 "EHLO
-	mail-yx0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751185Ab0DSWoV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 18:44:21 -0400
-Received: by yxe1 with SMTP id 1so3272892yxe.33
-        for <netdev@vger.kernel.org>; Mon, 19 Apr 2010 15:44:20 -0700 (PDT)
-In-Reply-To: <4BCC3C9B.3000901@jp.fujitsu.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51796 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753035Ab0DSXIp convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 19 Apr 2010 19:08:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2010/4/19 Taku Izumi <izumi.taku@jp.fujitsu.com>:
-> Hi Jeff,
->
-> This patchset is the update version of "register etc. printout code" =
-patch.
-> The old ones are
-> =C2=A0http://kerneltrap.org/mailarchive/linux-netdev/2010/1/7/6265865
-> =C2=A0http://kerneltrap.org/mailarchive/linux-netdev/2010/1/22/626717=
-6
->
-> v2 -> v3:
-> =C2=A0- avoid modifying headers
-> =C2=A0- delete "dump_flag" module parameter and use msglvl instead.
->
-> =C2=A0To enable the printout, it is necessary to specify msglvl like =
-the following.
-> =C2=A0# =C2=A0 =C2=A0 =C2=A0 ethtool -s eth0 msglvl 0x2003
->
-> Best regards,
-> Taku Izumi
->
+Some RNDIS devices don't respond on the control channel until polled
+on the status channel.  In particular, this was reported to be the
+case for the 2Wire HomePortal 1000SW.
 
-Thank you Taku.  I have added the series of patches to my queue of
-patches destined for net-next.
+This is roughly based on a patch by John Carr <john.carr@unrouted.co.uk>
+which is reported to be needed for use with some Windows Mobile devices
+and which is currently applied by Mandriva.
 
---=20
-Cheers,
-Jeff
+Reported-by: Mark Glassberg <vzeeaxwl@myfairpoint.net>
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+Tested-by: Mark Glassberg <vzeeaxwl@myfairpoint.net>
+---
+Note that this change hasn't yet been tested with any other RNDIS
+devices.  John, can you confirm whether this also handles the WinMob
+devices?
+
+Ben.
+
+ drivers/net/usb/rndis_host.c |   18 ++++++++++++------
+ 1 files changed, 12 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
+index f56dec6..52faca1 100644
+--- a/drivers/net/usb/rndis_host.c
++++ b/drivers/net/usb/rndis_host.c
+@@ -103,8 +103,10 @@ static void rndis_msg_indicate(struct usbnet *dev, struct rndis_indicate *msg,
+ int rndis_command(struct usbnet *dev, struct rndis_msg_hdr *buf, int buflen)
+ {
+ 	struct cdc_state	*info = (void *) &dev->data;
++	struct usb_cdc_notification notification;
+ 	int			master_ifnum;
+ 	int			retval;
++	int			partial;
+ 	unsigned		count;
+ 	__le32			rsp;
+ 	u32			xid = 0, msg_len, request_id;
+@@ -132,13 +134,17 @@ int rndis_command(struct usbnet *dev, struct rndis_msg_hdr *buf, int buflen)
+ 	if (unlikely(retval < 0 || xid == 0))
+ 		return retval;
+ 
+-	// FIXME Seems like some devices discard responses when
+-	// we time out and cancel our "get response" requests...
+-	// so, this is fragile.  Probably need to poll for status.
++	/* Some devices don't respond on the control channel until
++	 * polled on the status channel, so do that first. */
++	retval = usb_interrupt_msg(
++		dev->udev,
++		usb_rcvintpipe(dev->udev, dev->status->desc.bEndpointAddress),
++		&notification, sizeof(notification), &partial,
++		RNDIS_CONTROL_TIMEOUT_MS);
++	if (unlikely(retval < 0))
++		return retval;
+ 
+-	/* ignore status endpoint, just poll the control channel;
+-	 * the request probably completed immediately
+-	 */
++	/* Poll the control channel; the request probably completed immediately */
+ 	rsp = buf->msg_type | RNDIS_MSG_COMPLETION;
+ 	for (count = 0; count < 10; count++) {
+ 		memset(buf, 0, CONTROL_BUFFER_SIZE);
+-- 
+1.7.0.3
+
+
