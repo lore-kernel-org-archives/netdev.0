@@ -1,26 +1,54 @@
-From: Brian Haley <brian.haley@hp.com>
+From: Jiri Olsa <jolsa@redhat.com>
 Subject: Re: [PATCH] net: ipv6 bind to device issue
-Date: Tue, 20 Apr 2010 11:41:07 -0400
-Message-ID: <4BCDCB13.2010208@hp.com>
+Date: Tue, 20 Apr 2010 17:42:39 +0200
+Message-ID: <20100420154239.GC5711@jolsa.lab.eng.brq.redhat.com>
 References: <1271767572-5282-1-git-send-email-jolsa@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
 	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Jiri Olsa <jolsa@redhat.com>
+	eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:20632 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752141Ab0DTPmE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 11:42:04 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:36964 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753525Ab0DTPn1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Apr 2010 11:43:27 -0400
+Content-Disposition: inline
 In-Reply-To: <1271767572-5282-1-git-send-email-jolsa@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Olsa wrote:
+On Tue, Apr 20, 2010 at 02:46:12PM +0200, Jiri Olsa wrote:
+> hi,
+> 
+> The issue raises when having 2 NICs both assigned the same
+> IPv6 global address.
+> 
+> If a sender binds to a particular NIC (SO_BINDTODEVICE),
+> the outgoing traffic is being sent via the first found.
+> The bonded device is thus not taken into an account during the
+> routing.
+> 
+> 
+> From the ip6_route_output function:
+> 
+> If the binding address is multicast, linklocal or loopback,
+> the RT6_LOOKUP_F_IFACE bit is set, but not for global address.
+> 
+> So binding global address will neglect SO_BINDTODEVICE-binded device,
+> because the fib6_rule_lookup function path won't check for the
+> flowi::oif field and take first route that fits.
+> 
+> Following patch should handle the issue.
+> 
+> wbr,
+> jirka
+> 
+> 
 > Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+Signed-off-by: Scott Otto <scott.otto@alcatel-lucent.com>
+
 > ---
 > diff --git a/net/ipv6/route.c b/net/ipv6/route.c
 > index c2438e8..7bf7717 100644
@@ -35,8 +63,3 @@ Jiri Olsa wrote:
 >  		flags |= RT6_LOOKUP_F_IFACE;
 >  
 >  	if (!ipv6_addr_any(&fl->fl6_src))
-
-Acked-by: Brian Haley <brian.haley@hp.com>
-
-Saw this within the past month here too and have been testing
-this same fix without problems.
