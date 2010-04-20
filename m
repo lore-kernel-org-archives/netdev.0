@@ -1,46 +1,49 @@
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Subject: [PATCH] cxgb3: fix linkup issue
-Date: Tue, 20 Apr 2010 10:32:20 +0900
-Message-ID: <4BCD0424.8030501@ct.jp.nec.com>
+From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Subject: RE: [RFC][PATCH v2 0/3] Provide a zero-copy method on KVM
+	virtio-net.
+Date: Tue, 20 Apr 2010 10:21:55 +0800
+Message-ID: <F2E9EB7348B8264F86B6AB8151CE2D79026FAB1E5F@shsmsx502.ccr.corp.intel.com>
+References: <1270193100-6769-1-git-send-email-xiaohui.xin@intel.com>
+ <20100414152519.GA10792@redhat.com>
+ <97F6D3BD476C464182C1B7BABF0B0AF5C18969CC@shzsmsx502.ccr.corp.intel.com>
+ <20100415100546.GA17035@redhat.com>
+ <F2E9EB7348B8264F86B6AB8151CE2D79026FA95401@shsmsx502.ccr.corp.intel.com>
+ <20100419102118.GA16198@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from TYO201.gate.nec.co.jp ([202.32.8.193]:50220 "EHLO
-	tyo201.gate.nec.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751949Ab0DTBdq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 19 Apr 2010 21:33:46 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mingo@elte.hu" <mingo@elte.hu>,
+	"jdike@linux.intel.com" <jdike@linux.intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100419102118.GA16198@redhat.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Michael,
 
-I encountered an issue that not to link up on cxgb3 fabric.
-I bisected and found that this regression was introduced by
-0f07c4ee8c800923ae7918c231532a9256233eed.
+>>>>>> What we have not done yet:
+>>>>>> 	packet split support
+>>>>>> 
+>>>>>What does this mean, exactly?
+>>>> We can support 1500MTU, but for jumbo frame, since vhost driver before don't 
+>>>>support mergeable buffer, we cannot try it for multiple sg.
+>>>> 
+>>>I do not see why, vhost currently supports 64K buffers with indirect
+>>>descriptors.
+>>> 
+>> The receive_skb() in guest virtio-net driver will merge the multiple sg to skb frags, how >>can indirect descriptors to that?
 
-Correct to pass phy_addr to cphy_init() at t3_xaui_direct_phy_prep().
+>See add_recvbuf_big.
 
-Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
----
- drivers/net/cxgb3/ael1002.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+I don't mean this, it's for buffer submission. I mean when packet is received, in receive_buf(), mergeable buffer knows which pages received can be hooked in skb frags, it's receive_mergeable() which do this.
 
-diff --git a/drivers/net/cxgb3/ael1002.c b/drivers/net/cxgb3/ael1002.c
-index 5248f9e..35cd367 100644
---- a/drivers/net/cxgb3/ael1002.c
-+++ b/drivers/net/cxgb3/ael1002.c
-@@ -934,7 +934,7 @@ static struct cphy_ops xaui_direct_ops = {
- int t3_xaui_direct_phy_prep(struct cphy *phy, struct adapter *adapter,
- 			    int phy_addr, const struct mdio_ops *mdio_ops)
- {
--	cphy_init(phy, adapter, MDIO_PRTAD_NONE, &xaui_direct_ops, mdio_ops,
-+	cphy_init(phy, adapter, phy_addr, &xaui_direct_ops, mdio_ops,
- 		  SUPPORTED_10000baseT_Full | SUPPORTED_AUI | SUPPORTED_TP,
- 		  "10GBASE-CX4");
- 	return 0;
--- 
-1.6.3.3
+When a NIC driver supports packet split mode, then each ring descriptor contains a skb and a page. When packet is received, if the status is not EOP, then hook the page of the next descriptor to the prev skb. We don't how many frags belongs to one skb. So when guest submit buffers, it should submit multiple pages, and when receive, the guest should know which pages are belongs to one skb and hook them together. I think receive_mergeable() can do this, but I don't see how big->packets handle this. May I miss something here?
 
+Thanks
+Xiaohui 
