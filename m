@@ -1,33 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 1/7] X25: Add if_x25.h and x25 to device identifiers
-Date: Tue, 20 Apr 2010 16:35:58 -0700 (PDT)
-Message-ID: <20100420.163558.83598373.davem@davemloft.net>
-References: <1271719717.2802.77.camel@ibex>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH net-next-2.6] rps: consistent rxhash
+Date: Wed, 21 Apr 2010 07:35:48 +0800
+Message-ID: <v2s412e6f7f1004201635m5258e777oac49fea8f9625bcf@mail.gmail.com>
+References: <1271769404.7895.10.camel@edumazet-laptop> <4BCDB425.9050007@lastsummer.de>
+	<1271775421.7895.19.camel@edumazet-laptop> <20100420.144106.118596093.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: andrew.hendry@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, franco@lastsummer.de, therbert@google.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55665
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751767Ab0DTXfy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 19:35:54 -0400
-In-Reply-To: <1271719717.2802.77.camel@ibex>
+Received: from mail-yw0-f194.google.com ([209.85.211.194]:46549 "EHLO
+	mail-yw0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753671Ab0DTXgJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 19:36:09 -0400
+Received: by ywh32 with SMTP id 32so3697359ywh.33
+        for <netdev@vger.kernel.org>; Tue, 20 Apr 2010 16:36:08 -0700 (PDT)
+In-Reply-To: <20100420.144106.118596093.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Hendry <andrew.hendry@gmail.com>
-Date: Tue, 20 Apr 2010 09:28:37 +1000
+On Wed, Apr 21, 2010 at 5:41 AM, David Miller <davem@davemloft.net> wro=
+te:
+> Eric, do you remember that "TCP friends" rough patch I sent you last
+> year that essentailly made TCP sockets over loopback behave like
+> AF_UNIX ones and just queue the SKBs directly to the destination
+> socket without doing any protocol work?
 
-> diff --git a/include/linux/if_x25.h b/include/linux/if_x25.h
-> new file mode 100644
-> index 0000000..897765f
-> --- /dev/null
-> +++ b/include/linux/if_x25.h
-> @@ -0,0 +1,26 @@
-> +/*
-> + *  Linux X.25 packet to device interface
+I think it will break some benchmark tools. The loopback device is for
+testing networking protocol stacks, so we shouldn't bypass the
+protocol processing. And anyone who has a performance problem of
+loopback device should turn to UNIX domain socket.
 
-Headers meant to be used by userspace must be added
-to the include/linux/Kbuild file.
+=46or routers, how about letting users choose whether RPS mixes layer 4=
+ info in?
+
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
