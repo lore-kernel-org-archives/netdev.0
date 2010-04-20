@@ -1,36 +1,39 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: Re: IPv6: race condition in __ipv6_ifa_notify() and dst_free() ?
-Date: Tue, 20 Apr 2010 23:35:55 +0200
-Message-ID: <20100420213554.GB15354@smudla-wifi.bakulak.kosire.czf>
-References: <20100420174401.GB1334@midget.suse.cz>
- <1271786247.7895.130.camel@edumazet-laptop>
- <20100420204939.GA15354@smudla-wifi.bakulak.kosire.czf>
- <1271797043.7895.320.camel@edumazet-laptop>
- <20100420141655.3a66b8e8@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] rps: consistent rxhash
+Date: Tue, 20 Apr 2010 14:41:06 -0700 (PDT)
+Message-ID: <20100420.144106.118596093.davem@davemloft.net>
+References: <1271769404.7895.10.camel@edumazet-laptop>
+	<4BCDB425.9050007@lastsummer.de>
+	<1271775421.7895.19.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, Jiri Bohac <jbohac@suse.cz>,
-	netdev@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	David Miller <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: franco@lastsummer.de, xiaosuo@gmail.com, therbert@google.com,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:34330 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755485Ab0DTVfY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Apr 2010 17:35:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20100420141655.3a66b8e8@nehalam>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59781
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752301Ab0DTVlD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 17:41:03 -0400
+In-Reply-To: <1271775421.7895.19.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 20, 2010 at 02:16:55PM -0700, Stephen Hemminger wrote:
-> Is this problem new to net-next where we hold onto addresses, or was
-> the issue there before?
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 20 Apr 2010 16:57:01 +0200
 
-Before. I am seeing it on 2.6.32.
+> I know many applications using TCP on loopback, they are real :)
 
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+This is all true and I support your hashing patch and all of that.
 
+But if we really want TCP over loopback to go fast, there are much
+better ways to do this.
+
+Eric, do you remember that "TCP friends" rough patch I sent you last
+year that essentailly made TCP sockets over loopback behave like
+AF_UNIX ones and just queue the SKBs directly to the destination
+socket without doing any protocol work?
+
+If we ever got that working, tbench performance would become
+impressive :)
