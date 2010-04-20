@@ -1,49 +1,41 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [PATCH] rdma/cm: Randomize local port allocation.
-Date: Tue, 20 Apr 2010 12:34:25 +0800
-Message-ID: <4BCD2ED1.4080702@redhat.com>
-References: <5CE6BC7B954643FAAFFD2AD66F673CBD@amr.corp.intel.com>	<4BC7C9CF.20403@redhat.com>	<201004162254.FJF73478.SHOOMOFtQFVJLF@I-love.SAKURA.ne.jp> <20100416.133001.262206466.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: penguin-kernel@I-love.SAKURA.ne.jp, sean.hefty@intel.com,
-	opurdila@ixiacom.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, nhorman@tuxdriver.com,
-	ebiederm@xmission.com, linux-kernel@vger.kernel.org,
-	rolandd@cisco.com, linux-rdma@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Kumar Gala <galak@kernel.crashing.org>
+Subject: Re: [PATCH] gianfar: Wait for both RX and TX to stop
+Date: Mon, 19 Apr 2010 23:43:49 -0500
+Message-ID: <DD217C72-156B-403D-B83B-EB365C782F2B@kernel.crashing.org>
+References: <1271632401-2472-1-git-send-email-afleming@freescale.com> <m2ged82fe3e1004191408p53f19073x106ef56677c8a5df@mail.gmail.com>
+Mime-Version: 1.0 (Apple Message framework v1078)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Andy Fleming <afleming@freescale.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Timur Tabi <timur.tabi@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48914 "EHLO mx1.redhat.com"
+Received: from gate.crashing.org ([63.228.1.57]:32771 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752068Ab0DTEbV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Apr 2010 00:31:21 -0400
-In-Reply-To: <20100416.133001.262206466.davem@davemloft.net>
+	id S1750842Ab0DTEn5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 00:43:57 -0400
+In-Reply-To: <m2ged82fe3e1004191408p53f19073x106ef56677c8a5df@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-> Date: Fri, 16 Apr 2010 22:54:22 +0900
+
+On Apr 19, 2010, at 4:08 PM, Timur Tabi wrote:
+
+> On Sun, Apr 18, 2010 at 6:13 PM, Andy Fleming <afleming@freescale.com> wrote:
 > 
->> Cong Wang wrote:
->>> Sean Hefty wrote:
->>>> I like this version, thanks!  I'm not sure which tree to merge it through.
->>>> Are you needing this for 2.6.34, or is 2.6.35 okay?
->>>>
->>> As soon as possible, so 2.6.34. :)
->>>
->> Cong, merge window for 2.6.34 was already closed.
->> You need to make your patchset towards 2.6.35 (using net-next-2.6 tree)
->> rather than 2.6.34 (using linux-2.6 tree). Therefore, this patch being
->> queued for 2.6.35 (through net-next-2.6 tree) should be okay for you.
+>> -               while (!(gfar_read(&regs->ievent) &
+>> -                        (IEVENT_GRSC | IEVENT_GTSC)))
+>> +               while ((gfar_read(&regs->ievent) &
+>> +                        (IEVENT_GRSC | IEVENT_GTSC)) !=
+>> +                        (IEVENT_GRSC | IEVENT_GTSC))
+>>                        cpu_relax();
 > 
-> I don't take RDMA patches into net-next-2.6, the less I touch this
-> stack avoiding stuff the better and Roland has been taking this stuff
-> into his own tree for some time now.
+> How about using spin_event_timeout()?  It streamlines this process and
+> includes a timeout.
+> 
+> The U-Boot version of this code doesn't have a timeout either, but
+> spin_event_timeout() is not available in U-Boot.
 
-I left for a few days.
+spin_event_timeout doesn't make sense for this.  The patch is fine.
 
-Ok, so I will wait for this to be merged.
-
-Thanks, David and Tetsuo!
-
+- k
