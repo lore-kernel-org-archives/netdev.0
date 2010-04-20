@@ -1,67 +1,55 @@
-From: Gaspar Chilingarov <gasparch@gmail.com>
-Subject: Re: PROBLEM: Linux kernel 2.6.31 IPv4 TCP fails to open huge amount
-	of outgoing connections (unable to bind ... )
-Date: Wed, 21 Apr 2010 04:57:42 +0500
-Message-ID: <n2g46c8cb3e1004201657t50599d7em5535f2f12af96b59@mail.gmail.com>
-References: <g2z46c8cb3e1004201517i5641a75cze2ec5bd33e81fb0f@mail.gmail.com>
-	 <4BCE33B9.8050101@candelatech.com>
-	 <u2t46c8cb3e1004201620tf9fce087ibae421759f9e1e84@mail.gmail.com>
-	 <4BCE392F.60104@candelatech.com>
-	 <y2p46c8cb3e1004201635s8f84672dq90d3115dca04a1ed@mail.gmail.com>
-	 <4BCE3D8D.3030500@candelatech.com>
+From: Mikulas Patocka <mpatocka@redhat.com>
+Subject: Re: crash with bridge and inconsistent handling of NETDEV_TX_OK
+Date: Tue, 20 Apr 2010 19:57:45 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.1004201947470.29017@hs20-bc2-1.build.redhat.com>
+References: <Pine.LNX.4.64.1004201834190.29017@hs20-bc2-1.build.redhat.com>
+ <20100420.164505.34362726.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:54067 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751999Ab0DTX5o convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 19:57:44 -0400
-Received: by bwz25 with SMTP id 25so7459518bwz.28
-        for <netdev@vger.kernel.org>; Tue, 20 Apr 2010 16:57:42 -0700 (PDT)
-In-Reply-To: <4BCE3D8D.3030500@candelatech.com>
+Received: from mx1.redhat.com ([209.132.183.28]:13798 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752320Ab0DTX54 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Apr 2010 19:57:56 -0400
+In-Reply-To: <20100420.164505.34362726.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ohhh, see my bug report again, please :)
+On Tue, 20 Apr 2010, David Miller wrote:
 
-The problem arises when used port count is close to or more than the
-number of local ports available on the system (in your case 40000
-client connections is smaller than 51000 of available ports).
+> From: Mikulas Patocka <mpatocka@redhat.com>
+> Date: Tue, 20 Apr 2010 19:40:56 -0400 (EDT)
+> 
+> > Reviewing the code further, I found one very weird commit
+> > 572a9d7b6fc7f20f573664063324c086be310c42 committed to 2.6.33. What
+> > it does, it changes the semantics of ndo_hard_start_xmit(). Prior to
+> > the patch, the meaning was --- return zero (NETDEV_TX_OK) --- the
+> > skb is consumed by the driver. Returns non-zero --- the skb is left
+> > owned by the caller.  The patch changes it to return other flags in
+> > bits 4-7 and changes the consumed/returned logic.
+> > 
+> > The problem is that there is still plenty of code that compares it
+> > against NETDEV_TX_OK to find out if the skb was consumed.
+> 
+> Drivers are not supposed to return those new flag bits, the new flag
+> bits as return values exist only in the packet scheduler path.
 
-I think that if you choose to go with default settings and try to bind
-half of your ports to one local IP and half of your ports - to another
-one -- you will hit this bug as well.
+If they are not supposed to return it, why do you test it in 
+dev_hard_start_xmit?
 
-If you explicitly bind to the local ports as well - it _may_ solve a
-problem - I will this today (it's just a workaround, but in fact not
-the solution :), but if you let kernel automatically find local ports
-- you will get the errors.
+Define clearly what the return status is allowed (and maybe enforce it 
+with BUG()s) and follow that definition.
 
-/Gaspar
+Currently, there is no specification and the code is unintelligible crap: 
+it first masks the value with ~0xf0 to test if the skb is consumed 
+(dev_hard_start_xmit) and then compares it with 0x0f for the same test 
+(dev_queue_xmit).
 
+> We're not reverting the commit you mention, we're going to fix
+> whatever bug exists instead.
 
-2010/4/21 Ben Greear <greearb@candelatech.com>:
-> On 04/20/2010 04:35 PM, Gaspar Chilingarov wrote:
->>
->> sysctl -a | grep local_port_range
->
-> [root@ct503-10G-09 ~]# sysctl -a | grep local_port_range
-> net.ipv4.ip_local_port_range =3D 10000 =C2=A0 =C2=A061000
->
-> I'm explicitly binding to local ports as well as local IPs, btw.
->
-> Thanks,
-> Ben
->
-> --
-> Ben Greear <greearb@candelatech.com>
-> Candela Technologies Inc =C2=A0http://www.candelatech.com
->
+So have a fun searching for them :-/
 
-
-
---=20
-Gaspar Chilingarov
+Mikulas
