@@ -1,196 +1,151 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [RFC PATCH] net: Set sock's TX queue to match the RX queue
-Date: Tue, 20 Apr 2010 23:10:13 +0100
-Message-ID: <1271801414.2083.34.camel@achroite.uk.solarflarecom.com>
+From: Gaspar Chilingarov <gasparch@gmail.com>
+Subject: PROBLEM: Linux kernel 2.6.31 IPv4 TCP fails to open huge amount of
+	outgoing connections (unable to bind ... )
+Date: Wed, 21 Apr 2010 03:17:08 +0500
+Message-ID: <g2z46c8cb3e1004201517i5641a75cze2ec5bd33e81fb0f@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:6228 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752575Ab0DTWKR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 18:10:17 -0400
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:53919 "EHLO
+	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752500Ab0DTWRK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 18:17:10 -0400
+Received: by bwz25 with SMTP id 25so7386777bwz.28
+        for <netdev@vger.kernel.org>; Tue, 20 Apr 2010 15:17:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We generally expect TX work for a connected socket to be done on the
-same CPU (or rather hardware thread) as RX work, so the RX and TX
-queue selection should match.  Therefore, when a sock with a cached
-destination receives an skb from a multi-RX-queue net device, set the
-sock's TX queue index to the RX queue index of the skb, modulo the
-number of TX queues on the cached output device.
+[1.] Large amount of outgoing tcp connections fail to bind properly to
+their ip/ports
 
-This changes the representation of TX queue mapping to record how the
-current queue selection (if any) was made.  We can make the initial
-queue selection based on the current simple hash, then replace it once
-we know which RX queue is selected.  For TCP and other connected
-protocols, this should all be settled during the initial handshake
-so the change of TX queue will not cause packet reordering.
+[2.] Full description of the problem/report:
 
-I haven't given this a whole lot of testing yet.  I would be interested
-to hear how this affects performance on different systems and whether
-it's actually worth doing.
+I'm trying to establish huge amount of outgoing tcp connections (over
+several 100000-s) on a single machine. I need to test load a server,
+which could process that amount of connections :)
 
-Ben.
----
- include/net/sock.h |   37 +++++++++++++++++++++++++++++--------
- net/core/dev.c     |    3 ++-
- net/core/sock.c    |   18 +++++++++++++++++-
- 3 files changed, 48 insertions(+), 10 deletions(-)
+The number of connections which are possible to establish from single
+ip is regulated by
+net.ipv4.ip_local_port_range = 32768    61000, which gives 28232 connections.
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 56df440..3cd2b17 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -108,7 +108,8 @@ struct net;
-  *	@skc_node: main hash linkage for various protocol lookup tables
-  *	@skc_nulls_node: main hash linkage for TCP/UDP/UDP-Lite protocol
-  *	@skc_refcnt: reference count
-- *	@skc_tx_queue_mapping: tx queue number for this connection
-+ *	@skc_tx_queue_source: source for @skc_tx_queue_index
-+ *	@skc_tx_queue_index: tx queue index for this connection
-  *	@skc_hash: hash value used with various protocol lookup tables
-  *	@skc_u16hashes: two u16 hash values used by UDP lookup tables
-  *	@skc_family: network address family
-@@ -132,7 +133,8 @@ struct sock_common {
- 		struct hlist_nulls_node skc_nulls_node;
- 	};
- 	atomic_t		skc_refcnt;
--	int			skc_tx_queue_mapping;
-+	u16			skc_tx_queue_source;
-+	u16			skc_tx_queue_index;
- 
- 	union  {
- 		unsigned int	skc_hash;
-@@ -152,6 +154,12 @@ struct sock_common {
- #endif
- };
- 
-+enum sock_tx_queue_source {
-+	SK_TX_QUEUE_SOURCE_NONE,
-+	SK_TX_QUEUE_SOURCE_HASH,
-+	SK_TX_QUEUE_SOURCE_RX_QUEUE
-+};
-+
- /**
-   *	struct sock - network layer representation of sockets
-   *	@__sk_common: shared layout with inet_timewait_sock
-@@ -226,7 +234,8 @@ struct sock {
- #define sk_node			__sk_common.skc_node
- #define sk_nulls_node		__sk_common.skc_nulls_node
- #define sk_refcnt		__sk_common.skc_refcnt
--#define sk_tx_queue_mapping	__sk_common.skc_tx_queue_mapping
-+#define sk_tx_queue_source	__sk_common.skc_tx_queue_source
-+#define sk_tx_queue_index	__sk_common.skc_tx_queue_index
- 
- #define sk_copy_start		__sk_common.skc_hash
- #define sk_hash			__sk_common.skc_hash
-@@ -1134,24 +1143,29 @@ static inline void sock_put(struct sock *sk)
- extern int sk_receive_skb(struct sock *sk, struct sk_buff *skb,
- 			  const int nested);
- 
--static inline void sk_tx_queue_set(struct sock *sk, int tx_queue)
-+static inline void
-+sk_tx_queue_set(struct sock *sk, u16 index, enum sock_tx_queue_source source)
- {
--	sk->sk_tx_queue_mapping = tx_queue;
-+	sk->sk_tx_queue_source = source;
-+	sk->sk_tx_queue_index = index;
- }
- 
-+extern void
-+__sk_tx_queue_set_from_rx_queue(struct sock *sk, const struct sk_buff *skb);
-+
- static inline void sk_tx_queue_clear(struct sock *sk)
- {
--	sk->sk_tx_queue_mapping = -1;
-+	sk->sk_tx_queue_source = SK_TX_QUEUE_SOURCE_NONE;
- }
- 
- static inline int sk_tx_queue_get(const struct sock *sk)
- {
--	return sk->sk_tx_queue_mapping;
-+	return sk->sk_tx_queue_index;
- }
- 
- static inline bool sk_tx_queue_recorded(const struct sock *sk)
- {
--	return (sk && sk->sk_tx_queue_mapping >= 0);
-+	return (sk && sk->sk_tx_queue_source != SK_TX_QUEUE_SOURCE_NONE);
- }
- 
- static inline void sk_set_socket(struct sock *sk, struct socket *sock)
-@@ -1423,6 +1437,13 @@ static inline void skb_set_owner_r(struct sk_buff *skb, struct sock *sk)
- 	skb->destructor = sock_rfree;
- 	atomic_add(skb->truesize, &sk->sk_rmem_alloc);
- 	sk_mem_charge(sk, skb->truesize);
-+	/*
-+	 * If we're receiving through a multiqueue device, set the
-+	 * TX queue to match the RX queue.
-+	 */
-+	if (sk->sk_dst_cache && skb_rx_queue_recorded(skb) &&
-+	    unlikely(sk->sk_tx_queue_source != SK_TX_QUEUE_SOURCE_RX_QUEUE))
-+		__sk_tx_queue_set_from_rx_queue(sk, skb);
- }
- 
- extern void sk_reset_timer(struct sock *sk, struct timer_list* timer,
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b31d5d6..576bb28 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2016,7 +2016,8 @@ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
- 				queue_index = skb_tx_hash(dev, skb);
- 
- 			if (sk && rcu_dereference_check(sk->sk_dst_cache, 1))
--				sk_tx_queue_set(sk, queue_index);
-+				sk_tx_queue_set(sk, queue_index,
-+						SK_TX_QUEUE_SOURCE_HASH);
- 		}
- 	}
- 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 7effa1e..66719a7 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -362,6 +362,21 @@ void sk_reset_txq(struct sock *sk)
- }
- EXPORT_SYMBOL(sk_reset_txq);
- 
-+void __sk_tx_queue_set_from_rx_queue(struct sock *sk, const struct sk_buff *skb)
-+{
-+	struct dst_entry *dst = __sk_dst_get(sk);
-+	u16 queue_index = skb_get_rx_queue(skb);
-+	struct net_device *output_dev;
-+
-+	if (!dst)
-+		return;
-+	output_dev = dst->dev;
-+	if (unlikely(queue_index >= output_dev->real_num_tx_queues))
-+		queue_index %= output_dev->real_num_tx_queues;
-+	sk_tx_queue_set(sk, queue_index, SK_TX_QUEUE_SOURCE_RX_QUEUE);
-+}
-+EXPORT_SYMBOL_GPL(__sk_tx_queue_set_from_rx_queue);
-+
- struct dst_entry *__sk_dst_check(struct sock *sk, u32 cookie)
- {
- 	struct dst_entry *dst = __sk_dst_get(sk);
-@@ -966,7 +981,8 @@ static void sock_copy(struct sock *nsk, const struct sock *osk)
- #endif
- 	BUILD_BUG_ON(offsetof(struct sock, sk_copy_start) !=
- 		     sizeof(osk->sk_node) + sizeof(osk->sk_refcnt) +
--		     sizeof(osk->sk_tx_queue_mapping));
-+		     sizeof(osk->sk_tx_queue_source) +
-+		     sizeof(osk->sk_tx_queue_index));
- 	memcpy(&nsk->sk_copy_start, &osk->sk_copy_start,
- 	       osk->sk_prot->obj_size - offsetof(struct sock, sk_copy_start));
- #ifdef CONFIG_SECURITY_NETWORK
--- 
-1.6.2.5
+Good. I expect that each socket is identified on a local side as
+unique pair of local_ip:local_port .
+Thus I've added some more IP addresses (say 10) to the machine
+(aliases to the same network interface).
+I expect to be able to establish 10 times more connections than before
+(I know about file descriptor limits, system limit of total number of
+file descriptors and  so on - which are tuned to high values already).
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+And the fun part begins -
+I have 28232 on a first source IP (all in established state, say
+10.0.0.10) and now I'm trying to establish one more connection with
+nc, specifying 10.0.0.11 as a source IP -- and getting "unable to bind
+error"
 
+Notes about example;
+10.0.0.1:8192 is a server which just accepts a connections and listens
+forever on them. It's in erlang and it can handle great loads -- so
+there is not problems on that side.
+Using the same script I was able to establish more than 20.000
+connections without any problems (having a standard local port range
+set)
+
+
+To make experiment easily reproducible I've done the following things:
+
+Decrease number of local ports available to 1001 -
+net.ipv4.ip_local_port_range = 60000    61000
+
+I have script like this (writing from memory)
+
+#!/bin/sh
+
+I=0
+
+IP=10.0.0.10
+
+# connection stats before run
+netstat -n | grep ESTABLISHED | fgrep "$IP" | wc -l
+
+while [ $I -le 1000 ]; do
+
+# run nc in background, supress any output
+nc -s $IP 10.0.0.1 8192 > /dev/null 2>&1 &
+
+I=$(($I + 1))
+
+done
+
+# connection stats after run
+netstat -n | grep ESTABLISHED | fgrep "$IP" | wc -l
+
+
+EVEN on the first run I get only 990 successful connections! something
+fails, strange ....
+
+nc 10.0.0.1 8192 fails with error "unable to bind" and establishes
+connection only from 5-10 try.
+
+Ook, well, run this script again, get all possible 1001 connections
+and than change source IP to 10.0.0.11
+
+If you run in several times you will get the following numbers of
+established connections about each run (for given source IP)
+~650, ~870, 950,980,990,995,995, 1000 and several runs to get 1001.
+
+Then if you change IP to the next available and run it again - you
+will get practically the same numbers and this continues for 3-th,
+4th, 5-th and other IP's.
+
+
+As a programmer, I feel that there is some hash table for
+local_ip:local_port pairs in the kernel (may be also incorporating
+PID), which has a collisions and
+in case of collision it just fails to reserve/bind this pair for the
+socket.  I hope I'm right, but I've failed to find where the
+allocation is done :)
+In case if PID does not change (i've tried to run tests from primitive
+client in erlang as well -- you get much more worse picture and
+getting new socket becomes just impossible).
+
+I think that even in case if there is one port available for that IP
+-- it should be possible to bind (even if the kernel should do the
+full scan on local port range to find that unused port).
+
+
+I would be grateful for hints where to look in the source -- may be I
+can produce some working patches for it.
+
+
+[3.] Keywords (i.e., modules, networking, kernel):
+does not matter, i think.
+
+[4.] Kernel version (from /proc/version):
+Ubuntu Karmic Koala on amd64 with latest shipped kernel.
+Linux version 2.6.31-21-generic (buildd@yellow) (gcc version 4.4.1
+(Ubuntu 4.4.1-4ubuntu9) ) #59-Ubuntu SMP Wed Mar 24 07:28:27 UTC 2010
+
+
+[5.] Output of Oops.. message (if applicable) with symbolic information
+    resolved (see Documentation/oops-tracing.txt)
+n/a
+
+[6.] A small shell script or example program which triggers the
+    problem (if possible)
+[7.] Environment
+
+
+Thanks in advance,
+Gaspar
+
+
+
+--
+Gaspar Chilingarov
+
+tel +37493 419763 (mobile - leave voice mail message)
+icq 63174784
+skype://gasparch
+e mailto:nm@web.am mailto:gasparch@gmail.com
+w http://gasparchilingarov.com/
