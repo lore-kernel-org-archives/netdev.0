@@ -1,36 +1,49 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.34-rc5: Reported regressions from 2.6.33
-Date: Tue, 20 Apr 2010 06:13:33 +0200
-Message-ID: <201004200613.33696.rjw@sisk.pl>
-References: <deuQKFRcc0B.A.3EG.BRSzLB@tosh> <20100419205723.8724338c.akpm@linux-foundation.org>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH] rdma/cm: Randomize local port allocation.
+Date: Tue, 20 Apr 2010 12:34:25 +0800
+Message-ID: <4BCD2ED1.4080702@redhat.com>
+References: <5CE6BC7B954643FAAFFD2AD66F673CBD@amr.corp.intel.com>	<4BC7C9CF.20403@redhat.com>	<201004162254.FJF73478.SHOOMOFtQFVJLF@I-love.SAKURA.ne.jp> <20100416.133001.262206466.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Maciej Rutecki <maciej.rutecki@gmail.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.sourceforge.net>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <20100419205723.8724338c.akpm@linux-foundation.org>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: penguin-kernel@I-love.SAKURA.ne.jp, sean.hefty@intel.com,
+	opurdila@ixiacom.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, nhorman@tuxdriver.com,
+	ebiederm@xmission.com, linux-kernel@vger.kernel.org,
+	rolandd@cisco.com, linux-rdma@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:48914 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752068Ab0DTEbV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Apr 2010 00:31:21 -0400
+In-Reply-To: <20100416.133001.262206466.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 20 April 2010, Andrew Morton wrote:
-> On Tue, 20 Apr 2010 05:15:57 +0200 (CEST) "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+David Miller wrote:
+> From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+> Date: Fri, 16 Apr 2010 22:54:22 +0900
 > 
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=15812
-> > Subject		: utsname.domainname not set in x86_32 processes (causing "YPBINDPROC_DOMAIN: domain not bound" errors)
-> > Submitter	:  <adi@hexapodia.org>
-> > Date		: 2010-04-19 21:28 (1 days old)
+>> Cong Wang wrote:
+>>> Sean Hefty wrote:
+>>>> I like this version, thanks!  I'm not sure which tree to merge it through.
+>>>> Are you needing this for 2.6.34, or is 2.6.35 okay?
+>>>>
+>>> As soon as possible, so 2.6.34. :)
+>>>
+>> Cong, merge window for 2.6.34 was already closed.
+>> You need to make your patchset towards 2.6.35 (using net-next-2.6 tree)
+>> rather than 2.6.34 (using linux-2.6 tree). Therefore, this patch being
+>> queued for 2.6.35 (through net-next-2.6 tree) should be okay for you.
 > 
-> I merged hch's fix for this twelve seconds ago.
+> I don't take RDMA patches into net-next-2.6, the less I touch this
+> stack avoiding stuff the better and Roland has been taking this stuff
+> into his own tree for some time now.
 
-I updated the entry.
+I left for a few days.
+
+Ok, so I will wait for this to be merged.
+
+Thanks, David and Tetsuo!
+
