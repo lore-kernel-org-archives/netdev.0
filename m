@@ -1,27 +1,124 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: sk_sleep() helper
-Date: Tue, 20 Apr 2010 16:39:19 -0700 (PDT)
-Message-ID: <20100420.163919.82125824.davem@davemloft.net>
-References: <20100413.015232.67916764.davem@davemloft.net>
-	<1271199845.16881.586.camel@edumazet-laptop>
-	<1271804631.7895.519.camel@edumazet-laptop>
+From: Mikulas Patocka <mpatocka@redhat.com>
+Subject: crash with bridge and inconsistent handling of NETDEV_TX_OK
+Date: Tue, 20 Apr 2010 19:40:56 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.1004201834190.29017@hs20-bc2-1.build.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kaber@trash.net, davem@davemloft.net
+To: lists.linux-foundation.org@redhat.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59276
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753764Ab0DTXjO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 19:39:14 -0400
-In-Reply-To: <1271804631.7895.519.camel@edumazet-laptop>
+Received: from mx1.redhat.com ([209.132.183.28]:3396 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753764Ab0DTXlI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Apr 2010 19:41:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 21 Apr 2010 01:03:51 +0200
+Hi
 
-> [PATCH net-next-2.6] net: sk_sleep() helper
+I got this crash on 2.6.34-rc4 when using it as a bridge. The crash is not 
+reproducible. There are two interfaces, eth0 (sun-hme) and eth1 (tg3) and 
+there is a bridge between them.
 
-Looks good, applied, thanks Eric.
+The crash was in inlined function skb_drop_list, inlined from 
+skb_drop_fraglist from skb_release_data. The "list" pointer was 0x18.
+
+This is backtrace:
+skb_release_data+7c/e0
+__kfree_skb+c/c0
+dev_hard_start_xmit+288/3c0
+sch_direct_xmit+12c/1c0
+dev_queue_xmit+3fc/520
+br_dev_queue_push_xmit+60/80
+br_handle_frame_finish+100/1e00
+br_handle_frame+168/240
+netif_receive_skb+274/480
+process_backlog+64/c0
+net_rx_action+cc/180
+__do_softirq+94/120
+
+Settings for for eth0 and eth1 are:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp-segmentation-offload: off
+udp-fragmentation-offload: off
+generic-segmentation-offload: on
+generic-receive-offload: off
+large-receive-offload: off
+
+For br0:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp-segmentation-offload: off
+udp-fragmentation-offload: on
+generic-segmentation-offload: on
+generic-receive-offload: off
+large-receive-offload: off
+
+(there is no netfilter compiled on that machine)
+
+I'm curious --- this code path in dev_hard_start_xmit is taken only if GSO 
+is used. From the trace, it can be seen that a packet was received by one 
+nic and forwarded by the bridge to the other nic. How could GSO be used in 
+this scenario?
+
+---
+
+Reviewing the code further, I found one very weird commit 
+572a9d7b6fc7f20f573664063324c086be310c42 committed to 2.6.33. What it 
+does, it changes the semantics of ndo_hard_start_xmit(). Prior to the 
+patch, the meaning was --- return zero (NETDEV_TX_OK) --- the skb is 
+consumed by the driver. Returns non-zero --- the skb is left owned by the 
+caller. The patch changes it to return other flags in bits 4-7 and changes 
+the consumed/returned logic.
+
+The problem is that there is still plenty of code that compares it against 
+NETDEV_TX_OK to find out if the skb was consumed.
+
+I don't know if this caused my crash (it is not reproducible), but the 
+patch is buggy and dangerous.
+
+Handling of the return codes is inconsistent:
+* most callers use dev_xmit_complete(int rc) { return rc < 
+NET_XMIT_MASK(0x0f); } to test if the skb was consumed. This seems to be 
+the method to be used intended by the developers. (why not <= 0x0f ?)
+
+* dev_hard_start_xmit uses rc == NETDEV_TX_OK || rc & ~NETDEV_TX_MASK 
+(~0xf0) to test if the skb is consumed. This is differs from 
+dev_xmit_complete for some values.
+
+net/core/netpoll.c : at two places, it compares the return value of 
+ndo_start_xmit with NETDEV_TX_OK
+net/sched/sch_teql.c : compares with NETDEV_TX_OK
+drivers/net/wan/dlci.c : ignores the return value of ndo_start_xmit
+
+--- the above inconsistencies lead to situations where both the caller and 
+the callee think that they own the skb, and the result is memory 
+corruption.
+
+
+If we grep for places that assume that the packet was consumed if the 
+return code is NETDEV_TX_OK, there are even more:
+drivers/net/qla3xxx.c
+drivers/net/chelsio/sge.c
+drivers/net/wireless/hostap/hostap_80211_tx.c
+drivers/net/wireless/ipw2x00/libipw_tx.c
+drivers/net/sfc/selftest.c
+net/mac80211/tx.c
+--- Not all these cases are bugs, because sometimes the return value is 
+self-generated by the driver. But it is just confusing and it may trigger 
+bugs in the future.
+
+---
+
+I'd recommend to revert 572a9d7b6fc7f20f573664063324c086be310c42 because 
+it made several bugs (the code that compared the return value against 
+NETDEV_TX_OK was correct before and is buggy after the patch). 
+Furthermore, there may be hidden bugs, if someone compares the return 
+value with 0 and frees skb based on this comparison, it is impossible to 
+find it with grep, yet changing the meaning of return values would make a 
+bug here.
+
+Mikulas
