@@ -1,45 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v5] rfs: Receive Flow Steering
-Date: Tue, 20 Apr 2010 17:39:22 +0200
-Message-ID: <1271777962.7895.25.camel@edumazet-laptop>
-References: <1271452358.16881.4486.camel@edumazet-laptop>
-	 <1271520633.16881.4754.camel@edumazet-laptop>
-	 <20100419.130905.210660275.davem@davemloft.net>
-	 <20100419.132318.192086187.davem@davemloft.net>
-	 <1271709121.3845.94.camel@edumazet-laptop>
-	 <y2u412e6f7f1004191638mee9206dfoab7482bbff83e38d@mail.gmail.com>
-	 <1271743164.3845.128.camel@edumazet-laptop>
-	 <t2y65634d661004200804r15427f19k9d58862f05df94aa@mail.gmail.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH] net: ipv6 bind to device issue
+Date: Tue, 20 Apr 2010 11:41:07 -0400
+Message-ID: <4BCDCB13.2010208@hp.com>
+References: <1271767572-5282-1-git-send-email-jolsa@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Jiri Olsa <jolsa@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:64665 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750923Ab0DTPjb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 11:39:31 -0400
-Received: by bwz19 with SMTP id 19so96619bwz.21
-        for <netdev@vger.kernel.org>; Tue, 20 Apr 2010 08:39:30 -0700 (PDT)
-In-Reply-To: <t2y65634d661004200804r15427f19k9d58862f05df94aa@mail.gmail.com>
+Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:20632 "EHLO
+	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752141Ab0DTPmE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 11:42:04 -0400
+In-Reply-To: <1271767572-5282-1-git-send-email-jolsa@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 20 avril 2010 =C3=A0 08:04 -0700, Tom Herbert a =C3=A9crit :
+Jiri Olsa wrote:
+> Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+> ---
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index c2438e8..7bf7717 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -815,7 +815,7 @@ struct dst_entry * ip6_route_output(struct net *net, struct sock *sk,
+>  {
+>  	int flags = 0;
+>  
+> -	if (rt6_need_strict(&fl->fl6_dst))
+> +	if (rt6_need_strict(&fl->fl6_dst) || fl->oif)
+>  		flags |= RT6_LOOKUP_F_IFACE;
+>  
+>  	if (!ipv6_addr_any(&fl->fl6_src))
 
-> Maybe for the purposes of RPS, but hash collisions could definitely b=
-e
-> an issue in RFS.  If two active connections hit the same rps_flow
-> entry this may cause thrashing of those connections between CPUs.  I
-> think your patch may increase the probability of this happening.
->=20
+Acked-by: Brian Haley <brian.haley@hp.com>
 
-Good point.
-
-I'll make a gathering of tcp tuples on a busy server over a day and try
-to compute number of clashes we can get with and without the addr/port
-swapping.
-
-
+Saw this within the past month here too and have been testing
+this same fix without problems.
