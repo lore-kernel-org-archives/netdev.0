@@ -1,43 +1,59 @@
-From: Scott Feldman <scofeldm@cisco.com>
-Subject: Re: [net-next,1/2] add iovnl netlink support
-Date: Tue, 20 Apr 2010 13:26:27 -0700
-Message-ID: <C7F35C03.29CF4%scofeldm@cisco.com>
-References: <201004201819.32970.arnd@arndb.de>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: IPv6: race condition in __ipv6_ifa_notify() and dst_free() ?
+Date: Tue, 20 Apr 2010 22:49:39 +0200
+Message-ID: <20100420204939.GA15354@smudla-wifi.bakulak.kosire.czf>
+References: <20100420174401.GB1334@midget.suse.cz>
+ <1271786247.7895.130.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>, Chris Wright <chrisw@redhat.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jiri Bohac <jbohac@suse.cz>, netdev@vger.kernel.org,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-4.cisco.com ([171.68.10.86]:43924 "EHLO
-	sj-iport-4.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755205Ab0DTU0o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 16:26:44 -0400
-In-Reply-To: <201004201819.32970.arnd@arndb.de>
+Received: from cantor.suse.de ([195.135.220.2]:33082 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754666Ab0DTUtK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Apr 2010 16:49:10 -0400
+Content-Disposition: inline
+In-Reply-To: <1271786247.7895.130.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/20/10 9:19 AM, "Arnd Bergmann" <arnd@arndb.de> wrote:
+On Tue, Apr 20, 2010 at 07:57:27PM +0200, Eric Dumazet wrote:
+> Le mardi 20 avril 2010 =E0 19:44 +0200, Jiri Bohac a =E9crit :
+> > --- a/net/ipv6/addrconf.c	2010-04-17 00:12:32.000000000 +0200
+> > +++ b/net/ipv6/addrconf.c	2010-04-20 19:07:35.000000000 +0200
+> > @@ -3974,8 +3974,7 @@ static void __ipv6_ifa_notify(int event,
+> >  			addrconf_leave_anycast(ifp);
+> >  		addrconf_leave_solict(ifp->idev, &ifp->addr);
+> >  		dst_hold(&ifp->rt->u.dst);
+> > -		if (ip6_del_rt(ifp->rt))
+> > -			dst_free(&ifp->rt->u.dst);
+> > +		ip6_del_rt(ifp->rt);
+> >  		break;
+> >  	}
+> >  }
+> >=20
+>=20
+>=20
+> I dont understand the problem Jiri.
+>=20
+> We just did dst_hold(&ifp->rt->u.dst), so if ip6_del_rt() fails we mu=
+st
+> dst_free(), or we leak a refcount.
 
->>> But that's only the case if the NIC itself is in VEPA mode. If that
->>> were the case, there would be no need for a kernel interface at all,
->>> because then we could just drive the port profile selection from user
->>> space.
->>> 
->>> The proposed interface only seems to make sense if you use it to
->>> configure the NIC itself! Why should it care about the port profile
->>> otherwise?
->> 
->> In the case of devices that can do adjacent switch negotiations directly.
-> 
-> I thought the idea to deal with those devices was to beat sense into
-> the respective developers until they do the negotiation in software 8-)
+Well, no ... dst_free() does not decrement the refcount.
+The "opposite" of dst_hold() is dst_release(). And it does not
+automatically call dst_free() when the refcount drops to 0.
+dst_free() needs to be called explicitly and it apparently
+expects the caller to ensure that two dst_free()s won't be called
+simultaneously. But my bonding example shows this is not the
+case.
 
-When the device can do the negotiation directly with the switch, why does it
-make sense to bypass that and use software on the host?  I don't think we'd
-want to give up on link speed/duplex auto-negotiation and punt those setting
-back to the user/host like in the old days.
 
--scott
+--=20
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
 
