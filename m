@@ -1,36 +1,30 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [PATCH net-next-2.6] net: emphasize rtnl lock required in
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] net: emphasize rtnl lock required in
  call_netdevice_notifiers
-Date: Tue, 20 Apr 2010 10:37:30 +0200
-Message-ID: <20100420083729.GA2810@psychotron.lab.eng.brq.redhat.com>
+Date: Tue, 20 Apr 2010 01:45:56 -0700 (PDT)
+Message-ID: <20100420.014556.24310877.davem@davemloft.net>
+References: <20100420083729.GA2810@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, eric.dumazet@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: jpirko@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:31256 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753346Ab0DTIhg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Apr 2010 04:37:36 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48399
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754047Ab0DTIpv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 04:45:51 -0400
+In-Reply-To: <20100420083729.GA2810@psychotron.lab.eng.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since netdev_chain is guarded by rtnl_lock, ASSERT_RTNL should be present here
-to make sure that all callers of call_netdevice_notifiers does the locking
-properly.
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Tue, 20 Apr 2010 10:37:30 +0200
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> Since netdev_chain is guarded by rtnl_lock, ASSERT_RTNL should be present here
+> to make sure that all callers of call_netdevice_notifiers does the locking
+> properly.
+> 
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 05a2b29..a7f13a5 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1435,6 +1435,7 @@ EXPORT_SYMBOL(unregister_netdevice_notifier);
- 
- int call_netdevice_notifiers(unsigned long val, struct net_device *dev)
- {
-+	ASSERT_RTNL();
- 	return raw_notifier_call_chain(&netdev_chain, val, dev);
- }
- 
+That seems right, applied, thanks Jiri!
