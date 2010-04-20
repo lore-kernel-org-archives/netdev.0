@@ -1,53 +1,95 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] rps: consistent rxhash
-Date: Tue, 20 Apr 2010 16:57:01 +0200
-Message-ID: <1271775421.7895.19.camel@edumazet-laptop>
-References: <1271452358.16881.4486.camel@edumazet-laptop>
-	 <1271520633.16881.4754.camel@edumazet-laptop>
-	 <20100419.130905.210660275.davem@davemloft.net>
-	 <20100419.132318.192086187.davem@davemloft.net>
-	 <1271709121.3845.94.camel@edumazet-laptop>
-	 <y2u412e6f7f1004191638mee9206dfoab7482bbff83e38d@mail.gmail.com>
-	 <1271743164.3845.128.camel@edumazet-laptop>
-	 <1271750198.3845.216.camel@edumazet-laptop>
-	 <4BCDA2B5.4060609@lastsummer.de> <1271769404.7895.10.camel@edumazet-laptop>
-	 <4BCDB425.9050007@lastsummer.de>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [net-next,1/2] add iovnl netlink support
+Date: Tue, 20 Apr 2010 16:57:02 +0200
+Message-ID: <201004201657.02873.arnd@arndb.de>
+References: <20100419191807.10423.84600.stgit@savbu-pc100.cisco.com> <201004201548.26609.arnd@arndb.de> <20100420143433.GF11712@x200.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	David Miller <davem@davemloft.net>, therbert@google.com,
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Scott Feldman <scofeldm@cisco.com>, davem@davemloft.net,
 	netdev@vger.kernel.org
-To: Franco Fichtner <franco@lastsummer.de>
+To: Chris Wright <chrisw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:49145 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750718Ab0DTO5I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 10:57:08 -0400
-Received: by bwz19 with SMTP id 19so51715bwz.21
-        for <netdev@vger.kernel.org>; Tue, 20 Apr 2010 07:57:07 -0700 (PDT)
-In-Reply-To: <4BCDB425.9050007@lastsummer.de>
+Received: from moutng.kundenserver.de ([212.227.17.10]:55700 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751017Ab0DTO5Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 10:57:25 -0400
+In-Reply-To: <20100420143433.GF11712@x200.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 20 avril 2010 =C3=A0 16:03 +0200, Franco Fichtner a =C3=A9crit=
- :
+On Tuesday 20 April 2010, Chris Wright wrote:
+> * Arnd Bergmann (arnd@arndb.de) wrote:
+> > On Monday 19 April 2010, Scott Feldman wrote:
+> > 
+> > What is the reason for controlling the slave device through the master,
+> > rather than talking to the slave directly? The kernel always knows
+> > the master for each slave, so it seems to me that this information
+> > is redundant.
+> 
+> Not all devices have this relationship explicit (i.e. not all are pure
+> sr-iov devices).  If there's always a way to discover the master from
+> the device, then I agree we only need the slave.
 
->=20
-> It is funny, but I fail to see the big picture of the
-> firewall / conntrack application here. It looks like
-> this is needed for local netperf tests to impress, but
-> it's a quite special use case, isn't it?
+Hmm, is there an actual example of a card where the relationship is not
+known to the kernel?
 
-I know many applications using TCP on loopback, they are real :)
+> > Is this new interface only for the case that you have a switch integrated
+> > in the NIC, or also for the case where you do an LLDP and EDP exchange
+> > with an adjacent bridge and put the device into VEPA mode?
+> 
+> It should be useful for both.  That's part of the reason for using
+> netlink, a userspace daemon running the VDP state machine (like lldpad)
+> can listen for these messages and see a set_port_profile request when
+> the user starts up a VM.
 
-What I find 'funny' are not the tbench results, but the fact that RFS
-can give pretty good hints to process scheduler, something that might b=
-e
-good to investigate by scheduler specialists.
+After thinking some more about this case, I now believe we should do
+it the other way around, and have lldpad in control of this interface
+from the user space side, and letting user programs (lldptool, libvirt,
+...) talk to lldpad in order to set it up.
+ 
+> > Also, do you expect your interface to be supported by dcbd/lldpad,
+> > or is there a good reason to create a new tool for iovnl?
+> 
+> lldpad would listen, I don't see why iproute2 couldn't send, and libvirt
+> will send as well.
 
-In the meantime, if some admin finds that setting RFS on loopback can
-boost by 10% its application, why not ?
+Not sure. We need lldpad to do this exchange for the case of VEPA with
+VDP, so always using lldpad would let us unify the user interface for
+both cases. We can of course have iproute2 talk to lldpad, in the
+same way that libvirt does.
 
+> > > + * @IOV_ATTR_PORT_PROFILE: port-profile name to assign to device
+> > > + *   (NLA_NUL_STRING)
+> > 
+> > How does the definition of the port profile get into the NIC's switch?
+> > Is there any way to list the available port profiles?
+> 
+> The port profile is a concept external to the NIC's switch.  It's a value
+> that exists in the external physical layer 2 switching infrastructure.
+> So an admin knows this value and is informing the adjacent switch that a
+> new virutal interface is coming up and needs some particular port profile.
 
+But that's only the case if the NIC itself is in VEPA mode. If that
+were the case, there would be no need for a kernel interface at all,
+because then we could just drive the port profile selection from user
+space.
 
+The proposed interface only seems to make sense if you use it to
+configure the NIC itself! Why should it care about the port profile
+otherwise?
+
+> > Same here: Should you be able to set multiple MAC addresses, or
+> > trunk mode? Can the VF override it?
+> > Also, for the new multi-channel VEPA, I'd guess that you also need
+> > to supply an 802.1ad S-VLAN ID.
+> 
+> Something like set_port_profile() would initiate the negotiation for the
+> s-vlan id for a particular channel, not sure it's needed as part of the
+> netlink interface or not.
+
+Well, you have to set up the s-vlan ID in order to have something to
+set the port profile in.
+
+	Arnd
