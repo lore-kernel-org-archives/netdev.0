@@ -1,85 +1,242 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: IPv6: race condition in __ipv6_ifa_notify() and dst_free() ?
-Date: Tue, 20 Apr 2010 19:44:01 +0200
-Message-ID: <20100420174401.GB1334@midget.suse.cz>
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Subject: [PATCH linux-next 1/2] irq: Add CPU mask affinity hint callback
+	framework
+Date: Tue, 20 Apr 2010 11:01:12 -0700
+Message-ID: <20100420180112.1276.11906.stgit@ppwaskie-hc2.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:42913 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754928Ab0DTRoG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Apr 2010 13:44:06 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: tglx@linutronix.de, davem@davemloft.net, arjan@linux.jf.intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+This patch adds a callback function pointer to the irq_desc
+structure, along with a registration function and a read-only
+proc entry for each interrupt.
 
-I found what I believe is a race condition in __ipv6_ifa_notify(), in the call
-to dst_free().
+This affinity_hint handle for each interrupt can be used by
+underlying drivers that need a better mechanism to control
+interrupt affinity.  The underlying driver can register a
+callback for the interrupt, which will allow the driver to
+provide the CPU mask for the interrupt to anything that
+requests it.  The intent is to extend the userspace daemon,
+irqbalance, to help hint to it a preferred CPU mask to balance
+the interrupt into.
 
-__ipv6_ifa_notify() contains:
+Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+---
 
-        case RTM_DELADDR:
-                if (ifp->idev->cnf.forwarding)
-                        addrconf_leave_anycast(ifp);
-                addrconf_leave_solict(ifp->idev, &ifp->addr);
-                dst_hold(&ifp->rt->u.dst);
-                if (ip6_del_rt(ifp->rt))
-                        dst_free(&ifp->rt->u.dst);
-                break;
+ include/linux/interrupt.h |   27 +++++++++++++++++++++++++++
+ include/linux/irq.h       |    1 +
+ kernel/irq/manage.c       |   39 +++++++++++++++++++++++++++++++++++++++
+ kernel/irq/proc.c         |   41 +++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 108 insertions(+), 0 deletions(-)
 
-AFAICT, ip6_del_rt() will call dst_free() itself if it finds and actually
-deletes the route: 
-	ip6_del_rt() -> __ip6_del_rt() -> fib6_del() -> fib6_del_route() ->
-	-> rt6_release() -> dst_free()
-
-If it fails (like when it races with another invocation of ip6_del_rt()), it
-will return nonzero and this will cause the above code to call dst_free() on its own.
-
-dst_free() has no protection against concurrent invocation and if
-two invocations make it through the "if (dst->obsolete > 1)"
-check before one of them calls __dst_free(), the same dst_entry
-may end up either:
-	1) dst_destroy()ed and put on the dst_garbage.list, or
-	2) put on the dst_garbage.list twice
-both resulting in trouble once the GC is run.
-
-One possible code path leading to two invocations of __ipv6_ifa_notify() seems
-to be when two bonding slaves receive a NS/NA with the bonds IPv6 address when
-the bonding master is in the DAD phase with a tentative address:
-
-netif_receive_skb() gets invoked on two CPUs and sets skb->dev to the bonding master ...
-... ip6_mc_input() -> ip6_input_finish() -> icmpv6_rcv() -> ndisc_rcv() ->
- -> ndisc_recv_ns() -> addrconf_dad_failure() -> ipv6_del_addr() -> ipv6_ifa_notify() ->
- -> __ipv6_ifa_notify
-
-
-What is the reason __ipv6_ifa_notify() calls dst_free() when
-ip6_del_rt() fails? I don't see a way ip6_del_rt() could fail
-with the dst still needing to be freed.
-
-I am just testing whether the following will help:
-
---- a/net/ipv6/addrconf.c	2010-04-17 00:12:32.000000000 +0200
-+++ b/net/ipv6/addrconf.c	2010-04-20 19:07:35.000000000 +0200
-@@ -3974,8 +3974,7 @@ static void __ipv6_ifa_notify(int event,
- 			addrconf_leave_anycast(ifp);
- 		addrconf_leave_solict(ifp->idev, &ifp->addr);
- 		dst_hold(&ifp->rt->u.dst);
--		if (ip6_del_rt(ifp->rt))
--			dst_free(&ifp->rt->u.dst);
-+		ip6_del_rt(ifp->rt);
- 		break;
- 	}
+diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
+index 75f3f00..f2a7d0b 100644
+--- a/include/linux/interrupt.h
++++ b/include/linux/interrupt.h
+@@ -78,6 +78,8 @@ enum {
+ };
+ 
+ typedef irqreturn_t (*irq_handler_t)(int, void *);
++typedef unsigned int (*irq_affinity_hint_t)(cpumask_var_t, unsigned int,
++                                            void *);
+ 
+ /**
+  * struct irqaction - per interrupt action descriptor
+@@ -105,6 +107,18 @@ struct irqaction {
+ 	unsigned long thread_flags;
+ };
+ 
++/**
++ * struct irqaffinityhint - per interrupt affinity helper
++ * @callback:	device driver callback function
++ * @dev:	reference for the affected device
++ * @irq:	interrupt number
++ */
++struct irqaffinityhint {
++	irq_affinity_hint_t callback;
++	void *dev;
++	int irq;
++};
++
+ extern irqreturn_t no_action(int cpl, void *dev_id);
+ 
+ #ifdef CONFIG_GENERIC_HARDIRQS
+@@ -209,6 +223,9 @@ extern int irq_set_affinity(unsigned int irq, const struct cpumask *cpumask);
+ extern int irq_can_set_affinity(unsigned int irq);
+ extern int irq_select_affinity(unsigned int irq);
+ 
++extern int irq_register_affinity_hint(unsigned int irq, void *dev,
++                                      irq_affinity_hint_t callback);
++extern int irq_unregister_affinity_hint(unsigned int irq);
+ #else /* CONFIG_SMP */
+ 
+ static inline int irq_set_affinity(unsigned int irq, const struct cpumask *m)
+@@ -223,6 +240,16 @@ static inline int irq_can_set_affinity(unsigned int irq)
+ 
+ static inline int irq_select_affinity(unsigned int irq)  { return 0; }
+ 
++static inline int irq_register_affinity_hint(unsigned int irq, void *dev,
++                                             irq_affinity_hint_t callback)
++{
++	return -EINVAL;
++}
++
++static inline int irq_unregister_affinity_hint(unsigned int irq);
++{
++	return -EINVAL;
++}
+ #endif /* CONFIG_SMP && CONFIG_GENERIC_HARDIRQS */
+ 
+ #ifdef CONFIG_GENERIC_HARDIRQS
+diff --git a/include/linux/irq.h b/include/linux/irq.h
+index 707ab12..bd73e9b 100644
+--- a/include/linux/irq.h
++++ b/include/linux/irq.h
+@@ -206,6 +206,7 @@ struct irq_desc {
+ 	struct proc_dir_entry	*dir;
+ #endif
+ 	const char		*name;
++	struct irqaffinityhint	*hint;
+ } ____cacheline_internodealigned_in_smp;
+ 
+ extern void arch_init_copy_chip_data(struct irq_desc *old_desc,
+diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
+index 704e488..3674b6a 100644
+--- a/kernel/irq/manage.c
++++ b/kernel/irq/manage.c
+@@ -138,6 +138,42 @@ int irq_set_affinity(unsigned int irq, const struct cpumask *cpumask)
+ 	return 0;
  }
-
-Thanks,
-
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
-
+ 
++int irq_register_affinity_hint(unsigned int irq, void *dev,
++                               irq_affinity_hint_t callback)
++{
++	struct irq_desc *desc = irq_to_desc(irq);
++	unsigned long flags;
++
++	raw_spin_lock_irqsave(&desc->lock, flags);
++
++	if (!desc->hint)
++		desc->hint = kmalloc(sizeof(struct irqaffinityhint),
++		                     GFP_KERNEL);
++	desc->hint->callback = callback;
++	desc->hint->dev = dev;
++	desc->hint->irq = irq;
++
++	raw_spin_unlock_irqrestore(&desc->lock, flags);
++
++	return 0;
++}
++EXPORT_SYMBOL(irq_register_affinity_hint);
++
++int irq_unregister_affinity_hint(unsigned int irq)
++{
++	struct irq_desc *desc = irq_to_desc(irq);
++	unsigned long flags;
++
++	raw_spin_lock_irqsave(&desc->lock, flags);
++
++	kfree(desc->hint);
++	desc->hint = NULL;
++
++	raw_spin_unlock_irqrestore(&desc->lock, flags);
++
++	return 0;
++}
++EXPORT_SYMBOL(irq_unregister_affinity_hint);
+ #ifndef CONFIG_AUTO_IRQ_AFFINITY
+ /*
+  * Generic version of the affinity autoselector.
+@@ -916,6 +952,9 @@ static struct irqaction *__free_irq(unsigned int irq, void *dev_id)
+ 			desc->chip->disable(irq);
+ 	}
+ 
++	/* make sure affinity_hint callback is cleaned up */
++	kfree(desc->hint);
++
+ 	raw_spin_unlock_irqrestore(&desc->lock, flags);
+ 
+ 	unregister_handler_proc(irq, action);
+diff --git a/kernel/irq/proc.c b/kernel/irq/proc.c
+index 7a6eb04..59110a3 100644
+--- a/kernel/irq/proc.c
++++ b/kernel/irq/proc.c
+@@ -32,6 +32,23 @@ static int irq_affinity_proc_show(struct seq_file *m, void *v)
+ 	return 0;
+ }
+ 
++static int irq_affinity_hint_proc_show(struct seq_file *m, void *v)
++{
++	struct irq_desc *desc = irq_to_desc((long)m->private);
++	struct cpumask mask;
++	unsigned int ret = 0;
++
++	if (desc->hint && desc->hint->callback) {
++		ret = desc->hint->callback(&mask, (long)m->private,
++		                           desc->hint->dev);
++		if (!ret)
++			seq_cpumask(m, &mask);
++	}
++
++	seq_putc(m, '\n');
++	return ret;
++}
++
+ #ifndef is_affinity_mask_valid
+ #define is_affinity_mask_valid(val) 1
+ #endif
+@@ -79,11 +96,23 @@ free_cpumask:
+ 	return err;
+ }
+ 
++static ssize_t irq_affinity_hint_proc_write(struct file *file,
++		const char __user *buffer, size_t count, loff_t *pos)
++{
++	/* affinity_hint is read-only from proc */
++	return -EOPNOTSUPP;
++}
++
+ static int irq_affinity_proc_open(struct inode *inode, struct file *file)
+ {
+ 	return single_open(file, irq_affinity_proc_show, PDE(inode)->data);
+ }
+ 
++static int irq_affinity_hint_proc_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, irq_affinity_hint_proc_show, PDE(inode)->data);
++}
++
+ static const struct file_operations irq_affinity_proc_fops = {
+ 	.open		= irq_affinity_proc_open,
+ 	.read		= seq_read,
+@@ -92,6 +121,14 @@ static const struct file_operations irq_affinity_proc_fops = {
+ 	.write		= irq_affinity_proc_write,
+ };
+ 
++static const struct file_operations irq_affinity_hint_proc_fops = {
++	.open		= irq_affinity_hint_proc_open,
++	.read		= seq_read,
++	.llseek		= seq_lseek,
++	.release	= single_release,
++	.write		= irq_affinity_hint_proc_write,
++};
++
+ static int default_affinity_show(struct seq_file *m, void *v)
+ {
+ 	seq_cpumask(m, irq_default_affinity);
+@@ -231,6 +268,10 @@ void register_irq_proc(unsigned int irq, struct irq_desc *desc)
+ 	/* create /proc/irq/<irq>/smp_affinity */
+ 	proc_create_data("smp_affinity", 0600, desc->dir,
+ 			 &irq_affinity_proc_fops, (void *)(long)irq);
++
++	/* create /proc/irq/<irq>/affinity_hint */
++	proc_create_data("affinity_hint", 0400, desc->dir,
++			 &irq_affinity_hint_proc_fops, (void *)(long)irq);
+ #endif
+ 
+ 	proc_create_data("spurious", 0444, desc->dir,
