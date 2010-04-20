@@ -1,68 +1,57 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: rps perfomance WAS(Re: rps: question
-Date: Tue, 20 Apr 2010 08:02:21 -0400
-Message-ID: <1271764941.3735.94.camel@bigi>
-References: <t2p65634d661004141031xf80f62e7sb64362ea1ce10a1f@mail.gmail.com>
-	 <1271268242.16881.1719.camel@edumazet-laptop>
-	 <1271271222.4567.51.camel@bigi>
-	 <20100415.014857.168270765.davem@davemloft.net>
-	 <1271332528.4567.150.camel@bigi>  <4BC741AE.3000108@hp.com>
-	 <1271362581.23780.12.camel@bigi>
-	 <n2p412e6f7f1004151656q5f3f2cbeh324a859b88688398@mail.gmail.com>
-	 <1271395106.16881.3645.camel@edumazet-laptop>
-	 <1271424065.4606.31.camel@bigi>
-	 <1271489739.16881.4586.camel@edumazet-laptop>
-	 <1271525519.3929.3.camel@bigi>
-	 <1271583573.16881.4798.camel@edumazet-laptop>
-	 <1271590476.16881.4925.camel@edumazet-laptop>
-Reply-To: hadi@cyberus.ca
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Changli Gao <xiaosuo@gmail.com>, Rick Jones <rick.jones2@hp.com>,
-	David Miller <davem@davemloft.net>, therbert@google.com,
-	netdev@vger.kernel.org, robert@herjulf.net, andi@firstfloor.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jiri Olsa <jolsa@redhat.com>
+Subject: [PATCH] net: ipv6 bind to device issue
+Date: Tue, 20 Apr 2010 14:46:12 +0200
+Message-ID: <1271767572-5282-1-git-send-email-jolsa@redhat.com>
+Cc: netdev@vger.kernel.org, Jiri Olsa <jolsa@redhat.com>
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:49229 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753711Ab0DTMC0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 08:02:26 -0400
-Received: by pwj9 with SMTP id 9so4100531pwj.19
-        for <netdev@vger.kernel.org>; Tue, 20 Apr 2010 05:02:26 -0700 (PDT)
-In-Reply-To: <1271590476.16881.4925.camel@edumazet-laptop>
+Received: from mx1.redhat.com ([209.132.183.28]:22872 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754546Ab0DTMrF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Apr 2010 08:47:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-folks,
+hi,
 
-Thanks to everybody (Eric stands out) for your patience. 
-I ended mostly validating whats already been said. I have a lot of data
-and can describe in details how i tested etc but it would require
-patience in reading, so i will spare you;-> If you are interested let me
-know and i will be happy to share.
+The issue raises when having 2 NICs both assigned the same
+IPv6 global address.
 
-Summary is: 
--rps good, gives higher throughput for apps
--rps not so good, latency worse but gets better with higher input rate
-or increasing number of flows (which translates to higher pps)
--rps works well with newer hardware that has better cache structures.
-[Gives great results on my test machine a Nehalem single processor, 4
-cores each with two SMT threads that has a shared L2 between threads and
-a shared L3 between cores]. 
-Your selection of what the demux cpu is and where the target cpus are is
-an influencing factor in the latency results. If you have a system with
-multiple sockets, you should get better numbers if you stay within the
-same socket relative to going across sockets.
--rps does a better job at helping schedule apps on same cpu thus
-localizing the app. The throughput results with rps are very consistent
-and better whereas in non-rps case, variance is _high_.
+If a sender binds to a particular NIC (SO_BINDTODEVICE),
+the outgoing traffic is being sent via the first found.
+The bonded device is thus not taken into an account during the
+routing.
 
-My next step is to do some forwarding tests - probably next week. I am
-concerned here because i expect the cache misses to be higher than the
-app scenario (netdev structure and attributes could be touched by many
-cpus)
 
-cheers,
-jamal
+>From the ip6_route_output function:
 
+If the binding address is multicast, linklocal or loopback,
+the RT6_LOOKUP_F_IFACE bit is set, but not for global address.
+
+So binding global address will neglect SO_BINDTODEVICE-binded device,
+because the fib6_rule_lookup function path won't check for the
+flowi::oif field and take first route that fits.
+
+Following patch should handle the issue.
+
+wbr,
+jirka
+
+
+Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+---
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index c2438e8..7bf7717 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -815,7 +815,7 @@ struct dst_entry * ip6_route_output(struct net *net, struct sock *sk,
+ {
+ 	int flags = 0;
+ 
+-	if (rt6_need_strict(&fl->fl6_dst))
++	if (rt6_need_strict(&fl->fl6_dst) || fl->oif)
+ 		flags |= RT6_LOOKUP_F_IFACE;
+ 
+ 	if (!ipv6_addr_any(&fl->fl6_src))
