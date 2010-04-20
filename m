@@ -1,96 +1,44 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH] NET: Fix an RCU warning in dev_pick_tx()
-Date: Tue, 20 Apr 2010 11:25:58 +0100
-Message-ID: <20100420102558.31923.91.stgit@warthog.procyon.org.uk>
+From: Li Yu <raise.sail@gmail.com>
+Subject: A possible bug in reqsk_queue_hash_req()
+Date: Tue, 20 Apr 2010 18:35:18 +0800
+Message-ID: <i2x9b948ee41004200335vc229a59cvc0a08c35c949d7dd@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3651 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754310Ab0DTK0B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Apr 2010 06:26:01 -0400
-Received: from int-mx08.intmail.prod.int.phx2.redhat.com (int-mx08.intmail.prod.int.phx2.redhat.com [10.5.11.21])
-	by mx1.redhat.com (8.13.8/8.13.8) with ESMTP id o3KAQ14r027005
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 20 Apr 2010 06:26:01 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fix the following RCU warning in dev_pick_tx():
+Hi,
 
-===================================================
-[ INFO: suspicious rcu_dereference_check() usage. ]
----------------------------------------------------
-net/core/dev.c:1993 invoked rcu_dereference_check() without protection!
+     I found out a possible bug in reqsk_queue_hash_req(), it seem
+that we should move "req->dl_next = lopt->syn_table[hash];" statement
+into follow write lock protected scope.
 
-other info that might help us debug this:
+     As I browsed source code, this function only can be call at rx
+code path which is protected a spin lock over struct sock , but its
+caller (  inet_csk_reqsk_queue_hash_add() ) is a GPL exported symbol,
+so I think that we'd best move this statement into below write lock
+protected scope.
 
+     Below is the patch to play this change, please do not apply it on
+source code, it's just for show.
 
-rcu_scheduler_active = 1, debug_locks = 0
-2 locks held by swapper/0:
- #0:  (&idev->mc_ifc_timer){+.-...}, at: [<ffffffff81039e65>] run_timer_softirq+0x17b/0x278
- #1:  (rcu_read_lock_bh){.+....}, at: [<ffffffff812ea3eb>] dev_queue_xmit+0x14e/0x4dc
+    Thanks.
 
-stack backtrace:
-Pid: 0, comm: swapper Not tainted 2.6.34-rc5-cachefs #4
-Call Trace:
- <IRQ>  [<ffffffff810516c4>] lockdep_rcu_dereference+0xaa/0xb2
- [<ffffffff812ea4f6>] dev_queue_xmit+0x259/0x4dc
- [<ffffffff812ea3eb>] ? dev_queue_xmit+0x14e/0x4dc
- [<ffffffff81052324>] ? trace_hardirqs_on+0xd/0xf
- [<ffffffff81035362>] ? local_bh_enable_ip+0xbc/0xc1
- [<ffffffff812f0954>] neigh_resolve_output+0x24b/0x27c
- [<ffffffff8134f673>] ip6_output_finish+0x7c/0xb4
- [<ffffffff81350c34>] ip6_output2+0x256/0x261
- [<ffffffff81052324>] ? trace_hardirqs_on+0xd/0xf
- [<ffffffff813517fb>] ip6_output+0xbbc/0xbcb
- [<ffffffff8135bc5d>] ? fib6_force_start_gc+0x2b/0x2d
- [<ffffffff81368acb>] mld_sendpack+0x273/0x39d
- [<ffffffff81368858>] ? mld_sendpack+0x0/0x39d
- [<ffffffff81052099>] ? mark_held_locks+0x52/0x70
- [<ffffffff813692fc>] mld_ifc_timer_expire+0x24f/0x288
- [<ffffffff81039ed6>] run_timer_softirq+0x1ec/0x278
- [<ffffffff81039e65>] ? run_timer_softirq+0x17b/0x278
- [<ffffffff813690ad>] ? mld_ifc_timer_expire+0x0/0x288
- [<ffffffff81035531>] ? __do_softirq+0x69/0x140
- [<ffffffff8103556a>] __do_softirq+0xa2/0x140
- [<ffffffff81002e0c>] call_softirq+0x1c/0x28
- [<ffffffff81004b54>] do_softirq+0x38/0x80
- [<ffffffff81034f06>] irq_exit+0x45/0x47
- [<ffffffff810177c3>] smp_apic_timer_interrupt+0x88/0x96
- [<ffffffff810028d3>] apic_timer_interrupt+0x13/0x20
- <EOI>  [<ffffffff810488dd>] ? __atomic_notifier_call_chain+0x0/0x86
- [<ffffffff810096bf>] ? mwait_idle+0x6e/0x78
- [<ffffffff810096b6>] ? mwait_idle+0x65/0x78
- [<ffffffff810011cb>] cpu_idle+0x4d/0x83
- [<ffffffff81380b05>] rest_init+0xb9/0xc0
- [<ffffffff81380a4c>] ? rest_init+0x0/0xc0
- [<ffffffff8168dcf0>] start_kernel+0x392/0x39d
- [<ffffffff8168d2a3>] x86_64_start_reservations+0xb3/0xb7
- [<ffffffff8168d38b>] x86_64_start_kernel+0xe4/0xeb
+Yu
 
-An rcu_dereference() should be an rcu_dereference_bh().
+--- include/net/request_sock.h  2010-04-09 15:27:14.000000000 +0800
++++ include/net/request_sock.h        2010-04-20 18:11:32.000000000 +0800
+@@ -247,9 +247,9 @@ static inline void reqsk_queue_hash_req(
+        req->expires = jiffies + timeout;
+        req->retrans = 0;
+        req->sk = NULL;
+-       req->dl_next = lopt->syn_table[hash];
 
-Signed-off-by: David Howells <dhowells@redhat.com>
----
-
- net/core/dev.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 92584bf..f769098 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1990,7 +1990,7 @@ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
- 				queue_index = skb_tx_hash(dev, skb);
- 
- 			if (sk) {
--				struct dst_entry *dst = rcu_dereference(sk->sk_dst_cache);
-+				struct dst_entry *dst = rcu_dereference_bh(sk->sk_dst_cache);
- 
- 				if (dst && skb_dst(skb) == dst)
- 					sk_tx_queue_set(sk, queue_index);
-
+        write_lock(&queue->syn_wait_lock);
++       req->dl_next = lopt->syn_table[hash];
+        lopt->syn_table[hash] = req;
+        write_unlock(&queue->syn_wait_lock);
+ }
