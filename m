@@ -1,8 +1,8 @@
 From: Gaspar Chilingarov <gasparch@gmail.com>
 Subject: Re: PROBLEM: Linux kernel 2.6.31 IPv4 TCP fails to open huge amount
 	of outgoing connections (unable to bind ... )
-Date: Wed, 21 Apr 2010 04:20:55 +0500
-Message-ID: <u2t46c8cb3e1004201620tf9fce087ibae421759f9e1e84@mail.gmail.com>
+Date: Wed, 21 Apr 2010 04:20:11 +0500
+Message-ID: <x2s46c8cb3e1004201620k1112add9pd1c326205be4d625@mail.gmail.com>
 References: <g2z46c8cb3e1004201517i5641a75cze2ec5bd33e81fb0f@mail.gmail.com>
 	 <4BCE33B9.8050101@candelatech.com>
 Mime-Version: 1.0
@@ -11,12 +11,12 @@ Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev <netdev@vger.kernel.org>
 To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:50026 "EHLO
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:51547 "EHLO
 	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753506Ab0DTXU4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 19:20:56 -0400
-Received: by bwz25 with SMTP id 25so7437033bwz.28
-        for <netdev@vger.kernel.org>; Tue, 20 Apr 2010 16:20:55 -0700 (PDT)
+	with ESMTP id S1752638Ab0DTXUN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 19:20:13 -0400
+Received: by bwz25 with SMTP id 25so7436508bwz.28
+        for <netdev@vger.kernel.org>; Tue, 20 Apr 2010 16:20:12 -0700 (PDT)
 In-Reply-To: <4BCE33B9.8050101@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -57,8 +57,3 @@ rfaces)
 > Ben Greear <greearb@candelatech.com>
 > Candela Technologies Inc =C2=A0http://www.candelatech.com
 >
-
-
-
---=20
-Gaspar Chilingarov
