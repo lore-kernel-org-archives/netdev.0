@@ -1,65 +1,59 @@
-From: Jiri Olsa <jolsa@redhat.com>
-Subject: Re: [PATCH] net: ipv6 bind to device issue
-Date: Tue, 20 Apr 2010 17:42:39 +0200
-Message-ID: <20100420154239.GC5711@jolsa.lab.eng.brq.redhat.com>
-References: <1271767572-5282-1-git-send-email-jolsa@redhat.com>
+From: Timur Tabi <timur.tabi@gmail.com>
+Subject: Re: [PATCH] gianfar: Wait for both RX and TX to stop
+Date: Tue, 20 Apr 2010 10:59:57 -0500
+Message-ID: <q2yed82fe3e1004200859k742149cajead11323745ab768@mail.gmail.com>
+References: <1271632401-2472-1-git-send-email-afleming@freescale.com>
+	<m2ged82fe3e1004191408p53f19073x106ef56677c8a5df@mail.gmail.com>
+	<DD217C72-156B-403D-B83B-EB365C782F2B@kernel.crashing.org>
+	<o2oed82fe3e1004200801n98683cdalb2898c879b93f8fd@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	eric.dumazet@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andy Fleming <afleming@freescale.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Kumar Gala <galak@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36964 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753525Ab0DTPn1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Apr 2010 11:43:27 -0400
-Content-Disposition: inline
-In-Reply-To: <1271767572-5282-1-git-send-email-jolsa@redhat.com>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:52546 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752985Ab0DTQA2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 12:00:28 -0400
+Received: by pwj9 with SMTP id 9so4349828pwj.19
+        for <netdev@vger.kernel.org>; Tue, 20 Apr 2010 09:00:28 -0700 (PDT)
+In-Reply-To: <o2oed82fe3e1004200801n98683cdalb2898c879b93f8fd@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 20, 2010 at 02:46:12PM +0200, Jiri Olsa wrote:
-> hi,
-> 
-> The issue raises when having 2 NICs both assigned the same
-> IPv6 global address.
-> 
-> If a sender binds to a particular NIC (SO_BINDTODEVICE),
-> the outgoing traffic is being sent via the first found.
-> The bonded device is thus not taken into an account during the
-> routing.
-> 
-> 
-> From the ip6_route_output function:
-> 
-> If the binding address is multicast, linklocal or loopback,
-> the RT6_LOOKUP_F_IFACE bit is set, but not for global address.
-> 
-> So binding global address will neglect SO_BINDTODEVICE-binded device,
-> because the fib6_rule_lookup function path won't check for the
-> flowi::oif field and take first route that fits.
-> 
-> Following patch should handle the issue.
-> 
-> wbr,
-> jirka
-> 
-> 
-> Signed-off-by: Jiri Olsa <jolsa@redhat.com>
-Signed-off-by: Scott Otto <scott.otto@alcatel-lucent.com>
+On Tue, Apr 20, 2010 at 10:01 AM, Timur Tabi <timur.tabi@gmail.com> wro=
+te:
+> On Mon, Apr 19, 2010 at 11:43 PM, Kumar Gala <galak@kernel.crashing.o=
+rg> wrote:
+>
+>> spin_event_timeout doesn't make sense for this. =A0The patch is fine=
+=2E
+>
+> Can you please elaborate on that? =A0I don't understand why you think
+> that. =A0spin_event_timeout() takes an expression and a timeout, and
+> loops over the expression calling cpu_relax(), just like this loop
+> does.
 
-> ---
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index c2438e8..7bf7717 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -815,7 +815,7 @@ struct dst_entry * ip6_route_output(struct net *net, struct sock *sk,
->  {
->  	int flags = 0;
->  
-> -	if (rt6_need_strict(&fl->fl6_dst))
-> +	if (rt6_need_strict(&fl->fl6_dst) || fl->oif)
->  		flags |= RT6_LOOKUP_F_IFACE;
->  
->  	if (!ipv6_addr_any(&fl->fl6_src))
+I haven't tested it, but I think this should work:
+
+	spin_event_timeout((gfar_read(&regs->ievent) &
+		(IEVENT_GRSC | IEVENT_GTSC)) =3D=3D
+		(IEVENT_GRSC | IEVENT_GTSC), -1, 0);
+
+Ideally, Andy should use a timeout value other than -1, and then test
+the result like this:
+
+	u32 ret;
+
+	ret =3D spin_event_timeout((gfar_read(&regs->ievent) &
+		(IEVENT_GRSC | IEVENT_GTSC)) =3D=3D
+		(IEVENT_GRSC | IEVENT_GTSC), 1000, 0);
+
+	if (!ret)
+		/* timeout has occurred */
+
+--=20
+Timur Tabi
+Linux kernel developer at Freescale
