@@ -1,57 +1,50 @@
-From: Jiri Olsa <jolsa@redhat.com>
-Subject: [PATCH] net: ipv6 bind to device issue
-Date: Tue, 20 Apr 2010 14:46:12 +0200
-Message-ID: <1271767572-5282-1-git-send-email-jolsa@redhat.com>
-Cc: netdev@vger.kernel.org, Jiri Olsa <jolsa@redhat.com>
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	eric.dumazet@gmail.com
+From: Franco Fichtner <franco@lastsummer.de>
+Subject: Re: [PATCH net-next-2.6] rps: consistent rxhash
+Date: Tue, 20 Apr 2010 14:48:53 +0200
+Message-ID: <4BCDA2B5.4060609@lastsummer.de>
+References: <1271452358.16881.4486.camel@edumazet-laptop>	 <1271520633.16881.4754.camel@edumazet-laptop>	 <20100419.130905.210660275.davem@davemloft.net>	 <20100419.132318.192086187.davem@davemloft.net>	 <1271709121.3845.94.camel@edumazet-laptop>	 <y2u412e6f7f1004191638mee9206dfoab7482bbff83e38d@mail.gmail.com>	 <1271743164.3845.128.camel@edumazet-laptop> <1271750198.3845.216.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Changli Gao <xiaosuo@gmail.com>,
+	David Miller <davem@davemloft.net>, therbert@google.com,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22872 "EHLO mx1.redhat.com"
+Received: from host64.kissl.de ([213.239.241.64]:35110 "EHLO host64.kissl.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754546Ab0DTMrF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Apr 2010 08:47:05 -0400
+	id S1753995Ab0DTMs6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Apr 2010 08:48:58 -0400
+In-Reply-To: <1271750198.3845.216.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hi,
+Eric Dumazet wrote:
+> In case we compute a software skb->rxhash, we can generate a consistent
+> hash : Its value will be the same in both flow directions.
+>
+> This helps some workloads, like conntracking, since the same state needs
+> to be accessed in both directions.
+>
+> tbench + RFS + this patch gives better results than tbench with default
+> kernel configuration (no RPS, no RFS)
+>
+> Also fixed some sparse warnings.
+>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
 
-The issue raises when having 2 NICs both assigned the same
-IPv6 global address.
+I thought about this for some time...
 
-If a sender binds to a particular NIC (SO_BINDTODEVICE),
-the outgoing traffic is being sent via the first found.
-The bonded device is thus not taken into an account during the
-routing.
+Do we really need the port numbers here at all? A simple
+addr1^addr2 can provide a good enough pointer for
+distribution amongst CPUs.
 
-
->From the ip6_route_output function:
-
-If the binding address is multicast, linklocal or loopback,
-the RT6_LOOKUP_F_IFACE bit is set, but not for global address.
-
-So binding global address will neglect SO_BINDTODEVICE-binded device,
-because the fib6_rule_lookup function path won't check for the
-flowi::oif field and take first route that fits.
-
-Following patch should handle the issue.
-
-wbr,
-jirka
+The real connection tracking is better done locally at the
+corresponding CPU. That way a potential cache miss can be
+avoided and the still needed hash calculation for
+connection tracking will be offloaded.
 
 
-Signed-off-by: Jiri Olsa <jolsa@redhat.com>
----
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index c2438e8..7bf7717 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -815,7 +815,7 @@ struct dst_entry * ip6_route_output(struct net *net, struct sock *sk,
- {
- 	int flags = 0;
- 
--	if (rt6_need_strict(&fl->fl6_dst))
-+	if (rt6_need_strict(&fl->fl6_dst) || fl->oif)
- 		flags |= RT6_LOOKUP_F_IFACE;
- 
- 	if (!ipv6_addr_any(&fl->fl6_src))
+Franco
+
