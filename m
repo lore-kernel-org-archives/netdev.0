@@ -1,242 +1,145 @@
 From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: [PATCH linux-next 1/2] irq: Add CPU mask affinity hint callback
-	framework
-Date: Tue, 20 Apr 2010 11:01:12 -0700
-Message-ID: <20100420180112.1276.11906.stgit@ppwaskie-hc2.jf.intel.com>
+Subject: [PATCH linux-next 2/2] ixgbe: Example usage of the new IRQ
+	affinity_hint callback
+Date: Tue, 20 Apr 2010 11:01:39 -0700
+Message-ID: <20100420180139.1276.79769.stgit@ppwaskie-hc2.jf.intel.com>
+References: <20100420180112.1276.11906.stgit@ppwaskie-hc2.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: tglx@linutronix.de, davem@davemloft.net, arjan@linux.jf.intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:57964 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751672Ab0DTR5E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Apr 2010 13:57:04 -0400
+In-Reply-To: <20100420180112.1276.11906.stgit@ppwaskie-hc2.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds a callback function pointer to the irq_desc
-structure, along with a registration function and a read-only
-proc entry for each interrupt.
+This patch uses the new IRQ affinity_hint callback mechanism.
+It serves purely as an example of how a low-level driver can
+utilize this new interface.
 
-This affinity_hint handle for each interrupt can be used by
-underlying drivers that need a better mechanism to control
-interrupt affinity.  The underlying driver can register a
-callback for the interrupt, which will allow the driver to
-provide the CPU mask for the interrupt to anything that
-requests it.  The intent is to extend the userspace daemon,
-irqbalance, to help hint to it a preferred CPU mask to balance
-the interrupt into.
+An official ixgbe patch will be pushed through netdev once the
+IRQ patches have been accepted and merged.
 
 Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 ---
 
- include/linux/interrupt.h |   27 +++++++++++++++++++++++++++
- include/linux/irq.h       |    1 +
- kernel/irq/manage.c       |   39 +++++++++++++++++++++++++++++++++++++++
- kernel/irq/proc.c         |   41 +++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 108 insertions(+), 0 deletions(-)
+ drivers/net/ixgbe/ixgbe.h      |    2 ++
+ drivers/net/ixgbe/ixgbe_main.c |   51 +++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 52 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-index 75f3f00..f2a7d0b 100644
---- a/include/linux/interrupt.h
-+++ b/include/linux/interrupt.h
-@@ -78,6 +78,8 @@ enum {
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index 79c35ae..c220b9f 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -32,6 +32,7 @@
+ #include <linux/pci.h>
+ #include <linux/netdevice.h>
+ #include <linux/aer.h>
++#include <linux/cpumask.h>
+ 
+ #include "ixgbe_type.h"
+ #include "ixgbe_common.h"
+@@ -236,6 +237,7 @@ struct ixgbe_q_vector {
+ 	u8 tx_itr;
+ 	u8 rx_itr;
+ 	u32 eitr;
++	cpumask_var_t affinity_mask;
  };
  
- typedef irqreturn_t (*irq_handler_t)(int, void *);
-+typedef unsigned int (*irq_affinity_hint_t)(cpumask_var_t, unsigned int,
-+                                            void *);
- 
- /**
-  * struct irqaction - per interrupt action descriptor
-@@ -105,6 +107,18 @@ struct irqaction {
- 	unsigned long thread_flags;
- };
- 
-+/**
-+ * struct irqaffinityhint - per interrupt affinity helper
-+ * @callback:	device driver callback function
-+ * @dev:	reference for the affected device
-+ * @irq:	interrupt number
-+ */
-+struct irqaffinityhint {
-+	irq_affinity_hint_t callback;
-+	void *dev;
-+	int irq;
-+};
-+
- extern irqreturn_t no_action(int cpl, void *dev_id);
- 
- #ifdef CONFIG_GENERIC_HARDIRQS
-@@ -209,6 +223,9 @@ extern int irq_set_affinity(unsigned int irq, const struct cpumask *cpumask);
- extern int irq_can_set_affinity(unsigned int irq);
- extern int irq_select_affinity(unsigned int irq);
- 
-+extern int irq_register_affinity_hint(unsigned int irq, void *dev,
-+                                      irq_affinity_hint_t callback);
-+extern int irq_unregister_affinity_hint(unsigned int irq);
- #else /* CONFIG_SMP */
- 
- static inline int irq_set_affinity(unsigned int irq, const struct cpumask *m)
-@@ -223,6 +240,16 @@ static inline int irq_can_set_affinity(unsigned int irq)
- 
- static inline int irq_select_affinity(unsigned int irq)  { return 0; }
- 
-+static inline int irq_register_affinity_hint(unsigned int irq, void *dev,
-+                                             irq_affinity_hint_t callback)
-+{
-+	return -EINVAL;
-+}
-+
-+static inline int irq_unregister_affinity_hint(unsigned int irq);
-+{
-+	return -EINVAL;
-+}
- #endif /* CONFIG_SMP && CONFIG_GENERIC_HARDIRQS */
- 
- #ifdef CONFIG_GENERIC_HARDIRQS
-diff --git a/include/linux/irq.h b/include/linux/irq.h
-index 707ab12..bd73e9b 100644
---- a/include/linux/irq.h
-+++ b/include/linux/irq.h
-@@ -206,6 +206,7 @@ struct irq_desc {
- 	struct proc_dir_entry	*dir;
- #endif
- 	const char		*name;
-+	struct irqaffinityhint	*hint;
- } ____cacheline_internodealigned_in_smp;
- 
- extern void arch_init_copy_chip_data(struct irq_desc *old_desc,
-diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
-index 704e488..3674b6a 100644
---- a/kernel/irq/manage.c
-+++ b/kernel/irq/manage.c
-@@ -138,6 +138,42 @@ int irq_set_affinity(unsigned int irq, const struct cpumask *cpumask)
- 	return 0;
+ /* Helper macros to switch between ints/sec and what the register uses.
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 1b1419c..3e00d41 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -1031,6 +1031,36 @@ next_desc:
+ 	return cleaned;
  }
  
-+int irq_register_affinity_hint(unsigned int irq, void *dev,
-+                               irq_affinity_hint_t callback)
++static unsigned int ixgbe_irq_affinity_callback(cpumask_var_t mask,
++                                                unsigned int irq, void *dev)
 +{
-+	struct irq_desc *desc = irq_to_desc(irq);
-+	unsigned long flags;
++	struct ixgbe_adapter *adapter = (struct ixgbe_adapter *)dev;
++	int i, q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
 +
-+	raw_spin_lock_irqsave(&desc->lock, flags);
++	if (test_bit(__IXGBE_DOWN, &adapter->state))
++		return -EINVAL;
 +
-+	if (!desc->hint)
-+		desc->hint = kmalloc(sizeof(struct irqaffinityhint),
-+		                     GFP_KERNEL);
-+	desc->hint->callback = callback;
-+	desc->hint->dev = dev;
-+	desc->hint->irq = irq;
++	/*
++	 * Loop through the msix_entries array, looking for the vector that
++	 * matches the irq passed to us.  Once we find it, use that index to
++	 * grab the corresponding q_vector (1 to 1 mapping), and grab the
++	 * cpumask from that q_vector.
++	 */
++	for (i = 0; i < q_vectors; i++)
++		if (adapter->msix_entries[i].vector == irq)
++			break;
 +
-+	raw_spin_unlock_irqrestore(&desc->lock, flags);
++	if (i == q_vectors)
++		return -EINVAL;
++
++	if (adapter->q_vector[i]->affinity_mask)
++		cpumask_copy(mask, adapter->q_vector[i]->affinity_mask);
++	else
++		return -EINVAL;
 +
 +	return 0;
 +}
-+EXPORT_SYMBOL(irq_register_affinity_hint);
 +
-+int irq_unregister_affinity_hint(unsigned int irq)
-+{
-+	struct irq_desc *desc = irq_to_desc(irq);
-+	unsigned long flags;
+ static int ixgbe_clean_rxonly(struct napi_struct *, int);
+ /**
+  * ixgbe_configure_msix - Configure MSI-X hardware
+@@ -1083,6 +1113,16 @@ static void ixgbe_configure_msix(struct ixgbe_adapter *adapter)
+ 			q_vector->eitr = adapter->rx_eitr_param;
+ 
+ 		ixgbe_write_eitr(q_vector);
 +
-+	raw_spin_lock_irqsave(&desc->lock, flags);
-+
-+	kfree(desc->hint);
-+	desc->hint = NULL;
-+
-+	raw_spin_unlock_irqrestore(&desc->lock, flags);
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(irq_unregister_affinity_hint);
- #ifndef CONFIG_AUTO_IRQ_AFFINITY
- /*
-  * Generic version of the affinity autoselector.
-@@ -916,6 +952,9 @@ static struct irqaction *__free_irq(unsigned int irq, void *dev_id)
- 			desc->chip->disable(irq);
++		/*
++		 * Allocate the affinity_hint cpumask, assign the mask for
++		 * this vector, and register our affinity_hint callback.
++		 */
++		alloc_cpumask_var(&q_vector->affinity_mask, GFP_KERNEL);
++		cpumask_set_cpu(v_idx, q_vector->affinity_mask);
++		irq_register_affinity_hint(adapter->msix_entries[v_idx].vector,
++		                           adapter,
++		                           &ixgbe_irq_affinity_callback);
  	}
  
-+	/* make sure affinity_hint callback is cleaned up */
-+	kfree(desc->hint);
-+
- 	raw_spin_unlock_irqrestore(&desc->lock, flags);
+ 	if (adapter->hw.mac.type == ixgbe_mac_82598EB)
+@@ -3218,7 +3258,7 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	u32 rxctrl;
+ 	u32 txdctl;
+-	int i, j;
++	int i, j, num_q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
  
- 	unregister_handler_proc(irq, action);
-diff --git a/kernel/irq/proc.c b/kernel/irq/proc.c
-index 7a6eb04..59110a3 100644
---- a/kernel/irq/proc.c
-+++ b/kernel/irq/proc.c
-@@ -32,6 +32,23 @@ static int irq_affinity_proc_show(struct seq_file *m, void *v)
- 	return 0;
- }
+ 	/* signal that we are down to the interrupt handler */
+ 	set_bit(__IXGBE_DOWN, &adapter->state);
+@@ -3251,6 +3291,14 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
  
-+static int irq_affinity_hint_proc_show(struct seq_file *m, void *v)
-+{
-+	struct irq_desc *desc = irq_to_desc((long)m->private);
-+	struct cpumask mask;
-+	unsigned int ret = 0;
-+
-+	if (desc->hint && desc->hint->callback) {
-+		ret = desc->hint->callback(&mask, (long)m->private,
-+		                           desc->hint->dev);
-+		if (!ret)
-+			seq_cpumask(m, &mask);
+ 	ixgbe_napi_disable_all(adapter);
+ 
++	for (i = 0; i < num_q_vectors; i++) {
++		struct ixgbe_q_vector *q_vector = adapter->q_vector[i];
++		/* unregister the affinity_hint callback */
++		irq_unregister_affinity_hint(adapter->msix_entries[i].vector);
++		/* release the CPU mask memory */
++		free_cpumask_var(q_vector->affinity_mask);
 +	}
 +
-+	seq_putc(m, '\n');
-+	return ret;
-+}
-+
- #ifndef is_affinity_mask_valid
- #define is_affinity_mask_valid(val) 1
- #endif
-@@ -79,11 +96,23 @@ free_cpumask:
- 	return err;
+ 	clear_bit(__IXGBE_SFP_MODULE_NOT_FOUND, &adapter->state);
+ 	del_timer_sync(&adapter->sfp_timer);
+ 	del_timer_sync(&adapter->watchdog_timer);
+@@ -4052,6 +4100,7 @@ static void ixgbe_free_q_vectors(struct ixgbe_adapter *adapter)
+ 		struct ixgbe_q_vector *q_vector = adapter->q_vector[q_idx];
+ 		adapter->q_vector[q_idx] = NULL;
+ 		netif_napi_del(&q_vector->napi);
++		free_cpumask_var(q_vector->affinity_mask);
+ 		kfree(q_vector);
+ 	}
  }
- 
-+static ssize_t irq_affinity_hint_proc_write(struct file *file,
-+		const char __user *buffer, size_t count, loff_t *pos)
-+{
-+	/* affinity_hint is read-only from proc */
-+	return -EOPNOTSUPP;
-+}
-+
- static int irq_affinity_proc_open(struct inode *inode, struct file *file)
- {
- 	return single_open(file, irq_affinity_proc_show, PDE(inode)->data);
- }
- 
-+static int irq_affinity_hint_proc_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, irq_affinity_hint_proc_show, PDE(inode)->data);
-+}
-+
- static const struct file_operations irq_affinity_proc_fops = {
- 	.open		= irq_affinity_proc_open,
- 	.read		= seq_read,
-@@ -92,6 +121,14 @@ static const struct file_operations irq_affinity_proc_fops = {
- 	.write		= irq_affinity_proc_write,
- };
- 
-+static const struct file_operations irq_affinity_hint_proc_fops = {
-+	.open		= irq_affinity_hint_proc_open,
-+	.read		= seq_read,
-+	.llseek		= seq_lseek,
-+	.release	= single_release,
-+	.write		= irq_affinity_hint_proc_write,
-+};
-+
- static int default_affinity_show(struct seq_file *m, void *v)
- {
- 	seq_cpumask(m, irq_default_affinity);
-@@ -231,6 +268,10 @@ void register_irq_proc(unsigned int irq, struct irq_desc *desc)
- 	/* create /proc/irq/<irq>/smp_affinity */
- 	proc_create_data("smp_affinity", 0600, desc->dir,
- 			 &irq_affinity_proc_fops, (void *)(long)irq);
-+
-+	/* create /proc/irq/<irq>/affinity_hint */
-+	proc_create_data("affinity_hint", 0400, desc->dir,
-+			 &irq_affinity_hint_proc_fops, (void *)(long)irq);
- #endif
- 
- 	proc_create_data("spurious", 0444, desc->dir,
+
