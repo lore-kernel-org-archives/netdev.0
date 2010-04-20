@@ -1,145 +1,109 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: [PATCH linux-next 2/2] ixgbe: Example usage of the new IRQ
-	affinity_hint callback
-Date: Tue, 20 Apr 2010 11:01:39 -0700
-Message-ID: <20100420180139.1276.79769.stgit@ppwaskie-hc2.jf.intel.com>
-References: <20100420180112.1276.11906.stgit@ppwaskie-hc2.jf.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: IPv6: race condition in __ipv6_ifa_notify() and dst_free() ?
+Date: Tue, 20 Apr 2010 19:57:27 +0200
+Message-ID: <1271786247.7895.130.camel@edumazet-laptop>
+References: <20100420174401.GB1334@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: tglx@linutronix.de, davem@davemloft.net, arjan@linux.jf.intel.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	David Miller <davem@davemloft.net>
+To: Jiri Bohac <jbohac@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:57964 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751672Ab0DTR5E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Apr 2010 13:57:04 -0400
-In-Reply-To: <20100420180112.1276.11906.stgit@ppwaskie-hc2.jf.intel.com>
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:41557 "EHLO
+	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753787Ab0DTR5f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 13:57:35 -0400
+Received: by bwz25 with SMTP id 25so7077554bwz.28
+        for <netdev@vger.kernel.org>; Tue, 20 Apr 2010 10:57:33 -0700 (PDT)
+In-Reply-To: <20100420174401.GB1334@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch uses the new IRQ affinity_hint callback mechanism.
-It serves purely as an example of how a low-level driver can
-utilize this new interface.
+Le mardi 20 avril 2010 =C3=A0 19:44 +0200, Jiri Bohac a =C3=A9crit :
+> Hi,
+>=20
+> I found what I believe is a race condition in __ipv6_ifa_notify(), in=
+ the call
+> to dst_free().
+>=20
+> __ipv6_ifa_notify() contains:
+>=20
+>         case RTM_DELADDR:
+>                 if (ifp->idev->cnf.forwarding)
+>                         addrconf_leave_anycast(ifp);
+>                 addrconf_leave_solict(ifp->idev, &ifp->addr);
+>                 dst_hold(&ifp->rt->u.dst);
+>                 if (ip6_del_rt(ifp->rt))
+>                         dst_free(&ifp->rt->u.dst);
+>                 break;
+>=20
+> AFAICT, ip6_del_rt() will call dst_free() itself if it finds and actu=
+ally
+> deletes the route:=20
+> 	ip6_del_rt() -> __ip6_del_rt() -> fib6_del() -> fib6_del_route() ->
+> 	-> rt6_release() -> dst_free()
+>=20
+> If it fails (like when it races with another invocation of ip6_del_rt=
+()), it
+> will return nonzero and this will cause the above code to call dst_fr=
+ee() on its own.
+>=20
+> dst_free() has no protection against concurrent invocation and if
 
-An official ixgbe patch will be pushed through netdev once the
-IRQ patches have been accepted and merged.
+Sorry ? of course dst_free() has a protection...
 
-Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
----
+By definition, the dst_destroy() is called only by the last thread with
+the final refcount on object.
 
- drivers/net/ixgbe/ixgbe.h      |    2 ++
- drivers/net/ixgbe/ixgbe_main.c |   51 +++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 52 insertions(+), 1 deletions(-)
+> two invocations make it through the "if (dst->obsolete > 1)"
+> check before one of them calls __dst_free(), the same dst_entry
+> may end up either:
+> 	1) dst_destroy()ed and put on the dst_garbage.list, or
+> 	2) put on the dst_garbage.list twice
+> both resulting in trouble once the GC is run.
+>=20
+> One possible code path leading to two invocations of __ipv6_ifa_notif=
+y() seems
+> to be when two bonding slaves receive a NS/NA with the bonds IPv6 add=
+ress when
+> the bonding master is in the DAD phase with a tentative address:
+>=20
+> netif_receive_skb() gets invoked on two CPUs and sets skb->dev to the=
+ bonding master ...
+> ... ip6_mc_input() -> ip6_input_finish() -> icmpv6_rcv() -> ndisc_rcv=
+() ->
+>  -> ndisc_recv_ns() -> addrconf_dad_failure() -> ipv6_del_addr() -> i=
+pv6_ifa_notify() ->
+>  -> __ipv6_ifa_notify
+>=20
+>=20
+> What is the reason __ipv6_ifa_notify() calls dst_free() when
+> ip6_del_rt() fails? I don't see a way ip6_del_rt() could fail
+> with the dst still needing to be freed.
+>=20
+> I am just testing whether the following will help:
+>=20
+> --- a/net/ipv6/addrconf.c	2010-04-17 00:12:32.000000000 +0200
+> +++ b/net/ipv6/addrconf.c	2010-04-20 19:07:35.000000000 +0200
+> @@ -3974,8 +3974,7 @@ static void __ipv6_ifa_notify(int event,
+>  			addrconf_leave_anycast(ifp);
+>  		addrconf_leave_solict(ifp->idev, &ifp->addr);
+>  		dst_hold(&ifp->rt->u.dst);
+> -		if (ip6_del_rt(ifp->rt))
+> -			dst_free(&ifp->rt->u.dst);
+> +		ip6_del_rt(ifp->rt);
+>  		break;
+>  	}
+>  }
+>=20
 
-diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
-index 79c35ae..c220b9f 100644
---- a/drivers/net/ixgbe/ixgbe.h
-+++ b/drivers/net/ixgbe/ixgbe.h
-@@ -32,6 +32,7 @@
- #include <linux/pci.h>
- #include <linux/netdevice.h>
- #include <linux/aer.h>
-+#include <linux/cpumask.h>
- 
- #include "ixgbe_type.h"
- #include "ixgbe_common.h"
-@@ -236,6 +237,7 @@ struct ixgbe_q_vector {
- 	u8 tx_itr;
- 	u8 rx_itr;
- 	u32 eitr;
-+	cpumask_var_t affinity_mask;
- };
- 
- /* Helper macros to switch between ints/sec and what the register uses.
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 1b1419c..3e00d41 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -1031,6 +1031,36 @@ next_desc:
- 	return cleaned;
- }
- 
-+static unsigned int ixgbe_irq_affinity_callback(cpumask_var_t mask,
-+                                                unsigned int irq, void *dev)
-+{
-+	struct ixgbe_adapter *adapter = (struct ixgbe_adapter *)dev;
-+	int i, q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
-+
-+	if (test_bit(__IXGBE_DOWN, &adapter->state))
-+		return -EINVAL;
-+
-+	/*
-+	 * Loop through the msix_entries array, looking for the vector that
-+	 * matches the irq passed to us.  Once we find it, use that index to
-+	 * grab the corresponding q_vector (1 to 1 mapping), and grab the
-+	 * cpumask from that q_vector.
-+	 */
-+	for (i = 0; i < q_vectors; i++)
-+		if (adapter->msix_entries[i].vector == irq)
-+			break;
-+
-+	if (i == q_vectors)
-+		return -EINVAL;
-+
-+	if (adapter->q_vector[i]->affinity_mask)
-+		cpumask_copy(mask, adapter->q_vector[i]->affinity_mask);
-+	else
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+
- static int ixgbe_clean_rxonly(struct napi_struct *, int);
- /**
-  * ixgbe_configure_msix - Configure MSI-X hardware
-@@ -1083,6 +1113,16 @@ static void ixgbe_configure_msix(struct ixgbe_adapter *adapter)
- 			q_vector->eitr = adapter->rx_eitr_param;
- 
- 		ixgbe_write_eitr(q_vector);
-+
-+		/*
-+		 * Allocate the affinity_hint cpumask, assign the mask for
-+		 * this vector, and register our affinity_hint callback.
-+		 */
-+		alloc_cpumask_var(&q_vector->affinity_mask, GFP_KERNEL);
-+		cpumask_set_cpu(v_idx, q_vector->affinity_mask);
-+		irq_register_affinity_hint(adapter->msix_entries[v_idx].vector,
-+		                           adapter,
-+		                           &ixgbe_irq_affinity_callback);
- 	}
- 
- 	if (adapter->hw.mac.type == ixgbe_mac_82598EB)
-@@ -3218,7 +3258,7 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	u32 rxctrl;
- 	u32 txdctl;
--	int i, j;
-+	int i, j, num_q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
- 
- 	/* signal that we are down to the interrupt handler */
- 	set_bit(__IXGBE_DOWN, &adapter->state);
-@@ -3251,6 +3291,14 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
- 
- 	ixgbe_napi_disable_all(adapter);
- 
-+	for (i = 0; i < num_q_vectors; i++) {
-+		struct ixgbe_q_vector *q_vector = adapter->q_vector[i];
-+		/* unregister the affinity_hint callback */
-+		irq_unregister_affinity_hint(adapter->msix_entries[i].vector);
-+		/* release the CPU mask memory */
-+		free_cpumask_var(q_vector->affinity_mask);
-+	}
-+
- 	clear_bit(__IXGBE_SFP_MODULE_NOT_FOUND, &adapter->state);
- 	del_timer_sync(&adapter->sfp_timer);
- 	del_timer_sync(&adapter->watchdog_timer);
-@@ -4052,6 +4100,7 @@ static void ixgbe_free_q_vectors(struct ixgbe_adapter *adapter)
- 		struct ixgbe_q_vector *q_vector = adapter->q_vector[q_idx];
- 		adapter->q_vector[q_idx] = NULL;
- 		netif_napi_del(&q_vector->napi);
-+		free_cpumask_var(q_vector->affinity_mask);
- 		kfree(q_vector);
- 	}
- }
+
+I dont understand the problem Jiri.
+
+We just did dst_hold(&ifp->rt->u.dst), so if ip6_del_rt() fails we must
+dst_free(), or we leak a refcount.
+
+
 
