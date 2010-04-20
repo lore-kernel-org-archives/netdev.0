@@ -1,84 +1,96 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] rps: optimize rps_get_cpu()
-Date: Tue, 20 Apr 2010 17:55:58 +0800
-Message-ID: <1271757358-8926-1-git-send-email-xiaosuo@gmail.com>
-Cc: Tom Herbert <therbert@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH] NET: Fix an RCU warning in dev_pick_tx()
+Date: Tue, 20 Apr 2010 11:25:58 +0100
+Message-ID: <20100420102558.31923.91.stgit@warthog.procyon.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f171.google.com ([209.85.210.171]:51818 "EHLO
-	mail-yx0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753709Ab0DTJ4e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 05:56:34 -0400
-Received: by yxe1 with SMTP id 1so3592244yxe.33
-        for <netdev@vger.kernel.org>; Tue, 20 Apr 2010 02:56:34 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:3651 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754310Ab0DTK0B (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Apr 2010 06:26:01 -0400
+Received: from int-mx08.intmail.prod.int.phx2.redhat.com (int-mx08.intmail.prod.int.phx2.redhat.com [10.5.11.21])
+	by mx1.redhat.com (8.13.8/8.13.8) with ESMTP id o3KAQ14r027005
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 20 Apr 2010 06:26:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-optimize rps_get_cpu().
+Fix the following RCU warning in dev_pick_tx():
 
-don't initialize ports when we can get the ports. one memory access for ports
-than two.
+===================================================
+[ INFO: suspicious rcu_dereference_check() usage. ]
+---------------------------------------------------
+net/core/dev.c:1993 invoked rcu_dereference_check() without protection!
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- net/core/dev.c |   24 +++++++++++-------------
- 1 file changed, 11 insertions(+), 13 deletions(-)
+other info that might help us debug this:
+
+
+rcu_scheduler_active = 1, debug_locks = 0
+2 locks held by swapper/0:
+ #0:  (&idev->mc_ifc_timer){+.-...}, at: [<ffffffff81039e65>] run_timer_softirq+0x17b/0x278
+ #1:  (rcu_read_lock_bh){.+....}, at: [<ffffffff812ea3eb>] dev_queue_xmit+0x14e/0x4dc
+
+stack backtrace:
+Pid: 0, comm: swapper Not tainted 2.6.34-rc5-cachefs #4
+Call Trace:
+ <IRQ>  [<ffffffff810516c4>] lockdep_rcu_dereference+0xaa/0xb2
+ [<ffffffff812ea4f6>] dev_queue_xmit+0x259/0x4dc
+ [<ffffffff812ea3eb>] ? dev_queue_xmit+0x14e/0x4dc
+ [<ffffffff81052324>] ? trace_hardirqs_on+0xd/0xf
+ [<ffffffff81035362>] ? local_bh_enable_ip+0xbc/0xc1
+ [<ffffffff812f0954>] neigh_resolve_output+0x24b/0x27c
+ [<ffffffff8134f673>] ip6_output_finish+0x7c/0xb4
+ [<ffffffff81350c34>] ip6_output2+0x256/0x261
+ [<ffffffff81052324>] ? trace_hardirqs_on+0xd/0xf
+ [<ffffffff813517fb>] ip6_output+0xbbc/0xbcb
+ [<ffffffff8135bc5d>] ? fib6_force_start_gc+0x2b/0x2d
+ [<ffffffff81368acb>] mld_sendpack+0x273/0x39d
+ [<ffffffff81368858>] ? mld_sendpack+0x0/0x39d
+ [<ffffffff81052099>] ? mark_held_locks+0x52/0x70
+ [<ffffffff813692fc>] mld_ifc_timer_expire+0x24f/0x288
+ [<ffffffff81039ed6>] run_timer_softirq+0x1ec/0x278
+ [<ffffffff81039e65>] ? run_timer_softirq+0x17b/0x278
+ [<ffffffff813690ad>] ? mld_ifc_timer_expire+0x0/0x288
+ [<ffffffff81035531>] ? __do_softirq+0x69/0x140
+ [<ffffffff8103556a>] __do_softirq+0xa2/0x140
+ [<ffffffff81002e0c>] call_softirq+0x1c/0x28
+ [<ffffffff81004b54>] do_softirq+0x38/0x80
+ [<ffffffff81034f06>] irq_exit+0x45/0x47
+ [<ffffffff810177c3>] smp_apic_timer_interrupt+0x88/0x96
+ [<ffffffff810028d3>] apic_timer_interrupt+0x13/0x20
+ <EOI>  [<ffffffff810488dd>] ? __atomic_notifier_call_chain+0x0/0x86
+ [<ffffffff810096bf>] ? mwait_idle+0x6e/0x78
+ [<ffffffff810096b6>] ? mwait_idle+0x65/0x78
+ [<ffffffff810011cb>] cpu_idle+0x4d/0x83
+ [<ffffffff81380b05>] rest_init+0xb9/0xc0
+ [<ffffffff81380a4c>] ? rest_init+0x0/0xc0
+ [<ffffffff8168dcf0>] start_kernel+0x392/0x39d
+ [<ffffffff8168d2a3>] x86_64_start_reservations+0xb3/0xb7
+ [<ffffffff8168d38b>] x86_64_start_kernel+0xe4/0xeb
+
+An rcu_dereference() should be an rcu_dereference_bh().
+
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
+
+ net/core/dev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
 diff --git a/net/core/dev.c b/net/core/dev.c
-index b31d5d6..a281727 100644
+index 92584bf..f769098 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -2225,7 +2225,11 @@ static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
- 	int cpu = -1;
- 	u8 ip_proto;
- 	u16 tcpu;
--	u32 addr1, addr2, ports, ihl;
-+	u32 addr1, addr2, ihl;
-+	union {
-+		u32 v32;
-+		u16 v16[2];
-+	} ports;
+@@ -1990,7 +1990,7 @@ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
+ 				queue_index = skb_tx_hash(dev, skb);
  
- 	if (skb_rx_queue_recorded(skb)) {
- 		u16 index = skb_get_rx_queue(skb);
-@@ -2271,7 +2275,6 @@ static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
- 	default:
- 		goto done;
- 	}
--	ports = 0;
- 	switch (ip_proto) {
- 	case IPPROTO_TCP:
- 	case IPPROTO_UDP:
-@@ -2281,25 +2284,20 @@ static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
- 	case IPPROTO_SCTP:
- 	case IPPROTO_UDPLITE:
- 		if (pskb_may_pull(skb, (ihl * 4) + 4)) {
--			__be16 *hports = (__be16 *) (skb->data + (ihl * 4));
--			u32 sport, dport;
--
--			sport = (__force u16) hports[0];
--			dport = (__force u16) hports[1];
--			if (dport < sport)
--				swap(sport, dport);
--			ports = (sport << 16) + dport;
-+			ports.v32 = * (__force u32 *) (skb->data + (ihl * 4));
-+			if (ports.v16[0] < ports.v16[1])
-+				swap(ports.v16[0], ports.v16[1]);
-+			break;
- 		}
--		break;
--
- 	default:
-+		ports.v32 = 0;
- 		break;
- 	}
+ 			if (sk) {
+-				struct dst_entry *dst = rcu_dereference(sk->sk_dst_cache);
++				struct dst_entry *dst = rcu_dereference_bh(sk->sk_dst_cache);
  
- 	/* get a consistent hash (same value on both flow directions) */
- 	if (addr2 < addr1)
- 		swap(addr1, addr2);
--	skb->rxhash = jhash_3words(addr1, addr2, ports, hashrnd);
-+	skb->rxhash = jhash_3words(addr1, addr2, ports.v32, hashrnd);
- 	if (!skb->rxhash)
- 		skb->rxhash = 1;
- 
+ 				if (dst && skb_dst(skb) == dst)
+ 					sk_tx_queue_set(sk, queue_index);
+
