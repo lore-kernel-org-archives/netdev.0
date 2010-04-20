@@ -1,43 +1,42 @@
-From: "Hans J. Koch" <hjk-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Subject: [PATCH] can: Fix possible NULL pointer dereference in ems_usb.c
-Date: Tue, 20 Apr 2010 15:55:40 +0200
-Message-ID: <20100420135538.GA1994@bluebox.local>
+From: Nick Bowler <nbowler@elliptictech.com>
+Subject: Re: 2.6.34-rc5: Reported regressions from 2.6.33
+Date: Tue, 20 Apr 2010 09:56:36 -0400
+Message-ID: <20100420135636.GA10674@elliptictech.com>
+References: <deuQKFRcc0B.A.3EG.BRSzLB@tosh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.sourceforge.net>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+In-Reply-To: <deuQKFRcc0B.A.3EG.BRSzLB@tosh>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In ems_usb_probe(), a pointer is dereferenced after making sure it is NULL...
+On 05:15 Tue 20 Apr     , Rafael J. Wysocki wrote:
+> If you know of any other unresolved regressions from 2.6.33, please let us
+> know either and we'll add them to the list.  Also, please let us know
+> if any of the entries below are invalid.
 
-This patch replaces dev_err() with printk() to avoid this.
+Please list these two similar regressions from 2.6.33 in the r600 DRM:
 
-Signed-off-by: "Hans J. Koch" <hjk-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
----
- drivers/net/can/usb/ems_usb.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ * r600 CS checker rejects GL_DEPTH_TEST w/o depth buffer:
+           https://bugs.freedesktop.org/show_bug.cgi?id=27571
 
-Index: linux-2.6.34-rc/drivers/net/can/usb/ems_usb.c
-===================================================================
---- linux-2.6.34-rc.orig/drivers/net/can/usb/ems_usb.c	2010-04-20 15:32:25.000000000 +0200
-+++ linux-2.6.34-rc/drivers/net/can/usb/ems_usb.c	2010-04-20 15:33:20.000000000 +0200
-@@ -1006,7 +1006,7 @@
- 
- 	netdev = alloc_candev(sizeof(struct ems_usb), MAX_TX_URBS);
- 	if (!netdev) {
--		dev_err(netdev->dev.parent, "Couldn't alloc candev\n");
-+		printk(KERN_ERR "ems_usb: Couldn't alloc candev\n");
- 		return -ENOMEM;
- 	}
+ * r600 CS checker rejects narrow FBO renderbuffers:
+           https://bugs.freedesktop.org/show_bug.cgi?id=27609
+
+Thanks.
+
+-- 
+Nick Bowler, Elliptic Technologies (http://www.elliptictech.com/)
