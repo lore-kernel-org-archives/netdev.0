@@ -1,59 +1,54 @@
-From: Gaspar Chilingarov <gasparch@gmail.com>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: PROBLEM: Linux kernel 2.6.31 IPv4 TCP fails to open huge amount
-	of outgoing connections (unable to bind ... )
-Date: Wed, 21 Apr 2010 04:20:11 +0500
-Message-ID: <x2s46c8cb3e1004201620k1112add9pd1c326205be4d625@mail.gmail.com>
-References: <g2z46c8cb3e1004201517i5641a75cze2ec5bd33e81fb0f@mail.gmail.com>
-	 <4BCE33B9.8050101@candelatech.com>
+ 	of outgoing connections (unable to bind ... )
+Date: Tue, 20 Apr 2010 16:30:55 -0700
+Message-ID: <4BCE392F.60104@candelatech.com>
+References: <g2z46c8cb3e1004201517i5641a75cze2ec5bd33e81fb0f@mail.gmail.com>	 <4BCE33B9.8050101@candelatech.com> <u2t46c8cb3e1004201620tf9fce087ibae421759f9e1e84@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+To: Gaspar Chilingarov <gasparch@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:51547 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752638Ab0DTXUN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 19:20:13 -0400
-Received: by bwz25 with SMTP id 25so7436508bwz.28
-        for <netdev@vger.kernel.org>; Tue, 20 Apr 2010 16:20:12 -0700 (PDT)
-In-Reply-To: <4BCE33B9.8050101@candelatech.com>
+Received: from mail.candelatech.com ([208.74.158.172]:34973 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753425Ab0DTXa5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 19:30:57 -0400
+In-Reply-To: <u2t46c8cb3e1004201620tf9fce087ibae421759f9e1e84@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Opening that amount of incoming connections in not a problem at all.
+On 04/20/2010 04:20 PM, Gaspar Chilingarov wrote:
+> Opening that amount of incoming connections in not a problem at all.
+>
+> I'm speaking of outgoing connections.
+>
+> What kind of hack do you have on your kernel?
 
-I'm speaking of outgoing connections.
+send-to-self logic and similar..but nothing that should be
+better at doing lots of sockets than the default kernel.
 
-What kind of hack do you have on your kernel?
+I have 40,000 out-going connections to myself..basically I'm
+acting as both client and server.  So, I'd expect you to be
+able to do around 80,000 connections to some external system on
+similar hardware and efficient client software.  At least with
+my software, I'd need more RAM to scale much beyond that, but I'm
+trying to generate traffic on these sockets (which requires user-space
+buffers per socket in my implementation), and I have a decent bit
+of overhead gathering stats and such.  A simpler application with
+less overhead should do more sockets.
 
-Thanks in advance,
-Gaspar
+Be sure to use lots of processes so you don't end up with
+a poll loop with 80,000 fd entries.  I found that 10k sockets
+per process was a good upper limit..but it's not a hard
+upper limit.
 
-2010/4/21 Ben Greear <greearb@candelatech.com>:
-> On 04/20/2010 03:17 PM, Gaspar Chilingarov wrote:
->
->> I would be grateful for hints where to look in the source -- may be =
-I
->> can produce some working patches for it.
->
-> I've opened 40,000 connections to/from my machine (over external inte=
-rfaces)
-> on a slightly hacked .31 kernel. =C2=A0This is 80,000 sockets total. =
-=C2=A0I bind
-> to local IP and port range, as well as SO_BINDTODEVICE.
->
-> I'm using a 64-bit system with 12GB of RAM, quad-core i7 3.3Ghz, etc.
->
-> It takes a lot of RAM to do this but you can probably use less RAM in
-> user-space
-> than I am. =C2=A0Be sure to set your socket buffer sizes small.
->
-> Thanks,
-> Ben
->
->
-> --
-> Ben Greear <greearb@candelatech.com>
-> Candela Technologies Inc =C2=A0http://www.candelatech.com
->
+And be sure to do the bind logic correctly as Eric pointed out in an
+earlier email.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
