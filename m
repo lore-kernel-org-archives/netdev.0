@@ -1,60 +1,73 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC][PATCH v2 0/3] Provide a zero-copy method on KVM
-	virtio-net.
-Date: Wed, 21 Apr 2010 11:35:07 +0300
-Message-ID: <20100421083507.GA30855@redhat.com>
-References: <1270193100-6769-1-git-send-email-xiaohui.xin@intel.com> <20100414152519.GA10792@redhat.com> <97F6D3BD476C464182C1B7BABF0B0AF5C18969CC@shzsmsx502.ccr.corp.intel.com> <20100415100546.GA17035@redhat.com> <F2E9EB7348B8264F86B6AB8151CE2D79026FA95401@shsmsx502.ccr.corp.intel.com> <20100419102118.GA16198@redhat.com> <F2E9EB7348B8264F86B6AB8151CE2D79026FAB1E5F@shsmsx502.ccr.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ipv6: Fix tcp_v6_send_response checksum
+Date: Wed, 21 Apr 2010 01:58:23 -0700 (PDT)
+Message-ID: <20100421.015823.266647388.davem@davemloft.net>
+References: <20100421070737.GA30517@gondor.apana.org.au>
+	<20100421.004922.193694715.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mingo@elte.hu" <mingo@elte.hu>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D79026FAB1E5F@shsmsx502.ccr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, cratiu@ixiacom.com
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47842
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752014Ab0DUI6S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 04:58:18 -0400
+In-Reply-To: <20100421.004922.193694715.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 20, 2010 at 10:21:55AM +0800, Xin, Xiaohui wrote:
-> Michael,
-> 
-> >>>>>> What we have not done yet:
-> >>>>>> 	packet split support
-> >>>>>> 
-> >>>>>What does this mean, exactly?
-> >>>> We can support 1500MTU, but for jumbo frame, since vhost driver before don't 
-> >>>>support mergeable buffer, we cannot try it for multiple sg.
-> >>>> 
-> >>>I do not see why, vhost currently supports 64K buffers with indirect
-> >>>descriptors.
-> >>> 
-> >> The receive_skb() in guest virtio-net driver will merge the multiple sg to skb frags, how >>can indirect descriptors to that?
-> 
-> >See add_recvbuf_big.
-> 
-> I don't mean this, it's for buffer submission. I mean when packet is received, in receive_buf(), mergeable buffer knows which pages received can be hooked in skb frags, it's receive_mergeable() which do this.
-> 
-> When a NIC driver supports packet split mode, then each ring descriptor contains a skb and a page. When packet is received, if the status is not EOP, then hook the page of the next descriptor to the prev skb. We don't how many frags belongs to one skb. So when guest submit buffers, it should submit multiple pages, and when receive, the guest should know which pages are belongs to one skb and hook them together. I think receive_mergeable() can do this, but I don't see how big->packets handle this. May I miss something here?
-> 
-> Thanks
-> Xiaohui 
+From: David Miller <davem@davemloft.net>
+Date: Wed, 21 Apr 2010 00:49:22 -0700 (PDT)
 
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Wed, 21 Apr 2010 15:07:37 +0800
+> 
+>> ipv6: Fix tcp_v6_send_response checksum
+> 
+> I put this into net-2.6 and modified the commit message since, as we
+> found, this incorrect transport header reset was added there to fix
+> IPSEC.
 
-Yes, I think this packet split mode probably maps well to mergeable buffer
-support. Note that
-1. Not all devices support large packets in this way, others might map
-   to indirect buffers better
-   So we have to figure out how migration is going to work
-2. It's up to guest driver whether to enable features such as
-   mergeable buffers and indirect buffers
-   So we have to figure out how to notify guest which mode
-   is optimal for a given device
-3. We don't want to depend on jumbo frames for decent performance
-   So we probably should support GSO/GRO
+Ok, even with this pulled into net-next-2.6 the ipv6 tcp response
+checksums are still bad.  The following fix is necessary as
+well:
 
+--------------------
+tcp: Fix ipv6 checksumming on response packets for real.
+
+Commit 6651ffc8e8bdd5fb4b7d1867c6cfebb4f309512c
+("ipv6: Fix tcp_v6_send_response transport header setting.")
+fixed one half of why ipv6 tcp response checksums were
+invalid, but it's not the whole story.
+
+If we're going to use CHECKSUM_PARTIAL for these things (which we are
+since commit 2e8e18ef52e7dd1af0a3bd1f7d990a1d0b249586 "tcp: Set
+CHECKSUM_UNNECESSARY in tcp_init_nondata_skb"), we can't be setting
+buff->csum as we always have been here in tcp_v6_send_response.  We
+need to leave it at zero.
+
+Kill that line and checksums are good again.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv6/tcp_ipv6.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 78480f4..5d2e430 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1050,8 +1050,6 @@ static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
+ 	}
+ #endif
+ 
+-	buff->csum = csum_partial(t1, tot_len, 0);
+-
+ 	memset(&fl, 0, sizeof(fl));
+ 	ipv6_addr_copy(&fl.fl6_dst, &ipv6_hdr(skb)->saddr);
+ 	ipv6_addr_copy(&fl.fl6_src, &ipv6_hdr(skb)->daddr);
 -- 
-MST
+1.7.0.4
+
