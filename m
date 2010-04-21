@@ -1,35 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tg3: Fix INTx fallback when MSI fails
-Date: Wed, 21 Apr 2010 16:17:51 -0700 (PDT)
-Message-ID: <20100421.161751.94080129.davem@davemloft.net>
-References: <201004161015.12089.adetsch@br.ibm.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH] Infiniband: Randomize local port allocation.
+Date: Wed, 21 Apr 2010 16:19:28 -0700
+Message-ID: <adabpdco0lb.fsf@roland-alpha.cisco.com>
+References: <20100412100744.5302.92442.sendpatchset@localhost.localdomain>
+	<20100412100816.5302.74919.sendpatchset@localhost.localdomain>
+	<201004130121.o3D1Lhh7099571@www262.sakura.ne.jp>
+	<4BC41994.7030707@redhat.com> <4BC42FE0.4040601@redhat.com>
+	<201004132207.GAJ52684.OJFtMQVFHOSFLO@I-love.SAKURA.ne.jp>
+	<21DAC78125424ED291B5D6477CFF9657@amr.corp.intel.com>
+	<201004140201.o3E21Aqn075978@www262.sakura.ne.jp>
+	<195EB1AD388F455AA386EB214FCD09F4@amr.corp.intel.com>
+	<201004150229.o3F2T4dZ054768@www262.sakura.ne.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
-To: adetsch@br.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50435
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754784Ab0DUXRr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 19:17:47 -0400
-In-Reply-To: <201004161015.12089.adetsch@br.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: sean.hefty@intel.com, amwang@redhat.com, opurdila@ixiacom.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	nhorman@tuxdriver.com, davem@davemloft.net, ebiederm@xmission.com,
+	linux-kernel@vger.kernel.org, rolandd@cisco.com
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201004150229.o3F2T4dZ054768@www262.sakura.ne.jp> (Tetsuo Handa's
+	message of "Thu, 15 Apr 2010 11:29:04 +0900")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Andre Detsch <adetsch@br.ibm.com>
-Date: Fri, 16 Apr 2010 10:15:11 -0300
-
-> tg3: Fix INTx fallback when MSI fails
-> 
-> MSI setup changes the value of some key attributes of struct tg3 *tp.
-> These attributes must be taken into account and restored before
-> we try to do a new request_irq for INTx fallback.
-> 
-> In powerpc, the original code was leading to an EINVAL return within
-> request_irq, because the driver was trying to use the disabled MSI
-> virtual irq number instead of tp->pdev->irq.
-> 
-> Signed-off-by: Andre Detsch <adetsch@br.ibm.com>
-
-Broadcom folks, please review, thanks.
+Thanks, applied this part of the patch -- I preferred this one since the
+goto into the middle of a loop seemed worse than a goto out of the loop...
+-- 
+Roland Dreier <rolandd@cisco.com> || For corporate legal information go to:
+http://www.cisco.com/web/about/doing_business/legal/cri/index.html
