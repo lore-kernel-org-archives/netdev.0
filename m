@@ -1,42 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: ipv6: Fix tcp_v6_send_response checksum
-Date: Wed, 21 Apr 2010 21:09:20 +0800
-Message-ID: <20100421130920.GA31300@gondor.apana.org.au>
-References: <20100421070737.GA30517@gondor.apana.org.au> <20100421.004922.193694715.davem@davemloft.net> <20100421.015823.266647388.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/2] netfilter: xtables: inclusion of xt_SYSRQ
+Date: Wed, 21 Apr 2010 15:17:00 +0200
+Message-ID: <4BCEFACC.7020804@trash.net>
+References: <1271845618-28569-1-git-send-email-jengelh@medozas.de> <1271845618-28569-2-git-send-email-jengelh@medozas.de> <4BCEF6B4.8090105@trash.net> <alpine.LSU.2.01.1004211506280.10840@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, cratiu@ixiacom.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:38018 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754000Ab0DUNJZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 09:09:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20100421.015823.266647388.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	John Haxby <john.haxby@oracle.com>
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.01.1004211506280.10840@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 21, 2010 at 01:58:23AM -0700, David Miller wrote:
+Jan Engelhardt wrote:
+> On Wednesday 2010-04-21 14:59, Patrick McHardy wrote:
 > 
-> If we're going to use CHECKSUM_PARTIAL for these things (which we are
-> since commit 2e8e18ef52e7dd1af0a3bd1f7d990a1d0b249586 "tcp: Set
-> CHECKSUM_UNNECESSARY in tcp_init_nondata_skb"), we can't be setting
-> buff->csum as we always have been here in tcp_v6_send_response.  We
-> need to leave it at zero.
+>> Jan Engelhardt wrote:
+>>> The SYSRQ target will allow to remotely invoke sysrq on the local
+>>> machine. Authentication is by means of a pre-shared key that can
+>>> either be transmitted plaintext or digest-secured.
+>> I really think this is pushing what netfilter is meant for a bit
+>> far. Its basically abusing the firewall ruleset to offer a network
+>> service.
+>>
+>> I can see that its useful to have this in the kernel instead of
+>> userspace, but why isn't this implemented as a stand-alone module?
+>> That seems like a better design to me and also makes it more useful
+>> by not depending on netfilter.
 > 
-> Kill that line and checksums are good again.
+> That sort of diverts from the earlier what-seemed-to-be-consensus.
 > 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+> Oh well, I would not mind holding the single commit up as long as the 
+> rest isn't blocked too :-)
 
-That line is needed for the CHECKSUM_NONE case.  In fact, if we're
-in the CHECKSUM_PARTIAL case, then that buff->csum calculation
-should be a noop because it immediately gets overwritten when we
-subsequently set csum_start/csum_offset.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Then lets skip this one for now.
