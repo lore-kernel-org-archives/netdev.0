@@ -1,93 +1,89 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: PROBLEM: Linux kernel 2.6.31 IPv4 TCP fails to open huge amount of outgoing connections (unable to bind ... )
-Date: Wed, 21 Apr 2010 13:58:12 +0400
-Message-ID: <20100421095812.GA14778@ioremap.net>
-References: <4BCE33B9.8050101@candelatech.com> <u2t46c8cb3e1004201620tf9fce087ibae421759f9e1e84@mail.gmail.com> <4BCE392F.60104@candelatech.com> <y2p46c8cb3e1004201635s8f84672dq90d3115dca04a1ed@mail.gmail.com> <4BCE3D8D.3030500@candelatech.com> <1271808314.7895.614.camel@edumazet-laptop> <20100421003022.GA3107@ioremap.net> <1271828799.7895.1287.camel@edumazet-laptop> <20100421082559.GA32475@ioremap.net> <1271840535.7895.1612.camel@edumazet-laptop>
+From: "Hans J. Koch" <hjk-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Subject: Re: [PATCH] can: Fix possible NULL pointer dereference in ems_usb.c
+Date: Wed, 21 Apr 2010 12:18:06 +0200
+Message-ID: <20100421101805.GA1995@bluebox.local>
+References: <20100420135538.GA1994@bluebox.local>
+	<4BCE04D9.2030601@grandegger.com>
+	<20100420.180501.08643239.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Greear <greearb@candelatech.com>,
-	David Miller <davem@davemloft.net>,
-	Gaspar Chilingarov <gasparch@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cet.com.ru ([195.178.208.66]:43948 "EHLO tservice.net.ru"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753213Ab0DUJ6R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Apr 2010 05:58:17 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1271840535.7895.1612.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20100420.180501.08643239.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 21, 2010 at 11:02:15AM +0200, Eric Dumazet (eric.dumazet@gm=
-ail.com) wrote:
-> Le mercredi 21 avril 2010 =C3=A0 12:25 +0400, Evgeniy Polyakov a =C3=A9=
-crit :
->=20
-> > I believe this is a useful patch, but it addresses a different issu=
-e.
-> > This path should not fire up when we bind to single address.
->=20
-> Well, the real problem is that following sequence can happen :
->=20
-> socket(PF_INET, SOCK_STREAM, IPPROTO_IP) =3D 5
-> setsockopt(5, SOL_SOCKET, SO_REUSEADDR, [1], 4) =3D 0
-> bind(5, {sa_family=3DAF_INET, sin_port=3Dhtons(0), sin_addr=3Dinet_ad=
-dr("127.0.0.2")}, 16) =3D 0
-> getsockname(5, {sa_family=3DAF_INET, sin_port=3Dhtons(34000), sin_add=
-r=3Dinet_addr("127.0.0.2")}, [16]) =3D 0
-> socket(PF_INET, SOCK_STREAM, IPPROTO_IP) =3D 6
-> setsockopt(6, SOL_SOCKET, SO_REUSEADDR, [1], 4) =3D 0
-> bind(6, {sa_family=3DAF_INET, sin_port=3Dhtons(0), sin_addr=3Dinet_ad=
-dr("127.0.0.2")}, 16) =3D 0
-> getsockname(6, {sa_family=3DAF_INET, sin_port=3Dhtons(34002), sin_add=
-r=3Dinet_addr("127.0.0.2")}, [16]) =3D 0
-> socket(PF_INET, SOCK_STREAM, IPPROTO_IP) =3D 7
-> setsockopt(7, SOL_SOCKET, SO_REUSEADDR, [1], 4) =3D 0
-> bind(7, {sa_family=3DAF_INET, sin_port=3Dhtons(0), sin_addr=3Dinet_ad=
-dr("127.0.0.2")}, 16) =3D 0
-> getsockname(7, {sa_family=3DAF_INET, sin_port=3Dhtons(34001), sin_add=
-r=3Dinet_addr("127.0.0.2")}, [16]) =3D 0
-> socket(PF_INET, SOCK_STREAM, IPPROTO_IP) =3D 8
-> setsockopt(8, SOL_SOCKET, SO_REUSEADDR, [1], 4) =3D 0
-> bind(8, {sa_family=3DAF_INET, sin_port=3Dhtons(0), sin_addr=3Dinet_ad=
-dr("127.0.0.2")}, 16) =3D 0
-> getsockname(8, {sa_family=3DAF_INET, sin_port=3Dhtons(34002), sin_add=
-r=3Dinet_addr("127.0.0.2")}, [16]) =3D 0
-> socket(PF_INET, SOCK_STREAM, IPPROTO_IP) =3D 9
-> setsockopt(9, SOL_SOCKET, SO_REUSEADDR, [1], 4) =3D 0
-> bind(9, {sa_family=3DAF_INET, sin_port=3Dhtons(0), sin_addr=3Dinet_ad=
-dr("127.0.0.2")}, 16) =3D 0
-> getsockname(9, {sa_family=3DAF_INET, sin_port=3Dhtons(34000), sin_add=
-r=3Dinet_addr("127.0.0.2")}, [16]) =3D 0
-> socket(PF_INET, SOCK_STREAM, IPPROTO_IP) =3D 10
-> setsockopt(10, SOL_SOCKET, SO_REUSEADDR, [1], 4) =3D 0
-> bind(10, {sa_family=3DAF_INET, sin_port=3Dhtons(0), sin_addr=3Dinet_a=
-ddr("127.0.0.2")}, 16) =3D 0
-> getsockname(10, {sa_family=3DAF_INET, sin_port=3Dhtons(34002), sin_ad=
-dr=3Dinet_addr("127.0.0.2")}, [16]) =3D 0
-> socket(PF_INET, SOCK_STREAM, IPPROTO_IP) =3D 11
-> setsockopt(11, SOL_SOCKET, SO_REUSEADDR, [1], 4) =3D 0
-> bind(11, {sa_family=3DAF_INET, sin_port=3Dhtons(0), sin_addr=3Dinet_a=
-ddr("127.0.0.2")}, 16) =3D 0
-> getsockname(11, {sa_family=3DAF_INET, sin_port=3Dhtons(34001), sin_ad=
-dr=3Dinet_addr("127.0.0.2")}, [16]) =3D 0
->=20
->=20
-> Note ports are given several times for different sockets.
->=20
-> So several sockets are 'bound' to same IP:port values
+On Tue, Apr 20, 2010 at 06:05:01PM -0700, David Miller wrote:
+> From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+> > I think "dev_err(&intf->dev, ...)" should be used before
+> > SET_NETDEV_DEV(netdev, &intf->dev) is called. I see two "dev_err()"
+> > calls which need to be fixed.
+> 
+> Agreed.
 
-That's kind of weird, since address is the same. I'm curious why bind
-conflict does not resolve that. Likely because socket is not yet
-connected.
+Then it should probably look like this:
 
-> At connect() time, we refuse and say address is not available.
 
-Yup. But isn't it a different problem from what Gaspar observed?
-Netcat connects after bind so it should not be an issue here.
+From: "Hans J. Koch" <hjk-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Sebastian Haas <haas-zsNKPWJ8Pib6hrUXjxyGrA@public.gmane.org>
+Subject: [PATCH] can: Fix possible NULL pointer dereference in ems_usb.c
 
---=20
-	Evgeniy Polyakov
+In ems_usb_probe(), a pointer is dereferenced after making sure it is NULL...
+
+This patch replaces netdev->dev.parent with &intf->dev in dev_err() calls to
+avoid this.
+
+Signed-off-by: "Hans J. Koch" <hjk-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+---
+ drivers/net/can/usb/ems_usb.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+Index: net-next-2.6/drivers/net/can/usb/ems_usb.c
+===================================================================
+--- net-next-2.6.orig/drivers/net/can/usb/ems_usb.c	2010-04-13 11:27:33.000000000 +0200
++++ net-next-2.6/drivers/net/can/usb/ems_usb.c	2010-04-21 11:59:04.000000000 +0200
+@@ -1006,7 +1006,7 @@
+ 
+ 	netdev = alloc_candev(sizeof(struct ems_usb), MAX_TX_URBS);
+ 	if (!netdev) {
+-		dev_err(netdev->dev.parent, "Couldn't alloc candev\n");
++		dev_err(&intf->dev, "ems_usb: Couldn't alloc candev\n");
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -1036,20 +1036,20 @@
+ 
+ 	dev->intr_urb = usb_alloc_urb(0, GFP_KERNEL);
+ 	if (!dev->intr_urb) {
+-		dev_err(netdev->dev.parent, "Couldn't alloc intr URB\n");
++		dev_err(&intf->dev, "Couldn't alloc intr URB\n");
+ 		goto cleanup_candev;
+ 	}
+ 
+ 	dev->intr_in_buffer = kzalloc(INTR_IN_BUFFER_SIZE, GFP_KERNEL);
+ 	if (!dev->intr_in_buffer) {
+-		dev_err(netdev->dev.parent, "Couldn't alloc Intr buffer\n");
++		dev_err(&intf->dev, "Couldn't alloc Intr buffer\n");
+ 		goto cleanup_intr_urb;
+ 	}
+ 
+ 	dev->tx_msg_buffer = kzalloc(CPC_HEADER_SIZE +
+ 				     sizeof(struct ems_cpc_msg), GFP_KERNEL);
+ 	if (!dev->tx_msg_buffer) {
+-		dev_err(netdev->dev.parent, "Couldn't alloc Tx buffer\n");
++		dev_err(&intf->dev, "Couldn't alloc Tx buffer\n");
+ 		goto cleanup_intr_in_buffer;
+ 	}
