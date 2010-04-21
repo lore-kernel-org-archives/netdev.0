@@ -1,73 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ipv6: Fix tcp_v6_send_response checksum
-Date: Wed, 21 Apr 2010 01:58:23 -0700 (PDT)
-Message-ID: <20100421.015823.266647388.davem@davemloft.net>
-References: <20100421070737.GA30517@gondor.apana.org.au>
-	<20100421.004922.193694715.davem@davemloft.net>
+From: Jerome Glisse <glisse@freedesktop.org>
+Subject: Re: 2.6.34-rc5: Reported regressions from 2.6.33
+Date: Wed, 21 Apr 2010 10:57:39 +0200
+Message-ID: <20100421085739.GA2576@barney.localdomain>
+References: <deuQKFRcc0B.A.3EG.BRSzLB@tosh>
+	<20100420135636.GA10674@elliptictech.com>
+	<201004210715.38621.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, cratiu@ixiacom.com
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47842
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752014Ab0DUI6S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 04:58:18 -0400
-In-Reply-To: <20100421.004922.193694715.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Nick Bowler <nbowler@elliptictech.com>,
+        Kernel Testers List <kernel-testers@vger.kernel.org>,
+        Linux SCSI List <linux-scsi@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux Wireless List <linux-wireless@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Linux ACPI <linux-acpi@vger.kernel.org>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        DRI <dri-devel@lists.sourceforge.net>,
+        Linus Torvalds <torvalds@linux-foundation.org>,
+        Linux PM List <linux-pm@lists.linux-foundation.org>,
+        Maciej Rutecki <maciej.rutecki@gmail.com>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <201004210715.38621.rjw@sisk.pl>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 21 Apr 2010 00:49:22 -0700 (PDT)
-
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Wed, 21 Apr 2010 15:07:37 +0800
+On Wed, Apr 21, 2010 at 07:15:38AM +0200, Rafael J. Wysocki wrote:
+> On Tuesday 20 April 2010, Nick Bowler wrote:
+> > On 05:15 Tue 20 Apr     , Rafael J. Wysocki wrote:
+> > > If you know of any other unresolved regressions from 2.6.33, please let us
+> > > know either and we'll add them to the list.  Also, please let us know
+> > > if any of the entries below are invalid.
+> > 
+> > Please list these two similar regressions from 2.6.33 in the r600 DRM:
+> > 
+> >  * r600 CS checker rejects GL_DEPTH_TEST w/o depth buffer:
+> >            https://bugs.freedesktop.org/show_bug.cgi?id=27571
+> > 
+> >  * r600 CS checker rejects narrow FBO renderbuffers:
+> >            https://bugs.freedesktop.org/show_bug.cgi?id=27609
 > 
->> ipv6: Fix tcp_v6_send_response checksum
+> Do you want to me to add them as one entry or as two separate bugs?
 > 
-> I put this into net-2.6 and modified the commit message since, as we
-> found, this incorrect transport header reset was added there to fix
-> IPSEC.
+> Rafael
+> 
 
-Ok, even with this pulled into net-next-2.6 the ipv6 tcp response
-checksums are still bad.  The following fix is necessary as
-well:
+First one is userspace bug, i need to look into the second one.
+ie we were lucky the hw didn't lockup without depth buffer and
+depth test enabled.
 
---------------------
-tcp: Fix ipv6 checksumming on response packets for real.
-
-Commit 6651ffc8e8bdd5fb4b7d1867c6cfebb4f309512c
-("ipv6: Fix tcp_v6_send_response transport header setting.")
-fixed one half of why ipv6 tcp response checksums were
-invalid, but it's not the whole story.
-
-If we're going to use CHECKSUM_PARTIAL for these things (which we are
-since commit 2e8e18ef52e7dd1af0a3bd1f7d990a1d0b249586 "tcp: Set
-CHECKSUM_UNNECESSARY in tcp_init_nondata_skb"), we can't be setting
-buff->csum as we always have been here in tcp_v6_send_response.  We
-need to leave it at zero.
-
-Kill that line and checksums are good again.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/ipv6/tcp_ipv6.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 78480f4..5d2e430 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1050,8 +1050,6 @@ static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
- 	}
- #endif
- 
--	buff->csum = csum_partial(t1, tot_len, 0);
--
- 	memset(&fl, 0, sizeof(fl));
- 	ipv6_addr_copy(&fl.fl6_dst, &ipv6_hdr(skb)->saddr);
- 	ipv6_addr_copy(&fl.fl6_src, &ipv6_hdr(skb)->daddr);
--- 
-1.7.0.4
-
+Cheers,
+Jerome
