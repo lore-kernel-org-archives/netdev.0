@@ -1,164 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] rps: immediate send IPI in process_backlog()
-Date: Wed, 21 Apr 2010 23:04:58 +0200
-Message-ID: <1271883898.7895.3379.camel@edumazet-laptop>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [net-next,1/2] add iovnl netlink support
+Date: Wed, 21 Apr 2010 23:13:04 +0200
+Message-ID: <201004212313.05060.arnd@arndb.de>
+References: <C7F4AD4F.2A34D%scofeldm@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>, Changli Gao <xiaosuo@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Chris Wright <chrisw@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Scott Feldman <scofeldm@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f209.google.com ([209.85.218.209]:37744 "EHLO
-	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753074Ab0DUVFJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 17:05:09 -0400
-Received: by bwz1 with SMTP id 1so10686391bwz.2
-        for <netdev@vger.kernel.org>; Wed, 21 Apr 2010 14:05:06 -0700 (PDT)
+Received: from moutng.kundenserver.de ([212.227.17.9]:56818 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755156Ab0DUVRR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 17:17:17 -0400
+In-Reply-To: <C7F4AD4F.2A34D%scofeldm@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If some skb are queued to our backlog, we are delaying IPI sending at
-the end of net_rx_action(), increasing latencies. This defeats the
-queueing, since we want to quickly dispatch packets to the pool of
-worker cpus, then eventually deeply process our packets.
+On Wednesday 21 April 2010, Scott Feldman wrote:
+> On 4/21/10 12:39 PM, "Arnd Bergmann" <arnd@arndb.de> wrote:
+> 
+> >>> 1. Setting up the slave device
+> >>>  a) create an SR-IOV VF to assign to a guest
+> >>>  b) create a macvtap device to pass to qemu or vhost
+> >>>  c) attach a tap device to a bridge
+> >>>  d) create a macvlan device and put it into a container
+> >>>  e) create a virtual interface for a VMDq adapter
+> >> 
+> >> OK, but iovnl isn't doing this.
+> > 
+> > The set_mac_vlan that Scott's patch adds seems to implement 1a), as far
+> > as I can tell. Interestingly, this is not actually implemented in
+> > the enic driver in patch 2/2. So if we all agree that this is out of the
+> > scope of iovnl, let's just remove it from the interface and find another
+> > way for it (ethtool, iplink, ..., as listed above).
+> 
+> You're right, not needed for enic since mac addr is included with
+> port-profile push and vlan membership is implied by port-profile.  So I put
+> set_mac_vlan in there basically to elicit feedback.
 
-It's better to send IPI before processing our packets in upper layers,
-from process_backlog().
+Ok. Two points though:
 
-Change the _and_disable_irq suffix to _and_enable_irq(), since we enable
-local irq in net_rps_action(), sorry for the confusion.
+- when you say that the mac address is included in the port-profile push,
+  does that imply that the VF does not have a mac address prior to this?
+  This would again mix the NIC configuration phase with the switch
+  association, which I think we really need to avoid if we want to be
+  able to implement the association in user space!
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+- The VLAN ID being implied in the port profile seems to be another
+  difference between what enic is doing and the current draft VDP
+  that will eventually become 802.1Qbg, and I fear that this difference
+  will be visible in the iovnl protocol.
 
- net/core/dev.c |   76 +++++++++++++++++++++++++----------------------
- 1 file changed, 42 insertions(+), 34 deletions(-)
+> There really wouldn't be much different between iplink and iovnl since
+> they're both rtnetlink...seems we should keep IOV-related APIs in one place.
+> Maybe there are other IOV APIs to add to iovnl in the future like:
+> 
+>     vf <- add_vf(pf)
+>     del_vf(pf, vf)
+> 
+> Ethtool doesn't seem the right place for this.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b31d5d6..9871660 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3239,11 +3239,48 @@ gro_result_t napi_gro_frags(struct napi_struct *napi)
- }
- EXPORT_SYMBOL(napi_gro_frags);
- 
-+/*
-+ * net_rps_action sends any pending IPI's for rps.
-+ * Note: called with local irq disabled, but exits with local irq enabled.
-+ */
-+static void net_rps_action_and_irq_enable(struct softnet_data *sd)
-+{
-+#ifdef CONFIG_RPS
-+	struct softnet_data *remsd = sd->rps_ipi_list;
-+
-+	if (remsd) {
-+		sd->rps_ipi_list = NULL;
-+
-+		local_irq_enable();
-+
-+		/* Send pending IPI's to kick RPS processing on remote cpus. */
-+		while (remsd) {
-+			struct softnet_data *next = remsd->rps_ipi_next;
-+
-+			if (cpu_online(remsd->cpu))
-+				__smp_call_function_single(remsd->cpu,
-+							   &remsd->csd, 0);
-+			remsd = next;
-+		}
-+	} else
-+#endif
-+		local_irq_enable();
-+}
-+
- static int process_backlog(struct napi_struct *napi, int quota)
- {
- 	int work = 0;
- 	struct softnet_data *sd = &__get_cpu_var(softnet_data);
- 
-+#ifdef CONFIG_RPS
-+	/* Check if we have pending ipi, its better to send them now,
-+	 * not waiting net_rx_action() end.
-+	 */
-+	if (sd->rps_ipi_list) {
-+		local_irq_disable();
-+		net_rps_action_and_irq_enable(sd);
-+	}
-+#endif
- 	napi->weight = weight_p;
- 	do {
- 		struct sk_buff *skb;
-@@ -3350,45 +3387,16 @@ void netif_napi_del(struct napi_struct *napi)
- }
- EXPORT_SYMBOL(netif_napi_del);
- 
--/*
-- * net_rps_action sends any pending IPI's for rps.
-- * Note: called with local irq disabled, but exits with local irq enabled.
-- */
--static void net_rps_action_and_irq_disable(void)
--{
--#ifdef CONFIG_RPS
--	struct softnet_data *sd = &__get_cpu_var(softnet_data);
--	struct softnet_data *remsd = sd->rps_ipi_list;
--
--	if (remsd) {
--		sd->rps_ipi_list = NULL;
--
--		local_irq_enable();
--
--		/* Send pending IPI's to kick RPS processing on remote cpus. */
--		while (remsd) {
--			struct softnet_data *next = remsd->rps_ipi_next;
--
--			if (cpu_online(remsd->cpu))
--				__smp_call_function_single(remsd->cpu,
--							   &remsd->csd, 0);
--			remsd = next;
--		}
--	} else
--#endif
--		local_irq_enable();
--}
--
- static void net_rx_action(struct softirq_action *h)
- {
--	struct list_head *list = &__get_cpu_var(softnet_data).poll_list;
-+	struct softnet_data *sd = &__get_cpu_var(softnet_data);
- 	unsigned long time_limit = jiffies + 2;
- 	int budget = netdev_budget;
- 	void *have;
- 
- 	local_irq_disable();
- 
--	while (!list_empty(list)) {
-+	while (!list_empty(&sd->poll_list)) {
- 		struct napi_struct *n;
- 		int work, weight;
- 
-@@ -3406,7 +3414,7 @@ static void net_rx_action(struct softirq_action *h)
- 		 * entries to the tail of this list, and only ->poll()
- 		 * calls can remove this head entry from the list.
- 		 */
--		n = list_first_entry(list, struct napi_struct, poll_list);
-+		n = list_first_entry(&sd->poll_list, struct napi_struct, poll_list);
- 
- 		have = netpoll_poll_lock(n);
- 
-@@ -3441,13 +3449,13 @@ static void net_rx_action(struct softirq_action *h)
- 				napi_complete(n);
- 				local_irq_disable();
- 			} else
--				list_move_tail(&n->poll_list, list);
-+				list_move_tail(&n->poll_list, &sd->poll_list);
- 		}
- 
- 		netpoll_poll_unlock(have);
- 	}
- out:
--	net_rps_action_and_irq_disable();
-+	net_rps_action_and_irq_enable(sd);
- 
- #ifdef CONFIG_NET_DMA
- 	/*
+Right. My preference would probably be make these a subcategory of
+the if_link, and use the existing RTM_NEWLINK/RTM_DELLINK commands.
+This would make it resemble the existing interfaces and mean you can
+use
 
+ip link add link eth0 type macvlan    # for a container
+ip link add link eth0 type macvtap    # for qemu/vhost
+ip link add link eth0 type vf         # for device assignment
 
+There are obviously significant differences between these three, but
+they also share enough of their properties to let us treat them
+in similar ways.
+
+If we integrate the iovnl client into iproute2, the sequence for setting
+up an enic VF and associating it to the port profile could be
+
+# create vf0, pass mac and vlan id to HW, no association yet
+ip link add link eth0 name vf0 type vf mac fe:dc:ba:12:34:56 vlan 78
+
+# associate vf with port profile, mac address must match the one assigned
+#  to the interface before.
+ip iov assoc eth0 port-profile "general" host-uuid "dcf2a873-f5ee-41dd-a7ad-802a544e48c2" \
+	 mac fe:dc:ba:12:34:56
+
+	Arnd
