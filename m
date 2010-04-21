@@ -1,29 +1,40 @@
-From: Narendra Choyal <narendrachoyal@gmail.com>
-Subject: Re: PROBLEM: Linux kernel 2.6.31 IPv4 TCP fails to open huge amount
-	of outgoing connections (unable to bind ... )
-Date: Thu, 22 Apr 2010 00:33:01 +0530
-Message-ID: <u2u186ebf761004211203t4ec5c24fqd81138ed4010e02f@mail.gmail.com>
-References: <g2z46c8cb3e1004201517i5641a75cze2ec5bd33e81fb0f@mail.gmail.com>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: cxgb4: Make unnecessarily global functions static
+Date: Wed, 21 Apr 2010 12:03:05 -0700
+Message-ID: <adaljcgpr12.fsf@roland-alpha.cisco.com>
+References: <adapr1spr7e.fsf@roland-alpha.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>
-To: Gaspar Chilingarov <gasparch@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Dimitris Michailidis <dm@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:37101 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752264Ab0DUTDB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 15:03:01 -0400
-Received: by pwj9 with SMTP id 9so5397115pwj.19
-        for <netdev@vger.kernel.org>; Wed, 21 Apr 2010 12:03:01 -0700 (PDT)
-In-Reply-To: <g2z46c8cb3e1004201517i5641a75cze2ec5bd33e81fb0f@mail.gmail.com>
+Received: from sj-iport-5.cisco.com ([171.68.10.87]:46804 "EHLO
+	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753122Ab0DUTDJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 15:03:09 -0400
+In-Reply-To: <adapr1spr7e.fsf@roland-alpha.cisco.com> (Roland Dreier's message
+	of "Wed, 21 Apr 2010 11:59:17 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-use the following command
-this will help you out to more connetions
+By the way, this results in the following improvement in size in my
+x86-64 build, so it's not just source cleanup:
 
-#ip link set eth0 mtu 69
-
-and increase the size of buffer[]
-
-I think this will helps you ( I am student yet now )
+add/remove: 0/4 grow/shrink: 3/6 up/down: 186/-346 (-160)
+function                                     old     new   delta
+static.T                                   18293   18412    +119
+t4_ethrx_handler                             649     698     +49
+handle_trace_pkt                             127     145     +18
+t4_wr_mbox_meat                              728     722      -6
+t4_read_rss                                  147     140      -7
+t4_mc_read                                   201     187     -14
+sf1_write                                    243     228     -15
+sf1_read                                     279     262     -17
+t4_edc_read                                  240     222     -18
+t4_pktgl_free                                 41       -     -41
+t4_read_indirect                              46       -     -46
+t4_write_indirect                             52       -     -52
+t4_wait_op_done_val                          130       -    -130
+-- 
+Roland Dreier <rolandd@cisco.com> || For corporate legal information go to:
+http://www.cisco.com/web/about/doing_business/legal/cri/index.html
