@@ -1,42 +1,88 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: cxgb4: Use ntohs() on __be16 value instead of htons()
-Date: Wed, 21 Apr 2010 11:09:21 -0700
-Message-ID: <ada1ve8r832.fsf@roland-alpha.cisco.com>
+From: Chris Wright <chrisw@redhat.com>
+Subject: Re: [net-next,1/2] add iovnl netlink support
+Date: Wed, 21 Apr 2010 11:10:21 -0700
+Message-ID: <20100421181021.GC25928@x200.localdomain>
+References: <C7F354F4.29CC8%scofeldm@cisco.com>
+ <201004211326.00974.arnd@arndb.de>
+ <20100421161842.GB25928@x200.localdomain>
+ <201004211952.29145.arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Dimitris Michailidis <dm@chelsio.com>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: Chris Wright <chrisw@redhat.com>,
+	Scott Feldman <scofeldm@cisco.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-1.cisco.com ([171.71.176.70]:48417 "EHLO
-	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752638Ab0DUSKY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 14:10:24 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:45712 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754062Ab0DUSKc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Apr 2010 14:10:32 -0400
+Content-Disposition: inline
+In-Reply-To: <201004211952.29145.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the correct direction of byte-swapping function to fix a mistake
-shown by sparse endianness checking -- c.fl0id is __be16.
+* Arnd Bergmann (arnd@arndb.de) wrote:
+> On Wednesday 21 April 2010, Chris Wright wrote:
+> > * Arnd Bergmann (arnd@arndb.de) wrote:
+> > > Since it seems what you really want to do is to do the exchange with the
+> > > switch from here, maybe the hardware configuration part should be moved
+> > > the DCB interface?
+> > 
+> > I suppose this would work  (although it's a bit odd being out of scope
+> > of DCB spec).
+> 
+> It could be anywhere, it doesn't have to be the DCB interface, but could
+> be anything ranging from ethtool to iplink I guess. And we should define
+> it in a way that works for any SR-IOV card, whether it's using Cisco's
+> protocol in firmware, 802.1Qbg VDP in firmware, lldpad to do VDP or
+> none of the above and just provides an internal switch like all the
+> existing NICs.
 
-Signed-off-by: Roland Dreier <rolandd@cisco.com>
----
- drivers/net/cxgb4/sge.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Heh, that's exactly what iovnl does ;-)
 
-diff --git a/drivers/net/cxgb4/sge.c b/drivers/net/cxgb4/sge.c
-index 14adc58..70bf2b2 100644
---- a/drivers/net/cxgb4/sge.c
-+++ b/drivers/net/cxgb4/sge.c
-@@ -2047,7 +2047,7 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
- 	adap->sge.ingr_map[iq->cntxt_id] = iq;
+> > I don't expect mgmt app to care about the implementation
+> > specifics of an adapter, so it will always send this and iovnl message
+> > too.  All as part of same setup.
+> 
+> Why? I really see these things as separate. Obviously a management
+> tool like libvirt would need to do both these things eventually, but
+> each of them has multiple options that can be combined in various
+> ways:
+> 
+> 1. Setting up the slave device
+>  a) create an SR-IOV VF to assign to a guest
+>  b) create a macvtap device to pass to qemu or vhost
+>  c) attach a tap device to a bridge
+>  d) create a macvlan device and put it into a container
+>  e) create a virtual interface for a VMDq adapter
+
+OK, but iovnl isn't doing this.
+
+> 2) Registering the slave with the switch
+>  a) use Cisco protocol in enic firmware (see patch 2/2)
+>  b) use standard VDP in lldpad
+>  c) use reverse-engineered cisco protocol in some user tool for
+>     non-enic adapters.
+>  d) use standard VDP in firmware (hopefully this never happens)
+>  e) do nothing at all (as we do today)
+
+And this is the step that is the main purpose of iovnl.
+
+Here's the simplest snippet of libvirt to show this.  It sends
+set_port_profile netlink messages and then creates macvtap.  As simple
+as it gets...
+
+--- a/src/qemu/qemu_conf.c
++++ b/src/qemu/qemu_conf.c
+@@ -1470,6 +1470,11 @@ qemudPhysIfaceConnect(virConnectPtr conn,
+         net->model && STREQ(net->model, "virtio"))
+         vnet_hdr = 1;
  
- 	if (fl) {
--		fl->cntxt_id = htons(c.fl0id);
-+		fl->cntxt_id = ntohs(c.fl0id);
- 		fl->avail = fl->pend_cred = 0;
- 		fl->pidx = fl->cidx = 0;
- 		fl->alloc_failed = fl->large_alloc_failed = fl->starving = 0;
-
--- 
-Roland Dreier <rolandd@cisco.com> || For corporate legal information go to:
-http://www.cisco.com/web/about/doing_business/legal/cri/index.html
++    setPortProfileId(net->data.direct.linkdev,
++                      net->data.direct.mode,
++                      net->data.direct.profileid,
++                      net->mac);
++
+     rc = openMacvtapTap(net->ifname, net->mac, linkdev, brmode,
+                         &res_ifname, vnet_hdr);
