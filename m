@@ -1,41 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] ehea: error handling improvement
-Date: Tue, 20 Apr 2010 19:16:02 -0700 (PDT)
-Message-ID: <20100420.191602.228303800.davem@davemloft.net>
-References: <4BCC47AB.2090600@de.ibm.com>
+Subject: Re: [PATCH net-2.6] cleanup: remove two unnecessary exports in
+ skbuff.c.
+Date: Tue, 20 Apr 2010 19:26:01 -0700 (PDT)
+Message-ID: <20100420.192601.109636833.davem@davemloft.net>
+References: <l2geb3ff54b1004190250qfe606c28i80dab5f156128f4c@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: raisch@de.ibm.com, themann@de.ibm.com,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	netdev@vger.kernel.org
-To: osstklei@de.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4BCC47AB.2090600@de.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: ramirose@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42390
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755076Ab0DUCZ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 22:25:56 -0400
+In-Reply-To: <l2geb3ff54b1004190250qfe606c28i80dab5f156128f4c@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Klein <osstklei@de.ibm.com>
-Date: Mon, 19 Apr 2010 14:08:11 +0200
+From: Rami Rosen <ramirose@gmail.com>
+Date: Mon, 19 Apr 2010 12:50:19 +0300
 
-> Reset a port's resources only if they're actually in an error state
+> There is no need to export skb_under_panic() and skb_over_panic() in
+> skbuff.c, since these methods are used only in
+> skbuff.c ; this patch removes these two exports.
 > 
-> Signed-off-by: Thomas Klein <tklein@de.ibm.com>
-> ---
-> 
-> Patch created against 2.6.34-rc4
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-There are several problems with these patches:
+If this is indeed the case, you should also mark these functions
+'static' and remove the extern declarations of them from
+include/linux/skbuff.h
 
-1) They are corrupted by your email client, lines unchanged
-   begin with one space character instead of two.  Therefore
-   even 'patch' wouldn't accept these changes.
+Please make those changes and resubmit your patch (against
+net-next-2.6 since that's where it belongs at this point).
 
-2) The double slash in the patch file paths make git not
-   accept the change.  Please don't put double-slashes in
-   your patch paths as that canonically means "/".
-
-3) These are not appropriate for net-2.6 as we are deep in
-   the -rcX series at this point and only the most diabolical
-   bug fixes are appropriate.  Therefore, please generate these
-   against net-next-2.6, thanks.
+Thanks.
