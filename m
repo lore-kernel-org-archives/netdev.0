@@ -1,187 +1,241 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: PROBLEM: Linux kernel 2.6.31 IPv4 TCP fails to open huge
- amount of outgoing connections (unable to bind ... )
-Date: Wed, 21 Apr 2010 11:02:15 +0200
-Message-ID: <1271840535.7895.1612.camel@edumazet-laptop>
-References: <g2z46c8cb3e1004201517i5641a75cze2ec5bd33e81fb0f@mail.gmail.com>
-	 <4BCE33B9.8050101@candelatech.com>
-	 <u2t46c8cb3e1004201620tf9fce087ibae421759f9e1e84@mail.gmail.com>
-	 <4BCE392F.60104@candelatech.com>
-	 <y2p46c8cb3e1004201635s8f84672dq90d3115dca04a1ed@mail.gmail.com>
-	 <4BCE3D8D.3030500@candelatech.com>
-	 <1271808314.7895.614.camel@edumazet-laptop>
-	 <20100421003022.GA3107@ioremap.net>
-	 <1271828799.7895.1287.camel@edumazet-laptop>
-	 <20100421082559.GA32475@ioremap.net>
+From: Thomas Klein <tklein@de.ibm.com>
+Subject: [PATCH 1/2][RESEND] ehea: error handling improvement
+Date: Wed, 21 Apr 2010 11:10:55 +0200
+Message-ID: <201004211110.55986.tklein@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Greear <greearb@candelatech.com>,
-	David Miller <davem@davemloft.net>,
-	Gaspar Chilingarov <gasparch@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	linux-kernel@vger.kernel.org, themann@de.ibm.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:55613 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752134Ab0DUJC0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 05:02:26 -0400
-Received: by bwz25 with SMTP id 25so7800100bwz.28
-        for <netdev@vger.kernel.org>; Wed, 21 Apr 2010 02:02:24 -0700 (PDT)
-In-Reply-To: <20100421082559.GA32475@ioremap.net>
+Received: from mtagate6.de.ibm.com ([195.212.17.166]:43875 "EHLO
+	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752686Ab0DUJK6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 05:10:58 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 21 avril 2010 =C3=A0 12:25 +0400, Evgeniy Polyakov a =C3=A9=
-crit :
+Reset a port's resources only if they're actually in an error state
 
-> I believe this is a useful patch, but it addresses a different issue.
-> This path should not fire up when we bind to single address.
+Signed-off-by: Thomas Klein <tklein@de.ibm.com>
+---
 
-Well, the real problem is that following sequence can happen :
+Patch created against net-2.6
 
-socket(PF_INET, SOCK_STREAM, IPPROTO_IP) =3D 5
-setsockopt(5, SOL_SOCKET, SO_REUSEADDR, [1], 4) =3D 0
-bind(5, {sa_family=3DAF_INET, sin_port=3Dhtons(0), sin_addr=3Dinet_addr=
-("127.0.0.2")}, 16) =3D 0
-getsockname(5, {sa_family=3DAF_INET, sin_port=3Dhtons(34000), sin_addr=3D=
-inet_addr("127.0.0.2")}, [16]) =3D 0
-socket(PF_INET, SOCK_STREAM, IPPROTO_IP) =3D 6
-setsockopt(6, SOL_SOCKET, SO_REUSEADDR, [1], 4) =3D 0
-bind(6, {sa_family=3DAF_INET, sin_port=3Dhtons(0), sin_addr=3Dinet_addr=
-("127.0.0.2")}, 16) =3D 0
-getsockname(6, {sa_family=3DAF_INET, sin_port=3Dhtons(34002), sin_addr=3D=
-inet_addr("127.0.0.2")}, [16]) =3D 0
-socket(PF_INET, SOCK_STREAM, IPPROTO_IP) =3D 7
-setsockopt(7, SOL_SOCKET, SO_REUSEADDR, [1], 4) =3D 0
-bind(7, {sa_family=3DAF_INET, sin_port=3Dhtons(0), sin_addr=3Dinet_addr=
-("127.0.0.2")}, 16) =3D 0
-getsockname(7, {sa_family=3DAF_INET, sin_port=3Dhtons(34001), sin_addr=3D=
-inet_addr("127.0.0.2")}, [16]) =3D 0
-socket(PF_INET, SOCK_STREAM, IPPROTO_IP) =3D 8
-setsockopt(8, SOL_SOCKET, SO_REUSEADDR, [1], 4) =3D 0
-bind(8, {sa_family=3DAF_INET, sin_port=3Dhtons(0), sin_addr=3Dinet_addr=
-("127.0.0.2")}, 16) =3D 0
-getsockname(8, {sa_family=3DAF_INET, sin_port=3Dhtons(34002), sin_addr=3D=
-inet_addr("127.0.0.2")}, [16]) =3D 0
-socket(PF_INET, SOCK_STREAM, IPPROTO_IP) =3D 9
-setsockopt(9, SOL_SOCKET, SO_REUSEADDR, [1], 4) =3D 0
-bind(9, {sa_family=3DAF_INET, sin_port=3Dhtons(0), sin_addr=3Dinet_addr=
-("127.0.0.2")}, 16) =3D 0
-getsockname(9, {sa_family=3DAF_INET, sin_port=3Dhtons(34000), sin_addr=3D=
-inet_addr("127.0.0.2")}, [16]) =3D 0
-socket(PF_INET, SOCK_STREAM, IPPROTO_IP) =3D 10
-setsockopt(10, SOL_SOCKET, SO_REUSEADDR, [1], 4) =3D 0
-bind(10, {sa_family=3DAF_INET, sin_port=3Dhtons(0), sin_addr=3Dinet_add=
-r("127.0.0.2")}, 16) =3D 0
-getsockname(10, {sa_family=3DAF_INET, sin_port=3Dhtons(34002), sin_addr=
-=3Dinet_addr("127.0.0.2")}, [16]) =3D 0
-socket(PF_INET, SOCK_STREAM, IPPROTO_IP) =3D 11
-setsockopt(11, SOL_SOCKET, SO_REUSEADDR, [1], 4) =3D 0
-bind(11, {sa_family=3DAF_INET, sin_port=3Dhtons(0), sin_addr=3Dinet_add=
-r("127.0.0.2")}, 16) =3D 0
-getsockname(11, {sa_family=3DAF_INET, sin_port=3Dhtons(34001), sin_addr=
-=3Dinet_addr("127.0.0.2")}, [16]) =3D 0
-
-
-Note ports are given several times for different sockets.
-
-So several sockets are 'bound' to same IP:port values
-
-At connect() time, we refuse and say address is not available.
-
-
-
-=46ollowing program to demonstrate the problem.
-
-=46irst time, launch it with an extra agument to setup ip aliases and i=
-p_local_port_range
-
-
-
-
-#include <stdio.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <string.h>
-#include <errno.h>
-
-int listenfd;
-int on =3D 1;
-
-void listener()
-{
-	if (fork())
-		return;
-
-	while (1) {
-		struct sockaddr_in addr;
-		socklen_t len =3D sizeof(addr);
-		int fd =3D accept(listenfd, (struct sockaddr *)&addr, &len);
-	}
-}
-
-int main(int argc, char *argv[])
-{
-	int i, port, total =3D 0;
-	char cmd[128];
-	struct sockaddr_in addr;
-	socklen_t len;
-
-	if (argc > 1) {
-		for (i =3D 2; i < 8; i++) {
-			sprintf(cmd, "ip addr add 127.0.0.%d/8 dev lo 2>/dev/null", i);
-			system(cmd);
-		}
-		system("echo '34000 34002' >/proc/sys/net/ipv4/ip_local_port_range");
-	}
-	listenfd =3D socket(AF_INET, SOCK_STREAM, 0);
-	setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
-	memset(&addr, 0, sizeof(addr));
-	addr.sin_family =3D AF_INET;
-	addr.sin_port =3D htons(4444);
-	if (bind(listenfd, (struct sockaddr *)&addr, sizeof(addr)) =3D=3D -1) =
-{
-		perror("bind");
-		return 1;
-	}
-	listen(listenfd, 10);
-	listener();
-
-	for (i =3D 2; i < 8; i++) {
-		for (port =3D 34000; port < 34010; port++) {
-			int fd =3D socket(AF_INET, SOCK_STREAM, 0);
-			if (fd =3D=3D -1) {
-				fprintf(stderr, "Could not open socket, errno=3D%d\n", errno);
-				goto end;
-			}
-			setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
-			addr.sin_addr.s_addr =3D htonl(0x7f000000 + i);
-//			addr.sin_port =3D htons(port);
-			addr.sin_port =3D 0;
-			if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) =3D=3D -1) {
-				fprintf(stderr, "Could not bind()\n");
-				goto end;
-			}
-			len =3D sizeof(addr);
-			getsockname(fd, (struct sockaddr *)&addr, &len);
-#if 0
-			addr.sin_addr.s_addr =3D htonl(0x7f000001);
-			addr.sin_port =3D htons(4444);
-			if ((total < 10) && (connect(fd, (struct sockaddr *)&addr, sizeof(ad=
-dr)) =3D=3D -1)) {
-				len =3D sizeof(addr);
-				getsockname(fd, (struct sockaddr *)&addr, &len);
-				fprintf(stderr, "Could not connect()\n");
-				goto end;
-			}
-#endif
-			total++;
-		}
-	}
-end:
-	printf("i=3D127.0.0.%d port=3D%d (total=3D%d)\n", i, port, total);
-	pause();
-}
-
-
+diff -Nurp net-2.6.orig/drivers/net/ehea/ehea_main.c net-2.6/drivers/net/ehea/ehea_main.c
+--- net-2.6.orig/drivers/net/ehea/ehea_main.c	2010-04-21 10:23:21.000000000 +0200
++++ net-2.6/drivers/net/ehea/ehea_main.c	2010-04-21 10:41:21.000000000 +0200
+@@ -791,11 +791,17 @@ static struct ehea_cqe *ehea_proc_cqes(s
+ 		cqe_counter++;
+ 		rmb();
+ 		if (cqe->status & EHEA_CQE_STAT_ERR_MASK) {
+-			ehea_error("Send Completion Error: Resetting port");
++			ehea_error("Bad send completion status=0x%04X",
++				   cqe->status);
++
+ 			if (netif_msg_tx_err(pr->port))
+ 				ehea_dump(cqe, sizeof(*cqe), "Send CQE");
+-			ehea_schedule_port_reset(pr->port);
+-			break;
++
++			if (cqe->status & EHEA_CQE_STAT_RESET_MASK) {
++				ehea_error("Resetting port");
++				ehea_schedule_port_reset(pr->port);
++				break;
++			}
+ 		}
+ 
+ 		if (netif_msg_tx_done(pr->port))
+@@ -901,6 +907,8 @@ static irqreturn_t ehea_qp_aff_irq_handl
+ 	struct ehea_eqe *eqe;
+ 	struct ehea_qp *qp;
+ 	u32 qp_token;
++	u64 resource_type, aer, aerr;
++	int reset_port = 0;
+ 
+ 	eqe = ehea_poll_eq(port->qp_eq);
+ 
+@@ -910,11 +918,24 @@ static irqreturn_t ehea_qp_aff_irq_handl
+ 			   eqe->entry, qp_token);
+ 
+ 		qp = port->port_res[qp_token].qp;
+-		ehea_error_data(port->adapter, qp->fw_handle);
++
++		resource_type = ehea_error_data(port->adapter, qp->fw_handle,
++						&aer, &aerr);
++
++		if (resource_type == EHEA_AER_RESTYPE_QP) {
++			if ((aer & EHEA_AER_RESET_MASK) ||
++			    (aerr & EHEA_AERR_RESET_MASK))
++				 reset_port = 1;
++		} else
++			reset_port = 1;   /* Reset in case of CQ or EQ error */
++
+ 		eqe = ehea_poll_eq(port->qp_eq);
+ 	}
+ 
+-	ehea_schedule_port_reset(port);
++	if (reset_port) {
++		ehea_error("Resetting port");
++		ehea_schedule_port_reset(port);
++	}
+ 
+ 	return IRQ_HANDLED;
+ }
+diff -Nurp net-2.6.orig/drivers/net/ehea/ehea_qmr.c net-2.6/drivers/net/ehea/ehea_qmr.c
+--- net-2.6.orig/drivers/net/ehea/ehea_qmr.c	2010-04-21 10:23:21.000000000 +0200
++++ net-2.6/drivers/net/ehea/ehea_qmr.c	2010-04-21 10:41:21.000000000 +0200
+@@ -229,14 +229,14 @@ u64 ehea_destroy_cq_res(struct ehea_cq *
+ 
+ int ehea_destroy_cq(struct ehea_cq *cq)
+ {
+-	u64 hret;
++	u64 hret, aer, aerr;
+ 	if (!cq)
+ 		return 0;
+ 
+ 	hcp_epas_dtor(&cq->epas);
+ 	hret = ehea_destroy_cq_res(cq, NORMAL_FREE);
+ 	if (hret == H_R_STATE) {
+-		ehea_error_data(cq->adapter, cq->fw_handle);
++		ehea_error_data(cq->adapter, cq->fw_handle, &aer, &aerr);
+ 		hret = ehea_destroy_cq_res(cq, FORCE_FREE);
+ 	}
+ 
+@@ -357,7 +357,7 @@ u64 ehea_destroy_eq_res(struct ehea_eq *
+ 
+ int ehea_destroy_eq(struct ehea_eq *eq)
+ {
+-	u64 hret;
++	u64 hret, aer, aerr;
+ 	if (!eq)
+ 		return 0;
+ 
+@@ -365,7 +365,7 @@ int ehea_destroy_eq(struct ehea_eq *eq)
+ 
+ 	hret = ehea_destroy_eq_res(eq, NORMAL_FREE);
+ 	if (hret == H_R_STATE) {
+-		ehea_error_data(eq->adapter, eq->fw_handle);
++		ehea_error_data(eq->adapter, eq->fw_handle, &aer, &aerr);
+ 		hret = ehea_destroy_eq_res(eq, FORCE_FREE);
+ 	}
+ 
+@@ -540,7 +540,7 @@ u64 ehea_destroy_qp_res(struct ehea_qp *
+ 
+ int ehea_destroy_qp(struct ehea_qp *qp)
+ {
+-	u64 hret;
++	u64 hret, aer, aerr;
+ 	if (!qp)
+ 		return 0;
+ 
+@@ -548,7 +548,7 @@ int ehea_destroy_qp(struct ehea_qp *qp)
+ 
+ 	hret = ehea_destroy_qp_res(qp, NORMAL_FREE);
+ 	if (hret == H_R_STATE) {
+-		ehea_error_data(qp->adapter, qp->fw_handle);
++		ehea_error_data(qp->adapter, qp->fw_handle, &aer, &aerr);
+ 		hret = ehea_destroy_qp_res(qp, FORCE_FREE);
+ 	}
+ 
+@@ -986,42 +986,45 @@ void print_error_data(u64 *data)
+ 	if (length > EHEA_PAGESIZE)
+ 		length = EHEA_PAGESIZE;
+ 
+-	if (type == 0x8) /* Queue Pair */
++	if (type == EHEA_AER_RESTYPE_QP)
+ 		ehea_error("QP (resource=%llX) state: AER=0x%llX, AERR=0x%llX, "
+ 			   "port=%llX", resource, data[6], data[12], data[22]);
+-
+-	if (type == 0x4) /* Completion Queue */
++	else if (type == EHEA_AER_RESTYPE_CQ)
+ 		ehea_error("CQ (resource=%llX) state: AER=0x%llX", resource,
+ 			   data[6]);
+-
+-	if (type == 0x3) /* Event Queue */
++	else if (type == EHEA_AER_RESTYPE_EQ)
+ 		ehea_error("EQ (resource=%llX) state: AER=0x%llX", resource,
+ 			   data[6]);
+ 
+ 	ehea_dump(data, length, "error data");
+ }
+ 
+-void ehea_error_data(struct ehea_adapter *adapter, u64 res_handle)
++u64 ehea_error_data(struct ehea_adapter *adapter, u64 res_handle,
++		    u64 *aer, u64 *aerr)
+ {
+ 	unsigned long ret;
+ 	u64 *rblock;
++	u64 type = 0;
+ 
+ 	rblock = (void *)get_zeroed_page(GFP_KERNEL);
+ 	if (!rblock) {
+ 		ehea_error("Cannot allocate rblock memory.");
+-		return;
++		goto out;
+ 	}
+ 
+-	ret = ehea_h_error_data(adapter->handle,
+-				res_handle,
+-				rblock);
++	ret = ehea_h_error_data(adapter->handle, res_handle, rblock);
+ 
+-	if (ret == H_R_STATE)
+-		ehea_error("No error data is available: %llX.", res_handle);
+-	else if (ret == H_SUCCESS)
++	if (ret == H_SUCCESS) {
++		type = EHEA_BMASK_GET(ERROR_DATA_TYPE, rblock[2]);
++		*aer = rblock[6];
++		*aerr = rblock[12];
+ 		print_error_data(rblock);
+-	else
++	} else if (ret == H_R_STATE) {
++		ehea_error("No error data available: %llX.", res_handle);
++	} else
+ 		ehea_error("Error data could not be fetched: %llX", res_handle);
+ 
+ 	free_page((unsigned long)rblock);
++out:
++	return type;
+ }
+diff -Nurp net-2.6.orig/drivers/net/ehea/ehea_qmr.h net-2.6/drivers/net/ehea/ehea_qmr.h
+--- net-2.6.orig/drivers/net/ehea/ehea_qmr.h	2010-04-21 10:23:21.000000000 +0200
++++ net-2.6/drivers/net/ehea/ehea_qmr.h	2010-04-21 10:41:21.000000000 +0200
+@@ -154,6 +154,9 @@ struct ehea_rwqe {
+ #define EHEA_CQE_STAT_ERR_IP       0x2000
+ #define EHEA_CQE_STAT_ERR_CRC      0x1000
+ 
++/* Defines which bad send cqe stati lead to a port reset */
++#define EHEA_CQE_STAT_RESET_MASK   0x0002
++
+ struct ehea_cqe {
+ 	u64 wr_id;		/* work request ID from WQE */
+ 	u8 type;
+@@ -187,6 +190,14 @@ struct ehea_cqe {
+ #define EHEA_EQE_SM_MECH_NUMBER  EHEA_BMASK_IBM(48, 55)
+ #define EHEA_EQE_SM_PORT_NUMBER  EHEA_BMASK_IBM(56, 63)
+ 
++#define EHEA_AER_RESTYPE_QP  0x8
++#define EHEA_AER_RESTYPE_CQ  0x4
++#define EHEA_AER_RESTYPE_EQ  0x3
++
++/* Defines which affiliated errors lead to a port reset */
++#define EHEA_AER_RESET_MASK   0xFFFFFFFFFEFFFFFFULL
++#define EHEA_AERR_RESET_MASK  0xFFFFFFFFFFFFFFFFULL
++
+ struct ehea_eqe {
+ 	u64 entry;
+ };
+@@ -379,7 +390,8 @@ int ehea_gen_smr(struct ehea_adapter *ad
+ 
+ int ehea_rem_mr(struct ehea_mr *mr);
+ 
+-void ehea_error_data(struct ehea_adapter *adapter, u64 res_handle);
++u64 ehea_error_data(struct ehea_adapter *adapter, u64 res_handle,
++		    u64 *aer, u64 *aerr);
+ 
+ int ehea_add_sect_bmap(unsigned long pfn, unsigned long nr_pages);
+ int ehea_rem_sect_bmap(unsigned long pfn, unsigned long nr_pages);
