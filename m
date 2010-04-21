@@ -1,40 +1,48 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH] gianfar: Wait for both RX and TX to stop
-Date: Wed, 21 Apr 2010 14:13:00 -0500
-Message-ID: <CD8C73BA-0E18-4F85-A90B-C2FA5FFC8689@kernel.crashing.org>
-References: <o2oed82fe3e1004200801n98683cdalb2898c879b93f8fd@mail.gmail.com>  <20100420.180646.216759318.davem@davemloft.net> <A20F7457-20BC-493C-B800-3933D8FC4D5C@kernel.crashing.org>  <20100420.223659.236667659.davem@davemloft.net> <10AE27BE-1830-4AAD-83E6-20001BC430D8@kernel.crashing.org> <z2ged82fe3e1004210733v8fa40902k664549aa9620b13@mail.gmail.com>
-Mime-Version: 1.0 (Apple Message framework v1078)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>, afleming@freescale.com,
-	netdev@vger.kernel.org
-To: Timur Tabi <timur.tabi@gmail.com>
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: Re: cxgb4: Use ntohs() on __be16 value instead of htons()
+Date: Wed, 21 Apr 2010 12:17:43 -0700
+Message-ID: <4BCF4F57.4050802@chelsio.com>
+References: <ada1ve8r832.fsf@roland-alpha.cisco.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Roland Dreier <rdreier@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:50345 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754129Ab0DUTNS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 15:13:18 -0400
-In-Reply-To: <z2ged82fe3e1004210733v8fa40902k664549aa9620b13@mail.gmail.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:13011 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754141Ab0DUTRp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 15:17:45 -0400
+In-Reply-To: <ada1ve8r832.fsf@roland-alpha.cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 04/21/2010 11:09 AM, Roland Dreier wrote:
+> Use the correct direction of byte-swapping function to fix a mistake
+> shown by sparse endianness checking -- c.fl0id is __be16.
+>
+> Signed-off-by: Roland Dreier<rolandd@cisco.com>
 
-On Apr 21, 2010, at 9:33 AM, Timur Tabi wrote:
+Yes, thanks.
 
-> On Wed, Apr 21, 2010 at 7:17 AM, Kumar Gala <galak@kernel.crashing.org> wrote:
-> 
->> I understand, its more a sense that we are saying we want to time out for what I consider a catastrophic HW failure.
-> 
-> And how else will you detect and recover from such a failure without a
-> timeout?  And are you absolutely certain that there will never be a
-> programming failure that will cause this loop to spin forever?
-> 
-> If you're really opposed to a timeout, you can still use
-> spin_event_timeout() by just setting the timeout to -1 and adding a
-> comment explaining why.
+Acked-by: Dimitris Michailidis <dm@chelsio.com>
 
-I'm not opposed, I'm just asking if we are saying we shouldn't be using cpu_relax() for spinning on HW status registers ever.
+> ---
+>   drivers/net/cxgb4/sge.c |    2 +-
+>   1 files changed, 1 insertions(+), 1 deletions(-)
+>
+> diff --git a/drivers/net/cxgb4/sge.c b/drivers/net/cxgb4/sge.c
+> index 14adc58..70bf2b2 100644
+> --- a/drivers/net/cxgb4/sge.c
+> +++ b/drivers/net/cxgb4/sge.c
+> @@ -2047,7 +2047,7 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+>   	adap->sge.ingr_map[iq->cntxt_id] = iq;
+>
+>   	if (fl) {
+> -		fl->cntxt_id = htons(c.fl0id);
+> +		fl->cntxt_id = ntohs(c.fl0id);
+>   		fl->avail = fl->pend_cred = 0;
+>   		fl->pidx = fl->cidx = 0;
+>   		fl->alloc_failed = fl->large_alloc_failed = fl->starving = 0;
+>
 
-If we are suggesting that cpu_relax() shouldn't be used in these scenarios going forward I'm ok w/the change you suggest and starting to convert other cpu_relax() calls to use spin_event_timeout()
-
-- k
