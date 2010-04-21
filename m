@@ -1,63 +1,47 @@
-From: Gaspar Chilingarov <gasparch@gmail.com>
-Subject: Re: PROBLEM: Linux kernel 2.6.31 IPv4 TCP fails to open huge amount
-	of outgoing connections (unable to bind ... )
-Date: Wed, 21 Apr 2010 05:12:44 +0500
-Message-ID: <n2n46c8cb3e1004201712iaccfebdcl619842a555eba56@mail.gmail.com>
-References: <g2z46c8cb3e1004201517i5641a75cze2ec5bd33e81fb0f@mail.gmail.com>
-	 <4BCE33B9.8050101@candelatech.com>
-	 <u2t46c8cb3e1004201620tf9fce087ibae421759f9e1e84@mail.gmail.com>
-	 <4BCE392F.60104@candelatech.com>
-	 <y2p46c8cb3e1004201635s8f84672dq90d3115dca04a1ed@mail.gmail.com>
-	 <4BCE3D8D.3030500@candelatech.com>
-	 <1271808314.7895.614.camel@edumazet-laptop>
+From: Mikulas Patocka <mpatocka@redhat.com>
+Subject: Re: crash with bridge and inconsistent handling of NETDEV_TX_OK
+Date: Tue, 20 Apr 2010 20:12:45 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.1004202003010.13651@hs20-bc2-1.build.redhat.com>
+References: <Pine.LNX.4.64.1004201834190.29017@hs20-bc2-1.build.redhat.com>
+ <20100420.164505.34362726.davem@davemloft.net>
+ <Pine.LNX.4.64.1004201947470.29017@hs20-bc2-1.build.redhat.com>
+ <20100420.170038.130590455.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Greear <greearb@candelatech.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:41979 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752818Ab0DUAMq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 20:12:46 -0400
-Received: by bwz25 with SMTP id 25so7468023bwz.28
-        for <netdev@vger.kernel.org>; Tue, 20 Apr 2010 17:12:45 -0700 (PDT)
-In-Reply-To: <1271808314.7895.614.camel@edumazet-laptop>
+Received: from mx1.redhat.com ([209.132.183.28]:43740 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753990Ab0DUANN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Apr 2010 20:13:13 -0400
+In-Reply-To: <20100420.170038.130590455.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2010/4/21 Eric Dumazet <eric.dumazet@gmail.com>:
-> Le mardi 20 avril 2010 =C3=A0 16:49 -0700, Ben Greear a =C3=A9crit :
->> On 04/20/2010 04:35 PM, Gaspar Chilingarov wrote:
->> > sysctl -a | grep local_port_range
->>
->> [root@ct503-10G-09 ~]# sysctl -a | grep local_port_range
->> net.ipv4.ip_local_port_range =3D 10000 =C2=A061000
->>
->> I'm explicitly binding to local ports as well as local IPs, btw.
->>
->
-> I believe the bsockets 'optimization' is a bug, we should remove it.
->
-> This is a stable candidate (2.6.30+)
->
-> [PATCH net-next-2.6] tcp: remove bsockets count
->
-> Counting number of bound sockets to avoid a loop is buggy, since we c=
-ant
-> know how many IP addresses are in use. When threshold is reached, we =
-try
-> 5 random slots and can fail while there are plenty available ports.
->
 
-Thank you a lot for the patch - I will try it.
 
-In FreeBSD I was able to add about 32 C classes (8192 ips) on the
-single interface (never tried to do that in Linux yet :) - so you
-really never know how much IP's are there available. Tens and even up
-to hundred IPs on the single machine are not that usual in hosting
-environment at all.
+On Tue, 20 Apr 2010, David Miller wrote:
 
-/Gaspar
+> From: Mikulas Patocka <mpatocka@redhat.com>
+> Date: Tue, 20 Apr 2010 19:57:45 -0400 (EDT)
+> 
+> >> We're not reverting the commit you mention, we're going to fix
+> >> whatever bug exists instead.
+> > 
+> > So have a fun searching for them :-/
+> 
+> When you report a problem and your knee-jerk reaction is "revert this
+> commit", expect some push back.
+
+I tried to analyze skb handling and couldn't check correctness of this 
+commit. I really think it should be reverted and applied later, when the 
+author does it correctly (for example, one bit in the return value to 
+indicate consumed/returned skb, other unimportant informational bits).
+
+> We'll instead analyze this bug and take the time to figure out the
+> most appropriate course of action.
+
+And do you have any idea what caused it? Why is it using GSO on bridging?
+
+Mikulas
