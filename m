@@ -1,70 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ipv6: Fix tcp_v6_send_response checksum
-Date: Wed, 21 Apr 2010 00:49:22 -0700 (PDT)
-Message-ID: <20100421.004922.193694715.davem@davemloft.net>
-References: <20100421070737.GA30517@gondor.apana.org.au>
+From: Sasha Levin <sasha@comsleep.com>
+Subject: [PATCH] ipv4: handle GARPs specially when updating neighbors
+Date: Wed, 21 Apr 2010 01:02:02 -0700
+Message-ID: <EF944FCCC928C64A875FE3EA1A41062C38FD52F406@P3PW5EX1MB02.EX1.SECURESERVER.NET>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, cratiu@ixiacom.com
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=windows-1255
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33565
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751868Ab0DUHti (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 03:49:38 -0400
-In-Reply-To: <20100421070737.GA30517@gondor.apana.org.au>
+Received: from p3plex1out01.prod.phx3.secureserver.net ([72.167.180.17]:32869
+	"HELO p3plex1out01.prod.phx3.secureserver.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752444Ab0DUICH convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Apr 2010 04:02:07 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 21 Apr 2010 15:07:37 +0800
+=46rom: Sasha Levin <sasha@comsleep.com>
 
-> ipv6: Fix tcp_v6_send_response checksum
+We are currently testing IP fail-over on storage devices, and have obse=
+rved an issue with the IP transfer from one device to another.
 
-I put this into net-2.6 and modified the commit message since, as we
-found, this incorrect transport header reset was added there to fix
-IPSEC.
+Assuming we have 2 storage devices A and B, and a server C which uses t=
+he storage, the scenario is:
 
-I'm convinced that Cosmin didn't test the patch he actually sent out
-:-)
+1. Device A sends an ARP request which server C sees =96 server C updat=
+es it=92s ARP table with the MAC of device A.
+2. Device A fails, Device B takes over the IP and sends out a GARP.
+3. Even though device C sees the GARP, it ignores it and keeps trying t=
+o communicate with device A until the entry is removed from its cache a=
+nd a new ARP request is generated.
 
-Thanks!
+The code which causes this is located in arp_process@/net/ipv4/arp.c:
 
---------------------
-ipv6: Fix tcp_v6_send_response transport header setting.
+override =3D time_after(jiffies, n->updated + n->parms->locktime);
 
-My recent patch to remove the open-coded checksum sequence in
-tcp_v6_send_response broke it as we did not set the transport
-header pointer on the new packet.
+/* Broadcast replies and request packets
+=A0=A0 do not assert neighbour reachability.
+=A0*/
+if (arp->ar_op !=3D htons(ARPOP_REPLY) ||
+=A0=A0=A0 skb->pkt_type !=3D PACKET_HOST)
+=A0=A0=A0=A0=A0=A0=A0 state =3D NUD_STALE;
+neigh_update(n, sha, state, override ? NEIGH_UPDATE_F_OVERRIDE : 0);
+neigh_release(n);
 
-Actually, there is code there trying to set the transport
-header properly, but it sets it for the wrong skb ('skb'
-instead of 'buff').
+According to the code, this scenario happens because the kernel ignores=
+ any ARP updates which happened in a short period after the previous AR=
+P update. The reason which was stated in the comments is =A0=93If sever=
+al different ARP replies follows back-to-back, use the FIRST one. It is=
+ possible, if several proxy agents are active. Taking the first reply p=
+revents arp trashing and chooses the fastest router.=94.
 
-This bug was introduced by commit
-a8fdf2b331b38d61fb5f11f3aec4a4f9fb2dedcb ("ipv6: Fix
-tcp_v6_send_response(): it didn't set skb transport header")
+This, however, doesn=92t take into account GARPs which are not being se=
+nt by ARP proxies anyway and just ignores them too =96 causing a loss o=
+f communication for over a minute until the ARP cache refreshes.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Sasha Levin <sasha@comsleep.com>
 ---
- net/ipv6/tcp_ipv6.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index c92ebe8..075f540 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1015,7 +1015,7 @@ static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
- 	skb_reserve(buff, MAX_HEADER + sizeof(struct ipv6hdr) + tot_len);
- 
- 	t1 = (struct tcphdr *) skb_push(buff, tot_len);
--	skb_reset_transport_header(skb);
-+	skb_reset_transport_header(buff);
- 
- 	/* Swap the send and the receive. */
- 	memset(t1, 0, sizeof(*t1));
--- 
-1.7.0.4
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 1a9dd66..caa2093 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -876,8 +876,11 @@ static int arp_process(struct sk_buff *skb)
+ 		   use the FIRST one. It is possible, if several proxy
+ 		   agents are active. Taking the first reply prevents
+ 		   arp trashing and chooses the fastest router.
++
++		   GARPs are always updating the cache since they can
++		   originate from different devices with the same IP.
+ 		 */
+-		override =3D time_after(jiffies, n->updated + n->parms->locktime);
++		override =3D (sip =3D=3D tip) || time_after(jiffies, n->updated + n-=
+>parms->locktime);
+=20
+ 		/* Broadcast replies and request packets
+ 		   do not assert neighbour reachability.
 
