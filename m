@@ -1,29 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 v3] fasync: RCU and fine grained locking
-Date: Wed, 21 Apr 2010 16:20:24 -0700 (PDT)
-Message-ID: <20100421.162024.248644052.davem@davemloft.net>
-References: <1271257027.16881.1663.camel@edumazet-laptop>
-	<1271259264.16881.1703.camel@edumazet-laptop>
-	<1271274935.16881.1746.camel@edumazet-laptop>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: Re: [PATCH] Infiniband: Randomize local port allocation.
+Date: Wed, 21 Apr 2010 16:22:08 -0700
+Message-ID: <ada7ho0o0gv.fsf@roland-alpha.cisco.com>
+References: <20100412100744.5302.92442.sendpatchset@localhost.localdomain>
+	<20100412100816.5302.74919.sendpatchset@localhost.localdomain>
+	<201004130121.o3D1Lhh7099571@www262.sakura.ne.jp>
+	<4BC41994.7030707@redhat.com> <4BC42FE0.4040601@redhat.com>
+	<201004132207.GAJ52684.OJFtMQVFHOSFLO@I-love.SAKURA.ne.jp>
+	<21DAC78125424ED291B5D6477CFF9657@amr.corp.intel.com>
+	<201004140201.o3E21Aqn075978@www262.sakura.ne.jp>
+	<195EB1AD388F455AA386EB214FCD09F4@amr.corp.intel.com>
+	<201004150229.o3F2T4dZ054768@www262.sakura.ne.jp>
+	<adabpdco0lb.fsf@roland-alpha.cisco.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: paulmck@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, laijs@cn.fujitsu.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: sean.hefty@intel.com, amwang@redhat.com, opurdila@ixiacom.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	nhorman@tuxdriver.com, davem@davemloft.net, ebiederm@xmission.com,
+	linux-kernel@vger.kernel.org, rolandd@cisco.com
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33825
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754234Ab0DUXUT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 19:20:19 -0400
-In-Reply-To: <1271274935.16881.1746.camel@edumazet-laptop>
+Received: from sj-iport-5.cisco.com ([171.68.10.87]:35958 "EHLO
+	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754673Ab0DUXWM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 19:22:12 -0400
+In-Reply-To: <adabpdco0lb.fsf@roland-alpha.cisco.com> (Roland Dreier's message
+	of "Wed, 21 Apr 2010 16:19:28 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 14 Apr 2010 21:55:35 +0200
+ > Thanks, applied this part of the patch -- I preferred this one since the
 
-> [PATCH net-next-2.6 v3] fasync: RCU and fine grained locking
-
-BTW, just to be clear I made sure to apply V3 of this
-patch not the initial submission :-)
+err, not "part of the patch" -- I meant "this version of the patch".
+-- 
+Roland Dreier <rolandd@cisco.com> || For corporate legal information go to:
+http://www.cisco.com/web/about/doing_business/legal/cri/index.html
