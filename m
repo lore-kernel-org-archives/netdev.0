@@ -1,54 +1,52 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [PATCH] cxgb3: fix linkup issue
-Date: Wed, 21 Apr 2010 12:12:14 -0700
-Message-ID: <4BCF4E0E.1080805@chelsio.com>
-References: <4BCD0424.8030501@ct.jp.nec.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next-2.6] rps: consistent rxhash
+Date: Wed, 21 Apr 2010 12:12:41 -0700
+Message-ID: <g2m65634d661004211212t13714cccyd27936c520515684@mail.gmail.com>
+References: <1271769404.7895.10.camel@edumazet-laptop>
+	 <4BCDB425.9050007@lastsummer.de>
+	 <1271775421.7895.19.camel@edumazet-laptop>
+	 <20100420.144106.118596093.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: eric.dumazet@gmail.com, franco@lastsummer.de, xiaosuo@gmail.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:28809 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753717Ab0DUTL7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 15:11:59 -0400
-In-Reply-To: <4BCD0424.8030501@ct.jp.nec.com>
+Received: from smtp-out.google.com ([74.125.121.35]:54285 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754188Ab0DUTMq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 15:12:46 -0400
+Received: from hpaq7.eem.corp.google.com (hpaq7.eem.corp.google.com [10.3.21.7])
+	by smtp-out.google.com with ESMTP id o3LJCidi012844
+	for <netdev@vger.kernel.org>; Wed, 21 Apr 2010 21:12:44 +0200
+Received: from pwj2 (pwj2.prod.google.com [10.241.219.66])
+	by hpaq7.eem.corp.google.com with ESMTP id o3LJCg2B011452
+	for <netdev@vger.kernel.org>; Wed, 21 Apr 2010 21:12:43 +0200
+Received: by pwj2 with SMTP id 2so5098495pwj.3
+        for <netdev@vger.kernel.org>; Wed, 21 Apr 2010 12:12:41 -0700 (PDT)
+In-Reply-To: <20100420.144106.118596093.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hiroshi Shimamoto wrote:
-> From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+On Tue, Apr 20, 2010 at 2:41 PM, David Miller <davem@davemloft.net> wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 20 Apr 2010 16:57:01 +0200
 >
-> I encountered an issue that not to link up on cxgb3 fabric.
-> I bisected and found that this regression was introduced by
-> 0f07c4ee8c800923ae7918c231532a9256233eed.
+>> I know many applications using TCP on loopback, they are real :)
 >
-> Correct to pass phy_addr to cphy_init() at t3_xaui_direct_phy_prep().
+> This is all true and I support your hashing patch and all of that.
 >
-> Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
->   
+> But if we really want TCP over loopback to go fast, there are much
+> better ways to do this.
+>
+> Eric, do you remember that "TCP friends" rough patch I sent you last
+> year that essentailly made TCP sockets over loopback behave like
+> AF_UNIX ones and just queue the SKBs directly to the destination
+> socket without doing any protocol work?
+>
 
-Sorry for the review delay, I just came back from some time off.
-Acked-by: Divy Le Ray <divy@chelsio.com>
+This is sounds very interesting!  Could you post a patch? :-)
 
-> ---
->  drivers/net/cxgb3/ael1002.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
+> If we ever got that working, tbench performance would become
+> impressive :)
 >
-> diff --git a/drivers/net/cxgb3/ael1002.c b/drivers/net/cxgb3/ael1002.c
-> index 5248f9e..35cd367 100644
-> --- a/drivers/net/cxgb3/ael1002.c
-> +++ b/drivers/net/cxgb3/ael1002.c
-> @@ -934,7 +934,7 @@ static struct cphy_ops xaui_direct_ops = {
->  int t3_xaui_direct_phy_prep(struct cphy *phy, struct adapter *adapter,
->  			    int phy_addr, const struct mdio_ops *mdio_ops)
->  {
-> -	cphy_init(phy, adapter, MDIO_PRTAD_NONE, &xaui_direct_ops, mdio_ops,
-> +	cphy_init(phy, adapter, phy_addr, &xaui_direct_ops, mdio_ops,
->  		  SUPPORTED_10000baseT_Full | SUPPORTED_AUI | SUPPORTED_TP,
->  		  "10GBASE-CX4");
->  	return 0;
->   
-
