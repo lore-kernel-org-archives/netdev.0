@@ -1,90 +1,134 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [stable] [PATCH] tun: orphan an skb on tx
-Date: Wed, 21 Apr 2010 12:16:01 -0700
-Message-ID: <20100421191601.GJ13228@kroah.com>
-References: <20100413145944.GA7716@redhat.com>
- <20100421113557.GA31606@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: PROBLEM: Linux kernel 2.6.31 IPv4 TCP fails to open huge
+ amount of outgoing connections (unable to bind ... )
+Date: Wed, 21 Apr 2010 21:26:15 +0200
+Message-ID: <1271877975.7895.3171.camel@edumazet-laptop>
+References: <4BCE3D8D.3030500@candelatech.com>
+	 <1271808314.7895.614.camel@edumazet-laptop>
+	 <20100421003022.GA3107@ioremap.net>
+	 <1271828799.7895.1287.camel@edumazet-laptop>
+	 <20100421082559.GA32475@ioremap.net>
+	 <1271840535.7895.1612.camel@edumazet-laptop>
+	 <20100421095812.GA14778@ioremap.net>
+	 <1271849253.7895.1929.camel@edumazet-laptop>
+	 <20100421182723.GA17202@ioremap.net>
+	 <1271875416.7895.3033.camel@edumazet-laptop>
+	 <20100421185837.GB21249@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stable@kernel.org, Paul Moore <paul.moore@hp.com>,
-	David Woodhouse <David.Woodhouse@intel.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	qemu-devel <qemu-devel@nongnu.org>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Jan Kiszka <jan.kiszka@siemens.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100421113557.GA31606@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Greear <greearb@candelatech.com>,
+	David Miller <davem@davemloft.net>,
+	Gaspar Chilingarov <gasparch@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Evgeniy Polyakov <zbr@ioremap.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f209.google.com ([209.85.218.209]:65398 "EHLO
+	mail-bw0-f209.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755405Ab0DUT0Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 15:26:25 -0400
+Received: by bwz1 with SMTP id 1so10568962bwz.2
+        for <netdev@vger.kernel.org>; Wed, 21 Apr 2010 12:26:24 -0700 (PDT)
+In-Reply-To: <20100421185837.GB21249@ioremap.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 21, 2010 at 02:35:57PM +0300, Michael S. Tsirkin wrote:
-> On Tue, Apr 13, 2010 at 05:59:44PM +0300, Michael S. Tsirkin wrote:
-> > The following situation was observed in the field:
-> > tap1 sends packets, tap2 does not consume them, as a result
-> > tap1 can not be closed. This happens because
-> > tun/tap devices can hang on to skbs undefinitely.
-> > 
-> > As noted by Herbert, possible solutions include a timeout followed by a
-> > copy/change of ownership of the skb, or always copying/changing
-> > ownership if we're going into a hostile device.
-> > 
-> > This patch implements the second approach.
-> > 
-> > Note: one issue still remaining is that since skbs
-> > keep reference to tun socket and tun socket has a
-> > reference to tun device, we won't flush backlog,
-> > instead simply waiting for all skbs to get transmitted.
-> > At least this is not user-triggerable, and
-> > this was not reported in practice, my assumption is
-> > other devices besides tap complete an skb
-> > within finite time after it has been queued.
-> > 
-> > A possible solution for the second issue
-> > would not to have socket reference the device,
-> > instead, implement dev->destructor for tun, and
-> > wait for all skbs to complete there, but this
-> > needs some thought, probably too risky for 2.6.34.
-> > 
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > Tested-by: Yan Vugenfirer <yvugenfi@redhat.com>
-> > 
-> > ---
-> > 
-> > Please review the below, and consider for 2.6.34,
-> > and stable trees.
-> > 
-> >  drivers/net/tun.c |    4 ++++
-> >  1 files changed, 4 insertions(+), 0 deletions(-)
-> > 
-> > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> > index 96c39bd..4326520 100644
-> > --- a/drivers/net/tun.c
-> > +++ b/drivers/net/tun.c
-> > @@ -387,6 +387,10 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
-> >  		}
-> >  	}
-> >  
-> > +	/* Orphan the skb - required as we might hang on to it
-> > +	 * for indefinite time. */
-> > +	skb_orphan(skb);
-> > +
-> >  	/* Enqueue packet */
-> >  	skb_queue_tail(&tun->socket.sk->sk_receive_queue, skb);
-> >  	dev->trans_start = jiffies;
-> > -- 
-> > 1.7.0.2.280.gc6f05
-> 
-> This is commit 0110d6f22f392f976e84ab49da1b42f85b64a3c5 in net-2.6
-> Please cherry-pick this fix in stable kernels (2.6.32 and 2.6.33).
+Le mercredi 21 avril 2010 =C3=A0 22:58 +0400, Evgeniy Polyakov a =C3=A9=
+crit :
 
-David Miller queues up the patches for the network subsystem for the
-stable trees, and then forwards them to me when he feels they are ready.
+> Damn it, I tried multiple times :)
+> You are right of course!
+>=20
 
-So I'll defer to him on this one and wait for it to come from him.
+Here is a formal patch then :)
 
-thanks,
+[PATCH] tcp: bind() fix when many ports are bound
 
-greg k-h
+Port autoselection done by kernel only works when number of bound
+sockets is under a threshold (typically 30000).
+
+When this threshold is over, we must check if there is a conflict befor=
+e
+exiting first loop in inet_csk_get_port()
+
+Change inet_csk_bind_conflict() to forbid two reuse-enabled sockets to
+bind on same (address,port) tuple (with a non ANY address)
+
+Same change for inet6_csk_bind_conflict()
+
+Reported-by: Gaspar Chilingarov <gasparch@gmail.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/inet_connection_sock.c  |   16 +++++++++++-----
+ net/ipv6/inet6_connection_sock.c |   15 ++++++++++-----
+ 2 files changed, 21 insertions(+), 10 deletions(-)
+
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection=
+_sock.c
+index e0a3e35..78cbc39 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -70,13 +70,17 @@ int inet_csk_bind_conflict(const struct sock *sk,
+ 		    (!sk->sk_bound_dev_if ||
+ 		     !sk2->sk_bound_dev_if ||
+ 		     sk->sk_bound_dev_if =3D=3D sk2->sk_bound_dev_if)) {
++			const __be32 sk2_rcv_saddr =3D inet_rcv_saddr(sk2);
++
+ 			if (!reuse || !sk2->sk_reuse ||
+ 			    sk2->sk_state =3D=3D TCP_LISTEN) {
+-				const __be32 sk2_rcv_saddr =3D inet_rcv_saddr(sk2);
+ 				if (!sk2_rcv_saddr || !sk_rcv_saddr ||
+ 				    sk2_rcv_saddr =3D=3D sk_rcv_saddr)
+ 					break;
+-			}
++			} else if (reuse && sk2->sk_reuse &&
++				   sk2_rcv_saddr &&
++				   sk2_rcv_saddr =3D=3D sk_rcv_saddr)
++				break;
+ 		}
+ 	}
+ 	return node !=3D NULL;
+@@ -120,9 +124,11 @@ again:
+ 						smallest_size =3D tb->num_owners;
+ 						smallest_rover =3D rover;
+ 						if (atomic_read(&hashinfo->bsockets) > (high - low) + 1) {
+-							spin_unlock(&head->lock);
+-							snum =3D smallest_rover;
+-							goto have_snum;
++							if (!inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb)) {
++								spin_unlock(&head->lock);
++								snum =3D smallest_rover;
++								goto have_snum;
++							}
+ 						}
+ 					}
+ 					goto next;
+diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connecti=
+on_sock.c
+index 0c5e3c3..fb6959c 100644
+--- a/net/ipv6/inet6_connection_sock.c
++++ b/net/ipv6/inet6_connection_sock.c
+@@ -42,11 +42,16 @@ int inet6_csk_bind_conflict(const struct sock *sk,
+ 		if (sk !=3D sk2 &&
+ 		    (!sk->sk_bound_dev_if ||
+ 		     !sk2->sk_bound_dev_if ||
+-		     sk->sk_bound_dev_if =3D=3D sk2->sk_bound_dev_if) &&
+-		    (!sk->sk_reuse || !sk2->sk_reuse ||
+-		     sk2->sk_state =3D=3D TCP_LISTEN) &&
+-		     ipv6_rcv_saddr_equal(sk, sk2))
+-			break;
++		     sk->sk_bound_dev_if =3D=3D sk2->sk_bound_dev_if)) {
++			if ((!sk->sk_reuse || !sk2->sk_reuse ||
++			     sk2->sk_state =3D=3D TCP_LISTEN) &&
++			     ipv6_rcv_saddr_equal(sk, sk2))
++				break;
++			else if (sk->sk_reuse && sk2->sk_reuse &&
++				!ipv6_addr_any(inet6_rcv_saddr(sk2)) &&
++				ipv6_rcv_saddr_equal(sk, sk2))
++				break;
++		}
+ 	}
+=20
+ 	return node !=3D NULL;
+
+
