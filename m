@@ -1,39 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET: Fix an RCU warning in dev_pick_tx()
-Date: Wed, 21 Apr 2010 01:10:57 -0700 (PDT)
-Message-ID: <20100421.011057.226808869.davem@davemloft.net>
-References: <20100420102558.31923.91.stgit@warthog.procyon.org.uk>
-	<1271779414.7895.35.camel@edumazet-laptop>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: PROBLEM: Linux kernel 2.6.31 IPv4 TCP fails to open huge amount of outgoing connections (unable to bind ... )
+Date: Wed, 21 Apr 2010 12:25:59 +0400
+Message-ID: <20100421082559.GA32475@ioremap.net>
+References: <g2z46c8cb3e1004201517i5641a75cze2ec5bd33e81fb0f@mail.gmail.com> <4BCE33B9.8050101@candelatech.com> <u2t46c8cb3e1004201620tf9fce087ibae421759f9e1e84@mail.gmail.com> <4BCE392F.60104@candelatech.com> <y2p46c8cb3e1004201635s8f84672dq90d3115dca04a1ed@mail.gmail.com> <4BCE3D8D.3030500@candelatech.com> <1271808314.7895.614.camel@edumazet-laptop> <20100421003022.GA3107@ioremap.net> <1271828799.7895.1287.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dhowells@redhat.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Greear <greearb@candelatech.com>,
+	David Miller <davem@davemloft.net>,
+	Gaspar Chilingarov <gasparch@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39054
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751886Ab0DUILN convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Apr 2010 04:11:13 -0400
-In-Reply-To: <1271779414.7895.35.camel@edumazet-laptop>
+Received: from cs-studio.ru ([195.178.208.66]:40529 "EHLO tservice.net.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752677Ab0DUI0G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Apr 2010 04:26:06 -0400
+Content-Disposition: inline
+In-Reply-To: <1271828799.7895.1287.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 20 Apr 2010 18:03:34 +0200
+On Wed, Apr 21, 2010 at 07:46:39AM +0200, Eric Dumazet (eric.dumazet@gmail.com) wrote:
+> 		if (atomic_read(&hashinfo->bsockets) > (high-low)+1) {
+> 			spin_unlock(&head->lock);
+> 			snum = smallest_rover;   // We select this, without checking for
+> conflicts.
+> 			goto have_snum;
+> 		}
+> 	}
+> 
+> 
+> Then we goto to "have_snum" label
+> 
+> Then we realize (selected_IP, randomport) is already in use.
+> End of first try.
+> 
+> We redo the thing 5 times, so we only look at 5 slots out of
+> 32000-64000.
 
-> Le mardi 20 avril 2010 =E0 11:25 +0100, David Howells a =E9crit :
->> Fix the following RCU warning in dev_pick_tx():
- ...
-> Absolutely right, thanks David
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+We only break out of the loop in above case when number of sockets is
+already more than our range limit. If we would just try 5 random times
+out of 1000 in Gaspar's case, we would not be able to select all 1000
+sockets.
 
-I'll apply this, thanks everyone.
+> Maybe the fix would need to check if there is a conflict before doing
+> the "goto have_snum"
 
-> This might conflict with following commit in net-next-2.6, where I ch=
-ose
-> the rcu_dereference_check() alternative
+I believe this is a useful patch, but it addresses a different issue.
+This path should not fire up when we bind to single address.
 
-Yead I'll be mindful of this when I do a merge right after
-this, thanks for the heads up.
+> diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+> index e0a3e35..0498daf 100644
+> --- a/net/ipv4/inet_connection_sock.c
+> +++ b/net/ipv4/inet_connection_sock.c
+> @@ -120,9 +120,11 @@ again:
+>  						smallest_size = tb->num_owners;
+>  						smallest_rover = rover;
+>  						if (atomic_read(&hashinfo->bsockets) > (high - low) + 1) {
+> -							spin_unlock(&head->lock);
+> -							snum = smallest_rover;
+> -							goto have_snum;
+> +							if (!inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb))
+> +								spin_unlock(&head->lock);
+> +								snum = smallest_rover;
+> +								goto have_snum;
+> +							}
+>  						}
+>  					}
+>  					goto next;
+> 
+
+-- 
+	Evgeniy Polyakov
