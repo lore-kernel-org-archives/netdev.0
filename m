@@ -1,43 +1,52 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] ethernet: print protocol in host byte order
-Date: Wed, 21 Apr 2010 09:06:07 +0200
-Message-ID: <1271833567.3627.12.camel@jlt3.sipsolutions.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: ipv6: Fix tcp_v6_send_response checksum
+Date: Wed, 21 Apr 2010 15:07:37 +0800
+Message-ID: <20100421070737.GA30517@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:50727 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750970Ab0DUHGK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 03:06:10 -0400
+Received: from ringil.hengli.com.au ([216.59.3.182]:57352 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751611Ab0DUHHl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 03:07:41 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric's recent patch added __force, but this
-place would seem to require actually doing
-a byte order conversion so the printk is
-consistent across architectures.
+Hi:
 
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
----
- net/ethernet/eth.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ipv6: Fix tcp_v6_send_response checksum
 
-diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-index 3584696..0c0d272 100644
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -136,7 +136,7 @@ int eth_rebuild_header(struct sk_buff *skb)
- 	default:
- 		printk(KERN_DEBUG
- 		       "%s: unable to resolve type %X addresses.\n",
--		       dev->name, (__force int)eth->h_proto);
-+		       dev->name, ntohs(eth->h_proto));
+My recent patch to remove the open-coded checksum sequence in
+tcp_v6_send_response broke it as we did not set the transport
+header pointer on the new packet.
+
+Instead we had set the transport header on the original packet,
+which is unnecessary and unexpected.
+
+So this patch removes that and instead sets the transport header
+on the new packet.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index c92ebe8..075f540 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1015,7 +1015,7 @@ static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
+ 	skb_reserve(buff, MAX_HEADER + sizeof(struct ipv6hdr) + tot_len);
  
- 		memcpy(eth->h_source, dev->dev_addr, ETH_ALEN);
- 		break;
+ 	t1 = (struct tcphdr *) skb_push(buff, tot_len);
+-	skb_reset_transport_header(skb);
++	skb_reset_transport_header(buff);
+ 
+ 	/* Swap the send and the receive. */
+ 	memset(t1, 0, sizeof(*t1));
 
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
