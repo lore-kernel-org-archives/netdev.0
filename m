@@ -1,45 +1,45 @@
-From: Mikulas Patocka <mpatocka@redhat.com>
-Subject: Re: crash with bridge and inconsistent handling of NETDEV_TX_OK
-Date: Tue, 20 Apr 2010 21:20:09 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.1004202116570.29631@hs20-bc2-1.build.redhat.com>
-References: <Pine.LNX.4.64.1004202018100.16302@hs20-bc2-1.build.redhat.com>
- <20100420.180253.159346294.davem@davemloft.net>
- <Pine.LNX.4.64.1004202108240.27476@hs20-bc2-1.build.redhat.com>
- <20100420.181434.35828504.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bridge: add a missing ntohs()
+Date: Tue, 20 Apr 2010 18:21:36 -0700 (PDT)
+Message-ID: <20100420.182136.67592677.davem@davemloft.net>
+References: <1271769605.7895.14.camel@edumazet-laptop>
+	<20100420133016.GA21788@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22455 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754071Ab0DUBUU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Apr 2010 21:20:20 -0400
-In-Reply-To: <20100420.181434.35828504.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48670
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754250Ab0DUBVb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 21:21:31 -0400
+In-Reply-To: <20100420133016.GA21788@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 20 Apr 2010 21:30:16 +0800
 
-
-On Tue, 20 Apr 2010, David Miller wrote:
-
-> From: Mikulas Patocka <mpatocka@redhat.com>
-> Date: Tue, 20 Apr 2010 21:10:04 -0400 (EDT)
+> On Tue, Apr 20, 2010 at 03:20:05PM +0200, Eric Dumazet wrote:
+>> Found by code review and sparse endianness warning, I am not sure this
+>> patch is valid.
+>> 
+>> Thanks
+>> 
+>> [PATCH] bridge: add a missing ntohs()
+>> 
+>> grec_nsrcs is in network order, we should convert to host horder in
+>> br_multicast_igmp3_report()
+>> 
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 > 
-> > I see, but GRO is turned off on my interfaces, according to ethtool.
-> 
-> GRO is just a flag bit, so it's possible that if your kernel is too
-> old ethtool will always show that it's off.
-> 
-> If you haven't turned off GRO explicitly, then it's a good bet that
-> this is why it looks like it's off.  And GRO is on by default.
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-I have kernel 2.6.34-rc4, ethtool 2.6.33 and GRO is off. I haven't turned 
-it off, I left it on default.
+Good catch Eric.
 
-> I still contend, therefore, that it's completely normal to see GSO
-> packet processing in the TX code path, even with bridging, and
-> therefore seeing the GSO code path get taken is not indicative of some
-> bug wrt. ->ndo_start_xmit() return value flag bit handling.
+Note that this means that most igmpv3_grec entries get ignored
+on little-endian because the greg_nsrcs will look "real big"
+and thus the pskb_may_pull() will fail.
 
-Mikulas
+Anyways I'll apply this to net-2.6, thanks.
