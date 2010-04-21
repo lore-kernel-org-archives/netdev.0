@@ -1,56 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cxgb3: fix linkup issue
-Date: Tue, 20 Apr 2010 19:06:00 -0700 (PDT)
-Message-ID: <20100420.190600.268103639.davem@davemloft.net>
-References: <4BCD0424.8030501@ct.jp.nec.com>
+Subject: Re: [PATCH net-next-2.6] net: Fix various endianness glitches
+Date: Tue, 20 Apr 2010 19:07:17 -0700 (PDT)
+Message-ID: <20100420.190717.179901472.davem@davemloft.net>
+References: <1271769504.7895.13.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	divy@chelsio.com
-To: h-shimamoto@ct.jp.nec.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4BCD0424.8030501@ct.jp.nec.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57156
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755182Ab0DUCHM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 22:07:12 -0400
+In-Reply-To: <1271769504.7895.13.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
-Date: Tue, 20 Apr 2010 10:32:20 +0900
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 20 Apr 2010 15:18:24 +0200
 
-> From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+> Sparse can help us find endianness bugs, but we need to make some
+> cleanups to be able to more easily spot real bugs.
 > 
-> I encountered an issue that not to link up on cxgb3 fabric.
-> I bisected and found that this regression was introduced by
-> 0f07c4ee8c800923ae7918c231532a9256233eed.
-> 
-> Correct to pass phy_addr to cphy_init() at t3_xaui_direct_phy_prep().
-> 
-> Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-CXGB3 maintainers, please review.
+Since this already helped you find a bug in the bridging
+igmp snooping code, how can I not apply this? :-)
 
-> ---
->  drivers/net/cxgb3/ael1002.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/cxgb3/ael1002.c b/drivers/net/cxgb3/ael1002.c
-> index 5248f9e..35cd367 100644
-> --- a/drivers/net/cxgb3/ael1002.c
-> +++ b/drivers/net/cxgb3/ael1002.c
-> @@ -934,7 +934,7 @@ static struct cphy_ops xaui_direct_ops = {
->  int t3_xaui_direct_phy_prep(struct cphy *phy, struct adapter *adapter,
->  			    int phy_addr, const struct mdio_ops *mdio_ops)
->  {
-> -	cphy_init(phy, adapter, MDIO_PRTAD_NONE, &xaui_direct_ops, mdio_ops,
-> +	cphy_init(phy, adapter, phy_addr, &xaui_direct_ops, mdio_ops,
->  		  SUPPORTED_10000baseT_Full | SUPPORTED_AUI | SUPPORTED_TP,
->  		  "10GBASE-CX4");
->  	return 0;
-> -- 
-> 1.6.3.3
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Applied, thanks Eric.
