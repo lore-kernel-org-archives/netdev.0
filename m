@@ -1,78 +1,38 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] RCU: don't turn off lockdep when find suspicious
- rcu_dereference_check() usage
-Date: Wed, 21 Apr 2010 14:48:48 -0700
-Message-ID: <20100421214848.GQ2563@linux.vnet.ibm.com>
-References: <1271701612.2972.5.camel@dhcp231-113.rdu.redhat.com>
- <20100419230136.GA16856@linux.vnet.ibm.com>
- <1271726729.2972.13.camel@dhcp231-113.rdu.redhat.com>
- <20100420030452.GB2905@linux.vnet.ibm.com>
- <4BCD646B.1080206@cn.fujitsu.com>
- <1271766716.2972.16.camel@dhcp231-113.rdu.redhat.com>
- <j2ya44ae5cd1004200545q6be4ec82o18ae99d93e8c29c7@mail.gmail.com>
- <20100420135227.GC2628@linux.vnet.ibm.com>
- <t2la44ae5cd1004200838w87256e80v9dcde91342b321db@mail.gmail.com>
- <20100421213543.GO2563@linux.vnet.ibm.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: rps perfomance WAS(Re: rps: question
+Date: Wed, 21 Apr 2010 14:53:28 -0700
+Message-ID: <4BCF73D8.8090603@hp.com>
+References: <t2p65634d661004141031xf80f62e7sb64362ea1ce10a1f@mail.gmail.com>	<1271268242.16881.1719.camel@edumazet-laptop>	<1271271222.4567.51.camel@bigi>	<20100415.014857.168270765.davem@davemloft.net>	<1271332528.4567.150.camel@bigi>  <4BC741AE.3000108@hp.com>	<1271362581.23780.12.camel@bigi>	<n2p412e6f7f1004151656q5f3f2cbeh324a859b88688398@mail.gmail.com>	<1271395106.16881.3645.camel@edumazet-laptop>	<1271424065.4606.31.camel@bigi>	<1271489739.16881.4586.camel@edumazet-laptop>	<1271525519.3929.3.camel@bigi>	<1271583573.16881.4798.camel@edumazet-laptop>	<1271590476.16881.4925.camel@edumazet-laptop>	<1271764941.3735.94.camel@bigi>	<1271769195.7895.4.camel@edumazet-laptop> <1271853570.4032.21.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Paris <eparis@redhat.com>,
-	Lai Jiangshan <laijs@cn.fujitsu.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Peter Zijlstra <peterz@infradead.org>,
-	LKML <linux-kernel@vger.kernel.org>, vgoyal@redhat.com,
-	nauman@google.com, eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Miles Lane <miles.lane@gmail.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Changli Gao <xiaosuo@gmail.com>,
+	David Miller <davem@davemloft.net>, therbert@google.com,
+	netdev@vger.kernel.org, robert@herjulf.net, andi@firstfloor.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:34205 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755393Ab0DUVsv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Apr 2010 17:48:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20100421213543.GO2563@linux.vnet.ibm.com>
+Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:39610 "EHLO
+	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756738Ab0DUVxe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 17:53:34 -0400
+In-Reply-To: <1271853570.4032.21.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 21, 2010 at 02:35:43PM -0700, Paul E. McKenney wrote:
-> On Tue, Apr 20, 2010 at 11:38:28AM -0400, Miles Lane wrote:
-> > Excellent.  Here are the results on my machine.  .config appended.
+> Let me explain my test setup (which some app types may gasp at;->):
 > 
-> First, thank you very much for testing this, Miles!
+> SUT(system under test) was a nehalem single processor (4 cores, 2 SMT
+> threads per core). 
+> SUT runs a udp sink server i wrote (with apologies to Rick Jones[1])
+ > ...
+> 
+> [1] I want to hump on the SUT with tons of traffic and count packets;
+> too complex to do with netperf
 
-And as Tetsuo Handa pointed out privately, my patch was way broken.
+No need to apologize,  if you like I'd be happy to discuss netperf usage tips 
+offline.  That offer stands for everyone.
 
-Here is an updated version.
+happy benchmarking,
 
-							Thanx, Paul
-
-commit b15e561ed91b7a366c3cc635026f3b9ce6483070
-Author: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-Date:   Wed Apr 21 14:04:56 2010 -0700
-
-    sched: protect __sched_setscheduler() access to cgroups
-    
-    A given task's cgroups structures must remain while that task is running
-    due to reference counting, so this is presumably a false positive.
-    Updated to reflect feedback from Tetsuo Handa.
-    
-    Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-
-diff --git a/kernel/sched.c b/kernel/sched.c
-index 14c44ec..f425a2b 100644
---- a/kernel/sched.c
-+++ b/kernel/sched.c
-@@ -4575,9 +4575,13 @@ recheck:
- 		 * Do not allow realtime tasks into groups that have no runtime
- 		 * assigned.
- 		 */
-+		rcu_read_lock();
- 		if (rt_bandwidth_enabled() && rt_policy(policy) &&
--				task_group(p)->rt_bandwidth.rt_runtime == 0)
-+				task_group(p)->rt_bandwidth.rt_runtime == 0) {
-+			rcu_read_unlock();
- 			return -EPERM;
-+		}
-+		rcu_read_unlock();
- #endif
- 
- 		retval = security_task_setscheduler(p, policy, param);
+rick jones
