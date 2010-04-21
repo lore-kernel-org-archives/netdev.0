@@ -1,43 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH net-next-2.6 2/2] tg3: Enable GRO by default.
-Date: Tue, 20 Apr 2010 19:08:27 -0700 (PDT)
-Message-ID: <20100420.190827.71869647.davem@davemloft.net>
+Subject: Re: [PATCH 1/2] ehea: error handling improvement
+Date: Tue, 20 Apr 2010 19:16:02 -0700 (PDT)
+Message-ID: <20100420.191602.228303800.davem@davemloft.net>
+References: <4BCC47AB.2090600@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57163
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753419Ab0DUCIW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 22:08:22 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 1559224C115
-	for <netdev@vger.kernel.org>; Tue, 20 Apr 2010 19:08:28 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: raisch@de.ibm.com, themann@de.ibm.com,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	netdev@vger.kernel.org
+To: osstklei@de.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4BCC47AB.2090600@de.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Thomas Klein <osstklei@de.ibm.com>
+Date: Mon, 19 Apr 2010 14:08:11 +0200
 
-This was merely an oversight when I added the *_gro_receive()
-calls.
+> Reset a port's resources only if they're actually in an error state
+> 
+> Signed-off-by: Thomas Klein <tklein@de.ibm.com>
+> ---
+> 
+> Patch created against 2.6.34-rc4
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/tg3.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+There are several problems with these patches:
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 0fea685..7724d7e 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -12993,6 +12993,7 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 		tp->dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG;
- 		if (tp->tg3_flags3 & TG3_FLG3_5755_PLUS)
- 			tp->dev->features |= NETIF_F_IPV6_CSUM;
-+		tp->dev->features |= NETIF_F_GRO;
- 	}
- 
- 	/* Determine TSO capabilities */
--- 
-1.7.0.4
+1) They are corrupted by your email client, lines unchanged
+   begin with one space character instead of two.  Therefore
+   even 'patch' wouldn't accept these changes.
 
+2) The double slash in the patch file paths make git not
+   accept the change.  Please don't put double-slashes in
+   your patch paths as that canonically means "/".
+
+3) These are not appropriate for net-2.6 as we are deep in
+   the -rcX series at this point and only the most diabolical
+   bug fixes are appropriate.  Therefore, please generate these
+   against net-next-2.6, thanks.
