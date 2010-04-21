@@ -1,58 +1,61 @@
-From: Scott Feldman <scofeldm@cisco.com>
-Subject: Re: [net-next,1/2] add iovnl netlink support
-Date: Wed, 21 Apr 2010 09:28:07 -0700
-Message-ID: <C7F475A7.2A1D9%scofeldm@cisco.com>
-References: <201004211517.58062.arnd@arndb.de>
+From: "George B." <georgeb@gmail.com>
+Subject: Re: PROBLEM: Linux kernel 2.6.31 IPv4 TCP fails to open huge amount
+	of outgoing connections (unable to bind ... )
+Date: Wed, 21 Apr 2010 09:52:10 -0700
+Message-ID: <u2pb65cae941004210952x1e23957cm1b04ef892d7e8d0a@mail.gmail.com>
+References: <4BCE33B9.8050101@candelatech.com>
+	 <y2p46c8cb3e1004201635s8f84672dq90d3115dca04a1ed@mail.gmail.com>
+	 <4BCE3D8D.3030500@candelatech.com>
+	 <1271808314.7895.614.camel@edumazet-laptop>
+	 <20100421003022.GA3107@ioremap.net>
+	 <1271828799.7895.1287.camel@edumazet-laptop>
+	 <20100421082559.GA32475@ioremap.net>
+	 <1271840535.7895.1612.camel@edumazet-laptop>
+	 <20100421095812.GA14778@ioremap.net>
+	 <1271849253.7895.1929.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: Chris Wright <chrisw@redhat.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Evgeniy Polyakov <zbr@ioremap.net>,
+	Ben Greear <greearb@candelatech.com>,
+	David Miller <davem@davemloft.net>,
+	Gaspar Chilingarov <gasparch@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-2.cisco.com ([171.71.176.71]:36295 "EHLO
-	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755804Ab0DUQ2M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 12:28:12 -0400
-In-Reply-To: <201004211517.58062.arnd@arndb.de>
+Received: from mail-pz0-f186.google.com ([209.85.222.186]:39020 "EHLO
+	mail-pz0-f186.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752035Ab0DUQwL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 12:52:11 -0400
+Received: by pzk16 with SMTP id 16so3720470pzk.22
+        for <netdev@vger.kernel.org>; Wed, 21 Apr 2010 09:52:11 -0700 (PDT)
+In-Reply-To: <1271849253.7895.1929.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/21/10 6:17 AM, "Arnd Bergmann" <arnd@arndb.de> wrote:
+On Wed, Apr 21, 2010 at 4:27 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Here is the patch I use now and my test application is now able to open
+> and connect 1000000 sockets (ulimit -n 1000000)
 
-> On Tuesday 20 April 2010, Scott Feldman wrote:
->> On 4/20/10 9:19 AM, "Arnd Bergmann" <arnd@arndb.de> wrote:
->> 
->>>> In the case of devices that can do adjacent switch negotiations directly.
->>> 
->>> I thought the idea to deal with those devices was to beat sense into
->>> the respective developers until they do the negotiation in software 8-)
->> 
->> When the device can do the negotiation directly with the switch, why does it
->> make sense to bypass that and use software on the host?  I don't think we'd
->> want to give up on link speed/duplex auto-negotiation and punt those setting
->> back to the user/host like in the old days.
-> 
-> For the link negotiation, the card is the right place because it's necessary
-> to get the link working before the OS can talk to the switch.
-> For VDP, that's different because the hypervisor needs to talk to the switch
-> before the guest can communicate, so there is no interdependency.
-> 
-> More importantly, the card cannot possibly do the protocol by itself,
-> because the information that gets exchanged is specific to the hypervisor and
-> the guest, not to the hardware. What you have implemented is another protocol
-> between the hypervisor and the NIC that exchanges the exact same data that
-> then gets sent to the switch. We already need to have an implementation that
-> sends this data to the switch from user space for all cards that don't do
-> it in firmware, so doing an alternative path in the adapter really creates
-> more work for the users, and means that when we fix bugs or add features
-> to the common code, you don't get them ;-).
+I believe we hit this very yesterday in our test lab.  We had a stress
+test running of one of our applications with about a dozen instances
+of it running on the box.  Suddenly dns requests began failing with
+the complaint that it couldn't make a request out because there were
+no sockets.
 
-But the point of iovnl was to provide a single mechanism for both types of
-adapters (w/ or w/o firmware assist) to exchange this data with the switch,
-therefore making the difference in the adapters transparent to the user.  So
-I'm missing your point about more work for the users.
+root@champagne:/proc/sys/net/ipv4> host gh
+host: isc_socket_bind: address in use
 
--scott
+Netstat showed 61580 total sockets (UDP and TCP) on the address being
+used by the above dns request. (local port range 1025 65535).  That
+dns request should not have been failing.
 
+I noticed that the number of UDP sockets was close to the maximum
+allowed by the port range, but they were across different IP
+addresses, no one IP address had too many and there should have been
+available ports on all IP addresses.
+
+Further, the number of udp sockets in use seemed to hit the wall at a
+little above 64,000 and I never got above that number.
+
+If that is the normal behavior of the kernel, it could be a big
+problem for scaling the application.
