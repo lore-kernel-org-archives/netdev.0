@@ -1,38 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] gianfar: Wait for both RX and TX to stop
-Date: Tue, 20 Apr 2010 18:06:46 -0700 (PDT)
-Message-ID: <20100420.180646.216759318.davem@davemloft.net>
-References: <m2ged82fe3e1004191408p53f19073x106ef56677c8a5df@mail.gmail.com>
-	<DD217C72-156B-403D-B83B-EB365C782F2B@kernel.crashing.org>
-	<o2oed82fe3e1004200801n98683cdalb2898c879b93f8fd@mail.gmail.com>
+From: Mikulas Patocka <mpatocka@redhat.com>
+Subject: Re: crash with bridge and inconsistent handling of NETDEV_TX_OK
+Date: Tue, 20 Apr 2010 21:10:04 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.1004202108240.27476@hs20-bc2-1.build.redhat.com>
+References: <Pine.LNX.4.64.1004202003010.13651@hs20-bc2-1.build.redhat.com>
+ <20100420.171525.200010343.davem@davemloft.net>
+ <Pine.LNX.4.64.1004202018100.16302@hs20-bc2-1.build.redhat.com>
+ <20100420.180253.159346294.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: galak@kernel.crashing.org, afleming@freescale.com,
-	netdev@vger.kernel.org
-To: timur.tabi@gmail.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58516
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754517Ab0DUBGl convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Apr 2010 21:06:41 -0400
-In-Reply-To: <o2oed82fe3e1004200801n98683cdalb2898c879b93f8fd@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:53386 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754071Ab0DUBKP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Apr 2010 21:10:15 -0400
+In-Reply-To: <20100420.180253.159346294.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Timur Tabi <timur.tabi@gmail.com>
-Date: Tue, 20 Apr 2010 10:01:48 -0500
+On Tue, 20 Apr 2010, David Miller wrote:
 
-> On Mon, Apr 19, 2010 at 11:43 PM, Kumar Gala <galak@kernel.crashing.o=
-rg> wrote:
->=20
->> spin_event_timeout doesn't make sense for this. =A0The patch is fine=
-=2E
->=20
-> Can you please elaborate on that?  I don't understand why you think
-> that.  spin_event_timeout() takes an expression and a timeout, and
-> loops over the expression calling cpu_relax(), just like this loop
-> does.
+> From: Mikulas Patocka <mpatocka@redhat.com>
+> Date: Tue, 20 Apr 2010 20:23:57 -0400 (EDT)
+> 
+> > I have two NICs, each with 1500 MTU. The stack trace indicates that a 
+> > packet was received by one NIC and bridged to the other. The stack trace 
+> > also indicates that it went through GSO code path. The question is why? 
+> > How could a forwarded packet be so large to use GSO?
+> 
+> GRO automatically accumulates packets together, accumulating them into
+> larger super-packets.  This is done regardless of input device feeding
+> it.
+> 
+> Can you understand this now?  In software, we accumulate all incoming
+> packets for a TCP stream into larger super-packets.  Just because it's
+> a bridging scenerio doesn't mean we disable GRO.
+> 
+> These super-packets are being bridged, then forwarded out your
+> destination device and GSO has to de-segment these GRO frames.
+> 
+> GRO is done unconditionally, all the time, for all packets.
 
-Indeed it does, Kumar this request seems reasonable.
+I see, but GRO is turned off on my interfaces, according to ethtool.
+
+Mikulas
