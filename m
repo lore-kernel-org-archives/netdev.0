@@ -1,111 +1,100 @@
 From: Chris Wright <chrisw@redhat.com>
 Subject: Re: [net-next,1/2] add iovnl netlink support
-Date: Wed, 21 Apr 2010 15:18:06 -0700
-Message-ID: <20100421221806.GD28829@x200.localdomain>
-References: <C7F354F4.29CC8%scofeldm@cisco.com>
- <201004211952.29145.arnd@arndb.de>
- <20100421181021.GC25928@x200.localdomain>
- <201004212139.22421.arnd@arndb.de>
+Date: Wed, 21 Apr 2010 15:48:02 -0700
+Message-ID: <20100421224802.GF28829@x200.localdomain>
+References: <C7F4AD4F.2A34D%scofeldm@cisco.com>
+ <201004212313.05060.arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Chris Wright <chrisw@redhat.com>,
-	Scott Feldman <scofeldm@cisco.com>, davem@davemloft.net,
+Cc: Scott Feldman <scofeldm@cisco.com>,
+	Chris Wright <chrisw@redhat.com>, davem@davemloft.net,
 	netdev@vger.kernel.org
 To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29670 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:41975 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755495Ab0DUWSL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Apr 2010 18:18:11 -0400
+	id S1754335Ab0DUWst (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Apr 2010 18:48:49 -0400
 Content-Disposition: inline
-In-Reply-To: <201004212139.22421.arnd@arndb.de>
+In-Reply-To: <201004212313.05060.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 * Arnd Bergmann (arnd@arndb.de) wrote:
-> On Wednesday 21 April 2010, Chris Wright wrote:
-> > * Arnd Bergmann (arnd@arndb.de) wrote:
-> > > On Wednesday 21 April 2010, Chris Wright wrote:
-> > > > * Arnd Bergmann (arnd@arndb.de) wrote:
-> > > > > Since it seems what you really want to do is to do the exchange with the
-> > > > > switch from here, maybe the hardware configuration part should be moved
-> > > > > the DCB interface?
-> > > > 
-> > > > I suppose this would work  (although it's a bit odd being out of scope
-> > > > of DCB spec).
+> On Wednesday 21 April 2010, Scott Feldman wrote:
+> > On 4/21/10 12:39 PM, "Arnd Bergmann" <arnd@arndb.de> wrote:
+> > 
+> > >>> 1. Setting up the slave device
+> > >>>  a) create an SR-IOV VF to assign to a guest
+> > >>>  b) create a macvtap device to pass to qemu or vhost
+> > >>>  c) attach a tap device to a bridge
+> > >>>  d) create a macvlan device and put it into a container
+> > >>>  e) create a virtual interface for a VMDq adapter
+> > >> 
+> > >> OK, but iovnl isn't doing this.
 > > > 
-> > > It could be anywhere, it doesn't have to be the DCB interface, but could
-> > > be anything ranging from ethtool to iplink I guess. And we should define
-> > > it in a way that works for any SR-IOV card, whether it's using Cisco's
-> > > protocol in firmware, 802.1Qbg VDP in firmware, lldpad to do VDP or
-> > > none of the above and just provides an internal switch like all the
-> > > existing NICs.
+> > > The set_mac_vlan that Scott's patch adds seems to implement 1a), as far
+> > > as I can tell. Interestingly, this is not actually implemented in
+> > > the enic driver in patch 2/2. So if we all agree that this is out of the
+> > > scope of iovnl, let's just remove it from the interface and find another
+> > > way for it (ethtool, iplink, ..., as listed above).
 > > 
-> > Heh, that's exactly what iovnl does ;-)
+> > You're right, not needed for enic since mac addr is included with
+> > port-profile push and vlan membership is implied by port-profile.  So I put
+> > set_mac_vlan in there basically to elicit feedback.
 > 
-> No, according to what you write below, it's exactly what iovnl does *not* do,
-> i.e. part 1 in my list.
-
-OK, I see...in this case to me hw setup was the port profile for the
-enic to initiate host<->switch negotiation, sorry for confusion.
-
-> > > 1. Setting up the slave device
-> > >  a) create an SR-IOV VF to assign to a guest
-> > >  b) create a macvtap device to pass to qemu or vhost
-> > >  c) attach a tap device to a bridge
-> > >  d) create a macvlan device and put it into a container
-> > >  e) create a virtual interface for a VMDq adapter
-> > 
-> > OK, but iovnl isn't doing this.
+> Ok. Two points though:
 > 
-> The set_mac_vlan that Scott's patch adds seems to implement 1a), as far
-> as I can tell. Interestingly, this is not actually implemented in
-> the enic driver in patch 2/2. So if we all agree that this is out of the
-> scope of iovnl, let's just remove it from the interface and find another
-> way for it (ethtool, iplink, ..., as listed above).
-
-Scott, any objection?  At least a way to keep moving forward on the port
-profile bit.
-
-> Note that we still need to pass the MAC address and VLAN ID (or a list
-> of these) to the external switch, my point is just that this should be
-> separate from enforcing it in the hypervisor.
-
-Yup, we should focus on reconciling the diff of enic vs vpd port profile
-needs.
-
-> > > 2) Registering the slave with the switch
-> > >  a) use Cisco protocol in enic firmware (see patch 2/2)
-> > >  b) use standard VDP in lldpad
-> > >  c) use reverse-engineered cisco protocol in some user tool for
-> > >     non-enic adapters.
-> > >  d) use standard VDP in firmware (hopefully this never happens)
-> > >  e) do nothing at all (as we do today)
-> > 
-> > And this is the step that is the main purpose of iovnl.
-> > 
-> > Here's the simplest snippet of libvirt to show this.  It sends
-> > set_port_profile netlink messages and then creates macvtap.  As simple
-> > as it gets...
-> > 
-> > --- a/src/qemu/qemu_conf.c
-> > +++ b/src/qemu/qemu_conf.c
-> > @@ -1470,6 +1470,11 @@ qemudPhysIfaceConnect(virConnectPtr conn,
-> >          net->model && STREQ(net->model, "virtio"))
-> >          vnet_hdr = 1;
-> >  
-> > +    setPortProfileId(net->data.direct.linkdev,
-> > +                      net->data.direct.mode,
-> > +                      net->data.direct.profileid,
-> > +                      net->mac);
-> > +
-> >      rc = openMacvtapTap(net->ifname, net->mac, linkdev, brmode,
-> >                          &res_ifname, vnet_hdr);
+> - when you say that the mac address is included in the port-profile push,
+>   does that imply that the VF does not have a mac address prior to this?
+>   This would again mix the NIC configuration phase with the switch
+>   association, which I think we really need to avoid if we want to be
+>   able to implement the association in user space!
 > 
-> Ok. In case of VDP, I guess this needs to be extended with the vlan ID
-> that has been configured, and possibly with a UUID, because we need to
-> pass the same one on the target machine if we migrate it.
+> - The VLAN ID being implied in the port profile seems to be another
+>   difference between what enic is doing and the current draft VDP
+>   that will eventually become 802.1Qbg, and I fear that this difference
+>   will be visible in the iovnl protocol.
 > 
-> Alternatively, the setPortProfileId could figure out the MAC address and
-> VLAN ID from the device itself, but then we don't need to pass either of
-> them.
+> > There really wouldn't be much different between iplink and iovnl since
+> > they're both rtnetlink...seems we should keep IOV-related APIs in one place.
+> > Maybe there are other IOV APIs to add to iovnl in the future like:
+> > 
+> >     vf <- add_vf(pf)
+> >     del_vf(pf, vf)
+> > 
+> > Ethtool doesn't seem the right place for this.
+> 
+> Right. My preference would probably be make these a subcategory of
+> the if_link, and use the existing RTM_NEWLINK/RTM_DELLINK commands.
+> This would make it resemble the existing interfaces and mean you can
+> use
+> 
+> ip link add link eth0 type macvlan    # for a container
+> ip link add link eth0 type macvtap    # for qemu/vhost
+> ip link add link eth0 type vf         # for device assignment
+
+BTW, what do you mean by device assignment?
+
+> There are obviously significant differences between these three, but
+> they also share enough of their properties to let us treat them
+> in similar ways.
+> 
+> If we integrate the iovnl client into iproute2, the sequence for setting
+> up an enic VF and associating it to the port profile could be
+> 
+> # create vf0, pass mac and vlan id to HW, no association yet
+> ip link add link eth0 name vf0 type vf mac fe:dc:ba:12:34:56 vlan 78
+
+Just to clarify...right now, the normal SR-IOV VF is already there.
+And, or course, can have its mac addr/vlan set already.
+
+> # associate vf with port profile, mac address must match the one assigned
+> #  to the interface before.
+> ip iov assoc eth0 port-profile "general" host-uuid "dcf2a873-f5ee-41dd-a7ad-802a544e48c2" \
+> 	 mac fe:dc:ba:12:34:56
+
+At that point you could just do s/mac fe:.*/link vf0/
+
+thanks,
+-chris
