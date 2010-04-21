@@ -1,48 +1,90 @@
-From: Dimitris Michailidis <dm@chelsio.com>
-Subject: Re: cxgb4: Use ntohs() on __be16 value instead of htons()
-Date: Wed, 21 Apr 2010 12:17:43 -0700
-Message-ID: <4BCF4F57.4050802@chelsio.com>
-References: <ada1ve8r832.fsf@roland-alpha.cisco.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] [PATCH] tun: orphan an skb on tx
+Date: Wed, 21 Apr 2010 12:16:01 -0700
+Message-ID: <20100421191601.GJ13228@kroah.com>
+References: <20100413145944.GA7716@redhat.com>
+ <20100421113557.GA31606@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Roland Dreier <rdreier@cisco.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:13011 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754141Ab0DUTRp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 15:17:45 -0400
-In-Reply-To: <ada1ve8r832.fsf@roland-alpha.cisco.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: stable@kernel.org, Paul Moore <paul.moore@hp.com>,
+	David Woodhouse <David.Woodhouse@intel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	qemu-devel <qemu-devel@nongnu.org>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	Jan Kiszka <jan.kiszka@siemens.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100421113557.GA31606@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/21/2010 11:09 AM, Roland Dreier wrote:
-> Use the correct direction of byte-swapping function to fix a mistake
-> shown by sparse endianness checking -- c.fl0id is __be16.
->
-> Signed-off-by: Roland Dreier<rolandd@cisco.com>
+On Wed, Apr 21, 2010 at 02:35:57PM +0300, Michael S. Tsirkin wrote:
+> On Tue, Apr 13, 2010 at 05:59:44PM +0300, Michael S. Tsirkin wrote:
+> > The following situation was observed in the field:
+> > tap1 sends packets, tap2 does not consume them, as a result
+> > tap1 can not be closed. This happens because
+> > tun/tap devices can hang on to skbs undefinitely.
+> > 
+> > As noted by Herbert, possible solutions include a timeout followed by a
+> > copy/change of ownership of the skb, or always copying/changing
+> > ownership if we're going into a hostile device.
+> > 
+> > This patch implements the second approach.
+> > 
+> > Note: one issue still remaining is that since skbs
+> > keep reference to tun socket and tun socket has a
+> > reference to tun device, we won't flush backlog,
+> > instead simply waiting for all skbs to get transmitted.
+> > At least this is not user-triggerable, and
+> > this was not reported in practice, my assumption is
+> > other devices besides tap complete an skb
+> > within finite time after it has been queued.
+> > 
+> > A possible solution for the second issue
+> > would not to have socket reference the device,
+> > instead, implement dev->destructor for tun, and
+> > wait for all skbs to complete there, but this
+> > needs some thought, probably too risky for 2.6.34.
+> > 
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > Tested-by: Yan Vugenfirer <yvugenfi@redhat.com>
+> > 
+> > ---
+> > 
+> > Please review the below, and consider for 2.6.34,
+> > and stable trees.
+> > 
+> >  drivers/net/tun.c |    4 ++++
+> >  1 files changed, 4 insertions(+), 0 deletions(-)
+> > 
+> > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> > index 96c39bd..4326520 100644
+> > --- a/drivers/net/tun.c
+> > +++ b/drivers/net/tun.c
+> > @@ -387,6 +387,10 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+> >  		}
+> >  	}
+> >  
+> > +	/* Orphan the skb - required as we might hang on to it
+> > +	 * for indefinite time. */
+> > +	skb_orphan(skb);
+> > +
+> >  	/* Enqueue packet */
+> >  	skb_queue_tail(&tun->socket.sk->sk_receive_queue, skb);
+> >  	dev->trans_start = jiffies;
+> > -- 
+> > 1.7.0.2.280.gc6f05
+> 
+> This is commit 0110d6f22f392f976e84ab49da1b42f85b64a3c5 in net-2.6
+> Please cherry-pick this fix in stable kernels (2.6.32 and 2.6.33).
 
-Yes, thanks.
+David Miller queues up the patches for the network subsystem for the
+stable trees, and then forwards them to me when he feels they are ready.
 
-Acked-by: Dimitris Michailidis <dm@chelsio.com>
+So I'll defer to him on this one and wait for it to come from him.
 
-> ---
->   drivers/net/cxgb4/sge.c |    2 +-
->   1 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/cxgb4/sge.c b/drivers/net/cxgb4/sge.c
-> index 14adc58..70bf2b2 100644
-> --- a/drivers/net/cxgb4/sge.c
-> +++ b/drivers/net/cxgb4/sge.c
-> @@ -2047,7 +2047,7 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
->   	adap->sge.ingr_map[iq->cntxt_id] = iq;
->
->   	if (fl) {
-> -		fl->cntxt_id = htons(c.fl0id);
-> +		fl->cntxt_id = ntohs(c.fl0id);
->   		fl->avail = fl->pend_cred = 0;
->   		fl->pidx = fl->cidx = 0;
->   		fl->alloc_failed = fl->large_alloc_failed = fl->starving = 0;
->
+thanks,
 
+greg k-h
