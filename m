@@ -1,95 +1,73 @@
-From: Jan Kiszka <jan.kiszka@siemens.com>
-Subject: Re: [PATCH] tun: orphan an skb on tx
-Date: Wed, 21 Apr 2010 13:46:33 +0200
-Message-ID: <4BCEE599.1020501@siemens.com>
-References: <20100413145944.GA7716@redhat.com> <20100421113557.GA31606@redhat.com>
+From: Bijay Singh <Bijay.Singh@guavus.com>
+Subject: Selective MD5 Checksum Failuers
+Date: Wed, 21 Apr 2010 11:42:54 +0000
+Message-ID: <EB1DC92D4496BF4699C950937A61F17805833E@mx1.guavus.com>
+References: <C7F354F4.29CC8%scofeldm@cisco.com>
+ <201004211326.00974.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "stable@kernel.org" <stable@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Paul Moore <paul.moore@hp.com>,
-	David Woodhouse <David.Woodhouse@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	qemu-devel <qemu-devel@nongnu.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100421113557.GA31606@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+	boundary="_003_EB1DC92D4496BF4699C950937A61F17805833Emx1guavuscom_"
+Cc: "chrisw@redhat.com" <chrisw@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [204.232.241.167] ([204.232.241.167]:17530 "EHLO mx1.guavus.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753207Ab0DULsO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Apr 2010 07:48:14 -0400
+In-Reply-To: <201004211326.00974.arnd@arndb.de>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Michael S. Tsirkin wrote:
-> On Tue, Apr 13, 2010 at 05:59:44PM +0300, Michael S. Tsirkin wrote:
->> The following situation was observed in the field:
->> tap1 sends packets, tap2 does not consume them, as a result
->> tap1 can not be closed. This happens because
->> tun/tap devices can hang on to skbs undefinitely.
->>
->> As noted by Herbert, possible solutions include a timeout followed by a
->> copy/change of ownership of the skb, or always copying/changing
->> ownership if we're going into a hostile device.
->>
->> This patch implements the second approach.
->>
->> Note: one issue still remaining is that since skbs
->> keep reference to tun socket and tun socket has a
->> reference to tun device, we won't flush backlog,
->> instead simply waiting for all skbs to get transmitted.
->> At least this is not user-triggerable, and
->> this was not reported in practice, my assumption is
->> other devices besides tap complete an skb
->> within finite time after it has been queued.
->>
->> A possible solution for the second issue
->> would not to have socket reference the device,
->> instead, implement dev->destructor for tun, and
->> wait for all skbs to complete there, but this
->> needs some thought, probably too risky for 2.6.34.
->>
->> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->> Tested-by: Yan Vugenfirer <yvugenfi@redhat.com>
->>
->> ---
->>
->> Please review the below, and consider for 2.6.34,
->> and stable trees.
->>
->>  drivers/net/tun.c |    4 ++++
->>  1 files changed, 4 insertions(+), 0 deletions(-)
->>
->> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->> index 96c39bd..4326520 100644
->> --- a/drivers/net/tun.c
->> +++ b/drivers/net/tun.c
->> @@ -387,6 +387,10 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
->>  		}
->>  	}
->>  
->> +	/* Orphan the skb - required as we might hang on to it
->> +	 * for indefinite time. */
->> +	skb_orphan(skb);
->> +
->>  	/* Enqueue packet */
->>  	skb_queue_tail(&tun->socket.sk->sk_receive_queue, skb);
->>  	dev->trans_start = jiffies;
->> -- 
->> 1.7.0.2.280.gc6f05
-> 
-> This is commit 0110d6f22f392f976e84ab49da1b42f85b64a3c5 in net-2.6
-> Please cherry-pick this fix in stable kernels (2.6.32 and 2.6.33).
-> 
-> Thanks!
-> 
+--_003_EB1DC92D4496BF4699C950937A61F17805833Emx1guavuscom_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-Before I forget again:
 
-Tested-by: Jan Kiszka <jan.kiszka@siemens.com>
-(namely the field test of our customer)
+I am noticing a strange and a troublesome behavior with tcp md5 checksums. =
+Some selective packets are going out with invalid md5 checksums.
 
-Jan
+The only thing that is changing is the ack number (between the packets with=
+ valid and invalid md5 checksums), so while most packets have correct md5 c=
+hecksums few 1 in 1000s have md5 checksums errors.
 
--- 
-Siemens AG, Corporate Technology, CT T DE IT 1
-Corporate Competence Center Embedded Linux
+I am on 2.6.26 and I know that there have been significant changes since th=
+is version in this area. I have gone thru them but none of issues they addr=
+ess seem like the cause for this problem.
+
+I have the scatter/gather and tcp segmentation disabled in the card.
+
+The packet captures are attached.
+
+Bijay
+
+--_003_EB1DC92D4496BF4699C950937A61F17805833Emx1guavuscom_
+Content-Type: application/octet-stream;
+	name="md5sum-2010-04-16.pcap1-754478487"
+Content-Description: md5sum-2010-04-16.pcap1-754478487
+Content-Disposition: attachment;
+	filename="md5sum-2010-04-16.pcap1-754478487"; size=126;
+	creation-date="Wed, 21 Apr 2010 11:38:03 GMT";
+	modification-date="Wed, 21 Apr 2010 09:40:25 GMT"
+Content-Transfer-Encoding: base64
+
+1MOyoQIABAAAAAAAAAAAAP//AAABAAAAhFvIS3I7AABWAAAAVgAAAAAAACEOBwAhm5mPewgARQAA
+SB6UQABABgAvkOgGkpDk8461VwCzz3kL9Cz4bZfQEAbhz9cAAAEBCArlra80u6UEiQEBExIkpayS
+Xri4opmnZ1Cg+xRQ
+
+--_003_EB1DC92D4496BF4699C950937A61F17805833Emx1guavuscom_
+Content-Type: application/octet-stream;
+	name="md5sum-2010-04-16.pcap1-754479689"
+Content-Description: md5sum-2010-04-16.pcap1-754479689
+Content-Disposition: attachment;
+	filename="md5sum-2010-04-16.pcap1-754479689"; size=126;
+	creation-date="Wed, 21 Apr 2010 11:38:03 GMT";
+	modification-date="Wed, 21 Apr 2010 08:57:04 GMT"
+Content-Transfer-Encoding: base64
+
+1MOyoQIABAAAAAAAAAAAAP//AAABAAAAhFvIS+BOBABWAAAAVgAAAAAAACEOBwAhm5mPewgARQAA
+SB6VQABABgAukOgGkpDk8461VwCzz3kL9Cz4cknQEAbh77cAAAEBCArlrbA/u6UFewEBExLDl9fR
+r1mTJ8UTdYXIyJb6
+
+--_003_EB1DC92D4496BF4699C950937A61F17805833Emx1guavuscom_--
