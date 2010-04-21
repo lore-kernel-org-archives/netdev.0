@@ -1,43 +1,83 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: Re: 2.6.34-rc5: Reported regressions from 2.6.33
-Date: Wed, 21 Apr 2010 07:15:38 +0200
-Message-ID: <201004210715.38621.rjw@sisk.pl>
-References: <deuQKFRcc0B.A.3EG.BRSzLB@tosh> <20100420135636.GA10674@elliptictech.com>
+From: Rami Rosen <ramirose@gmail.com>
+Subject: [PATCH net-next-2.6] cleanup: remove two unnecessary exports
+	(skbuff).
+Date: Wed, 21 Apr 2010 08:20:31 +0300
+Message-ID: <g2teb3ff54b1004202220va58efc7evdb91e2cf38b062d4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Nick Bowler <nbowler-7BP4RkwGw0uXmMXjJBpWqg@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100420135636.GA10674-7BP4RkwGw0uXmMXjJBpWqg@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary=0016e6db2998598a250484b85a41
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f46.google.com ([74.125.82.46]:43071 "EHLO
+	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751794Ab0DUFUc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 01:20:32 -0400
+Received: by wwb24 with SMTP id 24so3799998wwb.19
+        for <netdev@vger.kernel.org>; Tue, 20 Apr 2010 22:20:31 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 20 April 2010, Nick Bowler wrote:
-> On 05:15 Tue 20 Apr     , Rafael J. Wysocki wrote:
-> > If you know of any other unresolved regressions from 2.6.33, please let us
-> > know either and we'll add them to the list.  Also, please let us know
-> > if any of the entries below are invalid.
-> 
-> Please list these two similar regressions from 2.6.33 in the r600 DRM:
-> 
->  * r600 CS checker rejects GL_DEPTH_TEST w/o depth buffer:
->            https://bugs.freedesktop.org/show_bug.cgi?id=27571
-> 
->  * r600 CS checker rejects narrow FBO renderbuffers:
->            https://bugs.freedesktop.org/show_bug.cgi?id=27609
+--0016e6db2998598a250484b85a41
+Content-Type: text/plain; charset=ISO-8859-1
 
-Do you want to me to add them as one entry or as two separate bugs?
+Hi,
 
-Rafael
+	
+There is no need to export skb_under_panic() and skb_over_panic() in
+skbuff.c, since these methods are used only in skbuff.c ; this patch
+removes these
+two exports. It also marks these functions as 'static' and removeS the extern
+declarations of them from include/linux/skbuff.h
+
+
+Regards,
+Rami Rosen
+
+
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
+
+--0016e6db2998598a250484b85a41
+Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
+Content-Disposition: attachment; filename="patch.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_g89p0uk40
+
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvc2tidWZmLmggYi9pbmNsdWRlL2xpbnV4L3NrYnVm
+Zi5oDQppbmRleCAzODUwMWQyLi44MmY1MTE2IDEwMDY0NA0KLS0tIGEvaW5jbHVkZS9saW51eC9z
+a2J1ZmYuaA0KKysrIGIvaW5jbHVkZS9saW51eC9za2J1ZmYuaA0KQEAgLTQ3MCwxMCArNDcwLDYg
+QEAgZXh0ZXJuIGludAkgICAgICAgc2tiX2Nvd19kYXRhKHN0cnVjdCBza19idWZmICpza2IsIGlu
+dCB0YWlsYml0cywNCiAJCQkJICAgIHN0cnVjdCBza19idWZmICoqdHJhaWxlcik7DQogZXh0ZXJu
+IGludAkgICAgICAgc2tiX3BhZChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBpbnQgcGFkKTsNCiAjZGVm
+aW5lIGRldl9rZnJlZV9za2IoYSkJY29uc3VtZV9za2IoYSkNCi1leHRlcm4gdm9pZAkgICAgICBz
+a2Jfb3Zlcl9wYW5pYyhzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBpbnQgbGVuLA0KLQkJCQkgICAgIHZv
+aWQgKmhlcmUpOw0KLWV4dGVybiB2b2lkCSAgICAgIHNrYl91bmRlcl9wYW5pYyhzdHJ1Y3Qgc2tf
+YnVmZiAqc2tiLCBpbnQgbGVuLA0KLQkJCQkgICAgICB2b2lkICpoZXJlKTsNCiANCiBleHRlcm4g
+aW50IHNrYl9hcHBlbmRfZGF0YXRvX2ZyYWdzKHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1
+ZmYgKnNrYiwNCiAJCQlpbnQgZ2V0ZnJhZyh2b2lkICpmcm9tLCBjaGFyICp0bywgaW50IG9mZnNl
+dCwNCmRpZmYgLS1naXQgYS9uZXQvY29yZS9za2J1ZmYuYyBiL25ldC9jb3JlL3NrYnVmZi5jDQpp
+bmRleCBiZGVhMGVmLi40MjE4ZmY0IDEwMDY0NA0KLS0tIGEvbmV0L2NvcmUvc2tidWZmLmMNCisr
+KyBiL25ldC9jb3JlL3NrYnVmZi5jDQpAQCAtMTE3LDcgKzExNyw3IEBAIHN0YXRpYyBjb25zdCBz
+dHJ1Y3QgcGlwZV9idWZfb3BlcmF0aW9ucyBzb2NrX3BpcGVfYnVmX29wcyA9IHsNCiAgKg0KICAq
+CU91dCBvZiBsaW5lIHN1cHBvcnQgY29kZSBmb3Igc2tiX3B1dCgpLiBOb3QgdXNlciBjYWxsYWJs
+ZS4NCiAgKi8NCi12b2lkIHNrYl9vdmVyX3BhbmljKHN0cnVjdCBza19idWZmICpza2IsIGludCBz
+eiwgdm9pZCAqaGVyZSkNCitzdGF0aWMgdm9pZCBza2Jfb3Zlcl9wYW5pYyhzdHJ1Y3Qgc2tfYnVm
+ZiAqc2tiLCBpbnQgc3osIHZvaWQgKmhlcmUpDQogew0KIAlwcmludGsoS0VSTl9FTUVSRyAic2ti
+X292ZXJfcGFuaWM6IHRleHQ6JXAgbGVuOiVkIHB1dDolZCBoZWFkOiVwICINCiAJCQkgICJkYXRh
+OiVwIHRhaWw6JSNseCBlbmQ6JSNseCBkZXY6JXNcbiIsDQpAQCAtMTI2LDcgKzEyNiw2IEBAIHZv
+aWQgc2tiX292ZXJfcGFuaWMoc3RydWN0IHNrX2J1ZmYgKnNrYiwgaW50IHN6LCB2b2lkICpoZXJl
+KQ0KIAkgICAgICAgc2tiLT5kZXYgPyBza2ItPmRldi0+bmFtZSA6ICI8TlVMTD4iKTsNCiAJQlVH
+KCk7DQogfQ0KLUVYUE9SVF9TWU1CT0woc2tiX292ZXJfcGFuaWMpOw0KIA0KIC8qKg0KICAqCXNr
+Yl91bmRlcl9wYW5pYwktIAlwcml2YXRlIGZ1bmN0aW9uDQpAQCAtMTM3LDcgKzEzNiw3IEBAIEVY
+UE9SVF9TWU1CT0woc2tiX292ZXJfcGFuaWMpOw0KICAqCU91dCBvZiBsaW5lIHN1cHBvcnQgY29k
+ZSBmb3Igc2tiX3B1c2goKS4gTm90IHVzZXIgY2FsbGFibGUuDQogICovDQogDQotdm9pZCBza2Jf
+dW5kZXJfcGFuaWMoc3RydWN0IHNrX2J1ZmYgKnNrYiwgaW50IHN6LCB2b2lkICpoZXJlKQ0KK3N0
+YXRpYyB2b2lkIHNrYl91bmRlcl9wYW5pYyhzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBpbnQgc3osIHZv
+aWQgKmhlcmUpDQogew0KIAlwcmludGsoS0VSTl9FTUVSRyAic2tiX3VuZGVyX3BhbmljOiB0ZXh0
+OiVwIGxlbjolZCBwdXQ6JWQgaGVhZDolcCAiDQogCQkJICAiZGF0YTolcCB0YWlsOiUjbHggZW5k
+OiUjbHggZGV2OiVzXG4iLA0KQEAgLTE0Niw3ICsxNDUsNiBAQCB2b2lkIHNrYl91bmRlcl9wYW5p
+YyhzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBpbnQgc3osIHZvaWQgKmhlcmUpDQogCSAgICAgICBza2It
+PmRldiA/IHNrYi0+ZGV2LT5uYW1lIDogIjxOVUxMPiIpOw0KIAlCVUcoKTsNCiB9DQotRVhQT1JU
+X1NZTUJPTChza2JfdW5kZXJfcGFuaWMpOw0KIA0KIC8qIAlBbGxvY2F0ZSBhIG5ldyBza2J1ZmYu
+IFdlIGRvIHRoaXMgb3Vyc2VsdmVzIHNvIHdlIGNhbiBmaWxsIGluIGEgZmV3DQogICoJJ3ByaXZh
+dGUnIGZpZWxkcyBhbmQgYWxzbyBkbyBtZW1vcnkgc3RhdGlzdGljcyB0byBmaW5kIGFsbCB0aGUN
+Cg==
+--0016e6db2998598a250484b85a41--
