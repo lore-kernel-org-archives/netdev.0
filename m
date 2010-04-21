@@ -1,87 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: PROBLEM: Linux kernel 2.6.31 IPv4 TCP fails to open huge
- amount of outgoing connections (unable to bind ... )
-Date: Wed, 21 Apr 2010 13:27:33 +0200
-Message-ID: <1271849253.7895.1929.camel@edumazet-laptop>
-References: <4BCE33B9.8050101@candelatech.com>
-	 <u2t46c8cb3e1004201620tf9fce087ibae421759f9e1e84@mail.gmail.com>
-	 <4BCE392F.60104@candelatech.com>
-	 <y2p46c8cb3e1004201635s8f84672dq90d3115dca04a1ed@mail.gmail.com>
-	 <4BCE3D8D.3030500@candelatech.com>
-	 <1271808314.7895.614.camel@edumazet-laptop>
-	 <20100421003022.GA3107@ioremap.net>
-	 <1271828799.7895.1287.camel@edumazet-laptop>
-	 <20100421082559.GA32475@ioremap.net>
-	 <1271840535.7895.1612.camel@edumazet-laptop>
-	 <20100421095812.GA14778@ioremap.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] tun: orphan an skb on tx
+Date: Wed, 21 Apr 2010 14:35:57 +0300
+Message-ID: <20100421113557.GA31606@redhat.com>
+References: <20100413145944.GA7716@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>,
-	David Miller <davem@davemloft.net>,
-	Gaspar Chilingarov <gasparch@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Evgeniy Polyakov <zbr@ioremap.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	Paul Moore <paul.moore@hp.com>,
+	David Woodhouse <David.Woodhouse@intel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jan Kiszka <jan.kiszka@siemens.com>,
+	qemu-devel <qemu-devel@nongnu.org>
+To: stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:57125 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752143Ab0DUL1m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 07:27:42 -0400
-Received: by bwz25 with SMTP id 25so7982222bwz.28
-        for <netdev@vger.kernel.org>; Wed, 21 Apr 2010 04:27:40 -0700 (PDT)
-In-Reply-To: <20100421095812.GA14778@ioremap.net>
+Received: from mx1.redhat.com ([209.132.183.28]:51799 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752779Ab0DULlP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Apr 2010 07:41:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20100413145944.GA7716@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Here is the patch I use now and my test application is now able to open
-and connect 1000000 sockets (ulimit -n 1000000)
+On Tue, Apr 13, 2010 at 05:59:44PM +0300, Michael S. Tsirkin wrote:
+> The following situation was observed in the field:
+> tap1 sends packets, tap2 does not consume them, as a result
+> tap1 can not be closed. This happens because
+> tun/tap devices can hang on to skbs undefinitely.
+> 
+> As noted by Herbert, possible solutions include a timeout followed by a
+> copy/change of ownership of the skb, or always copying/changing
+> ownership if we're going into a hostile device.
+> 
+> This patch implements the second approach.
+> 
+> Note: one issue still remaining is that since skbs
+> keep reference to tun socket and tun socket has a
+> reference to tun device, we won't flush backlog,
+> instead simply waiting for all skbs to get transmitted.
+> At least this is not user-triggerable, and
+> this was not reported in practice, my assumption is
+> other devices besides tap complete an skb
+> within finite time after it has been queued.
+> 
+> A possible solution for the second issue
+> would not to have socket reference the device,
+> instead, implement dev->destructor for tun, and
+> wait for all skbs to complete there, but this
+> needs some thought, probably too risky for 2.6.34.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Tested-by: Yan Vugenfirer <yvugenfi@redhat.com>
+> 
+> ---
+> 
+> Please review the below, and consider for 2.6.34,
+> and stable trees.
+> 
+>  drivers/net/tun.c |    4 ++++
+>  1 files changed, 4 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 96c39bd..4326520 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -387,6 +387,10 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+>  		}
+>  	}
+>  
+> +	/* Orphan the skb - required as we might hang on to it
+> +	 * for indefinite time. */
+> +	skb_orphan(skb);
+> +
+>  	/* Enqueue packet */
+>  	skb_queue_tail(&tun->socket.sk->sk_receive_queue, skb);
+>  	dev->trans_start = jiffies;
+> -- 
+> 1.7.0.2.280.gc6f05
 
-Trick is bind_conflict() must refuse a socket to bind to a port on a non
-null IP if another socket already uses same port on same IP.
+This is commit 0110d6f22f392f976e84ab49da1b42f85b64a3c5 in net-2.6
+Please cherry-pick this fix in stable kernels (2.6.32 and 2.6.33).
 
-Plus the previous patch sent (check a conflict before exiting the search
-loop)
+Thanks!
 
-What do you think ?
-
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index e0a3e35..78cbc39 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -70,13 +70,17 @@ int inet_csk_bind_conflict(const struct sock *sk,
- 		    (!sk->sk_bound_dev_if ||
- 		     !sk2->sk_bound_dev_if ||
- 		     sk->sk_bound_dev_if == sk2->sk_bound_dev_if)) {
-+			const __be32 sk2_rcv_saddr = inet_rcv_saddr(sk2);
-+
- 			if (!reuse || !sk2->sk_reuse ||
- 			    sk2->sk_state == TCP_LISTEN) {
--				const __be32 sk2_rcv_saddr = inet_rcv_saddr(sk2);
- 				if (!sk2_rcv_saddr || !sk_rcv_saddr ||
- 				    sk2_rcv_saddr == sk_rcv_saddr)
- 					break;
--			}
-+			} else if (reuse && sk2->sk_reuse &&
-+				   sk2_rcv_saddr &&
-+				   sk2_rcv_saddr == sk_rcv_saddr)
-+				break;
- 		}
- 	}
- 	return node != NULL;
-@@ -120,9 +124,11 @@ again:
- 						smallest_size = tb->num_owners;
- 						smallest_rover = rover;
- 						if (atomic_read(&hashinfo->bsockets) > (high - low) + 1) {
--							spin_unlock(&head->lock);
--							snum = smallest_rover;
--							goto have_snum;
-+							if (!inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb)) {
-+								spin_unlock(&head->lock);
-+								snum = smallest_rover;
-+								goto have_snum;
-+							}
- 						}
- 					}
- 					goto next;
-
-
+-- 
+MST
