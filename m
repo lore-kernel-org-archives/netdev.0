@@ -1,51 +1,64 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [net-next,1/2] add iovnl netlink support
-Date: Wed, 21 Apr 2010 15:17:57 +0200
-Message-ID: <201004211517.58062.arnd@arndb.de>
-References: <C7F35C03.29CF4%scofeldm@cisco.com>
+From: James Chapman <jchapman@katalix.com>
+Subject: Re: [PATCH net-next-2.6 v4 10/14] l2tp: Convert rwlock to RCU
+Date: Wed, 21 Apr 2010 14:53:58 +0100
+Message-ID: <4BCF0376.9010504@katalix.com>
+References: <20100402161822.11367.70454.stgit@bert.katalix.com>	 <20100402161916.11367.32252.stgit@bert.katalix.com> <1271782553.7895.62.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Chris Wright <chrisw@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Scott Feldman <scofeldm@cisco.com>
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.8]:60624 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754762Ab0DUNxe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 09:53:34 -0400
-In-Reply-To: <C7F35C03.29CF4%scofeldm@cisco.com>
+Received: from katalix.com ([82.103.140.233]:46768 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754808Ab0DUNyE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Apr 2010 09:54:04 -0400
+In-Reply-To: <1271782553.7895.62.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 20 April 2010, Scott Feldman wrote:
-> On 4/20/10 9:19 AM, "Arnd Bergmann" <arnd@arndb.de> wrote:
->
-> >> In the case of devices that can do adjacent switch negotiations directly.
-> > 
-> > I thought the idea to deal with those devices was to beat sense into
-> > the respective developers until they do the negotiation in software 8-)
+Eric Dumazet wrote:
+> Hi James
 > 
-> When the device can do the negotiation directly with the switch, why does it
-> make sense to bypass that and use software on the host?  I don't think we'd
-> want to give up on link speed/duplex auto-negotiation and punt those setting
-> back to the user/host like in the old days.
+> I started a while ago patching l2tp but I wont be able to finish and
+> test the thing...
+> 
+> There is a fundamental problem with this kind of construct :
+> (this was wrong even better your RCU conversion)
+> 
+> rcu_read_lock_bh()
+> hlist_for_each_entry_rcu(session, walk, session_list, global_hlist) {
+> 	if (session->session_id == session_id) {
+> 		rcu_read_unlock_bh();
+> 		return session;
+> 	}
+> }
+> rcu_read_unlock_bh();
+> 
+> 
+> While the lookup _is_ protected, the result is not.
+> 
+> As soon as you call rcu_read_unlock_bh(); and before the "return
+> session;", current thread could be preempted and an other thread frees
+> session under first thread. Unexpected things can then happen.
+> 
+> Therefore, you need either to :
+> 
+> 1) Take a refcount on session (or tunnel) before the return
+> 2) Or move the rcu_read_lock_bh()/rcu_read_unlock_bh() at callers.
+> 3) Or all callers use a stronger lock. But then, why use RCU ;)
+> 
+> Here is a preliminary patch, obviously not finished, nor compiled, nor
+> tested, to give possible ways to handle this problem.
+> 
+> (I added the ref parameter to make sure to change function signatures,
+> maybe its not necessary and we should always take references)
 
-For the link negotiation, the card is the right place because it's necessary
-to get the link working before the OS can talk to the switch.
-For VDP, that's different because the hypervisor needs to talk to the switch
-before the guest can communicate, so there is no interdependency.
+Thanks Eric. I'll take a look at this.
 
-More importantly, the card cannot possibly do the protocol by itself,
-because the information that gets exchanged is specific to the hypervisor and
-the guest, not to the hardware. What you have implemented is another protocol
-between the hypervisor and the NIC that exchanges the exact same data that
-then gets sent to the switch. We already need to have an implementation that
-sends this data to the switch from user space for all cards that don't do
-it in firmware, so doing an alternative path in the adapter really creates
-more work for the users, and means that when we fix bugs or add features
-to the common code, you don't get them ;-).
-
-	Arnd
+-- 
+James Chapman
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
 
