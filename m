@@ -1,42 +1,50 @@
-From: Kumar Gala <galak@kernel.crashing.org>
-Subject: Re: [PATCH] gianfar: Wait for both RX and TX to stop
-Date: Tue, 20 Apr 2010 23:22:19 -0500
-Message-ID: <A20F7457-20BC-493C-B800-3933D8FC4D5C@kernel.crashing.org>
-References: <m2ged82fe3e1004191408p53f19073x106ef56677c8a5df@mail.gmail.com> <DD217C72-156B-403D-B83B-EB365C782F2B@kernel.crashing.org> <o2oed82fe3e1004200801n98683cdalb2898c879b93f8fd@mail.gmail.com> <20100420.180646.216759318.davem@davemloft.net>
-Mime-Version: 1.0 (Apple Message framework v1078)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: timur.tabi@gmail.com, afleming@freescale.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: 2.6.34-rc5: Reported regressions from 2.6.33
+Date: Wed, 21 Apr 2010 07:14:52 +0200
+Message-ID: <201004210714.53050.rjw@sisk.pl>
+References: <deuQKFRcc0B.A.3EG.BRSzLB@tosh> <4bce5cc3.966bdc0a.2ef7.fffff5de@mx.google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="iso-8859-2"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.sourceforge.net>
+To: Ben Gamari <bgamari.foss@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:46394 "EHLO gate.crashing.org"
+Received: from ogre.sisk.pl ([217.79.144.158]:53912 "EHLO ogre.sisk.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750968Ab0DUEWi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 00:22:38 -0400
-In-Reply-To: <20100420.180646.216759318.davem@davemloft.net>
+	id S1751497Ab0DUFN7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Apr 2010 01:13:59 -0400
+In-Reply-To: <4bce5cc3.966bdc0a.2ef7.fffff5de@mx.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On Apr 20, 2010, at 8:06 PM, David Miller wrote:
-
-> From: Timur Tabi <timur.tabi@gmail.com>
-> Date: Tue, 20 Apr 2010 10:01:48 -0500
+On Wednesday 21 April 2010, Ben Gamari wrote:
+> On Tue, 20 Apr 2010 05:15:57 +0200 (CEST), "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+> > This message contains a list of some regressions from 2.6.33,
+> > for which there are no fixes in the mainline known to the tracking team.
+> > If any of them have been fixed already, please let us know.
+> > 
+> > If you know of any other unresolved regressions from 2.6.33, please let us
+> > know either and we'll add them to the list.  Also, please let us know
+> > if any of the entries below are invalid.
+> > 
 > 
->> On Mon, Apr 19, 2010 at 11:43 PM, Kumar Gala <galak@kernel.crashing.org> wrote:
->> 
->>> spin_event_timeout doesn't make sense for this.  The patch is fine.
->> 
->> Can you please elaborate on that?  I don't understand why you think
->> that.  spin_event_timeout() takes an expression and a timeout, and
->> loops over the expression calling cpu_relax(), just like this loop
->> does.
+> I have recently reported this suspend regression on my Dell laptop hardware.
 > 
-> Indeed it does, Kumar this request seems reasonable.
+> References: http://lkml.org/lkml/2010/4/18/20
+> Bug-report: https://bugzilla.kernel.org/show_bug.cgi?id=15820
 
-Are we saying that cpu_relax() is useless and should be removed if we are spinning on a HW register?
+This has been added to the list now.  Please check my comment in the Bugzilla
+entry.
 
-Its fatally buggy HW if the bits never clear or get set in the few conditions that cpu_relax() are being used.
-
-- k
+Rafael
