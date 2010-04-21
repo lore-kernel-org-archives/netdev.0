@@ -1,36 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] gianfar: Wait for both RX and TX to stop
-Date: Wed, 21 Apr 2010 14:33:30 -0700 (PDT)
-Message-ID: <20100421.143330.80015172.davem@davemloft.net>
-References: <10AE27BE-1830-4AAD-83E6-20001BC430D8@kernel.crashing.org>
-	<z2ged82fe3e1004210733v8fa40902k664549aa9620b13@mail.gmail.com>
-	<CD8C73BA-0E18-4F85-A90B-C2FA5FFC8689@kernel.crashing.org>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: IPv6: race condition in __ipv6_ifa_notify() and dst_free() ?
+Date: Wed, 21 Apr 2010 23:34:29 +0200
+Message-ID: <20100421213429.GA2799@midget.suse.cz>
+References: <20100420174401.GB1334@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: timur.tabi@gmail.com, afleming@freescale.com,
-	netdev@vger.kernel.org
-To: galak@kernel.crashing.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58500
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755252Ab0DUVdZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 17:33:25 -0400
-In-Reply-To: <CD8C73BA-0E18-4F85-A90B-C2FA5FFC8689@kernel.crashing.org>
+Received: from cantor.suse.de ([195.135.220.2]:49011 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755363Ab0DUVed (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Apr 2010 17:34:33 -0400
+Content-Disposition: inline
+In-Reply-To: <20100420174401.GB1334@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kumar Gala <galak@kernel.crashing.org>
-Date: Wed, 21 Apr 2010 14:13:00 -0500
+Hi,
 
-> I'm not opposed, I'm just asking if we are saying we shouldn't be using cpu_relax() for spinning on HW status registers ever.
+On Tue, Apr 20, 2010 at 07:44:01PM +0200, Jiri Bohac wrote:
+> What is the reason __ipv6_ifa_notify() calls dst_free() when
+> ip6_del_rt() fails? I don't see a way ip6_del_rt() could fail
+> with the dst still needing to be freed.
+
+checked again and I still think that if ip6_del_rt() fails,
+ifp->rt must have been freed already. Anybody with a
+counterexample?
+
+> I am just testing whether the following will help:
 > 
-> If we are suggesting that cpu_relax() shouldn't be used in these scenarios going forward I'm ok w/the change you suggest and starting to convert other cpu_relax() calls to use spin_event_timeout()
+> --- a/net/ipv6/addrconf.c	2010-04-17 00:12:32.000000000 +0200
+> +++ b/net/ipv6/addrconf.c	2010-04-20 19:07:35.000000000 +0200
+> @@ -3974,8 +3974,7 @@ static void __ipv6_ifa_notify(int event,
+>  			addrconf_leave_anycast(ifp);
+>  		addrconf_leave_solict(ifp->idev, &ifp->addr);
+>  		dst_hold(&ifp->rt->u.dst);
+> -		if (ip6_del_rt(ifp->rt))
+> -			dst_free(&ifp->rt->u.dst);
+> +		ip6_del_rt(ifp->rt);
+>  		break;
+>  	}
+>  }
 
+not surprisingly, it helps my case -- the race condition does not
+happen and the resulting oopses disappears. Of course, this does
+not prove the patch is correct.
 
-Kumar this isn't an either-or thing.
+Could anybody with more insight into the dst refcounting please
+take a look? The code originally came from:
 
-In both cases we're using cpu_relax().
+	Author: Hideaki Yoshifuji <yoshfuji@linux-ipv6.org>
+	Date:   Wed Aug 18 05:25:16 2004 +0900
 
-But by using spin_event_timeout() you're getting both the cpu_relax()
-and a break-out in case the hardware gets wedged for some reason.
+	    [IPV6] refer inet6 device via corresponding local route from address structure.
+
+And has been modified later by:
+	commit 4641e7a334adf6856300a98e7296dfc886c446af
+	Author: Herbert Xu <herbert@gondor.apana.org.au>
+	Date:   Thu Feb 2 16:55:45 2006 -0800
+
+	    [IPV6]: Don't hold extra ref count in ipv6_ifa_notify
+
+Thanks,
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
+
