@@ -1,69 +1,124 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: PROBLEM: Linux kernel 2.6.31 IPv4 TCP fails to open huge amount of outgoing connections (unable to bind ... )
-Date: Wed, 21 Apr 2010 22:58:38 +0400
-Message-ID: <20100421185837.GB21249@ioremap.net>
-References: <4BCE3D8D.3030500@candelatech.com> <1271808314.7895.614.camel@edumazet-laptop> <20100421003022.GA3107@ioremap.net> <1271828799.7895.1287.camel@edumazet-laptop> <20100421082559.GA32475@ioremap.net> <1271840535.7895.1612.camel@edumazet-laptop> <20100421095812.GA14778@ioremap.net> <1271849253.7895.1929.camel@edumazet-laptop> <20100421182723.GA17202@ioremap.net> <1271875416.7895.3033.camel@edumazet-laptop>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: cxgb4: Make unnecessarily global functions static
+Date: Wed, 21 Apr 2010 11:59:17 -0700
+Message-ID: <adapr1spr7e.fsf@roland-alpha.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Greear <greearb@candelatech.com>,
-	David Miller <davem@davemloft.net>,
-	Gaspar Chilingarov <gasparch@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Dimitris Michailidis <dm@chelsio.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from corega.com.ru ([195.178.208.66]:48764 "EHLO tservice.net.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751332Ab0DUS6j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Apr 2010 14:58:39 -0400
-Content-Disposition: inline
-In-Reply-To: <1271875416.7895.3033.camel@edumazet-laptop>
+Received: from sj-iport-5.cisco.com ([171.68.10.87]:45412 "EHLO
+	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752828Ab0DUS7W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 14:59:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 21, 2010 at 08:43:36PM +0200, Eric Dumazet (eric.dumazet@gm=
-ail.com) wrote:
-> Le mercredi 21 avril 2010 =C3=A0 22:27 +0400, Evgeniy Polyakov a =C3=A9=
-crit :
-> > On Wed, Apr 21, 2010 at 01:27:33PM +0200, Eric Dumazet (eric.dumaze=
-t@gmail.com) wrote:
-> > > Here is the patch I use now and my test application is now able t=
-o open
-> > > and connect 1000000 sockets (ulimit -n 1000000)
-> > >=20
-> > > Trick is bind_conflict() must refuse a socket to bind to a port o=
-n a non
-> > > null IP if another socket already uses same port on same IP.
-> > >=20
-> > > Plus the previous patch sent (check a conflict before exiting the=
- search
-> > > loop)
-> > >=20
-> > > What do you think ?
-> >=20
-> > Looks good, but do we want to check only reused socket's address th=
-ere?
-> > What if one of the sockets does not have reuse option turned on, wi=
-ll it
-> > break?
-> >=20
->=20
-> Well, if one socket doesnt have reuse option turned on, the previous
-> test already works ?
->=20
-> if (!reuse || !sk2->sk_reuse || sk2->sk_state =3D=3D TCP_LISTEN) {
-> 	if (!sk2_rcv_saddr || !sk_rcv_saddr ||
-> 	    sk2_rcv_saddr =3D=3D sk_rcv_saddr)
-> 		break;
-> } else if (reuse && sk2->sk_reuse &&
->            sk2_rcv_saddr &&
->            sk2_rcv_saddr =3D=3D sk_rcv_saddr)
-> 	break;
->=20
-> I failed to factorize this complex test :(
+Also put t4_write_indirect() inside "#if 0" to avoid a "defined but not
+used" compile warning.
 
-Damn it, I tried multiple times :)
-You are right of course!
+Signed-off-by: Roland Dreier <rolandd@cisco.com>
+---
+ drivers/net/cxgb4/cxgb4.h |    2 --
+ drivers/net/cxgb4/sge.c   |    2 +-
+ drivers/net/cxgb4/t4_hw.c |   22 ++++++++++++----------
+ 3 files changed, 13 insertions(+), 13 deletions(-)
 
---=20
-	Evgeniy Polyakov
+diff --git a/drivers/net/cxgb4/cxgb4.h b/drivers/net/cxgb4/cxgb4.h
+index 3d8ff48..4b35dc7 100644
+--- a/drivers/net/cxgb4/cxgb4.h
++++ b/drivers/net/cxgb4/cxgb4.h
+@@ -651,8 +651,6 @@ int t4_link_start(struct adapter *adap, unsigned int mbox, unsigned int port,
+ 		  struct link_config *lc);
+ int t4_restart_aneg(struct adapter *adap, unsigned int mbox, unsigned int port);
+ int t4_seeprom_wp(struct adapter *adapter, bool enable);
+-int t4_read_flash(struct adapter *adapter, unsigned int addr,
+-		  unsigned int nwords, u32 *data, int byte_oriented);
+ int t4_load_fw(struct adapter *adapter, const u8 *fw_data, unsigned int size);
+ int t4_check_fw_version(struct adapter *adapter);
+ int t4_prep_adapter(struct adapter *adapter);
+diff --git a/drivers/net/cxgb4/sge.c b/drivers/net/cxgb4/sge.c
+index 14adc58..04e5710 100644
+--- a/drivers/net/cxgb4/sge.c
++++ b/drivers/net/cxgb4/sge.c
+@@ -1471,7 +1471,7 @@ EXPORT_SYMBOL(cxgb4_pktgl_to_skb);
+  *	Releases the pages of a packet gather list.  We do not own the last
+  *	page on the list and do not free it.
+  */
+-void t4_pktgl_free(const struct pkt_gl *gl)
++static void t4_pktgl_free(const struct pkt_gl *gl)
+ {
+ 	int n;
+ 	const skb_frag_t *p;
+diff --git a/drivers/net/cxgb4/t4_hw.c b/drivers/net/cxgb4/t4_hw.c
+index a814a3a..cadead5 100644
+--- a/drivers/net/cxgb4/t4_hw.c
++++ b/drivers/net/cxgb4/t4_hw.c
+@@ -53,8 +53,8 @@
+  *	at the time it indicated completion is stored there.  Returns 0 if the
+  *	operation completes and	-EAGAIN	otherwise.
+  */
+-int t4_wait_op_done_val(struct adapter *adapter, int reg, u32 mask,
+-			int polarity, int attempts, int delay, u32 *valp)
++static int t4_wait_op_done_val(struct adapter *adapter, int reg, u32 mask,
++			       int polarity, int attempts, int delay, u32 *valp)
+ {
+ 	while (1) {
+ 		u32 val = t4_read_reg(adapter, reg);
+@@ -109,9 +109,9 @@ void t4_set_reg_field(struct adapter *adapter, unsigned int addr, u32 mask,
+  *	Reads registers that are accessed indirectly through an address/data
+  *	register pair.
+  */
+-void t4_read_indirect(struct adapter *adap, unsigned int addr_reg,
+-		      unsigned int data_reg, u32 *vals, unsigned int nregs,
+-		      unsigned int start_idx)
++static void t4_read_indirect(struct adapter *adap, unsigned int addr_reg,
++			     unsigned int data_reg, u32 *vals,
++			     unsigned int nregs, unsigned int start_idx)
+ {
+ 	while (nregs--) {
+ 		t4_write_reg(adap, addr_reg, start_idx);
+@@ -120,6 +120,7 @@ void t4_read_indirect(struct adapter *adap, unsigned int addr_reg,
+ 	}
+ }
+ 
++#if 0
+ /**
+  *	t4_write_indirect - write indirectly addressed registers
+  *	@adap: the adapter
+@@ -132,15 +133,16 @@ void t4_read_indirect(struct adapter *adap, unsigned int addr_reg,
+  *	Writes a sequential block of registers that are accessed indirectly
+  *	through an address/data register pair.
+  */
+-void t4_write_indirect(struct adapter *adap, unsigned int addr_reg,
+-		       unsigned int data_reg, const u32 *vals,
+-		       unsigned int nregs, unsigned int start_idx)
++static void t4_write_indirect(struct adapter *adap, unsigned int addr_reg,
++			      unsigned int data_reg, const u32 *vals,
++			      unsigned int nregs, unsigned int start_idx)
+ {
+ 	while (nregs--) {
+ 		t4_write_reg(adap, addr_reg, start_idx++);
+ 		t4_write_reg(adap, data_reg, *vals++);
+ 	}
+ }
++#endif
+ 
+ /*
+  * Get the reply to a mailbox command and store it in @rpl in big-endian order.
+@@ -537,8 +539,8 @@ static int flash_wait_op(struct adapter *adapter, int attempts, int delay)
+  *	(i.e., big-endian), otherwise as 32-bit words in the platform's
+  *	natural endianess.
+  */
+-int t4_read_flash(struct adapter *adapter, unsigned int addr,
+-		  unsigned int nwords, u32 *data, int byte_oriented)
++static int t4_read_flash(struct adapter *adapter, unsigned int addr,
++			 unsigned int nwords, u32 *data, int byte_oriented)
+ {
+ 	int ret;
+ 
+
+-- 
+Roland Dreier <rolandd@cisco.com> || For corporate legal information go to:
+http://www.cisco.com/web/about/doing_business/legal/cri/index.html
