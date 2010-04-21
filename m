@@ -1,88 +1,40 @@
-From: Chris Wright <chrisw@redhat.com>
-Subject: Re: [net-next,1/2] add iovnl netlink support
-Date: Wed, 21 Apr 2010 11:10:21 -0700
-Message-ID: <20100421181021.GC25928@x200.localdomain>
-References: <C7F354F4.29CC8%scofeldm@cisco.com>
- <201004211326.00974.arnd@arndb.de>
- <20100421161842.GB25928@x200.localdomain>
- <201004211952.29145.arnd@arndb.de>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: PROBLEM: Linux kernel 2.6.31 IPv4 TCP fails to open huge amount of outgoing connections (unable to bind ... )
+Date: Wed, 21 Apr 2010 22:27:23 +0400
+Message-ID: <20100421182723.GA17202@ioremap.net>
+References: <4BCE392F.60104@candelatech.com> <y2p46c8cb3e1004201635s8f84672dq90d3115dca04a1ed@mail.gmail.com> <4BCE3D8D.3030500@candelatech.com> <1271808314.7895.614.camel@edumazet-laptop> <20100421003022.GA3107@ioremap.net> <1271828799.7895.1287.camel@edumazet-laptop> <20100421082559.GA32475@ioremap.net> <1271840535.7895.1612.camel@edumazet-laptop> <20100421095812.GA14778@ioremap.net> <1271849253.7895.1929.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Chris Wright <chrisw@redhat.com>,
-	Scott Feldman <scofeldm@cisco.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+Cc: Ben Greear <greearb@candelatech.com>,
+	David Miller <davem@davemloft.net>,
+	Gaspar Chilingarov <gasparch@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45712 "EHLO mx1.redhat.com"
+Received: from cs-studio.ru ([195.178.208.66]:57910 "EHLO tservice.net.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754062Ab0DUSKc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Apr 2010 14:10:32 -0400
+	id S1756095Ab0DUS12 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Apr 2010 14:27:28 -0400
 Content-Disposition: inline
-In-Reply-To: <201004211952.29145.arnd@arndb.de>
+In-Reply-To: <1271849253.7895.1929.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Arnd Bergmann (arnd@arndb.de) wrote:
-> On Wednesday 21 April 2010, Chris Wright wrote:
-> > * Arnd Bergmann (arnd@arndb.de) wrote:
-> > > Since it seems what you really want to do is to do the exchange with the
-> > > switch from here, maybe the hardware configuration part should be moved
-> > > the DCB interface?
-> > 
-> > I suppose this would work  (although it's a bit odd being out of scope
-> > of DCB spec).
+On Wed, Apr 21, 2010 at 01:27:33PM +0200, Eric Dumazet (eric.dumazet@gmail.com) wrote:
+> Here is the patch I use now and my test application is now able to open
+> and connect 1000000 sockets (ulimit -n 1000000)
 > 
-> It could be anywhere, it doesn't have to be the DCB interface, but could
-> be anything ranging from ethtool to iplink I guess. And we should define
-> it in a way that works for any SR-IOV card, whether it's using Cisco's
-> protocol in firmware, 802.1Qbg VDP in firmware, lldpad to do VDP or
-> none of the above and just provides an internal switch like all the
-> existing NICs.
-
-Heh, that's exactly what iovnl does ;-)
-
-> > I don't expect mgmt app to care about the implementation
-> > specifics of an adapter, so it will always send this and iovnl message
-> > too.  All as part of same setup.
+> Trick is bind_conflict() must refuse a socket to bind to a port on a non
+> null IP if another socket already uses same port on same IP.
 > 
-> Why? I really see these things as separate. Obviously a management
-> tool like libvirt would need to do both these things eventually, but
-> each of them has multiple options that can be combined in various
-> ways:
+> Plus the previous patch sent (check a conflict before exiting the search
+> loop)
 > 
-> 1. Setting up the slave device
->  a) create an SR-IOV VF to assign to a guest
->  b) create a macvtap device to pass to qemu or vhost
->  c) attach a tap device to a bridge
->  d) create a macvlan device and put it into a container
->  e) create a virtual interface for a VMDq adapter
+> What do you think ?
 
-OK, but iovnl isn't doing this.
+Looks good, but do we want to check only reused socket's address there?
+What if one of the sockets does not have reuse option turned on, will it
+break?
 
-> 2) Registering the slave with the switch
->  a) use Cisco protocol in enic firmware (see patch 2/2)
->  b) use standard VDP in lldpad
->  c) use reverse-engineered cisco protocol in some user tool for
->     non-enic adapters.
->  d) use standard VDP in firmware (hopefully this never happens)
->  e) do nothing at all (as we do today)
-
-And this is the step that is the main purpose of iovnl.
-
-Here's the simplest snippet of libvirt to show this.  It sends
-set_port_profile netlink messages and then creates macvtap.  As simple
-as it gets...
-
---- a/src/qemu/qemu_conf.c
-+++ b/src/qemu/qemu_conf.c
-@@ -1470,6 +1470,11 @@ qemudPhysIfaceConnect(virConnectPtr conn,
-         net->model && STREQ(net->model, "virtio"))
-         vnet_hdr = 1;
- 
-+    setPortProfileId(net->data.direct.linkdev,
-+                      net->data.direct.mode,
-+                      net->data.direct.profileid,
-+                      net->mac);
-+
-     rc = openMacvtapTap(net->ifname, net->mac, linkdev, brmode,
-                         &res_ifname, vnet_hdr);
+-- 
+	Evgeniy Polyakov
