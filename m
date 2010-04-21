@@ -1,104 +1,57 @@
-From: Thomas Klein <tklein@de.ibm.com>
-Subject: [PATCH 2/2][RESEND] ehea: fix possible DLPAR/mem deadlock
-Date: Wed, 21 Apr 2010 11:11:31 +0200
-Message-ID: <201004211111.31298.tklein@de.ibm.com>
+From: Franco Fichtner <franco@lastsummer.de>
+Subject: Re: [PATCH net-next-2.6] rps: consistent rxhash
+Date: Wed, 21 Apr 2010 11:29:55 +0200
+Message-ID: <4BCEC593.4000007@lastsummer.de>
+References: <1271452358.16881.4486.camel@edumazet-laptop>	 <1271520633.16881.4754.camel@edumazet-laptop>	 <20100419.130905.210660275.davem@davemloft.net>	 <20100419.132318.192086187.davem@davemloft.net>	 <1271709121.3845.94.camel@edumazet-laptop>	 <y2u412e6f7f1004191638mee9206dfoab7482bbff83e38d@mail.gmail.com>	 <1271743164.3845.128.camel@edumazet-laptop>	 <1271750198.3845.216.camel@edumazet-laptop>	 <4BCDA2B5.4060609@lastsummer.de> <i2q65634d661004200809ydba56c35g785ba51900c379f7@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	linux-kernel@vger.kernel.org, themann@de.ibm.com
-To: davem@davemloft.net
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Changli Gao <xiaosuo@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.de.ibm.com ([195.212.17.164]:60692 "EHLO
-	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752686Ab0DUJLd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 05:11:33 -0400
-Content-Disposition: inline
+Received: from host64.kissl.de ([213.239.241.64]:42849 "EHLO host64.kissl.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753663Ab0DUJ37 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 21 Apr 2010 05:29:59 -0400
+In-Reply-To: <i2q65634d661004200809ydba56c35g785ba51900c379f7@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Force serialization of userspace-triggered DLPAR/mem operations
+Tom Herbert wrote:
+>> I thought about this for some time...
+>>
+>> Do we really need the port numbers here at all? A simple
+>> addr1^addr2 can provide a good enough pointer for
+>> distribution amongst CPUs.
+>>
+> 
+> What about a server behind a TCP proxy?  Also, need to minimize
+> collisions for RPS to be effective
 
-Signed-off-by: Thomas Klein <tklein@de.ibm.com>
----
+What about routers? What about loopback? This all boils down to
+the same issue of obscuring IP data by "magical" means and then
+reattaching functionality by reaching for upper layer information.
+It is necessary in some cases, but it can cripple performance
+for other cases.
 
-Patch created against net-2.6
+The interesting thing is you don't need to deal with collisions
+while distributing amonst cpus at all. You just need to make sure
+the distribution algorithm keeps every single flow attached to
+the correct cpu.
 
-diff -Nurp net-2.6.orig/drivers/net/ehea/ehea.h net-2.6/drivers/net/ehea/ehea.h
---- net-2.6.orig/drivers/net/ehea/ehea.h	2010-04-21 10:23:21.000000000 +0200
-+++ net-2.6/drivers/net/ehea/ehea.h	2010-04-21 10:42:14.000000000 +0200
-@@ -40,7 +40,7 @@
- #include <asm/io.h>
- 
- #define DRV_NAME	"ehea"
--#define DRV_VERSION	"EHEA_0102"
-+#define DRV_VERSION	"EHEA_0103"
- 
- /* eHEA capability flags */
- #define DLPAR_PORT_ADD_REM 1
-diff -Nurp net-2.6.orig/drivers/net/ehea/ehea_main.c net-2.6/drivers/net/ehea/ehea_main.c
---- net-2.6.orig/drivers/net/ehea/ehea_main.c	2010-04-21 10:43:14.000000000 +0200
-+++ net-2.6/drivers/net/ehea/ehea_main.c	2010-04-21 10:42:14.000000000 +0200
-@@ -2889,7 +2889,6 @@ static void ehea_rereg_mrs(struct work_s
- 	int ret, i;
- 	struct ehea_adapter *adapter;
- 
--	mutex_lock(&dlpar_mem_lock);
- 	ehea_info("LPAR memory changed - re-initializing driver");
- 
- 	list_for_each_entry(adapter, &adapter_list, list)
-@@ -2959,7 +2958,6 @@ static void ehea_rereg_mrs(struct work_s
- 		}
- 	ehea_info("re-initializing driver complete");
- out:
--	mutex_unlock(&dlpar_mem_lock);
- 	return;
- }
- 
-@@ -3542,7 +3540,14 @@ void ehea_crash_handler(void)
- static int ehea_mem_notifier(struct notifier_block *nb,
-                              unsigned long action, void *data)
- {
-+	int ret = NOTIFY_BAD;
- 	struct memory_notify *arg = data;
-+
-+	if (!mutex_trylock(&dlpar_mem_lock)) {
-+		ehea_info("ehea_mem_notifier must not be called parallelized");
-+		goto out;
-+	}
-+
- 	switch (action) {
- 	case MEM_CANCEL_OFFLINE:
- 		ehea_info("memory offlining canceled");
-@@ -3551,14 +3556,14 @@ static int ehea_mem_notifier(struct noti
- 		ehea_info("memory is going online");
- 		set_bit(__EHEA_STOP_XFER, &ehea_driver_flags);
- 		if (ehea_add_sect_bmap(arg->start_pfn, arg->nr_pages))
--			return NOTIFY_BAD;
-+			goto out_unlock;
- 		ehea_rereg_mrs(NULL);
- 		break;
- 	case MEM_GOING_OFFLINE:
- 		ehea_info("memory is going offline");
- 		set_bit(__EHEA_STOP_XFER, &ehea_driver_flags);
- 		if (ehea_rem_sect_bmap(arg->start_pfn, arg->nr_pages))
--			return NOTIFY_BAD;
-+			goto out_unlock;
- 		ehea_rereg_mrs(NULL);
- 		break;
- 	default:
-@@ -3566,8 +3571,12 @@ static int ehea_mem_notifier(struct noti
- 	}
- 
- 	ehea_update_firmware_handles();
-+	ret = NOTIFY_OK;
- 
--	return NOTIFY_OK;
-+out_unlock:
-+	mutex_unlock(&dlpar_mem_lock);
-+out:
-+	return ret;
- }
- 
- static struct notifier_block ehea_mem_nb = {
+All of the actual flow hashing, tracking and whatever else the
+traffic needs to go through can be done locally by cpu x which
+helps a lot with load distribution and cache issues in mind. It
+also helps locking because there is no global flow lookup table.
+Oh, and it also reduces collisions with every cpu you add for
+receiving.
+
+I work with a lot of plain office and ISP traffic in mind daily,
+so please don't misunderstand my motivation here. I'd hate to
+see poor performance in scenarios in which there is a lot of
+potential improvement.
+
+
+Franco
