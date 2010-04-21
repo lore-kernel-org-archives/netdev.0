@@ -1,38 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: crash with bridge and inconsistent handling of NETDEV_TX_OK
-Date: Tue, 20 Apr 2010 19:01:27 -0700 (PDT)
-Message-ID: <20100420.190127.66303903.davem@davemloft.net>
-References: <20100420.181648.183008607.davem@davemloft.net>
-	<Pine.LNX.4.64.1004202120180.29631@hs20-bc2-1.build.redhat.com>
-	<20100420.182407.174368203.davem@davemloft.net>
+From: Li Yu <raise.sail@gmail.com>
+Subject: Re: A possible bug in reqsk_queue_hash_req()
+Date: Wed, 21 Apr 2010 10:02:02 +0800
+Message-ID: <4BCE5C9A.3080805@gmail.com>
+References: <i2x9b948ee41004200335vc229a59cvc0a08c35c949d7dd@mail.gmail.com>	 <1271761611.3845.223.camel@edumazet-laptop>	 <u2m9b948ee41004200621zf829996y813c37c5f6a3691f@mail.gmail.com> <1271775681.7895.21.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: mpatocka@redhat.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44858
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752638Ab0DUCBX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 22:01:23 -0400
-In-Reply-To: <20100420.182407.174368203.davem@davemloft.net>
+Received: from mail-qy0-f179.google.com ([209.85.221.179]:43736 "EHLO
+	mail-qy0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754714Ab0DUCCL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 20 Apr 2010 22:02:11 -0400
+In-Reply-To: <1271775681.7895.21.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Eric Dumazet =E5=86=99=E9=81=93:
+> Le mardi 20 avril 2010 =C3=A0 21:21 +0800, Li Yu a =C3=A9crit :
+>=20
+>> In my word, write lock also means mutual exclusion among all writers=
+,
+>> is it right?
+>>
+>=20
+> Yes, generally speaking.
+>=20
+> But not on this use case.
+>=20
+> This is documented in an include file, if you search for syn_wait_loc=
+k
+>=20
+>>> All callers of this reqsk_queue_hash_req() must have the socket loc=
+ked
+>> See. If we always assumed the caller should hold the locked socket
+>> first, this is not a bug, but I think we'd better add a comment at
+>> header file.
+>=20
+> It is documented, as a matter of fact :)
+>=20
+>=20
 
-I looked more at your crash report.
+Great, this isn't a bug, you are right here :)
 
-You shouldn't even be in this code path for other reasons, namely
-skb->next should be NULL.  But it's not in your case.  skb->next would
-only be non-NULL for GSO frames, which we've established we should not
-be seeing here.
+I just found out these comments about syn_wait_lock, it seem that we ne=
+ed to crossed reference documents for kernel API, a newbie like me, may=
+ confused at such similar problems.
 
-Given that skb->next is non-NULL and the fraglists of this SKB are
-corrupted (next pointer is 0x18), I think we're getting memory
-corruption from somewhere else.  This also jives with the fact that
-this is not readily reproducable.
 
-The whole ->ndo_start_xmit() return value stuff is unrelated to this
-issue, we shouldn't even be in this code path.  In fact, if reverting
-that TX flags handling commit makes your crashes go away it would be a
-huge surprise.
+>=20
