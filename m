@@ -1,46 +1,45 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: PROBLEM: Linux kernel 2.6.31 IPv4 TCP fails to open huge amount of outgoing connections (unable to bind ... )
-Date: Wed, 21 Apr 2010 04:14:48 +0400
-Message-ID: <20100421001448.GA31724@ioremap.net>
-References: <g2z46c8cb3e1004201517i5641a75cze2ec5bd33e81fb0f@mail.gmail.com> <1271802676.7895.457.camel@edumazet-laptop> <v2n46c8cb3e1004201618s37e9f0c6j7527e59673a34322@mail.gmail.com> <1271806945.7895.581.camel@edumazet-laptop>
+From: Mikulas Patocka <mpatocka@redhat.com>
+Subject: Re: crash with bridge and inconsistent handling of NETDEV_TX_OK
+Date: Tue, 20 Apr 2010 20:23:57 -0400 (EDT)
+Message-ID: <Pine.LNX.4.64.1004202018100.16302@hs20-bc2-1.build.redhat.com>
+References: <Pine.LNX.4.64.1004201947470.29017@hs20-bc2-1.build.redhat.com>
+ <20100420.170038.130590455.davem@davemloft.net>
+ <Pine.LNX.4.64.1004202003010.13651@hs20-bc2-1.build.redhat.com>
+ <20100420.171525.200010343.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gaspar Chilingarov <gasparch@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from genesysrack.ru ([195.178.208.66]:37128 "EHLO tservice.net.ru"
+Received: from mx1.redhat.com ([209.132.183.28]:35293 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753231Ab0DUAp7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 20 Apr 2010 20:45:59 -0400
-Content-Disposition: inline
-In-Reply-To: <1271806945.7895.581.camel@edumazet-laptop>
+	id S1752558Ab0DUA7z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 20 Apr 2010 20:59:55 -0400
+In-Reply-To: <20100420.171525.200010343.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi.
 
-On Wed, Apr 21, 2010 at 01:42:25AM +0200, Eric Dumazet (eric.dumazet@gmail.com) wrote:
-> If you want to check source, its in file net/ipv4/inet_connection_sock.c
-> 
-> function inet_csk_get_port()
-> 
-> you can remove the 
-> 
-> if (atomic_read(&hashinfo->bsockets) > (high - low) + 1) { 
-> 	spin_unlock(&head->lock); 
-> 	snum = smallest_rover; 
-> 	goto have_snum;
-> }
-> 
-> It will solve your problem (but bind() will probably be slow)
 
-Netcat uses SO_REUSEADDR, so its the code path which generates an error,
-but this part actually returns a port number not en error. I suppose
-what happend is 'attempts' check faired and thus system failed to find
-a small enough bucket which does not conflict. To test this we can
-remove 'smallest_size = tb->num_owners;' assignment, but bind() can be
-damn slow in this case indeed.
+On Tue, 20 Apr 2010, David Miller wrote:
 
--- 
-	Evgeniy Polyakov
+> From: Mikulas Patocka <mpatocka@redhat.com>
+> Date: Tue, 20 Apr 2010 20:12:45 -0400 (EDT)
+> 
+> > Why is it using GSO on bridging?
+> 
+> Unlike LRO, GRO and GSO are completely valid in bridging and
+> routing situations.
+> 
+> In fact, in virtualization environments it is essential for
+> good performance.
+
+I know it may be used for bridging. But it doesn't explain how it happened 
+in my case.
+
+I have two NICs, each with 1500 MTU. The stack trace indicates that a 
+packet was received by one NIC and bridged to the other. The stack trace 
+also indicates that it went through GSO code path. The question is why? 
+How could a forwarded packet be so large to use GSO?
+
+Mikulas
