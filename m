@@ -1,37 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] KS8851: NULL pointer dereference if list is empty
-Date: Wed, 21 Apr 2010 16:29:32 -0700 (PDT)
-Message-ID: <20100421.162932.191667410.davem@davemloft.net>
-References: <k2ocb8016981004161748s1a91f926x3c29b3fbd45ad46c@mail.gmail.com>
+Subject: Re: [PATCH] mac8390: change an error return code and some cleanup,
+ take 3
+Date: Wed, 21 Apr 2010 16:30:41 -0700 (PDT)
+Message-ID: <20100421.163041.158540277.davem@davemloft.net>
+References: <alpine.OSX.2.00.1004161403160.271@localhost>
+	<alpine.OSX.2.00.1004162347390.271@localhost>
+	<alpine.OSX.2.00.1004171258330.358@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: abraham.arce.moreno@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57393
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754835Ab0DUX32 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 19:29:28 -0400
-In-Reply-To: <k2ocb8016981004161748s1a91f926x3c29b3fbd45ad46c@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: joe@perches.com, p_gortmaker@yahoo.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-m68k@vger.kernel.org
+To: fthain@telegraphics.com.au
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <alpine.OSX.2.00.1004171258330.358@localhost>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Abraham Arce <abraham.arce.moreno@gmail.com>
-Date: Fri, 16 Apr 2010 19:48:43 -0500
+From: Finn Thain <fthain@telegraphics.com.au>
+Date: Sat, 17 Apr 2010 13:16:04 +1000 (EST)
 
-> Fix NULL pointer dereference in ks8851_tx_work by checking if dequeued
-> list is already empty before writing the packet to TX FIFO
 > 
->  Unable to handle kernel NULL pointer dereference at virtual address 00000050
->  PC is at ks8851_tx_work+0xdc/0x1b0
->  LR is at wait_for_common+0x148/0x164
->  pc : [<c01c0df4>]    lr : [<c025a980>]    psr: 20000013
->  Backtrace:
->   ks8851_tx_work+0x0/0x1b0
->   worker_thread+0x0/0x190
->   kthread+0x0/0x90
+> Change an error return code from -EAGAIN to -EBUSY since the former is 
+> misleading.
 > 
-> Signed-off-by: Abraham Arce <x0066660@ti.com>
+> Nubus slots are geographically addressed and their irqs are equally 
+> inflexible. -EAGAIN is misleading because retrying will not help fix 
+> whatever bug it was that made the irq unavailable.
 
-Applied to net-2.6, thanks.
+request_irq() itself returns an appropriate error code, so the
+correct change is to do:
+
+	err = request_irq( ... );
+	if (err) {
+	...
+
+and return 'err'.
