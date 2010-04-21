@@ -1,50 +1,51 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH 1/2] netfilter: xtables: inclusion of xt_SYSRQ
-Date: Wed, 21 Apr 2010 15:35:45 +0200 (CEST)
-Message-ID: <alpine.LSU.2.01.1004211533410.21020@obet.zrqbmnf.qr>
-References: <1271845618-28569-1-git-send-email-jengelh@medozas.de> <1271845618-28569-2-git-send-email-jengelh@medozas.de> <4BCEF6B4.8090105@trash.net> <alpine.LSU.2.01.1004211506280.10840@obet.zrqbmnf.qr> <4BCEFACC.7020804@trash.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [net-next,1/2] add iovnl netlink support
+Date: Wed, 21 Apr 2010 15:17:57 +0200
+Message-ID: <201004211517.58062.arnd@arndb.de>
+References: <C7F35C03.29CF4%scofeldm@cisco.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	John Haxby <john.haxby@oracle.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4BCEFACC.7020804@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Chris Wright <chrisw@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Scott Feldman <scofeldm@cisco.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.17.8]:60624 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754762Ab0DUNxe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 09:53:34 -0400
+In-Reply-To: <C7F35C03.29CF4%scofeldm@cisco.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On Wednesday 2010-04-21 15:17, Patrick McHardy wrote:
->Jan Engelhardt wrote:
->> On Wednesday 2010-04-21 14:59, Patrick McHardy wrote:
->> 
->>> Jan Engelhardt wrote:
->>>> The SYSRQ target will allow to remotely invoke sysrq on the local
->>>> machine. Authentication is by means of a pre-shared key that can
->>>> either be transmitted plaintext or digest-secured.
->>> I really think this is pushing what netfilter is meant for a bit
->>> far. Its basically abusing the firewall ruleset to offer a network
->>> service.
->>>
->>> I can see that its useful to have this in the kernel instead of
->>> userspace, but why isn't this implemented as a stand-alone module?
->>> That seems like a better design to me and also makes it more useful
->>> by not depending on netfilter.
->> 
->> That sort of diverts from the earlier what-seemed-to-be-consensus.
->> 
->> Oh well, I would not mind holding the single commit up as long as the 
->> rest isn't blocked too :-)
+On Tuesday 20 April 2010, Scott Feldman wrote:
+> On 4/20/10 9:19 AM, "Arnd Bergmann" <arnd@arndb.de> wrote:
 >
->Then lets skip this one for now.
+> >> In the case of devices that can do adjacent switch negotiations directly.
+> > 
+> > I thought the idea to deal with those devices was to beat sense into
+> > the respective developers until they do the negotiation in software 8-)
+> 
+> When the device can do the negotiation directly with the switch, why does it
+> make sense to bypass that and use software on the host?  I don't think we'd
+> want to give up on link speed/duplex auto-negotiation and punt those setting
+> back to the user/host like in the old days.
 
-Well you raised the concern before -- namely that kdboe would have
-the very same feature. And yet, kdboe was not part of the kernel.
-Neither is the magical stand-alone module.
-I really prefer to have it in rather than out, because I know
-that's going to mess up maintenance-here-and-there. I'm already
-having a big time with xtables-addons that still carries
-xt_condition and SYSRQ for a while, and it does have some different
-code lines than the kernel copy.
+For the link negotiation, the card is the right place because it's necessary
+to get the link working before the OS can talk to the switch.
+For VDP, that's different because the hypervisor needs to talk to the switch
+before the guest can communicate, so there is no interdependency.
+
+More importantly, the card cannot possibly do the protocol by itself,
+because the information that gets exchanged is specific to the hypervisor and
+the guest, not to the hardware. What you have implemented is another protocol
+between the hypervisor and the NIC that exchanges the exact same data that
+then gets sent to the switch. We already need to have an implementation that
+sends this data to the switch from user space for all cards that don't do
+it in firmware, so doing an alternative path in the adapter really creates
+more work for the users, and means that when we fix bugs or add features
+to the common code, you don't get them ;-).
+
+	Arnd
+
