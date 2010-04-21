@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ks8842: Add platform data for setting mac address
-Date: Wed, 21 Apr 2010 16:33:39 -0700 (PDT)
-Message-ID: <20100421.163339.203286667.davem@davemloft.net>
-References: <1271628741.18194.7.camel@debian>
+Subject: Re: [PATCH] cxgb3: fix linkup issue
+Date: Wed, 21 Apr 2010 16:34:58 -0700 (PDT)
+Message-ID: <20100421.163458.239333058.davem@davemloft.net>
+References: <4BCD0424.8030501@ct.jp.nec.com>
+	<4BCF4E0E.1080805@chelsio.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
-To: richard.rojfors@pelagicore.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55466
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754892Ab0DUXdf convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 21 Apr 2010 19:33:35 -0400
-In-Reply-To: <1271628741.18194.7.camel@debian>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: h-shimamoto@ct.jp.nec.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: divy@chelsio.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4BCF4E0E.1080805@chelsio.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Richard R=F6jfors <richard.rojfors@pelagicore.com>
-Date: Mon, 19 Apr 2010 00:12:21 +0200
+From: Divy Le Ray <divy@chelsio.com>
+Date: Wed, 21 Apr 2010 12:12:14 -0700
 
-> This patch adds platform data to the ks8842 driver.
->=20
-> Via the platform data a MAC address, to be used by the controller,
-> can be passed.
->=20
-> To ensure this MAC address is used, the MAC address is written
-> after each hardware reset.
->=20
-> Signed-off-by: Richard R=F6jfors <richard.rojfors@pelagicore.com>
+> Hiroshi Shimamoto wrote:
+>> From: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+>>
+>> I encountered an issue that not to link up on cxgb3 fabric.
+>> I bisected and found that this regression was introduced by
+>> 0f07c4ee8c800923ae7918c231532a9256233eed.
+>>
+>> Correct to pass phy_addr to cphy_init() at t3_xaui_direct_phy_prep().
+>>
+>> Signed-off-by: Hiroshi Shimamoto <h-shimamoto@ct.jp.nec.com>
+>>   
+> 
+> Sorry for the review delay, I just came back from some time off.
+> Acked-by: Divy Le Ray <divy@chelsio.com>
 
-Applied to net-next-2.6, thanks Richard.
+Applied to net-2.6, thanks.
