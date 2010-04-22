@@ -1,95 +1,146 @@
-From: Paul LeoNerd Evans <leonerd@leonerd.org.uk>
-Subject: [PATCHv2] Socket filter ancilliary data access for skb->dev->type
-Date: Thu, 22 Apr 2010 14:32:22 +0100
-Message-ID: <20100422133222.GU19334@cel.leo>
+From: Jesper Dangaard Brouer <jdb@comx.dk>
+Subject: Re: DDoS attack causing bad effect on conntrack searches
+Date: Thu, 22 Apr 2010 15:31:06 +0200
+Message-ID: <1271943066.14501.194.camel@jdb-workstation>
+References: <1271941082.14501.189.camel@jdb-workstation>
+	 <q2h412e6f7f1004220613m488c2ee4r6d24a8d1e65997d4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="K0M4iRgkWWXhiQ9N"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Linux Kernel Network Hackers <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org,
+	Paul E McKenney <paulmck@linux.vnet.ibm.com>
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cel.leonerd.org.uk ([81.187.167.226]:51448 "EHLO cel.leo"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754771Ab0DVNcY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Apr 2010 09:32:24 -0400
-Content-Disposition: inline
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:56344 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754712Ab0DVNix convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 09:38:53 -0400
+In-Reply-To: <q2h412e6f7f1004220613m488c2ee4r6d24a8d1e65997d4@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---K0M4iRgkWWXhiQ9N
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I have added a stats counter to prove my case, which I think we should add to the kernel (to detect the case in the future).
+The DDoS attack has disappeared, so I guess I'll try to see if I can reproduce the problem in my testlab.
 
-Add an SKF_AD_HATYPE field to the packet ancilliary data area, giving
-access to skb->dev->type, as reported in the sll_hatype field.
 
-When capturing packets on a PF_PACKET/SOCK_RAW socket bound to all
-interfaces, there doesn't appear to be a way for the filter program to
-actually find out the underlying hardware type the packet was captured
-on. This patch adds such ability.
 
-This patch also handles the case where skb->dev can be NULL, such as on
-netlink sockets.
+[PATCH] net: netfilter conntrack extended with extra stat counter.
 
-Signed-off-by: Paul Evans <leonerd@leonerd.org.uk>
+From: Jesper Dangaard Brouer <hawk@comx.dk>
 
+I suspect an unfortunatly series of events occuring under a DDoS
+attack, in function __nf_conntrack_find() nf_contrack_core.c.
+
+Adding a stats counter to see if the search is restarted too often.
+
+Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
 ---
 
-diff -ur linux-2.6.33.2.orig/include/linux/filter.h linux-2.6.33.2/include/=
-linux/filter.h
---- linux-2.6.33.2.orig/include/linux/filter.h	2010-04-02 00:02:33.00000000=
-0 +0100
-+++ linux-2.6.33.2/include/linux/filter.h	2010-04-20 22:40:25.000000000 +01=
-00
-@@ -123,7 +123,8 @@
- #define SKF_AD_NLATTR_NEST	16
- #define SKF_AD_MARK 	20
- #define SKF_AD_QUEUE	24
--#define SKF_AD_MAX	28
-+#define SKF_AD_HATYPE	28
-+#define SKF_AD_MAX	32
- #define SKF_NET_OFF   (-0x100000)
- #define SKF_LL_OFF    (-0x200000)
-=20
-diff -ur linux-2.6.33.2.orig/net/core/filter.c linux-2.6.33.2/net/core/filt=
-er.c
---- linux-2.6.33.2.orig/net/core/filter.c	2010-04-02 00:02:33.000000000 +01=
-00
-+++ linux-2.6.33.2/net/core/filter.c	2010-04-22 14:19:24.000000000 +0100
-@@ -301,6 +301,8 @@
- 			A =3D skb->pkt_type;
- 			continue;
- 		case SKF_AD_IFINDEX:
-+			if (!skb->dev)
-+				return 0;
- 			A =3D skb->dev->ifindex;
- 			continue;
- 		case SKF_AD_MARK:
-@@ -309,6 +311,11 @@
- 		case SKF_AD_QUEUE:
- 			A =3D skb->queue_mapping;
- 			continue;
-+		case SKF_AD_HATYPE:
-+			if (!skb->dev)
-+				return 0;
-+			A =3D skb->dev->type;
-+			continue;
- 		case SKF_AD_NLATTR: {
- 			struct nlattr *nla;
-=20
+ include/linux/netfilter/nf_conntrack_common.h      |    1 +
+ .../netfilter/nf_conntrack_l3proto_ipv4_compat.c   |    7 ++++---
+ net/netfilter/nf_conntrack_core.c                  |    4 +++-
+ net/netfilter/nf_conntrack_standalone.c            |    7 ++++---
+ 4 files changed, 12 insertions(+), 7 deletions(-)
 
---K0M4iRgkWWXhiQ9N
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+diff --git a/include/linux/netfilter/nf_conntrack_common.h b/include/linux/netfilter/nf_conntrack_common.h
+index a8248ee..57ff312 100644
+--- a/include/linux/netfilter/nf_conntrack_common.h
++++ b/include/linux/netfilter/nf_conntrack_common.h
+@@ -93,6 +93,7 @@ struct ip_conntrack_stat
+ 	unsigned int expect_new;
+ 	unsigned int expect_create;
+ 	unsigned int expect_delete;
++	unsigned int search_restart;
+ };
+ 
+ /* call to create an explicit dependency on nf_conntrack. */
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+index 8668a3d..b94f510 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+@@ -336,12 +336,12 @@ static int ct_cpu_seq_show(struct seq_file *seq, void *v)
+ 	const struct ip_conntrack_stat *st = v;
+ 
+ 	if (v == SEQ_START_TOKEN) {
+-		seq_printf(seq, "entries  searched found new invalid ignore delete delete_list insert insert_failed drop early_drop icmp_error  expect_new expect_create expect_delete\n");
++		seq_printf(seq, "entries  searched found new invalid ignore delete delete_list insert insert_failed drop early_drop icmp_error  expect_new expect_create expect_delete search_restart\n");
+ 		return 0;
+ 	}
+ 
+ 	seq_printf(seq, "%08x  %08x %08x %08x %08x %08x %08x %08x "
+-			"%08x %08x %08x %08x %08x  %08x %08x %08x \n",
++			"%08x %08x %08x %08x %08x  %08x %08x %08x %08x\n",
+ 		   nr_conntracks,
+ 		   st->searched,
+ 		   st->found,
+@@ -358,7 +358,8 @@ static int ct_cpu_seq_show(struct seq_file *seq, void *v)
+ 
+ 		   st->expect_new,
+ 		   st->expect_create,
+-		   st->expect_delete
++		   st->expect_delete,
++		   st->search_restart
+ 		);
+ 	return 0;
+ }
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 4299db7..5ca8286 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -315,8 +315,10 @@ begin:
+ 	 * not the expected one, we must restart lookup.
+ 	 * We probably met an item that was moved to another chain.
+ 	 */
+-	if (get_nulls_value(n) != hash)
++	if (get_nulls_value(n) != hash) {
++		NF_CT_STAT_INC(net, search_restart);
+ 		goto begin;
++	}
+ 	local_bh_enable();
+ 
+ 	return NULL;
+diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
+index 1935153..4812750 100644
+--- a/net/netfilter/nf_conntrack_standalone.c
++++ b/net/netfilter/nf_conntrack_standalone.c
+@@ -245,12 +245,12 @@ static int ct_cpu_seq_show(struct seq_file *seq, void *v)
+ 	const struct ip_conntrack_stat *st = v;
+ 
+ 	if (v == SEQ_START_TOKEN) {
+-		seq_printf(seq, "entries  searched found new invalid ignore delete delete_list insert insert_failed drop early_drop icmp_error  expect_new expect_create expect_delete\n");
++		seq_printf(seq, "entries  searched found new invalid ignore delete delete_list insert insert_failed drop early_drop icmp_error  expect_new expect_create expect_delete search_restart\n");
+ 		return 0;
+ 	}
+ 
+ 	seq_printf(seq, "%08x  %08x %08x %08x %08x %08x %08x %08x "
+-			"%08x %08x %08x %08x %08x  %08x %08x %08x \n",
++			"%08x %08x %08x %08x %08x  %08x %08x %08x %08x\n",
+ 		   nr_conntracks,
+ 		   st->searched,
+ 		   st->found,
+@@ -267,7 +267,8 @@ static int ct_cpu_seq_show(struct seq_file *seq, void *v)
+ 
+ 		   st->expect_new,
+ 		   st->expect_create,
+-		   st->expect_delete
++		   st->expect_delete,
++		   st->search_restart
+ 		);
+ 	return 0;
+ }
 
-iD8DBQFL0E/lvLS2TC8cBo0RAgphAKDNPgBB0G9RAmHczzxY+pXNCIS52gCZAb7w
-tM9oxWAqIbCFYoh0UQElfg8=
-=ehFu
------END PGP SIGNATURE-----
 
---K0M4iRgkWWXhiQ9N--
+
+-- 
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network Kernel Developer
+  Cand. Scient Datalog / MSc.CS
+  Author of http://adsl-optimizer.dk
+  LinkedIn: http://www.linkedin.com/in/brouer
