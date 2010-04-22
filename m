@@ -1,112 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: DDoS attack causing bad effect on conntrack searches
-Date: Thu, 22 Apr 2010 23:03:19 +0200
-Message-ID: <1271970199.7895.6482.camel@edumazet-laptop>
-References: <1271941082.14501.189.camel@jdb-workstation>
-	 <q2h412e6f7f1004220613m488c2ee4r6d24a8d1e65997d4@mail.gmail.com>
-	 <4BD04C74.9020402@trash.net> <1271946961.7895.5665.camel@edumazet-laptop>
-	 <1271948029.7895.5707.camel@edumazet-laptop>
-	 <20100422155123.GA2524@linux.vnet.ibm.com>
-	 <1271952128.7895.5851.camel@edumazet-laptop>
-	 <Pine.LNX.4.64.1004222213290.10919@ask.diku.dk>
+From: Chris Wright <chrisw@redhat.com>
+Subject: Re: [net-next,1/2] add iovnl netlink support
+Date: Thu, 22 Apr 2010 14:03:42 -0700
+Message-ID: <20100422210342.GC30693@x200.localdomain>
+References: <C7F4AD4F.2A34D%scofeldm@cisco.com>
+ <201004222048.53950.arnd@arndb.de>
+ <20100422190230.GL28829@x200.localdomain>
+ <201004222136.50397.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: paulmck@linux.vnet.ibm.com, Patrick McHardy <kaber@trash.net>,
-	Changli Gao <xiaosuo@gmail.com>, hawk@comx.dk,
-	Linux Kernel Network Hackers <netdev@vger.kernel.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>
-To: Jesper Dangaard Brouer <hawk@diku.dk>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.1004222213290.10919@ask.diku.dk>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Chris Wright <chrisw@redhat.com>,
+	Scott Feldman <scofeldm@cisco.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Mitch Williams <mitch.a.williams@intel.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:5345 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758776Ab0DVVDx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Apr 2010 17:03:53 -0400
+Content-Disposition: inline
+In-Reply-To: <201004222136.50397.arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 22 avril 2010 =C3=A0 22:38 +0200, Jesper Dangaard Brouer a =C3=
-=A9crit :
-> On Thu, 22 Apr 2010, Eric Dumazet wrote:
->=20
-> > Le jeudi 22 avril 2010 =C3=A0 08:51 -0700, Paul E. McKenney a =C3=A9=
-crit :
-> >> On Thu, Apr 22, 2010 at 04:53:49PM +0200, Eric Dumazet wrote:
-> >>> Le jeudi 22 avril 2010 =C3=A0 16:36 +0200, Eric Dumazet a =C3=A9c=
-rit :
-> >>>
-> >>> If we can do the 'retry' a 10 times, it means the attacker was re=
-ally
-> >>> clever enough to inject new packets (new conntracks) at the right
-> >>> moment, in the right hash chain, and this sounds so higly incredi=
-ble
-> >>> that I cannot believe it at all :)
-> >>
-> >> Or maybe the DoS attack is injecting so many new conntracks that a=
- large
-> >> fraction of the hash chains are being modified at any given time?
-> >>
->=20
-> I think its plausable, there is a lot of modification going on.
-> Approx 40.000 deletes/sec and 40.000 inserts/sec.
-> The hash bucket size is 300032, and with 80000 modifications/sec, we =
-are=20
-> (potentially) changing 26.6% of the hash chains each second.
->=20
+* Arnd Bergmann (arnd@arndb.de) wrote:
+> On Thursday 22 April 2010 21:02:30 Chris Wright wrote:
+> > * Arnd Bergmann (arnd@arndb.de) wrote:
+> > > On Thursday 22 April 2010 19:47:29 Chris Wright wrote:
+> > > > OK, wasn't clear if you meant that or simply 100% dedicating the interface
+> > > > via something like virtio.  The add_vf() idea, while neat, doesn't really
+> > > > match how VF's are allocated.
+> > > 
+> > > But we still need something like that for allocating queues in VMDq
+> > > and similar cases where we do not have pass-through, right?
+> > 
+> > Iff we care about VMDq w/out SR-IOV (since SR-IOV hardware is VMDq
+> > capable and already has a queue-pair + interrupt + net_dev), yes.
+> > 
+> > And it's not just VMDq, it's any multi-queue card that can do mac/vlan
+> > filter in hw + header/data split (for direct data DMA to guest buffers).
+> 
+> Right, that's what I meant by VMDq. Do we have a better term to describe
+> this class of devices, i.e. VMDq and other cards that also have the
+> features you listed?
 
-OK but a lookup last a fraction of a micro second, unless interrupted b=
-y
-hard irq.
+I don't have a good term.  Some of these devices can already surface
+multiple netdevs.
 
-Probability of a change during a lookup should be very very small.
-
-Note that the scenario for a restart is :
-
-The lookup go through the chain.
-While it is examining one object, this object is deleted.
-The object is re-allocated by another cpu and inserted to a new chain.
-
-
-What exact version of kernel are you running ?
-
-> As can be seen from the graphs:
->   http://people.netfilter.org/hawk/DDoS/2010-04-12__001/list.html
->=20
-> Notice that primarily CPU2 is doing the 40k deletes/sec, while CPU1 i=
-s=20
-> caught searching...
->=20
->=20
-> > maybe hash table has one slot :)
->=20
-> Guess I have to reproduce the DoS attack in a testlab (I will first h=
-ave=20
-> time Tuesday).  So we can determine if its bad hashing or restart of =
-the=20
-> search loop.
->=20
->=20
-> The traffic pattern was fairly simple:
->=20
-> 200 bytes UDP packets, comming from approx 60 source IPs, going to on=
-e=20
-> destination IP.  The UDP destination port number was varied in the ra=
-nge=20
-> of 1 to 6000.   The source UDP port was varied a bit more, some rangi=
-ng=20
-> from 32768 to 61000, and some from 1028 to 5000.
->=20
->=20
-> Cheers,
->    Jesper Brouer
->=20
-> --
-> -------------------------------------------------------------------
-> MSc. Master of Computer Science
-> Dept. of Computer Science, University of Copenhagen
-> Author of http://www.adsl-optimizer.dk
-> -------------------------------------------------------------------
-
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+thanks,
+-chris
