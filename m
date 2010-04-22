@@ -1,34 +1,112 @@
-From: Markus Feldmann <feldmann_markus@gmx.de>
-Subject: Re: [PATCH 0/2] PCI runtime power management for r8169 and e1000e
-Date: Thu, 22 Apr 2010 22:59:43 +0200
-Message-ID: <hqqdbv$jeb$1@dough.gmane.org>
-References: <201003150131.59619.rjw@sisk.pl> <hqqavu$a65$1@dough.gmane.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: DDoS attack causing bad effect on conntrack searches
+Date: Thu, 22 Apr 2010 23:03:19 +0200
+Message-ID: <1271970199.7895.6482.camel@edumazet-laptop>
+References: <1271941082.14501.189.camel@jdb-workstation>
+	 <q2h412e6f7f1004220613m488c2ee4r6d24a8d1e65997d4@mail.gmail.com>
+	 <4BD04C74.9020402@trash.net> <1271946961.7895.5665.camel@edumazet-laptop>
+	 <1271948029.7895.5707.camel@edumazet-laptop>
+	 <20100422155123.GA2524@linux.vnet.ibm.com>
+	 <1271952128.7895.5851.camel@edumazet-laptop>
+	 <Pine.LNX.4.64.1004222213290.10919@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:42762 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758776Ab0DVU7y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Apr 2010 16:59:54 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1O53V2-0005us-7u
-	for netdev@vger.kernel.org; Thu, 22 Apr 2010 22:59:52 +0200
-Received: from dslb-092-076-232-046.pools.arcor-ip.net ([92.76.232.46])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 22 Apr 2010 22:59:52 +0200
-Received: from feldmann_markus by dslb-092-076-232-046.pools.arcor-ip.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 22 Apr 2010 22:59:52 +0200
-In-Reply-To: <hqqavu$a65$1@dough.gmane.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: paulmck@linux.vnet.ibm.com, Patrick McHardy <kaber@trash.net>,
+	Changli Gao <xiaosuo@gmail.com>, hawk@comx.dk,
+	Linux Kernel Network Hackers <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>
+To: Jesper Dangaard Brouer <hawk@diku.dk>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.1004222213290.10919@ask.diku.dk>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Which kernel features must be enabled to get my network devices down if 
-unused? Is there an howto or documentaion of this setup?
+Le jeudi 22 avril 2010 =C3=A0 22:38 +0200, Jesper Dangaard Brouer a =C3=
+=A9crit :
+> On Thu, 22 Apr 2010, Eric Dumazet wrote:
+>=20
+> > Le jeudi 22 avril 2010 =C3=A0 08:51 -0700, Paul E. McKenney a =C3=A9=
+crit :
+> >> On Thu, Apr 22, 2010 at 04:53:49PM +0200, Eric Dumazet wrote:
+> >>> Le jeudi 22 avril 2010 =C3=A0 16:36 +0200, Eric Dumazet a =C3=A9c=
+rit :
+> >>>
+> >>> If we can do the 'retry' a 10 times, it means the attacker was re=
+ally
+> >>> clever enough to inject new packets (new conntracks) at the right
+> >>> moment, in the right hash chain, and this sounds so higly incredi=
+ble
+> >>> that I cannot believe it at all :)
+> >>
+> >> Or maybe the DoS attack is injecting so many new conntracks that a=
+ large
+> >> fraction of the hash chains are being modified at any given time?
+> >>
+>=20
+> I think its plausable, there is a lot of modification going on.
+> Approx 40.000 deletes/sec and 40.000 inserts/sec.
+> The hash bucket size is 300032, and with 80000 modifications/sec, we =
+are=20
+> (potentially) changing 26.6% of the hash chains each second.
+>=20
 
-regards Markus
+OK but a lookup last a fraction of a micro second, unless interrupted b=
+y
+hard irq.
 
+Probability of a change during a lookup should be very very small.
+
+Note that the scenario for a restart is :
+
+The lookup go through the chain.
+While it is examining one object, this object is deleted.
+The object is re-allocated by another cpu and inserted to a new chain.
+
+
+What exact version of kernel are you running ?
+
+> As can be seen from the graphs:
+>   http://people.netfilter.org/hawk/DDoS/2010-04-12__001/list.html
+>=20
+> Notice that primarily CPU2 is doing the 40k deletes/sec, while CPU1 i=
+s=20
+> caught searching...
+>=20
+>=20
+> > maybe hash table has one slot :)
+>=20
+> Guess I have to reproduce the DoS attack in a testlab (I will first h=
+ave=20
+> time Tuesday).  So we can determine if its bad hashing or restart of =
+the=20
+> search loop.
+>=20
+>=20
+> The traffic pattern was fairly simple:
+>=20
+> 200 bytes UDP packets, comming from approx 60 source IPs, going to on=
+e=20
+> destination IP.  The UDP destination port number was varied in the ra=
+nge=20
+> of 1 to 6000.   The source UDP port was varied a bit more, some rangi=
+ng=20
+> from 32768 to 61000, and some from 1028 to 5000.
+>=20
+>=20
+> Cheers,
+>    Jesper Brouer
+>=20
+> --
+> -------------------------------------------------------------------
+> MSc. Master of Computer Science
+> Dept. of Computer Science, University of Copenhagen
+> Author of http://www.adsl-optimizer.dk
+> -------------------------------------------------------------------
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
