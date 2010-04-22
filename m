@@ -1,52 +1,39 @@
 From: Dan Carpenter <error27@gmail.com>
-Subject: [patch] wimax: wimax_msg_alloc() returns ERR_PTR not null
-Date: Thu, 22 Apr 2010 11:46:32 +0200
-Message-ID: <20100422094632.GM29647@bicker>
+Subject: [patch] wimax: checking ERR_PTR vs null
+Date: Thu, 22 Apr 2010 11:50:10 +0200
+Message-ID: <20100422095010.GN29647@bicker>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wimax@intel.com,
-	=?iso-8859-1?Q?Andr=E9?= Goddard Rosa <andre.goddard@gmail.com>,
-	wimax@linuxwimax.org, netdev@vger.kernel.org,
+Cc: Inaky Perez-Gonzalez <inaky@linux.intel.com>,
+	Alexey Dobriyan <adobriyan@gmail.com>,
+	Paulius Zaleckas <paulius.zaleckas@teltonika.lt>,
+	"David S. Miller" <davem@davemloft.net>, wimax@linuxwimax.org,
 	kernel-janitors@vger.kernel.org
-To: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f179.google.com ([209.85.221.179]:41565 "EHLO
+Received: from mail-qy0-f179.google.com ([209.85.221.179]:37322 "EHLO
 	mail-qy0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753115Ab0DVJqs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 05:46:48 -0400
+	with ESMTP id S1753905Ab0DVJu2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 05:50:28 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-wimax_msg_alloc() returns an ERR_PTR and not null.  I changed it to test
-for ERR_PTR instead of null.  I also added a check in front of the
-kfree() because kfree() can handle null but not ERR_PTR.
+stch_skb is allocated with wimax_gnl_re_state_change_alloc().  That
+function returns ERR_PTRs on failure and doesn't return NULL.
 
 Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-diff --git a/drivers/net/wimax/i2400m/rx.c b/drivers/net/wimax/i2400m/rx.c
-index fa2e11e..05e2247 100644
---- a/drivers/net/wimax/i2400m/rx.c
-+++ b/drivers/net/wimax/i2400m/rx.c
-@@ -300,17 +300,16 @@ void i2400m_rx_ctl_ack(struct i2400m *i2400m,
- 		d_printf(1, dev, "Huh? waiter for command reply cancelled\n");
- 		goto error_waiter_cancelled;
+diff --git a/net/wimax/stack.c b/net/wimax/stack.c
+index 1ed65db..62b1a66 100644
+--- a/net/wimax/stack.c
++++ b/net/wimax/stack.c
+@@ -315,7 +315,7 @@ void __wimax_state_change(struct wimax_dev *wimax_dev, enum wimax_st new_state)
+ 		BUG();
  	}
--	if (ack_skb == NULL) {
-+	if (IS_ERR(ack_skb))
- 		dev_err(dev, "CMD/GET/SET ack: cannot allocate SKB\n");
--		i2400m->ack_skb = ERR_PTR(-ENOMEM);
--	} else
--		i2400m->ack_skb = ack_skb;
-+	i2400m->ack_skb = ack_skb;
- 	spin_unlock_irqrestore(&i2400m->rx_lock, flags);
- 	complete(&i2400m->msg_completion);
- 	return;
- 
- error_waiter_cancelled:
--	kfree_skb(ack_skb);
-+	if (!IS_ERR(ack_skb))
-+		kfree_skb(ack_skb);
- error_no_waiter:
- 	spin_unlock_irqrestore(&i2400m->rx_lock, flags);
- 	return;
+ 	__wimax_state_set(wimax_dev, new_state);
+-	if (stch_skb)
++	if (!IS_ERR(stch_skb))
+ 		wimax_gnl_re_state_change_send(wimax_dev, stch_skb, header);
+ out:
+ 	d_fnend(3, dev, "(wimax_dev %p new_state %u [old %u]) = void\n",
