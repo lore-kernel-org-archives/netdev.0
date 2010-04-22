@@ -1,69 +1,33 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2] tcp: fix outsegs stat for TSO segments
-Date: Thu, 22 Apr 2010 10:00:24 -0700 (PDT)
-Message-ID: <alpine.DEB.1.00.1004220956080.28813@pokey.mtv.corp.google.com>
+From: Andy Grover <andy.grover@oracle.com>
+Subject: Re: [patch] rdma: potential ERR_PTR dereference
+Date: Thu, 22 Apr 2010 10:28:31 -0700
+Message-ID: <4BD0873F.4050704@oracle.com>
+References: <20100422095527.GQ29647@bicker>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:11616 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755114Ab0DVRAd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 13:00:33 -0400
+Received: from rcsinet10.oracle.com ([148.87.113.121]:30926 "EHLO
+	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752760Ab0DVR26 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 13:28:58 -0400
+In-Reply-To: <20100422095527.GQ29647@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Account for TSO segments of an skb in TCP_MIB_OUTSEGS counter.  Without
-doing this, the counter can be off by orders of magnitude from the
-actual number of segments sent.
+Dan Carpenter wrote:
+> In the original code, the "goto out" calls "rdma_destroy_id(cm_id);"
+> That isn't needed here and would cause problems because "cm_id" is an 
+> ERR_PTR.  The new code just returns directly.
+> 
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
-diff --git a/include/net/snmp.h b/include/net/snmp.h
-index 884fdbb..92456f1 100644
---- a/include/net/snmp.h
-+++ b/include/net/snmp.h
-@@ -133,6 +133,8 @@ struct linux_xfrm_mib {
- 			__this_cpu_add(mib[0]->mibs[field], addend)
- #define SNMP_ADD_STATS_USER(mib, field, addend)	\
- 			this_cpu_add(mib[1]->mibs[field], addend)
-+#define SNMP_ADD_STATS(mib, field, addend)	\
-+			this_cpu_add(mib[0]->mibs[field], addend)
- /*
-  * Use "__typeof__(*mib[0]) *ptr" instead of "__typeof__(mib[0]) ptr"
-  * to make @ptr a non-percpu pointer.
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 70c5159..91640fe 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -294,6 +294,7 @@ extern struct proto tcp_prot;
- #define TCP_INC_STATS_BH(net, field)	SNMP_INC_STATS_BH((net)->mib.tcp_statistics, field)
- #define TCP_DEC_STATS(net, field)	SNMP_DEC_STATS((net)->mib.tcp_statistics, field)
- #define TCP_ADD_STATS_USER(net, field, val) SNMP_ADD_STATS_USER((net)->mib.tcp_statistics, field, val)
-+#define TCP_ADD_STATS(net, field, val)	SNMP_ADD_STATS((net)->mib.tcp_statistics, field, val)
- 
- extern void			tcp_v4_err(struct sk_buff *skb, u32);
- 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 2b7d71f..8ce0f99 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -888,7 +888,8 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 		tcp_event_data_sent(tp, skb, sk);
- 
- 	if (after(tcb->end_seq, tp->snd_nxt) || tcb->seq == tcb->end_seq)
--		TCP_INC_STATS(sock_net(sk), TCP_MIB_OUTSEGS);
-+		TCP_ADD_STATS(sock_net(sk), TCP_MIB_OUTSEGS,
-+			      tcp_skb_pcount(skb));
- 
- 	err = icsk->icsk_af_ops->queue_xmit(skb);
- 	if (likely(err <= 0))
-@@ -2503,7 +2504,7 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
- 	th->window = htons(min(req->rcv_wnd, 65535U));
- 	tcp_options_write((__be32 *)(th + 1), tp, &opts);
- 	th->doff = (tcp_header_size >> 2);
--	TCP_INC_STATS(sock_net(sk), TCP_MIB_OUTSEGS);
-+	TCP_ADD_STATS(sock_net(sk), TCP_MIB_OUTSEGS, tcp_skb_pcount(skb));
- 
- #ifdef CONFIG_TCP_MD5SIG
- 	/* Okay, we have all we need - do the md5 hash if needed */
+Thanks, Dan.
+
+Acked-by: Andy Grover <andy.grover@oracle.com>
+
+-- Andy
+
