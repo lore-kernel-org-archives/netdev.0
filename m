@@ -1,81 +1,95 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: DDoS attack causing bad effect on conntrack searches
-Date: Thu, 22 Apr 2010 15:17:40 +0200
-Message-ID: <4BD04C74.9020402@trash.net>
-References: <1271941082.14501.189.camel@jdb-workstation> <q2h412e6f7f1004220613m488c2ee4r6d24a8d1e65997d4@mail.gmail.com>
+From: Paul LeoNerd Evans <leonerd@leonerd.org.uk>
+Subject: [PATCHv2] Socket filter ancilliary data access for skb->dev->type
+Date: Thu, 22 Apr 2010 14:32:22 +0100
+Message-ID: <20100422133222.GU19334@cel.leo>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: hawk@comx.dk, Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Kernel Network Hackers <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org,
-	Paul E McKenney <paulmck@linux.vnet.ibm.com>
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="K0M4iRgkWWXhiQ9N"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:33478 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753396Ab0DVNRm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 09:17:42 -0400
-In-Reply-To: <q2h412e6f7f1004220613m488c2ee4r6d24a8d1e65997d4@mail.gmail.com>
+Received: from cel.leonerd.org.uk ([81.187.167.226]:51448 "EHLO cel.leo"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754771Ab0DVNcY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Apr 2010 09:32:24 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changli Gao wrote:
-> On Thu, Apr 22, 2010 at 8:58 PM, Jesper Dangaard Brouer <hawk@comx.dk> wrote:
->> At an unnamed ISP, we experienced a DDoS attack against one of our
->> customers.  This attack also caused problems for one of our Linux
->> based routers.
->>
->> The attack was "only" generating 300 kpps (packets per sec), which
->> usually isn't a problem for this (fairly old) Linux Router.  But the
->> conntracking system chocked and reduced pps processing power to
->> 40kpps.
->>
->> I do extensive RRD/graph monitoring of the machines.  The IP conntrack
->> searches in the period exploded, to a stunning 700.000 searches per
->> sec.
->>
->> http://people.netfilter.org/hawk/DDoS/2010-04-12__001/conntrack_searches001.png
->>
->> First I though it might be caused by bad hashing, but after reading
->> the kernel code (func: __nf_conntrack_find()), I think its caused by
->> the loop restart (goto begin) of the conntrack search, running under
->> local_bh_disable().  These RCU changes to conntrack were introduced in
->> ea781f19 by Eric Dumazet.
->>
->> Code: net/netfilter/nf_conntrack_core.c
->> Func: __nf_conntrack_find()
->>
->> struct nf_conntrack_tuple_hash *
->> __nf_conntrack_find(struct net *net, const struct nf_conntrack_tuple *tuple)
->> {
->>        struct nf_conntrack_tuple_hash *h;
->>        struct hlist_nulls_node *n;
->>        unsigned int hash = hash_conntrack(tuple);
->>
->>        /* Disable BHs the entire time since we normally need to disable them
->>         * at least once for the stats anyway.
->>         */
->>        local_bh_disable();
->> begin:
->>        hlist_nulls_for_each_entry_rcu(h, n, &net->ct.hash[hash], hnnode) {
->>                if (nf_ct_tuple_equal(tuple, &h->tuple)) {
->>                        NF_CT_STAT_INC(net, found);
->>                        local_bh_enable();
->>                        return h;
->>                }
->>                NF_CT_STAT_INC(net, searched);
->>        }
->>        /*
->>         * if the nulls value we got at the end of this lookup is
->>         * not the expected one, we must restart lookup.
->>         * We probably met an item that was moved to another chain.
->>         */
->>        if (get_nulls_value(n) != hash)
->>                goto begin;
->>        local_bh_enable();
->>
-> 
-> We should add a retry limit there.
 
-We can't do that since that would allow false negatives.
+--K0M4iRgkWWXhiQ9N
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Add an SKF_AD_HATYPE field to the packet ancilliary data area, giving
+access to skb->dev->type, as reported in the sll_hatype field.
+
+When capturing packets on a PF_PACKET/SOCK_RAW socket bound to all
+interfaces, there doesn't appear to be a way for the filter program to
+actually find out the underlying hardware type the packet was captured
+on. This patch adds such ability.
+
+This patch also handles the case where skb->dev can be NULL, such as on
+netlink sockets.
+
+Signed-off-by: Paul Evans <leonerd@leonerd.org.uk>
+
+---
+
+diff -ur linux-2.6.33.2.orig/include/linux/filter.h linux-2.6.33.2/include/=
+linux/filter.h
+--- linux-2.6.33.2.orig/include/linux/filter.h	2010-04-02 00:02:33.00000000=
+0 +0100
++++ linux-2.6.33.2/include/linux/filter.h	2010-04-20 22:40:25.000000000 +01=
+00
+@@ -123,7 +123,8 @@
+ #define SKF_AD_NLATTR_NEST	16
+ #define SKF_AD_MARK 	20
+ #define SKF_AD_QUEUE	24
+-#define SKF_AD_MAX	28
++#define SKF_AD_HATYPE	28
++#define SKF_AD_MAX	32
+ #define SKF_NET_OFF   (-0x100000)
+ #define SKF_LL_OFF    (-0x200000)
+=20
+diff -ur linux-2.6.33.2.orig/net/core/filter.c linux-2.6.33.2/net/core/filt=
+er.c
+--- linux-2.6.33.2.orig/net/core/filter.c	2010-04-02 00:02:33.000000000 +01=
+00
++++ linux-2.6.33.2/net/core/filter.c	2010-04-22 14:19:24.000000000 +0100
+@@ -301,6 +301,8 @@
+ 			A =3D skb->pkt_type;
+ 			continue;
+ 		case SKF_AD_IFINDEX:
++			if (!skb->dev)
++				return 0;
+ 			A =3D skb->dev->ifindex;
+ 			continue;
+ 		case SKF_AD_MARK:
+@@ -309,6 +311,11 @@
+ 		case SKF_AD_QUEUE:
+ 			A =3D skb->queue_mapping;
+ 			continue;
++		case SKF_AD_HATYPE:
++			if (!skb->dev)
++				return 0;
++			A =3D skb->dev->type;
++			continue;
+ 		case SKF_AD_NLATTR: {
+ 			struct nlattr *nla;
+=20
+
+--K0M4iRgkWWXhiQ9N
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iD8DBQFL0E/lvLS2TC8cBo0RAgphAKDNPgBB0G9RAmHczzxY+pXNCIS52gCZAb7w
+tM9oxWAqIbCFYoh0UQElfg8=
+=ehFu
+-----END PGP SIGNATURE-----
+
+--K0M4iRgkWWXhiQ9N--
