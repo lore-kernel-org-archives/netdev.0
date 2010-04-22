@@ -1,33 +1,43 @@
-From: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-Subject: Re: [patch] wimax: checking ERR_PTR vs null
-Date: Thu, 22 Apr 2010 15:56:43 -0700
-Message-ID: <1271977003.2867.12.camel@localhost.localdomain>
-References: <20100422095010.GN29647@bicker>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 1/2] add iovnl netlink support
+Date: Thu, 22 Apr 2010 16:04:32 -0700 (PDT)
+Message-ID: <20100422.160432.172292134.davem@davemloft.net>
+References: <20100421.234849.51685723.davem@davemloft.net>
+	<C7F60C62.2AC93%scofeldm@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"wimax@linuxwimax.org" <wimax@linuxwimax.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Paulius Zaleckas <paulius.zaleckas@teltonika.lt>,
-	Alexey Dobriyan <adobriyan@gmail.com>
-To: Dan Carpenter <error27@gmail.com>
+Cc: netdev@vger.kernel.org, chrisw@redhat.com
+To: scofeldm@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:64694 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753631Ab0DVXAH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Apr 2010 19:00:07 -0400
-In-Reply-To: <20100422095010.GN29647@bicker>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56560
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753580Ab0DVXE2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 19:04:28 -0400
+In-Reply-To: <C7F60C62.2AC93%scofeldm@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-04-22 at 02:50 -0700, Dan Carpenter wrote: 
-> stch_skb is allocated with wimax_gnl_re_state_change_alloc().  That
-> function returns ERR_PTRs on failure and doesn't return NULL.
+From: Scott Feldman <scofeldm@cisco.com>
+Date: Thu, 22 Apr 2010 14:23:30 -0700
+
+> On 4/21/10 11:48 PM, "David Miller" <davem@davemloft.net> wrote:
 > 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+>> From: Scott Feldman <scofeldm@cisco.com>
+>> Date: Mon, 19 Apr 2010 12:18:07 -0700
+>> 
+>>> +#define IOVNL_PROTO_VERSION 1
+>>> +
+>> 
+>> Please delete this in the final version, the macro isn't even used by
+>> the code.
+>> 
+>> We don't do protocol versioning in netlink.  Instead we get the base
+>> stuff solid from the beginning, and then if something needs fixing up
+>> we handle this using new attributes in a way which is both backward
+>> and forward compatible.
+> 
+> Sounds good to me, was a cut-and-paste from dcbnl.h.  How about:
 
-ACK, thanks [and thanks to davem for reminding me]
-
-
+This is perfectly fine except it got whitespace damanged by your
+email client and needs a proper commit message and signoff :-)
