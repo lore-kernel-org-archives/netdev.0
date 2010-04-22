@@ -1,54 +1,115 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] NIU support for skb->rxhash
-Date: Thu, 22 Apr 2010 13:43:18 +0200
-Message-ID: <1271936598.7895.5304.camel@edumazet-laptop>
-References: <20100422.042157.99869295.davem@davemloft.net>
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [PATCH linux-next 1/2] irq: Add CPU mask affinity hint callback
+ framework
+Date: Thu, 22 Apr 2010 05:11:12 -0700 (Pacific Daylight Time)
+Message-ID: <Pine.WNT.4.64.1004220459110.3324@PPWASKIE-MOBL2.amr.corp.intel.com>
+References: <20100420180112.1276.11906.stgit@ppwaskie-hc2.jf.intel.com>
+ <1271854785.2101.17.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:50250 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753774Ab0DVLn2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 07:43:28 -0400
-Received: by bwz25 with SMTP id 25so9500249bwz.28
-        for <netdev@vger.kernel.org>; Thu, 22 Apr 2010 04:43:27 -0700 (PDT)
-In-Reply-To: <20100422.042157.99869295.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: "tglx@linutronix.de" <tglx@linutronix.de>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1271854785.2101.17.camel@achroite.uk.solarflarecom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 22 avril 2010 =C3=A0 04:21 -0700, David Miller a =C3=A9crit :
-> But it turns out using it is largely pointless since the only way to
-> get the hash value(s) is through a structure which is prepended to th=
-e
-> packet data (so we take a cache miss on the packet data anyways)
-> instead of being able to fetch it out of the RX descriptors :-/
->=20
-> If anyone out there is trying to design sane hardware, please put the
-> following into your RX descriptors:
->=20
-> 1) ethernet protocol type (u16)
-> 2) a flag bit indicating if the packet destination matched one
->    of the programmed unicast MAC addresses
-> 3) a flag bit indicating "multicast"
-> 4) a flag bit indicating "broadcast"
-> 5) at least 32-bits of the computed flow hash (u32)
->=20
-> kthx, bye!
+On Wed, 21 Apr 2010, Ben Hutchings wrote:
 
-Then, our stack also touch all 256 bytes of skb structure itself.
+> On Tue, 2010-04-20 at 11:01 -0700, Peter P Waskiewicz Jr wrote:
+>> This patch adds a callback function pointer to the irq_desc
+>> structure, along with a registration function and a read-only
+>> proc entry for each interrupt.
+>>
+>> This affinity_hint handle for each interrupt can be used by
+>> underlying drivers that need a better mechanism to control
+>> interrupt affinity.  The underlying driver can register a
+>> callback for the interrupt, which will allow the driver to
+>> provide the CPU mask for the interrupt to anything that
+>> requests it.  The intent is to extend the userspace daemon,
+>> irqbalance, to help hint to it a preferred CPU mask to balance
+>> the interrupt into.
+>
+> Doesn't it make more sense to have the driver follow affinity decisions
+> made from user-space?  I realise that reallocating queues is disruptive
+> and we probably don't want irqbalance to trigger that, but there should
+> be a mechanism for the administrator to trigger it.
 
-offsetof(struct sk_buff, next)    =3D0x0
-offsetof(struct sk_buff, rxhash)  =3D0xa8
-offsetof(struct sk_buff, dev)     =3D0x20
-offsetof(struct sk_buff, len)     =3D0x68
-offsetof(struct sk_buff, protocol)=3D0x7e
-offsetof(struct sk_buff, network_header)=3D0xc0
-offsetof(struct sk_buff, data)    =3D0xd8
-offsetof(struct sk_buff, head)    =3D0xd0
+The driver here would be assisting userspace (irqbalance) to provide 
+better details how the HW is laid out with respect to flows.  As it stands 
+today, irqbalance is almost guaranteed to move interrups to CPUs that are 
+not aligned with where applications are running for network adapters. 
+This is very apparent when running at speeds in the 10 Gigabit range, or 
+even multiple 1 Gigabit ports running at the same time.
 
-Time for a reordering I guess ;)
+>
+> Looking at your patch for ixgbe:
+>
+> [...]
+>> diff --git a/drivers/net/ixgbe/ixgbe_main.c
+>> b/drivers/net/ixgbe/ixgbe_main.c
+>> index 1b1419c..3e00d41 100644
+>> --- a/drivers/net/ixgbe/ixgbe_main.c
+>> +++ b/drivers/net/ixgbe/ixgbe_main.c
+> [...]
+>> @@ -1083,6 +1113,16 @@ static void ixgbe_configure_msix(struct ixgbe_adapter *adapter)
+>>                         q_vector->eitr = adapter->rx_eitr_param;
+>>
+>>                 ixgbe_write_eitr(q_vector);
+>> +
+>> +               /*
+>> +                * Allocate the affinity_hint cpumask, assign the mask for
+>> +                * this vector, and register our affinity_hint callback.
+>> +                */
+>> +               alloc_cpumask_var(&q_vector->affinity_mask, GFP_KERNEL);
+>> +               cpumask_set_cpu(v_idx, q_vector->affinity_mask);
+>> +               irq_register_affinity_hint(adapter->msix_entries[v_idx].vector,
+>> +                                          adapter,
+>> +                                          &ixgbe_irq_affinity_callback);
+>>         }
+>>
+>>         if (adapter->hw.mac.type == ixgbe_mac_82598EB)
+> [...]
+>
+> This just assigns IRQs to the first n CPU threads.  Depending on the
+> enumeration order, this might result in assigning an IRQ to each of 2
+> threads on a core while leaving other cores unused!
 
+This ixgbe patch is only meant to be an example of how you could use it. 
+I didn't hammer out all the corner cases of interrupt alignment in it yet. 
+However, ixgbe is already aligning Tx flows onto the CPU/queue pair the Tx 
+occurred (i.e. Tx session from CPU 4 will be queued on Tx queue 4), and 
+then uses our Flow Director HW offload to steer Rx to Rx queue 4, assuming 
+that the interrupt for Rx queue 4 is affinitized to CPU 4.  The flow 
+alignment breaks when the IRQ affinity has no knowledge what the 
+underlying set of vectors are bound to, and what mode the HW is running 
+in.
 
+FCoE offloads that spread multiple SCSI exchange IDs across CPU cores also 
+needs this to properly align things.  John Fastabend is going to provide 
+some examples where this is very useful in the FCoE case.
+
+> irqbalance can already find the various IRQs associated with a single
+> net device by looking at the handler names.  So it can do at least as
+> well as this without such a hint.  Unless drivers have *useful* hints to
+> give, I don't see the point in adding this mechanism.
+
+irqbalance identifies which interrupts go with which network device.  But 
+it has no clue about flow management, and often will make a decision that 
+hurts performance scaling.  I have data showing when scaling multiple 10 
+Gigabit ports (4 in the current test), I can gain an extra 10 Gigabits of 
+throughput just by aligning the interrupts properly (go from ~58 Gbps to 
+~68 Gbps in bi-directional tests).
+
+I do have the patches for irqbalance that uses this new handle to make 
+better decisions for devices implementing the mask.  I can send those to 
+help show the whole picture of what's happening.
+
+Appreciate the feedback though Ben.
+
+Cheers,
+-PJ
