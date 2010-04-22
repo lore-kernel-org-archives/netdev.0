@@ -1,35 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: IPv6 duplicate address detection erroneously marking address
- as duplicate when a host receives its own multicast packets?
-Date: Wed, 21 Apr 2010 22:30:22 -0700 (PDT)
-Message-ID: <20100421.223022.126085425.davem@davemloft.net>
-References: <4BCFA615.8060205@hp.com>
-	<20100422024140.GA7215@gondor.apana.org.au>
+Subject: Re: [PATCH 1/2][RESEND] ehea: error handling improvement
+Date: Wed, 21 Apr 2010 22:36:20 -0700 (PDT)
+Message-ID: <20100421.223620.257172362.davem@davemloft.net>
+References: <201004211110.55986.tklein@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: brian.haley@hp.com, sam.cannell@catalyst.net.nz,
-	netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60583
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750993Ab0DVFaR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 01:30:17 -0400
-In-Reply-To: <20100422024140.GA7215@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	linux-kernel@vger.kernel.org, themann@de.ibm.com
+To: tklein@de.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201004211110.55986.tklein@de.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Thu, 22 Apr 2010 10:41:40 +0800
+From: Thomas Klein <tklein@de.ibm.com>
+Date: Wed, 21 Apr 2010 11:10:55 +0200
 
-> Brian Haley <brian.haley@hp.com> wrote:
->> 
->> Well, my initial reaction is XVM is doing the wrong thing looping-back
->> multicast packets.  You can try the following (untested) patch, I can
->> only confirm it compiles.
+> Reset a port's resources only if they're actually in an error state
 > 
-> I agree, whatever is looping the packet back should be fixed.
+> Signed-off-by: Thomas Klein <tklein@de.ibm.com>
+> ---
+> 
+> Patch created against net-2.6
 
-Ethernet does not send multicasts to itself, so we're definitely not
-going to cater to this XVM behavior.
+I thought you were sorry for wasting my time and that you were going
+to follow the directions I gave you last time, and I quote:
+
+--------------------
+3) These are not appropriate for net-2.6 as we are deep in
+   the -rcX series at this point and only the most diabolical
+   bug fixes are appropriate.  Therefore, please generate these
+   against net-next-2.6, thanks.
+--------------------
+
+And here you are generating your patches against net-2.6.  Heck, you
+even feel it's worth mentioning explicitly.
+
+Lucky for you the patches happen to apply cleanly to net-next-2.6 so
+I've put them there.
