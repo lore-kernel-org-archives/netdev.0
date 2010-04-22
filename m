@@ -1,112 +1,115 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v5] net: batch skb dequeueing from softnet
- input_pkt_queue
-Date: Thu, 22 Apr 2010 16:33:25 +0200
-Message-ID: <1271946805.7895.5658.camel@edumazet-laptop>
-References: <1271927357-2973-1-git-send-email-xiaosuo@gmail.com>
-	 <1271936227.7895.5285.camel@edumazet-laptop>
-	 <y2n412e6f7f1004220606id324dc9bj2cc04cfbad50a101@mail.gmail.com>
+Subject: Re: DDoS attack causing bad effect on conntrack searches
+Date: Thu, 22 Apr 2010 16:36:01 +0200
+Message-ID: <1271946961.7895.5665.camel@edumazet-laptop>
+References: <1271941082.14501.189.camel@jdb-workstation>
+	 <q2h412e6f7f1004220613m488c2ee4r6d24a8d1e65997d4@mail.gmail.com>
+	 <4BD04C74.9020402@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, jamal <hadi@cyberus.ca>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:41147 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755120Ab0DVOdg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 10:33:36 -0400
-Received: by mail-bw0-f225.google.com with SMTP id 25so9716703bwz.28
-        for <netdev@vger.kernel.org>; Thu, 22 Apr 2010 07:33:35 -0700 (PDT)
-In-Reply-To: <y2n412e6f7f1004220606id324dc9bj2cc04cfbad50a101@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Changli Gao <xiaosuo@gmail.com>, hawk@comx.dk,
+	Linux Kernel Network Hackers <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org,
+	Paul E McKenney <paulmck@linux.vnet.ibm.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4BD04C74.9020402@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 22 avril 2010 =C3=A0 21:06 +0800, Changli Gao a =C3=A9crit :
-> On Thu, Apr 22, 2010 at 7:37 PM, Eric Dumazet <eric.dumazet@gmail.com=
-> wrote:
-> >
-> > Please reorder things better.
-> >
-> > Most likely this function is called for one packet.
-> >
-> > In your version you take twice the rps_lock()/rps_unlock() path, so
-> > it'll be slower.
-> >
-> > Once to 'transfert' one list to process list
-> >
-> > Once to be able to do the 'label out:' post processing.
-> >
+Le jeudi 22 avril 2010 =C3=A0 15:17 +0200, Patrick McHardy a =C3=A9crit=
+ :
+> Changli Gao wrote:
+> > On Thu, Apr 22, 2010 at 8:58 PM, Jesper Dangaard Brouer <hawk@comx.=
+dk> wrote:
+> >> At an unnamed ISP, we experienced a DDoS attack against one of our
+> >> customers.  This attack also caused problems for one of our Linux
+> >> based routers.
+> >>
+> >> The attack was "only" generating 300 kpps (packets per sec), which
+> >> usually isn't a problem for this (fairly old) Linux Router.  But t=
+he
+> >> conntracking system chocked and reduced pps processing power to
+> >> 40kpps.
+> >>
+> >> I do extensive RRD/graph monitoring of the machines.  The IP connt=
+rack
+> >> searches in the period exploded, to a stunning 700.000 searches pe=
+r
+> >> sec.
+> >>
+> >> http://people.netfilter.org/hawk/DDoS/2010-04-12__001/conntrack_se=
+arches001.png
+> >>
+> >> First I though it might be caused by bad hashing, but after readin=
+g
+> >> the kernel code (func: __nf_conntrack_find()), I think its caused =
+by
+> >> the loop restart (goto begin) of the conntrack search, running und=
+er
+> >> local_bh_disable().  These RCU changes to conntrack were introduce=
+d in
+> >> ea781f19 by Eric Dumazet.
+> >>
+> >> Code: net/netfilter/nf_conntrack_core.c
+> >> Func: __nf_conntrack_find()
+> >>
+> >> struct nf_conntrack_tuple_hash *
+> >> __nf_conntrack_find(struct net *net, const struct nf_conntrack_tup=
+le *tuple)
+> >> {
+> >>        struct nf_conntrack_tuple_hash *h;
+> >>        struct hlist_nulls_node *n;
+> >>        unsigned int hash =3D hash_conntrack(tuple);
+> >>
+> >>        /* Disable BHs the entire time since we normally need to di=
+sable them
+> >>         * at least once for the stats anyway.
+> >>         */
+> >>        local_bh_disable();
+> >> begin:
+> >>        hlist_nulls_for_each_entry_rcu(h, n, &net->ct.hash[hash], h=
+nnode) {
+> >>                if (nf_ct_tuple_equal(tuple, &h->tuple)) {
+> >>                        NF_CT_STAT_INC(net, found);
+> >>                        local_bh_enable();
+> >>                        return h;
+> >>                }
+> >>                NF_CT_STAT_INC(net, searched);
+> >>        }
+> >>        /*
+> >>         * if the nulls value we got at the end of this lookup is
+> >>         * not the expected one, we must restart lookup.
+> >>         * We probably met an item that was moved to another chain.
+> >>         */
+> >>        if (get_nulls_value(n) !=3D hash)
+> >>                goto begin;
+> >>        local_bh_enable();
+> >>
+> >=20
+> > We should add a retry limit there.
 >=20
-> It doesn't make any difference. We have to hold rps_lock to update
-> input_pkt_queue_len, if we don't use another variable to record the
-> length of the process queue, or atomic variable.
->=20
+> We can't do that since that would allow false negatives.
 
-It does make a difference, Damn it.
+If one hash slot is under attack, then there is a bug somewhere.
 
-I really really start to think you dont read what I wrote, or you dont
-care.
+If we cannot avoid this, we can fallback to a secure mode at the second
+retry, and take the spinlock.
 
-Damn, cant you update all the things at once, taking this lock only
-once ?
+Tis way, most of lookups stay lockless (one pass), and some might take
+the slot lock to avoid the possibility of a loop.
 
-You focus having an ultra precise count of pkt_queue.len, but we dont
-care at all ! We only want a _limit_, or else the box can be killed by
-DOS.
+I suspect a bug elsewhere, quite frankly !
 
-If in practice this limit can be 2*limit, thats OK.=20
-
-Cant you understand this ?
-
-> I think it is better that using another variable to record the length
-> of the process queue, and updating it before process_backlog()
-> returns. For one packet, there is only one locking/unlocking. There i=
-s
-> only one issue you concerned: cache miss due to sum the two queues'
-> length. I'll change softnet_data to:
->=20
-> struct softnet_data {
->         struct Qdisc            *output_queue;
->         struct list_head        poll_list;
->         struct sk_buff          *completion_queue;
->         struct sk_buff_head     process_queue;
->=20
-> #ifdef CONFIG_RPS
->         struct softnet_data     *rps_ipi_list;
->=20
->         /* Elements below can be accessed between CPUs for RPS */
->         struct call_single_data csd ____cacheline_aligned_in_smp;
->         struct softnet_data     *rps_ipi_next;
->         unsigned int            cpu;
->         unsigned int            input_queue_head;
-> #endif
->         unsigned int            process_queue_len;
->         struct sk_buff_head     input_pkt_queue;
->         struct napi_struct      backlog;
-> };
->=20
-> For one packets, we have to update process_queue_len in any way. For
-> more packets, we only change process_queue_len just before
-> process_backlog() returns. It means that process_queue_len change is
-> batched.
->=20
-
-We need one limit. Not two limits.
-
-I already told you how to do it, but you ignored me and started yet
-another convoluted thing.
+We have a chain that have an end pointer that doesnt match the expected
+one.
 
 
-process_backlog() transfert the queue to its own queue and reset pkt_le=
-n
-to 0 (Only once)
-
-End of story.
-
-Maximum packet queued to this cpu softnet_data will be 2 * old_limit.
-
-So what ?
 
 
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
