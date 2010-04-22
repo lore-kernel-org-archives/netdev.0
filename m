@@ -1,42 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 1/7] X25: Add if_x25.h and x25 to device identifiers
-Date: Thu, 22 Apr 2010 16:13:42 -0700 (PDT)
-Message-ID: <20100422.161342.60085636.davem@davemloft.net>
-References: <1271719717.2802.77.camel@ibex>
-	<20100420.163558.83598373.davem@davemloft.net>
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Subject: eSwitch management
+Date: Thu, 22 Apr 2010 16:16:32 -0700
+Message-ID: <0B579583-F3D8-4C64-A844-34D69C1760D6@qlogic.com>
+References: <C7F60C62.2AC93%scofeldm@cisco.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: andrew.hendry@gmail.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Scott Feldman <scofeldm@cisco.com>,
+	"chrisw@redhat.com" <chrisw@redhat.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Ameen Rahman <ameen.rahman@qlogic.com>,
+	Amit Salecha <amit.salecha@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57351
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751550Ab0DVXNh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 19:13:37 -0400
-In-Reply-To: <20100420.163558.83598373.davem@davemloft.net>
+Received: from avexcashub1.qlogic.com ([198.70.193.61]:7968 "EHLO
+	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753617Ab0DVXQe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 19:16:34 -0400
+In-Reply-To: <C7F60C62.2AC93%scofeldm@cisco.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 20 Apr 2010 16:35:58 -0700 (PDT)
+Hi All,
 
-> From: Andrew Hendry <andrew.hendry@gmail.com>
-> Date: Tue, 20 Apr 2010 09:28:37 +1000
-> 
->> diff --git a/include/linux/if_x25.h b/include/linux/if_x25.h
->> new file mode 100644
->> index 0000000..897765f
->> --- /dev/null
->> +++ b/include/linux/if_x25.h
->> @@ -0,0 +1,26 @@
->> +/*
->> + *  Linux X.25 packet to device interface
-> 
-> Headers meant to be used by userspace must be added
-> to the include/linux/Kbuild file.
+I am following the discussions on iovnl patch closely. While it is going to take some time for iovnl patch to be reviewed and accepted, what would be the interim approach to manage the eswitch in NIC? We need to add support in qlcnic driver to configure the eswitch in our 10G NIC. Some of the things that we need to set to the switch are setting a port's VLAN, tx bandwidth etc. We would like to set these parameters for a bunch of ports at the start of the day and set it to the eswitch.
+Can we expose sysfs nodes to manage the eswitch or should we have a netlink/ioctl support put in the driver?  Not sure if we can do it via sysfs in a clean way. Netlink seems to be the ideal candidate for this.  What is an acceptable solution? Any suggesstion, advice will be highly appreciated.
 
-I got tired of waiting days for you to get to this so I
-took care of it myself.
-
-All 7 patches applied to net-next-2.6
+thanks much,
+Anirban Chakraborty
+ 
