@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] rdma: potential ERR_PTR dereference
-Date: Thu, 22 Apr 2010 15:57:54 -0700 (PDT)
-Message-ID: <20100422.155754.233400086.davem@davemloft.net>
-References: <20100422095527.GQ29647@bicker>
+Subject: Re: [PATCH v2] tcp: fix outsegs stat for TSO segments
+Date: Thu, 22 Apr 2010 16:00:12 -0700 (PDT)
+Message-ID: <20100422.160012.129774995.davem@davemloft.net>
+References: <alpine.DEB.1.00.1004220956080.28813@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andy.grover@oracle.com, rds-devel@oss.oracle.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: error27@gmail.com
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52278
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40983
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753565Ab0DVW5t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 18:57:49 -0400
-In-Reply-To: <20100422095527.GQ29647@bicker>
+	by vger.kernel.org with ESMTP id S1753632Ab0DVXAI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 19:00:08 -0400
+In-Reply-To: <alpine.DEB.1.00.1004220956080.28813@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <error27@gmail.com>
-Date: Thu, 22 Apr 2010 11:55:27 +0200
+From: Tom Herbert <therbert@google.com>
+Date: Thu, 22 Apr 2010 10:00:24 -0700 (PDT)
 
-> In the original code, the "goto out" calls "rdma_destroy_id(cm_id);"
-> That isn't needed here and would cause problems because "cm_id" is an 
-> ERR_PTR.  The new code just returns directly.
+> Account for TSO segments of an skb in TCP_MIB_OUTSEGS counter.  Without
+> doing this, the counter can be off by orders of magnitude from the
+> actual number of segments sent.
 > 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> Signed-off-by: Tom Herbert <therbert@google.com>
 
-Applied.
+Applied to net-next-2.6, thanks Tom.
