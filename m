@@ -1,41 +1,50 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH v3] net: batch skb dequeueing from softnet input_pkt_queue
-Date: Thu, 22 Apr 2010 09:35:44 +0800
-Message-ID: <k2h412e6f7f1004211835q5c8e769did22080dd08b55439@mail.gmail.com>
-References: <1271238738-8386-1-git-send-email-xiaosuo@gmail.com>
-	<1271891149.7895.3751.camel@edumazet-laptop> <k2n65634d661004211623k3ce51c95o2c329529ce402eda@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: IPv6: race condition in __ipv6_ifa_notify() and dst_free() ?
+Date: Thu, 22 Apr 2010 10:32:11 +0800
+Message-ID: <20100422023211.GA7109@gondor.apana.org.au>
+References: <20100420174401.GB1334@midget.suse.cz> <20100421213429.GA2799@midget.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	jamal <hadi@cyberus.ca>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Jiri Bohac <jbohac@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f178.google.com ([209.85.223.178]:52484 "EHLO
-	mail-iw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755474Ab0DVBgE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 21:36:04 -0400
-Received: by iwn8 with SMTP id 8so1485702iwn.16
-        for <netdev@vger.kernel.org>; Wed, 21 Apr 2010 18:36:04 -0700 (PDT)
-In-Reply-To: <k2n65634d661004211623k3ce51c95o2c329529ce402eda@mail.gmail.com>
+Received: from ringil.hengli.com.au ([216.59.3.182]:45664 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754106Ab0DVCcW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 22:32:22 -0400
+Content-Disposition: inline
+In-Reply-To: <20100421213429.GA2799@midget.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 22, 2010 at 7:23 AM, Tom Herbert <therbert@google.com> wrot=
-e:
->
-> How about just using two input_pkt_queue's (define
-> input_pkt_queue[2])? =C2=A0One that is used to enqueue from RPS, and =
-one
-> that is being processed by process_backlog. =C2=A0Then the only thing=
- that
-> needs to be done under lock in process_backlog is to switch the
-> queues; =C2=A0something like sd->current_input_pkt_queue ^=3D 1
->
+On Wed, Apr 21, 2010 at 11:34:29PM +0200, Jiri Bohac wrote:
+> Hi,
+> 
+> On Tue, Apr 20, 2010 at 07:44:01PM +0200, Jiri Bohac wrote:
+> > What is the reason __ipv6_ifa_notify() calls dst_free() when
+> > ip6_del_rt() fails? I don't see a way ip6_del_rt() could fail
+> > with the dst still needing to be freed.
+> 
+> checked again and I still think that if ip6_del_rt() fails,
+> ifp->rt must have been freed already. Anybody with a
+> counterexample?
 
-It is a better idea, IMO.
+I agree with your diagnosis and the two duplicate NDISC messages
+scenario sounds plausible.
 
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
+Anyway, I think the root of the issue is the fact that NDISC is
+calling addrconf_dad_failure with no locking whatsoever.  The
+latter is not idempotent so some form of locking is needed.
+
+This bug appears to have been around since the very start.
+
+I'll dig deeper to see where we might be able to add some locks.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
