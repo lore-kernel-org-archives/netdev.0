@@ -1,80 +1,108 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v5] net: batch skb dequeueing from softnet
- input_pkt_queue
-Date: Thu, 22 Apr 2010 16:24:31 +0200
-Message-ID: <1271946271.7895.5631.camel@edumazet-laptop>
-References: <1271927357-2973-1-git-send-email-xiaosuo@gmail.com>
-	 <20100422.024336.119875321.davem@davemloft.net>
-	 <t2t412e6f7f1004220527mb5340bebye1d1fda0963dcf2a@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: IPv6: race condition in __ipv6_ifa_notify() and dst_free() ?
+Date: Thu, 22 Apr 2010 22:25:06 +0800
+Message-ID: <20100422142506.GA15858@gondor.apana.org.au>
+References: <20100420174401.GB1334@midget.suse.cz> <20100421213429.GA2799@midget.suse.cz> <20100422023211.GA7109@gondor.apana.org.au> <20100422.004324.67422011.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, hadi@cyberus.ca,
-	therbert@google.com, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jbohac@suse.cz, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	shemminger@vyatta.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:34059 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754979Ab0DVOYn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 10:24:43 -0400
-Received: by bwz25 with SMTP id 25so9705985bwz.28
-        for <netdev@vger.kernel.org>; Thu, 22 Apr 2010 07:24:41 -0700 (PDT)
-In-Reply-To: <t2t412e6f7f1004220527mb5340bebye1d1fda0963dcf2a@mail.gmail.com>
+Received: from ringil.hengli.com.au ([216.59.3.182]:57708 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754886Ab0DVOZS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 10:25:18 -0400
+Content-Disposition: inline
+In-Reply-To: <20100422.004324.67422011.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 22 avril 2010 =C3=A0 20:27 +0800, Changli Gao a =C3=A9crit :
-> On Thu, Apr 22, 2010 at 5:43 PM, David Miller <davem@davemloft.net> w=
-rote:
-> > From: Changli Gao <xiaosuo@gmail.com>
-> > Date: Thu, 22 Apr 2010 17:09:17 +0800
-> >
-> >> +     unsigned int            input_pkt_queue_len;
-> >> +     struct sk_buff          *input_pkt_queue_head;
-> >> +     struct sk_buff          **input_pkt_queue_tailp;
-> >> +
-> >
-> > Please do not ignore Stephen Hemminger's feedback.
-> >
-> > We already have enough odd SKB queue implementations, we
-> > do not need yet another one in a core location.  This makes
-> > it harder and harder to eventually convert sk_buff to use
-> > "struct list_head".
-> >
-> > Instead, use "struct sk_buff_head" and the lockless accessors
-> > (__skb_insert, etc.) and initializer (__skb_queue_head_init).
-> >
->=20
-> If I want to keep softnet_data small, I have to access the internal
-> fields of sk_buff_head, and modify them in a hack way. It doesn't
-> sound good. If not, softnet_data will become:
->=20
-> struct softnet_data {
->         struct Qdisc            *output_queue;
->         struct list_head        poll_list;
->         struct sk_buff          *completion_queue;
->         struct sk_buff_head     process_queue;
->=20
-> #ifdef CONFIG_RPS
->         struct softnet_data     *rps_ipi_list;
->=20
->         /* Elements below can be accessed between CPUs for RPS */
->         struct call_single_data csd ____cacheline_aligned_in_smp;
->         struct softnet_data     *rps_ipi_next;
->         unsigned int            cpu;
->         unsigned int            input_queue_head;
-> #endif
->         unsigned int            input_pkt_queue_len;
->         struct sk_buff_head     input_pkt_queue;
->         struct napi_struct      backlog;
-> };
->=20
-> Eric, do you think it is too fat?
+On Thu, Apr 22, 2010 at 12:43:24AM -0700, David Miller wrote:
+>
+> Thanks Herbert.
 
-No it is not, as long as we are careful to separate cache lines.
+No worries :)
 
-By the way, input_pkt_queue_len is already in input_ptk_queue (.len)
+BTW similar races exist in other NDISC receive functions, but
+it's too late today so I'll look at this tomorrow unless someone
+else wants to have a go at this.
 
-Thanks
+ipv6: Prevent DAD races
 
+The NDISC receive path has not been written in a way that handles
+unexpected packets properly.
 
+For example, if we get two identical simultaneous NA/NS packets
+that result in a DAD failure, we may try to delete the same address
+twice.
+
+A similar problem occurs when we get a DAD failure just as we're
+about to mark an address as having passed DAD.
+
+This patch fixes this by using the DADFAILED bit to synchronise
+the two paths while holding the ifp lock.  It relies on the fact
+that the TENTATIVE bit is always set during DAD, and that the
+DADFAILED bit is only set on failure.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index de7a194..1d15d5e 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1401,6 +1401,16 @@ static void addrconf_dad_stop(struct inet6_ifaddr *ifp, int dad_failed)
+ void addrconf_dad_failure(struct inet6_ifaddr *ifp)
+ {
+ 	struct inet6_dev *idev = ifp->idev;
++	int ignore;
++
++	spin_lock(&ifp->lock);
++	ignore = (ifp->flags & (IFA_F_DADFAILED|IFA_F_TENTATIVE)) ^
++		 IFA_F_TENTATIVE;
++	ifp->flags |= IFA_F_DADFAILED;
++	spin_unlock(&ifp->lock);
++
++	if (ignore)
++		return;
+ 
+ 	if (net_ratelimit())
+ 		printk(KERN_INFO "%s: IPv6 duplicate address %pI6c detected!\n",
+@@ -2789,7 +2799,10 @@ static void addrconf_dad_start(struct inet6_ifaddr *ifp, u32 flags)
+ 	read_lock_bh(&idev->lock);
+ 	if (ifp->dead)
+ 		goto out;
++
+ 	spin_lock_bh(&ifp->lock);
++	if (ifp->flags & IFA_F_DADFAILED)
++		goto unlock_ifp;
+ 
+ 	if (dev->flags&(IFF_NOARP|IFF_LOOPBACK) ||
+ 	    idev->cnf.accept_dad < 1 ||
+@@ -2824,6 +2837,7 @@ static void addrconf_dad_start(struct inet6_ifaddr *ifp, u32 flags)
+ 		ip6_ins_rt(ifp->rt);
+ 
+ 	addrconf_dad_kick(ifp);
++unlock_ifp:
+ 	spin_unlock_bh(&ifp->lock);
+ out:
+ 	read_unlock_bh(&idev->lock);
+@@ -2841,6 +2855,11 @@ static void addrconf_dad_timer(unsigned long data)
+ 		goto out;
+ 	}
+ 	spin_lock_bh(&ifp->lock);
++	if (ifp->flags & IFA_F_DADFAILED) {
++		spin_unlock_bh(&ifp->lock);
++		read_unlock_bh(&idev->lock);
++		goto out;
++	}
+ 	if (ifp->probes == 0) {
+ 		/*
+ 		 * DAD was successful
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
