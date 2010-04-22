@@ -1,43 +1,95 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: Re: IPv6: race condition in __ipv6_ifa_notify() and dst_free() ?
-Date: Thu, 22 Apr 2010 17:49:08 +0200
-Message-ID: <20100422154908.GA31568@midget.suse.cz>
-References: <20100420174401.GB1334@midget.suse.cz>
- <20100421213429.GA2799@midget.suse.cz>
- <20100422023211.GA7109@gondor.apana.org.au>
- <20100422.004324.67422011.davem@davemloft.net>
- <20100422142506.GA15858@gondor.apana.org.au>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: DDoS attack causing bad effect on conntrack searches
+Date: Thu, 22 Apr 2010 08:51:23 -0700
+Message-ID: <20100422155123.GA2524@linux.vnet.ibm.com>
+References: <1271941082.14501.189.camel@jdb-workstation>
+ <q2h412e6f7f1004220613m488c2ee4r6d24a8d1e65997d4@mail.gmail.com>
+ <4BD04C74.9020402@trash.net>
+ <1271946961.7895.5665.camel@edumazet-laptop>
+ <1271948029.7895.5707.camel@edumazet-laptop>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, jbohac@suse.cz,
-	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	shemminger@vyatta.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:35371 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754701Ab0DVPtL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Apr 2010 11:49:11 -0400
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>, Changli Gao <xiaosuo@gmail.com>,
+	hawk@comx.dk,
+	Linux Kernel Network Hackers <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20100422142506.GA15858@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1271948029.7895.5707.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 22, 2010 at 10:25:06PM +0800, Herbert Xu wrote:
-> This patch fixes this by using the DADFAILED bit to synchronise
-> the two paths while holding the ifp lock.  It relies on the fact
-> that the TENTATIVE bit is always set during DAD, and that the
-> DADFAILED bit is only set on failure.
+On Thu, Apr 22, 2010 at 04:53:49PM +0200, Eric Dumazet wrote:
+> Le jeudi 22 avril 2010 =E0 16:36 +0200, Eric Dumazet a =E9crit :
+>=20
+> > If one hash slot is under attack, then there is a bug somewhere.
+> >=20
+> > If we cannot avoid this, we can fallback to a secure mode at the se=
+cond
+> > retry, and take the spinlock.
+> >=20
+> > Tis way, most of lookups stay lockless (one pass), and some might t=
+ake
+> > the slot lock to avoid the possibility of a loop.
+> >=20
+> > I suspect a bug elsewhere, quite frankly !
+> >=20
+> > We have a chain that have an end pointer that doesnt match the expe=
+cted
+> > one.
+> >=20
+>=20
+> On normal situation, we always finish the lookup :
+>=20
+> 1) If we found the thing we were looking at.
+>=20
+> 2) We get the list end (item not found), we then check if it is the
+> expected end.
+>=20
+> It is _not_ the expected end only if some writer deleted/inserted an
+> element in _this_ chain during our lookup.
 
-But the addr_dad_failure()->...->ipv6_del_addr() path will
-still race with any other path calling ipv6_del_addr() (e.g. a
-manual address removal). Won't it?
+So this situation uses SLAB_DESTROY_BY_RCU to quickly recycle deleted
+elements?  (Not obvious from the code, but my ignorance of the networki=
+ng
+code is such that many things in that part of the kernel are not obviou=
+s
+to me, I am afraid.)
 
-I still don't see why __ipv6_ifa_notify() needs to call
-dst_free(). Shouldn't that be dst_release() instead, to drop the
-reference obtained by dst_hold(&ifp->rt->u.dst)?
+Otherwise, of course you would simply allow deleted elements to continu=
+e
+pointing where they did previously, so that concurrent readers would no=
+t
+miss anything.
 
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+Of course, the same potential might arise on insertion, but it is usual=
+ly
+OK to miss an element that was inserted after you started searching.
 
+> Because our lookup is lockless, we then have to redo it because we mi=
+ght
+> miss the object we are looking for.
+
+Ah...  Is there also a resize operation?  Herbert did do a resizable
+hash table recently, but I was under the impression that (1) it was in
+some other part of the networking stack and (2) it avoided the need to
+restart readers.
+
+> If we can do the 'retry' a 10 times, it means the attacker was really
+> clever enough to inject new packets (new conntracks) at the right
+> moment, in the right hash chain, and this sounds so higly incredible
+> that I cannot believe it at all :)
+
+Or maybe the DoS attack is injecting so many new conntracks that a larg=
+e
+fraction of the hash chains are being modified at any given time?
+
+							Thanx, Paul
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
