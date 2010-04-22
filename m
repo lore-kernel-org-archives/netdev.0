@@ -1,78 +1,41 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: IPv6 duplicate address detection erroneously marking address
- as duplicate when a host receives its own multicast packets?
-Date: Wed, 21 Apr 2010 21:27:49 -0400
-Message-ID: <4BCFA615.8060205@hp.com>
-References: <1271880831.6685.6.camel@spathi>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH v3] net: batch skb dequeueing from softnet input_pkt_queue
+Date: Thu, 22 Apr 2010 09:35:44 +0800
+Message-ID: <k2h412e6f7f1004211835q5c8e769did22080dd08b55439@mail.gmail.com>
+References: <1271238738-8386-1-git-send-email-xiaosuo@gmail.com>
+	<1271891149.7895.3751.camel@edumazet-laptop> <k2n65634d661004211623k3ce51c95o2c329529ce402eda@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sam Cannell <sam.cannell@catalyst.net.nz>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	jamal <hadi@cyberus.ca>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:19128 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755014Ab0DVB2D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 21:28:03 -0400
-In-Reply-To: <1271880831.6685.6.camel@spathi>
+Received: from mail-iw0-f178.google.com ([209.85.223.178]:52484 "EHLO
+	mail-iw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755474Ab0DVBgE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 21 Apr 2010 21:36:04 -0400
+Received: by iwn8 with SMTP id 8so1485702iwn.16
+        for <netdev@vger.kernel.org>; Wed, 21 Apr 2010 18:36:04 -0700 (PDT)
+In-Reply-To: <k2n65634d661004211623k3ce51c95o2c329529ce402eda@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sam Cannell wrote:
-> I've been having some trouble with ip6 duplicate address detection in a
-> Linux VM (under XVM on OpenSolaris).  It seems that the ethernet bridge
-> in XVM sends a host's own multicast packets back to it, which the
-> duplicate address detection code in linux decide that another host on
-> the network is using the same address.
-<snip>
+On Thu, Apr 22, 2010 at 7:23 AM, Tom Herbert <therbert@google.com> wrot=
+e:
 >
-> I'd happily put this down to a failing in XVM, however the stateless
-> autoconfiguration RFC (4862) states that the stack shouldn't decide an
-> address is duplicate based on receipt of a neighbor solicitation message
-> that it sent itself:
-<snip>
-> 
-> Assuming my understanding of the RFC is correct, this suggests to me
-> that duplicate address detection in Linux is being a little too hasty to
-> mark the address as invalid.  Thoughts?
+> How about just using two input_pkt_queue's (define
+> input_pkt_queue[2])? =C2=A0One that is used to enqueue from RPS, and =
+one
+> that is being processed by process_backlog. =C2=A0Then the only thing=
+ that
+> needs to be done under lock in process_backlog is to switch the
+> queues; =C2=A0something like sd->current_input_pkt_queue ^=3D 1
+>
 
-Well, my initial reaction is XVM is doing the wrong thing looping-back
-multicast packets.  You can try the following (untested) patch, I can
-only confirm it compiles.
+It is a better idea, IMO.
 
--Brian
-
-
-Add a check for looped-back DAD packets on Ethernet interfaces.
-
-Signed-off-by: Brian Haley <brian.haley@hp.com>
-
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index da0a4d2..33a7212 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -57,6 +57,7 @@
- #include <linux/net.h>
- #include <linux/in6.h>
- #include <linux/route.h>
-+#include <linux/etherdevice.h>
- #include <linux/init.h>
- #include <linux/rcupdate.h>
- #include <linux/slab.h>
-@@ -800,6 +801,16 @@ static void ndisc_recv_ns(struct sk_buff *skb)
- 					}
- 				}
- 
-+				if (dev->type == ARPHRD_ETHER) {
-+					struct ethhdr *eth = eth_hdr(skb);
-+					if (!compare_ether_addr_64bits(
-+								dev->dev_addr,
-+								eth->h_source)){
-+						/* looped-back to us */
-+						goto out;
-+					}
-+				}
-+
- 				/*
- 				 * We are colliding with another node
- 				 * who is doing DAD
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
