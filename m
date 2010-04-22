@@ -1,76 +1,59 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH v5] net: batch skb dequeueing from softnet input_pkt_queue
-Date: Thu, 22 Apr 2010 21:06:19 +0800
-Message-ID: <y2n412e6f7f1004220606id324dc9bj2cc04cfbad50a101@mail.gmail.com>
-References: <1271927357-2973-1-git-send-email-xiaosuo@gmail.com>
-	<1271936227.7895.5285.camel@edumazet-laptop>
+From: Paul LeoNerd Evans <leonerd@leonerd.org.uk>
+Subject: Re: [PATCH] Socket filter ancilliary data access for skb->dev->type
+Date: Thu, 22 Apr 2010 14:11:05 +0100
+Message-ID: <20100422131105.GS19334@cel.leo>
+References: <20100422121253.GR19334@cel.leo>
+ <4BD040FE.3000809@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, jamal <hadi@cyberus.ca>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="phbq2bkSb+hZnunM"
+Cc: netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:35147 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753857Ab0DVNGk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 09:06:40 -0400
-Received: by pwj9 with SMTP id 9so5909558pwj.19
-        for <netdev@vger.kernel.org>; Thu, 22 Apr 2010 06:06:39 -0700 (PDT)
-In-Reply-To: <1271936227.7895.5285.camel@edumazet-laptop>
+Received: from cel.leonerd.org.uk ([81.187.167.226]:60153 "EHLO cel.leo"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754586Ab0DVNLJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Apr 2010 09:11:09 -0400
+Content-Disposition: inline
+In-Reply-To: <4BD040FE.3000809@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 22, 2010 at 7:37 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
->
-> Please reorder things better.
->
-> Most likely this function is called for one packet.
->
-> In your version you take twice the rps_lock()/rps_unlock() path, so
-> it'll be slower.
->
-> Once to 'transfert' one list to process list
->
-> Once to be able to do the 'label out:' post processing.
->
 
-It doesn't make any difference. We have to hold rps_lock to update
-input_pkt_queue_len, if we don't use another variable to record the
-length of the process queue, or atomic variable.
+--phbq2bkSb+hZnunM
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I think it is better that using another variable to record the length
-of the process queue, and updating it before process_backlog()
-returns. For one packet, there is only one locking/unlocking. There is
-only one issue you concerned: cache miss due to sum the two queues'
-length. I'll change softnet_data to:
+On Thu, Apr 22, 2010 at 02:28:46PM +0200, Patrick McHardy wrote:
+> I think we should be adding a check whether skb->dev is non-NULL here
+> since filters can also be attached to netlink sockets. The same applies
+> to SKF_AD_IFINDEX.
 
-struct softnet_data {
-        struct Qdisc            *output_queue;
-        struct list_head        poll_list;
-        struct sk_buff          *completion_queue;
-        struct sk_buff_head     process_queue;
+What should the appropriate behaviour be here? Set A to some rogue value
+- 0 or -1 seem appropriate? Or, abort the filter entirely (such as in
+e.g. divide-by-zero, or invalid memory buffer access)?
 
-#ifdef CONFIG_RPS
-        struct softnet_data     *rps_ipi_list;
-
-        /* Elements below can be accessed between CPUs for RPS */
-        struct call_single_data csd ____cacheline_aligned_in_smp;
-        struct softnet_data     *rps_ipi_next;
-        unsigned int            cpu;
-        unsigned int            input_queue_head;
-#endif
-        unsigned int            process_queue_len;
-        struct sk_buff_head     input_pkt_queue;
-        struct napi_struct      backlog;
-};
-
-=46or one packets, we have to update process_queue_len in any way. For
-more packets, we only change process_queue_len just before
-process_backlog() returns. It means that process_queue_len change is
-batched.
+Either way that sounds simple enough, I can hack that in and resubmit.
 
 --=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
+Paul "LeoNerd" Evans
+
+leonerd@leonerd.org.uk
+ICQ# 4135350       |  Registered Linux# 179460
+http://www.leonerd.org.uk/
+
+--phbq2bkSb+hZnunM
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iD8DBQFL0ErpvLS2TC8cBo0RAsucAJ9Eia3u8d4C/q3F4lsbSVwF8NTGwQCgyiCI
+W+oorlEpUfbXIK1zIFClaj8=
+=smkN
+-----END PGP SIGNATURE-----
+
+--phbq2bkSb+hZnunM--
