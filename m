@@ -1,42 +1,54 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [net-next,1/2] add iovnl netlink support
-Date: Thu, 22 Apr 2010 21:36:50 +0200
-Message-ID: <201004222136.50397.arnd@arndb.de>
-References: <C7F4AD4F.2A34D%scofeldm@cisco.com> <201004222048.53950.arnd@arndb.de> <20100422190230.GL28829@x200.localdomain>
+From: Greg KH <greg@kroah.com>
+Subject: Re: Subject: re-submit4 [ANNOUNCEMENT] NET: usb: sierra_net.c
+ driver
+Date: Thu, 22 Apr 2010 12:44:35 -0700
+Message-ID: <20100422194435.GA14544@kroah.com>
+References: <1271963973.10035.6.camel@Linuxdev4-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Scott Feldman <scofeldm@cisco.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Mitch Williams <mitch.a.williams@intel.com>
-To: Chris Wright <chrisw@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: dbrownell@users.sourceforge.net, davem@davemloft.net,
+	rfiler@sierrawireless.com, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Elina Pasheva <epasheva@sierrawireless.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.9]:57618 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757192Ab0DVThH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 15:37:07 -0400
-In-Reply-To: <20100422190230.GL28829@x200.localdomain>
+Received: from kroah.org ([198.145.64.141]:56953 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757238Ab0DVTqF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Apr 2010 15:46:05 -0400
+Content-Disposition: inline
+In-Reply-To: <1271963973.10035.6.camel@Linuxdev4-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 22 April 2010 21:02:30 Chris Wright wrote:
-> * Arnd Bergmann (arnd@arndb.de) wrote:
-> > On Thursday 22 April 2010 19:47:29 Chris Wright wrote:
-> > > OK, wasn't clear if you meant that or simply 100% dedicating the interface
-> > > via something like virtio.  The add_vf() idea, while neat, doesn't really
-> > > match how VF's are allocated.
-> > 
-> > But we still need something like that for allocating queues in VMDq
-> > and similar cases where we do not have pass-through, right?
-> 
-> Iff we care about VMDq w/out SR-IOV (since SR-IOV hardware is VMDq
-> capable and already has a queue-pair + interrupt + net_dev), yes.
-> 
-> And it's not just VMDq, it's any multi-queue card that can do mac/vlan
-> filter in hw + header/data split (for direct data DMA to guest buffers).
+On Thu, Apr 22, 2010 at 12:19:33PM -0700, Elina Pasheva wrote:
+> +static void sierra_net_send_cmd(struct usbnet *dev,
+> +		u8 *cmd, int cmdlen, const char * cmd_name)
+> +{
+> +	struct sierra_net_data *priv = sierra_net_get_private(dev);
+> +	int  status;
+> +
+> +	status = usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
+> +			USB_CDC_SEND_ENCAPSULATED_COMMAND,
+> +			USB_DIR_OUT|USB_TYPE_CLASS|USB_RECIP_INTERFACE,	0,
+> +			priv->ifnum, cmd, cmdlen, 0);
 
-Right, that's what I meant by VMDq. Do we have a better term to describe
-this class of devices, i.e. VMDq and other cards that also have the
-features you listed?
+No timeout?
 
-	Arnd
+> +		ifnum = priv->ifnum;
+> +		len = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
+> +				USB_CDC_GET_ENCAPSULATED_RESPONSE,
+> +				USB_DIR_IN|USB_TYPE_CLASS|USB_RECIP_INTERFACE,
+> +				0, ifnum, buf, SIERRA_NET_USBCTL_BUF_LEN, 0);
+
+No timeout?
+
+> +		if (unlikely(len < 0)) {
+> +			netdev_err(dev->net,
+> +				"usb_control_msg failed, status %d\n", len);
+
+You don't need "unlikely", this is an extreemly slow path here.
+Also, what happens for a "short read"?  You don't handle that properly.
+
+thanks,
+
+greg k-h
