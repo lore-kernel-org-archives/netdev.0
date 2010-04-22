@@ -1,129 +1,69 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: DDoS attack causing bad effect on conntrack searches
-Date: Thu, 22 Apr 2010 09:34:32 -0700
-Message-ID: <20100422163432.GE2524@linux.vnet.ibm.com>
-References: <1271941082.14501.189.camel@jdb-workstation>
- <q2h412e6f7f1004220613m488c2ee4r6d24a8d1e65997d4@mail.gmail.com>
- <4BD04C74.9020402@trash.net>
- <1271946961.7895.5665.camel@edumazet-laptop>
- <1271948029.7895.5707.camel@edumazet-laptop>
- <20100422155123.GA2524@linux.vnet.ibm.com>
- <1271952128.7895.5851.camel@edumazet-laptop>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH v2] tcp: fix outsegs stat for TSO segments
+Date: Thu, 22 Apr 2010 10:00:24 -0700 (PDT)
+Message-ID: <alpine.DEB.1.00.1004220956080.28813@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>, Changli Gao <xiaosuo@gmail.com>,
-	hawk@comx.dk,
-	Linux Kernel Network Hackers <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1271952128.7895.5851.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([74.125.121.35]:11616 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755114Ab0DVRAd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 13:00:33 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 22, 2010 at 06:02:08PM +0200, Eric Dumazet wrote:
-> Le jeudi 22 avril 2010 =E0 08:51 -0700, Paul E. McKenney a =E9crit :
-> > On Thu, Apr 22, 2010 at 04:53:49PM +0200, Eric Dumazet wrote:
-> > > Le jeudi 22 avril 2010 =E0 16:36 +0200, Eric Dumazet a =E9crit :
-> > >=20
-> > > > If one hash slot is under attack, then there is a bug somewhere=
-=2E
-> > > >=20
-> > > > If we cannot avoid this, we can fallback to a secure mode at th=
-e second
-> > > > retry, and take the spinlock.
-> > > >=20
-> > > > Tis way, most of lookups stay lockless (one pass), and some mig=
-ht take
-> > > > the slot lock to avoid the possibility of a loop.
-> > > >=20
-> > > > I suspect a bug elsewhere, quite frankly !
-> > > >=20
-> > > > We have a chain that have an end pointer that doesnt match the =
-expected
-> > > > one.
-> > > >=20
-> > >=20
-> > > On normal situation, we always finish the lookup :
-> > >=20
-> > > 1) If we found the thing we were looking at.
-> > >=20
-> > > 2) We get the list end (item not found), we then check if it is t=
-he
-> > > expected end.
-> > >=20
-> > > It is _not_ the expected end only if some writer deleted/inserted=
- an
-> > > element in _this_ chain during our lookup.
-> >=20
-> > So this situation uses SLAB_DESTROY_BY_RCU to quickly recycle delet=
-ed
-> > elements?  (Not obvious from the code, but my ignorance of the netw=
-orking
-> > code is such that many things in that part of the kernel are not ob=
-vious
-> > to me, I am afraid.)
->=20
-> Yes, this uses SLAB_DESTROY_BY_RCU, like tcp/udp lookups.
+Account for TSO segments of an skb in TCP_MIB_OUTSEGS counter.  Without
+doing this, the counter can be off by orders of magnitude from the
+actual number of segments sent.
 
-OK, that will do it!!!  ;-)
-
-One way of throttling the bad effects of updates on readers is to
-periodically force updates through a grace period.  But this seems
-to be a very big hammer, and likely to have little practical effect.
-
-Another approach would be to have multiple list pointers per element,
-so that a given element could be reused a small number of times without
-messing up concurrent readers (sort of like Herbert's resizable hash
-table).
-
-But as you say, if some other bug is really behind this, better to fix
-that bug than to work around it.
-
-> > Otherwise, of course you would simply allow deleted elements to con=
-tinue
-> > pointing where they did previously, so that concurrent readers woul=
-d not
-> > miss anything.
->=20
-> > Of course, the same potential might arise on insertion, but it is u=
-sually
-> > OK to miss an element that was inserted after you started searching=
-=2E
-> >=20
-> > > Because our lookup is lockless, we then have to redo it because w=
-e might
-> > > miss the object we are looking for.
-> >=20
-> > Ah...  Is there also a resize operation?  Herbert did do a resizabl=
-e
-> > hash table recently, but I was under the impression that (1) it was=
- in
-> > some other part of the networking stack and (2) it avoided the need=
- to
-> > restart readers.
-> >=20
-> > > If we can do the 'retry' a 10 times, it means the attacker was re=
-ally
-> > > clever enough to inject new packets (new conntracks) at the right
-> > > moment, in the right hash chain, and this sounds so higly incredi=
-ble
-> > > that I cannot believe it at all :)
-> >=20
-> > Or maybe the DoS attack is injecting so many new conntracks that a =
-large
-> > fraction of the hash chains are being modified at any given time?
->=20
-> maybe hash table has one slot :)
-
-;-) ;-) ;-)
-
-							Thanx, Paul
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+diff --git a/include/net/snmp.h b/include/net/snmp.h
+index 884fdbb..92456f1 100644
+--- a/include/net/snmp.h
++++ b/include/net/snmp.h
+@@ -133,6 +133,8 @@ struct linux_xfrm_mib {
+ 			__this_cpu_add(mib[0]->mibs[field], addend)
+ #define SNMP_ADD_STATS_USER(mib, field, addend)	\
+ 			this_cpu_add(mib[1]->mibs[field], addend)
++#define SNMP_ADD_STATS(mib, field, addend)	\
++			this_cpu_add(mib[0]->mibs[field], addend)
+ /*
+  * Use "__typeof__(*mib[0]) *ptr" instead of "__typeof__(mib[0]) ptr"
+  * to make @ptr a non-percpu pointer.
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 70c5159..91640fe 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -294,6 +294,7 @@ extern struct proto tcp_prot;
+ #define TCP_INC_STATS_BH(net, field)	SNMP_INC_STATS_BH((net)->mib.tcp_statistics, field)
+ #define TCP_DEC_STATS(net, field)	SNMP_DEC_STATS((net)->mib.tcp_statistics, field)
+ #define TCP_ADD_STATS_USER(net, field, val) SNMP_ADD_STATS_USER((net)->mib.tcp_statistics, field, val)
++#define TCP_ADD_STATS(net, field, val)	SNMP_ADD_STATS((net)->mib.tcp_statistics, field, val)
+ 
+ extern void			tcp_v4_err(struct sk_buff *skb, u32);
+ 
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 2b7d71f..8ce0f99 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -888,7 +888,8 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 		tcp_event_data_sent(tp, skb, sk);
+ 
+ 	if (after(tcb->end_seq, tp->snd_nxt) || tcb->seq == tcb->end_seq)
+-		TCP_INC_STATS(sock_net(sk), TCP_MIB_OUTSEGS);
++		TCP_ADD_STATS(sock_net(sk), TCP_MIB_OUTSEGS,
++			      tcp_skb_pcount(skb));
+ 
+ 	err = icsk->icsk_af_ops->queue_xmit(skb);
+ 	if (likely(err <= 0))
+@@ -2503,7 +2504,7 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
+ 	th->window = htons(min(req->rcv_wnd, 65535U));
+ 	tcp_options_write((__be32 *)(th + 1), tp, &opts);
+ 	th->doff = (tcp_header_size >> 2);
+-	TCP_INC_STATS(sock_net(sk), TCP_MIB_OUTSEGS);
++	TCP_ADD_STATS(sock_net(sk), TCP_MIB_OUTSEGS, tcp_skb_pcount(skb));
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+ 	/* Okay, we have all we need - do the md5 hash if needed */
