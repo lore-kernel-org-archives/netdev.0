@@ -1,122 +1,76 @@
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: DDoS attack causing bad effect on conntrack searches
-Date: Thu, 22 Apr 2010 14:58:02 +0200
-Message-ID: <1271941082.14501.189.camel@jdb-workstation>
-Reply-To: hawk@comx.dk
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH v5] net: batch skb dequeueing from softnet input_pkt_queue
+Date: Thu, 22 Apr 2010 21:06:19 +0800
+Message-ID: <y2n412e6f7f1004220606id324dc9bj2cc04cfbad50a101@mail.gmail.com>
+References: <1271927357-2973-1-git-send-email-xiaosuo@gmail.com>
+	<1271936227.7895.5285.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Hackers <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org,
-	Paul E McKenney <paulmck@linux.vnet.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, jamal <hadi@cyberus.ca>,
+	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:43728 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754654Ab0DVNDx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 09:03:53 -0400
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:35147 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753857Ab0DVNGk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 09:06:40 -0400
+Received: by pwj9 with SMTP id 9so5909558pwj.19
+        for <netdev@vger.kernel.org>; Thu, 22 Apr 2010 06:06:39 -0700 (PDT)
+In-Reply-To: <1271936227.7895.5285.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Apr 22, 2010 at 7:37 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+>
+> Please reorder things better.
+>
+> Most likely this function is called for one packet.
+>
+> In your version you take twice the rps_lock()/rps_unlock() path, so
+> it'll be slower.
+>
+> Once to 'transfert' one list to process list
+>
+> Once to be able to do the 'label out:' post processing.
+>
 
-At an unnamed ISP, we experienced a DDoS attack against one of our
-customers.  This attack also caused problems for one of our Linux
-based routers.
+It doesn't make any difference. We have to hold rps_lock to update
+input_pkt_queue_len, if we don't use another variable to record the
+length of the process queue, or atomic variable.
 
-The attack was "only" generating 300 kpps (packets per sec), which
-usually isn't a problem for this (fairly old) Linux Router.  But the
-conntracking system chocked and reduced pps processing power to
-40kpps.
+I think it is better that using another variable to record the length
+of the process queue, and updating it before process_backlog()
+returns. For one packet, there is only one locking/unlocking. There is
+only one issue you concerned: cache miss due to sum the two queues'
+length. I'll change softnet_data to:
 
-I do extensive RRD/graph monitoring of the machines.  The IP conntrack
-searches in the period exploded, to a stunning 700.000 searches per
-sec.
+struct softnet_data {
+        struct Qdisc            *output_queue;
+        struct list_head        poll_list;
+        struct sk_buff          *completion_queue;
+        struct sk_buff_head     process_queue;
 
-http://people.netfilter.org/hawk/DDoS/2010-04-12__001/conntrack_searches001.png
+#ifdef CONFIG_RPS
+        struct softnet_data     *rps_ipi_list;
 
-First I though it might be caused by bad hashing, but after reading
-the kernel code (func: __nf_conntrack_find()), I think its caused by
-the loop restart (goto begin) of the conntrack search, running under
-local_bh_disable().  These RCU changes to conntrack were introduced in
-ea781f19 by Eric Dumazet.
+        /* Elements below can be accessed between CPUs for RPS */
+        struct call_single_data csd ____cacheline_aligned_in_smp;
+        struct softnet_data     *rps_ipi_next;
+        unsigned int            cpu;
+        unsigned int            input_queue_head;
+#endif
+        unsigned int            process_queue_len;
+        struct sk_buff_head     input_pkt_queue;
+        struct napi_struct      backlog;
+};
 
-Code: net/netfilter/nf_conntrack_core.c
-Func: __nf_conntrack_find()
+=46or one packets, we have to update process_queue_len in any way. For
+more packets, we only change process_queue_len just before
+process_backlog() returns. It means that process_queue_len change is
+batched.
 
-struct nf_conntrack_tuple_hash *
-__nf_conntrack_find(struct net *net, const struct nf_conntrack_tuple *tuple)
-{
-	struct nf_conntrack_tuple_hash *h;
-	struct hlist_nulls_node *n;
-	unsigned int hash = hash_conntrack(tuple);
-
-	/* Disable BHs the entire time since we normally need to disable them
-	 * at least once for the stats anyway.
-	 */
-	local_bh_disable();
-begin:
-	hlist_nulls_for_each_entry_rcu(h, n, &net->ct.hash[hash], hnnode) {
-		if (nf_ct_tuple_equal(tuple, &h->tuple)) {
-			NF_CT_STAT_INC(net, found);
-			local_bh_enable();
-			return h;
-		}
-		NF_CT_STAT_INC(net, searched);
-	}
-	/*
-	 * if the nulls value we got at the end of this lookup is
-	 * not the expected one, we must restart lookup.
-	 * We probably met an item that was moved to another chain.
-	 */
-	if (get_nulls_value(n) != hash)
-		goto begin;
-	local_bh_enable();
-
-	return NULL;
-}
-
->From the graphs:
- http://people.netfilter.org/hawk/DDoS/2010-04-12__001/list.html
-
-Its possible to see, that the problems are most likely caused by the
-number of conntrack elements being deleted.
-
-http://people.netfilter.org/hawk/DDoS/2010-04-12__001/conntrack_delete001.png
-
-If you look closely at the graphs, you should be able to see, that
-CPU1 is doing all the conntrack "searches", and CPU2 is doing most of
-the conntrack "deletes" (and CPU1 is creating a lot of new entries).
-
-
-The question is, how do we avoid this unfortunately behavior of the
-delete process disturbing the search process (causing it into
-looping)?
-
-
--- 
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network Kernel Developer
-  Cand. Scient Datalog / MSc.CS
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
-
-
-Extra info: Conntrack tuning
------------
-I have tuned the conntrack system on these hosts.  Firstly I have
-increased the number of hash buckets for the conntrack system to
-around 300.000.
-
- cat /sys/module/nf_conntrack/parameters/hashsize
- 300032
-
-Next I have increased the max conntracking elements to 900.000.
-
- cat /proc/sys/net/nf_conntrack_max
- 900000
-
-
-
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
