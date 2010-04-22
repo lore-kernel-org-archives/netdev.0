@@ -1,115 +1,83 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [PATCH linux-next 1/2] irq: Add CPU mask affinity hint callback
- framework
-Date: Thu, 22 Apr 2010 05:11:12 -0700 (Pacific Daylight Time)
-Message-ID: <Pine.WNT.4.64.1004220459110.3324@PPWASKIE-MOBL2.amr.corp.intel.com>
-References: <20100420180112.1276.11906.stgit@ppwaskie-hc2.jf.intel.com>
- <1271854785.2101.17.camel@achroite.uk.solarflarecom.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: rps perfomance WAS(Re: rps: question
+Date: Thu, 22 Apr 2010 08:12:23 -0400
+Message-ID: <1271938343.4032.30.camel@bigi>
+References: <t2p65634d661004141031xf80f62e7sb64362ea1ce10a1f@mail.gmail.com>
+	 <1271268242.16881.1719.camel@edumazet-laptop>
+	 <1271271222.4567.51.camel@bigi>
+	 <20100415.014857.168270765.davem@davemloft.net>
+	 <1271332528.4567.150.camel@bigi>  <4BC741AE.3000108@hp.com>
+	 <1271362581.23780.12.camel@bigi>
+	 <n2p412e6f7f1004151656q5f3f2cbeh324a859b88688398@mail.gmail.com>
+	 <1271395106.16881.3645.camel@edumazet-laptop>
+	 <1271424065.4606.31.camel@bigi>
+	 <1271489739.16881.4586.camel@edumazet-laptop>
+	 <1271525519.3929.3.camel@bigi>
+	 <1271583573.16881.4798.camel@edumazet-laptop>
+	 <1271590476.16881.4925.camel@edumazet-laptop>
+	 <1271764941.3735.94.camel@bigi> <1271769195.7895.4.camel@edumazet-laptop>
+	 <1271853570.4032.21.camel@bigi>
+	 <1271876480.7895.3106.camel@edumazet-laptop>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: "tglx@linutronix.de" <tglx@linutronix.de>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1271854785.2101.17.camel@achroite.uk.solarflarecom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Changli Gao <xiaosuo@gmail.com>, Rick Jones <rick.jones2@hp.com>,
+	David Miller <davem@davemloft.net>, therbert@google.com,
+	netdev@vger.kernel.org, robert@herjulf.net, andi@firstfloor.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qy0-f179.google.com ([209.85.221.179]:49244 "EHLO
+	mail-qy0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751695Ab0DVMM3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 08:12:29 -0400
+Received: by qyk9 with SMTP id 9so11103951qyk.1
+        for <netdev@vger.kernel.org>; Thu, 22 Apr 2010 05:12:28 -0700 (PDT)
+In-Reply-To: <1271876480.7895.3106.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 21 Apr 2010, Ben Hutchings wrote:
+On Wed, 2010-04-21 at 21:01 +0200, Eric Dumazet wrote:
 
-> On Tue, 2010-04-20 at 11:01 -0700, Peter P Waskiewicz Jr wrote:
->> This patch adds a callback function pointer to the irq_desc
->> structure, along with a registration function and a read-only
->> proc entry for each interrupt.
->>
->> This affinity_hint handle for each interrupt can be used by
->> underlying drivers that need a better mechanism to control
->> interrupt affinity.  The underlying driver can register a
->> callback for the interrupt, which will allow the driver to
->> provide the CPU mask for the interrupt to anything that
->> requests it.  The intent is to extend the userspace daemon,
->> irqbalance, to help hint to it a preferred CPU mask to balance
->> the interrupt into.
->
-> Doesn't it make more sense to have the driver follow affinity decisions
-> made from user-space?  I realise that reallocating queues is disruptive
-> and we probably don't want irqbalance to trigger that, but there should
-> be a mechanism for the administrator to trigger it.
+> Drawback of using a fixed src ip from your generator is that all flows
+> share the same struct dst entry on SUT. This might explain some glitches
+> you noticed (ip_route_input + ip_rcv at high level on slave/application
+> cpus)
 
-The driver here would be assisting userspace (irqbalance) to provide 
-better details how the HW is laid out with respect to flows.  As it stands 
-today, irqbalance is almost guaranteed to move interrups to CPUs that are 
-not aligned with where applications are running for network adapters. 
-This is very apparent when running at speeds in the 10 Gigabit range, or 
-even multiple 1 Gigabit ports running at the same time.
+yes, that would explain it ;-> I could have flows going to each cpu
+generating different unique dst. It is good i didnt ;->
 
->
-> Looking at your patch for ixgbe:
->
-> [...]
->> diff --git a/drivers/net/ixgbe/ixgbe_main.c
->> b/drivers/net/ixgbe/ixgbe_main.c
->> index 1b1419c..3e00d41 100644
->> --- a/drivers/net/ixgbe/ixgbe_main.c
->> +++ b/drivers/net/ixgbe/ixgbe_main.c
-> [...]
->> @@ -1083,6 +1113,16 @@ static void ixgbe_configure_msix(struct ixgbe_adapter *adapter)
->>                         q_vector->eitr = adapter->rx_eitr_param;
->>
->>                 ixgbe_write_eitr(q_vector);
->> +
->> +               /*
->> +                * Allocate the affinity_hint cpumask, assign the mask for
->> +                * this vector, and register our affinity_hint callback.
->> +                */
->> +               alloc_cpumask_var(&q_vector->affinity_mask, GFP_KERNEL);
->> +               cpumask_set_cpu(v_idx, q_vector->affinity_mask);
->> +               irq_register_affinity_hint(adapter->msix_entries[v_idx].vector,
->> +                                          adapter,
->> +                                          &ixgbe_irq_affinity_callback);
->>         }
->>
->>         if (adapter->hw.mac.type == ixgbe_mac_82598EB)
-> [...]
->
-> This just assigns IRQs to the first n CPU threads.  Depending on the
-> enumeration order, this might result in assigning an IRQ to each of 2
-> threads on a core while leaving other cores unused!
+> Also note your test is one way. If some data was replied we would see
+> much use of the 'flows'
+> 
 
-This ixgbe patch is only meant to be an example of how you could use it. 
-I didn't hammer out all the corner cases of interrupt alignment in it yet. 
-However, ixgbe is already aligning Tx flows onto the CPU/queue pair the Tx 
-occurred (i.e. Tx session from CPU 4 will be queued on Tx queue 4), and 
-then uses our Flow Director HW offload to steer Rx to Rx queue 4, assuming 
-that the interrupt for Rx queue 4 is affinitized to CPU 4.  The flow 
-alignment breaks when the IRQ affinity has no knowledge what the 
-underlying set of vectors are bound to, and what mode the HW is running 
-in.
+In my next step i wanted to "route" these packets at app level and for
+this stage of testing just wanted to sink the data to reduce experiment
+variables. Reason:
+The netdev structure would hit a lot of cache misses if i started using
+it to both send/recv since lots of things are shared on tx/rx (example
+napi tx prunning could happen on either tx or receive path); same thing
+with qdisc path which is at netdev granularity.. I think there may be
+room for interesting improvements in this area..
 
-FCoE offloads that spread multiple SCSI exchange IDs across CPU cores also 
-needs this to properly align things.  John Fastabend is going to provide 
-some examples where this is very useful in the FCoE case.
+> I notice epoll_ctl() used a lot, are you re-arming epoll each time you
+> receive a datagram ?
 
-> irqbalance can already find the various IRQs associated with a single
-> net device by looking at the handler names.  So it can do at least as
-> well as this without such a hint.  Unless drivers have *useful* hints to
-> give, I don't see the point in adding this mechanism.
+I am using default libevent on debian. It looks very old and maybe
+buggy. I will try to upgrade first and if still see the same
+investigate.
+  
+> I see slave/application cpus hit _raw_spin_lock_irqsave() and  
+> _raw_spin_unlock_irqrestore().
+> 
+> Maybe a ring buffer could help (instead of a double linked queue) for
+> backlog, or the double queue trick, if Changli wants to respin his
+> patch.
+> 
 
-irqbalance identifies which interrupts go with which network device.  But 
-it has no clue about flow management, and often will make a decision that 
-hurts performance scaling.  I have data showing when scaling multiple 10 
-Gigabit ports (4 in the current test), I can gain an extra 10 Gigabits of 
-throughput just by aligning the interrupts properly (go from ~58 Gbps to 
-~68 Gbps in bi-directional tests).
+Ok, I will have some cycles later today/tommorow or for sure on weekend.
+My setup is still intact - so i can test.
 
-I do have the patches for irqbalance that uses this new handle to make 
-better decisions for devices implementing the mask.  I can send those to 
-help show the whole picture of what's happening.
+cheers,
+jamal
 
-Appreciate the feedback though Ben.
-
-Cheers,
--PJ
