@@ -1,43 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 1/2] add iovnl netlink support
-Date: Thu, 22 Apr 2010 16:04:32 -0700 (PDT)
-Message-ID: <20100422.160432.172292134.davem@davemloft.net>
-References: <20100421.234849.51685723.davem@davemloft.net>
-	<C7F60C62.2AC93%scofeldm@cisco.com>
+Subject: Re: [PATCHv2] Socket filter ancilliary data access for
+ skb->dev->type
+Date: Thu, 22 Apr 2010 16:06:05 -0700 (PDT)
+Message-ID: <20100422.160605.83866642.davem@davemloft.net>
+References: <20100422133222.GU19334@cel.leo>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, chrisw@redhat.com
-To: scofeldm@cisco.com
+Cc: netdev@vger.kernel.org
+To: leonerd@leonerd.org.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56560
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56563
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753580Ab0DVXE2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 19:04:28 -0400
-In-Reply-To: <C7F60C62.2AC93%scofeldm@cisco.com>
+	by vger.kernel.org with ESMTP id S1753704Ab0DVXGA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 19:06:00 -0400
+In-Reply-To: <20100422133222.GU19334@cel.leo>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <scofeldm@cisco.com>
-Date: Thu, 22 Apr 2010 14:23:30 -0700
+From: Paul LeoNerd Evans <leonerd@leonerd.org.uk>
+Date: Thu, 22 Apr 2010 14:32:22 +0100
 
-> On 4/21/10 11:48 PM, "David Miller" <davem@davemloft.net> wrote:
+> Add an SKF_AD_HATYPE field to the packet ancilliary data area, giving
+> access to skb->dev->type, as reported in the sll_hatype field.
 > 
->> From: Scott Feldman <scofeldm@cisco.com>
->> Date: Mon, 19 Apr 2010 12:18:07 -0700
->> 
->>> +#define IOVNL_PROTO_VERSION 1
->>> +
->> 
->> Please delete this in the final version, the macro isn't even used by
->> the code.
->> 
->> We don't do protocol versioning in netlink.  Instead we get the base
->> stuff solid from the beginning, and then if something needs fixing up
->> we handle this using new attributes in a way which is both backward
->> and forward compatible.
+> When capturing packets on a PF_PACKET/SOCK_RAW socket bound to all
+> interfaces, there doesn't appear to be a way for the filter program to
+> actually find out the underlying hardware type the packet was captured
+> on. This patch adds such ability.
 > 
-> Sounds good to me, was a cut-and-paste from dcbnl.h.  How about:
+> This patch also handles the case where skb->dev can be NULL, such as on
+> netlink sockets.
+> 
+> Signed-off-by: Paul Evans <leonerd@leonerd.org.uk>
 
-This is perfectly fine except it got whitespace damanged by your
-email client and needs a proper commit message and signoff :-)
+Looks good, applied to net-next-2.6, thanks!
