@@ -1,67 +1,58 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: Subject: re-submit4 [ANNOUNCEMENT] NET: usb: sierra_net.c
- driver
-Date: Thu, 22 Apr 2010 14:15:06 -0700
-Message-ID: <1271970906.26097.72.camel@localhost.localdomain>
-References: <1271963973.10035.6.camel@Linuxdev4-laptop>
-	 <20100422194435.GA14544@kroah.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] NIU support for skb->rxhash
+Date: Thu, 22 Apr 2010 14:19:22 -0700 (PDT)
+Message-ID: <20100422.141922.39169749.davem@davemloft.net>
+References: <20100422.042157.99869295.davem@davemloft.net>
+	<1271936598.7895.5304.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Elina Pasheva <epasheva@sierrawireless.com>,
-	dbrownell@users.sourceforge.net, davem@davemloft.net,
-	rfiler@sierrawireless.com, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Greg KH <greg@kroah.com>
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:64700 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758815Ab0DVVPR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 22 Apr 2010 17:15:17 -0400
-In-Reply-To: <20100422194435.GA14544@kroah.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55441
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758296Ab0DVVTR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 17:19:17 -0400
+In-Reply-To: <1271936598.7895.5304.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-04-22 at 12:44 -0700, Greg KH wrote:
-> On Thu, Apr 22, 2010 at 12:19:33PM -0700, Elina Pasheva wrote:
-> > +static void sierra_net_send_cmd(struct usbnet *dev,
-> > +		u8 *cmd, int cmdlen, const char * cmd_name)
-> > +{
-> > +	struct sierra_net_data *priv = sierra_net_get_private(dev);
-> > +	int  status;
-> > +
-> > +	status = usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
-> > +			USB_CDC_SEND_ENCAPSULATED_COMMAND,
-> > +			USB_DIR_OUT|USB_TYPE_CLASS|USB_RECIP_INTERFACE,	0,
-> > +			priv->ifnum, cmd, cmdlen, 0);
-> 
-> No timeout?
-> 
-> > +		ifnum = priv->ifnum;
-> > +		len = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
-> > +				USB_CDC_GET_ENCAPSULATED_RESPONSE,
-> > +				USB_DIR_IN|USB_TYPE_CLASS|USB_RECIP_INTERFACE,
-> > +				0, ifnum, buf, SIERRA_NET_USBCTL_BUF_LEN, 0);
-> 
-> No timeout?
-> 
-> > +		if (unlikely(len < 0)) {
-> > +			netdev_err(dev->net,
-> > +				"usb_control_msg failed, status %d\n", len);
-> 
-> You don't need "unlikely", this is an extreemly slow path here.
-> Also, what happens for a "short read"?  You don't handle that properly.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 22 Apr 2010 13:43:18 +0200
 
-Is the code doc for usb_unlink_urb() in urb.c the best thing to look at
-for how to handle short reads?  I assume that involves checking if the
-returned error is -EREMOTEIO and if so, ignoring it?  I spent about an
-hour googling and poking around in the kernel sources and couldn't find
-much about how to handle short reads.  The only non-host-side driver
-that cares about EREMOTEIO is misc/rio500.c, the rest is all under host/
-or gadget/.
+> Then, our stack also touch all 256 bytes of skb structure itself.
+> 
+> offsetof(struct sk_buff, next)    =0x0
+> offsetof(struct sk_buff, rxhash)  =0xa8
+> offsetof(struct sk_buff, dev)     =0x20
+> offsetof(struct sk_buff, len)     =0x68
+> offsetof(struct sk_buff, protocol)=0x7e
+> offsetof(struct sk_buff, network_header)=0xc0
+> offsetof(struct sk_buff, data)    =0xd8
+> offsetof(struct sk_buff, head)    =0xd0
+> 
+> Time for a reordering I guess ;)
 
-In the 3 places that this driver calls usb_control_msg(), the codepaths
-don't need any special -EREMOTEIO handling.
+Indeed.
 
-Dan
+Also I have some ideas about what we can do if we have
+just the rxhash.  It seems we can avoid the type_trans
+overhead on the interrupting cpu.
 
+Things like eth_type_trans() become a netdev operation rather than
+something drivers statically call by hand. ->ndo_type_trans or
+similar.
+
+SKB has a state bit saying whether ->ndo_type_trans has been invoked
+yet on RX.
+
+Drivers pass raw SKBs up into the stack.
+
+We defer the ->ndo_type_trans as far as possible, for RPS when we have
+->rxhash we can defer this all the way to the destination RPS cpu.
+
+If we lack ->rxhash, the source cpu will need to invoke
+->ndo_type_trans before it can begin parsing the packet.
+
+Anyways, something like that.
