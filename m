@@ -1,92 +1,43 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH linux-next 1/2] irq: Add CPU mask affinity hint
- callback framework
-Date: Thu, 22 Apr 2010 16:41:40 +0100
-Message-ID: <1271950900.2095.25.camel@achroite.uk.solarflarecom.com>
-References: <20100420180112.1276.11906.stgit@ppwaskie-hc2.jf.intel.com>
-	 <1271854785.2101.17.camel@achroite.uk.solarflarecom.com>
-	 <Pine.WNT.4.64.1004220459110.3324@PPWASKIE-MOBL2.amr.corp.intel.com>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: IPv6: race condition in __ipv6_ifa_notify() and dst_free() ?
+Date: Thu, 22 Apr 2010 17:49:08 +0200
+Message-ID: <20100422154908.GA31568@midget.suse.cz>
+References: <20100420174401.GB1334@midget.suse.cz>
+ <20100421213429.GA2799@midget.suse.cz>
+ <20100422023211.GA7109@gondor.apana.org.au>
+ <20100422.004324.67422011.davem@davemloft.net>
+ <20100422142506.GA15858@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "tglx@linutronix.de" <tglx@linutronix.de>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, jbohac@suse.cz,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	shemminger@vyatta.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:10511 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755697Ab0DVPlp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 11:41:45 -0400
-In-Reply-To: <Pine.WNT.4.64.1004220459110.3324@PPWASKIE-MOBL2.amr.corp.intel.com>
+Received: from cantor2.suse.de ([195.135.220.15]:35371 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754701Ab0DVPtL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 22 Apr 2010 11:49:11 -0400
+Content-Disposition: inline
+In-Reply-To: <20100422142506.GA15858@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-04-22 at 05:11 -0700, Peter P Waskiewicz Jr wrote:
-> On Wed, 21 Apr 2010, Ben Hutchings wrote:
-> 
-> > On Tue, 2010-04-20 at 11:01 -0700, Peter P Waskiewicz Jr wrote:
-> >> This patch adds a callback function pointer to the irq_desc
-> >> structure, along with a registration function and a read-only
-> >> proc entry for each interrupt.
-> >>
-> >> This affinity_hint handle for each interrupt can be used by
-> >> underlying drivers that need a better mechanism to control
-> >> interrupt affinity.  The underlying driver can register a
-> >> callback for the interrupt, which will allow the driver to
-> >> provide the CPU mask for the interrupt to anything that
-> >> requests it.  The intent is to extend the userspace daemon,
-> >> irqbalance, to help hint to it a preferred CPU mask to balance
-> >> the interrupt into.
-> >
-> > Doesn't it make more sense to have the driver follow affinity decisions
-> > made from user-space?  I realise that reallocating queues is disruptive
-> > and we probably don't want irqbalance to trigger that, but there should
-> > be a mechanism for the administrator to trigger it.
-> 
-> The driver here would be assisting userspace (irqbalance) to provide 
-> better details how the HW is laid out with respect to flows.  As it stands 
-> today, irqbalance is almost guaranteed to move interrups to CPUs that are 
-> not aligned with where applications are running for network adapters. 
-> This is very apparent when running at speeds in the 10 Gigabit range, or 
-> even multiple 1 Gigabit ports running at the same time.
+On Thu, Apr 22, 2010 at 10:25:06PM +0800, Herbert Xu wrote:
+> This patch fixes this by using the DADFAILED bit to synchronise
+> the two paths while holding the ifp lock.  It relies on the fact
+> that the TENTATIVE bit is always set during DAD, and that the
+> DADFAILED bit is only set on failure.
 
-I'm well aware that irqbalance isn't making good decisions at the
-moment.  The question is whether this will really help irqbalance to do
-better.
+But the addr_dad_failure()->...->ipv6_del_addr() path will
+still race with any other path calling ipv6_del_addr() (e.g. a
+manual address removal). Won't it?
 
-[...]
-> > This just assigns IRQs to the first n CPU threads.  Depending on the
-> > enumeration order, this might result in assigning an IRQ to each of 2
-> > threads on a core while leaving other cores unused!
-> 
-> This ixgbe patch is only meant to be an example of how you could use it. 
-> I didn't hammer out all the corner cases of interrupt alignment in it yet. 
-> However, ixgbe is already aligning Tx flows onto the CPU/queue pair the Tx 
-> occurred (i.e. Tx session from CPU 4 will be queued on Tx queue 4),
-[...]
-
-OK, now I remember ixgbe has this odd select_queue() implementation.
-But this behaviour can result in reordering whenever a user thread
-migrates, and in any case Dave discourages people from setting
-select_queue().  So I see that these changes would be useful for ixgbe
-(together with an update to irqbalance), but they don't seem to fit the
-general direction of multiqueue networking on Linux.
-
-(Actually, the hints seem to be incomplete.  If there are more than 16
-CPU threads then multiple CPU threads can map to the same queues, but it
-looks like you only include the first in the queue's hint.)
-
-An alternate approach is to use the RX queue index to drive TX queue
-selection.  I posted a patch to do that earlier this week.  However I
-haven't yet had a chance to try that on a suitably large system.
-
-Ben.
+I still don't see why __ipv6_ifa_notify() needs to call
+dst_free(). Shouldn't that be dst_release() instead, to drop the
+reference obtained by dst_hold(&ifp->rt->u.dst)?
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
 
