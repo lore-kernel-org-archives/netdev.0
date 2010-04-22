@@ -1,144 +1,235 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] NIU support for skb->rxhash
-Date: Thu, 22 Apr 2010 04:21:57 -0700 (PDT)
-Message-ID: <20100422.042157.99869295.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v5] net: batch skb dequeueing from softnet
+ input_pkt_queue
+Date: Thu, 22 Apr 2010 13:37:07 +0200
+Message-ID: <1271936227.7895.5285.camel@edumazet-laptop>
+References: <1271927357-2973-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, jamal <hadi@cyberus.ca>,
+	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51803
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753843Ab0DVLVw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 07:21:52 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 7A96624C11A
-	for <netdev@vger.kernel.org>; Thu, 22 Apr 2010 04:21:57 -0700 (PDT)
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:57274 "EHLO
+	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753774Ab0DVLhT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 07:37:19 -0400
+Received: by bwz25 with SMTP id 25so9492484bwz.28
+        for <netdev@vger.kernel.org>; Thu, 22 Apr 2010 04:37:17 -0700 (PDT)
+In-Reply-To: <1271927357-2973-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le jeudi 22 avril 2010 =C3=A0 17:09 +0800, Changli Gao a =C3=A9crit :
+> batch skb dequeueing from softnet input_pkt_queue
+>=20
+> batch skb dequeueing from softnet input_pkt_queue to reduce potential=
+ lock
+> contention when RPS is enabled. input_pkt_queue is reimplemented as a=
+ single
+> linked list (FIFO) to keep enqueueing and dequeueing as fast as posib=
+le, and
+> input_pkt_queue_lock is moved into RPS section to reduce 4 bytes on 3=
+2bits
+> machine.
+>=20
+> Note: input_pkt_queue_len doesn't been decreased until process_backlo=
+g()
+> returns.
+>=20
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> ----
+>  include/linux/netdevice.h |   12 ++++-
+>  net/core/dev.c            |   99 +++++++++++++++++++++++++++++++++--=
+-----------
+>  2 files changed, 82 insertions(+), 29 deletions(-)
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 3c5ed5f..58abdd5 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -1387,6 +1387,7 @@ struct softnet_data {
+>  	struct Qdisc		*output_queue;
+>  	struct list_head	poll_list;
+>  	struct sk_buff		*completion_queue;
+> +	struct sk_buff		*process_queue;
+> =20
+>  #ifdef CONFIG_RPS
+>  	struct softnet_data	*rps_ipi_list;
+> @@ -1396,15 +1397,20 @@ struct softnet_data {
+>  	struct softnet_data	*rps_ipi_next;
+>  	unsigned int		cpu;
+>  	unsigned int		input_queue_head;
+> +	spinlock_t		input_pkt_queue_lock;
+>  #endif
+> -	struct sk_buff_head	input_pkt_queue;
+> +	unsigned int		input_pkt_queue_len;
+> +	struct sk_buff		*input_pkt_queue_head;
+> +	struct sk_buff		**input_pkt_queue_tailp;
+> +
+>  	struct napi_struct	backlog;
+>  };
+> =20
+> -static inline void input_queue_head_incr(struct softnet_data *sd)
+> +static inline void input_queue_head_add(struct softnet_data *sd,
+> +					unsigned int len)
+>  {
+>  #ifdef CONFIG_RPS
+> -	sd->input_queue_head++;
+> +	sd->input_queue_head +=3D len;
+>  #endif
+>  }
+> =20
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index e904c47..f37c223 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -211,14 +211,14 @@ static inline struct hlist_head *dev_index_hash=
+(struct net *net, int ifindex)
+>  static inline void rps_lock(struct softnet_data *sd)
+>  {
+>  #ifdef CONFIG_RPS
+> -	spin_lock(&sd->input_pkt_queue.lock);
+> +	spin_lock(&sd->input_pkt_queue_lock);
+>  #endif
+>  }
+> =20
+>  static inline void rps_unlock(struct softnet_data *sd)
+>  {
+>  #ifdef CONFIG_RPS
+> -	spin_unlock(&sd->input_pkt_queue.lock);
+> +	spin_unlock(&sd->input_pkt_queue_lock);
+>  #endif
+>  }
+> =20
+> @@ -2409,12 +2409,15 @@ static int enqueue_to_backlog(struct sk_buff =
+*skb, int cpu,
+>  	__get_cpu_var(netdev_rx_stat).total++;
+> =20
+>  	rps_lock(sd);
+> -	if (sd->input_pkt_queue.qlen <=3D netdev_max_backlog) {
+> -		if (sd->input_pkt_queue.qlen) {
+> +	if (sd->input_pkt_queue_len <=3D netdev_max_backlog) {
+> +		if (sd->input_pkt_queue_len) {
+>  enqueue:
+> -			__skb_queue_tail(&sd->input_pkt_queue, skb);
+> +			skb->next =3D NULL;
+> +			*sd->input_pkt_queue_tailp =3D skb;
+> +			sd->input_pkt_queue_tailp =3D &skb->next;
+> +			sd->input_pkt_queue_len++;
+>  #ifdef CONFIG_RPS
+> -			*qtail =3D sd->input_queue_head + sd->input_pkt_queue.qlen;
+> +			*qtail =3D sd->input_queue_head + sd->input_pkt_queue_len;
+>  #endif
+>  			rps_unlock(sd);
+>  			local_irq_restore(flags);
+> @@ -2927,19 +2930,37 @@ EXPORT_SYMBOL(netif_receive_skb);
+>  /* Network device is going away, flush any packets still pending
+>   * Called with irqs disabled.
+>   */
+> -static void flush_backlog(void *arg)
+> +
+> +static struct sk_buff **__flush_backlog(struct softnet_data *sd,
+> +					struct sk_buff **pskb,
+> +					struct net_device *dev)
+>  {
+> -	struct net_device *dev =3D arg;
+> -	struct softnet_data *sd =3D &__get_cpu_var(softnet_data);
+> -	struct sk_buff *skb, *tmp;
+> +	struct sk_buff *skb;
+> =20
+> -	rps_lock(sd);
+> -	skb_queue_walk_safe(&sd->input_pkt_queue, skb, tmp)
+> +	while (*pskb) {
+> +		skb =3D *pskb;
+>  		if (skb->dev =3D=3D dev) {
+> -			__skb_unlink(skb, &sd->input_pkt_queue);
+> +			*pskb =3D skb->next;
+>  			kfree_skb(skb);
+> -			input_queue_head_incr(sd);
+> +			input_queue_head_add(sd, 1);
+> +			sd->input_pkt_queue_len--;
+> +		} else {
+> +			pskb =3D &skb->next;
+>  		}
+> +	}
+> +
+> +	return pskb;
+> +}
+> +
+> +static void flush_backlog(void *arg)
+> +{
+> +	struct softnet_data *sd =3D &__get_cpu_var(softnet_data);
+> +	struct sk_buff **tailp;
+> +
+> +	rps_lock(sd);
+> +	tailp =3D __flush_backlog(sd, &sd->input_pkt_queue_head, arg);
+> +	sd->input_pkt_queue_tailp =3D tailp;
+> +	__flush_backlog(sd, &sd->process_queue, arg);
+>  	rps_unlock(sd);
+>  }
+> =20
+> @@ -3249,24 +3270,39 @@ static int process_backlog(struct napi_struct=
+ *napi, int quota)
+>  	struct softnet_data *sd =3D &__get_cpu_var(softnet_data);
+> =20
+>  	napi->weight =3D weight_p;
+> +	local_irq_disable();
+>  	do {
+>  		struct sk_buff *skb;
+> =20
+> -		local_irq_disable();
+> +		while (sd->process_queue) {
+> +			skb =3D sd->process_queue;
+> +			sd->process_queue =3D skb->next;
+> +			local_irq_enable();
+> +			__netif_receive_skb(skb);
+> +			if (++work >=3D quota) {
+> +				local_irq_disable();
+> +				rps_lock(sd);
+> +				goto out;
+> +			}
+> +			local_irq_disable();
+> +		}
+> +
+>  		rps_lock(sd);
+> -		skb =3D __skb_dequeue(&sd->input_pkt_queue);
+> -		if (!skb) {
+> +		if (sd->input_pkt_queue_head =3D=3D NULL) {
+>  			__napi_complete(napi);
+> -			rps_unlock(sd);
+> -			local_irq_enable();
+>  			break;
+>  		}
+> -		input_queue_head_incr(sd);
+> +		sd->process_queue =3D sd->input_pkt_queue_head;
+> +		sd->input_pkt_queue_head =3D NULL;
+> +		sd->input_pkt_queue_tailp =3D &sd->input_pkt_queue_head;
+>  		rps_unlock(sd);
+> -		local_irq_enable();
+> +	} while (1);
+> =20
+> -		__netif_receive_skb(skb);
+> -	} while (++work < quota);
+> +out:
+> +	sd->input_pkt_queue_len -=3D work;
+> +	input_queue_head_add(sd, work);
+> +	rps_unlock(sd);
+> +	local_irq_enable();
+> =20
 
-But it turns out using it is largely pointless since the only way to
-get the hash value(s) is through a structure which is prepended to the
-packet data (so we take a cache miss on the packet data anyways)
-instead of being able to fetch it out of the RX descriptors :-/
 
-If anyone out there is trying to design sane hardware, please put the
-following into your RX descriptors:
 
-1) ethernet protocol type (u16)
-2) a flag bit indicating if the packet destination matched one
-   of the programmed unicast MAC addresses
-3) a flag bit indicating "multicast"
-4) a flag bit indicating "broadcast"
-5) at least 32-bits of the computed flow hash (u32)
+Please reorder things better.
 
-kthx, bye!
+Most likely this function is called for one packet.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+In your version you take twice the rps_lock()/rps_unlock() path, so
+it'll be slower.
 
-diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index 493e25c..f8ee985 100644
---- a/drivers/net/niu.c
-+++ b/drivers/net/niu.c
-@@ -36,8 +36,8 @@
- #include "niu.h"
- 
- #define DRV_MODULE_NAME		"niu"
--#define DRV_MODULE_VERSION	"1.0"
--#define DRV_MODULE_RELDATE	"Nov 14, 2008"
-+#define DRV_MODULE_VERSION	"1.1"
-+#define DRV_MODULE_RELDATE	"Apr 22, 2010"
- 
- static char version[] __devinitdata =
- 	DRV_MODULE_NAME ".c:v" DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
-@@ -3444,6 +3444,7 @@ static int niu_process_rx_pkt(struct napi_struct *napi, struct niu *np,
- 			      struct rx_ring_info *rp)
- {
- 	unsigned int index = rp->rcr_index;
-+	struct rx_pkt_hdr1 *rh;
- 	struct sk_buff *skb;
- 	int len, num_rcr;
- 
-@@ -3477,9 +3478,6 @@ static int niu_process_rx_pkt(struct napi_struct *napi, struct niu *np,
- 		if (num_rcr == 1) {
- 			int ptype;
- 
--			off += 2;
--			append_size -= 2;
--
- 			ptype = (val >> RCR_ENTRY_PKT_TYPE_SHIFT);
- 			if ((ptype == RCR_PKT_TYPE_TCP ||
- 			     ptype == RCR_PKT_TYPE_UDP) &&
-@@ -3488,8 +3486,7 @@ static int niu_process_rx_pkt(struct napi_struct *napi, struct niu *np,
- 				skb->ip_summed = CHECKSUM_UNNECESSARY;
- 			else
- 				skb->ip_summed = CHECKSUM_NONE;
--		}
--		if (!(val & RCR_ENTRY_MULTI))
-+		} else if (!(val & RCR_ENTRY_MULTI))
- 			append_size = len - skb->len;
- 
- 		niu_rx_skb_append(skb, page, off, append_size);
-@@ -3510,8 +3507,16 @@ static int niu_process_rx_pkt(struct napi_struct *napi, struct niu *np,
- 	}
- 	rp->rcr_index = index;
- 
--	skb_reserve(skb, NET_IP_ALIGN);
--	__pskb_pull_tail(skb, min(len, VLAN_ETH_HLEN));
-+	len += sizeof(*rh);
-+	len = min_t(int, len, sizeof(*rh) + VLAN_ETH_HLEN);
-+	__pskb_pull_tail(skb, len);
-+
-+	rh = (struct rx_pkt_hdr1 *) skb->data;
-+	skb->rxhash = ((u32)rh->hashval2_0 << 24 |
-+		       (u32)rh->hashval2_1 << 16 |
-+		       (u32)rh->hashval1_1 << 8 |
-+		       (u32)rh->hashval1_2 << 0);
-+	skb_pull(skb, sizeof(*rh));
- 
- 	rp->rx_packets++;
- 	rp->rx_bytes += skb->len;
-@@ -4946,7 +4951,9 @@ static int niu_init_one_rx_channel(struct niu *np, struct rx_ring_info *rp)
- 	      RX_DMA_CTL_STAT_RCRTO |
- 	      RX_DMA_CTL_STAT_RBR_EMPTY));
- 	nw64(RXDMA_CFIG1(channel), rp->mbox_dma >> 32);
--	nw64(RXDMA_CFIG2(channel), (rp->mbox_dma & 0x00000000ffffffc0));
-+	nw64(RXDMA_CFIG2(channel),
-+	     ((rp->mbox_dma & RXDMA_CFIG2_MBADDR_L) |
-+	      RXDMA_CFIG2_FULL_HDR));
- 	nw64(RBR_CFIG_A(channel),
- 	     ((u64)rp->rbr_table_size << RBR_CFIG_A_LEN_SHIFT) |
- 	     (rp->rbr_dma & (RBR_CFIG_A_STADDR_BASE | RBR_CFIG_A_STADDR)));
-diff --git a/drivers/net/niu.h b/drivers/net/niu.h
-index 3bd0b59..d671546 100644
---- a/drivers/net/niu.h
-+++ b/drivers/net/niu.h
-@@ -2706,7 +2706,7 @@ struct rx_pkt_hdr0 {
- #if defined(__LITTLE_ENDIAN_BITFIELD)
- 	u8	inputport:2,
- 		maccheck:1,
--		class:4;
-+		class:5;
- 	u8	vlan:1,
- 		llcsnap:1,
- 		noport:1,
-@@ -2715,7 +2715,7 @@ struct rx_pkt_hdr0 {
- 		tres:2,
- 		tzfvld:1;
- #elif defined(__BIG_ENDIAN_BITFIELD)
--	u8	class:4,
-+	u8	class:5,
- 		maccheck:1,
- 		inputport:2;
- 	u8	tzfvld:1,
-@@ -2775,6 +2775,9 @@ struct rx_pkt_hdr1 {
- 	/* Bits 7:0 of hash value, H1.  */
- 	u8	hashval1_2;
- 
-+	u8	hwrsvd5;
-+	u8	hwrsvd6;
-+
- 	u8	usrdata_0;	/* Bits 39:32 of user data.  */
- 	u8	usrdata_1;	/* Bits 31:24 of user data.  */
- 	u8	usrdata_2;	/* Bits 23:16 of user data.  */
+Once to 'transfert' one list to process list
+
+Once to be able to do the 'label out:' post processing.
+
+
+
