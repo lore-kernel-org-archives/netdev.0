@@ -1,70 +1,64 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 6/8] qlcnic: fix rcv buffer leak
-Date: Thu, 22 Apr 2010 05:51:40 -0700
-Message-ID: <1271940702-17064-7-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 7/8] qlcnic: protect resource access
+Date: Thu, 22 Apr 2010 05:51:41 -0700
+Message-ID: <1271940702-17064-8-git-send-email-amit.salecha@qlogic.com>
 References: <1271940702-17064-1-git-send-email-amit.salecha@qlogic.com>
 Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:59360 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:24051 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1754587Ab0DVMvp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754592Ab0DVMvp (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 22 Apr 2010 08:51:45 -0400
 In-Reply-To: <1271940702-17064-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rcv producer value should be read in spin-lock.
+We do netif_device_attach, even if resource allocation fails.
+Driver callbacks can be called, if device is attached.
+All these callbacks need to be protected by ADAPTER_UP_MAGIC check.
 
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic_init.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/qlcnic/qlcnic_main.c |   11 +++++++++++
+ 1 files changed, 11 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/qlcnic/qlcnic_init.c b/drivers/net/qlcnic/qlcnic_init.c
-index 9ef9f58..1b621ca 100644
---- a/drivers/net/qlcnic/qlcnic_init.c
-+++ b/drivers/net/qlcnic/qlcnic_init.c
-@@ -1554,9 +1554,10 @@ qlcnic_post_rx_buffers(struct qlcnic_adapter *adapter, u32 ringid,
- 	int producer, count = 0;
- 	struct list_head *head;
+diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
+index bfc5510..ee573fe 100644
+--- a/drivers/net/qlcnic/qlcnic_main.c
++++ b/drivers/net/qlcnic/qlcnic_main.c
+@@ -208,6 +208,9 @@ qlcnic_napi_enable(struct qlcnic_adapter *adapter)
+ 	struct qlcnic_host_sds_ring *sds_ring;
+ 	struct qlcnic_recv_context *recv_ctx = &adapter->recv_ctx;
  
-+	spin_lock(&rds_ring->lock);
++	if (adapter->is_up != QLCNIC_ADAPTER_UP_MAGIC)
++		return;
 +
- 	producer = rds_ring->producer;
+ 	for (ring = 0; ring < adapter->max_sds_rings; ring++) {
+ 		sds_ring = &recv_ctx->sds_rings[ring];
+ 		napi_enable(&sds_ring->napi);
+@@ -222,6 +225,9 @@ qlcnic_napi_disable(struct qlcnic_adapter *adapter)
+ 	struct qlcnic_host_sds_ring *sds_ring;
+ 	struct qlcnic_recv_context *recv_ctx = &adapter->recv_ctx;
  
--	spin_lock(&rds_ring->lock);
- 	head = &rds_ring->free_list;
- 	while (!list_empty(head)) {
- 
-@@ -1578,13 +1579,13 @@ qlcnic_post_rx_buffers(struct qlcnic_adapter *adapter, u32 ringid,
- 
- 		producer = get_next_index(producer, rds_ring->num_desc);
- 	}
--	spin_unlock(&rds_ring->lock);
- 
- 	if (count) {
- 		rds_ring->producer = producer;
- 		writel((producer-1) & (rds_ring->num_desc-1),
- 				rds_ring->crb_rcv_producer);
- 	}
-+	spin_unlock(&rds_ring->lock);
- }
- 
- static void
-@@ -1596,10 +1597,11 @@ qlcnic_post_rx_buffers_nodb(struct qlcnic_adapter *adapter,
- 	int producer, count = 0;
- 	struct list_head *head;
- 
--	producer = rds_ring->producer;
- 	if (!spin_trylock(&rds_ring->lock))
- 		return;
- 
-+	producer = rds_ring->producer;
++	if (adapter->is_up != QLCNIC_ADAPTER_UP_MAGIC)
++		return;
 +
- 	head = &rds_ring->free_list;
- 	while (!list_empty(head)) {
+ 	for (ring = 0; ring < adapter->max_sds_rings; ring++) {
+ 		sds_ring = &recv_ctx->sds_rings[ring];
+ 		qlcnic_disable_int(sds_ring);
+@@ -1573,6 +1579,11 @@ qlcnic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+ 	int frag_count, no_of_desc;
+ 	u32 num_txd = tx_ring->num_desc;
  
++	if (!test_bit(__QLCNIC_DEV_UP, &adapter->state)) {
++		netif_stop_queue(netdev);
++		return NETDEV_TX_BUSY;
++	}
++
+ 	frag_count = skb_shinfo(skb)->nr_frags + 1;
+ 
+ 	/* 4 fragments per cmd des */
 -- 
 1.6.0.2
 
