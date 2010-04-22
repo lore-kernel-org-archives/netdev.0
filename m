@@ -1,27 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next,1/2] add iovnl netlink support
-Date: Thu, 22 Apr 2010 00:09:37 -0700 (PDT)
-Message-ID: <20100422.000937.219611809.davem@davemloft.net>
-References: <C7F4AD4F.2A34D%scofeldm@cisco.com>
-	<201004212313.05060.arnd@arndb.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: Introduce skb_orphan_try()
+Date: Thu, 22 Apr 2010 09:10:33 +0200
+Message-ID: <1271920233.7895.4723.camel@edumazet-laptop>
+References: <1271456302.16881.4559.camel@edumazet-laptop>
+	 <20100418.024601.85853662.davem@davemloft.net>
+	 <1271830116.7895.1316.camel@edumazet-laptop>
+	 <20100421.225625.177238009.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: scofeldm@cisco.com, chrisw@redhat.com, netdev@vger.kernel.org
-To: arnd@arndb.de
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49036
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751731Ab0DVHJd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 03:09:33 -0400
-In-Reply-To: <201004212313.05060.arnd@arndb.de>
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:34099 "EHLO
+	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751731Ab0DVHKp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 03:10:45 -0400
+Received: by bwz25 with SMTP id 25so9159646bwz.28
+        for <netdev@vger.kernel.org>; Thu, 22 Apr 2010 00:10:43 -0700 (PDT)
+In-Reply-To: <20100421.225625.177238009.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed, 21 Apr 2010 23:13:04 +0200
+Le mercredi 21 avril 2010 =C3=A0 22:56 -0700, David Miller a =C3=A9crit=
+ :
 
-> My preference would probably be make these a subcategory of the
-> if_link, and use the existing RTM_NEWLINK/RTM_DELLINK commands.
+> Right, I've applied this, thanks.
+>=20
+> What we should probably do instead is call and NULL out the
+> DEV_GSO_CB() destructor.  Right?
 
-I was going to suggest this as well.
+Yes, probably, I'll take a look at this if you want.
+
+Thanks
+
+
