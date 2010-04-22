@@ -1,112 +1,112 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 1/8] qlcnic: additional driver statistics
-Date: Thu, 22 Apr 2010 05:51:35 -0700
-Message-ID: <1271940702-17064-2-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 2/8] qlcnic: fix defines as per IDC document
+Date: Thu, 22 Apr 2010 05:51:36 -0700
+Message-ID: <1271940702-17064-3-git-send-email-amit.salecha@qlogic.com>
 References: <1271940702-17064-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:62532 "HELO unm84.unmin.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:28789 "HELO unm84.unmin.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1754533Ab0DVMvo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754577Ab0DVMvo (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 22 Apr 2010 08:51:44 -0400
 In-Reply-To: <1271940702-17064-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added additional driver statistics to track errors in rcv/tx path.
+Different class of drivers co-exist for CNA device,
+there is some minimal interaction that will be required amongst
+the drivers for performing some device level operations.
 
+All the driver should follow inter driver coexistence document.
+
+Fixing polling interval and spelling mistake.
+
+Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic.h         |    4 ++++
- drivers/net/qlcnic/qlcnic_ethtool.c |    8 ++++++++
- drivers/net/qlcnic/qlcnic_init.c    |    7 ++++++-
- drivers/net/qlcnic/qlcnic_main.c    |    4 +++-
- 4 files changed, 21 insertions(+), 2 deletions(-)
+ drivers/net/qlcnic/qlcnic_hdr.h  |   22 +++++++++++-----------
+ drivers/net/qlcnic/qlcnic_main.c |    9 +++++++--
+ 2 files changed, 18 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index 28c148c..6c1da71 100644
---- a/drivers/net/qlcnic/qlcnic.h
-+++ b/drivers/net/qlcnic/qlcnic.h
-@@ -428,6 +428,10 @@ struct qlcnic_adapter_stats {
- 	u64  xmit_on;
- 	u64  xmit_off;
- 	u64  skb_alloc_failure;
-+	u64  null_skb;
-+	u64  null_rxbuf;
-+	u64  rx_dma_map_error;
-+	u64  tx_dma_map_error;
- };
+diff --git a/drivers/net/qlcnic/qlcnic_hdr.h b/drivers/net/qlcnic/qlcnic_hdr.h
+index 51fa3fb..8285a06 100644
+--- a/drivers/net/qlcnic/qlcnic_hdr.h
++++ b/drivers/net/qlcnic/qlcnic_hdr.h
+@@ -694,17 +694,18 @@ enum {
+ #define QLCNIC_CRB_DRV_STATE               (QLCNIC_CAM_RAM(0x144))
+ #define QLCNIC_CRB_DRV_SCRATCH             (QLCNIC_CAM_RAM(0x148))
+ #define QLCNIC_CRB_DEV_PARTITION_INFO      (QLCNIC_CAM_RAM(0x14c))
+-#define QLCNIC_CRB_DRV_IDC_VER             (QLCNIC_CAM_RAM(0x14c))
++#define QLCNIC_CRB_DRV_IDC_VER		(QLCNIC_CAM_RAM(0x174))
+ #define QLCNIC_ROM_DEV_INIT_TIMEOUT	(0x3e885c)
+ #define QLCNIC_ROM_DRV_RESET_TIMEOUT	(0x3e8860)
  
- /*
-diff --git a/drivers/net/qlcnic/qlcnic_ethtool.c b/drivers/net/qlcnic/qlcnic_ethtool.c
-index 08d6f10..6cdc5eb 100644
---- a/drivers/net/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/qlcnic/qlcnic_ethtool.c
-@@ -69,6 +69,14 @@ static const struct qlcnic_stats qlcnic_gstrings_stats[] = {
- 		QLC_SIZEOF(stats.xmit_off), QLC_OFF(stats.xmit_off)},
- 	{"skb_alloc_failure", QLC_SIZEOF(stats.skb_alloc_failure),
- 		QLC_OFF(stats.skb_alloc_failure)},
-+	{"null skb",
-+		QLC_SIZEOF(stats.null_skb), QLC_OFF(stats.null_skb)},
-+	{"null rxbuf",
-+		QLC_SIZEOF(stats.null_rxbuf), QLC_OFF(stats.null_rxbuf)},
-+	{"rx dma map error", QLC_SIZEOF(stats.rx_dma_map_error),
-+					 QLC_OFF(stats.rx_dma_map_error)},
-+	{"tx dma map error", QLC_SIZEOF(stats.tx_dma_map_error),
-+					 QLC_OFF(stats.tx_dma_map_error)},
+-		 /* Device State */
+-#define QLCNIC_DEV_COLD 		1
+-#define QLCNIC_DEV_INITALIZING		2
+-#define QLCNIC_DEV_READY		3
+-#define QLCNIC_DEV_NEED_RESET		4
+-#define QLCNIC_DEV_NEED_QUISCENT	5
+-#define QLCNIC_DEV_FAILED		6
++/* Device State */
++#define QLCNIC_DEV_COLD			0x1
++#define QLCNIC_DEV_INITIALIZING		0x2
++#define QLCNIC_DEV_READY		0x3
++#define QLCNIC_DEV_NEED_RESET		0x4
++#define QLCNIC_DEV_NEED_QUISCENT	0x5
++#define QLCNIC_DEV_FAILED		0x6
++#define QLCNIC_DEV_QUISCENT		0x7
  
- };
+ #define QLCNIC_RCODE_DRIVER_INFO		0x20000000
+ #define QLCNIC_RCODE_DRIVER_CAN_RELOAD		0x40000000
+@@ -712,9 +713,8 @@ enum {
+ #define QLCNIC_FWERROR_PEGNUM(code)		((code) & 0xff)
+ #define QLCNIC_FWERROR_CODE(code)		((code >> 8) & 0xfffff)
  
-diff --git a/drivers/net/qlcnic/qlcnic_init.c b/drivers/net/qlcnic/qlcnic_init.c
-index 01ce74e..9ef9f58 100644
---- a/drivers/net/qlcnic/qlcnic_init.c
-+++ b/drivers/net/qlcnic/qlcnic_init.c
-@@ -1287,6 +1287,7 @@ qlcnic_alloc_rx_skb(struct qlcnic_adapter *adapter,
- 			rds_ring->dma_size, PCI_DMA_FROMDEVICE);
+-#define FW_POLL_DELAY			(2 * HZ)
+-#define FW_FAIL_THRESH			3
+-#define FW_POLL_THRESH			10
++#define FW_POLL_DELAY		(1 * HZ)
++#define FW_FAIL_THRESH		2
  
- 	if (pci_dma_mapping_error(pdev, dma)) {
-+		adapter->stats.rx_dma_map_error++;
- 		dev_kfree_skb_any(skb);
- 		buffer->skb = NULL;
- 		return -ENOMEM;
-@@ -1311,8 +1312,10 @@ static struct sk_buff *qlcnic_process_rxbuf(struct qlcnic_adapter *adapter,
- 			PCI_DMA_FROMDEVICE);
- 
- 	skb = buffer->skb;
--	if (!skb)
-+	if (!skb) {
-+		adapter->stats.null_skb++;
- 		goto no_skb;
-+	}
- 
- 	if (likely(adapter->rx_csum && cksum == STATUS_CKSUM_OK)) {
- 		adapter->stats.csummed++;
-@@ -1502,6 +1505,8 @@ qlcnic_process_rcv_ring(struct qlcnic_host_sds_ring *sds_ring, int max)
- 
- 		if (rxbuf)
- 			list_add_tail(&rxbuf->list, &sds_ring->free_list[ring]);
-+		else
-+			adapter->stats.null_rxbuf++;
- 
- skip:
- 		for (; desc_cnt > 0; desc_cnt--) {
+ #define	ISR_MSI_INT_TRIGGER(FUNC) (QLCNIC_PCIX_PS_REG(PCIX_MSI_F(FUNC)))
+ #define ISR_LEGACY_INT_TRIGGERED(VAL)	(((VAL) & 0x300) == 0x200)
 diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index e4fd5dc..5845dc0 100644
+index 5845dc0..ff7705b 100644
 --- a/drivers/net/qlcnic/qlcnic_main.c
 +++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -1589,8 +1589,10 @@ qlcnic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+@@ -2054,7 +2054,7 @@ qlcnic_can_start_firmware(struct qlcnic_adapter *adapter)
+ 	switch (prev_state) {
+ 	case QLCNIC_DEV_COLD:
+ start_fw:
+-		QLCWR32(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_INITALIZING);
++		QLCWR32(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_INITIALIZING);
+ 		qlcnic_api_unlock(adapter);
+ 		return 1;
  
- 	pdev = adapter->pdev;
+@@ -2077,6 +2077,10 @@ start_fw:
+ 	case QLCNIC_DEV_FAILED:
+ 		qlcnic_api_unlock(adapter);
+ 		return -1;
++
++	case QLCNIC_DEV_INITIALIZING:
++	case QLCNIC_DEV_QUISCENT:
++		break;
+ 	}
  
--	if (qlcnic_map_tx_skb(pdev, skb, pbuf))
-+	if (qlcnic_map_tx_skb(pdev, skb, pbuf)) {
-+		adapter->stats.tx_dma_map_error++;
- 		goto drop_packet;
-+	}
+ 	qlcnic_api_unlock(adapter);
+@@ -2208,7 +2212,8 @@ qlcnic_dev_request_reset(struct qlcnic_adapter *adapter)
  
- 	pbuf->skb = skb;
- 	pbuf->frag_count = frag_count;
+ 	state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
+ 
+-	if (state != QLCNIC_DEV_INITALIZING && state != QLCNIC_DEV_NEED_RESET) {
++	if (state != QLCNIC_DEV_INITIALIZING &&
++					state != QLCNIC_DEV_NEED_RESET) {
+ 		QLCWR32(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_NEED_RESET);
+ 		set_bit(__QLCNIC_START_FW, &adapter->state);
+ 		QLCDB(adapter, DRV, "NEED_RESET state set\n");
 -- 
 1.6.0.2
 
