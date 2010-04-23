@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-2.6 5/9] sfc: Change falcon_probe_board() to fail for
- unsupported boards
-Date: Fri, 23 Apr 2010 23:26:46 +0100
-Message-ID: <1272061606.5520.18.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH net-2.6 6/9] sfc: Handle serious errors in exactly one
+ interrupt handler
+Date: Fri, 23 Apr 2010 23:27:19 +0100
+Message-ID: <1272061639.5520.19.camel@achroite.uk.solarflarecom.com>
 References: <1272061459.5520.15.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,85 +10,163 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:46280 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:46338 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753872Ab0DWW0u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 18:26:50 -0400
+	with ESMTP id S1751494Ab0DWW1W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 18:27:22 -0400
 In-Reply-To: <1272061459.5520.15.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver needs specific PHY and board support code for each SFC4000
-board; there is no point trying to continue if it is missing.
-Currently unsupported boards can trigger an 'oops'.
+From: Steve Hodgson <shodgson@solarflare.com>
+
+'Fatal' errors set an interrupt flag associated with a specific event
+queue; only read the syndrome vector if we see that queue's flag set
+(legacy interrupts) or in the interrupt handler for that queue (MSI).
+
+Do not ignore an interrupt if the fatal error flag is set but specific
+error flags are all zero.  Even if we don't schedule a reset, we must
+respect the queue mask and rearm the appropriate event queues.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/falcon.c        |    4 +++-
- drivers/net/sfc/falcon_boards.c |   13 +++----------
- drivers/net/sfc/nic.h           |    2 +-
- 3 files changed, 7 insertions(+), 12 deletions(-)
+ drivers/net/sfc/falcon.c     |   13 ++++++++-----
+ drivers/net/sfc/net_driver.h |    2 ++
+ drivers/net/sfc/nic.c        |   35 +++++++++++++++++++----------------
+ 3 files changed, 29 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
-index d294d66..08278e7 100644
+index 08278e7..e783b0a 100644
 --- a/drivers/net/sfc/falcon.c
 +++ b/drivers/net/sfc/falcon.c
-@@ -1320,7 +1320,9 @@ static int falcon_probe_nvconfig(struct efx_nic *efx)
+@@ -175,16 +175,19 @@ irqreturn_t falcon_legacy_interrupt_a1(int irq, void *dev_id)
+ 	EFX_TRACE(efx, "IRQ %d on CPU %d status " EFX_OWORD_FMT "\n",
+ 		  irq, raw_smp_processor_id(), EFX_OWORD_VAL(*int_ker));
  
- 	EFX_LOG(efx, "PHY is %d phy_id %d\n", efx->phy_type, efx->mdio.prtad);
- 
--	falcon_probe_board(efx, board_rev);
-+	rc = falcon_probe_board(efx, board_rev);
-+	if (rc)
-+		goto fail2;
- 
- 	kfree(nvconfig);
- 	return 0;
-diff --git a/drivers/net/sfc/falcon_boards.c b/drivers/net/sfc/falcon_boards.c
-index 5712fdd..c7a933a 100644
---- a/drivers/net/sfc/falcon_boards.c
-+++ b/drivers/net/sfc/falcon_boards.c
-@@ -728,15 +728,7 @@ static const struct falcon_board_type board_types[] = {
- 	},
- };
- 
--static const struct falcon_board_type falcon_dummy_board = {
--	.init		= efx_port_dummy_op_int,
--	.init_phy	= efx_port_dummy_op_void,
--	.fini		= efx_port_dummy_op_void,
--	.set_id_led	= efx_port_dummy_op_set_id_led,
--	.monitor	= efx_port_dummy_op_int,
--};
+-	/* Check to see if we have a serious error condition */
+-	syserr = EFX_OWORD_FIELD(*int_ker, FSF_AZ_NET_IVEC_FATAL_INT);
+-	if (unlikely(syserr))
+-		return efx_nic_fatal_interrupt(efx);
 -
--void falcon_probe_board(struct efx_nic *efx, u16 revision_info)
-+int falcon_probe_board(struct efx_nic *efx, u16 revision_info)
+ 	/* Determine interrupting queues, clear interrupt status
+ 	 * register and acknowledge the device interrupt.
+ 	 */
+ 	BUILD_BUG_ON(FSF_AZ_NET_IVEC_INT_Q_WIDTH > EFX_MAX_CHANNELS);
+ 	queues = EFX_OWORD_FIELD(*int_ker, FSF_AZ_NET_IVEC_INT_Q);
++
++	/* Check to see if we have a serious error condition */
++	if (queues & (1U << efx->fatal_irq_level)) {
++		syserr = EFX_OWORD_FIELD(*int_ker, FSF_AZ_NET_IVEC_FATAL_INT);
++		if (unlikely(syserr))
++			return efx_nic_fatal_interrupt(efx);
++	}
++
+ 	EFX_ZERO_OWORD(*int_ker);
+ 	wmb(); /* Ensure the vector is cleared before interrupt ack */
+ 	falcon_irq_ack_a1(efx);
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
+index cb018e2..70aea3a 100644
+--- a/drivers/net/sfc/net_driver.h
++++ b/drivers/net/sfc/net_driver.h
+@@ -672,6 +672,7 @@ union efx_multicast_hash {
+  *	This register is written with the SMP processor ID whenever an
+  *	interrupt is handled.  It is used by efx_nic_test_interrupt()
+  *	to verify that an interrupt has occurred.
++ * @fatal_irq_level: IRQ level (bit number) used for serious errors
+  * @spi_flash: SPI flash device
+  *	This field will be %NULL if no flash device is present (or for Siena).
+  * @spi_eeprom: SPI EEPROM device
+@@ -756,6 +757,7 @@ struct efx_nic {
+ 	struct efx_buffer irq_status;
+ 	volatile signed int last_irq_cpu;
+ 	unsigned long irq_zero_count;
++	unsigned fatal_irq_level;
+ 
+ 	struct efx_spi_device *spi_flash;
+ 	struct efx_spi_device *spi_eeprom;
+diff --git a/drivers/net/sfc/nic.c b/drivers/net/sfc/nic.c
+index 664fd6c..23738f8 100644
+--- a/drivers/net/sfc/nic.c
++++ b/drivers/net/sfc/nic.c
+@@ -1229,15 +1229,9 @@ static inline void efx_nic_interrupts(struct efx_nic *efx,
+ 				      bool enabled, bool force)
  {
- 	struct falcon_board *board = falcon_board(efx);
- 	u8 type_id = FALCON_BOARD_TYPE(revision_info);
-@@ -754,8 +746,9 @@ void falcon_probe_board(struct efx_nic *efx, u16 revision_info)
- 			 (efx->pci_dev->subsystem_vendor == EFX_VENDID_SFC)
- 			 ? board->type->ref_model : board->type->gen_type,
- 			 'A' + board->major, board->minor);
-+		return 0;
- 	} else {
- 		EFX_ERR(efx, "unknown board type %d\n", type_id);
--		board->type = &falcon_dummy_board;
-+		return -ENODEV;
+ 	efx_oword_t int_en_reg_ker;
+-	unsigned int level = 0;
+-
+-	if (EFX_WORKAROUND_17213(efx) && !EFX_INT_MODE_USE_MSI(efx))
+-		/* Set the level always even if we're generating a test
+-		 * interrupt, because our legacy interrupt handler is safe */
+-		level = 0x1f;
+ 
+ 	EFX_POPULATE_OWORD_3(int_en_reg_ker,
+-			     FRF_AZ_KER_INT_LEVE_SEL, level,
++			     FRF_AZ_KER_INT_LEVE_SEL, efx->fatal_irq_level,
+ 			     FRF_AZ_KER_INT_KER, force,
+ 			     FRF_AZ_DRV_INT_EN_KER, enabled);
+ 	efx_writeo(efx, &int_en_reg_ker, FR_AZ_INT_EN_KER);
+@@ -1291,8 +1285,6 @@ irqreturn_t efx_nic_fatal_interrupt(struct efx_nic *efx)
+ 		EFX_OWORD_FMT ": %s\n", EFX_OWORD_VAL(*int_ker),
+ 		EFX_OWORD_VAL(fatal_intr),
+ 		error ? "disabling bus mastering" : "no recognised error");
+-	if (error == 0)
+-		goto out;
+ 
+ 	/* If this is a memory parity error dump which blocks are offending */
+ 	mem_perr = EFX_OWORD_FIELD(fatal_intr, FRF_AZ_MEM_PERR_INT_KER);
+@@ -1324,7 +1316,7 @@ irqreturn_t efx_nic_fatal_interrupt(struct efx_nic *efx)
+ 			"NIC will be disabled\n");
+ 		efx_schedule_reset(efx, RESET_TYPE_DISABLE);
  	}
+-out:
++
+ 	return IRQ_HANDLED;
  }
-diff --git a/drivers/net/sfc/nic.h b/drivers/net/sfc/nic.h
-index 9351c03..3166baf 100644
---- a/drivers/net/sfc/nic.h
-+++ b/drivers/net/sfc/nic.h
-@@ -156,7 +156,7 @@ extern struct efx_nic_type siena_a0_nic_type;
-  **************************************************************************
-  */
  
--extern void falcon_probe_board(struct efx_nic *efx, u16 revision_info);
-+extern int falcon_probe_board(struct efx_nic *efx, u16 revision_info);
+@@ -1346,9 +1338,11 @@ static irqreturn_t efx_legacy_interrupt(int irq, void *dev_id)
+ 	queues = EFX_EXTRACT_DWORD(reg, 0, 31);
  
- /* TX data path */
- extern int efx_nic_probe_tx(struct efx_tx_queue *tx_queue);
+ 	/* Check to see if we have a serious error condition */
+-	syserr = EFX_OWORD_FIELD(*int_ker, FSF_AZ_NET_IVEC_FATAL_INT);
+-	if (unlikely(syserr))
+-		return efx_nic_fatal_interrupt(efx);
++	if (queues & (1U << efx->fatal_irq_level)) {
++		syserr = EFX_OWORD_FIELD(*int_ker, FSF_AZ_NET_IVEC_FATAL_INT);
++		if (unlikely(syserr))
++			return efx_nic_fatal_interrupt(efx);
++	}
+ 
+ 	if (queues != 0) {
+ 		if (EFX_WORKAROUND_15783(efx))
+@@ -1413,9 +1407,11 @@ static irqreturn_t efx_msi_interrupt(int irq, void *dev_id)
+ 		  irq, raw_smp_processor_id(), EFX_OWORD_VAL(*int_ker));
+ 
+ 	/* Check to see if we have a serious error condition */
+-	syserr = EFX_OWORD_FIELD(*int_ker, FSF_AZ_NET_IVEC_FATAL_INT);
+-	if (unlikely(syserr))
+-		return efx_nic_fatal_interrupt(efx);
++	if (channel->channel == efx->fatal_irq_level) {
++		syserr = EFX_OWORD_FIELD(*int_ker, FSF_AZ_NET_IVEC_FATAL_INT);
++		if (unlikely(syserr))
++			return efx_nic_fatal_interrupt(efx);
++	}
+ 
+ 	/* Schedule processing of the channel */
+ 	efx_schedule_channel(channel);
+@@ -1553,6 +1549,13 @@ void efx_nic_init_common(struct efx_nic *efx)
+ 			     FRF_AZ_INT_ADR_KER, efx->irq_status.dma_addr);
+ 	efx_writeo(efx, &temp, FR_AZ_INT_ADR_KER);
+ 
++	if (EFX_WORKAROUND_17213(efx) && !EFX_INT_MODE_USE_MSI(efx))
++		/* Use an interrupt level unused by event queues */
++		efx->fatal_irq_level = 0x1f;
++	else
++		/* Use a valid MSI-X vector */
++		efx->fatal_irq_level = 0;
++
+ 	/* Enable all the genuinely fatal interrupts.  (They are still
+ 	 * masked by the overall interrupt mask, controlled by
+ 	 * falcon_interrupts()).
 -- 
 1.6.2.5
 
