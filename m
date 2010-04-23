@@ -1,251 +1,257 @@
 From: Brian Haley <brian.haley@hp.com>
-Subject: [PATCH 2/3] IPv6: Add dontfrag argument to relevant functions
-Date: Fri, 23 Apr 2010 17:26:08 -0400
-Message-ID: <1272057969-6526-3-git-send-email-brian.haley@hp.com>
+Subject: [PATCH 3/3] IPv6: Complete IPV6_DONTFRAG support
+Date: Fri, 23 Apr 2010 17:26:09 -0400
+Message-ID: <1272057969-6526-4-git-send-email-brian.haley@hp.com>
 References: <>
  <1272057969-6526-1-git-send-email-brian.haley@hp.com>
  <1272057969-6526-2-git-send-email-brian.haley@hp.com>
+ <1272057969-6526-3-git-send-email-brian.haley@hp.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net, yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0185.atlanta.hp.com ([15.193.32.62]:42518 "EHLO
+Received: from g6t0185.atlanta.hp.com ([15.193.32.62]:42510 "EHLO
 	g6t0185.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753544Ab0DWVei (ORCPT
+	with ESMTP id S1753307Ab0DWVei (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 17:34:38 -0400
-In-Reply-To: <1272057969-6526-2-git-send-email-brian.haley@hp.com>
+In-Reply-To: <1272057969-6526-3-git-send-email-brian.haley@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add dontfrag argument to relevant functions for
-IPV6_DONTFRAG support, as well as allowing the value
-to be passed-in via ancillary cmsg data.
+Finally add support to detect a local IPV6_DONTFRAG event
+and return the relevant data to the user if they've enabled
+IPV6_RECVPATHMTU on the socket.  The next recvmsg() will
+return no data, but have an IPV6_PATHMTU as ancillary data.
 
 Signed-off-by: Brian Haley <brian.haley@hp.com>
 ---
- include/net/ipv6.h       |    3 ++-
- include/net/transp_v6.h  |    3 ++-
- net/ipv6/datagram.c      |   21 ++++++++++++++++++++-
- net/ipv6/icmp.c          |    5 +++--
- net/ipv6/ip6_flowlabel.c |    3 ++-
- net/ipv6/ip6_output.c    |    2 +-
- net/ipv6/ipv6_sockglue.c |    3 ++-
- net/ipv6/raw.c           |    9 +++++++--
- net/ipv6/udp.c           |    9 +++++++--
- 9 files changed, 46 insertions(+), 12 deletions(-)
+ include/linux/ipv6.h  |    2 +
+ include/net/ipv6.h    |    2 +
+ net/ipv6/af_inet6.c   |    3 ++
+ net/ipv6/datagram.c   |   87 +++++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv6/ip6_output.c |   24 +++++++++----
+ net/ipv6/raw.c        |    3 ++
+ net/ipv6/udp.c        |    3 ++
+ 7 files changed, 116 insertions(+), 8 deletions(-)
 
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 1976942..2ab5509 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -257,6 +257,7 @@ struct inet6_skb_parm {
+ };
+ 
+ #define IP6CB(skb)	((struct inet6_skb_parm*)((skb)->cb))
++#define IP6CBMTU(skb)	((struct ip6_mtuinfo *)((skb)->cb))
+ 
+ static inline int inet6_iif(const struct sk_buff *skb)
+ {
+@@ -366,6 +367,7 @@ struct ipv6_pinfo {
+ 
+ 	struct ipv6_txoptions	*opt;
+ 	struct sk_buff		*pktoptions;
++	struct sk_buff		*rxpmtu;
+ 	struct {
+ 		struct ipv6_txoptions *opt;
+ 		u8 hop_limit;
 diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index b1d8db9..7ab6323 100644
+index 7ab6323..eba5cc0 100644
 --- a/include/net/ipv6.h
 +++ b/include/net/ipv6.h
-@@ -503,7 +503,8 @@ extern int			ip6_append_data(struct sock *sk,
- 						struct ipv6_txoptions *opt,
- 						struct flowi *fl,
- 						struct rt6_info *rt,
--						unsigned int flags);
-+						unsigned int flags,
-+						int dontfrag);
+@@ -578,9 +578,11 @@ extern int			ip6_datagram_connect(struct sock *sk,
+ 						     struct sockaddr *addr, int addr_len);
  
- extern int			ip6_push_pending_frames(struct sock *sk);
+ extern int 			ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len);
++extern int 			ipv6_recv_rxpmtu(struct sock *sk, struct msghdr *msg, int len);
+ extern void			ipv6_icmp_error(struct sock *sk, struct sk_buff *skb, int err, __be16 port,
+ 						u32 info, u8 *payload);
+ extern void			ipv6_local_error(struct sock *sk, int err, struct flowi *fl, u32 info);
++extern void			ipv6_local_rxpmtu(struct sock *sk, struct flowi *fl, u32 mtu);
  
-diff --git a/include/net/transp_v6.h b/include/net/transp_v6.h
-index d65381c..42a0eb6 100644
---- a/include/net/transp_v6.h
-+++ b/include/net/transp_v6.h
-@@ -44,7 +44,8 @@ extern int			datagram_send_ctl(struct net *net,
- 						  struct msghdr *msg,
- 						  struct flowi *fl,
- 						  struct ipv6_txoptions *opt,
--						  int *hlimit, int *tclass);
-+						  int *hlimit, int *tclass,
-+						  int *dontfrag);
+ extern int inet6_release(struct socket *sock);
+ extern int inet6_bind(struct socket *sock, struct sockaddr *uaddr, 
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 3192aa0..d2df314 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -417,6 +417,9 @@ void inet6_destroy_sock(struct sock *sk)
+ 	if ((skb = xchg(&np->pktoptions, NULL)) != NULL)
+ 		kfree_skb(skb);
  
- #define		LOOPBACK4_IPV6		cpu_to_be32(0x7f000006)
++	if ((skb = xchg(&np->rxpmtu, NULL)) != NULL)
++		kfree_skb(skb);
++
+ 	/* Free flowlabels */
+ 	fl6_free_socklist(sk);
  
 diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index 622dc79..f5076d3 100644
+index f5076d3..5959230 100644
 --- a/net/ipv6/datagram.c
 +++ b/net/ipv6/datagram.c
-@@ -497,7 +497,7 @@ int datagram_recv_ctl(struct sock *sk, struct msghdr *msg, struct sk_buff *skb)
- int datagram_send_ctl(struct net *net,
- 		      struct msghdr *msg, struct flowi *fl,
- 		      struct ipv6_txoptions *opt,
--		      int *hlimit, int *tclass)
-+		      int *hlimit, int *tclass, int *dontfrag)
- {
- 	struct in6_pktinfo *src_info;
- 	struct cmsghdr *cmsg;
-@@ -737,6 +737,25 @@ int datagram_send_ctl(struct net *net,
+@@ -278,6 +278,45 @@ void ipv6_local_error(struct sock *sk, int err, struct flowi *fl, u32 info)
+ 		kfree_skb(skb);
+ }
  
- 			break;
- 		    }
++void ipv6_local_rxpmtu(struct sock *sk, struct flowi *fl, u32 mtu)
++{
++	struct ipv6_pinfo *np = inet6_sk(sk);
++	struct ipv6hdr *iph;
++	struct sk_buff *skb;
++	struct ip6_mtuinfo *mtu_info;
 +
-+		case IPV6_DONTFRAG:
-+		    {
-+			int df;
++	if (!np->rxopt.bits.rxpmtu)
++		return;
 +
-+			err = -EINVAL;
-+			if (cmsg->cmsg_len != CMSG_LEN(sizeof(int))) {
-+				goto exit_f;
-+			}
++	skb = alloc_skb(sizeof(struct ipv6hdr), GFP_ATOMIC);
++	if (!skb)
++		return;
 +
-+			df = *(int *)CMSG_DATA(cmsg);
-+			if (df < 0 || df > 1)
-+				goto exit_f;
++	skb_put(skb, sizeof(struct ipv6hdr));
++	skb_reset_network_header(skb);
++	iph = ipv6_hdr(skb);
++	ipv6_addr_copy(&iph->daddr, &fl->fl6_dst);
 +
-+			err = 0;
-+			*dontfrag = df;
++	mtu_info = IP6CBMTU(skb);
++	if (!mtu_info) {
++		kfree_skb(skb);
++		return;
++	}
 +
-+			break;
-+		    }
- 		default:
- 			LIMIT_NETDEBUG(KERN_DEBUG "invalid cmsg type: %d\n",
- 				       cmsg->cmsg_type);
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index 12d2fa4..ce79929 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -481,7 +481,7 @@ route_done:
- 			      len + sizeof(struct icmp6hdr),
- 			      sizeof(struct icmp6hdr), hlimit,
- 			      np->tclass, NULL, &fl, (struct rt6_info*)dst,
--			      MSG_DONTWAIT);
-+			      MSG_DONTWAIT, np->dontfrag);
- 	if (err) {
- 		ICMP6_INC_STATS_BH(net, idev, ICMP6_MIB_OUTMSGS);
- 		ip6_flush_pending_frames(sk);
-@@ -561,7 +561,8 @@ static void icmpv6_echo_reply(struct sk_buff *skb)
++	mtu_info->ip6m_mtu = mtu;
++	mtu_info->ip6m_addr.sin6_family = AF_INET6;
++	mtu_info->ip6m_addr.sin6_port = 0;
++	mtu_info->ip6m_addr.sin6_flowinfo = 0;
++	mtu_info->ip6m_addr.sin6_scope_id = fl->oif;
++	ipv6_addr_copy(&mtu_info->ip6m_addr.sin6_addr, &ipv6_hdr(skb)->daddr);
++
++	__skb_pull(skb, skb_tail_pointer(skb) - skb->data);
++	skb_reset_transport_header(skb);
++
++	skb = xchg(&np->rxpmtu, skb);
++	kfree_skb(skb);
++}
++
+ /*
+  *	Handle MSG_ERRQUEUE
+  */
+@@ -381,6 +420,54 @@ out:
+ 	return err;
+ }
  
- 	err = ip6_append_data(sk, icmpv6_getfrag, &msg, skb->len + sizeof(struct icmp6hdr),
- 				sizeof(struct icmp6hdr), hlimit, np->tclass, NULL, &fl,
--				(struct rt6_info*)dst, MSG_DONTWAIT);
-+				(struct rt6_info*)dst, MSG_DONTWAIT,
-+				np->dontfrag);
++/*
++ *	Handle IPV6_RECVPATHMTU
++ */
++int ipv6_recv_rxpmtu(struct sock *sk, struct msghdr *msg, int len)
++{
++	struct ipv6_pinfo *np = inet6_sk(sk);
++	struct sk_buff *skb;
++	struct sockaddr_in6 *sin;
++	struct ip6_mtuinfo mtu_info;
++	int err;
++	int copied;
++
++	err = -EAGAIN;
++	skb = xchg(&np->rxpmtu, NULL);
++	if (skb == NULL)
++		goto out;
++
++	copied = skb->len;
++	if (copied > len) {
++		msg->msg_flags |= MSG_TRUNC;
++		copied = len;
++	}
++	err = skb_copy_datagram_iovec(skb, 0, msg->msg_iov, copied);
++	if (err)
++		goto out_free_skb;
++
++	sock_recv_timestamp(msg, sk, skb);
++
++	memcpy(&mtu_info, IP6CBMTU(skb), sizeof(mtu_info));
++
++	sin = (struct sockaddr_in6 *)msg->msg_name;
++	if (sin) {
++		sin->sin6_family = AF_INET6;
++		sin->sin6_flowinfo = 0;
++		sin->sin6_port = 0;
++		sin->sin6_scope_id = mtu_info.ip6m_addr.sin6_scope_id;
++		ipv6_addr_copy(&sin->sin6_addr, &mtu_info.ip6m_addr.sin6_addr);
++	}
++
++	put_cmsg(msg, SOL_IPV6, IPV6_PATHMTU, sizeof(mtu_info), &mtu_info);
++
++	err = copied;
++
++out_free_skb:
++	kfree_skb(skb);
++out:
++	return err;
++}
  
- 	if (err) {
- 		ICMP6_INC_STATS_BH(net, idev, ICMP6_MIB_OUTMSGS);
-diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
-index 14e2321..1365468 100644
---- a/net/ipv6/ip6_flowlabel.c
-+++ b/net/ipv6/ip6_flowlabel.c
-@@ -360,7 +360,8 @@ fl_create(struct net *net, struct in6_flowlabel_req *freq, char __user *optval,
- 		msg.msg_control = (void*)(fl->opt+1);
- 		flowi.oif = 0;
  
--		err = datagram_send_ctl(net, &msg, &flowi, fl->opt, &junk, &junk);
-+		err = datagram_send_ctl(net, &msg, &flowi, fl->opt, &junk,
-+					&junk, &junk);
- 		if (err)
- 			goto done;
- 		err = -EINVAL;
+ int datagram_recv_ctl(struct sock *sk, struct msghdr *msg, struct sk_buff *skb)
 diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 263d4cf..54d43dd 100644
+index 54d43dd..61e2bef 100644
 --- a/net/ipv6/ip6_output.c
 +++ b/net/ipv6/ip6_output.c
-@@ -1105,7 +1105,7 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
- 	int offset, int len, int odd, struct sk_buff *skb),
- 	void *from, int length, int transhdrlen,
- 	int hlimit, int tclass, struct ipv6_txoptions *opt, struct flowi *fl,
--	struct rt6_info *rt, unsigned int flags)
-+	struct rt6_info *rt, unsigned int flags, int dontfrag)
- {
- 	struct inet_sock *inet = inet_sk(sk);
- 	struct ipv6_pinfo *np = inet6_sk(sk);
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 2bf9eda..bd43f01 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -458,7 +458,8 @@ sticky_done:
- 		msg.msg_controllen = optlen;
- 		msg.msg_control = (void*)(opt+1);
+@@ -1219,15 +1219,23 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
+ 	 */
  
--		retv = datagram_send_ctl(net, &msg, &fl, opt, &junk, &junk);
-+		retv = datagram_send_ctl(net, &msg, &fl, opt, &junk, &junk,
-+					 &junk);
- 		if (retv)
- 			goto done;
- update:
+ 	inet->cork.length += length;
+-	if (((length > mtu) && (sk->sk_protocol == IPPROTO_UDP)) &&
+-	    (rt->u.dst.dev->features & NETIF_F_UFO)) {
++	if (length > mtu) {
++		int proto = sk->sk_protocol;
++		if (dontfrag && (proto == IPPROTO_UDP || proto == IPPROTO_RAW)){
++			ipv6_local_rxpmtu(sk, fl, mtu-exthdrlen);
++			return -EMSGSIZE;
++		}
+ 
+-		err = ip6_ufo_append_data(sk, getfrag, from, length, hh_len,
+-					  fragheaderlen, transhdrlen, mtu,
+-					  flags);
+-		if (err)
+-			goto error;
+-		return 0;
++		if (proto == IPPROTO_UDP &&
++		    (rt->u.dst.dev->features & NETIF_F_UFO)) {
++
++			err = ip6_ufo_append_data(sk, getfrag, from, length,
++						  hh_len, fragheaderlen,
++						  transhdrlen, mtu, flags);
++			if (err)
++				goto error;
++			return 0;
++		}
+ 	}
+ 
+ 	if ((skb = skb_peek_tail(&sk->sk_write_queue)) == NULL)
 diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 8763b1a..44a84ea 100644
+index 44a84ea..8562738 100644
 --- a/net/ipv6/raw.c
 +++ b/net/ipv6/raw.c
-@@ -733,6 +733,7 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
- 	int addr_len = msg->msg_namelen;
- 	int hlimit = -1;
- 	int tclass = -1;
-+	int dontfrag = -1;
- 	u16 proto;
- 	int err;
+@@ -461,6 +461,9 @@ static int rawv6_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 	if (flags & MSG_ERRQUEUE)
+ 		return ipv6_recv_error(sk, msg, len);
  
-@@ -811,7 +812,8 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
- 		memset(opt, 0, sizeof(struct ipv6_txoptions));
- 		opt->tot_len = sizeof(struct ipv6_txoptions);
- 
--		err = datagram_send_ctl(sock_net(sk), msg, &fl, opt, &hlimit, &tclass);
-+		err = datagram_send_ctl(sock_net(sk), msg, &fl, opt, &hlimit,
-+					&tclass, &dontfrag);
- 		if (err < 0) {
- 			fl6_sock_release(flowlabel);
- 			return err;
-@@ -880,6 +882,9 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
- 	if (tclass < 0)
- 		tclass = np->tclass;
- 
-+	if (dontfrag < 0)
-+		dontfrag = np->dontfrag;
++	if (np->rxpmtu && np->rxopt.bits.rxpmtu)
++		return ipv6_recv_rxpmtu(sk, msg, len);
 +
- 	if (msg->msg_flags&MSG_CONFIRM)
- 		goto do_confirm;
- 
-@@ -890,7 +895,7 @@ back_from_confirm:
- 		lock_sock(sk);
- 		err = ip6_append_data(sk, ip_generic_getfrag, msg->msg_iov,
- 			len, 0, hlimit, tclass, opt, &fl, (struct rt6_info*)dst,
--			msg->msg_flags);
-+			msg->msg_flags, dontfrag);
- 
- 		if (err)
- 			ip6_flush_pending_frames(sk);
+ 	skb = skb_recv_datagram(sk, flags, noblock, &err);
+ 	if (!skb)
+ 		goto out;
 diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 92bf903..39e3665 100644
+index 39e3665..2850e35 100644
 --- a/net/ipv6/udp.c
 +++ b/net/ipv6/udp.c
-@@ -919,6 +919,7 @@ int udpv6_sendmsg(struct kiocb *iocb, struct sock *sk,
- 	int ulen = len;
- 	int hlimit = -1;
- 	int tclass = -1;
-+	int dontfrag = -1;
- 	int corkreq = up->corkflag || msg->msg_flags&MSG_MORE;
- 	int err;
- 	int connected = 0;
-@@ -1049,7 +1050,8 @@ do_udp_sendmsg:
- 		memset(opt, 0, sizeof(struct ipv6_txoptions));
- 		opt->tot_len = sizeof(*opt);
+@@ -335,6 +335,9 @@ int udpv6_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 	if (flags & MSG_ERRQUEUE)
+ 		return ipv6_recv_error(sk, msg, len);
  
--		err = datagram_send_ctl(sock_net(sk), msg, &fl, opt, &hlimit, &tclass);
-+		err = datagram_send_ctl(sock_net(sk), msg, &fl, opt, &hlimit,
-+					&tclass, &dontfrag);
- 		if (err < 0) {
- 			fl6_sock_release(flowlabel);
- 			return err;
-@@ -1120,6 +1122,9 @@ do_udp_sendmsg:
- 	if (tclass < 0)
- 		tclass = np->tclass;
- 
-+	if (dontfrag < 0)
-+		dontfrag = np->dontfrag;
++	if (np->rxpmtu && np->rxopt.bits.rxpmtu)
++		return ipv6_recv_rxpmtu(sk, msg, len);
 +
- 	if (msg->msg_flags&MSG_CONFIRM)
- 		goto do_confirm;
- back_from_confirm:
-@@ -1143,7 +1148,7 @@ do_append_data:
- 	err = ip6_append_data(sk, getfrag, msg->msg_iov, ulen,
- 		sizeof(struct udphdr), hlimit, tclass, opt, &fl,
- 		(struct rt6_info*)dst,
--		corkreq ? msg->msg_flags|MSG_MORE : msg->msg_flags);
-+		corkreq ? msg->msg_flags|MSG_MORE : msg->msg_flags, dontfrag);
- 	if (err)
- 		udp_v6_flush_pending_frames(sk);
- 	else if (!corkreq)
+ try_again:
+ 	skb = __skb_recv_datagram(sk, flags | (noblock ? MSG_DONTWAIT : 0),
+ 				  &peeked, &err);
 -- 
 1.5.4.3
 
