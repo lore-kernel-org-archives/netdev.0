@@ -1,49 +1,69 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [PATCH] e100: Fix the TX workqueue race
-Date: Fri, 23 Apr 2010 12:20:42 -0400
-Message-ID: <4BD1C8DA.4050002@garzik.org>
-References: <20100423143356.7092.45260.stgit@localhost.localdomain>
+From: Chris Wright <chrisw@redhat.com>
+Subject: Re: eSwitch management
+Date: Fri, 23 Apr 2010 09:23:07 -0700
+Message-ID: <20100423162307.GI30693@x200.localdomain>
+References: <C7F64614.2ADDF%scofeldm@cisco.com>
+ <DD92D5A8-1ECC-4440-BE81-ABDCC6847021@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Alan Cox <alan@linux.intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20100423143356.7092.45260.stgit@localhost.localdomain>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Scott Feldman <scofeldm@cisco.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"chrisw@redhat.com" <chrisw@redhat.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Ameen Rahman <ameen.rahman@qlogic.com>,
+	Amit Salecha <amit.salecha@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>
+To: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:63806 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750886Ab0DWQXR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Apr 2010 12:23:17 -0400
+Content-Disposition: inline
+In-Reply-To: <DD92D5A8-1ECC-4440-BE81-ABDCC6847021@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/23/2010 10:34 AM, Alan Cox wrote:
-> I'd assumed someone would have picked up on this and fixed it using rtnl_lock
-> as was suggested but it seems to have fallen through the cracks ?
->
-> Anyway this is I assume what was meant ?
->
-> ---
->
-> Nothing stops the workqueue being left to run in parallel with close or a
-> few other operations. This causes double unmaps and the like.
->
-> See kerneloops.org #1041230 for an example
->
-> Signed-off-by: Alan Cox<alan@linux.intel.com>
+* Anirban Chakraborty (anirban.chakraborty@qlogic.com) wrote:
+> 
+> On Apr 22, 2010, at 6:29 PM, Scott Feldman wrote:
+> 
+> > On 4/22/10 5:47 PM, "Scott Feldman" <scofeldm@cisco.com> wrote:
+> > 
+> >> On 4/22/10 4:16 PM, "Anirban Chakraborty" <anirban.chakraborty@qlogic.com>
+> >> wrote:
+> >> 
+> >>> I am following the discussions on iovnl patch closely. While it is going to
+> >>> take some time for iovnl patch to be reviewed and accepted, what would be the
+> >>> interim approach to manage the eswitch in NIC? We need to add support in
+> >>> qlcnic driver to configure the eswitch in our 10G NIC. Some of the things
+> >>> that
+> >>> we need to set to the switch are setting a port's VLAN, tx bandwidth etc. We
+> >>> would like to set these parameters for a bunch of ports at the start of the
+> >>> day and set it to the eswitch.
+> >> 
+> >> Are any of these settings covered in DCB?  (net/dcb/dcbnl.c).  Maybe you can
+> >> get a start there?  Not sure not knowing your device requirements.
+> > 
+> > Or maybe the RTM_SETLINK IFLA_VF_* ops in include/linux/if_link.h?  Those
+> > seem like what you're looking for.  I'm looking at moving iovnl here as well
+> > for port-profile.
+> 
+> It looks like ifla_vf_info does contain most of the data set. But if I use it, what NETLINK protocol family should I use in my driver to receive netlink messages? Do I need to create a private protocol family?
 
-Acked-by: Jeff Garzik <jgarzik@redhat.com>
+No, you don't need to use netlink in your driver.  You just need to fill
+in the relevant net_device_ops in your driver init.  Specifically:
 
-Glad someone finally fixed this, it has bugged me for years...
+ *      SR-IOV management functions.
+ * int (*ndo_set_vf_mac)(struct net_device *dev, int vf, u8* mac);
+ * int (*ndo_set_vf_vlan)(struct net_device *dev, int vf, u16 vlan, u8 qos);
+ * int (*ndo_set_vf_tx_rate)(struct net_device *dev, int vf, int rate);
+ * int (*ndo_get_vf_config)(struct net_device *dev,
+ *                          int vf, struct ifla_vf_info *ivf);
 
+These are all operating on a VF indexed internally w/in the driver, so it's
+a little cumbersome to use from userspace.
 
-
-------------------------------------------------------------------------------
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+thanks,
+-chris
