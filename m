@@ -1,1382 +1,2925 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: [RFC 1/2] phylib: Convert MDIO and PHY Lib drivers to support 10G
-Date: Thu, 22 Apr 2010 23:38:16 -0500
-Message-ID: <1271997497-6896-2-git-send-email-afleming@freescale.com>
-References: <1271997497-6896-1-git-send-email-afleming@freescale.com>
-Cc: netdev@vger.kernel.org
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [GIT PULL net-next-2.6 (TAKE 4)] MLD Snooping
+Date: Fri, 23 Apr 2010 14:01:22 +0900
+Message-ID: <201004230501.o3N51MA8008837@94.43.138.210.xn.2iij.net>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
+	yoshfuji@linux-ipv6.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:56145 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754872Ab0DWEiU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 00:38:20 -0400
-In-Reply-To: <1271997497-6896-1-git-send-email-afleming@freescale.com>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:52342 "EHLO
+	94.43.138.210.xn.2iij.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755438Ab0DWFBc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 01:01:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-10G MDIO is a totally different protocol (clause 45 of 802.3).
-Supporting this new protocol requires a couple of changes:
+Please consider pulling following changes since commit
+efe91932e79cfe59a562b70d8eb18049b36debc6
+	sky2: size status ring based on Tx/Rx ring
+at
+	git://git.linux-ipv6.org/gitroot/yoshfuji/linux-2.6-next.git net-next-2.6_20100423a/br/br_multicast_v3
 
-* Add a new parameter to the mdiobus_read functions to specify the
-  "device address" inside the PHY.
-* Add a phy45_read command which takes advantage of that new parameter
-* Add a generic PHY driver for 10G PHYs
-* Convert all of the existing drivers to use the new format
+Changes since TAKE 3
+--------------------
+- Fix compilation / linkage errors
+- Fix destination address of MLD message.
+- Pass-through local multicast not only link-local ones.
+- Fix tab/space inconsistency in include/net/mld.h
 
-Signed-off-by: Andy Fleming <afleming@freescale.com>
----
- Documentation/networking/phy.txt          |   13 ++-
- arch/powerpc/platforms/pasemi/gpio_mdio.c |    6 +-
- drivers/net/arm/ixp4xx_eth.c              |    7 +-
- drivers/net/au1000_eth.c                  |    7 +-
- drivers/net/bcm63xx_enet.c                |    4 +-
- drivers/net/bfin_mac.c                    |    7 +-
- drivers/net/cpmac.c                       |    4 +-
- drivers/net/davinci_emac.c                |    5 +-
- drivers/net/dnet.c                        |    7 +-
- drivers/net/ethoc.c                       |    5 +-
- drivers/net/fec.c                         |    7 +-
- drivers/net/fec_mpc52xx_phy.c             |    7 +-
- drivers/net/fs_enet/mii-fec.c             |    6 +-
- drivers/net/fsl_pq_mdio.c                 |   11 +-
- drivers/net/fsl_pq_mdio.h                 |   11 ++-
- drivers/net/greth.c                       |    5 +-
- drivers/net/ll_temac_mdio.c               |    5 +-
- drivers/net/macb.c                        |    7 +-
- drivers/net/mv643xx_eth.c                 |    5 +-
- drivers/net/phy/fixed.c                   |    5 +-
- drivers/net/phy/icplus.c                  |   12 +-
- drivers/net/phy/mdio-bitbang.c            |    5 +-
- drivers/net/phy/mdio-octeon.c             |    5 +-
- drivers/net/phy/mdio_bus.c                |    8 +-
- drivers/net/phy/phy_device.c              |  164 ++++++++++++++++++++++++++---
- drivers/net/s6gmac.c                      |    5 +-
- drivers/net/sb1250-mac.c                  |   14 ++-
- drivers/net/smsc911x.c                    |   19 ++--
- drivers/net/smsc9420.c                    |    9 +-
- drivers/net/stmmac/stmmac_mdio.c          |    9 +-
- drivers/net/tc35815.c                     |    5 +-
- drivers/net/tg3.c                         |    5 +-
- drivers/net/xilinx_emaclite.c             |    9 +-
- include/linux/phy.h                       |   53 ++++++++--
- 34 files changed, 329 insertions(+), 127 deletions(-)
+HEADLINES
+---------
 
-diff --git a/Documentation/networking/phy.txt b/Documentation/networking/phy.txt
-index 88bb71b..8729cac 100644
---- a/Documentation/networking/phy.txt
-+++ b/Documentation/networking/phy.txt
-@@ -40,13 +40,14 @@ The MDIO bus
- 
-  1) read and write functions must be implemented.  Their prototypes are:
- 
--     int write(struct mii_bus *bus, int mii_id, int regnum, u16 value);
--     int read(struct mii_bus *bus, int mii_id, int regnum);
--
--   mii_id is the address on the bus for the PHY, and regnum is the register
--   number.  These functions are guaranteed not to be called from interrupt
--   time, so it is safe for them to block, waiting for an interrupt to signal
--   the operation is complete
-+     int write(struct mii_bus *bus, int addr, int devad, u16 regnum,
-+		u16 value);
-+     int read(struct mii_bus *bus, int addr, int devad, u16 regnum);
+    ipv6 mcast: Introduce include/net/mld.h for MLD definitions.
+    bridge br_multicast: Make functions less ipv4 dependent.
+    bridge br_multicast: IPv6 MLD support.
+
+DIFFSTAT
+--------
+
+ include/net/mld.h         |   75 +++++
+ net/bridge/Kconfig        |    6 
+ net/bridge/br_multicast.c |  619 +++++++++++++++++++++++++++++++++++++++++----
+ net/bridge/br_private.h   |   15 +
+ net/ipv6/mcast.c          |  135 +++-------
+ 5 files changed, 694 insertions(+), 156 deletions(-)
+
+CHANGESETS
+----------
+
+commit 6e7cb8370760ec17e10098399822292def8d84f3
+Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date:   Sun Apr 18 12:42:05 2010 +0900
+
+    ipv6 mcast: Introduce include/net/mld.h for MLD definitions.
+    
+    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+diff --git a/include/net/mld.h b/include/net/mld.h
+new file mode 100644
+index 0000000..467143c
+--- /dev/null
++++ b/include/net/mld.h
+@@ -0,0 +1,75 @@
++#ifndef LINUX_MLD_H
++#define LINUX_MLD_H
 +
-+   addr is the address on the bus for the PHY, devad is the address of the
-+   internal device, and regnum is the register number.  These functions are
-+   guaranteed not to be called from interrupt time, so it is safe for them
-+   to block, waiting for an interrupt to signal the operation is complete
-  
-  2) A reset function is necessary.  This is used to return the bus to an
-    initialized state.
-diff --git a/arch/powerpc/platforms/pasemi/gpio_mdio.c b/arch/powerpc/platforms/pasemi/gpio_mdio.c
-index 0f881f6..ce9764c 100644
---- a/arch/powerpc/platforms/pasemi/gpio_mdio.c
-+++ b/arch/powerpc/platforms/pasemi/gpio_mdio.c
-@@ -124,7 +124,8 @@ static void bitbang_pre(struct mii_bus *bus, int read, u8 addr, u8 reg)
- 	}
- }
- 
--static int gpio_mdio_read(struct mii_bus *bus, int phy_id, int location)
-+static int gpio_mdio_read(struct mii_bus *bus, int phy_id, int devad,
-+				int location)
- {
- 	u16 rdreg;
- 	int ret, i;
-@@ -163,7 +164,8 @@ static int gpio_mdio_read(struct mii_bus *bus, int phy_id, int location)
- 	return ret;
- }
- 
--static int gpio_mdio_write(struct mii_bus *bus, int phy_id, int location, u16 val)
-+static int gpio_mdio_write(struct mii_bus *bus, int phy_id, int devad,
-+				int location, u16 val)
- {
- 	int i;
- 
-diff --git a/drivers/net/arm/ixp4xx_eth.c b/drivers/net/arm/ixp4xx_eth.c
-index 7800d7d..12cf9e7 100644
---- a/drivers/net/arm/ixp4xx_eth.c
-+++ b/drivers/net/arm/ixp4xx_eth.c
-@@ -298,7 +298,8 @@ static int ixp4xx_mdio_cmd(struct mii_bus *bus, int phy_id, int location,
- 		((__raw_readl(&mdio_regs->mdio_status[1]) & 0xFF) << 8);
- }
- 
--static int ixp4xx_mdio_read(struct mii_bus *bus, int phy_id, int location)
-+static int ixp4xx_mdio_read(struct mii_bus *bus, int phy_id, int devad,
-+				int location)
- {
- 	unsigned long flags;
- 	int ret;
-@@ -313,8 +314,8 @@ static int ixp4xx_mdio_read(struct mii_bus *bus, int phy_id, int location)
- 	return ret;
- }
- 
--static int ixp4xx_mdio_write(struct mii_bus *bus, int phy_id, int location,
--			     u16 val)
-+static int ixp4xx_mdio_write(struct mii_bus *bus, int phy_id, int devad,
-+			     int location, u16 val)
- {
- 	unsigned long flags;
- 	int ret;
-diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
-index 7abb2c8..e755d19 100644
---- a/drivers/net/au1000_eth.c
-+++ b/drivers/net/au1000_eth.c
-@@ -232,7 +232,8 @@ static void au1000_mdio_write(struct net_device *dev, int phy_addr,
- 	*mii_control_reg = mii_control;
- }
- 
--static int au1000_mdiobus_read(struct mii_bus *bus, int phy_addr, int regnum)
-+static int au1000_mdiobus_read(struct mii_bus *bus, int phy_addr, int devad,
-+				int regnum)
- {
- 	/* WARNING: bus->phy_map[phy_addr].attached_dev == dev does
- 	 * _NOT_ hold (e.g. when PHY is accessed through other MAC's MII bus) */
-@@ -243,8 +244,8 @@ static int au1000_mdiobus_read(struct mii_bus *bus, int phy_addr, int regnum)
- 	return au1000_mdio_read(dev, phy_addr, regnum);
- }
- 
--static int au1000_mdiobus_write(struct mii_bus *bus, int phy_addr, int regnum,
--				u16 value)
-+static int au1000_mdiobus_write(struct mii_bus *bus, int phy_addr, int devad,
-+				int regnum, u16 value)
- {
- 	struct net_device *const dev = bus->priv;
- 
-diff --git a/drivers/net/bcm63xx_enet.c b/drivers/net/bcm63xx_enet.c
-index 9a8bdea..510bc04 100644
---- a/drivers/net/bcm63xx_enet.c
-+++ b/drivers/net/bcm63xx_enet.c
-@@ -139,7 +139,7 @@ static int bcm_enet_mdio_write(struct bcm_enet_priv *priv, int mii_id,
-  * MII read callback from phylib
-  */
- static int bcm_enet_mdio_read_phylib(struct mii_bus *bus, int mii_id,
--				     int regnum)
-+				     int devad, int regnum)
- {
- 	return bcm_enet_mdio_read(bus->priv, mii_id, regnum);
- }
-@@ -148,7 +148,7 @@ static int bcm_enet_mdio_read_phylib(struct mii_bus *bus, int mii_id,
-  * MII write callback from phylib
-  */
- static int bcm_enet_mdio_write_phylib(struct mii_bus *bus, int mii_id,
--				      int regnum, u16 value)
-+				      int devad, int regnum, u16 value)
- {
- 	return bcm_enet_mdio_write(bus->priv, mii_id, regnum, value);
- }
-diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-index c488cea..a57a7e3 100644
---- a/drivers/net/bfin_mac.c
-+++ b/drivers/net/bfin_mac.c
-@@ -270,7 +270,8 @@ static void bfin_mdio_poll(void)
- }
- 
- /* Read an off-chip register in a PHY through the MDC/MDIO port */
--static int bfin_mdiobus_read(struct mii_bus *bus, int phy_addr, int regnum)
-+static int bfin_mdiobus_read(struct mii_bus *bus, int phy_addr, 
-+				int devad, int regnum)
- {
- 	bfin_mdio_poll();
- 
-@@ -285,8 +286,8 @@ static int bfin_mdiobus_read(struct mii_bus *bus, int phy_addr, int regnum)
- }
- 
- /* Write an off-chip register in a PHY through the MDC/MDIO port */
--static int bfin_mdiobus_write(struct mii_bus *bus, int phy_addr, int regnum,
--			      u16 value)
-+static int bfin_mdiobus_write(struct mii_bus *bus, int phy_addr, int devad,
-+			      int regnum, u16 value)
- {
- 	bfin_mdio_poll();
- 
-diff --git a/drivers/net/cpmac.c b/drivers/net/cpmac.c
-index bdfff78..5f9db1a 100644
---- a/drivers/net/cpmac.c
-+++ b/drivers/net/cpmac.c
-@@ -271,7 +271,7 @@ static void cpmac_dump_skb(struct net_device *dev, struct sk_buff *skb)
- 	printk("\n");
- }
- 
--static int cpmac_mdio_read(struct mii_bus *bus, int phy_id, int reg)
-+static int cpmac_mdio_read(struct mii_bus *bus, int phy_id, int devad, int reg)
- {
- 	u32 val;
- 
-@@ -285,7 +285,7 @@ static int cpmac_mdio_read(struct mii_bus *bus, int phy_id, int reg)
- }
- 
- static int cpmac_mdio_write(struct mii_bus *bus, int phy_id,
--			    int reg, u16 val)
-+			    int devad, int reg, u16 val)
- {
- 	while (cpmac_read(bus->priv, CPMAC_MDIO_ACCESS(0)) & MDIO_BUSY)
- 		cpu_relax();
-diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
-index 1f9df5c..9dea3c7 100644
---- a/drivers/net/davinci_emac.c
-+++ b/drivers/net/davinci_emac.c
-@@ -2241,7 +2241,8 @@ void emac_poll_controller(struct net_device *ndev)
- 		while ((emac_mdio_read((MDIO_USERACCESS(0))) &\
- 			MDIO_USERACCESS_GO) != 0)
- 
--static int emac_mii_read(struct mii_bus *bus, int phy_id, int phy_reg)
-+static int emac_mii_read(struct mii_bus *bus, int phy_id, int devad,
-+			int phy_reg)
- {
- 	unsigned int phy_data = 0;
- 	unsigned int phy_control;
-@@ -2264,7 +2265,7 @@ static int emac_mii_read(struct mii_bus *bus, int phy_id, int phy_reg)
- }
- 
- static int emac_mii_write(struct mii_bus *bus, int phy_id,
--			  int phy_reg, u16 phy_data)
-+			  int devad, int phy_reg, u16 phy_data)
- {
- 
- 	unsigned int control;
-diff --git a/drivers/net/dnet.c b/drivers/net/dnet.c
-index d51a83e..a5227c8 100644
---- a/drivers/net/dnet.c
-+++ b/drivers/net/dnet.c
-@@ -99,7 +99,8 @@ static void __devinit dnet_get_hwaddr(struct dnet *bp)
- 		memcpy(bp->dev->dev_addr, addr, sizeof(addr));
- }
- 
--static int dnet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
-+static int dnet_mdio_read(struct mii_bus *bus, int mii_id, int devad,
-+			int regnum)
- {
- 	struct dnet *bp = bus->priv;
- 	u16 value;
-@@ -131,8 +132,8 @@ static int dnet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
- 	return value;
- }
- 
--static int dnet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
--			   u16 value)
-+static int dnet_mdio_write(struct mii_bus *bus, int mii_id, int devad,
-+			int regnum, u16 value)
- {
- 	struct dnet *bp = bus->priv;
- 	u16 tmp;
-diff --git a/drivers/net/ethoc.c b/drivers/net/ethoc.c
-index 6bd03c8..d87da8f 100644
---- a/drivers/net/ethoc.c
-+++ b/drivers/net/ethoc.c
-@@ -564,7 +564,7 @@ static int ethoc_poll(struct napi_struct *napi, int budget)
- 	return work_done;
- }
- 
--static int ethoc_mdio_read(struct mii_bus *bus, int phy, int reg)
-+static int ethoc_mdio_read(struct mii_bus *bus, int phy, int devad, int reg)
- {
- 	unsigned long timeout = jiffies + ETHOC_MII_TIMEOUT;
- 	struct ethoc *priv = bus->priv;
-@@ -587,7 +587,8 @@ static int ethoc_mdio_read(struct mii_bus *bus, int phy, int reg)
- 	return -EBUSY;
- }
- 
--static int ethoc_mdio_write(struct mii_bus *bus, int phy, int reg, u16 val)
-+static int ethoc_mdio_write(struct mii_bus *bus, int phy, int devad,
-+				int reg, u16 val)
- {
- 	unsigned long timeout = jiffies + ETHOC_MII_TIMEOUT;
- 	struct ethoc *priv = bus->priv;
-diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index 2b1651a..cb09e7c 100644
---- a/drivers/net/fec.c
-+++ b/drivers/net/fec.c
-@@ -611,7 +611,8 @@ spin_unlock:
- /*
-  * NOTE: a MII transaction is during around 25 us, so polling it...
-  */
--static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
-+static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int devad,
-+				int regnum)
- {
- 	struct fec_enet_private *fep = bus->priv;
- 	int timeout = FEC_MII_TIMEOUT;
-@@ -640,8 +641,8 @@ static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
- 	return FEC_MMFR_DATA(readl(fep->hwp + FEC_MII_DATA));
- }
- 
--static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
--			   u16 value)
-+static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int devad,
-+				int regnum, u16 value)
- {
- 	struct fec_enet_private *fep = bus->priv;
- 	int timeout = FEC_MII_TIMEOUT;
-diff --git a/drivers/net/fec_mpc52xx_phy.c b/drivers/net/fec_mpc52xx_phy.c
-index 7658a08..af52b5a 100644
---- a/drivers/net/fec_mpc52xx_phy.c
-+++ b/drivers/net/fec_mpc52xx_phy.c
-@@ -50,13 +50,14 @@ static int mpc52xx_fec_mdio_transfer(struct mii_bus *bus, int phy_id,
- 		in_be32(&priv->regs->mii_data) & FEC_MII_DATA_DATAMSK : 0;
- }
- 
--static int mpc52xx_fec_mdio_read(struct mii_bus *bus, int phy_id, int reg)
-+static int mpc52xx_fec_mdio_read(struct mii_bus *bus, int phy_id, int devad,
-+				int reg)
- {
- 	return mpc52xx_fec_mdio_transfer(bus, phy_id, reg, FEC_MII_READ_FRAME);
- }
- 
--static int mpc52xx_fec_mdio_write(struct mii_bus *bus, int phy_id, int reg,
--		u16 data)
-+static int mpc52xx_fec_mdio_write(struct mii_bus *bus, int phy_id, int devad,
-+				int reg, u16 data)
- {
- 	return mpc52xx_fec_mdio_transfer(bus, phy_id, reg,
- 		data | FEC_MII_WRITE_FRAME);
-diff --git a/drivers/net/fs_enet/mii-fec.c b/drivers/net/fs_enet/mii-fec.c
-index 5944b65..2d02356 100644
---- a/drivers/net/fs_enet/mii-fec.c
-+++ b/drivers/net/fs_enet/mii-fec.c
-@@ -49,7 +49,8 @@
- 
- #define FEC_MII_LOOPS	10000
- 
--static int fs_enet_fec_mii_read(struct mii_bus *bus , int phy_id, int location)
-+static int fs_enet_fec_mii_read(struct mii_bus *bus , int phy_id, int devad,
-+				int location)
- {
- 	struct fec_info* fec = bus->priv;
- 	struct fec __iomem *fecp = fec->fecp;
-@@ -72,7 +73,8 @@ static int fs_enet_fec_mii_read(struct mii_bus *bus , int phy_id, int location)
- 	return ret;
- }
- 
--static int fs_enet_fec_mii_write(struct mii_bus *bus, int phy_id, int location, u16 val)
-+static int fs_enet_fec_mii_write(struct mii_bus *bus, int phy_id, int devad,
-+				int location, u16 val)
- {
- 	struct fec_info* fec = bus->priv;
- 	struct fec __iomem *fecp = fec->fecp;
-diff --git a/drivers/net/fsl_pq_mdio.c b/drivers/net/fsl_pq_mdio.c
-index d5160ed..e19a660 100644
---- a/drivers/net/fsl_pq_mdio.c
-+++ b/drivers/net/fsl_pq_mdio.c
-@@ -61,7 +61,7 @@ struct fsl_pq_mdio_priv {
-  * controlling the external PHYs, for example.
-  */
- int fsl_pq_local_mdio_write(struct fsl_pq_mdio __iomem *regs, int mii_id,
--		int regnum, u16 value)
-+			int regnum, u16 value)
- {
- 	/* Set the PHY address and the register address we want to write */
- 	out_be32(&regs->miimadd, (mii_id << 8) | regnum);
-@@ -86,8 +86,8 @@ int fsl_pq_local_mdio_write(struct fsl_pq_mdio __iomem *regs, int mii_id,
-  * and are always tied to the local mdio pins, which may not be the
-  * same as system mdio bus, used for controlling the external PHYs, for eg.
-  */
--int fsl_pq_local_mdio_read(struct fsl_pq_mdio __iomem *regs,
--		int mii_id, int regnum)
-+int fsl_pq_local_mdio_read(struct fsl_pq_mdio __iomem *regs, int mii_id,
-+			int regnum)
- {
- 	u16 value;
- 
-@@ -119,7 +119,8 @@ static struct fsl_pq_mdio __iomem *fsl_pq_mdio_get_regs(struct mii_bus *bus)
-  * Write value to the PHY at mii_id at register regnum,
-  * on the bus, waiting until the write is done before returning.
-  */
--int fsl_pq_mdio_write(struct mii_bus *bus, int mii_id, int regnum, u16 value)
-+int fsl_pq_mdio_write(struct mii_bus *bus, int mii_id, int devad, int regnum,
-+			u16 value)
- {
- 	struct fsl_pq_mdio __iomem *regs = fsl_pq_mdio_get_regs(bus);
- 
-@@ -131,7 +132,7 @@ int fsl_pq_mdio_write(struct mii_bus *bus, int mii_id, int regnum, u16 value)
-  * Read the bus for PHY at addr mii_id, register regnum, and
-  * return the value.  Clears miimcom first.
-  */
--int fsl_pq_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
-+int fsl_pq_mdio_read(struct mii_bus *bus, int mii_id, int devad, int regnum)
- {
- 	struct fsl_pq_mdio __iomem *regs = fsl_pq_mdio_get_regs(bus);
- 
-diff --git a/drivers/net/fsl_pq_mdio.h b/drivers/net/fsl_pq_mdio.h
-index 1f7d865..48328eb 100644
---- a/drivers/net/fsl_pq_mdio.h
-+++ b/drivers/net/fsl_pq_mdio.h
-@@ -41,11 +41,14 @@ struct fsl_pq_mdio {
- 	u8 res4[2728];
- } __attribute__ ((packed));
- 
--int fsl_pq_mdio_read(struct mii_bus *bus, int mii_id, int regnum);
--int fsl_pq_mdio_write(struct mii_bus *bus, int mii_id, int regnum, u16 value);
++#include <linux/in6.h>
++#include <linux/icmpv6.h>
 +
-+int fsl_pq_mdio_read(struct mii_bus *bus, int mii_id, int devad, int regnum);
-+int fsl_pq_mdio_write(struct mii_bus *bus, int mii_id, int devad, int regnum,
-+			u16 value);
- int fsl_pq_local_mdio_write(struct fsl_pq_mdio __iomem *regs, int mii_id,
--			  int regnum, u16 value);
--int fsl_pq_local_mdio_read(struct fsl_pq_mdio __iomem *regs, int mii_id, int regnum);
-+			int regnum, u16 value);
-+int fsl_pq_local_mdio_read(struct fsl_pq_mdio __iomem *regs, int mii_id,
-+			int regnum);
- int __init fsl_pq_mdio_init(void);
- void fsl_pq_mdio_exit(void);
- void fsl_pq_mdio_bus_name(char *name, struct device_node *np);
-diff --git a/drivers/net/greth.c b/drivers/net/greth.c
-index fd491e4..230ad75 100644
---- a/drivers/net/greth.c
-+++ b/drivers/net/greth.c
-@@ -1169,7 +1169,7 @@ static inline int wait_for_mdio(struct greth_private *greth)
- 	return 1;
- }
- 
--static int greth_mdio_read(struct mii_bus *bus, int phy, int reg)
-+static int greth_mdio_read(struct mii_bus *bus, int phy, int devad, int reg)
- {
- 	struct greth_private *greth = bus->priv;
- 	int data;
-@@ -1191,7 +1191,8 @@ static int greth_mdio_read(struct mii_bus *bus, int phy, int reg)
- 	}
- }
- 
--static int greth_mdio_write(struct mii_bus *bus, int phy, int reg, u16 val)
-+static int greth_mdio_write(struct mii_bus *bus, int phy, int devad, int reg,
-+				u16 val)
- {
- 	struct greth_private *greth = bus->priv;
- 
-diff --git a/drivers/net/ll_temac_mdio.c b/drivers/net/ll_temac_mdio.c
-index 5ae28c9..c02d5a5 100644
---- a/drivers/net/ll_temac_mdio.c
-+++ b/drivers/net/ll_temac_mdio.c
-@@ -18,7 +18,7 @@
- /* ---------------------------------------------------------------------
-  * MDIO Bus functions
-  */
--static int temac_mdio_read(struct mii_bus *bus, int phy_id, int reg)
-+static int temac_mdio_read(struct mii_bus *bus, int phy_id, int devad, int reg)
- {
- 	struct temac_local *lp = bus->priv;
- 	u32 rc;
-@@ -37,7 +37,8 @@ static int temac_mdio_read(struct mii_bus *bus, int phy_id, int reg)
- 	return rc;
- }
- 
--static int temac_mdio_write(struct mii_bus *bus, int phy_id, int reg, u16 val)
-+static int temac_mdio_write(struct mii_bus *bus, int phy_id, int devad, int reg,
-+				u16 val)
- {
- 	struct temac_local *lp = bus->priv;
- 
-diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-index cf7debc..c9b5cb4 100644
---- a/drivers/net/macb.c
-+++ b/drivers/net/macb.c
-@@ -88,7 +88,8 @@ static void __init macb_get_hwaddr(struct macb *bp)
- 	}
- }
- 
--static int macb_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
-+static int macb_mdio_read(struct mii_bus *bus, int mii_id, int devad,
-+				int regnum)
- {
- 	struct macb *bp = bus->priv;
- 	int value;
-@@ -108,8 +109,8 @@ static int macb_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
- 	return value;
- }
- 
--static int macb_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
--			   u16 value)
-+static int macb_mdio_write(struct mii_bus *bus, int mii_id, int devad,
-+				int regnum, u16 value)
- {
- 	struct macb *bp = bus->priv;
- 
-diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index 4ee9d04..0c3280f 100644
---- a/drivers/net/mv643xx_eth.c
-+++ b/drivers/net/mv643xx_eth.c
-@@ -1112,7 +1112,7 @@ static int smi_wait_ready(struct mv643xx_eth_shared_private *msp)
- 	return 0;
- }
- 
--static int smi_bus_read(struct mii_bus *bus, int addr, int reg)
-+static int smi_bus_read(struct mii_bus *bus, int addr, int devad, int reg)
- {
- 	struct mv643xx_eth_shared_private *msp = bus->priv;
- 	void __iomem *smi_reg = msp->base + SMI_REG;
-@@ -1139,7 +1139,8 @@ static int smi_bus_read(struct mii_bus *bus, int addr, int reg)
- 	return ret & 0xffff;
- }
- 
--static int smi_bus_write(struct mii_bus *bus, int addr, int reg, u16 val)
-+static int smi_bus_write(struct mii_bus *bus, int addr, int devad, int reg,
-+			u16 val)
- {
- 	struct mv643xx_eth_shared_private *msp = bus->priv;
- 	void __iomem *smi_reg = msp->base + SMI_REG;
-diff --git a/drivers/net/phy/fixed.c b/drivers/net/phy/fixed.c
-index 1fa4d73..31f621e 100644
---- a/drivers/net/phy/fixed.c
-+++ b/drivers/net/phy/fixed.c
-@@ -115,7 +115,8 @@ static int fixed_phy_update_regs(struct fixed_phy *fp)
- 	return 0;
- }
- 
--static int fixed_mdio_read(struct mii_bus *bus, int phy_id, int reg_num)
-+static int fixed_mdio_read(struct mii_bus *bus, int phy_id, int devad,
-+				int reg_num)
- {
- 	struct fixed_mdio_bus *fmb = bus->priv;
- 	struct fixed_phy *fp;
-@@ -139,7 +140,7 @@ static int fixed_mdio_read(struct mii_bus *bus, int phy_id, int reg_num)
- }
- 
- static int fixed_mdio_write(struct mii_bus *bus, int phy_id, int reg_num,
--			    u16 val)
-+			    int devad, u16 val)
- {
- 	return 0;
- }
-diff --git a/drivers/net/phy/icplus.c b/drivers/net/phy/icplus.c
-index 439adaf..71ddc27 100644
---- a/drivers/net/phy/icplus.c
-+++ b/drivers/net/phy/icplus.c
-@@ -42,36 +42,36 @@ static int ip175c_config_init(struct phy_device *phydev)
- 	if (full_reset_performed == 0) {
- 
- 		/* master reset */
--		err = phydev->bus->write(phydev->bus, 30, 0, 0x175c);
-+		err = phydev->bus->write(phydev->bus, 30, 0, 0, 0x175c);
- 		if (err < 0)
- 			return err;
- 
- 		/* ensure no bus delays overlap reset period */
--		err = phydev->bus->read(phydev->bus, 30, 0);
-+		err = phydev->bus->read(phydev->bus, 30, 0, 0);
- 
- 		/* data sheet specifies reset period is 2 msec */
- 		mdelay(2);
- 
- 		/* enable IP175C mode */
--		err = phydev->bus->write(phydev->bus, 29, 31, 0x175c);
-+		err = phydev->bus->write(phydev->bus, 29, 0, 31, 0x175c);
- 		if (err < 0)
- 			return err;
- 
- 		/* Set MII0 speed and duplex (in PHY mode) */
--		err = phydev->bus->write(phydev->bus, 29, 22, 0x420);
-+		err = phydev->bus->write(phydev->bus, 29, 0, 22, 0x420);
- 		if (err < 0)
- 			return err;
- 
- 		/* reset switch ports */
- 		for (i = 0; i < 5; i++) {
--			err = phydev->bus->write(phydev->bus, i,
-+			err = phydev->bus->write(phydev->bus, i, 0,
- 						 MII_BMCR, BMCR_RESET);
- 			if (err < 0)
- 				return err;
- 		}
- 
- 		for (i = 0; i < 5; i++)
--			err = phydev->bus->read(phydev->bus, i, MII_BMCR);
-+			err = phydev->bus->read(phydev->bus, i, 0, MII_BMCR);
- 
- 		mdelay(2);
- 
-diff --git a/drivers/net/phy/mdio-bitbang.c b/drivers/net/phy/mdio-bitbang.c
-index 6539189..2f6f02e 100644
---- a/drivers/net/phy/mdio-bitbang.c
-+++ b/drivers/net/phy/mdio-bitbang.c
-@@ -152,7 +152,7 @@ static int mdiobb_cmd_addr(struct mdiobb_ctrl *ctrl, int phy, u32 addr)
- 	return dev_addr;
- }
- 
--static int mdiobb_read(struct mii_bus *bus, int phy, int reg)
-+static int mdiobb_read(struct mii_bus *bus, int phy, int devad, int reg)
- {
- 	struct mdiobb_ctrl *ctrl = bus->priv;
- 	int ret, i;
-@@ -181,7 +181,8 @@ static int mdiobb_read(struct mii_bus *bus, int phy, int reg)
- 	return ret;
- }
- 
--static int mdiobb_write(struct mii_bus *bus, int phy, int reg, u16 val)
-+static int mdiobb_write(struct mii_bus *bus, int phy, int devad, int reg,
-+			u16 val)
- {
- 	struct mdiobb_ctrl *ctrl = bus->priv;
- 
-diff --git a/drivers/net/phy/mdio-octeon.c b/drivers/net/phy/mdio-octeon.c
-index a872aea..2bb2f7f 100644
---- a/drivers/net/phy/mdio-octeon.c
-+++ b/drivers/net/phy/mdio-octeon.c
-@@ -24,7 +24,8 @@ struct octeon_mdiobus {
- 	int phy_irq[PHY_MAX_ADDR];
- };
- 
--static int octeon_mdiobus_read(struct mii_bus *bus, int phy_id, int regnum)
-+static int octeon_mdiobus_read(struct mii_bus *bus, int phy_id, int devad,
-+				int regnum)
- {
- 	struct octeon_mdiobus *p = bus->priv;
- 	union cvmx_smix_cmd smi_cmd;
-@@ -52,7 +53,7 @@ static int octeon_mdiobus_read(struct mii_bus *bus, int phy_id, int regnum)
- 		return -EIO;
- }
- 
--static int octeon_mdiobus_write(struct mii_bus *bus, int phy_id,
-+static int octeon_mdiobus_write(struct mii_bus *bus, int phy_id, int devad
- 				int regnum, u16 val)
- {
- 	struct octeon_mdiobus *p = bus->priv;
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 6a6b819..5c7df03 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -208,14 +208,14 @@ EXPORT_SYMBOL(mdiobus_scan);
-  * because the bus read/write functions may wait for an interrupt
-  * to conclude the operation.
-  */
--int mdiobus_read(struct mii_bus *bus, int addr, u32 regnum)
-+int mdiobus_read(struct mii_bus *bus, int addr, int devad, u16 regnum)
- {
- 	int retval;
- 
- 	BUG_ON(in_interrupt());
- 
- 	mutex_lock(&bus->mdio_lock);
--	retval = bus->read(bus, addr, regnum);
-+	retval = bus->read(bus, addr, devad, regnum);
- 	mutex_unlock(&bus->mdio_lock);
- 
- 	return retval;
-@@ -233,14 +233,14 @@ EXPORT_SYMBOL(mdiobus_read);
-  * because the bus read/write functions may wait for an interrupt
-  * to conclude the operation.
-  */
--int mdiobus_write(struct mii_bus *bus, int addr, u32 regnum, u16 val)
-+int mdiobus_write(struct mii_bus *bus, int addr, int devad, u16 regnum, u16 val)
- {
- 	int err;
- 
- 	BUG_ON(in_interrupt());
- 
- 	mutex_lock(&bus->mdio_lock);
--	err = bus->write(bus, addr, regnum, val);
-+	err = bus->write(bus, addr, devad, regnum, val);
- 	mutex_unlock(&bus->mdio_lock);
- 
- 	return err;
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 1a99bb2..c061e99 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -6,7 +6,7 @@
-  *
-  * Author: Andy Fleming
-  *
-- * Copyright (c) 2004 Freescale Semiconductor, Inc.
-+ * Copyright (c) 2004-2006, 2008-2009 Freescale Semiconductor, Inc.
-  *
-  * This program is free software; you can redistribute  it and/or modify it
-  * under  the terms of  the GNU General  Public License as published by the
-@@ -29,6 +29,7 @@
- #include <linux/module.h>
- #include <linux/mii.h>
- #include <linux/ethtool.h>
-+#include <linux/mdio.h>
- #include <linux/phy.h>
- 
- #include <asm/io.h>
-@@ -51,6 +52,7 @@ static void phy_device_release(struct device *dev)
- }
- 
- static struct phy_driver genphy_driver;
-+static struct phy_driver gen10g_driver;
- extern int mdio_bus_init(void);
- extern void mdio_bus_exit(void);
- 
-@@ -207,23 +209,29 @@ EXPORT_SYMBOL(phy_device_create);
- int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id)
- {
- 	int phy_reg;
-+	int i;
- 
--	/* Grab the bits from PHYIR1, and put them
--	 * in the upper half */
--	phy_reg = bus->read(bus, addr, MII_PHYSID1);
-+	for (i = 1; i < 5; i++) {
-+		/* Grab the bits from PHYIR1, and put them
-+		 * in the upper half */
-+		phy_reg = bus->read(bus, addr, i, MII_PHYSID1);
- 
--	if (phy_reg < 0)
--		return -EIO;
-+		if (phy_reg < 0)
-+			return -EIO;
- 
--	*phy_id = (phy_reg & 0xffff) << 16;
-+		*phy_id = (phy_reg & 0xffff) << 16;
- 
--	/* Grab the bits from PHYIR2, and put them in the lower half */
--	phy_reg = bus->read(bus, addr, MII_PHYSID2);
-+		/* Grab the bits from PHYIR2, and put them in the lower half */
-+		phy_reg = bus->read(bus, addr, i, MII_PHYSID2);
- 
--	if (phy_reg < 0)
--		return -EIO;
-+		if (phy_reg < 0)
-+			return -EIO;
- 
--	*phy_id |= (phy_reg & 0xffff);
-+		*phy_id |= (phy_reg & 0xffff);
-+
-+		if (*phy_id != 0xffffffff)
-+			break;
-+	}
- 
- 	return 0;
- }
-@@ -430,8 +438,8 @@ int phy_init_hw(struct phy_device *phydev)
-  *
-  * Description: Called by drivers to attach to a particular PHY
-  *     device. The phy_device is found, and properly hooked up
-- *     to the phy_driver.  If no driver is attached, then the
-- *     genphy_driver is used.  The phy_device is given a ptr to
-+ *     to the phy_driver.  If no driver is attached, then a
-+ *     generic driver is used.  The phy_device is given a ptr to
-  *     the attaching device, and given a callback for link status
-  *     change.  The phy_device is returned to the attaching driver.
-  */
-@@ -444,7 +452,10 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 	 * exist, and we should use the genphy driver. */
- 	if (NULL == d->driver) {
- 		int err;
--		d->driver = &genphy_driver.driver;
-+		if (interface == PHY_INTERFACE_MODE_XGMII)
-+			d->driver = &gen10g_driver.driver;
-+		else
-+			d->driver = &genphy_driver.driver;
- 
- 		err = d->driver->probe(d);
- 		if (err >= 0)
-@@ -521,6 +532,8 @@ void phy_detach(struct phy_device *phydev)
- 	 * real driver could be loaded */
- 	if (phydev->dev.driver == &genphy_driver.driver)
- 		device_release_driver(&phydev->dev);
-+	else if (phydev->dev.driver == &gen10g_driver.driver)
-+		device_release_driver(&phydev->dev);
- }
- EXPORT_SYMBOL(phy_detach);
- 
-@@ -603,6 +616,12 @@ int genphy_config_advert(struct phy_device *phydev)
- }
- EXPORT_SYMBOL(genphy_config_advert);
- 
-+int gen10g_config_advert(struct phy_device *dev)
-+{
-+	return 0;
-+}
-+EXPORT_SYMBOL(gen10g_config_advert);
-+
- /**
-  * genphy_setup_forced - configures/forces speed/duplex from @phydev
-  * @phydev: target phy_device struct
-@@ -631,6 +650,10 @@ int genphy_setup_forced(struct phy_device *phydev)
- 	return err;
- }
- 
-+int gen10g_setup_forced(struct phy_device *phydev)
-+{
-+	return 0;
-+}
- 
- /**
-  * genphy_restart_aneg - Enable and Restart Autonegotiation
-@@ -656,6 +679,12 @@ int genphy_restart_aneg(struct phy_device *phydev)
- }
- EXPORT_SYMBOL(genphy_restart_aneg);
- 
-+int gen10g_restart_aneg(struct phy_device *phydev)
-+{
-+	return 0;
-+}
-+EXPORT_SYMBOL(gen10g_restart_aneg);
-+
- 
- /**
-  * genphy_config_aneg - restart auto-negotiation or write BMCR
-@@ -698,6 +727,12 @@ int genphy_config_aneg(struct phy_device *phydev)
- }
- EXPORT_SYMBOL(genphy_config_aneg);
- 
-+int gen10g_config_aneg(struct phy_device *phydev)
-+{
-+	return 0;
-+}
-+EXPORT_SYMBOL(gen10g_config_aneg);
-+
- /**
-  * genphy_update_link - update link status in @phydev
-  * @phydev: target phy_device struct
-@@ -827,6 +862,33 @@ int genphy_read_status(struct phy_device *phydev)
- }
- EXPORT_SYMBOL(genphy_read_status);
- 
-+int gen10g_read_status(struct phy_device *phydev)
-+{
-+	int devad, reg;
-+	u32 mmd_mask = phydev->mmds;
-+
-+	phydev->link = 1;
-+
-+	/* For now just lie and say it's 10G all the time */
-+	phydev->speed = 10000;
-+	phydev->duplex = DUPLEX_FULL;
-+
-+	for (devad = 0; mmd_mask; devad++, mmd_mask = mmd_mask >> 1) {
-+		if (!mmd_mask & 1)
-+			continue;
-+
-+		/* Read twice because link state is latched and a
-+		 * read moves the current state into the register */
-+		phy45_read(phydev, devad, MDIO_STAT1);
-+		reg = phy45_read(phydev, devad, MDIO_STAT1);
-+		if (reg < 0 || !(reg & MDIO_STAT1_LSTATUS))
-+			phydev->link = 0;
-+	}
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(gen10g_read_status);
-+
- static int genphy_config_init(struct phy_device *phydev)
- {
- 	int val;
-@@ -873,6 +935,36 @@ static int genphy_config_init(struct phy_device *phydev)
- 
- 	return 0;
- }
-+
-+/* Replicate mdio45_probe */
-+int gen10g_config_init(struct phy_device *phydev)
-+{
-+	int mmd, stat2, devs1, devs2;
-+
-+	phydev->supported = phydev->advertising = SUPPORTED_10000baseT_Full;
-+
-+	/* Assume PHY must have at least one of PMA/PMD, WIS, PCS, PHY
-+	 * XS or DTE XS; give up if none is present. */
-+	for (mmd = 1; mmd <= 5; mmd++) {
-+		/* Is this MMD present? */
-+		stat2 = phy45_read(phydev, mmd, MDIO_STAT2);
-+		if (stat2 < 0 ||
-+			(stat2 & MDIO_STAT2_DEVPRST) != MDIO_STAT2_DEVPRST_VAL)
-+			continue;
-+
-+		/* It should tell us about all the other MMDs */
-+		devs1 = phy45_read(phydev, mmd, MDIO_DEVS1);
-+		devs2 = phy45_read(phydev, mmd, MDIO_DEVS2);
-+		if (devs1 < 0 || devs2 < 0)
-+			continue;
-+
-+		phydev->mmds = devs1 | (devs2 << 16);
-+		return 0;
-+	}
-+
-+	return -ENODEV;
-+}
-+
- int genphy_suspend(struct phy_device *phydev)
- {
- 	int value;
-@@ -888,6 +980,12 @@ int genphy_suspend(struct phy_device *phydev)
- }
- EXPORT_SYMBOL(genphy_suspend);
- 
-+int gen10g_suspend(struct phy_device *phydev)
-+{
-+	return 0;
-+}
-+EXPORT_SYMBOL(gen10g_suspend);
-+
- int genphy_resume(struct phy_device *phydev)
- {
- 	int value;
-@@ -903,6 +1001,13 @@ int genphy_resume(struct phy_device *phydev)
- }
- EXPORT_SYMBOL(genphy_resume);
- 
-+int gen10g_resume(struct phy_device *phydev)
-+{
-+	return 0;
-+}
-+EXPORT_SYMBOL(gen10g_resume);
-+
-+
- /**
-  * phy_probe - probe and init a PHY device
-  * @dev: device to probe and init
-@@ -1013,7 +1118,20 @@ static struct phy_driver genphy_driver = {
- 	.read_status	= genphy_read_status,
- 	.suspend	= genphy_suspend,
- 	.resume		= genphy_resume,
--	.driver		= {.owner= THIS_MODULE, },
-+	.driver		= {.owner = THIS_MODULE, },
++/* MLDv1 Query/Report/Done */
++struct mld_msg {
++	struct icmp6hdr		mld_hdr;
++	struct in6_addr		mld_mca;
 +};
 +
-+static struct phy_driver gen10g_driver = {
-+	.phy_id		= 0xffffffff,
-+	.phy_id_mask	= 0xffffffff,
-+	.name		= "Generic 10G PHY",
-+	.config_init	= gen10g_config_init,
-+	.features	= 0,
-+	.config_aneg	= gen10g_config_aneg,
-+	.read_status	= gen10g_read_status,
-+	.suspend	= gen10g_suspend,
-+	.resume		= gen10g_resume,
-+	.driver		= {.owner = THIS_MODULE, },
++#define mld_type		mld_hdr.icmp6_type
++#define mld_code		mld_hdr.icmp6_code
++#define mld_cksum		mld_hdr.icmp6_cksum
++#define mld_maxdelay		mld_hdr.icmp6_maxdelay
++#define mld_reserved		mld_hdr.icmp6_dataun.un_data16[1]
++
++/* Multicast Listener Discovery version 2 headers */
++/* MLDv2 Report */
++struct mld2_grec {
++	__u8		grec_type;
++	__u8		grec_auxwords;
++	__be16		grec_nsrcs;
++	struct in6_addr	grec_mca;
++	struct in6_addr	grec_src[0];
++};
++
++struct mld2_report {
++	struct icmp6hdr		mld2r_hdr;
++	struct mld2_grec	mld2r_grec[0];
++};
++
++#define mld2r_type		mld2r_hdr.icmp6_type
++#define mld2r_resv1		mld2r_hdr.icmp6_code
++#define mld2r_cksum		mld2r_hdr.icmp6_cksum
++#define mld2r_resv2		mld2r_hdr.icmp6_dataun.un_data16[0]
++#define mld2r_ngrec		mld2r_hdr.icmp6_dataun.un_data16[1]
++
++/* MLDv2 Query */
++struct mld2_query {
++	struct icmp6hdr		mld2q_hdr;
++	struct in6_addr		mld2q_mca;
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++	__u8			mld2q_qrv:3,
++				mld2q_suppress:1,
++				mld2q_resv2:4;
++#elif defined(__BIG_ENDIAN_BITFIELD)
++	__u8			mld2q_resv2:4,
++				mld2q_suppress:1,
++				mld2q_qrv:3;
++#else
++#error "Please fix <asm/byteorder.h>"
++#endif
++	__u8			mld2q_qqic;
++	__be16			mld2q_nsrcs;
++	struct in6_addr		mld2q_srcs[0];
++};
++
++#define mld2q_type		mld2q_hdr.icmp6_type
++#define mld2q_code		mld2q_hdr.icmp6_code
++#define mld2q_cksum		mld2q_hdr.icmp6_cksum
++#define mld2q_mrc		mld2q_hdr.icmp6_maxdelay
++#define mld2q_resv1		mld2q_hdr.icmp6_dataun.un_data16[1]
++
++/* Max Response Code */
++#define MLDV2_MASK(value, nb) ((nb)>=32 ? (value) : ((1<<(nb))-1) & (value))
++#define MLDV2_EXP(thresh, nbmant, nbexp, value) \
++	((value) < (thresh) ? (value) : \
++	((MLDV2_MASK(value, nbmant) | (1<<(nbmant))) << \
++	(MLDV2_MASK((value) >> (nbmant), nbexp) + (nbexp))))
++
++#define MLDV2_MRC(value) MLDV2_EXP(0x8000, 12, 3, value)
++
++#endif
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index 62ed082..006aee6 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -44,6 +44,7 @@
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+ #include <linux/slab.h>
++#include <net/mld.h>
+ 
+ #include <linux/netfilter.h>
+ #include <linux/netfilter_ipv6.h>
+@@ -71,54 +72,11 @@
+ #define MDBG(x)
+ #endif
+ 
+-/*
+- *  These header formats should be in a separate include file, but icmpv6.h
+- *  doesn't have in6_addr defined in all cases, there is no __u128, and no
+- *  other files reference these.
+- *
+- *  			+-DLS 4/14/03
+- */
+-
+-/* Multicast Listener Discovery version 2 headers */
+-
+-struct mld2_grec {
+-	__u8		grec_type;
+-	__u8		grec_auxwords;
+-	__be16		grec_nsrcs;
+-	struct in6_addr	grec_mca;
+-	struct in6_addr	grec_src[0];
+-};
+-
+-struct mld2_report {
+-	__u8	type;
+-	__u8	resv1;
+-	__sum16	csum;
+-	__be16	resv2;
+-	__be16	ngrec;
+-	struct mld2_grec grec[0];
+-};
+-
+-struct mld2_query {
+-	__u8 type;
+-	__u8 code;
+-	__sum16 csum;
+-	__be16 mrc;
+-	__be16 resv1;
+-	struct in6_addr mca;
+-#if defined(__LITTLE_ENDIAN_BITFIELD)
+-	__u8 qrv:3,
+-	     suppress:1,
+-	     resv2:4;
+-#elif defined(__BIG_ENDIAN_BITFIELD)
+-	__u8 resv2:4,
+-	     suppress:1,
+-	     qrv:3;
+-#else
+-#error "Please fix <asm/byteorder.h>"
+-#endif
+-	__u8 qqic;
+-	__be16 nsrcs;
+-	struct in6_addr srcs[0];
++/* Ensure that we have struct in6_addr aligned on 32bit word. */
++static void *__mld2_query_bugs[] __attribute__((__unused__)) = {
++	BUILD_BUG_ON_NULL(offsetof(struct mld2_query, mld2q_srcs) % 4),
++	BUILD_BUG_ON_NULL(offsetof(struct mld2_report, mld2r_grec) % 4),
++	BUILD_BUG_ON_NULL(offsetof(struct mld2_grec, grec_mca) % 4)
  };
  
- static int __init phy_init(void)
-@@ -1026,13 +1144,25 @@ static int __init phy_init(void)
+ static struct in6_addr mld2_all_mcr = MLD2_ALL_MCR_INIT;
+@@ -157,14 +115,6 @@ static int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
+ 		((idev)->mc_v1_seen && \
+ 		time_before(jiffies, (idev)->mc_v1_seen)))
  
- 	rc = phy_driver_register(&genphy_driver);
- 	if (rc)
--		mdio_bus_exit();
-+		goto genphy_register_failed;
+-#define MLDV2_MASK(value, nb) ((nb)>=32 ? (value) : ((1<<(nb))-1) & (value))
+-#define MLDV2_EXP(thresh, nbmant, nbexp, value) \
+-	((value) < (thresh) ? (value) : \
+-	((MLDV2_MASK(value, nbmant) | (1<<(nbmant))) << \
+-	(MLDV2_MASK((value) >> (nbmant), nbexp) + (nbexp))))
+-
+-#define MLDV2_MRC(value) MLDV2_EXP(0x8000, 12, 3, value)
+-
+ #define IPV6_MLD_MAX_MSF	64
+ 
+ int sysctl_mld_max_msf __read_mostly = IPV6_MLD_MAX_MSF;
+@@ -1161,7 +1111,7 @@ int igmp6_event_query(struct sk_buff *skb)
+ 	struct in6_addr *group;
+ 	unsigned long max_delay;
+ 	struct inet6_dev *idev;
+-	struct icmp6hdr *hdr;
++	struct mld_msg *mld;
+ 	int group_type;
+ 	int mark = 0;
+ 	int len;
+@@ -1182,8 +1132,8 @@ int igmp6_event_query(struct sk_buff *skb)
+ 	if (idev == NULL)
+ 		return 0;
+ 
+-	hdr = icmp6_hdr(skb);
+-	group = (struct in6_addr *) (hdr + 1);
++	mld = (struct mld_msg *)icmp6_hdr(skb);
++	group = &mld->mld_mca;
+ 	group_type = ipv6_addr_type(group);
+ 
+ 	if (group_type != IPV6_ADDR_ANY &&
+@@ -1197,7 +1147,7 @@ int igmp6_event_query(struct sk_buff *skb)
+ 		/* MLDv1 router present */
+ 
+ 		/* Translate milliseconds to jiffies */
+-		max_delay = (ntohs(hdr->icmp6_maxdelay)*HZ)/1000;
++		max_delay = (ntohs(mld->mld_maxdelay)*HZ)/1000;
+ 
+ 		switchback = (idev->mc_qrv + 1) * max_delay;
+ 		idev->mc_v1_seen = jiffies + switchback;
+@@ -1216,14 +1166,14 @@ int igmp6_event_query(struct sk_buff *skb)
+ 			return -EINVAL;
+ 		}
+ 		mlh2 = (struct mld2_query *)skb_transport_header(skb);
+-		max_delay = (MLDV2_MRC(ntohs(mlh2->mrc))*HZ)/1000;
++		max_delay = (MLDV2_MRC(ntohs(mlh2->mld2q_mrc))*HZ)/1000;
+ 		if (!max_delay)
+ 			max_delay = 1;
+ 		idev->mc_maxdelay = max_delay;
+-		if (mlh2->qrv)
+-			idev->mc_qrv = mlh2->qrv;
++		if (mlh2->mld2q_qrv)
++			idev->mc_qrv = mlh2->mld2q_qrv;
+ 		if (group_type == IPV6_ADDR_ANY) { /* general query */
+-			if (mlh2->nsrcs) {
++			if (mlh2->mld2q_nsrcs) {
+ 				in6_dev_put(idev);
+ 				return -EINVAL; /* no sources allowed */
+ 			}
+@@ -1232,9 +1182,9 @@ int igmp6_event_query(struct sk_buff *skb)
+ 			return 0;
+ 		}
+ 		/* mark sources to include, if group & source-specific */
+-		if (mlh2->nsrcs != 0) {
++		if (mlh2->mld2q_nsrcs != 0) {
+ 			if (!pskb_may_pull(skb, srcs_offset +
+-			    ntohs(mlh2->nsrcs) * sizeof(struct in6_addr))) {
++			    ntohs(mlh2->mld2q_nsrcs) * sizeof(struct in6_addr))) {
+ 				in6_dev_put(idev);
+ 				return -EINVAL;
+ 			}
+@@ -1270,7 +1220,7 @@ int igmp6_event_query(struct sk_buff *skb)
+ 					ma->mca_flags &= ~MAF_GSQUERY;
+ 			}
+ 			if (!(ma->mca_flags & MAF_GSQUERY) ||
+-			    mld_marksources(ma, ntohs(mlh2->nsrcs), mlh2->srcs))
++			    mld_marksources(ma, ntohs(mlh2->mld2q_nsrcs), mlh2->mld2q_srcs))
+ 				igmp6_group_queried(ma, max_delay);
+ 			spin_unlock_bh(&ma->mca_lock);
+ 			break;
+@@ -1286,9 +1236,8 @@ int igmp6_event_query(struct sk_buff *skb)
+ int igmp6_event_report(struct sk_buff *skb)
+ {
+ 	struct ifmcaddr6 *ma;
+-	struct in6_addr *addrp;
+ 	struct inet6_dev *idev;
+-	struct icmp6hdr *hdr;
++	struct mld_msg *mld;
+ 	int addr_type;
+ 
+ 	/* Our own report looped back. Ignore it. */
+@@ -1300,10 +1249,10 @@ int igmp6_event_report(struct sk_buff *skb)
+ 	    skb->pkt_type != PACKET_BROADCAST)
+ 		return 0;
+ 
+-	if (!pskb_may_pull(skb, sizeof(struct in6_addr)))
++	if (!pskb_may_pull(skb, sizeof(*mld) - sizeof(struct icmp6hdr)))
+ 		return -EINVAL;
+ 
+-	hdr = icmp6_hdr(skb);
++	mld = (struct mld_msg *)icmp6_hdr(skb);
+ 
+ 	/* Drop reports with not link local source */
+ 	addr_type = ipv6_addr_type(&ipv6_hdr(skb)->saddr);
+@@ -1311,8 +1260,6 @@ int igmp6_event_report(struct sk_buff *skb)
+ 	    !(addr_type&IPV6_ADDR_LINKLOCAL))
+ 		return -EINVAL;
+ 
+-	addrp = (struct in6_addr *) (hdr + 1);
+-
+ 	idev = in6_dev_get(skb->dev);
+ 	if (idev == NULL)
+ 		return -ENODEV;
+@@ -1323,7 +1270,7 @@ int igmp6_event_report(struct sk_buff *skb)
+ 
+ 	read_lock_bh(&idev->lock);
+ 	for (ma = idev->mc_list; ma; ma=ma->next) {
+-		if (ipv6_addr_equal(&ma->mca_addr, addrp)) {
++		if (ipv6_addr_equal(&ma->mca_addr, &mld->mld_mca)) {
+ 			spin_lock(&ma->mca_lock);
+ 			if (del_timer(&ma->mca_timer))
+ 				atomic_dec(&ma->mca_refcnt);
+@@ -1432,11 +1379,11 @@ static struct sk_buff *mld_newpack(struct net_device *dev, int size)
+ 	skb_set_transport_header(skb, skb_tail_pointer(skb) - skb->data);
+ 	skb_put(skb, sizeof(*pmr));
+ 	pmr = (struct mld2_report *)skb_transport_header(skb);
+-	pmr->type = ICMPV6_MLD2_REPORT;
+-	pmr->resv1 = 0;
+-	pmr->csum = 0;
+-	pmr->resv2 = 0;
+-	pmr->ngrec = 0;
++	pmr->mld2r_type = ICMPV6_MLD2_REPORT;
++	pmr->mld2r_resv1 = 0;
++	pmr->mld2r_cksum = 0;
++	pmr->mld2r_resv2 = 0;
++	pmr->mld2r_ngrec = 0;
+ 	return skb;
+ }
+ 
+@@ -1458,9 +1405,10 @@ static void mld_sendpack(struct sk_buff *skb)
+ 	mldlen = skb->tail - skb->transport_header;
+ 	pip6->payload_len = htons(payload_len);
+ 
+-	pmr->csum = csum_ipv6_magic(&pip6->saddr, &pip6->daddr, mldlen,
+-		IPPROTO_ICMPV6, csum_partial(skb_transport_header(skb),
+-					     mldlen, 0));
++	pmr->mld2r_cksum = csum_ipv6_magic(&pip6->saddr, &pip6->daddr, mldlen,
++					   IPPROTO_ICMPV6,
++					   csum_partial(skb_transport_header(skb),
++							mldlen, 0));
+ 
+ 	dst = icmp6_dst_alloc(skb->dev, NULL, &ipv6_hdr(skb)->daddr);
+ 
+@@ -1521,7 +1469,7 @@ static struct sk_buff *add_grhead(struct sk_buff *skb, struct ifmcaddr6 *pmc,
+ 	pgr->grec_nsrcs = 0;
+ 	pgr->grec_mca = pmc->mca_addr;	/* structure copy */
+ 	pmr = (struct mld2_report *)skb_transport_header(skb);
+-	pmr->ngrec = htons(ntohs(pmr->ngrec)+1);
++	pmr->mld2r_ngrec = htons(ntohs(pmr->mld2r_ngrec)+1);
+ 	*ppgr = pgr;
+ 	return skb;
+ }
+@@ -1557,7 +1505,7 @@ static struct sk_buff *add_grec(struct sk_buff *skb, struct ifmcaddr6 *pmc,
+ 
+ 	/* EX and TO_EX get a fresh packet, if needed */
+ 	if (truncate) {
+-		if (pmr && pmr->ngrec &&
++		if (pmr && pmr->mld2r_ngrec &&
+ 		    AVAILABLE(skb) < grec_size(pmc, type, gdeleted, sdeleted)) {
+ 			if (skb)
+ 				mld_sendpack(skb);
+@@ -1770,9 +1718,8 @@ static void igmp6_send(struct in6_addr *addr, struct net_device *dev, int type)
+ 	struct sock *sk = net->ipv6.igmp_sk;
+ 	struct inet6_dev *idev;
+ 	struct sk_buff *skb;
+-	struct icmp6hdr *hdr;
++	struct mld_msg *hdr;
+ 	const struct in6_addr *snd_addr, *saddr;
+-	struct in6_addr *addrp;
+ 	struct in6_addr addr_buf;
+ 	int err, len, payload_len, full_len;
+ 	u8 ra[8] = { IPPROTO_ICMPV6, 0,
+@@ -1820,16 +1767,14 @@ static void igmp6_send(struct in6_addr *addr, struct net_device *dev, int type)
+ 
+ 	memcpy(skb_put(skb, sizeof(ra)), ra, sizeof(ra));
+ 
+-	hdr = (struct icmp6hdr *) skb_put(skb, sizeof(struct icmp6hdr));
+-	memset(hdr, 0, sizeof(struct icmp6hdr));
+-	hdr->icmp6_type = type;
++	hdr = (struct mld_msg *) skb_put(skb, sizeof(struct mld_msg));
++	memset(hdr, 0, sizeof(struct mld_msg));
++	hdr->mld_type = type;
++	ipv6_addr_copy(&hdr->mld_mca, addr);
+ 
+-	addrp = (struct in6_addr *) skb_put(skb, sizeof(struct in6_addr));
+-	ipv6_addr_copy(addrp, addr);
+-
+-	hdr->icmp6_cksum = csum_ipv6_magic(saddr, snd_addr, len,
+-					   IPPROTO_ICMPV6,
+-					   csum_partial(hdr, len, 0));
++	hdr->mld_cksum = csum_ipv6_magic(saddr, snd_addr, len,
++					 IPPROTO_ICMPV6,
++					 csum_partial(hdr, len, 0));
+ 
+ 	idev = in6_dev_get(skb->dev);
+ 
+
+---
+commit 8ef2a9a59854994bace13b5c4f7edc2c8d4d124e
+Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date:   Sun Apr 18 12:42:07 2010 +0900
+
+    bridge br_multicast: Make functions less ipv4 dependent.
+    
+    Introduce struct br_ip{} to store ip address and protocol
+    and make functions more generic so that we can support
+    both IPv4 and IPv6 with less pain.
+    
+    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 81bfdfe..64a3e4f 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -27,48 +27,86 @@
+ 
+ #include "br_private.h"
+ 
+-static inline int br_ip_hash(struct net_bridge_mdb_htable *mdb, __be32 ip)
++static inline int br_ip_equal(const struct br_ip *a, const struct br_ip *b)
++{
++	if (a->proto != b->proto)
++		return 0;
++	switch (a->proto) {
++	case htons(ETH_P_IP):
++		return a->u.ip4 == b->u.ip4;
++	}
++	return 0;
++}
 +
-+	rc = phy_driver_register(&gen10g_driver);
-+	if (rc)
-+		goto gen10g_register_failed;
++static inline int __br_ip4_hash(struct net_bridge_mdb_htable *mdb, __be32 ip)
+ {
+ 	return jhash_1word(mdb->secret, (__force u32)ip) & (mdb->max - 1);
+ }
+ 
++static inline int br_ip_hash(struct net_bridge_mdb_htable *mdb,
++			     struct br_ip *ip)
++{
++	switch (ip->proto) {
++	case htons(ETH_P_IP):
++		return __br_ip4_hash(mdb, ip->u.ip4);
++	}
++	return 0;
++}
 +
-+	return rc;
-+
-+gen10g_register_failed:
-+	phy_driver_unregister(&genphy_driver);
-+genphy_register_failed:
-+	mdio_bus_exit();
- 
- 	return rc;
- }
- 
- static void __exit phy_exit(void)
+ static struct net_bridge_mdb_entry *__br_mdb_ip_get(
+-	struct net_bridge_mdb_htable *mdb, __be32 dst, int hash)
++	struct net_bridge_mdb_htable *mdb, struct br_ip *dst, int hash)
  {
-+	phy_driver_unregister(&gen10g_driver);
- 	phy_driver_unregister(&genphy_driver);
- 	mdio_bus_exit();
- }
-diff --git a/drivers/net/s6gmac.c b/drivers/net/s6gmac.c
-index 6b12524..8721665 100644
---- a/drivers/net/s6gmac.c
-+++ b/drivers/net/s6gmac.c
-@@ -661,7 +661,7 @@ static int s6mii_busy(struct s6gmac *pd, int tmo)
- 	return 0;
- }
+ 	struct net_bridge_mdb_entry *mp;
+ 	struct hlist_node *p;
  
--static int s6mii_read(struct mii_bus *bus, int phy_addr, int regnum)
-+static int s6mii_read(struct mii_bus *bus, int phy_addr, int devad, int regnum)
- {
- 	struct s6gmac *pd = bus->priv;
- 	s6mii_enable(pd);
-@@ -677,7 +677,8 @@ static int s6mii_read(struct mii_bus *bus, int phy_addr, int regnum)
- 	return (u16)readl(pd->reg + S6_GMAC_MACMIISTAT);
- }
- 
--static int s6mii_write(struct mii_bus *bus, int phy_addr, int regnum, u16 value)
-+static int s6mii_write(struct mii_bus *bus, int phy_addr, int devad,
-+			int regnum, u16 value)
- {
- 	struct s6gmac *pd = bus->priv;
- 	s6mii_enable(pd);
-diff --git a/drivers/net/sb1250-mac.c b/drivers/net/sb1250-mac.c
-index 3320317..3075a65 100644
---- a/drivers/net/sb1250-mac.c
-+++ b/drivers/net/sb1250-mac.c
-@@ -339,9 +339,10 @@ static int sbmac_mii_probe(struct net_device *dev);
- static void sbmac_mii_sync(void __iomem *sbm_mdio);
- static void sbmac_mii_senddata(void __iomem *sbm_mdio, unsigned int data,
- 			       int bitcnt);
--static int sbmac_mii_read(struct mii_bus *bus, int phyaddr, int regidx);
--static int sbmac_mii_write(struct mii_bus *bus, int phyaddr, int regidx,
--			   u16 val);
-+static int sbmac_mii_read(struct mii_bus *bus, int phyaddr, int devad,
-+			int regidx);
-+static int sbmac_mii_write(struct mii_bus *bus, int phyaddr, int devad,
-+			int regidx, u16 val);
- 
- 
- /**********************************************************************
-@@ -452,7 +453,8 @@ static void sbmac_mii_senddata(void __iomem *sbm_mdio, unsigned int data,
-  *  	   value read, or 0xffff if an error occurred.
-  ********************************************************************* */
- 
--static int sbmac_mii_read(struct mii_bus *bus, int phyaddr, int regidx)
-+static int sbmac_mii_read(struct mii_bus *bus, int phyaddr, int devad,
-+			int regidx)
- {
- 	struct sbmac_softc *sc = (struct sbmac_softc *)bus->priv;
- 	void __iomem *sbm_mdio = sc->sbm_mdio;
-@@ -545,8 +547,8 @@ static int sbmac_mii_read(struct mii_bus *bus, int phyaddr, int regidx)
-  *  	   0 for success
-  ********************************************************************* */
- 
--static int sbmac_mii_write(struct mii_bus *bus, int phyaddr, int regidx,
--			   u16 regval)
-+static int sbmac_mii_write(struct mii_bus *bus, int phyaddr, int devad,
-+			int regidx, u16 regval)
- {
- 	struct sbmac_softc *sc = (struct sbmac_softc *)bus->priv;
- 	void __iomem *sbm_mdio = sc->sbm_mdio;
-diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
-index 746fb91..a174512 100644
---- a/drivers/net/smsc911x.c
-+++ b/drivers/net/smsc911x.c
-@@ -302,7 +302,8 @@ static void smsc911x_mac_write(struct smsc911x_data *pdata,
- }
- 
- /* Get a phy register */
--static int smsc911x_mii_read(struct mii_bus *bus, int phyaddr, int regidx)
-+static int smsc911x_mii_read(struct mii_bus *bus, int phyaddr, int devad,
-+				int regidx)
- {
- 	struct smsc911x_data *pdata = (struct smsc911x_data *)bus->priv;
- 	unsigned long flags;
-@@ -339,8 +340,8 @@ out:
- }
- 
- /* Set a phy register */
--static int smsc911x_mii_write(struct mii_bus *bus, int phyaddr, int regidx,
--			   u16 val)
-+static int smsc911x_mii_write(struct mii_bus *bus, int phyaddr, int devad,
-+			int regidx, u16 val)
- {
- 	struct smsc911x_data *pdata = (struct smsc911x_data *)bus->priv;
- 	unsigned long flags;
-@@ -570,11 +571,10 @@ static int smsc911x_phy_reset(struct smsc911x_data *pdata)
- 	BUG_ON(!phy_dev->bus);
- 
- 	SMSC_TRACE(HW, "Performing PHY BCR Reset");
--	smsc911x_mii_write(phy_dev->bus, phy_dev->addr, MII_BMCR, BMCR_RESET);
-+	phy_write(phy_dev, MII_BMCR, BMCR_RESET);
- 	do {
- 		msleep(1);
--		temp = smsc911x_mii_read(phy_dev->bus, phy_dev->addr,
--			MII_BMCR);
-+		temp = phy_read(phy_dev, MII_BMCR);
- 	} while ((i--) && (temp & BMCR_RESET));
- 
- 	if (temp & BMCR_RESET) {
-@@ -622,8 +622,7 @@ static int smsc911x_phy_loopbacktest(struct net_device *dev)
- 
- 	for (i = 0; i < 10; i++) {
- 		/* Set PHY to 10/FD, no ANEG, and loopback mode */
--		smsc911x_mii_write(phy_dev->bus, phy_dev->addr,	MII_BMCR,
--			BMCR_LOOPBACK | BMCR_FULLDPLX);
-+		phy_write(phy_dev, MII_BMCR, BMCR_LOOPBACK | BMCR_FULLDPLX);
- 
- 		/* Enable MAC tx/rx, FD */
- 		spin_lock_irqsave(&pdata->mac_lock, flags);
-@@ -651,7 +650,7 @@ static int smsc911x_phy_loopbacktest(struct net_device *dev)
- 	spin_unlock_irqrestore(&pdata->mac_lock, flags);
- 
- 	/* Cancel PHY loopback mode */
--	smsc911x_mii_write(phy_dev->bus, phy_dev->addr, MII_BMCR, 0);
-+	phy_write(phy_dev, MII_BMCR, 0);
- 
- 	smsc911x_reg_write(pdata, TX_CFG, 0);
- 	smsc911x_reg_write(pdata, RX_CFG, 0);
-@@ -1616,7 +1615,7 @@ smsc911x_ethtool_getregs(struct net_device *dev, struct ethtool_regs *regs,
+ 	hlist_for_each_entry_rcu(mp, p, &mdb->mhash[hash], hlist[mdb->ver]) {
+-		if (dst == mp->addr)
++		if (br_ip_equal(&mp->addr, dst))
+ 			return mp;
  	}
  
- 	for (i = 0; i <= 31; i++)
--		data[j++] = smsc911x_mii_read(phy_dev->bus, phy_dev->addr, i);
-+		data[j++] = phy_read(phy_dev, i);
+ 	return NULL;
  }
  
- static void smsc911x_eeprom_enable_access(struct smsc911x_data *pdata)
-diff --git a/drivers/net/smsc9420.c b/drivers/net/smsc9420.c
-index ada05c4..e9a898b 100644
---- a/drivers/net/smsc9420.c
-+++ b/drivers/net/smsc9420.c
-@@ -127,7 +127,8 @@ static inline void smsc9420_pci_flush_write(struct smsc9420_pdata *pd)
- 	smsc9420_reg_read(pd, ID_REV);
- }
- 
--static int smsc9420_mii_read(struct mii_bus *bus, int phyaddr, int regidx)
-+static int smsc9420_mii_read(struct mii_bus *bus, int phyaddr, int devad,
-+				int regidx)
+-static struct net_bridge_mdb_entry *br_mdb_ip_get(
++static struct net_bridge_mdb_entry *br_mdb_ip4_get(
+ 	struct net_bridge_mdb_htable *mdb, __be32 dst)
  {
- 	struct smsc9420_pdata *pd = (struct smsc9420_pdata *)bus->priv;
- 	unsigned long flags;
-@@ -164,8 +165,8 @@ out:
- 	return reg;
+-	if (!mdb)
+-		return NULL;
++	struct br_ip br_dst;
++
++	br_dst.u.ip4 = dst;
++	br_dst.proto = htons(ETH_P_IP);
+ 
++	return __br_mdb_ip_get(mdb, &br_dst, __br_ip4_hash(mdb, dst));
++}
++
++static struct net_bridge_mdb_entry *br_mdb_ip_get(
++	struct net_bridge_mdb_htable *mdb, struct br_ip *dst)
++{
+ 	return __br_mdb_ip_get(mdb, dst, br_ip_hash(mdb, dst));
  }
  
--static int smsc9420_mii_write(struct mii_bus *bus, int phyaddr, int regidx,
--			   u16 val)
-+static int smsc9420_mii_write(struct mii_bus *bus, int phyaddr, int devad,
-+				int regidx, u16 val)
+ struct net_bridge_mdb_entry *br_mdb_get(struct net_bridge *br,
+ 					struct sk_buff *skb)
  {
- 	struct smsc9420_pdata *pd = (struct smsc9420_pdata *)bus->priv;
- 	unsigned long flags;
-@@ -328,7 +329,7 @@ smsc9420_ethtool_getregs(struct net_device *dev, struct ethtool_regs *regs,
+-	if (br->multicast_disabled)
++	struct net_bridge_mdb_htable *mdb = br->mdb;
++	struct br_ip ip;
++
++	if (!mdb || br->multicast_disabled)
++		return NULL;
++
++	if (BR_INPUT_SKB_CB(skb)->igmp)
+ 		return NULL;
+ 
++	ip.proto = skb->protocol;
++
+ 	switch (skb->protocol) {
+ 	case htons(ETH_P_IP):
+-		if (BR_INPUT_SKB_CB(skb)->igmp)
+-			break;
+-		return br_mdb_ip_get(br->mdb, ip_hdr(skb)->daddr);
++		ip.u.ip4 = ip_hdr(skb)->daddr;
++		break;
++	default:
++		return NULL;
+ 	}
+ 
+-	return NULL;
++	return br_mdb_ip_get(mdb, &ip);
+ }
+ 
+ static void br_mdb_free(struct rcu_head *head)
+@@ -95,7 +133,7 @@ static int br_mdb_copy(struct net_bridge_mdb_htable *new,
+ 	for (i = 0; i < old->max; i++)
+ 		hlist_for_each_entry(mp, p, &old->mhash[i], hlist[old->ver])
+ 			hlist_add_head(&mp->hlist[new->ver],
+-				       &new->mhash[br_ip_hash(new, mp->addr)]);
++				       &new->mhash[br_ip_hash(new, &mp->addr)]);
+ 
+ 	if (!elasticity)
+ 		return 0;
+@@ -163,7 +201,7 @@ static void br_multicast_del_pg(struct net_bridge *br,
+ 	struct net_bridge_port_group *p;
+ 	struct net_bridge_port_group **pp;
+ 
+-	mp = br_mdb_ip_get(mdb, pg->addr);
++	mp = br_mdb_ip_get(mdb, &pg->addr);
+ 	if (WARN_ON(!mp))
  		return;
  
- 	for (i = 0; i <= 31; i++)
--		data[j++] = smsc9420_mii_read(phy_dev->bus, phy_dev->addr, i);
-+		data[j++] = phy_read(phy_dev, i);
- }
- 
- static void smsc9420_eeprom_enable_access(struct smsc9420_pdata *pd)
-diff --git a/drivers/net/stmmac/stmmac_mdio.c b/drivers/net/stmmac/stmmac_mdio.c
-index 40b2c79..dd0a89a 100644
---- a/drivers/net/stmmac/stmmac_mdio.c
-+++ b/drivers/net/stmmac/stmmac_mdio.c
-@@ -37,13 +37,15 @@
-  * stmmac_mdio_read
-  * @bus: points to the mii_bus structure
-  * @phyaddr: MII addr reg bits 15-11
-+ * @devad: unused
-  * @phyreg: MII addr reg bits 10-6
-  * Description: it reads data from the MII register from within the phy device.
-  * For the 7111 GMAC, we must set the bit 0 in the MII address register while
-  * accessing the PHY registers.
-  * Fortunately, it seems this has no drawback for the 7109 MAC.
-  */
--static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
-+static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int devad,
-+				int phyreg)
- {
- 	struct net_device *ndev = bus->priv;
- 	struct stmmac_priv *priv = netdev_priv(ndev);
-@@ -70,12 +72,13 @@ static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
-  * stmmac_mdio_write
-  * @bus: points to the mii_bus structure
-  * @phyaddr: MII addr reg bits 15-11
-+ * @devad: unused
-  * @phyreg: MII addr reg bits 10-6
-  * @phydata: phy data
-  * Description: it writes the data into the MII register from within the device.
-  */
--static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
--			     u16 phydata)
-+static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int devad,
-+				int phyreg, u16 phydata)
- {
- 	struct net_device *ndev = bus->priv;
- 	struct stmmac_priv *priv = netdev_priv(ndev);
-diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
-index 36149dd..efaebc3 100644
---- a/drivers/net/tc35815.c
-+++ b/drivers/net/tc35815.c
-@@ -500,7 +500,7 @@ static void	panic_queues(struct net_device *dev);
- 
- static void tc35815_restart_work(struct work_struct *work);
- 
--static int tc_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
-+static int tc_mdio_read(struct mii_bus *bus, int mii_id, int devad, int regnum)
- {
- 	struct net_device *dev = bus->priv;
- 	struct tc35815_regs __iomem *tr =
-@@ -517,7 +517,8 @@ static int tc_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
- 	return tc_readl(&tr->MD_Data) & 0xffff;
- }
- 
--static int tc_mdio_write(struct mii_bus *bus, int mii_id, int regnum, u16 val)
-+static int tc_mdio_write(struct mii_bus *bus, int mii_id, int devad,
-+			int regnum, u16 val)
- {
- 	struct net_device *dev = bus->priv;
- 	struct tc35815_regs __iomem *tr =
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 0fea685..75eb85c 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -936,7 +936,7 @@ static int tg3_bmcr_reset(struct tg3 *tp)
+@@ -249,8 +287,8 @@ out:
  	return 0;
  }
  
--static int tg3_mdio_read(struct mii_bus *bp, int mii_id, int reg)
-+static int tg3_mdio_read(struct mii_bus *bp, int mii_id, int devad, int reg)
+-static struct sk_buff *br_multicast_alloc_query(struct net_bridge *br,
+-						__be32 group)
++static struct sk_buff *br_ip4_multicast_alloc_query(struct net_bridge *br,
++						    __be32 group)
  {
- 	struct tg3 *tp = bp->priv;
- 	u32 val;
-@@ -951,7 +951,8 @@ static int tg3_mdio_read(struct mii_bus *bp, int mii_id, int reg)
- 	return val;
+ 	struct sk_buff *skb;
+ 	struct igmphdr *ih;
+@@ -314,12 +352,22 @@ out:
+ 	return skb;
  }
  
--static int tg3_mdio_write(struct mii_bus *bp, int mii_id, int reg, u16 val)
-+static int tg3_mdio_write(struct mii_bus *bp, int mii_id, int devad,
-+			int reg, u16 val)
- {
- 	struct tg3 *tp = bp->priv;
- 	u32 ret = 0;
-diff --git a/drivers/net/xilinx_emaclite.c b/drivers/net/xilinx_emaclite.c
-index e9381fe..d5178c6 100644
---- a/drivers/net/xilinx_emaclite.c
-+++ b/drivers/net/xilinx_emaclite.c
-@@ -738,6 +738,7 @@ static int xemaclite_mdio_wait(struct net_local *lp)
-  * xemaclite_mdio_read - Read from a given MII management register
-  * @bus:	the mii_bus struct
-  * @phy_id:	the phy address
-+ * @devad:	unused
-  * @reg:	register number to read from
-  *
-  * This function waits till the device is ready to accept a new MDIO
-@@ -746,7 +747,8 @@ static int xemaclite_mdio_wait(struct net_local *lp)
-  *
-  * Return:	Value read from the MII management register
-  */
--static int xemaclite_mdio_read(struct mii_bus *bus, int phy_id, int reg)
-+static int xemaclite_mdio_read(struct mii_bus *bus, int phy_id, int devad,
-+				int reg)
- {
- 	struct net_local *lp = bus->priv;
- 	u32 ctrl_reg;
-@@ -782,14 +784,15 @@ static int xemaclite_mdio_read(struct mii_bus *bus, int phy_id, int reg)
-  * xemaclite_mdio_write - Write to a given MII management register
-  * @bus:	the mii_bus struct
-  * @phy_id:	the phy address
-+ * @devad:	unused
-  * @reg:	register number to write to
-  * @val:	value to write to the register number specified by reg
-  *
-  * This fucntion waits till the device is ready to accept a new MDIO
-  * request and then writes the val to the MDIO Write Data register.
-  */
--static int xemaclite_mdio_write(struct mii_bus *bus, int phy_id, int reg,
--				u16 val)
-+static int xemaclite_mdio_write(struct mii_bus *bus, int phy_id, int devad,
-+				int reg, u16 val)
- {
- 	struct net_local *lp = bus->priv;
- 	u32 ctrl_reg;
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 987e111..64448ee 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -6,7 +6,7 @@
-  *
-  * Author: Andy Fleming
-  *
-- * Copyright (c) 2004 Freescale Semiconductor, Inc.
-+ * Copyright (c) 2004-2009 Freescale Semiconductor, Inc.
-  *
-  * This program is free software; you can redistribute  it and/or modify it
-  * under  the terms of  the GNU General  Public License as published by the
-@@ -62,7 +62,8 @@ typedef enum {
- 	PHY_INTERFACE_MODE_RGMII_ID,
- 	PHY_INTERFACE_MODE_RGMII_RXID,
- 	PHY_INTERFACE_MODE_RGMII_TXID,
--	PHY_INTERFACE_MODE_RTBI
-+	PHY_INTERFACE_MODE_RTBI,
-+	PHY_INTERFACE_MODE_XGMII
- } phy_interface_t;
- 
- 
-@@ -94,8 +95,10 @@ struct mii_bus {
- 	const char *name;
- 	char id[MII_BUS_ID_SIZE];
- 	void *priv;
--	int (*read)(struct mii_bus *bus, int phy_id, int regnum);
--	int (*write)(struct mii_bus *bus, int phy_id, int regnum, u16 val);
-+	int (*read)(struct mii_bus *bus, int port_addr, int dev_addr,
-+			int regnum);
-+	int (*write)(struct mii_bus *bus, int port_addr, int dev_addr,
-+			int regnum, u16 val);
- 	int (*reset)(struct mii_bus *bus);
- 
- 	/*
-@@ -132,8 +135,9 @@ int mdiobus_register(struct mii_bus *bus);
- void mdiobus_unregister(struct mii_bus *bus);
- void mdiobus_free(struct mii_bus *bus);
- struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr);
--int mdiobus_read(struct mii_bus *bus, int addr, u32 regnum);
--int mdiobus_write(struct mii_bus *bus, int addr, u32 regnum, u16 val);
-+int mdiobus_read(struct mii_bus *bus, int addr, int devad, u16 regnum);
-+int mdiobus_write(struct mii_bus *bus, int addr, int devad,
-+			u16 regnum, u16 val);
- 
- 
- #define PHY_INTERRUPT_DISABLED	0x0
-@@ -303,6 +307,7 @@ struct phy_device {
- 	/* See mii.h for more info */
- 	u32 supported;
- 	u32 advertising;
-+	u32 mmds;
- 
- 	int autoneg;
- 
-@@ -429,7 +434,22 @@ struct phy_fixup {
-  */
- static inline int phy_read(struct phy_device *phydev, u32 regnum)
- {
--	return mdiobus_read(phydev->bus, phydev->addr, regnum);
-+	return mdiobus_read(phydev->bus, phydev->addr, 0, regnum);
++static struct sk_buff *br_multicast_alloc_query(struct net_bridge *br,
++						struct br_ip *addr)
++{
++	switch (addr->proto) {
++	case htons(ETH_P_IP):
++		return br_ip4_multicast_alloc_query(br, addr->u.ip4);
++	}
++	return NULL;
 +}
 +
-+/**
-+ * phy45_read - Convenience function for reading a given port/dev/reg address
-+ * @phydev: The phy_device struct
-+ * @devad: The device address to read
-+ * @regnum: The register number to read
-+ *
-+ * NOTE: MUST NOT be called from interrupt context,
-+ * because the bus read/write functions may wait for an interrupt
-+ * to conclude the operation.
-+ */
-+static inline int phy45_read(struct phy_device *phydev, int devad, u16 regnum)
-+{
-+	return mdiobus_read(phydev->bus, phydev->addr, devad, regnum);
+ static void br_multicast_send_group_query(struct net_bridge_mdb_entry *mp)
+ {
+ 	struct net_bridge *br = mp->br;
+ 	struct sk_buff *skb;
+ 
+-	skb = br_multicast_alloc_query(br, mp->addr);
++	skb = br_multicast_alloc_query(br, &mp->addr);
+ 	if (!skb)
+ 		goto timer;
+ 
+@@ -353,7 +401,7 @@ static void br_multicast_send_port_group_query(struct net_bridge_port_group *pg)
+ 	struct net_bridge *br = port->br;
+ 	struct sk_buff *skb;
+ 
+-	skb = br_multicast_alloc_query(br, pg->addr);
++	skb = br_multicast_alloc_query(br, &pg->addr);
+ 	if (!skb)
+ 		goto timer;
+ 
+@@ -383,8 +431,8 @@ out:
  }
  
- /**
-@@ -444,7 +464,24 @@ static inline int phy_read(struct phy_device *phydev, u32 regnum)
-  */
- static inline int phy_write(struct phy_device *phydev, u32 regnum, u16 val)
+ static struct net_bridge_mdb_entry *br_multicast_get_group(
+-	struct net_bridge *br, struct net_bridge_port *port, __be32 group,
+-	int hash)
++	struct net_bridge *br, struct net_bridge_port *port,
++	struct br_ip *group, int hash)
  {
--	return mdiobus_write(phydev->bus, phydev->addr, regnum, val);
-+	return mdiobus_write(phydev->bus, phydev->addr, 0, regnum, val);
+ 	struct net_bridge_mdb_htable *mdb = br->mdb;
+ 	struct net_bridge_mdb_entry *mp;
+@@ -396,9 +444,8 @@ static struct net_bridge_mdb_entry *br_multicast_get_group(
+ 
+ 	hlist_for_each_entry(mp, p, &mdb->mhash[hash], hlist[mdb->ver]) {
+ 		count++;
+-		if (unlikely(group == mp->addr)) {
++		if (unlikely(br_ip_equal(group, &mp->addr)))
+ 			return mp;
+-		}
+ 	}
+ 
+ 	elasticity = 0;
+@@ -463,7 +510,8 @@ err:
+ }
+ 
+ static struct net_bridge_mdb_entry *br_multicast_new_group(
+-	struct net_bridge *br, struct net_bridge_port *port, __be32 group)
++	struct net_bridge *br, struct net_bridge_port *port,
++	struct br_ip *group)
+ {
+ 	struct net_bridge_mdb_htable *mdb = br->mdb;
+ 	struct net_bridge_mdb_entry *mp;
+@@ -496,7 +544,7 @@ rehash:
+ 		goto out;
+ 
+ 	mp->br = br;
+-	mp->addr = group;
++	mp->addr = *group;
+ 	setup_timer(&mp->timer, br_multicast_group_expired,
+ 		    (unsigned long)mp);
+ 	setup_timer(&mp->query_timer, br_multicast_group_query_expired,
+@@ -510,7 +558,8 @@ out:
+ }
+ 
+ static int br_multicast_add_group(struct net_bridge *br,
+-				  struct net_bridge_port *port, __be32 group)
++				  struct net_bridge_port *port,
++				  struct br_ip *group)
+ {
+ 	struct net_bridge_mdb_entry *mp;
+ 	struct net_bridge_port_group *p;
+@@ -518,9 +567,6 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 	unsigned long now = jiffies;
+ 	int err;
+ 
+-	if (ipv4_is_local_multicast(group))
+-		return 0;
+-
+ 	spin_lock(&br->multicast_lock);
+ 	if (!netif_running(br->dev) ||
+ 	    (port && port->state == BR_STATE_DISABLED))
+@@ -549,7 +595,7 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 	if (unlikely(!p))
+ 		goto err;
+ 
+-	p->addr = group;
++	p->addr = *group;
+ 	p->port = port;
+ 	p->next = *pp;
+ 	hlist_add_head(&p->mglist, &port->mglist);
+@@ -570,6 +616,21 @@ err:
+ 	return err;
+ }
+ 
++static int br_ip4_multicast_add_group(struct net_bridge *br,
++				      struct net_bridge_port *port,
++				      __be32 group)
++{
++	struct br_ip br_group;
++
++	if (ipv4_is_local_multicast(group))
++		return 0;
++
++	br_group.u.ip4 = group;
++	br_group.proto = htons(ETH_P_IP);
++
++	return br_multicast_add_group(br, port, &br_group);
 +}
 +
-+/**
-+ * phy45_write - Convenience function for writing a given port/dev/reg
-+ * @phydev: the phy_device struct
-+ * @devad: the device addr
-+ * @regnum: register number to write
-+ * @val: value to write to @regnum
-+ *
-+ * NOTE: MUST NOT be called from interrupt context,
-+ * because the bus read/write functions may wait for an interrupt
-+ * to conclude the operation.
-+ */
-+static inline int phy45_write(struct phy_device *phydev, u16 regnum,
-+				int devad, u16 val)
-+{
-+	return mdiobus_write(phydev->bus, phydev->addr, devad, regnum, val);
+ static void br_multicast_router_expired(unsigned long data)
+ {
+ 	struct net_bridge_port *port = (void *)data;
+@@ -591,19 +652,15 @@ static void br_multicast_local_router_expired(unsigned long data)
+ {
  }
  
- int get_phy_id(struct mii_bus *bus, int addr, u32 *phy_id);
--- 
-1.6.5.2.g6ff9a
+-static void br_multicast_send_query(struct net_bridge *br,
+-				    struct net_bridge_port *port, u32 sent)
++static void __br_multicast_send_query(struct net_bridge *br,
++				      struct net_bridge_port *port,
++				      struct br_ip *ip)
+ {
+-	unsigned long time;
+ 	struct sk_buff *skb;
+ 
+-	if (!netif_running(br->dev) || br->multicast_disabled ||
+-	    timer_pending(&br->multicast_querier_timer))
+-		return;
+-
+-	skb = br_multicast_alloc_query(br, 0);
++	skb = br_multicast_alloc_query(br, ip);
+ 	if (!skb)
+-		goto timer;
++		return;
+ 
+ 	if (port) {
+ 		__skb_push(skb, sizeof(struct ethhdr));
+@@ -612,8 +669,23 @@ static void br_multicast_send_query(struct net_bridge *br,
+ 			dev_queue_xmit);
+ 	} else
+ 		netif_rx(skb);
++}
++
++static void br_multicast_send_query(struct net_bridge *br,
++				    struct net_bridge_port *port, u32 sent)
++{
++	unsigned long time;
++	struct br_ip br_group;
++
++	if (!netif_running(br->dev) || br->multicast_disabled ||
++	    timer_pending(&br->multicast_querier_timer))
++		return;
++
++	br_group.u.ip4 = 0;
++	br_group.proto = htons(ETH_P_IP);
++
++	__br_multicast_send_query(br, port, &br_group);
+ 
+-timer:
+ 	time = jiffies;
+ 	time += sent < br->multicast_startup_query_count ?
+ 		br->multicast_startup_query_interval :
+@@ -698,9 +770,9 @@ void br_multicast_disable_port(struct net_bridge_port *port)
+ 	spin_unlock(&br->multicast_lock);
+ }
+ 
+-static int br_multicast_igmp3_report(struct net_bridge *br,
+-				     struct net_bridge_port *port,
+-				     struct sk_buff *skb)
++static int br_ip4_multicast_igmp3_report(struct net_bridge *br,
++					 struct net_bridge_port *port,
++					 struct sk_buff *skb)
+ {
+ 	struct igmpv3_report *ih;
+ 	struct igmpv3_grec *grec;
+@@ -745,7 +817,7 @@ static int br_multicast_igmp3_report(struct net_bridge *br,
+ 			continue;
+ 		}
+ 
+-		err = br_multicast_add_group(br, port, group);
++		err = br_ip4_multicast_add_group(br, port, group);
+ 		if (err)
+ 			break;
+ 	}
+@@ -800,7 +872,7 @@ timer:
+ 
+ static void br_multicast_query_received(struct net_bridge *br,
+ 					struct net_bridge_port *port,
+-					__be32 saddr)
++					int saddr)
+ {
+ 	if (saddr)
+ 		mod_timer(&br->multicast_querier_timer,
+@@ -811,9 +883,9 @@ static void br_multicast_query_received(struct net_bridge *br,
+ 	br_multicast_mark_router(br, port);
+ }
+ 
+-static int br_multicast_query(struct net_bridge *br,
+-			      struct net_bridge_port *port,
+-			      struct sk_buff *skb)
++static int br_ip4_multicast_query(struct net_bridge *br,
++				  struct net_bridge_port *port,
++				  struct sk_buff *skb)
+ {
+ 	struct iphdr *iph = ip_hdr(skb);
+ 	struct igmphdr *ih = igmp_hdr(skb);
+@@ -831,7 +903,7 @@ static int br_multicast_query(struct net_bridge *br,
+ 	    (port && port->state == BR_STATE_DISABLED))
+ 		goto out;
+ 
+-	br_multicast_query_received(br, port, iph->saddr);
++	br_multicast_query_received(br, port, !!iph->saddr);
+ 
+ 	group = ih->group;
+ 
+@@ -859,7 +931,7 @@ static int br_multicast_query(struct net_bridge *br,
+ 	if (!group)
+ 		goto out;
+ 
+-	mp = br_mdb_ip_get(br->mdb, group);
++	mp = br_mdb_ip4_get(br->mdb, group);
+ 	if (!mp)
+ 		goto out;
+ 
+@@ -885,7 +957,7 @@ out:
+ 
+ static void br_multicast_leave_group(struct net_bridge *br,
+ 				     struct net_bridge_port *port,
+-				     __be32 group)
++				     struct br_ip *group)
+ {
+ 	struct net_bridge_mdb_htable *mdb;
+ 	struct net_bridge_mdb_entry *mp;
+@@ -893,9 +965,6 @@ static void br_multicast_leave_group(struct net_bridge *br,
+ 	unsigned long now;
+ 	unsigned long time;
+ 
+-	if (ipv4_is_local_multicast(group))
+-		return;
+-
+ 	spin_lock(&br->multicast_lock);
+ 	if (!netif_running(br->dev) ||
+ 	    (port && port->state == BR_STATE_DISABLED) ||
+@@ -946,6 +1015,22 @@ out:
+ 	spin_unlock(&br->multicast_lock);
+ }
+ 
++static void br_ip4_multicast_leave_group(struct net_bridge *br,
++					 struct net_bridge_port *port,
++					 __be32 group)
++{
++	struct br_ip br_group;
++
++	if (ipv4_is_local_multicast(group))
++		return;
++
++	br_group.u.ip4 = group;
++	br_group.proto = htons(ETH_P_IP);
++
++	br_multicast_leave_group(br, port, &br_group);
++}
++
++
+ static int br_multicast_ipv4_rcv(struct net_bridge *br,
+ 				 struct net_bridge_port *port,
+ 				 struct sk_buff *skb)
+@@ -1023,16 +1108,16 @@ static int br_multicast_ipv4_rcv(struct net_bridge *br,
+ 	case IGMP_HOST_MEMBERSHIP_REPORT:
+ 	case IGMPV2_HOST_MEMBERSHIP_REPORT:
+ 		BR_INPUT_SKB_CB(skb2)->mrouters_only = 1;
+-		err = br_multicast_add_group(br, port, ih->group);
++		err = br_ip4_multicast_add_group(br, port, ih->group);
+ 		break;
+ 	case IGMPV3_HOST_MEMBERSHIP_REPORT:
+-		err = br_multicast_igmp3_report(br, port, skb2);
++		err = br_ip4_multicast_igmp3_report(br, port, skb2);
+ 		break;
+ 	case IGMP_HOST_MEMBERSHIP_QUERY:
+-		err = br_multicast_query(br, port, skb2);
++		err = br_ip4_multicast_query(br, port, skb2);
+ 		break;
+ 	case IGMP_HOST_LEAVE_MESSAGE:
+-		br_multicast_leave_group(br, port, ih->group);
++		br_ip4_multicast_leave_group(br, port, ih->group);
+ 		break;
+ 	}
+ 
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 63181e4..45d11e4 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -45,6 +45,14 @@ struct mac_addr
+ 	unsigned char	addr[6];
+ };
+ 
++struct br_ip
++{
++	union {
++		__be32	ip4;
++	} u;
++	__be16		proto;
++};
++
+ struct net_bridge_fdb_entry
+ {
+ 	struct hlist_node		hlist;
+@@ -64,7 +72,7 @@ struct net_bridge_port_group {
+ 	struct rcu_head			rcu;
+ 	struct timer_list		timer;
+ 	struct timer_list		query_timer;
+-	__be32				addr;
++	struct br_ip			addr;
+ 	u32				queries_sent;
+ };
+ 
+@@ -77,7 +85,7 @@ struct net_bridge_mdb_entry
+ 	struct rcu_head			rcu;
+ 	struct timer_list		timer;
+ 	struct timer_list		query_timer;
+-	__be32				addr;
++	struct br_ip			addr;
+ 	u32				queries_sent;
+ };
+ 
 
+---
+commit 08b202b6726459626c73ecfa08fcdc8c3efc76c2
+Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date:   Fri Apr 23 01:54:22 2010 +0900
+
+    bridge br_multicast: IPv6 MLD support.
+    
+    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+diff --git a/net/bridge/Kconfig b/net/bridge/Kconfig
+index d115d5c..9190ae4 100644
+--- a/net/bridge/Kconfig
++++ b/net/bridge/Kconfig
+@@ -33,14 +33,14 @@ config BRIDGE
+ 	  If unsure, say N.
+ 
+ config BRIDGE_IGMP_SNOOPING
+-	bool "IGMP snooping"
++	bool "IGMP/MLD snooping"
+ 	depends on BRIDGE
+ 	depends on INET
+ 	default y
+ 	---help---
+ 	  If you say Y here, then the Ethernet bridge will be able selectively
+-	  forward multicast traffic based on IGMP traffic received from each
+-	  port.
++	  forward multicast traffic based on IGMP/MLD traffic received from
++	  each port.
+ 
+ 	  Say N to exclude this support and reduce the binary size.
+ 
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 64a3e4f..38d1fbd 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -24,9 +24,24 @@
+ #include <linux/slab.h>
+ #include <linux/timer.h>
+ #include <net/ip.h>
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++#include <net/ipv6.h>
++#include <net/mld.h>
++#include <net/addrconf.h>
++#endif
+ 
+ #include "br_private.h"
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++static inline int ipv6_is_local_multicast(const struct in6_addr *addr)
++{
++	if (ipv6_addr_is_multicast(addr) &&
++	    IPV6_ADDR_MC_SCOPE(addr) <= IPV6_ADDR_SCOPE_LINKLOCAL)
++		return 1;
++	return 0;
++}
++#endif
++
+ static inline int br_ip_equal(const struct br_ip *a, const struct br_ip *b)
+ {
+ 	if (a->proto != b->proto)
+@@ -34,6 +49,10 @@ static inline int br_ip_equal(const struct br_ip *a, const struct br_ip *b)
+ 	switch (a->proto) {
+ 	case htons(ETH_P_IP):
+ 		return a->u.ip4 == b->u.ip4;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	case htons(ETH_P_IPV6):
++		return ipv6_addr_equal(&a->u.ip6, &b->u.ip6);
++#endif
+ 	}
+ 	return 0;
+ }
+@@ -43,12 +62,24 @@ static inline int __br_ip4_hash(struct net_bridge_mdb_htable *mdb, __be32 ip)
+ 	return jhash_1word(mdb->secret, (__force u32)ip) & (mdb->max - 1);
+ }
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++static inline int __br_ip6_hash(struct net_bridge_mdb_htable *mdb,
++				const struct in6_addr *ip)
++{
++	return jhash2((__force u32 *)ip->s6_addr32, 4, mdb->secret) & (mdb->max - 1);
++}
++#endif
++
+ static inline int br_ip_hash(struct net_bridge_mdb_htable *mdb,
+ 			     struct br_ip *ip)
+ {
+ 	switch (ip->proto) {
+ 	case htons(ETH_P_IP):
+ 		return __br_ip4_hash(mdb, ip->u.ip4);
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	case htons(ETH_P_IPV6):
++		return __br_ip6_hash(mdb, &ip->u.ip6);
++#endif
+ 	}
+ 	return 0;
+ }
+@@ -78,6 +109,19 @@ static struct net_bridge_mdb_entry *br_mdb_ip4_get(
+ 	return __br_mdb_ip_get(mdb, &br_dst, __br_ip4_hash(mdb, dst));
+ }
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++static struct net_bridge_mdb_entry *br_mdb_ip6_get(
++	struct net_bridge_mdb_htable *mdb, const struct in6_addr *dst)
++{
++	struct br_ip br_dst;
++
++	ipv6_addr_copy(&br_dst.u.ip6, dst);
++	br_dst.proto = htons(ETH_P_IPV6);
++
++	return __br_mdb_ip_get(mdb, &br_dst, __br_ip6_hash(mdb, dst));
++}
++#endif
++
+ static struct net_bridge_mdb_entry *br_mdb_ip_get(
+ 	struct net_bridge_mdb_htable *mdb, struct br_ip *dst)
+ {
+@@ -102,6 +146,11 @@ struct net_bridge_mdb_entry *br_mdb_get(struct net_bridge *br,
+ 	case htons(ETH_P_IP):
+ 		ip.u.ip4 = ip_hdr(skb)->daddr;
+ 		break;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	case htons(ETH_P_IPV6):
++		ipv6_addr_copy(&ip.u.ip6, &ipv6_hdr(skb)->daddr);
++		break;
++#endif
+ 	default:
+ 		return NULL;
+ 	}
+@@ -352,12 +401,94 @@ out:
+ 	return skb;
+ }
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++static struct sk_buff *br_ip6_multicast_alloc_query(struct net_bridge *br,
++						    struct in6_addr *group)
++{
++	struct sk_buff *skb;
++	struct ipv6hdr *ip6h;
++	struct mld_msg *mldq;
++	struct ethhdr *eth;
++	u8 *hopopt;
++	unsigned long interval;
++
++	skb = netdev_alloc_skb_ip_align(br->dev, sizeof(*eth) + sizeof(*ip6h) +
++						 8 + sizeof(*mldq));
++	if (!skb)
++		goto out;
++
++	skb->protocol = htons(ETH_P_IPV6);
++
++	/* Ethernet header */
++	skb_reset_mac_header(skb);
++	eth = eth_hdr(skb);
++
++	memcpy(eth->h_source, br->dev->dev_addr, 6);
++	ipv6_eth_mc_map(group, eth->h_dest);
++	eth->h_proto = htons(ETH_P_IPV6);
++	skb_put(skb, sizeof(*eth));
++
++	/* IPv6 header + HbH option */
++	skb_set_network_header(skb, skb->len);
++	ip6h = ipv6_hdr(skb);
++
++	*(__force __be32 *)ip6h = htonl(0x60000000);
++	ip6h->payload_len = 8 + sizeof(*mldq);
++	ip6h->nexthdr = IPPROTO_HOPOPTS;
++	ip6h->hop_limit = 1;
++	ipv6_addr_set(&ip6h->saddr, 0, 0, 0, 0);
++	ipv6_addr_set(&ip6h->daddr, htonl(0xff020000), 0, 0, htonl(1));
++
++	hopopt = (u8 *)(ip6h + 1);
++	hopopt[0] = IPPROTO_ICMPV6;		/* next hdr */
++	hopopt[1] = 0;				/* length of HbH */
++	hopopt[2] = IPV6_TLV_ROUTERALERT;	/* Router Alert */
++	hopopt[3] = 2;				/* Length of RA Option */
++	hopopt[4] = 0;				/* Type = 0x0000 (MLD) */
++	hopopt[5] = 0;
++	hopopt[6] = IPV6_TLV_PAD0;		/* Pad0 */
++	hopopt[7] = IPV6_TLV_PAD0;		/* Pad0 */
++
++	skb_put(skb, sizeof(*ip6h) + 8);
++
++	/* ICMPv6 */
++	skb_set_transport_header(skb, skb->len);
++	mldq = (struct mld_msg *) icmp6_hdr(skb);
++
++	interval = ipv6_addr_any(group) ? br->multicast_last_member_interval :
++					  br->multicast_query_response_interval;
++
++	mldq->mld_type = ICMPV6_MGM_QUERY;
++	mldq->mld_code = 0;
++	mldq->mld_cksum = 0;
++	mldq->mld_maxdelay = htons((u16)jiffies_to_msecs(interval));
++	mldq->mld_reserved = 0;
++	ipv6_addr_copy(&mldq->mld_mca, group);
++
++	/* checksum */
++	mldq->mld_cksum = csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
++					  sizeof(*mldq), IPPROTO_ICMPV6,
++					  csum_partial(mldq,
++						       sizeof(*mldq), 0));
++	skb_put(skb, sizeof(*mldq));
++
++	__skb_pull(skb, sizeof(*eth));
++
++out:
++	return skb;
++}
++#endif
++
+ static struct sk_buff *br_multicast_alloc_query(struct net_bridge *br,
+ 						struct br_ip *addr)
+ {
+ 	switch (addr->proto) {
+ 	case htons(ETH_P_IP):
+ 		return br_ip4_multicast_alloc_query(br, addr->u.ip4);
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	case htons(ETH_P_IPV6):
++		return br_ip6_multicast_alloc_query(br, &addr->u.ip6);
++#endif
+ 	}
+ 	return NULL;
+ }
+@@ -631,6 +762,23 @@ static int br_ip4_multicast_add_group(struct net_bridge *br,
+ 	return br_multicast_add_group(br, port, &br_group);
+ }
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++static int br_ip6_multicast_add_group(struct net_bridge *br,
++				      struct net_bridge_port *port,
++				      const struct in6_addr *group)
++{
++	struct br_ip br_group;
++
++	if (ipv6_is_local_multicast(group))
++		return 0;
++
++	ipv6_addr_copy(&br_group.u.ip6, group);
++	br_group.proto = htons(ETH_P_IP);
++
++	return br_multicast_add_group(br, port, &br_group);
++}
++#endif
++
+ static void br_multicast_router_expired(unsigned long data)
+ {
+ 	struct net_bridge_port *port = (void *)data;
+@@ -681,10 +829,15 @@ static void br_multicast_send_query(struct net_bridge *br,
+ 	    timer_pending(&br->multicast_querier_timer))
+ 		return;
+ 
+-	br_group.u.ip4 = 0;
++	memset(&br_group.u, 0, sizeof(br_group.u));
++
+ 	br_group.proto = htons(ETH_P_IP);
++	__br_multicast_send_query(br, port, &br_group);
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	br_group.proto = htons(ETH_P_IPV6);
+ 	__br_multicast_send_query(br, port, &br_group);
++#endif
+ 
+ 	time = jiffies;
+ 	time += sent < br->multicast_startup_query_count ?
+@@ -825,6 +978,66 @@ static int br_ip4_multicast_igmp3_report(struct net_bridge *br,
+ 	return err;
+ }
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++static int br_ip6_multicast_mld2_report(struct net_bridge *br,
++					struct net_bridge_port *port,
++					struct sk_buff *skb)
++{
++	struct icmp6hdr *icmp6h;
++	struct mld2_grec *grec;
++	int i;
++	int len;
++	int num;
++	int err = 0;
++
++	if (!pskb_may_pull(skb, sizeof(*icmp6h)))
++		return -EINVAL;
++
++	icmp6h = icmp6_hdr(skb);
++	num = ntohs(icmp6h->icmp6_dataun.un_data16[1]);
++	len = sizeof(*icmp6h);
++
++	for (i = 0; i < num; i++) {
++		__be16 *nsrcs, _nsrcs;
++
++		nsrcs = skb_header_pointer(skb,
++					   len + offsetof(struct mld2_grec,
++							  grec_mca),
++					   sizeof(_nsrcs), &_nsrcs);
++		if (!nsrcs)
++			return -EINVAL;
++
++		if (!pskb_may_pull(skb,
++				   len + sizeof(*grec) +
++				   sizeof(struct in6_addr) * (*nsrcs)))
++			return -EINVAL;
++
++		grec = (struct mld2_grec *)(skb->data + len);
++		len += sizeof(*grec) + sizeof(struct in6_addr) * (*nsrcs);
++
++		/* We treat these as MLDv1 reports for now. */
++		switch (grec->grec_type) {
++		case MLD2_MODE_IS_INCLUDE:
++		case MLD2_MODE_IS_EXCLUDE:
++		case MLD2_CHANGE_TO_INCLUDE:
++		case MLD2_CHANGE_TO_EXCLUDE:
++		case MLD2_ALLOW_NEW_SOURCES:
++		case MLD2_BLOCK_OLD_SOURCES:
++			break;
++
++		default:
++			continue;
++		}
++
++		err = br_ip6_multicast_add_group(br, port, &grec->grec_mca);
++		if (!err)
++			break;
++	}
++
++	return err;
++}
++#endif
++
+ static void br_multicast_add_router(struct net_bridge *br,
+ 				    struct net_bridge_port *port)
+ {
+@@ -955,6 +1168,75 @@ out:
+ 	return err;
+ }
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++static int br_ip6_multicast_query(struct net_bridge *br,
++				  struct net_bridge_port *port,
++				  struct sk_buff *skb)
++{
++	struct ipv6hdr *ip6h = ipv6_hdr(skb);
++	struct mld_msg *mld = (struct mld_msg *) icmp6_hdr(skb);
++	struct net_bridge_mdb_entry *mp;
++	struct mld2_query *mld2q;
++	struct net_bridge_port_group *p, **pp;
++	unsigned long max_delay;
++	unsigned long now = jiffies;
++	struct in6_addr *group = NULL;
++	int err = 0;
++
++	spin_lock(&br->multicast_lock);
++	if (!netif_running(br->dev) ||
++	    (port && port->state == BR_STATE_DISABLED))
++		goto out;
++
++	br_multicast_query_received(br, port, !ipv6_addr_any(&ip6h->saddr));
++
++	if (skb->len == sizeof(*mld)) {
++		if (!pskb_may_pull(skb, sizeof(*mld))) {
++			err = -EINVAL;
++			goto out;
++		}
++		mld = (struct mld_msg *) icmp6_hdr(skb);
++		max_delay = msecs_to_jiffies(htons(mld->mld_maxdelay));
++		if (max_delay)
++			group = &mld->mld_mca;
++	} else if (skb->len >= sizeof(*mld2q)) {
++		if (!pskb_may_pull(skb, sizeof(*mld2q))) {
++			err = -EINVAL;
++			goto out;
++		}
++		mld2q = (struct mld2_query *)icmp6_hdr(skb);
++		if (!mld2q->mld2q_nsrcs)
++			group = &mld2q->mld2q_mca;
++		max_delay = mld2q->mld2q_mrc ? MLDV2_MRC(mld2q->mld2q_mrc) : 1;
++	}
++
++	if (!group)
++		goto out;
++
++	mp = br_mdb_ip6_get(br->mdb, group);
++	if (!mp)
++		goto out;
++
++	max_delay *= br->multicast_last_member_count;
++	if (!hlist_unhashed(&mp->mglist) &&
++	    (timer_pending(&mp->timer) ?
++	     time_after(mp->timer.expires, now + max_delay) :
++	     try_to_del_timer_sync(&mp->timer) >= 0))
++		mod_timer(&mp->timer, now + max_delay);
++
++	for (pp = &mp->ports; (p = *pp); pp = &p->next) {
++		if (timer_pending(&p->timer) ?
++		    time_after(p->timer.expires, now + max_delay) :
++		    try_to_del_timer_sync(&p->timer) >= 0)
++			mod_timer(&mp->timer, now + max_delay);
++	}
++
++out:
++	spin_unlock(&br->multicast_lock);
++	return err;
++}
++#endif
++
+ static void br_multicast_leave_group(struct net_bridge *br,
+ 				     struct net_bridge_port *port,
+ 				     struct br_ip *group)
+@@ -1030,6 +1312,22 @@ static void br_ip4_multicast_leave_group(struct net_bridge *br,
+ 	br_multicast_leave_group(br, port, &br_group);
+ }
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++static void br_ip6_multicast_leave_group(struct net_bridge *br,
++					 struct net_bridge_port *port,
++					 const struct in6_addr *group)
++{
++	struct br_ip br_group;
++
++	if (ipv6_is_local_multicast(group))
++		return;
++
++	ipv6_addr_copy(&br_group.u.ip6, group);
++	br_group.proto = htons(ETH_P_IPV6);
++
++	br_multicast_leave_group(br, port, &br_group);
++}
++#endif
+ 
+ static int br_multicast_ipv4_rcv(struct net_bridge *br,
+ 				 struct net_bridge_port *port,
+@@ -1129,6 +1427,126 @@ err_out:
+ 	return err;
+ }
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++static int br_multicast_ipv6_rcv(struct net_bridge *br,
++				 struct net_bridge_port *port,
++				 struct sk_buff *skb)
++{
++	struct sk_buff *skb2 = skb;
++	struct ipv6hdr *ip6h;
++	struct icmp6hdr *icmp6h;
++	u8 nexthdr;
++	unsigned len;
++	unsigned offset;
++	int err;
++
++	BR_INPUT_SKB_CB(skb)->igmp = 0;
++	BR_INPUT_SKB_CB(skb)->mrouters_only = 0;
++
++	if (!pskb_may_pull(skb, sizeof(*ip6h)))
++		return -EINVAL;
++
++	ip6h = ipv6_hdr(skb);
++
++	/*
++	 * We're interested in MLD messages only.
++	 *  - Version is 6
++	 *  - MLD has always Router Alert hop-by-hop option
++	 *  - But we do not support jumbrograms.
++	 */
++	if (ip6h->version != 6 ||
++	    ip6h->nexthdr != IPPROTO_HOPOPTS ||
++	    ip6h->payload_len == 0)
++		return 0;
++
++	len = ntohs(ip6h->payload_len);
++	if (skb->len < len)
++		return -EINVAL;
++
++	nexthdr = ip6h->nexthdr;
++	offset = ipv6_skip_exthdr(skb, sizeof(*ip6h), &nexthdr);
++
++	if (offset < 0 || nexthdr != IPPROTO_ICMPV6)
++		return 0;
++
++	/* Okay, we found ICMPv6 header */
++	skb2 = skb_clone(skb, GFP_ATOMIC);
++	if (!skb2)
++		return -ENOMEM;
++
++	len -= offset - skb_network_offset(skb2);
++
++	__skb_pull(skb2, offset);
++	skb_reset_transport_header(skb2);
++
++	err = -EINVAL;
++	if (!pskb_may_pull(skb2, sizeof(*icmp6h)))
++		goto out;
++
++	icmp6h = icmp6_hdr(skb2);
++
++	switch (icmp6h->icmp6_type) {
++	case ICMPV6_MGM_QUERY:
++	case ICMPV6_MGM_REPORT:
++	case ICMPV6_MGM_REDUCTION:
++	case ICMPV6_MLD2_REPORT:
++		break;
++	default:
++		err = 0;
++		goto out;
++	}
++
++	/* Okay, we found MLD message. Check further. */
++	if (skb2->len > len) {
++		err = pskb_trim_rcsum(skb2, len);
++		if (err)
++			goto out;
++	}
++
++	switch (skb2->ip_summed) {
++	case CHECKSUM_COMPLETE:
++		if (!csum_fold(skb2->csum))
++			break;
++		/*FALLTHROUGH*/
++	case CHECKSUM_NONE:
++		skb2->csum = 0;
++		if (skb_checksum_complete(skb2))
++			goto out;
++	}
++
++	err = 0;
++
++	BR_INPUT_SKB_CB(skb)->igmp = 1;
++
++	switch (icmp6h->icmp6_type) {
++	case ICMPV6_MGM_REPORT:
++	    {
++		struct mld_msg *mld = (struct mld_msg *)icmp6h;
++		BR_INPUT_SKB_CB(skb2)->mrouters_only = 1;
++		err = br_ip6_multicast_add_group(br, port, &mld->mld_mca);
++		break;
++	    }
++	case ICMPV6_MLD2_REPORT:
++		err = br_ip6_multicast_mld2_report(br, port, skb2);
++		break;
++	case ICMPV6_MGM_QUERY:
++		err = br_ip6_multicast_query(br, port, skb2);
++		break;
++	case ICMPV6_MGM_REDUCTION:
++	    {
++		struct mld_msg *mld = (struct mld_msg *)icmp6h;
++		br_ip6_multicast_leave_group(br, port, &mld->mld_mca);
++	    }
++	}
++
++out:
++	__skb_push(skb2, offset);
++	if (skb2 != skb)
++		kfree_skb(skb2);
++	return err;
++}
++#endif
++
+ int br_multicast_rcv(struct net_bridge *br, struct net_bridge_port *port,
+ 		     struct sk_buff *skb)
+ {
+@@ -1138,6 +1556,10 @@ int br_multicast_rcv(struct net_bridge *br, struct net_bridge_port *port,
+ 	switch (skb->protocol) {
+ 	case htons(ETH_P_IP):
+ 		return br_multicast_ipv4_rcv(br, port, skb);
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	case htons(ETH_P_IPV6):
++		return br_multicast_ipv6_rcv(br, port, skb);
++#endif
+ 	}
+ 
+ 	return 0;
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 45d11e4..018499e 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -49,6 +49,9 @@ struct br_ip
+ {
+ 	union {
+ 		__be32	ip4;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++		struct in6_addr ip6;
++#endif
+ 	} u;
+ 	__be16		proto;
+ };
+
+---
+commit 6e7cb8370760ec17e10098399822292def8d84f3
+Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date:   Sun Apr 18 12:42:05 2010 +0900
+
+    ipv6 mcast: Introduce include/net/mld.h for MLD definitions.
+    
+    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+diff --git a/include/net/mld.h b/include/net/mld.h
+new file mode 100644
+index 0000000..467143c
+--- /dev/null
++++ b/include/net/mld.h
+@@ -0,0 +1,75 @@
++#ifndef LINUX_MLD_H
++#define LINUX_MLD_H
++
++#include <linux/in6.h>
++#include <linux/icmpv6.h>
++
++/* MLDv1 Query/Report/Done */
++struct mld_msg {
++	struct icmp6hdr		mld_hdr;
++	struct in6_addr		mld_mca;
++};
++
++#define mld_type		mld_hdr.icmp6_type
++#define mld_code		mld_hdr.icmp6_code
++#define mld_cksum		mld_hdr.icmp6_cksum
++#define mld_maxdelay		mld_hdr.icmp6_maxdelay
++#define mld_reserved		mld_hdr.icmp6_dataun.un_data16[1]
++
++/* Multicast Listener Discovery version 2 headers */
++/* MLDv2 Report */
++struct mld2_grec {
++	__u8		grec_type;
++	__u8		grec_auxwords;
++	__be16		grec_nsrcs;
++	struct in6_addr	grec_mca;
++	struct in6_addr	grec_src[0];
++};
++
++struct mld2_report {
++	struct icmp6hdr		mld2r_hdr;
++	struct mld2_grec	mld2r_grec[0];
++};
++
++#define mld2r_type		mld2r_hdr.icmp6_type
++#define mld2r_resv1		mld2r_hdr.icmp6_code
++#define mld2r_cksum		mld2r_hdr.icmp6_cksum
++#define mld2r_resv2		mld2r_hdr.icmp6_dataun.un_data16[0]
++#define mld2r_ngrec		mld2r_hdr.icmp6_dataun.un_data16[1]
++
++/* MLDv2 Query */
++struct mld2_query {
++	struct icmp6hdr		mld2q_hdr;
++	struct in6_addr		mld2q_mca;
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++	__u8			mld2q_qrv:3,
++				mld2q_suppress:1,
++				mld2q_resv2:4;
++#elif defined(__BIG_ENDIAN_BITFIELD)
++	__u8			mld2q_resv2:4,
++				mld2q_suppress:1,
++				mld2q_qrv:3;
++#else
++#error "Please fix <asm/byteorder.h>"
++#endif
++	__u8			mld2q_qqic;
++	__be16			mld2q_nsrcs;
++	struct in6_addr		mld2q_srcs[0];
++};
++
++#define mld2q_type		mld2q_hdr.icmp6_type
++#define mld2q_code		mld2q_hdr.icmp6_code
++#define mld2q_cksum		mld2q_hdr.icmp6_cksum
++#define mld2q_mrc		mld2q_hdr.icmp6_maxdelay
++#define mld2q_resv1		mld2q_hdr.icmp6_dataun.un_data16[1]
++
++/* Max Response Code */
++#define MLDV2_MASK(value, nb) ((nb)>=32 ? (value) : ((1<<(nb))-1) & (value))
++#define MLDV2_EXP(thresh, nbmant, nbexp, value) \
++	((value) < (thresh) ? (value) : \
++	((MLDV2_MASK(value, nbmant) | (1<<(nbmant))) << \
++	(MLDV2_MASK((value) >> (nbmant), nbexp) + (nbexp))))
++
++#define MLDV2_MRC(value) MLDV2_EXP(0x8000, 12, 3, value)
++
++#endif
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index 62ed082..006aee6 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -44,6 +44,7 @@
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+ #include <linux/slab.h>
++#include <net/mld.h>
+ 
+ #include <linux/netfilter.h>
+ #include <linux/netfilter_ipv6.h>
+@@ -71,54 +72,11 @@
+ #define MDBG(x)
+ #endif
+ 
+-/*
+- *  These header formats should be in a separate include file, but icmpv6.h
+- *  doesn't have in6_addr defined in all cases, there is no __u128, and no
+- *  other files reference these.
+- *
+- *  			+-DLS 4/14/03
+- */
+-
+-/* Multicast Listener Discovery version 2 headers */
+-
+-struct mld2_grec {
+-	__u8		grec_type;
+-	__u8		grec_auxwords;
+-	__be16		grec_nsrcs;
+-	struct in6_addr	grec_mca;
+-	struct in6_addr	grec_src[0];
+-};
+-
+-struct mld2_report {
+-	__u8	type;
+-	__u8	resv1;
+-	__sum16	csum;
+-	__be16	resv2;
+-	__be16	ngrec;
+-	struct mld2_grec grec[0];
+-};
+-
+-struct mld2_query {
+-	__u8 type;
+-	__u8 code;
+-	__sum16 csum;
+-	__be16 mrc;
+-	__be16 resv1;
+-	struct in6_addr mca;
+-#if defined(__LITTLE_ENDIAN_BITFIELD)
+-	__u8 qrv:3,
+-	     suppress:1,
+-	     resv2:4;
+-#elif defined(__BIG_ENDIAN_BITFIELD)
+-	__u8 resv2:4,
+-	     suppress:1,
+-	     qrv:3;
+-#else
+-#error "Please fix <asm/byteorder.h>"
+-#endif
+-	__u8 qqic;
+-	__be16 nsrcs;
+-	struct in6_addr srcs[0];
++/* Ensure that we have struct in6_addr aligned on 32bit word. */
++static void *__mld2_query_bugs[] __attribute__((__unused__)) = {
++	BUILD_BUG_ON_NULL(offsetof(struct mld2_query, mld2q_srcs) % 4),
++	BUILD_BUG_ON_NULL(offsetof(struct mld2_report, mld2r_grec) % 4),
++	BUILD_BUG_ON_NULL(offsetof(struct mld2_grec, grec_mca) % 4)
+ };
+ 
+ static struct in6_addr mld2_all_mcr = MLD2_ALL_MCR_INIT;
+@@ -157,14 +115,6 @@ static int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
+ 		((idev)->mc_v1_seen && \
+ 		time_before(jiffies, (idev)->mc_v1_seen)))
+ 
+-#define MLDV2_MASK(value, nb) ((nb)>=32 ? (value) : ((1<<(nb))-1) & (value))
+-#define MLDV2_EXP(thresh, nbmant, nbexp, value) \
+-	((value) < (thresh) ? (value) : \
+-	((MLDV2_MASK(value, nbmant) | (1<<(nbmant))) << \
+-	(MLDV2_MASK((value) >> (nbmant), nbexp) + (nbexp))))
+-
+-#define MLDV2_MRC(value) MLDV2_EXP(0x8000, 12, 3, value)
+-
+ #define IPV6_MLD_MAX_MSF	64
+ 
+ int sysctl_mld_max_msf __read_mostly = IPV6_MLD_MAX_MSF;
+@@ -1161,7 +1111,7 @@ int igmp6_event_query(struct sk_buff *skb)
+ 	struct in6_addr *group;
+ 	unsigned long max_delay;
+ 	struct inet6_dev *idev;
+-	struct icmp6hdr *hdr;
++	struct mld_msg *mld;
+ 	int group_type;
+ 	int mark = 0;
+ 	int len;
+@@ -1182,8 +1132,8 @@ int igmp6_event_query(struct sk_buff *skb)
+ 	if (idev == NULL)
+ 		return 0;
+ 
+-	hdr = icmp6_hdr(skb);
+-	group = (struct in6_addr *) (hdr + 1);
++	mld = (struct mld_msg *)icmp6_hdr(skb);
++	group = &mld->mld_mca;
+ 	group_type = ipv6_addr_type(group);
+ 
+ 	if (group_type != IPV6_ADDR_ANY &&
+@@ -1197,7 +1147,7 @@ int igmp6_event_query(struct sk_buff *skb)
+ 		/* MLDv1 router present */
+ 
+ 		/* Translate milliseconds to jiffies */
+-		max_delay = (ntohs(hdr->icmp6_maxdelay)*HZ)/1000;
++		max_delay = (ntohs(mld->mld_maxdelay)*HZ)/1000;
+ 
+ 		switchback = (idev->mc_qrv + 1) * max_delay;
+ 		idev->mc_v1_seen = jiffies + switchback;
+@@ -1216,14 +1166,14 @@ int igmp6_event_query(struct sk_buff *skb)
+ 			return -EINVAL;
+ 		}
+ 		mlh2 = (struct mld2_query *)skb_transport_header(skb);
+-		max_delay = (MLDV2_MRC(ntohs(mlh2->mrc))*HZ)/1000;
++		max_delay = (MLDV2_MRC(ntohs(mlh2->mld2q_mrc))*HZ)/1000;
+ 		if (!max_delay)
+ 			max_delay = 1;
+ 		idev->mc_maxdelay = max_delay;
+-		if (mlh2->qrv)
+-			idev->mc_qrv = mlh2->qrv;
++		if (mlh2->mld2q_qrv)
++			idev->mc_qrv = mlh2->mld2q_qrv;
+ 		if (group_type == IPV6_ADDR_ANY) { /* general query */
+-			if (mlh2->nsrcs) {
++			if (mlh2->mld2q_nsrcs) {
+ 				in6_dev_put(idev);
+ 				return -EINVAL; /* no sources allowed */
+ 			}
+@@ -1232,9 +1182,9 @@ int igmp6_event_query(struct sk_buff *skb)
+ 			return 0;
+ 		}
+ 		/* mark sources to include, if group & source-specific */
+-		if (mlh2->nsrcs != 0) {
++		if (mlh2->mld2q_nsrcs != 0) {
+ 			if (!pskb_may_pull(skb, srcs_offset +
+-			    ntohs(mlh2->nsrcs) * sizeof(struct in6_addr))) {
++			    ntohs(mlh2->mld2q_nsrcs) * sizeof(struct in6_addr))) {
+ 				in6_dev_put(idev);
+ 				return -EINVAL;
+ 			}
+@@ -1270,7 +1220,7 @@ int igmp6_event_query(struct sk_buff *skb)
+ 					ma->mca_flags &= ~MAF_GSQUERY;
+ 			}
+ 			if (!(ma->mca_flags & MAF_GSQUERY) ||
+-			    mld_marksources(ma, ntohs(mlh2->nsrcs), mlh2->srcs))
++			    mld_marksources(ma, ntohs(mlh2->mld2q_nsrcs), mlh2->mld2q_srcs))
+ 				igmp6_group_queried(ma, max_delay);
+ 			spin_unlock_bh(&ma->mca_lock);
+ 			break;
+@@ -1286,9 +1236,8 @@ int igmp6_event_query(struct sk_buff *skb)
+ int igmp6_event_report(struct sk_buff *skb)
+ {
+ 	struct ifmcaddr6 *ma;
+-	struct in6_addr *addrp;
+ 	struct inet6_dev *idev;
+-	struct icmp6hdr *hdr;
++	struct mld_msg *mld;
+ 	int addr_type;
+ 
+ 	/* Our own report looped back. Ignore it. */
+@@ -1300,10 +1249,10 @@ int igmp6_event_report(struct sk_buff *skb)
+ 	    skb->pkt_type != PACKET_BROADCAST)
+ 		return 0;
+ 
+-	if (!pskb_may_pull(skb, sizeof(struct in6_addr)))
++	if (!pskb_may_pull(skb, sizeof(*mld) - sizeof(struct icmp6hdr)))
+ 		return -EINVAL;
+ 
+-	hdr = icmp6_hdr(skb);
++	mld = (struct mld_msg *)icmp6_hdr(skb);
+ 
+ 	/* Drop reports with not link local source */
+ 	addr_type = ipv6_addr_type(&ipv6_hdr(skb)->saddr);
+@@ -1311,8 +1260,6 @@ int igmp6_event_report(struct sk_buff *skb)
+ 	    !(addr_type&IPV6_ADDR_LINKLOCAL))
+ 		return -EINVAL;
+ 
+-	addrp = (struct in6_addr *) (hdr + 1);
+-
+ 	idev = in6_dev_get(skb->dev);
+ 	if (idev == NULL)
+ 		return -ENODEV;
+@@ -1323,7 +1270,7 @@ int igmp6_event_report(struct sk_buff *skb)
+ 
+ 	read_lock_bh(&idev->lock);
+ 	for (ma = idev->mc_list; ma; ma=ma->next) {
+-		if (ipv6_addr_equal(&ma->mca_addr, addrp)) {
++		if (ipv6_addr_equal(&ma->mca_addr, &mld->mld_mca)) {
+ 			spin_lock(&ma->mca_lock);
+ 			if (del_timer(&ma->mca_timer))
+ 				atomic_dec(&ma->mca_refcnt);
+@@ -1432,11 +1379,11 @@ static struct sk_buff *mld_newpack(struct net_device *dev, int size)
+ 	skb_set_transport_header(skb, skb_tail_pointer(skb) - skb->data);
+ 	skb_put(skb, sizeof(*pmr));
+ 	pmr = (struct mld2_report *)skb_transport_header(skb);
+-	pmr->type = ICMPV6_MLD2_REPORT;
+-	pmr->resv1 = 0;
+-	pmr->csum = 0;
+-	pmr->resv2 = 0;
+-	pmr->ngrec = 0;
++	pmr->mld2r_type = ICMPV6_MLD2_REPORT;
++	pmr->mld2r_resv1 = 0;
++	pmr->mld2r_cksum = 0;
++	pmr->mld2r_resv2 = 0;
++	pmr->mld2r_ngrec = 0;
+ 	return skb;
+ }
+ 
+@@ -1458,9 +1405,10 @@ static void mld_sendpack(struct sk_buff *skb)
+ 	mldlen = skb->tail - skb->transport_header;
+ 	pip6->payload_len = htons(payload_len);
+ 
+-	pmr->csum = csum_ipv6_magic(&pip6->saddr, &pip6->daddr, mldlen,
+-		IPPROTO_ICMPV6, csum_partial(skb_transport_header(skb),
+-					     mldlen, 0));
++	pmr->mld2r_cksum = csum_ipv6_magic(&pip6->saddr, &pip6->daddr, mldlen,
++					   IPPROTO_ICMPV6,
++					   csum_partial(skb_transport_header(skb),
++							mldlen, 0));
+ 
+ 	dst = icmp6_dst_alloc(skb->dev, NULL, &ipv6_hdr(skb)->daddr);
+ 
+@@ -1521,7 +1469,7 @@ static struct sk_buff *add_grhead(struct sk_buff *skb, struct ifmcaddr6 *pmc,
+ 	pgr->grec_nsrcs = 0;
+ 	pgr->grec_mca = pmc->mca_addr;	/* structure copy */
+ 	pmr = (struct mld2_report *)skb_transport_header(skb);
+-	pmr->ngrec = htons(ntohs(pmr->ngrec)+1);
++	pmr->mld2r_ngrec = htons(ntohs(pmr->mld2r_ngrec)+1);
+ 	*ppgr = pgr;
+ 	return skb;
+ }
+@@ -1557,7 +1505,7 @@ static struct sk_buff *add_grec(struct sk_buff *skb, struct ifmcaddr6 *pmc,
+ 
+ 	/* EX and TO_EX get a fresh packet, if needed */
+ 	if (truncate) {
+-		if (pmr && pmr->ngrec &&
++		if (pmr && pmr->mld2r_ngrec &&
+ 		    AVAILABLE(skb) < grec_size(pmc, type, gdeleted, sdeleted)) {
+ 			if (skb)
+ 				mld_sendpack(skb);
+@@ -1770,9 +1718,8 @@ static void igmp6_send(struct in6_addr *addr, struct net_device *dev, int type)
+ 	struct sock *sk = net->ipv6.igmp_sk;
+ 	struct inet6_dev *idev;
+ 	struct sk_buff *skb;
+-	struct icmp6hdr *hdr;
++	struct mld_msg *hdr;
+ 	const struct in6_addr *snd_addr, *saddr;
+-	struct in6_addr *addrp;
+ 	struct in6_addr addr_buf;
+ 	int err, len, payload_len, full_len;
+ 	u8 ra[8] = { IPPROTO_ICMPV6, 0,
+@@ -1820,16 +1767,14 @@ static void igmp6_send(struct in6_addr *addr, struct net_device *dev, int type)
+ 
+ 	memcpy(skb_put(skb, sizeof(ra)), ra, sizeof(ra));
+ 
+-	hdr = (struct icmp6hdr *) skb_put(skb, sizeof(struct icmp6hdr));
+-	memset(hdr, 0, sizeof(struct icmp6hdr));
+-	hdr->icmp6_type = type;
++	hdr = (struct mld_msg *) skb_put(skb, sizeof(struct mld_msg));
++	memset(hdr, 0, sizeof(struct mld_msg));
++	hdr->mld_type = type;
++	ipv6_addr_copy(&hdr->mld_mca, addr);
+ 
+-	addrp = (struct in6_addr *) skb_put(skb, sizeof(struct in6_addr));
+-	ipv6_addr_copy(addrp, addr);
+-
+-	hdr->icmp6_cksum = csum_ipv6_magic(saddr, snd_addr, len,
+-					   IPPROTO_ICMPV6,
+-					   csum_partial(hdr, len, 0));
++	hdr->mld_cksum = csum_ipv6_magic(saddr, snd_addr, len,
++					 IPPROTO_ICMPV6,
++					 csum_partial(hdr, len, 0));
+ 
+ 	idev = in6_dev_get(skb->dev);
+ 
+
+---
+commit 8ef2a9a59854994bace13b5c4f7edc2c8d4d124e
+Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date:   Sun Apr 18 12:42:07 2010 +0900
+
+    bridge br_multicast: Make functions less ipv4 dependent.
+    
+    Introduce struct br_ip{} to store ip address and protocol
+    and make functions more generic so that we can support
+    both IPv4 and IPv6 with less pain.
+    
+    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 81bfdfe..64a3e4f 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -27,48 +27,86 @@
+ 
+ #include "br_private.h"
+ 
+-static inline int br_ip_hash(struct net_bridge_mdb_htable *mdb, __be32 ip)
++static inline int br_ip_equal(const struct br_ip *a, const struct br_ip *b)
++{
++	if (a->proto != b->proto)
++		return 0;
++	switch (a->proto) {
++	case htons(ETH_P_IP):
++		return a->u.ip4 == b->u.ip4;
++	}
++	return 0;
++}
++
++static inline int __br_ip4_hash(struct net_bridge_mdb_htable *mdb, __be32 ip)
+ {
+ 	return jhash_1word(mdb->secret, (__force u32)ip) & (mdb->max - 1);
+ }
+ 
++static inline int br_ip_hash(struct net_bridge_mdb_htable *mdb,
++			     struct br_ip *ip)
++{
++	switch (ip->proto) {
++	case htons(ETH_P_IP):
++		return __br_ip4_hash(mdb, ip->u.ip4);
++	}
++	return 0;
++}
++
+ static struct net_bridge_mdb_entry *__br_mdb_ip_get(
+-	struct net_bridge_mdb_htable *mdb, __be32 dst, int hash)
++	struct net_bridge_mdb_htable *mdb, struct br_ip *dst, int hash)
+ {
+ 	struct net_bridge_mdb_entry *mp;
+ 	struct hlist_node *p;
+ 
+ 	hlist_for_each_entry_rcu(mp, p, &mdb->mhash[hash], hlist[mdb->ver]) {
+-		if (dst == mp->addr)
++		if (br_ip_equal(&mp->addr, dst))
+ 			return mp;
+ 	}
+ 
+ 	return NULL;
+ }
+ 
+-static struct net_bridge_mdb_entry *br_mdb_ip_get(
++static struct net_bridge_mdb_entry *br_mdb_ip4_get(
+ 	struct net_bridge_mdb_htable *mdb, __be32 dst)
+ {
+-	if (!mdb)
+-		return NULL;
++	struct br_ip br_dst;
++
++	br_dst.u.ip4 = dst;
++	br_dst.proto = htons(ETH_P_IP);
+ 
++	return __br_mdb_ip_get(mdb, &br_dst, __br_ip4_hash(mdb, dst));
++}
++
++static struct net_bridge_mdb_entry *br_mdb_ip_get(
++	struct net_bridge_mdb_htable *mdb, struct br_ip *dst)
++{
+ 	return __br_mdb_ip_get(mdb, dst, br_ip_hash(mdb, dst));
+ }
+ 
+ struct net_bridge_mdb_entry *br_mdb_get(struct net_bridge *br,
+ 					struct sk_buff *skb)
+ {
+-	if (br->multicast_disabled)
++	struct net_bridge_mdb_htable *mdb = br->mdb;
++	struct br_ip ip;
++
++	if (!mdb || br->multicast_disabled)
++		return NULL;
++
++	if (BR_INPUT_SKB_CB(skb)->igmp)
+ 		return NULL;
+ 
++	ip.proto = skb->protocol;
++
+ 	switch (skb->protocol) {
+ 	case htons(ETH_P_IP):
+-		if (BR_INPUT_SKB_CB(skb)->igmp)
+-			break;
+-		return br_mdb_ip_get(br->mdb, ip_hdr(skb)->daddr);
++		ip.u.ip4 = ip_hdr(skb)->daddr;
++		break;
++	default:
++		return NULL;
+ 	}
+ 
+-	return NULL;
++	return br_mdb_ip_get(mdb, &ip);
+ }
+ 
+ static void br_mdb_free(struct rcu_head *head)
+@@ -95,7 +133,7 @@ static int br_mdb_copy(struct net_bridge_mdb_htable *new,
+ 	for (i = 0; i < old->max; i++)
+ 		hlist_for_each_entry(mp, p, &old->mhash[i], hlist[old->ver])
+ 			hlist_add_head(&mp->hlist[new->ver],
+-				       &new->mhash[br_ip_hash(new, mp->addr)]);
++				       &new->mhash[br_ip_hash(new, &mp->addr)]);
+ 
+ 	if (!elasticity)
+ 		return 0;
+@@ -163,7 +201,7 @@ static void br_multicast_del_pg(struct net_bridge *br,
+ 	struct net_bridge_port_group *p;
+ 	struct net_bridge_port_group **pp;
+ 
+-	mp = br_mdb_ip_get(mdb, pg->addr);
++	mp = br_mdb_ip_get(mdb, &pg->addr);
+ 	if (WARN_ON(!mp))
+ 		return;
+ 
+@@ -249,8 +287,8 @@ out:
+ 	return 0;
+ }
+ 
+-static struct sk_buff *br_multicast_alloc_query(struct net_bridge *br,
+-						__be32 group)
++static struct sk_buff *br_ip4_multicast_alloc_query(struct net_bridge *br,
++						    __be32 group)
+ {
+ 	struct sk_buff *skb;
+ 	struct igmphdr *ih;
+@@ -314,12 +352,22 @@ out:
+ 	return skb;
+ }
+ 
++static struct sk_buff *br_multicast_alloc_query(struct net_bridge *br,
++						struct br_ip *addr)
++{
++	switch (addr->proto) {
++	case htons(ETH_P_IP):
++		return br_ip4_multicast_alloc_query(br, addr->u.ip4);
++	}
++	return NULL;
++}
++
+ static void br_multicast_send_group_query(struct net_bridge_mdb_entry *mp)
+ {
+ 	struct net_bridge *br = mp->br;
+ 	struct sk_buff *skb;
+ 
+-	skb = br_multicast_alloc_query(br, mp->addr);
++	skb = br_multicast_alloc_query(br, &mp->addr);
+ 	if (!skb)
+ 		goto timer;
+ 
+@@ -353,7 +401,7 @@ static void br_multicast_send_port_group_query(struct net_bridge_port_group *pg)
+ 	struct net_bridge *br = port->br;
+ 	struct sk_buff *skb;
+ 
+-	skb = br_multicast_alloc_query(br, pg->addr);
++	skb = br_multicast_alloc_query(br, &pg->addr);
+ 	if (!skb)
+ 		goto timer;
+ 
+@@ -383,8 +431,8 @@ out:
+ }
+ 
+ static struct net_bridge_mdb_entry *br_multicast_get_group(
+-	struct net_bridge *br, struct net_bridge_port *port, __be32 group,
+-	int hash)
++	struct net_bridge *br, struct net_bridge_port *port,
++	struct br_ip *group, int hash)
+ {
+ 	struct net_bridge_mdb_htable *mdb = br->mdb;
+ 	struct net_bridge_mdb_entry *mp;
+@@ -396,9 +444,8 @@ static struct net_bridge_mdb_entry *br_multicast_get_group(
+ 
+ 	hlist_for_each_entry(mp, p, &mdb->mhash[hash], hlist[mdb->ver]) {
+ 		count++;
+-		if (unlikely(group == mp->addr)) {
++		if (unlikely(br_ip_equal(group, &mp->addr)))
+ 			return mp;
+-		}
+ 	}
+ 
+ 	elasticity = 0;
+@@ -463,7 +510,8 @@ err:
+ }
+ 
+ static struct net_bridge_mdb_entry *br_multicast_new_group(
+-	struct net_bridge *br, struct net_bridge_port *port, __be32 group)
++	struct net_bridge *br, struct net_bridge_port *port,
++	struct br_ip *group)
+ {
+ 	struct net_bridge_mdb_htable *mdb = br->mdb;
+ 	struct net_bridge_mdb_entry *mp;
+@@ -496,7 +544,7 @@ rehash:
+ 		goto out;
+ 
+ 	mp->br = br;
+-	mp->addr = group;
++	mp->addr = *group;
+ 	setup_timer(&mp->timer, br_multicast_group_expired,
+ 		    (unsigned long)mp);
+ 	setup_timer(&mp->query_timer, br_multicast_group_query_expired,
+@@ -510,7 +558,8 @@ out:
+ }
+ 
+ static int br_multicast_add_group(struct net_bridge *br,
+-				  struct net_bridge_port *port, __be32 group)
++				  struct net_bridge_port *port,
++				  struct br_ip *group)
+ {
+ 	struct net_bridge_mdb_entry *mp;
+ 	struct net_bridge_port_group *p;
+@@ -518,9 +567,6 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 	unsigned long now = jiffies;
+ 	int err;
+ 
+-	if (ipv4_is_local_multicast(group))
+-		return 0;
+-
+ 	spin_lock(&br->multicast_lock);
+ 	if (!netif_running(br->dev) ||
+ 	    (port && port->state == BR_STATE_DISABLED))
+@@ -549,7 +595,7 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 	if (unlikely(!p))
+ 		goto err;
+ 
+-	p->addr = group;
++	p->addr = *group;
+ 	p->port = port;
+ 	p->next = *pp;
+ 	hlist_add_head(&p->mglist, &port->mglist);
+@@ -570,6 +616,21 @@ err:
+ 	return err;
+ }
+ 
++static int br_ip4_multicast_add_group(struct net_bridge *br,
++				      struct net_bridge_port *port,
++				      __be32 group)
++{
++	struct br_ip br_group;
++
++	if (ipv4_is_local_multicast(group))
++		return 0;
++
++	br_group.u.ip4 = group;
++	br_group.proto = htons(ETH_P_IP);
++
++	return br_multicast_add_group(br, port, &br_group);
++}
++
+ static void br_multicast_router_expired(unsigned long data)
+ {
+ 	struct net_bridge_port *port = (void *)data;
+@@ -591,19 +652,15 @@ static void br_multicast_local_router_expired(unsigned long data)
+ {
+ }
+ 
+-static void br_multicast_send_query(struct net_bridge *br,
+-				    struct net_bridge_port *port, u32 sent)
++static void __br_multicast_send_query(struct net_bridge *br,
++				      struct net_bridge_port *port,
++				      struct br_ip *ip)
+ {
+-	unsigned long time;
+ 	struct sk_buff *skb;
+ 
+-	if (!netif_running(br->dev) || br->multicast_disabled ||
+-	    timer_pending(&br->multicast_querier_timer))
+-		return;
+-
+-	skb = br_multicast_alloc_query(br, 0);
++	skb = br_multicast_alloc_query(br, ip);
+ 	if (!skb)
+-		goto timer;
++		return;
+ 
+ 	if (port) {
+ 		__skb_push(skb, sizeof(struct ethhdr));
+@@ -612,8 +669,23 @@ static void br_multicast_send_query(struct net_bridge *br,
+ 			dev_queue_xmit);
+ 	} else
+ 		netif_rx(skb);
++}
++
++static void br_multicast_send_query(struct net_bridge *br,
++				    struct net_bridge_port *port, u32 sent)
++{
++	unsigned long time;
++	struct br_ip br_group;
++
++	if (!netif_running(br->dev) || br->multicast_disabled ||
++	    timer_pending(&br->multicast_querier_timer))
++		return;
++
++	br_group.u.ip4 = 0;
++	br_group.proto = htons(ETH_P_IP);
++
++	__br_multicast_send_query(br, port, &br_group);
+ 
+-timer:
+ 	time = jiffies;
+ 	time += sent < br->multicast_startup_query_count ?
+ 		br->multicast_startup_query_interval :
+@@ -698,9 +770,9 @@ void br_multicast_disable_port(struct net_bridge_port *port)
+ 	spin_unlock(&br->multicast_lock);
+ }
+ 
+-static int br_multicast_igmp3_report(struct net_bridge *br,
+-				     struct net_bridge_port *port,
+-				     struct sk_buff *skb)
++static int br_ip4_multicast_igmp3_report(struct net_bridge *br,
++					 struct net_bridge_port *port,
++					 struct sk_buff *skb)
+ {
+ 	struct igmpv3_report *ih;
+ 	struct igmpv3_grec *grec;
+@@ -745,7 +817,7 @@ static int br_multicast_igmp3_report(struct net_bridge *br,
+ 			continue;
+ 		}
+ 
+-		err = br_multicast_add_group(br, port, group);
++		err = br_ip4_multicast_add_group(br, port, group);
+ 		if (err)
+ 			break;
+ 	}
+@@ -800,7 +872,7 @@ timer:
+ 
+ static void br_multicast_query_received(struct net_bridge *br,
+ 					struct net_bridge_port *port,
+-					__be32 saddr)
++					int saddr)
+ {
+ 	if (saddr)
+ 		mod_timer(&br->multicast_querier_timer,
+@@ -811,9 +883,9 @@ static void br_multicast_query_received(struct net_bridge *br,
+ 	br_multicast_mark_router(br, port);
+ }
+ 
+-static int br_multicast_query(struct net_bridge *br,
+-			      struct net_bridge_port *port,
+-			      struct sk_buff *skb)
++static int br_ip4_multicast_query(struct net_bridge *br,
++				  struct net_bridge_port *port,
++				  struct sk_buff *skb)
+ {
+ 	struct iphdr *iph = ip_hdr(skb);
+ 	struct igmphdr *ih = igmp_hdr(skb);
+@@ -831,7 +903,7 @@ static int br_multicast_query(struct net_bridge *br,
+ 	    (port && port->state == BR_STATE_DISABLED))
+ 		goto out;
+ 
+-	br_multicast_query_received(br, port, iph->saddr);
++	br_multicast_query_received(br, port, !!iph->saddr);
+ 
+ 	group = ih->group;
+ 
+@@ -859,7 +931,7 @@ static int br_multicast_query(struct net_bridge *br,
+ 	if (!group)
+ 		goto out;
+ 
+-	mp = br_mdb_ip_get(br->mdb, group);
++	mp = br_mdb_ip4_get(br->mdb, group);
+ 	if (!mp)
+ 		goto out;
+ 
+@@ -885,7 +957,7 @@ out:
+ 
+ static void br_multicast_leave_group(struct net_bridge *br,
+ 				     struct net_bridge_port *port,
+-				     __be32 group)
++				     struct br_ip *group)
+ {
+ 	struct net_bridge_mdb_htable *mdb;
+ 	struct net_bridge_mdb_entry *mp;
+@@ -893,9 +965,6 @@ static void br_multicast_leave_group(struct net_bridge *br,
+ 	unsigned long now;
+ 	unsigned long time;
+ 
+-	if (ipv4_is_local_multicast(group))
+-		return;
+-
+ 	spin_lock(&br->multicast_lock);
+ 	if (!netif_running(br->dev) ||
+ 	    (port && port->state == BR_STATE_DISABLED) ||
+@@ -946,6 +1015,22 @@ out:
+ 	spin_unlock(&br->multicast_lock);
+ }
+ 
++static void br_ip4_multicast_leave_group(struct net_bridge *br,
++					 struct net_bridge_port *port,
++					 __be32 group)
++{
++	struct br_ip br_group;
++
++	if (ipv4_is_local_multicast(group))
++		return;
++
++	br_group.u.ip4 = group;
++	br_group.proto = htons(ETH_P_IP);
++
++	br_multicast_leave_group(br, port, &br_group);
++}
++
++
+ static int br_multicast_ipv4_rcv(struct net_bridge *br,
+ 				 struct net_bridge_port *port,
+ 				 struct sk_buff *skb)
+@@ -1023,16 +1108,16 @@ static int br_multicast_ipv4_rcv(struct net_bridge *br,
+ 	case IGMP_HOST_MEMBERSHIP_REPORT:
+ 	case IGMPV2_HOST_MEMBERSHIP_REPORT:
+ 		BR_INPUT_SKB_CB(skb2)->mrouters_only = 1;
+-		err = br_multicast_add_group(br, port, ih->group);
++		err = br_ip4_multicast_add_group(br, port, ih->group);
+ 		break;
+ 	case IGMPV3_HOST_MEMBERSHIP_REPORT:
+-		err = br_multicast_igmp3_report(br, port, skb2);
++		err = br_ip4_multicast_igmp3_report(br, port, skb2);
+ 		break;
+ 	case IGMP_HOST_MEMBERSHIP_QUERY:
+-		err = br_multicast_query(br, port, skb2);
++		err = br_ip4_multicast_query(br, port, skb2);
+ 		break;
+ 	case IGMP_HOST_LEAVE_MESSAGE:
+-		br_multicast_leave_group(br, port, ih->group);
++		br_ip4_multicast_leave_group(br, port, ih->group);
+ 		break;
+ 	}
+ 
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 63181e4..45d11e4 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -45,6 +45,14 @@ struct mac_addr
+ 	unsigned char	addr[6];
+ };
+ 
++struct br_ip
++{
++	union {
++		__be32	ip4;
++	} u;
++	__be16		proto;
++};
++
+ struct net_bridge_fdb_entry
+ {
+ 	struct hlist_node		hlist;
+@@ -64,7 +72,7 @@ struct net_bridge_port_group {
+ 	struct rcu_head			rcu;
+ 	struct timer_list		timer;
+ 	struct timer_list		query_timer;
+-	__be32				addr;
++	struct br_ip			addr;
+ 	u32				queries_sent;
+ };
+ 
+@@ -77,7 +85,7 @@ struct net_bridge_mdb_entry
+ 	struct rcu_head			rcu;
+ 	struct timer_list		timer;
+ 	struct timer_list		query_timer;
+-	__be32				addr;
++	struct br_ip			addr;
+ 	u32				queries_sent;
+ };
+ 
+
+---
+commit 08b202b6726459626c73ecfa08fcdc8c3efc76c2
+Author: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date:   Fri Apr 23 01:54:22 2010 +0900
+
+    bridge br_multicast: IPv6 MLD support.
+    
+    Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+diff --git a/net/bridge/Kconfig b/net/bridge/Kconfig
+index d115d5c..9190ae4 100644
+--- a/net/bridge/Kconfig
++++ b/net/bridge/Kconfig
+@@ -33,14 +33,14 @@ config BRIDGE
+ 	  If unsure, say N.
+ 
+ config BRIDGE_IGMP_SNOOPING
+-	bool "IGMP snooping"
++	bool "IGMP/MLD snooping"
+ 	depends on BRIDGE
+ 	depends on INET
+ 	default y
+ 	---help---
+ 	  If you say Y here, then the Ethernet bridge will be able selectively
+-	  forward multicast traffic based on IGMP traffic received from each
+-	  port.
++	  forward multicast traffic based on IGMP/MLD traffic received from
++	  each port.
+ 
+ 	  Say N to exclude this support and reduce the binary size.
+ 
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 64a3e4f..38d1fbd 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -24,9 +24,24 @@
+ #include <linux/slab.h>
+ #include <linux/timer.h>
+ #include <net/ip.h>
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++#include <net/ipv6.h>
++#include <net/mld.h>
++#include <net/addrconf.h>
++#endif
+ 
+ #include "br_private.h"
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++static inline int ipv6_is_local_multicast(const struct in6_addr *addr)
++{
++	if (ipv6_addr_is_multicast(addr) &&
++	    IPV6_ADDR_MC_SCOPE(addr) <= IPV6_ADDR_SCOPE_LINKLOCAL)
++		return 1;
++	return 0;
++}
++#endif
++
+ static inline int br_ip_equal(const struct br_ip *a, const struct br_ip *b)
+ {
+ 	if (a->proto != b->proto)
+@@ -34,6 +49,10 @@ static inline int br_ip_equal(const struct br_ip *a, const struct br_ip *b)
+ 	switch (a->proto) {
+ 	case htons(ETH_P_IP):
+ 		return a->u.ip4 == b->u.ip4;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	case htons(ETH_P_IPV6):
++		return ipv6_addr_equal(&a->u.ip6, &b->u.ip6);
++#endif
+ 	}
+ 	return 0;
+ }
+@@ -43,12 +62,24 @@ static inline int __br_ip4_hash(struct net_bridge_mdb_htable *mdb, __be32 ip)
+ 	return jhash_1word(mdb->secret, (__force u32)ip) & (mdb->max - 1);
+ }
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++static inline int __br_ip6_hash(struct net_bridge_mdb_htable *mdb,
++				const struct in6_addr *ip)
++{
++	return jhash2((__force u32 *)ip->s6_addr32, 4, mdb->secret) & (mdb->max - 1);
++}
++#endif
++
+ static inline int br_ip_hash(struct net_bridge_mdb_htable *mdb,
+ 			     struct br_ip *ip)
+ {
+ 	switch (ip->proto) {
+ 	case htons(ETH_P_IP):
+ 		return __br_ip4_hash(mdb, ip->u.ip4);
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	case htons(ETH_P_IPV6):
++		return __br_ip6_hash(mdb, &ip->u.ip6);
++#endif
+ 	}
+ 	return 0;
+ }
+@@ -78,6 +109,19 @@ static struct net_bridge_mdb_entry *br_mdb_ip4_get(
+ 	return __br_mdb_ip_get(mdb, &br_dst, __br_ip4_hash(mdb, dst));
+ }
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++static struct net_bridge_mdb_entry *br_mdb_ip6_get(
++	struct net_bridge_mdb_htable *mdb, const struct in6_addr *dst)
++{
++	struct br_ip br_dst;
++
++	ipv6_addr_copy(&br_dst.u.ip6, dst);
++	br_dst.proto = htons(ETH_P_IPV6);
++
++	return __br_mdb_ip_get(mdb, &br_dst, __br_ip6_hash(mdb, dst));
++}
++#endif
++
+ static struct net_bridge_mdb_entry *br_mdb_ip_get(
+ 	struct net_bridge_mdb_htable *mdb, struct br_ip *dst)
+ {
+@@ -102,6 +146,11 @@ struct net_bridge_mdb_entry *br_mdb_get(struct net_bridge *br,
+ 	case htons(ETH_P_IP):
+ 		ip.u.ip4 = ip_hdr(skb)->daddr;
+ 		break;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	case htons(ETH_P_IPV6):
++		ipv6_addr_copy(&ip.u.ip6, &ipv6_hdr(skb)->daddr);
++		break;
++#endif
+ 	default:
+ 		return NULL;
+ 	}
+@@ -352,12 +401,94 @@ out:
+ 	return skb;
+ }
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++static struct sk_buff *br_ip6_multicast_alloc_query(struct net_bridge *br,
++						    struct in6_addr *group)
++{
++	struct sk_buff *skb;
++	struct ipv6hdr *ip6h;
++	struct mld_msg *mldq;
++	struct ethhdr *eth;
++	u8 *hopopt;
++	unsigned long interval;
++
++	skb = netdev_alloc_skb_ip_align(br->dev, sizeof(*eth) + sizeof(*ip6h) +
++						 8 + sizeof(*mldq));
++	if (!skb)
++		goto out;
++
++	skb->protocol = htons(ETH_P_IPV6);
++
++	/* Ethernet header */
++	skb_reset_mac_header(skb);
++	eth = eth_hdr(skb);
++
++	memcpy(eth->h_source, br->dev->dev_addr, 6);
++	ipv6_eth_mc_map(group, eth->h_dest);
++	eth->h_proto = htons(ETH_P_IPV6);
++	skb_put(skb, sizeof(*eth));
++
++	/* IPv6 header + HbH option */
++	skb_set_network_header(skb, skb->len);
++	ip6h = ipv6_hdr(skb);
++
++	*(__force __be32 *)ip6h = htonl(0x60000000);
++	ip6h->payload_len = 8 + sizeof(*mldq);
++	ip6h->nexthdr = IPPROTO_HOPOPTS;
++	ip6h->hop_limit = 1;
++	ipv6_addr_set(&ip6h->saddr, 0, 0, 0, 0);
++	ipv6_addr_set(&ip6h->daddr, htonl(0xff020000), 0, 0, htonl(1));
++
++	hopopt = (u8 *)(ip6h + 1);
++	hopopt[0] = IPPROTO_ICMPV6;		/* next hdr */
++	hopopt[1] = 0;				/* length of HbH */
++	hopopt[2] = IPV6_TLV_ROUTERALERT;	/* Router Alert */
++	hopopt[3] = 2;				/* Length of RA Option */
++	hopopt[4] = 0;				/* Type = 0x0000 (MLD) */
++	hopopt[5] = 0;
++	hopopt[6] = IPV6_TLV_PAD0;		/* Pad0 */
++	hopopt[7] = IPV6_TLV_PAD0;		/* Pad0 */
++
++	skb_put(skb, sizeof(*ip6h) + 8);
++
++	/* ICMPv6 */
++	skb_set_transport_header(skb, skb->len);
++	mldq = (struct mld_msg *) icmp6_hdr(skb);
++
++	interval = ipv6_addr_any(group) ? br->multicast_last_member_interval :
++					  br->multicast_query_response_interval;
++
++	mldq->mld_type = ICMPV6_MGM_QUERY;
++	mldq->mld_code = 0;
++	mldq->mld_cksum = 0;
++	mldq->mld_maxdelay = htons((u16)jiffies_to_msecs(interval));
++	mldq->mld_reserved = 0;
++	ipv6_addr_copy(&mldq->mld_mca, group);
++
++	/* checksum */
++	mldq->mld_cksum = csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
++					  sizeof(*mldq), IPPROTO_ICMPV6,
++					  csum_partial(mldq,
++						       sizeof(*mldq), 0));
++	skb_put(skb, sizeof(*mldq));
++
++	__skb_pull(skb, sizeof(*eth));
++
++out:
++	return skb;
++}
++#endif
++
+ static struct sk_buff *br_multicast_alloc_query(struct net_bridge *br,
+ 						struct br_ip *addr)
+ {
+ 	switch (addr->proto) {
+ 	case htons(ETH_P_IP):
+ 		return br_ip4_multicast_alloc_query(br, addr->u.ip4);
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	case htons(ETH_P_IPV6):
++		return br_ip6_multicast_alloc_query(br, &addr->u.ip6);
++#endif
+ 	}
+ 	return NULL;
+ }
+@@ -631,6 +762,23 @@ static int br_ip4_multicast_add_group(struct net_bridge *br,
+ 	return br_multicast_add_group(br, port, &br_group);
+ }
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++static int br_ip6_multicast_add_group(struct net_bridge *br,
++				      struct net_bridge_port *port,
++				      const struct in6_addr *group)
++{
++	struct br_ip br_group;
++
++	if (ipv6_is_local_multicast(group))
++		return 0;
++
++	ipv6_addr_copy(&br_group.u.ip6, group);
++	br_group.proto = htons(ETH_P_IP);
++
++	return br_multicast_add_group(br, port, &br_group);
++}
++#endif
++
+ static void br_multicast_router_expired(unsigned long data)
+ {
+ 	struct net_bridge_port *port = (void *)data;
+@@ -681,10 +829,15 @@ static void br_multicast_send_query(struct net_bridge *br,
+ 	    timer_pending(&br->multicast_querier_timer))
+ 		return;
+ 
+-	br_group.u.ip4 = 0;
++	memset(&br_group.u, 0, sizeof(br_group.u));
++
+ 	br_group.proto = htons(ETH_P_IP);
++	__br_multicast_send_query(br, port, &br_group);
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	br_group.proto = htons(ETH_P_IPV6);
+ 	__br_multicast_send_query(br, port, &br_group);
++#endif
+ 
+ 	time = jiffies;
+ 	time += sent < br->multicast_startup_query_count ?
+@@ -825,6 +978,66 @@ static int br_ip4_multicast_igmp3_report(struct net_bridge *br,
+ 	return err;
+ }
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++static int br_ip6_multicast_mld2_report(struct net_bridge *br,
++					struct net_bridge_port *port,
++					struct sk_buff *skb)
++{
++	struct icmp6hdr *icmp6h;
++	struct mld2_grec *grec;
++	int i;
++	int len;
++	int num;
++	int err = 0;
++
++	if (!pskb_may_pull(skb, sizeof(*icmp6h)))
++		return -EINVAL;
++
++	icmp6h = icmp6_hdr(skb);
++	num = ntohs(icmp6h->icmp6_dataun.un_data16[1]);
++	len = sizeof(*icmp6h);
++
++	for (i = 0; i < num; i++) {
++		__be16 *nsrcs, _nsrcs;
++
++		nsrcs = skb_header_pointer(skb,
++					   len + offsetof(struct mld2_grec,
++							  grec_mca),
++					   sizeof(_nsrcs), &_nsrcs);
++		if (!nsrcs)
++			return -EINVAL;
++
++		if (!pskb_may_pull(skb,
++				   len + sizeof(*grec) +
++				   sizeof(struct in6_addr) * (*nsrcs)))
++			return -EINVAL;
++
++		grec = (struct mld2_grec *)(skb->data + len);
++		len += sizeof(*grec) + sizeof(struct in6_addr) * (*nsrcs);
++
++		/* We treat these as MLDv1 reports for now. */
++		switch (grec->grec_type) {
++		case MLD2_MODE_IS_INCLUDE:
++		case MLD2_MODE_IS_EXCLUDE:
++		case MLD2_CHANGE_TO_INCLUDE:
++		case MLD2_CHANGE_TO_EXCLUDE:
++		case MLD2_ALLOW_NEW_SOURCES:
++		case MLD2_BLOCK_OLD_SOURCES:
++			break;
++
++		default:
++			continue;
++		}
++
++		err = br_ip6_multicast_add_group(br, port, &grec->grec_mca);
++		if (!err)
++			break;
++	}
++
++	return err;
++}
++#endif
++
+ static void br_multicast_add_router(struct net_bridge *br,
+ 				    struct net_bridge_port *port)
+ {
+@@ -955,6 +1168,75 @@ out:
+ 	return err;
+ }
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++static int br_ip6_multicast_query(struct net_bridge *br,
++				  struct net_bridge_port *port,
++				  struct sk_buff *skb)
++{
++	struct ipv6hdr *ip6h = ipv6_hdr(skb);
++	struct mld_msg *mld = (struct mld_msg *) icmp6_hdr(skb);
++	struct net_bridge_mdb_entry *mp;
++	struct mld2_query *mld2q;
++	struct net_bridge_port_group *p, **pp;
++	unsigned long max_delay;
++	unsigned long now = jiffies;
++	struct in6_addr *group = NULL;
++	int err = 0;
++
++	spin_lock(&br->multicast_lock);
++	if (!netif_running(br->dev) ||
++	    (port && port->state == BR_STATE_DISABLED))
++		goto out;
++
++	br_multicast_query_received(br, port, !ipv6_addr_any(&ip6h->saddr));
++
++	if (skb->len == sizeof(*mld)) {
++		if (!pskb_may_pull(skb, sizeof(*mld))) {
++			err = -EINVAL;
++			goto out;
++		}
++		mld = (struct mld_msg *) icmp6_hdr(skb);
++		max_delay = msecs_to_jiffies(htons(mld->mld_maxdelay));
++		if (max_delay)
++			group = &mld->mld_mca;
++	} else if (skb->len >= sizeof(*mld2q)) {
++		if (!pskb_may_pull(skb, sizeof(*mld2q))) {
++			err = -EINVAL;
++			goto out;
++		}
++		mld2q = (struct mld2_query *)icmp6_hdr(skb);
++		if (!mld2q->mld2q_nsrcs)
++			group = &mld2q->mld2q_mca;
++		max_delay = mld2q->mld2q_mrc ? MLDV2_MRC(mld2q->mld2q_mrc) : 1;
++	}
++
++	if (!group)
++		goto out;
++
++	mp = br_mdb_ip6_get(br->mdb, group);
++	if (!mp)
++		goto out;
++
++	max_delay *= br->multicast_last_member_count;
++	if (!hlist_unhashed(&mp->mglist) &&
++	    (timer_pending(&mp->timer) ?
++	     time_after(mp->timer.expires, now + max_delay) :
++	     try_to_del_timer_sync(&mp->timer) >= 0))
++		mod_timer(&mp->timer, now + max_delay);
++
++	for (pp = &mp->ports; (p = *pp); pp = &p->next) {
++		if (timer_pending(&p->timer) ?
++		    time_after(p->timer.expires, now + max_delay) :
++		    try_to_del_timer_sync(&p->timer) >= 0)
++			mod_timer(&mp->timer, now + max_delay);
++	}
++
++out:
++	spin_unlock(&br->multicast_lock);
++	return err;
++}
++#endif
++
+ static void br_multicast_leave_group(struct net_bridge *br,
+ 				     struct net_bridge_port *port,
+ 				     struct br_ip *group)
+@@ -1030,6 +1312,22 @@ static void br_ip4_multicast_leave_group(struct net_bridge *br,
+ 	br_multicast_leave_group(br, port, &br_group);
+ }
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++static void br_ip6_multicast_leave_group(struct net_bridge *br,
++					 struct net_bridge_port *port,
++					 const struct in6_addr *group)
++{
++	struct br_ip br_group;
++
++	if (ipv6_is_local_multicast(group))
++		return;
++
++	ipv6_addr_copy(&br_group.u.ip6, group);
++	br_group.proto = htons(ETH_P_IPV6);
++
++	br_multicast_leave_group(br, port, &br_group);
++}
++#endif
+ 
+ static int br_multicast_ipv4_rcv(struct net_bridge *br,
+ 				 struct net_bridge_port *port,
+@@ -1129,6 +1427,126 @@ err_out:
+ 	return err;
+ }
+ 
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++static int br_multicast_ipv6_rcv(struct net_bridge *br,
++				 struct net_bridge_port *port,
++				 struct sk_buff *skb)
++{
++	struct sk_buff *skb2 = skb;
++	struct ipv6hdr *ip6h;
++	struct icmp6hdr *icmp6h;
++	u8 nexthdr;
++	unsigned len;
++	unsigned offset;
++	int err;
++
++	BR_INPUT_SKB_CB(skb)->igmp = 0;
++	BR_INPUT_SKB_CB(skb)->mrouters_only = 0;
++
++	if (!pskb_may_pull(skb, sizeof(*ip6h)))
++		return -EINVAL;
++
++	ip6h = ipv6_hdr(skb);
++
++	/*
++	 * We're interested in MLD messages only.
++	 *  - Version is 6
++	 *  - MLD has always Router Alert hop-by-hop option
++	 *  - But we do not support jumbrograms.
++	 */
++	if (ip6h->version != 6 ||
++	    ip6h->nexthdr != IPPROTO_HOPOPTS ||
++	    ip6h->payload_len == 0)
++		return 0;
++
++	len = ntohs(ip6h->payload_len);
++	if (skb->len < len)
++		return -EINVAL;
++
++	nexthdr = ip6h->nexthdr;
++	offset = ipv6_skip_exthdr(skb, sizeof(*ip6h), &nexthdr);
++
++	if (offset < 0 || nexthdr != IPPROTO_ICMPV6)
++		return 0;
++
++	/* Okay, we found ICMPv6 header */
++	skb2 = skb_clone(skb, GFP_ATOMIC);
++	if (!skb2)
++		return -ENOMEM;
++
++	len -= offset - skb_network_offset(skb2);
++
++	__skb_pull(skb2, offset);
++	skb_reset_transport_header(skb2);
++
++	err = -EINVAL;
++	if (!pskb_may_pull(skb2, sizeof(*icmp6h)))
++		goto out;
++
++	icmp6h = icmp6_hdr(skb2);
++
++	switch (icmp6h->icmp6_type) {
++	case ICMPV6_MGM_QUERY:
++	case ICMPV6_MGM_REPORT:
++	case ICMPV6_MGM_REDUCTION:
++	case ICMPV6_MLD2_REPORT:
++		break;
++	default:
++		err = 0;
++		goto out;
++	}
++
++	/* Okay, we found MLD message. Check further. */
++	if (skb2->len > len) {
++		err = pskb_trim_rcsum(skb2, len);
++		if (err)
++			goto out;
++	}
++
++	switch (skb2->ip_summed) {
++	case CHECKSUM_COMPLETE:
++		if (!csum_fold(skb2->csum))
++			break;
++		/*FALLTHROUGH*/
++	case CHECKSUM_NONE:
++		skb2->csum = 0;
++		if (skb_checksum_complete(skb2))
++			goto out;
++	}
++
++	err = 0;
++
++	BR_INPUT_SKB_CB(skb)->igmp = 1;
++
++	switch (icmp6h->icmp6_type) {
++	case ICMPV6_MGM_REPORT:
++	    {
++		struct mld_msg *mld = (struct mld_msg *)icmp6h;
++		BR_INPUT_SKB_CB(skb2)->mrouters_only = 1;
++		err = br_ip6_multicast_add_group(br, port, &mld->mld_mca);
++		break;
++	    }
++	case ICMPV6_MLD2_REPORT:
++		err = br_ip6_multicast_mld2_report(br, port, skb2);
++		break;
++	case ICMPV6_MGM_QUERY:
++		err = br_ip6_multicast_query(br, port, skb2);
++		break;
++	case ICMPV6_MGM_REDUCTION:
++	    {
++		struct mld_msg *mld = (struct mld_msg *)icmp6h;
++		br_ip6_multicast_leave_group(br, port, &mld->mld_mca);
++	    }
++	}
++
++out:
++	__skb_push(skb2, offset);
++	if (skb2 != skb)
++		kfree_skb(skb2);
++	return err;
++}
++#endif
++
+ int br_multicast_rcv(struct net_bridge *br, struct net_bridge_port *port,
+ 		     struct sk_buff *skb)
+ {
+@@ -1138,6 +1556,10 @@ int br_multicast_rcv(struct net_bridge *br, struct net_bridge_port *port,
+ 	switch (skb->protocol) {
+ 	case htons(ETH_P_IP):
+ 		return br_multicast_ipv4_rcv(br, port, skb);
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++	case htons(ETH_P_IPV6):
++		return br_multicast_ipv6_rcv(br, port, skb);
++#endif
+ 	}
+ 
+ 	return 0;
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 45d11e4..018499e 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -49,6 +49,9 @@ struct br_ip
+ {
+ 	union {
+ 		__be32	ip4;
++#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++		struct in6_addr ip6;
++#endif
+ 	} u;
+ 	__be16		proto;
+ };
+
+---
