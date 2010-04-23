@@ -1,35 +1,59 @@
-From: Dan Smith <danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 1/4] Fix acquiring socket lock before reading RTNETLINK
-	response
-Date: Fri, 23 Apr 2010 08:24:06 -0700
-Message-ID: <87vdbitco9.fsf@caffeine.danplanet.com>
-References: <1272034539-19899-1-git-send-email-danms@us.ibm.com>
-	<1272034539-19899-2-git-send-email-danms@us.ibm.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 1/7] Topcliff GbE: Add The Main code [1/3]
+Date: Fri, 23 Apr 2010 08:26:24 -0700
+Message-ID: <20100423082624.147de667@nehalam>
+References: <002d01cae2dd$1f6e42d0$66f8800a@maildom.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1272034539-19899-2-git-send-email-danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org> (Dan Smith's
-	message of "Fri\, 23 Apr 2010 07\:55\:36 -0700")
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "NETDEV" <netdev@vger.kernel.org>,
+	"Wang, Yong Y" <yong.y.wang@intel.com>,
+	"Wang, Qi" <qi.wang@intel.com>, "Intel OTC" <joel.clark@intel.com>,
+	"Andrew" <andrew.chih.howe.khor@intel.com>
+To: "Masayuki Ohtake" <masa-korg@dsn.okisemi.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:38047 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755844Ab0DWP0m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Apr 2010 11:26:42 -0400
+In-Reply-To: <002d01cae2dd$1f6e42d0$66f8800a@maildom.okisemi.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DS> Signed-off-by: Dan Smith <danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+On Fri, 23 Apr 2010 20:56:25 +0900
+"Masayuki Ohtake" <masa-korg@dsn.okisemi.com> wrote:
 
-I went too deep with my send-email command line.  This patch isn't
-related to the others, so please disregard.
+Even though the patch was sent as an attachment, long lines were
+wrapped.
 
--- 
-Dan Smith
-IBM Linux Technology Center
-email: danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org
+Do you want this to go directly to kernel, or do you want help
+fixing coding issues by submitting to staging tree?
+
+The code uses a comment style that is kind of like the existing
+docbook comment style; why not convert it to use the official
+docbook style for examples look at other kernel code:
+/**
+ *	dev_alloc_skb - allocate an skbuff for receiving
+ *	@length: length to allocate
+ *
+ *	Allocate a new &sk_buff and assign it a usage count of one. The
+ *	buffer has unspecified headroom built in. Users should allocate
+ *	the headroom they think they need without accounting for the
+ *	built in space. The built in space is used for optimisations.
+ *
+ *	%NULL is returned if there is no free memory. Although this function
+ *	allocates memory it can be called from an interrupt.
+ */
+
+The code is also indented with a non-standard indentation format.
+Please read Documentation/CodingStyle.  Indentation is supposed
+to be 4 characters (and using tabs of 8 characters).
+
+
+The PCI device table could be changed to:
+
+static DEFINE_PCI_DEVICE_TABLE(pch_gbe_pcidev_id) = {
+    { PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_IOH1_GBE) },
+    { 0 }
+};
+Also PCI_DEVICE_ID_INTEL_IOH1_GBE is not defined anywhere I can see.
