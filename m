@@ -1,7 +1,7 @@
 From: Anton Vorontsov <avorontsov@mvista.com>
-Subject: [PATCH 1/2] fsl_pq_mdio: Fix kernel oops during OF address translation
-Date: Fri, 23 Apr 2010 21:12:35 +0400
-Message-ID: <20100423171235.GA2140@oksana.dev.rtsoft.ru>
+Subject: [PATCH 2/2] gianfar: Fix potential oops during OF address translation
+Date: Fri, 23 Apr 2010 21:12:44 +0400
+Message-ID: <20100423171244.GB2140@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -21,86 +21,32 @@ Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.
 Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
-Old P1020RDB device trees were not specifing tbipa address for
-MDIO nodes, which is now causing this kernel oops:
-
- ...
- eth2: TX BD ring size for Q[6]: 256
- eth2: TX BD ring size for Q[7]: 256
- Unable to handle kernel paging request for data at address 0x00000000
- Faulting instruction address: 0xc0015504
- Oops: Kernel access of bad area, sig: 11 [#1]
- ...
- NIP [c0015504] memcpy+0x3c/0x9c
- LR [c000a9f8] __of_translate_address+0xfc/0x21c
- Call Trace:
- [df839e00] [c000a94c] __of_translate_address+0x50/0x21c (unreliable)
- [df839e50] [c01a33e8] get_gfar_tbipa+0xb0/0xe0
- ...
-
-The old device trees are buggy, though having a dead ethernet is
-better than a dead kernel, so fix the issue by using of_iomap().
-
-Also, a somewhat similar issue exist in the probe() routine, though
-there the oops is only a possibility. Nonetheless, fix it too.
+gianfar driver may pass NULL pointer to the of_translate_address(),
+which may lead to a kernel oops. Fix this by using of_iomap(), which
+is also much simpler and shorter.
 
 Signed-off-by: Anton Vorontsov <avorontsov@mvista.com>
 ---
- drivers/net/fsl_pq_mdio.c |   20 ++++++++++++++------
- 1 files changed, 14 insertions(+), 6 deletions(-)
+ drivers/net/gianfar.c |    6 +-----
+ 1 files changed, 1 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/fsl_pq_mdio.c b/drivers/net/fsl_pq_mdio.c
-index d5160ed..3acac5f 100644
---- a/drivers/net/fsl_pq_mdio.c
-+++ b/drivers/net/fsl_pq_mdio.c
-@@ -205,8 +205,6 @@ static int fsl_pq_mdio_find_free(struct mii_bus *new_bus)
- static u32 __iomem *get_gfar_tbipa(struct fsl_pq_mdio __iomem *regs, struct device_node *np)
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 080d1ce..df49af3 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -549,12 +549,8 @@ static int gfar_parse_group(struct device_node *np,
+ 		struct gfar_private *priv, const char *model)
  {
- 	struct gfar __iomem *enet_regs;
--	u32 __iomem *ioremap_tbipa;
+ 	u32 *queue_mask;
 -	u64 addr, size;
+-
+-	addr = of_translate_address(np,
+-			of_get_address(np, 0, &size, NULL));
+-	priv->gfargrp[priv->num_grps].regs = ioremap(addr, size);
  
- 	/*
- 	 * This is mildly evil, but so is our hardware for doing this.
-@@ -220,9 +218,7 @@ static u32 __iomem *get_gfar_tbipa(struct fsl_pq_mdio __iomem *regs, struct devi
- 		return &enet_regs->tbipa;
- 	} else if (of_device_is_compatible(np, "fsl,etsec2-mdio") ||
- 			of_device_is_compatible(np, "fsl,etsec2-tbi")) {
--		addr = of_translate_address(np, of_get_address(np, 1, &size, NULL));
--		ioremap_tbipa = ioremap(addr, size);
--		return ioremap_tbipa;
-+		return of_iomap(np, 1);
- 	} else
- 		return NULL;
- }
-@@ -279,6 +275,7 @@ static int fsl_pq_mdio_probe(struct of_device *ofdev,
- 	u32 __iomem *tbipa;
- 	struct mii_bus *new_bus;
- 	int tbiaddr = -1;
-+	const u32 *addrp;
- 	u64 addr = 0, size = 0;
- 	int err = 0;
++	priv->gfargrp[priv->num_grps].regs = of_iomap(np, 0);
+ 	if (!priv->gfargrp[priv->num_grps].regs)
+ 		return -ENOMEM;
  
-@@ -297,8 +294,19 @@ static int fsl_pq_mdio_probe(struct of_device *ofdev,
- 	new_bus->priv = priv;
- 	fsl_pq_mdio_bus_name(new_bus->id, np);
- 
-+	addrp = of_get_address(np, 0, &size, NULL);
-+	if (!addrp) {
-+		err = -EINVAL;
-+		goto err_free_bus;
-+	}
-+
- 	/* Set the PHY base address */
--	addr = of_translate_address(np, of_get_address(np, 0, &size, NULL));
-+	addr = of_translate_address(np, addrp);
-+	if (addr == OF_BAD_ADDR) {
-+		err = -EINVAL;
-+		goto err_free_bus;
-+	}
-+
- 	map = ioremap(addr, size);
- 	if (!map) {
- 		err = -ENOMEM;
 -- 
 1.7.0.5
