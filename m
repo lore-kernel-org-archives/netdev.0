@@ -1,54 +1,48 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-2.6 1/9] sfc: Wait at most 10ms for the MC to finish
- reading out MAC statistics
-Date: Fri, 23 Apr 2010 23:23:59 +0100
-Message-ID: <1272061439.5520.14.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH net-2.6 2/9] sfc: Ignore parity errors in the other port's
+ SRAM
+Date: Fri, 23 Apr 2010 23:24:19 +0100
+Message-ID: <1272061459.5520.15.camel@achroite.uk.solarflarecom.com>
+References: <0998e2e60655106abde76dcb4b7bac1136d1a11f.1272061382.git.bhutchings@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:46060 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:46076 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750835Ab0DWWYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 18:24:05 -0400
+	with ESMTP id S1752763Ab0DWWYX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 18:24:23 -0400
+In-Reply-To: <0998e2e60655106abde76dcb4b7bac1136d1a11f.1272061382.git.bhutchings@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Steve Hodgson <shodgson@solarflare.com>
 
-The original code would wait indefinitely if MAC stats DMA failed.
+Siena has a separate SRAM bank for each port.  On single-port boards
+these can be merged together, so each port has an interrupt flag for
+parity errors in the other port's SRAM.  Currently we do not enable
+such merging and should mask this interrupt source.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/siena.c |   13 +++++++++++--
- 1 files changed, 11 insertions(+), 2 deletions(-)
+ drivers/net/sfc/nic.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/sfc/siena.c b/drivers/net/sfc/siena.c
-index 38dcc42..e0c46f5 100644
---- a/drivers/net/sfc/siena.c
-+++ b/drivers/net/sfc/siena.c
-@@ -456,8 +456,17 @@ static int siena_try_update_nic_stats(struct efx_nic *efx)
+diff --git a/drivers/net/sfc/nic.c b/drivers/net/sfc/nic.c
+index b06f8e3..664fd6c 100644
+--- a/drivers/net/sfc/nic.c
++++ b/drivers/net/sfc/nic.c
+@@ -1563,6 +1563,8 @@ void efx_nic_init_common(struct efx_nic *efx)
+ 			     FRF_AZ_ILL_ADR_INT_KER_EN, 1,
+ 			     FRF_AZ_RBUF_OWN_INT_KER_EN, 1,
+ 			     FRF_AZ_TBUF_OWN_INT_KER_EN, 1);
++	if (efx_nic_rev(efx) >= EFX_REV_SIENA_A0)
++		EFX_SET_OWORD_FIELD(temp, FRF_CZ_SRAM_PERR_INT_P_KER_EN, 1);
+ 	EFX_INVERT_OWORD(temp);
+ 	efx_writeo(efx, &temp, FR_AZ_FATAL_INTR_KER);
  
- static void siena_update_nic_stats(struct efx_nic *efx)
- {
--	while (siena_try_update_nic_stats(efx) == -EAGAIN)
--		cpu_relax();
-+	int retry;
-+
-+	/* If we're unlucky enough to read statistics wduring the DMA, wait
-+	 * up to 10ms for it to finish (typically takes <500us) */
-+	for (retry = 0; retry < 100; ++retry) {
-+		if (siena_try_update_nic_stats(efx) == 0)
-+			return;
-+		udelay(100);
-+	}
-+
-+	/* Use the old values instead */
- }
- 
- static void siena_start_nic_stats(struct efx_nic *efx)
 -- 
 1.6.2.5
 
