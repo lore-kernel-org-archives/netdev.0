@@ -1,63 +1,86 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC 2/2] phylib: Convert MDIO bitbang to new MDIO 45 format
-Date: Fri, 23 Apr 2010 11:22:08 +0100
-Message-ID: <1272018128.11697.37.camel@localhost>
-References: <1271997497-6896-1-git-send-email-afleming@freescale.com>
-	 <1271997497-6896-2-git-send-email-afleming@freescale.com>
-	 <1271997497-6896-3-git-send-email-afleming@freescale.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v6] net: batch skb dequeueing from softnet
+ input_pkt_queue
+Date: Fri, 23 Apr 2010 12:26:06 +0200
+Message-ID: <1272018366.7895.7930.camel@edumazet-laptop>
+References: <1272010378-2955-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Andy Fleming <afleming@freescale.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, jamal <hadi@cyberus.ca>,
+	Tom Herbert <therbert@google.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:7337 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754860Ab0DWKWP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 06:22:15 -0400
-In-Reply-To: <1271997497-6896-3-git-send-email-afleming@freescale.com>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:59830 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752163Ab0DWK0T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 06:26:19 -0400
+Received: by bwz19 with SMTP id 19so13078bwz.1
+        for <netdev@vger.kernel.org>; Fri, 23 Apr 2010 03:26:17 -0700 (PDT)
+In-Reply-To: <1272010378-2955-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-04-22 at 23:38 -0500, Andy Fleming wrote:
-> Now that we've added somewhat more complete MDIO 45 support to the PHY
-> Lib, convert the MDIO bitbang driver to use this new infrastructure.
-> 
-> Signed-off-by: Andy Fleming <afleming@freescale.com>
-> ---
->  drivers/net/phy/mdio-bitbang.c |   23 +++++++++++------------
->  1 files changed, 11 insertions(+), 12 deletions(-)
-> 
-> diff --git a/drivers/net/phy/mdio-bitbang.c b/drivers/net/phy/mdio-bitbang.c
-> index 2f6f02e..4c0c89b 100644
-> --- a/drivers/net/phy/mdio-bitbang.c
-> +++ b/drivers/net/phy/mdio-bitbang.c
-[...]
-> @@ -157,9 +154,10 @@ static int mdiobb_read(struct mii_bus *bus, int phy, int devad, int reg)
->  	struct mdiobb_ctrl *ctrl = bus->priv;
->  	int ret, i;
->  
-> -	if (reg & MII_ADDR_C45) {
-> -		reg = mdiobb_cmd_addr(ctrl, phy, reg);
-> -		mdiobb_cmd(ctrl, MDIO_C45_READ, phy, reg);
-> +	/* Clause 22 PHYs only use devad = 0, and Clause 45 only use nonzero */
-> +	if (devad) {
-> +		mdiobb_cmd_addr(ctrl, phy, devad, reg);
-> +		mdiobb_cmd(ctrl, MDIO_C45_READ, phy, devad);
->  	} else
->  		mdiobb_cmd(ctrl, MDIO_READ, phy, reg);
->  
-[...]
+Le vendredi 23 avril 2010 =C3=A0 16:12 +0800, Changli Gao a =C3=A9crit =
+:
+> batch skb dequeueing from softnet input_pkt_queue.
+>=20
+> batch skb dequeueing from softnet input_pkt_queue to reduce potential=
+ lock
+> contention when RPS is enabled.
+>=20
+> Note: in the worst case, the number of packets in a softnet_data may =
+be double
+> of netdev_max_backlog.
+>=20
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> ----
 
-I don't believe there's any protocol requirement in clause 45 that
-devad != 0 (although the address is not allocated).  In the mdio module
-I played safe and defined MDIO_DEVAD_NONE == -1 to indicate a clause 22
-request.
+Oops, reading it again, I found process_backlog() was still taking the
+lock twice, if only one packet is waiting in input_pkt_queue.
 
-Ben.
+Possible fix, on top of your patch :
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 0eddd23..0569be7 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3296,8 +3296,9 @@ static int process_backlog(struct napi_struct *na=
+pi, int quota)
+ #endif
+ 	napi->weight =3D weight_p;
+ 	local_irq_disable();
+-	while (1) {
++	while (work < quota) {
+ 		struct sk_buff *skb;
++		unsigned int qlen;
+=20
+ 		while ((skb =3D __skb_dequeue(&sd->process_queue))) {
+ 			local_irq_enable();
+@@ -3308,13 +3309,15 @@ static int process_backlog(struct napi_struct *=
+napi, int quota)
+ 		}
+=20
+ 		rps_lock(sd);
+-		input_queue_head_add(sd, skb_queue_len(&sd->input_pkt_queue));
+-		skb_queue_splice_tail_init(&sd->input_pkt_queue,
+-					   &sd->process_queue);
+-		if (skb_queue_empty(&sd->process_queue)) {
++		qlen =3D skb_queue_len(&sd->input_pkt_queue);
++		if (qlen) {
++			input_queue_head_add(sd, qlen);
++			skb_queue_splice_tail_init(&sd->input_pkt_queue,
++						   &sd->process_queue);
++		}
++		if (qlen < quota - work) {
+ 			__napi_complete(napi);
+-			rps_unlock(sd);
+-			break;
++			quota =3D work + qlen;
+ 		}
+ 		rps_unlock(sd);
+ 	}
+
 
