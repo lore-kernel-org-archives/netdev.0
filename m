@@ -1,10 +1,10 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 1/7] Topcliff GbE: Add The Main code [1/3]
-Date: Fri, 23 Apr 2010 08:26:24 -0700
-Message-ID: <20100423082624.147de667@nehalam>
-References: <002d01cae2dd$1f6e42d0$66f8800a@maildom.okisemi.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 1/7] Topcliff GbE: Add The Main code
+Date: Fri, 23 Apr 2010 17:27:23 +0200
+Message-ID: <201004231727.23246.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain;
+  charset="iso-2022-jp"
 Content-Transfer-Encoding: 7bit
 Cc: "NETDEV" <netdev@vger.kernel.org>,
 	"Wang, Yong Y" <yong.y.wang@intel.com>,
@@ -12,48 +12,63 @@ Cc: "NETDEV" <netdev@vger.kernel.org>,
 	"Andrew" <andrew.chih.howe.khor@intel.com>
 To: "Masayuki Ohtake" <masa-korg@dsn.okisemi.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:38047 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755844Ab0DWP0m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Apr 2010 11:26:42 -0400
-In-Reply-To: <002d01cae2dd$1f6e42d0$66f8800a@maildom.okisemi.com>
+Received: from moutng.kundenserver.de ([212.227.126.186]:61668 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754299Ab0DWP12 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 11:27:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 23 Apr 2010 20:56:25 +0900
-"Masayuki Ohtake" <masa-korg@dsn.okisemi.com> wrote:
+On Friday 23 April 2010, Masayuki Ohtake wrote:
+> From: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
+> 
+> This patch adds the Main code of GbE driver for Topcliff.
+> The GbE driver needs all patch[1/7 to 7/7].
+> 
+> Signed-off-by: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
 
-Even though the patch was sent as an attachment, long lines were
-wrapped.
+I already commented on the "Topcliff PHUB: Add The Packet Hub driver"
+submission. Many of my comments there apply here as well, but
+there are a few more things that you may want to address in
+future submissions:
 
-Do you want this to go directly to kernel, or do you want help
-fixing coding issues by submitting to staging tree?
+> +static int
+> +pch_gbe_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id);
+> +static void pch_gbe_remove(struct pci_dev *pdev);
+> +static int pch_gbe_suspend(struct pci_dev *pdev, pm_message_t state);
+> +static int pch_gbe_resume(struct pci_dev *pdev);
 
-The code uses a comment style that is kind of like the existing
-docbook comment style; why not convert it to use the official
-docbook style for examples look at other kernel code:
-/**
- *	dev_alloc_skb - allocate an skbuff for receiving
- *	@length: length to allocate
- *
- *	Allocate a new &sk_buff and assign it a usage count of one. The
- *	buffer has unspecified headroom built in. Users should allocate
- *	the headroom they think they need without accounting for the
- *	built in space. The built in space is used for optimisations.
- *
- *	%NULL is returned if there is no free memory. Although this function
- *	allocates memory it can be called from an interrupt.
- */
+Ideally, static functions are ordered such that the caller is
+last, so you can drop all of the forward declarations like these.
 
-The code is also indented with a non-standard indentation format.
-Please read Documentation/CodingStyle.  Indentation is supposed
-to be 4 characters (and using tabs of 8 characters).
+> +/*!
+> + * @ingroup PCI driver Layer
+> + * @struct  pch_gbe_pcidev_id
+> + * @brief   PCI Device ID Table
+> + * @remarks
+> + *  This is an instance of pci_device_id structure defined in linux/pci.h,
+> + *  and holds information of the PCI devices that are supported by this
+> driver.
+> + */
+> +static const struct pci_device_id pch_gbe_pcidev_id[3] = {
+> + {.vendor = PCI_VENDOR_ID_INTEL,
+> +  .device = PCI_DEVICE_ID_INTEL_IOH1_GBE,
+> +  .subvendor = PCI_ANY_ID,
+> +  .subdevice = PCI_ANY_ID,
+> +  .class = (PCI_CLASS_NETWORK_ETHERNET << 8),
+> +  .class_mask = (0xFFFF00)
+> +  },
+> + /* required last entry */
+> + {0}
+> +};
 
+Your array size above is three, but you only define two members.
+Better may the array automatically sized. Also, it's clearer to
+use the PCI_DEVICE_CLASS() helper macro, e.g.
 
-The PCI device table could be changed to:
-
-static DEFINE_PCI_DEVICE_TABLE(pch_gbe_pcidev_id) = {
-    { PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_IOH1_GBE) },
-    { 0 }
+static const struct pci_device_id pch_gbe_pcidev_id[] = {
+	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_IOH1_GBE) },
+	{ 0 },
 };
-Also PCI_DEVICE_ID_INTEL_IOH1_GBE is not defined anywhere I can see.
+
+	Arnd
