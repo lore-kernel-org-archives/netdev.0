@@ -1,190 +1,155 @@
-From: Jonas Sjoquist <jonas.sjoquist@ericsson.com>
-Subject: [PATCH/RFC Resubmission] cdc_ether: Identify MBM devices by GUID
- in MDLM descriptor
-Date: Fri, 23 Apr 2010 13:07:45 +0200
-Message-ID: <4BD17F81.4070301@ericsson.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH net-next-2.6] net: disallow to use net_assign_generic
+ externally
+Date: Fri, 23 Apr 2010 13:40:47 +0200
+Message-ID: <20100423114046.GC2853@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: <oneukum@suse.de>, <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, ebiederm@xmission.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw9.se.ericsson.net ([193.180.251.57]:46975 "EHLO
-	mailgw9.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752590Ab0DWLHr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 07:07:47 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:24654 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757221Ab0DWLku (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Apr 2010 07:40:50 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Jonas Sj=F6quist <jonas.sjoquist@ericsson.com>
+Now there's no need to use this fuction directly because it's handled by
+register_pernet_device. So to make this simple and easy to understand,
+make this static to do not tempt potentional users.
 
-This patch removes vid/pid for Ericsson MBM devices from the whitelist =
-set of
-devices. The MBM devices are instead identified by GUID.
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-In order for cdc_ether to handle these devices the GUID in the MDLM des=
-criptor
-is tested. All MBM devices currently handled by cdc_ether as well as fu=
-ture
-CDC Ethernet MBM devices can be identified by the GUID.
-
-This is the same solution used in Carl Nordbeck's mbm driver,
-http://kerneltrap.org/mailarchive/linux-usb/2008/11/17/4141384/thread
-
-I post this as RFC to get feedback on however cdc_ether is the correct =
-place to
-do the binding, or if it should be done in a separate driver, e.g. zaur=
-us.
-
-Signed-off-by: Jonas Sj=F6quist <jonas.sjoquist@ericsson.com>
----
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index c8cdb7f..811b2dc 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -64,6 +64,11 @@ static int is_wireless_rndis(struct usb_interface_de=
-scriptor *desc)
-=20
+diff --git a/include/net/netns/generic.h b/include/net/netns/generic.h
+index ff4982a..81a31c0 100644
+--- a/include/net/netns/generic.h
++++ b/include/net/netns/generic.h
+@@ -14,11 +14,8 @@
+  * The rules are simple:
+  * 1. set pernet_operations->id.  After register_pernet_device you
+  *    will have the id of your private pointer.
+- * 2. Either set pernet_operations->size (to have the code allocate and
+- *    free a private structure pointed to from struct net ) or 
+- *    call net_assign_generic() to put the private data on the struct
+- *    net (most preferably this should be done in the ->init callback
+- *    of the ops registered);
++ * 2. set pernet_operations->size to have the code allocate and free
++ *    a private structure pointed to from struct net.
+  * 3. do not change this pointer while the net is alive;
+  * 4. do not try to have any private reference on the net_generic object.
+  *
+@@ -46,6 +43,4 @@ static inline void *net_generic(struct net *net, int id)
+ 
+ 	return ptr;
+ }
+-
+-extern int net_assign_generic(struct net *net, int id, void *data);
  #endif
-=20
-+static const u8 mbm_guid[16] =3D {
-+	0xa3, 0x17, 0xa8, 0x8b, 0x04, 0x5e, 0x4f, 0x01,
-+	0xa6, 0x07, 0xc0, 0xff, 0xcb, 0x7e, 0x39, 0x2a,
-+};
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index bd8c471..777477c 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -27,6 +27,51 @@ EXPORT_SYMBOL(init_net);
+ 
+ #define INITIAL_NET_GEN_PTRS	13 /* +1 for len +2 for rcu_head */
+ 
++static void net_generic_release(struct rcu_head *rcu)
++{
++	struct net_generic *ng;
 +
- /*
-  * probes control interface, claims data interface, collects the bulk
-  * endpoints, activates data interface (if needed), maybe sets MTU.
-@@ -79,6 +84,8 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, struc=
-t usb_interface *intf)
- 	int				status;
- 	int				rndis;
- 	struct usb_driver		*driver =3D driver_of(intf);
-+	struct usb_cdc_mdlm_desc	*desc =3D NULL;
-+	struct usb_cdc_mdlm_detail_desc *detail =3D NULL;
-=20
- 	if (sizeof dev->data < sizeof *info)
- 		return -EDOM;
-@@ -229,6 +236,34 @@ int usbnet_generic_cdc_bind(struct usbnet *dev, st=
-ruct usb_interface *intf)
- 			 * side link address we were given.
- 			 */
- 			break;
-+		case USB_CDC_MDLM_TYPE:
-+			if (desc) {
-+				dev_dbg(&intf->dev, "extra MDLM descriptor\n");
-+				goto bad_desc;
-+			}
++	ng = container_of(rcu, struct net_generic, rcu);
++	kfree(ng);
++}
 +
-+			desc =3D (void *)buf;
++static int net_assign_generic(struct net *net, int id, void *data)
++{
++	struct net_generic *ng, *old_ng;
 +
-+			if (desc->bLength !=3D sizeof(*desc))
-+				goto bad_desc;
++	BUG_ON(!mutex_is_locked(&net_mutex));
++	BUG_ON(id == 0);
 +
-+			if (memcmp(&desc->bGUID, mbm_guid, 16))
-+				goto bad_desc;
-+			break;
-+		case USB_CDC_MDLM_DETAIL_TYPE:
-+			if (detail) {
-+				dev_dbg(&intf->dev, "extra MDLM detail descriptor\n");
-+				goto bad_desc;
-+			}
++	ng = old_ng = net->gen;
++	if (old_ng->len >= id)
++		goto assign;
 +
-+			detail =3D (void *)buf;
++	ng = kzalloc(sizeof(struct net_generic) +
++			id * sizeof(void *), GFP_KERNEL);
++	if (ng == NULL)
++		return -ENOMEM;
 +
-+			if (detail->bGuidDescriptorType =3D=3D 0) {
-+				if (detail->bLength < (sizeof(*detail) + 1))
-+					goto bad_desc;
-+			} else
-+				goto bad_desc;
-+			break;
- 		}
- next_desc:
- 		len -=3D buf [0];	/* bLength */
-@@ -542,80 +577,10 @@ static const struct usb_device_id	products [] =3D=
++	/*
++	 * Some synchronisation notes:
++	 *
++	 * The net_generic explores the net->gen array inside rcu
++	 * read section. Besides once set the net->gen->ptr[x]
++	 * pointer never changes (see rules in netns/generic.h).
++	 *
++	 * That said, we simply duplicate this array and schedule
++	 * the old copy for kfree after a grace period.
++	 */
++
++	ng->len = id;
++	memcpy(&ng->ptr, &old_ng->ptr, old_ng->len * sizeof(void*));
++
++	rcu_assign_pointer(net->gen, ng);
++	call_rcu(&old_ng->rcu, net_generic_release);
++assign:
++	ng->ptr[id - 1] = data;
++	return 0;
++}
++
+ static int ops_init(const struct pernet_operations *ops, struct net *net)
  {
- 			USB_CDC_PROTO_NONE),
- 	.driver_info =3D (unsigned long) &cdc_info,
- }, {
--	/* Ericsson F3507g */
--	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x1900, USB_CLASS_COMM,
--			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--	.driver_info =3D (unsigned long) &mbm_info,
--}, {
--	/* Ericsson F3507g ver. 2 */
--	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x1902, USB_CLASS_COMM,
--			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--	.driver_info =3D (unsigned long) &mbm_info,
--}, {
--	/* Ericsson F3607gw */
--	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x1904, USB_CLASS_COMM,
--			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--	.driver_info =3D (unsigned long) &mbm_info,
--}, {
--	/* Ericsson F3607gw ver 2 */
--	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x1905, USB_CLASS_COMM,
--			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--	.driver_info =3D (unsigned long) &mbm_info,
--}, {
--	/* Ericsson F3607gw ver 3 */
--	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x1906, USB_CLASS_COMM,
--			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--	.driver_info =3D (unsigned long) &mbm_info,
--}, {
--	/* Ericsson F3307 */
--	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x190a, USB_CLASS_COMM,
--			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--	.driver_info =3D (unsigned long) &mbm_info,
--}, {
--	/* Ericsson F3307 ver 2 */
--	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x1909, USB_CLASS_COMM,
--			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--	.driver_info =3D (unsigned long) &mbm_info,
--}, {
--	/* Ericsson C3607w */
--	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x1049, USB_CLASS_COMM,
--			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--	.driver_info =3D (unsigned long) &mbm_info,
--}, {
--	/* Ericsson C3607w ver 2 */
--	USB_DEVICE_AND_INTERFACE_INFO(0x0bdb, 0x190b, USB_CLASS_COMM,
--			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--	.driver_info =3D (unsigned long) &mbm_info,
--}, {
--	/* Toshiba F3507g */
--	USB_DEVICE_AND_INTERFACE_INFO(0x0930, 0x130b, USB_CLASS_COMM,
--			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--	.driver_info =3D (unsigned long) &mbm_info,
--}, {
--	/* Toshiba F3607gw */
--	USB_DEVICE_AND_INTERFACE_INFO(0x0930, 0x130c, USB_CLASS_COMM,
--			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--	.driver_info =3D (unsigned long) &mbm_info,
--}, {
--	/* Toshiba F3607gw ver 2 */
--	USB_DEVICE_AND_INTERFACE_INFO(0x0930, 0x1311, USB_CLASS_COMM,
--			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--	.driver_info =3D (unsigned long) &mbm_info,
--}, {
--	/* Dell F3507g */
--	USB_DEVICE_AND_INTERFACE_INFO(0x413c, 0x8147, USB_CLASS_COMM,
--			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--	.driver_info =3D (unsigned long) &mbm_info,
--}, {
--	/* Dell F3607gw */
--	USB_DEVICE_AND_INTERFACE_INFO(0x413c, 0x8183, USB_CLASS_COMM,
--			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--	.driver_info =3D (unsigned long) &mbm_info,
--}, {
--	/* Dell F3607gw ver 2 */
--	USB_DEVICE_AND_INTERFACE_INFO(0x413c, 0x8184, USB_CLASS_COMM,
--			USB_CDC_SUBCLASS_MDLM, USB_CDC_PROTO_NONE),
--	.driver_info =3D (unsigned long) &mbm_info,
-+	USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_MDLM,
-+			USB_CDC_PROTO_NONE),
-+	.driver_info =3D (unsigned long)&mbm_info,
-+
- },
- 	{ },		// END
- };
-
+ 	int err;
+@@ -526,49 +571,3 @@ void unregister_pernet_device(struct pernet_operations *ops)
+ 	mutex_unlock(&net_mutex);
+ }
+ EXPORT_SYMBOL_GPL(unregister_pernet_device);
+-
+-static void net_generic_release(struct rcu_head *rcu)
+-{
+-	struct net_generic *ng;
+-
+-	ng = container_of(rcu, struct net_generic, rcu);
+-	kfree(ng);
+-}
+-
+-int net_assign_generic(struct net *net, int id, void *data)
+-{
+-	struct net_generic *ng, *old_ng;
+-
+-	BUG_ON(!mutex_is_locked(&net_mutex));
+-	BUG_ON(id == 0);
+-
+-	ng = old_ng = net->gen;
+-	if (old_ng->len >= id)
+-		goto assign;
+-
+-	ng = kzalloc(sizeof(struct net_generic) +
+-			id * sizeof(void *), GFP_KERNEL);
+-	if (ng == NULL)
+-		return -ENOMEM;
+-
+-	/*
+-	 * Some synchronisation notes:
+-	 *
+-	 * The net_generic explores the net->gen array inside rcu
+-	 * read section. Besides once set the net->gen->ptr[x]
+-	 * pointer never changes (see rules in netns/generic.h).
+-	 *
+-	 * That said, we simply duplicate this array and schedule
+-	 * the old copy for kfree after a grace period.
+-	 */
+-
+-	ng->len = id;
+-	memcpy(&ng->ptr, &old_ng->ptr, old_ng->len * sizeof(void*));
+-
+-	rcu_assign_pointer(net->gen, ng);
+-	call_rcu(&old_ng->rcu, net_generic_release);
+-assign:
+-	ng->ptr[id - 1] = data;
+-	return 0;
+-}
+-EXPORT_SYMBOL_GPL(net_assign_generic);
