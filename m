@@ -1,21 +1,21 @@
 From: "Masayuki Ohtake" <masa-korg@dsn.okisemi.com>
-Subject: [PATCH 3/7] Topcliff GbE: Add The Ethtool code [1/2]
-Date: Fri, 23 Apr 2010 21:00:29 +0900
-Message-ID: <003101cae2dd$2019ec20$66f8800a@maildom.okisemi.com>
+Subject: [PATCH 6/7] Topcliff GbE: Add The common header files [1/2]
+Date: Fri, 23 Apr 2010 21:01:20 +0900
+Message-ID: <003601cae2dd$211b5690$66f8800a@maildom.okisemi.com>
 Mime-Version: 1.0
 Content-Type: message/partial;
 	total=2;
-	id="01CAE2DD.1F139FB0@tsmail03";
+	id="01CAE2DD.1F185AA0@tsmail03";
 	number=1
 Cc: "Wang, Yong Y" <yong.y.wang@intel.com>,
 	"Wang, Qi" <qi.wang@intel.com>, "Intel OTC" <joel.clark@intel.com>,
 	"Andrew" <andrew.chih.howe.khor@intel.com>
 To: "NETDEV" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:34073 "EHLO
+Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:34085 "EHLO
 	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757331Ab0DWMEc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 08:04:32 -0400
+	by vger.kernel.org with ESMTP id S1757351Ab0DWMEg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 08:04:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -25,8 +25,8 @@ Cc: "Wang, Yong Y" <yong.y.wang@intel.com>,
 	"Wang, Qi" <qi.wang@intel.com>,
 	"Intel OTC" <joel.clark@intel.com>,
 	"Andrew" <andrew.chih.howe.khor@intel.com>
-Subject: [PATCH 3/7] Topcliff GbE: Add The Ethtool code
-Date: Fri, 23 Apr 2010 21:00:29 +0900
+Subject: [PATCH 6/7] Topcliff GbE: Add The common header files
+Date: Fri, 23 Apr 2010 21:01:20 +0900
 MIME-Version: 1.0
 Content-Type: text/plain;
 	charset="iso-2022-jp"
@@ -38,23 +38,469 @@ X-MimeOLE: Produced By Microsoft MimeOLE V6.00.2800.1983
 
 From: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
 
-This patch adds the Ethtool code of GbE driver for Topcliff.
+This patch adds the common header files of GbE driver for Topcliff.
 The GbE driver needs all patch[1/7 to 7/7].
 
 Signed-off-by: Masayuki Ohtake <masa-korg@dsn.okisemi.com>
 ---
- drivers/net/pch_gbe/pch_gbe_ethtool.c      | 1306 ++
-+++++++++++++++++++++++++++++++ 1 files changed, 1306 insertions(+)
-diff -urN linux-2.6.33.1/drivers/net/pch_gbe/pch_gbe_ethtool.c
-topcliff-2.6.33.1/drivers/net/pch_gbe/pch_gbe_ethtool.c
---- linux-2.6.33.1/drivers/net/pch_gbe/pch_gbe_ethtool.c 1970-01-01
+ drivers/net/pch_gbe/pch_debug.h            | 56 ++
+ drivers/net/pch_gbe/pch_gbe_defines.h      | 344
+ drivers/net/pch_gbe/pch_gbe.h              | 228
+ drivers/net/pch_gbe/pch_gbe_hw.h           | 258
+ drivers/net/pch_gbe/pch_gbe_osdep.h        | 74
+ drivers/net/pch_gbe/pch_gbe_pci_ids.h      | 37
+ drivers/net/pch_gbe/pch_gbe_regs.h         | 350
++++++++++++++++++++++++++++++++ 7 files changed, 1347 insertions(+)
+diff -urN linux-2.6.33.1/drivers/net/pch_gbe/pch_debug.h
+topcliff-2.6.33.1/drivers/net/pch_gbe/pch_debug.h
+--- linux-2.6.33.1/drivers/net/pch_gbe/pch_debug.h 1970-01-01
 09:00:00.000000000 +0900
-+++ topcliff-2.6.33.1/drivers/net/pch_gbe/pch_gbe_ethtool.c 2010-04-13
-19:24:22.000000000 +0900
-@@ -0,0 +1,1306 @@
++++ topcliff-2.6.33.1/drivers/net/pch_gbe/pch_debug.h 2010-04-13
+19:06:39.000000000 +0900
+@@ -0,0 +1,56 @@
 +/*!
-+ * @file pch_gbe_ethtool.c
-+ * @brief Linux PCH Gigabit Ethernet Ethtool Driver source file
++ * @file pch_debug.h
++ * @brief Provides the macro definitions used for debugging.
++ * @version 1.0.0.0
++ * @section
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; version 2 of the License.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307,
+USA.
++ */
++
++/*
++ * History:
++ * Copyright (C) 2010 OKI SEMICONDUCTOR Co., LTD.
++ *
++ * created:
++ *   OKI SEMICONDUCTOR 04/13/2010
++ *
++ */
++
++#ifndef __PCH_DEBUG_H__
++#define __PCH_DEBUG_H__
++
++#ifdef MODULE
++#define PCH_LOG(level, fmt, args...) printk(level "%s:" fmt "\n",\
++       THIS_MODULE->name, ##args)
++#else
++#define PCH_LOG(level, fmt, args...) printk(level "%s:" fmt "\n" ,\
++        __FILE__, ##args)
++#endif
++
++#ifdef DEBUG
++ #define PCH_DEBUG(fmt, args...) PCH_LOG(KERN_DEBUG, fmt, ##args)
++#else
++ #define PCH_DEBUG(fmt, args...)
++#endif
++
++#ifdef PCH_TRACE_ENABLED
++ #define PCH_TRACE PCH_DEBUG
++#else
++ #define PCH_TRACE(fmt, args...)
++#endif
++
++#define PCH_TRACE_ENTER PCH_TRACE("Enter %s", __func__)
++#define PCH_TRACE_EXIT  PCH_TRACE("Exit %s", __func__)
++
++
++#endif
+diff -urN linux-2.6.33.1/drivers/net/pch_gbe/pch_gbe_defines.h
+topcliff-2.6.33.1/drivers/net/pch_gbe/pch_gbe_defines.h
+--- linux-2.6.33.1/drivers/net/pch_gbe/pch_gbe_defines.h 1970-01-01
+09:00:00.000000000 +0900
++++ topcliff-2.6.33.1/drivers/net/pch_gbe/pch_gbe_defines.h 2010-04-13
+18:11:28.000000000 +0900
+@@ -0,0 +1,344 @@
++/*!
++ * @file pch_gbe_defines.h
++ * @brief Linux PCH Gigabit Ethernet Driver defines macro header file
++ *
++ * @version 1.00
++ *
++ * @section
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; version 2 of the License.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307,
+USA.
++ */
++
++/*
++ * History:
++ * Copyright (C) 2010 OKI SEMICONDUCTOR CO., LTD.
++ *
++ * created:
++ *   OKI SEMICONDUCTOR 04/13/2010
++ * modified:
++ *
++ */
++#ifndef _PCH_GBE_DEFINES_H_
++#define _PCH_GBE_DEFINES_H_
++
++#include "pch_gbe_pci_ids.h" /* Pci vender/device ID */
++
++/* DEBUG OPTION */
++/* #define DEBUG_TEST */
++/* #define NVM_MAC_FIX *//* MAC: 00 21 97 77 65 13 */
++
++#define PHY_RESET_REG_INIT
++
++#ifdef DEBUG_TEST
++#define PCH_GBE_NETIF_MSG_DEFAULT       0x7fff /* ALL Enable */
++#else
++#define PCH_GBE_NETIF_MSG_DEFAULT       0x0000 /* All Disable */
++#endif
++/*-- Kind of Messege --------------------------
++ NETIF_MSG_DRV  = 0x0001,
++ NETIF_MSG_PROBE  = 0x0002,
++ NETIF_MSG_LINK  = 0x0004,
++ NETIF_MSG_TIMER  = 0x0008,
++ NETIF_MSG_IFDOWN = 0x0010,
++ NETIF_MSG_IFUP  = 0x0020,
++ NETIF_MSG_RX_ERR = 0x0040,
++ NETIF_MSG_TX_ERR = 0x0080,
++ NETIF_MSG_TX_QUEUED = 0x0100,
++ NETIF_MSG_INTR  = 0x0200,
++ NETIF_MSG_TX_DONE = 0x0400,
++ NETIF_MSG_RX_STATUS = 0x0800,
++ NETIF_MSG_PKTDATA = 0x1000,
++ NETIF_MSG_HW  = 0x2000,
++ NETIF_MSG_WOL  = 0x4000,
++-----------------------------------------------*/
++
++/* IF OPTION */
++#define PCH_GBE_MAC_IFOP_RGMII
++#define PCH_GBE_MAC_RGMII_CTRL_SETTING ( \
++    PCH_GBE_CHIP_TYPE_INTERNAL | \
++    PCH_GBE_RGMII_MODE_RGMII   | \
++    PCH_GBE_CRS_SEL              \
++    )
++
++/* TX/RX descriptor defines */
++#define PCH_GBE_DEFAULT_TXD                  256
++#define PCH_GBE_MAX_TXD                     4096
++#define PCH_GBE_MIN_TXD                        8
++#define PCH_GBE_DEFAULT_RXD                  256
++#define PCH_GBE_MAX_RXD                     4096
++#define PCH_GBE_MIN_RXD                        8
++/* Number of Transmit and Receive Descriptors must be a multiple of 8 */
++#define PCH_GBE_TX_DESC_MULTIPLE               8
++#define PCH_GBE_RX_DESC_MULTIPLE               8
++
++/* Checksum Offload defines Enable/Disable */
++#define PCH_GBE_DEFAULT_RX_CSUM             TRUE /* TRUEorFALSE */
++#define PCH_GBE_DEFAULT_TX_CSUM             TRUE /* TRUEorFALSE */
++
++/* Copybreak default */
++#define PCH_GBE_COPYBREAK_DEFAULT       256
++#define PCH_GBE_PCI_BAR                 1
++
++/* Device Driver infomation */
++#define DRV_NAME        "pch_gbe"
++#define DRV_STRING      "PCH Network Driver"
++#define DRV_EXT         "-NAPI"
++#define DRV_VERSION     "0.91"DRV_EXT
++#define DRV_DESCRIPTION \
++ "OKI semiconductor sample Linux driver for PCH Gigabit ethernet"
++#define DRV_COPYRIGHT   "Copyright(c) 2009 OKI semiconductor"
++#define FIRM_VERSION    "N/A"
++
++#define PCH_GBE_MAC_REGS_LEN    76
++#define PCH_GBE_PHY_REGS_LEN    32
++#define PCH_GBE_REGS_LEN        (PCH_GBE_MAC_REGS_LEN +
+PCH_GBE_PHY_REGS_LEN)
++
++#define PCH_GBE_DMA_ALIGN           (32)
++#define PCH_GBE_ETH_ALEN            6
++
++/* Initialize the wake-on-LAN settings */
++#define PCH_GBE_WL_INIT_SETTING    ( \
++    PCH_GBE_WLC_BR  |\
++    PCH_GBE_WLC_MLT |\
++    PCH_GBE_WLC_IND |\
++    PCH_GBE_WLC_MP   \
++    )
++
++/* This defines the bits that are set in the Interrupt Mask
++ * Set/Read Register.  Each bit is documented below:
++ *   o RXT0   = Receiver Timer Interrupt (ring 0)
++ *   o TXDW   = Transmit Descriptor Written Back
++ *   o RXDMT0 = Receive Descriptor Minimum Threshold hit (ring 0)
++ *   o RXSEQ  = Receive Sequence Error
++ *   o LSC    = Link Status Change
++ */
++#define PCH_GBE_INT_ENABLE_MASK ( \
++ PCH_GBE_INT_RX_DMA_CMPLT |    \
++ PCH_GBE_INT_RX_DSC_EMP   |    \
++ PCH_GBE_INT_WOL_DET      |    \
++ PCH_GBE_INT_TX_CMPLT          \
++    )
++
++/* Ethertype field values */
++#define PCH_GBE_MAX_JUMBO_FRAME_SIZE    (10318)
++#define PCH_GBE_FRAME_SIZE_2048         (2048)
++#define PCH_GBE_FRAME_SIZE_4096         (4096)
++#define PCH_GBE_FRAME_SIZE_8192         (8192)
++
++/* watchdog time */
++#define PCH_GBE_WATCHDOG_PERIOD        (1 * HZ)
++
++#define PCH_GBE_TX_WEIGHT         64
++#define PCH_GBE_RX_WEIGHT         64
++#define PCH_GBE_RX_BUFFER_WRITE   16
++
++#define DSC_INIT16  0xC000
++
++/* MAC Address */
++/* Number of high/low register pairs in the MAC_ADR. The MAC_ADR (MAC
+Address
++ * Registers) holds the directed and multicast addresses that we monitor.
++ * Technically, we have 16 spots.  However, we reserve one of these spots
++ * (MAC_ADR[15]) for our directed address used by controllers with
++ * manageability enabled, allowing us room for 15 multicast addresses.
++ */
++#define PCH_GBE_MAR_ENTRIES      16
++#define PCH_GBE_SHORT_PKT        64
++
++/* PHY param */
++#define PCH_GBE_PHY_RESET_DELAY_US  10
++/* NVM param */
++#define PCH_GBE_NVM_WORD_SIZE       3 /* 16bit word size */
++
++/* Error Codes */
++#define PCH_GBE_SUCCESS                      0
++#define PCH_GBE_ERR_NVM                      1
++#define PCH_GBE_ERR_PHY                      2
++#define PCH_GBE_ERR_CONFIG                   3
++#define PCH_GBE_ERR_PARAM                    4
++#define PCH_GBE_ERR_MAC_INIT                 5
++#define PCH_GBE_ERR_PHY_TYPE                 6
++#define PCH_GBE_ERR_RESET                    9
++#define PCH_GBE_ERR_MASTER_REQUESTS_PENDING 10
++#define PCH_GBE_ERR_HOST_INTERFACE_COMMAND  11
++#define PCH_GBE_BLK_PHY_RESET               12
++#define PCH_GBE_ERR_SWFW_SYNC               13
++#define PCH_GBE_NOT_IMPLEMENTED             14
++
++#define PHY_MAX_REG_ADDRESS   0x1F /* 5 bit address bus (0-0x1F) */
++/* PHY 1000 MII Register/Bit Definitions */
++/* PHY Registers defined by IEEE */
++#define PHY_CONTROL           0x00  /* Control Register */
++#define PHY_STATUS            0x01  /* Status Regiser */
++#define PHY_ID1               0x02  /* Phy Id Register (word 1) */
++#define PHY_ID2               0x03  /* Phy Id Register (word 2) */
++#define PHY_AUTONEG_ADV       0x04  /* Autoneg Advertisement */
++#define PHY_LP_ABILITY        0x05  /* Link Partner Ability (Base Page) */
++#define PHY_AUTONEG_EXP       0x06  /* Autoneg Expansion Register */
++#define PHY_NEXT_PAGE_TX      0x07  /* Next Page TX */
++#define PHY_LP_NEXT_PAGE      0x08  /* Link Partner Next Page */
++#define PHY_1000T_CTRL        0x09  /* 1000Base-T Control Register */
++#define PHY_1000T_STATUS      0x0A  /* 1000Base-T Status Register */
++#define PHY_EXT_STATUS        0x0F  /* Extended Status Register */
++#define PHY_PHYSP_CONTROL     0x10  /* PHY Specific Control Register */
++#define PHY_EXT_PHYSP_CONTROL 0x14  /* Extended PHY Specific Control
+Register */
++#define PHY_LED_CONTROL       0x18  /* LED Control Register */
++#define PHY_EXT_PHYSP_STATUS  0x1B  /* Extended PHY Specific Status
+Register */
++
++/* PHY Control Register */
++#define MII_CR_SPEED_SELECT_MSB 0x0040 /* bits 6,13: 10=1000, 01=100, 00=10
+*/
++#define MII_CR_COLL_TEST_ENABLE 0x0080 /* Collision test enable */
++#define MII_CR_FULL_DUPLEX      0x0100 /* FDX =1, half duplex =0 */
++#define MII_CR_RESTART_AUTO_NEG 0x0200 /* Restart auto negotiation */
++#define MII_CR_ISOLATE          0x0400 /* Isolate PHY from MII */
++#define MII_CR_POWER_DOWN       0x0800 /* Power down */
++#define MII_CR_AUTO_NEG_EN      0x1000 /* Auto Neg Enable */
++#define MII_CR_SPEED_SELECT_LSB 0x2000 /* bits 6,13: 10=1000, 01=100, 00=10
+*/
++#define MII_CR_LOOPBACK         0x4000 /* 0 = normal, 1 = loopback */
++#define MII_CR_RESET            0x8000 /* 0 = normal, 1 = PHY reset */
++#define MII_CR_SPEED_1000       0x0040
++#define MII_CR_SPEED_100        0x2000
++#define MII_CR_SPEED_10         0x0000
++
++/* PHY Status Register */
++#define MII_SR_EXTENDED_CAPS     0x0001 /* Extended register capabilities
+*/
++#define MII_SR_JABBER_DETECT     0x0002 /* Jabber Detected */
++#define MII_SR_LINK_STATUS       0x0004 /* Link Status 1 = link */
++#define MII_SR_AUTONEG_CAPS      0x0008 /* Auto Neg Capable */
++#define MII_SR_REMOTE_FAULT      0x0010 /* Remote Fault Detect */
++#define MII_SR_AUTONEG_COMPLETE  0x0020 /* Auto Neg Complete */
++#define MII_SR_PREAMBLE_SUPPRESS 0x0040 /* Preamble may be suppressed */
++#define MII_SR_EXTENDED_STATUS   0x0100 /* Ext. status info in Reg 0x0F */
++#define MII_SR_100T2_HD_CAPS     0x0200 /* 100T2 Half Duplex Capable */
++#define MII_SR_100T2_FD_CAPS     0x0400 /* 100T2 Full Duplex Capable */
++#define MII_SR_10T_HD_CAPS       0x0800 /* 10T   Half Duplex Capable */
++#define MII_SR_10T_FD_CAPS       0x1000 /* 10T   Full Duplex Capable */
++#define MII_SR_100X_HD_CAPS      0x2000 /* 100X  Half Duplex Capable */
++#define MII_SR_100X_FD_CAPS      0x4000 /* 100X  Full Duplex Capable */
++#define MII_SR_100T4_CAPS        0x8000 /* 100T4 Capable */
++
++/* Phy Id Register (word 2) */
++#define PHY_REVISION_MASK        0x000F
++
++/* Autoneg Advertisement Register */
++#define NWAY_AR_SELECTOR_FIELD   0x0001 /* indicates IEEE 802.3 CSMA/CD */
++#define NWAY_AR_10T_HD_CAPS      0x0020 /* 10T   Half Duplex Capable */
++#define NWAY_AR_10T_FD_CAPS      0x0040 /* 10T   Full Duplex Capable */
++#define NWAY_AR_100TX_HD_CAPS    0x0080 /* 100TX Half Duplex Capable */
++#define NWAY_AR_100TX_FD_CAPS    0x0100 /* 100TX Full Duplex Capable */
++#define NWAY_AR_100T4_CAPS       0x0200 /* 100T4 Capable */
++#define NWAY_AR_PAUSE            0x0400 /* Pause operation desired */
++#define NWAY_AR_ASM_DIR          0x0800 /* Asymmetric Pause Direction bit
+*/
++#define NWAY_AR_REMOTE_FAULT     0x2000 /* Remote Fault detected */
++#define NWAY_AR_NEXT_PAGE        0x8000 /* Next Page ability supported */
++
++/* Link Partner Ability Register (Base Page) */
++#define NWAY_LPAR_SELECTOR_FIELD 0x0000 /* LP protocol selector field */
++#define NWAY_LPAR_10T_HD_CAPS    0x0020 /* LP is 10T   Half Duplex Capable
+*/
++#define NWAY_LPAR_10T_FD_CAPS    0x0040 /* LP is 10T   Full Duplex Capable
+*/
++#define NWAY_LPAR_100TX_HD_CAPS  0x0080 /* LP is 100TX Half Duplex Capable
+*/
++#define NWAY_LPAR_100TX_FD_CAPS  0x0100 /* LP is 100TX Full Duplex Capable
+*/
++#define NWAY_LPAR_100T4_CAPS     0x0200 /* LP is 100T4 Capable */
++#define NWAY_LPAR_PAUSE          0x0400 /* LP Pause operation desired */
++#define NWAY_LPAR_ASM_DIR        0x0800 /* LP Asymmetric Pause Direction
+bit */
++#define NWAY_LPAR_REMOTE_FAULT   0x2000 /* LP has detected Remote Fault */
++#define NWAY_LPAR_ACKNOWLEDGE    0x4000 /* LP has rx'd link code word */
++#define NWAY_LPAR_NEXT_PAGE      0x8000 /* Next Page ability supported */
++
++/* Autoneg Expansion Register */
++#define NWAY_ER_LP_NWAY_CAPS      0x0001 /* LP has Auto Neg Capability */
++#define NWAY_ER_PAGE_RXD          0x0002 /* LP is 10T   Half Duplex Capable
+*/
++#define NWAY_ER_NEXT_PAGE_CAPS    0x0004 /* LP is 10T   Full Duplex Capable
+*/
++#define NWAY_ER_LP_NEXT_PAGE_CAPS 0x0008 /* LP is 100TX Half Duplex Capable
+*/
++#define NWAY_ER_PAR_DETECT_FAULT  0x0010 /* LP is 100TX Full Duplex Capable
+*/
++
++/* 1000BASE-T Control Register */
++#define CR_1000T_ASYM_PAUSE      0x0080 /* Advertise asymmetric pause bit
+*/
++#define CR_1000T_HD_CAPS         0x0100 /* Advertise 1000T HD capability */
++#define CR_1000T_FD_CAPS         0x0200 /* Advertise 1000T FD capability
+*/
++#define CR_1000T_REPEATER_DTE    0x0400 /* 1=Repeater/switch device port */
++     /* 0=DTE device */
++#define CR_1000T_MS_VALUE        0x0800 /* 1=Configure PHY as Master */
++     /* 0=Configure PHY as Slave */
++#define CR_1000T_MS_ENABLE       0x1000 /* 1=Master/Slave manual config
+value */
++     /* 0=Automatic Master/Slave config */
++#define CR_1000T_TEST_MODE_NORMAL 0x0000 /* Normal Operation */
++#define CR_1000T_TEST_MODE_1      0x2000 /* Transmit Waveform test */
++#define CR_1000T_TEST_MODE_2      0x4000 /* Master Transmit Jitter test */
++#define CR_1000T_TEST_MODE_3      0x6000 /* Slave Transmit Jitter test */
++#define CR_1000T_TEST_MODE_4      0x8000 /* Transmitter Distortion test */
++
++/* 1000BASE-T Status Register */
++#define SR_1000T_IDLE_ERROR_CNT   0x00FF /* Num idle errors since last read
+*/
++#define SR_1000T_ASYM_PAUSE_DIR   0x0100 /* LP asymmetric pause direction
+bit */
++#define SR_1000T_LP_HD_CAPS       0x0400 /* LP is 1000T HD capable */
++#define SR_1000T_LP_FD_CAPS       0x0800 /* LP is 1000T FD capable */
++#define SR_1000T_REMOTE_RX_STATUS 0x1000 /* Remote receiver OK */
++#define SR_1000T_LOCAL_RX_STATUS  0x2000 /* Local receiver OK */
++#define SR_1000T_MS_CONFIG_RES    0x4000 /* 1=Local TX is Master, 0=Slave
+*/
++#define SR_1000T_MS_CONFIG_FAULT  0x8000 /* Master/Slave config fault */
++
++/* PHY Specific Control Register */
++#define PHYSP_CTRL_ASSERT_CRS_TX  0x0800
++
++/* LED Control Register */
++#define PHY_LED_CTRL_ON           0x4103
++#define PHY_LED_CTRL_OFF          0x4102
++#define PHY_LED_CTRL_CLEANUP      0x4100
++
++/* Extended PHY Specific Status Register */
++#define HWCFG_MODE_GMII_COPPER    0x000F /* GMII to Copper */
++#define HWCFG_MODE_RGMII_COPPER   0x000B /* RGMII/Modiffied MII to Copper
+*/
++#define HWCFG_MODE_GMII_FIBER     0x0007 /* GMII to Fiber */
++#define HWCFG_MODE_RGMII_FIBER    0x0003 /* RGMII to Fiber */
++#define HWCFG_MODE_GMII_SGMII     0x000E /* GMII to SGMII */
++#define HWCFG_MODE_RGMII_SGMII    0x0006 /* RGMII to SGMII */
++#define HWCFG_MODE_TBI_COPPER     0x000D /* TBI to Copper */
++#define HWCFG_MODE_RTBI_COPPER    0x0009 /* RTBI to Copper */
++#define HWCFG_MODE_MASK           0x000F
++
++#define PHY_SPEED_10    10
++#define PHY_SPEED_100   100
++#define PHY_SPEED_1000  1000
++#define PHY_HALF_DUPLEX 1
++#define PHY_FULL_DUPLEX 2
++
++#define PHY_ADVERTISE_10_HALF      0x0001
++#define PHY_ADVERTISE_10_FULL      0x0002
++#define PHY_ADVERTISE_100_HALF     0x0004
++#define PHY_ADVERTISE_100_FULL     0x0008
++#define PHY_ADVERTISE_1000_HALF    0x0010 /* Not used, just FYI */
++#define PHY_ADVERTISE_1000_FULL    0x0020
++
++/* 1000/H is not supported, nor spec-compliant. */
++#define PCH_GBE_ALL_SPEED_DUPLEX (PHY_ADVERTISE_10_HALF  | \
++      PHY_ADVERTISE_10_FULL  | \
++      PHY_ADVERTISE_100_HALF | \
++      PHY_ADVERTISE_100_FULL | \
++      PHY_ADVERTISE_1000_FULL)
++#define PCH_GBE_ALL_NOT_GIG  (PHY_ADVERTISE_10_HALF  | \
++      PHY_ADVERTISE_10_FULL  | \
++      PHY_ADVERTISE_100_HALF | \
++      PHY_ADVERTISE_100_FULL)
++#define PCH_GBE_ALL_100_SPEED  (PHY_ADVERTISE_100_HALF | \
++      PHY_ADVERTISE_100_FULL)
++#define PCH_GBE_ALL_10_SPEED  (PHY_ADVERTISE_10_HALF  | \
++      PHY_ADVERTISE_10_FULL)
++#define PCH_GBE_ALL_FULL_DUPLEX  (PHY_ADVERTISE_10_FULL  | \
++      PHY_ADVERTISE_100_FULL | \
++      PHY_ADVERTISE_1000_FULL)
++#define PCH_GBE_ALL_HALF_DUPLEX  (PHY_ADVERTISE_10_HALF  | \
++      PHY_ADVERTISE_100_HALF)
++
++#define AUTONEG_ADVERTISE_SPEED_DEFAULT   PCH_GBE_ALL_SPEED_DUPLEX
++
++#endif
+diff -urN linux-2.6.33.1/drivers/net/pch_gbe/pch_gbe.h
+topcliff-2.6.33.1/drivers/net/pch_gbe/pch_gbe.h
+--- linux-2.6.33.1/drivers/net/pch_gbe/pch_gbe.h 1970-01-01
+09:00:00.000000000 +0900
++++ topcliff-2.6.33.1/drivers/net/pch_gbe/pch_gbe.h 2010-04-13
+18:13:03.000000000 +0900
+@@ -0,0 +1,228 @@
++/*!
++ * @file pch_gbe.h
++ * @brief Linux PCH Gigabit Ethernet Driver main header file
 + *
 + * @version 1.00
 + *
@@ -84,1121 +530,613 @@ USA.
 + *
 + */
 +
-+#include <linux/pci.h>
-+#include <linux/netdevice.h>
-+#include <linux/ethtool.h>
-+#include <linux/mii.h>
-+#include <linux/sched.h>
-+#include <linux/uaccess.h>
++#ifndef _PCH_GBE_H_
++#define _PCH_GBE_H_
 +
-+#include "pch_debug.h"
-+#include "pch_gbe_osdep.h"
-+#include "pch_gbe_regs.h"
-+#include "pch_gbe_defines.h"
-+#include "pch_gbe_hw.h"
-+#include "pch_gbe_api.h"
-+#include "pch_gbe.h"
++struct pch_gbe_adapter;
 +
++#define PFX "pch_gbe: "
++#define DPRINTK(nlevel, klevel, fmt, args...) \
++ do { \
++  if (NETIF_MSG_##nlevel & adapter->msg_enable) \
++   printk(KERN_##klevel PFX "%s: %s: " fmt, \
++    adapter->netdev->name, __func__ , ## args); \
++ } while (0)
 +
-+/* ------------------------------------------------------------------------
-----
-+ Function prototype
-+---------------------------------------------------------------------------
-- */
-+static int pch_gbe_get_settings(struct net_device *netdev,
-+    struct ethtool_cmd *ecmd);
-+static int pch_gbe_set_settings(struct net_device *netdev,
-+    struct ethtool_cmd *ecmd);
-+static void pch_gbe_get_drvinfo(struct net_device *netdev,
-+    struct ethtool_drvinfo *drvinfo);
-+static int pch_gbe_get_regs_len(struct net_device *netdev);
-+static void pch_gbe_get_regs(struct net_device *netdev,
-+        struct ethtool_regs *regs, void *p);
-+static void pch_gbe_get_wol(struct net_device *netdev,
-+       struct ethtool_wolinfo *wol);
-+static int pch_gbe_set_wol(struct net_device *netdev,
-+      struct ethtool_wolinfo *wol);
-+static u32 pch_gbe_get_msglevel(struct net_device *netdev);
-+static void pch_gbe_set_msglevel(struct net_device *netdev, u32 data);
-+static int pch_gbe_nway_reset(struct net_device *netdev);
-+#ifdef CONFIG_PCH_PHUB
-+static int pch_gbe_get_eeprom_len(struct net_device *netdev);
-+static int pch_gbe_get_eeprom(struct net_device *netdev,
-+         struct ethtool_eeprom *eeprom, u8 *bytes);
-+static int pch_gbe_set_eeprom(struct net_device *netdev,
-+         struct ethtool_eeprom *eeprom, u8 *bytes);
-+#endif
-+static void pch_gbe_get_ringparam(struct net_device *netdev,
-+      struct ethtool_ringparam *ring);
-+static int pch_gbe_set_ringparam(struct net_device *netdev,
-+     struct ethtool_ringparam *ring);
-+static void pch_gbe_get_pauseparam(struct net_device *netdev,
-+       struct ethtool_pauseparam *pause);
-+static int pch_gbe_set_pauseparam(struct net_device *netdev,
-+      struct ethtool_pauseparam *pause);
-+static u32 pch_gbe_get_rx_csum(struct net_device *netdev);
-+static int pch_gbe_set_rx_csum(struct net_device *netdev, u32 data);
-+static u32 pch_gbe_get_tx_csum(struct net_device *netdev);
-+static int pch_gbe_set_tx_csum(struct net_device *netdev, u32 data);
-+static void pch_gbe_diag_test(struct net_device *netdev,
-+         struct ethtool_test *eth_test, u64 *data);
-+static void pch_gbe_get_strings(struct net_device *netdev,
-+    u32 stringset, u8 *data);
-+static void pch_gbe_led_blink_callback(unsigned long data);
-+static int pch_gbe_phys_id(struct net_device *netdev, u32 data);
-+static void pch_gbe_get_ethtool_stats(struct net_device *netdev,
-+          struct ethtool_stats *stats, u64 *data);
-+static int pch_gbe_reg_test(struct pch_gbe_adapter *adapter, uint64_t
-*data);
-+static bool reg_pattern_test(struct pch_gbe_adapter *adapter, uint64_t
-*data,
-+        int reg, uint32_t mask, uint32_t write);
++/* only works for sizes that are powers of 2 */
++#define PCH_GBE_ROUNDUP(i, size) ((i) = (((i) + (size) - 1) & ~((size) -
+1)))
 +
-+/* ------------------------------------------------------------------------
-----
-+ Data
-+---------------------------------------------------------------------------
-- */
 +/*!
-+ * @ingroup Ethtool driver Layer
-+ * @struct  pch_gbe_stats
-+ * @brief   Stats item infomation
++ * @ingroup Gigabit Ether driver Layer
++ * @struct  pch_gbe_buffer
++ * @brief   Buffer infomation
++ * @remarks
++ *  wrapper around a pointer to a socket buffer,
++ *  so a DMA handle can be stored along with the buffer
 + */
-+struct pch_gbe_stats {
-+ signed char stat_string[ETH_GSTRING_LEN];
-+ int sizeof_stat;
-+ int stat_offset;
-+};
-+
-+#define PCH_GBE_STAT1(m) (int)(sizeof(((struct pch_gbe_adapter *)0)->m))
-+#define PCH_GBE_STAT2(m) offsetof(struct pch_gbe_adapter, m)
-+
-+/*!
-+ * @ingroup Ethtool driver Layer
-+ * @struct  pch_gbe_gstrings_stats
-+ * @brief   ethtool information status name list
-+ */
-+static const struct pch_gbe_stats pch_gbe_gstrings_stats[] = {
-+ {"rx_packets", PCH_GBE_STAT1(stats.rx_packets),
-+  PCH_GBE_STAT2(stats.rx_packets)},
-+ {"tx_packets", PCH_GBE_STAT1(stats.tx_packets),
-+  PCH_GBE_STAT2(stats.tx_packets)},
-+ {"rx_bytes", PCH_GBE_STAT1(stats.rx_bytes),
-+  PCH_GBE_STAT2(stats.rx_bytes)},
-+ {"tx_bytes", PCH_GBE_STAT1(stats.tx_bytes),
-+  PCH_GBE_STAT2(stats.tx_bytes)},
-+ {"rx_errors", PCH_GBE_STAT1(stats.rx_errors),
-+  PCH_GBE_STAT2(stats.rx_errors)},
-+ {"tx_errors", PCH_GBE_STAT1(stats.tx_errors),
-+  PCH_GBE_STAT2(stats.tx_errors)},
-+ {"rx_dropped", PCH_GBE_STAT1(stats.rx_dropped),
-+  PCH_GBE_STAT2(stats.rx_dropped)},
-+ {"tx_dropped", PCH_GBE_STAT1(stats.tx_dropped),
-+  PCH_GBE_STAT2(stats.tx_dropped)},
-+ {"multicast", PCH_GBE_STAT1(stats.multicast),
-+  PCH_GBE_STAT2(stats.multicast)},
-+ {"collisions", PCH_GBE_STAT1(stats.collisions),
-+  PCH_GBE_STAT2(stats.collisions)},
-+ {"rx_crc_errors", PCH_GBE_STAT1(stats.rx_crc_errors),
-+  PCH_GBE_STAT2(stats.rx_crc_errors)},
-+ {"rx_frame_errors", PCH_GBE_STAT1(stats.rx_frame_errors),
-+  PCH_GBE_STAT2(stats.rx_frame_errors)},
-+ {"rx_buff_failed", PCH_GBE_STAT1(stats.rx_alloc_buff_failed),
-+  PCH_GBE_STAT2(stats.rx_alloc_buff_failed)},
-+ {"tx_length_errors", PCH_GBE_STAT1(stats.tx_length_errors),
-+  PCH_GBE_STAT2(stats.tx_length_errors)},
-+ {"tx_aborted_errors", PCH_GBE_STAT1(stats.tx_aborted_errors),
-+  PCH_GBE_STAT2(stats.tx_aborted_errors)},
-+ {"tx_carrier_errors", PCH_GBE_STAT1(stats.tx_carrier_errors),
-+  PCH_GBE_STAT2(stats.tx_carrier_errors)},
-+ {"tx_timeout_count", PCH_GBE_STAT1(stats.tx_timeout_count),
-+  PCH_GBE_STAT2(stats.tx_timeout_count)},
-+ {"tx_restart_count", PCH_GBE_STAT1(stats.tx_restart_count),
-+  PCH_GBE_STAT2(stats.tx_restart_count)},
-+ {"intr_rx_dsc_empty_count",
-+  PCH_GBE_STAT1(stats.intr_rx_dsc_empty_count),
-+  PCH_GBE_STAT2(stats.intr_rx_dsc_empty_count)},
-+ {"intr_rx_frame_err_count",
-+  PCH_GBE_STAT1(stats.intr_rx_frame_err_count),
-+  PCH_GBE_STAT2(stats.intr_rx_frame_err_count)},
-+ {"intr_rx_fifo_err_count", PCH_GBE_STAT1(stats.intr_rx_fifo_err_count),
-+  PCH_GBE_STAT2(stats.intr_rx_fifo_err_count)},
-+ {"intr_rx_dma_err_count", PCH_GBE_STAT1(stats.intr_rx_dma_err_count),
-+  PCH_GBE_STAT2(stats.intr_rx_dma_err_count)},
-+ {"intr_tx_fifo_err_count", PCH_GBE_STAT1(stats.intr_tx_fifo_err_count),
-+  PCH_GBE_STAT2(stats.intr_tx_fifo_err_count)},
-+ {"intr_tx_dma_err_count", PCH_GBE_STAT1(stats.intr_tx_dma_err_count),
-+  PCH_GBE_STAT2(stats.intr_tx_dma_err_count)},
-+ {"intr_tcpip_err_count", PCH_GBE_STAT1(stats.intr_tcpip_err_count),
-+  PCH_GBE_STAT2(stats.intr_tcpip_err_count)}
-+};
-+
-+#define PCH_GBE_QUEUE_STATS_LEN 0
-+#define PCH_GBE_GLOBAL_STATS_LEN \
-+((int)sizeof(pch_gbe_gstrings_stats) / (int)sizeof(struct pch_gbe_stats))
-+
-+/*!
-+ * @ingroup  Ethtool driver
-+ * @def      PCH_GBE_STATS_LEN
-+ * @brief    The size of status
-+*/
-+#define PCH_GBE_STATS_LEN (PCH_GBE_GLOBAL_STATS_LEN +
-PCH_GBE_QUEUE_STATS_LEN)
-+
-+/*!
-+ * @ingroup Ethtool driver Layer
-+ * @struct  pch_gbe_gstrings_test
-+ * @brief   self test item name list
-+ */
-+static const signed char pch_gbe_gstrings_test[][ETH_GSTRING_LEN] = {
-+ "Register test  (offline)"
++struct pch_gbe_buffer {
++ struct sk_buff *skb;     /**< pointer to a socket buffer  */
++ struct sk_buff *kernel_skb;
++  /**< pointer to a socket buffer received from the kernel */
++ dma_addr_t dma;      /**< DMA address  */
++ unsigned long time_stamp;   /**< time stamp  */
++ u16 length;      /**< data size  */
 +};
 +
 +/*!
-+ * @ingroup  Ethtool driver
-+ * @def      PCH_GBE_TEST_LEN
-+ * @brief    The size of test packet
-+*/
-+#define PCH_GBE_TEST_LEN \
-+ ((int)sizeof(pch_gbe_gstrings_test) / ETH_GSTRING_LEN)
-+
-+/*!
-+ * @ingroup  Ethtool driver
-+ * @def      PCH_GBE_ID_INTERVAL
-+ * @brief    Toggle LED 4 times per second = 2 "blinks" per second
-+*/
-+#define PCH_GBE_ID_INTERVAL (HZ/4)
-+
-+/*!
-+ * @ingroup  Ethtool driver
-+ * @def      PCH_GBE_LED_ON
-+ * @brief    Bit defines for adapter->led_status
-+*/
-+#define PCH_GBE_LED_ON  0
-+
-+/* ------------------------------------------------------------------------
-----
-+ Function
-+---------------------------------------------------------------------------
-- */
-+/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static int pch_gbe_get_settings(struct net_device *netdev,
-+ *                                          struct ethtool_cmd *ecmd)
-+ * @brief   Get device-specific settings
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @param   ecmd   [INOUT] Ethtool command
-+ * @return  PCH_GBE_SUCCESS:  Successfully
-+ * @return  Negative value:   Failed
++ * @ingroup Gigabit Ether driver Layer
++ * @struct  pch_gbe_tx_ring
++ * @brief   tx ring infomation
 + */
-+static int
-+pch_gbe_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
-+ int ret;
-+
-+ PCH_DEBUG("ethtool: pch_gbe_get_settings\n");
-+
-+ ret = mii_ethtool_gset(&adapter->mii, ecmd);
-+ ecmd->supported &= (u32) (~SUPPORTED_TP);
-+ ecmd->supported &= (u32) (~SUPPORTED_1000baseT_Half);
-+ ecmd->advertising &= (u32) (~ADVERTISED_TP);
-+ ecmd->advertising &= (u32) (~ADVERTISED_1000baseT_Half);
-+
-+ if (netif_carrier_ok(adapter->netdev)) {
-+  ;
-+ } else {
-+  ecmd->speed = 0xFFFF;
-+  ecmd->duplex = 0xFF;
-+ }
-+ return ret;
-+}
++struct pch_gbe_tx_ring {
++ void *desc;  /**< pointer to the descriptor ring memory  */
++ dma_addr_t dma;  /**< physical address of the descriptor ring  */
++ unsigned int size; /**< length of descriptor ring in bytes  */
++ unsigned int count; /**< number of descriptors in the ring  */
++ unsigned int next_to_use;
++   /**< next descriptor to associate a buffer with  */
++ unsigned int next_to_clean;
++   /**< next descriptor to check for DD status bit  */
++ struct pch_gbe_buffer *buffer_info;
++   /**< array of buffer information structs  */
++ spinlock_t tx_lock; /**< spinlock structs  */
++};
 +
 +/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static int pch_gbe_set_settings(struct net_device *netdev,
-+ *                                          struct ethtool_cmd *ecmd)
-+ * @brief   Set device-specific settings
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @param   ecmd   [INOUT] Ethtool command
-+ * @return  PCH_GBE_SUCCESS:  Successfully
-+ * @return  Negative value:   Failed
++ * @ingroup Gigabit Ether driver Layer
++ * @struct  pch_gbe_rx_ring
++ * @brief   rx ring infomation
 + */
-+static int
-+pch_gbe_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
-+ struct pch_gbe_hw *hw = &adapter->hw;
-+ int ret;
-+
-+ PCH_DEBUG("ethtool: pch_gbe_set_settings\n");
-+
-+ while (test_and_set_bit(__PCH_GBE_RESETTING, &adapter->flags) != 0)
-+  msleep(1);
-+ pch_gbe_hal_write_phy_reg(hw, MII_BMCR, BMCR_RESET);
-+
-+ if (ecmd->speed == 0xFFFF)
-+  ecmd->speed = SPEED_1000;
-+ if (ecmd->duplex == 0xFF)
-+  ecmd->duplex = DUPLEX_FULL;
-+ ret = mii_ethtool_sset(&adapter->mii, ecmd);
-+ if (ret != 0) {
-+  PCH_LOG(KERN_ERR, "Error: mii_ethtool_sset\n");
-+  clear_bit(__PCH_GBE_RESETTING, &adapter->flags);
-+  return ret;
-+ }
-+ hw->mac.link_speed = ecmd->speed;
-+ hw->mac.link_duplex = ecmd->duplex;
-+ hw->phy.autoneg_advertised = ecmd->advertising;
-+ hw->mac.autoneg = ecmd->autoneg;
-+ pch_gbe_hal_phy_sw_reset(hw);
-+
-+ /* reset the link */
-+ if (netif_running(adapter->netdev) != 0) {
-+  pch_gbe_down(adapter);
-+  ret = pch_gbe_up(adapter);
-+ } else {
-+  pch_gbe_reset(adapter);
-+ }
-+
-+ clear_bit(__PCH_GBE_RESETTING, &adapter->flags);
-+ return ret;
-+}
++struct pch_gbe_rx_ring {
++ void *desc;  /**< pointer to the descriptor ring memory  */
++ dma_addr_t dma;  /**< physical address of the descriptor ring  */
++ unsigned int size; /**< length of descriptor ring in bytes  */
++ unsigned int count; /**< number of descriptors in the ring  */
++ unsigned int next_to_use;
++   /**< next descriptor to associate a buffer with  */
++ unsigned int next_to_clean;
++   /**< next descriptor to check for DD status bit  */
++ struct pch_gbe_buffer *buffer_info;
++   /**< array of buffer information structs  */
++};
 +
 +/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static void pch_gbe_get_drvinfo(struct net_device *netdev,
-+ *                                          struct ethtool_drvinfo
-*drvinfo)
-+ * @brief   Report driver information
-+ * @param   netdev  [INOUT] Network interface device structure
-+ * @param   drvinfo [INOUT] Driver information structure
-+ * @return  None
++ * @ingroup Gigabit Ether driver Layer
++ * @struct  pch_gbe_hw_stats
++ * @brief   Statistics counters collected by the MAC
 + */
-+static void
-+pch_gbe_get_drvinfo(struct net_device *netdev, struct ethtool_drvinfo
-*drvinfo)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
++struct pch_gbe_hw_stats {
++ u64 rx_packets;      /**< total packets received  */
++ u64 tx_packets;      /**< total packets transmitted  */
++ u64 rx_bytes;      /**< total bytes received  */
++ u64 tx_bytes;      /**< total bytes transmitted  */
++ u64 rx_errors;      /**< bad packets received  */
++ u64 tx_errors;      /**< packet transmit problems  */
++ u64 rx_dropped;      /**< no space in Linux buffers  */
++ u64 tx_dropped;      /**< no space available in Linux  */
++ u64 multicast;      /**< multicast packets received  */
++ u64 collisions;      /**< collisions */
++ u64 rx_crc_errors;     /**< received packet with crc error  */
++ u64 rx_frame_errors;     /**< received frame alignment error  */
++ u64 rx_alloc_buff_failed;   /**< allocate failure of a receive buffer */
++ u64 tx_length_errors;     /**< transmit length error  */
++ u64 tx_aborted_errors;     /**< transmit aborted error  */
++ u64 tx_carrier_errors;     /**< transmit carrier error  */
++ u64 tx_timeout_count;     /**< Number of transmit timeout  */
++ u64 tx_restart_count;     /**< Number of transmit restert  */
++ u64 intr_rx_dsc_empty_count;
++   /**< Interrupt count of receive descriptor empty  */
++ u64 intr_rx_frame_err_count;
++   /**< Interrupt count of receive frame error  */
++ u64 intr_rx_fifo_err_count;
++   /**< Interrupt count of receive FIFO error  */
++ u64 intr_rx_dma_err_count;
++   /**< Interrupt count of receive DMA error  */
++ u64 intr_tx_fifo_err_count;
++   /**< Interrupt count of transmit FIFO error  */
++ u64 intr_tx_dma_err_count;
++   /**< Interrupt count of transmit DMA error  */
++ u64 intr_tcpip_err_count;
++   /**< Interrupt count of TCP/IP Accelerator  */
++};
 +
-+ PCH_DEBUG("ethtool: pch_gbe_get_drvinfo\n");
++/*!
++ * @ingroup Gigabit Ether driver Layer
++ * @struct  pch_gbe_adapter
++ * @brief   board specific private data structure
++ */
++struct pch_gbe_adapter {
++ /* OS defined structs */
++ struct net_device *netdev;  /**<  Pointer of network device structure */
++ struct pci_dev *pdev;     /**<  Pointer of pci device structure */
++ struct net_device_stats net_stats; /**<  Network status */
++ struct net_device *polling_netdev;
++   /**<  Pointer of polling network device structure */
++ struct napi_struct napi; /**<  NAPI structure */
 +
-+ strcpy(drvinfo->driver, DRV_NAME);
-+ strcpy(drvinfo->version, DRV_VERSION);
-+ strcpy(drvinfo->fw_version, FIRM_VERSION);
-+ strcpy(drvinfo->bus_info, pci_name(adapter->pdev));
++ /* structs defined in pch_gbe_hw.h */
++ struct pch_gbe_hw hw;  /**<  Pointer of hardware structure */
++ struct pch_gbe_hw_stats stats; /**<  Hardware status */
++ struct work_struct reset_task; /**<  Reset task */
++ struct mii_if_info mii;  /**<  MII information structure */
++ struct timer_list watchdog_timer; /**<  Watchdog timer list */
 +
-+ drvinfo->n_stats = PCH_GBE_STATS_LEN;
-+ drvinfo->testinfo_len = PCH_GBE_TEST_LEN;
-+ drvinfo->regdump_len = pch_gbe_get_regs_len(netdev);
++ u32 bd_number;  /**<  The number of the found NIC cards */
++ u32 wake_up_evt; /**<  Wake up event */
++ u32 *config_space; /**<  Configuration space */
++ int msg_enable;  /**<  Driver message level */
++
++ spinlock_t stats_lock;     /**<  Spinlock structure for status */
++ spinlock_t tx_queue_lock;   /**<  Spinlock structure for transmit */
++ spinlock_t int_en_lock;     /**<  Spinlock structure for IRQ enable */
++ atomic_t irq_sem;     /**<  Semaphore for interrupt */
++
++ struct timer_list blink_timer; /**<  LED blink timer list */
++ unsigned long led_status; /**<  LED status */
++
++ /* TX,RX */
++ struct pch_gbe_tx_ring *tx_ring;
++  /**<  Pointer of Tx descriptor ring structure  */
++ struct pch_gbe_rx_ring *rx_ring;
++  /**<  Pointer of Rx descriptor ring structure */
++ unsigned long rx_buffer_len; /**<  Receive buffer length */
++ unsigned long tx_queue_len; /**<  Transmit queue length */
++
++ unsigned char rx_csum;
++  /**<  Receive TCP/IP checksum enable/disable */
++ unsigned char tx_csum;
++  /**<  Transmit TCP/IP checksum enable/disable */
++
++ unsigned char have_msi;  /**<  PCI MSI mode flag */
++
++ /* to not mess up cache alignment, always add to the bottom */
++ unsigned long flags;  /**<  Driver status flag */
++};
++
++/*!
++ * @ingroup Gigabit Ether driver Layer
++ * @def  pch_gbe_state_t
++ * @brief   Driver Status
++ */
++enum pch_gbe_state_t {
++ __PCH_GBE_TESTING,    /**<  Testing  */
++ __PCH_GBE_RESETTING,    /**<  Reseting */
++};
++
++/* pch_gbe_main.c */
++int pch_gbe_up(struct pch_gbe_adapter *adapter);
++void pch_gbe_down(struct pch_gbe_adapter *adapter);
++void pch_gbe_reinit_locked(struct pch_gbe_adapter *adapter);
++void pch_gbe_reset(struct pch_gbe_adapter *adapter);
++int pch_gbe_setup_tx_resources(struct pch_gbe_adapter *adapter,
++    struct pch_gbe_tx_ring *txdr);
++int pch_gbe_setup_rx_resources(struct pch_gbe_adapter *adapter,
++    struct pch_gbe_rx_ring *rxdr);
++void pch_gbe_free_tx_resources(struct pch_gbe_adapter *adapter,
++    struct pch_gbe_tx_ring *tx_ring);
++void pch_gbe_free_rx_resources(struct pch_gbe_adapter *adapter,
++    struct pch_gbe_rx_ring *rx_ring);
++void pch_gbe_update_stats(struct pch_gbe_adapter *adapter);
++int pch_gbe_mdio_read(struct net_device *netdev, int addr, int reg);
++void pch_gbe_mdio_write(struct net_device *netdev, int addr, int reg, int
+data);
++/* pch_gbe_param.c */
++void pch_gbe_check_options(struct pch_gbe_adapter *adapter);
++
++/* pch_gbe_ethtool.c */
++void pch_gbe_set_ethtool_ops(struct net_device *netdev);
++
++
++#endif /* _PCH_GBE_H_ */
+diff -urN linux-2.6.33.1/drivers/net/pch_gbe/pch_gbe_hw.h
+topcliff-2.6.33.1/drivers/net/pch_gbe/pch_gbe_hw.h
+--- linux-2.6.33.1/drivers/net/pch_gbe/pch_gbe_hw.h 1970-01-01
+09:00:00.000000000 +0900
++++ topcliff-2.6.33.1/drivers/net/pch_gbe/pch_gbe_hw.h 2010-04-13
+19:25:36.000000000 +0900
+@@ -0,0 +1,258 @@
++/*!
++ * @file pch_gbe_hw.h
++ * @brief Linux PCH Gigabit Ethernet Driver Hardware layer header file
++ *
++ * @version 1.00
++ *
++ * @section
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; version 2 of the License.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307,
+USA.
++ */
++
++/*
++ * History:
++ * Copyright (C) 2010 OKI SEMICONDUCTOR CO., LTD.
++ *
++ * created:
++ *   OKI SEMICONDUCTOR 04/13/2010
++ * modified:
++ *
++ */
++#ifndef _PCH_GBE_HW_H_
++#define _PCH_GBE_HW_H_
++
++struct pch_gbe_hw;
++
++/* mac type values */
++#define PCH_GBE_MAC_TYPE_UNDEFINED 0
++#define PCH_GBE_MAC_TYPE_PCH1  1
++#define PCH_GBE_MAC_TYPE_PCH2  2
++
++/* bus type values */
++#define pch_gbe_bus_type_unknown 0
++#define pch_gbe_bus_type_pci  1
++#define pch_gbe_bus_type_pcix  2
++#define pch_gbe_bus_type_pci_express 3
++#define pch_gbe_bus_type_reserved 4
++
++/* bus speed values */
++#define pch_gbe_bus_speed_unknown 0
++#define pch_gbe_bus_speed_33  1
++#define pch_gbe_bus_speed_66  2
++#define pch_gbe_bus_speed_100  3
++#define pch_gbe_bus_speed_120  4
++#define pch_gbe_bus_speed_133  5
++#define pch_gbe_bus_speed_2500  6
++#define pch_gbe_bus_speed_reserved 7
++
++/* bus width values */
++#define pch_gbe_bus_width_unknown 0
++#define pch_gbe_bus_width_pcie_x1 1
++#define pch_gbe_bus_width_pcie_x2 2
++#define pch_gbe_bus_width_pcie_x4 4
++#define pch_gbe_bus_width_32  5
++#define pch_gbe_bus_width_64  6
++#define pch_gbe_bus_width_reserved 7
++
++/* flow control values */
++#define pch_gbe_fc_none   0
++#define pch_gbe_fc_rx_pause  1
++#define pch_gbe_fc_tx_pause  2
++#define pch_gbe_fc_full   3
++
++#define PCH_GBE_FC_DEFAULT  pch_gbe_fc_full
++
++/*!
++ * @ingroup Gigabit Ether driver Layer
++ * @struct  pch_gbe_rx_desc
++ * @brief   Receive Descriptor
++ */
++struct pch_gbe_rx_desc {
++ u32 buffer_addr; /** RX Frame Buffer Address */
++ u32 tcp_ip_status; /** TCP/IP Accelerator Status */
++ u16 rx_words_eob; /** RX word count and Byte position */
++ u16 gbec_status; /** GMAC Status */
++ u8 dma_status;  /** DMA Status */
++ u8 reserved1;  /** Reserved */
++ u16 reserved2;  /** Reserved */
++};
++
++/*!
++ * @ingroup Gigabit Ether driver Layer
++ * @struct  pch_gbe_tx_desc
++ * @brief   Transmit Descriptor
++ */
++struct pch_gbe_tx_desc {
++ u32 buffer_addr; /** TX Frame Buffer Address */
++ u16 length;  /** Data buffer length */
++ u16 reserved1;  /** Reserved */
++ u16 tx_words_eob; /** TX word count and Byte position */
++ u16 tx_frame_ctrl; /** TX Frame Control */
++ u8 dma_status;  /** DMA Status */
++ u8 reserved2;  /** Reserved */
++ u16 gbec_status; /** GMAC Status */
++};
++
++/*!
++ * @ingroup Gigabit Ether driver Layer
++ * @struct  pch_gbe_functions
++ * @brief   HAL APi function pointer
++ */
++struct pch_gbe_functions {
++ /* Function pointers for the MAC. */
++ s32(*cleanup_led) (struct pch_gbe_hw *);
++  /** for pch_gbe_hal_cleanup_led */
++
++ void (*get_bus_info) (struct pch_gbe_hw *);
++  /** for pch_gbe_hal_get_bus_info */
++
++ s32(*led_on) (struct pch_gbe_hw *);
++  /** for pch_gbe_hal_led_on */
++
++ s32(*led_off) (struct pch_gbe_hw *);
++  /** for pch_gbe_hal_led_off */
++
++ void (*mc_addr_list_update) (struct pch_gbe_hw *, u8 *, u32, u32, u32);
++  /** for pch_gbe_hal_mc_addr_list_update */
++
++ void (*reset_hw) (struct pch_gbe_hw *);
++  /** for pch_gbe_hal_reset_hw */
++
++ s32(*init_hw) (struct pch_gbe_hw *);
++  /** for pch_gbe_hal_init_hw */
++
++ s32(*setup_link) (struct pch_gbe_hw *);
++  /** for pch_gbe_hal_setup_link */
++
++ s32(*setup_physical_interface) (struct pch_gbe_hw *);
++  /** for setup link of PHY */
++
++ s32(*setup_led) (struct pch_gbe_hw *);
++  /** for pch_gbe_hal_setup_led */
++
++ void (*pause_packet) (struct pch_gbe_hw *);
++  /** for pch_gbe_hal_set_pause_packet */
++
++ /* Function pointers for the PHY. */
++ s32(*read_phy_reg) (struct pch_gbe_hw *, u32, u16 *);
++  /** for pch_gbe_hal_read_phy_reg */
++
++ s32(*write_phy_reg) (struct pch_gbe_hw *, u32, u16);
++  /** for pch_gbe_hal_write_phy_reg */
++
++ void (*reset_phy) (struct pch_gbe_hw *);
++  /** for pch_gbe_hal_phy_hw_reset */
++
++ void (*sw_reset_phy) (struct pch_gbe_hw *);
++  /** for pch_gbe_hal_phy_sw_reset */
++
++ void (*power_up_phy) (struct pch_gbe_hw *hw);
++  /** for pch_gbe_hal_power_up_phy */
++
++ void (*power_down_phy) (struct pch_gbe_hw *hw);
++  /** for pch_gbe_hal_power_down_phy */
 +#ifdef CONFIG_PCH_PHUB
-+ drvinfo->eedump_len = pch_gbe_get_eeprom_len(netdev);
++ /* Function pointers for the NVM. */
++ s32(*validate_nvm) (struct pch_gbe_hw *);
++  /** for pch_gbe_hal_validate_nvm_checksum */
++
++ s32(*read_nvm) (struct pch_gbe_hw *, u32, u8 *);
++  /** for pch_gbe_hal_read_nvm */
++
++ s32(*write_nvm) (struct pch_gbe_hw *, u32, u8 *);
++  /** for pch_gbe_hal_write_nvm */
 +#endif
-+}
++ s32(*read_mac_addr) (struct pch_gbe_hw *);
++  /** for pch_gbe_hal_read_mac_addr */
++
++ u16(*ctrl_miim) (struct pch_gbe_hw *, u32, u32, u32, u16);
++  /** for pch_gbe_hal_ctrl_miim */
++};
 +
 +/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static int pch_gbe_get_regs_len(struct net_device *netdev)
-+ * @brief   Report the size of device registers
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @return  PCH_GBE_SUCCESS:  Successfully
-+ * @return  Negative value:   Failed
++ * @ingroup Gigabit Ether driver Layer
++ * @struct  pch_gbe_mac_info
++ * @brief   MAC infomation
 + */
-+static int pch_gbe_get_regs_len(struct net_device *netdev)
-+{
-+ PCH_DEBUG("ethtool: pch_gbe_get_regs_len\n");
-+
-+ return PCH_GBE_REGS_LEN * (int)sizeof(u32);
-+}
++struct pch_gbe_mac_info {
++ u8 addr[6];  /** Store the MAC address */
++ u8 type;  /** Type of MAC */
++ u8 fc;   /** Mode of flow control */
++ u8 fc_autoneg;   /** Auto negotiation enable for flow control setting */
++ u8 tx_fc_enable; /** Enable flag of Transmit flow control */
++ u32 max_frame_size; /** Max transmit frame size */
++ u32 min_frame_size; /** Min transmit frame size */
++ u16 mar_entry_count; /** Entry count of MAC address registers */
++ u8 autoneg; /** Auto negotiation enable */
++ u16 link_speed;  /** Link speed */
++ u16 link_duplex; /** Link duplex */
++};
 +
 +/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static void pch_gbe_get_regs(struct net_device *netdev,
-+ *                                       struct ethtool_regs *regs, void
-*p)
-+ * @brief   Get device registers
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @param   regs   [INOUT] Ethtool register structure
-+ * @param   p      [INOUT] Buffer pointer of read device register date
-+ * @return  None
++ * @ingroup Gigabit Ether driver Layer
++ * @struct  pch_gbe_phy_info
++ * @brief   PHY infomation
 + */
-+static void
-+pch_gbe_get_regs(struct net_device *netdev, struct ethtool_regs *regs, void
-*p)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
-+ struct pch_gbe_hw *hw = &adapter->hw;
-+ u32 *regs_buff = p;
-+ u16 i, reg, tmp;
-+
-+ PCH_DEBUG("ethtool: pch_gbe_get_regs\n");
-+
-+ regs->version = hw->revision_id;
-+ regs->version = 0x1000000 | (regs->version << 16) | hw->device_id;
-+
-+ memset(p, 0, PCH_GBE_REGS_LEN * (int)sizeof(u32));
-+ /* 000: */
-+ regs_buff[0] = PCH_GBE_READ_REG(hw, INT_ST);
-+ regs_buff[1] = PCH_GBE_READ_REG(hw, INT_EN);
-+ regs_buff[2] = PCH_GBE_READ_REG(hw, MODE);
-+ regs_buff[3] = PCH_GBE_READ_REG(hw, RESET);
-+ /* 010: */
-+ regs_buff[4] = PCH_GBE_READ_REG(hw, TCPIP_ACC);
-+ regs_buff[5] = PCH_GBE_READ_REG(hw, EX_LIST);
-+ regs_buff[6] = PCH_GBE_READ_REG(hw, INT_ST_HOLD);
-+ regs_buff[7] = PCH_GBE_READ_REG(hw, PHY_INT_CTRL);
-+ /* 020: */
-+ regs_buff[8] = PCH_GBE_READ_REG(hw, MAC_RX_EN);
-+ regs_buff[9] = PCH_GBE_READ_REG(hw, RX_FCTRL);
-+ regs_buff[10] = PCH_GBE_READ_REG(hw, PAUSE_REQ);
-+ regs_buff[11] = PCH_GBE_READ_REG(hw, RX_MODE);
-+ /* 030: */
-+ regs_buff[12] = PCH_GBE_READ_REG(hw, TX_MODE);
-+ regs_buff[13] = PCH_GBE_READ_REG(hw, RX_FIFO_ST);
-+ regs_buff[14] = PCH_GBE_READ_REG(hw, TX_FIFO_ST);
-+ regs_buff[15] = PCH_GBE_READ_REG(hw, TX_FID);
-+ /* 040: */
-+ regs_buff[16] = PCH_GBE_READ_REG(hw, TX_RESULT);
-+ regs_buff[17] = PCH_GBE_READ_REG(hw, PAUSE_PKT1);
-+ regs_buff[18] = PCH_GBE_READ_REG(hw, PAUSE_PKT2);
-+ regs_buff[19] = PCH_GBE_READ_REG(hw, PAUSE_PKT3);
-+ /* 050: */
-+ regs_buff[20] = PCH_GBE_READ_REG(hw, PAUSE_PKT4);
-+ regs_buff[21] = PCH_GBE_READ_REG(hw, PAUSE_PKT5);
-+ regs_buff[22] = PCH_GBE_READ_REG(hw, MAC_ADR);
-+ regs_buff[23] = PCH_GBE_READ_REG(hw, MAC_ADR1A);
-+ /* 060: */
-+ regs_buff[24] = PCH_GBE_READ_REG(hw, MAC_ADR1B);
-+ regs_buff[25] = PCH_GBE_READ_REG(hw, MAC_ADR2A);
-+ regs_buff[26] = PCH_GBE_READ_REG(hw, MAC_ADR2B);
-+ regs_buff[27] = PCH_GBE_READ_REG(hw, MAC_ADR3A);
-+ /* 070: */
-+ regs_buff[28] = PCH_GBE_READ_REG(hw, MAC_ADR3B);
-+ regs_buff[29] = PCH_GBE_READ_REG(hw, MAC_ADR4A);
-+ regs_buff[30] = PCH_GBE_READ_REG(hw, MAC_ADR4B);
-+ regs_buff[31] = PCH_GBE_READ_REG(hw, MAC_ADR5A);
-+ /* 080: */
-+ regs_buff[32] = PCH_GBE_READ_REG(hw, MAC_ADR5B);
-+ regs_buff[33] = PCH_GBE_READ_REG(hw, MAC_ADR6A);
-+ regs_buff[34] = PCH_GBE_READ_REG(hw, MAC_ADR6B);
-+ regs_buff[35] = PCH_GBE_READ_REG(hw, MAC_ADR7A);
-+ /* 090: */
-+ regs_buff[36] = PCH_GBE_READ_REG(hw, MAC_ADR7B);
-+ regs_buff[37] = PCH_GBE_READ_REG(hw, MAC_ADR8A);
-+ regs_buff[38] = PCH_GBE_READ_REG(hw, MAC_ADR8B);
-+ regs_buff[39] = PCH_GBE_READ_REG(hw, MAC_ADR9A);
-+ /* 0a0: */
-+ regs_buff[40] = PCH_GBE_READ_REG(hw, MAC_ADR9B);
-+ regs_buff[41] = PCH_GBE_READ_REG(hw, MAC_ADR10A);
-+ regs_buff[42] = PCH_GBE_READ_REG(hw, MAC_ADR10B);
-+ regs_buff[43] = PCH_GBE_READ_REG(hw, MAC_ADR11A);
-+ /* 0b0: */
-+ regs_buff[44] = PCH_GBE_READ_REG(hw, MAC_ADR11B);
-+ regs_buff[45] = PCH_GBE_READ_REG(hw, MAC_ADR12A);
-+ regs_buff[46] = PCH_GBE_READ_REG(hw, MAC_ADR12B);
-+ regs_buff[47] = PCH_GBE_READ_REG(hw, MAC_ADR13A);
-+ /* 0c0: */
-+ regs_buff[48] = PCH_GBE_READ_REG(hw, MAC_ADR13B);
-+ regs_buff[49] = PCH_GBE_READ_REG(hw, MAC_ADR14A);
-+ regs_buff[50] = PCH_GBE_READ_REG(hw, MAC_ADR14B);
-+ regs_buff[51] = PCH_GBE_READ_REG(hw, MAC_ADR15A);
-+ /* 0d0: */
-+ regs_buff[52] = PCH_GBE_READ_REG(hw, MAC_ADR15B);
-+ regs_buff[53] = PCH_GBE_READ_REG(hw, MAC_ADR16A);
-+ regs_buff[54] = PCH_GBE_READ_REG(hw, MAC_ADR16B);
-+ regs_buff[55] = PCH_GBE_READ_REG(hw, ADDR_MASK);
-+ /* 0e0: */
-+ regs_buff[56] = PCH_GBE_READ_REG(hw, MIIM);
-+ regs_buff[57] = PCH_GBE_READ_REG(hw, RGMII_ST);
-+ regs_buff[58] = PCH_GBE_READ_REG(hw, RGMII_CTRL);
-+ regs_buff[59] = PCH_GBE_READ_REG(hw, DMA_CTRL);
-+ /* 0f0: */
-+ regs_buff[60] = PCH_GBE_READ_REG(hw, RX_DSC_BASE);
-+ regs_buff[61] = PCH_GBE_READ_REG(hw, RX_DSC_SIZE);
-+ regs_buff[62] = PCH_GBE_READ_REG(hw, RX_DSC_HW_P);
-+ regs_buff[63] = PCH_GBE_READ_REG(hw, RX_DSC_HW_P_HLD);
-+ /* 100: */
-+ regs_buff[64] = PCH_GBE_READ_REG(hw, RX_DSC_SW_P);
-+ regs_buff[65] = PCH_GBE_READ_REG(hw, TX_DSC_BASE);
-+ regs_buff[66] = PCH_GBE_READ_REG(hw, TX_DSC_SIZE);
-+ regs_buff[67] = PCH_GBE_READ_REG(hw, TX_DSC_HW_P);
-+ /* 110: */
-+ regs_buff[68] = PCH_GBE_READ_REG(hw, TX_DSC_HW_P_HLD);
-+ regs_buff[69] = PCH_GBE_READ_REG(hw, TX_DSC_SW_P);
-+ regs_buff[70] = PCH_GBE_READ_REG(hw, RX_DMA_ST);
-+ regs_buff[71] = PCH_GBE_READ_REG(hw, TX_DMA_ST);
-+ /* 120: */
-+ regs_buff[72] = PCH_GBE_READ_REG(hw, WOL_ST);
-+ regs_buff[73] = PCH_GBE_READ_REG(hw, WOL_CTRL);
-+ regs_buff[74] = PCH_GBE_READ_REG(hw, WOL_ADDR_MASK);
-+ regs_buff[75] = 0x00000000; /* Dummy read */
-+
-+ /* 130: */
-+ /* PHY register */
-+ for (i = PCH_GBE_MAC_REGS_LEN, reg = 0; reg < PCH_GBE_PHY_REGS_LEN;
-+      i++, reg++) {
-+  pch_gbe_hal_read_phy_reg(&adapter->hw, reg, &tmp);
-+  regs_buff[i] = tmp;
-+ }
-+
-+}
++struct pch_gbe_phy_info {
++ u32 addr;  /** PHY address */
++ u32 id;   /** PHY's identifier */
++ u32 revision;  /** PHY's revision */
++ u32 reset_delay_us; /** HW reset delay time[us] */
++ u16 autoneg_advertised; /** Autoneg advertised */
++};
 +
 +/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static void pch_gbe_get_wol(struct net_device *netdev,
-+ *                                      struct ethtool_wolinfo *wol)
-+ * @brief   Report whether Wake-on-Lan is enabled
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @param   wol    [OUT] Wake-on-Lan information
-+ * @return  None
++ * @ingroup Gigabit Ether driver Layer
++ * @struct  pch_gbe_nvm_info
++ * @brief   NVM infomation
 + */
-+static void
-+pch_gbe_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
-+
-+ PCH_DEBUG("ethtool: pch_gbe_get_wol\n");
-+
-+ wol->supported = WAKE_UCAST | WAKE_MCAST | WAKE_BCAST | WAKE_MAGIC;
-+ wol->wolopts = 0;
-+
-+ if ((adapter->wake_up_evt & PCH_GBE_WLC_IND) != 0)
-+  wol->wolopts |= WAKE_UCAST;
-+ if ((adapter->wake_up_evt & PCH_GBE_WLC_MLT) != 0)
-+  wol->wolopts |= WAKE_MCAST;
-+ if ((adapter->wake_up_evt & PCH_GBE_WLC_BR) != 0)
-+  wol->wolopts |= WAKE_BCAST;
-+ if ((adapter->wake_up_evt & PCH_GBE_WLC_MP) != 0)
-+  wol->wolopts |= WAKE_MAGIC;
-+ return;
-+}
++struct pch_gbe_nvm_info {
++ u16 word_size;
++};
 +
 +/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static int pch_gbe_set_wol(struct net_device *netdev,
-+ *                                     struct ethtool_wolinfo *wol)
-+ * @brief   Turn Wake-on-Lan on or off
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @param   wol    [IN] Pointer of wake-on-Lan information straucture
-+ * @return  PCH_GBE_SUCCESS:  Successfully
-+ * @return  Negative value:   Failed
++ * @ingroup Gigabit Ether driver Layer
++ * @struct  pch_gbe_bus_info
++ * @brief   Bus infomation
 + */
-+static int
-+pch_gbe_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
-+
-+ PCH_DEBUG("ethtool: pch_gbe_set_wol\n");
-+
-+ if ((wol->wolopts & (WAKE_PHY | WAKE_ARP | WAKE_MAGICSECURE)) != 0)
-+  return -EOPNOTSUPP;
-+ /* these settings will always override what we currently have */
-+ adapter->wake_up_evt = 0;
-+
-+ if ((wol->wolopts & WAKE_UCAST) != 0)
-+  adapter->wake_up_evt |= PCH_GBE_WLC_IND;
-+ if ((wol->wolopts & WAKE_MCAST) != 0)
-+  adapter->wake_up_evt |= PCH_GBE_WLC_MLT;
-+ if ((wol->wolopts & WAKE_BCAST) != 0)
-+  adapter->wake_up_evt |= PCH_GBE_WLC_BR;
-+ if ((wol->wolopts & WAKE_MAGIC) != 0)
-+  adapter->wake_up_evt |= PCH_GBE_WLC_MP;
-+ return PCH_GBE_SUCCESS;
-+}
++struct pch_gbe_bus_info {
++ u8 type;
++ u8 speed;
++ u8 width;
++};
 +
 +/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static u32 pch_gbe_get_msglevel(struct net_device *netdev)
-+ * @brief   Report driver message level
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @return  PCH_GBE_SUCCESS:  Successfully
-+ * @return  Negative value:   Failed
++ * @ingroup Gigabit Ether driver Layer
++ * @struct  pch_gbe_hw
++ * @brief   Hardware infomation
 + */
-+static u32 pch_gbe_get_msglevel(struct net_device *netdev)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
++struct pch_gbe_hw {
++ void *back;
 +
-+ PCH_DEBUG("ethtool: pch_gbe_get_msglevel\n");
++ u8 *hw_addr;
++ spinlock_t miim_lock;
 +
-+ return adapter->msg_enable;
-+}
++ struct pch_gbe_functions func;
++ struct pch_gbe_mac_info mac;
++ struct pch_gbe_phy_info phy;
++ struct pch_gbe_nvm_info nvm;
++ struct pch_gbe_bus_info bus;
 +
++ u16 vendor_id;
++ u16 device_id;
++ u16 subsystem_vendor_id;
++ u16 subsystem_device_id;
++ u8 revision_id;
++};
++
++#endif
+diff -urN linux-2.6.33.1/drivers/net/pch_gbe/pch_gbe_osdep.h
+topcliff-2.6.33.1/drivers/net/pch_gbe/pch_gbe_osdep.h
+--- linux-2.6.33.1/drivers/net/pch_gbe/pch_gbe_osdep.h 1970-01-01
+09:00:00.000000000 +0900
++++ topcliff-2.6.33.1/drivers/net/pch_gbe/pch_gbe_osdep.h 2010-04-13
+18:17:05.000000000 +0900
+@@ -0,0 +1,74 @@
 +/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static void pch_gbe_set_msglevel(struct net_device *netdev,
-+ *                                           u32 data)
-+ * @brief   Set driver message level
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @param   data   [IN] Driver message level
-+ * @return  None
++ * @file pch_gbe_osdep.h
++ * @brief Linux PCH Gigabit Ethernet Driver OS independent header file
++ *
++ *        glue for the OS independent part of pch
++ *        includes register access macros
++ *
++ * @version 1.00
++ *
++ * @section
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; version 2 of the License.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307,
+USA.
 + */
-+static void pch_gbe_set_msglevel(struct net_device *netdev, u32 data)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
 +
-+ PCH_DEBUG("ethtool: pch_gbe_set_msglevel\n");
-+
-+ adapter->msg_enable = data;
-+}
-+
-+/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static int pch_gbe_nway_reset(struct net_device *netdev)
-+ * @brief   Restart autonegotiation
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @return  PCH_GBE_SUCCESS:  Successfully
-+ * @return  Negative value:   Failed
++/*
++ * History:
++ * Copyright (C) 2010 OKI SEMICONDUCTOR CO., LTD.
++ *
++ * created:
++ *   OKI SEMICONDUCTOR 04/13/2010
++ * modified:
++ *
 + */
-+static int pch_gbe_nway_reset(struct net_device *netdev)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
++#ifndef _PCH_GBE_OSDEP_H_
++#define _PCH_GBE_OSDEP_H_
 +
-+ PCH_DEBUG("ethtool: pch_gbe_nway_reset\n");
++#include <linux/delay.h>
++#include <linux/io.h>
 +
-+ return mii_nway_restart(&adapter->mii);
-+}
++#define usec_delay(x) udelay(x)
++#ifndef msec_delay
++#define msec_delay(x) \
++  do {if (in_interrupt()) { \
++   /* Don't mdelay in interrupt context! */ \
++   BUG(); \
++  } else { \
++   msleep(x); \
++  } } while (0)
 +
-+#ifdef CONFIG_PCH_PHUB
-+/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static int pch_gbe_get_eeprom_len(struct net_device *netdev)
-+ * @brief   Report the device EEPROM memory size
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @return  PCH_GBE_SUCCESS:  Successfully
-+ * @return  Negative value:   Failed
++/* Some workarounds require millisecond delays and are run during interrupt
++ * context.  Most notably, when establishing link, the phy may need
+tweaking
++ * but cannot process phy register reads/writes faster than millisecond
++ * intervals...and we establish link due to a "link status change"
+interrupt.
 + */
-+static int pch_gbe_get_eeprom_len(struct net_device *netdev)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
-+
-+ PCH_DEBUG("ethtool: pch_gbe_get_eeprom_len\n");
-+
-+ return adapter->hw.nvm.word_size * 2;
-+}
-+
-+/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static int pch_gbe_get_eeprom(struct net_device *netdev,
-+ *                         struct ethtool_eeprom *eeprom, u8 *bytes)
-+ * @brief   Read data from the device EEPROM
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @param   eeprom [INOUT] EEPROM get information structur
-+ * @param   bytes  [OUT] Pointer of read data
-+ * @return  PCH_GBE_SUCCESS:  Successfully
-+ * @return  Negative value:   Failed
-+ */
-+static int
-+pch_gbe_get_eeprom(struct net_device *netdev,
-+     struct ethtool_eeprom *eeprom, u8 *bytes)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
-+ struct pch_gbe_hw *hw = &adapter->hw;
-+ int ret = PCH_GBE_SUCCESS;
-+ u32 offset;
-+ u8 i;
-+
-+ PCH_DEBUG("ethtool: pch_gbe_get_eeprom\n");
-+
-+ if (eeprom->len == 0)
-+  return -EINVAL;
-+ eeprom->magic = (hw->vendor_id);
-+
-+ for (i = 0, offset = eeprom->offset; i < (eeprom->len); i++, offset++) {
-+  ret = pch_gbe_hal_read_nvm(hw, offset, (bytes + i));
-+  if (ret)
-+   break;
-+ }
-+ return ret;
-+}
-+
-+/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static int pch_gbe_set_eeprom(struct net_device *netdev,
-+ *                         struct ethtool_eeprom *eeprom, u8 *bytes)
-+ * @brief   Write data to the device EEPROM
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @param   eeprom [INOUT] EEPROM get information structur
-+ * @param   bytes  [IN] Pointer of write data
-+ * @return  PCH_GBE_SUCCESS:  Successfully
-+ * @return  Negative value:   Failed
-+ */
-+static int
-+pch_gbe_set_eeprom(struct net_device *netdev,
-+     struct ethtool_eeprom *eeprom, u8 *bytes)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
-+ struct pch_gbe_hw *hw = &adapter->hw;
-+ int ret;
-+ u32 offset;
-+ u8 i;
-+
-+ PCH_DEBUG("ethtool: pch_gbe_set_eeprom\n");
-+
-+ if (eeprom->len == 0) {
-+  PCH_LOG(KERN_ERR, "EOPNOTSUPP\n");
-+  return -EOPNOTSUPP;
-+ }
-+ if (eeprom->magic != (hw->vendor_id)) {
-+  PCH_LOG(KERN_ERR, "EFAULT\n");
-+  PCH_DEBUG("eeprom->magic : 0x%08x  magic : %0x\n",
-+    eeprom->magic, (hw->vendor_id));
-+  return -EFAULT;
-+ }
-+
-+ for (i = 0, offset = eeprom->offset; i < (eeprom->len); i++, offset++) {
-+  ret = pch_gbe_hal_write_nvm(hw, offset, (bytes + i));
-+  if (ret)
-+   return ret;
-+ }
-+ return PCH_GBE_SUCCESS;
-+}
++#define msec_delay_irq(x) mdelay(x)
 +#endif
 +
++#undef FALSE
++#define FALSE 0
++#undef TRUE
++#define TRUE 1
++
++
++#define PCH_GBE_WRITE_REG(a, reg, value) ( \
++  writel((value), ((a)->hw_addr + PCH_GBE_##reg)))
++
++#define PCH_GBE_READ_REG(a, reg) ( \
++  readl((a)->hw_addr + PCH_GBE_##reg))
++
++#define PCH_GBE_WRITE_REG_ARRAY(a, reg, offset, value) ( \
++  writel((value), \
++  ((a)->hw_addr + PCH_GBE_##reg + ((offset) << 2))))
++
++#endif /* _PCH_GBE_OSDEP_H_ */
+diff -urN linux-2.6.33.1/drivers/net/pch_gbe/pch_gbe_pci_ids.h
+topcliff-2.6.33.1/drivers/net/pch_gbe/pch_gbe_pci_ids.h
+--- linux-2.6.33.1/drivers/net/pch_gbe/pch_gbe_pci_ids.h 1970-01-01
+09:00:00.000000000 +0900
++++ topcliff-2.6.33.1/drivers/net/pch_gbe/pch_gbe_pci_ids.h 2010-04-13
+18:18:44.000000000 +0900
+@@ -0,0 +1,37 @@
 +/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static void pch_gbe_get_ringparam(struct net_device *netdev,
-+ *                                            struct ethtool_ringparam
-*ring)
-+ * @brief   Report ring sizes
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @param   ring   [OUT] Ring param structure
-+ * @return  None
++ * @file pch_gbe_pci_ids.h
++ * @brief Linux PCH Gigabit Ethernet Driver PCI ID header file
++ *
++ * @version 1.00
++ *
++ * @section
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; version 2 of the License.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307,
+USA.
 + */
-+static void
-+pch_gbe_get_ringparam(struct net_device *netdev, struct ethtool_ringparam
-*ring)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
-+ struct pch_gbe_tx_ring *txdr = adapter->tx_ring;
-+ struct pch_gbe_rx_ring *rxdr = adapter->rx_ring;
 +
-+ PCH_DEBUG("ethtool: pch_gbe_get_ringparam\n");
++/*
++ * History:
++ * Copyright (C) 2010 OKI SEMICONDUCTOR CO., LTD.
++ *
++ * created:
++ *   OKI SEMICONDUCTOR 04/13/2010
++ * modified:
++ *
++ */
++#ifndef _PCH_GBE_PCI_IDS_H_
++#define _PCH_GBE_PCI_IDS_H_
 +
-+ ring->rx_max_pending = PCH_GBE_MAX_RXD;
-+ ring->tx_max_pending = PCH_GBE_MAX_TXD;
-+ ring->rx_mini_max_pending = 0;
-+ ring->rx_jumbo_max_pending = 0;
-+ ring->rx_pending = rxdr->count;
-+ ring->tx_pending = txdr->count;
-+ ring->rx_mini_pending = 0;
-+ ring->rx_jumbo_pending = 0;
-+}
++/* Pci vender/device ID */
++#define PCI_DEVICE_ID_INTEL_IOH1_GBE    (u16)(0x8802)
 +
++#endif
+diff -urN linux-2.6.33.1/drivers/net/pch_gbe/pch_gbe_regs.h
+topcliff-2.6.33.1/drivers/net/pch_gbe/pch_gbe_regs.h
+--- linux-2.6.33.1/drivers/net/pch_gbe/pch_gbe_regs.h 1970-01-01
+09:00:00.000000000 +0900
++++ topcliff-2.6.33.1/drivers/net/pch_gbe/pch_gbe_regs.h 2010-04-13
+18:18:34.000000000 +0900
+@@ -0,0 +1,350 @@
 +/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static int pch_gbe_set_ringparam(struct net_device *netdev,
-+ *                                           struct ethtool_ringparam
-*ring)
-+ * @brief   Set ring sizes
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @param   ring   [IN] Ring param structure
-+ * @return  PCH_GBE_SUCCESS:  Successfully
-+ * @return  Negative value:   Failed
-+ */
-+static int
-+pch_gbe_set_ringparam(struct net_device *netdev, struct ethtool_ringparam
-*ring)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
-+ struct pch_gbe_tx_ring *txdr, *tx_old;
-+ struct pch_gbe_rx_ring *rxdr, *rx_old;
-+ int tx_ring_size, rx_ring_size;
-+ int err = PCH_GBE_SUCCESS;
-+
-+ PCH_DEBUG("ethtool: pch_gbe_set_ringparam\n");
-+
-+ if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending))
-+  return -EINVAL;
-+ tx_ring_size = (int)sizeof(struct pch_gbe_tx_ring);
-+ rx_ring_size = (int)sizeof(struct pch_gbe_rx_ring);
-+
-+ while ((test_and_set_bit(__PCH_GBE_RESETTING, &adapter->flags)) != 0)
-+  msleep(1);
-+ if ((netif_running(adapter->netdev)) != 0)
-+  pch_gbe_down(adapter);
-+ tx_old = adapter->tx_ring;
-+ rx_old = adapter->rx_ring;
-+
-+ txdr = kzalloc(tx_ring_size, GFP_KERNEL);
-+ if (!txdr) {
-+  err = -ENOMEM;
-+  goto err_alloc_tx;
-+ }
-+ rxdr = kzalloc(rx_ring_size, GFP_KERNEL);
-+ if (!rxdr) {
-+  err = -ENOMEM;
-+  goto err_alloc_rx;
-+ }
-+ adapter->tx_ring = txdr;
-+ adapter->rx_ring = rxdr;
-+
-+ rxdr->count = max(ring->rx_pending, (u32) PCH_GBE_MIN_RXD);
-+ rxdr->count = min(rxdr->count, (u32) PCH_GBE_MAX_RXD);
-+ PCH_GBE_ROUNDUP(rxdr->count, PCH_GBE_RX_DESC_MULTIPLE);
-+
-+ txdr->count = max(ring->tx_pending, (u32) PCH_GBE_MIN_TXD);
-+ txdr->count = min(txdr->count, (u32) PCH_GBE_MAX_TXD);
-+ PCH_GBE_ROUNDUP(txdr->count, PCH_GBE_TX_DESC_MULTIPLE);
-+
-+ if ((netif_running(adapter->netdev)) != 0) {
-+  /* Try to get new resources before deleting old */
-+  err = pch_gbe_setup_rx_resources(adapter, adapter->rx_ring);
-+  if (err != 0)
-+   goto err_setup_rx;
-+  err = pch_gbe_setup_tx_resources(adapter, adapter->tx_ring);
-+  if (err != 0)
-+   goto err_setup_tx;
-+  /* save the new, restore the old in order to free it,
-+   * then restore the new back again */
-+  adapter->rx_ring = rx_old;
-+  adapter->tx_ring = tx_old;
-+  pch_gbe_free_rx_resources(adapter, adapter->rx_ring);
-+  pch_gbe_free_tx_resources(adapter, adapter->tx_ring);
-+  kfree(tx_old);
-+  kfree(rx_old);
-+  adapter->rx_ring = rxdr;
-+  adapter->tx_ring = txdr;
-+  err = pch_gbe_up(adapter);
-+ }
-+
-+ clear_bit(__PCH_GBE_RESETTING, &adapter->flags);
-+ return err;
-+
-+err_setup_tx:
-+ pch_gbe_free_rx_resources(adapter, adapter->rx_ring);
-+err_setup_rx:
-+ adapter->rx_ring = rx_old;
-+ adapter->tx_ring = tx_old;
-+ kfree(rxdr);
-+err_alloc_rx:
-+ kfree(txdr);
-+err_alloc_tx:
-+ if (netif_running(adapter->netdev))
-+  pch_gbe_up(adapter);
-+ clear_bit(__PCH_GBE_RESETTING, &adapter->flags);
-+ return err;
-+}
-+
-+/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static void pch_gbe_get_pauseparam(struct net_device *netdev,
-+ *                                            struct ethtool_pauseparam
-*pause)
-+ * @brief   Report pause parameters
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @param   pause  [OUT] Pause parameters structure
-+ * @return  None
-+ */
-+static void
-+pch_gbe_get_pauseparam(struct net_device *netdev,
-+         struct ethtool_pauseparam *pause)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
-+ struct pch_gbe_hw *hw = &adapter->hw;
-+
-+ PCH_DEBUG("ethtool: pch_gbe_get_pauseparam\n");
-+
-+ pause->autoneg =
-+     ((hw->mac.fc_autoneg != 0) ? AUTONEG_ENABLE : AUTONEG_DISABLE);
-+
-+ if (hw->mac.fc == pch_gbe_fc_rx_pause) {
-+  pause->rx_pause = 1;
-+ } else if (hw->mac.fc == pch_gbe_fc_tx_pause) {
-+  pause->tx_pause = 1;
-+ } else if (hw->mac.fc == pch_gbe_fc_full) {
-+  pause->rx_pause = 1;
-+  pause->tx_pause = 1;
-+ }
-+}
-+
-+/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static int pch_gbe_set_pauseparam(struct net_device *netdev,
-+ *                                     struct ethtool_pauseparam *pause)
-+ * @brief   Set pause paramters
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @param   pause  [IN] Pause parameters structure
-+ * @return  PCH_GBE_SUCCESS:  Successfully
-+ * @return  Negative value:   Failed
-+ */
-+static int
-+pch_gbe_set_pauseparam(struct net_device *netdev,
-+         struct ethtool_pauseparam *pause)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
-+ struct pch_gbe_hw *hw = &adapter->hw;
-+ int ret = PCH_GBE_SUCCESS;
-+
-+ PCH_DEBUG("ethtool: pch_gbe_set_pauseparam\n");
-+
-+ hw->mac.fc_autoneg = pause->autoneg;
-+
-+ while ((test_and_set_bit(__PCH_GBE_RESETTING, &adapter->flags)) != 0)
-+  msleep(1);
-+ if ((pause->rx_pause) && (pause->tx_pause))
-+  hw->mac.fc = pch_gbe_fc_full;
-+ else if ((pause->rx_pause) && (!pause->tx_pause))
-+  hw->mac.fc = pch_gbe_fc_rx_pause;
-+ else if ((!pause->rx_pause) && (pause->tx_pause))
-+  hw->mac.fc = pch_gbe_fc_tx_pause;
-+ else if ((!pause->rx_pause) && (!pause->tx_pause))
-+  hw->mac.fc = pch_gbe_fc_none;
-+
-+ if (hw->mac.fc_autoneg == AUTONEG_ENABLE) {
-+  if ((netif_running(adapter->netdev)) != 0) {
-+   pch_gbe_down(adapter);
-+   ret = pch_gbe_up(adapter);
-+  } else {
-+   pch_gbe_reset(adapter);
-+  }
-+ } else {
-+  ret = pch_gbe_hal_force_mac_fc(hw);
-+ }
-+ clear_bit(__PCH_GBE_RESETTING, &adapter->flags);
-+ return ret;
-+}
-+
-+/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static u32 pch_gbe_get_rx_csum(struct net_device *netdev)
-+ * @brief   Report whether receive checksums are turned on or off
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @return  TRUE(1):  Checksum On
-+ * @return  FALSE(0): Checksum Off
-+ */
-+static u32 pch_gbe_get_rx_csum(struct net_device *netdev)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
-+
-+ PCH_DEBUG("ethtool: pch_gbe_get_rx_csum\n");
-+
-+ return adapter->rx_csum;
-+}
-+
-+/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static int pch_gbe_set_rx_csum(struct net_device *netdev, u32
-data)
-+ * @brief   Turn receive checksum on or off
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @param   data   [IN] Checksum On[TRUE] or Off[FALSE]
-+ * @return  PCH_GBE_SUCCESS:  Successfully
-+ * @return  Negative value:   Failed
-+ */
-+static int pch_gbe_set_rx_csum(struct net_device *netdev, u32 data)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
-+
-+ PCH_DEBUG("ethtool: pch_gbe_set_rx_csum\n");
-+
-+ adapter->rx_csum = data;
-+ if ((netif_running(netdev)) != 0)
-+  pch_gbe_reinit_locked(adapter);
-+ else
-+  pch_gbe_reset(adapter);
-+
-+ return PCH_GBE_SUCCESS;
-+}
-+
-+/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static u32 pch_gbe_get_tx_csum(struct net_device *netdev)
-+ * @brief   Report whether transmit checksums are turned on or off
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @return  TRUE(1):  Checksum On
-+ * @return  FALSE(0): Checksum Off
-+ */
-+static u32 pch_gbe_get_tx_csum(struct net_device *netdev)
-+{
-+ PCH_DEBUG("ethtool: pch_gbe_get_tx_csum\n");
-+
-+ return (netdev->features & NETIF_F_HW_CSUM) != 0;
-+}
-+
-+/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static int pch_gbe_set_tx_csum(struct net_device *netdev, u32
-data)
-+ * @brief   Turn transmit checksums on or off
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @param   data   [IN] Checksum on[TRUE] or off[FALSE]
-+ * @return  PCH_GBE_SUCCESS:  Successfully
-+ * @return  Negative value:   Failed
-+ */
-+static int pch_gbe_set_tx_csum(struct net_device *netdev, u32 data)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
-+
-+ PCH_DEBUG("ethtool: pch_gbe_set_tx_csum\n");
-+
-+ adapter->tx_csum = data;
-+
-+ if (data != 0)
-+  netdev->features |= NETIF_F_HW_CSUM;
-+ else
-+  netdev->features &= ~NETIF_F_HW_CSUM;
-+
-+ return PCH_GBE_SUCCESS;
-+}
-+
-+/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static void pch_gbe_diag_test(struct net_device *netdev,
-+ *                         struct ethtool_test *eth_test, u64 *data)
-+ * @brief   Run specified self-tests
-+ * @param   netdev   [IN] Network interface device structure
-+ * @param   eth_test [IN] Ethtool test structure
-+ * @param   data     [OUT] Data for test result.
-+ * @return  None
-+ */
-+static void
-+pch_gbe_diag_test(struct net_device *netdev,
-+    struct ethtool_test *eth_test, u64 *data)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
-+ unsigned char if_running = netif_running(netdev);
-+
-+ PCH_DEBUG("ethtool: pch_gbe_diag_test\n");
-+
-+ set_bit(__PCH_GBE_TESTING, &adapter->flags);
-+
-+ if (eth_test->flags == ETH_TEST_FL_OFFLINE) {
-+  /* Offline tests */
-+  DPRINTK(HW, INFO, "offline testing starting\n");
-+
-+  if (if_running) {
-+   /* indicate we're in test mode */
-+   dev_close(netdev);
-+  } else {
-+   pch_gbe_reset(adapter);
-+  }
-+  /* Register test */
-+  if (pch_gbe_reg_test(adapter, &data[0]))
-+   eth_test->flags |= ETH_TEST_FL_FAILED;
-+
-+  pch_gbe_reset(adapter);
-+  clear_bit(__PCH_GBE_TESTING, &adapter->flags);
-+  if (if_running)
-+   dev_open(netdev);
-+
-+ } else {
-+  /* Online tests */
-+  DPRINTK(HW, INFO, "online testing starting\n");
-+  data[0] = 0;
-+  clear_bit(__PCH_GBE_TESTING, &adapter->flags);
-+ }
-+}
-+
-+/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static void pch_gbe_get_strings(struct net_device *netdev,
-+ *                                             u32 stringset, u8 *data)
-+ * @brief   Return a set of strings that describe the requested objects
-+ * @param   netdev    [INOUT] Network interface device structure
-+ * @param   stringset [IN] Select the stringset. [ETH_SS_TEST]
-[ETH_SS_STATS]
-+ * @param   data      [OUT]Pointer of read string data.
-+ * @return  None
-+ */
-+static void
-+pch_gbe_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
-+{
-+ u8 *p = data;
-+ int i;
-+
-+ PCH_DEBUG("ethtool: pch_gbe_get_strings\n");
-+
-+ switch (stringset) {
-+ case (u32) ETH_SS_TEST:
-+  memcpy(data, *pch_gbe_gstrings_test,
-+         (int)sizeof(pch_gbe_gstrings_test));
-+  break;
-+ case (u32) ETH_SS_STATS:
-+  for (i = 0; i < PCH_GBE_GLOBAL_STATS_LEN; i++) {
-+   memcpy(p, pch_gbe_gstrings_stats[i].stat_string,
-+          ETH_GSTRING_LEN);
-+   p += ETH_GSTRING_LEN;
-+  }
-+  break;
-+ }
-+}
-+
-+/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static void pch_gbe_led_blink_callback(unsigned long data)
-+ * @brief   Callback function for blink led
-+ * @param   data [IN] Pointer Address of Board private structure
-+ * @return  None
-+ */
-+static void pch_gbe_led_blink_callback(unsigned long data)
-+{
-+ struct pch_gbe_adapter *adapter = (struct pch_gbe_adapter *)data;
-+
-+ PCH_DEBUG("ethtool: pch_gbe_led_blink_callback\n");
-+
-+ if ((test_and_change_bit(PCH_GBE_LED_ON, &adapter->led_status)) != 0)
-+  pch_gbe_hal_led_off(&adapter->hw);
-+ else
-+  pch_gbe_hal_led_on(&adapter->hw);
-+ mod_timer(&adapter->blink_timer, jiffies + PCH_GBE_ID_INTERVAL);
-+}
-+
-+/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static int pch_gbe_phys_id(struct net_device *netdev, u32 data)
-+ * @brief   Identify the device
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @param   data   [IN] Sleep time[ms]
-+ * @return  PCH_GBE_SUCCESS:  Successfully
-+ * @return  Negative value:   Failed
-+ */
-+static int pch_gbe_phys_id(struct net_device *netdev, u32 data)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
-+
-+ PCH_DEBUG("ethtool: pch_gbe_phys_id\n");
-+
-+ if (!data || data > (u32) (MAX_SCHEDULE_TIMEOUT / HZ))
-+  data = (u32) (MAX_SCHEDULE_TIMEOUT / HZ);
-+ if (!adapter->blink_timer.function) {
-+  init_timer(&adapter->blink_timer);
-+  adapter->blink_timer.function = pch_gbe_led_blink_callback;
-+  adapter->blink_timer.data = (unsigned long)adapter;
-+ }
-+ pch_gbe_hal_setup_led(&adapter->hw);
-+ mod_timer(&adapter->blink_timer, jiffies);
-+ msleep_interruptible(data * 1000);
-+ del_timer_sync(&adapter->blink_timer);
-+
-+ pch_gbe_hal_led_off(&adapter->hw);
-+ clear_bit(PCH_GBE_LED_ON, &adapter->led_status);
-+ pch_gbe_hal_cleanup_led(&adapter->hw);
-+ return PCH_GBE_SUCCESS;
-+}
-+
-+/*!
-+ * @ingroup Ethtool driver
-+ * @fn      static void pch_gbe_get_ethtool_stats(struct net_device
-*netdev,
-+ *                                   struct ethtool_stats *stats, u64
-*data)
-+ * @brief   Return statistics about the device
-+ * @param   netdev [INOUT] Network interface device structure
-+ * @param   stats  [INOUT] Ethtool statue structure
-+ * @param   data   [OUT] Pointer of read status area
-+ * @return  None
-+ */
-+static void
-+pch_gbe_get_ethtool_stats(struct net_device *netdev,
-+     struct ethtool_stats *stats, u64 *data)
-+{
-+ struct pch_gbe_adapter *adapter = netdev_priv(netdev);
-+ int i;
-+
-+ PCH_DEBUG("ethtool: pch_gbe_get_ethtool_stats\n");
-+
-+ pch_gbe_update_stats(adapter);
-+ for (i = 0; i < PCH_GBE_GLOBAL_STATS_LEN; i++) {
-+  signed char *p =
-+   (signed char *)adapter +
++ * @file pch_gbe_regs.h
++ * @brief Linux PCH Gigabit Ethernet Driver register macro header file
++ *
++ * @version 1.00
++ *
++ * @section
++ * This program is free software; you can redistribute it and/or modify
 
