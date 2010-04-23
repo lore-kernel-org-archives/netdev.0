@@ -1,51 +1,50 @@
-From: andrew hendry <andrew.hendry@gmail.com>
-Subject: Re: [PATCHv2 1/7] X25: Add if_x25.h and x25 to device identifiers
-Date: Fri, 23 Apr 2010 11:02:28 +1000
-Message-ID: <v2td45a3acc1004221802m573e83e5h8387da71fc90445a@mail.gmail.com>
-References: <1271719717.2802.77.camel@ibex>
-	 <20100420.163558.83598373.davem@davemloft.net>
-	 <20100422.161342.60085636.davem@davemloft.net>
+From: Scott Feldman <scofeldm@cisco.com>
+Subject: Re: eSwitch management
+Date: Thu, 22 Apr 2010 18:29:40 -0700
+Message-ID: <C7F64614.2ADDF%scofeldm@cisco.com>
+References: <C7F63C44.2ADAE%scofeldm@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"chrisw@redhat.com" <chrisw@redhat.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Ameen Rahman <ameen.rahman@qlogic.com>,
+	Amit Salecha <amit.salecha@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>
+To: Scott Feldman <scofeldm@cisco.com>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f178.google.com ([209.85.223.178]:47259 "EHLO
-	mail-iw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754520Ab0DWBDq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 21:03:46 -0400
-Received: by iwn8 with SMTP id 8so2422561iwn.16
-        for <netdev@vger.kernel.org>; Thu, 22 Apr 2010 18:03:45 -0700 (PDT)
-In-Reply-To: <20100422.161342.60085636.davem@davemloft.net>
+Received: from sj-iport-1.cisco.com ([171.71.176.70]:32287 "EHLO
+	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753478Ab0DWB3o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 22 Apr 2010 21:29:44 -0400
+In-Reply-To: <C7F63C44.2ADAE%scofeldm@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks!
-Sorry for the delay, kernel is a spare time task at the moment.
+On 4/22/10 5:47 PM, "Scott Feldman" <scofeldm@cisco.com> wrote:
 
-On Fri, Apr 23, 2010 at 9:13 AM, David Miller <davem@davemloft.net> wro=
-te:
-> From: David Miller <davem@davemloft.net>
-> Date: Tue, 20 Apr 2010 16:35:58 -0700 (PDT)
->
->> From: Andrew Hendry <andrew.hendry@gmail.com>
->> Date: Tue, 20 Apr 2010 09:28:37 +1000
->>
->>> diff --git a/include/linux/if_x25.h b/include/linux/if_x25.h
->>> new file mode 100644
->>> index 0000000..897765f
->>> --- /dev/null
->>> +++ b/include/linux/if_x25.h
->>> @@ -0,0 +1,26 @@
->>> +/*
->>> + * =A0Linux X.25 packet to device interface
->>
->> Headers meant to be used by userspace must be added
->> to the include/linux/Kbuild file.
->
-> I got tired of waiting days for you to get to this so I
-> took care of it myself.
->
-> All 7 patches applied to net-next-2.6
->
+> On 4/22/10 4:16 PM, "Anirban Chakraborty" <anirban.chakraborty@qlogic.com>
+> wrote:
+> 
+>> I am following the discussions on iovnl patch closely. While it is going to
+>> take some time for iovnl patch to be reviewed and accepted, what would be the
+>> interim approach to manage the eswitch in NIC? We need to add support in
+>> qlcnic driver to configure the eswitch in our 10G NIC. Some of the things
+>> that
+>> we need to set to the switch are setting a port's VLAN, tx bandwidth etc. We
+>> would like to set these parameters for a bunch of ports at the start of the
+>> day and set it to the eswitch.
+> 
+> Are any of these settings covered in DCB?  (net/dcb/dcbnl.c).  Maybe you can
+> get a start there?  Not sure not knowing your device requirements.
+
+Or maybe the RTM_SETLINK IFLA_VF_* ops in include/linux/if_link.h?  Those
+seem like what you're looking for.  I'm looking at moving iovnl here as well
+for port-profile.
+
+-scott
+
