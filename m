@@ -1,30 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next-2.6 2010-04-23
-Date: Fri, 23 Apr 2010 16:22:51 -0700 (PDT)
-Message-ID: <20100423.162251.35520853.davem@davemloft.net>
-References: <20100423190139.GA7276@tuxdriver.com>
+Subject: Re: [PATCH] e100: Fix the TX workqueue race
+Date: Fri, 23 Apr 2010 16:31:27 -0700 (PDT)
+Message-ID: <20100423.163127.62645049.davem@davemloft.net>
+References: <20100423143356.7092.45260.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: alan@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43627
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45973
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754477Ab0DWXWq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 19:22:46 -0400
-In-Reply-To: <20100423190139.GA7276@tuxdriver.com>
+	by vger.kernel.org with ESMTP id S1755449Ab0DWXbX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 19:31:23 -0400
+In-Reply-To: <20100423143356.7092.45260.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Fri, 23 Apr 2010 15:01:40 -0400
+From: Alan Cox <alan@linux.intel.com>
+Date: Fri, 23 Apr 2010 15:34:43 +0100
 
-> Yet another huge batch of updates intended for 2.6.35.  The ath9k driver
-> in particular gets a lot of attention, and the iwlwifi team continues
-> its usual strong showing.
+> I'd assumed someone would have picked up on this and fixed it using rtnl_lock
+> as was suggested but it seems to have fallen through the cracks ?
 > 
-> Please let me know if there are problems!  Again, this is for the
-> 'for-davem' branch where I have pre-resolved some merge conflicts.
+> Anyway this is I assume what was meant ?
 
-Pulled, thanks John.
+I hope this doesn't deadlock with linkwatch, as that's generally
+a problem we hit with trying to take RTNL from workqueues in
+the networking.
+
+Linkwatch takes the RTNL lock, and then can make calls into the driver
+in it's main work loop.
+
+But since you don't hold any driver locks here (you can't as if we did
+we couldn't take the RTNL lock here at all) so it should be OK.
+
+I'll apply this to net-2.6, thanks Alan.
