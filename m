@@ -1,192 +1,102 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v6] net: batch skb dequeueing from softnet
- input_pkt_queue
-Date: Fri, 23 Apr 2010 11:27:05 +0200
-Message-ID: <1272014825.7895.7851.camel@edumazet-laptop>
-References: <1272010378-2955-1-git-send-email-xiaosuo@gmail.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH linux-next 1/2] irq: Add CPU mask affinity hint callback
+ framework
+Date: Fri, 23 Apr 2010 02:27:54 -0700
+Message-ID: <4BD1681A.3010901@intel.com>
+References: <20100420180112.1276.11906.stgit@ppwaskie-hc2.jf.intel.com>	 <1271854785.2101.17.camel@achroite.uk.solarflarecom.com>	 <Pine.WNT.4.64.1004220459110.3324@PPWASKIE-MOBL2.amr.corp.intel.com> <1271950900.2095.25.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, jamal <hadi@cyberus.ca>,
-	Tom Herbert <therbert@google.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:61474 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753504Ab0DWJ1S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 05:27:18 -0400
-Received: by bwz25 with SMTP id 25so10917069bwz.28
-        for <netdev@vger.kernel.org>; Fri, 23 Apr 2010 02:27:16 -0700 (PDT)
-In-Reply-To: <1272010378-2955-1-git-send-email-xiaosuo@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"tglx@linutronix.de" <tglx@linutronix.de>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1271950900.2095.25.camel@achroite.uk.solarflarecom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 23 avril 2010 =C3=A0 16:12 +0800, Changli Gao a =C3=A9crit =
-:
-> batch skb dequeueing from softnet input_pkt_queue.
->=20
-> batch skb dequeueing from softnet input_pkt_queue to reduce potential=
- lock
-> contention when RPS is enabled.
->=20
-> Note: in the worst case, the number of packets in a softnet_data may =
-be double
-> of netdev_max_backlog.
->=20
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+Ben Hutchings wrote:
+> On Thu, 2010-04-22 at 05:11 -0700, Peter P Waskiewicz Jr wrote:
+>> On Wed, 21 Apr 2010, Ben Hutchings wrote:
+>>
+>>> On Tue, 2010-04-20 at 11:01 -0700, Peter P Waskiewicz Jr wrote:
+>>>> This patch adds a callback function pointer to the irq_desc
+>>>> structure, along with a registration function and a read-only
+>>>> proc entry for each interrupt.
+>>>>
+>>>> This affinity_hint handle for each interrupt can be used by
+>>>> underlying drivers that need a better mechanism to control
+>>>> interrupt affinity.  The underlying driver can register a
+>>>> callback for the interrupt, which will allow the driver to
+>>>> provide the CPU mask for the interrupt to anything that
+>>>> requests it.  The intent is to extend the userspace daemon,
+>>>> irqbalance, to help hint to it a preferred CPU mask to balance
+>>>> the interrupt into.
+>>> Doesn't it make more sense to have the driver follow affinity decisions
+>>> made from user-space?  I realise that reallocating queues is disruptive
+>>> and we probably don't want irqbalance to trigger that, but there should
+>>> be a mechanism for the administrator to trigger it.
+>> The driver here would be assisting userspace (irqbalance) to provide 
+>> better details how the HW is laid out with respect to flows.  As it stands 
+>> today, irqbalance is almost guaranteed to move interrups to CPUs that are 
+>> not aligned with where applications are running for network adapters. 
+>> This is very apparent when running at speeds in the 10 Gigabit range, or 
+>> even multiple 1 Gigabit ports running at the same time.
+> 
+> I'm well aware that irqbalance isn't making good decisions at the
+> moment.  The question is whether this will really help irqbalance to do
+> better.
+> 
 
-Very good patch Changli, thanks !
+FCoE is one example where these hints can really help irqbalance make 
+good decisions.  By aligning the interrupt affinity with the FCoE 
+receive processing thread we can avoid context switching from the NET_RX
+softirq to the receive processing thread.
 
-Lets see how it improves thing for Jamal benchs ;)
+Because the base driver knows which rx rings are being used for FCoE in 
+a particular configuration and their corresponding vectors it seems to 
+be in the best position to provide good hints to irqbalance.  Also if 
+the mapping changes at some point the base driver will be aware of it.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> [...]
+>>> This just assigns IRQs to the first n CPU threads.  Depending on the
+>>> enumeration order, this might result in assigning an IRQ to each of 2
+>>> threads on a core while leaving other cores unused!
+>> This ixgbe patch is only meant to be an example of how you could use it. 
+>> I didn't hammer out all the corner cases of interrupt alignment in it yet. 
+>> However, ixgbe is already aligning Tx flows onto the CPU/queue pair the Tx 
+>> occurred (i.e. Tx session from CPU 4 will be queued on Tx queue 4),
+> [...]
+> 
+> OK, now I remember ixgbe has this odd select_queue() implementation.
+> But this behaviour can result in reordering whenever a user thread
+> migrates, and in any case Dave discourages people from setting
+> select_queue().  So I see that these changes would be useful for ixgbe
+> (together with an update to irqbalance), but they don't seem to fit the
+> general direction of multiqueue networking on Linux.
 
-> ----
->  include/linux/netdevice.h |    6 +++--
->  net/core/dev.c            |   50 +++++++++++++++++++++++++++++++----=
------------
->  2 files changed, 38 insertions(+), 18 deletions(-)
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 3c5ed5f..6ae9f2b 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -1387,6 +1387,7 @@ struct softnet_data {
->  	struct Qdisc		*output_queue;
->  	struct list_head	poll_list;
->  	struct sk_buff		*completion_queue;
-> +	struct sk_buff_head	process_queue;
-> =20
->  #ifdef CONFIG_RPS
->  	struct softnet_data	*rps_ipi_list;
-> @@ -1401,10 +1402,11 @@ struct softnet_data {
->  	struct napi_struct	backlog;
->  };
-> =20
-> -static inline void input_queue_head_incr(struct softnet_data *sd)
-> +static inline void input_queue_head_add(struct softnet_data *sd,
-> +					unsigned int len)
->  {
->  #ifdef CONFIG_RPS
-> -	sd->input_queue_head++;
-> +	sd->input_queue_head +=3D len;
->  #endif
->  }
-> =20
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index a4a7c36..c1585f9 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -2409,12 +2409,13 @@ static int enqueue_to_backlog(struct sk_buff =
-*skb, int cpu,
->  	__get_cpu_var(netdev_rx_stat).total++;
-> =20
->  	rps_lock(sd);
-> -	if (sd->input_pkt_queue.qlen <=3D netdev_max_backlog) {
-> -		if (sd->input_pkt_queue.qlen) {
-> +	if (skb_queue_len(&sd->input_pkt_queue) <=3D netdev_max_backlog) {
-> +		if (skb_queue_len(&sd->input_pkt_queue)) {
->  enqueue:
->  			__skb_queue_tail(&sd->input_pkt_queue, skb);
->  #ifdef CONFIG_RPS
-> -			*qtail =3D sd->input_queue_head + sd->input_pkt_queue.qlen;
-> +			*qtail =3D sd->input_queue_head +
-> +					skb_queue_len(&sd->input_pkt_queue);
->  #endif
->  			rps_unlock(sd);
->  			local_irq_restore(flags);
-> @@ -2934,13 +2935,21 @@ static void flush_backlog(void *arg)
->  	struct sk_buff *skb, *tmp;
-> =20
->  	rps_lock(sd);
-> -	skb_queue_walk_safe(&sd->input_pkt_queue, skb, tmp)
-> +	skb_queue_walk_safe(&sd->input_pkt_queue, skb, tmp) {
->  		if (skb->dev =3D=3D dev) {
->  			__skb_unlink(skb, &sd->input_pkt_queue);
->  			kfree_skb(skb);
-> -			input_queue_head_incr(sd);
-> +			input_queue_head_add(sd, 1);
->  		}
-> +	}
->  	rps_unlock(sd);
-> +
-> +	skb_queue_walk_safe(&sd->process_queue, skb, tmp) {
-> +		if (skb->dev =3D=3D dev) {
-> +			__skb_unlink(skb, &sd->process_queue);
-> +			kfree_skb(skb);
-> +		}
-> +	}
->  }
-> =20
->  static int napi_gro_complete(struct sk_buff *skb)
-> @@ -3286,24 +3295,30 @@ static int process_backlog(struct napi_struct=
- *napi, int quota)
->  	}
->  #endif
->  	napi->weight =3D weight_p;
-> -	do {
-> +	local_irq_disable();
-> +	while (1) {
->  		struct sk_buff *skb;
-> =20
-> -		local_irq_disable();
-> +		while ((skb =3D __skb_dequeue(&sd->process_queue))) {
-> +			local_irq_enable();
-> +			__netif_receive_skb(skb);
-> +			if (++work >=3D quota)
-> +				return work;
-> +			local_irq_disable();
-> +		}
-> +
->  		rps_lock(sd);
-> -		skb =3D __skb_dequeue(&sd->input_pkt_queue);
-> -		if (!skb) {
-> +		input_queue_head_add(sd, skb_queue_len(&sd->input_pkt_queue));
-> +		skb_queue_splice_tail_init(&sd->input_pkt_queue,
-> +					   &sd->process_queue);
-> +		if (skb_queue_empty(&sd->process_queue)) {
->  			__napi_complete(napi);
->  			rps_unlock(sd);
-> -			local_irq_enable();
->  			break;
->  		}
-> -		input_queue_head_incr(sd);
->  		rps_unlock(sd);
-> -		local_irq_enable();
-> -
-> -		__netif_receive_skb(skb);
-> -	} while (++work < quota);
-> +	}
-> +	local_irq_enable();
-> =20
->  	return work;
->  }
-> @@ -5631,8 +5646,10 @@ static int dev_cpu_callback(struct notifier_bl=
-ock *nfb,
->  	/* Process offline CPU's input_pkt_queue */
->  	while ((skb =3D __skb_dequeue(&oldsd->input_pkt_queue))) {
->  		netif_rx(skb);
-> -		input_queue_head_incr(oldsd);
-> +		input_queue_head_add(oldsd, 1);
->  	}
-> +	while ((skb =3D __skb_dequeue(&oldsd->process_queue)))
-> +		netif_rx(skb);
-> =20
->  	return NOTIFY_OK;
->  }
-> @@ -5851,6 +5868,7 @@ static int __init net_dev_init(void)
->  		struct softnet_data *sd =3D &per_cpu(softnet_data, i);
-> =20
->  		skb_queue_head_init(&sd->input_pkt_queue);
-> +		skb_queue_head_init(&sd->process_queue);
->  		sd->completion_queue =3D NULL;
->  		INIT_LIST_HEAD(&sd->poll_list);
-> =20
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
+For DCB setting select_queue() is useful because we want to map traffic 
+types to specific tx queues not hash them across all queues.  In this 
+case where we are placing specific traffic on specific queues it also 
+makes sense to align the interrupts for some types such as FCoE.  There 
+shouldn't be any issues with user thread migration in this specific example.
 
+> 
+> (Actually, the hints seem to be incomplete.  If there are more than 16
+> CPU threads then multiple CPU threads can map to the same queues, but it
+> looks like you only include the first in the queue's hint.)
+> 
+> An alternate approach is to use the RX queue index to drive TX queue
+> selection.  I posted a patch to do that earlier this week.  However I
+> haven't yet had a chance to try that on a suitably large system.
+>
 
+I'll post an FCoE example patch soon and take a closer look at your 
+patch, but mapping TX/RX queues in sock's won't help for cases like FCoE.
+
+Thanks,
+John.
