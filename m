@@ -1,45 +1,72 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: DDoS attack causing bad effect on conntrack searches
-Date: Fri, 23 Apr 2010 12:56:57 +0200
-Message-ID: <4BD17CF9.4020502@trash.net>
-References: <1271941082.14501.189.camel@jdb-workstation>	 <q2h412e6f7f1004220613m488c2ee4r6d24a8d1e65997d4@mail.gmail.com>	 <4BD04C74.9020402@trash.net> <1271946961.7895.5665.camel@edumazet-laptop>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH net-next-2.6] l2tp_eth: fix memory allocation
+Date: Fri, 23 Apr 2010 13:01:52 +0200
+Message-ID: <20100423110151.GB2853@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>, hawk@comx.dk,
-	Linux Kernel Network Hackers <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org,
-	Paul E McKenney <paulmck@linux.vnet.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1271946961.7895.5665.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kleptog@svana.org, jchapman@katalix.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:13573 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751440Ab0DWLCY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Apr 2010 07:02:24 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Le jeudi 22 avril 2010 =E0 15:17 +0200, Patrick McHardy a =E9crit :
->> Changli Gao wrote:
->>>> struct nf_conntrack_tuple_hash *
->>>> __nf_conntrack_find(struct net *net, const struct nf_conntrack_tup=
-le *tuple)
->>>> ...
->>> We should add a retry limit there.
->> We can't do that since that would allow false negatives.
->=20
-> If one hash slot is under attack, then there is a bug somewhere.
->=20
-> If we cannot avoid this, we can fallback to a secure mode at the seco=
-nd
-> retry, and take the spinlock.
->=20
-> Tis way, most of lookups stay lockless (one pass), and some might tak=
-e
-> the slot lock to avoid the possibility of a loop.
+Since .size is set properly in "struct pernet_operations l2tp_eth_net_ops",
+allocating space for "struct l2tp_eth_net" by hand is not correct, even causes
+memory leakage.
 
-That sounds like a good idea. But lets what for Jesper's test results
-before we start fixing this problem :)
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+
+diff --git a/net/l2tp/l2tp_eth.c b/net/l2tp/l2tp_eth.c
+index ca1164a..58c6c4c 100644
+--- a/net/l2tp/l2tp_eth.c
++++ b/net/l2tp/l2tp_eth.c
+@@ -276,43 +276,16 @@ out:
+ 
+ static __net_init int l2tp_eth_init_net(struct net *net)
+ {
+-	struct l2tp_eth_net *pn;
+-	int err;
+-
+-	pn = kzalloc(sizeof(*pn), GFP_KERNEL);
+-	if (!pn)
+-		return -ENOMEM;
++	struct l2tp_eth_net *pn = net_generic(net, l2tp_eth_net_id);
+ 
+ 	INIT_LIST_HEAD(&pn->l2tp_eth_dev_list);
+ 	spin_lock_init(&pn->l2tp_eth_lock);
+ 
+-	err = net_assign_generic(net, l2tp_eth_net_id, pn);
+-	if (err)
+-		goto out;
+-
+ 	return 0;
+-
+-out:
+-	kfree(pn);
+-	return err;
+-}
+-
+-static __net_exit void l2tp_eth_exit_net(struct net *net)
+-{
+-	struct l2tp_eth_net *pn;
+-
+-	pn = net_generic(net, l2tp_eth_net_id);
+-	/*
+-	 * if someone has cached our net then
+-	 * further net_generic call will return NULL
+-	 */
+-	net_assign_generic(net, l2tp_eth_net_id, NULL);
+-	kfree(pn);
+ }
+ 
+ static __net_initdata struct pernet_operations l2tp_eth_net_ops = {
+ 	.init = l2tp_eth_init_net,
+-	.exit = l2tp_eth_exit_net,
+ 	.id   = &l2tp_eth_net_id,
+ 	.size = sizeof(struct l2tp_eth_net),
+ };
