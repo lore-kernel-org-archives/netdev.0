@@ -1,40 +1,60 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH v6] net: batch skb dequeueing from softnet
- input_pkt_queue
-Date: Fri, 23 Apr 2010 18:02:33 -0400
-Message-ID: <1272060153.8918.8.camel@bigi>
-References: <1272010378-2955-1-git-send-email-xiaosuo@gmail.com>
-	 <1272014825.7895.7851.camel@edumazet-laptop>
-Reply-To: hadi@cyberus.ca
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-2.6 1/9] sfc: Wait at most 10ms for the MC to finish
+ reading out MAC statistics
+Date: Fri, 23 Apr 2010 23:23:59 +0100
+Message-ID: <1272061439.5520.14.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:33825 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758366Ab0DWWCj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 18:02:39 -0400
-Received: by pwj9 with SMTP id 9so7282659pwj.19
-        for <netdev@vger.kernel.org>; Fri, 23 Apr 2010 15:02:38 -0700 (PDT)
-In-Reply-To: <1272014825.7895.7851.camel@edumazet-laptop>
+Received: from exchange.solarflare.com ([216.237.3.220]:46060 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750835Ab0DWWYF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 18:24:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-04-23 at 11:27 +0200, Eric Dumazet wrote:
+From: Steve Hodgson <shodgson@solarflare.com>
 
-> 
-> Lets see how it improves thing for Jamal benchs ;)
+The original code would wait indefinitely if MAC stats DMA failed.
+
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/sfc/siena.c |   13 +++++++++++--
+ 1 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/sfc/siena.c b/drivers/net/sfc/siena.c
+index 38dcc42..e0c46f5 100644
+--- a/drivers/net/sfc/siena.c
++++ b/drivers/net/sfc/siena.c
+@@ -456,8 +456,17 @@ static int siena_try_update_nic_stats(struct efx_nic *efx)
+ 
+ static void siena_update_nic_stats(struct efx_nic *efx)
+ {
+-	while (siena_try_update_nic_stats(efx) == -EAGAIN)
+-		cpu_relax();
++	int retry;
++
++	/* If we're unlucky enough to read statistics wduring the DMA, wait
++	 * up to 10ms for it to finish (typically takes <500us) */
++	for (retry = 0; retry < 100; ++retry) {
++		if (siena_try_update_nic_stats(efx) == 0)
++			return;
++		udelay(100);
++	}
++
++	/* Use the old values instead */
+ }
+ 
+ static void siena_start_nic_stats(struct efx_nic *efx)
+-- 
+1.6.2.5
 
 
-Ive done a setup with the last patch from Changli + net-next - I will
-post test results tomorrow AM.
-
-cheers,
-jamal
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
