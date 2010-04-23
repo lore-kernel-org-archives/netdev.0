@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-2.6 3/9] sfc: Always close net device at the end of a
- disabling reset
-Date: Fri, 23 Apr 2010 23:25:42 +0100
-Message-ID: <1272061542.5520.16.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH net-2.6 4/9] sfc: Consistently report short MCDI responses
+ as EIO
+Date: Fri, 23 Apr 2010 23:25:57 +0100
+Message-ID: <1272061557.5520.17.camel@achroite.uk.solarflarecom.com>
 References: <1272061459.5520.15.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,44 +10,139 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:46185 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:46199 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753042Ab0DWWZq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 18:25:46 -0400
+	with ESMTP id S1753169Ab0DWW0A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 18:26:00 -0400
 In-Reply-To: <1272061459.5520.15.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes a regression introduced by commit
-eb9f6744cbfa97674c13263802259b5aa0034594 "sfc: Implement ethtool
-reset operation".
+EMSGSIZE means 'Message too large' whereas these are too short.
+EINVAL means 'Invalid argument' whereas this is a response.
+In some cases failing functions were returning 0 which is obviously wrong.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/efx.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/sfc/mcdi.c     |   22 ++++++++++++++--------
+ drivers/net/sfc/mcdi_phy.c |    6 +++---
+ 2 files changed, 17 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index 6486657..649a264 100644
---- a/drivers/net/sfc/efx.c
-+++ b/drivers/net/sfc/efx.c
-@@ -1861,6 +1861,7 @@ out:
+diff --git a/drivers/net/sfc/mcdi.c b/drivers/net/sfc/mcdi.c
+index c48669c..1344afa 100644
+--- a/drivers/net/sfc/mcdi.c
++++ b/drivers/net/sfc/mcdi.c
+@@ -613,7 +613,7 @@ int efx_mcdi_fwver(struct efx_nic *efx, u64 *version, u32 *build)
  	}
  
- 	if (disabled) {
-+		dev_close(efx->net_dev);
- 		EFX_ERR(efx, "has been disabled\n");
- 		efx->state = STATE_DISABLED;
- 	} else {
-@@ -1884,8 +1885,7 @@ static void efx_reset_work(struct work_struct *data)
+ 	if (outlength < MC_CMD_GET_VERSION_V1_OUT_LEN) {
+-		rc = -EMSGSIZE;
++		rc = -EIO;
+ 		goto fail;
  	}
  
- 	rtnl_lock();
--	if (efx_reset(efx, efx->reset_pending))
--		dev_close(efx->net_dev);
-+	(void)efx_reset(efx, efx->reset_pending);
- 	rtnl_unlock();
- }
+@@ -647,8 +647,10 @@ int efx_mcdi_drv_attach(struct efx_nic *efx, bool driver_operating,
+ 			  outbuf, sizeof(outbuf), &outlen);
+ 	if (rc)
+ 		goto fail;
+-	if (outlen < MC_CMD_DRV_ATTACH_OUT_LEN)
++	if (outlen < MC_CMD_DRV_ATTACH_OUT_LEN) {
++		rc = -EIO;
+ 		goto fail;
++	}
+ 
+ 	if (was_attached != NULL)
+ 		*was_attached = MCDI_DWORD(outbuf, DRV_ATTACH_OUT_OLD_STATE);
+@@ -676,7 +678,7 @@ int efx_mcdi_get_board_cfg(struct efx_nic *efx, u8 *mac_address,
+ 		goto fail;
+ 
+ 	if (outlen < MC_CMD_GET_BOARD_CFG_OUT_LEN) {
+-		rc = -EMSGSIZE;
++		rc = -EIO;
+ 		goto fail;
+ 	}
+ 
+@@ -738,8 +740,10 @@ int efx_mcdi_nvram_types(struct efx_nic *efx, u32 *nvram_types_out)
+ 			  outbuf, sizeof(outbuf), &outlen);
+ 	if (rc)
+ 		goto fail;
+-	if (outlen < MC_CMD_NVRAM_TYPES_OUT_LEN)
++	if (outlen < MC_CMD_NVRAM_TYPES_OUT_LEN) {
++		rc = -EIO;
+ 		goto fail;
++	}
+ 
+ 	*nvram_types_out = MCDI_DWORD(outbuf, NVRAM_TYPES_OUT_TYPES);
+ 	return 0;
+@@ -765,8 +769,10 @@ int efx_mcdi_nvram_info(struct efx_nic *efx, unsigned int type,
+ 			  outbuf, sizeof(outbuf), &outlen);
+ 	if (rc)
+ 		goto fail;
+-	if (outlen < MC_CMD_NVRAM_INFO_OUT_LEN)
++	if (outlen < MC_CMD_NVRAM_INFO_OUT_LEN) {
++		rc = -EIO;
+ 		goto fail;
++	}
+ 
+ 	*size_out = MCDI_DWORD(outbuf, NVRAM_INFO_OUT_SIZE);
+ 	*erase_size_out = MCDI_DWORD(outbuf, NVRAM_INFO_OUT_ERASESIZE);
+@@ -968,7 +974,7 @@ static int efx_mcdi_read_assertion(struct efx_nic *efx)
+ 	if (rc)
+ 		return rc;
+ 	if (outlen < MC_CMD_GET_ASSERTS_OUT_LEN)
+-		return -EINVAL;
++		return -EIO;
+ 
+ 	/* Print out any recorded assertion state */
+ 	flags = MCDI_DWORD(outbuf, GET_ASSERTS_OUT_GLOBAL_FLAGS);
+@@ -1086,7 +1092,7 @@ int efx_mcdi_wol_filter_set(struct efx_nic *efx, u32 type,
+ 		goto fail;
+ 
+ 	if (outlen < MC_CMD_WOL_FILTER_SET_OUT_LEN) {
+-		rc = -EMSGSIZE;
++		rc = -EIO;
+ 		goto fail;
+ 	}
+ 
+@@ -1121,7 +1127,7 @@ int efx_mcdi_wol_filter_get_magic(struct efx_nic *efx, int *id_out)
+ 		goto fail;
+ 
+ 	if (outlen < MC_CMD_WOL_FILTER_GET_OUT_LEN) {
+-		rc = -EMSGSIZE;
++		rc = -EIO;
+ 		goto fail;
+ 	}
+ 
+diff --git a/drivers/net/sfc/mcdi_phy.c b/drivers/net/sfc/mcdi_phy.c
+index 2f23546..5d34487 100644
+--- a/drivers/net/sfc/mcdi_phy.c
++++ b/drivers/net/sfc/mcdi_phy.c
+@@ -48,7 +48,7 @@ efx_mcdi_get_phy_cfg(struct efx_nic *efx, struct efx_mcdi_phy_cfg *cfg)
+ 		goto fail;
+ 
+ 	if (outlen < MC_CMD_GET_PHY_CFG_OUT_LEN) {
+-		rc = -EMSGSIZE;
++		rc = -EIO;
+ 		goto fail;
+ 	}
+ 
+@@ -111,7 +111,7 @@ static int efx_mcdi_loopback_modes(struct efx_nic *efx, u64 *loopback_modes)
+ 		goto fail;
+ 
+ 	if (outlen < MC_CMD_GET_LOOPBACK_MODES_OUT_LEN) {
+-		rc = -EMSGSIZE;
++		rc = -EIO;
+ 		goto fail;
+ 	}
+ 
+@@ -587,7 +587,7 @@ static int efx_mcdi_phy_test_alive(struct efx_nic *efx)
+ 		return rc;
+ 
+ 	if (outlen < MC_CMD_GET_PHY_STATE_OUT_LEN)
+-		return -EMSGSIZE;
++		return -EIO;
+ 	if (MCDI_DWORD(outbuf, GET_PHY_STATE_STATE) != MC_CMD_PHY_STATE_OK)
+ 		return -EINVAL;
  
 -- 
 1.6.2.5
