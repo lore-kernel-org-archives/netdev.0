@@ -1,39 +1,77 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: DDoS attack causing bad effect on conntrack searches
-Date: Fri, 23 Apr 2010 12:36:58 +0200
-Message-ID: <4BD1784A.6010306@trash.net>
-References: <1271941082.14501.189.camel@jdb-workstation>	 <q2h412e6f7f1004220613m488c2ee4r6d24a8d1e65997d4@mail.gmail.com>	 <4BD04C74.9020402@trash.net> <1271946961.7895.5665.camel@edumazet-laptop>	 <1271948029.7895.5707.camel@edumazet-laptop>	 <20100422155123.GA2524@linux.vnet.ibm.com>	 <1271952128.7895.5851.camel@edumazet-laptop>	 <Pine.LNX.4.64.1004222213290.10919@ask.diku.dk>	 <1271970199.7895.6482.camel@edumazet-laptop> <1271970893.7895.6507.camel@edumazet-laptop>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH net-next-2.6] l2tp: fix memory allocation
+Date: Fri, 23 Apr 2010 12:53:39 +0200
+Message-ID: <20100423105338.GA2853@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesper Dangaard Brouer <hawk@diku.dk>, paulmck@linux.vnet.ibm.com,
-	Changli Gao <xiaosuo@gmail.com>, hawk@comx.dk,
-	Linux Kernel Network Hackers <netdev@vger.kernel.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1271970893.7895.6507.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kleptog@svana.org, jchapman@katalix.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:22691 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750940Ab0DWKyT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Apr 2010 06:54:19 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Le jeudi 22 avril 2010 =E0 23:03 +0200, Eric Dumazet a =E9crit :
->>> Guess I have to reproduce the DoS attack in a testlab (I will first=
- have=20
->>> time Tuesday).  So we can determine if its bad hashing or restart o=
-f the=20
->>> search loop.
->>>
->=20
-> Or very long chains, if attacker managed to find a jhash flaw.
+Since .size is set properly in "struct pernet_operations l2tp_net_ops",
+allocating space for "struct l2tp_net" by hand is not correct, even causes
+memory leakage.
 
-That should be visible in the "searched" statistic.
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-> You could add a lookup_restart counter :
-
-I've applied Jespers equivalent patch.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index ecc7aea..1712af1 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -1617,14 +1617,9 @@ EXPORT_SYMBOL_GPL(l2tp_session_create);
+ 
+ static __net_init int l2tp_init_net(struct net *net)
+ {
+-	struct l2tp_net *pn;
+-	int err;
++	struct l2tp_net *pn = net_generic(net, l2tp_net_id);
+ 	int hash;
+ 
+-	pn = kzalloc(sizeof(*pn), GFP_KERNEL);
+-	if (!pn)
+-		return -ENOMEM;
+-
+ 	INIT_LIST_HEAD(&pn->l2tp_tunnel_list);
+ 	spin_lock_init(&pn->l2tp_tunnel_list_lock);
+ 
+@@ -1633,33 +1628,11 @@ static __net_init int l2tp_init_net(struct net *net)
+ 
+ 	spin_lock_init(&pn->l2tp_session_hlist_lock);
+ 
+-	err = net_assign_generic(net, l2tp_net_id, pn);
+-	if (err)
+-		goto out;
+-
+ 	return 0;
+-
+-out:
+-	kfree(pn);
+-	return err;
+-}
+-
+-static __net_exit void l2tp_exit_net(struct net *net)
+-{
+-	struct l2tp_net *pn;
+-
+-	pn = net_generic(net, l2tp_net_id);
+-	/*
+-	 * if someone has cached our net then
+-	 * further net_generic call will return NULL
+-	 */
+-	net_assign_generic(net, l2tp_net_id, NULL);
+-	kfree(pn);
+ }
+ 
+ static struct pernet_operations l2tp_net_ops = {
+ 	.init = l2tp_init_net,
+-	.exit = l2tp_exit_net,
+ 	.id   = &l2tp_net_id,
+ 	.size = sizeof(struct l2tp_net),
+ };
