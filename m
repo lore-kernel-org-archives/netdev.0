@@ -1,96 +1,114 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: DDoS attack causing bad effect on conntrack searches
-Date: Fri, 23 Apr 2010 22:57:17 +0200
-Message-ID: <1272056237.4599.7.camel@edumazet-laptop>
-References: <1271941082.14501.189.camel@jdb-workstation>
-	 <q2h412e6f7f1004220613m488c2ee4r6d24a8d1e65997d4@mail.gmail.com>
-	 <4BD04C74.9020402@trash.net> <1271946961.7895.5665.camel@edumazet-laptop>
-	 <1271948029.7895.5707.camel@edumazet-laptop>
-	 <20100422155123.GA2524@linux.vnet.ibm.com>
-	 <1271952128.7895.5851.camel@edumazet-laptop>
-	 <Pine.LNX.4.64.1004222213290.10919@ask.diku.dk>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] e100: expose broadcast_disabled as a module option
+Date: Fri, 23 Apr 2010 13:58:16 -0700
+Message-ID: <20100423135816.23f5861f@nehalam>
+References: <l2nb43bf5491004231314i13503c67yeccfc54bc1cae850@mail.gmail.com>
+	<h2p9929d2391004231322r23528f32z8447a711a29e28ea@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: paulmck@linux.vnet.ibm.com, Patrick McHardy <kaber@trash.net>,
-	Changli Gao <xiaosuo@gmail.com>, hawk@comx.dk,
-	Linux Kernel Network Hackers <netdev@vger.kernel.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>
-To: Jesper Dangaard Brouer <hawk@diku.dk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:40249 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753664Ab0DWU5W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 16:57:22 -0400
-In-Reply-To: <Pine.LNX.4.64.1004222213290.10919@ask.diku.dk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Erwan Velu <erwanaliasr1@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, alexander.h.duyck@intel.com,
+	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <h2p9929d2391004231322r23528f32z8447a711a29e28ea@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 22 avril 2010 =C3=A0 22:38 +0200, Jesper Dangaard Brouer a =C3=
-=A9crit :
+On Fri, 23 Apr 2010 13:22:22 -0700
+Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
 
->=20
-> I think its plausable, there is a lot of modification going on.
-> Approx 40.000 deletes/sec and 40.000 inserts/sec.
-> The hash bucket size is 300032, and with 80000 modifications/sec, we =
-are=20
-> (potentially) changing 26.6% of the hash chains each second.
->=20
-> As can be seen from the graphs:
->   http://people.netfilter.org/hawk/DDoS/2010-04-12__001/list.html
->=20
-> Notice that primarily CPU2 is doing the 40k deletes/sec, while CPU1 i=
-s=20
-> caught searching...
->=20
->=20
-> > maybe hash table has one slot :)
->=20
-> Guess I have to reproduce the DoS attack in a testlab (I will first h=
-ave=20
-> time Tuesday).  So we can determine if its bad hashing or restart of =
-the=20
-> search loop.
->=20
->=20
-> The traffic pattern was fairly simple:
->=20
-> 200 bytes UDP packets, comming from approx 60 source IPs, going to on=
-e=20
-> destination IP.  The UDP destination port number was varied in the ra=
-nge=20
-> of 1 to 6000.   The source UDP port was varied a bit more, some rangi=
-ng=20
-> from 32768 to 61000, and some from 1028 to 5000.
->=20
->=20
-
-Re-reading this, I am not sure there is a real problem on RCU as you
-pointed out.
-
-With 800.000 entries, in a 300.032 buckets hash table, each lookup hit
-about 3 entries (aka searches in conntrack stats)
-
-300.000 packets/second -> 900.000 'searches' per second.
-
-If you have four cpus all trying to insert/delete entries in //, they
-all hit the central conntrack lock.
-
-On a DDOS scenario, every packet needs to take this lock twice,
-once to free an old conntrack (early drop), once to insert a new entry.
-
-To scale this, only way would be to have an array of locks, like we hav=
+> On Fri, Apr 23, 2010 at 13:14, Erwan Velu <erwanaliasr1@gmail.com> wr=
+ote:
+> > Hi folks,
+> >
+> > I've been facing a very noisy network where hundreds broadcast pack=
+ets
+> > were generated every second.
+> > When this traffic can't be controlled at the source, there is a sid=
 e
-for TCP/UDP hash tables.
+> > effect on some systems.
+> > I was having some idle systems that will never be targeted by this
+> > broadcast traffic that got loaded just by receiving that "flood".
+> > I mean by loaded that this light hardware was generating 300
+> > context/switches per second.
+> >
+> > I was looking for many options to avoid this traffic to disturb thi=
+s
+> > hosts and I discovered that the e100 driver was featuring a
+> > "broadcast_disabled" configure option.
+> > I realize that this option is not controllable, so I wrote this sim=
+ple
+> > patch that expose this option as a module option.
+> > This allow me to tell this hosts not to listen anymore this traffic=
+=2E
+> >
+> > The result is clearly good as my systems are now running at 21
+> > context/switches while being idle.
+> > Hope this patch isn't too bad and could help others that faces the =
+same problem.
+> >
+> > Patch can be downloaded here :
+> > http://konilope.linuxeries.org/e100_broadcast_disabled.patch
+> >
+> > Even if gmail is eating the inlined, patch, at least that make it
+> > easier to read it for humans.
+> > If the patch is acked, the downloaded one will be more clean ;)
+> >
+> > This patch was generated on top of the latest 2.6 torvald's git.
+> > Cheers,
+> > Erwan
+> >
+> > Signed-off-by: Erwan Velu <erwanaliasr1@gmail.com>
+> >
+> > diff --git a/drivers/net/e100.c b/drivers/net/e100.c
+> > index b997e57..2ba582f 100644
+> > --- a/drivers/net/e100.c
+> > +++ b/drivers/net/e100.c
+> > @@ -194,12 +194,15 @@ MODULE_FIRMWARE(FIRMWARE_D102E);
+> > =C2=A0static int debug =3D 3;
+> > =C2=A0static int eeprom_bad_csum_allow =3D 0;
+> > =C2=A0static int use_io =3D 0;
+> > +static int broadcast_disabled =3D 0;
+> > =C2=A0module_param(debug, int, 0);
+> > =C2=A0module_param(eeprom_bad_csum_allow, int, 0);
+> > =C2=A0module_param(use_io, int, 0);
+> > +module_param(broadcast_disabled, int, 0);
+> > =C2=A0MODULE_PARM_DESC(debug, "Debug level (0=3Dnone,...,16=3Dall)"=
+);
+> > =C2=A0MODULE_PARM_DESC(eeprom_bad_csum_allow, "Allow bad eeprom che=
+cksums");
+> > =C2=A0MODULE_PARM_DESC(use_io, "Force use of i/o access mode");
+> > +MODULE_PARM_DESC(broadcast_disabled, "Filter broadcast packets
+> > (0=3Ddisabled (default), 1=3Denabled)");
+> > =C2=A0#define DPRINTK(nlevel, klevel, fmt, args...) \
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0(void)((NETIF_MSG_##nlevel & nic->msg_en=
+able) && \
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0printk(KERN_##klevel PFX "%s: %s: " fmt,=
+ nic->netdev->name, \
+> > @@ -1131,6 +1134,8 @@ static void e100_configure(struct nic *nic,
+> > struct cb *cb, struct sk_buff *skb)
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0config->prom=
+iscuous_mode =3D 0x1; =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* 1=3Don, 0=3Doff */
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+> >
+> > + =C2=A0 =C2=A0 =C2=A0 config->broadcast_disabled =3D broadcast_dis=
+abled; /* Broadcast filtering */
+> > +
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0if (nic->flags & multicast_all)
+> > =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0config->mult=
+icast_all =3D 0x1; =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0/* 1=3Dacce=
+pt, 0=3Dno */
+> > --
+>=20
+> Adding Netdev...
+>=20
 
-I did some tests here, with a multiqueue card, flooded with 300.000
-pack/second, 65.536 source IP, millions of flows, and nothing wrong
-happened (but packets drops, of course)
-
-My two cpus were busy 100%, after tweaking smp_affinities, because on
-first try, irqbalance put "01" mask on both queues, so only one ksoftir=
-q
-was working, other cpu was idle :(
+What is wrong with using existing IFF_BROADCAST flag?
 
 
-
+--=20
