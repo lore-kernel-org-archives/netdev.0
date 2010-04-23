@@ -1,58 +1,96 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] rps: consistent rxhash
-Date: Fri, 23 Apr 2010 13:44:54 -0700 (PDT)
-Message-ID: <20100423.134454.177103227.davem@davemloft.net>
-References: <1271775421.7895.19.camel@edumazet-laptop>
-	<20100420.144106.118596093.davem@davemloft.net>
-	<g2m65634d661004211212t13714cccyd27936c520515684@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: DDoS attack causing bad effect on conntrack searches
+Date: Fri, 23 Apr 2010 22:57:17 +0200
+Message-ID: <1272056237.4599.7.camel@edumazet-laptop>
+References: <1271941082.14501.189.camel@jdb-workstation>
+	 <q2h412e6f7f1004220613m488c2ee4r6d24a8d1e65997d4@mail.gmail.com>
+	 <4BD04C74.9020402@trash.net> <1271946961.7895.5665.camel@edumazet-laptop>
+	 <1271948029.7895.5707.camel@edumazet-laptop>
+	 <20100422155123.GA2524@linux.vnet.ibm.com>
+	 <1271952128.7895.5851.camel@edumazet-laptop>
+	 <Pine.LNX.4.64.1004222213290.10919@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, franco@lastsummer.de, xiaosuo@gmail.com,
-	netdev@vger.kernel.org
-To: therbert@google.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: paulmck@linux.vnet.ibm.com, Patrick McHardy <kaber@trash.net>,
+	Changli Gao <xiaosuo@gmail.com>, hawk@comx.dk,
+	Linux Kernel Network Hackers <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>
+To: Jesper Dangaard Brouer <hawk@diku.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43652
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752159Ab0DWUot (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 16:44:49 -0400
-In-Reply-To: <g2m65634d661004211212t13714cccyd27936c520515684@mail.gmail.com>
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:40249 "EHLO
+	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753664Ab0DWU5W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 16:57:22 -0400
+In-Reply-To: <Pine.LNX.4.64.1004222213290.10919@ask.diku.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Wed, 21 Apr 2010 12:12:41 -0700
+Le jeudi 22 avril 2010 =C3=A0 22:38 +0200, Jesper Dangaard Brouer a =C3=
+=A9crit :
 
-> On Tue, Apr 20, 2010 at 2:41 PM, David Miller <davem@davemloft.net> wrote:
->> Eric, do you remember that "TCP friends" rough patch I sent you last
->> year that essentailly made TCP sockets over loopback behave like
->> AF_UNIX ones and just queue the SKBs directly to the destination
->> socket without doing any protocol work?
->>
-> 
-> This is sounds very interesting!  Could you post a patch? :-)
+>=20
+> I think its plausable, there is a lot of modification going on.
+> Approx 40.000 deletes/sec and 40.000 inserts/sec.
+> The hash bucket size is 300032, and with 80000 modifications/sec, we =
+are=20
+> (potentially) changing 26.6% of the hash chains each second.
+>=20
+> As can be seen from the graphs:
+>   http://people.netfilter.org/hawk/DDoS/2010-04-12__001/list.html
+>=20
+> Notice that primarily CPU2 is doing the 40k deletes/sec, while CPU1 i=
+s=20
+> caught searching...
+>=20
+>=20
+> > maybe hash table has one slot :)
+>=20
+> Guess I have to reproduce the DoS attack in a testlab (I will first h=
+ave=20
+> time Tuesday).  So we can determine if its bad hashing or restart of =
+the=20
+> search loop.
+>=20
+>=20
+> The traffic pattern was fairly simple:
+>=20
+> 200 bytes UDP packets, comming from approx 60 source IPs, going to on=
+e=20
+> destination IP.  The UDP destination port number was varied in the ra=
+nge=20
+> of 1 to 6000.   The source UDP port was varied a bit more, some rangi=
+ng=20
+> from 32768 to 61000, and some from 1028 to 5000.
+>=20
+>=20
 
-I'll see if I can find it, I sent it to Eric more than a year
-ago...
+Re-reading this, I am not sure there is a real problem on RCU as you
+pointed out.
 
-The basic scheme was pretty simple:
+With 800.000 entries, in a 300.032 buckets hash table, each lookup hit
+about 3 entries (aka searches in conntrack stats)
 
-1) Add "struct sock *friend" to struct sk_buff
+300.000 packets/second -> 900.000 'searches' per second.
 
-2) TCP initial handshake SYN and SYN+ACK transmits set "skb->friend =
-   sk" and TCP receive path notices this and stores this 'friend'
-   socket pointer locally in the newly created connection socket.
+If you have four cpus all trying to insert/delete entries in //, they
+all hit the central conntrack lock.
 
-   The purpose of skb->friend is to let the receiving socket on
-   loopback see that the other end is on the local system and
-   can be directly communicated to.
+On a DDOS scenario, every packet needs to take this lock twice,
+once to free an old conntrack (early drop), once to insert a new entry.
 
-3) TCP sendmsg queues data directly to sk->friend's receive queue
-   instead sending TCP protocol packets.
+To scale this, only way would be to have an array of locks, like we hav=
+e
+for TCP/UDP hash tables.
 
-The only complications come from making sendmsg and recvmsg not
-try to do all of the sequence handling and checking, stuff like
-that.  Also, URG would need to be dealt with somehow too.
+I did some tests here, with a multiqueue card, flooded with 300.000
+pack/second, 65.536 source IP, millions of flows, and nothing wrong
+happened (but packets drops, of course)
 
-I'm sure someone suitably motivated could get a working patch
-going in no time :-)
+My two cpus were busy 100%, after tweaking smp_affinities, because on
+first try, irqbalance put "01" mask on both queues, so only one ksoftir=
+q
+was working, other cpu was idle :(
+
+
+
