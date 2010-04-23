@@ -1,35 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: DDoS attack causing bad effect on conntrack searches
-Date: Fri, 23 Apr 2010 01:18:45 -0700 (PDT)
-Message-ID: <20100423.011845.254684857.davem@davemloft.net>
-References: <20100422.164425.171794554.davem@davemloft.net>
-	<1272001478.7895.7545.camel@edumazet-laptop>
-	<20100423.011328.107238355.davem@davemloft.net>
+From: Thomas Klein <osstklei@de.ibm.com>
+Subject: Re: [PATCH 1/2][RESEND] ehea: error handling improvement
+Date: Fri, 23 Apr 2010 10:22:33 +0200
+Message-ID: <4BD158C9.90807@de.ibm.com>
+References: <201004211110.55986.tklein@de.ibm.com> <20100421.223620.257172362.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hawk@diku.dk, paulmck@linux.vnet.ibm.com, kaber@trash.net,
-	xiaosuo@gmail.com, hawk@comx.dk, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100423.011328.107238355.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: tklein@de.ibm.com, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	linux-kernel@vger.kernel.org, themann@de.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate6.de.ibm.com ([195.212.17.166]:33076 "EHLO
+	mtagate6.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751093Ab0DWIWf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 04:22:35 -0400
+In-Reply-To: <20100421.223620.257172362.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Fri, 23 Apr 2010 01:13:28 -0700 (PDT)
+On 04/22/2010 07:36 AM, David Miller wrote:
+> From: Thomas Klein<tklein@de.ibm.com>
+> Date: Wed, 21 Apr 2010 11:10:55 +0200
+>
+>> Reset a port's resources only if they're actually in an error state
+>>
+>> Signed-off-by: Thomas Klein<tklein@de.ibm.com>
+>> ---
+>>
+>> Patch created against net-2.6
+>
+> I thought you were sorry for wasting my time and that you were going
+> to follow the directions I gave you last time, and I quote:
+>
+> --------------------
+> 3) These are not appropriate for net-2.6 as we are deep in
+>     the -rcX series at this point and only the most diabolical
+>     bug fixes are appropriate.  Therefore, please generate these
+>     against net-next-2.6, thanks.
+> --------------------
+>
+> And here you are generating your patches against net-2.6.  Heck, you
+> even feel it's worth mentioning explicitly.
 
-> I really can't see what might cause this behavior then.
+Guilty! Allows no excuse. Screwed it. Deeply sorry.
 
-This all reminds me of the namespace bug we dealt with
-a month or two ago.
+>
+> Lucky for you the patches happen to apply cleanly to net-next-2.6 so
+> I've put them there.
 
-Jesper, you don't happen to be using network namespaces are you?
-Because if so, the following might be your cure.
+Thanks!
+Thomas
 
-commit 5b3501faa8741d50617ce4191c20061c6ef36cb3
-Author: Eric Dumazet <eric.dumazet@gmail.com>
-Date:   Mon Feb 8 11:16:56 2010 -0800
-
-    netfilter: nf_conntrack: per netns nf_conntrack_cachep
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
