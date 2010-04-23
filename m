@@ -1,106 +1,55 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH] bnx2x: add support for receive hashing
-Date: Thu, 22 Apr 2010 22:54:16 -0700 (PDT)
-Message-ID: <alpine.DEB.1.00.1004222249400.27016@pokey.mtv.corp.google.com>
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Subject: Re: eSwitch management
+Date: Thu, 22 Apr 2010 22:57:51 -0700
+Message-ID: <DD92D5A8-1ECC-4440-BE81-ABDCC6847021@qlogic.com>
+References: <C7F64614.2ADDF%scofeldm@cisco.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"chrisw@redhat.com" <chrisw@redhat.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Ameen Rahman <ameen.rahman@qlogic.com>,
+	Amit Salecha <amit.salecha@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>
+To: Scott Feldman <scofeldm@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.35]:27936 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753609Ab0DWFyX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 01:54:23 -0400
+Received: from avexcashub1.qlogic.com ([198.70.193.61]:43259 "EHLO
+	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755860Ab0DWF5w convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 23 Apr 2010 01:57:52 -0400
+In-Reply-To: <C7F64614.2ADDF%scofeldm@cisco.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support to bnx2x to extract Toeplitz hash out of the receive descriptor
-for use in skb->rxhash.
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
-diff --git a/drivers/net/bnx2x.h b/drivers/net/bnx2x.h
-index 0819530..8bd2368 100644
---- a/drivers/net/bnx2x.h
-+++ b/drivers/net/bnx2x.h
-@@ -1330,7 +1330,7 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
- 		AEU_INPUTS_ATTN_BITS_MCP_LATCHED_UMP_TX_PARITY | \
- 		AEU_INPUTS_ATTN_BITS_MCP_LATCHED_SCPAD_PARITY)
- 
--#define MULTI_FLAGS(bp) \
-+#define RSS_FLAGS(bp) \
- 		(TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV4_CAPABILITY | \
- 		 TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV4_TCP_CAPABILITY | \
- 		 TSTORM_ETH_FUNCTION_COMMON_CONFIG_RSS_IPV6_CAPABILITY | \
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 0c6dba2..613f727 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -1582,7 +1582,7 @@ static int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
- 		struct sw_rx_bd *rx_buf = NULL;
- 		struct sk_buff *skb;
- 		union eth_rx_cqe *cqe;
--		u8 cqe_fp_flags;
-+		u8 cqe_fp_flags, cqe_fp_status_flags;
- 		u16 len, pad;
- 
- 		comp_ring_cons = RCQ_BD(sw_comp_cons);
-@@ -1598,6 +1598,7 @@ static int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
- 
- 		cqe = &fp->rx_comp_ring[comp_ring_cons];
- 		cqe_fp_flags = cqe->fast_path_cqe.type_error_flags;
-+		cqe_fp_status_flags = cqe->fast_path_cqe.status_flags;
- 
- 		DP(NETIF_MSG_RX_STATUS, "CQE type %x  err %x  status %x"
- 		   "  queue %x  vlan %x  len %u\n", CQE_TYPE(cqe_fp_flags),
-@@ -1727,6 +1728,12 @@ reuse_rx:
- 
- 			skb->protocol = eth_type_trans(skb, bp->dev);
- 
-+			if ((bp->dev->features & ETH_FLAG_RXHASH) &&
-+			    (cqe_fp_status_flags &
-+			     ETH_FAST_PATH_RX_CQE_RSS_HASH_FLG))
-+				skb->rxhash = le32_to_cpu(
-+				    cqe->fast_path_cqe.rss_hash_result);
-+
- 			skb->ip_summed = CHECKSUM_NONE;
- 			if (bp->rx_csum) {
- 				if (likely(BNX2X_RX_CSUM_OK(cqe)))
-@@ -5750,10 +5757,10 @@ static void bnx2x_init_internal_func(struct bnx2x *bp)
- 	u32 offset;
- 	u16 max_agg_size;
- 
--	if (is_multi(bp)) {
--		tstorm_config.config_flags = MULTI_FLAGS(bp);
-+	tstorm_config.config_flags = RSS_FLAGS(bp);
-+
-+	if (is_multi(bp))
- 		tstorm_config.rss_result_mask = MULTI_MASK;
--	}
- 
- 	/* Enable TPA if needed */
- 	if (bp->flags & TPA_ENABLE_FLAG)
-@@ -6629,10 +6636,8 @@ static int bnx2x_init_common(struct bnx2x *bp)
- 	bnx2x_init_block(bp, PBF_BLOCK, COMMON_STAGE);
- 
- 	REG_WR(bp, SRC_REG_SOFT_RST, 1);
--	for (i = SRC_REG_KEYRSS0_0; i <= SRC_REG_KEYRSS1_9; i += 4) {
--		REG_WR(bp, i, 0xc0cac01a);
--		/* TODO: replace with something meaningful */
--	}
-+	for (i = SRC_REG_KEYRSS0_0; i <= SRC_REG_KEYRSS1_9; i += 4)
-+		REG_WR(bp, i, random32());
- 	bnx2x_init_block(bp, SRCH_BLOCK, COMMON_STAGE);
- #ifdef BCM_CNIC
- 	REG_WR(bp, SRC_REG_KEYSEARCH_0, 0x63285672);
-@@ -11001,6 +11006,11 @@ static int bnx2x_set_flags(struct net_device *dev, u32 data)
- 		changed = 1;
- 	}
- 
-+	if (data & ETH_FLAG_RXHASH)
-+		dev->features |= NETIF_F_RXHASH;
-+	else
-+		dev->features &= ~NETIF_F_RXHASH;
-+
- 	if (changed && netif_running(dev)) {
- 		bnx2x_nic_unload(bp, UNLOAD_NORMAL);
- 		rc = bnx2x_nic_load(bp, LOAD_NORMAL);
+On Apr 22, 2010, at 6:29 PM, Scott Feldman wrote:
+
+> On 4/22/10 5:47 PM, "Scott Feldman" <scofeldm@cisco.com> wrote:
+> 
+>> On 4/22/10 4:16 PM, "Anirban Chakraborty" <anirban.chakraborty@qlogic.com>
+>> wrote:
+>> 
+>>> I am following the discussions on iovnl patch closely. While it is going to
+>>> take some time for iovnl patch to be reviewed and accepted, what would be the
+>>> interim approach to manage the eswitch in NIC? We need to add support in
+>>> qlcnic driver to configure the eswitch in our 10G NIC. Some of the things
+>>> that
+>>> we need to set to the switch are setting a port's VLAN, tx bandwidth etc. We
+>>> would like to set these parameters for a bunch of ports at the start of the
+>>> day and set it to the eswitch.
+>> 
+>> Are any of these settings covered in DCB?  (net/dcb/dcbnl.c).  Maybe you can
+>> get a start there?  Not sure not knowing your device requirements.
+> 
+> Or maybe the RTM_SETLINK IFLA_VF_* ops in include/linux/if_link.h?  Those
+> seem like what you're looking for.  I'm looking at moving iovnl here as well
+> for port-profile.
+
+It looks like ifla_vf_info does contain most of the data set. But if I use it, what NETLINK protocol family should I use in my driver to receive netlink messages? Do I need to create a private protocol family?
+
+Thanks a lot,
+Anirban
+
