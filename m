@@ -1,198 +1,151 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: DDoS attack causing bad effect on conntrack searches
-Date: Sat, 24 Apr 2010 22:11:01 +0200
-Message-ID: <1272139861.20714.525.camel@edumazet-laptop>
-References: <1271941082.14501.189.camel@jdb-workstation>
-	 <q2h412e6f7f1004220613m488c2ee4r6d24a8d1e65997d4@mail.gmail.com>
-	 <4BD04C74.9020402@trash.net> <1271946961.7895.5665.camel@edumazet-laptop>
-	 <1271948029.7895.5707.camel@edumazet-laptop>
-	 <20100422155123.GA2524@linux.vnet.ibm.com>
-	 <1271952128.7895.5851.camel@edumazet-laptop>
-	 <Pine.LNX.4.64.1004222213290.10919@ask.diku.dk>
-	 <1272056237.4599.7.camel@edumazet-laptop>
-	 <Pine.LNX.4.64.1004241219280.32071@ask.diku.dk>
+From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Subject: [PATCH  kernel 2.6.34-rc5] smc91c92_cs: spin_unlock_irqrestore
+ before calling smc_interrupt()
+Date: Sun, 25 Apr 2010 05:37:09 +0900
+Message-ID: <20100425053709.ec182f63.ken_kawasaki@spring.nifty.jp>
+References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
+	<20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
+	<20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
+	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
+	<20091004073257.52a6624b.ken_kawasaki@spring.nifty.jp>
+	<20091221205849.dae4e929.ken_kawasaki@spring.nifty.jp>
+	<20091223171004.77316fa5.ken_kawasaki@spring.nifty.jp>
+	<20100123065625.db751a12.ken_kawasaki@spring.nifty.jp>
+	<20100228083420.9ca8e285.ken_kawasaki@spring.nifty.jp>
+	<20100328055537.13ef6c01.ken_kawasaki@spring.nifty.jp>
+	<20100404061434.eb98ef3e.ken_kawasaki@spring.nifty.jp>
+	<20100411075014.d3e80847.ken_kawasaki@spring.nifty.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: paulmck@linux.vnet.ibm.com, Patrick McHardy <kaber@trash.net>,
-	Changli Gao <xiaosuo@gmail.com>, hawk@comx.dk,
-	Linux Kernel Network Hackers <netdev@vger.kernel.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>
-To: Jesper Dangaard Brouer <hawk@diku.dk>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.1004241219280.32071@ask.diku.dk>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Le samedi 24 avril 2010 =C3=A0 13:11 +0200, Jesper Dangaard Brouer a =C3=
-=A9crit :
-> On Fri, 23 Apr 2010, Eric Dumazet wrote:
->=20
-> > Le jeudi 22 avril 2010 =C3=A0 22:38 +0200, Jesper Dangaard Brouer a=
- =C3=A9crit :
-> >
-> >>
-> >> I think its plausable, there is a lot of modification going on.
-> >> Approx 40.000 deletes/sec and 40.000 inserts/sec.
-> >> The hash bucket size is 300032, and with 80000 modifications/sec, =
-we are
-> >> (potentially) changing 26.6% of the hash chains each second.
-> >>
-> >> As can be seen from the graphs:
-> >>   http://people.netfilter.org/hawk/DDoS/2010-04-12__001/list.html
-> >>
-> >> Notice that primarily CPU2 is doing the 40k deletes/sec, while CPU=
-1 is
-> >> caught searching...
-> >>
-> >>
-> >>> maybe hash table has one slot :)
-> >>
-> >> Guess I have to reproduce the DoS attack in a testlab (I will firs=
-t have
-> >> time Tuesday).  So we can determine if its bad hashing or restart =
-of the
-> >> search loop.
-> >>
-> >>
-> >> The traffic pattern was fairly simple:
-> >>
-> >> 200 bytes UDP packets, comming from approx 60 source IPs, going to=
- one
-> >> destination IP.  The UDP destination port number was varied in the=
- range
-> >> of 1 to 6000.   The source UDP port was varied a bit more, some ra=
-nging
-> >> from 32768 to 61000, and some from 1028 to 5000.
-> >>
-> >>
-> >
-> > Re-reading this, I am not sure there is a real problem on RCU as yo=
-u
-> > pointed out.
-> >
-> > With 800.000 entries, in a 300.032 buckets hash table, each lookup =
-hit
-> > about 3 entries (aka searches in conntrack stats)
-> >
-> > 300.000 packets/second -> 900.000 'searches' per second.
->=20
-> The machine is not getting 300.000 pps, its only getting 40.000 pps (=
-the=20
-> rest is stopped by the NIC by sending Ethernet flowcontrol pause fram=
-es)
->=20
->   http://people.netfilter.org/hawk/DDoS/2010-04-12__001/eth0-rx.png
->=20
-> We are doing 700.000 'searches' per second, with 40.000 pps, thus on=20
-> average the list lenght (in each hash bucket) just need to be 17.5=20
-> elements.  Is this an acceptable has distribution, with 900.000 eleme=
-nts=20
-> in a 300.032 buckets hash table?
->=20
->=20
-> > If you have four cpus all trying to insert/delete entries in //, th=
-ey
-> > all hit the central conntrack lock.
->=20
-> This machine only have two CPUs, or rather one physical CPU and one=20
-> hyperthreaded.  The server is a old HP380 G4, with an old Xeon type C=
-PU=20
-> 3.4 GHz (1MB cache).  If remember correctly its based on Pentium-4=20
-> technologi, which had a pretty bad hyperthreading.
->=20
->=20
-> > On a DDOS scenario, every packet needs to take this lock twice,
-> > once to free an old conntrack (early drop), once to insert a new en=
-try.
->=20
-> I was worried about if the "early drop" e.g. free an old conntrack wo=
-uld=20
-> disturbe the conntrack searching?
->=20
->=20
-> > To scale this, only way would be to have an array of locks, like we=
- have
-> > for TCP/UDP hash tables.
-> >
-> > I did some tests here, with a multiqueue card, flooded with 300.000
-> > pack/second, 65.536 source IP, millions of flows, and nothing wrong
-> > happened (but packets drops, of course)
->=20
-> A small hint when testing, use Haralds tool 'lnstat' to see the stats=
- on=20
-> the command line, thus you don't need to RRDtool graphe every thing:
->=20
-> Command:
->   lnstat -f nf_conntrack -i 1 -c 1000
->=20
-> I don't have a multiqueue NIC in this old machine.
->=20
-> I also ran some tests on my 10G testlab, but it didn't go wrong.=20
-> Tweeking the pktgen DDoS I could get the system to do 4.500.000 'sear=
-ches'=20
-> per sec with a 1.500.000 packets/sec. (Have not reloaded the kernel w=
-ith=20
-> the new failed lookup stats).  Guess my 10G machines are too fast to =
-hit=20
-> the issues.
->=20
->=20
-> > My two cpus were busy 100%, after tweaking smp_affinities, because =
-on
-> > first try, irqbalance put "01" mask on both queues, so only one kso=
-ftirq
-> > was working, other cpu was idle :(
->=20
-> Think my machine is some what slower than yours, perhaps its simply n=
-ot=20
-> fast enough for this kind of workload (pretty sure that the cache is =
-the=20
-> CPU is getting f*ked in this case).
->=20
-> On my machine one CPU in stuck in softirq:
->   http://people.netfilter.org/hawk/DDoS/2010-04-12__001/cpu_softirq00=
-1.png
->=20
-> And another observation is that the CPUs are disturbing each other on=
- the=20
-> RX softirq code path.
-> http://people.netfilter.org/hawk/DDoS/2010-04-12__001/softnet_time_sq=
-ueeze_rx-softirq001.png
-> (/proc/net/softnet_stat column 3)
->=20
-> Monday or Tuesdag I'll do a test setup with some old HP380 G4 machine=
-s to=20
-> see if I can reproduce the DDoS attack senario.  And see if I can get=
-=20
-> it into to lookup loop.
-
-Theorically a loop is very unlikely, given a single retry is very
-unlikly too.
-
-Unless a cpu gets in its cache a corrupted value of a 'next' pointer.
-
-Maybe a hardware problem ?
-
-My test machine is a fairly low end one, an AMD Athlon Dual core 5050e,
-2.6 GHz
-
-I used an igb card for ease of setup, and to make sure my two cores
-would handle packets in parallel, without RPS.
-
-With same hash bucket size (300.032) and max conntracks (800.000), and
-after more than 10 hours of test, not a single lookup was restarted
-because of a nulls with wrong value.
-
-I can setup a test on a 16 cpu machine, multiqueue card too.
-
-Hmm, I forgot to say I am using net-next-2.6, not your kernel version..=
-=2E
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userg508.nifty.com ([202.248.238.88]:8754 "EHLO
+	userg508.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753347Ab0DXUhe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Apr 2010 16:37:34 -0400
+Received: from localhost.localdomain (eaoska104120.adsl.ppp.infoweb.ne.jp [218.226.19.120])by userg508.nifty.com with SMTP id o3OKbIBu008408
+	for <netdev@vger.kernel.org>; Sun, 25 Apr 2010 05:37:18 +0900
+In-Reply-To: <20100411075014.d3e80847.ken_kawasaki@spring.nifty.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
+smc91c92_cs:
+  * spin_unlock_irqrestore before calling smc_interrupt() in media_check()
+     to avoid lockup.
+  * use spin_lock_irqsave for ethtool function.
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+
+---
+
+--- linux-2.6.34-rc5/drivers/net/pcmcia/smc91c92_cs.c.orig	2010-04-24 07:33:50.000000000 +0900
++++ linux-2.6.34-rc5/drivers/net/pcmcia/smc91c92_cs.c	2010-04-24 07:42:44.000000000 +0900
+@@ -1804,23 +1804,30 @@ static void media_check(u_long arg)
+     SMC_SELECT_BANK(1);
+     media |= (inw(ioaddr + CONFIG) & CFG_AUI_SELECT) ? 2 : 1;
+ 
++    SMC_SELECT_BANK(saved_bank);
++    spin_unlock_irqrestore(&smc->lock, flags);
++
+     /* Check for pending interrupt with watchdog flag set: with
+        this, we can limp along even if the interrupt is blocked */
+     if (smc->watchdog++ && ((i>>8) & i)) {
+ 	if (!smc->fast_poll)
+ 	    printk(KERN_INFO "%s: interrupt(s) dropped!\n", dev->name);
++	local_irq_save(flags);
+ 	smc_interrupt(dev->irq, dev);
++	local_irq_restore(flags);
+ 	smc->fast_poll = HZ;
+     }
+     if (smc->fast_poll) {
+ 	smc->fast_poll--;
+ 	smc->media.expires = jiffies + HZ/100;
+ 	add_timer(&smc->media);
+-	SMC_SELECT_BANK(saved_bank);
+-	spin_unlock_irqrestore(&smc->lock, flags);
+ 	return;
+     }
+ 
++    spin_lock_irqsave(&smc->lock, flags);
++
++    saved_bank = inw(ioaddr + BANK_SELECT);
++
+     if (smc->cfg & CFG_MII_SELECT) {
+ 	if (smc->mii_if.phy_id < 0)
+ 	    goto reschedule;
+@@ -1978,15 +1985,16 @@ static int smc_get_settings(struct net_d
+ 	unsigned int ioaddr = dev->base_addr;
+ 	u16 saved_bank = inw(ioaddr + BANK_SELECT);
+ 	int ret;
++	unsigned long flags;
+ 
+-	spin_lock_irq(&smc->lock);
++	spin_lock_irqsave(&smc->lock, flags);
+ 	SMC_SELECT_BANK(3);
+ 	if (smc->cfg & CFG_MII_SELECT)
+ 		ret = mii_ethtool_gset(&smc->mii_if, ecmd);
+ 	else
+ 		ret = smc_netdev_get_ecmd(dev, ecmd);
+ 	SMC_SELECT_BANK(saved_bank);
+-	spin_unlock_irq(&smc->lock);
++	spin_unlock_irqrestore(&smc->lock, flags);
+ 	return ret;
+ }
+ 
+@@ -1996,15 +2004,16 @@ static int smc_set_settings(struct net_d
+ 	unsigned int ioaddr = dev->base_addr;
+ 	u16 saved_bank = inw(ioaddr + BANK_SELECT);
+ 	int ret;
++	unsigned long flags;
+ 
+-	spin_lock_irq(&smc->lock);
++	spin_lock_irqsave(&smc->lock, flags);
+ 	SMC_SELECT_BANK(3);
+ 	if (smc->cfg & CFG_MII_SELECT)
+ 		ret = mii_ethtool_sset(&smc->mii_if, ecmd);
+ 	else
+ 		ret = smc_netdev_set_ecmd(dev, ecmd);
+ 	SMC_SELECT_BANK(saved_bank);
+-	spin_unlock_irq(&smc->lock);
++	spin_unlock_irqrestore(&smc->lock, flags);
+ 	return ret;
+ }
+ 
+@@ -2014,12 +2023,13 @@ static u32 smc_get_link(struct net_devic
+ 	unsigned int ioaddr = dev->base_addr;
+ 	u16 saved_bank = inw(ioaddr + BANK_SELECT);
+ 	u32 ret;
++	unsigned long flags;
+ 
+-	spin_lock_irq(&smc->lock);
++	spin_lock_irqsave(&smc->lock, flags);
+ 	SMC_SELECT_BANK(3);
+ 	ret = smc_link_ok(dev);
+ 	SMC_SELECT_BANK(saved_bank);
+-	spin_unlock_irq(&smc->lock);
++	spin_unlock_irqrestore(&smc->lock, flags);
+ 	return ret;
+ }
+ 
+@@ -2056,16 +2066,17 @@ static int smc_ioctl (struct net_device 
+ 	int rc = 0;
+ 	u16 saved_bank;
+ 	unsigned int ioaddr = dev->base_addr;
++	unsigned long flags;
+ 
+ 	if (!netif_running(dev))
+ 		return -EINVAL;
+ 
+-	spin_lock_irq(&smc->lock);
++	spin_lock_irqsave(&smc->lock, flags);
+ 	saved_bank = inw(ioaddr + BANK_SELECT);
+ 	SMC_SELECT_BANK(3);
+ 	rc = generic_mii_ioctl(&smc->mii_if, mii, cmd, NULL);
+ 	SMC_SELECT_BANK(saved_bank);
+-	spin_unlock_irq(&smc->lock);
++	spin_unlock_irqrestore(&smc->lock, flags);
+ 	return rc;
+ }
+ 
