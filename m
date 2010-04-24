@@ -1,41 +1,39 @@
-From: Changli Gao <xiaosuo@gmail.com>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: [PATCH v3] rps: optimize rps_get_cpu()
-Date: Sun, 25 Apr 2010 00:19:27 +0800
-Message-ID: <q2i412e6f7f1004240919la9825819i81a4d3063ed781a5@mail.gmail.com>
+Date: Sat, 24 Apr 2010 12:22:30 -0400
+Message-ID: <1272126150.8918.20.camel@bigi>
 References: <1272122227-13070-1-git-send-email-xiaosuo@gmail.com>
-	<1272125052.8918.18.camel@bigi>
+	 <1272125052.8918.18.camel@bigi>
+	 <q2i412e6f7f1004240919la9825819i81a4d3063ed781a5@mail.gmail.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
 	Tom Herbert <therbert@google.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f197.google.com ([209.85.223.197]:51229 "EHLO
-	mail-iw0-f197.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752859Ab0DXQUa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Apr 2010 12:20:30 -0400
-Received: by iwn35 with SMTP id 35so6441888iwn.21
-        for <netdev@vger.kernel.org>; Sat, 24 Apr 2010 09:20:29 -0700 (PDT)
-In-Reply-To: <1272125052.8918.18.camel@bigi>
+Received: from mail-qy0-f179.google.com ([209.85.221.179]:63853 "EHLO
+	mail-qy0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752525Ab0DXQWe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Apr 2010 12:22:34 -0400
+Received: by qyk9 with SMTP id 9so14845851qyk.1
+        for <netdev@vger.kernel.org>; Sat, 24 Apr 2010 09:22:34 -0700 (PDT)
+In-Reply-To: <q2i412e6f7f1004240919la9825819i81a4d3063ed781a5@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 25, 2010 at 12:04 AM, jamal <hadi@cyberus.ca> wrote:
->
-> By the time you hit this code (at least on machines that make sense f=
-or
-> RPS), you already have the ethernet header, IP header and transport
-> ports in cache, no?
-> I think the sport << 16 shifting is avoided - but i dont think theres
-> any effect on mem access.
+On Sun, 2010-04-25 at 00:19 +0800, Changli Gao wrote:
 
-Maybe I have used the wrong word. Sorry. If the ports are already in
-cache, the new code has only one cache access for ports, and the later
-operations are in registers.
+> Maybe I have used the wrong word. Sorry. If the ports are already in
+> cache, the new code has only one cache access for ports, and the later
+> operations are in registers.
 
+Ok, that makes more sense - so your commit log is confusing.
+You are saving a shift operation per packet - probably not a big deal
+but better than zero ;->
 
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
+cheers,
+jamal
+
