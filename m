@@ -1,182 +1,107 @@
 From: Chris Wright <chrisw@redhat.com>
-Subject: Re: [net-next-2.6 PATCH 1/2] Add ndo_set_vf_port_profile (was iovnl)
-Date: Fri, 23 Apr 2010 19:22:42 -0700
-Message-ID: <20100424022242.GF3843@x200.localdomain>
+Subject: Re: [net-next-2.6 PATCH 2/2] add enic ndo_vf_set_port_profile op
+ support for dynamic vnics
+Date: Fri, 23 Apr 2010 19:21:21 -0700
+Message-ID: <20100424022121.GE3843@x200.localdomain>
 References: <20100424003540.12745.81403.stgit@savbu-pc100.cisco.com>
+ <20100424003546.12745.83769.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org, chrisw@redhat.com,
 	arnd@arndb.de
 To: Scott Feldman <scofeldm@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11249 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:9592 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754224Ab0DXCzv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 23 Apr 2010 22:55:51 -0400
+	id S1755774Ab0DXDAi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 23 Apr 2010 23:00:38 -0400
 Content-Disposition: inline
-In-Reply-To: <20100424003540.12745.81403.stgit@savbu-pc100.cisco.com>
+In-Reply-To: <20100424003546.12745.83769.stgit@savbu-pc100.cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 * Scott Feldman (scofeldm@cisco.com) wrote:
-> From: Scott Feldman <scofeldm@cisco.com>
-> 
-> (This is take #2 on the iovnl patches posted earlier based on feedback from
-> Chris Wright, Arnd Bergmann, and others.  Thanks guys!)
-> 
-> Add new netdev ops ndo_set_vf_port_profile to allow setting of port-profile
-> on VF, along the lines of existing nds_set_vf_* ops.  Extends RTM_SETLINK
-> with new sub cmd called IFLA_VF_PORT_PROFILE (added to end on cmd list).  The
-> port-profile cmd arguments are (as seen from iproute2 cmdline):
-> 
->        ip link set DEVICE [ { up | down } ]
->                           ...
->                           [ vf NUM [ mac LLADDR ]
->                                    [ vlan VLANID [ qos VLAN-QOS ] ]
->                                    [ rate TXRATE ] ] 
->                                    [ port_profile [ PORT-PROFILE
->                                            [ mac LLADDR ]
->                                            [ host_uuid HOST_UUID ]
->                                            [ client_uuid CLIENT_UUID ]
->                                            [ client_name CLIENT_NAME ] ] ] ]
-> 
-> 
-> I took some liberties and s/SR-IOV/IOV in the code comments around the
-> ndo_set_vf_* cmds as they can apply to both SR-IOV and non-SR-IOV adapters,
-> as long as there is a PF:VF parent:child relationship.
+> -#define DRV_VERSION		"1.3.1.1"
+> +#define DRV_VERSION		"1.3.1.1-iov"
 
-For enic case, which do you expect to use for net_dev and VF index?  Would
-this be VF + index== 0 (meaning the degenerate case you described last
-time where PF==VF)?
+not a version bump?
 
-> A port-profile is used to configure/enable the network port backing the VF, not
-> to configure the host-facing side of the VF.
-
-How shall we do the lldpad case?
-
-> Signed-off-by: Scott Feldman <scofeldm@cisco.com>
-> Signed-off-by: Roopa Prabhu<roprabhu@cisco.com>
-> ---
->  include/linux/if_link.h   |   15 +++++++++++++--
->  include/linux/netdevice.h |   11 ++++++++++-
->  net/core/rtnetlink.c      |   20 ++++++++++++++++++++
->  3 files changed, 43 insertions(+), 3 deletions(-)
-> 
-> diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-> index cfd420b..2c5cc65 100644
-> --- a/include/linux/if_link.h
-> +++ b/include/linux/if_link.h
-> @@ -110,12 +110,13 @@ enum {
->  #define IFLA_LINKINFO IFLA_LINKINFO
->  	IFLA_NET_NS_PID,
->  	IFLA_IFALIAS,
-> -	IFLA_NUM_VF,		/* Number of VFs if device is SR-IOV PF */
-> +	IFLA_NUM_VF,		/* Number of VFs if device is IOV PF */
->  	IFLA_VF_MAC,		/* Hardware queue specific attributes */
->  	IFLA_VF_VLAN,
->  	IFLA_VF_TX_RATE,	/* TX Bandwidth Allocation */
->  	IFLA_VFINFO,
->  	IFLA_STATS64,
-> +	IFLA_VF_PORT_PROFILE,
->  	__IFLA_MAX
->  };
+> @@ -810,14 +819,24 @@ static void enic_reset_mcaddrs(struct enic *enic)
 >  
-> @@ -234,7 +235,7 @@ enum macvlan_mode {
->  	MACVLAN_MODE_BRIDGE  = 4, /* talk to bridge ports directly */
->  };
+>  static int enic_set_mac_addr(struct net_device *netdev, char *addr)
+>  {
+> -	if (!is_valid_ether_addr(addr))
+> -		return -EADDRNOTAVAIL;
+> +	struct enic *enic = netdev_priv(netdev);
 >  
-> -/* SR-IOV virtual function managment section */
-> +/* IOV virtual function managment section */
->  
->  struct ifla_vf_mac {
->  	__u32 vf;
-> @@ -259,4 +260,14 @@ struct ifla_vf_info {
->  	__u32 qos;
->  	__u32 tx_rate;
->  };
-> +
-> +struct ifla_vf_port_profile {
-> +	__u32 vf;
-> +	__u8 port_profile[64];
-> +	__u8 mac[32];
-> +	__u8 host_uuid[64]; /* e.g. "CEEFD3B1-9E11-11DE-BDFD-000BAB01C0FB" */
-> +	__u8 client_uuid[64];
-> +	__u8 client_name[64]; /* e.g. "vm0-eth1" */
-> +};
-> +
->  #endif /* _LINUX_IF_LINK_H */
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 3c5ed5f..26dd4cb 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -690,10 +690,13 @@ struct netdev_rx_queue {
->   *
->   * void (*ndo_poll_controller)(struct net_device *dev);
->   *
-> - *	SR-IOV management functions.
-> + *	IOV management functions.
->   * int (*ndo_set_vf_mac)(struct net_device *dev, int vf, u8* mac);
->   * int (*ndo_set_vf_vlan)(struct net_device *dev, int vf, u16 vlan, u8 qos);
->   * int (*ndo_set_vf_tx_rate)(struct net_device *dev, int vf, int rate);
-> + * int (*ndo_set_vf_port_profile)(struct net_device *dev, int vf,
-> + *				  u8 *port_profile, u8 *mac, u8 *host_uuid,
-> + *				  u8 *client_uuid, u8 *client_name);
->   * int (*ndo_get_vf_config)(struct net_device *dev,
->   *			    int vf, struct ifla_vf_info *ivf);
->   */
-> @@ -741,6 +744,12 @@ struct net_device_ops {
->  						   int queue, u16 vlan, u8 qos);
->  	int			(*ndo_set_vf_tx_rate)(struct net_device *dev,
->  						      int vf, int rate);
-> +	int			(*ndo_set_vf_port_profile)(
-> +					struct net_device *dev, int vf,
-> +					u8 *port_profile, u8 *mac,
-> +					u8 *host_uuid,
-> +					u8 *client_uuid,
-> +					u8 *client_name);
->  	int			(*ndo_get_vf_config)(struct net_device *dev,
->  						     int vf,
->  						     struct ifla_vf_info *ivf);
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index 78c8598..7268e8e 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -824,6 +824,8 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
->  				    .len = sizeof(struct ifla_vf_vlan) },
->  	[IFLA_VF_TX_RATE]	= { .type = NLA_BINARY,
->  				    .len = sizeof(struct ifla_vf_tx_rate) },
-> +	[IFLA_VF_PORT_PROFILE]	= { .type = NLA_BINARY,
-> +				    .len = sizeof(struct ifla_vf_port_profile)},
->  };
->  EXPORT_SYMBOL(ifla_policy);
->  
-> @@ -1028,6 +1030,24 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
->  	}
->  	err = 0;
->  
-> +	if (tb[IFLA_VF_PORT_PROFILE]) {
-> +		struct ifla_vf_port_profile *ivp;
-> +		ivp = nla_data(tb[IFLA_VF_PORT_PROFILE]);
-> +		err = -EOPNOTSUPP;
-> +		if (ops->ndo_set_vf_port_profile)
-> +			ivp->port_profile[sizeof(ivp->port_profile)-1] = 0;
-> +			ivp->host_uuid[sizeof(ivp->host_uuid)-1] = 0;
-> +			ivp->client_uuid[sizeof(ivp->client_uuid)-1] = 0;
-> +			ivp->client_name[sizeof(ivp->client_name)-1] = 0;
+> -	memcpy(netdev->dev_addr, addr, netdev->addr_len);
+> +	if (enic_is_dynamic(enic)) {
+> +		random_ether_addr(netdev->dev_addr);
 
-Seems a little unusual to modify the buffer, add a kernel internal structure
-that can be passed to ndo callback (where buffer lens can be knonw)?
+Would it make more sense to just ignore this?  Then the default (not
+port profile configured yet) mac is still a useful identifier.
 
-> +			err = ops->ndo_set_vf_port_profile(dev, ivp->vf,
-> +				ivp->port_profile, ivp->mac, ivp->host_uuid,
-> +				ivp->client_uuid, ivp->client_name);
-> +		if (err < 0)
-> +			goto errout;
-> +		modified = 1;
+> +	} else {
+> +		if (!is_valid_ether_addr(addr))
+> +			return -EADDRNOTAVAIL;
+> +		memcpy(netdev->dev_addr, addr, netdev->addr_len);
 > +	}
-> +	err = 0;
+>  
+>  	return 0;
+>  }
+>  
+> +static int enic_set_mac_address(struct net_device *netdev, void *p)
+> +{
+> +	return -EOPNOTSUPP;
+> +}
 > +
->  errout:
->  	if (err < 0 && modified && net_ratelimit())
->  		printk(KERN_WARNING "A link change request failed with "
-> 
+
+Ever?  Even on non-dynamic enic?  Oh, I see, this was just a lie before ;-)
+
+> +static int enic_set_vf_port_profile(struct net_device *netdev, int vf,
+> +	u8 *port_profile, u8 *mac, u8 *host_uuid, u8 *client_uuid,
+> +	u8 *client_name)
+> +{
+> +	struct enic *enic = netdev_priv(netdev);
+> +	struct vic_provinfo *vp;
+> +	u8 oui[3] = VIC_PROVINFO_CISCO_OUI;
+> +	int err;
+> +
+> +	if (!enic_is_dynamic(enic))
+> +		return -EOPNOTSUPP;
+
+Do you want to validate vf (like require it to be 0) or something?
+How should userspace know to talk directly to the VF (dynamic enic) in
+this device, but a PF + VF_index for another device?
+
+> +	if (strlen(port_profile) == 0)
+> +		return enic_vnic_dev_deinit(enic);
+> +
+> +	vp = vic_provinfo_alloc(GFP_KERNEL, oui, VIC_PROVINFO_LINUX_TYPE);
+> +	if (!vp)
+> +		return -ENOMEM;
+> +
+> +	enic_provinfo_add_tlv_str(vp, VIC_LINUX_PROV_TLV_PORT_PROFILE_NAME_STR,
+> +		port_profile);
+> +	vic_provinfo_add_tlv(vp, VIC_LINUX_PROV_TLV_CLIENT_MAC_ADDR,
+> +		ETH_ALEN, mac);
+> +	enic_provinfo_add_tlv_str(vp, VIC_LINUX_PROV_TLV_HOST_UUID_STR,
+> +		host_uuid);
+> +	enic_provinfo_add_tlv_str(vp, VIC_LINUX_PROV_TLV_CLIENT_UUID_STR,
+> +		client_uuid);
+> +	enic_provinfo_add_tlv_str(vp, VIC_LINUX_PROV_TLV_CLIENT_NAME_STR,
+> +		client_name);
+> +
+> +	err = enic_vnic_dev_deinit(enic);
+> +	if (err)
+> +		goto err_out;
+> +
+> +	err = enic_dev_init_prov(enic, vp);
+> +
+> +err_out:
+> +	vic_provinfo_free(vp);
+> +
+> +	enic_set_multicast_list(netdev);
+
+Should that happen in error case (and is the locking correct)?
+
