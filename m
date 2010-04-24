@@ -1,56 +1,46 @@
-From: Alan Cox <alan@linux.intel.com>
-Subject: Re: [PATCH] e100: Fix the TX workqueue race
-Date: Sat, 24 Apr 2010 11:36:29 +0100
-Message-ID: <20100424113629.0ad3569b@linux.intel.com>
-References: <20100423143356.7092.45260.stgit@localhost.localdomain>
-	<20100423.163127.62645049.davem@davemloft.net>
-	<20100423.163545.157549100.davem@davemloft.net>
+From: Markus Feldmann <feldmann_markus@gmx.de>
+Subject: PCI runtime power management for r8169
+Date: Sat, 24 Apr 2010 13:30:47 +0200
+Message-ID: <hqukp7$nh8$1@dough.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20100423.163545.157549100.davem@davemloft.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lo.gmane.org ([80.91.229.12]:47309 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751967Ab0DXLbD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Apr 2010 07:31:03 -0400
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1O5dZZ-0002rw-Ay
+	for netdev@vger.kernel.org; Sat, 24 Apr 2010 13:30:57 +0200
+Received: from 188.96.65.76 ([188.96.65.76])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 24 Apr 2010 13:30:57 +0200
+Received: from feldmann_markus by 188.96.65.76 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 24 Apr 2010 13:30:57 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 23 Apr 2010 16:35:45 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+Hi all,
 
-> From: David Miller <davem@davemloft.net>
-> Date: Fri, 23 Apr 2010 16:31:27 -0700 (PDT)
-> 
-> > I'll apply this to net-2.6, thanks Alan.
-> 
-> Nevermind...
-> 
-> Doesn't apply to net-2.6, but even when I fix that up it doesn't
-> even compile.  There is no 'dev' variable present etc.
-> 
-> You even use a combination of "dev" and "netdev" in the resulting
-> code block.
-> 
-> If it doesn't even build, I doubt it's been tested either.
+as i read in this mailing list, there is/will be a power management for 
+the r8169 driver?! I have the following devices:
+01:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. 
+RTL8111/8168B PCI Express Gigabit Ethernet controller (rev 03)
+04:04.0 Ethernet controller: Realtek Semiconductor Co., Ltd. 
+RTL-8110SC/8169SC Gigabit Ethernet (rev 10)
+04:06.0 Ethernet controller: Realtek Semiconductor Co., Ltd. 
+RTL-8110SC/8169SC Gigabit Ethernet (rev 10)
+04:07.0 Ethernet controller: Realtek Semiconductor Co., Ltd. 
+RTL-8110SC/8169SC Gigabit Ethernet (rev 10)
 
-Puzzling as it came from a building -next tree. Will see whats happened
-next week if I get time, but I'm afraid net stuff isn't a priority - in
-fact its disappointing that having diagnosed a bug months ago (which
-was the hard bit) and posted a test patch months ago the maintainers
-haven't fixed it.
 
-Alan
+Not all of them are used at the same time. So how can i put the unused 
+in a low power state?
 
-------------------------------------------------------------------------------
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+regards Markus
+
