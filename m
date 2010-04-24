@@ -1,63 +1,84 @@
-From: Scott Feldman <scofeldm@cisco.com>
-Subject: Re: [net-next-2.6 PATCH 1/2] Add ndo_set_vf_port_profile (was iovnl)
-Date: Sat, 24 Apr 2010 07:37:57 -0700
-Message-ID: <C7F85055.2B535%scofeldm@cisco.com>
-References: <20100424022242.GF3843@x200.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>, <arnd@arndb.de>
-To: Chris Wright <chrisw@redhat.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH v3] rps: optimize rps_get_cpu()
+Date: Sat, 24 Apr 2010 23:17:07 +0800
+Message-ID: <1272122227-13070-1-git-send-email-xiaosuo@gmail.com>
+Cc: Tom Herbert <therbert@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-5.cisco.com ([171.68.10.87]:58711 "EHLO
-	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752766Ab0DXOiD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Apr 2010 10:38:03 -0400
-In-Reply-To: <20100424022242.GF3843@x200.localdomain>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:58123 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753427Ab0DXPgI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Apr 2010 11:36:08 -0400
+Received: by pwj9 with SMTP id 9so7555126pwj.19
+        for <netdev@vger.kernel.org>; Sat, 24 Apr 2010 08:36:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/23/10 7:22 PM, "Chris Wright" <chrisw@redhat.com> wrote:
+optimize rps_get_cpu().
 
->> I took some liberties and s/SR-IOV/IOV in the code comments around the
->> ndo_set_vf_* cmds as they can apply to both SR-IOV and non-SR-IOV adapters,
->> as long as there is a PF:VF parent:child relationship.
-> 
-> For enic case, which do you expect to use for net_dev and VF index?  Would
-> this be VF + index== 0 (meaning the degenerate case you described last
-> time where PF==VF)?
+don't initialize ports when we can get the ports. one memory access for ports
+than two.
 
-Yes, for this enic PF==VF, but that's a short term situation.  It's a small
-matter of programming (in firmware) to turn enic into the more general case.
-But I want to focus on getting port-profile support in first, with the
-current enic+firmware.
-
->> A port-profile is used to configure/enable the network port backing the VF,
->> not
->> to configure the host-facing side of the VF.
-> 
-> How shall we do the lldpad case?
-
-Same as before with iovnl.  The sender of RTM_SETLINK msg (say libvirt)
-needs to send with mcast group RTMGRP_LINK and listener (say lldpad) needs
-to listen on that mcast group.  This way, both kernel and user-space get the
-msg.
-
->> + if (tb[IFLA_VF_PORT_PROFILE]) {
->> +  struct ifla_vf_port_profile *ivp;
->> +  ivp = nla_data(tb[IFLA_VF_PORT_PROFILE]);
->> +  err = -EOPNOTSUPP;
->> +  if (ops->ndo_set_vf_port_profile)
->> +   ivp->port_profile[sizeof(ivp->port_profile)-1] = 0;
->> +   ivp->host_uuid[sizeof(ivp->host_uuid)-1] = 0;
->> +   ivp->client_uuid[sizeof(ivp->client_uuid)-1] = 0;
->> +   ivp->client_name[sizeof(ivp->client_name)-1] = 0;
-> 
-> Seems a little unusual to modify the buffer, add a kernel internal structure
-> that can be passed to ndo callback (where buffer lens can be knonw)?
-
-Ok, let me see what can be done here.
-
--scott
-
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+ net/core/dev.c |   24 +++++++++++-------------
+ 1 file changed, 11 insertions(+), 13 deletions(-)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a4a7c36..4d43f1a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2229,7 +2229,11 @@ static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
+ 	int cpu = -1;
+ 	u8 ip_proto;
+ 	u16 tcpu;
+-	u32 addr1, addr2, ports, ihl;
++	u32 addr1, addr2, ihl;
++	union {
++		u32 v32;
++		u16 v16[2];
++	} ports;
+ 
+ 	if (skb_rx_queue_recorded(skb)) {
+ 		u16 index = skb_get_rx_queue(skb);
+@@ -2275,7 +2279,6 @@ static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
+ 	default:
+ 		goto done;
+ 	}
+-	ports = 0;
+ 	switch (ip_proto) {
+ 	case IPPROTO_TCP:
+ 	case IPPROTO_UDP:
+@@ -2285,25 +2288,20 @@ static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
+ 	case IPPROTO_SCTP:
+ 	case IPPROTO_UDPLITE:
+ 		if (pskb_may_pull(skb, (ihl * 4) + 4)) {
+-			__be16 *hports = (__be16 *) (skb->data + (ihl * 4));
+-			u32 sport, dport;
+-
+-			sport = (__force u16) hports[0];
+-			dport = (__force u16) hports[1];
+-			if (dport < sport)
+-				swap(sport, dport);
+-			ports = (sport << 16) + dport;
++			ports.v32 = * (__force u32 *) (skb->data + (ihl * 4));
++			if (ports.v16[1] < ports.v16[0])
++				swap(ports.v16[0], ports.v16[1]);
++			break;
+ 		}
+-		break;
+-
+ 	default:
++		ports.v32 = 0;
+ 		break;
+ 	}
+ 
+ 	/* get a consistent hash (same value on both flow directions) */
+ 	if (addr2 < addr1)
+ 		swap(addr1, addr2);
+-	skb->rxhash = jhash_3words(addr1, addr2, ports, hashrnd);
++	skb->rxhash = jhash_3words(addr1, addr2, ports.v32, hashrnd);
+ 	if (!skb->rxhash)
+ 		skb->rxhash = 1;
+ 
