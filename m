@@ -1,39 +1,78 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH v3] rps: optimize rps_get_cpu()
-Date: Sat, 24 Apr 2010 12:22:30 -0400
-Message-ID: <1272126150.8918.20.camel@bigi>
-References: <1272122227-13070-1-git-send-email-xiaosuo@gmail.com>
-	 <1272125052.8918.18.camel@bigi>
-	 <q2i412e6f7f1004240919la9825819i81a4d3063ed781a5@mail.gmail.com>
-Reply-To: hadi@cyberus.ca
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch v2] sctp: cleanup: remove duplicate assignment
+Date: Sat, 24 Apr 2010 19:19:40 +0200
+Message-ID: <20100424171805.GO29093@bicker>
+References: <20100423115906.GE29093@bicker> <4BD1AE9D.6090807@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sridhar Samudrala <sri@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Wei Yongjun <yjwei@cn.fujitsu.com>,
+	Chris Dischino <cdischino@sonusnet.com>,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f179.google.com ([209.85.221.179]:63853 "EHLO
-	mail-qy0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752525Ab0DXQWe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Apr 2010 12:22:34 -0400
-Received: by qyk9 with SMTP id 9so14845851qyk.1
-        for <netdev@vger.kernel.org>; Sat, 24 Apr 2010 09:22:34 -0700 (PDT)
-In-Reply-To: <q2i412e6f7f1004240919la9825819i81a4d3063ed781a5@mail.gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:45704 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750876Ab0DXRUg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Apr 2010 13:20:36 -0400
+Content-Disposition: inline
+In-Reply-To: <4BD1AE9D.6090807@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2010-04-25 at 00:19 +0800, Changli Gao wrote:
+This assignment isn't needed because we did it earlier already.
 
-> Maybe I have used the wrong word. Sorry. If the ports are already in
-> cache, the new code has only one cache access for ports, and the later
-> operations are in registers.
+Also another reason to delete the assignment is because it triggers a
+Smatch warning about checking for NULL pointers after a dereference.
 
-Ok, that makes more sense - so your commit log is confusing.
-You are saving a shift operation per packet - probably not a big deal
-but better than zero ;->
+Reported-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+Signed-off-by: Dan Carpenter <error27@gmail.com>
+---
+Thanks Vlad.  I came so close to seeing that myself if only I had openned
+my eyes a tiny bit more.  :P
 
-cheers,
-jamal
-
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index 17cb400..33aed1c 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -419,10 +419,17 @@ struct sctp_chunk *sctp_make_init_ack(const struct sctp_association *asoc,
+ 	if (!retval)
+ 		goto nomem_chunk;
+ 
+-	/* Per the advice in RFC 2960 6.4, send this reply to
+-	 * the source of the INIT packet.
++	/* RFC 2960 6.4 Multi-homed SCTP Endpoints
++	 *
++	 * An endpoint SHOULD transmit reply chunks (e.g., SACK,
++	 * HEARTBEAT ACK, * etc.) to the same destination transport
++	 * address from which it received the DATA or control chunk
++	 * to which it is replying.
++	 *
++	 * [INIT ACK back to where the INIT came from.]
+ 	 */
+ 	retval->transport = chunk->transport;
++
+ 	retval->subh.init_hdr =
+ 		sctp_addto_chunk(retval, sizeof(initack), &initack);
+ 	retval->param_hdr.v = sctp_addto_chunk(retval, addrs_len, addrs.v);
+@@ -461,18 +468,6 @@ struct sctp_chunk *sctp_make_init_ack(const struct sctp_association *asoc,
+ 	/* We need to remove the const qualifier at this point.  */
+ 	retval->asoc = (struct sctp_association *) asoc;
+ 
+-	/* RFC 2960 6.4 Multi-homed SCTP Endpoints
+-	 *
+-	 * An endpoint SHOULD transmit reply chunks (e.g., SACK,
+-	 * HEARTBEAT ACK, * etc.) to the same destination transport
+-	 * address from which it received the DATA or control chunk
+-	 * to which it is replying.
+-	 *
+-	 * [INIT ACK back to where the INIT came from.]
+-	 */
+-	if (chunk)
+-		retval->transport = chunk->transport;
+-
+ nomem_chunk:
+ 	kfree(cookie);
+ nomem_cookie:
