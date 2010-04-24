@@ -1,151 +1,226 @@
-From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-Subject: [PATCH  kernel 2.6.34-rc5] smc91c92_cs: spin_unlock_irqrestore
- before calling smc_interrupt()
-Date: Sun, 25 Apr 2010 05:37:09 +0900
-Message-ID: <20100425053709.ec182f63.ken_kawasaki@spring.nifty.jp>
-References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
-	<20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
-	<20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
-	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
-	<20091004073257.52a6624b.ken_kawasaki@spring.nifty.jp>
-	<20091221205849.dae4e929.ken_kawasaki@spring.nifty.jp>
-	<20091223171004.77316fa5.ken_kawasaki@spring.nifty.jp>
-	<20100123065625.db751a12.ken_kawasaki@spring.nifty.jp>
-	<20100228083420.9ca8e285.ken_kawasaki@spring.nifty.jp>
-	<20100328055537.13ef6c01.ken_kawasaki@spring.nifty.jp>
-	<20100404061434.eb98ef3e.ken_kawasaki@spring.nifty.jp>
-	<20100411075014.d3e80847.ken_kawasaki@spring.nifty.jp>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH 2/2] sky2: add support for receive hashing (v3)
+Date: Sat, 24 Apr 2010 16:22:39 -0700
+Message-ID: <20100424162239.1aae32e0@nehalam>
+References: <20100422234255.150547953@vyatta.com>
+	<20100422234319.149785036@vyatta.com>
+	<4BD0F8AA.2060700@garzik.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userg508.nifty.com ([202.248.238.88]:8754 "EHLO
-	userg508.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753347Ab0DXUhe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 24 Apr 2010 16:37:34 -0400
-Received: from localhost.localdomain (eaoska104120.adsl.ppp.infoweb.ne.jp [218.226.19.120])by userg508.nifty.com with SMTP id o3OKbIBu008408
-	for <netdev@vger.kernel.org>; Sun, 25 Apr 2010 05:37:18 +0900
-In-Reply-To: <20100411075014.d3e80847.ken_kawasaki@spring.nifty.jp>
+Received: from mail.vyatta.com ([76.74.103.46]:57327 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754123Ab0DXXW4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 24 Apr 2010 19:22:56 -0400
+In-Reply-To: <4BD0F8AA.2060700@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Subject: sky2: add support for receive hashing
 
-smc91c92_cs:
-  * spin_unlock_irqrestore before calling smc_interrupt() in media_check()
-     to avoid lockup.
-  * use spin_lock_irqsave for ethtool function.
+Sky2 hardware supports hardware receive hash calculation.
+Now that Receive Packet Steering is available, add support
+to enable it.
 
-Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+This version does not depend on CONFIG_RPS. Also set_flags rejects
+all values except RXHASH, so driver won't have to change next time
+somebody adds a new one.
+
+
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 ---
 
---- linux-2.6.34-rc5/drivers/net/pcmcia/smc91c92_cs.c.orig	2010-04-24 07:33:50.000000000 +0900
-+++ linux-2.6.34-rc5/drivers/net/pcmcia/smc91c92_cs.c	2010-04-24 07:42:44.000000000 +0900
-@@ -1804,23 +1804,30 @@ static void media_check(u_long arg)
-     SMC_SELECT_BANK(1);
-     media |= (inw(ioaddr + CONFIG) & CFG_AUI_SELECT) ? 2 : 1;
+ drivers/net/sky2.c |   75 +++++++++++++++++++++++++++++++++++++++++++++++++++--
+ drivers/net/sky2.h |   23 ++++++++++++++++
+ 2 files changed, 96 insertions(+), 2 deletions(-)
+
+--- a/drivers/net/sky2.c	2010-04-23 08:56:41.444717559 -0700
++++ b/drivers/net/sky2.c	2010-04-23 08:56:51.335959014 -0700
+@@ -1193,6 +1193,39 @@ static void rx_set_checksum(struct sky2_
+ 		     ? BMU_ENA_RX_CHKSUM : BMU_DIS_RX_CHKSUM);
+ }
  
-+    SMC_SELECT_BANK(saved_bank);
-+    spin_unlock_irqrestore(&smc->lock, flags);
++/* Enable/disable receive hash calculation (RSS) */
++static void rx_set_rss(struct net_device *dev)
++{
++	struct sky2_port *sky2 = netdev_priv(dev);
++	struct sky2_hw *hw = sky2->hw;
++	int i, nkeys = 4;
 +
-     /* Check for pending interrupt with watchdog flag set: with
-        this, we can limp along even if the interrupt is blocked */
-     if (smc->watchdog++ && ((i>>8) & i)) {
- 	if (!smc->fast_poll)
- 	    printk(KERN_INFO "%s: interrupt(s) dropped!\n", dev->name);
-+	local_irq_save(flags);
- 	smc_interrupt(dev->irq, dev);
-+	local_irq_restore(flags);
- 	smc->fast_poll = HZ;
-     }
-     if (smc->fast_poll) {
- 	smc->fast_poll--;
- 	smc->media.expires = jiffies + HZ/100;
- 	add_timer(&smc->media);
--	SMC_SELECT_BANK(saved_bank);
--	spin_unlock_irqrestore(&smc->lock, flags);
- 	return;
-     }
- 
-+    spin_lock_irqsave(&smc->lock, flags);
++	/* Supports IPv6 and other modes */
++	if (hw->flags & SKY2_HW_NEW_LE) {
++		nkeys = 10;
++		sky2_write32(hw, SK_REG(sky2->port, RSS_CFG), HASH_ALL);
++	}
 +
-+    saved_bank = inw(ioaddr + BANK_SELECT);
++	/* Program RSS initial values */
++	if (dev->features & NETIF_F_RXHASH) {
++		u32 key[nkeys];
 +
-     if (smc->cfg & CFG_MII_SELECT) {
- 	if (smc->mii_if.phy_id < 0)
- 	    goto reschedule;
-@@ -1978,15 +1985,16 @@ static int smc_get_settings(struct net_d
- 	unsigned int ioaddr = dev->base_addr;
- 	u16 saved_bank = inw(ioaddr + BANK_SELECT);
- 	int ret;
-+	unsigned long flags;
++		get_random_bytes(key, nkeys * sizeof(u32));
++		for (i = 0; i < nkeys; i++)
++			sky2_write32(hw, SK_REG(sky2->port, RSS_KEY + i * 4),
++				     key[i]);
++
++		/* Need to turn on (undocumented) flag to make hashing work  */
++		sky2_write32(hw, SK_REG(sky2->port, RX_GMF_CTRL_T),
++			     RX_STFW_ENA);
++
++		sky2_write32(hw, Q_ADDR(rxqaddr[sky2->port], Q_CSR),
++			     BMU_ENA_RX_RSS_HASH);
++	} else
++		sky2_write32(hw, Q_ADDR(rxqaddr[sky2->port], Q_CSR),
++			     BMU_DIS_RX_RSS_HASH);
++}
++
+ /*
+  * The RX Stop command will not work for Yukon-2 if the BMU does not
+  * reach the end of packet and since we can't make sure that we have
+@@ -1425,6 +1458,9 @@ static void sky2_rx_start(struct sky2_po
+ 	if (!(hw->flags & SKY2_HW_NEW_LE))
+ 		rx_set_checksum(sky2);
  
--	spin_lock_irq(&smc->lock);
-+	spin_lock_irqsave(&smc->lock, flags);
- 	SMC_SELECT_BANK(3);
- 	if (smc->cfg & CFG_MII_SELECT)
- 		ret = mii_ethtool_gset(&smc->mii_if, ecmd);
- 	else
- 		ret = smc_netdev_get_ecmd(dev, ecmd);
- 	SMC_SELECT_BANK(saved_bank);
--	spin_unlock_irq(&smc->lock);
-+	spin_unlock_irqrestore(&smc->lock, flags);
- 	return ret;
++	if (!(hw->flags & SKY2_HW_RSS_BROKEN))
++		rx_set_rss(sky2->netdev);
++
+ 	/* submit Rx ring */
+ 	for (i = 0; i < sky2->rx_pending; i++) {
+ 		re = sky2->rx_ring + i;
+@@ -2534,6 +2570,14 @@ static void sky2_rx_checksum(struct sky2
+ 	}
  }
  
-@@ -1996,15 +2004,16 @@ static int smc_set_settings(struct net_d
- 	unsigned int ioaddr = dev->base_addr;
- 	u16 saved_bank = inw(ioaddr + BANK_SELECT);
- 	int ret;
-+	unsigned long flags;
++static void sky2_rx_hash(struct sky2_port *sky2, u32 status)
++{
++	struct sk_buff *skb;
++
++	skb = sky2->rx_ring[sky2->rx_next].skb;
++	skb->rxhash = le32_to_cpu(status);
++}
++
+ /* Process status response ring */
+ static int sky2_status_intr(struct sky2_hw *hw, int to_do, u16 idx)
+ {
+@@ -2606,6 +2650,10 @@ static int sky2_status_intr(struct sky2_
+ 				sky2_rx_checksum(sky2, status);
+ 			break;
  
--	spin_lock_irq(&smc->lock);
-+	spin_lock_irqsave(&smc->lock, flags);
- 	SMC_SELECT_BANK(3);
- 	if (smc->cfg & CFG_MII_SELECT)
- 		ret = mii_ethtool_sset(&smc->mii_if, ecmd);
- 	else
- 		ret = smc_netdev_set_ecmd(dev, ecmd);
- 	SMC_SELECT_BANK(saved_bank);
--	spin_unlock_irq(&smc->lock);
-+	spin_unlock_irqrestore(&smc->lock, flags);
- 	return ret;
++		case OP_RSS_HASH:
++			sky2_rx_hash(sky2, status);
++			break;
++
+ 		case OP_TXINDEXLE:
+ 			/* TX index reports status for both ports */
+ 			sky2_tx_done(hw->dev[0], status & 0xfff);
+@@ -2960,6 +3008,8 @@ static int __devinit sky2_init(struct sk
+ 	switch(hw->chip_id) {
+ 	case CHIP_ID_YUKON_XL:
+ 		hw->flags = SKY2_HW_GIGABIT | SKY2_HW_NEWER_PHY;
++		if (hw->chip_rev < CHIP_REV_YU_XL_A2)
++			hw->flags |= SKY2_HW_RSS_BROKEN;
+ 		break;
+ 
+ 	case CHIP_ID_YUKON_EC_U:
+@@ -2985,10 +3035,11 @@ static int __devinit sky2_init(struct sk
+ 			dev_err(&hw->pdev->dev, "unsupported revision Yukon-EC rev A1\n");
+ 			return -EOPNOTSUPP;
+ 		}
+-		hw->flags = SKY2_HW_GIGABIT;
++		hw->flags = SKY2_HW_GIGABIT | SKY2_HW_RSS_BROKEN;
+ 		break;
+ 
+ 	case CHIP_ID_YUKON_FE:
++		hw->flags = SKY2_HW_RSS_BROKEN;
+ 		break;
+ 
+ 	case CHIP_ID_YUKON_FE_P:
+@@ -4112,6 +4163,25 @@ static int sky2_set_eeprom(struct net_de
+ 	return sky2_vpd_write(sky2->hw, cap, data, eeprom->offset, eeprom->len);
  }
  
-@@ -2014,12 +2023,13 @@ static u32 smc_get_link(struct net_devic
- 	unsigned int ioaddr = dev->base_addr;
- 	u16 saved_bank = inw(ioaddr + BANK_SELECT);
- 	u32 ret;
-+	unsigned long flags;
++static int sky2_set_flags(struct net_device *dev, u32 data)
++{
++	struct sky2_port *sky2 = netdev_priv(dev);
++
++	if (data & ~ETH_FLAG_RXHASH)
++		return -EOPNOTSUPP;
++
++	if (data & ETH_FLAG_RXHASH) {
++		if (sky2->hw->flags & SKY2_HW_RSS_BROKEN)
++			return -EINVAL;
++
++		dev->features |= NETIF_F_RXHASH;
++	} else
++		dev->features &= ~NETIF_F_RXHASH;
++
++	rx_set_rss(dev);
++
++	return 0;
++}
  
--	spin_lock_irq(&smc->lock);
-+	spin_lock_irqsave(&smc->lock, flags);
- 	SMC_SELECT_BANK(3);
- 	ret = smc_link_ok(dev);
- 	SMC_SELECT_BANK(saved_bank);
--	spin_unlock_irq(&smc->lock);
-+	spin_unlock_irqrestore(&smc->lock, flags);
- 	return ret;
- }
+ static const struct ethtool_ops sky2_ethtool_ops = {
+ 	.get_settings	= sky2_get_settings,
+@@ -4143,6 +4213,7 @@ static const struct ethtool_ops sky2_eth
+ 	.phys_id	= sky2_phys_id,
+ 	.get_sset_count = sky2_get_sset_count,
+ 	.get_ethtool_stats = sky2_get_ethtool_stats,
++	.set_flags	= sky2_set_flags,
+ };
  
-@@ -2056,16 +2066,17 @@ static int smc_ioctl (struct net_device 
- 	int rc = 0;
- 	u16 saved_bank;
- 	unsigned int ioaddr = dev->base_addr;
-+	unsigned long flags;
+ #ifdef CONFIG_SKY2_DEBUG
+@@ -4496,6 +4567,10 @@ static __devinit struct net_device *sky2
+ 	if (highmem)
+ 		dev->features |= NETIF_F_HIGHDMA;
  
- 	if (!netif_running(dev))
- 		return -EINVAL;
++	/* Enable receive hashing unless hardware is known broken */
++	if (!(hw->flags & SKY2_HW_RSS_BROKEN))
++		dev->features |= NETIF_F_RXHASH;
++
+ #ifdef SKY2_VLAN_TAG_USED
+ 	/* The workaround for FE+ status conflicts with VLAN tag detection. */
+ 	if (!(sky2->hw->chip_id == CHIP_ID_YUKON_FE_P &&
+@@ -4692,7 +4767,7 @@ static int __devinit sky2_probe(struct p
+ 		goto err_out_iounmap;
  
--	spin_lock_irq(&smc->lock);
-+	spin_lock_irqsave(&smc->lock, flags);
- 	saved_bank = inw(ioaddr + BANK_SELECT);
- 	SMC_SELECT_BANK(3);
- 	rc = generic_mii_ioctl(&smc->mii_if, mii, cmd, NULL);
- 	SMC_SELECT_BANK(saved_bank);
--	spin_unlock_irq(&smc->lock);
-+	spin_unlock_irqrestore(&smc->lock, flags);
- 	return rc;
- }
+ 	/* ring for status responses */
+-	hw->st_size = hw->ports * roundup_pow_of_two(2*RX_MAX_PENDING + TX_MAX_PENDING);
++	hw->st_size = hw->ports * roundup_pow_of_two(3*RX_MAX_PENDING + TX_MAX_PENDING);
+ 	hw->st_le = pci_alloc_consistent(pdev, hw->st_size * sizeof(struct sky2_status_le),
+ 					 &hw->st_dma);
+ 	if (!hw->st_le)
+--- a/drivers/net/sky2.h	2010-04-23 08:56:41.424736307 -0700
++++ b/drivers/net/sky2.h	2010-04-23 08:56:51.335959014 -0700
+@@ -694,8 +694,21 @@ enum {
+ 	TXA_CTRL	= 0x0210,/*  8 bit	Tx Arbiter Control Register */
+ 	TXA_TEST	= 0x0211,/*  8 bit	Tx Arbiter Test Register */
+ 	TXA_STAT	= 0x0212,/*  8 bit	Tx Arbiter Status Register */
++
++	RSS_KEY		= 0x0220, /* RSS Key setup */
++	RSS_CFG		= 0x0248, /* RSS Configuration */
+ };
  
++enum {
++	HASH_TCP_IPV6_EX_CTRL	= 1<<5,
++	HASH_IPV6_EX_CTRL	= 1<<4,
++	HASH_TCP_IPV6_CTRL	= 1<<3,
++	HASH_IPV6_CTRL		= 1<<2,
++	HASH_TCP_IPV4_CTRL	= 1<<1,
++	HASH_IPV4_CTRL		= 1<<0,
++
++	HASH_ALL		= 0x3f,
++};
+ 
+ enum {
+ 	B6_EXT_REG	= 0x0300,/* External registers (GENESIS only) */
+@@ -2261,6 +2274,7 @@ struct sky2_hw {
+ #define SKY2_HW_NEW_LE		0x00000020	/* new LSOv2 format */
+ #define SKY2_HW_AUTO_TX_SUM	0x00000040	/* new IP decode for Tx */
+ #define SKY2_HW_ADV_POWER_CTL	0x00000080	/* additional PHY power regs */
++#define SKY2_HW_RSS_BROKEN	0x00000100
+ 
+ 	u8	     	     chip_id;
+ 	u8		     chip_rev;
