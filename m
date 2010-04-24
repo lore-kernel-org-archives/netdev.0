@@ -1,612 +1,685 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv5] add mergeable receiver buffers support to vhost
-Date: Sat, 24 Apr 2010 22:07:54 +0300
-Message-ID: <20100424190753.GA968@redhat.com>
-References: <1272053205.3114.3.camel@lab1.dls>
+Subject: Re: [RFC][PATCH v3 2/3] Provides multiple submits and asynchronous
+	notifications.
+Date: Sat, 24 Apr 2010 22:32:32 +0300
+Message-ID: <20100424193232.GC968@redhat.com>
+References: <20100422094951.GB30532@redhat.com> <1272006513-5188-1-git-send-email-xiaohui.xin@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: rusty@rustcorp.com.au, kvm@vger.kernel.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org
-To: David L Stevens <dlstevens@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
+Cc: arnd@arndb.de, netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mingo@elte.hu, davem@davemloft.net,
+	jdike@linux.intel.com
+To: xiaohui.xin@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1272053205.3114.3.camel@lab1.dls>
-Sender: kvm-owner@vger.kernel.org
+In-Reply-To: <1272006513-5188-1-git-send-email-xiaohui.xin@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 23, 2010 at 01:06:45PM -0700, David L Stevens wrote:
-> This patch adds mergeable receive buffers support to vhost.
+On Fri, Apr 23, 2010 at 03:08:33PM +0800, xiaohui.xin@intel.com wrote:
+> From: Xin Xiaohui <xiaohui.xin@intel.com>
 > 
-> Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
-
-It seems the logging is wrong. Did you test live migration? Please do.
-I think reason for the bug could be you did some cut and paste
-from code that was there before 86e9424d7252bae5ad1c17b4b8088193e6b27cbe.
-So I put a suggestion on reducing this duplication a bit, below.
-
-Also, I think this patch adds sparse errors: some __user annotations
-seem missing.  Could you please make your patch apply
-on top of patch 'vhost: fix sparse warnings' from
-Christoph Hellwig, and then make sure your patch
-does not add new sparse errors?
-
-I also wanted to make some coding style tweaks, to make
-patch match the style of the rest of the code, I could do
-them myself but since there's these issues, and we need another
-round, I put them in comments in mail below.
-
-Thanks!
-
-> diff -ruNp net-next-v0/drivers/vhost/net.c net-next-v5/drivers/vhost/net.c
-> --- net-next-v0/drivers/vhost/net.c	2010-04-22 11:31:57.000000000 -0700
-> +++ net-next-v5/drivers/vhost/net.c	2010-04-22 12:41:17.000000000 -0700
-> @@ -109,7 +109,7 @@ static void handle_tx(struct vhost_net *
->  	};
->  	size_t len, total_len = 0;
->  	int err, wmem;
-> -	size_t hdr_size;
-> +	size_t vhost_hlen;
->  	struct socket *sock = rcu_dereference(vq->private_data);
->  	if (!sock)
->  		return;
-> @@ -128,13 +128,13 @@ static void handle_tx(struct vhost_net *
+> The vhost-net backend now only supports synchronous send/recv
+> operations. The patch provides multiple submits and asynchronous
+> notifications. This is needed for zero-copy case.
+> 
+> Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
+> ---
+> 
+> Michael,
+> >>>Can't vhost supply a kiocb completion callback that will handle the list?
+> >>Yes, thanks. And with it I also remove the vq->receivr finally.
+> >>Thanks
+> >>Xiaohui
+> 
+> >Nice progress. I commented on some minor issues below.
+> >Thanks!
+> 
+> The updated patch addressed your comments on the minor issues.
+> Thanks!
+> 
+> Thanks
+> Xiaohui  
+> 
+>  drivers/vhost/net.c   |  236 +++++++++++++++++++++++++++++++++++++++++++++++-
+>  drivers/vhost/vhost.c |  120 ++++++++++++++-----------
+>  drivers/vhost/vhost.h |   14 +++
+>  3 files changed, 314 insertions(+), 56 deletions(-)
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 38989d1..18f6c41 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -23,6 +23,8 @@
+>  #include <linux/if_arp.h>
+>  #include <linux/if_tun.h>
+>  #include <linux/if_macvlan.h>
+> +#include <linux/mpassthru.h>
+> +#include <linux/aio.h>
 >  
->  	if (wmem < sock->sk->sk_sndbuf / 2)
->  		tx_poll_stop(net);
-> -	hdr_size = vq->hdr_size;
-> +	vhost_hlen = vq->vhost_hlen;
+>  #include <net/sock.h>
 >  
->  	for (;;) {
-> -		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
-> -					 ARRAY_SIZE(vq->iov),
-> -					 &out, &in,
-> -					 NULL, NULL);
-> +		head = vhost_get_desc(&net->dev, vq, vq->iov,
-> +				      ARRAY_SIZE(vq->iov),
-> +				      &out, &in,
-> +				      NULL, NULL);
->  		/* Nothing new?  Wait for eventfd to tell us they refilled. */
->  		if (head == vq->num) {
->  			wmem = atomic_read(&sock->sk->sk_wmem_alloc);
-> @@ -155,20 +155,20 @@ static void handle_tx(struct vhost_net *
->  			break;
->  		}
->  		/* Skip header. TODO: support TSO. */
-> -		s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, out);
-> +		s = move_iovec_hdr(vq->iov, vq->hdr, vhost_hlen, out);
->  		msg.msg_iovlen = out;
->  		len = iov_length(vq->iov, out);
->  		/* Sanity check */
->  		if (!len) {
->  			vq_err(vq, "Unexpected header len for TX: "
->  			       "%zd expected %zd\n",
-> -			       iov_length(vq->hdr, s), hdr_size);
-> +			       iov_length(vq->hdr, s), vhost_hlen);
->  			break;
->  		}
->  		/* TODO: Check specific error and bomb out unless ENOBUFS? */
->  		err = sock->ops->sendmsg(NULL, sock, &msg, len);
->  		if (unlikely(err < 0)) {
-> -			vhost_discard_vq_desc(vq);
-> +			vhost_discard_desc(vq, 1);
->  			tx_poll_start(net, sock);
->  			break;
->  		}
-> @@ -187,12 +187,25 @@ static void handle_tx(struct vhost_net *
->  	unuse_mm(net->dev.mm);
+> @@ -48,6 +50,7 @@ struct vhost_net {
+>  	struct vhost_dev dev;
+>  	struct vhost_virtqueue vqs[VHOST_NET_VQ_MAX];
+>  	struct vhost_poll poll[VHOST_NET_VQ_MAX];
+> +	struct kmem_cache       *cache;
+>  	/* Tells us whether we are polling a socket for TX.
+>  	 * We only do this when socket buffer fills up.
+>  	 * Protected by tx vq lock. */
+> @@ -92,11 +95,138 @@ static void tx_poll_start(struct vhost_net *net, struct socket *sock)
+>  	net->tx_poll_state = VHOST_NET_POLL_STARTED;
 >  }
 >  
-> +static int vhost_head_len(struct vhost_virtqueue *vq, struct sock *sk)
+> +struct kiocb *notify_dequeue(struct vhost_virtqueue *vq)
 > +{
-> +	struct sk_buff *head;
-> +	int len = 0;
+> +	struct kiocb *iocb = NULL;
+> +	unsigned long flags;
 > +
-> +	lock_sock(sk);
-> +	head = skb_peek(&sk->sk_receive_queue);
-> +	if (head)
-> +		len = head->len + vq->sock_hlen;
-> +	release_sock(sk);
-> +	return len;
+> +	spin_lock_irqsave(&vq->notify_lock, flags);
+> +	if (!list_empty(&vq->notifier)) {
+> +		iocb = list_first_entry(&vq->notifier,
+> +				struct kiocb, ki_list);
+> +		list_del(&iocb->ki_list);
+> +	}
+> +	spin_unlock_irqrestore(&vq->notify_lock, flags);
+> +	return iocb;
+> +}
+> +
+> +static void handle_iocb(struct kiocb *iocb)
+> +{
+> +	struct vhost_virtqueue *vq = iocb->private;
+> +	unsigned long flags;
+> +
+> +	spin_lock_irqsave(&vq->notify_lock, flags);
+> +	list_add_tail(&iocb->ki_list, &vq->notifier);
+> +	spin_unlock_irqrestore(&vq->notify_lock, flags);
+
+Don't we need to wake up the wq as well?
+
+> +}
+> +
+> +static int is_async_vq(struct vhost_virtqueue *vq)
+> +{
+> +	return (vq->link_state == VHOST_VQ_LINK_ASYNC);
+
+() not needed
+
+> +}
+> +
+> +static void handle_async_rx_events_notify(struct vhost_net *net,
+> +					  struct vhost_virtqueue *vq,
+> +					  struct socket *sock)
+> +{
+> +	struct kiocb *iocb = NULL;
+> +	struct vhost_log *vq_log = NULL;
+> +	int rx_total_len = 0;
+> +	unsigned int head, log, in, out;
+> +	int size;
+> +
+> +	if (!is_async_vq(vq))
+> +		return;
+> +
+> +	if (sock->sk->sk_data_ready)
+> +		sock->sk->sk_data_ready(sock->sk, 0);
+> +
+> +	vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) ?
+> +		vq->log : NULL;
+> +
+> +	while ((iocb = notify_dequeue(vq)) != NULL) {
+> +		vhost_add_used_and_signal(&net->dev, vq,
+> +				iocb->ki_pos, iocb->ki_nbytes);
+> +		size = iocb->ki_nbytes;
+> +		head = iocb->ki_pos;
+> +		rx_total_len += iocb->ki_nbytes;
+> +
+> +		if (iocb->ki_dtor)
+> +			iocb->ki_dtor(iocb);
+
+I am confused by the above. Isn't ki_dtor handle_iocb?
+Why is it called here?
+
+> +		kmem_cache_free(net->cache, iocb);
+> +
+> +		/* when log is enabled, recomputing the log info is needed,
+> +		 * since these buffers are in async queue, and may not get
+> +		 * the log info before.
+> +		 */
+> +		if (unlikely(vq_log)) {
+> +			if (!log)
+
+log is uninitialized now?
+
+> +				__vhost_get_vq_desc(&net->dev, vq, vq->iov,
+> +						    ARRAY_SIZE(vq->iov),
+> +						    &out, &in, vq_log,
+> +						    &log, head);
+> +			vhost_log_write(vq, vq_log, log, size);
+> +		}
+> +		if (unlikely(rx_total_len >= VHOST_NET_WEIGHT)) {
+> +			vhost_poll_queue(&vq->poll);
+> +			break;
+> +		}
+> +	}
+> +}
+> +
+> +static void handle_async_tx_events_notify(struct vhost_net *net,
+> +					  struct vhost_virtqueue *vq)
+> +{
+> +	struct kiocb *iocb = NULL;
+> +	int tx_total_len = 0;
+> +
+> +	if (!is_async_vq(vq))
+> +		return;
+> +
+> +	while ((iocb = notify_dequeue(vq)) != NULL) {
+
+Please just write this as while (((iocb = notify_dequeue(vq)))
+above as well
+
+> +		vhost_add_used_and_signal(&net->dev, vq,
+> +				iocb->ki_pos, 0);
+
+pls indent continuation lines to the roght of (
+above as well
+
+> +		tx_total_len += iocb->ki_nbytes;
+> +
+> +		if (iocb->ki_dtor)
+> +			iocb->ki_dtor(iocb);
+
+same question as above
+
+> +
+> +		kmem_cache_free(net->cache, iocb);
+> +		if (unlikely(tx_total_len >= VHOST_NET_WEIGHT)) {
+> +			vhost_poll_queue(&vq->poll);
+> +			break;
+> +		}
+> +	}
+> +}
+> +
+> +static struct kiocb *create_iocb(struct vhost_net *net,
+> +				 struct vhost_virtqueue *vq,
+> +				 unsigned head)
+> +{
+> +	struct kiocb *iocb = NULL;
+> +
+> +	if (!is_async_vq(vq))
+> +		return NULL;
+> +
+> +	iocb = kmem_cache_zalloc(net->cache, GFP_KERNEL);
+> +	if (!iocb)
+> +		return NULL;
+> +	iocb->private = vq;
+> +	iocb->ki_pos = head;
+> +	iocb->ki_dtor = handle_iocb;
+
+So, dtor calls handle_iocb, but what causes vhost
+to wake-up is really poll, right?
+
+
+> +	if (vq == &net->dev.vqs[VHOST_NET_VQ_RX]) {
+> +		iocb->ki_user_data = vq->num;
+
+Is the above used?
+
+> +		iocb->ki_iovec = vq->hdr;
+> +	}
+> +	return iocb;
 > +}
 > +
 >  /* Expects to be always run from workqueue - which acts as
 >   * read-size critical section for our kind of RCU. */
+>  static void handle_tx(struct vhost_net *net)
+>  {
+>  	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_TX];
+> +	struct kiocb *iocb = NULL;
+
+Why do we need to init iocb to NULL?
+
+>  	unsigned head, out, in, s;
+>  	struct msghdr msg = {
+>  		.msg_name = NULL,
+> @@ -129,6 +259,8 @@ static void handle_tx(struct vhost_net *net)
+>  		tx_poll_stop(net);
+>  	hdr_size = vq->hdr_size;
+>  
+> +	handle_async_tx_events_notify(net, vq);
+> +
+>  	for (;;) {
+>  		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
+>  					 ARRAY_SIZE(vq->iov),
+> @@ -156,6 +288,13 @@ static void handle_tx(struct vhost_net *net)
+>  		/* Skip header. TODO: support TSO. */
+>  		s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, out);
+>  		msg.msg_iovlen = out;
+> +
+> +		if (is_async_vq(vq)) {
+> +			iocb = create_iocb(net, vq, head);
+> +			if (!iocb)
+> +				break;
+> +		}
+> +
+>  		len = iov_length(vq->iov, out);
+>  		/* Sanity check */
+>  		if (!len) {
+> @@ -165,12 +304,18 @@ static void handle_tx(struct vhost_net *net)
+>  			break;
+>  		}
+>  		/* TODO: Check specific error and bomb out unless ENOBUFS? */
+> -		err = sock->ops->sendmsg(NULL, sock, &msg, len);
+> +		err = sock->ops->sendmsg(iocb, sock, &msg, len);
+>  		if (unlikely(err < 0)) {
+> +			if (is_async_vq(vq))
+> +				kmem_cache_free(net->cache, iocb);
+>  			vhost_discard_vq_desc(vq);
+>  			tx_poll_start(net, sock);
+>  			break;
+>  		}
+> +
+> +		if (is_async_vq(vq))
+> +			continue;
+> +
+>  		if (err != len)
+>  			pr_err("Truncated TX packet: "
+>  			       " len %d != %zd\n", err, len);
+> @@ -182,6 +327,8 @@ static void handle_tx(struct vhost_net *net)
+>  		}
+>  	}
+>  
+> +	handle_async_tx_events_notify(net, vq);
+> +
+>  	mutex_unlock(&vq->mutex);
+>  	unuse_mm(net->dev.mm);
+>  }
+> @@ -191,6 +338,7 @@ static void handle_tx(struct vhost_net *net)
 >  static void handle_rx(struct vhost_net *net)
 >  {
 >  	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_RX];
-> -	unsigned head, out, in, log, s;
-> +	unsigned in, log, s;
+> +	struct kiocb *iocb = NULL;
+>  	unsigned head, out, in, log, s;
 >  	struct vhost_log *vq_log;
 >  	struct msghdr msg = {
->  		.msg_name = NULL,
-> @@ -203,14 +216,14 @@ static void handle_rx(struct vhost_net *
->  		.msg_flags = MSG_DONTWAIT,
->  	};
->  
-> -	struct virtio_net_hdr hdr = {
-> -		.flags = 0,
-> -		.gso_type = VIRTIO_NET_HDR_GSO_NONE
-> +	struct virtio_net_hdr_mrg_rxbuf hdr = {
-> +		.hdr.flags = 0,
-> +		.hdr.gso_type = VIRTIO_NET_HDR_GSO_NONE
->  	};
->  
->  	size_t len, total_len = 0;
-> -	int err;
-> -	size_t hdr_size;
-> +	int err, headcount, datalen;
-> +	size_t vhost_hlen;
+> @@ -211,7 +359,8 @@ static void handle_rx(struct vhost_net *net)
+>  	int err;
+>  	size_t hdr_size;
 >  	struct socket *sock = rcu_dereference(vq->private_data);
->  	if (!sock || skb_queue_empty(&sock->sk->sk_receive_queue))
+> -	if (!sock || skb_queue_empty(&sock->sk->sk_receive_queue))
+> +	if (!sock || (skb_queue_empty(&sock->sk->sk_receive_queue) &&
+> +			vq->link_state == VHOST_VQ_LINK_SYNC))
 >  		return;
-> @@ -218,18 +231,18 @@ static void handle_rx(struct vhost_net *
->  	use_mm(net->dev.mm);
->  	mutex_lock(&vq->mutex);
->  	vhost_disable_notify(vq);
-> -	hdr_size = vq->hdr_size;
-> +	vhost_hlen = vq->vhost_hlen;
 >  
+>  	use_mm(net->dev.mm);
+> @@ -219,9 +368,17 @@ static void handle_rx(struct vhost_net *net)
+>  	vhost_disable_notify(vq);
+>  	hdr_size = vq->hdr_size;
+>  
+> +	/* In async cases, when write log is enabled, in case the submitted
+> +	 * buffers did not get log info before the log enabling, so we'd
+> +	 * better recompute the log info when needed. We do this in
+> +	 * handle_async_rx_events_notify().
+> +	 */
+> +
 >  	vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) ?
 >  		vq->log : NULL;
 >  
-> -	for (;;) {
-> -		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
-> -					 ARRAY_SIZE(vq->iov),
-> -					 &out, &in,
-> -					 vq_log, &log);
-> +	while ((datalen = vhost_head_len(vq, sock->sk))) {
-> +		headcount = vhost_get_desc_n(vq, vq->heads, datalen+vhost_hlen,
-
-checkpatch does not catch this but please add spaces around +.
-
-> +					     &in, vq_log, &log);
-> +		if (headcount < 0)
-> +			break;
->  		/* OK, now we need to know about added descriptors. */
-> -		if (head == vq->num) {
-> +		if (!headcount) {
->  			if (unlikely(vhost_enable_notify(vq))) {
->  				/* They have slipped one in as we were
->  				 * doing that: check again. */
-> @@ -241,46 +254,54 @@ static void handle_rx(struct vhost_net *
->  			break;
->  		}
->  		/* We don't need to be notified again. */
-> -		if (out) {
-> -			vq_err(vq, "Unexpected descriptor format for RX: "
-> -			       "out %d, int %d\n",
-> -			       out, in);
-> -			break;
-> -		}
-> -		/* Skip header. TODO: support TSO/mergeable rx buffers. */
-> -		s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, in);
-> +		/* Skip header. TODO: support TSO. */
-> +		s = move_iovec_hdr(vq->iov, vq->hdr, vhost_hlen, in);
+> +	handle_async_rx_events_notify(net, vq, sock);
+> +
+>  	for (;;) {
+>  		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
+>  					 ARRAY_SIZE(vq->iov),
+> @@ -250,6 +407,13 @@ static void handle_rx(struct vhost_net *net)
+>  		s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, in);
 >  		msg.msg_iovlen = in;
 >  		len = iov_length(vq->iov, in);
+> +
+> +		if (is_async_vq(vq)) {
+> +			iocb = create_iocb(net, vq, head);
+> +			if (!iocb)
+> +				break;
+> +		}
+> +
 >  		/* Sanity check */
 >  		if (!len) {
 >  			vq_err(vq, "Unexpected header len for RX: "
->  			       "%zd expected %zd\n",
-> -			       iov_length(vq->hdr, s), hdr_size);
-> +			       iov_length(vq->hdr, s), vhost_hlen);
+> @@ -257,13 +421,20 @@ static void handle_rx(struct vhost_net *net)
+>  			       iov_length(vq->hdr, s), hdr_size);
 >  			break;
 >  		}
->  		err = sock->ops->recvmsg(NULL, sock, &msg,
+> -		err = sock->ops->recvmsg(NULL, sock, &msg,
+> +
+> +		err = sock->ops->recvmsg(iocb, sock, &msg,
 >  					 len, MSG_DONTWAIT | MSG_TRUNC);
 >  		/* TODO: Check specific error and bomb out unless EAGAIN? */
 >  		if (err < 0) {
-> -			vhost_discard_vq_desc(vq);
-> +			vhost_discard_desc(vq, headcount);
+> +			if (is_async_vq(vq))
+> +				kmem_cache_free(net->cache, iocb);
+>  			vhost_discard_vq_desc(vq);
 >  			break;
 >  		}
-> -		/* TODO: Should check and handle checksum. */
-> -		if (err > len) {
-> -			pr_err("Discarded truncated rx packet: "
-> -			       " len %d > %zd\n", err, len);
-> -			vhost_discard_vq_desc(vq);
-> +		if (err != datalen) {
-> +			pr_err("Discarded rx packet: "
-> +			       " len %d, expected %zd\n", err, datalen);
-> +			vhost_discard_desc(vq, headcount);
->  			continue;
->  		}
->  		len = err;
-> -		err = memcpy_toiovec(vq->hdr, (unsigned char *)&hdr, hdr_size);
-> +		err = memcpy_toiovec(vq->hdr, (unsigned char *)&hdr,
-> +				     vhost_hlen);
->  		if (err) {
->  			vq_err(vq, "Unable to write vnet_hdr at addr %p: %d\n",
->  			       vq->iov->iov_base, err);
->  			break;
->  		}
-> -		len += hdr_size;
-> -		vhost_add_used_and_signal(&net->dev, vq, head, len);
-> +		/* TODO: Should check and handle checksum. */
-> +		if (vhost_has_feature(&net->dev, VIRTIO_NET_F_MRG_RXBUF)) {
-> +			struct virtio_net_hdr_mrg_rxbuf hdr;
-> +			struct iovec *iov = vhost_hlen ? vq->hdr : vq->iov;
 > +
-> +			if (memcpy_toiovecend(iov, (unsigned char *)&headcount,
-> +				      offsetof(typeof(hdr), num_buffers),
-> +				      sizeof(hdr.num_buffers))) {
-> +				vq_err(vq, "Failed num_buffers write");
-> +				vhost_discard_desc(vq, headcount);
-> +				break;
-> +			}
-> +		}
-> +		len += vhost_hlen;
-> +		vhost_add_used_and_signal_n(&net->dev, vq, vq->heads,
-> +					    headcount);
->  		if (unlikely(vq_log))
->  			vhost_log_write(vq, vq_log, log, len);
->  		total_len += len;
-> @@ -561,9 +582,24 @@ done:
->  
->  static int vhost_net_set_features(struct vhost_net *n, u64 features)
->  {
-> -	size_t hdr_size = features & (1 << VHOST_NET_F_VIRTIO_NET_HDR) ?
-> -		sizeof(struct virtio_net_hdr) : 0;
-> +	size_t vhost_hlen;
-> +	size_t sock_hlen;
->  	int i;
+> +		if (is_async_vq(vq))
+> +			continue;
 > +
-> +	if (features & (1 << VHOST_NET_F_VIRTIO_NET_HDR)) {
-> +		/* vhost provides vnet_hdr */
-> +		vhost_hlen = sizeof(struct virtio_net_hdr);
-> +		if (features & (1 << VIRTIO_NET_F_MRG_RXBUF))
-> +			vhost_hlen = sizeof(struct virtio_net_hdr_mrg_rxbuf);
-> +		sock_hlen = 0;
-> +	} else {
-> +		/* socket provides vnet_hdr */
-> +		vhost_hlen = 0;
-> +		if (features & (1 << VIRTIO_NET_F_MRG_RXBUF))
-> +			sock_hlen = sizeof(struct virtio_net_hdr_mrg_rxbuf);
-> +		else
-> +			sock_hlen = sizeof(struct virtio_net_hdr);
-> +	}
->  	mutex_lock(&n->dev.mutex);
->  	if ((features & (1 << VHOST_F_LOG_ALL)) &&
->  	    !vhost_log_access_ok(&n->dev)) {
-> @@ -574,7 +610,8 @@ static int vhost_net_set_features(struct
->  	smp_wmb();
->  	for (i = 0; i < VHOST_NET_VQ_MAX; ++i) {
->  		mutex_lock(&n->vqs[i].mutex);
-> -		n->vqs[i].hdr_size = hdr_size;
-> +		n->vqs[i].vhost_hlen = vhost_hlen;
-> +		n->vqs[i].sock_hlen = sock_hlen;
->  		mutex_unlock(&n->vqs[i].mutex);
+>  		/* TODO: Should check and handle checksum. */
+>  		if (err > len) {
+>  			pr_err("Discarded truncated rx packet: "
+> @@ -289,6 +460,8 @@ static void handle_rx(struct vhost_net *net)
+>  		}
 >  	}
+>  
+> +	handle_async_rx_events_notify(net, vq, sock);
+> +
+>  	mutex_unlock(&vq->mutex);
+>  	unuse_mm(net->dev.mm);
+>  }
+> @@ -342,6 +515,7 @@ static int vhost_net_open(struct inode *inode, struct file *f)
+>  	vhost_poll_init(n->poll + VHOST_NET_VQ_TX, handle_tx_net, POLLOUT);
+>  	vhost_poll_init(n->poll + VHOST_NET_VQ_RX, handle_rx_net, POLLIN);
+>  	n->tx_poll_state = VHOST_NET_POLL_DISABLED;
+> +	n->cache = NULL;
+>  
+>  	f->private_data = n;
+>  
+> @@ -405,6 +579,18 @@ static void vhost_net_flush(struct vhost_net *n)
+>  	vhost_net_flush_vq(n, VHOST_NET_VQ_RX);
+>  }
+>  
+> +static void vhost_async_cleanup(struct vhost_net *n)
+> +{
+> +	/* clean the notifier */
+> +	struct vhost_virtqueue *vq = &n->dev.vqs[VHOST_NET_VQ_RX];
+> +	struct kiocb *iocb = NULL;
+> +	if (n->cache) {
+> +		while ((iocb = notify_dequeue(vq)) != NULL)
+> +			kmem_cache_free(n->cache, iocb);
+> +		kmem_cache_destroy(n->cache);
+> +	}
+> +}
+> +
+>  static int vhost_net_release(struct inode *inode, struct file *f)
+>  {
+>  	struct vhost_net *n = f->private_data;
+> @@ -421,6 +607,7 @@ static int vhost_net_release(struct inode *inode, struct file *f)
+>  	/* We do an extra flush before freeing memory,
+>  	 * since jobs can re-queue themselves. */
 >  	vhost_net_flush(n);
-> diff -ruNp net-next-v0/drivers/vhost/vhost.c net-next-v5/drivers/vhost/vhost.c
-> --- net-next-v0/drivers/vhost/vhost.c	2010-04-22 11:31:57.000000000 -0700
-> +++ net-next-v5/drivers/vhost/vhost.c	2010-04-22 12:19:59.000000000 -0700
-> @@ -114,7 +114,8 @@ static void vhost_vq_reset(struct vhost_
->  	vq->used_flags = 0;
->  	vq->log_used = false;
->  	vq->log_addr = -1ull;
-> -	vq->hdr_size = 0;
-> +	vq->vhost_hlen = 0;
-> +	vq->sock_hlen = 0;
->  	vq->private_data = NULL;
->  	vq->log_base = NULL;
->  	vq->error_ctx = NULL;
-> @@ -861,6 +862,53 @@ static unsigned get_indirect(struct vhos
+> +	vhost_async_cleanup(n);
+>  	kfree(n);
+>  	return 0;
+>  }
+> @@ -472,21 +659,58 @@ static struct socket *get_tap_socket(int fd)
+>  	return sock;
+>  }
+>  
+> -static struct socket *get_socket(int fd)
+> +static struct socket *get_mp_socket(int fd)
+> +{
+> +	struct file *file = fget(fd);
+> +	struct socket *sock;
+> +	if (!file)
+> +		return ERR_PTR(-EBADF);
+> +	sock = mp_get_socket(file);
+> +	if (IS_ERR(sock))
+> +		fput(file);
+> +	return sock;
+> +}
+> +
+> +static struct socket *get_socket(struct vhost_virtqueue *vq, int fd,
+> +				 enum vhost_vq_link_state *state)
+>  {
+>  	struct socket *sock;
+>  	/* special case to disable backend */
+>  	if (fd == -1)
+>  		return NULL;
+> +
+> +	*state = VHOST_VQ_LINK_SYNC;
+> +
+>  	sock = get_raw_socket(fd);
+>  	if (!IS_ERR(sock))
+>  		return sock;
+>  	sock = get_tap_socket(fd);
+>  	if (!IS_ERR(sock))
+>  		return sock;
+> +	sock = get_mp_socket(fd);
+> +	if (!IS_ERR(sock)) {
+> +		*state = VHOST_VQ_LINK_ASYNC;
+> +		return sock;
+> +	}
+>  	return ERR_PTR(-ENOTSOCK);
+>  }
+>  
+> +static void vhost_init_link_state(struct vhost_net *n, int index)
+
+so let's pass link state as parameter, and set it in this function.
+And maybe pass in vq, no need for index tricks.
+
+> +{
+> +	struct vhost_virtqueue *vq = n->vqs + index;
+> +
+> +	WARN_ON(!mutex_is_locked(&vq->mutex));
+
+there's a single place of call, I don't think we need this check.
+
+> +	if (vq->link_state == VHOST_VQ_LINK_ASYNC) {
+> +		INIT_LIST_HEAD(&vq->notifier);
+> +		spin_lock_init(&vq->notify_lock);
+> +		if (!n->cache) {
+> +			n->cache = kmem_cache_create("vhost_kiocb",
+
+vhost_net_kiocb a better name
+
+> +					sizeof(struct kiocb), 0,
+> +					SLAB_HWCACHE_ALIGN, NULL);
+> +		}
+
+no need for {} for single statement if.
+
+> +	}
+> +}
+> +
+>  static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
+>  {
+>  	struct socket *sock, *oldsock;
+> @@ -510,12 +734,14 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
+>  		r = -EFAULT;
+>  		goto err_vq;
+>  	}
+> -	sock = get_socket(fd);
+> +	sock = get_socket(vq, fd, &vq->link_state);
+>  	if (IS_ERR(sock)) {
+>  		r = PTR_ERR(sock);
+>  		goto err_vq;
+>  	}
+>  
+> +	vhost_init_link_state(n, index);
+> +
+>  	/* start polling new socket */
+>  	oldsock = vq->private_data;
+>  	if (sock == oldsock)
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index 3f10194..add77d3 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -860,61 +860,17 @@ static unsigned get_indirect(struct vhost_dev *dev, struct vhost_virtqueue *vq,
 >  	return 0;
 >  }
 >  
-> +/* This is a multi-buffer version of vhost_get_vq_desc
-> + * @vq		- the relevant virtqueue
-> + * datalen	- data length we'll be reading
-> + * @iovcount	- returned count of io vectors we fill
-> + * @log		- vhost log
-> + * @log_num	- log offset
-> + *	returns number of buffer heads allocated, negative on error
-> + */
-> +int vhost_get_desc_n(struct vhost_virtqueue *vq, struct vring_used_elem *heads,
-> +		     int datalen, int *iovcount, struct vhost_log *log,
-> +		     unsigned int *log_num)
-> +{
-> +	int out, in;
-> +	int seg = 0;		/* iov index */
-
-In rest of code, I always put comments above the commented code,
-not to the right of it.
-
-> +	int hc = 0;		/* head count */
-
-Maybe just call the variable head_count? That'd make the
-comment unnecessary.
-
-> +	int rv;
-
-rest of code uses r or ret for such variables.
-
-> +
-> +	while (datalen > 0) {
-> +		if (hc >= VHOST_NET_MAX_SG) {
-> +			rv = -ENOBUFS;
-> +			goto err;
-> +		}
-> +		heads[hc].id = vhost_get_desc(vq->dev, vq, vq->iov+seg,
-> +					      ARRAY_SIZE(vq->iov)-seg, &out,
-
-same here, spaces around + and -
-
-> +					      &in, log, log_num);
-> +		if (heads[hc].id == vq->num) {
-> +			rv = 0;
-> +			goto err;
-> +		}
-> +		if (out || in <= 0) {
-> +			vq_err(vq, "unexpected descriptor format for RX: "
-> +				"out %d, in %d\n", out, in);
-> +			rv = -EINVAL;
-> +			goto err;
-> +		}
-> +		heads[hc].len = iov_length(vq->iov+seg, in);
-
-and here
-
-> +		datalen -= heads[hc].len;
-> +		hc++;
-
-I use ++x in the rest of the code wher I don't care for
-the old value.
-
-> +		seg += in;
-> +	}
-> +	*iovcount = seg;
-> +	return hc;
-> +err:
-> +	vhost_discard_desc(vq, hc);
-> +	return rv;
-> +}
-> +
->  /* This looks in the virtqueue and for the first available buffer, and converts
->   * it to an iovec for convenient access.  Since descriptors consist of some
->   * number of output then some number of input descriptors, it's actually two
-> @@ -868,7 +916,7 @@ static unsigned get_indirect(struct vhos
->   *
->   * This function returns the descriptor number found, or vq->num (which
->   * is never a valid descriptor number) if none was found. */
+> -/* This looks in the virtqueue and for the first available buffer, and converts
+> - * it to an iovec for convenient access.  Since descriptors consist of some
+> - * number of output then some number of input descriptors, it's actually two
+> - * iovecs, but we pack them into one and note how many of each there were.
+> - *
+> - * This function returns the descriptor number found, or vq->num (which
+> - * is never a valid descriptor number) if none was found. */
 > -unsigned vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
-> +unsigned vhost_get_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
->  			   struct iovec iov[], unsigned int iov_size,
->  			   unsigned int *out_num, unsigned int *in_num,
->  			   struct vhost_log *log, unsigned int *log_num)
-> @@ -986,9 +1034,9 @@ unsigned vhost_get_vq_desc(struct vhost_
->  }
->  
->  /* Reverse the effect of vhost_get_vq_desc. Useful for error handling. */
-> -void vhost_discard_vq_desc(struct vhost_virtqueue *vq)
-> +void vhost_discard_desc(struct vhost_virtqueue *vq, int n)
+> -			   struct iovec iov[], unsigned int iov_size,
+> -			   unsigned int *out_num, unsigned int *in_num,
+> -			   struct vhost_log *log, unsigned int *log_num)
+> +/* This computes the log info according to the index of buffer */
+> +unsigned __vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
+> +			     struct iovec iov[], unsigned int iov_size,
+> +			     unsigned int *out_num, unsigned int *in_num,
+> +			     struct vhost_log *log, unsigned int *log_num,
+> +			     unsigned int head)
 >  {
-> -	vq->last_avail_idx--;
-> +	vq->last_avail_idx -= n;
->  }
+>  	struct vring_desc desc;
+>  	unsigned int i, head, found = 0;
+> -	u16 last_avail_idx;
+> -	int ret;
+> -
+> -	/* Check it isn't doing very strange things with descriptor numbers. */
+> -	last_avail_idx = vq->last_avail_idx;
+> -	if (get_user(vq->avail_idx, &vq->avail->idx)) {
+> -		vq_err(vq, "Failed to access avail idx at %p\n",
+> -		       &vq->avail->idx);
+> -		return vq->num;
+> -	}
+> -
+> -	if ((u16)(vq->avail_idx - last_avail_idx) > vq->num) {
+> -		vq_err(vq, "Guest moved used index from %u to %u",
+> -		       last_avail_idx, vq->avail_idx);
+> -		return vq->num;
+> -	}
+> -
+> -	/* If there's nothing new since last we looked, return invalid. */
+> -	if (vq->avail_idx == last_avail_idx)
+> -		return vq->num;
+> +	unsigned int ret;
 >  
->  /* After we've used one of their buffers, we tell them about it.  We'll then
-> @@ -1017,6 +1065,54 @@ int vhost_add_used(struct vhost_virtqueu
->  	if (unlikely(vq->log_used)) {
->  		/* Make sure data is seen before log. */
->  		smp_wmb();
-> +		log_write(vq->log_base, vq->log_addr + sizeof *vq->used->ring *
-> +			  (vq->last_used_idx % vq->num),
-> +			  sizeof *vq->used->ring);
-> +		log_write(vq->log_base, vq->log_addr, sizeof *vq->used->ring);
-> +		if (vq->log_ctx)
-> +			eventfd_signal(vq->log_ctx, 1);
-> +	}
-> +	vq->last_used_idx++;
-> +	return 0;
-
-The above looks like a copy from an old version of vhost.
-
-
+> -	/* Only get avail ring entries after they have been exposed by guest. */
+> -	smp_rmb();
+> -
+> -	/* Grab the next descriptor number they're advertising, and increment
+> -	 * the index we've seen. */
+> -	if (get_user(head, &vq->avail->ring[last_avail_idx % vq->num])) {
+> -		vq_err(vq, "Failed to read head: idx %d address %p\n",
+> -		       last_avail_idx,
+> -		       &vq->avail->ring[last_avail_idx % vq->num]);
+> -		return vq->num;
+> -	}
+> -
+> -	/* If their number is silly, that's an error. */
+> -	if (head >= vq->num) {
+> -		vq_err(vq, "Guest says index %u > %u is available",
+> -		       head, vq->num);
+> -		return vq->num;
+> -	}
+> -
+> -	/* When we start there are none of either input nor output. */
+>  	*out_num = *in_num = 0;
+>  	if (unlikely(log))
+>  		*log_num = 0;
+> @@ -978,8 +934,70 @@ unsigned vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
+>  			*out_num += ret;
+>  		}
+>  	} while ((i = next_desc(&desc)) != -1);
+> +	return head;
 > +}
 > +
-> +/* After we've used one of their buffers, we tell them about it.  We'll then
-> + * want to notify the guest, using eventfd. */
-> +int vhost_add_used_n(struct vhost_virtqueue *vq, struct vring_used_elem *heads,
-> +		   int count)
-
-please align int at least to the right of (.
-
+> +/* This looks in the virtqueue and for the first available buffer, and converts
+> + * it to an iovec for convenient access.  Since descriptors consist of some
+> + * number of output then some number of input descriptors, it's actually two
+> + * iovecs, but we pack them into one and note how many of each there were.
+> + *
+> + * This function returns the descriptor number found, or vq->num (which
+> + * is never a valid descriptor number) if none was found. */
+> +unsigned vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
+> +			   struct iovec iov[], unsigned int iov_size,
+> +			   unsigned int *out_num, unsigned int *in_num,
+> +			   struct vhost_log *log, unsigned int *log_num)
 > +{
-> +	struct vring_used_elem *used;
-> +	int start, n;
+> +	struct vring_desc desc;
+> +	unsigned int i, head, found = 0;
+> +	u16 last_avail_idx;
+> +	unsigned int ret;
 > +
-> +	if (count <= 0)
-> +		return -EINVAL;
-
-Is the above necessary?
-Just make count unsigned for clarity?
-
+> +	/* Check it isn't doing very strange things with descriptor numbers. */
+> +	last_avail_idx = vq->last_avail_idx;
+> +	if (get_user(vq->avail_idx, &vq->avail->idx)) {
+> +		vq_err(vq, "Failed to access avail idx at %p\n",
+> +		       &vq->avail->idx);
+> +		return vq->num;
+> +	}
 > +
-> +	start = vq->last_used_idx % vq->num;
-> +	if (vq->num - start < count)
-> +		n = vq->num - start;
-> +	else
-> +		n = count;
-
-I'd say use min, or reorder code as I suggest below
-to only have a single if.
-
-> +	used = vq->used->ring + start;
-> +	if (copy_to_user(used, heads, sizeof(heads[0])*n)) {
-
-Pls put spaces around *
-Also I'd prefer sizeof *used here instead of sizeof(heads[0]),
-it's shorter. My style is also to put () after sizeof only
-if the argument is a type, and order the expression
-to make precedence not matter. So we'd end up with:
-
-	n * sizeof *used.
-
-> +		vq_err(vq, "Failed to write used");
-> +		return -EFAULT;
+> +	if ((u16)(vq->avail_idx - last_avail_idx) > vq->num) {
+> +		vq_err(vq, "Guest moved used index from %u to %u",
+> +		       last_avail_idx, vq->avail_idx);
+> +		return vq->num;
 > +	}
-> +	if (n < count) {	/* wrapped the ring */
-
-In rest of code, I always put comments above the commented code,
-not to the right of it.
-
-The only case we can have n < count is wrap-around,
-so I find this a roundabout way to code this up, and we
-end up with test for same condition, which makes the
-code fragile (ignoring performance impact).
-Also note need for extra logging as explained below.
-
-Maybe it's cleanest to have static __vhost_add_used_n which assumes
-no wrap-around, and then just call:
-
-vhost_add_used_n()
-	if (unlikely(n < count)) {
-		if (r = __vhost_add_used_n())
-			return r;
-		heads += n;
-		count -= n;
-	}
-	return __vhost_add_used_n()
-
-this would do an extra write into used index,
-but this is almost freem 
-
-
-> +		used = vq->used->ring;
-> +		if (copy_to_user(used, heads+n, sizeof(heads[0])*(count-n))) {
-
-spaces around + and *
-
-> +			vq_err(vq, "Failed to write used");
-> +			return -EFAULT;
-> +		}
-> +	}
-> +	/* Make sure buffer is written before we update index. */
-> +	smp_wmb();
-> +	if (put_user(vq->last_used_idx+count, &vq->used->idx)) {
-
-and here
-
-> +		vq_err(vq, "Failed to increment used idx");
-> +		return -EFAULT;
-> +	}
-> +	if (unlikely(vq->log_used)) {
-> +		/* Make sure data is seen before log. */
-> +		smp_wmb();
->  		/* Log used ring entry write. */
->  		log_write(vq->log_base,
->  			  vq->log_addr +
-
-this uses 'used' pointer, but I think it's wrong in case
-of wrap-around. I think we'll need extra logging for
-wrap-around. That would be 3 copies of identical code:
-maybe add a function?
-
-static void vhost_log_used(struct vhost_virtqueue *vq,
-			   struct vring_used_elem __user *used)
-{
-	/* Make sure data is seen before log. */
-	smp_wmb();
-	/* Log used ring entry write. */
-	log_write(vq->log_base,
-		  vq->log_addr +
-		   ((void __user *)used - (void __user *)vq->used),
-		  sizeof *used);
-	/* Log used index update. */
-	log_write(vq->log_base,
-		  vq->log_addr + offsetof(struct vring_used, idx),
-		  sizeof vq->used->idx);
-	if (vq->log_ctx)
-		eventfd_signal(vq->log_ctx, 1);
-}
-
-
-> @@ -1029,7 +1125,7 @@ int vhost_add_used(struct vhost_virtqueu
->  		if (vq->log_ctx)
->  			eventfd_signal(vq->log_ctx, 1);
->  	}
-> -	vq->last_used_idx++;
-> +	vq->last_used_idx += count;
->  	return 0;
->  }
->  
-> @@ -1062,6 +1158,15 @@ void vhost_add_used_and_signal(struct vh
->  	vhost_signal(dev, vq);
->  }
->  
-> +/* multi-buffer version of vhost_add_used_and_signal */
-> +void vhost_add_used_and_signal_n(struct vhost_dev *dev,
-> +				 struct vhost_virtqueue *vq,
-> +				 struct vring_used_elem *heads, int count)
-> +{
-> +	vhost_add_used_n(vq, heads, count);
-> +	vhost_signal(dev, vq);
-> +}
 > +
->  /* OK, now we need to know about added descriptors. */
->  bool vhost_enable_notify(struct vhost_virtqueue *vq)
->  {
-> @@ -1086,7 +1191,7 @@ bool vhost_enable_notify(struct vhost_vi
->  		return false;
->  	}
+> +	/* If there's nothing new since last we looked, return invalid. */
+> +	if (vq->avail_idx == last_avail_idx)
+> +		return vq->num;
+> +
+> +	/* Only get avail ring entries after they have been exposed by guest. */
+> +	rmb();
+> +
+> +	/* Grab the next descriptor number they're advertising, and increment
+> +	 * the index we've seen. */
+> +	if (get_user(head, &vq->avail->ring[last_avail_idx % vq->num])) {
+> +		vq_err(vq, "Failed to read head: idx %d address %p\n",
+> +		       last_avail_idx,
+> +		       &vq->avail->ring[last_avail_idx % vq->num]);
+> +		return vq->num;
+> +	}
+> +
+> +	/* If their number is silly, that's an error. */
+> +	if (head >= vq->num) {
+> +		vq_err(vq, "Guest says index %u > %u is available",
+> +		       head, vq->num);
+> +		return vq->num;
+> +	}
+> +
+> +	ret = __vhost_get_vq_desc(dev, vq, iov, iov_size,
+> +				  out_num, in_num,
+> +				  log, log_num, head);
 >  
-> -	return avail_idx != vq->last_avail_idx;
-> +	return avail_idx != vq->avail_idx;
+>  	/* On success, increment avail index. */
+> +	if (ret == vq->num)
+> +		return ret;
+>  	vq->last_avail_idx++;
+>  	return head;
 >  }
+> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+> index 44591ba..3c9cbce 100644
+> --- a/drivers/vhost/vhost.h
+> +++ b/drivers/vhost/vhost.h
+> @@ -43,6 +43,11 @@ struct vhost_log {
+>  	u64 len;
+>  };
 >  
->  /* We don't need to be notified again. */
-> diff -ruNp net-next-v0/drivers/vhost/vhost.h net-next-v5/drivers/vhost/vhost.h
-> --- net-next-v0/drivers/vhost/vhost.h	2010-03-22 12:04:38.000000000 -0700
-> +++ net-next-v5/drivers/vhost/vhost.h	2010-04-22 11:35:54.000000000 -0700
-> @@ -84,7 +84,9 @@ struct vhost_virtqueue {
->  	struct iovec indirect[VHOST_NET_MAX_SG];
->  	struct iovec iov[VHOST_NET_MAX_SG];
->  	struct iovec hdr[VHOST_NET_MAX_SG];
-> -	size_t hdr_size;
-> +	size_t vhost_hlen;
-> +	size_t sock_hlen;
-> +	struct vring_used_elem heads[VHOST_NET_MAX_SG];
->  	/* We use a kind of RCU to access private pointer.
->  	 * All readers access it from workqueue, which makes it possible to
->  	 * flush the workqueue instead of synchronize_rcu. Therefore readers do
-> @@ -120,16 +122,23 @@ long vhost_dev_ioctl(struct vhost_dev *,
->  int vhost_vq_access_ok(struct vhost_virtqueue *vq);
->  int vhost_log_access_ok(struct vhost_dev *);
+> +enum vhost_vq_link_state {
+> +	VHOST_VQ_LINK_SYNC = 0,
+> +	VHOST_VQ_LINK_ASYNC = 1,
+> +};
+> +
+>  /* The virtqueue structure describes a queue attached to a device. */
+>  struct vhost_virtqueue {
+>  	struct vhost_dev *dev;
+> @@ -96,6 +101,10 @@ struct vhost_virtqueue {
+>  	/* Log write descriptors */
+>  	void __user *log_base;
+>  	struct vhost_log log[VHOST_NET_MAX_SG];
+> +	/* Differiate async socket for 0-copy from normal */
+> +	enum vhost_vq_link_state link_state;
+> +	struct list_head notifier;
+> +	spinlock_t notify_lock;
+>  };
 >  
-> -unsigned vhost_get_vq_desc(struct vhost_dev *, struct vhost_virtqueue *,
-> +int vhost_get_desc_n(struct vhost_virtqueue *, struct vring_used_elem *heads,
-> +		     int datalen, int *iovcount, struct vhost_log *log,
-> +		     unsigned int *log_num);
-> +unsigned vhost_get_desc(struct vhost_dev *, struct vhost_virtqueue *,
+>  struct vhost_dev {
+> @@ -124,6 +133,11 @@ unsigned vhost_get_vq_desc(struct vhost_dev *, struct vhost_virtqueue *,
 >  			   struct iovec iov[], unsigned int iov_count,
 >  			   unsigned int *out_num, unsigned int *in_num,
 >  			   struct vhost_log *log, unsigned int *log_num);
-> -void vhost_discard_vq_desc(struct vhost_virtqueue *);
-> +void vhost_discard_desc(struct vhost_virtqueue *, int);
+> +unsigned __vhost_get_vq_desc(struct vhost_dev *, struct vhost_virtqueue *,
+> +			   struct iovec iov[], unsigned int iov_count,
+> +			   unsigned int *out_num, unsigned int *in_num,
+> +			   struct vhost_log *log, unsigned int *log_num,
+> +			   unsigned int head);
+>  void vhost_discard_vq_desc(struct vhost_virtqueue *);
 >  
 >  int vhost_add_used(struct vhost_virtqueue *, unsigned int head, int len);
-> -void vhost_signal(struct vhost_dev *, struct vhost_virtqueue *);
-> +int vhost_add_used_n(struct vhost_virtqueue *, struct vring_used_elem *heads,
-> +		    int count);
->  void vhost_add_used_and_signal(struct vhost_dev *, struct vhost_virtqueue *,
-> -			       unsigned int head, int len);
-> +			       unsigned int id, int len);
-> +void vhost_add_used_and_signal_n(struct vhost_dev *, struct vhost_virtqueue *,
-> +			       struct vring_used_elem *heads, int count);
-> +void vhost_signal(struct vhost_dev *, struct vhost_virtqueue *);
->  void vhost_disable_notify(struct vhost_virtqueue *);
->  bool vhost_enable_notify(struct vhost_virtqueue *);
->  
-> @@ -149,7 +158,8 @@ enum {
->  	VHOST_FEATURES = (1 << VIRTIO_F_NOTIFY_ON_EMPTY) |
->  			 (1 << VIRTIO_RING_F_INDIRECT_DESC) |
->  			 (1 << VHOST_F_LOG_ALL) |
-> -			 (1 << VHOST_NET_F_VIRTIO_NET_HDR),
-> +			 (1 << VHOST_NET_F_VIRTIO_NET_HDR) |
-> +			 (1 << VIRTIO_NET_F_MRG_RXBUF),
->  };
->  
->  static inline int vhost_has_feature(struct vhost_dev *dev, int bit)
-> 
+> -- 
+> 1.5.4.4
