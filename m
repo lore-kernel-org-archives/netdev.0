@@ -1,62 +1,60 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next-2.6] bridge br_multicast: Ensure to initialize BR_INPUT_SKB_CB(skb)->mrouters_only.
-Date: Mon, 26 Apr 2010 03:06:40 +0900
-Message-ID: <201004251806.o3PI6e2p008200@94.43.138.210.xn.2iij.net>
-Cc: yoshfuji@linux-ipv6.rg, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH net-next-2.6] netns: call ops_free right after ops_exit
+Date: Sun, 25 Apr 2010 20:44:31 +0200
+Message-ID: <20100425184430.GA2891@psychotron.redhat.com>
+References: <20100425092600.GB2866@psychotron.redhat.com>
+ <20100425.025902.94572342.davem@davemloft.net>
+ <m1k4rvvb5x.fsf@fess.ebiederm.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:46009 "EHLO
-	94.43.138.210.xn.2iij.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753652Ab0DYSGt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Apr 2010 14:06:49 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:47272 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753348Ab0DYSof (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 Apr 2010 14:44:35 -0400
+Content-Disposition: inline
+In-Reply-To: <m1k4rvvb5x.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Even with commit 32dec5dd0233ebffa9cae25ce7ba6daeb7df4467 ("bridge
-br_multicast: Don't refer to BR_INPUT_SKB_CB(skb)->mrouters_only
-without IGMP snooping."), BR_INPUT_SKB_CB(skb)->mrouters_only is
-not appropriately initialized if IGMP/MLD snooping support is
-compiled and disabled, so we can see garbage.
+Sun, Apr 25, 2010 at 04:50:34PM CEST, ebiederm@xmission.com wrote:
+>David Miller <davem@davemloft.net> writes:
+>
+>> From: Jiri Pirko <jpirko@redhat.com>
+>> Date: Sun, 25 Apr 2010 11:26:01 +0200
+>>
+>>> There's no need to iterate this twice. We can free net generic
+>>> variables right after exit is called.
+>>>
+>>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>>
+>> Are you sure there are no problems with doing this?
+>>
+>> What if there are inter-net variable reference dependencies
+>> or something like that?
+>>
+>> I really suspect it is being done this way on purpose, but
+>> in the end I defer to experts like Eric B. :-)
+>
+>I am pretty certain there is a problem.  My memory is fuzzy this
+>morning but I believe we can have rcu references between various
+>pieces of the networking stack for a single network namespace.  So we
+>need to cause all of the network namespace to exit before it is safe
+>to free those pieces.
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- net/bridge/br_multicast.c |    9 +++------
- 1 files changed, 3 insertions(+), 6 deletions(-)
+Hmm, that doesn't make much sense to me. Since the allocated memory in question
+is used locally, after exit() is called, the memory chunk should not be used by
+anyone and if it is, I think it's a bug.
 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 38d1fbd..e481dbd 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1340,9 +1340,6 @@ static int br_multicast_ipv4_rcv(struct net_bridge *br,
- 	unsigned offset;
- 	int err;
- 
--	BR_INPUT_SKB_CB(skb)->igmp = 0;
--	BR_INPUT_SKB_CB(skb)->mrouters_only = 0;
--
- 	/* We treat OOM as packet loss for now. */
- 	if (!pskb_may_pull(skb, sizeof(*iph)))
- 		return -EINVAL;
-@@ -1440,9 +1437,6 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
- 	unsigned offset;
- 	int err;
- 
--	BR_INPUT_SKB_CB(skb)->igmp = 0;
--	BR_INPUT_SKB_CB(skb)->mrouters_only = 0;
--
- 	if (!pskb_may_pull(skb, sizeof(*ip6h)))
- 		return -EINVAL;
- 
-@@ -1550,6 +1544,9 @@ out:
- int br_multicast_rcv(struct net_bridge *br, struct net_bridge_port *port,
- 		     struct sk_buff *skb)
- {
-+	BR_INPUT_SKB_CB(skb)->igmp = 0;
-+	BR_INPUT_SKB_CB(skb)->mrouters_only = 0;
-+
- 	if (br->multicast_disabled)
- 		return 0;
- 
--- 
-1.5.6.5
+Earlier, when the memory wasn't allocated automatically (by filling .size)
+memory was individually freed in exit(). From what I understood from your reply,
+you are telling this was buggy?
 
+Jirka
+
+>
+>Eric
+>
+>
