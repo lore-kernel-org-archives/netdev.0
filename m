@@ -1,107 +1,205 @@
-From: Miles Lane <miles.lane@gmail.com>
-Subject: Re: [PATCH] RCU: don't turn off lockdep when find suspicious
-	rcu_dereference_check() usage
-Date: Sun, 25 Apr 2010 16:20:13 -0400
-Message-ID: <p2ga44ae5cd1004251320j55d23ba7ua0fa14497f623d76@mail.gmail.com>
-References: <1271766716.2972.16.camel@dhcp231-113.rdu.redhat.com>
-	 <t2la44ae5cd1004200838w87256e80v9dcde91342b321db@mail.gmail.com>
-	 <20100421213543.GO2563@linux.vnet.ibm.com>
-	 <20100422145640.GB3228@redhat.com>
-	 <20100422160144.GC2524@linux.vnet.ibm.com>
-	 <h2xa44ae5cd1004230550uf734c89eo2b1d1945d446068c@mail.gmail.com>
-	 <20100423194255.GE2589@linux.vnet.ibm.com>
-	 <m2xa44ae5cd1004231559hcf90671asf146a43b4748c2c3@mail.gmail.com>
-	 <20100425023455.GM2440@linux.vnet.ibm.com>
-	 <w2sa44ae5cd1004250849q73704370vc6af935c70db9b73@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Vivek Goyal <vgoyal@redhat.com>, Eric Paris <eparis@redhat.com>,
-	Lai Jiangshan <laijs@cn.fujitsu.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Peter Zijlstra <peterz@infradead.org>,
-	LKML <linux-kernel@vger.kernel.org>, nauman@google.com,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	Jens Axboe <jens.axboe@oracle.com>,
-	Gui Jianfeng <guijianfeng@cn.fujitsu.com>,
-	Li Zefan <lizf@cn.fujitsu.com>,
-	Johannes Berg <johannes@sipsolutions.net>
-To: paulmck@linux.vnet.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <w2sa44ae5cd1004250849q73704370vc6af935c70db9b73@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Subject: [PATCH 2/2] net/sb1250: remove CONFIG_SIBYTE_STANDALONE
+Date: Sun, 25 Apr 2010 23:02:28 +0200
+Message-ID: <1272229348-16140-2-git-send-email-sebastian@breakpoint.cc>
+References: <1272229348-16140-1-git-send-email-sebastian@breakpoint.cc>
+Cc: netdev@vger.kernel.org,
+	Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+To: Ralf Baechle <ralf@linux-mips.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:57841 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751239Ab0DYVCn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Apr 2010 17:02:43 -0400
+In-Reply-To: <1272229348-16140-1-git-send-email-sebastian@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> I am down to seeing three suspicious rcu_dereference_check traces when
-> I apply this patch and all the previous patches to 2.6.34-rc5-git6.
->
-> 1. The "__sched_setscheduler+0x19d/0x300" trace.
-> 2. The two "is_swiotlb_buffer+0x2e/0x3b" traces (waiting to see
-> Johannes' patch show up in a Linux snapshot)
->
-> Did I miss a patch for the setscheduler issue?
+CONFIG_SIBYTE_STANDALONE is gone since v2.6.31-rc1 ("MIPS: Sibyte:
+Remove standalone kernel support")
+This is a missing piece.
 
-Hmm.  I am still seeing these two messages as well.
+Signed-off-by: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+---
+ drivers/net/sb1250-mac.c |  144 ----------------------------------------------
+ 1 files changed, 0 insertions(+), 144 deletions(-)
 
-[   83.363146] [ INFO: suspicious rcu_dereference_check() usage. ]
-[   83.363148] ---------------------------------------------------
-[   83.363151] include/net/inet_timewait_sock.h:227 invoked
-rcu_dereference_check() without protection!
-[   83.363154]
-[   83.363155] other info that might help us debug this:
-[   83.363156]
-[   83.363158]
-[   83.363159] rcu_scheduler_active = 1, debug_locks = 1
-[   83.363162] 2 locks held by gwibber-service/5076:
-[   83.363164]  #0:  (&p->lock){+.+.+.}, at: [<ffffffff8110534a>]
-seq_read+0x37/0x381
-[   83.363176]  #1:  (&(&hashinfo->ehash_locks[i])->rlock){+.-...},
-at: [<ffffffff813ddcd5>] established_get_next+0xc4/0x132
-[   83.363186]
-[   83.363187] stack backtrace:
-[   83.363191] Pid: 5076, comm: gwibber-service Not tainted 2.6.34-rc5-git6 #27
-[   83.363194] Call Trace:
-[   83.363202]  [<ffffffff81068086>] lockdep_rcu_dereference+0x9d/0xa5
-[   83.363207]  [<ffffffff813dc998>] twsk_net+0x4f/0x57
-[   83.363212]  [<ffffffff813ddc65>] established_get_next+0x54/0x132
-[   83.363216]  [<ffffffff813dde47>] tcp_seq_next+0x5d/0x6a
-[   83.363221]  [<ffffffff81105599>] seq_read+0x286/0x381
-[   83.363226]  [<ffffffff81105313>] ? seq_read+0x0/0x381
-[   83.363231]  [<ffffffff8113503c>] proc_reg_read+0x8d/0xac
-[   83.363236]  [<ffffffff810ebf14>] vfs_read+0xa6/0x103
-[   83.363241]  [<ffffffff810ec027>] sys_read+0x45/0x69
-[   83.363246]  [<ffffffff81002b6b>] system_call_fastpath+0x16/0x1b
+diff --git a/drivers/net/sb1250-mac.c b/drivers/net/sb1250-mac.c
+index d162862..fc503a1 100644
+--- a/drivers/net/sb1250-mac.c
++++ b/drivers/net/sb1250-mac.c
+@@ -48,23 +48,6 @@
+ #include <asm/io.h>
+ #include <asm/processor.h>	/* Processor type for cache alignment. */
+ 
+-/* This is only here until the firmware is ready.  In that case,
+-   the firmware leaves the ethernet address in the register for us. */
+-#ifdef CONFIG_SIBYTE_STANDALONE
+-#define SBMAC_ETH0_HWADDR "40:00:00:00:01:00"
+-#define SBMAC_ETH1_HWADDR "40:00:00:00:01:01"
+-#define SBMAC_ETH2_HWADDR "40:00:00:00:01:02"
+-#define SBMAC_ETH3_HWADDR "40:00:00:00:01:03"
+-#endif
+-
+-
+-/* These identify the driver base version and may not be removed. */
+-#if 0
+-static char version1[] __initdata =
+-"sb1250-mac.c:1.00 1/11/2001 Written by Mitch Lichtenberg\n";
+-#endif
+-
+-
+ /* Operational parameters that usually are not changed. */
+ 
+ #define CONFIG_SBMAC_COALESCE
+@@ -2182,85 +2165,6 @@ static void sbmac_setmulti(struct sbmac_softc *sc)
+ 	}
+ }
+ 
+-#if defined(SBMAC_ETH0_HWADDR) || defined(SBMAC_ETH1_HWADDR) || defined(SBMAC_ETH2_HWADDR) || defined(SBMAC_ETH3_HWADDR)
+-/**********************************************************************
+- *  SBMAC_PARSE_XDIGIT(str)
+- *
+- *  Parse a hex digit, returning its value
+- *
+- *  Input parameters:
+- *  	   str - character
+- *
+- *  Return value:
+- *  	   hex value, or -1 if invalid
+- ********************************************************************* */
+-
+-static int sbmac_parse_xdigit(char str)
+-{
+-	int digit;
+-
+-	if ((str >= '0') && (str <= '9'))
+-		digit = str - '0';
+-	else if ((str >= 'a') && (str <= 'f'))
+-		digit = str - 'a' + 10;
+-	else if ((str >= 'A') && (str <= 'F'))
+-		digit = str - 'A' + 10;
+-	else
+-		return -1;
+-
+-	return digit;
+-}
+-
+-/**********************************************************************
+- *  SBMAC_PARSE_HWADDR(str,hwaddr)
+- *
+- *  Convert a string in the form xx:xx:xx:xx:xx:xx into a 6-byte
+- *  Ethernet address.
+- *
+- *  Input parameters:
+- *  	   str - string
+- *  	   hwaddr - pointer to hardware address
+- *
+- *  Return value:
+- *  	   0 if ok, else -1
+- ********************************************************************* */
+-
+-static int sbmac_parse_hwaddr(char *str, unsigned char *hwaddr)
+-{
+-	int digit1,digit2;
+-	int idx = 6;
+-
+-	while (*str && (idx > 0)) {
+-		digit1 = sbmac_parse_xdigit(*str);
+-		if (digit1 < 0)
+-			return -1;
+-		str++;
+-		if (!*str)
+-			return -1;
+-
+-		if ((*str == ':') || (*str == '-')) {
+-			digit2 = digit1;
+-			digit1 = 0;
+-		}
+-		else {
+-			digit2 = sbmac_parse_xdigit(*str);
+-			if (digit2 < 0)
+-				return -1;
+-			str++;
+-		}
+-
+-		*hwaddr++ = (digit1 << 4) | digit2;
+-		idx--;
+-
+-		if (*str == '-')
+-			str++;
+-		if (*str == ':')
+-			str++;
+-	}
+-	return 0;
+-}
+-#endif
+-
+ static int sb1250_change_mtu(struct net_device *_dev, int new_mtu)
+ {
+ 	if (new_mtu >  ENET_PACKET_SIZE)
+@@ -2768,36 +2672,6 @@ static int __exit sbmac_remove(struct platform_device *pldev)
+ static struct platform_device **sbmac_pldev;
+ static int sbmac_max_units;
+ 
+-#if defined(SBMAC_ETH0_HWADDR) || defined(SBMAC_ETH1_HWADDR) || defined(SBMAC_ETH2_HWADDR) || defined(SBMAC_ETH3_HWADDR)
+-static void __init sbmac_setup_hwaddr(int idx, char *addr)
+-{
+-	void __iomem *sbm_base;
+-	unsigned long start, end;
+-	uint8_t eaddr[6];
+-	uint64_t val;
+-
+-	if (idx >= sbmac_max_units)
+-		return;
+-
+-	start = A_MAC_CHANNEL_BASE(idx);
+-	end = A_MAC_CHANNEL_BASE(idx + 1) - 1;
+-
+-	sbm_base = ioremap_nocache(start, end - start + 1);
+-	if (!sbm_base) {
+-		printk(KERN_ERR "%s: unable to map device registers\n",
+-		       sbmac_string);
+-		return;
+-	}
+-
+-	sbmac_parse_hwaddr(addr, eaddr);
+-	val = sbmac_addr2reg(eaddr);
+-	__raw_writeq(val, sbm_base + R_MAC_ETHERNET_ADDR);
+-	val = __raw_readq(sbm_base + R_MAC_ETHERNET_ADDR);
+-
+-	iounmap(sbm_base);
+-}
+-#endif
+-
+ static int __init sbmac_platform_probe_one(int idx)
+ {
+ 	struct platform_device *pldev;
+@@ -2874,24 +2748,6 @@ static void __init sbmac_platform_probe(void)
+ 		return;				/* none */
+ 	}
+ 
+-	/*
+-	 * For bringup when not using the firmware, we can pre-fill
+-	 * the MAC addresses using the environment variables
+-	 * specified in this file (or maybe from the config file?)
+-	 */
+-#ifdef SBMAC_ETH0_HWADDR
+-	sbmac_setup_hwaddr(0, SBMAC_ETH0_HWADDR);
+-#endif
+-#ifdef SBMAC_ETH1_HWADDR
+-	sbmac_setup_hwaddr(1, SBMAC_ETH1_HWADDR);
+-#endif
+-#ifdef SBMAC_ETH2_HWADDR
+-	sbmac_setup_hwaddr(2, SBMAC_ETH2_HWADDR);
+-#endif
+-#ifdef SBMAC_ETH3_HWADDR
+-	sbmac_setup_hwaddr(3, SBMAC_ETH3_HWADDR);
+-#endif
+-
+ 	sbmac_pldev = kcalloc(sbmac_max_units, sizeof(*sbmac_pldev),
+ 			      GFP_KERNEL);
+ 	if (!sbmac_pldev) {
+-- 
+1.6.6.1
 
-[   84.660302] [ INFO: suspicious rcu_dereference_check() usage. ]
-[   84.660304] ---------------------------------------------------
-[   84.660308] include/net/inet_timewait_sock.h:227 invoked
-rcu_dereference_check() without protection!
-[   84.660311]
-[   84.660312] other info that might help us debug this:
-[   84.660313]
-[   84.660315]
-[   84.660316] rcu_scheduler_active = 1, debug_locks = 1
-[   84.660319] no locks held by gwibber-service/5081.
-[   84.660321]
-[   84.660322] stack backtrace:
-[   84.660325] Pid: 5081, comm: gwibber-service Not tainted 2.6.34-rc5-git6 #27
-[   84.660328] Call Trace:
-[   84.660339]  [<ffffffff81068086>] lockdep_rcu_dereference+0x9d/0xa5
-[   84.660345]  [<ffffffff813cad6f>] twsk_net+0x4f/0x57
-[   84.660350]  [<ffffffff813cb18f>] __inet_twsk_hashdance+0x50/0x158
-[   84.660355]  [<ffffffff813e0bb9>] tcp_time_wait+0x1c1/0x24b
-[   84.660360]  [<ffffffff813d3d97>] tcp_fin+0x83/0x162
-[   84.660364]  [<ffffffff813d4727>] tcp_data_queue+0x1ff/0xa1e
-[   84.660370]  [<ffffffff810496aa>] ? mod_timer+0x1e/0x20
-[   84.660375]  [<ffffffff813d8363>] tcp_rcv_state_process+0x89d/0x8f2
-[   84.660381]  [<ffffffff813943bb>] ? release_sock+0x30/0x10b
-[   84.660386]  [<ffffffff813de772>] tcp_v4_do_rcv+0x2de/0x33f
-[   84.660391]  [<ffffffff8139440d>] release_sock+0x82/0x10b
-[   84.660395]  [<ffffffff813ce875>] tcp_close+0x1b5/0x37e
-[   84.660401]  [<ffffffff813ecdb7>] inet_release+0x50/0x57
-[   84.660405]  [<ffffffff81391ae4>] sock_release+0x1a/0x66
-[   84.660410]  [<ffffffff81391b52>] sock_close+0x22/0x26
-[   84.660415]  [<ffffffff810ece07>] __fput+0x120/0x1cd
-[   84.660420]  [<ffffffff810ecec9>] fput+0x15/0x17
-[   84.660424]  [<ffffffff810e9d41>] filp_close+0x63/0x6d
-[   84.660428]  [<ffffffff810e9e22>] sys_close+0xd7/0x111
-[   84.660434]  [<ffffffff81002b6b>] system_call_fastpath+0x16/0x1b
