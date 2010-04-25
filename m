@@ -1,149 +1,165 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH] can: Add driver for esd CAN-USB/2 device
-Date: Sun, 25 Apr 2010 12:53:36 +0200
-Message-ID: <4BD41F30.3060201@grandegger.com>
-References: <201004231015.16751.matthias.fuchs@esd.eu>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC][PATCH v4 00/18] Provide a zero-copy method on KVM
+	virtio-net.
+Date: Sun, 25 Apr 2010 15:14:21 +0300
+Message-ID: <20100425121420.GB10238@redhat.com>
+References: <1272187206-18534-10-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-11-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-12-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-13-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-14-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-15-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-16-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-17-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-18-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-19-git-send-email-xiaohui.xin@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, socketcan-core@lists.berlios.de
-To: Matthias Fuchs <matthias.fuchs@esd.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:45724 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752653Ab0DYKzo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Apr 2010 06:55:44 -0400
-In-Reply-To: <201004231015.16751.matthias.fuchs@esd.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mingo@elte.hu, davem@davemloft.net,
+	jdike@linux.intel.com
+To: xiaohui.xin@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1272187206-18534-19-git-send-email-xiaohui.xin@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Matthias,
-
-Matthias Fuchs wrote:
-> This patch adds a driver for esd's USB high speed
-> CAN interface. The driver supports devices with
-> multiple CAN interfaces.
+On Sun, Apr 25, 2010 at 05:20:06PM +0800, xiaohui.xin@intel.com wrote:
+> We provide an zero-copy method which driver side may get external
+> buffers to DMA. Here external means driver don't use kernel space
+> to allocate skb buffers. Currently the external buffer can be from
+> guest virtio-net driver.
 > 
-> Signed-off-by: Matthias Fuchs <matthias.fuchs@esd.eu>
-
-Could you please add support for the recently added feature:
-
-  commit 52c793f24054f5dc30d228e37e0e19cc8313f086
-  Author: Wolfgang Grandegger <wg@grandegger.com>
-  Date:   Mon Feb 22 22:21:17 2010 +0000
-
-    can: netlink support for bus-error reporting and counters
-    
-    This patch makes the bus-error reporting configurable and allows to
-    retrieve the CAN TX and RX bus error counters via netlink interface.
-    I have added support for the SJA1000. The TX and RX bus error counters
-    are also copied to the data fields 6..7 of error messages when state
-    changes are reported.
-
-Should not be a big deal. Also, please make a CC to the USB Linux
-mailing list. Some minor comments below:
-
-> ---
->  drivers/net/can/usb/Kconfig    |    6 +
->  drivers/net/can/usb/Makefile   |    1 +
->  drivers/net/can/usb/esd_usb2.c | 1107 ++++++++++++++++++++++++++++++++++++++++
->  3 files changed, 1114 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/net/can/usb/esd_usb2.c
+> The idea is simple, just to pin the guest VM user space and then
+> let host NIC driver has the chance to directly DMA to it. 
+> The patches are based on vhost-net backend driver. We add a device
+> which provides proto_ops as sendmsg/recvmsg to vhost-net to
+> send/recv directly to/from the NIC driver. KVM guest who use the
+> vhost-net backend may bind any ethX interface in the host side to
+> get copyless data transfer thru guest virtio-net frontend.
 > 
-...
-> diff --git a/drivers/net/can/usb/esd_usb2.c b/drivers/net/can/usb/esd_usb2.c
-> new file mode 100644
-> index 0000000..c714ce9
-> --- /dev/null
-> +++ b/drivers/net/can/usb/esd_usb2.c
-...
-> +struct id_filter_msg {
-> +	u8 len;
-> +	u8 cmd;
-> +	u8 net;
-> +	u8 option;
-> +	__le32 mask[65];
+> patch 01-12:  	net core changes.
+> patch 13-17:  	new device as interface to mantpulate external buffers.
+> patch 18: 	for vhost-net.
+> 
+> The guest virtio-net driver submits multiple requests thru vhost-net
+> backend driver to the kernel. And the requests are queued and then
+> completed after corresponding actions in h/w are done.
+> 
+> For read, user space buffers are dispensed to NIC driver for rx when
+> a page constructor API is invoked. Means NICs can allocate user buffers
+> from a page constructor. We add a hook in netif_receive_skb() function
+> to intercept the incoming packets, and notify the zero-copy device.
+> 
+> For write, the zero-copy deivce may allocates a new host skb and puts
+> payload on the skb_shinfo(skb)->frags, and copied the header to skb->data.
+> The request remains pending until the skb is transmitted by h/w.
+> 
+> Here, we have ever considered 2 ways to utilize the page constructor
+> API to dispense the user buffers.
+> 
+> One:	Modify __alloc_skb() function a bit, it can only allocate a 
+> 	structure of sk_buff, and the data pointer is pointing to a 
+> 	user buffer which is coming from a page constructor API.
+> 	Then the shinfo of the skb is also from guest.
+> 	When packet is received from hardware, the skb->data is filled
+> 	directly by h/w. What we have done is in this way.
+> 
+> 	Pros:	We can avoid any copy here.
+> 	Cons:	Guest virtio-net driver needs to allocate skb as almost
+> 		the same method with the host NIC drivers, say the size
+> 		of netdev_alloc_skb() and the same reserved space in the
+> 		head of skb. Many NIC drivers are the same with guest and
+> 		ok for this. But some lastest NIC drivers reserves special
+> 		room in skb head. To deal with it, we suggest to provide
+> 		a method in guest virtio-net driver to ask for parameter
+> 		we interest from the NIC driver when we know which device 
+> 		we have bind to do zero-copy. Then we ask guest to do so.
+> 		Is that reasonable?
 
-ESD_MAX_ID_SEGMENT + 1 ?
+Do you still do this?
 
-...
-> +static netdev_tx_t esd_usb2_start_xmit(struct sk_buff *skb,
-> +				      struct net_device *netdev)
-> +{
-> +	struct esd_usb2_net_priv *priv = netdev_priv(netdev);
-> +	struct esd_usb2 *dev = priv->usb2;
-> +	struct esd_tx_urb_context *context = NULL;
-> +	struct net_device_stats *stats = &netdev->stats;
-> +	struct can_frame *cf = (struct can_frame *)skb->data;
-> +	struct esd_usb2_msg *msg;
-> +	struct urb *urb;
-> +	u8 *buf;
-> +	int i, err;
-> +	int ret = NETDEV_TX_OK;
-> +	size_t size = sizeof(struct esd_usb2_msg);
-> +
-> +	if (can_dropped_invalid_skb(netdev, skb))
-> +		return NETDEV_TX_OK;
-> +
-> +	/* create a URB, and a buffer for it, and copy the data to the URB */
-> +	urb = usb_alloc_urb(0, GFP_ATOMIC);
-> +	if (!urb) {
-> +		dev_err(netdev->dev.parent, "No memory left for URBs\n");
-> +		stats->tx_dropped++;
-> +		dev_kfree_skb(skb);
-> +		goto nourbmem;
-> +	}
-> +
-> +	buf = usb_buffer_alloc(dev->udev, size, GFP_ATOMIC, &urb->transfer_dma);
-> +	if (!buf) {
-> +		dev_err(netdev->dev.parent, "No memory left for USB buffer\n");
-> +		stats->tx_dropped++;
-> +		dev_kfree_skb(skb);
-> +		goto nobufmem;
-> +	}
-> +
-> +	msg = (struct esd_usb2_msg *)buf;
-> +
-> +	msg->msg.hdr.len = 3; /* minimal length */
-> +	msg->msg.hdr.cmd = CMD_CAN_TX;
-> +	msg->msg.tx.net = priv->index;
-> +	msg->msg.tx.dlc = cf->can_dlc;
-> +	msg->msg.tx.id = cpu_to_le32(cf->can_id & CAN_ERR_MASK);
-> +
-> +	if (cf->can_id & CAN_RTR_FLAG)
-> +		msg->msg.tx.dlc |= ESD_RTR;
-> +
-> +	if (cf->can_id & CAN_EFF_FLAG)
-> +		msg->msg.tx.id |= cpu_to_le32(ESD_EXTID);
-> +
-> +	for (i = 0; i < cf->can_dlc; i++)
-> +		msg->msg.tx.data[i] = cf->data[i];
-> +
-> +	msg->msg.hdr.len += (cf->can_dlc + 3) >> 2;
-> +
-> +	for (i = 0; i < MAX_TX_URBS; i++) {
-> +		if (priv->tx_contexts[i].echo_index == MAX_TX_URBS) {
-> +			context = &priv->tx_contexts[i];
-> +			break;
-> +		}
-> +	}
-> +
-> +	/*
-> +	 * This may never happen.
-> +	 */
-> +	if (!context) {
-> +		dev_warn(netdev->dev.parent, "couldn't find free context\n");
-> +		ret = NETDEV_TX_BUSY;
-> +		goto releasebuf;
-> +	}
-> +
-> +	context->priv = priv;
-> +	context->echo_index = i;
-> +	context->dlc = cf->can_dlc;
-> +
-> +	/* hnd must not be 0 */
-> +	msg->msg.tx.hnd = 0x80000000 | i; /* returned in TX done message */
+> Two:	Modify driver to get user buffer allocated from a page constructor
+> 	API(to substitute alloc_page()), the user buffer are used as payload
+> 	buffers and filled by h/w directly when packet is received. Driver
+> 	should associate the pages with skb (skb_shinfo(skb)->frags). For 
+> 	the head buffer side, let host allocates skb, and h/w fills it. 
+> 	After that, the data filled in host skb header will be copied into
+> 	guest header buffer which is submitted together with the payload buffer.
+> 
+> 	Pros:	We could less care the way how guest or host allocates their
+> 		buffers.
+> 	Cons:	We still need a bit copy here for the skb header.
+> 
+> We are not sure which way is the better here. This is the first thing we want
+> to get comments from the community. We wish the modification to the network
+> part will be generic which not used by vhost-net backend only, but a user
+> application may use it as well when the zero-copy device may provides async
+> read/write operations later.
 
-ESD_USB2_UBR ?
+I commented on this in the past. Do you still want comments?
 
-Wolfgang.
+> Please give comments especially for the network part modifications.
+> 
+> 
+> We provide multiple submits and asynchronous notifiicaton to 
+> vhost-net too.
+> 
+> Our goal is to improve the bandwidth and reduce the CPU usage.
+> Exact performance data will be provided later. But for simple
+> test with netperf, we found bindwidth up and CPU % up too,
+> but the bindwidth up ratio is much more than CPU % up ratio.
+> 
+> What we have not done yet:
+> 	packet split support
+> 	To support GRO
+> 	Performance tuning
+> 
+> what we have done in v1:
+> 	polish the RCU usage
+> 	deal with write logging in asynchroush mode in vhost
+> 	add notifier block for mp device
+> 	rename page_ctor to mp_port in netdevice.h to make it looks generic
+> 	add mp_dev_change_flags() for mp device to change NIC state
+> 	add CONIFG_VHOST_MPASSTHRU to limit the usage when module is not load
+> 	a small fix for missing dev_put when fail
+> 	using dynamic minor instead of static minor number
+> 	a __KERNEL__ protect to mp_get_sock()
+> 
+> what we have done in v2:
+> 	
+> 	remove most of the RCU usage, since the ctor pointer is only
+> 	changed by BIND/UNBIND ioctl, and during that time, NIC will be
+> 	stopped to get good cleanup(all outstanding requests are finished),
+> 	so the ctor pointer cannot be raced into wrong situation.
+> 
+> 	Remove the struct vhost_notifier with struct kiocb.
+> 	Let vhost-net backend to alloc/free the kiocb and transfer them
+> 	via sendmsg/recvmsg.
+> 
+> 	use get_user_pages_fast() and set_page_dirty_lock() when read.
+> 
+> 	Add some comments for netdev_mp_port_prep() and handle_mpassthru().
+> 
+> what we have done in v3:
+> 	the async write logging is rewritten 
+> 	a drafted synchronous write function for qemu live migration
+> 	a limit for locked pages from get_user_pages_fast() to prevent Dos
+> 	by using RLIMIT_MEMLOCK
+> 	
+> 
+> what we have done in v4:
+> 	add iocb completion callback from vhost-net to queue iocb in mp device
+> 	replace vq->receiver by mp_sock_data_ready()
+> 	remove stuff in mp device which access structures from vhost-net
+> 	modify skb_reserve() to ignore host NIC driver reserved space
+> 	rebase to the latest vhost tree
+> 	split large patches into small pieces, especially for net core part.
+> 	
+> 		
+> performance:
+> 	using netperf with GSO/TSO disabled, 10G NIC, 
+> 	disabled packet split mode, with raw socket case compared to vhost.
+> 
+> 	bindwidth will be from 1.1Gbps to 1.7Gbps
+> 	CPU % from 120%-140% to 140%-160%
+
+That's nice. The thing to do is probably to enable GSO/TSO
+and see what we get this way. Also, mergeable buffer support
+was recently posted and I hope to merge it for 2.6.35.
+You might want to take a look.
+
+-- 
+MST
