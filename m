@@ -1,8 +1,8 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: PROBLEM: Linux kernel 2.6.31 IPv4 TCP fails to open huge
  amount of outgoing connections (unable to bind ... )
-Date: Sun, 25 Apr 2010 18:13:44 +0200
-Message-ID: <1272212024.2069.1.camel@edumazet-laptop>
+Date: Sun, 25 Apr 2010 18:21:00 +0200
+Message-ID: <1272212460.2069.9.camel@edumazet-laptop>
 References: <1271828799.7895.1287.camel@edumazet-laptop>
 	 <20100421082559.GA32475@ioremap.net>
 	 <1271840535.7895.1612.camel@edumazet-laptop>
@@ -23,12 +23,12 @@ Cc: "Michael S. Tsirkin" <mst@redhat.com>,
 	netdev <netdev@vger.kernel.org>
 To: Evgeniy Polyakov <zbr@ioremap.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:51491 "EHLO
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:35796 "EHLO
 	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753068Ab0DYQNv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Apr 2010 12:13:51 -0400
-Received: by bwz19 with SMTP id 19so631059bwz.21
-        for <netdev@vger.kernel.org>; Sun, 25 Apr 2010 09:13:49 -0700 (PDT)
+	with ESMTP id S1753461Ab0DYQVH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Apr 2010 12:21:07 -0400
+Received: by bwz19 with SMTP id 19so633765bwz.21
+        for <netdev@vger.kernel.org>; Sun, 25 Apr 2010 09:21:04 -0700 (PDT)
 In-Reply-To: <20100425155600.GA13319@ioremap.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -64,14 +64,38 @@ nnection_sock.c
 > I suppose above line is guilty when inet6_rcv_saddr() returns NULL?
 >=20
 
-Oh its a typo
+Sorry, I cant test this at this moment (I am travelling)
 
-we should test ipv6_addr_any(inet6_rcv_saddr(sk))
+Evgeniy, David could you double check ?
 
-instead of ipv6_addr_any(inet6_rcv_saddr(sk2))
+Michael, could you test this patch ?
 
-(sk is AF_INET6, while sk2 could be AF_INET)
+Thanks !
 
-I'll submit a patch promptly
+[PATCH] ipv6: Fix inet6_csk_bind_conflict()
+
+Commit fda48a0d7a84 (tcp: bind() fix when many ports are bound)
+introduced a bug on IPV6 part.
+We should not call ipv6_addr_any(inet6_rcv_saddr(sk2)) but
+ipv6_addr_any(inet6_rcv_saddr(sk)) because sk2 can be IPV4, while sk is
+IPV6.
+
+Reported-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connecti=
+on_sock.c
+index b4b7d40..3a4d92b 100644
+--- a/net/ipv6/inet6_connection_sock.c
++++ b/net/ipv6/inet6_connection_sock.c
+@@ -48,7 +48,7 @@ int inet6_csk_bind_conflict(const struct sock *sk,
+ 			     ipv6_rcv_saddr_equal(sk, sk2))
+ 				break;
+ 			else if (sk->sk_reuse && sk2->sk_reuse &&
+-				!ipv6_addr_any(inet6_rcv_saddr(sk2)) &&
++				!ipv6_addr_any(inet6_rcv_saddr(sk)) &&
+ 				ipv6_rcv_saddr_equal(sk, sk2))
+ 				break;
+ 		}
 
 
