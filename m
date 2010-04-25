@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][PATCH v4 05/18] Add a function to indicate if device use
- external buffer.
-Date: Sun, 25 Apr 2010 02:51:54 -0700 (PDT)
-Message-ID: <20100425.025154.152946070.davem@davemloft.net>
-References: <1272187206-18534-4-git-send-email-xiaohui.xin@intel.com>
-	<1272187206-18534-5-git-send-email-xiaohui.xin@intel.com>
-	<t2z412e6f7f1004250235ib1002b3doe604d786dadefaa5@mail.gmail.com>
+Subject: Re: [RFC][PATCH v4 00/18] Provide a zero-copy method on KVM
+ virtio-net.
+Date: Sun, 25 Apr 2010 02:55:29 -0700 (PDT)
+Message-ID: <20100425.025529.123989625.davem@davemloft.net>
+References: <1272187206-18534-17-git-send-email-xiaohui.xin@intel.com>
+	<1272187206-18534-18-git-send-email-xiaohui.xin@intel.com>
+	<1272187206-18534-19-git-send-email-xiaohui.xin@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
 	jdike@linux.intel.com
-To: xiaosuo@gmail.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <t2z412e6f7f1004250235ib1002b3doe604d786dadefaa5@mail.gmail.com>
-Sender: kvm-owner@vger.kernel.org
+To: xiaohui.xin@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1272187206-18534-19-git-send-email-xiaohui.xin@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Sun, 25 Apr 2010 17:35:01 +0800
+From: xiaohui.xin@intel.com
+Date: Sun, 25 Apr 2010 17:20:06 +0800
 
-> On Sun, Apr 25, 2010 at 5:19 PM,  <xiaohui.xin@intel.com> wrote:
->> +static int dev_is_mpassthru(struct net_device *dev)
-> 
-> bool return value should be better here.
+> The idea is simple, just to pin the guest VM user space and then let
+> host NIC driver has the chance to directly DMA to it.
 
-Right.
+Isn't it much easier to map the RX ring of the network device into the
+guest's address space, have DMA map calls translate guest addresses to
+physical/DMA addresses as well as do all of this crazy page pinning
+stuff, and provide the translations and protections via the IOMMU?
+
+What's being proposed here looks a bit over-engineered.
