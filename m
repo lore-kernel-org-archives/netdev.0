@@ -1,165 +1,184 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC][PATCH v4 00/18] Provide a zero-copy method on KVM
-	virtio-net.
-Date: Sun, 25 Apr 2010 15:14:21 +0300
-Message-ID: <20100425121420.GB10238@redhat.com>
-References: <1272187206-18534-10-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-11-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-12-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-13-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-14-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-15-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-16-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-17-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-18-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-19-git-send-email-xiaohui.xin@intel.com>
+Subject: Re: PROBLEM: Linux kernel 2.6.31 IPv4 TCP fails to open huge
+	amount of outgoing connections (unable to bind ... )
+Date: Sun, 25 Apr 2010 17:26:42 +0300
+Message-ID: <20100425142642.GA11411@redhat.com>
+References: <20100421003022.GA3107@ioremap.net> <1271828799.7895.1287.camel@edumazet-laptop> <20100421082559.GA32475@ioremap.net> <1271840535.7895.1612.camel@edumazet-laptop> <20100421095812.GA14778@ioremap.net> <1271849253.7895.1929.camel@edumazet-laptop> <20100421182723.GA17202@ioremap.net> <1271875416.7895.3033.camel@edumazet-laptop> <20100421185837.GB21249@ioremap.net> <1271877975.7895.3171.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mingo@elte.hu, davem@davemloft.net,
-	jdike@linux.intel.com
-To: xiaohui.xin@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Evgeniy Polyakov <zbr@ioremap.net>,
+	Ben Greear <greearb@candelatech.com>,
+	David Miller <davem@davemloft.net>,
+	Gaspar Chilingarov <gasparch@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:19568 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751070Ab0DYOar (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 Apr 2010 10:30:47 -0400
 Content-Disposition: inline
-In-Reply-To: <1272187206-18534-19-git-send-email-xiaohui.xin@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1271877975.7895.3171.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 25, 2010 at 05:20:06PM +0800, xiaohui.xin@intel.com wrote:
-> We provide an zero-copy method which driver side may get external
-> buffers to DMA. Here external means driver don't use kernel space
-> to allocate skb buffers. Currently the external buffer can be from
-> guest virtio-net driver.
-> 
-> The idea is simple, just to pin the guest VM user space and then
-> let host NIC driver has the chance to directly DMA to it. 
-> The patches are based on vhost-net backend driver. We add a device
-> which provides proto_ops as sendmsg/recvmsg to vhost-net to
-> send/recv directly to/from the NIC driver. KVM guest who use the
-> vhost-net backend may bind any ethX interface in the host side to
-> get copyless data transfer thru guest virtio-net frontend.
-> 
-> patch 01-12:  	net core changes.
-> patch 13-17:  	new device as interface to mantpulate external buffers.
-> patch 18: 	for vhost-net.
-> 
-> The guest virtio-net driver submits multiple requests thru vhost-net
-> backend driver to the kernel. And the requests are queued and then
-> completed after corresponding actions in h/w are done.
-> 
-> For read, user space buffers are dispensed to NIC driver for rx when
-> a page constructor API is invoked. Means NICs can allocate user buffers
-> from a page constructor. We add a hook in netif_receive_skb() function
-> to intercept the incoming packets, and notify the zero-copy device.
-> 
-> For write, the zero-copy deivce may allocates a new host skb and puts
-> payload on the skb_shinfo(skb)->frags, and copied the header to skb->data.
-> The request remains pending until the skb is transmitted by h/w.
-> 
-> Here, we have ever considered 2 ways to utilize the page constructor
-> API to dispense the user buffers.
-> 
-> One:	Modify __alloc_skb() function a bit, it can only allocate a 
-> 	structure of sk_buff, and the data pointer is pointing to a 
-> 	user buffer which is coming from a page constructor API.
-> 	Then the shinfo of the skb is also from guest.
-> 	When packet is received from hardware, the skb->data is filled
-> 	directly by h/w. What we have done is in this way.
-> 
-> 	Pros:	We can avoid any copy here.
-> 	Cons:	Guest virtio-net driver needs to allocate skb as almost
-> 		the same method with the host NIC drivers, say the size
-> 		of netdev_alloc_skb() and the same reserved space in the
-> 		head of skb. Many NIC drivers are the same with guest and
-> 		ok for this. But some lastest NIC drivers reserves special
-> 		room in skb head. To deal with it, we suggest to provide
-> 		a method in guest virtio-net driver to ask for parameter
-> 		we interest from the NIC driver when we know which device 
-> 		we have bind to do zero-copy. Then we ask guest to do so.
-> 		Is that reasonable?
+On Wed, Apr 21, 2010 at 09:26:15PM +0200, Eric Dumazet wrote:
+> Le mercredi 21 avril 2010 =E0 22:58 +0400, Evgeniy Polyakov a =E9crit=
+ :
+>=20
+> > Damn it, I tried multiple times :)
+> > You are right of course!
+> >=20
+>=20
+> Here is a formal patch then :)
+>=20
+> [PATCH] tcp: bind() fix when many ports are bound
+>=20
+> Port autoselection done by kernel only works when number of bound
+> sockets is under a threshold (typically 30000).
+>=20
+> When this threshold is over, we must check if there is a conflict bef=
+ore
+> exiting first loop in inet_csk_get_port()
+>=20
+> Change inet_csk_bind_conflict() to forbid two reuse-enabled sockets t=
+o
+> bind on same (address,port) tuple (with a non ANY address)
+>=20
+> Same change for inet6_csk_bind_conflict()
+>=20
+> Reported-by: Gaspar Chilingarov <gasparch@gmail.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+>  net/ipv4/inet_connection_sock.c  |   16 +++++++++++-----
+>  net/ipv6/inet6_connection_sock.c |   15 ++++++++++-----
+>  2 files changed, 21 insertions(+), 10 deletions(-)
+>=20
+> diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connecti=
+on_sock.c
+> index e0a3e35..78cbc39 100644
+> --- a/net/ipv4/inet_connection_sock.c
+> +++ b/net/ipv4/inet_connection_sock.c
+> @@ -70,13 +70,17 @@ int inet_csk_bind_conflict(const struct sock *sk,
+>  		    (!sk->sk_bound_dev_if ||
+>  		     !sk2->sk_bound_dev_if ||
+>  		     sk->sk_bound_dev_if =3D=3D sk2->sk_bound_dev_if)) {
+> +			const __be32 sk2_rcv_saddr =3D inet_rcv_saddr(sk2);
+> +
+>  			if (!reuse || !sk2->sk_reuse ||
+>  			    sk2->sk_state =3D=3D TCP_LISTEN) {
+> -				const __be32 sk2_rcv_saddr =3D inet_rcv_saddr(sk2);
+>  				if (!sk2_rcv_saddr || !sk_rcv_saddr ||
+>  				    sk2_rcv_saddr =3D=3D sk_rcv_saddr)
+>  					break;
+> -			}
+> +			} else if (reuse && sk2->sk_reuse &&
+> +				   sk2_rcv_saddr &&
+> +				   sk2_rcv_saddr =3D=3D sk_rcv_saddr)
+> +				break;
+>  		}
+>  	}
+>  	return node !=3D NULL;
+> @@ -120,9 +124,11 @@ again:
+>  						smallest_size =3D tb->num_owners;
+>  						smallest_rover =3D rover;
+>  						if (atomic_read(&hashinfo->bsockets) > (high - low) + 1) {
+> -							spin_unlock(&head->lock);
+> -							snum =3D smallest_rover;
+> -							goto have_snum;
+> +							if (!inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb)) {
+> +								spin_unlock(&head->lock);
+> +								snum =3D smallest_rover;
+> +								goto have_snum;
+> +							}
+>  						}
+>  					}
+>  					goto next;
+> diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connec=
+tion_sock.c
+> index 0c5e3c3..fb6959c 100644
+> --- a/net/ipv6/inet6_connection_sock.c
+> +++ b/net/ipv6/inet6_connection_sock.c
+> @@ -42,11 +42,16 @@ int inet6_csk_bind_conflict(const struct sock *sk=
+,
+>  		if (sk !=3D sk2 &&
+>  		    (!sk->sk_bound_dev_if ||
+>  		     !sk2->sk_bound_dev_if ||
+> -		     sk->sk_bound_dev_if =3D=3D sk2->sk_bound_dev_if) &&
+> -		    (!sk->sk_reuse || !sk2->sk_reuse ||
+> -		     sk2->sk_state =3D=3D TCP_LISTEN) &&
+> -		     ipv6_rcv_saddr_equal(sk, sk2))
+> -			break;
+> +		     sk->sk_bound_dev_if =3D=3D sk2->sk_bound_dev_if)) {
+> +			if ((!sk->sk_reuse || !sk2->sk_reuse ||
+> +			     sk2->sk_state =3D=3D TCP_LISTEN) &&
+> +			     ipv6_rcv_saddr_equal(sk, sk2))
+> +				break;
+> +			else if (sk->sk_reuse && sk2->sk_reuse &&
+> +				!ipv6_addr_any(inet6_rcv_saddr(sk2)) &&
+> +				ipv6_rcv_saddr_equal(sk, sk2))
+> +				break;
+> +		}
+>  	}
+> =20
+>  	return node !=3D NULL;
+>=20
 
-Do you still do this?
+With this applied, my box crashes on boot:
+rhel6 beta userspace, v2.6.34-rc5-204-gddc9b34 kernel.
+2.6.34-rc5 kernel boots fine.
+the crash seems to be around net/ipv6/inet6_connection_sock.c:50
+after reverting fda48a0d7a8412cedacda46a9c0bf8ef9cd13559,
+the crash goes away.
 
-> Two:	Modify driver to get user buffer allocated from a page constructor
-> 	API(to substitute alloc_page()), the user buffer are used as payload
-> 	buffers and filled by h/w directly when packet is received. Driver
-> 	should associate the pages with skb (skb_shinfo(skb)->frags). For 
-> 	the head buffer side, let host allocates skb, and h/w fills it. 
-> 	After that, the data filled in host skb header will be copied into
-> 	guest header buffer which is submitted together with the payload buffer.
-> 
-> 	Pros:	We could less care the way how guest or host allocates their
-> 		buffers.
-> 	Cons:	We still need a bit copy here for the skb header.
-> 
-> We are not sure which way is the better here. This is the first thing we want
-> to get comments from the community. We wish the modification to the network
-> part will be generic which not used by vhost-net backend only, but a user
-> application may use it as well when the zero-copy device may provides async
-> read/write operations later.
+I created https://bugzilla.kernel.org/show_bug.cgi?id=3D15847
+to track this.
 
-I commented on this in the past. Do you still want comments?
+Oops below:
 
-> Please give comments especially for the network part modifications.
-> 
-> 
-> We provide multiple submits and asynchronous notifiicaton to 
-> vhost-net too.
-> 
-> Our goal is to improve the bandwidth and reduce the CPU usage.
-> Exact performance data will be provided later. But for simple
-> test with netperf, we found bindwidth up and CPU % up too,
-> but the bindwidth up ratio is much more than CPU % up ratio.
-> 
-> What we have not done yet:
-> 	packet split support
-> 	To support GRO
-> 	Performance tuning
-> 
-> what we have done in v1:
-> 	polish the RCU usage
-> 	deal with write logging in asynchroush mode in vhost
-> 	add notifier block for mp device
-> 	rename page_ctor to mp_port in netdevice.h to make it looks generic
-> 	add mp_dev_change_flags() for mp device to change NIC state
-> 	add CONIFG_VHOST_MPASSTHRU to limit the usage when module is not load
-> 	a small fix for missing dev_put when fail
-> 	using dynamic minor instead of static minor number
-> 	a __KERNEL__ protect to mp_get_sock()
-> 
-> what we have done in v2:
-> 	
-> 	remove most of the RCU usage, since the ctor pointer is only
-> 	changed by BIND/UNBIND ioctl, and during that time, NIC will be
-> 	stopped to get good cleanup(all outstanding requests are finished),
-> 	so the ctor pointer cannot be raced into wrong situation.
-> 
-> 	Remove the struct vhost_notifier with struct kiocb.
-> 	Let vhost-net backend to alloc/free the kiocb and transfer them
-> 	via sendmsg/recvmsg.
-> 
-> 	use get_user_pages_fast() and set_page_dirty_lock() when read.
-> 
-> 	Add some comments for netdev_mp_port_prep() and handle_mpassthru().
-> 
-> what we have done in v3:
-> 	the async write logging is rewritten 
-> 	a drafted synchronous write function for qemu live migration
-> 	a limit for locked pages from get_user_pages_fast() to prevent Dos
-> 	by using RLIMIT_MEMLOCK
-> 	
-> 
-> what we have done in v4:
-> 	add iocb completion callback from vhost-net to queue iocb in mp device
-> 	replace vq->receiver by mp_sock_data_ready()
-> 	remove stuff in mp device which access structures from vhost-net
-> 	modify skb_reserve() to ignore host NIC driver reserved space
-> 	rebase to the latest vhost tree
-> 	split large patches into small pieces, especially for net core part.
-> 	
-> 		
-> performance:
-> 	using netperf with GSO/TSO disabled, 10G NIC, 
-> 	disabled packet split mode, with raw socket case compared to vhost.
-> 
-> 	bindwidth will be from 1.1Gbps to 1.7Gbps
-> 	CPU % from 120%-140% to 140%-160%
+BUG: unable to handle kernel NULL pointer dereference at
+0000000000000004
+IP: [<ffffffffa02b99aa>] inet6_csk_bind_conflict+0x6a/0x110 [ipv6]
+PGD 0=20
+Oops: 0000 [#1] SMP=20
+last sysfs file:
+/sys/devices/pci0000:00/0000:00:01.0/0000:01:00.0/net/eth0/ifindex
+CPU 9=20
+Modules linked in: ip6t_REJECT nf_conntrack_ipv6 ip6table_filter
+ip6_tables ipv6 dm_mirror dm_region_hash dm_log igb i2c_i801 sg iTCO_wd=
+t
+iTCO_vendor_support shpchp ioatdma dca pcspkr sr_mod cdrom ext4 mbcache
+jbd2 sd_mod ata_generic crc_t10dif pata_acpi ahci pata_jmicron radeon
+ttm drm_kms_helper drm i2c_algo_bit i2c_core dm_mod [last unloaded:
+scsi_wait_scan]
 
-That's nice. The thing to do is probably to enable GSO/TSO
-and see what we get this way. Also, mergeable buffer support
-was recently posted and I hope to merge it for 2.6.35.
-You might want to take a look.
+Pid: 1640, comm: master Not tainted 2.6.34-rc5-mst #1 X8DTN/X8DTN
+RIP: 0010:[<ffffffffa02b99aa>]  [<ffffffffa02b99aa>]
+inet6_csk_bind_conflict+0x6a/0x110 [ipv6]
+RSP: 0018:ffff8803357a7d98  EFLAGS: 00010293
+RAX: 0000000000000000 RBX: ffff880335709440 RCX: 0000000000000000
+RDX: 0000000000020011 RSI: ffff880335709440 RDI: ffff880334c61e78
+RBP: ffff8803357a7db8 R08: 0000000000000019 R09: 0000000000000019
+R10: 00000000000000d4 R11: 0000000000000400 R12: ffff880335709468
+R13: ffff880334c61800 R14: ffff880335489500 R15: ffffffff8225d700
+=46S:  00007feacd26f7c0(0000) GS:ffff8801c5700000(0000)
+knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000000000000004 CR3: 00000003341ef000 CR4: 00000000000006e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Process master (pid: 1640, threadinfo ffff8803357a6000, task
+ffff880334225540)
+Stack:
+ 0000000000000000 ffffffff8225b500 ffffc9001251ced0 ffff880334c61800
+<0> ffff8803357a7e48 ffffffff81418fa8 ffff880300000019 ffffffff8149ceb6
+<0> 0000000536306140 0000000000000246 ffff8803357a7e08 0000000000000246
+Call Trace:
+ [<ffffffff81418fa8>] inet_csk_get_port+0x238/0x450
+ [<ffffffff8149ceb6>] ? _raw_spin_lock_bh+0x16/0x40
+ [<ffffffff8149ce15>] ? _raw_read_unlock_bh+0x15/0x20
+ [<ffffffffa0290226>] ? ipv6_chk_addr+0xe6/0x100 [ipv6]
 
--- 
+--=20
 MST
