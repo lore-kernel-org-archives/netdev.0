@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][PATCH v4 00/18] Provide a zero-copy method on KVM
- virtio-net.
-Date: Sun, 25 Apr 2010 02:55:29 -0700 (PDT)
-Message-ID: <20100425.025529.123989625.davem@davemloft.net>
-References: <1272187206-18534-17-git-send-email-xiaohui.xin@intel.com>
-	<1272187206-18534-18-git-send-email-xiaohui.xin@intel.com>
-	<1272187206-18534-19-git-send-email-xiaohui.xin@intel.com>
+Subject: Re: [PATCH net-next-2.6] netns: call ops_free right after ops_exit
+Date: Sun, 25 Apr 2010 02:59:02 -0700 (PDT)
+Message-ID: <20100425.025902.94572342.davem@davemloft.net>
+References: <20100425092600.GB2866@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
-	jdike@linux.intel.com
-To: xiaohui.xin@intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1272187206-18534-19-git-send-email-xiaohui.xin@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com
+To: jpirko@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58709
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752498Ab0DYJ65 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Apr 2010 05:58:57 -0400
+In-Reply-To: <20100425092600.GB2866@psychotron.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: xiaohui.xin@intel.com
-Date: Sun, 25 Apr 2010 17:20:06 +0800
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Sun, 25 Apr 2010 11:26:01 +0200
 
-> The idea is simple, just to pin the guest VM user space and then let
-> host NIC driver has the chance to directly DMA to it.
+> There's no need to iterate this twice. We can free net generic
+> variables right after exit is called.
+>
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-Isn't it much easier to map the RX ring of the network device into the
-guest's address space, have DMA map calls translate guest addresses to
-physical/DMA addresses as well as do all of this crazy page pinning
-stuff, and provide the translations and protections via the IOMMU?
+Are you sure there are no problems with doing this?
 
-What's being proposed here looks a bit over-engineered.
+What if there are inter-net variable reference dependencies
+or something like that?
+
+I really suspect it is being done this way on purpose, but
+in the end I defer to experts like Eric B. :-)
