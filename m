@@ -1,27 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] rps: optimize rps_get_cpu()
-Date: Sun, 25 Apr 2010 00:38:34 -0700 (PDT)
-Message-ID: <20100425.003834.147984813.davem@davemloft.net>
-References: <1272122227-13070-1-git-send-email-xiaosuo@gmail.com>
-	<20100424.225128.52181685.davem@davemloft.net>
-	<z2h412e6f7f1004242348ibd5f96a2i7cd0557c37bb0921@mail.gmail.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH net-next-2.6] netns: rename unregister_pernet_subsys parameter
+Date: Sun, 25 Apr 2010 09:41:39 +0200
+Message-ID: <20100425074138.GA2866@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, ebiederm@xmission.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49414
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751104Ab0DYHi3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Apr 2010 03:38:29 -0400
-In-Reply-To: <z2h412e6f7f1004242348ibd5f96a2i7cd0557c37bb0921@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:7957 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751371Ab0DYHln (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 Apr 2010 03:41:43 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Sun, 25 Apr 2010 14:48:49 +0800
+Stay consistent with other functions and with comment also and name
+pernet_operations parameter properly.
 
-> Are they always aligned to 64-bit boundary? I don't think so.
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-If not than TCP stack should be crashing for past 15 years.
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index bd8c471..69a20bf 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -469,10 +469,10 @@ EXPORT_SYMBOL_GPL(register_pernet_subsys);
+  *	addition run the exit method for all existing network
+  *	namespaces.
+  */
+-void unregister_pernet_subsys(struct pernet_operations *module)
++void unregister_pernet_subsys(struct pernet_operations *ops)
+ {
+ 	mutex_lock(&net_mutex);
+-	unregister_pernet_operations(module);
++	unregister_pernet_operations(ops);
+ 	mutex_unlock(&net_mutex);
+ }
+ EXPORT_SYMBOL_GPL(unregister_pernet_subsys);
