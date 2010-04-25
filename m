@@ -1,205 +1,147 @@
 From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-Subject: [PATCH 2/2] net/sb1250: remove CONFIG_SIBYTE_STANDALONE
-Date: Sun, 25 Apr 2010 23:02:28 +0200
-Message-ID: <1272229348-16140-2-git-send-email-sebastian@breakpoint.cc>
-References: <1272229348-16140-1-git-send-email-sebastian@breakpoint.cc>
+Subject: [PATCH 1/2] net/sb1250: register mdio bus in probe
+Date: Sun, 25 Apr 2010 23:02:27 +0200
+Message-ID: <1272229348-16140-1-git-send-email-sebastian@breakpoint.cc>
 Cc: netdev@vger.kernel.org,
 	Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
 To: Ralf Baechle <ralf@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:57841 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:57839 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751239Ab0DYVCn (ORCPT
+	by vger.kernel.org with ESMTP id S1751232Ab0DYVCn (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sun, 25 Apr 2010 17:02:43 -0400
-In-Reply-To: <1272229348-16140-1-git-send-email-sebastian@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-CONFIG_SIBYTE_STANDALONE is gone since v2.6.31-rc1 ("MIPS: Sibyte:
-Remove standalone kernel support")
-This is a missing piece.
+"ifconfig eth0 up && ifconfig eth0 down" triggers:
+| kobject (a8000000cfa5a480): tried to init an initialized object, something is seriously wrong.
+| Call Trace:
+| [<ffffffff8010aabc>] dump_stack+0x8/0x34
+| [<ffffffff80293128>] kobject_init+0xe8/0xf0
+| [<ffffffff802d922c>] device_initialize+0x2c/0x98
+| [<ffffffff802d9cfc>] device_register+0x14/0x28
+| [<ffffffff80312cd4>] mdiobus_register+0xdc/0x1e0
+| [<ffffffff80314cf0>] sbmac_open+0x58/0x220
+| [<ffffffff803519bc>] __dev_open+0x11c/0x180
+| [<ffffffff8034d578>] __dev_change_flags+0x120/0x180
+| [<ffffffff80351848>] dev_change_flags+0x20/0x78
+| [<ffffffff803a753c>] devinet_ioctl+0x7cc/0x820
+| [<ffffffff80339ac8>] sock_do_ioctl+0x38/0x90
+| [<ffffffff8033a258>] compat_sock_ioctl_trans+0x408/0x1030
+| [<ffffffff8033af30>] compat_sock_ioctl+0xb0/0xd0
+| [<ffffffff80208b08>] compat_sys_ioctl+0xa0/0x18b8
+| [<ffffffff80102f94>] handle_sys+0x114/0x130
+|
+| sb1250-mac-mdio: probed
+
+mdiobus_register() calls device_register() which initializes the kobj of
+the device. mdiobus_unregister() calls only device_del() so we have one
+reference left. That one is leaving with mdiobus_free() which is only
+called on remove.
+Since I don't see any reason why mdiobus_register()/mdiobus_unregister()
+should happen in ->open()/->close() I move them to probe & exit.
 
 Signed-off-by: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
 ---
- drivers/net/sb1250-mac.c |  144 ----------------------------------------------
- 1 files changed, 0 insertions(+), 144 deletions(-)
+ drivers/net/sb1250-mac.c |   41 +++++++++++++++++++----------------------
+ 1 files changed, 19 insertions(+), 22 deletions(-)
 
 diff --git a/drivers/net/sb1250-mac.c b/drivers/net/sb1250-mac.c
-index d162862..fc503a1 100644
+index 9944e5d..d162862 100644
 --- a/drivers/net/sb1250-mac.c
 +++ b/drivers/net/sb1250-mac.c
-@@ -48,23 +48,6 @@
- #include <asm/io.h>
- #include <asm/processor.h>	/* Processor type for cache alignment. */
+@@ -2353,17 +2353,15 @@ static int sbmac_init(struct platform_device *pldev, long long base)
  
--/* This is only here until the firmware is ready.  In that case,
--   the firmware leaves the ethernet address in the register for us. */
--#ifdef CONFIG_SIBYTE_STANDALONE
--#define SBMAC_ETH0_HWADDR "40:00:00:00:01:00"
--#define SBMAC_ETH1_HWADDR "40:00:00:00:01:01"
--#define SBMAC_ETH2_HWADDR "40:00:00:00:01:02"
--#define SBMAC_ETH3_HWADDR "40:00:00:00:01:03"
--#endif
--
--
--/* These identify the driver base version and may not be removed. */
--#if 0
--static char version1[] __initdata =
--"sb1250-mac.c:1.00 1/11/2001 Written by Mitch Lichtenberg\n";
--#endif
--
--
- /* Operational parameters that usually are not changed. */
- 
- #define CONFIG_SBMAC_COALESCE
-@@ -2182,85 +2165,6 @@ static void sbmac_setmulti(struct sbmac_softc *sc)
+ 	sc->mii_bus = mdiobus_alloc();
+ 	if (sc->mii_bus == NULL) {
+-		sbmac_uninitctx(sc);
+-		return -ENOMEM;
++		err = -ENOMEM;
++		goto uninit_ctx;
  	}
+ 
+ 	err = register_netdev(dev);
+ 	if (err) {
+ 		printk(KERN_ERR "%s.%d: unable to register netdev\n",
+ 		       sbmac_string, idx);
+-		mdiobus_free(sc->mii_bus);
+-		sbmac_uninitctx(sc);
+-		return err;
++		goto free_mdio;
+ 	}
+ 
+ 	pr_info("%s.%d: registered as %s\n", sbmac_string, idx, dev->name);
+@@ -2389,9 +2387,23 @@ static int sbmac_init(struct platform_device *pldev, long long base)
+ 		sc->mii_bus->irq[i] = SBMAC_PHY_INT;
+ 
+ 	sc->mii_bus->parent = &pldev->dev;
++	/*
++	 * Probe PHY address
++	 */
++	err = mdiobus_register(sc->mii_bus);
++	if (err) {
++		printk(KERN_ERR "%s: unable to register MDIO bus\n",
++		       dev->name);
++		goto free_mdio;
++	}
+ 	dev_set_drvdata(&pldev->dev, sc->mii_bus);
+-
+ 	return 0;
++
++free_mdio:
++	mdiobus_free(sc->mii_bus);
++uninit_ctx:
++	sbmac_uninitctx(sc);
++	return err;
  }
  
--#if defined(SBMAC_ETH0_HWADDR) || defined(SBMAC_ETH1_HWADDR) || defined(SBMAC_ETH2_HWADDR) || defined(SBMAC_ETH3_HWADDR)
--/**********************************************************************
-- *  SBMAC_PARSE_XDIGIT(str)
-- *
-- *  Parse a hex digit, returning its value
-- *
-- *  Input parameters:
-- *  	   str - character
-- *
-- *  Return value:
-- *  	   hex value, or -1 if invalid
-- ********************************************************************* */
--
--static int sbmac_parse_xdigit(char str)
--{
--	int digit;
--
--	if ((str >= '0') && (str <= '9'))
--		digit = str - '0';
--	else if ((str >= 'a') && (str <= 'f'))
--		digit = str - 'a' + 10;
--	else if ((str >= 'A') && (str <= 'F'))
--		digit = str - 'A' + 10;
--	else
--		return -1;
--
--	return digit;
--}
--
--/**********************************************************************
-- *  SBMAC_PARSE_HWADDR(str,hwaddr)
-- *
-- *  Convert a string in the form xx:xx:xx:xx:xx:xx into a 6-byte
-- *  Ethernet address.
-- *
-- *  Input parameters:
-- *  	   str - string
-- *  	   hwaddr - pointer to hardware address
-- *
-- *  Return value:
-- *  	   0 if ok, else -1
-- ********************************************************************* */
--
--static int sbmac_parse_hwaddr(char *str, unsigned char *hwaddr)
--{
--	int digit1,digit2;
--	int idx = 6;
--
--	while (*str && (idx > 0)) {
--		digit1 = sbmac_parse_xdigit(*str);
--		if (digit1 < 0)
--			return -1;
--		str++;
--		if (!*str)
--			return -1;
--
--		if ((*str == ':') || (*str == '-')) {
--			digit2 = digit1;
--			digit1 = 0;
--		}
--		else {
--			digit2 = sbmac_parse_xdigit(*str);
--			if (digit2 < 0)
--				return -1;
--			str++;
--		}
--
--		*hwaddr++ = (digit1 << 4) | digit2;
--		idx--;
--
--		if (*str == '-')
--			str++;
--		if (*str == ':')
--			str++;
--	}
--	return 0;
--}
--#endif
--
- static int sb1250_change_mtu(struct net_device *_dev, int new_mtu)
- {
- 	if (new_mtu >  ENET_PACKET_SIZE)
-@@ -2768,36 +2672,6 @@ static int __exit sbmac_remove(struct platform_device *pldev)
- static struct platform_device **sbmac_pldev;
- static int sbmac_max_units;
  
--#if defined(SBMAC_ETH0_HWADDR) || defined(SBMAC_ETH1_HWADDR) || defined(SBMAC_ETH2_HWADDR) || defined(SBMAC_ETH3_HWADDR)
--static void __init sbmac_setup_hwaddr(int idx, char *addr)
--{
--	void __iomem *sbm_base;
--	unsigned long start, end;
--	uint8_t eaddr[6];
--	uint64_t val;
--
--	if (idx >= sbmac_max_units)
--		return;
--
--	start = A_MAC_CHANNEL_BASE(idx);
--	end = A_MAC_CHANNEL_BASE(idx + 1) - 1;
--
--	sbm_base = ioremap_nocache(start, end - start + 1);
--	if (!sbm_base) {
--		printk(KERN_ERR "%s: unable to map device registers\n",
--		       sbmac_string);
--		return;
--	}
--
--	sbmac_parse_hwaddr(addr, eaddr);
--	val = sbmac_addr2reg(eaddr);
--	__raw_writeq(val, sbm_base + R_MAC_ETHERNET_ADDR);
--	val = __raw_readq(sbm_base + R_MAC_ETHERNET_ADDR);
--
--	iounmap(sbm_base);
--}
--#endif
--
- static int __init sbmac_platform_probe_one(int idx)
- {
- 	struct platform_device *pldev;
-@@ -2874,24 +2748,6 @@ static void __init sbmac_platform_probe(void)
- 		return;				/* none */
+@@ -2417,16 +2429,6 @@ static int sbmac_open(struct net_device *dev)
+ 		goto out_err;
  	}
  
 -	/*
--	 * For bringup when not using the firmware, we can pre-fill
--	 * the MAC addresses using the environment variables
--	 * specified in this file (or maybe from the config file?)
+-	 * Probe PHY address
 -	 */
--#ifdef SBMAC_ETH0_HWADDR
--	sbmac_setup_hwaddr(0, SBMAC_ETH0_HWADDR);
--#endif
--#ifdef SBMAC_ETH1_HWADDR
--	sbmac_setup_hwaddr(1, SBMAC_ETH1_HWADDR);
--#endif
--#ifdef SBMAC_ETH2_HWADDR
--	sbmac_setup_hwaddr(2, SBMAC_ETH2_HWADDR);
--#endif
--#ifdef SBMAC_ETH3_HWADDR
--	sbmac_setup_hwaddr(3, SBMAC_ETH3_HWADDR);
--#endif
+-	err = mdiobus_register(sc->mii_bus);
+-	if (err) {
+-		printk(KERN_ERR "%s: unable to register MDIO bus\n",
+-		       dev->name);
+-		goto out_unirq;
+-	}
 -
- 	sbmac_pldev = kcalloc(sbmac_max_units, sizeof(*sbmac_pldev),
- 			      GFP_KERNEL);
- 	if (!sbmac_pldev) {
+ 	sc->sbm_speed = sbmac_speed_none;
+ 	sc->sbm_duplex = sbmac_duplex_none;
+ 	sc->sbm_fc = sbmac_fc_none;
+@@ -2457,11 +2459,7 @@ static int sbmac_open(struct net_device *dev)
+ 	return 0;
+ 
+ out_unregister:
+-	mdiobus_unregister(sc->mii_bus);
+-
+-out_unirq:
+ 	free_irq(dev->irq, dev);
+-
+ out_err:
+ 	return err;
+ }
+@@ -2651,8 +2649,6 @@ static int sbmac_close(struct net_device *dev)
+ 	phy_disconnect(sc->phy_dev);
+ 	sc->phy_dev = NULL;
+ 
+-	mdiobus_unregister(sc->mii_bus);
+-
+ 	free_irq(dev->irq, dev);
+ 
+ 	sbdma_emptyring(&(sc->sbm_txdma));
+@@ -2760,6 +2756,7 @@ static int __exit sbmac_remove(struct platform_device *pldev)
+ 
+ 	unregister_netdev(dev);
+ 	sbmac_uninitctx(sc);
++	mdiobus_unregister(sc->mii_bus);
+ 	mdiobus_free(sc->mii_bus);
+ 	iounmap(sc->sbm_base);
+ 	free_netdev(dev);
 -- 
 1.6.6.1
 
