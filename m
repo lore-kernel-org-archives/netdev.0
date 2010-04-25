@@ -1,7 +1,7 @@
 From: xiaohui.xin@intel.com
-Subject: [RFC][PATCH v4 15/18] Manipulate external buffers in mp device.
-Date: Sun, 25 Apr 2010 17:20:02 +0800
-Message-ID: <1272187206-18534-15-git-send-email-xiaohui.xin@intel.com>
+Subject: [RFC][PATCH v4 00/18] Provide a zero-copy method on KVM virtio-net.
+Date: Sun, 25 Apr 2010 17:20:06 +0800
+Message-ID: <1272187206-18534-19-git-send-email-xiaohui.xin@intel.com>
 References: <1272187206-18534-1-git-send-email-xiaohui.xin@intel.com>
  <1272187206-18534-2-git-send-email-xiaohui.xin@intel.com>
  <1272187206-18534-3-git-send-email-xiaohui.xin@intel.com>
@@ -16,301 +16,149 @@ References: <1272187206-18534-1-git-send-email-xiaohui.xin@intel.com>
  <1272187206-18534-12-git-send-email-xiaohui.xin@intel.com>
  <1272187206-18534-13-git-send-email-xiaohui.xin@intel.com>
  <1272187206-18534-14-git-send-email-xiaohui.xin@intel.com>
-Cc: Xin Xiaohui <xiaohui.xin@intel.com>
+ <1272187206-18534-15-git-send-email-xiaohui.xin@intel.com>
+ <1272187206-18534-16-git-send-email-xiaohui.xin@intel.com>
+ <1272187206-18534-17-git-send-email-xiaohui.xin@intel.com>
+ <1272187206-18534-18-git-send-email-xiaohui.xin@intel.com>
 To: netdev@vger.kernel.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
 	davem@davemloft.net, jdike@linux.intel.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1272187206-18534-14-git-send-email-xiaohui.xin@intel.com>
+In-Reply-To: <1272187206-18534-18-git-send-email-xiaohui.xin@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Xin Xiaohui <xiaohui.xin@intel.com>
+We provide an zero-copy method which driver side may get external
+buffers to DMA. Here external means driver don't use kernel space
+to allocate skb buffers. Currently the external buffer can be from
+guest virtio-net driver.
 
-How external buffer comes from, how to destroy.
+The idea is simple, just to pin the guest VM user space and then
+let host NIC driver has the chance to directly DMA to it. 
+The patches are based on vhost-net backend driver. We add a device
+which provides proto_ops as sendmsg/recvmsg to vhost-net to
+send/recv directly to/from the NIC driver. KVM guest who use the
+vhost-net backend may bind any ethX interface in the host side to
+get copyless data transfer thru guest virtio-net frontend.
 
-Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
-Signed-off-by: Zhao Yu <yzhao81@gmail.com>
-Reviewed-by: Jeff Dike <jdike@linux.intel.com>
----
- drivers/vhost/mpassthru.c |  237 ++++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 236 insertions(+), 1 deletions(-)
+patch 01-12:  	net core changes.
+patch 13-17:  	new device as interface to mantpulate external buffers.
+patch 18: 	for vhost-net.
 
-diff --git a/drivers/vhost/mpassthru.c b/drivers/vhost/mpassthru.c
-index c5ede17..b171f21 100644
---- a/drivers/vhost/mpassthru.c
-+++ b/drivers/vhost/mpassthru.c
-@@ -159,6 +159,39 @@ static int mp_dev_change_flags(struct net_device *dev, unsigned flags)
- 	return ret;
- }
- 
-+/* The main function to allocate external buffers */
-+static struct skb_external_page *page_ctor(struct mpassthru_port *port,
-+		struct sk_buff *skb, int npages)
-+{
-+	int i;
-+	unsigned long flags;
-+	struct page_ctor *ctor;
-+	struct page_info *info = NULL;
-+
-+	ctor = container_of(port, struct page_ctor, port);
-+
-+	spin_lock_irqsave(&ctor->read_lock, flags);
-+	if (!list_empty(&ctor->readq)) {
-+		info = list_first_entry(&ctor->readq, struct page_info, list);
-+		list_del(&info->list);
-+	}
-+	spin_unlock_irqrestore(&ctor->read_lock, flags);
-+	if (!info)
-+		return NULL;
-+
-+	for (i = 0; i < info->pnum; i++) {
-+		get_page(info->pages[i]);
-+		info->frag[i].page = info->pages[i];
-+		info->frag[i].page_offset = i ? 0 : info->offset;
-+		info->frag[i].size = port->npages > 1 ? PAGE_SIZE :
-+			port->data_len;
-+	}
-+	info->skb = skb;
-+	info->ext_page.frags = info->frag;
-+	info->ext_page.ushinfo = &info->ushinfo;
-+	return &info->ext_page;
-+}
-+
- static int page_ctor_attach(struct mp_struct *mp)
- {
- 	int rc;
-@@ -191,7 +224,7 @@ static int page_ctor_attach(struct mp_struct *mp)
- 
- 	dev_hold(dev);
- 	ctor->dev = dev;
--	ctor->port.ctor = NULL;
-+	ctor->port.ctor = page_ctor;
- 	ctor->port.sock = &mp->socket;
- 	ctor->lock_pages = 0;
- 	rc = netdev_mp_port_attach(dev, &ctor->port);
-@@ -258,6 +291,52 @@ static int set_memlock_rlimit(struct page_ctor *ctor, int resource,
- 	task_unlock(current->group_leader);
- 	return 0;
- }
-+static void mp_ki_dtor(struct kiocb *iocb)
-+{
-+	struct page_info *info = (struct page_info *)(iocb->private);
-+	int i;
-+
-+	if (info->flags == INFO_READ) {
-+		for (i = 0; i < info->pnum; i++) {
-+			if (info->pages[i]) {
-+				set_page_dirty_lock(info->pages[i]);
-+				put_page(info->pages[i]);
-+			}
-+		}
-+		skb_shinfo(info->skb)->destructor_arg = &info->ext_page;
-+		info->skb->destructor = NULL;
-+		kfree_skb(info->skb);
-+	}
-+	/* Decrement the number of locked pages */
-+	info->ctor->lock_pages -= info->pnum;
-+	kmem_cache_free(info->ctor->cache, info);
-+
-+	return;
-+}
-+
-+static struct kiocb *create_iocb(struct page_info *info, int size)
-+{
-+	struct kiocb *iocb = NULL;
-+
-+	iocb = info->iocb;
-+	if (!iocb)
-+		return iocb;
-+	iocb->ki_flags = 0;
-+	iocb->ki_users = 1;
-+	iocb->ki_key = 0;
-+	iocb->ki_ctx = NULL;
-+	iocb->ki_cancel = NULL;
-+	iocb->ki_retry = NULL;
-+	iocb->ki_iovec = NULL;
-+	iocb->ki_eventfd = NULL;
-+	iocb->ki_pos = info->desc_pos;
-+	iocb->ki_nbytes = size;
-+	iocb->ki_dtor(iocb);
-+	iocb->private = (void *)info;
-+	iocb->ki_dtor = mp_ki_dtor;
-+
-+	return iocb;
-+}
- 
- static int page_ctor_detach(struct mp_struct *mp)
- {
-@@ -275,6 +354,7 @@ static int page_ctor_detach(struct mp_struct *mp)
- 		for (i = 0; i < info->pnum; i++)
- 			if (info->pages[i])
- 				put_page(info->pages[i]);
-+		create_iocb(info, 0);
- 		kmem_cache_free(ctor->cache, info);
- 	}
- 	set_memlock_rlimit(ctor, RLIMIT_MEMLOCK,
-@@ -328,6 +408,161 @@ static void mp_put(struct mp_file *mfile)
- 		mp_detach(mfile->mp);
- }
- 
-+/* The callback to destruct the external buffers or skb */
-+static void page_dtor(struct skb_external_page *ext_page)
-+{
-+	struct page_info *info;
-+	struct page_ctor *ctor;
-+	struct sock *sk;
-+	struct sk_buff *skb;
-+	struct kiocb *iocb = NULL;
-+	unsigned long flags;
-+
-+	if (!ext_page)
-+		return;
-+	info = container_of(ext_page, struct page_info, ext_page);
-+	if (!info)
-+		return;
-+	ctor = info->ctor;
-+	skb = info->skb;
-+
-+	if ((info->flags == INFO_READ) && info->skb)
-+		info->skb->head = NULL;
-+
-+	/* If the info->total is 0, make it to be reused */
-+	if (!info->total) {
-+		spin_lock_irqsave(&ctor->read_lock, flags);
-+		list_add(&info->list, &ctor->readq);
-+		spin_unlock_irqrestore(&ctor->read_lock, flags);
-+		return;
-+	}
-+
-+	if (info->flags == INFO_READ)
-+		return;
-+
-+	/* For transmit, we should wait for the DMA finish by hardware.
-+	 * Queue the notifier to wake up the backend driver
-+	 */
-+
-+	iocb = create_iocb(info, info->total);
-+
-+	sk = ctor->port.sock->sk;
-+	sk->sk_write_space(sk);
-+
-+	return;
-+}
-+
-+/* For small exteranl buffers transmit, we don't need to call
-+ * get_user_pages().
-+ */
-+static struct page_info *alloc_small_page_info(struct page_ctor *ctor,
-+		struct kiocb *iocb, int total)
-+{
-+	struct page_info *info = kmem_cache_zalloc(ctor->cache, GFP_KERNEL);
-+
-+	if (!info)
-+		return NULL;
-+	info->total = total;
-+	info->ext_page.dtor = page_dtor;
-+	info->ctor = ctor;
-+	info->flags = INFO_WRITE;
-+	info->iocb = iocb;
-+	return info;
-+}
-+
-+/* The main function to transform the guest user space address
-+ * to host kernel address via get_user_pages(). Thus the hardware
-+ * can do DMA directly to the external buffer address.
-+ */
-+static struct page_info *alloc_page_info(struct page_ctor *ctor,
-+		struct kiocb *iocb, struct iovec *iov,
-+		int count, struct frag *frags,
-+		int npages, int total)
-+{
-+	int rc;
-+	int i, j, n = 0;
-+	int len;
-+	unsigned long base, lock_limit;
-+	struct page_info *info = NULL;
-+
-+	lock_limit = current->signal->rlim[RLIMIT_MEMLOCK].rlim_cur;
-+	lock_limit >>= PAGE_SHIFT;
-+
-+	if (ctor->lock_pages + count > lock_limit) {
-+		printk(KERN_INFO "exceed the locked memory rlimit.");
-+		return NULL;
-+	}
-+
-+	info = kmem_cache_zalloc(ctor->cache, GFP_KERNEL);
-+
-+	if (!info)
-+		return NULL;
-+
-+	for (i = j = 0; i < count; i++) {
-+		base = (unsigned long)iov[i].iov_base;
-+		len = iov[i].iov_len;
-+
-+		if (!len)
-+			continue;
-+		n = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
-+
-+		rc = get_user_pages_fast(base, n, npages ? 1 : 0,
-+				&info->pages[j]);
-+		if (rc != n)
-+			goto failed;
-+
-+		while (n--) {
-+			frags[j].offset = base & ~PAGE_MASK;
-+			frags[j].size = min_t(int, len,
-+					PAGE_SIZE - frags[j].offset);
-+			len -= frags[j].size;
-+			base += frags[j].size;
-+			j++;
-+		}
-+	}
-+
-+#ifdef CONFIG_HIGHMEM
-+	if (npages && !(dev->features & NETIF_F_HIGHDMA)) {
-+		for (i = 0; i < j; i++) {
-+			if (PageHighMem(info->pages[i]))
-+				goto failed;
-+		}
-+	}
-+#endif
-+
-+	info->total = total;
-+	info->ext_page.dtor = page_dtor;
-+	info->ctor = ctor;
-+	info->pnum = j;
-+	info->iocb = iocb;
-+	if (!npages)
-+		info->flags = INFO_WRITE;
-+	if (info->flags == INFO_READ) {
-+		info->ext_page.start = (u8 *)(((unsigned long)
-+				(pfn_to_kaddr(page_to_pfn(info->pages[0]))) +
-+				frags[0].offset));
-+#ifdef NET_SKBUFF_DATA_USES_OFFSET
-+		info->ext_page.size = SKB_DATA_ALIGN(
-+				iov[0].iov_len + NET_IP_ALIGN + NET_SKB_PAD);
-+#else
-+		info->ext_page.size = SKB_DATA_ALIGN(
-+				iov[0].iov_len + NET_IP_ALIGN + NET_SKB_PAD) -
-+			NET_IP_ALIGN - NET_SKB_PAD;
-+#endif
-+	}
-+	/* increment the number of locked pages */
-+	ctor->lock_pages += j;
-+	return info;
-+
-+failed:
-+	for (i = 0; i < j; i++)
-+		put_page(info->pages[i]);
-+
-+	kmem_cache_free(ctor->cache, info);
-+
-+	return NULL;
-+}
-+
- /* Ops structure to mimic raw sockets with mp device */
- static const struct proto_ops mp_socket_ops = {
- };
--- 
-1.5.4.4
+The guest virtio-net driver submits multiple requests thru vhost-net
+backend driver to the kernel. And the requests are queued and then
+completed after corresponding actions in h/w are done.
+
+For read, user space buffers are dispensed to NIC driver for rx when
+a page constructor API is invoked. Means NICs can allocate user buffers
+from a page constructor. We add a hook in netif_receive_skb() function
+to intercept the incoming packets, and notify the zero-copy device.
+
+For write, the zero-copy deivce may allocates a new host skb and puts
+payload on the skb_shinfo(skb)->frags, and copied the header to skb->data.
+The request remains pending until the skb is transmitted by h/w.
+
+Here, we have ever considered 2 ways to utilize the page constructor
+API to dispense the user buffers.
+
+One:	Modify __alloc_skb() function a bit, it can only allocate a 
+	structure of sk_buff, and the data pointer is pointing to a 
+	user buffer which is coming from a page constructor API.
+	Then the shinfo of the skb is also from guest.
+	When packet is received from hardware, the skb->data is filled
+	directly by h/w. What we have done is in this way.
+
+	Pros:	We can avoid any copy here.
+	Cons:	Guest virtio-net driver needs to allocate skb as almost
+		the same method with the host NIC drivers, say the size
+		of netdev_alloc_skb() and the same reserved space in the
+		head of skb. Many NIC drivers are the same with guest and
+		ok for this. But some lastest NIC drivers reserves special
+		room in skb head. To deal with it, we suggest to provide
+		a method in guest virtio-net driver to ask for parameter
+		we interest from the NIC driver when we know which device 
+		we have bind to do zero-copy. Then we ask guest to do so.
+		Is that reasonable?
+
+Two:	Modify driver to get user buffer allocated from a page constructor
+	API(to substitute alloc_page()), the user buffer are used as payload
+	buffers and filled by h/w directly when packet is received. Driver
+	should associate the pages with skb (skb_shinfo(skb)->frags). For 
+	the head buffer side, let host allocates skb, and h/w fills it. 
+	After that, the data filled in host skb header will be copied into
+	guest header buffer which is submitted together with the payload buffer.
+
+	Pros:	We could less care the way how guest or host allocates their
+		buffers.
+	Cons:	We still need a bit copy here for the skb header.
+
+We are not sure which way is the better here. This is the first thing we want
+to get comments from the community. We wish the modification to the network
+part will be generic which not used by vhost-net backend only, but a user
+application may use it as well when the zero-copy device may provides async
+read/write operations later.
+
+Please give comments especially for the network part modifications.
+
+
+We provide multiple submits and asynchronous notifiicaton to 
+vhost-net too.
+
+Our goal is to improve the bandwidth and reduce the CPU usage.
+Exact performance data will be provided later. But for simple
+test with netperf, we found bindwidth up and CPU % up too,
+but the bindwidth up ratio is much more than CPU % up ratio.
+
+What we have not done yet:
+	packet split support
+	To support GRO
+	Performance tuning
+
+what we have done in v1:
+	polish the RCU usage
+	deal with write logging in asynchroush mode in vhost
+	add notifier block for mp device
+	rename page_ctor to mp_port in netdevice.h to make it looks generic
+	add mp_dev_change_flags() for mp device to change NIC state
+	add CONIFG_VHOST_MPASSTHRU to limit the usage when module is not load
+	a small fix for missing dev_put when fail
+	using dynamic minor instead of static minor number
+	a __KERNEL__ protect to mp_get_sock()
+
+what we have done in v2:
+	
+	remove most of the RCU usage, since the ctor pointer is only
+	changed by BIND/UNBIND ioctl, and during that time, NIC will be
+	stopped to get good cleanup(all outstanding requests are finished),
+	so the ctor pointer cannot be raced into wrong situation.
+
+	Remove the struct vhost_notifier with struct kiocb.
+	Let vhost-net backend to alloc/free the kiocb and transfer them
+	via sendmsg/recvmsg.
+
+	use get_user_pages_fast() and set_page_dirty_lock() when read.
+
+	Add some comments for netdev_mp_port_prep() and handle_mpassthru().
+
+what we have done in v3:
+	the async write logging is rewritten 
+	a drafted synchronous write function for qemu live migration
+	a limit for locked pages from get_user_pages_fast() to prevent Dos
+	by using RLIMIT_MEMLOCK
+	
+
+what we have done in v4:
+	add iocb completion callback from vhost-net to queue iocb in mp device
+	replace vq->receiver by mp_sock_data_ready()
+	remove stuff in mp device which access structures from vhost-net
+	modify skb_reserve() to ignore host NIC driver reserved space
+	rebase to the latest vhost tree
+	split large patches into small pieces, especially for net core part.
+	
+		
+performance:
+	using netperf with GSO/TSO disabled, 10G NIC, 
+	disabled packet split mode, with raw socket case compared to vhost.
+
+	bindwidth will be from 1.1Gbps to 1.7Gbps
+	CPU % from 120%-140% to 140%-160%
