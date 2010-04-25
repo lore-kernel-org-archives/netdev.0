@@ -1,96 +1,80 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: PROBLEM: Linux kernel 2.6.31 IPv4 TCP fails to open huge
-	amount of outgoing connections (unable to bind ... )
-Date: Sun, 25 Apr 2010 19:35:43 +0300
-Message-ID: <20100425163543.GA11831@redhat.com>
-References: <1271840535.7895.1612.camel@edumazet-laptop> <20100421095812.GA14778@ioremap.net> <1271849253.7895.1929.camel@edumazet-laptop> <20100421182723.GA17202@ioremap.net> <1271875416.7895.3033.camel@edumazet-laptop> <20100421185837.GB21249@ioremap.net> <1271877975.7895.3171.camel@edumazet-laptop> <20100425142642.GA11411@redhat.com> <20100425155600.GA13319@ioremap.net> <1272212460.2069.9.camel@edumazet-laptop>
+From: Sedat Dilek <sedat.dilek@googlemail.com>
+Subject: Re: [2.6.34-rc5-git6] EIP: is at inet6_csk_bind_conflict + 06xe/0xb7
+	[ipv6]
+Date: Sun, 25 Apr 2010 19:25:44 +0200
+Message-ID: <x2t2d0a357f1004251025q5a284b0fwa351f762acdf62e4@mail.gmail.com>
+References: <l2z2d0a357f1004250811w6da355ebp95d1730473026c22@mail.gmail.com>
+	 <4BD45E68.4080900@example.com>
+	 <g2z2d0a357f1004250931pf5880c60l32fd0643e0f14bde@mail.gmail.com>
+	 <4BD46F9C.5060500@example.com>
+	 <1272213597.2069.32.camel@edumazet-laptop>
+	 <j2p2d0a357f1004250955i59969a2cp9fd9eb9f3ef22d4b@mail.gmail.com>
+	 <4BD4757E.8020503@example.com>
+Reply-To: sedat.dilek@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Evgeniy Polyakov <zbr@ioremap.net>,
-	Ben Greear <greearb@candelatech.com>,
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
 	David Miller <davem@davemloft.net>,
-	Gaspar Chilingarov <gasparch@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32912 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752231Ab0DYRQF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 25 Apr 2010 13:16:05 -0400
-Content-Disposition: inline
-In-Reply-To: <1272212460.2069.9.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Jiri Olsa <jolsa@redhat.com>,
+	Jongman Heo <jongman.heo@gmail.com>
+To: piotr@hosowicz.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4BD4757E.8020503@example.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Apr 25, 2010 at 06:21:00PM +0200, Eric Dumazet wrote:
-> Le dimanche 25 avril 2010 =E0 19:56 +0400, Evgeniy Polyakov a =E9crit=
- :
-> > On Sun, Apr 25, 2010 at 05:26:42PM +0300, Michael S. Tsirkin (mst@r=
-edhat.com) wrote:
-> >=20
-> > > > diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_=
-connection_sock.c
-> > > > index 0c5e3c3..fb6959c 100644
-> > > > --- a/net/ipv6/inet6_connection_sock.c
-> > > > +++ b/net/ipv6/inet6_connection_sock.c
-> > > > @@ -42,11 +42,16 @@ int inet6_csk_bind_conflict(const struct so=
-ck *sk,
-> > > >  		if (sk !=3D sk2 &&
-> > > >  		    (!sk->sk_bound_dev_if ||
-> > > >  		     !sk2->sk_bound_dev_if ||
-> > > > -		     sk->sk_bound_dev_if =3D=3D sk2->sk_bound_dev_if) &&
-> > > > -		    (!sk->sk_reuse || !sk2->sk_reuse ||
-> > > > -		     sk2->sk_state =3D=3D TCP_LISTEN) &&
-> > > > -		     ipv6_rcv_saddr_equal(sk, sk2))
-> > > > -			break;
-> > > > +		     sk->sk_bound_dev_if =3D=3D sk2->sk_bound_dev_if)) {
-> > > > +			if ((!sk->sk_reuse || !sk2->sk_reuse ||
-> > > > +			     sk2->sk_state =3D=3D TCP_LISTEN) &&
-> > > > +			     ipv6_rcv_saddr_equal(sk, sk2))
-> > > > +				break;
-> > > > +			else if (sk->sk_reuse && sk2->sk_reuse &&
-> > > > +				!ipv6_addr_any(inet6_rcv_saddr(sk2)) &&
-> >=20
-> > I suppose above line is guilty when inet6_rcv_saddr() returns NULL?
-> >=20
->=20
-> Sorry, I cant test this at this moment (I am travelling)
->=20
-> Evgeniy, David could you double check ?
->=20
-> Michael, could you test this patch ?
->=20
-> Thanks !
->=20
-> [PATCH] ipv6: Fix inet6_csk_bind_conflict()
->=20
-> Commit fda48a0d7a84 (tcp: bind() fix when many ports are bound)
-> introduced a bug on IPV6 part.
-> We should not call ipv6_addr_any(inet6_rcv_saddr(sk2)) but
-> ipv6_addr_any(inet6_rcv_saddr(sk)) because sk2 can be IPV4, while sk =
-is
-> IPV6.
->=20
-> Reported-by: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
-> diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connec=
-tion_sock.c
-> index b4b7d40..3a4d92b 100644
-> --- a/net/ipv6/inet6_connection_sock.c
-> +++ b/net/ipv6/inet6_connection_sock.c
-> @@ -48,7 +48,7 @@ int inet6_csk_bind_conflict(const struct sock *sk,
->  			     ipv6_rcv_saddr_equal(sk, sk2))
->  				break;
->  			else if (sk->sk_reuse && sk2->sk_reuse &&
-> -				!ipv6_addr_any(inet6_rcv_saddr(sk2)) &&
-> +				!ipv6_addr_any(inet6_rcv_saddr(sk)) &&
->  				ipv6_rcv_saddr_equal(sk, sk2))
->  				break;
->  		}
->=20
+On Sun, Apr 25, 2010 at 7:01 PM, Piotr Hosowicz <piotr@hosowicz.com> wr=
+ote:
+> On 25.04.2010 18:55, Sedat Dilek wrote:
+>>
+[...]
+>> On Sun, Apr 25, 2010 at 6:39 PM, Eric Dumazet<eric.dumazet@gmail.com=
+>
+>> =C2=A0wrote:
+>>>
+>>> Le dimanche 25 avril 2010 =C3=A0 18:36 +0200, Piotr Hosowicz a =C3=A9=
+crit :
+>>>>
+>>>> On 25.04.2010 18:31, Sedat Dilek wrote:
+>>>>>
+>>>>> [ CCing netdev ML ]
+>>>>>
+>>>>> Confirmed: The revert-patch [1] fixes the problem here.
+>>>>
+>>>> I confirm, I've built a git6 kernel and it works fine.
+>>>>
+>>>>> See also "Bug 15847 - =C2=A0crash in inet6_csk_bind_conflict" [2]=
+=2E
+>>>>>
+>>>>> Feel free to add a... Tested-by: Sedat Dilek<sedat.dilek@gmail.co=
+m>
+>>>>
+>>>> I added created and tested phrase in my archive. ;-) Thank you a l=
+ot. I
+>>>> hope there will be no this error in git7.
+>>>>
+>>>
+>>> Did you test the proposed fix ?
+>
+> Eric, but where to get the proposed fix as a patch? I looked at kerne=
+l's
+> bugzilla and there is no such thing. As for now I applied Sedat's rev=
+erse
+> patch and now I am booted fine in git6 kernel.
+>
+> Regards,
+>
+> Piotr Hosowicz
+>
 
-works for me
-Tested-by: Michael S. Tsirkin <mst@redhat.com>
+=46or easy catching proposed patched to LKML look at <patchwork.kernel.=
+org> [1].
+There you find other mailing-lists and further patches.
+Cut-N-Paste excerpts of Eric's email should also work :-).
 
+- Sedat -
+
+[1] https://patchwork.kernel.org/project/LKML/list/
+[2] https://patchwork.kernel.org/patch/94961/
