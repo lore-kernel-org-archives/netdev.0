@@ -1,149 +1,151 @@
-From: "R. Weinedel" <r.weinedel@yahoo.de>
-Subject: vlan performance issue on outgoing traffic
-Date: Mon, 26 Apr 2010 00:20:39 +0200
-Message-ID: <4BD4C037.2070003@yahoo.de>
+From: Flavio Leitner <fbl@sysclose.org>
+Subject: Re: [PATCH v2] TCP: avoid to send keepalive probes if it is
+ receiving data
+Date: Sun, 25 Apr 2010 20:44:05 -0300
+Message-ID: <20100425234405.GA2550@sysclose.org>
+References: <1271581560.16881.4769.camel@edumazet-laptop>
+ <1271602519-6805-1-git-send-email-fleitner@redhat.com>
+ <1271610919.16881.5564.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp114.plus.mail.re1.yahoo.com ([69.147.102.77]:40264 "HELO
-	smtp114.plus.mail.re1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751239Ab0DYW1b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Apr 2010 18:27:31 -0400
+Received: from hapkido.dreamhost.com ([66.33.216.122]:48190 "EHLO
+	hapkido.dreamhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752338Ab0DYXpD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Apr 2010 19:45:03 -0400
+Received: from homiemail-a12.g.dreamhost.com (caiajhbdccah.dreamhost.com [208.97.132.207])
+	by hapkido.dreamhost.com (Postfix) with ESMTP id 87068179C49
+	for <netdev@vger.kernel.org>; Sun, 25 Apr 2010 16:45:03 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1271610919.16881.5564.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hallo,
+On Sun, Apr 18, 2010 at 07:15:19PM +0200, Eric Dumazet wrote:
+> Le dimanche 18 avril 2010 =E0 11:55 -0300, Flavio Leitner a =E9crit :
+> > RFC 1122 says the following:
+> > ...
+> >   Keep-alive packets MUST only be sent when no data or
+> >   acknowledgement packets have been received for the
+> >   connection within an interval.
+> > ...
+> >=20
+> > Fix this by storing the timestamp of last received data
+> > packet and checking for it when the keepalive timer expires.
+> >=20
+> > -v2 fix do_tcp_setsockopt() as pointed by Eric Dumazet <eric.dumaze=
+t@gmail.com>
+> >=20
+> > Signed-off-by: Flavio Leitner <fleitner@redhat.com>
+>=20
+>=20
+> I find this patch very welcome, and we could easily use this new
+> lrcvtime information available in diagnostic tools (ss command)
+>=20
+> But are you sure you update it for all valid packets ?
+>=20
+> If we receive a pure ACK, it seems you do not ...
 
-I have an performance issue with vlan interfaces on an Debian Lenny
-server. The problem occurs only on outgoing traffic from the vlan
-interfaces. They use only half of the available bandwidth - (490 Mbit/s
-measured with iperf ). Incoming traffic is handled @ 950 Mbit/s and is
-fine. The issue remains even with no switch and an direct connection
-between pc and server on the same nic. Removing (on server) the vlans
-from eth0 and configure one net on eth0 results in full speed (950
-Mbit/s) in both directions. Even another nic (onboard nvidia3 - mod
-forcedeth) couldn't solve it. I tested only in the same networking
-segment (vlan) without the need for ip forwarding or NAT, but the issue
-occurs on all my vlan's.
+Pure ack is handled by rcv_tstamp in the struct which is
+considered in tcp_keepalive_time() too.
 
-All values were taken with iperf between the server and an ubuntu 9.04
-workstation (and vice versa). I have controlled (w. ethtool / stats fro=
-m
-switch) that all connection was 1000-BaseT/full duplex. It looks like
-some kind of trafficshaping to me, but i don't use tc, qos,tos nor othe=
-r
-priority handling.
+The idea of exporting those variables is nice, I'll see
+how 'ss' works.
 
-The network ist quite simple: One Server, one switch and then the
-workstations. No need for cascading or using (r)stp.
+thanks for reviewing the patch!
+=20
 
-Here some information about my network:
+=20
+> > ---
+> >  include/linux/tcp.h  |    1 +
+> >  net/ipv4/tcp.c       |    5 ++++-
+> >  net/ipv4/tcp_input.c |    3 +++
+> >  net/ipv4/tcp_timer.c |    8 ++++++++
+> >  4 files changed, 16 insertions(+), 1 deletions(-)
+> >=20
+> > diff --git a/include/linux/tcp.h b/include/linux/tcp.h
+> > index a778ee0..405678f 100644
+> > --- a/include/linux/tcp.h
+> > +++ b/include/linux/tcp.h
+> > @@ -314,6 +314,7 @@ struct tcp_sock {
+> >   	u32	snd_sml;	/* Last byte of the most recently transmitted small=
+ packet */
+> >  	u32	rcv_tstamp;	/* timestamp of last received ACK (for keepalives=
+) */
+> >  	u32	lsndtime;	/* timestamp of last sent data packet (for restart =
+window) */
+> > +	u32	lrcvtime;	/* timestamp of last received data packet (for keep=
+alives) */
+> > =20
+> >  	/* Data for direct copy to user */
+> >  	struct {
+> > diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> > index 0f8caf6..a4048d7 100644
+> > --- a/net/ipv4/tcp.c
+> > +++ b/net/ipv4/tcp.c
+> > @@ -2298,7 +2298,10 @@ static int do_tcp_setsockopt(struct sock *sk=
+, int level,
+> >  			if (sock_flag(sk, SOCK_KEEPOPEN) &&
+> >  			    !((1 << sk->sk_state) &
+> >  			      (TCPF_CLOSE | TCPF_LISTEN))) {
+> > -				__u32 elapsed =3D tcp_time_stamp - tp->rcv_tstamp;
+> > +				u32 elapsed =3D min_t(u32,
+> > +						      tcp_time_stamp - tp->rcv_tstamp,
+> > +						      tcp_time_stamp - tp->lrcvtime);
+> > +
+> >  				if (tp->keepalive_time > elapsed)
+> >  					elapsed =3D tp->keepalive_time - elapsed;
+> >  				else
+> > diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> > index f240f57..60d2980 100644
+> > --- a/net/ipv4/tcp_input.c
+> > +++ b/net/ipv4/tcp_input.c
+> > @@ -5391,6 +5391,8 @@ no_ack:
+> >  				__kfree_skb(skb);
+> >  			else
+> >  				sk->sk_data_ready(sk, 0);
+> > +
+> > +			tp->lrcvtime =3D tcp_time_stamp;
+> >  			return 0;
+> >  		}
+> >  	}
+> > @@ -5421,6 +5423,7 @@ step5:
+> > =20
+> >  	tcp_data_snd_check(sk);
+> >  	tcp_ack_snd_check(sk);
+> > +	tp->lrcvtime =3D tcp_time_stamp;
+> >  	return 0;
+> > =20
+> >  csum_error:
+> > diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+> > index 8a0ab29..74dd804 100644
+> > --- a/net/ipv4/tcp_timer.c
+> > +++ b/net/ipv4/tcp_timer.c
+> > @@ -554,6 +554,14 @@ static void tcp_keepalive_timer (unsigned long=
+ data)
+> >  	if (tp->packets_out || tcp_send_head(sk))
+> >  		goto resched;
+> > =20
+> > +	elapsed =3D tcp_time_stamp - tp->lrcvtime;
+> > +=09
+> > +	/* receiving data means alive */
+> > +	if (elapsed < keepalive_time_when(tp)) {
+> > +		elapsed =3D keepalive_time_when(tp) - elapsed;
+> > +		goto resched;
+> > +	}
+> > +
+> >  	elapsed =3D tcp_time_stamp - tp->rcv_tstamp;
+> > =20
+> >  	if (elapsed >=3D keepalive_time_when(tp)) {
+>=20
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Switch: Netgear GSM7224 Layer 2 managed switch, FW 6.2.0.14
-(independent, issue remains on direct connection).
-
-Server: Debian Lenny, kernel 2.6.26-2,
-
-NIC: Intel Corporation 82541PI Gigabit Ethernet Con. (e1000 module).
-# ethtool eth0
-Settings for eth0:
-        Supported ports: [ TP ]
-        Supported link modes:   10baseT/Half 10baseT/Full
-                                100baseT/Half 100baseT/Full
-                                1000baseT/Full
-        Supports auto-negotiation: Yes
-        Advertised link modes:  1000baseT/Full
-        Advertised auto-negotiation: Yes
-        Speed: 1000Mb/s
-        Duplex: Full
-        Port: Twisted Pair
-        PHYAD: 0
-        Transceiver: internal
-        Auto-negotiation: on
-        Supports Wake-on: umbg
-        Wake-on: g
-        Current message level: 0x00000007 (7)
-        Link detected: yes
-
-8021q:
-filename:       /lib/modules/2.6.26-2-686/kernel/net/8021q/8021q.ko
-version:        1.8
-license:        GPL
-alias:          rtnl-link-vlan
-srcversion:     A61E1168F65EE335A91D4E1
-depends:
-vermagic:       2.6.26-2-686 SMP mod_unload modversions 686
-
-VLAN: #/proc/net/vlan/config
-VLAN Dev name    | VLAN ID
-Name-Type: VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD
-eth0.5         | 5  | eth0
-eth0.101       | 101  | eth0
-eth0.90        | 90  | eth0
-
-IFCONFIG:
-eth0      Link encap:Ethernet  Hardware Adresse 00:0e:0c:bc:43:43
-          inet6-Adresse: fe80::20e:cff:febc:4343/64
-G=FCltigkeitsbereich:Verbindung
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metrik:1
-          RX packets:28140829 errors:0 dropped:218 overruns:0 frame:0
-          TX packets:44994420 errors:0 dropped:0 overruns:0 carrier:0
-          Kollisionen:0 Sendewarteschlangenl=E4nge:1000
-          RX bytes:3472864138 (3.2 GiB)  TX bytes:3908682627 (3.6 GiB)
-
-eth0.5    Link encap:Ethernet  Hardware Adresse 00:0e:0c:bc:43:43
-          inet Adresse:XXX.YYY.5.1  Bcast:XXX.YYY.5.255  Maske:255.255.=
-255.0
-          inet6-Adresse: fe80::20e:cff:febc:4343/64
-G=FCltigkeitsbereich:Verbindung
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metrik:1
-          RX packets:77807 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:69699 errors:0 dropped:0 overruns:0 carrier:0
-          Kollisionen:0 Sendewarteschlangenl=E4nge:0
-          RX bytes:57578233 (54.9 MiB)  TX bytes:7782844 (7.4 MiB)
-
-eth0.90   Link encap:Ethernet  Hardware Adresse 00:0e:0c:bc:43:43
-          inet Adresse:XXX.YYY.90.1  Bcast:XXX.YYY.90.255=20
-Maske:255.255.255.0
-          inet6-Adresse: fe80::20e:cff:febc:4343/64
-G=FCltigkeitsbereich:Verbindung
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metrik:1
-          RX packets:457850 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:913988 errors:0 dropped:0 overruns:0 carrier:0
-          Kollisionen:0 Sendewarteschlangenl=E4nge:0
-          RX bytes:23824841 (22.7 MiB)  TX bytes:1311485281 (1.2 GiB)
-
-eth0.101  Link encap:Ethernet  Hardware Adresse 00:0e:0c:bc:43:43
-          inet Adresse:XXX.YYY.101.1  Bcast:XXX.YYY.101.255=20
-Maske:255.255.255.0
-          inet6-Adresse: fe80::20e:cff:febc:4343/64
-G=FCltigkeitsbereich:Verbindung
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metrik:1
-          RX packets:24856818 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:41608593 errors:0 dropped:0 overruns:0 carrier:0
-          Kollisionen:0 Sendewarteschlangenl=E4nge:0
-          RX bytes:423116676 (403.5 MiB)  TX bytes:3855703636 (3.5 GiB)
-
-ROUTE: #route -n
-Ziel            Router          Genmask         Flags Metric Ref    Use
-Iface
-XXX.YYY.101.0   0.0.0.0         255.255.255.0   U     0      0        0
-eth0.101
-XXX.YYY.5.0     0.0.0.0         255.255.255.0   U     0      0        0
-eth0.5
-XXX.YYY.90.0    0.0.0.0         255.255.255.0   U     0      0        0
-eth0.90
-0.0.0.0         192.168.5.4     0.0.0.0         UG    0      0        0
-eth0.5
-
-Can someone give me a hint, where my search for an solution should be
-going on ?
-
-Many thanks !
-Regards
-Ralf Weinedel
-=46alkensee/Germany
-
-
+--=20
+=46lavio
