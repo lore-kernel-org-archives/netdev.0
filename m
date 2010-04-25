@@ -1,34 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: PROBLEM: Linux kernel 2.6.31 IPv4 TCP fails to open huge
- amount of outgoing connections (unable to bind ... )
-Date: Sun, 25 Apr 2010 15:08:50 -0700 (PDT)
-Message-ID: <20100425.150850.82706768.davem@davemloft.net>
-References: <20100425155600.GA13319@ioremap.net>
-	<1272212460.2069.9.camel@edumazet-laptop>
-	<20100425163543.GA11831@redhat.com>
+Subject: [GIT] Networking
+Date: Sun, 25 Apr 2010 15:12:56 -0700 (PDT)
+Message-ID: <20100425.151256.159623106.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, zbr@ioremap.net, greearb@candelatech.com,
-	gasparch@gmail.com, netdev@vger.kernel.org
-To: mst@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44165
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752138Ab0DYWIp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Apr 2010 18:08:45 -0400
-In-Reply-To: <20100425163543.GA11831@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Sun, 25 Apr 2010 19:35:43 +0300
 
->> 
->> [PATCH] ipv6: Fix inet6_csk_bind_conflict()
- ...
-> 
-> works for me
-> Tested-by: Michael S. Tsirkin <mst@redhat.com>
+The TCP bind conflict port allocation fix had a bug on the ipv6 side,
+hit by a bunch of folks.  Fix from Eric Dumazet.
 
-Applied, thanks everyone.
+An e100 crash fix from Alan Cox that should cure a bunch of hits we've
+got on kerneloops.org, no mutual exclusion done by the TX timeout
+workqueue causes crashes as two threads of control try to reset the
+chip in parallel.
+
+Please pull, thanks a lot!
+
+The following changes since commit ddc9b34c3b3bc063a7d9eb891ae09b8f49cfb27e:
+  Linus Torvalds (1):
+        Merge branch 'fixes' of git://git.kernel.org/.../davej/cpufreq
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+Alan Cox (1):
+      e100: Fix the TX workqueue race
+
+Eric Dumazet (1):
+      ipv6: Fix inet6_csk_bind_conflict()
+
+ drivers/net/e100.c               |   10 ++++++++--
+ net/ipv6/inet6_connection_sock.c |    2 +-
+ 2 files changed, 9 insertions(+), 3 deletions(-)
