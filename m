@@ -1,7 +1,7 @@
 From: xiaohui.xin@intel.com
-Subject: [RFC][PATCH v4 16/18] Export proto_ops to vhost-net driver.
-Date: Sun, 25 Apr 2010 17:20:03 +0800
-Message-ID: <1272187206-18534-16-git-send-email-xiaohui.xin@intel.com>
+Subject: [RFC][PATCH v4 15/18] Manipulate external buffers in mp device.
+Date: Sun, 25 Apr 2010 17:20:02 +0800
+Message-ID: <1272187206-18534-15-git-send-email-xiaohui.xin@intel.com>
 References: <1272187206-18534-1-git-send-email-xiaohui.xin@intel.com>
  <1272187206-18534-2-git-send-email-xiaohui.xin@intel.com>
  <1272187206-18534-3-git-send-email-xiaohui.xin@intel.com>
@@ -16,367 +16,301 @@ References: <1272187206-18534-1-git-send-email-xiaohui.xin@intel.com>
  <1272187206-18534-12-git-send-email-xiaohui.xin@intel.com>
  <1272187206-18534-13-git-send-email-xiaohui.xin@intel.com>
  <1272187206-18534-14-git-send-email-xiaohui.xin@intel.com>
- <1272187206-18534-15-git-send-email-xiaohui.xin@intel.com>
 Cc: Xin Xiaohui <xiaohui.xin@intel.com>
 To: netdev@vger.kernel.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
 	davem@davemloft.net, jdike@linux.intel.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1272187206-18534-15-git-send-email-xiaohui.xin@intel.com>
+In-Reply-To: <1272187206-18534-14-git-send-email-xiaohui.xin@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Xin Xiaohui <xiaohui.xin@intel.com>
 
-Currently, vhost-net is only user to the mp device.
+How external buffer comes from, how to destroy.
 
 Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
 Signed-off-by: Zhao Yu <yzhao81@gmail.com>
 Reviewed-by: Jeff Dike <jdike@linux.intel.com>
 ---
- drivers/vhost/mpassthru.c |  321 ++++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 317 insertions(+), 4 deletions(-)
+ drivers/vhost/mpassthru.c |  237 ++++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 236 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/vhost/mpassthru.c b/drivers/vhost/mpassthru.c
-index b171f21..0ac1a71 100644
+index c5ede17..b171f21 100644
 --- a/drivers/vhost/mpassthru.c
 +++ b/drivers/vhost/mpassthru.c
-@@ -563,8 +563,321 @@ failed:
- 	return NULL;
+@@ -159,6 +159,39 @@ static int mp_dev_change_flags(struct net_device *dev, unsigned flags)
+ 	return ret;
  }
  
-+static void mp_sock_destruct(struct sock *sk)
++/* The main function to allocate external buffers */
++static struct skb_external_page *page_ctor(struct mpassthru_port *port,
++		struct sk_buff *skb, int npages)
 +{
-+	struct mp_struct *mp = container_of(sk, struct mp_sock, sk)->mp;
-+	kfree(mp);
-+}
-+
-+static void mp_sock_state_change(struct sock *sk)
-+{
-+	if (sk_has_sleeper(sk))
-+		wake_up_interruptible_sync_poll(sk->sk_sleep, POLLIN);
-+}
-+
-+static void mp_sock_write_space(struct sock *sk)
-+{
-+	if (sk_has_sleeper(sk))
-+		wake_up_interruptible_sync_poll(sk->sk_sleep, POLLOUT);
-+}
-+
-+static void mp_sock_data_ready(struct sock *sk, int coming)
-+{
-+	struct mp_struct *mp = container_of(sk, struct mp_sock, sk)->mp;
-+	struct page_ctor *ctor = NULL;
-+	struct sk_buff *skb = NULL;
++	int i;
++	unsigned long flags;
++	struct page_ctor *ctor;
 +	struct page_info *info = NULL;
-+	struct ethhdr *eth;
-+	struct kiocb *iocb = NULL;
-+	int len, i;
 +
-+	struct virtio_net_hdr hdr = {
-+		.flags = 0,
-+		.gso_type = VIRTIO_NET_HDR_GSO_NONE
-+	};
++	ctor = container_of(port, struct page_ctor, port);
 +
-+	ctor = rcu_dereference(mp->ctor);
-+	if (!ctor)
-+		return;
-+
-+	while ((skb = skb_dequeue(&sk->sk_receive_queue)) != NULL) {
-+		if (skb_shinfo(skb)->destructor_arg) {
-+			info = container_of(skb_shinfo(skb)->destructor_arg,
-+					struct page_info, ext_page);
-+			info->skb = skb;
-+			if (skb->len > info->len) {
-+				mp->dev->stats.rx_dropped++;
-+				DBG(KERN_INFO "Discarded truncated rx packet: "
-+				    " len %d > %zd\n", skb->len, info->len);
-+				info->total = skb->len;
-+				goto clean;
-+			} else {
-+				int i;
-+				struct skb_shared_info *gshinfo =
-+					(struct skb_shared_info *)
-+					(&info->ushinfo);
-+				struct skb_shared_info *hshinfo =
-+					skb_shinfo(skb);
-+
-+				if (gshinfo->nr_frags < hshinfo->nr_frags)
-+					goto clean;
-+				eth = eth_hdr(skb);
-+				skb_push(skb, ETH_HLEN);
-+
-+				hdr.hdr_len = skb_headlen(skb);
-+				info->total = skb->len;
-+
-+				for (i = 0; i < gshinfo->nr_frags; i++)
-+					gshinfo->frags[i].size = 0;
-+				for (i = 0; i < hshinfo->nr_frags; i++)
-+					gshinfo->frags[i].size =
-+						hshinfo->frags[i].size;
-+				memcpy(skb_shinfo(skb), &info->ushinfo,
-+						sizeof(struct skb_shared_info));
-+			}
-+		} else {
-+			/* The skb composed with kernel buffers
-+			 * in case external buffers are not sufficent.
-+			 * The case should be rare.
-+			 */
-+			unsigned long flags;
-+			int i;
-+			struct skb_shared_info *gshinfo = NULL;
-+
-+			info = NULL;
-+
-+			spin_lock_irqsave(&ctor->read_lock, flags);
-+			if (!list_empty(&ctor->readq)) {
-+				info = list_first_entry(&ctor->readq,
-+						struct page_info, list);
-+				list_del(&info->list);
-+			}
-+			spin_unlock_irqrestore(&ctor->read_lock, flags);
-+			if (!info) {
-+				DBG(KERN_INFO
-+				    "No external buffer avaliable %p\n",
-+				    skb);
-+				skb_queue_head(&sk->sk_receive_queue,
-+						skb);
-+				break;
-+			}
-+			info->skb = skb;
-+			/* compute the guest skb frags info */
-+			gshinfo = (struct skb_shared_info *)
-+				  (info->ext_page.start +
-+				  SKB_DATA_ALIGN(info->ext_page.size));
-+
-+			if (gshinfo->nr_frags < skb_shinfo(skb)->nr_frags)
-+				goto clean;
-+
-+			eth = eth_hdr(skb);
-+			skb_push(skb, ETH_HLEN);
-+			info->total = skb->len;
-+
-+			for (i = 0; i < gshinfo->nr_frags; i++)
-+				gshinfo->frags[i].size = 0;
-+			for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
-+				gshinfo->frags[i].size =
-+					skb_shinfo(skb)->frags[i].size;
-+			hdr.hdr_len = min_t(int, skb->len,
-+					info->iov[1].iov_len);
-+			skb_copy_datagram_iovec(skb, 0, info->iov, skb->len);
-+		}
-+
-+		len = memcpy_toiovec(info->hdr, (unsigned char *)&hdr,
-+				sizeof hdr);
-+		if (len) {
-+			DBG(KERN_INFO
-+				"Unable to write vnet_hdr at addr %p: %d\n",
-+				info->hdr->iov_base, len);
-+			goto clean;
-+		}
-+
-+		iocb = create_iocb(info, skb->len + sizeof(hdr));
-+		continue;
-+
-+clean:
-+		kfree_skb(skb);
-+		for (i = 0; info->pages[i]; i++)
-+			put_page(info->pages[i]);
-+		kmem_cache_free(ctor->cache, info);
++	spin_lock_irqsave(&ctor->read_lock, flags);
++	if (!list_empty(&ctor->readq)) {
++		info = list_first_entry(&ctor->readq, struct page_info, list);
++		list_del(&info->list);
 +	}
++	spin_unlock_irqrestore(&ctor->read_lock, flags);
++	if (!info)
++		return NULL;
++
++	for (i = 0; i < info->pnum; i++) {
++		get_page(info->pages[i]);
++		info->frag[i].page = info->pages[i];
++		info->frag[i].page_offset = i ? 0 : info->offset;
++		info->frag[i].size = port->npages > 1 ? PAGE_SIZE :
++			port->data_len;
++	}
++	info->skb = skb;
++	info->ext_page.frags = info->frag;
++	info->ext_page.ushinfo = &info->ushinfo;
++	return &info->ext_page;
++}
++
+ static int page_ctor_attach(struct mp_struct *mp)
+ {
+ 	int rc;
+@@ -191,7 +224,7 @@ static int page_ctor_attach(struct mp_struct *mp)
+ 
+ 	dev_hold(dev);
+ 	ctor->dev = dev;
+-	ctor->port.ctor = NULL;
++	ctor->port.ctor = page_ctor;
+ 	ctor->port.sock = &mp->socket;
+ 	ctor->lock_pages = 0;
+ 	rc = netdev_mp_port_attach(dev, &ctor->port);
+@@ -258,6 +291,52 @@ static int set_memlock_rlimit(struct page_ctor *ctor, int resource,
+ 	task_unlock(current->group_leader);
+ 	return 0;
+ }
++static void mp_ki_dtor(struct kiocb *iocb)
++{
++	struct page_info *info = (struct page_info *)(iocb->private);
++	int i;
++
++	if (info->flags == INFO_READ) {
++		for (i = 0; i < info->pnum; i++) {
++			if (info->pages[i]) {
++				set_page_dirty_lock(info->pages[i]);
++				put_page(info->pages[i]);
++			}
++		}
++		skb_shinfo(info->skb)->destructor_arg = &info->ext_page;
++		info->skb->destructor = NULL;
++		kfree_skb(info->skb);
++	}
++	/* Decrement the number of locked pages */
++	info->ctor->lock_pages -= info->pnum;
++	kmem_cache_free(info->ctor->cache, info);
++
 +	return;
 +}
 +
-+static int mp_sendmsg(struct kiocb *iocb, struct socket *sock,
-+		struct msghdr *m, size_t total_len)
++static struct kiocb *create_iocb(struct page_info *info, int size)
 +{
-+	struct mp_struct *mp = container_of(sock->sk, struct mp_sock, sk)->mp;
++	struct kiocb *iocb = NULL;
++
++	iocb = info->iocb;
++	if (!iocb)
++		return iocb;
++	iocb->ki_flags = 0;
++	iocb->ki_users = 1;
++	iocb->ki_key = 0;
++	iocb->ki_ctx = NULL;
++	iocb->ki_cancel = NULL;
++	iocb->ki_retry = NULL;
++	iocb->ki_iovec = NULL;
++	iocb->ki_eventfd = NULL;
++	iocb->ki_pos = info->desc_pos;
++	iocb->ki_nbytes = size;
++	iocb->ki_dtor(iocb);
++	iocb->private = (void *)info;
++	iocb->ki_dtor = mp_ki_dtor;
++
++	return iocb;
++}
+ 
+ static int page_ctor_detach(struct mp_struct *mp)
+ {
+@@ -275,6 +354,7 @@ static int page_ctor_detach(struct mp_struct *mp)
+ 		for (i = 0; i < info->pnum; i++)
+ 			if (info->pages[i])
+ 				put_page(info->pages[i]);
++		create_iocb(info, 0);
+ 		kmem_cache_free(ctor->cache, info);
+ 	}
+ 	set_memlock_rlimit(ctor, RLIMIT_MEMLOCK,
+@@ -328,6 +408,161 @@ static void mp_put(struct mp_file *mfile)
+ 		mp_detach(mfile->mp);
+ }
+ 
++/* The callback to destruct the external buffers or skb */
++static void page_dtor(struct skb_external_page *ext_page)
++{
++	struct page_info *info;
 +	struct page_ctor *ctor;
-+	struct iovec *iov = m->msg_iov;
-+	struct page_info *info = NULL;
-+	struct frag frags[MAX_SKB_FRAGS];
++	struct sock *sk;
 +	struct sk_buff *skb;
-+	int count = m->msg_iovlen;
-+	int total = 0, header, n, i, len, rc;
-+	unsigned long base;
++	struct kiocb *iocb = NULL;
++	unsigned long flags;
 +
-+	ctor = rcu_dereference(mp->ctor);
-+	if (!ctor)
-+		return -ENODEV;
++	if (!ext_page)
++		return;
++	info = container_of(ext_page, struct page_info, ext_page);
++	if (!info)
++		return;
++	ctor = info->ctor;
++	skb = info->skb;
 +
-+	total = iov_length(iov, count);
++	if ((info->flags == INFO_READ) && info->skb)
++		info->skb->head = NULL;
 +
-+	if (total < ETH_HLEN)
-+		return -EINVAL;
-+
-+	if (total <= COPY_THRESHOLD)
-+		goto copy;
-+
-+	n = 0;
-+	for (i = 0; i < count; i++) {
-+		base = (unsigned long)iov[i].iov_base;
-+		len = iov[i].iov_len;
-+		if (!len)
-+			continue;
-+		n += ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
-+		if (n > MAX_SKB_FRAGS)
-+			return -EINVAL;
++	/* If the info->total is 0, make it to be reused */
++	if (!info->total) {
++		spin_lock_irqsave(&ctor->read_lock, flags);
++		list_add(&info->list, &ctor->readq);
++		spin_unlock_irqrestore(&ctor->read_lock, flags);
++		return;
 +	}
 +
-+copy:
-+	header = total > COPY_THRESHOLD ? COPY_HDR_LEN : total;
++	if (info->flags == INFO_READ)
++		return;
 +
-+	skb = alloc_skb(header + NET_IP_ALIGN, GFP_ATOMIC);
-+	if (!skb)
-+		goto drop;
++	/* For transmit, we should wait for the DMA finish by hardware.
++	 * Queue the notifier to wake up the backend driver
++	 */
 +
-+	skb_reserve(skb, NET_IP_ALIGN);
++	iocb = create_iocb(info, info->total);
 +
-+	skb_set_network_header(skb, ETH_HLEN);
++	sk = ctor->port.sock->sk;
++	sk->sk_write_space(sk);
 +
-+	memcpy_fromiovec(skb->data, iov, header);
-+	skb_put(skb, header);
-+	skb->protocol = *((__be16 *)(skb->data) + ETH_ALEN);
-+
-+	if (header == total) {
-+		rc = total;
-+		info = alloc_small_page_info(ctor, iocb, total);
-+	} else {
-+		info = alloc_page_info(ctor, iocb, iov, count, frags, 0, total);
-+		if (info)
-+			for (i = 0; info->pages[i]; i++) {
-+				skb_add_rx_frag(skb, i, info->pages[i],
-+						frags[i].offset, frags[i].size);
-+				info->pages[i] = NULL;
-+			}
-+	}
-+	if (info != NULL) {
-+		info->desc_pos = iocb->ki_pos;
-+		info->total = total;
-+		info->skb = skb;
-+		skb_shinfo(skb)->destructor_arg = &info->ext_page;
-+		skb->dev = mp->dev;
-+		dev_queue_xmit(skb);
-+		return 0;
-+	}
-+drop:
-+	kfree_skb(skb);
-+	if (info) {
-+		for (i = 0; info->pages[i]; i++)
-+			put_page(info->pages[i]);
-+		kmem_cache_free(info->ctor->cache, info);
-+	}
-+	mp->dev->stats.tx_dropped++;
-+	return -ENOMEM;
++	return;
 +}
 +
-+static int mp_recvmsg(struct kiocb *iocb, struct socket *sock,
-+		struct msghdr *m, size_t total_len,
-+		int flags)
++/* For small exteranl buffers transmit, we don't need to call
++ * get_user_pages().
++ */
++static struct page_info *alloc_small_page_info(struct page_ctor *ctor,
++		struct kiocb *iocb, int total)
 +{
-+	struct mp_struct *mp = container_of(sock->sk, struct mp_sock, sk)->mp;
-+	struct page_ctor *ctor;
-+	struct iovec *iov = m->msg_iov;
-+	int count = m->msg_iovlen;
-+	int npages, payload;
-+	struct page_info *info;
-+	struct frag frags[MAX_SKB_FRAGS];
-+	unsigned long base;
-+	int i, len;
-+	unsigned long flag;
++	struct page_info *info = kmem_cache_zalloc(ctor->cache, GFP_KERNEL);
 +
-+	if (!(flags & MSG_DONTWAIT))
-+		return -EINVAL;
++	if (!info)
++		return NULL;
++	info->total = total;
++	info->ext_page.dtor = page_dtor;
++	info->ctor = ctor;
++	info->flags = INFO_WRITE;
++	info->iocb = iocb;
++	return info;
++}
 +
-+	ctor = rcu_dereference(mp->ctor);
-+	if (!ctor)
-+		return -EINVAL;
++/* The main function to transform the guest user space address
++ * to host kernel address via get_user_pages(). Thus the hardware
++ * can do DMA directly to the external buffer address.
++ */
++static struct page_info *alloc_page_info(struct page_ctor *ctor,
++		struct kiocb *iocb, struct iovec *iov,
++		int count, struct frag *frags,
++		int npages, int total)
++{
++	int rc;
++	int i, j, n = 0;
++	int len;
++	unsigned long base, lock_limit;
++	struct page_info *info = NULL;
 +
-+	/* Error detections in case invalid external buffer */
-+	if (count > 2 && iov[1].iov_len < ctor->port.hdr_len &&
-+			mp->dev->features & NETIF_F_SG) {
-+		return -EINVAL;
++	lock_limit = current->signal->rlim[RLIMIT_MEMLOCK].rlim_cur;
++	lock_limit >>= PAGE_SHIFT;
++
++	if (ctor->lock_pages + count > lock_limit) {
++		printk(KERN_INFO "exceed the locked memory rlimit.");
++		return NULL;
 +	}
 +
-+	npages = ctor->port.npages;
-+	payload = ctor->port.data_len;
++	info = kmem_cache_zalloc(ctor->cache, GFP_KERNEL);
 +
-+	/* If KVM guest virtio-net FE driver use SG feature */
-+	if (count > 2) {
-+		for (i = 2; i < count; i++) {
-+			base = (unsigned long)iov[i].iov_base & ~PAGE_MASK;
-+			len = iov[i].iov_len;
-+			if (npages == 1)
-+				len = min_t(int, len, PAGE_SIZE - base);
-+			else if (base)
-+				break;
-+			payload -= len;
-+			if (payload <= 0)
-+				goto proceed;
-+			if (npages == 1 || (len & ~PAGE_MASK))
-+				break;
++	if (!info)
++		return NULL;
++
++	for (i = j = 0; i < count; i++) {
++		base = (unsigned long)iov[i].iov_base;
++		len = iov[i].iov_len;
++
++		if (!len)
++			continue;
++		n = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
++
++		rc = get_user_pages_fast(base, n, npages ? 1 : 0,
++				&info->pages[j]);
++		if (rc != n)
++			goto failed;
++
++		while (n--) {
++			frags[j].offset = base & ~PAGE_MASK;
++			frags[j].size = min_t(int, len,
++					PAGE_SIZE - frags[j].offset);
++			len -= frags[j].size;
++			base += frags[j].size;
++			j++;
 +		}
 +	}
 +
-+	if ((((unsigned long)iov[1].iov_base & ~PAGE_MASK)
-+				- NET_SKB_PAD - NET_IP_ALIGN) >= 0)
-+		goto proceed;
++#ifdef CONFIG_HIGHMEM
++	if (npages && !(dev->features & NETIF_F_HIGHDMA)) {
++		for (i = 0; i < j; i++) {
++			if (PageHighMem(info->pages[i]))
++				goto failed;
++		}
++	}
++#endif
 +
-+	return -EINVAL;
++	info->total = total;
++	info->ext_page.dtor = page_dtor;
++	info->ctor = ctor;
++	info->pnum = j;
++	info->iocb = iocb;
++	if (!npages)
++		info->flags = INFO_WRITE;
++	if (info->flags == INFO_READ) {
++		info->ext_page.start = (u8 *)(((unsigned long)
++				(pfn_to_kaddr(page_to_pfn(info->pages[0]))) +
++				frags[0].offset));
++#ifdef NET_SKBUFF_DATA_USES_OFFSET
++		info->ext_page.size = SKB_DATA_ALIGN(
++				iov[0].iov_len + NET_IP_ALIGN + NET_SKB_PAD);
++#else
++		info->ext_page.size = SKB_DATA_ALIGN(
++				iov[0].iov_len + NET_IP_ALIGN + NET_SKB_PAD) -
++			NET_IP_ALIGN - NET_SKB_PAD;
++#endif
++	}
++	/* increment the number of locked pages */
++	ctor->lock_pages += j;
++	return info;
 +
-+proceed:
-+	/* skip the virtnet head */
-+	iov++;
-+	count--;
++failed:
++	for (i = 0; i < j; i++)
++		put_page(info->pages[i]);
 +
-+	if (!ctor->lock_pages)
-+		set_memlock_rlimit(ctor, RLIMIT_MEMLOCK,
-+				iocb->ki_user_data * 4096,
-+				iocb->ki_user_data * 4096);
++	kmem_cache_free(ctor->cache, info);
 +
-+	/* Translate address to kernel */
-+	info = alloc_page_info(ctor, iocb, iov, count, frags, npages, 0);
-+	if (!info)
-+		return -ENOMEM;
-+	info->len = total_len;
-+	info->hdr[0].iov_base = iocb->ki_iovec[0].iov_base;
-+	info->hdr[0].iov_len = iocb->ki_iovec[0].iov_len;
-+	info->offset = frags[0].offset;
-+	info->desc_pos = iocb->ki_pos;
-+
-+	iov--;
-+	count++;
-+
-+	memcpy(info->iov, iov, sizeof(struct iovec) * count);
-+
-+	spin_lock_irqsave(&ctor->read_lock, flag);
-+	list_add_tail(&info->list, &ctor->readq);
-+	spin_unlock_irqrestore(&ctor->read_lock, flag);
-+
-+	return 0;
++	return NULL;
 +}
 +
  /* Ops structure to mimic raw sockets with mp device */
  static const struct proto_ops mp_socket_ops = {
-+	.sendmsg = mp_sendmsg,
-+	.recvmsg = mp_recvmsg,
  };
- 
- static struct proto mp_proto = {
-@@ -687,10 +1000,10 @@ static long mp_chr_ioctl(struct file *file, unsigned int cmd,
- 		sk->sk_sndbuf = INT_MAX;
- 		container_of(sk, struct mp_sock, sk)->mp = mp;
- 
--		sk->sk_destruct = NULL;
--		sk->sk_data_ready = NULL;
--		sk->sk_write_space = NULL;
--		sk->sk_state_change = NULL;
-+		sk->sk_destruct = mp_sock_destruct;
-+		sk->sk_data_ready = mp_sock_data_ready;
-+		sk->sk_write_space = mp_sock_write_space;
-+		sk->sk_state_change = mp_sock_state_change;
- 		ret = mp_attach(mp, file);
- 		if (ret < 0)
- 			goto err_free_sk;
 -- 
 1.5.4.4
