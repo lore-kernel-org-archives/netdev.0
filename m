@@ -1,42 +1,35 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] e100: Fix the TX workqueue race
-Date: Sat, 24 Apr 2010 19:58:59 -0700 (PDT)
-Message-ID: <20100424.195859.193729555.davem@davemloft.net>
+Date: Sat, 24 Apr 2010 20:00:11 -0700 (PDT)
+Message-ID: <20100424.200011.226755248.davem@davemloft.net>
 References: <20100423.163127.62645049.davem@davemloft.net>
 	<20100423.163545.157549100.davem@davemloft.net>
-	<20100424121127.084b9766@linux.intel.com>
+	<20100424113629.0ad3569b@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
 To: alan@linux.intel.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20100424121127.084b9766@linux.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57289
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752161Ab0DYDAG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 24 Apr 2010 23:00:06 -0400
+In-Reply-To: <20100424113629.0ad3569b@linux.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Alan Cox <alan@linux.intel.com>
-Date: Sat, 24 Apr 2010 12:11:27 +0100
+Date: Sat, 24 Apr 2010 11:36:29 +0100
 
-> No idea why it won't apply - I guess net has diverged from -next in
-> this area. Other problem is not typing "stg ref" before "stg export"
+> Puzzling as it came from a building -next tree. Will see whats
+> happened next week if I get time, but I'm afraid net stuff isn't a
+> priority - in fact its disappointing that having diagnosed a bug
+> months ago (which was the hard bit) and posted a test patch months
+> ago the maintainers haven't fixed it.
 
-It has, the debug print statement above the lines you are changing are
-completely different.
+It's disappointing to me that someone as experienced and skilled
+as yourself can't generate a clean patch which is 1) against
+the appropriate tree for a bug fix and 2) actually compiles.
 
-Please generate this patch against net-2.6 so I can apply it, thanks
-Alan.
-
-------------------------------------------------------------------------------
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Or is this too much to ask? :-)
