@@ -1,53 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: GRO after RPS?
-Date: Sun, 25 Apr 2010 17:09:33 -0700 (PDT)
-Message-ID: <20100425.170933.190068177.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: GRO after RPS?
+Date: Mon, 26 Apr 2010 08:49:34 +0800
+Message-ID: <20100426004934.GA12525@gondor.apana.org.au>
+References: <20100425.170933.190068177.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41927
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753225Ab0DZAJa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Apr 2010 20:09:30 -0400
+Received: from ringil.hengli.com.au ([216.59.3.182]:47660 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751629Ab0DZAti (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Apr 2010 20:49:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20100425.170933.190068177.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sun, Apr 25, 2010 at 05:09:33PM -0700, David Miller wrote:
+> 
+> Herbert, after thinking about some ideas we've been discussing and
+> some suggestions from folks like Tom Herbert, I'm thinking of changing
+> it such that we do GRO after RPS sends the packet to a remove cpu.
 
-Herbert, after thinking about some ideas we've been discussing and
-some suggestions from folks like Tom Herbert, I'm thinking of changing
-it such that we do GRO after RPS sends the packet to a remove cpu.
+Actually, I'd've thought that doing GRO before RPS would be a
+better solution as it means that RPS would have a lot less work
+to do.
 
-The idea being that, this way, if we have a device provided ->rxhash
-we can elide touching the packet headers entirely.
+> The idea being that, this way, if we have a device provided ->rxhash
+> we can elide touching the packet headers entirely.
 
-Initially I wanted to defer the eth_type_trans() by adding a state bit
-to sk_buff, and making ->ndo_type_trans() a new netdev op.  The state
-bit exists so that we can have a transition period and avoid doing
-the type_trans multiple times if the driver still does it early.
+Yes not touching the headers was also the plan for GRO, I just
+never got around to it.  So we would only examine a packet if
+its hash matched one already processed in the current NAPI window.
 
-So, in this way, when RPS doesn't even need to touch the packet
-headers, due to a device provided skb->rxhash, we can defer the
-type_trans all the way to the remote cpu.
+Of course we'd need to change the way we currently store packets
+in GRO and use a data structure more efficient than a linked list.
 
-The only thing getting in the way of this is GRO, since it wants to
-parse the packet headers too for flow matching.
-
-At first I thought this was a bad idea to defer GRO to the remote cpu,
-since if we do batch things up it means we have less packets to queue
-up to the remote cpu.
-
-But upon further consideration it doesn't matter, because GRO is going
-to fuddle with the packets and link them up into a list anyways.
-
-So if the list handling is a wash, then it's a real win to defer GRO
-and thus potentially all packet header touching to the remote cpu.
-
-Also, we can add the quick ->rxhash check to the GRO flow matcher
-like we discussed several times in the past.  And guess what?  Now
-that RPS runs first, we'll always have a valid skb->rhash available
-for this purpose since RPS will compute one in software for us :-)
-
-So Herbert, any objections before I start hacking on this?
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
