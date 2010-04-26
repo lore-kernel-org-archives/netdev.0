@@ -1,47 +1,53 @@
-From: Flavio Leitner <fbl@sysclose.org>
-Subject: Re: [PATCH v2] TCP: avoid to send keepalive probes if it is
- receiving data
-Date: Sun, 25 Apr 2010 20:55:49 -0300
-Message-ID: <20100425235549.GB2550@sysclose.org>
-References: <1271602519-6805-1-git-send-email-fleitner@redhat.com>
- <1271610919.16881.5564.camel@edumazet-laptop>
- <alpine.DEB.2.00.1004182328370.19304@melkinpaasi.cs.helsinki.fi>
- <20100421.224205.18551946.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: GRO after RPS?
+Date: Sun, 25 Apr 2010 17:09:33 -0700 (PDT)
+Message-ID: <20100425.170933.190068177.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ilpo.jarvinen@helsinki.fi, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caiajhbdcahe.dreamhost.com ([208.97.132.74]:50808 "EHLO
-	homiemail-a15.g.dreamhost.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752384Ab0DYX4I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Apr 2010 19:56:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20100421.224205.18551946.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41927
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753225Ab0DZAJa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Apr 2010 20:09:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 21, 2010 at 10:42:05PM -0700, David Miller wrote:
-> From: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
-> Date: Sun, 18 Apr 2010 23:34:15 +0300 (EEST)
->=20
-> > I fail to see why the addition of this new variable is necessary at=
- all,=20
-> > could either of you enlight me why exactly it's necessary and rcv_t=
-stamp=20
-> > will not suffice?
->=20
-> I agree, the existing rcv_tstamp should serve this purpose just
-> fine.
 
-I thought it would break TCP_INFO/tcp_get_info(). Actually, reviewing
-the code again I found another variable which does exactly what is need=
-ed.
+Herbert, after thinking about some ideas we've been discussing and
+some suggestions from folks like Tom Herbert, I'm thinking of changing
+it such that we do GRO after RPS sends the packet to a remove cpu.
 
-I'll post a new patch for review.
+The idea being that, this way, if we have a device provided ->rxhash
+we can elide touching the packet headers entirely.
 
-thanks,
---=20
-=46lavio
+Initially I wanted to defer the eth_type_trans() by adding a state bit
+to sk_buff, and making ->ndo_type_trans() a new netdev op.  The state
+bit exists so that we can have a transition period and avoid doing
+the type_trans multiple times if the driver still does it early.
+
+So, in this way, when RPS doesn't even need to touch the packet
+headers, due to a device provided skb->rxhash, we can defer the
+type_trans all the way to the remote cpu.
+
+The only thing getting in the way of this is GRO, since it wants to
+parse the packet headers too for flow matching.
+
+At first I thought this was a bad idea to defer GRO to the remote cpu,
+since if we do batch things up it means we have less packets to queue
+up to the remote cpu.
+
+But upon further consideration it doesn't matter, because GRO is going
+to fuddle with the packets and link them up into a list anyways.
+
+So if the list handling is a wash, then it's a real win to defer GRO
+and thus potentially all packet header touching to the remote cpu.
+
+Also, we can add the quick ->rxhash check to the GRO flow matcher
+like we discussed several times in the past.  And guess what?  Now
+that RPS runs first, we'll always have a valid skb->rhash available
+for this purpose since RPS will compute one in software for us :-)
+
+So Herbert, any objections before I start hacking on this?
