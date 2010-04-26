@@ -1,69 +1,143 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-next-2.6] netns: call ops_free right after ops_exit
-Date: Sun, 25 Apr 2010 20:06:07 -0700
-Message-ID: <m1r5m2ud40.fsf@fess.ebiederm.org>
-References: <20100425092600.GB2866@psychotron.redhat.com>
-	<20100425.025902.94572342.davem@davemloft.net>
-	<m1k4rvvb5x.fsf@fess.ebiederm.org>
-	<20100425184430.GA2891@psychotron.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jiri Pirko <jpirko@redhat.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH 1/2] net: reimplement completion_queue as a FIFO queue
+Date: Mon, 26 Apr 2010 11:20:16 +0800
+Message-ID: <1272252016-11755-1-git-send-email-xiaosuo@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:49928 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750798Ab0DZDGM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Apr 2010 23:06:12 -0400
-In-Reply-To: <20100425184430.GA2891@psychotron.redhat.com> (Jiri Pirko's message of "Sun\, 25 Apr 2010 20\:44\:31 +0200")
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:34349 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754430Ab0DZDUj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 25 Apr 2010 23:20:39 -0400
+Received: by pwj9 with SMTP id 9so7999210pwj.19
+        for <netdev@vger.kernel.org>; Sun, 25 Apr 2010 20:20:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Pirko <jpirko@redhat.com> writes:
+reimplement completion_queue as a FIFO queue.
 
-> Sun, Apr 25, 2010 at 04:50:34PM CEST, ebiederm@xmission.com wrote:
->>David Miller <davem@davemloft.net> writes:
->>
->>> From: Jiri Pirko <jpirko@redhat.com>
->>> Date: Sun, 25 Apr 2010 11:26:01 +0200
->>>
->>>> There's no need to iterate this twice. We can free net generic
->>>> variables right after exit is called.
->>>>
->>>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->>>
->>> Are you sure there are no problems with doing this?
->>>
->>> What if there are inter-net variable reference dependencies
->>> or something like that?
->>>
->>> I really suspect it is being done this way on purpose, but
->>> in the end I defer to experts like Eric B. :-)
->>
->>I am pretty certain there is a problem.  My memory is fuzzy this
->>morning but I believe we can have rcu references between various
->>pieces of the networking stack for a single network namespace.  So we
->>need to cause all of the network namespace to exit before it is safe
->>to free those pieces.
->
-> Hmm, that doesn't make much sense to me. Since the allocated memory in question
-> is used locally, after exit() is called, the memory chunk should not be used by
-> anyone and if it is, I think it's a bug.
->
-> Earlier, when the memory wasn't allocated automatically (by filling .size)
-> memory was individually freed in exit(). From what I understood from your reply,
-> you are telling this was buggy?
+As slab allocator always does its best to return the latest unused objects, we'd
+better release skb in order, this patch reimplement completion_queue as a FIFO
+queue instead of the old LIFO queue.
 
-Now I remember clearly.  The use case for not freeing memory
-immediately is the delayed freeing of network devices.  Ideally we
-delay unregistering all of the network devices into
-default_device_exit_batch, when we terminate one or namespaces.
+At the same time, a opencoding skb queue is replaced with a sk_buff_head queue.
 
-Since network devices are freed outside of their exit routines we need
-to keep their per net memory around until they are freed.
-
-Ultimately all of this is much easier to think about if these chunks of
-memory can be logically thought of as living on struct net and have the
-same lifetime rules.
-
-Eric
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+ include/linux/netdevice.h |    2 +-
+ net/core/dev.c            |   28 ++++++++++------------------
+ net/core/netpoll.c        |   12 +++++-------
+ 3 files changed, 16 insertions(+), 26 deletions(-)
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 3c5ed5f..785e514 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1386,7 +1386,7 @@ static inline int unregister_gifconf(unsigned int family)
+ struct softnet_data {
+ 	struct Qdisc		*output_queue;
+ 	struct list_head	poll_list;
+-	struct sk_buff		*completion_queue;
++	struct sk_buff_head	completion_queue;
+ 
+ #ifdef CONFIG_RPS
+ 	struct softnet_data	*rps_ipi_list;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 4d43f1a..5bbfa0f 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1578,8 +1578,7 @@ void dev_kfree_skb_irq(struct sk_buff *skb)
+ 
+ 		local_irq_save(flags);
+ 		sd = &__get_cpu_var(softnet_data);
+-		skb->next = sd->completion_queue;
+-		sd->completion_queue = skb;
++		__skb_queue_tail(&sd->completion_queue, skb);
+ 		raise_softirq_irqoff(NET_TX_SOFTIRQ);
+ 		local_irq_restore(flags);
+ 	}
+@@ -2506,18 +2505,16 @@ static void net_tx_action(struct softirq_action *h)
+ {
+ 	struct softnet_data *sd = &__get_cpu_var(softnet_data);
+ 
+-	if (sd->completion_queue) {
+-		struct sk_buff *clist;
++	if (!skb_queue_empty(&sd->completion_queue)) {
++		struct sk_buff_head queue;
++		struct sk_buff *skb;
+ 
++		__skb_queue_head_init(&queue);
+ 		local_irq_disable();
+-		clist = sd->completion_queue;
+-		sd->completion_queue = NULL;
++		skb_queue_splice_tail_init(&sd->completion_queue, &queue);
+ 		local_irq_enable();
+ 
+-		while (clist) {
+-			struct sk_buff *skb = clist;
+-			clist = clist->next;
+-
++		while ((skb = __skb_dequeue(&queue))) {
+ 			WARN_ON(atomic_read(&skb->users));
+ 			__kfree_skb(skb);
+ 		}
+@@ -5593,7 +5590,6 @@ static int dev_cpu_callback(struct notifier_block *nfb,
+ 			    unsigned long action,
+ 			    void *ocpu)
+ {
+-	struct sk_buff **list_skb;
+ 	struct Qdisc **list_net;
+ 	struct sk_buff *skb;
+ 	unsigned int cpu, oldcpu = (unsigned long)ocpu;
+@@ -5607,13 +5603,9 @@ static int dev_cpu_callback(struct notifier_block *nfb,
+ 	sd = &per_cpu(softnet_data, cpu);
+ 	oldsd = &per_cpu(softnet_data, oldcpu);
+ 
+-	/* Find end of our completion_queue. */
+-	list_skb = &sd->completion_queue;
+-	while (*list_skb)
+-		list_skb = &(*list_skb)->next;
+ 	/* Append completion queue from offline CPU. */
+-	*list_skb = oldsd->completion_queue;
+-	oldsd->completion_queue = NULL;
++	skb_queue_splice_tail_init(&oldsd->completion_queue,
++				   &sd->completion_queue);
+ 
+ 	/* Find end of our output_queue. */
+ 	list_net = &sd->output_queue;
+@@ -5849,7 +5841,7 @@ static int __init net_dev_init(void)
+ 		struct softnet_data *sd = &per_cpu(softnet_data, i);
+ 
+ 		skb_queue_head_init(&sd->input_pkt_queue);
+-		sd->completion_queue = NULL;
++		__skb_queue_head_init(&sd->completion_queue);
+ 		INIT_LIST_HEAD(&sd->poll_list);
+ 
+ #ifdef CONFIG_RPS
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index a58f59b..3905a14 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -222,17 +222,15 @@ static void zap_completion_queue(void)
+ 	unsigned long flags;
+ 	struct softnet_data *sd = &get_cpu_var(softnet_data);
+ 
+-	if (sd->completion_queue) {
+-		struct sk_buff *clist;
++	if (!skb_queue_empty(&sd->completion_queue)) {
++		struct sk_buff_head queue;
++		struct sk_buff *skb;
+ 
+ 		local_irq_save(flags);
+-		clist = sd->completion_queue;
+-		sd->completion_queue = NULL;
++		skb_queue_splice_tail_init(&sd->completion_queue, &queue);
+ 		local_irq_restore(flags);
+ 
+-		while (clist != NULL) {
+-			struct sk_buff *skb = clist;
+-			clist = clist->next;
++		while ((skb = __skb_dequeue(&queue))) {
+ 			if (skb->destructor) {
+ 				atomic_inc(&skb->users);
+ 				dev_kfree_skb_any(skb); /* put this one back */
