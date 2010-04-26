@@ -1,37 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: reimplement completion_queue as a FIFO queue
-Date: Mon, 26 Apr 2010 00:22:40 -0700 (PDT)
-Message-ID: <20100426.002240.197722540.davem@davemloft.net>
-References: <1272262154.2069.1032.camel@edumazet-laptop>
-	<20100425.232758.101478192.davem@davemloft.net>
-	<1272266509.2346.2.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: RPS and forwarding
+Date: Mon, 26 Apr 2010 09:25:16 +0200
+Message-ID: <1272266716.2346.5.camel@edumazet-laptop>
+References: <z2w65634d661004252144z1bf72880wdf7a0143b8490ddf@mail.gmail.com>
+	 <20100426045316.GA21810@gondor.apana.org.au>
+	 <r2n65634d661004252200x4e7a49f1h181cdd69b3e4ebc0@mail.gmail.com>
+	 <20100425.232857.145290769.davem@davemloft.net>
+	 <20100426063136.GA22401@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: xiaosuo@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: David Miller <davem@davemloft.net>, therbert@google.com,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54938
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753717Ab0DZHWe convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Apr 2010 03:22:34 -0400
-In-Reply-To: <1272266509.2346.2.camel@edumazet-laptop>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:37685 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754533Ab0DZHZV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 03:25:21 -0400
+Received: by bwz19 with SMTP id 19so181811bwz.21
+        for <netdev@vger.kernel.org>; Mon, 26 Apr 2010 00:25:20 -0700 (PDT)
+In-Reply-To: <20100426063136.GA22401@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 26 Apr 2010 09:21:49 +0200
+Le lundi 26 avril 2010 =C3=A0 14:31 +0800, Herbert Xu a =C3=A9crit :
+> On Sun, Apr 25, 2010 at 11:28:57PM -0700, David Miller wrote:
 
-> Le dimanche 25 avril 2010 =E0 23:27 -0700, David Miller a =E9crit :
 >=20
->> No matter what is faster, we have to process packets in
->> FIFO order, otherwise we get reordering within a flow
->> which is to be absolutely avoided.
+> > It might be possible to somehow make the sock table get bypassed fo=
+r
+> > forwarded traffic, but I can't think of a cheap way to do that at
+> > the moment.
 >=20
-> Hmm, completion queue is about freeing skb, and its name is misleadin=
-g.
+> Yeah I thought about that too but as we need to go through the
+> routing table before we know whether something is forwarded or
+> not, it certainly seems non-trivial.
 >=20
-> This queue is feed by dev_kfree_skb_irq() only
+> Hmm, maybe if we used a routing cache keyed by rxhash we could
+> make an appromixation? After all, we only need to make sure that
+> no forwarded traffic is redirected, and not the reverse.  IOW,
+> it's OK if we incorrectly classify some local traffic as forwarded.
+>=20
 
-Ok I see, thanks for explaining.
+RFS is already working like that, if RPS is not used in conjonction.
+
+=46orwarded traffic will see a non tagged rfs flow entry, so this skb w=
+ill
+be processed by this cpu, not a remote one.
+
+Currently, only an application can set a RFS flow entry.
+
+
+
