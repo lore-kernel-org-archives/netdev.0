@@ -1,68 +1,98 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH net-2.6] netns: assign NULL after pernet memory is freed
-Date: Mon, 26 Apr 2010 15:30:20 +0200
-Message-ID: <20100426133020.GE2941@psychotron.lab.eng.brq.redhat.com>
-References: <20100426111806.GB2941@psychotron.lab.eng.brq.redhat.com>
- <20100426120716.GD2941@psychotron.lab.eng.brq.redhat.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: rps perfomance WAS(Re: rps: question
+Date: Mon, 26 Apr 2010 21:35:52 +0800
+Message-ID: <n2g412e6f7f1004260635kcd0c6ed7y5a9fc85a461d94fc@mail.gmail.com>
+References: <t2p65634d661004141031xf80f62e7sb64362ea1ce10a1f@mail.gmail.com>
+	<1271583573.16881.4798.camel@edumazet-laptop> <1271590476.16881.4925.camel@edumazet-laptop>
+	<1271764941.3735.94.camel@bigi> <1271769195.7895.4.camel@edumazet-laptop>
+	<1271853570.4032.21.camel@bigi> <1271876480.7895.3106.camel@edumazet-laptop>
+	<1271938343.4032.30.camel@bigi> <t2r412e6f7f1004241931ie9e70e3aka77b49557a7872e3@mail.gmail.com>
+	<1272281709.8918.35.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, ebiederm@xmission.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	David Miller <davem@davemloft.net>, therbert@google.com,
+	netdev@vger.kernel.org, robert@herjulf.net, andi@firstfloor.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19097 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750961Ab0DZNaX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Apr 2010 09:30:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20100426120716.GD2941@psychotron.lab.eng.brq.redhat.com>
+Received: from mail-iw0-f202.google.com ([209.85.223.202]:49039 "EHLO
+	mail-iw0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750804Ab0DZNgN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 09:36:13 -0400
+Received: by iwn40 with SMTP id 40so3203623iwn.1
+        for <netdev@vger.kernel.org>; Mon, 26 Apr 2010 06:36:12 -0700 (PDT)
+In-Reply-To: <1272281709.8918.35.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Apr 26, 2010 at 02:07:17PM CEST, jpirko@redhat.com wrote:
->Mon, Apr 26, 2010 at 01:18:07PM CEST, jpirko@redhat.com wrote:
->>This is needed to let know appropriate code (driver) know that pernet memory
->>chunk  was freed already. For example when driver has also registered netdev
->>notifier, it can be called after memory is freed which could eventually lead
->>to panic. Also a null check should be present in these notifiers.
->>
->>For example, previously, when drivers were responsible for pernet memory
->>allocation/freeing, in pppoe this assign was done in pppoe_exit_net() right
->>after pernet memory was freed. The check in notifier stayed (in pppoe_flush_dev
->>called from pppoe_device_event) but makes no sense now without this patch.
+On Mon, Apr 26, 2010 at 7:35 PM, jamal <hadi@cyberus.ca> wrote:
+> On Sun, 2010-04-25 at 10:31 +0800, Changli Gao wrote:
 >
->Hmm, thinking about this, since the life of pernet memories is directly connected
->with the life of net, as described by Eric, this should not be needed. So please
->scrach this one too. Sorry.
+>> I read the code again, and find that we don't use spin_lock_irqsave(=
+),
+>> and we use local_irq_save() and spin_lock() instead, so
+>> _raw_spin_lock_irqsave() and _raw_spin_lock_irqrestore() should not =
+be
+>> related to backlog. the lock maybe sk_receive_queue.lock.
 >
->Anyway, I'm still wondering how to prevent netdev_notifiers from using this when
->net is gone. Going to do more research, I'm probably missing something.
+> Possible.
+> I am wondering if there's a way we can precisely nail where that is
+> happening? is lockstat any use?
+> Fixing _raw_spin_lock_irqsave and friend is the lowest hanging fruit.
+>
 
-Right, it becomes part of init_ns then. So this looks good then. One thing I can
-still imagine what may cause problem, since netdev_notifier is registered before
-register_pernet_device, the notifier can be called in between. So I think this
-should be reordered, am I right?
+Maybe lockstat can help in this case.
 
-Thanks
+> So looking at your patch now i see it is likely there was an improvem=
+ent
+> made for non-rps case (moving out of loop some irq_enable etc).
+> i.e my results may not be crazy after adding your patch and seeing an
+> improvement for non-rps case.
+> However, whatever your patch did - it did not help the rps case case:
+> call_function_single_interrupt() comes out higher in the profile,
+> and # of IPIs seems to have gone up (although i did not measure this,=
+ I
+> can see the interrupts/second went up by almost 50-60%)
 
-Jirka
+Did you apply the patch from Eric? It would reduce the number of
+local_irq_disable() calls but increase the number of IPIs.
 
 >
+>> Jamal, did you use a single socket to serve all the clients?
 >
->>
->>I already know about several notifiers where the check should be present,
->>patches will follow up.
->>
->>Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->>
->>diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
->>index bd8c471..29f622c 100644
->>--- a/net/core/net_namespace.c
->>+++ b/net/core/net_namespace.c
->>@@ -51,6 +51,7 @@ static void ops_free(const struct pernet_operations *ops, struct net *net)
->> 	if (ops->id && ops->size) {
->> 		int id = *ops->id;
->> 		kfree(net_generic(net, id));
->>+		net_assign_generic(net, id, NULL);
->> 	}
->> }
->> 
+> Socket per detected cpu.
+
+Ignore it. I made a mistake here.
+
+>
+>> BTW: =C2=A0completion_queue and output_queue in softnet_data both ar=
+e LIFO
+>> queues. For completion_queue, FIFO is better, as the last used skb i=
+s
+>> more likely in cache, and should be used first. Since slab has alway=
+s
+>> cache the last used memory at the head, we'd better free the skb in
+>> FIFO manner. For output_queue, FIFO is good for fairness among qdisc=
+s.
+>
+> I think it will depend on how many of those skbs are sitting in the
+> completion queue, cache warmth etc. LIFO is always safest, you have
+> higher probability of finding a cached skb infront.
+>
+
+we call kfree_skb() to release skbs to slab allocator, then slab
+allocator stores them in a LIFO queue. If completion queue is also a
+LIFO queue, the latest unused skb will be in the front of the queue,
+and will be released to slab allocator at first. At the next time, we
+call alloc_skb(), the memory used by the skb in the end of the
+completion queue will be returned instead of the hot one.
+
+However, as Eric said, new drivers don't rely on completion queue, it
+isn't a real problem, especially in your test case.
+
+
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
