@@ -1,59 +1,60 @@
-From: Scott Feldman <scofeldm@cisco.com>
-Subject: Re: [net-next-2.6 PATCH 1/2] Add ndo_set_vf_port_profile
-Date: Mon, 26 Apr 2010 12:57:06 -0700
-Message-ID: <C7FB3E22.2BAEE%scofeldm@cisco.com>
-References: <C7FB3747.2BAAA%scofeldm@cisco.com>
+From: Andy Fleming <afleming@gmail.com>
+Subject: Re: [RFC][PATCH v4 01/18] Add a new struct for device to manipulate
+	external buffer.
+Date: Mon, 26 Apr 2010 15:06:29 -0500
+Message-ID: <o2j2acbd3e41004261306n4da142bfp4e9a46561dbc8c46@mail.gmail.com>
+References: <1272187206-18534-1-git-send-email-xiaohui.xin@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <chrisw@redhat.com>, <arnd@arndb.de>
-To: Scott Feldman <scofeldm@cisco.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-3.cisco.com ([171.71.176.72]:1079 "EHLO
-	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751394Ab0DZT5N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 15:57:13 -0400
-In-Reply-To: <C7FB3747.2BAAA%scofeldm@cisco.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
+	davem@davemloft.net, jdike@linux.intel.com
+To: xiaohui.xin@intel.com
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1272187206-18534-1-git-send-email-xiaohui.xin@intel.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 4/26/10 12:27 PM, "Scott Feldman" <scofeldm@cisco.com> wrote:
-> On 4/24/10 12:19 AM, "David Miller" <davem@davemloft.net> wrote:
->> Also, I think it's reasonable to fetch the current profile in use, so
->> GETLINK ought to report these things.  To make it generic we can
->> maintain the settings given to us in software, hung off of the netdev
->> struct, and simply report that during GETLINK.
-> 
-> We'd need an array of struct ifla_vf_port_profile hanging off of netdev, one
-> element for each VF.  That seems like a lot of mem hanging off of netdev,
-> and we'd have to define a MAX_VF to size the array.  How about a
-> ndo_get_vf_port_profile() that the netdev fills in, and the netdev keeps the
-> data in it's private area?  That's how ndo_get_vf_config() is working.
+On Sun, Apr 25, 2010 at 4:19 AM,  <xiaohui.xin@intel.com> wrote:
+> From: Xin Xiaohui <xiaohui.xin@intel.com>
+>
+> Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
+> Signed-off-by: Zhao Yu <yzhao81@gmail.com>
+> Reviewed-by: Jeff Dike <jdike@linux.intel.com>
+> ---
+> =A0include/linux/netdevice.h | =A0 19 ++++++++++++++++++-
+> =A01 files changed, 18 insertions(+), 1 deletions(-)
+>
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index c79a88b..bf79756 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -530,6 +530,22 @@ struct netdev_queue {
+> =A0 =A0 =A0 =A0unsigned long =A0 =A0 =A0 =A0 =A0 tx_dropped;
+> =A0} ____cacheline_aligned_in_smp;
+>
+> +/* Add a structure in structure net_device, the new field is
+> + * named as mp_port. It's for mediate passthru (zero-copy).
+> + * It contains the capability for the net device driver,
+> + * a socket, and an external buffer creator, external means
+> + * skb buffer belongs to the device may not be allocated from
+> + * kernel space.
+> + */
+> +struct mpassthru_port =A0{
+> + =A0 =A0 =A0 int =A0 =A0 =A0 =A0 =A0 =A0 hdr_len;
+> + =A0 =A0 =A0 int =A0 =A0 =A0 =A0 =A0 =A0 data_len;
+> + =A0 =A0 =A0 int =A0 =A0 =A0 =A0 =A0 =A0 npages;
+> + =A0 =A0 =A0 unsigned =A0 =A0 =A0 =A0flags;
+> + =A0 =A0 =A0 struct socket =A0 *sock;
+> + =A0 =A0 =A0 struct skb_external_page *(*ctor)(struct mpassthru_port=
+ *,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct =
+sk_buff *, int);
+> +};
 
-Hmmm....even that isn't so nice because the port-profile info for all VFs is
-going to get stuffed into the RTM_GETLINK skb, and I assume there are limits
-on the skb return size.
 
-Here's a proposal:
+I tried searching around, but couldn't find where struct
+skb_external_page is declared.  Where is it?
 
-Currently we have RTM_GETLINK for
-
-    ip link show [ DEVICE ]
-
-This dumps everything for the DEVICE including info for each VF.  Let's
-modify RTM_GETLINK to look like this:
-
-    ip link show [ DEVICE [ vf NUM] ]
-
-If you don't give the optional vf NUM you get base dump on DEVICE.  If you
-give vf NUM, you get the VF-specific dump.  This scales much better with the
-number of VFs.  
-
-(Number of VFs can easily be > 128 in some designs).
-
-Comments?
-
--scott
-
+Andy
