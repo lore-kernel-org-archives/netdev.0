@@ -1,170 +1,85 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v6] net: batch skb dequeueing from softnet
- input_pkt_queue
-Date: Mon, 26 Apr 2010 16:03:04 +0200
-Message-ID: <1272290584.19143.43.camel@edumazet-laptop>
-References: <1272010378-2955-1-git-send-email-xiaosuo@gmail.com>
-	 <1272014825.7895.7851.camel@edumazet-laptop> <1272060153.8918.8.camel@bigi>
-	 <1272118252.8918.13.camel@bigi>
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Subject: Re: DDoS attack causing bad effect on conntrack searches
+Date: Mon, 26 Apr 2010 16:36:08 +0200
+Message-ID: <1272292568.13192.43.camel@jdb-workstation>
+References: <1271941082.14501.189.camel@jdb-workstation>
+	 <q2h412e6f7f1004220613m488c2ee4r6d24a8d1e65997d4@mail.gmail.com>
+	 <4BD04C74.9020402@trash.net> <1271946961.7895.5665.camel@edumazet-laptop>
+	 <1271948029.7895.5707.camel@edumazet-laptop>
+	 <20100422155123.GA2524@linux.vnet.ibm.com>
+	 <1271952128.7895.5851.camel@edumazet-laptop>
+	 <Pine.LNX.4.64.1004222213290.10919@ask.diku.dk>
+	 <1272056237.4599.7.camel@edumazet-laptop>
+	 <Pine.LNX.4.64.1004241219280.32071@ask.diku.dk>
+	 <1272139861.20714.525.camel@edumazet-laptop>
+Reply-To: hawk@comx.dk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>, paulmck@linux.vnet.ibm.com,
+	Patrick McHardy <kaber@trash.net>,
+	Changli Gao <xiaosuo@gmail.com>,
+	Linux Kernel Network Hackers <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:39820 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751614Ab0DZODN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 10:03:13 -0400
-Received: by bwz19 with SMTP id 19so170467bwz.21
-        for <netdev@vger.kernel.org>; Mon, 26 Apr 2010 07:03:11 -0700 (PDT)
-In-Reply-To: <1272118252.8918.13.camel@bigi>
+Received: from lanfw001a.cxnet.dk ([87.72.215.196]:58312 "EHLO
+	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751614Ab0DZOfv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 10:35:51 -0400
+In-Reply-To: <1272139861.20714.525.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 24 avril 2010 =C3=A0 10:10 -0400, jamal a =C3=A9crit :
-> On Fri, 2010-04-23 at 18:02 -0400, jamal wrote:
->=20
-> > Ive done a setup with the last patch from Changli + net-next - I wi=
-ll
-> > post test results tomorrow AM.
->=20
-> ok, annotated results attached.=20
->=20
-> cheers,
-> jamal
+On Sat, 2010-04-24 at 22:11 +0200, Eric Dumazet wrote:
+>  
+> > Monday or Tuesdag I'll do a test setup with some old HP380 G4 machines to 
+> > see if I can reproduce the DDoS attack senario.  And see if I can get 
+> > it into to lookup loop.
+> 
+> Theorically a loop is very unlikely, given a single retry is very
+> unlikly too.
+> 
+> Unless a cpu gets in its cache a corrupted value of a 'next' pointer.
+> 
+...
+>
+> With same hash bucket size (300.032) and max conntracks (800.000), and
+> after more than 10 hours of test, not a single lookup was restarted
+> because of a nulls with wrong value.
 
-Jamal, I have a Nehalem setup now, and I can see
-_raw_spin_lock_irqsave() abuse is not coming from network tree, but fro=
-m
-clockevents_notify()
+So fare, I have to agree with you.  I have now tested on the same type
+of hardware (although running a 64-bit kernel, and off net-next-2.6),
+and the result is, the same as yours, I don't see a any restarts of the
+loop.  The test systems differs a bit, as it has two physical CPU and 2M
+cache (and annoyingly the system insists on using HPET as clocksource).
 
-My pktgen sends 1040989pps :
-
-# Samples: 389707198131
-#
-# Overhead         Command                 Shared Object  Symbol
-# ........  ..............  ............................  ......
-#
-    23.52%            init  [kernel.kallsyms]             [k] _raw_spin=
-_lock_irqsave
-                      |
-                      --- _raw_spin_lock_irqsave
-                         |         =20
-                         |--94.74%-- clockevents_notify
-                         |          lapic_timer_state_broadcast
-                         |          acpi_idle_enter_bm
-                         |          cpuidle_idle_call
-                         |          cpu_idle
-                         |          start_secondary
-                         |         =20
-                         |--4.10%-- tick_broadcast_oneshot_control
-                         |          tick_notify
-                         |          notifier_call_chain
-                         |          __raw_notifier_call_chain
-                         |          raw_notifier_call_chain
-                         |          clockevents_do_notify
-                         |          clockevents_notify
-                         |          lapic_timer_state_broadcast
-                         |          acpi_idle_enter_bm
-                         |          cpuidle_idle_call
-                         |          cpu_idle
-                         |          start_secondary
-                         |         =20
-                         |--0.58%-- lapic_timer_state_broadcast
-                         |          acpi_idle_enter_bm
-                         |          cpuidle_idle_call
-                         |          cpu_idle
-                         |          start_secondary
-                          --0.58%-- [...]
-
-     8.94%            init  [kernel.kallsyms]             [k] acpi_os_r=
-ead_port
-                      |
-                      --- acpi_os_read_port
-                         |         =20
-                         |--99.55%-- acpi_hw_read_port
-                         |          acpi_hw_read
-                         |          acpi_hw_read_multiple
-                         |          acpi_hw_register_read
-                         |          acpi_read_bit_register
+Guess, the only explanation would be bad/sub-optimal hash distribution.
+With 40 kpps and 700.000 'searches' per second, the hash bucket list
+length "only" need to be 17.5 elements on average, where optimum is 3.
+With my pktgen DoS test, where I tried to reproduce the DoS attack, only
+see a screw of 6 elements on average.
 
 
+> I can setup a test on a 16 cpu machine, multiqueue card too.
 
-# Samples: 389233082962
-#
-# Overhead         Command                 Shared Object  Symbol
-# ........  ..............  ............................  ......
-#
-    23.25%            init  [kernel.kallsyms]             [k] _raw_spin=
-_lock_irqsave
-     8.90%            init  [kernel.kallsyms]             [k] acpi_os_r=
-ead_port
-     2.93%            init  [kernel.kallsyms]             [k] mwait_idl=
-e_with_hints
-     1.99%            init  [kernel.kallsyms]             [k] schedule
-     1.94%         udpsink  [kernel.kallsyms]             [k] schedule
-     1.73%         swapper  [kernel.kallsyms]             [k] _raw_spin=
-_lock_irqsave
-     1.48%            init  [kernel.kallsyms]             [k] bnx2x_rx_=
-int
-     1.47%            init  [kernel.kallsyms]             [k] _raw_spin=
-_unlock_irqrestore
-     1.44%            init  [kernel.kallsyms]             [k] _raw_spin=
-_lock
-     1.36%         udpsink  [kernel.kallsyms]             [k] udp_recvm=
-sg
-     1.05%         udpsink  [kernel.kallsyms]             [k] __skb_rec=
-v_datagram
-     1.05%            init  [kernel.kallsyms]             [k] __udp4_li=
-b_lookup
-     1.04%         udpsink  [kernel.kallsyms]             [k] copy_user=
-_generic_string
-     1.04%         udpsink  [kernel.kallsyms]             [k] __slab_fr=
-ee
-     0.99%            init  [kernel.kallsyms]             [k] select_ta=
-sk_rq_fair
-     0.99%            init  [kernel.kallsyms]             [k] try_to_wa=
-ke_up
-     0.98%            init  [kernel.kallsyms]             [k] task_rq_l=
-ock
-     0.93%            init  [kernel.kallsyms]             [k] tick_broa=
-dcast_oneshot_control
-     0.89%            init  [kernel.kallsyms]             [k] sock_queu=
-e_rcv_skb
-     0.89%         udpsink  [kernel.kallsyms]             [k] sock_recv=
-_ts_and_drops
-     0.88%         udpsink  [kernel.kallsyms]             [k] kfree
-     0.79%         swapper  [kernel.kallsyms]             [k] acpi_os_r=
-ead_port
-     0.76%         udpsink  [kernel.kallsyms]             [k] _raw_spin=
-_lock_irqsave
-     0.73%         udpsink  [kernel.kallsyms]             [k] inet_recv=
-msg
-     0.71%         udpsink  [vdso]                        [.] 0x000000f=
-fffe431
-     0.65%         udpsink  [kernel.kallsyms]             [k] sock_recv=
-msg
-     0.62%            init  [kernel.kallsyms]             [k] gs_change
-     0.61%            init  [kernel.kallsyms]             [k] enqueue_t=
-ask_fair
-     0.61%            init  [kernel.kallsyms]             [k] eth_type_=
-trans
-     0.61%            init  [kernel.kallsyms]             [k] sock_def_=
-readable
-     0.60%         udpsink  [kernel.kallsyms]             [k] _raw_spin=
-_lock_bh
-     0.59%            init  [kernel.kallsyms]             [k] ip_route_=
-input
-     0.59%         udpsink  libpthread-2.3.4.so           [.] __pthread=
-_disable_asynccancel
-     0.56%            init  [kernel.kallsyms]             [k] bnx2x_pol=
-l
-     0.56%         udpsink  [kernel.kallsyms]             [k] __get_use=
-r_4
+Don't think that is necessary.  My theory was it was possible on slower
+single queue NIC, where one CPU is 100% busy in the conntrack search,
+and the other CPUs delete the entries (due to early drop and
+call_rcu()).  But guess that note the case, and RCU works perfectly ;-)
 
+> Hmm, I forgot to say I am using net-next-2.6, not your kernel version...
+
+I also did this test using net-next-2.6, perhaps I should try the
+version I use in production...
+
+
+-- 
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network Kernel Developer
+  Cand. Scient Datalog / MSc.CS
+  Author of http://adsl-optimizer.dk
+  LinkedIn: http://www.linkedin.com/in/brouer
 
