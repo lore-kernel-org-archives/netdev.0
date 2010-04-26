@@ -1,48 +1,50 @@
-From: Andre Detsch <adetsch@br.ibm.com>
-Subject: [PATCH] cxgb3: Wait longer for control packets on initialization
-Date: Mon, 26 Apr 2010 12:38:27 -0300
-Message-ID: <201004261238.27919.adetsch@br.ibm.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH 1/4] e1000e: save skb counts in TX to avoid cache misses
+Date: Mon, 26 Apr 2010 08:55:06 -0700
+Message-ID: <4BD5B75A.3040100@intel.com>
+References: <alpine.DEB.1.00.1004231719050.16806@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, divy@chelsio.com
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:38745 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752486Ab0DZPiu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 11:38:50 -0400
-Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
-	by e38.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id o3QFWc7M031645
-	for <netdev@vger.kernel.org>; Mon, 26 Apr 2010 09:32:38 -0600
-Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
-	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o3QFcU4W111154
-	for <netdev@vger.kernel.org>; Mon, 26 Apr 2010 09:38:34 -0600
-Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av06.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o3QFfDrd010265
-	for <netdev@vger.kernel.org>; Mon, 26 Apr 2010 09:41:14 -0600
+Received: from mga01.intel.com ([192.55.52.88]:32726 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751323Ab0DZPzI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Apr 2010 11:55:08 -0400
+In-Reply-To: <alpine.DEB.1.00.1004231719050.16806@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Tom Herbert wrote:
+> In e1000_tx_map, precompute number of segements and bytecounts which
+> are derived from fields in skb; these are stored in buffer_info.  When
+> cleaning tx in e1000_clean_tx_irq use the values in the associated
+> buffer_info for statistics counting, this eliminates cache misses
+> on skb fields.
+> 
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> ---
+> diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+> index 12648a1..d6da75b 100644
+> --- a/drivers/net/e1000e/e1000.h
+> +++ b/drivers/net/e1000e/e1000.h
+> @@ -188,6 +188,8 @@ struct e1000_buffer {
+>  			unsigned long time_stamp;
+>  			u16 length;
+>  			u16 next_to_watch;
+> +			unsigned int segs;
+> +			unsigned int bytecount;
+>  			u16 mapped_as_page;
+>  		};
+>  		/* Rx */
 
-In some Power7 platforms, when using VIOS (Virtual I/O Server), we
-need to wait longer for control packets to finish transfer during
-initialization.
-Without this change, initialization may fail prematurely.
+Does segs need to be a full int here?  I think you can probably get away 
+with either an unsigned short or just define it as a u16, then combine 
+it with mapped_as_page to cut down on the overall size.
 
-Signed-off-by: Wen Xiong <wenxiong@us.ibm.com>
-Signed-off-by: Andre Detsch <adetsch@br.ibm.com>
+Thanks,
 
-Index: linux-2.6.34-rc5/drivers/net/cxgb3/cxgb3_main.c
-===================================================================
---- linux-2.6.34-rc5.orig/drivers/net/cxgb3/cxgb3_main.c	2010-04-23 18:59:43.000000000 -0300
-+++ linux-2.6.34-rc5/drivers/net/cxgb3/cxgb3_main.c	2010-04-23 18:59:55.000000000 -0300
-@@ -439,7 +439,7 @@ static void free_irq_resources(struct ad
- static int await_mgmt_replies(struct adapter *adap, unsigned long init_cnt,
- 			      unsigned long n)
- {
--	int attempts = 5;
-+	int attempts = 10;
-
- 	while (adap->sge.qs[0].rspq.offload_pkts < init_cnt + n) {
- 		if (!--attempts)
+Alex
