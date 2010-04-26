@@ -1,81 +1,33 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 1/4] e1000e: save skb counts in TX to avoid cache misses
-Date: Mon, 26 Apr 2010 15:01:49 -0700
-Message-ID: <n2p9929d2391004261501va61b955xaef62e9604a8e34d@mail.gmail.com>
-References: <alpine.DEB.1.00.1004231719050.16806@pokey.mtv.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] r8169: failure to enable mwi should not be fatal
+Date: Mon, 26 Apr 2010 15:37:40 -0700 (PDT)
+Message-ID: <20100426.153740.116367306.davem@davemloft.net>
+References: <20100426214206.GA7624@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, conikost@gmx.de, dave@thedillows.org
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f202.google.com ([209.85.223.202]:49481 "EHLO
-	mail-iw0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754732Ab0DZWBu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 18:01:50 -0400
-Received: by iwn40 with SMTP id 40so3534532iwn.1
-        for <netdev@vger.kernel.org>; Mon, 26 Apr 2010 15:01:49 -0700 (PDT)
-In-Reply-To: <alpine.DEB.1.00.1004231719050.16806@pokey.mtv.corp.google.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53341
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755107Ab0DZWhg convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Apr 2010 18:37:36 -0400
+In-Reply-To: <20100426214206.GA7624@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCBBcHIgMjMsIDIwMTAgYXQgMTc6MjUsIFRvbSBIZXJiZXJ0IDx0aGVyYmVydEBnb29n
-bGUuY29tPiB3cm90ZToKPiBJbiBlMTAwMF90eF9tYXAsIHByZWNvbXB1dGUgbnVtYmVyIG9mIHNl
-Z2VtZW50cyBhbmQgYnl0ZWNvdW50cyB3aGljaAo+IGFyZSBkZXJpdmVkIGZyb20gZmllbGRzIGlu
-IHNrYjsgdGhlc2UgYXJlIHN0b3JlZCBpbiBidWZmZXJfaW5mby4gwqBXaGVuCj4gY2xlYW5pbmcg
-dHggaW4gZTEwMDBfY2xlYW5fdHhfaXJxIHVzZSB0aGUgdmFsdWVzIGluIHRoZSBhc3NvY2lhdGVk
-Cj4gYnVmZmVyX2luZm8gZm9yIHN0YXRpc3RpY3MgY291bnRpbmcsIHRoaXMgZWxpbWluYXRlcyBj
-YWNoZSBtaXNzZXMKPiBvbiBza2IgZmllbGRzLgo+Cj4gU2lnbmVkLW9mZi1ieTogVG9tIEhlcmJl
-cnQgPHRoZXJiZXJ0QGdvb2dsZS5jb20+Cj4gLS0tCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0
-L2UxMDAwZS9lMTAwMC5oIGIvZHJpdmVycy9uZXQvZTEwMDBlL2UxMDAwLmgKPiBpbmRleCAxMjY0
-OGExLi5kNmRhNzViIDEwMDY0NAo+IC0tLSBhL2RyaXZlcnMvbmV0L2UxMDAwZS9lMTAwMC5oCj4g
-KysrIGIvZHJpdmVycy9uZXQvZTEwMDBlL2UxMDAwLmgKPiBAQCAtMTg4LDYgKzE4OCw4IEBAIHN0
-cnVjdCBlMTAwMF9idWZmZXIgewo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-dW5zaWduZWQgbG9uZyB0aW1lX3N0YW1wOwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgdTE2IGxlbmd0aDsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHUx
-NiBuZXh0X3RvX3dhdGNoOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgdW5z
-aWduZWQgaW50IHNlZ3M7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCB1bnNp
-Z25lZCBpbnQgYnl0ZWNvdW50Owo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-dTE2IG1hcHBlZF9hc19wYWdlOwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgfTsKPiDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoC8qIFJ4ICovCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2UxMDAw
-ZS9uZXRkZXYuYyBiL2RyaXZlcnMvbmV0L2UxMDAwZS9uZXRkZXYuYwo+IGluZGV4IDVmNzBjNDMu
-LjRmNTAzNGEgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQvZTEwMDBlL25ldGRldi5jCj4gKysr
-IGIvZHJpdmVycy9uZXQvZTEwMDBlL25ldGRldi5jCj4gQEAgLTY0NiwxNCArNjM1LDggQEAgc3Rh
-dGljIGJvb2wgZTEwMDBfY2xlYW5fdHhfaXJxKHN0cnVjdCBlMTAwMF9hZGFwdGVyICphZGFwdGVy
-KQo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgY2xlYW5lZCA9IChpID09IGVv
-cCk7Cj4KPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGlmIChjbGVhbmVkKSB7
-Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBzdHJ1Y3Qg
-c2tfYnVmZiAqc2tiID0gYnVmZmVyX2luZm8tPnNrYjsKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHVuc2lnbmVkIGludCBzZWdzLCBieXRlY291bnQ7Cj4g
-LSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBzZWdzID0gc2ti
-X3NoaW5mbyhza2IpLT5nc29fc2VncyA/OiAxOwo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgLyogbXVsdGlwbHkgZGF0YSBjaHVua3MgYnkgc2l6ZSBvZiBo
-ZWFkZXJzICovCj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCBieXRlY291bnQgPSAoKHNlZ3MgLSAxKSAqIHNrYl9oZWFkbGVuKHNrYikpICsKPiAtIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IHNrYi0+bGVuOwo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgdG90YWxfdHhfcGFja2V0cyArPSBzZWdzOwo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgdG90YWxfdHhfYnl0ZXMgKz0gYnl0ZWNvdW50Owo+ICsgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgdG90YWxfdHhfcGFja2V0
-cyArPSBidWZmZXJfaW5mby0+c2VnczsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIHRvdGFsX3R4X2J5dGVzICs9IGJ1ZmZlcl9pbmZvLT5ieXRlY291bnQ7
-Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqB9Cj4KPiDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoGUxMDAwX3B1dF90eGJ1ZihhZGFwdGVyLCBidWZmZXJfaW5m
-byk7Cj4gQEAgLTM5MDYsNyArMzg4OSw3IEBAIHN0YXRpYyBpbnQgZTEwMDBfdHhfbWFwKHN0cnVj
-dCBlMTAwMF9hZGFwdGVyICphZGFwdGVyLAo+IMKgIMKgIMKgIMKgc3RydWN0IGUxMDAwX2J1ZmZl
-ciAqYnVmZmVyX2luZm87Cj4gwqAgwqAgwqAgwqB1bnNpZ25lZCBpbnQgbGVuID0gc2tiX2hlYWRs
-ZW4oc2tiKTsKPiDCoCDCoCDCoCDCoHVuc2lnbmVkIGludCBvZmZzZXQgPSAwLCBzaXplLCBjb3Vu
-dCA9IDAsIGk7Cj4gLSDCoCDCoCDCoCB1bnNpZ25lZCBpbnQgZjsKPiArIMKgIMKgIMKgIHVuc2ln
-bmVkIGludCBmLCBieXRlY291bnQsIHNlZ3M7Cj4KPiDCoCDCoCDCoCDCoGkgPSB0eF9yaW5nLT5u
-ZXh0X3RvX3VzZTsKPgo+IEBAIC0zOTY1LDcgKzM5NDgsMTMgQEAgc3RhdGljIGludCBlMTAwMF90
-eF9tYXAoc3RydWN0IGUxMDAwX2FkYXB0ZXIgKmFkYXB0ZXIsCj4gwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqB9Cj4gwqAgwqAgwqAgwqB9Cj4KPiArIMKgIMKgIMKgIHNlZ3MgPSBza2Jfc2hpbmZvKHNr
-YiktPmdzb19zZWdzID86IDE7Cj4gKyDCoCDCoCDCoCAvKiBtdWx0aXBseSBkYXRhIGNodW5rcyBi
-eSBzaXplIG9mIGhlYWRlcnMgKi8KPiArIMKgIMKgIMKgIGJ5dGVjb3VudCA9ICgoc2VncyAtIDEp
-ICogc2tiX2hlYWRsZW4oc2tiKSkgKyBza2ItPmxlbjsKPiArCj4gwqAgwqAgwqAgwqB0eF9yaW5n
-LT5idWZmZXJfaW5mb1tpXS5za2IgPSBza2I7Cj4gKyDCoCDCoCDCoCB0eF9yaW5nLT5idWZmZXJf
-aW5mb1tpXS5zZWdzID0gc2VnczsKPiArIMKgIMKgIMKgIHR4X3JpbmctPmJ1ZmZlcl9pbmZvW2ld
-LmJ5dGVjb3VudCA9IGJ5dGVjb3VudDsKPiDCoCDCoCDCoCDCoHR4X3JpbmctPmJ1ZmZlcl9pbmZv
-W2ZpcnN0XS5uZXh0X3RvX3dhdGNoID0gaTsKPgo+IMKgIMKgIMKgIMKgcmV0dXJuIGNvdW50Owo+
-IC0tCj4KCkkgaGF2ZSBhZGRlZCB5b3VyIHBhdGNoZXMgdG8gbXkgcXVldWUgb2YgZTEwMDBlIHBh
-dGNoZXMsIHRoYW5rcy4KCi0tIApDaGVlcnMsCkplZmYK
+=46rom: Fran=E7ois Romieu <romieu@fr.zoreil.com>
+Date: Mon, 26 Apr 2010 23:42:06 +0200
+
+> Few (6) network drivers enable mwi explicitly. Fewer worry about a
+> failure.
+>=20
+> It is not a fix but it should avoid some annoyance like
+> http://bugzilla.kernel.org/show_bug.cgi?id=3D15454
+>=20
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> Cc: Conrad Kostecki <conikost@gmx.de>
+
+Applied.
