@@ -1,34 +1,33 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: RPS and forwarding
-Date: Mon, 26 Apr 2010 15:41:54 +0800
-Message-ID: <20100426074154.GA22922@gondor.apana.org.au>
-References: <z2w65634d661004252144z1bf72880wdf7a0143b8490ddf@mail.gmail.com> <20100426045316.GA21810@gondor.apana.org.au> <r2n65634d661004252200x4e7a49f1h181cdd69b3e4ebc0@mail.gmail.com> <20100425.232857.145290769.davem@davemloft.net> <20100426063136.GA22401@gondor.apana.org.au> <1272266716.2346.5.camel@edumazet-laptop> <20100426073017.GA22803@gondor.apana.org.au> <1272267534.2346.7.camel@edumazet-laptop>
+From: "Masayuki Ohtake" <masa-korg@dsn.okisemi.com>
+Subject: Re: [PATCH 1/7] Topcliff GbE: Add The Main code
+Date: Mon, 26 Apr 2010 16:53:07 +0900
+Message-ID: <001d01cae516$c443f670$66f8800a@maildom.okisemi.com>
+References: <201004231727.23246.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, therbert@google.com,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;
+	charset="iso-2022-jp"
+Content-Transfer-Encoding: 7bit
+Cc: "NETDEV" <netdev@vger.kernel.org>,
+	"Wang, Yong Y" <yong.y.wang@intel.com>,
+	"Wang, Qi" <qi.wang@intel.com>, "Intel OTC" <joel.clark@intel.com>,
+	"Andrew" <andrew.chih.howe.khor@intel.com>
+To: "Arnd Bergmann" <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:36194 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754584Ab0DZHmB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 03:42:01 -0400
-Content-Disposition: inline
-In-Reply-To: <1272267534.2346.7.camel@edumazet-laptop>
+Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:45272 "EHLO
+	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750859Ab0DZICJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 04:02:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 26, 2010 at 09:38:54AM +0200, Eric Dumazet wrote:
->
-> Ah OK, with same rxhash I guess ?
+On: Fri, 23 Apr 2010 17:27:23 +0200, Arnd Bergmann <arnd@arndb.de> wrote.
 
-It's worse than that I think, because the actual table contains
-less than 4G entries.  So either the same rxhash or the same index
-in the table.
+Hi Arnd
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thank you for your review.
+We will confirm them and update the new patch.
+Our company have a vacation.
+Therefore we will update patch after May 6.
+
+Best regards,
+Masayuki Ohtake <masa-korg@dsn.okisemi.com>
