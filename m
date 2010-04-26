@@ -1,59 +1,75 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: RPS and forwarding
-Date: Mon, 26 Apr 2010 10:24:15 +0800
-Message-ID: <20100426022415.GA20323@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: Flavio Leitner <fleitner@redhat.com>
+Subject: [PATCH v3] TCP: avoid to send keepalive probes if receiving data
+Date: Sun, 25 Apr 2010 23:40:59 -0300
+Message-ID: <1272249659-2292-1-git-send-email-fleitner@redhat.com>
+References: <20100425235549.GB2550@sysclose.org>
+Cc: David Miller <davem@davemloft.net>,
+	Ilpo <ilpo.jarvinen@helsinki.fi>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Flavio Leitner <fleitner@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:51644 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753387Ab0DZCYT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Apr 2010 22:24:19 -0400
-Content-Disposition: inline
+Received: from mx1.redhat.com ([209.132.183.28]:21099 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752076Ab0DZClg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 25 Apr 2010 22:41:36 -0400
+In-Reply-To: <20100425235549.GB2550@sysclose.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi:
+RFC 1122 says the following:
+...
+  Keep-alive packets MUST only be sent when no data or
+  acknowledgement packets have been received for the
+  connection within an interval.
+...
 
-I'm sorry I didn't have time to jump into the RPS discussions
-earlier, so in a way I'm just getting what I deserved :)
+The acknowledgement packet is reseting the keepalive
+timer but the data packet isn't. This patch fixes it by
+checking the timestamp of the last received data packet
+too when the keepalive timer expires.
 
-Anyway, I am specifically concerned about the possibility of
-reordering of forwarded traffic.
+Signed-off-by: Flavio Leitner <fleitner@redhat.com>
+---
+ net/ipv4/tcp.c       |    5 ++++-
+ net/ipv4/tcp_timer.c |    8 ++++++++
+ 2 files changed, 12 insertions(+), 1 deletions(-)
 
-As RPS is doing fuzzy matching, it is possible (and quite likely
-if rps_sock_flow_table is small) for a forwarded flow to be hashed
-to the same index as a local flow.
-
-In that case we may end up redirecting a forwarded flow.  That
-in itself is undesirable because for forwarded flows the best
-solution is to stay on the ingress CPU.
-
-What's worse is that if the local flow bounces around different
-CPUs, the forwarded flow will follow it.
-
-For a local flow RPS can guarantee original ordering (assuming
-we're not doing anything weird like netfilter queueing), but
-this doesn't work for forwarded flows.
-
-Even if netif_receive_skb has completed, the forwarded packet
-may still be sitting in a hardware TX queue, selected based
-on the processing CPU.  If you then bounce the forwarded flow
-then packets may be placed in a different hardware TX queue,
-causing reordering.
-
-BTW, selecting hardware TX queues for forwarded flows based
-on the rxhash is not a good solution, as that causes cache-line
-bouncing between CPUs.
-
-Apart from not using RPS on routers, I suppose people doing
-forwarding will simply have to maintain a constant RPS table,
-and forgo its local redirection capabilities.
-
-Cheers,
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 0f8caf6..94f605c 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2298,7 +2298,10 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+ 			if (sock_flag(sk, SOCK_KEEPOPEN) &&
+ 			    !((1 << sk->sk_state) &
+ 			      (TCPF_CLOSE | TCPF_LISTEN))) {
+-				__u32 elapsed = tcp_time_stamp - tp->rcv_tstamp;
++				u32 elapsed = min_t(u32,
++				      tcp_time_stamp - icsk->icsk_ack.lrcvtime,
++				      tcp_time_stamp - tp->rcv_tstamp);
++
+ 				if (tp->keepalive_time > elapsed)
+ 					elapsed = tp->keepalive_time - elapsed;
+ 				else
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 8a0ab29..9d1bb6f 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -554,6 +554,14 @@ static void tcp_keepalive_timer (unsigned long data)
+ 	if (tp->packets_out || tcp_send_head(sk))
+ 		goto resched;
+ 
++	elapsed = tcp_time_stamp - icsk->icsk_ack.lrcvtime;
++
++	/* receiving data means alive */
++	if (elapsed < keepalive_time_when(tp)) {
++		elapsed = keepalive_time_when(tp) - elapsed;
++		goto resched;
++	}
++
+ 	elapsed = tcp_time_stamp - tp->rcv_tstamp;
+ 
+ 	if (elapsed >= keepalive_time_when(tp)) {
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.5.5.6
+
