@@ -1,35 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: reimplement completion_queue as a FIFO queue
-Date: Sun, 25 Apr 2010 23:27:58 -0700 (PDT)
-Message-ID: <20100425.232758.101478192.davem@davemloft.net>
-References: <1272258841.2069.968.camel@edumazet-laptop>
-	<q2w412e6f7f1004252244s3a5000eft850c2a5dc0fd72d1@mail.gmail.com>
-	<1272262154.2069.1032.camel@edumazet-laptop>
+Subject: Re: RPS and forwarding
+Date: Sun, 25 Apr 2010 23:28:57 -0700 (PDT)
+Message-ID: <20100425.232857.145290769.davem@davemloft.net>
+References: <z2w65634d661004252144z1bf72880wdf7a0143b8490ddf@mail.gmail.com>
+	<20100426045316.GA21810@gondor.apana.org.au>
+	<r2n65634d661004252200x4e7a49f1h181cdd69b3e4ebc0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xiaosuo@gmail.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: herbert@gondor.hengli.com.au, netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54548
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55937
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751586Ab0DZG1x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 02:27:53 -0400
-In-Reply-To: <1272262154.2069.1032.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1752398Ab0DZG2w convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Apr 2010 02:28:52 -0400
+In-Reply-To: <r2n65634d661004252200x4e7a49f1h181cdd69b3e4ebc0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 26 Apr 2010 08:09:14 +0200
+=46rom: Tom Herbert <therbert@google.com>
+Date: Sun, 25 Apr 2010 22:00:09 -0700
 
-> LIFO is the slub behavior, for the exact reason its better for cache
-> reuse. Same for completion queue.
-> 
-> I repeat : 
-> - slub dont touch objects in normal situations.
-> - LIFO is better for caches.
-> - LIFO is faster (one pointer for the queue head)
+>> Right. =A0The problem is that if you run a distribution kernel on
+>> a router with CONFIG_RPS (and hence RFS) enabled, you may suddenly
+>> start seeing packet reordering on forwarded traffic due to the
+>> presence of local traffic.
+>>
+>> Can we perhaps add a run-time toggle to disable RFS?
+>>
+> RFS is not on at run-time by default.  The number of entries in the
+> global_rps_sock table needs to be set in sysctl, and the number of
+> entries in rps_dev_flow_table needs to be set per RX queue in sysfs.
+> You can turn it on for some devices, but not others if that helps.
 
-No matter what is faster, we have to process packets in
-FIFO order, otherwise we get reordering within a flow
-which is to be absolutely avoided.
+Right, none of this stuff is on by default.
+
+It might be possible to somehow make the sock table get bypassed for
+forwarded traffic, but I can't think of a cheap way to do that at
+the moment.
