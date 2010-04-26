@@ -1,18 +1,9 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] RCU: don't turn off lockdep when find suspicious
- rcu_dereference_check() usage
-Date: Mon, 26 Apr 2010 09:09:25 -0700
-Message-ID: <20100426160925.GD2529@linux.vnet.ibm.com>
-References: <t2la44ae5cd1004200838w87256e80v9dcde91342b321db@mail.gmail.com>
- <20100421213543.GO2563@linux.vnet.ibm.com>
- <20100422145640.GB3228@redhat.com>
- <20100422160144.GC2524@linux.vnet.ibm.com>
- <h2xa44ae5cd1004230550uf734c89eo2b1d1945d446068c@mail.gmail.com>
- <20100423194255.GE2589@linux.vnet.ibm.com>
- <m2xa44ae5cd1004231559hcf90671asf146a43b4748c2c3@mail.gmail.com>
- <20100425023455.GM2440@linux.vnet.ibm.com>
- <w2sa44ae5cd1004250849q73704370vc6af935c70db9b73@mail.gmail.com>
- <p2ga44ae5cd1004251320j55d23ba7ua0fa14497f623d76@mail.gmail.com>
+Subject: Re: 2.6.34-rc5-git6 (plus all patches) -- new INFO: suspicious
+ rcu_dereference_check() usage.
+Date: Mon, 26 Apr 2010 09:10:44 -0700
+Message-ID: <20100426161044.GE2529@linux.vnet.ibm.com>
+References: <s2ka44ae5cd1004251419hb8f4c137md0e399c464d9290a@mail.gmail.com>
 Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -25,99 +16,55 @@ Cc: Vivek Goyal <vgoyal@redhat.com>, Eric Paris <eparis@redhat.com>,
 	Jens Axboe <jens.axboe@oracle.com>,
 	Gui Jianfeng <guijianfeng@cn.fujitsu.com>,
 	Li Zefan <lizf@cn.fujitsu.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
+	Johannes Berg <johannes@sipsolutions.net>
 To: Miles Lane <miles.lane@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:36766 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752545Ab0DZQJ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 26 Apr 2010 12:09:29 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <p2ga44ae5cd1004251320j55d23ba7ua0fa14497f623d76@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <s2ka44ae5cd1004251419hb8f4c137md0e399c464d9290a@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Apr 25, 2010 at 04:20:13PM -0400, Miles Lane wrote:
-> > I am down to seeing three suspicious rcu_dereference_check traces when
-> > I apply this patch and all the previous patches to 2.6.34-rc5-git6.
-> >
-> > 1. The "__sched_setscheduler+0x19d/0x300" trace.
-> > 2. The two "is_swiotlb_buffer+0x2e/0x3b" traces (waiting to see
-> > Johannes' patch show up in a Linux snapshot)
-> >
-> > Did I miss a patch for the setscheduler issue?
-> 
-> Hmm.  I am still seeing these two messages as well.
-> 
-> [   83.363146] [ INFO: suspicious rcu_dereference_check() usage. ]
-> [   83.363148] ---------------------------------------------------
-> [   83.363151] include/net/inet_timewait_sock.h:227 invoked
+On Sun, Apr 25, 2010 at 05:19:38PM -0400, Miles Lane wrote:
+> [  139.730133] [ INFO: suspicious rcu_dereference_check() usage. ]
+> [  139.730136] ---------------------------------------------------
+> [  139.730139] include/net/inet_timewait_sock.h:227 invoked
 > rcu_dereference_check() without protection!
-> [   83.363154]
-> [   83.363155] other info that might help us debug this:
-> [   83.363156]
-> [   83.363158]
-> [   83.363159] rcu_scheduler_active = 1, debug_locks = 1
-> [   83.363162] 2 locks held by gwibber-service/5076:
-> [   83.363164]  #0:  (&p->lock){+.+.+.}, at: [<ffffffff8110534a>]
-> seq_read+0x37/0x381
-> [   83.363176]  #1:  (&(&hashinfo->ehash_locks[i])->rlock){+.-...},
-> at: [<ffffffff813ddcd5>] established_get_next+0xc4/0x132
-> [   83.363186]
-> [   83.363187] stack backtrace:
-> [   83.363191] Pid: 5076, comm: gwibber-service Not tainted 2.6.34-rc5-git6 #27
-> [   83.363194] Call Trace:
-> [   83.363202]  [<ffffffff81068086>] lockdep_rcu_dereference+0x9d/0xa5
-> [   83.363207]  [<ffffffff813dc998>] twsk_net+0x4f/0x57
-> [   83.363212]  [<ffffffff813ddc65>] established_get_next+0x54/0x132
-> [   83.363216]  [<ffffffff813dde47>] tcp_seq_next+0x5d/0x6a
-> [   83.363221]  [<ffffffff81105599>] seq_read+0x286/0x381
-> [   83.363226]  [<ffffffff81105313>] ? seq_read+0x0/0x381
-> [   83.363231]  [<ffffffff8113503c>] proc_reg_read+0x8d/0xac
-> [   83.363236]  [<ffffffff810ebf14>] vfs_read+0xa6/0x103
-> [   83.363241]  [<ffffffff810ec027>] sys_read+0x45/0x69
-> [   83.363246]  [<ffffffff81002b6b>] system_call_fastpath+0x16/0x1b
-> 
-> [   84.660302] [ INFO: suspicious rcu_dereference_check() usage. ]
-> [   84.660304] ---------------------------------------------------
-> [   84.660308] include/net/inet_timewait_sock.h:227 invoked
-> rcu_dereference_check() without protection!
-> [   84.660311]
-> [   84.660312] other info that might help us debug this:
-> [   84.660313]
-> [   84.660315]
-> [   84.660316] rcu_scheduler_active = 1, debug_locks = 1
-> [   84.660319] no locks held by gwibber-service/5081.
-> [   84.660321]
-> [   84.660322] stack backtrace:
-> [   84.660325] Pid: 5081, comm: gwibber-service Not tainted 2.6.34-rc5-git6 #27
-> [   84.660328] Call Trace:
-> [   84.660339]  [<ffffffff81068086>] lockdep_rcu_dereference+0x9d/0xa5
-> [   84.660345]  [<ffffffff813cad6f>] twsk_net+0x4f/0x57
-> [   84.660350]  [<ffffffff813cb18f>] __inet_twsk_hashdance+0x50/0x158
-> [   84.660355]  [<ffffffff813e0bb9>] tcp_time_wait+0x1c1/0x24b
-> [   84.660360]  [<ffffffff813d3d97>] tcp_fin+0x83/0x162
-> [   84.660364]  [<ffffffff813d4727>] tcp_data_queue+0x1ff/0xa1e
-> [   84.660370]  [<ffffffff810496aa>] ? mod_timer+0x1e/0x20
-> [   84.660375]  [<ffffffff813d8363>] tcp_rcv_state_process+0x89d/0x8f2
-> [   84.660381]  [<ffffffff813943bb>] ? release_sock+0x30/0x10b
-> [   84.660386]  [<ffffffff813de772>] tcp_v4_do_rcv+0x2de/0x33f
-> [   84.660391]  [<ffffffff8139440d>] release_sock+0x82/0x10b
-> [   84.660395]  [<ffffffff813ce875>] tcp_close+0x1b5/0x37e
-> [   84.660401]  [<ffffffff813ecdb7>] inet_release+0x50/0x57
-> [   84.660405]  [<ffffffff81391ae4>] sock_release+0x1a/0x66
-> [   84.660410]  [<ffffffff81391b52>] sock_close+0x22/0x26
-> [   84.660415]  [<ffffffff810ece07>] __fput+0x120/0x1cd
-> [   84.660420]  [<ffffffff810ecec9>] fput+0x15/0x17
-> [   84.660424]  [<ffffffff810e9d41>] filp_close+0x63/0x6d
-> [   84.660428]  [<ffffffff810e9e22>] sys_close+0xd7/0x111
-> [   84.660434]  [<ffffffff81002b6b>] system_call_fastpath+0x16/0x1b
+> [  139.730142]
+> [  139.730143] other info that might help us debug this:
+> [  139.730144]
+> [  139.730147]
+> [  139.730148] rcu_scheduler_active = 1, debug_locks = 1
+> [  139.730151] 1 lock held by swapper/0:
+> [  139.730158]  #0:  (net/ipv4/tcp_minisocks.c:41){+.-...}, at:
+> [<ffffffff81046ad2>] run_timer_softirq+0x19f/0x370
+> [  139.730169]
+> [  139.730170] stack backtrace:
+> [  139.730173] Pid: 0, comm: swapper Not tainted 2.6.34-rc5-git6 #28
+> [  139.730176] Call Trace:
+> [  139.730178]  <IRQ>  [<ffffffff81065f9a>] lockdep_rcu_dereference+0x9d/0xa5
+> [  139.730189]  [<ffffffff813d1abf>] twsk_net+0x4f/0x57
+> [  139.730193]  [<ffffffff813d2122>] __inet_twsk_kill+0x79/0xd0
+> [  139.730198]  [<ffffffff813d24f9>] inet_twdr_do_twkill_work+0x59/0xba
+> [  139.730203]  [<ffffffff813d263d>] inet_twdr_hangman+0x30/0x97
+> [  139.730207]  [<ffffffff81046b9e>] run_timer_softirq+0x26b/0x370
+> [  139.730211]  [<ffffffff81046ad2>] ? run_timer_softirq+0x19f/0x370
+> [  139.730216]  [<ffffffff813d260d>] ? inet_twdr_hangman+0x0/0x97
+> [  139.730221]  [<ffffffff81040230>] ? __do_softirq+0x7f/0x252
+> [  139.730225]  [<ffffffff810402f5>] __do_softirq+0x144/0x252
+> [  139.730230]  [<ffffffff8100320c>] call_softirq+0x1c/0x34
+> [  139.730235]  [<ffffffff81004864>] do_softirq+0x38/0x80
+> [  139.730239]  [<ffffffff8103fdc2>] irq_exit+0x45/0x94
+> [  139.730243]  [<ffffffff81003fa9>] do_IRQ+0xad/0xc4
+> [  139.730247]  [<ffffffff81432953>] ret_from_intr+0x0/0xf
+> [  139.730250]  <EOI>  [<ffffffff81248383>] ? acpi_idle_enter_bm+0x262/0x28d
+> [  139.730260]  [<ffffffff81248379>] ? acpi_idle_enter_bm+0x258/0x28d
+> [  139.730266]  [<ffffffff8137b9cf>] cpuidle_idle_call+0x9c/0x13d
+> [  139.730273]  [<ffffffff810012c2>] cpu_idle+0xa5/0xfc
+> [  139.730277]  [<ffffffff8142abdd>] start_secondary+0x1f3/0x1fc
 
-Eric Dumazet traced these down to a commit from Eric Biederman.
+This appears to be another symptom of the bug you located in your earlier
+testing, so either Eric Biederman sends a patch or I improvise.
 
-If I don't hear from Eric Biederman in a few days, I will attempt a
-patch, but it would be more likely to be correct coming from someone
-with a better understanding of the code.  ;-)
+And thank you again for all your testing, Miles!!!
 
 							Thanx, Paul
