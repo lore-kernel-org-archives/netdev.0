@@ -1,34 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2x: add support for receive hashing
-Date: Mon, 26 Apr 2010 11:22:44 -0700 (PDT)
-Message-ID: <20100426.112244.260086869.davem@davemloft.net>
-References: <q2o65634d661004261038t8f0c32f5ye8169ef0c38172b7@mail.gmail.com>
-	<20100426.110432.104061817.davem@davemloft.net>
-	<u2q65634d661004261119j74042496z4f1ba570251e0c44@mail.gmail.com>
+Subject: Re: [PATCH v3] TCP: avoid to send keepalive probes if receiving
+ data
+Date: Mon, 26 Apr 2010 11:24:22 -0700 (PDT)
+Message-ID: <20100426.112422.246526700.davem@davemloft.net>
+References: <20100425235549.GB2550@sysclose.org>
+	<1272249659-2292-1-git-send-email-fleitner@redhat.com>
+	<alpine.DEB.2.00.1004261241510.7041@wel-95.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: therbert@google.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: fleitner@redhat.com, netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: ilpo.jarvinen@helsinki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44976
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45665
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754095Ab0DZSWj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 14:22:39 -0400
-In-Reply-To: <u2q65634d661004261119j74042496z4f1ba570251e0c44@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1751986Ab0DZSYQ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Apr 2010 14:24:16 -0400
+In-Reply-To: <alpine.DEB.2.00.1004261241510.7041@wel-95.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Mon, 26 Apr 2010 11:19:05 -0700
+=46rom: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+Date: Mon, 26 Apr 2010 12:47:13 +0300 (EEST)
 
-> This also hits RSS/multiqueue. In a netperf RR test, 500 streams
-> between my two 16 core AMDs:  TCP 970K tps, UDP 370K tps.  I'm
-> surprised they didn't catch that in some benchmarks...
+>>  			    !((1 << sk->sk_state) &
+>>  			      (TCPF_CLOSE | TCPF_LISTEN))) {
+>> -				__u32 elapsed =3D tcp_time_stamp - tp->rcv_tstamp;
+>> +				u32 elapsed =3D min_t(u32,
+>> +				      tcp_time_stamp - icsk->icsk_ack.lrcvtime,
+>> +				      tcp_time_stamp - tp->rcv_tstamp);
+>> +
+>=20
+> I'd put this into a helper in include/net/tcp.h
+>=20
+ ...
+>> +	if (elapsed < keepalive_time_when(tp)) {
+>> +		elapsed =3D keepalive_time_when(tp) - elapsed;
+>> +		goto resched;
+>> +	}
+>> +
+>>  	elapsed =3D tcp_time_stamp - tp->rcv_tstamp;
+>=20
+> ...And then use it here too for setting the elapsed and doing the tes=
+t=20
+> and what follows only once?
+>=20
 
-Meanwhile, these NIC vendors seem to have all the time in the world to
-add iSCSI, RDMA and all the other stateful offload junk into their
-firmware and silicon.
-
-Yet they can't hash ports if the protocol is not TCP?  Beyond
-baffling...
+Agreed.
