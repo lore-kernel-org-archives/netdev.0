@@ -1,65 +1,48 @@
-From: "Gustavo F. Padovan" <gustavo@padovan.org>
-Subject: Re: [patch v2] bluetooth: handle l2cap_create_connless_pdu() errors
-Date: Mon, 26 Apr 2010 12:09:19 -0300
-Message-ID: <20100426150919.GA12813@vigoh>
-References: <20100422095201.GO29647@bicker>
- <20100422123347.GA5265@vigoh>
- <20100426113627.GS29093@bicker>
+From: Andre Detsch <adetsch@br.ibm.com>
+Subject: [PATCH] cxgb3: Wait longer for control packets on initialization
+Date: Mon, 26 Apr 2010 12:38:27 -0300
+Message-ID: <201004261238.27919.adetsch@br.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marcel Holtmann <marcel@holtmann.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrei Emeltchenko <andrei.emeltchenko@nokia.com>,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <error27@gmail.com>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, divy@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:54177 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752673Ab0DZPQ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 11:16:28 -0400
-Content-Disposition: inline
-In-Reply-To: <20100426113627.GS29093@bicker>
+Received: from e38.co.us.ibm.com ([32.97.110.159]:38745 "EHLO
+	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752486Ab0DZPiu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 11:38:50 -0400
+Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
+	by e38.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id o3QFWc7M031645
+	for <netdev@vger.kernel.org>; Mon, 26 Apr 2010 09:32:38 -0600
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o3QFcU4W111154
+	for <netdev@vger.kernel.org>; Mon, 26 Apr 2010 09:38:34 -0600
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o3QFfDrd010265
+	for <netdev@vger.kernel.org>; Mon, 26 Apr 2010 09:41:14 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dan,
 
-* Dan Carpenter <error27@gmail.com> [2010-04-26 13:36:27 +0200]:
+In some Power7 platforms, when using VIOS (Virtual I/O Server), we
+need to wait longer for control packets to finish transfer during
+initialization.
+Without this change, initialization may fail prematurely.
 
-> l2cap_create_connless_pdu() can sometimes return ERR_PTR(-ENOMEM) or
-> ERR_PTR(-EFAULT).
-> 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
-> ---
-> In v2 I wrote the patch on top of Gustavo Padovon's devel tree
-> 
-> diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-> index a668ef4..b32682c 100644
-> --- a/net/bluetooth/l2cap.c
-> +++ b/net/bluetooth/l2cap.c
-> @@ -1712,8 +1712,12 @@ static int l2cap_sock_sendmsg(struct kiocb *iocb, struct socket *sock, struct ms
->  	/* Connectionless channel */
->  	if (sk->sk_type == SOCK_DGRAM) {
->  		skb = l2cap_create_connless_pdu(sk, msg, len);
-> -		l2cap_do_send(sk, skb);
-> -		err = len;
-> +		if (IS_ERR(skb)) {
-> +			err = PTR_ERR(skb);
+Signed-off-by: Wen Xiong <wenxiong@us.ibm.com>
+Signed-off-by: Andre Detsch <adetsch@br.ibm.com>
 
-Remove the braces on the 'if', then we are fine to pick your patch ;)
+Index: linux-2.6.34-rc5/drivers/net/cxgb3/cxgb3_main.c
+===================================================================
+--- linux-2.6.34-rc5.orig/drivers/net/cxgb3/cxgb3_main.c	2010-04-23 18:59:43.000000000 -0300
++++ linux-2.6.34-rc5/drivers/net/cxgb3/cxgb3_main.c	2010-04-23 18:59:55.000000000 -0300
+@@ -439,7 +439,7 @@ static void free_irq_resources(struct ad
+ static int await_mgmt_replies(struct adapter *adap, unsigned long init_cnt,
+ 			      unsigned long n)
+ {
+-	int attempts = 5;
++	int attempts = 10;
 
-> +		} else {
-> +			l2cap_do_send(sk, skb);
-> +			err = len;
-> +		}
->  		goto done;
->  	}
->  
-
-
-Regards,
-
--- 
-Gustavo F. Padovan
-http://padovan.org
+ 	while (adap->sge.qs[0].rspq.offload_pkts < init_cnt + n) {
+ 		if (!--attempts)
