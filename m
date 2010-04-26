@@ -1,60 +1,51 @@
-From: "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
-Subject: Re: [patch v2] bluetooth: handle l2cap_create_connless_pdu() errors
-Date: Mon, 26 Apr 2010 15:27:52 -0300
-Message-ID: <20100426182752.GA23633@vigoh>
-References: <20100422123347.GA5265@vigoh>
- <20100426113627.GS29093@bicker>
- <20100426150919.GA12813@vigoh>
- <20100426.111259.112594696.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] RCU: don't turn off lockdep when find suspicious rcu_dereference_check() usage
+Date: Mon, 26 Apr 2010 11:35:10 -0700
+Message-ID: <m1hbmydpup.fsf@fess.ebiederm.org>
+References: <t2la44ae5cd1004200838w87256e80v9dcde91342b321db@mail.gmail.com>
+	<20100421213543.GO2563@linux.vnet.ibm.com>
+	<20100422145640.GB3228@redhat.com>
+	<20100422160144.GC2524@linux.vnet.ibm.com>
+	<h2xa44ae5cd1004230550uf734c89eo2b1d1945d446068c@mail.gmail.com>
+	<20100423194255.GE2589@linux.vnet.ibm.com>
+	<m2xa44ae5cd1004231559hcf90671asf146a43b4748c2c3@mail.gmail.com>
+	<20100425023455.GM2440@linux.vnet.ibm.com>
+	<w2sa44ae5cd1004250849q73704370vc6af935c70db9b73@mail.gmail.com>
+	<p2ga44ae5cd1004251320j55d23ba7ua0fa14497f623d76@mail.gmail.com>
+	<20100426160925.GD2529@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
-	andrei.emeltchenko-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20100426.111259.112594696.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Miles Lane <miles.lane@gmail.com>, Vivek Goyal <vgoyal@redhat.com>,
+	Eric Paris <eparis@redhat.com>,
+	Lai Jiangshan <laijs@cn.fujitsu.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Peter Zijlstra <peterz@infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>, nauman@google.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	Jens Axboe <jens.axboe@oracle.com>,
+	Gui Jianfeng <guijianfeng@cn.fujitsu.com>,
+	Li Zefan <lizf@cn.fujitsu.com>,
+	Johannes Berg <johannes@sipsolutions.net>
+To: paulmck@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:45795 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754326Ab0DZSfU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 14:35:20 -0400
+In-Reply-To: <20100426160925.GD2529@linux.vnet.ibm.com> (Paul E. McKenney's message of "Mon\, 26 Apr 2010 09\:09\:25 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+"Paul E. McKenney" <paulmck@linux.vnet.ibm.com> writes:
 
-* David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> [2010-04-26 11:12:59 -0700]:
+> Eric Dumazet traced these down to a commit from Eric Biederman.
+>
+> If I don't hear from Eric Biederman in a few days, I will attempt a
+> patch, but it would be more likely to be correct coming from someone
+> with a better understanding of the code.  ;-)
 
-> From: "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
-> Date: Mon, 26 Apr 2010 12:09:19 -0300
-> 
-> > Hi Dan,
-> > 
-> > * Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> [2010-04-26 13:36:27 +0200]:
-> > 
-> >> l2cap_create_connless_pdu() can sometimes return ERR_PTR(-ENOMEM) or
-> >> ERR_PTR(-EFAULT).
-> >> 
-> >> Signed-off-by: Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> >> ---
-> >> In v2 I wrote the patch on top of Gustavo Padovon's devel tree
-> 
-> This is the kind of bug that could cause a crash if the path actually
-> executes.
-> 
-> Therefore it tires me that that submitter was told to regenerate this
-> patch against some devel tree that is -next bound, when in fact this
-> is the kind of fix that warrants inclusion right now into net-2.6
+I already replied.
 
-My bad here. So I think we should pick the first version of the Dan's patch. 
-It applies against bluetooth-testing right now and then against net-2.6 too.
+http://lkml.org/lkml/2010/4/21/420
 
-Marcel, is that ok to you?
-
-> 
-> Marcel, please do whatever magic you need to so I can get this into
-> Linus's tree as I did the rest of the ERR_PTR() fixes from Dan already.
-> No reason to treat Bluetooth special and defer these fixes to -next.
-> 
-> Thanks.
-
--- 
-Gustavo F. Padovan
-http://padovan.org
+Eric
