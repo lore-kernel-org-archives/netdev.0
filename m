@@ -1,39 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v5] rfs: Receive Flow Steering
-Date: Mon, 26 Apr 2010 10:41:11 +0200
-Message-ID: <1272271271.2346.16.camel@edumazet-laptop>
-References: <20100419.130905.210660275.davem@davemloft.net>
-	 <20100419.132318.192086187.davem@davemloft.net>
-	 <1271709121.3845.94.camel@edumazet-laptop>
-	 <20100419.141947.129754682.davem@davemloft.net>
+From: Erwan Velu <erwanaliasr1@gmail.com>
+Subject: Re: [PATCH] e100: expose broadcast_disabled as a module option
+Date: Mon, 26 Apr 2010 10:49:55 +0200
+Message-ID: <y2lb43bf5491004260149x23beb95dqc9e177d9a6ecc679@mail.gmail.com>
+References: <l2nb43bf5491004231314i13503c67yeccfc54bc1cae850@mail.gmail.com>
+	 <h2p9929d2391004231322r23528f32z8447a711a29e28ea@mail.gmail.com>
+	 <20100423135816.23f5861f@nehalam>
+	 <r2ob43bf5491004231403o64f8b88bsa9543d9910648d97@mail.gmail.com>
+	 <20100423150207.7969c9f6@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: therbert@google.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, alexander.h.duyck@intel.com,
+	peter.p.waskiewicz.jr@intel.com, john.ronciak@intel.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:44422 "EHLO
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:42814 "EHLO
 	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751314Ab0DZIlS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 04:41:18 -0400
-Received: by bwz19 with SMTP id 19so19303bwz.21
-        for <netdev@vger.kernel.org>; Mon, 26 Apr 2010 01:41:17 -0700 (PDT)
-In-Reply-To: <20100419.141947.129754682.davem@davemloft.net>
+	with ESMTP id S1750804Ab0DZIt5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 04:49:57 -0400
+In-Reply-To: <20100423150207.7969c9f6@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 19 avril 2010 =C3=A0 14:19 -0700, David Miller a =C3=A9crit :
+Agreed that will be a better implementation. Changes of IFF_BROADCAST
+could play with this "broadcast_disabled" configuration switch to
+increase the cpu efficiency.
 
->=20
-> I was thinking also about how we could compute rxhash in the
-> loopback driver :-)
+ I'm not a kernel expert and I don't really figure how the changes of
+the IFF_BROADCAST should be forwarded to the interfaces and how it can
+be manipulated. I saw that ifconfig have a '-broadcast' option but
+looks like none of my drivers are compatible with that.
 
-This would be easy if rxhash was not a "struct inet_sock" field but a
-"struct sock" one
+Does any one you could help me understanding what should be the good way to
+1- enabled/disabled IFF_BROADCAST for a given interface
+2- populate this changes to the driver
 
-sock_alloc_send_pskb() (or skb_set_owner_w())
+Once I'll be able to have a proper patch using that, I'll post it
+again to the list.
 
-skb->rxhash =3D sk->rxhash;
+Cheers,
+Erwan
 
-
-
+2010/4/24 Stephen Hemminger <shemminger@vyatta.com>:
+> On Fri, 23 Apr 2010 23:03:59 +0200
+[...]
+> The point is that the driver can look at IFF_BROADCAST rather than having
+> module parameter. Module parameters are device driver specific and should
+> be avoid as much as possible in favor of general mechanism. This is a repeated
+> problem where users and vendors make special hooks that only work with their
+> driver, which makes life hard for other users and distribution providers.
+>
