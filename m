@@ -1,55 +1,49 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net-2.6] netns: assign NULL after pernet memory is freed
-Date: Mon, 26 Apr 2010 11:05:25 -0700
-Message-ID: <m18w8af5sq.fsf@fess.ebiederm.org>
-References: <20100426111806.GB2941@psychotron.lab.eng.brq.redhat.com>
-	<20100426120716.GD2941@psychotron.lab.eng.brq.redhat.com>
-	<20100426133020.GE2941@psychotron.lab.eng.brq.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] tg3: Fix INTx fallback when MSI fails
+Date: Mon, 26 Apr 2010 11:10:17 -0700 (PDT)
+Message-ID: <20100426.111017.189698604.davem@davemloft.net>
+References: <201004161015.12089.adetsch@br.ibm.com>
+	<20100421.161751.94080129.davem@davemloft.net>
+	<201004261427.07099.adetsch@br.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mcarlson@broadcom.com, mchan@broadcom.com
+To: adetsch@br.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:36848 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751918Ab0DZSFa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 14:05:30 -0400
-In-Reply-To: <20100426133020.GE2941@psychotron.lab.eng.brq.redhat.com> (Jiri Pirko's message of "Mon\, 26 Apr 2010 15\:30\:20 +0200")
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54390
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751521Ab0DZSKL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 14:10:11 -0400
+In-Reply-To: <201004261427.07099.adetsch@br.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Pirko <jpirko@redhat.com> writes:
+From: Andre Detsch <adetsch@br.ibm.com>
+Date: Mon, 26 Apr 2010 14:27:07 -0300
 
-> Mon, Apr 26, 2010 at 02:07:17PM CEST, jpirko@redhat.com wrote:
->>Mon, Apr 26, 2010 at 01:18:07PM CEST, jpirko@redhat.com wrote:
->>>This is needed to let know appropriate code (driver) know that pernet memory
->>>chunk  was freed already. For example when driver has also registered netdev
->>>notifier, it can be called after memory is freed which could eventually lead
->>>to panic. Also a null check should be present in these notifiers.
->>>
->>>For example, previously, when drivers were responsible for pernet memory
->>>allocation/freeing, in pppoe this assign was done in pppoe_exit_net() right
->>>after pernet memory was freed. The check in notifier stayed (in pppoe_flush_dev
->>>called from pppoe_device_event) but makes no sense now without this patch.
->>
->>Hmm, thinking about this, since the life of pernet memories is directly connected
->>with the life of net, as described by Eric, this should not be needed. So please
->>scrach this one too. Sorry.
->>
->>Anyway, I'm still wondering how to prevent netdev_notifiers from using this when
->>net is gone. Going to do more research, I'm probably missing something.
->
-> Right, it becomes part of init_ns then. So this looks good then. One thing I can
-> still imagine what may cause problem, since netdev_notifier is registered before
-> register_pernet_device, the notifier can be called in between. So I think this
-> should be reordered, am I right?
+> tg3: Fix INTx fallback when MSI fails
+> 
+> MSI setup changes the value of irq_vec in struct tg3 *tp.
+> This attribute must be taken into account and restored before
+> we try to do a new request_irq for INTx fallback.
+> 
+> In powerpc, the original code was leading to an EINVAL return within
+> request_irq, because the driver was trying to use the disabled MSI
+> virtual irq number instead of tp->pdev->irq.
+> 
+> Signed-off-by: Andre Detsch <adetsch@br.ibm.com>
 
-No.  We guarantee that all network devices are either destroyed or moved
-to init_net with the appropriate notifications sent.  Before we tear down
-the network namespace.  This guarantees we won't have packets in flight when
-destroying the network subsystems.
+Broadcom folks, I've already asked you to review Andre's original patch.
 
-The moving and destroying of network devices should simply look like normal
-events, that don't need special handling.
+If you can't be bothered to look at and ACK/NACK a simple fix like
+this for 10 days, then I'm just going to apply Andre's patch as-is
+since it looks right to me.
 
-Eric
+If the idea was to bundle this up into a set of 15 patches you guys
+already have ready to bomb at me, I absolutely do not want you guys to
+operate that way.  It doesn't work.  You should be able to ACK a
+simple patch like this as soon as possible so it can be integrated
+upstream in the most expediant manner possible.
+
+Thanks.
