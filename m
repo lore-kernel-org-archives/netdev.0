@@ -1,77 +1,41 @@
-From: Scott Feldman <scofeldm@cisco.com>
-Subject: Re: [net-next-2.6 PATCH 1/2] Add ndo_set_vf_port_profile
-Date: Mon, 26 Apr 2010 16:21:47 -0700
-Message-ID: <C7FB6E1B.2BC18%scofeldm@cisco.com>
-References: <43F901BD926A4E43B106BF17856F0755A3BE8B8F@orsmsx508.amr.corp.intel.com>
+From: Brian Bloniarz <bmb@athenacr.com>
+Subject: Re: [PATCH] bnx2x: add support for receive hashing
+Date: Mon, 26 Apr 2010 19:27:17 -0400
+Message-ID: <4BD62155.7080104@athenacr.com>
+References: <q2o65634d661004261038t8f0c32f5ye8169ef0c38172b7@mail.gmail.com>	<20100426.110432.104061817.davem@davemloft.net>	<u2q65634d661004261119j74042496z4f1ba570251e0c44@mail.gmail.com> <20100426.112244.260086869.davem@davemloft.net> <4BD5F553.6020006@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"chrisw@redhat.com" <chrisw@redhat.com>,
-	"arnd@arndb.de" <arnd@arndb.de>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>,
-	David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, therbert@google.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-1.cisco.com ([171.71.176.70]:7404 "EHLO
-	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751622Ab0DZXVu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 19:21:50 -0400
-In-Reply-To: <43F901BD926A4E43B106BF17856F0755A3BE8B8F@orsmsx508.amr.corp.intel.com>
+Received: from sprinkles.athenacr.com ([64.95.46.210]:61797 "EHLO
+	sprinkles.inp.in.athenacr.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752841Ab0D0AAG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 20:00:06 -0400
+In-Reply-To: <4BD5F553.6020006@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/26/10 3:38 PM, "Rose, Gregory V" <gregory.v.rose@intel.com> wrote:
+Rick Jones wrote:
+> By and large, customers do not do anything "substantial" with UDP.  NFS
+> went to TCP mounts 99 times out of 10 many years ago, leaving DNS as
+> about the only thing left*. So, customers will not be chomping at the
+> bit for improved UDP scalability/performance.  They would though, be
+> jumping up and down demanding iSCSI performance and by implication all
+> that comes along for the ride.
 
->> On 4/26/10 12:27 PM, "Scott Feldman" <scofeldm@cisco.com> wrote:
->> Here's a proposal:
->> 
->> Currently we have RTM_GETLINK for
->> 
->>    ip link show [ DEVICE ]
->> 
->> This dumps everything for the DEVICE including info for each VF.  Let's
->> modify RTM_GETLINK to look like this:
->> 
->>    ip link show [ DEVICE [ vf NUM] ]
->> 
->> If you don't give the optional vf NUM you get base dump on DEVICE.  If
->> you
->> give vf NUM, you get the VF-specific dump.  This scales much better with
->> the
->> number of VFs.
->> 
->> (Number of VFs can easily be > 128 in some designs).
->> 
->> Comments?
-> 
-> It seems to me that this:
-> 
-> ip link show [ DEVICE ]
-> 
-> should at least return the number of VFs so
-> that you can make sure the subsequent usage of this:
+I work for a finance firm, and I've met a lot of guys who are
+chomping at the bit for improved UDP performance. It's a
+huge huge deal in our field. I'm nothing more than one customer
+but I have a pretty negative reaction to this sentiment.
 
-Yes, I believe that's there today:
+I'm also one of the people who occasionally bugs Eric Dumazet
+about it :)
 
-    NLA_PUT_U32(skb, IFLA_NUM_VF, dev_num_vf(dev->dev.parent));
-
-The number of VFs is returned in RTM_GETLINK.  But, it's only returned if:
-
-    if (dev->netdev_ops->ndo_get_vf_config && dev->dev.parent)
-
-For my proposal, I'll need to return IFLA_NUM_VF unconditionally so callers
-can get num VFs.
- 
-> ip link show [ DEVICE [ vf NUM ] ]
-> 
-> is still in range with the [ vf NUM ] parameter.  Otherwise you wouldn't know
-> what the range of NUM is.
-> 
-> Other than that I can see why you would want to limit the size of the dump
-> when using 'ip link show [ DEVICE ]'.
-> 
-> - Greg
-> 
-
+One saving grace for the financial multicast case: I think it's
+pretty typical for the dest IP to be different for each flow
+(different multicast groups). I confirmed on my multi-queue
+bnx2 NIC (BCM5709) that those are spread out across the queues,
+presumably the hash is similar.
