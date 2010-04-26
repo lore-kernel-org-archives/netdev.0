@@ -1,51 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: GRO after RPS?
-Date: Mon, 26 Apr 2010 09:47:44 +0800
-Message-ID: <20100426014744.GA20093@gondor.apana.org.au>
-References: <20100425.170933.190068177.davem@davemloft.net> <20100426004934.GA12525@gondor.apana.org.au> <20100425.181757.10149105.davem@davemloft.net> <m2q412e6f7f1004251840vdf264f38vd0df335802cb2a91@mail.gmail.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] RCU: don't turn off lockdep when find suspicious
+ rcu_dereference_check() usage
+Date: Sun, 25 Apr 2010 19:07:16 -0700
+Message-ID: <20100426020716.GV2440@linux.vnet.ibm.com>
+References: <m2xa44ae5cd1004231559hcf90671asf146a43b4748c2c3@mail.gmail.com>
+ <20100425023455.GM2440@linux.vnet.ibm.com>
+ <1272181534.3614.1.camel@jlt3.sipsolutions.net>
+ <20100425.004925.54203352.davem@davemloft.net>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:47759 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752808Ab0DZBrw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 25 Apr 2010 21:47:52 -0400
+Cc: johannes@sipsolutions.net, miles.lane@gmail.com, vgoyal@redhat.com,
+	eparis@redhat.com, laijs@cn.fujitsu.com, mingo@elte.hu,
+	peterz@infradead.org, linux-kernel@vger.kernel.org,
+	nauman@google.com, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	jens.axboe@oracle.com, guijianfeng@cn.fujitsu.com,
+	lizf@cn.fujitsu.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <m2q412e6f7f1004251840vdf264f38vd0df335802cb2a91@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20100425.004925.54203352.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 26, 2010 at 09:40:35AM +0800, Changli Gao wrote:
-> On Mon, Apr 26, 2010 at 9:17 AM, David Miller <davem@davemloft.net> wrote:
-> >
-> > The goal is to eliminate all packet header references from the pre-RPS
-> > path, and let the post-RPS cpu do it.
+On Sun, Apr 25, 2010 at 12:49:25AM -0700, David Miller wrote:
+> From: Johannes Berg <johannes@sipsolutions.net>
+> Date: Sun, 25 Apr 2010 09:45:34 +0200
 > 
-> If the NIC doesn't provide rxhash, RPS will have to compute one by one
-> by itself. Is the hash computation more expensive than GRO? I think
-> the hash computation is cheaper than GRO, so we can do RPS ASAP to
-> avoid the direct CPU overload.
+> > The station locking is a tad confusing, but I've added the right
+> > annotations already, should be coming to a kernel near you soon (i.e.
+> > are in net-2.6 right now).
+> 
+> Linus took in everything I have so it should be in Linus's tree
+> by now.
 
-The dominating cost will be pulling the memory into cache.  So
-once you do that the cost of GRO will be negligible.
+Thank you both, Dave and Johannes!
 
-As I said, if we had hardware rxhashes, we can change GRO to only
-pull in the header when we're likely to have a match.
-
-When we do get a mergeable flow, the difference between doing
-GRO before/after RPS is going to be redirecting 1 packet vs.
-~100 packets.
-
-So if RPS is so cheap that it's able to process 100 packets at
-a cost tantamount to 1 packet, then sure we should postpone GRO.
-
-Otherwise I think GRO before RPS is definitely a win.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+							Thanx, Paul
