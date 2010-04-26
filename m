@@ -1,137 +1,81 @@
-From: =?iso-8859-1?Q?Fran=E7ois?= Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 1/2] r8169: failure to enable mwi should not be fatal
-Date: Mon, 26 Apr 2010 23:42:06 +0200
-Message-ID: <20100426214206.GA7624@electric-eye.fr.zoreil.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 1/4] e1000e: save skb counts in TX to avoid cache misses
+Date: Mon, 26 Apr 2010 15:01:49 -0700
+Message-ID: <n2p9929d2391004261501va61b955xaef62e9604a8e34d@mail.gmail.com>
+References: <alpine.DEB.1.00.1004231719050.16806@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Conrad Kostecki <conikost@gmx.de>,
-	David Dillow <dave@thedillows.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 97.17.115-78.rev.gaoland.net ([78.115.17.97]:54234 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754805Ab0DZVw5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 17:52:57 -0400
-Content-Disposition: inline
+Received: from mail-iw0-f202.google.com ([209.85.223.202]:49481 "EHLO
+	mail-iw0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754732Ab0DZWBu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 18:01:50 -0400
+Received: by iwn40 with SMTP id 40so3534532iwn.1
+        for <netdev@vger.kernel.org>; Mon, 26 Apr 2010 15:01:49 -0700 (PDT)
+In-Reply-To: <alpine.DEB.1.00.1004231719050.16806@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Few (6) network drivers enable mwi explicitly. Fewer worry about a
-failure.
-
-It is not a fix but it should avoid some annoyance like
-http://bugzilla.kernel.org/show_bug.cgi?id=15454
-
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Conrad Kostecki <conikost@gmx.de>
----
- drivers/net/r8169.c |   27 +++++++++++++--------------
- 1 files changed, 13 insertions(+), 14 deletions(-)
-
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index dbb1f5a..2b54389 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -2759,6 +2759,7 @@ static void rtl8169_release_board(struct pci_dev *pdev, struct net_device *dev,
- {
- 	iounmap(ioaddr);
- 	pci_release_regions(pdev);
-+	pci_clear_mwi(pdev);
- 	pci_disable_device(pdev);
- 	free_netdev(dev);
- }
-@@ -3014,9 +3015,8 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_out_free_dev_1;
- 	}
- 
--	rc = pci_set_mwi(pdev);
--	if (rc < 0)
--		goto err_out_disable_2;
-+	if (pci_set_mwi(pdev) < 0)
-+		netif_info(tp, probe, dev, "Mem-Wr-Inval unavailable\n");
- 
- 	/* make sure PCI base addr 1 is MMIO */
- 	if (!(pci_resource_flags(pdev, region) & IORESOURCE_MEM)) {
-@@ -3024,7 +3024,7 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 			  "region #%d not an MMIO resource, aborting\n",
- 			  region);
- 		rc = -ENODEV;
--		goto err_out_mwi_3;
-+		goto err_out_mwi_2;
- 	}
- 
- 	/* check for weird/broken PCI region reporting */
-@@ -3032,13 +3032,13 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		netif_err(tp, probe, dev,
- 			  "Invalid PCI region size(s), aborting\n");
- 		rc = -ENODEV;
--		goto err_out_mwi_3;
-+		goto err_out_mwi_2;
- 	}
- 
- 	rc = pci_request_regions(pdev, MODULENAME);
- 	if (rc < 0) {
- 		netif_err(tp, probe, dev, "could not request regions\n");
--		goto err_out_mwi_3;
-+		goto err_out_mwi_2;
- 	}
- 
- 	tp->cp_cmd = PCIMulRW | RxChkSum;
-@@ -3051,7 +3051,7 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
- 		if (rc < 0) {
- 			netif_err(tp, probe, dev, "DMA configuration failed\n");
--			goto err_out_free_res_4;
-+			goto err_out_free_res_3;
- 		}
- 	}
- 
-@@ -3060,7 +3060,7 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (!ioaddr) {
- 		netif_err(tp, probe, dev, "cannot remap MMIO, aborting\n");
- 		rc = -EIO;
--		goto err_out_free_res_4;
-+		goto err_out_free_res_3;
- 	}
- 
- 	tp->pcie_cap = pci_find_capability(pdev, PCI_CAP_ID_EXP);
-@@ -3102,7 +3102,7 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (i == ARRAY_SIZE(rtl_chip_info)) {
- 		dev_err(&pdev->dev,
- 			"driver bug, MAC version not found in rtl_chip_info\n");
--		goto err_out_msi_5;
-+		goto err_out_msi_4;
- 	}
- 	tp->chipset = i;
- 
-@@ -3167,7 +3167,7 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	rc = register_netdev(dev);
- 	if (rc < 0)
--		goto err_out_msi_5;
-+		goto err_out_msi_4;
- 
- 	pci_set_drvdata(pdev, dev);
- 
-@@ -3190,14 +3190,13 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- out:
- 	return rc;
- 
--err_out_msi_5:
-+err_out_msi_4:
- 	rtl_disable_msi(pdev, tp);
- 	iounmap(ioaddr);
--err_out_free_res_4:
-+err_out_free_res_3:
- 	pci_release_regions(pdev);
--err_out_mwi_3:
-+err_out_mwi_2:
- 	pci_clear_mwi(pdev);
--err_out_disable_2:
- 	pci_disable_device(pdev);
- err_out_free_dev_1:
- 	free_netdev(dev);
--- 
-1.6.6.1
-
+T24gRnJpLCBBcHIgMjMsIDIwMTAgYXQgMTc6MjUsIFRvbSBIZXJiZXJ0IDx0aGVyYmVydEBnb29n
+bGUuY29tPiB3cm90ZToKPiBJbiBlMTAwMF90eF9tYXAsIHByZWNvbXB1dGUgbnVtYmVyIG9mIHNl
+Z2VtZW50cyBhbmQgYnl0ZWNvdW50cyB3aGljaAo+IGFyZSBkZXJpdmVkIGZyb20gZmllbGRzIGlu
+IHNrYjsgdGhlc2UgYXJlIHN0b3JlZCBpbiBidWZmZXJfaW5mby4gwqBXaGVuCj4gY2xlYW5pbmcg
+dHggaW4gZTEwMDBfY2xlYW5fdHhfaXJxIHVzZSB0aGUgdmFsdWVzIGluIHRoZSBhc3NvY2lhdGVk
+Cj4gYnVmZmVyX2luZm8gZm9yIHN0YXRpc3RpY3MgY291bnRpbmcsIHRoaXMgZWxpbWluYXRlcyBj
+YWNoZSBtaXNzZXMKPiBvbiBza2IgZmllbGRzLgo+Cj4gU2lnbmVkLW9mZi1ieTogVG9tIEhlcmJl
+cnQgPHRoZXJiZXJ0QGdvb2dsZS5jb20+Cj4gLS0tCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0
+L2UxMDAwZS9lMTAwMC5oIGIvZHJpdmVycy9uZXQvZTEwMDBlL2UxMDAwLmgKPiBpbmRleCAxMjY0
+OGExLi5kNmRhNzViIDEwMDY0NAo+IC0tLSBhL2RyaXZlcnMvbmV0L2UxMDAwZS9lMTAwMC5oCj4g
+KysrIGIvZHJpdmVycy9uZXQvZTEwMDBlL2UxMDAwLmgKPiBAQCAtMTg4LDYgKzE4OCw4IEBAIHN0
+cnVjdCBlMTAwMF9idWZmZXIgewo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+dW5zaWduZWQgbG9uZyB0aW1lX3N0YW1wOwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgdTE2IGxlbmd0aDsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoHUx
+NiBuZXh0X3RvX3dhdGNoOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgdW5z
+aWduZWQgaW50IHNlZ3M7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCB1bnNp
+Z25lZCBpbnQgYnl0ZWNvdW50Owo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+dTE2IG1hcHBlZF9hc19wYWdlOwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgfTsKPiDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoC8qIFJ4ICovCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2UxMDAw
+ZS9uZXRkZXYuYyBiL2RyaXZlcnMvbmV0L2UxMDAwZS9uZXRkZXYuYwo+IGluZGV4IDVmNzBjNDMu
+LjRmNTAzNGEgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9uZXQvZTEwMDBlL25ldGRldi5jCj4gKysr
+IGIvZHJpdmVycy9uZXQvZTEwMDBlL25ldGRldi5jCj4gQEAgLTY0NiwxNCArNjM1LDggQEAgc3Rh
+dGljIGJvb2wgZTEwMDBfY2xlYW5fdHhfaXJxKHN0cnVjdCBlMTAwMF9hZGFwdGVyICphZGFwdGVy
+KQo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgY2xlYW5lZCA9IChpID09IGVv
+cCk7Cj4KPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGlmIChjbGVhbmVkKSB7
+Cj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBzdHJ1Y3Qg
+c2tfYnVmZiAqc2tiID0gYnVmZmVyX2luZm8tPnNrYjsKPiAtIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHVuc2lnbmVkIGludCBzZWdzLCBieXRlY291bnQ7Cj4g
+LSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBzZWdzID0gc2ti
+X3NoaW5mbyhza2IpLT5nc29fc2VncyA/OiAxOwo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgLyogbXVsdGlwbHkgZGF0YSBjaHVua3MgYnkgc2l6ZSBvZiBo
+ZWFkZXJzICovCj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
+oCBieXRlY291bnQgPSAoKHNlZ3MgLSAxKSAqIHNrYl9oZWFkbGVuKHNrYikpICsKPiAtIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IHNrYi0+bGVuOwo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgdG90YWxfdHhfcGFja2V0cyArPSBzZWdzOwo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgdG90YWxfdHhfYnl0ZXMgKz0gYnl0ZWNvdW50Owo+ICsgwqAg
+wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgdG90YWxfdHhfcGFja2V0
+cyArPSBidWZmZXJfaW5mby0+c2VnczsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
+IMKgIMKgIMKgIMKgIMKgIHRvdGFsX3R4X2J5dGVzICs9IGJ1ZmZlcl9pbmZvLT5ieXRlY291bnQ7
+Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqB9Cj4KPiDCoCDCoCDCoCDCoCDC
+oCDCoCDCoCDCoCDCoCDCoCDCoCDCoGUxMDAwX3B1dF90eGJ1ZihhZGFwdGVyLCBidWZmZXJfaW5m
+byk7Cj4gQEAgLTM5MDYsNyArMzg4OSw3IEBAIHN0YXRpYyBpbnQgZTEwMDBfdHhfbWFwKHN0cnVj
+dCBlMTAwMF9hZGFwdGVyICphZGFwdGVyLAo+IMKgIMKgIMKgIMKgc3RydWN0IGUxMDAwX2J1ZmZl
+ciAqYnVmZmVyX2luZm87Cj4gwqAgwqAgwqAgwqB1bnNpZ25lZCBpbnQgbGVuID0gc2tiX2hlYWRs
+ZW4oc2tiKTsKPiDCoCDCoCDCoCDCoHVuc2lnbmVkIGludCBvZmZzZXQgPSAwLCBzaXplLCBjb3Vu
+dCA9IDAsIGk7Cj4gLSDCoCDCoCDCoCB1bnNpZ25lZCBpbnQgZjsKPiArIMKgIMKgIMKgIHVuc2ln
+bmVkIGludCBmLCBieXRlY291bnQsIHNlZ3M7Cj4KPiDCoCDCoCDCoCDCoGkgPSB0eF9yaW5nLT5u
+ZXh0X3RvX3VzZTsKPgo+IEBAIC0zOTY1LDcgKzM5NDgsMTMgQEAgc3RhdGljIGludCBlMTAwMF90
+eF9tYXAoc3RydWN0IGUxMDAwX2FkYXB0ZXIgKmFkYXB0ZXIsCj4gwqAgwqAgwqAgwqAgwqAgwqAg
+wqAgwqB9Cj4gwqAgwqAgwqAgwqB9Cj4KPiArIMKgIMKgIMKgIHNlZ3MgPSBza2Jfc2hpbmZvKHNr
+YiktPmdzb19zZWdzID86IDE7Cj4gKyDCoCDCoCDCoCAvKiBtdWx0aXBseSBkYXRhIGNodW5rcyBi
+eSBzaXplIG9mIGhlYWRlcnMgKi8KPiArIMKgIMKgIMKgIGJ5dGVjb3VudCA9ICgoc2VncyAtIDEp
+ICogc2tiX2hlYWRsZW4oc2tiKSkgKyBza2ItPmxlbjsKPiArCj4gwqAgwqAgwqAgwqB0eF9yaW5n
+LT5idWZmZXJfaW5mb1tpXS5za2IgPSBza2I7Cj4gKyDCoCDCoCDCoCB0eF9yaW5nLT5idWZmZXJf
+aW5mb1tpXS5zZWdzID0gc2VnczsKPiArIMKgIMKgIMKgIHR4X3JpbmctPmJ1ZmZlcl9pbmZvW2ld
+LmJ5dGVjb3VudCA9IGJ5dGVjb3VudDsKPiDCoCDCoCDCoCDCoHR4X3JpbmctPmJ1ZmZlcl9pbmZv
+W2ZpcnN0XS5uZXh0X3RvX3dhdGNoID0gaTsKPgo+IMKgIMKgIMKgIMKgcmV0dXJuIGNvdW50Owo+
+IC0tCj4KCkkgaGF2ZSBhZGRlZCB5b3VyIHBhdGNoZXMgdG8gbXkgcXVldWUgb2YgZTEwMDBlIHBh
+dGNoZXMsIHRoYW5rcy4KCi0tIApDaGVlcnMsCkplZmYK
