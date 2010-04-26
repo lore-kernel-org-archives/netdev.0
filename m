@@ -1,98 +1,108 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: rps perfomance WAS(Re: rps: question
-Date: Mon, 26 Apr 2010 21:35:52 +0800
-Message-ID: <n2g412e6f7f1004260635kcd0c6ed7y5a9fc85a461d94fc@mail.gmail.com>
-References: <t2p65634d661004141031xf80f62e7sb64362ea1ce10a1f@mail.gmail.com>
-	<1271583573.16881.4798.camel@edumazet-laptop> <1271590476.16881.4925.camel@edumazet-laptop>
-	<1271764941.3735.94.camel@bigi> <1271769195.7895.4.camel@edumazet-laptop>
-	<1271853570.4032.21.camel@bigi> <1271876480.7895.3106.camel@edumazet-laptop>
-	<1271938343.4032.30.camel@bigi> <t2r412e6f7f1004241931ie9e70e3aka77b49557a7872e3@mail.gmail.com>
-	<1272281709.8918.35.camel@bigi>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH net-next-2.6] pppoe: use phonet_pernet instead of directly
+ net_generic
+Date: Mon, 26 Apr 2010 15:41:00 +0200
+Message-ID: <20100426134100.GF2941@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	David Miller <davem@davemloft.net>, therbert@google.com,
-	netdev@vger.kernel.org, robert@herjulf.net, andi@firstfloor.org
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f202.google.com ([209.85.223.202]:49039 "EHLO
-	mail-iw0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750804Ab0DZNgN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 09:36:13 -0400
-Received: by iwn40 with SMTP id 40so3203623iwn.1
-        for <netdev@vger.kernel.org>; Mon, 26 Apr 2010 06:36:12 -0700 (PDT)
-In-Reply-To: <1272281709.8918.35.camel@bigi>
+Received: from mx1.redhat.com ([209.132.183.28]:45181 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750876Ab0DZNlC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 26 Apr 2010 09:41:02 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 26, 2010 at 7:35 PM, jamal <hadi@cyberus.ca> wrote:
-> On Sun, 2010-04-25 at 10:31 +0800, Changli Gao wrote:
->
->> I read the code again, and find that we don't use spin_lock_irqsave(=
-),
->> and we use local_irq_save() and spin_lock() instead, so
->> _raw_spin_lock_irqsave() and _raw_spin_lock_irqrestore() should not =
-be
->> related to backlog. the lock maybe sk_receive_queue.lock.
->
-> Possible.
-> I am wondering if there's a way we can precisely nail where that is
-> happening? is lockstat any use?
-> Fixing _raw_spin_lock_irqsave and friend is the lowest hanging fruit.
->
+As in for example pppoe introduce phonet_pernet and use it instead of calling
+net_generic directly.
 
-Maybe lockstat can help in this case.
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-> So looking at your patch now i see it is likely there was an improvem=
-ent
-> made for non-rps case (moving out of loop some irq_enable etc).
-> i.e my results may not be crazy after adding your patch and seeing an
-> improvement for non-rps case.
-> However, whatever your patch did - it did not help the rps case case:
-> call_function_single_interrupt() comes out higher in the profile,
-> and # of IPIs seems to have gone up (although i did not measure this,=
- I
-> can see the interrupts/second went up by almost 50-60%)
-
-Did you apply the patch from Eric? It would reduce the number of
-local_irq_disable() calls but increase the number of IPIs.
-
->
->> Jamal, did you use a single socket to serve all the clients?
->
-> Socket per detected cpu.
-
-Ignore it. I made a mistake here.
-
->
->> BTW: =C2=A0completion_queue and output_queue in softnet_data both ar=
-e LIFO
->> queues. For completion_queue, FIFO is better, as the last used skb i=
-s
->> more likely in cache, and should be used first. Since slab has alway=
-s
->> cache the last used memory at the head, we'd better free the skb in
->> FIFO manner. For output_queue, FIFO is good for fairness among qdisc=
-s.
->
-> I think it will depend on how many of those skbs are sitting in the
-> completion queue, cache warmth etc. LIFO is always safest, you have
-> higher probability of finding a cached skb infront.
->
-
-we call kfree_skb() to release skbs to slab allocator, then slab
-allocator stores them in a LIFO queue. If completion queue is also a
-LIFO queue, the latest unused skb will be in the front of the queue,
-and will be released to slab allocator at first. At the next time, we
-call alloc_skb(), the memory used by the skb in the end of the
-completion queue will be returned instead of the hot one.
-
-However, as Eric said, new drivers don't rely on completion queue, it
-isn't a real problem, especially in your test case.
-
-
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
+diff --git a/net/phonet/pn_dev.c b/net/phonet/pn_dev.c
+index 9b4ced6..c33da65 100644
+--- a/net/phonet/pn_dev.c
++++ b/net/phonet/pn_dev.c
+@@ -46,9 +46,16 @@ struct phonet_net {
+ 
+ int phonet_net_id __read_mostly;
+ 
++static struct phonet_net *phonet_pernet(struct net *net)
++{
++	BUG_ON(!net);
++
++	return net_generic(net, phonet_net_id);
++}
++
+ struct phonet_device_list *phonet_device_list(struct net *net)
+ {
+-	struct phonet_net *pnn = net_generic(net, phonet_net_id);
++	struct phonet_net *pnn = phonet_pernet(net);
+ 	return &pnn->pndevs;
+ }
+ 
+@@ -261,7 +268,7 @@ static int phonet_device_autoconf(struct net_device *dev)
+ 
+ static void phonet_route_autodel(struct net_device *dev)
+ {
+-	struct phonet_net *pnn = net_generic(dev_net(dev), phonet_net_id);
++	struct phonet_net *pnn = phonet_pernet(dev_net(dev));
+ 	unsigned i;
+ 	DECLARE_BITMAP(deleted, 64);
+ 
+@@ -313,7 +320,7 @@ static struct notifier_block phonet_device_notifier = {
+ /* Per-namespace Phonet devices handling */
+ static int __net_init phonet_init_net(struct net *net)
+ {
+-	struct phonet_net *pnn = net_generic(net, phonet_net_id);
++	struct phonet_net *pnn = phonet_pernet(net);
+ 
+ 	if (!proc_net_fops_create(net, "phonet", 0, &pn_sock_seq_fops))
+ 		return -ENOMEM;
+@@ -326,7 +333,7 @@ static int __net_init phonet_init_net(struct net *net)
+ 
+ static void __net_exit phonet_exit_net(struct net *net)
+ {
+-	struct phonet_net *pnn = net_generic(net, phonet_net_id);
++	struct phonet_net *pnn = phonet_pernet(net);
+ 	struct net_device *dev;
+ 	unsigned i;
+ 
+@@ -376,7 +383,7 @@ void phonet_device_exit(void)
+ 
+ int phonet_route_add(struct net_device *dev, u8 daddr)
+ {
+-	struct phonet_net *pnn = net_generic(dev_net(dev), phonet_net_id);
++	struct phonet_net *pnn = phonet_pernet(dev_net(dev));
+ 	struct phonet_routes *routes = &pnn->routes;
+ 	int err = -EEXIST;
+ 
+@@ -393,7 +400,7 @@ int phonet_route_add(struct net_device *dev, u8 daddr)
+ 
+ int phonet_route_del(struct net_device *dev, u8 daddr)
+ {
+-	struct phonet_net *pnn = net_generic(dev_net(dev), phonet_net_id);
++	struct phonet_net *pnn = phonet_pernet(dev_net(dev));
+ 	struct phonet_routes *routes = &pnn->routes;
+ 
+ 	daddr = daddr >> 2;
+@@ -413,7 +420,7 @@ int phonet_route_del(struct net_device *dev, u8 daddr)
+ 
+ struct net_device *phonet_route_get(struct net *net, u8 daddr)
+ {
+-	struct phonet_net *pnn = net_generic(net, phonet_net_id);
++	struct phonet_net *pnn = phonet_pernet(net);
+ 	struct phonet_routes *routes = &pnn->routes;
+ 	struct net_device *dev;
+ 
+@@ -428,7 +435,7 @@ struct net_device *phonet_route_get(struct net *net, u8 daddr)
+ 
+ struct net_device *phonet_route_output(struct net *net, u8 daddr)
+ {
+-	struct phonet_net *pnn = net_generic(net, phonet_net_id);
++	struct phonet_net *pnn = phonet_pernet(net);
+ 	struct phonet_routes *routes = &pnn->routes;
+ 	struct net_device *dev;
+ 
