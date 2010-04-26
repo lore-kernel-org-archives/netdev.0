@@ -1,125 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v6] net: batch skb dequeueing from softnet
- input_pkt_queue
-Date: Mon, 26 Apr 2010 16:55:07 +0200
-Message-ID: <1272293707.19143.51.camel@edumazet-laptop>
-References: <1272010378-2955-1-git-send-email-xiaosuo@gmail.com>
-	 <1272014825.7895.7851.camel@edumazet-laptop> <1272060153.8918.8.camel@bigi>
-	 <1272118252.8918.13.camel@bigi> <1272290584.19143.43.camel@edumazet-laptop>
+From: "Gustavo F. Padovan" <gustavo@padovan.org>
+Subject: Re: [patch v2] bluetooth: handle l2cap_create_connless_pdu() errors
+Date: Mon, 26 Apr 2010 12:09:19 -0300
+Message-ID: <20100426150919.GA12813@vigoh>
+References: <20100422095201.GO29647@bicker>
+ <20100422123347.GA5265@vigoh>
+ <20100426113627.GS29093@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Marcel Holtmann <marcel@holtmann.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, Andi Kleen <andi@firstfloor.org>
-To: hadi@cyberus.ca
+	Andrei Emeltchenko <andrei.emeltchenko@nokia.com>,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:58969 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751891Ab0DZOzN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 10:55:13 -0400
-Received: by bwz19 with SMTP id 19so222523bwz.21
-        for <netdev@vger.kernel.org>; Mon, 26 Apr 2010 07:55:11 -0700 (PDT)
-In-Reply-To: <1272290584.19143.43.camel@edumazet-laptop>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:54177 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752673Ab0DZPQ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 11:16:28 -0400
+Content-Disposition: inline
+In-Reply-To: <20100426113627.GS29093@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 26 avril 2010 =C3=A0 16:03 +0200, Eric Dumazet a =C3=A9crit :
-> Le samedi 24 avril 2010 =C3=A0 10:10 -0400, jamal a =C3=A9crit :
-> > On Fri, 2010-04-23 at 18:02 -0400, jamal wrote:
-> >=20
-> > > Ive done a setup with the last patch from Changli + net-next - I =
-will
-> > > post test results tomorrow AM.
-> >=20
-> > ok, annotated results attached.=20
-> >=20
-> > cheers,
-> > jamal
->=20
-> Jamal, I have a Nehalem setup now, and I can see
-> _raw_spin_lock_irqsave() abuse is not coming from network tree, but f=
-rom
-> clockevents_notify()
->=20
+Hi Dan,
 
-Another interesting finding:
+* Dan Carpenter <error27@gmail.com> [2010-04-26 13:36:27 +0200]:
 
-- if all packets are received on a single queue, max speed seems to be
-1.200.000 packets per second on my machine :-(
+> l2cap_create_connless_pdu() can sometimes return ERR_PTR(-ENOMEM) or
+> ERR_PTR(-EFAULT).
+> 
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> ---
+> In v2 I wrote the patch on top of Gustavo Padovon's devel tree
+> 
+> diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
+> index a668ef4..b32682c 100644
+> --- a/net/bluetooth/l2cap.c
+> +++ b/net/bluetooth/l2cap.c
+> @@ -1712,8 +1712,12 @@ static int l2cap_sock_sendmsg(struct kiocb *iocb, struct socket *sock, struct ms
+>  	/* Connectionless channel */
+>  	if (sk->sk_type == SOCK_DGRAM) {
+>  		skb = l2cap_create_connless_pdu(sk, msg, len);
+> -		l2cap_do_send(sk, skb);
+> -		err = len;
+> +		if (IS_ERR(skb)) {
+> +			err = PTR_ERR(skb);
 
-And on profile of receiving cpu (RPS enabled, pakets sent to 15 other
-cpus), we can see default_send_IPI_mask_sequence_phys() is the slow
-thing...
+Remove the braces on the 'if', then we are fine to pick your patch ;)
 
-Andi, what do you think of this one ?
-Dont we have a function to send an IPI to an individual cpu instead ?
-
-void default_send_IPI_mask_sequence_phys(const struct cpumask *mask, in=
-t
-vector)
-{
-        unsigned long query_cpu;
-        unsigned long flags;
-
-        /*
-         * Hack. The clustered APIC addressing mode doesn't allow us to
-send
-         * to an arbitrary mask, so I do a unicast to each CPU instead.
-         * - mbligh
-         */
-        local_irq_save(flags);
-        for_each_cpu(query_cpu, mask) {
-                __default_send_IPI_dest_field(per_cpu(x86_cpu_to_apicid=
-,
-                                query_cpu), vector, APIC_DEST_PHYSICAL)=
-;
-        }
-        local_irq_restore(flags);
-}
+> +		} else {
+> +			l2cap_do_send(sk, skb);
+> +			err = len;
+> +		}
+>  		goto done;
+>  	}
+>  
 
 
------------------------------------------------------------------------=
-------------------------------------------------------------------
-   PerfTop:    1000 irqs/sec  kernel:100.0% [1000Hz cycles],  (all, cpu=
-:
-7)
------------------------------------------------------------------------=
-------------------------------------------------------------------
+Regards,
 
-             samples  pcnt function                            DSO
-             _______ _____ ___________________________________ _______
-
-              668.00 17.7% default_send_IPI_mask_sequence_phys vmlinux
-              363.00  9.6% bnx2x_rx_int                        vmlinux
-              354.00  9.4% eth_type_trans                      vmlinux
-              332.00  8.8% kmem_cache_alloc_node               vmlinux
-              285.00  7.6% __kmalloc_node_track_caller         vmlinux
-              278.00  7.4% _raw_spin_lock                      vmlinux
-              166.00  4.4% __slab_alloc                        vmlinux
-              147.00  3.9% __memset                            vmlinux
-              136.00  3.6% list_del                            vmlinux
-              132.00  3.5% get_partial_node                    vmlinux
-              131.00  3.5% get_rps_cpu                         vmlinux
-              102.00  2.7% enqueue_to_backlog                  vmlinux
-               95.00  2.5% unmap_single                        vmlinux
-               94.00  2.5% __alloc_skb                         vmlinux
-               74.00  2.0% vlan_gro_common                     vmlinux
-               52.00  1.4% __phys_addr                         vmlinux
-               48.00  1.3% dev_gro_receive                     vmlinux
-               39.00  1.0% swiotlb_dma_mapping_error           vmlinux
-               36.00  1.0% swiotlb_map_page                    vmlinux
-               34.00  0.9% skb_put                             vmlinux
-               27.00  0.7% is_swiotlb_buffer                   vmlinux
-               23.00  0.6% deactivate_slab                     vmlinux
-               20.00  0.5% vlan_gro_receive                    vmlinux
-               17.00  0.5% __skb_bond_should_drop              vmlinux
-               14.00  0.4% netif_receive_skb                   vmlinux
-               14.00  0.4% __netdev_alloc_skb                  vmlinux
-               12.00  0.3% skb_gro_reset_offset                vmlinux
-               12.00  0.3% get_slab                            vmlinux
-               11.00  0.3% napi_skb_finish                     vmlinux
-
-
+-- 
+Gustavo F. Padovan
+http://padovan.org
