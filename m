@@ -1,34 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH] ixgbe: Power down PHY during driver resets
-Date: Tue, 27 Apr 2010 10:18:49 -0700 (PDT)
-Message-ID: <20100427.101849.91330635.davem@davemloft.net>
-References: <20100427103814.23338.47637.stgit@localhost.localdomain>
+Subject: Re: [PATCH] bnx2x: add support for receive hashing
+Date: Tue, 27 Apr 2010 10:20:38 -0700 (PDT)
+Message-ID: <20100427.102038.57469310.davem@davemloft.net>
+References: <4BD6E887.3000804@athenacr.com>
+	<20100427.095108.68126984.davem@davemloft.net>
+	<1272388439.2295.369.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	peter.p.waskiewicz.jr@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: bmb@athenacr.com, therbert@google.com, netdev@vger.kernel.org,
+	rick.jones2@hp.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36283
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36294
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754221Ab0D0RSn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 13:18:43 -0400
-In-Reply-To: <20100427103814.23338.47637.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1753461Ab0D0RUc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 13:20:32 -0400
+In-Reply-To: <1272388439.2295.369.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 27 Apr 2010 03:38:15 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 27 Apr 2010 19:13:59 +0200
 
-> From: Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+> So we have a BIG problem :
 > 
-> The PHY laser is still on during driver init.  It's allowing
-> garbage to hit our FIFO, which eventually can cause the entire
-> device to die.  Power down the laser while setting up the device,
-> and re-enable the laser before getting link.
+> All cpus are fighting to get the socket lock,
+> and very litle progress is done.
 > 
-> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Note this problem has nothing to do with RPS, we could have 
+> it with multiqueue as well.
+> 
+> Oh well...
 
-Applied.
+Indeed, a huge issue, in that we haven't converted the UDP hash over
+to RCU yet :-)
+
+But because of the transient bind nature of UDP there are still a bunch
+of cases that won't even cure.
