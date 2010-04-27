@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 5/7] ixgb: use DMA API instead of PCI DMA
+Subject: [net-next-2.6 PATCH 6/7] ixgbe: use DMA API instead of PCI DMA
 	functions
-Date: Tue, 27 Apr 2010 16:10:03 -0700
-Message-ID: <20100427231001.26173.17582.stgit@localhost.localdomain>
+Date: Tue, 27 Apr 2010 16:10:27 -0700
+Message-ID: <20100427231025.26173.91168.stgit@localhost.localdomain>
 References: <20100427230836.26173.59671.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,10 +12,10 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta15.westchester.pa.mail.comcast.net ([76.96.59.228]:41673
-	"EHLO qmta15.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751501Ab0D0XK0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 19:10:26 -0400
+Received: from qmta07.westchester.pa.mail.comcast.net ([76.96.62.64]:48063
+	"EHLO qmta07.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752418Ab0D0XKs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 19:10:48 -0400
 In-Reply-To: <20100427230836.26173.59671.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -26,95 +26,280 @@ Signed-off-by: Nicholas Nunley <nicholasx.d.nunley@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgb/ixgb_main.c |   70 +++++++++++++++++++++++-------------------
- 1 files changed, 39 insertions(+), 31 deletions(-)
+ drivers/net/ixgbe/ixgbe_ethtool.c |   42 +++++++++++---------
+ drivers/net/ixgbe/ixgbe_main.c    |   77 ++++++++++++++++++++-----------------
+ 2 files changed, 64 insertions(+), 55 deletions(-)
 
-diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
-index 3cf7951..d58ca6b 100644
---- a/drivers/net/ixgb/ixgb_main.c
-+++ b/drivers/net/ixgb/ixgb_main.c
-@@ -368,16 +368,22 @@ ixgb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (err)
- 		return err;
- 
--	if (!(err = pci_set_dma_mask(pdev, DMA_BIT_MASK(64))) &&
--	    !(err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64)))) {
--		pci_using_dac = 1;
-+	pci_using_dac = 0;
-+	err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(64));
-+	if (!err) {
-+		err = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
-+		if (!err)
-+			pci_using_dac = 1;
- 	} else {
--		if ((err = pci_set_dma_mask(pdev, DMA_BIT_MASK(32))) ||
--		    (err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32)))) {
--			pr_err("No usable DMA configuration, aborting\n");
--			goto err_dma_mask;
-+		err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
-+		if (err) {
-+			err = dma_set_coherent_mask(&pdev->dev,
-+						    DMA_BIT_MASK(32));
-+			if (err) {
-+				pr_err("No usable DMA configuration, aborting\n");
-+				goto err_dma_mask;
-+			}
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
+index dfbfe35..dc7fd5b 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -1458,8 +1458,8 @@ static void ixgbe_free_desc_rings(struct ixgbe_adapter *adapter)
+ 			struct ixgbe_tx_buffer *buf =
+ 					&(tx_ring->tx_buffer_info[i]);
+ 			if (buf->dma)
+-				pci_unmap_single(pdev, buf->dma, buf->length,
+-				                 PCI_DMA_TODEVICE);
++				dma_unmap_single(&pdev->dev, buf->dma,
++						 buf->length, DMA_TO_DEVICE);
+ 			if (buf->skb)
+ 				dev_kfree_skb(buf->skb);
  		}
--		pci_using_dac = 0;
+@@ -1470,22 +1470,22 @@ static void ixgbe_free_desc_rings(struct ixgbe_adapter *adapter)
+ 			struct ixgbe_rx_buffer *buf =
+ 					&(rx_ring->rx_buffer_info[i]);
+ 			if (buf->dma)
+-				pci_unmap_single(pdev, buf->dma,
++				dma_unmap_single(&pdev->dev, buf->dma,
+ 						 IXGBE_RXBUFFER_2048,
+-						 PCI_DMA_FROMDEVICE);
++						 DMA_FROM_DEVICE);
+ 			if (buf->skb)
+ 				dev_kfree_skb(buf->skb);
+ 		}
  	}
  
- 	err = pci_request_regions(pdev, ixgb_driver_name);
-@@ -673,7 +679,8 @@ ixgb_setup_tx_resources(struct ixgb_adapter *adapter)
- 	txdr->size = txdr->count * sizeof(struct ixgb_tx_desc);
- 	txdr->size = ALIGN(txdr->size, 4096);
+ 	if (tx_ring->desc) {
+-		pci_free_consistent(pdev, tx_ring->size, tx_ring->desc,
+-		                    tx_ring->dma);
++		dma_free_coherent(&pdev->dev, tx_ring->size, tx_ring->desc,
++				  tx_ring->dma);
+ 		tx_ring->desc = NULL;
+ 	}
+ 	if (rx_ring->desc) {
+-		pci_free_consistent(pdev, rx_ring->size, rx_ring->desc,
+-		                    rx_ring->dma);
++		dma_free_coherent(&pdev->dev, rx_ring->size, rx_ring->desc,
++				  rx_ring->dma);
+ 		rx_ring->desc = NULL;
+ 	}
  
--	txdr->desc = pci_alloc_consistent(pdev, txdr->size, &txdr->dma);
-+	txdr->desc = dma_alloc_coherent(&pdev->dev, txdr->size, &txdr->dma,
-+					GFP_KERNEL);
- 	if (!txdr->desc) {
- 		vfree(txdr->buffer_info);
- 		netif_err(adapter, probe, adapter->netdev,
-@@ -762,7 +769,8 @@ ixgb_setup_rx_resources(struct ixgb_adapter *adapter)
- 	rxdr->size = rxdr->count * sizeof(struct ixgb_rx_desc);
- 	rxdr->size = ALIGN(rxdr->size, 4096);
+@@ -1520,8 +1520,9 @@ static int ixgbe_setup_desc_rings(struct ixgbe_adapter *adapter)
  
--	rxdr->desc = pci_alloc_consistent(pdev, rxdr->size, &rxdr->dma);
-+	rxdr->desc = dma_alloc_coherent(&pdev->dev, rxdr->size, &rxdr->dma,
-+					GFP_KERNEL);
+ 	tx_ring->size = tx_ring->count * sizeof(union ixgbe_adv_tx_desc);
+ 	tx_ring->size = ALIGN(tx_ring->size, 4096);
+-	if (!(tx_ring->desc = pci_alloc_consistent(pdev, tx_ring->size,
+-						   &tx_ring->dma))) {
++	tx_ring->desc = dma_alloc_coherent(&pdev->dev, tx_ring->size,
++					   &tx_ring->dma, GFP_KERNEL);
++	if (!(tx_ring->desc)) {
+ 		ret_val = 2;
+ 		goto err_nomem;
+ 	}
+@@ -1563,8 +1564,8 @@ static int ixgbe_setup_desc_rings(struct ixgbe_adapter *adapter)
+ 		tx_ring->tx_buffer_info[i].skb = skb;
+ 		tx_ring->tx_buffer_info[i].length = skb->len;
+ 		tx_ring->tx_buffer_info[i].dma =
+-			pci_map_single(pdev, skb->data, skb->len,
+-			               PCI_DMA_TODEVICE);
++			dma_map_single(&pdev->dev, skb->data, skb->len,
++				       DMA_TO_DEVICE);
+ 		desc->read.buffer_addr =
+ 		                    cpu_to_le64(tx_ring->tx_buffer_info[i].dma);
+ 		desc->read.cmd_type_len = cpu_to_le32(skb->len);
+@@ -1593,8 +1594,9 @@ static int ixgbe_setup_desc_rings(struct ixgbe_adapter *adapter)
  
- 	if (!rxdr->desc) {
- 		vfree(rxdr->buffer_info);
-@@ -883,8 +891,8 @@ ixgb_free_tx_resources(struct ixgb_adapter *adapter)
- 	vfree(adapter->tx_ring.buffer_info);
- 	adapter->tx_ring.buffer_info = NULL;
- 
--	pci_free_consistent(pdev, adapter->tx_ring.size,
--			    adapter->tx_ring.desc, adapter->tx_ring.dma);
-+	dma_free_coherent(&pdev->dev, adapter->tx_ring.size,
-+			  adapter->tx_ring.desc, adapter->tx_ring.dma);
- 
- 	adapter->tx_ring.desc = NULL;
- }
-@@ -895,12 +903,11 @@ ixgb_unmap_and_free_tx_resource(struct ixgb_adapter *adapter,
+ 	rx_ring->size = rx_ring->count * sizeof(union ixgbe_adv_rx_desc);
+ 	rx_ring->size = ALIGN(rx_ring->size, 4096);
+-	if (!(rx_ring->desc = pci_alloc_consistent(pdev, rx_ring->size,
+-						   &rx_ring->dma))) {
++	rx_ring->desc = dma_alloc_coherent(&pdev->dev, rx_ring->size,
++					   &rx_ring->dma, GFP_KERNEL);
++	if (!(rx_ring->desc)) {
+ 		ret_val = 5;
+ 		goto err_nomem;
+ 	}
+@@ -1661,8 +1663,8 @@ static int ixgbe_setup_desc_rings(struct ixgbe_adapter *adapter)
+ 		skb_reserve(skb, NET_IP_ALIGN);
+ 		rx_ring->rx_buffer_info[i].skb = skb;
+ 		rx_ring->rx_buffer_info[i].dma =
+-			pci_map_single(pdev, skb->data, IXGBE_RXBUFFER_2048,
+-			               PCI_DMA_FROMDEVICE);
++			dma_map_single(&pdev->dev, skb->data,
++				       IXGBE_RXBUFFER_2048, DMA_FROM_DEVICE);
+ 		rx_desc->read.pkt_addr =
+ 				cpu_to_le64(rx_ring->rx_buffer_info[i].dma);
+ 		memset(skb->data, 0x00, skb->len);
+@@ -1775,10 +1777,10 @@ static int ixgbe_run_loopback_test(struct ixgbe_adapter *adapter)
+ 			ixgbe_create_lbtest_frame(
+ 					tx_ring->tx_buffer_info[k].skb,
+ 					1024);
+-			pci_dma_sync_single_for_device(pdev,
++			dma_sync_single_for_device(&pdev->dev,
+ 				tx_ring->tx_buffer_info[k].dma,
+ 				tx_ring->tx_buffer_info[k].length,
+-				PCI_DMA_TODEVICE);
++				DMA_TO_DEVICE);
+ 			if (unlikely(++k == tx_ring->count))
+ 				k = 0;
+ 		}
+@@ -1789,10 +1791,10 @@ static int ixgbe_run_loopback_test(struct ixgbe_adapter *adapter)
+ 		good_cnt = 0;
+ 		do {
+ 			/* receive the sent packets */
+-			pci_dma_sync_single_for_cpu(pdev,
++			dma_sync_single_for_cpu(&pdev->dev,
+ 					rx_ring->rx_buffer_info[l].dma,
+ 					IXGBE_RXBUFFER_2048,
+-					PCI_DMA_FROMDEVICE);
++					DMA_FROM_DEVICE);
+ 			ret_val = ixgbe_check_lbtest_frame(
+ 					rx_ring->rx_buffer_info[l].skb, 1024);
+ 			if (!ret_val)
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 5258b3d..7724fb2 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -266,15 +266,15 @@ static void ixgbe_unmap_and_free_tx_resource(struct ixgbe_adapter *adapter,
  {
- 	if (buffer_info->dma) {
- 		if (buffer_info->mapped_as_page)
--			pci_unmap_page(adapter->pdev, buffer_info->dma,
--				       buffer_info->length, PCI_DMA_TODEVICE);
-+			dma_unmap_page(&adapter->pdev->dev, buffer_info->dma,
-+				       buffer_info->length, DMA_TO_DEVICE);
+ 	if (tx_buffer_info->dma) {
+ 		if (tx_buffer_info->mapped_as_page)
+-			pci_unmap_page(adapter->pdev,
++			dma_unmap_page(&adapter->pdev->dev,
+ 				       tx_buffer_info->dma,
+ 				       tx_buffer_info->length,
+-				       PCI_DMA_TODEVICE);
++				       DMA_TO_DEVICE);
  		else
--			pci_unmap_single(adapter->pdev, buffer_info->dma,
--					 buffer_info->length,
+-			pci_unmap_single(adapter->pdev,
++			dma_unmap_single(&adapter->pdev->dev,
+ 					 tx_buffer_info->dma,
+ 					 tx_buffer_info->length,
 -					 PCI_DMA_TODEVICE);
-+			dma_unmap_single(&adapter->pdev->dev, buffer_info->dma,
-+					 buffer_info->length, DMA_TO_DEVICE);
- 		buffer_info->dma = 0;
++					 DMA_TO_DEVICE);
+ 		tx_buffer_info->dma = 0;
  	}
+ 	if (tx_buffer_info->skb) {
+@@ -721,10 +721,10 @@ static void ixgbe_alloc_rx_buffers(struct ixgbe_adapter *adapter,
+ 				bi->page_offset ^= (PAGE_SIZE / 2);
+ 			}
  
-@@ -966,7 +973,8 @@ ixgb_free_rx_resources(struct ixgb_adapter *adapter)
- 	vfree(rx_ring->buffer_info);
- 	rx_ring->buffer_info = NULL;
+-			bi->page_dma = pci_map_page(pdev, bi->page,
++			bi->page_dma = dma_map_page(&pdev->dev, bi->page,
+ 			                            bi->page_offset,
+ 			                            (PAGE_SIZE / 2),
+-			                            PCI_DMA_FROMDEVICE);
++						    DMA_FROM_DEVICE);
+ 		}
+ 
+ 		if (!bi->skb) {
+@@ -743,9 +743,9 @@ static void ixgbe_alloc_rx_buffers(struct ixgbe_adapter *adapter,
+ 			                  - skb->data));
+ 
+ 			bi->skb = skb;
+-			bi->dma = pci_map_single(pdev, skb->data,
++			bi->dma = dma_map_single(&pdev->dev, skb->data,
+ 			                         rx_ring->rx_buf_len,
+-			                         PCI_DMA_FROMDEVICE);
++						 DMA_FROM_DEVICE);
+ 		}
+ 		/* Refresh the desc even if buffer_addrs didn't change because
+ 		 * each write-back erases this info. */
+@@ -886,16 +886,17 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 				 */
+ 				IXGBE_RSC_CB(skb)->dma = rx_buffer_info->dma;
+ 			else
+-				pci_unmap_single(pdev, rx_buffer_info->dma,
++				dma_unmap_single(&pdev->dev,
++						 rx_buffer_info->dma,
+ 				                 rx_ring->rx_buf_len,
+-				                 PCI_DMA_FROMDEVICE);
++						 DMA_FROM_DEVICE);
+ 			rx_buffer_info->dma = 0;
+ 			skb_put(skb, len);
+ 		}
+ 
+ 		if (upper_len) {
+-			pci_unmap_page(pdev, rx_buffer_info->page_dma,
+-			               PAGE_SIZE / 2, PCI_DMA_FROMDEVICE);
++			dma_unmap_page(&pdev->dev, rx_buffer_info->page_dma,
++				       PAGE_SIZE / 2, DMA_FROM_DEVICE);
+ 			rx_buffer_info->page_dma = 0;
+ 			skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags,
+ 			                   rx_buffer_info->page,
+@@ -937,9 +938,10 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 				skb = ixgbe_transform_rsc_queue(skb, &(rx_ring->rsc_count));
+ 			if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED) {
+ 				if (IXGBE_RSC_CB(skb)->dma) {
+-					pci_unmap_single(pdev, IXGBE_RSC_CB(skb)->dma,
++					dma_unmap_single(&pdev->dev,
++							 IXGBE_RSC_CB(skb)->dma,
+ 					                 rx_ring->rx_buf_len,
+-					                 PCI_DMA_FROMDEVICE);
++							 DMA_FROM_DEVICE);
+ 					IXGBE_RSC_CB(skb)->dma = 0;
+ 				}
+ 				if (rx_ring->flags & IXGBE_RING_RX_PS_ENABLED)
+@@ -3154,9 +3156,9 @@ static void ixgbe_clean_rx_ring(struct ixgbe_adapter *adapter,
+ 
+ 		rx_buffer_info = &rx_ring->rx_buffer_info[i];
+ 		if (rx_buffer_info->dma) {
+-			pci_unmap_single(pdev, rx_buffer_info->dma,
++			dma_unmap_single(&pdev->dev, rx_buffer_info->dma,
+ 			                 rx_ring->rx_buf_len,
+-			                 PCI_DMA_FROMDEVICE);
++					 DMA_FROM_DEVICE);
+ 			rx_buffer_info->dma = 0;
+ 		}
+ 		if (rx_buffer_info->skb) {
+@@ -3165,9 +3167,10 @@ static void ixgbe_clean_rx_ring(struct ixgbe_adapter *adapter,
+ 			do {
+ 				struct sk_buff *this = skb;
+ 				if (IXGBE_RSC_CB(this)->dma) {
+-					pci_unmap_single(pdev, IXGBE_RSC_CB(this)->dma,
++					dma_unmap_single(&pdev->dev,
++							 IXGBE_RSC_CB(this)->dma,
+ 					                 rx_ring->rx_buf_len,
+-					                 PCI_DMA_FROMDEVICE);
++							 DMA_FROM_DEVICE);
+ 					IXGBE_RSC_CB(this)->dma = 0;
+ 				}
+ 				skb = skb->prev;
+@@ -3177,8 +3180,8 @@ static void ixgbe_clean_rx_ring(struct ixgbe_adapter *adapter,
+ 		if (!rx_buffer_info->page)
+ 			continue;
+ 		if (rx_buffer_info->page_dma) {
+-			pci_unmap_page(pdev, rx_buffer_info->page_dma,
+-			               PAGE_SIZE / 2, PCI_DMA_FROMDEVICE);
++			dma_unmap_page(&pdev->dev, rx_buffer_info->page_dma,
++				       PAGE_SIZE / 2, DMA_FROM_DEVICE);
+ 			rx_buffer_info->page_dma = 0;
+ 		}
+ 		put_page(rx_buffer_info->page);
+@@ -4403,8 +4406,8 @@ int ixgbe_setup_tx_resources(struct ixgbe_adapter *adapter,
+ 	tx_ring->size = tx_ring->count * sizeof(union ixgbe_adv_tx_desc);
+ 	tx_ring->size = ALIGN(tx_ring->size, 4096);
+ 
+-	tx_ring->desc = pci_alloc_consistent(pdev, tx_ring->size,
+-	                                     &tx_ring->dma);
++	tx_ring->desc = dma_alloc_coherent(&pdev->dev, tx_ring->size,
++					   &tx_ring->dma, GFP_KERNEL);
+ 	if (!tx_ring->desc)
+ 		goto err;
+ 
+@@ -4474,7 +4477,8 @@ int ixgbe_setup_rx_resources(struct ixgbe_adapter *adapter,
+ 	rx_ring->size = rx_ring->count * sizeof(union ixgbe_adv_rx_desc);
+ 	rx_ring->size = ALIGN(rx_ring->size, 4096);
+ 
+-	rx_ring->desc = pci_alloc_consistent(pdev, rx_ring->size, &rx_ring->dma);
++	rx_ring->desc = dma_alloc_coherent(&pdev->dev, rx_ring->size,
++					   &rx_ring->dma, GFP_KERNEL);
+ 
+ 	if (!rx_ring->desc) {
+ 		DPRINTK(PROBE, ERR,
+@@ -4535,7 +4539,8 @@ void ixgbe_free_tx_resources(struct ixgbe_adapter *adapter,
+ 	vfree(tx_ring->tx_buffer_info);
+ 	tx_ring->tx_buffer_info = NULL;
+ 
+-	pci_free_consistent(pdev, tx_ring->size, tx_ring->desc, tx_ring->dma);
++	dma_free_coherent(&pdev->dev, tx_ring->size, tx_ring->desc,
++			  tx_ring->dma);
+ 
+ 	tx_ring->desc = NULL;
+ }
+@@ -4572,7 +4577,8 @@ void ixgbe_free_rx_resources(struct ixgbe_adapter *adapter,
+ 	vfree(rx_ring->rx_buffer_info);
+ 	rx_ring->rx_buffer_info = NULL;
  
 -	pci_free_consistent(pdev, rx_ring->size, rx_ring->desc, rx_ring->dma);
 +	dma_free_coherent(&pdev->dev, rx_ring->size, rx_ring->desc,
@@ -122,71 +307,53 @@ index 3cf7951..d58ca6b 100644
  
  	rx_ring->desc = NULL;
  }
-@@ -990,10 +998,10 @@ ixgb_clean_rx_ring(struct ixgb_adapter *adapter)
- 	for (i = 0; i < rx_ring->count; i++) {
- 		buffer_info = &rx_ring->buffer_info[i];
- 		if (buffer_info->dma) {
--			pci_unmap_single(pdev,
-+			dma_unmap_single(&pdev->dev,
- 					 buffer_info->dma,
- 					 buffer_info->length,
--					 PCI_DMA_FROMDEVICE);
-+					 DMA_FROM_DEVICE);
- 			buffer_info->dma = 0;
- 			buffer_info->length = 0;
- 		}
-@@ -1300,9 +1308,10 @@ ixgb_tx_map(struct ixgb_adapter *adapter, struct sk_buff *skb,
- 		WARN_ON(buffer_info->dma != 0);
- 		buffer_info->time_stamp = jiffies;
- 		buffer_info->mapped_as_page = false;
--		buffer_info->dma = pci_map_single(pdev, skb->data + offset,
--						  size, PCI_DMA_TODEVICE);
--		if (pci_dma_mapping_error(pdev, buffer_info->dma))
-+		buffer_info->dma = dma_map_single(&pdev->dev,
-+						  skb->data + offset,
-+						  size, DMA_TO_DEVICE);
-+		if (dma_mapping_error(&pdev->dev, buffer_info->dma))
+@@ -5442,10 +5448,10 @@ static int ixgbe_tx_map(struct ixgbe_adapter *adapter,
+ 
+ 		tx_buffer_info->length = size;
+ 		tx_buffer_info->mapped_as_page = false;
+-		tx_buffer_info->dma = pci_map_single(pdev,
++		tx_buffer_info->dma = dma_map_single(&pdev->dev,
+ 						     skb->data + offset,
+-						     size, PCI_DMA_TODEVICE);
+-		if (pci_dma_mapping_error(pdev, tx_buffer_info->dma))
++						     size, DMA_TO_DEVICE);
++		if (dma_mapping_error(&pdev->dev, tx_buffer_info->dma))
  			goto dma_error;
- 		buffer_info->next_to_watch = 0;
+ 		tx_buffer_info->time_stamp = jiffies;
+ 		tx_buffer_info->next_to_watch = i;
+@@ -5478,12 +5484,12 @@ static int ixgbe_tx_map(struct ixgbe_adapter *adapter,
+ 			size = min(len, (uint)IXGBE_MAX_DATA_PER_TXD);
  
-@@ -1341,10 +1350,9 @@ ixgb_tx_map(struct ixgb_adapter *adapter, struct sk_buff *skb,
- 			buffer_info->time_stamp = jiffies;
- 			buffer_info->mapped_as_page = true;
- 			buffer_info->dma =
--				pci_map_page(pdev, frag->page,
--					     offset, size,
--					     PCI_DMA_TODEVICE);
--			if (pci_dma_mapping_error(pdev, buffer_info->dma))
-+				dma_map_page(&pdev->dev, frag->page,
-+					     offset, size, DMA_TO_DEVICE);
-+			if (dma_mapping_error(&pdev->dev, buffer_info->dma))
+ 			tx_buffer_info->length = size;
+-			tx_buffer_info->dma = pci_map_page(adapter->pdev,
++			tx_buffer_info->dma = dma_map_page(&adapter->pdev->dev,
+ 							   frag->page,
+ 							   offset, size,
+-							   PCI_DMA_TODEVICE);
++							   DMA_TO_DEVICE);
+ 			tx_buffer_info->mapped_as_page = true;
+-			if (pci_dma_mapping_error(pdev, tx_buffer_info->dma))
++			if (dma_mapping_error(&pdev->dev, tx_buffer_info->dma))
  				goto dma_error;
- 			buffer_info->next_to_watch = 0;
+ 			tx_buffer_info->time_stamp = jiffies;
+ 			tx_buffer_info->next_to_watch = i;
+@@ -6061,13 +6067,14 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
+ 	if (err)
+ 		return err;
  
-@@ -1962,10 +1970,10 @@ ixgb_clean_rx_irq(struct ixgb_adapter *adapter, int *work_done, int work_to_do)
- 		cleaned = true;
- 		cleaned_count++;
- 
--		pci_unmap_single(pdev,
-+		dma_unmap_single(&pdev->dev,
- 				 buffer_info->dma,
- 				 buffer_info->length,
--				 PCI_DMA_FROMDEVICE);
-+				 DMA_FROM_DEVICE);
- 		buffer_info->dma = 0;
- 
- 		length = le16_to_cpu(rx_desc->length);
-@@ -2088,10 +2096,10 @@ ixgb_alloc_rx_buffers(struct ixgb_adapter *adapter, int cleaned_count)
- 		buffer_info->skb = skb;
- 		buffer_info->length = adapter->rx_buffer_len;
- map_skb:
--		buffer_info->dma = pci_map_single(pdev,
-+		buffer_info->dma = dma_map_single(&pdev->dev,
- 		                                  skb->data,
- 		                                  adapter->rx_buffer_len,
--		                                  PCI_DMA_FROMDEVICE);
-+						  DMA_FROM_DEVICE);
- 
- 		rx_desc = IXGB_RX_DESC(*rx_ring, i);
- 		rx_desc->buff_addr = cpu_to_le64(buffer_info->dma);
+-	if (!pci_set_dma_mask(pdev, DMA_BIT_MASK(64)) &&
+-	    !pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64))) {
++	if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(64)) &&
++	    !dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64))) {
+ 		pci_using_dac = 1;
+ 	} else {
+-		err = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
++		err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
+ 		if (err) {
+-			err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32));
++			err = dma_set_coherent_mask(&pdev->dev,
++						    DMA_BIT_MASK(32));
+ 			if (err) {
+ 				dev_err(&pdev->dev, "No usable DMA "
+ 				        "configuration, aborting\n");
 
