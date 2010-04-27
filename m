@@ -1,46 +1,50 @@
-From: Divy Le Ray <divy@chelsio.com>
-Subject: Re: [PATCH] cxgb3: Wait longer for control packets on initialization
-Date: Mon, 26 Apr 2010 19:16:28 -0700
-Message-ID: <4BD648FC.80602@chelsio.com>
-References: <201004261238.27919.adetsch@br.ibm.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the tty tree with the net tree
+Date: Tue, 27 Apr 2010 13:57:06 +1000
+Message-ID: <20100427135706.259fa9c9.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Andre Detsch <adetsch@br.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:32938 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751622Ab0D0CQE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 26 Apr 2010 22:16:04 -0400
-In-Reply-To: <201004261238.27919.adetsch@br.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Tue__27_Apr_2010_13_57_06_+1000_mrs_nB.6EH/=Uo7u"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sjur Braendeland <sjur.brandeland@stericsson.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Pavan Savoy <pavan_savoy@ti.com>
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Andre Detsch wrote:
-> In some Power7 platforms, when using VIOS (Virtual I/O Server), we
-> need to wait longer for control packets to finish transfer during
-> initialization.
-> Without this change, initialization may fail prematurely.
->
-> Signed-off-by: Wen Xiong <wenxiong@us.ibm.com>
-> Signed-off-by: Andre Detsch <adetsch@br.ibm.com>
->   
+--Signature=_Tue__27_Apr_2010_13_57_06_+1000_mrs_nB.6EH/=Uo7u
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Acked-by: Divy Le Ray <divy@chelsio.com>
+Hi Greg,
 
-> Index: linux-2.6.34-rc5/drivers/net/cxgb3/cxgb3_main.c
-> ===================================================================
-> --- linux-2.6.34-rc5.orig/drivers/net/cxgb3/cxgb3_main.c	2010-04-23 18:59:43.000000000 -0300
-> +++ linux-2.6.34-rc5/drivers/net/cxgb3/cxgb3_main.c	2010-04-23 18:59:55.000000000 -0300
-> @@ -439,7 +439,7 @@ static void free_irq_resources(struct ad
->  static int await_mgmt_replies(struct adapter *adap, unsigned long init_cnt,
->  			      unsigned long n)
->  {
-> -	int attempts = 5;
-> +	int attempts = 10;
->
->  	while (adap->sge.qs[0].rspq.offload_pkts < init_cnt + n) {
->  		if (!--attempts)
->   
+Today's linux-next merge of the tty tree got a conflict in
+include/linux/tty.h between commit
+9b27105b4a44c54bf91ecd7d0315034ae75684f7 ("net-caif-driver: add CAIF
+serial driver (ldisc)") from the net tree and commit
+f3150d54db0e0caa1871f66b2424f463a34a7e7b ("serial: TTY: new ldiscs for
+staging") from the tty tree.
 
+I fixed it up (they both changed NR_LDISCS - I used the higher number) and
+can carry the fix as necessary.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Tue__27_Apr_2010_13_57_06_+1000_mrs_nB.6EH/=Uo7u
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAkvWYJIACgkQjjKRsyhoI8znEwCeNAyEj5U/jSsfPK61aBxC4pfU
+LuUAniauKxZCc2BASpKTjP9dfpj6htaH
+=sh/J
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__27_Apr_2010_13_57_06_+1000_mrs_nB.6EH/=Uo7u--
