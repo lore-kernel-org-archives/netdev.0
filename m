@@ -1,80 +1,34 @@
-From: Scott Feldman <scofeldm@cisco.com>
-Subject: Re: [net-next-2.6 PATCH 1/2] Add ndo_set_vf_port_profile
-Date: Tue, 27 Apr 2010 13:57:16 -0700
-Message-ID: <C7FC9DBC.2C218%scofeldm@cisco.com>
-References: <201004271435.25480.arnd@arndb.de>
+From: =?iso-8859-1?Q?L=2E_Alberto_Gim=E9nez?= <agimenez@sysvalve.es>
+Subject: Re: [patch] ipheth: potential null dereferences on error path
+Date: Tue, 27 Apr 2010 23:00:03 +0200
+Message-ID: <20100427210003.GA13873@bart.evergreen.loc>
+References: <20100427092012.GA29093@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"chrisw@redhat.com" <chrisw@redhat.com>,
-	"Williams, Mitch A" <mitch.a.williams@intel.com>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Diego Giagio <diego@giagio.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-1.cisco.com ([171.71.176.70]:49393 "EHLO
-	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756894Ab0D0U5S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 16:57:18 -0400
-In-Reply-To: <201004271435.25480.arnd@arndb.de>
+Received: from 152.Red-88-2-254.staticIP.rima-tde.net ([88.2.254.152]:47974
+	"HELO sysvalve.homelinux.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755950Ab0D0VAG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 17:00:06 -0400
+Content-Disposition: inline
+In-Reply-To: <20100427092012.GA29093@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/27/10 5:35 AM, "Arnd Bergmann" <arnd@arndb.de> wrote:
+On Tue, Apr 27, 2010 at 11:20:12AM +0200, Dan Carpenter wrote:
+> The calls to usb_free_buffer() dereference rx_urb and tx_urb in the
+> parameter list but those could be NULL.
+>=20
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-> On Tuesday 27 April 2010, Scott Feldman wrote:
->>> Yes, I believe that's there today:
->>> 
->>>     NLA_PUT_U32(skb, IFLA_NUM_VF, dev_num_vf(dev->dev.parent));
->>> 
->>> The number of VFs is returned in RTM_GETLINK.  But, it's only returned if:
->>> 
->>>     if (dev->netdev_ops->ndo_get_vf_config && dev->dev.parent)
->>> 
->>> For my proposal, I'll need to return IFLA_NUM_VF unconditionally so callers
->>> can get num VFs.
->> 
->> Hmmm...seems IFLA_NUM_VF assumes a PCI device supporting SR-IOV when it uses
->> dev_num_vf().  I think a better option would have been to query the device
->> for the number of VFs, without assuming SR-IOV or even PCI.
->> 
->> I see a ndo_get_num_vf() coming...
-> 
-> Shouldn't the number of registered port profiles be totally independent of
-> the number of virtual functions?
-> 
-> Any of the VFs could multiplex multiple guests using macvlan, which means you
-> need to register each guest separately, not each VF.
-> 
-> Anything that ties port profiles to VFs seems fundamentally flawed AFAICT,
-> at least when we want to extend this to adapters that don't do it in firmware.
+Seems good to me (should I ack it or any other kind of singoff?).
 
-Ya, I tend I agree.  Let's just make port-profile a setting of any netdev,
-an eth, macvtap, eth.x, bond, etc.  That's probably what I should have done
-in the first place.  Something like:
-
-       ip link set DEVICE [ { up | down } ]
-                          [ arp { on | off } ]
-                            <...clip...>
-                          [ alias NAME ]
-                          [ vf NUM [ mac LLADDR ]
-                                   [ vlan VLANID [ qos VLAN-QOS ] ]
-                                   [ rate TXRATE ] ]
-                          [ port_profile [ PORT-PROFILE
-                                   [ mac LLADDR ]
-                                   [ host_uuid HOST_UUID ]
-                                   [ client_uuid CLIENT_UUID ]
-                                   [ client_name CLIENT_NAME ] ] ] ]
-       ip link show [ DEVICE ]
-
-I think I was trying to be too accommodating for models with VFs, but it
-doesn't matter like you point out.
-
-This way, I can get the RTM_GETLINK to return the port-profile in use.
-
-New patches coming soon...
-
--scott
-
+--=20
+L. Alberto Gim=E9nez
+JabberID agimenez@jabber.sysvalve.es
+GnuPG key ID 0x3BAABDE1
