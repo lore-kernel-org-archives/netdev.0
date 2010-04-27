@@ -1,47 +1,49 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH] bnx2x: add support for receive hashing
-Date: Tue, 27 Apr 2010 10:31:08 -0700
-Message-ID: <g2k65634d661004271031r2eb2000bxc30013009509c410@mail.gmail.com>
-References: <q2o65634d661004261038t8f0c32f5ye8169ef0c38172b7@mail.gmail.com>
-	 <20100426.110432.104061817.davem@davemloft.net>
-	 <4BD6E887.3000804@athenacr.com>
-	 <20100427.095108.68126984.davem@davemloft.net>
-	 <1272388439.2295.369.camel@edumazet-laptop>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [patch v2] sctp: cleanup: remove duplicate assignment
+Date: Tue, 27 Apr 2010 13:32:56 -0400
+Message-ID: <4BD71FC8.9060002@hp.com>
+References: <4BD1AE9D.6090807@hp.com>	<20100424171805.GO29093@bicker>	<4BD6F582.9030804@hp.com> <20100427.095823.98890165.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, bmb@athenacr.com,
-	netdev@vger.kernel.org, rick.jones2@hp.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: error27@gmail.com, sri@us.ibm.com, yjwei@cn.fujitsu.com,
+	cdischino@sonusnet.com, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:25412 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754516Ab0D0RbO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 13:31:14 -0400
-Received: from kpbe18.cbf.corp.google.com (kpbe18.cbf.corp.google.com [172.25.105.82])
-	by smtp-out.google.com with ESMTP id o3RHVCf1015693
-	for <netdev@vger.kernel.org>; Tue, 27 Apr 2010 10:31:13 -0700
-Received: from pwj1 (pwj1.prod.google.com [10.241.219.65])
-	by kpbe18.cbf.corp.google.com with ESMTP id o3RHV0ff015493
-	for <netdev@vger.kernel.org>; Tue, 27 Apr 2010 10:31:11 -0700
-Received: by pwj1 with SMTP id 1so8135106pwj.9
-        for <netdev@vger.kernel.org>; Tue, 27 Apr 2010 10:31:11 -0700 (PDT)
-In-Reply-To: <1272388439.2295.369.camel@edumazet-laptop>
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:34356 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752971Ab0D0Rc7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 13:32:59 -0400
+In-Reply-To: <20100427.095823.98890165.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> So we have a BIG problem :
->
-> All cpus are fighting to get the socket lock,
-> and very litle progress is done.
->
-> Note this problem has nothing to do with RPS, we could have
-> it with multiqueue as well.
->
 
-This is the problem that we are addressing with so_reuseport!
 
-> Oh well...
->
->
->
->
+David Miller wrote:
+> From: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Date: Tue, 27 Apr 2010 10:32:34 -0400
+> 
+>>
+>> Dan Carpenter wrote:
+>>> This assignment isn't needed because we did it earlier already.
+>>>
+>>> Also another reason to delete the assignment is because it triggers a
+>>> Smatch warning about checking for NULL pointers after a dereference.
+>>>
+>>> Reported-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+>>> Signed-off-by: Dan Carpenter <error27@gmail.com>
+>> Thanks.  I'll take this one.
+> 
+> And when will I get this from you? :-)
+
+By the end of the week.  I am trying to get all the testing finished. :)
+
+-vlad
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
