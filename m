@@ -1,45 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: sk_add_backlog() take rmem_alloc
- into account
-Date: Tue, 27 Apr 2010 14:43:07 -0700 (PDT)
-Message-ID: <20100427.144307.22037530.davem@davemloft.net>
-References: <20100427.102038.57469310.davem@davemloft.net>
-	<1272389872.2295.405.camel@edumazet-laptop>
-	<1272399662.2343.12.camel@edumazet-laptop>
+From: =?iso-8859-1?Q?L=2E_Alberto_Gim=E9nez?= <agimenez@sysvalve.es>
+Subject: Re: [patch] ipheth: potential null dereferences on error path
+Date: Tue, 27 Apr 2010 23:43:47 +0200
+Message-ID: <20100427214347.GA2376@bart.evergreen.loc>
+References: <20100427092012.GA29093@bicker>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bmb@athenacr.com, therbert@google.com, netdev@vger.kernel.org,
-	rick.jones2@hp.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Diego Giagio <diego@giagio.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47652
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757120Ab0D0VnB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 17:43:01 -0400
-In-Reply-To: <1272399662.2343.12.camel@edumazet-laptop>
+Received: from 152.Red-88-2-254.staticIP.rima-tde.net ([88.2.254.152]:47107
+	"HELO sysvalve.homelinux.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1757135Ab0D0Vnv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 17:43:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20100427092012.GA29093@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 27 Apr 2010 22:21:02 +0200
+On Tue, Apr 27, 2010 at 11:20:12AM +0200, Dan Carpenter wrote:
+> The calls to usb_free_buffer() dereference rx_urb and tx_urb in the
+> parameter list but those could be NULL.
+>=20
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-> [PATCH net-next-2.6] net: sk_add_backlog() take rmem_alloc into account
-> 
-> Current socket backlog limit is not enough to really stop DDOS attacks,
-> because user thread spend many time to process a full backlog each
-> round, and user might crazy spin on socket lock.
-> 
-> We should add backlog size and receive_queue size (aka rmem_alloc) to
-> pace writers, and let user run without being slow down too much.
-> 
-> Introduce a sk_rcvqueues_full() helper, to avoid taking socket lock in
-> stress situations.
-> 
-> Under huge stress from a multiqueue/RPS enabled NIC, a single flow udp
-> receiver can now process ~200.000 pps (instead of ~100 pps before the
-> patch) on a 8 core machine.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Acked-by: L. Alberto Gim=E9nez <agimenez@sysvalve.es>
 
-This looks great, applied, thanks Eric!
+--=20
+L. Alberto Gim=E9nez
+JabberID agimenez@jabber.sysvalve.es
+GnuPG key ID 0x3BAABDE1
