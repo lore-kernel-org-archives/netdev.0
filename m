@@ -1,108 +1,99 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v4] TCP: avoid to send keepalive probes if receiving
- data
-Date: Tue, 27 Apr 2010 07:06:51 +0200
-Message-ID: <1272344811.4861.4.camel@edumazet-laptop>
-References: <20100426.112422.246526700.davem@davemloft.net>
-	 <1272342807-13379-1-git-send-email-fleitner@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: linux-next: manual merge of the rr tree with the net tree
+Date: Tue, 27 Apr 2010 07:09:13 +0300
+Message-ID: <20100427040913.GA19951@redhat.com>
+References: <20100427115852.9f4cbb0f.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Ilpo <ilpo.jarvinen@helsinki.fi>
-To: Flavio Leitner <fleitner@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:47012 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750936Ab0D0FG5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 01:06:57 -0400
-Received: by bwz19 with SMTP id 19so127437bwz.21
-        for <netdev@vger.kernel.org>; Mon, 26 Apr 2010 22:06:56 -0700 (PDT)
-In-Reply-To: <1272342807-13379-1-git-send-email-fleitner@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rusty Russell <rusty@rustcorp.com.au>, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100427115852.9f4cbb0f.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 27 avril 2010 =C3=A0 01:33 -0300, Flavio Leitner a =C3=A9crit =
-:
-> RFC 1122 says the following:
-> ...
->   Keep-alive packets MUST only be sent when no data or
->   acknowledgement packets have been received for the
->   connection within an interval.
-> ...
->=20
-> The acknowledgement packet is reseting the keepalive
-> timer but the data packet isn't. This patch fixes it by
-> checking the timestamp of the last received data packet
-> too when the keepalive timer expires.
->=20
-> Signed-off-by: Flavio Leitner <fleitner@redhat.com>
-> ---
+On Tue, Apr 27, 2010 at 11:58:52AM +1000, Stephen Rothwell wrote:
+> Hi Rusty,
+> 
+> Today's linux-next merge of the rr tree got a conflict in
+> drivers/net/virtio_net.c between commit
+> 5e01d2f91df62be4d6f282149bc2a8858992ceca ("virtio-net: move sg off
+> stack") from the net tree and commit
+> 7f62a724a65f864d84f50857bbfd36c240155c8f ("virtio_net: use virtqueue_xxx
+> wrappers") from the rr tree.
+> 
+> I fixed it up (see below) and can carry the fix as necessary.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Hmm, Rusty, do you intend for the patches to go through netdev this
+time? If you do, it might be simplest to just ask Dave to merge
+them in net-next-2.6 now. I can prepare and send them if you like.
 
->  include/net/tcp.h    |    8 ++++++++
->  net/ipv4/tcp.c       |    2 +-
->  net/ipv4/tcp_timer.c |    4 ++--
->  3 files changed, 11 insertions(+), 3 deletions(-)
->=20
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 75be5a2..305810e 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -1032,6 +1032,14 @@ static inline int keepalive_probes(const struc=
-t tcp_sock *tp)
->  	return tp->keepalive_probes ? : sysctl_tcp_keepalive_probes;
->  }
-> =20
-> +static inline u32 keepalive_time_elapsed(const struct tcp_sock *tp)
-> +{
-> +	const struct inet_connection_sock *icsk =3D &tp->inet_conn;
-> +
-> +	return min_t(u32, tcp_time_stamp - icsk->icsk_ack.lrcvtime,
-> +			  tcp_time_stamp - tp->rcv_tstamp);
-> +}
-> +
->  static inline int tcp_fin_time(const struct sock *sk)
->  {
->  	int fin_timeout =3D tcp_sk(sk)->linger2 ? : sysctl_tcp_fin_timeout;
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 0f8caf6..48a6f33 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -2298,7 +2298,7 @@ static int do_tcp_setsockopt(struct sock *sk, i=
-nt level,
->  			if (sock_flag(sk, SOCK_KEEPOPEN) &&
->  			    !((1 << sk->sk_state) &
->  			      (TCPF_CLOSE | TCPF_LISTEN))) {
-> -				__u32 elapsed =3D tcp_time_stamp - tp->rcv_tstamp;
-> +				u32 elapsed =3D keepalive_time_elapsed(tp);
->  				if (tp->keepalive_time > elapsed)
->  					elapsed =3D tp->keepalive_time - elapsed;
->  				else
-> diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-> index 8a0ab29..a9155f9 100644
-> --- a/net/ipv4/tcp_timer.c
-> +++ b/net/ipv4/tcp_timer.c
-> @@ -517,7 +517,7 @@ static void tcp_keepalive_timer (unsigned long da=
-ta)
->  	struct sock *sk =3D (struct sock *) data;
->  	struct inet_connection_sock *icsk =3D inet_csk(sk);
->  	struct tcp_sock *tp =3D tcp_sk(sk);
-> -	__u32 elapsed;
-> +	u32 elapsed;
-> =20
->  	/* Only process if socket is not in use. */
->  	bh_lock_sock(sk);
-> @@ -554,7 +554,7 @@ static void tcp_keepalive_timer (unsigned long da=
-ta)
->  	if (tp->packets_out || tcp_send_head(sk))
->  		goto resched;
-> =20
-> -	elapsed =3D tcp_time_stamp - tp->rcv_tstamp;
-> +	elapsed =3D keepalive_time_elapsed(tp);
-> =20
->  	if (elapsed >=3D keepalive_time_when(tp)) {
->  		if (icsk->icsk_probes_out >=3D keepalive_probes(tp)) {
-
-
+> -- 
+> Cheers,
+> Stephen Rothwell                    sfr@canb.auug.org.au
+> 
+> diff --cc drivers/net/virtio_net.c
+> index b0a85d0,91738d8..0000000
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@@ -336,11 -335,11 +336,11 @@@ static int add_recvbuf_small(struct vir
+>   	skb_put(skb, MAX_PACKET_LEN);
+>   
+>   	hdr = skb_vnet_hdr(skb);
+>  -	sg_set_buf(sg, &hdr->hdr, sizeof hdr->hdr);
+>  +	sg_set_buf(vi->rx_sg, &hdr->hdr, sizeof hdr->hdr);
+>   
+>  -	skb_to_sgvec(skb, sg + 1, 0, skb->len);
+>  +	skb_to_sgvec(skb, vi->rx_sg + 1, 0, skb->len);
+>   
+> - 	err = vi->rvq->vq_ops->add_buf(vi->rvq, vi->rx_sg, 0, 2, skb);
+>  -	err = virtqueue_add_buf(vi->rvq, sg, 0, 2, skb);
+> ++	err = virtqueue_add_buf(vi->rvq, vi->rx_sg, 0, 2, skb);
+>   	if (err < 0)
+>   		dev_kfree_skb(skb);
+>   
+> @@@ -385,7 -386,7 +385,7 @@@ static int add_recvbuf_big(struct virtn
+>   
+>   	/* chain first in list head */
+>   	first->private = (unsigned long)list;
+> - 	err = vi->rvq->vq_ops->add_buf(vi->rvq, vi->rx_sg, 0, MAX_SKB_FRAGS + 2,
+>  -	err = virtqueue_add_buf(vi->rvq, sg, 0, MAX_SKB_FRAGS + 2,
+> ++	err = virtqueue_add_buf(vi->rvq, vi->rx_sg, 0, MAX_SKB_FRAGS + 2,
+>   				       first);
+>   	if (err < 0)
+>   		give_pages(vi, first);
+> @@@ -402,9 -404,9 +402,9 @@@ static int add_recvbuf_mergeable(struc
+>   	if (!page)
+>   		return -ENOMEM;
+>   
+>  -	sg_init_one(&sg, page_address(page), PAGE_SIZE);
+>  +	sg_init_one(vi->rx_sg, page_address(page), PAGE_SIZE);
+>   
+> - 	err = vi->rvq->vq_ops->add_buf(vi->rvq, vi->rx_sg, 0, 1, page);
+>  -	err = virtqueue_add_buf(vi->rvq, &sg, 0, 1, page);
+> ++	err = virtqueue_add_buf(vi->rvq, vi->rx_sg, 0, 1, page);
+>   	if (err < 0)
+>   		give_pages(vi, page);
+>   
+> @@@ -549,13 -554,12 +549,12 @@@ static int xmit_skb(struct virtnet_inf
+>   
+>   	/* Encode metadata header at front. */
+>   	if (vi->mergeable_rx_bufs)
+>  -		sg_set_buf(sg, &hdr->mhdr, sizeof hdr->mhdr);
+>  +		sg_set_buf(vi->tx_sg, &hdr->mhdr, sizeof hdr->mhdr);
+>   	else
+>  -		sg_set_buf(sg, &hdr->hdr, sizeof hdr->hdr);
+>  +		sg_set_buf(vi->tx_sg, &hdr->hdr, sizeof hdr->hdr);
+>   
+>  -	hdr->num_sg = skb_to_sgvec(skb, sg+1, 0, skb->len) + 1;
+>  -	return virtqueue_add_buf(vi->svq, sg, hdr->num_sg, 0, skb);
+>  +	hdr->num_sg = skb_to_sgvec(skb, vi->tx_sg + 1, 0, skb->len) + 1;
+> - 	return vi->svq->vq_ops->add_buf(vi->svq, vi->tx_sg, hdr->num_sg,
+> - 					0, skb);
+> ++	return virtqueue_add_buf(vi->svq, vi->tx_sg, hdr->num_sg, 0, skb);
+>   }
+>   
+>   static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
