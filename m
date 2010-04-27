@@ -1,44 +1,50 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-next] bridge: multicast router list manipulation
-Date: Tue, 27 Apr 2010 16:25:30 -0700
-Message-ID: <20100427162530.04deb551@nehalam>
-References: <20100228054012.GA7583@gondor.apana.org.au>
-	<E1NlbuX-00021m-Bq@gondolin.me.apana.org.au>
+Date: Tue, 27 Apr 2010 16:27:21 -0700 (PDT)
+Message-ID: <20100427.162721.199029490.davem@davemloft.net>
+References: <E1NlbuX-00021m-Bq@gondolin.me.apana.org.au>
 	<20100427101311.2f445227@nehalam>
 	<y2ne2d7436a1004271611h5dc5f184gcbbc6748839c3c58@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: shemminger@vyatta.com, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: mirqus@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34011 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753263Ab0D0XZl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 19:25:41 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40655
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753548Ab0D0X1P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 19:27:15 -0400
 In-Reply-To: <y2ne2d7436a1004271611h5dc5f184gcbbc6748839c3c58@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 28 Apr 2010 01:11:52 +0200
-Micha=C5=82 Miros=C5=82aw <mirqus@gmail.com> wrote:
-
-> 2010/4/27 Stephen Hemminger <shemminger@vyatta.com>:
-> > I prefer that the hlist be only accessed through the hlist macro
-> > objects. Explicit twiddling of links (especially with RCU) exposes
-> > the code to future bugs.
-> [...]
-> > - =C2=A0 =C2=A0 =C2=A0 port->rlist.pprev =3D h;
-> > - =C2=A0 =C2=A0 =C2=A0 port->rlist.next =3D p;
-> > - =C2=A0 =C2=A0 =C2=A0 rcu_assign_pointer(*h, &port->rlist);
-> > - =C2=A0 =C2=A0 =C2=A0 if (p)
-> > - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 p->pprev =3D &po=
-rt->rlist.next;
-> > + =C2=A0 =C2=A0 =C2=A0 hlist_for_each_entry(p, n, &br->router_list,=
- rlist) {
->=20
-> Shouldn't this be hlist_for_each_entry_rcu?
->=20
-
-This code should already be protected by br->multicast_lock
+RnJvbTogTWljaGHFgiBNaXJvc8WCYXcgPG1pcnF1c0BnbWFpbC5jb20+DQpEYXRlOiBXZWQsIDI4
+IEFwciAyMDEwIDAxOjExOjUyICswMjAwDQoNCj4gMjAxMC80LzI3IFN0ZXBoZW4gSGVtbWluZ2Vy
+IDxzaGVtbWluZ2VyQHZ5YXR0YS5jb20+Og0KPj4gSSBwcmVmZXIgdGhhdCB0aGUgaGxpc3QgYmUg
+b25seSBhY2Nlc3NlZCB0aHJvdWdoIHRoZSBobGlzdCBtYWNybw0KPj4gb2JqZWN0cy4gRXhwbGlj
+aXQgdHdpZGRsaW5nIG9mIGxpbmtzIChlc3BlY2lhbGx5IHdpdGggUkNVKSBleHBvc2VzDQo+PiB0
+aGUgY29kZSB0byBmdXR1cmUgYnVncy4NCj4gWy4uLl0NCj4+IC0gwqAgwqAgwqAgcG9ydC0+cmxp
+c3QucHByZXYgPSBoOw0KPj4gLSDCoCDCoCDCoCBwb3J0LT5ybGlzdC5uZXh0ID0gcDsNCj4+IC0g
+wqAgwqAgwqAgcmN1X2Fzc2lnbl9wb2ludGVyKCpoLCAmcG9ydC0+cmxpc3QpOw0KPj4gLSDCoCDC
+oCDCoCBpZiAocCkNCj4+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgcC0+cHByZXYgPSAmcG9ydC0+
+cmxpc3QubmV4dDsNCj4+ICsgwqAgwqAgwqAgaGxpc3RfZm9yX2VhY2hfZW50cnkocCwgbiwgJmJy
+LT5yb3V0ZXJfbGlzdCwgcmxpc3QpIHsNCj4gDQo+IFNob3VsZG4ndCB0aGlzIGJlIGhsaXN0X2Zv
+cl9lYWNoX2VudHJ5X3JjdT8NCg0KSSB0aGluayBzbywgSSd2ZSBjb21taXR0ZWQgdGhlIGZvbGxv
+d2luZyB0byBuZXQtbmV4dC0yLjYgdG8gZml4IHRoaXMsDQp0aGFua3MhDQoNCmJyaWRnZTogVXNl
+IGhsaXN0X2Zvcl9lYWNoX2VudHJ5X3JjdSgpIGluIGJyX211bHRpY2FzdF9hZGRfcm91dGVyKCkN
+Cg0KTm90aWNlZCBieSBNaWNoYcWCIE1pcm9zxYJhdy4NCg0KU2lnbmVkLW9mZi1ieTogRGF2aWQg
+Uy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KLS0tDQogbmV0L2JyaWRnZS9icl9tdWx0
+aWNhc3QuYyB8ICAgIDIgKy0NCiAxIGZpbGVzIGNoYW5nZWQsIDEgaW5zZXJ0aW9ucygrKSwgMSBk
+ZWxldGlvbnMoLSkNCg0KZGlmZiAtLWdpdCBhL25ldC9icmlkZ2UvYnJfbXVsdGljYXN0LmMgYi9u
+ZXQvYnJpZGdlL2JyX211bHRpY2FzdC5jDQppbmRleCBmY2JhMzEzLi5lMjljOWI3IDEwMDY0NA0K
+LS0tIGEvbmV0L2JyaWRnZS9icl9tdWx0aWNhc3QuYw0KKysrIGIvbmV0L2JyaWRnZS9icl9tdWx0
+aWNhc3QuYw0KQEAgLTEwNDUsNyArMTA0NSw3IEBAIHN0YXRpYyB2b2lkIGJyX211bHRpY2FzdF9h
+ZGRfcm91dGVyKHN0cnVjdCBuZXRfYnJpZGdlICpiciwNCiAJc3RydWN0IG5ldF9icmlkZ2VfcG9y
+dCAqcDsNCiAJc3RydWN0IGhsaXN0X25vZGUgKm4sICpsYXN0ID0gTlVMTDsNCiANCi0JaGxpc3Rf
+Zm9yX2VhY2hfZW50cnkocCwgbiwgJmJyLT5yb3V0ZXJfbGlzdCwgcmxpc3QpIHsNCisJaGxpc3Rf
+Zm9yX2VhY2hfZW50cnlfcmN1KHAsIG4sICZici0+cm91dGVyX2xpc3QsIHJsaXN0KSB7DQogCQlp
+ZiAoKHVuc2lnbmVkIGxvbmcpIHBvcnQgPj0gKHVuc2lnbmVkIGxvbmcpIHApIHsNCiAJCQlobGlz
+dF9hZGRfYmVmb3JlX3JjdShuLCAmcG9ydC0+cmxpc3QpOw0KIAkJCXJldHVybjsNCi0tIA0KMS43
+LjAuNA0KDQo=
