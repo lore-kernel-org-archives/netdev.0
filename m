@@ -1,38 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2x: add support for receive hashing
-Date: Tue, 27 Apr 2010 10:06:02 -0700 (PDT)
-Message-ID: <20100427.100602.52191517.davem@davemloft.net>
-References: <4BD6E887.3000804@athenacr.com>
-	<20100427.095108.68126984.davem@davemloft.net>
-	<4BD71890.2050606@athenacr.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH net-next] bridge: use is_multicast_ether_addr
+Date: Tue, 27 Apr 2010 10:13:06 -0700
+Message-ID: <20100427101306.3a49104f@nehalam>
+References: <20100228054012.GA7583@gondor.apana.org.au>
+ <E1NlbuW-00021d-8E@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, rick.jones2@hp.com
-To: bmb@athenacr.com
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46631
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752293Ab0D0RF4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 13:05:56 -0400
-In-Reply-To: <4BD71890.2050606@athenacr.com>
+Received: from mail.vyatta.com ([76.74.103.46]:43817 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754863Ab0D0RN2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Apr 2010 13:13:28 -0400
+In-Reply-To: <E1NlbuW-00021d-8E@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Brian Bloniarz <bmb@athenacr.com>
-Date: Tue, 27 Apr 2010 13:02:08 -0400
+Use existing inline function.
 
-> Maybe I'm misunderstanding... won't it distribute the
-> packet handling load to multiple cores, but then all
-> those cores will contend trying to deliver those packets
-> to the single socket?
-> 
-> I was assuming that this'd be a net loss over just doing
-> all the protocol handling on a single core. I haven't
-> done any benchmarks yet.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Whether it's a new loss depends upon the application.
-
-Also, on the non-application side f.e. a router or firewall, this is
-exactly the behavior you want.
+--- a/net/bridge/br_device.c	2010-04-27 09:49:30.059258391 -0700
++++ b/net/bridge/br_device.c	2010-04-27 09:50:21.439878721 -0700
+@@ -36,7 +36,7 @@ netdev_tx_t br_dev_xmit(struct sk_buff *
+ 	skb_reset_mac_header(skb);
+ 	skb_pull(skb, ETH_HLEN);
+ 
+-	if (dest[0] & 1) {
++	if (is_multicast_ether_addr(dest)) {
+ 		if (br_multicast_rcv(br, NULL, skb))
+ 			goto out;
+ 
