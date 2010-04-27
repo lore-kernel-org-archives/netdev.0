@@ -1,208 +1,90 @@
-From: Amerigo Wang <amwang@redhat.com>
-Subject: [v4 Patch 3/3] bonding: make bonding support netpoll
-Date: Tue, 27 Apr 2010 03:56:09 -0400
-Message-ID: <20100427080004.4908.27339.sendpatchset@localhost.localdomain>
-References: <20100427075937.4908.18468.sendpatchset@localhost.localdomain>
-Cc: Matt Mackall <mpm@selenic.com>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org,
-	Andy Gospodarek <gospo@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Amerigo Wang <amwang@redhat.com>,
-	Jeff Moyer <jmoyer@redhat.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	bonding-devel@lists.sourceforge.net,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	David Miller <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org
+From: Jack Daniel <wanders.thirst@gmail.com>
+Subject: Re: Intel Pro1000 on CN5020, hangs Uboot
+Date: Tue, 27 Apr 2010 14:29:45 +0530
+Message-ID: <s2hf6b367b71004270159z3143f858q15750757ace68edb@mail.gmail.com>
+References: <y2pf6b367b71004140118s93d7b47rfa88399bfbe5b91b@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3321 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753820Ab0D0H4n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Apr 2010 03:56:43 -0400
-In-Reply-To: <20100427075937.4908.18468.sendpatchset@localhost.localdomain>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:41870 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752953Ab0D0I7r convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 04:59:47 -0400
+Received: by pwj9 with SMTP id 9so9147321pwj.19
+        for <netdev@vger.kernel.org>; Tue, 27 Apr 2010 01:59:47 -0700 (PDT)
+In-Reply-To: <y2pf6b367b71004140118s93d7b47rfa88399bfbe5b91b@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Just an update that "Intel Pro/1000 MT Desktop Adapter" have problems
+booting on an Octeon 5xxx. The "GT" and "PT" adapters seem to work
+fine.
 
-Based on Andy's work, but I modified a lot.
+Regards,
+Jack
 
-Similar to the patch for bridge, this patch does:
 
-1) implement the 2 methods to support netpoll for bonding;
-
-2) modify netpoll during forwarding packets via bonding;
-
-3) disable netpoll support of bonding when a netpoll-unabled device
-   is added to bonding;
-
-4) enable netpoll support when all underlying devices support netpoll.
-
-Cc: Andy Gospodarek <gospo@redhat.com>
-Cc: Jeff Moyer <jmoyer@redhat.com>
-Cc: Matt Mackall <mpm@selenic.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Cc: Jay Vosburgh <fubar@us.ibm.com>
-Cc: David Miller <davem@davemloft.net>
-Signed-off-by: WANG Cong <amwang@redhat.com>
-
----
-
-Index: linux-2.6/drivers/net/bonding/bond_main.c
-===================================================================
---- linux-2.6.orig/drivers/net/bonding/bond_main.c
-+++ linux-2.6/drivers/net/bonding/bond_main.c
-@@ -59,6 +59,7 @@
- #include <linux/uaccess.h>
- #include <linux/errno.h>
- #include <linux/netdevice.h>
-+#include <linux/netpoll.h>
- #include <linux/inetdevice.h>
- #include <linux/igmp.h>
- #include <linux/etherdevice.h>
-@@ -430,7 +431,18 @@ int bond_dev_queue_xmit(struct bonding *
- 	}
- 
- 	skb->priority = 1;
--	dev_queue_xmit(skb);
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	if (unlikely(bond->dev->priv_flags & IFF_IN_NETPOLL)) {
-+		struct netpoll *np = bond->dev->npinfo->netpoll;
-+		slave_dev->npinfo = bond->dev->npinfo;
-+		np->real_dev = np->dev = skb->dev;
-+		slave_dev->priv_flags |= IFF_IN_NETPOLL;
-+		netpoll_send_skb(np, skb);
-+		slave_dev->priv_flags &= ~IFF_IN_NETPOLL;
-+		np->dev = bond->dev;
-+	} else
-+#endif
-+		dev_queue_xmit(skb);
- 
- 	return 0;
- }
-@@ -1329,6 +1341,61 @@ static void bond_detach_slave(struct bon
- 	bond->slave_cnt--;
- }
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+/*
-+ * You must hold read lock on bond->lock before calling this.
-+ */
-+static bool slaves_support_netpoll(struct net_device *bond_dev)
-+{
-+	struct bonding *bond = netdev_priv(bond_dev);
-+	struct slave *slave;
-+	int i = 0;
-+	bool ret = true;
-+
-+	bond_for_each_slave(bond, slave, i) {
-+		if ((slave->dev->priv_flags & IFF_DISABLE_NETPOLL)
-+				|| !slave->dev->netdev_ops->ndo_poll_controller)
-+			ret = false;
-+	}
-+	return i != 0 && ret;
-+}
-+
-+static void bond_poll_controller(struct net_device *bond_dev)
-+{
-+	struct net_device *dev = bond_dev->npinfo->netpoll->real_dev;
-+	if (dev != bond_dev)
-+		netpoll_poll_dev(dev);
-+}
-+
-+static void bond_netpoll_cleanup(struct net_device *bond_dev)
-+{
-+	struct bonding *bond = netdev_priv(bond_dev);
-+	struct slave *slave;
-+	const struct net_device_ops *ops;
-+	int i;
-+
-+	read_lock(&bond->lock);
-+	bond_dev->npinfo = NULL;
-+	bond_for_each_slave(bond, slave, i) {
-+		if (slave->dev) {
-+			ops = slave->dev->netdev_ops;
-+			if (ops->ndo_netpoll_cleanup)
-+				ops->ndo_netpoll_cleanup(slave->dev);
-+			else
-+				slave->dev->npinfo = NULL;
-+		}
-+	}
-+	read_unlock(&bond->lock);
-+}
-+
-+#else
-+
-+static void bond_netpoll_cleanup(struct net_device *bond_dev)
-+{
-+}
-+
-+#endif
-+
- /*---------------------------------- IOCTL ----------------------------------*/
- 
- static int bond_sethwaddr(struct net_device *bond_dev,
-@@ -1735,6 +1802,18 @@ int bond_enslave(struct net_device *bond
- 
- 	bond_set_carrier(bond);
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	if (slaves_support_netpoll(bond_dev)) {
-+		bond_dev->priv_flags &= ~IFF_DISABLE_NETPOLL;
-+		if (bond_dev->npinfo)
-+			slave_dev->npinfo = bond_dev->npinfo;
-+	} else if (!(bond_dev->priv_flags & IFF_DISABLE_NETPOLL)) {
-+		bond_dev->priv_flags |= IFF_DISABLE_NETPOLL;
-+		pr_info("New slave device %s does not support netpoll\n",
-+			slave_dev->name);
-+		pr_info("Disabling netpoll support for %s\n", bond_dev->name);
-+	}
-+#endif
- 	read_unlock(&bond->lock);
- 
- 	res = bond_create_slave_symlinks(bond_dev, slave_dev);
-@@ -1801,6 +1880,7 @@ int bond_release(struct net_device *bond
- 		return -EINVAL;
- 	}
- 
-+	netdev_bonding_change(bond_dev, NETDEV_BONDING_DESLAVE);
- 	write_lock_bh(&bond->lock);
- 
- 	slave = bond_get_slave_by_dev(bond, slave_dev);
-@@ -1929,6 +2009,17 @@ int bond_release(struct net_device *bond
- 
- 	netdev_set_master(slave_dev, NULL);
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	read_lock_bh(&bond->lock);
-+	if (slaves_support_netpoll(bond_dev))
-+		bond_dev->priv_flags &= ~IFF_DISABLE_NETPOLL;
-+	read_unlock_bh(&bond->lock);
-+	if (slave_dev->netdev_ops->ndo_netpoll_cleanup)
-+		slave_dev->netdev_ops->ndo_netpoll_cleanup(slave_dev);
-+	else
-+		slave_dev->npinfo = NULL;
-+#endif
-+
- 	/* close slave before restoring its mac address */
- 	dev_close(slave_dev);
- 
-@@ -4448,6 +4539,10 @@ static const struct net_device_ops bond_
- 	.ndo_vlan_rx_register	= bond_vlan_rx_register,
- 	.ndo_vlan_rx_add_vid 	= bond_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid	= bond_vlan_rx_kill_vid,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_netpoll_cleanup	= bond_netpoll_cleanup,
-+	.ndo_poll_controller	= bond_poll_controller,
-+#endif
- };
- 
- static void bond_destructor(struct net_device *bond_dev)
-@@ -4541,6 +4636,8 @@ static void bond_uninit(struct net_devic
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
- 
-+	bond_netpoll_cleanup(bond_dev);
-+
- 	/* Release the bonded slaves */
- 	bond_release_all(bond_dev);
- 
+On Wed, Apr 14, 2010 at 1:48 PM, Jack Daniel <wanders.thirst@gmail.com>=
+ wrote:
+> Hi,
+>
+> I have a OCTEON CN5020, on which I tried plugging in an Intel Pro 100=
+0
+> PCI NIC. But Uboot hangs with a trap exception. Uboot has no problems
+> with a Realtek RTL8139 NIC PCI card that supports 100MBps. Could
+> someone tell me the reason for such a behaviour?
+>
+> Regards,
+> Jack
+>
+>
+> Uboot Version (as reported by Uboot) : U-Boot 1.1.1 (Development
+> build, svnversion: u-boot:47725, exec:47725)
+> Uboot start up message:
+> PAL rev: 1.01, MCU rev: 1.07, CPU voltage: 1.20
+> DRAM: =A0512 MB
+> Clearing DRAM....... done
+> Flash: =A08 MB
+> BIST check passed.
+> Starting PCI
+> PCI Status: PCI 32-bit
+> Reg: 0x0 0x0
+> Reg: 0x1 0x62
+> Reg: 0x2 0x0
+> Reg: 0x3 0x0
+> Reg: 0x4 0x0
+> Reg: 0x5 0xE
+> Reg: 0x6 0x1
+> Reg: 0x7 0xFFFFFFFFC00D5C70
+> Reg: 0x8 0x800119040000000E
+> Reg: 0x9 0x61784
+> Reg: 0xA 0xFFFFFFFFC0000A4C
+> Reg: 0xB 0xFFFFFFFFC0062208
+> Reg: 0xC 0xFFFFFFFFC0062550
+> Reg: 0xD 0xFFFFFFFFC005E4A0
+> Reg: 0xE 0x20
+> Reg: 0xF 0x0
+> Reg: 0x10 0xFFFFFFFFC00D5CA0
+> Reg: 0x11 0xFFFFFFFFC008F490
+> Reg: 0x12 0x0
+> Reg: 0x13 0x0
+> Reg: 0x14 0x0
+> Reg: 0x15 0x0
+> Reg: 0x16 0xFF00
+> Reg: 0x17 0xFFFFFFFFC00D5CA6
+> Reg: 0x18 0xFFFFFFFFC0062550
+> Reg: 0x19 0xFFFFFFFFC0038E24
+> Reg: 0x1A 0xFFFFFFFFFFFF8000
+> Reg: 0x1B 0x30
+> Reg: 0x1C 0xFFFFFFFFBFC621D0
+> Reg: 0x1D 0xFFFFFFFFFFFF97F8
+> Reg: 0x1E 0xFFFFFFFFC00D5CA4
+> Reg: 0x1F 0xFFFFFFFFBFC00AE0
+> status: =A0 0x504000E7
+> cause: =A0 =A00x4000801C
+> epc: =A0 =A0 =A00xFFFFFFFFC0038EC8
+> badvaddr: 0x0
+>
