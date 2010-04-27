@@ -1,218 +1,116 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 7/7] ixgbevf: use DMA API instead of PCI DMA
-	functions
-Date: Tue, 27 Apr 2010 16:10:50 -0700
-Message-ID: <20100427231048.26173.83950.stgit@localhost.localdomain>
-References: <20100427230836.26173.59671.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Nicholas Nunley <nicholasx.d.nunley@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: [PATCH net-next v2] cxgb4: set skb->rxhash
+Date: Tue, 27 Apr 2010 16:10:56 -0700
+Message-ID: <1272409856-12535-1-git-send-email-dm@chelsio.com>
+Cc: Dimitris Michailidis <dm@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta06.westchester.pa.mail.comcast.net ([76.96.62.56]:50726
-	"EHLO qmta06.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752418Ab0D0XLI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 19:11:08 -0400
-In-Reply-To: <20100427230836.26173.59671.stgit@localhost.localdomain>
+Received: from stargate.chelsio.com ([67.207.112.58]:3465 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752981Ab0D0XLz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 19:11:55 -0400
+Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
+	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o3RNBtnv003670
+	for <netdev@vger.kernel.org>; Tue, 27 Apr 2010 16:11:55 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nick Nunley <nicholasx.d.nunley@intel.com>
+Implement the ->set_flags ethtool method to control NETIF_F_RXHASH and
+set skb->rxhash to the HW calculated hash accordingly.
 
-Signed-off-by: Nicholas Nunley <nicholasx.d.nunley@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Follow Eric Dumazet's suggestion and use the hash value raw.
+
+Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
 ---
+ drivers/net/cxgb4/cxgb4_main.c |   15 ++++++++++++++-
+ drivers/net/cxgb4/sge.c        |    7 ++++++-
+ drivers/net/cxgb4/t4_msg.h     |    1 +
+ 3 files changed, 21 insertions(+), 2 deletions(-)
 
- drivers/net/ixgbevf/ixgbevf_main.c |   68 +++++++++++++++++++-----------------
- 1 files changed, 35 insertions(+), 33 deletions(-)
-
-diff --git a/drivers/net/ixgbevf/ixgbevf_main.c b/drivers/net/ixgbevf/ixgbevf_main.c
-index f484161..0870740 100644
---- a/drivers/net/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ixgbevf/ixgbevf_main.c
-@@ -139,15 +139,15 @@ static void ixgbevf_unmap_and_free_tx_resource(struct ixgbevf_adapter *adapter,
- {
- 	if (tx_buffer_info->dma) {
- 		if (tx_buffer_info->mapped_as_page)
--			pci_unmap_page(adapter->pdev,
-+			dma_unmap_page(&adapter->pdev->dev,
- 				       tx_buffer_info->dma,
- 				       tx_buffer_info->length,
--				       PCI_DMA_TODEVICE);
-+				       DMA_TO_DEVICE);
- 		else
--			pci_unmap_single(adapter->pdev,
-+			dma_unmap_single(&adapter->pdev->dev,
- 					 tx_buffer_info->dma,
- 					 tx_buffer_info->length,
--					 PCI_DMA_TODEVICE);
-+					 DMA_TO_DEVICE);
- 		tx_buffer_info->dma = 0;
- 	}
- 	if (tx_buffer_info->skb) {
-@@ -416,10 +416,10 @@ static void ixgbevf_alloc_rx_buffers(struct ixgbevf_adapter *adapter,
- 				bi->page_offset ^= (PAGE_SIZE / 2);
- 			}
- 
--			bi->page_dma = pci_map_page(pdev, bi->page,
-+			bi->page_dma = dma_map_page(&pdev->dev, bi->page,
- 						    bi->page_offset,
- 						    (PAGE_SIZE / 2),
--						    PCI_DMA_FROMDEVICE);
-+						    DMA_FROM_DEVICE);
- 		}
- 
- 		skb = bi->skb;
-@@ -442,9 +442,9 @@ static void ixgbevf_alloc_rx_buffers(struct ixgbevf_adapter *adapter,
- 			bi->skb = skb;
- 		}
- 		if (!bi->dma) {
--			bi->dma = pci_map_single(pdev, skb->data,
-+			bi->dma = dma_map_single(&pdev->dev, skb->data,
- 						 rx_ring->rx_buf_len,
--						 PCI_DMA_FROMDEVICE);
-+						 DMA_FROM_DEVICE);
- 		}
- 		/* Refresh the desc even if buffer_addrs didn't change because
- 		 * each write-back erases this info. */
-@@ -536,16 +536,16 @@ static bool ixgbevf_clean_rx_irq(struct ixgbevf_q_vector *q_vector,
- 		rx_buffer_info->skb = NULL;
- 
- 		if (rx_buffer_info->dma) {
--			pci_unmap_single(pdev, rx_buffer_info->dma,
-+			dma_unmap_single(&pdev->dev, rx_buffer_info->dma,
- 					 rx_ring->rx_buf_len,
--					 PCI_DMA_FROMDEVICE);
-+					 DMA_FROM_DEVICE);
- 			rx_buffer_info->dma = 0;
- 			skb_put(skb, len);
- 		}
- 
- 		if (upper_len) {
--			pci_unmap_page(pdev, rx_buffer_info->page_dma,
--				       PAGE_SIZE / 2, PCI_DMA_FROMDEVICE);
-+			dma_unmap_page(&pdev->dev, rx_buffer_info->page_dma,
-+				       PAGE_SIZE / 2, DMA_FROM_DEVICE);
- 			rx_buffer_info->page_dma = 0;
- 			skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags,
- 					   rx_buffer_info->page,
-@@ -1721,9 +1721,9 @@ static void ixgbevf_clean_rx_ring(struct ixgbevf_adapter *adapter,
- 
- 		rx_buffer_info = &rx_ring->rx_buffer_info[i];
- 		if (rx_buffer_info->dma) {
--			pci_unmap_single(pdev, rx_buffer_info->dma,
-+			dma_unmap_single(&pdev->dev, rx_buffer_info->dma,
- 					 rx_ring->rx_buf_len,
--					 PCI_DMA_FROMDEVICE);
-+					 DMA_FROM_DEVICE);
- 			rx_buffer_info->dma = 0;
- 		}
- 		if (rx_buffer_info->skb) {
-@@ -1737,8 +1737,8 @@ static void ixgbevf_clean_rx_ring(struct ixgbevf_adapter *adapter,
- 		}
- 		if (!rx_buffer_info->page)
- 			continue;
--		pci_unmap_page(pdev, rx_buffer_info->page_dma, PAGE_SIZE / 2,
--			       PCI_DMA_FROMDEVICE);
-+		dma_unmap_page(&pdev->dev, rx_buffer_info->page_dma,
-+			       PAGE_SIZE / 2, DMA_FROM_DEVICE);
- 		rx_buffer_info->page_dma = 0;
- 		put_page(rx_buffer_info->page);
- 		rx_buffer_info->page = NULL;
-@@ -2445,7 +2445,8 @@ void ixgbevf_free_tx_resources(struct ixgbevf_adapter *adapter,
- 	vfree(tx_ring->tx_buffer_info);
- 	tx_ring->tx_buffer_info = NULL;
- 
--	pci_free_consistent(pdev, tx_ring->size, tx_ring->desc, tx_ring->dma);
-+	dma_free_coherent(&pdev->dev, tx_ring->size, tx_ring->desc,
-+			  tx_ring->dma);
- 
- 	tx_ring->desc = NULL;
+diff --git a/drivers/net/cxgb4/cxgb4_main.c b/drivers/net/cxgb4/cxgb4_main.c
+index 5f582db..1bad500 100644
+--- a/drivers/net/cxgb4/cxgb4_main.c
++++ b/drivers/net/cxgb4/cxgb4_main.c
+@@ -1711,6 +1711,18 @@ static int set_tso(struct net_device *dev, u32 value)
+ 	return 0;
  }
-@@ -2490,8 +2491,8 @@ int ixgbevf_setup_tx_resources(struct ixgbevf_adapter *adapter,
- 	tx_ring->size = tx_ring->count * sizeof(union ixgbe_adv_tx_desc);
- 	tx_ring->size = ALIGN(tx_ring->size, 4096);
  
--	tx_ring->desc = pci_alloc_consistent(pdev, tx_ring->size,
--					     &tx_ring->dma);
-+	tx_ring->desc = dma_alloc_coherent(&pdev->dev, tx_ring->size,
-+					   &tx_ring->dma, GFP_KERNEL);
- 	if (!tx_ring->desc)
- 		goto err;
++static int set_flags(struct net_device *dev, u32 flags)
++{
++	if (flags & ~ETH_FLAG_RXHASH)
++		return -EOPNOTSUPP;
++
++	if (flags & ETH_FLAG_RXHASH)
++		dev->features |= NETIF_F_RXHASH;
++	else
++		dev->features &= ~NETIF_F_RXHASH;
++	return 0;
++}
++
+ static struct ethtool_ops cxgb_ethtool_ops = {
+ 	.get_settings      = get_settings,
+ 	.set_settings      = set_settings,
+@@ -1741,6 +1753,7 @@ static struct ethtool_ops cxgb_ethtool_ops = {
+ 	.get_wol           = get_wol,
+ 	.set_wol           = set_wol,
+ 	.set_tso           = set_tso,
++	.set_flags         = set_flags,
+ 	.flash_device      = set_flash,
+ };
  
-@@ -2561,8 +2562,8 @@ int ixgbevf_setup_rx_resources(struct ixgbevf_adapter *adapter,
- 	rx_ring->size = rx_ring->count * sizeof(union ixgbe_adv_rx_desc);
- 	rx_ring->size = ALIGN(rx_ring->size, 4096);
+@@ -3203,7 +3216,7 @@ static int __devinit init_one(struct pci_dev *pdev,
  
--	rx_ring->desc = pci_alloc_consistent(pdev, rx_ring->size,
--					     &rx_ring->dma);
-+	rx_ring->desc = dma_alloc_coherent(&pdev->dev, rx_ring->size,
-+					   &rx_ring->dma, GFP_KERNEL);
+ 		netdev->features |= NETIF_F_SG | NETIF_F_TSO | NETIF_F_TSO6;
+ 		netdev->features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+-		netdev->features |= NETIF_F_GRO | highdma;
++		netdev->features |= NETIF_F_GRO | NETIF_F_RXHASH | highdma;
+ 		netdev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+ 		netdev->vlan_features = netdev->features & VLAN_FEAT;
  
- 	if (!rx_ring->desc) {
- 		hw_dbg(&adapter->hw,
-@@ -2623,7 +2624,8 @@ void ixgbevf_free_rx_resources(struct ixgbevf_adapter *adapter,
- 	vfree(rx_ring->rx_buffer_info);
- 	rx_ring->rx_buffer_info = NULL;
+diff --git a/drivers/net/cxgb4/sge.c b/drivers/net/cxgb4/sge.c
+index 65d91c4..e804ffc 100644
+--- a/drivers/net/cxgb4/sge.c
++++ b/drivers/net/cxgb4/sge.c
+@@ -1524,6 +1524,8 @@ static void do_gro(struct sge_eth_rxq *rxq, const struct pkt_gl *gl,
+ 	skb->truesize += skb->data_len;
+ 	skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 	skb_record_rx_queue(skb, rxq->rspq.idx);
++	if (rxq->rspq.netdev->features & NETIF_F_RXHASH)
++		skb->rxhash = (__force u32)pkt->rsshdr.hash_val;
  
--	pci_free_consistent(pdev, rx_ring->size, rx_ring->desc, rx_ring->dma);
-+	dma_free_coherent(&pdev->dev, rx_ring->size, rx_ring->desc,
-+			  rx_ring->dma);
+ 	if (unlikely(pkt->vlan_ex)) {
+ 		struct port_info *pi = netdev_priv(rxq->rspq.netdev);
+@@ -1565,7 +1567,7 @@ int t4_ethrx_handler(struct sge_rspq *q, const __be64 *rsp,
+ 	if (unlikely(*(u8 *)rsp == CPL_TRACE_PKT))
+ 		return handle_trace_pkt(q->adap, si);
  
- 	rx_ring->desc = NULL;
- }
-@@ -2935,10 +2937,10 @@ static int ixgbevf_tx_map(struct ixgbevf_adapter *adapter,
+-	pkt = (void *)&rsp[1];
++	pkt = (const struct cpl_rx_pkt *)rsp;
+ 	csum_ok = pkt->csum_calc && !pkt->err_vec;
+ 	if ((pkt->l2info & htonl(RXF_TCP)) &&
+ 	    (q->netdev->features & NETIF_F_GRO) && csum_ok && !pkt->ip_frag) {
+@@ -1583,6 +1585,9 @@ int t4_ethrx_handler(struct sge_rspq *q, const __be64 *rsp,
+ 	__skb_pull(skb, RX_PKT_PAD);      /* remove ethernet header padding */
+ 	skb->protocol = eth_type_trans(skb, q->netdev);
+ 	skb_record_rx_queue(skb, q->idx);
++	if (skb->dev->features & NETIF_F_RXHASH)
++		skb->rxhash = (__force u32)pkt->rsshdr.hash_val;
++
+ 	pi = netdev_priv(skb->dev);
+ 	rxq->stats.pkts++;
  
- 		tx_buffer_info->length = size;
- 		tx_buffer_info->mapped_as_page = false;
--		tx_buffer_info->dma = pci_map_single(adapter->pdev,
-+		tx_buffer_info->dma = dma_map_single(&adapter->pdev->dev,
- 						     skb->data + offset,
--						     size, PCI_DMA_TODEVICE);
--		if (pci_dma_mapping_error(pdev, tx_buffer_info->dma))
-+						     size, DMA_TO_DEVICE);
-+		if (dma_mapping_error(&pdev->dev, tx_buffer_info->dma))
- 			goto dma_error;
- 		tx_buffer_info->time_stamp = jiffies;
- 		tx_buffer_info->next_to_watch = i;
-@@ -2964,13 +2966,13 @@ static int ixgbevf_tx_map(struct ixgbevf_adapter *adapter,
- 			size = min(len, (unsigned int)IXGBE_MAX_DATA_PER_TXD);
+diff --git a/drivers/net/cxgb4/t4_msg.h b/drivers/net/cxgb4/t4_msg.h
+index fdb1174..7a981b8 100644
+--- a/drivers/net/cxgb4/t4_msg.h
++++ b/drivers/net/cxgb4/t4_msg.h
+@@ -503,6 +503,7 @@ struct cpl_rx_data_ack {
+ };
  
- 			tx_buffer_info->length = size;
--			tx_buffer_info->dma = pci_map_page(adapter->pdev,
-+			tx_buffer_info->dma = dma_map_page(&adapter->pdev->dev,
- 							   frag->page,
- 							   offset,
- 							   size,
--							   PCI_DMA_TODEVICE);
-+							   DMA_TO_DEVICE);
- 			tx_buffer_info->mapped_as_page = true;
--			if (pci_dma_mapping_error(pdev, tx_buffer_info->dma))
-+			if (dma_mapping_error(&pdev->dev, tx_buffer_info->dma))
- 				goto dma_error;
- 			tx_buffer_info->time_stamp = jiffies;
- 			tx_buffer_info->next_to_watch = i;
-@@ -3311,14 +3313,14 @@ static int __devinit ixgbevf_probe(struct pci_dev *pdev,
- 	if (err)
- 		return err;
- 
--	if (!pci_set_dma_mask(pdev, DMA_BIT_MASK(64)) &&
--	    !pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64))) {
-+	if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(64)) &&
-+	    !dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64))) {
- 		pci_using_dac = 1;
- 	} else {
--		err = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
-+		err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
- 		if (err) {
--			err = pci_set_consistent_dma_mask(pdev,
--							  DMA_BIT_MASK(32));
-+			err = dma_set_coherent_mask(&pdev->dev,
-+						    DMA_BIT_MASK(32));
- 			if (err) {
- 				dev_err(&pdev->dev, "No usable DMA "
- 					"configuration, aborting\n");
+ struct cpl_rx_pkt {
++	struct rss_header rsshdr;
+ 	u8 opcode;
+ #if defined(__LITTLE_ENDIAN_BITFIELD)
+ 	u8 iff:4;
+-- 
+1.5.4
 
