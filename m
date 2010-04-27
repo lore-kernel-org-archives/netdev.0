@@ -1,40 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch v2] sctp: cleanup: remove duplicate assignment
-Date: Tue, 27 Apr 2010 09:58:23 -0700 (PDT)
-Message-ID: <20100427.095823.98890165.davem@davemloft.net>
-References: <4BD1AE9D.6090807@hp.com>
-	<20100424171805.GO29093@bicker>
-	<4BD6F582.9030804@hp.com>
+From: Brian Bloniarz <bmb@athenacr.com>
+Subject: Re: [PATCH] bnx2x: add support for receive hashing
+Date: Tue, 27 Apr 2010 13:02:08 -0400
+Message-ID: <4BD71890.2050606@athenacr.com>
+References: <q2o65634d661004261038t8f0c32f5ye8169ef0c38172b7@mail.gmail.com>	<20100426.110432.104061817.davem@davemloft.net>	<4BD6E887.3000804@athenacr.com> <20100427.095108.68126984.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: error27@gmail.com, sri@us.ibm.com, yjwei@cn.fujitsu.com,
-	cdischino@sonusnet.com, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: vladislav.yasevich@hp.com
+Cc: therbert@google.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, rick.jones2@hp.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52202
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752527Ab0D0Q6R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 12:58:17 -0400
-In-Reply-To: <4BD6F582.9030804@hp.com>
+Received: from sprinkles.athenacr.com ([64.95.46.210]:2967 "EHLO
+	sprinkles.inp.in.athenacr.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751093Ab0D0RCK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 13:02:10 -0400
+In-Reply-To: <20100427.095108.68126984.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Tue, 27 Apr 2010 10:32:34 -0400
+David Miller wrote:
+> From: Brian Bloniarz <bmb@athenacr.com>
+> Date: Tue, 27 Apr 2010 09:37:11 -0400
+> 
+>> David Miller wrote:
+>>> How damn hard is it to add two 16-bit ports to the hash regardless of
+>>> protocol?
+>>>   
+>> Come to think of it, for UDP the hash must ignore
+>> the srcport and srcaddr, because a single bound
+>> socket is going to wildcard both those fields.
+> 
+> For load distribution we don't care if the local socket is wildcard
+> bounded on source.
+> 
+> It's going to be fully specified in the packet, and that's enough.
 
-> 
-> 
-> Dan Carpenter wrote:
->> This assignment isn't needed because we did it earlier already.
->> 
->> Also another reason to delete the assignment is because it triggers a
->> Smatch warning about checking for NULL pointers after a dereference.
->> 
->> Reported-by: Vlad Yasevich <vladislav.yasevich@hp.com>
->> Signed-off-by: Dan Carpenter <error27@gmail.com>
-> 
-> Thanks.  I'll take this one.
+Maybe I'm misunderstanding... won't it distribute the
+packet handling load to multiple cores, but then all
+those cores will contend trying to deliver those packets
+to the single socket?
 
-And when will I get this from you? :-)
+I was assuming that this'd be a net loss over just doing
+all the protocol handling on a single core. I haven't
+done any benchmarks yet.
