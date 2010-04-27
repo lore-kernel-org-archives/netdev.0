@@ -1,67 +1,77 @@
-From: Brian Bloniarz <bmb@athenacr.com>
-Subject: Re: [PATCH] bnx2x: add support for receive hashing
-Date: Tue, 27 Apr 2010 11:44:43 -0400
-Message-ID: <4BD7066B.9070507@athenacr.com>
-References: <alpine.DEB.1.00.1004222249400.27016@pokey.mtv.corp.google.com>	 <1272302434.19143.76.camel@edumazet-laptop>	 <q2o65634d661004261038t8f0c32f5ye8169ef0c38172b7@mail.gmail.com>	 <20100426.110432.104061817.davem@davemloft.net>	 <4BD6E887.3000804@athenacr.com> <1272378659.2295.193.camel@edumazet-laptop>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: IPv6: race condition in __ipv6_ifa_notify() and dst_free() ?
+Date: Tue, 27 Apr 2010 17:50:34 +0200
+Message-ID: <20100427155034.GA11157@midget.suse.cz>
+References: <20100422.004324.67422011.davem@davemloft.net>
+ <20100422142506.GA15858@gondor.apana.org.au>
+ <20100422154908.GA31568@midget.suse.cz>
+ <20100422.185400.71096585.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, therbert@google.com,
-	netdev@vger.kernel.org, rick.jones2@hp.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jbohac@suse.cz, herbert@gondor.apana.org.au,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	shemminger@vyatta.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sprinkles.athenacr.com ([64.95.46.210]:8154 "EHLO
-	sprinkles.inp.in.athenacr.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754811Ab0D0Poq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 11:44:46 -0400
-In-Reply-To: <1272378659.2295.193.camel@edumazet-laptop>
+Received: from cantor2.suse.de ([195.135.220.15]:59357 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754224Ab0D0Puh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Apr 2010 11:50:37 -0400
+Content-Disposition: inline
+In-Reply-To: <20100422.185400.71096585.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Le mardi 27 avril 2010 =C3=A0 09:37 -0400, Brian Bloniarz a =C3=A9cri=
-t :
->> David Miller wrote:
->>> How damn hard is it to add two 16-bit ports to the hash regardless =
-of
->>> protocol?
->>>  =20
->> Come to think of it, for UDP the hash must ignore
->> the srcport and srcaddr, because a single bound
->> socket is going to wildcard both those fields.
->>
->=20
-> For your application maybe ;)
->=20
-> Here, I have thousand of RTP flows to big mediagateways, so the
-> (srcaddr, dstaddr) is shared by all these flows.
->=20
-> Tom Herbert also wants a threaded DNS server.
->=20
-> For UDP, we could have a bitmap (system level ?) to say if a particul=
-ar
-> destination port wants multi-cpu (RPS) spreading or not, even if the =
-NIC
-> decided to use a single queue to submit frames to the host (ie mask t=
-he
-> src_addr and src_port). In this case, RFS on non conected UDP sockets
-> could be activated as well.
->=20
-> Or just a global sysctl to be able to mask the src_addr and/or src_po=
-rt
-> in our software rxhash.
+On Thu, Apr 22, 2010 at 06:54:00PM -0700, David Miller wrote:
+> From: Jiri Bohac <jbohac@suse.cz>
+> Date: Thu, 22 Apr 2010 17:49:08 +0200
+> 
+> > I still don't see why __ipv6_ifa_notify() needs to call
+> > dst_free(). Shouldn't that be dst_release() instead, to drop the
+> > reference obtained by dst_hold(&ifp->rt->u.dst)?
+> 
+> It likely wants to do both.
+> 
+> Just doing dst_release() doesn't mark the 'dst' object as obsolete,
+> and therefore it won't get force garbage collected.
 
-This is all good to know. Here are 3 other alternatives/suggestions:
+Sure. So If I understand it correctly, there are two problems:
 
-1) Leave things as they are, if it really hurts that badly
-for our workload we can just disable RPS entirely.
-2) Add a global sysctl to disable RPS for datagram-based protocols.
-3) Pluggable SW rxhashes :)
+- the reference taken by dst_hold() just above the ip6_del_rt()
+  is never dropped if ip6_del_rt() fails; so shouldn't the code
+  be like this?:
 
-I haven't benchmarked anything for our workloads yet, so
-I can't say for sure it's even a big issue.
+	dst_hold(&ifp->rt->u.dst);
+	if (ip6_del_rt(ifp->rt)) {
+		dst_release(&ifp->rt->u.dst);
+		dst_free(&ifp->rt->u.dst);
+	}
 
-Has anyone benchmarked RPS + single-threaded DNS servers? It'd
-be a pessimization in that case, right? Even the multi-threaded
-DNS server wouldn't be workable unless there was something like
-the soreuseport patch you & Tom had been been discussing.
+- if ip6_del_rt() fails because it races with something else
+  deleting the address, dst_free() will be called twice. This is
+  what Herbert is fixing with additional locking. However -- even
+  when he fixes that -- how can ip6_del_rt() fail with the
+  ifp->rt still needing a dst_free()?
+  AFAICS, it can fail by:
+  	- __ip6_del_rt() finding that (rt ==
+	  net->ipv6.ip6_null_entry); we don't want to call
+	  dst_free() on net->ipv6.ip6_null_entry, do we?
+
+	- fib6_del() returning -ENOENT for multiple reasons;
+	  but doesn't that mean that something else has removed
+	  the route already and called dst_free on it?
+
+  In either case, the dst_free() looks like not being needed. And it only
+  does no harm in most cases, because these events are rare and
+  it usually finds (obsolete > 2) and does nothing.
+  
+  I think that what Herbert is doing is only going to enforce that
+  the ip6_del_rt() is never going to fail, so the dst_free()
+  won't ever be called anyway, right?
+
+Thanks,
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
+
