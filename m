@@ -1,129 +1,53 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH 1/3] ptp: Added a brand new class driver for ptp clocks.
-Date: Tue, 27 Apr 2010 15:32:39 -0700
-Message-ID: <20100427153239.0977c1aa.randy.dunlap@oracle.com>
-References: <20100427091405.GA5098@riccoc20.at.omicron.at>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH net-next] cxgb4: set skb->rxhash
+Date: Tue, 27 Apr 2010 15:36:56 -0700
+Message-ID: <20100427153656.7bcaba83@nehalam>
+References: <1272406825-11615-1-git-send-email-dm@chelsio.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
+To: Dimitris Michailidis <dm@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet10.oracle.com ([148.87.113.121]:26974 "EHLO
-	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757358Ab0D0Wdo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 18:33:44 -0400
-In-Reply-To: <20100427091405.GA5098@riccoc20.at.omicron.at>
+Received: from mail.vyatta.com ([76.74.103.46]:60008 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757358Ab0D0WhK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Apr 2010 18:37:10 -0400
+In-Reply-To: <1272406825-11615-1-git-send-email-dm@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 27 Apr 2010 11:14:05 +0200 Richard Cochran wrote:
+On Tue, 27 Apr 2010 15:20:25 -0700
+Dimitris Michailidis <dm@chelsio.com> wrote:
 
-Hi,
-
-How do I use the testptp.mk file?
-
-$ cd Documentation/ptp
-$ make -f *.mk
-gcc -Wall -I/usr/include   -c -o testptp.o testptp.c
-testptp.c:33:29: error: linux/ptp_clock.h: No such file or directory
-
-
-
-> diff --git a/Documentation/ptp/testptp.mk b/Documentation/ptp/testptp.mk
-> new file mode 100644
-> index 0000000..4ef2d97
-> --- /dev/null
-> +++ b/Documentation/ptp/testptp.mk
-> @@ -0,0 +1,33 @@
-> +# PTP 1588 clock support - User space test program
-> +#
-> +# Copyright (C) 2010 OMICRON electronics GmbH
-> +#
-> +#  This program is free software; you can redistribute it and/or modify
-> +#  it under the terms of the GNU General Public License as published by
-> +#  the Free Software Foundation; either version 2 of the License, or
-> +#  (at your option) any later version.
-> +#
-> +#  This program is distributed in the hope that it will be useful,
-> +#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-> +#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> +#  GNU General Public License for more details.
-> +#
-> +#  You should have received a copy of the GNU General Public License
-> +#  along with this program; if not, write to the Free Software
-> +#  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+> Implement the ->set_flags ethtool method to control NETIF_F_RXHASH and
+> set skb->rxhash to the HW calculated hash accordingly.
+> 
+> Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
+> ---
+>  drivers/net/cxgb4/cxgb4_main.c |   15 ++++++++++++++-
+>  drivers/net/cxgb4/sge.c        |    7 ++++++-
+>  drivers/net/cxgb4/t4_msg.h     |    1 +
+>  3 files changed, 21 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/cxgb4/cxgb4_main.c b/drivers/net/cxgb4/cxgb4_main.c
+> index 5f582db..1bad500 100644
+> --- a/drivers/net/cxgb4/cxgb4_main.c
+> +++ b/drivers/net/cxgb4/cxgb4_main.c
+> @@ -1711,6 +1711,18 @@ static int set_tso(struct net_device *dev, u32 value)
+>  	return 0;
+>  }
+>  
+> +static int set_flags(struct net_device *dev, u32 flags)
+> +{
+> +	if (flags & ~ETH_FLAG_RXHASH)
+> +		return -EOPNOTSUPP;
 > +
-> +CC        = $(CROSS_COMPILE)gcc
-> +INC       = -I$(KBUILD_OUTPUT)/usr/include
-> +CFLAGS    = -Wall $(INC)
-> +LDLIBS    = -lrt
-> +PROGS     = testptp
-> +
-> +all: $(PROGS)
-> +
-> +testptp: testptp.o
-> +
-> +clean:
-> +	rm -f testptp.o
-> +
-> +distclean: clean
-> +	rm -f $(PROGS)
-> diff --git a/drivers/ptp/Kconfig b/drivers/ptp/Kconfig
-> new file mode 100644
-> index 0000000..458d0fe
-> --- /dev/null
-> +++ b/drivers/ptp/Kconfig
-> @@ -0,0 +1,26 @@
-> +#
-> +# PTP clock support configuration
-> +#
-> +
-> +menu "PTP clock support"
-> +
-> +config PTP_1588_CLOCK
-> +	tristate "PTP clock support"
-> +	depends on EXPERIMENTAL
-> +	help
-> +	  The IEEE 1588 standard defines a method to precisely
-> +	  synchronize distributed clocks over Ethernet networks. The
-> +	  standard defines a Precision Time Protocol (PTP), which can
-> +	  be used to achieve synchronization within a few dozen
-> +	  microseconds. In addition, with the help of special hardware
-> +	  time stamping units, it can be possible to achieve
-> +	  synchronization to within a few hundred nanoseconds.
-> +
-> +	  This driver adds support for PTP clocks as character
-> +	  devices. If you want to use a PTP clock, then you should
-> +	  also enable at least one clock driver as well.
-> +
-> +	  To compile this driver as a module, choose M here: the module
-> +	  will be called ptp_clock.ko.
+> +	if (flags & ETH_FLAG_RXHASH)
+> +		dev->features |= NETIF_F_RXHASH;
+> +	else
+> +		dev->features &= ~NETIF_F_RXHASH;
+> +	return 0;
+> +}
 
-Drop the ".ko".  We normally don't include that part of the module name.
-
-> +
-> +endmenu
-
-> diff --git a/include/linux/Kbuild b/include/linux/Kbuild
-> index 2fc8e14..2d616cb 100644
-> --- a/include/linux/Kbuild
-> +++ b/include/linux/Kbuild
-> @@ -318,6 +318,7 @@ unifdef-y += poll.h
->  unifdef-y += ppp_defs.h
->  unifdef-y += ppp-comp.h
->  unifdef-y += pps.h
-> +unifdef-y += ptp_clock.h
->  unifdef-y += ptrace.h
->  unifdef-y += quota.h
->  unifdef-y += random.h
-
-I think that the Kbuild file also needs this line:
-header-y += ptp_clock.h
-
-so that builds that use O=objdir will work, but even with that
-change, I couldn't get it to work.  (?)
-
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+You need to check for and reject other values NTUPLE and LRO
