@@ -1,45 +1,64 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-2.6 PATCH] ixgbe: cleanup ethtool autoneg input
-Date: Tue, 27 Apr 2010 13:05:25 -0700
-Message-ID: <u2n9929d2391004271305y9732d81r8b611fbb9f9e8b9a@mail.gmail.com>
-References: <20100427112513.24196.70511.stgit@localhost.localdomain>
-	 <20100427.095629.191403481.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/3] ptp: Added a brand new class driver for ptp clocks.
+Date: Tue, 27 Apr 2010 13:07:21 -0700 (PDT)
+Message-ID: <20100427.130721.137847511.davem@davemloft.net>
+References: <20100427091405.GA5098@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	donald.c.skidmore@intel.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: richardcochran@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:46695 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750947Ab0D0UF0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 16:05:26 -0400
-Received: by pwj9 with SMTP id 9so9776109pwj.19
-        for <netdev@vger.kernel.org>; Tue, 27 Apr 2010 13:05:26 -0700 (PDT)
-In-Reply-To: <20100427.095629.191403481.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40848
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752300Ab0D0UHP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 16:07:15 -0400
+In-Reply-To: <20100427091405.GA5098@riccoc20.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 27, 2010 at 09:56, David Miller <davem@davemloft.net> wrote:
->
-> This is also not appropriate for net-2.6, it doesn't fix a
-> regression in the regression list and it doesn't fix a catastropic
-> crash or failure.
->
-> You really have to be kidding me if you thing a patch like this
-> is fine this late in the -RC series.
->
-> You also aren't even numbering your patches, which is quite a
-> transgression when a submission of a set of patches all to the same
-> driver and/or files.
-> --
+From: Richard Cochran <richardcochran@gmail.com>
+Date: Tue, 27 Apr 2010 11:14:05 +0200
 
-My apologies.  My reasoning for not numbering them was that the
-patches were not related and not dependent upon each other.
+> +struct ptp_clock {
+> +	struct cdev cdev;
+> +	struct device *dev;
+> +	struct ptp_clock_info *info;
+> +	dev_t devid;
+> +	int index; /* index into clocks[], also the minor number */
+> +	struct semaphore mux; /* one process at a time on a device */
+> +};
 
-As far as sending the the three patches un-acceptable patches this
-late in the -rc series, that was poor judgement on my part, sorry.
+A mutex works just as well and is preferable to a semaphore.
 
--- 
-Cheers,
-Jeff
+> +/* private globals */
+> +
+> +static const struct file_operations ptp_fops;
+> +static dev_t ptp_devt;
+> +static struct class *ptp_class;
+> +struct ptp_clock *clocks[PTP_MAX_CLOCKS];
+> +DEFINE_SPINLOCK(clocks_lock);
+
+The clocks[] table is not protected by any mutual exclusion in the
+unregister method, it needs at least a spinlock or similar.  Probably
+clocks_lock was meant to be used for this purpose.
+
+Also, having arbitray limits like PTP_MAX_CLOCKS and a linear scan
+when registering or unregistering is suboptimal.
+
+Even if we're not expecting to have many of these things, use linux/list.h
+list to manage these things.
+
+In fact, if you keep them in a list you don't need to look them up at
+all during at least unregister, you can return the real "struct
+ptp_clock *" as an opaque ERR_PTR() back to the caller on register and
+on unregister you can just list_del() on it.
+
+Don't expose the layout of struct ptp_clock to the users, you don't have
+do.  Just:
+
+struct ptp_clock;
+
+in the exported header file, and then you can return "struct ptp_clock *'
+from ptp_clock_register() just fine.
+
