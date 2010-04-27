@@ -1,30 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: disallow to use net_assign_generic
- externally
-Date: Tue, 27 Apr 2010 15:49:18 -0700 (PDT)
-Message-ID: <20100427.154918.45129593.davem@davemloft.net>
-References: <20100423114046.GC2853@psychotron.lab.eng.brq.redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com
-To: jpirko@redhat.com
+From: Andy Fleming <afleming@freescale.com>
+Subject: [PATCH v2] gianfar: Wait for both RX and TX to stop
+Date: Tue, 27 Apr 2010 17:51:43 -0500
+Message-ID: <1272408703-20931-1-git-send-email-afleming@freescale.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35839
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757362Ab0D0WtN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 18:49:13 -0400
-In-Reply-To: <20100423114046.GC2853@psychotron.lab.eng.brq.redhat.com>
+Received: from az33egw02.freescale.net ([192.88.158.103]:48929 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755088Ab0D0Wvq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 18:51:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Fri, 23 Apr 2010 13:40:47 +0200
+When gracefully stopping the controller, the driver was continuing if
+*either* RX or TX had stopped.  We need to wait for both, or the
+controller could get into an invalid state.
 
-> Now there's no need to use this fuction directly because it's handled by
-> register_pernet_device. So to make this simple and easy to understand,
-> make this static to do not tempt potentional users.
-> 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+Signed-off-by: Andy Fleming <afleming@freescale.com>
+---
+Switched to use spin_event_timeout()
 
-Looks reasonable, applied thanks Jiri.
+Kept the -1 timeout value, as that is the original behavior, and responding
+to a timeout would require a much more substantial change, and such a change
+would, at the least, require investigation of what, if anything, *can* be done.
+
+ drivers/net/gianfar.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 0cef967..5267c27 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -1567,9 +1567,9 @@ static void gfar_halt_nodisable(struct net_device *dev)
+ 		tempval |= (DMACTRL_GRS | DMACTRL_GTS);
+ 		gfar_write(&regs->dmactrl, tempval);
+ 
+-		while (!(gfar_read(&regs->ievent) &
+-			 (IEVENT_GRSC | IEVENT_GTSC)))
+-			cpu_relax();
++		spin_event_timeout(((gfar_read(&regs->ievent) &
++			 (IEVENT_GRSC | IEVENT_GTSC)) ==
++			 (IEVENT_GRSC | IEVENT_GTSC)), -1, 0);
+ 	}
+ }
+ 
+-- 
+1.6.5.2.g6ff9a
+
