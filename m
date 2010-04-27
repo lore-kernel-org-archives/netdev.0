@@ -1,123 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] net: reimplement softnet_data.output_queue as a
- FIFO queue
-Date: Tue, 27 Apr 2010 22:36:58 +0200
-Message-ID: <1272400618.2343.13.camel@edumazet-laptop>
-References: <1272359184-2929-1-git-send-email-xiaosuo@gmail.com>
+From: Scott Feldman <scofeldm@cisco.com>
+Subject: Re: [net-next-2.6 PATCH 1/2] Add ndo_set_vf_port_profile
+Date: Tue, 27 Apr 2010 13:57:16 -0700
+Message-ID: <C7FC9DBC.2C218%scofeldm@cisco.com>
+References: <201004271435.25480.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"chrisw@redhat.com" <chrisw@redhat.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:44327 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755588Ab0D0Unk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 16:43:40 -0400
-Received: by bwz19 with SMTP id 19so4950bwz.21
-        for <netdev@vger.kernel.org>; Tue, 27 Apr 2010 13:43:38 -0700 (PDT)
-In-Reply-To: <1272359184-2929-1-git-send-email-xiaosuo@gmail.com>
+Received: from sj-iport-1.cisco.com ([171.71.176.70]:49393 "EHLO
+	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756894Ab0D0U5S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 16:57:18 -0400
+In-Reply-To: <201004271435.25480.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 27 avril 2010 =C3=A0 17:06 +0800, Changli Gao a =C3=A9crit :
-> reimplement softnet_data.output_queue as a FIFO queue.
->=20
-> reimplement softnet_data.output_queue as a FIFO queue to keep the fai=
-rness among
-> the qdiscs rescheduled.
->=20
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+On 4/27/10 5:35 AM, "Arnd Bergmann" <arnd@arndb.de> wrote:
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> On Tuesday 27 April 2010, Scott Feldman wrote:
+>>> Yes, I believe that's there today:
+>>> 
+>>>     NLA_PUT_U32(skb, IFLA_NUM_VF, dev_num_vf(dev->dev.parent));
+>>> 
+>>> The number of VFs is returned in RTM_GETLINK.  But, it's only returned if:
+>>> 
+>>>     if (dev->netdev_ops->ndo_get_vf_config && dev->dev.parent)
+>>> 
+>>> For my proposal, I'll need to return IFLA_NUM_VF unconditionally so callers
+>>> can get num VFs.
+>> 
+>> Hmmm...seems IFLA_NUM_VF assumes a PCI device supporting SR-IOV when it uses
+>> dev_num_vf().  I think a better option would have been to query the device
+>> for the number of VFs, without assuming SR-IOV or even PCI.
+>> 
+>> I see a ndo_get_num_vf() coming...
+> 
+> Shouldn't the number of registered port profiles be totally independent of
+> the number of virtual functions?
+> 
+> Any of the VFs could multiplex multiple guests using macvlan, which means you
+> need to register each guest separately, not each VF.
+> 
+> Anything that ties port profiles to VFs seems fundamentally flawed AFAICT,
+> at least when we want to extend this to adapters that don't do it in firmware.
 
-> ----
->  include/linux/netdevice.h |    1 +
->  net/core/dev.c            |   22 ++++++++++++----------
->  2 files changed, 13 insertions(+), 10 deletions(-)
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 3c5ed5f..c04ca24 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -1385,6 +1385,7 @@ static inline int unregister_gifconf(unsigned i=
-nt family)
->   */
->  struct softnet_data {
->  	struct Qdisc		*output_queue;
-> +	struct Qdisc		**output_queue_tailp;
->  	struct list_head	poll_list;
->  	struct sk_buff		*completion_queue;
-> =20
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 4d43f1a..3d31491 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1557,8 +1557,9 @@ static inline void __netif_reschedule(struct Qd=
-isc *q)
-> =20
->  	local_irq_save(flags);
->  	sd =3D &__get_cpu_var(softnet_data);
-> -	q->next_sched =3D sd->output_queue;
-> -	sd->output_queue =3D q;
-> +	q->next_sched =3D NULL;
-> +	*sd->output_queue_tailp =3D q;
-> +	sd->output_queue_tailp =3D &q->next_sched;
->  	raise_softirq_irqoff(NET_TX_SOFTIRQ);
->  	local_irq_restore(flags);
->  }
-> @@ -2529,6 +2530,7 @@ static void net_tx_action(struct softirq_action=
- *h)
->  		local_irq_disable();
->  		head =3D sd->output_queue;
->  		sd->output_queue =3D NULL;
-> +		sd->output_queue_tailp =3D &sd->output_queue;
->  		local_irq_enable();
-> =20
->  		while (head) {
-> @@ -5594,7 +5596,6 @@ static int dev_cpu_callback(struct notifier_blo=
-ck *nfb,
->  			    void *ocpu)
->  {
->  	struct sk_buff **list_skb;
-> -	struct Qdisc **list_net;
->  	struct sk_buff *skb;
->  	unsigned int cpu, oldcpu =3D (unsigned long)ocpu;
->  	struct softnet_data *sd, *oldsd;
-> @@ -5615,13 +5616,13 @@ static int dev_cpu_callback(struct notifier_b=
-lock *nfb,
->  	*list_skb =3D oldsd->completion_queue;
->  	oldsd->completion_queue =3D NULL;
-> =20
-> -	/* Find end of our output_queue. */
-> -	list_net =3D &sd->output_queue;
-> -	while (*list_net)
-> -		list_net =3D &(*list_net)->next_sched;
->  	/* Append output queue from offline CPU. */
-> -	*list_net =3D oldsd->output_queue;
-> -	oldsd->output_queue =3D NULL;
-> +	if (oldsd->output_queue) {
-> +		*sd->output_queue_tailp =3D oldsd->output_queue;
-> +		sd->output_queue_tailp =3D oldsd->output_queue_tailp;
-> +		oldsd->output_queue =3D NULL;
-> +		oldsd->output_queue_tailp =3D &oldsd->output_queue;
-> +	}
-> =20
->  	raise_softirq_irqoff(NET_TX_SOFTIRQ);
->  	local_irq_enable();
-> @@ -5851,7 +5852,8 @@ static int __init net_dev_init(void)
->  		skb_queue_head_init(&sd->input_pkt_queue);
->  		sd->completion_queue =3D NULL;
->  		INIT_LIST_HEAD(&sd->poll_list);
-> -
-> +		sd->output_queue =3D NULL;
-> +		sd->output_queue_tailp =3D &sd->output_queue;
->  #ifdef CONFIG_RPS
->  		sd->csd.func =3D rps_trigger_softirq;
->  		sd->csd.info =3D sd;
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
+Ya, I tend I agree.  Let's just make port-profile a setting of any netdev,
+an eth, macvtap, eth.x, bond, etc.  That's probably what I should have done
+in the first place.  Something like:
 
+       ip link set DEVICE [ { up | down } ]
+                          [ arp { on | off } ]
+                            <...clip...>
+                          [ alias NAME ]
+                          [ vf NUM [ mac LLADDR ]
+                                   [ vlan VLANID [ qos VLAN-QOS ] ]
+                                   [ rate TXRATE ] ]
+                          [ port_profile [ PORT-PROFILE
+                                   [ mac LLADDR ]
+                                   [ host_uuid HOST_UUID ]
+                                   [ client_uuid CLIENT_UUID ]
+                                   [ client_name CLIENT_NAME ] ] ] ]
+       ip link show [ DEVICE ]
+
+I think I was trying to be too accommodating for models with VFs, but it
+doesn't matter like you point out.
+
+This way, I can get the RTM_GETLINK to return the port-profile in use.
+
+New patches coming soon...
+
+-scott
 
