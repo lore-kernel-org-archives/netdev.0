@@ -1,36 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] bnx2x: Remove two prefetch()
-Date: Tue, 27 Apr 2010 15:19:37 -0700 (PDT)
-Message-ID: <20100427.151937.62344362.davem@davemloft.net>
-References: <1272018366.7895.7930.camel@edumazet-laptop>
-	<20100427.150817.84390202.davem@davemloft.net>
-	<1272406693.2343.26.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: sk_add_backlog() take rmem_alloc
+ into account
+Date: Wed, 28 Apr 2010 00:19:53 +0200
+Message-ID: <1272406793.2343.28.camel@edumazet-laptop>
+References: <1272389872.2295.405.camel@edumazet-laptop>
+	 <1272399662.2343.12.camel@edumazet-laptop>
+	 <20100427.144307.22037530.davem@davemloft.net>
+	 <20100427.151103.146348463.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xiaosuo@gmail.com, hadi@cyberus.ca, therbert@google.com,
-	shemminger@vyatta.com, netdev@vger.kernel.org, eilong@broadcom.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bmb@athenacr.com, therbert@google.com, netdev@vger.kernel.org,
+	rick.jones2@hp.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50530
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753464Ab0D0WTb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 18:19:31 -0400
-In-Reply-To: <1272406693.2343.26.camel@edumazet-laptop>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:36692 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757308Ab0D0WT6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 18:19:58 -0400
+Received: by bwz19 with SMTP id 19so68378bwz.21
+        for <netdev@vger.kernel.org>; Tue, 27 Apr 2010 15:19:57 -0700 (PDT)
+In-Reply-To: <20100427.151103.146348463.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 28 Apr 2010 00:18:13 +0200
+Le mardi 27 avril 2010 =C3=A0 15:11 -0700, David Miller a =C3=A9crit :
+> From: David Miller <davem@davemloft.net>
+> Date: Tue, 27 Apr 2010 14:43:07 -0700 (PDT)
+>=20
+> > This looks great, applied, thanks Eric!
+>=20
+> I have to fix this one up, for example SCTP stopped building because =
+it
+> still refers to the ->limit member you removed.
+> --
 
-> [PATCH net-next-2.6] bnx2x: Remove two prefetch()
-> 
-> 1) Even on 64bit arches, sizeof(struct sk_buff) < 256
-> 2) No need to prefetch same pointer twice.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Eilon Greenstein <eilong@broadcom.com>
+Hmm, sorry for this, thanks !
 
-Eilon please review and ACK/NACK
 
-Thanks.
