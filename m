@@ -1,32 +1,200 @@
 From: Patrick@trash.net, McHardy@trash.net, kaber@trash.net
-Subject: [PATCH 0/4] net: ipmr netlink interface for route dumping
-Date: Tue, 27 Apr 2010 15:26:22 +0200
-Message-ID: <1272374785-3858-1-git-send-email-kaber@trash.net>
+Subject: [PATCH 2/3] net: rtnetlink: decouple rtnetlink address families from real address families
+Date: Tue, 27 Apr 2010 15:26:24 +0200
+Message-ID: <1272374785-3858-3-git-send-email-kaber@trash.net>
+References: <1272374785-3858-1-git-send-email-kaber@trash.net>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:52163 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:52165 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755693Ab0D0N02 (ORCPT
+	with ESMTP id S1755699Ab0D0N02 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 09:26:28 -0400
+In-Reply-To: <1272374785-3858-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These patches add support to ipmr to dump routes of all tables over
-netlink. The /proc interface contains an unterminated list of oifs
-at the end of a line, therefore it can't be extended to print the
-routing table number without breaking backwards compatibility.
+From: Patrick McHardy <kaber@trash.net>
 
-These patches fully decouple rtnetlink families from real address
-families and add a new family RTNL_FAMILY_IPMR for ipmr as well as
-a RTM_GETROUTE handler.
+Decouple rtnetlink address families from real address families in socket.h to
+be able to add rtnetlink interfaces to code that is not a real address family
+without increasing AF_MAX/NPROTO.
 
-The first patch additionally marks the fib_rules_ops templates as
-const __net_initdata. This is not directly related to the netlink
-interface, but was already queued in my tree.
+This will be used to add support for multicast route dumping from all tables
+as the proc interface can't be extended to support anything but the main table
+without breaking compatibility.
 
-Please apply or pull from:
+This partialy undoes the patch to introduce independant families for routing
+rules and converts ipmr routing rules to a new rtnetlink family. Similar to
+that patch, values up to 127 are reserved for real address families, values
+above that may be used arbitrarily.
 
-git://git.kernel.org/pub/scm/linux/kernel/git/kaber/ipmr-2.6.git master
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ include/linux/fib_rules.h |    8 --------
+ include/linux/rtnetlink.h |    6 ++++++
+ net/core/rtnetlink.c      |   14 +++++++-------
+ net/decnet/dn_rules.c     |    2 +-
+ net/ipv4/fib_rules.c      |    2 +-
+ net/ipv4/ipmr.c           |    2 +-
+ net/ipv6/fib6_rules.c     |    2 +-
+ 7 files changed, 17 insertions(+), 19 deletions(-)
 
-Thanks!
+diff --git a/include/linux/fib_rules.h b/include/linux/fib_rules.h
+index 04a3976..51da65b 100644
+--- a/include/linux/fib_rules.h
++++ b/include/linux/fib_rules.h
+@@ -15,14 +15,6 @@
+ /* try to find source address in routing lookups */
+ #define FIB_RULE_FIND_SADDR	0x00010000
+ 
+-/* fib_rules families. values up to 127 are reserved for real address
+- * families, values above 128 may be used arbitrarily.
+- */
+-#define FIB_RULES_IPV4		AF_INET
+-#define FIB_RULES_IPV6		AF_INET6
+-#define FIB_RULES_DECNET	AF_DECnet
+-#define FIB_RULES_IPMR		128
+-
+ struct fib_rule_hdr {
+ 	__u8		family;
+ 	__u8		dst_len;
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index d1c7c90..5a42c36 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -7,6 +7,12 @@
+ #include <linux/if_addr.h>
+ #include <linux/neighbour.h>
+ 
++/* rtnetlink families. Values up to 127 are reserved for real address
++ * families, values above 128 may be used arbitrarily.
++ */
++#define RTNL_FAMILY_IPMR		128
++#define RTNL_FAMILY_MAX			128
++
+ /****
+  *		Routing/neighbour discovery messages.
+  ****/
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 78c8598..fd781b6 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -98,7 +98,7 @@ int lockdep_rtnl_is_held(void)
+ EXPORT_SYMBOL(lockdep_rtnl_is_held);
+ #endif /* #ifdef CONFIG_PROVE_LOCKING */
+ 
+-static struct rtnl_link *rtnl_msg_handlers[NPROTO];
++static struct rtnl_link *rtnl_msg_handlers[RTNL_FAMILY_MAX + 1];
+ 
+ static inline int rtm_msgindex(int msgtype)
+ {
+@@ -118,7 +118,7 @@ static rtnl_doit_func rtnl_get_doit(int protocol, int msgindex)
+ {
+ 	struct rtnl_link *tab;
+ 
+-	if (protocol < NPROTO)
++	if (protocol <= RTNL_FAMILY_MAX)
+ 		tab = rtnl_msg_handlers[protocol];
+ 	else
+ 		tab = NULL;
+@@ -133,7 +133,7 @@ static rtnl_dumpit_func rtnl_get_dumpit(int protocol, int msgindex)
+ {
+ 	struct rtnl_link *tab;
+ 
+-	if (protocol < NPROTO)
++	if (protocol <= RTNL_FAMILY_MAX)
+ 		tab = rtnl_msg_handlers[protocol];
+ 	else
+ 		tab = NULL;
+@@ -167,7 +167,7 @@ int __rtnl_register(int protocol, int msgtype,
+ 	struct rtnl_link *tab;
+ 	int msgindex;
+ 
+-	BUG_ON(protocol < 0 || protocol >= NPROTO);
++	BUG_ON(protocol < 0 || protocol > RTNL_FAMILY_MAX);
+ 	msgindex = rtm_msgindex(msgtype);
+ 
+ 	tab = rtnl_msg_handlers[protocol];
+@@ -219,7 +219,7 @@ int rtnl_unregister(int protocol, int msgtype)
+ {
+ 	int msgindex;
+ 
+-	BUG_ON(protocol < 0 || protocol >= NPROTO);
++	BUG_ON(protocol < 0 || protocol > RTNL_FAMILY_MAX);
+ 	msgindex = rtm_msgindex(msgtype);
+ 
+ 	if (rtnl_msg_handlers[protocol] == NULL)
+@@ -241,7 +241,7 @@ EXPORT_SYMBOL_GPL(rtnl_unregister);
+  */
+ void rtnl_unregister_all(int protocol)
+ {
+-	BUG_ON(protocol < 0 || protocol >= NPROTO);
++	BUG_ON(protocol < 0 || protocol > RTNL_FAMILY_MAX);
+ 
+ 	kfree(rtnl_msg_handlers[protocol]);
+ 	rtnl_msg_handlers[protocol] = NULL;
+@@ -1384,7 +1384,7 @@ static int rtnl_dump_all(struct sk_buff *skb, struct netlink_callback *cb)
+ 
+ 	if (s_idx == 0)
+ 		s_idx = 1;
+-	for (idx = 1; idx < NPROTO; idx++) {
++	for (idx = 1; idx <= RTNL_FAMILY_MAX; idx++) {
+ 		int type = cb->nlh->nlmsg_type-RTM_BASE;
+ 		if (idx < s_idx || idx == PF_PACKET)
+ 			continue;
+diff --git a/net/decnet/dn_rules.c b/net/decnet/dn_rules.c
+index 1226bca..48fdf10 100644
+--- a/net/decnet/dn_rules.c
++++ b/net/decnet/dn_rules.c
+@@ -217,7 +217,7 @@ static void dn_fib_rule_flush_cache(struct fib_rules_ops *ops)
+ }
+ 
+ static const struct fib_rules_ops __net_initdata dn_fib_rules_ops_template = {
+-	.family		= FIB_RULES_DECNET,
++	.family		= AF_DECnet,
+ 	.rule_size	= sizeof(struct dn_fib_rule),
+ 	.addr_size	= sizeof(u16),
+ 	.action		= dn_fib_rule_action,
+diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
+index 8ab62a5..76daeb5 100644
+--- a/net/ipv4/fib_rules.c
++++ b/net/ipv4/fib_rules.c
+@@ -246,7 +246,7 @@ static void fib4_rule_flush_cache(struct fib_rules_ops *ops)
+ }
+ 
+ static const struct fib_rules_ops __net_initdata fib4_rules_ops_template = {
+-	.family		= FIB_RULES_IPV4,
++	.family		= AF_INET,
+ 	.rule_size	= sizeof(struct fib4_rule),
+ 	.addr_size	= sizeof(u32),
+ 	.action		= fib4_rule_action,
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 7d3e382..41e8fc0 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -217,7 +217,7 @@ static int ipmr_rule_fill(struct fib_rule *rule, struct sk_buff *skb,
+ }
+ 
+ static const struct fib_rules_ops __net_initdata ipmr_rules_ops_template = {
+-	.family		= FIB_RULES_IPMR,
++	.family		= RTNL_FAMILY_IPMR,
+ 	.rule_size	= sizeof(struct ipmr_rule),
+ 	.addr_size	= sizeof(u32),
+ 	.action		= ipmr_rule_action,
+diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
+index 35f6949..8e44f8f 100644
+--- a/net/ipv6/fib6_rules.c
++++ b/net/ipv6/fib6_rules.c
+@@ -238,7 +238,7 @@ static size_t fib6_rule_nlmsg_payload(struct fib_rule *rule)
+ }
+ 
+ static const struct fib_rules_ops __net_initdata fib6_rules_ops_template = {
+-	.family			= FIB_RULES_IPV6,
++	.family			= AF_INET6,
+ 	.rule_size		= sizeof(struct fib6_rule),
+ 	.addr_size		= sizeof(struct in6_addr),
+ 	.action			= fib6_rule_action,
+-- 
+1.7.0.4
+
