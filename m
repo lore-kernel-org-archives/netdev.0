@@ -1,39 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] rps: inet_rps_save_rxhash() argument is not
- const
-Date: Tue, 27 Apr 2010 14:42:51 +0200
-Message-ID: <1272372171.2295.68.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Patrick@trash.net, McHardy@trash.net, kaber@trash.net
+Subject: [PATCH 0/4] net: ipmr netlink interface for route dumping
+Date: Tue, 27 Apr 2010 15:26:22 +0200
+Message-ID: <1272374785-3858-1-git-send-email-kaber@trash.net>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:58304 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752630Ab0D0Mm4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 08:42:56 -0400
-Received: by bwz19 with SMTP id 19so23943bwz.21
-        for <netdev@vger.kernel.org>; Tue, 27 Apr 2010 05:42:55 -0700 (PDT)
+Received: from stinky.trash.net ([213.144.137.162]:52163 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755693Ab0D0N02 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 09:26:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-const qualifier on sock argument is misleading, since we can modify rxhash.
+These patches add support to ipmr to dump routes of all tables over
+netlink. The /proc interface contains an unterminated list of oifs
+at the end of a line, therefore it can't be extended to print the
+routing table number without breaking backwards compatibility.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index b487bc1..c1d4295 100644
---- a/include/net/inet_sock.h
-+++ b/include/net/inet_sock.h
-@@ -248,7 +248,7 @@ static inline void inet_rps_reset_flow(const struct sock *sk)
- #endif
- }
- 
--static inline void inet_rps_save_rxhash(const struct sock *sk, u32 rxhash)
-+static inline void inet_rps_save_rxhash(struct sock *sk, u32 rxhash)
- {
- #ifdef CONFIG_RPS
- 	if (unlikely(inet_sk(sk)->rxhash != rxhash)) {
+These patches fully decouple rtnetlink families from real address
+families and add a new family RTNL_FAMILY_IPMR for ipmr as well as
+a RTM_GETROUTE handler.
 
+The first patch additionally marks the fib_rules_ops templates as
+const __net_initdata. This is not directly related to the netlink
+interface, but was already queued in my tree.
 
+Please apply or pull from:
+
+git://git.kernel.org/pub/scm/linux/kernel/git/kaber/ipmr-2.6.git master
+
+Thanks!
