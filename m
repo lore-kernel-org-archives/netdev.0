@@ -1,53 +1,47 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
 Subject: linux-next: manual merge of the net tree with Linus' tree
-Date: Tue, 27 Apr 2010 11:28:27 +1000
-Message-ID: <20100427112827.1f17be40.sfr@canb.auug.org.au>
+Date: Tue, 27 Apr 2010 11:28:35 +1000
+Message-ID: <20100427112835.f2b6662c.sfr@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Alan Cox <alan@linux.intel.com>, Joe Perches <joe@perches.com>
+	Mike Christie <michaelc@cs.wisc.edu>,
+	James Bottomley <James.Bottomley@suse.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi all,
 
 Today's linux-next merge of the net tree got a conflict in
-drivers/net/e100.c between commit
-401da6aea31ef69c2fcd260382adabdcf7ce820a ("e100: Fix the TX workqueue
-race") from Linus' tree and commit
-fa05e1ad1b61b37fb64a66794c11ab478e975c56 ("drivers/net/e100.c: Use
-pr_<level> and netif_<level>") from the net tree.
+drivers/scsi/iscsi_tcp.c between commit
+d7d05548a62c87ee55b0c81933669177f885aa8d ("[SCSI] iscsi_tcp: fix
+relogin/shutdown hang") from the  tree and commit
+aa395145165cb06a0d0885221bbe0ce4a564391d ("net: sk_sleep() helper") from
+the net tree.
 
-Just context changes.  I fixed it up (see below) and can carry the fix
-for a while.
+I fixed it up (see below) and can carry the fix for a while.
 -- 
 Cheers,
 Stephen Rothwell                    sfr@canb.auug.org.au
 
-diff --cc drivers/net/e100.c
-index 7910803,3e8d000..0000000
---- a/drivers/net/e100.c
-+++ b/drivers/net/e100.c
-@@@ -2264,15 -2278,10 +2279,15 @@@ static void e100_tx_timeout_task(struc
-  	struct nic *nic = container_of(work, struct nic, tx_timeout_task);
-  	struct net_device *netdev = nic->netdev;
+diff --cc drivers/scsi/iscsi_tcp.c
+index cdb4fd8,9eae04a..0000000
+--- a/drivers/scsi/iscsi_tcp.c
++++ b/drivers/scsi/iscsi_tcp.c
+@@@ -601,9 -599,9 +601,9 @@@ static void iscsi_sw_tcp_conn_stop(stru
+  	set_bit(ISCSI_SUSPEND_BIT, &conn->suspend_rx);
+  	write_unlock_bh(&tcp_sw_conn->sock->sk->sk_callback_lock);
   
-- 	DPRINTK(TX_ERR, DEBUG, "scb.status=0x%02X\n",
-- 		ioread8(&nic->csr->scb.status));
-+ 	netif_printk(nic, tx_err, KERN_DEBUG, nic->netdev,
-+ 		     "scb.status=0x%02X\n", ioread8(&nic->csr->scb.status));
- -	e100_down(netdev_priv(netdev));
- -	e100_up(netdev_priv(netdev));
- +
- +	rtnl_lock();
- +	if (netif_running(netdev)) {
- +		e100_down(netdev_priv(netdev));
- +		e100_up(netdev_priv(netdev));
- +	}
- +	rtnl_unlock();
-  }
+- 	if (sock->sk->sk_sleep) {
+ -	if (sk_sleep(sock->sk) && waitqueue_active(sk_sleep(sock->sk))) {
+++	if (sk_sleep(sock->sk)) {
+  		sock->sk->sk_err = EIO;
+- 		wake_up_interruptible(sock->sk->sk_sleep);
++ 		wake_up_interruptible(sk_sleep(sock->sk));
+  	}
   
-  static int e100_loopback_test(struct nic *nic, enum loopback loopback_mode)
+  	iscsi_conn_stop(cls_conn, flag);
