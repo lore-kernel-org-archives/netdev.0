@@ -1,226 +1,55 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the staging-next tree with the net tree
-Date: Tue, 27 Apr 2010 14:26:55 +1000
-Message-ID: <20100427142655.49673ff1.sfr@canb.auug.org.au>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] RCU: don't turn off lockdep when find suspicious
+ rcu_dereference_check() usage
+Date: Mon, 26 Apr 2010 21:27:44 -0700
+Message-ID: <20100427042744.GD2510@linux.vnet.ibm.com>
+References: <20100422145640.GB3228@redhat.com>
+ <20100422160144.GC2524@linux.vnet.ibm.com>
+ <h2xa44ae5cd1004230550uf734c89eo2b1d1945d446068c@mail.gmail.com>
+ <20100423194255.GE2589@linux.vnet.ibm.com>
+ <m2xa44ae5cd1004231559hcf90671asf146a43b4748c2c3@mail.gmail.com>
+ <20100425023455.GM2440@linux.vnet.ibm.com>
+ <w2sa44ae5cd1004250849q73704370vc6af935c70db9b73@mail.gmail.com>
+ <p2ga44ae5cd1004251320j55d23ba7ua0fa14497f623d76@mail.gmail.com>
+ <20100426160925.GD2529@linux.vnet.ibm.com>
+ <m1hbmydpup.fsf@fess.ebiederm.org>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jiri Pirko <jpirko@redhat.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	John Sheehan <john.d.sheehan@gmail.com>
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Miles Lane <miles.lane@gmail.com>, Vivek Goyal <vgoyal@redhat.com>,
+	Eric Paris <eparis@redhat.com>,
+	Lai Jiangshan <laijs@cn.fujitsu.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Peter Zijlstra <peterz@infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>, nauman@google.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	Jens Axboe <jens.axboe@oracle.com>,
+	Gui Jianfeng <guijianfeng@cn.fujitsu.com>,
+	Li Zefan <lizf@cn.fujitsu.com>,
+	Johannes Berg <johannes@sipsolutions.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <m1hbmydpup.fsf@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Greg,
+On Mon, Apr 26, 2010 at 11:35:10AM -0700, Eric W. Biederman wrote:
+> "Paul E. McKenney" <paulmck@linux.vnet.ibm.com> writes:
+> 
+> > Eric Dumazet traced these down to a commit from Eric Biederman.
+> >
+> > If I don't hear from Eric Biederman in a few days, I will attempt a
+> > patch, but it would be more likely to be correct coming from someone
+> > with a better understanding of the code.  ;-)
+> 
+> I already replied.
+> 
+> http://lkml.org/lkml/2010/4/21/420
 
-Today's linux-next merge of the staging-next tree got a conflict in
-drivers/staging/arlan/arlan-main.c between commit
-22bedad3ce112d5ca1eaf043d4990fa2ed698c87 ("net: convert multicast list to
-list_head") from the net tree and commit
-8db2022b08e232bb237b2162f03ff5f6e7c0c35e ("staging: arlan: fix errors
-reported by checkpatch.pl tool") from the staging-next tree.
+You did indeed!!!  This experience is giving me an even better appreciation
+of the maintainers' ability to keep all their patches straight!
 
-I fixed it up (see below) and can carry the fix as necessary.
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+I will put together something based on your suggestion.
 
-diff --cc drivers/staging/arlan/arlan-main.c
-index 8028452,58deb96..0000000
---- a/drivers/staging/arlan/arlan-main.c
-+++ b/drivers/staging/arlan/arlan-main.c
-@@@ -1438,105 -1336,99 +1336,99 @@@ static void arlan_rx_interrupt(struct n
-  		priv->in_time10 = jiffies;
-  	}
-  	DEBUGSHM(1, "arlan rcv pkt rxStatus= %d ", arlan->rxStatus, u_char);
-- 	switch (rxStatus)
-+ 	switch (rxStatus) {
-+ 	case 1:
-+ 	case 2:
-+ 	case 3:
-  	{
-- 		case 1:
-- 		case 2:
-- 		case 3:
-- 		{
-- 			/* Malloc up new buffer. */
-- 			struct sk_buff *skb;
-+ 		/* Malloc up new buffer. */
-+ 		struct sk_buff *skb;
-  
-- 			DEBUGSHM(50, "arlan recv pkt offs=%d\n", arlan->rxOffset, u_short);
-- 			DEBUGSHM(1, "arlan rxFrmType = %d \n", arlan->rxFrmType, u_char);
-- 			DEBUGSHM(1, KERN_INFO "arlan rx scrambled = %d \n", arlan->scrambled, u_char);
-+ 		DEBUGSHM(50, "arlan recv pkt offs=%d\n", arlan->rxOffset, u_short);
-+ 		DEBUGSHM(1, "arlan rxFrmType = %d \n", arlan->rxFrmType, u_char);
-+ 		DEBUGSHM(1, KERN_INFO "arlan rx scrambled = %d \n", arlan->scrambled, u_char);
-  
-- 			/* here we do multicast filtering to avoid slow 8-bit memcopy */
-+ 		/* here we do multicast filtering to avoid slow 8-bit memcopy */
-  #ifdef ARLAN_MULTICAST
-- 			if (!(dev->flags & IFF_ALLMULTI) &&
-- 				!(dev->flags & IFF_PROMISC) &&
-- 				!netdev_mc_empty(dev))
-- 			{
-- 				char hw_dst_addr[6];
-- 				struct netdev_hw_addr *ha;
-- 				int i;
-- 
-- 				memcpy_fromio(hw_dst_addr, arlan->ultimateDestAddress, 6);
-- 				if (hw_dst_addr[0] == 0x01)
-- 				{
-- 					if (mdebug)
-- 						if (hw_dst_addr[1] == 0x00)
-- 							printk(KERN_ERR "%s mcast 0x0100 \n", dev->name);
-- 						else if (hw_dst_addr[1] == 0x40)
-- 							printk(KERN_ERR "%s m/bcast 0x0140 \n", dev->name);
-- 					netdev_for_each_mc_entry(ha, dev) {
-- 						if (arlan_debug & ARLAN_DEBUG_HEADER_DUMP)
-- 							printk(KERN_ERR "%s mcl %pM\n",
-- 							       dev->name,
-- 							       ha->addr);
-- 						for (i = 0; i < 6; i++)
-- 							if (ha->addr[i] != hw_dst_addr[i])
-- 								break;
-- 						if (i == 6)
-+ 		if (!(dev->flags & IFF_ALLMULTI) &&
-+ 			!(dev->flags & IFF_PROMISC) &&
-+ 			!netdev_mc_empty(dev)) {
-+ 			char hw_dst_addr[6];
- -			struct dev_mc_list *dmi;
-++			struct netdev_hw_addr *ha;
-+ 			int i;
-+ 
-+ 			memcpy_fromio(hw_dst_addr, arlan->ultimateDestAddress, 6);
-+ 			if (hw_dst_addr[0] == 0x01) {
-+ 				if (mdebug)
-+ 					if (hw_dst_addr[1] == 0x00)
-+ 						printk(KERN_ERR "%s mcast 0x0100 \n", dev->name);
-+ 					else if (hw_dst_addr[1] == 0x40)
-+ 						printk(KERN_ERR "%s m/bcast 0x0140 \n", dev->name);
- -				netdev_for_each_mc_entry(dmi, dev) {
-++				netdev_for_each_mc_entry(ha, dev) {
-+ 					if (arlan_debug & ARLAN_DEBUG_HEADER_DUMP)
-+ 						printk(KERN_ERR "%s mcl %pM\n",
- -						       dev->name, dmi->dmi_addr);
-++						       dev->name, ha->addr);
-+ 					for (i = 0; i < 6; i++)
- -						if (dmi->dmi_addr[i] != hw_dst_addr[i])
-++						if (ha->addr[i] != hw_dst_addr[i])
-  							break;
-- 					}
-- 					/* we reach here if multicast filtering is on and packet 
-- 					 * is multicast and not for receive */
-- 					goto end_of_interrupt;
-+ 					if (i == 6)
-+ 						break;
-  				}
-+ 				/* we reach here if multicast filtering is on and packet */
-+ 				/* is multicast and not for receive */
-+ 				goto end_of_interrupt;
-  			}
-- #endif				// ARLAN_MULTICAST
-- 			/* multicast filtering ends here */
-- 			pkt_len += ARLAN_FAKE_HDR_LEN;
-- 
-- 			skb = dev_alloc_skb(pkt_len + 4);
-- 			if (skb == NULL)
-- 			{
-- 				printk(KERN_ERR "%s: Memory squeeze, dropping packet.\n", dev->name);
-- 				dev->stats.rx_dropped++;
-- 				break;
-- 			}
-- 			skb_reserve(skb, 2);
-- 			skbtmp = skb_put(skb, pkt_len);
-+ 		}
-+ #endif	/* ARLAN_MULTICAST */
-+ 		/* multicast filtering ends here */
-+ 		pkt_len += ARLAN_FAKE_HDR_LEN;
-+ 
-+ 		skb = dev_alloc_skb(pkt_len + 4);
-+ 		if (skb == NULL) {
-+ 			printk(KERN_ERR "%s: Memory squeeze, dropping packet.\n", dev->name);
-+ 			dev->stats.rx_dropped++;
-+ 			break;
-+ 		}
-+ 		skb_reserve(skb, 2);
-+ 		skbtmp = skb_put(skb, pkt_len);
-  
-- 			memcpy_fromio(skbtmp + ARLAN_FAKE_HDR_LEN, ((char __iomem *) arlan) + rxOffset, pkt_len - ARLAN_FAKE_HDR_LEN);
-- 			memcpy_fromio(skbtmp, arlan->ultimateDestAddress, 6);
-- 			memcpy_fromio(skbtmp + 6, arlan->rxSrc, 6);
-- 			WRITESHMB(arlan->rxStatus, 0x00);
-- 			arlan_command(dev, ARLAN_COMMAND_RX);
-+ 		memcpy_fromio(skbtmp + ARLAN_FAKE_HDR_LEN, ((char __iomem *) arlan) + rxOffset, pkt_len - ARLAN_FAKE_HDR_LEN);
-+ 		memcpy_fromio(skbtmp, arlan->ultimateDestAddress, 6);
-+ 		memcpy_fromio(skbtmp + 6, arlan->rxSrc, 6);
-+ 		WRITESHMB(arlan->rxStatus, 0x00);
-+ 		arlan_command(dev, ARLAN_COMMAND_RX);
-  
-- 			IFDEBUG(ARLAN_DEBUG_HEADER_DUMP)
-- 			{
-- 				char immedDestAddress[6];
-- 				char immedSrcAddress[6];
-- 				memcpy_fromio(immedDestAddress, arlan->immedDestAddress, 6);
-- 				memcpy_fromio(immedSrcAddress, arlan->immedSrcAddress, 6);
-- 
-- 				printk(KERN_WARNING "%s t %pM f %pM imd %pM ims %pM\n",
-- 				       dev->name, skbtmp,
-- 				       &skbtmp[6],
-- 				       immedDestAddress,
-- 				       immedSrcAddress);
-- 			}
-- 			skb->protocol = eth_type_trans(skb, dev);
-- 			IFDEBUG(ARLAN_DEBUG_HEADER_DUMP)
-- 				if (skb->protocol != 0x608 && skb->protocol != 0x8)
-- 				{
-- 					for (i = 0; i <= 22; i++)
-- 						printk("%02x:", (u_char) skbtmp[i + 12]);
-- 					printk(KERN_ERR "\n");
-- 					printk(KERN_WARNING "arlan kernel pkt type trans %x \n", skb->protocol);
-- 				}
-- 			netif_rx(skb);
-- 			dev->stats.rx_packets++;
-- 			dev->stats.rx_bytes += pkt_len;
-+ 		IFDEBUG(ARLAN_DEBUG_HEADER_DUMP)
-+ 		{
-+ 			char immedDestAddress[6];
-+ 			char immedSrcAddress[6];
-+ 			memcpy_fromio(immedDestAddress, arlan->immedDestAddress, 6);
-+ 			memcpy_fromio(immedSrcAddress, arlan->immedSrcAddress, 6);
-+ 
-+ 			printk(KERN_WARNING "%s t %pM f %pM imd %pM ims %pM\n",
-+ 			       dev->name, skbtmp,
-+ 			       &skbtmp[6],
-+ 			       immedDestAddress,
-+ 			       immedSrcAddress);
-  		}
-+ 		skb->protocol = eth_type_trans(skb, dev);
-+ 		IFDEBUG(ARLAN_DEBUG_HEADER_DUMP)
-+ 			if (skb->protocol != 0x608 && skb->protocol != 0x8) {
-+ 				for (i = 0; i <= 22; i++)
-+ 					printk("%02x:", (u_char) skbtmp[i + 12]);
-+ 				printk(KERN_ERR "\n");
-+ 				printk(KERN_WARNING "arlan kernel pkt type trans %x \n", skb->protocol);
-+ 			}
-+ 		netif_rx(skb);
-+ 		dev->stats.rx_packets++;
-+ 		dev->stats.rx_bytes += pkt_len;
-+ 	}
-+ 	break;
-+ 
-+ 	default:
-+ 		printk(KERN_ERR "arlan intr: received unknown status\n");
-+ 		dev->stats.rx_crc_errors++;
-  		break;
-- 		
-- 		default:
-- 			printk(KERN_ERR "arlan intr: received unknown status\n");
-- 			dev->stats.rx_crc_errors++;
-- 			break;
-  	}
-  	ARLAN_DEBUG_EXIT("arlan_rx_interrupt");
-  }
+							Thanx, Paul
