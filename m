@@ -1,45 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4: set skb->rxhash
-Date: Tue, 27 Apr 2010 15:47:41 -0700 (PDT)
-Message-ID: <20100427.154741.172557759.davem@davemloft.net>
-References: <1272406825-11615-1-git-send-email-dm@chelsio.com>
-	<20100427.154338.223483726.davem@davemloft.net>
-	<4BD76955.1030104@chelsio.com>
+Subject: Re: [PATCH net-next-2.6] net: disallow to use net_assign_generic
+ externally
+Date: Tue, 27 Apr 2010 15:49:18 -0700 (PDT)
+Message-ID: <20100427.154918.45129593.davem@davemloft.net>
+References: <20100423114046.GC2853@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dm@chelsio.com
+Cc: netdev@vger.kernel.org, ebiederm@xmission.com
+To: jpirko@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46822
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35839
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757454Ab0D0Wrf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 18:47:35 -0400
-In-Reply-To: <4BD76955.1030104@chelsio.com>
+	by vger.kernel.org with ESMTP id S1757362Ab0D0WtN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 18:49:13 -0400
+In-Reply-To: <20100423114046.GC2853@psychotron.lab.eng.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dimitris Michailidis <dm@chelsio.com>
-Date: Tue, 27 Apr 2010 15:46:45 -0700
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Fri, 23 Apr 2010 13:40:47 +0200
 
-> David Miller wrote:
->> From: Dimitris Michailidis <dm@chelsio.com>
->> Date: Tue, 27 Apr 2010 15:20:25 -0700
->> 
->>> Implement the ->set_flags ethtool method to control NETIF_F_RXHASH and
->>> set skb->rxhash to the HW calculated hash accordingly.
->>>
->>> Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
->> Does the CXGB4 hash the ports for non-TCP packets?
->> If not, you will need to check the packet type (preferrably using
->> RX descriptor information rather than actually parsing the packet)
->> and only record the ->rxhash for TCP packets.
->> 
+> Now there's no need to use this fuction directly because it's handled by
+> register_pernet_device. So to make this simple and easy to understand,
+> make this static to do not tempt potentional users.
 > 
-> It does, optionally.  Someday I need to implement ->set_rxnfc to
-> expose the few available options but it's on by default.
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-Great, if you could respin this patch and ditch the ntohl() as Eric
-suggested I'll apply it.
-
-Thanks!
+Looks reasonable, applied thanks Jiri.
