@@ -1,36 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: fix a lockdep rcu warning in
- __sk_dst_set()
-Date: Tue, 27 Apr 2010 12:42:11 -0700 (PDT)
-Message-ID: <20100427.124211.214227480.davem@davemloft.net>
-References: <1272350443.4861.9.camel@edumazet-laptop>
-	<20100427161716.GB2424@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next] bridge: use is_multicast_ether_addr
+Date: Tue, 27 Apr 2010 12:53:44 -0700 (PDT)
+Message-ID: <20100427.125344.232906778.davem@davemloft.net>
+References: <20100228054012.GA7583@gondor.apana.org.au>
+	<E1NlbuW-00021d-8E@gondolin.me.apana.org.au>
+	<20100427101306.3a49104f@nehalam>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: paulmck@linux.vnet.ibm.com
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56367
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49554
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754900Ab0D0TmG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 15:42:06 -0400
-In-Reply-To: <20100427161716.GB2424@linux.vnet.ibm.com>
+	by vger.kernel.org with ESMTP id S1754937Ab0D0Txj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 15:53:39 -0400
+In-Reply-To: <20100427101306.3a49104f@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Date: Tue, 27 Apr 2010 09:17:16 -0700
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Tue, 27 Apr 2010 10:13:06 -0700
 
-> On Tue, Apr 27, 2010 at 08:40:43AM +0200, Eric Dumazet wrote:
->> __sk_dst_set() might be called while no state can be integrated in a
->> rcu_dereference_check() condition.
->> 
->> So use rcu_dereference_raw() to shutup lockdep warnings (if
->> CONFIG_PROVE_RCU is set)
+> Use existing inline function.
 > 
-> Acked-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> 
->> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-I've applied this to net-next-2.6, thanks!
+Applied, thanks.
