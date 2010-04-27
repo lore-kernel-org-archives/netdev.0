@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: fix a lockdep rcu warning in
- __sk_dst_set()
-Date: Tue, 27 Apr 2010 12:55:23 -0700 (PDT)
-Message-ID: <20100427.125523.123992473.davem@davemloft.net>
-References: <1272350443.4861.9.camel@edumazet-laptop>
+Subject: Re: [net-next-2.6 PATCH 1/2] igb: double increment nr_frags
+Date: Tue, 27 Apr 2010 12:55:43 -0700 (PDT)
+Message-ID: <20100427.125543.149824832.davem@davemloft.net>
+References: <20100427110107.23872.86247.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	sanagi.koki@jp.fujitsu.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49569
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49579
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756756Ab0D0TzS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 15:55:18 -0400
-In-Reply-To: <1272350443.4861.9.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1756781Ab0D0Tzi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 15:55:38 -0400
+In-Reply-To: <20100427110107.23872.86247.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 27 Apr 2010 08:40:43 +0200
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 27 Apr 2010 04:01:19 -0700
 
-> __sk_dst_set() might be called while no state can be integrated in a
-> rcu_dereference_check() condition.
+> From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
 > 
-> So use rcu_dereference_raw() to shutup lockdep warnings (if
-> CONFIG_PROVE_RCU is set)
+> There is no need to increment nr_frags because skb_fill_page_desc increments
+> it.
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Applied, thanks Eric.
+Applied.
