@@ -1,55 +1,71 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 1/3] bnx2: Fix lost MSI-X problem on 5709 NICs.
-Date: Tue, 27 Apr 2010 14:28:09 -0700
-Message-ID: <1272403691-2934-1-git-send-email-mchan@broadcom.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH] ixgbe: cleanup ethtool autoneg input
+Date: Tue, 27 Apr 2010 14:31:06 -0700
+Message-ID: <20100427213002.25913.93796.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, jfeeney@redhat.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4071 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753915Ab0D0VRH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Apr 2010 17:17:07 -0400
+Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:41387 "EHLO
+	qmta09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757159Ab0D0VbY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 17:31:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It has been reported that under certain heavy traffic conditions in MSI-X
-mode, the driver can lose an MSI-X vector causing all packets in the
-associated rx/tx ring pair to be dropped.  The problem is caused by
-the chip dropping the write to unmask the MSI-X vector by the kernel
-(when migrating the IRQ for example).
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-This can be prevented by increasing the GRC timeout value for these
-register read and write operations.
+The way we were setting autoneg via ethtool was inconstant with that
+of our other drivers.  It will change the following:
 
-Thanks to Dell for helping us debug this problem.
+If autoneg is off:
+>ethtool -a eth0
+Pause parameters for eth0:
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+Autonegotiate:  off
+RX:             off
+TX:             off
+
+Before:
+>ethtool -A eth0 autoneg on
+>ethtool -a eth0
+Pause parameters for eth0:
+
+Autonegotiate:  off
+RX:             off
+TX:             off
+
+Now:
+>ethtool -A eth0 autoneg on
+>ethtool -a eth0
+Pause parameters for eth0:
+
+Autonegotiate:  on
+RX:             on
+TX:             on
+
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/bnx2.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index a257bab..4c1e51e 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -4759,8 +4759,12 @@ bnx2_reset_chip(struct bnx2 *bp, u32 reset_code)
- 		rc = bnx2_alloc_bad_rbuf(bp);
- 	}
- 
--	if (bp->flags & BNX2_FLAG_USING_MSIX)
-+	if (bp->flags & BNX2_FLAG_USING_MSIX) {
- 		bnx2_setup_msix_tbl(bp);
-+		/* Prevent MSIX table reads and write from timing out */
-+		REG_WR(bp, BNX2_MISC_ECO_HW_CTL,
-+			BNX2_MISC_ECO_HW_CTL_LARGE_GRC_TMOUT_EN);
-+	}
- 
- 	return rc;
- }
--- 
-1.6.4.GIT
+ drivers/net/ixgbe/ixgbe_ethtool.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
+diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
+index 5f8c6ab..dfbfe35 100644
+--- a/drivers/net/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ixgbe/ixgbe_ethtool.c
+@@ -365,7 +365,7 @@ static int ixgbe_set_pauseparam(struct net_device *netdev,
+ 	else
+ 		fc.disable_fc_autoneg = false;
+ 
+-	if (pause->rx_pause && pause->tx_pause)
++	if ((pause->rx_pause && pause->tx_pause) || pause->autoneg)
+ 		fc.requested_mode = ixgbe_fc_full;
+ 	else if (pause->rx_pause && !pause->tx_pause)
+ 		fc.requested_mode = ixgbe_fc_rx_pause;
 
