@@ -1,70 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] bnx2x: add support for receive hashing
-Date: Tue, 27 Apr 2010 16:30:59 +0200
-Message-ID: <1272378659.2295.193.camel@edumazet-laptop>
-References: <alpine.DEB.1.00.1004222249400.27016@pokey.mtv.corp.google.com>
-	 <1272302434.19143.76.camel@edumazet-laptop>
-	 <q2o65634d661004261038t8f0c32f5ye8169ef0c38172b7@mail.gmail.com>
-	 <20100426.110432.104061817.davem@davemloft.net>
-	 <4BD6E887.3000804@athenacr.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [patch v2] sctp: cleanup: remove duplicate assignment
+Date: Tue, 27 Apr 2010 10:32:34 -0400
+Message-ID: <4BD6F582.9030804@hp.com>
+References: <20100423115906.GE29093@bicker> <4BD1AE9D.6090807@hp.com> <20100424171805.GO29093@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, therbert@google.com,
-	netdev@vger.kernel.org, rick.jones2@hp.com
-To: Brian Bloniarz <bmb@athenacr.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Sridhar Samudrala <sri@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Wei Yongjun <yjwei@cn.fujitsu.com>,
+	Chris Dischino <cdischino@sonusnet.com>,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:51358 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752497Ab0D0ObI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 10:31:08 -0400
-Received: by bwz19 with SMTP id 19so131862bwz.21
-        for <netdev@vger.kernel.org>; Tue, 27 Apr 2010 07:31:05 -0700 (PDT)
-In-Reply-To: <4BD6E887.3000804@athenacr.com>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:28737 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753108Ab0D0Oci (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 10:32:38 -0400
+In-Reply-To: <20100424171805.GO29093@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 27 avril 2010 =C3=A0 09:37 -0400, Brian Bloniarz a =C3=A9crit =
-:
-> David Miller wrote:
-> > How damn hard is it to add two 16-bit ports to the hash regardless =
-of
-> > protocol?
-> >  =20
-> Come to think of it, for UDP the hash must ignore
-> the srcport and srcaddr, because a single bound
-> socket is going to wildcard both those fields.
->=20
-
-=46or your application maybe ;)
-
-Here, I have thousand of RTP flows to big mediagateways, so the
-(srcaddr, dstaddr) is shared by all these flows.
-
-Tom Herbert also wants a threaded DNS server.
-
-=46or UDP, we could have a bitmap (system level ?) to say if a particul=
-ar
-destination port wants multi-cpu (RPS) spreading or not, even if the NI=
-C
-decided to use a single queue to submit frames to the host (ie mask the
-src_addr and src_port). In this case, RFS on non conected UDP sockets
-could be activated as well.
-
-Or just a global sysctl to be able to mask the src_addr and/or src_port
-in our software rxhash.
 
 
+Dan Carpenter wrote:
+> This assignment isn't needed because we did it earlier already.
+> 
+> Also another reason to delete the assignment is because it triggers a
+> Smatch warning about checking for NULL pointers after a dereference.
+> 
+> Reported-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
+Thanks.  I'll take this one.
 
-> So the best we can hope for is for the hash to
-> include destport and destaddr? From looking at
-> my BCM5709's multiq behavior, I think broadcom's
-> hash includes the destaddr but not the destport.
+-vlad
 
-
-Toepliz hash for UDP is a hash(src_addr, dst_addr)
-
-Both src port and dst port are ignored.
-
-
+> ---
+> Thanks Vlad.  I came so close to seeing that myself if only I had openned
+> my eyes a tiny bit more.  :P
+> 
+> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+> index 17cb400..33aed1c 100644
+> --- a/net/sctp/sm_make_chunk.c
+> +++ b/net/sctp/sm_make_chunk.c
+> @@ -419,10 +419,17 @@ struct sctp_chunk *sctp_make_init_ack(const struct sctp_association *asoc,
+>  	if (!retval)
+>  		goto nomem_chunk;
+>  
+> -	/* Per the advice in RFC 2960 6.4, send this reply to
+> -	 * the source of the INIT packet.
+> +	/* RFC 2960 6.4 Multi-homed SCTP Endpoints
+> +	 *
+> +	 * An endpoint SHOULD transmit reply chunks (e.g., SACK,
+> +	 * HEARTBEAT ACK, * etc.) to the same destination transport
+> +	 * address from which it received the DATA or control chunk
+> +	 * to which it is replying.
+> +	 *
+> +	 * [INIT ACK back to where the INIT came from.]
+>  	 */
+>  	retval->transport = chunk->transport;
+> +
+>  	retval->subh.init_hdr =
+>  		sctp_addto_chunk(retval, sizeof(initack), &initack);
+>  	retval->param_hdr.v = sctp_addto_chunk(retval, addrs_len, addrs.v);
+> @@ -461,18 +468,6 @@ struct sctp_chunk *sctp_make_init_ack(const struct sctp_association *asoc,
+>  	/* We need to remove the const qualifier at this point.  */
+>  	retval->asoc = (struct sctp_association *) asoc;
+>  
+> -	/* RFC 2960 6.4 Multi-homed SCTP Endpoints
+> -	 *
+> -	 * An endpoint SHOULD transmit reply chunks (e.g., SACK,
+> -	 * HEARTBEAT ACK, * etc.) to the same destination transport
+> -	 * address from which it received the DATA or control chunk
+> -	 * to which it is replying.
+> -	 *
+> -	 * [INIT ACK back to where the INIT came from.]
+> -	 */
+> -	if (chunk)
+> -		retval->transport = chunk->transport;
+> -
+>  nomem_chunk:
+>  	kfree(cookie);
+>  nomem_cookie:
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
