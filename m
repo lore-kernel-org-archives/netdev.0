@@ -1,111 +1,48 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH v4] TCP: avoid to send keepalive probes if receiving
- data
-Date: Tue, 27 Apr 2010 09:08:08 +0300 (EEST)
-Message-ID: <alpine.DEB.2.00.1004270906320.13989@melkinpaasi.cs.helsinki.fi>
-References: <20100426.112422.246526700.davem@davemloft.net> <1272342807-13379-1-git-send-email-fleitner@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] net: fix a lockdep rcu warning in
+ __sk_dst_set()
+Date: Tue, 27 Apr 2010 08:40:43 +0200
+Message-ID: <1272350443.4861.9.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696250871-1557010612-1272348488=:13989"
-Cc: Netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Flavio Leitner <fleitner@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:38027 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751571Ab0D0GIK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 02:08:10 -0400
-In-Reply-To: <1272342807-13379-1-git-send-email-fleitner@redhat.com>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:48625 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750830Ab0D0Gkt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 02:40:49 -0400
+Received: by bwz19 with SMTP id 19so158535bwz.21
+        for <netdev@vger.kernel.org>; Mon, 26 Apr 2010 23:40:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+__sk_dst_set() might be called while no state can be integrated in a
+rcu_dereference_check() condition.
 
----696250871-1557010612-1272348488=:13989
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
+So use rcu_dereference_raw() to shutup lockdep warnings (if
+CONFIG_PROVE_RCU is set)
 
-On Tue, 27 Apr 2010, Flavio Leitner wrote:
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 86a8ca1..94dbdbc 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1236,8 +1236,11 @@ __sk_dst_set(struct sock *sk, struct dst_entry *dst)
+ 	struct dst_entry *old_dst;
+ 
+ 	sk_tx_queue_clear(sk);
+-	old_dst = rcu_dereference_check(sk->sk_dst_cache,
+-					lockdep_is_held(&sk->sk_dst_lock));
++	/*
++	 * This can be called while sk is owned by the caller only,
++	 * with no state that can be checked in a rcu_dereference_check() cond
++	 */
++	old_dst = rcu_dereference_raw(sk->sk_dst_cache);
+ 	rcu_assign_pointer(sk->sk_dst_cache, dst);
+ 	dst_release(old_dst);
+ }
 
-> RFC 1122 says the following:
-> ...
->   Keep-alive packets MUST only be sent when no data or
->   acknowledgement packets have been received for the
->   connection within an interval.
-> ...
-> 
-> The acknowledgement packet is reseting the keepalive
-> timer but the data packet isn't. This patch fixes it by
-> checking the timestamp of the last received data packet
-> too when the keepalive timer expires.
-> 
-> Signed-off-by: Flavio Leitner <fleitner@redhat.com>
-> ---
->  include/net/tcp.h    |    8 ++++++++
->  net/ipv4/tcp.c       |    2 +-
->  net/ipv4/tcp_timer.c |    4 ++--
->  3 files changed, 11 insertions(+), 3 deletions(-)
-> 
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index 75be5a2..305810e 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -1032,6 +1032,14 @@ static inline int keepalive_probes(const struct tcp_sock *tp)
->  	return tp->keepalive_probes ? : sysctl_tcp_keepalive_probes;
->  }
->  
-> +static inline u32 keepalive_time_elapsed(const struct tcp_sock *tp)
-> +{
-> +	const struct inet_connection_sock *icsk = &tp->inet_conn;
-> +
-> +	return min_t(u32, tcp_time_stamp - icsk->icsk_ack.lrcvtime,
-> +			  tcp_time_stamp - tp->rcv_tstamp);
-> +}
-> +
->  static inline int tcp_fin_time(const struct sock *sk)
->  {
->  	int fin_timeout = tcp_sk(sk)->linger2 ? : sysctl_tcp_fin_timeout;
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 0f8caf6..48a6f33 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -2298,7 +2298,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
->  			if (sock_flag(sk, SOCK_KEEPOPEN) &&
->  			    !((1 << sk->sk_state) &
->  			      (TCPF_CLOSE | TCPF_LISTEN))) {
-> -				__u32 elapsed = tcp_time_stamp - tp->rcv_tstamp;
-> +				u32 elapsed = keepalive_time_elapsed(tp);
->  				if (tp->keepalive_time > elapsed)
->  					elapsed = tp->keepalive_time - elapsed;
->  				else
-> diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-> index 8a0ab29..a9155f9 100644
-> --- a/net/ipv4/tcp_timer.c
-> +++ b/net/ipv4/tcp_timer.c
-> @@ -517,7 +517,7 @@ static void tcp_keepalive_timer (unsigned long data)
->  	struct sock *sk = (struct sock *) data;
->  	struct inet_connection_sock *icsk = inet_csk(sk);
->  	struct tcp_sock *tp = tcp_sk(sk);
-> -	__u32 elapsed;
-> +	u32 elapsed;
->  
->  	/* Only process if socket is not in use. */
->  	bh_lock_sock(sk);
-> @@ -554,7 +554,7 @@ static void tcp_keepalive_timer (unsigned long data)
->  	if (tp->packets_out || tcp_send_head(sk))
->  		goto resched;
->  
-> -	elapsed = tcp_time_stamp - tp->rcv_tstamp;
-> +	elapsed = keepalive_time_elapsed(tp);
->  
->  	if (elapsed >= keepalive_time_when(tp)) {
->  		if (icsk->icsk_probes_out >= keepalive_probes(tp)) {
 
-Thanks. Looks very nice now.
-
-Acked-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
-
--- 
- i.
----696250871-1557010612-1272348488=:13989--
