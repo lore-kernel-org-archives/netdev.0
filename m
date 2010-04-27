@@ -1,7 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 1/2] ixgbe: enable extremely low latency
-Date: Tue, 27 Apr 2010 04:37:20 -0700
-Message-ID: <20100427113651.24431.9221.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 2/2] ixgbe: fix bug when EITR=0 causing no
+	writebacks
+Date: Tue, 27 Apr 2010 04:37:41 -0700
+Message-ID: <20100427113739.24431.46358.stgit@localhost.localdomain>
+References: <20100427113651.24431.9221.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -10,184 +12,131 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta15.westchester.pa.mail.comcast.net ([76.96.59.228]:52121
-	"EHLO qmta15.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754277Ab0D0Lhk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 07:37:40 -0400
+Received: from qmta07.westchester.pa.mail.comcast.net ([76.96.62.64]:35177
+	"EHLO qmta07.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754997Ab0D0Lh7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 07:37:59 -0400
+In-Reply-To: <20100427113651.24431.9221.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-82598/82599 can support EITR == 0, which allows for the
-absolutely lowest latency setting in the hardware.  This disables
-writeback batching and anything else that relies upon a delayed
-interrupt. This patch enables the feature of "override" when a
-user sets rx-usecs to zero, the driver will respect that setting
-over using RSC, and automatically disable RSC.  If rx-usecs is
-used to set the EITR value to 0, then the driver should disable
-LRO (aka RSC) internally until EITR is set to non-zero again.
+writebacks can be held indefinitely by hardware if EITR=0, when
+combined with TXDCTL.WTHRESH=8.  When EITR=0, WTHRESH should be
+set back to zero.
 
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_ethtool.c |   87 +++++++++++++++++++++++++++++++++----
- drivers/net/ixgbe/ixgbe_main.c    |    9 ++++
- 2 files changed, 87 insertions(+), 9 deletions(-)
+ drivers/net/ixgbe/ixgbe_ethtool.c |   31 +++++++++++++++++++------------
+ drivers/net/ixgbe/ixgbe_main.c    |    9 +++++++--
+ 2 files changed, 26 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index 7b391f9..b72a997 100644
+index b72a997..dfbfe35 100644
 --- a/drivers/net/ixgbe/ixgbe_ethtool.c
 +++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -2079,6 +2079,27 @@ static int ixgbe_get_coalesce(struct net_device *netdev,
- 	return 0;
+@@ -2083,7 +2083,7 @@ static int ixgbe_get_coalesce(struct net_device *netdev,
+  * this function must be called before setting the new value of
+  * rx_itr_setting
+  */
+-static void ixgbe_reenable_rsc(struct ixgbe_adapter *adapter,
++static bool ixgbe_reenable_rsc(struct ixgbe_adapter *adapter,
+                                struct ethtool_coalesce *ec)
+ {
+ 	/* check the old value and enable RSC if necessary */
+@@ -2093,11 +2093,9 @@ static void ixgbe_reenable_rsc(struct ixgbe_adapter *adapter,
+ 		adapter->netdev->features |= NETIF_F_LRO;
+ 		DPRINTK(PROBE, INFO, "rx-usecs set to %d, re-enabling RSC\n",
+ 		        ec->rx_coalesce_usecs);
+-		if (netif_running(adapter->netdev))
+-			ixgbe_reinit_locked(adapter);
+-		else
+-			ixgbe_reset(adapter);
++		return true;
+ 	}
++	return false;
  }
  
-+/*
-+ * this function must be called before setting the new value of
-+ * rx_itr_setting
-+ */
-+static void ixgbe_reenable_rsc(struct ixgbe_adapter *adapter,
-+                               struct ethtool_coalesce *ec)
-+{
-+	/* check the old value and enable RSC if necessary */
-+	if ((adapter->rx_itr_setting == 0) &&
-+	    (adapter->flags2 & IXGBE_FLAG2_RSC_CAPABLE)) {
-+		adapter->flags2 |= IXGBE_FLAG2_RSC_ENABLED;
-+		adapter->netdev->features |= NETIF_F_LRO;
-+		DPRINTK(PROBE, INFO, "rx-usecs set to %d, re-enabling RSC\n",
-+		        ec->rx_coalesce_usecs);
-+		if (netif_running(adapter->netdev))
+ static int ixgbe_set_coalesce(struct net_device *netdev,
+@@ -2106,6 +2104,7 @@ static int ixgbe_set_coalesce(struct net_device *netdev,
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	struct ixgbe_q_vector *q_vector;
+ 	int i;
++	bool need_reset = false;
+ 
+ 	/* don't accept tx specific changes if we've got mixed RxTx vectors */
+ 	if (adapter->q_vector[0]->txr_count && adapter->q_vector[0]->rxr_count
+@@ -2128,7 +2127,7 @@ static int ixgbe_set_coalesce(struct net_device *netdev,
+ 			return -EINVAL;
+ 
+ 		/* check the old value and enable RSC if necessary */
+-		ixgbe_reenable_rsc(adapter, ec);
++		need_reset = ixgbe_reenable_rsc(adapter, ec);
+ 
+ 		/* store the value in ints/second */
+ 		adapter->rx_eitr_param = 1000000/ec->rx_coalesce_usecs;
+@@ -2139,7 +2138,7 @@ static int ixgbe_set_coalesce(struct net_device *netdev,
+ 		adapter->rx_itr_setting &= ~1;
+ 	} else if (ec->rx_coalesce_usecs == 1) {
+ 		/* check the old value and enable RSC if necessary */
+-		ixgbe_reenable_rsc(adapter, ec);
++		need_reset = ixgbe_reenable_rsc(adapter, ec);
+ 
+ 		/* 1 means dynamic mode */
+ 		adapter->rx_eitr_param = 20000;
+@@ -2164,11 +2163,7 @@ static int ixgbe_set_coalesce(struct net_device *netdev,
+ 			DPRINTK(PROBE, INFO,
+ 			        "rx-usecs set to 0, disabling RSC\n");
+ 
+-			if (netif_running(netdev))
+-				ixgbe_reinit_locked(adapter);
+-			else
+-				ixgbe_reset(adapter);
+-			return 0;
++			need_reset = true;
+ 		}
+ 	}
+ 
+@@ -2220,6 +2215,18 @@ static int ixgbe_set_coalesce(struct net_device *netdev,
+ 		ixgbe_write_eitr(q_vector);
+ 	}
+ 
++	/*
++	 * do reset here at the end to make sure EITR==0 case is handled
++	 * correctly w.r.t stopping tx, and changing TXDCTL.WTHRESH settings
++	 * also locks in RSC enable/disable which requires reset
++	 */
++	if (need_reset) {
++		if (netif_running(netdev))
 +			ixgbe_reinit_locked(adapter);
 +		else
 +			ixgbe_reset(adapter);
 +	}
-+}
 +
- static int ixgbe_set_coalesce(struct net_device *netdev,
-                               struct ethtool_coalesce *ec)
- {
-@@ -2095,11 +2116,20 @@ static int ixgbe_set_coalesce(struct net_device *netdev,
- 		adapter->tx_ring[0]->work_limit = ec->tx_max_coalesced_frames_irq;
+ 	return 0;
+ }
  
- 	if (ec->rx_coalesce_usecs > 1) {
-+		u32 max_int;
-+		if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED)
-+			max_int = IXGBE_MAX_RSC_INT_RATE;
-+		else
-+			max_int = IXGBE_MAX_INT_RATE;
-+
- 		/* check the limits */
--		if ((1000000/ec->rx_coalesce_usecs > IXGBE_MAX_INT_RATE) ||
-+		if ((1000000/ec->rx_coalesce_usecs > max_int) ||
- 		    (1000000/ec->rx_coalesce_usecs < IXGBE_MIN_INT_RATE))
- 			return -EINVAL;
- 
-+		/* check the old value and enable RSC if necessary */
-+		ixgbe_reenable_rsc(adapter, ec);
-+
- 		/* store the value in ints/second */
- 		adapter->rx_eitr_param = 1000000/ec->rx_coalesce_usecs;
- 
-@@ -2108,6 +2138,9 @@ static int ixgbe_set_coalesce(struct net_device *netdev,
- 		/* clear the lower bit as its used for dynamic state */
- 		adapter->rx_itr_setting &= ~1;
- 	} else if (ec->rx_coalesce_usecs == 1) {
-+		/* check the old value and enable RSC if necessary */
-+		ixgbe_reenable_rsc(adapter, ec);
-+
- 		/* 1 means dynamic mode */
- 		adapter->rx_eitr_param = 20000;
- 		adapter->rx_itr_setting = 1;
-@@ -2116,14 +2149,34 @@ static int ixgbe_set_coalesce(struct net_device *netdev,
- 		 * any other value means disable eitr, which is best
- 		 * served by setting the interrupt rate very high
- 		 */
--		if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED)
--			adapter->rx_eitr_param = IXGBE_MAX_RSC_INT_RATE;
--		else
--			adapter->rx_eitr_param = IXGBE_MAX_INT_RATE;
-+		adapter->rx_eitr_param = IXGBE_MAX_INT_RATE;
- 		adapter->rx_itr_setting = 0;
-+
-+		/*
-+		 * if hardware RSC is enabled, disable it when
-+		 * setting low latency mode, to avoid errata, assuming
-+		 * that when the user set low latency mode they want
-+		 * it at the cost of anything else
-+		 */
-+		if (adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED) {
-+			adapter->flags2 &= ~IXGBE_FLAG2_RSC_ENABLED;
-+			netdev->features &= ~NETIF_F_LRO;
-+			DPRINTK(PROBE, INFO,
-+			        "rx-usecs set to 0, disabling RSC\n");
-+
-+			if (netif_running(netdev))
-+				ixgbe_reinit_locked(adapter);
-+			else
-+				ixgbe_reset(adapter);
-+			return 0;
-+		}
- 	}
- 
- 	if (ec->tx_coalesce_usecs > 1) {
-+		/*
-+		 * don't have to worry about max_int as above because
-+		 * tx vectors don't do hardware RSC (an rx function)
-+		 */
- 		/* check the limits */
- 		if ((1000000/ec->tx_coalesce_usecs > IXGBE_MAX_INT_RATE) ||
- 		    (1000000/ec->tx_coalesce_usecs < IXGBE_MIN_INT_RATE))
-@@ -2178,10 +2231,26 @@ static int ixgbe_set_flags(struct net_device *netdev, u32 data)
- 	ethtool_op_set_flags(netdev, data);
- 
- 	/* if state changes we need to update adapter->flags and reset */
--	if ((!!(data & ETH_FLAG_LRO)) != 
--	    (!!(adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED))) {
--		adapter->flags2 ^= IXGBE_FLAG2_RSC_ENABLED;
--		need_reset = true;
-+	if (adapter->flags2 & IXGBE_FLAG2_RSC_CAPABLE) {
-+		/*
-+		 * cast both to bool and verify if they are set the same
-+		 * but only enable RSC if itr is non-zero, as
-+		 * itr=0 and RSC are mutually exclusive
-+		 */
-+		if (((!!(data & ETH_FLAG_LRO)) !=
-+		     (!!(adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED))) &&
-+		    adapter->rx_itr_setting) {
-+			adapter->flags2 ^= IXGBE_FLAG2_RSC_ENABLED;
-+			switch (adapter->hw.mac.type) {
-+			case ixgbe_mac_82599EB:
-+				need_reset = true;
-+				break;
-+			default:
-+				break;
-+			}
-+		} else if (!adapter->rx_itr_setting) {
-+			netdev->features &= ~ETH_FLAG_LRO;
-+		}
- 	}
- 
- 	/*
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 32781b3..0c4ca68 100644
+index 0c4ca68..fe7e260 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -1190,6 +1190,15 @@ void ixgbe_write_eitr(struct ixgbe_q_vector *q_vector)
- 		itr_reg |= (itr_reg << 16);
- 	} else if (adapter->hw.mac.type == ixgbe_mac_82599EB) {
- 		/*
-+		 * 82599 can support a value of zero, so allow it for
-+		 * max interrupt rate, but there is an errata where it can
-+		 * not be zero with RSC
-+		 */
-+		if (itr_reg == 8 &&
-+		    !(adapter->flags2 & IXGBE_FLAG2_RSC_ENABLED))
-+			itr_reg = 0;
-+
-+		/*
- 		 * set the WDIS bit to not clear the timer bits and cause an
- 		 * immediate assertion of the interrupt
- 		 */
+@@ -2945,8 +2945,13 @@ static int ixgbe_up_complete(struct ixgbe_adapter *adapter)
+ 	for (i = 0; i < adapter->num_tx_queues; i++) {
+ 		j = adapter->tx_ring[i]->reg_idx;
+ 		txdctl = IXGBE_READ_REG(hw, IXGBE_TXDCTL(j));
+-		/* enable WTHRESH=8 descriptors, to encourage burst writeback */
+-		txdctl |= (8 << 16);
++		if (adapter->rx_itr_setting == 0) {
++			/* cannot set wthresh when itr==0 */
++			txdctl &= ~0x007F0000;
++		} else {
++			/* enable WTHRESH=8 descriptors, to encourage burst writeback */
++			txdctl |= (8 << 16);
++		}
+ 		IXGBE_WRITE_REG(hw, IXGBE_TXDCTL(j), txdctl);
+ 	}
+ 
 
