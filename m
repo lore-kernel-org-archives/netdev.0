@@ -1,14 +1,14 @@
 From: Patrick@trash.net, McHardy@trash.net, kaber@trash.net
-Subject: [PATCH 1/3] net: fib_rules: mark arguments to fib_rules_register const and __net_initdata
-Date: Tue, 27 Apr 2010 15:26:23 +0200
-Message-ID: <1272374785-3858-2-git-send-email-kaber@trash.net>
+Subject: [PATCH 3/3] net: ipmr: add support for dumping routing tables over netlink
+Date: Tue, 27 Apr 2010 15:26:25 +0200
+Message-ID: <1272374785-3858-4-git-send-email-kaber@trash.net>
 References: <1272374785-3858-1-git-send-email-kaber@trash.net>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:52161 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:52167 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755697Ab0D0N02 (ORCPT
+	with ESMTP id S1755716Ab0D0N02 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 09:26:28 -0400
 In-Reply-To: <1272374785-3858-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
@@ -16,99 +16,157 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Patrick McHardy <kaber@trash.net>
 
-fib_rules_register() duplicates the template passed to it without modification,
-mark the argument as const. Additionally the templates are only needed when
-instantiating a new namespace, so mark them as __net_initdata, which means
-they can be discarded when CONFIG_NET_NS=n.
+The ipmr /proc interface (ip_mr_cache) can't be extended to dump routes
+from any tables but the main table in a backwards compatible fashion since
+the output format ends in a variable amount of output interfaces.
+
+Introduce a new netlink interface to dump multicast routes from all tables,
+similar to the netlink interface for regular routes.
 
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/net/fib_rules.h |    2 +-
- net/core/fib_rules.c    |    2 +-
- net/decnet/dn_rules.c   |    2 +-
- net/ipv4/fib_rules.c    |    2 +-
- net/ipv4/ipmr.c         |    2 +-
- net/ipv6/fib6_rules.c   |    2 +-
- 6 files changed, 6 insertions(+), 6 deletions(-)
+ net/ipv4/ipmr.c |   96 +++++++++++++++++++++++++++++++++++++++++++++++++++----
+ 1 files changed, 89 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
-index 52bd9e6..e8923bc 100644
---- a/include/net/fib_rules.h
-+++ b/include/net/fib_rules.h
-@@ -104,7 +104,7 @@ static inline u32 frh_get_table(struct fib_rule_hdr *frh, struct nlattr **nla)
- 	return frh->table;
- }
- 
--extern struct fib_rules_ops *fib_rules_register(struct fib_rules_ops *, struct net *);
-+extern struct fib_rules_ops *fib_rules_register(const struct fib_rules_ops *, struct net *);
- extern void fib_rules_unregister(struct fib_rules_ops *);
- extern void                     fib_rules_cleanup_ops(struct fib_rules_ops *);
- 
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index 1bc6659..42e84e0 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -122,7 +122,7 @@ errout:
- }
- 
- struct fib_rules_ops *
--fib_rules_register(struct fib_rules_ops *tmpl, struct net *net)
-+fib_rules_register(const struct fib_rules_ops *tmpl, struct net *net)
- {
- 	struct fib_rules_ops *ops;
- 	int err;
-diff --git a/net/decnet/dn_rules.c b/net/decnet/dn_rules.c
-index af28dcc..1226bca 100644
---- a/net/decnet/dn_rules.c
-+++ b/net/decnet/dn_rules.c
-@@ -216,7 +216,7 @@ static void dn_fib_rule_flush_cache(struct fib_rules_ops *ops)
- 	dn_rt_cache_flush(-1);
- }
- 
--static struct fib_rules_ops dn_fib_rules_ops_template = {
-+static const struct fib_rules_ops __net_initdata dn_fib_rules_ops_template = {
- 	.family		= FIB_RULES_DECNET,
- 	.rule_size	= sizeof(struct dn_fib_rule),
- 	.addr_size	= sizeof(u16),
-diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
-index 3ec84fe..8ab62a5 100644
---- a/net/ipv4/fib_rules.c
-+++ b/net/ipv4/fib_rules.c
-@@ -245,7 +245,7 @@ static void fib4_rule_flush_cache(struct fib_rules_ops *ops)
- 	rt_cache_flush(ops->fro_net, -1);
- }
- 
--static struct fib_rules_ops fib4_rules_ops_template = {
-+static const struct fib_rules_ops __net_initdata fib4_rules_ops_template = {
- 	.family		= FIB_RULES_IPV4,
- 	.rule_size	= sizeof(struct fib4_rule),
- 	.addr_size	= sizeof(u32),
 diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index a2df501..7d3e382 100644
+index 41e8fc0..eddfd12 100644
 --- a/net/ipv4/ipmr.c
 +++ b/net/ipv4/ipmr.c
-@@ -216,7 +216,7 @@ static int ipmr_rule_fill(struct fib_rule *rule, struct sk_buff *skb,
+@@ -128,8 +128,8 @@ static int ip_mr_forward(struct net *net, struct mr_table *mrt,
+ 			 int local);
+ static int ipmr_cache_report(struct mr_table *mrt,
+ 			     struct sk_buff *pkt, vifi_t vifi, int assert);
+-static int ipmr_fill_mroute(struct mr_table *mrt, struct sk_buff *skb,
+-			    struct mfc_cache *c, struct rtmsg *rtm);
++static int __ipmr_fill_mroute(struct mr_table *mrt, struct sk_buff *skb,
++			      struct mfc_cache *c, struct rtmsg *rtm);
+ static void ipmr_expire_process(unsigned long arg);
+ 
+ #ifdef CONFIG_IP_MROUTE_MULTIPLE_TABLES
+@@ -831,7 +831,7 @@ static void ipmr_cache_resolve(struct net *net, struct mr_table *mrt,
+ 		if (ip_hdr(skb)->version == 0) {
+ 			struct nlmsghdr *nlh = (struct nlmsghdr *)skb_pull(skb, sizeof(struct iphdr));
+ 
+-			if (ipmr_fill_mroute(mrt, skb, c, NLMSG_DATA(nlh)) > 0) {
++			if (__ipmr_fill_mroute(mrt, skb, c, NLMSG_DATA(nlh)) > 0) {
+ 				nlh->nlmsg_len = (skb_tail_pointer(skb) -
+ 						  (u8 *)nlh);
+ 			} else {
+@@ -1904,9 +1904,8 @@ drop:
+ }
+ #endif
+ 
+-static int
+-ipmr_fill_mroute(struct mr_table *mrt, struct sk_buff *skb, struct mfc_cache *c,
+-		 struct rtmsg *rtm)
++static int __ipmr_fill_mroute(struct mr_table *mrt, struct sk_buff *skb,
++			      struct mfc_cache *c, struct rtmsg *rtm)
+ {
+ 	int ct;
+ 	struct rtnexthop *nhp;
+@@ -1994,11 +1993,93 @@ int ipmr_get_route(struct net *net,
+ 
+ 	if (!nowait && (rtm->rtm_flags&RTM_F_NOTIFY))
+ 		cache->mfc_flags |= MFC_NOTIFY;
+-	err = ipmr_fill_mroute(mrt, skb, cache, rtm);
++	err = __ipmr_fill_mroute(mrt, skb, cache, rtm);
+ 	read_unlock(&mrt_lock);
+ 	return err;
+ }
+ 
++static int ipmr_fill_mroute(struct mr_table *mrt, struct sk_buff *skb,
++			    u32 pid, u32 seq, struct mfc_cache *c)
++{
++	struct nlmsghdr *nlh;
++	struct rtmsg *rtm;
++
++	nlh = nlmsg_put(skb, pid, seq, RTM_NEWROUTE, sizeof(*rtm), NLM_F_MULTI);
++	if (nlh == NULL)
++		return -EMSGSIZE;
++
++	rtm = nlmsg_data(nlh);
++	rtm->rtm_family   = RTNL_FAMILY_IPMR;
++	rtm->rtm_dst_len  = 32;
++	rtm->rtm_src_len  = 32;
++	rtm->rtm_tos      = 0;
++	rtm->rtm_table    = mrt->id;
++	NLA_PUT_U32(skb, RTA_TABLE, mrt->id);
++	rtm->rtm_type     = RTN_MULTICAST;
++	rtm->rtm_scope    = RT_SCOPE_UNIVERSE;
++	rtm->rtm_protocol = RTPROT_UNSPEC;
++	rtm->rtm_flags    = 0;
++
++	NLA_PUT_BE32(skb, RTA_SRC, c->mfc_origin);
++	NLA_PUT_BE32(skb, RTA_DST, c->mfc_mcastgrp);
++
++	if (__ipmr_fill_mroute(mrt, skb, c, rtm) < 0)
++		goto nla_put_failure;
++
++	return nlmsg_end(skb, nlh);
++
++nla_put_failure:
++	nlmsg_cancel(skb, nlh);
++	return -EMSGSIZE;
++}
++
++static int ipmr_rtm_dumproute(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	struct net *net = sock_net(skb->sk);
++	struct mr_table *mrt;
++	struct mfc_cache *mfc;
++	unsigned int t = 0, s_t;
++	unsigned int h = 0, s_h;
++	unsigned int e = 0, s_e;
++
++	s_t = cb->args[0];
++	s_h = cb->args[1];
++	s_e = cb->args[2];
++
++	read_lock(&mrt_lock);
++	ipmr_for_each_table(mrt, net) {
++		if (t < s_t)
++			goto next_table;
++		if (t > s_t)
++			s_h = 0;
++		for (h = s_h; h < MFC_LINES; h++) {
++			list_for_each_entry(mfc, &mrt->mfc_cache_array[h], list) {
++				if (e < s_e)
++					goto next_entry;
++				if (ipmr_fill_mroute(mrt, skb,
++						     NETLINK_CB(cb->skb).pid,
++						     cb->nlh->nlmsg_seq,
++						     mfc) < 0)
++					goto done;
++next_entry:
++				e++;
++			}
++			e = s_e = 0;
++		}
++		s_h = 0;
++next_table:
++		t++;
++	}
++done:
++	read_unlock(&mrt_lock);
++
++	cb->args[2] = e;
++	cb->args[1] = h;
++	cb->args[0] = t;
++
++	return skb->len;
++}
++
+ #ifdef CONFIG_PROC_FS
+ /*
+  *	The /proc interfaces to multicast routing /proc/ip_mr_cache /proc/ip_mr_vif
+@@ -2355,6 +2436,7 @@ int __init ip_mr_init(void)
+ 		goto add_proto_fail;
+ 	}
+ #endif
++	rtnl_register(RTNL_FAMILY_IPMR, RTM_GETROUTE, NULL, ipmr_rtm_dumproute);
  	return 0;
- }
  
--static struct fib_rules_ops ipmr_rules_ops_template = {
-+static const struct fib_rules_ops __net_initdata ipmr_rules_ops_template = {
- 	.family		= FIB_RULES_IPMR,
- 	.rule_size	= sizeof(struct ipmr_rule),
- 	.addr_size	= sizeof(u32),
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index 8124f16..35f6949 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -237,7 +237,7 @@ static size_t fib6_rule_nlmsg_payload(struct fib_rule *rule)
- 	       + nla_total_size(16); /* src */
- }
- 
--static struct fib_rules_ops fib6_rules_ops_template = {
-+static const struct fib_rules_ops __net_initdata fib6_rules_ops_template = {
- 	.family			= FIB_RULES_IPV6,
- 	.rule_size		= sizeof(struct fib6_rule),
- 	.addr_size		= sizeof(struct in6_addr),
+ #ifdef CONFIG_IP_PIMSM_V2
 -- 
 1.7.0.4
 
