@@ -1,34 +1,40 @@
-From: =?iso-8859-1?Q?L=2E_Alberto_Gim=E9nez?= <agimenez@sysvalve.es>
-Subject: Re: [patch] ipheth: potential null dereferences on error path
-Date: Tue, 27 Apr 2010 23:00:03 +0200
-Message-ID: <20100427210003.GA13873@bart.evergreen.loc>
-References: <20100427092012.GA29093@bicker>
+From: Xianghua Xiao <xiaoxianghua@gmail.com>
+Subject: powerpc gianfar driver does not work well when PREEMPT/PREEMPT_RT is
+	enabled
+Date: Tue, 27 Apr 2010 16:01:07 -0500
+Message-ID: <y2oe6bf505b1004271401wba47dd8h14d06d06b1c03f88@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Diego Giagio <diego@giagio.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <error27@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 152.Red-88-2-254.staticIP.rima-tde.net ([88.2.254.152]:47974
-	"HELO sysvalve.homelinux.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755950Ab0D0VAG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 17:00:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20100427092012.GA29093@bicker>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org, linux-rt-users@vger.kernel.org
+Return-path: <linux-rt-users-owner@vger.kernel.org>
+Sender: linux-rt-users-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 27, 2010 at 11:20:12AM +0200, Dan Carpenter wrote:
-> The calls to usb_free_buffer() dereference rx_urb and tx_urb in the
-> parameter list but those could be NULL.
->=20
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+I posted this to linuxppc list originally and hope someone here with
+NAPI/COALESCE/RT experience can comment on...
+-----------------------------
+I'm trying to get 834x/TSEC gianfar.c working with 2.6.33/RT.
 
-Seems good to me (should I ack it or any other kind of singoff?).
+when PREEMPT is disabled gianfar driver worked well.
 
---=20
-L. Alberto Gim=E9nez
-JabberID agimenez@jabber.sysvalve.es
-GnuPG key ID 0x3BAABDE1
+if PREEMPT is enabled, especially when PREEMPT_RT is enabled,
+network(gianfar) will be disconnected in about 2-3 minutes under
+iperf, if NFS  is used then the whole system will hang after a while
+when NFS is accessed.
+
+In an older version (2.6.18-rt) where NAPI is disabled, gianfar
+performed well under PREEMPT_RT, in the new version of gianfar, NAPI
+is enforced(the code is there by default and it's hard to disable NAPI
+in the code now), also TX COALESCE is enabled while RX COALESCE is
+disabled. It seems to me NAPI is now by default for Rx and COALESCE is
+by default for Tx.
+
+Both NAPI/COALESCE may have negative effects for real time systems,
+where latency is more important than throughput. Unfortunately it's
+hard to disable either of them now after some experiments.
+
+Is there anyone here using gianfar with PREEMPT_RT? Do I have to port
+an older version gianfar to get rid of NAPI at least?
+
+Thanks,
+Xianghua
