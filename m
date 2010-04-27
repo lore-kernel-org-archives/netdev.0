@@ -1,27 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3] bnx2: Update version to 2.0.9.
-Date: Tue, 27 Apr 2010 14:38:42 -0700 (PDT)
-Message-ID: <20100427.143842.85413881.davem@davemloft.net>
-References: <1272403691-2934-1-git-send-email-mchan@broadcom.com>
-	<1272403691-2934-2-git-send-email-mchan@broadcom.com>
-	<1272403691-2934-3-git-send-email-mchan@broadcom.com>
+Subject: Re: [PATCH net-next-2.6] net: sk_add_backlog() take rmem_alloc
+ into account
+Date: Tue, 27 Apr 2010 14:43:07 -0700 (PDT)
+Message-ID: <20100427.144307.22037530.davem@davemloft.net>
+References: <20100427.102038.57469310.davem@davemloft.net>
+	<1272389872.2295.405.camel@edumazet-laptop>
+	<1272399662.2343.12.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, jfeeney@redhat.com
-To: mchan@broadcom.com
+Cc: bmb@athenacr.com, therbert@google.com, netdev@vger.kernel.org,
+	rick.jones2@hp.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47639
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47652
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757159Ab0D0Vig (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 17:38:36 -0400
-In-Reply-To: <1272403691-2934-3-git-send-email-mchan@broadcom.com>
+	by vger.kernel.org with ESMTP id S1757120Ab0D0VnB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 17:43:01 -0400
+In-Reply-To: <1272399662.2343.12.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Tue, 27 Apr 2010 14:28:11 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 27 Apr 2010 22:21:02 +0200
 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> [PATCH net-next-2.6] net: sk_add_backlog() take rmem_alloc into account
+> 
+> Current socket backlog limit is not enough to really stop DDOS attacks,
+> because user thread spend many time to process a full backlog each
+> round, and user might crazy spin on socket lock.
+> 
+> We should add backlog size and receive_queue size (aka rmem_alloc) to
+> pace writers, and let user run without being slow down too much.
+> 
+> Introduce a sk_rcvqueues_full() helper, to avoid taking socket lock in
+> stress situations.
+> 
+> Under huge stress from a multiqueue/RPS enabled NIC, a single flow udp
+> receiver can now process ~200.000 pps (instead of ~100 pps before the
+> patch) on a 8 core machine.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied to net-2.6
+This looks great, applied, thanks Eric!
