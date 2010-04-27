@@ -1,76 +1,65 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [PATCH RFC: linux-next 1/2] irq: Add CPU mask affinity hint
- callback framework
-Date: Tue, 27 Apr 2010 09:04:25 -0700 (Pacific Daylight Time)
-Message-ID: <Pine.WNT.4.64.1004270856560.320@PPWASKIE-MOBL2.amr.corp.intel.com>
-References: <20100419045741.30276.23233.stgit@ppwaskie-hc2.jf.intel.com>
- <alpine.LFD.2.00.1004271425140.2951@localhost.localdomain>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next-2.6] net: fix a lockdep rcu warning in
+ __sk_dst_set()
+Date: Tue, 27 Apr 2010 09:17:16 -0700
+Message-ID: <20100427161716.GB2424@linux.vnet.ibm.com>
+References: <1272350443.4861.9.camel@edumazet-laptop>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Thomas Gleixner <tglx@linutronix.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:7401 "EHLO mga11.intel.com"
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:50825 "EHLO e6.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755433Ab0D0QE1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Apr 2010 12:04:27 -0400
-In-Reply-To: <alpine.LFD.2.00.1004271425140.2951@localhost.localdomain>
+	id S1756144Ab0D0QRU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Apr 2010 12:17:20 -0400
+Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
+	by e6.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o3RGF58c031822
+	for <netdev@vger.kernel.org>; Tue, 27 Apr 2010 12:15:05 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o3RGHJEZ161672
+	for <netdev@vger.kernel.org>; Tue, 27 Apr 2010 12:17:19 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o3RGHHGD009868
+	for <netdev@vger.kernel.org>; Tue, 27 Apr 2010 12:17:18 -0400
+Content-Disposition: inline
+In-Reply-To: <1272350443.4861.9.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 27 Apr 2010, Thomas Gleixner wrote:
+On Tue, Apr 27, 2010 at 08:40:43AM +0200, Eric Dumazet wrote:
+> __sk_dst_set() might be called while no state can be integrated in a
+> rcu_dereference_check() condition.
+> 
+> So use rcu_dereference_raw() to shutup lockdep warnings (if
+> CONFIG_PROVE_RCU is set)
 
-> On Sun, 18 Apr 2010, Peter P Waskiewicz Jr wrote:
->> +/**
->> + * struct irqaffinityhint - per interrupt affinity helper
->> + * @callback:	device driver callback function
->> + * @dev:	reference for the affected device
->> + * @irq:	interrupt number
->> + */
->> +struct irqaffinityhint {
->> +	irq_affinity_hint_t callback;
->> +	void *dev;
->> +	int irq;
->> +};
->
-> Why do you need that extra data structure ? The device and the irq
-> number are known, so all you need is the callback itself. So no need
-> for allocating memory ....
+Acked-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 
-When I register the function callback with the interrupt layer, I need to 
-know what device structures to reference back in the driver.  In other 
-words, if I call into an underlying driver with just an interrupt number, 
-then I have no way at getting at the dev structures (netdevice for me, 
-plus my private adapter structures), unless I declare them globally 
-(yuck).
-
-I had a different approach before this one where I assumed the device from 
-the irq handler callback was safe to use for the device in this new 
-callback.  I didn't feel really great about that, since it's an implicit 
-assumption that could cause things to go sideways really quickly.
-
-Let me know what you think either way.  I'm certainly willing to make a 
-change, I just don't know at this point what's the safest approach from 
-what I currently have.
-
->
->> +static ssize_t irq_affinity_hint_proc_write(struct file *file,
->> +		const char __user *buffer, size_t count, loff_t *pos)
->> +{
->> +	/* affinity_hint is read-only from proc */
->> +	return -EOPNOTSUPP;
->> +}
->> +
->
-> Why do you want a write function when the file is read only ?
-
-It's leftover paranoia.  I put it in early on, then changed the mode 
-later.  I can remove this function.  I'll re-send something once we agree 
-on how the code in your first comment should look.
-
-Thanks Thomas!
-
--PJ
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index 86a8ca1..94dbdbc 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -1236,8 +1236,11 @@ __sk_dst_set(struct sock *sk, struct dst_entry *dst)
+>  	struct dst_entry *old_dst;
+> 
+>  	sk_tx_queue_clear(sk);
+> -	old_dst = rcu_dereference_check(sk->sk_dst_cache,
+> -					lockdep_is_held(&sk->sk_dst_lock));
+> +	/*
+> +	 * This can be called while sk is owned by the caller only,
+> +	 * with no state that can be checked in a rcu_dereference_check() cond
+> +	 */
+> +	old_dst = rcu_dereference_raw(sk->sk_dst_cache);
+>  	rcu_assign_pointer(sk->sk_dst_cache, dst);
+>  	dst_release(old_dst);
+>  }
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
