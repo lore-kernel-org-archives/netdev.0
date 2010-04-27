@@ -1,40 +1,29 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net: sk_add_backlog() take rmem_alloc
- into account
-Date: Wed, 28 Apr 2010 00:19:53 +0200
-Message-ID: <1272406793.2343.28.camel@edumazet-laptop>
-References: <1272389872.2295.405.camel@edumazet-laptop>
-	 <1272399662.2343.12.camel@edumazet-laptop>
-	 <20100427.144307.22037530.davem@davemloft.net>
-	 <20100427.151103.146348463.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [v4 Patch 1/3] netpoll: add generic support for bridge and
+ bonding devices
+Date: Tue, 27 Apr 2010 15:22:36 -0700 (PDT)
+Message-ID: <20100427.152236.73676344.davem@davemloft.net>
+References: <20100427075937.4908.18468.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bmb@athenacr.com, therbert@google.com, netdev@vger.kernel.org,
-	rick.jones2@hp.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:36692 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757308Ab0D0WT6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 18:19:58 -0400
-Received: by bwz19 with SMTP id 19so68378bwz.21
-        for <netdev@vger.kernel.org>; Tue, 27 Apr 2010 15:19:57 -0700 (PDT)
-In-Reply-To: <20100427.151103.146348463.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, mpm@selenic.com,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	gospo@redhat.com, nhorman@tuxdriver.com, jmoyer@redhat.com,
+	shemminger@linux-foundation.org,
+	bonding-devel@lists.sourceforge.net, fubar@us.ibm.com
+To: amwang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100427075937.4908.18468.sendpatchset@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 27 avril 2010 =C3=A0 15:11 -0700, David Miller a =C3=A9crit :
-> From: David Miller <davem@davemloft.net>
-> Date: Tue, 27 Apr 2010 14:43:07 -0700 (PDT)
->=20
-> > This looks great, applied, thanks Eric!
->=20
-> I have to fix this one up, for example SCTP stopped building because =
-it
-> still refers to the ->limit member you removed.
-> --
+From: Amerigo Wang <amwang@redhat.com>
+Date: Tue, 27 Apr 2010 03:55:41 -0400
 
-Hmm, sorry for this, thanks !
+> +	if (ndev->priv_flags & IFF_DISABLE_NETPOLL
+> +			|| !ndev->netdev_ops->ndo_poll_controller) {
 
-
+" ||" goes on first line, not second, and second line needs to be indented
+properly so that "!ndev->..." matches up with "ndev->priv_flags ..." on
+the previous line.
