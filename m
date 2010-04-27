@@ -1,39 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-next] cxgb4: set skb->rxhash
-Date: Wed, 28 Apr 2010 00:43:12 +0200
-Message-ID: <1272408192.2343.32.camel@edumazet-laptop>
+Date: Tue, 27 Apr 2010 15:43:38 -0700 (PDT)
+Message-ID: <20100427.154338.223483726.davem@davemloft.net>
 References: <1272406825-11615-1-git-send-email-dm@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Dimitris Michailidis <dm@chelsio.com>
+To: dm@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:59958 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757362Ab0D0WnR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 18:43:17 -0400
-Received: by bwz19 with SMTP id 19so80812bwz.21
-        for <netdev@vger.kernel.org>; Tue, 27 Apr 2010 15:43:15 -0700 (PDT)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46798
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755121Ab0D0Wne (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 18:43:34 -0400
 In-Reply-To: <1272406825-11615-1-git-send-email-dm@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 27 avril 2010 =C3=A0 15:20 -0700, Dimitris Michailidis a =C3=A9=
-crit :
-> Implement the ->set_flags ethtool method to control NETIF_F_RXHASH an=
-d
+From: Dimitris Michailidis <dm@chelsio.com>
+Date: Tue, 27 Apr 2010 15:20:25 -0700
+
+> Implement the ->set_flags ethtool method to control NETIF_F_RXHASH and
 > set skb->rxhash to the HW calculated hash accordingly.
->=20
+> 
 > Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
 
->  	skb_record_rx_queue(skb, rxq->rspq.idx);
-> +	if (rxq->rspq.netdev->features & NETIF_F_RXHASH)
-> +		skb->rxhash =3D ntohl(pkt->rsshdr.hash_val);
-> =20
+Does the CXGB4 hash the ports for non-TCP packets?
 
-Its probably minor, but hash_val being a semi random 32bits value, you
-can avoid the ntohl() conversion, using a (__force u32) cast ...
-
-
+If not, you will need to check the packet type (preferrably using
+RX descriptor information rather than actually parsing the packet)
+and only record the ->rxhash for TCP packets.
 
