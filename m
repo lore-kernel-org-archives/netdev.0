@@ -1,28 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] cxgb4: increase serial number length
-Date: Tue, 27 Apr 2010 15:46:54 -0700 (PDT)
-Message-ID: <20100427.154654.170116872.davem@davemloft.net>
-References: <1272407056-11699-1-git-send-email-dm@chelsio.com>
-	<1272407056-11699-2-git-send-email-dm@chelsio.com>
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: Re: [PATCH net-next] cxgb4: set skb->rxhash
+Date: Tue, 27 Apr 2010 15:46:45 -0700
+Message-ID: <4BD76955.1030104@chelsio.com>
+References: <1272406825-11615-1-git-send-email-dm@chelsio.com> <20100427.154338.223483726.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: dm@chelsio.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46818
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757454Ab0D0Wqs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 18:46:48 -0400
-In-Reply-To: <1272407056-11699-2-git-send-email-dm@chelsio.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:27317 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757454Ab0D0Wqv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 18:46:51 -0400
+In-Reply-To: <20100427.154338.223483726.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dimitris Michailidis <dm@chelsio.com>
-Date: Tue, 27 Apr 2010 15:24:16 -0700
-
-> Some boards have longer serial numbers in their VPD, up to 24 bytes.
+David Miller wrote:
+> From: Dimitris Michailidis <dm@chelsio.com>
+> Date: Tue, 27 Apr 2010 15:20:25 -0700
 > 
-> Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
+>> Implement the ->set_flags ethtool method to control NETIF_F_RXHASH and
+>> set skb->rxhash to the HW calculated hash accordingly.
+>>
+>> Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
+> 
+> Does the CXGB4 hash the ports for non-TCP packets?
+> 
+> If not, you will need to check the packet type (preferrably using
+> RX descriptor information rather than actually parsing the packet)
+> and only record the ->rxhash for TCP packets.
+> 
 
-Applied.
+It does, optionally.  Someday I need to implement ->set_rxnfc to expose the 
+few available options but it's on by default.
