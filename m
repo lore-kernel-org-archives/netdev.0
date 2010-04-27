@@ -1,90 +1,140 @@
-From: Jack Daniel <wanders.thirst@gmail.com>
-Subject: Re: Intel Pro1000 on CN5020, hangs Uboot
-Date: Tue, 27 Apr 2010 14:29:45 +0530
-Message-ID: <s2hf6b367b71004270159z3143f858q15750757ace68edb@mail.gmail.com>
-References: <y2pf6b367b71004140118s93d7b47rfa88399bfbe5b91b@mail.gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH 0/3] [RFC] ptp: IEEE 1588 clock support
+Date: Tue, 27 Apr 2010 11:13:44 +0200
+Message-ID: <20100427091344.GA5086@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:41870 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752953Ab0D0I7r convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 04:59:47 -0400
-Received: by pwj9 with SMTP id 9so9147321pwj.19
-        for <netdev@vger.kernel.org>; Tue, 27 Apr 2010 01:59:47 -0700 (PDT)
-In-Reply-To: <y2pf6b367b71004140118s93d7b47rfa88399bfbe5b91b@mail.gmail.com>
+Received: from mail-pz0-f204.google.com ([209.85.222.204]:59713 "EHLO
+	mail-pz0-f204.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750830Ab0D0JNx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 05:13:53 -0400
+Received: by pzk42 with SMTP id 42so8673988pzk.4
+        for <netdev@vger.kernel.org>; Tue, 27 Apr 2010 02:13:52 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Just an update that "Intel Pro/1000 MT Desktop Adapter" have problems
-booting on an Octeon 5xxx. The "GT" and "PT" adapters seem to work
-fine.
+Now and again there has been some talk on this list of adding PTP
+support into Linux. One part of the picture is already in place, the
+SO_TIMESTAMPING API for hardware time stamping. It has been pointed
+out that this API is not perfect, however, it is good enough for many
+real world uses of IEEE 1588. The second needed part has not, AFAICT,
+ever been addressed.
 
-Regards,
-Jack
+Here I offer an early draft of an idea how to bring the missing
+functionality into Linux. I don't yet have all of the features
+implemented, as described below. Still I would like to get your
+feedback concerning this idea before getting too far into it. I do
+have all of the hardware mentioned at hand, so I have a good idea that
+the proposed API covers the features of those clocks.
+
+Thanks in advance for your comments,
+
+Richard
+
+* PTP infrastructure for Linux
+
+  This patch set introduces support for IEEE 1588 PTP clocks in
+  Linux. Together with the SO_TIMESTAMPING socket options, this
+  presents standardized method for developing PTP user space programs,
+  synchronizing Linux with external clocks, and using the ancillary
+  features of PTP hardware clocks.
+
+  A new class driver exports a kernel interface for specific clock
+  drivers and a user space interface. The infrastructure supports a
+  complete set of PTP functionality.
+
+  + Basic clock operations
+    - Set time
+    - Get time
+    - Shift the clock by a given offset atomically
+    - Adjust clock frequency
+
+  + Ancillary clock features
+    - One short or periodic alarms, with signal delivery to user program
+    - Time stamp external events
+    - Period output signals configurable from user space
+    - Synchronization of the Linux system time via the PPS subsystem
+
+** PTP kernel API
+
+   A PTP clock driver registers itself with the class driver. The
+   class driver handles all of the dealings with user space. The
+   author of a clock driver need only implement the details of
+   programming the clock hardware. The clock driver notifies the class
+   driver of asynchronous events (alarms and external time stamps) via
+   a simple message passing interface.
+
+   The class driver supports multiple PTP clock drivers. In normal use
+   cases, only one PTP clock is needed. However, for testing and
+   development, it can be useful to have more than one clock in a
+   single system, in order to allow performance comparisons.
+
+** PTP user space API
+
+   The class driver creates a character device for each registered PTP
+   clock. User space programs may control the clock via standardized
+   ioctls. A program may query, enable, configure, and disable the
+   ancillary clock features. User space can receive time stamped
+   events via blocking read() and poll(). One shot and periodic
+   signals may be configured via an ioctl API with similar semantics
+   to the POSIX timer_settime() system call.
+
+** Supported hardware
+
+   + Standard Linux system timer
+     - No special PTP features
+     - For use with software time stamping
+
+   + Freescale eTSEC gianfar
+     - 2 Time stamp external triggers, programmable polarity (opt. interrupt)
+     - 2 Alarm registers (optional interrupt)
+     - 3 Periodic signals (optional interrupt)
+
+   + National DP83640
+     - 6 GPIOs programmable as inputs or outputs
+     - 6 GPIOs with dedicated functions (LED/JTAG/clock) can also be
+       used as general inputs or outputs
+     - GPIO inputs can time stamp external triggers
+     - GPIO outputs can produce periodic signals
+     - 1 interrupt pin
+
+   + Intel IXP465
+     - Auxiliary Slave/Master Mode Snapshot (optional interrupt)
+     - Target Time (optional interrupt)
 
 
-On Wed, Apr 14, 2010 at 1:48 PM, Jack Daniel <wanders.thirst@gmail.com>=
- wrote:
-> Hi,
->
-> I have a OCTEON CN5020, on which I tried plugging in an Intel Pro 100=
-0
-> PCI NIC. But Uboot hangs with a trap exception. Uboot has no problems
-> with a Realtek RTL8139 NIC PCI card that supports 100MBps. Could
-> someone tell me the reason for such a behaviour?
->
-> Regards,
-> Jack
->
->
-> Uboot Version (as reported by Uboot) : U-Boot 1.1.1 (Development
-> build, svnversion: u-boot:47725, exec:47725)
-> Uboot start up message:
-> PAL rev: 1.01, MCU rev: 1.07, CPU voltage: 1.20
-> DRAM: =A0512 MB
-> Clearing DRAM....... done
-> Flash: =A08 MB
-> BIST check passed.
-> Starting PCI
-> PCI Status: PCI 32-bit
-> Reg: 0x0 0x0
-> Reg: 0x1 0x62
-> Reg: 0x2 0x0
-> Reg: 0x3 0x0
-> Reg: 0x4 0x0
-> Reg: 0x5 0xE
-> Reg: 0x6 0x1
-> Reg: 0x7 0xFFFFFFFFC00D5C70
-> Reg: 0x8 0x800119040000000E
-> Reg: 0x9 0x61784
-> Reg: 0xA 0xFFFFFFFFC0000A4C
-> Reg: 0xB 0xFFFFFFFFC0062208
-> Reg: 0xC 0xFFFFFFFFC0062550
-> Reg: 0xD 0xFFFFFFFFC005E4A0
-> Reg: 0xE 0x20
-> Reg: 0xF 0x0
-> Reg: 0x10 0xFFFFFFFFC00D5CA0
-> Reg: 0x11 0xFFFFFFFFC008F490
-> Reg: 0x12 0x0
-> Reg: 0x13 0x0
-> Reg: 0x14 0x0
-> Reg: 0x15 0x0
-> Reg: 0x16 0xFF00
-> Reg: 0x17 0xFFFFFFFFC00D5CA6
-> Reg: 0x18 0xFFFFFFFFC0062550
-> Reg: 0x19 0xFFFFFFFFC0038E24
-> Reg: 0x1A 0xFFFFFFFFFFFF8000
-> Reg: 0x1B 0x30
-> Reg: 0x1C 0xFFFFFFFFBFC621D0
-> Reg: 0x1D 0xFFFFFFFFFFFF97F8
-> Reg: 0x1E 0xFFFFFFFFC00D5CA4
-> Reg: 0x1F 0xFFFFFFFFBFC00AE0
-> status: =A0 0x504000E7
-> cause: =A0 =A00x4000801C
-> epc: =A0 =A0 =A00xFFFFFFFFC0038EC8
-> badvaddr: 0x0
->
+Richard Cochran (3):
+  ptp: Added a brand new class driver for ptp clocks.
+  ptp: Added a clock that uses the Linux system time.
+  ptp: Added a clock that uses the eTSEC found on the MPC85xx.
+
+ Documentation/ptp/testptp.c      |  130 +++++++++++++++++
+ Documentation/ptp/testptp.mk     |   33 +++++
+ drivers/Kconfig                  |    2 +
+ drivers/Makefile                 |    1 +
+ drivers/net/Makefile             |    1 +
+ drivers/net/gianfar_ptp.c        |  269 +++++++++++++++++++++++++++++++++++
+ drivers/net/gianfar_ptp_reg.h    |  107 ++++++++++++++
+ drivers/ptp/Kconfig              |   51 +++++++
+ drivers/ptp/Makefile             |    6 +
+ drivers/ptp/ptp_clock.c          |  287 ++++++++++++++++++++++++++++++++++++++
+ drivers/ptp/ptp_linux.c          |  119 ++++++++++++++++
+ include/linux/Kbuild             |    1 +
+ include/linux/ptp_clock.h        |   37 +++++
+ include/linux/ptp_clock_kernel.h |  132 +++++++++++++++++
+ kernel/time/ntp.c                |    2 +
+ 15 files changed, 1178 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/ptp/testptp.c
+ create mode 100644 Documentation/ptp/testptp.mk
+ create mode 100644 drivers/net/gianfar_ptp.c
+ create mode 100644 drivers/net/gianfar_ptp_reg.h
+ create mode 100644 drivers/ptp/Kconfig
+ create mode 100644 drivers/ptp/Makefile
+ create mode 100644 drivers/ptp/ptp_clock.c
+ create mode 100644 drivers/ptp/ptp_linux.c
+ create mode 100644 include/linux/ptp_clock.h
+ create mode 100644 include/linux/ptp_clock_kernel.h
+
