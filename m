@@ -1,96 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Wed, 28 Apr 2010 12:37:41 -0700 (PDT)
-Message-ID: <20100428.123741.189712262.davem@davemloft.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [net-next-2.6 PATCH 1/2] Add netdev port-profile support (take III, was iovnl)
+Date: Wed, 28 Apr 2010 21:37:28 +0200
+Message-ID: <201004282137.28492.arnd@arndb.de>
+References: <C7FDD272.2C86D%scofeldm@cisco.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, chrisw@redhat.com,
+	Jens Osterkamp <Jens.Osterkamp@gmx.de>
+To: Scott Feldman <scofeldm@cisco.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.17.8]:56427 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752055Ab0D1Thr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 15:37:47 -0400
+In-Reply-To: <C7FDD272.2C86D%scofeldm@cisco.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQpNYWlubHkgSSdtIHB1c2hpbmcgdGhpcyB0byByZXZlcnQgdGhlIFRDUCBiaW5kKCkgYnVnIGZp
-eCwgaXQncw0KY2F1c2luZyB0b28gbXVjaCBmYWxsb3V0IHRvIHRyeSBhbmQgc29ydCBvdXQgdGhp
-cyBsYXRlIGluIHRoZQ0KLXJjIHNlcmllcy4NCg0KQnVuY2ggb2YgT09QUydlcnMgZm9yIFNDVFAs
-IEludGVsIGNoaXAgZml4ZXMgKGxhY2sgb2YgUEhZIHBvd2VyZG93biBpbg0KaXhnYmUgbGV0cyBj
-cmFwIGludG8gY2hpcCBGSUZPIHdlZGdpbmcgdGhlIGNoaXAgY29tcGxldGVseSwgZXRjLiksIGEN
-CnJlZ3Jlc3Npb24gZml4IGZvciB0ZzMgb24gc3lzdGVtcyB0aGF0IGRvIHJ1biBvdXQgb2YgTVNJ
-IHZlY3RvcnMsIGJueDINCmRyaXZlciBmaXhlcyAobG9zdCBNU0ktWCB2ZWN0b3JzLCAnc2NoZWR1
-bGluZyB3aGlsZSBhdG9taWMnIGZpeCkgYW5kDQpob3BlZnVsbHkgcjgxNjkgTUFDIGFkZHJlc3Mg
-cHJvZ3JhbW1pbmcgaXMgc29saWQgbm93Lg0KDQpQbGVhc2UgcHVsbCwgdGhhbmtzIGEgbG90IQ0K
-DQpUaGUgZm9sbG93aW5nIGNoYW5nZXMgc2luY2UgY29tbWl0IGI5MWNlNGQxNGEyMWZjMDRkMTY1
-YmUzMDMxOTU0MWUwZjkyMDRmMTU6DQogIExpbnVzIFRvcnZhbGRzICgxKToNCiAgICAgICAgTWVy
-Z2UgZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvLi4uL2RhdmVtL25ldC0yLjYNCg0KYXJlIGF2YWlsYWJs
-ZSBpbiB0aGUgZ2l0IHJlcG9zaXRvcnkgYXQ6DQoNCiAgbWFzdGVyLmtlcm5lbC5vcmc6L3B1Yi9z
-Y20vbGludXgva2VybmVsL2dpdC9kYXZlbS9uZXQtMi42LmdpdCBtYXN0ZXINCg0KQW5kcmUgRGV0
-c2NoICgyKToNCiAgICAgIHRnMzogRml4IElOVHggZmFsbGJhY2sgd2hlbiBNU0kgZmFpbHMNCiAg
-ICAgIGN4Z2IzOiBXYWl0IGxvbmdlciBmb3IgY29udHJvbCBwYWNrZXRzIG9uIGluaXRpYWxpemF0
-aW9uDQoNCkFuZHJlYXMgSGFydG1hbm4gKDEpOg0KICAgICAgZHJpdmVycy91c2IvbmV0L2thd2V0
-aC5jOiBhZGQgZGV2aWNlICJBbGxpZWQgVGVsZXN5biBBVC1VU0IxMCBVU0IgRXRoZXJuZXQgQWRh
-cHRlciINCg0KQW5keSBGbGVtaW5nICgxKToNCiAgICAgIGdpYW5mYXI6IFdhaXQgZm9yIGJvdGgg
-UlggYW5kIFRYIHRvIHN0b3ANCg0KQmVuIEh1dGNoaW5ncyAoMyk6DQogICAgICBzZmM6IFdhaXQg
-YXQgbW9zdCAxMG1zIGZvciB0aGUgTUMgdG8gZmluaXNoIHJlYWRpbmcgb3V0IE1BQyBzdGF0aXN0
-aWNzDQogICAgICBzZmM6IEFsd2F5cyBjbG9zZSBuZXQgZGV2aWNlIGF0IHRoZSBlbmQgb2YgYSBk
-aXNhYmxpbmcgcmVzZXQNCiAgICAgIHNmYzogQ2hhbmdlIGZhbGNvbl9wcm9iZV9ib2FyZCgpIHRv
-IGZhaWwgZm9yIHVuc3VwcG9ydGVkIGJvYXJkcw0KDQpCcnVjZSBBbGxhbiAoMSk6DQogICAgICBl
-MTAwMGU6IGVuYWJsZS9kaXNhYmxlIEFTUE0gTDBzIGFuZCBMMSBhbmQgRVJUIGFjY29yZGluZyB0
-byBoYXJkd2FyZSBlcnJhdGENCg0KRGFuIENhcnBlbnRlciAoMik6DQogICAgICBpcGhldGg6IHBv
-dGVudGlhbCBudWxsIGRlcmVmZXJlbmNlcyBvbiBlcnJvciBwYXRoDQogICAgICBibHVldG9vdGg6
-IGhhbmRsZSBsMmNhcF9jcmVhdGVfY29ubmxlc3NfcGR1KCkgZXJyb3JzDQoNCkRhdmlkIFMuIE1p
-bGxlciAoMSk6DQogICAgICBSZXZlcnQgInRjcDogYmluZCgpIGZpeCB3aGVuIG1hbnkgcG9ydHMg
-YXJlIGJvdW5kIg0KDQpFbGluYSBQYXNoZXZhICgxKToNCiAgICAgIG5ldC91c2I6IGFkZCBzaWVy
-cmFfbmV0LmMgZHJpdmVyDQoNCktlbiBLYXdhc2FraSAoMSk6DQogICAgICBzbWM5MWM5Ml9jczog
-c3Bpbl91bmxvY2tfaXJxcmVzdG9yZSBiZWZvcmUgY2FsbGluZyBzbWNfaW50ZXJydXB0KCkNCg0K
-TWljaGFlbCBDaGFuICgzKToNCiAgICAgIGJueDI6IEZpeCBsb3N0IE1TSS1YIHByb2JsZW0gb24g
-NTcwOSBOSUNzLg0KICAgICAgYm54MjogUHJldmVudCAic2NoZWR1bGluZyB3aGlsZSBhdG9taWMi
-IHdhcm5pbmcgd2l0aCBjbmljLCBib25kaW5nIGFuZCB2bGFuLg0KICAgICAgYm54MjogVXBkYXRl
-IHZlcnNpb24gdG8gMi4wLjkuDQoNClBldGVyIFdhc2tpZXdpY3ogKDEpOg0KICAgICAgaXhnYmU6
-IFBvd2VyIGRvd24gUEhZIGR1cmluZyBkcml2ZXIgcmVzZXRzDQoNClN0ZWZhbiBTY2htaWR0ICgx
-KToNCiAgICAgIGllZWU4MDIxNTQ6IEZpeCBvb3BzIGR1cmluZyBpZWVlODAyMTU0X3NvY2tfaW9j
-dGwNCg0KVG9yZ255IEpvaGFuc3NvbiAoMSk6DQogICAgICBjZGNfZXRoZXI6IGZpeCBhdXRvc3Vz
-cGVuZCBmb3IgbWJtIGRldmljZXMNCg0KVmxhZCBZYXNldmljaCAoMyk6DQogICAgICBzY3RwOiBm
-aXggcG90ZW50aWFsIHJlZmVyZW5jZSBvZiBhIGZyZWVkIHBvaW50ZXINCiAgICAgIHNjdHA6IHBl
-cl9jcHUgdmFyaWFibGVzIHNob3VsZCBiZSBpbiBiaF9kaXNhYmxlZCBzZWN0aW9uDQogICAgICBz
-Y3RwOiBGaXggb29wcyB3aGVuIHNlbmRpbmcgcXVldWVkIEFTQ09ORiBjaHVua3MNCg0KV2VpIFlv
-bmdqdW4gKDIpOg0KICAgICAgc2N0cDogYXZvaWQgaXJxIGxvY2sgaW52ZXJzaW9uIHdoaWxlIGNh
-bGwgc2stPnNrX2RhdGFfcmVhZHkoKQ0KICAgICAgc2N0cDogZml4IHRvIGNhbGMgdGhlIElOSVQv
-SU5JVC1BQ0sgY2h1bmsgbGVuZ3RoIGNvcnJlY3RseSBpcyBzZXQNCg0KWU9TSElGVUpJIEhpZGVh
-a2kgLyDlkInol6Toi7HmmI4gKDEpOg0KICAgICAgYnJpZGdlIGJyX211bHRpY2FzdDogRW5zdXJl
-IHRvIGluaXRpYWxpemUgQlJfSU5QVVRfU0tCX0NCKHNrYiktPm1yb3V0ZXJzX29ubHkuDQoNCmZy
-YW7Dp29pcyByb21pZXUgKDIpOg0KICAgICAgcjgxNjk6IGZhaWx1cmUgdG8gZW5hYmxlIG13aSBz
-aG91bGQgbm90IGJlIGZhdGFsDQogICAgICByODE2OTogbW9yZSBicm9rZW4gcmVnaXN0ZXIgd3Jp
-dGVzIHdvcmthcm91bmQNCg0KIGRyaXZlcnMvbmV0L2JueDIuYyAgICAgICAgICAgICAgIHwgICA0
-OCArLQ0KIGRyaXZlcnMvbmV0L2N4Z2IzL2N4Z2IzX21haW4uYyAgIHwgICAgMiArLQ0KIGRyaXZl
-cnMvbmV0L2UxMDAwZS84MjU3MS5jICAgICAgIHwgICAyMCArLQ0KIGRyaXZlcnMvbmV0L2UxMDAw
-ZS9lMTAwMC5oICAgICAgIHwgICAgNSArLQ0KIGRyaXZlcnMvbmV0L2UxMDAwZS9uZXRkZXYuYyAg
-ICAgIHwgICA3MCArKy0NCiBkcml2ZXJzL25ldC9naWFuZmFyLmMgICAgICAgICAgICB8ICAgIDYg
-Ky0NCiBkcml2ZXJzL25ldC9peGdiZS9peGdiZV84MjU5OS5jICB8ICAgNjIgKystDQogZHJpdmVy
-cy9uZXQvaXhnYmUvaXhnYmVfbWFpbi5jICAgfCAgIDIyICstDQogZHJpdmVycy9uZXQvaXhnYmUv
-aXhnYmVfdHlwZS5oICAgfCAgICAyICsNCiBkcml2ZXJzL25ldC9wY21jaWEvc21jOTFjOTJfY3Mu
-YyB8ICAgMzEgKy0NCiBkcml2ZXJzL25ldC9yODE2OS5jICAgICAgICAgICAgICB8ICAgMzIgKy0N
-CiBkcml2ZXJzL25ldC9zZmMvZWZ4LmMgICAgICAgICAgICB8ICAgIDQgKy0NCiBkcml2ZXJzL25l
-dC9zZmMvZmFsY29uLmMgICAgICAgICB8ICAgIDQgKy0NCiBkcml2ZXJzL25ldC9zZmMvZmFsY29u
-X2JvYXJkcy5jICB8ICAgMTMgKy0NCiBkcml2ZXJzL25ldC9zZmMvbmljLmggICAgICAgICAgICB8
-ICAgIDIgKy0NCiBkcml2ZXJzL25ldC9zZmMvc2llbmEuYyAgICAgICAgICB8ICAgMTMgKy0NCiBk
-cml2ZXJzL25ldC90ZzMuYyAgICAgICAgICAgICAgICB8ICAgIDEgKw0KIGRyaXZlcnMvbmV0L3Vz
-Yi9LY29uZmlnICAgICAgICAgIHwgICAxMCArDQogZHJpdmVycy9uZXQvdXNiL01ha2VmaWxlICAg
-ICAgICAgfCAgICAxICsNCiBkcml2ZXJzL25ldC91c2IvY2RjX2V0aGVyLmMgICAgICB8ICAgIDEg
-Kw0KIGRyaXZlcnMvbmV0L3VzYi9pcGhldGguYyAgICAgICAgIHwgICAxNSArLQ0KIGRyaXZlcnMv
-bmV0L3VzYi9rYXdldGguYyAgICAgICAgIHwgICAgMSArDQogZHJpdmVycy9uZXQvdXNiL3NpZXJy
-YV9uZXQuYyAgICAgfCAxMDAxICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
-DQogaW5jbHVkZS9uZXQvc2N0cC9jb21tYW5kLmggICAgICAgfCAgICAxICsNCiBpbmNsdWRlL25l
-dC9zY3RwL3NjdHAuaCAgICAgICAgICB8ICAgIDEgKw0KIG5ldC9ibHVldG9vdGgvbDJjYXAuYyAg
-ICAgICAgICAgIHwgICAgNSArLQ0KIG5ldC9icmlkZ2UvYnJfbXVsdGljYXN0LmMgICAgICAgIHwg
-ICAgNiArLQ0KIG5ldC9pZWVlODAyMTU0L2FmX2llZWU4MDIxNTQuYyAgIHwgICAgMyArDQogbmV0
-L2lwdjQvaW5ldF9jb25uZWN0aW9uX3NvY2suYyAgfCAgIDE2ICstDQogbmV0L2lwdjYvaW5ldDZf
-Y29ubmVjdGlvbl9zb2NrLmMgfCAgIDE1ICstDQogbmV0L3NjdHAvYXNzb2Npb2xhLmMgICAgICAg
-ICAgICAgfCAgICA2ICstDQogbmV0L3NjdHAvZW5kcG9pbnRvbGEuYyAgICAgICAgICAgfCAgICAx
-ICsNCiBuZXQvc2N0cC9zbV9tYWtlX2NodW5rLmMgICAgICAgICB8ICAgMzIgKy0NCiBuZXQvc2N0
-cC9zbV9zaWRlZWZmZWN0LmMgICAgICAgICB8ICAgMjYgKw0KIG5ldC9zY3RwL3NtX3N0YXRlZnVu
-cy5jICAgICAgICAgIHwgICAgOCArLQ0KIG5ldC9zY3RwL3NvY2tldC5jICAgICAgICAgICAgICAg
-IHwgICAxNCArLQ0KIDM2IGZpbGVzIGNoYW5nZWQsIDEzMTIgaW5zZXJ0aW9ucygrKSwgMTg4IGRl
-bGV0aW9ucygtKQ0KIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC91c2Ivc2llcnJhX25l
-dC5jDQo=
+On Wednesday 28 April 2010, Scott Feldman wrote:
+> On 4/28/10 6:13 AM, "Arnd Bergmann" <arnd@arndb.de> wrote:
+> 
+> > What I could imagine to unify this is something like
+> > 
+> >    ip port_profile set DEVICE [ { pre_associate | pre_associate_rr } ]
+> >                               { name PORT-PROFILE | vsi MGR:VTID:VER }
+> >                                     mac LLADDR
+> >    [ vlan VID ]
+> >                                     [ host_uuid HOST_UUID ]
+> >                                     [ client_uuid CLIENT_UUID ]
+> >                                     [ client_name CLIENT_NAME ]
+> >    ip port_profile del DEVICE [ mac LLADDR [ vlan VID ] ]
+> >    ip port_profile show DEVICE
+> 
+> Arnd, can someone test this with VDP today?  I don't have access to that
+> equipment so it's difficult for me to fully test the unified patch.  I can
+> test the previous patch with enic easily because I have access to production
+> systems.  I'd like to make sure someone can test this with VDP before I
+> respin the patch one more time.
+
+Sorry, but I don't have access to production hardware at this time. Jens wants to
+implement both sides so we can test this in simulation mode, but it's not done
+yet.
+
+	Arnd
