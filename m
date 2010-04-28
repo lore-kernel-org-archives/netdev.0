@@ -1,53 +1,38 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH net-next-2.6] bnx2x: Remove two prefetch()
-Date: Wed, 28 Apr 2010 16:14:15 +0300
-Message-ID: <1272460455.30392.24.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1272018366.7895.7930.camel@edumazet-laptop>
- <20100427.150817.84390202.davem@davemloft.net>
- <1272406693.2343.26.camel@edumazet-laptop>
- <20100427.151937.62344362.davem@davemloft.net>
-Reply-To: eilong@broadcom.com
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [v4 Patch 1/3] netpoll: add generic support for bridge and 	bonding
+ devices
+Date: Wed, 28 Apr 2010 17:59:03 +0800
+Message-ID: <4BD806E7.7010806@redhat.com>
+References: <20100427075937.4908.18468.sendpatchset@localhost.localdomain> <j2mce2c83091004272102ye46e65fbod138e63dc58bccd5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: vladz@broadcom.com, eliezert@gmail.com,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"xiaosuo@gmail.com" <xiaosuo@gmail.com>,
-	"hadi@cyberus.ca" <hadi@cyberus.ca>,
-	"therbert@google.com" <therbert@google.com>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4548 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752603Ab0D1NO3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Apr 2010 09:14:29 -0400
-In-Reply-To: <20100427.151937.62344362.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, Matt Mackall <mpm@selenic.com>,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	Andy Gospodarek <gospo@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Jeff Moyer <jmoyer@redhat.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	bonding-devel@lists.sourceforge.net,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	David Miller <davem@davemloft.net>
+To: Dongdong Deng <libfetion@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <j2mce2c83091004272102ye46e65fbod138e63dc58bccd5@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2010-04-27 at 15:19 -0700, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 28 Apr 2010 00:18:13 +0200
+Dongdong Deng wrote:
 > 
-> > [PATCH net-next-2.6] bnx2x: Remove two prefetch()
-> > 
-> > 1) Even on 64bit arches, sizeof(struct sk_buff) < 256
-> > 2) No need to prefetch same pointer twice.
-> > 
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> > CC: Eilon Greenstein <eilong@broadcom.com>
 > 
-> Eilon please review and ACK/NACK
+> +             if (ops->ndo_netpoll_cleanup)
+> +                                       ops->ndo_netpoll_cleanup(np->dev);
+> +             np->dev->npinfo = NULL;
+> 
+> I think it is good to set np->dev->npinfo to NULL  even though we have
+> the netpoll_cleanup opt.
+> 
 
-Vlad ran few benchmarks, and we couldn't find any justification for
-those prefetch calls. After consulting with Eliezer Tamir (the original
-author) we are glad to Ack this patch.
+This is redundant, since ->ndo_netpoll_cleanup will set it.
 
-Thanks Eric!
-Acked-by: <eilong@broadcom.com>
-
-
-
+Thanks.
