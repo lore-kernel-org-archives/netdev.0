@@ -1,39 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] random SYN drops causing connect() delays
-Date: Tue, 27 Apr 2010 18:56:02 -0700 (PDT)
-Message-ID: <20100427.185602.221594952.davem@davemloft.net>
-References: <20100412080633.GA27418@bombadil.infradead.org>
-	<20100412083903.GA19763@bombadil.infradead.org>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [v4 Patch 3/3] bonding: make bonding support netpoll
+Date: Wed, 28 Apr 2010 10:08:57 +0800
+Message-ID: <4BD798B9.3010007@redhat.com>
+References: <20100427075937.4908.18468.sendpatchset@localhost.localdomain>	<20100427080004.4908.27339.sendpatchset@localhost.localdomain> <20100427.152424.236240666.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tgraf@infradead.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43538
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754351Ab0D1Bz4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 21:55:56 -0400
-In-Reply-To: <20100412083903.GA19763@bombadil.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, mpm@selenic.com,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	gospo@redhat.com, nhorman@tuxdriver.com, jmoyer@redhat.com,
+	shemminger@linux-foundation.org,
+	bonding-devel@lists.sourceforge.net, fubar@us.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100427.152424.236240666.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@infradead.org>
-Date: Mon, 12 Apr 2010 04:39:03 -0400
-
-> On Mon, Apr 12, 2010 at 04:06:33AM -0400, Thomas Graf wrote:
->>  - While the issue is appearing, the acceptq seems to be overflowing. Both
->>    LISTENOVERFLOWS and LISTENDROPS are increasing although not by the exact
->>    number of delay occurences. inetdiag reports sk_max_ack_backlog to be 0
->>    therefore one possibility that comes to mind is that sk_ack_backlog
->>    underflows due to a race.
+David Miller wrote:
+> From: Amerigo Wang <amwang@redhat.com>
+> Date: Tue, 27 Apr 2010 03:56:09 -0400
 > 
-> Forget about the underflow thought, inetdiag was reporting falsely.
-> sk_max_ack_backlog is set to 128 as it should and the listen overflow
-> happens normally. Still the fact remains that while the issue is appearing
-> listen overflows are counted.
+>> +		if ((slave->dev->priv_flags & IFF_DISABLE_NETPOLL)
+>> +				|| !slave->dev->netdev_ops->ndo_poll_controller)
+> 
+> "|| on first line please, plus fix second line's indentation as per
+> comments given in patch #1 and #2
 
-I can't reproduce on my system even with sched_child_runs_first set to '1'.
-
-Are you running identd or something like that which intercepts the connections
-to port 22 before 'sshd' actually gets it?
+Thanks, David!
+I will fix all of this style problem.
