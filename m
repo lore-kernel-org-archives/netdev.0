@@ -1,96 +1,172 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 1/5] sctp: avoid irq lock inversion while call sk->sk_data_ready()
-Date: Wed, 28 Apr 2010 14:47:18 -0400
-Message-ID: <1272480442-32673-2-git-send-email-vladislav.yasevich@hp.com>
+Subject: [PATCH 5/5] sctp: Fix oops when sending queued ASCONF chunks
+Date: Wed, 28 Apr 2010 14:47:22 -0400
+Message-ID: <1272480442-32673-6-git-send-email-vladislav.yasevich@hp.com>
 References: <1272480442-32673-1-git-send-email-vladislav.yasevich@hp.com>
 Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
-	Wei Yongjun <yjwei@cn.fujitsu.com>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
+	Vlad Yasevich <vladislav.yasevich@hp.com>,
+	Yuansong Qiao <ysqiao@research.ait.ie>,
+	Shuaijun Zhang <szhang@research.ait.ie>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0185.atlanta.hp.com ([15.193.32.62]:15847 "EHLO
-	g6t0185.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756323Ab0D1Sr0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 14:47:26 -0400
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:44499 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756493Ab0D1Sra (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 14:47:30 -0400
 In-Reply-To: <1272480442-32673-1-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
+When we finish processing ASCONF_ACK chunk, we try to send
+the next queued ASCONF.  This action runs the sctp state
+machine recursively and it's not prepared to do so.
 
-sk->sk_data_ready() of sctp socket can be called from both BH and non-BH
-contexts, but the default sk->sk_data_ready(), sock_def_readable(), can
-not be used in this case. Therefore, we have to make a new function
-sctp_data_ready() to grab sk->sk_data_ready() with BH disabling.
+kernel BUG at kernel/timer.c:790!
+invalid opcode: 0000 [#1] SMP
+last sysfs file: /sys/module/ipv6/initstate
+Modules linked in: sha256_generic sctp libcrc32c ipv6 dm_multipath
+uinput 8139too i2c_piix4 8139cp mii i2c_core pcspkr virtio_net joydev
+floppy virtio_blk virtio_pci [last unloaded: scsi_wait_scan]
 
-=========================================================
-[ INFO: possible irq lock inversion dependency detected ]
-2.6.33-rc6 #129
----------------------------------------------------------
-sctp_darn/1517 just changed the state of lock:
- (clock-AF_INET){++.?..}, at: [<c06aab60>] sock_def_readable+0x20/0x80
-but this lock took another, SOFTIRQ-unsafe lock in the past:
- (slock-AF_INET){+.-...}
+Pid: 0, comm: swapper Not tainted 2.6.34-rc4 #15 /Bochs
+EIP: 0060:[<c044a2ef>] EFLAGS: 00010286 CPU: 0
+EIP is at add_timer+0xd/0x1b
+EAX: cecbab14 EBX: 000000f0 ECX: c0957b1c EDX: 03595cf4
+ESI: cecba800 EDI: cf276f00 EBP: c0957aa0 ESP: c0957aa0
+ DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
+Process swapper (pid: 0, ti=c0956000 task=c0988ba0 task.ti=c0956000)
+Stack:
+ c0957ae0 d1851214 c0ab62e4 c0ab5f26 0500ffff 00000004 00000005 00000004
+<0> 00000000 d18694fd 00000004 1666b892 cecba800 cecba800 c0957b14
+00000004
+<0> c0957b94 d1851b11 ceda8b00 cecba800 cf276f00 00000001 c0957b14
+000000d0
+Call Trace:
+ [<d1851214>] ? sctp_side_effects+0x607/0xdfc [sctp]
+ [<d1851b11>] ? sctp_do_sm+0x108/0x159 [sctp]
+ [<d1863386>] ? sctp_pname+0x0/0x1d [sctp]
+ [<d1861a56>] ? sctp_primitive_ASCONF+0x36/0x3b [sctp]
+ [<d185657c>] ? sctp_process_asconf_ack+0x2a4/0x2d3 [sctp]
+ [<d184e35c>] ? sctp_sf_do_asconf_ack+0x1dd/0x2b4 [sctp]
+ [<d1851ac1>] ? sctp_do_sm+0xb8/0x159 [sctp]
+ [<d1863334>] ? sctp_cname+0x0/0x52 [sctp]
+ [<d1854377>] ? sctp_assoc_bh_rcv+0xac/0xe1 [sctp]
+ [<d1858f0f>] ? sctp_inq_push+0x2d/0x30 [sctp]
+ [<d186329d>] ? sctp_rcv+0x797/0x82e [sctp]
 
-and interrupts could create inverse lock ordering between them.
-
-other info that might help us debug this:
-1 lock held by sctp_darn/1517:
- #0:  (sk_lock-AF_INET){+.+.+.}, at: [<cdfe363d>] sctp_sendmsg+0x23d/0xc00 [sctp]
-
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+Tested-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+Signed-off-by: Yuansong Qiao <ysqiao@research.ait.ie>
+Signed-off-by: Shuaijun Zhang <szhang@research.ait.ie>
 Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 ---
- include/net/sctp/sctp.h |    1 +
- net/sctp/endpointola.c  |    1 +
- net/sctp/socket.c       |   10 ++++++++++
- 3 files changed, 12 insertions(+), 0 deletions(-)
+ include/net/sctp/command.h |    1 +
+ net/sctp/sm_make_chunk.c   |   15 ---------------
+ net/sctp/sm_sideeffect.c   |   26 ++++++++++++++++++++++++++
+ net/sctp/sm_statefuns.c    |    8 +++++++-
+ 4 files changed, 34 insertions(+), 16 deletions(-)
 
-diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index 78740ec..fa6cde5 100644
---- a/include/net/sctp/sctp.h
-+++ b/include/net/sctp/sctp.h
-@@ -128,6 +128,7 @@ extern int sctp_register_pf(struct sctp_pf *, sa_family_t);
- int sctp_backlog_rcv(struct sock *sk, struct sk_buff *skb);
- int sctp_inet_listen(struct socket *sock, int backlog);
- void sctp_write_space(struct sock *sk);
-+void sctp_data_ready(struct sock *sk, int len);
- unsigned int sctp_poll(struct file *file, struct socket *sock,
- 		poll_table *wait);
- void sctp_sock_rfree(struct sk_buff *skb);
-diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
-index 905fda5..7ec09ba 100644
---- a/net/sctp/endpointola.c
-+++ b/net/sctp/endpointola.c
-@@ -144,6 +144,7 @@ static struct sctp_endpoint *sctp_endpoint_init(struct sctp_endpoint *ep,
- 	/* Use SCTP specific send buffer space queues.  */
- 	ep->sndbuf_policy = sctp_sndbuf_policy;
+diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
+index 8be5135..2c55a7e 100644
+--- a/include/net/sctp/command.h
++++ b/include/net/sctp/command.h
+@@ -107,6 +107,7 @@ typedef enum {
+ 	SCTP_CMD_T1_RETRAN,	 /* Mark for retransmission after T1 timeout  */
+ 	SCTP_CMD_UPDATE_INITTAG, /* Update peer inittag */
+ 	SCTP_CMD_SEND_MSG,	 /* Send the whole use message */
++	SCTP_CMD_SEND_NEXT_ASCONF, /* Send the next ASCONF after ACK */
+ 	SCTP_CMD_LAST
+ } sctp_verb_t;
  
-+	sk->sk_data_ready = sctp_data_ready;
- 	sk->sk_write_space = sctp_write_space;
- 	sock_set_flag(sk, SOCK_USE_WRITE_QUEUE);
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index f6fc5c1..0fd5b4c 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -3318,21 +3318,6 @@ int sctp_process_asconf_ack(struct sctp_association *asoc,
+ 	sctp_chunk_free(asconf);
+ 	asoc->addip_last_asconf = NULL;
  
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 007e8ba..efa2bc3 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -6189,6 +6189,16 @@ do_nonblock:
- 	goto out;
+-	/* Send the next asconf chunk from the addip chunk queue. */
+-	if (!list_empty(&asoc->addip_chunk_list)) {
+-		struct list_head *entry = asoc->addip_chunk_list.next;
+-		asconf = list_entry(entry, struct sctp_chunk, list);
+-
+-		list_del_init(entry);
+-
+-		/* Hold the chunk until an ASCONF_ACK is received. */
+-		sctp_chunk_hold(asconf);
+-		if (sctp_primitive_ASCONF(asoc, asconf))
+-			sctp_chunk_free(asconf);
+-		else
+-			asoc->addip_last_asconf = asconf;
+-	}
+-
+ 	return retval;
  }
  
-+void sctp_data_ready(struct sock *sk, int len)
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index 4c5bed9..d5ae450 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -962,6 +962,29 @@ static int sctp_cmd_send_msg(struct sctp_association *asoc,
+ }
+ 
+ 
++/* Sent the next ASCONF packet currently stored in the association.
++ * This happens after the ASCONF_ACK was succeffully processed.
++ */
++static void sctp_cmd_send_asconf(struct sctp_association *asoc)
 +{
-+	read_lock_bh(&sk->sk_callback_lock);
-+	if (sk_has_sleeper(sk))
-+		wake_up_interruptible_sync_poll(sk->sk_sleep, POLLIN |
-+						POLLRDNORM | POLLRDBAND);
-+	sk_wake_async(sk, SOCK_WAKE_WAITD, POLL_IN);
-+	read_unlock_bh(&sk->sk_callback_lock);
++	/* Send the next asconf chunk from the addip chunk
++	 * queue.
++	 */
++	if (!list_empty(&asoc->addip_chunk_list)) {
++		struct list_head *entry = asoc->addip_chunk_list.next;
++		struct sctp_chunk *asconf = list_entry(entry,
++						struct sctp_chunk, list);
++		list_del_init(entry);
++
++		/* Hold the chunk until an ASCONF_ACK is received. */
++		sctp_chunk_hold(asconf);
++		if (sctp_primitive_ASCONF(asoc, asconf))
++			sctp_chunk_free(asconf);
++		else
++			asoc->addip_last_asconf = asconf;
++	}
 +}
 +
- /* If socket sndbuf has changed, wake up all per association waiters.  */
- void sctp_write_space(struct sock *sk)
- {
+ 
+ /* These three macros allow us to pull the debugging code out of the
+  * main flow of sctp_do_sm() to keep attention focused on the real
+@@ -1617,6 +1640,9 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
+ 			}
+ 			error = sctp_cmd_send_msg(asoc, cmd->obj.msg);
+ 			break;
++		case SCTP_CMD_SEND_NEXT_ASCONF:
++			sctp_cmd_send_asconf(asoc);
++			break;
+ 		default:
+ 			printk(KERN_WARNING "Impossible command: %u, %p\n",
+ 			       cmd->verb, cmd->obj.ptr);
+diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+index abf601a..24b2cd5 100644
+--- a/net/sctp/sm_statefuns.c
++++ b/net/sctp/sm_statefuns.c
+@@ -3676,8 +3676,14 @@ sctp_disposition_t sctp_sf_do_asconf_ack(const struct sctp_endpoint *ep,
+ 				SCTP_TO(SCTP_EVENT_TIMEOUT_T4_RTO));
+ 
+ 		if (!sctp_process_asconf_ack((struct sctp_association *)asoc,
+-					     asconf_ack))
++					     asconf_ack)) {
++			/* Successfully processed ASCONF_ACK.  We can
++			 * release the next asconf if we have one.
++			 */
++			sctp_add_cmd_sf(commands, SCTP_CMD_SEND_NEXT_ASCONF,
++					SCTP_NULL());
+ 			return SCTP_DISPOSITION_CONSUME;
++		}
+ 
+ 		abort = sctp_make_abort(asoc, asconf_ack,
+ 					sizeof(sctp_errhdr_t));
 -- 
 1.6.0.4
 
