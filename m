@@ -1,124 +1,192 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: 2.6.34-rc5-git7 (plus all patches) -- another suspicious
- rcu_dereference_check() usage.
-Date: Wed, 28 Apr 2010 13:09:04 -0700
-Message-ID: <20100428200904.GS2540@linux.vnet.ibm.com>
-References: <h2ya44ae5cd1004261751waa5cb65ei3d139cbcfa2cc5cf@mail.gmail.com>
- <20100428175426.GK2540@linux.vnet.ibm.com>
- <1272483491.2201.9.camel@edumazet-laptop>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH]: sctp: Fix skb_over_panic resulting from multiple invalid
+ parameter errors (CVE-2010-1173) (v3)
+Date: Wed, 28 Apr 2010 16:16:54 -0400
+Message-ID: <4BD897B6.5040405@hp.com>
+References: <20100428134748.GA4818@hmsreliant.think-freely.org> <4BD83F85.8090308@hp.com> <20100428142147.GB4818@hmsreliant.think-freely.org> <4BD8481E.3010509@hp.com> <20100428174711.GC4818@hmsreliant.think-freely.org> <20100428193755.GF4818@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Miles Lane <miles.lane@gmail.com>, Vivek Goyal <vgoyal@redhat.com>,
-	Eric Paris <eparis@redhat.com>,
-	Lai Jiangshan <laijs@cn.fujitsu.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Peter Zijlstra <peterz@infradead.org>,
-	LKML <linux-kernel@vger.kernel.org>, nauman@google.com,
-	netdev@vger.kernel.org, Jens Axboe <jens.axboe@oracle.com>,
-	Gui Jianfeng <guijianfeng@cn.fujitsu.com>,
-	Li Zefan <lizf@cn.fujitsu.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	shemminger@vyatta.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1272483491.2201.9.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: sri@us.ibm.com, linux-sctp@vger.kernel.org, eteo@redhat.com,
+	netdev@vger.kernel.org, davem@davemloft.net, security@kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:36074 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754591Ab0D1UQ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 16:16:59 -0400
+In-Reply-To: <20100428193755.GF4818@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 28, 2010 at 09:38:11PM +0200, Eric Dumazet wrote:
-> Le mercredi 28 avril 2010 =E0 10:54 -0700, Paul E. McKenney a =E9crit=
- :
-> > On Mon, Apr 26, 2010 at 08:51:06PM -0400, Miles Lane wrote:
-> > > This one occurred during the wakeup from suspend to RAM.
-> > >=20
-> > > [  984.724697] [ INFO: suspicious rcu_dereference_check() usage. =
-]
-> > > [  984.724700] --------------------------------------------------=
--
-> > > [  984.724703] include/linux/fdtable.h:88 invoked
-> > > rcu_dereference_check() without protection!
-> > > [  984.724706]
-> > > [  984.724707] other info that might help us debug this:
-> > > [  984.724708]
-> > > [  984.724711]
-> > > [  984.724711] rcu_scheduler_active =3D 1, debug_locks =3D 1
-> > > [  984.724714] no locks held by dbus-daemon/4680.
-> > > [  984.724717]
-> > > [  984.724717] stack backtrace:
-> > > [  984.724721] Pid: 4680, comm: dbus-daemon Not tainted 2.6.34-rc=
-5-git7 #33
-> > > [  984.724724] Call Trace:
-> > > [  984.724734]  [<ffffffff81074556>] lockdep_rcu_dereference+0x9d=
-/0xa6
-> > > [  984.724740]  [<ffffffff810fc785>] fcheck_files+0xb1/0xc9
-> > > [  984.724745]  [<ffffffff810fc7f5>] fget_light+0x35/0xab
-> > > [  984.724751]  [<ffffffff81433e1b>] ? sock_poll_wait+0x13/0x18
-> > > [  984.724755]  [<ffffffff81433e39>] ? unix_poll+0x19/0x95
-> > > [  984.724762]  [<ffffffff8110aa95>] do_sys_poll+0x1ff/0x3e5
-> > > [  984.724766]  [<ffffffff8110a19e>] ? __pollwait+0x0/0xc7
-> > > [  984.724771]  [<ffffffff8110a265>] ? pollwake+0x0/0x4f
-> > > [  984.724776]  [<ffffffff8110a265>] ? pollwake+0x0/0x4f
-> > > [  984.724780]  [<ffffffff8110a265>] ? pollwake+0x0/0x4f
-> > > [  984.724784]  [<ffffffff8110a265>] ? pollwake+0x0/0x4f
-> > > [  984.724788]  [<ffffffff8110a265>] ? pollwake+0x0/0x4f
-> > > [  984.724793]  [<ffffffff8110a265>] ? pollwake+0x0/0x4f
-> > > [  984.724797]  [<ffffffff8110a265>] ? pollwake+0x0/0x4f
-> > > [  984.724802]  [<ffffffff8110a265>] ? pollwake+0x0/0x4f
-> > > [  984.724806]  [<ffffffff8110a265>] ? pollwake+0x0/0x4f
-> > > [  984.724812]  [<ffffffff8110ae0f>] sys_poll+0x50/0xbb
-> > > [  984.724818]  [<ffffffff81009d82>] system_call_fastpath+0x16/0x=
-1b
-> >=20
-> > Hmmm...  I am not convinced that this is a false positive.  Couldn'=
-t
-> > there be a multi-threaded process where one thread is invoking poll=
-()
-> > on a UNIX socket just as another thread is calling close() on it?
-> >=20
-> > The current fcheck_files() logic requires that the caller either (1=
-) be in
-> > an RCU read-side critical section, (2) hold ->files_lock, or (3) pa=
-ssing
-> > in a files_struct with ->count equal to 1 (initialization or cleanu=
-p).
-> >=20
-> > So I don't feel comfortable just slapping an RCU read-side critical
-> > section around this one, at least not unless someone who understand=
-s
-> > the locking says that doing so is OK.
-> >=20
-> > 	=09
->=20
-> Its a single threaded program.
->=20
-> So fget_light() calls fcheck_files(files, fd); without rcu lock,
-> but some /proc/pid/fd/... user temporarly raised files->count just
-> before we perform the condition check.
 
-So I should add a single-threaded check.  My first thought was to use
-current_is_single_threaded(), but the bit about scanning the full list
-of processes does give me pause.  However, thread_group_empty() looks
-like a much lighter-weight alternative.
 
-I believe that it is possible for a pair of single-threaded processes
-to share a file descriptor, but that should not be a problem, as both
-of them would need to close it for it to go away.
+Neil Horman wrote:
 
-But what happens if someone does a clone() with CLONE_FILES, as some
-of the AIO stuff seems to do?  Won't that allow one of the resulting
-processes to close the file for both of them, even though both are
-otherwise single-threaded?  And the ->count seems to be the only
-distinction between these two cases.
+... snip description ...
 
-And AIO does CLONE_VM as well as CLONE_FILES, but that seems to mean th=
-at
-the check must scan the processes with current_is_single_threaded().
-Besides which, a user could invoke clone() with only CLONE_FILES
-specified, right?
+> 
+> 
+>  include/net/sctp/structs.h |    1 
+>  net/sctp/sm_make_chunk.c   |   70 +++++++++++++++++++++++++++++++++++++++------
+>  2 files changed, 62 insertions(+), 9 deletions(-)
+> 
+> 
+> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+> index ff30177..597f8e2 100644
+> --- a/include/net/sctp/structs.h
+> +++ b/include/net/sctp/structs.h
+> @@ -778,6 +778,7 @@ int sctp_user_addto_chunk(struct sctp_chunk *chunk, int off, int len,
+>  			  struct iovec *data);
+>  void sctp_chunk_free(struct sctp_chunk *);
+>  void  *sctp_addto_chunk(struct sctp_chunk *, int len, const void *data);
+> +void  *sctp_addto_chunk_fixed(struct sctp_chunk *, int len, const void *data);
+>  struct sctp_chunk *sctp_chunkify(struct sk_buff *,
+>  				 const struct sctp_association *,
+>  				 struct sock *);
+> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+> index f592163..9623112 100644
+> --- a/net/sctp/sm_make_chunk.c
+> +++ b/net/sctp/sm_make_chunk.c
+> @@ -107,7 +107,7 @@ static const struct sctp_paramhdr prsctp_param = {
+>  	cpu_to_be16(sizeof(struct sctp_paramhdr)),
+>  };
+>  
+> -/* A helper to initialize to initialize an op error inside a
+> +/* A helper to initialize an op error inside a
+>   * provided chunk, as most cause codes will be embedded inside an
+>   * abort chunk.
+>   */
+> @@ -124,6 +124,29 @@ void  sctp_init_cause(struct sctp_chunk *chunk, __be16 cause_code,
+>  	chunk->subh.err_hdr = sctp_addto_chunk(chunk, sizeof(sctp_errhdr_t), &err);
+>  }
+>  
+> +/* A helper to initialize an op error inside a
+> + * provided chunk, as most cause codes will be embedded inside an
+> + * abort chunk.  Differs from sctp_init_cause in that it won't oops
+> + * if there isn't enough space in the op error chunk
+> + */
+> +int sctp_init_cause_fixed(struct sctp_chunk *chunk, __be16 cause_code,
+> +		      size_t paylen)
+> +{
+> +	sctp_errhdr_t err;
+> +	__u16 len;
+> +
+> +	/* Cause code constants are now defined in network order.  */
+> +	err.cause = cause_code;
+> +	len = sizeof(sctp_errhdr_t) + paylen;
+> +	err.length  = htons(len);
+> +
+> +	if (skb_tailroom(chunk->skb) >  len)
+> +		return -ENOSPC;
+> +	chunk->subh.err_hdr = sctp_addto_chunk_fixed(chunk,
+> +						     sizeof(sctp_errhdr_t),
+> +						     &err);
+> +	return 0;
+> +}
+>  /* 3.3.2 Initiation (INIT) (1)
+>   *
+>   * This chunk is used to initiate a SCTP association between two
+> @@ -1131,6 +1154,24 @@ nodata:
+>  	return retval;
+>  }
+>  
+> +/* Create an Operation Error chunk of a fixed size,
+> + * specifically, max(asoc->pathmtu, SCTP_DEFAULT_MAXSEGMENT)
+> + * This is a helper function to allocate an error chunk for
+> + * for those invalid parameter codes in which we may not want
+> + * to report all the errors, if the incomming chunk is large
+> + */
+> +static inline struct sctp_chunk *sctp_make_op_error_fixed(
+> +	const struct sctp_association *asoc,
+> +	const struct sctp_chunk *chunk)
+> +{
+> +	size_t size = asoc ? asoc->pathmtu : 0;
+> +
+> +	if (size > SCTP_DEFAULT_MAXSEGMENT)
+> +		size = SCTP_DEFAULT_MAXSEGMENT;
+> +
 
-Or am I just confused here?
+This doesn't look right.  If you don't have an association or if pmtu is
+not initialized, you will end up with a size of 0.  I think you simply
+want to a
+	if (!size)
 
-							Thanx, Paul
+there.
+
+
+> +	return sctp_make_op_error_space(asoc, chunk, size);
+> +}
+> +
+>  /* Create an Operation Error chunk.  */
+>  struct sctp_chunk *sctp_make_op_error(const struct sctp_association *asoc,
+>  				 const struct sctp_chunk *chunk,
+> @@ -1373,6 +1414,18 @@ void *sctp_addto_chunk(struct sctp_chunk *chunk, int len, const void *data)
+>  	return target;
+>  }
+>  
+> +/* Append bytes to the end of a chunk. Returns NULL if there isn't sufficient
+> + * space in the chunk
+> + */
+> +void *sctp_addto_chunk_fixed(struct sctp_chunk *chunk,
+> +			     int len, const void *data)
+> +{
+> +	if (skb_tailroom(chunk->skb) > len)
+> +		return sctp_addto_chunk(chunk, len, data);
+> +	else
+> +		return NULL;
+> +}
+> +
+>  /* Append bytes from user space to the end of a chunk.  Will panic if
+>   * chunk is not big enough.
+>   * Returns a kernel err value.
+> @@ -1793,9 +1846,9 @@ static int sctp_process_missing_param(const struct sctp_association *asoc,
+>  	if (*errp) {
+>  		report.num_missing = htonl(1);
+>  		report.type = paramtype;
+> -		sctp_init_cause(*errp, SCTP_ERROR_MISS_PARAM,
+> -				sizeof(report));
+> -		sctp_addto_chunk(*errp, sizeof(report), &report);
+> +		sctp_init_cause_fixed(*errp, SCTP_ERROR_MISS_PARAM,
+> +				      sizeof(report));
+> +		sctp_addto_chunk_fixed(*errp, sizeof(report), &report);
+>  	}
+>  
+>  	/* Stop processing this chunk. */
+> @@ -1813,7 +1866,7 @@ static int sctp_process_inv_mandatory(const struct sctp_association *asoc,
+>  		*errp = sctp_make_op_error_space(asoc, chunk, 0);
+>  
+>  	if (*errp)
+> -		sctp_init_cause(*errp, SCTP_ERROR_INV_PARAM, 0);
+> +		sctp_init_cause_fixed(*errp, SCTP_ERROR_INV_PARAM, 0);
+>  
+>  	/* Stop processing this chunk. */
+>  	return 0;
+
+I don't think missing or mandatory parameters are effected by this.  They are a
+once and done deal.  There don't report multiple errors and we don't add any
+more error after them.
+
+> @@ -1976,13 +2029,12 @@ static sctp_ierror_t sctp_process_unk_param(const struct sctp_association *asoc,
+>  		 * returning multiple unknown parameters.
+>  		 */
+>  		if (NULL == *errp)
+> -			*errp = sctp_make_op_error_space(asoc, chunk,
+> -					ntohs(chunk->chunk_hdr->length));
+> +			*errp = sctp_make_op_error_fixed(asoc, chunk);
+>  
+>  		if (*errp) {
+> -			sctp_init_cause(*errp, SCTP_ERROR_UNKNOWN_PARAM,
+> +			sctp_init_cause_fixed(*errp, SCTP_ERROR_UNKNOWN_PARAM,
+>  					WORD_ROUND(ntohs(param.p->length)));
+> -			sctp_addto_chunk(*errp,
+> +			sctp_addto_chunk_fixed(*errp,
+>  					WORD_ROUND(ntohs(param.p->length)),
+>  					param.v);
+>  		} else {
+> 
+
+So we completely get rid of variable size error chunk in this case, which I can
+live with.  It simplifies the code.
+
+-vlad
