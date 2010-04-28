@@ -1,96 +1,37 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH v3] ixgbe: disable MSI-X by default on certain
-	Cisco adapters
-Date: Tue, 27 Apr 2010 19:45:26 -0700
-Message-ID: <20100428024521.28991.37874.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH v3] ixgbe: disable MSI-X by default on
+ certain Cisco adapters
+Date: Tue, 27 Apr 2010 19:47:56 -0700 (PDT)
+Message-ID: <20100427.194756.266098165.davem@davemloft.net>
+References: <20100428024521.28991.37874.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Nicholas Nunley <nicholasx.d.nunley@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+	nicholasx.d.nunley@intel.com, john.ronciak@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta11.westchester.pa.mail.comcast.net ([76.96.59.211]:52180
-	"EHLO QMTA11.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753652Ab0D1Cpq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 22:45:46 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36322
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754050Ab0D1Crw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 22:47:52 -0400
+In-Reply-To: <20100428024521.28991.37874.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nick Nunley <nicholasx.d.nunley@intel.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 27 Apr 2010 19:45:26 -0700
 
-Due to an errata in 82598 parts MSI-X needs to be disabled
-in certain ixgbe devices designed to transfer peer-to-peer
-traffic on the PCIe bus. This patch sets the default
-interrupt type to MSI rather than MSI-X for specific Cisco
-ixgbe adapters.
+> From: Nick Nunley <nicholasx.d.nunley@intel.com>
+> 
+> Due to an errata in 82598 parts MSI-X needs to be disabled
+> in certain ixgbe devices designed to transfer peer-to-peer
+> traffic on the PCIe bus. This patch sets the default
+> interrupt type to MSI rather than MSI-X for specific Cisco
+> ixgbe adapters.
+> 
+> Signed-off-by: Nicholas Nunley <nicholasx.d.nunley@intel.com>
+> Acked-by: John Ronciak <john.ronciak@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Signed-off-by: Nicholas Nunley <nicholasx.d.nunley@intel.com>
-Acked-by: John Ronciak <john.ronciak@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-
- drivers/net/ixgbe/ixgbe.h      |    4 ++++
- drivers/net/ixgbe/ixgbe_main.c |   17 ++++++++++++++++-
- 2 files changed, 20 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
-index 79c35ae..ec6bcc0 100644
---- a/drivers/net/ixgbe/ixgbe.h
-+++ b/drivers/net/ixgbe/ixgbe.h
-@@ -104,6 +104,10 @@
- #define MAX_EMULATION_MAC_ADDRS         16
- #define VMDQ_P(p)   ((p) + adapter->num_vfs)
- 
-+#define IXGBE_SUBDEV_ID_82598AF_MEZZ		0x0049
-+#define IXGBE_SUBDEV_ID_82598AF_MENLO_Q_MEZZ	0x004a
-+#define IXGBE_SUBDEV_ID_82598AF_MENLO_E_MEZZ	0x004b
-+
- struct vf_data_storage {
- 	unsigned char vf_mac_addresses[ETH_ALEN];
- 	u16 vf_mc_hashes[IXGBE_MAX_VF_MC_ENTRIES];
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 2ae5a51..ff59f88 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -4314,6 +4314,9 @@ static int ixgbe_set_interrupt_capability(struct ixgbe_adapter *adapter)
- 	int err = 0;
- 	int vector, v_budget;
- 
-+	if (!(adapter->flags & IXGBE_FLAG_MSIX_CAPABLE))
-+		goto try_msi;
-+
- 	/*
- 	 * It's easy to be greedy for MSI-X vectors, but it really
- 	 * doesn't do us much good if we have a lot more vectors
-@@ -4345,7 +4348,7 @@ static int ixgbe_set_interrupt_capability(struct ixgbe_adapter *adapter)
- 		if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED)
- 			goto out;
- 	}
--
-+try_msi:
- 	adapter->flags &= ~IXGBE_FLAG_DCB_ENABLED;
- 	adapter->flags &= ~IXGBE_FLAG_RSS_ENABLED;
- 	adapter->flags &= ~IXGBE_FLAG_FDIR_HASH_CAPABLE;
-@@ -4626,6 +4629,18 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 	adapter->ring_feature[RING_F_RSS].indices = rss;
- 	adapter->flags |= IXGBE_FLAG_RSS_ENABLED;
- 	adapter->ring_feature[RING_F_DCB].indices = IXGBE_MAX_DCB_INDICES;
-+	adapter->flags |= IXGBE_FLAG_MSIX_CAPABLE;
-+	if (adapter->hw.device_id == IXGBE_DEV_ID_82598AF_DUAL_PORT) {
-+		switch (adapter->hw.subsystem_device_id) {
-+		case IXGBE_SUBDEV_ID_82598AF_MEZZ:
-+		case IXGBE_SUBDEV_ID_82598AF_MENLO_Q_MEZZ:
-+		case IXGBE_SUBDEV_ID_82598AF_MENLO_E_MEZZ:
-+			adapter->flags &= ~IXGBE_FLAG_MSIX_CAPABLE;
-+			break;
-+		default:
-+			break;
-+		}
-+	}
- 	if (hw->mac.type == ixgbe_mac_82598EB) {
- 		if (hw->device_id == IXGBE_DEV_ID_82598AT)
- 			adapter->flags |= IXGBE_FLAG_FAN_FAIL_CAPABLE;
-
+Applied.
