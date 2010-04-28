@@ -1,172 +1,169 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 5/5] sctp: Fix oops when sending queued ASCONF chunks
-Date: Wed, 28 Apr 2010 14:47:22 -0400
-Message-ID: <1272480442-32673-6-git-send-email-vladislav.yasevich@hp.com>
+Subject: [PATCH 4/5] sctp: fix to calc the INIT/INIT-ACK chunk length correctly is set
+Date: Wed, 28 Apr 2010 14:47:21 -0400
+Message-ID: <1272480442-32673-5-git-send-email-vladislav.yasevich@hp.com>
 References: <1272480442-32673-1-git-send-email-vladislav.yasevich@hp.com>
 Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Yuansong Qiao <ysqiao@research.ait.ie>,
-	Shuaijun Zhang <szhang@research.ait.ie>
+	Wei Yongjun <yjwei@cn.fujitsu.com>,
+	Vlad Yasevich <vladislav.yasevich@hp.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:44499 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756493Ab0D1Sra (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 14:47:30 -0400
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:38971 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756333Ab0D1Sr2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 14:47:28 -0400
 In-Reply-To: <1272480442-32673-1-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When we finish processing ASCONF_ACK chunk, we try to send
-the next queued ASCONF.  This action runs the sctp state
-machine recursively and it's not prepared to do so.
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
 
-kernel BUG at kernel/timer.c:790!
-invalid opcode: 0000 [#1] SMP
-last sysfs file: /sys/module/ipv6/initstate
-Modules linked in: sha256_generic sctp libcrc32c ipv6 dm_multipath
-uinput 8139too i2c_piix4 8139cp mii i2c_core pcspkr virtio_net joydev
-floppy virtio_blk virtio_pci [last unloaded: scsi_wait_scan]
+When calculating the INIT/INIT-ACK chunk length, we should not
+only account the length of parameters, but also the parameters
+zero padding length, such as AUTH HMACS parameter and CHUNKS
+parameter. Without the parameters zero padding length we may get
+following oops.
 
-Pid: 0, comm: swapper Not tainted 2.6.34-rc4 #15 /Bochs
-EIP: 0060:[<c044a2ef>] EFLAGS: 00010286 CPU: 0
-EIP is at add_timer+0xd/0x1b
-EAX: cecbab14 EBX: 000000f0 ECX: c0957b1c EDX: 03595cf4
-ESI: cecba800 EDI: cf276f00 EBP: c0957aa0 ESP: c0957aa0
- DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
-Process swapper (pid: 0, ti=c0956000 task=c0988ba0 task.ti=c0956000)
+skb_over_panic: text:ce2068d2 len:130 put:6 head:cac3fe00 data:cac3fe00 tail:0xcac3fe82 end:0xcac3fe80 dev:<NULL>
+------------[ cut here ]------------
+kernel BUG at net/core/skbuff.c:127!
+invalid opcode: 0000 [#2] SMP
+last sysfs file: /sys/module/aes_generic/initstate
+Modules linked in: authenc ......
+
+Pid: 4102, comm: sctp_darn Tainted: G      D    2.6.34-rc2 #6
+EIP: 0060:[<c0607630>] EFLAGS: 00010282 CPU: 0
+EIP is at skb_over_panic+0x37/0x3e
+EAX: 00000078 EBX: c07c024b ECX: c07c02b9 EDX: cb607b78
+ESI: 00000000 EDI: cac3fe7a EBP: 00000002 ESP: cb607b74
+ DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
+Process sctp_darn (pid: 4102, ti=cb607000 task=cabdc990 task.ti=cb607000)
 Stack:
- c0957ae0 d1851214 c0ab62e4 c0ab5f26 0500ffff 00000004 00000005 00000004
-<0> 00000000 d18694fd 00000004 1666b892 cecba800 cecba800 c0957b14
-00000004
-<0> c0957b94 d1851b11 ceda8b00 cecba800 cf276f00 00000001 c0957b14
-000000d0
+ c07c02b9 ce2068d2 00000082 00000006 cac3fe00 cac3fe00 cac3fe82 cac3fe80
+<0> c07c024b cac3fe7c cac3fe7a c0608dec ca986e80 ce2068d2 00000006 0000007a
+<0> cb8120ca ca986e80 cb812000 00000003 cb8120c4 ce208a25 cb8120ca cadd9400
 Call Trace:
- [<d1851214>] ? sctp_side_effects+0x607/0xdfc [sctp]
- [<d1851b11>] ? sctp_do_sm+0x108/0x159 [sctp]
- [<d1863386>] ? sctp_pname+0x0/0x1d [sctp]
- [<d1861a56>] ? sctp_primitive_ASCONF+0x36/0x3b [sctp]
- [<d185657c>] ? sctp_process_asconf_ack+0x2a4/0x2d3 [sctp]
- [<d184e35c>] ? sctp_sf_do_asconf_ack+0x1dd/0x2b4 [sctp]
- [<d1851ac1>] ? sctp_do_sm+0xb8/0x159 [sctp]
- [<d1863334>] ? sctp_cname+0x0/0x52 [sctp]
- [<d1854377>] ? sctp_assoc_bh_rcv+0xac/0xe1 [sctp]
- [<d1858f0f>] ? sctp_inq_push+0x2d/0x30 [sctp]
- [<d186329d>] ? sctp_rcv+0x797/0x82e [sctp]
+ [<ce2068d2>] ? sctp_addto_chunk+0x45/0x85 [sctp]
+ [<c0608dec>] ? skb_put+0x2e/0x32
+ [<ce2068d2>] ? sctp_addto_chunk+0x45/0x85 [sctp]
+ [<ce208a25>] ? sctp_make_init+0x279/0x28c [sctp]
+ [<c0686a92>] ? apic_timer_interrupt+0x2a/0x30
+ [<ce1fdc0b>] ? sctp_sf_do_prm_asoc+0x2b/0x7b [sctp]
+ [<ce202823>] ? sctp_do_sm+0xa0/0x14a [sctp]
+ [<ce2133b9>] ? sctp_pname+0x0/0x14 [sctp]
+ [<ce211d72>] ? sctp_primitive_ASSOCIATE+0x2b/0x31 [sctp]
+ [<ce20f3cf>] ? sctp_sendmsg+0x7a0/0x9eb [sctp]
+ [<c064eb1e>] ? inet_sendmsg+0x3b/0x43
+ [<c04244b7>] ? task_tick_fair+0x2d/0xd9
+ [<c06031e1>] ? sock_sendmsg+0xa7/0xc1
+ [<c0416afe>] ? smp_apic_timer_interrupt+0x6b/0x75
+ [<c0425123>] ? dequeue_task_fair+0x34/0x19b
+ [<c0446abb>] ? sched_clock_local+0x17/0x11e
+ [<c052ea87>] ? _copy_from_user+0x2b/0x10c
+ [<c060ab3a>] ? verify_iovec+0x3c/0x6a
+ [<c06035ca>] ? sys_sendmsg+0x186/0x1e2
+ [<c042176b>] ? __wake_up_common+0x34/0x5b
+ [<c04240c2>] ? __wake_up+0x2c/0x3b
+ [<c057e35c>] ? tty_wakeup+0x43/0x47
+ [<c04430f2>] ? remove_wait_queue+0x16/0x24
+ [<c0580c94>] ? n_tty_read+0x5b8/0x65e
+ [<c042be02>] ? default_wake_function+0x0/0x8
+ [<c0604e0e>] ? sys_socketcall+0x17f/0x1cd
+ [<c040264c>] ? sysenter_do_call+0x12/0x22
+Code: 0f 45 de 53 ff b0 98 00 00 00 ff b0 94 ......
+EIP: [<c0607630>] skb_over_panic+0x37/0x3e SS:ESP 0068:cb607b74
 
-Tested-by: Wei Yongjun <yjwei@cn.fujitsu.com>
-Signed-off-by: Yuansong Qiao <ysqiao@research.ait.ie>
-Signed-off-by: Shuaijun Zhang <szhang@research.ait.ie>
+To reproduce:
+
+# modprobe sctp
+# echo 1 > /proc/sys/net/sctp/addip_enable
+# echo 1 > /proc/sys/net/sctp/auth_enable
+# sctp_test -H 3ffe:501:ffff:100:20c:29ff:fe4d:f37e -P 800 -l
+# sctp_darn -H 3ffe:501:ffff:100:20c:29ff:fe4d:f37e -P 900 -h 192.168.0.21 -p 800 -I -s -t
+sctp_darn ready to send...
+3ffe:501:ffff:100:20c:29ff:fe4d:f37e:900-192.168.0.21:800 Interactive mode> bindx-add=192.168.0.21
+3ffe:501:ffff:100:20c:29ff:fe4d:f37e:900-192.168.0.21:800 Interactive mode> bindx-add=192.168.1.21
+3ffe:501:ffff:100:20c:29ff:fe4d:f37e:900-192.168.0.21:800 Interactive mode> snd=10
+
+------------------------------------------------------------------
+eth0 has addresses: 3ffe:501:ffff:100:20c:29ff:fe4d:f37e and 192.168.0.21
+eth1 has addresses: 192.168.1.21
+------------------------------------------------------------------
+
+Reported-by: George Cheimonidis <gchimon@gmail.com>
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 ---
- include/net/sctp/command.h |    1 +
- net/sctp/sm_make_chunk.c   |   15 ---------------
- net/sctp/sm_sideeffect.c   |   26 ++++++++++++++++++++++++++
- net/sctp/sm_statefuns.c    |    8 +++++++-
- 4 files changed, 34 insertions(+), 16 deletions(-)
+ net/sctp/sm_make_chunk.c |   17 ++++++++++-------
+ 1 files changed, 10 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
-index 8be5135..2c55a7e 100644
---- a/include/net/sctp/command.h
-+++ b/include/net/sctp/command.h
-@@ -107,6 +107,7 @@ typedef enum {
- 	SCTP_CMD_T1_RETRAN,	 /* Mark for retransmission after T1 timeout  */
- 	SCTP_CMD_UPDATE_INITTAG, /* Update peer inittag */
- 	SCTP_CMD_SEND_MSG,	 /* Send the whole use message */
-+	SCTP_CMD_SEND_NEXT_ASCONF, /* Send the next ASCONF after ACK */
- 	SCTP_CMD_LAST
- } sctp_verb_t;
- 
 diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index f6fc5c1..0fd5b4c 100644
+index 17cb400..f6fc5c1 100644
 --- a/net/sctp/sm_make_chunk.c
 +++ b/net/sctp/sm_make_chunk.c
-@@ -3318,21 +3318,6 @@ int sctp_process_asconf_ack(struct sctp_association *asoc,
- 	sctp_chunk_free(asconf);
- 	asoc->addip_last_asconf = NULL;
+@@ -208,7 +208,8 @@ struct sctp_chunk *sctp_make_init(const struct sctp_association *asoc,
+ 	sp = sctp_sk(asoc->base.sk);
+ 	num_types = sp->pf->supported_addrs(sp, types);
  
--	/* Send the next asconf chunk from the addip chunk queue. */
--	if (!list_empty(&asoc->addip_chunk_list)) {
--		struct list_head *entry = asoc->addip_chunk_list.next;
--		asconf = list_entry(entry, struct sctp_chunk, list);
--
--		list_del_init(entry);
--
--		/* Hold the chunk until an ASCONF_ACK is received. */
--		sctp_chunk_hold(asconf);
--		if (sctp_primitive_ASCONF(asoc, asconf))
--			sctp_chunk_free(asconf);
--		else
--			asoc->addip_last_asconf = asconf;
--	}
--
- 	return retval;
- }
+-	chunksize = sizeof(init) + addrs_len + SCTP_SAT_LEN(num_types);
++	chunksize = sizeof(init) + addrs_len;
++	chunksize += WORD_ROUND(SCTP_SAT_LEN(num_types));
+ 	chunksize += sizeof(ecap_param);
  
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index 4c5bed9..d5ae450 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -962,6 +962,29 @@ static int sctp_cmd_send_msg(struct sctp_association *asoc,
- }
+ 	if (sctp_prsctp_enable)
+@@ -238,14 +239,14 @@ struct sctp_chunk *sctp_make_init(const struct sctp_association *asoc,
+ 		/* Add HMACS parameter length if any were defined */
+ 		auth_hmacs = (sctp_paramhdr_t *)asoc->c.auth_hmacs;
+ 		if (auth_hmacs->length)
+-			chunksize += ntohs(auth_hmacs->length);
++			chunksize += WORD_ROUND(ntohs(auth_hmacs->length));
+ 		else
+ 			auth_hmacs = NULL;
  
+ 		/* Add CHUNKS parameter length */
+ 		auth_chunks = (sctp_paramhdr_t *)asoc->c.auth_chunks;
+ 		if (auth_chunks->length)
+-			chunksize += ntohs(auth_chunks->length);
++			chunksize += WORD_ROUND(ntohs(auth_chunks->length));
+ 		else
+ 			auth_chunks = NULL;
  
-+/* Sent the next ASCONF packet currently stored in the association.
-+ * This happens after the ASCONF_ACK was succeffully processed.
-+ */
-+static void sctp_cmd_send_asconf(struct sctp_association *asoc)
-+{
-+	/* Send the next asconf chunk from the addip chunk
-+	 * queue.
-+	 */
-+	if (!list_empty(&asoc->addip_chunk_list)) {
-+		struct list_head *entry = asoc->addip_chunk_list.next;
-+		struct sctp_chunk *asconf = list_entry(entry,
-+						struct sctp_chunk, list);
-+		list_del_init(entry);
-+
-+		/* Hold the chunk until an ASCONF_ACK is received. */
-+		sctp_chunk_hold(asconf);
-+		if (sctp_primitive_ASCONF(asoc, asconf))
-+			sctp_chunk_free(asconf);
-+		else
-+			asoc->addip_last_asconf = asconf;
-+	}
-+}
-+
+@@ -255,7 +256,8 @@ struct sctp_chunk *sctp_make_init(const struct sctp_association *asoc,
  
- /* These three macros allow us to pull the debugging code out of the
-  * main flow of sctp_do_sm() to keep attention focused on the real
-@@ -1617,6 +1640,9 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
- 			}
- 			error = sctp_cmd_send_msg(asoc, cmd->obj.msg);
- 			break;
-+		case SCTP_CMD_SEND_NEXT_ASCONF:
-+			sctp_cmd_send_asconf(asoc);
-+			break;
- 		default:
- 			printk(KERN_WARNING "Impossible command: %u, %p\n",
- 			       cmd->verb, cmd->obj.ptr);
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index abf601a..24b2cd5 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -3676,8 +3676,14 @@ sctp_disposition_t sctp_sf_do_asconf_ack(const struct sctp_endpoint *ep,
- 				SCTP_TO(SCTP_EVENT_TIMEOUT_T4_RTO));
+ 	/* If we have any extensions to report, account for that */
+ 	if (num_ext)
+-		chunksize += sizeof(sctp_supported_ext_param_t) + num_ext;
++		chunksize += WORD_ROUND(sizeof(sctp_supported_ext_param_t) +
++					num_ext);
  
- 		if (!sctp_process_asconf_ack((struct sctp_association *)asoc,
--					     asconf_ack))
-+					     asconf_ack)) {
-+			/* Successfully processed ASCONF_ACK.  We can
-+			 * release the next asconf if we have one.
-+			 */
-+			sctp_add_cmd_sf(commands, SCTP_CMD_SEND_NEXT_ASCONF,
-+					SCTP_NULL());
- 			return SCTP_DISPOSITION_CONSUME;
-+		}
+ 	/* RFC 2960 3.3.2 Initiation (INIT) (1)
+ 	 *
+@@ -397,13 +399,13 @@ struct sctp_chunk *sctp_make_init_ack(const struct sctp_association *asoc,
  
- 		abort = sctp_make_abort(asoc, asconf_ack,
- 					sizeof(sctp_errhdr_t));
+ 		auth_hmacs = (sctp_paramhdr_t *)asoc->c.auth_hmacs;
+ 		if (auth_hmacs->length)
+-			chunksize += ntohs(auth_hmacs->length);
++			chunksize += WORD_ROUND(ntohs(auth_hmacs->length));
+ 		else
+ 			auth_hmacs = NULL;
+ 
+ 		auth_chunks = (sctp_paramhdr_t *)asoc->c.auth_chunks;
+ 		if (auth_chunks->length)
+-			chunksize += ntohs(auth_chunks->length);
++			chunksize += WORD_ROUND(ntohs(auth_chunks->length));
+ 		else
+ 			auth_chunks = NULL;
+ 
+@@ -412,7 +414,8 @@ struct sctp_chunk *sctp_make_init_ack(const struct sctp_association *asoc,
+ 	}
+ 
+ 	if (num_ext)
+-		chunksize += sizeof(sctp_supported_ext_param_t) + num_ext;
++		chunksize += WORD_ROUND(sizeof(sctp_supported_ext_param_t) +
++					num_ext);
+ 
+ 	/* Now allocate and fill out the chunk.  */
+ 	retval = sctp_make_chunk(asoc, SCTP_CID_INIT_ACK, 0, chunksize);
 -- 
 1.6.0.4
 
