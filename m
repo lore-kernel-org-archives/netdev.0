@@ -1,87 +1,65 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH]: sctp: Fix skb_over_panic resulting from multiple
- invalid parameter errors (CVE-2010-1173)
-Date: Wed, 28 Apr 2010 14:16:45 -0400
-Message-ID: <20100428181645.GD4818@hmsreliant.think-freely.org>
-References: <20100428134748.GA4818@hmsreliant.think-freely.org>
- <4BD83F85.8090308@hp.com>
- <20100428142147.GB4818@hmsreliant.think-freely.org>
- <4BD8481E.3010509@hp.com>
- <4BD875C5.9000907@hp.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH] forcedeth: Stay in NAPI as long as there's work
+Date: Wed, 28 Apr 2010 11:18:02 -0700
+Message-ID: <k2w65634d661004281118t9fd212fbs8afc3a115bfffdea@mail.gmail.com>
+References: <alpine.DEB.1.00.1004272332350.30235@pokey.mtv.corp.google.com>
+	 <1272477251.18228.36.camel@Joe-Laptop.home>
+	 <g2t65634d661004281107j676369c9ge379434723478c1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sri@us.ibm.com, linux-sctp@vger.kernel.org, eteo@redhat.com,
-	netdev@vger.kernel.org, davem@davemloft.net, security@kernel.org
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, aabdulla@nvidia.com, davem@davemloft.net
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:33693 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754655Ab0D1SQy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 14:16:54 -0400
-Content-Disposition: inline
-In-Reply-To: <4BD875C5.9000907@hp.com>
+Received: from smtp-out.google.com ([216.239.44.51]:1107 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756220Ab0D1SSI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 14:18:08 -0400
+Received: from hpaq2.eem.corp.google.com (hpaq2.eem.corp.google.com [10.3.21.2])
+	by smtp-out.google.com with ESMTP id o3SII6bN003677
+	for <netdev@vger.kernel.org>; Wed, 28 Apr 2010 11:18:06 -0700
+Received: from pwj8 (pwj8.prod.google.com [10.241.219.72])
+	by hpaq2.eem.corp.google.com with ESMTP id o3SII4DH029900
+	for <netdev@vger.kernel.org>; Wed, 28 Apr 2010 11:18:04 -0700
+Received: by pwj8 with SMTP id 8so11369858pwj.24
+        for <netdev@vger.kernel.org>; Wed, 28 Apr 2010 11:18:03 -0700 (PDT)
+In-Reply-To: <g2t65634d661004281107j676369c9ge379434723478c1@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 28, 2010 at 01:52:05PM -0400, Vlad Yasevich wrote:
-> 
-> 
-> Vlad Yasevich wrote:
-> > 
-> > Neil Horman wrote:
-> >> On Wed, Apr 28, 2010 at 10:00:37AM -0400, Vlad Yasevich wrote:
-> >>> I have this patch and a few others already queued.
-> >>>
-> >>> I was planning on sending these today for stable.
-> >>>
-> >>> Here is the full list of stable patches I have:
-> >>>
-> >>> sctp: Fix oops when sending queued ASCONF chunks
-> >>> sctp: fix to calc the INIT/INIT-ACK chunk length correctly is set
-> >>> sctp: per_cpu variables should be in bh_disabled section
-> >>> sctp: fix potential reference of a freed pointer
-> >>> sctp: avoid irq lock inversion while call sk->sk_data_ready()
-> >>>
-> >>> -vlad
-> >>>
-> >> Are you sure?  this oops looks _very_ simmilar to the INIT/INIT-ACK length
-> >> calculation oops described above, but is in fact different, and requires this
-> >> patch, from what I can see.  The right fix might be in the ASCONF chunk patch
-> >> you list above, but I don't see that in your tree at the moment, so I can't be
-> >> sure.
-> > 
-> > As I said, I totally goofed when reading the description and I apologize.
-> > However, I do one comment regarding the patch.
-> > 
-> > If the bad packet is REALLY long (I mean close to 65K IP limit), then
-> > we'll end up allocating a supper huge skb in this case and potentially exceed
-> > the IP length limitation.  Section 11.4 of rfc 4960 allows us to omit some
-> > errors and limit the size of the packet.
-> > 
-> > I would recommend limiting this to MTU worth of potentiall errors.  This is
-> > on top of what the INIT-ACK is going to carry, so at most we'll sent 2 MTUs
-> > worth.  That's still a potential by amplification attack, but it's somewhat
-> > mitigated.
-> > 
-> > Of course now we have to handle the case of checking for space before adding
-> > an error cause. :)
-> > 
-> 
-> Hi Neil
-> 
-> I am also not crazy about the pre-allocation scheme.  In the case where you have
-> say 100 parameters that are all 'skip' parameters, you'd end up pre-allocating a
-> huge buffer for absolutely nothing.
-> 
-Would have been nice if you'd made your opinion known 4 hours ago when I was
-testing version 2 of this. :)
+On Wed, Apr 28, 2010 at 11:07 AM, Tom Herbert <therbert@google.com> wro=
+te:
+>>
+>> It might be better to test the comparisons using
+>> a cpu_to_le32 of the constants.
+>>
+> Yes. =A0Probably should also be changed in nv_tx_done{_optimized} and
+> nv_rx_process{_optimized}
+>
+Scratch that.  flags are checked all over the place in those other func=
+tions.
 
-> This is another point toward a fixed error chunk size and let parameter
-> processing allocate it when it reaches a parameter that needs an error.
-> 
-Hmm, ok, what would you say to a pathmtu sized chunk allocation in parameter
-processing that drops errors beyond its capacity
-Neil
-
-
-> 
+>> static inline int nv_has_work(struct fe_priv *np)
+>> {
+>> =A0 =A0 =A0 =A0if (nv_optimized(np))
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return ((np->get_rx.ex !=3D np->put_r=
+x.ex) &&
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0!(np->get_rx.ex->flag=
+len & cpu_to_le32(NV_RX2_AVAIL))) ||
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ((np->get_tx.ex !=3D np-=
+>put_tx.ex) &&
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0!(np->get_tx.ex->flag=
+len & cpu_to_le32(NV_TX_VALID)));
+>>
+>> =A0 =A0 =A0 =A0return ((np->get_rx.orig !=3D np->put_rx.orig) &&
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0!(np->get_rx.orig->flaglen & cpu_to_l=
+e32(NV_RX_AVAIL))) ||
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 ((np->get_tx.orig !=3D np->put_tx.orig) =
+&&
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0!(np->get_tx.orig->flaglen & cpu_to_l=
+e32(NV_TX_VALID)));
+>> }
+>>
+>>
+>>
+>
