@@ -1,35 +1,32 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2010-04-15
-Date: Wed, 28 Apr 2010 14:23:23 -0700 (PDT)
-Message-ID: <20100428.142323.91321737.davem@davemloft.net>
-References: <20100415200331.GD3020@tuxdriver.com>
-	<20100415.142907.68448693.davem@davemloft.net>
-	<4BD8A6B4.20603@hauke-m.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH]: sctp: Fix skb_over_panic resulting from multiple
+ invalid parameter errors (CVE-2010-1173) (v4)
+Date: Wed, 28 Apr 2010 14:23:39 -0700 (PDT)
+Message-ID: <20100428.142339.45883821.davem@davemloft.net>
+References: <4BD897B6.5040405@hp.com>
+	<20100428203059.GG4818@hmsreliant.think-freely.org>
+	<4BD89C70.6080406@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: hauke-5/S+JYg5SzeELgA04lAiVw@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4BD8A6B4.20603-5/S+JYg5SzeELgA04lAiVw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: nhorman@tuxdriver.com, sri@us.ibm.com, linux-sctp@vger.kernel.org,
+	eteo@redhat.com, netdev@vger.kernel.org, security@kernel.org
+To: vladislav.yasevich@hp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59887
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755351Ab0D1VXd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 17:23:33 -0400
+In-Reply-To: <4BD89C70.6080406@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hauke Mehrtens <hauke-5/S+JYg5SzeELgA04lAiVw@public.gmane.org>
-Date: Wed, 28 Apr 2010 23:20:52 +0200
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Wed, 28 Apr 2010 16:37:04 -0400
 
-> Hi David,
 > 
-> in your merge in 5c01d5669356e13f0fb468944c1dd4c6a7e978ad you added "int
-> i;" into wl1271_main.c which is unused in that function.
+> Looks good.
 > 
-> This patch fixes the merge problem:
-> 
-> Signed-off-by: Hauke Mehrtens <hauke-5/S+JYg5SzeELgA04lAiVw@public.gmane.org>
+> Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 
-Applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks Neil and Vlad.
