@@ -1,58 +1,87 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] forcedeth: Stay in NAPI as long as there's work
-Date: Wed, 28 Apr 2010 11:13:54 -0700
-Message-ID: <20100428111354.49a6ec1a@nehalam>
-References: <alpine.DEB.1.00.1004272332350.30235@pokey.mtv.corp.google.com>
-	<1272477251.18228.36.camel@Joe-Laptop.home>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH]: sctp: Fix skb_over_panic resulting from multiple
+ invalid parameter errors (CVE-2010-1173)
+Date: Wed, 28 Apr 2010 14:16:45 -0400
+Message-ID: <20100428181645.GD4818@hmsreliant.think-freely.org>
+References: <20100428134748.GA4818@hmsreliant.think-freely.org>
+ <4BD83F85.8090308@hp.com>
+ <20100428142147.GB4818@hmsreliant.think-freely.org>
+ <4BD8481E.3010509@hp.com>
+ <4BD875C5.9000907@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
-	aabdulla@nvidia.com, davem@davemloft.net
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: sri@us.ibm.com, linux-sctp@vger.kernel.org, eteo@redhat.com,
+	netdev@vger.kernel.org, davem@davemloft.net, security@kernel.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:51470 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752939Ab0D1SOP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Apr 2010 14:14:15 -0400
-In-Reply-To: <1272477251.18228.36.camel@Joe-Laptop.home>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:33693 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754655Ab0D1SQy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 14:16:54 -0400
+Content-Disposition: inline
+In-Reply-To: <4BD875C5.9000907@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 28 Apr 2010 10:54:11 -0700
-Joe Perches <joe@perches.com> wrote:
+On Wed, Apr 28, 2010 at 01:52:05PM -0400, Vlad Yasevich wrote:
+> 
+> 
+> Vlad Yasevich wrote:
+> > 
+> > Neil Horman wrote:
+> >> On Wed, Apr 28, 2010 at 10:00:37AM -0400, Vlad Yasevich wrote:
+> >>> I have this patch and a few others already queued.
+> >>>
+> >>> I was planning on sending these today for stable.
+> >>>
+> >>> Here is the full list of stable patches I have:
+> >>>
+> >>> sctp: Fix oops when sending queued ASCONF chunks
+> >>> sctp: fix to calc the INIT/INIT-ACK chunk length correctly is set
+> >>> sctp: per_cpu variables should be in bh_disabled section
+> >>> sctp: fix potential reference of a freed pointer
+> >>> sctp: avoid irq lock inversion while call sk->sk_data_ready()
+> >>>
+> >>> -vlad
+> >>>
+> >> Are you sure?  this oops looks _very_ simmilar to the INIT/INIT-ACK length
+> >> calculation oops described above, but is in fact different, and requires this
+> >> patch, from what I can see.  The right fix might be in the ASCONF chunk patch
+> >> you list above, but I don't see that in your tree at the moment, so I can't be
+> >> sure.
+> > 
+> > As I said, I totally goofed when reading the description and I apologize.
+> > However, I do one comment regarding the patch.
+> > 
+> > If the bad packet is REALLY long (I mean close to 65K IP limit), then
+> > we'll end up allocating a supper huge skb in this case and potentially exceed
+> > the IP length limitation.  Section 11.4 of rfc 4960 allows us to omit some
+> > errors and limit the size of the packet.
+> > 
+> > I would recommend limiting this to MTU worth of potentiall errors.  This is
+> > on top of what the INIT-ACK is going to carry, so at most we'll sent 2 MTUs
+> > worth.  That's still a potential by amplification attack, but it's somewhat
+> > mitigated.
+> > 
+> > Of course now we have to handle the case of checking for space before adding
+> > an error cause. :)
+> > 
+> 
+> Hi Neil
+> 
+> I am also not crazy about the pre-allocation scheme.  In the case where you have
+> say 100 parameters that are all 'skip' parameters, you'd end up pre-allocating a
+> huge buffer for absolutely nothing.
+> 
+Would have been nice if you'd made your opinion known 4 hours ago when I was
+testing version 2 of this. :)
 
-> On Tue, 2010-04-27 at 23:36 -0700, Tom Herbert wrote:
-> > Add loop in NAPI poll routine to keep processing RX and TX as long as
-> > there is more work to do.  This is similar to what tg3 and some other
-> > drivers do.
-> > Signed-off-by: Tom Herbert <therbert@google.com>
-> > ---
-> > diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
-> > index a1c0e7b..1e4de7b 100644
-> > --- a/drivers/net/forcedeth.c
-> > +++ b/drivers/net/forcedeth.c
-> > @@ -3736,6 +3736,23 @@ static irqreturn_t nv_nic_irq_tx(int foo, void *data)
-> >  }
-> >  
-> >  #ifdef CONFIG_FORCEDETH_NAPI
-> > +static inline int nv_has_work(struct fe_priv *np)
-> > +{
-> > +	if (nv_optimized(np)) {
-> > +		return (
-> > +		    ((np->get_rx.ex != np->put_rx.ex) &&
-> > +		     !(le32_to_cpu(np->get_rx.ex->flaglen) & NV_RX2_AVAIL)) ||
-> > +		    ((np->get_tx.ex != np->put_tx.ex) &&
-> > +		     !(le32_to_cpu(np->get_tx.ex->flaglen) & NV_TX_VALID)));
-> > +	} else {
-> > +		return (
-> > +		    ((np->get_rx.orig != np->put_rx.orig) &&
-> > +		     !(le32_to_cpu(np->get_rx.orig->flaglen) & NV_RX_AVAIL)) ||
-> > +		    ((np->get_tx.orig != np->put_tx.orig) &&
-> > +		     !(le32_to_cpu(np->get_tx.orig->flaglen) & NV_TX_VALID)));
-> > +	}
-> > +}
+> This is another point toward a fixed error chunk size and let parameter
+> processing allocate it when it reaches a parameter that needs an error.
+> 
+Hmm, ok, what would you say to a pathmtu sized chunk allocation in parameter
+processing that drops errors beyond its capacity
+Neil
 
-Why than adding another check step, why not just keep going until
-rx_done returns 0?
 
+> 
