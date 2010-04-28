@@ -1,36 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 2/3] igb: add registers etc. printout code
- just before resetting adapters
-Date: Tue, 27 Apr 2010 17:47:12 -0700 (PDT)
-Message-ID: <20100427.174712.113711095.davem@davemloft.net>
-References: <20100428003904.28563.2462.stgit@localhost.localdomain>
-	<20100428003928.28563.54019.stgit@localhost.localdomain>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: manual merge of the net tree with Linus' tree
+Date: Wed, 28 Apr 2010 10:47:04 +1000
+Message-ID: <20100428104704.f127aec5.sfr@canb.auug.org.au>
+References: <20100427112827.1f17be40.sfr@canb.auug.org.au>
+	<20100427.170543.233869422.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	izumi.taku@jp.fujitsu.com, sanagi.koki@jp.fujitsu.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49932
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753173Ab0D1ArG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 20:47:06 -0400
-In-Reply-To: <20100428003928.28563.54019.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Wed__28_Apr_2010_10_47_04_+1000_v1kSfngYT04CuuXO"
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, alan@linux.intel.com, joe@perches.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100427.170543.233869422.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 27 Apr 2010 17:39:30 -0700
+--Signature=_Wed__28_Apr_2010_10_47_04_+1000_v1kSfngYT04CuuXO
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> From: Taku Izumi <izumi.taku@jp.fujitsu.com>
-> 
-> This patch adds registers (,tx/rx rings' status and so on) printout
-> code just before resetting adapters. This will be helpful for detecting
-> the root cause of adapters reset.
-> 
-> Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
-> Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Hi Dave,
 
-Applied.
+On Tue, 27 Apr 2010 17:05:43 -0700 (PDT) David Miller <davem@davemloft.net>=
+ wrote:
+>
+> This should be resolved now that I pulled net-2.6 into net-next-2.6
+> earlier today.
+
+Excellent, thanks.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Wed__28_Apr_2010_10_47_04_+1000_v1kSfngYT04CuuXO
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAkvXhYgACgkQjjKRsyhoI8yLnACfd9jdEc/MBMx1Qw84UWDLH60D
+9vcAniY6uDfwXLwYe8gRLa2VKJQs1Obm
+=Ns3A
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__28_Apr_2010_10_47_04_+1000_v1kSfngYT04CuuXO--
