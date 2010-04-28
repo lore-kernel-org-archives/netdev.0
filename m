@@ -1,49 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH/RFC Resubmission] cdc_ether: Identify MBM devices by
- GUID in MDLM descriptor
-Date: Tue, 27 Apr 2010 17:09:59 -0700 (PDT)
-Message-ID: <20100427.170959.256868398.davem@davemloft.net>
-References: <4BD17F81.4070301@ericsson.com>
+Subject: Re: [PATCH] ipv4: handle GARPs specially when updating neighbors
+Date: Tue, 27 Apr 2010 17:16:10 -0700 (PDT)
+Message-ID: <20100427.171610.66739040.davem@davemloft.net>
+References: <EF944FCCC928C64A875FE3EA1A41062C38FD52F406@P3PW5EX1MB02.EX1.SECURESERVER.NET>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: oneukum@suse.de, netdev@vger.kernel.org
-To: jonas.sjoquist@ericsson.com
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: sasha@comsleep.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48019
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52227
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752200Ab0D1AJx convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Apr 2010 20:09:53 -0400
-In-Reply-To: <4BD17F81.4070301@ericsson.com>
+	by vger.kernel.org with ESMTP id S1751507Ab0D1AQJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 20:16:09 -0400
+In-Reply-To: <EF944FCCC928C64A875FE3EA1A41062C38FD52F406@P3PW5EX1MB02.EX1.SECURESERVER.NET>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Jonas Sjoquist <jonas.sjoquist@ericsson.com>
-Date: Fri, 23 Apr 2010 13:07:45 +0200
-
-> From: Jonas Sj=F6quist <jonas.sjoquist@ericsson.com>
->=20
-> This patch removes vid/pid for Ericsson MBM devices from the whitelis=
-t set of
-> devices. The MBM devices are instead identified by GUID.
->=20
-> In order for cdc_ether to handle these devices the GUID in the MDLM d=
-escriptor
-> is tested. All MBM devices currently handled by cdc_ether as well as =
-future
-> CDC Ethernet MBM devices can be identified by the GUID.
->=20
-> This is the same solution used in Carl Nordbeck's mbm driver,
-> http://kerneltrap.org/mailarchive/linux-usb/2008/11/17/4141384/thread
->=20
-> I post this as RFC to get feedback on however cdc_ether is the correc=
-t place to
-> do the binding, or if it should be done in a separate driver, e.g. za=
-urus.
->=20
-> Signed-off-by: Jonas Sj=F6quist <jonas.sjoquist@ericsson.com>
-
-Can someone knowledgable with the cdc_ether driver review this change?
-
-Thanks.
+RnJvbTogU2FzaGEgTGV2aW4gPHNhc2hhQGNvbXNsZWVwLmNvbT4NCkRhdGU6IFdlZCwgMjEgQXBy
+IDIwMTAgMDE6MDI6MDIgLTA3MDANCg0KPiBBY2NvcmRpbmcgdG8gdGhlIGNvZGUsIHRoaXMgc2Nl
+bmFyaW8gaGFwcGVucyBiZWNhdXNlIHRoZSBrZXJuZWwNCj4gaWdub3JlcyBhbnkgQVJQIHVwZGF0
+ZXMgd2hpY2ggaGFwcGVuZWQgaW4gYSBzaG9ydCBwZXJpb2QgYWZ0ZXIgdGhlDQo+IHByZXZpb3Vz
+IEFSUCB1cGRhdGUuIFRoZSByZWFzb24gd2hpY2ggd2FzIHN0YXRlZCBpbiB0aGUgY29tbWVudHMg
+aXMNCj4gwqDigJxJZiBzZXZlcmFsIGRpZmZlcmVudCBBUlAgcmVwbGllcyBmb2xsb3dzIGJhY2st
+dG8tYmFjaywgdXNlIHRoZQ0KPiBGSVJTVCBvbmUuIEl0IGlzIHBvc3NpYmxlLCBpZiBzZXZlcmFs
+IHByb3h5IGFnZW50cyBhcmUNCj4gYWN0aXZlLiBUYWtpbmcgdGhlIGZpcnN0IHJlcGx5IHByZXZl
+bnRzIGFycCB0cmFzaGluZyBhbmQgY2hvb3NlcyB0aGUNCj4gZmFzdGVzdCByb3V0ZXIu4oCdLg0K
+Pg0KPiBUaGlzLCBob3dldmVyLCBkb2VzbuKAmXQgdGFrZSBpbnRvIGFjY291bnQgR0FSUHMgd2hp
+Y2ggYXJlIG5vdCBiZWluZw0KPiBzZW50IGJ5IEFSUCBwcm94aWVzIGFueXdheSBhbmQganVzdCBp
+Z25vcmVzIHRoZW0gdG9vIOKAkyBjYXVzaW5nIGENCj4gbG9zcyBvZiBjb21tdW5pY2F0aW9uIGZv
+ciBvdmVyIGEgbWludXRlIHVudGlsIHRoZSBBUlAgY2FjaGUNCj4gcmVmcmVzaGVzLg0KDQpJdCdz
+IG5vdCBqdXN0IGFib3V0IHByb3hpZXMsIGl0J3MgYWxzbyBhYm91dCBtYWxpY2lvdXMgZW50aXRp
+ZXMgb24gdGhlDQpsaW5rIHRoYXQgd2FudCB0byBhYnNvcmIgYWxsIG9mIG91ciB0cmFmZmljIHRv
+IGEgZ2l2ZW4gZGVzdGluYXRpb24uDQoNCldpdGggeW91ciBjaGFuZ2UsIHRoZWlyIGpvYiBpcyBt
+dWNoIGVhc2llci4gIEFsdGhvdWdoIG5vdCBpbXBvc3NpYmxlLA0KaXQncyB2ZXJ5IGRpZmZpY3Vs
+dCBjdXJyZW5ydGx5Lg0KDQpPdmVyYWxsLCBhbGxvd2luZyBmbGFwcGluZyBvZiBBUlAgaW5mb3Jt
+YXRpb24gaXMgc3Vib3B0aW1hbCBhdCBiZXN0DQphbmQgZGFuZ2Vyb3VzIGF0IHdvcnN0Lg0KDQpT
+byBzb3JyeSwgSSB3b24ndCBiZSBhcHBseWluZyB5b3VyIHBhdGNoLg0K
