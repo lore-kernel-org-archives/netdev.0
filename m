@@ -1,200 +1,177 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH]: sctp: Fix skb_over_panic resulting from multiple invalid
- parameter errors (CVE-2010-1173)
-Date: Wed, 28 Apr 2010 10:00:37 -0400
-Message-ID: <4BD83F85.8090308@hp.com>
-References: <20100428134748.GA4818@hmsreliant.think-freely.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] net: speedup udp receive path
+Date: Wed, 28 Apr 2010 16:06:45 +0200
+Message-ID: <1272463605.2267.70.camel@edumazet-laptop>
+References: <1272010378-2955-1-git-send-email-xiaosuo@gmail.com>
+	 <1272018366.7895.7930.camel@edumazet-laptop>
+	 <20100427.150817.84390202.davem@davemloft.net>
+	 <1272406693.2343.26.camel@edumazet-laptop>  <1272454432.14068.4.camel@bigi>
+	 <1272458001.2267.0.camel@edumazet-laptop>  <1272458174.14068.16.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: sri@us.ibm.com, linux-sctp@vger.kernel.org, eteo@redhat.com,
-	netdev@vger.kernel.org, davem@davemloft.net, security@kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, xiaosuo@gmail.com,
+	therbert@google.com, shemminger@vyatta.com, netdev@vger.kernel.org,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Brian Bloniarz <bmb@athenacr.com>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0016.houston.hp.com ([15.201.24.19]:48044 "EHLO
-	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751312Ab0D1OAk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 10:00:40 -0400
-In-Reply-To: <20100428134748.GA4818@hmsreliant.think-freely.org>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:35049 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750945Ab0D1OGx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 10:06:53 -0400
+Received: by bwz19 with SMTP id 19so2788bwz.21
+        for <netdev@vger.kernel.org>; Wed, 28 Apr 2010 07:06:50 -0700 (PDT)
+In-Reply-To: <1272458174.14068.16.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have this patch and a few others already queued.
+Le mercredi 28 avril 2010 =C3=A0 08:36 -0400, jamal a =C3=A9crit :
+> On Wed, 2010-04-28 at 14:33 +0200, Eric Dumazet wrote:
+>=20
+> > If you wait a bit, I have another patch to speedup udp receive path=
+ ;)
+>=20
+> Shoot whenever you are ready ;-> I will test with and without your
+> patch..
+>=20
 
-I was planning on sending these today for stable.
+Here it is ;)
 
-Here is the full list of stable patches I have:
+Thanks
 
-sctp: Fix oops when sending queued ASCONF chunks
-sctp: fix to calc the INIT/INIT-ACK chunk length correctly is set
-sctp: per_cpu variables should be in bh_disabled section
-sctp: fix potential reference of a freed pointer
-sctp: avoid irq lock inversion while call sk->sk_data_ready()
+[PATCH net-next-2.6] net: speedup udp receive path
 
--vlad
+Since commit 95766fff ([UDP]: Add memory accounting.),=20
+each received packet needs one extra sock_lock()/sock_release() pair.
 
-Neil Horman wrote:
-> Hey-
-> 	Recently, it was reported to me that the kernel could oops in the
-> following way:
-> 
-> <5> kernel BUG at net/core/skbuff.c:91!
-> <5> invalid operand: 0000 [#1]
-> <5> Modules linked in: sctp netconsole nls_utf8 autofs4 sunrpc iptable_filter
-> ip_tables cpufreq_powersave parport_pc lp parport vmblock(U) vsock(U) vmci(U)
-> vmxnet(U) vmmemctl(U) vmhgfs(U) acpiphp dm_mirror dm_mod button battery ac md5
-> ipv6 uhci_hcd ehci_hcd snd_ens1371 snd_rawmidi snd_seq_device snd_pcm_oss
-> snd_mixer_oss snd_pcm snd_timer snd_page_alloc snd_ac97_codec snd soundcore
-> pcnet32 mii floppy ext3 jbd ata_piix libata mptscsih mptsas mptspi mptscsi
-> mptbase sd_mod scsi_mod
-> <5> CPU:    0
-> <5> EIP:    0060:[<c02bff27>]    Not tainted VLI
-> <5> EFLAGS: 00010216   (2.6.9-89.0.25.EL) 
-> <5> EIP is at skb_over_panic+0x1f/0x2d
-> <5> eax: 0000002c   ebx: c033f461   ecx: c0357d96   edx: c040fd44
-> <5> esi: c033f461   edi: df653280   ebp: 00000000   esp: c040fd40
-> <5> ds: 007b   es: 007b   ss: 0068
-> <5> Process swapper (pid: 0, threadinfo=c040f000 task=c0370be0)
-> <5> Stack: c0357d96 e0c29478 00000084 00000004 c033f461 df653280 d7883180
-> e0c2947d 
-> <5>        00000000 00000080 df653490 00000004 de4f1ac0 de4f1ac0 00000004
-> df653490 
-> <5>        00000001 e0c2877a 08000800 de4f1ac0 df653490 00000000 e0c29d2e
-> 00000004 
-> <5> Call Trace:
-> <5>  [<e0c29478>] sctp_addto_chunk+0xb0/0x128 [sctp]
-> <5>  [<e0c2947d>] sctp_addto_chunk+0xb5/0x128 [sctp]
-> <5>  [<e0c2877a>] sctp_init_cause+0x3f/0x47 [sctp]
-> <5>  [<e0c29d2e>] sctp_process_unk_param+0xac/0xb8 [sctp]
-> <5>  [<e0c29e90>] sctp_verify_init+0xcc/0x134 [sctp]
-> <5>  [<e0c20322>] sctp_sf_do_5_1B_init+0x83/0x28e [sctp]
-> <5>  [<e0c25333>] sctp_do_sm+0x41/0x77 [sctp]
-> <5>  [<c01555a4>] cache_grow+0x140/0x233
-> <5>  [<e0c26ba1>] sctp_endpoint_bh_rcv+0xc5/0x108 [sctp]
-> <5>  [<e0c2b863>] sctp_inq_push+0xe/0x10 [sctp]
-> <5>  [<e0c34600>] sctp_rcv+0x454/0x509 [sctp]
-> <5>  [<e084e017>] ipt_hook+0x17/0x1c [iptable_filter]
-> <5>  [<c02d005e>] nf_iterate+0x40/0x81
-> <5>  [<c02e0bb9>] ip_local_deliver_finish+0x0/0x151
-> <5>  [<c02e0c7f>] ip_local_deliver_finish+0xc6/0x151
-> <5>  [<c02d0362>] nf_hook_slow+0x83/0xb5
-> <5>  [<c02e0bb2>] ip_local_deliver+0x1a2/0x1a9
-> <5>  [<c02e0bb9>] ip_local_deliver_finish+0x0/0x151
-> <5>  [<c02e103e>] ip_rcv+0x334/0x3b4
-> <5>  [<c02c66fd>] netif_receive_skb+0x320/0x35b
-> <5>  [<e0a0928b>] init_stall_timer+0x67/0x6a [uhci_hcd]
-> <5>  [<c02c67a4>] process_backlog+0x6c/0xd9
-> <5>  [<c02c690f>] net_rx_action+0xfe/0x1f8
-> <5>  [<c012a7b1>] __do_softirq+0x35/0x79
-> <5>  [<c0107efb>] handle_IRQ_event+0x0/0x4f
-> <5>  [<c01094de>] do_softirq+0x46/0x4d
-> 
-> Its an skb_over_panic BUG halt that results from processing an init chunk in
-> which too many of its variable length parameters are in some way malformed.
-> 
-> The problem is in sctp_process_unk_param:
-> if (NULL == *errp)
-> 	*errp = sctp_make_op_error_space(asoc, chunk,
-> 					 ntohs(chunk->chunk_hdr->length));
-> 
-> 	if (*errp) {
-> 		sctp_init_cause(*errp, SCTP_ERROR_UNKNOWN_PARAM,
-> 				 WORD_ROUND(ntohs(param.p->length)));
-> 		sctp_addto_chunk(*errp,
-> 			WORD_ROUND(ntohs(param.p->length)),
-> 				  param.v);
-> 
-> When we allocate an error chunk, we assume that the worst case scenario requires
-> that we have chunk_hdr->length data allocated, which would be correct nominally,
-> given that we call sctp_addto_chunk for the violating parameter.  Unfortunately,
-> we also, in sctp_init_cause insert a sctp_errhdr_t structure into the error
-> chunk, so the worst case situation in which all parameters are in violation
-> requires chunk_hdr->length+(sizeof(sctp_errhdr_t)*param_count) bytes of data.
-> 
-> The result of this error is that a deliberately malformed packet sent to a
-> listening host can cause a remote DOS, described in CVE-2010-1173:
-> http://cve.mitre.org/cgi-bin/cvename.cgi?name=2010-1173
-> 
-> I've tested the below fix and confirmed that it fixes the issue.  It
-> pre-allocates the error chunk in sctp_verify_init, where we are able to count
-> the total number of variable length parameters, so we know how many error
-> headers we might need.  Then we simply use that chunk, if we find an error, or
-> discard/free it if all the parameters are valid.  Applies on top of the
-> lksctp-dev tree
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> 
-> 
->  sm_make_chunk.c |   24 ++++++++++++++++++++++--
->  1 file changed, 22 insertions(+), 2 deletions(-)
-> 
-> 
-> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-> index f592163..990457b 100644
-> --- a/net/sctp/sm_make_chunk.c
-> +++ b/net/sctp/sm_make_chunk.c
-> @@ -2134,6 +2134,8 @@ int sctp_verify_init(const struct sctp_association *asoc,
->  	union sctp_params param;
->  	int has_cookie = 0;
->  	int result;
-> +	unsigned int param_cnt;
-> +	unsigned int len;
->  
->  	/* Verify stream values are non-zero. */
->  	if ((0 == peer_init->init_hdr.num_outbound_streams) ||
-> @@ -2149,6 +2151,7 @@ int sctp_verify_init(const struct sctp_association *asoc,
->  
->  		if (SCTP_PARAM_STATE_COOKIE == param.p->type)
->  			has_cookie = 1;
-> +		param_cnt++;
->  
->  	} /* for (loop through all parameters) */
->  
-> @@ -2169,6 +2172,20 @@ int sctp_verify_init(const struct sctp_association *asoc,
->  		return sctp_process_missing_param(asoc, SCTP_PARAM_STATE_COOKIE,
->  						  chunk, errp);
->  
-> +	if (!*errp) {
-> +		/*
-> +		 * Pre-allocate the error packet here
-> +		 * we do this as we need to reserve space
-> +		 * for the worst case scenario in which 
-> +		 * every parameter is in error and needs 
-> +		 * an errhdr attached to it
-> +		 */
-> +		len = ntohs(chunk->chunk_hdr->length);
-> +		len += sizeof(sctp_errhdr_t)*param_cnt;
-> +
-> +		*errp = sctp_make_op_error_space(asoc, chunk, len);
-> +	}
-> +
->  	/* Verify all the variable length parameters */
->  	sctp_walk_params(param, peer_init, init_hdr.params) {
->  
-> @@ -2176,9 +2193,11 @@ int sctp_verify_init(const struct sctp_association *asoc,
->  		switch (result) {
->  		    case SCTP_IERROR_ABORT:
->  		    case SCTP_IERROR_NOMEM:
-> -				return 0;
->  		    case SCTP_IERROR_ERROR:
-> -				return 1;
-> +				len = ntohs((*errp)->chunk_hdr->length);
-> +				if ((*errp) && (len == sizeof(sctp_chunkhdr_t)))
-> +					sctp_chunk_free(*errp);
-> +				return (result == SCTP_IERROR_ERROR) ? 1 : 0;
->  		    case SCTP_IERROR_NO_ERROR:
->  		    default:
->  				break;
-> @@ -2186,6 +2205,7 @@ int sctp_verify_init(const struct sctp_association *asoc,
->  
->  	} /* for (loop through all parameters) */
->  
-> +	sctp_chunk_free(*errp);
->  	return 1;
->  }
->  
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+This added latency because of possible backlog handling. Then later,
+ticket spinlocks added yet another latency source in case of DDOS.
+
+This patch introduces lock_sock_bh() and unlock_sock_bh()
+synchronization primitives, avoiding one atomic operation and backlog
+processing.
+
+skb_free_datagram_locked() uses them instead of full blown
+lock_sock()/release_sock(). skb is orphaned inside locked section for
+proper socket memory reclaim, and finally freed outside of it.
+
+UDP receive path now take the socket spinlock only once.
+
+Signed-off-by: Eric DUmazet <eric.dumazet@gmail.com>
+---
+ include/net/sock.h  |   10 ++++++++++
+ net/core/datagram.c |   10 +++++++---
+ net/ipv4/udp.c      |   12 ++++++------
+ net/ipv6/udp.c      |    4 ++--
+ 4 files changed, 25 insertions(+), 11 deletions(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index cf12b1e..d361c77 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1021,6 +1021,16 @@ extern void release_sock(struct sock *sk);
+ 				SINGLE_DEPTH_NESTING)
+ #define bh_unlock_sock(__sk)	spin_unlock(&((__sk)->sk_lock.slock))
+=20
++static inline void lock_sock_bh(struct sock *sk)
++{
++	spin_lock_bh(&sk->sk_lock.slock);
++}
++
++static inline void unlock_sock_bh(struct sock *sk)
++{
++	spin_unlock_bh(&sk->sk_lock.slock);
++}
++
+ extern struct sock		*sk_alloc(struct net *net, int family,
+ 					  gfp_t priority,
+ 					  struct proto *prot);
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index 5574a5d..95b851f 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -229,9 +229,13 @@ EXPORT_SYMBOL(skb_free_datagram);
+=20
+ void skb_free_datagram_locked(struct sock *sk, struct sk_buff *skb)
+ {
+-	lock_sock(sk);
+-	skb_free_datagram(sk, skb);
+-	release_sock(sk);
++	lock_sock_bh(sk);
++	skb_orphan(skb);
++	sk_mem_reclaim_partial(sk);
++	unlock_sock_bh(sk);
++
++	/* skb is now orphaned, might be freed outside of locked section */
++	consume_skb(skb);
+ }
+ EXPORT_SYMBOL(skb_free_datagram_locked);
+=20
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 63eb56b..1f86965 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1062,10 +1062,10 @@ static unsigned int first_packet_length(struct =
+sock *sk)
+ 	spin_unlock_bh(&rcvq->lock);
+=20
+ 	if (!skb_queue_empty(&list_kill)) {
+-		lock_sock(sk);
++		lock_sock_bh(sk);
+ 		__skb_queue_purge(&list_kill);
+ 		sk_mem_reclaim_partial(sk);
+-		release_sock(sk);
++		unlock_sock_bh(sk);
+ 	}
+ 	return res;
+ }
+@@ -1196,10 +1196,10 @@ out:
+ 	return err;
+=20
+ csum_copy_err:
+-	lock_sock(sk);
++	lock_sock_bh(sk);
+ 	if (!skb_kill_datagram(sk, skb, flags))
+ 		UDP_INC_STATS_USER(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
+-	release_sock(sk);
++	unlock_sock_bh(sk);
+=20
+ 	if (noblock)
+ 		return -EAGAIN;
+@@ -1624,9 +1624,9 @@ int udp_rcv(struct sk_buff *skb)
+=20
+ void udp_destroy_sock(struct sock *sk)
+ {
+-	lock_sock(sk);
++	lock_sock_bh(sk);
+ 	udp_flush_pending_frames(sk);
+-	release_sock(sk);
++	unlock_sock_bh(sk);
+ }
+=20
+ /*
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 3ead20a..91c60f0 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -424,7 +424,7 @@ out:
+ 	return err;
+=20
+ csum_copy_err:
+-	lock_sock(sk);
++	lock_sock_bh(sk);
+ 	if (!skb_kill_datagram(sk, skb, flags)) {
+ 		if (is_udp4)
+ 			UDP_INC_STATS_USER(sock_net(sk),
+@@ -433,7 +433,7 @@ csum_copy_err:
+ 			UDP6_INC_STATS_USER(sock_net(sk),
+ 					UDP_MIB_INERRORS, is_udplite);
+ 	}
+-	release_sock(sk);
++	unlock_sock_bh(sk);
+=20
+ 	if (flags & MSG_DONTWAIT)
+ 		return -EAGAIN;
+
+
