@@ -1,40 +1,37 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] sky2: use the DMA state API instead of the pci
- equivalents
-Date: Wed, 28 Apr 2010 09:08:16 -0700
-Message-ID: <20100428090816.39436663@nehalam>
-References: <20100428095826S.fujita.tomonori@lab.ntt.co.jp>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] xfrm: potential uninitialized variable num_xfrms
+Date: Wed, 28 Apr 2010 09:41:55 -0700 (PDT)
+Message-ID: <20100428.094155.09744376.davem@davemloft.net>
+References: <1272439222-2935-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Cc: hadi@cyberus.ca, timo.teras@iki.fi, herbert@gondor.apana.org.au,
+	adobriyan@gmail.com, netdev@vger.kernel.org
+To: xiaosuo@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:42845 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755445Ab0D1QJI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 12:09:08 -0400
-In-Reply-To: <20100428095826S.fujita.tomonori@lab.ntt.co.jp>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45351
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755775Ab0D1Qlt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 12:41:49 -0400
+In-Reply-To: <1272439222-2935-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 28 Apr 2010 09:57:05 +0900
-FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp> wrote:
+From: Changli Gao <xiaosuo@gmail.com>
+Date: Wed, 28 Apr 2010 15:20:22 +0800
 
-> This replace the PCI DMA state API (include/linux/pci-dma.h) with the
-> DMA equivalents since the PCI DMA state API will be obsolete.
+> potential uninitialized variable num_xfrms
 > 
-> No functional change.
+> fix compiler warning: 'num_xfrms' may be used uninitialized in this function.
 > 
-> For further information about the background:
-> 
-> http://marc.info/?l=linux-netdev&m=127037540020276&w=2
-> 
-> Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 
-Tested, this works thanks.
+We've all been seeing it for weeks too, but I honestly have
+reservations about trying to simply pacify the compiler here.
 
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+The num_xfrms variable is only used in code paths that actually
+initialize it's value.  The compiler just can't see this in the
+control flow.
 
-
--- 
+Check it if you don't believe me.
