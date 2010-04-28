@@ -1,232 +1,94 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH]: sctp: Fix skb_over_panic resulting from multiple invalid
- parameter errors (CVE-2010-1173)
-Date: Wed, 28 Apr 2010 10:37:18 -0400
-Message-ID: <4BD8481E.3010509@hp.com>
-References: <20100428134748.GA4818@hmsreliant.think-freely.org> <4BD83F85.8090308@hp.com> <20100428142147.GB4818@hmsreliant.think-freely.org>
+From: John Haxby <john.haxby@oracle.com>
+Subject: Re: [PATCH 1/2] netfilter: xtables: inclusion of xt_SYSRQ
+Date: Wed, 28 Apr 2010 15:43:30 +0100
+Message-ID: <4BD84992.5030909@oracle.com>
+References: <1271845618-28569-1-git-send-email-jengelh@medozas.de> <1271845618-28569-2-git-send-email-jengelh@medozas.de> <4BCEF6B4.8090105@trash.net> <alpine.LSU.2.01.1004211506280.10840@obet.zrqbmnf.qr> <4BCEFACC.7020804@trash.net> <alpine.LSU.2.01.1004211533410.21020@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: sri@us.ibm.com, linux-sctp@vger.kernel.org, eteo@redhat.com,
-	netdev@vger.kernel.org, davem@davemloft.net, security@kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: Patrick McHardy <kaber@trash.net>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0026.austin.hp.com ([15.216.28.33]:35772 "EHLO
-	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751989Ab0D1OhW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 10:37:22 -0400
-In-Reply-To: <20100428142147.GB4818@hmsreliant.think-freely.org>
+Received: from rcsinet10.oracle.com ([148.87.113.121]:54625 "EHLO
+	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750952Ab0D1Onz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 10:43:55 -0400
+In-Reply-To: <alpine.LSU.2.01.1004211533410.21020@obet.zrqbmnf.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 21/04/10 14:35, Jan Engelhardt wrote:
+> On Wednesday 2010-04-21 15:17, Patrick McHardy wrote:
+>    
+>> Jan Engelhardt wrote:
+>>      
+>>> On Wednesday 2010-04-21 14:59, Patrick McHardy wrote:
+>>>
+>>>        
+>>>> Jan Engelhardt wrote:
+>>>>          
+>>>>> The SYSRQ target will allow to remotely invoke sysrq on the local
+>>>>> machine. Authentication is by means of a pre-shared key that can
+>>>>> either be transmitted plaintext or digest-secured.
+>>>>>            
+>>>> I really think this is pushing what netfilter is meant for a bit
+>>>> far. Its basically abusing the firewall ruleset to offer a network
+>>>> service.
+>>>>
+>>>> I can see that its useful to have this in the kernel instead of
+>>>> userspace, but why isn't this implemented as a stand-alone module?
+>>>> That seems like a better design to me and also makes it more useful
+>>>> by not depending on netfilter.
+>>>>          
+>>> That sort of diverts from the earlier what-seemed-to-be-consensus.
+>>>
+>>> Oh well, I would not mind holding the single commit up as long as the
+>>> rest isn't blocked too :-)
+>>>        
+>> Then lets skip this one for now.
+>>      
+> Well you raised the concern before -- namely that kdboe would have
+> the very same feature. And yet, kdboe was not part of the kernel.
+> Neither is the magical stand-alone module.
+> I really prefer to have it in rather than out, because I know
+> that's going to mess up maintenance-here-and-there. I'm already
+> having a big time with xtables-addons that still carries
+> xt_condition and SYSRQ for a while, and it does have some different
+> code lines than the kernel copy.
+>    
 
+I have to agree with Jan here, but I'd like to raise some additional points.
 
-Neil Horman wrote:
-> On Wed, Apr 28, 2010 at 10:00:37AM -0400, Vlad Yasevich wrote:
->> I have this patch and a few others already queued.
->>
->> I was planning on sending these today for stable.
->>
->> Here is the full list of stable patches I have:
->>
->> sctp: Fix oops when sending queued ASCONF chunks
->> sctp: fix to calc the INIT/INIT-ACK chunk length correctly is set
->> sctp: per_cpu variables should be in bh_disabled section
->> sctp: fix potential reference of a freed pointer
->> sctp: avoid irq lock inversion while call sk->sk_data_ready()
->>
->> -vlad
->>
-> Are you sure?  this oops looks _very_ simmilar to the INIT/INIT-ACK length
-> calculation oops described above, but is in fact different, and requires this
-> patch, from what I can see.  The right fix might be in the ASCONF chunk patch
-> you list above, but I don't see that in your tree at the moment, so I can't be
-> sure.
+kdboe (or kgdboe) isn't part of the kernel and I don't think it 
+necessarily fits all the use cases for xt_SYSRQ.  The one I have in mind 
+is where there is a non-kernel hacker whose machine has got into 
+trouble.  The poor harrassed sys admin (in this case) has configured 
+netconsole and knows that sysrq-t and sysrq-m are useful as a first 
+attempt at passing useful information to someone who knows what might be 
+going on and that sysrq-c to get a crash dump will also be useful.   
+(This represents quite a few of the better sys admins that I come 
+across.)   xt_SYSRQ is likewise easy to set up and easy to use.   It's 
+true that k(g)dboe would provide this kind of information provided that 
+the debuginfo was present on the target machine and the environment was 
+such that any sort of debugging over netconsole was sufficiently secure 
+... (is it at least as secure as the xt_SYSRQ controls?)
 
-As I said, I totally goofed when reading the description and I apologize.
-However, I do one comment regarding the patch.
+I was running over the design of a standalone module in my head on the 
+way in this morning.   It seems fairly straightforward, but as I started 
+adding in necessary requirements like limited IP addresses (which I know 
+are not actually secure), limited interfaces (which are more secure in a 
+controlled physical environment), user-space control and so on the more 
+it was sounding as though it would just be a cut-down iptables.   And 
+then, of course, that begs the question "why don't you leave all that 
+extra stuff to iptables?"
 
-If the bad packet is REALLY long (I mean close to 65K IP limit), then
-we'll end up allocating a supper huge skb in this case and potentially exceed
-the IP length limitation.  Section 11.4 of rfc 4960 allows us to omit some
-errors and limit the size of the packet.
+My own interest in getting xt_SYSRQ into the mainline kernel is that it 
+would then be easier to get it accepted in production kernels where it 
+would make the poor beleaguered sys admin's life a little easier.  That 
+is, _some_ useful information or even a crash dump could be extracted 
+from the machine before it's big red button time.
 
-I would recommend limiting this to MTU worth of potentiall errors.  This is
-on top of what the INIT-ACK is going to carry, so at most we'll sent 2 MTUs
-worth.  That's still a potential by amplification attack, but it's somewhat
-mitigated.
-
-Of course now we have to handle the case of checking for space before adding
-an error cause. :)
-
--vlad
-
-> 
-> Neil
-> 
->> Neil Horman wrote:
->>> Hey-
->>> 	Recently, it was reported to me that the kernel could oops in the
->>> following way:
->>>
->>> <5> kernel BUG at net/core/skbuff.c:91!
->>> <5> invalid operand: 0000 [#1]
->>> <5> Modules linked in: sctp netconsole nls_utf8 autofs4 sunrpc iptable_filter
->>> ip_tables cpufreq_powersave parport_pc lp parport vmblock(U) vsock(U) vmci(U)
->>> vmxnet(U) vmmemctl(U) vmhgfs(U) acpiphp dm_mirror dm_mod button battery ac md5
->>> ipv6 uhci_hcd ehci_hcd snd_ens1371 snd_rawmidi snd_seq_device snd_pcm_oss
->>> snd_mixer_oss snd_pcm snd_timer snd_page_alloc snd_ac97_codec snd soundcore
->>> pcnet32 mii floppy ext3 jbd ata_piix libata mptscsih mptsas mptspi mptscsi
->>> mptbase sd_mod scsi_mod
->>> <5> CPU:    0
->>> <5> EIP:    0060:[<c02bff27>]    Not tainted VLI
->>> <5> EFLAGS: 00010216   (2.6.9-89.0.25.EL) 
->>> <5> EIP is at skb_over_panic+0x1f/0x2d
->>> <5> eax: 0000002c   ebx: c033f461   ecx: c0357d96   edx: c040fd44
->>> <5> esi: c033f461   edi: df653280   ebp: 00000000   esp: c040fd40
->>> <5> ds: 007b   es: 007b   ss: 0068
->>> <5> Process swapper (pid: 0, threadinfo=c040f000 task=c0370be0)
->>> <5> Stack: c0357d96 e0c29478 00000084 00000004 c033f461 df653280 d7883180
->>> e0c2947d 
->>> <5>        00000000 00000080 df653490 00000004 de4f1ac0 de4f1ac0 00000004
->>> df653490 
->>> <5>        00000001 e0c2877a 08000800 de4f1ac0 df653490 00000000 e0c29d2e
->>> 00000004 
->>> <5> Call Trace:
->>> <5>  [<e0c29478>] sctp_addto_chunk+0xb0/0x128 [sctp]
->>> <5>  [<e0c2947d>] sctp_addto_chunk+0xb5/0x128 [sctp]
->>> <5>  [<e0c2877a>] sctp_init_cause+0x3f/0x47 [sctp]
->>> <5>  [<e0c29d2e>] sctp_process_unk_param+0xac/0xb8 [sctp]
->>> <5>  [<e0c29e90>] sctp_verify_init+0xcc/0x134 [sctp]
->>> <5>  [<e0c20322>] sctp_sf_do_5_1B_init+0x83/0x28e [sctp]
->>> <5>  [<e0c25333>] sctp_do_sm+0x41/0x77 [sctp]
->>> <5>  [<c01555a4>] cache_grow+0x140/0x233
->>> <5>  [<e0c26ba1>] sctp_endpoint_bh_rcv+0xc5/0x108 [sctp]
->>> <5>  [<e0c2b863>] sctp_inq_push+0xe/0x10 [sctp]
->>> <5>  [<e0c34600>] sctp_rcv+0x454/0x509 [sctp]
->>> <5>  [<e084e017>] ipt_hook+0x17/0x1c [iptable_filter]
->>> <5>  [<c02d005e>] nf_iterate+0x40/0x81
->>> <5>  [<c02e0bb9>] ip_local_deliver_finish+0x0/0x151
->>> <5>  [<c02e0c7f>] ip_local_deliver_finish+0xc6/0x151
->>> <5>  [<c02d0362>] nf_hook_slow+0x83/0xb5
->>> <5>  [<c02e0bb2>] ip_local_deliver+0x1a2/0x1a9
->>> <5>  [<c02e0bb9>] ip_local_deliver_finish+0x0/0x151
->>> <5>  [<c02e103e>] ip_rcv+0x334/0x3b4
->>> <5>  [<c02c66fd>] netif_receive_skb+0x320/0x35b
->>> <5>  [<e0a0928b>] init_stall_timer+0x67/0x6a [uhci_hcd]
->>> <5>  [<c02c67a4>] process_backlog+0x6c/0xd9
->>> <5>  [<c02c690f>] net_rx_action+0xfe/0x1f8
->>> <5>  [<c012a7b1>] __do_softirq+0x35/0x79
->>> <5>  [<c0107efb>] handle_IRQ_event+0x0/0x4f
->>> <5>  [<c01094de>] do_softirq+0x46/0x4d
->>>
->>> Its an skb_over_panic BUG halt that results from processing an init chunk in
->>> which too many of its variable length parameters are in some way malformed.
->>>
->>> The problem is in sctp_process_unk_param:
->>> if (NULL == *errp)
->>> 	*errp = sctp_make_op_error_space(asoc, chunk,
->>> 					 ntohs(chunk->chunk_hdr->length));
->>>
->>> 	if (*errp) {
->>> 		sctp_init_cause(*errp, SCTP_ERROR_UNKNOWN_PARAM,
->>> 				 WORD_ROUND(ntohs(param.p->length)));
->>> 		sctp_addto_chunk(*errp,
->>> 			WORD_ROUND(ntohs(param.p->length)),
->>> 				  param.v);
->>>
->>> When we allocate an error chunk, we assume that the worst case scenario requires
->>> that we have chunk_hdr->length data allocated, which would be correct nominally,
->>> given that we call sctp_addto_chunk for the violating parameter.  Unfortunately,
->>> we also, in sctp_init_cause insert a sctp_errhdr_t structure into the error
->>> chunk, so the worst case situation in which all parameters are in violation
->>> requires chunk_hdr->length+(sizeof(sctp_errhdr_t)*param_count) bytes of data.
->>>
->>> The result of this error is that a deliberately malformed packet sent to a
->>> listening host can cause a remote DOS, described in CVE-2010-1173:
->>> http://cve.mitre.org/cgi-bin/cvename.cgi?name=2010-1173
->>>
->>> I've tested the below fix and confirmed that it fixes the issue.  It
->>> pre-allocates the error chunk in sctp_verify_init, where we are able to count
->>> the total number of variable length parameters, so we know how many error
->>> headers we might need.  Then we simply use that chunk, if we find an error, or
->>> discard/free it if all the parameters are valid.  Applies on top of the
->>> lksctp-dev tree
->>>
->>> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
->>>
->>>
->>>  sm_make_chunk.c |   24 ++++++++++++++++++++++--
->>>  1 file changed, 22 insertions(+), 2 deletions(-)
->>>
->>>
->>> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
->>> index f592163..990457b 100644
->>> --- a/net/sctp/sm_make_chunk.c
->>> +++ b/net/sctp/sm_make_chunk.c
->>> @@ -2134,6 +2134,8 @@ int sctp_verify_init(const struct sctp_association *asoc,
->>>  	union sctp_params param;
->>>  	int has_cookie = 0;
->>>  	int result;
->>> +	unsigned int param_cnt;
->>> +	unsigned int len;
->>>  
->>>  	/* Verify stream values are non-zero. */
->>>  	if ((0 == peer_init->init_hdr.num_outbound_streams) ||
->>> @@ -2149,6 +2151,7 @@ int sctp_verify_init(const struct sctp_association *asoc,
->>>  
->>>  		if (SCTP_PARAM_STATE_COOKIE == param.p->type)
->>>  			has_cookie = 1;
->>> +		param_cnt++;
->>>  
->>>  	} /* for (loop through all parameters) */
->>>  
->>> @@ -2169,6 +2172,20 @@ int sctp_verify_init(const struct sctp_association *asoc,
->>>  		return sctp_process_missing_param(asoc, SCTP_PARAM_STATE_COOKIE,
->>>  						  chunk, errp);
->>>  
->>> +	if (!*errp) {
->>> +		/*
->>> +		 * Pre-allocate the error packet here
->>> +		 * we do this as we need to reserve space
->>> +		 * for the worst case scenario in which 
->>> +		 * every parameter is in error and needs 
->>> +		 * an errhdr attached to it
->>> +		 */
->>> +		len = ntohs(chunk->chunk_hdr->length);
->>> +		len += sizeof(sctp_errhdr_t)*param_cnt;
->>> +
->>> +		*errp = sctp_make_op_error_space(asoc, chunk, len);
->>> +	}
->>> +
->>>  	/* Verify all the variable length parameters */
->>>  	sctp_walk_params(param, peer_init, init_hdr.params) {
->>>  
->>> @@ -2176,9 +2193,11 @@ int sctp_verify_init(const struct sctp_association *asoc,
->>>  		switch (result) {
->>>  		    case SCTP_IERROR_ABORT:
->>>  		    case SCTP_IERROR_NOMEM:
->>> -				return 0;
->>>  		    case SCTP_IERROR_ERROR:
->>> -				return 1;
->>> +				len = ntohs((*errp)->chunk_hdr->length);
->>> +				if ((*errp) && (len == sizeof(sctp_chunkhdr_t)))
->>> +					sctp_chunk_free(*errp);
->>> +				return (result == SCTP_IERROR_ERROR) ? 1 : 0;
->>>  		    case SCTP_IERROR_NO_ERROR:
->>>  		    default:
->>>  				break;
->>> @@ -2186,6 +2205,7 @@ int sctp_verify_init(const struct sctp_association *asoc,
->>>  
->>>  	} /* for (loop through all parameters) */
->>>  
->>> +	sctp_chunk_free(*errp);
->>>  	return 1;
->>>  }
->>>  
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>
-> 
+jch
