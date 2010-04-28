@@ -1,52 +1,43 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: Re: Checkpoint and Restart of INET routing information
-Date: Wed, 28 Apr 2010 16:24:44 +0200
-Message-ID: <4BD8452C.7040305@free.fr>
-References: <1272034539-19899-1-git-send-email-danms@us.ibm.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH 0/3] [RFC] ptp: IEEE 1588 clock support
+Date: Wed, 28 Apr 2010 16:31:35 +0200
+Message-ID: <4BD846C7.1050006@grandegger.com>
+References: <20100427091344.GA5086@riccoc20.at.omicron.at> <20100427102025.GA6471@riccoc20.at.omicron.at> <4BD6E837.2040505@grandegger.com> <4BD70EC9.7080004@grandegger.com> <20100428054706.GA4516@riccoc20.at.omicron.at> <4BD83D37.4060301@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: containers@lists.osdl.org, netdev@vger.kernel.org
-To: Dan Smith <danms@us.ibm.com>
+Cc: netdev@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.de.ibm.com ([195.212.17.164]:42933 "EHLO
-	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754637Ab0D1OYq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 10:24:46 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate4.de.ibm.com (8.13.1/8.13.1) with ESMTP id o3SEOjs4002058
-	for <netdev@vger.kernel.org>; Wed, 28 Apr 2010 14:24:45 GMT
-Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o3SEOjlo1716454
-	for <netdev@vger.kernel.org>; Wed, 28 Apr 2010 16:24:45 +0200
-Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id o3SEOiIs029390
-	for <netdev@vger.kernel.org>; Wed, 28 Apr 2010 16:24:45 +0200
-In-Reply-To: <1272034539-19899-1-git-send-email-danms@us.ibm.com>
+Received: from mail-out.m-online.net ([212.18.0.10]:45373 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753570Ab0D1OdY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 10:33:24 -0400
+In-Reply-To: <4BD83D37.4060301@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dan Smith wrote:
-> This set extends the existing network socket, device, and namespace support
-> in the checkpoint tree to cover routing information.  It does so by making
-> heavy use of RTNETLINK to dump and insert routes much like userspace would.
-> Because the task doing the checkpointing or restarting needs to examine
-> or setup resources for tasks in network namespaces other than its own, an
-> additional kernel socket setup call is added.  It provides us the ability
-> to talk to RTNETLINK in a foreign netns.
->
-> The support added in this set allows me to configure various inet4 and inet6
-> routes in a container and have them saved and restored successfully during
-> a checkpoint/restart process.
->   
+Wolfgang Grandegger wrote:
+> Richard Cochran wrote:
+>> On Tue, Apr 27, 2010 at 06:20:25PM +0200, Wolfgang Grandegger wrote:
+>>> Do you have also a patch adding support for hardware timestamping to ptpd?
+>> Yes, I do:
+>>
+>>    https://sourceforge.net/tracker/index.php?func=detail&aid=2992847&group_id=139814&atid=744634
+> 
+> Thanks.
+> 
+>> I should have mentioned, you also need the gianfar HW time stamping
+>> patches, recently posted to netdev by Manfred Rudigier.
+> 
+> I'm aware of these patches. I'm actually using the net-next-2.6 git tree.
+> 
+> I got ptpd working but I do not yet see the PPS-Signals on my scope. At
+> a first glance, the PPS-Signal seems to be configured by the gianfar_ptp
+> driver (setting the fiper1 and timer1 registers) but I might have missed
+> something.
 
-Why do you need to do that from the kernel ? Same remark for ipv4/6 
-addresses.
-What prevents you to do 'ip route show'  and use these informations to 
-restore the routes later ?
-Will we end up by moving all the network userspace tools in the kernel ? :)
+That's because some 1588_PPS related bits are not yet setup in the
+platform code of mainline kernel.
 
-If you use the Eric's setns patchset, you will be able to do that easily 
-from userspace, no ?
-
-
+Wolfgang.
