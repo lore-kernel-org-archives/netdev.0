@@ -1,237 +1,188 @@
-From: Dongdong Deng <libfetion@gmail.com>
-Subject: Re: [v4 Patch 1/3] netpoll: add generic support for bridge and
-	bonding devices
-Date: Wed, 28 Apr 2010 12:02:49 +0800
-Message-ID: <j2mce2c83091004272102ye46e65fbod138e63dc58bccd5@mail.gmail.com>
-References: <20100427075937.4908.18468.sendpatchset@localhost.localdomain>
+From: Scott Feldman <scofeldm@cisco.com>
+Subject: [net-next-2.6 PATCH 1/2] Add netdev port-profile support (take III,
+	was iovnl)
+Date: Tue, 27 Apr 2010 21:42:35 -0700
+Message-ID: <20100428044235.8646.61943.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: linux-kernel@vger.kernel.org, Matt Mackall <mpm@selenic.com>,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Andy Gospodarek <gospo@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Jeff Moyer <jmoyer@redhat.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	bonding-devel@lists.sourceforge.net,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	David Miller <davem@davemloft.net>
-To: Amerigo Wang <amwang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100427075937.4908.18468.sendpatchset@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, chrisw@redhat.com, arnd@arndb.de
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-5.cisco.com ([171.68.10.87]:42783 "EHLO
+	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751060Ab0D1Emg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 00:42:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCBBcHIgMjcsIDIwMTAgYXQgMzo1NSBQTSwgQW1lcmlnbyBXYW5nIDxhbXdhbmdAcmVk
-aGF0LmNvbT4gd3JvdGU6Cj4gVjQ6Cj4gVXNlICJ1bmxpa2VseSIgdG8gbWFyayBuZXRwb2xsIGNh
-bGwgcGF0aCwgc3VnZ2VzdGVkIGJ5IFN0ZXBoZW4uCj4gSGFuZGxlIE5FVERFVl9HT0lOR19ET1dO
-IGNhc2UuCj4KPiBWMzoKPiBVcGRhdGUgdG8gbGF0ZXN0IExpbnVzJyB0cmVlLgo+IEZpeCBkZWFk
-bG9ja3Mgd2hlbiByZWxlYXNpbmcgc2xhdmVzIG9mIGJvbmRpbmcgZGV2aWNlcy4KPiBUaGFua3Mg
-dG8gQW5keS4KPgo+IFYyOgo+IEZpeCBzb21lIGJ1Z3Mgb2YgcHJldmlvdXMgdmVyc2lvbi4KPiBS
-ZW1vdmUgLT5uZXRwb2xsX3NldHVwIGFuZCAtPm5ldHBvbGxfeG1pdCwgdGhleSBhcmUgbm90IG5l
-Y2Vzc2FyeS4KPiBEb24ndCBwb2xsIGFsbCB1bmRlcmx5aW5nIGRldmljZXMsIHBvbGwgLT5yZWFs
-X2RldiBpbiBzdHJ1Y3QgbmV0cG9sbC4KPiBUaGFua3MgdG8gRGF2aWQgZm9yIHN1Z2dlc3Rpbmcg
-YWJvdmUuCj4KPiAtLS0tLS0tLS0tLS0+Cj4KPiBUaGlzIHdob2xlIHBhdGNoc2V0IGlzIGZvciBh
-ZGRpbmcgbmV0cG9sbCBzdXBwb3J0IHRvIGJyaWRnZSBhbmQgYm9uZGluZwo+IGRldmljZXMuIEkg
-YWxyZWFkeSB0ZXN0ZWQgaXQgZm9yIGJyaWRnZSwgYm9uZGluZywgYnJpZGdlIG92ZXIgYm9uZGlu
-ZywKPiBhbmQgYm9uZGluZyBvdmVyIGJyaWRnZS4gSXQgbG9va3MgZmluZSBub3cuCj4KPgo+IFRv
-IG1ha2UgYnJpZGdlIGFuZCBib25kaW5nIHN1cHBvcnQgbmV0cG9sbCwgd2UgbmVlZCB0byBhZGp1
-c3QKPiBzb21lIG5ldHBvbGwgZ2VuZXJpYyBjb2RlLiBUaGlzIHBhdGNoIGRvZXMgdGhlIGZvbGxv
-d2luZyB0aGluZ3M6Cj4KPiAxKSBpbnRyb2R1Y2UgdHdvIG5ldyBwcml2X2ZsYWdzIGZvciBzdHJ1
-Y3QgbmV0X2RldmljZToKPiDCoCBJRkZfSU5fTkVUUE9MTCB3aGljaCBpZGVudGlmaWVzIHdlIGFy
-ZSBwcm9jZXNzaW5nIGEgbmV0cG9sbDsKPiDCoCBJRkZfRElTQUJMRV9ORVRQT0xMIGlzIHVzZWQg
-dG8gZGlzYWJsZSBuZXRwb2xsIHN1cHBvcnQgZm9yIGEgZGV2aWNlCj4gwqAgYXQgcnVuLXRpbWU7
-Cj4KPiAyKSBpbnRyb2R1Y2Ugb25lIG5ldyBtZXRob2QgZm9yIG5ldGRldl9vcHM6Cj4gwqAgLT5u
-ZG9fbmV0cG9sbF9jbGVhbnVwKCkgaXMgdXNlZCB0byBjbGVhbiB1cCBuZXRwb2xsIHdoZW4gYSBk
-ZXZpY2UgaXMKPiDCoCDCoCByZW1vdmVkLgo+Cj4gMykgaW50cm9kdWNlIG5ldHBvbGxfcG9sbF9k
-ZXYoKSB3aGljaCB0YWtlcyBhIHN0cnVjdCBuZXRfZGV2aWNlICogcGFyYW1ldGVyOwo+IMKgIGV4
-cG9ydCBuZXRwb2xsX3NlbmRfc2tiKCkgYW5kIG5ldHBvbGxfcG9sbF9kZXYoKSB3aGljaCB3aWxs
-IGJlIHVzZWQgbGF0ZXI7Cj4KPiA0KSBoaWRlIGEgcG9pbnRlciB0byBzdHJ1Y3QgbmV0cG9sbCBp
-biBzdHJ1Y3QgbmV0cG9sbF9pbmZvLCBkaXR0by4KPgo+IDUpIGludHJvZHVjZSAtPnJlYWxfZGV2
-IGZvciBzdHJ1Y3QgbmV0cG9sbC4KPgo+IDYpIGludHJvZHVjZSBhIG5ldyBzdGF0dXMgTkVUREVW
-X0JPTkRJTkdfREVTTEFFLCB3aGljaCBpcyB1c2VkIHRvIGRpc2FibGUKPiDCoCBuZXRjb25zb2xl
-IGJlZm9yZSByZWxlYXNpbmcgYSBzbGF2ZSwgdG8gYXZvaWQgZGVhZGxvY2tzLgo+Cj4gQ2M6IERh
-dmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4KPiBDYzogTmVpbCBIb3JtYW4gPG5ob3Jt
-YW5AdHV4ZHJpdmVyLmNvbT4KPiBTaWduZWQtb2ZmLWJ5OiBXQU5HIENvbmcgPGFtd2FuZ0ByZWRo
-YXQuY29tPgo+Cj4gLS0tCj4KPiBJbmRleDogbGludXgtMi42L2luY2x1ZGUvbGludXgvaWYuaAo+
-ID09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT0KPiAtLS0gbGludXgtMi42Lm9yaWcvaW5jbHVkZS9saW51eC9pZi5oCj4gKysr
-IGxpbnV4LTIuNi9pbmNsdWRlL2xpbnV4L2lmLmgKPiBAQCAtNzEsNiArNzEsOCBAQAo+IMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgICog
-cmVsZWFzZSBza2ItPmRzdAo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgICovCj4gwqAjZGVmaW5lIElGRl9ET05UX0JSSURHRSAweDgw
-MCDCoCDCoCDCoCDCoCDCoC8qIGRpc2FsbG93IGJyaWRnaW5nIHRoaXMgZXRoZXIgZGV2ICovCj4g
-KyNkZWZpbmUgSUZGX0lOX05FVFBPTEwgMHgxMDAwIMKgIMKgIMKgIMKgIMKgLyogd2hldGhlciB3
-ZSBhcmUgcHJvY2Vzc2luZyBuZXRwb2xsICovCj4gKyNkZWZpbmUgSUZGX0RJU0FCTEVfTkVUUE9M
-TCDCoCDCoDB4MjAwMCDCoC8qIGRpc2FibGUgbmV0cG9sbCBhdCBydW4tdGltZSAqLwo+Cj4gwqAj
-ZGVmaW5lIElGX0dFVF9JRkFDRSDCoCAweDAwMDEgwqAgwqAgwqAgwqAgwqAvKiBmb3IgcXVlcnlp
-bmcgb25seSAqLwo+IMKgI2RlZmluZSBJRl9HRVRfUFJPVE8gwqAgMHgwMDAyCj4gSW5kZXg6IGxp
-bnV4LTIuNi9pbmNsdWRlL2xpbnV4L25ldGRldmljZS5oCj4gPT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQo+IC0tLSBsaW51
-eC0yLjYub3JpZy9pbmNsdWRlL2xpbnV4L25ldGRldmljZS5oCj4gKysrIGxpbnV4LTIuNi9pbmNs
-dWRlL2xpbnV4L25ldGRldmljZS5oCj4gQEAgLTY2Nyw2ICs2NjcsNyBAQCBzdHJ1Y3QgbmV0X2Rl
-dmljZV9vcHMgewo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgdW5zaWduZWQgc2hvcnQgdmlk
-KTsKPiDCoCNpZmRlZiBDT05GSUdfTkVUX1BPTExfQ09OVFJPTExFUgo+IMKgIMKgIMKgIMKgdm9p
-ZCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCgqbmRvX3BvbGxfY29udHJvbGxlcikoc3Ry
-dWN0IG5ldF9kZXZpY2UgKmRldik7Cj4gKyDCoCDCoCDCoCB2b2lkIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgKCpuZG9fbmV0cG9sbF9jbGVhbnVwKShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2
-KTsKPiDCoCNlbmRpZgo+IMKgIMKgIMKgIMKgaW50IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgICgqbmRvX3NldF92Zl9tYWMpKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsCj4gwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqBpbnQgcXVldWUsIHU4ICptYWMpOwo+IEluZGV4OiBsaW51eC0yLjYvaW5jbHVkZS9s
-aW51eC9uZXRwb2xsLmgKPiA9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09Cj4gLS0tIGxpbnV4LTIuNi5vcmlnL2luY2x1ZGUv
-bGludXgvbmV0cG9sbC5oCj4gKysrIGxpbnV4LTIuNi9pbmNsdWRlL2xpbnV4L25ldHBvbGwuaAo+
-IEBAIC0xNCw2ICsxNCw3IEBACj4KPiDCoHN0cnVjdCBuZXRwb2xsIHsKPiDCoCDCoCDCoCDCoHN0
-cnVjdCBuZXRfZGV2aWNlICpkZXY7Cj4gKyDCoCDCoCDCoCBzdHJ1Y3QgbmV0X2RldmljZSAqcmVh
-bF9kZXY7Cj4gwqAgwqAgwqAgwqBjaGFyIGRldl9uYW1lW0lGTkFNU0laXTsKPiDCoCDCoCDCoCDC
-oGNvbnN0IGNoYXIgKm5hbWU7Cj4gwqAgwqAgwqAgwqB2b2lkICgqcnhfaG9vaykoc3RydWN0IG5l
-dHBvbGwgKiwgaW50LCBjaGFyICosIGludCk7Cj4gQEAgLTM2LDggKzM3LDExIEBAIHN0cnVjdCBu
-ZXRwb2xsX2luZm8gewo+IMKgIMKgIMKgIMKgc3RydWN0IHNrX2J1ZmZfaGVhZCB0eHE7Cj4KPiDC
-oCDCoCDCoCDCoHN0cnVjdCBkZWxheWVkX3dvcmsgdHhfd29yazsKPiArCj4gKyDCoCDCoCDCoCBz
-dHJ1Y3QgbmV0cG9sbCAqbmV0cG9sbDsKPiDCoH07Cj4KPiArdm9pZCBuZXRwb2xsX3BvbGxfZGV2
-KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpOwo+IMKgdm9pZCBuZXRwb2xsX3BvbGwoc3RydWN0IG5l
-dHBvbGwgKm5wKTsKPiDCoHZvaWQgbmV0cG9sbF9zZW5kX3VkcChzdHJ1Y3QgbmV0cG9sbCAqbnAs
-IGNvbnN0IGNoYXIgKm1zZywgaW50IGxlbik7Cj4gwqB2b2lkIG5ldHBvbGxfcHJpbnRfb3B0aW9u
-cyhzdHJ1Y3QgbmV0cG9sbCAqbnApOwo+IEBAIC00Nyw2ICs1MSw3IEBAIGludCBuZXRwb2xsX3Ry
-YXAodm9pZCk7Cj4gwqB2b2lkIG5ldHBvbGxfc2V0X3RyYXAoaW50IHRyYXApOwo+IMKgdm9pZCBu
-ZXRwb2xsX2NsZWFudXAoc3RydWN0IG5ldHBvbGwgKm5wKTsKPiDCoGludCBfX25ldHBvbGxfcngo
-c3RydWN0IHNrX2J1ZmYgKnNrYik7Cj4gK3ZvaWQgbmV0cG9sbF9zZW5kX3NrYihzdHJ1Y3QgbmV0
-cG9sbCAqbnAsIHN0cnVjdCBza19idWZmICpza2IpOwo+Cj4KPiDCoCNpZmRlZiBDT05GSUdfTkVU
-UE9MTAo+IEluZGV4OiBsaW51eC0yLjYvbmV0L2NvcmUvbmV0cG9sbC5jCj4gPT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQo+
-IC0tLSBsaW51eC0yLjYub3JpZy9uZXQvY29yZS9uZXRwb2xsLmMKPiArKysgbGludXgtMi42L25l
-dC9jb3JlL25ldHBvbGwuYwo+IEBAIC0xNzksOSArMTc5LDggQEAgc3RhdGljIHZvaWQgc2Vydmlj
-ZV9hcnBfcXVldWUoc3RydWN0IG5ldAo+IMKgIMKgIMKgIMKgfQo+IMKgfQo+Cj4gLXZvaWQgbmV0
-cG9sbF9wb2xsKHN0cnVjdCBuZXRwb2xsICpucCkKPiArdm9pZCBuZXRwb2xsX3BvbGxfZGV2KHN0
-cnVjdCBuZXRfZGV2aWNlICpkZXYpCj4gwqB7Cj4gLSDCoCDCoCDCoCBzdHJ1Y3QgbmV0X2Rldmlj
-ZSAqZGV2ID0gbnAtPmRldjsKPiDCoCDCoCDCoCDCoGNvbnN0IHN0cnVjdCBuZXRfZGV2aWNlX29w
-cyAqb3BzOwo+Cj4gwqAgwqAgwqAgwqBpZiAoIWRldiB8fCAhbmV0aWZfcnVubmluZyhkZXYpKQo+
-IEBAIC0yMDEsNiArMjAwLDExIEBAIHZvaWQgbmV0cG9sbF9wb2xsKHN0cnVjdCBuZXRwb2xsICpu
-cCkKPiDCoCDCoCDCoCDCoHphcF9jb21wbGV0aW9uX3F1ZXVlKCk7Cj4gwqB9Cj4KPiArdm9pZCBu
-ZXRwb2xsX3BvbGwoc3RydWN0IG5ldHBvbGwgKm5wKQo+ICt7Cj4gKyDCoCDCoCDCoCBuZXRwb2xs
-X3BvbGxfZGV2KG5wLT5kZXYpOwo+ICt9Cj4gKwo+IMKgc3RhdGljIHZvaWQgcmVmaWxsX3NrYnMo
-dm9pZCkKPiDCoHsKPiDCoCDCoCDCoCDCoHN0cnVjdCBza19idWZmICpza2I7Cj4gQEAgLTI4Miw3
-ICsyODYsNyBAQCBzdGF0aWMgaW50IG5ldHBvbGxfb3duZXJfYWN0aXZlKHN0cnVjdCBuCj4gwqAg
-wqAgwqAgwqByZXR1cm4gMDsKPiDCoH0KPgo+IC1zdGF0aWMgdm9pZCBuZXRwb2xsX3NlbmRfc2ti
-KHN0cnVjdCBuZXRwb2xsICpucCwgc3RydWN0IHNrX2J1ZmYgKnNrYikKPiArdm9pZCBuZXRwb2xs
-X3NlbmRfc2tiKHN0cnVjdCBuZXRwb2xsICpucCwgc3RydWN0IHNrX2J1ZmYgKnNrYikKPiDCoHsK
-PiDCoCDCoCDCoCDCoGludCBzdGF0dXMgPSBORVRERVZfVFhfQlVTWTsKPiDCoCDCoCDCoCDCoHVu
-c2lnbmVkIGxvbmcgdHJpZXM7Cj4gQEAgLTMwOCw3ICszMTIsOSBAQCBzdGF0aWMgdm9pZCBuZXRw
-b2xsX3NlbmRfc2tiKHN0cnVjdCBuZXRwCj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-dHJpZXMgPiAwOyAtLXRyaWVzKSB7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqBpZiAoX19uZXRpZl90eF90cnlsb2NrKHR4cSkpIHsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGlmICghbmV0aWZfdHhfcXVldWVfc3RvcHBlZCh0eHEp
-KSB7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCBkZXYtPnByaXZfZmxhZ3MgfD0gSUZGX0lOX05FVFBPTEw7Cj4gwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBzdGF0dXMgPSBv
-cHMtPm5kb19zdGFydF94bWl0KHNrYiwgZGV2KTsKPiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGRldi0+cHJpdl9mbGFncyAmPSB+SUZG
-X0lOX05FVFBPTEw7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqBpZiAoc3RhdHVzID09IE5FVERFVl9UWF9PSykKPiDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoHR4cV90cmFuc191cGRhdGUodHhxKTsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoH0KPiBAQCAtNzU2LDcgKzc2MiwxMCBAQCBpbnQgbmV0cG9sbF9z
-ZXR1cChzdHJ1Y3QgbmV0cG9sbCAqbnApCj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBhdG9taWNf
-aW5jKCZucGluZm8tPnJlZmNudCk7Cj4gwqAgwqAgwqAgwqB9Cj4KPiAtIMKgIMKgIMKgIGlmICgh
-bmRldi0+bmV0ZGV2X29wcy0+bmRvX3BvbGxfY29udHJvbGxlcikgewo+ICsgwqAgwqAgwqAgbnBp
-bmZvLT5uZXRwb2xsID0gbnA7Cj4gKwo+ICsgwqAgwqAgwqAgaWYgKG5kZXYtPnByaXZfZmxhZ3Mg
-JiBJRkZfRElTQUJMRV9ORVRQT0xMCj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCB8fCAhbmRldi0+bmV0ZGV2X29wcy0+bmRvX3BvbGxfY29udHJvbGxlcikgewo+IMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgcHJpbnRrKEtFUk5fRVJSICIlczogJXMgZG9lc24ndCBzdXBwb3J0IHBv
-bGxpbmcsIGFib3J0aW5nLlxuIiwKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBu
-cC0+bmFtZSwgbnAtPmRldl9uYW1lKTsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGVyciA9IC1F
-Tk9UU1VQUDsKPiBAQCAtODc4LDYgKzg4Nyw3IEBAIHZvaWQgbmV0cG9sbF9jbGVhbnVwKHN0cnVj
-dCBuZXRwb2xsICpucCkKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoH0KPgo+
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgaWYgKGF0b21pY19kZWNfYW5kX3Rl
-c3QoJm5waW5mby0+cmVmY250KSkgewo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgY29uc3Qgc3RydWN0IG5ldF9kZXZpY2Vfb3BzICpvcHM7Cj4gwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBza2JfcXVldWVfcHVyZ2Uo
-Jm5waW5mby0+YXJwX3R4KTsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoHNrYl9xdWV1ZV9wdXJnZSgmbnBpbmZvLT50eHEpOwo+IMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgY2FuY2VsX3JlYXJtaW5nX2RlbGF5ZWRf
-d29yaygmbnBpbmZvLT50eF93b3JrKTsKPiBAQCAtODg1LDcgKzg5NSwxMSBAQCB2b2lkIG5ldHBv
-bGxfY2xlYW51cChzdHJ1Y3QgbmV0cG9sbCAqbnApCj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAvKiBjbGVhbiBhZnRlciBsYXN0LCB1bmZpbmlzaGVkIHdv
-cmsgKi8KPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoF9f
-c2tiX3F1ZXVlX3B1cmdlKCZucGluZm8tPnR4cSk7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBrZnJlZShucGluZm8pOwo+IC0gwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgbnAtPmRldi0+bnBpbmZvID0gTlVMTDsKPiAr
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIG9wcyA9IG5wLT5k
-ZXYtPm5ldGRldl9vcHM7Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCBpZiAob3BzLT5uZG9fbmV0cG9sbF9jbGVhbnVwKQo+ICsgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgb3BzLT5uZG9fbmV0cG9s
-bF9jbGVhbnVwKG5wLT5kZXYpOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgZWxzZQo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgbnAtPmRldi0+bnBpbmZvID0gTlVMTDsKCgorICAgICAgICAg
-ICAgIGlmIChvcHMtPm5kb19uZXRwb2xsX2NsZWFudXApCisgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICBvcHMtPm5kb19uZXRwb2xsX2NsZWFudXAobnAtPmRldik7CisgICAg
-ICAgICAgICAgbnAtPmRldi0+bnBpbmZvID0gTlVMTDsKCkkgdGhpbmsgaXQgaXMgZ29vZCB0byBz
-ZXQgbnAtPmRldi0+bnBpbmZvIHRvIE5VTEwgIGV2ZW4gdGhvdWdoIHdlIGhhdmUKdGhlIG5ldHBv
-bGxfY2xlYW51cCBvcHQuCgpSZWdhcmRzCkRvbmdkb25nCgo+IMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgfQo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgfQo+Cj4gQEAgLTkwOCw2
-ICs5MjIsNyBAQCB2b2lkIG5ldHBvbGxfc2V0X3RyYXAoaW50IHRyYXApCj4gwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqBhdG9taWNfZGVjKCZ0cmFwcGVkKTsKPiDCoH0KPgo+ICtFWFBPUlRfU1lNQk9M
-KG5ldHBvbGxfc2VuZF9za2IpOwo+IMKgRVhQT1JUX1NZTUJPTChuZXRwb2xsX3NldF90cmFwKTsK
-PiDCoEVYUE9SVF9TWU1CT0wobmV0cG9sbF90cmFwKTsKPiDCoEVYUE9SVF9TWU1CT0wobmV0cG9s
-bF9wcmludF9vcHRpb25zKTsKPiBAQCAtOTE1LDQgKzkzMCw1IEBAIEVYUE9SVF9TWU1CT0wobmV0
-cG9sbF9wYXJzZV9vcHRpb25zKTsKPiDCoEVYUE9SVF9TWU1CT0wobmV0cG9sbF9zZXR1cCk7Cj4g
-wqBFWFBPUlRfU1lNQk9MKG5ldHBvbGxfY2xlYW51cCk7Cj4gwqBFWFBPUlRfU1lNQk9MKG5ldHBv
-bGxfc2VuZF91ZHApOwo+ICtFWFBPUlRfU1lNQk9MKG5ldHBvbGxfcG9sbF9kZXYpOwo+IMKgRVhQ
-T1JUX1NZTUJPTChuZXRwb2xsX3BvbGwpOwo+IEluZGV4OiBsaW51eC0yLjYvZHJpdmVycy9uZXQv
-bmV0Y29uc29sZS5jCj4gPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PQo+IC0tLSBsaW51eC0yLjYub3JpZy9kcml2ZXJzL25l
-dC9uZXRjb25zb2xlLmMKPiArKysgbGludXgtMi42L2RyaXZlcnMvbmV0L25ldGNvbnNvbGUuYwo+
-IEBAIC02NjUsNyArNjY1LDggQEAgc3RhdGljIGludCBuZXRjb25zb2xlX25ldGRldl9ldmVudChz
-dHJ1Ywo+IMKgIMKgIMKgIMKgc3RydWN0IG5ldGNvbnNvbGVfdGFyZ2V0ICpudDsKPiDCoCDCoCDC
-oCDCoHN0cnVjdCBuZXRfZGV2aWNlICpkZXYgPSBwdHI7Cj4KPiAtIMKgIMKgIMKgIGlmICghKGV2
-ZW50ID09IE5FVERFVl9DSEFOR0VOQU1FIHx8IGV2ZW50ID09IE5FVERFVl9VTlJFR0lTVEVSKSkK
-PiArIMKgIMKgIMKgIGlmICghKGV2ZW50ID09IE5FVERFVl9DSEFOR0VOQU1FIHx8IGV2ZW50ID09
-IE5FVERFVl9VTlJFR0lTVEVSIHx8Cj4gKyDCoCDCoCDCoCDCoCDCoCDCoCBldmVudCA9PSBORVRE
-RVZfQk9ORElOR19ERVNMQVZFIHx8IGV2ZW50ID09IE5FVERFVl9HT0lOR19ET1dOKSkKPiDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoGdvdG8gZG9uZTsKPgo+IMKgIMKgIMKgIMKgc3Bpbl9sb2NrX2ly
-cXNhdmUoJnRhcmdldF9saXN0X2xvY2ssIGZsYWdzKTsKPiBAQCAtNjc3LDE5ICs2NzgsMjEgQEAg
-c3RhdGljIGludCBuZXRjb25zb2xlX25ldGRldl9ldmVudChzdHJ1Ywo+IMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgc3RybGNweShudC0+bnAuZGV2X25hbWUs
-IGRldi0+bmFtZSwgSUZOQU1TSVopOwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgYnJlYWs7Cj4gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqBjYXNlIE5FVERFVl9VTlJFR0lTVEVSOgo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgaWYgKCFudC0+ZW5hYmxlZCkKPiAtIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGJyZWFrOwo+IMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgbmV0cG9sbF9jbGVhbnVwKCZu
-dC0+bnApOwo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-LyogRmFsbCB0aHJvdWdoICovCj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBj
-YXNlIE5FVERFVl9HT0lOR19ET1dOOgo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgY2FzZSBORVRERVZfQk9ORElOR19ERVNMQVZFOgo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgbnQtPmVuYWJsZWQgPSAwOwo+IC0gwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgcHJpbnRrKEtFUk5fSU5GTyAibmV0Y29u
-c29sZTogbmV0d29yayBsb2dnaW5nIHN0b3BwZWQiCj4gLSDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCAiLCBpbnRlcmZhY2UgJXMgdW5yZWdp
-c3RlcmVkXG4iLAo+IC0gwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgZGV2LT5uYW1lKTsKPiDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoGJyZWFrOwo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgfQo+IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgfQo+IMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgbmV0Y29uc29sZV90YXJnZXRfcHV0KG50KTsKPiDCoCDCoCDCoCDCoH0KPiDCoCDCoCDCoCDC
-oHNwaW5fdW5sb2NrX2lycXJlc3RvcmUoJnRhcmdldF9saXN0X2xvY2ssIGZsYWdzKTsKPiArIMKg
-IMKgIMKgIGlmIChldmVudCA9PSBORVRERVZfVU5SRUdJU1RFUiB8fCBldmVudCA9PSBORVRERVZf
-Qk9ORElOR19ERVNMQVZFKQo+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgcHJpbnRrKEtFUk5fSU5G
-TyAibmV0Y29uc29sZTogbmV0d29yayBsb2dnaW5nIHN0b3BwZWQsICIKPiArIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgICJpbnRlcmZhY2UgJXMgJXNcbiIsIMKgZGV2LT5uYW1lLAo+
-ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgZXZlbnQgPT0gTkVUREVWX1VOUkVH
-SVNURVIgPyAidW5yZWdpc3RlcmVkIiA6ICJyZWxlYXNlZCBzbGF2ZXMiKTsKPgo+IMKgZG9uZToK
-PiDCoCDCoCDCoCDCoHJldHVybiBOT1RJRllfRE9ORTsKPiBJbmRleDogbGludXgtMi42L2luY2x1
-ZGUvbGludXgvbm90aWZpZXIuaAo+ID09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KPiAtLS0gbGludXgtMi42Lm9yaWcvaW5j
-bHVkZS9saW51eC9ub3RpZmllci5oCj4gKysrIGxpbnV4LTIuNi9pbmNsdWRlL2xpbnV4L25vdGlm
-aWVyLmgKPiBAQCAtMjAzLDYgKzIwMyw3IEBAIHN0YXRpYyBpbmxpbmUgaW50IG5vdGlmaWVyX3Rv
-X2Vycm5vKGludAo+IMKgI2RlZmluZSBORVRERVZfQk9ORElOR19ORVdUWVBFIMKgMHgwMDBGCj4g
-wqAjZGVmaW5lIE5FVERFVl9QT1NUX0lOSVQgwqAgwqAgwqAgMHgwMDEwCj4gwqAjZGVmaW5lIE5F
-VERFVl9VTlJFR0lTVEVSX0JBVENIIDB4MDAxMQo+ICsjZGVmaW5lIE5FVERFVl9CT05ESU5HX0RF
-U0xBVkUgwqAweDAwMTIKPgo+IMKgI2RlZmluZSBTWVNfRE9XTiDCoCDCoCDCoCAweDAwMDEgwqAv
-KiBOb3RpZnkgb2Ygc3lzdGVtIGRvd24gKi8KPiDCoCNkZWZpbmUgU1lTX1JFU1RBUlQgwqAgwqBT
-WVNfRE9XTgo+IC0tCj4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxp
-bmUgInVuc3Vic2NyaWJlIGxpbnV4LWtlcm5lbCIgaW4KPiB0aGUgYm9keSBvZiBhIG1lc3NhZ2Ug
-dG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZwo+IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgwqBo
-dHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwKPiBQbGVhc2UgcmVhZCB0
-aGUgRkFRIGF0IMKgaHR0cDovL3d3dy50dXgub3JnL2xrbWwvCj4K
+From: Scott Feldman <scofeldm@cisco.com>
+
+Add new netdev ops ndo_{set|get}_port_profile to allow setting of port-profile
+on a netdev interface.  Extends RTM_SETLINK/RTM_GETLINK with new sub cmd called
+IFLA_PORT_PROFILE (added to end of IFLA_cmd list).  The port-profile cmd
+arguments are (as seen from modified iproute2 cmdline):
+
+       ip link set DEVICE [ { up | down } ]
+                          [ arp { on | off } ]
+                          [ dynamic { on | off } ]
+                          [ multicast { on | off } ]
+                          ...
+                          [ vf NUM [ mac LLADDR ]
+                                   [ vlan VLANID [ qos VLAN-QOS ] ]
+                                   [ rate TXRATE ] ] 
+                          [ port_profile [ PORT-PROFILE
+                                   [ mac LLADDR ]
+                                   [ host_uuid HOST_UUID ]
+                                   [ client_uuid CLIENT_UUID ]
+                                   [ client_name CLIENT_NAME ] ] ]
+       ip link show [ DEVICE ]
+
+
+A port-profile is used to configure/enable the switch port backing the netdev
+interface, not to configure the host-facing side of the netdev.  A port-
+profile is an identifier known to the switch.  How port-profiles are installed
+on the switch or how available port-profiles is made know to the host is
+outside the scope of this patch.
+
+The general flow is the port-profile is applied to a host netdev interface
+using RTM_SETLINK, the receiver of the RTM_SETLINK msg (more about that later)
+communicates with the switch, and the switch port backing the host netdev
+interface is configured/enabled based on the settings defined by the port-
+profile.  What those settings comprise, and how those settings are managed is
+again outside the scope of this patch, since this patch only deals with the
+first step in the flow.
+
+Since we're using netlink sockets, the receiver of the RTM_SETLINK msg can
+be in kernel- or user-space.  For kernel-space recipient, rtnetlink.c, the
+new ndo_set_port_profile netdev op is called to set the port-profile.
+User-space recipients can decide how they propagate the msg to the switch.
+There is also a RTM_GETLINK cmd to to return port-profile setting of an
+interface and to also return the status of the last port-profile.
+
+Signed-off-by: Scott Feldman <scofeldm@cisco.com>
+Signed-off-by: Roopa Prabhu<roprabhu@cisco.com>
+---
+ include/linux/if_link.h   |   26 ++++++++++++++++++++++++++
+ include/linux/netdevice.h |   10 ++++++++++
+ net/core/rtnetlink.c      |   22 ++++++++++++++++++++++
+ 3 files changed, 58 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index cfd420b..6f02398 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -116,6 +116,7 @@ enum {
+ 	IFLA_VF_TX_RATE,	/* TX Bandwidth Allocation */
+ 	IFLA_VFINFO,
+ 	IFLA_STATS64,
++	IFLA_PORT_PROFILE,
+ 	__IFLA_MAX
+ };
+ 
+@@ -259,4 +260,29 @@ struct ifla_vf_info {
+ 	__u32 qos;
+ 	__u32 tx_rate;
+ };
++
++/* Port-profile managment section */
++
++#define IFLA_PORT_PROFILE_MAX	40
++#define IFLA_PP_HOST_UUID_MAX	40
++#define IFLA_PP_CLIENT_UUID_MAX	40
++#define IFLA_PP_CLIENT_NAME_MAX	40
++
++enum ifla_port_profile_status {
++	IFLA_PORT_PROFILE_STATUS_UNKNOWN,
++	IFLA_PORT_PROFILE_STATUS_SUCCESS,
++	IFLA_PORT_PROFILE_STATUS_ERROR,
++	IFLA_PORT_PROFILE_STATUS_INPROGRESS,
++};
++
++struct ifla_port_profile {
++	__u8 status;
++	__u8 port_profile[IFLA_PORT_PROFILE_MAX];
++	__u8 mac[32]; /* MAX_ADDR_LEN */
++	__u8 host_uuid[IFLA_PP_HOST_UUID_MAX];
++		/* e.g. "CEEFD3B1-9E11-11DE-BDFD-000BAB01C0FB" */
++	__u8 client_uuid[IFLA_PP_CLIENT_UUID_MAX];
++	__u8 client_name[IFLA_PP_CLIENT_NAME_MAX]; /* e.g. "vm0-eth1" */
++};
++
+ #endif /* _LINUX_IF_LINK_H */
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 3c5ed5f..2962288 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -696,6 +696,12 @@ struct netdev_rx_queue {
+  * int (*ndo_set_vf_tx_rate)(struct net_device *dev, int vf, int rate);
+  * int (*ndo_get_vf_config)(struct net_device *dev,
+  *			    int vf, struct ifla_vf_info *ivf);
++ *
++ *	Port-profile management functions.
++ * int (*ndo_set_port_profile)(struct net_device *dev,
++ *			       struct ifla_port_profile *ipp);
++ * int (*ndo_get_port_profile)(struct net_device *dev,
++ *			       struct ifla_port_profile *ipp);
+  */
+ #define HAVE_NET_DEVICE_OPS
+ struct net_device_ops {
+@@ -744,6 +750,10 @@ struct net_device_ops {
+ 	int			(*ndo_get_vf_config)(struct net_device *dev,
+ 						     int vf,
+ 						     struct ifla_vf_info *ivf);
++	int			(*ndo_set_port_profile)(struct net_device *dev,
++					struct ifla_port_profile *ipp);
++	int			(*ndo_get_port_profile)(struct net_device *dev,
++					struct ifla_port_profile *ipp);
+ #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
+ 	int			(*ndo_fcoe_enable)(struct net_device *dev);
+ 	int			(*ndo_fcoe_disable)(struct net_device *dev);
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 78c8598..1d7e9a7 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -758,6 +758,14 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			NLA_PUT(skb, IFLA_VFINFO, sizeof(ivi), &ivi);
+ 		}
+ 	}
++
++	if (dev->netdev_ops->ndo_get_port_profile) {
++		struct ifla_port_profile ipp;
++
++		if (!dev->netdev_ops->ndo_get_port_profile(dev, &ipp))
++			NLA_PUT(skb, IFLA_PORT_PROFILE, sizeof(ipp), &ipp);
++	}
++
+ 	if (dev->rtnl_link_ops) {
+ 		if (rtnl_link_fill(skb, dev) < 0)
+ 			goto nla_put_failure;
+@@ -824,6 +832,8 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 				    .len = sizeof(struct ifla_vf_vlan) },
+ 	[IFLA_VF_TX_RATE]	= { .type = NLA_BINARY,
+ 				    .len = sizeof(struct ifla_vf_tx_rate) },
++	[IFLA_PORT_PROFILE]	= { .type = NLA_BINARY,
++				    .len = sizeof(struct ifla_port_profile)},
+ };
+ EXPORT_SYMBOL(ifla_policy);
+ 
+@@ -1028,6 +1038,18 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
+ 	}
+ 	err = 0;
+ 
++	if (tb[IFLA_PORT_PROFILE]) {
++		struct ifla_port_profile *ipp;
++		ipp = nla_data(tb[IFLA_PORT_PROFILE]);
++		err = -EOPNOTSUPP;
++		if (ops->ndo_set_port_profile)
++			err = ops->ndo_set_port_profile(dev, ipp);
++		if (err < 0)
++			goto errout;
++		modified = 1;
++	}
++	err = 0;
++
+ errout:
+ 	if (err < 0 && modified && net_ratelimit())
+ 		printk(KERN_WARNING "A link change request failed with "
+
