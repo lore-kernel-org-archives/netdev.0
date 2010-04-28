@@ -1,67 +1,503 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 1/3] ptp: Added a brand new class driver for ptp clocks.
-Date: Wed, 28 Apr 2010 08:08:37 +0200
-Message-ID: <20100428060837.GB4516@riccoc20.at.omicron.at>
-References: <20100427091405.GA5098@riccoc20.at.omicron.at> <20100427153239.0977c1aa.randy.dunlap@oracle.com>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: Re: [RFC] random SYN drops causing connect() delays
+Date: Wed, 28 Apr 2010 02:11:47 -0400
+Message-ID: <20100428061147.GM19763@bombadil.infradead.org>
+References: <20100412080633.GA27418@bombadil.infradead.org> <20100412083903.GA19763@bombadil.infradead.org> <20100427.185602.221594952.davem@davemloft.net> <20100428044443.GL19763@bombadil.infradead.org> <1272433966.2343.34.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Randy Dunlap <randy.dunlap@oracle.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.159]:49009 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752832Ab0D1GIn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 02:08:43 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so3094135fgg.1
-        for <netdev@vger.kernel.org>; Tue, 27 Apr 2010 23:08:41 -0700 (PDT)
+Received: from bombadil.infradead.org ([18.85.46.34]:55350 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751720Ab0D1GLt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 02:11:49 -0400
 Content-Disposition: inline
-In-Reply-To: <20100427153239.0977c1aa.randy.dunlap@oracle.com>
+In-Reply-To: <1272433966.2343.34.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 27, 2010 at 03:32:39PM -0700, Randy Dunlap wrote:
-> How do I use the testptp.mk file?
-
-The makefile uses the KBUILD_OUTPUT environment variable to find the
-kernel includes, with the new header. I do something like this:
-
-  export ARCH=powerpc
-  export KBUILD_OUTPUT=~/work/kernel/ptp_p2020
-  mkdir -p $KBUILD_OUTPUT
-  make mpc85xx_smp_defconfig
-  make menuconfig
-  make -j3 uImage
-  make headers_install
-  make -C Documentation/ptp -f testptp.mk
-
-> Drop the ".ko".  We normally don't include that part of the module name.
-
-Okay, can do. I just imitated what I saw in other Kbuild files.
-
-> > diff --git a/include/linux/Kbuild b/include/linux/Kbuild
-> > index 2fc8e14..2d616cb 100644
-> > --- a/include/linux/Kbuild
-> > +++ b/include/linux/Kbuild
-> > @@ -318,6 +318,7 @@ unifdef-y += poll.h
-> >  unifdef-y += ppp_defs.h
-> >  unifdef-y += ppp-comp.h
-> >  unifdef-y += pps.h
-> > +unifdef-y += ptp_clock.h
-> >  unifdef-y += ptrace.h
-> >  unifdef-y += quota.h
-> >  unifdef-y += random.h
+On Wed, Apr 28, 2010 at 07:52:46AM +0200, Eric Dumazet wrote:
+> On machine/kernel reproducing the behavior, please send
 > 
-> I think that the Kbuild file also needs this line:
-> header-y += ptp_clock.h
-> 
-> so that builds that use O=objdir will work, but even with that
-> change, I couldn't get it to work.  (?)
+> grep . /proc/sys/net/ipv4/*
 
-Well, I am not sure what to do here. I followed the example of the PPS
-code. That code only has the unifdef-y assigment. But now I see that
-Documentation/kbuild/makefiles.txt says unifdef-y is deprecated.
-
-Can someone clarify what is correct: is just header-y enough?
-
-Thanks,
-Richard
+net.ipv4.route.gc_thresh = 262144
+net.ipv4.route.max_size = 4194304
+net.ipv4.route.gc_min_interval = 0
+net.ipv4.route.gc_min_interval_ms = 500
+net.ipv4.route.gc_timeout = 300
+net.ipv4.route.gc_interval = 60
+net.ipv4.route.redirect_load = 20
+net.ipv4.route.redirect_number = 9
+net.ipv4.route.redirect_silence = 20480
+net.ipv4.route.error_cost = 1000
+net.ipv4.route.error_burst = 5000
+net.ipv4.route.gc_elasticity = 8
+net.ipv4.route.mtu_expires = 600
+net.ipv4.route.min_pmtu = 552
+net.ipv4.route.min_adv_mss = 256
+net.ipv4.route.secret_interval = 600
+net.ipv4.neigh.default.mcast_solicit = 3
+net.ipv4.neigh.default.ucast_solicit = 3
+net.ipv4.neigh.default.app_solicit = 0
+net.ipv4.neigh.default.retrans_time = 99
+net.ipv4.neigh.default.base_reachable_time = 30
+net.ipv4.neigh.default.delay_first_probe_time = 5
+net.ipv4.neigh.default.gc_stale_time = 60
+net.ipv4.neigh.default.unres_qlen = 3
+net.ipv4.neigh.default.proxy_qlen = 64
+net.ipv4.neigh.default.anycast_delay = 99
+net.ipv4.neigh.default.proxy_delay = 79
+net.ipv4.neigh.default.locktime = 99
+net.ipv4.neigh.default.retrans_time_ms = 1000
+net.ipv4.neigh.default.base_reachable_time_ms = 30000
+net.ipv4.neigh.default.gc_interval = 30
+net.ipv4.neigh.default.gc_thresh1 = 128
+net.ipv4.neigh.default.gc_thresh2 = 512
+net.ipv4.neigh.default.gc_thresh3 = 1024
+net.ipv4.neigh.lo.mcast_solicit = 3
+net.ipv4.neigh.lo.ucast_solicit = 3
+net.ipv4.neigh.lo.app_solicit = 0
+net.ipv4.neigh.lo.retrans_time = 99
+net.ipv4.neigh.lo.base_reachable_time = 30
+net.ipv4.neigh.lo.delay_first_probe_time = 5
+net.ipv4.neigh.lo.gc_stale_time = 60
+net.ipv4.neigh.lo.unres_qlen = 3
+net.ipv4.neigh.lo.proxy_qlen = 64
+net.ipv4.neigh.lo.anycast_delay = 99
+net.ipv4.neigh.lo.proxy_delay = 79
+net.ipv4.neigh.lo.locktime = 99
+net.ipv4.neigh.lo.retrans_time_ms = 1000
+net.ipv4.neigh.lo.base_reachable_time_ms = 30000
+net.ipv4.neigh.eth0.mcast_solicit = 3
+net.ipv4.neigh.eth0.ucast_solicit = 3
+net.ipv4.neigh.eth0.app_solicit = 0
+net.ipv4.neigh.eth0.retrans_time = 99
+net.ipv4.neigh.eth0.base_reachable_time = 30
+net.ipv4.neigh.eth0.delay_first_probe_time = 5
+net.ipv4.neigh.eth0.gc_stale_time = 60
+net.ipv4.neigh.eth0.unres_qlen = 3
+net.ipv4.neigh.eth0.proxy_qlen = 64
+net.ipv4.neigh.eth0.anycast_delay = 99
+net.ipv4.neigh.eth0.proxy_delay = 79
+net.ipv4.neigh.eth0.locktime = 99
+net.ipv4.neigh.eth0.retrans_time_ms = 1000
+net.ipv4.neigh.eth0.base_reachable_time_ms = 30000
+net.ipv4.neigh.eth1.mcast_solicit = 3
+net.ipv4.neigh.eth1.ucast_solicit = 3
+net.ipv4.neigh.eth1.app_solicit = 0
+net.ipv4.neigh.eth1.retrans_time = 99
+net.ipv4.neigh.eth1.base_reachable_time = 30
+net.ipv4.neigh.eth1.delay_first_probe_time = 5
+net.ipv4.neigh.eth1.gc_stale_time = 60
+net.ipv4.neigh.eth1.unres_qlen = 3
+net.ipv4.neigh.eth1.proxy_qlen = 64
+net.ipv4.neigh.eth1.anycast_delay = 99
+net.ipv4.neigh.eth1.proxy_delay = 79
+net.ipv4.neigh.eth1.locktime = 99
+net.ipv4.neigh.eth1.retrans_time_ms = 1000
+net.ipv4.neigh.eth1.base_reachable_time_ms = 30000
+net.ipv4.neigh.pan0.mcast_solicit = 3
+net.ipv4.neigh.pan0.ucast_solicit = 3
+net.ipv4.neigh.pan0.app_solicit = 0
+net.ipv4.neigh.pan0.retrans_time = 99
+net.ipv4.neigh.pan0.base_reachable_time = 30
+net.ipv4.neigh.pan0.delay_first_probe_time = 5
+net.ipv4.neigh.pan0.gc_stale_time = 60
+net.ipv4.neigh.pan0.unres_qlen = 3
+net.ipv4.neigh.pan0.proxy_qlen = 64
+net.ipv4.neigh.pan0.anycast_delay = 99
+net.ipv4.neigh.pan0.proxy_delay = 79
+net.ipv4.neigh.pan0.locktime = 99
+net.ipv4.neigh.pan0.retrans_time_ms = 1000
+net.ipv4.neigh.pan0.base_reachable_time_ms = 30000
+net.ipv4.neigh.virbr0.mcast_solicit = 3
+net.ipv4.neigh.virbr0.ucast_solicit = 3
+net.ipv4.neigh.virbr0.app_solicit = 0
+net.ipv4.neigh.virbr0.retrans_time = 99
+net.ipv4.neigh.virbr0.base_reachable_time = 30
+net.ipv4.neigh.virbr0.delay_first_probe_time = 5
+net.ipv4.neigh.virbr0.gc_stale_time = 60
+net.ipv4.neigh.virbr0.unres_qlen = 3
+net.ipv4.neigh.virbr0.proxy_qlen = 64
+net.ipv4.neigh.virbr0.anycast_delay = 99
+net.ipv4.neigh.virbr0.proxy_delay = 79
+net.ipv4.neigh.virbr0.locktime = 99
+net.ipv4.neigh.virbr0.retrans_time_ms = 1000
+net.ipv4.neigh.virbr0.base_reachable_time_ms = 30000
+net.ipv4.neigh.virbr1.mcast_solicit = 3
+net.ipv4.neigh.virbr1.ucast_solicit = 3
+net.ipv4.neigh.virbr1.app_solicit = 0
+net.ipv4.neigh.virbr1.retrans_time = 99
+net.ipv4.neigh.virbr1.base_reachable_time = 30
+net.ipv4.neigh.virbr1.delay_first_probe_time = 5
+net.ipv4.neigh.virbr1.gc_stale_time = 60
+net.ipv4.neigh.virbr1.unres_qlen = 3
+net.ipv4.neigh.virbr1.proxy_qlen = 64
+net.ipv4.neigh.virbr1.anycast_delay = 99
+net.ipv4.neigh.virbr1.proxy_delay = 79
+net.ipv4.neigh.virbr1.locktime = 99
+net.ipv4.neigh.virbr1.retrans_time_ms = 1000
+net.ipv4.neigh.virbr1.base_reachable_time_ms = 30000
+net.ipv4.neigh.virbr2.mcast_solicit = 3
+net.ipv4.neigh.virbr2.ucast_solicit = 3
+net.ipv4.neigh.virbr2.app_solicit = 0
+net.ipv4.neigh.virbr2.retrans_time = 99
+net.ipv4.neigh.virbr2.base_reachable_time = 30
+net.ipv4.neigh.virbr2.delay_first_probe_time = 5
+net.ipv4.neigh.virbr2.gc_stale_time = 60
+net.ipv4.neigh.virbr2.unres_qlen = 3
+net.ipv4.neigh.virbr2.proxy_qlen = 64
+net.ipv4.neigh.virbr2.anycast_delay = 99
+net.ipv4.neigh.virbr2.proxy_delay = 79
+net.ipv4.neigh.virbr2.locktime = 99
+net.ipv4.neigh.virbr2.retrans_time_ms = 1000
+net.ipv4.neigh.virbr2.base_reachable_time_ms = 30000
+net.ipv4.neigh.tun0.mcast_solicit = 3
+net.ipv4.neigh.tun0.ucast_solicit = 3
+net.ipv4.neigh.tun0.app_solicit = 0
+net.ipv4.neigh.tun0.retrans_time = 99
+net.ipv4.neigh.tun0.base_reachable_time = 30
+net.ipv4.neigh.tun0.delay_first_probe_time = 5
+net.ipv4.neigh.tun0.gc_stale_time = 60
+net.ipv4.neigh.tun0.unres_qlen = 3
+net.ipv4.neigh.tun0.proxy_qlen = 64
+net.ipv4.neigh.tun0.anycast_delay = 99
+net.ipv4.neigh.tun0.proxy_delay = 79
+net.ipv4.neigh.tun0.locktime = 99
+net.ipv4.neigh.tun0.retrans_time_ms = 1000
+net.ipv4.neigh.tun0.base_reachable_time_ms = 30000
+net.ipv4.tcp_timestamps = 1
+net.ipv4.tcp_window_scaling = 1
+net.ipv4.tcp_sack = 1
+net.ipv4.tcp_retrans_collapse = 1
+net.ipv4.ip_default_ttl = 64
+net.ipv4.ip_no_pmtu_disc = 0
+net.ipv4.ip_nonlocal_bind = 0
+net.ipv4.tcp_syn_retries = 5
+net.ipv4.tcp_synack_retries = 5
+net.ipv4.tcp_max_orphans = 65536
+net.ipv4.tcp_max_tw_buckets = 180000
+net.ipv4.ip_dynaddr = 0
+net.ipv4.tcp_keepalive_time = 7200
+net.ipv4.tcp_keepalive_probes = 9
+net.ipv4.tcp_keepalive_intvl = 75
+net.ipv4.tcp_retries1 = 3
+net.ipv4.tcp_retries2 = 15
+net.ipv4.tcp_fin_timeout = 60
+net.ipv4.tcp_syncookies = 1
+net.ipv4.tcp_tw_recycle = 0
+net.ipv4.tcp_abort_on_overflow = 0
+net.ipv4.tcp_stdurg = 0
+net.ipv4.tcp_rfc1337 = 0
+net.ipv4.tcp_max_syn_backlog = 1024
+net.ipv4.ip_local_port_range = 32768	61000
+net.ipv4.igmp_max_memberships = 20
+net.ipv4.igmp_max_msf = 10
+net.ipv4.inet_peer_threshold = 65664
+net.ipv4.inet_peer_minttl = 120
+net.ipv4.inet_peer_maxttl = 600
+net.ipv4.inet_peer_gc_mintime = 10
+net.ipv4.inet_peer_gc_maxtime = 120
+net.ipv4.tcp_orphan_retries = 0
+net.ipv4.tcp_fack = 1
+net.ipv4.tcp_reordering = 3
+net.ipv4.tcp_ecn = 2
+net.ipv4.tcp_dsack = 1
+net.ipv4.tcp_mem = 573408	764544	1146816
+net.ipv4.tcp_wmem = 4096	16384	4194304
+net.ipv4.tcp_rmem = 4096	87380	4194304
+net.ipv4.tcp_app_win = 31
+net.ipv4.tcp_adv_win_scale = 2
+net.ipv4.tcp_tw_reuse = 0
+net.ipv4.tcp_frto = 2
+net.ipv4.tcp_frto_response = 0
+net.ipv4.tcp_low_latency = 0
+net.ipv4.tcp_no_metrics_save = 0
+net.ipv4.tcp_moderate_rcvbuf = 1
+net.ipv4.tcp_tso_win_divisor = 3
+net.ipv4.tcp_congestion_control = cubic
+net.ipv4.tcp_abc = 0
+net.ipv4.tcp_mtu_probing = 0
+net.ipv4.tcp_base_mss = 512
+net.ipv4.tcp_workaround_signed_windows = 0
+net.ipv4.tcp_dma_copybreak = 4096
+net.ipv4.tcp_slow_start_after_idle = 1
+net.ipv4.cipso_cache_enable = 1
+net.ipv4.cipso_cache_bucket_size = 10
+net.ipv4.cipso_rbm_optfmt = 0
+net.ipv4.cipso_rbm_strictvalid = 1
+net.ipv4.tcp_available_congestion_control = cubic reno
+net.ipv4.tcp_allowed_congestion_control = cubic reno
+net.ipv4.tcp_max_ssthresh = 0
+net.ipv4.tcp_cookie_size = 0
+net.ipv4.tcp_thin_linear_timeouts = 0
+net.ipv4.tcp_thin_dupack = 0
+net.ipv4.udp_mem = 573408	764544	1146816
+net.ipv4.udp_rmem_min = 4096
+net.ipv4.udp_wmem_min = 4096
+net.ipv4.conf.all.forwarding = 1
+net.ipv4.conf.all.mc_forwarding = 0
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.conf.all.secure_redirects = 1
+net.ipv4.conf.all.shared_media = 1
+net.ipv4.conf.all.rp_filter = 0
+net.ipv4.conf.all.send_redirects = 1
+net.ipv4.conf.all.accept_source_route = 0
+net.ipv4.conf.all.accept_local = 0
+net.ipv4.conf.all.src_valid_mark = 0
+net.ipv4.conf.all.proxy_arp = 0
+net.ipv4.conf.all.medium_id = 0
+net.ipv4.conf.all.bootp_relay = 0
+net.ipv4.conf.all.log_martians = 0
+net.ipv4.conf.all.tag = 0
+net.ipv4.conf.all.arp_filter = 0
+net.ipv4.conf.all.arp_announce = 0
+net.ipv4.conf.all.arp_ignore = 0
+net.ipv4.conf.all.arp_accept = 0
+net.ipv4.conf.all.arp_notify = 0
+net.ipv4.conf.all.proxy_arp_pvlan = 0
+net.ipv4.conf.all.disable_xfrm = 0
+net.ipv4.conf.all.disable_policy = 0
+net.ipv4.conf.all.force_igmp_version = 0
+net.ipv4.conf.all.promote_secondaries = 0
+net.ipv4.conf.default.forwarding = 1
+net.ipv4.conf.default.mc_forwarding = 0
+net.ipv4.conf.default.accept_redirects = 1
+net.ipv4.conf.default.secure_redirects = 1
+net.ipv4.conf.default.shared_media = 1
+net.ipv4.conf.default.rp_filter = 1
+net.ipv4.conf.default.send_redirects = 1
+net.ipv4.conf.default.accept_source_route = 0
+net.ipv4.conf.default.accept_local = 0
+net.ipv4.conf.default.src_valid_mark = 0
+net.ipv4.conf.default.proxy_arp = 0
+net.ipv4.conf.default.medium_id = 0
+net.ipv4.conf.default.bootp_relay = 0
+net.ipv4.conf.default.log_martians = 0
+net.ipv4.conf.default.tag = 0
+net.ipv4.conf.default.arp_filter = 0
+net.ipv4.conf.default.arp_announce = 0
+net.ipv4.conf.default.arp_ignore = 0
+net.ipv4.conf.default.arp_accept = 0
+net.ipv4.conf.default.arp_notify = 0
+net.ipv4.conf.default.proxy_arp_pvlan = 0
+net.ipv4.conf.default.disable_xfrm = 0
+net.ipv4.conf.default.disable_policy = 0
+net.ipv4.conf.default.force_igmp_version = 0
+net.ipv4.conf.default.promote_secondaries = 0
+net.ipv4.conf.lo.forwarding = 1
+net.ipv4.conf.lo.mc_forwarding = 0
+net.ipv4.conf.lo.accept_redirects = 1
+net.ipv4.conf.lo.secure_redirects = 1
+net.ipv4.conf.lo.shared_media = 1
+net.ipv4.conf.lo.rp_filter = 1
+net.ipv4.conf.lo.send_redirects = 1
+net.ipv4.conf.lo.accept_source_route = 0
+net.ipv4.conf.lo.accept_local = 0
+net.ipv4.conf.lo.src_valid_mark = 0
+net.ipv4.conf.lo.proxy_arp = 0
+net.ipv4.conf.lo.medium_id = 0
+net.ipv4.conf.lo.bootp_relay = 0
+net.ipv4.conf.lo.log_martians = 0
+net.ipv4.conf.lo.tag = 0
+net.ipv4.conf.lo.arp_filter = 0
+net.ipv4.conf.lo.arp_announce = 0
+net.ipv4.conf.lo.arp_ignore = 0
+net.ipv4.conf.lo.arp_accept = 0
+net.ipv4.conf.lo.arp_notify = 0
+net.ipv4.conf.lo.proxy_arp_pvlan = 0
+net.ipv4.conf.lo.disable_xfrm = 1
+net.ipv4.conf.lo.disable_policy = 1
+net.ipv4.conf.lo.force_igmp_version = 0
+net.ipv4.conf.lo.promote_secondaries = 0
+net.ipv4.conf.eth0.forwarding = 1
+net.ipv4.conf.eth0.mc_forwarding = 0
+net.ipv4.conf.eth0.accept_redirects = 1
+net.ipv4.conf.eth0.secure_redirects = 1
+net.ipv4.conf.eth0.shared_media = 1
+net.ipv4.conf.eth0.rp_filter = 1
+net.ipv4.conf.eth0.send_redirects = 1
+net.ipv4.conf.eth0.accept_source_route = 0
+net.ipv4.conf.eth0.accept_local = 0
+net.ipv4.conf.eth0.src_valid_mark = 0
+net.ipv4.conf.eth0.proxy_arp = 0
+net.ipv4.conf.eth0.medium_id = 0
+net.ipv4.conf.eth0.bootp_relay = 0
+net.ipv4.conf.eth0.log_martians = 0
+net.ipv4.conf.eth0.tag = 0
+net.ipv4.conf.eth0.arp_filter = 0
+net.ipv4.conf.eth0.arp_announce = 0
+net.ipv4.conf.eth0.arp_ignore = 0
+net.ipv4.conf.eth0.arp_accept = 0
+net.ipv4.conf.eth0.arp_notify = 0
+net.ipv4.conf.eth0.proxy_arp_pvlan = 0
+net.ipv4.conf.eth0.disable_xfrm = 0
+net.ipv4.conf.eth0.disable_policy = 0
+net.ipv4.conf.eth0.force_igmp_version = 0
+net.ipv4.conf.eth0.promote_secondaries = 0
+net.ipv4.conf.eth1.forwarding = 1
+net.ipv4.conf.eth1.mc_forwarding = 0
+net.ipv4.conf.eth1.accept_redirects = 1
+net.ipv4.conf.eth1.secure_redirects = 1
+net.ipv4.conf.eth1.shared_media = 1
+net.ipv4.conf.eth1.rp_filter = 1
+net.ipv4.conf.eth1.send_redirects = 1
+net.ipv4.conf.eth1.accept_source_route = 0
+net.ipv4.conf.eth1.accept_local = 0
+net.ipv4.conf.eth1.src_valid_mark = 0
+net.ipv4.conf.eth1.proxy_arp = 0
+net.ipv4.conf.eth1.medium_id = 0
+net.ipv4.conf.eth1.bootp_relay = 0
+net.ipv4.conf.eth1.log_martians = 0
+net.ipv4.conf.eth1.tag = 0
+net.ipv4.conf.eth1.arp_filter = 0
+net.ipv4.conf.eth1.arp_announce = 0
+net.ipv4.conf.eth1.arp_ignore = 0
+net.ipv4.conf.eth1.arp_accept = 0
+net.ipv4.conf.eth1.arp_notify = 0
+net.ipv4.conf.eth1.proxy_arp_pvlan = 0
+net.ipv4.conf.eth1.disable_xfrm = 0
+net.ipv4.conf.eth1.disable_policy = 0
+net.ipv4.conf.eth1.force_igmp_version = 0
+net.ipv4.conf.eth1.promote_secondaries = 0
+net.ipv4.conf.pan0.forwarding = 1
+net.ipv4.conf.pan0.mc_forwarding = 0
+net.ipv4.conf.pan0.accept_redirects = 1
+net.ipv4.conf.pan0.secure_redirects = 1
+net.ipv4.conf.pan0.shared_media = 1
+net.ipv4.conf.pan0.rp_filter = 1
+net.ipv4.conf.pan0.send_redirects = 1
+net.ipv4.conf.pan0.accept_source_route = 0
+net.ipv4.conf.pan0.accept_local = 0
+net.ipv4.conf.pan0.src_valid_mark = 0
+net.ipv4.conf.pan0.proxy_arp = 0
+net.ipv4.conf.pan0.medium_id = 0
+net.ipv4.conf.pan0.bootp_relay = 0
+net.ipv4.conf.pan0.log_martians = 0
+net.ipv4.conf.pan0.tag = 0
+net.ipv4.conf.pan0.arp_filter = 0
+net.ipv4.conf.pan0.arp_announce = 0
+net.ipv4.conf.pan0.arp_ignore = 0
+net.ipv4.conf.pan0.arp_accept = 0
+net.ipv4.conf.pan0.arp_notify = 0
+net.ipv4.conf.pan0.proxy_arp_pvlan = 0
+net.ipv4.conf.pan0.disable_xfrm = 0
+net.ipv4.conf.pan0.disable_policy = 0
+net.ipv4.conf.pan0.force_igmp_version = 0
+net.ipv4.conf.pan0.promote_secondaries = 0
+net.ipv4.conf.virbr0.forwarding = 1
+net.ipv4.conf.virbr0.mc_forwarding = 0
+net.ipv4.conf.virbr0.accept_redirects = 1
+net.ipv4.conf.virbr0.secure_redirects = 1
+net.ipv4.conf.virbr0.shared_media = 1
+net.ipv4.conf.virbr0.rp_filter = 1
+net.ipv4.conf.virbr0.send_redirects = 1
+net.ipv4.conf.virbr0.accept_source_route = 0
+net.ipv4.conf.virbr0.accept_local = 0
+net.ipv4.conf.virbr0.src_valid_mark = 0
+net.ipv4.conf.virbr0.proxy_arp = 0
+net.ipv4.conf.virbr0.medium_id = 0
+net.ipv4.conf.virbr0.bootp_relay = 0
+net.ipv4.conf.virbr0.log_martians = 0
+net.ipv4.conf.virbr0.tag = 0
+net.ipv4.conf.virbr0.arp_filter = 0
+net.ipv4.conf.virbr0.arp_announce = 0
+net.ipv4.conf.virbr0.arp_ignore = 0
+net.ipv4.conf.virbr0.arp_accept = 0
+net.ipv4.conf.virbr0.arp_notify = 0
+net.ipv4.conf.virbr0.proxy_arp_pvlan = 0
+net.ipv4.conf.virbr0.disable_xfrm = 0
+net.ipv4.conf.virbr0.disable_policy = 0
+net.ipv4.conf.virbr0.force_igmp_version = 0
+net.ipv4.conf.virbr0.promote_secondaries = 0
+net.ipv4.conf.virbr1.forwarding = 1
+net.ipv4.conf.virbr1.mc_forwarding = 0
+net.ipv4.conf.virbr1.accept_redirects = 1
+net.ipv4.conf.virbr1.secure_redirects = 1
+net.ipv4.conf.virbr1.shared_media = 1
+net.ipv4.conf.virbr1.rp_filter = 1
+net.ipv4.conf.virbr1.send_redirects = 1
+net.ipv4.conf.virbr1.accept_source_route = 0
+net.ipv4.conf.virbr1.accept_local = 0
+net.ipv4.conf.virbr1.src_valid_mark = 0
+net.ipv4.conf.virbr1.proxy_arp = 0
+net.ipv4.conf.virbr1.medium_id = 0
+net.ipv4.conf.virbr1.bootp_relay = 0
+net.ipv4.conf.virbr1.log_martians = 0
+net.ipv4.conf.virbr1.tag = 0
+net.ipv4.conf.virbr1.arp_filter = 0
+net.ipv4.conf.virbr1.arp_announce = 0
+net.ipv4.conf.virbr1.arp_ignore = 0
+net.ipv4.conf.virbr1.arp_accept = 0
+net.ipv4.conf.virbr1.arp_notify = 0
+net.ipv4.conf.virbr1.proxy_arp_pvlan = 0
+net.ipv4.conf.virbr1.disable_xfrm = 0
+net.ipv4.conf.virbr1.disable_policy = 0
+net.ipv4.conf.virbr1.force_igmp_version = 0
+net.ipv4.conf.virbr1.promote_secondaries = 0
+net.ipv4.conf.virbr2.forwarding = 1
+net.ipv4.conf.virbr2.mc_forwarding = 0
+net.ipv4.conf.virbr2.accept_redirects = 1
+net.ipv4.conf.virbr2.secure_redirects = 1
+net.ipv4.conf.virbr2.shared_media = 1
+net.ipv4.conf.virbr2.rp_filter = 1
+net.ipv4.conf.virbr2.send_redirects = 1
+net.ipv4.conf.virbr2.accept_source_route = 0
+net.ipv4.conf.virbr2.accept_local = 0
+net.ipv4.conf.virbr2.src_valid_mark = 0
+net.ipv4.conf.virbr2.proxy_arp = 0
+net.ipv4.conf.virbr2.medium_id = 0
+net.ipv4.conf.virbr2.bootp_relay = 0
+net.ipv4.conf.virbr2.log_martians = 0
+net.ipv4.conf.virbr2.tag = 0
+net.ipv4.conf.virbr2.arp_filter = 0
+net.ipv4.conf.virbr2.arp_announce = 0
+net.ipv4.conf.virbr2.arp_ignore = 0
+net.ipv4.conf.virbr2.arp_accept = 0
+net.ipv4.conf.virbr2.arp_notify = 0
+net.ipv4.conf.virbr2.proxy_arp_pvlan = 0
+net.ipv4.conf.virbr2.disable_xfrm = 0
+net.ipv4.conf.virbr2.disable_policy = 0
+net.ipv4.conf.virbr2.force_igmp_version = 0
+net.ipv4.conf.virbr2.promote_secondaries = 0
+net.ipv4.conf.tun0.forwarding = 1
+net.ipv4.conf.tun0.mc_forwarding = 0
+net.ipv4.conf.tun0.accept_redirects = 1
+net.ipv4.conf.tun0.secure_redirects = 1
+net.ipv4.conf.tun0.shared_media = 1
+net.ipv4.conf.tun0.rp_filter = 1
+net.ipv4.conf.tun0.send_redirects = 1
+net.ipv4.conf.tun0.accept_source_route = 0
+net.ipv4.conf.tun0.accept_local = 0
+net.ipv4.conf.tun0.src_valid_mark = 0
+net.ipv4.conf.tun0.proxy_arp = 0
+net.ipv4.conf.tun0.medium_id = 0
+net.ipv4.conf.tun0.bootp_relay = 0
+net.ipv4.conf.tun0.log_martians = 0
+net.ipv4.conf.tun0.tag = 0
+net.ipv4.conf.tun0.arp_filter = 0
+net.ipv4.conf.tun0.arp_announce = 0
+net.ipv4.conf.tun0.arp_ignore = 0
+net.ipv4.conf.tun0.arp_accept = 0
+net.ipv4.conf.tun0.arp_notify = 0
+net.ipv4.conf.tun0.proxy_arp_pvlan = 0
+net.ipv4.conf.tun0.disable_xfrm = 0
+net.ipv4.conf.tun0.disable_policy = 0
+net.ipv4.conf.tun0.force_igmp_version = 0
+net.ipv4.conf.tun0.promote_secondaries = 0
+net.ipv4.ip_forward = 1
+net.ipv4.xfrm4_gc_thresh = 2097152
+net.ipv4.ipfrag_high_thresh = 262144
+net.ipv4.ipfrag_low_thresh = 196608
+net.ipv4.ipfrag_time = 30
+net.ipv4.icmp_echo_ignore_all = 0
+net.ipv4.icmp_echo_ignore_broadcasts = 1
+net.ipv4.icmp_ignore_bogus_error_responses = 1
+net.ipv4.icmp_errors_use_inbound_ifaddr = 0
+net.ipv4.icmp_ratelimit = 1000
+net.ipv4.icmp_ratemask = 6168
+net.ipv4.rt_cache_rebuild_count = 4
+net.ipv4.ipfrag_secret_interval = 600
+net.ipv4.ipfrag_max_dist = 64
