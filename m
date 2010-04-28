@@ -1,61 +1,96 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH 2/4] [RFC] Add sock_create_kern_net()
-Date: Tue, 27 Apr 2010 22:18:21 -0400
-Message-ID: <4BD79AED.9030507@hp.com>
-References: <1272034539-19899-1-git-send-email-danms@us.ibm.com>	<1272034539-19899-3-git-send-email-danms@us.ibm.com> <20100427.171844.77354120.davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH v3] ixgbe: disable MSI-X by default on certain
+	Cisco adapters
+Date: Tue, 27 Apr 2010 19:45:26 -0700
+Message-ID: <20100428024521.28991.37874.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: danms@us.ibm.com, containers@lists.osdl.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Nicholas Nunley <nicholasx.d.nunley@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0186.atlanta.hp.com ([15.193.32.63]:21928 "EHLO
-	g6t0186.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751823Ab0D1CSY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 22:18:24 -0400
-In-Reply-To: <20100427.171844.77354120.davem@davemloft.net>
+Received: from qmta11.westchester.pa.mail.comcast.net ([76.96.59.211]:52180
+	"EHLO QMTA11.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753652Ab0D1Cpq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 22:45:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Nick Nunley <nicholasx.d.nunley@intel.com>
 
+Due to an errata in 82598 parts MSI-X needs to be disabled
+in certain ixgbe devices designed to transfer peer-to-peer
+traffic on the PCIe bus. This patch sets the default
+interrupt type to MSI rather than MSI-X for specific Cisco
+ixgbe adapters.
 
-David Miller wrote:
-> From: Dan Smith <danms@us.ibm.com>
-> Date: Fri, 23 Apr 2010 07:55:37 -0700
-> 
->> This helper allows kernel routines to create a socket in a given netns,
->> instead of forcing it to the initial or current one.
->>
->> I know this seems like it's violating the netns boundary.  The intended
->> use (as in the following patches) is specifically when talking to RTNETLINK
->> in another netns for the purposes of creating or examining resources there.
->> It is expected that this will be used for that sort of transient socket
->> creation only.  In other words:
-> 
-> If you can create netlink sockets in a remote NS you can also make
-> changes there, and the whole point is to disallow changes.
-> 
-> So maybe you won't be making changes, but others will think about
-> using this and doing so.
-> 
-> At a high level, I think this is a really bad idea, so I won't be
-> applying this, sorry.
+Signed-off-by: Nicholas Nunley <nicholasx.d.nunley@intel.com>
+Acked-by: John Ronciak <john.ronciak@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-What this is changed to be a socket option or ioctl or some other mechanism
-that allows one to move an existing unbound, unconnected socket to another
-namespace?
+ drivers/net/ixgbe/ixgbe.h      |    4 ++++
+ drivers/net/ixgbe/ixgbe_main.c |   17 ++++++++++++++++-
+ 2 files changed, 20 insertions(+), 1 deletions(-)
 
-This way, we do not modify the namespace directly, but still have ability
-to move sockets into it for required communication.
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index 79c35ae..ec6bcc0 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -104,6 +104,10 @@
+ #define MAX_EMULATION_MAC_ADDRS         16
+ #define VMDQ_P(p)   ((p) + adapter->num_vfs)
+ 
++#define IXGBE_SUBDEV_ID_82598AF_MEZZ		0x0049
++#define IXGBE_SUBDEV_ID_82598AF_MENLO_Q_MEZZ	0x004a
++#define IXGBE_SUBDEV_ID_82598AF_MENLO_E_MEZZ	0x004b
++
+ struct vf_data_storage {
+ 	unsigned char vf_mac_addresses[ETH_ALEN];
+ 	u16 vf_mc_hashes[IXGBE_MAX_VF_MC_ENTRIES];
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 2ae5a51..ff59f88 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -4314,6 +4314,9 @@ static int ixgbe_set_interrupt_capability(struct ixgbe_adapter *adapter)
+ 	int err = 0;
+ 	int vector, v_budget;
+ 
++	if (!(adapter->flags & IXGBE_FLAG_MSIX_CAPABLE))
++		goto try_msi;
++
+ 	/*
+ 	 * It's easy to be greedy for MSI-X vectors, but it really
+ 	 * doesn't do us much good if we have a lot more vectors
+@@ -4345,7 +4348,7 @@ static int ixgbe_set_interrupt_capability(struct ixgbe_adapter *adapter)
+ 		if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED)
+ 			goto out;
+ 	}
+-
++try_msi:
+ 	adapter->flags &= ~IXGBE_FLAG_DCB_ENABLED;
+ 	adapter->flags &= ~IXGBE_FLAG_RSS_ENABLED;
+ 	adapter->flags &= ~IXGBE_FLAG_FDIR_HASH_CAPABLE;
+@@ -4626,6 +4629,18 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 	adapter->ring_feature[RING_F_RSS].indices = rss;
+ 	adapter->flags |= IXGBE_FLAG_RSS_ENABLED;
+ 	adapter->ring_feature[RING_F_DCB].indices = IXGBE_MAX_DCB_INDICES;
++	adapter->flags |= IXGBE_FLAG_MSIX_CAPABLE;
++	if (adapter->hw.device_id == IXGBE_DEV_ID_82598AF_DUAL_PORT) {
++		switch (adapter->hw.subsystem_device_id) {
++		case IXGBE_SUBDEV_ID_82598AF_MEZZ:
++		case IXGBE_SUBDEV_ID_82598AF_MENLO_Q_MEZZ:
++		case IXGBE_SUBDEV_ID_82598AF_MENLO_E_MEZZ:
++			adapter->flags &= ~IXGBE_FLAG_MSIX_CAPABLE;
++			break;
++		default:
++			break;
++		}
++	}
+ 	if (hw->mac.type == ixgbe_mac_82598EB) {
+ 		if (hw->device_id == IXGBE_DEV_ID_82598AT)
+ 			adapter->flags |= IXGBE_FLAG_FAN_FAIL_CAPABLE;
 
-In my mind moving a socket is someone similar to moving an interface to a
-namespace.  You just moving a required resource.
-
-Thanks
--vlad
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
