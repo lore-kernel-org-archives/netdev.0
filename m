@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH]: sctp: Fix skb_over_panic resulting from multiple
- invalid parameter errors (CVE-2010-1173) (v4)
-Date: Wed, 28 Apr 2010 14:23:39 -0700 (PDT)
-Message-ID: <20100428.142339.45883821.davem@davemloft.net>
-References: <4BD897B6.5040405@hp.com>
-	<20100428203059.GG4818@hmsreliant.think-freely.org>
-	<4BD89C70.6080406@hp.com>
+Subject: Re: [PATCH] forcedeth: Stay in NAPI as long as there's work
+Date: Wed, 28 Apr 2010 14:25:34 -0700 (PDT)
+Message-ID: <20100428.142534.57451492.davem@davemloft.net>
+References: <1272477251.18228.36.camel@Joe-Laptop.home>
+	<20100428111354.49a6ec1a@nehalam>
+	<20100428112528.01277670@nehalam>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nhorman@tuxdriver.com, sri@us.ibm.com, linux-sctp@vger.kernel.org,
-	eteo@redhat.com, netdev@vger.kernel.org, security@kernel.org
-To: vladislav.yasevich@hp.com
+Cc: joe@perches.com, therbert@google.com, netdev@vger.kernel.org,
+	aabdulla@nvidia.com
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59887
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59895
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755351Ab0D1VXd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 17:23:33 -0400
-In-Reply-To: <4BD89C70.6080406@hp.com>
+	by vger.kernel.org with ESMTP id S1755351Ab0D1VZ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 17:25:29 -0400
+In-Reply-To: <20100428112528.01277670@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Wed, 28 Apr 2010 16:37:04 -0400
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 28 Apr 2010 11:25:28 -0700
 
+> The following does the same thing without the extra overhead
+> of testing all the registers. It also handles the out of memory
+> case.
 > 
-> Looks good.
+> Compile tested only...
 > 
-> Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Applied, thanks Neil and Vlad.
+Tom can you test this version?
