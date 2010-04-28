@@ -1,17 +1,17 @@
 From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: [PATCH] sky2: use the DMA state API instead of the pci equivalents
-Date: Wed, 28 Apr 2010 09:57:05 +0900
-Message-ID: <20100428095826S.fujita.tomonori@lab.ntt.co.jp>
+Subject: [PATCH] skge: use the DMA state API instead of the pci equivalents
+Date: Wed, 28 Apr 2010 09:57:04 +0900
+Message-ID: <20100428095730K.fujita.tomonori@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: shemminger@linux-foundation.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sh.osrg.net ([192.16.179.4]:57308 "EHLO sh.osrg.net"
+Received: from sh.osrg.net ([192.16.179.4]:57309 "EHLO sh.osrg.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753562Ab0D1A5M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Apr 2010 20:57:12 -0400
+	id S1755116Ab0D1A5U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 27 Apr 2010 20:57:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -26,102 +26,115 @@ http://marc.info/?l=linux-netdev&m=127037540020276&w=2
 
 Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 ---
- drivers/net/sky2.c |   22 +++++++++++-----------
- drivers/net/sky2.h |    6 +++---
- 2 files changed, 14 insertions(+), 14 deletions(-)
+ drivers/net/skge.c |   32 ++++++++++++++++----------------
+ drivers/net/skge.h |    4 ++--
+ 2 files changed, 18 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
-index a1b17fa..bf9c05b 100644
---- a/drivers/net/sky2.c
-+++ b/drivers/net/sky2.c
-@@ -1129,7 +1129,7 @@ static int sky2_rx_map_skb(struct pci_dev *pdev, struct rx_ring_info *re,
- 	if (pci_dma_mapping_error(pdev, re->data_addr))
- 		goto mapping_error;
+diff --git a/drivers/net/skge.c b/drivers/net/skge.c
+index 96eee86..40e5c46 100644
+--- a/drivers/net/skge.c
++++ b/drivers/net/skge.c
+@@ -984,8 +984,8 @@ static void skge_rx_setup(struct skge_port *skge, struct skge_element *e,
+ 	wmb();
  
--	pci_unmap_len_set(re, data_size, size);
-+	dma_unmap_len_set(re, data_size, size);
- 
- 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
- 		skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-@@ -1151,7 +1151,7 @@ map_page_error:
- 			       PCI_DMA_FROMDEVICE);
- 	}
- 
--	pci_unmap_single(pdev, re->data_addr, pci_unmap_len(re, data_size),
-+	pci_unmap_single(pdev, re->data_addr, dma_unmap_len(re, data_size),
- 			 PCI_DMA_FROMDEVICE);
- 
- mapping_error:
-@@ -1166,7 +1166,7 @@ static void sky2_rx_unmap_skb(struct pci_dev *pdev, struct rx_ring_info *re)
- 	struct sk_buff *skb = re->skb;
- 	int i;
- 
--	pci_unmap_single(pdev, re->data_addr, pci_unmap_len(re, data_size),
-+	pci_unmap_single(pdev, re->data_addr, dma_unmap_len(re, data_size),
- 			 PCI_DMA_FROMDEVICE);
- 
- 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
-@@ -1695,12 +1695,12 @@ static unsigned tx_le_req(const struct sk_buff *skb)
- static void sky2_tx_unmap(struct pci_dev *pdev, struct tx_ring_info *re)
- {
- 	if (re->flags & TX_MAP_SINGLE)
--		pci_unmap_single(pdev, pci_unmap_addr(re, mapaddr),
--				 pci_unmap_len(re, maplen),
-+		pci_unmap_single(pdev, dma_unmap_addr(re, mapaddr),
-+				 dma_unmap_len(re, maplen),
- 				 PCI_DMA_TODEVICE);
- 	else if (re->flags & TX_MAP_PAGE)
--		pci_unmap_page(pdev, pci_unmap_addr(re, mapaddr),
--			       pci_unmap_len(re, maplen),
-+		pci_unmap_page(pdev, dma_unmap_addr(re, mapaddr),
-+			       dma_unmap_len(re, maplen),
- 			       PCI_DMA_TODEVICE);
- 	re->flags = 0;
+ 	rd->control = BMU_OWN | BMU_STF | BMU_IRQ_EOF | BMU_TCP_CHECK | bufsize;
+-	pci_unmap_addr_set(e, mapaddr, map);
+-	pci_unmap_len_set(e, maplen, bufsize);
++	dma_unmap_addr_set(e, mapaddr, map);
++	dma_unmap_len_set(e, maplen, bufsize);
  }
-@@ -1811,8 +1811,8 @@ static netdev_tx_t sky2_xmit_frame(struct sk_buff *skb,
  
- 	re = sky2->tx_ring + slot;
- 	re->flags = TX_MAP_SINGLE;
--	pci_unmap_addr_set(re, mapaddr, mapping);
--	pci_unmap_len_set(re, maplen, len);
-+	dma_unmap_addr_set(re, mapaddr, mapping);
-+	dma_unmap_len_set(re, maplen, len);
+ /* Resume receiving using existing skb,
+@@ -1018,8 +1018,8 @@ static void skge_rx_clean(struct skge_port *skge)
+ 		rd->control = 0;
+ 		if (e->skb) {
+ 			pci_unmap_single(hw->pdev,
+-					 pci_unmap_addr(e, mapaddr),
+-					 pci_unmap_len(e, maplen),
++					 dma_unmap_addr(e, mapaddr),
++					 dma_unmap_len(e, maplen),
+ 					 PCI_DMA_FROMDEVICE);
+ 			dev_kfree_skb(e->skb);
+ 			e->skb = NULL;
+@@ -2756,8 +2756,8 @@ static netdev_tx_t skge_xmit_frame(struct sk_buff *skb,
+ 	e->skb = skb;
+ 	len = skb_headlen(skb);
+ 	map = pci_map_single(hw->pdev, skb->data, len, PCI_DMA_TODEVICE);
+-	pci_unmap_addr_set(e, mapaddr, map);
+-	pci_unmap_len_set(e, maplen, len);
++	dma_unmap_addr_set(e, mapaddr, map);
++	dma_unmap_len_set(e, maplen, len);
  
- 	le = get_tx_le(sky2, &slot);
- 	le->addr = cpu_to_le32(lower_32_bits(mapping));
-@@ -1840,8 +1840,8 @@ static netdev_tx_t sky2_xmit_frame(struct sk_buff *skb,
+ 	td->dma_lo = map;
+ 	td->dma_hi = map >> 32;
+@@ -2799,8 +2799,8 @@ static netdev_tx_t skge_xmit_frame(struct sk_buff *skb,
  
- 		re = sky2->tx_ring + slot;
- 		re->flags = TX_MAP_PAGE;
--		pci_unmap_addr_set(re, mapaddr, mapping);
--		pci_unmap_len_set(re, maplen, frag->size);
-+		dma_unmap_addr_set(re, mapaddr, mapping);
-+		dma_unmap_len_set(re, maplen, frag->size);
+ 			tf->dma_lo = map;
+ 			tf->dma_hi = (u64) map >> 32;
+-			pci_unmap_addr_set(e, mapaddr, map);
+-			pci_unmap_len_set(e, maplen, frag->size);
++			dma_unmap_addr_set(e, mapaddr, map);
++			dma_unmap_len_set(e, maplen, frag->size);
  
- 		le = get_tx_le(sky2, &slot);
- 		le->addr = cpu_to_le32(lower_32_bits(mapping));
-diff --git a/drivers/net/sky2.h b/drivers/net/sky2.h
-index 545a3f4..084eff2 100644
---- a/drivers/net/sky2.h
-+++ b/drivers/net/sky2.h
-@@ -2182,14 +2182,14 @@ struct tx_ring_info {
- 	unsigned long flags;
- #define TX_MAP_SINGLE   0x0001
- #define TX_MAP_PAGE     0x0002
+ 			tf->control = BMU_OWN | BMU_SW | control | frag->size;
+ 		}
+@@ -2837,12 +2837,12 @@ static void skge_tx_free(struct skge_port *skge, struct skge_element *e,
+ 
+ 	/* skb header vs. fragment */
+ 	if (control & BMU_STF)
+-		pci_unmap_single(pdev, pci_unmap_addr(e, mapaddr),
+-				 pci_unmap_len(e, maplen),
++		pci_unmap_single(pdev, dma_unmap_addr(e, mapaddr),
++				 dma_unmap_len(e, maplen),
+ 				 PCI_DMA_TODEVICE);
+ 	else
+-		pci_unmap_page(pdev, pci_unmap_addr(e, mapaddr),
+-			       pci_unmap_len(e, maplen),
++		pci_unmap_page(pdev, dma_unmap_addr(e, mapaddr),
++			       dma_unmap_len(e, maplen),
+ 			       PCI_DMA_TODEVICE);
+ 
+ 	if (control & BMU_EOF) {
+@@ -3060,11 +3060,11 @@ static struct sk_buff *skge_rx_get(struct net_device *dev,
+ 			goto resubmit;
+ 
+ 		pci_dma_sync_single_for_cpu(skge->hw->pdev,
+-					    pci_unmap_addr(e, mapaddr),
++					    dma_unmap_addr(e, mapaddr),
+ 					    len, PCI_DMA_FROMDEVICE);
+ 		skb_copy_from_linear_data(e->skb, skb->data, len);
+ 		pci_dma_sync_single_for_device(skge->hw->pdev,
+-					       pci_unmap_addr(e, mapaddr),
++					       dma_unmap_addr(e, mapaddr),
+ 					       len, PCI_DMA_FROMDEVICE);
+ 		skge_rx_reuse(e, skge->rx_buf_size);
+ 	} else {
+@@ -3075,8 +3075,8 @@ static struct sk_buff *skge_rx_get(struct net_device *dev,
+ 			goto resubmit;
+ 
+ 		pci_unmap_single(skge->hw->pdev,
+-				 pci_unmap_addr(e, mapaddr),
+-				 pci_unmap_len(e, maplen),
++				 dma_unmap_addr(e, mapaddr),
++				 dma_unmap_len(e, maplen),
+ 				 PCI_DMA_FROMDEVICE);
+ 		skb = e->skb;
+ 		prefetch(skb->data);
+diff --git a/drivers/net/skge.h b/drivers/net/skge.h
+index 831de1b..507addc 100644
+--- a/drivers/net/skge.h
++++ b/drivers/net/skge.h
+@@ -2393,8 +2393,8 @@ struct skge_element {
+ 	struct skge_element	*next;
+ 	void			*desc;
+ 	struct sk_buff  	*skb;
 -	DECLARE_PCI_UNMAP_ADDR(mapaddr);
 -	DECLARE_PCI_UNMAP_LEN(maplen);
 +	DEFINE_DMA_UNMAP_ADDR(mapaddr);
 +	DEFINE_DMA_UNMAP_LEN(maplen);
  };
  
- struct rx_ring_info {
- 	struct sk_buff	*skb;
- 	dma_addr_t	data_addr;
--	DECLARE_PCI_UNMAP_LEN(data_size);
-+	DEFINE_DMA_UNMAP_LEN(data_size);
- 	dma_addr_t	frag_addr[ETH_JUMBO_MTU >> PAGE_SHIFT];
- };
- 
+ struct skge_ring {
 -- 
 1.6.5
 
