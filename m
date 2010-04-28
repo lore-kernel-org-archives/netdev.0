@@ -1,7 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 04/17] sfc: Stop masking out XGMII faults over reconfigures
-Date: Wed, 28 Apr 2010 20:27:54 +0100
-Message-ID: <1272482874.2549.20.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH 05/17] sfc: Reconfigure the XAUI serdes after an EM reset
+Date: Wed, 28 Apr 2010 20:28:10 +0100
+Message-ID: <1272482890.2549.21.camel@achroite.uk.solarflarecom.com>
 References: <1272482722.2549.17.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,93 +9,65 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:12410 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:12428 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756754Ab0D1T15 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 15:27:57 -0400
+	with ESMTP id S1756754Ab0D1T2M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 15:28:12 -0400
 In-Reply-To: <1272482722.2549.17.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Steve Hodgson <shodgson@solarflare.com>
 
-The aim of this code was to avoid a spurious XGMII fault over a MAC
-reconfigure. It's less relevant now that the PHY reconfigure isn't
-called from the MAC reconfigure.
-
-After applying this patch, our link stress test passed 48 hours of
-testing without ever resetting the PHY.
+Fix a regression introduced in d3245b28ef2a45ec4e115062a38100bd06229289
+"sfc: Refactor link configuration".
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/falcon_xmac.c |   20 +++++---------------
- 1 files changed, 5 insertions(+), 15 deletions(-)
+ drivers/net/sfc/falcon.c      |    3 +++
+ drivers/net/sfc/falcon_xmac.c |    2 +-
+ drivers/net/sfc/nic.h         |    1 +
+ 3 files changed, 5 insertions(+), 1 deletions(-)
 
+diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
+index d09ad1b..f7df24d 100644
+--- a/drivers/net/sfc/falcon.c
++++ b/drivers/net/sfc/falcon.c
+@@ -507,6 +507,9 @@ static void falcon_reset_macs(struct efx_nic *efx)
+ 	/* Ensure the correct MAC is selected before statistics
+ 	 * are re-enabled by the caller */
+ 	efx_writeo(efx, &mac_ctrl, FR_AB_MAC_CTRL);
++
++	/* This can run even when the GMAC is selected */
++	falcon_setup_xaui(efx);
+ }
+ 
+ void falcon_drain_tx_fifo(struct efx_nic *efx)
 diff --git a/drivers/net/sfc/falcon_xmac.c b/drivers/net/sfc/falcon_xmac.c
-index 8ccab2c..3d65abf 100644
+index 3d65abf..c84a2ce 100644
 --- a/drivers/net/sfc/falcon_xmac.c
 +++ b/drivers/net/sfc/falcon_xmac.c
-@@ -85,14 +85,14 @@ int falcon_reset_xaui(struct efx_nic *efx)
- 	return -ETIMEDOUT;
- }
+@@ -26,7 +26,7 @@
+  *************************************************************************/
  
--static void falcon_mask_status_intr(struct efx_nic *efx, bool enable)
-+static void falcon_ack_status_intr(struct efx_nic *efx)
+ /* Configure the XAUI driver that is an output from Falcon */
+-static void falcon_setup_xaui(struct efx_nic *efx)
++void falcon_setup_xaui(struct efx_nic *efx)
  {
- 	efx_oword_t reg;
+ 	efx_oword_t sdctl, txdrv;
  
- 	if ((efx_nic_rev(efx) != EFX_REV_FALCON_B0) || LOOPBACK_INTERNAL(efx))
- 		return;
+diff --git a/drivers/net/sfc/nic.h b/drivers/net/sfc/nic.h
+index 9351c03..7e3bec8 100644
+--- a/drivers/net/sfc/nic.h
++++ b/drivers/net/sfc/nic.h
+@@ -203,6 +203,7 @@ extern void falcon_irq_ack_a1(struct efx_nic *efx);
+ extern int efx_nic_flush_queues(struct efx_nic *efx);
+ extern void falcon_start_nic_stats(struct efx_nic *efx);
+ extern void falcon_stop_nic_stats(struct efx_nic *efx);
++extern void falcon_setup_xaui(struct efx_nic *efx);
+ extern int falcon_reset_xaui(struct efx_nic *efx);
+ extern void efx_nic_init_common(struct efx_nic *efx);
  
--	/* We expect xgmii faults if the wireside link is up */
-+	/* We expect xgmii faults if the wireside link is down */
- 	if (!EFX_WORKAROUND_5147(efx) || !efx->link_state.up)
- 		return;
- 
-@@ -101,14 +101,7 @@ static void falcon_mask_status_intr(struct efx_nic *efx, bool enable)
- 	if (efx->xmac_poll_required)
- 		return;
- 
--	/* Flush the ISR */
--	if (enable)
--		efx_reado(efx, &reg, FR_AB_XM_MGT_INT_MSK);
--
--	EFX_POPULATE_OWORD_2(reg,
--			     FRF_AB_XM_MSK_RMTFLT, !enable,
--			     FRF_AB_XM_MSK_LCLFLT, !enable);
--	efx_writeo(efx, &reg, FR_AB_XM_MGT_INT_MASK);
-+	efx_reado(efx, &reg, FR_AB_XM_MGT_INT_MSK);
- }
- 
- static bool falcon_xgxs_link_ok(struct efx_nic *efx)
-@@ -283,15 +276,13 @@ static bool falcon_xmac_check_fault(struct efx_nic *efx)
- 
- static int falcon_reconfigure_xmac(struct efx_nic *efx)
- {
--	falcon_mask_status_intr(efx, false);
--
- 	falcon_reconfigure_xgxs_core(efx);
- 	falcon_reconfigure_xmac_core(efx);
- 
- 	falcon_reconfigure_mac_wrapper(efx);
- 
- 	efx->xmac_poll_required = !falcon_xmac_link_ok_retry(efx, 5);
--	falcon_mask_status_intr(efx, true);
-+	falcon_ack_status_intr(efx);
- 
- 	return 0;
- }
-@@ -362,9 +353,8 @@ void falcon_poll_xmac(struct efx_nic *efx)
- 	    !efx->xmac_poll_required)
- 		return;
- 
--	falcon_mask_status_intr(efx, false);
- 	efx->xmac_poll_required = !falcon_xmac_link_ok_retry(efx, 1);
--	falcon_mask_status_intr(efx, true);
-+	falcon_ack_status_intr(efx);
- }
- 
- struct efx_mac_operations falcon_xmac_operations = {
 -- 
 1.6.2.5
 
