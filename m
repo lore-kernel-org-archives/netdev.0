@@ -1,165 +1,96 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [net-next-2.6 PATCH 1/2] Add netdev port-profile support (take III, was iovnl)
-Date: Wed, 28 Apr 2010 21:33:58 +0200
-Message-ID: <201004282133.58792.arnd@arndb.de>
-References: <C7FDC3B8.2C7EB%scofeldm@cisco.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Wed, 28 Apr 2010 12:37:41 -0700 (PDT)
+Message-ID: <20100428.123741.189712262.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, chrisw@redhat.com
-To: Scott Feldman <scofeldm@cisco.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:59283 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754592Ab0D1TeT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 15:34:19 -0400
-In-Reply-To: <C7FDC3B8.2C7EB%scofeldm@cisco.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 28 April 2010, Scott Feldman wrote:
-> On 4/28/10 6:13 AM, "Arnd Bergmann" <arnd@arndb.de> wrote:
-> > 
-> > We will need a few more options to cover draft VDP in addition to the protocol
-> > your NIC is using. I still think it's possible to use the same interface
-> > for both, but the differences are obviously showing.
-> > 
-> > The missing bits that I can see so far are:
-> > 
-> > - You only have 'get' and 'set'. We will also need a 'unset' or 'delete'
-> >   option in order to get rid of a port profile association.
-> 
-> That's there in my patch.  If you don't specify anything after port-profile
-> keyword, it's an unset.  See extra "[" and "]" above.  Will that work for
-> you?
-
-Well, this won't work if you want to have multiple slave interfaces connected
-to a single master and record the port profile in the master.
-
-> > - VDP has three different ways to 'set' a port profile: 'associate',
-> >   'pre-associate with resource reservation' and 'pre-associate without
-> >   resource reservation'. This could become an extra option flag.
-> 
-> Ok, let's add an option flag bit field.  I'm not sure how that looks from
-> the iproute2 cmd line.  Would you take a stab at defining these?
-> 
-> > - Instead of a port profile name, VDP specifies a tuple like
-> >    struct vsi_associate {
-> > unsigned char VSI_Mgr_ID;       /* VSI manager ID */
-> > unsigned char VSI_Type_ID[3];   /* 24 bit VSI Type ID */
-> > unsigned char VSI_Type_Version; /* VSI Type version */
-> >    };
-> >    I'm not sure how to deal with that best, but there needs to be
-> >    some parsing of these numbers.
-> 
-> PORT-PROFILE above is a u8* array.  You could decide to encode the tuple in
-> a string, e.g. "1.12345.1", and let the receiver parse it?  Or pack it in as
-> binary.  PORT-PROFILE for us is just a string identifier, e.g. "corp-net-10"
-> or "joes-garage".
-
-I guess either one would work, but I'd prefer to do the parsing at
-the front-end and passing it as binary to avoid libvirt encoding
-it as ascii and lldpad (or the kernel) parsing the data again, which
-would be more error-prone.
-
-Another alternative would be to make this a distinct argument (or even
-three of them) and only allow passing one or the other. That would
-also implicitly choose the protocol (VDP or port extender).
- 
-> > - VDP requires a vlan ID to be part of the association, in addition to
-> >   the MAC address. In theory, we could have multiple tuples of MAC+VLAN
-> >   addresses, but we can probably just associate each tuple separately
-> >   and ignore that part of the standard.
-> 
-> I don't think I have enough information to spec this out for this item.
-> Would you take a stab at how this would look in the struct and how it would
-> look from the iproute2 cmd line?  (Note I'm using iproute2 cmd line for
-> illustrative purposes, but the sender of the msg could be something like
-> libvirt).
-
-Just adding the VID would be done I wrote at the end of my last mail.
-Adding multiple VLAN/MAC pairs is probably not necessary if we can
-do multiple associations.
-
-> > - we have a set of possible error conditions that can be returned by
-> >   the switch (invalid format, insufficient resources, unknown VTID,
-> >   VTID violation, VTID verison violation, out of sync). It should be
-> >   possible to return each of these to the user with 'get'.
-> 
-> There is a status code in the get cmd as defined in my patch.  I have it as
-> a u8 with some enum codes.  Can we add to the enum code list?  Or do you
-> want to return a full string?  Our requirements are we return one of:
-> {success, error, in-progress}.
-
-enum is fine, but I think it would be good to use the same numbers
-as the VDP standard where possible. Maybe we could use two bytes,
-the first one for the overall status (success, error, in progress)
-and the second one for the specific error (as above)?
-
-> >> Since we're using netlink sockets, the receiver of the RTM_SETLINK msg can
-> >> be in kernel- or user-space.  For kernel-space recipient, rtnetlink.c, the
-> >> new ndo_set_port_profile netdev op is called to set the port-profile.
-> >> User-space recipients can decide how they propagate the msg to the switch.
-> >> There is also a RTM_GETLINK cmd to to return port-profile setting of an
-> >> interface and to also return the status of the last port-profile.
-> > 
-> > More on a stylistic note, I'm not convinced that using RTM_SETLINK/GETLINK
-> > is the right interface for this, unlike the 'ip link set DEV vf ...' stuff,
-> > because it seems to suggest that this is an option of the adapter itself.
-> > I actually liked the iovnl family better in this regard, because it kept
-> > the protocols separate.
-> 
-> Wait a second...I abandoned iovnl and moved to if_link based on suggestions
-> from you and others.  On 4/21/10 2:13 PM, "Arnd Bergmann" <arnd@arndb.de>
-> wrote:
->
->    > Right. My preference would probably be make these a subcategory of
->    > the if_link, and use the existing RTM_NEWLINK/RTM_DELLINK commands.
-> 
-> My latest with if_link fits best with what we're trying to do with enic.
-
-Sorry for the misunderstanding, I was probably not clear enough. This
-was a side-discussion about how we should create and destroy virtual
-interfaces on IOV capable adapters. My point was that this should be
-_separate_ from the port profile association. For creating a
-macvlan/macvtap device, we already use RTM_NEWLINK, which does not
-associate the device with the switch, so I suggested that for creating
-a virtual interface with hardware support we should do the same thing,
-but leave the association somewhere else. iovnl sounds like a good
-place for that.
-
-> Note the current interface is per netdev interface (a link), where the
-> netdev interface could be the adapter itself or any other netdev such as
-> macvlan, bond, etc.
-
-We certainly missed each others arguments here, see my other mail.
-In order to do the port profile association from software, we
-definitely need the master device (nic, PF, bond, bridge, ...) so
-we have a way to communicate to the switch, not the slave device
-(VF, tap, macvtap, ...) that we are trying to associate.
-
-> > What I could imagine to unify this is something like
-> > 
-> >    ip port_profile set DEVICE [ { pre_associate | pre_associate_rr } ]
-> >                               { name PORT-PROFILE | vsi MGR:VTID:VER }
-> >                                     mac LLADDR
-> >    [ vlan VID ]
-> >                                     [ host_uuid HOST_UUID ]
-> >                                     [ client_uuid CLIENT_UUID ]
-> >                                     [ client_name CLIENT_NAME ]
-> >    ip port_profile del DEVICE [ mac LLADDR [ vlan VID ] ]
-> >    ip port_profile show DEVICE
-> 
-> If we want to break port_profile out into it's own ip cmd, I'm ok with that.
-> What you have above would work for enic.  The netdev would have these ops:
-> 
->     ndo_set_port_profile
->     ndo_get_port_profile
->     ndo_del_port_profile
-> 
-> Sounds OK?
-
-That sounds good.
-
-	Arnd
+DQpNYWlubHkgSSdtIHB1c2hpbmcgdGhpcyB0byByZXZlcnQgdGhlIFRDUCBiaW5kKCkgYnVnIGZp
+eCwgaXQncw0KY2F1c2luZyB0b28gbXVjaCBmYWxsb3V0IHRvIHRyeSBhbmQgc29ydCBvdXQgdGhp
+cyBsYXRlIGluIHRoZQ0KLXJjIHNlcmllcy4NCg0KQnVuY2ggb2YgT09QUydlcnMgZm9yIFNDVFAs
+IEludGVsIGNoaXAgZml4ZXMgKGxhY2sgb2YgUEhZIHBvd2VyZG93biBpbg0KaXhnYmUgbGV0cyBj
+cmFwIGludG8gY2hpcCBGSUZPIHdlZGdpbmcgdGhlIGNoaXAgY29tcGxldGVseSwgZXRjLiksIGEN
+CnJlZ3Jlc3Npb24gZml4IGZvciB0ZzMgb24gc3lzdGVtcyB0aGF0IGRvIHJ1biBvdXQgb2YgTVNJ
+IHZlY3RvcnMsIGJueDINCmRyaXZlciBmaXhlcyAobG9zdCBNU0ktWCB2ZWN0b3JzLCAnc2NoZWR1
+bGluZyB3aGlsZSBhdG9taWMnIGZpeCkgYW5kDQpob3BlZnVsbHkgcjgxNjkgTUFDIGFkZHJlc3Mg
+cHJvZ3JhbW1pbmcgaXMgc29saWQgbm93Lg0KDQpQbGVhc2UgcHVsbCwgdGhhbmtzIGEgbG90IQ0K
+DQpUaGUgZm9sbG93aW5nIGNoYW5nZXMgc2luY2UgY29tbWl0IGI5MWNlNGQxNGEyMWZjMDRkMTY1
+YmUzMDMxOTU0MWUwZjkyMDRmMTU6DQogIExpbnVzIFRvcnZhbGRzICgxKToNCiAgICAgICAgTWVy
+Z2UgZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvLi4uL2RhdmVtL25ldC0yLjYNCg0KYXJlIGF2YWlsYWJs
+ZSBpbiB0aGUgZ2l0IHJlcG9zaXRvcnkgYXQ6DQoNCiAgbWFzdGVyLmtlcm5lbC5vcmc6L3B1Yi9z
+Y20vbGludXgva2VybmVsL2dpdC9kYXZlbS9uZXQtMi42LmdpdCBtYXN0ZXINCg0KQW5kcmUgRGV0
+c2NoICgyKToNCiAgICAgIHRnMzogRml4IElOVHggZmFsbGJhY2sgd2hlbiBNU0kgZmFpbHMNCiAg
+ICAgIGN4Z2IzOiBXYWl0IGxvbmdlciBmb3IgY29udHJvbCBwYWNrZXRzIG9uIGluaXRpYWxpemF0
+aW9uDQoNCkFuZHJlYXMgSGFydG1hbm4gKDEpOg0KICAgICAgZHJpdmVycy91c2IvbmV0L2thd2V0
+aC5jOiBhZGQgZGV2aWNlICJBbGxpZWQgVGVsZXN5biBBVC1VU0IxMCBVU0IgRXRoZXJuZXQgQWRh
+cHRlciINCg0KQW5keSBGbGVtaW5nICgxKToNCiAgICAgIGdpYW5mYXI6IFdhaXQgZm9yIGJvdGgg
+UlggYW5kIFRYIHRvIHN0b3ANCg0KQmVuIEh1dGNoaW5ncyAoMyk6DQogICAgICBzZmM6IFdhaXQg
+YXQgbW9zdCAxMG1zIGZvciB0aGUgTUMgdG8gZmluaXNoIHJlYWRpbmcgb3V0IE1BQyBzdGF0aXN0
+aWNzDQogICAgICBzZmM6IEFsd2F5cyBjbG9zZSBuZXQgZGV2aWNlIGF0IHRoZSBlbmQgb2YgYSBk
+aXNhYmxpbmcgcmVzZXQNCiAgICAgIHNmYzogQ2hhbmdlIGZhbGNvbl9wcm9iZV9ib2FyZCgpIHRv
+IGZhaWwgZm9yIHVuc3VwcG9ydGVkIGJvYXJkcw0KDQpCcnVjZSBBbGxhbiAoMSk6DQogICAgICBl
+MTAwMGU6IGVuYWJsZS9kaXNhYmxlIEFTUE0gTDBzIGFuZCBMMSBhbmQgRVJUIGFjY29yZGluZyB0
+byBoYXJkd2FyZSBlcnJhdGENCg0KRGFuIENhcnBlbnRlciAoMik6DQogICAgICBpcGhldGg6IHBv
+dGVudGlhbCBudWxsIGRlcmVmZXJlbmNlcyBvbiBlcnJvciBwYXRoDQogICAgICBibHVldG9vdGg6
+IGhhbmRsZSBsMmNhcF9jcmVhdGVfY29ubmxlc3NfcGR1KCkgZXJyb3JzDQoNCkRhdmlkIFMuIE1p
+bGxlciAoMSk6DQogICAgICBSZXZlcnQgInRjcDogYmluZCgpIGZpeCB3aGVuIG1hbnkgcG9ydHMg
+YXJlIGJvdW5kIg0KDQpFbGluYSBQYXNoZXZhICgxKToNCiAgICAgIG5ldC91c2I6IGFkZCBzaWVy
+cmFfbmV0LmMgZHJpdmVyDQoNCktlbiBLYXdhc2FraSAoMSk6DQogICAgICBzbWM5MWM5Ml9jczog
+c3Bpbl91bmxvY2tfaXJxcmVzdG9yZSBiZWZvcmUgY2FsbGluZyBzbWNfaW50ZXJydXB0KCkNCg0K
+TWljaGFlbCBDaGFuICgzKToNCiAgICAgIGJueDI6IEZpeCBsb3N0IE1TSS1YIHByb2JsZW0gb24g
+NTcwOSBOSUNzLg0KICAgICAgYm54MjogUHJldmVudCAic2NoZWR1bGluZyB3aGlsZSBhdG9taWMi
+IHdhcm5pbmcgd2l0aCBjbmljLCBib25kaW5nIGFuZCB2bGFuLg0KICAgICAgYm54MjogVXBkYXRl
+IHZlcnNpb24gdG8gMi4wLjkuDQoNClBldGVyIFdhc2tpZXdpY3ogKDEpOg0KICAgICAgaXhnYmU6
+IFBvd2VyIGRvd24gUEhZIGR1cmluZyBkcml2ZXIgcmVzZXRzDQoNClN0ZWZhbiBTY2htaWR0ICgx
+KToNCiAgICAgIGllZWU4MDIxNTQ6IEZpeCBvb3BzIGR1cmluZyBpZWVlODAyMTU0X3NvY2tfaW9j
+dGwNCg0KVG9yZ255IEpvaGFuc3NvbiAoMSk6DQogICAgICBjZGNfZXRoZXI6IGZpeCBhdXRvc3Vz
+cGVuZCBmb3IgbWJtIGRldmljZXMNCg0KVmxhZCBZYXNldmljaCAoMyk6DQogICAgICBzY3RwOiBm
+aXggcG90ZW50aWFsIHJlZmVyZW5jZSBvZiBhIGZyZWVkIHBvaW50ZXINCiAgICAgIHNjdHA6IHBl
+cl9jcHUgdmFyaWFibGVzIHNob3VsZCBiZSBpbiBiaF9kaXNhYmxlZCBzZWN0aW9uDQogICAgICBz
+Y3RwOiBGaXggb29wcyB3aGVuIHNlbmRpbmcgcXVldWVkIEFTQ09ORiBjaHVua3MNCg0KV2VpIFlv
+bmdqdW4gKDIpOg0KICAgICAgc2N0cDogYXZvaWQgaXJxIGxvY2sgaW52ZXJzaW9uIHdoaWxlIGNh
+bGwgc2stPnNrX2RhdGFfcmVhZHkoKQ0KICAgICAgc2N0cDogZml4IHRvIGNhbGMgdGhlIElOSVQv
+SU5JVC1BQ0sgY2h1bmsgbGVuZ3RoIGNvcnJlY3RseSBpcyBzZXQNCg0KWU9TSElGVUpJIEhpZGVh
+a2kgLyDlkInol6Toi7HmmI4gKDEpOg0KICAgICAgYnJpZGdlIGJyX211bHRpY2FzdDogRW5zdXJl
+IHRvIGluaXRpYWxpemUgQlJfSU5QVVRfU0tCX0NCKHNrYiktPm1yb3V0ZXJzX29ubHkuDQoNCmZy
+YW7Dp29pcyByb21pZXUgKDIpOg0KICAgICAgcjgxNjk6IGZhaWx1cmUgdG8gZW5hYmxlIG13aSBz
+aG91bGQgbm90IGJlIGZhdGFsDQogICAgICByODE2OTogbW9yZSBicm9rZW4gcmVnaXN0ZXIgd3Jp
+dGVzIHdvcmthcm91bmQNCg0KIGRyaXZlcnMvbmV0L2JueDIuYyAgICAgICAgICAgICAgIHwgICA0
+OCArLQ0KIGRyaXZlcnMvbmV0L2N4Z2IzL2N4Z2IzX21haW4uYyAgIHwgICAgMiArLQ0KIGRyaXZl
+cnMvbmV0L2UxMDAwZS84MjU3MS5jICAgICAgIHwgICAyMCArLQ0KIGRyaXZlcnMvbmV0L2UxMDAw
+ZS9lMTAwMC5oICAgICAgIHwgICAgNSArLQ0KIGRyaXZlcnMvbmV0L2UxMDAwZS9uZXRkZXYuYyAg
+ICAgIHwgICA3MCArKy0NCiBkcml2ZXJzL25ldC9naWFuZmFyLmMgICAgICAgICAgICB8ICAgIDYg
+Ky0NCiBkcml2ZXJzL25ldC9peGdiZS9peGdiZV84MjU5OS5jICB8ICAgNjIgKystDQogZHJpdmVy
+cy9uZXQvaXhnYmUvaXhnYmVfbWFpbi5jICAgfCAgIDIyICstDQogZHJpdmVycy9uZXQvaXhnYmUv
+aXhnYmVfdHlwZS5oICAgfCAgICAyICsNCiBkcml2ZXJzL25ldC9wY21jaWEvc21jOTFjOTJfY3Mu
+YyB8ICAgMzEgKy0NCiBkcml2ZXJzL25ldC9yODE2OS5jICAgICAgICAgICAgICB8ICAgMzIgKy0N
+CiBkcml2ZXJzL25ldC9zZmMvZWZ4LmMgICAgICAgICAgICB8ICAgIDQgKy0NCiBkcml2ZXJzL25l
+dC9zZmMvZmFsY29uLmMgICAgICAgICB8ICAgIDQgKy0NCiBkcml2ZXJzL25ldC9zZmMvZmFsY29u
+X2JvYXJkcy5jICB8ICAgMTMgKy0NCiBkcml2ZXJzL25ldC9zZmMvbmljLmggICAgICAgICAgICB8
+ICAgIDIgKy0NCiBkcml2ZXJzL25ldC9zZmMvc2llbmEuYyAgICAgICAgICB8ICAgMTMgKy0NCiBk
+cml2ZXJzL25ldC90ZzMuYyAgICAgICAgICAgICAgICB8ICAgIDEgKw0KIGRyaXZlcnMvbmV0L3Vz
+Yi9LY29uZmlnICAgICAgICAgIHwgICAxMCArDQogZHJpdmVycy9uZXQvdXNiL01ha2VmaWxlICAg
+ICAgICAgfCAgICAxICsNCiBkcml2ZXJzL25ldC91c2IvY2RjX2V0aGVyLmMgICAgICB8ICAgIDEg
+Kw0KIGRyaXZlcnMvbmV0L3VzYi9pcGhldGguYyAgICAgICAgIHwgICAxNSArLQ0KIGRyaXZlcnMv
+bmV0L3VzYi9rYXdldGguYyAgICAgICAgIHwgICAgMSArDQogZHJpdmVycy9uZXQvdXNiL3NpZXJy
+YV9uZXQuYyAgICAgfCAxMDAxICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
+DQogaW5jbHVkZS9uZXQvc2N0cC9jb21tYW5kLmggICAgICAgfCAgICAxICsNCiBpbmNsdWRlL25l
+dC9zY3RwL3NjdHAuaCAgICAgICAgICB8ICAgIDEgKw0KIG5ldC9ibHVldG9vdGgvbDJjYXAuYyAg
+ICAgICAgICAgIHwgICAgNSArLQ0KIG5ldC9icmlkZ2UvYnJfbXVsdGljYXN0LmMgICAgICAgIHwg
+ICAgNiArLQ0KIG5ldC9pZWVlODAyMTU0L2FmX2llZWU4MDIxNTQuYyAgIHwgICAgMyArDQogbmV0
+L2lwdjQvaW5ldF9jb25uZWN0aW9uX3NvY2suYyAgfCAgIDE2ICstDQogbmV0L2lwdjYvaW5ldDZf
+Y29ubmVjdGlvbl9zb2NrLmMgfCAgIDE1ICstDQogbmV0L3NjdHAvYXNzb2Npb2xhLmMgICAgICAg
+ICAgICAgfCAgICA2ICstDQogbmV0L3NjdHAvZW5kcG9pbnRvbGEuYyAgICAgICAgICAgfCAgICAx
+ICsNCiBuZXQvc2N0cC9zbV9tYWtlX2NodW5rLmMgICAgICAgICB8ICAgMzIgKy0NCiBuZXQvc2N0
+cC9zbV9zaWRlZWZmZWN0LmMgICAgICAgICB8ICAgMjYgKw0KIG5ldC9zY3RwL3NtX3N0YXRlZnVu
+cy5jICAgICAgICAgIHwgICAgOCArLQ0KIG5ldC9zY3RwL3NvY2tldC5jICAgICAgICAgICAgICAg
+IHwgICAxNCArLQ0KIDM2IGZpbGVzIGNoYW5nZWQsIDEzMTIgaW5zZXJ0aW9ucygrKSwgMTg4IGRl
+bGV0aW9ucygtKQ0KIGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC91c2Ivc2llcnJhX25l
+dC5jDQo=
