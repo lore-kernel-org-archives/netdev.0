@@ -1,52 +1,44 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2/4] [RFC] Add sock_create_kern_net()
-Date: Wed, 28 Apr 2010 07:44:54 -0400
-Message-ID: <1272455094.14068.15.camel@bigi>
-References: <1272034539-19899-1-git-send-email-danms@us.ibm.com>
-	 <1272034539-19899-3-git-send-email-danms@us.ibm.com>
-Reply-To: hadi@cyberus.ca
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] bnx2x: Remove two prefetch()
+Date: Wed, 28 Apr 2010 14:33:21 +0200
+Message-ID: <1272458001.2267.0.camel@edumazet-laptop>
+References: <1272010378-2955-1-git-send-email-xiaosuo@gmail.com>
+	 <1272018366.7895.7930.camel@edumazet-laptop>
+	 <20100427.150817.84390202.davem@davemloft.net>
+	 <1272406693.2343.26.camel@edumazet-laptop>  <1272454432.14068.4.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: containers@lists.osdl.org, netdev@vger.kernel.org,
-	Daniel Lezcano <dlezcano@fr.ibm.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Dan Smith <danms@us.ibm.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, xiaosuo@gmail.com,
+	therbert@google.com, shemminger@vyatta.com, netdev@vger.kernel.org,
+	Eilon Greenstein <eilong@broadcom.com>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f179.google.com ([209.85.221.179]:40953 "EHLO
-	mail-qy0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751472Ab0D1Lo5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 07:44:57 -0400
-Received: by qyk9 with SMTP id 9so21093873qyk.1
-        for <netdev@vger.kernel.org>; Wed, 28 Apr 2010 04:44:57 -0700 (PDT)
-In-Reply-To: <1272034539-19899-3-git-send-email-danms@us.ibm.com>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:36958 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751092Ab0D1Mdh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 08:33:37 -0400
+Received: by bwz19 with SMTP id 19so18347bwz.21
+        for <netdev@vger.kernel.org>; Wed, 28 Apr 2010 05:33:36 -0700 (PDT)
+In-Reply-To: <1272454432.14068.4.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le mercredi 28 avril 2010 =C3=A0 07:33 -0400, jamal a =C3=A9crit :
+> On Wed, 2010-04-28 at 00:18 +0200, Eric Dumazet wrote:
+>=20
+> > Thanks David, I was about to resubmit the cumulative patch ;)
+>=20
+> Hrm, i never got the email with your patch on top of Changlis
+> (the fscking ISP has creative ways of reordering, delaying and also
+> occassionaly loosing my emails). So all my tests from last
+> week did not include the extra patch. I will try to make time today
+> to test with latest net-next which seems to have some extra goodies.
+> If there is any other patch you want me to try let me know...
+>=20
+> cheers,
+> jamal
 
-On Fri, 2010-04-23 at 07:55 -0700, Dan Smith wrote:
-> This helper allows kernel routines to create a socket in a given netns,
-> instead of forcing it to the initial or current one.
-> 
-> I know this seems like it's violating the netns boundary.  The intended
-> use (as in the following patches) is specifically when talking to RTNETLINK
-> in another netns for the purposes of creating or examining resources there.
-> It is expected that this will be used for that sort of transient socket
-> creation only.  In other words:
-> 
->   s = sock_create_kern_net(AF_NETLINK, ..., other_netns, ...);
->   rtnl_talk(s);
->   close(s);
-> 
+If you wait a bit, I have another patch to speedup udp receive path ;)
 
-CCing Eric B. and Daniel with whom i have had this discussion before.
-
-So ... how does user space know what "other_netns" is?
-
-Also note Eric's recent patches introduced another way of opening a
-socket in a different namespace - are you using those in the abstraction
-to find what netns is?
-
-cheers,
-jamal
 
