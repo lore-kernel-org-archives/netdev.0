@@ -1,306 +1,521 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: 2.6.34-rc5-git7 (plus all patches) -- another suspicious
- rcu_dereference_check() usage.
-Date: Wed, 28 Apr 2010 13:44:03 -0700
-Message-ID: <20100428204403.GT2540@linux.vnet.ibm.com>
-References: <h2ya44ae5cd1004261751waa5cb65ei3d139cbcfa2cc5cf@mail.gmail.com>
- <20100428175426.GK2540@linux.vnet.ibm.com>
- <1272483491.2201.9.camel@edumazet-laptop>
- <20100428200904.GS2540@linux.vnet.ibm.com>
- <1272485923.2201.22.camel@edumazet-laptop>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: David L Stevens <dlstevens@us.ibm.com>
+Subject: [PATCHv7] add mergeable buffers support to vhost_net
+Date: Wed, 28 Apr 2010 13:57:12 -0700
+Message-ID: <1272488232.11307.4.camel@w-dls.beaverton.ibm.com>
+Reply-To: dlstevens@us.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Miles Lane <miles.lane@gmail.com>, Vivek Goyal <vgoyal@redhat.com>,
-	Eric Paris <eparis@redhat.com>,
-	Lai Jiangshan <laijs@cn.fujitsu.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	Peter Zijlstra <peterz@infradead.org>,
-	LKML <linux-kernel@vger.kernel.org>, nauman@google.com,
-	netdev@vger.kernel.org, Jens Axboe <jens.axboe@oracle.com>,
-	Gui Jianfeng <guijianfeng@cn.fujitsu.com>,
-	Li Zefan <lizf@cn.fujitsu.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	shemminger@vyatta.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1272485923.2201.22.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.osdl.org
+To: mst@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:58985 "EHLO e3.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752636Ab0D1U5U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Apr 2010 16:57:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 28, 2010 at 10:18:43PM +0200, Eric Dumazet wrote:
-> Le mercredi 28 avril 2010 =E0 13:09 -0700, Paul E. McKenney a =E9crit=
- :
-> > On Wed, Apr 28, 2010 at 09:38:11PM +0200, Eric Dumazet wrote:
-> > > Le mercredi 28 avril 2010 =E0 10:54 -0700, Paul E. McKenney a =E9=
-crit :
-> > > > On Mon, Apr 26, 2010 at 08:51:06PM -0400, Miles Lane wrote:
-> > > > > This one occurred during the wakeup from suspend to RAM.
-> > > > >=20
-> > > > > [  984.724697] [ INFO: suspicious rcu_dereference_check() usa=
-ge. ]
-> > > > > [  984.724700] ----------------------------------------------=
------
-> > > > > [  984.724703] include/linux/fdtable.h:88 invoked
-> > > > > rcu_dereference_check() without protection!
-> > > > > [  984.724706]
-> > > > > [  984.724707] other info that might help us debug this:
-> > > > > [  984.724708]
-> > > > > [  984.724711]
-> > > > > [  984.724711] rcu_scheduler_active =3D 1, debug_locks =3D 1
-> > > > > [  984.724714] no locks held by dbus-daemon/4680.
-> > > > > [  984.724717]
-> > > > > [  984.724717] stack backtrace:
-> > > > > [  984.724721] Pid: 4680, comm: dbus-daemon Not tainted 2.6.3=
-4-rc5-git7 #33
-> > > > > [  984.724724] Call Trace:
-> > > > > [  984.724734]  [<ffffffff81074556>] lockdep_rcu_dereference+=
-0x9d/0xa6
-> > > > > [  984.724740]  [<ffffffff810fc785>] fcheck_files+0xb1/0xc9
-> > > > > [  984.724745]  [<ffffffff810fc7f5>] fget_light+0x35/0xab
-> > > > > [  984.724751]  [<ffffffff81433e1b>] ? sock_poll_wait+0x13/0x=
-18
-> > > > > [  984.724755]  [<ffffffff81433e39>] ? unix_poll+0x19/0x95
-> > > > > [  984.724762]  [<ffffffff8110aa95>] do_sys_poll+0x1ff/0x3e5
-> > > > > [  984.724766]  [<ffffffff8110a19e>] ? __pollwait+0x0/0xc7
-> > > > > [  984.724771]  [<ffffffff8110a265>] ? pollwake+0x0/0x4f
-> > > > > [  984.724776]  [<ffffffff8110a265>] ? pollwake+0x0/0x4f
-> > > > > [  984.724780]  [<ffffffff8110a265>] ? pollwake+0x0/0x4f
-> > > > > [  984.724784]  [<ffffffff8110a265>] ? pollwake+0x0/0x4f
-> > > > > [  984.724788]  [<ffffffff8110a265>] ? pollwake+0x0/0x4f
-> > > > > [  984.724793]  [<ffffffff8110a265>] ? pollwake+0x0/0x4f
-> > > > > [  984.724797]  [<ffffffff8110a265>] ? pollwake+0x0/0x4f
-> > > > > [  984.724802]  [<ffffffff8110a265>] ? pollwake+0x0/0x4f
-> > > > > [  984.724806]  [<ffffffff8110a265>] ? pollwake+0x0/0x4f
-> > > > > [  984.724812]  [<ffffffff8110ae0f>] sys_poll+0x50/0xbb
-> > > > > [  984.724818]  [<ffffffff81009d82>] system_call_fastpath+0x1=
-6/0x1b
-> > > >=20
-> > > > Hmmm...  I am not convinced that this is a false positive.  Cou=
-ldn't
-> > > > there be a multi-threaded process where one thread is invoking =
-poll()
-> > > > on a UNIX socket just as another thread is calling close() on i=
-t?
-> > > >=20
-> > > > The current fcheck_files() logic requires that the caller eithe=
-r (1) be in
-> > > > an RCU read-side critical section, (2) hold ->files_lock, or (3=
-) passing
-> > > > in a files_struct with ->count equal to 1 (initialization or cl=
-eanup).
-> > > >=20
-> > > > So I don't feel comfortable just slapping an RCU read-side crit=
-ical
-> > > > section around this one, at least not unless someone who unders=
-tands
-> > > > the locking says that doing so is OK.
-> > > >=20
-> > > > 	=09
-> > >=20
-> > > Its a single threaded program.
-> > >=20
-> > > So fget_light() calls fcheck_files(files, fd); without rcu lock,
-> > > but some /proc/pid/fd/... user temporarly raised files->count jus=
-t
-> > > before we perform the condition check.
-> >=20
-> > So I should add a single-threaded check.  My first thought was to u=
-se
-> > current_is_single_threaded(), but the bit about scanning the full l=
-ist
-> > of processes does give me pause.  However, thread_group_empty() loo=
-ks
-> > like a much lighter-weight alternative.
-> >=20
-> > I believe that it is possible for a pair of single-threaded process=
-es
-> > to share a file descriptor, but that should not be a problem, as bo=
-th
-> > of them would need to close it for it to go away.
-> >=20
-> > But what happens if someone does a clone() with CLONE_FILES, as som=
-e
-> > of the AIO stuff seems to do?  Won't that allow one of the resultin=
-g
-> > processes to close the file for both of them, even though both are
-> > otherwise single-threaded?  And the ->count seems to be the only
-> > distinction between these two cases.
-> >=20
-> > And AIO does CLONE_VM as well as CLONE_FILES, but that seems to mea=
-n that
-> > the check must scan the processes with current_is_single_threaded()=
-=2E
-> > Besides which, a user could invoke clone() with only CLONE_FILES
-> > specified, right?
-> >=20
-> > Or am I just confused here?
-> >=20
-> > 							Thanx, Paul
->=20
-> If a program is mono threaded, and doing a fget_light() syscall, it
-> cannot possibly do a clone() in // ;)
+This patch adds mergeable receive buffer support to vhost_net.
 
-The sequence of events that I am worried about is as follows:
+Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
 
-1.	Single-threaded process does clone(CLONE_FILES).  The
-	result is a pair of single-threaded processes that share
-	file descriptors.
+diff -ruNp net-next-v0/drivers/vhost/net.c net-next-v7/drivers/vhost/net.c
+--- net-next-v0/drivers/vhost/net.c	2010-04-24 21:36:54.000000000 -0700
++++ net-next-v7/drivers/vhost/net.c	2010-04-28 12:26:18.000000000 -0700
+@@ -74,6 +74,23 @@ static int move_iovec_hdr(struct iovec *
+ 	}
+ 	return seg;
+ }
++/* Copy iovec entries for len bytes from iovec. Return segments used. */
++static int copy_iovec_hdr(const struct iovec *from, struct iovec *to,
++			  size_t len, int iovcount)
++{
++	int seg = 0;
++	size_t size;
++	while (len && seg < iovcount) {
++		size = min(from->iov_len, len);
++		to->iov_base = from->iov_base;
++		to->iov_len = size;
++		len -= size;
++		++from;
++		++to;
++		++seg;
++	}
++	return seg;
++}
+ 
+ /* Caller must have TX VQ lock */
+ static void tx_poll_stop(struct vhost_net *net)
+@@ -109,7 +126,7 @@ static void handle_tx(struct vhost_net *
+ 	};
+ 	size_t len, total_len = 0;
+ 	int err, wmem;
+-	size_t hdr_size;
++	size_t vhost_hlen;
+ 	struct socket *sock = rcu_dereference(vq->private_data);
+ 	if (!sock)
+ 		return;
+@@ -128,13 +145,13 @@ static void handle_tx(struct vhost_net *
+ 
+ 	if (wmem < sock->sk->sk_sndbuf / 2)
+ 		tx_poll_stop(net);
+-	hdr_size = vq->hdr_size;
++	vhost_hlen = vq->vhost_hlen;
+ 
+ 	for (;;) {
+-		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
+-					 ARRAY_SIZE(vq->iov),
+-					 &out, &in,
+-					 NULL, NULL);
++		head = vhost_get_desc(&net->dev, vq, vq->iov,
++				      ARRAY_SIZE(vq->iov),
++				      &out, &in,
++				      NULL, NULL);
+ 		/* Nothing new?  Wait for eventfd to tell us they refilled. */
+ 		if (head == vq->num) {
+ 			wmem = atomic_read(&sock->sk->sk_wmem_alloc);
+@@ -155,20 +172,20 @@ static void handle_tx(struct vhost_net *
+ 			break;
+ 		}
+ 		/* Skip header. TODO: support TSO. */
+-		s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, out);
++		s = move_iovec_hdr(vq->iov, vq->hdr, vhost_hlen, out);
+ 		msg.msg_iovlen = out;
+ 		len = iov_length(vq->iov, out);
+ 		/* Sanity check */
+ 		if (!len) {
+ 			vq_err(vq, "Unexpected header len for TX: "
+ 			       "%zd expected %zd\n",
+-			       iov_length(vq->hdr, s), hdr_size);
++			       iov_length(vq->hdr, s), vhost_hlen);
+ 			break;
+ 		}
+ 		/* TODO: Check specific error and bomb out unless ENOBUFS? */
+ 		err = sock->ops->sendmsg(NULL, sock, &msg, len);
+ 		if (unlikely(err < 0)) {
+-			vhost_discard_vq_desc(vq);
++			vhost_discard_desc(vq, 1);
+ 			tx_poll_start(net, sock);
+ 			break;
+ 		}
+@@ -187,12 +204,25 @@ static void handle_tx(struct vhost_net *
+ 	unuse_mm(net->dev.mm);
+ }
+ 
++static int vhost_head_len(struct vhost_virtqueue *vq, struct sock *sk)
++{
++	struct sk_buff *head;
++	int len = 0;
++
++	lock_sock(sk);
++	head = skb_peek(&sk->sk_receive_queue);
++	if (head)
++		len = head->len + vq->sock_hlen;
++	release_sock(sk);
++	return len;
++}
++
+ /* Expects to be always run from workqueue - which acts as
+  * read-size critical section for our kind of RCU. */
+ static void handle_rx(struct vhost_net *net)
+ {
+ 	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_RX];
+-	unsigned head, out, in, log, s;
++	unsigned in, log, s;
+ 	struct vhost_log *vq_log;
+ 	struct msghdr msg = {
+ 		.msg_name = NULL,
+@@ -203,14 +233,14 @@ static void handle_rx(struct vhost_net *
+ 		.msg_flags = MSG_DONTWAIT,
+ 	};
+ 
+-	struct virtio_net_hdr hdr = {
+-		.flags = 0,
+-		.gso_type = VIRTIO_NET_HDR_GSO_NONE
++	struct virtio_net_hdr_mrg_rxbuf hdr = {
++		.hdr.flags = 0,
++		.hdr.gso_type = VIRTIO_NET_HDR_GSO_NONE
+ 	};
+ 
+ 	size_t len, total_len = 0;
+-	int err;
+-	size_t hdr_size;
++	int err, headcount, datalen;
++	size_t vhost_hlen;
+ 	struct socket *sock = rcu_dereference(vq->private_data);
+ 	if (!sock || skb_queue_empty(&sock->sk->sk_receive_queue))
+ 		return;
+@@ -218,18 +248,19 @@ static void handle_rx(struct vhost_net *
+ 	use_mm(net->dev.mm);
+ 	mutex_lock(&vq->mutex);
+ 	vhost_disable_notify(vq);
+-	hdr_size = vq->hdr_size;
++	vhost_hlen = vq->vhost_hlen;
+ 
+ 	vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) ?
+ 		vq->log : NULL;
+ 
+-	for (;;) {
+-		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
+-					 ARRAY_SIZE(vq->iov),
+-					 &out, &in,
+-					 vq_log, &log);
++	while ((datalen = vhost_head_len(vq, sock->sk))) {
++		headcount = vhost_get_desc_n(vq, vq->heads,
++					     datalen + vhost_hlen,
++					     &in, vq_log, &log);
++		if (headcount < 0)
++			break;
+ 		/* OK, now we need to know about added descriptors. */
+-		if (head == vq->num) {
++		if (!headcount) {
+ 			if (unlikely(vhost_enable_notify(vq))) {
+ 				/* They have slipped one in as we were
+ 				 * doing that: check again. */
+@@ -241,46 +272,53 @@ static void handle_rx(struct vhost_net *
+ 			break;
+ 		}
+ 		/* We don't need to be notified again. */
+-		if (out) {
+-			vq_err(vq, "Unexpected descriptor format for RX: "
+-			       "out %d, int %d\n",
+-			       out, in);
+-			break;
+-		}
+-		/* Skip header. TODO: support TSO/mergeable rx buffers. */
+-		s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, in);
++		if (vhost_hlen)
++			/* Skip header. TODO: support TSO. */
++			s = move_iovec_hdr(vq->iov, vq->hdr, vhost_hlen, in);
++		else
++			s = copy_iovec_hdr(vq->iov, vq->hdr, vq->sock_hlen, in);
+ 		msg.msg_iovlen = in;
+ 		len = iov_length(vq->iov, in);
+ 		/* Sanity check */
+ 		if (!len) {
+ 			vq_err(vq, "Unexpected header len for RX: "
+ 			       "%zd expected %zd\n",
+-			       iov_length(vq->hdr, s), hdr_size);
++			       iov_length(vq->hdr, s), vhost_hlen);
+ 			break;
+ 		}
+ 		err = sock->ops->recvmsg(NULL, sock, &msg,
+ 					 len, MSG_DONTWAIT | MSG_TRUNC);
+ 		/* TODO: Check specific error and bomb out unless EAGAIN? */
+ 		if (err < 0) {
+-			vhost_discard_vq_desc(vq);
++			vhost_discard_desc(vq, headcount);
+ 			break;
+ 		}
+-		/* TODO: Should check and handle checksum. */
+-		if (err > len) {
+-			pr_err("Discarded truncated rx packet: "
+-			       " len %d > %zd\n", err, len);
+-			vhost_discard_vq_desc(vq);
++		if (err != datalen) {
++			pr_err("Discarded rx packet: "
++			       " len %d, expected %zd\n", err, datalen);
++			vhost_discard_desc(vq, headcount);
+ 			continue;
+ 		}
+ 		len = err;
+-		err = memcpy_toiovec(vq->hdr, (unsigned char *)&hdr, hdr_size);
+-		if (err) {
+-			vq_err(vq, "Unable to write vnet_hdr at addr %p: %d\n",
+-			       vq->iov->iov_base, err);
++		if (vhost_hlen &&
++		    memcpy_toiovecend(vq->hdr, (unsigned char *)&hdr, 0,
++				      vhost_hlen)) {
++			vq_err(vq, "Unable to write vnet_hdr at addr %p\n",
++			       vq->iov->iov_base);
+ 			break;
+ 		}
+-		len += hdr_size;
+-		vhost_add_used_and_signal(&net->dev, vq, head, len);
++		/* TODO: Should check and handle checksum. */
++		if (vhost_has_feature(&net->dev, VIRTIO_NET_F_MRG_RXBUF) &&
++		    memcpy_toiovecend(vq->hdr, (unsigned char *)&headcount,
++				      offsetof(typeof(hdr), num_buffers),
++				      sizeof(hdr.num_buffers))) {
++			vq_err(vq, "Failed num_buffers write");
++			vhost_discard_desc(vq, headcount);
++			break;
++		}
++		len += vhost_hlen;
++		vhost_add_used_and_signal_n(&net->dev, vq, vq->heads,
++					    headcount);
+ 		if (unlikely(vq_log))
+ 			vhost_log_write(vq, vq_log, log, len);
+ 		total_len += len;
+@@ -561,9 +599,21 @@ done:
+ 
+ static int vhost_net_set_features(struct vhost_net *n, u64 features)
+ {
+-	size_t hdr_size = features & (1 << VHOST_NET_F_VIRTIO_NET_HDR) ?
+-		sizeof(struct virtio_net_hdr) : 0;
++	size_t vhost_hlen, sock_hlen, hdr_len;
+ 	int i;
++
++	hdr_len = (features & (1 << VIRTIO_NET_F_MRG_RXBUF)) ?
++			sizeof(struct virtio_net_hdr_mrg_rxbuf) :
++			sizeof(struct virtio_net_hdr);
++	if (features & (1 << VHOST_NET_F_VIRTIO_NET_HDR)) {
++		/* vhost provides vnet_hdr */
++		vhost_hlen = hdr_len;
++		sock_hlen = 0;
++	} else {
++		/* socket provides vnet_hdr */
++		vhost_hlen = 0;
++		sock_hlen = hdr_len;
++	}
+ 	mutex_lock(&n->dev.mutex);
+ 	if ((features & (1 << VHOST_F_LOG_ALL)) &&
+ 	    !vhost_log_access_ok(&n->dev)) {
+@@ -574,7 +624,8 @@ static int vhost_net_set_features(struct
+ 	smp_wmb();
+ 	for (i = 0; i < VHOST_NET_VQ_MAX; ++i) {
+ 		mutex_lock(&n->vqs[i].mutex);
+-		n->vqs[i].hdr_size = hdr_size;
++		n->vqs[i].vhost_hlen = vhost_hlen;
++		n->vqs[i].sock_hlen = sock_hlen;
+ 		mutex_unlock(&n->vqs[i].mutex);
+ 	}
+ 	vhost_net_flush(n);
+diff -ruNp net-next-v0/drivers/vhost/vhost.c net-next-v7/drivers/vhost/vhost.c
+--- net-next-v0/drivers/vhost/vhost.c	2010-04-22 11:31:57.000000000 -0700
++++ net-next-v7/drivers/vhost/vhost.c	2010-04-28 11:16:13.000000000 -0700
+@@ -114,7 +114,8 @@ static void vhost_vq_reset(struct vhost_
+ 	vq->used_flags = 0;
+ 	vq->log_used = false;
+ 	vq->log_addr = -1ull;
+-	vq->hdr_size = 0;
++	vq->vhost_hlen = 0;
++	vq->sock_hlen = 0;
+ 	vq->private_data = NULL;
+ 	vq->log_base = NULL;
+ 	vq->error_ctx = NULL;
+@@ -861,6 +862,53 @@ static unsigned get_indirect(struct vhos
+ 	return 0;
+ }
+ 
++/* This is a multi-buffer version of vhost_get_desc
++ * @vq		- the relevant virtqueue
++ * datalen	- data length we'll be reading
++ * @iovcount	- returned count of io vectors we fill
++ * @log		- vhost log
++ * @log_num	- log offset
++ *	returns number of buffer heads allocated, negative on error
++ */
++int vhost_get_desc_n(struct vhost_virtqueue *vq, struct vring_used_elem *heads,
++		     int datalen, unsigned *iovcount, struct vhost_log *log,
++		     unsigned int *log_num)
++{
++	unsigned int out, in;
++	int seg = 0;
++	int headcount = 0;
++	int r;
++
++	while (datalen > 0) {
++		if (headcount >= VHOST_NET_MAX_SG) {
++			r = -ENOBUFS;
++			goto err;
++		}
++		heads[headcount].id = vhost_get_desc(vq->dev, vq, vq->iov + seg,
++					      ARRAY_SIZE(vq->iov) - seg, &out,
++					      &in, log, log_num);
++		if (heads[headcount].id == vq->num) {
++			r = 0;
++			goto err;
++		}
++		if (out || in <= 0) {
++			vq_err(vq, "unexpected descriptor format for RX: "
++				"out %d, in %d\n", out, in);
++			r = -EINVAL;
++			goto err;
++		}
++		heads[headcount].len = iov_length(vq->iov + seg, in);
++		datalen -= heads[headcount].len;
++		++headcount;
++		seg += in;
++	}
++	*iovcount = seg;
++	return headcount;
++err:
++	vhost_discard_desc(vq, headcount);
++	return r;
++}
++
+ /* This looks in the virtqueue and for the first available buffer, and converts
+  * it to an iovec for convenient access.  Since descriptors consist of some
+  * number of output then some number of input descriptors, it's actually two
+@@ -868,7 +916,7 @@ static unsigned get_indirect(struct vhos
+  *
+  * This function returns the descriptor number found, or vq->num (which
+  * is never a valid descriptor number) if none was found. */
+-unsigned vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
++unsigned vhost_get_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
+ 			   struct iovec iov[], unsigned int iov_size,
+ 			   unsigned int *out_num, unsigned int *in_num,
+ 			   struct vhost_log *log, unsigned int *log_num)
+@@ -986,9 +1034,9 @@ unsigned vhost_get_vq_desc(struct vhost_
+ }
+ 
+ /* Reverse the effect of vhost_get_vq_desc. Useful for error handling. */
+-void vhost_discard_vq_desc(struct vhost_virtqueue *vq)
++void vhost_discard_desc(struct vhost_virtqueue *vq, int n)
+ {
+-	vq->last_avail_idx--;
++	vq->last_avail_idx -= n;
+ }
+ 
+ /* After we've used one of their buffers, we tell them about it.  We'll then
+@@ -1033,6 +1081,68 @@ int vhost_add_used(struct vhost_virtqueu
+ 	return 0;
+ }
+ 
++static void vhost_log_used(struct vhost_virtqueue *vq,
++			   struct vring_used_elem __user *used)
++{
++	/* Make sure data is seen before log. */
++	smp_wmb();
++	/* Log used ring entry write. */
++	log_write(vq->log_base,
++		  vq->log_addr +
++		   ((void __user *)used - (void __user *)vq->used),
++		  sizeof *used);
++	/* Log used index update. */
++	log_write(vq->log_base,
++		  vq->log_addr + offsetof(struct vring_used, idx),
++		  sizeof vq->used->idx);
++	if (vq->log_ctx)
++		eventfd_signal(vq->log_ctx, 1);
++}
++
++static int __vhost_add_used_n(struct vhost_virtqueue *vq,
++			    struct vring_used_elem *heads,
++			    unsigned count)
++{
++	struct vring_used_elem __user *used;
++	int start;
++
++	start = vq->last_used_idx % vq->num;
++	used = vq->used->ring + start;
++	if (copy_to_user(used, heads, count * sizeof *used)) {
++		vq_err(vq, "Failed to write used");
++		return -EFAULT;
++	}
++	/* Make sure buffer is written before we update index. */
++	smp_wmb();
++	if (put_user(vq->last_used_idx + count, &vq->used->idx)) {
++		vq_err(vq, "Failed to increment used idx");
++		return -EFAULT;
++	}
++	if (unlikely(vq->log_used))
++		vhost_log_used(vq, used);
++	vq->last_used_idx += count;
++	return 0;
++}
++
++/* After we've used one of their buffers, we tell them about it.  We'll then
++ * want to notify the guest, using eventfd. */
++int vhost_add_used_n(struct vhost_virtqueue *vq, struct vring_used_elem *heads,
++		     unsigned count)
++{
++	int start, n, r;
++
++	start = vq->last_used_idx % vq->num;
++	n = vq->num - start;
++	if (n < count) {
++		r = __vhost_add_used_n(vq, heads, n);
++		if (r < 0)
++			return r;
++		heads += n;
++		count -= n;
++	}
++	return __vhost_add_used_n(vq, heads, count);
++}
++
+ /* This actually signals the guest, using eventfd. */
+ void vhost_signal(struct vhost_dev *dev, struct vhost_virtqueue *vq)
+ {
+@@ -1062,6 +1172,15 @@ void vhost_add_used_and_signal(struct vh
+ 	vhost_signal(dev, vq);
+ }
+ 
++/* multi-buffer version of vhost_add_used_and_signal */
++void vhost_add_used_and_signal_n(struct vhost_dev *dev,
++				 struct vhost_virtqueue *vq,
++				 struct vring_used_elem *heads, unsigned count)
++{
++	vhost_add_used_n(vq, heads, count);
++	vhost_signal(dev, vq);
++}
++
+ /* OK, now we need to know about added descriptors. */
+ bool vhost_enable_notify(struct vhost_virtqueue *vq)
+ {
+@@ -1086,7 +1205,7 @@ bool vhost_enable_notify(struct vhost_vi
+ 		return false;
+ 	}
+ 
+-	return avail_idx != vq->last_avail_idx;
++	return avail_idx != vq->avail_idx;
+ }
+ 
+ /* We don't need to be notified again. */
+diff -ruNp net-next-v0/drivers/vhost/vhost.h net-next-v7/drivers/vhost/vhost.h
+--- net-next-v0/drivers/vhost/vhost.h	2010-04-24 21:37:41.000000000 -0700
++++ net-next-v7/drivers/vhost/vhost.h	2010-04-26 10:35:25.000000000 -0700
+@@ -84,7 +84,9 @@ struct vhost_virtqueue {
+ 	struct iovec indirect[VHOST_NET_MAX_SG];
+ 	struct iovec iov[VHOST_NET_MAX_SG];
+ 	struct iovec hdr[VHOST_NET_MAX_SG];
+-	size_t hdr_size;
++	size_t vhost_hlen;
++	size_t sock_hlen;
++	struct vring_used_elem heads[VHOST_NET_MAX_SG];
+ 	/* We use a kind of RCU to access private pointer.
+ 	 * All readers access it from workqueue, which makes it possible to
+ 	 * flush the workqueue instead of synchronize_rcu. Therefore readers do
+@@ -120,16 +122,23 @@ long vhost_dev_ioctl(struct vhost_dev *,
+ int vhost_vq_access_ok(struct vhost_virtqueue *vq);
+ int vhost_log_access_ok(struct vhost_dev *);
+ 
+-unsigned vhost_get_vq_desc(struct vhost_dev *, struct vhost_virtqueue *,
++int vhost_get_desc_n(struct vhost_virtqueue *, struct vring_used_elem *heads,
++		     int datalen, unsigned int *iovcount, struct vhost_log *log,
++		     unsigned int *log_num);
++unsigned vhost_get_desc(struct vhost_dev *, struct vhost_virtqueue *,
+ 			   struct iovec iov[], unsigned int iov_count,
+ 			   unsigned int *out_num, unsigned int *in_num,
+ 			   struct vhost_log *log, unsigned int *log_num);
+-void vhost_discard_vq_desc(struct vhost_virtqueue *);
++void vhost_discard_desc(struct vhost_virtqueue *, int);
+ 
+ int vhost_add_used(struct vhost_virtqueue *, unsigned int head, int len);
+-void vhost_signal(struct vhost_dev *, struct vhost_virtqueue *);
++int vhost_add_used_n(struct vhost_virtqueue *, struct vring_used_elem *heads,
++		     unsigned count);
+ void vhost_add_used_and_signal(struct vhost_dev *, struct vhost_virtqueue *,
+-			       unsigned int head, int len);
++			       unsigned int id, int len);
++void vhost_add_used_and_signal_n(struct vhost_dev *, struct vhost_virtqueue *,
++			       struct vring_used_elem *heads, unsigned count);
++void vhost_signal(struct vhost_dev *, struct vhost_virtqueue *);
+ void vhost_disable_notify(struct vhost_virtqueue *);
+ bool vhost_enable_notify(struct vhost_virtqueue *);
+ 
+@@ -149,7 +158,8 @@ enum {
+ 	VHOST_FEATURES = (1 << VIRTIO_F_NOTIFY_ON_EMPTY) |
+ 			 (1 << VIRTIO_RING_F_INDIRECT_DESC) |
+ 			 (1 << VHOST_F_LOG_ALL) |
+-			 (1 << VHOST_NET_F_VIRTIO_NET_HDR),
++			 (1 << VHOST_NET_F_VIRTIO_NET_HDR) |
++			 (1 << VIRTIO_NET_F_MRG_RXBUF),
+ };
+ 
+ static inline int vhost_has_feature(struct vhost_dev *dev, int bit)
 
-2.	One of these processes does files_fdtable(i) at the same
-	time as the other process closes file descriptor i.
 
-So, clone and -then- do fget_light().
-
-> If we want to be picky, we could add a user provided condition, aka "=
-we
-> are sure we are allowed to do this because we are the owner of the fi=
-les
-> struct".
-
-But yes, if I understand your trick below, the race conditions from
-the above sequence of events would simply force the processes off
-of the fget_light() path, which should be OK.
-
-						Thanx, Paul
-
-> diff --git a/drivers/char/tty_io.c b/drivers/char/tty_io.c
-> index 6da962c..027f5e1 100644
-> --- a/drivers/char/tty_io.c
-> +++ b/drivers/char/tty_io.c
-> @@ -2694,7 +2694,7 @@ void __do_SAK(struct tty_struct *tty)
->  			spin_lock(&p->files->file_lock);
->  			fdt =3D files_fdtable(p->files);
->  			for (i =3D 0; i < fdt->max_fds; i++) {
-> -				filp =3D fcheck_files(p->files, i);
-> +				filp =3D fcheck_files(p->files, i, false);
->  				if (!filp)
->  					continue;
->  				if (filp->f_op->read =3D=3D tty_read &&
-> diff --git a/fs/fcntl.c b/fs/fcntl.c
-> index 452d02f..dabf4d8 100644
-> --- a/fs/fcntl.c
-> +++ b/fs/fcntl.c
-> @@ -119,7 +119,7 @@ SYSCALL_DEFINE2(dup2, unsigned int, oldfd, unsign=
-ed int, newfd)
->  		int retval =3D oldfd;
->=20
->  		rcu_read_lock();
-> -		if (!fcheck_files(files, oldfd))
-> +		if (!fcheck_files(files, oldfd, false))
->  			retval =3D -EBADF;
->  		rcu_read_unlock();
->  		return retval;
-> diff --git a/fs/file_table.c b/fs/file_table.c
-> index 32d12b7..2865f72 100644
-> --- a/fs/file_table.c
-> +++ b/fs/file_table.c
-> @@ -274,7 +274,7 @@ struct file *fget(unsigned int fd)
->  	struct files_struct *files =3D current->files;
->=20
->  	rcu_read_lock();
-> -	file =3D fcheck_files(files, fd);
-> +	file =3D fcheck_files(files, fd, false);
->  	if (file) {
->  		if (!atomic_long_inc_not_zero(&file->f_count)) {
->  			/* File object ref couldn't be taken */
-> @@ -303,10 +303,10 @@ struct file *fget_light(unsigned int fd, int *f=
-put_needed)
->=20
->  	*fput_needed =3D 0;
->  	if (likely((atomic_read(&files->count) =3D=3D 1))) {
-> -		file =3D fcheck_files(files, fd);
-> +		file =3D fcheck_files(files, fd, true);
->  	} else {
->  		rcu_read_lock();
-> -		file =3D fcheck_files(files, fd);
-> +		file =3D fcheck_files(files, fd, false);
->  		if (file) {
->  			if (atomic_long_inc_not_zero(&file->f_count))
->  				*fput_needed =3D 1;
-> diff --git a/fs/proc/base.c b/fs/proc/base.c
-> index 8418fcc..0e89448 100644
-> --- a/fs/proc/base.c
-> +++ b/fs/proc/base.c
-> @@ -1716,7 +1716,7 @@ static int proc_fd_info(struct inode *inode, st=
-ruct path *path, char *info)
->  		 * hold ->file_lock.
->  		 */
->  		spin_lock(&files->file_lock);
-> -		file =3D fcheck_files(files, fd);
-> +		file =3D fcheck_files(files, fd, false);
->  		if (file) {
->  			if (path) {
->  				*path =3D file->f_path;
-> @@ -1755,7 +1755,7 @@ static int tid_fd_revalidate(struct dentry *den=
-try, struct nameidata *nd)
->  		files =3D get_files_struct(task);
->  		if (files) {
->  			rcu_read_lock();
-> -			if (fcheck_files(files, fd)) {
-> +			if (fcheck_files(files, fd, false)) {
->  				rcu_read_unlock();
->  				put_files_struct(files);
->  				if (task_dumpable(task)) {
-> @@ -1813,7 +1813,7 @@ static struct dentry *proc_fd_instantiate(struc=
-t inode *dir,
->  	 * hold ->file_lock.
->  	 */
->  	spin_lock(&files->file_lock);
-> -	file =3D fcheck_files(files, fd);
-> +	file =3D fcheck_files(files, fd, false);
->  	if (!file)
->  		goto out_unlock;
->  	if (file->f_mode & FMODE_READ)
-> @@ -1899,7 +1899,7 @@ static int proc_readfd_common(struct file * fil=
-p, void * dirent,
->  				char name[PROC_NUMBUF];
->  				int len;
->=20
-> -				if (!fcheck_files(files, fd))
-> +				if (!fcheck_files(files, fd, false))
->  					continue;
->  				rcu_read_unlock();
->=20
-> diff --git a/include/linux/fdtable.h b/include/linux/fdtable.h
-> index 013dc52..76423ad 100644
-> --- a/include/linux/fdtable.h
-> +++ b/include/linux/fdtable.h
-> @@ -57,11 +57,12 @@ struct files_struct {
->  	struct file * fd_array[NR_OPEN_DEFAULT];
->  };
->=20
-> -#define rcu_dereference_check_fdtable(files, fdtfd) \
-> +#define rcu_dereference_check_fdtable(files, fdtfd, cond) \
->  	(rcu_dereference_check((fdtfd), \
->  			       rcu_read_lock_held() || \
->  			       lockdep_is_held(&(files)->file_lock) || \
-> -			       atomic_read(&(files)->count) =3D=3D 1))
-> +			       atomic_read(&(files)->count) =3D=3D 1 || \
-> +			       cond))
->=20
->  #define files_fdtable(files) \
->  		(rcu_dereference_check_fdtable((files), (files)->fdt))
-> @@ -79,13 +80,13 @@ static inline void free_fdtable(struct fdtable *f=
-dt)
->  	call_rcu(&fdt->rcu, free_fdtable_rcu);
->  }
->=20
-> -static inline struct file * fcheck_files(struct files_struct *files,=
- unsigned int fd)
-> +static inline struct file * fcheck_files(struct files_struct *files,=
- unsigned int fd, bool cond)
->  {
->  	struct file * file =3D NULL;
->  	struct fdtable *fdt =3D files_fdtable(files);
->=20
->  	if (fd < fdt->max_fds)
-> -		file =3D rcu_dereference_check_fdtable(files, fdt->fd[fd]);
-> +		file =3D rcu_dereference_check_fdtable(files, fdt->fd[fd], cond);
->  	return file;
->  }
->=20
->=20
->=20
