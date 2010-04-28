@@ -1,33 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net tree with Linus' tree
-Date: Tue, 27 Apr 2010 17:05:43 -0700 (PDT)
-Message-ID: <20100427.170543.233869422.davem@davemloft.net>
-References: <20100427112827.1f17be40.sfr@canb.auug.org.au>
+Subject: Re: [PATCH torvalds-2.6] cdc_ether: fix autosuspend for mbm devices
+Date: Tue, 27 Apr 2010 17:07:57 -0700 (PDT)
+Message-ID: <20100427.170757.146099597.davem@davemloft.net>
+References: <201004261214.13836.torgny.johansson@ericsson.com>
+	<201004261230.21713.oneukum@suse.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, alan@linux.intel.com, joe@perches.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100427112827.1f17be40.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: torgny.johansson@ericsson.com, netdev@vger.kernel.org
+To: oneukum@suse.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50475
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754335Ab0D1AHv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 20:07:51 -0400
+In-Reply-To: <201004261230.21713.oneukum@suse.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Tue, 27 Apr 2010 11:28:27 +1000
+From: Oliver Neukum <oneukum@suse.de>
+Date: Mon, 26 Apr 2010 12:30:21 +0200
 
-> Hi all,
+>> Also, if you like this patch, is it possible to get it included in a minor release of 2.6.33 (e.g. 2.6.33.3) as a bugfix?
 > 
-> Today's linux-next merge of the net tree got a conflict in
-> drivers/net/e100.c between commit
-> 401da6aea31ef69c2fcd260382adabdcf7ce820a ("e100: Fix the TX workqueue
-> race") from Linus' tree and commit
-> fa05e1ad1b61b37fb64a66794c11ab478e975c56 ("drivers/net/e100.c: Use
-> pr_<level> and netif_<level>") from the net tree.
-> 
-> Just context changes.  I fixed it up (see below) and can carry the fix
-> for a while.
+> Up to David.
 
-This should be resolved now that I pulled net-2.6 into net-next-2.6
-earlier today.
+I'll apply to net-2.6 and queue up for -stable, thanks.
