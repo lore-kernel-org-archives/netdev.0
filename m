@@ -1,58 +1,58 @@
-From: Tom Herbert <therbert@google.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
 Subject: Re: [PATCH] forcedeth: Stay in NAPI as long as there's work
-Date: Wed, 28 Apr 2010 11:07:31 -0700
-Message-ID: <g2t65634d661004281107j676369c9ge379434723478c1@mail.gmail.com>
+Date: Wed, 28 Apr 2010 11:13:54 -0700
+Message-ID: <20100428111354.49a6ec1a@nehalam>
 References: <alpine.DEB.1.00.1004272332350.30235@pokey.mtv.corp.google.com>
-	 <1272477251.18228.36.camel@Joe-Laptop.home>
+	<1272477251.18228.36.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, aabdulla@nvidia.com, davem@davemloft.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
+	aabdulla@nvidia.com, davem@davemloft.net
 To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:58857 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756109Ab0D1SHh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 14:07:37 -0400
-Received: from hpaq12.eem.corp.google.com (hpaq12.eem.corp.google.com [10.3.21.12])
-	by smtp-out.google.com with ESMTP id o3SI7YMT032059
-	for <netdev@vger.kernel.org>; Wed, 28 Apr 2010 11:07:35 -0700
-Received: from pvc21 (pvc21.prod.google.com [10.241.209.149])
-	by hpaq12.eem.corp.google.com with ESMTP id o3SI70Xx019851
-	for <netdev@vger.kernel.org>; Wed, 28 Apr 2010 11:07:33 -0700
-Received: by pvc21 with SMTP id 21so687224pvc.30
-        for <netdev@vger.kernel.org>; Wed, 28 Apr 2010 11:07:32 -0700 (PDT)
+Received: from mail.vyatta.com ([76.74.103.46]:51470 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752939Ab0D1SOP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 28 Apr 2010 14:14:15 -0400
 In-Reply-To: <1272477251.18228.36.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->
-> It might be better to test the comparisons using
-> a cpu_to_le32 of the constants.
->
-Yes.  Probably should also be changed in nv_tx_done{_optimized} and
-nv_rx_process{_optimized}
+On Wed, 28 Apr 2010 10:54:11 -0700
+Joe Perches <joe@perches.com> wrote:
 
-> static inline int nv_has_work(struct fe_priv *np)
-> {
-> =A0 =A0 =A0 =A0if (nv_optimized(np))
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return ((np->get_rx.ex !=3D np->put_rx=
-=2Eex) &&
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0!(np->get_rx.ex->flagl=
-en & cpu_to_le32(NV_RX2_AVAIL))) ||
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ((np->get_tx.ex !=3D np->=
-put_tx.ex) &&
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0!(np->get_tx.ex->flagl=
-en & cpu_to_le32(NV_TX_VALID)));
->
-> =A0 =A0 =A0 =A0return ((np->get_rx.orig !=3D np->put_rx.orig) &&
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0!(np->get_rx.orig->flaglen & cpu_to_le=
-32(NV_RX_AVAIL))) ||
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 ((np->get_tx.orig !=3D np->put_tx.orig) &=
-&
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0!(np->get_tx.orig->flaglen & cpu_to_le=
-32(NV_TX_VALID)));
-> }
->
->
->
+> On Tue, 2010-04-27 at 23:36 -0700, Tom Herbert wrote:
+> > Add loop in NAPI poll routine to keep processing RX and TX as long as
+> > there is more work to do.  This is similar to what tg3 and some other
+> > drivers do.
+> > Signed-off-by: Tom Herbert <therbert@google.com>
+> > ---
+> > diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+> > index a1c0e7b..1e4de7b 100644
+> > --- a/drivers/net/forcedeth.c
+> > +++ b/drivers/net/forcedeth.c
+> > @@ -3736,6 +3736,23 @@ static irqreturn_t nv_nic_irq_tx(int foo, void *data)
+> >  }
+> >  
+> >  #ifdef CONFIG_FORCEDETH_NAPI
+> > +static inline int nv_has_work(struct fe_priv *np)
+> > +{
+> > +	if (nv_optimized(np)) {
+> > +		return (
+> > +		    ((np->get_rx.ex != np->put_rx.ex) &&
+> > +		     !(le32_to_cpu(np->get_rx.ex->flaglen) & NV_RX2_AVAIL)) ||
+> > +		    ((np->get_tx.ex != np->put_tx.ex) &&
+> > +		     !(le32_to_cpu(np->get_tx.ex->flaglen) & NV_TX_VALID)));
+> > +	} else {
+> > +		return (
+> > +		    ((np->get_rx.orig != np->put_rx.orig) &&
+> > +		     !(le32_to_cpu(np->get_rx.orig->flaglen) & NV_RX_AVAIL)) ||
+> > +		    ((np->get_tx.orig != np->put_tx.orig) &&
+> > +		     !(le32_to_cpu(np->get_tx.orig->flaglen) & NV_TX_VALID)));
+> > +	}
+> > +}
+
+Why than adding another check step, why not just keep going until
+rx_done returns 0?
+
