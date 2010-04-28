@@ -1,40 +1,53 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] xfrm: potential uninitialized variable num_xfrms
-Date: Wed, 28 Apr 2010 15:20:22 +0800
-Message-ID: <1272439222-2935-1-git-send-email-xiaosuo@gmail.com>
-Cc: Jamal Hadi Salim <hadi@cyberus.ca>, Timo Teras <timo.teras@iki.fi>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Alexey Dobriyan <adobriyan@gmail.com>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH/RFC Resubmission] cdc_ether: Identify MBM devices by GUID in MDLM descriptor
+Date: Wed, 28 Apr 2010 10:51:44 +0200
+Message-ID: <201004281051.44212.oneukum@suse.de>
+References: <4BD17F81.4070301@ericsson.com> <20100427.170959.256868398.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jonas.sjoquist@ericsson.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:40374 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750864Ab0D1HrJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 03:47:09 -0400
-Received: by pvg6 with SMTP id 6so7866pvg.19
-        for <netdev@vger.kernel.org>; Wed, 28 Apr 2010 00:47:08 -0700 (PDT)
+Received: from cantor.suse.de ([195.135.220.2]:49172 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751089Ab0D1Ivs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 04:51:48 -0400
+In-Reply-To: <20100427.170959.256868398.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-potential uninitialized variable num_xfrms
+Am Mittwoch, 28. April 2010 02:09:59 schrieb David Miller:
+> From: Jonas Sjoquist <jonas.sjoquist@ericsson.com>
+> Date: Fri, 23 Apr 2010 13:07:45 +0200
+>=20
+> > From: Jonas Sj=F6quist <jonas.sjoquist@ericsson.com>
+> >=20
+> > This patch removes vid/pid for Ericsson MBM devices from the whitel=
+ist set of
+> > devices. The MBM devices are instead identified by GUID.
+> >=20
+> > In order for cdc_ether to handle these devices the GUID in the MDLM=
+ descriptor
+> > is tested. All MBM devices currently handled by cdc_ether as well a=
+s future
+> > CDC Ethernet MBM devices can be identified by the GUID.
+> >=20
+> > This is the same solution used in Carl Nordbeck's mbm driver,
+> > http://kerneltrap.org/mailarchive/linux-usb/2008/11/17/4141384/thre=
+ad
+> >=20
+> > I post this as RFC to get feedback on however cdc_ether is the corr=
+ect place to
+> > do the binding, or if it should be done in a separate driver, e.g. =
+zaurus.
+> >=20
+> > Signed-off-by: Jonas Sj=F6quist <jonas.sjoquist@ericsson.com>
+>=20
+> Can someone knowledgable with the cdc_ether driver review this change=
+?
 
-fix compiler warning: 'num_xfrms' may be used uninitialized in this function.
+The patch looks good.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- net/xfrm/xfrm_policy.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 7430ac2..31f4ba4 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1732,7 +1732,7 @@ int __xfrm_lookup(struct net *net, struct dst_entry **dst_p, struct flowi *fl,
- 	struct dst_entry *dst, *dst_orig = *dst_p, *route;
- 	u16 family = dst_orig->ops->family;
- 	u8 dir = policy_to_flow_dir(XFRM_POLICY_OUT);
--	int i, err, num_pols, num_xfrms, drop_pols = 0;
-+	int i, err, num_pols, num_xfrms = 0, drop_pols = 0;
- 
- restart:
- 	dst = NULL;
+	Regards
+		Oliver
