@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] bnx2x: Remove two prefetch()
-Date: Wed, 28 Apr 2010 09:55:06 -0700 (PDT)
-Message-ID: <20100428.095506.250819087.davem@davemloft.net>
-References: <20100427.151937.62344362.davem@davemloft.net>
-	<1272460455.30392.24.camel@lb-tlvb-eilong.il.broadcom.com>
-	<w2ue8f3c3211004280842r9f2589e8qb8fd4b7933cd9756@mail.gmail.com>
+Subject: Re: [Bugme-new] [Bug 15868] New: Deleting IP address from
+ interface doesn't prevent sending a data.
+Date: Wed, 28 Apr 2010 10:00:19 -0700 (PDT)
+Message-ID: <20100428.100019.00461804.davem@davemloft.net>
+References: <bug-15868-10286@https.bugzilla.kernel.org/>
+	<20100428074244.304683c7.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, vladz@broadcom.com, eric.dumazet@gmail.com,
-	xiaosuo@gmail.com, hadi@cyberus.ca, therbert@google.com,
-	shemminger@vyatta.com, netdev@vger.kernel.org
-To: eliezer@tamir.org.il
+Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, Yurij.Plotnikov@oktetlabs.ru
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52485
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47485
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753175Ab0D1QzA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 12:55:00 -0400
-In-Reply-To: <w2ue8f3c3211004280842r9f2589e8qb8fd4b7933cd9756@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1755972Ab0D1RAN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 13:00:13 -0400
+In-Reply-To: <20100428074244.304683c7.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eliezer Tamir <eliezer@tamir.org.il>
-Date: Wed, 28 Apr 2010 18:42:37 +0300
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Wed, 28 Apr 2010 07:42:44 -0400
 
-> Acked-by: <eliezer@tamir.org.il>
+> 
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
+> 
 
-Like I told Eilon, please specify your full name in future Acked-by: tags,
-just as you would for a Signed-off-by: tag.
-
-Thanks.
+This is expected behavior.
