@@ -1,48 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] random SYN drops causing connect() delays
-Date: Wed, 28 Apr 2010 07:52:46 +0200
-Message-ID: <1272433966.2343.34.camel@edumazet-laptop>
-References: <20100412080633.GA27418@bombadil.infradead.org>
-	 <20100412083903.GA19763@bombadil.infradead.org>
-	 <20100427.185602.221594952.davem@davemloft.net>
-	 <20100428044443.GL19763@bombadil.infradead.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 1/3] ptp: Added a brand new class driver for ptp clocks.
+Date: Wed, 28 Apr 2010 08:08:37 +0200
+Message-ID: <20100428060837.GB4516@riccoc20.at.omicron.at>
+References: <20100427091405.GA5098@riccoc20.at.omicron.at> <20100427153239.0977c1aa.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Thomas Graf <tgraf@infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Randy Dunlap <randy.dunlap@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:57982 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752053Ab0D1Fww (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 01:52:52 -0400
-Received: by bwz19 with SMTP id 19so196182bwz.21
-        for <netdev@vger.kernel.org>; Tue, 27 Apr 2010 22:52:51 -0700 (PDT)
-In-Reply-To: <20100428044443.GL19763@bombadil.infradead.org>
+Received: from fg-out-1718.google.com ([72.14.220.159]:49009 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752832Ab0D1GIn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 02:08:43 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so3094135fgg.1
+        for <netdev@vger.kernel.org>; Tue, 27 Apr 2010 23:08:41 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20100427153239.0977c1aa.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 28 avril 2010 =C3=A0 00:44 -0400, Thomas Graf a =C3=A9crit =
-:
-> On Tue, Apr 27, 2010 at 06:56:02PM -0700, David Miller wrote:
-> > I can't reproduce on my system even with sched_child_runs_first set=
- to '1'.
-> >=20
-> > Are you running identd or something like that which intercepts the =
-connections
-> > to port 22 before 'sshd' actually gets it?
->=20
-> No, sshd is listening on the port directly.
->=20
-> I am having more difficulties to reproduce the issue with the latest =
-git tree. It
-> still happens but I sometimes have to run the test several times to g=
-et a single
-> delayed connection attempt.
+On Tue, Apr 27, 2010 at 03:32:39PM -0700, Randy Dunlap wrote:
+> How do I use the testptp.mk file?
 
-On machine/kernel reproducing the behavior, please send
+The makefile uses the KBUILD_OUTPUT environment variable to find the
+kernel includes, with the new header. I do something like this:
 
-grep . /proc/sys/net/ipv4/*
+  export ARCH=powerpc
+  export KBUILD_OUTPUT=~/work/kernel/ptp_p2020
+  mkdir -p $KBUILD_OUTPUT
+  make mpc85xx_smp_defconfig
+  make menuconfig
+  make -j3 uImage
+  make headers_install
+  make -C Documentation/ptp -f testptp.mk
 
+> Drop the ".ko".  We normally don't include that part of the module name.
 
+Okay, can do. I just imitated what I saw in other Kbuild files.
 
+> > diff --git a/include/linux/Kbuild b/include/linux/Kbuild
+> > index 2fc8e14..2d616cb 100644
+> > --- a/include/linux/Kbuild
+> > +++ b/include/linux/Kbuild
+> > @@ -318,6 +318,7 @@ unifdef-y += poll.h
+> >  unifdef-y += ppp_defs.h
+> >  unifdef-y += ppp-comp.h
+> >  unifdef-y += pps.h
+> > +unifdef-y += ptp_clock.h
+> >  unifdef-y += ptrace.h
+> >  unifdef-y += quota.h
+> >  unifdef-y += random.h
+> 
+> I think that the Kbuild file also needs this line:
+> header-y += ptp_clock.h
+> 
+> so that builds that use O=objdir will work, but even with that
+> change, I couldn't get it to work.  (?)
+
+Well, I am not sure what to do here. I followed the example of the PPS
+code. That code only has the unifdef-y assigment. But now I see that
+Documentation/kbuild/makefiles.txt says unifdef-y is deprecated.
+
+Can someone clarify what is correct: is just header-y enough?
+
+Thanks,
+Richard
