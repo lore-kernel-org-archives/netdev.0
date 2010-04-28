@@ -1,48 +1,28 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH net-next 4/4] bridge: multicast_flood cleanup
-Date: Tue, 27 Apr 2010 18:01:07 -0700
-Message-ID: <20100428010336.317810041@vyatta.com>
-References: <20100428010103.386761596@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.hengli.com.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v5] net/usb: add sierra_net.c driver
+Date: Tue, 27 Apr 2010 18:07:32 -0700 (PDT)
+Message-ID: <20100427.180732.121248582.davem@davemloft.net>
+References: <1272415711.10975.3.camel@Linuxdev4-laptop>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dbrownell@users.sourceforge.net, rfiler@sierrawireless.com,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: epasheva@sierrawireless.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:46582 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754277Ab0D1BHW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 27 Apr 2010 21:07:22 -0400
-Content-Disposition: inline; filename=br-flood-clean.patch
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57904
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754594Ab0D1BH1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 27 Apr 2010 21:07:27 -0400
+In-Reply-To: <1272415711.10975.3.camel@Linuxdev4-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move some declarations around to make it clearer which variables
-are being used inside loop.
+From: Elina Pasheva <epasheva@sierrawireless.com>
+Date: Tue, 27 Apr 2010 17:48:31 -0700
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Subject: [PATCH v5] net/usb: add sierra_net.c driver
 
---- a/net/bridge/br_forward.c	2010-04-27 17:58:25.739592056 -0700
-+++ b/net/bridge/br_forward.c	2010-04-27 17:59:17.182654034 -0700
-@@ -208,17 +208,15 @@ static void br_multicast_flood(struct ne
- {
- 	struct net_device *dev = BR_INPUT_SKB_CB(skb)->brdev;
- 	struct net_bridge *br = netdev_priv(dev);
--	struct net_bridge_port *port;
--	struct net_bridge_port *lport, *rport;
--	struct net_bridge_port *prev;
-+	struct net_bridge_port *prev = NULL;
- 	struct net_bridge_port_group *p;
- 	struct hlist_node *rp;
- 
--	prev = NULL;
--
- 	rp = rcu_dereference(br->router_list.first);
- 	p = mdst ? rcu_dereference(mdst->ports) : NULL;
- 	while (p || rp) {
-+		struct net_bridge_port *port, *lport, *rport;
-+
- 		lport = p ? p->port : NULL;
- 		rport = rp ? hlist_entry(rp, struct net_bridge_port, rlist) :
- 			     NULL;
-
--- 
-
+Applied, although I had to manually remove the stray extra
+newline at the end of drivers/net/usb/sierra_net.c which GIT
+complains about when the patch is applied.
