@@ -1,29 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH] igb: Clean up left over prototype of
- igb_get_hw_dev_name()
-Date: Wed, 28 Apr 2010 14:26:16 -0700 (PDT)
-Message-ID: <20100428.142616.42785091.davem@davemloft.net>
-References: <20100428205949.30209.69599.stgit@localhost.localdomain>
+Subject: Re: [PATCH v2] net/sb1250: register mdio bus in probe
+Date: Wed, 28 Apr 2010 14:32:30 -0700 (PDT)
+Message-ID: <20100428.143230.214243747.davem@davemloft.net>
+References: <1272229348-16140-1-git-send-email-sebastian@breakpoint.cc>
+	<20100427.155215.228945283.davem@davemloft.net>
+	<20100428195701.GA3461@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, emil.s.tantilov@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: ralf@linux-mips.org, netdev@vger.kernel.org
+To: sebastian@breakpoint.cc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59902
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47614
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755463Ab0D1V0L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 17:26:11 -0400
-In-Reply-To: <20100428205949.30209.69599.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1757126Ab0D1VcY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 17:32:24 -0400
+In-Reply-To: <20100428195701.GA3461@Chamillionaire.breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 28 Apr 2010 13:59:53 -0700
+From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Date: Wed, 28 Apr 2010 21:57:01 +0200
 
-> From: Emil Tantilov <emil.s.tantilov@intel.com>
+> "ifconfig eth0 up && ifconfig eth0 down" triggers:
+ ...
+> mdiobus_register() calls device_register() which initializes the kobj of
+> the device. mdiobus_unregister() calls only device_del() so we have one
+> reference left. That one is leaving with mdiobus_free() which is only
+> called on remove.
+> Since I don't see any reason why mdiobus_register()/mdiobus_unregister()
+> should happen in ->open()/->close() I move them to probe & exit.
 > 
-> Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
 
-Applied, thanks.
+This looks a lot better, applied, thanks Sebastian!
