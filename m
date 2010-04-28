@@ -1,215 +1,40 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: linux-next: manual merge of the rr tree with the net tree
-Date: Wed, 28 Apr 2010 18:54:57 +0300
-Message-ID: <20100428155457.GB7467@redhat.com>
-References: <20100427115852.9f4cbb0f.sfr@canb.auug.org.au> <20100427040913.GA19951@redhat.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] sky2: use the DMA state API instead of the pci
+ equivalents
+Date: Wed, 28 Apr 2010 09:08:16 -0700
+Message-ID: <20100428090816.39436663@nehalam>
+References: <20100428095826S.fujita.tomonori@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100427040913.GA19951@redhat.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:42845 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755445Ab0D1QJI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 12:09:08 -0400
+In-Reply-To: <20100428095826S.fujita.tomonori@lab.ntt.co.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 27, 2010 at 07:09:13AM +0300, Michael S. Tsirkin wrote:
-> On Tue, Apr 27, 2010 at 11:58:52AM +1000, Stephen Rothwell wrote:
-> > Hi Rusty,
-> > 
-> > Today's linux-next merge of the rr tree got a conflict in
-> > drivers/net/virtio_net.c between commit
-> > 5e01d2f91df62be4d6f282149bc2a8858992ceca ("virtio-net: move sg off
-> > stack") from the net tree and commit
-> > 7f62a724a65f864d84f50857bbfd36c240155c8f ("virtio_net: use virtqueue_xxx
-> > wrappers") from the rr tree.
-> > 
-> > I fixed it up (see below) and can carry the fix as necessary.
+On Wed, 28 Apr 2010 09:57:05 +0900
+FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp> wrote:
+
+> This replace the PCI DMA state API (include/linux/pci-dma.h) with the
+> DMA equivalents since the PCI DMA state API will be obsolete.
 > 
-> Hmm, Rusty, do you intend for the patches to go through netdev this
-> time? If you do, it might be simplest to just ask Dave to merge
-> them in net-next-2.6 now. I can prepare and send them if you like.
+> No functional change.
+> 
+> For further information about the background:
+> 
+> http://marc.info/?l=linux-netdev&m=127037540020276&w=2
+> 
+> Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 
-For whoever develops on top of -rr, the following backports
-virtio_net change from net-next. Hope this helps
+Tested, this works thanks.
+
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
 
-commit 77416b2a007b67f92d2f7b3b1edac7405c5890f7
-Author: Michael S. Tsirkin <mst@redhat.com>
-Date:   Wed Apr 28 18:48:27 2010 +0300
-
-    virtio-net: move sg off stack
-    
-    Move sg structure off stack and into virtnet_info structure.
-    This helps remove extra sg_init_table calls as well as reduce
-    stack usage.
-    
-    Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-    Tested-by: Michael S. Tsirkin <mst@redhat.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-    
-    Conflicts:
-    
-    	drivers/net/virtio_net.c
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index fca44b2..dc872ba 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -40,8 +40,7 @@ module_param(gso, bool, 0444);
- 
- #define VIRTNET_SEND_COMMAND_SG_MAX    2
- 
--struct virtnet_info
--{
-+struct virtnet_info {
- 	struct virtio_device *vdev;
- 	struct virtqueue *rvq, *svq, *cvq;
- 	struct net_device *dev;
-@@ -62,6 +61,10 @@ struct virtnet_info
- 
- 	/* Chain pages by the private ptr. */
- 	struct page *pages;
-+
-+	/* fragments + linear part + virtio header */
-+	struct scatterlist rx_sg[MAX_SKB_FRAGS + 2];
-+	struct scatterlist tx_sg[MAX_SKB_FRAGS + 2];
- };
- 
- struct skb_vnet_hdr {
-@@ -324,10 +327,8 @@ static int add_recvbuf_small(struct virtnet_info *vi, gfp_t gfp)
- {
- 	struct sk_buff *skb;
- 	struct skb_vnet_hdr *hdr;
--	struct scatterlist sg[2];
- 	int err;
- 
--	sg_init_table(sg, 2);
- 	skb = netdev_alloc_skb_ip_align(vi->dev, MAX_PACKET_LEN);
- 	if (unlikely(!skb))
- 		return -ENOMEM;
-@@ -335,11 +336,11 @@ static int add_recvbuf_small(struct virtnet_info *vi, gfp_t gfp)
- 	skb_put(skb, MAX_PACKET_LEN);
- 
- 	hdr = skb_vnet_hdr(skb);
--	sg_set_buf(sg, &hdr->hdr, sizeof hdr->hdr);
-+	sg_set_buf(vi->rx_sg, &hdr->hdr, sizeof hdr->hdr);
- 
--	skb_to_sgvec(skb, sg + 1, 0, skb->len);
-+	skb_to_sgvec(skb, vi->rx_sg + 1, 0, skb->len);
- 
--	err = virtqueue_add_buf_gfp(vi->rvq, sg, 0, 2, skb, gfp);
-+	err = virtqueue_add_buf_gfp(vi->rvq, vi->rx_sg, 0, 2, skb, gfp);
- 	if (err < 0)
- 		dev_kfree_skb(skb);
- 
-@@ -348,13 +349,11 @@ static int add_recvbuf_small(struct virtnet_info *vi, gfp_t gfp)
- 
- static int add_recvbuf_big(struct virtnet_info *vi, gfp_t gfp)
- {
--	struct scatterlist sg[MAX_SKB_FRAGS + 2];
- 	struct page *first, *list = NULL;
- 	char *p;
- 	int i, err, offset;
- 
--	sg_init_table(sg, MAX_SKB_FRAGS + 2);
--	/* page in sg[MAX_SKB_FRAGS + 1] is list tail */
-+	/* page in vi->rx_sg[MAX_SKB_FRAGS + 1] is list tail */
- 	for (i = MAX_SKB_FRAGS + 1; i > 1; --i) {
- 		first = get_a_page(vi, gfp);
- 		if (!first) {
-@@ -362,7 +361,7 @@ static int add_recvbuf_big(struct virtnet_info *vi, gfp_t gfp)
- 				give_pages(vi, list);
- 			return -ENOMEM;
- 		}
--		sg_set_buf(&sg[i], page_address(first), PAGE_SIZE);
-+		sg_set_buf(&vi->rx_sg[i], page_address(first), PAGE_SIZE);
- 
- 		/* chain new page in list head to match sg */
- 		first->private = (unsigned long)list;
-@@ -376,17 +375,17 @@ static int add_recvbuf_big(struct virtnet_info *vi, gfp_t gfp)
- 	}
- 	p = page_address(first);
- 
--	/* sg[0], sg[1] share the same page */
--	/* a separated sg[0] for  virtio_net_hdr only during to QEMU bug*/
--	sg_set_buf(&sg[0], p, sizeof(struct virtio_net_hdr));
-+	/* vi->rx_sg[0], vi->rx_sg[1] share the same page */
-+	/* a separated vi->rx_sg[0] for virtio_net_hdr only due to QEMU bug */
-+	sg_set_buf(&vi->rx_sg[0], p, sizeof(struct virtio_net_hdr));
- 
--	/* sg[1] for data packet, from offset */
-+	/* vi->rx_sg[1] for data packet, from offset */
- 	offset = sizeof(struct padded_vnet_hdr);
--	sg_set_buf(&sg[1], p + offset, PAGE_SIZE - offset);
-+	sg_set_buf(&vi->rx_sg[1], p + offset, PAGE_SIZE - offset);
- 
- 	/* chain first in list head */
- 	first->private = (unsigned long)list;
--	err = virtqueue_add_buf_gfp(vi->rvq, sg, 0, MAX_SKB_FRAGS + 2,
-+	err = virtqueue_add_buf_gfp(vi->rvq, vi->rx_sg, 0, MAX_SKB_FRAGS + 2,
- 				    first, gfp);
- 	if (err < 0)
- 		give_pages(vi, first);
-@@ -397,16 +396,15 @@ static int add_recvbuf_big(struct virtnet_info *vi, gfp_t gfp)
- static int add_recvbuf_mergeable(struct virtnet_info *vi, gfp_t gfp)
- {
- 	struct page *page;
--	struct scatterlist sg;
- 	int err;
- 
- 	page = get_a_page(vi, gfp);
- 	if (!page)
- 		return -ENOMEM;
- 
--	sg_init_one(&sg, page_address(page), PAGE_SIZE);
-+	sg_init_one(vi->rx_sg, page_address(page), PAGE_SIZE);
- 
--	err = virtqueue_add_buf_gfp(vi->rvq, &sg, 0, 1, page);
-+	err = virtqueue_add_buf_gfp(vi->rvq, &vi->rx_sg, 0, 1, page);
- 	if (err < 0)
- 		give_pages(vi, page);
- 
-@@ -515,12 +513,9 @@ static unsigned int free_old_xmit_skbs(struct virtnet_info *vi)
- 
- static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
- {
--	struct scatterlist sg[2+MAX_SKB_FRAGS];
- 	struct skb_vnet_hdr *hdr = skb_vnet_hdr(skb);
- 	const unsigned char *dest = ((struct ethhdr *)skb->data)->h_dest;
- 
--	sg_init_table(sg, 2+MAX_SKB_FRAGS);
--
- 	pr_debug("%s: xmit %p %pM\n", vi->dev->name, skb, dest);
- 
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
-@@ -554,12 +549,12 @@ static int xmit_skb(struct virtnet_info *vi, struct sk_buff *skb)
- 
- 	/* Encode metadata header at front. */
- 	if (vi->mergeable_rx_bufs)
--		sg_set_buf(sg, &hdr->mhdr, sizeof hdr->mhdr);
-+		sg_set_buf(vi->tx_sg, &hdr->mhdr, sizeof hdr->mhdr);
- 	else
--		sg_set_buf(sg, &hdr->hdr, sizeof hdr->hdr);
-+		sg_set_buf(vi->tx_sg, &hdr->hdr, sizeof hdr->hdr);
- 
--	hdr->num_sg = skb_to_sgvec(skb, sg+1, 0, skb->len) + 1;
--	return virtqueue_add_buf(vi->svq, sg, hdr->num_sg, 0, skb);
-+	hdr->num_sg = skb_to_sgvec(skb, vi->tx_sg + 1, 0, skb->len) + 1;
-+	return virtqueue_add_buf(vi->svq, vi->tx_sg, hdr->num_sg, 0, skb);
- }
- 
- static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
-@@ -942,6 +937,8 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	vdev->priv = vi;
- 	vi->pages = NULL;
- 	INIT_DELAYED_WORK(&vi->refill, refill_work);
-+	sg_init_table(vi->rx_sg, ARRAY_SIZE(vi->rx_sg));
-+	sg_init_table(vi->tx_sg, ARRAY_SIZE(vi->tx_sg));
- 
- 	/* If we can receive ANY GSO packets, we must allocate large ones. */
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_GUEST_TSO4) ||
 -- 
-MST
