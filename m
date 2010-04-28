@@ -1,36 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net/sb1250: register mdio bus in probe
-Date: Wed, 28 Apr 2010 14:32:30 -0700 (PDT)
-Message-ID: <20100428.143230.214243747.davem@davemloft.net>
-References: <1272229348-16140-1-git-send-email-sebastian@breakpoint.cc>
-	<20100427.155215.228945283.davem@davemloft.net>
-	<20100428195701.GA3461@Chamillionaire.breakpoint.cc>
+Subject: Re: [PATCH net-next-2.6] net: speedup udp receive path
+Date: Wed, 28 Apr 2010 14:36:10 -0700 (PDT)
+Message-ID: <20100428.143610.232922250.davem@davemloft.net>
+References: <1272458001.2267.0.camel@edumazet-laptop>
+	<1272458174.14068.16.camel@bigi>
+	<1272463605.2267.70.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, netdev@vger.kernel.org
-To: sebastian@breakpoint.cc
+Cc: hadi@cyberus.ca, xiaosuo@gmail.com, therbert@google.com,
+	shemminger@vyatta.com, netdev@vger.kernel.org, eilong@broadcom.com,
+	bmb@athenacr.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47614
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59647
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757126Ab0D1VcY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 17:32:24 -0400
-In-Reply-To: <20100428195701.GA3461@Chamillionaire.breakpoint.cc>
+	by vger.kernel.org with ESMTP id S1754988Ab0D1VgG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 17:36:06 -0400
+In-Reply-To: <1272463605.2267.70.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-Date: Wed, 28 Apr 2010 21:57:01 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 28 Apr 2010 16:06:45 +0200
 
-> "ifconfig eth0 up && ifconfig eth0 down" triggers:
- ...
-> mdiobus_register() calls device_register() which initializes the kobj of
-> the device. mdiobus_unregister() calls only device_del() so we have one
-> reference left. That one is leaving with mdiobus_free() which is only
-> called on remove.
-> Since I don't see any reason why mdiobus_register()/mdiobus_unregister()
-> should happen in ->open()/->close() I move them to probe & exit.
+> [PATCH net-next-2.6] net: speedup udp receive path
 > 
-> Signed-off-by: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+> Since commit 95766fff ([UDP]: Add memory accounting.), 
+> each received packet needs one extra sock_lock()/sock_release() pair.
+> 
+> This added latency because of possible backlog handling. Then later,
+> ticket spinlocks added yet another latency source in case of DDOS.
+> 
+> This patch introduces lock_sock_bh() and unlock_sock_bh()
+> synchronization primitives, avoiding one atomic operation and backlog
+> processing.
+> 
+> skb_free_datagram_locked() uses them instead of full blown
+> lock_sock()/release_sock(). skb is orphaned inside locked section for
+> proper socket memory reclaim, and finally freed outside of it.
+> 
+> UDP receive path now take the socket spinlock only once.
+> 
+> Signed-off-by: Eric DUmazet <eric.dumazet@gmail.com>
 
-This looks a lot better, applied, thanks Sebastian!
+Clever, let's see what this breaks :-)
+
+Applied, thanks Eric.
