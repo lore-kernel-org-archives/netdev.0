@@ -1,169 +1,106 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH 4/5] sctp: fix to calc the INIT/INIT-ACK chunk length correctly is set
-Date: Wed, 28 Apr 2010 14:47:21 -0400
-Message-ID: <1272480442-32673-5-git-send-email-vladislav.yasevich@hp.com>
-References: <1272480442-32673-1-git-send-email-vladislav.yasevich@hp.com>
-Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
-	Wei Yongjun <yjwei@cn.fujitsu.com>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
-To: netdev@vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH]: sctp: Fix skb_over_panic resulting from multiple
+ invalid parameter errors (CVE-2010-1173)
+Date: Wed, 28 Apr 2010 14:52:26 -0400
+Message-ID: <20100428185226.GE4818@hmsreliant.think-freely.org>
+References: <20100428134748.GA4818@hmsreliant.think-freely.org>
+ <4BD83F85.8090308@hp.com>
+ <20100428142147.GB4818@hmsreliant.think-freely.org>
+ <4BD8481E.3010509@hp.com>
+ <4BD875C5.9000907@hp.com>
+ <20100428181645.GD4818@hmsreliant.think-freely.org>
+ <4BD87DFF.6080502@hp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: sri@us.ibm.com, linux-sctp@vger.kernel.org, eteo@redhat.com,
+	netdev@vger.kernel.org, davem@davemloft.net, security@kernel.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:38971 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756333Ab0D1Sr2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 14:47:28 -0400
-In-Reply-To: <1272480442-32673-1-git-send-email-vladislav.yasevich@hp.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:38430 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756395Ab0D1Swe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 14:52:34 -0400
+Content-Disposition: inline
+In-Reply-To: <4BD87DFF.6080502@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
+On Wed, Apr 28, 2010 at 02:27:11PM -0400, Vlad Yasevich wrote:
+> 
+> 
+> Neil Horman wrote:
+> > On Wed, Apr 28, 2010 at 01:52:05PM -0400, Vlad Yasevich wrote:
+> >>
+> >> Vlad Yasevich wrote:
+> >>> Neil Horman wrote:
+> >>>> On Wed, Apr 28, 2010 at 10:00:37AM -0400, Vlad Yasevich wrote:
+> >>>>> I have this patch and a few others already queued.
+> >>>>>
+> >>>>> I was planning on sending these today for stable.
+> >>>>>
+> >>>>> Here is the full list of stable patches I have:
+> >>>>>
+> >>>>> sctp: Fix oops when sending queued ASCONF chunks
+> >>>>> sctp: fix to calc the INIT/INIT-ACK chunk length correctly is set
+> >>>>> sctp: per_cpu variables should be in bh_disabled section
+> >>>>> sctp: fix potential reference of a freed pointer
+> >>>>> sctp: avoid irq lock inversion while call sk->sk_data_ready()
+> >>>>>
+> >>>>> -vlad
+> >>>>>
+> >>>> Are you sure?  this oops looks _very_ simmilar to the INIT/INIT-ACK length
+> >>>> calculation oops described above, but is in fact different, and requires this
+> >>>> patch, from what I can see.  The right fix might be in the ASCONF chunk patch
+> >>>> you list above, but I don't see that in your tree at the moment, so I can't be
+> >>>> sure.
+> >>> As I said, I totally goofed when reading the description and I apologize.
+> >>> However, I do one comment regarding the patch.
+> >>>
+> >>> If the bad packet is REALLY long (I mean close to 65K IP limit), then
+> >>> we'll end up allocating a supper huge skb in this case and potentially exceed
+> >>> the IP length limitation.  Section 11.4 of rfc 4960 allows us to omit some
+> >>> errors and limit the size of the packet.
+> >>>
+> >>> I would recommend limiting this to MTU worth of potentiall errors.  This is
+> >>> on top of what the INIT-ACK is going to carry, so at most we'll sent 2 MTUs
+> >>> worth.  That's still a potential by amplification attack, but it's somewhat
+> >>> mitigated.
+> >>>
+> >>> Of course now we have to handle the case of checking for space before adding
+> >>> an error cause. :)
+> >>>
+> >> Hi Neil
+> >>
+> >> I am also not crazy about the pre-allocation scheme.  In the case where you have
+> >> say 100 parameters that are all 'skip' parameters, you'd end up pre-allocating a
+> >> huge buffer for absolutely nothing.
+> >>
+> > Would have been nice if you'd made your opinion known 4 hours ago when I was
+> > testing version 2 of this. :)
+> > 
+> 
+> sorry, fighting a head cold and need drugs to think clearly... ;)
+> 
+Its ok, I'm apparently just feeling a bit short tempered today. Apologies, hope
+your feeling better soon :)
 
-When calculating the INIT/INIT-ACK chunk length, we should not
-only account the length of parameters, but also the parameters
-zero padding length, such as AUTH HMACS parameter and CHUNKS
-parameter. Without the parameters zero padding length we may get
-following oops.
+> 
+> >> This is another point toward a fixed error chunk size and let parameter
+> >> processing allocate it when it reaches a parameter that needs an error.
+> >>
+> > Hmm, ok, what would you say to a pathmtu sized chunk allocation in parameter
+> > processing that drops errors beyond its capacity
+> > Neil
+> 
+> Here is my quick take on this.  Haven't tested it at all.
+> 
+I think somthing like this will work, I've got a variant that uses some helper
+functions to create and manipulate fixed length op error chunks going right now.
+It does basically the same thing that your doing, but consolidates the checking
+of remaining space to a central place.  I think that might be better, as during
+my looking at this version, I found two other points that might be vulnerable to
+this error (haven't tested to confirm yet though).  I'll post shortly.
 
-skb_over_panic: text:ce2068d2 len:130 put:6 head:cac3fe00 data:cac3fe00 tail:0xcac3fe82 end:0xcac3fe80 dev:<NULL>
-------------[ cut here ]------------
-kernel BUG at net/core/skbuff.c:127!
-invalid opcode: 0000 [#2] SMP
-last sysfs file: /sys/module/aes_generic/initstate
-Modules linked in: authenc ......
-
-Pid: 4102, comm: sctp_darn Tainted: G      D    2.6.34-rc2 #6
-EIP: 0060:[<c0607630>] EFLAGS: 00010282 CPU: 0
-EIP is at skb_over_panic+0x37/0x3e
-EAX: 00000078 EBX: c07c024b ECX: c07c02b9 EDX: cb607b78
-ESI: 00000000 EDI: cac3fe7a EBP: 00000002 ESP: cb607b74
- DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
-Process sctp_darn (pid: 4102, ti=cb607000 task=cabdc990 task.ti=cb607000)
-Stack:
- c07c02b9 ce2068d2 00000082 00000006 cac3fe00 cac3fe00 cac3fe82 cac3fe80
-<0> c07c024b cac3fe7c cac3fe7a c0608dec ca986e80 ce2068d2 00000006 0000007a
-<0> cb8120ca ca986e80 cb812000 00000003 cb8120c4 ce208a25 cb8120ca cadd9400
-Call Trace:
- [<ce2068d2>] ? sctp_addto_chunk+0x45/0x85 [sctp]
- [<c0608dec>] ? skb_put+0x2e/0x32
- [<ce2068d2>] ? sctp_addto_chunk+0x45/0x85 [sctp]
- [<ce208a25>] ? sctp_make_init+0x279/0x28c [sctp]
- [<c0686a92>] ? apic_timer_interrupt+0x2a/0x30
- [<ce1fdc0b>] ? sctp_sf_do_prm_asoc+0x2b/0x7b [sctp]
- [<ce202823>] ? sctp_do_sm+0xa0/0x14a [sctp]
- [<ce2133b9>] ? sctp_pname+0x0/0x14 [sctp]
- [<ce211d72>] ? sctp_primitive_ASSOCIATE+0x2b/0x31 [sctp]
- [<ce20f3cf>] ? sctp_sendmsg+0x7a0/0x9eb [sctp]
- [<c064eb1e>] ? inet_sendmsg+0x3b/0x43
- [<c04244b7>] ? task_tick_fair+0x2d/0xd9
- [<c06031e1>] ? sock_sendmsg+0xa7/0xc1
- [<c0416afe>] ? smp_apic_timer_interrupt+0x6b/0x75
- [<c0425123>] ? dequeue_task_fair+0x34/0x19b
- [<c0446abb>] ? sched_clock_local+0x17/0x11e
- [<c052ea87>] ? _copy_from_user+0x2b/0x10c
- [<c060ab3a>] ? verify_iovec+0x3c/0x6a
- [<c06035ca>] ? sys_sendmsg+0x186/0x1e2
- [<c042176b>] ? __wake_up_common+0x34/0x5b
- [<c04240c2>] ? __wake_up+0x2c/0x3b
- [<c057e35c>] ? tty_wakeup+0x43/0x47
- [<c04430f2>] ? remove_wait_queue+0x16/0x24
- [<c0580c94>] ? n_tty_read+0x5b8/0x65e
- [<c042be02>] ? default_wake_function+0x0/0x8
- [<c0604e0e>] ? sys_socketcall+0x17f/0x1cd
- [<c040264c>] ? sysenter_do_call+0x12/0x22
-Code: 0f 45 de 53 ff b0 98 00 00 00 ff b0 94 ......
-EIP: [<c0607630>] skb_over_panic+0x37/0x3e SS:ESP 0068:cb607b74
-
-To reproduce:
-
-# modprobe sctp
-# echo 1 > /proc/sys/net/sctp/addip_enable
-# echo 1 > /proc/sys/net/sctp/auth_enable
-# sctp_test -H 3ffe:501:ffff:100:20c:29ff:fe4d:f37e -P 800 -l
-# sctp_darn -H 3ffe:501:ffff:100:20c:29ff:fe4d:f37e -P 900 -h 192.168.0.21 -p 800 -I -s -t
-sctp_darn ready to send...
-3ffe:501:ffff:100:20c:29ff:fe4d:f37e:900-192.168.0.21:800 Interactive mode> bindx-add=192.168.0.21
-3ffe:501:ffff:100:20c:29ff:fe4d:f37e:900-192.168.0.21:800 Interactive mode> bindx-add=192.168.1.21
-3ffe:501:ffff:100:20c:29ff:fe4d:f37e:900-192.168.0.21:800 Interactive mode> snd=10
-
-------------------------------------------------------------------
-eth0 has addresses: 3ffe:501:ffff:100:20c:29ff:fe4d:f37e and 192.168.0.21
-eth1 has addresses: 192.168.1.21
-------------------------------------------------------------------
-
-Reported-by: George Cheimonidis <gchimon@gmail.com>
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
----
- net/sctp/sm_make_chunk.c |   17 ++++++++++-------
- 1 files changed, 10 insertions(+), 7 deletions(-)
-
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 17cb400..f6fc5c1 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -208,7 +208,8 @@ struct sctp_chunk *sctp_make_init(const struct sctp_association *asoc,
- 	sp = sctp_sk(asoc->base.sk);
- 	num_types = sp->pf->supported_addrs(sp, types);
- 
--	chunksize = sizeof(init) + addrs_len + SCTP_SAT_LEN(num_types);
-+	chunksize = sizeof(init) + addrs_len;
-+	chunksize += WORD_ROUND(SCTP_SAT_LEN(num_types));
- 	chunksize += sizeof(ecap_param);
- 
- 	if (sctp_prsctp_enable)
-@@ -238,14 +239,14 @@ struct sctp_chunk *sctp_make_init(const struct sctp_association *asoc,
- 		/* Add HMACS parameter length if any were defined */
- 		auth_hmacs = (sctp_paramhdr_t *)asoc->c.auth_hmacs;
- 		if (auth_hmacs->length)
--			chunksize += ntohs(auth_hmacs->length);
-+			chunksize += WORD_ROUND(ntohs(auth_hmacs->length));
- 		else
- 			auth_hmacs = NULL;
- 
- 		/* Add CHUNKS parameter length */
- 		auth_chunks = (sctp_paramhdr_t *)asoc->c.auth_chunks;
- 		if (auth_chunks->length)
--			chunksize += ntohs(auth_chunks->length);
-+			chunksize += WORD_ROUND(ntohs(auth_chunks->length));
- 		else
- 			auth_chunks = NULL;
- 
-@@ -255,7 +256,8 @@ struct sctp_chunk *sctp_make_init(const struct sctp_association *asoc,
- 
- 	/* If we have any extensions to report, account for that */
- 	if (num_ext)
--		chunksize += sizeof(sctp_supported_ext_param_t) + num_ext;
-+		chunksize += WORD_ROUND(sizeof(sctp_supported_ext_param_t) +
-+					num_ext);
- 
- 	/* RFC 2960 3.3.2 Initiation (INIT) (1)
- 	 *
-@@ -397,13 +399,13 @@ struct sctp_chunk *sctp_make_init_ack(const struct sctp_association *asoc,
- 
- 		auth_hmacs = (sctp_paramhdr_t *)asoc->c.auth_hmacs;
- 		if (auth_hmacs->length)
--			chunksize += ntohs(auth_hmacs->length);
-+			chunksize += WORD_ROUND(ntohs(auth_hmacs->length));
- 		else
- 			auth_hmacs = NULL;
- 
- 		auth_chunks = (sctp_paramhdr_t *)asoc->c.auth_chunks;
- 		if (auth_chunks->length)
--			chunksize += ntohs(auth_chunks->length);
-+			chunksize += WORD_ROUND(ntohs(auth_chunks->length));
- 		else
- 			auth_chunks = NULL;
- 
-@@ -412,7 +414,8 @@ struct sctp_chunk *sctp_make_init_ack(const struct sctp_association *asoc,
- 	}
- 
- 	if (num_ext)
--		chunksize += sizeof(sctp_supported_ext_param_t) + num_ext;
-+		chunksize += WORD_ROUND(sizeof(sctp_supported_ext_param_t) +
-+					num_ext);
- 
- 	/* Now allocate and fill out the chunk.  */
- 	retval = sctp_make_chunk(asoc, SCTP_CID_INIT_ACK, 0, chunksize);
--- 
-1.6.0.4
+Thanks!
+Neil
 
