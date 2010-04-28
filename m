@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-2.6 2/3] sfc: Always close net device at the end of a
- disabling reset
-Date: Wed, 28 Apr 2010 20:01:33 +0100
-Message-ID: <1272481293.2549.15.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH net-2.6 3/3] sfc: Change falcon_probe_board() to fail for
+ unsupported boards
+Date: Wed, 28 Apr 2010 20:01:50 +0100
+Message-ID: <1272481310.2549.16.camel@achroite.uk.solarflarecom.com>
 References: <1272481235.2549.14.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,49 +10,88 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:10616 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:10642 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754349Ab0D1TBg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 15:01:36 -0400
+	with ESMTP id S1756600Ab0D1TBx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 15:01:53 -0400
 In-Reply-To: <1272481235.2549.14.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes a regression introduced by commit
-eb9f6744cbfa97674c13263802259b5aa0034594 "sfc: Implement ethtool
-reset operation".
+The driver needs specific PHY and board support code for each SFC4000
+board; there is no point trying to continue if it is missing.
+Currently unsupported boards can trigger an 'oops'.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 Cc: stable@kernel.org
 ---
- drivers/net/sfc/efx.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/sfc/falcon.c        |    4 +++-
+ drivers/net/sfc/falcon_boards.c |   13 +++----------
+ drivers/net/sfc/nic.h           |    2 +-
+ 3 files changed, 7 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index 6486657..649a264 100644
---- a/drivers/net/sfc/efx.c
-+++ b/drivers/net/sfc/efx.c
-@@ -1861,6 +1861,7 @@ out:
- 	}
+diff --git a/drivers/net/sfc/falcon.c b/drivers/net/sfc/falcon.c
+index d294d66..08278e7 100644
+--- a/drivers/net/sfc/falcon.c
++++ b/drivers/net/sfc/falcon.c
+@@ -1320,7 +1320,9 @@ static int falcon_probe_nvconfig(struct efx_nic *efx)
  
- 	if (disabled) {
-+		dev_close(efx->net_dev);
- 		EFX_ERR(efx, "has been disabled\n");
- 		efx->state = STATE_DISABLED;
+ 	EFX_LOG(efx, "PHY is %d phy_id %d\n", efx->phy_type, efx->mdio.prtad);
+ 
+-	falcon_probe_board(efx, board_rev);
++	rc = falcon_probe_board(efx, board_rev);
++	if (rc)
++		goto fail2;
+ 
+ 	kfree(nvconfig);
+ 	return 0;
+diff --git a/drivers/net/sfc/falcon_boards.c b/drivers/net/sfc/falcon_boards.c
+index 5712fdd..c7a933a 100644
+--- a/drivers/net/sfc/falcon_boards.c
++++ b/drivers/net/sfc/falcon_boards.c
+@@ -728,15 +728,7 @@ static const struct falcon_board_type board_types[] = {
+ 	},
+ };
+ 
+-static const struct falcon_board_type falcon_dummy_board = {
+-	.init		= efx_port_dummy_op_int,
+-	.init_phy	= efx_port_dummy_op_void,
+-	.fini		= efx_port_dummy_op_void,
+-	.set_id_led	= efx_port_dummy_op_set_id_led,
+-	.monitor	= efx_port_dummy_op_int,
+-};
+-
+-void falcon_probe_board(struct efx_nic *efx, u16 revision_info)
++int falcon_probe_board(struct efx_nic *efx, u16 revision_info)
+ {
+ 	struct falcon_board *board = falcon_board(efx);
+ 	u8 type_id = FALCON_BOARD_TYPE(revision_info);
+@@ -754,8 +746,9 @@ void falcon_probe_board(struct efx_nic *efx, u16 revision_info)
+ 			 (efx->pci_dev->subsystem_vendor == EFX_VENDID_SFC)
+ 			 ? board->type->ref_model : board->type->gen_type,
+ 			 'A' + board->major, board->minor);
++		return 0;
  	} else {
-@@ -1884,8 +1885,7 @@ static void efx_reset_work(struct work_struct *data)
+ 		EFX_ERR(efx, "unknown board type %d\n", type_id);
+-		board->type = &falcon_dummy_board;
++		return -ENODEV;
  	}
- 
- 	rtnl_lock();
--	if (efx_reset(efx, efx->reset_pending))
--		dev_close(efx->net_dev);
-+	(void)efx_reset(efx, efx->reset_pending);
- 	rtnl_unlock();
  }
+diff --git a/drivers/net/sfc/nic.h b/drivers/net/sfc/nic.h
+index 9351c03..3166baf 100644
+--- a/drivers/net/sfc/nic.h
++++ b/drivers/net/sfc/nic.h
+@@ -156,7 +156,7 @@ extern struct efx_nic_type siena_a0_nic_type;
+  **************************************************************************
+  */
  
+-extern void falcon_probe_board(struct efx_nic *efx, u16 revision_info);
++extern int falcon_probe_board(struct efx_nic *efx, u16 revision_info);
+ 
+ /* TX data path */
+ extern int efx_nic_probe_tx(struct efx_tx_queue *tx_queue);
 -- 
 1.6.2.5
-
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
