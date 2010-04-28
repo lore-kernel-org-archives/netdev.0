@@ -1,40 +1,58 @@
-From: Grzegorz Chwesewicz <grzegorz.chwesewicz@retis.net.pl>
-Subject: Re: Problem with "tcp: bind() fix when many ports are bound" commit
-Date: Wed, 28 Apr 2010 19:59:29 +0200
-Message-ID: <4BD87781.8030907@retis.net.pl>
-References: <4BD82B29.3000105@retis.net.pl> <20100428.095032.32709294.davem@davemloft.net>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH] forcedeth: Stay in NAPI as long as there's work
+Date: Wed, 28 Apr 2010 11:07:31 -0700
+Message-ID: <g2t65634d661004281107j676369c9ge379434723478c1@mail.gmail.com>
+References: <alpine.DEB.1.00.1004272332350.30235@pokey.mtv.corp.google.com>
+	 <1272477251.18228.36.camel@Joe-Laptop.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100428.095032.32709294.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, aabdulla@nvidia.com, davem@davemloft.net
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.44.51]:58857 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756109Ab0D1SHh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 14:07:37 -0400
+Received: from hpaq12.eem.corp.google.com (hpaq12.eem.corp.google.com [10.3.21.12])
+	by smtp-out.google.com with ESMTP id o3SI7YMT032059
+	for <netdev@vger.kernel.org>; Wed, 28 Apr 2010 11:07:35 -0700
+Received: from pvc21 (pvc21.prod.google.com [10.241.209.149])
+	by hpaq12.eem.corp.google.com with ESMTP id o3SI70Xx019851
+	for <netdev@vger.kernel.org>; Wed, 28 Apr 2010 11:07:33 -0700
+Received: by pvc21 with SMTP id 21so687224pvc.30
+        for <netdev@vger.kernel.org>; Wed, 28 Apr 2010 11:07:32 -0700 (PDT)
+In-Reply-To: <1272477251.18228.36.camel@Joe-Laptop.home>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller pisze:
-> From: Grzegorz Chwesewicz <grzegorz.chwesewicz@retis.net.pl>
-> Date: Wed, 28 Apr 2010 14:33:45 +0200
-> 
->> 	Hi, I have a problem with binding to port with the latest git kernel
->> (my HEAD is at 1600f9def09de07c5dbeb539e978fa73880690dd). Please CC to
->> me as I'm not subscribed to the list.
-> 
-> Please send networking bug reports CC:'d to netdev and the people
-> who wrote and signed off on the commit you've narrowed down the
-> problem to.
-> 
-> Otherwise the appropriate people will take longer to find out about
-> your bug, and therefore the bug will take longer to fix than
-> necessary.
-> 
-> Thanks.
+>
+> It might be better to test the comparisons using
+> a cpu_to_le32 of the constants.
+>
+Yes.  Probably should also be changed in nv_tx_done{_optimized} and
+nv_rx_process{_optimized}
 
-OK, thanks, next time I'll do like you said.
-
--- 
-Pozdrawiam
-Grzegorz Chwesewicz
-mailto:grzegorz.chwesewicz@retis.net.pl
+> static inline int nv_has_work(struct fe_priv *np)
+> {
+> =A0 =A0 =A0 =A0if (nv_optimized(np))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return ((np->get_rx.ex !=3D np->put_rx=
+=2Eex) &&
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0!(np->get_rx.ex->flagl=
+en & cpu_to_le32(NV_RX2_AVAIL))) ||
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 ((np->get_tx.ex !=3D np->=
+put_tx.ex) &&
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0!(np->get_tx.ex->flagl=
+en & cpu_to_le32(NV_TX_VALID)));
+>
+> =A0 =A0 =A0 =A0return ((np->get_rx.orig !=3D np->put_rx.orig) &&
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0!(np->get_rx.orig->flaglen & cpu_to_le=
+32(NV_RX_AVAIL))) ||
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 ((np->get_tx.orig !=3D np->put_tx.orig) &=
+&
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0!(np->get_tx.orig->flaglen & cpu_to_le=
+32(NV_TX_VALID)));
+> }
+>
+>
+>
