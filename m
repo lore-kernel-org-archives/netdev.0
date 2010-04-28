@@ -1,253 +1,97 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: [PATCH] bonding: fix arp_validate on bonds inside a bridge
-Date: Wed, 28 Apr 2010 14:59:40 +0200
-Message-ID: <20100428125940.GB13400@midget.suse.cz>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [net-next-2.6 PATCH 1/2] Add netdev port-profile support (take III, was iovnl)
+Date: Wed, 28 Apr 2010 15:13:58 +0200
+Message-ID: <201004281513.58879.arnd@arndb.de>
+References: <20100428044235.8646.61943.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, chrisw@redhat.com
+To: Scott Feldman <scofeldm@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:57803 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752198Ab0D1M7m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 28 Apr 2010 08:59:42 -0400
-Content-Disposition: inline
+Received: from moutng.kundenserver.de ([212.227.17.9]:56769 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751758Ab0D1NOT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 28 Apr 2010 09:14:19 -0400
+In-Reply-To: <20100428044235.8646.61943.stgit@savbu-pc100.cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wednesday 28 April 2010, Scott Feldman wrote:
+> From: Scott Feldman <scofeldm@cisco.com>
+> 
+> Add new netdev ops ndo_{set|get}_port_profile to allow setting of port-profile
+> on a netdev interface.  Extends RTM_SETLINK/RTM_GETLINK with new sub cmd called
+> IFLA_PORT_PROFILE (added to end of IFLA_cmd list).  The port-profile cmd
+> arguments are (as seen from modified iproute2 cmdline):
+>
+>        ip link set DEVICE [ { up | down } ]
+>                           [ arp { on | off } ]
+>                           [ dynamic { on | off } ]
+>                           [ multicast { on | off } ]
+>                           ...
+>                           [ vf NUM [ mac LLADDR ]
+>                                    [ vlan VLANID [ qos VLAN-QOS ] ]
+>                                    [ rate TXRATE ] ] 
+>                           [ port_profile [ PORT-PROFILE
+>                                    [ mac LLADDR ]
+>                                    [ host_uuid HOST_UUID ]
+>                                    [ client_uuid CLIENT_UUID ]
+>                                    [ client_name CLIENT_NAME ] ] ]
+>        ip link show [ DEVICE ]
 
-bonding with arp_validate does not currently work when the
-bonding master is part of a bridge. This is because
-bond_arp_rcv() is registered as a packet type handler for ARP,
-but before netif_receive_skb() processes the ptype_base hash
-table, handle_bridge() is called and changes the skb->dev to
-point to the bridge device.
+We will need a few more options to cover draft VDP in addition to the protocol
+your NIC is using. I still think it's possible to use the same interface
+for both, but the differences are obviously showing.
 
-This patch makes bonding_should_drop() call the bonding ARP
-handler directly if a IFF_MASTER_NEEDARP flag is set on the
-bonding master.  bond_register_arp() now only needs to set the
-IFF_MASTER_NEEDARP flag.
+The missing bits that I can see so far are:
 
-We ne longer need special ARP handling for inactive slaves, hence
-IFF_SLAVE_NEEDARP is not needed.
+- You only have 'get' and 'set'. We will also need a 'unset' or 'delete'
+  option in order to get rid of a port profile association.
+- VDP has three different ways to 'set' a port profile: 'associate',
+  'pre-associate with resource reservation' and 'pre-associate without
+  resource reservation'. This could become an extra option flag.
+- Instead of a port profile name, VDP specifies a tuple like
+   struct vsi_associate {
+	unsigned char VSI_Mgr_ID;       /* VSI manager ID */
+	unsigned char VSI_Type_ID[3];   /* 24 bit VSI Type ID */
+	unsigned char VSI_Type_Version; /* VSI Type version */
+   };
+   I'm not sure how to deal with that best, but there needs to be
+   some parsing of these numbers.
+- VDP requires a vlan ID to be part of the association, in addition to
+  the MAC address. In theory, we could have multiple tuples of MAC+VLAN
+  addresses, but we can probably just associate each tuple separately
+  and ignore that part of the standard.
+- we have a set of possible error conditions that can be returned by
+  the switch (invalid format, insufficient resources, unknown VTID,
+  VTID violation, VTID verison violation, out of sync). It should be
+  possible to return each of these to the user with 'get'.
 
-skb_reset_network_header() and skb_reset_transport_header() need
-to be called before the call to bonding_should_drop() because
-bond_handle_arp() needs the offsets initialized.
+> Since we're using netlink sockets, the receiver of the RTM_SETLINK msg can
+> be in kernel- or user-space.  For kernel-space recipient, rtnetlink.c, the
+> new ndo_set_port_profile netdev op is called to set the port-profile.
+> User-space recipients can decide how they propagate the msg to the switch.
+> There is also a RTM_GETLINK cmd to to return port-profile setting of an
+> interface and to also return the status of the last port-profile.
 
-P.S.: bonding_should_drop() should probably be renamed to
-handle_bonding() -- we already have handle_bridge() and
-handle_macvlan(), and bonding_should_drop() has long been doing
-other stuff than deciding which packets to drop...
+More on a stylistic note, I'm not convinced that using RTM_SETLINK/GETLINK
+is the right interface for this, unlike the 'ip link set DEV vf ...' stuff,
+because it seems to suggest that this is an option of the adapter itself.
+I actually liked the iovnl family better in this regard, because it kept
+the protocols separate.
 
+What I could imagine to unify this is something like
 
+   ip port_profile set DEVICE [ { pre_associate | pre_associate_rr } ]
+                              { name PORT-PROFILE | vsi MGR:VTID:VER }
+                                    mac LLADDR
+				    [ vlan VID ]
+                                    [ host_uuid HOST_UUID ]
+                                    [ client_uuid CLIENT_UUID ]
+                                    [ client_name CLIENT_NAME ]
+   ip port_profile del DEVICE [ mac LLADDR [ vlan VID ] ]
+   ip port_profile show DEVICE
 
-Signed-off-by: Jiri Bohac <jbohac@suse.cz>
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 0075514..cafd404 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1940,8 +1940,7 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
- 	}
- 
- 	slave_dev->priv_flags &= ~(IFF_MASTER_8023AD | IFF_MASTER_ALB |
--				   IFF_SLAVE_INACTIVE | IFF_BONDING |
--				   IFF_SLAVE_NEEDARP);
-+				   IFF_SLAVE_INACTIVE | IFF_BONDING);
- 
- 	kfree(slave);
- 
-@@ -2612,11 +2611,12 @@ static void bond_validate_arp(struct bonding *bond, struct slave *slave, __be32
- 	}
- }
- 
--static int bond_arp_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, struct net_device *orig_dev)
-+static void bond_handle_arp(struct sk_buff *skb)
- {
- 	struct arphdr *arp;
- 	struct slave *slave;
- 	struct bonding *bond;
-+	struct net_device *dev = skb->dev->master, *orig_dev = skb->dev;
- 	unsigned char *arp_ptr;
- 	__be32 sip, tip;
- 
-@@ -2637,9 +2637,8 @@ static int bond_arp_rcv(struct sk_buff *skb, struct net_device *dev, struct pack
- 	bond = netdev_priv(dev);
- 	read_lock(&bond->lock);
- 
--	pr_debug("bond_arp_rcv: bond %s skb->dev %s orig_dev %s\n",
--		 bond->dev->name, skb->dev ? skb->dev->name : "NULL",
--		 orig_dev ? orig_dev->name : "NULL");
-+	pr_debug("bond_handle_arp: bond: %s, master: %s, slave: %s\n",
-+		bond->dev->name, dev->name, orig_dev->name);
- 
- 	slave = bond_get_slave_by_dev(bond, orig_dev);
- 	if (!slave || !slave_do_arp_validate(bond, slave))
-@@ -2684,8 +2683,7 @@ static int bond_arp_rcv(struct sk_buff *skb, struct net_device *dev, struct pack
- out_unlock:
- 	read_unlock(&bond->lock);
- out:
--	dev_kfree_skb(skb);
--	return NET_RX_SUCCESS;
-+	return;
- }
- 
- /*
-@@ -3567,23 +3565,12 @@ static void bond_unregister_lacpdu(struct bonding *bond)
- 
- void bond_register_arp(struct bonding *bond)
- {
--	struct packet_type *pt = &bond->arp_mon_pt;
--
--	if (pt->type)
--		return;
--
--	pt->type = htons(ETH_P_ARP);
--	pt->dev = bond->dev;
--	pt->func = bond_arp_rcv;
--	dev_add_pack(pt);
-+	bond->dev->priv_flags |= IFF_MASTER_NEEDARP;
- }
- 
- void bond_unregister_arp(struct bonding *bond)
- {
--	struct packet_type *pt = &bond->arp_mon_pt;
--
--	dev_remove_pack(pt);
--	pt->type = 0;
-+	bond->dev->priv_flags &= ~IFF_MASTER_NEEDARP;
- }
- 
- /*---------------------------- Hashing Policies -----------------------------*/
-@@ -5041,6 +5028,7 @@ static int __init bonding_init(void)
- 	register_netdevice_notifier(&bond_netdev_notifier);
- 	register_inetaddr_notifier(&bond_inetaddr_notifier);
- 	bond_register_ipv6_notifier();
-+	bond_handle_arp_hook = bond_handle_arp;
- out:
- 	return res;
- err:
-@@ -5061,6 +5049,7 @@ static void __exit bonding_exit(void)
- 
- 	rtnl_link_unregister(&bond_link_ops);
- 	unregister_pernet_subsys(&bond_net_ops);
-+	bond_handle_arp_hook = NULL;
- }
- 
- module_init(bonding_init);
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 257a7a4..57adfe5 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -212,7 +212,6 @@ struct bonding {
- 	struct   bond_params params;
- 	struct   list_head vlan_list;
- 	struct   vlan_group *vlgrp;
--	struct   packet_type arp_mon_pt;
- 	struct   workqueue_struct *wq;
- 	struct   delayed_work mii_work;
- 	struct   delayed_work arp_work;
-@@ -292,14 +291,12 @@ static inline void bond_set_slave_inactive_flags(struct slave *slave)
- 	if (!bond_is_lb(bond))
- 		slave->state = BOND_STATE_BACKUP;
- 	slave->dev->priv_flags |= IFF_SLAVE_INACTIVE;
--	if (slave_do_arp_validate(bond, slave))
--		slave->dev->priv_flags |= IFF_SLAVE_NEEDARP;
- }
- 
- static inline void bond_set_slave_active_flags(struct slave *slave)
- {
- 	slave->state = BOND_STATE_ACTIVE;
--	slave->dev->priv_flags &= ~(IFF_SLAVE_INACTIVE | IFF_SLAVE_NEEDARP);
-+	slave->dev->priv_flags &= ~IFF_SLAVE_INACTIVE;
- }
- 
- static inline void bond_set_master_3ad_flags(struct bonding *bond)
-diff --git a/include/linux/if.h b/include/linux/if.h
-index 3a9f410..84ab2c8 100644
---- a/include/linux/if.h
-+++ b/include/linux/if.h
-@@ -63,7 +63,7 @@
- #define IFF_MASTER_8023AD	0x8	/* bonding master, 802.3ad. 	*/
- #define IFF_MASTER_ALB	0x10		/* bonding master, balance-alb.	*/
- #define IFF_BONDING	0x20		/* bonding master or slave	*/
--#define IFF_SLAVE_NEEDARP 0x40		/* need ARPs for validation	*/
-+#define IFF_MASTER_NEEDARP 0x40		/* need ARPs for validation	*/
- #define IFF_ISATAP	0x80		/* ISATAP interface (RFC4214)	*/
- #define IFF_MASTER_ARPMON 0x100		/* bonding master, ARP mon in use */
- #define IFF_WAN_HDLC	0x200		/* WAN HDLC device		*/
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index fa8b476..9f82fc6 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2055,6 +2055,8 @@ static inline void skb_bond_set_mac_by_master(struct sk_buff *skb,
- 	}
- }
- 
-+extern void (*bond_handle_arp_hook)(struct sk_buff *skb);
-+
- /* On bonding slaves other than the currently active slave, suppress
-  * duplicates except for 802.3ad ETH_P_SLOW, alb non-mcast/bcast, and
-  * ARP on active-backup slaves with arp_validate enabled.
-@@ -2076,11 +2078,13 @@ static inline int skb_bond_should_drop(struct sk_buff *skb,
- 			skb_bond_set_mac_by_master(skb, master);
- 		}
- 
--		if (dev->priv_flags & IFF_SLAVE_INACTIVE) {
--			if ((dev->priv_flags & IFF_SLAVE_NEEDARP) &&
--			    skb->protocol == __cpu_to_be16(ETH_P_ARP))
--				return 0;
-+		/* pass ARP frames directly to bonding
-+		   before bridging or other hooks change them */
-+		if ((master->priv_flags & IFF_MASTER_NEEDARP) &&
-+		    skb->protocol == __cpu_to_be16(ETH_P_ARP))
-+			bond_handle_arp_hook(skb);
- 
-+		if (dev->priv_flags & IFF_SLAVE_INACTIVE) {
- 			if (master->priv_flags & IFF_MASTER_ALB) {
- 				if (skb->pkt_type != PACKET_BROADCAST &&
- 				    skb->pkt_type != PACKET_MULTICAST)
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f769098..98d85a8 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2314,6 +2314,9 @@ static inline int deliver_skb(struct sk_buff *skb,
- 	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
- }
- 
-+void (*bond_handle_arp_hook)(struct sk_buff *skb);
-+EXPORT_SYMBOL_GPL(bond_handle_arp_hook);
-+
- #if defined(CONFIG_BRIDGE) || defined (CONFIG_BRIDGE_MODULE)
- 
- #if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
-@@ -2507,6 +2510,10 @@ int netif_receive_skb(struct sk_buff *skb)
- 	if (!skb->skb_iif)
- 		skb->skb_iif = skb->dev->ifindex;
- 
-+	skb_reset_network_header(skb);
-+	skb_reset_transport_header(skb);
-+	skb->mac_len = skb->network_header - skb->mac_header;
-+
- 	null_or_orig = NULL;
- 	orig_dev = skb->dev;
- 	master = ACCESS_ONCE(orig_dev->master);
-@@ -2519,10 +2526,6 @@ int netif_receive_skb(struct sk_buff *skb)
- 
- 	__get_cpu_var(netdev_rx_stat).total++;
- 
--	skb_reset_network_header(skb);
--	skb_reset_transport_header(skb);
--	skb->mac_len = skb->network_header - skb->mac_header;
--
- 	pt_prev = NULL;
- 
- 	rcu_read_lock();
-
-
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
-
+	Arnd
