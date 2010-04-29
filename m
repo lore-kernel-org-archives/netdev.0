@@ -1,71 +1,154 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: Re: [PATCH] [RFC] C/R: inet4 and inet6 unicast routes (v2)
-Date: Fri, 30 Apr 2010 22:35:19 +0200
-Message-ID: <4BDB3F07.2030900@free.fr>
-References: <1272646855-17327-1-git-send-email-danms@us.ibm.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [net-next-2.6 PATCH 2/2] add ndo_set_port_profile op support for enic dynamic vnics
+Date: Thu, 29 Apr 2010 17:48:38 +0200
+Message-ID: <201004291748.38702.arnd@arndb.de>
+References: <C7FEE68A.2CBEF%scofeldm@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: containers@lists.osdl.org,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Dan Smith <danms@us.ibm.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, chrisw@redhat.com,
+	Jens Osterkamp <Jens.Osterkamp@gmx.de>
+To: Scott Feldman <scofeldm@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.de.ibm.com ([195.212.17.165]:35741 "EHLO
-	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756420Ab0D3Uf0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 16:35:26 -0400
-Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
-	by mtagate5.de.ibm.com (8.13.1/8.13.1) with ESMTP id o3UKZMh3016305
-	for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 20:35:22 GMT
-Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
-	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o3UKZMud1503266
-	for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 22:35:22 +0200
-Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id o3UKZMDl022050
-	for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 22:35:22 +0200
-In-Reply-To: <1272646855-17327-1-git-send-email-danms@us.ibm.com>
+Received: from moutng.kundenserver.de ([212.227.17.8]:62288 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753951Ab0D3Ugv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 16:36:51 -0400
+In-Reply-To: <C7FEE68A.2CBEF%scofeldm@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dan Smith wrote:
-> This patch adds support for checkpointing and restoring route information.
-> It keeps enough information to restore basic routes at the level of detail
-> of /proc/net/route.  It uses RTNETLINK to extract the information during
-> checkpoint and also to insert it back during restore.  This gives us a
-> nice layer of isolation between us and the various "fib" implementations.
->
-> Changes in v2:
->
-> This version of the patch actually moves the current task into the
-> desired network namespace temporarily, for the purposes of examining and
-> restoring the route information.  This is a instead of creating a cross-
-> namespace socket to do the job, as was done in v1.
->
-> This is just an RFC to see if this is an acceptable method.  For a final
-> version, adding a helper to nsproxy.c would allow us to create a new
-> nsproxy with the desired netns instead of creating one with
-> copy_namespaces() just to kill it off and use the target one.
->
-> I still think the previous method is cleaner, but this way may violate
-> fewer namespace boundaries (I'm still undecided :)
->
-> Signed-off-by: Dan Smith <danms@us.ibm.com>
-> Cc: David Miller <davem@davemloft.net>
-> Cc: Vlad Yasevich <vladislav.yasevich@hp.com>
-> Cc: jamal <hadi@cyberus.ca>
-> ---
-Hi Dan,
+On Thursday 29 April 2010, Scott Feldman wrote:
+> On 4/29/10 5:27 AM, "Arnd Bergmann" <arnd@arndb.de> wrote:
+> 
+> I don't believe those links are available at this time.
+> 
+> > Is it possible or planned to implement the same protocol in Linux so you
+> > can do it with Cisco switches and cheap non-IOV NICs?
+> 
+> That seems very possible from a technical standpoint.  I don't think the
+> port-profile netlink API we're specing out excludes that option.
 
-Eric did a patchset (as Jamal mentioned it) where you can have a process 
-to enter a specific namespace from userspace.
+Ok, good.
 
-http://git.kernel.org/?p=linux/kernel/git/ebiederm/linux-2.6.33-nsfd-v5.git;a=commit;h=9c2f86a44d9ca93e78fd8e81a4e2a8c2a4cdb054
+> >>    ip port_profile set DEVICE [ base DEVICE ] [ { pre_associate |
+> >>                                                   pre_associate_rr } ]
+> >>                               { name PORT-PROFILE | vsi MGR:VTID:VER }
+> 
+> BTW, I was meaning to ask: is there a way to role the vsi tuple and the
+> flags up into a single identifier, say a string like PORT-PROFILE?  I'm
+> asking because it seems awkward from an admin's perspective to know how to
+> construct a vsi tuple or to know what pre_associate_rr means. I have to
+> admit I didn't fully grok what pre_associate_rr means myself.  Even if there
+> was a simple local database to map named port-profiles to the underlying
+> {vsi tuple, flags}, that would bring us closer to a more consistent user
+> interface.  Is this possible?
 
-Is it possible to enter the namespace and dump / restore the routes with 
-NETLINK_ROUTE from userspace ? Or is it something not possible ?
+I think that's technically possible but may not be helpful to make the
+user interface easier. Some background on pre-associate:
 
-Thanks
-  -- Daniel
+The purpose of this is to assist guest migration. A single VSI (i.e. guest
+network adapter) may only be connected to a single switch port at any
+given time. The VSI is identified by its UUID and it has a unique
+MAC address.
 
+When migrating a guest to a new hypervisor, we need to ask the switch
+to associate that VSI at the destination switch port (which may or may
+not be on the same different switch as the source port). This operation
+may fail for a number of reasons and can take some time. Since we want
+migration to alway succeed and take as little time as possible, we
+do a pre-associate-with-resource-reservation before the migration and
+only start the actual guest migration if that completes successfully.
 
+After a successful pre-associate-with-resource-reservation step, we
+know that the actual associate step will be both fast and successful.
+After it completes, the VSI is known to be on the destination
+and all traffic goes there (replacing the gratuitous ARP method we do
+today).
+
+I don't think we'd ever do a pre-associate without the
+resource-reservation, but the standard defines both. In theory,
+we could do a pre-associate at every switch in the data center
+in order to find out if it's possible to migrate there.
+
+If you want to have more details, please look at the draft spec at
+http://www.ieee802.org/1/files/public/docs2010/bg-joint-evb-0410v1.pdf
+
+> >> 2. Future enic for pass-thru case where base != target.  We get:
+> >> 
+> >>     ip port_profile set eth1 base eth0 name joes-garage ...
+> >> 
+> >> And
+> >> 
+> >>     eth0:ndi_set_port_profile(eth1, ...)
+> > 
+> > Is eth1 the static device and eth0 the dynamic device in this scenario
+> > or the other way round?
+> 
+> eth0 is the static and eth1 is the dynamic.  So eth0 is the base device.
+> (The PF in SR-IOV parlance).
+
+ok.
+
+> > Wouldn't you still require access to both devices from the host root
+> > network namespace here or do you just ignore the identifier for the
+> > dynamic device here?
+> 
+> The dynamic device is the one to apply the port-profile to (we'll, I should
+> say to apply to the dynamic's devices switch port).  So we need the dynamic
+> device identified.
+
+What I mean is: how do you identify it when it belongs to someone else?
+Do we always have a proxy netdev for an SR-IOV VF that is assigned to
+the guest?
+
+For the separate network namespace case, I guess we could still require
+doing it before assigning the device to the guest namespace, but it's
+still not ideal.
+
+> >> Does this work?  I want to get agreement before coding up patch attempt #4.
+> > 
+> > Seems ok for all I can see at this point, other than the complexity
+> > that results from doing two network protocols through a single netlink
+> > protocol. Maybe Jens and Chris can comment some more on this.
+> 
+> Ok, thanks Arnd.  I'll start coding this up now, hedging that the design is
+> set before hearing back from Jens/Chris.
+
+I believe Chris is the one that was pushing most for having a single interface
+for both VDP/LLDPAD and enic.
+While I now understand your reasons for doing it in firmware and requiring the
+kernel interface in addition to the user interface, my doubts on whether VDP
+and your protocol should be part of the same interface are increasing.
+
+While I'm convinced that you can make it work for both now, the alternative
+to split the two may turn out to be cleaner. We'd still be able to do
+either of the two in kernel or user space. Using iproute2 syntax to describe
+this again, it would mean an interface like
+
+   ip iov set  port-profile DEVICE [ base BASE-DEVICE ] name PORT-PROFILE
+	                              [ host_uuid HOST_UUID ]
+        	                      [ client_name CLIENT_NAME ]
+                                      [ client_uuid CLIENT_UUID ]
+   ip iov set  vsi { associate | pre-associate | pre-associate-rr } BASE-DEVICE
+                                      vsi MGR:VTID:VER
+                                      mac LLADDR [ vlan VID ]
+                                      client_uuid CLIENT_UUID
+
+   ip iov del  port_profile DEVICE      [ base BASE-DEVICE ]
+   ip iov del  vsi          BASE-DEVICE [ mac LLADDR [ vlan VID ] ]
+				        [ client_uuid CLIENT_UUID ]
+
+   ip iov show port_profile DEVICE      [ base BASE-DEVICE ]
+   ip iov show vsi          BASE-DEVICE [ mac LLADDR [ vlan VID ] ]
+					[ client_uuid CLIENT_UUID ]
+
+You would obvioulsy only implement the kernel support for the port-profile
+stuff as callbacks, because no driver yet does VDP in the kernel, but we should
+have a common netlink header that defines both variants.
+
+Chris, any opinion on this interface as opposed to the combined one?
+Either one should work, but splitting it seems cleaner to me.
+
+	Arnd
