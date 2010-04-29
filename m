@@ -1,49 +1,41 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: Re: [patch] iwl: cleanup: remove unneeded error handling
-Date: Thu, 29 Apr 2010 11:29:57 +0200
-Message-ID: <20100429092956.GH29093@bicker>
-References: <20100428090115.GF29093@bicker> <1272507134.14773.4339.camel@debian>
+From: Ben Greear <greearb@candelatech.com>
+Subject: ixgbe and mac-vlans problem
+Date: Thu, 29 Apr 2010 15:27:39 -0700
+Message-ID: <4BDA07DB.8020206@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Ortiz, Samuel" <samuel.ortiz@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Zhu Yi <yi.zhu@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1272507134.14773.4339.camel@debian>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>
+To: NetDev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:43733 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758851Ab0D3Rdm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 13:33:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 29, 2010 at 10:12:14AM +0800, Zhu Yi wrote:
-> 
-> Thanks. But looks like you missed the one in if_sdio_debugfs_init().
-> 
+Hello!
 
-Yup.
+We are seeing a strange problem with mac-vlans on top of an 82599 NIC (ixgbe)
+on a 2.6.31.y (plus patches) kernel.
 
-> I don't think we even need to check -ENODEV ourselves because if
-> DEBUG_FS is not compiled in, all the debugfs utility functions will
-> become no-op.
-> 
+Basically, we create 50 mac-vlans, with sequential MAC addresses and sequential
+IP addresses, and set up ip rules properly.
 
-Good point.
+The issue is that only 10 or so of the mac-vlans receive other than
+broadcast packets.  The ixgbe NIC doesn't show PROMISC mode.
 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+If we manually turn on PROMISC mode on the physical ixgbe interface,
+then everything works properly.  I'm guessing the ixgbe NIC must
+have some filters that mac-vlan is trying to enable w/out turning on
+full PROMISC mode.  Is there any easy way to debug these filters
+to see if they are being properly configured?
 
-Probably this could get changed to just "Reported-by" but I'm happy to
-take credit for other peoples work.  :)
+Thanks,
+Ben
 
-> Signed-off-by: Zhu Yi <yi.zhu@intel.com>
-> 
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
-Acked-by: Dan Carpenter <error27@gmail.com>
-
-regards,
-dan carpenter
