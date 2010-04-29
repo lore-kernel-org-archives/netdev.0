@@ -1,41 +1,66 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 0/3] [RFC] ptp: IEEE 1588 clock support
-Date: Thu, 29 Apr 2010 11:42:08 +0200
-Message-ID: <20100429094208.GA6889@riccoc20.at.omicron.at>
-References: <20100427091344.GA5086@riccoc20.at.omicron.at> <20100427102025.GA6471@riccoc20.at.omicron.at> <4BD6E837.2040505@grandegger.com> <4BD70EC9.7080004@grandegger.com> <20100428054706.GA4516@riccoc20.at.omicron.at> <4BD83D37.4060301@grandegger.com> <4BD846C7.1050006@grandegger.com> <20100429083833.GA4629@riccoc20.at.omicron.at> <4BD95048.7050606@grandegger.com>
+From: Scott Feldman <scofeldm@cisco.com>
+Subject: Re: [net-next-2.6 PATCH 2/2] add ndo_set_port_profile op support for
+ enic dynamic vnics
+Date: Thu, 29 Apr 2010 09:31:38 -0700
+Message-ID: <C7FF027A.2CC04%scofeldm@cisco.com>
+References: <201004291748.38702.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Wolfgang Grandegger <wg@grandegger.com>
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<chrisw@redhat.com>, Jens Osterkamp <Jens.Osterkamp@gmx.de>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:49981 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932501Ab0D3RDs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 13:03:48 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so4461180fgg.1
-        for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 10:03:47 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4BD95048.7050606@grandegger.com>
+Received: from sj-iport-2.cisco.com ([171.71.176.71]:4241 "EHLO
+	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757786Ab0D3RBT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 13:01:19 -0400
+In-Reply-To: <201004291748.38702.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 29, 2010 at 11:24:24AM +0200, Wolfgang Grandegger wrote:
-> I used these interrupt number fixes as well but it was not necessary for
-> the actual net-next-2.6 tree. Need to check why? I remember some version
-> dependent re-mapping code.
+On 4/29/10 8:48 AM, "Arnd Bergmann" <arnd@arndb.de> wrote:
 
-I argued on the ppc list with Scott Wood about adding dts files, one
-for each of mpc8313 rev A, B, and C, but he advocated fixing this
-problem in uboot instead. Is the fix in uboot, or in the kernel?
+> I believe Chris is the one that was pushing most for having a single interface
+> for both VDP/LLDPAD and enic.
+> While I now understand your reasons for doing it in firmware and requiring the
+> kernel interface in addition to the user interface, my doubts on whether VDP
+> and your protocol should be part of the same interface are increasing.
+> 
+> While I'm convinced that you can make it work for both now, the alternative
+> to split the two may turn out to be cleaner. We'd still be able to do
+> either of the two in kernel or user space. Using iproute2 syntax to describe
+> this again, it would mean an interface like
+> 
+>    ip iov set  port-profile DEVICE [ base BASE-DEVICE ] name PORT-PROFILE
+>                              [ host_uuid HOST_UUID ]
+>                      [ client_name CLIENT_NAME ]
+>                                       [ client_uuid CLIENT_UUID ]
+>    ip iov set  vsi { associate | pre-associate | pre-associate-rr }
+> BASE-DEVICE
+>                                       vsi MGR:VTID:VER
+>                                       mac LLADDR [ vlan VID ]
+>                                       client_uuid CLIENT_UUID
+> 
+>    ip iov del  port_profile DEVICE      [ base BASE-DEVICE ]
+>    ip iov del  vsi          BASE-DEVICE [ mac LLADDR [ vlan VID ] ]
+>        [ client_uuid CLIENT_UUID ]
+> 
+>    ip iov show port_profile DEVICE      [ base BASE-DEVICE ]
+>    ip iov show vsi          BASE-DEVICE [ mac LLADDR [ vlan VID ] ]
+> [ client_uuid CLIENT_UUID ]
+> 
+> You would obvioulsy only implement the kernel support for the port-profile
+> stuff as callbacks, because no driver yet does VDP in the kernel, but we
+> should
+> have a common netlink header that defines both variants.
+> 
+> Chris, any opinion on this interface as opposed to the combined one?
+> Either one should work, but splitting it seems cleaner to me.
 
-> That's missing to get the PPS signal output. But it should probably go
-> to gianfar_ptp.c.
+I'm OK with either version.  Your latest does seem cleanest.  Let's let
+Chris be the final decider.  Chris, door #1 or door #2?
 
-Well, this fix is specific to the mpc8313, but the gianfar_ptp driver
-is for all eTECs. For example, I have the ptp code running on the
-p2020rdb and p2020ds, too.
+-scott
 
-I don't think board fixups really belong in the PTP clock driver.
-
-Just my 2 cents,
-Richard
