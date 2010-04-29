@@ -1,292 +1,323 @@
-From: Zhu Yi <yi.zhu@intel.com>
-Subject: Re: [patch] iwl: cleanup: remove unneeded error handling
-Date: Thu, 29 Apr 2010 10:12:14 +0800
-Message-ID: <1272507134.14773.4339.camel@debian>
-References: <20100428090115.GF29093@bicker>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH 0/3] [RFC] ptp: IEEE 1588 clock support
+Date: Thu, 29 Apr 2010 10:08:30 +0200
+Message-ID: <4BD93E7E.2010209@grandegger.com>
+References: <20100427091344.GA5086@riccoc20.at.omicron.at>
+	<20100427102025.GA6471@riccoc20.at.omicron.at>
+	<4BD6E837.2040505@grandegger.com> <4BD70EC9.7080004@grandegger.com>
+	<20100428054706.GA4516@riccoc20.at.omicron.at>
+	<4BD83D37.4060301@grandegger.com> <4BD846C7.1050006@grandegger.com>
+	<20100429065422.GA5803@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Ortiz, Samuel" <samuel.ortiz@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Alexey Dobriyan <adobriyan@gmail.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <error27@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100428090115.GF29093@bicker>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss <devicetree-discuss-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <20100429065422.GA5803-7KxsofuKt4IfAd9E5cN8NEzG7cXyKsk/@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2010-04-28 at 17:01 +0800, Dan Carpenter wrote:
-> This is just a cleanup and doesn't change how the code works.
+Richard Cochran wrote:
+> On Wed, Apr 28, 2010 at 04:31:35PM +0200, Wolfgang Grandegger wrote:
+>> That's because some 1588_PPS related bits are not yet setup in the
+>> platform code of mainline kernel.
 > 
-> debugfs_create_dir() and debugfs_create_file() return an error pointer 
-> (-ENODEV) if CONFIG_DEBUG_FS is not enabled, otherwise if an error occurs
-> they return NULL.  This is how they are implemented and what it says in 
-> the DebugFS documentation.  DebugFS can not be compiled as a module.  
+> So did you get it working?
+
+Yes, it works now :-). With
+
+  master: ptpd -b eth1 -y 0 -a 3,12 -p
+  slave : ptpd -b eth1 -y 0 -a 3,12
+
+I see a PPS jitter of approximately +-100ns on the oscilloscopes. That's
+the same value I get with the Freescale's old PTP 1588 implementation.
+
+> I am reworking this patch set to post again, but perhaps you might
+> take a look at the patch below. It configures the gianfar PTP clock
+
+I will comment on your previous patches later today.
+
+> parameters via the device tree.
 > 
-> As a result, we only need to check for error pointers and particularly 
-> -ENODEV one time to know that DebugFS is enabled.  This patch keeps the 
-> first check for error pointers and removes the rest. 
+> Richard
 > 
-> The other reason for this patch, is that it silences some Smatch warnings.
-> Smatch sees the condition "(result != -ENODEV)" and assumes that it's 
-> possible for "result" to equal -ENODEV.  If it were possible it would lead
-> to an error pointer dereference.  But since it's not, we can just remove
-> the check.
+> [PATCH] ptp: gianfar clock uses device tree parameters
+> Signed-off-by: Richard Cochran <richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+> ---
+>  arch/powerpc/boot/dts/mpc8313erdb.dts |   14 +++++
+>  arch/powerpc/boot/dts/p2020ds.dts     |   13 ++++
+>  arch/powerpc/boot/dts/p2020rdb.dts    |   14 +++++
+>  drivers/net/gianfar_ptp.c             |  102 ++++++++++++++++++++++----------
+>  4 files changed, 111 insertions(+), 32 deletions(-)
 > 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> diff --git a/arch/powerpc/boot/dts/mpc8313erdb.dts b/arch/powerpc/boot/dts/mpc8313erdb.dts
+> index 183f2aa..b760aee 100644
+> --- a/arch/powerpc/boot/dts/mpc8313erdb.dts
+> +++ b/arch/powerpc/boot/dts/mpc8313erdb.dts
+> @@ -208,6 +208,20 @@
+>  			sleep = <&pmc 0x00300000>;
+>  		};
+>  
+> +		ptp_clock@24E00 {
+> +			device_type = "ptp_clock";
+> +			model = "eTSEC";
+> +			reg = <0x24E00 0xB0>;
+> +			interrupts = <0x0C 2 0x0D 2>;
 
-Thanks. But looks like you missed the one in if_sdio_debugfs_init().
+The interrupt number is usually specified in decimal notation.
 
-I don't think we even need to check -ENODEV ourselves because if
-DEBUG_FS is not compiled in, all the debugfs utility functions will
-become no-op.
+> +			interrupt-parent = < &ipic >;
+> +			tclk_period = <10>;
+> +			tmr_prsc    = <100>;
+> +			tmr_add     = <0x999999A4>;
+> +			cksel       = <0x1>;
+> +			tmr_fiper1  = <0x3B9AC9F6>;
+> +			tmr_fiper2  = <0x00018696>;
+> +		};
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
-Signed-off-by: Zhu Yi <yi.zhu@intel.com>
+You should use the prefix "fsl," for the MPC-specific properties, at
+least. A few of the values could be calculated from the clock frequency.
+OF people usually prefer human readable values, if feasible, e.g.
 
-diff --git a/drivers/net/wireless/iwmc3200wifi/bus.h b/drivers/net/wireless/iwmc3200wifi/bus.h
-index 836663e..62edd58 100644
---- a/drivers/net/wireless/iwmc3200wifi/bus.h
-+++ b/drivers/net/wireless/iwmc3200wifi/bus.h
-@@ -31,7 +31,7 @@ struct iwm_if_ops {
- 	int (*disable)(struct iwm_priv *iwm);
- 	int (*send_chunk)(struct iwm_priv *iwm, u8* buf, int count);
- 
--	int (*debugfs_init)(struct iwm_priv *iwm, struct dentry *parent_dir);
-+	void (*debugfs_init)(struct iwm_priv *iwm, struct dentry *parent_dir);
- 	void (*debugfs_exit)(struct iwm_priv *iwm);
- 
- 	const char *umac_name;
-diff --git a/drivers/net/wireless/iwmc3200wifi/debug.h b/drivers/net/wireless/iwmc3200wifi/debug.h
-index e35c9b6..f98bf12 100644
---- a/drivers/net/wireless/iwmc3200wifi/debug.h
-+++ b/drivers/net/wireless/iwmc3200wifi/debug.h
-@@ -113,10 +113,10 @@ struct iwm_debugfs {
- };
- 
- #ifdef CONFIG_IWM_DEBUG
--int iwm_debugfs_init(struct iwm_priv *iwm);
-+void iwm_debugfs_init(struct iwm_priv *iwm);
- void iwm_debugfs_exit(struct iwm_priv *iwm);
- #else
--static inline int iwm_debugfs_init(struct iwm_priv *iwm)
-+static inline void iwm_debugfs_init(struct iwm_priv *iwm)
- {
- 	return 0;
- }
-diff --git a/drivers/net/wireless/iwmc3200wifi/debugfs.c b/drivers/net/wireless/iwmc3200wifi/debugfs.c
-index 7244413..53b0b77 100644
---- a/drivers/net/wireless/iwmc3200wifi/debugfs.c
-+++ b/drivers/net/wireless/iwmc3200wifi/debugfs.c
-@@ -48,12 +48,11 @@ static struct {
- 
- #define add_dbg_module(dbg, name, id, initlevel) 	\
- do {							\
--	struct dentry *d;				\
- 	dbg.dbg_module[id] = (initlevel);		\
--	d = debugfs_create_x8(name, 0600, dbg.dbgdir,	\
--			     &(dbg.dbg_module[id]));	\
--	if (!IS_ERR(d))					\
--		dbg.dbg_module_dentries[id] = d;        \
-+	dbg.dbg_module_dentries[id] =			\
-+		debugfs_create_x8(name, 0600,		\
-+				dbg.dbgdir,		\
-+				&(dbg.dbg_module[id]));	\
- } while (0)
- 
- static int iwm_debugfs_u32_read(void *data, u64 *val)
-@@ -423,89 +422,29 @@ static const struct file_operations iwm_debugfs_fw_err_fops = {
- 	.read =		iwm_debugfs_fw_err_read,
- };
- 
--int iwm_debugfs_init(struct iwm_priv *iwm)
-+void iwm_debugfs_init(struct iwm_priv *iwm)
- {
--	int i, result;
--	char devdir[16];
-+	int i;
- 
- 	iwm->dbg.rootdir = debugfs_create_dir(KBUILD_MODNAME, NULL);
--	result = PTR_ERR(iwm->dbg.rootdir);
--	if (!result || IS_ERR(iwm->dbg.rootdir)) {
--		if (result == -ENODEV) {
--			IWM_ERR(iwm, "DebugFS (CONFIG_DEBUG_FS) not "
--				"enabled in kernel config\n");
--			result = 0;	/* No debugfs support */
--		}
--		IWM_ERR(iwm, "Couldn't create rootdir: %d\n", result);
--		goto error;
--	}
--
--	snprintf(devdir, sizeof(devdir), "%s", wiphy_name(iwm_to_wiphy(iwm)));
--
--	iwm->dbg.devdir = debugfs_create_dir(devdir, iwm->dbg.rootdir);
--	result = PTR_ERR(iwm->dbg.devdir);
--	if (IS_ERR(iwm->dbg.devdir) && (result != -ENODEV)) {
--		IWM_ERR(iwm, "Couldn't create devdir: %d\n", result);
--		goto error;
--	}
--
-+	iwm->dbg.devdir = debugfs_create_dir(wiphy_name(iwm_to_wiphy(iwm)),
-+					     iwm->dbg.rootdir);
- 	iwm->dbg.dbgdir = debugfs_create_dir("debug", iwm->dbg.devdir);
--	result = PTR_ERR(iwm->dbg.dbgdir);
--	if (IS_ERR(iwm->dbg.dbgdir) && (result != -ENODEV)) {
--		IWM_ERR(iwm, "Couldn't create dbgdir: %d\n", result);
--		goto error;
--	}
--
- 	iwm->dbg.rxdir = debugfs_create_dir("rx", iwm->dbg.devdir);
--	result = PTR_ERR(iwm->dbg.rxdir);
--	if (IS_ERR(iwm->dbg.rxdir) && (result != -ENODEV)) {
--		IWM_ERR(iwm, "Couldn't create rx dir: %d\n", result);
--		goto error;
--	}
--
- 	iwm->dbg.txdir = debugfs_create_dir("tx", iwm->dbg.devdir);
--	result = PTR_ERR(iwm->dbg.txdir);
--	if (IS_ERR(iwm->dbg.txdir) && (result != -ENODEV)) {
--		IWM_ERR(iwm, "Couldn't create tx dir: %d\n", result);
--		goto error;
--	}
--
- 	iwm->dbg.busdir = debugfs_create_dir("bus", iwm->dbg.devdir);
--	result = PTR_ERR(iwm->dbg.busdir);
--	if (IS_ERR(iwm->dbg.busdir) && (result != -ENODEV)) {
--		IWM_ERR(iwm, "Couldn't create bus dir: %d\n", result);
--		goto error;
--	}
--
--	if (iwm->bus_ops->debugfs_init) {
--		result = iwm->bus_ops->debugfs_init(iwm, iwm->dbg.busdir);
--		if (result < 0) {
--			IWM_ERR(iwm, "Couldn't create bus entry: %d\n", result);
--			goto error;
--		}
--	}
--
-+	if (iwm->bus_ops->debugfs_init)
-+		iwm->bus_ops->debugfs_init(iwm, iwm->dbg.busdir);
- 
- 	iwm->dbg.dbg_level = IWM_DL_NONE;
- 	iwm->dbg.dbg_level_dentry =
- 		debugfs_create_file("level", 0200, iwm->dbg.dbgdir, iwm,
- 				    &fops_iwm_dbg_level);
--	result = PTR_ERR(iwm->dbg.dbg_level_dentry);
--	if (IS_ERR(iwm->dbg.dbg_level_dentry) && (result != -ENODEV)) {
--		IWM_ERR(iwm, "Couldn't create dbg_level: %d\n", result);
--		goto error;
--	}
--
- 
- 	iwm->dbg.dbg_modules = IWM_DM_DEFAULT;
- 	iwm->dbg.dbg_modules_dentry =
- 		debugfs_create_file("modules", 0200, iwm->dbg.dbgdir, iwm,
- 				    &fops_iwm_dbg_modules);
--	result = PTR_ERR(iwm->dbg.dbg_modules_dentry);
--	if (IS_ERR(iwm->dbg.dbg_modules_dentry) && (result != -ENODEV)) {
--		IWM_ERR(iwm, "Couldn't create dbg_modules: %d\n", result);
--		goto error;
--	}
- 
- 	for (i = 0; i < __IWM_DM_NR; i++)
- 		add_dbg_module(iwm->dbg, iwm_debug_module[i].name,
-@@ -514,44 +453,15 @@ int iwm_debugfs_init(struct iwm_priv *iwm)
- 	iwm->dbg.txq_dentry = debugfs_create_file("queues", 0200,
- 						  iwm->dbg.txdir, iwm,
- 						  &iwm_debugfs_txq_fops);
--	result = PTR_ERR(iwm->dbg.txq_dentry);
--	if (IS_ERR(iwm->dbg.txq_dentry) && (result != -ENODEV)) {
--		IWM_ERR(iwm, "Couldn't create tx queue: %d\n", result);
--		goto error;
--	}
--
- 	iwm->dbg.tx_credit_dentry = debugfs_create_file("credits", 0200,
- 						   iwm->dbg.txdir, iwm,
- 						   &iwm_debugfs_tx_credit_fops);
--	result = PTR_ERR(iwm->dbg.tx_credit_dentry);
--	if (IS_ERR(iwm->dbg.tx_credit_dentry) && (result != -ENODEV)) {
--		IWM_ERR(iwm, "Couldn't create tx credit: %d\n", result);
--		goto error;
--	}
--
- 	iwm->dbg.rx_ticket_dentry = debugfs_create_file("tickets", 0200,
- 						  iwm->dbg.rxdir, iwm,
- 						  &iwm_debugfs_rx_ticket_fops);
--	result = PTR_ERR(iwm->dbg.rx_ticket_dentry);
--	if (IS_ERR(iwm->dbg.rx_ticket_dentry) && (result != -ENODEV)) {
--		IWM_ERR(iwm, "Couldn't create rx ticket: %d\n", result);
--		goto error;
--	}
--
- 	iwm->dbg.fw_err_dentry = debugfs_create_file("last_fw_err", 0200,
- 						     iwm->dbg.dbgdir, iwm,
- 						     &iwm_debugfs_fw_err_fops);
--	result = PTR_ERR(iwm->dbg.fw_err_dentry);
--	if (IS_ERR(iwm->dbg.fw_err_dentry) && (result != -ENODEV)) {
--		IWM_ERR(iwm, "Couldn't create last FW err: %d\n", result);
--		goto error;
--	}
--
--
--	return 0;
--
-- error:
--	return result;
- }
- 
- void iwm_debugfs_exit(struct iwm_priv *iwm)
-diff --git a/drivers/net/wireless/iwmc3200wifi/sdio.c b/drivers/net/wireless/iwmc3200wifi/sdio.c
-index 1eafd6d..1acea37 100644
---- a/drivers/net/wireless/iwmc3200wifi/sdio.c
-+++ b/drivers/net/wireless/iwmc3200wifi/sdio.c
-@@ -366,21 +366,13 @@ static const struct file_operations iwm_debugfs_sdio_fops = {
- 	.read =		iwm_debugfs_sdio_read,
- };
- 
--static int if_sdio_debugfs_init(struct iwm_priv *iwm, struct dentry *parent_dir)
-+static void if_sdio_debugfs_init(struct iwm_priv *iwm, struct dentry *parent_dir)
- {
--	int result;
- 	struct iwm_sdio_priv *hw = iwm_to_if_sdio(iwm);
- 
- 	hw->cccr_dentry = debugfs_create_file("cccr", 0200,
- 					      parent_dir, iwm,
- 					      &iwm_debugfs_sdio_fops);
--	result = PTR_ERR(hw->cccr_dentry);
--	if (IS_ERR(hw->cccr_dentry) && (result != -ENODEV)) {
--		IWM_ERR(iwm, "Couldn't create CCCR entry: %d\n", result);
--		return result;
--	}
--
--	return 0;
- }
- 
- static void if_sdio_debugfs_exit(struct iwm_priv *iwm)
-@@ -440,11 +432,7 @@ static int iwm_sdio_probe(struct sdio_func *func,
- 	hw = iwm_private(iwm);
- 	hw->iwm = iwm;
- 
--	ret = iwm_debugfs_init(iwm);
--	if (ret < 0) {
--		IWM_ERR(iwm, "Debugfs registration failed\n");
--		goto if_free;
--	}
-+	iwm_debugfs_init(iwm);
- 
- 	sdio_set_drvdata(func, hw);
- 
-@@ -473,7 +461,6 @@ static int iwm_sdio_probe(struct sdio_func *func,
- 	destroy_workqueue(hw->isr_wq);
-  debugfs_exit:
- 	iwm_debugfs_exit(iwm);
-- if_free:
- 	iwm_if_free(iwm);
- 	return ret;
- }
+        ptp-clock-source = "sys";
+        ptp-clock-source = "ext";
+	ptp-clock-frequency = "100000000";
+
+Not sure it that works for other PTP hardware but it would be nice to
+have a generic set of properties. I have added a CC to the device-tree
+discuss mailing for further feedback.
+
+> +
+>  		enet0: ethernet@24000 {
+>  			#address-cells = <1>;
+>  			#size-cells = <1>;
+> diff --git a/arch/powerpc/boot/dts/p2020ds.dts b/arch/powerpc/boot/dts/p2020ds.dts
+> index 1101914..1dcf790 100644
+> --- a/arch/powerpc/boot/dts/p2020ds.dts
+> +++ b/arch/powerpc/boot/dts/p2020ds.dts
+> @@ -336,6 +336,19 @@
+>  			phy_type = "ulpi";
+>  		};
+>  
+> +		ptp_clock@24E00 {
+> +			device_type = "ptp_clock";
+> +			model = "eTSEC";
+> +			reg = <0x24E00 0xB0>;
+> +			interrupts = <0x0C 2 0x0D 2>;
+> +			interrupt-parent = < &mpic >;
+> +			tclk_period = <5>;
+> +			tmr_prsc = <200>;
+> +			tmr_add = <0xCCCCCCCD>;
+> +			tmr_fiper1 = <0x3B9AC9FB>;
+> +			tmr_fiper2 = <0x0001869B>;
+> +		};
+> +
+>  		enet0: ethernet@24000 {
+>  			#address-cells = <1>;
+>  			#size-cells = <1>;
+> diff --git a/arch/powerpc/boot/dts/p2020rdb.dts b/arch/powerpc/boot/dts/p2020rdb.dts
+> index da4cb0d..ba61e8e 100644
+> --- a/arch/powerpc/boot/dts/p2020rdb.dts
+> +++ b/arch/powerpc/boot/dts/p2020rdb.dts
+> @@ -396,6 +396,20 @@
+>  			phy_type = "ulpi";
+>  		};
+>  
+> +		ptp_clock@24E00 {
+> +			device_type = "ptp_clock";
+> +			model = "eTSEC";
+> +			reg = <0x24E00 0xB0>;
+> +			interrupts = <0x0C 2 0x0D 2>;
+> +			interrupt-parent = < &mpic >;
+> +			tclk_period = <5>;
+> +			tmr_prsc = <200>;
+> +			tmr_add = <0xCCCCCCCD>;
+> +			cksel = <1>;
+> +			tmr_fiper1 = <0x3B9AC9FB>;
+> +			tmr_fiper2 = <0x0001869B>;
+> +		};
+> +
+>  		enet0: ethernet@24000 {
+>  			#address-cells = <1>;
+>  			#size-cells = <1>;
+> diff --git a/drivers/net/gianfar_ptp.c b/drivers/net/gianfar_ptp.c
+> index eed3246..ed6234c 100644
+> --- a/drivers/net/gianfar_ptp.c
+> +++ b/drivers/net/gianfar_ptp.c
+> @@ -22,6 +22,8 @@
+>  #include <linux/init.h>
+>  #include <linux/kernel.h>
+>  #include <linux/module.h>
+> +#include <linux/of.h>
+> +#include <linux/of_platform.h>
+>  #include <linux/timex.h>
+>  #include <asm/io.h>
+>  
+> @@ -29,29 +31,16 @@
+>  
+>  #include "gianfar_ptp_reg.h"
+>  
+> -/*
+> - *
+> - * TODO - get the following from device tree
+> - *
+> - */
+> -#define TMR_BASE_KERNEL	0xe0024e00 // CONFIG_PPC_85xx 0xffe24e00
+> -#define TIMER_OSC	166666666
+> -#define TCLK_PERIOD	10
+> -#define NOMINAL_FREQ	100000000
+> -#define DEF_TMR_PRSC	100
+> -#define DEF_TMR_ADD	0x999999A4
+> -#define DEFAULT_CKSEL   1
+> -
+>  #define REG_SIZE	(4 + TMR_ETTS2_L)
+>  
+>  struct etsects {
+>  	void *regs;
+> -	u32 timer_osc;    /* Hz */
+>  	u32 tclk_period;  /* nanoseconds */
+> -	s64 nominal_freq; /* Hz */
+>  	u32 tmr_prsc;
+>  	u32 tmr_add;
+>  	u32 cksel;
+> +	u32 tmr_fiper1;
+> +	u32 tmr_fiper2;
+>  };
+>  
+>  /* Private globals */
+> @@ -111,8 +100,8 @@ static void set_fipers(struct etsects *etsects)
+>  
+>  	reg_write(etsects, TMR_CTRL,   tmr_ctrl & (~TE));
+>  	reg_write(etsects, TMR_PRSC,   etsects->tmr_prsc);
+> -	reg_write(etsects, TMR_FIPER1, 0x3B9AC9F6);
+> -	reg_write(etsects, TMR_FIPER2, 0x00018696);
+> +	reg_write(etsects, TMR_FIPER1, etsects->tmr_fiper1);
+> +	reg_write(etsects, TMR_FIPER2, etsects->tmr_fiper2);
+>  	set_alarm(etsects);
+>  	reg_write(etsects, TMR_CTRL,   tmr_ctrl|TE);
+>  }
+> @@ -213,34 +202,51 @@ struct ptp_clock_info ptp_gianfar_caps = {
+>  	.enable		= ptp_gianfar_enable,
+>  };
+>  
+> -/* module operations */
+> +/* OF device tree */
+>  
+> -static void __exit ptp_gianfar_exit(void)
+> +static int get_of_u32(struct device_node *node, char *str, u32 *val)
+>  {
+> -	ptp_clock_unregister(&ptp_gianfar_caps);
+> -	iounmap(the_clock.regs);
+> +	int plen;
+> +	const u32 *prop = of_get_property(node, str, &plen);
+> +
+> +	if (!prop || plen != sizeof(*prop))
+> +		return -1;
+> +	*val = *prop;
+> +	return 0;
+>  }
+>  
+> -static int __init ptp_gianfar_init(void)
+> +static int gianfar_ptp_probe(struct of_device* dev,
+> +			     const struct of_device_id *match)
+>  {
+> +	u64 addr, size;
+> +	struct device_node *node = dev->node;
+>  	struct etsects *etsects = &the_clock;
+>  	struct timespec now;
+> -	phys_addr_t reg_addr = TMR_BASE_KERNEL;
+> -	unsigned long reg_size = REG_SIZE;
+> +	phys_addr_t reg_addr;
+> +	unsigned long reg_size;
+>  	u32 tmr_ctrl;
+>  	int err;
+>  
+> +	if (get_of_u32(node, "tclk_period", &etsects->tclk_period) ||
+> +	    get_of_u32(node, "tmr_prsc", &etsects->tmr_prsc) ||
+> +	    get_of_u32(node, "tmr_add", &etsects->tmr_add) ||
+> +	    get_of_u32(node, "cksel", &etsects->cksel) ||
+> +	    get_of_u32(node, "tmr_fiper1", &etsects->tmr_fiper1) ||
+> +	    get_of_u32(node, "tmr_fiper2", &etsects->tmr_fiper2))
+> +		return -ENODEV;
+> +
+> +	addr = of_translate_address(node, of_get_address(node, 0, &size, NULL));
+> +	reg_addr = addr;
+> +	reg_size = size;
+> +	if (reg_size < REG_SIZE) {
+> +		pr_warning("device tree reg range %lu too small\n", reg_size);
+> +		reg_size = REG_SIZE;
+> +	}
+>  	etsects->regs = ioremap(reg_addr, reg_size);
+>  	if (!etsects->regs) {
+>  		pr_err("ioremap ptp registers failed\n");
+>  		return -EINVAL;
+>  	}
+> -	etsects->timer_osc = TIMER_OSC;
+> -	etsects->tclk_period = TCLK_PERIOD;
+> -	etsects->nominal_freq = NOMINAL_FREQ;
+> -	etsects->tmr_prsc = DEF_TMR_PRSC;
+> -	etsects->tmr_add = DEF_TMR_ADD;
+> -	etsects->cksel = DEFAULT_CKSEL;
+>  
+>  	tmr_ctrl =
+>  	  (etsects->tclk_period & TCLK_PERIOD_MASK) << TCLK_PERIOD_SHIFT |
+> @@ -252,8 +258,8 @@ static int __init ptp_gianfar_init(void)
+>  	reg_write(etsects, TMR_CTRL,   tmr_ctrl);
+>  	reg_write(etsects, TMR_ADD,    etsects->tmr_add);
+>  	reg_write(etsects, TMR_PRSC,   etsects->tmr_prsc);
+> -	reg_write(etsects, TMR_FIPER1, 0x3B9AC9F6);
+> -	reg_write(etsects, TMR_FIPER2, 0x00018696);
+> +	reg_write(etsects, TMR_FIPER1, etsects->tmr_fiper1);
+> +	reg_write(etsects, TMR_FIPER2, etsects->tmr_fiper2);
+>  	set_alarm(etsects);
+>  	reg_write(etsects, TMR_CTRL,   tmr_ctrl|FS|RTPE|TE);
+>  
+> @@ -261,6 +267,38 @@ static int __init ptp_gianfar_init(void)
+>  	return err;
+>  }
+>  
+> +static int gianfar_ptp_remove(struct of_device* dev)
+> +{
+> +	ptp_clock_unregister(&ptp_gianfar_caps);
+> +	iounmap(the_clock.regs);
+> +	return 0;
+> +}
+> +
+> +static struct of_device_id match_table[] = {
+> +	{ .type = "ptp_clock" },
+> +	{},
+> +};
+> +
+> +static struct of_platform_driver gianfar_ptp_driver = {
+> +	.name        = "gianfar_ptp",
+> +	.match_table = match_table,
+> +	.owner       = THIS_MODULE,
+> +	.probe       = gianfar_ptp_probe,
+> +	.remove      = gianfar_ptp_remove,
+> +};
+> +
+> +/* module operations */
+> +
+> +static void __exit ptp_gianfar_exit(void)
+> +{
+> +	of_unregister_platform_driver(&gianfar_ptp_driver);
+> +}
+> +
+> +static int __init ptp_gianfar_init(void)
+> +{
+> +	return of_register_platform_driver(&gianfar_ptp_driver);
+> +}
+> +
+>  subsys_initcall(ptp_gianfar_init);
+>  module_exit(ptp_gianfar_exit);
+
+Wolfgang.
