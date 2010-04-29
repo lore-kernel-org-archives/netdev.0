@@ -1,60 +1,50 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: pull request: wireless-2.6 2010-04-30
-Date: Fri, 30 Apr 2010 14:08:40 -0400
-Message-ID: <20100430180840.GD4120@tuxdriver.com>
+From: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
+Subject: avoid compiler warning when !CONFIG_SYSCTL in netfilter dccp
+Date: Thu, 29 Apr 2010 11:25:26 +0200
+Message-ID: <1272533126.16112.12.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary="=-7ivMFib+bPmLq8qexJFH"
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:41126
+	"EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759176Ab0D3SPp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 14:15:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dave,
 
-One more for 2.6.34...it avoids some DMA mapping-related failures.
+--=-7ivMFib+bPmLq8qexJFH
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
 
-Please let me know if there are problems!
+The attached trivial patch (generated against davem/net-next-2.6 as of
+this morning) avoids this compiler warning:
+../src/process-manager/linux/net/netfilter/nf_conntrack_proto_dccp.c: In
+function ‘dccp_net_exit’:
+../src/process-manager/linux/net/netfilter/nf_conntrack_proto_dccp.c:845: error: unused variable ‘dn’
 
-Thanks,
+Mathieu
 
-John
+--=-7ivMFib+bPmLq8qexJFH
+Content-Disposition: attachment; filename="nf-dccp-sysctl.patch"
+Content-Type: text/x-patch; name="nf-dccp-sysctl.patch"; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 
----
-
-The following changes since commit 03f80cc3f24e1dcdbdba081ed5daf5575aac6180:
-  Sebastian Siewior (1):
-        net/sb1250: register mdio bus in probe
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
-
-Hans de Goede (1):
-      p54pci: fix bugs in p54p_check_tx_ring
-
- drivers/net/wireless/p54/p54pci.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/wireless/p54/p54pci.c b/drivers/net/wireless/p54/p54pci.c
-index ed4bdff..21f673d 100644
---- a/drivers/net/wireless/p54/p54pci.c
-+++ b/drivers/net/wireless/p54/p54pci.c
-@@ -245,7 +245,7 @@ static void p54p_check_tx_ring(struct ieee80211_hw *dev, u32 *index,
- 	u32 idx, i;
+diff --git a/net/netfilter/nf_conntrack_proto_dccp.c b/net/netfilter/nf_conntrack_proto_dccp.c
+index 5292560..cd078df 100644
+--- a/net/netfilter/nf_conntrack_proto_dccp.c
++++ b/net/netfilter/nf_conntrack_proto_dccp.c
+@@ -842,8 +842,8 @@ static __net_init int dccp_net_init(struct net *net)
  
- 	i = (*index) % ring_limit;
--	(*index) = idx = le32_to_cpu(ring_control->device_idx[1]);
-+	(*index) = idx = le32_to_cpu(ring_control->device_idx[ring_index]);
- 	idx %= ring_limit;
- 
- 	while (i != idx) {
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ static __net_exit void dccp_net_exit(struct net *net)
+ {
+-	struct dccp_net *dn = dccp_pernet(net);
+ #ifdef CONFIG_SYSCTL
++	struct dccp_net *dn = dccp_pernet(net);
+ 	unregister_net_sysctl_table(dn->sysctl_header);
+ 	kfree(dn->sysctl_table);
+ #endif
+
+--=-7ivMFib+bPmLq8qexJFH--
+
