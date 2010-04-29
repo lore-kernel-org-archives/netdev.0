@@ -1,82 +1,119 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: patch sysfs-implement-sysfs-tagged-directory-support.patch
- added to gregkh-2.6 tree
-Date: Fri, 30 Apr 2010 09:29:40 -0500
-Message-ID: <20100430142940.GC7187@us.ibm.com>
-References: <12725729473590@kroah.org>
- <4BDA5A2D.6080904@kernel.org>
- <20100430044522.GA29845@suse.de>
- <m1aaslbjh4.fsf@fess.ebiederm.org>
- <4BDA6C90.9010303@kernel.org>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH 0/3] [RFC] ptp: IEEE 1588 clock support
+Date: Thu, 29 Apr 2010 14:02:59 +0200
+Message-ID: <4BD97573.5050101@grandegger.com>
+References: <20100427091344.GA5086@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg KH <gregkh@suse.de>, bcrl@lhnet.ca,
-	benjamin.thery@bull.net, cornelia.huck@de.ibm.com,
-	eric.dumazet@gmail.com, kay.sievers@vrfy.org,
-	netdev@vger.kernel.org
-To: Tejun Heo <tj@kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:52642 "EHLO e1.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933024Ab0D3RdP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Apr 2010 13:33:15 -0400
-Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
-	by e1.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o3UEOXnq021269
-	for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 10:24:33 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o3UETjhL150832
-	for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 10:29:45 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o3UETfkQ031424
-	for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 10:29:45 -0400
-Content-Disposition: inline
-In-Reply-To: <4BDA6C90.9010303@kernel.org>
+Received: from mail-out.m-online.net ([212.18.0.9]:43739 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758579Ab0D3SJZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 14:09:25 -0400
+In-Reply-To: <20100427091344.GA5086@riccoc20.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting Tejun Heo (tj@kernel.org):
-> Hello,
+Richard Cochran wrote:
+> Now and again there has been some talk on this list of adding PTP
+> support into Linux. One part of the picture is already in place, the
+> SO_TIMESTAMPING API for hardware time stamping. It has been pointed
+> out that this API is not perfect, however, it is good enough for many
+> real world uses of IEEE 1588. The second needed part has not, AFAICT,
+> ever been addressed.
 > 
-> On 04/30/2010 07:24 AM, Eric W. Biederman wrote:
-> >>> I wish at least more comments are added before it goes mainline.  I
-> >>> don't really understand the current form.
-> >>
-> >> Ok, that's fine with me, I'll pull it back out.
-> > 
-> > ?????
-> > 
-> > Tejun you have offered nothing constructive to the review, except looking
-> > and saying you don't understand what is going on.
+> Here I offer an early draft of an idea how to bring the missing
+> functionality into Linux. I don't yet have all of the features
+> implemented, as described below. Still I would like to get your
+> feedback concerning this idea before getting too far into it. I do
+> have all of the hardware mentioned at hand, so I have a good idea that
+> the proposed API covers the features of those clocks.
 > 
-> Eric, no need to get too touchy and you're right in part in saying all
-> I'm saying is basically "I don't understand it" which is the same
-> reason why I'm not nacking it and explicitly stated that I would be
-> okay with the series going in if Greg/Kay would be okay with it.
-> Again, about the same thing with the above comment, I was *wishing*
-> for more comments *before it goes mainline*.
+> Thanks in advance for your comments,
+> 
+> Richard
+> 
+> * PTP infrastructure for Linux
+> 
+>   This patch set introduces support for IEEE 1588 PTP clocks in
+>   Linux. Together with the SO_TIMESTAMPING socket options, this
+>   presents standardized method for developing PTP user space programs,
+>   synchronizing Linux with external clocks, and using the ancillary
+>   features of PTP hardware clocks.
+> 
+>   A new class driver exports a kernel interface for specific clock
+>   drivers and a user space interface. The infrastructure supports a
+>   complete set of PTP functionality.
+> 
+>   + Basic clock operations
+>     - Set time
+>     - Get time
+>     - Shift the clock by a given offset atomically
+>     - Adjust clock frequency
+> 
+>   + Ancillary clock features
+>     - One short or periodic alarms, with signal delivery to user program
+>     - Time stamp external events
+>     - Period output signals configurable from user space
+>     - Synchronization of the Linux system time via the PPS subsystem
+> 
+> ** PTP kernel API
+> 
+>    A PTP clock driver registers itself with the class driver. The
+>    class driver handles all of the dealings with user space. The
+>    author of a clock driver need only implement the details of
+>    programming the clock hardware. The clock driver notifies the class
+>    driver of asynchronous events (alarms and external time stamps) via
+>    a simple message passing interface.
+> 
+>    The class driver supports multiple PTP clock drivers. In normal use
+>    cases, only one PTP clock is needed. However, for testing and
+>    development, it can be useful to have more than one clock in a
+>    single system, in order to allow performance comparisons.
+> 
+> ** PTP user space API
+> 
+>    The class driver creates a character device for each registered PTP
+>    clock. User space programs may control the clock via standardized
+>    ioctls. A program may query, enable, configure, and disable the
+>    ancillary clock features. User space can receive time stamped
+>    events via blocking read() and poll(). One shot and periodic
+>    signals may be configured via an ioctl API with similar semantics
+>    to the POSIX timer_settime() system call.
+> 
+> ** Supported hardware
+> 
+>    + Standard Linux system timer
+>      - No special PTP features
+>      - For use with software time stamping
+> 
+>    + Freescale eTSEC gianfar
+>      - 2 Time stamp external triggers, programmable polarity (opt. interrupt)
+>      - 2 Alarm registers (optional interrupt)
+>      - 3 Periodic signals (optional interrupt)
+> 
+>    + National DP83640
+>      - 6 GPIOs programmable as inputs or outputs
+>      - 6 GPIOs with dedicated functions (LED/JTAG/clock) can also be
+>        used as general inputs or outputs
+>      - GPIO inputs can time stamp external triggers
+>      - GPIO outputs can produce periodic signals
+>      - 1 interrupt pin
+> 
+>    + Intel IXP465
+>      - Auxiliary Slave/Master Mode Snapshot (optional interrupt)
+>      - Target Time (optional interrupt)
 
-I'm not sure if you mean "more in-line comments" or more discussion.  If
-you mean the latter, then I think the patch intro was deceptive as it has
-gotten more acks than that - I acked the whole set, and I think it didn't
-get more discussion than it did because it got much discussion in previous
-versions.
+I realized two other netdev drivers already supporting PTP timestamping:
+igb and bfin_mac. From the PTP developer point of view, the interface
+looks rather complete to me and it works fine on my MPC8313 setup. The
+only thing I stumbled over was that PTP clock registration failed when
+PTP support is statically linked into the kernel.
 
-This subset looks a bit mysterious because it offers the support for
-tagged /sys/class/net, but that implementation, which clarifies why some
-of this is done, comes in the later patches in Eric's set.  Can you please
-jump to his tree, take a look at 
-http://git.kernel.org/gitweb.cgi?p=linux/kernel/git/ebiederm/linux-2.6.32-rc5-sysfs-enhancements.git;a=commit;h=e7468796a9756b28e0ab38eb021025bbd3712823
-and let us know if that does not clarify?
+Thanks,
 
-Hmm, but looking back over the previous thread (Mar 31) I guess you
-mean more in-line comments around the callbacks, presumably things
-like class_dir_child_ns_type() and struct kobj_ns_type_operations
-members?
+Wolfgang.
 
-It sounds like what you'd really like is to have any explicit mention
-to namespaces pulled out of drivers/base (layering as you keep saying)?
-But will there be a use for this outside of namespaces?  Does trying to
-anticipate that fall into the category of over-abstraction?
-
--serge
