@@ -1,323 +1,342 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH 0/3] [RFC] ptp: IEEE 1588 clock support
-Date: Thu, 29 Apr 2010 10:08:30 +0200
-Message-ID: <4BD93E7E.2010209@grandegger.com>
-References: <20100427091344.GA5086@riccoc20.at.omicron.at>
-	<20100427102025.GA6471@riccoc20.at.omicron.at>
-	<4BD6E837.2040505@grandegger.com> <4BD70EC9.7080004@grandegger.com>
-	<20100428054706.GA4516@riccoc20.at.omicron.at>
-	<4BD83D37.4060301@grandegger.com> <4BD846C7.1050006@grandegger.com>
-	<20100429065422.GA5803@riccoc20.at.omicron.at>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv7] add mergeable buffers support to vhost_net
+Date: Thu, 29 Apr 2010 16:45:15 +0300
+Message-ID: <20100429134515.GA26287@redhat.com>
+References: <1272488232.11307.4.camel@w-dls.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss <devicetree-discuss-mnsaURCQ41sdnm+yROfE0A@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <20100429065422.GA5803-7KxsofuKt4IfAd9E5cN8NEzG7cXyKsk/@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org, virtualization@lists.osdl.org
+To: David L Stevens <dlstevens@us.ibm.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1272488232.11307.4.camel@w-dls.beaverton.ibm.com>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Richard Cochran wrote:
-> On Wed, Apr 28, 2010 at 04:31:35PM +0200, Wolfgang Grandegger wrote:
->> That's because some 1588_PPS related bits are not yet setup in the
->> platform code of mainline kernel.
+On Wed, Apr 28, 2010 at 01:57:12PM -0700, David L Stevens wrote:
+> This patch adds mergeable receive buffer support to vhost_net.
 > 
-> So did you get it working?
+> Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
 
-Yes, it works now :-). With
+I have applied this, thanks very much!
+I have also applied some tweaks on top,
+please take a look.
 
-  master: ptpd -b eth1 -y 0 -a 3,12 -p
-  slave : ptpd -b eth1 -y 0 -a 3,12
+Thanks,
+MSt
 
-I see a PPS jitter of approximately +-100ns on the oscilloscopes. That's
-the same value I get with the Freescale's old PTP 1588 implementation.
+commit 2809e94f5f26d89dc5232aaec753ffda95c4d95e
+Author: Michael S. Tsirkin <mst@redhat.com>
+Date:   Thu Apr 29 16:18:08 2010 +0300
 
-> I am reworking this patch set to post again, but perhaps you might
-> take a look at the patch below. It configures the gianfar PTP clock
+    vhost-net: minor tweaks in mergeable buffer code
+    
+    Applies the following tweaks on top of mergeable buffers patch:
+    1. vhost_get_desc_n assumes that all desriptors are 'in' only.
+       It's also unlikely to be useful for any vhost frontend
+       besides vhost_net, so just move it to net.c, and rename
+       get_rx_bufs for brevity.
+    
+    2. for rx, we called iov_length within vhost_get_desc_n
+       (now get_rx_bufs) already, so we don't
+       need an extra call to iov_length to avoid overflow anymore.
+       Accordingly, copy_iovec_hdr can return void now.
+    
+    3. for rx, do some further code tweaks:
+       do not assign len = err as we check that err == len
+       handle data length in a way similar to how we handle
+       header length: datalen -> sock_len, len -> vhost_len.
+       add sock_hlen as a local variable, for symmetry with vhost_hlen.
 
-I will comment on your previous patches later today.
+    4. add some likely/unlikely annotations
+    
+    Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-> parameters via the device tree.
-> 
-> Richard
-> 
-> [PATCH] ptp: gianfar clock uses device tree parameters
-> Signed-off-by: Richard Cochran <richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
-> ---
->  arch/powerpc/boot/dts/mpc8313erdb.dts |   14 +++++
->  arch/powerpc/boot/dts/p2020ds.dts     |   13 ++++
->  arch/powerpc/boot/dts/p2020rdb.dts    |   14 +++++
->  drivers/net/gianfar_ptp.c             |  102 ++++++++++++++++++++++----------
->  4 files changed, 111 insertions(+), 32 deletions(-)
-> 
-> diff --git a/arch/powerpc/boot/dts/mpc8313erdb.dts b/arch/powerpc/boot/dts/mpc8313erdb.dts
-> index 183f2aa..b760aee 100644
-> --- a/arch/powerpc/boot/dts/mpc8313erdb.dts
-> +++ b/arch/powerpc/boot/dts/mpc8313erdb.dts
-> @@ -208,6 +208,20 @@
->  			sleep = <&pmc 0x00300000>;
->  		};
->  
-> +		ptp_clock@24E00 {
-> +			device_type = "ptp_clock";
-> +			model = "eTSEC";
-> +			reg = <0x24E00 0xB0>;
-> +			interrupts = <0x0C 2 0x0D 2>;
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index d61d945..85519b4 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -74,9 +74,9 @@ static int move_iovec_hdr(struct iovec *from, struct iovec *to,
+ 	}
+ 	return seg;
+ }
+-/* Copy iovec entries for len bytes from iovec. Return segments used. */
+-static int copy_iovec_hdr(const struct iovec *from, struct iovec *to,
+-			  size_t len, int iovcount)
++/* Copy iovec entries for len bytes from iovec. */
++static void copy_iovec_hdr(const struct iovec *from, struct iovec *to,
++			   size_t len, int iovcount)
+ {
+ 	int seg = 0;
+ 	size_t size;
+@@ -89,7 +89,6 @@ static int copy_iovec_hdr(const struct iovec *from, struct iovec *to,
+ 		++to;
+ 		++seg;
+ 	}
+-	return seg;
+ }
+ 
+ /* Caller must have TX VQ lock */
+@@ -204,7 +203,7 @@ static void handle_tx(struct vhost_net *net)
+ 	unuse_mm(net->dev.mm);
+ }
+ 
+-static int vhost_head_len(struct vhost_virtqueue *vq, struct sock *sk)
++static int peek_head_len(struct vhost_virtqueue *vq, struct sock *sk)
+ {
+ 	struct sk_buff *head;
+ 	int len = 0;
+@@ -212,17 +211,70 @@ static int vhost_head_len(struct vhost_virtqueue *vq, struct sock *sk)
+ 	lock_sock(sk);
+ 	head = skb_peek(&sk->sk_receive_queue);
+ 	if (head)
+-		len = head->len + vq->sock_hlen;
++		len = head->len;
+ 	release_sock(sk);
+ 	return len;
+ }
+ 
++/* This is a multi-buffer version of vhost_get_desc, that works if
++ *	vq has read descriptors only.
++ * @vq		- the relevant virtqueue
++ * @datalen	- data length we'll be reading
++ * @iovcount	- returned count of io vectors we fill
++ * @log		- vhost log
++ * @log_num	- log offset
++ *	returns number of buffer heads allocated, negative on error
++ */
++static int get_rx_bufs(struct vhost_virtqueue *vq,
++		       struct vring_used_elem *heads,
++		       int datalen,
++		       unsigned *iovcount,
++		       struct vhost_log *log,
++		       unsigned *log_num)
++{
++	unsigned int out, in;
++	int seg = 0;
++	int headcount = 0;
++	unsigned d;
++	int r;
++
++	while (datalen > 0) {
++		if (unlikely(headcount >= VHOST_NET_MAX_SG)) {
++			r = -ENOBUFS;
++			goto err;
++		}
++		d = vhost_get_desc(vq->dev, vq, vq->iov + seg,
++				   ARRAY_SIZE(vq->iov) - seg, &out,
++				   &in, log, log_num);
++		if (d == vq->num) {
++			r = 0;
++			goto err;
++		}
++		if (unlikely(out || in <= 0)) {
++			vq_err(vq, "unexpected descriptor format for RX: "
++				"out %d, in %d\n", out, in);
++			r = -EINVAL;
++			goto err;
++		}
++		heads[headcount].id = d;
++		heads[headcount].len = iov_length(vq->iov + seg, in);
++		datalen -= heads[headcount].len;
++		++headcount;
++		seg += in;
++	}
++	*iovcount = seg;
++	return headcount;
++err:
++	vhost_discard_desc(vq, headcount);
++	return r;
++}
++
+ /* Expects to be always run from workqueue - which acts as
+  * read-size critical section for our kind of RCU. */
+ static void handle_rx(struct vhost_net *net)
+ {
+ 	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_RX];
+-	unsigned in, log, s;
++	unsigned uninitialized_var(in), log;
+ 	struct vhost_log *vq_log;
+ 	struct msghdr msg = {
+ 		.msg_name = NULL,
+@@ -238,9 +290,10 @@ static void handle_rx(struct vhost_net *net)
+ 		.hdr.gso_type = VIRTIO_NET_HDR_GSO_NONE
+ 	};
+ 
+-	size_t len, total_len = 0;
+-	int err, headcount, datalen;
+-	size_t vhost_hlen;
++	size_t total_len = 0;
++	int err, headcount;
++	size_t vhost_hlen, sock_hlen;
++	size_t vhost_len, sock_len;
+ 	struct socket *sock = rcu_dereference(vq->private_data);
+ 	if (!sock || skb_queue_empty(&sock->sk->sk_receive_queue))
+ 		return;
+@@ -249,14 +302,16 @@ static void handle_rx(struct vhost_net *net)
+ 	mutex_lock(&vq->mutex);
+ 	vhost_disable_notify(vq);
+ 	vhost_hlen = vq->vhost_hlen;
++	sock_hlen = vq->sock_hlen;
+ 
+ 	vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) ?
+ 		vq->log : NULL;
+ 
+-	while ((datalen = vhost_head_len(vq, sock->sk))) {
+-		headcount = vhost_get_desc_n(vq, vq->heads,
+-					     datalen + vhost_hlen,
+-					     &in, vq_log, &log);
++	while ((sock_len = peek_head_len(vq, sock->sk))) {
++		sock_len += sock_hlen;
++		vhost_len = sock_len + vhost_hlen;
++		headcount = get_rx_bufs(vq, vq->heads, vhost_len,
++					&in, vq_log, &log);
+ 		if (headcount < 0)
+ 			break;
+ 		/* OK, now we need to know about added descriptors. */
+@@ -272,34 +327,25 @@ static void handle_rx(struct vhost_net *net)
+ 			break;
+ 		}
+ 		/* We don't need to be notified again. */
+-		if (vhost_hlen)
++		if (unlikely((vhost_hlen)))
+ 			/* Skip header. TODO: support TSO. */
+-			s = move_iovec_hdr(vq->iov, vq->hdr, vhost_hlen, in);
++			move_iovec_hdr(vq->iov, vq->hdr, vhost_hlen, in);
+ 		else
+-			s = copy_iovec_hdr(vq->iov, vq->hdr, vq->sock_hlen, in);
++			copy_iovec_hdr(vq->iov, vq->hdr, sock_hlen, in);
+ 		msg.msg_iovlen = in;
+-		len = iov_length(vq->iov, in);
+-		/* Sanity check */
+-		if (!len) {
+-			vq_err(vq, "Unexpected header len for RX: "
+-			       "%zd expected %zd\n",
+-			       iov_length(vq->hdr, s), vhost_hlen);
+-			break;
+-		}
+ 		err = sock->ops->recvmsg(NULL, sock, &msg,
+-					 len, MSG_DONTWAIT | MSG_TRUNC);
++					 sock_len, MSG_DONTWAIT | MSG_TRUNC);
+ 		/* TODO: Check specific error and bomb out unless EAGAIN? */
+ 		if (err < 0) {
+ 			vhost_discard_desc(vq, headcount);
+ 			break;
+ 		}
+-		if (err != datalen) {
++		if (err != sock_len) {
+ 			pr_err("Discarded rx packet: "
+-			       " len %d, expected %zd\n", err, datalen);
++			       " len %d, expected %zd\n", err, sock_len);
+ 			vhost_discard_desc(vq, headcount);
+ 			continue;
+ 		}
+-		len = err;
+ 		if (vhost_hlen &&
+ 		    memcpy_toiovecend(vq->hdr, (unsigned char *)&hdr, 0,
+ 				      vhost_hlen)) {
+@@ -311,17 +357,16 @@ static void handle_rx(struct vhost_net *net)
+ 		if (vhost_has_feature(&net->dev, VIRTIO_NET_F_MRG_RXBUF) &&
+ 		    memcpy_toiovecend(vq->hdr, (unsigned char *)&headcount,
+ 				      offsetof(typeof(hdr), num_buffers),
+-				      sizeof(hdr.num_buffers))) {
++				      sizeof hdr.num_buffers)) {
+ 			vq_err(vq, "Failed num_buffers write");
+ 			vhost_discard_desc(vq, headcount);
+ 			break;
+ 		}
+-		len += vhost_hlen;
+ 		vhost_add_used_and_signal_n(&net->dev, vq, vq->heads,
+ 					    headcount);
+ 		if (unlikely(vq_log))
+-			vhost_log_write(vq, vq_log, log, len);
+-		total_len += len;
++			vhost_log_write(vq, vq_log, log, vhost_len);
++		total_len += vhost_len;
+ 		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
+ 			vhost_poll_queue(&vq->poll);
+ 			break;
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 8ef5e3f..4b49991 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -862,53 +862,6 @@ static unsigned get_indirect(struct vhost_dev *dev, struct vhost_virtqueue *vq,
+ 	return 0;
+ }
+ 
+-/* This is a multi-buffer version of vhost_get_desc
+- * @vq		- the relevant virtqueue
+- * datalen	- data length we'll be reading
+- * @iovcount	- returned count of io vectors we fill
+- * @log		- vhost log
+- * @log_num	- log offset
+- *	returns number of buffer heads allocated, negative on error
+- */
+-int vhost_get_desc_n(struct vhost_virtqueue *vq, struct vring_used_elem *heads,
+-		     int datalen, unsigned *iovcount, struct vhost_log *log,
+-		     unsigned int *log_num)
+-{
+-	unsigned int out, in;
+-	int seg = 0;
+-	int headcount = 0;
+-	int r;
+-
+-	while (datalen > 0) {
+-		if (headcount >= VHOST_NET_MAX_SG) {
+-			r = -ENOBUFS;
+-			goto err;
+-		}
+-		heads[headcount].id = vhost_get_desc(vq->dev, vq, vq->iov + seg,
+-					      ARRAY_SIZE(vq->iov) - seg, &out,
+-					      &in, log, log_num);
+-		if (heads[headcount].id == vq->num) {
+-			r = 0;
+-			goto err;
+-		}
+-		if (out || in <= 0) {
+-			vq_err(vq, "unexpected descriptor format for RX: "
+-				"out %d, in %d\n", out, in);
+-			r = -EINVAL;
+-			goto err;
+-		}
+-		heads[headcount].len = iov_length(vq->iov + seg, in);
+-		datalen -= heads[headcount].len;
+-		++headcount;
+-		seg += in;
+-	}
+-	*iovcount = seg;
+-	return headcount;
+-err:
+-	vhost_discard_desc(vq, headcount);
+-	return r;
+-}
+-
+ /* This looks in the virtqueue and for the first available buffer, and converts
+  * it to an iovec for convenient access.  Since descriptors consist of some
+  * number of output then some number of input descriptors, it's actually two
+diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+index 08d740a..4c9809e 100644
+--- a/drivers/vhost/vhost.h
++++ b/drivers/vhost/vhost.h
+@@ -122,9 +122,6 @@ long vhost_dev_ioctl(struct vhost_dev *, unsigned int ioctl, unsigned long arg);
+ int vhost_vq_access_ok(struct vhost_virtqueue *vq);
+ int vhost_log_access_ok(struct vhost_dev *);
+ 
+-int vhost_get_desc_n(struct vhost_virtqueue *, struct vring_used_elem *heads,
+-		     int datalen, unsigned int *iovcount, struct vhost_log *log,
+-		     unsigned int *log_num);
+ unsigned vhost_get_desc(struct vhost_dev *, struct vhost_virtqueue *,
+ 			   struct iovec iov[], unsigned int iov_count,
+ 			   unsigned int *out_num, unsigned int *in_num,
 
-The interrupt number is usually specified in decimal notation.
-
-> +			interrupt-parent = < &ipic >;
-> +			tclk_period = <10>;
-> +			tmr_prsc    = <100>;
-> +			tmr_add     = <0x999999A4>;
-> +			cksel       = <0x1>;
-> +			tmr_fiper1  = <0x3B9AC9F6>;
-> +			tmr_fiper2  = <0x00018696>;
-> +		};
-
-You should use the prefix "fsl," for the MPC-specific properties, at
-least. A few of the values could be calculated from the clock frequency.
-OF people usually prefer human readable values, if feasible, e.g.
-
-        ptp-clock-source = "sys";
-        ptp-clock-source = "ext";
-	ptp-clock-frequency = "100000000";
-
-Not sure it that works for other PTP hardware but it would be nice to
-have a generic set of properties. I have added a CC to the device-tree
-discuss mailing for further feedback.
-
-> +
->  		enet0: ethernet@24000 {
->  			#address-cells = <1>;
->  			#size-cells = <1>;
-> diff --git a/arch/powerpc/boot/dts/p2020ds.dts b/arch/powerpc/boot/dts/p2020ds.dts
-> index 1101914..1dcf790 100644
-> --- a/arch/powerpc/boot/dts/p2020ds.dts
-> +++ b/arch/powerpc/boot/dts/p2020ds.dts
-> @@ -336,6 +336,19 @@
->  			phy_type = "ulpi";
->  		};
->  
-> +		ptp_clock@24E00 {
-> +			device_type = "ptp_clock";
-> +			model = "eTSEC";
-> +			reg = <0x24E00 0xB0>;
-> +			interrupts = <0x0C 2 0x0D 2>;
-> +			interrupt-parent = < &mpic >;
-> +			tclk_period = <5>;
-> +			tmr_prsc = <200>;
-> +			tmr_add = <0xCCCCCCCD>;
-> +			tmr_fiper1 = <0x3B9AC9FB>;
-> +			tmr_fiper2 = <0x0001869B>;
-> +		};
-> +
->  		enet0: ethernet@24000 {
->  			#address-cells = <1>;
->  			#size-cells = <1>;
-> diff --git a/arch/powerpc/boot/dts/p2020rdb.dts b/arch/powerpc/boot/dts/p2020rdb.dts
-> index da4cb0d..ba61e8e 100644
-> --- a/arch/powerpc/boot/dts/p2020rdb.dts
-> +++ b/arch/powerpc/boot/dts/p2020rdb.dts
-> @@ -396,6 +396,20 @@
->  			phy_type = "ulpi";
->  		};
->  
-> +		ptp_clock@24E00 {
-> +			device_type = "ptp_clock";
-> +			model = "eTSEC";
-> +			reg = <0x24E00 0xB0>;
-> +			interrupts = <0x0C 2 0x0D 2>;
-> +			interrupt-parent = < &mpic >;
-> +			tclk_period = <5>;
-> +			tmr_prsc = <200>;
-> +			tmr_add = <0xCCCCCCCD>;
-> +			cksel = <1>;
-> +			tmr_fiper1 = <0x3B9AC9FB>;
-> +			tmr_fiper2 = <0x0001869B>;
-> +		};
-> +
->  		enet0: ethernet@24000 {
->  			#address-cells = <1>;
->  			#size-cells = <1>;
-> diff --git a/drivers/net/gianfar_ptp.c b/drivers/net/gianfar_ptp.c
-> index eed3246..ed6234c 100644
-> --- a/drivers/net/gianfar_ptp.c
-> +++ b/drivers/net/gianfar_ptp.c
-> @@ -22,6 +22,8 @@
->  #include <linux/init.h>
->  #include <linux/kernel.h>
->  #include <linux/module.h>
-> +#include <linux/of.h>
-> +#include <linux/of_platform.h>
->  #include <linux/timex.h>
->  #include <asm/io.h>
->  
-> @@ -29,29 +31,16 @@
->  
->  #include "gianfar_ptp_reg.h"
->  
-> -/*
-> - *
-> - * TODO - get the following from device tree
-> - *
-> - */
-> -#define TMR_BASE_KERNEL	0xe0024e00 // CONFIG_PPC_85xx 0xffe24e00
-> -#define TIMER_OSC	166666666
-> -#define TCLK_PERIOD	10
-> -#define NOMINAL_FREQ	100000000
-> -#define DEF_TMR_PRSC	100
-> -#define DEF_TMR_ADD	0x999999A4
-> -#define DEFAULT_CKSEL   1
-> -
->  #define REG_SIZE	(4 + TMR_ETTS2_L)
->  
->  struct etsects {
->  	void *regs;
-> -	u32 timer_osc;    /* Hz */
->  	u32 tclk_period;  /* nanoseconds */
-> -	s64 nominal_freq; /* Hz */
->  	u32 tmr_prsc;
->  	u32 tmr_add;
->  	u32 cksel;
-> +	u32 tmr_fiper1;
-> +	u32 tmr_fiper2;
->  };
->  
->  /* Private globals */
-> @@ -111,8 +100,8 @@ static void set_fipers(struct etsects *etsects)
->  
->  	reg_write(etsects, TMR_CTRL,   tmr_ctrl & (~TE));
->  	reg_write(etsects, TMR_PRSC,   etsects->tmr_prsc);
-> -	reg_write(etsects, TMR_FIPER1, 0x3B9AC9F6);
-> -	reg_write(etsects, TMR_FIPER2, 0x00018696);
-> +	reg_write(etsects, TMR_FIPER1, etsects->tmr_fiper1);
-> +	reg_write(etsects, TMR_FIPER2, etsects->tmr_fiper2);
->  	set_alarm(etsects);
->  	reg_write(etsects, TMR_CTRL,   tmr_ctrl|TE);
->  }
-> @@ -213,34 +202,51 @@ struct ptp_clock_info ptp_gianfar_caps = {
->  	.enable		= ptp_gianfar_enable,
->  };
->  
-> -/* module operations */
-> +/* OF device tree */
->  
-> -static void __exit ptp_gianfar_exit(void)
-> +static int get_of_u32(struct device_node *node, char *str, u32 *val)
->  {
-> -	ptp_clock_unregister(&ptp_gianfar_caps);
-> -	iounmap(the_clock.regs);
-> +	int plen;
-> +	const u32 *prop = of_get_property(node, str, &plen);
-> +
-> +	if (!prop || plen != sizeof(*prop))
-> +		return -1;
-> +	*val = *prop;
-> +	return 0;
->  }
->  
-> -static int __init ptp_gianfar_init(void)
-> +static int gianfar_ptp_probe(struct of_device* dev,
-> +			     const struct of_device_id *match)
->  {
-> +	u64 addr, size;
-> +	struct device_node *node = dev->node;
->  	struct etsects *etsects = &the_clock;
->  	struct timespec now;
-> -	phys_addr_t reg_addr = TMR_BASE_KERNEL;
-> -	unsigned long reg_size = REG_SIZE;
-> +	phys_addr_t reg_addr;
-> +	unsigned long reg_size;
->  	u32 tmr_ctrl;
->  	int err;
->  
-> +	if (get_of_u32(node, "tclk_period", &etsects->tclk_period) ||
-> +	    get_of_u32(node, "tmr_prsc", &etsects->tmr_prsc) ||
-> +	    get_of_u32(node, "tmr_add", &etsects->tmr_add) ||
-> +	    get_of_u32(node, "cksel", &etsects->cksel) ||
-> +	    get_of_u32(node, "tmr_fiper1", &etsects->tmr_fiper1) ||
-> +	    get_of_u32(node, "tmr_fiper2", &etsects->tmr_fiper2))
-> +		return -ENODEV;
-> +
-> +	addr = of_translate_address(node, of_get_address(node, 0, &size, NULL));
-> +	reg_addr = addr;
-> +	reg_size = size;
-> +	if (reg_size < REG_SIZE) {
-> +		pr_warning("device tree reg range %lu too small\n", reg_size);
-> +		reg_size = REG_SIZE;
-> +	}
->  	etsects->regs = ioremap(reg_addr, reg_size);
->  	if (!etsects->regs) {
->  		pr_err("ioremap ptp registers failed\n");
->  		return -EINVAL;
->  	}
-> -	etsects->timer_osc = TIMER_OSC;
-> -	etsects->tclk_period = TCLK_PERIOD;
-> -	etsects->nominal_freq = NOMINAL_FREQ;
-> -	etsects->tmr_prsc = DEF_TMR_PRSC;
-> -	etsects->tmr_add = DEF_TMR_ADD;
-> -	etsects->cksel = DEFAULT_CKSEL;
->  
->  	tmr_ctrl =
->  	  (etsects->tclk_period & TCLK_PERIOD_MASK) << TCLK_PERIOD_SHIFT |
-> @@ -252,8 +258,8 @@ static int __init ptp_gianfar_init(void)
->  	reg_write(etsects, TMR_CTRL,   tmr_ctrl);
->  	reg_write(etsects, TMR_ADD,    etsects->tmr_add);
->  	reg_write(etsects, TMR_PRSC,   etsects->tmr_prsc);
-> -	reg_write(etsects, TMR_FIPER1, 0x3B9AC9F6);
-> -	reg_write(etsects, TMR_FIPER2, 0x00018696);
-> +	reg_write(etsects, TMR_FIPER1, etsects->tmr_fiper1);
-> +	reg_write(etsects, TMR_FIPER2, etsects->tmr_fiper2);
->  	set_alarm(etsects);
->  	reg_write(etsects, TMR_CTRL,   tmr_ctrl|FS|RTPE|TE);
->  
-> @@ -261,6 +267,38 @@ static int __init ptp_gianfar_init(void)
->  	return err;
->  }
->  
-> +static int gianfar_ptp_remove(struct of_device* dev)
-> +{
-> +	ptp_clock_unregister(&ptp_gianfar_caps);
-> +	iounmap(the_clock.regs);
-> +	return 0;
-> +}
-> +
-> +static struct of_device_id match_table[] = {
-> +	{ .type = "ptp_clock" },
-> +	{},
-> +};
-> +
-> +static struct of_platform_driver gianfar_ptp_driver = {
-> +	.name        = "gianfar_ptp",
-> +	.match_table = match_table,
-> +	.owner       = THIS_MODULE,
-> +	.probe       = gianfar_ptp_probe,
-> +	.remove      = gianfar_ptp_remove,
-> +};
-> +
-> +/* module operations */
-> +
-> +static void __exit ptp_gianfar_exit(void)
-> +{
-> +	of_unregister_platform_driver(&gianfar_ptp_driver);
-> +}
-> +
-> +static int __init ptp_gianfar_init(void)
-> +{
-> +	return of_register_platform_driver(&gianfar_ptp_driver);
-> +}
-> +
->  subsys_initcall(ptp_gianfar_init);
->  module_exit(ptp_gianfar_exit);
-
-Wolfgang.
+-- 
+MST
