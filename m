@@ -1,107 +1,112 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: OFT - reserving CPU's for networking
-Date: Thu, 29 Apr 2010 11:10:47 -0700
-Message-ID: <20100429111047.031eeff9@nehalam>
-References: <1272010378-2955-1-git-send-email-xiaosuo@gmail.com>
-	<1272014825.7895.7851.camel@edumazet-laptop>
-	<1272060153.8918.8.camel@bigi>
-	<1272118252.8918.13.camel@bigi>
-	<1272290584.19143.43.camel@edumazet-laptop>
-	<1272293707.19143.51.camel@edumazet-laptop>
-	<20100429174056.GA8044@gargoyle.fritz.box>
-	<1272563772.2222.301.camel@edumazet-laptop>
+From: <gregkh@suse.de>
+Subject: patch sysfs-add-support-for-tagged-directories-with-untagged-members.patch added to gregkh-2.6 tree
+Date: Thu, 29 Apr 2010 13:29:04 -0700
+Message-ID: <1272572944250@kroah.org>
+References: <1269973889-25260-4-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andi Kleen <ak@gargoyle.fritz.box>, netdev@vger.kernel.org,
-	Andi Kleen <andi@firstfloor.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Thomas Gleixner <tglx@linutronix.de>
+Content-Type: text/plain; charset=ANSI_X3.4-1968
+Content-Transfer-Encoding: 8bit
+To: ebiederm@xmission.com, bcrl@lhnet.ca, cornelia.huck@de.ibm.com,
+	ebiederm@aristanetworks.com, ebiederm@maxwell.aristanetworks.com,
+	eric.dumazet@gmail.com, gregkh@suse.de, kay.sievers@vr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:56166 "EHLO mail.vyatta.com"
+Received: from kroah.org ([198.145.64.141]:58701 "EHLO coco.kroah.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757939Ab0D3RFY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 13:05:24 -0400
-In-Reply-To: <1272563772.2222.301.camel@edumazet-laptop>
+	id S932707Ab0D3RIg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Apr 2010 13:08:36 -0400
+In-Reply-To: <1269973889-25260-4-git-send-email-ebiederm@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Le jeudi 29 avril 2010 =C3=A0 19:42 +0200, Andi Kleen a =C3=A9crit :
-> > > Andi, what do you think of this one ?
-> > > Dont we have a function to send an IPI to an individual cpu inste=
-ad ? =20
-> >=20
-> > That's what this function already does. You only set a single CPU=20
-> > in the target mask, right?
-> >=20
-> > IPIs are unfortunately always a bit slow. Nehalem-EX systems have X=
-2APIC
-> > which is a bit faster for this, but that's not available in the low=
-er
-> > end Nehalems. But even then it's not exactly fast.
-> >=20
-> > I don't think the IPI primitive can be optimized much. It's not a c=
-heap=20
-> > operation.
-> >=20
-> > If it's a problem do it less often and batch IPIs.
-> >=20
-> > It's essentially the same problem as interrupt mitigation or NAPI=20
-> > are solving for NICs. I guess just need a suitable mitigation mecha=
-nism.
-> >=20
-> > Of course that would move more work to the sending CPU again, but=20
-> > perhaps there's no alternative. I guess you could make it cheaper i=
-t by
-> > minimizing access to packet data.
-> >=20
-> > -Andi =20
->=20
-> Well, IPI are already batched, and rate is auto adaptative.
->=20
-> After various changes, it seems things are going better, maybe there =
-is
-> something related to cache line trashing.
->=20
-> I 'solved' it by using idle=3Dpoll, but you might take a look at
-> clockevents_notify (acpi_idle_enter_bm) abuse of a shared and higly
-> contended spinlock...
->=20
->=20
->=20
->=20
->     23.52%            init  [kernel.kallsyms]             [k] _raw_sp=
-in_lock_irqsave
->                       |
->                       --- _raw_spin_lock_irqsave
->                          |         =20
->                          |--94.74%-- clockevents_notify
->                          |          lapic_timer_state_broadcast
->                          |          acpi_idle_enter_bm
->                          |          cpuidle_idle_call
->                          |          cpu_idle
->                          |          start_secondary
->                          |         =20
->                          |--4.10%-- tick_broadcast_oneshot_control
->                          |          tick_notify
->                          |          notifier_call_chain
->                          |          __raw_notifier_call_chain
->                          |          raw_notifier_call_chain
->                          |          clockevents_do_notify
->                          |          clockevents_notify
->                          |          lapic_timer_state_broadcast
->                          |          acpi_idle_enter_bm
->                          |          cpuidle_idle_call
->                          |          cpu_idle
->                          |          start_secondary
->                          |         =20
->=20
+
+This is a note to let you know that I've just added the patch titled
+
+    Subject: sysfs: Add support for tagged directories with untagged members.
+
+to my gregkh-2.6 tree.  Its filename is
+
+    sysfs-add-support-for-tagged-directories-with-untagged-members.patch
+
+This tree can be found at 
+    http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/
 
 
-I keep getting asked about taking some core's away from clock and sched=
-uler
-to be reserved just for network processing. Seeing this kind of stuff
-makes me wonder if maybe that isn't a half bad idea.
+>From ebiederm@xmission.com  Thu Apr 29 12:47:00 2010
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Tue, 30 Mar 2010 11:31:27 -0700
+Subject: sysfs: Add support for tagged directories with untagged members.
+To: Greg Kroah-Hartman <gregkh@suse.de>
+Cc: Kay Sievers <kay.sievers@vrfy.org>, linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>, Cornelia Huck <cornelia.huck@de.ibm.com>, linux-fsdevel@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>, Benjamin LaHaise <bcrl@lhnet.ca>, Serge Hallyn <serue@us.ibm.com>, <netdev@vger.kernel.org>, "Eric W. Biederman" <ebiederm@maxwell.aristanetworks.com>, "Eric W. Biederman" <ebiederm@aristanetworks.com>
+Message-ID: <1269973889-25260-4-git-send-email-ebiederm@xmission.com>
 
 
---=20
+From: Eric W. Biederman <ebiederm@maxwell.aristanetworks.com>
+
+I had hopped to avoid this but the bonding driver adds a file
+to /sys/class/net/  and the easiest way to handle that file is
+to make it untagged and to register it only once.
+
+So relax the rules on tagged directories, and make bonding work.
+
+Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+
+---
+ fs/sysfs/dir.c   |   12 +++---------
+ fs/sysfs/inode.c |    2 ++
+ 2 files changed, 5 insertions(+), 9 deletions(-)
+
+--- a/fs/sysfs/dir.c
++++ b/fs/sysfs/dir.c
+@@ -383,12 +383,6 @@ int __sysfs_add_one(struct sysfs_addrm_c
+ 	if (sysfs_find_dirent(acxt->parent_sd, sd->s_ns, sd->s_name))
+ 		return -EEXIST;
+ 
+-	if (sysfs_ns_type(acxt->parent_sd) && !sd->s_ns) {
+-		WARN(1, KERN_WARNING "sysfs: ns required in '%s' for '%s'\n",
+-			acxt->parent_sd->s_name, sd->s_name);
+-		return -EINVAL;
+-	}
+-
+ 	sd->s_parent = sysfs_get(acxt->parent_sd);
+ 
+ 	sysfs_link_sibling(sd);
+@@ -545,7 +539,7 @@ struct sysfs_dirent *sysfs_find_dirent(s
+ 	struct sysfs_dirent *sd;
+ 
+ 	for (sd = parent_sd->s_dir.children; sd; sd = sd->s_sibling) {
+-		if (sd->s_ns != ns)
++		if (ns && sd->s_ns && (sd->s_ns != ns))
+ 			continue;
+ 		if (!strcmp(sd->s_name, name))
+ 			return sd;
+@@ -879,7 +873,7 @@ static struct sysfs_dirent *sysfs_dir_po
+ 		while (pos && (ino > pos->s_ino))
+ 			pos = pos->s_sibling;
+ 	}
+-	while (pos && pos->s_ns != ns)
++	while (pos && pos->s_ns && pos->s_ns != ns)
+ 		pos = pos->s_sibling;
+ 	return pos;
+ }
+@@ -890,7 +884,7 @@ static struct sysfs_dirent *sysfs_dir_ne
+ 	pos = sysfs_dir_pos(ns, parent_sd, ino, pos);
+ 	if (pos)
+ 		pos = pos->s_sibling;
+-	while (pos && pos->s_ns != ns)
++	while (pos && pos->s_ns && pos->s_ns != ns)
+ 		pos = pos->s_sibling;
+ 	return pos;
+ }
+--- a/fs/sysfs/inode.c
++++ b/fs/sysfs/inode.c
+@@ -335,6 +335,8 @@ int sysfs_hash_and_remove(struct sysfs_d
+ 	sysfs_addrm_start(&acxt, dir_sd);
+ 
+ 	sd = sysfs_find_dirent(dir_sd, ns, name);
++	if (sd && (sd->s_ns != ns))
++		sd = NULL;
+ 	if (sd)
+ 		sysfs_remove_one(&acxt, sd);
+ 
+
