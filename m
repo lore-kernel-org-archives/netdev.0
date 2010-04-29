@@ -1,157 +1,81 @@
 From: Ben Dooks <ben@simtec.co.uk>
-Subject: [patch 01/13] KS8851: Fix ks8851 snl transmit problem
-Date: Fri, 30 Apr 2010 00:16:22 +0100
-Message-ID: <20100429231739.509103394@fluff.org.uk>
+Subject: [patch 03/13] eeprom_93cx6: Add data direction control.
+Date: Fri, 30 Apr 2010 00:16:24 +0100
+Message-ID: <20100429231739.749602911@fluff.org.uk>
 References: <20100429231621.015936077@fluff.org.uk>
 Cc: tristram.ha@micrel.com, support@tincantools.com,
-	Tristram Ha <Tristram.Ha@micrel.com>
+	Wolfram Sang <w.sang@pengutronix.de>,
+	Jean Delvare <khali@linux-fr.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aeryn.fluff.org.uk ([87.194.8.8]:27351 "EHLO
-	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932733Ab0D3Vsf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 17:48:35 -0400
-Content-Disposition: inline; filename=thirdparty/micrel/ks8851-tx-fix.patch
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline; filename=93c-eeprom-add-direction.patch
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tristram Ha <Tristram.Ha@micrel.com>
+Some devices need to know if the data is to be output or read, so add a
+data direction into the eeprom structure to tell the driver whether the
+data line should be driven.
 
-This fixes a transmit problem of the ks8851 snl network driver.
+The user in this case is the Micrel KS8851 which has a direction
+control for the EEPROM data line and thus needs to know whether
+to drive it (writing) or to tristate it for receiving.
 
-Under heavy TCP traffic the device will stop transmitting. Turning off
-the transmit interrupt avoids this issue.  A new workqueue was
-implemented to replace the functionality of the transmit interrupt processing.
+Signed-off-by: Ben Dooks <ben@simtec.co.uk>
+Cc: Wolfram Sang <w.sang@pengutronix.de>
+Cc: Jean Delvare <khali@linux-fr.org>
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>
 
-Signed-off-by: Tristram Ha <Tristram.Ha@micrel.com>
+--
+ drivers/misc/eeprom/eeprom_93cx6.c |    3 +++
+ include/linux/eeprom_93cx6.h       |    2 ++
+ 2 files changed, 5 insertions(+)
 
----
----
- drivers/net/ks8851.c |   38 ++++++++++++++++++++------------------
- 1 file changed, 20 insertions(+), 18 deletions(-)
-
-Index: b/drivers/net/ks8851.c
+Index: b/drivers/misc/eeprom/eeprom_93cx6.c
 ===================================================================
---- a/drivers/net/ks8851.c	2010-04-20 18:13:58.000000000 +0100
-+++ b/drivers/net/ks8851.c	2010-04-20 18:38:18.000000000 +0100
-@@ -111,11 +111,13 @@ struct ks8851_net {
- 	struct mii_if_info	mii;
- 	struct ks8851_rxctrl	rxctrl;
+--- a/drivers/misc/eeprom/eeprom_93cx6.c	2009-10-06 15:35:38.000000000 +0100
++++ b/drivers/misc/eeprom/eeprom_93cx6.c	2009-10-06 15:51:18.000000000 +0100
+@@ -70,6 +70,7 @@ static void eeprom_93cx6_startup(struct 
+ 	eeprom->reg_data_out = 0;
+ 	eeprom->reg_data_clock = 0;
+ 	eeprom->reg_chip_select = 1;
++	eeprom->drive_data = 1;
+ 	eeprom->register_write(eeprom);
  
-+	struct work_struct	tx_check;
- 	struct work_struct	tx_work;
- 	struct work_struct	irq_work;
- 	struct work_struct	rxctrl_work;
+ 	/*
+@@ -108,6 +109,7 @@ static void eeprom_93cx6_write_bits(stru
+ 	 */
+ 	eeprom->reg_data_in = 0;
+ 	eeprom->reg_data_out = 0;
++	eeprom->drive_data = 1;
  
- 	struct sk_buff_head	txq;
-+	int			tx_len;
+ 	/*
+ 	 * Start writing all bits.
+@@ -147,6 +149,7 @@ static void eeprom_93cx6_read_bits(struc
+ 	 */
+ 	eeprom->reg_data_in = 0;
+ 	eeprom->reg_data_out = 0;
++	eeprom->drive_data = 0;
  
- 	struct spi_message	spi_msg1;
- 	struct spi_message	spi_msg2;
-@@ -573,19 +575,6 @@ static void ks8851_irq_work(struct work_
- 	if (status & IRQ_RXPSI)
- 		handled |= IRQ_RXPSI;
+ 	/*
+ 	 * Start reading all bits.
+Index: b/include/linux/eeprom_93cx6.h
+===================================================================
+--- a/include/linux/eeprom_93cx6.h	2009-10-06 15:35:38.000000000 +0100
++++ b/include/linux/eeprom_93cx6.h	2009-10-06 15:51:18.000000000 +0100
+@@ -45,6 +45,7 @@
+  * @register_write(struct eeprom_93cx6 *eeprom): handler to
+  * write to the eeprom register by using all reg_* fields.
+  * @width: eeprom width, should be one of the PCI_EEPROM_WIDTH_* defines
++ * @drive_data: Set if we're driving the data line.
+  * @reg_data_in: register field to indicate data input
+  * @reg_data_out: register field to indicate data output
+  * @reg_data_clock: register field to set the data clock
+@@ -61,6 +62,7 @@ struct eeprom_93cx6 {
  
--	if (status & IRQ_TXI) {
--		handled |= IRQ_TXI;
--
--		/* no lock here, tx queue should have been stopped */
--
--		/* update our idea of how much tx space is available to the
--		 * system */
--		ks->tx_space = ks8851_rdreg16(ks, KS_TXMIR);
--
--		if (netif_msg_intr(ks))
--			ks_dbg(ks, "%s: txspace %d\n", __func__, ks->tx_space);
--	}
--
- 	if (status & IRQ_RXI)
- 		handled |= IRQ_RXI;
+ 	int width;
  
-@@ -623,9 +612,6 @@ static void ks8851_irq_work(struct work_
- 
- 	mutex_unlock(&ks->lock);
- 
--	if (status & IRQ_TXI)
--		netif_wake_queue(ks->netdev);
--
- 	enable_irq(ks->netdev->irq);
- }
- 
-@@ -703,6 +689,17 @@ static void ks8851_done_tx(struct ks8851
- 	dev_kfree_skb(txb);
- }
- 
-+static void ks8851_tx_check(struct work_struct *work)
-+{
-+	struct ks8851_net *ks = container_of(work, struct ks8851_net, tx_check);
-+
-+	ks->tx_space = ks8851_rdreg16(ks, KS_TXMIR);
-+	if (ks->tx_space > ks->tx_len)
-+		netif_wake_queue(ks->netdev);
-+	else
-+		schedule_work(&ks->tx_check);
-+}
-+
- /**
-  * ks8851_tx_work - process tx packet(s)
-  * @work: The work strucutre what was scheduled.
-@@ -814,7 +811,6 @@ static int ks8851_net_open(struct net_de
- 	/* clear then enable interrupts */
- 
- #define STD_IRQ (IRQ_LCI |	/* Link Change */	\
--		 IRQ_TXI |	/* TX done */		\
- 		 IRQ_RXI |	/* RX done */		\
- 		 IRQ_SPIBEI |	/* SPI bus error */	\
- 		 IRQ_TXPSI |	/* TX process stop */	\
-@@ -830,6 +826,7 @@ static int ks8851_net_open(struct net_de
- 		ks_dbg(ks, "network device %s up\n", dev->name);
- 
- 	mutex_unlock(&ks->lock);
-+	ks8851_write_mac_addr(dev);
- 	return 0;
- }
- 
-@@ -854,6 +851,7 @@ static int ks8851_net_stop(struct net_de
- 
- 	/* stop any outstanding work */
- 	flush_work(&ks->irq_work);
-+	flush_work(&ks->tx_check);
- 	flush_work(&ks->tx_work);
- 	flush_work(&ks->rxctrl_work);
- 
-@@ -912,14 +910,16 @@ static netdev_tx_t ks8851_start_xmit(str
- 
- 	if (needed > ks->tx_space) {
- 		netif_stop_queue(dev);
-+		ks->tx_len = needed;
-+		schedule_work(&ks->tx_check);
- 		ret = NETDEV_TX_BUSY;
- 	} else {
- 		ks->tx_space -= needed;
- 		skb_queue_tail(&ks->txq, skb);
-+		schedule_work(&ks->tx_work);
- 	}
- 
- 	spin_unlock(&ks->statelock);
--	schedule_work(&ks->tx_work);
- 
- 	return ret;
- }
-@@ -1227,6 +1227,7 @@ static int __devinit ks8851_probe(struct
- 	mutex_init(&ks->lock);
- 	spin_lock_init(&ks->statelock);
- 
-+	INIT_WORK(&ks->tx_check, ks8851_tx_check);
- 	INIT_WORK(&ks->tx_work, ks8851_tx_work);
- 	INIT_WORK(&ks->irq_work, ks8851_irq_work);
- 	INIT_WORK(&ks->rxctrl_work, ks8851_rxctrl_work);
-@@ -1279,6 +1280,7 @@ static int __devinit ks8851_probe(struct
- 
- 	ks8851_read_selftest(ks);
- 	ks8851_init_mac(ks);
-+	ks->tx_space = ks8851_rdreg16(ks, KS_TXMIR);
- 
- 	ret = request_irq(spi->irq, ks8851_irq, IRQF_TRIGGER_LOW,
- 			  ndev->name, ks);
-
++	char drive_data;
+ 	char reg_data_in;
+ 	char reg_data_out;
+ 	char reg_data_clock;
