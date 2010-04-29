@@ -1,69 +1,52 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: ixgbe and mac-vlans problem
-Date: Fri, 30 Apr 2010 15:20:22 -0700
-Message-ID: <4BDB57A6.1090400@candelatech.com>
-References: <4BDA07DB.8020206@candelatech.com> <201004302000.58763.arnd@arndb.de> <4BDB1CF3.8030906@candelatech.com> <EA929A9653AAE14F841771FB1DE5A1365FE55609F0@rrsmsx501.amr.corp.intel.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch] ipv6: cleanup: remove unneeded null check
+Date: Thu, 29 Apr 2010 16:30:35 +0200
+Message-ID: <20100429143034.GI29093@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>, NetDev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Emil S Tantilov <emils.tantilov@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	kernel-janitors@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:39956 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756600Ab0D3WU3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 18:20:29 -0400
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FE55609F0@rrsmsx501.amr.corp.intel.com>
+Received: from mail-qy0-f183.google.com ([209.85.221.183]:33119 "EHLO
+	mail-qy0-f183.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759775Ab0D3WWR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 18:22:17 -0400
+Received: by qyk13 with SMTP id 13so961123qyk.1
+        for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 15:22:16 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/30/2010 02:13 PM, Tantilov, Emil S wrote:
-> Ben Greear wrote:
->> On 04/30/2010 11:00 AM, Arnd Bergmann wrote:
->>> On Friday 30 April 2010 00:27:39 Ben Greear wrote:
->>>> Basically, we create 50 mac-vlans, with sequential MAC addresses
->>>> and sequential IP addresses, and set up ip rules properly.
->>>>
->>>> The issue is that only 10 or so of the mac-vlans receive other than
->>>> broadcast packets.  The ixgbe NIC doesn't show PROMISC mode.
->>>
->>> I just took a brief look at the driver and noticed that 82599 should
->>> be able to handle 128 entries before going into promisc mode, while
->>> 82598 (the same driver) does 16.
->>>
->>> Maybe the logic for>16 entries is wrong, so you could try forcing
->>> hw->mac.num_rar_entries to 16 for 82599 as well.
->>
->> I think I was actually on an 825998 system when I saw it yesterday,
->> but I have seen similar issues on 82599, though I didn't take time
->> to debug it fully, so it could have been something else.
->>
->> I will double-check the NIC chipset on the system that showed the
->> problem yesterday.
->
-> I ran a quick test in my setup with 82599 and was able to pass traffic
-> on all 50 mac-vlans without issues. This is on net-next.
+We dereference "sk" unconditionally elsewhere in the function.  
 
-For an 82599 system, I can get 127 mac-vlans working out of 500 created.
+This was left over from:  b30bd282 "ip6_xmit: remove unnecessary NULL
+ptr check".  According to that commit message, "the sk argument to 
+ip6_xmit is never NULL nowadays since the skb->priority assigment 
+expects a valid socket."
 
-That NIC also does not go PROMISC with lots (500) of mac-vlans.
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-Once I put it in promisc mode manually, it works fine.
-
-So, I think whatever logic is supposed to put the NIC into promisc
-mode when it overflows it's lookup tables isn't working for ixgbe
-in 2.6.31.12.
-
-Thanks,
-Ben
-
->
-> Thanks,
-> Emil
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 75d5ef8..d26c6ae 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -218,8 +218,7 @@ int ip6_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl,
+ 			}
+ 			kfree_skb(skb);
+ 			skb = skb2;
+-			if (sk)
+-				skb_set_owner_w(skb, sk);
++			skb_set_owner_w(skb, sk);
+ 		}
+ 		if (opt->opt_flen)
+ 			ipv6_push_frag_opts(skb, opt, &proto);
