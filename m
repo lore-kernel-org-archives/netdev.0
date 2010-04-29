@@ -1,68 +1,41 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: patch sysfs-implement-sysfs-tagged-directory-support.patch added
- to gregkh-2.6 tree
-Date: Fri, 30 Apr 2010 07:37:20 +0200
-Message-ID: <4BDA6C90.9010303@kernel.org>
-References: <12725729473590@kroah.org> <4BDA5A2D.6080904@kernel.org>	<20100430044522.GA29845@suse.de> <m1aaslbjh4.fsf@fess.ebiederm.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 0/3] [RFC] ptp: IEEE 1588 clock support
+Date: Thu, 29 Apr 2010 11:42:08 +0200
+Message-ID: <20100429094208.GA6889@riccoc20.at.omicron.at>
+References: <20100427091344.GA5086@riccoc20.at.omicron.at> <20100427102025.GA6471@riccoc20.at.omicron.at> <4BD6E837.2040505@grandegger.com> <4BD70EC9.7080004@grandegger.com> <20100428054706.GA4516@riccoc20.at.omicron.at> <4BD83D37.4060301@grandegger.com> <4BD846C7.1050006@grandegger.com> <20100429083833.GA4629@riccoc20.at.omicron.at> <4BD95048.7050606@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Greg KH <gregkh@suse.de>, bcrl@lhnet.ca, benjamin.thery@bull.net,
-	cornelia.huck@de.ibm.com, eric.dumazet@gmail.com,
-	kay.sievers@vrfy.org, netdev@vger.kernel.org, serue@us.ibm.com
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:60359 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757259Ab0D3RE2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Apr 2010 13:04:28 -0400
-In-Reply-To: <m1aaslbjh4.fsf@fess.ebiederm.org>
+Received: from fg-out-1718.google.com ([72.14.220.155]:49981 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932501Ab0D3RDs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 13:03:48 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so4461180fgg.1
+        for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 10:03:47 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <4BD95048.7050606@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Thu, Apr 29, 2010 at 11:24:24AM +0200, Wolfgang Grandegger wrote:
+> I used these interrupt number fixes as well but it was not necessary for
+> the actual net-next-2.6 tree. Need to check why? I remember some version
+> dependent re-mapping code.
 
-On 04/30/2010 07:24 AM, Eric W. Biederman wrote:
->>> I wish at least more comments are added before it goes mainline.  I
->>> don't really understand the current form.
->>
->> Ok, that's fine with me, I'll pull it back out.
-> 
-> ?????
-> 
-> Tejun you have offered nothing constructive to the review, except looking
-> and saying you don't understand what is going on.
+I argued on the ppc list with Scott Wood about adding dts files, one
+for each of mpc8313 rev A, B, and C, but he advocated fixing this
+problem in uboot instead. Is the fix in uboot, or in the kernel?
 
-Eric, no need to get too touchy and you're right in part in saying all
-I'm saying is basically "I don't understand it" which is the same
-reason why I'm not nacking it and explicitly stated that I would be
-okay with the series going in if Greg/Kay would be okay with it.
-Again, about the same thing with the above comment, I was *wishing*
-for more comments *before it goes mainline*.
+> That's missing to get the PPS signal output. But it should probably go
+> to gianfar_ptp.c.
 
-> Tejun I think for the code to make any sense to you I would need to rip
-> out out and/or rewrite the kobject layer, and possible the device
-> model code as well.
+Well, this fix is specific to the mpc8313, but the gianfar_ptp driver
+is for all eTECs. For example, I have the ptp code running on the
+p2020rdb and p2020ds, too.
 
-And yes, in the long run, please do that.
+I don't think board fixups really belong in the PTP clock driver.
 
-> Tejun I'm sorry you can't understand the code, and I'm sorry the code
-> may be over-general.  In part that is because making the code
-> over-general is what you asked for when reviewing it the first time.
-
-Please give me some credit.  I mean that the code is difficult to
-follow and justify when I say I don't understand it.  Yeah, I tried to
-understand it and I think I understand how it *works* in its current
-form but I just don't think the design is justified or logical.  You
-say it's infeasible to do it in straightforward manner in reasonable
-amount of time and that's why I neither acked or nacked the series and
-deferred the decision to the subsystem maintainer.
-
-But, at the very least, please add some comments.  Try to explain what
-each callbacks are supposed to do and why they're there.  Not everyone
-lives in your head.
-
-Thanks.
-
--- 
-tejun
+Just my 2 cents,
+Richard
