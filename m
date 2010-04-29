@@ -1,95 +1,128 @@
-From: Mikulas Patocka <mpatocka@redhat.com>
-Subject: RCU error in networking (was: crash with bridge and inconsistent
- handling of NETDEV_TX_OK)
-Date: Thu, 29 Apr 2010 18:14:11 -0400 (EDT)
-Message-ID: <Pine.LNX.4.64.1004291811420.26080@hs20-bc2-1.build.redhat.com>
-References: <20100420.181648.183008607.davem@davemloft.net>
- <Pine.LNX.4.64.1004202120180.29631@hs20-bc2-1.build.redhat.com>
- <20100420.182407.174368203.davem@davemloft.net> <20100420.190127.66303903.davem@davemloft.net>
- <Pine.LNX.4.64.1004210915220.11040@hs20-bc2-1.build.redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH] macvtap: add ioctl to modify vnet header size
+Date: Thu, 29 Apr 2010 16:51:58 +0300
+Message-ID: <20100429135158.GA26303@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"Michael S. Tsirkin" <mst@redhat.co
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mx1.redhat.com ([209.132.183.28]:30982 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932702Ab0D3RVy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Apr 2010 13:21:54 -0400
-In-Reply-To: <Pine.LNX.4.64.1004210915220.11040@hs20-bc2-1.build.redhat.com>
+	id S933154Ab0D3RV6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Apr 2010 13:21:58 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This adds TUNSETVNETHDRSZ/TUNGETVNETHDRSZ support
+to macvtap.
 
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
 
-On Wed, 21 Apr 2010, Mikulas Patocka wrote:
+This just mirrors the support in tun,
+http://lkml.org/lkml/2010/3/17/221
+so that we can make vhost mergeable buffers work with macvtap as well.
 
-> 
-> 
-> On Tue, 20 Apr 2010, David Miller wrote:
-> 
-> > 
-> > I looked more at your crash report.
-> > 
-> > You shouldn't even be in this code path for other reasons, namely
-> > skb->next should be NULL.  But it's not in your case.  skb->next would
-> > only be non-NULL for GSO frames, which we've established we should not
-> > be seeing here.
-> > 
-> > Given that skb->next is non-NULL and the fraglists of this SKB are
-> > corrupted (next pointer is 0x18), I think we're getting memory
-> > corruption from somewhere else.  This also jives with the fact that
-> > this is not readily reproducable.
-> 
-> The crash happened just a few days after I started to use the machine for 
-> bridging. There were no unexplained crashes before. So I suspect that the 
-> cause is bridging or tg3.
-> 
-> > The whole ->ndo_start_xmit() return value stuff is unrelated to this
-> > issue, we shouldn't even be in this code path.  In fact, if reverting
-> > that TX flags handling commit makes your crashes go away it would be a
-> > huge surprise.
-> 
-> I thought that if some weird ->ndo_start_xmit() return values appeared, 
-> this would lead to misunderstanding who owns the skb, using of already 
-> deallocated skb and mentioned memory corruption. But I can't prove it.
-> 
-> Mikulas
+I plan to merge both patches through vhost tree together
+with mergeable buffer support. Comments?
 
+ drivers/net/macvtap.c |   31 +++++++++++++++++++++++++++----
+ 1 files changed, 27 insertions(+), 4 deletions(-)
 
-BTW. when I enabled lockdep, I got this (2.6.34-rc5; the machine is no 
-longer bridging, it has just a single interface):
-
-Mikulas
-
-===================================================
-[ INFO: suspicious rcu_dereference_check() usage. ]
----------------------------------------------------
-net/core/dev.c:1993 invoked rcu_dereference_check() without protection!
-
-other info that might help us debug this:
-
-
-rcu_scheduler_active = 1, debug_locks = 0
-2 locks held by ntpd/1462:
- #0:  (sk_lock-AF_INET){+.+.+.}, at: [<0000000000678d88>] 
-udp_sendmsg+0x208/0x620
- #1:  (rcu_read_lock_bh){.+....}, at: [<00000000006305e0>] 
-dev_queue_xmit+0x40/0x660
-
-stack backtrace:
-Call Trace:
- [000000000047bb88] lockdep_rcu_dereference+0x88/0xa0
- [0000000000630adc] dev_queue_xmit+0x53c/0x660
- [0000000000654e10] ip_finish_output+0x190/0x340
- [000000000065501c] ip_output+0x5c/0x80
- [0000000000655200] ip_local_out+0x20/0x40
- [0000000000655540] ip_push_pending_frames+0x320/0x3e0
- [0000000000676ec4] udp_push_pending_frames+0x164/0x440
- [0000000000678e60] udp_sendmsg+0x2e0/0x620
- [000000000068044c] inet_sendmsg+0x2c/0x60
- [000000000061cf24] sock_sendmsg+0x64/0xa0
- [000000000061d738] SyS_sendto+0x98/0xe0
- [000000000061b2b8] SyS_send+0x18/0x40
- [0000000000406054] linux_sparc_syscall32+0x34/0x40
-
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index d97e1fd..6451c4b 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -37,6 +37,7 @@
+ struct macvtap_queue {
+ 	struct sock sk;
+ 	struct socket sock;
++	int vnet_hdr_sz;
+ 	struct macvlan_dev *vlan;
+ 	struct file *file;
+ 	unsigned int flags;
+@@ -280,6 +281,7 @@ static int macvtap_open(struct inode *inode, struct file *file)
+ 	sock_init_data(&q->sock, &q->sk);
+ 	q->sk.sk_write_space = macvtap_sock_write_space;
+ 	q->flags = IFF_VNET_HDR | IFF_NO_PI | IFF_TAP;
++	q->vnet_hdr_sz = sizeof(struct virtio_net_hdr);
+ 
+ 	err = macvtap_set_queue(dev, file, q);
+ 	if (err)
+@@ -440,14 +442,14 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q,
+ 	int vnet_hdr_len = 0;
+ 
+ 	if (q->flags & IFF_VNET_HDR) {
+-		vnet_hdr_len = sizeof(vnet_hdr);
++		vnet_hdr_len = q->vnet_hdr_sz;
+ 
+ 		err = -EINVAL;
+ 		if ((len -= vnet_hdr_len) < 0)
+ 			goto err;
+ 
+ 		err = memcpy_fromiovecend((void *)&vnet_hdr, iv, 0,
+-					   vnet_hdr_len);
++					   sizeof(vnet_hdr));
+ 		if (err < 0)
+ 			goto err;
+ 		if ((vnet_hdr.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) &&
+@@ -529,7 +531,7 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+ 
+ 	if (q->flags & IFF_VNET_HDR) {
+ 		struct virtio_net_hdr vnet_hdr;
+-		vnet_hdr_len = sizeof (vnet_hdr);
++		vnet_hdr_len = q->vnet_hdr_sz;
+ 		if ((len -= vnet_hdr_len) < 0)
+ 			return -EINVAL;
+ 
+@@ -537,7 +539,7 @@ static ssize_t macvtap_put_user(struct macvtap_queue *q,
+ 		if (ret)
+ 			return ret;
+ 
+-		if (memcpy_toiovecend(iv, (void *)&vnet_hdr, 0, vnet_hdr_len))
++		if (memcpy_toiovecend(iv, (void *)&vnet_hdr, 0, sizeof(vnet_hdr)))
+ 			return -EFAULT;
+ 	}
+ 
+@@ -622,6 +624,8 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+ 	struct ifreq __user *ifr = argp;
+ 	unsigned int __user *up = argp;
+ 	unsigned int u;
++	int __user *sp = argp;
++	int s;
+ 	int ret;
+ 
+ 	switch (cmd) {
+@@ -667,6 +671,25 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+ 		q->sk.sk_sndbuf = u;
+ 		return 0;
+ 
++	case TUNGETVNETHDRSZ:
++		s = q->vnet_hdr_sz;
++		if (put_user(s, sp))
++			ret = -EFAULT;
++		break;
++
++	case TUNSETVNETHDRSZ:
++		if (get_user(s, sp)) {
++			ret = -EFAULT;
++			break;
++		}
++		if (s < (int)sizeof(struct virtio_net_hdr)) {
++			ret = -EINVAL;
++			break;
++		}
++
++		q->vnet_hdr_sz = s;
++		break;
++
+ 	case TUNSETOFFLOAD:
+ 		/* let the user check for future flags */
+ 		if (arg & ~(TUN_F_CSUM | TUN_F_TSO4 | TUN_F_TSO6 |
+-- 
+1.7.1.rc1.22.g3163
