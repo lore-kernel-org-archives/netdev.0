@@ -1,359 +1,199 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCHv7] add mergeable buffers support to vhost_net
-Date: Fri, 30 Apr 2010 09:48:55 -0700
-Message-ID: <OF1AAB7A88.8809F193-ON88257715.005C4266-88257715.005C5F92@us.ibm.com>
-References: <20100429134515.GA26287@redhat.com>
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH 5/5] sctp: Fix oops when sending queued ASCONF chunks
+Date: Thu, 29 Apr 2010 10:26:52 -0400
+Message-ID: <4BD9972C.4000103@hp.com>
+References: <1272480442-32673-1-git-send-email-vladislav.yasevich@hp.com> <1272480442-32673-6-git-send-email-vladislav.yasevich@hp.com> <4BD99310.8020207@research.ait.ie>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
-	virtualization@lists.osdl.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-sctp@vger.kernel.org, Yuansong Qiao <ysqiao@research.ait.ie>
+To: Shuaijun Zhang <szhang@research.ait.ie>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:58470 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757582Ab0D3QtA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 12:49:00 -0400
-In-Reply-To: <20100429134515.GA26287@redhat.com>
+Received: from g6t0186.atlanta.hp.com ([15.193.32.63]:27840 "EHLO
+	g6t0186.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757639Ab0D3Que (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 12:50:34 -0400
+In-Reply-To: <4BD99310.8020207@research.ait.ie>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Michael S. Tsirkin" <mst@redhat.com> wrote on 04/29/2010 06:45:15 AM:
 
-> On Wed, Apr 28, 2010 at 01:57:12PM -0700, David L Stevens wrote:
-> > This patch adds mergeable receive buffer support to vhost_net.
-> > 
-> > Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
-> 
-> I have applied this, thanks very much!
-> I have also applied some tweaks on top,
-> please take a look.
-> 
-> Thanks,
-> MSt
-> 
 
-Looks fine to me.
+Shuaijun Zhang wrote:
+> Vlad Yasevich wrote:
+>> When we finish processing ASCONF_ACK chunk, we try to send
+>> the next queued ASCONF.  This action runs the sctp state
+>> machine recursively and it's not prepared to do so.
+>>
+>> kernel BUG at kernel/timer.c:790!
+>> invalid opcode: 0000 [#1] SMP
+>> last sysfs file: /sys/module/ipv6/initstate
+>> Modules linked in: sha256_generic sctp libcrc32c ipv6 dm_multipath
+>> uinput 8139too i2c_piix4 8139cp mii i2c_core pcspkr virtio_net joydev
+>> floppy virtio_blk virtio_pci [last unloaded: scsi_wait_scan]
+>>
+>> Pid: 0, comm: swapper Not tainted 2.6.34-rc4 #15 /Bochs
+>> EIP: 0060:[<c044a2ef>] EFLAGS: 00010286 CPU: 0
+>> EIP is at add_timer+0xd/0x1b
+>> EAX: cecbab14 EBX: 000000f0 ECX: c0957b1c EDX: 03595cf4
+>> ESI: cecba800 EDI: cf276f00 EBP: c0957aa0 ESP: c0957aa0
+>>  DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
+>> Process swapper (pid: 0, ti=c0956000 task=c0988ba0 task.ti=c0956000)
+>> Stack:
+>>  c0957ae0 d1851214 c0ab62e4 c0ab5f26 0500ffff 00000004 00000005 00000004
+>> <0> 00000000 d18694fd 00000004 1666b892 cecba800 cecba800 c0957b14
+>> 00000004
+>> <0> c0957b94 d1851b11 ceda8b00 cecba800 cf276f00 00000001 c0957b14
+>> 000000d0
+>>   
+> According to the call trace below, it seems that our modification did
+> not take affect.
+> sctp_primitive_ASCONF should be invoked after sctp_side_effects().
+> Our code fixed the same problem in kernel 2.6.27.28.
+> Not sure about the difference between 2.6.34-rc4 kernel and 2.6.27.28
+> kernel.
 
-Acked-by: David L Stevens <dlstevens@us.ibm.com>
+This is the patch that you sent me, that included comments that Wei made on
+the list.  It corrects this problem and will be pushed back to stable tries
+that are still maintained.
 
-> commit 2809e94f5f26d89dc5232aaec753ffda95c4d95e
-> Author: Michael S. Tsirkin <mst@redhat.com>
-> Date:   Thu Apr 29 16:18:08 2010 +0300
-> 
->     vhost-net: minor tweaks in mergeable buffer code
-> 
->     Applies the following tweaks on top of mergeable buffers patch:
->     1. vhost_get_desc_n assumes that all desriptors are 'in' only.
->        It's also unlikely to be useful for any vhost frontend
->        besides vhost_net, so just move it to net.c, and rename
->        get_rx_bufs for brevity.
-> 
->     2. for rx, we called iov_length within vhost_get_desc_n
->        (now get_rx_bufs) already, so we don't
->        need an extra call to iov_length to avoid overflow anymore.
->        Accordingly, copy_iovec_hdr can return void now.
-> 
->     3. for rx, do some further code tweaks:
->        do not assign len = err as we check that err == len
->        handle data length in a way similar to how we handle
->        header length: datalen -> sock_len, len -> vhost_len.
->        add sock_hlen as a local variable, for symmetry with vhost_hlen.
-> 
->     4. add some likely/unlikely annotations
-> 
->     Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index d61d945..85519b4 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -74,9 +74,9 @@ static int move_iovec_hdr(struct iovec *from, struct 
-iovec *to,
->     }
->     return seg;
->  }
-> -/* Copy iovec entries for len bytes from iovec. Return segments used. 
-*/
-> -static int copy_iovec_hdr(const struct iovec *from, struct iovec *to,
-> -           size_t len, int iovcount)
-> +/* Copy iovec entries for len bytes from iovec. */
-> +static void copy_iovec_hdr(const struct iovec *from, struct iovec *to,
-> +            size_t len, int iovcount)
->  {
->     int seg = 0;
->     size_t size;
-> @@ -89,7 +89,6 @@ static int copy_iovec_hdr(const struct iovec *from, 
-struct iovec *to,
->        ++to;
->        ++seg;
->     }
-> -   return seg;
->  }
-> 
->  /* Caller must have TX VQ lock */
-> @@ -204,7 +203,7 @@ static void handle_tx(struct vhost_net *net)
->     unuse_mm(net->dev.mm);
->  }
-> 
-> -static int vhost_head_len(struct vhost_virtqueue *vq, struct sock *sk)
-> +static int peek_head_len(struct vhost_virtqueue *vq, struct sock *sk)
->  {
->     struct sk_buff *head;
->     int len = 0;
-> @@ -212,17 +211,70 @@ static int vhost_head_len(struct vhost_virtqueue 
-*vq, 
-> struct sock *sk)
->     lock_sock(sk);
->     head = skb_peek(&sk->sk_receive_queue);
->     if (head)
-> -      len = head->len + vq->sock_hlen;
-> +      len = head->len;
->     release_sock(sk);
->     return len;
->  }
-> 
-> +/* This is a multi-buffer version of vhost_get_desc, that works if
-> + *   vq has read descriptors only.
-> + * @vq      - the relevant virtqueue
-> + * @datalen   - data length we'll be reading
-> + * @iovcount   - returned count of io vectors we fill
-> + * @log      - vhost log
-> + * @log_num   - log offset
-> + *   returns number of buffer heads allocated, negative on error
-> + */
-> +static int get_rx_bufs(struct vhost_virtqueue *vq,
-> +             struct vring_used_elem *heads,
-> +             int datalen,
-> +             unsigned *iovcount,
-> +             struct vhost_log *log,
-> +             unsigned *log_num)
-> +{
-> +   unsigned int out, in;
-> +   int seg = 0;
-> +   int headcount = 0;
-> +   unsigned d;
-> +   int r;
-> +
-> +   while (datalen > 0) {
-> +      if (unlikely(headcount >= VHOST_NET_MAX_SG)) {
-> +         r = -ENOBUFS;
-> +         goto err;
-> +      }
-> +      d = vhost_get_desc(vq->dev, vq, vq->iov + seg,
-> +               ARRAY_SIZE(vq->iov) - seg, &out,
-> +               &in, log, log_num);
-> +      if (d == vq->num) {
-> +         r = 0;
-> +         goto err;
-> +      }
-> +      if (unlikely(out || in <= 0)) {
-> +         vq_err(vq, "unexpected descriptor format for RX: "
-> +            "out %d, in %d\n", out, in);
-> +         r = -EINVAL;
-> +         goto err;
-> +      }
-> +      heads[headcount].id = d;
-> +      heads[headcount].len = iov_length(vq->iov + seg, in);
-> +      datalen -= heads[headcount].len;
-> +      ++headcount;
-> +      seg += in;
-> +   }
-> +   *iovcount = seg;
-> +   return headcount;
-> +err:
-> +   vhost_discard_desc(vq, headcount);
-> +   return r;
-> +}
-> +
->  /* Expects to be always run from workqueue - which acts as
->   * read-size critical section for our kind of RCU. */
->  static void handle_rx(struct vhost_net *net)
->  {
->     struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_RX];
-> -   unsigned in, log, s;
-> +   unsigned uninitialized_var(in), log;
->     struct vhost_log *vq_log;
->     struct msghdr msg = {
->        .msg_name = NULL,
-> @@ -238,9 +290,10 @@ static void handle_rx(struct vhost_net *net)
->        .hdr.gso_type = VIRTIO_NET_HDR_GSO_NONE
->     };
-> 
-> -   size_t len, total_len = 0;
-> -   int err, headcount, datalen;
-> -   size_t vhost_hlen;
-> +   size_t total_len = 0;
-> +   int err, headcount;
-> +   size_t vhost_hlen, sock_hlen;
-> +   size_t vhost_len, sock_len;
->     struct socket *sock = rcu_dereference(vq->private_data);
->     if (!sock || skb_queue_empty(&sock->sk->sk_receive_queue))
->        return;
-> @@ -249,14 +302,16 @@ static void handle_rx(struct vhost_net *net)
->     mutex_lock(&vq->mutex);
->     vhost_disable_notify(vq);
->     vhost_hlen = vq->vhost_hlen;
-> +   sock_hlen = vq->sock_hlen;
-> 
->     vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) ?
->        vq->log : NULL;
-> 
-> -   while ((datalen = vhost_head_len(vq, sock->sk))) {
-> -      headcount = vhost_get_desc_n(vq, vq->heads,
-> -                    datalen + vhost_hlen,
-> -                    &in, vq_log, &log);
-> +   while ((sock_len = peek_head_len(vq, sock->sk))) {
-> +      sock_len += sock_hlen;
-> +      vhost_len = sock_len + vhost_hlen;
-> +      headcount = get_rx_bufs(vq, vq->heads, vhost_len,
-> +               &in, vq_log, &log);
->        if (headcount < 0)
->           break;
->        /* OK, now we need to know about added descriptors. */
-> @@ -272,34 +327,25 @@ static void handle_rx(struct vhost_net *net)
->           break;
->        }
->        /* We don't need to be notified again. */
-> -      if (vhost_hlen)
-> +      if (unlikely((vhost_hlen)))
->           /* Skip header. TODO: support TSO. */
-> -         s = move_iovec_hdr(vq->iov, vq->hdr, vhost_hlen, in);
-> +         move_iovec_hdr(vq->iov, vq->hdr, vhost_hlen, in);
->        else
-> -         s = copy_iovec_hdr(vq->iov, vq->hdr, vq->sock_hlen, in);
-> +         copy_iovec_hdr(vq->iov, vq->hdr, sock_hlen, in);
->        msg.msg_iovlen = in;
-> -      len = iov_length(vq->iov, in);
-> -      /* Sanity check */
-> -      if (!len) {
-> -         vq_err(vq, "Unexpected header len for RX: "
-> -                "%zd expected %zd\n",
-> -                iov_length(vq->hdr, s), vhost_hlen);
-> -         break;
-> -      }
->        err = sock->ops->recvmsg(NULL, sock, &msg,
-> -                len, MSG_DONTWAIT | MSG_TRUNC);
-> +                sock_len, MSG_DONTWAIT | MSG_TRUNC);
->        /* TODO: Check specific error and bomb out unless EAGAIN? */
->        if (err < 0) {
->           vhost_discard_desc(vq, headcount);
->           break;
->        }
-> -      if (err != datalen) {
-> +      if (err != sock_len) {
->           pr_err("Discarded rx packet: "
-> -                " len %d, expected %zd\n", err, datalen);
-> +                " len %d, expected %zd\n", err, sock_len);
->           vhost_discard_desc(vq, headcount);
->           continue;
->        }
-> -      len = err;
->        if (vhost_hlen &&
->            memcpy_toiovecend(vq->hdr, (unsigned char *)&hdr, 0,
->                    vhost_hlen)) {
-> @@ -311,17 +357,16 @@ static void handle_rx(struct vhost_net *net)
->        if (vhost_has_feature(&net->dev, VIRTIO_NET_F_MRG_RXBUF) &&
->            memcpy_toiovecend(vq->hdr, (unsigned char *)&headcount,
->                    offsetof(typeof(hdr), num_buffers),
-> -                  sizeof(hdr.num_buffers))) {
-> +                  sizeof hdr.num_buffers)) {
->           vq_err(vq, "Failed num_buffers write");
->           vhost_discard_desc(vq, headcount);
->           break;
->        }
-> -      len += vhost_hlen;
->        vhost_add_used_and_signal_n(&net->dev, vq, vq->heads,
->                     headcount);
->        if (unlikely(vq_log))
-> -         vhost_log_write(vq, vq_log, log, len);
-> -      total_len += len;
-> +         vhost_log_write(vq, vq_log, log, vhost_len);
-> +      total_len += vhost_len;
->        if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
->           vhost_poll_queue(&vq->poll);
->           break;
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index 8ef5e3f..4b49991 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -862,53 +862,6 @@ static unsigned get_indirect(struct vhost_dev *dev, 
+The call trace in the commit log is for reference.  The patch has been tested
+and resolves the issue you reported.
 
-> struct vhost_virtqueue *vq,
->     return 0;
->  }
-> 
-> -/* This is a multi-buffer version of vhost_get_desc
-> - * @vq      - the relevant virtqueue
-> - * datalen   - data length we'll be reading
-> - * @iovcount   - returned count of io vectors we fill
-> - * @log      - vhost log
-> - * @log_num   - log offset
-> - *   returns number of buffer heads allocated, negative on error
-> - */
-> -int vhost_get_desc_n(struct vhost_virtqueue *vq, struct vring_used_elem 
-*heads,
-> -           int datalen, unsigned *iovcount, struct vhost_log *log,
-> -           unsigned int *log_num)
-> -{
-> -   unsigned int out, in;
-> -   int seg = 0;
-> -   int headcount = 0;
-> -   int r;
-> -
-> -   while (datalen > 0) {
-> -      if (headcount >= VHOST_NET_MAX_SG) {
-> -         r = -ENOBUFS;
-> -         goto err;
-> -      }
-> -      heads[headcount].id = vhost_get_desc(vq->dev, vq, vq->iov + seg,
-> -                     ARRAY_SIZE(vq->iov) - seg, &out,
-> -                     &in, log, log_num);
-> -      if (heads[headcount].id == vq->num) {
-> -         r = 0;
-> -         goto err;
-> -      }
-> -      if (out || in <= 0) {
-> -         vq_err(vq, "unexpected descriptor format for RX: "
-> -            "out %d, in %d\n", out, in);
-> -         r = -EINVAL;
-> -         goto err;
-> -      }
-> -      heads[headcount].len = iov_length(vq->iov + seg, in);
-> -      datalen -= heads[headcount].len;
-> -      ++headcount;
-> -      seg += in;
-> -   }
-> -   *iovcount = seg;
-> -   return headcount;
-> -err:
-> -   vhost_discard_desc(vq, headcount);
-> -   return r;
-> -}
-> -
->  /* This looks in the virtqueue and for the first available buffer, and 
-converts
->   * it to an iovec for convenient access.  Since descriptors consist of 
-some
->   * number of output then some number of input descriptors, it's 
-actually two
-> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-> index 08d740a..4c9809e 100644
-> --- a/drivers/vhost/vhost.h
-> +++ b/drivers/vhost/vhost.h
-> @@ -122,9 +122,6 @@ long vhost_dev_ioctl(struct vhost_dev *, unsigned 
-int 
-> ioctl, unsigned long arg);
->  int vhost_vq_access_ok(struct vhost_virtqueue *vq);
->  int vhost_log_access_ok(struct vhost_dev *);
-> 
-> -int vhost_get_desc_n(struct vhost_virtqueue *, struct vring_used_elem 
-*heads,
-> -           int datalen, unsigned int *iovcount, struct vhost_log *log,
-> -           unsigned int *log_num);
->  unsigned vhost_get_desc(struct vhost_dev *, struct vhost_virtqueue *,
->              struct iovec iov[], unsigned int iov_count,
->              unsigned int *out_num, unsigned int *in_num,
-> 
-> -- 
-> MST
+-vlad
 
+>> Call Trace:
+>>  [<d1851214>] ? sctp_side_effects+0x607/0xdfc [sctp]
+>>  [<d1851b11>] ? sctp_do_sm+0x108/0x159 [sctp]
+>>  [<d1863386>] ? sctp_pname+0x0/0x1d [sctp]
+>>  [<d1861a56>] ? sctp_primitive_ASCONF+0x36/0x3b [sctp]        <---
+>> sctp_side_effects() should show up here before send next asconf
+>>  [<d185657c>] ? sctp_process_asconf_ack+0x2a4/0x2d3 [sctp]
+>>  [<d184e35c>] ? sctp_sf_do_asconf_ack+0x1dd/0x2b4 [sctp]
+>>  [<d1851ac1>] ? sctp_do_sm+0xb8/0x159 [sctp]
+>>  [<d1863334>] ? sctp_cname+0x0/0x52 [sctp]
+>>  [<d1854377>] ? sctp_assoc_bh_rcv+0xac/0xe1 [sctp]
+>>  [<d1858f0f>] ? sctp_inq_push+0x2d/0x30 [sctp]
+>>  [<d186329d>] ? sctp_rcv+0x797/0x82e [sctp]
+>>
+>> Tested-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+>> Signed-off-by: Yuansong Qiao <ysqiao@research.ait.ie>
+>> Signed-off-by: Shuaijun Zhang <szhang@research.ait.ie>
+>> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+>> ---
+>>  include/net/sctp/command.h |    1 +
+>>  net/sctp/sm_make_chunk.c   |   15 ---------------
+>>  net/sctp/sm_sideeffect.c   |   26 ++++++++++++++++++++++++++
+>>  net/sctp/sm_statefuns.c    |    8 +++++++-
+>>  4 files changed, 34 insertions(+), 16 deletions(-)
+>>
+>> diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
+>> index 8be5135..2c55a7e 100644
+>> --- a/include/net/sctp/command.h
+>> +++ b/include/net/sctp/command.h
+>> @@ -107,6 +107,7 @@ typedef enum {
+>>      SCTP_CMD_T1_RETRAN,     /* Mark for retransmission after T1
+>> timeout  */
+>>      SCTP_CMD_UPDATE_INITTAG, /* Update peer inittag */
+>>      SCTP_CMD_SEND_MSG,     /* Send the whole use message */
+>> +    SCTP_CMD_SEND_NEXT_ASCONF, /* Send the next ASCONF after ACK */
+>>      SCTP_CMD_LAST
+>>  } sctp_verb_t;
+>>  
+>> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+>> index f6fc5c1..0fd5b4c 100644
+>> --- a/net/sctp/sm_make_chunk.c
+>> +++ b/net/sctp/sm_make_chunk.c
+>> @@ -3318,21 +3318,6 @@ int sctp_process_asconf_ack(struct
+>> sctp_association *asoc,
+>>      sctp_chunk_free(asconf);
+>>      asoc->addip_last_asconf = NULL;
+>>  
+>> -    /* Send the next asconf chunk from the addip chunk queue. */
+>> -    if (!list_empty(&asoc->addip_chunk_list)) {
+>> -        struct list_head *entry = asoc->addip_chunk_list.next;
+>> -        asconf = list_entry(entry, struct sctp_chunk, list);
+>> -
+>> -        list_del_init(entry);
+>> -
+>> -        /* Hold the chunk until an ASCONF_ACK is received. */
+>> -        sctp_chunk_hold(asconf);
+>> -        if (sctp_primitive_ASCONF(asoc, asconf))
+>> -            sctp_chunk_free(asconf);
+>> -        else
+>> -            asoc->addip_last_asconf = asconf;
+>> -    }
+>> -
+>>      return retval;
+>>  }
+>>  
+>> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+>> index 4c5bed9..d5ae450 100644
+>> --- a/net/sctp/sm_sideeffect.c
+>> +++ b/net/sctp/sm_sideeffect.c
+>> @@ -962,6 +962,29 @@ static int sctp_cmd_send_msg(struct
+>> sctp_association *asoc,
+>>  }
+>>  
+>>  
+>> +/* Sent the next ASCONF packet currently stored in the association.
+>> + * This happens after the ASCONF_ACK was succeffully processed.
+>> + */
+>> +static void sctp_cmd_send_asconf(struct sctp_association *asoc)
+>> +{
+>> +    /* Send the next asconf chunk from the addip chunk
+>> +     * queue.
+>> +     */
+>> +    if (!list_empty(&asoc->addip_chunk_list)) {
+>> +        struct list_head *entry = asoc->addip_chunk_list.next;
+>> +        struct sctp_chunk *asconf = list_entry(entry,
+>> +                        struct sctp_chunk, list);
+>> +        list_del_init(entry);
+>> +
+>> +        /* Hold the chunk until an ASCONF_ACK is received. */
+>> +        sctp_chunk_hold(asconf);
+>> +        if (sctp_primitive_ASCONF(asoc, asconf))
+>> +            sctp_chunk_free(asconf);
+>> +        else
+>> +            asoc->addip_last_asconf = asconf;
+>> +    }
+>> +}
+>> +
+>>  
+>>  /* These three macros allow us to pull the debugging code out of the
+>>   * main flow of sctp_do_sm() to keep attention focused on the real
+>> @@ -1617,6 +1640,9 @@ static int sctp_cmd_interpreter(sctp_event_t
+>> event_type,
+>>              }
+>>              error = sctp_cmd_send_msg(asoc, cmd->obj.msg);
+>>              break;
+>> +        case SCTP_CMD_SEND_NEXT_ASCONF:
+>> +            sctp_cmd_send_asconf(asoc);
+>> +            break;
+>>          default:
+>>              printk(KERN_WARNING "Impossible command: %u, %p\n",
+>>                     cmd->verb, cmd->obj.ptr);
+>> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
+>> index abf601a..24b2cd5 100644
+>> --- a/net/sctp/sm_statefuns.c
+>> +++ b/net/sctp/sm_statefuns.c
+>> @@ -3676,8 +3676,14 @@ sctp_disposition_t sctp_sf_do_asconf_ack(const
+>> struct sctp_endpoint *ep,
+>>                  SCTP_TO(SCTP_EVENT_TIMEOUT_T4_RTO));
+>>  
+>>          if (!sctp_process_asconf_ack((struct sctp_association *)asoc,
+>> -                         asconf_ack))
+>> +                         asconf_ack)) {
+>> +            /* Successfully processed ASCONF_ACK.  We can
+>> +             * release the next asconf if we have one.
+>> +             */
+>> +            sctp_add_cmd_sf(commands, SCTP_CMD_SEND_NEXT_ASCONF,
+>> +                    SCTP_NULL());
+>>              return SCTP_DISPOSITION_CONSUME;
+>> +        }
+>>  
+>>          abort = sctp_make_abort(asoc, asconf_ack,
+>>                      sizeof(sctp_errhdr_t));
+>>   
+> 
