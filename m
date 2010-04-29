@@ -1,160 +1,148 @@
 From: Ben Dooks <ben@simtec.co.uk>
-Subject: [patch 09/13] KSZ8851-SNL: Add debugfs export for driver state
-Date: Fri, 30 Apr 2010 00:16:30 +0100
-Message-ID: <20100429231740.476832615@fluff.org.uk>
+Subject: [patch 04/13] eeprom_93cx6: Add write support
+Date: Fri, 30 Apr 2010 00:16:25 +0100
+Message-ID: <20100429231739.870565798@fluff.org.uk>
 References: <20100429231621.015936077@fluff.org.uk>
-Cc: tristram.ha@micrel.com, support@tincantools.com
+Cc: tristram.ha@micrel.com, support@tincantools.com,
+	Wolfram Sang <w.sang@pengutronix.de>,
+	Jean Delvare <khali@linux-fr.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from aeryn.fluff.org.uk ([87.194.8.8]:27351 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932415Ab0D3Vs3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 17:48:29 -0400
-Content-Disposition: inline; filename=ks8851-add-debugfs.patch
+	with ESMTP id S932420Ab0D3Vse (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 17:48:34 -0400
+Content-Disposition: inline; filename=93c-eeprom-add-write.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the ability to export the state of each network chip via debugfs
-to show the cached register state and some of the network device state
-information.
+Add support for writing data to EEPROM.
 
 Signed-off-by: Ben Dooks <ben@simtec.co.uk>
+Cc: Wolfram Sang <w.sang@pengutronix.de>
+Cc: Jean Delvare <khali@linux-fr.org>
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>
 
 ---
- drivers/net/ks8851.c |   94 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 94 insertions(+)
+ drivers/misc/eeprom/eeprom_93cx6.c |   86 +++++++++++++++++++++++++++++++++++++
+ include/linux/eeprom_93cx6.h       |    7 +++
+ 2 files changed, 93 insertions(+)
 
-Index: b/drivers/net/ks8851.c
+Index: b/drivers/misc/eeprom/eeprom_93cx6.c
 ===================================================================
---- a/drivers/net/ks8851.c	2010-04-29 01:22:47.779528264 +0900
-+++ b/drivers/net/ks8851.c	2010-04-29 01:25:54.217027162 +0900
-@@ -21,6 +21,9 @@
- #include <linux/mii.h>
- #include <linux/eeprom_93cx6.h>
- 
-+#include <linux/debugfs.h>
-+#include <linux/seq_file.h>
-+
- #include <linux/spi/spi.h>
- 
- #include "ks8851.h"
-@@ -128,6 +131,9 @@ struct ks8851_net {
- 	struct spi_transfer	spi_xfer1;
- 	struct spi_transfer	spi_xfer2[2];
- 
-+	struct dentry		*debug_root;
-+	struct dentry		*debug_file;
-+
- 	struct eeprom_93cx6	eeprom;
- };
- 
-@@ -1411,6 +1417,91 @@ static int ks8851_read_selftest(struct k
- 	return 0;
+--- a/drivers/misc/eeprom/eeprom_93cx6.c	2009-10-06 15:51:18.000000000 +0100
++++ b/drivers/misc/eeprom/eeprom_93cx6.c	2009-10-06 15:54:36.000000000 +0100
+@@ -241,3 +241,89 @@ void eeprom_93cx6_multiread(struct eepro
  }
+ EXPORT_SYMBOL_GPL(eeprom_93cx6_multiread);
  
-+/* debugfs code */
-+static int state_show(struct seq_file *seq, void *v)
-+{
-+	struct ks8851_net *ks = seq->private;
-+	struct net_device *ndev = ks->netdev;
-+
-+	seq_printf(seq, "Register cache:\n");
-+	seq_printf(seq, "IEQ\t 0x%04x\n", ks->rc_ier);
-+	seq_printf(seq, "RXQCR\t 0x%04x\n", ks->rc_rxqcr);
-+	seq_printf(seq, "CCR\t 0x%04x\n", ks->rc_ccr);
-+	seq_printf(seq, "RXCR1\t 0x%04x\n", ks->rxctrl.rxcr1);
-+	seq_printf(seq, "RXCR2\t 0x%04x\n", ks->rxctrl.rxcr2);
-+	seq_printf(seq, "MCHASH\t 0=0x%04x, 1=%04x, 2=0x%04x, 3=0x%04x\n",
-+		   ks->rxctrl.mchash[0], ks->rxctrl.mchash[1],
-+		   ks->rxctrl.mchash[2], ks->rxctrl.mchash[3]);
-+
-+	seq_printf(seq, "\n");
-+
-+	seq_printf(seq, "tx_space = 0x%04x\n", ks->tx_space);
-+	seq_printf(seq, "tx fid\t= 0x%02x\n", ks->fid);
-+
-+	seq_printf(seq, "\n");
-+
-+	if (ndev->flags & IFF_MULTICAST) {
-+		struct dev_mc_list *mcptr = ndev->mc_list;
-+		int i;
-+
-+		seq_printf(seq, "MC list is %d entries\n", ndev->mc_count);
-+
-+		for (i = 0; i < ndev->mc_count; i++) {
-+			seq_printf(seq, "\t%d: %pM\n", i, mcptr->dmi_addr);
-+			mcptr = mcptr->next;
-+		}
-+	} else
-+		seq_printf(seq, "No multicast list set\n");
-+
-+	return 0;
-+}
-+
-+static int state_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, state_show, inode->i_private);
-+}
-+
-+static const struct file_operations state_fops = {
-+	.owner	= THIS_MODULE,
-+	.open	= state_open,
-+	.read	= seq_read,
-+	.llseek	= seq_lseek,
-+	.release = single_release,
-+};
 +
 +/**
-+ * ks8851_create_debugfs - create debugfs directory and files
-+ * @ks: The driver state
++ * eeprom_93cx6_wren - set the write enable state
++ * @eeprom: Pointer to eeprom structure
++ * @enable: true to enable writes, otherwise disable writes
 + *
-+ * Create the debugfs entries for the specific device.
++ * Set the EEPROM write enable state to either allow or deny
++ * writes depending on the @enable value.
 + */
-+static void __devinit ks8851_create_debugfs(struct ks8851_net *ks)
++void eeprom_93cx6_wren(struct eeprom_93cx6 *eeprom, bool enable)
 +{
-+	struct dentry *root;
-+	char root_name[32];
++	u16 command;
 +
-+	snprintf(root_name, sizeof(root_name), "ks8851_%s",
-+		 dev_name(&ks->spidev->dev));
++	/* start the command */
++	eeprom_93cx6_startup(eeprom);
 +
-+	root = debugfs_create_dir(root_name, NULL);
-+	if (IS_ERR(root)) {
-+		ks_err(ks, "cannot create debugfs root\n");
-+		return;
++	/* create command to enable/disable */
++
++	command = enable ? PCI_EEPROM_EWEN_OPCODE : PCI_EEPROM_EWDS_OPCODE;
++	command <<= (eeprom->width - 2);
++
++	eeprom_93cx6_write_bits(eeprom, command,
++				PCI_EEPROM_WIDTH_OPCODE + eeprom->width);
++
++	eeprom_93cx6_cleanup(eeprom);
++}
++EXPORT_SYMBOL_GPL(eeprom_93cx6_wren);
++
++/**
++ * eeprom_93cx6_write - write data to the EEPROM
++ * @eeprom: Pointer to eeprom structure
++ * @addr: Address to write data to.
++ * @data: The data to write to address @addr.
++ *
++ * Write the @data to the specified @addr in the EEPROM and
++ * waiting for the device to finish writing.
++ *
++ * Note, since we do not expect large number of write operations
++ * we use msleep() to delay in between parts of the operation to
++ * avoid using excessive amounts of CPU time busy waiting.
++ */
++void eeprom_93cx6_write(struct eeprom_93cx6 *eeprom, u8 addr, u16 data)
++{
++	int timeout = 100;
++	u16 command;
++
++	/* start the command */
++	eeprom_93cx6_startup(eeprom);
++
++	command = PCI_EEPROM_WRITE_OPCODE << eeprom->width;
++	command |= addr;
++
++	/* send write command */
++	eeprom_93cx6_write_bits(eeprom, command,
++				PCI_EEPROM_WIDTH_OPCODE + eeprom->width);
++
++	/* send data */
++	eeprom_93cx6_write_bits(eeprom, data, 16);
++
++	/* get ready to check for busy */
++	eeprom->drive_data = 0;
++	eeprom->reg_chip_select = 1;
++	eeprom->register_write(eeprom);
++
++	/* wait at-least 250ns to get DO to be the busy signal */
++	msleep(1);
++
++	/* wait for DO to go high to signify finish */
++
++	while (true) {
++		eeprom->register_read(eeprom);
++
++		if (eeprom->reg_data_out)
++			break;
++
++		msleep(1);
++
++		if (--timeout <= 0) {
++			printk(KERN_ERR "%s: timeout\n", __func__);
++			break;
++		}			
 +	}
 +
-+	ks->debug_root = root;
-+	ks->debug_file = debugfs_create_file("state", 0444, root,
-+					     ks, &state_fops);
-+	if (IS_ERR(ks->debug_file))
-+		ks_err(ks, "cannot create debugfs state file\n");
++	eeprom_93cx6_cleanup(eeprom);
 +}
++EXPORT_SYMBOL_GPL(eeprom_93cx6_write);
+Index: b/include/linux/eeprom_93cx6.h
+===================================================================
+--- a/include/linux/eeprom_93cx6.h	2009-10-06 15:51:18.000000000 +0100
++++ b/include/linux/eeprom_93cx6.h	2009-10-06 15:53:16.000000000 +0100
+@@ -32,6 +32,7 @@
+ #define PCI_EEPROM_WIDTH_93C66	8
+ #define PCI_EEPROM_WIDTH_OPCODE	3
+ #define PCI_EEPROM_WRITE_OPCODE	0x05
++#define PCI_EEPROM_ERASE_OPCODE 0x07
+ #define PCI_EEPROM_READ_OPCODE	0x06
+ #define PCI_EEPROM_EWDS_OPCODE	0x10
+ #define PCI_EEPROM_EWEN_OPCODE	0x13
+@@ -73,3 +74,9 @@ extern void eeprom_93cx6_read(struct eep
+ 	const u8 word, u16 *data);
+ extern void eeprom_93cx6_multiread(struct eeprom_93cx6 *eeprom,
+ 	const u8 word, __le16 *data, const u16 words);
 +
-+static void __devexit ks8851_delete_debugfs(struct ks8851_net *ks)
-+{
-+	debugfs_remove(ks->debug_file);
-+	debugfs_remove(ks->debug_root);
-+}
++extern void eeprom_93cx6_wren(struct eeprom_93cx6 *eeprom, bool enable);
 +
- /* driver bus management functions */
- 
- static int __devinit ks8851_probe(struct spi_device *spi)
-@@ -1518,6 +1609,8 @@ static int __devinit ks8851_probe(struct
- 		 ndev->dev_addr, ndev->irq,
- 		 ks->rc_ccr & CCR_EEPROM ? "has" : "no");
- 
-+	ks8851_create_debugfs(ks);
++extern void eeprom_93cx6_write(struct eeprom_93cx6 *eeprom,
++			       u8 addr, u16 data);
 +
- 	return 0;
- 
- 
-@@ -1537,6 +1630,7 @@ static int __devexit ks8851_remove(struc
- 	if (netif_msg_drv(priv))
- 		dev_info(&spi->dev, "remove");
- 
-+	ks8851_delete_debugfs(priv);
- 	unregister_netdev(priv->netdev);
- 	free_irq(spi->irq, priv);
- 	free_netdev(priv->netdev);
 
