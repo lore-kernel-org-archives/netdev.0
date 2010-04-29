@@ -1,75 +1,542 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [PATCH linux-next v2 1/2] irq: Add CPU mask affinity hint
-Date: Fri, 30 Apr 2010 11:02:36 -0700 (Pacific Daylight Time)
-Message-ID: <Pine.WNT.4.64.1004301059230.6264@PPWASKIE-MOBL2.amr.corp.intel.com>
-References: <20100430085150.4630.46790.stgit@ppwaskie-hc2.jf.intel.com>
- <alpine.LFD.2.00.1004301249540.2951@localhost.localdomain>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH net-next-2.6] net: speedup udp receive path
+Date: Thu, 29 Apr 2010 16:36:23 -0400
+Message-ID: <1272573383.3969.8.camel@bigi>
+References: <1272010378-2955-1-git-send-email-xiaosuo@gmail.com>
+	 <20100427.150817.84390202.davem@davemloft.net>
+	 <1272406693.2343.26.camel@edumazet-laptop>  <1272454432.14068.4.camel@bigi>
+	 <1272458001.2267.0.camel@edumazet-laptop>  <1272458174.14068.16.camel@bigi>
+	 <1272463605.2267.70.camel@edumazet-laptop> <1272498293.4258.121.camel@bigi>
+	 <1272514176.2201.85.camel@edumazet-laptop> <1272540952.4258.161.camel@bigi>
+	 <u2l412e6f7f1004290512x7fcdb5c3w591c6446d676502@mail.gmail.com>
+	 <1272545108.2222.65.camel@edumazet-laptop> <1272547061.4258.174.camel@bigi>
+	 <1272547307.2222.83.camel@edumazet-laptop> <1272548258.4258.185.camel@bigi>
+	 <1272548980.2222.87.camel@edumazet-laptop> <1272549408.4258.189.camel@bigi>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.1004301249540.2951@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary="=-XDiOd5okEAT93VULROdJ"
+Cc: Changli Gao <xiaosuo@gmail.com>,
+	David Miller <davem@davemloft.net>, therbert@google.com,
+	shemminger@vyatta.com, netdev@vger.kernel.org,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Brian Bloniarz <bmb@athenacr.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.155]:26364 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759094Ab0D3SDo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 14:03:44 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so6169fgg.1
+        for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 11:03:42 -0700 (PDT)
+In-Reply-To: <1272549408.4258.189.camel@bigi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 30 Apr 2010, Thomas Gleixner wrote:
 
-> On Fri, 30 Apr 2010, Peter P Waskiewicz Jr wrote:
->
->> This patch adds a cpumask affinity hint to the irq_desc
->> structure, along with a registration function and a read-only
->> proc entry for each interrupt.
->>
->> This affinity_hint handle for each interrupt can be used by
->> underlying drivers that need a better mechanism to control
->> interrupt affinity.  The underlying driver can register a
->> cpumask for the interrupt, which will allow the driver to
->> provide the CPU mask for the interrupt to anything that
->> requests it.  The intent is to extend the userspace daemon,
->> irqbalance, to help hint to it a preferred CPU mask to balance
->> the interrupt into.
->>
->> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
->> ---
->>
->>  include/linux/interrupt.h |   13 +++++++++++++
->>  include/linux/irq.h       |    1 +
->>  kernel/irq/manage.c       |   28 ++++++++++++++++++++++++++++
->>  kernel/irq/proc.c         |   33 +++++++++++++++++++++++++++++++++
->>  4 files changed, 75 insertions(+), 0 deletions(-)
->>
->> diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
->> index 75f3f00..9c9ea2a 100644
->> --- a/include/linux/interrupt.h
->> +++ b/include/linux/interrupt.h
->> @@ -209,6 +209,9 @@ extern int irq_set_affinity(unsigned int irq, const struct cpumask *cpumask);
->>  extern int irq_can_set_affinity(unsigned int irq);
->>  extern int irq_select_affinity(unsigned int irq);
->>
->> +extern int irq_register_affinity_hint(unsigned int irq,
->> +                                      const struct cpumask *m);
->
-> I think we can do with a single funtion irq_set_affinity_hint() and
-> let the caller set the pointer to NULL.
+--=-XDiOd5okEAT93VULROdJ
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-Ok, I've been running into some issues.  If CONFIG_CPUMASK_OFFSTACK is not 
-set, then cpumask_var_t structs are single-element arrays that cannot be 
-NULL'd out.  I'm pretty sure I need to keep the unregister part of the 
-API.  Thoughts?
+On Thu, 2010-04-29 at 09:56 -0400, jamal wrote:
 
->> +	raw_spin_lock_irqsave(&desc->lock, flags);
->> +	if (desc->affinity_hint) {
->> +		seq_cpumask(m, desc->affinity_hint);
->
->  Please make a local copy under desc->mask and do the seq_cpumask()
->  stuff on the local copy outside of desc->lock
+> 
+> I will try your program instead so we can reduce the variables
 
-I just looked at the original show_affinity function, and it does not grab 
-desc->lock before copying mask out of desc.  Should I follow that model, 
-or should I fix that function to honor desc->lock?
+Results attached.
+With your app rps does a hell lot better and non-rps worse ;->
+With my proggie, non-rps does much better than yours and rps does
+a lot worse for same setup. I see the scheduler kicking quiet a bit in
+non-rps for you...
 
--PJ
+The main difference between us as i see it is:
+a) i use epoll - actually linked to libevent (1.0.something)
+b) I fork processes and you use pthreads.
+
+I dont have time to chase it today, but 1) I am either going to change
+yours to use libevent or make mine get rid of it then 2) move towards
+pthreads or have yours fork..
+then observe if that makes any difference..
+
+
+cheers,
+jamal
+
+--=-XDiOd5okEAT93VULROdJ
+Content-Disposition: attachment; filename="apr29-res.txt"
+Content-Type: text/plain; name="apr29-res.txt"; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+
+
+No RPS; same kernel as yesterday with Eric's changes
+
+-------------------------------------------------------------------------------
+   PerfTop:    2572 irqs/sec  kernel:94.7% [1000Hz cycles],  (all, 8 CPUs)
+-------------------------------------------------------------------------------
+
+             samples  pcnt function                    DSO
+             _______ _____ ___________________________ ________
+
+             2901.00 17.4% sky2_poll                   [sky2]  
+              781.00  4.7% schedule                    [kernel]
+              574.00  3.4% __skb_recv_datagram         [kernel]
+              518.00  3.1% _raw_spin_lock_irqsave      [kernel]
+              460.00  2.8% udp_recvmsg                 [kernel]
+              457.00  2.7% copy_user_generic_string    [kernel]
+              397.00  2.4% _raw_spin_lock_bh           [kernel]
+              340.00  2.0% __udp4_lib_lookup           [kernel]
+              320.00  1.9% ip_route_input              [kernel]
+              295.00  1.8% _raw_spin_lock              [kernel]
+              293.00  1.8% dst_release                 [kernel]
+              282.00  1.7% ip_rcv                      [kernel]
+              275.00  1.6% skb_copy_datagram_iovec     [kernel]
+              263.00  1.6% __switch_to                 [kernel]
+              257.00  1.5% __alloc_skb                 [kernel]
+              256.00  1.5% system_call                 [kernel]
+              243.00  1.5% sock_recv_ts_and_drops      [kernel]
+              227.00  1.4% sock_queue_rcv_skb          [kernel]
+              225.00  1.3% _raw_spin_unlock_irqrestore [kernel]
+              220.00  1.3% fget_light                  [kernel]
+              218.00  1.3% pick_next_task_fair         [kernel]
+
+-------------------------------------------------------------------------------
+   PerfTop:    1000 irqs/sec  kernel:100.0% [1000Hz cycles],  (all, cpu: 0)
+-------------------------------------------------------------------------------
+
+             samples  pcnt function                    DSO
+             _______ _____ ___________________________ ________
+
+             1508.00 37.9% sky2_poll                   [sky2]  
+              198.00  5.0% ip_route_input              [kernel]
+              184.00  4.6% __udp4_lib_lookup           [kernel]
+              172.00  4.3% ip_rcv                      [kernel]
+              139.00  3.5% _raw_spin_lock              [kernel]
+              131.00  3.3% __alloc_skb                 [kernel]
+              130.00  3.3% sock_queue_rcv_skb          [kernel]
+              111.00  2.8% __udp4_lib_rcv              [kernel]
+              101.00  2.5% __netif_receive_skb         [kernel]
+               78.00  2.0% select_task_rq_fair         [kernel]
+               74.00  1.9% try_to_wake_up              [kernel]
+               73.00  1.8% sock_def_readable           [kernel]
+               72.00  1.8% _raw_spin_lock_irqsave      [kernel]
+               67.00  1.7% task_rq_lock                [kernel]
+               66.00  1.7% _raw_read_lock              [kernel]
+               64.00  1.6% __kmalloc                   [kernel]
+               62.00  1.6% resched_task                [kernel]
+               61.00  1.5% sky2_rx_submit              [sky2]  
+               52.00  1.3% ip_local_deliver            [kernel]
+               51.00  1.3% kmem_cache_alloc            [kernel]
+               51.00  1.3% swiotlb_sync_single         [kernel]
+               43.00  1.1% sky2_remove                 [sky2]  
+               41.00  1.0% udp_queue_rcv_skb           [kernel]
+               39.00  1.0% __wake_up_common            [kernel]
+
+
+-------------------------------------------------------------------------------
+   PerfTop:     368 irqs/sec  kernel:95.9% [1000Hz cycles],  (all, cpu: 1)
+-------------------------------------------------------------------------------
+
+             samples  pcnt function                    DSO
+             _______ _____ ___________________________ ________
+
+              279.00  8.2% schedule                    [kernel]
+              260.00  7.7% __skb_recv_datagram         [kernel]
+              196.00  5.8% _raw_spin_lock_bh           [kernel]
+              180.00  5.3% copy_user_generic_string    [kernel]
+              176.00  5.2% udp_recvmsg                 [kernel]
+              150.00  4.4% _raw_spin_lock_irqsave      [kernel]
+              142.00  4.2% dst_release                 [kernel]
+              106.00  3.1% skb_copy_datagram_iovec     [kernel]
+               97.00  2.9% sock_recv_ts_and_drops      [kernel]
+               93.00  2.7% tick_nohz_stop_sched_tick   [kernel]
+               89.00  2.6% sys_recvfrom                [kernel]
+               89.00  2.6% __switch_to                 [kernel]
+               86.00  2.5% pick_next_task_fair         [kernel]
+               82.00  2.4% sock_rfree                  [kernel]
+               75.00  2.2% system_call                 [kernel]
+               73.00  2.2% fget_light                  [kernel]
+               70.00  2.1% _raw_spin_lock_irq          [kernel]
+               63.00  1.9% kmem_cache_free             [kernel]
+               61.00  1.8% _raw_spin_unlock_irqrestore [kernel]
+               60.00  1.8% kfree                       [kernel]
+               56.00  1.7% select_nohz_load_balancer   [kernel]
+               55.00  1.6% finish_task_switch          [kernel]
+               48.00  1.4% inet_recvmsg                [kernel]
+               41.00  1.2% security_socket_recvmsg     [kernel]
+
+
+-------------------------------------------------------------------------------
+   PerfTop:      97 irqs/sec  kernel:81.4% [1000Hz cycles],  (all, cpu: 7)
+-------------------------------------------------------------------------------
+
+             samples  pcnt function                     DSO
+             _______ _____ ____________________________ ________
+
+               55.00 10.8% schedule                     [kernel]
+               38.00  7.5% __skb_recv_datagram          [kernel]
+               36.00  7.1% udp_recvmsg                  [kernel]
+               32.00  6.3% _raw_spin_lock_irqsave       [kernel]
+               31.00  6.1% _raw_spin_lock_bh            [kernel]
+               30.00  5.9% copy_user_generic_string     [kernel]
+               29.00  5.7% sock_recv_ts_and_drops       [kernel]
+               27.00  5.3% skb_copy_datagram_iovec      [kernel]
+               17.00  3.3% system_call                  [kernel]
+               17.00  3.3% dst_release                  [kernel]
+               14.00  2.7% _raw_spin_unlock_irqrestore  [kernel]
+               12.00  2.4% __switch_to                  [kernel]
+               12.00  2.4% pick_next_task_fair          [kernel]
+               11.00  2.2% inet_recvmsg                 [kernel]
+               11.00  2.2% sys_recvfrom                 [kernel]
+               10.00  2.0% finish_task_switch           [kernel]
+               10.00  2.0% sock_rfree                   [kernel]
+               10.00  2.0% select_nohz_load_balancer    [kernel]
+                7.00  1.4% rcu_enter_nohz               [kernel]
+                7.00  1.4% tick_nohz_stop_sched_tick    [kernel]
+                7.00  1.4% tick_nohz_restart_sched_tick [kernel]
+                5.00  1.0% ktime_get                    [kernel]
+
+Run1
+----
+557257 pps (557257 0:69750 1:69417 2:69063 3:68818 4:70139 5:69824 6:70135 7:70113)
+737468 pps (1294725 0:162765 1:162430 2:162075 3:155770 4:163150 5:162838 6:163150 7:162549)
+744238 pps (2038963 0:255795 1:255460 2:255105 3:248800 4:256180 5:255867 6:256180 7:255579)
+719343 pps (2758306 0:348825 1:348202 2:348135 3:338166 4:349210 5:333030 6:349210 7:343528)
+741830 pps (3500136 0:440870 1:440933 2:441165 3:430162 4:442240 5:425970 6:442240 7:436558)
+686289 pps (4186425 0:533900 1:533749 2:515637 3:511486 4:531997 5:504717 6:525536 7:529406)
+681708 pps (4868133 0:613701 1:617409 2:608667 3:599774 4:607480 5:589487 6:609802 7:621817)
+697577 pps (5565710 0:704183 1:710439 2:688904 3:681696 4:689120 5:673932 6:702448 7:714988)
+729284 pps (6294994 0:797213 1:803469 2:775863 3:770959 4:781160 5:766105 6:792207 7:808018)
+734160 pps (7029154 0:886389 1:896504 2:868898 3:863506 4:868426 5:859138 6:885242 7:901053)
+728541 pps (7757695 0:978789 1:989534 2:961928 3:946834 4:961458 5:952170 6:978272 7:988714)
+709578 pps (8467273 0:1071819 1:1079000 2:1041101 3:1038974 4:1047215 5:1037254 6:1070168 7:1081744)
+684154 pps (9151427 0:1160855 1:1158471 2:1122874 3:1129012 4:1136563 5:1120258 6:1153624 7:1169773)
+498291 pps (9649718 0:1224303 1:1214178 2:1185737 3:1191467 4:1200058 5:1183753 6:1217121 7:1233101)
+
+Essentially sink in about 96.5% of 10M packet
+
+run2
+---
+402553 pps (402553 0:51530 1:53289 2:53625 3:45748 4:53625 5:49484 6:42292 7:52960)
+711539 pps (1114092 0:144028 1:146426 2:144237 3:124551 4:146760 5:142619 6:119376 7:146095)
+692319 pps (1806411 0:208285 1:239557 2:220103 3:211096 4:239890 5:235749 6:212506 7:239225)
+731896 pps (2538307 0:301450 1:332723 2:308718 3:304264 4:333055 5:320036 6:305671 7:332390)
+712869 pps (3251176 0:393270 1:418806 2:397578 3:396844 4:426245 5:406943 6:398861 7:412629)
+681513 pps (3932689 0:486300 1:501926 2:490613 3:489874 4:466455 5:499973 6:491891 7:505659)
+697308 pps (4629997 0:567969 1:585032 2:583643 3:576712 4:548243 5:589399 6:581080 7:597922)
+712903 pps (5342900 0:657579 1:660221 2:676673 3:669744 4:641273 5:682222 6:674110 7:681082)
+687765 pps (6030665 0:744421 1:752470 2:764631 3:751445 4:722250 5:771799 6:761224 7:762426)
+695799 pps (6726464 0:832438 1:842797 2:853337 3:844470 4:804427 5:857412 6:846918 7:844668)
+720011 pps (7446475 0:925210 1:934696 2:934883 3:937280 4:894644 5:949883 6:932740 7:937142)
+712021 pps (8158496 0:1017246 1:1027726 2:1016841 3:1024712 4:978513 5:1042913 6:1023516 7:1027031)
+709810 pps (8868306 0:1098522 1:1111823 2:1109871 3:1117444 4:1070124 5:1131774 6:1109841 7:1118909)
+591817 pps (9460123 0:1178005 1:1185698 2:1189381 3:1196367 4:1143880 5:1198406 6:1176121 7:1192265)
+
+94.6%
+
+run3
+---
+682714 pps (682714 0:83336 1:86683 2:86895 3:86243 4:84616 5:81152 6:86895 7:86895)
+691212 pps (1373926 0:164602 1:179240 2:171897 3:174162 4:176509 5:158115 6:174083 7:175321)
+661913 pps (2035839 0:243004 1:263829 2:259312 3:267160 4:268875 5:231009 6:253411 7:249239)
+715612 pps (2751451 0:336034 1:350220 2:346461 3:360190 4:359219 5:317625 6:346441 7:335265)
+655354 pps (3406805 0:419339 1:434934 2:432010 3:442138 4:437837 5:394805 6:427064 7:418679)
+592126 pps (3998931 0:494253 1:511454 2:508829 3:511992 4:508978 5:474866 6:496884 7:491679)
+697177 pps (4696108 0:584474 1:601703 2:589111 3:602252 4:598767 5:565114 6:582153 7:572539)
+681004 pps (5377112 0:662864 1:684427 2:678825 3:688402 4:685441 5:651962 6:673697 7:651495)
+669622 pps (6046734 0:740275 1:765126 2:762764 3:773772 4:772144 5:731330 6:762339 7:738987)
+645906 pps (6692640 0:825606 1:850550 2:846793 3:858243 4:850408 5:812402 6:838248 7:810391)
+705873 pps (7398513 0:916877 1:937693 2:929956 3:950433 4:938179 5:894913 6:928125 7:902337)
+735460 pps (8133973 0:1009907 1:1030722 2:1022986 3:1037959 4:1031209 5:987943 6:1021155 7:992092)
+707605 pps (8841578 0:1102933 1:1122367 2:1101160 3:1129212 4:1124239 5:1063617 6:1112929 7:1085122)
+347807 pps (9189385 0:1149677 1:1168026 2:1147905 3:1170556 4:1158858 5:1110362 6:1152134 7:1131867)
+
+91.9%
+
+run4
+----
+552606 pps (552606 0:72743 1:75411 2:67732 3:70204 4:63741 5:64934 6:66096 7:71746)
+684450 pps (1237056 0:162839 1:165064 2:148974 3:160417 4:153919 5:135895 6:156238 7:153710)
+696799 pps (1933855 0:254440 1:252304 2:240107 3:249399 4:246028 5:228009 6:247409 7:216161)
+676546 pps (2610401 0:341132 1:336959 2:325332 3:330438 4:336250 5:305238 6:336208 7:298848)
+712251 pps (3322652 0:432976 1:428990 2:413228 3:419977 4:425918 5:386917 6:426275 7:388371)
+615680 pps (3938332 0:515679 1:497421 2:491618 3:505449 4:489452 5:462820 6:505336 7:470561)
+635467 pps (4573799 0:597340 1:582917 2:555389 3:582751 4:573273 5:545378 6:584378 7:552373)
+725581 pps (5299380 0:690038 1:675870 2:636347 3:676029 4:666231 5:632208 6:677337 7:645324)
+699015 pps (5998395 0:783068 1:763654 2:725184 3:762784 4:752559 5:709123 6:764439 7:737586)
+674472 pps (6672867 0:872645 1:847669 2:808333 3:827766 4:842267 5:798997 6:853779 7:821412)
+680913 pps (7353780 0:961487 1:926760 2:887273 3:919158 4:925165 5:891082 6:929793 7:913064)
+666279 pps (8020059 0:1050823 1:1012028 2:972691 3:988738 4:1009904 5:974127 6:1017940 7:993808)
+680615 pps (8700674 0:1124223 1:1087779 2:1057541 3:1080546 4:1094373 5:1066880 6:1102496 7:1086838)
+420306 pps (9120980 0:1177541 1:1130287 2:1111621 3:1134624 4:1148453 5:1120960 6:1156576 7:1140918)
+
+91.2%
+
+run5
+------
+294229 pps (294229 0:38805 1:30946 2:32655 3:36613 4:38805 5:38805 6:38800 7:38801)
+694748 pps (988977 0:124394 1:123976 2:114107 3:128079 4:111317 5:131835 6:131835 7:123434)
+690185 pps (1679162 0:217405 1:216988 2:194192 3:204091 4:195948 5:224678 6:220924 7:204937)
+726561 pps (2405723 0:307828 1:309671 2:278163 3:296811 4:286642 5:317346 6:311296 7:297967)
+695974 pps (3101697 0:391228 1:395256 2:371056 3:388790 4:379533 5:410242 6:393051 7:372541)
+665395 pps (3767092 0:473134 1:484367 2:447394 3:462837 4:471026 5:491170 6:473947 7:463219)
+671483 pps (4438575 0:562883 1:574014 2:534258 3:544512 4:534064 5:581420 6:560073 7:547353)
+679400 pps (5117975 0:641135 1:663809 2:618019 3:633448 4:605085 5:674433 6:649865 7:632183)
+696263 pps (5814238 0:734516 1:743715 2:711049 3:717481 4:693193 5:758493 6:740374 7:715417)
+681791 pps (6496029 0:823596 1:836004 2:795579 3:809104 4:783457 5:820061 6:820219 7:808010)
+670672 pps (7166701 0:911202 1:927618 2:888127 3:875504 4:874363 5:889342 6:911838 7:888707)
+743444 pps (7910145 0:1004233 1:1020652 2:981157 3:968534 4:967393 5:982078 6:1004362 7:981737)
+725623 pps (8635768 0:1096546 1:1113682 2:1059978 3:1061564 4:1060423 5:1072761 6:1097392 7:1073423)
+662504 pps (9298272 0:1171688 1:1197579 2:1137559 3:1154595 4:1146405 5:1161670 6:1176001 7:1152776)
+12979 pps (9311251 0:1173488 1:1199379 2:1137914 3:1156399 4:1148209 5:1163475 6:1177806 7:1154581)
+
+93.1%
+
+Average for no-rps 93.5% of 10M incoming at ~ 750Kpps.
+
+
+# echo 1 >  /proc/irq/55/smp_affinity 
+# echo ee  > /sys/class/net/eth0/queues/rx-0/rps_cpus
+
+
+-------------------------------------------------------------------------------
+   PerfTop:    2273 irqs/sec  kernel:93.7% [1000Hz cycles],  (all, 8 CPUs)
+-------------------------------------------------------------------------------
+
+             samples  pcnt function                       DSO
+             _______ _____ ______________________________ ________
+
+              922.00 10.3% sky2_poll                      [sky2]  
+              402.00  4.5% __netif_receive_skb            [kernel]
+              400.00  4.4% ip_rcv                         [kernel]
+              356.00  4.0% call_function_single_interrupt [kernel]
+              339.00  3.8% ip_route_input                 [kernel]
+              282.00  3.1% schedule                       [kernel]
+              194.00  2.2% _raw_spin_lock_irqsave         [kernel]
+              180.00  2.0% sock_recv_ts_and_drops         [kernel]
+              178.00  2.0% _raw_spin_lock                 [kernel]
+              173.00  1.9% __udp4_lib_lookup              [kernel]
+              171.00  1.9% __udp4_lib_rcv                 [kernel]
+              162.00  1.8% system_call                    [kernel]
+              154.00  1.7% kfree                          [kernel]
+              147.00  1.6% __skb_recv_datagram            [kernel]
+              146.00  1.6% copy_user_generic_string       [kernel]
+              136.00  1.5% dst_release                    [kernel]
+              136.00  1.5% _raw_spin_unlock_irqrestore    [kernel]
+              126.00  1.4% fget_light                     [kernel]
+              126.00  1.4% sky2_intr                      [sky2]  
+              122.00  1.4% udp_recvmsg                    [kernel]
+              111.00  1.2% sock_queue_rcv_skb             [kernel]
+
+
+
+-------------------------------------------------------------------------------
+   PerfTop:     325 irqs/sec  kernel:93.2% [1000Hz cycles],  (all, cpu: 0)
+-------------------------------------------------------------------------------
+
+             samples  pcnt function                            DSO
+             _______ _____ ___________________________________ ________
+
+             1033.00 62.9% sky2_poll                           [sky2]  
+              159.00  9.7% sky2_intr                           [sky2]  
+              119.00  7.3% irq_entries_start                   [kernel]
+               51.00  3.1% __alloc_skb                         [kernel]
+               48.00  2.9% get_rps_cpu                         [kernel]
+               24.00  1.5% __kmalloc                           [kernel]
+               23.00  1.4% swiotlb_sync_single                 [kernel]
+               20.00  1.2% _raw_spin_lock                      [kernel]
+               17.00  1.0% sky2_rx_submit                      [sky2]  
+               15.00  0.9% enqueue_to_backlog                  [kernel]
+               14.00  0.9% kmem_cache_alloc                    [kernel]
+               11.00  0.7% default_send_IPI_mask_sequence_phys [kernel]
+               10.00  0.6% sky2_remove                         [sky2]  
+               10.00  0.6% cache_alloc_refill                  [kernel]
+                8.00  0.5% _raw_spin_lock_irqsave              [kernel]
+                7.00  0.4% dev_gro_receive                     [kernel]
+                6.00  0.4% net_rx_action                       [kernel]
+                6.00  0.4% __netdev_alloc_skb                  [kernel]
+                6.00  0.4% load_balance                        [kernel]
+                5.00  0.3% __smp_call_function_single          [kernel]
+
+
+-------------------------------------------------------------------------------
+   PerfTop:     347 irqs/sec  kernel:96.3% [1000Hz cycles],  (all, cpu: 1)
+-------------------------------------------------------------------------------
+
+             samples  pcnt function                       DSO
+             _______ _____ ______________________________ ________
+
+              104.00  6.7% call_function_single_interrupt [kernel]
+              104.00  6.7% __netif_receive_skb            [kernel]
+               95.00  6.1% ip_rcv                         [kernel]
+               93.00  6.0% ip_route_input                 [kernel]
+               62.00  4.0% schedule                       [kernel]
+               49.00  3.2% sock_recv_ts_and_drops         [kernel]
+               46.00  3.0% system_call                    [kernel]
+               46.00  3.0% dst_release                    [kernel]
+               45.00  2.9% _raw_spin_lock                 [kernel]
+               41.00  2.7% _raw_spin_lock_irqsave         [kernel]
+               40.00  2.6% _raw_spin_unlock_irqrestore    [kernel]
+               36.00  2.3% copy_user_generic_string       [kernel]
+               34.00  2.2% __udp4_lib_rcv                 [kernel]
+               30.00  1.9% fget_light                     [kernel]
+               30.00  1.9% sock_queue_rcv_skb             [kernel]
+               28.00  1.8% udp_recvmsg                    [kernel]
+               28.00  1.8% __udp4_lib_lookup              [kernel]
+               26.00  1.7% select_task_rq_fair            [kernel]
+               25.00  1.6% tick_nohz_stop_sched_tick      [kernel]
+               23.00  1.5% __napi_complete                [kernel]
+               20.00  1.3% __switch_to                    [kernel]
+               20.00  1.3% finish_task_switch             [kernel]
+               20.00  1.3% kmem_cache_free                [kernel]
+               20.00  1.3% sys_recvfrom                   [kernel]
+               19.00  1.2% kfree                          [kernel]
+               19.00  1.2% __skb_recv_datagram            [kernel]
+
+-------------------------------------------------------------------------------
+   PerfTop:     243 irqs/sec  kernel:95.5% [1000Hz cycles],  (all, cpu: 7)
+-------------------------------------------------------------------------------
+
+             samples  pcnt function                       DSO
+             _______ _____ ______________________________ ________
+
+               92.00  7.3% ip_rcv                         [kernel]
+               74.00  5.9% __netif_receive_skb            [kernel]
+               57.00  4.6% ip_route_input                 [kernel]
+               49.00  3.9% sock_recv_ts_and_drops         [kernel]
+               49.00  3.9% system_call                    [kernel]
+               47.00  3.8% schedule                       [kernel]
+               39.00  3.1% _raw_spin_lock_irqsave         [kernel]
+               36.00  2.9% call_function_single_interrupt [kernel]
+               34.00  2.7% udp_recvmsg                    [kernel]
+               32.00  2.6% __udp4_lib_rcv                 [kernel]
+               31.00  2.5% copy_user_generic_string       [kernel]
+               31.00  2.5% fget_light                     [kernel]
+               30.00  2.4% __udp4_lib_lookup              [kernel]
+               26.00  2.1% kfree                          [kernel]
+               25.00  2.0% __skb_recv_datagram            [kernel]
+               25.00  2.0% sock_queue_rcv_skb             [kernel]
+               23.00  1.8% __switch_to                    [kernel]
+               22.00  1.8% sock_recvmsg                   [kernel]
+               22.00  1.8% _raw_spin_unlock_irqrestore    [kernel]
+               21.00  1.7% select_task_rq_fair            [kernel]
+               18.00  1.4% _raw_spin_lock                 [kernel]
+               17.00  1.4% process_backlog                [kernel]
+               17.00  1.4% sys_recvfrom                   [kernel]
+               17.00  1.4% _raw_spin_lock_bh              [kernel]
+
+run1
+----
+590479 pps (590479 0:73820 1:73817 2:73820 3:73819 4:73815 5:73815 6:73815 7:73815)
+744641 pps (1335120 0:166895 1:166895 2:166895 3:166895 4:166895 5:166895 6:166895 7:166895)
+744374 pps (2079494 0:259940 1:259940 2:259940 3:259940 4:259940 5:259940 6:259940 7:259940)
+744340 pps (2823834 0:352985 1:352985 2:352985 3:352985 4:352985 5:352985 6:352980 7:352985)
+744390 pps (3568224 0:446035 1:446035 2:446035 3:446035 4:446035 5:446035 6:446032 7:446030)
+744404 pps (4312628 0:539085 1:539085 2:539085 3:539081 4:539085 5:539085 6:539085 7:539085)
+744369 pps (5056997 0:632130 1:632130 2:632130 3:632130 4:632130 5:632130 6:632130 7:632130)
+744394 pps (5801391 0:725180 1:725180 2:725180 3:725180 4:725180 5:725180 6:725180 7:725180)
+744399 pps (6545790 0:818230 1:818230 2:818229 3:818230 4:818230 5:818226 6:818225 7:818225)
+744354 pps (7290144 0:911275 1:911275 2:911275 3:911275 4:911270 5:911270 6:911270 7:911270)
+744363 pps (8034507 0:1004320 1:1004320 2:1004320 3:1004320 4:1004320 5:1004306 6:1004320 7:1004317)
+744379 pps (8778886 0:1097370 1:1097368 2:1097370 3:1097370 4:1097370 5:1097356 6:1097367 7:1097365)
+744449 pps (9523335 0:1190425 1:1190425 2:1190425 3:1190421 4:1190425 5:1190411 6:1190425 7:1190425)
+476651 pps (9999986 0:1250000 1:1250000 2:1250000 3:1250000 4:1250000 5:1249986 6:1250000 7:1250000)
+
+99.9% !
+
+rps counter..
+865721 rps
+1067721 rps
+
+run2
+----
+573759 pps (573759 0:71720 1:71720 2:71720 3:71723 4:71721 5:71720 6:71720 7:71719)
+744249 pps (1318008 0:164755 1:164753 2:164750 3:164750 4:164750 5:164750 6:164750 7:164750)
+744260 pps (2062268 0:257785 1:257785 2:257785 3:257785 4:257785 5:257783 6:257780 7:257780)
+744238 pps (2806506 0:350815 1:350815 2:350815 3:350815 4:350815 5:350811 6:350810 7:350810)
+744233 pps (3550739 0:443845 1:443845 2:443845 3:443845 4:443844 5:443841 6:443841 7:443840)
+744236 pps (4294975 0:536875 1:536875 2:536875 3:536870 4:536870 5:536870 6:536870 7:536870)
+744244 pps (5039219 0:629905 1:629905 2:629905 3:629905 4:629905 5:629901 6:629901 7:629900)
+744240 pps (5783459 0:722935 1:722935 2:722935 3:722934 4:722930 5:722930 6:722930 7:722930)
+744214 pps (6527673 0:815962 1:815960 2:815965 3:815963 4:815962 5:815960 6:815955 7:815955)
+744268 pps (7271941 0:908995 1:908995 2:908995 3:908995 4:908991 5:908990 6:908990 7:908990)
+744239 pps (8016180 0:1002025 1:1002025 2:1002025 3:1002025 4:1002020 5:1002020 6:1002020 7:1002020)
+744241 pps (8760421 0:1095055 1:1095055 2:1095052 3:1095055 4:1095055 5:1095050 6:1095050 7:1095050)
+744234 pps (9504655 0:1188085 1:1188085 2:1188084 3:1188085 4:1188085 5:1188081 6:1188080 7:1188080)
+495345 pps (10000000 0:1250000 1:1250000 2:1250000 3:1250000 4:1250000 5:1250000 6:1250000 7:1250000)
+
+100.0% !!!
+
+rps count ..
+3651 rps
+1455997 rps
+498777 rps
+
+run3
+----
+72947 pps (72947 0:9120 1:9120 2:9120 3:9120 4:9120 5:9117 6:9115 7:9115)
+744616 pps (817563 0:102198 1:102195 2:102195 3:102195 4:102195 5:102195 6:102195 7:102195)
+744710 pps (1562273 0:195285 1:195285 2:195285 3:195285 4:195285 5:195285 6:195285 7:195283)
+744478 pps (2306751 0:288345 1:288345 2:288345 3:288345 4:288345 5:288345 6:288341 7:288340)
+744603 pps (3051354 0:381422 1:381420 2:381420 3:381414 4:381420 5:381420 6:381420 7:381420)
+744475 pps (3795829 0:474480 1:474480 2:474480 3:474472 4:474480 5:474480 6:474480 7:474477)
+744740 pps (4540569 0:567575 1:567575 2:567575 3:567564 4:567570 5:567570 6:567570 7:567570)
+744641 pps (5285210 0:660655 1:660655 2:660655 3:660646 4:660650 5:660650 6:660650 7:660650)
+744300 pps (6029510 0:753695 1:753690 2:753690 3:753682 4:753690 5:753690 6:753690 7:753690)
+744249 pps (6773759 0:846725 1:846725 2:846725 3:846712 4:846720 5:846720 6:846720 7:846720)
+744709 pps (7518468 0:939814 1:939810 2:939810 3:939802 4:939810 5:939810 6:939810 7:939810)
+744647 pps (8263115 0:1032893 1:1032890 2:1032890 3:1032882 4:1032890 5:1032890 6:1032890 7:1032890)
+744672 pps (9007787 0:1125976 1:1125975 2:1125975 3:1125967 4:1125975 5:1125975 6:1125975 7:1125970)
+744692 pps (9752479 0:1219065 1:1219065 2:1219062 3:1219056 4:1219060 5:1219060 6:1219060 7:1219060)
+247513 pps (9999992 0:1250000 1:1250000 2:1250000 3:1249992 4:1250000 5:1250000 6:1250000 7:1250000)
+
+99.9%!
+rps count ...
+1118484 rps
+842940 rps
+
+run4
+----
+288558 pps (288558 0:36070 1:36070 2:36070 3:36070 4:36070 5:36070 6:36070 7:36068)
+744237 pps (1032795 0:129103 1:129100 2:129105 3:129100 4:129100 5:129100 6:129095 7:129095)
+742988 pps (1775783 0:222135 1:222135 2:222135 3:222135 4:220853 5:222130 6:222130 7:222130)
+744210 pps (2519993 0:315160 1:315160 2:315160 3:315160 4:313883 5:315160 6:315155 7:315155)
+744214 pps (3264207 0:408189 1:408185 2:408185 3:408185 4:406908 5:408185 6:408185 7:408185)
+744278 pps (4008485 0:501223 1:501220 2:501220 3:501220 4:499943 5:501220 6:501220 7:501220)
+743699 pps (4752184 0:594252 1:594250 2:593718 3:594250 4:592973 5:594250 6:594248 7:594245)
+744243 pps (5496427 0:687280 1:687280 2:686748 3:687280 4:686003 5:687280 6:687280 7:687276)
+744231 pps (6240658 0:780310 1:780310 2:779778 3:780310 4:779033 5:780300 6:780310 7:780307)
+743958 pps (6984616 0:873342 1:873340 2:872808 3:873340 4:872063 5:873043 6:873340 7:873340)
+744241 pps (7728857 0:966373 1:966370 2:965838 3:966370 4:965093 5:966073 6:966370 7:966370)
+744232 pps (8473089 0:1059400 1:1059400 2:1058868 3:1059400 4:1058123 5:1059103 6:1059397 7:1059398)
+743660 pps (9216749 0:1152434 1:1152430 2:1151898 3:1152430 4:1151153 5:1151556 6:1152427 7:1152430)
+744251 pps (9961000 0:1245463 1:1245460 2:1244928 3:1245460 4:1244183 5:1244586 6:1245460 7:1245460)
+36317 pps (9997317 0:1250000 1:1250000 2:1249468 3:1250000 4:1248723 5:1249126 6:1250000 7:1250000)
+
+99.9%!
+rps count
+818552 rps
+1146570 rps
+
+run 5
+----
+686211 pps (686211 0:85780 1:85780 2:85775 3:85779 4:85780 5:85780 6:85775 7:85775)
+744260 pps (1430471 0:178810 1:178810 2:178810 3:178810 4:178810 5:178810 6:178806 7:178805)
+744242 pps (2174713 0:271840 1:271840 2:271840 3:271840 4:271840 5:271840 6:271838 7:271835)
+744241 pps (2918954 0:364870 1:364870 2:364870 3:364870 4:364870 5:364870 6:364869 7:364865)
+744238 pps (3663192 0:457900 1:457900 2:457900 3:457900 4:457900 5:457900 6:457900 7:457899)
+744240 pps (4407432 0:550930 1:550930 2:550930 3:550930 4:550930 5:550930 6:550927 7:550925)
+744244 pps (5151676 0:643960 1:643960 2:643960 3:643960 4:643960 5:643960 6:643960 7:643956)
+744236 pps (5895912 0:736990 1:736990 2:736990 3:736990 4:736990 5:736990 6:736987 7:736985)
+744241 pps (6640153 0:830020 1:830020 2:830020 3:830020 4:830020 5:830020 6:830018 7:830015)
+744235 pps (7384388 0:923050 1:923050 2:923050 3:923050 4:923050 5:923049 6:923045 7:923047)
+744244 pps (8128632 0:1016080 1:1016080 2:1016080 3:1016080 4:1016080 5:1016080 6:1016079 7:1016075)
+744231 pps (8872863 0:1109110 1:1109110 2:1109110 3:1109110 4:1109108 5:1109105 6:1109105 7:1109105)
+744258 pps (9617121 0:1202141 1:1202140 2:1202140 3:1202140 4:1202140 5:1202140 6:1202140 7:1202140)
+382879 pps (10000000 0:1250000 1:1250000 2:1250000 3:1250000 4:1250000 5:1250000 6:1250000 7:1250000)
+
+100%
+rpsipi count ..
+768383 rps
+1178132 rps
+
+--=-XDiOd5okEAT93VULROdJ--
+
