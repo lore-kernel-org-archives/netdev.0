@@ -1,159 +1,126 @@
 From: Ben Dooks <ben@simtec.co.uk>
-Subject: [patch 11/13] KS8851: Update ks8851.h header from ks8851_mll.c
-Date: Fri, 30 Apr 2010 00:16:32 +0100
-Message-ID: <20100429231740.720896234@fluff.org.uk>
+Subject: [patch 05/13] KSZ8851-SNL: Add support for EEPROM MAC address
+Date: Fri, 30 Apr 2010 00:16:26 +0100
+Message-ID: <20100429231739.992421136@fluff.org.uk>
 References: <20100429231621.015936077@fluff.org.uk>
 Cc: tristram.ha@micrel.com, support@tincantools.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from aeryn.fluff.org.uk ([87.194.8.8]:27351 "EHLO
 	kira.home.fluff.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932321Ab0D3VsW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 17:48:22 -0400
-Content-Disposition: inline; filename=ks8851-reduce-header-duplication2.patch
+	with ESMTP id S932353Ab0D3VsY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 17:48:24 -0400
+Content-Disposition: inline; filename=ks8851-mac-from-eeprom.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move more useful definitions from ks8851_mll.c into ks8851.h and include
-a brief copyright update from the mll source file. Also mop up a few
-definitions that got missed in the first patch.
+Add support for reading the MAC address from the system registers if there
+is an EEPROM present. This involves caching the KS_CCR register for later
+use (will also be useful for ETHTOOL support) and adding a print to say
+that there is an EEPROM present.
 
 Signed-off-by: Ben Dooks <ben@simtec.co.uk>
 
 ---
 
 ---
- drivers/net/ks8851.h     |   27 +++++++++++++++++++++++++++
- drivers/net/ks8851_mll.c |   40 +---------------------------------------
- 2 files changed, 28 insertions(+), 39 deletions(-)
+ drivers/net/ks8851.c |   46 +++++++++++++++++++++++++++++++++++++++-------
+ 1 file changed, 39 insertions(+), 7 deletions(-)
 
-Index: b/drivers/net/ks8851.h
+Index: b/drivers/net/ks8851.c
 ===================================================================
---- a/drivers/net/ks8851.h	2010-04-20 18:38:38.000000000 +0100
-+++ b/drivers/net/ks8851.h	2010-04-20 18:39:02.000000000 +0100
-@@ -3,6 +3,9 @@
-  * Copyright 2009 Simtec Electronics
-  *      Ben Dooks <ben@simtec.co.uk>
+--- a/drivers/net/ks8851.c	2010-04-29 00:51:12.489525834 +0900
++++ b/drivers/net/ks8851.c	2010-04-29 00:52:02.377026762 +0900
+@@ -76,6 +76,7 @@ union ks8851_tx_hdr {
+  * @msg_enable: The message flags controlling driver output (see ethtool).
+  * @fid: Incrementing frame id tag.
+  * @rc_ier: Cached copy of KS_IER.
++ * @rc_ccr: Cached copy of KS_CCR.
+  * @rc_rxqcr: Cached copy of KS_RXQCR.
   *
-+ * portions from drivers/net/ks8851_mll.c,
-+ *	Copyright (c) 2009 Micrel Inc.
+  * The @lock ensures that the chip is protected when certain operations are
+@@ -107,6 +108,7 @@ struct ks8851_net {
+ 
+ 	u16			rc_ier;
+ 	u16			rc_rxqcr;
++	u16			rc_ccr;
+ 
+ 	struct mii_if_info	mii;
+ 	struct ks8851_rxctrl	rxctrl;
+@@ -367,21 +369,47 @@ static int ks8851_write_mac_addr(struct 
+ }
+ 
+ /**
++ * ks8851_read_mac_addr - read mac address from device registers
++ * @dev: The network device
 + *
-  * KS8851 register definitions
++ * Update our copy of the KS8851 MAC address from the registers of @dev.
++*/
++static void ks8851_read_mac_addr(struct net_device *dev)
++{
++	struct ks8851_net *ks = netdev_priv(dev);
++	int i;
++
++	mutex_lock(&ks->lock);
++
++	for (i = 0; i < ETH_ALEN; i++)
++		dev->dev_addr[i] = ks8851_rdreg8(ks, KS_MAR(i));
++
++	mutex_unlock(&ks->lock);
++}
++
++/**
+  * ks8851_init_mac - initialise the mac address
+  * @ks: The device structure
   *
-  * This program is free software; you can redistribute it and/or modify
-@@ -13,6 +16,10 @@
- #define KS_CCR					0x08
- #define CCR_EEPROM				(1 << 9)
- #define CCR_SPI					(1 << 8)
-+#define CCR_8BIT				(1 << 7)
-+#define CCR_16BIT				(1 << 6)
-+#define CCR_32BIT				(1 << 5)
-+#define CCR_SHARED				(1 << 4)
- #define CCR_32PIN				(1 << 0)
+  * Get or create the initial mac address for the device and then set that
+- * into the station address register. Currently we assume that the device
+- * does not have a valid mac address in it, and so we use random_ether_addr()
++ * into the station address register. If there is an EEPROM present, then
++ * we try that. If no valid mac address is found we use random_ether_addr()
+  * to create a new one.
+- *
+- * In future, the driver should check to see if the device has an EEPROM
+- * attached and whether that has a valid ethernet address in it.
+  */
+ static void ks8851_init_mac(struct ks8851_net *ks)
+ {
+ 	struct net_device *dev = ks->netdev;
  
- /* MAC address registers */
-@@ -250,7 +257,13 @@
- 
- /* Standard MII PHY data */
- #define KS_P1MBCR				0xE4
-+#define P1MBCR_FORCE_FDX			(1 << 8)
++	/* first, try reading what we've got already */
++	if (ks->rc_ccr & CCR_EEPROM) {
++		ks8851_read_mac_addr(dev);
++		if (is_valid_ether_addr(dev->dev_addr))
++			return;
 +
- #define KS_P1MBSR				0xE6
-+#define P1MBSR_AN_COMPLETE			(1 << 5)
-+#define P1MBSR_AN_CAPABLE			(1 << 3)
-+#define P1MBSR_LINK_UP				(1 << 2)
++		ks_err(ks, "invalid mac address read %pM\n",
++			dev->dev_addr);
++	}
 +
- #define KS_PHY1ILR				0xE8
- #define KS_PHY1IHR				0xEA
- #define KS_P1ANAR				0xEC
-@@ -285,6 +298,20 @@
- #define P1CR_PNTR_10BT_FDX			(1 << 1)
- #define P1CR_PNTR_10BT_HDX			(1 << 0)
+ 	random_ether_addr(dev->dev_addr);
+ 	ks8851_write_mac_addr(dev);
+ }
+@@ -1288,6 +1316,9 @@ static int __devinit ks8851_probe(struct
+ 		goto err_id;
+ 	}
  
-+#define KS_P1SR					0xF8
-+#define P1SR_HP_MDIX				(1 << 15)
-+#define P1SR_REV_POL				(1 << 13)
-+#define P1SR_OP_100M				(1 << 10)
-+#define P1SR_OP_FDX				(1 << 9)
-+#define P1SR_OP_MDI				(1 << 7)
-+#define P1SR_AN_DONE				(1 << 6)
-+#define P1SR_LINK_GOOD				(1 << 5)
-+#define P1SR_PNTR_FLOW				(1 << 4)
-+#define P1SR_PNTR_100BT_FDX			(1 << 3)
-+#define P1SR_PNTR_100BT_HDX			(1 << 2)
-+#define P1SR_PNTR_10BT_FDX			(1 << 1)
-+#define P1SR_PNTR_10BT_HDX			(1 << 0)
++  	/* cache the contents of the CCR register for EEPROM, etc. */
++  	ks->rc_ccr = ks8851_rdreg16(ks, KS_CCR);
 +
- /* TX Frame control */
+ 	ks8851_read_selftest(ks);
+ 	ks8851_init_mac(ks);
+ 	ks->tx_space = ks8851_rdreg16(ks, KS_TXMIR);
+@@ -1305,9 +1336,10 @@ static int __devinit ks8851_probe(struct
+ 		goto err_netdev;
+ 	}
  
- #define TXFR_TXIC				(1 << 15)
-Index: b/drivers/net/ks8851_mll.c
-===================================================================
---- a/drivers/net/ks8851_mll.c	2010-04-20 18:38:42.000000000 +0100
-+++ b/drivers/net/ks8851_mll.c	2010-04-20 18:39:02.000000000 +0100
-@@ -43,13 +43,6 @@ static u8 KS_DEFAULT_MAC_ADDRESS[] = { 0
- #define TX_BUF_SIZE			2000
- #define RX_BUF_SIZE			2000
+-	dev_info(&spi->dev, "revision %d, MAC %pM, IRQ %d\n",
++	dev_info(&spi->dev, "revision %d, MAC %pM, IRQ %d, %s EEPROM\n",
+ 		 CIDER_REV_GET(ks8851_rdreg16(ks, KS_CIDER)),
+-		 ndev->dev_addr, ndev->irq);
++		 ndev->dev_addr, ndev->irq,
++		 ks->rc_ccr & CCR_EEPROM ? "has" : "no");
  
--#define CCR_8BIT			(1 << 7)
--#define CCR_16BIT			(1 << 6)
--#define CCR_32BIT			(1 << 5)
--#define CCR_SHARED			(1 << 4)
--
--#define OBCR_ODS_16MA			(1 << 6)
--
- #define RXCR1_FILTER_MASK    		(RXCR1_RXINVF | RXCR1_RXAE | \
- 					 RXCR1_RXMAFMA | RXCR1_RXPAFMA)
+ 	return 0;
  
-@@ -65,41 +58,10 @@ static u8 KS_DEFAULT_MAC_ADDRESS[] = { 0
- 
- #define RXQCR_CMD_CNTL                	(RXQCR_RXFCTE|RXQCR_ADRFE)
- 
--#define KS_TXFDPR			0x84
--#define TXFDPR_TXFPAI			(1 << 14)
--#define TXFDPR_TXFP_MASK		(0x7ff << 0)
--#define TXFDPR_TXFP_SHIFT		(0)
--
--#define KS_RXFDPR			0x86
--#define RXFDPR_RXFPAI			(1 << 14)
--
- #define RXFCTR_THRESHOLD_MASK     	0x00FF
- 
--#define P1MBCR_FORCE_FDX		(1 << 8)
--
--#define P1MBSR_AN_COMPLETE		(1 << 5)
--#define P1MBSR_AN_CAPABLE		(1 << 3)
--#define P1MBSR_LINK_UP			(1 << 2)
--
- /* TX Frame control */
- 
--#define TXFR_TXIC			(1 << 15)
--#define TXFR_TXFID_MASK			(0x3f << 0)
--#define TXFR_TXFID_SHIFT		(0)
--
--#define KS_P1SR				0xF8
--#define P1SR_HP_MDIX			(1 << 15)
--#define P1SR_REV_POL			(1 << 13)
--#define P1SR_OP_100M			(1 << 10)
--#define P1SR_OP_FDX			(1 << 9)
--#define P1SR_OP_MDI			(1 << 7)
--#define P1SR_AN_DONE			(1 << 6)
--#define P1SR_LINK_GOOD			(1 << 5)
--#define P1SR_PNTR_FLOW			(1 << 4)
--#define P1SR_PNTR_100BT_FDX		(1 << 3)
--#define P1SR_PNTR_100BT_HDX		(1 << 2)
--#define P1SR_PNTR_10BT_FDX		(1 << 1)
--#define P1SR_PNTR_10BT_HDX		(1 << 0)
- 
- #define	ENUM_BUS_NONE			0
- #define	ENUM_BUS_8BIT			1
-@@ -1362,7 +1324,7 @@ static int __devinit ks8851_probe(struct
- 	memcpy(netdev->dev_addr, ks->mac_addr, 6);
- 
- 	data = ks_rdreg16(ks, KS_OBCR);
--	ks_wrreg16(ks, KS_OBCR, data | OBCR_ODS_16MA);
-+	ks_wrreg16(ks, KS_OBCR, data | OBCR_ODS_16mA);
- 
- 	/**
- 	 * If you want to use the default MAC addr,
 
