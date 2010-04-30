@@ -1,46 +1,43 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the tty tree with the net tree
-Date: Thu, 29 Apr 2010 15:56:55 +1000
-Message-ID: <20100429155655.479e0982.sfr@canb.auug.org.au>
+From: Jean Delvare <khali@linux-fr.org>
+Subject: Re: [patch 03/13] eeprom_93cx6: Add data direction control.
+Date: Fri, 30 Apr 2010 13:12:13 +0200
+Message-ID: <20100430131213.2429dd1e@hyperion.delvare>
+References: <20100429231621.015936077@fluff.org.uk>
+	<20100429231739.749602911@fluff.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Sjur Braendeland <sjur.brandeland@stericsson.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Alan Cox <alan@linux.intel.com>
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, tristram.ha@micrel.com,
+	support@tincantools.com, Wolfram Sang <w.sang@pengutronix.de>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+To: Ben Dooks <ben@simtec.co.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bamako.nerim.net ([62.4.17.28]:56863 "EHLO bamako.nerim.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933533Ab0D3Rpt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Apr 2010 13:45:49 -0400
+In-Reply-To: <20100429231739.749602911@fluff.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Greg,
+Hi Ben,
 
-Today's linux-next merge of the tty tree got a conflict in
-include/linux/tty.h between commit
-9b27105b4a44c54bf91ecd7d0315034ae75684f7 ("net-caif-driver: add CAIF
-serial driver (ldisc)") from the net tree and commit
-39658c58ebb52fe7a3488fd520aa89c75721fd20 ("tty: n_gsm line discipline")
-from the tty tree.
+On Fri, 30 Apr 2010 00:16:24 +0100, Ben Dooks wrote:
+> Some devices need to know if the data is to be output or read, so add a
+> data direction into the eeprom structure to tell the driver whether the
+> data line should be driven.
+> 
+> The user in this case is the Micrel KS8851 which has a direction
+> control for the EEPROM data line and thus needs to know whether
+> to drive it (writing) or to tristate it for receiving.
+> 
+> Signed-off-by: Ben Dooks <ben@simtec.co.uk>
+> Cc: Wolfram Sang <w.sang@pengutronix.de>
+> Cc: Jean Delvare <khali@linux-fr.org>
+> Cc: Linux Kernel <linux-kernel@vger.kernel.org>
 
-I used number 21 for the n_gsm line discipline (see below) and 30 for
-NR_LDISCS and can carry this fix as necessary.
+I don't know anything about these driver and device, so don't expect
+any input from me.
+
 -- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc include/linux/tty.h
-index bb44fa9,bd5acb7..0000000
---- a/include/linux/tty.h
-+++ b/include/linux/tty.h
-@@@ -47,7 -47,8 +47,8 @@@
-  #define N_SLCAN		17	/* Serial / USB serial CAN Adaptors */
-  #define N_PPS		18	/* Pulse per Second */
-  #define N_V253		19	/* Codec control over voice modem */
- -#define N_GSM0710	20	/* GSM 0710 Mux */
- -
- +#define N_CAIF		20      /* CAIF protocol for talking to modems */
-++#define N_GSM0710	21	/* GSM 0710 Mux */
-  
-  /*
-   * This character is the same as _POSIX_VDISABLE: it cannot be used as
+Jean Delvare
