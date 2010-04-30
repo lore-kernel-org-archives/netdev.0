@@ -1,47 +1,104 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [PATCH] [RFC] C/R: inet4 and inet6 unicast routes (v2)
-Date: Fri, 30 Apr 2010 13:37:02 -0500
-Message-ID: <20100430183702.GA29585@us.ibm.com>
-References: <1272646855-17327-1-git-send-email-danms@us.ibm.com>
- <20100430181946.GA26761@us.ibm.com>
- <87mxwkztjf.fsf@caffeine.danplanet.com>
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [PATCH linux-next v2 1/2] irq: Add CPU mask affinity hint
+Date: Fri, 30 Apr 2010 09:41:23 -0700 (Pacific Daylight Time)
+Message-ID: <Pine.WNT.4.64.1004300939510.1892@PPWASKIE-MOBL2.amr.corp.intel.com>
+References: <20100430085150.4630.46790.stgit@ppwaskie-hc2.jf.intel.com>
+ <alpine.LFD.2.00.1004301249540.2951@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: containers@lists.osdl.org,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Dan Smith <danms@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e37.co.us.ibm.com ([32.97.110.158]:44124 "EHLO
-	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759088Ab0D3ShH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 14:37:07 -0400
-Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
-	by e37.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id o3UIZR9h030112
-	for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 12:35:27 -0600
-Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
-	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o3UIb3IP170792
-	for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 12:37:03 -0600
-Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av06.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o3UIdnFr014504
-	for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 12:39:49 -0600
-Content-Disposition: inline
-In-Reply-To: <87mxwkztjf.fsf@caffeine.danplanet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.00.1004301249540.2951@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Quoting Dan Smith (danms@us.ibm.com):
-> SH> So I'm afraid you're going to have to do a slightly uglier thing
-> SH> where you unshare_nsproxy_namespaces() and then
-> SH> switch_task_namespaces() to the new nsproxy.
-> 
-> Well, I think that would be hidden in the nicer helper function I
-> think I'll need, which I eluded to in the patch header.  This is just
-> an RFC proof that it can be done in this manner, but I think a
-> separate helper in nsproxy.c is in order to make it nice (and avoid
-> the extra alloc/free of the netns that copy_namespaces() will create).
-> Agreed?
+On Fri, 30 Apr 2010, Thomas Gleixner wrote:
 
-Yup - thanks!
+> On Fri, 30 Apr 2010, Peter P Waskiewicz Jr wrote:
+>
+>> This patch adds a cpumask affinity hint to the irq_desc
+>> structure, along with a registration function and a read-only
+>> proc entry for each interrupt.
+>>
+>> This affinity_hint handle for each interrupt can be used by
+>> underlying drivers that need a better mechanism to control
+>> interrupt affinity.  The underlying driver can register a
+>> cpumask for the interrupt, which will allow the driver to
+>> provide the CPU mask for the interrupt to anything that
+>> requests it.  The intent is to extend the userspace daemon,
+>> irqbalance, to help hint to it a preferred CPU mask to balance
+>> the interrupt into.
+>>
+>> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+>> ---
+>>
+>>  include/linux/interrupt.h |   13 +++++++++++++
+>>  include/linux/irq.h       |    1 +
+>>  kernel/irq/manage.c       |   28 ++++++++++++++++++++++++++++
+>>  kernel/irq/proc.c         |   33 +++++++++++++++++++++++++++++++++
+>>  4 files changed, 75 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
+>> index 75f3f00..9c9ea2a 100644
+>> --- a/include/linux/interrupt.h
+>> +++ b/include/linux/interrupt.h
+>> @@ -209,6 +209,9 @@ extern int irq_set_affinity(unsigned int irq, const struct cpumask *cpumask);
+>>  extern int irq_can_set_affinity(unsigned int irq);
+>>  extern int irq_select_affinity(unsigned int irq);
+>>
+>> +extern int irq_register_affinity_hint(unsigned int irq,
+>> +                                      const struct cpumask *m);
+>
+> I think we can do with a single funtion irq_set_affinity_hint() and
+> let the caller set the pointer to NULL.
 
--serge
+That works too.  I like it.  :-)
+
+>
+>>
+>> +int irq_register_affinity_hint(unsigned int irq, const struct cpumask *m)
+>> +{
+>> +	struct irq_desc *desc = irq_to_desc(irq);
+>> +	unsigned long flags;
+>
+>  desc needs to be checked. It might be NULL !
+
+Doh, good point!
+
+>
+>> +
+>> +	raw_spin_lock_irqsave(&desc->lock, flags);
+>> +	desc->affinity_hint = m;
+>> +	raw_spin_unlock_irqrestore(&desc->lock, flags);
+>> +
+>> +	return 0;
+>> +}
+>> +EXPORT_SYMBOL(irq_register_affinity_hint);
+>
+>  EXPORT_SYMBOL_GPL please
+
+Will do.
+
+>
+>> +static int irq_affinity_hint_proc_show(struct seq_file *m, void *v)
+>> +{
+>> +	struct irq_desc *desc = irq_to_desc((long)m->private);
+>> +	unsigned long flags;
+>> +	int ret = -EINVAL;
+>> +
+>> +	raw_spin_lock_irqsave(&desc->lock, flags);
+>> +	if (desc->affinity_hint) {
+>> +		seq_cpumask(m, desc->affinity_hint);
+>
+>  Please make a local copy under desc->mask and do the seq_cpumask()
+>  stuff on the local copy outside of desc->lock
+
+Will do.
+
+Cheers,
+
+-PJ
