@@ -1,127 +1,88 @@
-From: <gregkh@suse.de>
-Subject: patch sysfs-implement-sysfs_delete_link.patch added to gregkh-2.6 tree
-Date: Thu, 29 Apr 2010 13:29:05 -0700
-Message-ID: <12725729451725@kroah.org>
-References: <1269973889-25260-5-git-send-email-ebiederm@xmission.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH linux-next v2 1/2] irq: Add CPU mask affinity hint
+Date: Fri, 30 Apr 2010 12:53:11 +0200 (CEST)
+Message-ID: <alpine.LFD.2.00.1004301249540.2951@localhost.localdomain>
+References: <20100430085150.4630.46790.stgit@ppwaskie-hc2.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ANSI_X3.4-1968
-Content-Transfer-Encoding: 8bit
-To: ebiederm@xmission.com, bcrl@lhnet.ca, benjamin.thery@bull.net,
-	cornelia.huck@de.ibm.com, dlezcano@fr.ibm.com,
-	eric.dumazet@gmail.com, gregkh@suse.de, kay.sievers@vrfy.org,
-	netdev@vger
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:58700 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932708Ab0D3RIg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Apr 2010 13:08:36 -0400
-In-Reply-To: <1269973889-25260-5-git-send-email-ebiederm@xmission.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@davemloft.net, arjan@linux.jf.intel.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100430085150.4630.46790.stgit@ppwaskie-hc2.jf.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Fri, 30 Apr 2010, Peter P Waskiewicz Jr wrote:
 
-This is a note to let you know that I've just added the patch titled
+> This patch adds a cpumask affinity hint to the irq_desc
+> structure, along with a registration function and a read-only
+> proc entry for each interrupt.
+> 
+> This affinity_hint handle for each interrupt can be used by
+> underlying drivers that need a better mechanism to control
+> interrupt affinity.  The underlying driver can register a
+> cpumask for the interrupt, which will allow the driver to
+> provide the CPU mask for the interrupt to anything that
+> requests it.  The intent is to extend the userspace daemon,
+> irqbalance, to help hint to it a preferred CPU mask to balance
+> the interrupt into.
+> 
+> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+> ---
+> 
+>  include/linux/interrupt.h |   13 +++++++++++++
+>  include/linux/irq.h       |    1 +
+>  kernel/irq/manage.c       |   28 ++++++++++++++++++++++++++++
+>  kernel/irq/proc.c         |   33 +++++++++++++++++++++++++++++++++
+>  4 files changed, 75 insertions(+), 0 deletions(-)
+> 
+> diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
+> index 75f3f00..9c9ea2a 100644
+> --- a/include/linux/interrupt.h
+> +++ b/include/linux/interrupt.h
+> @@ -209,6 +209,9 @@ extern int irq_set_affinity(unsigned int irq, const struct cpumask *cpumask);
+>  extern int irq_can_set_affinity(unsigned int irq);
+>  extern int irq_select_affinity(unsigned int irq);
+>  
+> +extern int irq_register_affinity_hint(unsigned int irq,
+> +                                      const struct cpumask *m);
 
-    Subject: sysfs: Implement sysfs_delete_link
+I think we can do with a single funtion irq_set_affinity_hint() and
+let the caller set the pointer to NULL.
 
-to my gregkh-2.6 tree.  Its filename is
+>  
+> +int irq_register_affinity_hint(unsigned int irq, const struct cpumask *m)
+> +{
+> +	struct irq_desc *desc = irq_to_desc(irq);
+> +	unsigned long flags;
 
-    sysfs-implement-sysfs_delete_link.patch
+  desc needs to be checked. It might be NULL !
 
-This tree can be found at 
-    http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/
+> +
+> +	raw_spin_lock_irqsave(&desc->lock, flags);
+> +	desc->affinity_hint = m;
+> +	raw_spin_unlock_irqrestore(&desc->lock, flags);
+> +
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL(irq_register_affinity_hint);
 
+  EXPORT_SYMBOL_GPL please
 
->From ebiederm@xmission.com  Thu Apr 29 12:47:27 2010
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Tue, 30 Mar 2010 11:31:28 -0700
-Subject: sysfs: Implement sysfs_delete_link
-To: Greg Kroah-Hartman <gregkh@suse.de>
-Cc: Kay Sievers <kay.sievers@vrfy.org>, linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>, Cornelia Huck <cornelia.huck@de.ibm.com>, linux-fsdevel@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>, Benjamin LaHaise <bcrl@lhnet.ca>, Serge Hallyn <serue@us.ibm.com>, <netdev@vger.kernel.org>, "Eric W. Biederman" <ebiederm@xmission.com>, Benjamin Thery <benjamin.thery@bull.net>, Daniel Lezcano <dlezcano@fr.ibm.com>
-Message-ID: <1269973889-25260-5-git-send-email-ebiederm@xmission.com>
+> +static int irq_affinity_hint_proc_show(struct seq_file *m, void *v)
+> +{
+> +	struct irq_desc *desc = irq_to_desc((long)m->private);
+> +	unsigned long flags;
+> +	int ret = -EINVAL;
+> +
+> +	raw_spin_lock_irqsave(&desc->lock, flags);
+> +	if (desc->affinity_hint) {
+> +		seq_cpumask(m, desc->affinity_hint);
 
+  Please make a local copy under desc->mask and do the seq_cpumask()
+  stuff on the local copy outside of desc->lock
 
-From: Eric W. Biederman <ebiederm@xmission.com>
+Thanks,
 
-When removing a symlink sysfs_remove_link does not provide
-enough information to figure out which tagged directory the symlink
-falls in.  So I need sysfs_delete_link which is passed the target
-of the symlink to delete.
-
-sysfs_rename_link is updated to call sysfs_delete_link instead
-of sysfs_remove_link as we have all of the information necessary
-and the callers are interesting.
-
-Both of these functions now have enough information to find a symlink
-in a tagged directory.  The only restriction is that they must be called
-before the target kobject is renamed or deleted.  If they are called
-later I loose track of which tag the target kobject was marked with
-and can no longer find the old symlink to remove it.
-
-This patch was split from an earlier patch.
-
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-Signed-off-by: Benjamin Thery <benjamin.thery@bull.net>
-Signed-off-by: Daniel Lezcano <dlezcano@fr.ibm.com>
-Acked-by: Tejun Heo <tj@kernel.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
----
- fs/sysfs/symlink.c    |   20 ++++++++++++++++++++
- include/linux/sysfs.h |    8 ++++++++
- 2 files changed, 28 insertions(+)
-
---- a/fs/sysfs/symlink.c
-+++ b/fs/sysfs/symlink.c
-@@ -109,6 +109,26 @@ int sysfs_create_link_nowarn(struct kobj
- }
- 
- /**
-+ *	sysfs_delete_link - remove symlink in object's directory.
-+ *	@kobj:	object we're acting for.
-+ *	@targ:	object we're pointing to.
-+ *	@name:	name of the symlink to remove.
-+ *
-+ *	Unlike sysfs_remove_link sysfs_delete_link has enough information
-+ *	to successfully delete symlinks in tagged directories.
-+ */
-+void sysfs_delete_link(struct kobject *kobj, struct kobject *targ,
-+			const char *name)
-+{
-+	const void *ns = NULL;
-+	spin_lock(&sysfs_assoc_lock);
-+	if (targ->sd)
-+		ns = targ->sd->s_ns;
-+	spin_unlock(&sysfs_assoc_lock);
-+	sysfs_hash_and_remove(kobj->sd, ns, name);
-+}
-+
-+/**
-  *	sysfs_remove_link - remove symlink in object's directory.
-  *	@kobj:	object we're acting for.
-  *	@name:	name of the symlink to remove.
---- a/include/linux/sysfs.h
-+++ b/include/linux/sysfs.h
-@@ -155,6 +155,9 @@ void sysfs_remove_link(struct kobject *k
- int sysfs_rename_link(struct kobject *kobj, struct kobject *target,
- 			const char *old_name, const char *new_name);
- 
-+void sysfs_delete_link(struct kobject *dir, struct kobject *targ,
-+			const char *name);
-+
- int __must_check sysfs_create_group(struct kobject *kobj,
- 				    const struct attribute_group *grp);
- int sysfs_update_group(struct kobject *kobj,
-@@ -269,6 +272,11 @@ static inline int sysfs_rename_link(stru
- 	return 0;
- }
- 
-+static inline void sysfs_delete_link(struct kobject *k, struct kobject *t,
-+				     const char *name)
-+{
-+}
-+
- static inline int sysfs_create_group(struct kobject *kobj,
- 				     const struct attribute_group *grp)
- {
-
+	tglx
