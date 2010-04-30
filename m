@@ -1,54 +1,71 @@
-From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Subject: RE: [net-2.6 PATCH] e1000e: enable/disable ASPM L0s and L1 and ERT
- according to hardware errata
-Date: Fri, 30 Apr 2010 12:27:02 -0700
-Message-ID: <8DD2590731AB5D4C9DBF71A877482A90622DE3C2@orsmsx509.amr.corp.intel.com>
-References: <20100427133232.25490.92973.stgit@localhost.localdomain>
-	<20100429074606.GA12437@kryten>
-	<8DD2590731AB5D4C9DBF71A877482A9062274501@orsmsx509.amr.corp.intel.com>
- <20100429.120416.184828647.davem@davemloft.net>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: patch sysfs-implement-sysfs-tagged-directory-support.patch
+ added to gregkh-2.6 tree
+Date: Fri, 30 Apr 2010 08:58:45 -0700
+Message-ID: <20100430155845.GA6987@suse.de>
+References: <12725729473590@kroah.org>
+ <4BDA5A2D.6080904@kernel.org>
+ <20100430044522.GA29845@suse.de>
+ <m1aaslbjh4.fsf@fess.ebiederm.org>
+ <4BDA6C90.9010303@kernel.org>
+ <20100430142940.GC7187@us.ibm.com>
+ <4BDAF5B0.3080801@kernel.org>
+ <20100430154320.GC13977@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "anton@samba.org" <anton@samba.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"mjg@redhat.com" <mjg@redhat.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tejun Heo <tj@kernel.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>, bcrl@lhnet.ca,
+	benjamin.thery@bull.net, cornelia.huck@de.ibm.com,
+	eric.dumazet@gmail.com, kay.sievers@vrfy.org,
+	netdev@vger.kernel.org
+To: "Serge E. Hallyn" <serue@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:32894 "EHLO mga14.intel.com"
+Received: from cantor2.suse.de ([195.135.220.15]:60178 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934254Ab0D3T1G convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 15:27:06 -0400
-In-Reply-To: <20100429.120416.184828647.davem@davemloft.net>
-Content-Language: en-US
+	id S932288Ab0D3QrY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Apr 2010 12:47:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20100430154320.GC13977@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday, April 29, 2010 12:04 PM, David Miller wrote:
-> From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-> Date: Thu, 29 Apr 2010 10:19:56 -0700
+On Fri, Apr 30, 2010 at 10:43:21AM -0500, Serge E. Hallyn wrote:
+> Quoting Tejun Heo (tj@kernel.org):
+> > Hello,
+> > 
+> > On 04/30/2010 04:29 PM, Serge E. Hallyn wrote:
+> > > Hmm, but looking back over the previous thread (Mar 31) I guess you
+> > > mean more in-line comments around the callbacks, presumably things
+> > > like class_dir_child_ns_type() and struct kobj_ns_type_operations
+> > > members?
+> > 
+> > In-line.  What they're, how they're supposed to be used, which calling
+> > context is expected, what can be returned and so on.
+> > 
+> > > It sounds like what you'd really like is to have any explicit
+> > > mention to namespaces pulled out of drivers/base (layering as you
+> > > keep saying)?  But will there be a use for this outside of
+> > > namespaces?  Does trying to anticipate that fall into the category
+> > > of over-abstraction?
+> > 
+> > I wouldn't mind limited amount of layering exceptions as long as
+> > they're clearly documented.  What I'm primarily worried about is not
+> > the possibility of other users but more the obfuscation of the whole
+> > sysfs-kobject-driver model thing which is already overly abstracted
+> > and obfuscated (at least it seems to me that way).
+> > 
+> > NS needs tagged support in the driver model which in itself is fine
+> > and I also understand that from someone who's primarily working on NS,
+> > adding a bit on top of the whole thing wouldn't seem like much of a
+> > problem.  To me it seems like worsening a problem which is already
+> > pretty bad.  I hope you could understand my POV too.
 > 
->> Your patch is probably the correct thing to do but I'm not all that
->> familiar with the ppc64 architecture.  Would you please provide the
->> output of 'lspci -t' and 'lspci -vvv -xxx'.
-> 
-> You're not guarenteed for there to be a pci_dev backing the top-level
-> host controller, at the very least.  Some platforms don't even
-> implement the PCI config space for the host controller, whilst on
-> others access to them is protected by the hypervisor.
-> 
-> So you can't go poking around the PCI host controller registers
-> unconditionally.
-> 
-> The same OOPS probably would happen on Sparc64 in some configurations
-> too.  Although all of my PCI-E slots do have PCI-E express switch port
-> nodes, so maybe it wouldn't trigger here.
+> I do.  I can take a stab monday at pushing a cloned version of Eric's
+> tree with comments added, if Eric doesn't have time.  (Or a patch on
+> top of Greg's tree)
 
-In that case, I agree with Anton's patch.
+On top of Greg's tree please :)
 
-Reviewed-by: Bruce Allan <bruce.w.allan@intel.com>
+thanks,
 
-Thanks,
-Bruce.
+greg k-h
