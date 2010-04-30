@@ -1,70 +1,71 @@
-From: Scott Feldman <scofeldm@cisco.com>
-Subject: Re: [net-next-2.6 PATCH 2/2] add ndo_set_port_profile op support for
- enic dynamic vnics
-Date: Fri, 30 Apr 2010 13:34:04 -0700
-Message-ID: <C8008CCC.2D21E%scofeldm@cisco.com>
-References: <201004291748.38702.arnd@arndb.de>
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Subject: Re: [PATCH] [RFC] C/R: inet4 and inet6 unicast routes (v2)
+Date: Fri, 30 Apr 2010 22:35:19 +0200
+Message-ID: <4BDB3F07.2030900@free.fr>
+References: <1272646855-17327-1-git-send-email-danms@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<chrisw@redhat.com>, Jens Osterkamp <Jens.Osterkamp@gmx.de>
-To: Arnd Bergmann <arnd@arndb.de>
+Cc: containers@lists.osdl.org,
+	Vlad Yasevich <vladislav.yasevich@hp.com>,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Dan Smith <danms@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-2.cisco.com ([171.71.176.71]:30715 "EHLO
-	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933313Ab0D3UeL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 16:34:11 -0400
-In-Reply-To: <201004291748.38702.arnd@arndb.de>
+Received: from mtagate5.de.ibm.com ([195.212.17.165]:35741 "EHLO
+	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756420Ab0D3Uf0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 16:35:26 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate5.de.ibm.com (8.13.1/8.13.1) with ESMTP id o3UKZMh3016305
+	for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 20:35:22 GMT
+Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o3UKZMud1503266
+	for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 22:35:22 +0200
+Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id o3UKZMDl022050
+	for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 22:35:22 +0200
+In-Reply-To: <1272646855-17327-1-git-send-email-danms@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4/29/10 8:48 AM, "Arnd Bergmann" <arnd@arndb.de> wrote:
+Dan Smith wrote:
+> This patch adds support for checkpointing and restoring route information.
+> It keeps enough information to restore basic routes at the level of detail
+> of /proc/net/route.  It uses RTNETLINK to extract the information during
+> checkpoint and also to insert it back during restore.  This gives us a
+> nice layer of isolation between us and the various "fib" implementations.
+>
+> Changes in v2:
+>
+> This version of the patch actually moves the current task into the
+> desired network namespace temporarily, for the purposes of examining and
+> restoring the route information.  This is a instead of creating a cross-
+> namespace socket to do the job, as was done in v1.
+>
+> This is just an RFC to see if this is an acceptable method.  For a final
+> version, adding a helper to nsproxy.c would allow us to create a new
+> nsproxy with the desired netns instead of creating one with
+> copy_namespaces() just to kill it off and use the target one.
+>
+> I still think the previous method is cleaner, but this way may violate
+> fewer namespace boundaries (I'm still undecided :)
+>
+> Signed-off-by: Dan Smith <danms@us.ibm.com>
+> Cc: David Miller <davem@davemloft.net>
+> Cc: Vlad Yasevich <vladislav.yasevich@hp.com>
+> Cc: jamal <hadi@cyberus.ca>
+> ---
+Hi Dan,
 
-> I believe Chris is the one that was pushing most for having a single interface
-> for both VDP/LLDPAD and enic.
-> While I now understand your reasons for doing it in firmware and requiring the
-> kernel interface in addition to the user interface, my doubts on whether VDP
-> and your protocol should be part of the same interface are increasing.
-> 
-> While I'm convinced that you can make it work for both now, the alternative
-> to split the two may turn out to be cleaner. We'd still be able to do
-> either of the two in kernel or user space. Using iproute2 syntax to describe
-> this again, it would mean an interface like
-> 
->    ip iov set  port-profile DEVICE [ base BASE-DEVICE ] name PORT-PROFILE
->                              [ host_uuid HOST_UUID ]
->                      [ client_name CLIENT_NAME ]
->                                       [ client_uuid CLIENT_UUID ]
->    ip iov set  vsi { associate | pre-associate | pre-associate-rr }
-> BASE-DEVICE
->                                       vsi MGR:VTID:VER
->                                       mac LLADDR [ vlan VID ]
->                                       client_uuid CLIENT_UUID
-> 
->    ip iov del  port_profile DEVICE      [ base BASE-DEVICE ]
->    ip iov del  vsi          BASE-DEVICE [ mac LLADDR [ vlan VID ] ]
->        [ client_uuid CLIENT_UUID ]
-> 
->    ip iov show port_profile DEVICE      [ base BASE-DEVICE ]
->    ip iov show vsi          BASE-DEVICE [ mac LLADDR [ vlan VID ] ]
-> [ client_uuid CLIENT_UUID ]
-> 
-> You would obvioulsy only implement the kernel support for the port-profile
-> stuff as callbacks, because no driver yet does VDP in the kernel, but we
-> should
-> have a common netlink header that defines both variants.
-> 
-> Chris, any opinion on this interface as opposed to the combined one?
-> Either one should work, but splitting it seems cleaner to me.
+Eric did a patchset (as Jamal mentioned it) where you can have a process 
+to enter a specific namespace from userspace.
 
-I haven't seen Chris's response, but it seems vger was down for awhile, so
-maybe it's coming.  Assuming we go for the split design, we're still talking
-about using RTM_SETLINK/RTM_GETLINK/RTM_DELLINK for these netlink msgs?  Or
-are you suggesting by your cmd syntax that we return to
-RTM_SETIOV/RTM_GETIOV like in the first iovnl patch?  RTM_SET/GET/DELLINK is
-probably simplier, cleaner patch.
+http://git.kernel.org/?p=linux/kernel/git/ebiederm/linux-2.6.33-nsfd-v5.git;a=commit;h=9c2f86a44d9ca93e78fd8e81a4e2a8c2a4cdb054
 
--scott
+Is it possible to enter the namespace and dump / restore the routes with 
+NETLINK_ROUTE from userspace ? Or is it something not possible ?
+
+Thanks
+  -- Daniel
+
 
