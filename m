@@ -1,357 +1,143 @@
-From: <gregkh@suse.de>
-Subject: patch kobj-add-basic-infrastructure-for-dealing-with-namespaces.patch added to gregkh-2.6 tree
-Date: Thu, 29 Apr 2010 13:29:01 -0700
-Message-ID: <12725729413705@kroah.org>
-References: <1269973889-25260-2-git-send-email-ebiederm@xmission.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v6] net: batch skb dequeueing from softnet
+ input_pkt_queue
+Date: Fri, 30 Apr 2010 07:25:04 +0200
+Message-ID: <1272605104.2209.658.camel@edumazet-laptop>
+References: <1272010378-2955-1-git-send-email-xiaosuo@gmail.com>
+	 <1272014825.7895.7851.camel@edumazet-laptop> <1272060153.8918.8.camel@bigi>
+	 <1272118252.8918.13.camel@bigi> <1272290584.19143.43.camel@edumazet-laptop>
+	 <1272293707.19143.51.camel@edumazet-laptop>
+	 <20100429174056.GA8044@gargoyle.fritz.box>
+	 <1272563772.2222.301.camel@edumazet-laptop>
+	 <20100429182347.GA8512@gargoyle.fritz.box>
+	 <1272568347.2209.11.camel@edumazet-laptop>
+	 <20100429214144.GA10663@gargoyle.fritz.box>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ANSI_X3.4-1968
-Content-Transfer-Encoding: 8bit
-To: ebiederm@xmission.com, bcrl@lhnet.ca, cornelia.huck@de.ibm.com,
-	eric.dumazet@gmail.com, gregkh@suse.de, kay.sievers@vrfy.org,
-	netdev@vger.kernel.org, serue@us.ibm.com, tj@kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andi Kleen <andi@firstfloor.org>, hadi@cyberus.ca,
+	Changli Gao <xiaosuo@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org, lenb@kernel.org, arjan@infradead.org
+To: Andi Kleen <ak@gargoyle.fritz.box>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:58695 "EHLO coco.kroah.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932693Ab0D3RIc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Apr 2010 13:08:32 -0400
-In-Reply-To: <1269973889-25260-2-git-send-email-ebiederm@xmission.com>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:33469 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932685Ab0D3Syl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 14:54:41 -0400
+Received: by bwz19 with SMTP id 19so315494bwz.21
+        for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 11:54:39 -0700 (PDT)
+In-Reply-To: <20100429214144.GA10663@gargoyle.fritz.box>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le jeudi 29 avril 2010 =C3=A0 23:41 +0200, Andi Kleen a =C3=A9crit :
+> On Thu, Apr 29, 2010 at 09:12:27PM +0200, Eric Dumazet wrote:
+> > Yes, mostly, but about 200.000 wakeups per second I would say...
+> >=20
+> > If a cpu in deep state receives an IPI, process a softirq, should i=
+t
+> > come back to deep state immediately, or should it wait for some
+> > milliseconds ?
+>=20
+> In principle the cpuidle governour should detect this and not put the=
+ target into
+> the slow deep c states. One change that was done recently to fix a si=
+milar=20
+> problem for disk IO was to take processes that wait for IO into accou=
+nt=20
+> (see 69d25870). But it doesn't work for networking.
+>=20
+> Here's a untested patch that might help: tell the cpuidle governour=20
+> networking is waiting for IO. This will tell it to not go down the de=
+eply.
+>=20
+> I might have missed some schedule() paths, feel free to add more.
+>=20
+> Actually it's probably too aggressive because it will avoid C states =
+even for
+> a closed window on the other side which might be hours. Better would
+> be some heuristic to only do this when you're really expected IO shor=
+tly.
+>=20
+> Also does your workload even sleep at all? If not we would need to in=
+crease
+> the iowait counters in recvmsg() itself.
+>=20
 
-This is a note to let you know that I've just added the patch titled
+My workload yes, uses blocking recvmsg() calls, but Jamal one uses
+epoll() so I guess problem is more generic than that. We should have an
+estimate of the number of wakeups (IO or not...) per second (or
+sub-second) so that cpuidle can avoid these deep states ?
 
-    Subject: kobj: Add basic infrastructure for dealing with namespaces.
+> Anyways might be still worth a try.
+>=20
+> For routing we probably need some other solution though, there are no=
+=20
+> schedules there.
+>=20
+> >=20
+> > > Perhaps need to feed some information to cpuidle's governour to p=
+revent this problem.
+> > >=20
+> > > idle=3Dpoll is very drastic, better to limit to C1=20
+> > >=20
+> >=20
+> > How can I do this ?
+>=20
+> processor.max_cstate=3D1 or using /dev/network_latency=20
+> (see Documentation/power/pm_qos_interface.txt)
+>=20
+> -Andi
+>=20
 
-to my gregkh-2.6 tree.  Its filename is
+Thanks, I'll play with this today !
 
-    kobj-add-basic-infrastructure-for-dealing-with-namespaces.patch
+>=20
+>=20
+> commit 810227a7c24ecae2bb4aac320490a7115ac33be8
+> Author: Andi Kleen <ak@linux.intel.com>
+> Date:   Thu Apr 29 23:33:18 2010 +0200
+>=20
+>     Use io_schedule() in network stack to tell cpuidle governour to g=
+uarantee lower latencies
+>=20
+>     XXX: probably too aggressive, some of these sleeps are not under =
+high load.
+>=20
+>     Based on a bug report from Eric Dumazet.
+>    =20
+>     Signed-off-by: Andi Kleen <ak@linux.intel.com>
+>=20
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index c5812bb..c246d6c 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -1402,7 +1402,7 @@ static long sock_wait_for_wmem(struct sock *sk,=
+ long timeo)
+>  			break;
+>  		if (sk->sk_err)
+>  			break;
+> -		timeo =3D schedule_timeout(timeo);
+> +		timeo =3D io_schedule_timeout(timeo);
+>  	}
+>  	finish_wait(sk->sk_sleep, &wait);
+>  	return timeo;
+> @@ -1512,7 +1512,7 @@ static void __lock_sock(struct sock *sk)
+>  		prepare_to_wait_exclusive(&sk->sk_lock.wq, &wait,
+>  					TASK_UNINTERRUPTIBLE);
+>  		spin_unlock_bh(&sk->sk_lock.slock);
+> -		schedule();
+> +		io_schedule();
+>  		spin_lock_bh(&sk->sk_lock.slock);
+>  		if (!sock_owned_by_user(sk))
+>  			break;
+>=20
+> >=20
+> > Thanks !
+> >=20
+> >=20
 
-This tree can be found at 
-    http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/
-
-
->From ebiederm@xmission.com  Thu Apr 29 12:44:32 2010
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Tue, 30 Mar 2010 11:31:25 -0700
-Subject: kobj: Add basic infrastructure for dealing with namespaces.
-To: Greg Kroah-Hartman <gregkh@suse.de>
-Cc: Kay Sievers <kay.sievers@vrfy.org>, linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>, Cornelia Huck <cornelia.huck@de.ibm.com>, linux-fsdevel@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>, Benjamin LaHaise <bcrl@lhnet.ca>, Serge Hallyn <serue@us.ibm.com>, <netdev@vger.kernel.org>, "Eric W. Biederman" <ebiederm@xmission.com>
-Message-ID: <1269973889-25260-2-git-send-email-ebiederm@xmission.com>
-
-
-From: Eric W. Biederman <ebiederm@xmission.com>
-
-Move complete knowledge of namespaces into the kobject layer
-so we can use that information when reporting kobjects to
-userspace.
-
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
----
- drivers/base/class.c    |    9 ++++
- drivers/base/core.c     |   77 +++++++++++++++++++++++++++++------
- include/linux/device.h  |    3 +
- include/linux/kobject.h |   26 ++++++++++++
- lib/kobject.c           |  103 ++++++++++++++++++++++++++++++++++++++++++++++++
- 5 files changed, 204 insertions(+), 14 deletions(-)
-
---- a/drivers/base/class.c
-+++ b/drivers/base/class.c
-@@ -63,6 +63,14 @@ static void class_release(struct kobject
- 	kfree(cp);
- }
- 
-+static const struct kobj_ns_type_operations *class_child_ns_type(struct kobject *kobj)
-+{
-+	struct class_private *cp = to_class(kobj);
-+	struct class *class = cp->class;
-+
-+	return class->ns_type;
-+}
-+
- static const struct sysfs_ops class_sysfs_ops = {
- 	.show	= class_attr_show,
- 	.store	= class_attr_store,
-@@ -71,6 +79,7 @@ static const struct sysfs_ops class_sysf
- static struct kobj_type class_ktype = {
- 	.sysfs_ops	= &class_sysfs_ops,
- 	.release	= class_release,
-+	.child_ns_type	= class_child_ns_type,
- };
- 
- /* Hotplug events for classes go to the class class_subsys */
---- a/drivers/base/core.c
-+++ b/drivers/base/core.c
-@@ -131,9 +131,21 @@ static void device_release(struct kobjec
- 	kfree(p);
- }
- 
-+static const void *device_namespace(struct kobject *kobj)
-+{
-+	struct device *dev = to_dev(kobj);
-+	const void *ns = NULL;
-+
-+	if (dev->class && dev->class->ns_type)
-+		ns = dev->class->namespace(dev);
-+
-+	return ns;
-+}
-+
- static struct kobj_type device_ktype = {
- 	.release	= device_release,
- 	.sysfs_ops	= &dev_sysfs_ops,
-+	.namespace	= device_namespace,
- };
- 
- 
-@@ -595,11 +607,59 @@ static struct kobject *virtual_device_pa
- 	return virtual_dir;
- }
- 
--static struct kobject *get_device_parent(struct device *dev,
--					 struct device *parent)
-+struct class_dir {
-+	struct kobject kobj;
-+	struct class *class;
-+};
-+
-+#define to_class_dir(obj) container_of(obj, struct class_dir, kobj)
-+
-+static void class_dir_release(struct kobject *kobj)
-+{
-+	struct class_dir *dir = to_class_dir(kobj);
-+	kfree(dir);
-+}
-+
-+static const
-+struct kobj_ns_type_operations *class_dir_child_ns_type(struct kobject *kobj)
-+{
-+	struct class_dir *dir = to_class_dir(kobj);
-+	return dir->class->ns_type;
-+}
-+
-+static struct kobj_type class_dir_ktype = {
-+	.release	= class_dir_release,
-+	.sysfs_ops	= &kobj_sysfs_ops,
-+	.child_ns_type	= class_dir_child_ns_type
-+};
-+
-+static struct kobject *
-+class_dir_create_and_add(struct class *class, struct kobject *parent_kobj)
- {
-+	struct class_dir *dir;
- 	int retval;
- 
-+	dir = kzalloc(sizeof(*dir), GFP_KERNEL);
-+	if (!dir)
-+		return NULL;
-+
-+	dir->class = class;
-+	kobject_init(&dir->kobj, &class_dir_ktype);
-+
-+	dir->kobj.kset = &class->p->class_dirs;
-+
-+	retval = kobject_add(&dir->kobj, parent_kobj, "%s", class->name);
-+	if (retval < 0) {
-+		kobject_put(&dir->kobj);
-+		return NULL;
-+	}
-+	return &dir->kobj;
-+}
-+
-+
-+static struct kobject *get_device_parent(struct device *dev,
-+					 struct device *parent)
-+{
- 	if (dev->class) {
- 		static DEFINE_MUTEX(gdp_mutex);
- 		struct kobject *kobj = NULL;
-@@ -634,18 +694,7 @@ static struct kobject *get_device_parent
- 		}
- 
- 		/* or create a new class-directory at the parent device */
--		k = kobject_create();
--		if (!k) {
--			mutex_unlock(&gdp_mutex);
--			return NULL;
--		}
--		k->kset = &dev->class->p->class_dirs;
--		retval = kobject_add(k, parent_kobj, "%s", dev->class->name);
--		if (retval < 0) {
--			mutex_unlock(&gdp_mutex);
--			kobject_put(k);
--			return NULL;
--		}
-+		k = class_dir_create_and_add(dev->class, parent_kobj);
- 		/* do not emit an uevent for this simple "glue" directory */
- 		mutex_unlock(&gdp_mutex);
- 		return k;
---- a/include/linux/device.h
-+++ b/include/linux/device.h
-@@ -202,6 +202,9 @@ struct class {
- 	int (*suspend)(struct device *dev, pm_message_t state);
- 	int (*resume)(struct device *dev);
- 
-+	const struct kobj_ns_type_operations *ns_type;
-+	const void *(*namespace)(struct device *dev);
-+
- 	const struct dev_pm_ops *pm;
- 
- 	struct class_private *p;
---- a/include/linux/kobject.h
-+++ b/include/linux/kobject.h
-@@ -108,6 +108,8 @@ struct kobj_type {
- 	void (*release)(struct kobject *kobj);
- 	const struct sysfs_ops *sysfs_ops;
- 	struct attribute **default_attrs;
-+	const struct kobj_ns_type_operations *(*child_ns_type)(struct kobject *kobj);
-+	const void *(*namespace)(struct kobject *kobj);
- };
- 
- struct kobj_uevent_env {
-@@ -134,6 +136,30 @@ struct kobj_attribute {
- 
- extern const struct sysfs_ops kobj_sysfs_ops;
- 
-+enum kobj_ns_type {
-+	KOBJ_NS_TYPE_NONE = 0,
-+	KOBJ_NS_TYPES
-+};
-+
-+struct sock;
-+struct kobj_ns_type_operations {
-+	enum kobj_ns_type type;
-+	const void *(*current_ns)(void);
-+	const void *(*netlink_ns)(struct sock *sk);
-+	const void *(*initial_ns)(void);
-+};
-+
-+int kobj_ns_type_register(const struct kobj_ns_type_operations *ops);
-+int kobj_ns_type_registered(enum kobj_ns_type type);
-+const struct kobj_ns_type_operations *kobj_child_ns_ops(struct kobject *parent);
-+const struct kobj_ns_type_operations *kobj_ns_ops(struct kobject *kobj);
-+
-+const void *kobj_ns_current(enum kobj_ns_type type);
-+const void *kobj_ns_netlink(enum kobj_ns_type type, struct sock *sk);
-+const void *kobj_ns_initial(enum kobj_ns_type type);
-+void kobj_ns_exit(enum kobj_ns_type type, const void *ns);
-+
-+
- /**
-  * struct kset - a set of kobjects of a specific type, belonging to a specific subsystem.
-  *
---- a/lib/kobject.c
-+++ b/lib/kobject.c
-@@ -850,6 +850,109 @@ struct kset *kset_create_and_add(const c
- }
- EXPORT_SYMBOL_GPL(kset_create_and_add);
- 
-+
-+static DEFINE_SPINLOCK(kobj_ns_type_lock);
-+static const struct kobj_ns_type_operations *kobj_ns_ops_tbl[KOBJ_NS_TYPES];
-+
-+int kobj_ns_type_register(const struct kobj_ns_type_operations *ops)
-+{
-+	enum kobj_ns_type type = ops->type;
-+	int error;
-+
-+	spin_lock(&kobj_ns_type_lock);
-+
-+	error = -EINVAL;
-+	if (type >= KOBJ_NS_TYPES)
-+		goto out;
-+
-+	error = -EINVAL;
-+	if (type <= KOBJ_NS_TYPE_NONE)
-+		goto out;
-+
-+	error = -EBUSY;
-+	if (kobj_ns_ops_tbl[type])
-+		goto out;
-+
-+	error = 0;
-+	kobj_ns_ops_tbl[type] = ops;
-+
-+out:
-+	spin_unlock(&kobj_ns_type_lock);
-+	return error;
-+}
-+
-+int kobj_ns_type_registered(enum kobj_ns_type type)
-+{
-+	int registered = 0;
-+
-+	spin_lock(&kobj_ns_type_lock);
-+	if ((type > KOBJ_NS_TYPE_NONE) && (type < KOBJ_NS_TYPES))
-+		registered = kobj_ns_ops_tbl[type] != NULL;
-+	spin_unlock(&kobj_ns_type_lock);
-+
-+	return registered;
-+}
-+
-+const struct kobj_ns_type_operations *kobj_child_ns_ops(struct kobject *parent)
-+{
-+	const struct kobj_ns_type_operations *ops = NULL;
-+
-+	if (parent && parent->ktype->child_ns_type)
-+		ops = parent->ktype->child_ns_type(parent);
-+
-+	return ops;
-+}
-+
-+const struct kobj_ns_type_operations *kobj_ns_ops(struct kobject *kobj)
-+{
-+	return kobj_child_ns_ops(kobj->parent);
-+}
-+
-+
-+const void *kobj_ns_current(enum kobj_ns_type type)
-+{
-+	const void *ns = NULL;
-+
-+	spin_lock(&kobj_ns_type_lock);
-+	if ((type > KOBJ_NS_TYPE_NONE) && (type < KOBJ_NS_TYPES) &&
-+	    kobj_ns_ops_tbl[type])
-+		ns = kobj_ns_ops_tbl[type]->current_ns();
-+	spin_unlock(&kobj_ns_type_lock);
-+
-+	return ns;
-+}
-+
-+const void *kobj_ns_netlink(enum kobj_ns_type type, struct sock *sk)
-+{
-+	const void *ns = NULL;
-+
-+	spin_lock(&kobj_ns_type_lock);
-+	if ((type > KOBJ_NS_TYPE_NONE) && (type < KOBJ_NS_TYPES) &&
-+	    kobj_ns_ops_tbl[type])
-+		ns = kobj_ns_ops_tbl[type]->netlink_ns(sk);
-+	spin_unlock(&kobj_ns_type_lock);
-+
-+	return ns;
-+}
-+
-+const void *kobj_ns_initial(enum kobj_ns_type type)
-+{
-+	const void *ns = NULL;
-+
-+	spin_lock(&kobj_ns_type_lock);
-+	if ((type > KOBJ_NS_TYPE_NONE) && (type < KOBJ_NS_TYPES) &&
-+	    kobj_ns_ops_tbl[type])
-+		ns = kobj_ns_ops_tbl[type]->initial_ns();
-+	spin_unlock(&kobj_ns_type_lock);
-+
-+	return ns;
-+}
-+
-+void kobj_ns_exit(enum kobj_ns_type type, const void *ns)
-+{
-+}
-+
-+
- EXPORT_SYMBOL(kobject_get);
- EXPORT_SYMBOL(kobject_put);
- EXPORT_SYMBOL(kobject_del);
 
