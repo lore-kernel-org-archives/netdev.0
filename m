@@ -1,35 +1,75 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: ixgbe and mac-vlans problem
-Date: Fri, 30 Apr 2010 20:00:58 +0200
-Message-ID: <201004302000.58763.arnd@arndb.de>
-References: <4BDA07DB.8020206@candelatech.com>
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [PATCH linux-next v2 1/2] irq: Add CPU mask affinity hint
+Date: Fri, 30 Apr 2010 11:02:36 -0700 (Pacific Daylight Time)
+Message-ID: <Pine.WNT.4.64.1004301059230.6264@PPWASKIE-MOBL2.amr.corp.intel.com>
+References: <20100430085150.4630.46790.stgit@ppwaskie-hc2.jf.intel.com>
+ <alpine.LFD.2.00.1004301249540.2951@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@vger.kernel.org>, Patrick McHardy <kaber@trash.net>
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:64068 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758985Ab0D3SBH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 14:01:07 -0400
-In-Reply-To: <4BDA07DB.8020206@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.00.1004301249540.2951@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Friday 30 April 2010 00:27:39 Ben Greear wrote:
-> Basically, we create 50 mac-vlans, with sequential MAC addresses and sequential
-> IP addresses, and set up ip rules properly.
-> 
-> The issue is that only 10 or so of the mac-vlans receive other than
-> broadcast packets.  The ixgbe NIC doesn't show PROMISC mode.
+On Fri, 30 Apr 2010, Thomas Gleixner wrote:
 
-I just took a brief look at the driver and noticed that 82599 should
-be able to handle 128 entries before going into promisc mode, while
-82598 (the same driver) does 16.
+> On Fri, 30 Apr 2010, Peter P Waskiewicz Jr wrote:
+>
+>> This patch adds a cpumask affinity hint to the irq_desc
+>> structure, along with a registration function and a read-only
+>> proc entry for each interrupt.
+>>
+>> This affinity_hint handle for each interrupt can be used by
+>> underlying drivers that need a better mechanism to control
+>> interrupt affinity.  The underlying driver can register a
+>> cpumask for the interrupt, which will allow the driver to
+>> provide the CPU mask for the interrupt to anything that
+>> requests it.  The intent is to extend the userspace daemon,
+>> irqbalance, to help hint to it a preferred CPU mask to balance
+>> the interrupt into.
+>>
+>> Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+>> ---
+>>
+>>  include/linux/interrupt.h |   13 +++++++++++++
+>>  include/linux/irq.h       |    1 +
+>>  kernel/irq/manage.c       |   28 ++++++++++++++++++++++++++++
+>>  kernel/irq/proc.c         |   33 +++++++++++++++++++++++++++++++++
+>>  4 files changed, 75 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
+>> index 75f3f00..9c9ea2a 100644
+>> --- a/include/linux/interrupt.h
+>> +++ b/include/linux/interrupt.h
+>> @@ -209,6 +209,9 @@ extern int irq_set_affinity(unsigned int irq, const struct cpumask *cpumask);
+>>  extern int irq_can_set_affinity(unsigned int irq);
+>>  extern int irq_select_affinity(unsigned int irq);
+>>
+>> +extern int irq_register_affinity_hint(unsigned int irq,
+>> +                                      const struct cpumask *m);
+>
+> I think we can do with a single funtion irq_set_affinity_hint() and
+> let the caller set the pointer to NULL.
 
-Maybe the logic for >16 entries is wrong, so you could try forcing
-hw->mac.num_rar_entries to 16 for 82599 as well.
+Ok, I've been running into some issues.  If CONFIG_CPUMASK_OFFSTACK is not 
+set, then cpumask_var_t structs are single-element arrays that cannot be 
+NULL'd out.  I'm pretty sure I need to keep the unregister part of the 
+API.  Thoughts?
 
-	Arnd
+>> +	raw_spin_lock_irqsave(&desc->lock, flags);
+>> +	if (desc->affinity_hint) {
+>> +		seq_cpumask(m, desc->affinity_hint);
+>
+>  Please make a local copy under desc->mask and do the seq_cpumask()
+>  stuff on the local copy outside of desc->lock
+
+I just looked at the original show_affinity function, and it does not grab 
+desc->lock before copying mask out of desc.  Should I follow that model, 
+or should I fix that function to honor desc->lock?
+
+-PJ
