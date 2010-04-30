@@ -1,38 +1,75 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH] ARM: dmabounce: fix partial sync in dma_sync_single_* API
-Date: Thu, 29 Apr 2010 12:34:29 +0100
-Message-ID: <20100429113429.GA24531@n2100.arm.linux.org.uk>
-References: <20100405123847C.fujita.tomonori@lab.ntt.co.jp>
-	<20100412193536.GO3048@n2100.arm.linux.org.uk>
-	<20100413142607V.fujita.tomonori@lab.ntt.co.jp>
-	<20100428075137J.fujita.tomonori@lab.ntt.co.jp>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: patch sysfs-implement-sysfs-tagged-directory-support.patch
+ added to gregkh-2.6 tree
+Date: Fri, 30 Apr 2010 10:43:21 -0500
+Message-ID: <20100430154320.GC13977@us.ibm.com>
+References: <12725729473590@kroah.org>
+ <4BDA5A2D.6080904@kernel.org>
+ <20100430044522.GA29845@suse.de>
+ <m1aaslbjh4.fsf@fess.ebiederm.org>
+ <4BDA6C90.9010303@kernel.org>
+ <20100430142940.GC7187@us.ibm.com>
+ <4BDAF5B0.3080801@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg KH <gregkh@suse.de>, bcrl@lhnet.ca,
+	benjamin.thery@bull.net, cornelia.huck@de.ibm.com,
+	eric.dumazet@gmail.com, kay.sievers@vrfy.org,
+	netdev@vger.kernel.org
+To: Tejun Heo <tj@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e8.ny.us.ibm.com ([32.97.182.138]:44974 "EHLO e8.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757423Ab0D3Qq4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Apr 2010 12:46:56 -0400
+Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
+	by e8.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o3UBOgk4029443
+	for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 07:24:42 -0400
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o3UFhOGp172940
+	for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 11:43:24 -0400
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o3UFhMgS019206
+	for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 12:43:23 -0300
 Content-Disposition: inline
-In-Reply-To: <20100428075137J.fujita.tomonori@lab.ntt.co.jp>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4BDAF5B0.3080801@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Ping?
+Quoting Tejun Heo (tj@kernel.org):
+> Hello,
 > 
-> Is this going to be merged via the arm tree?
+> On 04/30/2010 04:29 PM, Serge E. Hallyn wrote:
+> > Hmm, but looking back over the previous thread (Mar 31) I guess you
+> > mean more in-line comments around the callbacks, presumably things
+> > like class_dir_child_ns_type() and struct kobj_ns_type_operations
+> > members?
+> 
+> In-line.  What they're, how they're supposed to be used, which calling
+> context is expected, what can be returned and so on.
+> 
+> > It sounds like what you'd really like is to have any explicit
+> > mention to namespaces pulled out of drivers/base (layering as you
+> > keep saying)?  But will there be a use for this outside of
+> > namespaces?  Does trying to anticipate that fall into the category
+> > of over-abstraction?
+> 
+> I wouldn't mind limited amount of layering exceptions as long as
+> they're clearly documented.  What I'm primarily worried about is not
+> the possibility of other users but more the obfuscation of the whole
+> sysfs-kobject-driver model thing which is already overly abstracted
+> and obfuscated (at least it seems to me that way).
+> 
+> NS needs tagged support in the driver model which in itself is fine
+> and I also understand that from someone who's primarily working on NS,
+> adding a bit on top of the whole thing wouldn't seem like much of a
+> problem.  To me it seems like worsening a problem which is already
+> pretty bad.  I hope you could understand my POV too.
 
-Ping all you want; I've only just got back online after a week of no
-internet connectivity thanks to the carrier being unable to fix the
-problem (the faulty line is still faulty.)
+I do.  I can take a stab monday at pushing a cloned version of Eric's
+tree with comments added, if Eric doesn't have time.  (Or a patch on
+top of Greg's tree)
 
-I'm now going to be catching up over the course of the next week, so
-please be patient.
+thanks,
+-serge
