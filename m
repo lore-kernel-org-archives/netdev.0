@@ -1,44 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6] net: batch skb dequeueing from softnet
- input_pkt_queue
-Date: Fri, 30 Apr 2010 16:38:57 -0700 (PDT)
-Message-ID: <20100430.163857.180417789.davem@davemloft.net>
-References: <20100429182347.GA8512@gargoyle.fritz.box>
-	<1272568347.2209.11.camel@edumazet-laptop>
-	<20100429214144.GA10663@gargoyle.fritz.box>
+Subject: Re: [PATCH] xfrm: potential uninitialized variable num_xfrms
+Date: Fri, 30 Apr 2010 16:40:21 -0700 (PDT)
+Message-ID: <20100430.164021.128599786.davem@davemloft.net>
+References: <1272439222-2935-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, andi@firstfloor.org, hadi@cyberus.ca,
-	xiaosuo@gmail.com, therbert@google.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org, lenb@kernel.org, arjan@infradead.org
-To: ak@gargoyle.fritz.box
+Cc: hadi@cyberus.ca, timo.teras@iki.fi, herbert@gondor.apana.org.au,
+	adobriyan@gmail.com, netdev@vger.kernel.org
+To: xiaosuo@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45750
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45757
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759949Ab0D3Xiw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 19:38:52 -0400
-In-Reply-To: <20100429214144.GA10663@gargoyle.fritz.box>
+	by vger.kernel.org with ESMTP id S1759949Ab0D3XkP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 19:40:15 -0400
+In-Reply-To: <1272439222-2935-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andi Kleen <ak@gargoyle.fritz.box>
-Date: Thu, 29 Apr 2010 23:41:44 +0200
+From: Changli Gao <xiaosuo@gmail.com>
+Date: Wed, 28 Apr 2010 15:20:22 +0800
 
->     Use io_schedule() in network stack to tell cpuidle governour to guarantee lower latencies
+> potential uninitialized variable num_xfrms
 > 
->     XXX: probably too aggressive, some of these sleeps are not under high load.
+> fix compiler warning: 'num_xfrms' may be used uninitialized in this function.
 > 
->     Based on a bug report from Eric Dumazet.
->     
->     Signed-off-by: Andi Kleen <ak@linux.intel.com>
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 
-I like this, except that we probably don't want the delayacct_blkio_*() calls
-these things do.
-
-Probably the rest of what these things do should remain in the io_schedule*()
-functions and the block layer can call it's own versions which add in the
-delayacct_blkio_*() bits.
-
-Or, if the delacct stuff is useful for socket I/O too, then it's interfaces
-names should have the "blk" stripped from them :-)
+I decided to apply this after all, thanks!
