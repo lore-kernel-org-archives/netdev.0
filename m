@@ -1,49 +1,93 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net: speedup udp receive path
-Date: Thu, 29 Apr 2010 20:12:27 +0800
-Message-ID: <u2l412e6f7f1004290512x7fcdb5c3w591c6446d676502@mail.gmail.com>
-References: <1272010378-2955-1-git-send-email-xiaosuo@gmail.com>
-	<20100427.150817.84390202.davem@davemloft.net> <1272406693.2343.26.camel@edumazet-laptop>
-	<1272454432.14068.4.camel@bigi> <1272458001.2267.0.camel@edumazet-laptop>
-	<1272458174.14068.16.camel@bigi> <1272463605.2267.70.camel@edumazet-laptop>
-	<1272498293.4258.121.camel@bigi> <1272514176.2201.85.camel@edumazet-laptop>
-	<1272540952.4258.161.camel@bigi>
+From: Brian Bloniarz <bmb@athenacr.com>
+Subject: Re: OFT - reserving CPU's for networking
+Date: Fri, 30 Apr 2010 14:15:34 -0400
+Message-ID: <4BDB1E46.6050106@athenacr.com>
+References: <1272010378-2955-1-git-send-email-xiaosuo@gmail.com>	 <1272014825.7895.7851.camel@edumazet-laptop> <1272060153.8918.8.camel@bigi>	 <1272118252.8918.13.camel@bigi> <1272290584.19143.43.camel@edumazet-laptop>	 <1272293707.19143.51.camel@edumazet-laptop>	 <20100429174056.GA8044@gargoyle.fritz.box>	 <1272563772.2222.301.camel@edumazet-laptop>	 <20100429111047.031eeff9@nehalam>	 <alpine.LFD.2.00.1004292055471.2951@localhost.localdomain> <1272571339.2209.76.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, therbert@google.com,
-	shemminger@vyatta.com, netdev@vger.kernel.org,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Brian Bloniarz <bmb@athenacr.com>
-To: hadi@cyberus.ca
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
+	Peter Zijlstra <peterz@infradead.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:60087 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758753Ab0D3Rab convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 13:30:31 -0400
-Received: by pwj9 with SMTP id 9so283408pwj.19
-        for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 10:30:30 -0700 (PDT)
-In-Reply-To: <1272540952.4258.161.camel@bigi>
+Received: from sprinkles.athenacr.com ([64.95.46.210]:10178 "EHLO
+	sprinkles.inp.in.athenacr.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1759179Ab0D3SPp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 14:15:45 -0400
+In-Reply-To: <1272571339.2209.76.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Apr 29, 2010 at 7:35 PM, jamal <hadi@cyberus.ca> wrote:
->
-> Same here - even in my worst case scenario 88.5% of 750Kpps > 600Kpps=
+Eric Dumazet wrote:
+> Le jeudi 29 avril 2010 =C3=A0 21:19 +0200, Thomas Gleixner a =C3=A9cr=
+it :
+>=20
+>> Say thanks to Intel/AMD for providing us timers which stop in lower
+>> c-states.
+>>
+>> Not much we can do about the broadcast lock when several cores are
+>> going idle and we need to setup a global timer to work around the
+>> lapic timer stops in C2/C3 issue.
+>>
+>> Simply the C-state timer broadcasting does not scale. And it was nev=
+er
+>> meant to scale. It's a workaround for laptops to have functional NOH=
+Z.
+>>
+>> There are several ways to work around that on larger machines:
+>>
+>>  - Restrict c-states
+>>  - Disable NOHZ and highres timers
+>>  - idle=3Dpoll is definitely the worst of all possible solutions
+>>
+>>> I keep getting asked about taking some core's away from clock and s=
+cheduler
+>>> to be reserved just for network processing. Seeing this kind of stu=
+ff
+>>> makes me wonder if maybe that isn't a half bad idea.
+>> This comes up every few month and we pointed out several times what
+>> needs to be done to make this work w/o these weird hacks which put a
+>> core offline and then start some magic undebugable binary blob on it=
 =2E
-> Attached is history results to make more sense of what i am saying:
-> we have net-next kernels from apr14, apr23, apr23 with changlis chang=
-e,
-> apr28, apr28 with your change. What you'll see is non-rps (blue) gets
-> better and rps (Orange) gets better slowly then by apr28 it is worse.
+>> We have not seen anyone working on this, but the "set cores aside an=
+d
+>> let them do X" idea seems to stick in peoples heads.
+>>
+>> Seriously, that's not a solution. It's going to be some hacked up
+>> nightmare which is completely unmaintainable.
+>>
+>> Aside of that I seriously doubt that you can do networking w/o time
+>> and timers.
+>>
+>=20
+> Thanks a lot !
+>=20
+> booting with processor.max_cstate=3D1 solves the problem
+>=20
+> (I already had a CONFIG_NO_HZ=3Dno conf, but highres timer enabled)
+>=20
+> Even with _carefuly_ chosen crazy configuration (receiving a packet o=
+n a
+> cpu, then transfert it to another cpu, with a full 16x16 matrix
+> involved), generating 700.000 IPI per second on the machine seems fin=
+e
+> now.
 
-Did the number of IPIs increase in the apr28 test? The finial patch
-with Eric's change may introduce more IPIs. And I am wondering why
-23rdcl-non-rps is better than before. Maybe it is the side effect of
-my patch: enlarge the netdev_max_backlog.
+=46YI you can also restrict c=3Dstates at runtime with PM QoS:
+Documentation/power/pm_qos_interface.txt
 
+On my machine, /sys/devices/system/cpu/cpu0/cpuidle/state2/latency
+is 205usec, so configuring a PM QoS request for <=3D 205usec latency
+should prevent it being entered:
 
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
+#!/usr/bin/python
+import os;
+import struct;
+import signal;
+
+latency_rec_usec =3D 100
+f =3D os.open("/dev/cpu_dma_latency", os.O_WRONLY);
+os.write(f, struct.pack("=3Di", latency_rec_usec));
+signal.pause();
