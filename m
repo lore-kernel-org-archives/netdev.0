@@ -1,98 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v6] net: batch skb dequeueing from softnet
- input_pkt_queue
-Date: Thu, 29 Apr 2010 19:56:12 +0200
-Message-ID: <1272563772.2222.301.camel@edumazet-laptop>
-References: <1272010378-2955-1-git-send-email-xiaosuo@gmail.com>
-	 <1272014825.7895.7851.camel@edumazet-laptop> <1272060153.8918.8.camel@bigi>
-	 <1272118252.8918.13.camel@bigi> <1272290584.19143.43.camel@edumazet-laptop>
-	 <1272293707.19143.51.camel@edumazet-laptop>
-	 <20100429174056.GA8044@gargoyle.fritz.box>
+From: Simon Arlott <simon@fire.lp0.eu>
+Subject: [PATCH 2/2] ppp_generic: linearise skbs before passing them to pppd
+Date: Fri, 30 Apr 2010 19:41:45 +0100
+Message-ID: <4BDB2469.6020105@simon.arlott.org.uk>
+References: <4BDB244D.40800@simon.arlott.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hadi@cyberus.ca, Changli Gao <xiaosuo@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev@vger.kernel.org, Andi Kleen <andi@firstfloor.org>
-To: Andi Kleen <ak@gargoyle.fritz.box>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:43132 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933936Ab0D3SrE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 14:47:04 -0400
-Received: by mail-bw0-f219.google.com with SMTP id 19so311923bwz.21
-        for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 11:47:02 -0700 (PDT)
-In-Reply-To: <20100429174056.GA8044@gargoyle.fritz.box>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: paulus@samba.org, linux-ppp@vger.kernel.org
+To: netdev <netdev@vger.kernel.org>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <4BDB244D.40800@simon.arlott.org.uk>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 29 avril 2010 =C3=A0 19:42 +0200, Andi Kleen a =C3=A9crit :
-> > Andi, what do you think of this one ?
-> > Dont we have a function to send an IPI to an individual cpu instead=
- ?
->=20
-> That's what this function already does. You only set a single CPU=20
-> in the target mask, right?
->=20
-> IPIs are unfortunately always a bit slow. Nehalem-EX systems have X2A=
-PIC
-> which is a bit faster for this, but that's not available in the lower
-> end Nehalems. But even then it's not exactly fast.
->=20
-> I don't think the IPI primitive can be optimized much. It's not a che=
-ap=20
-> operation.
->=20
-> If it's a problem do it less often and batch IPIs.
->=20
-> It's essentially the same problem as interrupt mitigation or NAPI=20
-> are solving for NICs. I guess just need a suitable mitigation mechani=
-sm.
->=20
-> Of course that would move more work to the sending CPU again, but=20
-> perhaps there's no alternative. I guess you could make it cheaper it =
-by
-> minimizing access to packet data.
->=20
-> -Andi
+Frequently when using PPPoE with an interface MTU greater than 1500,
+the skb is likely to be non-linear. If the skb needs to be passed to
+pppd then the skb must be linearised first.
 
-Well, IPI are already batched, and rate is auto adaptative.
+The previous commit fixes an issue with accidentally sending skbs
+to pppd based on an invalid read of the protocol type. When that
+error occurred pppd was reading invalid skb data too.
 
-After various changes, it seems things are going better, maybe there is
-something related to cache line trashing.
+Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
+---
+Tested with PPPoE over e1000 at MTU 16110.
 
-I 'solved' it by using idle=3Dpoll, but you might take a look at
-clockevents_notify (acpi_idle_enter_bm) abuse of a shared and higly
-contended spinlock...
+ drivers/net/ppp_generic.c |   10 ++++++++++
+ 1 files changed, 10 insertions(+), 0 deletions(-)
 
+diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
+index fdd8deb..6855a7b 100644
+--- a/drivers/net/ppp_generic.c
++++ b/drivers/net/ppp_generic.c
+@@ -1222,6 +1222,8 @@ ppp_send_frame(struct ppp *ppp, struct sk_buff *skb)
+ 	if (ppp->flags & SC_LOOP_TRAFFIC) {
+ 		if (ppp->file.rq.qlen > PPP_MAX_RQLEN)
+ 			goto drop;
++		if (skb_linearize(skb))
++			goto drop;
+ 		skb_queue_tail(&ppp->file.rq, skb);
+ 		wake_up_interruptible(&ppp->file.rwait);
+ 		return;
+@@ -1586,6 +1588,12 @@ ppp_input(struct ppp_channel *chan, struct sk_buff *skb)
+ 	proto = PPP_PROTO(skb);
+ 	if (!pch->ppp || proto >= 0xc000 || proto == PPP_CCPFRAG) {
+ 		/* put it on the channel queue */
++		if (skb_linearise(skb)) {
++			kfree_skb(skb);
++			if (pch->ppp)
++				ppp_receive_error(pch->ppp);
++			goto done;
++		}
+ 		skb_queue_tail(&pch->file.rq, skb);
+ 		/* drop old frames if queue too long */
+ 		while (pch->file.rq.qlen > PPP_MAX_RQLEN &&
+@@ -1733,6 +1741,8 @@ ppp_receive_nonmp_frame(struct ppp *ppp, struct sk_buff *skb)
+ 	npi = proto_to_npindex(proto);
+ 	if (npi < 0) {
+ 		/* control or unknown frame - pass it to pppd */
++		if (skb_linearize(skb))
++			goto err;
+ 		skb_queue_tail(&ppp->file.rq, skb);
+ 		/* limit queue length by dropping old frames */
+ 		while (ppp->file.rq.qlen > PPP_MAX_RQLEN &&
+-- 
+1.7.0.4
 
-
-
-    23.52%            init  [kernel.kallsyms]             [k] _raw_spin=
-_lock_irqsave
-                      |
-                      --- _raw_spin_lock_irqsave
-                         |         =20
-                         |--94.74%-- clockevents_notify
-                         |          lapic_timer_state_broadcast
-                         |          acpi_idle_enter_bm
-                         |          cpuidle_idle_call
-                         |          cpu_idle
-                         |          start_secondary
-                         |         =20
-                         |--4.10%-- tick_broadcast_oneshot_control
-                         |          tick_notify
-                         |          notifier_call_chain
-                         |          __raw_notifier_call_chain
-                         |          raw_notifier_call_chain
-                         |          clockevents_do_notify
-                         |          clockevents_notify
-                         |          lapic_timer_state_broadcast
-                         |          acpi_idle_enter_bm
-                         |          cpuidle_idle_call
-                         |          cpu_idle
-                         |          start_secondary
-                         |         =20
-
+-- 
+Simon Arlott
