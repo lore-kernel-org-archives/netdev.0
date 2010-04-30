@@ -1,47 +1,69 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [PATCH linux-next v4 2/2] ixgbe: Example usage of the new IRQ
- affinity_hint callback
-Date: Fri, 30 Apr 2010 14:51:34 -0700 (Pacific Daylight Time)
-Message-ID: <Pine.WNT.4.64.1004301449440.6512@PPWASKIE-MOBL2.amr.corp.intel.com>
-References: <20100430214445.3992.41647.stgit@ppwaskie-hc2.jf.intel.com>
- <20100430214517.3992.92545.stgit@ppwaskie-hc2.jf.intel.com>
- <alpine.LFD.2.00.1004302346030.2951@localhost.localdomain>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: ixgbe and mac-vlans problem
+Date: Fri, 30 Apr 2010 15:04:59 -0700
+Message-ID: <4BDB540B.3080005@candelatech.com>
+References: <4BDA07DB.8020206@candelatech.com> <201004302000.58763.arnd@arndb.de> <4BDB1CF3.8030906@candelatech.com> <EA929A9653AAE14F841771FB1DE5A1365FE55609F0@rrsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"arjan@linux.jf.intel.com" <arjan@linux.jf.intel.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Thomas Gleixner <tglx@linutronix.de>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>, NetDev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:36706 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753293Ab0D3Vvg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Apr 2010 17:51:36 -0400
-In-Reply-To: <alpine.LFD.2.00.1004302346030.2951@localhost.localdomain>
+Received: from mail.candelatech.com ([208.74.158.172]:35601 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754154Ab0D3WFK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 18:05:10 -0400
+In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FE55609F0@rrsmsx501.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 30 Apr 2010, Thomas Gleixner wrote:
+On 04/30/2010 02:13 PM, Tantilov, Emil S wrote:
 
-> On Fri, 30 Apr 2010, Peter P Waskiewicz Jr wrote:
->> +	for (i = 0; i < num_q_vectors; i++) {
->> +		struct ixgbe_q_vector *q_vector = adapter->q_vector[i];
->> +		/* release the CPU mask memory */
->> +		free_cpumask_var(q_vector->affinity_mask);
->> +		/* clear the affinity_mask in the IRQ descriptor */
->> +		irq_set_affinity_hint(adapter->msix_entries[i].vector, NULL);
+>> I will double-check the NIC chipset on the system that showed the
+>> problem yesterday.
 >
-> Freeing the mask _AFTER_ clearing the hint might be a worthwhile
-> exercise :)
+> I ran a quick test in my setup with 82599 and was able to pass traffic
+> on all 50 mac-vlans without issues. This is on net-next.
 
-Crap.  I had it reversed before, then when I dropped the unregister call 
-it got swapped.  I'll fix it on the official submission for this one.
+I attempted this on an 82598 system, and it reproduces the problem
+for me, so I think that must be what the customer was using as well
+(I haven't gotten access to their system again, yet)
 
-This patch is just an example patch, not to be merged just now.  Once the 
-IRQ side is merged, and DaveM has that pulled into a tree, I'll send an 
-official ixgbe patch using the API.  But I'll be sure to have this fixed 
-before sending. :-)
+I created 50 mac-vlans on eth11, but it does NOT go PROMISC
+mode as far as I can tell.  Only 14 of the mac-vlans are
+working.  I'm using 64kbps UDP streams, 1k packets (ie, light load).
 
--PJ
+[root@i7-1qc-1 lanforge]# cat /sys/class/net/eth11/flags
+0x1003
+
+[root@i7-1qc-1 lanforge]# ip link show dev eth11
+2: eth11: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+     link/ether 00:e0:ed:11:25:12 brd ff:ff:ff:ff:ff:ff
+
+I put it into promisc mode and now they all work:
+
+[root@i7-1qc-1 lanforge]# ip link show dev eth11
+2: eth11: <BROADCAST,MULTICAST,PROMISC,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+     link/ether 00:e0:ed:11:25:12 brd ff:ff:ff:ff:ff:ff
+[root@i7-1qc-1 lanforge]# cat /sys/class/net/eth11/flags
+0x1103
+
+
+This is on a slightly modified 2.6.31.12 kernel.  I haven't had a chance to try
+this on a more recent kernel yet.
+
+lspci:
+03:00.0 Ethernet controller: Intel Corporation 82598EB 10 Gigabit AF Dual Port Network Connection (rev 01)
+03:00.1 Ethernet controller: Intel Corporation 82598EB 10 Gigabit AF Dual Port Network Connection
+
+Please let me know if I can offer any additional information.  It will probably take a few days before I can
+get the .34 kernel in testing.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
