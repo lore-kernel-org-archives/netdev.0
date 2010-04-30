@@ -1,95 +1,99 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: [PATCH linux-next v2 2/2] ixgbe: Example usage of the new IRQ
-	affinity_hint callback
-Date: Fri, 30 Apr 2010 01:52:21 -0700
-Message-ID: <20100430085220.4630.14124.stgit@ppwaskie-hc2.jf.intel.com>
-References: <20100430085150.4630.46790.stgit@ppwaskie-hc2.jf.intel.com>
+From: Simon Arlott <simon@fire.lp0.eu>
+Subject: [PATCH 1/2] ppp_generic: pull 2 bytes so that PPP_PROTO(skb) is valid
+Date: Fri, 30 Apr 2010 19:41:17 +0100
+Message-ID: <4BDB244D.40800@simon.arlott.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: tglx@linutronix.de, davem@davemloft.net, arjan@linux.jf.intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100430085150.4630.46790.stgit@ppwaskie-hc2.jf.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: paulus@samba.org, linux-ppp@vger.kernel.org
+To: netdev <netdev@vger.kernel.org>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch uses the new IRQ affinity_hint callback mechanism.
-It serves purely as an example of how a low-level driver can
-utilize this new interface.
+In ppp_input(), PPP_PROTO(skb) may refer to invalid data in the skb.
 
-An official ixgbe patch will be pushed through netdev once the
-IRQ patches have been accepted and merged.
+If this happens and (proto >= 0xc000 || proto == PPP_CCPFRAG) then
+the packet is passed directly to pppd.
 
-Signed-off-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+This occurs frequently when using PPPoE with an interface MTU
+greater than 1500 because the skb is more likely to be non-linear.
+
+The next 2 bytes need to be pulled in ppp_input(). The pull of 2
+bytes in ppp_receive_frame() has been removed as it is no longer
+required.
+
+Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
 ---
+Tested with PPPoE over e1000 at MTU 16110.
 
- drivers/net/ixgbe/ixgbe.h      |    2 ++
- drivers/net/ixgbe/ixgbe_main.c |   20 +++++++++++++++++++-
- 2 files changed, 21 insertions(+), 1 deletions(-)
+ drivers/net/ppp_generic.c |   28 ++++++++++++++++++----------
+ 1 files changed, 18 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
-index 79c35ae..c220b9f 100644
---- a/drivers/net/ixgbe/ixgbe.h
-+++ b/drivers/net/ixgbe/ixgbe.h
-@@ -32,6 +32,7 @@
- #include <linux/pci.h>
- #include <linux/netdevice.h>
- #include <linux/aer.h>
-+#include <linux/cpumask.h>
- 
- #include "ixgbe_type.h"
- #include "ixgbe_common.h"
-@@ -236,6 +237,7 @@ struct ixgbe_q_vector {
- 	u8 tx_itr;
- 	u8 rx_itr;
- 	u32 eitr;
-+	cpumask_var_t affinity_mask;
- };
- 
- /* Helper macros to switch between ints/sec and what the register uses.
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 1b1419c..28f9d6b 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -1083,6 +1083,16 @@ static void ixgbe_configure_msix(struct ixgbe_adapter *adapter)
- 			q_vector->eitr = adapter->rx_eitr_param;
- 
- 		ixgbe_write_eitr(q_vector);
-+
-+		/*
-+		 * Allocate the affinity_hint cpumask, assign the mask for
-+		 * this vector, and register our affinity_hint for this irq.
-+		 */
-+		if (!alloc_cpumask_var(&q_vector->affinity_mask, GFP_KERNEL))
-+			return;
-+		cpumask_set_cpu(v_idx, q_vector->affinity_mask);
-+		irq_register_affinity_hint(adapter->msix_entries[v_idx].vector,
-+		                           q_vector->affinity_mask);
+diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
+index 6e281bc..fdd8deb 100644
+--- a/drivers/net/ppp_generic.c
++++ b/drivers/net/ppp_generic.c
+@@ -1572,8 +1572,18 @@ ppp_input(struct ppp_channel *chan, struct sk_buff *skb)
+ 		return;
  	}
  
- 	if (adapter->hw.mac.type == ixgbe_mac_82598EB)
-@@ -3218,7 +3228,7 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	u32 rxctrl;
- 	u32 txdctl;
--	int i, j;
-+	int i, j, num_q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
- 
- 	/* signal that we are down to the interrupt handler */
- 	set_bit(__IXGBE_DOWN, &adapter->state);
-@@ -3251,6 +3261,14 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
- 
- 	ixgbe_napi_disable_all(adapter);
- 
-+	for (i = 0; i < num_q_vectors; i++) {
-+		struct ixgbe_q_vector *q_vector = adapter->q_vector[i];
-+		/* unregister the affinity_hint */
-+		irq_unregister_affinity_hint(adapter->msix_entries[i].vector);
-+		/* release the CPU mask memory */
-+		free_cpumask_var(q_vector->affinity_mask);
+-	proto = PPP_PROTO(skb);
++
+ 	read_lock_bh(&pch->upl);
++	if (!pskb_may_pull(skb, 2)) {
++		kfree_skb(skb);
++		if (pch->ppp) {
++			++pch->ppp->dev->stats.rx_length_errors;
++			ppp_receive_error(pch->ppp);
++		}
++		goto done;
 +	}
 +
- 	clear_bit(__IXGBE_SFP_MODULE_NOT_FOUND, &adapter->state);
- 	del_timer_sync(&adapter->sfp_timer);
- 	del_timer_sync(&adapter->watchdog_timer);
++	proto = PPP_PROTO(skb);
+ 	if (!pch->ppp || proto >= 0xc000 || proto == PPP_CCPFRAG) {
+ 		/* put it on the channel queue */
+ 		skb_queue_tail(&pch->file.rq, skb);
+@@ -1585,6 +1595,8 @@ ppp_input(struct ppp_channel *chan, struct sk_buff *skb)
+ 	} else {
+ 		ppp_do_recv(pch->ppp, skb, pch);
+ 	}
++
++done:
+ 	read_unlock_bh(&pch->upl);
+ }
+ 
+@@ -1617,7 +1629,8 @@ ppp_input_error(struct ppp_channel *chan, int code)
+ static void
+ ppp_receive_frame(struct ppp *ppp, struct sk_buff *skb, struct channel *pch)
+ {
+-	if (pskb_may_pull(skb, 2)) {
++	/* note: a 0-length skb is used as an error indication */
++	if (skb->len > 0) {
+ #ifdef CONFIG_PPP_MULTILINK
+ 		/* XXX do channel-level decompression here */
+ 		if (PPP_PROTO(skb) == PPP_MP)
+@@ -1625,15 +1638,10 @@ ppp_receive_frame(struct ppp *ppp, struct sk_buff *skb, struct channel *pch)
+ 		else
+ #endif /* CONFIG_PPP_MULTILINK */
+ 			ppp_receive_nonmp_frame(ppp, skb);
+-		return;
++	} else {
++		kfree_skb(skb);
++		ppp_receive_error(ppp);
+ 	}
+-
+-	if (skb->len > 0)
+-		/* note: a 0-length skb is used as an error indication */
+-		++ppp->dev->stats.rx_length_errors;
+-
+-	kfree_skb(skb);
+-	ppp_receive_error(ppp);
+ }
+ 
+ static void
+-- 
+1.7.0.4
+
+-- 
+Simon Arlott
