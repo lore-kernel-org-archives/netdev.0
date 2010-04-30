@@ -1,107 +1,229 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: RCU error in networking
-Date: Thu, 29 Apr 2010 16:04:01 -0700 (PDT)
-Message-ID: <20100429.160401.186323856.davem@davemloft.net>
-References: <20100420.190127.66303903.davem@davemloft.net>
-	<Pine.LNX.4.64.1004210915220.11040@hs20-bc2-1.build.redhat.com>
-	<Pine.LNX.4.64.1004291811420.26080@hs20-bc2-1.build.redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mpatocka@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35623
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933005Ab0D3RSf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 13:18:35 -0400
-In-Reply-To: <Pine.LNX.4.64.1004291811420.26080@hs20-bc2-1.build.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Amerigo Wang <amwang@redhat.com>
+Subject: [Patch 3/3] net: reserve ports for applications using fixed port numbers
+Date: Fri, 30 Apr 2010 04:25:51 -0400
+Message-ID: <20100430082948.5630.81911.sendpatchset@localhost.localdomain>
+References: <20100430082912.5630.82405.sendpatchset@localhost.localdomain>
+Cc: Octavian Purdila <opurdila@ixiacom.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	penguin-kernel@I-love.SAKURA.ne.jp, netdev@vger.kernel.org,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Amerigo Wang <amwang@redhat.com>,
+	David Miller <davem@davemloft.net>, adobriyan@gmail.com,
+	ebiederm@xmission.com
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100430082912.5630.82405.sendpatchset@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mikulas Patocka <mpatocka@redhat.com>
-Date: Thu, 29 Apr 2010 18:14:11 -0400 (EDT)
 
-> BTW. when I enabled lockdep, I got this (2.6.34-rc5; the machine is no 
-> longer bridging, it has just a single interface):
-> 
+(Dropped the infiniband part, because Tetsuo modified the related code,
+I will send a separate patch for it once this is accepted.)
 
-Fixed in Linus's tree for more than a week:
+This patch introduces /proc/sys/net/ipv4/ip_local_reserved_ports which
+allows users to reserve ports for third-party applications.
 
-commit 05d17608a69b3ae653ea5c9857283bef3439c733
-Author: David Howells <dhowells@redhat.com>
-Date:   Tue Apr 20 00:25:58 2010 +0000
+The reserved ports will not be used by automatic port assignments
+(e.g. when calling connect() or bind() with port number 0). Explicit
+port allocation behavior is unchanged.
 
-    net: Fix an RCU warning in dev_pick_tx()
-    
-    Fix the following RCU warning in dev_pick_tx():
-    
-    ===================================================
-    [ INFO: suspicious rcu_dereference_check() usage. ]
-    ---------------------------------------------------
-    net/core/dev.c:1993 invoked rcu_dereference_check() without protection!
-    
-    other info that might help us debug this:
-    
-    rcu_scheduler_active = 1, debug_locks = 0
-    2 locks held by swapper/0:
-     #0:  (&idev->mc_ifc_timer){+.-...}, at: [<ffffffff81039e65>] run_timer_softirq+0x17b/0x278
-     #1:  (rcu_read_lock_bh){.+....}, at: [<ffffffff812ea3eb>] dev_queue_xmit+0x14e/0x4dc
-    
-    stack backtrace:
-    Pid: 0, comm: swapper Not tainted 2.6.34-rc5-cachefs #4
-    Call Trace:
-     <IRQ>  [<ffffffff810516c4>] lockdep_rcu_dereference+0xaa/0xb2
-     [<ffffffff812ea4f6>] dev_queue_xmit+0x259/0x4dc
-     [<ffffffff812ea3eb>] ? dev_queue_xmit+0x14e/0x4dc
-     [<ffffffff81052324>] ? trace_hardirqs_on+0xd/0xf
-     [<ffffffff81035362>] ? local_bh_enable_ip+0xbc/0xc1
-     [<ffffffff812f0954>] neigh_resolve_output+0x24b/0x27c
-     [<ffffffff8134f673>] ip6_output_finish+0x7c/0xb4
-     [<ffffffff81350c34>] ip6_output2+0x256/0x261
-     [<ffffffff81052324>] ? trace_hardirqs_on+0xd/0xf
-     [<ffffffff813517fb>] ip6_output+0xbbc/0xbcb
-     [<ffffffff8135bc5d>] ? fib6_force_start_gc+0x2b/0x2d
-     [<ffffffff81368acb>] mld_sendpack+0x273/0x39d
-     [<ffffffff81368858>] ? mld_sendpack+0x0/0x39d
-     [<ffffffff81052099>] ? mark_held_locks+0x52/0x70
-     [<ffffffff813692fc>] mld_ifc_timer_expire+0x24f/0x288
-     [<ffffffff81039ed6>] run_timer_softirq+0x1ec/0x278
-     [<ffffffff81039e65>] ? run_timer_softirq+0x17b/0x278
-     [<ffffffff813690ad>] ? mld_ifc_timer_expire+0x0/0x288
-     [<ffffffff81035531>] ? __do_softirq+0x69/0x140
-     [<ffffffff8103556a>] __do_softirq+0xa2/0x140
-     [<ffffffff81002e0c>] call_softirq+0x1c/0x28
-     [<ffffffff81004b54>] do_softirq+0x38/0x80
-     [<ffffffff81034f06>] irq_exit+0x45/0x47
-     [<ffffffff810177c3>] smp_apic_timer_interrupt+0x88/0x96
-     [<ffffffff810028d3>] apic_timer_interrupt+0x13/0x20
-     <EOI>  [<ffffffff810488dd>] ? __atomic_notifier_call_chain+0x0/0x86
-     [<ffffffff810096bf>] ? mwait_idle+0x6e/0x78
-     [<ffffffff810096b6>] ? mwait_idle+0x65/0x78
-     [<ffffffff810011cb>] cpu_idle+0x4d/0x83
-     [<ffffffff81380b05>] rest_init+0xb9/0xc0
-     [<ffffffff81380a4c>] ? rest_init+0x0/0xc0
-     [<ffffffff8168dcf0>] start_kernel+0x392/0x39d
-     [<ffffffff8168d2a3>] x86_64_start_reservations+0xb3/0xb7
-     [<ffffffff8168d38b>] x86_64_start_kernel+0xe4/0xeb
-    
-    An rcu_dereference() should be an rcu_dereference_bh().
-    
-    Signed-off-by: David Howells <dhowells@redhat.com>
-    Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+Signed-off-by: WANG Cong <amwang@redhat.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Eric W. Biederman <ebiederm@xmission.com>
+---
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 92584bf..f769098 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1990,7 +1990,7 @@ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
- 				queue_index = skb_tx_hash(dev, skb);
+Index: linux-2.6/Documentation/networking/ip-sysctl.txt
+===================================================================
+--- linux-2.6.orig/Documentation/networking/ip-sysctl.txt
++++ linux-2.6/Documentation/networking/ip-sysctl.txt
+@@ -588,6 +588,37 @@ ip_local_port_range - 2 INTEGERS
+ 	(i.e. by default) range 1024-4999 is enough to issue up to
+ 	2000 connections per second to systems supporting timestamps.
  
- 			if (sk) {
--				struct dst_entry *dst = rcu_dereference(sk->sk_dst_cache);
-+				struct dst_entry *dst = rcu_dereference_bh(sk->sk_dst_cache);
++ip_local_reserved_ports - list of comma separated ranges
++	Specify the ports which are reserved for known third-party
++	applications. These ports will not be used by automatic port
++	assignments (e.g. when calling connect() or bind() with port
++	number 0). Explicit port allocation behavior is unchanged.
++
++	The format used for both input and output is a comma separated
++	list of ranges (e.g. "1,2-4,10-10" for ports 1, 2, 3, 4 and
++	10). Writing to the file will clear all previously reserved
++	ports and update the current list with the one given in the
++	input.
++
++	Note that ip_local_port_range and ip_local_reserved_ports
++	settings are independent and both are considered by the kernel
++	when determining which ports are available for automatic port
++	assignments.
++
++	You can reserve ports which are not in the current
++	ip_local_port_range, e.g.:
++
++	$ cat /proc/sys/net/ipv4/ip_local_port_range
++	32000	61000
++	$ cat /proc/sys/net/ipv4/ip_local_reserved_ports
++	8080,9148
++
++	although this is redundant. However such a setting is useful
++	if later the port range is changed to a value that will
++	include the reserved ports.
++
++	Default: Empty
++
+ ip_nonlocal_bind - BOOLEAN
+ 	If set, allows processes to bind() to non-local IP addresses,
+ 	which can be quite useful - but may break some applications.
+Index: linux-2.6/include/net/ip.h
+===================================================================
+--- linux-2.6.orig/include/net/ip.h
++++ linux-2.6/include/net/ip.h
+@@ -184,6 +184,12 @@ extern struct local_ports {
+ } sysctl_local_ports;
+ extern void inet_get_local_port_range(int *low, int *high);
  
- 				if (dst && skb_dst(skb) == dst)
- 					sk_tx_queue_set(sk, queue_index);
++extern unsigned long *sysctl_local_reserved_ports;
++static inline int inet_is_reserved_local_port(int port)
++{
++	return test_bit(port, sysctl_local_reserved_ports);
++}
++
+ extern int sysctl_ip_default_ttl;
+ extern int sysctl_ip_nonlocal_bind;
+ 
+Index: linux-2.6/net/ipv4/af_inet.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/af_inet.c
++++ linux-2.6/net/ipv4/af_inet.c
+@@ -1552,9 +1552,13 @@ static int __init inet_init(void)
+ 
+ 	BUILD_BUG_ON(sizeof(struct inet_skb_parm) > sizeof(dummy_skb->cb));
+ 
++	sysctl_local_reserved_ports = kzalloc(65536 / 8, GFP_KERNEL);
++	if (!sysctl_local_reserved_ports)
++		goto out;
++
+ 	rc = proto_register(&tcp_prot, 1);
+ 	if (rc)
+-		goto out;
++		goto out_free_reserved_ports;
+ 
+ 	rc = proto_register(&udp_prot, 1);
+ 	if (rc)
+@@ -1653,6 +1657,8 @@ out_unregister_udp_proto:
+ 	proto_unregister(&udp_prot);
+ out_unregister_tcp_proto:
+ 	proto_unregister(&tcp_prot);
++out_free_reserved_ports:
++	kfree(sysctl_local_reserved_ports);
+ 	goto out;
+ }
+ 
+Index: linux-2.6/net/ipv4/inet_connection_sock.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/inet_connection_sock.c
++++ linux-2.6/net/ipv4/inet_connection_sock.c
+@@ -37,6 +37,9 @@ struct local_ports sysctl_local_ports __
+ 	.range = { 32768, 61000 },
+ };
+ 
++unsigned long *sysctl_local_reserved_ports;
++EXPORT_SYMBOL(sysctl_local_reserved_ports);
++
+ void inet_get_local_port_range(int *low, int *high)
+ {
+ 	unsigned seq;
+@@ -112,6 +115,8 @@ again:
+ 
+ 		smallest_size = -1;
+ 		do {
++			if (inet_is_reserved_local_port(rover))
++				goto next_nolock;
+ 			head = &hashinfo->bhash[inet_bhashfn(net, rover,
+ 					hashinfo->bhash_size)];
+ 			spin_lock(&head->lock);
+@@ -136,6 +141,7 @@ again:
+ 			break;
+ 		next:
+ 			spin_unlock(&head->lock);
++		next_nolock:
+ 			if (++rover > high)
+ 				rover = low;
+ 		} while (--remaining > 0);
+Index: linux-2.6/net/ipv4/inet_hashtables.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/inet_hashtables.c
++++ linux-2.6/net/ipv4/inet_hashtables.c
+@@ -456,6 +456,8 @@ int __inet_hash_connect(struct inet_time
+ 		local_bh_disable();
+ 		for (i = 1; i <= remaining; i++) {
+ 			port = low + (i + offset) % remaining;
++			if (inet_is_reserved_local_port(port))
++				continue;
+ 			head = &hinfo->bhash[inet_bhashfn(net, port,
+ 					hinfo->bhash_size)];
+ 			spin_lock(&head->lock);
+Index: linux-2.6/net/ipv4/sysctl_net_ipv4.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/sysctl_net_ipv4.c
++++ linux-2.6/net/ipv4/sysctl_net_ipv4.c
+@@ -299,6 +299,13 @@ static struct ctl_table ipv4_table[] = {
+ 		.mode		= 0644,
+ 		.proc_handler	= ipv4_local_port_range,
+ 	},
++	{
++		.procname	= "ip_local_reserved_ports",
++		.data		= NULL, /* initialized in sysctl_ipv4_init */
++		.maxlen		= 65536,
++		.mode		= 0644,
++		.proc_handler	= proc_do_large_bitmap,
++	},
+ #ifdef CONFIG_IP_MULTICAST
+ 	{
+ 		.procname	= "igmp_max_memberships",
+@@ -736,6 +743,16 @@ static __net_initdata struct pernet_oper
+ static __init int sysctl_ipv4_init(void)
+ {
+ 	struct ctl_table_header *hdr;
++	struct ctl_table *i;
++
++	for (i = ipv4_table; i->procname; i++) {
++		if (strcmp(i->procname, "ip_local_reserved_ports") == 0) {
++			i->data = sysctl_local_reserved_ports;
++			break;
++		}
++	}
++	if (!i->procname)
++		return -EINVAL;
+ 
+ 	hdr = register_sysctl_paths(net_ipv4_ctl_path, ipv4_table);
+ 	if (hdr == NULL)
+Index: linux-2.6/net/ipv4/udp.c
+===================================================================
+--- linux-2.6.orig/net/ipv4/udp.c
++++ linux-2.6/net/ipv4/udp.c
+@@ -233,7 +233,8 @@ int udp_lib_get_port(struct sock *sk, un
+ 			 */
+ 			do {
+ 				if (low <= snum && snum <= high &&
+-				    !test_bit(snum >> udptable->log, bitmap))
++				    !test_bit(snum >> udptable->log, bitmap) &&
++				    !inet_is_reserved_local_port(snum))
+ 					goto found;
+ 				snum += rand;
+ 			} while (snum != first);
+Index: linux-2.6/net/sctp/socket.c
+===================================================================
+--- linux-2.6.orig/net/sctp/socket.c
++++ linux-2.6/net/sctp/socket.c
+@@ -5436,6 +5436,8 @@ static long sctp_get_port_local(struct s
+ 			rover++;
+ 			if ((rover < low) || (rover > high))
+ 				rover = low;
++			if (inet_is_reserved_local_port(rover))
++				continue;
+ 			index = sctp_phashfn(rover);
+ 			head = &sctp_port_hashtable[index];
+ 			sctp_spin_lock(&head->lock);
