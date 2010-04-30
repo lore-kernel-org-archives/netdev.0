@@ -1,65 +1,44 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH]PM QOS refresh against next-20100430
-Date: Sat, 1 May 2010 01:08:28 +0200
-Message-ID: <201005010108.28593.rjw@sisk.pl>
-References: <20100430212043.GA30315@linux.intel.com> <201005010013.16262.rjw@sisk.pl> <20100430230529.GA31391@linux.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] forcedeth: Stay in NAPI as long as there's work
+Date: Fri, 30 Apr 2010 16:17:46 -0700 (PDT)
+Message-ID: <20100430.161746.73666749.davem@davemloft.net>
+References: <20100428112528.01277670@nehalam>
+	<20100428.142534.57451492.davem@davemloft.net>
+	<h2m65634d661004281656j9f29fc2btdec0d6bcbee20f35@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Kevin Hilman <khilman@deeprootsystems.com>, aili@codeaurora.org,
-	dwalker@codeaurora.org, tiwai@suse.de, bruce.w.allan@intel.com,
-	davidb@quicinc.com, mcgrof@gmail.com, pavel@ucw.cz,
-	"linux-pm" <linux-pm@lists.linux-foundation.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	ACPI Devel Maling List <linux-acpi@vger.kernel.org>,
-	Len Brown <lenb@kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: mgross@linux.intel.com
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <20100430230529.GA31391@linux.intel.com>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@vyatta.com, joe@perches.com, netdev@vger.kernel.org,
+	aabdulla@nvidia.com
+To: therbert@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38576
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755894Ab0D3XRm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 19:17:42 -0400
+In-Reply-To: <h2m65634d661004281656j9f29fc2btdec0d6bcbee20f35@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday 01 May 2010, mark gross wrote:
-> On Sat, May 01, 2010 at 12:13:16AM +0200, Rafael J. Wysocki wrote:
-> > On Friday 30 April 2010, mark gross wrote:
-> > > The following is a refresh of the PM_QOS implementation, this patch
-> > > updates some documentation input I got from Randy.
-> > > 
-> > > This patch changes the string based list management to a handle base
-> > > implementation to help with the hot path use of pm-qos, it also renames
-> > > much of the API to use "request" as opposed to "requirement" that was
-> > > used in the initial implementation.  I did this because request more
-> > > accurately represents what it actually does.
-> > > 
-> > > Also, I added a string based ABI for users wanting to use a string
-> > > interface.  So if the user writes 0xDDDDDDDD formatted hex it will be
-> > > accepted by the interface.  (someone asked me for it and I don't think
-> > > it hurts anything.)
-> > > 
-> > > I really would like to get this refresh taken care of.  Its been taking
-> > > me too long to close this.  please review or include it in next.
-> > > 
-> > > Thanks!
-> > 
-> > Well, I'd take it to suspend-2.6/linux-next, but first, it touches
-> > subsystems whose maintainers were not in the Cc list, like the network
-> > drivers, wireless and ACPI.  The changes are trivial, so I hope they don't
-> > mind.
-> > 
-> > Second, my tree is based on the Linus' tree rather than linux-next and
-> > the change in net/mac80211/scan.c doesn't seem to match that.  Please tell me
-> > what I'm supposed to do about that.
-> 
-> You can waite for monday and I'll send a rebased version to linus' tree.
-> 
-> I thought linux-next was where folks wanted me to put it.
-> 
-> I'll email out a new one monday.
+From: Tom Herbert <therbert@google.com>
+Date: Wed, 28 Apr 2010 16:56:30 -0700
 
-Great, thanks!
+> On Wed, Apr 28, 2010 at 2:25 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Stephen Hemminger <shemminger@vyatta.com>
+>> Date: Wed, 28 Apr 2010 11:25:28 -0700
+>>
+>>> The following does the same thing without the extra overhead
+>>> of testing all the registers. It also handles the out of memory
+>>> case.
+>>>
+>>> Compile tested only...
+>>>
+>>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>>
+>> Tom can you test this version?
+>>
+> 
+> Looks good.  406038 tps in my quick test which still is showing the
+> benefits.  Thanks for cleaning this up Stephen!
 
-Rafael
+Thanks for testing, applied, thanks everyone.
