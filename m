@@ -1,69 +1,101 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: ixgbe and mac-vlans problem
-Date: Fri, 30 Apr 2010 15:04:59 -0700
-Message-ID: <4BDB540B.3080005@candelatech.com>
-References: <4BDA07DB.8020206@candelatech.com> <201004302000.58763.arnd@arndb.de> <4BDB1CF3.8030906@candelatech.com> <EA929A9653AAE14F841771FB1DE5A1365FE55609F0@rrsmsx501.amr.corp.intel.com>
+From: Paul LeoNerd Evans <leonerd@leonerd.org.uk>
+Subject: Re: [RFC] BPF program access to transport header
+Date: Fri, 30 Apr 2010 23:10:47 +0100
+Message-ID: <20100430221047.GA19334@cel.leo>
+References: <20100430193916.GZ19334@cel.leo>
+ <4BDB3A4D.5020507@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>, NetDev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="fKtH0JUtvN5p2ETH"
+To: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:35601 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754154Ab0D3WFK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 18:05:10 -0400
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FE55609F0@rrsmsx501.amr.corp.intel.com>
+Received: from cel.leonerd.org.uk ([81.187.167.226]:52922 "EHLO cel.leo"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756281Ab0D3WKt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 30 Apr 2010 18:10:49 -0400
+Content-Disposition: inline
+In-Reply-To: <4BDB3A4D.5020507@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/30/2010 02:13 PM, Tantilov, Emil S wrote:
 
->> I will double-check the NIC chipset on the system that showed the
->> problem yesterday.
->
-> I ran a quick test in my setup with 82599 and was able to pass traffic
-> on all 50 mac-vlans without issues. This is on net-next.
+--fKtH0JUtvN5p2ETH
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I attempted this on an 82598 system, and it reproduces the problem
-for me, so I think that must be what the customer was using as well
-(I haven't gotten access to their system again, yet)
+On Fri, Apr 30, 2010 at 10:15:09PM +0200, Patrick McHardy wrote:
+> > I forsee a number of issues with trying to provide this:
+> >=20
+> >  * How to provide the protocol number (e.g. 6 for TCP, 1 for ICMP) to
+> >    the BPF program
+>=20
+> Using one of the registers?
 
-I created 50 mac-vlans on eth11, but it does NOT go PROMISC
-mode as far as I can tell.  Only 14 of the mac-vlans are
-working.  I'm using 64kbps UDP streams, 1k packets (ie, light load).
+Using, how? What operation would put the numbers in there in the first
+place?
 
-[root@i7-1qc-1 lanforge]# cat /sys/class/net/eth11/flags
-0x1003
+I was thinking more of simply providing an ancilliary data area field,
+similar to SKF_AD_PROTO and SKF_AD_HATYPE, following along the same
+idea.
 
-[root@i7-1qc-1 lanforge]# ip link show dev eth11
-2: eth11: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
-     link/ether 00:e0:ed:11:25:12 brd ff:ff:ff:ff:ff:ff
+  LD WORD[SKF_AD_TRANSPROTO]
 
-I put it into promisc mode and now they all work:
+would then load the A register with the transport protocol number.
 
-[root@i7-1qc-1 lanforge]# ip link show dev eth11
-2: eth11: <BROADCAST,MULTICAST,PROMISC,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
-     link/ether 00:e0:ed:11:25:12 brd ff:ff:ff:ff:ff:ff
-[root@i7-1qc-1 lanforge]# cat /sys/class/net/eth11/flags
-0x1103
+> >  * How to obtain the transport offset - AIUI, the skf_transport_offset()
+> >    won't actually be set yet by the time the filter program runs.
+>=20
+> For IPv4 its trivial. For IPv6 you could use ipv6_skip_exthdr().
+> A slightly more flexible way would be to use something like the
+> netfilter ipv6_find_hdr() function to get the offset of any header
+> type. The protocol number could be returned in one of the registers
+> (the other one would contain the offset).
 
+I sortof meant in general. I really don't think trying to add
+IPv4/IPv6-specific code into net/core/filter.c is going to go down well.
 
-This is on a slightly modified 2.6.31.12 kernel.  I haven't had a chance to try
-this on a more recent kernel yet.
+On the other hand, I observe from casual experimentation, that on
+receipt of a TCP packet in IPv4 over ethernet, the offets are:
 
-lspci:
-03:00.0 Ethernet controller: Intel Corporation 82598EB 10 Gigabit AF Dual Port Network Connection (rev 01)
-03:00.1 Ethernet controller: Intel Corporation 82598EB 10 Gigabit AF Dual Port Network Connection
+  mac=3D0 network=3D14 transport=3D14
 
-Please let me know if I can offer any additional information.  It will probably take a few days before I can
-get the .34 kernel in testing.
+This suggests more work needing to be done somewhere, because I'd expect
+for an Ethernet/IPv4/TCP packet to get
 
-Thanks,
-Ben
+  mac=3D0 network=3D14 transport=3D34
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+> >  * What to do if the underlying protocol doesn't support a transport
+> >    layer above it - e.g. ARP.
+>=20
+> I'd say simply abort the filter.
 
+That sounds reasonable.
+
+Another question occurs:
+
+ * How to obtain the transport protocol number? I can easily provide it
+   in the AD area; say as SKF_AD_TRANSPROTO; but how can
+   net/core/filter.c know the value?
+
+--=20
+Paul "LeoNerd" Evans
+
+leonerd@leonerd.org.uk
+ICQ# 4135350       |  Registered Linux# 179460
+http://www.leonerd.org.uk/
+
+--fKtH0JUtvN5p2ETH
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iD8DBQFL21VmvLS2TC8cBo0RAkZoAKCSyfESHfC3Q4ogjyuGzwMXMhgRtgCg53Fb
+FAz/0AV+uypFk5Wny2N5040=
+=b/0B
+-----END PGP SIGNATURE-----
+
+--fKtH0JUtvN5p2ETH--
