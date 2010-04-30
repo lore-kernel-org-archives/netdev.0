@@ -1,42 +1,42 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: patch sysfs-implement-sysfs-tagged-directory-support.patch added
- to gregkh-2.6 tree
-Date: Fri, 30 Apr 2010 06:18:53 +0200
-Message-ID: <4BDA5A2D.6080904@kernel.org>
-References: <12725729473590@kroah.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: OFT - reserving CPU's for networking
+Date: Fri, 30 Apr 2010 11:57:15 -0700 (PDT)
+Message-ID: <20100430.115715.216750975.davem@davemloft.net>
+References: <1272563772.2222.301.camel@edumazet-laptop>
+	<20100429111047.031eeff9@nehalam>
+	<alpine.LFD.2.00.1004292055471.2951@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, bcrl@lhnet.ca, benjamin.thery@bull.net,
-	cornelia.huck@de.ibm.com, eric.dumazet@gmail.com,
-	kay.sievers@vrfy.org, netdev@vger.kernel.org, serue@us.ibm.com
-To: gregkh@suse.de
+Cc: shemminger@vyatta.com, eric.dumazet@gmail.com,
+	ak@gargoyle.fritz.box, netdev@vger.kernel.org, andi@firstfloor.org,
+	peterz@infradead.org
+To: tglx@linutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:60359 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932242Ab0D3RE3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 30 Apr 2010 13:04:29 -0400
-In-Reply-To: <12725729473590@kroah.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44264
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933780Ab0D3S5K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 14:57:10 -0400
+In-Reply-To: <alpine.LFD.2.00.1004292055471.2951@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/29/2010 10:29 PM, gregkh@suse.de wrote:
-> 
-> This is a note to let you know that I've just added the patch titled
-> 
->     Subject: sysfs: Implement sysfs tagged directory support.
-> 
-> to my gregkh-2.6 tree.  Its filename is
-> 
->     sysfs-implement-sysfs-tagged-directory-support.patch
-> 
-> This tree can be found at 
->     http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Thu, 29 Apr 2010 21:19:36 +0200 (CEST)
 
-I wish at least more comments are added before it goes mainline.  I
-don't really understand the current form.
+> Aside of that I seriously doubt that you can do networking w/o time
+> and timers.
 
-Thanks.
+You're right that we need timestamps and the like.
 
--- 
-tejun
+But only if we actually process the packets on these restricted cpus :-)
+
+If we use RPS and farm out all packets to other cpus, ie. just doing
+the driver work and the remote cpu dispatch on these "offline" cpus,
+it is doable.
+
+Then we can do cool tricks like having the cpu spin on a mwait() on the
+network device's status descriptor in memory.
+
+In any event I agree with you, it's a cool idea at best, and likely
+not really practical.
