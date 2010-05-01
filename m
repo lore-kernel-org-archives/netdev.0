@@ -1,38 +1,39 @@
-From: Martin Josefsson <gandalf@mjufs.se>
-Subject: Re: OFT - reserving CPU's for networking
-Date: Sat, 1 May 2010 22:31:05 +0200 (CEST)
-Message-ID: <Pine.LNX.4.62.1005012222320.24624@wlug.westbo.se>
-References: <1272563772.2222.301.camel@edumazet-laptop> <20100429111047.031eeff9@nehalam>
- <alpine.LFD.2.00.1004292055471.2951@localhost.localdomain>
- <20100430.115715.216750975.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] net: sock_def_readable() and friends RCU
+ conversion
+Date: Sat, 01 May 2010 15:00:34 -0700 (PDT)
+Message-ID: <20100501.150034.135987748.davem@davemloft.net>
+References: <20100430.163519.133415203.davem@davemloft.net>
+	<1272697367.2230.106.camel@edumazet-laptop>
+	<1272701011.2230.134.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: tglx@linutronix.de, shemminger@vyatta.com, eric.dumazet@gmail.com,
-	ak@gargoyle.fritz.box, netdev@vger.kernel.org, andi@firstfloor.org,
-	peterz@infradead.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, xiaosuo@gmail.com, therbert@google.com,
+	shemminger@vyatta.com, netdev@vger.kernel.org, eilong@broadcom.com,
+	bmb@athenacr.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from host91-201.netintact.se ([194.153.91.201]:49544 "EHLO
-	wlug.westbo.se" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1753218Ab0EAUzr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 May 2010 16:55:47 -0400
-In-Reply-To: <20100430.115715.216750975.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44665
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756409Ab0EAWAa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 May 2010 18:00:30 -0400
+In-Reply-To: <1272701011.2230.134.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 30 Apr 2010, David Miller wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 01 May 2010 10:03:31 +0200
 
-> Then we can do cool tricks like having the cpu spin on a mwait() on the
-> network device's status descriptor in memory.
+> David, I also need this RCU thing in order to be able to group all
+> wakeups at the end of net_rx_action().
+> 
+> Plan was to use RCU, so that I dont need to increase sk_refcnt when
+> queueing a "wakeup" (and decrease sk_refcnt a long time after)
+> 
+> Previous attempt was a bit hacky,
+> http://patchwork.ozlabs.org/patch/24179/
+> 
+> I expect 2010 one will be cleaner :)
 
-Can you have mwait monitor multiple cachelines for stores? If not then it 
-might be hard to do that when you have multiple nics and you actually 
-need to use the status descriptors, otherwise you could possibly have them 
-all written to the same cacheline. 
-Or if the nic doesn't support updating a status descriptor in memory.
-
-If you just want to wake up quickly without using interrupts it might be 
-possible to abuse MSI to wake up without actually using interrupts, set 
-the address to the cacheline that is being monitored.
-
-/Martin
+Fair enough, I'm convinced now, applied thanks!
