@@ -1,7 +1,7 @@
 From: jamal <hadi@cyberus.ca>
 Subject: Re: [PATCH net-next-2.6] net: speedup udp receive path
-Date: Sat, 01 May 2010 07:23:34 -0400
-Message-ID: <1272713014.14499.21.camel@bigi>
+Date: Sat, 01 May 2010 07:29:39 -0400
+Message-ID: <1272713379.14499.26.camel@bigi>
 References: <1272010378-2955-1-git-send-email-xiaosuo@gmail.com>
 	 <20100427.150817.84390202.davem@davemloft.net>
 	 <1272406693.2343.26.camel@edumazet-laptop>  <1272454432.14068.4.camel@bigi>
@@ -15,6 +15,7 @@ References: <1272010378-2955-1-git-send-email-xiaosuo@gmail.com>
 	 <1272573383.3969.8.camel@bigi>  <1272655814.3879.8.camel@bigi>
 	 <1272660000.2230.4.camel@edumazet-laptop>  <1272672394.14499.1.camel@bigi>
 	 <1272693424.2230.75.camel@edumazet-laptop>
+	 <1272694442.2230.86.camel@edumazet-laptop>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -26,42 +27,30 @@ Cc: Changli Gao <xiaosuo@gmail.com>,
 	Brian Bloniarz <bmb@athenacr.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:41707 "EHLO
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:51539 "EHLO
 	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750800Ab0EALXx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 May 2010 07:23:53 -0400
-Received: by vws19 with SMTP id 19so780475vws.19
-        for <netdev@vger.kernel.org>; Sat, 01 May 2010 04:23:51 -0700 (PDT)
-In-Reply-To: <1272693424.2230.75.camel@edumazet-laptop>
+	with ESMTP id S1750800Ab0EAL3n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 May 2010 07:29:43 -0400
+Received: by vws19 with SMTP id 19so781827vws.19
+        for <netdev@vger.kernel.org>; Sat, 01 May 2010 04:29:43 -0700 (PDT)
+In-Reply-To: <1272694442.2230.86.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2010-05-01 at 07:57 +0200, Eric Dumazet wrote:
+On Sat, 2010-05-01 at 08:14 +0200, Eric Dumazet wrote:
 
-> I changed your program a bit to use EV_PERSIST, (to avoid epoll_ctl()
-> overhead for each packet...)
+> BTW, using ee mask, cpu4 is not used at _all_, even for the user
+> threads. Scheduler does a bad job IMHO.
 
-Thats a different test case then ;-> You can also get rid of the timer
-(I doubt it will show much difference in results) - I have it in there
-because it i am trying to replicate what i saw causing the regression.
+I have the opposite frustration ;->
+I did notice it got used. My goal was to totally avoid using it, for
+simple reason it is an SMT thread that shares same core as cpu0.
+In retrospect i should probably set irq affinity then to cpu0 and 4.
 
-> RPS off : 220.000 pps 
-> 
-> RPS on (ee mask) : 700.000 pps  (with a slightly modified tg3 driver)
-> 96% of delivered packets
-> 
+> Using fe mask, I get all packets (sent at 733311pps by my pktgen
+> machine), and my CPU0 even has idle time !!!
 
-That's a very very huge gap. What were the numbers before you changed to
-EV_PERSIST?
-Note: i did not add any of your other patches for dst refcnt, sockets
-etc. Were you running with those patches in these tests? I will try the
-next opportunity i get to have latest kernel + those patches. 
-
-> This is on tg3 adapter, and tg3 has copybreak feature : small packets
-> are copied into skb of the right size.
-
-Ok, so the driver tuning is also important then (and it shows in the
-profile).
+I will try this next time i get the chance.
 
 cheers,
 jamal
