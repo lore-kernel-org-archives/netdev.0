@@ -1,39 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: sock_def_readable() and friends RCU
- conversion
-Date: Sat, 01 May 2010 15:00:34 -0700 (PDT)
-Message-ID: <20100501.150034.135987748.davem@davemloft.net>
-References: <20100430.163519.133415203.davem@davemloft.net>
-	<1272697367.2230.106.camel@edumazet-laptop>
-	<1272701011.2230.134.camel@edumazet-laptop>
+Subject: Re: OFT - reserving CPU's for networking
+Date: Sat, 01 May 2010 15:03:38 -0700 (PDT)
+Message-ID: <20100501.150338.93457735.davem@davemloft.net>
+References: <20100430210131.GA2833@gargoyle.fritz.box>
+	<20100430.153038.62351857.davem@davemloft.net>
+	<20100501105304.GA9434@gargoyle.fritz.box>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, xiaosuo@gmail.com, therbert@google.com,
-	shemminger@vyatta.com, netdev@vger.kernel.org, eilong@broadcom.com,
-	bmb@athenacr.com
-To: eric.dumazet@gmail.com
+Cc: tglx@linutronix.de, shemminger@vyatta.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, peterz@infradead.org
+To: andi@firstfloor.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44665
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52651
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756409Ab0EAWAa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 May 2010 18:00:30 -0400
-In-Reply-To: <1272701011.2230.134.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1756654Ab0EAWDc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 May 2010 18:03:32 -0400
+In-Reply-To: <20100501105304.GA9434@gargoyle.fritz.box>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 01 May 2010 10:03:31 +0200
+From: Andi Kleen <andi@firstfloor.org>
+Date: Sat, 1 May 2010 12:53:04 +0200
 
-> David, I also need this RCU thing in order to be able to group all
-> wakeups at the end of net_rx_action().
+>> And we don't want it to, because the decision mechanisms for steering
+>> that we using now are starting to get into the stateful territory and
+>> that's verbotton for NIC offload as far as we're concerned.
 > 
-> Plan was to use RCU, so that I dont need to increase sk_refcnt when
-> queueing a "wakeup" (and decrease sk_refcnt a long time after)
-> 
-> Previous attempt was a bit hacky,
-> http://patchwork.ozlabs.org/patch/24179/
-> 
-> I expect 2010 one will be cleaner :)
+> Huh? I thought full TCP offload was forbidden?[1] Statefull as in NIC 
+> (or someone else like netfilter) tracking flows is quite common and very far 
+> from full offload. AFAIK it doesn't have near all the problems full
+> offload has.
 
-Fair enough, I'm convinced now, applied thanks!
+We're tracking flow cpu location state at the socket operations, like
+recvmsg() and sendmsg(), where it belongs.
+
+Would you like us to call into the card drivers and firmware at these
+spots instead?
