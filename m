@@ -1,198 +1,77 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [RFC PATCH] sctp: Fix a race between ICMP protocol unreachable and
- connect()
-Date: Fri, 30 Apr 2010 21:22:50 -0400
-Message-ID: <4BDB826A.6030503@hp.com>
+From: Oren Laadan <orenl-eQaUEPhvms7ENvBUuze7eA@public.gmane.org>
+Subject: Re: [PATCH] [RFC] C/R: inet4 and inet6 unicast routes (v2)
+Date: Fri, 30 Apr 2010 21:42:58 -0400
+Message-ID: <4BDB8722.5020401@cs.columbia.edu>
+References: <1272646855-17327-1-git-send-email-danms@us.ibm.com>
+	<4BDB3F07.2030900@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linux SCTP Dev Mailing list <linux-sctp@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:8869 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753222Ab0EABWx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 21:22:53 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org, Vlad Yasevich <vladislav.yasevich-VXdhtT5mjnY@public.gmane.org>,
+        Dan Smith <danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Daniel Lezcano <daniel.lezcano-GANU6spQydw@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <4BDB3F07.2030900-GANU6spQydw@public.gmane.org>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-ICMP protocol unreachable handling completely disregarded
-the fact that the user may have locked the socket.  It proceeded
-to destroy the association, even though the user may have
-held the lock and had a ref on the association.  This resulted
-in the following bug:
 
-Attempt to release alive inet socket f6afcc00
 
-=========================
-[ BUG: held lock freed! ]
--------------------------
-somenu/2672 is freeing memory f6afcc00-f6afcfff, with a lock still held
-there!
- (sk_lock-AF_INET){+.+.+.}, at: [<c122098a>] sctp_connect+0x13/0x4c
-1 lock held by somenu/2672:
- #0:  (sk_lock-AF_INET){+.+.+.}, at: [<c122098a>] sctp_connect+0x13/0x4c
+Daniel Lezcano wrote:
+> Dan Smith wrote:
+>> This patch adds support for checkpointing and restoring route information.
+>> It keeps enough information to restore basic routes at the level of detail
+>> of /proc/net/route.  It uses RTNETLINK to extract the information during
+>> checkpoint and also to insert it back during restore.  This gives us a
+>> nice layer of isolation between us and the various "fib" implementations.
+>>
+>> Changes in v2:
+>>
+>> This version of the patch actually moves the current task into the
+>> desired network namespace temporarily, for the purposes of examining and
+>> restoring the route information.  This is a instead of creating a cross-
+>> namespace socket to do the job, as was done in v1.
+>>
+>> This is just an RFC to see if this is an acceptable method.  For a final
+>> version, adding a helper to nsproxy.c would allow us to create a new
+>> nsproxy with the desired netns instead of creating one with
+>> copy_namespaces() just to kill it off and use the target one.
+>>
+>> I still think the previous method is cleaner, but this way may violate
+>> fewer namespace boundaries (I'm still undecided :)
+>>
+>> Signed-off-by: Dan Smith <danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+>> Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+>> Cc: Vlad Yasevich <vladislav.yasevich-VXdhtT5mjnY@public.gmane.org>
+>> Cc: jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org>
+>> ---
+> Hi Dan,
+> 
+> Eric did a patchset (as Jamal mentioned it) where you can have a process 
+> to enter a specific namespace from userspace.
+> 
+> http://git.kernel.org/?p=linux/kernel/git/ebiederm/linux-2.6.33-nsfd-v5.git;a=commit;h=9c2f86a44d9ca93e78fd8e81a4e2a8c2a4cdb054
+> 
+> Is it possible to enter the namespace and dump / restore the routes with 
+> NETLINK_ROUTE from userspace ? Or is it something not possible ?
+> 
 
-stack backtrace:
-Pid: 2672, comm: somenu Not tainted 2.6.32-telco #55
-Call Trace:
- [<c1232266>] ? printk+0xf/0x11
- [<c1038553>] debug_check_no_locks_freed+0xce/0xff
- [<c10620b4>] kmem_cache_free+0x21/0x66
- [<c1185f25>] __sk_free+0x9d/0xab
- [<c1185f9c>] sk_free+0x1c/0x1e
- [<c1216e38>] sctp_association_put+0x32/0x89
- [<c1220865>] __sctp_connect+0x36d/0x3f4
- [<c122098a>] ? sctp_connect+0x13/0x4c
- [<c102d073>] ? autoremove_wake_function+0x0/0x33
- [<c12209a8>] sctp_connect+0x31/0x4c
- [<c11d1e80>] inet_dgram_connect+0x4b/0x55
- [<c11834fa>] sys_connect+0x54/0x71
- [<c103a3a2>] ? lock_release_non_nested+0x88/0x239
- [<c1054026>] ? might_fault+0x42/0x7c
- [<c1054026>] ? might_fault+0x42/0x7c
- [<c11847ab>] sys_socketcall+0x6d/0x178
- [<c10da994>] ? trace_hardirqs_on_thunk+0xc/0x10
- [<c1002959>] syscall_call+0x7/0xb
+I also think that restoring routes from userspace, if feasible,
+will be advantageous.
 
-This was because the sctp_wait_for_connect() would acquire the socket
-lock and then proceed to release the last reference count on the
-association, thus causing the fully destruction path to finish freeing
-the socket.
+Besides, that will simplify cases in which userspace would like to
+restore something different (in terms of routes) than what was
+saved in the checkpoint.
 
-The simplest solution is to start a very short timer in case the socket
-is owned by user.  When the timer expires, we can do some verification
-and be able to do the release properly.
+So the question is, what would it take ?
 
-Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
----
- include/net/sctp/sm.h      |    1 +
- include/net/sctp/structs.h |    3 +++
- net/sctp/input.c           |   23 +++++++++++++++++++----
- net/sctp/sm_sideeffect.c   |   35 +++++++++++++++++++++++++++++++++++
- net/sctp/transport.c       |    2 ++
- 5 files changed, 60 insertions(+), 4 deletions(-)
-
-diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
-index 851c813..61d73e3 100644
---- a/include/net/sctp/sm.h
-+++ b/include/net/sctp/sm.h
-@@ -279,6 +279,7 @@ int sctp_do_sm(sctp_event_t event_type, sctp_subtype_t subtype,
- /* 2nd level prototypes */
- void sctp_generate_t3_rtx_event(unsigned long peer);
- void sctp_generate_heartbeat_event(unsigned long peer);
-+void sctp_generate_proto_unreach_event(unsigned long peer);
-
- void sctp_ootb_pkt_free(struct sctp_packet *);
-
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 597f8e2..219043a 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -1010,6 +1010,9 @@ struct sctp_transport {
- 	/* Heartbeat timer is per destination. */
- 	struct timer_list hb_timer;
-
-+	/* Timer to handle ICMP proto unreachable envets */
-+	struct timer_list proto_unreach_timer;
-+
- 	/* Since we're using per-destination retransmission timers
- 	 * (see above), we're also using per-destination "transmitted"
- 	 * queues.  This probably ought to be a private struct
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index 2a57018..94b2eb2 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -440,11 +440,25 @@ void sctp_icmp_proto_unreachable(struct sock *sk,
- {
- 	SCTP_DEBUG_PRINTK("%s\n",  __func__);
-
--	sctp_do_sm(SCTP_EVENT_T_OTHER,
--		   SCTP_ST_OTHER(SCTP_EVENT_ICMP_PROTO_UNREACH),
--		   asoc->state, asoc->ep, asoc, t,
--		   GFP_ATOMIC);
-+	if (sock_owned_by_user(sk)) {
-+		if (timer_pending(&t->proto_unreach_timer))
-+			return;
-+		else {
-+			if (!mod_timer(&t->proto_unreach_timer,
-+						jiffies + (HZ/20)))
-+				sctp_association_hold(asoc);
-+		}
-+			
-+	} else {
-+		if (timer_pending(&t->proto_unreach_timer) &&
-+		    del_timer(&t->proto_unreach_timer))
-+			sctp_association_put(asoc);
-
-+		sctp_do_sm(SCTP_EVENT_T_OTHER,
-+			   SCTP_ST_OTHER(SCTP_EVENT_ICMP_PROTO_UNREACH),
-+			   asoc->state, asoc->ep, asoc, t,
-+			   GFP_ATOMIC);
-+	}
- }
-
- /* Common lookup code for icmp/icmpv6 error handler. */
-diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-index d5ae450..eb1f42f 100644
---- a/net/sctp/sm_sideeffect.c
-+++ b/net/sctp/sm_sideeffect.c
-@@ -397,6 +397,41 @@ out_unlock:
- 	sctp_transport_put(transport);
- }
-
-+/* Handle the timeout of the ICMP protocol unreachable timer.  Trigger
-+ * the correct state machine transition that will close the association.
-+ */
-+void sctp_generate_proto_unreach_event(unsigned long data)
-+{
-+	struct sctp_transport *transport = (struct sctp_transport *) data;
-+	struct sctp_association *asoc = transport->asoc;
-+	
-+	sctp_bh_lock_sock(asoc->base.sk);
-+	if (sock_owned_by_user(asoc->base.sk)) {
-+		SCTP_DEBUG_PRINTK("%s:Sock is busy.\n", __func__);
-+
-+		/* Try again later.  */
-+		if (!mod_timer(&transport->proto_unreach_timer,
-+				jiffies + (HZ/20)))
-+			sctp_association_hold(asoc);
-+		goto out_unlock;
-+	}
-+
-+	/* Is this structure just waiting around for us to actually
-+	 * get destroyed?
-+	 */
-+	if (asoc->base.dead)
-+		goto out_unlock;
-+
-+	sctp_do_sm(SCTP_EVENT_T_OTHER,
-+		   SCTP_ST_OTHER(SCTP_EVENT_ICMP_PROTO_UNREACH),
-+		   asoc->state, asoc->ep, asoc, transport, GFP_ATOMIC);
-+
-+out_unlock:
-+	sctp_bh_unlock_sock(asoc->base.sk);
-+	sctp_association_put(asoc);
-+}
-+
-+
- /* Inject a SACK Timeout event into the state machine.  */
- static void sctp_generate_sack_event(unsigned long data)
- {
-diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-index be4d63d..4a36803 100644
---- a/net/sctp/transport.c
-+++ b/net/sctp/transport.c
-@@ -108,6 +108,8 @@ static struct sctp_transport *sctp_transport_init(struct
-sctp_transport *peer,
- 			(unsigned long)peer);
- 	setup_timer(&peer->hb_timer, sctp_generate_heartbeat_event,
- 			(unsigned long)peer);
-+	setup_timer(&peer->proto_unreach_timer,
-+		    sctp_generate_proto_unreach_event, (unsigned long)peer);
-
- 	/* Initialize the 64-bit random nonce sent with heartbeat. */
- 	get_random_bytes(&peer->hb_nonce, sizeof(peer->hb_nonce));
--- 
-1.6.0.4
-
+Oren.
