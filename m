@@ -1,7 +1,7 @@
 From: Oren Laadan <orenl@cs.columbia.edu>
-Subject: [PATCH v21 099/100] c/r: Add checkpoint support to macvlan driver
-Date: Sat,  1 May 2010 10:16:21 -0400
-Message-ID: <1272723382-19470-100-git-send-email-orenl@cs.columbia.edu>
+Subject: [PATCH v21 098/100] c/r: Add a checkpoint handler to the 'sit' device
+Date: Sat,  1 May 2010 10:16:20 -0400
+Message-ID: <1272723382-19470-99-git-send-email-orenl@cs.columbia.edu>
 References: <1272723382-19470-1-git-send-email-orenl@cs.columbia.edu>
 Cc: containers@lists.linux-foundation.org,
 	linux-kernel@vger.kernel.org, Serge Hallyn <serue@us.ibm.com>,
@@ -9,12 +9,23 @@ Cc: containers@lists.linux-foundation.org,
 	Pavel Emelyanov <xemul@openvz.org>,
 	Dan Smith <danms@us.ibm.com>, netdev@vger.kernel.org
 To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tarap.cc.columbia.edu ([128.59.29.7]:64450 "EHLO
+	tarap.cc.columbia.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933046Ab0EAOi4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 May 2010 10:38:56 -0400
 In-Reply-To: <1272723382-19470-1-git-send-email-orenl@cs.columbia.edu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Dan Smith <danms@us.ibm.com>
+
+This handler doesn't really do much to checkpoint the device, other
+than the minimum required to support the restart process.  When we
+add IPv6 support to this, then we can fill this out.
+
+This allows us to avoid skipping unsupported interfaces on a normal
+system.
 
 Changelog[v21]:
   - Do not include checkpoint_hdr.h explicitly
@@ -24,49 +35,35 @@ Cc: netdev@vger.kernel.org
 Signed-off-by: Dan Smith <danms@us.ibm.com>
 Acked-by: David S. Miller <davem@davemloft.net>
 Acked-by: Serge Hallyn <serue@us.ibm.com>
-Acked-by: Oren Laadan <oreln@cs.columbia.edu>
+Acked-by: Oren Laadan <orenl@cs.columbia.edu>
 ---
- drivers/net/macvlan.c |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 48 insertions(+), 0 deletions(-)
+ net/ipv6/sit.c |   34 ++++++++++++++++++++++++++++++++++
+ 1 files changed, 34 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 40faa36..360828e 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -455,6 +455,51 @@ static struct net_device_stats *macvlan_dev_get_stats(struct net_device *dev)
- 	return stats;
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 5abae10..5ecbe56 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -1084,11 +1084,45 @@ static int ipip6_tunnel_change_mtu(struct net_device *dev, int new_mtu)
+ 	return 0;
  }
  
 +#include <linux/checkpoint.h>
 +
 +#ifdef CONFIG_NETNS_CHECKPOINT
-+static int macvlan_checkpoint(struct ckpt_ctx *ctx, struct net_device *dev)
++static int ipip6_checkpoint(struct ckpt_ctx *ctx, struct net_device *dev)
 +{
-+	struct macvlan_dev *vlan = netdev_priv(dev);
 +	struct ckpt_hdr_netdev *h;
 +	struct ckpt_netdev_addr *addrs;
 +	int ret;
-+
-+	ckpt_debug("Checkpointing macvlan %s:%s\n",
-+		   dev->name, vlan->lowerdev->name);
 +
 +	h = ckpt_netdev_base(ctx, dev, &addrs);
 +	if (IS_ERR(h))
 +		return PTR_ERR(h);
 +
-+	h->type = CKPT_NETDEV_MACVLAN;
++	h->type = CKPT_NETDEV_SIT;
 +
-+	h->macvlan.mode = vlan->mode;
-+
-+	ret = ckpt_write_obj(ctx, (struct ckpt_hdr *)h);
-+	if (ret < 0)
-+		goto out;
-+
-+	ret = ckpt_write_buffer(ctx, dev->name, IFNAMSIZ);
-+	if (ret < 0)
-+		goto out;
-+
-+	ret = ckpt_write_buffer(ctx, vlan->lowerdev->name, IFNAMSIZ);
++	ret = ckpt_write_obj(ctx, (struct ckpt_hdr *) h);
 +	if (ret < 0)
 +		goto out;
 +
@@ -82,18 +79,17 @@ index 40faa36..360828e 100644
 +}
 +#endif
 +
- static void macvlan_ethtool_get_drvinfo(struct net_device *dev,
- 					struct ethtool_drvinfo *drvinfo)
- {
-@@ -501,6 +546,9 @@ static const struct net_device_ops macvlan_netdev_ops = {
- 	.ndo_set_multicast_list	= macvlan_set_multicast_list,
- 	.ndo_get_stats		= macvlan_dev_get_stats,
- 	.ndo_validate_addr	= eth_validate_addr,
+ static const struct net_device_ops ipip6_netdev_ops = {
+ 	.ndo_uninit	= ipip6_tunnel_uninit,
+ 	.ndo_start_xmit	= ipip6_tunnel_xmit,
+ 	.ndo_do_ioctl	= ipip6_tunnel_ioctl,
+ 	.ndo_change_mtu	= ipip6_tunnel_change_mtu,
 +#ifdef CONFIG_NETNS_CHECKPOINT
-+	.ndo_checkpoint		= macvlan_checkpoint,
++	.ndo_checkpoint	= ipip6_checkpoint,
 +#endif
  };
  
- static void macvlan_setup(struct net_device *dev)
+ static void ipip6_tunnel_setup(struct net_device *dev)
 -- 
 1.6.3.3
+
