@@ -1,100 +1,85 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net: speedup udp receive path
-Date: Sat, 01 May 2010 08:14:02 +0200
-Message-ID: <1272694442.2230.86.camel@edumazet-laptop>
-References: <1272010378-2955-1-git-send-email-xiaosuo@gmail.com>
-	 <20100427.150817.84390202.davem@davemloft.net>
-	 <1272406693.2343.26.camel@edumazet-laptop>  <1272454432.14068.4.camel@bigi>
-	 <1272458001.2267.0.camel@edumazet-laptop>  <1272458174.14068.16.camel@bigi>
-	 <1272463605.2267.70.camel@edumazet-laptop> <1272498293.4258.121.camel@bigi>
-	 <1272514176.2201.85.camel@edumazet-laptop> <1272540952.4258.161.camel@bigi>
-	 <u2l412e6f7f1004290512x7fcdb5c3w591c6446d676502@mail.gmail.com>
-	 <1272545108.2222.65.camel@edumazet-laptop> <1272547061.4258.174.camel@bigi>
-	 <1272547307.2222.83.camel@edumazet-laptop> <1272548258.4258.185.camel@bigi>
-	 <1272548980.2222.87.camel@edumazet-laptop> <1272549408.4258.189.camel@bigi>
-	 <1272573383.3969.8.camel@bigi>  <1272655814.3879.8.camel@bigi>
-	 <1272660000.2230.4.camel@edumazet-laptop>  <1272672394.14499.1.camel@bigi>
-	 <1272693424.2230.75.camel@edumazet-laptop>
+Subject: [PATCH net-next-2.6] net: eth_type_trans() should inline skb_pull()
+Date: Sat, 01 May 2010 08:42:25 +0200
+Message-ID: <1272696145.2230.101.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	David Miller <davem@davemloft.net>, therbert@google.com,
-	shemminger@vyatta.com, netdev@vger.kernel.org,
-	Eilon Greenstein <eilong@broadcom.com>,
-	Brian Bloniarz <bmb@athenacr.com>
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>,
+	jamal <hadi@cyberus.ca>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:48554 "EHLO
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:44115 "EHLO
 	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751107Ab0EAGOK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 May 2010 02:14:10 -0400
-Received: by bwz19 with SMTP id 19so483908bwz.21
-        for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 23:14:08 -0700 (PDT)
-In-Reply-To: <1272693424.2230.75.camel@edumazet-laptop>
+	with ESMTP id S1751164Ab0EAGmc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 May 2010 02:42:32 -0400
+Received: by bwz19 with SMTP id 19so489017bwz.21
+        for <netdev@vger.kernel.org>; Fri, 30 Apr 2010 23:42:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 01 mai 2010 =C3=A0 07:57 +0200, Eric Dumazet a =C3=A9crit :
-> Le vendredi 30 avril 2010 =C3=A0 20:06 -0400, jamal a =C3=A9crit :
->=20
-> > Yes, Nehalem.=20
-> > RPS off is better (~700Kpp) than RPS on(~650kpps). Are you seeing t=
-he
-> > same trend on the old hardware?
-> >=20
->=20
-> Of course not ! Or else RPS would be useless :(
->=20
-> I changed your program a bit to use EV_PERSIST, (to avoid epoll_ctl()
-> overhead for each packet...)
->=20
-> RPS off : 220.000 pps=20
->=20
-> RPS on (ee mask) : 700.000 pps  (with a slightly modified tg3 driver)
-> 96% of delivered packets
+840.000 pps instead of 800.000 pps on my 'old' machine, using RPS
 
-BTW, using ee mask, cpu4 is not used at _all_, even for the user
-threads. Scheduler does a bad job IMHO.
+Before patch, profile of CPU 0 (handling tg3 interrupts)
 
-Using fe mask, I get all packets (sent at 733311pps by my pktgen
-machine), and my CPU0 even has idle time !!!
+             2167.00 13.9% __alloc_skb            vmlinux
+             1908.00 12.3% eth_type_trans         vmlinux
+             1125.00  7.2% __kmalloc_track_caller vmlinux
+              981.00  6.3% __netdev_alloc_skb     vmlinux
+              925.00  5.9% _raw_spin_lock         vmlinux
+              786.00  5.1% kmem_cache_alloc       vmlinux
+              757.00  4.9% skb_pull               vmlinux
+              698.00  4.5% tg3_read32             vmlinux
+              637.00  4.1% __slab_alloc           vmlinux
+              620.00  4.0% tg3_poll_work          vmlinux
+              576.00  3.7% get_rps_cpu            vmlinux
+              448.00  2.9% bnx2_interrupt         vmlinux
 
-Limit seems to be around 800.000 pps
+After (no more skb_pull, and eth_type_trans() not more expensive)
+Predominant cost is memory allocator...
 
------------------------------------------------------------------------=
--------------------------------------------------
-   PerfTop:    5616 irqs/sec  kernel:93.9% [1000Hz cycles],  (all, 8 CP=
-Us)
------------------------------------------------------------------------=
--------------------------------------------------
+             1625.00 12.4% eth_type_trans         vmlinux
+             1468.00 11.2% __alloc_skb            vmlinux
+             1004.00  7.6% __kmalloc_track_caller vmlinux
+              893.00  6.8% _raw_spin_lock         vmlinux
+              738.00  5.6% __netdev_alloc_skb     vmlinux
+              665.00  5.1% tg3_read32             vmlinux
+              656.00  5.0% kmem_cache_alloc       vmlinux
+              655.00  5.0% __slab_alloc           vmlinux
+              509.00  3.9% bnx2_interrupt         vmlinux
+              483.00  3.7% tg3_poll_work          vmlinux
+              455.00  3.5% _raw_spin_lock_irqsave vmlinux
+              330.00  2.5% get_rps_cpu            vmlinux
+              286.00  2.2% nommu_map_page         vmlinux
+              277.00  2.1% enqueue_to_backlog     vmlinux
+              235.00  1.8% inet_gro_receive       vmlinux
+              232.00  1.8% __copy_to_user_ll      vmlinux
+              181.00  1.4% dev_gro_receive        vmlinux
+              165.00  1.3% skb_gro_reset_offset   vmlinux
 
-             samples  pcnt function                    DSO
-             _______ _____ ___________________________ _______
+(bnx2_interrupt is called, because irq 16 is shared on this machine on two nics...)
 
-             3492.00  6.2% __slab_free                 vmlinux
-             2334.00  4.2% _raw_spin_lock              vmlinux
-             2314.00  4.1% _raw_spin_lock_irqsave      vmlinux
-             1807.00  3.2% ip_rcv                      vmlinux
-             1605.00  2.9% schedule                    vmlinux
-             1474.00  2.6% __netif_receive_skb         vmlinux
-             1464.00  2.6% kfree                       vmlinux
-             1405.00  2.5% ip_route_input              vmlinux
-             1318.00  2.4% __copy_to_user_ll           vmlinux
-             1214.00  2.2% __alloc_skb                 vmlinux
-             1160.00  2.1% nf_hook_slow                vmlinux
-             1020.00  1.8% eth_type_trans              vmlinux
-              860.00  1.5% sched_clock_local           vmlinux
-              775.00  1.4% read_tsc                    vmlinux
-              773.00  1.4% ipt_do_table                vmlinux
-              766.00  1.4% _raw_spin_unlock_irqrestore vmlinux
-              748.00  1.3% sock_recv_ts_and_drops      vmlinux
-              747.00  1.3% ia32_sysenter_target        vmlinux
-              740.00  1.3% select_nohz_load_balancer   vmlinux
-              644.00  1.2% __kmalloc_track_caller      vmlinux
-              596.00  1.1% tg3_read32                  vmlinux
-              566.00  1.0% __udp4_lib_lookup           vmlinux
+Thanks !
 
+[PATCH net-next-2.6] net: eth_type_trans() should inline skb_pull()
 
+With RPS, this patch can give a 5 % boost in performance.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+index 0c0d272..763524b 100644
+--- a/net/ethernet/eth.c
++++ b/net/ethernet/eth.c
+@@ -162,7 +162,8 @@ __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	skb->dev = dev;
+ 	skb_reset_mac_header(skb);
+-	skb_pull(skb, ETH_HLEN);
++	if (likely(skb->len >= ETH_HLEN))
++		__skb_pull(skb, ETH_HLEN);
+ 	eth = eth_hdr(skb);
+ 
+ 	if (unlikely(is_multicast_ether_addr(eth->h_dest))) {
 
 
