@@ -1,58 +1,68 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH v6] net: batch skb dequeueing from softnet
-	input_pkt_queue
-Date: Sat, 1 May 2010 13:00:00 +0200
-Message-ID: <20100501110000.GB9434@gargoyle.fritz.box>
-References: <20100429182347.GA8512@gargoyle.fritz.box> <1272568347.2209.11.camel@edumazet-laptop> <20100429214144.GA10663@gargoyle.fritz.box> <20100430.163857.180417789.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH net-next-2.6] net: speedup udp receive path
+Date: Sat, 01 May 2010 07:23:34 -0400
+Message-ID: <1272713014.14499.21.camel@bigi>
+References: <1272010378-2955-1-git-send-email-xiaosuo@gmail.com>
+	 <20100427.150817.84390202.davem@davemloft.net>
+	 <1272406693.2343.26.camel@edumazet-laptop>  <1272454432.14068.4.camel@bigi>
+	 <1272458001.2267.0.camel@edumazet-laptop>  <1272458174.14068.16.camel@bigi>
+	 <1272463605.2267.70.camel@edumazet-laptop> <1272498293.4258.121.camel@bigi>
+	 <1272514176.2201.85.camel@edumazet-laptop> <1272540952.4258.161.camel@bigi>
+	 <u2l412e6f7f1004290512x7fcdb5c3w591c6446d676502@mail.gmail.com>
+	 <1272545108.2222.65.camel@edumazet-laptop> <1272547061.4258.174.camel@bigi>
+	 <1272547307.2222.83.camel@edumazet-laptop> <1272548258.4258.185.camel@bigi>
+	 <1272548980.2222.87.camel@edumazet-laptop> <1272549408.4258.189.camel@bigi>
+	 <1272573383.3969.8.camel@bigi>  <1272655814.3879.8.camel@bigi>
+	 <1272660000.2230.4.camel@edumazet-laptop>  <1272672394.14499.1.camel@bigi>
+	 <1272693424.2230.75.camel@edumazet-laptop>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, hadi@cyberus.ca, xiaosuo@gmail.com,
-	therbert@google.com, shemminger@vyatta.com, netdev@vger.kernel.org,
-	lenb@kernel.org, arjan@infradead.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Changli Gao <xiaosuo@gmail.com>,
+	David Miller <davem@davemloft.net>, therbert@google.com,
+	shemminger@vyatta.com, netdev@vger.kernel.org,
+	Eilon Greenstein <eilong@broadcom.com>,
+	Brian Bloniarz <bmb@athenacr.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:38465 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752020Ab0EAK5Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 May 2010 06:57:25 -0400
-Content-Disposition: inline
-In-Reply-To: <20100430.163857.180417789.davem@davemloft.net>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:41707 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750800Ab0EALXx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 May 2010 07:23:53 -0400
+Received: by vws19 with SMTP id 19so780475vws.19
+        for <netdev@vger.kernel.org>; Sat, 01 May 2010 04:23:51 -0700 (PDT)
+In-Reply-To: <1272693424.2230.75.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 30, 2010 at 04:38:57PM -0700, David Miller wrote:
-> From: Andi Kleen <ak@gargoyle.fritz.box>
-> Date: Thu, 29 Apr 2010 23:41:44 +0200
+On Sat, 2010-05-01 at 07:57 +0200, Eric Dumazet wrote:
+
+> I changed your program a bit to use EV_PERSIST, (to avoid epoll_ctl()
+> overhead for each packet...)
+
+Thats a different test case then ;-> You can also get rid of the timer
+(I doubt it will show much difference in results) - I have it in there
+because it i am trying to replicate what i saw causing the regression.
+
+> RPS off : 220.000 pps 
 > 
-> >     Use io_schedule() in network stack to tell cpuidle governour to guarantee lower latencies
-> > 
-> >     XXX: probably too aggressive, some of these sleeps are not under high load.
-> > 
-> >     Based on a bug report from Eric Dumazet.
-> >     
-> >     Signed-off-by: Andi Kleen <ak@linux.intel.com>
+> RPS on (ee mask) : 700.000 pps  (with a slightly modified tg3 driver)
+> 96% of delivered packets
 > 
-> I like this, except that we probably don't want the delayacct_blkio_*() calls
-> these things do.
 
-Yes.
+That's a very very huge gap. What were the numbers before you changed to
+EV_PERSIST?
+Note: i did not add any of your other patches for dst refcnt, sockets
+etc. Were you running with those patches in these tests? I will try the
+next opportunity i get to have latest kernel + those patches. 
 
-It needs more work, please don't apply it yet, to handle the "long sleep" case.
+> This is on tg3 adapter, and tg3 has copybreak feature : small packets
+> are copied into skb of the right size.
 
-Still curious if it fixes Eric's test case.
+Ok, so the driver tuning is also important then (and it shows in the
+profile).
 
-> 
-> Probably the rest of what these things do should remain in the io_schedule*()
-> functions and the block layer can call it's own versions which add in the
-> delayacct_blkio_*() bits.
+cheers,
+jamal
 
-Good point.
-
-> 
-> Or, if the delacct stuff is useful for socket I/O too, then it's interfaces
-> names should have the "blk" stripped from them :-)
-
-Good question. I suspect it's actually useful for some cases, but just adding
-sockets might confuse some users.
-
--Andi
