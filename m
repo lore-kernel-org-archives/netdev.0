@@ -1,7 +1,7 @@
 From: Oren Laadan <orenl@cs.columbia.edu>
-Subject: [PATCH v21 098/100] c/r: Add a checkpoint handler to the 'sit' device
-Date: Sat,  1 May 2010 10:16:20 -0400
-Message-ID: <1272723382-19470-99-git-send-email-orenl@cs.columbia.edu>
+Subject: [PATCH v21 095/100] c/r: Add rtnl_dellink() helper
+Date: Sat,  1 May 2010 10:16:17 -0400
+Message-ID: <1272723382-19470-96-git-send-email-orenl@cs.columbia.edu>
 References: <1272723382-19470-1-git-send-email-orenl@cs.columbia.edu>
 Cc: containers@lists.linux-foundation.org,
 	linux-kernel@vger.kernel.org, Serge Hallyn <serue@us.ibm.com>,
@@ -10,86 +10,152 @@ Cc: containers@lists.linux-foundation.org,
 	Dan Smith <danms@us.ibm.com>, netdev@vger.kernel.org
 To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tarap.cc.columbia.edu ([128.59.29.7]:64450 "EHLO
+Received: from tarap.cc.columbia.edu ([128.59.29.7]:64437 "EHLO
 	tarap.cc.columbia.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933046Ab0EAOi4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 May 2010 10:38:56 -0400
+	with ESMTP id S932947Ab0EAOix (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 May 2010 10:38:53 -0400
 In-Reply-To: <1272723382-19470-1-git-send-email-orenl@cs.columbia.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Dan Smith <danms@us.ibm.com>
 
-This handler doesn't really do much to checkpoint the device, other
-than the minimum required to support the restart process.  When we
-add IPv6 support to this, then we can fill this out.
-
-This allows us to avoid skipping unsupported interfaces on a normal
-system.
-
-Changelog[v21]:
-  - Do not include checkpoint_hdr.h explicitly
-  - Unbreak compiling with CONFIG_CHECKPOINT=n or CONFIG_NET_NS=n
+This is the kernel equivalent of "ip link del $name" and matches the
+existing rtnl_newlink() equivalent of "ip link add $name".  It factors
+out the message creation and dispatch code a little further into
+rtnl_do() before adding the new function.
 
 Cc: netdev@vger.kernel.org
 Signed-off-by: Dan Smith <danms@us.ibm.com>
-Acked-by: David S. Miller <davem@davemloft.net>
-Acked-by: Serge Hallyn <serue@us.ibm.com>
-Acked-by: Oren Laadan <orenl@cs.columbia.edu>
 ---
- net/ipv6/sit.c |   34 ++++++++++++++++++++++++++++++++++
- 1 files changed, 34 insertions(+), 0 deletions(-)
+ net/checkpoint_dev.c |   86 +++++++++++++++++++++++++++++++++++++++++--------
+ 1 files changed, 72 insertions(+), 14 deletions(-)
 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 5abae10..5ecbe56 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -1084,11 +1084,45 @@ static int ipip6_tunnel_change_mtu(struct net_device *dev, int new_mtu)
- 	return 0;
+diff --git a/net/checkpoint_dev.c b/net/checkpoint_dev.c
+index 34a6bdb..5097011 100644
+--- a/net/checkpoint_dev.c
++++ b/net/checkpoint_dev.c
+@@ -475,22 +475,49 @@ static struct sk_buff *new_link_msg(new_link_fn fn, void *data, char *name)
+ 	return skb;
  }
  
-+#include <linux/checkpoint.h>
-+
-+#ifdef CONFIG_NETNS_CHECKPOINT
-+static int ipip6_checkpoint(struct ckpt_ctx *ctx, struct net_device *dev)
+-static struct net_device *rtnl_newlink(new_link_fn fn, void *data, char *name)
++static struct sk_buff *del_link_msg(char *name)
 +{
-+	struct ckpt_hdr_netdev *h;
-+	struct ckpt_netdev_addr *addrs;
-+	int ret;
++	int ret = -ENOMEM;
++	int flags = NLM_F_REQUEST | NLM_F_CREATE | NLM_F_ACK;
++	struct nlmsghdr *nlh;
++	struct sk_buff *skb;
++	struct ifinfomsg *ifm;
 +
-+	h = ckpt_netdev_base(ctx, dev, &addrs);
-+	if (IS_ERR(h))
-+		return PTR_ERR(h);
++	skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
++	if (!skb)
++		return ERR_PTR(-ENOMEM);
 +
-+	h->type = CKPT_NETDEV_SIT;
-+
-+	ret = ckpt_write_obj(ctx, (struct ckpt_hdr *) h);
-+	if (ret < 0)
++	nlh = nlmsg_put(skb, 0, 0, RTM_DELLINK, sizeof(*ifm), flags);
++	if (!nlh)
 +		goto out;
 +
-+	if (h->inet_addrs > 0) {
-+		int len = (sizeof(struct ckpt_netdev_addr) * h->inet_addrs);
-+		ret = ckpt_write_buffer(ctx, addrs, len);
-+	}
++	ifm = nlmsg_data(nlh);
++	memset(ifm, 0, sizeof(*ifm));
++
++	ret = nla_put_string(skb, IFLA_IFNAME, name);
++	if (ret)
++		goto out;
++
++	nlmsg_end(skb, nlh);
++
 + out:
-+	ckpt_hdr_put(ctx, h);
-+	kfree(addrs);
++	if (ret < 0) {
++		kfree_skb(skb);
++		skb = ERR_PTR(ret);
++	}
++
++	return skb;
++}
++
++static int rtnl_do(struct sk_buff *skb)
+ {
+ 	int ret = -ENOMEM;
+ 	struct socket *rtnl = NULL;
+-	struct sk_buff *skb = NULL;
++	struct sk_buff *rskb = NULL;
+ 	struct nlmsghdr *nlh;
+ 	struct msghdr msg;
+ 	struct kvec kvec;
+ 
+-	skb = new_link_msg(fn, data, name);
+-	if (IS_ERR(skb)) {
+-		ckpt_debug("failed to create new link message: %li\n",
+-			   PTR_ERR(skb));
+-		return ERR_PTR(PTR_ERR(skb));
+-	}
+-
+ 	memset(&msg, 0, sizeof(msg));
+ 	kvec.iov_len = skb->len;
+ 	kvec.iov_base = skb->head;
+@@ -510,25 +537,56 @@ static struct net_device *rtnl_newlink(new_link_fn fn, void *data, char *name)
+ 		goto out;
+ 	}
+ 
+-	/* Free the send skb to make room for the receive skb */
+-	kfree_skb(skb);
+-
+-	nlh = rtnl_get_response(rtnl, &skb);
++	nlh = rtnl_get_response(rtnl, &rskb);
+ 	if (IS_ERR(nlh)) {
+ 		ret = PTR_ERR(nlh);
+ 		ckpt_debug("RTNETLINK said: %i\n", ret);
+ 	}
+  out:
+ 	rtnl_close(rtnl);
++	kfree_skb(rskb);
+  out_noclose:
+-	kfree_skb(skb);
++	return ret;
++}
+ 
++static struct net_device *rtnl_newlink(new_link_fn fn, void *data, char *name)
++{
++	struct sk_buff *skb;
++	int ret;
++
++	skb = new_link_msg(fn, data, name);
++	if (IS_ERR(skb)) {
++		ckpt_debug("failed to create new link message: %li\n",
++			   PTR_ERR(skb));
++		return ERR_PTR(PTR_ERR(skb));
++	}
++
++	ret = rtnl_do(skb);
++	kfree_skb(skb);
+ 	if (ret < 0)
+ 		return ERR_PTR(ret);
+ 	else
+ 		return dev_get_by_name(current->nsproxy->net_ns, name);
+ }
+ 
++static int rtnl_dellink(char *name)
++{
++	struct sk_buff *skb;
++	int ret;
++
++	skb = del_link_msg(name);
++	if (IS_ERR(skb)) {
++		ckpt_debug("failed to create del link message: %li\n",
++			   PTR_ERR(skb));
++		return PTR_ERR(skb);
++	}
++
++	ret = rtnl_do(skb);
++	kfree_skb(skb);
 +
 +	return ret;
 +}
-+#endif
 +
- static const struct net_device_ops ipip6_netdev_ops = {
- 	.ndo_uninit	= ipip6_tunnel_uninit,
- 	.ndo_start_xmit	= ipip6_tunnel_xmit,
- 	.ndo_do_ioctl	= ipip6_tunnel_ioctl,
- 	.ndo_change_mtu	= ipip6_tunnel_change_mtu,
-+#ifdef CONFIG_NETNS_CHECKPOINT
-+	.ndo_checkpoint	= ipip6_checkpoint,
-+#endif
- };
- 
- static void ipip6_tunnel_setup(struct net_device *dev)
+ static int netdev_noop(void *data)
+ {
+ 	return 0;
 -- 
 1.6.3.3
 
