@@ -1,36 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] ipv6: cleanup: remove unneeded null check
-Date: Fri, 30 Apr 2010 16:42:52 -0700 (PDT)
-Message-ID: <20100430.164252.170100570.davem@davemloft.net>
-References: <20100429143034.GI29093@bicker>
+From: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
+Subject: [PATCH 1/1] net/usb: remove default in Kconfig for sierra_net
+	driver
+Date: Fri, 30 Apr 2010 17:05:00 -0700
+Message-ID: <1272672300.7581.2.camel@Linuxdev4-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	eric.dumazet@gmail.com, sri@us.ibm.com,
-	herbert@gondor.apana.org.au, emils.tantilov@gmail.com,
-	kernel-janitors@vger.kernel.org
-To: error27@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45771
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759973Ab0D3Xmq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 19:42:46 -0400
-In-Reply-To: <20100429143034.GI29093@bicker>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>, <rfiler-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <error27@gmail.com>
-Date: Thu, 29 Apr 2010 16:30:35 +0200
+Subject: [PATCH 1/1] net/usb: remove default in Kconfig for sierra_net driver
+From: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
 
-> We dereference "sk" unconditionally elsewhere in the function.  
-> 
-> This was left over from:  b30bd282 "ip6_xmit: remove unnecessary NULL
-> ptr check".  According to that commit message, "the sk argument to 
-> ip6_xmit is never NULL nowadays since the skb->priority assigment 
-> expects a valid socket."
-> 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+The following patch removes the default from the Kconfig entry for sierra_net
+driver as recommended.
+All non-core drivers should default to "n".
+This patch has been checked against net-2.6 tree.
+Signed-off-by: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
+Signed-off-by: Rory Filer <rfiler-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
+---
+ drivers/net/usb/Kconfig |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-Applied, thanks Dan.
+diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
+index 5d58abc..d7b7018 100644
+--- a/drivers/net/usb/Kconfig
++++ b/drivers/net/usb/Kconfig
+@@ -400,7 +400,6 @@ config USB_IPHETH
+ config USB_SIERRA_NET
+ 	tristate "USB-to-WWAN Driver for Sierra Wireless modems"
+ 	depends on USB_USBNET
+-	default y
+ 	help
+ 	  Choose this option if you have a Sierra Wireless USB-to-WWAN device.
+ 
+-- 
+1.5.4.3
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
