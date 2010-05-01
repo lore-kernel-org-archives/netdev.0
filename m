@@ -1,77 +1,71 @@
-From: Oren Laadan <orenl-eQaUEPhvms7ENvBUuze7eA@public.gmane.org>
+From: Oren Laadan <orenl@cs.columbia.edu>
 Subject: Re: [PATCH] [RFC] C/R: inet4 and inet6 unicast routes (v2)
-Date: Fri, 30 Apr 2010 21:42:58 -0400
-Message-ID: <4BDB8722.5020401@cs.columbia.edu>
-References: <1272646855-17327-1-git-send-email-danms@us.ibm.com>
-	<4BDB3F07.2030900@free.fr>
+Date: Fri, 30 Apr 2010 22:02:15 -0400
+Message-ID: <4BDB8BA7.1040100@cs.columbia.edu>
+References: <1272646855-17327-1-git-send-email-danms@us.ibm.com>	<4BDB3F07.2030900@free.fr> <87bpd0zl9l.fsf@caffeine.danplanet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: containers-qjLDD68F18O7TbgM5vRIOg@public.gmane.org, Vlad Yasevich <vladislav.yasevich-VXdhtT5mjnY@public.gmane.org>,
-        Dan Smith <danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Daniel Lezcano <daniel.lezcano-GANU6spQydw@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <4BDB3F07.2030900-GANU6spQydw@public.gmane.org>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/containers>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Daniel Lezcano <daniel.lezcano@free.fr>, containers@lists.osdl.org,
+	Vlad Yasevich <vladislav.yasevich@hp.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Dan Smith <danms@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tarap.cc.columbia.edu ([128.59.29.7]:58598 "EHLO
+	tarap.cc.columbia.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754950Ab0EACBE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 22:01:04 -0400
+In-Reply-To: <87bpd0zl9l.fsf@caffeine.danplanet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
 
-Daniel Lezcano wrote:
-> Dan Smith wrote:
->> This patch adds support for checkpointing and restoring route information.
->> It keeps enough information to restore basic routes at the level of detail
->> of /proc/net/route.  It uses RTNETLINK to extract the information during
->> checkpoint and also to insert it back during restore.  This gives us a
->> nice layer of isolation between us and the various "fib" implementations.
->>
->> Changes in v2:
->>
->> This version of the patch actually moves the current task into the
->> desired network namespace temporarily, for the purposes of examining and
->> restoring the route information.  This is a instead of creating a cross-
->> namespace socket to do the job, as was done in v1.
->>
->> This is just an RFC to see if this is an acceptable method.  For a final
->> version, adding a helper to nsproxy.c would allow us to create a new
->> nsproxy with the desired netns instead of creating one with
->> copy_namespaces() just to kill it off and use the target one.
->>
->> I still think the previous method is cleaner, but this way may violate
->> fewer namespace boundaries (I'm still undecided :)
->>
->> Signed-off-by: Dan Smith <danms-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
->> Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
->> Cc: Vlad Yasevich <vladislav.yasevich-VXdhtT5mjnY@public.gmane.org>
->> Cc: jamal <hadi-fAAogVwAN2Kw5LPnMra/2Q@public.gmane.org>
->> ---
-> Hi Dan,
+Dan Smith wrote:
+> DL> Is it possible to enter the namespace and dump / restore the
+> DL> routes with NETLINK_ROUTE from userspace ? Or is it something not
+> DL> possible ?
 > 
-> Eric did a patchset (as Jamal mentioned it) where you can have a process 
-> to enter a specific namespace from userspace.
+> I'm sure it would be doable.  However, checkpointing the routes that
+> way would:
 > 
-> http://git.kernel.org/?p=linux/kernel/git/ebiederm/linux-2.6.33-nsfd-v5.git;a=commit;h=9c2f86a44d9ca93e78fd8e81a4e2a8c2a4cdb054
-> 
-> Is it possible to enter the namespace and dump / restore the routes with 
-> NETLINK_ROUTE from userspace ? Or is it something not possible ?
+> (a) Be inconsistent with how we checkpoint all the other resources,
+>     including the other network resources we handle from the kernel
+>     with rtnl
+> (b) Require merging of the data from the resources saved in userspace
+>     with those saved in kernelspace
+
+See below suggestion for userspace.
+
+> (c) Eliminate the ability for an application to easily checkpoint
+>     itself by making a single syscall
+
+I can't think of a use-case of a networked application that takes
+a checkpoint of itself (including live network).
+
+Anyway, it's can still be useful to at least do the restore from
+userspace (while checkpoint is done in kernel - like with pids).
+We may reduce the complexity of restore (in kernel) greatly.
+
+(BTW, instead of syscall one could have a library call that will
+take care of the userspace "work").
+
+> (d) Require this same sort of jumping back and forth between
+>     namespaces by the userspace task doing the checkpoint/restart
 > 
 
-I also think that restoring routes from userspace, if feasible,
-will be advantageous.
+I wonder: if we could relatively simply recreate the network ns,
+the interfaces in them, and then restore the routing information
+all from userspace before calling sys_restart, it may be useful
+in simplifying the kernel code, and allowing more flexibility for
+userspace alterations.
 
-Besides, that will simplify cases in which userspace would like to
-restore something different (in terms of routes) than what was
-saved in the checkpoint.
+I definitely should have asked the question much earlier when you
+started the work on restoring network ns and interfaces ... (oh,
+I reckon it's better late than never).
 
-So the question is, what would it take ?
+Just tossing out the idea, see what kind of thoughts it evokes.
+Most likely I'll get a "that won't work because ...", but I'm
+hoping for a "hmm.. maybe.. let me see.." :)
 
 Oren.
