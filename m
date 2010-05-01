@@ -1,76 +1,61 @@
-From: Paul LeoNerd Evans <leonerd@leonerd.org.uk>
-Subject: Re: [PATCH] tcp: SO_TIMESTAMP implementation for TCP
-Date: Sat, 1 May 2010 13:06:41 +0100
-Message-ID: <20100501120641.GA18613@cel.leo>
-References: <alpine.DEB.1.00.1004292246440.12776@pokey.mtv.corp.google.com>
- <20100429.233958.212393607.davem@davemloft.net>
- <i2i65634d661004300058s5ee1b177oee249d3d22baad62@mail.gmail.com>
- <20100430.164115.257514715.davem@davemloft.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [net-next-2.6 PATCH 2/2] add ndo_set_port_profile op support for enic dynamic vnics
+Date: Sat, 1 May 2010 14:36:49 +0200
+Message-ID: <201005011436.49879.arnd@arndb.de>
+References: <C8008CCC.2D21E%scofeldm@cisco.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="YZ5djTAD1cGYuMQK"
-Cc: therbert@google.com
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, chrisw@redhat.com,
+	Jens Osterkamp <Jens.Osterkamp@gmx.de>
+To: Scott Feldman <scofeldm@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cel.leonerd.org.uk ([81.187.167.226]:48867 "EHLO cel.leo"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752147Ab0EAMGn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 May 2010 08:06:43 -0400
-Content-Disposition: inline
-In-Reply-To: <20100430.164115.257514715.davem@davemloft.net>
+Received: from moutng.kundenserver.de ([212.227.17.8]:60960 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752238Ab0EAMhJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 May 2010 08:37:09 -0400
+In-Reply-To: <C8008CCC.2D21E%scofeldm@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Friday 30 April 2010, Scott Feldman wrote:
+> >    ip iov set  port-profile DEVICE [ base BASE-DEVICE ] name PORT-PROFILE
+> >                              [ host_uuid HOST_UUID ]
+> >                      [ client_name CLIENT_NAME ]
+> >                                       [ client_uuid CLIENT_UUID ]
+> >    ip iov set  vsi { associate | pre-associate | pre-associate-rr }
+> > BASE-DEVICE
+> >                                       vsi MGR:VTID:VER
+> >                                       mac LLADDR [ vlan VID ]
+> >                                       client_uuid CLIENT_UUID
+> > 
+> >    ip iov del  port_profile DEVICE      [ base BASE-DEVICE ]
+> >    ip iov del  vsi          BASE-DEVICE [ mac LLADDR [ vlan VID ] ]
+> >        [ client_uuid CLIENT_UUID ]
+> > 
+> >    ip iov show port_profile DEVICE      [ base BASE-DEVICE ]
+> >    ip iov show vsi          BASE-DEVICE [ mac LLADDR [ vlan VID ] ]
+> > [ client_uuid CLIENT_UUID ]
+> > 
+> > You would obvioulsy only implement the kernel support for the port-profile
+> > stuff as callbacks, because no driver yet does VDP in the kernel, but we
+> > should
+> > have a common netlink header that defines both variants.
+> > 
+> > Chris, any opinion on this interface as opposed to the combined one?
+> > Either one should work, but splitting it seems cleaner to me.
+> 
+> I haven't seen Chris's response, but it seems vger was down for awhile, so
+> maybe it's coming.  Assuming we go for the split design, we're still talking
+> about using RTM_SETLINK/RTM_GETLINK/RTM_DELLINK for these netlink msgs?  Or
+> are you suggesting by your cmd syntax that we return to
+> RTM_SETIOV/RTM_GETIOV like in the first iovnl patch?  RTM_SET/GET/DELLINK is
+> probably simplier, cleaner patch.
 
---YZ5djTAD1cGYuMQK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In either case (split or combined), I would prefer the separate IOV
+commands. The reason for this is that when support is not in the kernel,
+it allows a cleaner separation between what's (always) handled in the
+kernel and what's (potentially) done in user space.
 
-On Fri, Apr 30, 2010 at 04:41:15PM -0700, David Miller wrote:
-> If other people have an opinion about this, now would be the time
-> to speak up. :-)
-
-I have to say I agree with David.
-
-The "receive timestamp" for a TCP recv() call is completely meaningless.
-Each byte in the stream arguably could have a set of receive timestamps,
-being the timestamp of the underlying IPv4 packet containing a fragment
-of a TCP segment that covered that byte. One recv() call could cover
-many packets, many recv() calls could be required to consume one packet.
-We just don't know from userland.
-
-The point about IPv4 fragments in UDP is a reasonable one; that because
-of IPv4 fragmentation there are still potentially multiple timestamps
-that could be relevant to a single UDP recv() call. But no two recv()
-calls can possibly relate to the same IPv4 fragments, so I feel this is
-more defined. Plus, of all the IPv4 fragments that go into a single UDP
-packet, one of them is special - the first one, the one containing the
-UDP header. We could easily say "the timestamp of a UDP recv() call
-shall be the time at which its header was received, even if other
-fragments arrived before or after it".=20
-
-We cannot make any such distinction for some window in a TCP stream. All
-TCP segments are indistinct in this manner.
-
---=20
-Paul "LeoNerd" Evans
-
-leonerd@leonerd.org.uk
-ICQ# 4135350       |  Registered Linux# 179460
-http://www.leonerd.org.uk/
-
---YZ5djTAD1cGYuMQK
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iD8DBQFL3BlRvLS2TC8cBo0RAmNTAJ92sBy+gYvmy5bv2sRnVdilV3bXmwCfdqDP
-jRmwudl3HEBbrvpygsDg8gQ=
-=0yqZ
------END PGP SIGNATURE-----
-
---YZ5djTAD1cGYuMQK--
+	Arnd
