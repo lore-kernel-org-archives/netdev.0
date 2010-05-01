@@ -1,78 +1,118 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: sctp pull request for net-next-2.6
-Date: Fri, 30 Apr 2010 22:52:39 -0400
-Message-ID: <4BDB9777.4020809@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:10881 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754464Ab0EACwm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 30 Apr 2010 22:52:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [patch v2.2 0/4] IPVS full NAT support + netfilter 'ipvs' match support
+Date: Sat, 01 May 2010 13:20:14 +1000
+Message-ID: <20100501032014.406353538@vergenet.net>
+Cc: Wensong Zhang <wensong@linux-vs.org>,
+	Julius Volz <julius.volz@gmail.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Eder <heder@google.com>
+To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David
+[re-reposting without bogus headers that vger dislikes]
 
-The following changes since commit 83d7eb2979cd3390c375470225dd2d8f2009bc70:
-  Dan Carpenter (1):
-        ipv6: cleanup: remove unneeded null check
+This is a repost of a patch-series posted by Hannes Eder last Steptember.
+This is v2 of the patch series and I don't see any outstanding objections to
+it in the mailing list archives. I would like it considered for inclusion
+in the nf-next-2.6 kernel tree and iptables.
 
-are available in the git repository at:
+The original cover-email from Hannes follows.
+The diffstat output has been updated to reflect minor up-porting by me.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/vxy/lksctp-dev.git net-next
+From:	Hannes Eder <heder@google.com>
 
-Dan Carpenter (1):
-      sctp: cleanup: remove duplicate assignment
+The following series implements full NAT support for IPVS.  The
+approach is via a minimal change to IPVS (make friends with
+nf_conntrack) and adding a netfilter matcher, kernel- and user-space
+part, i.e. xt_ipvs and libxt_ipvs.
 
-Shan Wei (1):
-      sctp: use sctp_chunk_is_data macro to decide a chunk is data chunk
+Example usage:
 
-Vlad Yasevich (13):
-      sctp: Use correct address family in sctp_getsockopt_peer_addrs()
-      sctp: send SHUTDOWN-ACK chunk back to the source.
-      sctp: Do no select unconfirmed transports for retransmissions
-      sctp: Make sure we always return valid retransmit path
-      sctp: remove 'resent' bit from the chunk
-      sctp: Do not force T3 timer on fast retransmissions.
-      sctp: Save some room in the sctp_transport by using bitfields
-      sctp: update transport initializations
-      sctp: fast recovery algorithm is per association.
-      sctp: rwnd_press should be cumulative
-      sctp: correctly mark missing chunks in fast recovery
-      sctp: Optimize computation of highest new tsn in SACK.
-      sctp: Tag messages that can be Nagle delayed at creation.
+% ipvsadm -A -t 192.168.100.30:80 -s rr
+% ipvsadm -a -t 192.168.100.30:80 -r 192.168.10.20:80 -m
+# ...
 
-Wei Yongjun (5):
-      sctp: assure at least one T3-rtx timer is running if a FORWARD TSN is sent
-      sctp: discard ABORT chunk with zero verification tag in COOKIE-WAIT state
-      sctp: missing set src and dest port while lookup output route
-      sctp: fix to retranmit at least one DATA chunk
-      sctp: implement sctp association probing module
+# Source NAT for VIP 192.168.100.30:80
+% iptables -t nat -A POSTROUTING -m ipvs --vaddr 192.168.100.30/32 \
+> --vport 80 -j SNAT --to-source 192.168.10.10
 
- include/net/sctp/sctp.h    |    2 +-
- include/net/sctp/sm.h      |    2 +-
- include/net/sctp/structs.h |   66 +++++++-------
- net/sctp/Kconfig           |   12 +++
- net/sctp/Makefile          |    3 +
- net/sctp/associola.c       |   13 ++--
- net/sctp/chunk.c           |    4 +-
- net/sctp/endpointola.c     |    2 -
- net/sctp/output.c          |   27 ++----
- net/sctp/outqueue.c        |   94 +++++++++-----------
- net/sctp/probe.c           |  213 ++++++++++++++++++++++++++++++++++++++++++++
- net/sctp/protocol.c        |    7 ++-
- net/sctp/sm_make_chunk.c   |   24 ++---
- net/sctp/sm_sideeffect.c   |    8 ++-
- net/sctp/socket.c          |    2 +-
- net/sctp/transport.c       |   61 ++++---------
- 16 files changed, 364 insertions(+), 176 deletions(-)
- create mode 100644 net/sctp/probe.c
+or SNAT-ing only a specific real server:
+
+% iptables -t nat -A POSTROUTING --dst 192.168.11.20 \
+> -m ipvs --vaddr 192.168.100.30/32 -j SNAT --to-source 192.168.10.10
 
 
-Please pull.
-Thanks a lot
--vlad
+First of all, thanks for all the feedback.  This is the changelog for v2:
+
+- Make ip_vs_ftp work again.  Setup nf_conntrack expectations for
+  related data connections (based on Julian's patch see
+  http://www.ssi.bg/~ja/nfct/) and let nf_conntrack/nf_nat do the
+  packet mangling and the TCP sequence adjusting.
+
+  This change rises the question how to deal with ip_vs_sync?  Does it
+  work together with conntrackd?  Wild idea: what about getting rid of
+  ip_vs_sync and piggy packing all on nf_conntrack and use conntrackd?
+
+  Any comments on this?
+
+- xt_ipvs: add new rule '--vportctl port' to match the VIP port of the
+  controlling connection, e.g. port 21 for FTP.  Can be used to match
+  a related data connection for FTP:
+
+  # SNAT FTP control connection
+  % iptables -t nat -A POSTROUTING -m ipvs --vaddr 192.168.100.30/32 \
+  > --vport 21 -j SNAT --to-source 192.168.10.10
+  
+  # SNAT FTP passive data connection
+  % iptables -t nat -A POSTROUTING -m ipvs --vaddr 192.168.100.30/32 \
+  > --vportctl 21 -j SNAT --to-source 192.168.10.10
+
+- xt_ipvs: use 'par->family' instead of 'skb->protocol'
+
+- xt_ipvs: add ipvs_mt_check and restrict to NFPROTO_IPV4 and NFPROTO_IPV6
+
+- Call nf_conntrack_alter_reply(), so helper lookup is performed based
+  on the changed tuple.
+
+Changes to the linux kernel (rebased to next-20090925):
+
+Hannes Eder (3):
+      netfilter: xt_ipvs (netfilter matcher for IPVS)
+      IPVS: make friends with nf_conntrack
+      IPVS: make FTP work with full NAT support
+
+
+ include/linux/netfilter/xt_ipvs.h |   25 +++++
+ include/net/ip_vs.h               |    2 
+ net/netfilter/Kconfig             |    9 ++
+ net/netfilter/Makefile            |    1 
+ net/netfilter/ipvs/Kconfig        |    4 -
+ net/netfilter/ipvs/ip_vs_app.c    |   43 ---------
+ net/netfilter/ipvs/ip_vs_core.c   |   37 -------
+ net/netfilter/ipvs/ip_vs_ftp.c    |  178 ++++++++++++++++++++++++++++++++---
+ net/netfilter/ipvs/ip_vs_proto.c  |    1 
+ net/netfilter/ipvs/ip_vs_xmit.c   |   30 ++++++
+ net/netfilter/xt_ipvs.c           |  187 +++++++++++++++++++++++++++++++++++++
+ 11 files changed, 418 insertions(+), 99 deletions(-)
+ create mode 100644 include/linux/netfilter/xt_ipvs.h
+ create mode 100644 net/netfilter/xt_ipvs.c
+
+
+Changes to iptables (relative to 1.4.5):
+
+Hannes Eder (1):
+      libxt_ipvs: user-space lib for netfilter matcher xt_ipvs
+
+ configure.ac                      |   10 1
+ extensions/libxt_ipvs.c           |  365 +++++++++++++++++++++++++++++++++++++
+ extensions/libxt_ipvs.man         |   24 ++
+ include/linux/netfilter/xt_ipvs.h |   25 +++
+ 4 files changed, 422 insertions(+), 2 deletions(-)
+ create mode 100644 extensions/libxt_ipvs.c
+ create mode 100644 extensions/libxt_ipvs.man
+ create mode 100644 include/linux/netfilter/xt_ipvs.h
+
