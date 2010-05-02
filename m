@@ -1,50 +1,108 @@
-From: Elina Pasheva <epasheva@sierrawireless.com>
-Subject: RE: [PATCH 1/1] net/usb: initiate sync sequence in sierra_net.c
- driver
-Date: Sat, 1 May 2010 22:53:52 -0700
-Message-ID: <8F90F944E50427428C60E12A34A309D22FC801D84A@carmd-exchmb01.sierrawireless.local>
-References: <1272497304.8835.2.camel@Linuxdev4-laptop>,<20100501.180829.139101312.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: eth_type_trans() should inline
+ skb_pull()
+Date: Sun, 02 May 2010 08:50:32 +0200
+Message-ID: <1272783032.2173.8.camel@edumazet-laptop>
+References: <1272696145.2230.101.camel@edumazet-laptop>
+	 <20100501.181558.141243424.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "dbrownell@users.sourceforge.net" <dbrownell@users.sourceforge.net>,
-	Rory Filer <rfiler@SierraWireless.com>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, therbert@google.com, hadi@cyberus.ca
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from carmd-sa01.sierrawireless.com ([208.81.121.45]:57806 "EHLO
-	carmd-sa01.sierrawireless.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751756Ab0EBF5p convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 May 2010 01:57:45 -0400
-In-Reply-To: <20100501.180829.139101312.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:53221 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750980Ab0EBGuh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 May 2010 02:50:37 -0400
+Received: by bwz19 with SMTP id 19so779810bwz.21
+        for <netdev@vger.kernel.org>; Sat, 01 May 2010 23:50:36 -0700 (PDT)
+In-Reply-To: <20100501.181558.141243424.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le samedi 01 mai 2010 =C3=A0 18:15 -0700, David Miller a =C3=A9crit :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Sat, 01 May 2010 08:42:25 +0200
+>=20
+> > [PATCH net-next-2.6] net: eth_type_trans() should inline skb_pull()
+> >=20
+> > With RPS, this patch can give a 5 % boost in performance.
+> >=20
+> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+> Awesome, but let's do this in a way that allows us to easily annotate
+> where inlining makes sense in other places, not just here.
+>=20
+> Something like this, ok?
+>=20
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 82f5116..746a652 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -1128,6 +1128,11 @@ static inline unsigned char *__skb_pull(struct=
+ sk_buff *skb, unsigned int len)
+>  	return skb->data +=3D len;
+>  }
+> =20
+> +static inline unsigned char *skb_pull_inline(struct sk_buff *skb, un=
+signed int len)
+> +{
+> +	return unlikely(len > skb->len) ? NULL : __skb_pull(skb, len);
+> +}
+> +
+>  extern unsigned char *__pskb_pull_tail(struct sk_buff *skb, int delt=
+a);
+> =20
+>  static inline unsigned char *__pskb_pull(struct sk_buff *skb, unsign=
+ed int len)
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 4218ff4..8b9c109 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -1051,7 +1051,7 @@ EXPORT_SYMBOL(skb_push);
+>   */
+>  unsigned char *skb_pull(struct sk_buff *skb, unsigned int len)
+>  {
+> -	return unlikely(len > skb->len) ? NULL : __skb_pull(skb, len);
+> +	return skb_pull_inline(skb, len);
+>  }
+>  EXPORT_SYMBOL(skb_pull);
+> =20
+> diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+> index 0c0d272..61ec032 100644
+> --- a/net/ethernet/eth.c
+> +++ b/net/ethernet/eth.c
+> @@ -162,7 +162,7 @@ __be16 eth_type_trans(struct sk_buff *skb, struct=
+ net_device *dev)
+> =20
+>  	skb->dev =3D dev;
+>  	skb_reset_mac_header(skb);
+> -	skb_pull(skb, ETH_HLEN);
+> +	skb_pull_inline(skb, ETH_HLEN);
+>  	eth =3D eth_hdr(skb);
+> =20
+>  	if (unlikely(is_multicast_ether_addr(eth->h_dest))) {
 
-> On Saturday, May 01, 2010 6:08 PM David Miller wrote:
+Excellent !
 
->>From: Elina Pasheva <epasheva@sierrawireless.com>
->>Date: Wed, 28 Apr 2010 16:28:24 -0700
+Changli privately asked me why we were ignoring cases where skb->len <
+ETH_HLEN.
+I replied that minimum frame size was 46+12, then he asked me why we
+were testing another time :
 
->> Subject: [PATCH 1/1] net/usb: initiate sync sequence in sierra_net.c driver
->> From: Elina Pasheva <epasheva@sierrawireless.com>
->>
->> The following patch adds the initiation of the sync sequence to
->> "sierra_net_bind()". If this step is omitted, the modem will never sync up
->> with the host and it will not be possible to establish a data connection.
->> This is a high priority patch.
->>
->> This patch has been checked against net-2.6 tree.
->> Signed-off-by: Elina Pasheva <epasheva@sierrawireless.com>
->> Signed-off-by: Rory Filer <rfiler@sierrawireless.com>
->> Tested-by: Elina Pasheva <epasheva@sierrawireless.com>
+if (skb->len >=3D 2 && *(unsigned short *)rawp =3D=3D 0xFFFF)
+	return htons(ETH_P_802_3);
 
->Applied.
 
-Thank you very much, David!
-Elina
+Could we assume all eth_type_trans() must call it with initial skb->len
+>=3D (46 + 12) or not ?
+(According to ethernet specs, all frames should have a minimum payload
+of 46 bytes)
+
+If not sure, maybe we should issue a WARN_ON_ONCE()
+
+If yes, tests could be removed and we could gain two cycles ;)
+
 
 
