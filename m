@@ -1,190 +1,194 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v6] net: batch skb dequeueing from softnet
- input_pkt_queue
-Date: Sun, 02 May 2010 17:32:55 +0200
-Message-ID: <1272814375.2173.75.camel@edumazet-laptop>
-References: <20100429182347.GA8512@gargoyle.fritz.box>
-	 <1272568347.2209.11.camel@edumazet-laptop>
-	 <20100429214144.GA10663@gargoyle.fritz.box>
-	 <20100430.163857.180417789.davem@davemloft.net>
-	 <20100501110000.GB9434@gargoyle.fritz.box>
-	 <1272783366.2173.13.camel@edumazet-laptop>
-	 <20100502092020.GA9655@gargoyle.fritz.box>
-	 <1272797690.2173.26.camel@edumazet-laptop>
-	 <20100502071324.1a95fdad@infradead.org>
-	 <1272810448.2173.31.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andi Kleen <andi@firstfloor.org>,
-	David Miller <davem@davemloft.net>, hadi@cyberus.ca,
-	xiaosuo@gmail.com, therbert@google.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org, lenb@kernel.org
-To: Arjan van de Ven <arjan@infradead.org>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH v3] net: fix softnet_stat
+Date: Sun,  2 May 2010 23:42:16 +0800
+Message-ID: <1272814936-4902-1-git-send-email-xiaosuo@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:53504 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755999Ab0EBPdG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 May 2010 11:33:06 -0400
-Received: by bwz19 with SMTP id 19so896813bwz.21
-        for <netdev@vger.kernel.org>; Sun, 02 May 2010 08:33:02 -0700 (PDT)
-In-Reply-To: <1272810448.2173.31.camel@edumazet-laptop>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:39790 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754457Ab0EBPmq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 May 2010 11:42:46 -0400
+Received: by pwj9 with SMTP id 9so886964pwj.19
+        for <netdev@vger.kernel.org>; Sun, 02 May 2010 08:42:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 02 mai 2010 =C3=A0 16:27 +0200, Eric Dumazet a =C3=A9crit :
-> Le dimanche 02 mai 2010 =C3=A0 07:13 -0700, Arjan van de Ven a =C3=A9=
-crit :
-> > >=20
-> > > Cn                Avg residency       P-states (frequencies)
-> > > C0 (cpu running)        (68.9%)         2.93 Ghz    46.5%
-> > > polling           0.0ms ( 0.0%)         2.80 Ghz     5.1%
-> > > C1 mwait          0.0ms ( 0.0%)         2.53 Ghz     3.0%
-> > > C2 mwait          0.0ms (31.1%)         2.13 Ghz     2.8%
-> > >                                         1.60 Ghz    38.2%
-> >=20
-> > I bet your system advertizes C2 with the same latency as C1,
-> > but with lower power... which means Linux will pretty much never
-> > pick C1.... no matter how much you take Andi's patch.
-> >=20
-> > this is a bios thing... and until we put in the patch to override t=
-he
-> > bios values (I can dust it off but it might need a bit of tweaking
-> > since it was against .31) Andi's patch alone won't cut it... you al=
-so
-> > need a non-lying bios ;)
-> >=20
-> >=20
-> >=20
-> # pwd
-> /sys/devices/system/cpu/cpu15/cpuidle
-> # grep . */*
-> state0/desc:CPUIDLE CORE POLL IDLE
-> state0/latency:0
-> state0/name:C0
-> state0/power:4294967295
-> state0/time:0
-> state0/usage:0
-> state1/desc:ACPI FFH INTEL MWAIT 0x0
-> state1/latency:1
-> state1/name:C1
-> state1/power:1000
-> state1/time:433855186
-> state1/usage:126869
-> state2/desc:ACPI FFH INTEL MWAIT 0x10
-> state2/latency:64
-> state2/name:C2
-> state2/power:500
-> state2/time:198095020416
-> state2/usage:76287744
->=20
-> C2 latency seems to be 64  (us ?), while C1 seems to be 1
->=20
-> BIOS Information
-> 	Vendor: HP
-> 	Version: I24
-> 	Release Date: 10/01/2009
->=20
-> # powertop
-> PowerTOP 1.11   (C) 2007, 2008 Intel Corporation=20
->=20
-> Collecting data for 5 seconds=20
->=20
->=20
-> Your CPU supports the following C-states : C1 C2 C3=20
-> Your BIOS reports the following C-states : C1 C2=20
->=20
-> C3 seems to be disabled in BIOS
->=20
+fix softnet_stat
 
-I took a look at BIOS settings and enabled the minimum sleep state to b=
-e
-C6 (instead of C3, the default). Now we see C3 being available...
+Per cpu variable softnet_data.total was shared between IRQ and SoftIRQ context
+without any protection. And enqueue_to_backlog should update the netdev_rx_stat
+of the target CPU.
 
-No changes, only more IPI delivered during the test, and more overhead
-in clockevents_notify()
+This patch renames softnet_data.total to softnet_data.processed: the number of
+packets processed in uppper levels(IP stacks).
 
-# grep . */*
-state0/desc:CPUIDLE CORE POLL IDLE
-state0/latency:0
-state0/name:C0
-state0/power:4294967295
-state0/time:0
-state0/usage:0
-state1/desc:ACPI FFH INTEL MWAIT 0x0
-state1/latency:1
-state1/name:C1
-state1/power:1000
-state1/time:39432
-state1/usage:119
-state2/desc:ACPI FFH INTEL MWAIT 0x10
-state2/latency:64
-state2/name:C2
-state2/power:500
-state2/time:3170745
-state2/usage:11177
-state3/desc:ACPI FFH INTEL MWAIT 0x20
-state3/latency:96
-state3/name:C3
-state3/power:350
-state3/time:1030987453
-state3/usage:14047019
+softnet_stat data is moved into softnet_data.
 
------------------------------------------------------------------------=
-----------------------------------------------------
-   PerfTop:   15984 irqs/sec  kernel:98.5% [1000Hz cycles],  (all, 16 C=
-PUs)
------------------------------------------------------------------------=
-----------------------------------------------------
-
-             samples  pcnt function                       DSO
-             _______ _____ ______________________________ _______
-
-            23822.00 40.2% _raw_spin_lock_irqsave         vmlinux
-             4413.00  7.4% acpi_os_read_port              vmlinux
-             1426.00  2.4% _raw_spin_lock                 vmlinux
-             1284.00  2.2% _raw_spin_unlock_irqrestore    vmlinux
-             1247.00  2.1% schedule                       vmlinux
-             1137.00  1.9% bnx2x_rx_int                   vmlinux
-              643.00  1.1% tick_broadcast_oneshot_control vmlinux
-              597.00  1.0% copy_user_generic_string       vmlinux
-              595.00  1.0% __napi_complete                vmlinux
-              550.00  0.9% call_function_single_interrupt vmlinux
-              548.00  0.9% bnx2x_msix_fp_int              vmlinux
-              486.00  0.8% __netif_receive_skb            vmlinux
-              461.00  0.8% bnx2x_poll                     vmlinux
-              433.00  0.7% eth_type_trans                 vmlinux
-              428.00  0.7% acpi_idle_enter_bm             vmlinux
-              422.00  0.7% sock_recv_ts_and_drops         vmlinux
-              382.00  0.6% __udp4_lib_lookup              vmlinux
-              369.00  0.6% __slab_free                    vmlinux
-              357.00  0.6% ip_route_input                 vmlinux
-              341.00  0.6% kfree                          vmlinux
-              335.00  0.6% ipt_do_table                   vmlinux
-              334.00  0.6% ip_rcv                         vmlinux
-              332.00  0.6% udp_recvmsg                    vmlinux
-              317.00  0.5% __kmalloc_node_track_caller    vmlinux
-
-    37.46%            init  [kernel.kallsyms]             [k] _raw_spin=
-_lock_irqsave
-                      |
-                      --- _raw_spin_lock_irqsave
-                         |         =20
-                         |--95.58%-- clockevents_notify
-                         |          lapic_timer_state_broadcast
-                         |          acpi_idle_enter_bm
-                         |          cpuidle_idle_call
-                         |          cpu_idle
-                         |          start_secondary
-                         |         =20
-                         |--3.27%-- tick_broadcast_oneshot_control
-                         |          tick_notify
-                         |          notifier_call_chain
-                         |          __raw_notifier_call_chain
-                         |          raw_notifier_call_chain
-                         |          clockevents_do_notify
-                         |          clockevents_notify
-                         |          lapic_timer_state_broadcast
-                         |          acpi_idle_enter_bm
-
-
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+ include/linux/netdevice.h |   17 +++++++----------
+ net/core/dev.c            |   26 ++++++++++++--------------
+ net/sched/sch_generic.c   |    2 +-
+ 3 files changed, 20 insertions(+), 25 deletions(-)
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 40d4c20..c39938f 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -218,16 +218,6 @@ struct neighbour;
+ struct neigh_parms;
+ struct sk_buff;
+ 
+-struct netif_rx_stats {
+-	unsigned total;
+-	unsigned dropped;
+-	unsigned time_squeeze;
+-	unsigned cpu_collision;
+-	unsigned received_rps;
+-};
+-
+-DECLARE_PER_CPU(struct netif_rx_stats, netdev_rx_stat);
+-
+ struct netdev_hw_addr {
+ 	struct list_head	list;
+ 	unsigned char		addr[MAX_ADDR_LEN];
+@@ -1390,6 +1380,12 @@ struct softnet_data {
+ 	struct sk_buff		*completion_queue;
+ 	struct sk_buff_head	process_queue;
+ 
++	/* stats */
++	unsigned		processed;
++	unsigned		time_squeeze;
++	unsigned		cpu_collision;
++	unsigned		received_rps;
++
+ #ifdef CONFIG_RPS
+ 	struct softnet_data	*rps_ipi_list;
+ 
+@@ -1399,6 +1395,7 @@ struct softnet_data {
+ 	unsigned int		cpu;
+ 	unsigned int		input_queue_head;
+ #endif
++	unsigned		dropped;
+ 	struct sk_buff_head	input_pkt_queue;
+ 	struct napi_struct	backlog;
+ };
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 100dcbd..36d53be 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2205,8 +2205,6 @@ int netdev_max_backlog __read_mostly = 1000;
+ int netdev_budget __read_mostly = 300;
+ int weight_p __read_mostly = 64;            /* old backlog weight */
+ 
+-DEFINE_PER_CPU(struct netif_rx_stats, netdev_rx_stat) = { 0, };
+-
+ #ifdef CONFIG_RPS
+ 
+ /* One global table that all flow-based protocols share. */
+@@ -2366,7 +2364,7 @@ static void rps_trigger_softirq(void *data)
+ 	struct softnet_data *sd = data;
+ 
+ 	__napi_schedule(&sd->backlog);
+-	__get_cpu_var(netdev_rx_stat).received_rps++;
++	sd->received_rps++;
+ }
+ 
+ #endif /* CONFIG_RPS */
+@@ -2405,7 +2403,6 @@ static int enqueue_to_backlog(struct sk_buff *skb, int cpu,
+ 	sd = &per_cpu(softnet_data, cpu);
+ 
+ 	local_irq_save(flags);
+-	__get_cpu_var(netdev_rx_stat).total++;
+ 
+ 	rps_lock(sd);
+ 	if (skb_queue_len(&sd->input_pkt_queue) <= netdev_max_backlog) {
+@@ -2429,9 +2426,9 @@ enqueue:
+ 		goto enqueue;
+ 	}
+ 
++	sd->dropped++;
+ 	rps_unlock(sd);
+ 
+-	__get_cpu_var(netdev_rx_stat).dropped++;
+ 	local_irq_restore(flags);
+ 
+ 	kfree_skb(skb);
+@@ -2806,7 +2803,7 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ 			skb->dev = master;
+ 	}
+ 
+-	__get_cpu_var(netdev_rx_stat).total++;
++	__get_cpu_var(softnet_data).processed++;
+ 
+ 	skb_reset_network_header(skb);
+ 	skb_reset_transport_header(skb);
+@@ -3490,7 +3487,7 @@ out:
+ 	return;
+ 
+ softnet_break:
+-	__get_cpu_var(netdev_rx_stat).time_squeeze++;
++	sd->time_squeeze++;
+ 	__raise_softirq_irqoff(NET_RX_SOFTIRQ);
+ 	goto out;
+ }
+@@ -3691,17 +3688,17 @@ static int dev_seq_show(struct seq_file *seq, void *v)
+ 	return 0;
+ }
+ 
+-static struct netif_rx_stats *softnet_get_online(loff_t *pos)
++static struct softnet_data *softnet_get_online(loff_t *pos)
+ {
+-	struct netif_rx_stats *rc = NULL;
++	struct softnet_data *sd = NULL;
+ 
+ 	while (*pos < nr_cpu_ids)
+ 		if (cpu_online(*pos)) {
+-			rc = &per_cpu(netdev_rx_stat, *pos);
++			sd = &per_cpu(softnet_data, *pos);
+ 			break;
+ 		} else
+ 			++*pos;
+-	return rc;
++	return sd;
+ }
+ 
+ static void *softnet_seq_start(struct seq_file *seq, loff_t *pos)
+@@ -3721,12 +3718,12 @@ static void softnet_seq_stop(struct seq_file *seq, void *v)
+ 
+ static int softnet_seq_show(struct seq_file *seq, void *v)
+ {
+-	struct netif_rx_stats *s = v;
++	struct softnet_data *sd = v;
+ 
+ 	seq_printf(seq, "%08x %08x %08x %08x %08x %08x %08x %08x %08x %08x\n",
+-		   s->total, s->dropped, s->time_squeeze, 0,
++		   sd->processed, sd->dropped, sd->time_squeeze, 0,
+ 		   0, 0, 0, 0, /* was fastroute */
+-		   s->cpu_collision, s->received_rps);
++		   sd->cpu_collision, sd->received_rps);
+ 	return 0;
+ }
+ 
+@@ -5869,6 +5866,7 @@ static int __init net_dev_init(void)
+ 	for_each_possible_cpu(i) {
+ 		struct softnet_data *sd = &per_cpu(softnet_data, i);
+ 
++		memset(sd, 0, sizeof(*sd));
+ 		skb_queue_head_init(&sd->input_pkt_queue);
+ 		skb_queue_head_init(&sd->process_queue);
+ 		sd->completion_queue = NULL;
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index aeddabf..a969b11 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -94,7 +94,7 @@ static inline int handle_dev_cpu_collision(struct sk_buff *skb,
+ 		 * Another cpu is holding lock, requeue & delay xmits for
+ 		 * some time.
+ 		 */
+-		__get_cpu_var(netdev_rx_stat).cpu_collision++;
++		__get_cpu_var(softnet_data).cpu_collision++;
+ 		ret = dev_requeue_skb(skb, q);
+ 	}
+ 
