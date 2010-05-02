@@ -1,52 +1,51 @@
-From: Andi Kleen <andi@firstfloor.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH v6] net: batch skb dequeueing from softnet
-	input_pkt_queue
-Date: Sun, 2 May 2010 23:30:52 +0200
-Message-ID: <20100502213052.GB2673@gargoyle.fritz.box>
-References: <1272568347.2209.11.camel@edumazet-laptop> <20100429214144.GA10663@gargoyle.fritz.box> <20100430.163857.180417789.davem@davemloft.net> <20100501110000.GB9434@gargoyle.fritz.box> <1272783366.2173.13.camel@edumazet-laptop> <20100502092020.GA9655@gargoyle.fritz.box> <1272797690.2173.26.camel@edumazet-laptop> <20100502071324.1a95fdad@infradead.org> <1272810448.2173.31.camel@edumazet-laptop> <20100502105418.7abf83a7@infradead.org>
+ input_pkt_queue
+Date: Sun, 02 May 2010 23:45:55 +0200
+Message-ID: <1272836755.2173.153.camel@edumazet-laptop>
+References: <20100429182347.GA8512@gargoyle.fritz.box>
+	 <1272568347.2209.11.camel@edumazet-laptop>
+	 <20100429214144.GA10663@gargoyle.fritz.box>
+	 <20100430.163857.180417789.davem@davemloft.net>
+	 <20100501110000.GB9434@gargoyle.fritz.box>
+	 <1272783366.2173.13.camel@edumazet-laptop>
+	 <20100502092020.GA9655@gargoyle.fritz.box>
+	 <1272797690.2173.26.camel@edumazet-laptop>
+	 <20100502154649.GA18063@gargoyle.fritz.box>
+	 <1272818131.2173.127.camel@edumazet-laptop>
+	 <20100502212550.GA2673@gargoyle.fritz.box>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, hadi@cyberus.ca,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, hadi@cyberus.ca,
 	xiaosuo@gmail.com, therbert@google.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org, lenb@kernel.org
-To: Arjan van de Ven <arjan@infradead.org>
+	netdev@vger.kernel.org, lenb@kernel.org, arjan@infradead.org
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:36361 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756945Ab0EBV2V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 May 2010 17:28:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20100502105418.7abf83a7@infradead.org>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:41816 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754095Ab0EBVqB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 May 2010 17:46:01 -0400
+Received: by bwz19 with SMTP id 19so1004173bwz.21
+        for <netdev@vger.kernel.org>; Sun, 02 May 2010 14:46:00 -0700 (PDT)
+In-Reply-To: <20100502212550.GA2673@gargoyle.fritz.box>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 02, 2010 at 10:54:18AM -0700, Arjan van de Ven wrote:
-> On Sun, 02 May 2010 16:27:28 +0200
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> 
-> > C2 latency seems to be 64  (us ?), while C1 seems to be 1
-> 
-> the processor_idle module has a "latency_factor" module parameter.
-> The default is 2, but sometimes people think 6 is a better value...
-> .. any chance you can try that value ?
-> 
-> Also, I'm starting to wonder if Andi's patch to use io_schedule() needs
-> to be replaced with a net_schedule() kind of thing. The cpuidle code
-> currently has a weight factor for IO (based on measuring/experiments),
-> and maybe networking really needs another factor... so just having a
-> parallel concept with a different weight could be the right answer for
-> that.
+Le dimanche 02 mai 2010 =C3=A0 23:25 +0200, Andi Kleen a =C3=A9crit :
 
-We definitely need a net_schedule() for other reasons too: to avoid the blkio 
-wait code and then also because networking needs a short "fast idle" timeout 
-because the delays are not bounded.  
+> It's pointless to send an IPI to your thread sibling for this.=20
+> Everything it could do you can do yourself too with the same performa=
+nce.
+>=20
+> -Andi
 
-Otherwise a sender that suddenly stops sending could break all your power 
-saving.
+Amen
 
-I think the reference count used in io_schedule is not the right model for 
-this, probably needs a per cpu timeout ("be fast until this time"). Possibly 
-a dynamic one feed by the measured input rate.
+Tests just prove the reverse.
 
--Andi
+I have some collegues that disable HyperThreading for exact same
+reasons. I wonder why Intel designed HT. Should be marketing I guess.
+
+
+
