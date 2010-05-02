@@ -1,63 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: eth_type_trans() should inline
- skb_pull()
-Date: Sun, 02 May 2010 03:03:21 -0700 (PDT)
-Message-ID: <20100502.030321.191163013.davem@davemloft.net>
-References: <1272696145.2230.101.camel@edumazet-laptop>
-	<20100501.181558.141243424.davem@davemloft.net>
-	<1272783032.2173.8.camel@edumazet-laptop>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH 1/3] ptp: Added a brand new class driver for ptp clocks.
+Date: Sun, 02 May 2010 12:50:56 +0200
+Message-ID: <4BDD5910.1040604@grandegger.com>
+References: <20100429091936.GA6703@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com, hadi@cyberus.ca
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40631
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754761Ab0EBKDP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 May 2010 06:03:15 -0400
-In-Reply-To: <1272783032.2173.8.camel@edumazet-laptop>
+Received: from mail-out.m-online.net ([212.18.0.10]:45384 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754280Ab0EBKwu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 May 2010 06:52:50 -0400
+In-Reply-To: <20100429091936.GA6703@riccoc20.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 02 May 2010 08:50:32 +0200
+Hi Richard,
 
-> Excellent !
-
-Great, here is the commit message I will use:
-
---------------------
-net: Inline skb_pull() in eth_type_trans().
-
-In commit 6be8ac2f ("[NET]: uninline skb_pull, de-bloats a lot")
-we uninlined skb_pull.
-
-But in some critical paths it makes sense to inline this thing
-and it helps performance significantly.
-
-Create an skb_pull_inline() so that we can do this in a way that
-serves also as annotation.
-
-Based upon a patch by Eric Dumazet.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
---------------------
-
-> Could we assume all eth_type_trans() must call it with initial
-> skb->len >= (46 + 12) or not ?  (According to ethernet specs, all
-> frames should have a minimum payload of 46 bytes)
->
-> If not sure, maybe we should issue a WARN_ON_ONCE()
+Richard Cochran wrote:
+> This patch adds an infrastructure for hardware clocks that implement
+> IEEE 1588, the Precision Time Protocol (PTP). A class driver offers a
+> registration method to particular hardware clock drivers. Each clock is
+> exposed to user space as a character device with ioctls that allow tuning
+> of the PTP clock.
 > 
-> If yes, tests could be removed and we could gain two cycles ;)
+> Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
+> ---
+...
+> diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
+> new file mode 100644
+> index 0000000..a5acac4
+> --- /dev/null
+> +++ b/drivers/ptp/ptp_clock.c
+...
+> +static int ptp_open(struct inode *inode, struct file *fp)
+> +{
+> +	struct ptp_clock *ptp;
+> +	ptp = container_of(inode->i_cdev, struct ptp_clock, cdev);
+> +
+> +	if (mutex_lock_interruptible(&ptp->mux))
+> +		return -ERESTARTSYS;
+> +
+> +	fp->private_data = ptp;
+> +
+> +	return 0;
+> +}
+...
+> +static int ptp_release(struct inode *inode, struct file *fp)
+> +{
+> +	struct ptp_clock *ptp = fp->private_data;
+> +	mutex_unlock(&ptp->mux);
+> +	return 0;
+> +}
 
-Isn't the minimum ETH_ZLEN?
+As long as the device is in use by an application, no other can access
+it, because the mutex is locked. Other application may want to read the
+PTP clock time while ptpd is running, though.
 
-But yes, regardless of whether the minimum ethernet frame is 58 or 60
-bytes, we should require it's at least that big, and use that test
-consistently throughout.
-
-Anything smaller is a runt packet and should be tossed or marked as an
-error in some other way by the hardware.  They should never make it to
-eth_type_trans().
+Wolfgang.
