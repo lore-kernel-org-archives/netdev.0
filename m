@@ -1,51 +1,41 @@
 From: Andi Kleen <andi@firstfloor.org>
 Subject: Re: [PATCH v6] net: batch skb dequeueing from softnet
 	input_pkt_queue
-Date: Sun, 2 May 2010 23:54:50 +0200
-Message-ID: <20100502215450.GC2673@gargoyle.fritz.box>
-References: <20100429214144.GA10663@gargoyle.fritz.box> <20100430.163857.180417789.davem@davemloft.net> <20100501110000.GB9434@gargoyle.fritz.box> <1272783366.2173.13.camel@edumazet-laptop> <20100502092020.GA9655@gargoyle.fritz.box> <1272797690.2173.26.camel@edumazet-laptop> <20100502154649.GA18063@gargoyle.fritz.box> <1272818131.2173.127.camel@edumazet-laptop> <20100502212550.GA2673@gargoyle.fritz.box> <1272836755.2173.153.camel@edumazet-laptop>
+Date: Mon, 3 May 2010 00:06:42 +0200
+Message-ID: <20100502220642.GD2673@gargoyle.fritz.box>
+References: <20100429214144.GA10663@gargoyle.fritz.box> <20100430.163857.180417789.davem@davemloft.net> <20100501110000.GB9434@gargoyle.fritz.box> <1272783366.2173.13.camel@edumazet-laptop> <20100502092020.GA9655@gargoyle.fritz.box> <1272797690.2173.26.camel@edumazet-laptop> <20100502071324.1a95fdad@infradead.org> <1272810448.2173.31.camel@edumazet-laptop> <20100502105418.7abf83a7@infradead.org> <1272828143.2173.150.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, hadi@cyberus.ca,
+Content-Type: text/plain; charset=us-ascii
+Cc: Arjan van de Ven <arjan@infradead.org>,
+	David Miller <davem@davemloft.net>, hadi@cyberus.ca,
 	xiaosuo@gmail.com, therbert@google.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org, lenb@kernel.org, arjan@infradead.org
+	netdev@vger.kernel.org, lenb@kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:54627 "EHLO
+Received: from one.firstfloor.org ([213.235.205.2]:36024 "EHLO
 	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755008Ab0EBVwT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 May 2010 17:52:19 -0400
+	with ESMTP id S1752304Ab0EBWEL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 May 2010 18:04:11 -0400
 Content-Disposition: inline
-In-Reply-To: <1272836755.2173.153.camel@edumazet-laptop>
+In-Reply-To: <1272828143.2173.150.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 02, 2010 at 11:45:55PM +0200, Eric Dumazet wrote:
-> Le dimanche 02 mai 2010 =E0 23:25 +0200, Andi Kleen a =E9crit :
->=20
-> > It's pointless to send an IPI to your thread sibling for this.=20
-> > Everything it could do you can do yourself too with the same perfor=
-mance.
-> >=20
-> > -Andi
->=20
-> Amen
+> But a task blocked on disk IO is probably blocked for a small amount of
+> time, while on network, it can be for a long time. I am not sure its the
+> right metric.
 
-That is in terms of cache locality.
+I think it needs a dynamic timeout.
 
->=20
-> Tests just prove the reverse.
+I agree the reference count as is will not work well for networking.
 
-What do you mean?=20
+> 
+> I was expecting something based on recent history.
+> Say if we have 20.000 wakeups per second, most likely we should not
+> enter C2/C3 states...
 
->=20
-> I have some collegues that disable HyperThreading for exact same
-> reasons. I wonder why Intel designed HT. Should be marketing I guess.
-
-HT (especially Nehalem HT) is useful for a wide range of workloads.
-Just handling network interrupts for its thread sibling is not one of t=
-hem.
+That's what the menu governour already does, it just doesn't work
+in some cases :/
 
 -Andi
 
