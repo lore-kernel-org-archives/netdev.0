@@ -1,54 +1,38 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: OFT - reserving CPU's for networking
-Date: Sun, 02 May 2010 00:44:17 +0100
-Message-ID: <1272757457.27948.27.camel@localhost>
-References: <20100430210131.GA2833@gargoyle.fritz.box>
-	 <20100430.153038.62351857.davem@davemloft.net>
-	 <20100501105304.GA9434@gargoyle.fritz.box>
-	 <20100501.150338.93457735.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/1] net/usb: initiate sync sequence in sierra_net.c
+ driver
+Date: Sat, 01 May 2010 18:08:29 -0700 (PDT)
+Message-ID: <20100501.180829.139101312.davem@davemloft.net>
+References: <1272497304.8835.2.camel@Linuxdev4-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, tglx@linutronix.de, shemminger@vyatta.com,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	peterz@infradead.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:48154 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751040Ab0EBAbZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 May 2010 20:31:25 -0400
-In-Reply-To: <20100501.150338.93457735.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, rfiler-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1272497304.8835.2.camel@Linuxdev4-laptop>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2010-05-01 at 15:03 -0700, David Miller wrote:
-> From: Andi Kleen <andi@firstfloor.org>
-> Date: Sat, 1 May 2010 12:53:04 +0200
+From: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
+Date: Wed, 28 Apr 2010 16:28:24 -0700
+
+> Subject: [PATCH 1/1] net/usb: initiate sync sequence in sierra_net.c driver
+> From: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
 > 
-> >> And we don't want it to, because the decision mechanisms for steering
-> >> that we using now are starting to get into the stateful territory and
-> >> that's verbotton for NIC offload as far as we're concerned.
-> > 
-> > Huh? I thought full TCP offload was forbidden?[1] Statefull as in NIC 
-> > (or someone else like netfilter) tracking flows is quite common and very far 
-> > from full offload. AFAIK it doesn't have near all the problems full
-> > offload has.
+> The following patch adds the initiation of the sync sequence to
+> "sierra_net_bind()". If this step is omitted, the modem will never sync up
+> with the host and it will not be possible to establish a data connection.
+> This is a high priority patch.
 > 
-> We're tracking flow cpu location state at the socket operations, like
-> recvmsg() and sendmsg(), where it belongs.
-> 
-> Would you like us to call into the card drivers and firmware at these
-> spots instead?
+> This patch has been checked against net-2.6 tree.
+> Signed-off-by: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
+> Signed-off-by: Rory Filer <rfiler-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
+> Tested-by: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
 
-I'm interested in experimenting with this at some point, since our
-hardware supports a fairly large number of filters that could be used
-for it.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
