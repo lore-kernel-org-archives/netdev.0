@@ -1,40 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: if6_get_next() fix
-Date: Mon, 03 May 2010 13:24:42 -0700 (PDT)
-Message-ID: <20100503.132442.200112018.davem@davemloft.net>
-References: <1272916007.2407.75.camel@edumazet-laptop>
-	<20100503.130902.172620141.davem@davemloft.net>
-	<1272917635.2407.106.camel@edumazet-laptop>
+Subject: Re: [PATCH v2 1/2] ppp_generic: pull 2 bytes so that
+ PPP_PROTO(skb) is valid
+Date: Mon, 03 May 2010 13:27:09 -0700 (PDT)
+Message-ID: <20100503.132709.266105694.davem@davemloft.net>
+References: <4BDF2FD5.2030509@simon.arlott.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: paulmck@linux.vnet.ibm.com, shemminger@vyatta.com,
-	Valdis.Kletnieks@vt.edu, akpm@linux-foundation.org,
-	peterz@infradead.org, kaber@trash.net,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1272917635.2407.106.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, paulus@samba.org, linux-ppp@vger.kernel.org
+To: simon@fire.lp0.eu
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <4BDF2FD5.2030509@simon.arlott.org.uk>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 03 May 2010 22:13:55 +0200
+From: Simon Arlott <simon@fire.lp0.eu>
+Date: Mon, 03 May 2010 21:19:33 +0100
 
-> Le lundi 03 mai 2010 =E0 13:09 -0700, David Miller a =E9crit :
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Mon, 03 May 2010 21:46:47 +0200
->>=20
->> > Then, net-next-2.6 doesnt yet have your commit Paul to relax
->> > hlist_for_each_entry_rcu(), so its a bit difficult to continue the=
- work.
->>=20
->> Is that in Linus's tree yet?  If it propagates there I can make it
->> propagate to net-next-2.6, you just have to tell me you need it.
->=20
->=20
-> Hmm, it seems it's already in net-next-2.6, sorry for the confusion.
+> In ppp_input(), PPP_PROTO(skb) may refer to invalid data in the skb.
+> 
+> If this happens and (proto >= 0xc000 || proto == PPP_CCPFRAG) then
+> the packet is passed directly to pppd.
+> 
+> This occurs frequently when using PPPoE with an interface MTU
+> greater than 1500 because the skb is more likely to be non-linear.
+> 
+> The next 2 bytes need to be pulled in ppp_input(). The pull of 2
+> bytes in ppp_receive_frame() has been removed as it is no longer
+> required.
+> 
+> Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
 
-No problem, just let me know in the future if something upstream needs
-to propagate.
+Applied.
