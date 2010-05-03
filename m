@@ -1,31 +1,42 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: sctp pull request for net-next-2.6
-Date: Mon, 03 May 2010 16:21:48 -0700 (PDT)
-Message-ID: <20100503.162148.21319204.davem@davemloft.net>
+Date: Mon, 03 May 2010 16:24:01 -0700 (PDT)
+Message-ID: <20100503.162401.102667647.davem@davemloft.net>
 References: <4BDB9777.4020809@hp.com>
+	<20100503.162148.21319204.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org
 To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54897
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34897
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933372Ab0ECXVn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 19:21:43 -0400
-In-Reply-To: <4BDB9777.4020809@hp.com>
+	by vger.kernel.org with ESMTP id S933416Ab0ECXXz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 19:23:55 -0400
+In-Reply-To: <20100503.162148.21319204.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Date: Fri, 30 Apr 2010 22:52:39 -0400
-
-> The following changes since commit 83d7eb2979cd3390c375470225dd2d8f2009bc70:
->   Dan Carpenter (1):
->         ipv6: cleanup: remove unneeded null check
-> 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/vxy/lksctp-dev.git net-next
-
-Pulled, thanks Vlad.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAwMyBN
+YXkgMjAxMCAxNjoyMTo0OCAtMDcwMCAoUERUKQ0KDQo+IEZyb206IFZsYWQgWWFzZXZpY2ggPHZs
+YWRpc2xhdi55YXNldmljaEBocC5jb20+DQo+IERhdGU6IEZyaSwgMzAgQXByIDIwMTAgMjI6NTI6
+MzkgLTA0MDANCj4gDQo+PiBUaGUgZm9sbG93aW5nIGNoYW5nZXMgc2luY2UgY29tbWl0IDgzZDdl
+YjI5NzljZDMzOTBjMzc1NDcwMjI1ZGQyZDhmMjAwOWJjNzA6DQo+PiAgIERhbiBDYXJwZW50ZXIg
+KDEpOg0KPj4gICAgICAgICBpcHY2OiBjbGVhbnVwOiByZW1vdmUgdW5uZWVkZWQgbnVsbCBjaGVj
+aw0KPj4gDQo+PiBhcmUgYXZhaWxhYmxlIGluIHRoZSBnaXQgcmVwb3NpdG9yeSBhdDoNCj4+IA0K
+Pj4gICBnaXQ6Ly9naXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvdnh5L2xr
+c2N0cC1kZXYuZ2l0IG5ldC1uZXh0DQo+IA0KPiBQdWxsZWQsIHRoYW5rcyBWbGFkLg0KDQpJIGhh
+ZCB0byBmaXggdGhlIGJ1aWxkIHdoZW4gSSBtZXJnZWQgdGhpcyBieSBhZGRpbmcgYSBtaXNzaW5n
+DQpsaW51eC92bWFsbG9jLmggaW5jbHVkZSB0byBuZXQvc2N0cC9wcm9iZS5jDQoNCm5ldC9zY3Rw
+L3Byb2JlLmM6IEluIGZ1bmN0aW9uIKFzY3RwcHJvYmVfcmVhZKI6DQpuZXQvc2N0cC9wcm9iZS5j
+Ojk3OiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24goXZtYWxsb2OiDQpu
+ZXQvc2N0cC9wcm9iZS5jOjk3OiB3YXJuaW5nOiBhc3NpZ25tZW50IG1ha2VzIHBvaW50ZXIgZnJv
+bSBpbnRlZ2VyIHdpdGhvdXQgYSBjYXN0DQpuZXQvc2N0cC9wcm9iZS5jOjExMDogZXJyb3I6IGlt
+cGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uIKF2ZnJlZaINCg0KZGlmZiAtLWdpdCBhL25l
+dC9zY3RwL3Byb2JlLmMgYi9uZXQvc2N0cC9wcm9iZS5jDQppbmRleCA4ZjAyNWQ1Li5kYjNhNDJi
+IDEwMDY0NA0KLS0tIGEvbmV0L3NjdHAvcHJvYmUuYw0KKysrIGIvbmV0L3NjdHAvcHJvYmUuYw0K
+QEAgLTI3LDYgKzI3LDcgQEANCiAjaW5jbHVkZSA8bGludXgvc29ja2V0Lmg+DQogI2luY2x1ZGUg
+PGxpbnV4L3NjdHAuaD4NCiAjaW5jbHVkZSA8bGludXgvcHJvY19mcy5oPg0KKyNpbmNsdWRlIDxs
+aW51eC92bWFsbG9jLmg+DQogI2luY2x1ZGUgPGxpbnV4L21vZHVsZS5oPg0KICNpbmNsdWRlIDxs
+aW51eC9rZmlmby5oPg0KICNpbmNsdWRlIDxsaW51eC90aW1lLmg+DQo=
