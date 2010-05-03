@@ -1,45 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: OOP in ip_cmsg_recv (net-next)
-Date: Mon, 03 May 2010 15:23:51 -0700 (PDT)
-Message-ID: <20100503.152351.181464355.davem@davemloft.net>
-References: <20100503094735.077c2af5@nehalam>
-	<1272906266.2226.77.camel@edumazet-laptop>
-	<1272907269.2226.111.camel@edumazet-laptop>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [GIT PULL] first round of vhost-net enhancements for net-next
+Date: Tue, 4 May 2010 01:20:23 +0300
+Message-ID: <20100503222022.GC16181@redhat.com>
+References: <20100503213244.GA16006@redhat.com> <20100503.150729.00474027.davem@davemloft.net> <20100503.150829.254849182.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59176
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758575Ab0ECWXp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 18:23:45 -0400
-In-Reply-To: <1272907269.2226.111.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100503.150829.254849182.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 03 May 2010 19:21:09 +0200
+On Mon, May 03, 2010 at 03:08:29PM -0700, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Mon, 03 May 2010 15:07:29 -0700 (PDT)
+>=20
+> > From: "Michael S. Tsirkin" <mst@redhat.com>
+> > Date: Tue, 4 May 2010 00:32:45 +0300
+> >=20
+> >> The following tree includes a couple of enhancements that help vho=
+st-net.
+> >> Please pull them for net-next. Another set of patches is under
+> >> debugging/testing and I hope to get them ready in time for 2.6.35,
+> >> so there may be another pull request later.
+> >=20
+> > Pulled, thanks.
+>=20
+> Nevermind, reverted.
+>=20
+> Do you even compile test what you send to people?
+>=20
+> drivers/net/macvtap.c: In function =E2=80=98macvtap_ioctl=E2=80=99:
+> drivers/net/macvtap.c:713: warning: control reaches end of non-void f=
+unction
+>=20
+> You're really batting 1000 today Michael...
 
->  
-> -	/* skb is now orphaned, might be freed outside of locked section */
-> -	consume_skb(skb);
-> +	/* skb is now orphaned, can be freed outside of locked section */
-> +	__kfree_skb(skb);
->  }
->  EXPORT_SYMBOL(skb_free_datagram_locked);
+Ouch. Should teach me not to send out stuff after midnight. Sorry about
+the noise.
 
-Eric, if you do this you undo the utility of the SKB packet drop tracing
-that Neil wrote.
-
-consome_skb() says that the application actually took in the packet and
-we didn't drop it due to some error or similar.
-
-Whereas __kfree_skb() is going to be tagged as a packet drop and the
-data didn't reach the application.
-
-So if you need to use __kfree_skb() to fix this you'll need to somehow
-add some appropriate annotations for the tracer.  Perhaps add a
-__consume_skb() that is marked for the tracing stuff and does what
-you need.
+--=20
+MST
