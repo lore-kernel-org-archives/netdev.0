@@ -1,80 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: OOP in ip_cmsg_recv (net-next)
-Date: Mon, 03 May 2010 19:21:09 +0200
-Message-ID: <1272907269.2226.111.camel@edumazet-laptop>
-References: <20100503094735.077c2af5@nehalam>
-	 <1272906266.2226.77.camel@edumazet-laptop>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: mmotm 2010-04-28 - RCU whinges
+Date: Mon, 3 May 2010 11:16:29 -0700
+Message-ID: <20100503181629.GJ2597@linux.vnet.ibm.com>
+References: <201004290021.o3T0L04Y028017@imap1.linux-foundation.org>
+ <5702.1272822394@localhost>
+ <1272865137.2173.179.camel@edumazet-laptop>
+ <5933.1272897014@localhost>
+ <1272898726.2226.47.camel@edumazet-laptop>
+ <5112.1272900590@localhost>
+ <20100503154357.GF2597@linux.vnet.ibm.com>
+ <1272903293.2226.50.camel@edumazet-laptop>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:59809 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752267Ab0ECRVP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 13:21:15 -0400
-Received: by bwz19 with SMTP id 19so1451992bwz.21
-        for <netdev@vger.kernel.org>; Mon, 03 May 2010 10:21:13 -0700 (PDT)
-In-Reply-To: <1272906266.2226.77.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Valdis.Kletnieks@vt.edu, Andrew Morton <akpm@linux-foundation.org>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1272903293.2226.50.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 03 mai 2010 =C3=A0 19:04 +0200, Eric Dumazet a =C3=A9crit :
-> Le lundi 03 mai 2010 =C3=A0 09:47 -0700, Stephen Hemminger a =C3=A9cr=
-it :
-> > I am getting occasional NULL pointer references with net-next kerne=
-l.
-> > No test, just usual stuff (like DNS).
+On Mon, May 03, 2010 at 06:14:53PM +0200, Eric Dumazet wrote:
+> Le lundi 03 mai 2010 =E0 08:43 -0700, Paul E. McKenney a =E9crit :
+>=20
+> > Highly recommended.  ;-)
 > >=20
-> > This is a new regression in net-next only.
+> > And thanks to you for your testing efforts and to Eric for the fixe=
+s!!!
 > >=20
-> >=20
-> Hmm, skb->sk is NULL
 >=20
-> void ip_cmsg_recv(struct msghdr *msg, struct sk_buff *skb)
-> {
-> 	struct inet_sock *inet =3D inet_sk(skb->sk);
-> 	unsigned flags =3D inet->cmsg_flags; // CRASH
->=20
->=20
-> So a skb_free_datagram_locked() is at fault here...
->=20
-> commit 4b0b72f7dd617b13abd1b04c947e15873e011a24 probably
->=20
-> OK, the skb_orphan() should not be done at this point, if we are not =
-the
-> only user (and last user)
->=20
-> Oh well, sorry for the regression ;)
->=20
+> For this last one, I think you should push following patch Paul
 
-I'll test following patch and report results to netdev :
+I would be happy to if I could find the commit creating
+hlist_for_each_entry_continue_rcu()...
 
-diff --git a/net/core/datagram.c b/net/core/datagram.c
-index 95b851f..e009753 100644
---- a/net/core/datagram.c
-+++ b/net/core/datagram.c
-@@ -229,13 +229,18 @@ EXPORT_SYMBOL(skb_free_datagram);
-=20
- void skb_free_datagram_locked(struct sock *sk, struct sk_buff *skb)
- {
-+	if (likely(atomic_read(&skb->users) =3D=3D 1))
-+		smp_rmb();
-+	else if (likely(!atomic_dec_and_test(&skb->users)))
-+		return;
-+
- 	lock_sock_bh(sk);
- 	skb_orphan(skb);
- 	sk_mem_reclaim_partial(sk);
- 	unlock_sock_bh(sk);
-=20
--	/* skb is now orphaned, might be freed outside of locked section */
--	consume_skb(skb);
-+	/* skb is now orphaned, can be freed outside of locked section */
-+	__kfree_skb(skb);
- }
- EXPORT_SYMBOL(skb_free_datagram_locked);
-=20
+I do see a ca. 2008 patch from Stephen Hemminger:
 
+	http://www.mail-archive.com/linux-kernel@vger.kernel.org/msg264661.htm=
+l
 
+According to http://patchwork.ozlabs.org/patch/47997/, this is
+going up the networking tree as of March 18, 2010.
+
+So I would be happy to push the patch below, but to do so, I will need
+to adopt the portion of Stephen's patch that created this primitive.
+
+Please let me know how you would like to proceed!
+
+							Thanx, Paul
+
+> Followup of commit 3120438ad6
+> (rcu: Disable lockdep checking in RCU list-traversal primitives)
+>=20
+> Or we might introduce a hlist_for_each_entry_continue_rcu_bh() macro.=
+=2E.
+>=20
+>=20
+>=20
+> diff --git a/include/linux/rculist.h b/include/linux/rculist.h
+> index 004908b..b0c7e24 100644
+> --- a/include/linux/rculist.h
+> +++ b/include/linux/rculist.h
+> @@ -435,10 +435,10 @@ static inline void hlist_add_after_rcu(struct h=
+list_node *prev,
+>   * @member:	the name of the hlist_node within the struct.
+>   */
+>  #define hlist_for_each_entry_continue_rcu(tpos, pos, member)		\
+> -	for (pos =3D rcu_dereference((pos)->next);			\
+> +	for (pos =3D rcu_dereference_raw((pos)->next);			\
+>  	     pos && ({ prefetch(pos->next); 1; }) &&			\
+>  	     ({ tpos =3D hlist_entry(pos, typeof(*tpos), member); 1; });  \
+> -	     pos =3D rcu_dereference(pos->next))
+> +	     pos =3D rcu_dereference_raw(pos->next))
+>=20
+>=20
+>  #endif	/* __KERNEL__ */
+>=20
+>=20
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
