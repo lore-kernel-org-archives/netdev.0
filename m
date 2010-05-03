@@ -1,37 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] skge: use the DMA state API instead of the pci
- equivalents
-Date: Mon, 03 May 2010 15:32:26 -0700 (PDT)
-Message-ID: <20100503.153226.267391665.davem@davemloft.net>
-References: <20100428095730K.fujita.tomonori@lab.ntt.co.jp>
+Subject: Re: [PATCH] sky2: Avoid race in sky2_change_mtu
+Date: Mon, 03 May 2010 15:37:12 -0700 (PDT)
+Message-ID: <20100503.153712.93376700.davem@davemloft.net>
+References: <4BDEDB50.7000707@ring3k.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org
-To: fujita.tomonori@lab.ntt.co.jp
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: mikem@ring3k.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43402
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45976
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753338Ab0ECWcU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 18:32:20 -0400
-In-Reply-To: <20100428095730K.fujita.tomonori@lab.ntt.co.jp>
+	by vger.kernel.org with ESMTP id S1753447Ab0ECWhG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 18:37:06 -0400
+In-Reply-To: <4BDEDB50.7000707@ring3k.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Date: Wed, 28 Apr 2010 09:57:04 +0900
+From: Mike McCormack <mikem@ring3k.org>
+Date: Mon, 03 May 2010 23:18:56 +0900
 
-> This replace the PCI DMA state API (include/linux/pci-dma.h) with the
-> DMA equivalents since the PCI DMA state API will be obsolete.
+> netif_stop_queue does not ensure all in-progress transmits are complete,
+>  so use netif_tx_disable() instead.
 > 
-> No functional change.
+> Make sure NAPI polls are disabled, otherwise NAPI might trigger a TX
+>  restart between when we stop the queue and NAPI is disabled.
 > 
-> For further information about the background:
-> 
-> http://marc.info/?l=linux-netdev&m=127037540020276&w=2
-> 
-> Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+> Signed-off-by: Mike McCormack <mikem@ring3k.org>
 
-Stephen have you had a chance to smoke test this yet?
-I'd like to apply it as it's been rotting in patchwork
-for almost a week now.
+This looks quite reasonable, Stephen please review.
