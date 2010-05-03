@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/2] ppp_generic: pull 2 bytes so that
- PPP_PROTO(skb) is valid
-Date: Mon, 03 May 2010 13:27:09 -0700 (PDT)
-Message-ID: <20100503.132709.266105694.davem@davemloft.net>
+Subject: Re: [PATCH v2 2/2] ppp_generic: handle non-linear skbs when
+ passing them to pppd
+Date: Mon, 03 May 2010 13:27:14 -0700 (PDT)
+Message-ID: <20100503.132714.09765870.davem@davemloft.net>
 References: <4BDF2FD5.2030509@simon.arlott.org.uk>
+	<4BDF300B.1040103@simon.arlott.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, paulus@samba.org, linux-ppp@vger.kernel.org
 To: simon@fire.lp0.eu
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <4BDF2FD5.2030509@simon.arlott.org.uk>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50719
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756729Ab0ECU1H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 16:27:07 -0400
+In-Reply-To: <4BDF300B.1040103@simon.arlott.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Simon Arlott <simon@fire.lp0.eu>
-Date: Mon, 03 May 2010 21:19:33 +0100
+Date: Mon, 03 May 2010 21:20:27 +0100
 
-> In ppp_input(), PPP_PROTO(skb) may refer to invalid data in the skb.
+> Frequently when using PPPoE with an interface MTU greater than 1500,
+> the skb is likely to be non-linear. If the skb needs to be passed to
+> pppd then the skb data must be read correctly.
 > 
-> If this happens and (proto >= 0xc000 || proto == PPP_CCPFRAG) then
-> the packet is passed directly to pppd.
-> 
-> This occurs frequently when using PPPoE with an interface MTU
-> greater than 1500 because the skb is more likely to be non-linear.
-> 
-> The next 2 bytes need to be pulled in ppp_input(). The pull of 2
-> bytes in ppp_receive_frame() has been removed as it is no longer
-> required.
+> The previous commit fixes an issue with accidentally sending skbs
+> to pppd based on an invalid read of the protocol type. When that
+> error occurred pppd was reading invalid skb data too.
 > 
 > Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
 
