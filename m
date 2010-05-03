@@ -1,62 +1,62 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv7] add mergeable buffers support to vhost_net
-Date: Mon, 3 May 2010 13:34:11 +0300
-Message-ID: <20100503103410.GA11113@redhat.com>
-References: <1272488232.11307.4.camel@w-dls.beaverton.ibm.com>
+From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Subject: [PATCH  kernel 2.6.34-rc5] lib8390: to be SMP safe
+Date: Mon, 3 May 2010 19:43:16 +0900
+Message-ID: <20100503194316.60c98272.ken_kawasaki@spring.nifty.jp>
+References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
+	<20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
+	<20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
+	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
+	<20091213094411.18be2ff6.ken_kawasaki@spring.nifty.jp>
+	<20100307070256.cb86716d.ken_kawasaki@spring.nifty.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.osdl.org
-To: David L Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13005 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750770Ab0ECKiH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 May 2010 06:38:07 -0400
-Content-Disposition: inline
-In-Reply-To: <1272488232.11307.4.camel@w-dls.beaverton.ibm.com>
+Received: from userg508.nifty.com ([202.248.238.88]:26215 "EHLO
+	userg508.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756675Ab0ECKn3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 06:43:29 -0400
+Received: from localhost.localdomain (eaoska322229.adsl.ppp.infoweb.ne.jp [115.176.51.229])by userg508.nifty.com with SMTP id o43AhMGY007045
+	for <netdev@vger.kernel.org>; Mon, 3 May 2010 19:43:22 +0900
+In-Reply-To: <20100307070256.cb86716d.ken_kawasaki@spring.nifty.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Apr 28, 2010 at 01:57:12PM -0700, David L Stevens wrote:
-> This patch adds mergeable receive buffer support to vhost_net.
-> 
-> Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
 
-I've been doing some more testing before sending out a pull
-request, and I see a drastic performance degradation in guest to host
-traffic when this is applied but mergeable buffers are not in used
-by userspace (existing qemu-kvm userspace).
+lib8390:
+	write the value "ENISR_ALL" to register "EN0_IMR"
+	after enable_irq_lockdep_irqrestore. 
 
-This is both with and without my patch on top.
-
-Without patch:
-[mst@tuck ~]$ sh runtest  2>&1 | tee ser-meregeable-disabled-kernel-only-tun-only.log
-Starting netserver at port 12865
-set_up_server could not establish a listen endpoint for  port 12865 with family AF_UNSPEC
-TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 11.0.0.4 (11.0.0.4) port 0 AF_INET : demo
-Recv   Send    Send                          Utilization       Service Demand
-Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-Size   Size    Size     Time     Throughput  local    remote   local   remote
-bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
-
- 87380  16384  16384    10.00      9107.26   89.20    33.85    0.802   2.436  
-
-With patch:
-TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 11.0.0.4 (11.0.0.4) port 0 AF_INET : demo
-Recv   Send    Send                          Utilization       Service Demand
-Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-Size   Size    Size     Time     Throughput  local    remote   local   remote
-bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
-
- 87380  16384  16384    10.00        35.00   2.21     0.62     5.181   11.575 
+	This patch avoids frequent transmit error on SMP system.
 
 
-For ease of testing, I put this on my tree
-git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-broken
+Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
 
-Please take a look.
-Thanks!
+---
 
--- 
-MST
+--- linux-2.6.34-rc6/drivers/net/lib8390.c.orig	2010-05-02 16:49:57.000000000 +0900
++++ linux-2.6.34-rc6/drivers/net/lib8390.c	2010-05-02 18:09:18.000000000 +0900
+@@ -367,9 +367,9 @@ static netdev_tx_t __ei_start_xmit(struc
+ 				dev->name, ei_local->tx1, ei_local->tx2, ei_local->lasttx);
+ 		ei_local->irqlock = 0;
+ 		netif_stop_queue(dev);
+-		ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
+ 		spin_unlock(&ei_local->page_lock);
+ 		enable_irq_lockdep_irqrestore(dev->irq, &flags);
++		ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
+ 		dev->stats.tx_errors++;
+ 		return NETDEV_TX_BUSY;
+ 	}
+@@ -407,10 +407,10 @@ static netdev_tx_t __ei_start_xmit(struc
+ 
+ 	/* Turn 8390 interrupts back on. */
+ 	ei_local->irqlock = 0;
+-	ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
+ 
+ 	spin_unlock(&ei_local->page_lock);
+ 	enable_irq_lockdep_irqrestore(dev->irq, &flags);
++	ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
+ 
+ 	dev_kfree_skb (skb);
+ 	dev->stats.tx_bytes += send_length;
