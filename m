@@ -1,7 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: mmotm 2010-04-28 - RCU whinges
-Date: Mon, 03 May 2010 16:48:52 +0200
-Message-ID: <1272898132.2226.42.camel@edumazet-laptop>
+Date: Mon, 03 May 2010 16:58:46 +0200
+Message-ID: <1272898726.2226.47.camel@edumazet-laptop>
 References: <201004290021.o3T0L04Y028017@imap1.linux-foundation.org>
 	 <5702.1272822394@localhost> <1272865137.2173.179.camel@edumazet-laptop>
 	 <5933.1272897014@localhost>
@@ -24,11 +24,6 @@ List-Id: netdev.vger.kernel.org
 Le lundi 03 mai 2010 =C3=A0 10:30 -0400, Valdis.Kletnieks@vt.edu a =C3=A9=
 crit :
 
->=20
-> I *really* thought we swatted a bunch of these - did the fixes not ma=
-ke it
-> into linux-next or -mm?  Your patch fixed that one, but then:
->=20
 > [    9.128899] Netfilter messages via NETLINK v0.30.
 > [    9.128919] nf_conntrack version 0.5.0 (16384 buckets, 65536 max)
 > [    9.129108] CONFIG_NF_CT_ACCT is deprecated and will be removed so=
@@ -74,11 +69,39 @@ k() without protection!
 > [    9.132513] TCP bic registered
 >=20
 
-You probably know this PROVE_RCU thing is new and reserved to
-developpers ?
+Thanks for the report !
 
-We yet have to change all spots were a rcu_dereference() was used
-without rcu_read_lock(). Not a bug by itself, just lockdep is to be
-instructed not to shout.
+[PATCH] net: nf_log RCU fixes
 
-Maybe 30 patches already in, and maybe 30 other are still needed.
+nf_log_register() and nf_log_unregister() use a mutex to have exclusive
+access to nf_logers[]. Use appropriate rcu_dereference_protected()
+lockdep annotation.
+
+Reported-by: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
+index 015725a..7df37fd 100644
+--- a/net/netfilter/nf_log.c
++++ b/net/netfilter/nf_log.c
+@@ -52,7 +52,8 @@ int nf_log_register(u_int8_t pf, struct nf_logger *lo=
+gger)
+ 	} else {
+ 		/* register at end of list to honor first register win */
+ 		list_add_tail(&logger->list[pf], &nf_loggers_l[pf]);
+-		llog =3D rcu_dereference(nf_loggers[pf]);
++		llog =3D rcu_dereference_protected(nf_loggers[pf],
++						 lockdep_is_held(&nf_log_mutex));
+ 		if (llog =3D=3D NULL)
+ 			rcu_assign_pointer(nf_loggers[pf], logger);
+ 	}
+@@ -70,7 +71,8 @@ void nf_log_unregister(struct nf_logger *logger)
+=20
+ 	mutex_lock(&nf_log_mutex);
+ 	for (i =3D 0; i < ARRAY_SIZE(nf_loggers); i++) {
+-		c_logger =3D rcu_dereference(nf_loggers[i]);
++		c_logger =3D rcu_dereference_protected(nf_loggers[i],
++						     lockdep_is_held(&nf_log_mutex));
+ 		if (c_logger =3D=3D logger)
+ 			rcu_assign_pointer(nf_loggers[i], NULL);
+ 		list_del(&logger->list[i]);
