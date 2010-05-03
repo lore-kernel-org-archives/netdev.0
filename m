@@ -1,57 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net: if6_get_next() fix
-Date: Mon, 03 May 2010 22:13:55 +0200
-Message-ID: <1272917635.2407.106.camel@edumazet-laptop>
-References: <1272903293.2226.50.camel@edumazet-laptop>
-	 <20100503181629.GJ2597@linux.vnet.ibm.com>
-	 <1272916007.2407.75.camel@edumazet-laptop>
-	 <20100503.130902.172620141.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH v6] net: batch skb dequeueing from softnet
+ input_pkt_queue
+Date: Mon, 03 May 2010 16:15:31 -0400
+Message-ID: <1272917731.3926.12.camel@bigi>
+References: <20100429214144.GA10663@gargoyle.fritz.box>
+	 <20100430.163857.180417789.davem@davemloft.net>
+	 <20100501110000.GB9434@gargoyle.fritz.box>
+	 <1272783366.2173.13.camel@edumazet-laptop>
+	 <20100502092020.GA9655@gargoyle.fritz.box>
+	 <1272797690.2173.26.camel@edumazet-laptop>
+	 <20100502154649.GA18063@gargoyle.fritz.box>
+	 <1272818131.2173.127.camel@edumazet-laptop>
+	 <20100502212550.GA2673@gargoyle.fritz.box>
+	 <1272836755.2173.153.camel@edumazet-laptop>
+	 <20100502215450.GC2673@gargoyle.fritz.box>
+	 <1272838104.2173.166.camel@edumazet-laptop>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: paulmck@linux.vnet.ibm.com, shemminger@vyatta.com,
-	Valdis.Kletnieks@vt.edu, akpm@linux-foundation.org,
-	peterz@infradead.org, kaber@trash.net,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100503.130902.172620141.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Andi Kleen <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>, xiaosuo@gmail.com,
+	therbert@google.com, shemminger@vyatta.com, netdev@vger.kernel.org,
+	lenb@kernel.org, arjan@infradead.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f204.google.com ([209.85.222.204]:52840 "EHLO
+	mail-pz0-f204.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756535Ab0ECUPh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 16:15:37 -0400
+Received: by pzk42 with SMTP id 42so347077pzk.4
+        for <netdev@vger.kernel.org>; Mon, 03 May 2010 13:15:36 -0700 (PDT)
+In-Reply-To: <1272838104.2173.166.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le lundi 03 mai 2010 =C3=A0 13:09 -0700, David Miller a =C3=A9crit :
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Mon, 03 May 2010 21:46:47 +0200
->=20
-> > Then, net-next-2.6 doesnt yet have your commit Paul to relax
-> > hlist_for_each_entry_rcu(), so its a bit difficult to continue the =
-work.
->=20
-> Is that in Linus's tree yet?  If it propagates there I can make it
-> propagate to net-next-2.6, you just have to tell me you need it.
+On Mon, 2010-05-03 at 00:08 +0200, Eric Dumazet wrote:
 
+> 
+> Test I did this week with Jamal.
+> 
+> We first set a "ee" rps mask, because all NIC interrupts were handled by
+> CPU0, and Jamal thought like you, that not using cpu4 would give better
+> performance.
+> 
+> But using "fe" mask gave me a bonus, from ~700.000 pps to ~800.000 pps
+> 
 
-Hmm, it seems it's already in net-next-2.6, sorry for the confusion.
-
-commit 3120438ad68601f341e61e7cb1323b0e1a6ca367
-Author: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-Date:   Mon Feb 22 17:04:48 2010 -0800
-
-    rcu: Disable lockdep checking in RCU list-traversal primitives
-   =20
-    The theory is that use of bare rcu_dereference() is more prone
-    to error than use of the RCU list-traversal primitives.
-    Therefore, disable lockdep RCU read-side critical-section
-    checking in these primitives for the time being.  Once all of
-    the rcu_dereference() uses have been dealt with, it may be time
-    to re-enable lockdep checking for the RCU list-traversal
-    primitives.
-   =20
+I am seeing the opposite with my machine (Nehalem):
+with ee i get 99.4% and fe i get 94.2% whereas non-rps
+is about 98.1%.
 
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+cheers,
+jamal
+
+PS:- sorry dont have time to collect a lot more data - tommorow i could
+do more.
+
+
