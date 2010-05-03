@@ -1,62 +1,40 @@
-From: Simon Arlott <simon@fire.lp0.eu>
-Subject: [PATCH v2 2/2] ppp_generic: handle non-linear skbs when passing them
- to pppd
-Date: Mon, 03 May 2010 21:20:27 +0100
-Message-ID: <4BDF300B.1040103@simon.arlott.org.uk>
-References: <4BDF2FD5.2030509@simon.arlott.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] net: if6_get_next() fix
+Date: Mon, 03 May 2010 13:24:42 -0700 (PDT)
+Message-ID: <20100503.132442.200112018.davem@davemloft.net>
+References: <1272916007.2407.75.camel@edumazet-laptop>
+	<20100503.130902.172620141.davem@davemloft.net>
+	<1272917635.2407.106.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, paulus@samba.org,
-	linux-ppp@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxima.lp0.eu ([81.2.80.65]:54378 "EHLO proxima.lp0.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756747Ab0ECUU3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 May 2010 16:20:29 -0400
-In-Reply-To: <4BDF2FD5.2030509@simon.arlott.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: paulmck@linux.vnet.ibm.com, shemminger@vyatta.com,
+	Valdis.Kletnieks@vt.edu, akpm@linux-foundation.org,
+	peterz@infradead.org, kaber@trash.net,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1272917635.2407.106.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Frequently when using PPPoE with an interface MTU greater than 1500,
-the skb is likely to be non-linear. If the skb needs to be passed to
-pppd then the skb data must be read correctly.
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 03 May 2010 22:13:55 +0200
 
-The previous commit fixes an issue with accidentally sending skbs
-to pppd based on an invalid read of the protocol type. When that
-error occurred pppd was reading invalid skb data too.
+> Le lundi 03 mai 2010 =E0 13:09 -0700, David Miller a =E9crit :
+>> From: Eric Dumazet <eric.dumazet@gmail.com>
+>> Date: Mon, 03 May 2010 21:46:47 +0200
+>>=20
+>> > Then, net-next-2.6 doesnt yet have your commit Paul to relax
+>> > hlist_for_each_entry_rcu(), so its a bit difficult to continue the=
+ work.
+>>=20
+>> Is that in Linus's tree yet?  If it propagates there I can make it
+>> propagate to net-next-2.6, you just have to tell me you need it.
+>=20
+>=20
+> Hmm, it seems it's already in net-next-2.6, sorry for the confusion.
 
-Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
----
- drivers/net/ppp_generic.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
-index 75e8903..8518a2e 100644
---- a/drivers/net/ppp_generic.c
-+++ b/drivers/net/ppp_generic.c
-@@ -405,6 +405,7 @@ static ssize_t ppp_read(struct file *file, char __user *buf,
- 	DECLARE_WAITQUEUE(wait, current);
- 	ssize_t ret;
- 	struct sk_buff *skb = NULL;
-+	struct iovec iov;
- 
- 	ret = count;
- 
-@@ -448,7 +449,9 @@ static ssize_t ppp_read(struct file *file, char __user *buf,
- 	if (skb->len > count)
- 		goto outf;
- 	ret = -EFAULT;
--	if (copy_to_user(buf, skb->data, skb->len))
-+	iov.iov_base = buf;
-+	iov.iov_len = count;
-+	if (skb_copy_datagram_iovec(skb, 0, &iov, skb->len))
- 		goto outf;
- 	ret = skb->len;
- 
--- 
-1.7.0.4
-
--- 
-Simon Arlott
+No problem, just let me know in the future if something upstream needs
+to propagate.
