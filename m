@@ -1,42 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: sctp pull request for net-next-2.6
-Date: Mon, 03 May 2010 16:24:01 -0700 (PDT)
-Message-ID: <20100503.162401.102667647.davem@davemloft.net>
-References: <4BDB9777.4020809@hp.com>
-	<20100503.162148.21319204.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] sky2: Avoid race in sky2_change_mtu
+Date: Mon, 3 May 2010 16:26:34 -0700
+Message-ID: <20100503162634.1f004023@nehalam>
+References: <4BDEDB50.7000707@ring3k.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: vladislav.yasevich@hp.com
+To: Mike McCormack <mikem@ring3k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34897
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933416Ab0ECXXz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 19:23:55 -0400
-In-Reply-To: <20100503.162148.21319204.davem@davemloft.net>
+Received: from mail.vyatta.com ([76.74.103.46]:35341 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759865Ab0ECX0t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 May 2010 19:26:49 -0400
+In-Reply-To: <4BDEDB50.7000707@ring3k.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAwMyBN
-YXkgMjAxMCAxNjoyMTo0OCAtMDcwMCAoUERUKQ0KDQo+IEZyb206IFZsYWQgWWFzZXZpY2ggPHZs
-YWRpc2xhdi55YXNldmljaEBocC5jb20+DQo+IERhdGU6IEZyaSwgMzAgQXByIDIwMTAgMjI6NTI6
-MzkgLTA0MDANCj4gDQo+PiBUaGUgZm9sbG93aW5nIGNoYW5nZXMgc2luY2UgY29tbWl0IDgzZDdl
-YjI5NzljZDMzOTBjMzc1NDcwMjI1ZGQyZDhmMjAwOWJjNzA6DQo+PiAgIERhbiBDYXJwZW50ZXIg
-KDEpOg0KPj4gICAgICAgICBpcHY2OiBjbGVhbnVwOiByZW1vdmUgdW5uZWVkZWQgbnVsbCBjaGVj
-aw0KPj4gDQo+PiBhcmUgYXZhaWxhYmxlIGluIHRoZSBnaXQgcmVwb3NpdG9yeSBhdDoNCj4+IA0K
-Pj4gICBnaXQ6Ly9naXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvdnh5L2xr
-c2N0cC1kZXYuZ2l0IG5ldC1uZXh0DQo+IA0KPiBQdWxsZWQsIHRoYW5rcyBWbGFkLg0KDQpJIGhh
-ZCB0byBmaXggdGhlIGJ1aWxkIHdoZW4gSSBtZXJnZWQgdGhpcyBieSBhZGRpbmcgYSBtaXNzaW5n
-DQpsaW51eC92bWFsbG9jLmggaW5jbHVkZSB0byBuZXQvc2N0cC9wcm9iZS5jDQoNCm5ldC9zY3Rw
-L3Byb2JlLmM6IEluIGZ1bmN0aW9uIKFzY3RwcHJvYmVfcmVhZKI6DQpuZXQvc2N0cC9wcm9iZS5j
-Ojk3OiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24goXZtYWxsb2OiDQpu
-ZXQvc2N0cC9wcm9iZS5jOjk3OiB3YXJuaW5nOiBhc3NpZ25tZW50IG1ha2VzIHBvaW50ZXIgZnJv
-bSBpbnRlZ2VyIHdpdGhvdXQgYSBjYXN0DQpuZXQvc2N0cC9wcm9iZS5jOjExMDogZXJyb3I6IGlt
-cGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uIKF2ZnJlZaINCg0KZGlmZiAtLWdpdCBhL25l
-dC9zY3RwL3Byb2JlLmMgYi9uZXQvc2N0cC9wcm9iZS5jDQppbmRleCA4ZjAyNWQ1Li5kYjNhNDJi
-IDEwMDY0NA0KLS0tIGEvbmV0L3NjdHAvcHJvYmUuYw0KKysrIGIvbmV0L3NjdHAvcHJvYmUuYw0K
-QEAgLTI3LDYgKzI3LDcgQEANCiAjaW5jbHVkZSA8bGludXgvc29ja2V0Lmg+DQogI2luY2x1ZGUg
-PGxpbnV4L3NjdHAuaD4NCiAjaW5jbHVkZSA8bGludXgvcHJvY19mcy5oPg0KKyNpbmNsdWRlIDxs
-aW51eC92bWFsbG9jLmg+DQogI2luY2x1ZGUgPGxpbnV4L21vZHVsZS5oPg0KICNpbmNsdWRlIDxs
-aW51eC9rZmlmby5oPg0KICNpbmNsdWRlIDxsaW51eC90aW1lLmg+DQo=
+On Mon, 03 May 2010 23:18:56 +0900
+Mike McCormack <mikem@ring3k.org> wrote:
+
+> netif_stop_queue does not ensure all in-progress transmits are complete,
+>  so use netif_tx_disable() instead.
+> 
+> Make sure NAPI polls are disabled, otherwise NAPI might trigger a TX
+>  restart between when we stop the queue and NAPI is disabled.
+
+How could NAPI trigger a TX restart? Restart is a timer, not controlled
+by NAPI. There is a different race that your patch isn't covering.
+
+If a large MTU send is in progress while mtu is changing, the changes
+to the GMAC store and forward (sky2_set_tx_stfwd) are not synchronized
+with hardware queued transmits.
+
+So I think a there needs to be another spinloop.
+
+--- a/drivers/net/sky2.c	2010-05-03 16:19:58.828106182 -0700
++++ b/drivers/net/sky2.c	2010-05-03 16:24:37.850232475 -0700
+@@ -2274,8 +2274,12 @@ static int sky2_change_mtu(struct net_de
+ 	imask = sky2_read32(hw, B0_IMSK);
+ 	sky2_write32(hw, B0_IMSK, 0);
+ 
+-	dev->trans_start = jiffies;	/* prevent tx timeout */
+ 	netif_stop_queue(dev);
++
++	/* Wait for ongoing Tx to complete */
++	while (sky2->tx_cons != sky2->tx_prod)
++		udelay(10);
++
+ 	napi_disable(&hw->napi);
+ 
+ 	synchronize_irq(hw->pdev->irq);
