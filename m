@@ -1,49 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: OOP in ip_cmsg_recv (net-next)
-Date: Mon, 03 May 2010 15:30:52 -0700 (PDT)
-Message-ID: <20100503.153052.38313011.davem@davemloft.net>
-References: <20100503094735.077c2af5@nehalam>
-	<1272906266.2226.77.camel@edumazet-laptop>
-	<20100503140048.30aedad7@nehalam>
+Subject: Re: [PATCH] skge: use the DMA state API instead of the pci
+ equivalents
+Date: Mon, 03 May 2010 15:32:26 -0700 (PDT)
+Message-ID: <20100503.153226.267391665.davem@davemloft.net>
+References: <20100428095730K.fujita.tomonori@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org
+To: fujita.tomonori@lab.ntt.co.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43396
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43402
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754343Ab0ECWap (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 18:30:45 -0400
-In-Reply-To: <20100503140048.30aedad7@nehalam>
+	by vger.kernel.org with ESMTP id S1753338Ab0ECWcU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 18:32:20 -0400
+In-Reply-To: <20100428095730K.fujita.tomonori@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Mon, 3 May 2010 14:00:48 -0700
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Date: Wed, 28 Apr 2010 09:57:04 +0900
 
-> On Mon, 03 May 2010 19:04:26 +0200
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> This replace the PCI DMA state API (include/linux/pci-dma.h) with the
+> DMA equivalents since the PCI DMA state API will be obsolete.
 > 
->> diff --git a/net/core/datagram.c b/net/core/datagram.c
->> index 95b851f..88949b0 100644
->> --- a/net/core/datagram.c
->> +++ b/net/core/datagram.c
->> @@ -230,12 +230,8 @@ EXPORT_SYMBOL(skb_free_datagram);
->>  void skb_free_datagram_locked(struct sock *sk, struct sk_buff *skb)
->>  {
->>  	lock_sock_bh(sk);
->> -	skb_orphan(skb);
->> -	sk_mem_reclaim_partial(sk);
->> +	skb_free_datagram(sk, skb);
->>  	unlock_sock_bh(sk);
->> -
->> -	/* skb is now orphaned, might be freed outside of locked section */
->> -	consume_skb(skb);
->>  }
->>  EXPORT_SYMBOL(skb_free_datagram_locked);
+> No functional change.
 > 
-> This works great for me. No messages for several hours.
+> For further information about the background:
+> 
+> http://marc.info/?l=linux-netdev&m=127037540020276&w=2
+> 
+> Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 
-Eric if we can't refine properly your other approach to fixing this
-I'd like to apply this version meanwhile...
+Stephen have you had a chance to smoke test this yet?
+I'd like to apply it as it's been rotting in patchwork
+for almost a week now.
