@@ -1,73 +1,60 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] [RFC] C/R: inet4 and inet6 unicast routes (v2)
-Date: Mon, 03 May 2010 16:34:17 -0400
-Message-ID: <1272918857.3926.30.camel@bigi>
-References: <1272646855-17327-1-git-send-email-danms@us.ibm.com>
-	 <4BDB3F07.2030900@free.fr> <87bpd0zl9l.fsf@caffeine.danplanet.com>
-	 <1272673614.14499.10.camel@bigi>  <87y6g1xe0h.fsf@caffeine.danplanet.com>
-Reply-To: hadi@cyberus.ca
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Fun with if_bridge.h and br_private.h
+Date: Mon, 3 May 2010 13:36:13 -0700
+Message-ID: <20100503133613.0f2a61f7@nehalam>
+References: <20100503191256.GA18110@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Lezcano <daniel.lezcano@free.fr>, containers@lists.osdl.org,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Dan Smith <danms@us.ibm.com>
+Cc: netdev@vger.kernel.org, arnd@arndb.de
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f204.google.com ([209.85.222.204]:55117 "EHLO
-	mail-pz0-f204.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751228Ab0ECUeW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 16:34:22 -0400
-Received: by pzk42 with SMTP id 42so358561pzk.4
-        for <netdev@vger.kernel.org>; Mon, 03 May 2010 13:34:21 -0700 (PDT)
-In-Reply-To: <87y6g1xe0h.fsf@caffeine.danplanet.com>
+Received: from mail.vyatta.com ([76.74.103.46]:34872 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753783Ab0ECUg2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 May 2010 16:36:28 -0400
+In-Reply-To: <20100503191256.GA18110@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-05-03 at 07:21 -0700, Dan Smith wrote:
+On Mon, 3 May 2010 12:12:56 -0700
+"Paul E. McKenney" <paulmck@linux.vnet.ibm.com> wrote:
 
-> The benefits of doing what we can in userspace are well-understood and
-> arguing for doing so where it makes sense is, of course, a good idea.
+> Hello, Stephen,
 > 
-> However, it seems to me that the rtnl interface provides us a
-> reasonable layer of isolation between us and such changes.  Am I
-> wrong?  
+> I need some help with #include issues surrounding bridge.
+> 
+> Arnd has been putting together a sparse-based RCU-checking tool
+> that can detect pointer access that should have been protected by an
+> rcu_dereference() or rcu_assign_pointer().  On of the side-effects of
+> his approach is that rcu_dereference() can no longer handle pointers
+> to incomplete types, as Arnd's approach uses the address-space feature
+> of sparse, which in turn must tag the type pointed to rather than the
+> pointer itself.  And this in turn requires rcu_dereference() and friends
+> to see the pointed-to type as well as the pointer type.
+> 
+> One place affected by this is handle_bridge() in net/core/dev.c, which
+> invokes rcu_dereference() on skb->dev->br_port, which is of type struct
+> net_bridge_port, which is defined in net/bridge/br_private.h.  This is,
+> well, private, but is included into a couple places in netfilter and atm,
+> so I tried including it into net/core/dev.c.
+> 
+> This still left me with forward references:
+> 
+> In file included from net/core/dev.c:104:
+> include/linux/if_bridge.h:106: warning: "struct net_bridge_port" declared inside parameter list
+> include/linux/if_bridge.h:106: warning: its scope is only this definition or declaration, which is probably not what you want
+> net/core/dev.c:2331: error: conflicting types for "br_handle_frame_hook"
+> include/linux/if_bridge.h:105: error: previous declaration of "br_handle_frame_hook" was here
+> net/core/dev.c:2333: error: conflicting types for "br_handle_frame_hook"
+> include/linux/if_bridge.h:105: error: previous declaration of "br_handle_frame_hook" was here
+> 
+> This happens because net/bridge/br_private.h includes if_bridge.h before
+> it defines net_bridge_port.
+> 
+> Any thoughts on how best to allow handle_bridge() see the definition
+> of struct net_bridge_port?
+> 
 
-I may not have made my point earlier:
-Let me give you an example by looking at your migration attributes..
-
------
-+            __be32 inet4_len;          /* mask length (bits)*/
-+            __u32  inet4_met;          /* metric            */
-+            __be32 inet4_dst;          /* route address     */
-+            __be32 inet4_gwy;          /* gateway address   */
------
-
-At some point i had a discussion with some folks on netdev where it
-seemed valueable to add a fwmark to the route. If such is made, I dont
-see what the motivation for whoever is codifying to add it to your
-attributes so you can migrate the fwmark. One good motivation is to make
-sure the main route code fails to compile if your attributes dont get
-modified - this could happen if you re-use the same data structures as
-the kernel etc.
-
-> The rtnl messages appear to be rather generic and timeless,
-> and in most cases have a significant amount of flexibility with
-> respect to allowing advanced attributes to be ignored (which implies
-> taking the default).
-
-True - but you still need to worry about compat issues etc i.e when you
-migrate to a remote kernel they better have the same features and kernel
-config.. I am assuming this is not hard to impose on an admin.
-Doing things in user space allows for doing more interesting things like
-negotiating on capabilities etc
-
-> In many other areas of C/R we're not so lucky and don't have a
-> well-defined interface for dumping that information out of the
-> kernel...
-
-Maybe the answer is to start by formalizing that, not sure.
-
-cheers,
-jamal
-
+Why not make it a void *, there is no reason to make core code depend
+on br_private.h.
