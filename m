@@ -1,53 +1,47 @@
-From: Dan Smith <danms@us.ibm.com>
-Subject: Re: [PATCH] [RFC] C/R: inet4 and inet6 unicast routes (v2)
-Date: Mon, 03 May 2010 07:21:02 -0700
-Message-ID: <87y6g1xe0h.fsf@caffeine.danplanet.com>
-References: <1272646855-17327-1-git-send-email-danms@us.ibm.com>
-	<4BDB3F07.2030900@free.fr> <87bpd0zl9l.fsf@caffeine.danplanet.com>
-	<1272673614.14499.10.camel@bigi>
+From: Mike McCormack <mikem@ring3k.org>
+Subject: [PATCH] sky2: Avoid race in sky2_change_mtu
+Date: Mon, 03 May 2010 23:18:56 +0900
+Message-ID: <4BDEDB50.7000707@ring3k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Lezcano <daniel.lezcano@free.fr>, containers@lists.osdl.org,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw0.danplanet.com ([71.245.107.82]:38157 "EHLO
-	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932421Ab0ECOVR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 10:21:17 -0400
-In-Reply-To: <1272673614.14499.10.camel@bigi> (jamal's message of "Fri\, 30 Apr 2010 20\:26\:54 -0400")
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:40819 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759033Ab0ECO1s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 10:27:48 -0400
+Received: by fxm10 with SMTP id 10so2152477fxm.19
+        for <netdev@vger.kernel.org>; Mon, 03 May 2010 07:27:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-j> The problem as i see it (with all net structures not just routes -
-j> i was equally pessimistic when i saw those other net structure
-j> checkpoint/restore changes) is you are faced with a herculean
-j> high-maintainance effort...  You have a separate piece of code
-j> which populates structures that _you_ maintain for attributes that
-j> are defined elsewhere by other people.  Nobody adding a new
-j> attribute that is very important to route restoration for example
-j> is likely to change your code. Unless you tie the two together (so
-j> changing one forces the coder to change the other).  And once
-j> people deploy kernels it is hard to change. Historically (for
-j> pragmatic reasons) such rich interfaces sit in user space - much
-j> easier to update user space.
+netif_stop_queue does not ensure all in-progress transmits are complete,
+ so use netif_tx_disable() instead.
 
-The benefits of doing what we can in userspace are well-understood and
-arguing for doing so where it makes sense is, of course, a good idea.
+Make sure NAPI polls are disabled, otherwise NAPI might trigger a TX
+ restart between when we stop the queue and NAPI is disabled.
 
-However, it seems to me that the rtnl interface provides us a
-reasonable layer of isolation between us and such changes.  Am I
-wrong?  The rtnl messages appear to be rather generic and timeless,
-and in most cases have a significant amount of flexibility with
-respect to allowing advanced attributes to be ignored (which implies
-taking the default).
+Signed-off-by: Mike McCormack <mikem@ring3k.org>
+---
+ drivers/net/sky2.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-In many other areas of C/R we're not so lucky and don't have a
-well-defined interface for dumping that information out of the
-kernel...
-
+diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+index 088c797..b839bae 100644
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -2236,8 +2236,8 @@ static int sky2_change_mtu(struct net_device *dev, int new_mtu)
+ 	sky2_write32(hw, B0_IMSK, 0);
+ 
+ 	dev->trans_start = jiffies;	/* prevent tx timeout */
+-	netif_stop_queue(dev);
+ 	napi_disable(&hw->napi);
++	netif_tx_disable(dev);
+ 
+ 	synchronize_irq(hw->pdev->irq);
+ 
 -- 
-Dan Smith
-IBM Linux Technology Center
-email: danms@us.ibm.com
+1.5.6.5
+
