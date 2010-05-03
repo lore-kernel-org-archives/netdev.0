@@ -1,37 +1,52 @@
-From: Chuck Lever <chuck.lever@oracle.com>
-Subject: TCP over lo
-Date: Mon, 03 May 2010 16:00:48 -0400
-Message-ID: <4BDF2B70.2040301@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: [PATCH] dm9601: fix phy/eeprom write routine
+Date: Mon,  3 May 2010 22:01:26 +0200
+Message-ID: <1272916886-8841-1-git-send-email-jacmet@sunsite.dk>
+Cc: Peter Korsgaard <jacmet@sunsite.dk>, stable@kernel.org
+To: davem@davemloft.net, netdev@vger.kernel.org, michael.planes@free.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet10.oracle.com ([148.87.113.121]:49072 "EHLO
-	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756381Ab0ECUA7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 16:00:59 -0400
-Received: from rcsinet13.oracle.com (rcsinet13.oracle.com [148.87.113.125])
-	by rcsinet10.oracle.com (Switch-3.4.2/Switch-3.4.1) with ESMTP id o43K0uo7000640
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Mon, 3 May 2010 20:00:57 GMT
-Received: from acsmt354.oracle.com (acsmt354.oracle.com [141.146.40.154])
-	by rcsinet13.oracle.com (Switch-3.4.2/Switch-3.4.1) with ESMTP id o430kF8o005255
-	for <netdev@vger.kernel.org>; Mon, 3 May 2010 20:00:55 GMT
+Received: from ey-out-2122.google.com ([74.125.78.27]:33597 "EHLO
+	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756410Ab0ECUBj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 16:01:39 -0400
+Received: by ey-out-2122.google.com with SMTP id d26so170210eyd.19
+        for <netdev@vger.kernel.org>; Mon, 03 May 2010 13:01:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I've got a bug report about attempting to mount a remote NFSv4 server 
-while the client's lo interface is down.
+Use correct bit positions in DM_SHARED_CTRL register for writes.
 
-Apparently a TCP connection attempt over lo when it is DOWN results in 
-ETIMEDOUT.  If I attempt a TCP connect on eth0 when it is DOWN I get 
-ENETUNREACH.
+Michael Planes recently encountered a 'KY-RS9600 USB-LAN converter', which
+came with a driver CD containing a Linux driver. This driver turns out to
+be a copy of dm9601.c with symbols renamed and my copyright stripped.
+That aside, it did contain 1 functional change in dm_write_shared_word(),
+and after checking the datasheet the original value was indeed wrong
+(read versus write bits).
 
-Is this behavior difference by design?  Is there some other information 
-I'm missing?  Just wondering how to go about addressing the issue.
+On Michaels HW, this change bumps receive speed from ~30KB/s to ~900KB/s.
+On other devices the difference is less spectacular, but still significant
+(~30%).
 
-Thanks in advance for advice.
+Reported-by: Michael Planes <michael.planes@free.fr>
+CC: stable@kernel.org
+Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
+---
+ drivers/net/usb/dm9601.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
+diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
+index 04b2810..5dfed92 100644
+--- a/drivers/net/usb/dm9601.c
++++ b/drivers/net/usb/dm9601.c
+@@ -240,7 +240,7 @@ static int dm_write_shared_word(struct usbnet *dev, int phy, u8 reg, __le16 valu
+ 		goto out;
+ 
+ 	dm_write_reg(dev, DM_SHARED_ADDR, phy ? (reg | 0x40) : reg);
+-	dm_write_reg(dev, DM_SHARED_CTRL, phy ? 0x1c : 0x14);
++	dm_write_reg(dev, DM_SHARED_CTRL, phy ? 0x1a : 0x12);
+ 
+ 	for (i = 0; i < DM_TIMEOUT; i++) {
+ 		u8 tmp;
 -- 
-chuck[dot]lever[at]oracle[dot]com
+1.7.0
+
