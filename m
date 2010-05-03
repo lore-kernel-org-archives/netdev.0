@@ -1,72 +1,65 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv7] add mergeable buffers support to vhost_net
-Date: Mon, 3 May 2010 18:56:14 +0300
-Message-ID: <20100503155613.GB12449@redhat.com>
-References: <20100503103410.GA11113@redhat.com> <OF639FB51C.80B669F0-ON88257718.0054F654-88257718.0055FB45@us.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: mmotm 2010-04-28 - RCU whinges
+Date: Mon, 03 May 2010 18:14:53 +0200
+Message-ID: <1272903293.2226.50.camel@edumazet-laptop>
+References: <201004290021.o3T0L04Y028017@imap1.linux-foundation.org>
+	 <5702.1272822394@localhost> <1272865137.2173.179.camel@edumazet-laptop>
+	 <5933.1272897014@localhost> <1272898726.2226.47.camel@edumazet-laptop>
+	 <5112.1272900590@localhost>  <20100503154357.GF2597@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
-	virtualization@lists.osdl.org
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Valdis.Kletnieks@vt.edu, Andrew Morton <akpm@linux-foundation.org>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: paulmck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9719 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752973Ab0ECQBA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 May 2010 12:01:00 -0400
-Content-Disposition: inline
-In-Reply-To: <OF639FB51C.80B669F0-ON88257718.0054F654-88257718.0055FB45@us.ibm.com>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:52946 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758731Ab0ECQO7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 12:14:59 -0400
+In-Reply-To: <20100503154357.GF2597@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 03, 2010 at 08:39:08AM -0700, David Stevens wrote:
-> "Michael S. Tsirkin" <mst@redhat.com> wrote on 05/03/2010 03:34:11 AM:
-> 
-> > On Wed, Apr 28, 2010 at 01:57:12PM -0700, David L Stevens wrote:
-> > > This patch adds mergeable receive buffer support to vhost_net.
-> > > 
-> > > Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
-> > 
-> > I've been doing some more testing before sending out a pull
-> > request, and I see a drastic performance degradation in guest to host
-> > traffic when this is applied but mergeable buffers are not in used
-> > by userspace (existing qemu-kvm userspace).
-> 
->         Actually, I wouldn't expect it to work at all;
-> the qemu-kvm
-> patch (particularly the feature bit setting bug fix) is required.
+Le lundi 03 mai 2010 =C3=A0 08:43 -0700, Paul E. McKenney a =C3=A9crit =
+:
 
-Which bugfix is that?
+> Highly recommended.  ;-)
+>=20
+> And thanks to you for your testing efforts and to Eric for the fixes!=
+!!
+>=20
 
-> Without it, I think the existing code will tell the guest to use
-> mergeable buffers while turning it off in vhost.
+=46or this last one, I think you should push following patch Paul
 
-It should not do that, specifically
-vhost_net_get_features does:
-	features &= ~(1 << VIRTIO_NET_F_MRG_RXBUF);
-unconditionally. This was added with:
-5751995a20e77cd9d61d00f7390401895fa172a6
+=46ollowup of commit 3120438ad6
+(rcu: Disable lockdep checking in RCU list-traversal primitives)
 
-I forced mergeable buffers off with -global virtio-net-pci.mrg_rxbuf=off
-and it did not seem to help either.
+Or we might introduce a hlist_for_each_entry_continue_rcu_bh() macro...
 
-> That was completely
-> non-functional for me -- what version of qemu-kvm are you using?
 
-992cc816c433332f2e93db033919a9ddbfcd1da4 or later should work well
-AFAIK.
 
->         What I did to test w/o mergeable buffers is turn off the
-> bit in VHOST_FEATURES.
+diff --git a/include/linux/rculist.h b/include/linux/rculist.h
+index 004908b..b0c7e24 100644
+--- a/include/linux/rculist.h
++++ b/include/linux/rculist.h
+@@ -435,10 +435,10 @@ static inline void hlist_add_after_rcu(struct hli=
+st_node *prev,
+  * @member:	the name of the hlist_node within the struct.
+  */
+ #define hlist_for_each_entry_continue_rcu(tpos, pos, member)		\
+-	for (pos =3D rcu_dereference((pos)->next);			\
++	for (pos =3D rcu_dereference_raw((pos)->next);			\
+ 	     pos && ({ prefetch(pos->next); 1; }) &&			\
+ 	     ({ tpos =3D hlist_entry(pos, typeof(*tpos), member); 1; });  \
+-	     pos =3D rcu_dereference(pos->next))
++	     pos =3D rcu_dereference_raw(pos->next))
+=20
+=20
+ #endif	/* __KERNEL__ */
 
-It should be enough to force mergeable buffers to off by qemu command
-line: -global virtio-net-pci.mrg_rxbuf=off 
 
-> I'll recheck these, but qemu-kvm definitely
-> must be updated; the original doesn't correctly handle feature bits.
-> 
->                                                                 +-DLS
-
-Hmm, I don't see the bug.
-
--- 
-MST
