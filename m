@@ -1,30 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL] first round of vhost-net enhancements for net-next
-Date: Mon, 03 May 2010 15:08:29 -0700 (PDT)
-Message-ID: <20100503.150829.254849182.davem@davemloft.net>
-References: <20100503213244.GA16006@redhat.com>
-	<20100503.150729.00474027.davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] net: if6_get_next() fix
+Date: Mon, 03 May 2010 15:17:25 -0700 (PDT)
+Message-ID: <20100503.151725.94856059.davem@davemloft.net>
+References: <1272917635.2407.106.camel@edumazet-laptop>
+	<20100503.132442.200112018.davem@davemloft.net>
+	<1272919814.2407.149.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100503.150729.00474027.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: paulmck@linux.vnet.ibm.com, shemminger@vyatta.com,
+	Valdis.Kletnieks@vt.edu, akpm@linux-foundation.org,
+	peterz@infradead.org, kaber@trash.net,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1272919814.2407.149.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAwMyBN
-YXkgMjAxMCAxNTowNzoyOSAtMDcwMCAoUERUKQ0KDQo+IEZyb206ICJNaWNoYWVsIFMuIFRzaXJr
-aW4iIDxtc3RAcmVkaGF0LmNvbT4NCj4gRGF0ZTogVHVlLCA0IE1heSAyMDEwIDAwOjMyOjQ1ICsw
-MzAwDQo+IA0KPj4gVGhlIGZvbGxvd2luZyB0cmVlIGluY2x1ZGVzIGEgY291cGxlIG9mIGVuaGFu
-Y2VtZW50cyB0aGF0IGhlbHAgdmhvc3QtbmV0Lg0KPj4gUGxlYXNlIHB1bGwgdGhlbSBmb3IgbmV0
-LW5leHQuIEFub3RoZXIgc2V0IG9mIHBhdGNoZXMgaXMgdW5kZXINCj4+IGRlYnVnZ2luZy90ZXN0
-aW5nIGFuZCBJIGhvcGUgdG8gZ2V0IHRoZW0gcmVhZHkgaW4gdGltZSBmb3IgMi42LjM1LA0KPj4g
-c28gdGhlcmUgbWF5IGJlIGFub3RoZXIgcHVsbCByZXF1ZXN0IGxhdGVyLg0KPiANCj4gUHVsbGVk
-LCB0aGFua3MuDQoNCk5ldmVybWluZCwgcmV2ZXJ0ZWQuDQoNCkRvIHlvdSBldmVuIGNvbXBpbGUg
-dGVzdCB3aGF0IHlvdSBzZW5kIHRvIHBlb3BsZT8NCg0KZHJpdmVycy9uZXQvbWFjdnRhcC5jOiBJ
-biBmdW5jdGlvbiChbWFjdnRhcF9pb2N0bKI6DQpkcml2ZXJzL25ldC9tYWN2dGFwLmM6NzEzOiB3
-YXJuaW5nOiBjb250cm9sIHJlYWNoZXMgZW5kIG9mIG5vbi12b2lkIGZ1bmN0aW9uDQoNCllvdSdy
-ZSByZWFsbHkgYmF0dGluZyAxMDAwIHRvZGF5IE1pY2hhZWwuLi4NCg==
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 03 May 2010 22:50:14 +0200
+
+> Paul, David, here the patch I was thinking about :
+> 
+> Feel free to split it in two parts if you like, I am too tired and must
+> sleep now ;)
+ ...
+> [PATCH net-next-2.6] net: rcu fixes
+> 
+> Add hlist_for_each_entry_rcu_bh() and
+> hlist_for_each_entry_continue_rcu_bh() macros, and use them in
+> ipv6_get_ifaddr(), if6_get_first() and if6_get_next() to fix lockdeps
+> warnings.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+Paul, let me know if you want to handle these seperately (one commit
+in your tree for the rculist.h bit and one for the ipv6 change) or to
+put it all at once into net-next-2.6, I'm happy either way.
