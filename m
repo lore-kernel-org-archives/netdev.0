@@ -1,29 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH linux-2.6.34-rc5] drivers/net/phy: micrel phy driver
-Date: Mon, 03 May 2010 15:44:15 -0700 (PDT)
-Message-ID: <20100503.154415.160071433.davem@davemloft.net>
-References: <C43529A246480145B0A6D0234BDB0F0D02129E@MELANITE.micrel.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next-2.6] net: if6_get_next() fix
+Date: Mon, 3 May 2010 15:48:19 -0700
+Message-ID: <20100503224819.GN2597@linux.vnet.ibm.com>
+References: <1272917635.2407.106.camel@edumazet-laptop>
+ <20100503.132442.200112018.davem@davemloft.net>
+ <1272919814.2407.149.camel@edumazet-laptop>
+ <20100503.151725.94856059.davem@davemloft.net>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David.Choi@Micrel.Com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45030
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756505Ab0ECWoI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 18:44:08 -0400
-In-Reply-To: <C43529A246480145B0A6D0234BDB0F0D02129E@MELANITE.micrel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, shemminger@vyatta.com,
+	Valdis.Kletnieks@vt.edu, akpm@linux-foundation.org,
+	peterz@infradead.org, kaber@trash.net,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100503.151725.94856059.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Choi, David" <David.Choi@Micrel.Com>
-Date: Thu, 29 Apr 2010 09:12:41 -0700
-
-> To whom it may have concerned:
+On Mon, May 03, 2010 at 03:17:25PM -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 03 May 2010 22:50:14 +0200
 > 
-> From: David J. Choi <david.choi@micrel.com>
-> Body of the explanation: This is the first version of phy driver from Micrel Inc.
-> Signed-off-by: David J. Choi <david.choi@micrel.com>
+> > Paul, David, here the patch I was thinking about :
+> > 
+> > Feel free to split it in two parts if you like, I am too tired and must
+> > sleep now ;)
+>  ...
+> > [PATCH net-next-2.6] net: rcu fixes
+> > 
+> > Add hlist_for_each_entry_rcu_bh() and
+> > hlist_for_each_entry_continue_rcu_bh() macros, and use them in
+> > ipv6_get_ifaddr(), if6_get_first() and if6_get_next() to fix lockdeps
+> > warnings.
+> > 
+> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> 
+> Paul, let me know if you want to handle these seperately (one commit
+> in your tree for the rculist.h bit and one for the ipv6 change) or to
+> put it all at once into net-next-2.6, I'm happy either way.
 
-Applied, thank you.
+These changes look pretty closely integrated, so it is probably better
+if they go up your tree with the related networking changes.  I will
+take a look at them.
+
+							Thanx, Paul
