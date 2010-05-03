@@ -1,36 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ethernet: call __skb_pull() in eth_type_trans()
-Date: Mon, 03 May 2010 12:54:04 -0700 (PDT)
-Message-ID: <20100503.125404.134122628.davem@davemloft.net>
-References: <1272895972-13799-1-git-send-email-xiaosuo@gmail.com>
+From: Chuck Lever <chuck.lever@oracle.com>
+Subject: TCP over lo
+Date: Mon, 03 May 2010 16:00:48 -0400
+Message-ID: <4BDF2B70.2040301@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41920
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753462Ab0ECTx6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 15:53:58 -0400
-In-Reply-To: <1272895972-13799-1-git-send-email-xiaosuo@gmail.com>
+Received: from rcsinet10.oracle.com ([148.87.113.121]:49072 "EHLO
+	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756381Ab0ECUA7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 16:00:59 -0400
+Received: from rcsinet13.oracle.com (rcsinet13.oracle.com [148.87.113.125])
+	by rcsinet10.oracle.com (Switch-3.4.2/Switch-3.4.1) with ESMTP id o43K0uo7000640
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Mon, 3 May 2010 20:00:57 GMT
+Received: from acsmt354.oracle.com (acsmt354.oracle.com [141.146.40.154])
+	by rcsinet13.oracle.com (Switch-3.4.2/Switch-3.4.1) with ESMTP id o430kF8o005255
+	for <netdev@vger.kernel.org>; Mon, 3 May 2010 20:00:55 GMT
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Mon,  3 May 2010 22:12:52 +0800
+I've got a bug report about attempting to mount a remote NFSv4 server 
+while the client's lo interface is down.
 
-> @@ -162,7 +162,10 @@ __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
->  
->  	skb->dev = dev;
->  	skb_reset_mac_header(skb);
-> -	skb_pull_inline(skb, ETH_HLEN);
-> +	if (unlikely(skb->len < ETH_ZLEN))
-> +		dev_warn(&dev->dev, "too small ethernet packet: %u bytes\n",
-> +			 skb->len);
-> +	__skb_pull(skb, ETH_HLEN);
->  	eth = eth_hdr(skb);
+Apparently a TCP connection attempt over lo when it is DOWN results in 
+ETIMEDOUT.  If I attempt a TCP connect on eth0 when it is DOWN I get 
+ENETUNREACH.
 
-And now it's even more expensive than skb_pull_inline() :-)
+Is this behavior difference by design?  Is there some other information 
+I'm missing?  Just wondering how to go about addressing the issue.
 
-Really, things are fine as-is.
+Thanks in advance for advice.
+
+-- 
+chuck[dot]lever[at]oracle[dot]com
