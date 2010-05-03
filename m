@@ -1,46 +1,53 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [net-next-2.6 PATCH 2/2] add ndo_set_port_profile op support for enic dynamic vnics
-Date: Mon, 3 May 2010 13:32:34 +0200
-Message-ID: <201005031332.34955.arnd@arndb.de>
-References: <C7FEE68A.2CBEF%scofeldm@cisco.com> <201004291748.38702.arnd@arndb.de> <alpine.LFD.2.00.1005022119140.16925@vk>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: VLAN I/F's and TX queue.
+Date: Mon, 3 May 2010 13:34:28 +0200
+Message-ID: <OF5A42C874.3AF220FE-ONC1257718.003ABC6E-C1257718.003F94D2@transmode.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Scott Feldman <scofeldm@cisco.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, chrisw@redhat.com,
-	Jens Osterkamp <Jens.Osterkamp@gmx.de>
-To: Vivek Kashyap <kashyapv@us.ibm.com>
+Content-Type: text/plain; charset=US-ASCII
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.8]:61298 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757831Ab0ECLcl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 07:32:41 -0400
-In-Reply-To: <alpine.LFD.2.00.1005022119140.16925@vk>
+Received: from gw1.transmode.se ([213.115.205.20]:56195 "EHLO gw1.transmode.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758030Ab0ECLej (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 May 2010 07:34:39 -0400
+Received: from sesr04.transmode.se (sesr04.transmode.se [192.168.201.15])
+	by gw1.transmode.se (Postfix) with ESMTP id C3010258C34
+	for <netdev@vger.kernel.org>; Mon,  3 May 2010 13:34:36 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 03 May 2010, Vivek Kashyap wrote:
-> > After a successful pre-associate-with-resource-reservation step, we
-> > know that the actual associate step will be both fast and successful.
-> > After it completes, the VSI is known to be on the destination
-> > and all traffic goes there (replacing the gratuitous ARP method we do
-> > today).
-> >
-> > I don't think we'd ever do a pre-associate without the
-> > resource-reservation, but the standard defines both. In theory,
-> > we could do a pre-associate at every switch in the data center
-> > in order to find out if it's possible to migrate there.
-> >
-> > If you want to have more details, please look at the draft spec at
-> > http://www.ieee802.org/1/files/public/docs2010/bg-joint-evb-0410v1.pdf
-> 
-> The basic difference is that in 'pre-associate with resoruce reservation', the 
-> local buffers and resources needed for the eventual 'associate' are reserved
-> at the switch port.  Therefore the associate will not fail with 
-> 'insufficient resources'. It might otherwise.
 
-Yes, that's exactly what I wrote. So do you have any idea why we would
-ever not want to do the resource reservation?
+We noted dropped pkgs on our VLAN interfaces and i stated to look
+for a cause. Here is a ifconfig example:
 
-	Arnd
+eth0      Link encap:Ethernet  HWaddr 00:AA:BB:CC:DD:EE
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:8886910 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:8880219 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:100
+          RX bytes:1626842951 (1.5 GiB)  TX bytes:1555540810 (1.4 GiB)
+
+eth0.1    Link encap:Ethernet  HWaddr 00:AA:BB:CC:DD:EE
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:2163164 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:2161943 errors:0 dropped:98 overruns:0 carrier:0
+          collisions:0 txqueuelen:0
+          RX bytes:2467090557 (2.2 GiB)  TX bytes:2480246455 (2.3 GiB)
+
+eth0.1.1  Link encap:Ethernet  HWaddr 00:AA:BB:CC:DD:EE
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:2163164 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:2161943 errors:0 dropped:98 overruns:0 carrier:0
+          collisions:0 txqueuelen:0
+          RX bytes:2458437901 (2.2 GiB)  TX bytes:2471598683 (2.3 GiB)
+
+Here I note that txqueuelen is 0 for eth0.1/eth0.1.1 and 100 for eth0 and
+that it is only eth0.1 and eth0.1.1 that drops pkgs. It feels as if eth0.1
+bypasses eth0's tx queue and passes pkgs directly to the HW driver. Is that so?
+If so, that feels a bit strange and I am not sure how to best
+fix this. Any ides?
+
+Using kernel 2.6.33
+
+     Jocke
+
