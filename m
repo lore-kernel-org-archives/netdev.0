@@ -1,49 +1,72 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH v6] net: batch skb dequeueing from softnet
-	input_pkt_queue
-Date: Mon, 3 May 2010 17:52:04 +0200
-Message-ID: <20100503155204.GA6200@gargoyle.fritz.box>
-References: <1272797690.2173.26.camel@edumazet-laptop> <20100502071324.1a95fdad@infradead.org> <1272810448.2173.31.camel@edumazet-laptop> <20100502105418.7abf83a7@infradead.org> <1272828143.2173.150.camel@edumazet-laptop> <20100502205044.450beda2@infradead.org> <1272863834.2173.173.camel@edumazet-laptop> <20100503032227.268613ac@infradead.org> <20100503103426.GA25809@one.firstfloor.org> <20100503070925.572bbee6@infradead.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv7] add mergeable buffers support to vhost_net
+Date: Mon, 3 May 2010 18:56:14 +0300
+Message-ID: <20100503155613.GB12449@redhat.com>
+References: <20100503103410.GA11113@redhat.com> <OF639FB51C.80B669F0-ON88257718.0054F654-88257718.0055FB45@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, hadi@cyberus.ca,
-	xiaosuo@gmail.com, therbert@google.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org, lenb@kernel.org
-To: Arjan van de Ven <arjan@infradead.org>
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
+	virtualization@lists.osdl.org
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:43164 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753075Ab0ECPtd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 11:49:33 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:9719 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752973Ab0ECQBA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 May 2010 12:01:00 -0400
 Content-Disposition: inline
-In-Reply-To: <20100503070925.572bbee6@infradead.org>
+In-Reply-To: <OF639FB51C.80B669F0-ON88257718.0054F654-88257718.0055FB45@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> so the hard problem is that on going idle, the local timers need to be
-> funneled to the external HPET. Afaik right now we use one channel of
-> the hpet, with the result that we have one global lock for this.
+On Mon, May 03, 2010 at 08:39:08AM -0700, David Stevens wrote:
+> "Michael S. Tsirkin" <mst@redhat.com> wrote on 05/03/2010 03:34:11 AM:
 > 
-> HPETs have more than one channel (2 or 3 historically, newer chipsets
-> iirc have a few more), so in principle we can split this lock at least
-> a little bit... if we can get to one hpet channel per level 3 cache
-> domain we'd already make huge progress in terms of cost of the
-> contention....
+> > On Wed, Apr 28, 2010 at 01:57:12PM -0700, David L Stevens wrote:
+> > > This patch adds mergeable receive buffer support to vhost_net.
+> > > 
+> > > Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
+> > 
+> > I've been doing some more testing before sending out a pull
+> > request, and I see a drastic performance degradation in guest to host
+> > traffic when this is applied but mergeable buffers are not in used
+> > by userspace (existing qemu-kvm userspace).
+> 
+>         Actually, I wouldn't expect it to work at all;
+> the qemu-kvm
+> patch (particularly the feature bit setting bug fix) is required.
 
-I suggested the same thing a few emails up @) (great minds think 
-alike etc.etc. @) . 
+Which bugfix is that?
 
-I'm not sure how difficult it would be to implement though.
+> Without it, I think the existing code will tell the guest to use
+> mergeable buffers while turning it off in vhost.
 
-Potential issues:
+It should not do that, specifically
+vhost_net_get_features does:
+	features &= ~(1 << VIRTIO_NET_F_MRG_RXBUF);
+unconditionally. This was added with:
+5751995a20e77cd9d61d00f7390401895fa172a6
 
-Some user applications use the hpet channels directly through
-the character device interface so there would be a potential
-compatibility issue (but maybe that should be just moved
-to be emulated with a hrtimer ?)
+I forced mergeable buffers off with -global virtio-net-pci.mrg_rxbuf=off
+and it did not seem to help either.
 
-And if multiple broadcast controllers are elected this might
-make it harder to become idle.
+> That was completely
+> non-functional for me -- what version of qemu-kvm are you using?
 
--Andi
+992cc816c433332f2e93db033919a9ddbfcd1da4 or later should work well
+AFAIK.
+
+>         What I did to test w/o mergeable buffers is turn off the
+> bit in VHOST_FEATURES.
+
+It should be enough to force mergeable buffers to off by qemu command
+line: -global virtio-net-pci.mrg_rxbuf=off 
+
+> I'll recheck these, but qemu-kvm definitely
+> must be updated; the original doesn't correctly handle feature bits.
+> 
+>                                                                 +-DLS
+
+Hmm, I don't see the bug.
+
+-- 
+MST
