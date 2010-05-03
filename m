@@ -1,62 +1,75 @@
-From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-Subject: [PATCH  kernel 2.6.34-rc5] lib8390: to be SMP safe
-Date: Mon, 3 May 2010 19:43:16 +0900
-Message-ID: <20100503194316.60c98272.ken_kawasaki@spring.nifty.jp>
-References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
-	<20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
-	<20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
-	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
-	<20091213094411.18be2ff6.ken_kawasaki@spring.nifty.jp>
-	<20100307070256.cb86716d.ken_kawasaki@spring.nifty.jp>
+From: Hannes Eder <heder@google.com>
+Subject: Re: [patch v2.2 1/4] [PATCH v2.1 1/4] netfilter: xt_ipvs (netfilter
+	matcher for IPVS)
+Date: Mon, 3 May 2010 13:29:46 +0200
+Message-ID: <AANLkTikIzHuzxo4z1_8_fEGLBC2-0Uz0X8SOc8n2msuX@mail.gmail.com>
+References: <20100501032014.406353538@vergenet.net>
+	 <20100501032120.298829234@vergenet.net> <4BDC543F.7060500@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userg508.nifty.com ([202.248.238.88]:26215 "EHLO
-	userg508.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756675Ab0ECKn3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 06:43:29 -0400
-Received: from localhost.localdomain (eaoska322229.adsl.ppp.infoweb.ne.jp [115.176.51.229])by userg508.nifty.com with SMTP id o43AhMGY007045
-	for <netdev@vger.kernel.org>; Mon, 3 May 2010 19:43:22 +0900
-In-Reply-To: <20100307070256.cb86716d.ken_kawasaki@spring.nifty.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netfilter@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
+	Julius Volz <julius.volz@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <4BDC543F.7060500@trash.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Thank you for picking this series of patches up again and thanks for
+the feedback.
 
-lib8390:
-	write the value "ENISR_ALL" to register "EN0_IMR"
-	after enable_irq_lockdep_irqrestore. 
+I'll send an updated version in the next days.
 
-	This patch avoids frequent transmit error on SMP system.
+Cheers, -Hannes
 
-
-Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-
----
-
---- linux-2.6.34-rc6/drivers/net/lib8390.c.orig	2010-05-02 16:49:57.000000000 +0900
-+++ linux-2.6.34-rc6/drivers/net/lib8390.c	2010-05-02 18:09:18.000000000 +0900
-@@ -367,9 +367,9 @@ static netdev_tx_t __ei_start_xmit(struc
- 				dev->name, ei_local->tx1, ei_local->tx2, ei_local->lasttx);
- 		ei_local->irqlock = 0;
- 		netif_stop_queue(dev);
--		ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
- 		spin_unlock(&ei_local->page_lock);
- 		enable_irq_lockdep_irqrestore(dev->irq, &flags);
-+		ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
- 		dev->stats.tx_errors++;
- 		return NETDEV_TX_BUSY;
- 	}
-@@ -407,10 +407,10 @@ static netdev_tx_t __ei_start_xmit(struc
- 
- 	/* Turn 8390 interrupts back on. */
- 	ei_local->irqlock = 0;
--	ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
- 
- 	spin_unlock(&ei_local->page_lock);
- 	enable_irq_lockdep_irqrestore(dev->irq, &flags);
-+	ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
- 
- 	dev_kfree_skb (skb);
- 	dev->stats.tx_bytes += send_length;
+On Sat, May 1, 2010 at 18:18, Patrick McHardy <kaber@trash.net> wrote:
+> Simon Horman wrote:
+>
+>> @@ -0,0 +1,25 @@
+>> +#ifndef _XT_IPVS_H
+>> +#define _XT_IPVS_H 1
+>
+> You don't need to define a value.
+>
+>> +config NETFILTER_XT_MATCH_IPVS
+>> + =A0 =A0 tristate '"ipvs" match support'
+>> + =A0 =A0 depends on IP_VS
+>> + =A0 =A0 depends on NETFILTER_ADVANCED
+>> + =A0 =A0 help
+>> + =A0 =A0 =A0 This option allows you to match against IPVS propertie=
+s of a packet.
+>> +
+>> + =A0 =A0 =A0 If unsure, say N.
+>
+> You're using conntrack symbols, so this seems to need a dependency
+> on NF_CONNTRACK.
+>
+>> +static bool ipvs_mt_check(const struct xt_mtchk_param *par)
+>
+> We've changed the signature to "int" in nf-next to be able to
+> return errno codes. Please rebase your patches onto nf-next-2.6.git.
+>
+> Please also CC netfilter-devel at least for those parts that affect
+> non-IPVS netfilter.
+>
+>> +{
+>> + =A0 =A0 if (par->family !=3D NFPROTO_IPV4
+>> +#ifdef CONFIG_IP_VS_IPV6
+>> + =A0 =A0 =A0 =A0 && par->family !=3D NFPROTO_IPV6
+>> +#endif
+>> + =A0 =A0 =A0 =A0 =A0 =A0 ) {
+>> + =A0 =A0 =A0 =A0 =A0 =A0 pr_info("protocol family %u not supported\=
+n", par->family);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 return false;
+>> + =A0 =A0 }
+>> +
+>> + =A0 =A0 return true;
+>> +}
+>
+>
