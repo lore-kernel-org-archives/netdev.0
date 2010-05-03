@@ -1,63 +1,72 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Fun with if_bridge.h and br_private.h
-Date: Mon, 3 May 2010 12:12:56 -0700
-Message-ID: <20100503191256.GA18110@linux.vnet.ibm.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
+Subject: RE: [patch 01/13] KS8851: Fix ks8851 snl transmit problem
+Date: Mon, 3 May 2010 12:06:21 -0700
+Message-ID: <14385191E87B904DBD836449AA30269D6DE63A@MORGANITE.micrel.com>
+References: <20100429231621.015936077@fluff.org.uk><20100429231739.509103394@fluff.org.uk> <20100502.223852.219748077.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, arnd@arndb.de
-To: shemminger@vyatta.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <support@tincantools.com>
+To: "David Miller" <davem@davemloft.net>, <ben@simtec.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:40262 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756356Ab0ECTM7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 May 2010 15:12:59 -0400
-Received: from d01relay07.pok.ibm.com (d01relay07.pok.ibm.com [9.56.227.147])
-	by e9.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o43J0953018377
-	for <netdev@vger.kernel.org>; Mon, 3 May 2010 15:00:09 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay07.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o43JCvuE1409270
-	for <netdev@vger.kernel.org>; Mon, 3 May 2010 15:12:57 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o43JCvuG028802
-	for <netdev@vger.kernel.org>; Mon, 3 May 2010 15:12:57 -0400
-Content-Disposition: inline
+Received: from p01c11o145.mxlogic.net ([208.65.144.68]:58129 "EHLO
+	p01c11o145.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755912Ab0ECTOf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 15:14:35 -0400
+Content-class: urn:content-classes:message
+In-Reply-To: <20100502.223852.219748077.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, Stephen,
+David Miller wrote:
+> From: Ben Dooks <ben@simtec.co.uk>
+> Date: Fri, 30 Apr 2010 00:16:22 +0100
+> 
+>> From: Tristram Ha <Tristram.Ha@micrel.com>
+>> 
+>> This fixes a transmit problem of the ks8851 snl network driver.
+>> 
+>> Under heavy TCP traffic the device will stop transmitting. Turning
+off
+>> the transmit interrupt avoids this issue.  A new workqueue was
+>> implemented to replace the functionality of the transmit interrupt
+processing.
+>> 
+>> Signed-off-by: Tristram Ha <Tristram.Ha@micrel.com>
+> 
+> Please, try to fix this properly.  Unless you have a known chip errata
+with the TX interrupt
+> that cannot be worked around reasonably, which would need to be
+detailed and explained
+> completely in the commit log message, you should try to figure out
+what the real problem is.  
+> 
+> Otherwise just tossing everything to a workqueue looks like a hack, at
+best.
+> 
+> I suspect you have some kind of race between IRQ processing and the
+> ->ndo_start_xmit() handler, so you end up missing a queue wakeup.
+> Either that or you end up misprogramming the hardware due to the race.
+> 
+> There is no way I'm applying this as-is.
 
-I need some help with #include issues surrounding bridge.
+As I explained a long time ago (last year), this patch is no longer
+considered as a fix but for performance.
 
-Arnd has been putting together a sparse-based RCU-checking tool
-that can detect pointer access that should have been protected by an
-rcu_dereference() or rcu_assign_pointer().  On of the side-effects of
-his approach is that rcu_dereference() can no longer handle pointers
-to incomplete types, as Arnd's approach uses the address-space feature
-of sparse, which in turn must tag the type pointed to rather than the
-pointer itself.  And this in turn requires rcu_dereference() and friends
-to see the pointed-to type as well as the pointer type.
+The transmit done interrupt in the KSZ8851 chips is not required for
+normal operation.  Turning it off actually will improve transmit
+performance because the system will not be interrupted every time a
+packet is sent.
 
-One place affected by this is handle_bridge() in net/core/dev.c, which
-invokes rcu_dereference() on skb->dev->br_port, which is of type struct
-net_bridge_port, which is defined in net/bridge/br_private.h.  This is,
-well, private, but is included into a couple places in netfilter and atm,
-so I tried including it into net/core/dev.c.
+This driver runs on SPI bus.  Just reading register requires a workqueue
+because it cannot be done under interrupt context.  Processing the
+transmit interrupt requires scheduling a workqueue anyway.
 
-This still left me with forward references:
+I tested the driver under the Beagle Zippy2 board with a 24 MHz SPI bus
+clock, which limits the throughput to 10 Mbps.  On other systems the
+transmit performance improvement may be greater, but I do not have that
+data to back me up.
 
-In file included from net/core/dev.c:104:
-include/linux/if_bridge.h:106: warning: "struct net_bridge_port" declared inside parameter list
-include/linux/if_bridge.h:106: warning: its scope is only this definition or declaration, which is probably not what you want
-net/core/dev.c:2331: error: conflicting types for "br_handle_frame_hook"
-include/linux/if_bridge.h:105: error: previous declaration of "br_handle_frame_hook" was here
-net/core/dev.c:2333: error: conflicting types for "br_handle_frame_hook"
-include/linux/if_bridge.h:105: error: previous declaration of "br_handle_frame_hook" was here
-
-This happens because net/bridge/br_private.h includes if_bridge.h before
-it defines net_bridge_port.
-
-Any thoughts on how best to allow handle_bridge() see the definition
-of struct net_bridge_port?
-
-							Thanx, Paul
+If you feel strongly that this workqueue implementation is not
+appropriate, then please disregard the patch.
