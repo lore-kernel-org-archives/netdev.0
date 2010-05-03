@@ -1,49 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] net-next: remove useless union keyword
-Date: Mon, 03 May 2010 09:44:07 +0200
-Message-ID: <1272872647.2226.8.camel@edumazet-laptop>
-References: <1272837206-13223-1-git-send-email-xiaosuo@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] macvtap: add ioctl to modify vnet header size
+Date: Mon, 3 May 2010 10:55:11 +0300
+Message-ID: <20100503075511.GA8298@redhat.com>
+References: <20100429135158.GA26303@redhat.com> <201004291640.57280.arnd@arndb.de> <20100502.233232.66719719.davem@davemloft.net> <20100502.233439.77341308.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: arnd@arndb.de, sri@us.ibm.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dlstevens@us.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:50834 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753105Ab0ECHoL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 03:44:11 -0400
-Received: by bwz19 with SMTP id 19so1128568bwz.21
-        for <netdev@vger.kernel.org>; Mon, 03 May 2010 00:44:09 -0700 (PDT)
-In-Reply-To: <1272837206-13223-1-git-send-email-xiaosuo@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:15664 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932153Ab0ECH7J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 May 2010 03:59:09 -0400
+Content-Disposition: inline
+In-Reply-To: <20100502.233439.77341308.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 03 mai 2010 =C3=A0 05:53 +0800, Changli Gao a =C3=A9crit :
-> remove useless union keyword in rtable, rt6_info and dn_route.
->=20
-> Since there is only one member in a union, the union keyword isn't us=
-eful.
->=20
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-> ----
+On Sun, May 02, 2010 at 11:34:39PM -0700, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Sun, 02 May 2010 23:32:32 -0700 (PDT)
+> 
+> > From: Arnd Bergmann <arnd@arndb.de>
+> > Date: Thu, 29 Apr 2010 16:40:57 +0200
+> > 
+> >> On Thursday 29 April 2010, Michael S. Tsirkin wrote:
+> >>> This adds TUNSETVNETHDRSZ/TUNGETVNETHDRSZ support
+> >>> to macvtap.
+> >> 
+> >> Looks good, thanks Michael!
+> >> 
+> >>> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> >> 
+> >> Acked-by: Arnd Bergmann <arnd@arndb.de>
+> > 
+> > Applied to net-next-2.6, thanks.
+> 
+> Nevermind, reverted:
+> 
+> drivers/net/macvtap.c: In function 'macvtap_ioctl':
+> drivers/net/macvtap.c:679:7: error: 'TUNGETVNETHDRSZ' undeclared (first use in this function)
+> drivers/net/macvtap.c:679:7: note: each undeclared identifier is reported only once for each function it appears in
+> drivers/net/macvtap.c:685:7: error: 'TUNSETVNETHDRSZ' undeclared (first use in this function)
+> 
+> What tree is this supposed to build under?  Certinaly not net-2.6
+> or net-next-2.6
 
+The reason is it needs to be applied on top of the patch that adds the
+same header to tun that you acked.  I put this in patch description:
+> I plan to merge both patches through vhost tree together
+> with mergeable buffer support. Comments?
+In other words, this will be included in a pull request that I
+intend to send out shortly.
 
-Thats right, in 2.6.20, next pointer was relocalised at the end of
-'struct dst_entry' in commits 093c2ca4167cf66f69020329d14138da0da8599b
-and 1e19e02ca0c5e33ea73a25127dbe6c3b8fcaac4b
-
-The union trick is only needed in 'struct dst_entry'.
-
-Please respin your patch against net-next-2.6
-
-patching file net/ipv6/ip6_output.c
-Hunk #1 succeeded at 701 (offset 1 line).
-Hunk #3 succeeded at 743 (offset 1 line).
-Hunk #5 succeeded at 788 (offset 1 line).
-Hunk #7 succeeded at 1159 (offset 1 line).
-Hunk #9 succeeded at 1227 (offset 1 line).
-Hunk #11 succeeded at 1284 (offset 1 line).
-Hunk #13 succeeded at 1506 (offset 1 line).
-
-
+-- 
+MST
