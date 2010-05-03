@@ -1,41 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: if6_get_next() fix
-Date: Mon, 03 May 2010 15:17:25 -0700 (PDT)
-Message-ID: <20100503.151725.94856059.davem@davemloft.net>
-References: <1272917635.2407.106.camel@edumazet-laptop>
-	<20100503.132442.200112018.davem@davemloft.net>
-	<1272919814.2407.149.camel@edumazet-laptop>
+Subject: Re: [net-next-2.6 PATCH v3] ixgbe: disable MSI-X by default on
+ certain Cisco adapters
+Date: Mon, 03 May 2010 15:18:55 -0700 (PDT)
+Message-ID: <20100503.151855.38069977.davem@davemloft.net>
+References: <20100428024521.28991.37874.stgit@localhost.localdomain>
+	<w2u9929d2391005031516m6ae1bb3bpb9b4b9dc84bf4b1d@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paulmck@linux.vnet.ibm.com, shemminger@vyatta.com,
-	Valdis.Kletnieks@vt.edu, akpm@linux-foundation.org,
-	peterz@infradead.org, kaber@trash.net,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1272919814.2407.149.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	nicholasx.d.nunley@intel.com, john.ronciak@intel.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44134
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754872Ab0ECWSt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 18:18:49 -0400
+In-Reply-To: <w2u9929d2391005031516m6ae1bb3bpb9b4b9dc84bf4b1d@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 03 May 2010 22:50:14 +0200
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Mon, 3 May 2010 15:16:07 -0700
 
-> Paul, David, here the patch I was thinking about :
+> Dave please revert the following patch because it is being fixed
+> without a software workaround:
 > 
-> Feel free to split it in two parts if you like, I am too tired and must
-> sleep now ;)
- ...
-> [PATCH net-next-2.6] net: rcu fixes
-> 
-> Add hlist_for_each_entry_rcu_bh() and
-> hlist_for_each_entry_continue_rcu_bh() macros, and use them in
-> ipv6_get_ifaddr(), if6_get_first() and if6_get_next() to fix lockdeps
-> warnings.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> commit d5ffd75a27fade39ba5df3b07290c5a2c297b9bd
 
-Paul, let me know if you want to handle these seperately (one commit
-in your tree for the rculist.h bit and one for the ipv6 change) or to
-put it all at once into net-next-2.6, I'm happy either way.
+Done.
