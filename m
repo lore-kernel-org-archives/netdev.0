@@ -1,47 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: if6_get_next() fix
-Date: Mon, 03 May 2010 15:54:11 -0700 (PDT)
-Message-ID: <20100503.155411.112816416.davem@davemloft.net>
-References: <20100503.132442.200112018.davem@davemloft.net>
-	<1272919814.2407.149.camel@edumazet-laptop>
-	<20100503225229.GO2597@linux.vnet.ibm.com>
+Subject: Re: [RFC PATCH v2] sctp: fix sctp to work with ipv6 source address
+ routing
+Date: Mon, 03 May 2010 15:56:22 -0700 (PDT)
+Message-ID: <20100503.155622.46319916.davem@davemloft.net>
+References: <4BDEFFEF.2090200@hp.com>
+	<1272906432-6237-1-git-send-email-vladislav.yasevich@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, shemminger@vyatta.com,
-	Valdis.Kletnieks@vt.edu, akpm@linux-foundation.org,
-	peterz@infradead.org, kaber@trash.net,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+Cc: Weixing.Shi@windriver.com, yjwei@cn.fujitsu.com,
 	netdev@vger.kernel.org
-To: paulmck@linux.vnet.ibm.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100503225229.GO2597@linux.vnet.ibm.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: vladislav.yasevich@hp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46783
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756121Ab0ECW4Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 18:56:16 -0400
+In-Reply-To: <1272906432-6237-1-git-send-email-vladislav.yasevich@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Date: Mon, 3 May 2010 15:52:29 -0700
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Mon,  3 May 2010 13:07:12 -0400
 
-> On Mon, May 03, 2010 at 10:50:14PM +0200, Eric Dumazet wrote:
->> Paul, David, here the patch I was thinking about :
->> 
->> Feel free to split it in two parts if you like, I am too tired and must
->> sleep now ;)
->> 
->> Thanks
->> 
->> [PATCH net-next-2.6] net: rcu fixes
->> 
->> Add hlist_for_each_entry_rcu_bh() and
->> hlist_for_each_entry_continue_rcu_bh() macros, and use them in
->> ipv6_get_ifaddr(), if6_get_first() and if6_get_next() to fix lockdeps
->> warnings.
+> From: Weixing Shi <Weixing.Shi@windriver.com>
 > 
-> Looks good!!!
-> 
-> It will collide with Arnd's sparse-based changes, but that will be
-> easy to fix, so no problem.
-> 
-> Reviewed-by: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+> <vlad>
+> Ok, updated to be a bit more correct.  Only leave the function early if the
+> first lookup succeeds.
+> </vlad>
 
-Applied, thanks!
+This patch looks fine to me.
