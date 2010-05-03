@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [GIT PULL] first round of vhost-net enhancements for net-next
-Date: Mon, 03 May 2010 15:07:29 -0700 (PDT)
-Message-ID: <20100503.150729.00474027.davem@davemloft.net>
+Date: Mon, 03 May 2010 15:08:29 -0700 (PDT)
+Message-ID: <20100503.150829.254849182.davem@davemloft.net>
 References: <20100503213244.GA16006@redhat.com>
+	<20100503.150729.00474027.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: mst@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43515
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755443Ab0ECWHZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 18:07:25 -0400
-In-Reply-To: <20100503213244.GA16006@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100503.150729.00474027.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Tue, 4 May 2010 00:32:45 +0300
-
-> The following tree includes a couple of enhancements that help vhost-net.
-> Please pull them for net-next. Another set of patches is under
-> debugging/testing and I hope to get them ready in time for 2.6.35,
-> so there may be another pull request later.
-
-Pulled, thanks.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAwMyBN
+YXkgMjAxMCAxNTowNzoyOSAtMDcwMCAoUERUKQ0KDQo+IEZyb206ICJNaWNoYWVsIFMuIFRzaXJr
+aW4iIDxtc3RAcmVkaGF0LmNvbT4NCj4gRGF0ZTogVHVlLCA0IE1heSAyMDEwIDAwOjMyOjQ1ICsw
+MzAwDQo+IA0KPj4gVGhlIGZvbGxvd2luZyB0cmVlIGluY2x1ZGVzIGEgY291cGxlIG9mIGVuaGFu
+Y2VtZW50cyB0aGF0IGhlbHAgdmhvc3QtbmV0Lg0KPj4gUGxlYXNlIHB1bGwgdGhlbSBmb3IgbmV0
+LW5leHQuIEFub3RoZXIgc2V0IG9mIHBhdGNoZXMgaXMgdW5kZXINCj4+IGRlYnVnZ2luZy90ZXN0
+aW5nIGFuZCBJIGhvcGUgdG8gZ2V0IHRoZW0gcmVhZHkgaW4gdGltZSBmb3IgMi42LjM1LA0KPj4g
+c28gdGhlcmUgbWF5IGJlIGFub3RoZXIgcHVsbCByZXF1ZXN0IGxhdGVyLg0KPiANCj4gUHVsbGVk
+LCB0aGFua3MuDQoNCk5ldmVybWluZCwgcmV2ZXJ0ZWQuDQoNCkRvIHlvdSBldmVuIGNvbXBpbGUg
+dGVzdCB3aGF0IHlvdSBzZW5kIHRvIHBlb3BsZT8NCg0KZHJpdmVycy9uZXQvbWFjdnRhcC5jOiBJ
+biBmdW5jdGlvbiChbWFjdnRhcF9pb2N0bKI6DQpkcml2ZXJzL25ldC9tYWN2dGFwLmM6NzEzOiB3
+YXJuaW5nOiBjb250cm9sIHJlYWNoZXMgZW5kIG9mIG5vbi12b2lkIGZ1bmN0aW9uDQoNCllvdSdy
+ZSByZWFsbHkgYmF0dGluZyAxMDAwIHRvZGF5IE1pY2hhZWwuLi4NCg==
