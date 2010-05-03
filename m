@@ -1,37 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] ppp_generic: pull 2 bytes so that PPP_PROTO(skb)
- is valid
-Date: Mon, 03 May 2010 12:49:02 -0700 (PDT)
-Message-ID: <20100503.124902.51283117.davem@davemloft.net>
-References: <4BDB244D.40800@simon.arlott.org.uk>
-	<20100502.232520.146109082.davem@davemloft.net>
-	<e85216b167313bb2bd46f5990ed468f5b67a1ad8@8b5064a13e22126c1b9329f0dc35b8915774b7c3.invalid>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC] network driver skb allocations
+Date: Mon, 03 May 2010 20:49:26 +0100
+Message-ID: <1272916166.27948.62.camel@localhost>
+References: <1272906384.2226.80.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paulus@samba.org, linux-ppp@vger.kernel.org
-To: simon@fire.lp0.eu
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <e85216b167313bb2bd46f5990ed468f5b67a1ad8@8b5064a13e22126c1b9329f0dc35b8915774b7c3.invalid>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:9924 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751286Ab0ECTta (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 15:49:30 -0400
+In-Reply-To: <1272906384.2226.80.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Simon Arlott" <simon@fire.lp0.eu>
-Date: Mon, 3 May 2010 12:50:04 +0100
+On Mon, 2010-05-03 at 19:06 +0200, Eric Dumazet wrote:
+[...]
+> Current logic for drivers is to :
+> 
+> allocate skbs (sk_buff + data) and put them in a ring buffer.
 
-> Updated patch attached.
+Not all of them.
 
-Two things:
+> When rx interrupt comes, get the skb and give it to stack.
+> 
+> Allocate a new skb (sk_buff + data) and put it in rx fat ring buffer (511 entries for tg3 )
+> 
+> This is suboptimal, because sk_buff will probably be cold 512 rx later...
+> Also, NUMA info might be wrong : sk_buff should be allocated on current node,
+> not on the device preferred node.
 
-1) Please don't post patches as binary attachments, it doesn't get
-   queued up properly into patchwork if you post it that way.
+This also avoids allocating sk_buffs that are never needed due to GRO or
+scattering of jumbo frames.
 
-2) Always make a fresh email posting for new versions of your patch
-   when possible, as this way what to include in the commit log
-   message is clear and always applies to the patch posted rather
-   than bits and pieces of quoted material from previous postings
-   that may or may not apply to the current version of the patch.
+> Drivers should allocate only the data part for NIC, and at the time of interrupt,
+> allocate the skb_buff and link it to buffer filled by NIC.
 
-So please repost this, and your new 2/2 patch, as clean new submissions.
+I think we found that this increases latency, so sfc switches between
+page and skb allocations dynamically.
 
-Thanks.
+Ben.
+
+> With a prefetch(first_cache_line_of_data) before doing sk_buff allocation and init,
+> eth_type_trans() / get_rps_cpus() would be much faster.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
