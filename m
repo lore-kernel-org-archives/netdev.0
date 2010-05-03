@@ -1,32 +1,37 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 3/3] ptp: Added a clock that uses the eTSEC found on
- the MPC85xx.
-Date: Mon, 3 May 2010 08:26:17 +0200
-Message-ID: <20100503062617.GA3310@riccoc20.at.omicron.at>
-References: <20100429092005.GA6727@riccoc20.at.omicron.at>
- <FFD6BE31-AF2B-4D44-9751-61DB06327DBD@kernel.crashing.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] ppp_generic: linearise skbs before passing them to
+ pppd
+Date: Sun, 02 May 2010 23:27:11 -0700 (PDT)
+Message-ID: <20100502.232711.256856995.davem@davemloft.net>
+References: <4BDB244D.40800@simon.arlott.org.uk>
+	<4BDB2469.6020105@simon.arlott.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@vger.kernel.org>,
-	linuxppc-dev <linuxppc-dev@lists.ozlabs.org>,
-	devicetree-discuss <devicetree-discuss@ozlabs.org>
-To: Kumar Gala <galak@kernel.crashing.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.154]:4294 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755493Ab0ECG0T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 02:26:19 -0400
-Received: by fg-out-1718.google.com with SMTP id d23so917092fga.1
-        for <netdev@vger.kernel.org>; Sun, 02 May 2010 23:26:17 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <FFD6BE31-AF2B-4D44-9751-61DB06327DBD@kernel.crashing.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, paulus@samba.org, linux-ppp@vger.kernel.org
+To: simon@fire.lp0.eu
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <4BDB2469.6020105@simon.arlott.org.uk>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, May 01, 2010 at 11:36:12AM -0500, Kumar Gala wrote:
-> Is there a binding document that describes this node you are adding?
+From: Simon Arlott <simon@fire.lp0.eu>
+Date: Fri, 30 Apr 2010 19:41:45 +0100
 
-No, but I will add one to Documentation/powerpc/dts-bindings.
+> Frequently when using PPPoE with an interface MTU greater than 1500,
+> the skb is likely to be non-linear. If the skb needs to be passed to
+> pppd then the skb must be linearised first.
+> 
+> The previous commit fixes an issue with accidentally sending skbs
+> to pppd based on an invalid read of the protocol type. When that
+> error occurred pppd was reading invalid skb data too.
+> 
+> Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
 
-Thanks,
-Richard
+Don't propagate stupidity.
+
+The real problem is that ppp_read() can't handle non-linear SKBs, so
+fix that instead.  The easiest way to do that is to put a "struct
+iovec iov;" on ppp_read()'s stack, fill it in with ther user buffer
+pointer and length, then use that to call
+skb_copy_datagram_const_iovec().
