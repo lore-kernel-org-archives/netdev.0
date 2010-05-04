@@ -1,63 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ethernet: call __skb_pull() in eth_type_trans()
-Date: Mon, 03 May 2010 23:16:18 -0700 (PDT)
-Message-ID: <20100503.231618.237360885.davem@davemloft.net>
-References: <1272895972-13799-1-git-send-email-xiaosuo@gmail.com>
-	<20100503.125404.134122628.davem@davemloft.net>
-	<h2h412e6f7f1005031934m971342dw965e046d40485ec7@mail.gmail.com>
+Subject: Re: OOP in ip_cmsg_recv (net-next)
+Date: Mon, 03 May 2010 23:17:43 -0700 (PDT)
+Message-ID: <20100503.231743.20921751.davem@davemloft.net>
+References: <1272907269.2226.111.camel@edumazet-laptop>
+	<20100503.152351.181464355.davem@davemloft.net>
+	<1272948225.2407.170.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42820
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42823
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754782Ab0EDGQL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 May 2010 02:16:11 -0400
-In-Reply-To: <h2h412e6f7f1005031934m971342dw965e046d40485ec7@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1754655Ab0EDGRg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 May 2010 02:17:36 -0400
+In-Reply-To: <1272948225.2407.170.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Tue, 4 May 2010 10:34:07 +0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 04 May 2010 06:43:45 +0200
 
-> It seems no callers pass eth_type_trans() a packet, whose length is
-> less than ETH_HLEN. It means that skb_pull() always returns non-NULL.
-> And if skb_pull() returns NULL, the later memory dereferences must be
-> invalid.
+> David, if I am not mistaken (not thea yet for me this early morning) the
+> tracer you mention is included in kfree_skb(), not in __kfree_skb() :
+ ...
+> I only copied part of consume_skb() which doesnt call
+> trace_kfree_skb() :
+ ...
+> So I believe my second patch is a bit better : We dont even lock the
+> socket in the (rare) case we should not orphan the skb ;)
 
-In your opinion.  As I explained in the reply to your latest
-eth_type_trans() patch, we can defererence several bytes past
-the end of skb->data's valid packet data area without faulting.
+Right you are.
 
-We'll just read in garbage, because it's things like skb_shared_info()
-and friends might be there.
+> [PATCH net-next-2.6] net: skb_free_datagram_locked() fix
 
-But it's completely safe, and frankly I'm fine with the kernel doing
-this when runts make it into this code if that allows us to avoid
-stupid checks.
-
-> As Eric mentioned above, GRE only assures the length of the packets
-> passed to eth_type_trans() isn't less than ETH_HLEN, we should check
-> skb->len before we dereference skb->data.
-
-The code needs only ETH_HLEN, but valid ethernet packets must be at
-least ETH_ZLEN.
-
-> For performance, how about inlining eth_type_trans(). Because its main
-> users are NIC drivers, and there aren't likely many kinds of NICs at
-> the same time, inlining it won't increases the size of the kernel
-> image much.
-
-No, that's unnecessary bloat, plus I want to make ->ndo_type_trans()
-a netdev operation so it can possibly be deferred.
-
-Changli, please go hack elsewhere and on some other piece of code,
-all your ideas here in eth_type_trans() are not well founded.
-
-I see from your struct dst union removal patch that you don't even
-build test your changes, so why don't you spend your excess energy on
-making sure your code at least compiles successfully?
-
-Thanks.
+I'll apply this, thanks!
