@@ -1,44 +1,40 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: TCP-MD5 checksum failure on x86_64 SMP
-Date: Tue, 04 May 2010 12:32:02 +0100
-Message-ID: <1272972722.2097.1.camel@achroite.uk.solarflarecom.com>
-References: <i2h571fb4001005031027y4a58c4dtfd28ddcdc08d8401@mail.gmail.com>
-	 <o2h571fb4001005032030tdf02a4fag520ec4e56ebdb8df@mail.gmail.com>
+From: Johannes Weiner <jw-QdrG9jWwCLEAvxtiuMwx3w@public.gmane.org>
+Subject: [patch] sunrpc: add missing return statement
+Date: Tue, 4 May 2010 13:59:57 +0200
+Message-ID: <20100504115759.266396633@emlix.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Bhaskar Dutta <bhaskie@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:56218 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752058Ab0EDLcF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 May 2010 07:32:05 -0400
-In-Reply-To: <o2h571fb4001005032030tdf02a4fag520ec4e56ebdb8df@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexandros Batsakis <batsakis-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2010-05-04 at 09:00 +0530, Bhaskar Dutta wrote:
-> Hi,
-> 
-> I am observing intermittent TCP-MD5 checksum failures
-> (CONFIG_TCP_MD5SIG)  on kernel 2.6.31 while talking to a BGP router.
-> 
-> The problem is only seen in multi-core 64 bit machines.
-> Is there any known bug in the per_cpu_ptr implementation (I am aware
-> that the percpu allocator has been re-implemented in 2.6.33) that
-> might cause a corruption in 64 bit SMP machines?
-> 
-> Any pointers would be appreciated.
+f300bab "nfsd41: sunrpc: add new xprt class for nfsv4.1 backchannel"
+introduced an error case branch that lacks an actual `return' keyword
+before the return value.  Add it.
 
-There was another recent report of incorrect MD5 signatures in
-<http://thread.gmane.org/gmane.linux.network/159556>, but without any
-response.
+Signed-off-by: Johannes Weiner <jw-QdrG9jWwCLEAvxtiuMwx3w@public.gmane.org>
+Cc: Alexandros Batsakis <batsakis-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+---
+ net/sunrpc/xprtsock.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -2444,7 +2444,7 @@ static struct rpc_xprt *xs_setup_bc_tcp(
+ 	struct svc_sock *bc_sock;
+ 
+ 	if (!args->bc_xprt)
+-		ERR_PTR(-EINVAL);
++		return ERR_PTR(-EINVAL);
+ 
+ 	xprt = xs_setup_xprt(args, xprt_tcp_slot_table_entries);
+ 	if (IS_ERR(xprt))
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
