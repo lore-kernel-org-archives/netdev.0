@@ -1,58 +1,324 @@
-From: "George B." <georgeb@gmail.com>
-Subject: Question about vlans, bonding, etc.
-Date: Mon, 3 May 2010 17:06:59 -0700
-Message-ID: <i2tb65cae941005031706o19a6f1e9zc86b33d73462113f@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev <netdev@vger.kernel.org>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH] bonding: fix arp_validate on bonds inside a bridge
+Date: Mon, 03 May 2010 18:06:22 -0700
+Message-ID: <17907.1272935182@death.nxdomain.ibm.com>
+References: <20100429163921.GA4228@midget.suse.cz> <26811.1272567443@death.nxdomain.ibm.com> <20100430154529.GB15803@midget.suse.cz> <20100503.155820.158442623.davem@davemloft.net> <10955.1272927779@death.nxdomain.ibm.com>
+Cc: David Miller <davem@davemloft.net>, jbohac@suse.cz,
+	bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f174.google.com ([209.85.212.174]:34177 "EHLO
-	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756678Ab0EDAHA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 20:07:00 -0400
-Received: by pxi5 with SMTP id 5so526818pxi.19
-        for <netdev@vger.kernel.org>; Mon, 03 May 2010 17:06:59 -0700 (PDT)
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:44998 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752934Ab0EDBGZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 May 2010 21:06:25 -0400
+Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
+	by e5.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o440oiss029502
+	for <netdev@vger.kernel.org>; Mon, 3 May 2010 20:50:44 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o4416Oj1174094
+	for <netdev@vger.kernel.org>; Mon, 3 May 2010 21:06:24 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o4416O0j028160
+	for <netdev@vger.kernel.org>; Mon, 3 May 2010 22:06:24 -0300
+In-reply-to: <10955.1272927779@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Watching the "Receive issues with bonding and vlans" thread brought a
-question to mind. =A0In what order should things be done for best
-performance?
+Jay Vosburgh <fubar@us.ibm.com> wrote:
 
-=46or example, say I have a pair of ethernet interfaces. =A0Do I slave =
-the
-ethernet interfaces to the bond device and then make the vlans on the
-bond devices?
-Or do I make the vlans on the ethernet devices and then bond the vlan
-interfaces?
+>David Miller <davem@davemloft.net> wrote:
+>
+>From: Jiri Bohac <jbohac@suse.cz>
+>>Date: Fri, 30 Apr 2010 17:45:29 +0200
+>>
+>>> On Thu, Apr 29, 2010 at 11:57:23AM -0700, Jay Vosburgh wrote:
+>>>> 	This doesn't apply to the current net-next-2.6 (because
+>>>> skb_bond_should_drop was pulled out of line a few weeks ago); can you
+>>>> update the patch?
+>>> 
+>>> sure, here it goes:
+>>
+>>Jay can I get an ACK or similar?
+>
+>	Setting up to test it right now; will report back.
 
-In the first case I would have:
+	Tested and it looks to work as advertised.  I see only one minor
+nit, there's a pr_debug that missed being renamed to the new function
+name; here's the whole patch with that fixed.
 
+	-J
 
+From: Jiri Bohac <jbohac@suse.cz>
+Date: Fri, 30 Apr 2010 17:45:29 +0200
+Subject: [PATCH] bonding: fix arp_validate on bonds inside a bridge
 
-bond0.3--|     |------eth0
-             bond0
-bond0.5--|     |------eth1
+bonding with arp_validate does not currently work when the
+bonding master is part of a bridge. This is because
+bond_arp_rcv() is registered as a packet type handler for ARP,
+but before netif_receive_skb() processes the ptype_base hash
+table, handle_bridge() is called and changes the skb->dev to
+point to the bridge device.
 
-The second case would be:
+This patch makes bonding_should_drop() call the bonding ARP
+handler directly if a IFF_MASTER_NEEDARP flag is set on the
+bonding master.  bond_register_arp() now only needs to set the
+IFF_MASTER_NEEDARP flag.
 
-      |------------------eth0.5-----|
-      |          |-------eth0.3---eth0
-bond0  bond1
-      |          |-------eth1.3---eth1
-      |------------------eth1.5-----|
+We no longer need special ARP handling for inactive slaves, hence
+IFF_SLAVE_NEEDARP is not needed.
 
-I am using he first method currently as it seemed more intuitive to me
-at the time to bond the ethernets and then put the vlans on the bonds
-but it seems life might be easier for the vlan driver if it is bound
-directly to the hardware.  I am using Intel NICs (igb driver) with 4
-queues per NIC.
+skb_reset_network_header() and skb_reset_transport_header() need
+to be called before the call to bonding_should_drop() because
+bond_handle_arp() needs the offsets initialized.
 
-Would there be a performance difference expected between the two
-configurations?  Can the vlan driver "see through" the bond interface
-to the
-hardware and take advantage of multiple queues if the hardware
-supports it in the first configuration?
+As a side-effect, skb_bond_should_drop is #defined as 0
+when CONFIG_BONDING is not set.
 
-George Bonser
+Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+---
+ drivers/net/bonding/bond_main.c |   34 ++++++++++++----------------------
+ drivers/net/bonding/bonding.h   |    5 +----
+ include/linux/if.h              |    2 +-
+ include/linux/netdevice.h       |    4 ++++
+ net/core/dev.c                  |   23 +++++++++++++++--------
+ 5 files changed, 33 insertions(+), 35 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 85e813c..b71209f 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1879,8 +1879,7 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	}
+ 
+ 	slave_dev->priv_flags &= ~(IFF_MASTER_8023AD | IFF_MASTER_ALB |
+-				   IFF_SLAVE_INACTIVE | IFF_BONDING |
+-				   IFF_SLAVE_NEEDARP);
++				   IFF_SLAVE_INACTIVE | IFF_BONDING);
+ 
+ 	kfree(slave);
+ 
+@@ -2551,11 +2550,12 @@ static void bond_validate_arp(struct bonding *bond, struct slave *slave, __be32
+ 	}
+ }
+ 
+-static int bond_arp_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, struct net_device *orig_dev)
++static void bond_handle_arp(struct sk_buff *skb)
+ {
+ 	struct arphdr *arp;
+ 	struct slave *slave;
+ 	struct bonding *bond;
++	struct net_device *dev = skb->dev->master, *orig_dev = skb->dev;
+ 	unsigned char *arp_ptr;
+ 	__be32 sip, tip;
+ 
+@@ -2576,9 +2576,8 @@ static int bond_arp_rcv(struct sk_buff *skb, struct net_device *dev, struct pack
+ 	bond = netdev_priv(dev);
+ 	read_lock(&bond->lock);
+ 
+-	pr_debug("bond_arp_rcv: bond %s skb->dev %s orig_dev %s\n",
+-		 bond->dev->name, skb->dev ? skb->dev->name : "NULL",
+-		 orig_dev ? orig_dev->name : "NULL");
++	pr_debug("bond_handle_arp: bond: %s, master: %s, slave: %s\n",
++		bond->dev->name, dev->name, orig_dev->name);
+ 
+ 	slave = bond_get_slave_by_dev(bond, orig_dev);
+ 	if (!slave || !slave_do_arp_validate(bond, slave))
+@@ -2602,7 +2601,7 @@ static int bond_arp_rcv(struct sk_buff *skb, struct net_device *dev, struct pack
+ 	arp_ptr += 4 + dev->addr_len;
+ 	memcpy(&tip, arp_ptr, 4);
+ 
+-	pr_debug("bond_arp_rcv: %s %s/%d av %d sv %d sip %pI4 tip %pI4\n",
++	pr_debug("bond_handle_arp: %s %s/%d av %d sv %d sip %pI4 tip %pI4\n",
+ 		 bond->dev->name, slave->dev->name, slave->state,
+ 		 bond->params.arp_validate, slave_do_arp_validate(bond, slave),
+ 		 &sip, &tip);
+@@ -2623,8 +2622,7 @@ static int bond_arp_rcv(struct sk_buff *skb, struct net_device *dev, struct pack
+ out_unlock:
+ 	read_unlock(&bond->lock);
+ out:
+-	dev_kfree_skb(skb);
+-	return NET_RX_SUCCESS;
++	return;
+ }
+ 
+ /*
+@@ -3506,23 +3504,12 @@ static void bond_unregister_lacpdu(struct bonding *bond)
+ 
+ void bond_register_arp(struct bonding *bond)
+ {
+-	struct packet_type *pt = &bond->arp_mon_pt;
+-
+-	if (pt->type)
+-		return;
+-
+-	pt->type = htons(ETH_P_ARP);
+-	pt->dev = bond->dev;
+-	pt->func = bond_arp_rcv;
+-	dev_add_pack(pt);
++	bond->dev->priv_flags |= IFF_MASTER_NEEDARP;
+ }
+ 
+ void bond_unregister_arp(struct bonding *bond)
+ {
+-	struct packet_type *pt = &bond->arp_mon_pt;
+-
+-	dev_remove_pack(pt);
+-	pt->type = 0;
++	bond->dev->priv_flags &= ~IFF_MASTER_NEEDARP;
+ }
+ 
+ /*---------------------------- Hashing Policies -----------------------------*/
+@@ -4967,6 +4954,7 @@ static struct pernet_operations bond_net_ops = {
+ 	.size = sizeof(struct bond_net),
+ };
+ 
++extern void (*bond_handle_arp_hook)(struct sk_buff *skb);
+ static int __init bonding_init(void)
+ {
+ 	int i;
+@@ -4999,6 +4987,7 @@ static int __init bonding_init(void)
+ 	register_netdevice_notifier(&bond_netdev_notifier);
+ 	register_inetaddr_notifier(&bond_inetaddr_notifier);
+ 	bond_register_ipv6_notifier();
++	bond_handle_arp_hook = bond_handle_arp;
+ out:
+ 	return res;
+ err:
+@@ -5019,6 +5008,7 @@ static void __exit bonding_exit(void)
+ 
+ 	rtnl_link_unregister(&bond_link_ops);
+ 	unregister_pernet_subsys(&bond_net_ops);
++	bond_handle_arp_hook = NULL;
+ }
+ 
+ module_init(bonding_init);
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 2aa3367..64e0108 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -212,7 +212,6 @@ struct bonding {
+ 	struct   bond_params params;
+ 	struct   list_head vlan_list;
+ 	struct   vlan_group *vlgrp;
+-	struct   packet_type arp_mon_pt;
+ 	struct   workqueue_struct *wq;
+ 	struct   delayed_work mii_work;
+ 	struct   delayed_work arp_work;
+@@ -292,14 +291,12 @@ static inline void bond_set_slave_inactive_flags(struct slave *slave)
+ 	if (!bond_is_lb(bond))
+ 		slave->state = BOND_STATE_BACKUP;
+ 	slave->dev->priv_flags |= IFF_SLAVE_INACTIVE;
+-	if (slave_do_arp_validate(bond, slave))
+-		slave->dev->priv_flags |= IFF_SLAVE_NEEDARP;
+ }
+ 
+ static inline void bond_set_slave_active_flags(struct slave *slave)
+ {
+ 	slave->state = BOND_STATE_ACTIVE;
+-	slave->dev->priv_flags &= ~(IFF_SLAVE_INACTIVE | IFF_SLAVE_NEEDARP);
++	slave->dev->priv_flags &= ~IFF_SLAVE_INACTIVE;
+ }
+ 
+ static inline void bond_set_master_3ad_flags(struct bonding *bond)
+diff --git a/include/linux/if.h b/include/linux/if.h
+index 3a9f410..84ab2c8 100644
+--- a/include/linux/if.h
++++ b/include/linux/if.h
+@@ -63,7 +63,7 @@
+ #define IFF_MASTER_8023AD	0x8	/* bonding master, 802.3ad. 	*/
+ #define IFF_MASTER_ALB	0x10		/* bonding master, balance-alb.	*/
+ #define IFF_BONDING	0x20		/* bonding master or slave	*/
+-#define IFF_SLAVE_NEEDARP 0x40		/* need ARPs for validation	*/
++#define IFF_MASTER_NEEDARP 0x40		/* need ARPs for validation	*/
+ #define IFF_ISATAP	0x80		/* ISATAP interface (RFC4214)	*/
+ #define IFF_MASTER_ARPMON 0x100		/* bonding master, ARP mon in use */
+ #define IFF_WAN_HDLC	0x200		/* WAN HDLC device		*/
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 40d4c20..fa27d16 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2162,6 +2162,7 @@ static inline void netif_set_gso_max_size(struct net_device *dev,
+ 	dev->gso_max_size = size;
+ }
+ 
++#if defined(CONFIG_BONDING) || defined(CONFIG_BONDING_MODULE)
+ extern int __skb_bond_should_drop(struct sk_buff *skb,
+ 				  struct net_device *master);
+ 
+@@ -2172,6 +2173,9 @@ static inline int skb_bond_should_drop(struct sk_buff *skb,
+ 		return __skb_bond_should_drop(skb, master);
+ 	return 0;
+ }
++#else
++#define skb_bond_should_drop(a, b) 0
++#endif
+ 
+ extern struct pernet_operations __net_initdata loopback_net_ops;
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 100dcbd..2689ff0 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2734,6 +2734,10 @@ static inline void skb_bond_set_mac_by_master(struct sk_buff *skb,
+ 	}
+ }
+ 
++#if defined(CONFIG_BONDING) || defined(CONFIG_BONDING_MODULE)
++void (*bond_handle_arp_hook)(struct sk_buff *skb);
++EXPORT_SYMBOL_GPL(bond_handle_arp_hook);
++
+ /* On bonding slaves other than the currently active slave, suppress
+  * duplicates except for 802.3ad ETH_P_SLOW, alb non-mcast/bcast, and
+  * ARP on active-backup slaves with arp_validate enabled.
+@@ -2753,11 +2757,13 @@ int __skb_bond_should_drop(struct sk_buff *skb, struct net_device *master)
+ 		skb_bond_set_mac_by_master(skb, master);
+ 	}
+ 
+-	if (dev->priv_flags & IFF_SLAVE_INACTIVE) {
+-		if ((dev->priv_flags & IFF_SLAVE_NEEDARP) &&
+-		    skb->protocol == __cpu_to_be16(ETH_P_ARP))
+-			return 0;
++	/* pass ARP frames directly to bonding
++	   before bridging or other hooks change them */
++	if ((master->priv_flags & IFF_MASTER_NEEDARP) &&
++	    skb->protocol == __cpu_to_be16(ETH_P_ARP))
++		bond_handle_arp_hook(skb);
+ 
++	if (dev->priv_flags & IFF_SLAVE_INACTIVE) {
+ 		if (master->priv_flags & IFF_MASTER_ALB) {
+ 			if (skb->pkt_type != PACKET_BROADCAST &&
+ 			    skb->pkt_type != PACKET_MULTICAST)
+@@ -2772,6 +2778,7 @@ int __skb_bond_should_drop(struct sk_buff *skb, struct net_device *master)
+ 	return 0;
+ }
+ EXPORT_SYMBOL(__skb_bond_should_drop);
++#endif
+ 
+ static int __netif_receive_skb(struct sk_buff *skb)
+ {
+@@ -2796,6 +2803,10 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ 	if (!skb->skb_iif)
+ 		skb->skb_iif = skb->dev->ifindex;
+ 
++	skb_reset_network_header(skb);
++	skb_reset_transport_header(skb);
++	skb->mac_len = skb->network_header - skb->mac_header;
++
+ 	null_or_orig = NULL;
+ 	orig_dev = skb->dev;
+ 	master = ACCESS_ONCE(orig_dev->master);
+@@ -2808,10 +2819,6 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ 
+ 	__get_cpu_var(netdev_rx_stat).total++;
+ 
+-	skb_reset_network_header(skb);
+-	skb_reset_transport_header(skb);
+-	skb->mac_len = skb->network_header - skb->mac_header;
+-
+ 	pt_prev = NULL;
+ 
+ 	rcu_read_lock();
+-- 
+1.6.0.2
+
