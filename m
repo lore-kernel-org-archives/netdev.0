@@ -1,34 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux kernel's IPV6_MULTICAST_HOPS default is 64; should be 1?
-Date: Tue, 04 May 2010 14:46:47 -0700 (PDT)
-Message-ID: <20100504.144647.157477097.davem@davemloft.net>
-References: <OF8BB88147.4F3756DA-ON88257719.002A895A-88257719.002AEB08@us.ibm.com>
-	<20100504.005757.97355845.davem@davemloft.net>
-	<4BE031FA.6040006@hp.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/1] net/usb: initiate sync sequence in sierra_net.c
+ driver
+Date: Tue, 04 May 2010 14:53:57 -0700 (PDT)
+Message-ID: <20100504.145357.111558943.davem@davemloft.net>
+References: <1272497304.8835.2.camel@Linuxdev4-laptop>
+	<20100501.180829.139101312.davem@davemloft.net>
+	<1273004302.6718.10.camel@Linuxdev4-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dlstevens@us.ibm.com, enh@google.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: brian.haley@hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45105
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753520Ab0EDVqk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 May 2010 17:46:40 -0400
-In-Reply-To: <4BE031FA.6040006@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, rfiler-usJ8hg9QsBLWpu6QEFMNjNBPR1lH4CV8@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1273004302.6718.10.camel@Linuxdev4-laptop>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Brian Haley <brian.haley@hp.com>
-Date: Tue, 04 May 2010 10:40:58 -0400
+From: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>
+Date: Tue, 4 May 2010 13:18:22 -0700
 
-> Specifying -1 for setsockopt(IPV6_MULTICAST_HOPS) should set the socket
-> value back to the system default value of IPV6_DEFAULT_MCASTHOPS (1).
-> 
-> Signed-off-by: Brian Haley <brian.haley@hp.com>
+> What are the chances of this patch to be in the kernel-2.6.34 release?
+> Without this patch the driver sierra_net (currently in kernel-2.6.34-rc6) 
+> will not work.
 
-In cast it wasn't clear from my other reply, I'm not applying this
-patch because I intentionally left this behavior there based upon
-some comments from Elliot in that this lets developers get the
-old default by asking for "-1" explicitly with a setsockopt.
+It's sitting in my net-2.6 tree which means it will go to Linus the
+next time I send him a pull request.  I have no idea when that will
+be, but hopefully it will be soon.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
