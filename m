@@ -1,431 +1,196 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [RFC] net: change bridge/macvlan hook to be be generic
-Date: Tue, 4 May 2010 15:37:58 -0700
-Message-ID: <20100504153758.0ed3a87d@nehalam>
+From: Pankaj Thakkar <pthakkar@vmware.com>
+Subject: RFC: Network Plugin Architecture (NPA) for vmxnet3
+Date: Tue, 4 May 2010 16:02:25 -0700
+Message-ID: <20100504230225.GP8323@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: pv-drivers@vmware.com, sbhatewara@vmware.com
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:35938 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757608Ab0EDWiE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 May 2010 18:38:04 -0400
+Received: from smtp-outbound-1.vmware.com ([65.115.85.69]:47202 "EHLO
+	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760246Ab0EDXCZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 May 2010 19:02:25 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The existing macvlan and bridge have special hooks in the packet input
-path. This patch changes it to a generic hook chain, like the packet type
-processing. I have been wanting to look into flow based switching, etc...
+Device passthrough technology allows a guest to bypass the hypervisor and drive
+the underlying physical device. VMware has been exploring various ways to
+deliver this technology to users in a manner which is easy to adopt. In this
+process we have prepared an architecture along with Intel - NPA (Network Plugin
+Architecture). NPA allows the guest to use the virtualized NIC vmxnet3 to
+passthrough to a number of physical NICs which support it. The document below
+provides an overview of NPA.
 
-Pro: generic code rather than special purpose
-     safer against race during insertion/removal
-     easier for out of tree network code
+We intend to upgrade the upstreamed vmxnet3 driver to implement NPA so that
+Linux users can exploit the benefits provided by passthrough devices in a
+seamless manner while retaining the benefits of virtualization. The document
+below tries to answer most of the questions which we anticipated. Please let us
+know your comments and queries.
 
-Con: performance (loop vs unrolled) and calling module for each packet
-     easier for out of tree network code
+Thank you.
 
-This is prototype only, don't use it as is...
-
+Signed-off-by: Pankaj Thakkar <pthakkar@vmware.com>
 
 
----
- drivers/net/macvlan.c     |   24 ++++++----
- include/linux/netdevice.h |   19 ++++++++
- net/bridge/br.c           |    4 -
- net/bridge/br_fdb.c       |    5 ++
- net/bridge/br_input.c     |   25 ++++++++--
- net/bridge/br_private.h   |    3 -
- net/core/dev.c            |  107 +++++++++++++++++-----------------------------
- 7 files changed, 103 insertions(+), 84 deletions(-)
+Network Plugin Architecture
+---------------------------
 
---- a/drivers/net/macvlan.c	2010-05-04 15:15:54.532454436 -0700
-+++ b/drivers/net/macvlan.c	2010-05-04 15:30:19.461536637 -0700
-@@ -145,21 +145,24 @@ static void macvlan_broadcast(struct sk_
- }
- 
- /* called under rcu_read_lock() from netif_receive_skb */
--static struct sk_buff *macvlan_handle_frame(struct sk_buff *skb)
-+static struct sk_buff *macvlan_handle_frame(struct net_device *orig_dev,
-+					    struct sk_buff *skb)
- {
--	const struct ethhdr *eth = eth_hdr(skb);
-+	const struct ethhdr *eth;
- 	const struct macvlan_port *port;
- 	const struct macvlan_dev *vlan;
--	const struct macvlan_dev *src;
- 	struct net_device *dev;
- 	unsigned int len;
- 
--	port = rcu_dereference(skb->dev->macvlan_port);
-+	port = rcu_dereference(orig_dev->macvlan_port);
- 	if (port == NULL)
- 		return skb;
- 
-+	eth = eth_hdr(skb);
- 	if (is_multicast_ether_addr(eth->h_dest)) {
--		src = macvlan_hash_lookup(port, eth->h_source);
-+		const struct macvlan_dev *src
-+			= macvlan_hash_lookup(port, eth->h_source);
-+
- 		if (!src)
- 			/* frame comes from an external address */
- 			macvlan_broadcast(skb, port, NULL,
-@@ -759,19 +762,24 @@ static struct notifier_block macvlan_not
- 	.notifier_call	= macvlan_device_event,
- };
- 
-+static struct packet_handler macvlan_hook = {
-+	.priority = MACVLAN_HANDLER,
-+	.func     = macvlan_handle_frame,
-+};
-+
- static int __init macvlan_init_module(void)
- {
- 	int err;
- 
- 	register_netdevice_notifier(&macvlan_notifier_block);
--	macvlan_handle_frame_hook = macvlan_handle_frame;
- 
- 	err = macvlan_link_register(&macvlan_link_ops);
- 	if (err < 0)
- 		goto err1;
-+
-+	dev_add_handler(&macvlan_hook);
- 	return 0;
- err1:
--	macvlan_handle_frame_hook = NULL;
- 	unregister_netdevice_notifier(&macvlan_notifier_block);
- 	return err;
- }
-@@ -779,7 +787,7 @@ err1:
- static void __exit macvlan_cleanup_module(void)
- {
- 	rtnl_link_unregister(&macvlan_link_ops);
--	macvlan_handle_frame_hook = NULL;
-+	dev_remove_handler(&macvlan_hook);
- 	unregister_netdevice_notifier(&macvlan_notifier_block);
- }
- 
---- a/include/linux/netdevice.h	2010-05-04 15:15:54.592523341 -0700
-+++ b/include/linux/netdevice.h	2010-05-04 15:26:14.741067048 -0700
-@@ -1011,10 +1011,15 @@ struct net_device {
- 	/* mid-layer private */
- 	void			*ml_priv;
- 
-+
-+#if defined(CONFIG_BRIDGE) || defined (CONFIG_BRIDGE_MODULE)
- 	/* bridge stuff */
- 	struct net_bridge_port	*br_port;
-+#endif
-+#if defined(CONFIG_MACVLAN) || defined(CONFIG_MACVLAN_MODULE)
- 	/* macvlan */
- 	struct macvlan_port	*macvlan_port;
-+#endif
- 	/* GARP */
- 	struct garp_port	*garp_port;
- 
-@@ -1204,6 +1209,17 @@ struct packet_type {
- 	struct list_head	list;
- };
- 
-+enum handler_priority {
-+	BRIDGE_HANDLER    = 1,
-+	MACVLAN_HANDLER,
-+};
-+
-+struct packet_handler {
-+	struct list_head       list;
-+	enum handler_priority  priority;
-+	struct sk_buff *       (*func)(struct net_device *, struct sk_buff *);
-+};
-+
- #include <linux/interrupt.h>
- #include <linux/notifier.h>
- 
-@@ -1259,6 +1275,9 @@ extern void		dev_add_pack(struct packet_
- extern void		dev_remove_pack(struct packet_type *pt);
- extern void		__dev_remove_pack(struct packet_type *pt);
- 
-+extern void		dev_add_handler(struct packet_handler *h);
-+extern void		dev_remove_handler(struct packet_handler *h);
-+
- extern struct net_device	*dev_get_by_flags(struct net *net, unsigned short flags,
- 						  unsigned short mask);
- extern struct net_device	*dev_get_by_name(struct net *net, const char *name);
---- a/net/bridge/br.c	2010-05-04 15:15:54.542453499 -0700
-+++ b/net/bridge/br.c	2010-05-04 15:16:10.111257969 -0700
-@@ -63,7 +63,7 @@ static int __init br_init(void)
- 		goto err_out4;
- 
- 	brioctl_set(br_ioctl_deviceless_stub);
--	br_handle_frame_hook = br_handle_frame;
-+	dev_add_handler(&br_packet_hook);
- 
- #if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
- 	br_fdb_test_addr_hook = br_fdb_test_addr;
-@@ -100,7 +100,7 @@ static void __exit br_deinit(void)
- 	br_fdb_test_addr_hook = NULL;
- #endif
- 
--	br_handle_frame_hook = NULL;
-+	dev_remove_handler(&br_packet_hook);
- 	br_fdb_fini();
- }
- 
---- a/net/bridge/br_fdb.c	2010-05-04 15:15:54.552508079 -0700
-+++ b/net/bridge/br_fdb.c	2010-05-04 15:16:23.020967283 -0700
-@@ -253,6 +253,11 @@ int br_fdb_test_addr(struct net_device *
- 
- 	return ret;
- }
-+
-+/* This hook is defined here for ATM LANE */
-+int (*br_fdb_test_addr_hook)(struct net_device *dev,
-+			     unsigned char *addr) __read_mostly;
-+EXPORT_SYMBOL_GPL(br_fdb_test_addr_hook);
- #endif /* CONFIG_ATM_LANE */
- 
- /*
---- a/net/bridge/br_input.c	2010-05-04 15:15:54.562453677 -0700
-+++ b/net/bridge/br_input.c	2010-05-04 15:21:35.521115299 -0700
-@@ -133,13 +133,19 @@ static inline int is_link_local(const un
- /*
-  * Called via br_handle_frame_hook.
-  * Return NULL if skb is handled
-- * note: already called with rcu_read_lock (preempt_disabled)
-+ * note: already called with rcu_read_lock
-  */
--struct sk_buff *br_handle_frame(struct net_bridge_port *p, struct sk_buff *skb)
-+static struct sk_buff *br_handle_frame(struct net_device *dev,
-+				       struct sk_buff *skb)
- {
--	const unsigned char *dest = eth_hdr(skb)->h_dest;
-+	const unsigned char *dest;
-+	struct net_bridge_port *port;
- 	int (*rhook)(struct sk_buff *skb);
- 
-+	if (skb->pkt_type == PACKET_LOOPBACK ||
-+	    (port = rcu_dereference(skb->dev->br_port)) == NULL)
-+		return skb;
-+
- 	if (!is_valid_ether_addr(eth_hdr(skb)->h_source))
- 		goto drop;
- 
-@@ -147,13 +153,14 @@ struct sk_buff *br_handle_frame(struct n
- 	if (!skb)
- 		return NULL;
- 
-+	dest = eth_hdr(skb)->h_dest;
- 	if (unlikely(is_link_local(dest))) {
- 		/* Pause frames shouldn't be passed up by driver anyway */
- 		if (skb->protocol == htons(ETH_P_PAUSE))
- 			goto drop;
- 
- 		/* If STP is turned off, then forward */
--		if (p->br->stp_enabled == BR_NO_STP && dest[5] == 0)
-+		if (port->br->stp_enabled == BR_NO_STP && dest[5] == 0)
- 			goto forward;
- 
- 		if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
-@@ -164,7 +171,7 @@ struct sk_buff *br_handle_frame(struct n
- 	}
- 
- forward:
--	switch (p->state) {
-+	switch (port->state) {
- 	case BR_STATE_FORWARDING:
- 		rhook = rcu_dereference(br_should_route_hook);
- 		if (rhook != NULL) {
-@@ -174,7 +181,7 @@ forward:
- 		}
- 		/* fall through */
- 	case BR_STATE_LEARNING:
--		if (!compare_ether_addr(p->br->dev->dev_addr, dest))
-+		if (!compare_ether_addr(port->br->dev->dev_addr, dest))
- 			skb->pkt_type = PACKET_HOST;
- 
- 		NF_HOOK(PF_BRIDGE, NF_BR_PRE_ROUTING, skb, skb->dev, NULL,
-@@ -186,3 +193,9 @@ drop:
- 	}
- 	return NULL;
- }
-+
-+struct packet_handler br_packet_hook = {
-+	.priority = BRIDGE_HANDLER,
-+	.func     = br_handle_frame,
-+};
-+
---- a/net/bridge/br_private.h	2010-05-04 15:15:54.542453499 -0700
-+++ b/net/bridge/br_private.h	2010-05-04 15:16:10.111257969 -0700
-@@ -300,8 +300,7 @@ extern void br_features_recompute(struct
- 
- /* br_input.c */
- extern int br_handle_frame_finish(struct sk_buff *skb);
--extern struct sk_buff *br_handle_frame(struct net_bridge_port *p,
--				       struct sk_buff *skb);
-+extern struct packet_handler br_packet_hook;
- 
- /* br_ioctl.c */
- extern int br_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
---- a/net/core/dev.c	2010-05-04 15:15:54.572453666 -0700
-+++ b/net/core/dev.c	2010-05-04 15:23:03.945389538 -0700
-@@ -175,6 +175,9 @@ static DEFINE_SPINLOCK(ptype_lock);
- static struct list_head ptype_base[PTYPE_HASH_SIZE] __read_mostly;
- static struct list_head ptype_all __read_mostly;	/* Taps */
- 
-+static DEFINE_SPINLOCK(phook_lock);
-+static struct list_head packet_hook __read_mostly;
-+
- /*
-  * The @dev_base_head list is protected by @dev_base_lock and the rtnl
-  * semaphore.
-@@ -459,6 +462,33 @@ void dev_remove_pack(struct packet_type 
- }
- EXPORT_SYMBOL(dev_remove_pack);
- 
-+void dev_add_handler(struct packet_handler *nh)
-+{
-+	struct packet_handler *h;
-+	struct list_head *slot = &packet_hook;
-+
-+	spin_lock_bh(&phook_lock);
-+	list_for_each_entry(h, &packet_hook, list) {
-+		if (h->priority > nh->priority)
-+			break;
-+		slot = &h->list;
-+	}
-+	list_add_rcu(&nh->list, slot);
-+	spin_unlock_bh(&phook_lock);
-+
-+}
-+EXPORT_SYMBOL_GPL(dev_add_handler);
-+
-+
-+void dev_remove_handler(struct packet_handler *h)
-+{
-+	spin_lock_bh(&phook_lock);
-+	list_del_rcu(&h->list);
-+	spin_unlock_bh(&phook_lock);
-+	synchronize_net();
-+}
-+EXPORT_SYMBOL_GPL(dev_remove_handler);
-+
- /******************************************************************************
- 
- 		      Device Boot-time Settings Routines
-@@ -2566,66 +2596,6 @@ static inline int deliver_skb(struct sk_
- 	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
- }
- 
--#if defined(CONFIG_BRIDGE) || defined (CONFIG_BRIDGE_MODULE)
--
--#if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
--/* This hook is defined here for ATM LANE */
--int (*br_fdb_test_addr_hook)(struct net_device *dev,
--			     unsigned char *addr) __read_mostly;
--EXPORT_SYMBOL_GPL(br_fdb_test_addr_hook);
--#endif
--
--/*
-- * If bridge module is loaded call bridging hook.
-- *  returns NULL if packet was consumed.
-- */
--struct sk_buff *(*br_handle_frame_hook)(struct net_bridge_port *p,
--					struct sk_buff *skb) __read_mostly;
--EXPORT_SYMBOL_GPL(br_handle_frame_hook);
--
--static inline struct sk_buff *handle_bridge(struct sk_buff *skb,
--					    struct packet_type **pt_prev, int *ret,
--					    struct net_device *orig_dev)
--{
--	struct net_bridge_port *port;
--
--	if (skb->pkt_type == PACKET_LOOPBACK ||
--	    (port = rcu_dereference(skb->dev->br_port)) == NULL)
--		return skb;
--
--	if (*pt_prev) {
--		*ret = deliver_skb(skb, *pt_prev, orig_dev);
--		*pt_prev = NULL;
--	}
--
--	return br_handle_frame_hook(port, skb);
--}
--#else
--#define handle_bridge(skb, pt_prev, ret, orig_dev)	(skb)
--#endif
--
--#if defined(CONFIG_MACVLAN) || defined(CONFIG_MACVLAN_MODULE)
--struct sk_buff *(*macvlan_handle_frame_hook)(struct sk_buff *skb) __read_mostly;
--EXPORT_SYMBOL_GPL(macvlan_handle_frame_hook);
--
--static inline struct sk_buff *handle_macvlan(struct sk_buff *skb,
--					     struct packet_type **pt_prev,
--					     int *ret,
--					     struct net_device *orig_dev)
--{
--	if (skb->dev->macvlan_port == NULL)
--		return skb;
--
--	if (*pt_prev) {
--		*ret = deliver_skb(skb, *pt_prev, orig_dev);
--		*pt_prev = NULL;
--	}
--	return macvlan_handle_frame_hook(skb);
--}
--#else
--#define handle_macvlan(skb, pt_prev, ret, orig_dev)	(skb)
--#endif
--
- #ifdef CONFIG_NET_CLS_ACT
- /* TODO: Maybe we should just force sch_ingress to be compiled in
-  * when CONFIG_NET_CLS_ACT is? otherwise some useless instructions
-@@ -2773,6 +2743,7 @@ EXPORT_SYMBOL(__skb_bond_should_drop);
- static int __netif_receive_skb(struct sk_buff *skb)
- {
- 	struct packet_type *ptype, *pt_prev;
-+	struct packet_handler *phook;
- 	struct net_device *orig_dev;
- 	struct net_device *master;
- 	struct net_device *null_or_orig;
-@@ -2835,13 +2806,15 @@ static int __netif_receive_skb(struct sk
- 		goto out;
- ncls:
- #endif
-+	if (pt_prev)
-+		ret = deliver_skb(skb, pt_prev, orig_dev);
- 
--	skb = handle_bridge(skb, &pt_prev, &ret, orig_dev);
--	if (!skb)
--		goto out;
--	skb = handle_macvlan(skb, &pt_prev, &ret, orig_dev);
--	if (!skb)
--		goto out;
-+	/* Process special hooks used for bridging and macvlan */
-+	list_for_each_entry_rcu(phook, &packet_hook, list) {
-+		skb = (*phook->func)(orig_dev, skb);
-+		if (!skb)
-+			goto out;
-+	}
- 
- 	/*
- 	 * Make sure frames received on VLAN interfaces stacked on
-@@ -2856,6 +2829,7 @@ ncls:
- 	}
- 
- 	type = skb->protocol;
-+	pt_prev = NULL;
- 	list_for_each_entry_rcu(ptype,
- 			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
- 		if (ptype->type == type && (ptype->dev == null_or_orig ||
-@@ -5855,6 +5829,7 @@ static int __init net_dev_init(void)
- 	INIT_LIST_HEAD(&ptype_all);
- 	for (i = 0; i < PTYPE_HASH_SIZE; i++)
- 		INIT_LIST_HEAD(&ptype_base[i]);
-+	INIT_LIST_HEAD(&packet_hook);
- 
- 	if (register_pernet_subsys(&netdev_net_ops))
- 		goto out;
+VMware has been working on various device passthrough technologies for the past
+few years. Passthrough technology is interesting as it can result in better
+performance/cpu utilization for certain demanding applications. In our vSphere
+product we support direct assignment of PCI devices like networking adapters to
+a guest virtual machine. This allows the guest to drive the device using the
+device drivers installed inside the guest. This is similar to the way KVM
+allows for passthrough of PCI devices to the guests. The hypervisor is bypassed
+for all I/O and control operations and hence it can not provide any value add
+features such as live migration, suspend/resume, etc.
+
+Network Plugin Architecture (NPA) is an approach which VMware has developed in
+joint partnership with Intel which allows us to retain the best of passthrough
+technology and virtualization. NPA allows for passthrough of the fast data
+(I/O) path and lets the hypervisor deal with the slow control path using
+traditional emulation/paravirtualization techniques. Through this splitting of
+data and control path the hypervisor can still provide the above mentioned
+value add features and exploit the performance benefits of passthrough.
+
+NPA requires SR-IOV hardware which allows for sharing of one single NIC adapter
+by multiple guests. SR-IOV hardware has many logically separate functions
+called virtual functions (VF) which can be independently assigned to the guest
+OS. They also have one or more physical functions (PF) (managed by a PF driver)
+which are used by the hypervisor to control certain aspects of the VFs and the
+rest of the hardware. NPA splits the guest driver into two components called
+the Shell and the Plugin. The shell is responsible for interacting with the
+guest networking stack and funneling the control operations to the hypervisor.
+The plugin is responsible for driving the data path of the virtual function
+exposed to the guest and is specific to the NIC hardware. NPA also requires an
+embedded switch in the NIC to allow for switching traffic among the virtual
+functions. The PF is also used as an uplink to provide connectivity to other
+VMs which are in emulation mode. The figure below shows the major components in
+a block diagram.
+
+        +------------------------------+
+        |         Guest VM             |
+        |                              |
+        |      +----------------+      |
+        |      | vmxnet3 driver |      |
+        |      |     Shell      |      |
+        |      | +============+ |      |
+        |      | |   Plugin   | |      |
+        +------+-+------------+-+------+
+                |           .
+               +---------+  .
+               | vmxnet3 |  .
+               |___+-----+  .
+                     |      .
+                     |      .
+                +----------------------------+
+                |                            |
+                |       virtual switch       |
+                +----------------------------+
+                  |         .               \
+                  |         .                \
+           +=============+  .                 \
+           | PF control  |  .                  \
+           |             |  .                   \
+           |  L2 driver  |  .                    \
+           +-------------+  .                     \
+                  |         .                      \
+                  |         .                       \
+                +------------------------+     +------------+
+                | PF   VF1 VF2 ...   VFn |     |            |
+                |                        |     |  regular   |
+                |       SR-IOV NIC       |     |    nic     |
+                |    +--------------+    |     |   +--------+
+                |    |   embedded   |    |     +---+
+                |    |    switch    |    |
+                |    +--------------+    |
+                |        +---------------+
+                +--------+
+
+NPA offers several benefits:
+1. Performance: Critical performance sensitive paths are not trapped and the
+guest can directly drive the hardware without incurring virtualization
+overheads.
+
+2. Hypervisor control: All control operations from the guest such as programming
+MAC address go through the hypervisor layer and hence can be subjected to
+hypervisor policies. The PF driver can be further used to put policy decisions
+like which VLAN the guest should be on.
+
+3. Guest Management: No hardware specific drivers need to be installed in the
+guest virtual machine and hence no overheads are incurred for guest management.
+All software for the driver (including the PF driver and the plugin) is
+installed in the hypervisor.
+
+4. IHV independence: The architecture provides guidelines for splitting the
+functionality between the VFs and PF but does not dictate how the hardware
+should be implemented. It gives the IHV the freedom to do asynchronous updates
+either to the software or the hardware to work around any defects.
+
+The fundamental tenet in NPA is to let the hypervisor control the passthrough
+functionality with minimal guest intervention. This gives a lot of flexibility
+to the hypervisor which can then treat passthrough as an offload feature (just
+like TSO, LRO, etc) which is offered to the guest virtual machine when there
+are no conflicting features present. For example, if the hypervisor wants to
+migrate the virtual machine from one host to another, the hypervisor can switch
+the virtual machine out of passthrough mode into paravirtualized/emulated mode
+and it can use existing technique to migrate the virtual machine. Once the
+virtual machine is migrated to the destination host the hypervisor can switch
+the virtual machine back to passthrough mode if a supporting SR-IOV nic is
+present. This may involve reloading of a different plugin corresponding to the
+new SR-IOV hardware.
+
+Internally we have explored various other options before settling on the NPA
+approach. For example there are approaches which create a bonding driver on top
+of a complete passthrough of a NIC device and an emulated/paravirtualized
+device. Though this approach allows for live migration to work it adds a lot of
+complexity and dependency. First the hypervisor has to rely on a guest with
+hot-add support. Second the hypervisor has to depend on the guest networking
+stack to cooperate to perform migration. Third the guest has to carry the
+driver images for all possible hardware to which the guest may migrate to.
+Fourth the hypervisor does not get full control for all the policy decisions.
+Another approach we have considered is to have a uniform interface for the data
+path between the emulated/paravirtualized device and the hardware device which
+allows the hypervisor to seamlessly switch from the emulated interface to the
+hardware interface. Though this approach is very attractive and can work
+without any guest involvement it is not acceptable to the IHVs as it does not
+give them the freedom to fix bugs/erratas and differentiate from each other. We
+believe NPA approach provides the right level of control and flexibility to the
+hypervisors while letting the guest exploit the benefits of passthrough.
+
+The plugin image is provided by the IHVs along with the PF driver and is
+packaged in the hypervisor. The plugin image is OS agnostic and can be loaded
+either into a Linux VM or a Windows VM. The plugin is written against the Shell
+API interface which the shell is responsible for implementing. The API
+interface allows the plugin to do TX and RX only by programming the hardware
+rings (along with things like buffer allocation and basic initialization). The
+virtual machine comes up in paravirtualized/emulated mode when it is booted.
+The hypervisor allocates the VF and other resources and notifies the shell of
+the availability of the VF. The hypervisor injects the plugin into memory
+location specified by the shell. The shell initializes the plugin by calling
+into a known entry point and the plugin initializes the data path. The control
+path is already initialized by the PF driver when the VF is allocated. At this
+point the shell switches to using the loaded plugin to do all further TX and RX
+operations. The guest networking stack does not participate in these operations
+and continues to function normally. All the control operations continue being
+trapped by the hypervisor and are directed to the PF driver as needed. For
+example, if the MAC address changes the hypervisor updates its internal state
+and changes the state of the embedded switch as well through the PF control
+API.
+
+We have reworked our existing Linux vmxnet3 driver to accomodate NPA by
+splitting the driver into two parts: Shell and Plugin. The new split driver is
+backwards compatible and continues to work on old/existing vmxnet3 device
+emulations. The shell implements the API interface and contains code to do the
+bookkeeping for TX/RX buffers along with interrupt management. The shell code
+also handles the loading of the plugin and verifying the license of the loaded
+plugin. The plugin contains the code specific to vmxnet3 ring and descriptor
+management. The plugin uses the same Shell API interface which would be used by
+other IHVs. This vmxnet3 plugin is compiled statically along with the shell as
+this is needed to provide connectivity when there is no underlying SR-IOV
+device present. The IHV plugins are required to be distributed under GPL
+license and we are currently looking at ways to verify this both within the
+hypervisor and within the shell.
