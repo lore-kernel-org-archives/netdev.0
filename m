@@ -1,42 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux kernel's IPV6_MULTICAST_HOPS default is 64; should be 1?
-Date: Tue, 04 May 2010 00:57:57 -0700 (PDT)
-Message-ID: <20100504.005757.97355845.davem@davemloft.net>
-References: <AANLkTimf-FWCsiLqYDGg4nl-relRMuNvDowfTKZbe9kx@mail.gmail.com>
-	<OF8BB88147.4F3756DA-ON88257719.002A895A-88257719.002AEB08@us.ibm.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH 1/3] ptp: Added a brand new class driver for ptp clocks.
+Date: Tue, 04 May 2010 09:57:54 +0200
+Message-ID: <4BDFD382.1010309@grandegger.com>
+References: <20100429091936.GA6703@riccoc20.at.omicron.at> <4BDD5910.1040604@grandegger.com> <20100503100754.GA30417@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: enh@google.com, brian.haley@hp.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: dlstevens@us.ibm.com
+Cc: netdev@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51230
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757158Ab0EDH5v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 May 2010 03:57:51 -0400
-In-Reply-To: <OF8BB88147.4F3756DA-ON88257719.002A895A-88257719.002AEB08@us.ibm.com>
+Received: from mail-out.m-online.net ([212.18.0.10]:49755 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751121Ab0EDH6Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 May 2010 03:58:25 -0400
+In-Reply-To: <20100503100754.GA30417@riccoc20.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-From: David Stevens <dlstevens@us.ibm.com>
-Date: Tue, 4 May 2010 00:48:46 -0700
-
-> It's set to -1 by default, but the common code for unicast and
-> multicast in getsockopt is falling through to use the dst_entry.
+On 05/03/2010 12:07 PM, Richard Cochran wrote:
+> On Sun, May 02, 2010 at 12:50:56PM +0200, Wolfgang Grandegger wrote:
+>>
+>> As long as the device is in use by an application, no other can access
+>> it, because the mutex is locked. Other application may want to read the
+>> PTP clock time while ptpd is running, though.
 > 
-> I believe (though I haven't actually tried it recently) it actually
-> uses "1" for the default value for multicast;
+> Yes, of course. I implemented it that way just to get started. I first
+> want to concentrate on getting the basic drivers in place (still have
+> IXP46x and Phyter to do), and then on the ancillary features, like
+> timers, time stamping external inputs, and so on.
+> 
+> I understand that some fine grained access control to the PTP clock
+> woul be nice to have, but I am not sure exactly what would work best,
+> and I would like to save that decision for later...
 
-It doesn't, all of the uses in the ipv6 stack say something like:
+OK, fair enough.
 
-	if (multicast)
-		hlimit = np->mcast_hops;
-	else
-		hlimit = np->hop_limit;
-	if (hlimit < 0)
-		hlimit = ip6_dst_hoplimit(dst);
+> However, if you have some ideas, please take a look at the list of
+> features in the docu, and explain how you would like the access
+> control to work.
 
-Therefore, the change suggested by Elliot and which I committed is the
-way to get the correct behavior and fix this.
+The fine grain locking for set/get properties is tricky. I personally
+would just require "CAP_SYS_TIME" for setting properties and a
+spin_lock_irq* to protect against concurrent access, just like for
+setting/getting system clock properties.
+
+> Or better yet, post a patch ;)
+
+Would do if we could agree on the solution mentioned above.
+
+Wolfgang.
+
