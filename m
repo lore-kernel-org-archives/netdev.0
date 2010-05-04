@@ -1,56 +1,42 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: TCP-MD5 checksum failure on x86_64 SMP
-Date: Tue, 4 May 2010 09:12:15 -0700
-Message-ID: <20100504091215.5a4a51f4@nehalam>
-References: <i2h571fb4001005031027y4a58c4dtfd28ddcdc08d8401@mail.gmail.com>
-	<o2h571fb4001005032030tdf02a4fag520ec4e56ebdb8df@mail.gmail.com>
-	<1272972722.2097.1.camel@achroite.uk.solarflarecom.com>
-	<l2s571fb4001005040728t91979906ofa10cf0714c305b2@mail.gmail.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: linux kernel's IPV6_MULTICAST_HOPS default is 64; should be 1?
+Date: Tue, 4 May 2010 09:12:59 -0700
+Message-ID: <OFD462DFA3.FF279B8C-ON88257719.0057B1F8-88257719.005914D6@us.ibm.com>
+References: <4BE031FA.6040006@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
-To: Bhaskar Dutta <bhaskie@gmail.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>, enh@google.com,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:35498 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932282Ab0EDQMT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 May 2010 12:12:19 -0400
-In-Reply-To: <l2s571fb4001005040728t91979906ofa10cf0714c305b2@mail.gmail.com>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:53250 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933550Ab0EDQNO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 May 2010 12:13:14 -0400
+In-Reply-To: <4BE031FA.6040006@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 4 May 2010 19:58:32 +0530
-Bhaskar Dutta <bhaskie@gmail.com> wrote:
+I think the original code was intending to do late binding -- carry "-1" 
+as
+meaning "not set by user" and use the default value _at_the_time_of_
+_the_send_, and in its context. For that to have worked, the checks for
+"<0" in the send paths should've checked for multicast and used the
+multicast default as you're saying, Brian. And doing that not on the
+set, but when generating packets, is what I would've expected.
 
-> On Tue, May 4, 2010 at 5:02 PM, Ben Hutchings <bhutchings@solarflare.=
-com> wrote:
-> > On Tue, 2010-05-04 at 09:00 +0530, Bhaskar Dutta wrote:
-> >> Hi,
-> >>
-> >> I am observing intermittent TCP-MD5 checksum failures
-> >> (CONFIG_TCP_MD5SIG) =A0on kernel 2.6.31 while talking to a BGP rou=
-ter.
-> >>
-> >> The problem is only seen in multi-core 64 bit machines.
-> >> Is there any known bug in the per_cpu_ptr implementation (I am awa=
-re
-> >> that the percpu allocator has been re-implemented in 2.6.33) that
-> >> might cause a corruption in 64 bit SMP machines?
-> >>
-> >> Any pointers would be appreciated.
-> >
-> > There was another recent report of incorrect MD5 signatures in
-> > <http://thread.gmane.org/gmane.linux.network/159556>, but without a=
-ny
-> > response.
-> >
-> > Ben.
-> >
->=20
-> I found another thread posted back in Jan 2007 with a similar bug
-> (x86_64 on 2.6.20) but no replies to that as well.
-> http://lkml.org/lkml/2007/1/20/56
+I don't see anything that's broken by changing it to use the default at
+the time of the set since for mcast the default is really a constant,
+and in fact, it looks like in addition to not actually using the default 
+of 1,
+it was returning "-1" in the cmsg when not set by the user (and it, too,
+should've been "1", which it would return now).
 
-2.6.20 had lots of other MD5 bugs. Your problem might be related to
-GRO.  MD5 may not handle multi-fragment packets.
+But if the default is different for each destination or interface in
+the multicast case (ie, by adding conf settings for mcast), then
+it really should do late binding and leave it as "-1" in the set, right?
+That's what I thought it was already doing, but apparently not;
+I think it used to, but maybe I just didn't notice.
+
+                                        +-DLS
+
