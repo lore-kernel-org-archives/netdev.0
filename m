@@ -1,39 +1,56 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [PATCH net-next-2.6] pppoe: remove unnecessary checks in
- pppoe_flush_dev
-Date: Tue, 4 May 2010 17:02:57 +0200
-Message-ID: <20100504150256.GD2845@psychotron.lab.eng.brq.redhat.com>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [PATCH] Comment sysfs directory tagging
+Date: Tue, 4 May 2010 10:25:14 -0500
+Message-ID: <20100504152514.GB18700@us.ibm.com>
+References: <20100503212315.GA4141@us.ibm.com>
+ <4BE0292F.4000007@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, ebiederm@xmission.com
-To: netdev@vger.kernel.org
+Cc: Greg KH <gregkh@suse.de>,
+	"Eric W. Biederman" <ebiederm@xmission.com>, bcrl@lhnet.ca,
+	benjamin.thery@bull.net, cornelia.huck@de.ibm.com,
+	eric.dumazet@gmail.com, kay.sievers@vrfy.org,
+	netdev@vger.kernel.org
+To: Tejun Heo <tj@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2677 "EHLO mx1.redhat.com"
+Received: from e8.ny.us.ibm.com ([32.97.182.138]:53503 "EHLO e8.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932439Ab0EDPDA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 May 2010 11:03:00 -0400
+	id S933044Ab0EDPZR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 May 2010 11:25:17 -0400
+Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
+	by e8.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o44B6RkC022636
+	for <netdev@vger.kernel.org>; Tue, 4 May 2010 07:06:27 -0400
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o44FPGdC114362
+	for <netdev@vger.kernel.org>; Tue, 4 May 2010 11:25:16 -0400
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o44FPF2x000359
+	for <netdev@vger.kernel.org>; Tue, 4 May 2010 11:25:16 -0400
 Content-Disposition: inline
+In-Reply-To: <4BE0292F.4000007@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-pernet memory is guaranteed to exist when notifiers are called.
+Quoting Tejun Heo (tj@kernel.org):
+> Hello,
+> 
+> On 05/03/2010 11:23 PM, Serge E. Hallyn wrote:
+> > (against gregkh-2.6)
+> > 
+> > Add some in-line comments to explain the new infrastructure, which
+> > was introduced to support sysfs directory tagging with namespaces.
+> > I think an overall description someplace might be good too, but it
+> > didn't really seem to fit into Documentation/filesystems/sysfs.txt,
+> > which appears more geared toward users, rather than maintainers, of
+> > sysfs.
+> > 
+> > (Tejun, please let me know if I can make anything clearer or failed
+> > altogether to comment something that should be commented.)
+> 
+> This sure is an improvement but yeah I agree that having an overall
+> documentation would be great.  If there isn't a matching one, just
+> create one - sysfs-ns.txt, sysfs-tagged.txt or whatever.
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+I'll try to whip something up tonight.
 
-diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
-index c059c8d..99f031a 100644
---- a/drivers/net/pppoe.c
-+++ b/drivers/net/pppoe.c
-@@ -290,12 +290,6 @@ static void pppoe_flush_dev(struct net_device *dev)
- 	struct pppoe_net *pn;
- 	int i;
- 
--	BUG_ON(dev == NULL);
--
--	pn = pppoe_pernet(dev_net(dev));
--	if (!pn) /* already freed */
--		return;
--
- 	write_lock_bh(&pn->hash_lock);
- 	for (i = 0; i < PPPOE_HASH_SIZE; i++) {
- 		struct pppox_sock *po = pn->hash_table[i];
+-serge
