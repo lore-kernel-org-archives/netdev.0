@@ -1,58 +1,56 @@
-From: Andy Fleming <afleming@gmail.com>
-Subject: Re: [PATCH] net/gianfar: drop recycled skbs on MTU change
-Date: Tue, 4 May 2010 08:29:06 -0700
-Message-ID: <o2g2acbd3e41005040829rc5bf7e0dwee8419b2b65e5468@mail.gmail.com>
-References: <20100503151745.GA17997@Chamillionaire.breakpoint.cc>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: TCP-MD5 checksum failure on x86_64 SMP
+Date: Tue, 4 May 2010 09:12:15 -0700
+Message-ID: <20100504091215.5a4a51f4@nehalam>
+References: <i2h571fb4001005031027y4a58c4dtfd28ddcdc08d8401@mail.gmail.com>
+	<o2h571fb4001005032030tdf02a4fag520ec4e56ebdb8df@mail.gmail.com>
+	<1272972722.2097.1.camel@achroite.uk.solarflarecom.com>
+	<l2s571fb4001005040728t91979906ofa10cf0714c305b2@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org
-To: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
+To: Bhaskar Dutta <bhaskie@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:48332 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933044Ab0EDP3H convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 May 2010 11:29:07 -0400
-Received: by wwg30 with SMTP id 30so121785wwg.19
-        for <netdev@vger.kernel.org>; Tue, 04 May 2010 08:29:06 -0700 (PDT)
-In-Reply-To: <20100503151745.GA17997@Chamillionaire.breakpoint.cc>
+Received: from mail.vyatta.com ([76.74.103.46]:35498 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932282Ab0EDQMT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 May 2010 12:12:19 -0400
+In-Reply-To: <l2s571fb4001005040728t91979906ofa10cf0714c305b2@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 3, 2010 at 8:17 AM, Sebastian Andrzej Siewior
-<sebastian@breakpoint.cc> wrote:
-> From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
->
-> The size for skb which is added to the recycled list is using the
-> current descriptor size which is current MTU. gfar_new_skb() is also
-> using this size. So after changing or alteast increasing the MTU all
-> recycled skbs should be dropped.
->
-> Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-> ---
-> I'm not 100% sure but it looks like it is wrong.
->
-> =A0drivers/net/gianfar.c | =A0 =A04 +++-
-> =A01 files changed, 3 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-> index 5267c27..9093106 100644
-> --- a/drivers/net/gianfar.c
-> +++ b/drivers/net/gianfar.c
-> @@ -2287,8 +2287,10 @@ static int gfar_change_mtu(struct net_device *=
-dev, int new_mtu)
->
-> =A0 =A0 =A0 =A0/* Only stop and start the controller if it isn't alre=
-ady
-> =A0 =A0 =A0 =A0 * stopped, and we changed something */
-> - =A0 =A0 =A0 if ((oldsize !=3D tempsize) && (dev->flags & IFF_UP))
-> + =A0 =A0 =A0 if ((oldsize !=3D tempsize) && (dev->flags & IFF_UP)) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0stop_gfar(dev);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb_queue_purge(&priv->rx_recycle);
-> + =A0 =A0 =A0 }
+On Tue, 4 May 2010 19:58:32 +0530
+Bhaskar Dutta <bhaskie@gmail.com> wrote:
 
+> On Tue, May 4, 2010 at 5:02 PM, Ben Hutchings <bhutchings@solarflare.=
+com> wrote:
+> > On Tue, 2010-05-04 at 09:00 +0530, Bhaskar Dutta wrote:
+> >> Hi,
+> >>
+> >> I am observing intermittent TCP-MD5 checksum failures
+> >> (CONFIG_TCP_MD5SIG) =A0on kernel 2.6.31 while talking to a BGP rou=
+ter.
+> >>
+> >> The problem is only seen in multi-core 64 bit machines.
+> >> Is there any known bug in the per_cpu_ptr implementation (I am awa=
+re
+> >> that the percpu allocator has been re-implemented in 2.6.33) that
+> >> might cause a corruption in 64 bit SMP machines?
+> >>
+> >> Any pointers would be appreciated.
+> >
+> > There was another recent report of incorrect MD5 signatures in
+> > <http://thread.gmane.org/gmane.linux.network/159556>, but without a=
+ny
+> > response.
+> >
+> > Ben.
+> >
+>=20
+> I found another thread posted back in Jan 2007 with a similar bug
+> (x86_64 on 2.6.20) but no replies to that as well.
+> http://lkml.org/lkml/2007/1/20/56
 
-I think we should probably do this in free_skb_resources.  And remove
-the call from gfar_close().
-
-Andy
+2.6.20 had lots of other MD5 bugs. Your problem might be related to
+GRO.  MD5 may not handle multi-fragment packets.
