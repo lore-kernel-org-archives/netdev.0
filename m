@@ -1,45 +1,46 @@
-From: Tetsuo Handa <penguin-kernel-JPay3/Yim36HaxMnTkn67Xf5DAMn2ifp@public.gmane.org>
-Subject: Re: [patch] sunrpc: add missing return statement
-Date: Tue, 4 May 2010 23:02:26 +0900
-Message-ID: <201005042302.BGH82397.FJVOFSOLQOMFHt@I-love.SAKURA.ne.jp>
-References: <20100504115759.266396633@emlix.com>
-	<1272976042.7559.24.camel@localhost.localdomain>
-	<201005042203.DAJ09881.tFQOJFHSOLVOMF@I-love.SAKURA.ne.jp>
-	<1272978815.7559.27.camel@localhost.localdomain>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH] Comment sysfs directory tagging
+Date: Tue, 04 May 2010 16:03:27 +0200
+Message-ID: <4BE0292F.4000007@kernel.org>
+References: <20100503212315.GA4141@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jw-QdrG9jWwCLEAvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, batsakis-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: trond.myklebust-41N18TsMXrtuMpJDpNschA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1272978815.7559.27.camel-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Greg KH <gregkh@suse.de>,
+	"Eric W. Biederman" <ebiederm@xmission.com>, bcrl@lhnet.ca,
+	benjamin.thery@bull.net, cornelia.huck@de.ibm.com,
+	eric.dumazet@gmail.com, kay.sievers@vrfy.org,
+	netdev@vger.kernel.org
+To: "Serge E. Hallyn" <serue@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hera.kernel.org ([140.211.167.34]:46408 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932078Ab0EDODt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 May 2010 10:03:49 -0400
+In-Reply-To: <20100503212315.GA4141@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Trond Myklebust wrote:
-> > > No. It should either be a BUG_ON(), or else be removed entirely.
-> > > Returning an error value for something that is clearly a programming bug
-> > > is not a particularly useful exercise...
-> > > 
-> > Removing NULL check is wrong because it will NULL pointer dereference later.
+Hello,
+
+On 05/03/2010 11:23 PM, Serge E. Hallyn wrote:
+> (against gregkh-2.6)
 > 
-> Wrong. Removing NULL check is _right_ because calling this function
-> without setting up a back channel first is a major BUG. Returning an
-> error value to the user is pointless, since the user has no control over
-> this. It is entirely under control of the sunrpc developers...
+> Add some in-line comments to explain the new infrastructure, which
+> was introduced to support sysfs directory tagging with namespaces.
+> I think an overall description someplace might be good too, but it
+> didn't really seem to fit into Documentation/filesystems/sysfs.txt,
+> which appears more geared toward users, rather than maintainers, of
+> sysfs.
 > 
-For security people, removing
+> (Tejun, please let me know if I can make anything clearer or failed
+> altogether to comment something that should be commented.)
 
-	if (!args->bc_xprt)
-		ERR_PTR(-EINVAL);
+This sure is an improvement but yeah I agree that having an overall
+documentation would be great.  If there isn't a matching one, just
+create one - sysfs-ns.txt, sysfs-tagged.txt or whatever.
 
-is worse and changing to
+Thanks.
 
-	BUG_ON(!args->bc_xprt);
-
-is better.
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+tejun
