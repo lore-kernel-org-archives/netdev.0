@@ -1,75 +1,101 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Subject: Re: [PATCH v6] net: batch skb dequeueing from softnet
- input_pkt_queue
-Date: Mon, 3 May 2010 18:11:45 -0700
-Message-ID: <20100503181145.4e39c2dd@infradead.org>
-References: <1272797690.2173.26.camel@edumazet-laptop>
-	<20100502071324.1a95fdad@infradead.org>
-	<1272810448.2173.31.camel@edumazet-laptop>
-	<20100502105418.7abf83a7@infradead.org>
-	<1272828143.2173.150.camel@edumazet-laptop>
-	<20100502205044.450beda2@infradead.org>
-	<1272863834.2173.173.camel@edumazet-laptop>
-	<20100503032227.268613ac@infradead.org>
-	<20100503103426.GA25809@one.firstfloor.org>
-	<20100503070925.572bbee6@infradead.org>
-	<20100503155204.GA6200@gargoyle.fritz.box>
+From: enh <enh@google.com>
+Subject: linux kernel's IPV6_MULTICAST_HOPS default is 64; should be 1?
+Date: Mon, 3 May 2010 18:33:46 -0700
+Message-ID: <AANLkTikUArEWFhsxpJGCbOPtvQATBKztP0jhZTTsdx7-@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, hadi@cyberus.ca,
-	xiaosuo@gmail.com, therbert@google.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org, lenb@kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:49599 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750719Ab0EDBJg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 21:09:36 -0400
-In-Reply-To: <20100503155204.GA6200@gargoyle.fritz.box>
+Received: from smtp-out.google.com ([74.125.121.35]:4432 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751033Ab0EDBdu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 May 2010 21:33:50 -0400
+Received: from hpaq6.eem.corp.google.com (hpaq6.eem.corp.google.com [10.3.21.6])
+	by smtp-out.google.com with ESMTP id o441Xm9a005933
+	for <netdev@vger.kernel.org>; Mon, 3 May 2010 18:33:48 -0700
+Received: from ywh1 (ywh1.prod.google.com [10.192.8.1])
+	by hpaq6.eem.corp.google.com with ESMTP id o441XkBb007513
+	for <netdev@vger.kernel.org>; Mon, 3 May 2010 18:33:47 -0700
+Received: by ywh1 with SMTP id 1so2621465ywh.30
+        for <netdev@vger.kernel.org>; Mon, 03 May 2010 18:33:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 3 May 2010 17:52:04 +0200
-Andi Kleen <andi@firstfloor.org> wrote:
-> > HPETs have more than one channel (2 or 3 historically, newer
-> > chipsets iirc have a few more), so in principle we can split this
-> > lock at least a little bit... if we can get to one hpet channel per
-> > level 3 cache domain we'd already make huge progress in terms of
-> > cost of the contention....
-> 
-> I suggested the same thing a few emails up @) (great minds think 
-> alike etc.etc. @) . 
-> 
-> I'm not sure how difficult it would be to implement though.
+RFC 3493 (http://tools.ietf.org/rfc/rfc3493.txt) says:
 
-the hardest part will be cases where the SMM code borrows higher HPET
-channels or something.. not sure if they do, but.. color me a bit afraid
-we'll find cases.
+      IPV6_MULTICAST_HOPS
 
+         Set the hop limit to use for outgoing multicast packets.  (Note
+         a separate option - IPV6_UNICAST_HOPS - is provided to set the
+         hop limit to use for outgoing unicast packets.)
 
-> 
-> Potential issues:
-> 
-> Some user applications use the hpet channels directly through
-> the character device interface so there would be a potential
-> compatibility issue (but maybe that should be just moved
-> to be emulated with a hrtimer ?)
+         The interpretation of the argument is the same as for the
+         IPV6_UNICAST_HOPS option:
 
-we can and should just emulate this. Same for the rtc device I suspect.
+            x < -1:        return an error of EINVAL
+            x == -1:       use kernel default
+            0 <= x <= 255: use x
+            x >= 256:      return an error of EINVAL
 
- 
-> And if multiple broadcast controllers are elected this might
-> make it harder to become idle.
+            If IPV6_MULTICAST_HOPS is not set, the default is 1
+            (same as IPv4 today)
 
-not quite, as long as you do a directed broadcast. As long as there's a
-predictable mapping for which cores group to which hpet channel.. won't
-be that bad since you only need to wake up your own local subset.
+         Argument type: int
 
+but if i create a socket and call getsockopt, i get 64, not 1. this
+happens both on Android (2.6.32) and on Ubuntu 8.04 (2.6.24).
 
+actually, i get whatever i've written to
+/proc/sys/net/ipv6/conf/all/hop_limit. but afaics, nothing writes that
+during init, so i think i'm getting the kernel's fallback default.
+
+anyway, here's a test program you can use to see what i mean. i've
+included the ipv4 equivalents, which give the values i'd expect.
+
+/tmp$ cat sock.cpp
+/* checkopts.c - based on Stevens */
+
+#include <unistd.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
+struct sock_opts {
+  const char	 *opt_str;
+  int	 opt_level;
+  int	 opt_name;
+} sock_opts[] =
+  {
+    "IP_TTL",		IPPROTO_IP,	IP_TTL,
+    "IP_MULTICAST_TTL",		IPPROTO_IP,	IP_MULTICAST_TTL,
+    "IPV6_MULTICAST_HOPS",		IPPROTO_IPV6,	IPV6_MULTICAST_HOPS,
+    "IPV6_UNICAST_HOPS",		IPPROTO_IPV6,	IPV6_UNICAST_HOPS,
+    NULL,		0,		0,
+  };
+
+int main(int argc, char* argv[]) {
+  int fd4 = socket(AF_INET, SOCK_DGRAM, 0);
+  int fd6 = socket(AF_INET6, SOCK_DGRAM, 0);
+  for (struct sock_opts* ptr = sock_opts; ptr->opt_str != NULL; ++ptr) {
+    int val;
+    socklen_t len = sizeof(int);
+    int rc = getsockopt(ptr->opt_level == IPPROTO_IP ? fd4 : fd6,
+ptr->opt_level, ptr->opt_name, &val, &len);
+    printf("%s default = %d\n", ptr->opt_str, val);
+  }
+  return 0;
+}
+
+/tmp$ make sock && ./sock
+make: `sock' is up to date.
+IP_TTL default = 64
+IP_MULTICAST_TTL default = 1
+IPV6_MULTICAST_HOPS default = 64
+IPV6_UNICAST_HOPS default = 64
+/tmp$
+
+is this a bug? is this the right place to report it? thanks!
 
 -- 
-Arjan van de Ven 	Intel Open Source Technology Centre
-For development, discussion and tips for power savings, 
-visit http://www.lesswatts.org
+Elliott Hughes - http://who/enh - http://jessies.org/~enh/
