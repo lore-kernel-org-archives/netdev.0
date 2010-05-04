@@ -1,40 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux kernel's IPV6_MULTICAST_HOPS default is 64; should be 1?
-Date: Mon, 03 May 2010 23:22:49 -0700 (PDT)
-Message-ID: <20100503.232249.200767273.davem@davemloft.net>
-References: <4BDF8387.4000303@hp.com>
-	<20100503.230553.200626786.davem@davemloft.net>
-	<AANLkTingTdmhyJhENb9AYDjUT7m_-yQflw5-gJqIA9iw@mail.gmail.com>
+Subject: Re: [PATCH] ep93xx_eth stopps receiving packets
+Date: Mon, 03 May 2010 23:23:29 -0700 (PDT)
+Message-ID: <20100503.232329.247148256.davem@davemloft.net>
+References: <20100502104350.GS4586@mail.wantstofly.org>
+	<20100503134244.42345pyaszhd9f8c@limpopo.deheime.ch>
+	<20100504014606.GI4586@mail.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: brian.haley@hp.com, netdev@vger.kernel.org
-To: enh@google.com
+Cc: stefan@agner.ch, netdev@vger.kernel.org
+To: buytenh@wantstofly.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53693
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46281
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755459Ab0EDGWm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 May 2010 02:22:42 -0400
-In-Reply-To: <AANLkTingTdmhyJhENb9AYDjUT7m_-yQflw5-gJqIA9iw@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1755971Ab0EDGXW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 May 2010 02:23:22 -0400
+In-Reply-To: <20100504014606.GI4586@mail.wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: enh <enh@google.com>
-Date: Mon, 3 May 2010 23:19:22 -0700
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Date: Tue, 4 May 2010 03:46:07 +0200
 
-> for the *unicast* hops, a part of the RFC i didn't quote says:
+> On Mon, May 03, 2010 at 01:42:44PM +0200, Stefan Agner wrote:
 > 
->    If the [IPV6_UNICAST_HOPS] option is not set, the
->    system selects a default value.
+>> Receiving small packet(s) in a fast pace leads to not receiving any
+>> packets at all after some time.
+>> 
+>> After ethernet packet(s) arrived the receive descriptor is incremented
+>> by the number of frames processed. If another packet arrives while
+>> processing, this is processed in another call of ep93xx_rx. This
+>> second call leads that too many receive descriptors getting released.
+>> 
+>> This fix increments, even in these case, the right number of processed
+>> receive descriptors.
+>> 
+>> Signed-off-by: Stefan Agner <stefan@agner.ch>
 > 
-> but for the *multicast* hops, which is what i'm talking about, this
-> part of the quoted text seems pretty definitive:
+> I haven't opened my ep93xx docs for a while, but if this works for you:
 > 
->            If IPV6_MULTICAST_HOPS is not set, the default is 1
->            (same as IPv4 today)
-> 
-> this is what my test shows isn't true of linux; linux reuses its
-> unicast default instead.
+> Acked-by: Lennert Buytenhek <buytenh@wantstofly.org>
 
-Ok, I see, so yeah this needs to be fixed to use "1" instead of
-"-1" in the np->xxx ipv6 socket initialization.
+I had to apply this by hand because Stefan's email client corrupted the
+spacing et al. in the patch.  Stefan please post a usable patch next
+time.
