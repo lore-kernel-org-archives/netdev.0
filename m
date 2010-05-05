@@ -1,41 +1,88 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux kernel's IPV6_MULTICAST_HOPS default is 64; should be 1?
-Date: Wed, 05 May 2010 15:00:08 -0700 (PDT)
-Message-ID: <20100505.150008.102542618.davem@davemloft.net>
-References: <4BE031FA.6040006@hp.com>
-	<20100504.144647.157477097.davem@davemloft.net>
-	<4BE1907F.40903@hp.com>
+From: "Serge E. Hallyn" <serue@us.ibm.com>
+Subject: Re: [PATCH 2/6] netns: Teach network device kobjects which
+ namespace they are in.
+Date: Wed, 5 May 2010 17:01:50 -0500
+Message-ID: <20100505220150.GA11595@us.ibm.com>
+References: <m1fx3hk6gw.fsf@fess.ebiederm.org>
+ <1273019809-16472-2-git-send-email-ebiederm@xmission.com>
+ <20100505151746.GA15654@us.ibm.com>
+ <m14oim2kcm.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dlstevens@us.ibm.com, enh@google.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: brian.haley@hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51056
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753293Ab0EEWAC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 May 2010 18:00:02 -0400
-In-Reply-To: <4BE1907F.40903@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg Kroah-Hartman <gregkh@suse.de>,
+	Kay Sievers <kay.sievers@vrfy.org>,
+	linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>,
+	Cornelia Huck <cornelia.huck@de.ibm.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Benjamin LaHaise <bcrl@lhnet.ca>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <m14oim2kcm.fsf@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Brian Haley <brian.haley@hp.com>
-Date: Wed, 05 May 2010 11:36:31 -0400
+Quoting Eric W. Biederman (ebiederm@xmission.com):
+> "Serge E. Hallyn" <serue@us.ibm.com> writes:
+> 
+> > Quoting Eric W. Biederman (ebiederm@xmission.com):
+> >> diff --git a/net/Kconfig b/net/Kconfig
+> >> index 041c35e..265e33b 100644
+> >> --- a/net/Kconfig
+> >> +++ b/net/Kconfig
+> >> @@ -45,6 +45,14 @@ config COMPAT_NETLINK_MESSAGES
+> >> 
+> >>  menu "Networking options"
+> >> 
+> >> +config NET_NS
+> >> +	bool "Network namespace support"
+> >> +	default n
+> >> +	depends on EXPERIMENTAL && NAMESPACES
+> >> +	help
+> >> +	  Allow user space to create what appear to be multiple instances
+> >> +	  of the network stack.
+> >> +
+> >
+> > Hi Eric,
+> >
+> > I'm confused - NET_NS is defined in init/Kconfig right now.  Is the tree
+> > you're working from very different from mine, or is this the unfortunate
+> > rekult of the patches sitting so long?
+> 
+> Old patches, nothing that complains when you make a mistake like this,
+> and apparently I have a blind spot in my personal code review.
 
-> I now see that in Elliot's email, but I think it's incorrect.  The RFC
-> says that setting it to -1 should get you the kernel default, which is
-> now 1.  Without this change, setting it to -1 will get you 64, the
-> old behavior.  If the user wants to, they can always just set it to
-> 64 themselves, that's better than assuming when you set it to -1
-> you're going to get 64.
+haha, we all know about that.
 
-It's not 64, it's whatever the per-route metric is.
+> At one point it was not possible to enable the network namespace until
+> the sysfs stuff was enabled, but things have been going on long enough
+> that we worked around that restriction.
 
-> I'm just trying to make this follow the RFC and behave like other OSes
-> for consistency.
+Yeah, I remember that, and leaving this wouldn't break anything.
 
-I'm just trying to have a real compatability story, and we don't with
-any of the proposals you guys are giving me because it complete ignores
-the fact that the old default comes from the route and is not some
-constant.
+> >>  int netdev_kobject_init(void)
+> >>  {
+> >> +	kobj_ns_type_register(&net_ns_type_operations);
+> >> +#ifdef CONFIG_SYSFS
+> >> +	register_pernet_subsys(&sysfs_net_ops);
+> >> +#endif
+> >>  	return class_register(&net_class);
+> >
+> > I think the kobj_ns_type_register() needs to be under
+> > ifdef CONFIG_SYSFS as well, bc net_ns_type_operations is defined
+> > under ifdef CONFIG_SYSFS.
+> 
+> kobj_ns_type_register should not be under CONFIG_SYSFS.  Which means
+> that kobj_ns_type_operations needs not to be under CONFIG_SYSFS as
+> well.  That you for spotting that bug.
+
+np - outside of that,
+
+Acked-by: Serge E. Hallyn <serue@us.ibm.com>
+
+I saw no problems with the other patches, just don't feel qualified
+to give an ack.
+
+thanks,
+-serge
