@@ -1,30 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next-2.6 2010-05-05
-Date: Wed, 05 May 2010 15:40:18 -0700 (PDT)
-Message-ID: <20100505.154018.179948992.davem@davemloft.net>
-References: <20100505203528.GB2603@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
+From: David Daney <ddaney@caviumnetworks.com>
+Subject: [PATCH 2/6] netdev: octeon_mgmt: Fix race condition freeing TX buffers.
+Date: Wed,  5 May 2010 16:03:09 -0700
+Message-ID: <1273100593-11043-3-git-send-email-ddaney@caviumnetworks.com>
+References: <1273100593-11043-1-git-send-email-ddaney@caviumnetworks.com>
+Cc: linux-mips@linux-mips.org, David Daney <ddaney@caviumnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41468
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754774Ab0EEWkL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 May 2010 18:40:11 -0400
-In-Reply-To: <20100505203528.GB2603@tuxdriver.com>
+Received: from mail3.caviumnetworks.com ([12.108.191.235]:1666 "EHLO
+	mail3.caviumnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758044Ab0EEXDt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 May 2010 19:03:49 -0400
+In-Reply-To: <1273100593-11043-1-git-send-email-ddaney@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 5 May 2010 16:35:29 -0400
+Under heavy load the TX cleanup tasklet and xmit threads would race
+and try to free too many buffers.
 
-> Dave,
-> 
-> Another enormous batch intended for 2.6.35...  This is mostly the 'usual
-> suspects' -- driver updates from Intel, Atheros, Nokia, and the rt2x00
-> guys, mac80211 stuff from Johannes, and a variety of other bits.  One
-> noteworth bit is the addition of the orinoco_usb driver.
+Signed-off-by: David Daney <ddaney@caviumnetworks.com>
+---
+ drivers/net/octeon/octeon_mgmt.c |   11 +++++++++--
+ 1 files changed, 9 insertions(+), 2 deletions(-)
 
-Pulled, thanks John.
+diff --git a/drivers/net/octeon/octeon_mgmt.c b/drivers/net/octeon/octeon_mgmt.c
+index bbbd737..b975a2f 100644
+--- a/drivers/net/octeon/octeon_mgmt.c
++++ b/drivers/net/octeon/octeon_mgmt.c
+@@ -189,12 +189,19 @@ static void octeon_mgmt_clean_tx_buffers(struct octeon_mgmt *p)
+ 
+ 	mix_orcnt.u64 = cvmx_read_csr(CVMX_MIXX_ORCNT(port));
+ 	while (mix_orcnt.s.orcnt) {
++		spin_lock_irqsave(&p->tx_list.lock, flags);
++
++		mix_orcnt.u64 = cvmx_read_csr(CVMX_MIXX_ORCNT(port));
++
++		if (mix_orcnt.s.orcnt == 0) {
++			spin_unlock_irqrestore(&p->tx_list.lock, flags);
++			break;
++		}
++
+ 		dma_sync_single_for_cpu(p->dev, p->tx_ring_handle,
+ 					ring_size_to_bytes(OCTEON_MGMT_TX_RING_SIZE),
+ 					DMA_BIDIRECTIONAL);
+ 
+-		spin_lock_irqsave(&p->tx_list.lock, flags);
+-
+ 		re.d64 = p->tx_ring[p->tx_next_clean];
+ 		p->tx_next_clean =
+ 			(p->tx_next_clean + 1) % OCTEON_MGMT_TX_RING_SIZE;
+-- 
+1.6.6.1
+
