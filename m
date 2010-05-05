@@ -1,36 +1,55 @@
-From: Brian Bloniarz <bmb@athenacr.com>
+From: dormando <dormando@rydia.net>
 Subject: Re: 3 packet TCP window limit?
-Date: Wed, 05 May 2010 16:56:34 -0400
-Message-ID: <4BE1DB82.2030403@athenacr.com>
-References: <alpine.LNX.2.00.1005050210230.8544@d> <4BE171EC.20904@athenacr.com> <alpine.LNX.2.00.1005051239290.28957@d>
+Date: Wed, 5 May 2010 14:31:02 -0700 (PDT)
+Message-ID: <alpine.LNX.2.00.1005051421010.28957@d>
+References: <alpine.LNX.2.00.1005050210230.8544@d> <4BE171EC.20904@athenacr.com> <alpine.LNX.2.00.1005051239290.28957@d> <4BE1D3B0.9000207@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Rick Jones <rick.jones2@hp.com>,
-	shemminger@osdl.org
-To: dormando <dormando@rydia.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Brian Bloniarz <bmb@athenacr.com>, netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sprinkles.athenacr.com ([64.95.46.210]:16749 "EHLO
-	sprinkles.inp.in.athenacr.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754650Ab0EEU4f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 May 2010 16:56:35 -0400
-In-Reply-To: <alpine.LNX.2.00.1005051239290.28957@d>
+Received: from rydia.net ([216.218.163.68]:39003 "EHLO mail.rydia.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758666Ab0EEVbE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 May 2010 17:31:04 -0400
+In-Reply-To: <4BE1D3B0.9000207@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dormando wrote:
->> This sounds like TCP slow start.
->>
->> http://en.wikipedia.org/wiki/Slow-start
->>
->> As far as tunables you might want to play with the initcwnd route
->> flag (see "ip route help")
-> 
-> Ah, yes, initcwnd was it. I'm well aware of TCP Congestion control / slow
-> start / etc. However I couldn't find the damn tunable for it :)
+> I don't believe linux as yet has a damn tunable for it :)
 
-Documenting the flag in ip(8) might increase its visibility
-a little. I don't see it documented in the iproute2 git head,
-though it shows up on http://linux.die.net/man/8/ip somehow.
+ip route initcwnd sure does it :)
 
-Stephen, do you know why that is?
+> > Other OS's appear to have a larger initcwnd.
+>
+> Names?  Values?
+
+OpenBSD 4.6 jumps between a ~5k fetch to a ~6k fetch
+
+> > As do commercial load balancers.
+>
+> Names?  Values?
+
+An older Big/IP appears to be between 5k and 6k as well. I remember a
+sales meeting with netscaler (pre-NDA) back in 2004 or 2005 where they
+claimed to have opened up slow start. There might be others but I can't
+remember which side of the NDA I was informed of their TCP tunning.
+
+Linux is consistently between 3k and 4k. Just the distinction from having
+the RTT in the ~4k or the ~6k range makes our latency graphs go nutty.
+I've been testing a subset of traffic at an initcwnd of 10 for the last
+few hours and latency has dropped even more, though I see some bad
+outliers.
+
+> > The default of 3 seems to be tuned for 56k dialup modems. I'm a
+> > little surprised that none of the pluggable TCP congestion control
+> > algorithms changed this value. I went through all of them except for
+> > tcp_yeah.
+>
+> The initcwnd comes from IETF RFCs and their "thou shalts" and "thou shalt
+> nots."  As you note below, Google et al seek to alter/extend the RFCs.  That
+> is an ongoing discussion in some of the ietf related mailing lists.
+
+The RFC clearly states "around 4k", but these other OS's/products have an
+extra kilobyte snuck in? Could this be on purpose via rfc
+interpretation, or an off by one on the initcwnd estimator? :)
