@@ -1,44 +1,70 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: Re: [PATCH v2] net/gianfar: drop recycled skbs on MTU change
-Date: Wed, 5 May 2010 10:18:40 -0500
-Message-ID: <C4C9C232-1DA6-43BE-A9FF-4A591E3FF672@freescale.com>
-References: <20100503151745.GA17997@Chamillionaire.breakpoint.cc> <o2g2acbd3e41005040829rc5bf7e0dwee8419b2b65e5468@mail.gmail.com> <20100505.005704.115933493.davem@davemloft.net> <20100505083047.GA4398@Chamillionaire.breakpoint.cc>
-Mime-Version: 1.0 (Apple Message framework v1078)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>, afleming@gmail.com,
-	netdev@vger.kernel.org
-To: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Fw: [Bug 15907] New: IP_ADD_SOURCE_MEMBERSHIP after
+ IP_ADD_MEMBERSHIP join on same multicast-group dont return EINVAL
+Date: Wed, 5 May 2010 08:21:38 -0700
+Message-ID: <20100505082138.6cb93aa1@nehalam>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from az33egw02.freescale.net ([192.88.158.103]:51131 "EHLO
-	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753084Ab0EEPTF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 May 2010 11:19:05 -0400
-In-Reply-To: <20100505083047.GA4398@Chamillionaire.breakpoint.cc>
+Received: from mail.vyatta.com ([76.74.103.46]:41916 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755786Ab0EEPV4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 May 2010 11:21:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-On May 5, 2010, at 3:30 AM, Sebastian Andrzej Siewior wrote:
 
-> From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-> 
-> The size for skbs which is added to the recycled list is using the
-> current descriptor size which is current MTU. gfar_new_skb() is also
-> using this size. So after changing or alteast increasing the MTU all
-> recycled skbs should be dropped.
-> 
-> Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-> ---
->>> I think we should probably do this in free_skb_resources.  And remove
->>> the call from gfar_close().
->> 
->> Ok, Sebastian please rework your patch as requested by Andy.
-> 
-> This has the side effect of dropping them on reset which is not
-> required.
+Begin forwarded message:
 
-Sure, but that's true of the buffers in the BD ring, too.  My theory, here, is just that it's best to treat it the same as the other "skb resources".  If we want to avoid reallocation during a reset, that's a separate patch.  :)
+Date: Wed, 5 May 2010 09:48:40 GMT
+From: bugzilla-daemon@bugzilla.kernel.org
+To: shemminger@linux-foundation.org
+Subject: [Bug 15907] New: IP_ADD_SOURCE_MEMBERSHIP after IP_ADD_MEMBERSHIP join on same multicast-group dont return EINVAL
 
-Acked-by: Andy Fleming <afleming@freescale.com>
 
+https://bugzilla.kernel.org/show_bug.cgi?id=15907
+
+           Summary: IP_ADD_SOURCE_MEMBERSHIP after IP_ADD_MEMBERSHIP join
+                    on same multicast-group dont return EINVAL
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 2.6.34-rc6
+          Platform: All
+        OS/Version: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: IPV4
+        AssignedTo: shemminger@linux-foundation.org
+        ReportedBy: mail@fholler.de
+        Regression: No
+
+
+Created an attachment (id=26225)
+ --> (https://bugzilla.kernel.org/attachment.cgi?id=26225)
+asm+ssm join test program
+
+When an SSM IP_ADD_SOURCE_MEMBERSHIP is done after an ASM IP_ADD_MEMBERSHIP
+join on the same group(& same interface) the setsockopt operation should return
+EINVAL.
+
+The linux implementation returns successfull
+
+
+
+https://www3.tools.ietf.org/html/rfc3678#section-4.1.3
+
+I attached an simple C test program.
+
+-- 
+Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=email
+------- You are receiving this mail because: -------
+You are the assignee for the bug.
+
+
+-- 
