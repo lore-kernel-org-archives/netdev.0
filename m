@@ -1,116 +1,44 @@
-From: "Serge E. Hallyn" <serue@us.ibm.com>
-Subject: Re: [PATCH 2/6] netns: Teach network device kobjects which
- namespace they are in.
-Date: Wed, 5 May 2010 10:17:46 -0500
-Message-ID: <20100505151746.GA15654@us.ibm.com>
-References: <m1fx3hk6gw.fsf@fess.ebiederm.org>
- <1273019809-16472-2-git-send-email-ebiederm@xmission.com>
-Mime-Version: 1.0
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: [PATCH v2] net/gianfar: drop recycled skbs on MTU change
+Date: Wed, 5 May 2010 10:18:40 -0500
+Message-ID: <C4C9C232-1DA6-43BE-A9FF-4A591E3FF672@freescale.com>
+References: <20100503151745.GA17997@Chamillionaire.breakpoint.cc> <o2g2acbd3e41005040829rc5bf7e0dwee8419b2b65e5468@mail.gmail.com> <20100505.005704.115933493.davem@davemloft.net> <20100505083047.GA4398@Chamillionaire.breakpoint.cc>
+Mime-Version: 1.0 (Apple Message framework v1078)
 Content-Type: text/plain; charset=us-ascii
-Cc: Greg Kroah-Hartman <gregkh@suse.de>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>,
-	Cornelia Huck <cornelia.huck@de.ibm.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Benjamin LaHaise <bcrl@lhnet.ca>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1273019809-16472-2-git-send-email-ebiederm@xmission.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>, afleming@gmail.com,
+	netdev@vger.kernel.org
+To: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from az33egw02.freescale.net ([192.88.158.103]:51131 "EHLO
+	az33egw02.freescale.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753084Ab0EEPTF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 May 2010 11:19:05 -0400
+In-Reply-To: <20100505083047.GA4398@Chamillionaire.breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Quoting Eric W. Biederman (ebiederm@xmission.com):
-> diff --git a/net/Kconfig b/net/Kconfig
-> index 041c35e..265e33b 100644
-> --- a/net/Kconfig
-> +++ b/net/Kconfig
-> @@ -45,6 +45,14 @@ config COMPAT_NETLINK_MESSAGES
+
+On May 5, 2010, at 3:30 AM, Sebastian Andrzej Siewior wrote:
+
+> From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 > 
->  menu "Networking options"
+> The size for skbs which is added to the recycled list is using the
+> current descriptor size which is current MTU. gfar_new_skb() is also
+> using this size. So after changing or alteast increasing the MTU all
+> recycled skbs should be dropped.
 > 
-> +config NET_NS
-> +	bool "Network namespace support"
-> +	default n
-> +	depends on EXPERIMENTAL && NAMESPACES
-> +	help
-> +	  Allow user space to create what appear to be multiple instances
-> +	  of the network stack.
-> +
-
-Hi Eric,
-
-I'm confused - NET_NS is defined in init/Kconfig right now.  Is the tree
-you're working from very different from mine, or is this the unfortunate
-rekult of the patches sitting so long?
-
->  source "net/packet/Kconfig"
->  source "net/unix/Kconfig"
->  source "net/xfrm/Kconfig"
-> diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-> index 099c753..1b98e36 100644
-> --- a/net/core/net-sysfs.c
-> +++ b/net/core/net-sysfs.c
-> @@ -13,7 +13,9 @@
->  #include <linux/kernel.h>
->  #include <linux/netdevice.h>
->  #include <linux/if_arp.h>
-> +#include <linux/nsproxy.h>
->  #include <net/sock.h>
-> +#include <net/net_namespace.h>
->  #include <linux/rtnetlink.h>
->  #include <linux/wireless.h>
->  #include <net/wext.h>
-> @@ -466,6 +468,37 @@ static struct attribute_group wireless_group = {
->  };
->  #endif
+> Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+> ---
+>>> I think we should probably do this in free_skb_resources.  And remove
+>>> the call from gfar_close().
+>> 
+>> Ok, Sebastian please rework your patch as requested by Andy.
 > 
-> +static const void *net_current_ns(void)
-> +{
-> +	return current->nsproxy->net_ns;
-> +}
-> +
-> +static const void *net_initial_ns(void)
-> +{
-> +	return &init_net;
-> +}
-> +
-> +static const void *net_netlink_ns(struct sock *sk)
-> +{
-> +	return sock_net(sk);
-> +}
-> +
-> +static struct kobj_ns_type_operations net_ns_type_operations = {
-> +	.type = KOBJ_NS_TYPE_NET,
-> +	.current_ns = net_current_ns,
-> +	.netlink_ns = net_netlink_ns,
-> +	.initial_ns = net_initial_ns,
-> +};
-> +
-> +static void net_kobj_ns_exit(struct net *net)
-> +{
-> +	kobj_ns_exit(KOBJ_NS_TYPE_NET, net);
-> +}
-> +
-> +static struct pernet_operations sysfs_net_ops = {
-> +	.exit = net_kobj_ns_exit,
-> +};
-> +
->  #endif /* CONFIG_SYSFS */
+> This has the side effect of dropping them on reset which is not
+> required.
 
-...
+Sure, but that's true of the buffers in the BD ring, too.  My theory, here, is just that it's best to treat it the same as the other "skb resources".  If we want to avoid reallocation during a reset, that's a separate patch.  :)
 
->  int netdev_kobject_init(void)
->  {
-> +	kobj_ns_type_register(&net_ns_type_operations);
-> +#ifdef CONFIG_SYSFS
-> +	register_pernet_subsys(&sysfs_net_ops);
-> +#endif
->  	return class_register(&net_class);
+Acked-by: Andy Fleming <afleming@freescale.com>
 
-I think the kobj_ns_type_register() needs to be under
-ifdef CONFIG_SYSFS as well, bc net_ns_type_operations is defined
-under ifdef CONFIG_SYSFS.
-
--serge
