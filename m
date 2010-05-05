@@ -1,9 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 2/2] ixgbe: Add support for VF MAC and VLAN
-	configuration
-Date: Wed, 05 May 2010 01:12:06 -0700
-Message-ID: <20100505081204.5709.63340.stgit@localhost.localdomain>
-References: <20100505081129.5709.39430.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 1/2] ixgbe: Add boolean parameter to
+	ixgbe_set_vmolr
+Date: Wed, 05 May 2010 01:11:46 -0700
+Message-ID: <20100505081129.5709.39430.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -12,232 +11,86 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta11.emeryville.ca.mail.comcast.net ([76.96.27.211]:60465
-	"EHLO qmta11.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932793Ab0EEIMX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 May 2010 04:12:23 -0400
-In-Reply-To: <20100505081129.5709.39430.stgit@localhost.localdomain>
+Received: from qmta05.emeryville.ca.mail.comcast.net ([76.96.30.48]:45952 "EHLO
+	qmta05.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932387Ab0EEIME (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 May 2010 04:12:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Greg Rose <gregory.v.rose@intel.com>
 
-Add support for the "ip link set" and "ip link show" commands that allow
-configuration of the virtual functions' MAC and port VLAN via user space
-command line.
+Add a boolean parameter to ixgbe-set_vmolr so that the caller can
+specify whether the pool should accept untagged packets.  Required
+for a follow on patch to enable administrative configuration of port
+VLAN for virtual functions.
 
 Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe.h       |    3 +
- drivers/net/ixgbe/ixgbe_main.c  |    4 ++
- drivers/net/ixgbe/ixgbe_sriov.c |  104 ++++++++++++++++++++++++++++++++++++++-
- drivers/net/ixgbe/ixgbe_sriov.h |    6 ++
- drivers/net/ixgbe/ixgbe_type.h  |    5 ++
- 5 files changed, 118 insertions(+), 4 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c  |    2 +-
+ drivers/net/ixgbe/ixgbe_sriov.c |   11 +++++++----
+ drivers/net/ixgbe/ixgbe_sriov.h |    2 +-
+ 3 files changed, 9 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
-index 79c35ae..d0ea3d6 100644
---- a/drivers/net/ixgbe/ixgbe.h
-+++ b/drivers/net/ixgbe/ixgbe.h
-@@ -111,7 +111,10 @@ struct vf_data_storage {
- 	u16 default_vf_vlan_id;
- 	u16 vlans_enabled;
- 	bool clear_to_send;
-+	bool pf_set_mac;
- 	int rar;
-+	u16 pf_vlan; /* When set, guest VLAN config not allowed. */
-+	u16 pf_qos;
- };
- 
- /* wrapper around a pointer to a socket buffer,
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 0a0e90e..d1a1868 100644
+index 2ae5a51..0a0e90e 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -6311,6 +6311,10 @@ static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_vlan_rx_add_vid	= ixgbe_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid	= ixgbe_vlan_rx_kill_vid,
- 	.ndo_do_ioctl		= ixgbe_ioctl,
-+	.ndo_set_vf_mac		= ixgbe_ndo_set_vf_mac,
-+	.ndo_set_vf_vlan	= ixgbe_ndo_set_vf_vlan,
-+	.ndo_set_vf_tx_rate	= ixgbe_ndo_set_vf_bw,
-+	.ndo_get_vf_config	= ixgbe_ndo_get_vf_config,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= ixgbe_netpoll,
- #endif
+@@ -2722,7 +2722,7 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
+ 		IXGBE_WRITE_REG(hw, IXGBE_VFRE(reg_offset), (1 << vf_shift));
+ 		IXGBE_WRITE_REG(hw, IXGBE_VFTE(reg_offset), (1 << vf_shift));
+ 		IXGBE_WRITE_REG(hw, IXGBE_PFDTXGSWC, IXGBE_PFDTXGSWC_VT_LBEN);
+-		ixgbe_set_vmolr(hw, adapter->num_vfs);
++		ixgbe_set_vmolr(hw, adapter->num_vfs, true);
+ 	}
+ 
+ 	/* Program MRQC for the distribution of queues */
 diff --git a/drivers/net/ixgbe/ixgbe_sriov.c b/drivers/net/ixgbe/ixgbe_sriov.c
-index 53f364d..221b2ca 100644
+index d4cd20f..53f364d 100644
 --- a/drivers/net/ixgbe/ixgbe_sriov.c
 +++ b/drivers/net/ixgbe/ixgbe_sriov.c
-@@ -126,13 +126,34 @@ void ixgbe_set_vmolr(struct ixgbe_hw *hw, u32 vf, bool aupe)
+@@ -113,13 +113,16 @@ int ixgbe_set_vf_vlan(struct ixgbe_adapter *adapter, int add, int vid, u32 vf)
+ }
+ 
+ 
+-void ixgbe_set_vmolr(struct ixgbe_hw *hw, u32 vf)
++void ixgbe_set_vmolr(struct ixgbe_hw *hw, u32 vf, bool aupe)
+ {
+ 	u32 vmolr = IXGBE_READ_REG(hw, IXGBE_VMOLR(vf));
+-	vmolr |= (IXGBE_VMOLR_AUPE |
+-		  IXGBE_VMOLR_ROMPE |
++	vmolr |= (IXGBE_VMOLR_ROMPE |
+ 		  IXGBE_VMOLR_ROPE |
+ 		  IXGBE_VMOLR_BAM);
++	if (aupe)
++		vmolr |= IXGBE_VMOLR_AUPE;
++	else
++		vmolr &= ~IXGBE_VMOLR_AUPE;
  	IXGBE_WRITE_REG(hw, IXGBE_VMOLR(vf), vmolr);
  }
  
-+static void ixgbe_set_vmvir(struct ixgbe_adapter *adapter, u32 vid, u32 vf)
-+{
-+	struct ixgbe_hw *hw = &adapter->hw;
-+
-+	if (vid)
-+		IXGBE_WRITE_REG(hw, IXGBE_VMVIR(vf),
-+				(vid | IXGBE_VMVIR_VLANA_DEFAULT));
-+	else
-+		IXGBE_WRITE_REG(hw, IXGBE_VMVIR(vf), 0);
-+}
-+
- inline void ixgbe_vf_reset_event(struct ixgbe_adapter *adapter, u32 vf)
- {
+@@ -128,7 +131,7 @@ inline void ixgbe_vf_reset_event(struct ixgbe_adapter *adapter, u32 vf)
  	struct ixgbe_hw *hw = &adapter->hw;
  
  	/* reset offloads to defaults */
--	ixgbe_set_vmolr(hw, vf, true);
--
-+	if (adapter->vfinfo[vf].pf_vlan) {
-+		ixgbe_set_vf_vlan(adapter, true,
-+				  adapter->vfinfo[vf].pf_vlan, vf);
-+		ixgbe_set_vmvir(adapter,
-+				(adapter->vfinfo[vf].pf_vlan |
-+				 (adapter->vfinfo[vf].pf_qos <<
-+				  VLAN_PRIO_SHIFT)), vf);
-+		ixgbe_set_vmolr(hw, vf, false);
-+	} else {
-+		ixgbe_set_vmvir(adapter, 0, vf);
-+		ixgbe_set_vmolr(hw, vf, true);
-+	}
+-	ixgbe_set_vmolr(hw, vf);
++	ixgbe_set_vmolr(hw, vf, true);
+ 
  
  	/* reset multicast table array for vf */
- 	adapter->vfinfo[vf].num_vf_mc_hashes = 0;
-@@ -266,10 +287,12 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
- 	case IXGBE_VF_SET_MAC_ADDR:
- 		{
- 			u8 *new_mac = ((u8 *)(&msgbuf[1]));
--			if (is_valid_ether_addr(new_mac))
-+			if (is_valid_ether_addr(new_mac) &&
-+			    !adapter->vfinfo[vf].pf_set_mac)
- 				ixgbe_set_vf_mac(adapter, vf, new_mac);
- 			else
--				retval = -1;
-+				ixgbe_set_vf_mac(adapter,
-+				  vf, adapter->vfinfo[vf].vf_mac_addresses);
- 		}
- 		break;
- 	case IXGBE_VF_SET_MULTICAST:
-@@ -363,3 +386,76 @@ void ixgbe_ping_all_vfs(struct ixgbe_adapter *adapter)
- 	}
- }
- 
-+int ixgbe_ndo_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+	if (!is_valid_ether_addr(mac) || (vf >= adapter->num_vfs))
-+		return -EINVAL;
-+	adapter->vfinfo[vf].pf_set_mac = true;
-+	dev_info(&adapter->pdev->dev, "setting MAC %pM on VF %d\n", mac, vf);
-+	dev_info(&adapter->pdev->dev, "Reload the VF driver to make this"
-+				      " change effective.");
-+	if (test_bit(__IXGBE_DOWN, &adapter->state)) {
-+		dev_warn(&adapter->pdev->dev, "The VF MAC address has been set,"
-+			 " but the PF device is not up.\n");
-+		dev_warn(&adapter->pdev->dev, "Bring the PF device up before"
-+			 " attempting to use the VF device.\n");
-+	}
-+	return ixgbe_set_vf_mac(adapter, vf, mac);
-+}
-+
-+int ixgbe_ndo_set_vf_vlan(struct net_device *netdev, int vf, u16 vlan, u8 qos)
-+{
-+	int err = 0;
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+
-+	if ((vf >= adapter->num_vfs) || (vlan > 4095) || (qos > 7))
-+		return -EINVAL;
-+	if (vlan || qos) {
-+		err = ixgbe_set_vf_vlan(adapter, true, vlan, vf);
-+		if (err)
-+			goto out;
-+		ixgbe_set_vmvir(adapter, vlan | (qos << VLAN_PRIO_SHIFT), vf);
-+		ixgbe_set_vmolr(&adapter->hw, vf, false);
-+		adapter->vfinfo[vf].pf_vlan = vlan;
-+		adapter->vfinfo[vf].pf_qos = qos;
-+		dev_info(&adapter->pdev->dev,
-+			 "Setting VLAN %d, QOS 0x%x on VF %d\n", vlan, qos, vf);
-+		if (test_bit(__IXGBE_DOWN, &adapter->state)) {
-+			dev_warn(&adapter->pdev->dev,
-+				 "The VF VLAN has been set,"
-+				 " but the PF device is not up.\n");
-+			dev_warn(&adapter->pdev->dev,
-+				 "Bring the PF device up before"
-+				 " attempting to use the VF device.\n");
-+		}
-+	} else {
-+		err = ixgbe_set_vf_vlan(adapter, false,
-+					adapter->vfinfo[vf].pf_vlan, vf);
-+		ixgbe_set_vmvir(adapter, vlan, vf);
-+		ixgbe_set_vmolr(&adapter->hw, vf, true);
-+		adapter->vfinfo[vf].pf_vlan = 0;
-+		adapter->vfinfo[vf].pf_qos = 0;
-+       }
-+out:
-+       return err;
-+}
-+
-+int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int tx_rate)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+int ixgbe_ndo_get_vf_config(struct net_device *netdev,
-+			    int vf, struct ifla_vf_info *ivi)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+	if (vf >= adapter->num_vfs)
-+		return -EINVAL;
-+	ivi->vf = vf;
-+	memcpy(&ivi->mac, adapter->vfinfo[vf].vf_mac_addresses, ETH_ALEN);
-+	ivi->tx_rate = 0;
-+	ivi->vlan = adapter->vfinfo[vf].pf_vlan;
-+	ivi->qos = adapter->vfinfo[vf].pf_qos;
-+	return 0;
-+}
 diff --git a/drivers/net/ixgbe/ixgbe_sriov.h b/drivers/net/ixgbe/ixgbe_sriov.h
-index 7fb1288..184730e 100644
+index 51d1106..7fb1288 100644
 --- a/drivers/net/ixgbe/ixgbe_sriov.h
 +++ b/drivers/net/ixgbe/ixgbe_sriov.h
-@@ -42,6 +42,12 @@ int ixgbe_vf_configuration(struct pci_dev *pdev, unsigned int event_mask);
- void ixgbe_disable_tx_rx(struct ixgbe_adapter *adapter);
- void ixgbe_ping_all_vfs(struct ixgbe_adapter *adapter);
- void ixgbe_dump_registers(struct ixgbe_adapter *adapter);
-+int ixgbe_ndo_set_vf_mac(struct net_device *netdev, int queue, u8 *mac);
-+int ixgbe_ndo_set_vf_vlan(struct net_device *netdev, int queue, u16 vlan,
-+			   u8 qos);
-+int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int tx_rate);
-+int ixgbe_ndo_get_vf_config(struct net_device *netdev,
-+			    int vf, struct ifla_vf_info *ivi);
- 
- #endif /* _IXGBE_SRIOV_H_ */
- 
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index a0f9084..4277cbb 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -219,6 +219,7 @@
- #define IXGBE_MTQC      0x08120
- #define IXGBE_VLVF(_i)  (0x0F100 + ((_i) * 4))  /* 64 of these (0-63) */
- #define IXGBE_VLVFB(_i) (0x0F200 + ((_i) * 4))  /* 128 of these (0-127) */
-+#define IXGBE_VMVIR(_i) (0x08000 + ((_i) * 4))  /* 64 of these (0-63) */
- #define IXGBE_VT_CTL    0x051B0
- #define IXGBE_VFRE(_i)  (0x051E0 + ((_i) * 4))
- #define IXGBE_VFTE(_i)  (0x08110 + ((_i) * 4))
-@@ -1311,6 +1312,10 @@
- #define IXGBE_VLVF_ENTRIES      64
- #define IXGBE_VLVF_VLANID_MASK  0x00000FFF
- 
-+/* Per VF Port VLAN insertion rules */
-+#define IXGBE_VMVIR_VLANA_DEFAULT 0x40000000 /* Always use default VLAN */
-+#define IXGBE_VMVIR_VLANA_NEVER   0x80000000 /* Never insert VLAN tag */
-+
- #define IXGBE_ETHERNET_IEEE_VLAN_TYPE 0x8100  /* 802.1q protocol */
- 
- /* STATUS Bit Masks */
+@@ -32,7 +32,7 @@ int ixgbe_set_vf_multicasts(struct ixgbe_adapter *adapter,
+                             int entries, u16 *hash_list, u32 vf);
+ void ixgbe_restore_vf_multicasts(struct ixgbe_adapter *adapter);
+ int ixgbe_set_vf_vlan(struct ixgbe_adapter *adapter, int add, int vid, u32 vf);
+-void ixgbe_set_vmolr(struct ixgbe_hw *hw, u32 vf);
++void ixgbe_set_vmolr(struct ixgbe_hw *hw, u32 vf, bool aupe);
+ void ixgbe_vf_reset_event(struct ixgbe_adapter *adapter, u32 vf);
+ void ixgbe_vf_reset_msg(struct ixgbe_adapter *adapter, u32 vf);
+ void ixgbe_msg_task(struct ixgbe_adapter *adapter);
 
