@@ -1,40 +1,224 @@
 From: Amerigo Wang <amwang@redhat.com>
-Subject: [Patch v10 0/3] net: reserve ports for applications using fixed port numbers
-Date: Wed, 5 May 2010 06:26:34 -0400
-Message-ID: <20100505103033.5600.77502.sendpatchset@localhost.localdomain>
-Cc: Octavian Purdila <opurdila@ixiacom.com>, ebiederm@xmission.com,
+Subject: [Patch 2/3] sysctl: add proc_do_large_bitmap
+Date: Wed, 5 May 2010 06:26:55 -0400
+Message-ID: <20100505103054.5600.63099.sendpatchset@localhost.localdomain>
+References: <20100505103033.5600.77502.sendpatchset@localhost.localdomain>
+Cc: Octavian Purdila <opurdila@ixiacom.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
 	penguin-kernel@I-love.SAKURA.ne.jp, netdev@vger.kernel.org,
 	Neil Horman <nhorman@tuxdriver.com>,
-	Amerigo Wang <amwang@redhat.com>, xiaosuo@gmail.com,
-	adobriyan@gmail.com, David Miller <davem@davemloft.net>
+	Amerigo Wang <amwang@redhat.com>, ebiederm@xmission.com,
+	xiaosuo@gmail.com, adobriyan@gmail.com,
+	David Miller <davem@davemloft.net>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100505103033.5600.77502.sendpatchset@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Octavian Purdila <opurdila@ixiacom.com>
 
-Changes from the previous version:
-- Use 'true' and 'false' for bool's;
-- Fix some coding style problems;
-- Allow appending lines to bitmap proc file so that it will be
-  easier to add new bits.
+The new function can be used to read/write large bitmaps via /proc. A
+comma separated range format is used for compact output and input
+(e.g. 1,3-4,10-10).
 
------------------->
+Writing into the file will first reset the bitmap then update it
+based on the given input.
 
-This patch introduces /proc/sys/net/ipv4/ip_local_reserved_ports which
-allows users to reserve ports for third-party applications.
+Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+Signed-off-by: WANG Cong <amwang@redhat.com>
+Cc: Eric W. Biederman <ebiederm@xmission.com>
+---
 
-The reserved ports will not be used by automatic port assignments
-(e.g. when calling connect() or bind() with port number 0). Explicit
-port allocation behavior is unchanged.
-
-There are still some miss behaviors with regard to proc parsing in odd
-invalid cases (for "40000\0-40001" all is acknowledged but only 40000
-is accepted) but they are not easy to fix without changing the current
-"acknowledge how much we accepted" behavior.
-
-Because of that and because the same issues are present in the
-existing proc_dointvec code as well I don't think its worth holding
-the actual feature (port reservation) after such petty error recovery
-issues.
+Index: linux-2.6/include/linux/sysctl.h
+===================================================================
+--- linux-2.6.orig/include/linux/sysctl.h
++++ linux-2.6/include/linux/sysctl.h
+@@ -980,6 +980,8 @@ extern int proc_doulongvec_minmax(struct
+ 				  void __user *, size_t *, loff_t *);
+ extern int proc_doulongvec_ms_jiffies_minmax(struct ctl_table *table, int,
+ 				      void __user *, size_t *, loff_t *);
++extern int proc_do_large_bitmap(struct ctl_table *, int,
++				void __user *, size_t *, loff_t *);
+ 
+ /*
+  * Register a set of sysctl names by calling register_sysctl_table
+Index: linux-2.6/kernel/sysctl.c
+===================================================================
+--- linux-2.6.orig/kernel/sysctl.c
++++ linux-2.6/kernel/sysctl.c
+@@ -2049,6 +2049,16 @@ static size_t proc_skip_spaces(char **bu
+ 	return ret;
+ }
+ 
++static void proc_skip_char(char **buf, size_t *size, const char v)
++{
++	while (*size) {
++		if (**buf != v)
++			break;
++		(*size)--;
++		(*buf)++;
++	}
++}
++
+ #define TMPBUFLEN 22
+ /**
+  * proc_get_long - reads an ASCII formated integer from a user buffer
+@@ -2675,6 +2685,157 @@ static int proc_do_cad_pid(struct ctl_ta
+ 	return 0;
+ }
+ 
++/**
++ * proc_do_large_bitmap - read/write from/to a large bitmap
++ * @table: the sysctl table
++ * @write: %TRUE if this is a write to the sysctl file
++ * @buffer: the user buffer
++ * @lenp: the size of the user buffer
++ * @ppos: file position
++ *
++ * The bitmap is stored at table->data and the bitmap length (in bits)
++ * in table->maxlen.
++ *
++ * We use a range comma separated format (e.g. 1,3-4,10-10) so that
++ * large bitmaps may be represented in a compact manner. Writing into
++ * the file will clear the bitmap then update it with the given input.
++ *
++ * Returns 0 on success.
++ */
++int proc_do_large_bitmap(struct ctl_table *table, int write,
++			 void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	int err = 0;
++	bool first = 1;
++	size_t left = *lenp;
++	unsigned long bitmap_len = table->maxlen;
++	unsigned long *bitmap = (unsigned long *) table->data;
++	unsigned long *tmp_bitmap = NULL;
++	char tr_a[] = { '-', ',', '\n' }, tr_b[] = { ',', '\n', 0 }, c;
++
++	if (!bitmap_len || !left || (*ppos && !write)) {
++		*lenp = 0;
++		return 0;
++	}
++
++	if (write) {
++		unsigned long page = 0;
++		char *kbuf;
++
++		if (left > PAGE_SIZE - 1)
++			left = PAGE_SIZE - 1;
++
++		page = __get_free_page(GFP_TEMPORARY);
++		kbuf = (char *) page;
++		if (!kbuf)
++			return -ENOMEM;
++		if (copy_from_user(kbuf, buffer, left)) {
++			free_page(page);
++			return -EFAULT;
++                }
++		kbuf[left] = 0;
++
++		tmp_bitmap = kzalloc(BITS_TO_LONGS(bitmap_len) * sizeof(unsigned long),
++				     GFP_KERNEL);
++		if (!tmp_bitmap) {
++			free_page(page);
++			return -ENOMEM;
++		}
++		proc_skip_char(&kbuf, &left, '\n');
++		while (!err && left) {
++			unsigned long val_a, val_b;
++			bool neg;
++
++			err = proc_get_long(&kbuf, &left, &val_a, &neg, tr_a,
++					     sizeof(tr_a), &c);
++			if (err)
++				break;
++			if (val_a >= bitmap_len || neg) {
++				err = -EINVAL;
++				break;
++			}
++
++			val_b = val_a;
++			if (left) {
++				kbuf++;
++				left--;
++			}
++
++			if (c == '-') {
++				err = proc_get_long(&kbuf, &left, &val_b,
++						     &neg, tr_b, sizeof(tr_b),
++						     &c);
++				if (err)
++					break;
++				if (val_b >= bitmap_len || neg ||
++				    val_a > val_b) {
++					err = -EINVAL;
++					break;
++				}
++				if (left) {
++					kbuf++;
++					left--;
++				}
++			}
++
++			while (val_a <= val_b)
++				set_bit(val_a++, tmp_bitmap);
++
++			first = 0;
++			proc_skip_char(&kbuf, &left, '\n');
++		}
++		free_page(page);
++	} else {
++		unsigned long bit_a, bit_b = 0;
++
++		while (left) {
++			bit_a = find_next_bit(bitmap, bitmap_len, bit_b);
++			if (bit_a >= bitmap_len)
++				break;
++			bit_b = find_next_zero_bit(bitmap, bitmap_len,
++						   bit_a + 1) - 1;
++
++			if (!first) {
++				err = proc_put_char(&buffer, &left, ',');
++				if (err)
++					break;
++			}
++			err = proc_put_long(&buffer, &left, bit_a, false);
++			if (err)
++				break;
++			if (bit_a != bit_b) {
++				err = proc_put_char(&buffer, &left, '-');
++				if (err)
++					break;
++				err = proc_put_long(&buffer, &left, bit_b, false);
++				if (err)
++					break;
++			}
++
++			first = 0; bit_b++;
++		}
++		if (!err)
++			err = proc_put_char(&buffer, &left, '\n');
++	}
++
++	if (!err) {
++		if (write) {
++			if (*ppos)
++				bitmap_or(bitmap, bitmap, tmp_bitmap, bitmap_len);
++			else
++				memcpy(bitmap, tmp_bitmap,
++					BITS_TO_LONGS(bitmap_len) * sizeof(unsigned long));
++		}
++		kfree(tmp_bitmap);
++		*lenp -= left;
++		*ppos += *lenp;
++		return 0;
++	} else {
++		kfree(tmp_bitmap);
++		return err;
++	}
++}
++
+ #else /* CONFIG_PROC_FS */
+ 
+ int proc_dostring(struct ctl_table *table, int write,
