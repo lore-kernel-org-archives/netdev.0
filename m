@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 6/6] net: Expose all network devices in a namespaces in sysfs
-Date: Tue,  4 May 2010 17:36:49 -0700
-Message-ID: <1273019809-16472-6-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 2/6] netns: Teach network device kobjects which namespace they are in.
+Date: Tue,  4 May 2010 17:36:45 -0700
+Message-ID: <1273019809-16472-2-git-send-email-ebiederm@xmission.com>
 References: <m1fx3hk6gw.fsf@fess.ebiederm.org>
 Cc: Kay Sievers <kay.sievers@vrfy.org>, linux-kernel@vger.kernel.org,
 	Tejun Heo <tj@kernel.org>,
@@ -12,182 +12,148 @@ Cc: Kay Sievers <kay.sievers@vrfy.org>, linux-kernel@vger.kernel.org,
 	David Miller <davem@davemloft.net>,
 	"Eric W. Biederman" <ebiederm@xmission.com>
 To: Greg Kroah-Hartman <gregkh@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:34782 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934493Ab0EEAhE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 May 2010 20:37:04 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <m1fx3hk6gw.fsf@fess.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Eric W. Biederman <ebiederm@xmission.com>
 
-This reverts commit aaf8cdc34ddba08122f02217d9d684e2f9f5d575.
+The problem.  Network devices show up in sysfs and with the network
+namespace active multiple devices with the same name can show up in
+the same directory, ouch!
 
-Drivers like the ipw2100 call device_create_group when they
-are initialized and device_remove_group when they are shutdown.
-Moving them between namespaces deletes their sysfs groups early.
+To avoid that problem and allow existing applications in network namespaces
+to see the same interface that is currently presented in sysfs, this
+patch enables the tagging directory support in sysfs.
 
-In particular the following call chain results.
-netdev_unregister_kobject -> device_del -> kobject_del -> sysfs_remove_dir
-With sysfs_remove_dir recursively deleting all of it's subdirectories,
-and nothing adding them back.
-
-Ouch!
-
-Therefore we need to call something that ultimate calls sysfs_mv_dir
-as that sysfs function can move sysfs directories between namespaces
-without deleting their subdirectories or their contents.   Allowing
-us to avoid placing extra boiler plate into every driver that does
-something interesting with sysfs.
-
-Currently the function that provides that capability is device_rename.
-That is the code works without nasty side effects as originally written.
-
-So remove the misguided fix for moving devices between namespaces.  The
-bug in the kobject layer that inspired it has now been recognized and
-fixed.
+By using the network namespace pointers as tags to separate out the
+the sysfs directory entries we ensure that we don't have conflicts
+in the directories and applications only see a limited set of
+the network devices.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/core/dev.c       |   28 +++++-----------------------
- net/core/net-sysfs.c |   16 +---------------
- net/core/net-sysfs.h |    1 -
- 3 files changed, 6 insertions(+), 39 deletions(-)
+ include/linux/kobject.h |    1 +
+ net/Kconfig             |    8 ++++++++
+ net/core/net-sysfs.c    |   46 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 55 insertions(+), 0 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index bcc490c..fa54819 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -983,15 +983,10 @@ int dev_change_name(struct net_device *dev, const char *newname)
- 		return err;
+diff --git a/include/linux/kobject.h b/include/linux/kobject.h
+index b60d2df..cf343a8 100644
+--- a/include/linux/kobject.h
++++ b/include/linux/kobject.h
+@@ -142,6 +142,7 @@ extern const struct sysfs_ops kobj_sysfs_ops;
+  */
+ enum kobj_ns_type {
+ 	KOBJ_NS_TYPE_NONE = 0,
++	KOBJ_NS_TYPE_NET,
+ 	KOBJ_NS_TYPES
+ };
  
- rollback:
--	/* For now only devices in the initial network namespace
--	 * are in sysfs.
--	 */
--	if (net_eq(net, &init_net)) {
--		ret = device_rename(&dev->dev, dev->name);
--		if (ret) {
--			memcpy(dev->name, oldname, IFNAMSIZ);
--			return ret;
--		}
-+	ret = device_rename(&dev->dev, dev->name);
-+	if (ret) {
-+		memcpy(dev->name, oldname, IFNAMSIZ);
-+		return ret;
- 	}
+diff --git a/net/Kconfig b/net/Kconfig
+index 041c35e..265e33b 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -45,6 +45,14 @@ config COMPAT_NETLINK_MESSAGES
  
- 	write_lock_bh(&dev_base_lock);
-@@ -5106,8 +5101,6 @@ int register_netdevice(struct net_device *dev)
- 	if (dev->features & NETIF_F_SG)
- 		dev->features |= NETIF_F_GSO;
+ menu "Networking options"
  
--	netdev_initialize_kobject(dev);
--
- 	ret = call_netdevice_notifiers(NETDEV_POST_INIT, dev);
- 	ret = notifier_to_errno(ret);
- 	if (ret)
-@@ -5628,15 +5621,6 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
- 	if (dev->features & NETIF_F_NETNS_LOCAL)
- 		goto out;
- 
--#ifdef CONFIG_SYSFS
--	/* Don't allow real devices to be moved when sysfs
--	 * is enabled.
--	 */
--	err = -EINVAL;
--	if (dev->dev.parent)
--		goto out;
--#endif
--
- 	/* Ensure the device has been registrered */
- 	err = -EINVAL;
- 	if (dev->reg_state != NETREG_REGISTERED)
-@@ -5687,8 +5671,6 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
- 	dev_unicast_flush(dev);
- 	dev_addr_discard(dev);
- 
--	netdev_unregister_kobject(dev);
--
- 	/* Actually switch the network namespace */
- 	dev_net_set(dev, net);
- 
-@@ -5701,7 +5683,7 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
- 	}
- 
- 	/* Fixup kobjects */
--	err = netdev_register_kobject(dev);
-+	err = device_rename(&dev->dev, dev->name);
- 	WARN_ON(err);
- 
- 	/* Add the device back in the hashes */
++config NET_NS
++	bool "Network namespace support"
++	default n
++	depends on EXPERIMENTAL && NAMESPACES
++	help
++	  Allow user space to create what appear to be multiple instances
++	  of the network stack.
++
+ source "net/packet/Kconfig"
+ source "net/unix/Kconfig"
+ source "net/xfrm/Kconfig"
 diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 1b98e36..0727c57 100644
+index 099c753..1b98e36 100644
 --- a/net/core/net-sysfs.c
 +++ b/net/core/net-sysfs.c
-@@ -507,9 +507,6 @@ static int netdev_uevent(struct device *d, struct kobj_uevent_env *env)
- 	struct net_device *dev = to_net_dev(d);
- 	int retval;
- 
--	if (!net_eq(dev_net(dev), &init_net))
--		return 0;
--
- 	/* pass interface to uevent. */
- 	retval = add_uevent_var(env, "INTERFACE=%s", dev->name);
- 	if (retval)
-@@ -568,9 +565,6 @@ void netdev_unregister_kobject(struct net_device * net)
- 
- 	kobject_get(&dev->kobj);
- 
--	if (!net_eq(dev_net(net), &init_net))
--		return;
--
- 	device_del(dev);
- }
- 
-@@ -580,6 +574,7 @@ int netdev_register_kobject(struct net_device *net)
- 	struct device *dev = &(net->dev);
- 	const struct attribute_group **groups = net->sysfs_groups;
- 
-+	device_initialize(dev);
- 	dev->class = &net_class;
- 	dev->platform_data = net;
- 	dev->groups = groups;
-@@ -602,9 +597,6 @@ int netdev_register_kobject(struct net_device *net)
+@@ -13,7 +13,9 @@
+ #include <linux/kernel.h>
+ #include <linux/netdevice.h>
+ #include <linux/if_arp.h>
++#include <linux/nsproxy.h>
+ #include <net/sock.h>
++#include <net/net_namespace.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/wireless.h>
+ #include <net/wext.h>
+@@ -466,6 +468,37 @@ static struct attribute_group wireless_group = {
+ };
  #endif
+ 
++static const void *net_current_ns(void)
++{
++	return current->nsproxy->net_ns;
++}
++
++static const void *net_initial_ns(void)
++{
++	return &init_net;
++}
++
++static const void *net_netlink_ns(struct sock *sk)
++{
++	return sock_net(sk);
++}
++
++static struct kobj_ns_type_operations net_ns_type_operations = {
++	.type = KOBJ_NS_TYPE_NET,
++	.current_ns = net_current_ns,
++	.netlink_ns = net_netlink_ns,
++	.initial_ns = net_initial_ns,
++};
++
++static void net_kobj_ns_exit(struct net *net)
++{
++	kobj_ns_exit(KOBJ_NS_TYPE_NET, net);
++}
++
++static struct pernet_operations sysfs_net_ops = {
++	.exit = net_kobj_ns_exit,
++};
++
  #endif /* CONFIG_SYSFS */
  
--	if (!net_eq(dev_net(net), &init_net))
--		return 0;
--
- 	return device_add(dev);
+ #ifdef CONFIG_HOTPLUG
+@@ -506,6 +539,13 @@ static void netdev_release(struct device *d)
+ 	kfree((char *)dev - dev->padded);
  }
  
-@@ -621,12 +613,6 @@ void netdev_class_remove_file(struct class_attribute *class_attr)
- EXPORT_SYMBOL(netdev_class_create_file);
- EXPORT_SYMBOL(netdev_class_remove_file);
++static const void *net_namespace(struct device *d)
++{
++	struct net_device *dev;
++	dev = container_of(d, struct net_device, dev);
++	return dev_net(dev);
++}
++
+ static struct class net_class = {
+ 	.name = "net",
+ 	.dev_release = netdev_release,
+@@ -515,6 +555,8 @@ static struct class net_class = {
+ #ifdef CONFIG_HOTPLUG
+ 	.dev_uevent = netdev_uevent,
+ #endif
++	.ns_type = &net_ns_type_operations,
++	.namespace = net_namespace,
+ };
  
--void netdev_initialize_kobject(struct net_device *net)
--{
--	struct device *device = &(net->dev);
--	device_initialize(device);
--}
--
+ /* Delete sysfs entries but hold kobject reference until after all
+@@ -587,5 +629,9 @@ void netdev_initialize_kobject(struct net_device *net)
+ 
  int netdev_kobject_init(void)
  {
- 	kobj_ns_type_register(&net_ns_type_operations);
-diff --git a/net/core/net-sysfs.h b/net/core/net-sysfs.h
-index 14e7524..805555e 100644
---- a/net/core/net-sysfs.h
-+++ b/net/core/net-sysfs.h
-@@ -4,5 +4,4 @@
- int netdev_kobject_init(void);
- int netdev_register_kobject(struct net_device *);
- void netdev_unregister_kobject(struct net_device *);
--void netdev_initialize_kobject(struct net_device *);
- #endif
++	kobj_ns_type_register(&net_ns_type_operations);
++#ifdef CONFIG_SYSFS
++	register_pernet_subsys(&sysfs_net_ops);
++#endif
+ 	return class_register(&net_class);
+ }
 -- 
 1.6.5.2.143.g8cc62
-
