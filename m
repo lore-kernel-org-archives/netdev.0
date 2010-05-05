@@ -1,17 +1,22 @@
 From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: [PATCH] sctp: Fix a race between ICMP protocol unreachable and connect()
-Date: Wed,  5 May 2010 15:29:43 -0400
-Message-ID: <1273087783-18250-1-git-send-email-vladislav.yasevich@hp.com>
+Subject: [PATCH v2] sctp: Fix a race between ICMP protocol unreachable and connect()
+Date: Wed,  5 May 2010 15:36:06 -0400
+Message-ID: <1273088166-18391-1-git-send-email-vladislav.yasevich@hp.com>
+References: <1273087783-18250-1-git-send-email-vladislav.yasevich@hp.com>
 Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
 	Vlad Yasevich <vladislav.yasevich@hp.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:36906 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757990Ab0EET3r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 May 2010 15:29:47 -0400
+Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:20740 "EHLO
+	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753630Ab0EETgJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 May 2010 15:36:09 -0400
+In-Reply-To: <1273087783-18250-1-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+[.. removed leftover debuggin printk. should probably be queued for stable
+ as well... ]
 
 ICMP protocol unreachable handling completely disregarded
 the fact that the user may have locket the socket.  It proceeded
@@ -65,10 +70,10 @@ Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 ---
  include/net/sctp/sm.h      |    1 +
  include/net/sctp/structs.h |    3 +++
- net/sctp/input.c           |   23 +++++++++++++++++++----
+ net/sctp/input.c           |   22 ++++++++++++++++++----
  net/sctp/sm_sideeffect.c   |   35 +++++++++++++++++++++++++++++++++++
  net/sctp/transport.c       |    2 ++
- 5 files changed, 60 insertions(+), 4 deletions(-)
+ 5 files changed, 59 insertions(+), 4 deletions(-)
 
 diff --git a/include/net/sctp/sm.h b/include/net/sctp/sm.h
 index 851c813..61d73e3 100644
@@ -97,7 +102,7 @@ index 597f8e2..219043a 100644
  	 * (see above), we're also using per-destination "transmitted"
  	 * queues.  This probably ought to be a private struct
 diff --git a/net/sctp/input.c b/net/sctp/input.c
-index 2a57018..94b2eb2 100644
+index 2a57018..ea21924 100644
 --- a/net/sctp/input.c
 +++ b/net/sctp/input.c
 @@ -440,11 +440,25 @@ void sctp_icmp_proto_unreachable(struct sock *sk,
@@ -130,14 +135,6 @@ index 2a57018..94b2eb2 100644
  }
  
  /* Common lookup code for icmp/icmpv6 error handler. */
-@@ -599,6 +613,7 @@ void sctp_v4_err(struct sk_buff *skb, __u32 info)
- 		}
- 		else {
- 			if (ICMP_PROT_UNREACH == code) {
-+				printk("processing code unreach\n");
- 				sctp_icmp_proto_unreachable(sk, asoc,
- 							    transport);
- 				goto out_unlock;
 diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
 index d5ae450..eb1f42f 100644
 --- a/net/sctp/sm_sideeffect.c
