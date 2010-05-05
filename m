@@ -1,210 +1,243 @@
-From: Amerigo Wang <amwang@redhat.com>
-Subject: [v5 Patch 3/3] bonding: make bonding support netpoll
-Date: Wed, 5 May 2010 04:11:37 -0400
-Message-ID: <20100505081536.5157.58848.sendpatchset@localhost.localdomain>
-References: <20100505081514.5157.83783.sendpatchset@localhost.localdomain>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH 2/2] ixgbe: Add support for VF MAC and VLAN
+	configuration
+Date: Wed, 05 May 2010 01:12:06 -0700
+Message-ID: <20100505081204.5709.63340.stgit@localhost.localdomain>
+References: <20100505081129.5709.39430.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>, Amerigo Wang <amwang@redhat.com>,
-        Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-        Matt Mackall <mpm@selenic.com>, bridge@lists.linux-foundation.org,
-        David Miller <davem@davemloft.net>, Jeff Moyer <jmoyer@redhat.com>,
-        Andy Gospodarek <gospo@redhat.com>,
-        bonding-devel@lists.sourceforge.net
-To: linux-kernel@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20100505081514.5157.83783.sendpatchset@localhost.localdomain>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from qmta11.emeryville.ca.mail.comcast.net ([76.96.27.211]:60465
+	"EHLO qmta11.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932793Ab0EEIMX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 May 2010 04:12:23 -0400
+In-Reply-To: <20100505081129.5709.39430.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Greg Rose <gregory.v.rose@intel.com>
 
-Based on Andy's work, but I modified a lot.
+Add support for the "ip link set" and "ip link show" commands that allow
+configuration of the virtual functions' MAC and port VLAN via user space
+command line.
 
-Similar to the patch for bridge, this patch does:
-
-1) implement the 2 methods to support netpoll for bonding;
-
-2) modify netpoll during forwarding packets via bonding;
-
-3) disable netpoll support of bonding when a netpoll-unabled device
-   is added to bonding;
-
-4) enable netpoll support when all underlying devices support netpoll.
-
-Cc: Andy Gospodarek <gospo@redhat.com>
-Cc: Jeff Moyer <jmoyer@redhat.com>
-Cc: Matt Mackall <mpm@selenic.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Cc: Jay Vosburgh <fubar@us.ibm.com>
-Cc: David Miller <davem@davemloft.net>
-Signed-off-by: WANG Cong <amwang@redhat.com>
-
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
-Index: linux-2.6/drivers/net/bonding/bond_main.c
-===================================================================
---- linux-2.6.orig/drivers/net/bonding/bond_main.c
-+++ linux-2.6/drivers/net/bonding/bond_main.c
-@@ -59,6 +59,7 @@
- #include <linux/uaccess.h>
- #include <linux/errno.h>
- #include <linux/netdevice.h>
-+#include <linux/netpoll.h>
- #include <linux/inetdevice.h>
- #include <linux/igmp.h>
- #include <linux/etherdevice.h>
-@@ -430,7 +431,18 @@ int bond_dev_queue_xmit(struct bonding *
- 	}
- 
- 	skb->priority = 1;
--	dev_queue_xmit(skb);
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	if (unlikely(bond->dev->priv_flags & IFF_IN_NETPOLL)) {
-+		struct netpoll *np = bond->dev->npinfo->netpoll;
-+		slave_dev->npinfo = bond->dev->npinfo;
-+		np->real_dev = np->dev = skb->dev;
-+		slave_dev->priv_flags |= IFF_IN_NETPOLL;
-+		netpoll_send_skb(np, skb);
-+		slave_dev->priv_flags &= ~IFF_IN_NETPOLL;
-+		np->dev = bond->dev;
-+	} else
-+#endif
-+		dev_queue_xmit(skb);
- 
- 	return 0;
- }
-@@ -1329,6 +1341,61 @@ static void bond_detach_slave(struct bon
- 	bond->slave_cnt--;
- }
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+/*
-+ * You must hold read lock on bond->lock before calling this.
-+ */
-+static bool slaves_support_netpoll(struct net_device *bond_dev)
-+{
-+	struct bonding *bond = netdev_priv(bond_dev);
-+	struct slave *slave;
-+	int i = 0;
-+	bool ret = true;
-+
-+	bond_for_each_slave(bond, slave, i) {
-+		if ((slave->dev->priv_flags & IFF_DISABLE_NETPOLL) ||
-+		    !slave->dev->netdev_ops->ndo_poll_controller)
-+			ret = false;
-+	}
-+	return i != 0 && ret;
-+}
-+
-+static void bond_poll_controller(struct net_device *bond_dev)
-+{
-+	struct net_device *dev = bond_dev->npinfo->netpoll->real_dev;
-+	if (dev != bond_dev)
-+		netpoll_poll_dev(dev);
-+}
-+
-+static void bond_netpoll_cleanup(struct net_device *bond_dev)
-+{
-+	struct bonding *bond = netdev_priv(bond_dev);
-+	struct slave *slave;
-+	const struct net_device_ops *ops;
-+	int i;
-+
-+	read_lock(&bond->lock);
-+	bond_dev->npinfo = NULL;
-+	bond_for_each_slave(bond, slave, i) {
-+		if (slave->dev) {
-+			ops = slave->dev->netdev_ops;
-+			if (ops->ndo_netpoll_cleanup)
-+				ops->ndo_netpoll_cleanup(slave->dev);
-+			else
-+				slave->dev->npinfo = NULL;
-+		}
-+	}
-+	read_unlock(&bond->lock);
-+}
-+
-+#else
-+
-+static void bond_netpoll_cleanup(struct net_device *bond_dev)
-+{
-+}
-+
-+#endif
-+
- /*---------------------------------- IOCTL ----------------------------------*/
- 
- static int bond_sethwaddr(struct net_device *bond_dev,
-@@ -1735,6 +1802,18 @@ int bond_enslave(struct net_device *bond
- 
- 	bond_set_carrier(bond);
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	if (slaves_support_netpoll(bond_dev)) {
-+		bond_dev->priv_flags &= ~IFF_DISABLE_NETPOLL;
-+		if (bond_dev->npinfo)
-+			slave_dev->npinfo = bond_dev->npinfo;
-+	} else if (!(bond_dev->priv_flags & IFF_DISABLE_NETPOLL)) {
-+		bond_dev->priv_flags |= IFF_DISABLE_NETPOLL;
-+		pr_info("New slave device %s does not support netpoll\n",
-+			slave_dev->name);
-+		pr_info("Disabling netpoll support for %s\n", bond_dev->name);
-+	}
-+#endif
- 	read_unlock(&bond->lock);
- 
- 	res = bond_create_slave_symlinks(bond_dev, slave_dev);
-@@ -1801,6 +1880,7 @@ int bond_release(struct net_device *bond
- 		return -EINVAL;
- 	}
- 
-+	netdev_bonding_change(bond_dev, NETDEV_BONDING_DESLAVE);
- 	write_lock_bh(&bond->lock);
- 
- 	slave = bond_get_slave_by_dev(bond, slave_dev);
-@@ -1929,6 +2009,17 @@ int bond_release(struct net_device *bond
- 
- 	netdev_set_master(slave_dev, NULL);
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	read_lock_bh(&bond->lock);
-+	if (slaves_support_netpoll(bond_dev))
-+		bond_dev->priv_flags &= ~IFF_DISABLE_NETPOLL;
-+	read_unlock_bh(&bond->lock);
-+	if (slave_dev->netdev_ops->ndo_netpoll_cleanup)
-+		slave_dev->netdev_ops->ndo_netpoll_cleanup(slave_dev);
-+	else
-+		slave_dev->npinfo = NULL;
-+#endif
-+
- 	/* close slave before restoring its mac address */
- 	dev_close(slave_dev);
- 
-@@ -4448,6 +4539,10 @@ static const struct net_device_ops bond_
- 	.ndo_vlan_rx_register	= bond_vlan_rx_register,
- 	.ndo_vlan_rx_add_vid 	= bond_vlan_rx_add_vid,
- 	.ndo_vlan_rx_kill_vid	= bond_vlan_rx_kill_vid,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_netpoll_cleanup	= bond_netpoll_cleanup,
-+	.ndo_poll_controller	= bond_poll_controller,
-+#endif
+ drivers/net/ixgbe/ixgbe.h       |    3 +
+ drivers/net/ixgbe/ixgbe_main.c  |    4 ++
+ drivers/net/ixgbe/ixgbe_sriov.c |  104 ++++++++++++++++++++++++++++++++++++++-
+ drivers/net/ixgbe/ixgbe_sriov.h |    6 ++
+ drivers/net/ixgbe/ixgbe_type.h  |    5 ++
+ 5 files changed, 118 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
+index 79c35ae..d0ea3d6 100644
+--- a/drivers/net/ixgbe/ixgbe.h
++++ b/drivers/net/ixgbe/ixgbe.h
+@@ -111,7 +111,10 @@ struct vf_data_storage {
+ 	u16 default_vf_vlan_id;
+ 	u16 vlans_enabled;
+ 	bool clear_to_send;
++	bool pf_set_mac;
+ 	int rar;
++	u16 pf_vlan; /* When set, guest VLAN config not allowed. */
++	u16 pf_qos;
  };
  
- static void bond_destructor(struct net_device *bond_dev)
-@@ -4541,6 +4636,8 @@ static void bond_uninit(struct net_devic
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
+ /* wrapper around a pointer to a socket buffer,
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 0a0e90e..d1a1868 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -6311,6 +6311,10 @@ static const struct net_device_ops ixgbe_netdev_ops = {
+ 	.ndo_vlan_rx_add_vid	= ixgbe_vlan_rx_add_vid,
+ 	.ndo_vlan_rx_kill_vid	= ixgbe_vlan_rx_kill_vid,
+ 	.ndo_do_ioctl		= ixgbe_ioctl,
++	.ndo_set_vf_mac		= ixgbe_ndo_set_vf_mac,
++	.ndo_set_vf_vlan	= ixgbe_ndo_set_vf_vlan,
++	.ndo_set_vf_tx_rate	= ixgbe_ndo_set_vf_bw,
++	.ndo_get_vf_config	= ixgbe_ndo_get_vf_config,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= ixgbe_netpoll,
+ #endif
+diff --git a/drivers/net/ixgbe/ixgbe_sriov.c b/drivers/net/ixgbe/ixgbe_sriov.c
+index 53f364d..221b2ca 100644
+--- a/drivers/net/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ixgbe/ixgbe_sriov.c
+@@ -126,13 +126,34 @@ void ixgbe_set_vmolr(struct ixgbe_hw *hw, u32 vf, bool aupe)
+ 	IXGBE_WRITE_REG(hw, IXGBE_VMOLR(vf), vmolr);
+ }
  
-+	bond_netpoll_cleanup(bond_dev);
++static void ixgbe_set_vmvir(struct ixgbe_adapter *adapter, u32 vid, u32 vf)
++{
++	struct ixgbe_hw *hw = &adapter->hw;
 +
- 	/* Release the bonded slaves */
- 	bond_release_all(bond_dev);
++	if (vid)
++		IXGBE_WRITE_REG(hw, IXGBE_VMVIR(vf),
++				(vid | IXGBE_VMVIR_VLANA_DEFAULT));
++	else
++		IXGBE_WRITE_REG(hw, IXGBE_VMVIR(vf), 0);
++}
++
+ inline void ixgbe_vf_reset_event(struct ixgbe_adapter *adapter, u32 vf)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 
+ 	/* reset offloads to defaults */
+-	ixgbe_set_vmolr(hw, vf, true);
+-
++	if (adapter->vfinfo[vf].pf_vlan) {
++		ixgbe_set_vf_vlan(adapter, true,
++				  adapter->vfinfo[vf].pf_vlan, vf);
++		ixgbe_set_vmvir(adapter,
++				(adapter->vfinfo[vf].pf_vlan |
++				 (adapter->vfinfo[vf].pf_qos <<
++				  VLAN_PRIO_SHIFT)), vf);
++		ixgbe_set_vmolr(hw, vf, false);
++	} else {
++		ixgbe_set_vmvir(adapter, 0, vf);
++		ixgbe_set_vmolr(hw, vf, true);
++	}
+ 
+ 	/* reset multicast table array for vf */
+ 	adapter->vfinfo[vf].num_vf_mc_hashes = 0;
+@@ -266,10 +287,12 @@ static int ixgbe_rcv_msg_from_vf(struct ixgbe_adapter *adapter, u32 vf)
+ 	case IXGBE_VF_SET_MAC_ADDR:
+ 		{
+ 			u8 *new_mac = ((u8 *)(&msgbuf[1]));
+-			if (is_valid_ether_addr(new_mac))
++			if (is_valid_ether_addr(new_mac) &&
++			    !adapter->vfinfo[vf].pf_set_mac)
+ 				ixgbe_set_vf_mac(adapter, vf, new_mac);
+ 			else
+-				retval = -1;
++				ixgbe_set_vf_mac(adapter,
++				  vf, adapter->vfinfo[vf].vf_mac_addresses);
+ 		}
+ 		break;
+ 	case IXGBE_VF_SET_MULTICAST:
+@@ -363,3 +386,76 @@ void ixgbe_ping_all_vfs(struct ixgbe_adapter *adapter)
+ 	}
+ }
+ 
++int ixgbe_ndo_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++	if (!is_valid_ether_addr(mac) || (vf >= adapter->num_vfs))
++		return -EINVAL;
++	adapter->vfinfo[vf].pf_set_mac = true;
++	dev_info(&adapter->pdev->dev, "setting MAC %pM on VF %d\n", mac, vf);
++	dev_info(&adapter->pdev->dev, "Reload the VF driver to make this"
++				      " change effective.");
++	if (test_bit(__IXGBE_DOWN, &adapter->state)) {
++		dev_warn(&adapter->pdev->dev, "The VF MAC address has been set,"
++			 " but the PF device is not up.\n");
++		dev_warn(&adapter->pdev->dev, "Bring the PF device up before"
++			 " attempting to use the VF device.\n");
++	}
++	return ixgbe_set_vf_mac(adapter, vf, mac);
++}
++
++int ixgbe_ndo_set_vf_vlan(struct net_device *netdev, int vf, u16 vlan, u8 qos)
++{
++	int err = 0;
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++
++	if ((vf >= adapter->num_vfs) || (vlan > 4095) || (qos > 7))
++		return -EINVAL;
++	if (vlan || qos) {
++		err = ixgbe_set_vf_vlan(adapter, true, vlan, vf);
++		if (err)
++			goto out;
++		ixgbe_set_vmvir(adapter, vlan | (qos << VLAN_PRIO_SHIFT), vf);
++		ixgbe_set_vmolr(&adapter->hw, vf, false);
++		adapter->vfinfo[vf].pf_vlan = vlan;
++		adapter->vfinfo[vf].pf_qos = qos;
++		dev_info(&adapter->pdev->dev,
++			 "Setting VLAN %d, QOS 0x%x on VF %d\n", vlan, qos, vf);
++		if (test_bit(__IXGBE_DOWN, &adapter->state)) {
++			dev_warn(&adapter->pdev->dev,
++				 "The VF VLAN has been set,"
++				 " but the PF device is not up.\n");
++			dev_warn(&adapter->pdev->dev,
++				 "Bring the PF device up before"
++				 " attempting to use the VF device.\n");
++		}
++	} else {
++		err = ixgbe_set_vf_vlan(adapter, false,
++					adapter->vfinfo[vf].pf_vlan, vf);
++		ixgbe_set_vmvir(adapter, vlan, vf);
++		ixgbe_set_vmolr(&adapter->hw, vf, true);
++		adapter->vfinfo[vf].pf_vlan = 0;
++		adapter->vfinfo[vf].pf_qos = 0;
++       }
++out:
++       return err;
++}
++
++int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int tx_rate)
++{
++	return -EOPNOTSUPP;
++}
++
++int ixgbe_ndo_get_vf_config(struct net_device *netdev,
++			    int vf, struct ifla_vf_info *ivi)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(netdev);
++	if (vf >= adapter->num_vfs)
++		return -EINVAL;
++	ivi->vf = vf;
++	memcpy(&ivi->mac, adapter->vfinfo[vf].vf_mac_addresses, ETH_ALEN);
++	ivi->tx_rate = 0;
++	ivi->vlan = adapter->vfinfo[vf].pf_vlan;
++	ivi->qos = adapter->vfinfo[vf].pf_qos;
++	return 0;
++}
+diff --git a/drivers/net/ixgbe/ixgbe_sriov.h b/drivers/net/ixgbe/ixgbe_sriov.h
+index 7fb1288..184730e 100644
+--- a/drivers/net/ixgbe/ixgbe_sriov.h
++++ b/drivers/net/ixgbe/ixgbe_sriov.h
+@@ -42,6 +42,12 @@ int ixgbe_vf_configuration(struct pci_dev *pdev, unsigned int event_mask);
+ void ixgbe_disable_tx_rx(struct ixgbe_adapter *adapter);
+ void ixgbe_ping_all_vfs(struct ixgbe_adapter *adapter);
+ void ixgbe_dump_registers(struct ixgbe_adapter *adapter);
++int ixgbe_ndo_set_vf_mac(struct net_device *netdev, int queue, u8 *mac);
++int ixgbe_ndo_set_vf_vlan(struct net_device *netdev, int queue, u16 vlan,
++			   u8 qos);
++int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int tx_rate);
++int ixgbe_ndo_get_vf_config(struct net_device *netdev,
++			    int vf, struct ifla_vf_info *ivi);
+ 
+ #endif /* _IXGBE_SRIOV_H_ */
+ 
+diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
+index a0f9084..4277cbb 100644
+--- a/drivers/net/ixgbe/ixgbe_type.h
++++ b/drivers/net/ixgbe/ixgbe_type.h
+@@ -219,6 +219,7 @@
+ #define IXGBE_MTQC      0x08120
+ #define IXGBE_VLVF(_i)  (0x0F100 + ((_i) * 4))  /* 64 of these (0-63) */
+ #define IXGBE_VLVFB(_i) (0x0F200 + ((_i) * 4))  /* 128 of these (0-127) */
++#define IXGBE_VMVIR(_i) (0x08000 + ((_i) * 4))  /* 64 of these (0-63) */
+ #define IXGBE_VT_CTL    0x051B0
+ #define IXGBE_VFRE(_i)  (0x051E0 + ((_i) * 4))
+ #define IXGBE_VFTE(_i)  (0x08110 + ((_i) * 4))
+@@ -1311,6 +1312,10 @@
+ #define IXGBE_VLVF_ENTRIES      64
+ #define IXGBE_VLVF_VLANID_MASK  0x00000FFF
+ 
++/* Per VF Port VLAN insertion rules */
++#define IXGBE_VMVIR_VLANA_DEFAULT 0x40000000 /* Always use default VLAN */
++#define IXGBE_VMVIR_VLANA_NEVER   0x80000000 /* Never insert VLAN tag */
++
+ #define IXGBE_ETHERNET_IEEE_VLAN_TYPE 0x8100  /* 802.1q protocol */
+ 
+ /* STATUS Bit Masks */
+
