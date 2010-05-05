@@ -1,233 +1,188 @@
-From: Amerigo Wang <amwang@redhat.com>
-Subject: [Patch 3/3] net: reserve ports for applications using fixed port numbers
-Date: Wed, 5 May 2010 06:27:06 -0400
-Message-ID: <20100505103104.5600.24369.sendpatchset@localhost.localdomain>
-References: <20100505103033.5600.77502.sendpatchset@localhost.localdomain>
-Cc: Octavian Purdila <opurdila@ixiacom.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	penguin-kernel@I-love.SAKURA.ne.jp, netdev@vger.kernel.org,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Amerigo Wang <amwang@redhat.com>, xiaosuo@gmail.com,
-	David Miller <davem@davemloft.net>, adobriyan@gmail.com,
-	ebiederm@xmission.com
-To: linux-kernel@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: __alloc_skb() speedup
+Date: Wed, 05 May 2010 14:00:09 +0200
+Message-ID: <1273060809.2367.67.camel@edumazet-laptop>
+References: <1272993054.2245.21.camel@edumazet-laptop>
+	 <20100505.010658.48498744.davem@davemloft.net>
+	 <1273047734.2367.3.camel@edumazet-laptop>
+	 <20100505.012647.260083711.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, hadi@cyberus.ca, therbert@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28124 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934449Ab0EEK1X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 May 2010 06:27:23 -0400
-In-Reply-To: <20100505103033.5600.77502.sendpatchset@localhost.localdomain>
+Received: from mail-bw0-f225.google.com ([209.85.218.225]:49376 "EHLO
+	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753137Ab0EEMAO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 May 2010 08:00:14 -0400
+Received: by bwz25 with SMTP id 25so2891408bwz.28
+        for <netdev@vger.kernel.org>; Wed, 05 May 2010 05:00:12 -0700 (PDT)
+In-Reply-To: <20100505.012647.260083711.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le mercredi 05 mai 2010 =C3=A0 01:26 -0700, David Miller a =C3=A9crit :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 05 May 2010 10:22:14 +0200
+>=20
+> > You mean memset() wont be inlined by ompiler to plain memory writes=
+, but
+> > use the custom kernel memset()  ?
+>=20
+> I hope memset() is never inlined for a 202 byte piece of memory on
+> sparc64 or powerpc.  What happens and makes sense on x86 is x86's
+> business :-)
+>=20
+> Especially since that elides the cache invalidate optimizations, and
+> for anything >=3D 64 bytes those are absolutely critical on Niagara.
+> -
 
-(Dropped the infiniband part, because Tetsuo modified the related code,
-I will send a separate patch for it once this is accepted.)
+Sorry, I was thinking about the shinfo part :
 
-This patch introduces /proc/sys/net/ipv4/ip_local_reserved_ports which
-allows users to reserve ports for third-party applications.
+memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
 
-The reserved ports will not be used by automatic port assignments
-(e.g. when calling connect() or bind() with port number 0). Explicit
-port allocation behavior is unchanged.
+offsetof(struct skb_shared_info, dataref) is small enough and we dont
+dirty a full cache line, so maybe I can keep prefetchw(data + size) ?
 
-Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
-Signed-off-by: WANG Cong <amwang@redhat.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Eric W. Biederman <ebiederm@xmission.com>
+If not, in which cases can we use prefetchw() in kernel, if some arches
+dont handle it well ?
+
+Note1 : Without prefetchw(skb) (I removed it in this v2 patch), some
+packets are dropped again...
+
+Note2: If NET_SKB_PAD changed to 64, cpu0 has about 2% of free cpu
+cycles (as noticed by a user application cycles burner)
+
+-----------------------------------------------------------------------=
+------------------------------------------------------------------
+   PerfTop:    1001 irqs/sec  kernel:99.8% [1000Hz cycles],  (all, cpu:=
+ 0)
+-----------------------------------------------------------------------=
+------------------------------------------------------------------
+
+             samples  pcnt function                      DSO
+             _______ _____ _____________________________ ___________
+             1018.00 16.8% eth_type_trans               =20
+              960.00 15.9% __alloc_skb                  =20
+              757.00 12.5% __netdev_alloc_skb           =20
+              681.00 11.3% _raw_spin_lock               =20
+              479.00  7.9% nommu_map_page               =20
+              424.00  7.0% tg3_poll_work                =20
+              209.00  3.5% get_rps_cpu                  =20
+              205.00  3.4% _raw_spin_lock_irqsave       =20
+              188.00  3.1% __kmalloc                   =20
+              164.00  2.7% enqueue_to_backlog           =20
+              119.00  2.0% tg3_alloc_rx_skb             =20
+              112.00  1.9% kmem_cache_alloc             =20
+
+Thanks !
+
+[PATCH v2 net-next-2.6] net: __alloc_skb() speedup
+
+With following patch I can reach maximum rate of my pktgen+udpsink
+simulator :
+- 'old' machine : dual quad core E5450  @3.00GHz
+- 64 UDP rx flows (only differ by destination port)
+- RPS enabled, NIC interrupts serviced on cpu0
+- rps dispatched on 7 other cores. (~130.000 IPI per second)
+- SLAB allocator (faster than SLUB in this workload)
+- tg3 NIC [BCM5715S Gigabit Ethernet (rev a3)]
+- 1.080.000 pps with few drops (~150 packets per second) at NIC level.
+- 32bit kernel
+
+Idea is to add one prefetchw() call in __alloc_skb() to hint cpu we are
+about to clear part of skb_shared_info.
+
+Also using one memset() to initialize all skb_shared_info fields instea=
+d
+of one by one to reduce number of instructions, using long word moves.
+
+All skb_shared_info fields before 'dataref' are cleared in=20
+__alloc_skb().
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
+ include/linux/skbuff.h |    7 ++++++-
+ net/core/skbuff.c      |   21 +++++----------------
+ 2 files changed, 11 insertions(+), 17 deletions(-)
 
-Index: linux-2.6/Documentation/networking/ip-sysctl.txt
-===================================================================
---- linux-2.6.orig/Documentation/networking/ip-sysctl.txt
-+++ linux-2.6/Documentation/networking/ip-sysctl.txt
-@@ -588,6 +588,37 @@ ip_local_port_range - 2 INTEGERS
- 	(i.e. by default) range 1024-4999 is enough to issue up to
- 	2000 connections per second to systems supporting timestamps.
- 
-+ip_local_reserved_ports - list of comma separated ranges
-+	Specify the ports which are reserved for known third-party
-+	applications. These ports will not be used by automatic port
-+	assignments (e.g. when calling connect() or bind() with port
-+	number 0). Explicit port allocation behavior is unchanged.
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 746a652..f32ccc9 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -187,7 +187,6 @@ union skb_shared_tx {
+  * the end of the header data, ie. at skb->end.
+  */
+ struct skb_shared_info {
+-	atomic_t	dataref;
+ 	unsigned short	nr_frags;
+ 	unsigned short	gso_size;
+ 	/* Warning: this field is not always filled in (UFO)! */
+@@ -197,6 +196,12 @@ struct skb_shared_info {
+ 	union skb_shared_tx tx_flags;
+ 	struct sk_buff	*frag_list;
+ 	struct skb_shared_hwtstamps hwtstamps;
 +
-+	The format used for both input and output is a comma separated
-+	list of ranges (e.g. "1,2-4,10-10" for ports 1, 2, 3, 4 and
-+	10). Writing to the file will clear all previously reserved
-+	ports and update the current list with the one given in the
-+	input.
++	/*
++	 * Warning : all fields before dataref are cleared in __alloc_skb()
++	 */
++	atomic_t	dataref;
++=09
+ 	skb_frag_t	frags[MAX_SKB_FRAGS];
+ 	/* Intermediate layers must ensure that destructor_arg
+ 	 * remains valid until skb destructor */
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 8b9c109..7cafe50 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -187,6 +187,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_=
+t gfp_mask,
+ 			gfp_mask, node);
+ 	if (!data)
+ 		goto nodata;
++	/* prepare shinfo initialization */
++	prefetchw(data + size);
+=20
+ 	/*
+ 	 * Only clear those fields we need to clear, not those that we will
+@@ -208,15 +210,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp=
+_t gfp_mask,
+=20
+ 	/* make sure we initialize shinfo sequentially */
+ 	shinfo =3D skb_shinfo(skb);
++	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
+ 	atomic_set(&shinfo->dataref, 1);
+-	shinfo->nr_frags  =3D 0;
+-	shinfo->gso_size =3D 0;
+-	shinfo->gso_segs =3D 0;
+-	shinfo->gso_type =3D 0;
+-	shinfo->ip6_frag_id =3D 0;
+-	shinfo->tx_flags.flags =3D 0;
+-	skb_frag_list_init(skb);
+-	memset(&shinfo->hwtstamps, 0, sizeof(shinfo->hwtstamps));
+=20
+ 	if (fclone) {
+ 		struct sk_buff *child =3D skb + 1;
+@@ -505,16 +500,10 @@ int skb_recycle_check(struct sk_buff *skb, int sk=
+b_size)
+ 		return 0;
+=20
+ 	skb_release_head_state(skb);
 +
-+	Note that ip_local_port_range and ip_local_reserved_ports
-+	settings are independent and both are considered by the kernel
-+	when determining which ports are available for automatic port
-+	assignments.
-+
-+	You can reserve ports which are not in the current
-+	ip_local_port_range, e.g.:
-+
-+	$ cat /proc/sys/net/ipv4/ip_local_port_range
-+	32000	61000
-+	$ cat /proc/sys/net/ipv4/ip_local_reserved_ports
-+	8080,9148
-+
-+	although this is redundant. However such a setting is useful
-+	if later the port range is changed to a value that will
-+	include the reserved ports.
-+
-+	Default: Empty
-+
- ip_nonlocal_bind - BOOLEAN
- 	If set, allows processes to bind() to non-local IP addresses,
- 	which can be quite useful - but may break some applications.
-Index: linux-2.6/include/net/ip.h
-===================================================================
---- linux-2.6.orig/include/net/ip.h
-+++ linux-2.6/include/net/ip.h
-@@ -184,6 +184,12 @@ extern struct local_ports {
- } sysctl_local_ports;
- extern void inet_get_local_port_range(int *low, int *high);
- 
-+extern unsigned long *sysctl_local_reserved_ports;
-+static inline int inet_is_reserved_local_port(int port)
-+{
-+	return test_bit(port, sysctl_local_reserved_ports);
-+}
-+
- extern int sysctl_ip_default_ttl;
- extern int sysctl_ip_nonlocal_bind;
- 
-Index: linux-2.6/net/ipv4/af_inet.c
-===================================================================
---- linux-2.6.orig/net/ipv4/af_inet.c
-+++ linux-2.6/net/ipv4/af_inet.c
-@@ -1552,9 +1552,13 @@ static int __init inet_init(void)
- 
- 	BUILD_BUG_ON(sizeof(struct inet_skb_parm) > sizeof(dummy_skb->cb));
- 
-+	sysctl_local_reserved_ports = kzalloc(65536 / 8, GFP_KERNEL);
-+	if (!sysctl_local_reserved_ports)
-+		goto out;
-+
- 	rc = proto_register(&tcp_prot, 1);
- 	if (rc)
--		goto out;
-+		goto out_free_reserved_ports;
- 
- 	rc = proto_register(&udp_prot, 1);
- 	if (rc)
-@@ -1653,6 +1657,8 @@ out_unregister_udp_proto:
- 	proto_unregister(&udp_prot);
- out_unregister_tcp_proto:
- 	proto_unregister(&tcp_prot);
-+out_free_reserved_ports:
-+	kfree(sysctl_local_reserved_ports);
- 	goto out;
- }
- 
-Index: linux-2.6/net/ipv4/inet_connection_sock.c
-===================================================================
---- linux-2.6.orig/net/ipv4/inet_connection_sock.c
-+++ linux-2.6/net/ipv4/inet_connection_sock.c
-@@ -37,6 +37,9 @@ struct local_ports sysctl_local_ports __
- 	.range = { 32768, 61000 },
- };
- 
-+unsigned long *sysctl_local_reserved_ports;
-+EXPORT_SYMBOL(sysctl_local_reserved_ports);
-+
- void inet_get_local_port_range(int *low, int *high)
- {
- 	unsigned seq;
-@@ -108,6 +111,8 @@ again:
- 
- 		smallest_size = -1;
- 		do {
-+			if (inet_is_reserved_local_port(rover))
-+				goto next_nolock;
- 			head = &hashinfo->bhash[inet_bhashfn(net, rover,
- 					hashinfo->bhash_size)];
- 			spin_lock(&head->lock);
-@@ -130,6 +135,7 @@ again:
- 			break;
- 		next:
- 			spin_unlock(&head->lock);
-+		next_nolock:
- 			if (++rover > high)
- 				rover = low;
- 		} while (--remaining > 0);
-Index: linux-2.6/net/ipv4/inet_hashtables.c
-===================================================================
---- linux-2.6.orig/net/ipv4/inet_hashtables.c
-+++ linux-2.6/net/ipv4/inet_hashtables.c
-@@ -456,6 +456,8 @@ int __inet_hash_connect(struct inet_time
- 		local_bh_disable();
- 		for (i = 1; i <= remaining; i++) {
- 			port = low + (i + offset) % remaining;
-+			if (inet_is_reserved_local_port(port))
-+				continue;
- 			head = &hinfo->bhash[inet_bhashfn(net, port,
- 					hinfo->bhash_size)];
- 			spin_lock(&head->lock);
-Index: linux-2.6/net/ipv4/sysctl_net_ipv4.c
-===================================================================
---- linux-2.6.orig/net/ipv4/sysctl_net_ipv4.c
-+++ linux-2.6/net/ipv4/sysctl_net_ipv4.c
-@@ -299,6 +299,13 @@ static struct ctl_table ipv4_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= ipv4_local_port_range,
- 	},
-+	{
-+		.procname	= "ip_local_reserved_ports",
-+		.data		= NULL, /* initialized in sysctl_ipv4_init */
-+		.maxlen		= 65536,
-+		.mode		= 0644,
-+		.proc_handler	= proc_do_large_bitmap,
-+	},
- #ifdef CONFIG_IP_MULTICAST
- 	{
- 		.procname	= "igmp_max_memberships",
-@@ -736,6 +743,16 @@ static __net_initdata struct pernet_oper
- static __init int sysctl_ipv4_init(void)
- {
- 	struct ctl_table_header *hdr;
-+	struct ctl_table *i;
-+
-+	for (i = ipv4_table; i->procname; i++) {
-+		if (strcmp(i->procname, "ip_local_reserved_ports") == 0) {
-+			i->data = sysctl_local_reserved_ports;
-+			break;
-+		}
-+	}
-+	if (!i->procname)
-+		return -EINVAL;
- 
- 	hdr = register_sysctl_paths(net_ipv4_ctl_path, ipv4_table);
- 	if (hdr == NULL)
-Index: linux-2.6/net/ipv4/udp.c
-===================================================================
---- linux-2.6.orig/net/ipv4/udp.c
-+++ linux-2.6/net/ipv4/udp.c
-@@ -233,7 +233,8 @@ int udp_lib_get_port(struct sock *sk, un
- 			 */
- 			do {
- 				if (low <= snum && snum <= high &&
--				    !test_bit(snum >> udptable->log, bitmap))
-+				    !test_bit(snum >> udptable->log, bitmap) &&
-+				    !inet_is_reserved_local_port(snum))
- 					goto found;
- 				snum += rand;
- 			} while (snum != first);
-Index: linux-2.6/net/sctp/socket.c
-===================================================================
---- linux-2.6.orig/net/sctp/socket.c
-+++ linux-2.6/net/sctp/socket.c
-@@ -5436,6 +5436,8 @@ static long sctp_get_port_local(struct s
- 			rover++;
- 			if ((rover < low) || (rover > high))
- 				rover = low;
-+			if (inet_is_reserved_local_port(rover))
-+				continue;
- 			index = sctp_phashfn(rover);
- 			head = &sctp_port_hashtable[index];
- 			sctp_spin_lock(&head->lock);
+ 	shinfo =3D skb_shinfo(skb);
++	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
+ 	atomic_set(&shinfo->dataref, 1);
+-	shinfo->nr_frags =3D 0;
+-	shinfo->gso_size =3D 0;
+-	shinfo->gso_segs =3D 0;
+-	shinfo->gso_type =3D 0;
+-	shinfo->ip6_frag_id =3D 0;
+-	shinfo->tx_flags.flags =3D 0;
+-	skb_frag_list_init(skb);
+-	memset(&shinfo->hwtstamps, 0, sizeof(shinfo->hwtstamps));
+=20
+ 	memset(skb, 0, offsetof(struct sk_buff, tail));
+ 	skb->data =3D skb->head + NET_SKB_PAD;
+
+
