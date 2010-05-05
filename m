@@ -1,81 +1,64 @@
-From: Brian Bloniarz <bmb@athenacr.com>
-Subject: Re: 3 packet TCP window limit?
-Date: Wed, 05 May 2010 09:26:04 -0400
-Message-ID: <4BE171EC.20904@athenacr.com>
-References: <alpine.LNX.2.00.1005050210230.8544@d>
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: [PATCH] bonding: fix arp_validate on bonds inside a bridge
+Date: Wed, 5 May 2010 15:33:01 +0200
+Message-ID: <20100505133301.GA18493@midget.suse.cz>
+References: <20100503.155820.158442623.davem@davemloft.net>
+ <10955.1272927779@death.nxdomain.ibm.com>
+ <17907.1272935182@death.nxdomain.ibm.com>
+ <20100504.161815.71114704.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dormando <dormando@rydia.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: fubar@us.ibm.com, jbohac@suse.cz,
+	bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sprinkles.athenacr.com ([64.95.46.210]:1411 "EHLO
-	sprinkles.inp.in.athenacr.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755866Ab0EEN0I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 May 2010 09:26:08 -0400
-In-Reply-To: <alpine.LNX.2.00.1005050210230.8544@d>
+Received: from cantor2.suse.de ([195.135.220.15]:51297 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757081Ab0EENdA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 May 2010 09:33:00 -0400
+Content-Disposition: inline
+In-Reply-To: <20100504.161815.71114704.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dormando wrote:
-> Hey,
+On Tue, May 04, 2010 at 04:18:15PM -0700, David Miller wrote:
+> From: Jay Vosburgh <fubar@us.ibm.com>
+> > 	Tested and it looks to work as advertised.  I see only one minor
+> > nit, there's a pr_debug that missed being renamed to the new function
+> > name; here's the whole patch with that fixed.
 > 
-> Noticed in Linux that no matter what sysctl variable I twiddle, or what
-> TCP congestion algorithm is running, TCP will wait for remote acks after
-> sending the first 3 packets. After that it's normal.
+> I don't think you need the ugly arp hook.
 > 
-> Apologies, it's hard ot describe:
+> Instead, it's much cleaner to provide a way for packet type taps to
+> see the packet before bridge et al. decapsulation.  In fact this makes
+> a lot of sense, wanting to see the device as __netif_receive_skb() saw
+> it, with no changes whatsoever.
 > 
-> Linux server listening.
-> 
-> Remote -> SYN
-> (RTT wait)
-> Linux -> SYN/ACK
-> Remote -> ACK
-> Remote -> Packet (small HTTP request)
-> (RTT wait)
-> Linux -> Packet (x 3)
-> Remote -> (returning acks per packet)
-> (RTT wait)
-> Linux -> More packets (up to window size)
-> 
-> If the request response fits in 3 packets or less, that third RTT wait
-> never happens. The remote client gets all its data, and sends back all the
-> FIN/ACK packets for closing the connection.
-> 
-> What's bizarre is that this 3 packet/4 packet barrier is regardless of how
-> much data there is to send. I can cause the extra RTT to flip on or off by
-> sending exactly +/- 1 byte to cause an extra packet.
-> 
-> Holding the connection open and repeating the request any number of times
-> runs just fine, after the initial request.
-> 
-> You can pretty easily see this by:
-> tc qdisc add dev eth0 root netem delay 100ms
-> ... then fetching a 3k file, then 4k file from an http server running
-> linux. Well. at least I can see this easily. I tried on a half dozen boxes
-> (2.6.11 through 2.6.32).
-> 
-> I'm trying to track down where in the code this is, or why my sysctl
-> tuning isn't affecting it. I can't discern its purpose. The lag it causes
-> is pretty awful for far away clients; adding 300ms of latency will make a
-> small request take a full second, instead of 600ms.
-> 
-> I'm slugging through the code but any insight would be greatly
-> appreciated!
+> In fact ptype_all runs before bridging, ING, and MACVLAN decap the
+> thing, so we could have a 'ptype_base_predecap[]' that we run over
+> right after those.
 
-This sounds like TCP slow start.
+I was considering exactly this, but I thought it would be
+rejected because of the overhead for all packets received.
 
-http://en.wikipedia.org/wiki/Slow-start
+In fact, bonding could register the ARP handler in the ptype_all
+list and check itself whether the packets were ARPs. This
+would require no changes to __netif_receive_skb() at all, but
+would cause an extra fuction call and a condition for _every_
+packet once a bond with arp_validate would be up.
 
-As far as tunables you might want to play with the initcwnd route
-flag (see "ip route help")
+Having a ptype_base_predecap[] hashtable would still cause at
+least a comparision for _every_ packet, even without bonding
+being loaded (!).
 
-> 
-> -Dormando
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The current patch causes an extra comparison only for packets
+arriving on boding slaves.
+
+If either of the ptype_all or ptype_base_predecap[] method is
+preferred, I'll be happy to re-work the patch. I just thought
+performance had bigger priority here.
+
+-- 
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
 
