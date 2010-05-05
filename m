@@ -1,59 +1,255 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: __alloc_skb() speedup
-Date: Wed, 05 May 2010 01:06:58 -0700 (PDT)
-Message-ID: <20100505.010658.48498744.davem@davemloft.net>
-References: <1272993054.2245.21.camel@edumazet-laptop>
+From: Amerigo Wang <amwang@redhat.com>
+Subject: [v5 Patch 2/3] bridge: make bridge support netpoll
+Date: Wed, 5 May 2010 04:11:26 -0400
+Message-ID: <20100505081525.5157.55723.sendpatchset@localhost.localdomain>
+References: <20100505081514.5157.83783.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hadi@cyberus.ca, therbert@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45877
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755064Ab0EEIGw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 May 2010 04:06:52 -0400
-In-Reply-To: <1272993054.2245.21.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 04 May 2010 19:10:54 +0200
-
-> With following patch I can reach maximum rate of my pktgen+udpsink
-> simulator :
-> - 'old' machine : dual quad core E5450  @3.00GHz
-> - 64 UDP rx flows (only differ by destination port)
-> - RPS enabled, NIC interrupts serviced on cpu0
-> - rps dispatched on 7 other cores. (~130.000 IPI per second)
-> - SLAB allocator (faster than SLUB in this workload)
-> - tg3 NIC
-> - 1.080.000 pps without a single drop at NIC level.
-> 
-> Idea is to add two prefetchw() calls in __alloc_skb(), one to prefetch
-> first sk_buff cache line, the second to prefetch the shinfo part.
-> 
-> Also using one memset() to initialize all skb_shared_info fields instead
-> of one by one to reduce number of instructions, using long word moves.
-> 
-> All skb_shared_info fields before 'dataref' are cleared in 
-> __alloc_skb().
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-
-I'll apply this, nice work Eric.
-
-But some caveats...
-
-On several cpu types it is possible to "prefetch invalidate"
-cachelines.  PowerPC and sparc64 can both do it.  I'm pretty
-sure current gen x86 have SSE bits that can do this too.
-
-In fact, the memset() for sparc64 is going to do these cacheline
-invalidates, making the prefetches on 'skb' in fact wasteful.
-It will just create spurious bus traffic.
-
-The memset() for skb_shared_info() is going to help universally
-I think.
+Cc: Jay Vosburgh <fubar@us.ibm.com>, Amerigo Wang <amwang@redhat.com>,
+        Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+        Matt Mackall <mpm@selenic.com>, bridge@lists.linux-foundation.org,
+        David Miller <davem@davemloft.net>, Jeff Moyer <jmoyer@redhat.com>,
+        Andy Gospodarek <gospo@redhat.com>,
+        bonding-devel@lists.sourceforge.net
+To: linux-kernel@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20100505081514.5157.83783.sendpatchset@localhost.localdomain>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
 
+Based on the previous patch, make bridge support netpoll by:
+
+1) implement the 2 methods to support netpoll for bridge;
+
+2) modify netpoll during forwarding packets via bridge;
+
+3) disable netpoll support of bridge when a netpoll-unabled device
+   is added to bridge;
+
+4) enable netpoll support when all underlying devices support netpoll.
+
+Cc: David Miller <davem@davemloft.net>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: Matt Mackall <mpm@selenic.com>
+Signed-off-by: WANG Cong <amwang@redhat.com>
+
+---
+
+Index: linux-2.6/net/bridge/br_device.c
+===================================================================
+--- linux-2.6.orig/net/bridge/br_device.c
++++ linux-2.6/net/bridge/br_device.c
+@@ -13,8 +13,10 @@
+ 
+ #include <linux/kernel.h>
+ #include <linux/netdevice.h>
++#include <linux/netpoll.h>
+ #include <linux/etherdevice.h>
+ #include <linux/ethtool.h>
++#include <linux/list.h>
+ 
+ #include <asm/uaccess.h>
+ #include "br_private.h"
+@@ -162,6 +164,59 @@ static int br_set_tx_csum(struct net_dev
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++bool br_devices_support_netpoll(struct net_bridge *br)
++{
++	struct net_bridge_port *p;
++	bool ret = true;
++	int count = 0;
++	unsigned long flags;
++
++	spin_lock_irqsave(&br->lock, flags);
++	list_for_each_entry(p, &br->port_list, list) {
++		count++;
++		if ((p->dev->priv_flags & IFF_DISABLE_NETPOLL) ||
++		    !p->dev->netdev_ops->ndo_poll_controller)
++			ret = false;
++	}
++	spin_unlock_irqrestore(&br->lock, flags);
++	return count != 0 && ret;
++}
++
++static void br_poll_controller(struct net_device *br_dev)
++{
++	struct netpoll *np = br_dev->npinfo->netpoll;
++
++	if (np->real_dev != br_dev)
++		netpoll_poll_dev(np->real_dev);
++}
++
++void br_netpoll_cleanup(struct net_device *br_dev)
++{
++	struct net_bridge *br = netdev_priv(br_dev);
++	struct net_bridge_port *p, *n;
++	const struct net_device_ops *ops;
++
++	br->dev->npinfo = NULL;
++	list_for_each_entry_safe(p, n, &br->port_list, list) {
++		if (p->dev) {
++			ops = p->dev->netdev_ops;
++			if (ops->ndo_netpoll_cleanup)
++				ops->ndo_netpoll_cleanup(p->dev);
++			else
++				p->dev->npinfo = NULL;
++		}
++	}
++}
++
++#else
++
++void br_netpoll_cleanup(struct net_device *br_dev)
++{
++}
++
++#endif
++
+ static const struct ethtool_ops br_ethtool_ops = {
+ 	.get_drvinfo    = br_getinfo,
+ 	.get_link	= ethtool_op_get_link,
+@@ -184,6 +239,10 @@ static const struct net_device_ops br_ne
+ 	.ndo_set_multicast_list	 = br_dev_set_multicast_list,
+ 	.ndo_change_mtu		 = br_change_mtu,
+ 	.ndo_do_ioctl		 = br_dev_ioctl,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_netpoll_cleanup	 = br_netpoll_cleanup,
++	.ndo_poll_controller	 = br_poll_controller,
++#endif
+ };
+ 
+ void br_dev_setup(struct net_device *dev)
+Index: linux-2.6/net/bridge/br_forward.c
+===================================================================
+--- linux-2.6.orig/net/bridge/br_forward.c
++++ linux-2.6/net/bridge/br_forward.c
+@@ -15,6 +15,7 @@
+ #include <linux/slab.h>
+ #include <linux/kernel.h>
+ #include <linux/netdevice.h>
++#include <linux/netpoll.h>
+ #include <linux/skbuff.h>
+ #include <linux/if_vlan.h>
+ #include <linux/netfilter_bridge.h>
+@@ -50,7 +51,13 @@ int br_dev_queue_push_xmit(struct sk_buf
+ 		else {
+ 			skb_push(skb, ETH_HLEN);
+ 
+-			dev_queue_xmit(skb);
++#ifdef CONFIG_NET_POLL_CONTROLLER
++			if (unlikely(skb->dev->priv_flags & IFF_IN_NETPOLL)) {
++				netpoll_send_skb(skb->dev->npinfo->netpoll, skb);
++				skb->dev->priv_flags &= ~IFF_IN_NETPOLL;
++			} else
++#endif
++				dev_queue_xmit(skb);
+ 		}
+ 	}
+ 
+@@ -66,9 +73,23 @@ int br_forward_finish(struct sk_buff *sk
+ 
+ static void __br_deliver(const struct net_bridge_port *to, struct sk_buff *skb)
+ {
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	struct net_bridge *br = to->br;
++	if (unlikely(br->dev->priv_flags & IFF_IN_NETPOLL)) {
++		struct netpoll *np;
++		to->dev->npinfo = skb->dev->npinfo;
++		np = skb->dev->npinfo->netpoll;
++		np->real_dev = np->dev = to->dev;
++		to->dev->priv_flags |= IFF_IN_NETPOLL;
++	}
++#endif
+ 	skb->dev = to->dev;
+ 	NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_OUT, skb, NULL, skb->dev,
+ 			br_forward_finish);
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	if (skb->dev->npinfo)
++		skb->dev->npinfo->netpoll->dev = br->dev;
++#endif
+ }
+ 
+ static void __br_forward(const struct net_bridge_port *to, struct sk_buff *skb)
+Index: linux-2.6/net/bridge/br_if.c
+===================================================================
+--- linux-2.6.orig/net/bridge/br_if.c
++++ linux-2.6/net/bridge/br_if.c
+@@ -13,6 +13,7 @@
+ 
+ #include <linux/kernel.h>
+ #include <linux/netdevice.h>
++#include <linux/netpoll.h>
+ #include <linux/ethtool.h>
+ #include <linux/if_arp.h>
+ #include <linux/module.h>
+@@ -153,6 +154,14 @@ static void del_nbp(struct net_bridge_po
+ 	kobject_uevent(&p->kobj, KOBJ_REMOVE);
+ 	kobject_del(&p->kobj);
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	if (br_devices_support_netpoll(br))
++		br->dev->priv_flags &= ~IFF_DISABLE_NETPOLL;
++	if (dev->netdev_ops->ndo_netpoll_cleanup)
++		dev->netdev_ops->ndo_netpoll_cleanup(dev);
++	else
++		dev->npinfo = NULL;
++#endif
+ 	call_rcu(&p->rcu, destroy_nbp_rcu);
+ }
+ 
+@@ -165,6 +174,8 @@ static void del_br(struct net_bridge *br
+ 		del_nbp(p);
+ 	}
+ 
++	br_netpoll_cleanup(br->dev);
++
+ 	del_timer_sync(&br->gc_timer);
+ 
+ 	br_sysfs_delbr(br->dev);
+@@ -438,6 +449,20 @@ int br_add_if(struct net_bridge *br, str
+ 
+ 	kobject_uevent(&p->kobj, KOBJ_ADD);
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	if (br_devices_support_netpoll(br)) {
++		br->dev->priv_flags &= ~IFF_DISABLE_NETPOLL;
++		if (br->dev->npinfo)
++			dev->npinfo = br->dev->npinfo;
++	} else if (!(br->dev->priv_flags & IFF_DISABLE_NETPOLL)) {
++		br->dev->priv_flags |= IFF_DISABLE_NETPOLL;
++		printk(KERN_INFO "New device %s does not support netpoll\n",
++			dev->name);
++		printk(KERN_INFO "Disabling netpoll for %s\n",
++			br->dev->name);
++	}
++#endif
++
+ 	return 0;
+ err2:
+ 	br_fdb_delete_by_port(br, p, 1);
+Index: linux-2.6/net/bridge/br_private.h
+===================================================================
+--- linux-2.6.orig/net/bridge/br_private.h
++++ linux-2.6/net/bridge/br_private.h
+@@ -233,6 +233,8 @@ static inline int br_is_root_bridge(cons
+ extern void br_dev_setup(struct net_device *dev);
+ extern netdev_tx_t br_dev_xmit(struct sk_buff *skb,
+ 			       struct net_device *dev);
++extern bool br_devices_support_netpoll(struct net_bridge *br);
++extern void br_netpoll_cleanup(struct net_device *br_dev);
+ 
+ /* br_fdb.c */
+ extern int br_fdb_init(void);
