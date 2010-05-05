@@ -1,42 +1,40 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch 2/3] sysctl: add proc_do_large_bitmap
-Date: Wed, 05 May 2010 17:20:50 +0800
-Message-ID: <4BE13872.6050500@redhat.com>
-References: <20100430082912.5630.82405.sendpatchset@localhost.localdomain> 	<20100430082936.5630.67682.sendpatchset@localhost.localdomain> <v2y412e6f7f1004301541yb1ede589t8c446966743ca138@mail.gmail.com> <4BE0E27C.7040200@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Octavian Purdila <opurdila@ixiacom.com>,
+From: Amerigo Wang <amwang@redhat.com>
+Subject: [Patch v10 0/3] net: reserve ports for applications using fixed port numbers
+Date: Wed, 5 May 2010 06:26:34 -0400
+Message-ID: <20100505103033.5600.77502.sendpatchset@localhost.localdomain>
+Cc: Octavian Purdila <opurdila@ixiacom.com>, ebiederm@xmission.com,
 	Eric Dumazet <eric.dumazet@gmail.com>,
-	penguin-kernel@i-love.sakura.ne.jp, netdev@vger.kernel.org,
-	Neil Horman <nhorman@tuxdriver.com>, ebiederm@xmission.com,
+	penguin-kernel@I-love.SAKURA.ne.jp, netdev@vger.kernel.org,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Amerigo Wang <amwang@redhat.com>, xiaosuo@gmail.com,
 	adobriyan@gmail.com, David Miller <davem@davemloft.net>
-To: Changli Gao <xiaosuo@gmail.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4BE0E27C.7040200@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Cong Wang wrote:
-> Changli Gao wrote:
->>                      add the following lines to let "echo 1-10 >>
->> /proc/..." work as normal.
-> 
-> Hmm, I haven't tested this, what did you see if we append
-> lines into it?
-> 
-> Also, do we need appending lines to this /proc file when design it?
-> Octavian? Eric?
-> 
 
-Hmm, currently this behaves like other /proc files, IOW,
-echo 'foo' >> /proc/XXX is the same with echo 'foo' > /proc/XXX.
+Changes from the previous version:
+- Use 'true' and 'false' for bool's;
+- Fix some coding style problems;
+- Allow appending lines to bitmap proc file so that it will be
+  easier to add new bits.
 
-I think it is reasonable for bitmap /proc files to have
-echo 'foo' >> /proc/XXX behaves like non-proc files, that is
-appending numbers into that file, like what Changli mentioned.
+------------------>
 
-Any objections?
+This patch introduces /proc/sys/net/ipv4/ip_local_reserved_ports which
+allows users to reserve ports for third-party applications.
 
-Thanks.
+The reserved ports will not be used by automatic port assignments
+(e.g. when calling connect() or bind() with port number 0). Explicit
+port allocation behavior is unchanged.
+
+There are still some miss behaviors with regard to proc parsing in odd
+invalid cases (for "40000\0-40001" all is acknowledged but only 40000
+is accepted) but they are not easy to fix without changing the current
+"acknowledge how much we accepted" behavior.
+
+Because of that and because the same issues are present in the
+existing proc_dointvec code as well I don't think its worth holding
+the actual feature (port reservation) after such petty error recovery
+issues.
