@@ -1,71 +1,141 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: RFC: Network Plugin Architecture (NPA) for vmxnet3
-Date: Wed, 05 May 2010 20:59:51 +0300
-Message-ID: <4BE1B217.80600@redhat.com>
-References: <20100504230225.GP8323@vmware.com>
+From: Bhaskar Dutta <bhaskie@gmail.com>
+Subject: Re: TCP-MD5 checksum failure on x86_64 SMP
+Date: Wed, 5 May 2010 23:33:59 +0530
+Message-ID: <g2p571fb4001005051103w67e1b9ddn3e8f7feb84d0559@mail.gmail.com>
+References: <i2h571fb4001005031027y4a58c4dtfd28ddcdc08d8401@mail.gmail.com>
+	 <o2h571fb4001005032030tdf02a4fag520ec4e56ebdb8df@mail.gmail.com>
+	 <1272972722.2097.1.camel@achroite.uk.solarflarecom.com>
+	 <l2s571fb4001005040728t91979906ofa10cf0714c305b2@mail.gmail.com>
+	 <20100504091215.5a4a51f4@nehalam>
+	 <l2k571fb4001005041008k9b129a06vf5e40db2d119434c@mail.gmail.com>
+	 <20100504101301.5f4dd9c2@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, pv-drivers@vmware.com,
-	sbhatewara@vmware.com
-To: Pankaj Thakkar <pthakkar@vmware.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100504230225.GP8323@vmware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-px0-f174.google.com ([209.85.212.174]:62592 "EHLO
+	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752217Ab0EESED convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 May 2010 14:04:03 -0400
+Received: by pxi5 with SMTP id 5so1620064pxi.19
+        for <netdev@vger.kernel.org>; Wed, 05 May 2010 11:03:59 -0700 (PDT)
+In-Reply-To: <20100504101301.5f4dd9c2@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/05/2010 02:02 AM, Pankaj Thakkar wrote:
-> 2. Hypervisor control: All control operations from the guest such as programming
-> MAC address go through the hypervisor layer and hence can be subjected to
-> hypervisor policies. The PF driver can be further used to put policy decisions
-> like which VLAN the guest should be on.
->    
+On Tue, May 4, 2010 at 10:43 PM, Stephen Hemminger
+<shemminger@vyatta.com> wrote:
+>
+> On Tue, 4 May 2010 22:38:49 +0530
+> Bhaskar Dutta <bhaskie@gmail.com> wrote:
+>
+> > On Tue, May 4, 2010 at 9:42 PM, Stephen Hemminger <shemminger@vyatt=
+a.com> wrote:
+> > > On Tue, 4 May 2010 19:58:32 +0530
+> > > Bhaskar Dutta <bhaskie@gmail.com> wrote:
+> > >
+> > >> On Tue, May 4, 2010 at 5:02 PM, Ben Hutchings <bhutchings@solarf=
+lare.com> wrote:
+> > >> > On Tue, 2010-05-04 at 09:00 +0530, Bhaskar Dutta wrote:
+> > >> >> Hi,
+> > >> >>
+> > >> >> I am observing intermittent TCP-MD5 checksum failures
+> > >> >> (CONFIG_TCP_MD5SIG) =A0on kernel 2.6.31 while talking to a BG=
+P router.
+> > >> >>
+> > >> >> The problem is only seen in multi-core 64 bit machines.
+> > >> >> Is there any known bug in the per_cpu_ptr implementation (I a=
+m aware
+> > >> >> that the percpu allocator has been re-implemented in 2.6.33) =
+that
+> > >> >> might cause a corruption in 64 bit SMP machines?
+> > >> >>
+> > >> >> Any pointers would be appreciated.
+> > >> >
+> > >> > There was another recent report of incorrect MD5 signatures in
+> > >> > <http://thread.gmane.org/gmane.linux.network/159556>, but with=
+out any
+> > >> > response.
+> > >> >
+> > >> > Ben.
+> > >> >
+> > >>
+> > >> I found another thread posted back in Jan 2007 with a similar bu=
+g
+> > >> (x86_64 on 2.6.20) but no replies to that as well.
+> > >> http://lkml.org/lkml/2007/1/20/56
+> > >
+> > > 2.6.20 had lots of other MD5 bugs. Your problem might be related =
+to
+> > > GRO. =A0MD5 may not handle multi-fragment packets.
+> > > --
+> >
+> > I am getting the issue on 2.6.31 and 2.6.28 (gro infrastructure was
+> > added in 2.6.29).
+> > Also, both segmentation offloading as well as receive offloading
+> > (gso/gro) are turned off.
+> >
+> > Moreover outgoing TCP packets are the ones with the corrupt checksu=
+ms.
+> > Both tcpdump on my local machine and the BGP router on the other si=
+de
+> > complain of the bad checksums with the same packet.
+> >
+> > I am trying to figure out if there is something in the per-cpu
+> > implementation that might be causing a corruption (SMP and x86_64) =
+but
+> > I am not really getting anywhere.
+>
+> I seriously doubt the per-cpu stuff is the issue.
+>
+> > I am trying to reproduce the bad checksums with the latest kernel
+> > sources since it has a new implementation of the percpu allocator.
+>
+> First turn off all offload settings on the device (TSO,GSO,SG,CSUM)
+> then check that size of the bad packets. Are they fragmented or
+> just simple linear packets?
+>
+> --
 
-Is this enforced?  Since you pass the hardware through, you can't rely 
-on the guest actually doing this, yes?
+Hi,
 
-> The plugin image is provided by the IHVs along with the PF driver and is
-> packaged in the hypervisor. The plugin image is OS agnostic and can be loaded
-> either into a Linux VM or a Windows VM. The plugin is written against the Shell
-> API interface which the shell is responsible for implementing. The API
-> interface allows the plugin to do TX and RX only by programming the hardware
-> rings (along with things like buffer allocation and basic initialization). The
-> virtual machine comes up in paravirtualized/emulated mode when it is booted.
-> The hypervisor allocates the VF and other resources and notifies the shell of
-> the availability of the VF. The hypervisor injects the plugin into memory
-> location specified by the shell. The shell initializes the plugin by calling
-> into a known entry point and the plugin initializes the data path. The control
-> path is already initialized by the PF driver when the VF is allocated. At this
-> point the shell switches to using the loaded plugin to do all further TX and RX
-> operations. The guest networking stack does not participate in these operations
-> and continues to function normally. All the control operations continue being
-> trapped by the hypervisor and are directed to the PF driver as needed. For
-> example, if the MAC address changes the hypervisor updates its internal state
-> and changes the state of the embedded switch as well through the PF control
-> API.
->    
+TSO, GSO and SG are already turned off.
+rx/tx checksumming is on, but that shouldn't matter, right?
 
-This is essentially a miniature network stack with a its own mini 
-bonding layer, mini hotplug, and mini API, except s/API/ABI/.  Is this a 
-correct view?
+# ethtool -k eth0
+Offload parameters for eth0:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: off
+tcp segmentation offload: off
+udp fragmentation offload: off
+generic segmentation offload: off
 
-If so, the Linuxy approach would be to use the ordinary drivers and the 
-Linux networking API, and hide the bond setup using namespaces.  The 
-bond driver, or perhaps a new, similar, driver can be enhanced to 
-propagate ethtool commands to its (hidden) components, and to have a 
-control channel with the hypervisor.
+The bad packets are very small in size, most have no data at all (<300 =
+bytes).
 
-This would make the approach hypervisor agnostic, you're just pairing 
-two devices and presenting them to the rest of the stack as a single device.
+After adding some logs to kernel 2.6.31-12, it seems that
+tcp_v4_md5_hash_skb (function that calculates the md5 hash) is
+(might?) getting corrupt.
 
-> We have reworked our existing Linux vmxnet3 driver to accomodate NPA by
-> splitting the driver into two parts: Shell and Plugin. The new split driver is
->    
+The tcp4_pseudohdr (bp =3D &hp->md5_blk.ip4) structure's saddr, daddr
+and len fields get modified to different values towards the end of the
+tcp_v4_md5_hash_skb function whenever there is a checksum error.
 
-So the Shell would be the reworked or new bond driver, and Plugins would 
-be ordinary Linux network drivers.
+The tcp4_pseudohdr (bp) is within the tcp_md5sig_pool (hp), which is
+filled up by tcp_get_md5sig_pool (which calls per_cpu_ptr).
 
+Using a local copy of the tcp4_pseudohdr in the same function
+tcp_v4_md5_hash_skb (copied all fields from the original
+tcp4_pseudohdr within the tcp_md5sig_pool) and calculating the md5
+checksum with the local  tcp4_pseudohdr seems to solve the issue
+(don't see bad packets for a hours in load tests, and without the
+change I can see them instantaneously in the load tests).
 
--- 
-Do not meddle in the internals of kernels, for they are subtle and quick to panic.
+I am still unable to figure out how this is happening. Please let me
+know if you have any pointers.
+
+Thanks a lot!
+Bhaskar
