@@ -1,49 +1,76 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 0/6] netns support in the kobject layer
-Date: Tue, 04 May 2010 17:35:54 -0700
-Message-ID: <m1d3xb4239.fsf@fess.ebiederm.org>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Subject: [PATCH 4/6] kobj: Send hotplug events in the proper namespace.
+Date: Tue,  4 May 2010 17:36:47 -0700
+Message-ID: <1273019809-16472-4-git-send-email-ebiederm@xmission.com>
 References: <m1fx3hk6gw.fsf@fess.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kay Sievers <kay.sievers@vrfy.org>, Greg KH <greg@kroah.com>,
-	linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>,
+Cc: Kay Sievers <kay.sievers@vrfy.org>, linux-kernel@vger.kernel.org,
+	Tejun Heo <tj@kernel.org>,
 	Cornelia Huck <cornelia.huck@de.ibm.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
 	Benjamin LaHaise <bcrl@lhnet.ca>,
 	Serge Hallyn <serue@us.ibm.com>, <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
+	David Miller <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
 To: Greg Kroah-Hartman <gregkh@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:34611 "EHLO
+Received: from out01.mta.xmission.com ([166.70.13.231]:34764 "EHLO
 	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933808Ab0EEAgM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 May 2010 20:36:12 -0400
-In-Reply-To: <m1fx3hk6gw.fsf@fess.ebiederm.org> (Eric W. Biederman's message of "Tue\, 30 Mar 2010 11\:30\:23 -0700")
+	with ESMTP id S934270Ab0EEAhC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 May 2010 20:37:02 -0400
+In-Reply-To: <m1fx3hk6gw.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Eric W. Biederman <ebiederm@xmission.com>
 
-With the tagged sysfs support finally merged into Greg's tree,
-it is time for the last little bits of work to get the kobject
-layer and network namespaces to play together properly.
+Utilize netlink_broacast_filtered to allow sending hotplug events
+in the proper namespace.
 
-These patches are roughly evenly divided between network layer work
-and sysfs layer work.  Last time this conundrum came up I believe
-we decided that the easiest way to handle this was for Greg to carry
-all of the patches.  David, Greg does that still make sense?
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ lib/kobject_uevent.c |   22 ++++++++++++++++++++--
+ 1 files changed, 20 insertions(+), 2 deletions(-)
 
-This patchset adds:
-- kobject layer support for sending events in all network namespaces
-- netlink support for filtering broadcast packets based on attributes
-  of the destination socket.
-- Enabling the network namespace support for sysfs and the kobject layer.
+diff --git a/lib/kobject_uevent.c b/lib/kobject_uevent.c
+index 3f5f17b..9057ec1 100644
+--- a/lib/kobject_uevent.c
++++ b/lib/kobject_uevent.c
+@@ -82,6 +82,22 @@ out:
+ 	return ret;
+ }
+ 
++static int kobj_bcast_filter(struct sock *dsk, struct sk_buff *skb, void *data)
++{
++	struct kobject *kobj = data;
++	const struct kobj_ns_type_operations *ops;
++
++	ops = kobj_ns_ops(kobj);
++	if (ops) {
++		const void *sock_ns, *ns;
++		ns = kobj->ktype->namespace(kobj);
++		sock_ns = ops->netlink_ns(dsk);
++		return sock_ns != ns;
++	}
++
++	return 0;
++}
++
+ /**
+  * kobject_uevent_env - send an uevent with environmental data
+  *
+@@ -243,8 +259,10 @@ int kobject_uevent_env(struct kobject *kobj, enum kobject_action action,
+ 			}
+ 
+ 			NETLINK_CB(skb).dst_group = 1;
+-			retval = netlink_broadcast(uevent_sock, skb, 0, 1,
+-						   GFP_KERNEL);
++			retval = netlink_broadcast_filtered(uevent_sock, skb,
++							    0, 1, GFP_KERNEL,
++							    kobj_bcast_filter,
++							    kobj);
+ 			/* ENOBUFS should be handled in userspace */
+ 			if (retval == -ENOBUFS)
+ 				retval = 0;
+-- 
+1.6.5.2.143.g8cc62
 
- include/linux/kobject.h  |    1 +
- include/linux/netlink.h  |    4 ++
- lib/kobject_uevent.c     |  108 +++++++++++++++++++++++++++++++++++++++++-----
- net/Kconfig              |    8 +++
- net/core/dev.c           |   28 ++----------
- net/core/net-sysfs.c     |   62 ++++++++++++++++++++------
- net/core/net-sysfs.h     |    1 -
- net/netlink/af_netlink.c |   21 ++++++++-
- 8 files changed, 181 insertions(+), 52 deletions(-)
