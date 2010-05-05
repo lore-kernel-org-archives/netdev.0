@@ -1,41 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: RFC: Network Plugin Architecture (NPA) for vmxnet3
-Date: Tue, 04 May 2010 17:32:36 -0700 (PDT)
-Message-ID: <20100504.173236.104064409.davem@davemloft.net>
-References: <20100504230225.GP8323@vmware.com>
-	<20100504170531.1e7122da@nehalam>
-	<20100505001857.GQ8323@vmware.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH 0/6] netns support in the kobject layer
+Date: Tue, 04 May 2010 17:35:54 -0700
+Message-ID: <m1d3xb4239.fsf@fess.ebiederm.org>
+References: <m1fx3hk6gw.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org,
-        virtualization@lists.linux-foundation.org, shemminger@vyatta.com
-To: pthakkar@vmware.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20100505001857.GQ8323@vmware.com>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Kay Sievers <kay.sievers@vrfy.org>, Greg KH <greg@kroah.com>,
+	linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>,
+	Cornelia Huck <cornelia.huck@de.ibm.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Benjamin LaHaise <bcrl@lhnet.ca>,
+	Serge Hallyn <serue@us.ibm.com>, <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Greg Kroah-Hartman <gregkh@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:34611 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933808Ab0EEAgM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 May 2010 20:36:12 -0400
+In-Reply-To: <m1fx3hk6gw.fsf@fess.ebiederm.org> (Eric W. Biederman's message of "Tue\, 30 Mar 2010 11\:30\:23 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pankaj Thakkar <pthakkar@vmware.com>
-Date: Tue, 4 May 2010 17:18:57 -0700
 
-> The purpose of this email is to introduce the architecture and the
-> design principles. The overall project involves more than just
-> changes to vmxnet3 driver and hence we though an overview email
-> would be better. Once people agree to the design in general we
-> intend to provide the code changes to the vmxnet3 driver.
+With the tagged sysfs support finally merged into Greg's tree,
+it is time for the last little bits of work to get the kobject
+layer and network namespaces to play together properly.
 
-Stephen's point is that code talks and bullshit walks.
+These patches are roughly evenly divided between network layer work
+and sysfs layer work.  Last time this conundrum came up I believe
+we decided that the easiest way to handle this was for Greg to carry
+all of the patches.  David, Greg does that still make sense?
 
-Talk about high level designs rarely gets any traction, and often goes
-nowhere.  Give us an example implementation so there is something
-concrete for us to sink our teeth into.
+This patchset adds:
+- kobject layer support for sending events in all network namespaces
+- netlink support for filtering broadcast packets based on attributes
+  of the destination socket.
+- Enabling the network namespace support for sysfs and the kobject layer.
+
+ include/linux/kobject.h  |    1 +
+ include/linux/netlink.h  |    4 ++
+ lib/kobject_uevent.c     |  108 +++++++++++++++++++++++++++++++++++++++++-----
+ net/Kconfig              |    8 +++
+ net/core/dev.c           |   28 ++----------
+ net/core/net-sysfs.c     |   62 ++++++++++++++++++++------
+ net/core/net-sysfs.h     |    1 -
+ net/netlink/af_netlink.c |   21 ++++++++-
+ 8 files changed, 181 insertions(+), 52 deletions(-)
