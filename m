@@ -1,45 +1,97 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: RFC: Network Plugin Architecture (NPA) for vmxnet3
-Date: Tue, 4 May 2010 17:05:31 -0700
-Message-ID: <20100504170531.1e7122da@nehalam>
-References: <20100504230225.GP8323@vmware.com>
+From: "Luis R. Rodriguez" <lrodriguez@atheros.com>
+Subject: Re: [PATCH] compat-wireless: updates for orinoco
+Date: Tue, 4 May 2010 17:18:30 -0700
+Message-ID: <20100505001830.GO2624@tux>
+References: <1273012850-8359-1-git-send-email-hauke@hauke-m.de>
+ <v2u43e72e891005041626n14deaca5z284f2472e909c923@mail.gmail.com>
+ <20100504170409.46914a88@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, pv-drivers@vmware.com,
-	sbhatewara@vmware.com
-To: Pankaj Thakkar <pthakkar@vmware.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Luis Rodriguez <Luis.Rodriguez@Atheros.com>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	David Miller <davem@davemloft.net>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"mcgrof@kernel.org" <mcgrof@kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:53764 "EHLO mail.vyatta.com"
+Received: from mail.atheros.com ([12.36.123.2]:22129 "EHLO mail.atheros.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932379Ab0EEAFd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 May 2010 20:05:33 -0400
-In-Reply-To: <20100504230225.GP8323@vmware.com>
+	id S1753501Ab0EEASc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 May 2010 20:18:32 -0400
+Content-Disposition: inline
+In-Reply-To: <20100504170409.46914a88@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 4 May 2010 16:02:25 -0700
-Pankaj Thakkar <pthakkar@vmware.com> wrote:
-
-> Device passthrough technology allows a guest to bypass the hypervisor and drive
-> the underlying physical device. VMware has been exploring various ways to
-> deliver this technology to users in a manner which is easy to adopt. In this
-> process we have prepared an architecture along with Intel - NPA (Network Plugin
-> Architecture). NPA allows the guest to use the virtualized NIC vmxnet3 to
-> passthrough to a number of physical NICs which support it. The document below
-> provides an overview of NPA.
+On Tue, May 04, 2010 at 05:04:09PM -0700, Stephen Hemminger wrote:
+> On Tue, 4 May 2010 16:26:53 -0700
+> "Luis R. Rodriguez" <lrodriguez@atheros.com> wrote:
 > 
-> We intend to upgrade the upstreamed vmxnet3 driver to implement NPA so that
-> Linux users can exploit the benefits provided by passthrough devices in a
-> seamless manner while retaining the benefits of virtualization. The document
-> below tries to answer most of the questions which we anticipated. Please let us
-> know your comments and queries.
+> > First of all, thanks a lot! Some comments below.
+> > 
+> > On Tue, May 4, 2010 at 3:40 PM, Hauke Mehrtens <hauke@hauke-m.de> wrote:
+> > > * Make all the patches apply again.
+> > > * rename read_pda to avoid conflicts with definitions in kernel <= 2.6.29
+> > 
+> > I'm going to apply these two changes, if you get time can you send a
+> > patch to rename read_pda upstream as well, that way we don't have to
+> > carry this?
+> > 
+> > > * add orinoco usb
+> > 
+> > Thanks for this but I've grown tired of updating these netdev ops and
+> > I think we can do better. I'll add a netdev_attach_ops() which would
+> > simply do all the backport stuff for us, this way for backporting
+> > purposes all we have to do is replace the old lines with a
+> > netdev_attach_ops() call. In fact if we *really* wanted to we could
+> > add a dummy netdev_attach_ops() upstream and just backport that on
+> > older kernels, this would mean 0 line changes to backport a newer
+> > driver.
+> > 
+> > Something like this maybe on the generic compat module, it builds for
+> > me, will commit soon.
+> > 
+> > /*
+> >  * Expand this as drivers require more ops, for now this
+> >  * only sets the ones we need.
+> >  */
+> > void netdev_attach_ops(struct net_device *dev,
+> >                       const struct net_device_ops *ops)
+> > {
+> > #define SET_NETDEVOP(_op) (_op ? _op : NULL)
+> >        dev->open = SET_NETDEVOP(ops->ndo_open);
+> >        dev->stop = SET_NETDEVOP(ops->ndo_stop);
+> >        dev->hard_start_xmit = SET_NETDEVOP(ops->ndo_start_xmit);
+> >        dev->set_multicast_list = SET_NETDEVOP(ops->ndo_set_multicast_list);
+> >        dev->change_mtu = SET_NETDEVOP(ops->ndo_change_mtu);
+> >        dev->set_mac_address = SET_NETDEVOP(ops->ndo_set_mac_address);
+> >        dev->tx_timeout = SET_NETDEVOP(ops->ndo_tx_timeout);
+> >        dev->get_stats = SET_NETDEVOP(ops->ndo_get_stats);
+> > #undef SET_NETDEVOP
+> > }
+> > EXPORT_SYMBOL(netdev_attach_ops);
+> > 
+> > For newer kernels then this would just be:
+> > 
+> > static inline void netdev_attach_ops(struct net_device *dev,
+> >                       const struct net_device_ops *ops)
+> > {
+> >        dev->netdev_ops = ops;
+> > }
+> > 
+> > Stephen, would the above be acceptable upstream on netdevice.h ? It
+> > would eliminate all needs from having to #ifdef network drivers when
+> > backporting. If so I can send a respective patch and spatch all the
+> > setters I think. An example of the nasty ifdef crap we have to do for
+> > the current backport of netdevop'able drivers is below.
+> > 
 > 
-> Thank you.
-> 
-> Signed-off-by: Pankaj Thakkar <pthakkar@vmware.com>
+> No. supporting backporting is not part of the upstream kernel
+> mission. Honestly, we try for forward compatibility but intentionally
+> ignore carrying extra backport baggage.
 
+Sure, understood, just had to try :), if only I could find a *good*
+non-backport reason to have the netdev_attach_ops()...
 
-Code please. Also, it has to work for all architectures not just VMware and
-Intel.
+  Luis
