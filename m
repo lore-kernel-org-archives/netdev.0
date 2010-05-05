@@ -1,55 +1,71 @@
-From: dormando <dormando@rydia.net>
-Subject: Re: 3 packet TCP window limit?
-Date: Wed, 5 May 2010 14:31:02 -0700 (PDT)
-Message-ID: <alpine.LNX.2.00.1005051421010.28957@d>
-References: <alpine.LNX.2.00.1005050210230.8544@d> <4BE171EC.20904@athenacr.com> <alpine.LNX.2.00.1005051239290.28957@d> <4BE1D3B0.9000207@hp.com>
+From: Divy Le Ray <divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH/RFC] cxgb4: Add MAINTAINERS info
+Date: Wed, 05 May 2010 14:40:38 -0700
+Message-ID: <4BE1E5D6.8060103@chelsio.com>
+References: <20100428164341.cee2911a.sfr@canb.auug.org.au>	<20100428103356.931ba48c.randy.dunlap@oracle.com> <adawrvijhpq.fsf_-_@roland-alpha.cisco.com> <4BE1CE39.1050707@opengridcomputing.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Brian Bloniarz <bmb@athenacr.com>, netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rydia.net ([216.218.163.68]:39003 "EHLO mail.rydia.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758666Ab0EEVbE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 May 2010 17:31:04 -0400
-In-Reply-To: <4BE1D3B0.9000207@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4BE1CE39.1050707-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> I don't believe linux as yet has a damn tunable for it :)
+On 05/05/2010 12:59 PM, Steve Wise wrote:
+> Looks good to me.
 
-ip route initcwnd sure does it :)
+It looks right to me too.
 
-> > Other OS's appear to have a larger initcwnd.
+Cheers,
+Divy
+
 >
-> Names?  Values?
-
-OpenBSD 4.6 jumps between a ~5k fetch to a ~6k fetch
-
-> > As do commercial load balancers.
+> Steve.
 >
-> Names?  Values?
-
-An older Big/IP appears to be between 5k and 6k as well. I remember a
-sales meeting with netscaler (pre-NDA) back in 2004 or 2005 where they
-claimed to have opened up slow start. There might be others but I can't
-remember which side of the NDA I was informed of their TCP tunning.
-
-Linux is consistently between 3k and 4k. Just the distinction from having
-the RTT in the ~4k or the ~6k range makes our latency graphs go nutty.
-I've been testing a subset of traffic at an initcwnd of 10 for the last
-few hours and latency has dropped even more, though I see some bad
-outliers.
-
-> > The default of 3 seems to be tuned for 56k dialup modems. I'm a
-> > little surprised that none of the pluggable TCP congestion control
-> > algorithms changed this value. I went through all of them except for
-> > tcp_yeah.
+> Roland Dreier wrote:
+>> Hi guys, does this info for cxgb4/iw_cxgb4 (pretty much copied from
+>> cxgb3, except with Dimitris instead of Divy) look right?  If so I'll add
+>> it to my tree.
+>>
+>> Thanks,
+>>   Roland
+>> ---
+>> diff --git a/MAINTAINERS b/MAINTAINERS
+>> index 7a9ccda..a00231b 100644
+>> --- a/MAINTAINERS
+>> +++ b/MAINTAINERS
+>> @@ -1719,6 +1719,20 @@ W:    http://www.openfabrics.org
+>>  S:    Supported
+>>  F:    drivers/infiniband/hw/cxgb3/
+>>
+>> +CXGB4 ETHERNET DRIVER (CXGB4)
+>> +M:    Dimitris Michailidis <dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+>> +L:    netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>> +W:    http://www.chelsio.com
+>> +S:    Supported
+>> +F:    drivers/net/cxgb4/
+>> +
+>> +CXGB4 IWARP RNIC DRIVER (IW_CXGB4)
+>> +M:    Steve Wise <swise-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+>> +L:    linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+>> +W:    http://www.openfabrics.org
+>> +S:    Supported
+>> +F:    drivers/infiniband/hw/cxgb4/
+>> +
+>>  CYBERPRO FB DRIVER
+>>  M:    Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+>>  L:    linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org (moderated for 
+>> non-subscribers)
 >
-> The initcwnd comes from IETF RFCs and their "thou shalts" and "thou shalt
-> nots."  As you note below, Google et al seek to alter/extend the RFCs.  That
-> is an ongoing discussion in some of the ietf related mailing lists.
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-The RFC clearly states "around 4k", but these other OS's/products have an
-extra kilobyte snuck in? Could this be on purpose via rfc
-interpretation, or an off by one on the initcwnd estimator? :)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
