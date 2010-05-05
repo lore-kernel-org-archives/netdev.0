@@ -1,68 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net: __alloc_skb() speedup
-Date: Wed, 05 May 2010 10:22:14 +0200
-Message-ID: <1273047734.2367.3.camel@edumazet-laptop>
-References: <1272993054.2245.21.camel@edumazet-laptop>
-	 <20100505.010658.48498744.davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH 1/2] e1000e: increase rx fifo size to 36K on
+	82574 and 82583
+Date: Wed, 05 May 2010 01:25:42 -0700
+Message-ID: <20100505082537.5956.86868.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, hadi@cyberus.ca, therbert@google.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f225.google.com ([209.85.218.225]:41855 "EHLO
-	mail-bw0-f225.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932388Ab0EEIWT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 May 2010 04:22:19 -0400
-Received: by bwz25 with SMTP id 25so2752903bwz.28
-        for <netdev@vger.kernel.org>; Wed, 05 May 2010 01:22:17 -0700 (PDT)
-In-Reply-To: <20100505.010658.48498744.davem@davemloft.net>
+Received: from qmta07.westchester.pa.mail.comcast.net ([76.96.62.64]:48290
+	"EHLO qmta07.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932155Ab0EEI0A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 May 2010 04:26:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 05 mai 2010 =C3=A0 01:06 -0700, David Miller a =C3=A9crit :
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 04 May 2010 19:10:54 +0200
->=20
-> > With following patch I can reach maximum rate of my pktgen+udpsink
-> > simulator :
-> > - 'old' machine : dual quad core E5450  @3.00GHz
-> > - 64 UDP rx flows (only differ by destination port)
-> > - RPS enabled, NIC interrupts serviced on cpu0
-> > - rps dispatched on 7 other cores. (~130.000 IPI per second)
-> > - SLAB allocator (faster than SLUB in this workload)
-> > - tg3 NIC
-> > - 1.080.000 pps without a single drop at NIC level.
-> >=20
-> > Idea is to add two prefetchw() calls in __alloc_skb(), one to prefe=
-tch
-> > first sk_buff cache line, the second to prefetch the shinfo part.
-> >=20
-> > Also using one memset() to initialize all skb_shared_info fields in=
-stead
-> > of one by one to reduce number of instructions, using long word mov=
-es.
-> >=20
-> > All skb_shared_info fields before 'dataref' are cleared in=20
-> > __alloc_skb().
-> >=20
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->=20
-> I'll apply this, nice work Eric.
->=20
-> But some caveats...
->=20
-> On several cpu types it is possible to "prefetch invalidate"
-> cachelines.  PowerPC and sparc64 can both do it.  I'm pretty
-> sure current gen x86 have SSE bits that can do this too.
->=20
-> In fact, the memset() for sparc64 is going to do these cacheline
-> invalidates, making the prefetches on 'skb' in fact wasteful.
-> It will just create spurious bus traffic.
->=20
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-You mean memset() wont be inlined by ompiler to plain memory writes, bu=
-t
-use the custom kernel memset()  ?
+This change increases the RX fifo size to 36K for standard frames and
+decreases the TX fifo size to 4K.  The reason for this change is that on
+slower systems the RX is much more likely to backfill and need space than
+the TX is.  As long as the TX fifo is twice the size of the MTU we should
+have more than enough TX fifo.
 
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+
+ drivers/net/e1000e/82571.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
+index 17a25e1..1e73edd 100644
+--- a/drivers/net/e1000e/82571.c
++++ b/drivers/net/e1000e/82571.c
+@@ -1845,7 +1845,7 @@ struct e1000_info e1000_82574_info = {
+ 				  | FLAG_HAS_SMART_POWER_DOWN
+ 				  | FLAG_HAS_AMT
+ 				  | FLAG_HAS_CTRLEXT_ON_LOAD,
+-	.pba			= 20,
++	.pba			= 36,
+ 	.max_hw_frame_size	= DEFAULT_JUMBO,
+ 	.get_variants		= e1000_get_variants_82571,
+ 	.mac_ops		= &e82571_mac_ops,
+@@ -1862,7 +1862,7 @@ struct e1000_info e1000_82583_info = {
+ 				  | FLAG_HAS_SMART_POWER_DOWN
+ 				  | FLAG_HAS_AMT
+ 				  | FLAG_HAS_CTRLEXT_ON_LOAD,
+-	.pba			= 20,
++	.pba			= 36,
+ 	.max_hw_frame_size	= ETH_FRAME_LEN + ETH_FCS_LEN,
+ 	.get_variants		= e1000_get_variants_82571,
+ 	.mac_ops		= &e82571_mac_ops,
 
