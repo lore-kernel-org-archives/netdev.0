@@ -1,32 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next 1/3] bnx2: Add GRO support.
-Date: Wed, 05 May 2010 00:49:11 -0700 (PDT)
-Message-ID: <20100505.004911.183056893.davem@davemloft.net>
-References: <1273036906-29162-1-git-send-email-mchan@broadcom.com>
+Subject: Re: [PATCH] FEC: Fix kernel panic in fec_set_mac_address.
+Date: Wed, 05 May 2010 00:55:56 -0700 (PDT)
+Message-ID: <20100505.005556.39178026.davem@davemloft.net>
+References: <4BE02C3E.2000705@vmlinux.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
+To: mattias@vmlinux.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56328
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39192
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752684Ab0EEHtH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 May 2010 03:49:07 -0400
-In-Reply-To: <1273036906-29162-1-git-send-email-mchan@broadcom.com>
+	by vger.kernel.org with ESMTP id S1758716Ab0EEHzu convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 May 2010 03:55:50 -0400
+In-Reply-To: <4BE02C3E.2000705@vmlinux.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Tue, 4 May 2010 22:21:44 -0700
+=46rom: Mattias Walstrom <mattias@vmlinux.org>
+Date: Tue, 04 May 2010 16:16:30 +0200
 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
-> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> Fix memory corruption that sometimes result in kernel panic.
+>=20
+> Signed-off-by: Mattias Walstr=F6m <mattias@vmlinux.org>
 
-Please turn it on by default by setting NETIF_F_GRO in your probe
-routine.
-
-I don't want a precedent started where we have drivers that support
-GRO but don't enable it by default.  If there are some performance
-degradations, we fix them instead of deferring the issue by not
-enabling it by default in some awkward selection of drivers.
+Applied, thank you.
