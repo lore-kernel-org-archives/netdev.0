@@ -1,70 +1,45 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Fw: [Bug 15907] New: IP_ADD_SOURCE_MEMBERSHIP after
- IP_ADD_MEMBERSHIP join on same multicast-group dont return EINVAL
-Date: Wed, 5 May 2010 08:21:38 -0700
-Message-ID: <20100505082138.6cb93aa1@nehalam>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: linux kernel's IPV6_MULTICAST_HOPS default is 64; should be 1?
+Date: Wed, 05 May 2010 11:36:31 -0400
+Message-ID: <4BE1907F.40903@hp.com>
+References: <OF8BB88147.4F3756DA-ON88257719.002A895A-88257719.002AEB08@us.ibm.com>	<20100504.005757.97355845.davem@davemloft.net>	<4BE031FA.6040006@hp.com> <20100504.144647.157477097.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: dlstevens@us.ibm.com, enh@google.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:41916 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755786Ab0EEPV4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 May 2010 11:21:56 -0400
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:45741 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760536Ab0EEPgn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 May 2010 11:36:43 -0400
+In-Reply-To: <20100504.144647.157477097.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+David Miller wrote:
+> From: Brian Haley <brian.haley@hp.com>
+> Date: Tue, 04 May 2010 10:40:58 -0400
+> 
+>> Specifying -1 for setsockopt(IPV6_MULTICAST_HOPS) should set the socket
+>> value back to the system default value of IPV6_DEFAULT_MCASTHOPS (1).
+>>
+>> Signed-off-by: Brian Haley <brian.haley@hp.com>
+> 
+> In cast it wasn't clear from my other reply, I'm not applying this
+> patch because I intentionally left this behavior there based upon
+> some comments from Elliot in that this lets developers get the
+> old default by asking for "-1" explicitly with a setsockopt.
 
+I now see that in Elliot's email, but I think it's incorrect.  The RFC
+says that setting it to -1 should get you the kernel default, which is
+now 1.  Without this change, setting it to -1 will get you 64, the
+old behavior.  If the user wants to, they can always just set it to
+64 themselves, that's better than assuming when you set it to -1
+you're going to get 64.
 
-Begin forwarded message:
+I'm just trying to make this follow the RFC and behave like other OSes
+for consistency.
 
-Date: Wed, 5 May 2010 09:48:40 GMT
-From: bugzilla-daemon@bugzilla.kernel.org
-To: shemminger@linux-foundation.org
-Subject: [Bug 15907] New: IP_ADD_SOURCE_MEMBERSHIP after IP_ADD_MEMBERSHIP join on same multicast-group dont return EINVAL
-
-
-https://bugzilla.kernel.org/show_bug.cgi?id=15907
-
-           Summary: IP_ADD_SOURCE_MEMBERSHIP after IP_ADD_MEMBERSHIP join
-                    on same multicast-group dont return EINVAL
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 2.6.34-rc6
-          Platform: All
-        OS/Version: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: IPV4
-        AssignedTo: shemminger@linux-foundation.org
-        ReportedBy: mail@fholler.de
-        Regression: No
-
-
-Created an attachment (id=26225)
- --> (https://bugzilla.kernel.org/attachment.cgi?id=26225)
-asm+ssm join test program
-
-When an SSM IP_ADD_SOURCE_MEMBERSHIP is done after an ASM IP_ADD_MEMBERSHIP
-join on the same group(& same interface) the setsockopt operation should return
-EINVAL.
-
-The linux implementation returns successfull
-
-
-
-https://www3.tools.ietf.org/html/rfc3678#section-4.1.3
-
-I attached an simple C test program.
-
--- 
-Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=email
-------- You are receiving this mail because: -------
-You are the assignee for the bug.
-
-
--- 
+-Brian
