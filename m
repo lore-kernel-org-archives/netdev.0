@@ -1,7 +1,7 @@
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Subject: [PATCH 2/6] netns: Teach network device kobjects which namespace they are in.
-Date: Tue,  4 May 2010 17:36:45 -0700
-Message-ID: <1273019809-16472-2-git-send-email-ebiederm@xmission.com>
+Subject: [PATCH 3/6] netlink: Implment netlink_broadcast_filtered
+Date: Tue,  4 May 2010 17:36:46 -0700
+Message-ID: <1273019809-16472-3-git-send-email-ebiederm@xmission.com>
 References: <m1fx3hk6gw.fsf@fess.ebiederm.org>
 Cc: Kay Sievers <kay.sievers@vrfy.org>, linux-kernel@vger.kernel.org,
 	Tejun Heo <tj@kernel.org>,
@@ -12,148 +12,108 @@ Cc: Kay Sievers <kay.sievers@vrfy.org>, linux-kernel@vger.kernel.org,
 	David Miller <davem@davemloft.net>,
 	"Eric W. Biederman" <ebiederm@xmission.com>
 To: Greg Kroah-Hartman <gregkh@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:34755 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934266Ab0EEAhC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 May 2010 20:37:02 -0400
 In-Reply-To: <m1fx3hk6gw.fsf@fess.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Eric W. Biederman <ebiederm@xmission.com>
 
-The problem.  Network devices show up in sysfs and with the network
-namespace active multiple devices with the same name can show up in
-the same directory, ouch!
+When netlink sockets are used to convey data that is in a namespace
+we need a way to select a subset of the listening sockets to deliver
+the packet to.  For the network namespace we have been doing this
+by only transmitting packets in the correct network namespace.
 
-To avoid that problem and allow existing applications in network namespaces
-to see the same interface that is currently presented in sysfs, this
-patch enables the tagging directory support in sysfs.
-
-By using the network namespace pointers as tags to separate out the
-the sysfs directory entries we ensure that we don't have conflicts
-in the directories and applications only see a limited set of
-the network devices.
+For data belonging to other namespaces netlink_bradcast_filtered
+provides a mechanism that allows us to examine the destination
+socket and to decide if we should transmit the specified packet
+to it.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- include/linux/kobject.h |    1 +
- net/Kconfig             |    8 ++++++++
- net/core/net-sysfs.c    |   46 ++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 55 insertions(+), 0 deletions(-)
+ include/linux/netlink.h  |    4 ++++
+ net/netlink/af_netlink.c |   21 +++++++++++++++++++--
+ 2 files changed, 23 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/kobject.h b/include/linux/kobject.h
-index b60d2df..cf343a8 100644
---- a/include/linux/kobject.h
-+++ b/include/linux/kobject.h
-@@ -142,6 +142,7 @@ extern const struct sysfs_ops kobj_sysfs_ops;
-  */
- enum kobj_ns_type {
- 	KOBJ_NS_TYPE_NONE = 0,
-+	KOBJ_NS_TYPE_NET,
- 	KOBJ_NS_TYPES
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+index fde27c0..4f7bf4b 100644
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -188,6 +188,10 @@ extern int netlink_has_listeners(struct sock *sk, unsigned int group);
+ extern int netlink_unicast(struct sock *ssk, struct sk_buff *skb, __u32 pid, int nonblock);
+ extern int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, __u32 pid,
+ 			     __u32 group, gfp_t allocation);
++extern int netlink_broadcast_filtered(struct sock *ssk, struct sk_buff *skb,
++	__u32 pid, __u32 group, gfp_t allocation,
++	int (*filter)(struct sock *dsk, struct sk_buff *skb, void *data),
++	void *filter_data);
+ extern void netlink_set_err(struct sock *ssk, __u32 pid, __u32 group, int code);
+ extern int netlink_register_notifier(struct notifier_block *nb);
+ extern int netlink_unregister_notifier(struct notifier_block *nb);
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 320d042..4f16d68 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -975,6 +975,8 @@ struct netlink_broadcast_data {
+ 	int delivered;
+ 	gfp_t allocation;
+ 	struct sk_buff *skb, *skb2;
++	int (*tx_filter)(struct sock *dsk, struct sk_buff *skb, void *data);
++	void *tx_data;
  };
  
-diff --git a/net/Kconfig b/net/Kconfig
-index 041c35e..265e33b 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -45,6 +45,14 @@ config COMPAT_NETLINK_MESSAGES
- 
- menu "Networking options"
- 
-+config NET_NS
-+	bool "Network namespace support"
-+	default n
-+	depends on EXPERIMENTAL && NAMESPACES
-+	help
-+	  Allow user space to create what appear to be multiple instances
-+	  of the network stack.
-+
- source "net/packet/Kconfig"
- source "net/unix/Kconfig"
- source "net/xfrm/Kconfig"
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 099c753..1b98e36 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -13,7 +13,9 @@
- #include <linux/kernel.h>
- #include <linux/netdevice.h>
- #include <linux/if_arp.h>
-+#include <linux/nsproxy.h>
- #include <net/sock.h>
-+#include <net/net_namespace.h>
- #include <linux/rtnetlink.h>
- #include <linux/wireless.h>
- #include <net/wext.h>
-@@ -466,6 +468,37 @@ static struct attribute_group wireless_group = {
- };
- #endif
- 
-+static const void *net_current_ns(void)
-+{
-+	return current->nsproxy->net_ns;
-+}
-+
-+static const void *net_initial_ns(void)
-+{
-+	return &init_net;
-+}
-+
-+static const void *net_netlink_ns(struct sock *sk)
-+{
-+	return sock_net(sk);
-+}
-+
-+static struct kobj_ns_type_operations net_ns_type_operations = {
-+	.type = KOBJ_NS_TYPE_NET,
-+	.current_ns = net_current_ns,
-+	.netlink_ns = net_netlink_ns,
-+	.initial_ns = net_initial_ns,
-+};
-+
-+static void net_kobj_ns_exit(struct net *net)
-+{
-+	kobj_ns_exit(KOBJ_NS_TYPE_NET, net);
-+}
-+
-+static struct pernet_operations sysfs_net_ops = {
-+	.exit = net_kobj_ns_exit,
-+};
-+
- #endif /* CONFIG_SYSFS */
- 
- #ifdef CONFIG_HOTPLUG
-@@ -506,6 +539,13 @@ static void netdev_release(struct device *d)
- 	kfree((char *)dev - dev->padded);
+ static inline int do_one_broadcast(struct sock *sk,
+@@ -1017,6 +1019,9 @@ static inline int do_one_broadcast(struct sock *sk,
+ 		p->failure = 1;
+ 		if (nlk->flags & NETLINK_BROADCAST_SEND_ERROR)
+ 			p->delivery_failure = 1;
++	} else if (p->tx_filter && p->tx_filter(sk, p->skb2, p->tx_data)) {
++		kfree_skb(p->skb2);
++		p->skb2 = NULL;
+ 	} else if (sk_filter(sk, p->skb2)) {
+ 		kfree_skb(p->skb2);
+ 		p->skb2 = NULL;
+@@ -1035,8 +1040,10 @@ out:
+ 	return 0;
  }
  
-+static const void *net_namespace(struct device *d)
-+{
-+	struct net_device *dev;
-+	dev = container_of(d, struct net_device, dev);
-+	return dev_net(dev);
-+}
-+
- static struct class net_class = {
- 	.name = "net",
- 	.dev_release = netdev_release,
-@@ -515,6 +555,8 @@ static struct class net_class = {
- #ifdef CONFIG_HOTPLUG
- 	.dev_uevent = netdev_uevent,
- #endif
-+	.ns_type = &net_ns_type_operations,
-+	.namespace = net_namespace,
- };
- 
- /* Delete sysfs entries but hold kobject reference until after all
-@@ -587,5 +629,9 @@ void netdev_initialize_kobject(struct net_device *net)
- 
- int netdev_kobject_init(void)
+-int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, u32 pid,
+-		      u32 group, gfp_t allocation)
++int netlink_broadcast_filtered(struct sock *ssk, struct sk_buff *skb, u32 pid,
++	u32 group, gfp_t allocation,
++	int (*filter)(struct sock *dsk, struct sk_buff *skb, void *data),
++	void *filter_data)
  {
-+	kobj_ns_type_register(&net_ns_type_operations);
-+#ifdef CONFIG_SYSFS
-+	register_pernet_subsys(&sysfs_net_ops);
-+#endif
- 	return class_register(&net_class);
+ 	struct net *net = sock_net(ssk);
+ 	struct netlink_broadcast_data info;
+@@ -1056,6 +1063,8 @@ int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, u32 pid,
+ 	info.allocation = allocation;
+ 	info.skb = skb;
+ 	info.skb2 = NULL;
++	info.tx_filter = filter;
++	info.tx_data = filter_data;
+ 
+ 	/* While we sleep in clone, do not allow to change socket list */
+ 
+@@ -1080,6 +1089,14 @@ int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, u32 pid,
+ 	}
+ 	return -ESRCH;
  }
++EXPORT_SYMBOL(netlink_broadcast_filtered);
++
++int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, u32 pid,
++		      u32 group, gfp_t allocation)
++{
++	return netlink_broadcast_filtered(ssk, skb, pid, group, allocation,
++		NULL, NULL);
++}
+ EXPORT_SYMBOL(netlink_broadcast);
+ 
+ struct netlink_set_err_data {
 -- 
 1.6.5.2.143.g8cc62
+
