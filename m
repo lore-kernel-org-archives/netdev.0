@@ -1,60 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] netpoll: Use 'bool' for netpoll_rx() return type.
-Date: Thu, 06 May 2010 01:20:51 -0700 (PDT)
-Message-ID: <20100506.012051.149835101.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] net: emaclite: Use resource_size
+Date: Thu,  6 May 2010 10:12:20 +0200
+Message-ID: <1273133540-6894-1-git-send-email-tklauser@distanz.ch>
+Cc: john.linn@xilinx.com, kernel-janitors@vger.kernel.org,
+	Tobias Klauser <tklauser@distanz.ch>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34237
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754004Ab0EFIUo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 04:20:44 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id B458824C090
-	for <netdev@vger.kernel.org>; Thu,  6 May 2010 01:20:51 -0700 (PDT)
+Received: from mx1.zhaw.ch ([160.85.104.50]:57723 "EHLO mx1.zhaw.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753270Ab0EFIUo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 May 2010 04:20:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Use the resource_size function instead of manually calculating the
+resource size.  This reduces the chance of introducing off-by-one
+errors.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 ---
+ drivers/net/xilinx_emaclite.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-I noticed this while validating and auditing Eric Dumazet's vnet
-fix...  applied to net-next-2.6
-
- include/linux/netpoll.h |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
-index 017e604..3688c83 100644
---- a/include/linux/netpoll.h
-+++ b/include/linux/netpoll.h
-@@ -55,19 +55,19 @@ void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb);
+diff --git a/drivers/net/xilinx_emaclite.c b/drivers/net/xilinx_emaclite.c
+index e9381fe..93828d5 100644
+--- a/drivers/net/xilinx_emaclite.c
++++ b/drivers/net/xilinx_emaclite.c
+@@ -1171,7 +1171,7 @@ static int __devinit xemaclite_of_probe(struct of_device *ofdev,
+ 	}
  
+ 	/* Get the virtual base address for the device */
+-	lp->base_addr = ioremap(r_mem.start, r_mem.end - r_mem.start + 1);
++	lp->base_addr = ioremap(r_mem.start, resource_size(&r_mem));
+ 	if (NULL == lp->base_addr) {
+ 		dev_err(dev, "EmacLite: Could not allocate iomem\n");
+ 		rc = -EIO;
+@@ -1224,7 +1224,7 @@ static int __devinit xemaclite_of_probe(struct of_device *ofdev,
+ 	return 0;
  
- #ifdef CONFIG_NETPOLL
--static inline int netpoll_rx(struct sk_buff *skb)
-+static inline bool netpoll_rx(struct sk_buff *skb)
- {
- 	struct netpoll_info *npinfo = skb->dev->npinfo;
- 	unsigned long flags;
--	int ret = 0;
-+	int ret = false;
+ error1:
+-	release_mem_region(ndev->mem_start, r_mem.end - r_mem.start + 1);
++	release_mem_region(ndev->mem_start, resource_size(&r_mem));
  
- 	if (!npinfo || (list_empty(&npinfo->rx_np) && !npinfo->rx_flags))
--		return 0;
-+		return false;
- 
- 	spin_lock_irqsave(&npinfo->rx_lock, flags);
- 	/* check rx_flags again with the lock held */
- 	if (npinfo->rx_flags && __netpoll_rx(skb))
--		ret = 1;
-+		ret = true;
- 	spin_unlock_irqrestore(&npinfo->rx_lock, flags);
- 
- 	return ret;
+ error2:
+ 	xemaclite_remove_ndev(ndev);
 -- 
-1.7.0.4
+1.6.3.3
 
