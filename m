@@ -1,46 +1,57 @@
-From: Pankaj Thakkar <pthakkar@vmware.com>
-Subject: Re: [Pv-drivers] RFC: Network Plugin Architecture (NPA) for vmxnet3
-Date: Thu, 6 May 2010 11:04:11 -0700
-Message-ID: <20100506180411.GC25364@vmware.com>
-References: <20100504230225.GP8323@vmware.com>
-	<201005051029.42052.dtor@vmware.com>
-	<20100505173120.GA1752@infradead.org>
-	<201005051035.29831.dtor@vmware.com>
-	<20100505173951.GA8388@infradead.org>
-	<F1354E79A137A24CBA60059AA65CB1B802A235C535@EXCH-MBX-2.vmware.com>
-	<20100506081933.GF10044@redhat.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: 2.6.34-rc5-mmotm0428 - 2 RCU whinges in mac80211
+Date: Thu, 06 May 2010 14:29:44 -0400
+Message-ID: <8269.1273170584@localhost>
+References: <5820.1273167313@localhost>
+            <1273168696.23199.0.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: multipart/signed; boundary="==_Exmh_1273170584_4094P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: Dmitry Torokhov <dtor@vmware.com>,
-        "pv-drivers@vmware.com" <pv-drivers@vmware.com>,
-        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        "virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-        Christoph Hellwig <hch@infradead.org>
-To: Gleb Natapov <gleb@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20100506081933.GF10044@redhat.com>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: Your message of "Thu, 06 May 2010 19:58:16 +0200."
+             <1273168696.23199.0.camel@jlt3.sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 06, 2010 at 01:19:33AM -0700, Gleb Natapov wrote:
-> Overhead of interpreting bytecode plugin is written in. Or are you
-> saying plugin is x86 assembly (32bit or 64bit btw?) and other arches
-> will have to have in kernel x86 emulator to use the plugin (like some
-> of them had for vgabios)? 
+--==_Exmh_1273170584_4094P
+Content-Type: text/plain; charset=us-ascii
+
+On Thu, 06 May 2010 19:58:16 +0200, Johannes Berg said:
+> On Thu, 2010-05-06 at 13:35 -0400, Valdis.Kletnieks@vt.edu wrote:
+> > Spotted these in my dmesg, hopefully somebody is interested...
+> > 
+> > [   54.076863] wlan0: deauthenticating from 00:11:20:a4:4c:11 by local choice (reason=3)
+> > [   54.080580] 
+> > [   54.080581] ===================================================
+> > [   54.080584] [ INFO: suspicious rcu_dereference_check() usage. ]
+> > [   54.080586] ---------------------------------------------------
+> > [   54.080589] net/mac80211/sta_info.c:858 invoked rcu_dereference_check() without protection!
 > 
+> I'm pretty sure I fixed those so there should be a patch on its way to
+> or in mainline somewhere.
 
-Plugin is x86 or x64 machine code. You write the plugin in C and compile it using gcc/ld to get the object file, we map the relevant sections only to the OS space. 
+Oh,  OK.  I didn't remember seeing them mentioned before, but I must have
+missed somebody else's post about it due to the lkml firehose effect. I've
+moved these to my "whinge if it isn't fixed in the next -mmotm" queue.
 
-NPA is a way of enabling passthrough of SR-IOV NICs with live migration support on ESX Hypervisor which runs only on x86/x64 hardware. It only supports x86/x64 guest OS. So we don't have to worry about other architectures. If NPA approach needs to be extended and adopted by other hypervisors then we have to take care of that. Today we have two plugins images per VF (one for 32-bit, one for 64-bit).
+
+--==_Exmh_1273170584_4094P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFL4wqYcC3lWbTT17ARArwmAJ9LGHTpYagAUMm99LssnBt4wXq9TACffiKa
+sLhU9+s1wcwIGoTU9C7LjK0=
+=dTom
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1273170584_4094P--
