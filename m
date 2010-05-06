@@ -1,42 +1,97 @@
-From: =?ISO-8859-1?Q?Mart=EDn_Ferrari?= <martin.ferrari@gmail.com>
-Subject: Re: kernel panic when using netns+bridges+tc(netem)
-Date: Thu, 6 May 2010 13:23:16 +0200
-Message-ID: <h2vb9800b71005060423rc0f4bd3g4109e90f798d5157@mail.gmail.com>
-References: <o2wb9800b71005051801uc575c6abp5bad3bd50d54ef96@mail.gmail.com>
-	 <1273128002.2304.4.camel@edumazet-laptop>
-	 <1273128429.2304.5.camel@edumazet-laptop>
-	 <1273129187.2304.14.camel@edumazet-laptop>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH net-next-2.6] net: adjust handle_macvlan to pass port struct
+ to hook
+Date: Thu, 6 May 2010 13:33:53 +0200
+Message-ID: <20100506113352.GB3406@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Arnd Bergmann <arnd@arndb.de>, netdev <netdev@vger.kernel.org>,
-	Mathieu Lacage <mathieu.lacage@sophia.inria.fr>,
-	David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kaber@trash.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:52418 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756294Ab0EFLXT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 07:23:19 -0400
-Received: by vws12 with SMTP id 12so1848671vws.19
-        for <netdev@vger.kernel.org>; Thu, 06 May 2010 04:23:18 -0700 (PDT)
-In-Reply-To: <1273129187.2304.14.camel@edumazet-laptop>
+Received: from mx1.redhat.com ([209.132.183.28]:56599 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750805Ab0EFLd6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 May 2010 07:33:58 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric,
+Now there's null check here and also again in the hook. Looking at bridge bits
+which are simmilar, port structure is rcu_dereferenced right away in
+handle_bridge and passed to hook. Looks nicer.
 
-On Thu, May 6, 2010 at 08:59, Eric Dumazet <eric.dumazet@gmail.com> wro=
-te:
->> > Could you please try following patch ?
-> David, this is a stable candidate, once tested and acked, thanks !
->
-> [PATCH] veth: Dont kfree_skb() after dev_forward_skb()
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-I have been running a bunch of benchmarks and it didn't cause any
-trouble. Seems the fix is good
-
-Thanks a lot!!
-
---=20
-Mart=EDn Ferrari
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 9a939d8..1b78c00 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -145,19 +145,15 @@ static void macvlan_broadcast(struct sk_buff *skb,
+ }
+ 
+ /* called under rcu_read_lock() from netif_receive_skb */
+-static struct sk_buff *macvlan_handle_frame(struct sk_buff *skb)
++static struct sk_buff *macvlan_handle_frame(struct macvlan_port *port,
++					    struct sk_buff *skb)
+ {
+ 	const struct ethhdr *eth = eth_hdr(skb);
+-	const struct macvlan_port *port;
+ 	const struct macvlan_dev *vlan;
+ 	const struct macvlan_dev *src;
+ 	struct net_device *dev;
+ 	unsigned int len;
+ 
+-	port = rcu_dereference(skb->dev->macvlan_port);
+-	if (port == NULL)
+-		return skb;
+-
+ 	if (is_multicast_ether_addr(eth->h_dest)) {
+ 		src = macvlan_hash_lookup(port, eth->h_source);
+ 		if (!src)
+diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
+index b78a712..9ea047a 100644
+--- a/include/linux/if_macvlan.h
++++ b/include/linux/if_macvlan.h
+@@ -85,6 +85,7 @@ extern netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
+ 				      struct net_device *dev);
+ 
+ 
+-extern struct sk_buff *(*macvlan_handle_frame_hook)(struct sk_buff *);
++extern struct sk_buff *(*macvlan_handle_frame_hook)(struct macvlan_port *,
++						    struct sk_buff *);
+ 
+ #endif /* _LINUX_IF_MACVLAN_H */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 36d53be..f316a37 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2605,7 +2605,8 @@ static inline struct sk_buff *handle_bridge(struct sk_buff *skb,
+ #endif
+ 
+ #if defined(CONFIG_MACVLAN) || defined(CONFIG_MACVLAN_MODULE)
+-struct sk_buff *(*macvlan_handle_frame_hook)(struct sk_buff *skb) __read_mostly;
++struct sk_buff *(*macvlan_handle_frame_hook)(struct macvlan_port *p,
++					     struct sk_buff *skb) __read_mostly;
+ EXPORT_SYMBOL_GPL(macvlan_handle_frame_hook);
+ 
+ static inline struct sk_buff *handle_macvlan(struct sk_buff *skb,
+@@ -2613,14 +2614,17 @@ static inline struct sk_buff *handle_macvlan(struct sk_buff *skb,
+ 					     int *ret,
+ 					     struct net_device *orig_dev)
+ {
+-	if (skb->dev->macvlan_port == NULL)
++	struct macvlan_port *port;
++
++	port = rcu_dereference(skb->dev->macvlan_port);
++	if (!port)
+ 		return skb;
+ 
+ 	if (*pt_prev) {
+ 		*ret = deliver_skb(skb, *pt_prev, orig_dev);
+ 		*pt_prev = NULL;
+ 	}
+-	return macvlan_handle_frame_hook(skb);
++	return macvlan_handle_frame_hook(port, skb);
+ }
+ #else
+ #define handle_macvlan(skb, pt_prev, ret, orig_dev)	(skb)
