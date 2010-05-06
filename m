@@ -1,43 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [v5 Patch 1/3] netpoll: add generic support for bridge and
- bonding devices
-Date: Thu, 06 May 2010 00:44:57 -0700 (PDT)
-Message-ID: <20100506.004457.71584133.davem@davemloft.net>
-References: <20100505081514.5157.83783.sendpatchset@localhost.localdomain>
-	<1273111530.21962.2753.camel@calx>
+Subject: Re: kernel panic when using netns+bridges+tc(netem)
+Date: Thu, 06 May 2010 00:54:25 -0700 (PDT)
+Message-ID: <20100506.005425.220063166.davem@davemloft.net>
+References: <1273128002.2304.4.camel@edumazet-laptop>
+	<1273128429.2304.5.camel@edumazet-laptop>
+	<1273129187.2304.14.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	gospo@redhat.com, nhorman@tuxdriver.com, jmoyer@redhat.com,
-	shemminger@linux-foundation.org,
-	bonding-devel@lists.sourceforge.net, fubar@us.ibm.com
-To: mpm@selenic.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: martin.ferrari@gmail.com, arnd@arndb.de, netdev@vger.kernel.org,
+	mathieu.lacage@sophia.inria.fr
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48817
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55427
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752181Ab0EFHou (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 03:44:50 -0400
-In-Reply-To: <1273111530.21962.2753.camel@calx>
+	by vger.kernel.org with ESMTP id S1752924Ab0EFHyT convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 May 2010 03:54:19 -0400
+In-Reply-To: <1273129187.2304.14.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matt Mackall <mpm@selenic.com>
-Date: Wed, 05 May 2010 21:05:30 -0500
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 06 May 2010 08:59:47 +0200
 
-> On Wed, 2010-05-05 at 04:11 -0400, Amerigo Wang wrote:
->> V5:
->> Fix coding style problems pointed by David.
-> 
-> Aside from my concern about the policy of disabling netpoll on
-> bridges/bonds with only partial netpoll support, I don't have any
-> remaining issues with this. But I'll leave it to other folks to ack the
-> underlying driver bits for this series.
+> David, this is a stable candidate, once tested and acked, thanks !
+>=20
+> [PATCH] veth: Dont kfree_skb() after dev_forward_skb()
+>=20
+> In case of congestion, netif_rx() frees the skb, so we must assume
+> dev_forward_skb() also consume skb.
+>=20
+> Bug introduced by commit 445409602c092
+> (veth: move loopback logic to common location)
+>=20
+> We must change dev_forward_skb() to always consume skb, and veth to n=
+ot
+> double free it.
+>=20
+> Bug report : http://marc.info/?l=3Dlinux-netdev&m=3D127310770900442&w=
+=3D3
+>=20
+> Reported-by: Mart=EDn Ferrari <martin.ferrari@gmail.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Yes the partial support handling is a thorny issue.
-
-But this patch set makes things better than they were before, because
-support over such devices didn't work at all previously.
-
-So I'll toss these patches into net-next-2.6, thanks everyone!
+Ugh, applied and queued up for -stable, thanks Eric!
