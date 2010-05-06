@@ -1,233 +1,115 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] net: deliver skbs on inactive slaves to exact matches
-Date: Thu, 06 May 2010 11:01:04 -0700
-Message-ID: <25360.1273168864@death.nxdomain.ibm.com>
-References: <20100506172438.26339.93520.stgit@jf-dev2-dcblab>
-Cc: bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	christopher.leech@intel.com, andy@greyhouse.net, kaber@trash.net
-To: John Fastabend <john.r.fastabend@intel.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] ipv4: remove ip_rt_secret timer
+Date: Thu, 6 May 2010 14:02:33 -0400
+Message-ID: <20100506180233.GB5063@hmsreliant.think-freely.org>
+References: <20100506171639.GA5063@hmsreliant.think-freely.org>
+ <1273167155.2853.49.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:54278 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759230Ab0EFSBL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 May 2010 14:01:11 -0400
-Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
-	by e5.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o46HjOlF001672
-	for <netdev@vger.kernel.org>; Thu, 6 May 2010 13:45:24 -0400
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o46I19I7103304
-	for <netdev@vger.kernel.org>; Thu, 6 May 2010 14:01:09 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o46I17ew008947
-	for <netdev@vger.kernel.org>; Thu, 6 May 2010 14:01:08 -0400
-In-reply-to: <20100506172438.26339.93520.stgit@jf-dev2-dcblab>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:42889 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759440Ab0EFSCi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 14:02:38 -0400
+Content-Disposition: inline
+In-Reply-To: <1273167155.2853.49.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-John Fastabend <john.r.fastabend@intel.com> wrote:
-
->Currently, the accelerated receive path for VLAN's will
->drop packets if the real device is an inactive slave and
->is not one of the special pkts tested for in
->skb_bond_should_drop().  This behavior is different then
->the non-accelerated path and for pkts over a bonded vlan.
->
->For example,
->
->vlanx -> bond0 -> ethx
->
->will be dropped in the vlan path and not delivered to any
->packet handlers.  However,
->
->bond0 -> vlanx -> ethx
->
->will be delivered to handlers that match the exact dev,
->because the VLAN path checks the real_dev which is not a
->slave and netif_recv_skb() doesn't drop frames but only
->delivers them to exact matches.
->
->This patch adds a pkt_type PACKET_DROP which is now used
->to identify skbs that would previously been dropped and
->allows the skb to continue to skb_netif_recv().  Here we
->add logic to check for PACKET_DROP and if so only deliver
->to handlers that match exactly.  IMHO this is more
->consistent and gives pkt handlers a way to identify skbs
->that come from inactive slaves.
-
-	I was looking at this some yesterday and this morning, trying to
-figure out if a packet going up the IP protocol stack with pkt_type ==
-PACKET_DROP would break anything.  For example:
-
-net/ipv4/ip_options.c:
-int ip_options_rcv_srr(struct sk_buff *skb)
+On Thu, May 06, 2010 at 07:32:35PM +0200, Eric Dumazet wrote:
+> Le jeudi 06 mai 2010 =E0 13:16 -0400, Neil Horman a =E9crit :
+> > A while back there was a discussion regarding the rt_secret_interva=
+l timer.
+> > Given that we've had the ability to do emergency route cache rebuil=
+ds for awhile
+> > now, based on a statistical analysis of the various hash chain leng=
+ths in the
+> > cache, the use of the flush timer is somewhat redundant.  This patc=
+h removes the
+> > rt_secret_interval sysctl, allowing us to rely solely on the statis=
+tical
+> > analysis mechanism to determine the need for route cache flushes.
+> >=20
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> >=20
+> >=20
+>=20
+> Nice cleanup try Neil, but this gives to attackers more time to hit t=
+he
+> cache (infinite time should be enough as a matter of fact ;) )
+>=20
+Not sure I follow what your complaint is.  I get that this gives attack=
+ers
+plenty of time to try to attack the cache, but thats rather the point o=
+f the
+statistics gathering for the cache, and why I don't think we need the s=
+ecret
+timer any more.   With the statistical analysis we do on the route cach=
+e every
+gc cycle, we can tell if an attacker has guessed our rt_genid value, an=
+d is
+making any chains in the cache abnormally long.  Thats when we do the r=
+ebuild,
+modifying the rt_genid, forcing the attacker to re-discover it (which s=
+hould be
+difficult).  Theres no need to change this periodically if you're not b=
+eing
+attacked.
+=20
+> Hints :=20
+>=20
+> - What is the initial value of rt_genid ?
+>=20
+> - How/When is it changed (full 32 bits are changed or small
+> perturbations ? check rt_cache_invalidate())
+>=20
+/*
+ * Pertubation of rt_genid by a small quantity [1..256]
+ * Using 8 bits of shuffling ensure we can call rt_cache_invalidate()
+ * many times (2^24) without giving recent rt_genid.
+ * Jenkins hash is strong enough that litle changes of rt_genid are OK.
+ */
+static void rt_cache_invalidate(struct net *net)
 {
-[...]
-        if (!opt->srr)
-                return 0;
+        unsigned char shuffle;
 
-        if (skb->pkt_type != PACKET_HOST)
-                return -EINVAL;
+        get_random_bytes(&shuffle, sizeof(shuffle));
+        atomic_add(shuffle + 1U, &net->ipv4.rt_genid);
+}
 
-	or:
+Clearly, its small changes.  To paraphrase the comment, Changes to rt_g=
+enid are
+small enough to be confident that we don't repetatively use a gen_id of=
+ten, but
+sufficiently random that attackers cannot easily guess the next gen_id =
+based on
+the current value.  Both the timer and the statistics code use this inv=
+alidation
+technique previously, and the latter continues to do so.
 
-net/ipv4/tcp_ipv4.c:
-int tcp_v4_rcv(struct sk_buff *skb)
-{
-        const struct iphdr *iph;
-        struct tcphdr *th;
-        struct sock *sk;
-        int ret;
-        struct net *net = dev_net(skb->dev);
+I've not changed anything regarding how we
+invalidate, only when we choose to invalidate.  Invalidation can lead t=
+o
+slowdowns during routing, since it send frames through the slow path af=
+ter an
+invalidation.  It behooves us to avoid preforming this invalidation wit=
+hout
+need, and since we have a mechanism in place to do that invalidation sp=
+ecfically
+when we need to, lets get rid of the code that handles that, and make i=
+t a bit
+cleaner.  If there are users that feel strongly that they need to defen=
+d against
+potential attacks by periodically changing their rt_genid, its still po=
+ssible.
+Its as simple as putting:
+echo -1 > /proc/sys/net/ipv4/route/flush
+in a cron job.
 
-        if (skb->pkt_type != PACKET_HOST)
-                goto discard_it;
+Regards
+Neil
 
-	Is pkt_type == PACKET_DROP instead going to break things for
-these, or the other similar cases?
-
-	I think what you're looking for is really the usual PACKET_HOST,
-PACKET_OTHERHOST, et al, upper protocol behavior, with the exception
-that at the __netif_receive_skb level, wildcard matches in the ptypes
-are not done.  Setting the pkt_type to PACKET_DROP loses the _HOST,
-_OTHERHOST, etc, information, but sends the packet up the stack anyway,
-and I'm not sure that's really the right thing to do.
-
-	-J
-
->This allows a third case to function which is important for
->doing multipath with FCoE traffic while LAN traffic bonded,
->
->bond0 -> ethx
->          |
->vlanx -> --
->
->Here the vlan is not in bond0 but the FCoE handler can still
->receive the skb.  Previously these skbs were dropped.
->
->I have tested the following 4 configurations in failover modes
->and load balancing modes and have not seen any duplicate packets
->or unexpected bahavior.
->
-># bond0 -> ethx
->
-># vlanx -> bond0 -> ethx
->
-># bond0 -> vlanx -> ethx
->
-># bond0 -> ethx
->            |
->  vlanx -> --
->
->Also this removes the PACKET_FASTROUTE define which was not being
->used.
->
->Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->---
->
-> include/linux/if_packet.h |    2 +-
-> net/8021q/vlan_core.c     |    4 ++--
-> net/core/dev.c            |   25 ++++++++++++++++++-------
-> 3 files changed, 21 insertions(+), 10 deletions(-)
->
->diff --git a/include/linux/if_packet.h b/include/linux/if_packet.h
->index 6ac23ef..9d079fa 100644
->--- a/include/linux/if_packet.h
->+++ b/include/linux/if_packet.h
->@@ -28,7 +28,7 @@ struct sockaddr_ll {
-> #define PACKET_OUTGOING		4		/* Outgoing of any type */
-> /* These ones are invisible by user level */
-> #define PACKET_LOOPBACK		5		/* MC/BRD frame looped back */
->-#define PACKET_FASTROUTE	6		/* Fastrouted frame	*/
->+#define PACKET_DROP		6		/* Drop packet 		*/
->
-> /* Packet socket options */
->
->diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
->index c584a0a..4510e08 100644
->--- a/net/8021q/vlan_core.c
->+++ b/net/8021q/vlan_core.c
->@@ -12,7 +12,7 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
-> 		return NET_RX_DROP;
->
-> 	if (skb_bond_should_drop(skb, ACCESS_ONCE(skb->dev->master)))
->-		goto drop;
->+		skb->pkt_type = PACKET_DROP;
->
-> 	skb->skb_iif = skb->dev->ifindex;
-> 	__vlan_hwaccel_put_tag(skb, vlan_tci);
->@@ -84,7 +84,7 @@ vlan_gro_common(struct napi_struct *napi, struct vlan_group *grp,
-> 	struct sk_buff *p;
->
-> 	if (skb_bond_should_drop(skb, ACCESS_ONCE(skb->dev->master)))
->-		goto drop;
->+		skb->pkt_type = PACKET_DROP;
->
-> 	skb->skb_iif = skb->dev->ifindex;
-> 	__vlan_hwaccel_put_tag(skb, vlan_tci);
->diff --git a/net/core/dev.c b/net/core/dev.c
->index 36d53be..cefac4f 100644
->--- a/net/core/dev.c
->+++ b/net/core/dev.c
->@@ -2776,7 +2776,7 @@ static int __netif_receive_skb(struct sk_buff *skb)
-> 	struct net_device *orig_dev;
-> 	struct net_device *master;
-> 	struct net_device *null_or_orig;
->-	struct net_device *null_or_bond;
->+	struct net_device *dev_or_bond;
-> 	int ret = NET_RX_DROP;
-> 	__be16 type;
->
->@@ -2793,13 +2793,24 @@ static int __netif_receive_skb(struct sk_buff *skb)
-> 	if (!skb->skb_iif)
-> 		skb->skb_iif = skb->dev->ifindex;
->
->+	/*
->+	 * bonding note: skbs received on inactive slaves should only
->+	 * be delivered to pkt handlers that are exact matches.  Also
->+	 * the pkt_type field will be marked PACKET_DROP.  If packet
->+	 * handlers are sensitive to duplicate packets these skbs will
->+	 * need to be dropped at the handler.  The vlan accel path may
->+	 * have already set PACKET_DROP.
->+	 */
-> 	null_or_orig = NULL;
-> 	orig_dev = skb->dev;
-> 	master = ACCESS_ONCE(orig_dev->master);
->-	if (master) {
->-		if (skb_bond_should_drop(skb, master))
->+	if (skb->pkt_type == PACKET_DROP)
->+		null_or_orig = orig_dev;
->+	else if (master) {
->+		if (skb_bond_should_drop(skb, master)) {
->+			skb->pkt_type = PACKET_DROP;
-> 			null_or_orig = orig_dev; /* deliver only exact match */
->-		else
->+		} else
-> 			skb->dev = master;
-> 	}
->
->@@ -2849,10 +2860,10 @@ ncls:
-> 	 * device that may have registered for a specific ptype.  The
-> 	 * handler may have to adjust skb->dev and orig_dev.
-> 	 */
->-	null_or_bond = NULL;
->+	dev_or_bond = skb->dev;
-> 	if ((skb->dev->priv_flags & IFF_802_1Q_VLAN) &&
-> 	    (vlan_dev_real_dev(skb->dev)->priv_flags & IFF_BONDING)) {
->-		null_or_bond = vlan_dev_real_dev(skb->dev);
->+		dev_or_bond = vlan_dev_real_dev(skb->dev);
-> 	}
->
-> 	type = skb->protocol;
->@@ -2860,7 +2871,7 @@ ncls:
-> 			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
-> 		if (ptype->type == type && (ptype->dev == null_or_orig ||
-> 		     ptype->dev == skb->dev || ptype->dev == orig_dev ||
->-		     ptype->dev == null_or_bond)) {
->+		     ptype->dev == dev_or_bond)) {
-> 			if (pt_prev)
-> 				ret = deliver_skb(skb, pt_prev, orig_dev);
-> 			pt_prev = ptype;
->
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
