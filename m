@@ -1,54 +1,34 @@
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Subject: RE: [Pv-drivers] RFC: Network Plugin Architecture (NPA) for vmxnet3
-Date: Thu, 6 May 2010 00:25:24 -0700
-Message-ID: <89E2752CFA8EC044846EB8499819134102AF2D23E6@EXCH-MBX-4.vmware.com>
-References: <89E2752CFA8EC044846EB8499819134102AF2896F5@EXCH-MBX-4.vmware.com>
- <C807719A.2E910%scofeldm@cisco.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH 1/2] ixgbe: Add boolean parameter to
+ ixgbe_set_vmolr
+Date: Thu, 06 May 2010 00:25:32 -0700 (PDT)
+Message-ID: <20100506.002532.98883052.davem@davemloft.net>
+References: <20100505081129.5709.39430.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Christoph Hellwig <hch@infradead.org>,
-	"pv-drivers@vmware.com" <pv-drivers@vmware.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	Pankaj Thakkar <pthakkar@vmware.com>
-To: Scott Feldman <scofeldm@cisco.com>, Arnd Bergmann <arnd@arndb.de>,
-	Dmitry Torokhov <dtor@vmware.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <C807719A.2E910%scofeldm@cisco.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, gregory.v.rose@intel.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57048
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754627Ab0EFHZZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 03:25:25 -0400
+In-Reply-To: <20100505081129.5709.39430.stgit@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 05 May 2010 01:11:46 -0700
 
+> From: Greg Rose <gregory.v.rose@intel.com>
+> 
+> Add a boolean parameter to ixgbe-set_vmolr so that the caller can
+> specify whether the pool should accept untagged packets.  Required
+> for a follow on patch to enable administrative configuration of port
+> VLAN for virtual functions.
+> 
+> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-> -----Original Message-----
-> From: Scott Feldman [mailto:scofeldm@cisco.com]
-> Sent: Wednesday, May 05, 2010 7:04 PM
-> To: Shreyas Bhatewara; Arnd Bergmann; Dmitry Torokhov
-> Cc: Christoph Hellwig; pv-drivers@vmware.com; netdev@vger.kernel.org;
-> linux-kernel@vger.kernel.org; virtualization@lists.linux-
-> foundation.org; Pankaj Thakkar
-> Subject: Re: [Pv-drivers] RFC: Network Plugin Architecture (NPA) for
-> vmxnet3
-> 
-> On 5/5/10 10:29 AM, "Dmitry Torokhov" <dtor@vmware.com> wrote:
-> 
-> > It would not be a binary blob but software properly released under
-> GPL.
-> > The current plan is for the shell to enforce GPL requirement on the
-> > plugin code, similar to what module loaded does for regular kernel
-> > modules.
-> 
-> On 5/5/10 3:05 PM, "Shreyas Bhatewara" <sbhatewara@vmware.com> wrote:
-> 
-> > The plugin image is not linked against Linux kernel. It is OS
-> agnostic infact
-> > (Eg. same plugin works for Linux and Windows VMs)
-> 
-> Are there any issues with injecting the GPL-licensed plug-in into the
-> Windows vmxnet3 NDIS driver?
-> 
-> -scott
+Applied.
