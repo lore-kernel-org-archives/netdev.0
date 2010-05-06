@@ -1,57 +1,48 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 2/2] bridge netfilter: use net_ratelimit
-Date: Thu, 6 May 2010 12:38:55 -0700
-Message-ID: <20100506123855.735a164a@nehalam>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH (v4)] bridge: update sysfs link names if port device
+ names have changed
+Date: Thu, 6 May 2010 12:40:38 -0700
+Message-ID: <20100506124038.1b9849c7@nehalam>
+References: <4BE30B3D.9000600@simon.arlott.org.uk>
+	<4BE31218.6010709@simon.arlott.org.uk>
+	<20100506121107.1868ad07@nehalam>
+	<4BE31A67.4090007@simon.arlott.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>
+To: Simon Arlott <simon@fire.lp0.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:52119 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755106Ab0EFTjI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 May 2010 15:39:08 -0400
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:43796 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756548Ab0EFTlc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 15:41:32 -0400
+In-Reply-To: <4BE31A67.4090007@simon.arlott.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove routine br_dnat_complain which just implemented own version
-of net_ratelimit() and use netdev_warn.
+On Thu, 06 May 2010 20:37:11 +0100
+Simon Arlott <simon@fire.lp0.eu> wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Links for each port are created in sysfs using the device
+> name, but this could be changed after being added to the
+> bridge.
+> 
+> As well as being unable to remove interfaces after this
+> occurs (because userspace tools don't recognise the new
+> name, and the kernel won't recognise the old name), adding
+> another interface with the old name to the bridge will
+> cause an error trying to create the sysfs link.
+> 
+> This fixes the problem by listening for NETDEV_CHANGENAME
+> notifications and renaming the link.
+> 
+> https://bugzilla.kernel.org/show_bug.cgi?id=12743
+> 
+> Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
 
---- a/net/bridge/br_netfilter.c	2010-05-06 12:32:23.427786161 -0700
-+++ b/net/bridge/br_netfilter.c	2010-05-06 12:33:37.826565965 -0700
-@@ -253,17 +253,6 @@ static int br_nf_pre_routing_finish_ipv6
- 	return 0;
- }
- 
--static void __br_dnat_complain(void)
--{
--	static unsigned long last_complaint;
--
--	if (jiffies - last_complaint >= 5 * HZ) {
--		printk(KERN_WARNING "Performing cross-bridge DNAT requires IP "
--		       "forwarding to be enabled\n");
--		last_complaint = jiffies;
--	}
--}
--
- /* This requires some explaining. If DNAT has taken place,
-  * we will need to fix up the destination Ethernet address,
-  * and this is a tricky process.
-@@ -382,8 +371,12 @@ static int br_nf_pre_routing_finish(stru
- 				/* we are sure that forwarding is disabled, so printing
- 				 * this message is no problem. Note that the packet could
- 				 * still have a martian destination address, in which case
--				 * the packet could be dropped even if forwarding were enabled */
--				__br_dnat_complain();
-+				 * the packet could be dropped even if forwarding were enabled
-+				 */
-+				if (net_ratelimit())
-+					netdev_warn(dev, "Performing cross-bridge DNAT "
-+						    "requires IP forwarding to be enabled\n");
-+
- 				dst_release((struct dst_entry *)rt);
- 			}
- free_skb:
+Looks good
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+
+
+-- 
