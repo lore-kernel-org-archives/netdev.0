@@ -1,40 +1,35 @@
-From: Scott Feldman <scofeldm@cisco.com>
-Subject: Re: [Pv-drivers] RFC: Network Plugin Architecture (NPA) for vmxnet3
-Date: Wed, 05 May 2010 19:03:54 -0700
-Message-ID: <C807719A.2E910%scofeldm@cisco.com>
-References: <89E2752CFA8EC044846EB8499819134102AF2896F5@EXCH-MBX-4.vmware.com>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [v5 Patch 1/3] netpoll: add generic support for bridge and
+ bonding devices
+Date: Wed, 05 May 2010 21:05:30 -0500
+Message-ID: <1273111530.21962.2753.camel@calx>
+References: <20100505081514.5157.83783.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>,
-	"pv-drivers@vmware.com" <pv-drivers@vmware.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	Pankaj Thakkar <pthakkar@vmware.com>
-To: Shreyas Bhatewara <sbhatewara@vmware.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Dmitry Torokhov <dtor@vmware.com>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org,
+	Andy Gospodarek <gospo@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Jeff Moyer <jmoyer@redhat.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	bonding-devel@lists.sourceforge.net,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	David Miller <davem@davemloft.net>
+To: Amerigo Wang <amwang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <89E2752CFA8EC044846EB8499819134102AF2896F5@EXCH-MBX-4.vmware.com>
+In-Reply-To: <20100505081514.5157.83783.sendpatchset@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 5/5/10 10:29 AM, "Dmitry Torokhov" <dtor@vmware.com> wrote:
+On Wed, 2010-05-05 at 04:11 -0400, Amerigo Wang wrote:
+> V5:
+> Fix coding style problems pointed by David.
 
-> It would not be a binary blob but software properly released under GPL.
-> The current plan is for the shell to enforce GPL requirement on the
-> plugin code, similar to what module loaded does for regular kernel
-> modules.
+Aside from my concern about the policy of disabling netpoll on
+bridges/bonds with only partial netpoll support, I don't have any
+remaining issues with this. But I'll leave it to other folks to ack the
+underlying driver bits for this series.
 
-On 5/5/10 3:05 PM, "Shreyas Bhatewara" <sbhatewara@vmware.com> wrote:
-
-> The plugin image is not linked against Linux kernel. It is OS agnostic infact
-> (Eg. same plugin works for Linux and Windows VMs)
-
-Are there any issues with injecting the GPL-licensed plug-in into the
-Windows vmxnet3 NDIS driver?
-
--scott
+-- 
+Mathematics is the supreme nostalgia of our time.
