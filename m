@@ -1,33 +1,62 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 transmit queue time outs
-Date: Thu, 6 May 2010 22:10:24 +0200
-Message-ID: <20100506201024.GA3541@electric-eye.fr.zoreil.com>
-References: <20100506141715.GC4480@ihatethathostname.lab.bos.redhat.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [Pv-drivers] RFC: Network Plugin Architecture (NPA) for vmxnet3
+Date: Thu, 6 May 2010 16:17:09 -0400
+Message-ID: <20100506201709.GA17922@infradead.org>
+References: <20100504230225.GP8323@vmware.com> <201005051029.42052.dtor@vmware.com> <20100505173120.GA1752@infradead.org> <201005051035.29831.dtor@vmware.com> <20100505173951.GA8388@infradead.org> <F1354E79A137A24CBA60059AA65CB1B802A235C535@EXCH-MBX-2.vmware.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Kyle McMartin <kmcmartin@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 97.17.115-78.rev.gaoland.net ([78.115.17.97]:41542 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757097Ab0EFUKi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 16:10:38 -0400
+Cc: Christoph Hellwig <hch@infradead.org>,
+	Dmitry Torokhov <dtor@vmware.com>,
+	"pv-drivers@vmware.com" <pv-drivers@vmware.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>
+To: Pankaj Thakkar <pthakkar@vmware.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20100506141715.GC4480@ihatethathostname.lab.bos.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <F1354E79A137A24CBA60059AA65CB1B802A235C535@EXCH-MBX-2.vmware.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Kyle McMartin <kmcmartin@redhat.com> :
-[...]
-> Some of our users have been seeing their r8169 cards just up and stop
-> transmitting packets pretty quickly after boot with recent kernels.
-[...]
-> Pid: 0, comm: swapper Not tainted 2.6.31.5-127.fc12.i686.PAE #1
+On Wed, May 05, 2010 at 10:47:10AM -0700, Pankaj Thakkar wrote:
+> > Forget about the licensing.  Loading binary blobs written to a shim
+> > layer is a complete pain in the ass and totally unsupportable, and
+> > also uninteresting because of the overhead.
+> 
+> [PT] Why do you think it is unsupportable? How different is it from any module written against a well maintained interface? What overhead are you talking about?
 
-Can they upgrade to 2.6.32.11-99.fc12.i686 and try an out-of-tree build
-of the driver at http://userweb.kernel.org/~romieu/r8169/2.6.32.11-99.fc12/ ?
+We only support in-kernel drivers, everything else is subject to changes
+in the kernel API and ABI.  What you do is basically introducing another
+wrapper layer not allowing full access to the normal Linux API.  People
+have tried this before and we're not willing to add it.  Do a little
+research on Project UDI if you're curious.
 
-It should be quite close to the current git kernel.
+> >  (1) move the limited VF drivers directly into the kernel tree,
+> >      talk to them through a normal ops vector
+> [PT] This assumes that all the VF drivers would always be available.
 
--- 
-Ueimor
+Yes, absolutely.  Just as we assume that for every other driver.
+
+> Also we have to support windows and our current design supports it nicely in an OS agnostic manner.
+
+And that's not something we care about at all.  The Linux kernel has
+traditionally a very hostile position against cross platform drivers for
+reasons well explained before at many occasions.
+
+> >  (2) get rid of the whole shim crap and instead integrate the limited
+> >      VF driver with the full VF driver we already have, instead of
+> >      duplicating the code
+> [PT] Having a full VF driver adds a lot of dependency on the guest VM and this is what NPA tries to avoid.
+
+Yes, of course it does.  It's a normal driver at the point which it
+should have been from day one.
+
+> >  (3) don't make the PV to VF integration VMware-specific but also
+> >      provide an open reference implementation like virtio.  We're not
+> >      going to add massive amount of infrastructure that is not actually
+> >      useable in a free software stack.
+> [PT] Today this is tied to vmxnet3 device and is intended to work on ESX hypervisor only (vmxnet3 works on VMware hypervisor only). All the loading support is inside the ESX hypervisor. I am going to post the interface between the shell and the plugin soon and you can see that there is not a whole lot of dependency or infrastructure requirements from the Linux kernel. Please keep in mind that we don't use Linux as a hypervisor but as a guest VM.
+
+But we use Linux as the hypervisor, too.  So if you want to target a
+major infrastructure you might better make it available for that case.
