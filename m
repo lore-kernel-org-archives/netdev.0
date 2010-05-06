@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 2/3] ixgbe: Streamline MC filter setup for VFs
-Date: Wed, 05 May 2010 22:57:30 -0700
-Message-ID: <20100506055728.8482.77386.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 3/3] ixgbevf: Cache PF ack bit in interrupt
+Date: Wed, 05 May 2010 22:57:49 -0700
+Message-ID: <20100506055748.8482.25239.stgit@localhost.localdomain>
 References: <20100506055703.8482.16515.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,60 +11,59 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta01.emeryville.ca.mail.comcast.net ([76.96.30.16]:51238 "EHLO
-	qmta01.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752181Ab0EFF5r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 01:57:47 -0400
+Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:60302 "EHLO
+	qmta07.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752303Ab0EFF6I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 01:58:08 -0400
 In-Reply-To: <20100506055703.8482.16515.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Greg Rose <gregory.v.rose@intel.com>
 
-The driver was calling the set Rx mode function for every multicast
-filter set by the VF.  When starting many VMs where each might have
-multiple VLAN interfaces this would result in the function being
-called hundreds or even thousands of times.  This is unnecessary
-for the case of the imperfect filters used in the MTA and has been
-streamlined to be more efficient.
+When the PF acks a message from the VF the VF gets an interrupt.  It
+must cache the ack bit so that polling SW will not miss the ack.  Also
+avoid reading the message buffer on acks because that also will clear
+the ack bit.
 
 Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_sriov.c |   13 +++++++++++--
- 1 files changed, 11 insertions(+), 2 deletions(-)
+ drivers/net/ixgbevf/ixgbevf_main.c |   16 ++++++++++++++++
+ 1 files changed, 16 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_sriov.c b/drivers/net/ixgbe/ixgbe_sriov.c
-index c4e5150..f6cee94 100644
---- a/drivers/net/ixgbe/ixgbe_sriov.c
-+++ b/drivers/net/ixgbe/ixgbe_sriov.c
-@@ -48,7 +48,11 @@ int ixgbe_set_vf_multicasts(struct ixgbe_adapter *adapter,
- 			    int entries, u16 *hash_list, u32 vf)
- {
- 	struct vf_data_storage *vfinfo = &adapter->vfinfo[vf];
-+	struct ixgbe_hw *hw = &adapter->hw;
- 	int i;
-+	u32 vector_bit;
-+	u32 vector_reg;
-+	u32 mta_reg;
+diff --git a/drivers/net/ixgbevf/ixgbevf_main.c b/drivers/net/ixgbevf/ixgbevf_main.c
+index 0870740..460c37f 100644
+--- a/drivers/net/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ixgbevf/ixgbevf_main.c
+@@ -961,12 +961,28 @@ static irqreturn_t ixgbevf_msix_mbx(int irq, void *data)
+ 	eicr = IXGBE_READ_REG(hw, IXGBE_VTEICS);
+ 	IXGBE_WRITE_REG(hw, IXGBE_VTEICR, eicr);
  
- 	/* only so many hash values supported */
- 	entries = min(entries, IXGBE_MAX_VF_MC_ENTRIES);
-@@ -68,8 +72,13 @@ int ixgbe_set_vf_multicasts(struct ixgbe_adapter *adapter,
- 		vfinfo->vf_mc_hashes[i] = hash_list[i];;
- 	}
- 
--	/* Flush and reset the mta with the new values */
--	ixgbe_set_rx_mode(adapter->netdev);
-+	for (i = 0; i < vfinfo->num_vf_mc_hashes; i++) {
-+		vector_reg = (vfinfo->vf_mc_hashes[i] >> 5) & 0x7F;
-+		vector_bit = vfinfo->vf_mc_hashes[i] & 0x1F;
-+		mta_reg = IXGBE_READ_REG(hw, IXGBE_MTA(vector_reg));
-+		mta_reg |= (1 << vector_bit);
-+		IXGBE_WRITE_REG(hw, IXGBE_MTA(vector_reg), mta_reg);
++	if (!hw->mbx.ops.check_for_ack(hw)) {
++		/*
++		 * checking for the ack clears the PFACK bit.  Place
++		 * it back in the v2p_mailbox cache so that anyone
++		 * polling for an ack will not miss it.  Also
++		 * avoid the read below because the code to read
++		 * the mailbox will also clear the ack bit.  This was
++		 * causing lost acks.  Just cache the bit and exit
++		 * the IRQ handler.
++		 */
++		hw->mbx.v2p_mailbox |= IXGBE_VFMAILBOX_PFACK;
++		goto out;
 +	}
++
++	/* Not an ack interrupt, go ahead and read the message */
+ 	hw->mbx.ops.read(hw, &msg, 1);
  
- 	return 0;
+ 	if ((msg & IXGBE_MBVFICR_VFREQ_MASK) == IXGBE_PF_CONTROL_MSG)
+ 		mod_timer(&adapter->watchdog_timer,
+ 			  round_jiffies(jiffies + 1));
+ 
++out:
+ 	return IRQ_HANDLED;
  }
+ 
 
