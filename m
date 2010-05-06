@@ -1,175 +1,47 @@
-From: Simon Arlott <simon@fire.lp0.eu>
-Subject: [PATCH (v2)] bridge: update sysfs link names if port device names
- have changed
-Date: Thu, 06 May 2010 20:01:44 +0100
-Message-ID: <4BE31218.6010709@simon.arlott.org.uk>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH (v2)] bridge: update sysfs link names if port device
+ names have changed
+Date: Thu, 6 May 2010 12:11:07 -0700
+Message-ID: <20100506121107.1868ad07@nehalam>
 References: <4BE30B3D.9000600@simon.arlott.org.uk>
+	<4BE31218.6010709@simon.arlott.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>
-To: shemminger@linux-foundation.org
+To: Simon Arlott <simon@fire.lp0.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxima.lp0.eu ([81.2.80.65]:41085 "EHLO proxima.lp0.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753028Ab0EFTBp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 May 2010 15:01:45 -0400
-In-Reply-To: <4BE30B3D.9000600@simon.arlott.org.uk>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:41415 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756027Ab0EFTL1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 15:11:27 -0400
+In-Reply-To: <4BE31218.6010709@simon.arlott.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Links for each port are created in sysfs using the device
-name, but this could be changed after being added to the
-bridge.
+On Thu, 06 May 2010 20:01:44 +0100
+Simon Arlott <simon@fire.lp0.eu> wrote:
 
-As well as being unable to remove interfaces after this
-occurs (because userspace tools don't recognise the new
-name, and the kernel won't recognise the old name), adding
-another interface with the old name to the bridge will
-cause an error trying to create the sysfs link.
+> +
+> +	case NETDEV_CHANGENAME:
+> +		err = br_sysfs_renameif(p);
+> +		if (err)
+> +			return NOTIFY_BAD;
+> +		break;
 
-This fixes the problem by listening for NETDEV_CHANGENAME
-notifications and renaming the link.
+I think you want:
+ if (err)
+	return notifier_from_errno(err);
 
-https://bugzilla.kernel.org/show_bug.cgi?id=12743
 
-Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
----
-Updated to force rename rollback if sysfs_rename_link fails.
-
- fs/sysfs/symlink.c       |    1 +
- net/bridge/br_if.c       |    2 +-
- net/bridge/br_notify.c   |    7 +++++++
- net/bridge/br_private.h  |    5 +++++
- net/bridge/br_sysfs_if.c |   29 +++++++++++++++++++++++++++--
- 5 files changed, 41 insertions(+), 3 deletions(-)
-
-diff --git a/fs/sysfs/symlink.c b/fs/sysfs/symlink.c
-index b93ec51..942f239 100644
---- a/fs/sysfs/symlink.c
-+++ b/fs/sysfs/symlink.c
-@@ -261,3 +261,4 @@ const struct inode_operations sysfs_symlink_inode_operations = {
- 
- EXPORT_SYMBOL_GPL(sysfs_create_link);
- EXPORT_SYMBOL_GPL(sysfs_remove_link);
-+EXPORT_SYMBOL_GPL(sysfs_rename_link);
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 0b6b1f2..17175a5 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -132,7 +132,7 @@ static void del_nbp(struct net_bridge_port *p)
- 	struct net_bridge *br = p->br;
- 	struct net_device *dev = p->dev;
- 
--	sysfs_remove_link(br->ifobj, dev->name);
-+	sysfs_remove_link(br->ifobj, p->sysfs_name);
- 
- 	dev_set_promiscuity(dev, -1);
- 
-diff --git a/net/bridge/br_notify.c b/net/bridge/br_notify.c
-index 763a3ec..576a1b0 100644
---- a/net/bridge/br_notify.c
-+++ b/net/bridge/br_notify.c
-@@ -34,6 +34,7 @@ static int br_device_event(struct notifier_block *unused, unsigned long event, v
- 	struct net_device *dev = ptr;
- 	struct net_bridge_port *p = dev->br_port;
- 	struct net_bridge *br;
-+	int err;
- 
- 	/* not a port of a bridge */
- 	if (p == NULL)
-@@ -82,6 +83,12 @@ static int br_device_event(struct notifier_block *unused, unsigned long event, v
- 	case NETDEV_UNREGISTER:
- 		br_del_if(br, dev);
- 		break;
-+
-+	case NETDEV_CHANGENAME:
-+		err = br_sysfs_renameif(p);
-+		if (err)
-+			return NOTIFY_BAD;
-+		break;
- 	}
- 
- 	/* Events that may cause spanning tree to refresh */
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 846d7d1..4309bd8 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -96,6 +96,9 @@ struct net_bridge_port
- {
- 	struct net_bridge		*br;
- 	struct net_device		*dev;
-+#ifdef CONFIG_SYSFS
-+	char				sysfs_name[IFNAMSIZ];
-+#endif
- 	struct list_head		list;
- 
- 	/* STP */
-@@ -433,6 +436,7 @@ extern void br_ifinfo_notify(int event, struct net_bridge_port *port);
- /* br_sysfs_if.c */
- extern const struct sysfs_ops brport_sysfs_ops;
- extern int br_sysfs_addif(struct net_bridge_port *p);
-+extern int br_sysfs_renameif(struct net_bridge_port *p);
- 
- /* br_sysfs_br.c */
- extern int br_sysfs_addbr(struct net_device *dev);
-@@ -441,6 +445,7 @@ extern void br_sysfs_delbr(struct net_device *dev);
- #else
- 
- #define br_sysfs_addif(p)	(0)
-+#define br_sysfs_renameif(p)	(0)
- #define br_sysfs_addbr(dev)	(0)
- #define br_sysfs_delbr(dev)	do { } while(0)
- #endif /* CONFIG_SYSFS */
-diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
-index 0b99164..a7997a7 100644
---- a/net/bridge/br_sysfs_if.c
-+++ b/net/bridge/br_sysfs_if.c
-@@ -246,7 +246,7 @@ const struct sysfs_ops brport_sysfs_ops = {
- /*
-  * Add sysfs entries to ethernet device added to a bridge.
-  * Creates a brport subdirectory with bridge attributes.
-- * Puts symlink in bridge's brport subdirectory
-+ * Puts symlink in bridge's brif subdirectory
-  */
- int br_sysfs_addif(struct net_bridge_port *p)
- {
-@@ -265,7 +265,32 @@ int br_sysfs_addif(struct net_bridge_port *p)
- 			goto out2;
- 	}
- 
--	err = sysfs_create_link(br->ifobj, &p->kobj, p->dev->name);
-+	strncpy(p->sysfs_name, p->dev->name, IFNAMSIZ);
-+	err = sysfs_create_link(br->ifobj, &p->kobj, p->sysfs_name);
- out2:
- 	return err;
- }
-+
-+/* Rename bridge's brif symlink */
-+int br_sysfs_renameif(struct net_bridge_port *p)
-+{
-+	struct net_bridge *br = p->br;
-+	int err;
-+
-+	/* If a rename fails, the rollback will cause another
-+	 * rename call with the existing name.
-+	 */
-+	if (!strncmp(p->sysfs_name, p->dev->name, IFNAMSIZ))
-+		return 0;
-+
 +	err = sysfs_rename_link(br->ifobj, &p->kobj,
 +		p->sysfs_name, p->dev->name);
 +	if (err) {
 +		printk(KERN_ERR "%s: unable to rename sysfs link %s to %s (%d)",
 +			br->dev->name, p->sysfs_name, p->dev->name, err);
-+	} else {
-+		strncpy(p->sysfs_name, p->dev->name, IFNAMSIZ);
-+	}
-+
-+	return err;
-+}
--- 
-1.7.0.4
 
--- 
-Simon Arlott
+This should not be KERN_ERR but KERN_NOTICE, and use new wrapper macros.
+
+	if (err)
+		netdev_notice(br->dev, "unable to rename sysfs link %s to %s".
+			 p->sysfs_name, p->dev->name, err)
