@@ -1,238 +1,132 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: remove ip_rt_secret timer
-Date: Thu, 06 May 2010 19:32:35 +0200
-Message-ID: <1273167155.2853.49.camel@edumazet-laptop>
-References: <20100506171639.GA5063@hmsreliant.think-freely.org>
+From: Valdis.Kletnieks-PjAqaU27lzQ@public.gmane.org
+Subject: 2.6.34-rc5-mmotm0428 - 2 RCU whinges in mac80211
+Date: Thu, 06 May 2010 13:35:13 -0400
+Message-ID: <5820.1273167313@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:53112 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756327Ab0EFRcm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 13:32:42 -0400
-Received: by bwz19 with SMTP id 19so125878bwz.21
-        for <netdev@vger.kernel.org>; Thu, 06 May 2010 10:32:40 -0700 (PDT)
-In-Reply-To: <20100506171639.GA5063@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; boundary="==_Exmh_1273167313_4094P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 06 mai 2010 =C3=A0 13:16 -0400, Neil Horman a =C3=A9crit :
-> A while back there was a discussion regarding the rt_secret_interval =
-timer.
-> Given that we've had the ability to do emergency route cache rebuilds=
- for awhile
-> now, based on a statistical analysis of the various hash chain length=
-s in the
-> cache, the use of the flush timer is somewhat redundant.  This patch =
-removes the
-> rt_secret_interval sysctl, allowing us to rely solely on the statisti=
-cal
-> analysis mechanism to determine the need for route cache flushes.
->=20
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
->=20
->=20
+--==_Exmh_1273167313_4094P
+Content-Type: text/plain; charset=us-ascii
 
-Nice cleanup try Neil, but this gives to attackers more time to hit the
-cache (infinite time should be enough as a matter of fact ;) )
+Spotted these in my dmesg, hopefully somebody is interested...
 
-Hints :=20
-
-- What is the initial value of rt_genid ?
-
-- How/When is it changed (full 32 bits are changed or small
-perturbations ? check rt_cache_invalidate())
-
-Thanks
-
->  include/net/netns/ipv4.h |    1=20
->  net/ipv4/route.c         |  108 ------------------------------------=
------------
->  2 files changed, 2 insertions(+), 107 deletions(-)
->=20
-> diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-> index ae07fee..d68c3f1 100644
-> --- a/include/net/netns/ipv4.h
-> +++ b/include/net/netns/ipv4.h
-> @@ -55,7 +55,6 @@ struct netns_ipv4 {
->  	int sysctl_rt_cache_rebuild_count;
->  	int current_rt_cache_rebuild_count;
-> =20
-> -	struct timer_list rt_secret_timer;
->  	atomic_t rt_genid;
-> =20
->  #ifdef CONFIG_IP_MROUTE
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index a947428..ffd3da1 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -129,7 +129,6 @@ static int ip_rt_gc_elasticity __read_mostly	=3D =
-8;
->  static int ip_rt_mtu_expires __read_mostly	=3D 10 * 60 * HZ;
->  static int ip_rt_min_pmtu __read_mostly		=3D 512 + 20 + 20;
->  static int ip_rt_min_advmss __read_mostly	=3D 256;
-> -static int ip_rt_secret_interval __read_mostly	=3D 10 * 60 * HZ;
->  static int rt_chain_length_max __read_mostly	=3D 20;
-> =20
->  static struct delayed_work expires_work;
-> @@ -918,32 +917,11 @@ void rt_cache_flush_batch(void)
->  	rt_do_flush(!in_softirq());
->  }
-> =20
-> -/*
-> - * We change rt_genid and let gc do the cleanup
-> - */
-> -static void rt_secret_rebuild(unsigned long __net)
-> -{
-> -	struct net *net =3D (struct net *)__net;
-> -	rt_cache_invalidate(net);
-> -	mod_timer(&net->ipv4.rt_secret_timer, jiffies + ip_rt_secret_interv=
-al);
-> -}
-> -
-> -static void rt_secret_rebuild_oneshot(struct net *net)
-> -{
-> -	del_timer_sync(&net->ipv4.rt_secret_timer);
-> -	rt_cache_invalidate(net);
-> -	if (ip_rt_secret_interval)
-> -		mod_timer(&net->ipv4.rt_secret_timer, jiffies + ip_rt_secret_inter=
-val);
-> -}
-> -
->  static void rt_emergency_hash_rebuild(struct net *net)
->  {
-> -	if (net_ratelimit()) {
-> +	if (net_ratelimit())
->  		printk(KERN_WARNING "Route hash chain too long!\n");
-> -		printk(KERN_WARNING "Adjust your secret_interval!\n");
-> -	}
-> -
-> -	rt_secret_rebuild_oneshot(net);
-> +	rt_cache_invalidate(net);
->  }
-> =20
->  /*
-> @@ -3101,48 +3079,6 @@ static int ipv4_sysctl_rtcache_flush(ctl_table=
- *__ctl, int write,
->  	return -EINVAL;
->  }
-> =20
-> -static void rt_secret_reschedule(int old)
-> -{
-> -	struct net *net;
-> -	int new =3D ip_rt_secret_interval;
-> -	int diff =3D new - old;
-> -
-> -	if (!diff)
-> -		return;
-> -
-> -	rtnl_lock();
-> -	for_each_net(net) {
-> -		int deleted =3D del_timer_sync(&net->ipv4.rt_secret_timer);
-> -		long time;
-> -
-> -		if (!new)
-> -			continue;
-> -
-> -		if (deleted) {
-> -			time =3D net->ipv4.rt_secret_timer.expires - jiffies;
-> -
-> -			if (time <=3D 0 || (time +=3D diff) <=3D 0)
-> -				time =3D 0;
-> -		} else
-> -			time =3D new;
-> -
-> -		mod_timer(&net->ipv4.rt_secret_timer, jiffies + time);
-> -	}
-> -	rtnl_unlock();
-> -}
-> -
-> -static int ipv4_sysctl_rt_secret_interval(ctl_table *ctl, int write,
-> -					  void __user *buffer, size_t *lenp,
-> -					  loff_t *ppos)
-> -{
-> -	int old =3D ip_rt_secret_interval;
-> -	int ret =3D proc_dointvec_jiffies(ctl, write, buffer, lenp, ppos);
-> -
-> -	rt_secret_reschedule(old);
-> -
-> -	return ret;
-> -}
-> -
->  static ctl_table ipv4_route_table[] =3D {
->  	{
->  		.procname	=3D "gc_thresh",
-> @@ -3251,13 +3187,6 @@ static ctl_table ipv4_route_table[] =3D {
->  		.mode		=3D 0644,
->  		.proc_handler	=3D proc_dointvec,
->  	},
-> -	{
-> -		.procname	=3D "secret_interval",
-> -		.data		=3D &ip_rt_secret_interval,
-> -		.maxlen		=3D sizeof(int),
-> -		.mode		=3D 0644,
-> -		.proc_handler	=3D ipv4_sysctl_rt_secret_interval,
-> -	},
->  	{ }
->  };
-> =20
-> @@ -3337,36 +3266,6 @@ static __net_initdata struct pernet_operations=
- sysctl_route_ops =3D {
->  #endif
-> =20
->=20
-> -static __net_init int rt_secret_timer_init(struct net *net)
-> -{
-> -	atomic_set(&net->ipv4.rt_genid,
-> -			(int) ((num_physpages ^ (num_physpages>>8)) ^
-> -			(jiffies ^ (jiffies >> 7))));
-> -
-> -	net->ipv4.rt_secret_timer.function =3D rt_secret_rebuild;
-> -	net->ipv4.rt_secret_timer.data =3D (unsigned long)net;
-> -	init_timer_deferrable(&net->ipv4.rt_secret_timer);
-> -
-> -	if (ip_rt_secret_interval) {
-> -		net->ipv4.rt_secret_timer.expires =3D
-> -			jiffies + net_random() % ip_rt_secret_interval +
-> -			ip_rt_secret_interval;
-> -		add_timer(&net->ipv4.rt_secret_timer);
-> -	}
-> -	return 0;
-> -}
-> -
-> -static __net_exit void rt_secret_timer_exit(struct net *net)
-> -{
-> -	del_timer_sync(&net->ipv4.rt_secret_timer);
-> -}
-> -
-> -static __net_initdata struct pernet_operations rt_secret_timer_ops =3D=
- {
-> -	.init =3D rt_secret_timer_init,
-> -	.exit =3D rt_secret_timer_exit,
-> -};
-> -
-> -
->  #ifdef CONFIG_NET_CLS_ROUTE
->  struct ip_rt_acct __percpu *ip_rt_acct __read_mostly;
->  #endif /* CONFIG_NET_CLS_ROUTE */
-> @@ -3424,9 +3323,6 @@ int __init ip_rt_init(void)
->  	schedule_delayed_work(&expires_work,
->  		net_random() % ip_rt_gc_interval + ip_rt_gc_interval);
-> =20
-> -	if (register_pernet_subsys(&rt_secret_timer_ops))
-> -		printk(KERN_ERR "Unable to setup rt_secret_timer\n");
-> -
->  	if (ip_rt_proc_init())
->  		printk(KERN_ERR "Unable to create route proc files\n");
->  #ifdef CONFIG_XFRM
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->=20
+[   54.076863] wlan0: deauthenticating from 00:11:20:a4:4c:11 by local choice (reason=3)
+[   54.080580] 
+[   54.080581] ===================================================
+[   54.080584] [ INFO: suspicious rcu_dereference_check() usage. ]
+[   54.080586] ---------------------------------------------------
+[   54.080589] net/mac80211/sta_info.c:858 invoked rcu_dereference_check() without protection!
+[   54.080591] 
+[   54.080591] other info that might help us debug this:
+[   54.080592] 
+[   54.080594] 
+[   54.080595] rcu_scheduler_active = 1, debug_locks = 1
+[   54.080597] no locks held by hald/3362.
+[   54.080599] 
+[   54.080599] stack backtrace:
+[   54.080602] Pid: 3362, comm: hald Not tainted 2.6.34-rc5-mmotm0428 #1
+[   54.080604] Call Trace:
+[   54.080607]  <IRQ>  [<ffffffff81064eb9>] lockdep_rcu_dereference+0x9d/0xa5
+[   54.080619]  [<ffffffff815649f9>] ieee80211_find_sta_by_hw+0x46/0x10f
+[   54.080623]  [<ffffffff81564ad9>] ieee80211_find_sta+0x17/0x19
+[   54.080628]  [<ffffffff8136e1ee>] iwlagn_tx_queue_reclaim+0xe7/0x1bd
+[   54.080632]  [<ffffffff81371da3>] iwlagn_rx_reply_tx+0x4e9/0x5a6
+[   54.080638]  [<ffffffff8136501f>] iwl_rx_handle+0x268/0x3fe
+[   54.080642]  [<ffffffff813664ea>] iwl_irq_tasklet+0x2d3/0x3e4
+[   54.080647]  [<ffffffff8103e337>] tasklet_action+0x79/0xd7
+[   54.080651]  [<ffffffff8103fd54>] __do_softirq+0x15a/0x2a2
+[   54.080656]  [<ffffffff8100358c>] call_softirq+0x1c/0x34
+[   54.080659]  [<ffffffff81004ad8>] do_softirq+0x44/0xf0
+[   54.080663]  [<ffffffff8103f3ba>] irq_exit+0x4a/0xb3
+[   54.080667]  [<ffffffff81004211>] do_IRQ+0xa7/0xbe
+[   54.080671]  [<ffffffff8159cd93>] ret_from_intr+0x0/0xf
+[   54.080673]  <EOI> 
+[   54.114898] wlan0: authenticate with 00:11:20:a4:4c:11 (try 1)
+[   54.122103] wlan0: authenticated
+[   54.122472] wlan0: associate with 00:11:20:a4:4c:11 (try 1)
+[   54.128267] wlan0: RX AssocResp from 00:11:20:a4:4c:11 (capab=0x31 status=0 aid=10)
+[   54.128271] wlan0: associated
+[   54.132990] ADDRCONF(NETDEV_CHANGE): wlan0: link becomes ready
+[   54.133333] cfg80211: Calling CRDA for country: US
+[   54.135752] 
+[   54.135753] ===================================================
+[   54.135756] [ INFO: suspicious rcu_dereference_check() usage. ]
+[   54.135758] ---------------------------------------------------
+[   54.135760] net/mac80211/sta_info.c:858 invoked rcu_dereference_check() without protection!
+[   54.135763] 
+[   54.135763] other info that might help us debug this:
+[   54.135764] 
+[   54.135766] 
+[   54.135767] rcu_scheduler_active = 1, debug_locks = 1
+[   54.135769] 1 lock held by udevd/2933:
+[   54.135771]  #0:  (policy_rwlock){.+.+..}, at: [<ffffffff811d4f60>] security_compute_av+0x29/0x259
+[   54.135781] 
+[   54.135782] stack backtrace:
+[   54.135785] Pid: 2933, comm: udevd Not tainted 2.6.34-rc5-mmotm0428 #1
+[   54.135787] Call Trace:
+[   54.135790]  <IRQ>  [<ffffffff81064eb9>] lockdep_rcu_dereference+0x9d/0xa5
+[   54.135800]  [<ffffffff81564a49>] ieee80211_find_sta_by_hw+0x96/0x10f
+[   54.135804]  [<ffffffff81564ad9>] ieee80211_find_sta+0x17/0x19
+[   54.135809]  [<ffffffff8136e1ee>] iwlagn_tx_queue_reclaim+0xe7/0x1bd
+[   54.135813]  [<ffffffff81371da3>] iwlagn_rx_reply_tx+0x4e9/0x5a6
+[   54.135819]  [<ffffffff8136501f>] iwl_rx_handle+0x268/0x3fe
+[   54.135823]  [<ffffffff813664ea>] iwl_irq_tasklet+0x2d3/0x3e4
+[   54.135828]  [<ffffffff8103e337>] tasklet_action+0x79/0xd7
+[   54.135832]  [<ffffffff8103fd54>] __do_softirq+0x15a/0x2a2
+[   54.135837]  [<ffffffff8100358c>] call_softirq+0x1c/0x34
+[   54.135841]  [<ffffffff81004ad8>] do_softirq+0x44/0xf0
+[   54.135844]  [<ffffffff8103f3ba>] irq_exit+0x4a/0xb3
+[   54.135847]  [<ffffffff81004211>] do_IRQ+0xa7/0xbe
+[   54.135852]  [<ffffffff8159cd93>] ret_from_intr+0x0/0xf
+[   54.135854]  <EOI>  [<ffffffff811ce48b>] ? avtab_search_node+0x6c/0x7b
+[   54.135862]  [<ffffffff811d4cdb>] context_struct_compute_av+0x136/0x271
+[   54.135867]  [<ffffffff811d506b>] security_compute_av+0x134/0x259
+[   54.135872]  [<ffffffff811c2560>] avc_has_perm_noaudit+0x22e/0x537
+[   54.135876]  [<ffffffff811c289f>] avc_has_perm+0x36/0x69
+[   54.135880]  [<ffffffff810c52cd>] ? __do_fault+0x254/0x3f1
+[   54.135885]  [<ffffffff811c4bca>] current_has_perm+0x3a/0x3f
+[   54.135888]  [<ffffffff811c4c7d>] selinux_task_create+0x17/0x19
+[   54.135893]  [<ffffffff811beced>] security_task_create+0x11/0x13
+[   54.135898]  [<ffffffff81036dae>] copy_process+0x8d/0x11ed
+[   54.135901]  [<ffffffff810c5434>] ? __do_fault+0x3bb/0x3f1
+[   54.135905]  [<ffffffff8107c26b>] ? rcu_read_lock+0x0/0x35
+[   54.135909]  [<ffffffff810380b2>] do_fork+0x1a4/0x3b5
+[   54.135913]  [<ffffffff8107c2c1>] ? rcu_read_unlock+0x21/0x23
+[   54.135917]  [<ffffffff8107dc56>] ? audit_filter_syscall+0xb4/0xc8
+[   54.135921]  [<ffffffff81059044>] ? up_read+0x1e/0x36
+[   54.135924]  [<ffffffff8105d760>] ? current_kernel_time+0x28/0x50
+[   54.135929]  [<ffffffff81009705>] sys_clone+0x23/0x25
+[   54.135933]  [<ffffffff810029d3>] stub_clone+0x13/0x20
+[   54.135936]  [<ffffffff8100266b>] ? system_call_fastpath+0x16/0x1b
 
 
+
+--==_Exmh_1273167313_4094P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFL4v3RcC3lWbTT17ARAshDAKCFiBojOS41qx3hPXB++zZVAn5TvwCg77HD
+H0rtTAidfFc1nQ6+QzyL370=
+=hvy8
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1273167313_4094P--
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
