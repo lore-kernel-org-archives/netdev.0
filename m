@@ -1,7 +1,7 @@
 From: Shreyas Bhatewara <sbhatewara@vmware.com>
 Subject: RE: [Pv-drivers] RFC: Network Plugin Architecture (NPA) for vmxnet3
-Date: Thu, 6 May 2010 00:25:20 -0700
-Message-ID: <89E2752CFA8EC044846EB8499819134102AF2D23E5@EXCH-MBX-4.vmware.com>
+Date: Thu, 6 May 2010 00:25:24 -0700
+Message-ID: <89E2752CFA8EC044846EB8499819134102AF2D23E6@EXCH-MBX-4.vmware.com>
 References: <89E2752CFA8EC044846EB8499819134102AF2896F5@EXCH-MBX-4.vmware.com>
  <C807719A.2E910%scofeldm@cisco.com>
 Mime-Version: 1.0
@@ -21,6 +21,8 @@ In-Reply-To: <C807719A.2E910%scofeldm@cisco.com>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
+
+
 
 > -----Original Message-----
 > From: Scott Feldman [mailto:scofeldm@cisco.com]
@@ -50,8 +52,3 @@ List-Id: netdev.vger.kernel.org
 > Windows vmxnet3 NDIS driver?
 > 
 > -scott
-
-Scott,
-Thanks for pointing out. This issue can be resolved by adding exception to the plugin license which allows it to link to a non-free program .(http://www.gnu.org/licenses/gpl-faq.html#GPLPluginsInNF)
-
-->Shreyas
