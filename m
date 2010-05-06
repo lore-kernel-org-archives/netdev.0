@@ -1,41 +1,66 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [net-next-2.6 V5 PATCH 0/3] Add port-profile netlink support
-Date: Thu, 6 May 2010 15:51:35 +0200
-Message-ID: <201005061551.35254.arnd@arndb.de>
-References: <20100506044200.29677.20604.stgit@savbu-pc100.cisco.com>
+From: =?utf-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+Subject: [PATCH] ipv4: udp: fix short packet and bad checksum logging
+Date: Thu,  6 May 2010 15:44:34 +0200
+Message-ID: <1273153475-32363-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, chrisw@redhat.com
-To: Scott Feldman <scofeldm@cisco.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?utf-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>, stable@kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:62660 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757436Ab0EFNvg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 09:51:36 -0400
-In-Reply-To: <20100506044200.29677.20604.stgit@savbu-pc100.cisco.com>
+Received: from canardo.mork.no ([148.122.252.1]:56638 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753646Ab0EFOCL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 May 2010 10:02:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 06 May 2010, Scott Feldman wrote:
-> The intent of this patch set is to cover both definitions of port-profile
-> as defined by Cisco's enic use and as defined by VSI discover protocol (VDP),
-> used in VEPA implemenations.  While both definitions are based on pre-
-> standards, the concept of a port-profile to be applied to an external switch
-> port on behalf of a virtual machine interface is common, as well as many
-> of the fields defining the protocols.
+commit 2783ef23 moved the initialisation of saddr and daddr after
+pskb_may_pull() to avoid a potential data corruption.  Unfortunately
+also placing it after the short packet and bad checksum error paths,
+where these variables are used for logging.  The result is bogus
+output like
 
-The description no either no longer matches the patches, or you did not make the
-changes that were needed based on our last discussion.
+[92238.389505] UDP: short packet: From 2.0.0.0:65535 23715/178 to 0.0.0=
+=2E0:65535
 
-What happened to the base-device argument that you were planning to pass?
+Moving the saddr and daddr initialisation above the error paths, while =
+still
+keeping it after the pskb_may_pull() to keep the fix from commit 2783ef=
+23.
 
-The fields that I mentioned are needed for VDP (associate/pre-associate/disassociate-flag,
-VLAN ID, etc) are not there. I assume that means we should use a different
-data structure for VDP, but then your description above should be updated
-to state that this is no longer common for the two.
+Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+Cc: stable@kernel.org
+---
+ net/ipv4/udp.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-I'll follow up with a draft for VDP based on your definitions.
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 8fef859..c36522a 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1527,6 +1527,9 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct ud=
+p_table *udptable,
+=20
+ 	uh   =3D udp_hdr(skb);
+ 	ulen =3D ntohs(uh->len);
++	saddr =3D ip_hdr(skb)->saddr;
++	daddr =3D ip_hdr(skb)->daddr;
++
+ 	if (ulen > skb->len)
+ 		goto short_packet;
+=20
+@@ -1540,9 +1543,6 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct ud=
+p_table *udptable,
+ 	if (udp4_csum_init(skb, uh, proto))
+ 		goto csum_error;
+=20
+-	saddr =3D ip_hdr(skb)->saddr;
+-	daddr =3D ip_hdr(skb)->daddr;
+-
+ 	if (rt->rt_flags & (RTCF_BROADCAST|RTCF_MULTICAST))
+ 		return __udp4_lib_mcast_deliver(net, skb, uh,
+ 				saddr, daddr, udptable);
+--=20
+1.5.6.5
 
-	Arnd
