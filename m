@@ -1,97 +1,47 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [PATCH net-next-2.6] net: adjust handle_macvlan to pass port struct
- to hook
-Date: Thu, 6 May 2010 13:33:53 +0200
-Message-ID: <20100506113352.GB3406@psychotron.lab.eng.brq.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kaber@trash.net
+From: Timo Teras <timo.teras@iki.fi>
+Subject: [PATCH] xfrm: fix policy unreferencing on larval drop
+Date: Thu,  6 May 2010 14:52:14 +0300
+Message-ID: <1273146734-8022-1-git-send-email-timo.teras@iki.fi>
+Cc: Timo Teras <timo.teras@iki.fi>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56599 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750805Ab0EFLd6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 May 2010 07:33:58 -0400
-Content-Disposition: inline
+Received: from mail-ew0-f220.google.com ([209.85.219.220]:40691 "EHLO
+	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757477Ab0EFLwn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 07:52:43 -0400
+Received: by ewy20 with SMTP id 20so1640563ewy.1
+        for <netdev@vger.kernel.org>; Thu, 06 May 2010 04:52:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now there's null check here and also again in the hook. Looking at bridge bits
-which are simmilar, port structure is rcu_dereferenced right away in
-handle_bridge and passed to hook. Looks nicer.
+I mistakenly had the error path to use num_pols to decide how
+many policies we need to drop (cruft from earlier patch set
+version which did not handle socket policies right).
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+This is wrong since normally we do not keep explicit references
+(instead we hold reference to the cache entry which holds references
+to policies). drop_pols is set to num_pols if we are holding the
+references, so use that. Otherwise we eventually BUG_ON inside
+xfrm_policy_destroy due to premature policy deletion.
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 9a939d8..1b78c00 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -145,19 +145,15 @@ static void macvlan_broadcast(struct sk_buff *skb,
- }
- 
- /* called under rcu_read_lock() from netif_receive_skb */
--static struct sk_buff *macvlan_handle_frame(struct sk_buff *skb)
-+static struct sk_buff *macvlan_handle_frame(struct macvlan_port *port,
-+					    struct sk_buff *skb)
- {
- 	const struct ethhdr *eth = eth_hdr(skb);
--	const struct macvlan_port *port;
- 	const struct macvlan_dev *vlan;
- 	const struct macvlan_dev *src;
- 	struct net_device *dev;
- 	unsigned int len;
- 
--	port = rcu_dereference(skb->dev->macvlan_port);
--	if (port == NULL)
--		return skb;
--
- 	if (is_multicast_ether_addr(eth->h_dest)) {
- 		src = macvlan_hash_lookup(port, eth->h_source);
- 		if (!src)
-diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
-index b78a712..9ea047a 100644
---- a/include/linux/if_macvlan.h
-+++ b/include/linux/if_macvlan.h
-@@ -85,6 +85,7 @@ extern netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
- 				      struct net_device *dev);
- 
- 
--extern struct sk_buff *(*macvlan_handle_frame_hook)(struct sk_buff *);
-+extern struct sk_buff *(*macvlan_handle_frame_hook)(struct macvlan_port *,
-+						    struct sk_buff *);
- 
- #endif /* _LINUX_IF_MACVLAN_H */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 36d53be..f316a37 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2605,7 +2605,8 @@ static inline struct sk_buff *handle_bridge(struct sk_buff *skb,
- #endif
- 
- #if defined(CONFIG_MACVLAN) || defined(CONFIG_MACVLAN_MODULE)
--struct sk_buff *(*macvlan_handle_frame_hook)(struct sk_buff *skb) __read_mostly;
-+struct sk_buff *(*macvlan_handle_frame_hook)(struct macvlan_port *p,
-+					     struct sk_buff *skb) __read_mostly;
- EXPORT_SYMBOL_GPL(macvlan_handle_frame_hook);
- 
- static inline struct sk_buff *handle_macvlan(struct sk_buff *skb,
-@@ -2613,14 +2614,17 @@ static inline struct sk_buff *handle_macvlan(struct sk_buff *skb,
- 					     int *ret,
- 					     struct net_device *orig_dev)
- {
--	if (skb->dev->macvlan_port == NULL)
-+	struct macvlan_port *port;
-+
-+	port = rcu_dereference(skb->dev->macvlan_port);
-+	if (!port)
- 		return skb;
- 
- 	if (*pt_prev) {
- 		*ret = deliver_skb(skb, *pt_prev, orig_dev);
- 		*pt_prev = NULL;
- 	}
--	return macvlan_handle_frame_hook(skb);
-+	return macvlan_handle_frame_hook(port, skb);
- }
- #else
- #define handle_macvlan(skb, pt_prev, ret, orig_dev)	(skb)
+Signed-off-by: Timo Teras <timo.teras@iki.fi>
+---
+ net/xfrm/xfrm_policy.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 31f4ba4..f4ea3a0 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1805,7 +1805,7 @@ restart:
+ 			/* EREMOTE tells the caller to generate
+ 			 * a one-shot blackhole route. */
+ 			dst_release(dst);
+-			xfrm_pols_put(pols, num_pols);
++			xfrm_pols_put(pols, drop_pols);
+ 			XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTNOSTATES);
+ 			return -EREMOTE;
+ 		}
+-- 
+1.6.3.3
+
