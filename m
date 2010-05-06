@@ -1,27 +1,42 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [Pv-drivers] RFC: Network Plugin Architecture (NPA) for vmxnet3
-Date: Thu, 6 May 2010 16:19:18 -0400
-Message-ID: <20100506201918.GB17922@infradead.org>
-References: <20100504230225.GP8323@vmware.com> <201005051029.42052.dtor@vmware.com> <20100505173120.GA1752@infradead.org> <201005051035.29831.dtor@vmware.com> <20100505173951.GA8388@infradead.org> <F1354E79A137A24CBA60059AA65CB1B802A235C535@EXCH-MBX-2.vmware.com> <20100506081933.GF10044@redhat.com> <20100506180411.GC25364@vmware.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: RTL-8110SC lockup with r8169
+Date: Thu, 6 May 2010 22:20:55 +0200
+Message-ID: <20100506202055.GB3541@electric-eye.fr.zoreil.com>
+References: <4BE1973D.8080502@draigBrady.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Gleb Natapov <gleb@redhat.com>,
-	Christoph Hellwig <hch@infradead.org>,
-	Dmitry Torokhov <dtor@vmware.com>,
-	"pv-drivers@vmware.com" <pv-drivers@vmware.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>
-To: Pankaj Thakkar <pthakkar@vmware.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Glen Gray <glen@lincor.com>
+To: =?utf-8?Q?P=C3=A1draig?= Brady <P@draigBrady.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 97.17.115-78.rev.gaoland.net ([78.115.17.97]:59985 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753028Ab0EFUVI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 16:21:08 -0400
 Content-Disposition: inline
-In-Reply-To: <20100506180411.GC25364@vmware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4BE1973D.8080502@draigBrady.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 06, 2010 at 11:04:11AM -0700, Pankaj Thakkar wrote:
-> Plugin is x86 or x64 machine code. You write the plugin in C and compile it using gcc/ld to get the object file, we map the relevant sections only to the OS space. 
+P=C3=A1draig Brady <P@draigBrady.com> :
+[...]
+> However the above code wasn't in the 2.6.32.10-90.fc12 driver we used=
+=2E
+> Also I've back-ported the latest r8169 driver from git to our kernel
+> and it still has the same issue.
 
-Which is simply not supportable for a cross-platform operating system
-like Linux.
+"latest" as "includes 908ba2bfd22253f26fa910cd855e4ccffb1467d0" ?
+
+Otherwise you may save some time and try directly the backport at :
+http://userweb.kernel.org/~romieu/r8169/2.6.32.11-99.fc12/
+
+> # dmesg | grep 8169
+> # lspci -n | grep -v 8086:
+> 01:04.0 0200: 10ec:8167 (rev 10)
+
+8167 how comes...
+
+Which hardware (lspci) is the host computer made of ?
+
+--
+Ueimor
