@@ -1,40 +1,33 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH 8/8] tehuti: Remove unnecessary memset of netdev private data
-Date: Thu,  6 May 2010 17:43:04 +0200
-Message-ID: <1273160584-13387-1-git-send-email-tklauser@distanz.ch>
-Cc: kernel-janitors@vger.kernel.org, andy@greyhouse.net,
-	Tobias Klauser <tklauser@distanz.ch>
-To: baum@tehutinetworks.net, davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.zhaw.ch ([160.85.104.50]:46991 "EHLO mx1.zhaw.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932146Ab0EFPnH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 May 2010 11:43:07 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH/RFC] cxgb4: Add MAINTAINERS info
+Date: Thu, 06 May 2010 09:07:51 -0700
+Message-ID: <adapr199foo.fsf@roland-alpha.cisco.com>
+References: <20100428164341.cee2911a.sfr@canb.auug.org.au>
+	<20100428103356.931ba48c.randy.dunlap@oracle.com>
+	<adawrvijhpq.fsf_-_@roland-alpha.cisco.com>
+	<4BE25A3D.20800@voltaire.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: Or Gerlitz <ogerlitz-smomgflXvOZWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4BE25A3D.20800-smomgflXvOZWk0Htik3J/w@public.gmane.org> (Or Gerlitz's message of "Thu, 06
+	May 2010 08:57:17 +0300")
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The memory for the private data is allocated using kzalloc in
-alloc_etherdev (or alloc_netdev_mq respectively) so there is no need to
-set it to 0 again.
+ > not sure who's the butterfly that caused this, but this was somehow
+ > committed as  "CXGB4 ETHERNET DRIVER (CXGB3)" and same goes for the
+ > IW_ piece
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- drivers/net/tehuti.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/tehuti.c b/drivers/net/tehuti.c
-index e29f495..20ab161 100644
---- a/drivers/net/tehuti.c
-+++ b/drivers/net/tehuti.c
-@@ -2033,7 +2033,6 @@ bdx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	/************** priv ****************/
- 		priv = nic->priv[port] = netdev_priv(ndev);
- 
--		memset(priv, 0, sizeof(struct bdx_priv));
- 		priv->pBdxRegs = nic->regs + port * 0x8000;
- 		priv->port = port;
- 		priv->pdev = pdev;
+Thanks, I think I committed, saw the problem, fixed it up, sent the RFC,
+and then pushed my tree.  I fixed it up now.  Pretty impressive eagle
+eyes to notice that...
 -- 
-1.6.3.3
-
+Roland Dreier <rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org> || For corporate legal information go to:
+http://www.cisco.com/web/about/doing_business/legal/cri/index.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
