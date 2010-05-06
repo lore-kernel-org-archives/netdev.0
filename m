@@ -1,47 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: kernel panic when using netns+bridges+tc(netem)
-Date: Thu, 06 May 2010 00:54:25 -0700 (PDT)
-Message-ID: <20100506.005425.220063166.davem@davemloft.net>
-References: <1273128002.2304.4.camel@edumazet-laptop>
-	<1273128429.2304.5.camel@edumazet-laptop>
-	<1273129187.2304.14.camel@edumazet-laptop>
+Subject: Re: [PATCH v2] sctp: Fix a race between ICMP protocol unreachable
+ and connect()
+Date: Thu, 06 May 2010 00:56:52 -0700 (PDT)
+Message-ID: <20100506.005652.123997294.davem@davemloft.net>
+References: <1273087783-18250-1-git-send-email-vladislav.yasevich@hp.com>
+	<1273088166-18391-1-git-send-email-vladislav.yasevich@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: martin.ferrari@gmail.com, arnd@arndb.de, netdev@vger.kernel.org,
-	mathieu.lacage@sophia.inria.fr
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: vladislav.yasevich@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55427
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55432
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752924Ab0EFHyT convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 May 2010 03:54:19 -0400
-In-Reply-To: <1273129187.2304.14.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1752694Ab0EFH4q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 03:56:46 -0400
+In-Reply-To: <1273088166-18391-1-git-send-email-vladislav.yasevich@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 06 May 2010 08:59:47 +0200
+From: Vlad Yasevich <vladislav.yasevich@hp.com>
+Date: Wed,  5 May 2010 15:36:06 -0400
 
-> David, this is a stable candidate, once tested and acked, thanks !
->=20
-> [PATCH] veth: Dont kfree_skb() after dev_forward_skb()
->=20
-> In case of congestion, netif_rx() frees the skb, so we must assume
-> dev_forward_skb() also consume skb.
->=20
-> Bug introduced by commit 445409602c092
-> (veth: move loopback logic to common location)
->=20
-> We must change dev_forward_skb() to always consume skb, and veth to n=
-ot
-> double free it.
->=20
-> Bug report : http://marc.info/?l=3Dlinux-netdev&m=3D127310770900442&w=
-=3D3
->=20
-> Reported-by: Mart=EDn Ferrari <martin.ferrari@gmail.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ICMP protocol unreachable handling completely disregarded
+> the fact that the user may have locket the socket.  It proceeded
+> to destroy the association, even though the user may have
+> held the lock and had a ref on the association.  This resulted
+> in the following:
+> 
+> Attempt to release alive inet socket f6afcc00
+ ...
+> This was because the sctp_wait_for_connect() would aqcure the socket
+> lock and then proceed to release the last reference count on the
+> association, thus cause the fully destruction path to finish freeing
+> the socket.
+> 
+> The simplest solution is to start a very short timer in case the socket
+> is owned by user.  When the timer expires, we can do some verification
+> and be able to do the release properly.
+> 
+> Signed-off-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 
-Ugh, applied and queued up for -stable, thanks Eric!
+Applied and queued up for -stable, thanks Vlad.
