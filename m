@@ -1,151 +1,139 @@
-From: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
-Subject: [PATCH 2.6.34-rc6] net: Improve ks8851 snl transmit performance
-Date: Thu, 6 May 2010 15:50:27 -0700
-Message-ID: <14385191E87B904DBD836449AA30269D021A64@MORGANITE.micrel.com>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: 3 packet TCP window limit?
+Date: Thu, 6 May 2010 16:15:52 -0700
+Message-ID: <k2od1c2719f1005061615ne3778916j28b5348cd4ddce6f@mail.gmail.com>
+References: <alpine.LNX.2.00.1005050210230.8544@d>
+	 <4BE171EC.20904@athenacr.com> <alpine.LNX.2.00.1005051239290.28957@d>
+	 <4BE1D3B0.9000207@hp.com> <alpine.LNX.2.00.1005051421010.28957@d>
+	 <0C1FD143-5588-4455-B08F-85ADD19E0E02@nokia.com>
+	 <alpine.LNX.2.00.1005060131110.28957@d>
+	 <p2h349f35ee1005061513x1db24de0ld98a40256c481ac2@mail.gmail.com>
+	 <q2ud1c2719f1005061613yf90cd7c6r46ee23cc49858e74@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, "Abraham Arce" <x0066660@ti.com>,
-	"Sebastien Jan" <s-jan@ti.com>
-To: "Ben Dooks" <ben@simtec.co.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Lars Eggert <lars.eggert@nokia.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	Brian Bloniarz <bmb@athenacr.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: dormando <dormando@rydia.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.44.51]:10389 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751315Ab0EFXPy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 19:15:54 -0400
+Received: from wpaz17.hot.corp.google.com (wpaz17.hot.corp.google.com [172.24.198.81])
+	by smtp-out.google.com with ESMTP id o46NFr5U016676
+	for <netdev@vger.kernel.org>; Thu, 6 May 2010 16:15:53 -0700
+Received: from ywh13 (ywh13.prod.google.com [10.192.8.13])
+	by wpaz17.hot.corp.google.com with ESMTP id o46NFqwT011786
+	for <netdev@vger.kernel.org>; Thu, 6 May 2010 16:15:52 -0700
+Received: by ywh13 with SMTP id 13so292044ywh.8
+        for <netdev@vger.kernel.org>; Thu, 06 May 2010 16:15:52 -0700 (PDT)
+In-Reply-To: <q2ud1c2719f1005061613yf90cd7c6r46ee23cc49858e74@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tristram Ha <Tristram.Ha@micrel.com>
+=46rom: dormando <dormando@rydia.net>
+>
+> Date: Thu, May 6, 2010 at 1:51 AM
+> Subject: Re: 3 packet TCP window limit?
+> To: Lars Eggert <lars.eggert@nokia.com>
+> Cc: Rick Jones <rick.jones2@hp.com>, Brian Bloniarz
+> <bmb@athenacr.com>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+>
+>
+> > On 2010-5-5, at 23:31, dormando wrote:
+> > > The RFC clearly states "around 4k",
+> >
+> > no, it doesn't. RFC3390 gives a very precise formula for calculatin=
+g the initial window:
+> >
+> > =A0 =A0 =A0 min (4*MSS, max (2*MSS, 4380 bytes))
+> >
+> > Please see the RFC for why. More reading at http://www.icir.org/flo=
+yd/tcp_init_win.html I believe that Linux implements behavior this pret=
+ty faithfully.
+>
+> Sorry, paraphrasing :) Web nerds have been working around this for a =
+long
+> time now. Google talks about using HTTP chunked encoding responses to=
+ send
+> an initial "frame" of a webpage in under 3 packets. Which immediately
+> gives the browser something to render and primes the TCP connection f=
+or
+> more web junk.
+>
+> > I'm surprised to hear that OpenBSD doesn't follow the RFC. Can you =
+share a measurement? Are you sure the box you are measuring is using th=
+e default configuration?
+>
+> Yeah, default config. OBSD was giving me back 4 packets in the first
+> window, while linux always gives back 3. The Big/IP is based on linux
+> 2.4.21. If that kernel didn't have it wrong, they tuned it.
+>
+> Already nuked my dumps. If you're curious I'll re-create.
+>
+> > I don't think the RFC can be misread (it's pretty clear), and the
+> > formula is also not exactly complicated. My guess would be that som=
+e
+> > vendors have convinced themselves that using a slightly larger valu=
+e is
+> > OK, esp. if they can show customers that "their" TCP is "faster" th=
+an
+> > some competitors' TCPs. An arms race between vendors in this space =
+would
+> > really not be good for anyone - it's clear that at some point, prob=
+lems
+> > due to overshoot will occur.
+>
+> I clearly remember some vendors bragging about doing this. That was a=
+ long
+> time ago? Perhaps they stopped? If it's true they've been doing it fo=
+r
+> half a decade or more, and haven't broken anything someone would noti=
+ce.
+>
+> The only reason why I set about tuning this is because our latency ju=
+mped
+> while moving traffic from a commercial machine to a linux machine, an=
+d I
+> had to figure out what they changed to do that. I've since turned the
+> setting *back* to the standard, having confirmed what they did.
+>
+> Almost tempted to test this against a bunch of websites...
+>
+> > (We can definitely argue about whether the current RFC-recommended =
+value
+> > is too low, and Google and others are gathering data in support of
+> > making a convincing and backed-up argument for increasing the initi=
+al
+> > window to the IETF. Which is exactly the correct way of going about
+> > this.)
+>
+> This sounds like fun. We have some diverse traffic, so I'm hoping we =
+can
+> contribute to that conversation. Still have a lot of reading to catch=
+ up
+> with first :)
 
-Under heavy transmission the driver will put 4 1514-byte packets in queue and stop the device transmit queue.  Only the last packet triggers the transmit done interrupt and wakes up the device transmit queue.  That means a bit of time is wasted when the CPU cannot send any more packet.
+Yes please do.=A0 Our presentation at Anaheim IETF can be found at
+http://www.ietf.org/proceedings/10mar/slides/tcpm-4.pdf, with a paper d=
+escribing
+the details of our experiments at
+http://code.google.com/speed/articles/tcp_initcwnd_paper.pdf.
 
-The new implementation triggers the transmit interrupt when the transmit buffer left is less than 3 packets.  The maximum transmit buffer size is 6144 bytes.  This allows the device transmit queue to be restarted sooner so that CPU can send more packets.
+We've gotten a lot of feedback from IETF and are planning to collect
+more data to
+justify the proposal. But at this point we really need help from
+others as the scope of
+the work is certainly not a one-company job. Help can be in the form of=
+ more
+experiments/tests and/or simulations to study the effect of a larger
+initcwnd. Please
+contact me directly or send your data to IETF's TCPM WG list
+(http://www.ietf.org/mail-archive/web/tcpm/current/maillist.html).
 
-For TCP receiving it also has the benefit of not triggering any transmit interrupt at all.
+Thanks,
 
-There is a driver option no_tx_opt so that the driver can revert to original implementation.  This allows user to verify if the transmit performance actually improves.
-
-Signed-off-by: Tristram Ha <Tristram.Ha@micrel.com>
----
-This replaces the [patch 01/13] patch I submitted and was objected by David.
-
-Other users with Micrel KSZ8851 SNL chip please verify the transmit performance does improve or not.
-
---- a/drivers/net/ks8851.c	2010-04-29 20:02:05.000000000 -0700
-+++ b/drivers/net/ks8851.c	2010-05-06 15:30:40.000000000 -0700
-@@ -74,6 +74,9 @@ union ks8851_tx_hdr {
-  * @rxd: Space for receiving SPI data, in DMA-able space.
-  * @txd: Space for transmitting SPI data, in DMA-able space.
-  * @msg_enable: The message flags controlling driver output (see ethtool).
-+ * @tx_space: The current available transmit buffer size.
-+ * @tx_avail: The maximum available transmit buffer size.
-+ * @tx_chk_cnt: Used to indicate how often to check the transmit buffer.
-  * @fid: Incrementing frame id tag.
-  * @rc_ier: Cached copy of KS_IER.
-  * @rc_rxqcr: Cached copy of KS_RXQCR.
-@@ -103,6 +106,8 @@ struct ks8851_net {
- 
- 	u32			msg_enable ____cacheline_aligned;
- 	u16			tx_space;
-+	u16			tx_avail;
-+	u8			tx_chk_cnt;
- 	u8			fid;
- 
- 	u16			rc_ier;
-@@ -124,6 +129,7 @@ struct ks8851_net {
- };
- 
- static int msg_enable;
-+static int no_tx_opt;
- 
- #define ks_info(_ks, _msg...) dev_info(&(_ks)->spidev->dev, _msg)
- #define ks_warn(_ks, _msg...) dev_warn(&(_ks)->spidev->dev, _msg)
-@@ -580,10 +586,21 @@ static void ks8851_irq_work(struct work_
- 
- 		/* update our idea of how much tx space is available to the
- 		 * system */
-+		ks->tx_chk_cnt = 0;
- 		ks->tx_space = ks8851_rdreg16(ks, KS_TXMIR);
- 
- 		if (netif_msg_intr(ks))
- 			ks_dbg(ks, "%s: txspace %d\n", __func__, ks->tx_space);
-+
-+	/* Update tx space when packets are being transmitted. */
-+	} else if (ks->tx_space < ks->tx_avail) {
-+		ks->tx_chk_cnt++;
-+
-+		/* Read the transmit buffer register every 4th rx interrupt. */
-+		if (4 == ks->tx_chk_cnt) {
-+			ks->tx_chk_cnt = 0;
-+			ks->tx_space = ks8851_rdreg16(ks, KS_TXMIR);
-+		}
- 	}
- 
- 	if (status & IRQ_RXI)
-@@ -715,6 +732,7 @@ static void ks8851_tx_work(struct work_s
- 	struct ks8851_net *ks = container_of(work, struct ks8851_net, tx_work);
- 	struct sk_buff *txb;
- 	bool last = skb_queue_empty(&ks->txq);
-+	bool tx_irq;
- 
- 	mutex_lock(&ks->lock);
- 
-@@ -724,7 +742,11 @@ static void ks8851_tx_work(struct work_s
- 
- 		if (txb != NULL) {
- 			ks8851_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr | RXQCR_SDA);
--			ks8851_wrpkt(ks, txb, last);
-+			if (ks->tx_avail)
-+				tx_irq = (CHECKSUM_UNNECESSARY == txb->ip_summed);
-+			else
-+				tx_irq = last;
-+			ks8851_wrpkt(ks, txb, tx_irq);
- 			ks8851_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr);
- 			ks8851_wrreg16(ks, KS_TXQCR, TXQCR_METFE);
- 
-@@ -917,11 +939,17 @@ static netdev_tx_t ks8851_start_xmit(str
- 		ret = NETDEV_TX_BUSY;
- 	} else {
- 		ks->tx_space -= needed;
-+		/*
-+		 * Indicate to enable transmit done interrupt when transmit
-+		 * buffer is less than a certain size.
-+		 */
-+		if (ks->tx_avail && ks->tx_space < 1514 * 3)
-+			skb->ip_summed = CHECKSUM_UNNECESSARY;
- 		skb_queue_tail(&ks->txq, skb);
-+		schedule_work(&ks->tx_work);
- 	}
- 
- 	spin_unlock(&ks->statelock);
--	schedule_work(&ks->tx_work);
- 
- 	return ret;
- }
-@@ -1224,7 +1252,6 @@ static int __devinit ks8851_probe(struct
- 
- 	ks->netdev = ndev;
- 	ks->spidev = spi;
--	ks->tx_space = 6144;
- 
- 	mutex_init(&ks->lock);
- 	spin_lock_init(&ks->statelock);
-@@ -1279,6 +1306,10 @@ static int __devinit ks8851_probe(struct
- 		goto err_id;
- 	}
- 
-+	ks->tx_space = ks8851_rdreg16(ks, KS_TXMIR);
-+	if (!no_tx_opt)
-+		ks->tx_avail = ks->tx_space;
-+
- 	ks8851_read_selftest(ks);
- 	ks8851_init_mac(ks);
- 
-@@ -1351,6 +1382,8 @@ MODULE_DESCRIPTION("KS8851 Network drive
- MODULE_AUTHOR("Ben Dooks <ben@simtec.co.uk>");
- MODULE_LICENSE("GPL");
- 
-+module_param(no_tx_opt, int, 0);
-+MODULE_PARM_DESC(message, "No TX optimization");
- module_param_named(message, msg_enable, int, 0);
- MODULE_PARM_DESC(message, "Message verbosity level (0=none, 31=all)");
- MODULE_ALIAS("spi:ks8851");
+Jerry
