@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL] amended: first round of vhost-net enhancements for
- net-next
-Date: Thu, 06 May 2010 00:29:30 -0700 (PDT)
-Message-ID: <20100506.002930.91336110.davem@davemloft.net>
-References: <20100504112100.GA22172@redhat.com>
+Subject: Re: [net-next-2.6 PATCH 1/3] ixgbe: Remove unneeded register
+ writes in VF VLAN setup
+Date: Thu, 06 May 2010 00:32:10 -0700 (PDT)
+Message-ID: <20100506.003210.45888959.davem@davemloft.net>
+References: <20100506055703.8482.16515.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: mst@redhat.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com, gregory.v.rose@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57715
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57720
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751296Ab0EFH3X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 03:29:23 -0400
-In-Reply-To: <20100504112100.GA22172@redhat.com>
+	by vger.kernel.org with ESMTP id S1752934Ab0EFHcE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 03:32:04 -0400
+In-Reply-To: <20100506055703.8482.16515.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Tue, 4 May 2010 14:21:01 +0300
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 05 May 2010 22:57:10 -0700
 
-> This is an amended pull request: I have rebased the tree to the
-> correct patches. This has been through basic tests and seems
-> to work fine here.
+> From: Greg Rose <gregory.v.rose@intel.com>
 > 
-> The following tree includes a couple of enhancements that help vhost-net.
-> Please pull them for net-next. Another set of patches is under
-> debugging/testing and I hope to get them ready in time for 2.6.35,
-> so there may be another pull request later.
+> The driver is unnecessarily writing values to VLAN control registers.
+> These writes already done elsewhere and are superfluous here.
+> 
+> Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Pulled, thanks Michael.
+Applied.
