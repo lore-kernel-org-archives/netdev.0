@@ -1,43 +1,41 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH] forcedeth: Account for consumed budget in napi poll
-Date: Wed, 5 May 2010 21:15:21 -0700 (PDT)
-Message-ID: <alpine.DEB.1.00.1005052111440.31888@pokey.mtv.corp.google.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: linux-next: manual merge of the staging-next tree with the net
+	tree
+Date: Wed, 5 May 2010 21:20:48 -0700
+Message-ID: <20100506042048.GA25425@kroah.com>
+References: <20100506140543.d6f3841f.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:14043 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750776Ab0EFEP0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 00:15:26 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Prashant P. Shah" <pshah.mumbai@gmail.com>,
+	Jiri Pirko <jpirko@redhat.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100506140543.d6f3841f.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Repeated calls to nv_rx_process in napi poll routine do not take
-portion of budget that has been consumed in previous calls.  Fix by
-subtracting the number of packets processed.
+On Thu, May 06, 2010 at 02:05:43PM +1000, Stephen Rothwell wrote:
+> Hi Greg,
+> 
+> Today's linux-next merge of the staging-next tree got a conflict in
+> drivers/staging/arlan/arlan-main.c between commit
+> 22bedad3ce112d5ca1eaf043d4990fa2ed698c87 ("net: convert multicast list to
+> list_head") from the net tree and commit
+> dd730b627cf8ff0b9d20df94fd31b6192b188710 ("Staging: arlan: fixed
+> unnecessary whitespace style issue in arlan-main.c") from the
+> staging-next tree.
+> 
+> I fixed it up (see below - this is bigger than is would otherwise be
+> because there is a conflict with another patch that was previously
+> reported) and can carry the fix as necessary.
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
-diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
-index f9e1dd4..e282d0a 100644
---- a/drivers/net/forcedeth.c
-+++ b/drivers/net/forcedeth.c
-@@ -3564,14 +3564,15 @@ static int nv_napi_poll(struct napi_struct *napi, int budget)
- 			tx_work += nv_tx_done(dev, np->tx_ring_size);
- 			spin_unlock_irqrestore(&np->lock, flags);
- 
--			rx_count = nv_rx_process(dev, budget);
-+			rx_count = nv_rx_process(dev, budget - rx_work);
- 			retcode = nv_alloc_rx(dev);
- 		} else {
- 			spin_lock_irqsave(&np->lock, flags);
- 			tx_work += nv_tx_done_optimized(dev, np->tx_ring_size);
- 			spin_unlock_irqrestore(&np->lock, flags);
- 
--			rx_count = nv_rx_process_optimized(dev, budget);
-+			rx_count = nv_rx_process_optimized(dev,
-+			    budget - rx_work);
- 			retcode = nv_alloc_rx_optimized(dev);
- 		}
- 	} while (retcode == 0 &&
+Thanks for doing this.  Hm, the arlan driver is scheduled to be deleted
+in .35, so it would make things easier if I just do it now to keep these
+kinds of merge issues from happening.  I'll queue that up tomorrow.
+
+thanks,
+
+greg k-h
