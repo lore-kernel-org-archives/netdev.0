@@ -1,95 +1,66 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 1/2] e1000e: reset MAC-PHY interconnect on
-	82577/82578 during Sx->S0
-Date: Thu, 06 May 2010 01:00:06 -0700
-Message-ID: <20100506075959.8910.13493.stgit@localhost.localdomain>
+From: Sebastien Jan <s-jan@ti.com>
+Subject: Re: [PATCH 4/4 v2] ks8851: read/write MAC address on companion eeprom through debugfs
+Date: Thu, 6 May 2010 10:01:49 +0200
+Message-ID: <201005061001.49747.s-jan@ti.com>
+References: <1273085155-1260-1-git-send-email-s-jan@ti.com> <1273085155-1260-5-git-send-email-s-jan@ti.com> <20100506.002508.241926083.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta13.westchester.pa.mail.comcast.net ([76.96.59.243]:50401
-	"EHLO qmta13.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751165Ab0EFIAZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 04:00:25 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
+	"Arce, Abraham" <x0066660@ti.com>,
+	"ben-linux@fluff.org" <ben-linux@fluff.org>,
+	"Tristram.Ha@micrel.com" <Tristram.Ha@micrel.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <20100506.002508.241926083.davem@davemloft.net>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+Hi david,
 
-During Sx->S0 transitions, the interconnect between the MAC and PHY on
-82577/82578 can remain in SMBus mode instead of transitioning to the
-PCIe-like mode required during normal operation.  Toggling the LANPHYPC
-Value bit essentially resets the interconnect forcing it to the correct
-mode.
+On Thursday 06 May 2010 09:25:08 David Miller wrote:
+> From: Sebastien Jan <s-jan@ti.com>
+> Date: Wed,  5 May 2010 20:45:55 +0200
+> 
+> > A more elegant alternative to ethtool for updating the ks8851
+> > MAC address stored on its companion eeprom.
+> > Using this debugfs interface does not require any knowledge on the
+> > ks8851 companion eeprom organization to update the MAC address.
+> >
+> > Example to write 01:23:45:67:89:AB MAC address to the companion
+> > eeprom (assuming debugfs is mounted in /sys/kernel/debug):
+> > $ echo "01:23:45:67:89:AB" > /sys/kernel/debug/ks8851/mac_eeprom
+> >
+> > Signed-off-by: Sebastien Jan <s-jan@ti.com>
+> 
+> Elegant?  This commit message is the biggest lie ever told.
+> 
+> What makes your ethernet driver so god-damn special that it deserves
+> to have a private, completely unique, and obscure interface for
+> setting the permanent ethernet address of a network device?
+> 
+> Tell me how damn elegant it is that users have to learn about this
+> special, unique, and common with no other driver, interface for
+> performing this task?
+> 
+> Tell me how damn elegant it is when another driver wants to provide
+> users with a way to do this too, and they (like you) come up with
+> their own unique and different interface for doing this.
+> 
+> No, this is the most inelegant patch ever conceived because it totally
+> ignores the way in which we handle issues like this.
+> 
+> There is no way in the world I'm applying this garbage patch, sorry.
+> 
+> We have an ETHTOOL_GPERMADDR, add a new ETHTOOL_SPERMADDR operation
+> and then any driver (not just your's) can portably provide this
+> facility and users will have one, and only one, way of performing this
+> task.
+> 
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+I agree that my commit message was probably too provocative, sorry for that.
 
- drivers/net/e1000e/defines.h |    2 ++
- drivers/net/e1000e/ich8lan.c |   20 ++++++++++++++++++++
- 2 files changed, 22 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/e1000e/defines.h b/drivers/net/e1000e/defines.h
-index e301e26..7f760aa 100644
---- a/drivers/net/e1000e/defines.h
-+++ b/drivers/net/e1000e/defines.h
-@@ -214,6 +214,8 @@
- #define E1000_CTRL_SPD_1000 0x00000200  /* Force 1Gb */
- #define E1000_CTRL_FRCSPD   0x00000800  /* Force Speed */
- #define E1000_CTRL_FRCDPX   0x00001000  /* Force Duplex */
-+#define E1000_CTRL_LANPHYPC_OVERRIDE 0x00010000 /* SW control of LANPHYPC */
-+#define E1000_CTRL_LANPHYPC_VALUE    0x00020000 /* SW value of LANPHYPC */
- #define E1000_CTRL_SWDPIN0  0x00040000  /* SWDPIN 0 value */
- #define E1000_CTRL_SWDPIN1  0x00080000  /* SWDPIN 1 value */
- #define E1000_CTRL_SWDPIO0  0x00400000  /* SWDPIN 0 Input or output */
-diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index 5059c22..0bfef8e 100644
---- a/drivers/net/e1000e/ich8lan.c
-+++ b/drivers/net/e1000e/ich8lan.c
-@@ -83,6 +83,8 @@
- 
- 
- #define E1000_ICH_FWSM_RSPCIPHY	0x00000040 /* Reset PHY on PCI Reset */
-+/* FW established a valid mode */
-+#define E1000_ICH_FWSM_FW_VALID		0x00008000
- 
- #define E1000_ICH_MNG_IAMT_MODE		0x2
- 
-@@ -259,6 +261,7 @@ static inline void __ew32flash(struct e1000_hw *hw, unsigned long reg, u32 val)
- static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
- {
- 	struct e1000_phy_info *phy = &hw->phy;
-+	u32 ctrl;
- 	s32 ret_val = 0;
- 
- 	phy->addr                     = 1;
-@@ -274,6 +277,23 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
- 	phy->ops.power_down           = e1000_power_down_phy_copper_ich8lan;
- 	phy->autoneg_mask             = AUTONEG_ADVERTISE_SPEED_DEFAULT;
- 
-+	if (!(er32(FWSM) & E1000_ICH_FWSM_FW_VALID)) {
-+		/*
-+		 * The MAC-PHY interconnect may still be in SMBus mode
-+		 * after Sx->S0.  Toggle the LANPHYPC Value bit to force
-+		 * the interconnect to PCIe mode, but only if there is no
-+		 * firmware present otherwise firmware will have done it.
-+		 */
-+		ctrl = er32(CTRL);
-+		ctrl |=  E1000_CTRL_LANPHYPC_OVERRIDE;
-+		ctrl &= ~E1000_CTRL_LANPHYPC_VALUE;
-+		ew32(CTRL, ctrl);
-+		udelay(10);
-+		ctrl &= ~E1000_CTRL_LANPHYPC_OVERRIDE;
-+		ew32(CTRL, ctrl);
-+		msleep(50);
-+	}
-+
- 	phy->id = e1000_phy_unknown;
- 	ret_val = e1000e_get_phy_id(hw);
- 	if (ret_val)
-
+Thank you for shedding some light on ETHTOOL_GPERMADDR and ETHTOOL_SPERMADDR. 
+I will look into these interfaces for a proper and generic implementation.
