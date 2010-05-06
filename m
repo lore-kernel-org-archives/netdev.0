@@ -1,74 +1,58 @@
-From: Brian Bloniarz <bmb@athenacr.com>
-Subject: [PATCH iproute2] document initcwnd
-Date: Wed, 05 May 2010 21:37:40 -0400
-Message-ID: <4BE21D64.4040600@athenacr.com>
-References: <alpine.LNX.2.00.1005050210230.8544@d>	<4BE171EC.20904@athenacr.com>	<alpine.LNX.2.00.1005051239290.28957@d>	<4BE1DB82.2030403@athenacr.com> <20100505150343.0c09c6ba@nehalam>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: linux kernel's IPV6_MULTICAST_HOPS default is 64; should be 1?
+Date: Wed, 05 May 2010 21:50:18 -0400
+Message-ID: <4BE2205A.3050900@hp.com>
+References: <4BE031FA.6040006@hp.com>	<20100504.144647.157477097.davem@davemloft.net>	<4BE1907F.40903@hp.com> <20100505.150008.102542618.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: dormando <dormando@rydia.net>, netdev@vger.kernel.org,
-	Rick Jones <rick.jones2@hp.com>, shemminger@osdl.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: dlstevens@us.ibm.com, enh@google.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sprinkles.athenacr.com ([64.95.46.210]:62627 "EHLO
-	sprinkles.inp.in.athenacr.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751846Ab0EFBhw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 May 2010 21:37:52 -0400
-In-Reply-To: <20100505150343.0c09c6ba@nehalam>
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:16570 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751846Ab0EFBuW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 May 2010 21:50:22 -0400
+In-Reply-To: <20100505.150008.102542618.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Wed, 05 May 2010 16:56:34 -0400
-> Brian Bloniarz <bmb@athenacr.com> wrote:
+David Miller wrote:
+> From: Brian Haley <brian.haley@hp.com>
+> Date: Wed, 05 May 2010 11:36:31 -0400
 > 
->> dormando wrote:
->>>> This sounds like TCP slow start.
->>>>
->>>> http://en.wikipedia.org/wiki/Slow-start
->>>>
->>>> As far as tunables you might want to play with the initcwnd route
->>>> flag (see "ip route help")
->>> Ah, yes, initcwnd was it. I'm well aware of TCP Congestion control / slow
->>> start / etc. However I couldn't find the damn tunable for it :)
->> Documenting the flag in ip(8) might increase its visibility
->> a little. I don't see it documented in the iproute2 git head,
->> though it shows up on http://linux.die.net/man/8/ip somehow.
->>
->> Stephen, do you know why that is?
+>> I now see that in Elliot's email, but I think it's incorrect.  The RFC
+>> says that setting it to -1 should get you the kernel default, which is
+>> now 1.  Without this change, setting it to -1 will get you 64, the
+>> old behavior.  If the user wants to, they can always just set it to
+>> 64 themselves, that's better than assuming when you set it to -1
+>> you're going to get 64.
 > 
-> No one sent me an official patch to change it?
+> It's not 64, it's whatever the per-route metric is.
 
-Mention initcwnd in ip(8). Text taken from doc/ip-cref.tex.
+Not unless that metric's been set via RTAX_HOPLIMIT (and I believe
+this is the unicast hop limit value anyways), and that metric
+defaults to -1.  Routes added via a Router Advertisement are most
+likely going to have a hop limit of 64, but I believe that's only
+supposed to apply to unicast.
 
-Signed-off-by: Brian Bloniarz <bmb@athenacr.com>
+I *did* search the kernel code and test this before my original reply - it
+uses the unicast hop limit from the interface as Elliot originally showed.
 
-diff --git a/man/man8/ip.8 b/man/man8/ip.8
-index a5d2915..777a0a7 100644
---- a/man/man8/ip.8
-+++ b/man/man8/ip.8
-@@ -211,7 +211,9 @@ replace " | " monitor " } "
- .B  realms
- .IR REALM " ] [ "
- .B  rto_min
--.IR TIME " ]"
-+.IR TIME " ] [ "
-+.B  initcwnd
-+.IR NUMBER " ]"
- 
- .ti -8
- .IR TYPE " := [ "
-@@ -1561,6 +1563,13 @@ the clamp for congestion window.  It is ignored if the
- flag is not used.
- 
- .TP
-+.BI initcwnd " NUMBER " "(2.5.70+ only)"
-+Initial congestion window size for connections to this destination.
-+Actual window size is this value multiplied by the MSS
-+(``Maximal Segment Size'') for same connection. The default is
-+zero, meaning to use the values specified in RFC2414.
-+
-+.TP
- .BI advmss " NUMBER " "(2.3.15+ only)"
- the MSS ('Maximal Segment Size') to advertise to these
- destinations when establishing TCP connections.  If it is not given,
+~# sysctl net.ipv6.conf.eth2.hop_limit
+net.ipv6.conf.eth2.hop_limit = 64
+
+21:04:48.766181 IP6 (hlim 64, next-header UDP (17) payload length: 108)
+    fe80::21f:29ff:fef0:2f46.48914 > ip6-allrouters.7639: UDP, length 100
+
+~# sysctl net.ipv6.conf.eth2.hop_limit=63
+net.ipv6.conf.eth2.hop_limit = 63
+
+21:05:09.670190 IP6 (hlim 63, next-header UDP (17) payload length: 108)
+    fe80::21f:29ff:fef0:2f46.48914 > ip6-allrouters.7639: UDP, length 100
+
+At this point in time I'll gladly implement a per-interface sysctl
+to end this discussion.
+
+-Brian
