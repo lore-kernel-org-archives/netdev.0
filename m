@@ -1,26 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netpoll: Use 'bool' for netpoll_rx() return type.
-Date: Thu, 06 May 2010 01:30:48 -0700 (PDT)
-Message-ID: <20100506.013048.124061635.davem@davemloft.net>
-References: <20100506.012051.149835101.davem@davemloft.net>
-	<g2k412e6f7f1005060127g11f7b1e6vddd448178e1ddff9@mail.gmail.com>
+From: Dimitris Michailidis <dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH/RFC] cxgb4: Add MAINTAINERS info
+Date: Thu, 06 May 2010 01:43:05 -0700
+Message-ID: <4BE28119.5080202@chelsio.com>
+References: <20100428164341.cee2911a.sfr@canb.auug.org.au>	<20100428103356.931ba48c.randy.dunlap@oracle.com> <adawrvijhpq.fsf_-_@roland-alpha.cisco.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xiaosuo@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47161
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751465Ab0EFIal (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 04:30:41 -0400
-In-Reply-To: <g2k412e6f7f1005060127g11f7b1e6vddd448178e1ddff9@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org
+To: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <adawrvijhpq.fsf_-_-BjVyx320WGW9gfZ95n9DRSW4+XlvGpQz@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Thu, 6 May 2010 16:27:44 +0800
+Roland Dreier wrote:
+> Hi guys, does this info for cxgb4/iw_cxgb4 (pretty much copied from
+> cxgb3, except with Dimitris instead of Divy) look right?  If so I'll add
+> it to my tree.
 
-> bool ret = false.
+Yes, it's fine with me.  Thanks.
 
-Thanks for catching that, fixed.
+> 
+> Thanks,
+>   Roland
+> ---
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index 7a9ccda..a00231b 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -1719,6 +1719,20 @@ W:	http://www.openfabrics.org
+>  S:	Supported
+>  F:	drivers/infiniband/hw/cxgb3/
+>  
+> +CXGB4 ETHERNET DRIVER (CXGB4)
+> +M:	Dimitris Michailidis <dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+> +L:	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> +W:	http://www.chelsio.com
+> +S:	Supported
+> +F:	drivers/net/cxgb4/
+> +
+> +CXGB4 IWARP RNIC DRIVER (IW_CXGB4)
+> +M:	Steve Wise <swise-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+> +L:	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> +W:	http://www.openfabrics.org
+> +S:	Supported
+> +F:	drivers/infiniband/hw/cxgb4/
+> +
+>  CYBERPRO FB DRIVER
+>  M:	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+>  L:	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org (moderated for non-subscribers)
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
