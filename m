@@ -1,224 +1,72 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] ipv4: remove ip_rt_secret timer (v2)
-Date: Thu, 6 May 2010 16:29:57 -0400
-Message-ID: <20100506202957.GE5063@hmsreliant.think-freely.org>
-References: <20100506171639.GA5063@hmsreliant.think-freely.org>
+From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Subject: Re: [PATCH  kernel 2.6.34-rc5] lib8390: to be SMP safe
+Date: Fri, 7 May 2010 05:47:48 +0900
+Message-ID: <20100507054748.711826db.ken_kawasaki@spring.nifty.jp>
+References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
+	<20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
+	<20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
+	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
+	<20091213094411.18be2ff6.ken_kawasaki@spring.nifty.jp>
+	<20100307070256.cb86716d.ken_kawasaki@spring.nifty.jp>
+	<20100503194316.60c98272.ken_kawasaki@spring.nifty.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:46145 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757307Ab0EFUaB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 16:30:01 -0400
-Content-Disposition: inline
-In-Reply-To: <20100506171639.GA5063@hmsreliant.think-freely.org>
+Received: from userg506.nifty.com ([202.248.238.86]:60973 "EHLO
+	userg506.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932522Ab0EFUsR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 16:48:17 -0400
+Received: from localhost.localdomain (eaoska324027.adsl.ppp.infoweb.ne.jp [115.176.53.27])by userg506.nifty.com with SMTP id o46Km8fj011028
+	for <netdev@vger.kernel.org>; Fri, 7 May 2010 05:48:08 +0900
+In-Reply-To: <20100503194316.60c98272.ken_kawasaki@spring.nifty.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Version 2 of this patch, taking Erics comment about making the rt_genid non-zero
-when a netns is created.  This makes sense, and helps prevent attackers from
-guessing our initial secret value
+
+Sorry, I cancel this patch
+and test it again.
 
 
+Best Regards
+Ken
 
-A while back there was a discussion regarding the rt_secret_interval timer.
-Given that we've had the ability to do emergency route cache rebuilds for awhile
-now, based on a statistical analysis of the various hash chain lengths in the
-cache, the use of the flush timer is somewhat redundant.  This patch removes the
-rt_secret_interval sysctl, allowing us to rely solely on the statistical
-analysis mechanism to determine the need for route cache flushes.
+> 
+> lib8390:
+> 	write the value "ENISR_ALL" to register "EN0_IMR"
+> 	after enable_irq_lockdep_irqrestore. 
+> 
+> 	This patch avoids frequent transmit error on SMP system.
+> 
+> 
+> Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+> 
+> ---
+> 
+> --- linux-2.6.34-rc6/drivers/net/lib8390.c.orig	2010-05-02 16:49:57.000000000 +0900
+> +++ linux-2.6.34-rc6/drivers/net/lib8390.c	2010-05-02 18:09:18.000000000 +0900
+> @@ -367,9 +367,9 @@ static netdev_tx_t __ei_start_xmit(struc
+>  				dev->name, ei_local->tx1, ei_local->tx2, ei_local->lasttx);
+>  		ei_local->irqlock = 0;
+>  		netif_stop_queue(dev);
+> -		ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
+>  		spin_unlock(&ei_local->page_lock);
+>  		enable_irq_lockdep_irqrestore(dev->irq, &flags);
+> +		ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
+>  		dev->stats.tx_errors++;
+>  		return NETDEV_TX_BUSY;
+>  	}
+> @@ -407,10 +407,10 @@ static netdev_tx_t __ei_start_xmit(struc
+>  
+>  	/* Turn 8390 interrupts back on. */
+>  	ei_local->irqlock = 0;
+> -	ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
+>  
+>  	spin_unlock(&ei_local->page_lock);
+>  	enable_irq_lockdep_irqrestore(dev->irq, &flags);
+> +	ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
+>  
+>  	dev_kfree_skb (skb);
+>  	dev->stats.tx_bytes += send_length;
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-
-
- include/net/netns/ipv4.h |    1 
- net/ipv4/route.c         |  111 ++++-------------------------------------------
- 2 files changed, 11 insertions(+), 101 deletions(-)
-
-
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index ae07fee..d68c3f1 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -55,7 +55,6 @@ struct netns_ipv4 {
- 	int sysctl_rt_cache_rebuild_count;
- 	int current_rt_cache_rebuild_count;
- 
--	struct timer_list rt_secret_timer;
- 	atomic_t rt_genid;
- 
- #ifdef CONFIG_IP_MROUTE
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index a947428..e55a066 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -129,7 +129,6 @@ static int ip_rt_gc_elasticity __read_mostly	= 8;
- static int ip_rt_mtu_expires __read_mostly	= 10 * 60 * HZ;
- static int ip_rt_min_pmtu __read_mostly		= 512 + 20 + 20;
- static int ip_rt_min_advmss __read_mostly	= 256;
--static int ip_rt_secret_interval __read_mostly	= 10 * 60 * HZ;
- static int rt_chain_length_max __read_mostly	= 20;
- 
- static struct delayed_work expires_work;
-@@ -918,32 +917,11 @@ void rt_cache_flush_batch(void)
- 	rt_do_flush(!in_softirq());
- }
- 
--/*
-- * We change rt_genid and let gc do the cleanup
-- */
--static void rt_secret_rebuild(unsigned long __net)
--{
--	struct net *net = (struct net *)__net;
--	rt_cache_invalidate(net);
--	mod_timer(&net->ipv4.rt_secret_timer, jiffies + ip_rt_secret_interval);
--}
--
--static void rt_secret_rebuild_oneshot(struct net *net)
--{
--	del_timer_sync(&net->ipv4.rt_secret_timer);
--	rt_cache_invalidate(net);
--	if (ip_rt_secret_interval)
--		mod_timer(&net->ipv4.rt_secret_timer, jiffies + ip_rt_secret_interval);
--}
--
- static void rt_emergency_hash_rebuild(struct net *net)
- {
--	if (net_ratelimit()) {
-+	if (net_ratelimit())
- 		printk(KERN_WARNING "Route hash chain too long!\n");
--		printk(KERN_WARNING "Adjust your secret_interval!\n");
--	}
--
--	rt_secret_rebuild_oneshot(net);
-+	rt_cache_invalidate(net);
- }
- 
- /*
-@@ -3101,48 +3079,6 @@ static int ipv4_sysctl_rtcache_flush(ctl_table *__ctl, int write,
- 	return -EINVAL;
- }
- 
--static void rt_secret_reschedule(int old)
--{
--	struct net *net;
--	int new = ip_rt_secret_interval;
--	int diff = new - old;
--
--	if (!diff)
--		return;
--
--	rtnl_lock();
--	for_each_net(net) {
--		int deleted = del_timer_sync(&net->ipv4.rt_secret_timer);
--		long time;
--
--		if (!new)
--			continue;
--
--		if (deleted) {
--			time = net->ipv4.rt_secret_timer.expires - jiffies;
--
--			if (time <= 0 || (time += diff) <= 0)
--				time = 0;
--		} else
--			time = new;
--
--		mod_timer(&net->ipv4.rt_secret_timer, jiffies + time);
--	}
--	rtnl_unlock();
--}
--
--static int ipv4_sysctl_rt_secret_interval(ctl_table *ctl, int write,
--					  void __user *buffer, size_t *lenp,
--					  loff_t *ppos)
--{
--	int old = ip_rt_secret_interval;
--	int ret = proc_dointvec_jiffies(ctl, write, buffer, lenp, ppos);
--
--	rt_secret_reschedule(old);
--
--	return ret;
--}
--
- static ctl_table ipv4_route_table[] = {
- 	{
- 		.procname	= "gc_thresh",
-@@ -3251,13 +3187,6 @@ static ctl_table ipv4_route_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec,
- 	},
--	{
--		.procname	= "secret_interval",
--		.data		= &ip_rt_secret_interval,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= ipv4_sysctl_rt_secret_interval,
--	},
- 	{ }
- };
- 
-@@ -3336,34 +3265,18 @@ static __net_initdata struct pernet_operations sysctl_route_ops = {
- };
- #endif
- 
--
--static __net_init int rt_secret_timer_init(struct net *net)
-+static __net_init int rt_genid_init(struct net *net)
- {
--	atomic_set(&net->ipv4.rt_genid,
--			(int) ((num_physpages ^ (num_physpages>>8)) ^
--			(jiffies ^ (jiffies >> 7))));
--
--	net->ipv4.rt_secret_timer.function = rt_secret_rebuild;
--	net->ipv4.rt_secret_timer.data = (unsigned long)net;
--	init_timer_deferrable(&net->ipv4.rt_secret_timer);
--
--	if (ip_rt_secret_interval) {
--		net->ipv4.rt_secret_timer.expires =
--			jiffies + net_random() % ip_rt_secret_interval +
--			ip_rt_secret_interval;
--		add_timer(&net->ipv4.rt_secret_timer);
--	}
-+	/*
-+	 * This just serves to start off each new net namespace
-+	 * with a non-zero rt_genid value, making it harder to guess
-+	 */
-+	rt_cache_invalidate(net);
- 	return 0;
- }
- 
--static __net_exit void rt_secret_timer_exit(struct net *net)
--{
--	del_timer_sync(&net->ipv4.rt_secret_timer);
--}
--
--static __net_initdata struct pernet_operations rt_secret_timer_ops = {
--	.init = rt_secret_timer_init,
--	.exit = rt_secret_timer_exit,
-+static __net_initdata struct pernet_operations rt_genid_ops = {
-+	.init = rt_genid_init,
- };
- 
- 
-@@ -3424,9 +3337,6 @@ int __init ip_rt_init(void)
- 	schedule_delayed_work(&expires_work,
- 		net_random() % ip_rt_gc_interval + ip_rt_gc_interval);
- 
--	if (register_pernet_subsys(&rt_secret_timer_ops))
--		printk(KERN_ERR "Unable to setup rt_secret_timer\n");
--
- 	if (ip_rt_proc_init())
- 		printk(KERN_ERR "Unable to create route proc files\n");
- #ifdef CONFIG_XFRM
-@@ -3438,6 +3348,7 @@ int __init ip_rt_init(void)
- #ifdef CONFIG_SYSCTL
- 	register_pernet_subsys(&sysctl_route_ops);
- #endif
-+	register_pernet_subsys(&rt_genid_ops);
- 	return rc;
- }
- 
