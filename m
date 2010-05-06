@@ -1,92 +1,115 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: RFC: Network Plugin Architecture (NPA) for vmxnet3
-Date: Thu, 06 May 2010 11:58:54 +0300
-Message-ID: <4BE284CE.7010808@redhat.com>
-References: <20100504230225.GP8323@vmware.com> <4BE1B217.80600@redhat.com> <20100505194417.GV8323@vmware.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] rps: Various optimizations
+Date: Thu, 06 May 2010 10:58:42 +0200
+Message-ID: <1273136322.2357.15.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	"pv-drivers@vmware.com" <pv-drivers@vmware.com>,
-	Shreyas Bhatewara <sbhatewara@vmware.com>
-To: Pankaj Thakkar <pthakkar@vmware.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100505194417.GV8323@vmware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:53800 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752725Ab0EFJAK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 05:00:10 -0400
+Received: by bwz19 with SMTP id 19so355336bwz.21
+        for <netdev@vger.kernel.org>; Thu, 06 May 2010 02:00:09 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/05/2010 10:44 PM, Pankaj Thakkar wrote:
-> On Wed, May 05, 2010 at 10:59:51AM -0700, Avi Kivity wrote:
->    
->> Date: Wed, 5 May 2010 10:59:51 -0700
->> From: Avi Kivity<avi@redhat.com>
->> To: Pankaj Thakkar<pthakkar@vmware.com>
->> CC: "linux-kernel@vger.kernel.org"<linux-kernel@vger.kernel.org>,
->> 	"netdev@vger.kernel.org"<netdev@vger.kernel.org>,
->> 	"virtualization@lists.linux-foundation.org"
->>   <virtualization@lists.linux-foundation.org>,
->> 	"pv-drivers@vmware.com"<pv-drivers@vmware.com>,
->> 	Shreyas Bhatewara<sbhatewara@vmware.com>
->> Subject: Re: RFC: Network Plugin Architecture (NPA) for vmxnet3
->>
->> On 05/05/2010 02:02 AM, Pankaj Thakkar wrote:
->>      
->>> 2. Hypervisor control: All control operations from the guest such as programming
->>> MAC address go through the hypervisor layer and hence can be subjected to
->>> hypervisor policies. The PF driver can be further used to put policy decisions
->>> like which VLAN the guest should be on.
->>>
->>>        
->> Is this enforced?  Since you pass the hardware through, you can't rely
->> on the guest actually doing this, yes?
->>      
-> We don't pass the whole VF to the guest. Only the BAR which is responsible for
-> TX/RX/intr is mapped into guest space.
+Introduce ____napi_schedule() helper for callers in irq disabled
+contexts. rps_trigger_softirq() becomes a leaf function.
 
-Does the SR/IOV spec guarantee that you will have such a separation?
+Use container_of() in process_backlog() instead of accessing per_cpu
+address.
+
+Use a custom inlined version of __napi_complete() in process_backlog()
+to avoid one locked instruction :
+
+ only current cpu owns and manipulates this napi,
+ and NAPI_STATE_SCHED is the only possible flag set on backlog.
+ we can use a plain write instead of clear_bit(),
+ and we dont need an smp_mb() memory barrier, since RPS is on,
+ backlog is protected by a spinlock.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/core/dev.c |   28 ++++++++++++++++++++++------
+ 1 files changed, 22 insertions(+), 6 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 36d53be..c6861e4 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2205,6 +2205,14 @@ int netdev_max_backlog __read_mostly = 1000;
+ int netdev_budget __read_mostly = 300;
+ int weight_p __read_mostly = 64;            /* old backlog weight */
+ 
++/* Called with irq disabled */
++static inline void ____napi_schedule(struct softnet_data *sd,
++				     struct napi_struct *napi)
++{
++	list_add_tail(&napi->poll_list, &sd->poll_list);
++	__raise_softirq_irqoff(NET_RX_SOFTIRQ);
++}
++
+ #ifdef CONFIG_RPS
+ 
+ /* One global table that all flow-based protocols share. */
+@@ -2363,7 +2371,7 @@ static void rps_trigger_softirq(void *data)
+ {
+ 	struct softnet_data *sd = data;
+ 
+-	__napi_schedule(&sd->backlog);
++	____napi_schedule(sd, &sd->backlog);
+ 	sd->received_rps++;
+ }
+ 
+@@ -2421,7 +2429,7 @@ enqueue:
+ 		/* Schedule NAPI for backlog device */
+ 		if (napi_schedule_prep(&sd->backlog)) {
+ 			if (!rps_ipi_queued(sd))
+-				__napi_schedule(&sd->backlog);
++				____napi_schedule(sd, &sd->backlog);
+ 		}
+ 		goto enqueue;
+ 	}
+@@ -3280,7 +3288,7 @@ static void net_rps_action_and_irq_enable(struct softnet_data *sd)
+ static int process_backlog(struct napi_struct *napi, int quota)
+ {
+ 	int work = 0;
+-	struct softnet_data *sd = &__get_cpu_var(softnet_data);
++	struct softnet_data *sd = container_of(napi, struct softnet_data, backlog);
+ 
+ #ifdef CONFIG_RPS
+ 	/* Check if we have pending ipi, its better to send them now,
+@@ -3313,7 +3321,16 @@ static int process_backlog(struct napi_struct *napi, int quota)
+ 						   &sd->process_queue);
+ 		}
+ 		if (qlen < quota - work) {
+-			__napi_complete(napi);
++			/*
++			 * Inline a custom version of __napi_complete().
++			 * only current cpu owns and manipulates this napi,
++			 * and NAPI_STATE_SCHED is the only possible flag set on backlog.
++			 * we can use a plain write instead of clear_bit(),
++			 * and we dont need an smp_mb() memory barrier.
++			 */
++			list_del(&napi->poll_list);
++			napi->state = 0;
++
+ 			quota = work + qlen;
+ 		}
+ 		rps_unlock(sd);
+@@ -3334,8 +3351,7 @@ void __napi_schedule(struct napi_struct *n)
+ 	unsigned long flags;
+ 
+ 	local_irq_save(flags);
+-	list_add_tail(&n->poll_list, &__get_cpu_var(softnet_data).poll_list);
+-	__raise_softirq_irqoff(NET_RX_SOFTIRQ);
++	____napi_schedule(&__get_cpu_var(softnet_data), n);
+ 	local_irq_restore(flags);
+ }
+ EXPORT_SYMBOL(__napi_schedule);
 
 
-
->
->>
->>> We have reworked our existing Linux vmxnet3 driver to accomodate NPA by
->>> splitting the driver into two parts: Shell and Plugin. The new split driver is
->>>
->>>        
->> So the Shell would be the reworked or new bond driver, and Plugins would
->> be ordinary Linux network drivers.
->>      
-> In NPA we do not rely on the guest OS to provide any of these services like
-> bonding or PCI hotplug.
-
-Well the Shell does some sort of bonding (there are two links and the 
-shell selects which one to exercise) and some sort of hotplug.  Since 
-the Shell is part of the guest OS, you do rely on it.
-
-It's certainly simpler than PCI hotplug or ordinary bonding.
-
-> We don't rely on the guest OS to unmap a VF and switch
-> a VM out of passthrough. In a bonding approach that becomes an issue you can't
-> just yank a device from underneath, you have to wait for the OS to process the
-> request and switch from using VF to the emulated device and this makes the
-> hypervisor dependent on the guest OS.
-
-How can you unmap the VF without guest cooperation?  If you're executing 
-Plugin code, you can't yank anything out.
-
-Are plugins executed with preemption/interrupts disabled?
-
-> Also we don't rely on the presence of all
-> the drivers inside the guest OS (be it Linux or Windows), the ESX hypervisor
-> carries all the plugins and the PF drivers and injects the right one as needed.
-> These plugins are guest agnostic and the IHVs do not have to write plugins for
-> different OS.
->    
-
-What ISAs do those plugins support?
-
--- 
-error compiling committee.c: too many arguments to function
