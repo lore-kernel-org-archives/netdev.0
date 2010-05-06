@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] forcedeth: Account for consumed budget in napi poll
-Date: Thu, 06 May 2010 00:14:19 -0700 (PDT)
-Message-ID: <20100506.001419.232749715.davem@davemloft.net>
-References: <alpine.DEB.1.00.1005052111440.31888@pokey.mtv.corp.google.com>
+Subject: Re: [PATCH 3/6] netdev: octeon_mgmt: Fix race manipulating irq
+ bits.
+Date: Thu, 06 May 2010 00:18:55 -0700 (PDT)
+Message-ID: <20100506.001855.15241347.davem@davemloft.net>
+References: <1273100593-11043-1-git-send-email-ddaney@caviumnetworks.com>
+	<1273100593-11043-4-git-send-email-ddaney@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Cc: netdev@vger.kernel.org, linux-mips@linux-mips.org
+To: ddaney@caviumnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59533
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47732
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753097Ab0EFHOM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 03:14:12 -0400
-In-Reply-To: <alpine.DEB.1.00.1005052111440.31888@pokey.mtv.corp.google.com>
+	by vger.kernel.org with ESMTP id S1754731Ab0EFHSs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 03:18:48 -0400
+In-Reply-To: <1273100593-11043-4-git-send-email-ddaney@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Wed, 5 May 2010 21:15:21 -0700 (PDT)
+From: David Daney <ddaney@caviumnetworks.com>
+Date: Wed,  5 May 2010 16:03:10 -0700
 
-> Repeated calls to nv_rx_process in napi poll routine do not take
-> portion of budget that has been consumed in previous calls.  Fix by
-> subtracting the number of packets processed.
+> Don't re-read the interrupt status register, clear the exact bits we
+> will be testing.
 > 
-> Signed-off-by: Tom Herbert <therbert@google.com>
+> Signed-off-by: David Daney <ddaney@caviumnetworks.com>
 
 Applied.
