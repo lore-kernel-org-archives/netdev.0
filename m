@@ -1,168 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel panic when using netns+bridges+tc(netem)
-Date: Thu, 06 May 2010 08:59:47 +0200
-Message-ID: <1273129187.2304.14.camel@edumazet-laptop>
-References: <o2wb9800b71005051801uc575c6abp5bad3bd50d54ef96@mail.gmail.com>
-	 <1273128002.2304.4.camel@edumazet-laptop>
-	 <1273128429.2304.5.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux kernel's IPV6_MULTICAST_HOPS default is 64; should be 1?
+Date: Thu, 06 May 2010 00:10:32 -0700 (PDT)
+Message-ID: <20100506.001032.245396059.davem@davemloft.net>
+References: <4BE1907F.40903@hp.com>
+	<20100505.150008.102542618.davem@davemloft.net>
+	<4BE2205A.3050900@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Mathieu Lacage <mathieu.lacage@sophia.inria.fr>,
-	David Miller <davem@davemloft.net>
-To: =?ISO-8859-1?Q?Mart=EDn?= Ferrari <martin.ferrari@gmail.com>,
-	Arnd Bergmann <arnd@arndb.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dlstevens@us.ibm.com, enh@google.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: brian.haley@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:61382 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751082Ab0EFG7y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 02:59:54 -0400
-Received: by bwz19 with SMTP id 19so302337bwz.21
-        for <netdev@vger.kernel.org>; Wed, 05 May 2010 23:59:52 -0700 (PDT)
-In-Reply-To: <1273128429.2304.5.camel@edumazet-laptop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39204
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751191Ab0EFHK0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 03:10:26 -0400
+In-Reply-To: <4BE2205A.3050900@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 06 mai 2010 =C3=A0 08:47 +0200, Eric Dumazet a =C3=A9crit :
-> Le jeudi 06 mai 2010 =C3=A0 08:40 +0200, Eric Dumazet a =C3=A9crit :
-> > Le jeudi 06 mai 2010 =C3=A0 03:01 +0200, Mart=C3=ADn Ferrari a =C3=A9=
-crit :
-> > > Hi there,
-> > >=20
-> > > While working on my project that uses netns, I found another bug.=
- This
-> > > one causes a "Kernel panic - not syncing: Fatal exception in
-> > > interrupt", and I can reproduce it in 2.6.33 and 2.6.34-rc5, but =
-not
-> > > in 2.6.32. It dies during a call to __free_skb.
-> > > I tested this on my x86_64 laptop (2 cores) and on qemu. In qemu =
-it
-> > > was not triggered until I asked it to emulate 2 cpus instead of o=
-ne,
-> > > so it is probably a SMP-only issue.
-> > >=20
-> > > Scenario:
-> > >=20
-> > > I set up a number of network namespaces, each with two veths to n=
-etns
-> > > 1. In the main namespace I take those veths and bridge them in pa=
-irs,
-> > > to configure a linear topology; also I configure the netem qdisc =
-to
-> > > simulate link delay.
-> > >=20
-> > > Once the network is set up, I run a client/server program to send=
- UDP
-> > > packets from one end of the topology to the other. After a few se=
-conds
-> > > of sending packets (not really deterministic) it panics.
-> > >=20
-> > > Note that I didn't experience this problem when using only 2
-> > > namespaces (so, no routing)
-> > >=20
-> > > below the dumps. These all come from the qemu, as I couldn't use
-> > > netconsole in the network at work, but I checked and the backtrac=
-es
-> > > were essentially the same
-> > >=20
-=2E..
-> > Could you please try following patch ?
-> >=20
-> > Thanks
-> >=20
-> > [PATCH] veth: Dont kfree_skb() after dev_forward_skb()
-> >=20
-> > In case of congestion, dev_forward_skb() already free the skb
-> >=20
-> > Reported-by: Mart=C3=ADn Ferrari <martin.ferrari@gmail.com>
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> > ---
-> > diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-> > index f9f0730..5ec542d 100644
-> > --- a/drivers/net/veth.c
-> > +++ b/drivers/net/veth.c
-> > @@ -187,7 +187,6 @@ tx_drop:
-> >  	return NETDEV_TX_OK;
-> > =20
-> >  rx_drop:
-> > -	kfree_skb(skb);
-> >  	rcv_stats->rx_dropped++;
-> >  	return NETDEV_TX_OK;
-> >  }
-> >=20
->=20
-> Hmm, scratch that one, I'll resubmit a proper fix in few minutes
->=20
-> (We must change dev_forward_skb() too)
->=20
+From: Brian Haley <brian.haley@hp.com>
+Date: Wed, 05 May 2010 21:50:18 -0400
 
-David, this is a stable candidate, once tested and acked, thanks !
+> David Miller wrote:
+>> From: Brian Haley <brian.haley@hp.com>
+>> Date: Wed, 05 May 2010 11:36:31 -0400
+>> 
+>>> I now see that in Elliot's email, but I think it's incorrect.  The RFC
+>>> says that setting it to -1 should get you the kernel default, which is
+>>> now 1.  Without this change, setting it to -1 will get you 64, the
+>>> old behavior.  If the user wants to, they can always just set it to
+>>> 64 themselves, that's better than assuming when you set it to -1
+>>> you're going to get 64.
+>> 
+>> It's not 64, it's whatever the per-route metric is.
+> 
+> Not unless that metric's been set via RTAX_HOPLIMIT (and I believe
+> this is the unicast hop limit value anyways), and that metric
+> defaults to -1.
 
-[PATCH] veth: Dont kfree_skb() after dev_forward_skb()
+Right, if it is, and anyone who does set it and expects the default
+multicast hop limit to follow along have no portable way to code their
+application in a way that works before and after fixing the RFC
+issues.
 
-In case of congestion, netif_rx() frees the skb, so we must assume
-dev_forward_skb() also consume skb.
+I gave them a way, by making explicit setting of "-1" do what it's
+always done.
 
-Bug introduced by commit 445409602c092
-(veth: move loopback logic to common location)
+> At this point in time I'll gladly implement a per-interface sysctl
+> to end this discussion.
 
-We must change dev_forward_skb() to always consume skb, and veth to not
-double free it.
-
-Bug report : http://marc.info/?l=3Dlinux-netdev&m=3D127310770900442&w=3D=
-3
-
-Reported-by: Mart=C3=ADn Ferrari <martin.ferrari@gmail.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- drivers/net/veth.c |    1 -
- net/core/dev.c     |   11 +++++------
- 2 files changed, 5 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index f9f0730..5ec542d 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -187,7 +187,6 @@ tx_drop:
- 	return NETDEV_TX_OK;
-=20
- rx_drop:
--	kfree_skb(skb);
- 	rcv_stats->rx_dropped++;
- 	return NETDEV_TX_OK;
- }
-diff --git a/net/core/dev.c b/net/core/dev.c
-index f769098..264137f 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1451,7 +1451,7 @@ static inline void net_timestamp(struct sk_buff *=
-skb)
-  *
-  * return values:
-  *	NET_RX_SUCCESS	(no congestion)
-- *	NET_RX_DROP     (packet was dropped)
-+ *	NET_RX_DROP     (packet was dropped, but freed)
-  *
-  * dev_forward_skb can be used for injecting an skb from the
-  * start_xmit function of one device into the receive queue
-@@ -1465,12 +1465,11 @@ int dev_forward_skb(struct net_device *dev, str=
-uct sk_buff *skb)
- {
- 	skb_orphan(skb);
-=20
--	if (!(dev->flags & IFF_UP))
--		return NET_RX_DROP;
--
--	if (skb->len > (dev->mtu + dev->hard_header_len))
-+	if (!(dev->flags & IFF_UP) ||
-+	    (skb->len > (dev->mtu + dev->hard_header_len))) {
-+		kfree_skb(skb);
- 		return NET_RX_DROP;
--
-+	}
- 	skb_set_dev(skb, dev);
- 	skb->tstamp.tv64 =3D 0;
- 	skb->pkt_type =3D PACKET_HOST;
-
+The game is over, the result decided, and this is just post-game
+discussion as far as I'm concerned. :-)
 
