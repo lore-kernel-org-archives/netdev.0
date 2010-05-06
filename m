@@ -1,67 +1,129 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: Receive issues with bonding and vlans
-Date: Thu, 06 May 2010 10:42:30 -0700
-Message-ID: <23107.1273167750@death.nxdomain.ibm.com>
-References: <20100412221645.8068.71073.stgit@localhost6.localdomain6> <29849.1271113851@death.nxdomain.ibm.com> <20100412233509.GA32302@cleech-lnx.jf.intel.com> <2695.1271117318@death.nxdomain.ibm.com> <4BDE3D3B.3030800@intel.com> <11804.1272911110@death.nxdomain.ibm.com> <4BDF3D67.3090906@intel.com> <12574.1272928653@death.nxdomain.ibm.com> <4BE103BE.3040805@intel.com>
-Cc: "Leech, Christopher" <christopher.leech@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Patrick McHardy <kaber@trash.net>,
-	"bonding-devel@lists.sourceforge.net"
-	<bonding-devel@lists.sourceforge.net>
-To: John Fastabend <john.r.fastabend@intel.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: ixgbe and mac-vlans problem
+Date: Thu, 6 May 2010 11:51:20 -0600
+Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FEA26A2D0@rrsmsx501.amr.corp.intel.com>
+References: <4BDA07DB.8020206@candelatech.com>
+ <201004302000.58763.arnd@arndb.de> <4BDB1CF3.8030906@candelatech.com>
+ <EA929A9653AAE14F841771FB1DE5A1365FE55609F0@rrsmsx501.amr.corp.intel.com>
+ <4BDB57A6.1090400@candelatech.com>
+ <EA929A9653AAE14F841771FB1DE5A1365FE5560B00@rrsmsx501.amr.corp.intel.com>
+ <4BE2ECEE.7070200@candelatech.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="_002_EA929A9653AAE14F841771FB1DE5A1365FEA26A2D0rrsmsx501amrc_"
+Cc: Arnd Bergmann <arnd@arndb.de>, NetDev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e1.ny.us.ibm.com ([32.97.182.141]:55821 "EHLO e1.ny.us.ibm.com"
+Received: from mga01.intel.com ([192.55.52.88]:50379 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754676Ab0EFRmi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 May 2010 13:42:38 -0400
-Received: from d01relay07.pok.ibm.com (d01relay07.pok.ibm.com [9.56.227.147])
-	by e1.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o46HbGPD017171
-	for <netdev@vger.kernel.org>; Thu, 6 May 2010 13:37:16 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay07.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o46HgY0x2113594
-	for <netdev@vger.kernel.org>; Thu, 6 May 2010 13:42:34 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o46HgXbd021872
-	for <netdev@vger.kernel.org>; Thu, 6 May 2010 14:42:34 -0300
-In-reply-to: <4BE103BE.3040805@intel.com>
+	id S1752553Ab0EFRvX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 May 2010 13:51:23 -0400
+In-Reply-To: <4BE2ECEE.7070200@candelatech.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-John Fastabend <john.r.fastabend@intel.com> wrote:
+--_002_EA929A9653AAE14F841771FB1DE5A1365FEA26A2D0rrsmsx501amrc_
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
->Jay Vosburgh wrote:
->> John Fastabend <john.r.fastabend@intel.com> wrote:
-[...]
->>> #3 bond0 --> ethx
->>>   vlanx --> -|
->>>
->>> Here is the case where adding the IFF_SLAVE bit doesn't work as I
->>> hoped. We don't want to run skb_bond_should_drop here.
->>
->>         Yes, this is tricky because the VLAN device will copy the
->> dev->flags from the device it's placed atop, so the VLAN will inherit
->> the ethx's IFF_SLAVE flag.  This happens regardless of the setup order
->> (enslave ethX, then add VLAN, or vice versa).
->>
->
->This doesn't appear to be true, adding a VLAN on ethx then enslave ethx
->doesn't set the IFF_SLAVE flag on the VLAN.  Unless I am missing
->something.
+Ben Greear wrote:
+> On 04/30/2010 03:26 PM, Tantilov, Emil S wrote:
+>> Ben Greear wrote:
+>>> On 04/30/2010 02:13 PM, Tantilov, Emil S wrote:
+>=20
+>>>> I ran a quick test in my setup with 82599 and was able to pass
+>>>> traffic on all 50 mac-vlans without issues. This is on net-next.
+>>>=20
+>>> For an 82599 system, I can get 127 mac-vlans working out of 500
+>>> created.=20
+>>>=20
+>>> That NIC also does not go PROMISC with lots (500) of mac-vlans.
+>>>=20
+>>> Once I put it in promisc mode manually, it works fine.
+>>>=20
+>>> So, I think whatever logic is supposed to put the NIC into promisc
+>>> mode when it overflows it's lookup tables isn't working for ixgbe
+>>> in 2.6.31.12.
+>>=20
+>> Yeah, you're right. I was able to repro it.
+>>=20
+>> We'll look into it.
+>=20
+> I'd be happy to test out a patch if you have one available.
+>=20
+> If you don't expect to have one soon, please let me know and
+> I'll add work-arounds to my code to throw ixgbe NICs into PROMISC
+> mode manually.
+>=20
+> Thanks,
+> Ben
 
-	I tried this again, and yes, the vlan device inherits the flags
-of the device at the time the vlan is added.
+Hi Ben,
 
-	I think I was confused because the vlan device doesn't lose
-IFF_SLAVE if the underlying ethX is taken out of the bond.  I suspect
-both of these behaviors are because netdev_set_master doesn't do a
-notifier call (just an rtmsg_ifinfo) when it changes dev->flags outside
-of dev_set_flags.
+We do have a patch in testing (see attached). It may not apply cleanly as i=
+t is on top of some other patches currently in validation. Let me know if i=
+t works for you.
 
-	I don't think the vlan device should pick up IFF_SLAVE, though,
-when the vlan device itself is not a slave, so that part seems correct.
+Thanks,
+Emil=
 
-	-J
+--_002_EA929A9653AAE14F841771FB1DE5A1365FEA26A2D0rrsmsx501amrc_
+Content-Type: application/octet-stream; name="ixgbe_macvlan_v5.patch"
+Content-Description: ixgbe_macvlan_v5.patch
+Content-Disposition: attachment; filename="ixgbe_macvlan_v5.patch"; size=2680;
+	creation-date="Thu, 06 May 2010 11:48:24 GMT";
+	modification-date="Thu, 06 May 2010 11:50:10 GMT"
+Content-Transfer-Encoding: base64
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+SW50cm9kdWNlIHVjX3NldF9wcm9taXNjIGZsYWcgdG8gYmV0dGVyIGhhbmRsZSB0aGUgZW5hYmxp
+bmcgb2YgcHJvbWlzYyB3aGVuCnRoZSBudW1iZXIgb2YgUkFScyBpcyBleGNlZWRlZC4KClNpZ25l
+ZC1vZmYtYnk6IEVtaWwgVGFudGlsb3YgPGVtaWwucy50YW50aWxvdkBpbnRlbC5jb20+CgogZHJp
+dmVycy9uZXQvaXhnYmUvaXhnYmVfY29tbW9uLmMgfCAgICA1ICsrKystCiBkcml2ZXJzL25ldC9p
+eGdiZS9peGdiZV9tYWluLmMgICB8ICAgIDggKysrKy0tLS0KIGRyaXZlcnMvbmV0L2l4Z2JlL2l4
+Z2JlX3R5cGUuaCAgIHwgICAgMSArCiAzIGZpbGVzIGNoYW5nZWQsIDkgaW5zZXJ0aW9ucygrKSwg
+NSBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9peGdiZS9peGdiZV9jb21t
+b24uYyBiL2RyaXZlcnMvbmV0L2l4Z2JlL2l4Z2JlX2NvbW1vbi5jCmluZGV4IGVlNDJmZDYuLjQ5
+Nzc1YjYgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2l4Z2JlL2l4Z2JlX2NvbW1vbi5jCisrKyBi
+L2RyaXZlcnMvbmV0L2l4Z2JlL2l4Z2JlX2NvbW1vbi5jCkBAIC0xMzk3LDE0ICsxMzk3LDE3IEBA
+IHMzMiBpeGdiZV91cGRhdGVfdWNfYWRkcl9saXN0X2dlbmVyaWMoc3RydWN0IGl4Z2JlX2h3ICpo
+dywKIAkJCWZjdHJsID0gSVhHQkVfUkVBRF9SRUcoaHcsIElYR0JFX0ZDVFJMKTsKIAkJCWZjdHJs
+IHw9IElYR0JFX0ZDVFJMX1VQRTsKIAkJCUlYR0JFX1dSSVRFX1JFRyhodywgSVhHQkVfRkNUUkws
+IGZjdHJsKTsKKwkJCWh3LT5hZGRyX2N0cmwudWNfc2V0X3Byb21pc2MgPSB0cnVlOwogCQl9CiAJ
+fSBlbHNlIHsKIAkJLyogb25seSBkaXNhYmxlIGlmIHNldCBieSBvdmVyZmxvdywgbm90IGJ5IHVz
+ZXIgKi8KLQkJaWYgKG9sZF9wcm9taXNjX3NldHRpbmcgJiYgIWh3LT5hZGRyX2N0cmwudXNlcl9z
+ZXRfcHJvbWlzYykgeworCQlpZiAoKG9sZF9wcm9taXNjX3NldHRpbmcgJiYgaHctPmFkZHJfY3Ry
+bC51Y19zZXRfcHJvbWlzYykgJiYKKwkJICAgIShody0+YWRkcl9jdHJsLnVzZXJfc2V0X3Byb21p
+c2MpKXsKIAkJCWh3X2RiZyhodywgIiBMZWF2aW5nIGFkZHJlc3Mgb3ZlcmZsb3cgcHJvbWlzYyBt
+b2RlXG4iKTsKIAkJCWZjdHJsID0gSVhHQkVfUkVBRF9SRUcoaHcsIElYR0JFX0ZDVFJMKTsKIAkJ
+CWZjdHJsICY9IH5JWEdCRV9GQ1RSTF9VUEU7CiAJCQlJWEdCRV9XUklURV9SRUcoaHcsIElYR0JF
+X0ZDVFJMLCBmY3RybCk7CisJCQlody0+YWRkcl9jdHJsLnVjX3NldF9wcm9taXNjID0gZmFsc2U7
+CiAJCX0KIAl9CiAKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2l4Z2JlL2l4Z2JlX21haW4uYyBi
+L2RyaXZlcnMvbmV0L2l4Z2JlL2l4Z2JlX21haW4uYwppbmRleCA1NzdhYzcyLi43YmYzYjQwIDEw
+MDY0NAotLS0gYS9kcml2ZXJzL25ldC9peGdiZS9peGdiZV9tYWluLmMKKysrIGIvZHJpdmVycy9u
+ZXQvaXhnYmUvaXhnYmVfbWFpbi5jCkBAIC0yOTcwLDggKzI5NzAsOCBAQCB2b2lkIGl4Z2JlX3Nl
+dF9yeF9tb2RlKHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYpCiAKIAlmY3RybCA9IElYR0JFX1JF
+QURfUkVHKGh3LCBJWEdCRV9GQ1RSTCk7CiAKLQlpZiAobmV0ZGV2LT5mbGFncyAmIElGRl9QUk9N
+SVNDKSB7Ci0JCWh3LT5hZGRyX2N0cmwudXNlcl9zZXRfcHJvbWlzYyA9IDE7CisJaWYgKG5ldGRl
+di0+ZmxhZ3MgJiBJRkZfUFJPTUlTQyl7CisJCWh3LT5hZGRyX2N0cmwudXNlcl9zZXRfcHJvbWlz
+YyA9IHRydWU7CQogCQlmY3RybCB8PSAoSVhHQkVfRkNUUkxfVVBFIHwgSVhHQkVfRkNUUkxfTVBF
+KTsKIAkJLyogZG9uJ3QgaGFyZHdhcmUgZmlsdGVyIHZsYW5zIGluIHByb21pc2MgbW9kZSAqLwog
+CQlpeGdiZV92bGFuX2ZpbHRlcl9kaXNhYmxlKGFkYXB0ZXIpOwpAQCAtMjk3OSwxMSArMjk3OSwx
+MSBAQCB2b2lkIGl4Z2JlX3NldF9yeF9tb2RlKHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYpCiAJ
+CWlmIChuZXRkZXYtPmZsYWdzICYgSUZGX0FMTE1VTFRJKSB7CiAJCQlmY3RybCB8PSBJWEdCRV9G
+Q1RSTF9NUEU7CiAJCQlmY3RybCAmPSB+SVhHQkVfRkNUUkxfVVBFOwotCQl9IGVsc2UgeworCQl9
+IGVsc2UgaWYgKCFody0+YWRkcl9jdHJsLnVjX3NldF9wcm9taXNjKSB7CiAJCQlmY3RybCAmPSB+
+KElYR0JFX0ZDVFJMX1VQRSB8IElYR0JFX0ZDVFJMX01QRSk7CiAJCX0KIAkJaXhnYmVfdmxhbl9m
+aWx0ZXJfZW5hYmxlKGFkYXB0ZXIpOwotCQlody0+YWRkcl9jdHJsLnVzZXJfc2V0X3Byb21pc2Mg
+PSAwOworCQlody0+YWRkcl9jdHJsLnVzZXJfc2V0X3Byb21pc2MgPSBmYWxzZTsJCiAJfQogCiAJ
+SVhHQkVfV1JJVEVfUkVHKGh3LCBJWEdCRV9GQ1RSTCwgZmN0cmwpOwpkaWZmIC0tZ2l0IGEvZHJp
+dmVycy9uZXQvaXhnYmUvaXhnYmVfdHlwZS5oIGIvZHJpdmVycy9uZXQvaXhnYmUvaXhnYmVfdHlw
+ZS5oCmluZGV4IDFjODljYmIuLjM4ZjI2YmIgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2l4Z2Jl
+L2l4Z2JlX3R5cGUuaAorKysgYi9kcml2ZXJzL25ldC9peGdiZS9peGdiZV90eXBlLmgKQEAgLTIy
+ODUsNiArMjI4NSw3IEBAIHN0cnVjdCBpeGdiZV9hZGRyX2ZpbHRlcl9pbmZvIHsKIAl1MzIgbWNf
+YWRkcl9pbl9yYXJfY291bnQ7CiAJdTMyIG10YV9pbl91c2U7CiAJdTMyIG92ZXJmbG93X3Byb21p
+c2M7CisJYm9vbCB1Y19zZXRfcHJvbWlzYzsKIAlib29sIHVzZXJfc2V0X3Byb21pc2M7CiB9Owog
+Cg==
+
+--_002_EA929A9653AAE14F841771FB1DE5A1365FEA26A2D0rrsmsx501amrc_--
