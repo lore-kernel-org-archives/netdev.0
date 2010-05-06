@@ -1,52 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: remove ip_rt_secret timer
-Date: Thu, 06 May 2010 22:10:14 +0200
-Message-ID: <1273176614.2222.21.camel@edumazet-laptop>
-References: <20100506171639.GA5063@hmsreliant.think-freely.org>
-	 <1273167155.2853.49.camel@edumazet-laptop>
-	 <20100506180233.GB5063@hmsreliant.think-freely.org>
-	 <1273170813.2222.10.camel@edumazet-laptop>
-	 <20100506195442.GC5063@hmsreliant.think-freely.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 transmit queue time outs
+Date: Thu, 6 May 2010 22:10:24 +0200
+Message-ID: <20100506201024.GA3541@electric-eye.fr.zoreil.com>
+References: <20100506141715.GC4480@ihatethathostname.lab.bos.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Kyle McMartin <kmcmartin@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:41986 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757130Ab0EFUKV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 16:10:21 -0400
-Received: by bwz19 with SMTP id 19so213857bwz.21
-        for <netdev@vger.kernel.org>; Thu, 06 May 2010 13:10:19 -0700 (PDT)
-In-Reply-To: <20100506195442.GC5063@hmsreliant.think-freely.org>
+Received: from 97.17.115-78.rev.gaoland.net ([78.115.17.97]:41542 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1757097Ab0EFUKi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 16:10:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20100506141715.GC4480@ihatethathostname.lab.bos.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Kyle McMartin <kmcmartin@redhat.com> :
+[...]
+> Some of our users have been seeing their r8169 cards just up and stop
+> transmitting packets pretty quickly after boot with recent kernels.
+[...]
+> Pid: 0, comm: swapper Not tainted 2.6.31.5-127.fc12.i686.PAE #1
 
-> Doing that doesn't solve my aim however, which is to avoid performing rt_genid
-> updates when no one is attacking you at all.  I completely agree that we can
-> start the gen_id at some random value (by forcing an initial invalidation),
-> however.  Beyond that however, if someone is managing to guess our secret value,
-> then we need to make our secret value more complex to determine.  Perhaps given
-> the reduction in the number of times we need to iterate our gen_id with the
-> timer gone, we can use something more heavyweight to determine the the hash
-> secret (the cprng perhaps?).
+Can they upgrade to 2.6.32.11-99.fc12.i686 and try an out-of-tree build
+of the driver at http://userweb.kernel.org/~romieu/r8169/2.6.32.11-99.fc12/ ?
 
-Secrets that dont change are known to be honey pots for hackers.
+It should be quite close to the current git kernel.
 
-I just dont see why we want to risk security regressions for something
-that proved to work well.
-
-Cache invalidation is just a genid change nowadays, and dont have side
-effects.
-
-Considering we do cache invalidation when routes are changed anyway, I
-dont get why we should avoid the invalidation once every xxx seconds...
-
-If you believe this cache invalidation has problems, maybe we should
-address them and not hide them ?
-
-
-
+-- 
+Ueimor
