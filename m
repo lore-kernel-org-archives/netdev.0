@@ -1,72 +1,47 @@
-From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-Subject: Re: [PATCH  kernel 2.6.34-rc5] lib8390: to be SMP safe
-Date: Fri, 7 May 2010 05:47:48 +0900
-Message-ID: <20100507054748.711826db.ken_kawasaki@spring.nifty.jp>
-References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
-	<20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
-	<20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
-	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
-	<20091213094411.18be2ff6.ken_kawasaki@spring.nifty.jp>
-	<20100307070256.cb86716d.ken_kawasaki@spring.nifty.jp>
-	<20100503194316.60c98272.ken_kawasaki@spring.nifty.jp>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: ixgbe and mac-vlans problem
+Date: Thu, 06 May 2010 13:49:14 -0700
+Message-ID: <4BE32B4A.2030409@candelatech.com>
+References: <4BDA07DB.8020206@candelatech.com> <201004302000.58763.arnd@arndb.de> <4BDB1CF3.8030906@candelatech.com> <EA929A9653AAE14F841771FB1DE5A1365FE55609F0@rrsmsx501.amr.corp.intel.com> <4BDB57A6.1090400@candelatech.com> <EA929A9653AAE14F841771FB1DE5A1365FE5560B00@rrsmsx501.amr.corp.intel.com> <4BE2ECEE.7070200@candelatech.com> <EA929A9653AAE14F841771FB1DE5A1365FEA26A2D0@rrsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Arnd Bergmann <arnd@arndb.de>, NetDev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userg506.nifty.com ([202.248.238.86]:60973 "EHLO
-	userg506.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932522Ab0EFUsR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 16:48:17 -0400
-Received: from localhost.localdomain (eaoska324027.adsl.ppp.infoweb.ne.jp [115.176.53.27])by userg506.nifty.com with SMTP id o46Km8fj011028
-	for <netdev@vger.kernel.org>; Fri, 7 May 2010 05:48:08 +0900
-In-Reply-To: <20100503194316.60c98272.ken_kawasaki@spring.nifty.jp>
+Received: from mail.candelatech.com ([208.74.158.172]:35575 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932557Ab0EFUt0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 16:49:26 -0400
+In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FEA26A2D0@rrsmsx501.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 05/06/2010 10:51 AM, Tantilov, Emil S wrote:
 
-Sorry, I cancel this patch
-and test it again.
+> Hi Ben,
+>
+> We do have a patch in testing (see attached). It may not apply cleanly as it is on top of some other patches currently in validation. Let me know if it works for you.
 
+It wasn't difficult to backport this patch to 2.6.31.12....
 
-Best Regards
-Ken
+I just tested this on an 85998 NIC and 50 MAC-VLANs worked fine.
 
-> 
-> lib8390:
-> 	write the value "ENISR_ALL" to register "EN0_IMR"
-> 	after enable_irq_lockdep_irqrestore. 
-> 
-> 	This patch avoids frequent transmit error on SMP system.
-> 
-> 
-> Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-> 
-> ---
-> 
-> --- linux-2.6.34-rc6/drivers/net/lib8390.c.orig	2010-05-02 16:49:57.000000000 +0900
-> +++ linux-2.6.34-rc6/drivers/net/lib8390.c	2010-05-02 18:09:18.000000000 +0900
-> @@ -367,9 +367,9 @@ static netdev_tx_t __ei_start_xmit(struc
->  				dev->name, ei_local->tx1, ei_local->tx2, ei_local->lasttx);
->  		ei_local->irqlock = 0;
->  		netif_stop_queue(dev);
-> -		ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
->  		spin_unlock(&ei_local->page_lock);
->  		enable_irq_lockdep_irqrestore(dev->irq, &flags);
-> +		ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
->  		dev->stats.tx_errors++;
->  		return NETDEV_TX_BUSY;
->  	}
-> @@ -407,10 +407,10 @@ static netdev_tx_t __ei_start_xmit(struc
->  
->  	/* Turn 8390 interrupts back on. */
->  	ei_local->irqlock = 0;
-> -	ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
->  
->  	spin_unlock(&ei_local->page_lock);
->  	enable_irq_lockdep_irqrestore(dev->irq, &flags);
-> +	ei_outb_p(ENISR_ALL, e8390_base + EN0_IMR);
->  
->  	dev_kfree_skb (skb);
->  	dev->stats.tx_bytes += send_length;
+The NIC doesn't show as PROMISC in any way I can detect, but I guess
+it must actually be in PROMISC mode:
+
+[root@i7-1qc-1 ~]# cat /sys/class/net/eth11/flags
+0x1003
+
+[root@i7-1qc-1 ~]# ip link show dev eth11
+2: eth11: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP qlen 1000
+     link/ether 00:e0:ed:11:25:12 brd ff:ff:ff:ff:ff:ff
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
