@@ -1,201 +1,180 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] ipv4: remove ip_rt_secret timer
-Date: Thu, 6 May 2010 13:16:39 -0400
-Message-ID: <20100506171639.GA5063@hmsreliant.think-freely.org>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [PATCH] net: deliver skbs on inactive slaves to exact matches
+Date: Thu, 06 May 2010 10:24:38 -0700
+Message-ID: <20100506172438.26339.93520.stgit@jf-dev2-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, nhorman@tuxdriver.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: john.r.fastabend@intel.com, christopher.leech@intel.com,
+	andy@greyhouse.net, kaber@trash.net, fubar@us.ibm.com
+To: bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:32951 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751274Ab0EFRQx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 13:16:53 -0400
-Content-Disposition: inline
+Received: from mga09.intel.com ([134.134.136.24]:7188 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751449Ab0EFRXw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 May 2010 13:23:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A while back there was a discussion regarding the rt_secret_interval timer.
-Given that we've had the ability to do emergency route cache rebuilds for awhile
-now, based on a statistical analysis of the various hash chain lengths in the
-cache, the use of the flush timer is somewhat redundant.  This patch removes the
-rt_secret_interval sysctl, allowing us to rely solely on the statistical
-analysis mechanism to determine the need for route cache flushes.
+Currently, the accelerated receive path for VLAN's will
+drop packets if the real device is an inactive slave and
+is not one of the special pkts tested for in
+skb_bond_should_drop().  This behavior is different then
+the non-accelerated path and for pkts over a bonded vlan.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+For example,
 
+vlanx -> bond0 -> ethx
 
- include/net/netns/ipv4.h |    1 
- net/ipv4/route.c         |  108 -----------------------------------------------
- 2 files changed, 2 insertions(+), 107 deletions(-)
+will be dropped in the vlan path and not delivered to any
+packet handlers.  However,
 
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index ae07fee..d68c3f1 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -55,7 +55,6 @@ struct netns_ipv4 {
- 	int sysctl_rt_cache_rebuild_count;
- 	int current_rt_cache_rebuild_count;
+bond0 -> vlanx -> ethx
+
+will be delivered to handlers that match the exact dev,
+because the VLAN path checks the real_dev which is not a
+slave and netif_recv_skb() doesn't drop frames but only
+delivers them to exact matches.
+
+This patch adds a pkt_type PACKET_DROP which is now used
+to identify skbs that would previously been dropped and
+allows the skb to continue to skb_netif_recv().  Here we
+add logic to check for PACKET_DROP and if so only deliver
+to handlers that match exactly.  IMHO this is more
+consistent and gives pkt handlers a way to identify skbs
+that come from inactive slaves.
+
+This allows a third case to function which is important for
+doing multipath with FCoE traffic while LAN traffic bonded,
+
+bond0 -> ethx
+          |
+vlanx -> --
+
+Here the vlan is not in bond0 but the FCoE handler can still
+receive the skb.  Previously these skbs were dropped.
+
+I have tested the following 4 configurations in failover modes
+and load balancing modes and have not seen any duplicate packets
+or unexpected bahavior.
+
+# bond0 -> ethx
+
+# vlanx -> bond0 -> ethx
+
+# bond0 -> vlanx -> ethx
+
+# bond0 -> ethx
+            |
+  vlanx -> --
+
+Also this removes the PACKET_FASTROUTE define which was not being
+used.
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+
+ include/linux/if_packet.h |    2 +-
+ net/8021q/vlan_core.c     |    4 ++--
+ net/core/dev.c            |   25 ++++++++++++++++++-------
+ 3 files changed, 21 insertions(+), 10 deletions(-)
+
+diff --git a/include/linux/if_packet.h b/include/linux/if_packet.h
+index 6ac23ef..9d079fa 100644
+--- a/include/linux/if_packet.h
++++ b/include/linux/if_packet.h
+@@ -28,7 +28,7 @@ struct sockaddr_ll {
+ #define PACKET_OUTGOING		4		/* Outgoing of any type */
+ /* These ones are invisible by user level */
+ #define PACKET_LOOPBACK		5		/* MC/BRD frame looped back */
+-#define PACKET_FASTROUTE	6		/* Fastrouted frame	*/
++#define PACKET_DROP		6		/* Drop packet 		*/
  
--	struct timer_list rt_secret_timer;
- 	atomic_t rt_genid;
+ /* Packet socket options */
  
- #ifdef CONFIG_IP_MROUTE
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index a947428..ffd3da1 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -129,7 +129,6 @@ static int ip_rt_gc_elasticity __read_mostly	= 8;
- static int ip_rt_mtu_expires __read_mostly	= 10 * 60 * HZ;
- static int ip_rt_min_pmtu __read_mostly		= 512 + 20 + 20;
- static int ip_rt_min_advmss __read_mostly	= 256;
--static int ip_rt_secret_interval __read_mostly	= 10 * 60 * HZ;
- static int rt_chain_length_max __read_mostly	= 20;
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index c584a0a..4510e08 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -12,7 +12,7 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
+ 		return NET_RX_DROP;
  
- static struct delayed_work expires_work;
-@@ -918,32 +917,11 @@ void rt_cache_flush_batch(void)
- 	rt_do_flush(!in_softirq());
- }
+ 	if (skb_bond_should_drop(skb, ACCESS_ONCE(skb->dev->master)))
+-		goto drop;
++		skb->pkt_type = PACKET_DROP;
  
--/*
-- * We change rt_genid and let gc do the cleanup
-- */
--static void rt_secret_rebuild(unsigned long __net)
--{
--	struct net *net = (struct net *)__net;
--	rt_cache_invalidate(net);
--	mod_timer(&net->ipv4.rt_secret_timer, jiffies + ip_rt_secret_interval);
--}
--
--static void rt_secret_rebuild_oneshot(struct net *net)
--{
--	del_timer_sync(&net->ipv4.rt_secret_timer);
--	rt_cache_invalidate(net);
--	if (ip_rt_secret_interval)
--		mod_timer(&net->ipv4.rt_secret_timer, jiffies + ip_rt_secret_interval);
--}
--
- static void rt_emergency_hash_rebuild(struct net *net)
- {
--	if (net_ratelimit()) {
-+	if (net_ratelimit())
- 		printk(KERN_WARNING "Route hash chain too long!\n");
--		printk(KERN_WARNING "Adjust your secret_interval!\n");
--	}
--
--	rt_secret_rebuild_oneshot(net);
-+	rt_cache_invalidate(net);
- }
+ 	skb->skb_iif = skb->dev->ifindex;
+ 	__vlan_hwaccel_put_tag(skb, vlan_tci);
+@@ -84,7 +84,7 @@ vlan_gro_common(struct napi_struct *napi, struct vlan_group *grp,
+ 	struct sk_buff *p;
  
- /*
-@@ -3101,48 +3079,6 @@ static int ipv4_sysctl_rtcache_flush(ctl_table *__ctl, int write,
- 	return -EINVAL;
- }
+ 	if (skb_bond_should_drop(skb, ACCESS_ONCE(skb->dev->master)))
+-		goto drop;
++		skb->pkt_type = PACKET_DROP;
  
--static void rt_secret_reschedule(int old)
--{
--	struct net *net;
--	int new = ip_rt_secret_interval;
--	int diff = new - old;
--
--	if (!diff)
--		return;
--
--	rtnl_lock();
--	for_each_net(net) {
--		int deleted = del_timer_sync(&net->ipv4.rt_secret_timer);
--		long time;
--
--		if (!new)
--			continue;
--
--		if (deleted) {
--			time = net->ipv4.rt_secret_timer.expires - jiffies;
--
--			if (time <= 0 || (time += diff) <= 0)
--				time = 0;
--		} else
--			time = new;
--
--		mod_timer(&net->ipv4.rt_secret_timer, jiffies + time);
--	}
--	rtnl_unlock();
--}
--
--static int ipv4_sysctl_rt_secret_interval(ctl_table *ctl, int write,
--					  void __user *buffer, size_t *lenp,
--					  loff_t *ppos)
--{
--	int old = ip_rt_secret_interval;
--	int ret = proc_dointvec_jiffies(ctl, write, buffer, lenp, ppos);
--
--	rt_secret_reschedule(old);
--
--	return ret;
--}
--
- static ctl_table ipv4_route_table[] = {
- 	{
- 		.procname	= "gc_thresh",
-@@ -3251,13 +3187,6 @@ static ctl_table ipv4_route_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec,
- 	},
--	{
--		.procname	= "secret_interval",
--		.data		= &ip_rt_secret_interval,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= ipv4_sysctl_rt_secret_interval,
--	},
- 	{ }
- };
+ 	skb->skb_iif = skb->dev->ifindex;
+ 	__vlan_hwaccel_put_tag(skb, vlan_tci);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 36d53be..cefac4f 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2776,7 +2776,7 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ 	struct net_device *orig_dev;
+ 	struct net_device *master;
+ 	struct net_device *null_or_orig;
+-	struct net_device *null_or_bond;
++	struct net_device *dev_or_bond;
+ 	int ret = NET_RX_DROP;
+ 	__be16 type;
  
-@@ -3337,36 +3266,6 @@ static __net_initdata struct pernet_operations sysctl_route_ops = {
- #endif
+@@ -2793,13 +2793,24 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ 	if (!skb->skb_iif)
+ 		skb->skb_iif = skb->dev->ifindex;
  
++	/*
++	 * bonding note: skbs received on inactive slaves should only
++	 * be delivered to pkt handlers that are exact matches.  Also
++	 * the pkt_type field will be marked PACKET_DROP.  If packet
++	 * handlers are sensitive to duplicate packets these skbs will
++	 * need to be dropped at the handler.  The vlan accel path may
++	 * have already set PACKET_DROP.
++	 */
+ 	null_or_orig = NULL;
+ 	orig_dev = skb->dev;
+ 	master = ACCESS_ONCE(orig_dev->master);
+-	if (master) {
+-		if (skb_bond_should_drop(skb, master))
++	if (skb->pkt_type == PACKET_DROP)
++		null_or_orig = orig_dev;
++	else if (master) {
++		if (skb_bond_should_drop(skb, master)) {
++			skb->pkt_type = PACKET_DROP;
+ 			null_or_orig = orig_dev; /* deliver only exact match */
+-		else
++		} else
+ 			skb->dev = master;
+ 	}
  
--static __net_init int rt_secret_timer_init(struct net *net)
--{
--	atomic_set(&net->ipv4.rt_genid,
--			(int) ((num_physpages ^ (num_physpages>>8)) ^
--			(jiffies ^ (jiffies >> 7))));
--
--	net->ipv4.rt_secret_timer.function = rt_secret_rebuild;
--	net->ipv4.rt_secret_timer.data = (unsigned long)net;
--	init_timer_deferrable(&net->ipv4.rt_secret_timer);
--
--	if (ip_rt_secret_interval) {
--		net->ipv4.rt_secret_timer.expires =
--			jiffies + net_random() % ip_rt_secret_interval +
--			ip_rt_secret_interval;
--		add_timer(&net->ipv4.rt_secret_timer);
--	}
--	return 0;
--}
--
--static __net_exit void rt_secret_timer_exit(struct net *net)
--{
--	del_timer_sync(&net->ipv4.rt_secret_timer);
--}
--
--static __net_initdata struct pernet_operations rt_secret_timer_ops = {
--	.init = rt_secret_timer_init,
--	.exit = rt_secret_timer_exit,
--};
--
--
- #ifdef CONFIG_NET_CLS_ROUTE
- struct ip_rt_acct __percpu *ip_rt_acct __read_mostly;
- #endif /* CONFIG_NET_CLS_ROUTE */
-@@ -3424,9 +3323,6 @@ int __init ip_rt_init(void)
- 	schedule_delayed_work(&expires_work,
- 		net_random() % ip_rt_gc_interval + ip_rt_gc_interval);
+@@ -2849,10 +2860,10 @@ ncls:
+ 	 * device that may have registered for a specific ptype.  The
+ 	 * handler may have to adjust skb->dev and orig_dev.
+ 	 */
+-	null_or_bond = NULL;
++	dev_or_bond = skb->dev;
+ 	if ((skb->dev->priv_flags & IFF_802_1Q_VLAN) &&
+ 	    (vlan_dev_real_dev(skb->dev)->priv_flags & IFF_BONDING)) {
+-		null_or_bond = vlan_dev_real_dev(skb->dev);
++		dev_or_bond = vlan_dev_real_dev(skb->dev);
+ 	}
  
--	if (register_pernet_subsys(&rt_secret_timer_ops))
--		printk(KERN_ERR "Unable to setup rt_secret_timer\n");
--
- 	if (ip_rt_proc_init())
- 		printk(KERN_ERR "Unable to create route proc files\n");
- #ifdef CONFIG_XFRM
+ 	type = skb->protocol;
+@@ -2860,7 +2871,7 @@ ncls:
+ 			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
+ 		if (ptype->type == type && (ptype->dev == null_or_orig ||
+ 		     ptype->dev == skb->dev || ptype->dev == orig_dev ||
+-		     ptype->dev == null_or_bond)) {
++		     ptype->dev == dev_or_bond)) {
+ 			if (pt_prev)
+ 				ret = deliver_skb(skb, pt_prev, orig_dev);
+ 			pt_prev = ptype;
+
