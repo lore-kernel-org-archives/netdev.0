@@ -1,50 +1,46 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: ixgbe and mac-vlans problem
-Date: Thu, 06 May 2010 20:12:02 -0700
-Message-ID: <4BE38502.2000507@candelatech.com>
-References: <4BDA07DB.8020206@candelatech.com> <201004302000.58763.arnd@arndb.de> <4BDB1CF3.8030906@candelatech.com> <EA929A9653AAE14F841771FB1DE5A1365FE55609F0@rrsmsx501.amr.corp.intel.com> <4BDB57A6.1090400@candelatech.com> <EA929A9653AAE14F841771FB1DE5A1365FE5560B00@rrsmsx501.amr.corp.intel.com> <4BE2ECEE.7070200@candelatech.com> <EA929A9653AAE14F841771FB1DE5A1365FEA26A2D0@rrsmsx501.amr.corp.intel.com> <4BE32B4A.2030409@candelatech.com> <EA929A9653AAE14F841771FB1DE5A1365FEA26A969@rrsmsx501.amr.corp.intel.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [v5 Patch 1/3] netpoll: add generic support for bridge and bonding
+ devices
+Date: Fri, 07 May 2010 11:24:16 +0800
+Message-ID: <4BE387E0.1040802@redhat.com>
+References: <20100505081514.5157.83783.sendpatchset@localhost.localdomain>	<1273111530.21962.2753.camel@calx> <20100506.004457.71584133.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>, NetDev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Cc: mpm@selenic.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	gospo@redhat.com, nhorman@tuxdriver.com, jmoyer@redhat.com,
+	shemminger@linux-foundation.org,
+	bonding-devel@lists.sourceforge.net, fubar@us.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:58098 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753031Ab0EGDML (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 23:12:11 -0400
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FEA26A969@rrsmsx501.amr.corp.intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:21837 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752628Ab0EGDVv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 May 2010 23:21:51 -0400
+In-Reply-To: <20100506.004457.71584133.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/06/2010 05:06 PM, Tantilov, Emil S wrote:
-> Ben Greear wrote:
->> On 05/06/2010 10:51 AM, Tantilov, Emil S wrote:
->>
->>> Hi Ben,
->>>
->>> We do have a patch in testing (see attached). It may not apply
->>> cleanly as it is on top of some other patches currently in
->>> validation. Let me know if it works for you.
->>
->> It wasn't difficult to backport this patch to 2.6.31.12....
->>
->> I just tested this on an 85998 NIC and 50 MAC-VLANs worked fine.
->>
->> The NIC doesn't show as PROMISC in any way I can detect, but I guess
->> it must actually be in PROMISC mode:
+On 05/06/10 15:44, David Miller wrote:
+> From: Matt Mackall<mpm@selenic.com>
+> Date: Wed, 05 May 2010 21:05:30 -0500
 >
-> Yes the interface is in promisc mode. The driver sets the FCTRL.UPE bit
-> (unicast promisc mode) when the number of allowed rar_entries is exceeded.
+>> On Wed, 2010-05-05 at 04:11 -0400, Amerigo Wang wrote:
+>>> V5:
+>>> Fix coding style problems pointed by David.
+>>
+>> Aside from my concern about the policy of disabling netpoll on
+>> bridges/bonds with only partial netpoll support, I don't have any
+>> remaining issues with this. But I'll leave it to other folks to ack the
+>> underlying driver bits for this series.
+>
+> Yes the partial support handling is a thorny issue.
+>
+> But this patch set makes things better than they were before, because
+> support over such devices didn't work at all previously.
+>
+> So I'll toss these patches into net-next-2.6, thanks everyone!
 
-Is there any way to get this setting from ethtool or similar?  It would be nice
-to know the actual PROMISC state of the NIC regardless of what user-space has or has not
-configured.
+Thank you, David.
 
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
