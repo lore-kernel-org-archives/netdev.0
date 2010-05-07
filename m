@@ -1,61 +1,50 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the suspend tree
-Date: Fri, 7 May 2010 13:08:21 +1000
-Message-ID: <20100507130821.3fb72c9d.sfr@canb.auug.org.au>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: ixgbe and mac-vlans problem
+Date: Thu, 06 May 2010 20:12:02 -0700
+Message-ID: <4BE38502.2000507@candelatech.com>
+References: <4BDA07DB.8020206@candelatech.com> <201004302000.58763.arnd@arndb.de> <4BDB1CF3.8030906@candelatech.com> <EA929A9653AAE14F841771FB1DE5A1365FE55609F0@rrsmsx501.amr.corp.intel.com> <4BDB57A6.1090400@candelatech.com> <EA929A9653AAE14F841771FB1DE5A1365FE5560B00@rrsmsx501.amr.corp.intel.com> <4BE2ECEE.7070200@candelatech.com> <EA929A9653AAE14F841771FB1DE5A1365FEA26A2D0@rrsmsx501.amr.corp.intel.com> <4BE32B4A.2030409@candelatech.com> <EA929A9653AAE14F841771FB1DE5A1365FEA26A969@rrsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Helmut Schaa <Helmut.Schaa@gmx.de>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Arnd Bergmann <arnd@arndb.de>, NetDev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:58098 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753031Ab0EGDML (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 23:12:11 -0400
+In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FEA26A969@rrsmsx501.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Rafael,
+On 05/06/2010 05:06 PM, Tantilov, Emil S wrote:
+> Ben Greear wrote:
+>> On 05/06/2010 10:51 AM, Tantilov, Emil S wrote:
+>>
+>>> Hi Ben,
+>>>
+>>> We do have a patch in testing (see attached). It may not apply
+>>> cleanly as it is on top of some other patches currently in
+>>> validation. Let me know if it works for you.
+>>
+>> It wasn't difficult to backport this patch to 2.6.31.12....
+>>
+>> I just tested this on an 85998 NIC and 50 MAC-VLANs worked fine.
+>>
+>> The NIC doesn't show as PROMISC in any way I can detect, but I guess
+>> it must actually be in PROMISC mode:
+>
+> Yes the interface is in promisc mode. The driver sets the FCTRL.UPE bit
+> (unicast promisc mode) when the number of allowed rar_entries is exceeded.
 
-After merging the suspend tree, today's linux-next build (x86_64
-allmodconfig) failed like this:
+Is there any way to get this setting from ethtool or similar?  It would be nice
+to know the actual PROMISC state of the NIC regardless of what user-space has or has not
+configured.
 
-net/mac80211/scan.c: In function 'ieee80211_scan_state_decision':
-net/mac80211/scan.c:510: error: implicit declaration of function 'pm_qos_requirement'
-
-Caused by commit 62bad14fc6e0911a99882c261390968977d43283 ("PM QOS
-update") from the suspend tree interacting with commit
-df13cce53a7b28a81460e6bfc4857e9df4956141 ("mac80211: Improve software
-scan timing") from the net tree.
-
-I have added the following merge fixup patch and can carry it as
-necessary:
-
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Fri, 7 May 2010 13:02:54 +1000
-Subject: [PATCH] wireless: update for pm_qos_requirement to pm_qos_request rename
-
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- net/mac80211/scan.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/mac80211/scan.c b/net/mac80211/scan.c
-index e14c441..e1b0be7 100644
---- a/net/mac80211/scan.c
-+++ b/net/mac80211/scan.c
-@@ -510,7 +510,7 @@ static int ieee80211_scan_state_decision(struct ieee80211_local *local,
- 		bad_latency = time_after(jiffies +
- 				ieee80211_scan_get_channel_time(next_chan),
- 				local->leave_oper_channel_time +
--				usecs_to_jiffies(pm_qos_requirement(PM_QOS_NETWORK_LATENCY)));
-+				usecs_to_jiffies(pm_qos_request(PM_QOS_NETWORK_LATENCY)));
- 
- 		listen_int_exceeded = time_after(jiffies +
- 				ieee80211_scan_get_channel_time(next_chan),
--- 
-1.7.1
+Thanks,
+Ben
 
 -- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
