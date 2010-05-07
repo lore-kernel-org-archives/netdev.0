@@ -1,44 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: udp: make short packet logging consistent with
- ipv4
-Date: Thu, 06 May 2010 21:50:34 -0700 (PDT)
-Message-ID: <20100506.215034.43036998.davem@davemloft.net>
-References: <1273153475-32363-1-git-send-email-bjorn@mork.no>
-	<1273153475-32363-2-git-send-email-bjorn@mork.no>
-	<1273157366.2853.10.camel@edumazet-laptop>
+From: Kyle McMartin <kmcmartin@redhat.com>
+Subject: Re: r8169 transmit queue time outs
+Date: Fri, 7 May 2010 00:51:02 -0400
+Message-ID: <20100507045102.GF4480@ihatethathostname.lab.bos.redhat.com>
+References: <20100506141715.GC4480@ihatethathostname.lab.bos.redhat.com>
+ <20100506201024.GA3541@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bjorn@mork.no, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Kyle McMartin <kmcmartin@redhat.com>, netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48704
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750703Ab0EGEu1 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 May 2010 00:50:27 -0400
-In-Reply-To: <1273157366.2853.10.camel@edumazet-laptop>
+Received: from mx1.redhat.com ([209.132.183.28]:41218 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751129Ab0EGEvK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 May 2010 00:51:10 -0400
+Content-Disposition: inline
+In-Reply-To: <20100506201024.GA3541@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 06 May 2010 16:49:26 +0200
+On Thu, May 06, 2010 at 10:10:24PM +0200, Francois Romieu wrote:
+> Kyle McMartin <kmcmartin@redhat.com> :
+> [...]
+> > Some of our users have been seeing their r8169 cards just up and stop
+> > transmitting packets pretty quickly after boot with recent kernels.
+> [...]
+> > Pid: 0, comm: swapper Not tainted 2.6.31.5-127.fc12.i686.PAE #1
+> 
+> Can they upgrade to 2.6.32.11-99.fc12.i686 and try an out-of-tree build
+> of the driver at http://userweb.kernel.org/~romieu/r8169/2.6.32.11-99.fc12/ ?
+> 
+> It should be quite close to the current git kernel.
+> 
 
-> Le jeudi 06 mai 2010 =E0 15:44 +0200, Bj=F8rn Mork a =E9crit :
->> Adding addresses and ports to the short packet log message,
->> like ipv4/udp.c does it, makes these messages a lot more useful:
->>=20
->> [  822.182450] UDPv6: short packet: From [2001:db8:ffb4:3::1]:47839 =
-23715/178 to [2001:db8:ffb4:3:5054:ff:feff:200]:1234
->>=20
->> This requires us to drop logging in case pskb_may_pull() fails,
->> which also is consistent with ipv4/udp.c
->>=20
->> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
->> ---
->>  net/ipv6/udp.c |   11 ++++++++---
->>  1 files changed, 8 insertions(+), 3 deletions(-)
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Thanks Francois, I've done a build for F-12 and F-13 with that driver
+for the users, and updated the bugs with links to the builds.
 
-Applied to net-next-2.6, thanks.
+I'll let you know if it helps things.
+
+Thanks again, Kyle.
