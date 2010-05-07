@@ -1,43 +1,38 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: Re: [PATCH net-next-2.6] net: Increase NET_SKB_PAD to 64 bytes
-Date: Fri, 07 May 2010 11:02:51 +0200
-Message-ID: <4BE3D73B.4080002@monstr.eu>
-References: <20100506.220221.90798296.davem@davemloft.net>	<1273209321.2222.36.camel@edumazet-laptop>	<4BE3C70C.4060705@monstr.eu> <20100507.013216.133893678.davem@davemloft.net>
-Reply-To: monstr@monstr.eu
+From: David Miller <davem@davemloft.net>
+Subject: Re: TCP-MD5 checksum failure on x86_64 SMP
+Date: Fri, 07 May 2010 02:12:51 -0700 (PDT)
+Message-ID: <20100507.021251.146344534.davem@davemloft.net>
+References: <i2y571fb4001005060455m39bed7f7if5fcfc45b12bc4d3@mail.gmail.com>
+	<1273147586.2357.63.camel@edumazet-laptop>
+	<70125082-4A0B-4E54-A7F6-B6CDC0375E78@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, hadi@cyberus.ca,
-	therbert@google.com, microblaze-uclinux@itee.uq.edu.au
-To: David Miller <davem@davemloft.net>
+Cc: eric.dumazet@gmail.com, bhaskie@gmail.com, shemminger@vyatta.com,
+	bhutchings@solarflare.com, netdev@vger.kernel.org
+To: lars.eggert@nokia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.156]:34943 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754904Ab0EGJD2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 May 2010 05:03:28 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so2514018fgg.1
-        for <netdev@vger.kernel.org>; Fri, 07 May 2010 02:03:27 -0700 (PDT)
-In-Reply-To: <20100507.013216.133893678.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58320
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750824Ab0EGJMp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 May 2010 05:12:45 -0400
+In-Reply-To: <70125082-4A0B-4E54-A7F6-B6CDC0375E78@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Michal Simek <monstr@monstr.eu>
-> Date: Fri, 07 May 2010 09:53:48 +0200
-> 
->> I will add this Microblaze patch to my repo for testing and anyway
->> should go through my repo.
-> 
-> It's already in the net-next-2.6 tree.
+From: Lars Eggert <lars.eggert@nokia.com>
+Date: Fri, 7 May 2010 11:46:40 +0300
 
-hmm. Not happy from it. I will test that patch from linux-next.
+> You'll obviously still want TCP-MD5 support for talking to existing
+> equipment, but significant cycles would IMO be better spent on
+> TCP-AO.
 
-Michal
+Code we have and users use which is unstable and crashes is more
+important to work on and fix than code we don't have which
+user's therefore don't use.
 
+You're wrong from just about every possible angle.
 
+Whoever finds AO useful will work on it, just as was the case with MD5
+support.  And right now, that "whoever" is definitely not us. :-)
 
--- 
-Michal Simek, Ing. (M.Eng)
-w: www.monstr.eu p: +42-0-721842854
-Maintainer of Linux kernel 2.6 Microblaze Linux - http://www.monstr.eu/fdt/
-Microblaze U-BOOT custodian
