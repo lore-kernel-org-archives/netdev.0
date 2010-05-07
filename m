@@ -1,46 +1,52 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [v5 Patch 1/3] netpoll: add generic support for bridge and bonding
- devices
-Date: Fri, 07 May 2010 11:24:16 +0800
-Message-ID: <4BE387E0.1040802@redhat.com>
-References: <20100505081514.5157.83783.sendpatchset@localhost.localdomain>	<1273111530.21962.2753.camel@calx> <20100506.004457.71584133.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv4: udp: fix short packet and bad checksum logging
+Date: Thu, 06 May 2010 21:48:51 -0700 (PDT)
+Message-ID: <20100506.214851.137842513.davem@davemloft.net>
+References: <1273153475-32363-1-git-send-email-bjorn@mork.no>
+	<1273157280.2853.9.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: mpm@selenic.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	gospo@redhat.com, nhorman@tuxdriver.com, jmoyer@redhat.com,
-	shemminger@linux-foundation.org,
-	bonding-devel@lists.sourceforge.net, fubar@us.ibm.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bjorn@mork.no, netdev@vger.kernel.org, stable@kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21837 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752628Ab0EGDVv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 May 2010 23:21:51 -0400
-In-Reply-To: <20100506.004457.71584133.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48699
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750987Ab0EGEso convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 May 2010 00:48:44 -0400
+In-Reply-To: <1273157280.2853.9.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/06/10 15:44, David Miller wrote:
-> From: Matt Mackall<mpm@selenic.com>
-> Date: Wed, 05 May 2010 21:05:30 -0500
->
->> On Wed, 2010-05-05 at 04:11 -0400, Amerigo Wang wrote:
->>> V5:
->>> Fix coding style problems pointed by David.
->>
->> Aside from my concern about the policy of disabling netpoll on
->> bridges/bonds with only partial netpoll support, I don't have any
->> remaining issues with this. But I'll leave it to other folks to ack the
->> underlying driver bits for this series.
->
-> Yes the partial support handling is a thorny issue.
->
-> But this patch set makes things better than they were before, because
-> support over such devices didn't work at all previously.
->
-> So I'll toss these patches into net-next-2.6, thanks everyone!
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 06 May 2010 16:48:00 +0200
 
-Thank you, David.
+> Le jeudi 06 mai 2010 =E0 15:44 +0200, Bj=F8rn Mork a =E9crit :
+>> commit 2783ef23 moved the initialisation of saddr and daddr after
+>> pskb_may_pull() to avoid a potential data corruption.  Unfortunately
+>> also placing it after the short packet and bad checksum error paths,
+>> where these variables are used for logging.  The result is bogus
+>> output like
+>>=20
+>> [92238.389505] UDP: short packet: From 2.0.0.0:65535 23715/178 to 0.=
+0.0.0:65535
+>>=20
+>> Moving the saddr and daddr initialisation above the error paths, whi=
+le still
+>> keeping it after the pskb_may_pull() to keep the fix from commit 278=
+3ef23.
+>>=20
+>> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
+>> Cc: stable@kernel.org
+>> ---
+>>  net/ipv4/udp.c |    6 +++---
+>>  1 files changed, 3 insertions(+), 3 deletions(-)
+>=20
+> Well done :)
+>=20
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+> To be backported to 2.6.29 and up kernels ;)
 
+Applied to net-2.6 and queued up for -stable, thanks!
