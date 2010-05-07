@@ -1,136 +1,109 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] ipv4: remove ip_rt_secret timer (v3)
-Date: Fri, 7 May 2010 19:15:43 -0400
-Message-ID: <20100507231543.GB2098@localhost.localdomain>
-References: <20100506171639.GA5063@hmsreliant.think-freely.org>
- <20100507195528.GA3752@hmsreliant.think-freely.org>
- <1273266271.2325.16.camel@edumazet-laptop>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH][v4] tcp: fix ICMP-RTO war
+Date: Fri, 7 May 2010 16:25:46 -0700
+Message-ID: <n2gd1c2719f1005071625nd3df3d72t9655a1f64f2fd825@mail.gmail.com>
+References: <4B7303C2.5000703@tvk.rwth-aachen.de>
+	 <alpine.DEB.2.00.1002151535030.7063@wel-95.cs.helsinki.fi>
+	 <20100221.181029.71107197.davem@davemloft.net>
+	 <o2z349f35ee1005071622z38fcd66ek398402d7512542ae@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: ilpo.jarvinen@helsinki.fi, netdev@vger.kernel.org
+To: damian@tvk.rwth-aachen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:36773 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750919Ab0EGXPx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 May 2010 19:15:53 -0400
-Content-Disposition: inline
-In-Reply-To: <1273266271.2325.16.camel@edumazet-laptop>
+Received: from smtp-out.google.com ([74.125.121.35]:41922 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750951Ab0EGXZv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 May 2010 19:25:51 -0400
+Received: from kpbe17.cbf.corp.google.com (kpbe17.cbf.corp.google.com [172.25.105.81])
+	by smtp-out.google.com with ESMTP id o47NPm5G018773
+	for <netdev@vger.kernel.org>; Fri, 7 May 2010 16:25:49 -0700
+Received: from gxk24 (gxk24.prod.google.com [10.202.11.24])
+	by kpbe17.cbf.corp.google.com with ESMTP id o47NPWh4004173
+	for <netdev@vger.kernel.org>; Fri, 7 May 2010 16:25:47 -0700
+Received: by gxk24 with SMTP id 24so997381gxk.18
+        for <netdev@vger.kernel.org>; Fri, 07 May 2010 16:25:47 -0700 (PDT)
+In-Reply-To: <o2z349f35ee1005071622z38fcd66ek398402d7512542ae@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 07, 2010 at 11:04:31PM +0200, Eric Dumazet wrote:
-> Le vendredi 07 mai 2010 =E0 15:55 -0400, Neil Horman a =E9crit :
-> > Hey-
-> > 	Sorry for the delay, but I got interested in Erics suggestion of
-> > changing how we update rt_genid, and had a few thoughts.  Heres ver=
-sion 3 of
-> > this patch:
-> >=20
->=20
-> We have time, no hurry Neil.
->=20
-Yeah, but if I don't keep on top of they slip off my todo list pretty q=
-uick :)
+Hi,
 
-> > Change Notes:
-> >=20
-> > 1) Removed the secret_interval binary interface entry in the list (=
-forgot to do
-> > that before)
-> >=20
-> > 2) Took Erics Suggestion to change the update for net->ipv4.rt_geni=
-d.  Now
-> > instead of doing a small incremental change, we simply grab 32 new =
-random bits.
-> >=20
->=20
-> My suggestion was to initialize _once_ at boot time, the _full_ 32bit=
-s.
->=20
-Apologies, my read of your statement was that you wanted to randomize t=
-he genid
-every iteration, not just the first, to avoid the genid n+1 being withi=
-n 256 of
-the last genid.
+I'm working on a patch that tries to measure and use the RTT for the pa=
+ssive
+open side when the TS option is NOT enabled. My code conflicts with you=
+r
+recently added "tcp_ack_update_rtt(sk, 0, 0);" Could you tell me why do=
+ you
+force this call for the no-TS case when obviously "0" is not a measured=
+ RTT?
+If you try to force icsk_rto to be initialized correctly, it is
+already initialized to
+TCP_TIMEOUT_INIT by tcp_create_openreq_child(). What am I missing?
 
-> Not to change the perturbations, they are very fine, and need no extr=
-a
-> CONFIG_SOME_MAGICAL_SWITCH.
->=20
-> We have a guarantee that no duplicates are delivered unless you perfo=
-rm
-> 2^24 generations in a short period of time.
->=20
-Yes, I mentioned that, thats why I added the index check.
+Thanks,
 
-> But because you want to change full 32bits, you need a complex dupche=
-ck
-> thing ?
->=20
-We don't _need_ it, thats why I made it configurable.
+Jerry
 
-> > 3) The change in (2) got me thinking that part of the reason we use=
-d the Jenkins
-> > hash in rt_genid was to ensure non-repetion of id's in a short time=
- period
-> > (which is important, so as not to inadvertently reuse route cache e=
-ntries that
-> > should be getting expired).  While extra randomness makes it harder=
- for
-> > attackers to guess the secret, it makes it possible to return to pr=
-eviously
-> > guessed values as well (if they're lucky).  As such, I created a co=
-nfigurable
-> > option, CONFIG_GENID_DUPCHECK.  With this option on, the low order =
-8 bits of the
-> > genid are replaced with a rolling counter, that increments on each =
-new genid.
-> > This creates in effect, a 256 deep list of previously used genid va=
-lues.  In
-> > rt_drop we compare the genids for duplicates.  If we find that 2 ge=
-nid values
-> > have different indexes, but idential remaining bits, they are noted=
- as a repeat
-> > genid, and we call rt_cache_invalidate to generate a new genid and =
-avoid the
-> > duplication problem.
-> >=20
-> >=20
->=20
-> This is not necessary and over engineering if you ask me.
->=20
-I can't say I disagree, but I was looking at this change based on your
-suggestion.
-
-> You now rely on probabilistic rules, and depends on get_random_bytes(=
-)
-> be really random, or a new CONFIG setting...
->=20
-> What exact problem do you want to solve Neil ?
->=20
-You know good and well what I'm trying to do here, don't be thick.  The=
- only
-reason I was making changes to the genid in the first place was because=
- you were
-asking for them.  I'm more than happy to make a simpler version of this=
-=2E
-Apologies for not interpreting your previous request the way you had in=
-tended.
-
-> Please submit your initial patch, with the small changes :
->=20
-> 1) Remove the secret_interval binary interface entry in the list=20
->=20
-> 2) Initialize full 32bits at struct net init time.
->=20
-Yeah, ok.  I'll repost on monday.
-
-
-Thanks
-Neil
-
-
-
+>From: David Miller <davem@davemloft.net>
+>
+> Date: Sun, Feb 21, 2010 at 7:10 PM
+> Subject: Re: [PATCH][v4] tcp: fix ICMP-RTO war
+> To: ilpo.jarvinen@helsinki.fi
+> Cc: damian@tvk.rwth-aachen.de, netdev@vger.kernel.org
+>
+>
+> From: "Ilpo J=E4rvinen" <ilpo.jarvinen@helsinki.fi>
+> Date: Tue, 16 Feb 2010 14:45:25 +0200 (EET)
+>
+> > On Wed, 10 Feb 2010, Damian Lukowski wrote:
+> >
+> >> @@ -5783,12 +5783,10 @@ int tcp_rcv_state_process(struct sock *sk,=
+ struct sk_buff *skb,
+> >>
+> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/* tcp_=
+ack considers this ACK as duplicate
+> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 * and =
+does not calculate rtt.
+> >> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 * Fix it=
+ at least with timestamps.
+> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 * Force =
+it here.
+> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 */
+> >> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (tp->r=
+x_opt.saw_tstamp &&
+> >> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0t=
+p->rx_opt.rcv_tsecr && !tp->srtt)
+> >> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0tcp_ack_saw_tstamp(sk, 0);
+> >> -
+> >> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0tcp_ack_u=
+pdate_rtt(sk, 0, 0);
+> >> +
+> >
+> > ...Here a zero seq_rtt is given to RTT estimator (it will be effect=
+ive
+> > only in the case w/o timestamps, TS case recalculates it from the s=
+tored
+> > timestamps). Maybe we could use some field (timestamp related one c=
+omes to
+> > my mind) in request sock to get a real RTT estimate for non-timesta=
+mp case
+> > too. ...It seems possible to me, though tricky because the request_=
+sock is
+> > no longer that easily available here so some parameter passing woul=
+d be
+> > needed.
+>
+> Agreed.
+>
+> But even more simply I think we should make even the current
+> tcp_ack_update_rtt() call here conditional on at least
+> tp->srtt being zero.
+>
+> Damian do you at least agree with that?
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
