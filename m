@@ -1,83 +1,161 @@
-From: =?UTF-8?B?UMOhZHJhaWcgQnJhZHk=?= <P@draigBrady.com>
-Subject: Re: RTL-8110SC lockup with r8169
-Date: Fri, 07 May 2010 16:51:58 +0100
-Message-ID: <4BE4371E.2010503@draigBrady.com>
-References: <4BE1973D.8080502@draigBrady.com> <20100506202055.GB3541@electric-eye.fr.zoreil.com>
+From: Andy Fleming <afleming@gmail.com>
+Subject: Re: [PATCH 1/2] netdev/fec: fix performance impact from mdio poll
+	operation
+Date: Fri, 7 May 2010 11:06:38 -0500
+Message-ID: <i2l2acbd3e41005070906me50416bapd8154a567406b886@mail.gmail.com>
+References: <1273199239-11057-1-git-send-email-bryan.wu@canonical.com>
+	 <1273199239-11057-2-git-send-email-bryan.wu@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Glen Gray <glen@lincor.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.slb.deg.dub.stisp.net ([84.203.253.98]:4501 "HELO
-	mail1.slb.deg.dub.stisp.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755348Ab0EGPxT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 May 2010 11:53:19 -0400
-In-Reply-To: <20100506202055.GB3541@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Greg Ungerer <gerg@uclinux.org>,
+	Amit Kucheria <amit.kucheria@canonical.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Bryan Wu <bryan.wu@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1273199239-11057-2-git-send-email-bryan.wu@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/05/10 21:20, Francois Romieu wrote:
-> P=C3=A1draig Brady <P@draigBrady.com> :
-> [...]
->> However the above code wasn't in the 2.6.32.10-90.fc12 driver we use=
-d.
->> Also I've back-ported the latest r8169 driver from git to our kernel
->> and it still has the same issue.
->=20
-> "latest" as "includes 908ba2bfd22253f26fa910cd855e4ccffb1467d0" ?
+On Thursday, May 6, 2010, Bryan Wu <bryan.wu@canonical.com> wrote:
+> BugLink: http://bugs.launchpad.net/bugs/546649
+> BugLink: http://bugs.launchpad.net/bugs/457878
+>
+> After introducing phylib supporting, users experienced performace dro=
+p. That is
+> because of the mdio polling operation of phylib. Use msleep to replac=
+e the busy
+> waiting cpu_relax() and remove the warning message.
 
-Yes that was included in my driver.
+I'm a little confused by this patch.  In order to improve performance,
+you made the mdio functions fail silently?  Why are you getting
+timeouts at all?  The Phy lib is not going to respond well if an mdio
+write times out without returning an error.  And returning an error
+means the whole state machine has to reset, as a failed write is not
+something we currently handle gracefully.
 
-> Otherwise you may save some time and try directly the backport at :
-> http://userweb.kernel.org/~romieu/r8169/2.6.32.11-99.fc12/
+Is it possible to use an interrupt to get the phy state change?  This
+would allow the phy lib to stop its incessant polling.  It doesn't
+solve the question of why it's timing out, though.
 
-That's handy for the future thanks!
-userweb is non responsive ATM
-
->=20
->> # dmesg | grep 8169
->> # lspci -n | grep -v 8086:
->> 01:04.0 0200: 10ec:8167 (rev 10)
->=20
-> 8167 how comes...
-
-Dont' know. Is that significant?
-
->=20
-> Which hardware (lspci) is the host computer made of ?
-
-All intel bits n bobs
-
-00:00.0 Host bridge: Intel Corporation 82852/82855 GM/GME/PM/GMV Proces=
-sor to I/O Controller (rev 02)
-00:00.1 System peripheral: Intel Corporation 82852/82855 GM/GME/PM/GMV =
-Processor to I/O Controller (rev 02)
-00:00.3 System peripheral: Intel Corporation 82852/82855 GM/GME/PM/GMV =
-Processor to I/O Controller (rev 02)
-00:02.0 VGA compatible controller: Intel Corporation 82852/855GM Integr=
-ated Graphics Device (rev 02)
-00:02.1 Display controller: Intel Corporation 82852/855GM Integrated Gr=
-aphics Device (rev 02)
-00:1d.0 USB Controller: Intel Corporation 82801DB/DBL/DBM (ICH4/ICH4-L/=
-ICH4-M) USB UHCI Controller #1 (rev 02)
-00:1d.1 USB Controller: Intel Corporation 82801DB/DBL/DBM (ICH4/ICH4-L/=
-ICH4-M) USB UHCI Controller #2 (rev 02)
-00:1d.2 USB Controller: Intel Corporation 82801DB/DBL/DBM (ICH4/ICH4-L/=
-ICH4-M) USB UHCI Controller #3 (rev 02)
-00:1d.7 USB Controller: Intel Corporation 82801DB/DBM (ICH4/ICH4-M) USB=
-2 EHCI Controller (rev 02)
-00:1e.0 PCI bridge: Intel Corporation 82801 PCI Bridge (rev 82)
-00:1f.0 ISA bridge: Intel Corporation 82801DB/DBL (ICH4/ICH4-L) LPC Int=
-erface Bridge (rev 02)
-00:1f.1 IDE interface: Intel Corporation 82801DB (ICH4) IDE Controller =
-(rev 02)
-00:1f.3 SMBus: Intel Corporation 82801DB/DBL/DBM (ICH4/ICH4-L/ICH4-M) S=
-MBus Controller (rev 02)
-00:1f.5 Multimedia audio controller: Intel Corporation 82801DB/DBL/DBM =
-(ICH4/ICH4-L/ICH4-M) AC'97 Audio Controller (rev 02)
-01:04.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8110SC=
-/8169SC Gigabit Ethernet (rev 10)
-
-cheers,
-P=C3=A1draig.
+>
+> Signed-off-by: Bryan Wu <bryan.wu@canonical.com>
+> Acked-by: Andy Whitcroft <apw@canonical.com>
+> ---
+> =A0drivers/net/fec.c | =A0 45 +++++++++++++++++++++------------------=
+------
+> =A01 files changed, 21 insertions(+), 24 deletions(-)
+>
+> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+> index 2b1651a..9c58f6b 100644
+> --- a/drivers/net/fec.c
+> +++ b/drivers/net/fec.c
+> @@ -203,7 +203,7 @@ static void fec_stop(struct net_device *dev);
+> =A0#define FEC_MMFR_TA =A0 =A0 =A0 =A0 =A0 =A0(2 << 16)
+> =A0#define FEC_MMFR_DATA(v) =A0 =A0 =A0 (v & 0xffff)
+>
+> -#define FEC_MII_TIMEOUT =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A010000
+> +#define FEC_MII_TIMEOUT =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A010
+>
+> =A0/* Transmitter timeout */
+> =A0#define TX_TIMEOUT (2 * HZ)
+> @@ -611,13 +611,29 @@ spin_unlock:
+> =A0/*
+>  =A0* NOTE: a MII transaction is during around 25 us, so polling it..=
+=2E
+>  =A0*/
+> -static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int r=
+egnum)
+> +static int fec_enet_mdio_poll(struct fec_enet_private *fep)
+> =A0{
+> - =A0 =A0 =A0 struct fec_enet_private *fep =3D bus->priv;
+>  =A0 =A0 =A0 =A0int timeout =3D FEC_MII_TIMEOUT;
+>
+>  =A0 =A0 =A0 =A0fep->mii_timeout =3D 0;
+>
+> + =A0 =A0 =A0 /* wait for end of transfer */
+> + =A0 =A0 =A0 while (!(readl(fep->hwp + FEC_IEVENT) & FEC_ENET_MII)) =
+{
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 msleep(1);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (timeout-- < 0) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 fep->mii_timeout =3D 1;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> + =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 return 0;
+> +}
+> +
+> +static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int r=
+egnum)
+> +{
+> + =A0 =A0 =A0 struct fec_enet_private *fep =3D bus->priv;
+> +
+> +
+>  =A0 =A0 =A0 =A0/* clear MII end of transfer bit*/
+>  =A0 =A0 =A0 =A0writel(FEC_ENET_MII, fep->hwp + FEC_IEVENT);
+>
+> @@ -626,15 +642,7 @@ static int fec_enet_mdio_read(struct mii_bus *bu=
+s, int mii_id, int regnum)
+>  =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0FEC_MMFR_PA(mii_id) | FEC_MMFR_RA(reg=
+num) |
+>  =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0FEC_MMFR_TA, fep->hwp + FEC_MII_DATA)=
+;
+>
+> - =A0 =A0 =A0 /* wait for end of transfer */
+> - =A0 =A0 =A0 while (!(readl(fep->hwp + FEC_IEVENT) & FEC_ENET_MII)) =
+{
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 cpu_relax();
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (timeout-- < 0) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 fep->mii_timeout =3D 1;
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 printk(KERN_ERR "FEC: M=
+DIO read timeout\n");
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ETIMEDOUT;
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> - =A0 =A0 =A0 }
+> + =A0 =A0 =A0 fec_enet_mdio_poll(fep);
+>
+>  =A0 =A0 =A0 =A0/* return value */
+>  =A0 =A0 =A0 =A0return FEC_MMFR_DATA(readl(fep->hwp + FEC_MII_DATA));
+> @@ -644,9 +652,6 @@ static int fec_enet_mdio_write(struct mii_bus *bu=
+s, int mii_id, int regnum,
+>  =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 u16 value)
+> =A0{
+>  =A0 =A0 =A0 =A0struct fec_enet_private *fep =3D bus->priv;
+> - =A0 =A0 =A0 int timeout =3D FEC_MII_TIMEOUT;
+> -
+> - =A0 =A0 =A0 fep->mii_timeout =3D 0;
+>
+>  =A0 =A0 =A0 =A0/* clear MII end of transfer bit*/
+>  =A0 =A0 =A0 =A0writel(FEC_ENET_MII, fep->hwp + FEC_IEVENT);
+> @@ -657,15 +662,7 @@ static int fec_enet_mdio_write(struct mii_bus *b=
+us, int mii_id, int regnum,
+>  =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0FEC_MMFR_TA | FEC_MMFR_DATA(value),
+>  =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0fep->hwp + FEC_MII_DATA);
+>
+> - =A0 =A0 =A0 /* wait for end of transfer */
+> - =A0 =A0 =A0 while (!(readl(fep->hwp + FEC_IEVENT) & FEC_ENET_MII)) =
+{
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 cpu_relax();
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (timeout-- < 0) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 fep->mii_timeout =3D 1;
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 printk(KERN_ERR "FEC: M=
+DIO write timeout\n");
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ETIMEDOUT;
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> - =A0 =A0 =A0 }
+> + =A0 =A0 =A0 fec_enet_mdio_poll(fep);
+>
+>  =A0 =A0 =A0 =A0return 0;
+> =A0}
+> --
+> 1.7.0.1
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
