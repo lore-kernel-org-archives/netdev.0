@@ -1,68 +1,101 @@
-From: David L Stevens <dlstevens@us.ibm.com>
-Subject: [PATCH] fix multi-buffer logging with mergeable buffers
-Date: Fri, 07 May 2010 13:11:08 -0700
-Message-ID: <1273263068.24088.1.camel@w-dls.beaverton.ibm.com>
-Reply-To: dlstevens@us.ibm.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv4: remove ip_rt_secret timer (v3)
+Date: Fri, 07 May 2010 23:04:31 +0200
+Message-ID: <1273266271.2325.16.camel@edumazet-laptop>
+References: <20100506171639.GA5063@hmsreliant.think-freely.org>
+	 <20100507195528.GA3752@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mst@redhat.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:48362 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758152Ab0EGULR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 May 2010 16:11:17 -0400
-Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
-	by e38.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id o47K4s1F017974
-	for <netdev@vger.kernel.org>; Fri, 7 May 2010 14:04:54 -0600
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id o47KBBET243220
-	for <netdev@vger.kernel.org>; Fri, 7 May 2010 14:11:11 -0600
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o47KBAJj003223
-	for <netdev@vger.kernel.org>; Fri, 7 May 2010 14:11:10 -0600
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:64910 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758323Ab0EGVEl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 May 2010 17:04:41 -0400
+Received: by bwz19 with SMTP id 19so812023bwz.21
+        for <netdev@vger.kernel.org>; Fri, 07 May 2010 14:04:39 -0700 (PDT)
+In-Reply-To: <20100507195528.GA3752@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the multibuffer case of logging with
-mergeable buffers.
+Le vendredi 07 mai 2010 =C3=A0 15:55 -0400, Neil Horman a =C3=A9crit :
+> Hey-
+> 	Sorry for the delay, but I got interested in Erics suggestion of
+> changing how we update rt_genid, and had a few thoughts.  Heres versi=
+on 3 of
+> this patch:
+>=20
 
-Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
+We have time, no hurry Neil.
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 85519b4..d526b68 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -236,8 +236,9 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
- 	int seg = 0;
- 	int headcount = 0;
- 	unsigned d;
--	int r;
-+	int r, nlogs;
- 
-+	nlogs = 0;
- 	while (datalen > 0) {
- 		if (unlikely(headcount >= VHOST_NET_MAX_SG)) {
- 			r = -ENOBUFS;
-@@ -245,7 +246,8 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
- 		}
- 		d = vhost_get_desc(vq->dev, vq, vq->iov + seg,
- 				   ARRAY_SIZE(vq->iov) - seg, &out,
--				   &in, log, log_num);
-+				   &in, log+nlogs, log_num);
-+		nlogs += log ? *log_num : 0;
- 		if (d == vq->num) {
- 			r = 0;
- 			goto err;
-@@ -263,6 +265,8 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
- 		seg += in;
- 	}
- 	*iovcount = seg;
-+	if (unlikely(log))
-+		*log_num = nlogs;
- 	return headcount;
- err:
- 	vhost_discard_desc(vq, headcount);
+> Change Notes:
+>=20
+> 1) Removed the secret_interval binary interface entry in the list (fo=
+rgot to do
+> that before)
+>=20
+> 2) Took Erics Suggestion to change the update for net->ipv4.rt_genid.=
+  Now
+> instead of doing a small incremental change, we simply grab 32 new ra=
+ndom bits.
+>=20
+
+My suggestion was to initialize _once_ at boot time, the _full_ 32bits.
+
+Not to change the perturbations, they are very fine, and need no extra
+CONFIG_SOME_MAGICAL_SWITCH.
+
+We have a guarantee that no duplicates are delivered unless you perform
+2^24 generations in a short period of time.
+
+But because you want to change full 32bits, you need a complex dupcheck
+thing ?
+
+> 3) The change in (2) got me thinking that part of the reason we used =
+the Jenkins
+> hash in rt_genid was to ensure non-repetion of id's in a short time p=
+eriod
+> (which is important, so as not to inadvertently reuse route cache ent=
+ries that
+> should be getting expired).  While extra randomness makes it harder f=
+or
+> attackers to guess the secret, it makes it possible to return to prev=
+iously
+> guessed values as well (if they're lucky).  As such, I created a conf=
+igurable
+> option, CONFIG_GENID_DUPCHECK.  With this option on, the low order 8 =
+bits of the
+> genid are replaced with a rolling counter, that increments on each ne=
+w genid.
+> This creates in effect, a 256 deep list of previously used genid valu=
+es.  In
+> rt_drop we compare the genids for duplicates.  If we find that 2 geni=
+d values
+> have different indexes, but idential remaining bits, they are noted a=
+s a repeat
+> genid, and we call rt_cache_invalidate to generate a new genid and av=
+oid the
+> duplication problem.
+>=20
+>=20
+
+This is not necessary and over engineering if you ask me.
+
+You now rely on probabilistic rules, and depends on get_random_bytes()
+be really random, or a new CONFIG setting...
+
+What exact problem do you want to solve Neil ?
+
+Please submit your initial patch, with the small changes :
+
+1) Remove the secret_interval binary interface entry in the list=20
+
+2) Initialize full 32bits at struct net init time.
+
+Thanks
+
 
 
