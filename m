@@ -1,123 +1,108 @@
 From: Bryan Wu <bryan.wu@canonical.com>
-Subject: [PATCH 1/2] netdev/fec: fix performance impact from mdio poll operation
-Date: Fri,  7 May 2010 10:27:18 +0800
-Message-ID: <1273199239-11057-2-git-send-email-bryan.wu@canonical.com>
+Subject: [PATCH 2/2] netdev/fec: fix ifconfig eth0 down hang issue
+Date: Fri,  7 May 2010 10:27:19 +0800
+Message-ID: <1273199239-11057-3-git-send-email-bryan.wu@canonical.com>
 References: <1273199239-11057-1-git-send-email-bryan.wu@canonical.com>
 To: davem@davemloft.net, Sascha Hauer <s.hauer@pengutronix.de>,
 	Greg Ungerer <gerg@uclinux.org>,
 	Amit Kucheria <amit.kucheria@canonical.com>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from adelie.canonical.com ([91.189.90.139]:51864 "EHLO
-	adelie.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752688Ab0EGCaT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 May 2010 22:30:19 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1273199239-11057-1-git-send-email-bryan.wu@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-BugLink: http://bugs.launchpad.net/bugs/546649
-BugLink: http://bugs.launchpad.net/bugs/457878
+BugLink: http://bugs.launchpad.net/bugs/559065
 
-After introducing phylib supporting, users experienced performace drop. That is
-because of the mdio polling operation of phylib. Use msleep to replace the busy
-waiting cpu_relax() and remove the warning message.
+In fec open/close function, we need to use phy_connect and phy_disconnect
+operation before we start/stop phy. Otherwise it will cause system hang.
+
+Only call fec_enet_mii_probe() in open function, because the first open
+action will cause NULL pointer error.
 
 Signed-off-by: Bryan Wu <bryan.wu@canonical.com>
-Acked-by: Andy Whitcroft <apw@canonical.com>
 ---
- drivers/net/fec.c |   45 +++++++++++++++++++++------------------------
- 1 files changed, 21 insertions(+), 24 deletions(-)
+ drivers/net/fec.c |   28 ++++++++++++++++------------
+ 1 files changed, 16 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index 2b1651a..9c58f6b 100644
+index 9c58f6b..af4243f 100644
 --- a/drivers/net/fec.c
 +++ b/drivers/net/fec.c
-@@ -203,7 +203,7 @@ static void fec_stop(struct net_device *dev);
- #define FEC_MMFR_TA		(2 << 16)
- #define FEC_MMFR_DATA(v)	(v & 0xffff)
+@@ -678,6 +678,8 @@ static int fec_enet_mii_probe(struct net_device *dev)
+ 	struct phy_device *phy_dev = NULL;
+ 	int phy_addr;
  
--#define FEC_MII_TIMEOUT		10000
-+#define FEC_MII_TIMEOUT		10
- 
- /* Transmitter timeout */
- #define TX_TIMEOUT (2 * HZ)
-@@ -611,13 +611,29 @@ spin_unlock:
- /*
-  * NOTE: a MII transaction is during around 25 us, so polling it...
-  */
--static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
-+static int fec_enet_mdio_poll(struct fec_enet_private *fep)
- {
--	struct fec_enet_private *fep = bus->priv;
- 	int timeout = FEC_MII_TIMEOUT;
- 
- 	fep->mii_timeout = 0;
- 
-+	/* wait for end of transfer */
-+	while (!(readl(fep->hwp + FEC_IEVENT) & FEC_ENET_MII)) {
-+		msleep(1);
-+		if (timeout-- < 0) {
-+			fep->mii_timeout = 1;
-+			break;
-+		}
-+	}
++	fep->phy_dev = NULL;
 +
-+	return 0;
-+}
+ 	/* find the first phy */
+ 	for (phy_addr = 0; phy_addr < PHY_MAX_ADDR; phy_addr++) {
+ 		if (fep->mii_bus->phy_map[phy_addr]) {
+@@ -708,6 +710,11 @@ static int fec_enet_mii_probe(struct net_device *dev)
+ 	fep->link = 0;
+ 	fep->full_duplex = 0;
+ 
++	printk(KERN_INFO "%s: Freescale FEC PHY driver [%s] "
++		"(mii_bus:phy_addr=%s, irq=%d)\n", dev->name,
++		fep->phy_dev->drv->name, dev_name(&fep->phy_dev->dev),
++		fep->phy_dev->irq);
 +
-+static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
-+{
-+	struct fec_enet_private *fep = bus->priv;
-+
-+
- 	/* clear MII end of transfer bit*/
- 	writel(FEC_ENET_MII, fep->hwp + FEC_IEVENT);
- 
-@@ -626,15 +642,7 @@ static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
- 		FEC_MMFR_PA(mii_id) | FEC_MMFR_RA(regnum) |
- 		FEC_MMFR_TA, fep->hwp + FEC_MII_DATA);
- 
--	/* wait for end of transfer */
--	while (!(readl(fep->hwp + FEC_IEVENT) & FEC_ENET_MII)) {
--		cpu_relax();
--		if (timeout-- < 0) {
--			fep->mii_timeout = 1;
--			printk(KERN_ERR "FEC: MDIO read timeout\n");
--			return -ETIMEDOUT;
--		}
--	}
-+	fec_enet_mdio_poll(fep);
- 
- 	/* return value */
- 	return FEC_MMFR_DATA(readl(fep->hwp + FEC_MII_DATA));
-@@ -644,9 +652,6 @@ static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
- 			   u16 value)
- {
- 	struct fec_enet_private *fep = bus->priv;
--	int timeout = FEC_MII_TIMEOUT;
--
--	fep->mii_timeout = 0;
- 
- 	/* clear MII end of transfer bit*/
- 	writel(FEC_ENET_MII, fep->hwp + FEC_IEVENT);
-@@ -657,15 +662,7 @@ static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
- 		FEC_MMFR_TA | FEC_MMFR_DATA(value),
- 		fep->hwp + FEC_MII_DATA);
- 
--	/* wait for end of transfer */
--	while (!(readl(fep->hwp + FEC_IEVENT) & FEC_ENET_MII)) {
--		cpu_relax();
--		if (timeout-- < 0) {
--			fep->mii_timeout = 1;
--			printk(KERN_ERR "FEC: MDIO write timeout\n");
--			return -ETIMEDOUT;
--		}
--	}
-+	fec_enet_mdio_poll(fep);
- 
  	return 0;
  }
+ 
+@@ -753,13 +760,8 @@ static int fec_enet_mii_init(struct platform_device *pdev)
+ 	if (mdiobus_register(fep->mii_bus))
+ 		goto err_out_free_mdio_irq;
+ 
+-	if (fec_enet_mii_probe(dev) != 0)
+-		goto err_out_unregister_bus;
+-
+ 	return 0;
+ 
+-err_out_unregister_bus:
+-	mdiobus_unregister(fep->mii_bus);
+ err_out_free_mdio_irq:
+ 	kfree(fep->mii_bus->irq);
+ err_out_free_mdiobus:
+@@ -912,7 +914,12 @@ fec_enet_open(struct net_device *dev)
+ 	if (ret)
+ 		return ret;
+ 
+-	/* schedule a link state check */
++	/* Probe and connect to PHY when open the interface */
++	ret = fec_enet_mii_probe(dev);
++	if (ret) {
++		fec_enet_free_buffers(dev);
++		return ret;
++	}
+ 	phy_start(fep->phy_dev);
+ 	netif_start_queue(dev);
+ 	fep->opened = 1;
+@@ -926,10 +933,12 @@ fec_enet_close(struct net_device *dev)
+ 
+ 	/* Don't know what to do yet. */
+ 	fep->opened = 0;
+-	phy_stop(fep->phy_dev);
+ 	netif_stop_queue(dev);
+ 	fec_stop(dev);
+ 
++	if (fep->phy_dev)
++		phy_disconnect(fep->phy_dev);
++
+         fec_enet_free_buffers(dev);
+ 
+ 	return 0;
+@@ -1293,11 +1302,6 @@ fec_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		goto failed_register;
+ 
+-	printk(KERN_INFO "%s: Freescale FEC PHY driver [%s] "
+-		"(mii_bus:phy_addr=%s, irq=%d)\n", ndev->name,
+-		fep->phy_dev->drv->name, dev_name(&fep->phy_dev->dev),
+-		fep->phy_dev->irq);
+-
+ 	return 0;
+ 
+ failed_register:
 -- 
 1.7.0.1
-
