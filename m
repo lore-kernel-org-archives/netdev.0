@@ -1,57 +1,61 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: virtio: put last_used and last_avail index into ring itself.
-Date: Fri, 7 May 2010 12:35:39 +0930
-Message-ID: <201005071235.40590.rusty@rustcorp.com.au>
-References: <cover.1257349249.git.mst@redhat.com> <201005061022.13815.rusty@rustcorp.com.au> <20100506062755.GC8363@redhat.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the suspend tree
+Date: Fri, 7 May 2010 13:08:21 +1000
+Message-ID: <20100507130821.3fb72c9d.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
- virtualization@lists.linux-foundation.org,
- kvm@vger.kernel.org,
- linux-kernel@vger.kernel.org,
- mingo@elte.hu,
- linux-mm@kvack.org,
- akpm@linux-foundation.org,
- hpa@zytor.com,
- gregory.haskins@gmail.com,
- s.hetze@linux-ag.com,
- Daniel Walker <dwalker@fifo99.com>,
- Eric Dumazet <eric.dumazet@gmail.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20100506062755.GC8363@redhat.com>
-Sender: owner-linux-mm@kvack.org
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Helmut Schaa <Helmut.Schaa@gmx.de>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 6 May 2010 03:57:55 pm Michael S. Tsirkin wrote:
-> On Thu, May 06, 2010 at 10:22:12AM +0930, Rusty Russell wrote:
-> > On Wed, 5 May 2010 03:52:36 am Michael S. Tsirkin wrote:
-> > > What do you think?
-> > 
-> > I think everyone is settled on 128 byte cache lines for the forseeable
-> > future, so it's not really an issue.
-> 
-> You mean with 64 bit descriptors we will be bouncing a cache line
-> between host and guest, anyway?
+Hi Rafael,
 
-I'm confused by this entire thread.
+After merging the suspend tree, today's linux-next build (x86_64
+allmodconfig) failed like this:
 
-Descriptors are 16 bytes.  They are at the start, so presumably aligned to
-cache boundaries.
+net/mac80211/scan.c: In function 'ieee80211_scan_state_decision':
+net/mac80211/scan.c:510: error: implicit declaration of function 'pm_qos_requirement'
 
-Available ring follows that at 2 bytes per entry, so it's also packed nicely
-into cachelines.
+Caused by commit 62bad14fc6e0911a99882c261390968977d43283 ("PM QOS
+update") from the suspend tree interacting with commit
+df13cce53a7b28a81460e6bfc4857e9df4956141 ("mac80211: Improve software
+scan timing") from the net tree.
 
-Then there's padding to page boundary.  That puts us on a cacheline again
-for the used ring; also 2 bytes per entry.
+I have added the following merge fixup patch and can carry it as
+necessary:
 
-I don't see how any change in layout could be more cache friendly?
-Rusty.
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Fri, 7 May 2010 13:02:54 +1000
+Subject: [PATCH] wireless: update for pm_qos_requirement to pm_qos_request rename
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ net/mac80211/scan.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/mac80211/scan.c b/net/mac80211/scan.c
+index e14c441..e1b0be7 100644
+--- a/net/mac80211/scan.c
++++ b/net/mac80211/scan.c
+@@ -510,7 +510,7 @@ static int ieee80211_scan_state_decision(struct ieee80211_local *local,
+ 		bad_latency = time_after(jiffies +
+ 				ieee80211_scan_get_channel_time(next_chan),
+ 				local->leave_oper_channel_time +
+-				usecs_to_jiffies(pm_qos_requirement(PM_QOS_NETWORK_LATENCY)));
++				usecs_to_jiffies(pm_qos_request(PM_QOS_NETWORK_LATENCY)));
+ 
+ 		listen_int_exceeded = time_after(jiffies +
+ 				ieee80211_scan_get_channel_time(next_chan),
+-- 
+1.7.1
+
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
