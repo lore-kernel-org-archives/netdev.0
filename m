@@ -1,94 +1,94 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] rps: avoid one atomic in
- enqueue_to_backlog
-Date: Fri, 07 May 2010 12:05:58 +0200
-Message-ID: <1273226758.2261.44.camel@edumazet-laptop>
-References: <1273136322.2357.15.camel@edumazet-laptop>
-	 <20100506.220759.25136752.davem@davemloft.net>
-	 <1273209375.2222.37.camel@edumazet-laptop>
-	 <1273225881.2261.39.camel@edumazet-laptop>
-	 <m2x412e6f7f1005070301h627d5c76z35b3277f3a369c69@mail.gmail.com>
+From: Michal Simek <monstr@monstr.eu>
+Subject: Re: [PATCH net-next-2.6] net: Increase NET_SKB_PAD to 64 bytes
+Date: Fri, 07 May 2010 12:09:57 +0200
+Message-ID: <4BE3E6F5.5050601@monstr.eu>
+References: <20100506.220221.90798296.davem@davemloft.net>	 <1273209321.2222.36.camel@edumazet-laptop>	<4BE3C70C.4060705@monstr.eu>	 <20100507.013216.133893678.davem@davemloft.net>  <4BE3E1D6.30907@monstr.eu> <1273226114.2261.42.camel@edumazet-laptop>
+Reply-To: monstr@monstr.eu
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	therbert@google.com
-To: Changli Gao <xiaosuo@gmail.com>
+	hadi@cyberus.ca, therbert@google.com,
+	microblaze-uclinux@itee.uq.edu.au
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:44208 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755285Ab0EGKGC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 May 2010 06:06:02 -0400
-Received: by bwz19 with SMTP id 19so471896bwz.21
-        for <netdev@vger.kernel.org>; Fri, 07 May 2010 03:06:01 -0700 (PDT)
-In-Reply-To: <m2x412e6f7f1005070301h627d5c76z35b3277f3a369c69@mail.gmail.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:60261 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754910Ab0EGKKk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 May 2010 06:10:40 -0400
+Received: by fxm10 with SMTP id 10so643445fxm.19
+        for <netdev@vger.kernel.org>; Fri, 07 May 2010 03:10:35 -0700 (PDT)
+In-Reply-To: <1273226114.2261.42.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 07 mai 2010 =C3=A0 18:01 +0800, Changli Gao a =C3=A9crit :
-> On Fri, May 7, 2010 at 5:51 PM, Eric Dumazet <eric.dumazet@gmail.com>=
- wrote:
-> > Le vendredi 07 mai 2010 =C3=A0 07:16 +0200, Eric Dumazet a =C3=A9cr=
-it :
-> >> Le jeudi 06 mai 2010 =C3=A0 22:07 -0700, David Miller a =C3=A9crit=
+Eric Dumazet wrote:
+> Le vendredi 07 mai 2010 =C3=A0 11:48 +0200, Michal Simek a =C3=A9crit=
  :
-> >>
-> >> > Looks great, applied, thanks Eric.
-> >>
-> >> Thanks, I have a followup to avoid one atomic in enqueue phase too=
- ;)
-> >>
-> >
-> > [PATCH net-next-2.6] rps: avoid one atomic in enqueue_to_backlog
-> >
-> > If CONFIG_SMP=3Dy, then we own a queue spinlock, we can avoid the a=
-tomic
-> > test_and_set_bit() from napi_schedule_prep().
-> >
-> > We now have same number of atomic ops per netif_rx() calls than wit=
-h
-> > pre-RPS kernel.
-> >
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> > ---
-> > diff --git a/net/core/dev.c b/net/core/dev.c
-> > index 32611c8..49fa5a6 100644
-> > --- a/net/core/dev.c
-> > +++ b/net/core/dev.c
-> > @@ -2426,8 +2426,10 @@ enqueue:
-> >                        return NET_RX_SUCCESS;
-> >                }
-> >
-> > -               /* Schedule NAPI for backlog device */
-> > -               if (napi_schedule_prep(&sd->backlog)) {
-> > +               /* Schedule NAPI for backlog device
-> > +                * We can use non atomic operation since we own the=
- queue lock
-> > +                */
-> > +               if (!__test_and_set_bit(NAPI_STATE_SCHED, &sd->back=
-log.state)) {
-> >                        if (!rps_ipi_queued(sd))
-> >                                ____napi_schedule(sd, &sd->backlog);
-> >                }
-> >
+>> David Miller wrote:
+>>> From: Michal Simek <monstr@monstr.eu>
+>>> Date: Fri, 07 May 2010 09:53:48 +0200
+>>>
+>>>> I will add this Microblaze patch to my repo for testing and anyway
+>>>> should go through my repo.
+>>> It's already in the net-next-2.6 tree.
+>> Anyway.
+>>
+>> I am ok with removing NET_IP_ALIGN because it is already defined in=20
+>> skbuff.h to 2.
+>> But increasing NET_SKB_PAD to 64 caused that Microblaze extends skb=20
+>> buffers for some bytes.
+>> I measured it by iperf and netperf and I see regression around 1-2Mb=
+it/s=20
+>> that's why I would like to ask you to revert this patch or keep at l=
+east=20
+>> NET_SKB_PAD part.
 >=20
-> Why not use a wrapper function?
+> Interesting.
 >=20
-> sth. like:
+> Increasing NET_SKB_PAD to say 128 or 256 should not have performance
+> impact, but reserve a bit more ram. (truesize...)
+
+yes. Microblaze is very sensitive on it. I have spent a couple of days=20
+to find out why bandwidth is so bad and I found that truesize is the=20
+problem. Whole driver allocated skb buffer to max mtu size (9000).
+
+But if mtu is 1500 the driver still worked with max skb buffers size
+Please correct me if I am wrong but if truesize is setup to 9000 then=20
+net code is working with that size even if mtu is 1500.
+The next thing is that cache operations take a lot of cpu cycles.
+
+I create a patch which allocated aligned skb buffers where size depends=
+=20
+on current mtu size and this change rapidly increase bandwidth for=20
+mtu=3D1500 from 8Mb/s to 35Mb/s (depends on setting). There is no=20
+difference if jumbo frames are used (I means for driver with/without my=
+=20
+patch).
+
 >=20
-> static inline int __napi_schedule_prep(struct napi_struct *n)
-> {
->    return (!__test_and_set_bit(NAPI_STATE_SCHED, &n->state)
-> }
+> Investigation is needed. Maybe your NIC now allocates high order page=
+s ?
+>=20
+> What driver are you using ?
 >=20
 
+I am using non-mainline ll_temac driver.
+drivers/net/xilinx_lltemac/
 
-=46or one user ?=20
-Not sure it helps code readability.
+http://developer.petalogix.com/git/gitweb.cgi?p=3Dlinux-2.6-microblaze.=
+git;a=3Dshortlog
 
-Right now we all have our minds knowing every bit of this code, but nex=
-t
-year ?
-
+Regards,
+Michal
 
 
+
+
+--=20
+Michal Simek, Ing. (M.Eng)
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel 2.6 Microblaze Linux - http://www.monstr.eu/=
+fdt/
+Microblaze U-BOOT custodian
