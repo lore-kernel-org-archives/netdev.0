@@ -1,29 +1,27 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] rps: Various optimizations
-Date: Fri, 07 May 2010 07:16:15 +0200
-Message-ID: <1273209375.2222.37.camel@edumazet-laptop>
-References: <1273136322.2357.15.camel@edumazet-laptop>
-	 <20100506.220759.25136752.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next 1/3 v2] bnx2: Add GRO support.
+Date: Thu, 06 May 2010 22:17:57 -0700 (PDT)
+Message-ID: <20100506.221757.176649209.davem@davemloft.net>
+References: <1273172293-10241-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, therbert@google.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:53651 "EHLO
-	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752028Ab0EGFQZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 May 2010 01:16:25 -0400
-Received: by bwz19 with SMTP id 19so366792bwz.21
-        for <netdev@vger.kernel.org>; Thu, 06 May 2010 22:16:24 -0700 (PDT)
-In-Reply-To: <20100506.220759.25136752.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50176
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752028Ab0EGFRu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 May 2010 01:17:50 -0400
+In-Reply-To: <1273172293-10241-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 06 mai 2010 =C3=A0 22:07 -0700, David Miller a =C3=A9crit :
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Thu, 6 May 2010 11:58:12 -0700
 
-> Looks great, applied, thanks Eric.
+> And turn on NETIF_F_GRO by default [requested by DaveM].
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Thanks, I have a followup to avoid one atomic in enqueue phase too ;)
-
-
+Applied, thanks Michael.
