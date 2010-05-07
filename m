@@ -1,123 +1,158 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: VLAN I/F's and TX queue.
-Date: Fri, 7 May 2010 11:29:07 +0200
-Message-ID: <OF803EE436.793B95D8-ONC125771C.003295C9-C125771C.00341AFF@transmode.se>
-References: <OF5A42C874.3AF220FE-ONC1257718.003ABC6E-C1257718.003F94D2@LocalDomain>	 <OF3F4D7278.DC6A6E51-ONC125771C.002B1AF4-C125771C.002C64E3@transmode.se> <1273222403.2261.26.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:37345 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755079Ab0EGJ3P convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 May 2010 05:29:15 -0400
-In-Reply-To: <1273222403.2261.26.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: xiaohui.xin@intel.com
+Subject: [RFC][PATCH v5 00/19] Provide a zero-copy method on KVM virtio-net.
+Date: Fri,  7 May 2010 17:34:47 +0800
+Message-ID: <1273224906-4874-1-git-send-email-xiaohui.xin@intel.com>
+To: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
+	davem@davemloft.net, jdike@linux.intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote on 2010/05/07 10:53:23:
->
-> Le vendredi 07 mai 2010 =E0 10:04 +0200, Joakim Tjernlund a =E9crit :
-> > Joakim Tjernlund/Transmode wrote on 2010/05/03 13:34:28:
-> > >
-> > > We noted dropped pkgs on our VLAN interfaces and i stated to look
-> > > for a cause. Here is a ifconfig example:
-> > >
-> > > eth0      Link encap:Ethernet  HWaddr 00:AA:BB:CC:DD:EE
-> > >           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-> > >           RX packets:8886910 errors:0 dropped:0 overruns:0 frame:=
-0
-> > >           TX packets:8880219 errors:0 dropped:0 overruns:0 carrie=
-r:0
-> > >           collisions:0 txqueuelen:100
-> > >           RX bytes:1626842951 (1.5 GiB)  TX bytes:1555540810 (1.4=
- GiB)
-> > >
-> > > eth0.1    Link encap:Ethernet  HWaddr 00:AA:BB:CC:DD:EE
-> > >           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-> > >           RX packets:2163164 errors:0 dropped:0 overruns:0 frame:=
-0
-> > >           TX packets:2161943 errors:0 dropped:98 overruns:0 carri=
-er:0
-> > >           collisions:0 txqueuelen:0
-> > >           RX bytes:2467090557 (2.2 GiB)  TX bytes:2480246455 (2.3=
- GiB)
-> > >
-> > > eth0.1.1  Link encap:Ethernet  HWaddr 00:AA:BB:CC:DD:EE
-> > >           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-> > >           RX packets:2163164 errors:0 dropped:0 overruns:0 frame:=
-0
-> > >           TX packets:2161943 errors:0 dropped:98 overruns:0 carri=
-er:0
-> > >           collisions:0 txqueuelen:0
-> > >           RX bytes:2458437901 (2.2 GiB)  TX bytes:2471598683 (2.3=
- GiB)
-> > >
-> > > Here I note that txqueuelen is 0 for eth0.1/eth0.1.1 and 100 for =
-eth0 and
-> > > that it is only eth0.1 and eth0.1.1 that drops pkgs. It feels as =
-if eth0.1
-> > > bypasses eth0's tx queue and passes pkgs directly to the HW drive=
-r. Is that so?
-> > > If so, that feels a bit strange and I am not sure how to best
-> > > fix this. Any ides?
-> > >
-> > > Using kernel 2.6.33
-> >
-> > So I did some more testing
-> > two nodes A and B connected over a slow link.
-> > Create two VLAN's as above and start pinging from A to B
-> > with pkg size 9600, start a few(4-10) parallel ping processes.
-> >
-> > Now I see dropped packages on B, the receiver of pings, and no
-> > pkg loss on A.
-> >
->
-> dropped on RX path or TX path ?
+We provide an zero-copy method which driver side may get external
+buffers to DMA. Here external means driver don't use kernel space
+to allocate skb buffers. Currently the external buffer can be from
+guest virtio-net driver.
 
-On TX path(see the ifconfig listing above)
+The idea is simple, just to pin the guest VM user space and then
+let host NIC driver has the chance to directly DMA to it. 
+The patches are based on vhost-net backend driver. We add a device
+which provides proto_ops as sendmsg/recvmsg to vhost-net to
+send/recv directly to/from the NIC driver. KVM guest who use the
+vhost-net backend may bind any ethX interface in the host side to
+get copyless data transfer thru guest virtio-net frontend.
 
->
-> > 1) since the link is symmetrical, why do I only see pkg loss
-> >    at B?
-> >
-> > 2) pkg loss in B only manifests on the VLAN's interfaces and
-> >    always in pair as if one lost pkg is counted twice?
-> >
->
-> Congestion notifications can be stacked since commit cbbef5e183079
-> (vlan/macvlan: propagate transmission state to upper layers)
+patch 01-13:  	net core changes.
+patch 14-18:  	new device as interface to mantpulate external buffers.
+patch 19: 	for vhost-net.
 
-I see.
+The guest virtio-net driver submits multiple requests thru vhost-net
+backend driver to the kernel. And the requests are queued and then
+completed after corresponding actions in h/w are done.
 
->
-> > 3) I would expect lost pkgs to be accounted on eth0 instead of
-> >    the VLAN interface(s) since that is where the pkg is lost, why
-> >    isn't it so?
->
-> You try to send packets on eth0.XXX, some are dropped, and accounted =
-for
-> on eth0.XXX stats. What is wrong with this ?
+For read, user space buffers are dispensed to NIC driver for rx when
+a page constructor API is invoked. Means NICs can allocate user buffers
+from a page constructor. We add a hook in netif_receive_skb() function
+to intercept the incoming packets, and notify the zero-copy device.
 
-In this case one lost pkg is accounted for twice, once on eth0.1 and
-once more on eth0.1.1. Note that eth0.1.1 is stacked on
-top of eth0.1
+For write, the zero-copy deivce may allocates a new host skb and puts
+payload on the skb_shinfo(skb)->frags, and copied the header to skb->data.
+The request remains pending until the skb is transmitted by h/w.
 
-I would at least expect eth0 to also account lost pkgs too.
-I was confused by the current accounting as I knew that
-the underlying HW I/F should be the only I/F that could
-drop pkgs.
+Here, we have ever considered 2 ways to utilize the page constructor
+API to dispense the user buffers.
 
->
-> If you want to avoid this, just add queues to your vlans
->
-> ip link add link eth0 eth0.103 txqueuelen 100 type vlan id 103
+One:	Modify __alloc_skb() function a bit, it can only allocate a 
+	structure of sk_buff, and the data pointer is pointing to a 
+	user buffer which is coming from a page constructor API.
+	Then the shinfo of the skb is also from guest.
+	When packet is received from hardware, the skb->data is filled
+	directly by h/w. What we have done is in this way.
 
-=46rom memory now, but that didn't help. Still accounts pgks
-as described. Why would where to account pkgs be affected by
-queue or no queue?
+	Pros:	We can avoid any copy here.
+	Cons:	Guest virtio-net driver needs to allocate skb as almost
+		the same method with the host NIC drivers, say the size
+		of netdev_alloc_skb() and the same reserved space in the
+		head of skb. Many NIC drivers are the same with guest and
+		ok for this. But some lastest NIC drivers reserves special
+		room in skb head. To deal with it, we suggest to provide
+		a method in guest virtio-net driver to ask for parameter
+		we interest from the NIC driver when we know which device 
+		we have bind to do zero-copy. Then we ask guest to do so.
+		
 
-  Jocke
+Two:	Modify driver to get user buffer allocated from a page constructor
+	API(to substitute alloc_page()), the user buffer are used as payload
+	buffers and filled by h/w directly when packet is received. Driver
+	should associate the pages with skb (skb_shinfo(skb)->frags). For 
+	the head buffer side, let host allocates skb, and h/w fills it. 
+	After that, the data filled in host skb header will be copied into
+	guest header buffer which is submitted together with the payload buffer.
 
+	Pros:	We could less care the way how guest or host allocates their
+		buffers.
+	Cons:	We still need a bit copy here for the skb header.
+
+We are not sure which way is the better here. This is the first thing we want
+to get comments from the community. We wish the modification to the network
+part will be generic which not used by vhost-net backend only, but a user
+application may use it as well when the zero-copy device may provides async
+read/write operations later.
+
+We have got comments from Michael. And he said the first method will break
+the compatiblity of virtio-net driver and may complicate the qemu live 
+migration. Currently, we tried to ignore the skb_reserve() if the device
+is doing zero-copy. Then guest virtio-net driver wil not changed. So we now
+continue to go with the first way. 
+But comments about the two ways are still appreicated.
+
+We provide multiple submits and asynchronous notifiicaton to 
+vhost-net too.
+
+Our goal is to improve the bandwidth and reduce the CPU usage.
+Exact performance data will be provided later. But for simple
+test with netperf, we found bindwidth up and CPU % up too,
+but the bindwidth up ratio is much more than CPU % up ratio.
+
+What we have not done yet:
+	packet split support
+	To support GRO
+	Performance tuning
+
+what we have done in v1:
+	polish the RCU usage
+	deal with write logging in asynchroush mode in vhost
+	add notifier block for mp device
+	rename page_ctor to mp_port in netdevice.h to make it looks generic
+	add mp_dev_change_flags() for mp device to change NIC state
+	add CONIFG_VHOST_MPASSTHRU to limit the usage when module is not load
+	a small fix for missing dev_put when fail
+	using dynamic minor instead of static minor number
+	a __KERNEL__ protect to mp_get_sock()
+
+what we have done in v2:
+	
+	remove most of the RCU usage, since the ctor pointer is only
+	changed by BIND/UNBIND ioctl, and during that time, NIC will be
+	stopped to get good cleanup(all outstanding requests are finished),
+	so the ctor pointer cannot be raced into wrong situation.
+
+	Remove the struct vhost_notifier with struct kiocb.
+	Let vhost-net backend to alloc/free the kiocb and transfer them
+	via sendmsg/recvmsg.
+
+	use get_user_pages_fast() and set_page_dirty_lock() when read.
+
+	Add some comments for netdev_mp_port_prep() and handle_mpassthru().
+
+what we have done in v3:
+	the async write logging is rewritten 
+	a drafted synchronous write function for qemu live migration
+	a limit for locked pages from get_user_pages_fast() to prevent Dos
+	by using RLIMIT_MEMLOCK
+	
+
+what we have done in v4:
+	add iocb completion callback from vhost-net to queue iocb in mp device
+	replace vq->receiver by mp_sock_data_ready()
+	remove stuff in mp device which access structures from vhost-net
+	modify skb_reserve() to ignore host NIC driver reserved space
+	rebase to the latest vhost tree
+	split large patches into small pieces, especially for net core part.
+	
+
+what we have done in v5:
+	address Arnd Bergmann's comments
+		-remove IFF_MPASSTHRU_EXCL flag in mp device
+		-Add CONFIG_COMPAT macro
+		-remove mp_release ops
+	move dev_is_mpassthru() as inline func
+	fix a bug in memory relinquish
+	Apply to current git tree.
+			
+performance:
+	using netperf with GSO/TSO disabled, 10G NIC, 
+	disabled packet split mode, with raw socket case compared to vhost.
+
+	bindwidth will be from 1.1Gbps to 1.7Gbps
+	CPU % from 120%-140% to 140%-160%
