@@ -1,7 +1,7 @@
 From: xiaohui.xin@intel.com
-Subject: [RFC][PATCH v5 08/19] Make __alloc_skb() to get external buffer.
-Date: Fri,  7 May 2010 17:34:55 +0800
-Message-ID: <1273224906-4874-9-git-send-email-xiaohui.xin@intel.com>
+Subject: [RFC][PATCH v5 11/19] Use callback to deal with skb_release_data() specially.
+Date: Fri,  7 May 2010 17:34:58 +0800
+Message-ID: <1273224906-4874-12-git-send-email-xiaohui.xin@intel.com>
 References: <1273224906-4874-1-git-send-email-xiaohui.xin@intel.com>
  <1273224906-4874-2-git-send-email-xiaohui.xin@intel.com>
  <1273224906-4874-3-git-send-email-xiaohui.xin@intel.com>
@@ -10,154 +10,63 @@ References: <1273224906-4874-1-git-send-email-xiaohui.xin@intel.com>
  <1273224906-4874-6-git-send-email-xiaohui.xin@intel.com>
  <1273224906-4874-7-git-send-email-xiaohui.xin@intel.com>
  <1273224906-4874-8-git-send-email-xiaohui.xin@intel.com>
+ <1273224906-4874-9-git-send-email-xiaohui.xin@intel.com>
+ <1273224906-4874-10-git-send-email-xiaohui.xin@intel.com>
+ <1273224906-4874-11-git-send-email-xiaohui.xin@intel.com>
 Cc: Xin Xiaohui <xiaohui.xin@intel.com>
 To: netdev@vger.kernel.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
 	davem@davemloft.net, jdike@linux.intel.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1273224906-4874-8-git-send-email-xiaohui.xin@intel.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:55769 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755563Ab0EGJaI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 May 2010 05:30:08 -0400
+In-Reply-To: <1273224906-4874-11-git-send-email-xiaohui.xin@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Xin Xiaohui <xiaohui.xin@intel.com>
 
-Add a dev parameter to __alloc_skb(), skb->data
-points to external buffer, recompute skb->head,
-maintain shinfo of the external buffer, record
-external buffer info into destructor_arg field.
+If buffer is external, then use the callback to destruct
+buffers.
 
 Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
 Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
 Reviewed-by: Jeff Dike <jdike@linux.intel.com>
 ---
+ net/core/skbuff.c |   11 +++++++++++
+ 1 files changed, 11 insertions(+), 0 deletions(-)
 
-	__alloc_skb() cleaup by 
-	
-	Jeff Dike <jdike@linux.inetl.com>
-
- include/linux/skbuff.h |    7 ++++---
- net/core/skbuff.c      |   43 +++++++++++++++++++++++++++++++++++++------
- 2 files changed, 41 insertions(+), 9 deletions(-)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 281a1c0..5ff8c27 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -442,17 +442,18 @@ extern void kfree_skb(struct sk_buff *skb);
- extern void consume_skb(struct sk_buff *skb);
- extern void	       __kfree_skb(struct sk_buff *skb);
- extern struct sk_buff *__alloc_skb(unsigned int size,
--				   gfp_t priority, int fclone, int node);
-+				   gfp_t priority, int fclone,
-+				   int node, struct net_device *dev);
- static inline struct sk_buff *alloc_skb(unsigned int size,
- 					gfp_t priority)
- {
--	return __alloc_skb(size, priority, 0, -1);
-+	return __alloc_skb(size, priority, 0, -1, NULL);
- }
- 
- static inline struct sk_buff *alloc_skb_fclone(unsigned int size,
- 					       gfp_t priority)
- {
--	return __alloc_skb(size, priority, 1, -1);
-+	return __alloc_skb(size, priority, 1, -1, NULL);
- }
- 
- extern int skb_recycle_check(struct sk_buff *skb, int skb_size);
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 6345acc..ae223d2 100644
+index 169f22c..5d93b2d 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -161,7 +161,8 @@ EXPORT_SYMBOL(skb_under_panic);
-  *	@fclone: allocate from fclone cache instead of head cache
-  *		and allocate a cloned (child) skb
-  *	@node: numa node to allocate memory on
-- *
-+ *	@dev: a device owns the skb if the skb try to get external buffer.
-+ *		otherwise is NULL.
-  *	Allocate a new &sk_buff. The returned buffer has no headroom and a
-  *	tail room of size bytes. The object has a reference count of one.
-  *	The return is the buffer. On a failure the return is %NULL.
-@@ -170,12 +171,13 @@ EXPORT_SYMBOL(skb_under_panic);
-  *	%GFP_ATOMIC.
-  */
- struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
--			    int fclone, int node)
-+			    int fclone, int node, struct net_device *dev)
+@@ -385,6 +385,11 @@ static void skb_clone_fraglist(struct sk_buff *skb)
+ 
+ static void skb_release_data(struct sk_buff *skb)
  {
- 	struct kmem_cache *cache;
- 	struct skb_shared_info *shinfo;
- 	struct sk_buff *skb;
--	u8 *data;
-+	u8 *data = NULL;
-+	struct skb_external_page *ext_page = NULL;
- 
- 	cache = fclone ? skbuff_fclone_cache : skbuff_head_cache;
- 
-@@ -185,8 +187,23 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 		goto out;
- 
- 	size = SKB_DATA_ALIGN(size);
--	data = kmalloc_node_track_caller(size + sizeof(struct skb_shared_info),
--			gfp_mask, node);
-+
-+	/* If the device wants to do mediate passthru(zero-copy),
-+	 * the skb may try to get external buffers from outside.
-+	 * If fails, then fall back to alloc buffers from kernel.
++	/* check if the skb has external buffers, we have use destructor_arg
++	 * here to indicate
 +	 */
-+	if (dev && dev->mp_port) {
-+		ext_page = netdev_alloc_external_page(dev, skb, size);
-+		if (ext_page) {
-+			data = ext_page->start;
-+			size = ext_page->size;
-+		}
-+	}
++	struct skb_external_page *ext_page = skb_shinfo(skb)->destructor_arg;
 +
-+	if (!data)
-+		data = kmalloc_node_track_caller(
-+				size + sizeof(struct skb_shared_info),
-+				gfp_mask, node);
- 	if (!data)
- 		goto nodata;
+ 	if (!skb->cloned ||
+ 	    !atomic_sub_return(skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1,
+ 			       &skb_shinfo(skb)->dataref)) {
+@@ -397,6 +402,12 @@ static void skb_release_data(struct sk_buff *skb)
+ 		if (skb_has_frags(skb))
+ 			skb_drop_fraglist(skb);
  
-@@ -208,6 +225,15 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 	skb->mac_header = ~0U;
- #endif
- 
-+	/* If the skb get external buffers sucessfully, since the shinfo is
-+	 * at the end of the buffer, we may retain the shinfo once we
-+	 * need it sometime.
-+	 */
-+	if (ext_page) {
-+		skb->head = skb->data - NET_IP_ALIGN - NET_SKB_PAD;
-+		memcpy(ext_page->ushinfo, skb_shinfo(skb),
-+		       sizeof(struct skb_shared_info));
-+	}
- 	/* make sure we initialize shinfo sequentially */
- 	shinfo = skb_shinfo(skb);
- 	atomic_set(&shinfo->dataref, 1);
-@@ -231,6 +257,11 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 
- 		child->fclone = SKB_FCLONE_UNAVAILABLE;
++		/* if the skb has external buffers, use destructor here,
++		 * since after that skb->head will be kfree, in case skb->head
++		 * from external buffer cannot use kfree to destroy.
++		 */
++		if (dev_is_mpassthru(skb->dev) && ext_page && ext_page->dtor)
++			ext_page->dtor(ext_page);
+ 		kfree(skb->head);
  	}
-+	/* Record the external buffer info in this field. It's not so good,
-+	 * but we cannot find another place easily.
-+	 */
-+	shinfo->destructor_arg = ext_page;
-+
- out:
- 	return skb;
- nodata:
-@@ -259,7 +290,7 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev,
- 	int node = dev->dev.parent ? dev_to_node(dev->dev.parent) : -1;
- 	struct sk_buff *skb;
- 
--	skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask, 0, node);
-+	skb = __alloc_skb(length + NET_SKB_PAD, gfp_mask, 0, node, dev);
- 	if (likely(skb)) {
- 		skb_reserve(skb, NET_SKB_PAD);
- 		skb->dev = dev;
+ }
 -- 
 1.5.4.4
 
