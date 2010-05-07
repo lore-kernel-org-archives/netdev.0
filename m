@@ -1,54 +1,81 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH 1/1] ipv6 addrlabel: permit deletion of labels assigned to removed dev
-Date: Fri,  7 May 2010 23:31:33 +0200
-Message-ID: <1273267893-22485-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP-MD5 checksum failure on x86_64 SMP
+Date: Fri, 07 May 2010 23:40:46 +0200
+Message-ID: <1273268446.2325.53.camel@edumazet-laptop>
+References: <1273085598.2367.233.camel@edumazet-laptop>
+	 <i2y571fb4001005060455m39bed7f7if5fcfc45b12bc4d3@mail.gmail.com>
+	 <1273147586.2357.63.camel@edumazet-laptop>
+	 <20100506.220443.135536330.davem@davemloft.net>
+	 <1273210329.2222.42.camel@edumazet-laptop>
+	 <20100507101451.1b4286b7@nehalam>
+	 <1273252893.2261.84.camel@edumazet-laptop>
+	 <20100507103639.4f1a51fa@nehalam>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, bhaskie@gmail.com,
+	bhutchings@solarflare.com, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:47331 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758617Ab0EGVc7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 May 2010 17:32:59 -0400
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:44433 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753033Ab0EGVkv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 May 2010 17:40:51 -0400
+Received: by bwz19 with SMTP id 19so825087bwz.21
+        for <netdev@vger.kernel.org>; Fri, 07 May 2010 14:40:50 -0700 (PDT)
+In-Reply-To: <20100507103639.4f1a51fa@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-as addrlabels with an interface index are left alone when the
-interface gets removed this results in addrlabels that can no
-longer be removed.
+Le vendredi 07 mai 2010 =C3=A0 10:36 -0700, Stephen Hemminger a =C3=A9c=
+rit :
+> On Fri, 07 May 2010 19:21:33 +0200
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>=20
+> > Le vendredi 07 mai 2010 =C3=A0 10:14 -0700, Stephen Hemminger a =C3=
+=A9crit :
+> >=20
+> > > Forget the per cpu data; the pool should just be scrapped.
+> > >=20
+> > > The only reason the pool exists is that the crypto hash state whi=
+ch
+> > > should just be moved into the md5_info (88 bytes).  The pseudo
+> > > header can just be generated on the stack before passing to the c=
+rypto
+> > > code.
+> >=20
+> >=20
+> > Sure, but I'm afraid there is no generic API do do that (if we want=
+ to
+> > reuse crypto/md5.c code).
+>=20
+> It looks like the pool is just an optimization to avoid opening too
+> many crypto API connections.  This should only be an issue if offload=
+ing
+> MD5.
 
-Restrict validation of index to adding new addrlabels.
+You mean we could allocate two contexts per socket, one for tx path, on=
+e
+for rx path, but TCP-MD5 implementors chose to use percpu allocations t=
+o
+factorize them. They should have allocated two contexts per cpu (one fo=
+r
+process context, preemption disabled, one for BH context)
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- net/ipv6/addrlabel.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+As you said, this could be allocated on stack, with some changes to
+crypto API I guess. Since TCP is not a module, md5 is also static, so
+there is no module loading involved.
 
-diff --git a/net/ipv6/addrlabel.c b/net/ipv6/addrlabel.c
-index 6ff73c4..8342296 100644
---- a/net/ipv6/addrlabel.c
-+++ b/net/ipv6/addrlabel.c
-@@ -421,10 +421,6 @@ static int ip6addrlbl_newdel(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	    ifal->ifal_prefixlen > 128)
- 		return -EINVAL;
- 
--	if (ifal->ifal_index &&
--	    !__dev_get_by_index(net, ifal->ifal_index))
--		return -EINVAL;
--
- 	if (!tb[IFAL_ADDRESS])
- 		return -EINVAL;
- 
-@@ -440,6 +436,10 @@ static int ip6addrlbl_newdel(struct sk_buff *skb, struct nlmsghdr *nlh,
- 
- 	switch(nlh->nlmsg_type) {
- 	case RTM_NEWADDRLABEL:
-+		if (ifal->ifal_index &&
-+		    !__dev_get_by_index(net, ifal->ifal_index))
-+			return -EINVAL;
-+
- 		err = ip6addrlbl_add(net, pfx, ifal->ifal_prefixlen,
- 				     ifal->ifal_index, label,
- 				     nlh->nlmsg_flags & NLM_F_REPLACE);
--- 
-1.6.4.4
+struct crypto_tfm *__crypto_alloc_tfm(struct crypto_alg *alg, u32
+type,u32 mask)
+
+-->
+
+struct crypto_tfm *__crypto_alloc_tfm_onstack(struct crypto_alg *alg,
+u32 type, u32 mask, void *storage, size_t storage_max_length)
+
+
+Or a direct plug to crypto/md5.c functions and hand crafted context.
+
+
 
