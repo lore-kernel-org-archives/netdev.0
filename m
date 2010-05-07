@@ -1,61 +1,58 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] rps: avoid one atomic in enqueue_to_backlog
-Date: Fri, 07 May 2010 11:51:21 +0200
-Message-ID: <1273225881.2261.39.camel@edumazet-laptop>
-References: <1273136322.2357.15.camel@edumazet-laptop>
-	 <20100506.220759.25136752.davem@davemloft.net>
-	 <1273209375.2222.37.camel@edumazet-laptop>
+Subject: Re: [PATCH net-next-2.6] net: Increase NET_SKB_PAD to 64 bytes
+Date: Fri, 07 May 2010 11:55:14 +0200
+Message-ID: <1273226114.2261.42.camel@edumazet-laptop>
+References: <20100506.220221.90798296.davem@davemloft.net>
+	 <1273209321.2222.36.camel@edumazet-laptop>	<4BE3C70C.4060705@monstr.eu>
+	 <20100507.013216.133893678.davem@davemloft.net>  <4BE3E1D6.30907@monstr.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, therbert@google.com
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	hadi@cyberus.ca, therbert@google.com,
+	microblaze-uclinux@itee.uq.edu.au
+To: monstr@monstr.eu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f219.google.com ([209.85.218.219]:42585 "EHLO
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:52580 "EHLO
 	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755571Ab0EGJvZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 May 2010 05:51:25 -0400
-Received: by bwz19 with SMTP id 19so465031bwz.21
-        for <netdev@vger.kernel.org>; Fri, 07 May 2010 02:51:23 -0700 (PDT)
-In-Reply-To: <1273209375.2222.37.camel@edumazet-laptop>
+	with ESMTP id S1753670Ab0EGJzS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 May 2010 05:55:18 -0400
+Received: by bwz19 with SMTP id 19so466712bwz.21
+        for <netdev@vger.kernel.org>; Fri, 07 May 2010 02:55:16 -0700 (PDT)
+In-Reply-To: <4BE3E1D6.30907@monstr.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 07 mai 2010 =C3=A0 07:16 +0200, Eric Dumazet a =C3=A9crit :
-> Le jeudi 06 mai 2010 =C3=A0 22:07 -0700, David Miller a =C3=A9crit :
+Le vendredi 07 mai 2010 =C3=A0 11:48 +0200, Michal Simek a =C3=A9crit :
+> David Miller wrote:
+> > From: Michal Simek <monstr@monstr.eu>
+> > Date: Fri, 07 May 2010 09:53:48 +0200
+> >=20
+> >> I will add this Microblaze patch to my repo for testing and anyway
+> >> should go through my repo.
+> >=20
+> > It's already in the net-next-2.6 tree.
 >=20
-> > Looks great, applied, thanks Eric.
+> Anyway.
 >=20
-> Thanks, I have a followup to avoid one atomic in enqueue phase too ;)
->=20
+> I am ok with removing NET_IP_ALIGN because it is already defined in=20
+> skbuff.h to 2.
+> But increasing NET_SKB_PAD to 64 caused that Microblaze extends skb=20
+> buffers for some bytes.
+> I measured it by iperf and netperf and I see regression around 1-2Mbi=
+t/s=20
+> that's why I would like to ask you to revert this patch or keep at le=
+ast=20
+> NET_SKB_PAD part.
 
-[PATCH net-next-2.6] rps: avoid one atomic in enqueue_to_backlog
+Interesting.
 
-If CONFIG_SMP=3Dy, then we own a queue spinlock, we can avoid the atomi=
-c
-test_and_set_bit() from napi_schedule_prep().
+Increasing NET_SKB_PAD to say 128 or 256 should not have performance
+impact, but reserve a bit more ram. (truesize...)
 
-We now have same number of atomic ops per netif_rx() calls than with
-pre-RPS kernel.
+Investigation is needed. Maybe your NIC now allocates high order pages =
+?
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 32611c8..49fa5a6 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2426,8 +2426,10 @@ enqueue:
- 			return NET_RX_SUCCESS;
- 		}
-=20
--		/* Schedule NAPI for backlog device */
--		if (napi_schedule_prep(&sd->backlog)) {
-+		/* Schedule NAPI for backlog device
-+		 * We can use non atomic operation since we own the queue lock
-+		 */
-+		if (!__test_and_set_bit(NAPI_STATE_SCHED, &sd->backlog.state)) {
- 			if (!rps_ipi_queued(sd))
- 				____napi_schedule(sd, &sd->backlog);
- 		}
+What driver are you using ?
 
 
