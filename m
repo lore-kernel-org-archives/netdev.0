@@ -1,25 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 6/8] smc9194: Remove unnecessary memset of netdev
+Subject: Re: [PATCH 8/8] tehuti: Remove unnecessary memset of netdev
  private data
-Date: Thu, 06 May 2010 22:11:38 -0700 (PDT)
-Message-ID: <20100506.221138.267964897.davem@davemloft.net>
-References: <1273160491-13228-1-git-send-email-tklauser@distanz.ch>
+Date: Thu, 06 May 2010 22:11:48 -0700 (PDT)
+Message-ID: <20100506.221148.26947006.davem@davemloft.net>
+References: <1273160584-13387-1-git-send-email-tklauser@distanz.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+Cc: baum@tehutinetworks.net, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, andy@greyhouse.net
 To: tklauser@distanz.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49450
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49458
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752428Ab0EGFLb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 May 2010 01:11:31 -0400
-In-Reply-To: <1273160491-13228-1-git-send-email-tklauser@distanz.ch>
+	by vger.kernel.org with ESMTP id S1752533Ab0EGFLm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 May 2010 01:11:42 -0400
+In-Reply-To: <1273160584-13387-1-git-send-email-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Tobias Klauser <tklauser@distanz.ch>
-Date: Thu,  6 May 2010 17:41:31 +0200
+Date: Thu,  6 May 2010 17:43:04 +0200
 
 > The memory for the private data is allocated using kzalloc in
 > alloc_etherdev (or alloc_netdev_mq respectively) so there is no need to
