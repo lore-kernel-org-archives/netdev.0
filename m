@@ -1,96 +1,129 @@
-From: Lars Eggert <lars.eggert@nokia.com>
-Subject: Re: TCP-MD5 checksum failure on x86_64 SMP
-Date: Fri, 7 May 2010 11:46:40 +0300
-Message-ID: <70125082-4A0B-4E54-A7F6-B6CDC0375E78@nokia.com>
-References: <i2h571fb4001005031027y4a58c4dtfd28ddcdc08d8401@mail.gmail.com> 	 <o2h571fb4001005032030tdf02a4fag520ec4e56ebdb8df@mail.gmail.com> 	 <1272972722.2097.1.camel@achroite.uk.solarflarecom.com> 	 <l2s571fb4001005040728t91979906ofa10cf0714c305b2@mail.gmail.com> 	 <20100504091215.5a4a51f4@nehalam> 	 <l2k571fb4001005041008k9b129a06vf5e40db2d119434c@mail.gmail.com> 	 <20100504101301.5f4dd9c2@nehalam> 	 <g2p571fb4001005051103w67e1b9ddn3e8f7feb84d0559@mail.gmail.com> 	 <1273085598.2367.233.camel@edumazet-laptop> 	 <i2y571fb4001005060455m39bed7f7if5fcfc45b12bc4d3@mail.gmail.com> <1273147586.2357.63.camel@edumazet-laptop>
-Mime-Version: 1.0 (Apple Message framework v1078)
-Content-Type: multipart/signed; boundary=Apple-Mail-70-709540720; protocol="application/pkcs7-signature"; micalg=sha1
-Cc: Bhaskar Dutta <bhaskie@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: VLAN I/F's and TX queue.
+Date: Fri, 07 May 2010 10:53:23 +0200
+Message-ID: <1273222403.2261.26.camel@edumazet-laptop>
+References: <OF5A42C874.3AF220FE-ONC1257718.003ABC6E-C1257718.003F94D2@LocalDomain>
+	 <OF3F4D7278.DC6A6E51-ONC125771C.002B1AF4-C125771C.002C64E3@transmode.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.230]:41177 "EHLO
-	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754317Ab0EGIrE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 May 2010 04:47:04 -0400
-In-Reply-To: <1273147586.2357.63.camel@edumazet-laptop>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:50419 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754589Ab0EGIxa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 May 2010 04:53:30 -0400
+Received: by bwz19 with SMTP id 19so438636bwz.21
+        for <netdev@vger.kernel.org>; Fri, 07 May 2010 01:53:27 -0700 (PDT)
+In-Reply-To: <OF3F4D7278.DC6A6E51-ONC125771C.002B1AF4-C125771C.002C64E3@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le vendredi 07 mai 2010 =C3=A0 10:04 +0200, Joakim Tjernlund a =C3=A9cr=
+it :
+> Joakim Tjernlund/Transmode wrote on 2010/05/03 13:34:28:
+> >
+> > We noted dropped pkgs on our VLAN interfaces and i stated to look
+> > for a cause. Here is a ifconfig example:
+> >
+> > eth0      Link encap:Ethernet  HWaddr 00:AA:BB:CC:DD:EE
+> >           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+> >           RX packets:8886910 errors:0 dropped:0 overruns:0 frame:0
+> >           TX packets:8880219 errors:0 dropped:0 overruns:0 carrier:=
+0
+> >           collisions:0 txqueuelen:100
+> >           RX bytes:1626842951 (1.5 GiB)  TX bytes:1555540810 (1.4 G=
+iB)
+> >
+> > eth0.1    Link encap:Ethernet  HWaddr 00:AA:BB:CC:DD:EE
+> >           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+> >           RX packets:2163164 errors:0 dropped:0 overruns:0 frame:0
+> >           TX packets:2161943 errors:0 dropped:98 overruns:0 carrier=
+:0
+> >           collisions:0 txqueuelen:0
+> >           RX bytes:2467090557 (2.2 GiB)  TX bytes:2480246455 (2.3 G=
+iB)
+> >
+> > eth0.1.1  Link encap:Ethernet  HWaddr 00:AA:BB:CC:DD:EE
+> >           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+> >           RX packets:2163164 errors:0 dropped:0 overruns:0 frame:0
+> >           TX packets:2161943 errors:0 dropped:98 overruns:0 carrier=
+:0
+> >           collisions:0 txqueuelen:0
+> >           RX bytes:2458437901 (2.2 GiB)  TX bytes:2471598683 (2.3 G=
+iB)
+> >
+> > Here I note that txqueuelen is 0 for eth0.1/eth0.1.1 and 100 for et=
+h0 and
+> > that it is only eth0.1 and eth0.1.1 that drops pkgs. It feels as if=
+ eth0.1
+> > bypasses eth0's tx queue and passes pkgs directly to the HW driver.=
+ Is that so?
+> > If so, that feels a bit strange and I am not sure how to best
+> > fix this. Any ides?
+> >
+> > Using kernel 2.6.33
+>=20
+> So I did some more testing
+> two nodes A and B connected over a slow link.
+> Create two VLAN's as above and start pinging from A to B
+> with pkg size 9600, start a few(4-10) parallel ping processes.
+>=20
+> Now I see dropped packages on B, the receiver of pings, and no
+> pkg loss on A.
+>=20
 
---Apple-Mail-70-709540720
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=us-ascii
+dropped on RX path or TX path ?
 
-On 2010-5-6, at 15:06, Eric Dumazet wrote:
-> This code should be completely rewritten for linux-2.6.35, its very =
-ugly
-> and over complex, yet it is not scalable.
+> 1) since the link is symmetrical, why do I only see pkg loss
+>    at B?
+>=20
+> 2) pkg loss in B only manifests on the VLAN's interfaces and
+>    always in pair as if one lost pkg is counted twice?
+>=20
 
-Let me quickly point out that the IETF has recently replaced TCP-MD5 =
-with TCP-AO (http://tools.ietf.org/html/draft-ietf-tcpm-tcp-auth-opt-11) =
-which is days or weeks away from being published as an RFC. (The draft =
-has been approved and it waiting for the RFC Editor to finish the final =
-copy-editing.)
+Congestion notifications can be stacked since commit cbbef5e183079
+(vlan/macvlan: propagate transmission state to upper layers)
 
-You'll obviously still want TCP-MD5 support for talking to existing =
-equipment, but significant cycles would IMO be better spent on TCP-AO.
+> 3) I would expect lost pkgs to be accounted on eth0 instead of
+>    the VLAN interface(s) since that is where the pkg is lost, why
+>    isn't it so?
 
-Lars=
+You try to send packets on eth0.XXX, some are dropped, and accounted fo=
+r
+on eth0.XXX stats. What is wrong with this ?
 
---Apple-Mail-70-709540720
-Content-Disposition: attachment;
-	filename=smime.p7s
-Content-Type: application/pkcs7-signature;
-	name=smime.p7s
-Content-Transfer-Encoding: base64
+If you want to avoid this, just add queues to your vlans
 
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIGbDCCAyUw
-ggKOoAMCAQICEAdjk36sXKbnVn15S0/qUp0wDQYJKoZIhvcNAQEFBQAwYjELMAkGA1UEBhMCWkEx
-JTAjBgNVBAoTHFRoYXd0ZSBDb25zdWx0aW5nIChQdHkpIEx0ZC4xLDAqBgNVBAMTI1RoYXd0ZSBQ
-ZXJzb25hbCBGcmVlbWFpbCBJc3N1aW5nIENBMB4XDTA5MDYxNTExMjYxNFoXDTEwMDYxNTExMjYx
-NFowXDEPMA0GA1UEBBMGRWdnZXJ0MQ0wCwYDVQQqEwRMYXJzMRQwEgYDVQQDEwtMYXJzIEVnZ2Vy
-dDEkMCIGCSqGSIb3DQEJARYVbGFycy5lZ2dlcnRAbm9raWEuY29tMIIBIjANBgkqhkiG9w0BAQEF
-AAOCAQ8AMIIBCgKCAQEA7mR8A+Pn0/FsUkMX6Pyjw+FL3IFcJk8GaKV5VJ40TMI0Wh8oq20cqA9X
-uqnVDW9WztKwH+o+msJenLwWpprbpJm4TImYGbnUJxYyN8gb81aiX1Bw2xCpJ5z3H2+8DsReJLuY
-Rdl4bVvaIxLIL4odmfsRwzPyNkOK8LRtfl6OPcaDOlFWzbikULfIVGGu7BqK4lxQSpYwwpZkOMOB
-6nnBSfUOtBEmqO+qZG/nL/JxWFV5vxQgg4XHbsMMTxFf6+ji18BD09BUIfDLTuJoCzFmQhrM9vLT
-VuRhHWSL20LoafGjXv6mPt3i9IGJHpVb2dMQUgOgRyWHTKiUJVU/rUTdWwIDAQABo14wXDAqBgUr
-ZQEEAQQhMB8CAQAwGjAYAgEEBBNMMnVNeWZmQk5VYk5KSmNkWjJzMCAGA1UdEQQZMBeBFWxhcnMu
-ZWdnZXJ0QG5va2lhLmNvbTAMBgNVHRMBAf8EAjAAMA0GCSqGSIb3DQEBBQUAA4GBADUx+67n98wt
-I1vydB90HeSZP4Y64VCxxb0NxGGFvfc2+JdVKeHJ/xT+l+ygYKsWNwJJprkPi4WZ5G0crkq4VK1H
-5drEJIztpSPVfWI05vPidaaGuuuCR+6MvJMtOTEYEvc/6eovBnkrzRf9x5x5EyuJXAWTeuBADg80
-QI3vQ1tZMIIDPzCCAqigAwIBAgIBDTANBgkqhkiG9w0BAQUFADCB0TELMAkGA1UEBhMCWkExFTAT
-BgNVBAgTDFdlc3Rlcm4gQ2FwZTESMBAGA1UEBxMJQ2FwZSBUb3duMRowGAYDVQQKExFUaGF3dGUg
-Q29uc3VsdGluZzEoMCYGA1UECxMfQ2VydGlmaWNhdGlvbiBTZXJ2aWNlcyBEaXZpc2lvbjEkMCIG
-A1UEAxMbVGhhd3RlIFBlcnNvbmFsIEZyZWVtYWlsIENBMSswKQYJKoZIhvcNAQkBFhxwZXJzb25h
-bC1mcmVlbWFpbEB0aGF3dGUuY29tMB4XDTAzMDcxNzAwMDAwMFoXDTEzMDcxNjIzNTk1OVowYjEL
-MAkGA1UEBhMCWkExJTAjBgNVBAoTHFRoYXd0ZSBDb25zdWx0aW5nIChQdHkpIEx0ZC4xLDAqBgNV
-BAMTI1RoYXd0ZSBQZXJzb25hbCBGcmVlbWFpbCBJc3N1aW5nIENBMIGfMA0GCSqGSIb3DQEBAQUA
-A4GNADCBiQKBgQDEpjxVc1X7TrnKmVoeaMB1BHCd3+n/ox7svc31W/Iadr1/DDph8r9RzgHU5VAK
-MNcCY1osiRVwjt3J8CuFWqo/cVbLrzwLB+fxH5E2JCoTzyvV84J3PQO+K/67GD4Hv0CAAmTXp6a7
-n2XRxSpUhQ9IBH+nttE8YQRAHmQZcmC3+wIDAQABo4GUMIGRMBIGA1UdEwEB/wQIMAYBAf8CAQAw
-QwYDVR0fBDwwOjA4oDagNIYyaHR0cDovL2NybC50aGF3dGUuY29tL1RoYXd0ZVBlcnNvbmFsRnJl
-ZW1haWxDQS5jcmwwCwYDVR0PBAQDAgEGMCkGA1UdEQQiMCCkHjAcMRowGAYDVQQDExFQcml2YXRl
-TGFiZWwyLTEzODANBgkqhkiG9w0BAQUFAAOBgQBIjNFQg+oLLswNo2asZw9/r6y+whehQ5aUnX9M
-Ibj4Nh+qLZ82L8D0HFAgk3A8/a3hYWLD2ToZfoSxmRsAxRoLgnSeJVCUYsfbJ3FXJY3dqZw5jowg
-T2Vfldr394fWxghOrvbqNOUQGls1TXfjViF4gtwhGTXeJLHTHUb/XV9lTzGCAxAwggMMAgEBMHYw
-YjELMAkGA1UEBhMCWkExJTAjBgNVBAoTHFRoYXd0ZSBDb25zdWx0aW5nIChQdHkpIEx0ZC4xLDAq
-BgNVBAMTI1RoYXd0ZSBQZXJzb25hbCBGcmVlbWFpbCBJc3N1aW5nIENBAhAHY5N+rFym51Z9eUtP
-6lKdMAkGBSsOAwIaBQCgggFvMBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkF
-MQ8XDTEwMDUwNzA4NDY0MFowIwYJKoZIhvcNAQkEMRYEFKhCwyggciBMib5vxnoRYFcfS0zVMIGF
-BgkrBgEEAYI3EAQxeDB2MGIxCzAJBgNVBAYTAlpBMSUwIwYDVQQKExxUaGF3dGUgQ29uc3VsdGlu
-ZyAoUHR5KSBMdGQuMSwwKgYDVQQDEyNUaGF3dGUgUGVyc29uYWwgRnJlZW1haWwgSXNzdWluZyBD
-QQIQB2OTfqxcpudWfXlLT+pSnTCBhwYLKoZIhvcNAQkQAgsxeKB2MGIxCzAJBgNVBAYTAlpBMSUw
-IwYDVQQKExxUaGF3dGUgQ29uc3VsdGluZyAoUHR5KSBMdGQuMSwwKgYDVQQDEyNUaGF3dGUgUGVy
-c29uYWwgRnJlZW1haWwgSXNzdWluZyBDQQIQB2OTfqxcpudWfXlLT+pSnTANBgkqhkiG9w0BAQEF
-AASCAQC8193J64epW57wRI46yiKiFG/VwtWSRF1Ss3OeNidgDX2ZD98muxxneKt6/WSlXdOKspuz
-ncaYw2zRuPQRqdV0pgVuXplSxavlnMgrR3r9vYkDZ7kqqcIg3Kggs6ACLoq/ZtDiJl2Hd8RE0xu1
-2ya87fAfC5GSw8FVoBy5VC7GqNEP0rzgutPecFax4PdVD/sXGT9yuMe/QSTxLGx/eXys1dlBi6ub
-OVJIDJw61UXdhdturUjWegp2etXQAgGB+o4aFkaVdEiiQ4HfmEXTrRmAQs4CEx2ONBn0mrfW/UiH
-UP9i0bBtr55PxKc591R0zoPa+AQxfZi53EWrx08VVlMFAAAAAAAA
+ip link add link eth0 eth0.103 txqueuelen 100 type vlan id 103
 
---Apple-Mail-70-709540720--
+Patrick what do you think of special casing NET_XMIT_CN ?
+
+
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index b5249c5..c671b1a 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -327,6 +327,8 @@ static netdev_tx_t vlan_dev_hard_start_xmit(struct =
+sk_buff *skb,
+ 	len =3D skb->len;
+ 	ret =3D dev_queue_xmit(skb);
+=20
++	ret =3D net_xmit_eval(ret);
++
+ 	if (likely(ret =3D=3D NET_XMIT_SUCCESS)) {
+ 		txq->tx_packets++;
+ 		txq->tx_bytes +=3D len;
+@@ -353,6 +355,8 @@ static netdev_tx_t vlan_dev_hwaccel_hard_start_xmit=
+(struct sk_buff *skb,
+ 	len =3D skb->len;
+ 	ret =3D dev_queue_xmit(skb);
+=20
++	ret =3D net_xmit_eval(ret);
++
+ 	if (likely(ret =3D=3D NET_XMIT_SUCCESS)) {
+ 		txq->tx_packets++;
+ 		txq->tx_bytes +=3D len;
+
+
