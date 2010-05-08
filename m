@@ -1,67 +1,159 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: linux-next: build failure after merge of the suspend tree
-Date: Sat, 8 May 2010 04:13:24 +0200
-Message-ID: <201005080413.24465.rjw@sisk.pl>
-References: <20100507130821.3fb72c9d.sfr@canb.auug.org.au>
+From: sjur.brandeland@stericsson.com
+Subject: [RFC-PATCH] caif: Add debug connection type for CAIF.
+Date: Sat, 08 May 2010 09:23:04 +0200
+Message-ID: <1273303384-6833-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Helmut Schaa <Helmut.Schaa@gmx.de>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100507130821.3fb72c9d.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN
+Content-Transfer-Encoding: 7BIT
+Cc: marcel@holtmann.org, sjurbr@gmail.com,
+	Sjur Braendeland <sjur.brandeland@stericsson.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from thalia-smout.broadpark.no ([80.202.8.21]:48199 "EHLO
+	thalia-smout.broadpark.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751002Ab0EHHXk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 May 2010 03:23:40 -0400
+Received: from ignis-smin.broadpark.no ([unknown] [80.202.8.11])
+ by thalia-smout.broadpark.no
+ (Sun Java(tm) System Messaging Server 7u3-12.01 64bit (built Oct 15 2009))
+ with ESMTP id <0L2300DWVB7E3G20@thalia-smout.broadpark.no> for
+ netdev@vger.kernel.org; Sat, 08 May 2010 09:23:38 +0200 (CEST)
+Received: from localhost.localdomain ([unknown] [84.49.77.207])
+ by ignis-smin.broadpark.no
+ (Sun Java(tm) System Messaging Server 7u3-12.01 64bit (built Oct 15 2009))
+ with ESMTP id <0L2300A8MB7DL200@ignis-smin.broadpark.no> for
+ netdev@vger.kernel.org; Sat, 08 May 2010 09:23:38 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 07 May 2010, Stephen Rothwell wrote:
-> Hi Rafael,
-> 
-> After merging the suspend tree, today's linux-next build (x86_64
-> allmodconfig) failed like this:
-> 
-> net/mac80211/scan.c: In function 'ieee80211_scan_state_decision':
-> net/mac80211/scan.c:510: error: implicit declaration of function 'pm_qos_requirement'
-> 
-> Caused by commit 62bad14fc6e0911a99882c261390968977d43283 ("PM QOS
-> update") from the suspend tree interacting with commit
-> df13cce53a7b28a81460e6bfc4857e9df4956141 ("mac80211: Improve software
-> scan timing") from the net tree.
-> 
-> I have added the following merge fixup patch and can carry it as
-> necessary:
+From: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
-Thanks a lot, please do so if that's not a problem.
+Added new CAIF protocol type CAIFPROTO_DEBUG for accessing
+CAIF debug on the ST Ericsson modems.
 
-Both trees are based on Linus' current and I don't see a good way of fixing
-this issue in any of them individually.
+There are two debug servers on the modem, one for radio related
+debug (CAIF_RADIO_DEBUG_SERVICE) and the other for
+communication/application related debug (CAIF_COM_DEBUG_SERVICE).
 
-Rafael
+The debug connection can contain trace debug printouts or
+interactive debug used for debugging and test.
 
+Debug connections can be of type STREAM or SEQPACKET.
 
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Fri, 7 May 2010 13:02:54 +1000
-> Subject: [PATCH] wireless: update for pm_qos_requirement to pm_qos_request rename
-> 
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> ---
->  net/mac80211/scan.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/mac80211/scan.c b/net/mac80211/scan.c
-> index e14c441..e1b0be7 100644
-> --- a/net/mac80211/scan.c
-> +++ b/net/mac80211/scan.c
-> @@ -510,7 +510,7 @@ static int ieee80211_scan_state_decision(struct ieee80211_local *local,
->  		bad_latency = time_after(jiffies +
->  				ieee80211_scan_get_channel_time(next_chan),
->  				local->leave_oper_channel_time +
-> -				usecs_to_jiffies(pm_qos_requirement(PM_QOS_NETWORK_LATENCY)));
-> +				usecs_to_jiffies(pm_qos_request(PM_QOS_NETWORK_LATENCY)));
->  
->  		listen_int_exceeded = time_after(jiffies +
->  				ieee80211_scan_get_channel_time(next_chan),
-> 
+Feedback is welcomed.
+---
+ include/linux/caif/caif_socket.h |   36 ++++++++++++++++++++++++++++++++++++
+ net/caif/caif_config_util.c      |    5 +++++
+ net/caif/caif_socket.c           |    5 -----
+ 3 files changed, 41 insertions(+), 5 deletions(-)
+
+diff --git a/include/linux/caif/caif_socket.h b/include/linux/caif/caif_socket.h
+index 2a61eb1..1a8fd1f 100644
+--- a/include/linux/caif/caif_socket.h
++++ b/include/linux/caif/caif_socket.h
+@@ -62,6 +62,7 @@ enum caif_channel_priority {
+  * @CAIFPROTO_DATAGRAM_LOOP:	Datagram loopback channel, used for testing.
+  * @CAIFPROTO_UTIL:		Utility (Psock) channel.
+  * @CAIFPROTO_RFM:		Remote File Manager
++ * @CAIFPROTO_DEBUG:		Debug link
+  *
+  * This enum defines the CAIF Channel type to be used. This defines
+  * the service to connect to on the modem.
+@@ -72,6 +73,7 @@ enum caif_protocol_type {
+ 	CAIFPROTO_DATAGRAM_LOOP,
+ 	CAIFPROTO_UTIL,
+ 	CAIFPROTO_RFM,
++	CAIFPROTO_DEBUG,
+ 	_CAIFPROTO_MAX
+ };
+ #define	CAIFPROTO_MAX _CAIFPROTO_MAX
+@@ -85,6 +87,29 @@ enum caif_at_type {
+ };
+ 
+ /**
++ * enum caif_debug_type - Content selection for debug connection
++ * @CAIF_DEBUG_TRACE_INTERACTIVE: Connection will contain
++ *				both trace and interactive debug.
++ * @CAIF_DEBUG_TRACE:		Connection contains trace only.
++ * @CAIF_DEBUG_INTERACTIVE:	Connection to interactive debug.
++ */
++enum caif_debug_type {
++	CAIF_DEBUG_TRACE_INTERACTIVE = 0,
++	CAIF_DEBUG_TRACE,
++	CAIF_DEBUG_INTERACTIVE,
++};
++
++/**
++ * enum caif_debug_service - Debug Service to connect.
++ * @CAIF_RADIO_DEBUG_SERVICE:	Debug on the Radio sub-system
++ * @CAIF_COM_DEBUG_SERVICE:	Debug on the communication sub-system
++ */
++enum caif_debug_service {
++	CAIF_RADIO_DEBUG_SERVICE = 1,
++	CAIF_COM_DEBUG_SERVICE
++};
++
++/**
+  * struct sockaddr_caif - the sockaddr structure for CAIF sockets.
+  * @family:		     Address family number, must be AF_CAIF.
+  * @u:			     Union of address data 'switched' by family.
+@@ -109,6 +134,13 @@ enum caif_at_type {
+  *
+  * @u.rfm.volume:            Volume to mount.
+  *
++ * @u.dbg:                    Applies when family = CAIFPROTO_DEBUG.
++ *
++ * @u.dbg.type:		      Type of debug connection to set up
++ *			       (caif_debug_type).
++ *
++ * @u.dbg.service:            Service sub-system to connect (caif_debug_service)
++ *
+  * Description:
+  * This structure holds the connect parameters used for setting up a
+  * CAIF Channel. It defines the service to connect to on the modem.
+@@ -130,6 +162,10 @@ struct sockaddr_caif {
+ 			__u32 connection_id;
+ 			char	  volume[16];
+ 		} rfm;				/* CAIFPROTO_RFM */
++		struct {
++			__u8  type;		/* type:enum caif_debug_type */
++			__u8  service;		/* service:caif_debug_service */
++		} dbg;				/* CAIFPROTO_DEBUG */
+ 	} u;
+ };
+ 
+diff --git a/net/caif/caif_config_util.c b/net/caif/caif_config_util.c
+index 6f36580..76ae683 100644
+--- a/net/caif/caif_config_util.c
++++ b/net/caif/caif_config_util.c
+@@ -80,6 +80,11 @@ int connect_req_to_link_param(struct cfcnfg *cnfg,
+ 		       l->u.utility.paramlen);
+ 
+ 		break;
++	case CAIFPROTO_DEBUG:
++		l->linktype = CFCTRL_SRV_DBG;
++		l->endpoint = s->sockaddr.u.dbg.service;
++		l->chtype = s->sockaddr.u.dbg.type;
++		break;
+ 	default:
+ 		return -EINVAL;
+ 	}
+diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
+index c3a70c5..4e6c610 100644
+--- a/net/caif/caif_socket.c
++++ b/net/caif/caif_socket.c
+@@ -843,11 +843,6 @@ static int caif_connect(struct socket *sock, struct sockaddr *uaddr,
+ 	if (uaddr->sa_family != AF_CAIF)
+ 		goto out;
+ 
+-	err = -ESOCKTNOSUPPORT;
+-	if (unlikely(!(sk->sk_type == SOCK_STREAM &&
+-		       cf_sk->sk.sk_protocol == CAIFPROTO_AT) &&
+-		       sk->sk_type != SOCK_SEQPACKET))
+-		goto out;
+ 	switch (sock->state) {
+ 	case SS_UNCONNECTED:
+ 		/* Normal case, a fresh connect */
+-- 
+1.6.3.3
+
