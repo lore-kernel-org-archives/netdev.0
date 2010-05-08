@@ -1,92 +1,347 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
-Subject: Re: [PATCH][v4] tcp: fix ICMP-RTO war
-Date: Sun, 9 May 2010 01:00:32 +0300 (EEST)
-Message-ID: <alpine.DEB.2.00.1005090037460.9479@melkinpaasi.cs.helsinki.fi>
-References: <4B7303C2.5000703@tvk.rwth-aachen.de>  <alpine.DEB.2.00.1002151535030.7063@wel-95.cs.helsinki.fi>  <20100221.181029.71107197.davem@davemloft.net>  <o2z349f35ee1005071622z38fcd66ek398402d7512542ae@mail.gmail.com>
- <n2gd1c2719f1005071625nd3df3d72t9655a1f64f2fd825@mail.gmail.com>  <4BE5213C.1030300@tvk.rwth-aachen.de> <k2xd1c2719f1005081027v376a4ebfp300c6272f9ea91df@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] virtif: initial interface extensions
+Date: Sun, 9 May 2010 01:20:19 +0200
+Message-ID: <201005090120.19958.arnd@arndb.de>
+References: <C8083A0F.2EC10%scofeldm@cisco.com> <201005061842.51981.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-696250871-1748872215-1273356032=:9479"
-Cc: Damian Lukowski <damian@tvk.rwth-aachen.de>,
-	Netdev <netdev@vger.kernel.org>
-To: Jerry Chu <hkchu@google.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, chrisw@redhat.com
+To: Scott Feldman <scofeldm@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:46741 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754390Ab0EHWAe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 May 2010 18:00:34 -0400
-In-Reply-To: <k2xd1c2719f1005081027v376a4ebfp300c6272f9ea91df@mail.gmail.com>
+Received: from moutng.kundenserver.de ([212.227.126.186]:50949 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750980Ab0EHXUZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 May 2010 19:20:25 -0400
+In-Reply-To: <201005061842.51981.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Building on the work of Scott Feldman, this extends the netlink interface
+to deal with not only port profiles but also CDCP multichannel and VDP
+VSI registration.
 
----696250871-1748872215-1273356032=:9479
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: 8BIT
+The protocols are split apart into separate netlink attributes for
+a cleaner separation. A device can have multiple IFLA_VIRTIF attributes,
+each pointing to one of the slaves that get registered using one of
+the protocols. In case of VDP, each IFLA_VIRTIF attribute needs
+both an IFLA_VIRTIF_VSI and one or more IFLA_VIRTIF_VSI_MAC_VLAN
+attributes.
 
-On Sat, 8 May 2010, Jerry Chu wrote:
+The VF number is split out because it only makes sense when the
+implementation is in the device driver or firmware, but not for
+software-only implementations like we do for the initial VDP code
+using LLDPAD. If a IFLA_VIRTIF_VF attribute is given, the kernel
+takes care of the association through the device driver for that
+VF, otherwise we do it in user space. This should work for each
+of the three protocols.
 
-> On Sat, May 8, 2010 at 1:30 AM, Damian Lukowski
-> <damian@tvk.rwth-aachen.de> wrote:
-> >
-> > > I'm working on a patch that tries to measure and use the RTT for the passive
-> > > open side when the TS option is NOT enabled. My code conflicts with your
-> > > recently added "tcp_ack_update_rtt(sk, 0, 0);" Could you tell me why do you
-> > > force this call for the no-TS case when obviously "0" is not a measured RTT?
-> > > If you try to force icsk_rto to be initialized correctly, it is
-> > > already initialized to
-> > > TCP_TIMEOUT_INIT by tcp_create_openreq_child(). What am I missing?
-> >
-> > Hi,
-> > the backoff reversion code uses __tcp_set_rto() to recalculate icsk_rto,
-> > which itself relies on tp->srtt and rttvar.
-> 
-> Guess you are talking about
-> 
-> inet_csk(sk)->icsk_rto = __tcp_set_rto(tp) <<
->                                          icsk->icsk_backoff;
-> 
-> inside tcp_v4_err(), right? (I'm looking at 2.6.33 kernel.)
-> 
-> Yes it seems to be a bug when __tcp_set_rto() is called before
-> tcp_rtt_estimator()
-> gets a chance to initialize all the variables properly.
->
-> But I don't like your fix of adding tcp_ack_update_rtt(sk, 0, 0); to
-> tcp_rcv_state_process()
-> because that means you've got a measured RTT of 0 (really meaning < 1 tick) for
-> the no-TS case, which will cause tcp_rtt_estimator() to compute all
-> the variables as if
-> there has been a valid RTT measurement of 1.
-> 
-> A better fix IMHO is to make sure all the variables are properly
-> initialized when exiting
-> tcp_init_metrics(), e.g, if srtt remains 0, make sure
-> tp->mdev = tp->mdev_max = tp->rttvar = TCP_TIMEOUT_INIT;
-> (mdev already been initialized to TCP_TIMEOUT_INIT. I think you got
-> hit by rttvar == 0)
-> 
-> > srtt is explicitly set to 0 in tcp_create_openreq_child(), so I didn't change it.
-> > Initializing it with TCP_TIMEOUT_INIT should also fix that specific bug,
-> > but I don't know if there are other impacts.
-> 
-> So what do I care? Because I'm mucking with the code in this area and your fix
-> causes some conflict with my logic.
-> 
-> What do you think?
+This code is a first rough prototype, completely untested and
+very likely buggy. This is also the first time I'm trying
+to deal with netlink in the kernel, so chances are that I've
+misunderstood something in a major way.
 
-I didn't/don't like the fix either, but it's better than ICMP-RTO war that 
-it fixed.
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ include/linux/if_link.h   |   81 ++++++++++++++++++++++++++++------
+ include/linux/netdevice.h |    8 ++--
+ net/core/rtnetlink.c      |  106 ++++++++++++++++++++++++++++++++++-----------
+ 3 files changed, 152 insertions(+), 43 deletions(-)
 
-I think that most sensible solution to this issue would not be to 
-initialize with the TCP_TIMEOUT_INIT bogosity either but do the real 
-measurement for rtt which should be possible already. I suggested this 
-already when the fix was made but nobody has yet found the time and
-energy to code the rtt measurement for the early rtt when not using TS. 
-Since you're going to make that lack of feature to go away, please change 
-this illogical call too then while you go :-).
-
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index d763358..675d190 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -116,7 +116,7 @@ enum {
+ 	IFLA_VF_TX_RATE,	/* TX Bandwidth Allocation */
+ 	IFLA_VFINFO,
+ 	IFLA_STATS64,
+-	IFLA_VF_PORT_PROFILE,
++	IFLA_VIRTIF,
+ 	__IFLA_MAX
+ };
+ 
+@@ -262,26 +262,79 @@ struct ifla_vf_info {
+ };
+ 
+ enum {
+-	IFLA_VF_PORT_PROFILE_STATUS_UNKNOWN,
+-	IFLA_VF_PORT_PROFILE_STATUS_SUCCESS,
+-	IFLA_VF_PORT_PROFILE_STATUS_INPROGRESS,
+-	IFLA_VF_PORT_PROFILE_STATUS_ERROR,
++	IFLA_VIRTIF_UNSPEC,
++	IFLA_VIRTIF_VF,
++	IFLA_VIRTIF_PORT_PROFILE, /* Cisco enic */
++	IFLA_VIRTIF_CHANNEL,	  /* 802.1Qbg CDCP */
++	IFLA_VIRTIF_VSI,	  /* 802.1Qbg VDP */
++	IFLA_VIRTIF_VSI_MAC_VLAN,
++	__IFLA_VIRTIF_MAX,
+ };
+ 
+-#define IFLA_VF_PORT_PROFILE_MAX	40
+-#define IFLA_VF_UUID_MAX		40
+-#define IFLA_VF_CLIENT_NAME_MAX		40
++#define IFLA_VIRTIF_MAX (__IFLA_VIRTIF_MAX - 1)
+ 
+-struct ifla_vf_port_profile {
+-	__u32 vf;
++enum {
++	VIRTIF_PORT_PROFILE_STATUS_UNKNOWN,
++	VIRTIF_PORT_PROFILE_STATUS_SUCCESS,
++	VIRTIF_PORT_PROFILE_STATUS_INPROGRESS,
++	VIRTIF_PORT_PROFILE_STATUS_ERROR,
++};
++
++#define VIRTIF_PORT_PROFILE_MAX	40
++#define VIRTIF_UUID_MAX		40
++#define VIRTIF_CLIENT_NAME_MAX	40
++
++struct ifla_virtif_port_profile {
+ 	__u32 flags;
+ 	__u32 status;
+-	__u8 port_profile[IFLA_VF_PORT_PROFILE_MAX];
++	__u8 port_profile[VIRTIF_PORT_PROFILE_MAX];
+ 	__u8 mac[32];					/* MAX_ADDR_LEN */
+ 	/* UUID e.g. "CEEFD3B1-9E11-11DE-BDFD-000BAB01C0FB" */
+-	__u8 host_uuid[IFLA_VF_UUID_MAX];
+-	__u8 client_uuid[IFLA_VF_UUID_MAX];
+-	__u8 client_name[IFLA_VF_CLIENT_NAME_MAX];	/* e.g. "vm0-eth1" */
++	__u8 host_uuid[VIRTIF_UUID_MAX];
++	__u8 client_uuid[VIRTIF_UUID_MAX];
++	__u8 client_name[VIRTIF_CLIENT_NAME_MAX];	/* e.g. "vm0-eth1" */
++};
++
++/*
++ * CDCP and VDP come from the 802.1Qbg standard, these definitions are taken
++ * from the respective TLV definitions in there. Adapters implementing CDCP
++ * or VDP can encapsulate the structures in LLDP/ECP headers and send them
++ * to the switch.
++ */
++struct ifla_virtif_channel {
++	__u16 scid;	/* S-Channel ID */
++	__u16 svid;	/* S-VLAN ID */
++};
++
++enum {
++	VIRTIF_VDP_REQUEST_PREASSOCIATE = 0,
++	VIRVIF_VDP_REQUEST_PREASSOCIATE_RR,
++	VIRVIF_VDP_REQUEST_ASSOCIATE,
++	VIRVIF_VDP_REQUEST_DISASSOCIATE,
++};
++
++enum {
++	VIRTIF_VDP_RESPONSE_SUCCESS = 0,
++	VIRTIF_VDP_RESPONSE_INVALID_FORMAT,
++	VIRTIF_VDP_RESPONSE_INSUFFICIENT_RESOURCES,
++	VIRTIF_VDP_RESPONSE_UNUSED_VTID,
++	VIRTIF_VDP_RESPONSE_VTID_VIOLATION,
++	VIRTIF_VDP_RESPONSE_VTID_VERSION_VIOLATION,
++	VIRTIF_VDP_RESPONSE_OUT_OF_SYNC,
++};
++
++struct ifla_virtif_vsi {
++	__u8 mode_request;
++	__u8 mode_response;
++	__u8 vsi_mgr_id;	/* these three define the policy */
++	__u8 vsi_type_id[3]; 	/*   for the guest */
++	__u8 vsi_type_version;
++	__u8 vsi_instance[16];	/* identifies the guest */
++};
++
++struct ifla_virtif_vsi_mac_vlan {
++	__u8 mac[6];
++	__u8 vlan_id[2];
+ };
+ 
+ #endif /* _LINUX_IF_LINK_H */
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index f5b0be5..d549a3d 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -687,9 +687,9 @@ struct netdev_rx_queue {
+  * int (*ndo_get_vf_config)(struct net_device *dev,
+  *			    int vf, struct ifla_vf_info *ivf);
+  * int (*ndo_set_vf_port_profile)(struct net_device *dev, int vf,
+- *				  struct ifla_vf_port_profile *ivp);
++ *				  struct virtif_port_profile *ivp);
+  * int (*ndo_get_vf_port_profile)(struct net_device *dev, int vf,
+- *				  struct ifla_vf_port_profile *ivp);
++ *				  struct virtif_port_profile *ivp);
+  */
+ #define HAVE_NET_DEVICE_OPS
+ struct net_device_ops {
+@@ -741,10 +741,10 @@ struct net_device_ops {
+ 						     struct ifla_vf_info *ivf);
+ 	int			(*ndo_set_vf_port_profile)(
+ 					struct net_device *dev, int vf,
+-					struct ifla_vf_port_profile *ivp);
++					struct ifla_virtif_port_profile *ivp);
+ 	int			(*ndo_get_vf_port_profile)(
+ 					struct net_device *dev, int vf,
+-					struct ifla_vf_port_profile *ivp);
++					struct ifla_virtif_port_profile *ivp);
+ #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
+ 	int			(*ndo_fcoe_enable)(struct net_device *dev);
+ 	int			(*ndo_fcoe_disable)(struct net_device *dev);
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index d2ef45b..cf5e328 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -653,6 +653,22 @@ static inline int rtnl_vfinfo_size(const struct net_device *dev)
+ 		return 0;
+ }
+ 
++static size_t rtnl_virtif_get_size(const struct net_device *dev)
++{
++	size_t total = 0;
++
++	if (dev->netdev_ops->ndo_get_vf_port_profile) {
++		total = dev_num_vf(dev->dev.parent) *
++			(nla_total_size(sizeof(struct ifla_virtif_port_profile))
++			 + nla_total_size(4)); /* IFLA_VIRTIF_VF */
++	}
++
++	/* fill in IFLA_VIRTIF_CHANNEL and IFLA_VIRTIF_VSI when needed */
++		
++	return total;
++}
++
++
+ static inline size_t if_nlmsg_size(const struct net_device *dev)
+ {
+ 	return NLMSG_ALIGN(sizeof(struct ifinfomsg))
+@@ -674,6 +690,38 @@ static inline size_t if_nlmsg_size(const struct net_device *dev)
+ 	       + nla_total_size(4) /* IFLA_NUM_VF */
+ 	       + nla_total_size(rtnl_vfinfo_size(dev)) /* IFLA_VFINFO */
+ 	       + rtnl_link_get_size(dev); /* IFLA_LINKINFO */
++	       + rtnl_virtif_get_size(dev); /* IFLA_VIRTIF */
++}
++
++static int rtnl_virtif_fill_ifinfo(struct sk_buff *skb, struct net_device *dev)
++{
++	if (dev->netdev_ops->ndo_get_vf_port_profile && dev->dev.parent) {
++		struct ifla_virtif_port_profile ivp;
++
++		if (dev_num_vf(dev->dev.parent)) {
++			int i;
++
++			for (i = 0; i < dev_num_vf(dev->dev.parent); i++) {
++				if (dev->netdev_ops->ndo_get_vf_port_profile(
++					dev, i, &ivp))
++					break;
++				NLA_PUT_U32(skb, IFLA_VIRTIF_VF, i);
++				NLA_PUT(skb, IFLA_VIRTIF_PORT_PROFILE,
++					sizeof(ivp), &ivp);
++			}
++		}
++#if 0 /* Not sure how we should do this -arnd */
++		 else if (!dev->netdev_ops->ndo_get_vf_port_profile(dev,
++			0, &ivp)) {
++			NLA_PUT(skb, VIRTIF_PORT_PROFILE,
++				sizeof(ivp), &ivp);
++		}
++#endif
++	}
++	return 0;
++
++nla_put_failure:
++	return -EMSGSIZE;
+ }
+ 
+ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+@@ -761,25 +809,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 		}
+ 	}
+ 
+-	if (dev->netdev_ops->ndo_get_vf_port_profile && dev->dev.parent) {
+-		struct ifla_vf_port_profile ivp;
+-
+-		if (dev_num_vf(dev->dev.parent)) {
+-			int i;
+-
+-			for (i = 0; i < dev_num_vf(dev->dev.parent); i++) {
+-				if (dev->netdev_ops->ndo_get_vf_port_profile(
+-					dev, i, &ivp))
+-					break;
+-				NLA_PUT(skb, IFLA_VF_PORT_PROFILE,
+-					sizeof(ivp), &ivp);
+-			}
+-		} else if (!dev->netdev_ops->ndo_get_vf_port_profile(dev,
+-			0, &ivp)) {
+-			NLA_PUT(skb, IFLA_VF_PORT_PROFILE,
+-				sizeof(ivp), &ivp);
+-		}
+-	}
++	if (rtnl_virtif_fill_ifinfo(skb, dev))
++		goto nla_put_failure;
+ 
+ 	if (dev->rtnl_link_ops) {
+ 		if (rtnl_link_fill(skb, dev) < 0)
+@@ -847,8 +878,7 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 				    .len = sizeof(struct ifla_vf_vlan) },
+ 	[IFLA_VF_TX_RATE]	= { .type = NLA_BINARY,
+ 				    .len = sizeof(struct ifla_vf_tx_rate) },
+-	[IFLA_VF_PORT_PROFILE]	= { .type = NLA_BINARY,
+-				    .len = sizeof(struct ifla_vf_port_profile)},
++	[IFLA_VIRTIF]		= { .type = NLA_NESTED },
+ };
+ EXPORT_SYMBOL(ifla_policy);
+ 
+@@ -857,6 +887,18 @@ static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
+ 	[IFLA_INFO_DATA]	= { .type = NLA_NESTED },
+ };
+ 
++static const struct nla_policy ifla_virtif_policy[IFLA_VIRTIF_MAX+1] = {
++	[IFLA_VIRTIF_VF]	   = { .type = NLA_U32 },
++	[IFLA_VIRTIF_PORT_PROFILE] = { .type = NLA_BINARY,
++				       .len = sizeof(struct ifla_virtif_port_profile) },
++	[IFLA_VIRTIF_CHANNEL]	   = { .type = NLA_BINARY,
++				       .len = sizeof(struct ifla_virtif_channel) },
++	[IFLA_VIRTIF_VSI]	   = { .type = NLA_BINARY,
++				       .len = sizeof(struct ifla_virtif_vsi) },
++	[IFLA_VIRTIF_VSI_MAC_VLAN] = { .type = NLA_BINARY,
++				       .len = sizeof(struct ifla_virtif_vsi_mac_vlan) },
++};
++				    
+ struct net *rtnl_link_get_net(struct net *src_net, struct nlattr *tb[])
+ {
+ 	struct net *net;
+@@ -1053,16 +1095,30 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
+ 	}
+ 	err = 0;
+ 
+-	if (tb[IFLA_VF_PORT_PROFILE]) {
+-		struct ifla_vf_port_profile *ivp;
+-		ivp = nla_data(tb[IFLA_VF_PORT_PROFILE]);
++	if (tb[IFLA_VIRTIF]) {
++		struct ifla_virtif_port_profile *ivp;
++		struct nlattr *virtif[IFLA_VIRTIF_MAX+1];
++		u32 vf;
++
++		err = nla_parse_nested(virtif, IFLA_VIRTIF_MAX,
++				       tb[IFLA_VIRTIF], ifla_virtif_policy);
++		if (err < 0)
++			return err;
++
++		if (!virtif[IFLA_VIRTIF_VF] || !virtif[IFLA_VIRTIF_PORT_PROFILE])
++			goto novirtif; /* IFLA_VIRTIF may be directed at user space */
++
++		vf = nla_get_u32(virtif[IFLA_VIRTIF_VF]);
++		ivp = nla_data(virtif[IFLA_VIRTIF_PORT_PROFILE]);
++
+ 		err = -EOPNOTSUPP;
+ 		if (ops->ndo_set_vf_port_profile)
+-			err = ops->ndo_set_vf_port_profile(dev, ivp->vf, ivp);
++			err = ops->ndo_set_vf_port_profile(dev, vf, ivp);
+ 		if (err < 0)
+ 			goto errout;
+ 		modified = 1;
+ 	}
++novirtif:
+ 	err = 0;
+ 
+ errout:
 -- 
- i.
----696250871-1748872215-1273356032=:9479--
+1.6.3.3
+
