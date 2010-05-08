@@ -1,35 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bug 15907] New: IP_ADD_SOURCE_MEMBERSHIP after
- IP_ADD_MEMBERSHIP join on same multicast-group dont return EINVAL
-Date: Fri, 07 May 2010 18:49:14 -0700 (PDT)
-Message-ID: <20100507.184914.236232473.davem@davemloft.net>
-References: <OFD4CF7550.98F2D787-ON8825771A.005CD3AE-8825771A.005E4045@us.ibm.com>
-	<OFF6B69D4E.4BD995AD-ON8825771C.0081F4BF-8825771C.0082FBC7@us.ibm.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: linux-next: build failure after merge of the suspend tree
+Date: Sat, 8 May 2010 04:13:24 +0200
+Message-ID: <201005080413.24465.rjw@sisk.pl>
+References: <20100507130821.3fb72c9d.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, shemminger@vyatta.com
-To: dlstevens@us.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41156
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751062Ab0EHBtI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 May 2010 21:49:08 -0400
-In-Reply-To: <OFF6B69D4E.4BD995AD-ON8825771C.0081F4BF-8825771C.0082FBC7@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Helmut Schaa <Helmut.Schaa@gmx.de>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20100507130821.3fb72c9d.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Stevens <dlstevens@us.ibm.com>
-Date: Fri, 7 May 2010 16:50:44 -0700
+On Friday 07 May 2010, Stephen Rothwell wrote:
+> Hi Rafael,
+> 
+> After merging the suspend tree, today's linux-next build (x86_64
+> allmodconfig) failed like this:
+> 
+> net/mac80211/scan.c: In function 'ieee80211_scan_state_decision':
+> net/mac80211/scan.c:510: error: implicit declaration of function 'pm_qos_requirement'
+> 
+> Caused by commit 62bad14fc6e0911a99882c261390968977d43283 ("PM QOS
+> update") from the suspend tree interacting with commit
+> df13cce53a7b28a81460e6bfc4857e9df4956141 ("mac80211: Improve software
+> scan timing") from the net tree.
+> 
+> I have added the following merge fixup patch and can carry it as
+> necessary:
 
->         Do you have an opinion on this one? Linux code (for many
-> years now) allows you to do SSM calls after an ordinary ASM join,
-> and vice-versa. The bugzilla basically wants to see mixing the calls
-> return EINVAL.
+Thanks a lot, please do so if that's not a problem.
 
-We can't do that.
+Both trees are based on Linus' current and I don't see a good way of fixing
+this issue in any of them individually.
 
-It will obviously break existing applications.
+Rafael
 
-Someone please close the bug.
+
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Fri, 7 May 2010 13:02:54 +1000
+> Subject: [PATCH] wireless: update for pm_qos_requirement to pm_qos_request rename
+> 
+> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> ---
+>  net/mac80211/scan.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/mac80211/scan.c b/net/mac80211/scan.c
+> index e14c441..e1b0be7 100644
+> --- a/net/mac80211/scan.c
+> +++ b/net/mac80211/scan.c
+> @@ -510,7 +510,7 @@ static int ieee80211_scan_state_decision(struct ieee80211_local *local,
+>  		bad_latency = time_after(jiffies +
+>  				ieee80211_scan_get_channel_time(next_chan),
+>  				local->leave_oper_channel_time +
+> -				usecs_to_jiffies(pm_qos_requirement(PM_QOS_NETWORK_LATENCY)));
+> +				usecs_to_jiffies(pm_qos_request(PM_QOS_NETWORK_LATENCY)));
+>  
+>  		listen_int_exceeded = time_after(jiffies +
+>  				ieee80211_scan_get_channel_time(next_chan),
+> 
