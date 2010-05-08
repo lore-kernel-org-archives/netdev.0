@@ -1,62 +1,79 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] ipv4: remove ip_rt_secret timer (v4)
-Date: Sat, 8 May 2010 08:54:58 -0400
-Message-ID: <20100508125458.GA10354@hmsreliant.think-freely.org>
-References: <20100506171639.GA5063@hmsreliant.think-freely.org>
- <20100508010108.GA3028@localhost.localdomain>
- <1273300597.2325.55.camel@edumazet-laptop>
+From: Andy Fleming <afleming@gmail.com>
+Subject: Re: [PATCH 1/2] netdev/fec: fix performance impact from mdio poll
+	operation
+Date: Sat, 8 May 2010 10:25:53 -0500
+Message-ID: <AANLkTim8SJ0CzC_tRLhSqXdSXHwcDtx5qFy5A4qo3sae@mail.gmail.com>
+References: <1273199239-11057-1-git-send-email-bryan.wu@canonical.com>
+	 <1273199239-11057-2-git-send-email-bryan.wu@canonical.com>
+	 <i2l2acbd3e41005070906me50416bapd8154a567406b886@mail.gmail.com>
+	 <4BE537E2.6010809@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:49008 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752426Ab0EHMzE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 May 2010 08:55:04 -0400
-Content-Disposition: inline
-In-Reply-To: <1273300597.2325.55.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Greg Ungerer <gerg@uclinux.org>,
+	Amit Kucheria <amit.kucheria@canonical.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "bryan.wu@canonical.com" <bryan.wu@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4BE537E2.6010809@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, May 08, 2010 at 08:36:37AM +0200, Eric Dumazet wrote:
-> Le vendredi 07 mai 2010 =E0 21:01 -0400, Neil Horman a =E9crit :
-> > Hey, Had a moment tonight so I spun version 4 of the patch.
-> >=20
-> > Change notes:
-> > 1) Redid the initialization, in light of Erics clarification.  We r=
-andomly seed
-> > all 32 bits of the rt_genid for a netns, but still just do 256 byte
-> > modifications on cache invalidations
-> >=20
-> > 2) got rid of the dup checking crap.
-> >=20
-> >=20
-> > Summary:
-> >=20
-> > A while back there was a discussion regarding the rt_secret_interva=
-l timer.
-> > Given that we've had the ability to do emergency route cache rebuil=
-ds for awhile
-> > now, based on a statistical analysis of the various hash chain leng=
-ths in the
-> > cache, the use of the flush timer is somewhat redundant.  This patc=
-h removes the
-> > rt_secret_interval sysctl, allowing us to rely solely on the statis=
-tical
-> > analysis mechanism to determine the need for route cache flushes.
-> >=20
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> >=20
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
->=20
-> Sorry for the confusion Neil, thanks !
-Its my fault, it was more clear to me on a second reading.  Apologies!
-Neil
+On Saturday, May 8, 2010, Bryan Wu <bryan.wu@canonical.com> wrote:
+> On 05/08/2010 12:06 AM, Andy Fleming wrote:
 
->=20
->=20
->=20
+> From the BugLink, we experienced a lot of error
+>
+> The Phy lib is not going to respond well if an mdio
+> write times out without returning an error. =A0And returning an error
+> means the whole state machine has to reset, as a failed write is not
+> something we currently handle gracefully.
+>
+>
+>
+> Right, if we return error to phylib due to mdio read times out, the p=
+erformance will drop a lot.
+
+
+Yes, and if you *don't* return an error, you risk incorrect behavior.
+This patch changes the driver to return the read result, after
+detecting that the read result is invalid.  I don't know what the
+value in that register will be, but it can't be correct.  If the
+hardware is broken, then we need to find a workaround that doesn't
+break things for chips which have working mdio.  It's also possible we
+just need a longer timeout.  Does the mdio bus ever return correct
+values?
+
+
+
+
+>
+>
+> Is it possible to use an interrupt to get the phy state change? =A0Th=
+is
+> would allow the phy lib to stop its incessant polling. =A0It doesn't
+> solve the question of why it's timing out, though.
+>
+>
+>
+> I'm going to try the interrupt, but fec driver is shared by several S=
+oCs. It might be a little complicated and still cannot fix the timing o=
+ut issue. Is there any example driver to use an interrupt to get the ph=
+y state change?
+
+Well, there are examples, but they may be only somewhat helpful.  From
+the perspective of the PHY Lib, all you have to do is put a correct
+value into the irqs array in the mdio bus struct for your bus.  The
+part where you will probably have to solve a problem is in figuring
+out how to convey that information to the bus driver.  On Power CPUs
+and socs, we use a device tree, which has an interrupt associated with
+each PHY.  Look at wherever your mdio bus *device* is registered.
+That's probably where you'll have that information.
+
+=46eel free to look at drivers/net/fsl_pq_mdio.c
+
+Another possibility is to use the fixed link phy driver, which will
+never attempt to use the mdio bus, and won't poll.
