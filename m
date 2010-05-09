@@ -1,97 +1,85 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH 09/11] netdev: bfin_mac: only use hardware checksum in normal IPv4 mode
-Date: Sun,  9 May 2010 06:18:55 -0400
-Message-ID: <1273400337-26501-9-git-send-email-vapier@gentoo.org>
+From: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH 04/11] netdev: bfin_mac: deduce
+	Ethernet FCS from hardware IP payload checksum
+Date: Sun,  9 May 2010 06:18:50 -0400
+Message-ID: <1273400337-26501-4-git-send-email-vapier@gentoo.org>
 References: <1273400337-26501-1-git-send-email-vapier@gentoo.org>
-Cc: uclinux-dist-devel@blackfin.uclinux.org,
-	Jon Kowal <jon.kowal@dspecialists.de>,
-	Sonic Zhang <sonic.zhang@analog.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:53271 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752842Ab0EIKQP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 May 2010 06:16:15 -0400
-In-Reply-To: <1273400337-26501-1-git-send-email-vapier@gentoo.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+In-Reply-To: <1273400337-26501-1-git-send-email-vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
+List-Unsubscribe: <https://blackfin.uclinux.org/mailman/options/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://blackfin.uclinux.org/pipermail/uclinux-dist-devel>
+List-Post: <mailto:uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+List-Help: <mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=help>
+List-Subscribe: <https://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=subscribe>
+Sender: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+Errors-To: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jon Kowal <jon.kowal@dspecialists.de>
+From: Sonic Zhang <sonic.zhang-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
 
-The Blackfin on-chip MAC checksum logic only works when the IP packet has
-a header length of 20 bytes.  This is true for most IPv4 packets, but not
-for IPv6 packets or IPv4 packets which use header options.  So only use
-the hardware checksum when appropriate.
+IP checksum is based on 16-bit one's complement algorithm.
+To deduce a value from checksum is equal to add its complement.
 
-Signed-off-by: Jon Kowal <jon.kowal@dspecialists.de>
-Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+Signed-off-by: Sonic Zhang <sonic.zhang-OyLXuOCK7orQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/bfin_mac.c |   42 +++++++++++++++++++++++++-----------------
- 1 files changed, 25 insertions(+), 17 deletions(-)
+ drivers/net/bfin_mac.c |   23 +++++++++++++++++++++++
+ 1 files changed, 23 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-index 04cda8f..00d0f25 100644
+index f9ba598..5b00fc8 100644
 --- a/drivers/net/bfin_mac.c
 +++ b/drivers/net/bfin_mac.c
-@@ -1044,6 +1044,7 @@ out:
- 	return NETDEV_TX_OK;
- }
+@@ -994,6 +994,10 @@ static void bfin_mac_rx(struct net_device *dev)
+ 	struct sk_buff *skb, *new_skb;
+ 	unsigned short len;
+ 	struct bfin_mac_local *lp __maybe_unused = netdev_priv(dev);
++#if defined(BFIN_MAC_CSUM_OFFLOAD)
++	unsigned int i;
++	unsigned char fcs[ETH_FCS_LEN + 1];
++#endif
  
-+#define IP_HEADER_OFF  0
- #define RX_ERROR_MASK (RX_LONG | RX_ALIGN | RX_CRC | RX_LEN | \
- 	RX_FRAG | RX_ADDR | RX_DMAO | RX_PHY | RX_LATE | RX_RANGE)
+ 	/* check if frame status word reports an error condition
+ 	 * we which case we simply drop the packet
+@@ -1027,6 +1031,8 @@ static void bfin_mac_rx(struct net_device *dev)
+ 	current_rx_ptr->desc_a.start_addr = (unsigned long)new_skb->data - 2;
  
-@@ -1098,25 +1099,32 @@ static void bfin_mac_rx(struct net_device *dev)
- 	bfin_rx_hwtstamp(dev, skb);
+ 	len = (unsigned short)((current_rx_ptr->status.status_word) & RX_FRLEN);
++	/* Deduce Ethernet FCS length from Ethernet payload length */
++	len -= ETH_FCS_LEN;
+ 	skb_put(skb, len);
+ 
+ 	skb->protocol = eth_type_trans(skb, dev);
+@@ -1035,6 +1041,23 @@ static void bfin_mac_rx(struct net_device *dev)
  
  #if defined(BFIN_MAC_CSUM_OFFLOAD)
--	skb->csum = current_rx_ptr->status.ip_payload_csum;
--	/*
--	 * Deduce Ethernet FCS from hardware generated IP payload checksum.
--	 * IP checksum is based on 16-bit one's complement algorithm.
--	 * To deduce a value from checksum is equal to add its inversion.
--	 * If the IP payload len is odd, the inversed FCS should also
--	 * begin from odd address and leave first byte zero.
-+	/* Checksum offloading only works for IPv4 packets with the standard IP header
-+	 * length of 20 bytes, because the blackfin MAC checksum calculation is
-+	 * based on that assumption. We must NOT use the calculated checksum if our
-+	 * IP version or header break that assumption.
- 	 */
--	if (skb->len % 2) {
--		fcs[0] = 0;
--		for (i = 0; i < ETH_FCS_LEN; i++)
--			fcs[i + 1] = ~skb->data[skb->len + i];
--		skb->csum = csum_partial(fcs, ETH_FCS_LEN + 1, skb->csum);
--	} else {
--		for (i = 0; i < ETH_FCS_LEN; i++)
--			fcs[i] = ~skb->data[skb->len + i];
--		skb->csum = csum_partial(fcs, ETH_FCS_LEN, skb->csum);
-+	if (skb->data[IP_HEADER_OFF] == 0x45) {
-+		skb->csum = current_rx_ptr->status.ip_payload_csum;
-+		/*
-+		 * Deduce Ethernet FCS from hardware generated IP payload checksum.
-+		 * IP checksum is based on 16-bit one's complement algorithm.
-+		 * To deduce a value from checksum is equal to add its inversion.
-+		 * If the IP payload len is odd, the inversed FCS should also
-+		 * begin from odd address and leave first byte zero.
-+		 */
-+		if (skb->len % 2) {
-+			fcs[0] = 0;
-+			for (i = 0; i < ETH_FCS_LEN; i++)
-+				fcs[i + 1] = ~skb->data[skb->len + i];
-+			skb->csum = csum_partial(fcs, ETH_FCS_LEN + 1, skb->csum);
-+		} else {
-+			for (i = 0; i < ETH_FCS_LEN; i++)
-+				fcs[i] = ~skb->data[skb->len + i];
-+			skb->csum = csum_partial(fcs, ETH_FCS_LEN, skb->csum);
-+		}
-+		skb->ip_summed = CHECKSUM_COMPLETE;
- 	}
--	skb->ip_summed = CHECKSUM_COMPLETE;
+ 	skb->csum = current_rx_ptr->status.ip_payload_csum;
++	/*
++	 * Deduce Ethernet FCS from hardware generated IP payload checksum.
++	 * IP checksum is based on 16-bit one's complement algorithm.
++	 * To deduce a value from checksum is equal to add its inversion.
++	 * If the IP payload len is odd, the inversed FCS should also
++	 * begin from odd address and leave first byte zero.
++	 */
++	if (skb->len % 2) {
++		fcs[0] = 0;
++		for (i = 0; i < ETH_FCS_LEN; i++)
++			fcs[i + 1] = ~skb->data[skb->len + i];
++		skb->csum = csum_partial(fcs, ETH_FCS_LEN + 1, skb->csum);
++	} else {
++		for (i = 0; i < ETH_FCS_LEN; i++)
++			fcs[i] = ~skb->data[skb->len + i];
++		skb->csum = csum_partial(fcs, ETH_FCS_LEN, skb->csum);
++	}
+ 	skb->ip_summed = CHECKSUM_COMPLETE;
  #endif
  
- 	netif_rx(skb);
 -- 
 1.7.1
-
