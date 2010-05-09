@@ -1,74 +1,80 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] fix multi-buffer logging with mergeable buffers
-Date: Sun, 9 May 2010 14:10:16 +0300
-Message-ID: <20100509111016.GA19453@redhat.com>
-References: <1273263068.24088.1.camel@w-dls.beaverton.ibm.com>
+From: Andrew Hendry <andrew.hendry@gmail.com>
+Subject: [PATCH] X25: Replace BKL in sockopts calls
+Date: Sun, 09 May 2010 22:45:23 +1000
+Message-ID: <1273409123.2727.387.camel@ibex>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David L Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10180 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752782Ab0EILOS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 May 2010 07:14:18 -0400
-Content-Disposition: inline
-In-Reply-To: <1273263068.24088.1.camel@w-dls.beaverton.ibm.com>
+Received: from mail-px0-f174.google.com ([209.85.212.174]:33179 "EHLO
+	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750899Ab0EIMp3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 May 2010 08:45:29 -0400
+Received: by pxi5 with SMTP id 5so1237765pxi.19
+        for <netdev@vger.kernel.org>; Sun, 09 May 2010 05:45:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 07, 2010 at 01:11:08PM -0700, David L Stevens wrote:
-> This patch fixes the multibuffer case of logging with
-> mergeable buffers.
-> 
-> Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
 
-So, I folded this into your original patch submission,
-this way we don't get broken logging followed
-by a fix (better for bisect). Further, I think it's better to only use log_num
-on success. After fixing whitespace (+ needs space around it:
-didn't checkpatch complain?) I merged the below,
-and rebased my tweaks patch on top.
+x25_setsockopt only updates the socket
+x25_get only reads
 
-The result can be found here:
-git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-mrg-rxbuf
+Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
 
-Compiles fine but I'm a bit busy with other things,
-and didn't test at all yet, I'd appreciate testing and reports.
+---
+ net/x25/af_x25.c |   10 ++++------
+ 1 files changed, 4 insertions(+), 6 deletions(-)
 
---
-
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 8ef5e3f..1964ab0 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -877,7 +877,7 @@ int vhost_get_desc_n(struct vhost_virtqueue *vq, struct vring_used_elem *heads,
- 	unsigned int out, in;
- 	int seg = 0;
- 	int headcount = 0;
--	int r;
-+	int r, nlogs = 0;
+diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+index 296e65e..9f177a1 100644
+--- a/net/x25/af_x25.c
++++ b/net/x25/af_x25.c
+@@ -453,7 +453,6 @@ static int x25_setsockopt(struct socket *sock, int level, int optname,
+ 	struct sock *sk = sock->sk;
+ 	int rc = -ENOPROTOOPT;
  
- 	while (datalen > 0) {
- 		if (headcount >= VHOST_NET_MAX_SG) {
-@@ -897,12 +897,18 @@ int vhost_get_desc_n(struct vhost_virtqueue *vq, struct vring_used_elem *heads,
- 			r = -EINVAL;
- 			goto err;
- 		}
-+		if (unlikely(log)) {
-+			nlogs += *log_num;
-+			log += *log_num;
-+		}
- 		heads[headcount].len = iov_length(vq->iov + seg, in);
- 		datalen -= heads[headcount].len;
- 		++headcount;
- 		seg += in;
- 	}
- 	*iovcount = seg;
-+	if (unlikely(log))
-+		*log_num = nlogs;
- 	return headcount;
- err:
- 	vhost_discard_desc(vq, headcount);
+-	lock_kernel();
+ 	if (level != SOL_X25 || optname != X25_QBITINCL)
+ 		goto out;
+ 
+@@ -465,20 +464,20 @@ static int x25_setsockopt(struct socket *sock, int level, int optname,
+ 	if (get_user(opt, (int __user *)optval))
+ 		goto out;
+ 
++	lock_sock(sk);
+ 	x25_sk(sk)->qbitincl = !!opt;
++	release_sock(sk);
+ 	rc = 0;
+ out:
+-	unlock_kernel();
+ 	return rc;
+ }
+ 
+ static int x25_getsockopt(struct socket *sock, int level, int optname,
+ 			  char __user *optval, int __user *optlen)
+ {
+-	struct sock *sk = sock->sk;
++	struct x25_sock *sk = x25_sk(sock->sk);
+ 	int val, len, rc = -ENOPROTOOPT;
+ 
+-	lock_kernel();
+ 	if (level != SOL_X25 || optname != X25_QBITINCL)
+ 		goto out;
+ 
+@@ -496,10 +495,9 @@ static int x25_getsockopt(struct socket *sock, int level, int optname,
+ 	if (put_user(len, optlen))
+ 		goto out;
+ 
+-	val = x25_sk(sk)->qbitincl;
++	val = sk->qbitincl;
+ 	rc = copy_to_user(optval, &val, len) ? -EFAULT : 0;
+ out:
+-	unlock_kernel();
+ 	return rc;
+ }
+ 
 -- 
-MST
+1.7.0.4
+
+
