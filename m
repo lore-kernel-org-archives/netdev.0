@@ -1,49 +1,74 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH 05/11] netdev: bfin_mac: clear RXCKS if hardware generated checksum is not enabled
-Date: Sun,  9 May 2010 06:18:51 -0400
-Message-ID: <1273400337-26501-5-git-send-email-vapier@gentoo.org>
-References: <1273400337-26501-1-git-send-email-vapier@gentoo.org>
-Cc: uclinux-dist-devel@blackfin.uclinux.org,
-	Sonic Zhang <sonic.zhang@analog.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] fix multi-buffer logging with mergeable buffers
+Date: Sun, 9 May 2010 14:10:16 +0300
+Message-ID: <20100509111016.GA19453@redhat.com>
+References: <1273263068.24088.1.camel@w-dls.beaverton.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David L Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:53246 "EHLO smtp.gentoo.org"
+Received: from mx1.redhat.com ([209.132.183.28]:10180 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752687Ab0EIKQK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 May 2010 06:16:10 -0400
-In-Reply-To: <1273400337-26501-1-git-send-email-vapier@gentoo.org>
+	id S1752782Ab0EILOS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 May 2010 07:14:18 -0400
+Content-Disposition: inline
+In-Reply-To: <1273263068.24088.1.camel@w-dls.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sonic Zhang <sonic.zhang@analog.com>
+On Fri, May 07, 2010 at 01:11:08PM -0700, David L Stevens wrote:
+> This patch fixes the multibuffer case of logging with
+> mergeable buffers.
+> 
+> Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
 
-Otherwise we might be get a setting mismatch from a previous module or
-bootloader and what the driver currently expects.
+So, I folded this into your original patch submission,
+this way we don't get broken logging followed
+by a fix (better for bisect). Further, I think it's better to only use log_num
+on success. After fixing whitespace (+ needs space around it:
+didn't checkpatch complain?) I merged the below,
+and rebased my tweaks patch on top.
 
-Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
----
- drivers/net/bfin_mac.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+The result can be found here:
+git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-mrg-rxbuf
 
-diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-index 5b00fc8..6d69bbb 100644
---- a/drivers/net/bfin_mac.c
-+++ b/drivers/net/bfin_mac.c
-@@ -515,10 +515,11 @@ void setup_system_regs(struct net_device *dev)
- 	 * Configure checksum support and rcve frame word alignment
- 	 */
- 	sysctl = bfin_read_EMAC_SYSCTL();
-+	sysctl |= RXDWA;
- #if defined(BFIN_MAC_CSUM_OFFLOAD)
--	sysctl |= RXDWA | RXCKS;
-+	sysctl |= RXCKS;
- #else
--	sysctl |= RXDWA;
-+	sysctl &= ~RXCKS;
- #endif
- 	bfin_write_EMAC_SYSCTL(sysctl);
+Compiles fine but I'm a bit busy with other things,
+and didn't test at all yet, I'd appreciate testing and reports.
+
+--
+
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 8ef5e3f..1964ab0 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -877,7 +877,7 @@ int vhost_get_desc_n(struct vhost_virtqueue *vq, struct vring_used_elem *heads,
+ 	unsigned int out, in;
+ 	int seg = 0;
+ 	int headcount = 0;
+-	int r;
++	int r, nlogs = 0;
  
+ 	while (datalen > 0) {
+ 		if (headcount >= VHOST_NET_MAX_SG) {
+@@ -897,12 +897,18 @@ int vhost_get_desc_n(struct vhost_virtqueue *vq, struct vring_used_elem *heads,
+ 			r = -EINVAL;
+ 			goto err;
+ 		}
++		if (unlikely(log)) {
++			nlogs += *log_num;
++			log += *log_num;
++		}
+ 		heads[headcount].len = iov_length(vq->iov + seg, in);
+ 		datalen -= heads[headcount].len;
+ 		++headcount;
+ 		seg += in;
+ 	}
+ 	*iovcount = seg;
++	if (unlikely(log))
++		*log_num = nlogs;
+ 	return headcount;
+ err:
+ 	vhost_discard_desc(vq, headcount);
 -- 
-1.7.1
-
+MST
