@@ -1,45 +1,73 @@
 From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH 08/11] netdev: bfin_mac: use promiscuous flag for promiscuous mode
-Date: Sun,  9 May 2010 06:18:54 -0400
-Message-ID: <1273400337-26501-8-git-send-email-vapier@gentoo.org>
+Subject: [PATCH 02/11] netdev: bfin_mac: handler RX status errors
+Date: Sun,  9 May 2010 06:18:48 -0400
+Message-ID: <1273400337-26501-2-git-send-email-vapier@gentoo.org>
 References: <1273400337-26501-1-git-send-email-vapier@gentoo.org>
 Cc: uclinux-dist-devel@blackfin.uclinux.org,
-	Sonic Zhang <sonic.zhang@analog.com>
+	Peter Meerwald <pmeerw@pmeerw.net>,
+	Graf Yang <graf.yang@analog.com>
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:53266 "EHLO smtp.gentoo.org"
+Received: from smtp.gentoo.org ([140.211.166.183]:53228 "EHLO smtp.gentoo.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752541Ab0EIKQO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 May 2010 06:16:14 -0400
+	id S1752286Ab0EIKQI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 May 2010 06:16:08 -0400
 In-Reply-To: <1273400337-26501-1-git-send-email-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sonic Zhang <sonic.zhang@analog.com>
+From: Peter Meerwald <pmeerw@pmeerw.net>
 
-Rather than using the Receive All Frames (RAF) bit to enable promiscuous
-mode, use the Promiscuous (PR) bit.  This lowers overhead at runtime as
-we let the hardware process the packets that should actually be checked.
-
-Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+Signed-off-by: Peter Meerwald <pmeerw@pmeerw.net>
+Signed-off-by: Graf Yang <graf.yang@analog.com>
 Signed-off-by: Mike Frysinger <vapier@gentoo.org>
 ---
- drivers/net/bfin_mac.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/bfin_mac.c |   17 ++++++++++++++---
+ 1 files changed, 14 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-index e80ccaa..04cda8f 100644
+index 6a9519f..c888465 100644
 --- a/drivers/net/bfin_mac.c
 +++ b/drivers/net/bfin_mac.c
-@@ -1274,7 +1274,7 @@ static void bfin_mac_set_multicast_list(struct net_device *dev)
- 	if (dev->flags & IFF_PROMISC) {
- 		printk(KERN_INFO "%s: set to promisc mode\n", dev->name);
- 		sysctl = bfin_read_EMAC_OPMODE();
--		sysctl |= RAF;
-+		sysctl |= PR;
- 		bfin_write_EMAC_OPMODE(sysctl);
- 	} else if (dev->flags & IFF_ALLMULTI) {
- 		/* accept all multicast */
+@@ -981,12 +981,25 @@ out:
+ 	return NETDEV_TX_OK;
+ }
+ 
++#define RX_ERROR_MASK (RX_LONG | RX_ALIGN | RX_CRC | RX_LEN | \
++	RX_FRAG | RX_ADDR | RX_DMAO | RX_PHY | RX_LATE | RX_RANGE)
++
+ static void bfin_mac_rx(struct net_device *dev)
+ {
+ 	struct sk_buff *skb, *new_skb;
+ 	unsigned short len;
+ 	struct bfin_mac_local *lp __maybe_unused = netdev_priv(dev);
+ 
++	/* check if frame status word reports an error condition
++	 * we which case we simply drop the packet
++	 */
++	if (current_rx_ptr->status.status_word & RX_ERROR_MASK) {
++		printk(KERN_NOTICE DRV_NAME
++		       ": rx: receive error - packet dropped\n");
++		dev->stats.rx_dropped++;
++		goto out;
++	}
++
+ 	/* allocate a new skb for next time receive */
+ 	skb = current_rx_ptr->skb;
+ 
+@@ -1025,11 +1038,9 @@ static void bfin_mac_rx(struct net_device *dev)
+ 	netif_rx(skb);
+ 	dev->stats.rx_packets++;
+ 	dev->stats.rx_bytes += len;
++out:
+ 	current_rx_ptr->status.status_word = 0x00000000;
+ 	current_rx_ptr = current_rx_ptr->next;
+-
+-out:
+-	return;
+ }
+ 
+ /* interrupt routine to handle rx and error signal */
 -- 
 1.7.1
 
