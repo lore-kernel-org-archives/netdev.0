@@ -1,89 +1,74 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC][PATCH v4 00/18] Provide a zero-copy method on KVM
-	virtio-net.
-Date: Sun, 9 May 2010 12:26:14 +0300
-Message-ID: <20100509092614.GG16775@redhat.com>
-References: <1272187206-18534-12-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-13-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-14-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-15-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-16-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-17-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-18-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-19-git-send-email-xiaohui.xin@intel.com> <20100425121420.GB10238@redhat.com> <F2E9EB7348B8264F86B6AB8151CE2D790AB4A3F137@shsmsx502.ccr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mingo@elte.hu" <mingo@elte.hu>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>
-To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D790AB4A3F137@shsmsx502.ccr.corp.intel.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: [PATCH 03/11] netdev: bfin_mac: invalid data cache only once for each new rx skb buffer
+Date: Sun,  9 May 2010 06:18:49 -0400
+Message-ID: <1273400337-26501-3-git-send-email-vapier@gentoo.org>
+References: <1273400337-26501-1-git-send-email-vapier@gentoo.org>
+Cc: uclinux-dist-devel@blackfin.uclinux.org,
+	Sonic Zhang <sonic.zhang@analog.com>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.gentoo.org ([140.211.166.183]:53236 "EHLO smtp.gentoo.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752381Ab0EIKQI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 May 2010 06:16:08 -0400
+In-Reply-To: <1273400337-26501-1-git-send-email-vapier@gentoo.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 08, 2010 at 03:55:48PM +0800, Xin, Xiaohui wrote:
-> Michael,
-> Sorry, somehow I missed this mail. :-(
-> 
-> >> Here, we have ever considered 2 ways to utilize the page constructor
-> >> API to dispense the user buffers.
-> >> 
-> >> One:	Modify __alloc_skb() function a bit, it can only allocate a 
-> >> 	structure of sk_buff, and the data pointer is pointing to a 
-> >> 	user buffer which is coming from a page constructor API.
-> >> 	Then the shinfo of the skb is also from guest.
-> >> 	When packet is received from hardware, the skb->data is filled
-> >> 	directly by h/w. What we have done is in this way.
-> >> 
-> >> 	Pros:	We can avoid any copy here.
-> >> 	Cons:	Guest virtio-net driver needs to allocate skb as almost
-> >> 		the same method with the host NIC drivers, say the size
-> >> 		of netdev_alloc_skb() and the same reserved space in the
-> >> 		head of skb. Many NIC drivers are the same with guest and
-> >> 		ok for this. But some lastest NIC drivers reserves special
-> >> 		room in skb head. To deal with it, we suggest to provide
-> >> 		a method in guest virtio-net driver to ask for parameter
-> >> 		we interest from the NIC driver when we know which device 
-> >> 		we have bind to do zero-copy. Then we ask guest to do so.
-> >> 		Is that reasonable?
-> 
-> >Do you still do this?
-> 
-> Currently, we still use the first way. But we now ignore the room which 
-> host skb_reserve() required when device is doing zero-copy. Now we don't 
-> taint guest virtio-net driver with a new method by this way.
-> 
-> >> Two:	Modify driver to get user buffer allocated from a page constructor
-> >> 	API(to substitute alloc_page()), the user buffer are used as payload
-> >> 	buffers and filled by h/w directly when packet is received. Driver
-> >> 	should associate the pages with skb (skb_shinfo(skb)->frags). For 
-> >> 	the head buffer side, let host allocates skb, and h/w fills it. 
-> >> 	After that, the data filled in host skb header will be copied into
-> >> 	guest header buffer which is submitted together with the payload buffer.
-> >> 
-> >> 	Pros:	We could less care the way how guest or host allocates their
-> >> 		buffers.
-> >> 	Cons:	We still need a bit copy here for the skb header.
-> >> 
-> >> We are not sure which way is the better here. This is the first thing we want
-> >> to get comments from the community. We wish the modification to the network
-> >> part will be generic which not used by vhost-net backend only, but a user
-> >> application may use it as well when the zero-copy device may provides async
-> >> read/write operations later.
-> 
-> >I commented on this in the past. Do you still want comments?
-> 
-> Now we continue with the first way and try to push it. But any comments about the two methods are still welcome.
-> 
-> >That's nice. The thing to do is probably to enable GSO/TSO
-> >and see what we get this way. Also, mergeable buffer support
-> >was recently posted and I hope to merge it for 2.6.35.
-> >You might want to take a look.
-> 
-> I'm looking at the mergeable buffer. I think GSO/GRO support with zero-copy also needs it.
-> Currently, GSO/TSO is still not supported by vhost-net?
+From: Sonic Zhang <sonic.zhang@analog.com>
 
-GSO/TSO are currently supported with tap and macvtap,
-AF_PACKET socket backend still needs some work to
-enable GSO.
+The skb buffer isn't actually used until we finish transferring and pass
+it up to higher layers, so only invalidate the range once before we start
+receiving actual data.  This also avoids the problem with data invalidating
+on Blackfin systems -- there is no invalidate-only, just invalidate+flush.
+So when running in writeback mode, there is the small (but not uncommon)
+possibility of the flush overwriting valid DMA-ed data from the cache.
 
-> -- 
-> MST
+Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+---
+ drivers/net/bfin_mac.c |   13 ++++++++-----
+ 1 files changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
+index c888465..f9ba598 100644
+--- a/drivers/net/bfin_mac.c
++++ b/drivers/net/bfin_mac.c
+@@ -203,6 +203,11 @@ static int desc_list_init(void)
+ 			goto init_error;
+ 		}
+ 		skb_reserve(new_skb, NET_IP_ALIGN);
++		/* Invidate the data cache of skb->data range when it is write back
++		 * cache. It will prevent overwritting the new data from DMA
++		 */
++		blackfin_dcache_invalidate_range((unsigned long)new_skb->head,
++					 (unsigned long)new_skb->end);
+ 		r->skb = new_skb;
+ 
+ 		/*
+@@ -1012,19 +1017,17 @@ static void bfin_mac_rx(struct net_device *dev)
+ 	}
+ 	/* reserve 2 bytes for RXDWA padding */
+ 	skb_reserve(new_skb, NET_IP_ALIGN);
+-	current_rx_ptr->skb = new_skb;
+-	current_rx_ptr->desc_a.start_addr = (unsigned long)new_skb->data - 2;
+-
+ 	/* Invidate the data cache of skb->data range when it is write back
+ 	 * cache. It will prevent overwritting the new data from DMA
+ 	 */
+ 	blackfin_dcache_invalidate_range((unsigned long)new_skb->head,
+ 					 (unsigned long)new_skb->end);
+ 
++	current_rx_ptr->skb = new_skb;
++	current_rx_ptr->desc_a.start_addr = (unsigned long)new_skb->data - 2;
++
+ 	len = (unsigned short)((current_rx_ptr->status.status_word) & RX_FRLEN);
+ 	skb_put(skb, len);
+-	blackfin_dcache_invalidate_range((unsigned long)skb->head,
+-					 (unsigned long)skb->tail);
+ 
+ 	skb->protocol = eth_type_trans(skb, dev);
+ 
+-- 
+1.7.1
+
