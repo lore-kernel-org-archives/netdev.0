@@ -1,43 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: IPv6: race condition in __ipv6_ifa_notify() and dst_free() ?
-Date: Sun, 9 May 2010 14:48:20 +0800
-Message-ID: <20100509064820.GA2714@gondor.apana.org.au>
-References: <20100422.004324.67422011.davem@davemloft.net> <20100422142506.GA15858@gondor.apana.org.au> <20100422154908.GA31568@midget.suse.cz> <20100422.185400.71096585.davem@davemloft.net> <20100427155034.GA11157@midget.suse.cz> <20100427155533.GA5709@gondor.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -mm] Documentation: add networking driver's mapping
+ error handling to DMA-API-HOWTO
+Date: Sun, 09 May 2010 01:46:39 -0700 (PDT)
+Message-ID: <20100509.014639.180406795.davem@davemloft.net>
+References: <20100509130439D.fujita.tomonori@lab.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org, shemminger@vyatta.com
-To: Jiri Bohac <jbohac@suse.cz>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, randy.dunlap@oracle.com,
+	netdev@vger.kernel.org
+To: fujita.tomonori@lab.ntt.co.jp
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:41333 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750979Ab0EIGsh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 May 2010 02:48:37 -0400
-Content-Disposition: inline
-In-Reply-To: <20100427155533.GA5709@gondor.apana.org.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49377
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751722Ab0EIIqc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 May 2010 04:46:32 -0400
+In-Reply-To: <20100509130439D.fujita.tomonori@lab.ntt.co.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 27, 2010 at 11:55:33PM +0800, Herbert Xu wrote:
-> On Tue, Apr 27, 2010 at 05:50:34PM +0200, Jiri Bohac wrote:
-> >
-> >   I think that what Herbert is doing is only going to enforce that
-> >   the ip6_del_rt() is never going to fail, so the dst_free()
-> >   won't ever be called anyway, right?
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Date: Sun, 9 May 2010 13:00:49 +0900
+
+> I think that it's a good idea to add what drivers should to do exactly
+> in the DMA mapping failure case.
 > 
-> Yes I think you're right.  But let's fix the bigger problem first,
-> and then we can audit this and possibly turn it into a WARN_ON.
+> Seems some networking drivers call dev_kfree_skb() and return
+> NETDEV_TX_OK, however, some return NETDEV_TX_BUSY without freeing the
+> skb. (and many don't even check the failure, which we need to fix).
+> 
+> What networking drivers are supposed to do in the case?
 
-Sorry for not fixing this sooner, but I'm back on the case.
+The best thing is probably just to drop, pretending the queue
+is full and passing the packet back to the stack is just
+full of complications and not worth it, so...
 
-Also, the dst_free really is needed.  It's there for the case
-where we delete the address before DAD completion.  In that
-case the route object is allocated, but not inserted in the
-routing table.  So we must manually dst_free it.
+> From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+> Subject: [PATCH -mm] Documentation: add networking driver's mapping error handling to DMA-API-HOWTO
+> 
+> Adds the concrete DMA mapping error handling for Networking drivers on
+> the transmit path.
+> 
+> Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Acked-by: David S. Miller <davem@davemloft.net>
