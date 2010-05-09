@@ -1,80 +1,89 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: virtio: put last_used and last_avail index into ring itself.
-Date: Sun, 9 May 2010 11:57:33 +0300
-Message-ID: <20100509085733.GD16775@redhat.com>
-References: <cover.1257349249.git.mst@redhat.com> <201005061022.13815.rusty@rustcorp.com.au> <20100506062755.GC8363@redhat.com> <201005071235.40590.rusty@rustcorp.com.au>
+Subject: Re: [RFC][PATCH v4 00/18] Provide a zero-copy method on KVM
+	virtio-net.
+Date: Sun, 9 May 2010 12:26:14 +0300
+Message-ID: <20100509092614.GG16775@redhat.com>
+References: <1272187206-18534-12-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-13-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-14-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-15-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-16-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-17-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-18-git-send-email-xiaohui.xin@intel.com> <1272187206-18534-19-git-send-email-xiaohui.xin@intel.com> <20100425121420.GB10238@redhat.com> <F2E9EB7348B8264F86B6AB8151CE2D790AB4A3F137@shsmsx502.ccr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
-        linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
-        gregory.haskins@gmail.com, s.hetze@linux-ag.com,
-        Daniel Walker <dwalker@fifo99.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <owner-linux-mm@kvack.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mingo@elte.hu" <mingo@elte.hu>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"jdike@linux.intel.com" <jdike@linux.intel.com>
+To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Return-path: <kvm-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <201005071235.40590.rusty@rustcorp.com.au>
-Sender: owner-linux-mm@kvack.org
+In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D790AB4A3F137@shsmsx502.ccr.corp.intel.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 07, 2010 at 12:35:39PM +0930, Rusty Russell wrote:
-> On Thu, 6 May 2010 03:57:55 pm Michael S. Tsirkin wrote:
-> > On Thu, May 06, 2010 at 10:22:12AM +0930, Rusty Russell wrote:
-> > > On Wed, 5 May 2010 03:52:36 am Michael S. Tsirkin wrote:
-> > > > What do you think?
-> > > 
-> > > I think everyone is settled on 128 byte cache lines for the forseeable
-> > > future, so it's not really an issue.
-> > 
-> > You mean with 64 bit descriptors we will be bouncing a cache line
-> > between host and guest, anyway?
+On Sat, May 08, 2010 at 03:55:48PM +0800, Xin, Xiaohui wrote:
+> Michael,
+> Sorry, somehow I missed this mail. :-(
 > 
-> I'm confused by this entire thread.
+> >> Here, we have ever considered 2 ways to utilize the page constructor
+> >> API to dispense the user buffers.
+> >> 
+> >> One:	Modify __alloc_skb() function a bit, it can only allocate a 
+> >> 	structure of sk_buff, and the data pointer is pointing to a 
+> >> 	user buffer which is coming from a page constructor API.
+> >> 	Then the shinfo of the skb is also from guest.
+> >> 	When packet is received from hardware, the skb->data is filled
+> >> 	directly by h/w. What we have done is in this way.
+> >> 
+> >> 	Pros:	We can avoid any copy here.
+> >> 	Cons:	Guest virtio-net driver needs to allocate skb as almost
+> >> 		the same method with the host NIC drivers, say the size
+> >> 		of netdev_alloc_skb() and the same reserved space in the
+> >> 		head of skb. Many NIC drivers are the same with guest and
+> >> 		ok for this. But some lastest NIC drivers reserves special
+> >> 		room in skb head. To deal with it, we suggest to provide
+> >> 		a method in guest virtio-net driver to ask for parameter
+> >> 		we interest from the NIC driver when we know which device 
+> >> 		we have bind to do zero-copy. Then we ask guest to do so.
+> >> 		Is that reasonable?
 > 
-> Descriptors are 16 bytes.  They are at the start, so presumably aligned to
-> cache boundaries.
+> >Do you still do this?
 > 
-> Available ring follows that at 2 bytes per entry, so it's also packed nicely
-> into cachelines.
+> Currently, we still use the first way. But we now ignore the room which 
+> host skb_reserve() required when device is doing zero-copy. Now we don't 
+> taint guest virtio-net driver with a new method by this way.
 > 
-> Then there's padding to page boundary.  That puts us on a cacheline again
-> for the used ring; also 2 bytes per entry.
+> >> Two:	Modify driver to get user buffer allocated from a page constructor
+> >> 	API(to substitute alloc_page()), the user buffer are used as payload
+> >> 	buffers and filled by h/w directly when packet is received. Driver
+> >> 	should associate the pages with skb (skb_shinfo(skb)->frags). For 
+> >> 	the head buffer side, let host allocates skb, and h/w fills it. 
+> >> 	After that, the data filled in host skb header will be copied into
+> >> 	guest header buffer which is submitted together with the payload buffer.
+> >> 
+> >> 	Pros:	We could less care the way how guest or host allocates their
+> >> 		buffers.
+> >> 	Cons:	We still need a bit copy here for the skb header.
+> >> 
+> >> We are not sure which way is the better here. This is the first thing we want
+> >> to get comments from the community. We wish the modification to the network
+> >> part will be generic which not used by vhost-net backend only, but a user
+> >> application may use it as well when the zero-copy device may provides async
+> >> read/write operations later.
 > 
+> >I commented on this in the past. Do you still want comments?
+> 
+> Now we continue with the first way and try to push it. But any comments about the two methods are still welcome.
+> 
+> >That's nice. The thing to do is probably to enable GSO/TSO
+> >and see what we get this way. Also, mergeable buffer support
+> >was recently posted and I hope to merge it for 2.6.35.
+> >You might want to take a look.
+> 
+> I'm looking at the mergeable buffer. I think GSO/GRO support with zero-copy also needs it.
+> Currently, GSO/TSO is still not supported by vhost-net?
 
-Hmm, is used ring really 2 bytes per entry?
+GSO/TSO are currently supported with tap and macvtap,
+AF_PACKET socket backend still needs some work to
+enable GSO.
 
-
-/* u32 is used here for ids for padding reasons. */
-struct vring_used_elem {
-        /* Index of start of used descriptor chain. */
-        __u32 id;
-        /* Total length of the descriptor chain which was used (written to) */
-        __u32 len;
-};
-
-struct vring_used {
-        __u16 flags;
-        __u16 idx;
-        struct vring_used_elem ring[];
-};
-
-> I don't see how any change in layout could be more cache friendly?
-> Rusty.
-
-I thought that used ring has 8 bytes per entry, and that struct
-vring_used is aligned at page boundary, this
-would mean that ring element is at offset 4 bytes from page boundary.
-Thus with cacheline size 128 bytes, each 4th element crosses
-a cacheline boundary. If we had a 4 byte padding after idx, each
-used element would always be completely within a single cacheline.
-
-What am I missing?
--- 
-MST
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> -- 
+> MST
