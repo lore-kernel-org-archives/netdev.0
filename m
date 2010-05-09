@@ -1,46 +1,80 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -mm] Documentation: add networking driver's mapping
- error handling to DMA-API-HOWTO
-Date: Sun, 09 May 2010 01:46:39 -0700 (PDT)
-Message-ID: <20100509.014639.180406795.davem@davemloft.net>
-References: <20100509130439D.fujita.tomonori@lab.ntt.co.jp>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: virtio: put last_used and last_avail index into ring itself.
+Date: Sun, 9 May 2010 11:57:33 +0300
+Message-ID: <20100509085733.GD16775@redhat.com>
+References: <cover.1257349249.git.mst@redhat.com> <201005061022.13815.rusty@rustcorp.com.au> <20100506062755.GC8363@redhat.com> <201005071235.40590.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, randy.dunlap@oracle.com,
-	netdev@vger.kernel.org
-To: fujita.tomonori@lab.ntt.co.jp
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49377
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751722Ab0EIIqc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 May 2010 04:46:32 -0400
-In-Reply-To: <20100509130439D.fujita.tomonori@lab.ntt.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+        kvm@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu,
+        linux-mm@kvack.org, akpm@linux-foundation.org, hpa@zytor.com,
+        gregory.haskins@gmail.com, s.hetze@linux-ag.com,
+        Daniel Walker <dwalker@fifo99.com>,
+        Eric Dumazet <eric.dumazet@gmail.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <201005071235.40590.rusty@rustcorp.com.au>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Date: Sun, 9 May 2010 13:00:49 +0900
-
-> I think that it's a good idea to add what drivers should to do exactly
-> in the DMA mapping failure case.
+On Fri, May 07, 2010 at 12:35:39PM +0930, Rusty Russell wrote:
+> On Thu, 6 May 2010 03:57:55 pm Michael S. Tsirkin wrote:
+> > On Thu, May 06, 2010 at 10:22:12AM +0930, Rusty Russell wrote:
+> > > On Wed, 5 May 2010 03:52:36 am Michael S. Tsirkin wrote:
+> > > > What do you think?
+> > > 
+> > > I think everyone is settled on 128 byte cache lines for the forseeable
+> > > future, so it's not really an issue.
+> > 
+> > You mean with 64 bit descriptors we will be bouncing a cache line
+> > between host and guest, anyway?
 > 
-> Seems some networking drivers call dev_kfree_skb() and return
-> NETDEV_TX_OK, however, some return NETDEV_TX_BUSY without freeing the
-> skb. (and many don't even check the failure, which we need to fix).
+> I'm confused by this entire thread.
 > 
-> What networking drivers are supposed to do in the case?
-
-The best thing is probably just to drop, pretending the queue
-is full and passing the packet back to the stack is just
-full of complications and not worth it, so...
-
-> From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-> Subject: [PATCH -mm] Documentation: add networking driver's mapping error handling to DMA-API-HOWTO
+> Descriptors are 16 bytes.  They are at the start, so presumably aligned to
+> cache boundaries.
 > 
-> Adds the concrete DMA mapping error handling for Networking drivers on
-> the transmit path.
+> Available ring follows that at 2 bytes per entry, so it's also packed nicely
+> into cachelines.
 > 
-> Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+> Then there's padding to page boundary.  That puts us on a cacheline again
+> for the used ring; also 2 bytes per entry.
+> 
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Hmm, is used ring really 2 bytes per entry?
+
+
+/* u32 is used here for ids for padding reasons. */
+struct vring_used_elem {
+        /* Index of start of used descriptor chain. */
+        __u32 id;
+        /* Total length of the descriptor chain which was used (written to) */
+        __u32 len;
+};
+
+struct vring_used {
+        __u16 flags;
+        __u16 idx;
+        struct vring_used_elem ring[];
+};
+
+> I don't see how any change in layout could be more cache friendly?
+> Rusty.
+
+I thought that used ring has 8 bytes per entry, and that struct
+vring_used is aligned at page boundary, this
+would mean that ring element is at offset 4 bytes from page boundary.
+Thus with cacheline size 128 bytes, each 4th element crosses
+a cacheline boundary. If we had a 4 byte padding after idx, each
+used element would always be completely within a single cacheline.
+
+What am I missing?
+-- 
+MST
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
