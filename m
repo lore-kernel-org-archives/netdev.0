@@ -1,74 +1,204 @@
-From: Bijay Singh <Bijay.Singh@guavus.com>
-Subject: Re: TCP-MD5 checksum failure on x86_64 SMP
-Date: Mon, 10 May 2010 17:27:28 +0000
-Message-ID: <884B3D18-4181-4D98-A8FD-8660CE658C0B@guavus.com>
-References: <1273085598.2367.233.camel@edumazet-laptop>
- <i2y571fb4001005060455m39bed7f7if5fcfc45b12bc4d3@mail.gmail.com>
- <1273147586.2357.63.camel@edumazet-laptop>
- <20100506.220443.135536330.davem@davemloft.net>
- <1273210329.2222.42.camel@edumazet-laptop> <20100507101451.1b4286b7@nehalam>
- <1273252893.2261.84.camel@edumazet-laptop> <20100507103639.4f1a51fa@nehalam>
- <1273268446.2325.53.camel@edumazet-laptop>
- <D1C2B1EC-ABE8-4D87-9227-6D0F1C1C8B77@guavus.com>
- <1273504693.2221.17.camel@edumazet-laptop>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCHv7] add mergeable buffers support to vhost_net
+Date: Mon, 10 May 2010 20:25:57 +0300
+Message-ID: <20100510172557.GD28798@redhat.com>
+References: <20100510164303.GA28798@redhat.com> <OF1F65A110.7C63CDB3-ON8825771F.005DD80E-8825771F.005E3509@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	"<bhaskie@gmail.com>" <bhaskie@gmail.com>,
-	"<bhutchings@solarflare.com>" <bhutchings@solarflare.com>,
-	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [204.232.241.167] ([204.232.241.167]:56916 "EHLO mx1.guavus.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753778Ab0EJR1c convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 13:27:32 -0400
-In-Reply-To: <1273504693.2221.17.camel@edumazet-laptop>
-Content-Language: en-US
-Content-ID: <51878d71-deeb-4cea-aa77-afaa313f34c8>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, kvm-owner@vger.kernel.org,
+	netdev@vger.kernel.org, virtualization@lists.osdl.org
+To: David Stevens <dlstevens@us.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <OF1F65A110.7C63CDB3-ON8825771F.005DD80E-8825771F.005E3509@us.ibm.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+On Mon, May 10, 2010 at 10:09:03AM -0700, David Stevens wrote:
+> Since "datalen" carries the difference and will be negative by that amount
+> from the original loop, what about just adding something like:
+> 
+>         }
+>         if (headcount)
+>                 heads[headcount-1].len += datalen;
+> [and really, headcount >0 since datalen > 0, so just:
+> 
+>         heads[headcount-1].len += datalen;
+> 
+>                                                 +-DLS
 
-Didn't intend to mix  the issues. It was a hack intended to calm the ne=
-rves. I am going to apply the proper patches asap.
+This works too, just does more checks and comparisons.
+I am still surprised that you were unable to reproduce the problem.
 
-About the latest problem of MD5 not working with MTU set to 4470. I not=
-iced this when i needed to change the MTU for some other  purpose.=20
-
-Since it was a production box, i have to first set up my box with the r=
-ight NIC card to reproduce this and try debugging it. In the meantime a=
-ny ques will  help.
-
-Thanks,
-Bijay
-=20
-On 10-May-2010, at 8:48 PM, Eric Dumazet wrote:
-
-> Le lundi 10 mai 2010 =E0 14:55 +0000, Bijay Singh a =E9crit :
->> Hi,
->> I had noticed the corruption in the context and actually did what is=
- mentioned.
->>=20
->> I allocated the context on the stack and plugged in the md5.c functi=
-ons. I was able to temporarily solve the problem, all this before I got=
- a response on this thread.
->>=20
->> But now I have seeing another problem, when i change the MTU on the =
-interface from 1500 to 4470 none of the message from the peer get thru =
-and I get hash failed message. I am wondering if this is another bug ge=
-tting hit in this scenario.
->=20
-> Thats very fine, but you mix very different problems.
->=20
-> Step by step resolution is required, and clean patches too, because
-> plugging md5.c functions is not an option for stable series :)
->=20
-> Obviously, nobody seriously used TCP-MD5 on linux, but you...
->=20
->=20
->=20
-
+> 
+> kvm-owner@vger.kernel.org wrote on 05/10/2010 09:43:03 AM:
+> 
+> > On Wed, Apr 28, 2010 at 01:57:12PM -0700, David L Stevens wrote:
+> > > @@ -218,18 +248,19 @@ static void handle_rx(struct vhost_net *
+> > >     use_mm(net->dev.mm);
+> > >     mutex_lock(&vq->mutex);
+> > >     vhost_disable_notify(vq);
+> > > -   hdr_size = vq->hdr_size;
+> > > +   vhost_hlen = vq->vhost_hlen;
+> > > 
+> > >     vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) ?
+> > >        vq->log : NULL;
+> > > 
+> > > -   for (;;) {
+> > > -      head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
+> > > -                ARRAY_SIZE(vq->iov),
+> > > -                &out, &in,
+> > > -                vq_log, &log);
+> > > +   while ((datalen = vhost_head_len(vq, sock->sk))) {
+> > > +      headcount = vhost_get_desc_n(vq, vq->heads,
+> > > +                    datalen + vhost_hlen,
+> > > +                    &in, vq_log, &log);
+> > > +      if (headcount < 0)
+> > > +         break;
+> > >        /* OK, now we need to know about added descriptors. */
+> > > -      if (head == vq->num) {
+> > > +      if (!headcount) {
+> > >           if (unlikely(vhost_enable_notify(vq))) {
+> > >              /* They have slipped one in as we were
+> > >               * doing that: check again. */
+> > > @@ -241,46 +272,53 @@ static void handle_rx(struct vhost_net *
+> > >           break;
+> > >        }
+> > >        /* We don't need to be notified again. */
+> > > -      if (out) {
+> > > -         vq_err(vq, "Unexpected descriptor format for RX: "
+> > > -                "out %d, int %d\n",
+> > > -                out, in);
+> > > -         break;
+> > > -      }
+> > > -      /* Skip header. TODO: support TSO/mergeable rx buffers. */
+> > > -      s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, in);
+> > > +      if (vhost_hlen)
+> > > +         /* Skip header. TODO: support TSO. */
+> > > +         s = move_iovec_hdr(vq->iov, vq->hdr, vhost_hlen, in);
+> > > +      else
+> > > +         s = copy_iovec_hdr(vq->iov, vq->hdr, vq->sock_hlen, in);
+> > >        msg.msg_iovlen = in;
+> > >        len = iov_length(vq->iov, in);
+> > >        /* Sanity check */
+> > >        if (!len) {
+> > >           vq_err(vq, "Unexpected header len for RX: "
+> > >                  "%zd expected %zd\n",
+> > > -                iov_length(vq->hdr, s), hdr_size);
+> > > +                iov_length(vq->hdr, s), vhost_hlen);
+> > >           break;
+> > >        }
+> > >        err = sock->ops->recvmsg(NULL, sock, &msg,
+> > >                  len, MSG_DONTWAIT | MSG_TRUNC);
+> > >        /* TODO: Check specific error and bomb out unless EAGAIN? */
+> > >        if (err < 0) {
+> > > -         vhost_discard_vq_desc(vq);
+> > > +         vhost_discard_desc(vq, headcount);
+> > >           break;
+> > >        }
+> > > -      /* TODO: Should check and handle checksum. */
+> > > -      if (err > len) {
+> > > -         pr_err("Discarded truncated rx packet: "
+> > > -                " len %d > %zd\n", err, len);
+> > > -         vhost_discard_vq_desc(vq);
+> > > +      if (err != datalen) {
+> > > +         pr_err("Discarded rx packet: "
+> > > +                " len %d, expected %zd\n", err, datalen);
+> > > +         vhost_discard_desc(vq, headcount);
+> > >           continue;
+> > >        }
+> > >        len = err;
+> > > -      err = memcpy_toiovec(vq->hdr, (unsigned char *)&hdr, hdr_size);
+> > > -      if (err) {
+> > > -         vq_err(vq, "Unable to write vnet_hdr at addr %p: %d\n",
+> > > -                vq->iov->iov_base, err);
+> > > +      if (vhost_hlen &&
+> > > +          memcpy_toiovecend(vq->hdr, (unsigned char *)&hdr, 0,
+> > > +                  vhost_hlen)) {
+> > > +         vq_err(vq, "Unable to write vnet_hdr at addr %p\n",
+> > > +                vq->iov->iov_base);
+> > >           break;
+> > >        }
+> > > -      len += hdr_size;
+> > > -      vhost_add_used_and_signal(&net->dev, vq, head, len);
+> > > +      /* TODO: Should check and handle checksum. */
+> > > +      if (vhost_has_feature(&net->dev, VIRTIO_NET_F_MRG_RXBUF) &&
+> > > +          memcpy_toiovecend(vq->hdr, (unsigned char *)&headcount,
+> > > +                  offsetof(typeof(hdr), num_buffers),
+> > > +                  sizeof(hdr.num_buffers))) {
+> > > +         vq_err(vq, "Failed num_buffers write");
+> > > +         vhost_discard_desc(vq, headcount);
+> > > +         break;
+> > > +      }
+> > > +      len += vhost_hlen;
+> > > +      vhost_add_used_and_signal_n(&net->dev, vq, vq->heads,
+> > > +                   headcount);
+> > >        if (unlikely(vq_log))
+> > >           vhost_log_write(vq, vq_log, log, len);
+> > >        total_len += len;
+> > 
+> > OK I think I see the bug here: vhost_add_used_and_signal_n
+> > does not get the actual length, it gets the iovec length from vhost.
+> > Guest virtio uses this as packet length, with bad results.
+> > 
+> > So I have applied the follows and it seems to have fixed the problem:
+> > 
+> > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> > index c16db02..9d7496d 100644
+> > --- a/drivers/vhost/net.c
+> > +++ b/drivers/vhost/net.c
+> > @@ -219,7 +219,7 @@ static int peek_head_len(struct vhost_virtqueue *vq, 
+> 
+> > struct sock *sk)
+> >  /* This is a multi-buffer version of vhost_get_desc, that works if
+> >   *   vq has read descriptors only.
+> >   * @vq      - the relevant virtqueue
+> > - * @datalen   - data length we'll be reading
+> > + * @datalen   - data length we'll be reading. must be > 0
+> >   * @iovcount   - returned count of io vectors we fill
+> >   * @log      - vhost log
+> >   * @log_num   - log offset
+> > @@ -236,9 +236,10 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
+> >     int seg = 0;
+> >     int headcount = 0;
+> >     unsigned d;
+> > +   size_t len;
+> >     int r, nlogs = 0;
+> > 
+> > -   while (datalen > 0) {
+> > +   for (;;) {
+> >        if (unlikely(headcount >= VHOST_NET_MAX_SG)) {
+> >           r = -ENOBUFS;
+> >           goto err;
+> > @@ -260,16 +261,20 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
+> >           nlogs += *log_num;
+> >           log += *log_num;
+> >        }
+> > +      len = iov_length(vq->iov + seg, in);
+> > +      seg += in;
+> >        heads[headcount].id = d;
+> > -      heads[headcount].len = iov_length(vq->iov + seg, in);
+> > -      datalen -= heads[headcount].len;
+> > +      if (datalen <= len)
+> > +         break;
+> > +      heads[headcount].len = len;
+> >        ++headcount;
+> > -      seg += in;
+> > +      datalen -= len;
+> >     }
+> > +   heads[headcount].len = datalen;
+> >     *iovcount = seg;
+> >     if (unlikely(log))
+> >        *log_num = nlogs;
+> > -   return headcount;
+> > +   return headcount + 1;
+> >  err:
+> >     vhost_discard_desc(vq, headcount);
+> >     return r;
+> > 
+> > -- 
+> > MST
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe kvm" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
