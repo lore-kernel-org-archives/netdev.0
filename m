@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 54/64] Bluetooth: Add wait_queue to wait ack of all sent packets
-Date: Mon, 10 May 2010 11:37:44 +0200
-Message-ID: <6161c0382bbab883a634d284f7367a88bbe88534.1273484098.git.marcel@holtmann.org>
+Subject: [PATCH 57/64] Bluetooth: Fix spec error in the RemoteBusy Logic
+Date: Mon, 10 May 2010 11:37:47 +0200
+Message-ID: <844c0972427ee5f661158160aaca10b22b3dda60.1273484098.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -56,88 +56,71 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <18778a63ddc83bc89bda3b119fb02eb121512a66.1273484098.git.marcel@holtmann.org>
  <9b53350d3cf5b330c3261d89b5e62a2dc25c5653.1273484098.git.marcel@holtmann.org>
  <1890d36bb556a27684ad29654a9898ab9a5f57ee.1273484098.git.marcel@holtmann.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+ <6161c0382bbab883a634d284f7367a88bbe88534.1273484098.git.marcel@holtmann.org>
+ <dfc909befbfe967bd7f46ef33b6969c1b7f3cf42.1273484098.git.marcel@holtmann.org>
+ <4178ba462a3e8ab5094e69606f01d9e95f2d5ea6.1273484098.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53476 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53477 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755927Ab0EJJjN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:13 -0400
-In-Reply-To: <1890d36bb556a27684ad29654a9898ab9a5f57ee.1273484098.git.marcel@holtmann.org>
+	with ESMTP id S1755932Ab0EJJjP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:15 -0400
+In-Reply-To: <4178ba462a3e8ab5094e69606f01d9e95f2d5ea6.1273484098.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Gustavo F. Padovan <padovan@profusion.mobi>
+From: Gustavo F. Padovan <padovan@profusion.mobi>
 
-To guarantee that all packets we sent were received we need to wait for
-theirs ack before shutdown the socket.
+On the receipt of an RR(P=1) under RemoteBusy set to TRUE(on the RECV
+state table) we have to call sendIorRRorRNR(F=1) and just after set
+RemoteBusy to False. This leads to a freeze in the sending process since
+it's not allowed send data with RemoteBusy set to true and no one
+call SendPending-I-Frames after set RemoteBusy to false(The last action
+for that event).
+
+Actually sendIorRRorRNR() calls SendPending-I-Frames but at that moment
+RemoteBusy is still True and we cannot send any frame, after, no one
+calls SendPending-I-Frames again and the sending process stops.
+
+The solution here is to set RemoteBusy to false inside
+SendPending-I-Frames just before call SendPending-I-Frames. That will
+make SendPending-I-Frames able to send frames. This solution is similar
+to what RR(P=0)(F=0) on the RECV table and RR(P=1) on the SREJ_SENT
+table do.
+
+Actually doesn't make any sense call SendPending-I-Frames if we can send
+any frame, i. e., RemoteBusy is True.
 
 Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
-Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/l2cap.c |   34 ++++++++++++++++++++++++++++++++++
- 1 files changed, 34 insertions(+), 0 deletions(-)
+ net/bluetooth/l2cap.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index 103e4b5..9d514f9 100644
+index 9ef01c3..ba49f9a 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -1242,6 +1242,37 @@ static int l2cap_sock_getname(struct socket *soc=
-k, struct sockaddr *addr, int *l
- 	return 0;
- }
-=20
-+static int __l2cap_wait_ack(struct sock *sk)
-+{
-+	DECLARE_WAITQUEUE(wait, current);
-+	int err =3D 0;
-+	int timeo =3D HZ/5;
+@@ -3379,6 +3379,8 @@ static inline void l2cap_send_i_or_rr_or_rnr(struct sock *sk)
+ 	if (pi->conn_state & L2CAP_CONN_REMOTE_BUSY && pi->unacked_frames > 0)
+ 		__mod_retrans_timer();
+ 
++	pi->conn_state &= ~L2CAP_CONN_REMOTE_BUSY;
 +
-+	add_wait_queue(sk->sk_sleep, &wait);
-+	while ((l2cap_pi(sk)->unacked_frames > 0 && l2cap_pi(sk)->conn)) {
-+		set_current_state(TASK_INTERRUPTIBLE);
-+
-+		if (!timeo)
-+			timeo =3D HZ/5;
-+
-+		if (signal_pending(current)) {
-+			err =3D sock_intr_errno(timeo);
-+			break;
-+		}
-+
-+		release_sock(sk);
-+		timeo =3D schedule_timeout(timeo);
-+		lock_sock(sk);
-+
-+		err =3D sock_error(sk);
-+		if (err)
-+			break;
-+	}
-+	set_current_state(TASK_RUNNING);
-+	remove_wait_queue(sk->sk_sleep, &wait);
-+	return err;
-+}
-+
- static void l2cap_monitor_timeout(unsigned long arg)
- {
- 	struct sock *sk =3D (void *) arg;
-@@ -2059,6 +2090,9 @@ static int l2cap_sock_shutdown(struct socket *soc=
-k, int how)
-=20
- 	lock_sock(sk);
- 	if (!sk->sk_shutdown) {
-+		if (l2cap_pi(sk)->mode =3D=3D L2CAP_MODE_ERTM)
-+			err =3D __l2cap_wait_ack(sk);
-+
- 		sk->sk_shutdown =3D SHUTDOWN_MASK;
- 		l2cap_sock_clear_timer(sk);
- 		__l2cap_sock_close(sk, 0);
---=20
+ 	spin_lock_bh(&pi->send_lock);
+ 	l2cap_ertm_send(sk);
+ 	spin_unlock_bh(&pi->send_lock);
+@@ -3936,7 +3938,6 @@ static inline void l2cap_data_channel_rrframe(struct sock *sk, u16 rx_control)
+ 			l2cap_send_srejtail(sk);
+ 		} else {
+ 			l2cap_send_i_or_rr_or_rnr(sk);
+-			pi->conn_state &= ~L2CAP_CONN_REMOTE_BUSY;
+ 		}
+ 
+ 	} else if (rx_control & L2CAP_CTRL_FINAL) {
+-- 
 1.6.6.1
 
