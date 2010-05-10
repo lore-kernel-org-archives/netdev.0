@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 36/64] Bluetooth: Fix drop of acked packets on ERTM
-Date: Mon, 10 May 2010 11:37:26 +0200
-Message-ID: <812e737e29a1d559e7bfbea675fdcfcbad9f5e1f.1273484097.git.marcel@holtmann.org>
+Subject: [PATCH 41/64] Bluetooth: Fix SDU reassembly under SREJ
+Date: Mon, 10 May 2010 11:37:31 +0200
+Message-ID: <afefdbc4cf3b9d409d07e1e5264e7ff88bc48711.1273484098.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -38,17 +38,22 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <68d7f0ce911e41e463c45911be031cdf6a096fe8.1273484097.git.marcel@holtmann.org>
  <f6e6b16823de0aff31cb8ee8c098383e3aceec58.1273484097.git.marcel@holtmann.org>
  <0ee0d20855ae9271de3f6695f4cafc08ab2533bb.1273484097.git.marcel@holtmann.org>
+ <812e737e29a1d559e7bfbea675fdcfcbad9f5e1f.1273484097.git.marcel@holtmann.org>
+ <3b1a9f3fa6ad842991538da2c3b2e29e047b131f.1273484097.git.marcel@holtmann.org>
+ <84fb0a6334af0ccad3544f6972c055d90fbb9fbe.1273484097.git.marcel@holtmann.org>
+ <bd3c9e255e76ae232d417e3914ca5d80ca3e9485.1273484097.git.marcel@holtmann.org>
+ <0041ecfa3025d7612fdaab12b2f07c9c3c09f42f.1273484098.git.marcel@holtmann.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53446 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53462 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755868Ab0EJJjB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:01 -0400
-In-Reply-To: <0ee0d20855ae9271de3f6695f4cafc08ab2533bb.1273484097.git.marcel@holtmann.org>
+	with ESMTP id S1755881Ab0EJJjE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:04 -0400
+In-Reply-To: <0041ecfa3025d7612fdaab12b2f07c9c3c09f42f.1273484098.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
@@ -56,31 +61,36 @@ List-ID: <netdev.vger.kernel.org>
 
 =46rom: Gustavo F. Padovan <padovan@profusion.mobi>
 
-l2cap_drop_acked_frames() was droping not sent packets, causing them to
-be not transmitted.
+The code was reusing the control var without its reinitialization.
 
 Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
 Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/l2cap.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ net/bluetooth/l2cap.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index 2f9bbad..042fd96 100644
+index bf5bb7d..478def7 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -1262,7 +1262,8 @@ static void l2cap_drop_acked_frames(struct sock *=
-sk)
+@@ -3446,14 +3446,14 @@ drop:
+ static void l2cap_check_srej_gap(struct sock *sk, u8 tx_seq)
  {
  	struct sk_buff *skb;
+-	u16 control =3D 0;
++	u16 control;
 =20
--	while ((skb =3D skb_peek(TX_QUEUE(sk)))) {
-+	while ((skb =3D skb_peek(TX_QUEUE(sk))) &&
-+			l2cap_pi(sk)->unacked_frames) {
- 		if (bt_cb(skb)->tx_seq =3D=3D l2cap_pi(sk)->expected_ack_seq)
+ 	while((skb =3D skb_peek(SREJ_QUEUE(sk)))) {
+ 		if (bt_cb(skb)->tx_seq !=3D tx_seq)
  			break;
 =20
+ 		skb =3D skb_dequeue(SREJ_QUEUE(sk));
+-		control |=3D bt_cb(skb)->sar << L2CAP_CTRL_SAR_SHIFT;
++		control =3D bt_cb(skb)->sar << L2CAP_CTRL_SAR_SHIFT;
+ 		l2cap_sar_reassembly_sdu(sk, skb, control);
+ 		l2cap_pi(sk)->buffer_seq_srej =3D
+ 			(l2cap_pi(sk)->buffer_seq_srej + 1) % 64;
 --=20
 1.6.6.1
 
