@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 56/64] Bluetooth: Prevents buffer overflow on l2cap_ertm_reassembly_sdu()
-Date: Mon, 10 May 2010 11:37:46 +0200
-Message-ID: <4178ba462a3e8ab5094e69606f01d9e95f2d5ea6.1273484098.git.marcel@holtmann.org>
+Subject: [PATCH 61/64] Bluetooth: Separate btmrvl_register_hdev() from btmrvl_add_card()
+Date: Mon, 10 May 2010 11:37:51 +0200
+Message-ID: <64061607eab7cb146115927cb596de123c542d45.1273484099.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -58,74 +58,186 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <1890d36bb556a27684ad29654a9898ab9a5f57ee.1273484098.git.marcel@holtmann.org>
  <6161c0382bbab883a634d284f7367a88bbe88534.1273484098.git.marcel@holtmann.org>
  <dfc909befbfe967bd7f46ef33b6969c1b7f3cf42.1273484098.git.marcel@holtmann.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+ <4178ba462a3e8ab5094e69606f01d9e95f2d5ea6.1273484098.git.marcel@holtmann.org>
+ <844c0972427ee5f661158160aaca10b22b3dda60.1273484098.git.marcel@holtmann.org>
+ <f48fd9c8cd746fdb055a97249a209c77dca0f710.1273484098.git.marcel@holtmann.org>
+ <31f085fea891d5972e994dfb423231a3d4d60a8a.1273484099.git.marcel@holtmann.org>
+ <903c843773a18e061817dd7a1a5c28dd41a3bf97.1273484099.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53458 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53446 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755768Ab0EJJjO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:14 -0400
-In-Reply-To: <dfc909befbfe967bd7f46ef33b6969c1b7f3cf42.1273484098.git.marcel@holtmann.org>
+	with ESMTP id S1755950Ab0EJJjR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:17 -0400
+In-Reply-To: <903c843773a18e061817dd7a1a5c28dd41a3bf97.1273484099.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Gustavo F. Padovan <padovan@profusion.mobi>
+From: Bing Zhao <bzhao@marvell.com>
 
-The checks should be done before the the memcpy to avoid buffer
-overflow.
+Move btmrvl hdev registration code out of btmrvl_add_card().
+New function btmrvl_register_hdev() is added.
 
-Reported-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
-Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
+Signed-off-by: Bing Zhao <bzhao@marvell.com>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/l2cap.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/bluetooth/btmrvl_drv.h  |    1 +
+ drivers/bluetooth/btmrvl_main.c |   75 ++++++++++++++++++++++----------------
+ drivers/bluetooth/btmrvl_sdio.c |    7 +++-
+ 3 files changed, 50 insertions(+), 33 deletions(-)
 
-diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index fe663e9..9ef01c3 100644
---- a/net/bluetooth/l2cap.c
-+++ b/net/bluetooth/l2cap.c
-@@ -3470,12 +3470,12 @@ static int l2cap_ertm_reassembly_sdu(struct soc=
-k *sk, struct sk_buff *skb, u16 c
- 		if (!pi->sdu)
- 			goto disconnect;
-=20
--		memcpy(skb_put(pi->sdu, skb->len), skb->data, skb->len);
+diff --git a/drivers/bluetooth/btmrvl_drv.h b/drivers/bluetooth/btmrvl_drv.h
+index da68c62..bf6d54f 100644
+--- a/drivers/bluetooth/btmrvl_drv.h
++++ b/drivers/bluetooth/btmrvl_drv.h
+@@ -126,6 +126,7 @@ struct btmrvl_event {
+ 
+ /* Prototype of global function */
+ 
++int btmrvl_register_hdev(struct btmrvl_private *priv);
+ struct btmrvl_private *btmrvl_add_card(void *card);
+ int btmrvl_remove_card(struct btmrvl_private *priv);
+ 
+diff --git a/drivers/bluetooth/btmrvl_main.c b/drivers/bluetooth/btmrvl_main.c
+index 87d0d3d..ec48bfe 100644
+--- a/drivers/bluetooth/btmrvl_main.c
++++ b/drivers/bluetooth/btmrvl_main.c
+@@ -524,47 +524,20 @@ static int btmrvl_service_main_thread(void *data)
+ 	return 0;
+ }
+ 
+-struct btmrvl_private *btmrvl_add_card(void *card)
++int btmrvl_register_hdev(struct btmrvl_private *priv)
+ {
+ 	struct hci_dev *hdev = NULL;
+-	struct btmrvl_private *priv;
+ 	int ret;
+ 
+-	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+-	if (!priv) {
+-		BT_ERR("Can not allocate priv");
+-		goto err_priv;
+-	}
 -
- 		pi->partial_sdu_len +=3D skb->len;
- 		if (pi->partial_sdu_len > pi->sdu_len)
- 			goto drop;
-=20
-+		memcpy(skb_put(pi->sdu, skb->len), skb->data, skb->len);
-+
- 		break;
-=20
- 	case L2CAP_SDU_END:
-@@ -3486,8 +3486,6 @@ static int l2cap_ertm_reassembly_sdu(struct sock =
-*sk, struct sk_buff *skb, u16 c
- 			goto disconnect;
-=20
- 		if (!(pi->conn_state & L2CAP_CONN_SAR_RETRY)) {
--			memcpy(skb_put(pi->sdu, skb->len), skb->data, skb->len);
+-	priv->adapter = kzalloc(sizeof(*priv->adapter), GFP_KERNEL);
+-	if (!priv->adapter) {
+-		BT_ERR("Allocate buffer for btmrvl_adapter failed!");
+-		goto err_adapter;
+-	}
 -
- 			pi->partial_sdu_len +=3D skb->len;
-=20
- 			if (pi->partial_sdu_len > pi->imtu)
-@@ -3495,6 +3493,8 @@ static int l2cap_ertm_reassembly_sdu(struct sock =
-*sk, struct sk_buff *skb, u16 c
-=20
- 			if (pi->partial_sdu_len !=3D pi->sdu_len)
- 				goto drop;
+-	btmrvl_init_adapter(priv);
+-
+ 	hdev = hci_alloc_dev();
+ 	if (!hdev) {
+ 		BT_ERR("Can not allocate HCI device");
+ 		goto err_hdev;
+ 	}
+ 
+-	BT_DBG("Starting kthread...");
+-	priv->main_thread.priv = priv;
+-	spin_lock_init(&priv->driver_lock);
+-
+-	init_waitqueue_head(&priv->main_thread.wait_q);
+-	priv->main_thread.task = kthread_run(btmrvl_service_main_thread,
+-				&priv->main_thread, "btmrvl_main_service");
+-
+ 	priv->btmrvl_dev.hcidev = hdev;
+-	priv->btmrvl_dev.card = card;
+-
+ 	hdev->driver_data = priv;
+ 
+-	priv->btmrvl_dev.tx_dnld_rdy = true;
+-
+ 	hdev->bus = HCI_SDIO;
+ 	hdev->open = btmrvl_open;
+ 	hdev->close = btmrvl_close;
+@@ -574,6 +547,8 @@ struct btmrvl_private *btmrvl_add_card(void *card)
+ 	hdev->ioctl = btmrvl_ioctl;
+ 	hdev->owner = THIS_MODULE;
+ 
++	btmrvl_send_module_cfg_cmd(priv, MODULE_BRINGUP_REQ);
 +
-+			memcpy(skb_put(pi->sdu, skb->len), skb->data, skb->len);
- 		}
-=20
- 		_skb =3D skb_clone(pi->sdu, GFP_ATOMIC);
---=20
+ 	ret = hci_register_dev(hdev);
+ 	if (ret < 0) {
+ 		BT_ERR("Can not register HCI device");
+@@ -584,16 +559,52 @@ struct btmrvl_private *btmrvl_add_card(void *card)
+ 	btmrvl_debugfs_init(hdev);
+ #endif
+ 
+-	return priv;
++	return 0;
+ 
+ err_hci_register_dev:
+-	/* Stop the thread servicing the interrupts */
+-	kthread_stop(priv->main_thread.task);
+-
+ 	hci_free_dev(hdev);
+ 
+ err_hdev:
++	/* Stop the thread servicing the interrupts */
++	kthread_stop(priv->main_thread.task);
++
+ 	btmrvl_free_adapter(priv);
++	kfree(priv);
++
++	return -ENOMEM;
++}
++EXPORT_SYMBOL_GPL(btmrvl_register_hdev);
++
++struct btmrvl_private *btmrvl_add_card(void *card)
++{
++	struct btmrvl_private *priv;
++
++	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
++	if (!priv) {
++		BT_ERR("Can not allocate priv");
++		goto err_priv;
++	}
++
++	priv->adapter = kzalloc(sizeof(*priv->adapter), GFP_KERNEL);
++	if (!priv->adapter) {
++		BT_ERR("Allocate buffer for btmrvl_adapter failed!");
++		goto err_adapter;
++	}
++
++	btmrvl_init_adapter(priv);
++
++	BT_DBG("Starting kthread...");
++	priv->main_thread.priv = priv;
++	spin_lock_init(&priv->driver_lock);
++
++	init_waitqueue_head(&priv->main_thread.wait_q);
++	priv->main_thread.task = kthread_run(btmrvl_service_main_thread,
++				&priv->main_thread, "btmrvl_main_service");
++
++	priv->btmrvl_dev.card = card;
++	priv->btmrvl_dev.tx_dnld_rdy = true;
++
++	return priv;
+ 
+ err_adapter:
+ 	kfree(priv);
+diff --git a/drivers/bluetooth/btmrvl_sdio.c b/drivers/bluetooth/btmrvl_sdio.c
+index 0dba76a..df0773e 100644
+--- a/drivers/bluetooth/btmrvl_sdio.c
++++ b/drivers/bluetooth/btmrvl_sdio.c
+@@ -931,7 +931,12 @@ static int btmrvl_sdio_probe(struct sdio_func *func,
+ 	priv->hw_host_to_card = btmrvl_sdio_host_to_card;
+ 	priv->hw_wakeup_firmware = btmrvl_sdio_wakeup_fw;
+ 
+-	btmrvl_send_module_cfg_cmd(priv, MODULE_BRINGUP_REQ);
++	if (btmrvl_register_hdev(priv)) {
++		BT_ERR("Register hdev failed!");
++		ret = -ENODEV;
++		goto disable_host_int;
++	}
++
+ 	priv->btmrvl_dev.psmode = 1;
+ 	btmrvl_enable_ps(priv);
+ 
+-- 
 1.6.6.1
 
