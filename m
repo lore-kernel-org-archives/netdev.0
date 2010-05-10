@@ -1,58 +1,172 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 3/4] bridge: netfilter use net_ratelimit
-Date: Mon, 10 May 2010 12:31:10 -0700
-Message-ID: <20100510193320.936126854@vyatta.com>
+Subject: [PATCH 4/4] bridge: update sysfs link names if port device names have changed
+Date: Mon, 10 May 2010 12:31:11 -0700
+Message-ID: <20100510193321.020451781@vyatta.com>
 References: <20100510193107.722574297@vyatta.com>
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	Simon Arlott <simon@fire.lp0.eu>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:43071 "EHLO suva.vyatta.com"
+Received: from suva.vyatta.com ([76.74.103.44]:43075 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754375Ab0EJTfc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 May 2010 15:35:32 -0400
-Content-Disposition: inline; filename=bridge-netfilter-msg.patch
+	id S1751844Ab0EJTjj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 May 2010 15:39:39 -0400
+Content-Disposition: inline; filename=br-rename-link.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The function __br_dnat_complain is basically reimplementing existing
-net_ratelimit.
+From: Simon Arlott <simon@fire.lp0.eu>
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Links for each port are created in sysfs using the device
+name, but this could be changed after being added to the
+bridge.
 
---- a/net/bridge/br_netfilter.c	2010-05-06 12:32:23.427786161 -0700
-+++ b/net/bridge/br_netfilter.c	2010-05-06 12:33:37.826565965 -0700
-@@ -253,17 +253,6 @@ static int br_nf_pre_routing_finish_ipv6
- 	return 0;
- }
+As well as being unable to remove interfaces after this
+occurs (because userspace tools don't recognise the new
+name, and the kernel won't recognise the old name), adding
+another interface with the old name to the bridge will
+cause an error trying to create the sysfs link.
+
+This fixes the problem by listening for NETDEV_CHANGENAME
+notifications and renaming the link.
+
+https://bugzilla.kernel.org/show_bug.cgi?id=12743
+
+Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+
+---
+Modified to apply to net-next and fix checkpatch warnings -- stephen
+
+ fs/sysfs/symlink.c       |    1 +
+ net/bridge/br_if.c       |    2 +-
+ net/bridge/br_notify.c   |    7 +++++++
+ net/bridge/br_private.h  |    6 ++++++
+ net/bridge/br_sysfs_if.c |   32 +++++++++++++++++++++++++++-----
+ 5 files changed, 42 insertions(+), 6 deletions(-)
+
+--- a/fs/sysfs/symlink.c	2010-05-07 17:43:18.937936182 -0700
++++ b/fs/sysfs/symlink.c	2010-05-10 12:15:03.247827705 -0700
+@@ -261,3 +261,4 @@ const struct inode_operations sysfs_syml
  
--static void __br_dnat_complain(void)
--{
--	static unsigned long last_complaint;
--
--	if (jiffies - last_complaint >= 5 * HZ) {
--		printk(KERN_WARNING "Performing cross-bridge DNAT requires IP "
--		       "forwarding to be enabled\n");
--		last_complaint = jiffies;
--	}
--}
--
- /* This requires some explaining. If DNAT has taken place,
-  * we will need to fix up the destination Ethernet address,
-  * and this is a tricky process.
-@@ -382,8 +371,12 @@ static int br_nf_pre_routing_finish(stru
- 				/* we are sure that forwarding is disabled, so printing
- 				 * this message is no problem. Note that the packet could
- 				 * still have a martian destination address, in which case
--				 * the packet could be dropped even if forwarding were enabled */
--				__br_dnat_complain();
-+				 * the packet could be dropped even if forwarding were enabled
-+				 */
-+				if (net_ratelimit())
-+					netdev_warn(dev, "Performing cross-bridge DNAT "
-+						    "requires IP forwarding to be enabled\n");
+ EXPORT_SYMBOL_GPL(sysfs_create_link);
+ EXPORT_SYMBOL_GPL(sysfs_remove_link);
++EXPORT_SYMBOL_GPL(sysfs_rename_link);
+--- a/net/bridge/br_if.c	2010-05-10 10:47:51.089679264 -0700
++++ b/net/bridge/br_if.c	2010-05-10 12:15:03.247827705 -0700
+@@ -133,7 +133,7 @@ static void del_nbp(struct net_bridge_po
+ 	struct net_bridge *br = p->br;
+ 	struct net_device *dev = p->dev;
+ 
+-	sysfs_remove_link(br->ifobj, dev->name);
++	sysfs_remove_link(br->ifobj, p->sysfs_name);
+ 
+ 	dev_set_promiscuity(dev, -1);
+ 
+--- a/net/bridge/br_notify.c	2010-05-07 17:43:18.927931730 -0700
++++ b/net/bridge/br_notify.c	2010-05-10 12:15:03.257881460 -0700
+@@ -34,6 +34,7 @@ static int br_device_event(struct notifi
+ 	struct net_device *dev = ptr;
+ 	struct net_bridge_port *p = dev->br_port;
+ 	struct net_bridge *br;
++	int err;
+ 
+ 	/* not a port of a bridge */
+ 	if (p == NULL)
+@@ -83,6 +84,12 @@ static int br_device_event(struct notifi
+ 		br_del_if(br, dev);
+ 		break;
+ 
++	case NETDEV_CHANGENAME:
++		err = br_sysfs_renameif(p);
++		if (err)
++			return notifier_from_errno(err);
++		break;
 +
- 				dst_release((struct dst_entry *)rt);
- 			}
- free_skb:
+ 	case NETDEV_PRE_TYPE_CHANGE:
+ 		/* Forbid underlaying device to change its type. */
+ 		return NOTIFY_BAD;
+--- a/net/bridge/br_private.h	2010-05-10 12:11:13.863532891 -0700
++++ b/net/bridge/br_private.h	2010-05-10 12:15:03.267827450 -0700
+@@ -139,6 +139,10 @@ struct net_bridge_port
+ 	struct hlist_head		mglist;
+ 	struct hlist_node		rlist;
+ #endif
++
++#ifdef CONFIG_SYSFS
++	char				sysfs_name[IFNAMSIZ];
++#endif
+ };
+ 
+ struct br_cpu_netstats {
+@@ -480,6 +484,7 @@ extern void br_ifinfo_notify(int event, 
+ /* br_sysfs_if.c */
+ extern const struct sysfs_ops brport_sysfs_ops;
+ extern int br_sysfs_addif(struct net_bridge_port *p);
++extern int br_sysfs_renameif(struct net_bridge_port *p);
+ 
+ /* br_sysfs_br.c */
+ extern int br_sysfs_addbr(struct net_device *dev);
+@@ -488,6 +493,7 @@ extern void br_sysfs_delbr(struct net_de
+ #else
+ 
+ #define br_sysfs_addif(p)	(0)
++#define br_sysfs_renameif(p)	(0)
+ #define br_sysfs_addbr(dev)	(0)
+ #define br_sysfs_delbr(dev)	do { } while(0)
+ #endif /* CONFIG_SYSFS */
+--- a/net/bridge/br_sysfs_if.c	2010-05-07 17:43:18.917930679 -0700
++++ b/net/bridge/br_sysfs_if.c	2010-05-10 12:15:03.267827450 -0700
+@@ -246,7 +246,7 @@ const struct sysfs_ops brport_sysfs_ops 
+ /*
+  * Add sysfs entries to ethernet device added to a bridge.
+  * Creates a brport subdirectory with bridge attributes.
+- * Puts symlink in bridge's brport subdirectory
++ * Puts symlink in bridge's brif subdirectory
+  */
+ int br_sysfs_addif(struct net_bridge_port *p)
+ {
+@@ -257,15 +257,37 @@ int br_sysfs_addif(struct net_bridge_por
+ 	err = sysfs_create_link(&p->kobj, &br->dev->dev.kobj,
+ 				SYSFS_BRIDGE_PORT_LINK);
+ 	if (err)
+-		goto out2;
++		return err;
+ 
+ 	for (a = brport_attrs; *a; ++a) {
+ 		err = sysfs_create_file(&p->kobj, &((*a)->attr));
+ 		if (err)
+-			goto out2;
++			return err;
+ 	}
+ 
+-	err = sysfs_create_link(br->ifobj, &p->kobj, p->dev->name);
+-out2:
++	strlcpy(p->sysfs_name, p->dev->name, IFNAMSIZ);
++	return sysfs_create_link(br->ifobj, &p->kobj, p->sysfs_name);
++}
++
++/* Rename bridge's brif symlink */
++int br_sysfs_renameif(struct net_bridge_port *p)
++{
++	struct net_bridge *br = p->br;
++	int err;
++
++	/* If a rename fails, the rollback will cause another
++	 * rename call with the existing name.
++	 */
++	if (!strncmp(p->sysfs_name, p->dev->name, IFNAMSIZ))
++		return 0;
++
++	err = sysfs_rename_link(br->ifobj, &p->kobj,
++				p->sysfs_name, p->dev->name);
++	if (err)
++		netdev_notice(br->dev, "unable to rename link %s to %s",
++			      p->sysfs_name, p->dev->name);
++	else
++		strlcpy(p->sysfs_name, p->dev->name, IFNAMSIZ);
++
+ 	return err;
+ }
 
 
