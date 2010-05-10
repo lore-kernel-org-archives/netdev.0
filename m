@@ -1,7 +1,7 @@
 From: kaber@trash.net
-Subject: [PATCH 59/84] netfilter: remove invalid rcu_dereference() calls
-Date: Mon, 10 May 2010 22:18:30 +0200
-Message-ID: <1273522735-24672-60-git-send-email-kaber@trash.net>
+Subject: [PATCH 60/84] netfilter: xt_LED: add refcounts to LED target
+Date: Mon, 10 May 2010 22:18:31 +0200
+Message-ID: <1273522735-24672-61-git-send-email-kaber@trash.net>
 References: <1273522735-24672-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
@@ -10,117 +10,155 @@ In-Reply-To: <1273522735-24672-1-git-send-email-kaber@trash.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
+From: Adam Nielsen <a.nielsen@shikadi.net>
 
-The CONFIG_PROVE_RCU option discovered a few invalid uses of
-rcu_dereference() in netfilter. In all these cases, the code code
-intends to check whether a pointer is already assigned when
-performing registration or whether the assigned pointer matches
-when performing unregistration. The entire registration/
-unregistration is protected by a mutex, so we don't need the
-rcu_dereference() calls.
+Add reference counting to the netfilter LED target, to fix errors when
+multiple rules point to the same target ("LED trigger already exists").
 
-Reported-by: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-Tested-by: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+Signed-off-by: Adam Nielsen <a.nielsen@shikadi.net>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/nf_conntrack_ecache.c |   18 ++++--------------
- net/netfilter/nf_log.c              |    8 ++------
- 2 files changed, 6 insertions(+), 20 deletions(-)
+ net/netfilter/xt_LED.c |   69 +++++++++++++++++++++++++++++++++++++++++++----
+ 1 files changed, 63 insertions(+), 6 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_ecache.c b/net/netfilter/nf_conntrack_ecache.c
-index d5a9bcd..849614a 100644
---- a/net/netfilter/nf_conntrack_ecache.c
-+++ b/net/netfilter/nf_conntrack_ecache.c
-@@ -81,11 +81,9 @@ EXPORT_SYMBOL_GPL(nf_ct_deliver_cached_events);
- int nf_conntrack_register_notifier(struct nf_ct_event_notifier *new)
- {
- 	int ret = 0;
--	struct nf_ct_event_notifier *notify;
+diff --git a/net/netfilter/xt_LED.c b/net/netfilter/xt_LED.c
+index efcf56d..bd102c7 100644
+--- a/net/netfilter/xt_LED.c
++++ b/net/netfilter/xt_LED.c
+@@ -31,12 +31,18 @@ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Adam Nielsen <a.nielsen@shikadi.net>");
+ MODULE_DESCRIPTION("Xtables: trigger LED devices on packet match");
  
- 	mutex_lock(&nf_ct_ecache_mutex);
--	notify = rcu_dereference(nf_conntrack_event_cb);
--	if (notify != NULL) {
-+	if (nf_conntrack_event_cb != NULL) {
- 		ret = -EBUSY;
- 		goto out_unlock;
- 	}
-@@ -101,11 +99,8 @@ EXPORT_SYMBOL_GPL(nf_conntrack_register_notifier);
++static LIST_HEAD(xt_led_triggers);
++static DEFINE_MUTEX(xt_led_mutex);
++
+ /*
+  * This is declared in here (the kernel module) only, to avoid having these
+  * dependencies in userspace code.  This is what xt_led_info.internal_data
+  * points to.
+  */
+ struct xt_led_info_internal {
++	struct list_head list;
++	int refcnt;
++	char *trigger_id;
+ 	struct led_trigger netfilter_led_trigger;
+ 	struct timer_list timer;
+ };
+@@ -53,7 +59,7 @@ led_tg(struct sk_buff *skb, const struct xt_target_param *par)
+ 	 */
+ 	if ((ledinfo->delay > 0) && ledinfo->always_blink &&
+ 	    timer_pending(&ledinternal->timer))
+-		led_trigger_event(&ledinternal->netfilter_led_trigger,LED_OFF);
++		led_trigger_event(&ledinternal->netfilter_led_trigger, LED_OFF);
  
- void nf_conntrack_unregister_notifier(struct nf_ct_event_notifier *new)
+ 	led_trigger_event(&ledinternal->netfilter_led_trigger, LED_FULL);
+ 
+@@ -74,12 +80,23 @@ led_tg(struct sk_buff *skb, const struct xt_target_param *par)
+ 
+ static void led_timeout_callback(unsigned long data)
  {
--	struct nf_ct_event_notifier *notify;
--
- 	mutex_lock(&nf_ct_ecache_mutex);
--	notify = rcu_dereference(nf_conntrack_event_cb);
--	BUG_ON(notify != new);
-+	BUG_ON(nf_conntrack_event_cb != new);
- 	rcu_assign_pointer(nf_conntrack_event_cb, NULL);
- 	mutex_unlock(&nf_ct_ecache_mutex);
+-	struct xt_led_info *ledinfo = (struct xt_led_info *)data;
+-	struct xt_led_info_internal *ledinternal = ledinfo->internal_data;
++	struct xt_led_info_internal *ledinternal = (struct xt_led_info_internal *)data;
+ 
+ 	led_trigger_event(&ledinternal->netfilter_led_trigger, LED_OFF);
  }
-@@ -114,11 +109,9 @@ EXPORT_SYMBOL_GPL(nf_conntrack_unregister_notifier);
- int nf_ct_expect_register_notifier(struct nf_exp_event_notifier *new)
- {
- 	int ret = 0;
--	struct nf_exp_event_notifier *notify;
  
- 	mutex_lock(&nf_ct_ecache_mutex);
--	notify = rcu_dereference(nf_expect_event_cb);
--	if (notify != NULL) {
-+	if (nf_expect_event_cb != NULL) {
- 		ret = -EBUSY;
- 		goto out_unlock;
++static struct xt_led_info_internal *led_trigger_lookup(const char *name)
++{
++	struct xt_led_info_internal *ledinternal;
++
++	list_for_each_entry(ledinternal, &xt_led_triggers, list) {
++		if (!strcmp(name, ledinternal->netfilter_led_trigger.name)) {
++			return ledinternal;
++		}
++	}
++	return NULL;
++}
++
+ static int led_tg_check(const struct xt_tgchk_param *par)
+ {
+ 	struct xt_led_info *ledinfo = par->targinfo;
+@@ -91,11 +108,25 @@ static int led_tg_check(const struct xt_tgchk_param *par)
+ 		return -EINVAL;
  	}
-@@ -134,11 +127,8 @@ EXPORT_SYMBOL_GPL(nf_ct_expect_register_notifier);
  
- void nf_ct_expect_unregister_notifier(struct nf_exp_event_notifier *new)
- {
--	struct nf_exp_event_notifier *notify;
--
- 	mutex_lock(&nf_ct_ecache_mutex);
--	notify = rcu_dereference(nf_expect_event_cb);
--	BUG_ON(notify != new);
-+	BUG_ON(nf_expect_event_cb != new);
- 	rcu_assign_pointer(nf_expect_event_cb, NULL);
- 	mutex_unlock(&nf_ct_ecache_mutex);
++	mutex_lock(&xt_led_mutex);
++
++	ledinternal = led_trigger_lookup(ledinfo->id);
++	if (ledinternal) {
++		ledinternal->refcnt++;
++		goto out;
++	}
++
++	err = -ENOMEM;
+ 	ledinternal = kzalloc(sizeof(struct xt_led_info_internal), GFP_KERNEL);
+ 	if (!ledinternal)
+-		return -ENOMEM;
++		goto exit_mutex_only;
++
++	ledinternal->trigger_id = kstrdup(ledinfo->id, GFP_KERNEL);
++	if (!ledinternal->trigger_id)
++		goto exit_internal_alloc;
+ 
+-	ledinternal->netfilter_led_trigger.name = ledinfo->id;
++	ledinternal->refcnt = 1;
++	ledinternal->netfilter_led_trigger.name = ledinternal->trigger_id;
+ 
+ 	err = led_trigger_register(&ledinternal->netfilter_led_trigger);
+ 	if (err) {
+@@ -108,13 +139,26 @@ static int led_tg_check(const struct xt_tgchk_param *par)
+ 	/* See if we need to set up a timer */
+ 	if (ledinfo->delay > 0)
+ 		setup_timer(&ledinternal->timer, led_timeout_callback,
+-			    (unsigned long)ledinfo);
++			    (unsigned long)ledinternal);
++
++	list_add_tail(&ledinternal->list, &xt_led_triggers);
++
++out:
++	mutex_unlock(&xt_led_mutex);
+ 
+ 	ledinfo->internal_data = ledinternal;
++
+ 	return 0;
+ 
+ exit_alloc:
++	kfree(ledinternal->trigger_id);
++
++exit_internal_alloc:
+ 	kfree(ledinternal);
++
++exit_mutex_only:
++	mutex_unlock(&xt_led_mutex);
++
+ 	return err;
  }
-diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
-index 015725a..908f599 100644
---- a/net/netfilter/nf_log.c
-+++ b/net/netfilter/nf_log.c
-@@ -35,7 +35,6 @@ static struct nf_logger *__find_logger(int pf, const char *str_logger)
- /* return EEXIST if the same logger is registred, 0 on success. */
- int nf_log_register(u_int8_t pf, struct nf_logger *logger)
- {
--	const struct nf_logger *llog;
- 	int i;
  
- 	if (pf >= ARRAY_SIZE(nf_loggers))
-@@ -52,8 +51,7 @@ int nf_log_register(u_int8_t pf, struct nf_logger *logger)
- 	} else {
- 		/* register at end of list to honor first register win */
- 		list_add_tail(&logger->list[pf], &nf_loggers_l[pf]);
--		llog = rcu_dereference(nf_loggers[pf]);
--		if (llog == NULL)
-+		if (nf_loggers[pf] == NULL)
- 			rcu_assign_pointer(nf_loggers[pf], logger);
- 	}
+@@ -123,10 +167,23 @@ static void led_tg_destroy(const struct xt_tgdtor_param *par)
+ 	const struct xt_led_info *ledinfo = par->targinfo;
+ 	struct xt_led_info_internal *ledinternal = ledinfo->internal_data;
  
-@@ -65,13 +63,11 @@ EXPORT_SYMBOL(nf_log_register);
++	mutex_lock(&xt_led_mutex);
++
++	if (--ledinternal->refcnt) {
++		mutex_unlock(&xt_led_mutex);
++		return;
++	}
++
++	list_del(&ledinternal->list);
++
+ 	if (ledinfo->delay > 0)
+ 		del_timer_sync(&ledinternal->timer);
  
- void nf_log_unregister(struct nf_logger *logger)
- {
--	const struct nf_logger *c_logger;
- 	int i;
+ 	led_trigger_unregister(&ledinternal->netfilter_led_trigger);
++
++	mutex_unlock(&xt_led_mutex);
++
++	kfree(ledinternal->trigger_id);
+ 	kfree(ledinternal);
+ }
  
- 	mutex_lock(&nf_log_mutex);
- 	for (i = 0; i < ARRAY_SIZE(nf_loggers); i++) {
--		c_logger = rcu_dereference(nf_loggers[i]);
--		if (c_logger == logger)
-+		if (nf_loggers[i] == logger)
- 			rcu_assign_pointer(nf_loggers[i], NULL);
- 		list_del(&logger->list[i]);
- 	}
 -- 
 1.7.0.4
 
