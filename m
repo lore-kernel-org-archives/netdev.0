@@ -1,57 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP-MD5 checksum failure on x86_64 SMP
-Date: Mon, 10 May 2010 17:18:13 +0200
-Message-ID: <1273504693.2221.17.camel@edumazet-laptop>
-References: <1273085598.2367.233.camel@edumazet-laptop>
-	 <i2y571fb4001005060455m39bed7f7if5fcfc45b12bc4d3@mail.gmail.com>
-	 <1273147586.2357.63.camel@edumazet-laptop>
-	 <20100506.220443.135536330.davem@davemloft.net>
-	 <1273210329.2222.42.camel@edumazet-laptop>
-	 <20100507101451.1b4286b7@nehalam>
-	 <1273252893.2261.84.camel@edumazet-laptop>
-	 <20100507103639.4f1a51fa@nehalam>
-	 <1273268446.2325.53.camel@edumazet-laptop>
-	 <D1C2B1EC-ABE8-4D87-9227-6D0F1C1C8B77@guavus.com>
+From: Mike Frysinger <vapier.adi@gmail.com>
+Subject: Re: [Uclinux-dist-devel] [PATCH 09/11] netdev: bfin_mac: only use
+	hardware checksum in normal IPv4 mode
+Date: Mon, 10 May 2010 11:35:46 -0400
+Message-ID: <AANLkTil4XZW9MgGMjrAh2q6Ey28yibvy8q8SUs7-tp-7@mail.gmail.com>
+References: <1273400337-26501-1-git-send-email-vapier@gentoo.org>
+	<1273400337-26501-9-git-send-email-vapier@gentoo.org> <20100510.044222.233422592.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	"<bhaskie@gmail.com>" <bhaskie@gmail.com>,
-	"<bhutchings@solarflare.com>" <bhutchings@solarflare.com>,
-	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>
-To: Bijay Singh <Bijay.Singh@guavus.com>
+Cc: netdev@vger.kernel.org, jon.kowal@dspecialists.de,
+	uclinux-dist-devel@blackfin.uclinux.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:54533 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752796Ab0EJPSU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 11:18:20 -0400
-Received: by fxm7 with SMTP id 7so190058fxm.19
-        for <netdev@vger.kernel.org>; Mon, 10 May 2010 08:18:18 -0700 (PDT)
-In-Reply-To: <D1C2B1EC-ABE8-4D87-9227-6D0F1C1C8B77@guavus.com>
+Received: from mail-gx0-f217.google.com ([209.85.217.217]:56497 "EHLO
+	mail-gx0-f217.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751397Ab0EJPgG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 11:36:06 -0400
+Received: by gxk9 with SMTP id 9so2831441gxk.8
+        for <netdev@vger.kernel.org>; Mon, 10 May 2010 08:36:06 -0700 (PDT)
+In-Reply-To: <20100510.044222.233422592.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 10 mai 2010 =C3=A0 14:55 +0000, Bijay Singh a =C3=A9crit :
-> Hi,
-> I had noticed the corruption in the context and actually did what is =
-mentioned.
->=20
-> I allocated the context on the stack and plugged in the md5.c functio=
-ns. I was able to temporarily solve the problem, all this before I got =
-a response on this thread.
->=20
-> But now I have seeing another problem, when i change the MTU on the i=
-nterface from 1500 to 4470 none of the message from the peer get thru a=
-nd I get hash failed message. I am wondering if this is another bug get=
-ting hit in this scenario.
+On Mon, May 10, 2010 at 07:42, David Miller wrote:
+> From: Mike Frysinger <vapier@gentoo.org>
+> Date: Sun, =C2=A09 May 2010 06:18:55 -0400
+>
+>> From: Jon Kowal <jon.kowal@dspecialists.de>
+>>
+>> The Blackfin on-chip MAC checksum logic only works when the IP packe=
+t has
+>> a header length of 20 bytes. =C2=A0This is true for most IPv4 packet=
+s, but not
+>> for IPv6 packets or IPv4 packets which use header options. =C2=A0So =
+only use
+>> the hardware checksum when appropriate.
+>>
+>> Signed-off-by: Jon Kowal <jon.kowal@dspecialists.de>
+>> Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+>> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+>
+> In order to make the tree bisectable, combine bug fixes into the chan=
+ges
+> that add the bugs instead of letting them live in the final tree when
+> they don't need to.
+>
+> You should have just combined this patch into the patch that added th=
+e
+> FCS inversion stuff.
 
-Thats very fine, but you mix very different problems.
-
-Step by step resolution is required, and clean patches too, because
-plugging md5.c functions is not an option for stable series :)
-
-Obviously, nobody seriously used TCP-MD5 on linux, but you...
-
-
-
+i dont think that is true.  this bug existed before the FCS inversion
+stuff -- notice the csum complete behavior changes.
+-mike
