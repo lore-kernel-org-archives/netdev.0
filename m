@@ -1,129 +1,78 @@
-From: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
-Subject: [patch] use alloc_page instead of alloc_pages (0)
-Date: Mon, 10 May 2010 10:44:33 +0200
-Message-ID: <1273481073.6676.5.camel@localhost.localdomain>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: virtio: put last_used and last_avail index into ring itself.
+Date: Mon, 10 May 2010 12:41:56 +0930
+Message-ID: <201005101241.57237.rusty@rustcorp.com.au>
+References: <cover.1257349249.git.mst@redhat.com> <201005071235.40590.rusty@rustcorp.com.au> <20100509085733.GD16775@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-7XKcBlZIYxNNSOHrzAE6"
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:11893
-	"EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755540Ab0EJIof (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 04:44:35 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-7XKcBlZIYxNNSOHrzAE6
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+ virtualization@lists.linux-foundation.org,
+ kvm@vger.kernel.org,
+ linux-kernel@vger.kernel.org,
+ mingo@elte.hu,
+ linux-mm@kvack.org,
+ akpm@linux-foundation.org,
+ hpa@zytor.com,
+ gregory.haskins@gmail.com,
+ s.hetze@linux-ag.com,
+ Daniel Walker <dwalker@fifo99.com>,
+ Eric Dumazet <eric.dumazet@gmail.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20100509085733.GD16775@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-The attached patch is pretty obvious and should apply on top of
-net-next-2.6. I resisted the temptation to define alloc_page_node in
-include/linux/gfp.h to get rid of the call to alloc_pages_node in
-net/core/skbuff.c for symmetry but I would be happy to submit another
-patch with this if others want it.
+On Sun, 9 May 2010 06:27:33 pm Michael S. Tsirkin wrote:
+> On Fri, May 07, 2010 at 12:35:39PM +0930, Rusty Russell wrote:
+> > Then there's padding to page boundary.  That puts us on a cacheline again
+> > for the used ring; also 2 bytes per entry.
+> > 
+> 
+> Hmm, is used ring really 2 bytes per entry?
 
-Mathieu
--- 
-Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
-Tel: +33 4 9238 5056
+Err, no, I am an idiot.
 
---=-7XKcBlZIYxNNSOHrzAE6
-Content-Disposition: attachment; filename="alloc.patch"
-Content-Type: text/x-patch; name="alloc.patch"; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+> /* u32 is used here for ids for padding reasons. */
+> struct vring_used_elem {
+>         /* Index of start of used descriptor chain. */
+>         __u32 id;
+>         /* Total length of the descriptor chain which was used (written to) */
+>         __u32 len;
+> };
+> 
+> struct vring_used {
+>         __u16 flags;
+>         __u16 idx;
+>         struct vring_used_elem ring[];
+> };
 
-commit 24559b5892690655f1223ca8600eeaad02c5327d
-Author: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
-Date:   Mon May 10 10:31:00 2010 +0200
+OK, now I get it.  Sorry, I was focussed on the avail ring.
 
-    use alloc_page instead of alloc_pages (0)
+> I thought that used ring has 8 bytes per entry, and that struct
+> vring_used is aligned at page boundary, this
+> would mean that ring element is at offset 4 bytes from page boundary.
+> Thus with cacheline size 128 bytes, each 4th element crosses
+> a cacheline boundary. If we had a 4 byte padding after idx, each
+> used element would always be completely within a single cacheline.
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 2ad68da..610ed0c 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2712,7 +2712,7 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
- 
- 		i = 0;
- 		while (datalen > 0) {
--			struct page *page = alloc_pages(GFP_KERNEL | __GFP_ZERO, 0);
-+			struct page *page = alloc_page(GFP_KERNEL | __GFP_ZERO);
- 			skb_shinfo(skb)->frags[i].page = page;
- 			skb_shinfo(skb)->frags[i].page_offset = 0;
- 			skb_shinfo(skb)->frags[i].size =
-@@ -3062,7 +3062,7 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
- 
- 		i = 0;
- 		while (datalen > 0) {
--			struct page *page = alloc_pages(GFP_KERNEL, 0);
-+			struct page *page = alloc_page(GFP_KERNEL);
- 			skb_shinfo(skb)->frags[i].page = page;
- 			skb_shinfo(skb)->frags[i].page_offset = 0;
- 			skb_shinfo(skb)->frags[i].size =
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 8b9c109..974a748 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -1387,7 +1387,7 @@ static inline struct page *linear_to_page(struct page *page, unsigned int *len,
- 
- 	if (!p) {
- new_page:
--		p = sk->sk_sndmsg_page = alloc_pages(sk->sk_allocation, 0);
-+		p = sk->sk_sndmsg_page = alloc_page(sk->sk_allocation);
- 		if (!p)
- 			return NULL;
- 
-@@ -2428,7 +2428,7 @@ int skb_append_datato_frags(struct sock *sk, struct sk_buff *skb,
- 			return -EFAULT;
- 
- 		/* allocate a new page for next frag */
--		page = alloc_pages(sk->sk_allocation, 0);
-+		page = alloc_page(sk->sk_allocation);
- 
- 		/* If alloc_page fails just return failure and caller will
- 		 * free previous allocated pages by doing kfree_skb()
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 94c4aff..eb1c1c7 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1457,7 +1457,7 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
- 					struct page *page;
- 					skb_frag_t *frag;
- 
--					page = alloc_pages(sk->sk_allocation, 0);
-+					page = alloc_page(sk->sk_allocation);
- 					if (!page) {
- 						err = -ENOBUFS;
- 						skb_shinfo(skb)->nr_frags = i;
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index f039219..501ac6a 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -1031,7 +1031,7 @@ alloc_new_skb:
- 			} else if (i < MAX_SKB_FRAGS) {
- 				if (copy > PAGE_SIZE)
- 					copy = PAGE_SIZE;
--				page = alloc_pages(sk->sk_allocation, 0);
-+				page = alloc_page(sk->sk_allocation);
- 				if (page == NULL)  {
- 					err = -ENOMEM;
- 					goto error;
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index e7a5f17..84edb23 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1392,7 +1392,7 @@ alloc_new_skb:
- 			} else if(i < MAX_SKB_FRAGS) {
- 				if (copy > PAGE_SIZE)
- 					copy = PAGE_SIZE;
--				page = alloc_pages(sk->sk_allocation, 0);
-+				page = alloc_page(sk->sk_allocation);
- 				if (page == NULL) {
- 					err = -ENOMEM;
- 					goto error;
+I think the numbers are: every 16th entry hits two cachelines.  So currently
+the first 15 entries are "free" (assuming we hit the idx cacheline anyway),
+then 1 in 16 cost 2 cachelines.  That makes the aligned version win when
+N > 240.
 
+But, we access the array linearly.  So the extra cacheline cost is in fact
+amortized.  I doubt it could be measured, but maybe vring_get_buf() should
+prefetch?  While you're there, we could use an & rather than a mod on the
+calculation, which may actually be measurable :)
 
---=-7XKcBlZIYxNNSOHrzAE6--
+Cheers,
+Rusty.
 
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
