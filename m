@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 21/64] Bluetooth: Remove duplicate use of __get_reqseq() macro on L2CAP
-Date: Mon, 10 May 2010 11:37:11 +0200
-Message-ID: <8abb52ee00c4b3f857269eb6b7145991bab869bf.1273484096.git.marcel@holtmann.org>
+Subject: [PATCH 63/64] Bluetooth: Use strict_strtoul instead of simple_strtoul
+Date: Mon, 10 May 2010 11:37:53 +0200
+Message-ID: <7b767cad296d17cfe071734f71a3b7b479534c8c.1273484099.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -23,47 +23,118 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <e072745f4adb01b909bd08a0cfc8f79348f4d2c6.1273484096.git.marcel@holtmann.org>
  <99b0d4b7b09edeacf4542bced5c01239375b51a9.1273484096.git.marcel@holtmann.org>
  <6e3a59819fac19006fe4255b87928e5a12c54532.1273484096.git.marcel@holtmann.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+ <8abb52ee00c4b3f857269eb6b7145991bab869bf.1273484096.git.marcel@holtmann.org>
+ <05fbd89dd4153341717b33d9e8ae8bd29db6c1c8.1273484096.git.marcel@holtmann.org>
+ <c1b4f43be01c2a363be021485dd18cca33cfab8a.1273484097.git.marcel@holtmann.org>
+ <2fb862e215e53630066c677e06d7551fa38bf235.1273484097.git.marcel@holtmann.org>
+ <7b1c0049be3aabc18831ada339dbcf41ba8c81fd.1273484097.git.marcel@holtmann.org>
+ <1c7621596d11b9c3e19eb88a818758dee4901c95.1273484097.git.marcel@holtmann.org>
+ <10467e9e9b89272b25b56688bb276d0830e9ab9a.1273484097.git.marcel@holtmann.org>
+ <052897ca5019d9157ae09e5e84eee2a9ef5dccc6.1273484097.git.marcel@holtmann.org>
+ <855666cccc939d392316de17512e17a08b2fa05a.1273484097.git.marcel@holtmann.org>
+ <14b5aa71ec506f4e38ca6a1dc02ecd668ecfd902.1273484097.git.marcel@holtmann.org>
+ <803020c6fa63aa738cfda3329c9675b42023e9d2.1273484097.git.marcel@holtmann.org>
+ <369ba30264826f38eefc61b93688100be8adbd4d.1273484097.git.marcel@holtmann.org>
+ <68d7f0ce911e41e463c45911be031cdf6a096fe8.1273484097.git.marcel@holtmann.org>
+ <f6e6b16823de0aff31cb8ee8c098383e3aceec58.1273484097.git.marcel@holtmann.org>
+ <0ee0d20855ae9271de3f6695f4cafc08ab2533bb.1273484097.git.marcel@holtmann.org>
+ <812e737e29a1d559e7bfbea675fdcfcbad9f5e1f.1273484097.git.marcel@holtmann.org>
+ <3b1a9f3fa6ad842991538da2c3b2e29e047b131f.1273484097.git.marcel@holtmann.org>
+ <84fb0a6334af0ccad3544f6972c055d90fbb9fbe.1273484097.git.marcel@holtmann.org>
+ <bd3c9e255e76ae232d417e3914ca5d80ca3e9485.1273484097.git.marcel@holtmann.org>
+ <0041ecfa3025d7612fdaab12b2f07c9c3c09f42f.1273484098.git.marcel@holtmann.org>
+ <afefdbc4cf3b9d409d07e1e5264e7ff88bc48711.1273484098.git.marcel@holtmann.org>
+ <01760bdde9a92413b7fff928d08e19352bf09d82.1273484098.git.marcel@holtmann.org>
+ <44651b85cc3a076147af5d181fc4833ef8debc59.1273484098.git.marcel@holtmann.org>
+ <59203a21a56c53afeb6f45e059299e6f1437f30f.1273484098.git.marcel@holtmann.org>
+ <0301ef04b5f49a95681694fc0d75af9441faa919.1273484098.git.marcel@holtmann.org>
+ <a2e12a2a312f816d5970b0c809d43b399fbfe90c.1273484098.git.marcel@holtmann.org>
+ <9b16dc6551cbde65d0ac525af3c46efab53a2c46.1273484098.git.marcel@holtmann.org>
+ <ff12fd643334071084b6145cad3793bb6c956638.1273484098.git.marcel@holtmann.org>
+ <9a9c6a34416b3743c09c00f3d6708d9df3c21629.1273484098.git.marcel@holtmann.org>
+ <f11d676da4059c7888efca810ab300b931736a26.1273484098.git.marcel@holtmann.org>
+ <18778a63ddc83bc89bda3b119fb02eb121512a66.1273484098.git.marcel@holtmann.org>
+ <9b53350d3cf5b330c3261d89b5e62a2dc25c5653.1273484098.git.marcel@holtmann.org>
+ <1890d36bb556a27684ad29654a9898ab9a5f57ee.1273484098.git.marcel@holtmann.org>
+ <6161c0382bbab883a634d284f7367a88bbe88534.1273484098.git.marcel@holtmann.org>
+ <dfc909befbfe967bd7f46ef33b6969c1b7f3cf42.1273484098.git.marcel@holtmann.org>
+ <4178ba462a3e8ab5094e69606f01d9e95f2d5ea6.1273484098.git.marcel@holtmann.org>
+ <844c0972427ee5f661158160aaca10b22b3dda60.1273484098.git.marcel@holtmann.org>
+ <f48fd9c8cd746fdb055a97249a209c77dca0f710.1273484098.git.marcel@holtmann.org>
+ <31f085fea891d5972e994dfb423231a3d4d60a8a.1273484099.git.marcel@holtmann.org>
+ <903c843773a18e061817dd7a1a5c28dd41a3bf97.1273484099.git.marcel@holtmann.org>
+ <64061607eab7cb146115927cb596de123c542d45.1273484099.git.marcel@holtmann.org>
+ <f120c6b635a62d414876b517aec0468628acfc60.1273484099.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53446 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53476 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755745Ab0EJJiv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:38:51 -0400
-In-Reply-To: <6e3a59819fac19006fe4255b87928e5a12c54532.1273484096.git.marcel@holtmann.org>
+	with ESMTP id S1755951Ab0EJJjT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:19 -0400
+In-Reply-To: <f120c6b635a62d414876b517aec0468628acfc60.1273484099.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Gustavo F. Padovan <padovan@profusion.mobi>
+From: Tomas Winkler <tomas.winkler@intel.com>
 
-tx_seq var already has the value of __get_reqseq().
+Use strict_strtoul as suggested by checkpatch.pl for more strict input
+checking.
 
-Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
-Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
+Signed-off-by: Tomas Winkler <tomas.winkler@intel.com>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/l2cap.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/bluetooth/hci_sysfs.c |   18 ++++++------------
+ 1 files changed, 6 insertions(+), 12 deletions(-)
 
-diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index d096c7c..e9ac9fb 100644
---- a/net/bluetooth/l2cap.c
-+++ b/net/bluetooth/l2cap.c
-@@ -3533,7 +3533,7 @@ static inline void l2cap_data_channel_rejframe(st=
-ruct sock *sk, u16 rx_control)
-=20
- 	pi->conn_state &=3D ~L2CAP_CONN_REMOTE_BUSY;
-=20
--	pi->expected_ack_seq =3D __get_reqseq(rx_control);
-+	pi->expected_ack_seq =3D tx_seq;
- 	l2cap_drop_acked_frames(sk);
-=20
- 	if (rx_control & L2CAP_CTRL_FINAL) {
---=20
+diff --git a/net/bluetooth/hci_sysfs.c b/net/bluetooth/hci_sysfs.c
+index a978449..463ffa4 100644
+--- a/net/bluetooth/hci_sysfs.c
++++ b/net/bluetooth/hci_sysfs.c
+@@ -281,11 +281,9 @@ static ssize_t show_idle_timeout(struct device *dev, struct device_attribute *at
+ static ssize_t store_idle_timeout(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+ {
+ 	struct hci_dev *hdev = dev_get_drvdata(dev);
+-	char *ptr;
+-	__u32 val;
++	unsigned long val;
+ 
+-	val = simple_strtoul(buf, &ptr, 10);
+-	if (ptr == buf)
++	if (strict_strtoul(buf, 0, &val) < 0)
+ 		return -EINVAL;
+ 
+ 	if (val != 0 && (val < 500 || val > 3600000))
+@@ -305,11 +303,9 @@ static ssize_t show_sniff_max_interval(struct device *dev, struct device_attribu
+ static ssize_t store_sniff_max_interval(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+ {
+ 	struct hci_dev *hdev = dev_get_drvdata(dev);
+-	char *ptr;
+-	__u16 val;
++	unsigned long val;
+ 
+-	val = simple_strtoul(buf, &ptr, 10);
+-	if (ptr == buf)
++	if (strict_strtoul(buf, 0, &val) < 0)
+ 		return -EINVAL;
+ 
+ 	if (val < 0x0002 || val > 0xFFFE || val % 2)
+@@ -332,11 +328,9 @@ static ssize_t show_sniff_min_interval(struct device *dev, struct device_attribu
+ static ssize_t store_sniff_min_interval(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+ {
+ 	struct hci_dev *hdev = dev_get_drvdata(dev);
+-	char *ptr;
+-	__u16 val;
++	unsigned long val;
+ 
+-	val = simple_strtoul(buf, &ptr, 10);
+-	if (ptr == buf)
++	if (strict_strtoul(buf, 0, &val) < 0)
+ 		return -EINVAL;
+ 
+ 	if (val < 0x0002 || val > 0xFFFE || val % 2)
+-- 
 1.6.6.1
 
