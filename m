@@ -1,41 +1,72 @@
 From: kaber@trash.net
-Subject: [PATCH 65/84] Restore __ALIGN_MASK()
-Date: Mon, 10 May 2010 22:18:36 +0200
-Message-ID: <1273522735-24672-66-git-send-email-kaber@trash.net>
+Subject: [PATCH 51/84] netfilter: xtables: merge registration structure to NFPROTO_UNSPEC
+Date: Mon, 10 May 2010 22:18:22 +0200
+Message-ID: <1273522735-24672-52-git-send-email-kaber@trash.net>
 References: <1273522735-24672-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54523 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756926Ab0EJUT1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 16:19:27 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1273522735-24672-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexey Dobriyan <adobriyan@gmail.com>
+From: Jan Engelhardt <jengelh@medozas.de>
 
-Fix lib/bitmap.c compile failure due to __ALIGN_KERNEL changes.
-
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 ---
- include/linux/kernel.h |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ net/netfilter/xt_state.c |   31 ++++++++++---------------------
+ 1 files changed, 10 insertions(+), 21 deletions(-)
 
-diff --git a/include/linux/kernel.h b/include/linux/kernel.h
-index 284ea99..db6717d 100644
---- a/include/linux/kernel.h
-+++ b/include/linux/kernel.h
-@@ -40,6 +40,7 @@ extern const char linux_proc_banner[];
- #define STACK_MAGIC	0xdeadbeef
+diff --git a/net/netfilter/xt_state.c b/net/netfilter/xt_state.c
+index be00d7b..bb12718 100644
+--- a/net/netfilter/xt_state.c
++++ b/net/netfilter/xt_state.c
+@@ -53,35 +53,24 @@ static void state_mt_destroy(const struct xt_mtdtor_param *par)
+ 	nf_ct_l3proto_module_put(par->family);
+ }
  
- #define ALIGN(x, a)		__ALIGN_KERNEL((x), (a))
-+#define __ALIGN_MASK(x, mask)	__ALIGN_KERNEL_MASK((x), (mask))
- #define PTR_ALIGN(p, a)		((typeof(p))ALIGN((unsigned long)(p), (a)))
- #define IS_ALIGNED(x, a)		(((x) & ((typeof(x))(a) - 1)) == 0)
+-static struct xt_match state_mt_reg[] __read_mostly = {
+-	{
+-		.name		= "state",
+-		.family		= NFPROTO_IPV4,
+-		.checkentry	= state_mt_check,
+-		.match		= state_mt,
+-		.destroy	= state_mt_destroy,
+-		.matchsize	= sizeof(struct xt_state_info),
+-		.me		= THIS_MODULE,
+-	},
+-	{
+-		.name		= "state",
+-		.family		= NFPROTO_IPV6,
+-		.checkentry	= state_mt_check,
+-		.match		= state_mt,
+-		.destroy	= state_mt_destroy,
+-		.matchsize	= sizeof(struct xt_state_info),
+-		.me		= THIS_MODULE,
+-	},
++static struct xt_match state_mt_reg __read_mostly = {
++	.name       = "state",
++	.family     = NFPROTO_UNSPEC,
++	.checkentry = state_mt_check,
++	.match      = state_mt,
++	.destroy    = state_mt_destroy,
++	.matchsize  = sizeof(struct xt_state_info),
++	.me         = THIS_MODULE,
+ };
  
+ static int __init state_mt_init(void)
+ {
+-	return xt_register_matches(state_mt_reg, ARRAY_SIZE(state_mt_reg));
++	return xt_register_match(&state_mt_reg);
+ }
+ 
+ static void __exit state_mt_exit(void)
+ {
+-	xt_unregister_matches(state_mt_reg, ARRAY_SIZE(state_mt_reg));
++	xt_unregister_match(&state_mt_reg);
+ }
+ 
+ module_init(state_mt_init);
 -- 
 1.7.0.4
 
