@@ -1,73 +1,33 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 06/64] Bluetooth: Move specific Basic Mode code to the right place
-Date: Mon, 10 May 2010 11:36:56 +0200
-Message-ID: <c69163e9ed5048407cc84f439cbfecc53f6f7131.1273484095.git.marcel@holtmann.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Pull request: bluetooth-next-2.6 2010-05-10
+Date: Mon, 10 May 2010 02:47:50 -0700 (PDT)
+Message-ID: <20100510.024750.45124664.davem@davemloft.net>
 References: <cover.1273484094.git.marcel@holtmann.org>
- <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
- <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
- <4f7ac1814ef6f0773e57ffd159a1dd57a3c80521.1273484095.git.marcel@holtmann.org>
- <0d861d8b8edd139a9b291cb262d08dec8dc3922d.1273484095.git.marcel@holtmann.org>
- <b9dbdbc1f4404cba2e64939c30c87d59c9796e4e.1273484095.git.marcel@holtmann.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: marcel@holtmann.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53433 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755702Ab0EJJil (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:38:41 -0400
-In-Reply-To: <b9dbdbc1f4404cba2e64939c30c87d59c9796e4e.1273484095.git.marcel@holtmann.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38904
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755784Ab0EJJrn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:47:43 -0400
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
-References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Gustavo F. Padovan <padovan@profusion.mobi>
+From: Marcel Holtmann <marcel@holtmann.org>
+Date: Mon, 10 May 2010 11:36:50 +0200
 
-Inside "case L2CAP_MODE_BASIC:" we don't need to check for sk_type and
-L2CAP mode. So only the length check is fine.
+> this is the big merge for the L2CAP Enhanced Retransmission support work
+> done by Gustavo F. Padovan. All other changes are small cleanups.
 
-Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
-Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
-Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
----
- net/bluetooth/l2cap.c |   11 ++++++-----
- 1 files changed, 6 insertions(+), 5 deletions(-)
+Yeah, "big", as in "too big".
 
-diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index 864c76f..c9a848d 100644
---- a/net/bluetooth/l2cap.c
-+++ b/net/bluetooth/l2cap.c
-@@ -1611,11 +1611,6 @@ static int l2cap_sock_sendmsg(struct kiocb *iocb=
-, struct socket *sock, struct ms
- 	if (msg->msg_flags & MSG_OOB)
- 		return -EOPNOTSUPP;
-=20
--	/* Check outgoing MTU */
--	if (sk->sk_type =3D=3D SOCK_SEQPACKET && pi->mode =3D=3D L2CAP_MODE_B=
-ASIC &&
--	    len > pi->omtu)
--		return -EINVAL;
--
- 	lock_sock(sk);
-=20
- 	if (sk->sk_state !=3D BT_CONNECTED) {
-@@ -1635,6 +1630,12 @@ static int l2cap_sock_sendmsg(struct kiocb *iocb=
-, struct socket *sock, struct ms
-=20
- 	switch (pi->mode) {
- 	case L2CAP_MODE_BASIC:
-+		/* Check outgoing MTU */
-+		if (len > pi->omtu) {
-+			err =3D -EINVAL;
-+			goto done;
-+		}
-+
- 		/* Create a basic PDU */
- 		skb =3D l2cap_create_basic_pdu(sk, msg, len);
- 		if (IS_ERR(skb)) {
---=20
-1.6.6.1
+Please sync with me more often so you don't have to obliterate the
+list with unacceptable 64 posting patch bombs.  Nobody is going to
+really review such a huge patch set in any serious manner, which
+makes posting those patches almost worthless.
 
+Anything more than about 10 or 20 at a time is way too much.
