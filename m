@@ -1,124 +1,100 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Pull request: bluetooth-next-2.6 2010-05-10
-Date: Mon, 10 May 2010 11:36:50 +0200
-Message-ID: <cover.1273484094.git.marcel@holtmann.org>
+Subject: [PATCH 10/64] Bluetooth: Use a l2cap_pinfo struct instead l2cap_pi() macro
+Date: Mon, 10 May 2010 11:37:00 +0200
+Message-ID: <e8235c6bdd1c7ffbaa7eb8dcdbb46c51f1e5d72e.1273484096.git.marcel@holtmann.org>
+References: <cover.1273484094.git.marcel@holtmann.org>
+ <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
+ <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
+ <4f7ac1814ef6f0773e57ffd159a1dd57a3c80521.1273484095.git.marcel@holtmann.org>
+ <0d861d8b8edd139a9b291cb262d08dec8dc3922d.1273484095.git.marcel@holtmann.org>
+ <b9dbdbc1f4404cba2e64939c30c87d59c9796e4e.1273484095.git.marcel@holtmann.org>
+ <c69163e9ed5048407cc84f439cbfecc53f6f7131.1273484095.git.marcel@holtmann.org>
+ <faaebd192ec9c3febcab98149d1309199a5b886c.1273484095.git.marcel@holtmann.org>
+ <7dffe4210233a2860c3f41477c40b3252edf2b7d.1273484095.git.marcel@holtmann.org>
+ <d1daa091e8612f3aab14d28b5836375fafe155e1.1273484096.git.marcel@holtmann.org>
 Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53425 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53433 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752694Ab0EJJig (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:38:36 -0400
+	with ESMTP id S1755653Ab0EJJio (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:38:44 -0400
+In-Reply-To: <d1daa091e8612f3aab14d28b5836375fafe155e1.1273484096.git.marcel@holtmann.org>
+In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
+References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+=46rom: Gustavo F. Padovan <padovan@profusion.mobi>
 
-this is the big merge for the L2CAP Enhanced Retransmission support work
-done by Gustavo F. Padovan. All other changes are small cleanups.
+Trivial clean up.
 
-Regards
+Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
+Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
+Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+---
+ net/bluetooth/l2cap.c |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
 
-Marcel
-
-
-Please pull from
-
-    git://git.kernel.org/pub/scm/linux/kernel/git/holtmann/bluetooth-next-2.6.git master
-
-This will update the following files:
-
- drivers/bluetooth/btmrvl_drv.h   |    8 +-
- drivers/bluetooth/btmrvl_main.c  |   92 ++--
- drivers/bluetooth/btmrvl_sdio.c  |    7 +-
- drivers/bluetooth/hci_h4.c       |    2 +-
- drivers/bluetooth/hci_ll.c       |    8 +-
- drivers/bluetooth/hci_vhci.c     |    2 +-
- include/net/bluetooth/hci_core.h |    6 +-
- include/net/bluetooth/l2cap.h    |   41 +-
- net/bluetooth/Kconfig            |   13 +
- net/bluetooth/hci_core.c         |   27 +-
- net/bluetooth/hci_sysfs.c        |   34 +-
- net/bluetooth/l2cap.c            | 1108 +++++++++++++++++++++++++++++---------
- net/bluetooth/sco.c              |   26 +-
- 13 files changed, 1010 insertions(+), 364 deletions(-)
-
-through these ChangeSets:
-
-Bing Zhao (3):
-    Bluetooth: Decode btmrvl MODULE_BRINGUP_REG response correctly
-    Bluetooth: Separate btmrvl_register_hdev() from btmrvl_add_card()
-    Bluetooth: Set hdev->dev_type based on Marvell device type
-
-Dan Carpenter (1):
-    Bluetooth: Fix storing negative values as unsigned char
-
-Gustavo F. Padovan (54):
-    Bluetooth: Fix return value when bt_skb_alloc fails
-    Bluetooth: Use the proper function cast to get hdr data
-    Bluetooth: Fix wrong packet type count increment
-    Bluetooth: Make hci_send_sco() void
-    Bluetooth: Trivial clean ups to SCO
-    Bluetooth: Move specific Basic Mode code to the right place
-    Bluetooth: Fix memory leak of S-frames into L2CAP
-    Bluetooth: Fix expected_tx_seq calculation on L2CAP
-    Bluetooth: Fix ACL MTU issue
-    Bluetooth: Use a l2cap_pinfo struct instead l2cap_pi() macro
-    Bluetooth: Implement 'Send IorRRorRNR' event
-    Bluetooth: Support case with F bit set under WAIT_F state.
-    Bluetooth: Check the minimum {I,S}-frame size into L2CAP
-    Bluetooth: Check if SDU size is greater than MTU on L2CAP
-    Bluetooth: Implement SendAck() Action on ERTM.
-    Bluetooth: Move set of P-bit to l2cap_send_sframe()
-    Bluetooth: Add Recv RR (P=0)(F=0) for SREJ_SENT state on ERTM
-    Bluetooth: Split l2cap_data_channel_sframe()
-    Bluetooth: Handle all cases of receipt of RNR-frames into L2CAP
-    Bluetooth: Group the ack of I-frames into l2cap_data_channel_rrframe()
-    Bluetooth: Remove duplicate use of __get_reqseq() macro on L2CAP
-    Bluetooth: Finish implementation for Rec RR (P=1) on ERTM
-    Bluetooth: Add timer to Acknowledge I-frames
-    Bluetooth: Ignore Tx Window value with Streaming mode
-    Bluetooth: Read RFC conf option on a successful Conf RSP
-    Bluetooth: Fix configuration of the MPS value
-    Bluetooth: Add le16 macro to Retransmission and Monitor Timeouts values
-    Bluetooth: Check the SDU size against the MTU value
-    Bluetooth: Send Ack after clear the SREJ list
-    Bluetooth: Add sockopt configuration for txWindow on L2CAP
-    Bluetooth: Change acknowledgement to use the value of txWindow
-    Bluetooth: Add module parameter for txWindow size on L2CAP
-    Bluetooth: Enable option to configure Max Transmission value via
-    Bluetooth: Fix bug when retransmitting I-frames
-    Bluetooth: Fix crash when monitor timeout expires
-    Bluetooth: Fix drop of acked packets on ERTM
-    Bluetooth: Optimize SREJ_QUEUE append
-    Bluetooth: Add Kconfig option for L2CAP Extended Features
-    Bluetooth: Add SOCK_STREAM support to L2CAP
-    Bluetooth: Fix SDU reassembly under SREJ
-    Bluetooth: Don't set control bits to zero first
-    Bluetooth: Fix errors reported by checkpatch.pl
-    Bluetooth: Remove set of SrejSaveReqSeq under receipt of REJ frame
-    Bluetooth: Remove unneeded control vars
-    Bluetooth: Check if we really are in WAIT_F when F bit comes
-    Bluetooth: Fix lockdep annotation on ERTM
-    Bluetooth: Make hci_send_acl() void
-    Bluetooth: Refactor l2cap_retransmit_frame()
-    Bluetooth: Implement missing parts of the Invalid Frame Detection
-    Bluetooth: Implement Local Busy Condition handling
-    Bluetooth: Add wait_queue to wait ack of all sent packets
-    Bluetooth: Fix race condition on l2cap_ertm_send()
-    Bluetooth: Prevents buffer overflow on l2cap_ertm_reassembly_sdu()
-    Bluetooth: Fix spec error in the RemoteBusy Logic
-
-João Paulo Rechi Vita (3):
-    Bluetooth: Check if mode is supported on getsockopt
-    Bluetooth: Close L2CAP channel on invalid ReqSeq
-    Bluetooth: Completes the I-frame tx_seq check logic on RECV
-
-Marcel Holtmann (2):
-    Bluetooth: Create per controller workqueue
-    Bluetooth: Fix issues where sk_sleep() helper is needed now
-
-Tomas Winkler (1):
-    Bluetooth: Use strict_strtoul instead of simple_strtoul
+diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
+index 99cf177..a9c152a 100644
+--- a/net/bluetooth/l2cap.c
++++ b/net/bluetooth/l2cap.c
+@@ -1291,7 +1291,7 @@ static int l2cap_streaming_send(struct sock *sk)
+ 		control |=3D pi->next_tx_seq << L2CAP_CTRL_TXSEQ_SHIFT;
+ 		put_unaligned_le16(control, tx_skb->data + L2CAP_HDR_SIZE);
+=20
+-		if (l2cap_pi(sk)->fcs =3D=3D L2CAP_FCS_CRC16) {
++		if (pi->fcs =3D=3D L2CAP_FCS_CRC16) {
+ 			fcs =3D crc16(0, (u8 *)tx_skb->data, tx_skb->len - 2);
+ 			put_unaligned_le16(fcs, tx_skb->data + tx_skb->len - 2);
+ 		}
+@@ -1344,7 +1344,7 @@ static int l2cap_retransmit_frame(struct sock *sk=
+, u8 tx_seq)
+ 				| (tx_seq << L2CAP_CTRL_TXSEQ_SHIFT);
+ 		put_unaligned_le16(control, tx_skb->data + L2CAP_HDR_SIZE);
+=20
+-		if (l2cap_pi(sk)->fcs =3D=3D L2CAP_FCS_CRC16) {
++		if (pi->fcs =3D=3D L2CAP_FCS_CRC16) {
+ 			fcs =3D crc16(0, (u8 *)tx_skb->data, tx_skb->len - 2);
+ 			put_unaligned_le16(fcs, tx_skb->data + tx_skb->len - 2);
+ 		}
+@@ -1388,7 +1388,7 @@ static int l2cap_ertm_send(struct sock *sk)
+ 		put_unaligned_le16(control, tx_skb->data + L2CAP_HDR_SIZE);
+=20
+=20
+-		if (l2cap_pi(sk)->fcs =3D=3D L2CAP_FCS_CRC16) {
++		if (pi->fcs =3D=3D L2CAP_FCS_CRC16) {
+ 			fcs =3D crc16(0, (u8 *)skb->data, tx_skb->len - 2);
+ 			put_unaligned_le16(fcs, skb->data + tx_skb->len - 2);
+ 		}
+@@ -3518,10 +3518,10 @@ static inline int l2cap_data_channel_sframe(str=
+uct sock *sk, u16 rx_control, str
+ 		pi->expected_ack_seq =3D tx_seq;
+ 		l2cap_drop_acked_frames(sk);
+=20
+-		del_timer(&l2cap_pi(sk)->retrans_timer);
++		del_timer(&pi->retrans_timer);
+ 		if (rx_control & L2CAP_CTRL_POLL) {
+ 			u16 control =3D L2CAP_CTRL_FINAL;
+-			l2cap_send_rr_or_rnr(l2cap_pi(sk), control);
++			l2cap_send_rr_or_rnr(pi, control);
+ 		}
+ 		break;
+ 	}
+@@ -3622,7 +3622,7 @@ static inline int l2cap_data_channel(struct l2cap=
+_conn *conn, u16 cid, struct sk
+ 		goto done;
+=20
+ 	default:
+-		BT_DBG("sk %p: bad mode 0x%2.2x", sk, l2cap_pi(sk)->mode);
++		BT_DBG("sk %p: bad mode 0x%2.2x", sk, pi->mode);
+ 		break;
+ 	}
+=20
+--=20
+1.6.6.1
 
