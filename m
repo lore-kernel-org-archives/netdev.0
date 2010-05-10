@@ -1,52 +1,35 @@
-From: Nick Bowler <nbowler@elliptictech.com>
-Subject: Re: 2.6.34-rc6-git6: Reported regressions from 2.6.33
-Date: Mon, 10 May 2010 12:07:24 -0400
-Message-ID: <20100510160724.GA31416@elliptictech.com>
-References: <10aqDnTJcLO.A.mLE.48y5LB@chimera>
+From: David Miller <davem@davemloft.net>
+Subject: Re: mmotm 2010-04-28 - RCU whinges
+Date: Mon, 10 May 2010 09:12:57 -0700 (PDT)
+Message-ID: <20100510.091257.51273494.davem@davemloft.net>
+References: <1272865436.2173.182.camel@edumazet-laptop>
+	<20100502.225509.233880079.davem@davemloft.net>
+	<4BE8290A.2080707@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: DRI <dri-devel@lists.sourceforge.net>,
-        Linux SCSI List <linux-scsi@vger.kernel.org>,
-        Network Development <netdev@vger.kernel.org>,
-        Linux Wireless List <linux-wireless@vger.kernel.org>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Linux ACPI <linux-acpi@vger.kernel.org>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Kernel Testers List <kernel-testers@vger.kernel.org>,
-        Linus Torvalds <torvalds@linux-foundation.org>,
-        Linux PM List <linux-pm@lists.linux-foundation.org>,
-        Maciej Rutecki <maciej.rutecki@gmail.com>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-pm-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <10aqDnTJcLO.A.mLE.48y5LB@chimera>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
-List-Post: <mailto:linux-pm@lists.linux-foundation.org>
-List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.linux-foundation.org
-Errors-To: linux-pm-bounces@lists.linux-foundation.org
+Cc: eric.dumazet@gmail.com, Valdis.Kletnieks@vt.edu,
+	akpm@linux-foundation.org, peterz@infradead.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4BE8290A.2080707@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 23:13 Sun 09 May     , Rafael J. Wysocki wrote:
-> This message contains a list of some regressions from 2.6.33,
-> for which there are no fixes in the mainline known to the tracking team.
-> If any of them have been fixed already, please let us know.
-> 
-> If you know of any other unresolved regressions from 2.6.33, please let us
-> know either and we'll add them to the list.  Also, please let us know
-> if any of the entries below are invalid.
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 10 May 2010 17:40:58 +0200
 
-Seems that
+> I queued this patch in nf-next, the only reason why I haven't
+> submitted it yet is that I was unable to get git to cleanly export
+> only the proper set of patches meant for -next due to a few merges,
+> it insists on including 5 patches already merged upstream. If you
+> don't mind ignoring the first 5 patches in the series, I'll send a
+> pull request tonight.
 
-  r600 CS checker rejects narrow FBO renderbuffers
-  https://bugs.freedesktop.org/show_bug.cgi?id=27609
+Something like "git format-patch origin" doesn't avoid those upstream
+commits?  Weird...
 
-never got added to the list.  It is still an issue as of 2.6.34-rc7.
-
--- 
-Nick Bowler, Elliptic Technologies (http://www.elliptictech.com/)
+Another trick is to specify a commit range using triple-dot "..."
+notation, such as "origin...master"
