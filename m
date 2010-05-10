@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 48/64] Bluetooth: Fix lockdep annotation on ERTM
-Date: Mon, 10 May 2010 11:37:38 +0200
-Message-ID: <ff12fd643334071084b6145cad3793bb6c956638.1273484098.git.marcel@holtmann.org>
+Subject: [PATCH 47/64] Bluetooth: Check if we really are in WAIT_F when F bit comes
+Date: Mon, 10 May 2010 11:37:37 +0200
+Message-ID: <9b16dc6551cbde65d0ac525af3c46efab53a2c46.1273484098.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -49,18 +49,17 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <59203a21a56c53afeb6f45e059299e6f1437f30f.1273484098.git.marcel@holtmann.org>
  <0301ef04b5f49a95681694fc0d75af9441faa919.1273484098.git.marcel@holtmann.org>
  <a2e12a2a312f816d5970b0c809d43b399fbfe90c.1273484098.git.marcel@holtmann.org>
- <9b16dc6551cbde65d0ac525af3c46efab53a2c46.1273484098.git.marcel@holtmann.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53454 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53458 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755909Ab0EJJjI (ORCPT
+	with ESMTP id S1755905Ab0EJJjI (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:08 -0400
-In-Reply-To: <9b16dc6551cbde65d0ac525af3c46efab53a2c46.1273484098.git.marcel@holtmann.org>
+In-Reply-To: <a2e12a2a312f816d5970b0c809d43b399fbfe90c.1273484098.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
@@ -68,30 +67,41 @@ List-ID: <netdev.vger.kernel.org>
 
 =46rom: Gustavo F. Padovan <padovan@profusion.mobi>
 
-A spin_lock_init() call was missing. :)
+=46-bit set should be processed only if we are in the WAIT_F state.
 
 Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
 Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/l2cap.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/bluetooth/l2cap.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index eb5cb29..6b08f4d 100644
+index 5a5203f..eb5cb29 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -1622,7 +1622,7 @@ static inline int l2cap_sar_segment_sdu(struct so=
-ck *sk, struct msghdr *msg, siz
- 	u16 control;
- 	size_t size =3D 0;
+@@ -3503,7 +3503,8 @@ static inline int l2cap_data_channel_iframe(struc=
+t sock *sk, u16 rx_control, str
 =20
--	__skb_queue_head_init(&sar_queue);
-+	skb_queue_head_init(&sar_queue);
- 	control =3D L2CAP_SDU_START;
- 	skb =3D l2cap_create_iframe_pdu(sk, msg, pi->remote_mps, control, len=
-);
- 	if (IS_ERR(skb))
+ 	BT_DBG("sk %p rx_control 0x%4.4x len %d", sk, rx_control, skb->len);
+=20
+-	if (L2CAP_CTRL_FINAL & rx_control) {
++	if (L2CAP_CTRL_FINAL & rx_control &&
++			l2cap_pi(sk)->conn_state & L2CAP_CONN_WAIT_F) {
+ 		del_timer(&pi->monitor_timer);
+ 		if (pi->unacked_frames > 0)
+ 			__mod_retrans_timer();
+@@ -3727,7 +3728,8 @@ static inline int l2cap_data_channel_sframe(struc=
+t sock *sk, u16 rx_control, str
+ {
+ 	BT_DBG("sk %p rx_control 0x%4.4x len %d", sk, rx_control, skb->len);
+=20
+-	if (L2CAP_CTRL_FINAL & rx_control) {
++	if (L2CAP_CTRL_FINAL & rx_control &&
++			l2cap_pi(sk)->conn_state & L2CAP_CONN_WAIT_F) {
+ 		del_timer(&l2cap_pi(sk)->monitor_timer);
+ 		if (l2cap_pi(sk)->unacked_frames > 0)
+ 			__mod_retrans_timer();
 --=20
 1.6.6.1
 
