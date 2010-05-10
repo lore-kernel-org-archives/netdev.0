@@ -1,62 +1,41 @@
 From: kaber@trash.net
-Subject: [PATCH 23/84] netfilter: update documentation fields of x_tables.h
-Date: Mon, 10 May 2010 22:17:54 +0200
-Message-ID: <1273522735-24672-24-git-send-email-kaber@trash.net>
+Subject: [PATCH 29/84] netfilter: remove unused headers in net/ipv6/netfilter/ip6t_LOG.c
+Date: Mon, 10 May 2010 22:18:00 +0200
+Message-ID: <1273522735-24672-30-git-send-email-kaber@trash.net>
 References: <1273522735-24672-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:54509 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756739Ab0EJUTF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 16:19:05 -0400
 In-Reply-To: <1273522735-24672-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jan Engelhardt <jengelh@medozas.de>
+From: Zhitong Wang <zhitong.wangzt@alibaba-inc.com>
 
-Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+Remove unused headers in net/ipv6/netfilter/ip6t_LOG.c
+
+Signed-off-by: Zhitong Wang <zhitong.wangzt@alibaba-inc.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/linux/netfilter/x_tables.h |   10 ++++++++--
- 1 files changed, 8 insertions(+), 2 deletions(-)
+ net/ipv6/netfilter/ip6t_LOG.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
-index 84c7c92..c68ff82 100644
---- a/include/linux/netfilter/x_tables.h
-+++ b/include/linux/netfilter/x_tables.h
-@@ -197,6 +197,7 @@ struct xt_counters_info {
-  * @family:	Actual NFPROTO_* through which the function is invoked
-  * 		(helpful when match->family == NFPROTO_UNSPEC)
-  * @hotdrop:	drop packet if we had inspection problems
-+ * Network namespace obtainable using dev_net(in/out)
+diff --git a/net/ipv6/netfilter/ip6t_LOG.c b/net/ipv6/netfilter/ip6t_LOG.c
+index b285fdf..e16c0c7 100644
+--- a/net/ipv6/netfilter/ip6t_LOG.c
++++ b/net/ipv6/netfilter/ip6t_LOG.c
+@@ -11,7 +11,6 @@
   */
- struct xt_match_param {
- 	const struct net_device *in, *out;
-@@ -213,12 +214,14 @@ struct xt_match_param {
-  * struct xt_mtchk_param - parameters for match extensions'
-  * checkentry functions
-  *
-+ * @net:	network namespace through which the check was invoked
-  * @table:	table the rule is tried to be inserted into
-  * @entryinfo:	the family-specific rule data
-- * 		(struct ipt_ip, ip6t_ip, ebt_entry)
-+ * 		(struct ipt_ip, ip6t_ip, arpt_arp or (note) ebt_entry)
-  * @match:	struct xt_match through which this function was invoked
-  * @matchinfo:	per-match data
-  * @hook_mask:	via which hooks the new rule is reachable
-+ * Other fields as above.
-  */
- struct xt_mtchk_param {
- 	struct net *net;
-@@ -230,7 +233,10 @@ struct xt_mtchk_param {
- 	u_int8_t family;
- };
  
--/* Match destructor parameters */
-+/**
-+ * struct xt_mdtor_param - match destructor parameters
-+ * Fields as above.
-+ */
- struct xt_mtdtor_param {
- 	struct net *net;
- 	const struct xt_match *match;
+ #include <linux/module.h>
+-#include <linux/moduleparam.h>
+ #include <linux/skbuff.h>
+ #include <linux/if_arp.h>
+ #include <linux/ip.h>
 -- 
 1.7.0.4
 
