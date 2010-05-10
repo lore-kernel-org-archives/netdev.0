@@ -1,161 +1,216 @@
 From: kaber@trash.net
-Subject: [PATCH 34/84] netfilter: xtables: consolidate code into xt_request_find_match
-Date: Mon, 10 May 2010 22:18:05 +0200
-Message-ID: <1273522735-24672-35-git-send-email-kaber@trash.net>
+Subject: [PATCH 33/84] netfilter: xtables: make use of xt_request_find_target
+Date: Mon, 10 May 2010 22:18:04 +0200
+Message-ID: <1273522735-24672-34-git-send-email-kaber@trash.net>
 References: <1273522735-24672-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54521 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756763Ab0EJUTH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 16:19:07 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1273522735-24672-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Jan Engelhardt <jengelh@medozas.de>
 
 Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 ---
- include/linux/netfilter/x_tables.h |    2 ++
- net/bridge/netfilter/ebtables.c    |    5 +----
- net/ipv4/netfilter/ip_tables.c     |   18 ++++++++----------
- net/ipv6/netfilter/ip6_tables.c    |   18 ++++++++----------
- net/netfilter/x_tables.c           |   11 +++++++++++
- 5 files changed, 30 insertions(+), 24 deletions(-)
+ net/bridge/netfilter/ebtables.c |   13 ++-----------
+ net/ipv4/netfilter/arp_tables.c |   20 ++++++++------------
+ net/ipv4/netfilter/ip_tables.c  |   20 ++++++++------------
+ net/ipv6/netfilter/ip6_tables.c |   20 ++++++++------------
+ net/netfilter/x_tables.c        |    4 +---
+ net/sched/act_ipt.c             |    4 ++--
+ 6 files changed, 29 insertions(+), 52 deletions(-)
 
-diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
-index f8f5551..dd9d15a 100644
---- a/include/linux/netfilter/x_tables.h
-+++ b/include/linux/netfilter/x_tables.h
-@@ -436,6 +436,8 @@ extern struct xt_table_info *xt_replace_table(struct xt_table *table,
- 
- extern struct xt_match *xt_find_match(u8 af, const char *name, u8 revision);
- extern struct xt_target *xt_find_target(u8 af, const char *name, u8 revision);
-+extern struct xt_match *xt_request_find_match(u8 af, const char *name,
-+					      u8 revision);
- extern struct xt_target *xt_request_find_target(u8 af, const char *name,
- 						u8 revision);
- extern int xt_find_revision(u8 af, const char *name, u8 revision,
 diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index 6d3b256..c41f3fa 100644
+index 989d72c..6d3b256 100644
 --- a/net/bridge/netfilter/ebtables.c
 +++ b/net/bridge/netfilter/ebtables.c
-@@ -361,12 +361,9 @@ ebt_check_match(struct ebt_entry_match *m, struct xt_mtchk_param *par,
- 	    left - sizeof(struct ebt_entry_match) < m->match_size)
+@@ -395,13 +395,9 @@ ebt_check_watcher(struct ebt_entry_watcher *w, struct xt_tgchk_param *par,
+ 	   left - sizeof(struct ebt_entry_watcher) < w->watcher_size)
  		return -EINVAL;
  
--	match = try_then_request_module(xt_find_match(NFPROTO_BRIDGE,
--		m->u.name, 0), "ebt_%s", m->u.name);
-+	match = xt_request_find_match(NFPROTO_BRIDGE, m->u.name, 0);
- 	if (IS_ERR(match))
- 		return PTR_ERR(match);
--	if (match == NULL)
+-	watcher = try_then_request_module(
+-		  xt_find_target(NFPROTO_BRIDGE, w->u.name, 0),
+-		  "ebt_%s", w->u.name);
++	watcher = xt_request_find_target(NFPROTO_BRIDGE, w->u.name, 0);
+ 	if (IS_ERR(watcher))
+ 		return PTR_ERR(watcher);
+-	if (watcher == NULL)
 -		return -ENOENT;
- 	m->u.match = match;
+ 	w->u.watcher = watcher;
  
- 	par->match     = match;
+ 	par->target   = watcher;
+@@ -714,15 +710,10 @@ ebt_check_entry(struct ebt_entry *e, struct net *net,
+ 	t = (struct ebt_entry_target *)(((char *)e) + e->target_offset);
+ 	gap = e->next_offset - e->target_offset;
+ 
+-	target = try_then_request_module(
+-		 xt_find_target(NFPROTO_BRIDGE, t->u.name, 0),
+-		 "ebt_%s", t->u.name);
++	target = xt_request_find_target(NFPROTO_BRIDGE, t->u.name, 0);
+ 	if (IS_ERR(target)) {
+ 		ret = PTR_ERR(target);
+ 		goto cleanup_watchers;
+-	} else if (target == NULL) {
+-		ret = -ENOENT;
+-		goto cleanup_watchers;
+ 	}
+ 
+ 	t->u.target = target;
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+index f07d77f..e8e363d 100644
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -523,13 +523,11 @@ find_check_entry(struct arpt_entry *e, const char *name, unsigned int size)
+ 		return ret;
+ 
+ 	t = arpt_get_target(e);
+-	target = try_then_request_module(xt_find_target(NFPROTO_ARP,
+-							t->u.user.name,
+-							t->u.user.revision),
+-					 "arpt_%s", t->u.user.name);
+-	if (IS_ERR(target) || !target) {
++	target = xt_request_find_target(NFPROTO_ARP, t->u.user.name,
++					t->u.user.revision);
++	if (IS_ERR(target)) {
+ 		duprintf("find_check_entry: `%s' not found\n", t->u.user.name);
+-		ret = target ? PTR_ERR(target) : -ENOENT;
++		ret = PTR_ERR(target);
+ 		goto out;
+ 	}
+ 	t->u.kernel.target = target;
+@@ -1252,14 +1250,12 @@ check_compat_entry_size_and_hooks(struct compat_arpt_entry *e,
+ 	entry_offset = (void *)e - (void *)base;
+ 
+ 	t = compat_arpt_get_target(e);
+-	target = try_then_request_module(xt_find_target(NFPROTO_ARP,
+-							t->u.user.name,
+-							t->u.user.revision),
+-					 "arpt_%s", t->u.user.name);
+-	if (IS_ERR(target) || !target) {
++	target = xt_request_find_target(NFPROTO_ARP, t->u.user.name,
++					t->u.user.revision);
++	if (IS_ERR(target)) {
+ 		duprintf("check_compat_entry_size_and_hooks: `%s' not found\n",
+ 			 t->u.user.name);
+-		ret = target ? PTR_ERR(target) : -ENOENT;
++		ret = PTR_ERR(target);
+ 		goto out;
+ 	}
+ 	t->u.kernel.target = target;
 diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index e24ec48..09f6567 100644
+index 73fdf20..e24ec48 100644
 --- a/net/ipv4/netfilter/ip_tables.c
 +++ b/net/ipv4/netfilter/ip_tables.c
-@@ -629,12 +629,11 @@ find_check_match(struct ipt_entry_match *m, struct xt_mtchk_param *par)
- 	struct xt_match *match;
- 	int ret;
- 
--	match = try_then_request_module(xt_find_match(AF_INET, m->u.user.name,
--						      m->u.user.revision),
--					"ipt_%s", m->u.user.name);
--	if (IS_ERR(match) || !match) {
-+	match = xt_request_find_match(NFPROTO_IPV4, m->u.user.name,
-+				      m->u.user.revision);
-+	if (IS_ERR(match)) {
- 		duprintf("find_check_match: `%s' not found\n", m->u.user.name);
--		return match ? PTR_ERR(match) : -ENOENT;
-+		return PTR_ERR(match);
+@@ -701,13 +701,11 @@ find_check_entry(struct ipt_entry *e, struct net *net, const char *name,
  	}
- 	m->u.kernel.match = match;
  
-@@ -1472,13 +1471,12 @@ compat_find_calc_match(struct ipt_entry_match *m,
- {
- 	struct xt_match *match;
- 
--	match = try_then_request_module(xt_find_match(AF_INET, m->u.user.name,
--						      m->u.user.revision),
--					"ipt_%s", m->u.user.name);
--	if (IS_ERR(match) || !match) {
-+	match = xt_request_find_match(NFPROTO_IPV4, m->u.user.name,
-+				      m->u.user.revision);
-+	if (IS_ERR(match)) {
- 		duprintf("compat_check_calc_match: `%s' not found\n",
- 			 m->u.user.name);
--		return match ? PTR_ERR(match) : -ENOENT;
-+		return PTR_ERR(match);
+ 	t = ipt_get_target(e);
+-	target = try_then_request_module(xt_find_target(AF_INET,
+-							t->u.user.name,
+-							t->u.user.revision),
+-					 "ipt_%s", t->u.user.name);
+-	if (IS_ERR(target) || !target) {
++	target = xt_request_find_target(NFPROTO_IPV4, t->u.user.name,
++					t->u.user.revision);
++	if (IS_ERR(target)) {
+ 		duprintf("find_check_entry: `%s' not found\n", t->u.user.name);
+-		ret = target ? PTR_ERR(target) : -ENOENT;
++		ret = PTR_ERR(target);
+ 		goto cleanup_matches;
  	}
- 	m->u.kernel.match = match;
- 	*size += xt_compat_match_offset(match);
+ 	t->u.kernel.target = target;
+@@ -1547,14 +1545,12 @@ check_compat_entry_size_and_hooks(struct compat_ipt_entry *e,
+ 	}
+ 
+ 	t = compat_ipt_get_target(e);
+-	target = try_then_request_module(xt_find_target(AF_INET,
+-							t->u.user.name,
+-							t->u.user.revision),
+-					 "ipt_%s", t->u.user.name);
+-	if (IS_ERR(target) || !target) {
++	target = xt_request_find_target(NFPROTO_IPV4, t->u.user.name,
++					t->u.user.revision);
++	if (IS_ERR(target)) {
+ 		duprintf("check_compat_entry_size_and_hooks: `%s' not found\n",
+ 			 t->u.user.name);
+-		ret = target ? PTR_ERR(target) : -ENOENT;
++		ret = PTR_ERR(target);
+ 		goto release_matches;
+ 	}
+ 	t->u.kernel.target = target;
 diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 842bef3..41e2429 100644
+index 1b2414e..842bef3 100644
 --- a/net/ipv6/netfilter/ip6_tables.c
 +++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -660,12 +660,11 @@ find_check_match(struct ip6t_entry_match *m, struct xt_mtchk_param *par)
- 	struct xt_match *match;
- 	int ret;
- 
--	match = try_then_request_module(xt_find_match(AF_INET6, m->u.user.name,
--						      m->u.user.revision),
--					"ip6t_%s", m->u.user.name);
--	if (IS_ERR(match) || !match) {
-+	match = xt_request_find_match(NFPROTO_IPV6, m->u.user.name,
-+				      m->u.user.revision);
-+	if (IS_ERR(match)) {
- 		duprintf("find_check_match: `%s' not found\n", m->u.user.name);
--		return match ? PTR_ERR(match) : -ENOENT;
-+		return PTR_ERR(match);
+@@ -733,13 +733,11 @@ find_check_entry(struct ip6t_entry *e, struct net *net, const char *name,
  	}
- 	m->u.kernel.match = match;
  
-@@ -1506,13 +1505,12 @@ compat_find_calc_match(struct ip6t_entry_match *m,
- {
- 	struct xt_match *match;
- 
--	match = try_then_request_module(xt_find_match(AF_INET6, m->u.user.name,
--						      m->u.user.revision),
--					"ip6t_%s", m->u.user.name);
--	if (IS_ERR(match) || !match) {
-+	match = xt_request_find_match(NFPROTO_IPV6, m->u.user.name,
-+				      m->u.user.revision);
-+	if (IS_ERR(match)) {
- 		duprintf("compat_check_calc_match: `%s' not found\n",
- 			 m->u.user.name);
--		return match ? PTR_ERR(match) : -ENOENT;
-+		return PTR_ERR(match);
+ 	t = ip6t_get_target(e);
+-	target = try_then_request_module(xt_find_target(AF_INET6,
+-							t->u.user.name,
+-							t->u.user.revision),
+-					 "ip6t_%s", t->u.user.name);
+-	if (IS_ERR(target) || !target) {
++	target = xt_request_find_target(NFPROTO_IPV6, t->u.user.name,
++					t->u.user.revision);
++	if (IS_ERR(target)) {
+ 		duprintf("find_check_entry: `%s' not found\n", t->u.user.name);
+-		ret = target ? PTR_ERR(target) : -ENOENT;
++		ret = PTR_ERR(target);
+ 		goto cleanup_matches;
  	}
- 	m->u.kernel.match = match;
- 	*size += xt_compat_match_offset(match);
+ 	t->u.kernel.target = target;
+@@ -1581,14 +1579,12 @@ check_compat_entry_size_and_hooks(struct compat_ip6t_entry *e,
+ 	}
+ 
+ 	t = compat_ip6t_get_target(e);
+-	target = try_then_request_module(xt_find_target(AF_INET6,
+-							t->u.user.name,
+-							t->u.user.revision),
+-					 "ip6t_%s", t->u.user.name);
+-	if (IS_ERR(target) || !target) {
++	target = xt_request_find_target(NFPROTO_IPV6, t->u.user.name,
++					t->u.user.revision);
++	if (IS_ERR(target)) {
+ 		duprintf("check_compat_entry_size_and_hooks: `%s' not found\n",
+ 			 t->u.user.name);
+-		ret = target ? PTR_ERR(target) : -ENOENT;
++		ret = PTR_ERR(target);
+ 		goto release_matches;
+ 	}
+ 	t->u.kernel.target = target;
 diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index bf2806a..ee7fe21 100644
+index 9a248d4..bf2806a 100644
 --- a/net/netfilter/x_tables.c
 +++ b/net/netfilter/x_tables.c
-@@ -214,6 +214,17 @@ struct xt_match *xt_find_match(u8 af, const char *name, u8 revision)
- }
- EXPORT_SYMBOL(xt_find_match);
+@@ -250,9 +250,7 @@ struct xt_target *xt_request_find_target(u8 af, const char *name, u8 revision)
  
-+struct xt_match *
-+xt_request_find_match(uint8_t nfproto, const char *name, uint8_t revision)
-+{
-+	struct xt_match *match;
-+
-+	match = try_then_request_module(xt_find_match(nfproto, name, revision),
-+					"%st_%s", xt_prefix[nfproto], name);
-+	return (match != NULL) ? match : ERR_PTR(-ENOENT);
-+}
-+EXPORT_SYMBOL_GPL(xt_request_find_match);
-+
- /* Find target, grabs ref.  Returns ERR_PTR() on error. */
- struct xt_target *xt_find_target(u8 af, const char *name, u8 revision)
- {
+ 	target = try_then_request_module(xt_find_target(af, name, revision),
+ 					 "%st_%s", xt_prefix[af], name);
+-	if (IS_ERR(target) || !target)
+-		return NULL;
+-	return target;
++	return (target != NULL) ? target : ERR_PTR(-ENOENT);
+ }
+ EXPORT_SYMBOL_GPL(xt_request_find_target);
+ 
+diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
+index 082c520..b9f79c2 100644
+--- a/net/sched/act_ipt.c
++++ b/net/sched/act_ipt.c
+@@ -46,8 +46,8 @@ static int ipt_init_target(struct ipt_entry_target *t, char *table, unsigned int
+ 
+ 	target = xt_request_find_target(AF_INET, t->u.user.name,
+ 					t->u.user.revision);
+-	if (!target)
+-		return -ENOENT;
++	if (IS_ERR(target))
++		return PTR_ERR(target);
+ 
+ 	t->u.kernel.target = target;
+ 	par.table     = table;
 -- 
 1.7.0.4
 
