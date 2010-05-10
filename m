@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 49/64] Bluetooth: Make hci_send_acl() void
-Date: Mon, 10 May 2010 11:37:39 +0200
-Message-ID: <9a9c6a34416b3743c09c00f3d6708d9df3c21629.1273484098.git.marcel@holtmann.org>
+Subject: [PATCH 54/64] Bluetooth: Add wait_queue to wait ack of all sent packets
+Date: Mon, 10 May 2010 11:37:44 +0200
+Message-ID: <6161c0382bbab883a634d284f7367a88bbe88534.1273484098.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -51,17 +51,22 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <a2e12a2a312f816d5970b0c809d43b399fbfe90c.1273484098.git.marcel@holtmann.org>
  <9b16dc6551cbde65d0ac525af3c46efab53a2c46.1273484098.git.marcel@holtmann.org>
  <ff12fd643334071084b6145cad3793bb6c956638.1273484098.git.marcel@holtmann.org>
+ <9a9c6a34416b3743c09c00f3d6708d9df3c21629.1273484098.git.marcel@holtmann.org>
+ <f11d676da4059c7888efca810ab300b931736a26.1273484098.git.marcel@holtmann.org>
+ <18778a63ddc83bc89bda3b119fb02eb121512a66.1273484098.git.marcel@holtmann.org>
+ <9b53350d3cf5b330c3261d89b5e62a2dc25c5653.1273484098.git.marcel@holtmann.org>
+ <1890d36bb556a27684ad29654a9898ab9a5f57ee.1273484098.git.marcel@holtmann.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53446 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53476 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755815Ab0EJJjJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:09 -0400
-In-Reply-To: <ff12fd643334071084b6145cad3793bb6c956638.1273484098.git.marcel@holtmann.org>
+	with ESMTP id S1755927Ab0EJJjN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:13 -0400
+In-Reply-To: <1890d36bb556a27684ad29654a9898ab9a5f57ee.1273484098.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
@@ -69,294 +74,70 @@ List-ID: <netdev.vger.kernel.org>
 
 =46rom: Gustavo F. Padovan <padovan@profusion.mobi>
 
-hci_send_acl can't fail, so we can make it void. This patch changes
-that and all the funcions that use hci_send_acl().
-That change exposed a bug on sending connectionless data. We were not
-reporting the lenght send back to the user space.
+To guarantee that all packets we sent were received we need to wait for
+theirs ack before shutdown the socket.
 
 Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
 Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- include/net/bluetooth/hci_core.h |    2 +-
- net/bluetooth/hci_core.c         |    4 +-
- net/bluetooth/l2cap.c            |   73 ++++++++++++++----------------=
---------
- 3 files changed, 30 insertions(+), 49 deletions(-)
+ net/bluetooth/l2cap.c |   34 ++++++++++++++++++++++++++++++++++
+ 1 files changed, 34 insertions(+), 0 deletions(-)
 
-diff --git a/include/net/bluetooth/hci_core.h b/include/net/bluetooth/h=
-ci_core.h
-index 9830a88..4511df2 100644
---- a/include/net/bluetooth/hci_core.h
-+++ b/include/net/bluetooth/hci_core.h
-@@ -636,7 +636,7 @@ int hci_register_notifier(struct notifier_block *nb=
-);
- int hci_unregister_notifier(struct notifier_block *nb);
-=20
- int hci_send_cmd(struct hci_dev *hdev, __u16 opcode, __u32 plen, void =
-*param);
--int hci_send_acl(struct hci_conn *conn, struct sk_buff *skb, __u16 fla=
-gs);
-+void hci_send_acl(struct hci_conn *conn, struct sk_buff *skb, __u16 fl=
-ags);
- void hci_send_sco(struct hci_conn *conn, struct sk_buff *skb);
-=20
- void *hci_sent_cmd_data(struct hci_dev *hdev, __u16 opcode);
-diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
-index 1c9aef9..904f1e8 100644
---- a/net/bluetooth/hci_core.c
-+++ b/net/bluetooth/hci_core.c
-@@ -1260,7 +1260,7 @@ static void hci_add_acl_hdr(struct sk_buff *skb, =
-__u16 handle, __u16 flags)
- 	hdr->dlen   =3D cpu_to_le16(len);
- }
-=20
--int hci_send_acl(struct hci_conn *conn, struct sk_buff *skb, __u16 fla=
-gs)
-+void hci_send_acl(struct hci_conn *conn, struct sk_buff *skb, __u16 fl=
-ags)
- {
- 	struct hci_dev *hdev =3D conn->hdev;
- 	struct sk_buff *list;
-@@ -1303,7 +1303,7 @@ int hci_send_acl(struct hci_conn *conn, struct sk=
-_buff *skb, __u16 flags)
-=20
- 	tasklet_schedule(&hdev->tx_task);
-=20
--	return 0;
-+	return;
- }
- EXPORT_SYMBOL(hci_send_acl);
-=20
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index 6b08f4d..7e74d5b 100644
+index 103e4b5..9d514f9 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -330,19 +330,19 @@ static inline u8 l2cap_get_ident(struct l2cap_con=
-n *conn)
- 	return id;
- }
-=20
--static inline int l2cap_send_cmd(struct l2cap_conn *conn, u8 ident, u8=
- code, u16 len, void *data)
-+static inline void l2cap_send_cmd(struct l2cap_conn *conn, u8 ident, u=
-8 code, u16 len, void *data)
- {
- 	struct sk_buff *skb =3D l2cap_build_cmd(conn, code, ident, len, data)=
-;
-=20
- 	BT_DBG("code 0x%2.2x", code);
-=20
- 	if (!skb)
--		return -ENOMEM;
-+		return;
-=20
--	return hci_send_acl(conn->hcon, skb, 0);
-+	hci_send_acl(conn->hcon, skb, 0);
- }
-=20
--static inline int l2cap_send_sframe(struct l2cap_pinfo *pi, u16 contro=
-l)
-+static inline void l2cap_send_sframe(struct l2cap_pinfo *pi, u16 contr=
-ol)
- {
- 	struct sk_buff *skb;
- 	struct l2cap_hdr *lh;
-@@ -369,7 +369,7 @@ static inline int l2cap_send_sframe(struct l2cap_pi=
-nfo *pi, u16 control)
-=20
- 	skb =3D bt_skb_alloc(count, GFP_ATOMIC);
- 	if (!skb)
--		return -ENOMEM;
-+		return;
-=20
- 	lh =3D (struct l2cap_hdr *) skb_put(skb, L2CAP_HDR_SIZE);
- 	lh->len =3D cpu_to_le16(hlen - L2CAP_HDR_SIZE);
-@@ -381,10 +381,10 @@ static inline int l2cap_send_sframe(struct l2cap_=
-pinfo *pi, u16 control)
- 		put_unaligned_le16(fcs, skb_put(skb, 2));
- 	}
-=20
--	return hci_send_acl(pi->conn->hcon, skb, 0);
-+	hci_send_acl(pi->conn->hcon, skb, 0);
- }
-=20
--static inline int l2cap_send_rr_or_rnr(struct l2cap_pinfo *pi, u16 con=
-trol)
-+static inline void l2cap_send_rr_or_rnr(struct l2cap_pinfo *pi, u16 co=
-ntrol)
- {
- 	if (pi->conn_state & L2CAP_CONN_LOCAL_BUSY)
- 		control |=3D L2CAP_SUPER_RCV_NOT_READY;
-@@ -393,7 +393,7 @@ static inline int l2cap_send_rr_or_rnr(struct l2cap=
-_pinfo *pi, u16 control)
-=20
- 	control |=3D pi->buffer_seq << L2CAP_CTRL_REQSEQ_SHIFT;
-=20
--	return l2cap_send_sframe(pi, control);
-+	l2cap_send_sframe(pi, control);
- }
-=20
- static void l2cap_do_start(struct sock *sk)
-@@ -1289,18 +1289,13 @@ static void l2cap_drop_acked_frames(struct sock=
- *sk)
- 	return;
- }
-=20
--static inline int l2cap_do_send(struct sock *sk, struct sk_buff *skb)
-+static inline void l2cap_do_send(struct sock *sk, struct sk_buff *skb)
- {
- 	struct l2cap_pinfo *pi =3D l2cap_pi(sk);
--	int err;
-=20
- 	BT_DBG("sk %p, skb %p len %d", sk, skb, skb->len);
-=20
--	err =3D hci_send_acl(pi->conn->hcon, skb, 0);
--	if (err < 0)
--		kfree_skb(skb);
--
--	return err;
-+	hci_send_acl(pi->conn->hcon, skb, 0);
- }
-=20
- static int l2cap_streaming_send(struct sock *sk)
-@@ -1308,7 +1303,6 @@ static int l2cap_streaming_send(struct sock *sk)
- 	struct sk_buff *skb, *tx_skb;
- 	struct l2cap_pinfo *pi =3D l2cap_pi(sk);
- 	u16 control, fcs;
--	int err;
-=20
- 	while ((skb =3D sk->sk_send_head)) {
- 		tx_skb =3D skb_clone(skb, GFP_ATOMIC);
-@@ -1322,11 +1316,7 @@ static int l2cap_streaming_send(struct sock *sk)
- 			put_unaligned_le16(fcs, tx_skb->data + tx_skb->len - 2);
- 		}
-=20
--		err =3D l2cap_do_send(sk, tx_skb);
--		if (err < 0) {
--			l2cap_send_disconn_req(pi->conn, sk);
--			return err;
--		}
-+		l2cap_do_send(sk, tx_skb);
-=20
- 		pi->next_tx_seq =3D (pi->next_tx_seq + 1) % 64;
-=20
-@@ -1346,7 +1336,6 @@ static int l2cap_retransmit_frame(struct sock *sk=
-, u8 tx_seq)
- 	struct l2cap_pinfo *pi =3D l2cap_pi(sk);
- 	struct sk_buff *skb, *tx_skb;
- 	u16 control, fcs;
--	int err;
-=20
- 	skb =3D skb_peek(TX_QUEUE(sk));
- 	do {
-@@ -1375,11 +1364,7 @@ static int l2cap_retransmit_frame(struct sock *s=
-k, u8 tx_seq)
- 			put_unaligned_le16(fcs, tx_skb->data + tx_skb->len - 2);
- 		}
-=20
--		err =3D l2cap_do_send(sk, tx_skb);
--		if (err < 0) {
--			l2cap_send_disconn_req(pi->conn, sk);
--			return err;
--		}
-+		l2cap_do_send(sk, tx_skb);
- 		break;
- 	} while(1);
+@@ -1242,6 +1242,37 @@ static int l2cap_sock_getname(struct socket *soc=
+k, struct sockaddr *addr, int *l
  	return 0;
-@@ -1390,7 +1375,7 @@ static int l2cap_ertm_send(struct sock *sk)
- 	struct sk_buff *skb, *tx_skb;
- 	struct l2cap_pinfo *pi =3D l2cap_pi(sk);
- 	u16 control, fcs;
--	int err, nsent =3D 0;
-+	int nsent =3D 0;
+ }
 =20
- 	if (pi->conn_state & L2CAP_CONN_WAIT_F)
- 		return 0;
-@@ -1423,11 +1408,8 @@ static int l2cap_ertm_send(struct sock *sk)
- 			put_unaligned_le16(fcs, skb->data + tx_skb->len - 2);
- 		}
-=20
--		err =3D l2cap_do_send(sk, tx_skb);
--		if (err < 0) {
--			l2cap_send_disconn_req(pi->conn, sk);
--			return err;
--		}
-+		l2cap_do_send(sk, tx_skb);
++static int __l2cap_wait_ack(struct sock *sk)
++{
++	DECLARE_WAITQUEUE(wait, current);
++	int err =3D 0;
++	int timeo =3D HZ/5;
 +
- 		__mod_retrans_timer();
-=20
- 		bt_cb(skb)->tx_seq =3D pi->next_tx_seq;
-@@ -1447,7 +1429,7 @@ static int l2cap_ertm_send(struct sock *sk)
- 	return nsent;
- }
-=20
--static int l2cap_send_ack(struct l2cap_pinfo *pi)
-+static void l2cap_send_ack(struct l2cap_pinfo *pi)
- {
- 	struct sock *sk =3D (struct sock *)pi;
- 	u16 control =3D 0;
-@@ -1456,15 +1438,15 @@ static int l2cap_send_ack(struct l2cap_pinfo *p=
-i)
-=20
- 	if (pi->conn_state & L2CAP_CONN_LOCAL_BUSY) {
- 		control |=3D L2CAP_SUPER_RCV_NOT_READY;
--		return l2cap_send_sframe(pi, control);
-+		l2cap_send_sframe(pi, control);
-+		return;
- 	} else if (l2cap_ertm_send(sk) =3D=3D 0) {
- 		control |=3D L2CAP_SUPER_RCV_READY;
--		return l2cap_send_sframe(pi, control);
-+		l2cap_send_sframe(pi, control);
- 	}
--	return 0;
- }
-=20
--static int l2cap_send_srejtail(struct sock *sk)
-+static void l2cap_send_srejtail(struct sock *sk)
- {
- 	struct srej_list *tail;
- 	u16 control;
-@@ -1476,8 +1458,6 @@ static int l2cap_send_srejtail(struct sock *sk)
- 	control |=3D tail->tx_seq << L2CAP_CTRL_REQSEQ_SHIFT;
-=20
- 	l2cap_send_sframe(l2cap_pi(sk), control);
--
--	return 0;
- }
-=20
- static inline int l2cap_skbuff_fromiovec(struct sock *sk, struct msghd=
-r *msg, int len, int count, struct sk_buff *skb)
-@@ -1687,10 +1667,12 @@ static int l2cap_sock_sendmsg(struct kiocb *ioc=
-b, struct socket *sock, struct ms
- 	/* Connectionless channel */
- 	if (sk->sk_type =3D=3D SOCK_DGRAM) {
- 		skb =3D l2cap_create_connless_pdu(sk, msg, len);
--		if (IS_ERR(skb))
-+		if (IS_ERR(skb)) {
- 			err =3D PTR_ERR(skb);
--		else
--			err =3D l2cap_do_send(sk, skb);
-+		} else {
-+			l2cap_do_send(sk, skb);
-+			err =3D len;
++	add_wait_queue(sk->sk_sleep, &wait);
++	while ((l2cap_pi(sk)->unacked_frames > 0 && l2cap_pi(sk)->conn)) {
++		set_current_state(TASK_INTERRUPTIBLE);
++
++		if (!timeo)
++			timeo =3D HZ/5;
++
++		if (signal_pending(current)) {
++			err =3D sock_intr_errno(timeo);
++			break;
 +		}
- 		goto done;
- 	}
++
++		release_sock(sk);
++		timeo =3D schedule_timeout(timeo);
++		lock_sock(sk);
++
++		err =3D sock_error(sk);
++		if (err)
++			break;
++	}
++	set_current_state(TASK_RUNNING);
++	remove_wait_queue(sk->sk_sleep, &wait);
++	return err;
++}
++
+ static void l2cap_monitor_timeout(unsigned long arg)
+ {
+ 	struct sock *sk =3D (void *) arg;
+@@ -2059,6 +2090,9 @@ static int l2cap_sock_shutdown(struct socket *soc=
+k, int how)
 =20
-@@ -1709,9 +1691,8 @@ static int l2cap_sock_sendmsg(struct kiocb *iocb,=
- struct socket *sock, struct ms
- 			goto done;
- 		}
-=20
--		err =3D l2cap_do_send(sk, skb);
--		if (!err)
--			err =3D len;
-+		l2cap_do_send(sk, skb);
-+		err =3D len;
- 		break;
-=20
- 	case L2CAP_MODE_ERTM:
+ 	lock_sock(sk);
+ 	if (!sk->sk_shutdown) {
++		if (l2cap_pi(sk)->mode =3D=3D L2CAP_MODE_ERTM)
++			err =3D __l2cap_wait_ack(sk);
++
+ 		sk->sk_shutdown =3D SHUTDOWN_MASK;
+ 		l2cap_sock_clear_timer(sk);
+ 		__l2cap_sock_close(sk, 0);
 --=20
 1.6.6.1
 
