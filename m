@@ -1,69 +1,58 @@
 From: kaber@trash.net
-Subject: [PATCH 21/84] netfilter: xtables: resort osf kconfig text
-Date: Mon, 10 May 2010 22:17:52 +0200
-Message-ID: <1273522735-24672-22-git-send-email-kaber@trash.net>
+Subject: [PATCH 16/84] netfilter: xt_recent: check for unsupported user space flags
+Date: Mon, 10 May 2010 22:17:47 +0200
+Message-ID: <1273522735-24672-17-git-send-email-kaber@trash.net>
 References: <1273522735-24672-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:54526 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756697Ab0EJUTB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 16:19:01 -0400
 In-Reply-To: <1273522735-24672-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jan Engelhardt <jengelh@medozas.de>
+From: Tim Gardner <tim.gardner@canonical.com>
 
-Restore alphabetical ordering of the list and put the xt_osf option
-into its 'right' place again.
-
-Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/Kconfig |   26 +++++++++++++-------------
- 1 files changed, 13 insertions(+), 13 deletions(-)
+ include/linux/netfilter/xt_recent.h |    3 +++
+ net/netfilter/xt_recent.c           |    5 +++++
+ 2 files changed, 8 insertions(+), 0 deletions(-)
 
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 6ac28ef..8055786 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -774,6 +774,19 @@ config NETFILTER_XT_MATCH_MULTIPORT
+diff --git a/include/linux/netfilter/xt_recent.h b/include/linux/netfilter/xt_recent.h
+index bba990e..83318e0 100644
+--- a/include/linux/netfilter/xt_recent.h
++++ b/include/linux/netfilter/xt_recent.h
+@@ -20,6 +20,9 @@ enum {
+ /* Only allowed with --rcheck and --update */
+ #define XT_RECENT_MODIFIERS (XT_RECENT_TTL|XT_RECENT_REAP)
  
- 	  To compile it as a module, choose M here.  If unsure, say N.
- 
-+config NETFILTER_XT_MATCH_OSF
-+	tristate '"osf" Passive OS fingerprint match'
-+	depends on NETFILTER_ADVANCED && NETFILTER_NETLINK
-+	help
-+	  This option selects the Passive OS Fingerprinting match module
-+	  that allows to passively match the remote operating system by
-+	  analyzing incoming TCP SYN packets.
++#define XT_RECENT_VALID_FLAGS (XT_RECENT_CHECK|XT_RECENT_SET|XT_RECENT_UPDATE|\
++			       XT_RECENT_REMOVE|XT_RECENT_TTL|XT_RECENT_REAP)
 +
-+	  Rules and loading software can be downloaded from
-+	  http://www.ioremap.net/projects/osf
-+
-+	  To compile it as a module, choose M here.  If unsure, say N.
-+
- config NETFILTER_XT_MATCH_OWNER
- 	tristate '"owner" match support'
- 	depends on NETFILTER_ADVANCED
-@@ -958,19 +971,6 @@ config NETFILTER_XT_MATCH_U32
- 
- 	  Details and examples are in the kernel module source.
- 
--config NETFILTER_XT_MATCH_OSF
--	tristate '"osf" Passive OS fingerprint match'
--	depends on NETFILTER_ADVANCED && NETFILTER_NETLINK
--	help
--	  This option selects the Passive OS Fingerprinting match module
--	  that allows to passively match the remote operating system by
--	  analyzing incoming TCP SYN packets.
--
--	  Rules and loading software can be downloaded from
--	  http://www.ioremap.net/projects/osf
--
--	  To compile it as a module, choose M here.  If unsure, say N.
--
- endif # NETFILTER_XTABLES
- 
- endmenu
+ struct xt_recent_mtinfo {
+ 	__u32 seconds;
+ 	__u32 hit_count;
+diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
+index b65eca9..d2e7c80 100644
+--- a/net/netfilter/xt_recent.c
++++ b/net/netfilter/xt_recent.c
+@@ -319,6 +319,11 @@ static bool recent_mt_check(const struct xt_mtchk_param *par)
+ 		get_random_bytes(&hash_rnd, sizeof(hash_rnd));
+ 		hash_rnd_inited = true;
+ 	}
++	if (info->check_set & ~XT_RECENT_VALID_FLAGS) {
++		pr_info(KBUILD_MODNAME ": Unsupported user space flags "
++			"(%08x)\n", info->check_set);
++		return false;
++	}
+ 	if (hweight8(info->check_set &
+ 		     (XT_RECENT_SET | XT_RECENT_REMOVE |
+ 		      XT_RECENT_CHECK | XT_RECENT_UPDATE)) != 1)
 -- 
 1.7.0.4
 
