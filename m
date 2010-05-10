@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 41/64] Bluetooth: Fix SDU reassembly under SREJ
-Date: Mon, 10 May 2010 11:37:31 +0200
-Message-ID: <afefdbc4cf3b9d409d07e1e5264e7ff88bc48711.1273484098.git.marcel@holtmann.org>
+Subject: [PATCH 51/64] Bluetooth: Implement missing parts of the Invalid Frame Detection
+Date: Mon, 10 May 2010 11:37:41 +0200
+Message-ID: <18778a63ddc83bc89bda3b119fb02eb121512a66.1273484098.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -43,17 +43,27 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <84fb0a6334af0ccad3544f6972c055d90fbb9fbe.1273484097.git.marcel@holtmann.org>
  <bd3c9e255e76ae232d417e3914ca5d80ca3e9485.1273484097.git.marcel@holtmann.org>
  <0041ecfa3025d7612fdaab12b2f07c9c3c09f42f.1273484098.git.marcel@holtmann.org>
+ <afefdbc4cf3b9d409d07e1e5264e7ff88bc48711.1273484098.git.marcel@holtmann.org>
+ <01760bdde9a92413b7fff928d08e19352bf09d82.1273484098.git.marcel@holtmann.org>
+ <44651b85cc3a076147af5d181fc4833ef8debc59.1273484098.git.marcel@holtmann.org>
+ <59203a21a56c53afeb6f45e059299e6f1437f30f.1273484098.git.marcel@holtmann.org>
+ <0301ef04b5f49a95681694fc0d75af9441faa919.1273484098.git.marcel@holtmann.org>
+ <a2e12a2a312f816d5970b0c809d43b399fbfe90c.1273484098.git.marcel@holtmann.org>
+ <9b16dc6551cbde65d0ac525af3c46efab53a2c46.1273484098.git.marcel@holtmann.org>
+ <ff12fd643334071084b6145cad3793bb6c956638.1273484098.git.marcel@holtmann.org>
+ <9a9c6a34416b3743c09c00f3d6708d9df3c21629.1273484098.git.marcel@holtmann.org>
+ <f11d676da4059c7888efca810ab300b931736a26.1273484098.git.marcel@holtmann.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53462 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53454 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755881Ab0EJJjE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:04 -0400
-In-Reply-To: <0041ecfa3025d7612fdaab12b2f07c9c3c09f42f.1273484098.git.marcel@holtmann.org>
+	with ESMTP id S1755918Ab0EJJjK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:10 -0400
+In-Reply-To: <f11d676da4059c7888efca810ab300b931736a26.1273484098.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
@@ -61,36 +71,203 @@ List-ID: <netdev.vger.kernel.org>
 
 =46rom: Gustavo F. Padovan <padovan@profusion.mobi>
 
-The code was reusing the control var without its reinitialization.
+There is a plenty of situation where ERTM shall close the channel, this
+commit treats the cases regarding Invalid Frame Detection.
+It create one reassembly SDU function for ERTM and other for Streaming
+Mode to make the Invalid Frame Detection handling less complex.
 
 Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
 Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/l2cap.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ net/bluetooth/l2cap.c |  119 +++++++++++++++++++++++++++++++++++++++++=
++++++---
+ 1 files changed, 112 insertions(+), 7 deletions(-)
 
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index bf5bb7d..478def7 100644
+index 1c35c32..cfd6724 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -3446,14 +3446,14 @@ drop:
- static void l2cap_check_srej_gap(struct sock *sk, u8 tx_seq)
- {
- 	struct sk_buff *skb;
--	u16 control =3D 0;
-+	u16 control;
+@@ -3329,12 +3329,111 @@ static void l2cap_add_to_srej_queue(struct soc=
+k *sk, struct sk_buff *skb, u8 tx_
+ 	__skb_queue_tail(SREJ_QUEUE(sk), skb);
+ }
 =20
- 	while((skb =3D skb_peek(SREJ_QUEUE(sk)))) {
- 		if (bt_cb(skb)->tx_seq !=3D tx_seq)
- 			break;
+-static int l2cap_sar_reassembly_sdu(struct sock *sk, struct sk_buff *s=
+kb, u16 control)
++static int l2cap_ertm_reassembly_sdu(struct sock *sk, struct sk_buff *=
+skb, u16 control)
++{
++	struct l2cap_pinfo *pi =3D l2cap_pi(sk);
++	struct sk_buff *_skb;
++	int err =3D 0;
++
++	switch (control & L2CAP_CTRL_SAR) {
++	case L2CAP_SDU_UNSEGMENTED:
++		if (pi->conn_state & L2CAP_CONN_SAR_SDU)
++			goto drop;
++
++		err =3D sock_queue_rcv_skb(sk, skb);
++		if (!err)
++			return err;
++
++		break;
++
++	case L2CAP_SDU_START:
++		if (pi->conn_state & L2CAP_CONN_SAR_SDU)
++			goto drop;
++
++		pi->sdu_len =3D get_unaligned_le16(skb->data);
++		skb_pull(skb, 2);
++
++		if (pi->sdu_len > pi->imtu)
++			goto disconnect;
++
++		pi->sdu =3D bt_skb_alloc(pi->sdu_len, GFP_ATOMIC);
++		if (!pi->sdu) {
++			err =3D -ENOMEM;
++			break;
++		}
++
++		memcpy(skb_put(pi->sdu, skb->len), skb->data, skb->len);
++
++		pi->conn_state |=3D L2CAP_CONN_SAR_SDU;
++		pi->partial_sdu_len =3D skb->len;
++		break;
++
++	case L2CAP_SDU_CONTINUE:
++		if (!(pi->conn_state & L2CAP_CONN_SAR_SDU))
++			goto disconnect;
++
++		if (!pi->sdu)
++			goto disconnect;
++
++		memcpy(skb_put(pi->sdu, skb->len), skb->data, skb->len);
++
++		pi->partial_sdu_len +=3D skb->len;
++		if (pi->partial_sdu_len > pi->sdu_len)
++			goto drop;
++
++		break;
++
++	case L2CAP_SDU_END:
++		if (!(pi->conn_state & L2CAP_CONN_SAR_SDU))
++			goto disconnect;
++
++		if (!pi->sdu)
++			goto disconnect;
++
++		memcpy(skb_put(pi->sdu, skb->len), skb->data, skb->len);
++
++		pi->conn_state &=3D ~L2CAP_CONN_SAR_SDU;
++		pi->partial_sdu_len +=3D skb->len;
++
++		if (pi->partial_sdu_len > pi->imtu)
++			goto drop;
++
++		if (pi->partial_sdu_len !=3D pi->sdu_len)
++			goto drop;
++
++		_skb =3D skb_clone(pi->sdu, GFP_ATOMIC);
++		err =3D sock_queue_rcv_skb(sk, _skb);
++		if (err < 0)
++			kfree_skb(_skb);
++
++		kfree_skb(pi->sdu);
++		break;
++	}
++
++	kfree_skb(skb);
++	return err;
++
++drop:
++	kfree_skb(pi->sdu);
++	pi->sdu =3D NULL;
++
++disconnect:
++	l2cap_send_disconn_req(pi->conn, sk);
++	kfree_skb(skb);
++	return 0;
++}
++
++static int l2cap_streaming_reassembly_sdu(struct sock *sk, struct sk_b=
+uff *skb, u16 control)
+ {
+ 	struct l2cap_pinfo *pi =3D l2cap_pi(sk);
+ 	struct sk_buff *_skb;
+ 	int err =3D -EINVAL;
+=20
++	/*
++	 * TODO: We have to notify the userland if some data is lost with the
++	 * Streaming Mode.
++	 */
++
+ 	switch (control & L2CAP_CTRL_SAR) {
+ 	case L2CAP_SDU_UNSEGMENTED:
+ 		if (pi->conn_state & L2CAP_CONN_SAR_SDU) {
+@@ -3429,7 +3528,7 @@ static void l2cap_check_srej_gap(struct sock *sk,=
+ u8 tx_seq)
 =20
  		skb =3D skb_dequeue(SREJ_QUEUE(sk));
--		control |=3D bt_cb(skb)->sar << L2CAP_CTRL_SAR_SHIFT;
-+		control =3D bt_cb(skb)->sar << L2CAP_CTRL_SAR_SHIFT;
- 		l2cap_sar_reassembly_sdu(sk, skb, control);
+ 		control =3D bt_cb(skb)->sar << L2CAP_CTRL_SAR_SHIFT;
+-		l2cap_sar_reassembly_sdu(sk, skb, control);
++		l2cap_ertm_reassembly_sdu(sk, skb, control);
  		l2cap_pi(sk)->buffer_seq_srej =3D
  			(l2cap_pi(sk)->buffer_seq_srej + 1) % 64;
+ 		tx_seq++;
+@@ -3566,7 +3665,7 @@ expected:
+=20
+ 	pi->buffer_seq =3D (pi->buffer_seq + 1) % 64;
+=20
+-	err =3D l2cap_sar_reassembly_sdu(sk, skb, rx_control);
++	err =3D l2cap_ertm_reassembly_sdu(sk, skb, rx_control);
+ 	if (err < 0)
+ 		return err;
+=20
+@@ -3790,8 +3889,10 @@ static inline int l2cap_data_channel(struct l2ca=
+p_conn *conn, u16 cid, struct sk
+ 		 * Receiver will miss it and start proper recovery
+ 		 * procedures and ask retransmission.
+ 		 */
+-		if (len > pi->mps)
++		if (len > pi->mps) {
++			l2cap_send_disconn_req(pi->conn, sk);
+ 			goto drop;
++		}
+=20
+ 		if (l2cap_check_fcs(pi, skb))
+ 			goto drop;
+@@ -3813,13 +3914,17 @@ static inline int l2cap_data_channel(struct l2c=
+ap_conn *conn, u16 cid, struct sk
+ 		}
+=20
+ 		if (__is_iframe(control)) {
+-			if (len < 4)
++			if (len < 4) {
++				l2cap_send_disconn_req(pi->conn, sk);
+ 				goto drop;
++			}
+=20
+ 			l2cap_data_channel_iframe(sk, control, skb);
+ 		} else {
+-			if (len !=3D 0)
++			if (len !=3D 0) {
++				l2cap_send_disconn_req(pi->conn, sk);
+ 				goto drop;
++			}
+=20
+ 			l2cap_data_channel_sframe(sk, control, skb);
+ 		}
+@@ -3850,7 +3955,7 @@ static inline int l2cap_data_channel(struct l2cap=
+_conn *conn, u16 cid, struct sk
+ 		else
+ 			pi->expected_tx_seq =3D (tx_seq + 1) % 64;
+=20
+-		l2cap_sar_reassembly_sdu(sk, skb, control);
++		l2cap_streaming_reassembly_sdu(sk, skb, control);
+=20
+ 		goto done;
+=20
 --=20
 1.6.6.1
 
