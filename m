@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 44/64] Bluetooth: Fix errors reported by checkpatch.pl
-Date: Mon, 10 May 2010 11:37:34 +0200
-Message-ID: <59203a21a56c53afeb6f45e059299e6f1437f30f.1273484098.git.marcel@holtmann.org>
+Subject: [PATCH 27/64] Bluetooth: Add le16 macro to Retransmission and Monitor Timeouts values
+Date: Mon, 10 May 2010 11:37:17 +0200
+Message-ID: <10467e9e9b89272b25b56688bb276d0830e9ab9a.1273484097.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -29,34 +29,17 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <2fb862e215e53630066c677e06d7551fa38bf235.1273484097.git.marcel@holtmann.org>
  <7b1c0049be3aabc18831ada339dbcf41ba8c81fd.1273484097.git.marcel@holtmann.org>
  <1c7621596d11b9c3e19eb88a818758dee4901c95.1273484097.git.marcel@holtmann.org>
- <10467e9e9b89272b25b56688bb276d0830e9ab9a.1273484097.git.marcel@holtmann.org>
- <052897ca5019d9157ae09e5e84eee2a9ef5dccc6.1273484097.git.marcel@holtmann.org>
- <855666cccc939d392316de17512e17a08b2fa05a.1273484097.git.marcel@holtmann.org>
- <14b5aa71ec506f4e38ca6a1dc02ecd668ecfd902.1273484097.git.marcel@holtmann.org>
- <803020c6fa63aa738cfda3329c9675b42023e9d2.1273484097.git.marcel@holtmann.org>
- <369ba30264826f38eefc61b93688100be8adbd4d.1273484097.git.marcel@holtmann.org>
- <68d7f0ce911e41e463c45911be031cdf6a096fe8.1273484097.git.marcel@holtmann.org>
- <f6e6b16823de0aff31cb8ee8c098383e3aceec58.1273484097.git.marcel@holtmann.org>
- <0ee0d20855ae9271de3f6695f4cafc08ab2533bb.1273484097.git.marcel@holtmann.org>
- <812e737e29a1d559e7bfbea675fdcfcbad9f5e1f.1273484097.git.marcel@holtmann.org>
- <3b1a9f3fa6ad842991538da2c3b2e29e047b131f.1273484097.git.marcel@holtmann.org>
- <84fb0a6334af0ccad3544f6972c055d90fbb9fbe.1273484097.git.marcel@holtmann.org>
- <bd3c9e255e76ae232d417e3914ca5d80ca3e9485.1273484097.git.marcel@holtmann.org>
- <0041ecfa3025d7612fdaab12b2f07c9c3c09f42f.1273484098.git.marcel@holtmann.org>
- <afefdbc4cf3b9d409d07e1e5264e7ff88bc48711.1273484098.git.marcel@holtmann.org>
- <01760bdde9a92413b7fff928d08e19352bf09d82.1273484098.git.marcel@holtmann.org>
- <44651b85cc3a076147af5d181fc4833ef8debc59.1273484098.git.marcel@holtmann.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53454 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53431 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755814Ab0EJJjF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:05 -0400
-In-Reply-To: <44651b85cc3a076147af5d181fc4833ef8debc59.1273484098.git.marcel@holtmann.org>
+	with ESMTP id S1755823Ab0EJJiz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:38:55 -0400
+In-Reply-To: <1c7621596d11b9c3e19eb88a818758dee4901c95.1273484097.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
@@ -64,68 +47,55 @@ List-ID: <netdev.vger.kernel.org>
 
 =46rom: Gustavo F. Padovan <padovan@profusion.mobi>
 
+=46ix a possible problem with Big Endian machines.
+
 Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
 Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/l2cap.c |   11 +++++------
- 1 files changed, 5 insertions(+), 6 deletions(-)
+ net/bluetooth/l2cap.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
 
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index cfb18cd..2a981de 100644
+index 94be5db..0889949 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -1400,7 +1400,7 @@ static int l2cap_ertm_send(struct sock *sk)
- 		return 0;
+@@ -2487,8 +2487,10 @@ done:
 =20
- 	while ((skb =3D sk->sk_send_head) && (!l2cap_tx_window_full(sk)) &&
--	       !(pi->conn_state & L2CAP_CONN_REMOTE_BUSY)) {
-+			!(pi->conn_state & L2CAP_CONN_REMOTE_BUSY)) {
+ 			pi->remote_mps =3D le16_to_cpu(rfc.max_pdu_size);
 =20
- 		if (pi->remote_max_tx &&
- 				bt_cb(skb)->retries =3D=3D pi->remote_max_tx) {
-@@ -1490,9 +1490,8 @@ static inline int l2cap_skbuff_fromiovec(struct s=
-ock *sk, struct msghdr *msg, in
- 	struct sk_buff **frag;
- 	int err, sent =3D 0;
+-			rfc.retrans_timeout =3D L2CAP_DEFAULT_RETRANS_TO;
+-			rfc.monitor_timeout =3D L2CAP_DEFAULT_MONITOR_TO;
++			rfc.retrans_timeout =3D
++				le16_to_cpu(L2CAP_DEFAULT_RETRANS_TO);
++			rfc.monitor_timeout =3D
++				le16_to_cpu(L2CAP_DEFAULT_MONITOR_TO);
 =20
--	if (memcpy_fromiovec(skb_put(skb, count), msg->msg_iov, count)) {
-+	if (memcpy_fromiovec(skb_put(skb, count), msg->msg_iov, count))
- 		return -EFAULT;
--	}
+ 			pi->conf_state |=3D L2CAP_CONF_MODE_DONE;
 =20
- 	sent +=3D count;
- 	len  -=3D count;
-@@ -3347,7 +3346,7 @@ static void l2cap_add_to_srej_queue(struct sock *=
-sk, struct sk_buff *skb, u8 tx_
- 		if (skb_queue_is_last(SREJ_QUEUE(sk), next_skb))
+@@ -2578,8 +2580,8 @@ static int l2cap_parse_conf_rsp(struct sock *sk, =
+void *rsp, int len, void *data,
+ 		switch (rfc.mode) {
+ 		case L2CAP_MODE_ERTM:
+ 			pi->remote_tx_win   =3D rfc.txwin_size;
+-			pi->retrans_timeout =3D rfc.retrans_timeout;
+-			pi->monitor_timeout =3D rfc.monitor_timeout;
++			pi->retrans_timeout =3D le16_to_cpu(rfc.retrans_timeout);
++			pi->monitor_timeout =3D le16_to_cpu(rfc.monitor_timeout);
+ 			pi->mps    =3D le16_to_cpu(rfc.max_pdu_size);
  			break;
-=20
--	} while((next_skb =3D skb_queue_next(SREJ_QUEUE(sk), next_skb)));
-+	} while ((next_skb =3D skb_queue_next(SREJ_QUEUE(sk), next_skb)));
-=20
- 	__skb_queue_tail(SREJ_QUEUE(sk), skb);
- }
-@@ -3446,7 +3445,7 @@ static void l2cap_check_srej_gap(struct sock *sk,=
- u8 tx_seq)
- 	struct sk_buff *skb;
- 	u16 control;
-=20
--	while((skb =3D skb_peek(SREJ_QUEUE(sk)))) {
-+	while ((skb =3D skb_peek(SREJ_QUEUE(sk)))) {
- 		if (bt_cb(skb)->tx_seq !=3D tx_seq)
- 			break;
-=20
-@@ -3465,7 +3464,7 @@ static void l2cap_resend_srejframe(struct sock *s=
-k, u8 tx_seq)
- 	struct srej_list *l, *tmp;
- 	u16 control;
-=20
--	list_for_each_entry_safe(l,tmp, SREJ_LIST(sk), list) {
-+	list_for_each_entry_safe(l, tmp, SREJ_LIST(sk), list) {
- 		if (l->tx_seq =3D=3D tx_seq) {
- 			list_del(&l->list);
- 			kfree(l);
+ 		case L2CAP_MODE_STREAMING:
+@@ -2634,8 +2636,8 @@ done:
+ 	switch (rfc.mode) {
+ 	case L2CAP_MODE_ERTM:
+ 		pi->remote_tx_win   =3D rfc.txwin_size;
+-		pi->retrans_timeout =3D rfc.retrans_timeout;
+-		pi->monitor_timeout =3D rfc.monitor_timeout;
++		pi->retrans_timeout =3D le16_to_cpu(rfc.retrans_timeout);
++		pi->monitor_timeout =3D le16_to_cpu(rfc.monitor_timeout);
+ 		pi->mps    =3D le16_to_cpu(rfc.max_pdu_size);
+ 		break;
+ 	case L2CAP_MODE_STREAMING:
 --=20
 1.6.6.1
 
