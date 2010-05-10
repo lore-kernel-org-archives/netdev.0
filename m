@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 50/64] Bluetooth: Refactor l2cap_retransmit_frame()
-Date: Mon, 10 May 2010 11:37:40 +0200
-Message-ID: <f11d676da4059c7888efca810ab300b931736a26.1273484098.git.marcel@holtmann.org>
+Subject: [PATCH 60/64] Bluetooth: Decode btmrvl MODULE_BRINGUP_REG response correctly
+Date: Mon, 10 May 2010 11:37:50 +0200
+Message-ID: <903c843773a18e061817dd7a1a5c28dd41a3bf97.1273484099.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -52,111 +52,75 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <9b16dc6551cbde65d0ac525af3c46efab53a2c46.1273484098.git.marcel@holtmann.org>
  <ff12fd643334071084b6145cad3793bb6c956638.1273484098.git.marcel@holtmann.org>
  <9a9c6a34416b3743c09c00f3d6708d9df3c21629.1273484098.git.marcel@holtmann.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+ <f11d676da4059c7888efca810ab300b931736a26.1273484098.git.marcel@holtmann.org>
+ <18778a63ddc83bc89bda3b119fb02eb121512a66.1273484098.git.marcel@holtmann.org>
+ <9b53350d3cf5b330c3261d89b5e62a2dc25c5653.1273484098.git.marcel@holtmann.org>
+ <1890d36bb556a27684ad29654a9898ab9a5f57ee.1273484098.git.marcel@holtmann.org>
+ <6161c0382bbab883a634d284f7367a88bbe88534.1273484098.git.marcel@holtmann.org>
+ <dfc909befbfe967bd7f46ef33b6969c1b7f3cf42.1273484098.git.marcel@holtmann.org>
+ <4178ba462a3e8ab5094e69606f01d9e95f2d5ea6.1273484098.git.marcel@holtmann.org>
+ <844c0972427ee5f661158160aaca10b22b3dda60.1273484098.git.marcel@holtmann.org>
+ <f48fd9c8cd746fdb055a97249a209c77dca0f710.1273484098.git.marcel@holtmann.org>
+ <31f085fea891d5972e994dfb423231a3d4d60a8a.1273484099.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53458 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53476 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755913Ab0EJJjJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:09 -0400
-In-Reply-To: <9a9c6a34416b3743c09c00f3d6708d9df3c21629.1273484098.git.marcel@holtmann.org>
+	with ESMTP id S1755942Ab0EJJjQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:16 -0400
+In-Reply-To: <31f085fea891d5972e994dfb423231a3d4d60a8a.1273484099.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Gustavo F. Padovan <padovan@profusion.mobi>
+From: Bing Zhao <bzhao@marvell.com>
 
-Make the code flow cleaner and changes the function to void.
-It also fixes a potential NULL dereference with skb.
+The MODULE_BRINGUP_REQ command response returns success with
+either 0x00 or 0x0c.
 
-Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
-Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
+Signed-off-by: Bing Zhao <bzhao@marvell.com>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/l2cap.c |   53 +++++++++++++++++++++++++----------------=
---------
- 1 files changed, 27 insertions(+), 26 deletions(-)
+ drivers/bluetooth/btmrvl_drv.h  |    5 ++++-
+ drivers/bluetooth/btmrvl_main.c |    6 ++++--
+ 2 files changed, 8 insertions(+), 3 deletions(-)
 
-diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index 7e74d5b..1c35c32 100644
---- a/net/bluetooth/l2cap.c
-+++ b/net/bluetooth/l2cap.c
-@@ -1331,43 +1331,44 @@ static int l2cap_streaming_send(struct sock *sk=
-)
- 	return 0;
- }
-=20
--static int l2cap_retransmit_frame(struct sock *sk, u8 tx_seq)
-+static void l2cap_retransmit_frame(struct sock *sk, u8 tx_seq)
- {
- 	struct l2cap_pinfo *pi =3D l2cap_pi(sk);
- 	struct sk_buff *skb, *tx_skb;
- 	u16 control, fcs;
-=20
- 	skb =3D skb_peek(TX_QUEUE(sk));
--	do {
--		if (bt_cb(skb)->tx_seq !=3D tx_seq) {
--			if (skb_queue_is_last(TX_QUEUE(sk), skb))
--				break;
--			skb =3D skb_queue_next(TX_QUEUE(sk), skb);
--			continue;
--		}
-+	if (!skb)
-+		return;
-=20
--		if (pi->remote_max_tx &&
--				bt_cb(skb)->retries =3D=3D pi->remote_max_tx) {
--			l2cap_send_disconn_req(pi->conn, sk);
-+	do {
-+		if (bt_cb(skb)->tx_seq =3D=3D tx_seq)
- 			break;
--		}
-=20
--		tx_skb =3D skb_clone(skb, GFP_ATOMIC);
--		bt_cb(skb)->retries++;
--		control =3D get_unaligned_le16(tx_skb->data + L2CAP_HDR_SIZE);
--		control |=3D (pi->buffer_seq << L2CAP_CTRL_REQSEQ_SHIFT)
--				| (tx_seq << L2CAP_CTRL_TXSEQ_SHIFT);
--		put_unaligned_le16(control, tx_skb->data + L2CAP_HDR_SIZE);
-+		if (skb_queue_is_last(TX_QUEUE(sk), skb))
-+			return;
-=20
--		if (pi->fcs =3D=3D L2CAP_FCS_CRC16) {
--			fcs =3D crc16(0, (u8 *)tx_skb->data, tx_skb->len - 2);
--			put_unaligned_le16(fcs, tx_skb->data + tx_skb->len - 2);
--		}
-+	} while ((skb =3D skb_queue_next(TX_QUEUE(sk), skb)));
-=20
--		l2cap_do_send(sk, tx_skb);
--		break;
--	} while(1);
--	return 0;
-+	if (pi->remote_max_tx &&
-+			bt_cb(skb)->retries =3D=3D pi->remote_max_tx) {
-+		l2cap_send_disconn_req(pi->conn, sk);
-+		return;
-+	}
+diff --git a/drivers/bluetooth/btmrvl_drv.h b/drivers/bluetooth/btmrvl_drv.h
+index 2047275..da68c62 100644
+--- a/drivers/bluetooth/btmrvl_drv.h
++++ b/drivers/bluetooth/btmrvl_drv.h
+@@ -88,8 +88,11 @@ struct btmrvl_private {
+ #define BT_CMD_HOST_SLEEP_ENABLE	0x5A
+ #define BT_CMD_MODULE_CFG_REQ		0x5B
+ 
+-/* Sub-commands: Module Bringup/Shutdown Request */
++/* Sub-commands: Module Bringup/Shutdown Request/Response */
+ #define MODULE_BRINGUP_REQ		0xF1
++#define MODULE_BROUGHT_UP		0x00
++#define MODULE_ALREADY_UP		0x0C
 +
-+	tx_skb =3D skb_clone(skb, GFP_ATOMIC);
-+	bt_cb(skb)->retries++;
-+	control =3D get_unaligned_le16(tx_skb->data + L2CAP_HDR_SIZE);
-+	control |=3D (pi->buffer_seq << L2CAP_CTRL_REQSEQ_SHIFT)
-+			| (tx_seq << L2CAP_CTRL_TXSEQ_SHIFT);
-+	put_unaligned_le16(control, tx_skb->data + L2CAP_HDR_SIZE);
-+
-+	if (pi->fcs =3D=3D L2CAP_FCS_CRC16) {
-+		fcs =3D crc16(0, (u8 *)tx_skb->data, tx_skb->len - 2);
-+		put_unaligned_le16(fcs, tx_skb->data + tx_skb->len - 2);
-+	}
-+
-+	l2cap_do_send(sk, tx_skb);
- }
-=20
- static int l2cap_ertm_send(struct sock *sk)
---=20
+ #define MODULE_SHUTDOWN_REQ		0xF2
+ 
+ #define BT_EVENT_POWER_STATE		0x20
+diff --git a/drivers/bluetooth/btmrvl_main.c b/drivers/bluetooth/btmrvl_main.c
+index 49ec89c..87d0d3d 100644
+--- a/drivers/bluetooth/btmrvl_main.c
++++ b/drivers/bluetooth/btmrvl_main.c
+@@ -112,8 +112,10 @@ int btmrvl_process_event(struct btmrvl_private *priv, struct sk_buff *skb)
+ 	case BT_CMD_MODULE_CFG_REQ:
+ 		if (priv->btmrvl_dev.sendcmdflag &&
+ 				event->data[1] == MODULE_BRINGUP_REQ) {
+-			BT_DBG("EVENT:%s", (event->data[2]) ?
+-				"Bring-up failed" : "Bring-up succeed");
++			BT_DBG("EVENT:%s",
++				((event->data[2] == MODULE_BROUGHT_UP) ||
++				(event->data[2] == MODULE_ALREADY_UP)) ?
++				"Bring-up succeed" : "Bring-up failed");
+ 		} else if (priv->btmrvl_dev.sendcmdflag &&
+ 				event->data[1] == MODULE_SHUTDOWN_REQ) {
+ 			BT_DBG("EVENT:%s", (event->data[2]) ?
+-- 
 1.6.6.1
 
