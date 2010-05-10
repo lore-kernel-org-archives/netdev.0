@@ -1,73 +1,74 @@
 From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH 2/9] netdev: bfin_mac: handler RX status errors
-Date: Mon, 10 May 2010 11:39:07 -0400
-Message-ID: <1273505954-32588-2-git-send-email-vapier@gentoo.org>
+Subject: [PATCH 3/9] netdev: bfin_mac: invalid data cache only once for each new rx skb buffer
+Date: Mon, 10 May 2010 11:39:08 -0400
+Message-ID: <1273505954-32588-3-git-send-email-vapier@gentoo.org>
 References: <1273505954-32588-1-git-send-email-vapier@gentoo.org>
 Cc: uclinux-dist-devel@blackfin.uclinux.org,
-	Peter Meerwald <pmeerw@pmeerw.net>,
-	Graf Yang <graf.yang@analog.com>
+	Sonic Zhang <sonic.zhang@analog.com>
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:43471 "EHLO smtp.gentoo.org"
+Received: from smtp.gentoo.org ([140.211.166.183]:43477 "EHLO smtp.gentoo.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753102Ab0EJPgU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 May 2010 11:36:20 -0400
+	id S1751397Ab0EJPgV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 May 2010 11:36:21 -0400
 In-Reply-To: <1273505954-32588-1-git-send-email-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Meerwald <pmeerw@pmeerw.net>
+From: Sonic Zhang <sonic.zhang@analog.com>
 
-Signed-off-by: Peter Meerwald <pmeerw@pmeerw.net>
-Signed-off-by: Graf Yang <graf.yang@analog.com>
+The skb buffer isn't actually used until we finish transferring and pass
+it up to higher layers, so only invalidate the range once before we start
+receiving actual data.  This also avoids the problem with data invalidating
+on Blackfin systems -- there is no invalidate-only, just invalidate+flush.
+So when running in writeback mode, there is the small (but not uncommon)
+possibility of the flush overwriting valid DMA-ed data from the cache.
+
+Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
 Signed-off-by: Mike Frysinger <vapier@gentoo.org>
 ---
- drivers/net/bfin_mac.c |   17 ++++++++++++++---
- 1 files changed, 14 insertions(+), 3 deletions(-)
+ drivers/net/bfin_mac.c |   13 ++++++++-----
+ 1 files changed, 8 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-index 6a9519f..c888465 100644
+index c888465..f9ba598 100644
 --- a/drivers/net/bfin_mac.c
 +++ b/drivers/net/bfin_mac.c
-@@ -981,12 +981,25 @@ out:
- 	return NETDEV_TX_OK;
- }
+@@ -203,6 +203,11 @@ static int desc_list_init(void)
+ 			goto init_error;
+ 		}
+ 		skb_reserve(new_skb, NET_IP_ALIGN);
++		/* Invidate the data cache of skb->data range when it is write back
++		 * cache. It will prevent overwritting the new data from DMA
++		 */
++		blackfin_dcache_invalidate_range((unsigned long)new_skb->head,
++					 (unsigned long)new_skb->end);
+ 		r->skb = new_skb;
  
-+#define RX_ERROR_MASK (RX_LONG | RX_ALIGN | RX_CRC | RX_LEN | \
-+	RX_FRAG | RX_ADDR | RX_DMAO | RX_PHY | RX_LATE | RX_RANGE)
-+
- static void bfin_mac_rx(struct net_device *dev)
- {
- 	struct sk_buff *skb, *new_skb;
- 	unsigned short len;
- 	struct bfin_mac_local *lp __maybe_unused = netdev_priv(dev);
- 
-+	/* check if frame status word reports an error condition
-+	 * we which case we simply drop the packet
-+	 */
-+	if (current_rx_ptr->status.status_word & RX_ERROR_MASK) {
-+		printk(KERN_NOTICE DRV_NAME
-+		       ": rx: receive error - packet dropped\n");
-+		dev->stats.rx_dropped++;
-+		goto out;
-+	}
-+
- 	/* allocate a new skb for next time receive */
- 	skb = current_rx_ptr->skb;
- 
-@@ -1025,11 +1038,9 @@ static void bfin_mac_rx(struct net_device *dev)
- 	netif_rx(skb);
- 	dev->stats.rx_packets++;
- 	dev->stats.rx_bytes += len;
-+out:
- 	current_rx_ptr->status.status_word = 0x00000000;
- 	current_rx_ptr = current_rx_ptr->next;
+ 		/*
+@@ -1012,19 +1017,17 @@ static void bfin_mac_rx(struct net_device *dev)
+ 	}
+ 	/* reserve 2 bytes for RXDWA padding */
+ 	skb_reserve(new_skb, NET_IP_ALIGN);
+-	current_rx_ptr->skb = new_skb;
+-	current_rx_ptr->desc_a.start_addr = (unsigned long)new_skb->data - 2;
 -
--out:
--	return;
- }
+ 	/* Invidate the data cache of skb->data range when it is write back
+ 	 * cache. It will prevent overwritting the new data from DMA
+ 	 */
+ 	blackfin_dcache_invalidate_range((unsigned long)new_skb->head,
+ 					 (unsigned long)new_skb->end);
  
- /* interrupt routine to handle rx and error signal */
++	current_rx_ptr->skb = new_skb;
++	current_rx_ptr->desc_a.start_addr = (unsigned long)new_skb->data - 2;
++
+ 	len = (unsigned short)((current_rx_ptr->status.status_word) & RX_FRLEN);
+ 	skb_put(skb, len);
+-	blackfin_dcache_invalidate_range((unsigned long)skb->head,
+-					 (unsigned long)skb->tail);
+ 
+ 	skb->protocol = eth_type_trans(skb, dev);
+ 
 -- 
 1.7.1
 
