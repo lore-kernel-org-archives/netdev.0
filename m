@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 59/64] Bluetooth: Fix storing negative values as unsigned char
-Date: Mon, 10 May 2010 11:37:49 +0200
-Message-ID: <31f085fea891d5972e994dfb423231a3d4d60a8a.1273484099.git.marcel@holtmann.org>
+Subject: [PATCH 62/64] Bluetooth: Set hdev->dev_type based on Marvell device type
+Date: Mon, 10 May 2010 11:37:52 +0200
+Message-ID: <f120c6b635a62d414876b517aec0468628acfc60.1273484099.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -61,44 +61,73 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <4178ba462a3e8ab5094e69606f01d9e95f2d5ea6.1273484098.git.marcel@holtmann.org>
  <844c0972427ee5f661158160aaca10b22b3dda60.1273484098.git.marcel@holtmann.org>
  <f48fd9c8cd746fdb055a97249a209c77dca0f710.1273484098.git.marcel@holtmann.org>
+ <31f085fea891d5972e994dfb423231a3d4d60a8a.1273484099.git.marcel@holtmann.org>
+ <903c843773a18e061817dd7a1a5c28dd41a3bf97.1273484099.git.marcel@holtmann.org>
+ <64061607eab7cb146115927cb596de123c542d45.1273484099.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53474 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53454 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755941Ab0EJJjQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:16 -0400
-In-Reply-To: <f48fd9c8cd746fdb055a97249a209c77dca0f710.1273484098.git.marcel@holtmann.org>
+	with ESMTP id S1755787Ab0EJJjS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:18 -0400
+In-Reply-To: <64061607eab7cb146115927cb596de123c542d45.1273484099.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <error27@gmail.com>
+From: Bing Zhao <bzhao@marvell.com>
 
-This is mostly cleanup. There is only one caller and it just checks for
-non-zero return values. Still "ret" should be int because we want to return
--EINVAL on errors.
+Get the device type from MODULE_BRINGUP_REQ command response.
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
+Signed-off-by: Bing Zhao <bzhao@marvell.com>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- drivers/bluetooth/btmrvl_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/bluetooth/btmrvl_drv.h  |    2 ++
+ drivers/bluetooth/btmrvl_main.c |    9 +++++++++
+ 2 files changed, 11 insertions(+), 0 deletions(-)
 
+diff --git a/drivers/bluetooth/btmrvl_drv.h b/drivers/bluetooth/btmrvl_drv.h
+index bf6d54f..bed0ba6 100644
+--- a/drivers/bluetooth/btmrvl_drv.h
++++ b/drivers/bluetooth/btmrvl_drv.h
+@@ -42,6 +42,8 @@ struct btmrvl_device {
+ 	void *card;
+ 	struct hci_dev *hcidev;
+ 
++	u8 dev_type;
++
+ 	u8 tx_dnld_rdy;
+ 
+ 	u8 psmode;
 diff --git a/drivers/bluetooth/btmrvl_main.c b/drivers/bluetooth/btmrvl_main.c
-index 53a43ad..49ec89c 100644
+index ec48bfe..ee37ef0 100644
 --- a/drivers/bluetooth/btmrvl_main.c
 +++ b/drivers/bluetooth/btmrvl_main.c
-@@ -66,7 +66,7 @@ int btmrvl_process_event(struct btmrvl_private *priv, struct sk_buff *skb)
- {
- 	struct btmrvl_adapter *adapter = priv->adapter;
- 	struct btmrvl_event *event;
--	u8 ret = 0;
-+	int ret = 0;
+@@ -116,6 +116,13 @@ int btmrvl_process_event(struct btmrvl_private *priv, struct sk_buff *skb)
+ 				((event->data[2] == MODULE_BROUGHT_UP) ||
+ 				(event->data[2] == MODULE_ALREADY_UP)) ?
+ 				"Bring-up succeed" : "Bring-up failed");
++
++			if (event->length > 3)
++				priv->btmrvl_dev.dev_type = event->data[3];
++			else
++				priv->btmrvl_dev.dev_type = HCI_BREDR;
++
++			BT_DBG("dev_type: %d", priv->btmrvl_dev.dev_type);
+ 		} else if (priv->btmrvl_dev.sendcmdflag &&
+ 				event->data[1] == MODULE_SHUTDOWN_REQ) {
+ 			BT_DBG("EVENT:%s", (event->data[2]) ?
+@@ -549,6 +556,8 @@ int btmrvl_register_hdev(struct btmrvl_private *priv)
  
- 	event = (struct btmrvl_event *) skb->data;
- 	if (event->ec != 0xff) {
+ 	btmrvl_send_module_cfg_cmd(priv, MODULE_BRINGUP_REQ);
+ 
++	hdev->dev_type = priv->btmrvl_dev.dev_type;
++
+ 	ret = hci_register_dev(hdev);
+ 	if (ret < 0) {
+ 		BT_ERR("Can not register HCI device");
 -- 
 1.6.6.1
 
