@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 33/64] Bluetooth: Enable option to configure Max Transmission value via sockopt
-Date: Mon, 10 May 2010 11:37:23 +0200
-Message-ID: <68d7f0ce911e41e463c45911be031cdf6a096fe8.1273484097.git.marcel@holtmann.org>
+Subject: [PATCH 34/64] Bluetooth: Fix bug when retransmitting I-frames
+Date: Mon, 10 May 2010 11:37:24 +0200
+Message-ID: <f6e6b16823de0aff31cb8ee8c098383e3aceec58.1273484097.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -35,17 +35,18 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <14b5aa71ec506f4e38ca6a1dc02ecd668ecfd902.1273484097.git.marcel@holtmann.org>
  <803020c6fa63aa738cfda3329c9675b42023e9d2.1273484097.git.marcel@holtmann.org>
  <369ba30264826f38eefc61b93688100be8adbd4d.1273484097.git.marcel@holtmann.org>
+ <68d7f0ce911e41e463c45911be031cdf6a096fe8.1273484097.git.marcel@holtmann.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53458 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53460 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755852Ab0EJJi7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:38:59 -0400
-In-Reply-To: <369ba30264826f38eefc61b93688100be8adbd4d.1273484097.git.marcel@holtmann.org>
+	with ESMTP id S1755863Ab0EJJjA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:00 -0400
+In-Reply-To: <68d7f0ce911e41e463c45911be031cdf6a096fe8.1273484097.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
@@ -53,95 +54,59 @@ List-ID: <netdev.vger.kernel.org>
 
 =46rom: Gustavo F. Padovan <padovan@profusion.mobi>
 
-With the sockopt extension we can set a per-channel MaxTx value.
+If there is no frames to retransmit l2cap was crashing the kernel, now
+we check if the queue is empty first.
 
 Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
 Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- include/net/bluetooth/l2cap.h |    2 ++
- net/bluetooth/l2cap.c         |    7 ++++++-
- 2 files changed, 8 insertions(+), 1 deletions(-)
+ net/bluetooth/l2cap.c |   12 ++++++++----
+ 1 files changed, 8 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/bluetooth/l2cap.h b/include/net/bluetooth/l2ca=
-p.h
-index 059260b..8942c2f 100644
---- a/include/net/bluetooth/l2cap.h
-+++ b/include/net/bluetooth/l2cap.h
-@@ -55,6 +55,7 @@ struct l2cap_options {
- 	__u16 flush_to;
- 	__u8  mode;
- 	__u8  fcs;
-+	__u8  max_tx;
- 	__u16 txwin_size;
- };
-=20
-@@ -340,6 +341,7 @@ struct l2cap_pinfo {
- 	__u8		ident;
-=20
- 	__u8		tx_win;
-+	__u8		max_tx;
- 	__u8		remote_tx_win;
- 	__u8		remote_max_tx;
- 	__u16		retrans_timeout;
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index ff1466b..f9e4da2 100644
+index f9e4da2..4c7b2d2 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -783,6 +783,7 @@ static void l2cap_sock_init(struct sock *sk, struct=
- sock *parent)
- 		pi->omtu =3D l2cap_pi(parent)->omtu;
- 		pi->mode =3D l2cap_pi(parent)->mode;
- 		pi->fcs  =3D l2cap_pi(parent)->fcs;
-+		pi->max_tx =3D l2cap_pi(parent)->max_tx;
- 		pi->tx_win =3D l2cap_pi(parent)->tx_win;
- 		pi->sec_level =3D l2cap_pi(parent)->sec_level;
- 		pi->role_switch =3D l2cap_pi(parent)->role_switch;
-@@ -791,6 +792,7 @@ static void l2cap_sock_init(struct sock *sk, struct=
- sock *parent)
- 		pi->imtu =3D L2CAP_DEFAULT_MTU;
- 		pi->omtu =3D 0;
- 		pi->mode =3D L2CAP_MODE_BASIC;
-+		pi->max_tx =3D max_transmit;
- 		pi->fcs  =3D L2CAP_FCS_CRC16;
- 		pi->tx_win =3D tx_window;
- 		pi->sec_level =3D BT_SECURITY_LOW;
-@@ -1785,6 +1787,7 @@ static int l2cap_sock_setsockopt_old(struct socke=
-t *sock, int optname, char __us
- 		opts.flush_to =3D l2cap_pi(sk)->flush_to;
- 		opts.mode     =3D l2cap_pi(sk)->mode;
- 		opts.fcs      =3D l2cap_pi(sk)->fcs;
-+		opts.max_tx   =3D l2cap_pi(sk)->max_tx;
- 		opts.txwin_size =3D (__u16)l2cap_pi(sk)->tx_win;
+@@ -3546,7 +3546,8 @@ expected:
+ 		if (pi->conn_state & L2CAP_CONN_REJ_ACT)
+ 			pi->conn_state &=3D ~L2CAP_CONN_REJ_ACT;
+ 		else {
+-			sk->sk_send_head =3D TX_QUEUE(sk)->next;
++			if (!skb_queue_empty(TX_QUEUE(sk)))
++				sk->sk_send_head =3D TX_QUEUE(sk)->next;
+ 			pi->next_tx_seq =3D pi->expected_ack_seq;
+ 			l2cap_ertm_send(sk);
+ 		}
+@@ -3593,7 +3594,8 @@ static inline void l2cap_data_channel_rrframe(str=
+uct sock *sk, u16 rx_control)
+ 		if (pi->conn_state & L2CAP_CONN_REJ_ACT)
+ 			pi->conn_state &=3D ~L2CAP_CONN_REJ_ACT;
+ 		else {
+-			sk->sk_send_head =3D TX_QUEUE(sk)->next;
++			if (!skb_queue_empty(TX_QUEUE(sk)))
++				sk->sk_send_head =3D TX_QUEUE(sk)->next;
+ 			pi->next_tx_seq =3D pi->expected_ack_seq;
+ 			l2cap_ertm_send(sk);
+ 		}
+@@ -3625,12 +3627,14 @@ static inline void l2cap_data_channel_rejframe(=
+struct sock *sk, u16 rx_control)
+ 		if (pi->conn_state & L2CAP_CONN_REJ_ACT)
+ 			pi->conn_state &=3D ~L2CAP_CONN_REJ_ACT;
+ 		else {
+-			sk->sk_send_head =3D TX_QUEUE(sk)->next;
++			if (!skb_queue_empty(TX_QUEUE(sk)))
++				sk->sk_send_head =3D TX_QUEUE(sk)->next;
+ 			pi->next_tx_seq =3D pi->expected_ack_seq;
+ 			l2cap_ertm_send(sk);
+ 		}
+ 	} else {
+-		sk->sk_send_head =3D TX_QUEUE(sk)->next;
++		if (!skb_queue_empty(TX_QUEUE(sk)))
++			sk->sk_send_head =3D TX_QUEUE(sk)->next;
+ 		pi->next_tx_seq =3D pi->expected_ack_seq;
+ 		l2cap_ertm_send(sk);
 =20
- 		len =3D min_t(unsigned int, sizeof(opts), optlen);
-@@ -1797,6 +1800,7 @@ static int l2cap_sock_setsockopt_old(struct socke=
-t *sock, int optname, char __us
- 		l2cap_pi(sk)->omtu =3D opts.omtu;
- 		l2cap_pi(sk)->mode =3D opts.mode;
- 		l2cap_pi(sk)->fcs  =3D opts.fcs;
-+		l2cap_pi(sk)->max_tx =3D opts.max_tx;
- 		l2cap_pi(sk)->tx_win =3D (__u8)opts.txwin_size;
- 		break;
-=20
-@@ -1912,6 +1916,7 @@ static int l2cap_sock_getsockopt_old(struct socke=
-t *sock, int optname, char __us
- 		opts.flush_to =3D l2cap_pi(sk)->flush_to;
- 		opts.mode     =3D l2cap_pi(sk)->mode;
- 		opts.fcs      =3D l2cap_pi(sk)->fcs;
-+		opts.max_tx   =3D l2cap_pi(sk)->max_tx;
- 		opts.txwin_size =3D (__u16)l2cap_pi(sk)->tx_win;
-=20
- 		len =3D min_t(unsigned int, len, sizeof(opts));
-@@ -2331,7 +2336,7 @@ done:
- 	case L2CAP_MODE_ERTM:
- 		rfc.mode            =3D L2CAP_MODE_ERTM;
- 		rfc.txwin_size      =3D pi->tx_win;
--		rfc.max_transmit    =3D max_transmit;
-+		rfc.max_transmit    =3D pi->max_tx;
- 		rfc.retrans_timeout =3D 0;
- 		rfc.monitor_timeout =3D 0;
- 		rfc.max_pdu_size    =3D cpu_to_le16(L2CAP_DEFAULT_MAX_PDU_SIZE);
 --=20
 1.6.6.1
 
