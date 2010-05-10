@@ -1,106 +1,71 @@
-From: Bijay Singh <Bijay.Singh@guavus.com>
-Subject: Re: TCP-MD5 checksum failure on x86_64 SMP
-Date: Mon, 10 May 2010 14:55:40 +0000
-Message-ID: <D1C2B1EC-ABE8-4D87-9227-6D0F1C1C8B77@guavus.com>
-References: <1273085598.2367.233.camel@edumazet-laptop>
- <i2y571fb4001005060455m39bed7f7if5fcfc45b12bc4d3@mail.gmail.com>
- <1273147586.2357.63.camel@edumazet-laptop>
- <20100506.220443.135536330.davem@davemloft.net>
- <1273210329.2222.42.camel@edumazet-laptop> <20100507101451.1b4286b7@nehalam>
- <1273252893.2261.84.camel@edumazet-laptop> <20100507103639.4f1a51fa@nehalam>
- <1273268446.2325.53.camel@edumazet-laptop>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: Re: VLAN I/F's and TX queue.
+Date: Mon, 10 May 2010 16:54:40 +0200
+Message-ID: <OF60B75A13.F85EAE42-ONC125771F.00518947-C125771F.0051E8DC@transmode.se>
+References: <OF5A42C874.3AF220FE-ONC1257718.003ABC6E-C1257718.003F94D2@LocalDomain>	 <OF3F4D7278.DC6A6E51-ONC125771C.002B1AF4-C125771C.002C64E3@transmode.se>
+	 <1273222403.2261.26.camel@edumazet-laptop>  <4BE81793.3060905@trash.net> <1273502195.2221.4.camel@edumazet-laptop> <4BE81B24.4020601@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	"<bhaskie@gmail.com>" <bhaskie@gmail.com>,
-	"<bhutchings@solarflare.com>" <bhutchings@solarflare.com>,
-	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [204.232.241.167] ([204.232.241.167]:46861 "EHLO mx1.guavus.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751955Ab0EJOzn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 10:55:43 -0400
-In-Reply-To: <1273268446.2325.53.camel@edumazet-laptop>
-Content-Language: en-US
-Content-ID: <9750f442-a2ea-49fd-8342-6d4274a494d0>
+Received: from gw1.transmode.se ([213.115.205.20]:50774 "EHLO gw1.transmode.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750971Ab0EJO5s convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 10:57:48 -0400
+In-Reply-To: <4BE81B24.4020601@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-I had noticed the corruption in the context and actually did what is me=
-ntioned.
+Patrick McHardy <kaber@trash.net> wrote on 2010/05/10 16:41:40:
+>
+> Eric Dumazet wrote:
+> > Le lundi 10 mai 2010 =E0 16:26 +0200, Patrick McHardy a =E9crit :
+> >
+> >> Is the intention just to avoid accounting the packet as dropped?
+> >> That seems fine to me since in case of NET_XMIT_CN its actually
+> >> not the currently transmitted packet that was dropped.
+> >>
+> >> But part of the intention of the above mentioned patch was actuall=
+y
+> >> to inform higher layers of congestion so they can take action if
+> >> desired, which would be defeated by this patch.
+> >>
+> >
+> > I see, so maybe we want following patch instead ?
+> >
+> > (letting NET_XMIT_CN be given to caller, but accounting current pac=
+ket
+> > as transmitted ?)
+>
+> Perfect, thanks. I'd suggest to change macvlan in a similar fashion
+> for consistency though.
+>
+> In any case please feel free to add my
+>
+> Acked-by: Patrick McHardy <kaber@trash.net>
 
-I allocated the context on the stack and plugged in the md5.c functions=
-=2E I was able to temporarily solve the problem, all this before I got =
-a response on this thread.
+hmm, as I don't follow this could you tell me where the dropped pkgs
+are accounted in my case:
+ eth0      Link encap:Ethernet  HWaddr 00:AA:BB:CC:DD:EE
+           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+           RX packets:8886910 errors:0 dropped:0 overruns:0 frame:0
+           TX packets:8880219 errors:0 dropped:0 overruns:0 carrier:0
+           collisions:0 txqueuelen:100
+           RX bytes:1626842951 (1.5 GiB)  TX bytes:1555540810 (1.4 GiB)
 
-But now I have seeing another problem, when i change the MTU on the int=
-erface from 1500 to 4470 none of the message from the peer get thru and=
- I get hash failed message. I am wondering if this is another bug getti=
-ng hit in this scenario.
+ eth0.1    Link encap:Ethernet  HWaddr 00:AA:BB:CC:DD:EE
+           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+           RX packets:2163164 errors:0 dropped:0 overruns:0 frame:0
+           TX packets:2161943 errors:0 dropped:98 overruns:0 carrier:0
+           collisions:0 txqueuelen:0
+           RX bytes:2467090557 (2.2 GiB)  TX bytes:2480246455 (2.3 GiB)
 
-Regards,
-Bijay
-
-On 08-May-2010, at 3:10 AM, Eric Dumazet wrote:
-
-> Le vendredi 07 mai 2010 =E0 10:36 -0700, Stephen Hemminger a =E9crit =
-:
->> On Fri, 07 May 2010 19:21:33 +0200
->> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->>=20
->>> Le vendredi 07 mai 2010 =E0 10:14 -0700, Stephen Hemminger a =E9cri=
-t :
->>>=20
->>>> Forget the per cpu data; the pool should just be scrapped.
->>>>=20
->>>> The only reason the pool exists is that the crypto hash state whic=
-h
->>>> should just be moved into the md5_info (88 bytes).  The pseudo
->>>> header can just be generated on the stack before passing to the cr=
-ypto
->>>> code.
->>>=20
->>>=20
->>> Sure, but I'm afraid there is no generic API do do that (if we want=
- to
->>> reuse crypto/md5.c code).
->>=20
->> It looks like the pool is just an optimization to avoid opening too
->> many crypto API connections.  This should only be an issue if offloa=
-ding
->> MD5.
->=20
-> You mean we could allocate two contexts per socket, one for tx path, =
-one
-> for rx path, but TCP-MD5 implementors chose to use percpu allocations=
- to
-> factorize them. They should have allocated two contexts per cpu (one =
-for
-> process context, preemption disabled, one for BH context)
->=20
-> As you said, this could be allocated on stack, with some changes to
-> crypto API I guess. Since TCP is not a module, md5 is also static, so
-> there is no module loading involved.
->=20
-> struct crypto_tfm *__crypto_alloc_tfm(struct crypto_alg *alg, u32
-> type,u32 mask)
->=20
-> -->
->=20
-> struct crypto_tfm *__crypto_alloc_tfm_onstack(struct crypto_alg *alg,
-> u32 type, u32 mask, void *storage, size_t storage_max_length)
->=20
->=20
-> Or a direct plug to crypto/md5.c functions and hand crafted context.
->=20
->=20
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ eth0.1.1  Link encap:Ethernet  HWaddr 00:AA:BB:CC:DD:EE
+           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+           RX packets:2163164 errors:0 dropped:0 overruns:0 frame:0
+           TX packets:2161943 errors:0 dropped:98 overruns:0 carrier:0
+           collisions:0 txqueuelen:0
+           RX bytes:2458437901 (2.2 GiB)  TX bytes:2471598683 (2.3 GiB)
 
