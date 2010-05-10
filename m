@@ -1,176 +1,160 @@
 From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH 8/9] netdev: bfin_mac: handle timeouts with the MDIO registers gracefully
-Date: Mon, 10 May 2010 11:39:13 -0400
-Message-ID: <1273505954-32588-8-git-send-email-vapier@gentoo.org>
+Subject: [PATCH 6/9] netdev: bfin_mac: add support for wake-on-lan magic packets
+Date: Mon, 10 May 2010 11:39:11 -0400
+Message-ID: <1273505954-32588-6-git-send-email-vapier@gentoo.org>
 References: <1273505954-32588-1-git-send-email-vapier@gentoo.org>
-Cc: uclinux-dist-devel@blackfin.uclinux.org
+Cc: uclinux-dist-devel@blackfin.uclinux.org,
+	Michael Hennerich <michael.hennerich@analog.com>
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:43503 "EHLO smtp.gentoo.org"
+Received: from smtp.gentoo.org ([140.211.166.183]:43495 "EHLO smtp.gentoo.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753526Ab0EJPg1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 May 2010 11:36:27 -0400
+	id S1753102Ab0EJPgZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 May 2010 11:36:25 -0400
 In-Reply-To: <1273505954-32588-1-git-send-email-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Have the low level MDIO functions pass back up timeout information so we
-don't waste time polling them multiple times when there is a problem, and
-so we don't let higher layers think the device is available when it isn't.
+From: Michael Hennerich <michael.hennerich@analog.com>
 
+Note that WOL works only in PM Suspend Standby Mode (Sleep Mode).
+
+Signed-off-by: Michael Hennerich <michael.hennerich@analog.com>
 Signed-off-by: Mike Frysinger <vapier@gentoo.org>
 ---
- drivers/net/bfin_mac.c |   53 ++++++++++++++++++++++++++++++-----------------
- 1 files changed, 34 insertions(+), 19 deletions(-)
+ drivers/net/bfin_mac.c |   76 +++++++++++++++++++++++++++++++++++++++++++++--
+ drivers/net/bfin_mac.h |    3 ++
+ 2 files changed, 75 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-index 6f5ee1a..0b62dbf 100644
+index bee5d7a..967d018 100644
 --- a/drivers/net/bfin_mac.c
 +++ b/drivers/net/bfin_mac.c
-@@ -81,9 +81,6 @@ static u16 pin_req[] = P_RMII0;
- static u16 pin_req[] = P_MII0;
- #endif
- 
--static void bfin_mac_disable(void);
--static void bfin_mac_enable(void);
--
- static void desc_list_free(void)
- {
- 	struct net_dma_desc_rx *r;
-@@ -260,7 +257,7 @@ init_error:
-  * MII operations
+@@ -464,6 +464,14 @@ static int mii_probe(struct net_device *dev)
+  * Ethtool support
   */
- /* Wait until the previous MDC/MDIO transaction has completed */
--static void bfin_mdio_poll(void)
-+static int bfin_mdio_poll(void)
- {
- 	int timeout_cnt = MAX_TIMEOUT_CNT;
  
-@@ -270,22 +267,30 @@ static void bfin_mdio_poll(void)
- 		if (timeout_cnt-- < 0) {
- 			printk(KERN_ERR DRV_NAME
- 			": wait MDC/MDIO transaction to complete timeout\n");
--			break;
-+			return -ETIMEDOUT;
- 		}
- 	}
++/*
++ * interrupt routine for magic packet wakeup
++ */
++static irqreturn_t bfin_mac_wake_interrupt(int irq, void *dev_id)
++{
++	return IRQ_HANDLED;
++}
++
+ static int
+ bfin_mac_ethtool_getsettings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+@@ -498,11 +506,57 @@ static void bfin_mac_ethtool_getdrvinfo(struct net_device *dev,
+ 	strcpy(info->bus_info, dev_name(&dev->dev));
+ }
+ 
++static void bfin_mac_ethtool_getwol(struct net_device *dev,
++	struct ethtool_wolinfo *wolinfo)
++{
++	struct bfin_mac_local *lp = netdev_priv(dev);
++
++	wolinfo->supported = WAKE_MAGIC;
++	wolinfo->wolopts = lp->wol;
++}
++
++static int bfin_mac_ethtool_setwol(struct net_device *dev,
++	struct ethtool_wolinfo *wolinfo)
++{
++	struct bfin_mac_local *lp = netdev_priv(dev);
++	int rc;
++
++	if (wolinfo->wolopts & (WAKE_MAGICSECURE |
++				WAKE_UCAST |
++				WAKE_MCAST |
++				WAKE_BCAST |
++				WAKE_ARP))
++		return -EOPNOTSUPP;
++
++	lp->wol = wolinfo->wolopts;
++
++	if (lp->wol && !lp->irq_wake_requested) {
++		/* register wake irq handler */
++		rc = request_irq(IRQ_MAC_WAKEDET, bfin_mac_wake_interrupt,
++				 IRQF_DISABLED, "EMAC_WAKE", dev);
++		if (rc)
++			return rc;
++		lp->irq_wake_requested = true;
++	}
++
++	if (!lp->wol && lp->irq_wake_requested) {
++		free_irq(IRQ_MAC_WAKEDET, dev);
++		lp->irq_wake_requested = false;
++	}
++
++	/* Make sure the PHY driver doesn't suspend */
++	device_init_wakeup(&dev->dev, lp->wol);
 +
 +	return 0;
- }
++}
++
+ static const struct ethtool_ops bfin_mac_ethtool_ops = {
+ 	.get_settings = bfin_mac_ethtool_getsettings,
+ 	.set_settings = bfin_mac_ethtool_setsettings,
+ 	.get_link = ethtool_op_get_link,
+ 	.get_drvinfo = bfin_mac_ethtool_getdrvinfo,
++	.get_wol = bfin_mac_ethtool_getwol,
++	.set_wol = bfin_mac_ethtool_setwol,
+ };
  
- /* Read an off-chip register in a PHY through the MDC/MDIO port */
- static int bfin_mdiobus_read(struct mii_bus *bus, int phy_addr, int regnum)
+ /**************************************************************************/
+@@ -1477,9 +1531,16 @@ static int __devexit bfin_mac_remove(struct platform_device *pdev)
+ static int bfin_mac_suspend(struct platform_device *pdev, pm_message_t mesg)
  {
--	bfin_mdio_poll();
-+	int ret;
-+
-+	ret = bfin_mdio_poll();
-+	if (ret)
-+		return ret;
+ 	struct net_device *net_dev = platform_get_drvdata(pdev);
++	struct bfin_mac_local *lp = netdev_priv(net_dev);
  
- 	/* read mode */
- 	bfin_write_EMAC_STAADD(SET_PHYAD((u16) phy_addr) |
- 				SET_REGAD((u16) regnum) |
- 				STABUSY);
+-	if (netif_running(net_dev))
+-		bfin_mac_close(net_dev);
++	if (lp->wol) {
++		bfin_write_EMAC_OPMODE((bfin_read_EMAC_OPMODE() & ~TE) | RE);
++		bfin_write_EMAC_WKUP_CTL(MPKE);
++		enable_irq_wake(IRQ_MAC_WAKEDET);
++	} else {
++		if (netif_running(net_dev))
++			bfin_mac_close(net_dev);
++	}
  
--	bfin_mdio_poll();
-+	ret = bfin_mdio_poll();
-+	if (ret)
-+		return ret;
- 
- 	return (int) bfin_read_EMAC_STADAT();
+ 	return 0;
  }
-@@ -294,7 +299,11 @@ static int bfin_mdiobus_read(struct mii_bus *bus, int phy_addr, int regnum)
- static int bfin_mdiobus_write(struct mii_bus *bus, int phy_addr, int regnum,
- 			      u16 value)
+@@ -1487,9 +1548,16 @@ static int bfin_mac_suspend(struct platform_device *pdev, pm_message_t mesg)
+ static int bfin_mac_resume(struct platform_device *pdev)
  {
--	bfin_mdio_poll();
-+	int ret;
-+
-+	ret = bfin_mdio_poll();
-+	if (ret)
-+		return ret;
+ 	struct net_device *net_dev = platform_get_drvdata(pdev);
++	struct bfin_mac_local *lp = netdev_priv(net_dev);
  
- 	bfin_write_EMAC_STADAT((u32) value);
+-	if (netif_running(net_dev))
+-		bfin_mac_open(net_dev);
++	if (lp->wol) {
++		bfin_write_EMAC_OPMODE(bfin_read_EMAC_OPMODE() | TE);
++		bfin_write_EMAC_WKUP_CTL(0);
++		disable_irq_wake(IRQ_MAC_WAKEDET);
++	} else {
++		if (netif_running(net_dev))
++			bfin_mac_open(net_dev);
++	}
  
-@@ -304,9 +313,7 @@ static int bfin_mdiobus_write(struct mii_bus *bus, int phy_addr, int regnum,
- 				STAOP |
- 				STABUSY);
- 
--	bfin_mdio_poll();
--
--	return 0;
-+	return bfin_mdio_poll();
+ 	return 0;
  }
+diff --git a/drivers/net/bfin_mac.h b/drivers/net/bfin_mac.h
+index 87c454f..1ae7b82 100644
+--- a/drivers/net/bfin_mac.h
++++ b/drivers/net/bfin_mac.h
+@@ -66,6 +66,9 @@ struct bfin_mac_local {
+ 	unsigned char Mac[6];	/* MAC address of the board */
+ 	spinlock_t lock;
  
- static int bfin_mdiobus_reset(struct mii_bus *bus)
-@@ -1181,8 +1188,9 @@ static void bfin_mac_disable(void)
- /*
-  * Enable Interrupts, Receive, and Transmit
-  */
--static void bfin_mac_enable(void)
-+static int bfin_mac_enable(void)
- {
-+	int ret;
- 	u32 opmode;
- 
- 	pr_debug("%s: %s\n", DRV_NAME, __func__);
-@@ -1192,7 +1200,9 @@ static void bfin_mac_enable(void)
- 	bfin_write_DMA1_CONFIG(rx_list_head->desc_a.config);
- 
- 	/* Wait MII done */
--	bfin_mdio_poll();
-+	ret = bfin_mdio_poll();
-+	if (ret)
-+		return ret;
- 
- 	/* We enable only RX here */
- 	/* ASTP   : Enable Automatic Pad Stripping
-@@ -1216,6 +1226,8 @@ static void bfin_mac_enable(void)
- #endif
- 	/* Turn on the EMAC rx */
- 	bfin_write_EMAC_OPMODE(opmode);
++	int wol;		/* Wake On Lan */
++	int irq_wake_requested;
 +
-+	return 0;
- }
- 
- /* Our watchdog timed out. Called by the networking layer */
-@@ -1330,7 +1342,7 @@ static void bfin_mac_shutdown(struct net_device *dev)
- static int bfin_mac_open(struct net_device *dev)
- {
- 	struct bfin_mac_local *lp = netdev_priv(dev);
--	int retval;
-+	int ret;
- 	pr_debug("%s: %s\n", dev->name, __func__);
- 
- 	/*
-@@ -1344,18 +1356,21 @@ static int bfin_mac_open(struct net_device *dev)
- 	}
- 
- 	/* initial rx and tx list */
--	retval = desc_list_init();
--
--	if (retval)
--		return retval;
-+	ret = desc_list_init();
-+	if (ret)
-+		return ret;
- 
- 	phy_start(lp->phydev);
- 	phy_write(lp->phydev, MII_BMCR, BMCR_RESET);
- 	setup_system_regs(dev);
- 	setup_mac_addr(dev->dev_addr);
-+
- 	bfin_mac_disable();
--	bfin_mac_enable();
-+	ret = bfin_mac_enable();
-+	if (ret)
-+		return ret;
- 	pr_debug("hardware init finished\n");
-+
- 	netif_start_queue(dev);
- 	netif_carrier_on(dev);
- 
+ 	/* MII and PHY stuffs */
+ 	int old_link;          /* used by bf537_adjust_link */
+ 	int old_speed;
 -- 
 1.7.1
 
