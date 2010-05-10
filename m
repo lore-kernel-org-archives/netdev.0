@@ -1,58 +1,46 @@
 From: kaber@trash.net
-Subject: [PATCH 16/84] netfilter: xt_recent: check for unsupported user space flags
-Date: Mon, 10 May 2010 22:17:47 +0200
-Message-ID: <1273522735-24672-17-git-send-email-kaber@trash.net>
+Subject: [PATCH 17/84] netfilter: remove unused headers in net/netfilter/nfnetlink.c
+Date: Mon, 10 May 2010 22:17:48 +0200
+Message-ID: <1273522735-24672-18-git-send-email-kaber@trash.net>
 References: <1273522735-24672-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54526 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:54511 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756697Ab0EJUTB (ORCPT
+	with ESMTP id S1756690Ab0EJUTB (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 16:19:01 -0400
 In-Reply-To: <1273522735-24672-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tim Gardner <tim.gardner@canonical.com>
+From: Zhitong Wang <zhitong.wangzt@alibaba-inc.com>
 
-Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+Remove unused headers in net/netfilter/nfnetlink.c
+
+Signed-off-by: Zhitong Wang <zhitong.wangzt@alibaba-inc.com>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/linux/netfilter/xt_recent.h |    3 +++
- net/netfilter/xt_recent.c           |    5 +++++
- 2 files changed, 8 insertions(+), 0 deletions(-)
+ net/netfilter/nfnetlink.c |    3 ---
+ 1 files changed, 0 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/netfilter/xt_recent.h b/include/linux/netfilter/xt_recent.h
-index bba990e..83318e0 100644
---- a/include/linux/netfilter/xt_recent.h
-+++ b/include/linux/netfilter/xt_recent.h
-@@ -20,6 +20,9 @@ enum {
- /* Only allowed with --rcheck and --update */
- #define XT_RECENT_MODIFIERS (XT_RECENT_TTL|XT_RECENT_REAP)
- 
-+#define XT_RECENT_VALID_FLAGS (XT_RECENT_CHECK|XT_RECENT_SET|XT_RECENT_UPDATE|\
-+			       XT_RECENT_REMOVE|XT_RECENT_TTL|XT_RECENT_REAP)
-+
- struct xt_recent_mtinfo {
- 	__u32 seconds;
- 	__u32 hit_count;
-diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
-index b65eca9..d2e7c80 100644
---- a/net/netfilter/xt_recent.c
-+++ b/net/netfilter/xt_recent.c
-@@ -319,6 +319,11 @@ static bool recent_mt_check(const struct xt_mtchk_param *par)
- 		get_random_bytes(&hash_rnd, sizeof(hash_rnd));
- 		hash_rnd_inited = true;
- 	}
-+	if (info->check_set & ~XT_RECENT_VALID_FLAGS) {
-+		pr_info(KBUILD_MODNAME ": Unsupported user space flags "
-+			"(%08x)\n", info->check_set);
-+		return false;
-+	}
- 	if (hweight8(info->check_set &
- 		     (XT_RECENT_SET | XT_RECENT_REMOVE |
- 		      XT_RECENT_CHECK | XT_RECENT_UPDATE)) != 1)
+diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
+index 8eb0cc2..0794f9a 100644
+--- a/net/netfilter/nfnetlink.c
++++ b/net/netfilter/nfnetlink.c
+@@ -18,12 +18,9 @@
+ #include <linux/types.h>
+ #include <linux/socket.h>
+ #include <linux/kernel.h>
+-#include <linux/major.h>
+-#include <linux/timer.h>
+ #include <linux/string.h>
+ #include <linux/sockios.h>
+ #include <linux/net.h>
+-#include <linux/fcntl.h>
+ #include <linux/skbuff.h>
+ #include <asm/uaccess.h>
+ #include <asm/system.h>
 -- 
 1.7.0.4
 
