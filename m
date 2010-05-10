@@ -1,179 +1,203 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv7] add mergeable buffers support to vhost_net
-Date: Mon, 10 May 2010 19:43:03 +0300
-Message-ID: <20100510164303.GA28798@redhat.com>
-References: <1272488232.11307.4.camel@w-dls.beaverton.ibm.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: mmotm 2010-04-28 - RCU whinges
+Date: Mon, 10 May 2010 18:53:48 +0200
+Message-ID: <4BE83A1C.5000508@trash.net>
+References: <201004290021.o3T0L04Y028017@imap1.linux-foundation.org>	 <5702.1272822394@localhost> <1272865137.2173.179.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.osdl.org
-To: David L Stevens <dlstevens@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1272488232.11307.4.camel@w-dls.beaverton.ibm.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------010005020008040209080803"
+Cc: Valdis.Kletnieks@vt.edu, Andrew Morton <akpm@linux-foundation.org>,
+	Peter Zijlstra <peterz@infradead.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1272865137.2173.179.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 28, 2010 at 01:57:12PM -0700, David L Stevens wrote:
-> @@ -218,18 +248,19 @@ static void handle_rx(struct vhost_net *
->  	use_mm(net->dev.mm);
->  	mutex_lock(&vq->mutex);
->  	vhost_disable_notify(vq);
-> -	hdr_size = vq->hdr_size;
-> +	vhost_hlen = vq->vhost_hlen;
->  
->  	vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) ?
->  		vq->log : NULL;
->  
-> -	for (;;) {
-> -		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
-> -					 ARRAY_SIZE(vq->iov),
-> -					 &out, &in,
-> -					 vq_log, &log);
-> +	while ((datalen = vhost_head_len(vq, sock->sk))) {
-> +		headcount = vhost_get_desc_n(vq, vq->heads,
-> +					     datalen + vhost_hlen,
-> +					     &in, vq_log, &log);
-> +		if (headcount < 0)
-> +			break;
->  		/* OK, now we need to know about added descriptors. */
-> -		if (head == vq->num) {
-> +		if (!headcount) {
->  			if (unlikely(vhost_enable_notify(vq))) {
->  				/* They have slipped one in as we were
->  				 * doing that: check again. */
-> @@ -241,46 +272,53 @@ static void handle_rx(struct vhost_net *
->  			break;
->  		}
->  		/* We don't need to be notified again. */
-> -		if (out) {
-> -			vq_err(vq, "Unexpected descriptor format for RX: "
-> -			       "out %d, int %d\n",
-> -			       out, in);
-> -			break;
-> -		}
-> -		/* Skip header. TODO: support TSO/mergeable rx buffers. */
-> -		s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, in);
-> +		if (vhost_hlen)
-> +			/* Skip header. TODO: support TSO. */
-> +			s = move_iovec_hdr(vq->iov, vq->hdr, vhost_hlen, in);
-> +		else
-> +			s = copy_iovec_hdr(vq->iov, vq->hdr, vq->sock_hlen, in);
->  		msg.msg_iovlen = in;
->  		len = iov_length(vq->iov, in);
->  		/* Sanity check */
->  		if (!len) {
->  			vq_err(vq, "Unexpected header len for RX: "
->  			       "%zd expected %zd\n",
-> -			       iov_length(vq->hdr, s), hdr_size);
-> +			       iov_length(vq->hdr, s), vhost_hlen);
->  			break;
->  		}
->  		err = sock->ops->recvmsg(NULL, sock, &msg,
->  					 len, MSG_DONTWAIT | MSG_TRUNC);
->  		/* TODO: Check specific error and bomb out unless EAGAIN? */
->  		if (err < 0) {
-> -			vhost_discard_vq_desc(vq);
-> +			vhost_discard_desc(vq, headcount);
->  			break;
->  		}
-> -		/* TODO: Should check and handle checksum. */
-> -		if (err > len) {
-> -			pr_err("Discarded truncated rx packet: "
-> -			       " len %d > %zd\n", err, len);
-> -			vhost_discard_vq_desc(vq);
-> +		if (err != datalen) {
-> +			pr_err("Discarded rx packet: "
-> +			       " len %d, expected %zd\n", err, datalen);
-> +			vhost_discard_desc(vq, headcount);
->  			continue;
->  		}
->  		len = err;
-> -		err = memcpy_toiovec(vq->hdr, (unsigned char *)&hdr, hdr_size);
-> -		if (err) {
-> -			vq_err(vq, "Unable to write vnet_hdr at addr %p: %d\n",
-> -			       vq->iov->iov_base, err);
-> +		if (vhost_hlen &&
-> +		    memcpy_toiovecend(vq->hdr, (unsigned char *)&hdr, 0,
-> +				      vhost_hlen)) {
-> +			vq_err(vq, "Unable to write vnet_hdr at addr %p\n",
-> +			       vq->iov->iov_base);
->  			break;
->  		}
-> -		len += hdr_size;
-> -		vhost_add_used_and_signal(&net->dev, vq, head, len);
-> +		/* TODO: Should check and handle checksum. */
-> +		if (vhost_has_feature(&net->dev, VIRTIO_NET_F_MRG_RXBUF) &&
-> +		    memcpy_toiovecend(vq->hdr, (unsigned char *)&headcount,
-> +				      offsetof(typeof(hdr), num_buffers),
-> +				      sizeof(hdr.num_buffers))) {
-> +			vq_err(vq, "Failed num_buffers write");
-> +			vhost_discard_desc(vq, headcount);
-> +			break;
-> +		}
-> +		len += vhost_hlen;
-> +		vhost_add_used_and_signal_n(&net->dev, vq, vq->heads,
-> +					    headcount);
->  		if (unlikely(vq_log))
->  			vhost_log_write(vq, vq_log, log, len);
->  		total_len += len;
+This is a multi-part message in MIME format.
+--------------010005020008040209080803
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 8bit
 
-OK I think I see the bug here: vhost_add_used_and_signal_n
-does not get the actual length, it gets the iovec length from vhost.
-Guest virtio uses this as packet length, with bad results.
+Eric Dumazet wrote:
+> Le dimanche 02 mai 2010 à 13:46 -0400, Valdis.Kletnieks@vt.edu a écrit :
+>> On Wed, 28 Apr 2010 16:53:32 PDT, akpm@linux-foundation.org said:
+>>> The mm-of-the-moment snapshot 2010-04-28-16-53 has been uploaded to
+>>>
+>>>    http://userweb.kernel.org/~akpm/mmotm/
+>> I thought we swatted all these, hit another one...
+>>
+>> [    9.131490] ctnetlink v0.93: registering with nfnetlink.
+>> [    9.131535]
+>> [    9.131535] ===================================================
+>> [    9.131704] [ INFO: suspicious rcu_dereference_check() usage. ]
+>> [    9.131794] ---------------------------------------------------
+>> [    9.131883] net/netfilter/nf_conntrack_ecache.c:88 invoked rcu_dereference_check() without protection!
+>> [    9.131977]
+>> [    9.131977] other info that might help us debug this:
+>> [    9.131978]
+>> [    9.132218]
+>> [    9.132219] rcu_scheduler_active = 1, debug_locks = 0
+>> [    9.132434] 1 lock held by swapper/1:
+>> [    9.132519]  #0:  (nf_ct_ecache_mutex){+.+...}, at: [<ffffffff8148922d>] nf_conntrack_register_notifier+0x1a/0x75
+>> [    9.132938]
+>> [    9.132939] stack backtrace:
+>> [    9.133129] Pid: 1, comm: swapper Tainted: G        W   2.6.34-rc5-mmotm0428 #1
+>> [    9.133220] Call Trace:
+>> [    9.133319]  [<ffffffff81064832>] lockdep_rcu_dereference+0xaa/0xb2
+>> [    9.133410]  [<ffffffff81489250>] nf_conntrack_register_notifier+0x3d/0x75
+>> [    9.133521]  [<ffffffff81b5a157>] ctnetlink_init+0x71/0xd5
+>> [    9.133627]  [<ffffffff81b5a0e6>] ? ctnetlink_init+0x0/0xd5
+>> [    9.133735]  [<ffffffff810001ef>] do_one_initcall+0x59/0x14e
+>> [    9.133843]  [<ffffffff81b2e68a>] kernel_init+0x144/0x1ce
+>> [    9.133949]  [<ffffffff81003414>] kernel_thread_helper+0x4/0x10
+>> [    9.134060]  [<ffffffff81598a40>] ? restore_args+0x0/0x30
+>> [    9.134196]  [<ffffffff81b2e546>] ? kernel_init+0x0/0x1ce
+>> [    9.134328]  [<ffffffff81003410>] ? kernel_thread_helper+0x0/0x10
+>> [    9.134530] ip_tables: (C) 2000-2006 Netfilter Core Team
+>> [    9.134655] TCP bic registered
+>>
+> 
+> Thanks for the report !
+> 
+> We can use rcu_dereference_protected() in those cases.
+> 
+> [PATCH] net: Use rcu_dereference_protected in nf_conntrack_ecache
+> 
+> Writers own nf_ct_ecache_mutex.
 
-So I have applied the follows and it seems to have fixed the problem:
+I've committed this patch to my tree, which also fixes up the nf_log
+changes I already had queued.
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index c16db02..9d7496d 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -219,7 +219,7 @@ static int peek_head_len(struct vhost_virtqueue *vq, struct sock *sk)
- /* This is a multi-buffer version of vhost_get_desc, that works if
-  *	vq has read descriptors only.
-  * @vq		- the relevant virtqueue
-- * @datalen	- data length we'll be reading
-+ * @datalen	- data length we'll be reading. must be > 0
-  * @iovcount	- returned count of io vectors we fill
-  * @log		- vhost log
-  * @log_num	- log offset
-@@ -236,9 +236,10 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
- 	int seg = 0;
- 	int headcount = 0;
- 	unsigned d;
-+	size_t len;
- 	int r, nlogs = 0;
+I've also figured out how to prevent the false commits from showing
+up using the '^' notation, I'll submit everything after some final
+testing.
+
+
+
+--------------010005020008040209080803
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+commit b56f2d55c6c22b0c5774b3b22e336fb6cc5f4094
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Mon May 10 18:47:57 2010 +0200
+
+    netfilter: use rcu_dereference_protected()
+    
+    Restore the rcu_dereference() calls in conntrack/expectation notifier
+    and logger registration/unregistration, but use the _protected variant,
+    which will be required by the upcoming __rcu annotations.
+    
+    Based on patch by Eric Dumazet <eric.dumazet@gmail.com>
+    
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/net/netfilter/nf_conntrack_ecache.c b/net/netfilter/nf_conntrack_ecache.c
+index a94ac3a..cdcc764 100644
+--- a/net/netfilter/nf_conntrack_ecache.c
++++ b/net/netfilter/nf_conntrack_ecache.c
+@@ -82,9 +82,12 @@ EXPORT_SYMBOL_GPL(nf_ct_deliver_cached_events);
+ int nf_conntrack_register_notifier(struct nf_ct_event_notifier *new)
+ {
+ 	int ret = 0;
++	struct nf_ct_event_notifier *notify;
  
--	while (datalen > 0) {
-+	for (;;) {
- 		if (unlikely(headcount >= VHOST_NET_MAX_SG)) {
- 			r = -ENOBUFS;
- 			goto err;
-@@ -260,16 +261,20 @@ static int get_rx_bufs(struct vhost_virtqueue *vq,
- 			nlogs += *log_num;
- 			log += *log_num;
- 		}
-+		len = iov_length(vq->iov + seg, in);
-+		seg += in;
- 		heads[headcount].id = d;
--		heads[headcount].len = iov_length(vq->iov + seg, in);
--		datalen -= heads[headcount].len;
-+		if (datalen <= len)
-+			break;
-+		heads[headcount].len = len;
- 		++headcount;
--		seg += in;
-+		datalen -= len;
+ 	mutex_lock(&nf_ct_ecache_mutex);
+-	if (nf_conntrack_event_cb != NULL) {
++	notify = rcu_dereference_protected(nf_conntrack_event_cb,
++					   lockdep_is_held(&nf_ct_ecache_mutex));
++	if (notify != NULL) {
+ 		ret = -EBUSY;
+ 		goto out_unlock;
  	}
-+	heads[headcount].len = datalen;
- 	*iovcount = seg;
- 	if (unlikely(log))
- 		*log_num = nlogs;
--	return headcount;
-+	return headcount + 1;
- err:
- 	vhost_discard_desc(vq, headcount);
- 	return r;
+@@ -100,8 +103,12 @@ EXPORT_SYMBOL_GPL(nf_conntrack_register_notifier);
+ 
+ void nf_conntrack_unregister_notifier(struct nf_ct_event_notifier *new)
+ {
++	struct nf_ct_event_notifier *notify;
++
+ 	mutex_lock(&nf_ct_ecache_mutex);
+-	BUG_ON(nf_conntrack_event_cb != new);
++	notify = rcu_dereference_protected(nf_conntrack_event_cb,
++					   lockdep_is_held(&nf_ct_ecache_mutex));
++	BUG_ON(notify != new);
+ 	rcu_assign_pointer(nf_conntrack_event_cb, NULL);
+ 	mutex_unlock(&nf_ct_ecache_mutex);
+ }
+@@ -110,9 +117,12 @@ EXPORT_SYMBOL_GPL(nf_conntrack_unregister_notifier);
+ int nf_ct_expect_register_notifier(struct nf_exp_event_notifier *new)
+ {
+ 	int ret = 0;
++	struct nf_exp_event_notifier *notify;
+ 
+ 	mutex_lock(&nf_ct_ecache_mutex);
+-	if (nf_expect_event_cb != NULL) {
++	notify = rcu_dereference_protected(nf_expect_event_cb,
++					   lockdep_is_held(&nf_ct_ecache_mutex));
++	if (notify != NULL) {
+ 		ret = -EBUSY;
+ 		goto out_unlock;
+ 	}
+@@ -128,8 +138,12 @@ EXPORT_SYMBOL_GPL(nf_ct_expect_register_notifier);
+ 
+ void nf_ct_expect_unregister_notifier(struct nf_exp_event_notifier *new)
+ {
++	struct nf_exp_event_notifier *notify;
++
+ 	mutex_lock(&nf_ct_ecache_mutex);
+-	BUG_ON(nf_expect_event_cb != new);
++	notify = rcu_dereference_protected(nf_expect_event_cb,
++					   lockdep_is_held(&nf_ct_ecache_mutex));
++	BUG_ON(notify != new);
+ 	rcu_assign_pointer(nf_expect_event_cb, NULL);
+ 	mutex_unlock(&nf_ct_ecache_mutex);
+ }
+diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
+index 908f599..7df37fd 100644
+--- a/net/netfilter/nf_log.c
++++ b/net/netfilter/nf_log.c
+@@ -35,6 +35,7 @@ static struct nf_logger *__find_logger(int pf, const char *str_logger)
+ /* return EEXIST if the same logger is registred, 0 on success. */
+ int nf_log_register(u_int8_t pf, struct nf_logger *logger)
+ {
++	const struct nf_logger *llog;
+ 	int i;
+ 
+ 	if (pf >= ARRAY_SIZE(nf_loggers))
+@@ -51,7 +52,9 @@ int nf_log_register(u_int8_t pf, struct nf_logger *logger)
+ 	} else {
+ 		/* register at end of list to honor first register win */
+ 		list_add_tail(&logger->list[pf], &nf_loggers_l[pf]);
+-		if (nf_loggers[pf] == NULL)
++		llog = rcu_dereference_protected(nf_loggers[pf],
++						 lockdep_is_held(&nf_log_mutex));
++		if (llog == NULL)
+ 			rcu_assign_pointer(nf_loggers[pf], logger);
+ 	}
+ 
+@@ -63,11 +66,14 @@ EXPORT_SYMBOL(nf_log_register);
+ 
+ void nf_log_unregister(struct nf_logger *logger)
+ {
++	const struct nf_logger *c_logger;
+ 	int i;
+ 
+ 	mutex_lock(&nf_log_mutex);
+ 	for (i = 0; i < ARRAY_SIZE(nf_loggers); i++) {
+-		if (nf_loggers[i] == logger)
++		c_logger = rcu_dereference_protected(nf_loggers[i],
++						     lockdep_is_held(&nf_log_mutex));
++		if (c_logger == logger)
+ 			rcu_assign_pointer(nf_loggers[i], NULL);
+ 		list_del(&logger->list[i]);
+ 	}
 
--- 
-MST
+--------------010005020008040209080803--
