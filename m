@@ -1,7 +1,7 @@
 From: kaber@trash.net
-Subject: [PATCH 24/84] netfilter: xtables: remove almost-unused xt_match_param.data member
-Date: Mon, 10 May 2010 22:17:55 +0200
-Message-ID: <1273522735-24672-25-git-send-email-kaber@trash.net>
+Subject: [PATCH 26/84] netfilter: xtables: do not print any messages on ENOMEM
+Date: Mon, 10 May 2010 22:17:57 +0200
+Message-ID: <1273522735-24672-27-git-send-email-kaber@trash.net>
 References: <1273522735-24672-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
@@ -12,82 +12,99 @@ List-Id: netdev.vger.kernel.org
 
 From: Jan Engelhardt <jengelh@medozas.de>
 
-This member is taking up a "long" per match, yet is only used by one
-module out of the roughly 90 modules, ip6t_hbh. ip6t_hbh can be
-restructured a little to accomodate for the lack of the .data member.
-This variant uses checking the par->match address, which should avoid
-having to add two extra functions, including calls, i.e.
-
-(hbh_mt6: call hbhdst_mt6(skb, par, NEXTHDR_OPT),
-dst_mt6: call hbhdst_mt6(skb, par, NEXTHDR_DEST))
+ENOMEM is a very obvious error code (cf. EINVAL), so I think we do not
+really need a warning message. Not to mention that if the allocation
+fails, the user is most likely going to get a stack trace from slab
+already.
 
 Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 ---
- include/linux/netfilter/x_tables.h |    3 ---
- net/ipv6/netfilter/ip6t_hbh.c      |    9 ++++++---
- 2 files changed, 6 insertions(+), 6 deletions(-)
+ net/bridge/netfilter/ebt_ulog.c |    7 ++-----
+ net/netfilter/xt_LED.c          |    4 +---
+ net/netfilter/xt_hashlimit.c    |    8 ++------
+ net/netfilter/xt_statistic.c    |    4 +---
+ 4 files changed, 6 insertions(+), 17 deletions(-)
 
-diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
-index c68ff82..cf91473 100644
---- a/include/linux/netfilter/x_tables.h
-+++ b/include/linux/netfilter/x_tables.h
-@@ -315,9 +315,6 @@ struct xt_match {
- 	/* Set this to THIS_MODULE if you are a module, otherwise NULL */
- 	struct module *me;
+diff --git a/net/bridge/netfilter/ebt_ulog.c b/net/bridge/netfilter/ebt_ulog.c
+index c6ac657..84340ab 100644
+--- a/net/bridge/netfilter/ebt_ulog.c
++++ b/net/bridge/netfilter/ebt_ulog.c
+@@ -305,13 +305,10 @@ static int __init ebt_ulog_init(void)
+ 	ebtulognl = netlink_kernel_create(&init_net, NETLINK_NFLOG,
+ 					  EBT_ULOG_MAXNLGROUPS, NULL, NULL,
+ 					  THIS_MODULE);
+-	if (!ebtulognl) {
+-		printk(KERN_WARNING KBUILD_MODNAME ": out of memory trying to "
+-		       "call netlink_kernel_create\n");
++	if (!ebtulognl)
+ 		ret = -ENOMEM;
+-	} else if ((ret = xt_register_target(&ebt_ulog_tg_reg)) != 0) {
++	else if ((ret = xt_register_target(&ebt_ulog_tg_reg)) != 0)
+ 		netlink_kernel_release(ebtulognl);
+-	}
  
--	/* Free to use by each match */
--	unsigned long data;
--
- 	const char *table;
- 	unsigned int matchsize;
- #ifdef CONFIG_COMPAT
-diff --git a/net/ipv6/netfilter/ip6t_hbh.c b/net/ipv6/netfilter/ip6t_hbh.c
-index cbe8dec..82593c8 100644
---- a/net/ipv6/netfilter/ip6t_hbh.c
-+++ b/net/ipv6/netfilter/ip6t_hbh.c
-@@ -41,6 +41,8 @@ MODULE_ALIAS("ip6t_dst");
-  *	5	-> RTALERT 2 x x
-  */
+ 	if (ret == 0)
+ 		nf_log_register(NFPROTO_BRIDGE, &ebt_ulog_logger);
+diff --git a/net/netfilter/xt_LED.c b/net/netfilter/xt_LED.c
+index f86dc52..0d6c288 100644
+--- a/net/netfilter/xt_LED.c
++++ b/net/netfilter/xt_LED.c
+@@ -92,10 +92,8 @@ static bool led_tg_check(const struct xt_tgchk_param *par)
+ 	}
  
-+static struct xt_match hbh_mt6_reg[] __read_mostly;
-+
- static bool
- hbh_mt6(const struct sk_buff *skb, const struct xt_match_param *par)
- {
-@@ -58,7 +60,9 @@ hbh_mt6(const struct sk_buff *skb, const struct xt_match_param *par)
- 	unsigned int optlen;
- 	int err;
+ 	ledinternal = kzalloc(sizeof(struct xt_led_info_internal), GFP_KERNEL);
+-	if (!ledinternal) {
+-		printk(KERN_CRIT KBUILD_MODNAME ": out of memory\n");
++	if (!ledinternal)
+ 		return false;
+-	}
  
--	err = ipv6_find_hdr(skb, &ptr, par->match->data, NULL);
-+	err = ipv6_find_hdr(skb, &ptr,
-+			    (par->match == &hbh_mt6_reg[0]) ?
-+			    NEXTHDR_HOP : NEXTHDR_DEST, NULL);
- 	if (err < 0) {
- 		if (err != -ENOENT)
- 			*par->hotdrop = true;
-@@ -179,13 +183,13 @@ static bool hbh_mt6_check(const struct xt_mtchk_param *par)
+ 	ledinternal->netfilter_led_trigger.name = ledinfo->id;
  
- static struct xt_match hbh_mt6_reg[] __read_mostly = {
- 	{
-+		/* Note, hbh_mt6 relies on the order of hbh_mt6_reg */
- 		.name		= "hbh",
- 		.family		= NFPROTO_IPV6,
- 		.match		= hbh_mt6,
- 		.matchsize	= sizeof(struct ip6t_opts),
- 		.checkentry	= hbh_mt6_check,
- 		.me		= THIS_MODULE,
--		.data		= NEXTHDR_HOP,
- 	},
- 	{
- 		.name		= "dst",
-@@ -194,7 +198,6 @@ static struct xt_match hbh_mt6_reg[] __read_mostly = {
- 		.matchsize	= sizeof(struct ip6t_opts),
- 		.checkentry	= hbh_mt6_check,
- 		.me		= THIS_MODULE,
--		.data		= NEXTHDR_DEST,
- 	},
- };
+diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
+index 1fdb50a..52327c5 100644
+--- a/net/netfilter/xt_hashlimit.c
++++ b/net/netfilter/xt_hashlimit.c
+@@ -215,10 +215,8 @@ static int htable_create_v0(struct net *net, struct xt_hashlimit_info *minfo, u_
+ 	/* FIXME: don't use vmalloc() here or anywhere else -HW */
+ 	hinfo = vmalloc(sizeof(struct xt_hashlimit_htable) +
+ 			sizeof(struct list_head) * size);
+-	if (!hinfo) {
+-		printk(KERN_ERR "xt_hashlimit: unable to create hashtable\n");
++	if (!hinfo)
+ 		return -1;
+-	}
+ 	minfo->hinfo = hinfo;
  
+ 	/* copy match config into hashtable config */
+@@ -288,10 +286,8 @@ static int htable_create(struct net *net, struct xt_hashlimit_mtinfo1 *minfo,
+ 	/* FIXME: don't use vmalloc() here or anywhere else -HW */
+ 	hinfo = vmalloc(sizeof(struct xt_hashlimit_htable) +
+ 	                sizeof(struct list_head) * size);
+-	if (hinfo == NULL) {
+-		printk(KERN_ERR "xt_hashlimit: unable to create hashtable\n");
++	if (hinfo == NULL)
+ 		return -1;
+-	}
+ 	minfo->hinfo = hinfo;
+ 
+ 	/* copy match config into hashtable config */
+diff --git a/net/netfilter/xt_statistic.c b/net/netfilter/xt_statistic.c
+index d8c0f8f..51ac1bb 100644
+--- a/net/netfilter/xt_statistic.c
++++ b/net/netfilter/xt_statistic.c
+@@ -61,10 +61,8 @@ static bool statistic_mt_check(const struct xt_mtchk_param *par)
+ 		return false;
+ 
+ 	info->master = kzalloc(sizeof(*info->master), GFP_KERNEL);
+-	if (info->master == NULL) {
+-		printk(KERN_ERR KBUILD_MODNAME ": Out of memory\n");
++	if (info->master == NULL)
+ 		return false;
+-	}
+ 	info->master->count = info->u.nth.count;
+ 
+ 	return true;
 -- 
 1.7.0.4
 
