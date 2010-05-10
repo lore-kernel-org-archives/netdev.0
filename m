@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 62/64] Bluetooth: Set hdev->dev_type based on Marvell device type
-Date: Mon, 10 May 2010 11:37:52 +0200
-Message-ID: <f120c6b635a62d414876b517aec0468628acfc60.1273484099.git.marcel@holtmann.org>
+Subject: [PATCH 64/64] Bluetooth: Fix issues where sk_sleep() helper is needed now
+Date: Mon, 10 May 2010 11:37:54 +0200
+Message-ID: <2b0b05ddc04b6d45e71cd36405df512075786f1e.1273484099.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -64,70 +64,69 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <31f085fea891d5972e994dfb423231a3d4d60a8a.1273484099.git.marcel@holtmann.org>
  <903c843773a18e061817dd7a1a5c28dd41a3bf97.1273484099.git.marcel@holtmann.org>
  <64061607eab7cb146115927cb596de123c542d45.1273484099.git.marcel@holtmann.org>
+ <f120c6b635a62d414876b517aec0468628acfc60.1273484099.git.marcel@holtmann.org>
+ <7b767cad296d17cfe071734f71a3b7b479534c8c.1273484099.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53454 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53446 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755787Ab0EJJjS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:18 -0400
-In-Reply-To: <64061607eab7cb146115927cb596de123c542d45.1273484099.git.marcel@holtmann.org>
+	with ESMTP id S1755886Ab0EJJjU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:20 -0400
+In-Reply-To: <7b767cad296d17cfe071734f71a3b7b479534c8c.1273484099.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bing Zhao <bzhao@marvell.com>
+There were some left-overs that used sk->sk_sleep instead of the new
+sk_sleep() helper.
 
-Get the device type from MODULE_BRINGUP_REQ command response.
-
-Signed-off-by: Bing Zhao <bzhao@marvell.com>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- drivers/bluetooth/btmrvl_drv.h  |    2 ++
- drivers/bluetooth/btmrvl_main.c |    9 +++++++++
- 2 files changed, 11 insertions(+), 0 deletions(-)
+ net/bluetooth/l2cap.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/bluetooth/btmrvl_drv.h b/drivers/bluetooth/btmrvl_drv.h
-index bf6d54f..bed0ba6 100644
---- a/drivers/bluetooth/btmrvl_drv.h
-+++ b/drivers/bluetooth/btmrvl_drv.h
-@@ -42,6 +42,8 @@ struct btmrvl_device {
- 	void *card;
- 	struct hci_dev *hcidev;
+diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
+index ba49f9a..673a368 100644
+--- a/net/bluetooth/l2cap.c
++++ b/net/bluetooth/l2cap.c
+@@ -1248,7 +1248,7 @@ static int __l2cap_wait_ack(struct sock *sk)
+ 	int err = 0;
+ 	int timeo = HZ/5;
  
-+	u8 dev_type;
-+
- 	u8 tx_dnld_rdy;
+-	add_wait_queue(sk->sk_sleep, &wait);
++	add_wait_queue(sk_sleep(sk), &wait);
+ 	while ((l2cap_pi(sk)->unacked_frames > 0 && l2cap_pi(sk)->conn)) {
+ 		set_current_state(TASK_INTERRUPTIBLE);
  
- 	u8 psmode;
-diff --git a/drivers/bluetooth/btmrvl_main.c b/drivers/bluetooth/btmrvl_main.c
-index ec48bfe..ee37ef0 100644
---- a/drivers/bluetooth/btmrvl_main.c
-+++ b/drivers/bluetooth/btmrvl_main.c
-@@ -116,6 +116,13 @@ int btmrvl_process_event(struct btmrvl_private *priv, struct sk_buff *skb)
- 				((event->data[2] == MODULE_BROUGHT_UP) ||
- 				(event->data[2] == MODULE_ALREADY_UP)) ?
- 				"Bring-up succeed" : "Bring-up failed");
-+
-+			if (event->length > 3)
-+				priv->btmrvl_dev.dev_type = event->data[3];
-+			else
-+				priv->btmrvl_dev.dev_type = HCI_BREDR;
-+
-+			BT_DBG("dev_type: %d", priv->btmrvl_dev.dev_type);
- 		} else if (priv->btmrvl_dev.sendcmdflag &&
- 				event->data[1] == MODULE_SHUTDOWN_REQ) {
- 			BT_DBG("EVENT:%s", (event->data[2]) ?
-@@ -549,6 +556,8 @@ int btmrvl_register_hdev(struct btmrvl_private *priv)
+@@ -1269,7 +1269,7 @@ static int __l2cap_wait_ack(struct sock *sk)
+ 			break;
+ 	}
+ 	set_current_state(TASK_RUNNING);
+-	remove_wait_queue(sk->sk_sleep, &wait);
++	remove_wait_queue(sk_sleep(sk), &wait);
+ 	return err;
+ }
  
- 	btmrvl_send_module_cfg_cmd(priv, MODULE_BRINGUP_REQ);
+@@ -3544,7 +3544,7 @@ static void l2cap_busy_work(struct work_struct *work)
  
-+	hdev->dev_type = priv->btmrvl_dev.dev_type;
-+
- 	ret = hci_register_dev(hdev);
- 	if (ret < 0) {
- 		BT_ERR("Can not register HCI device");
+ 	lock_sock(sk);
+ 
+-	add_wait_queue(sk->sk_sleep, &wait);
++	add_wait_queue(sk_sleep(sk), &wait);
+ 	while ((skb = skb_peek(BUSY_QUEUE(sk)))) {
+ 		set_current_state(TASK_INTERRUPTIBLE);
+ 
+@@ -3603,7 +3603,7 @@ done:
+ 	pi->conn_state &= ~L2CAP_CONN_RNR_SENT;
+ 
+ 	set_current_state(TASK_RUNNING);
+-	remove_wait_queue(sk->sk_sleep, &wait);
++	remove_wait_queue(sk_sleep(sk), &wait);
+ 
+ 	release_sock(sk);
+ }
 -- 
 1.6.6.1
 
