@@ -1,62 +1,105 @@
-From: Matthias Fuchs <matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
-Subject: Re: [PATCH v2] can: Add driver for esd CAN-USB/2 device
-Date: Mon, 10 May 2010 16:40:38 +0200
-Message-ID: <201005101640.39048.matthias.fuchs@esd.eu>
-References: <201005101528.50834.matthias.fuchs@esd.eu>
-	<4BE80D6E.3040205@grandegger.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: VLAN I/F's and TX queue.
+Date: Mon, 10 May 2010 16:51:02 +0200
+Message-ID: <1273503062.2221.10.camel@edumazet-laptop>
+References: <OF5A42C874.3AF220FE-ONC1257718.003ABC6E-C1257718.003F94D2@LocalDomain>
+	 <OF3F4D7278.DC6A6E51-ONC125771C.002B1AF4-C125771C.002C64E3@transmode.se>
+	 <1273222403.2261.26.camel@edumazet-laptop>  <4BE81793.3060905@trash.net>
+	 <1273502195.2221.4.camel@edumazet-laptop>  <4BE81B24.4020601@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4BE80D6E.3040205-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Joakim Tjernlund <joakim.tjernlund@transmode.se>,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f219.google.com ([209.85.218.219]:50416 "EHLO
+	mail-bw0-f219.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751799Ab0EJOvH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 10:51:07 -0400
+Received: by bwz19 with SMTP id 19so1816630bwz.21
+        for <netdev@vger.kernel.org>; Mon, 10 May 2010 07:51:06 -0700 (PDT)
+In-Reply-To: <4BE81B24.4020601@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Wolfgang,
+Le lundi 10 mai 2010 =C3=A0 16:41 +0200, Patrick McHardy a =C3=A9crit :
+> Eric Dumazet wrote:
+> > Le lundi 10 mai 2010 =C3=A0 16:26 +0200, Patrick McHardy a =C3=A9cr=
+it :
+> >=20
+> >> Is the intention just to avoid accounting the packet as dropped?
+> >> That seems fine to me since in case of NET_XMIT_CN its actually
+> >> not the currently transmitted packet that was dropped.
+> >>
+> >> But part of the intention of the above mentioned patch was actuall=
+y
+> >> to inform higher layers of congestion so they can take action if
+> >> desired, which would be defeated by this patch.
+> >>
+> >=20
+> > I see, so maybe we want following patch instead ?
+> >=20
+> > (letting NET_XMIT_CN be given to caller, but accounting current pac=
+ket
+> > as transmitted ?)
+>=20
+> Perfect, thanks. I'd suggest to change macvlan in a similar fashion
+> for consistency though.
+>=20
+> In any case please feel free to add my
+>=20
+> Acked-by: Patrick McHardy <kaber@trash.net>
 
-On Monday 10 May 2010 15:43, Wolfgang Grandegger wrote:
-> Hi Matthias,
-> 
-> On 05/10/2010 03:28 PM, Matthias Fuchs wrote:
-> > This patch adds a driver for esd's USB high speed
-> > CAN interface. The driver supports devices with
-> > multiple CAN interfaces.
-> > 
-> > Signed-off-by: Matthias Fuchs <matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
-> > ---
-> > 
-> > version 2: 
-> >  - use bus-error reporting and counters
-> 
-> I don't find support for CAN_CTRLMODE_BERR_REPORTING, apart from setting
-> the flag. If it's set bus error interrupts should be enabled or disabled
-> otherwise.
-> 
-> Wolfgang.
-I expect my implementation to be complete.
+Indeed, thanks !
 
-1) In esd_usb2_rx_event() I pass tx/rxerr in cf->data[6/7].
-2) I implemented esd_usb2_get_berr_counter(). This function will 
-   return the last tx/rx error counters from the hardware that
-   are kept in priv->bec.
-3) tx/rx error counter cannot be requested from the hardware so
-   they are stored in priv->bec when they are received from the hardware.
-   There is no way to enable or disable this behavior.
-4) Finally I enabled the whole interface via CAN_CTRLMODE_BERR_REPORTING
-   for the CAN framework.
+[PATCH net-next-2.6] net: congestion notifications are not dropped pack=
+ets
 
-I don't see where I missed anything.
+vlan/macvlan start_xmit() can inform caller of congestion with
+NET_XMIT_CN return value. This doesnt mean packet was dropped.
+Increment normal stat counters instead of tx_dropped.
 
-Matthias
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Acked-by: Patrick McHardy <kaber@trash.net>
+---
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 9a939d8..0f8cd95 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -243,7 +243,7 @@ netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
+ 	int ret;
+=20
+ 	ret =3D macvlan_queue_xmit(skb, dev);
+-	if (likely(ret =3D=3D NET_XMIT_SUCCESS)) {
++	if (likely(ret =3D=3D NET_XMIT_SUCCESS || ret =3D=3D NET_XMIT_CN)) {
+ 		txq->tx_packets++;
+ 		txq->tx_bytes +=3D len;
+ 	} else
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index b5249c5..55be908 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -327,7 +327,7 @@ static netdev_tx_t vlan_dev_hard_start_xmit(struct =
+sk_buff *skb,
+ 	len =3D skb->len;
+ 	ret =3D dev_queue_xmit(skb);
+=20
+-	if (likely(ret =3D=3D NET_XMIT_SUCCESS)) {
++	if (likely(ret =3D=3D NET_XMIT_SUCCESS || ret =3D=3D NET_XMIT_CN)) {
+ 		txq->tx_packets++;
+ 		txq->tx_bytes +=3D len;
+ 	} else
+@@ -353,7 +353,7 @@ static netdev_tx_t vlan_dev_hwaccel_hard_start_xmit=
+(struct sk_buff *skb,
+ 	len =3D skb->len;
+ 	ret =3D dev_queue_xmit(skb);
+=20
+-	if (likely(ret =3D=3D NET_XMIT_SUCCESS)) {
++	if (likely(ret =3D=3D NET_XMIT_SUCCESS || ret =3D=3D NET_XMIT_CN)) {
+ 		txq->tx_packets++;
+ 		txq->tx_bytes +=3D len;
+ 	} else
+
+
