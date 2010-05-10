@@ -1,142 +1,65 @@
-From: Neil Jones <neiljay@gmail.com>
-Subject: [PATCH] drivers/net/usb/asix.c Fix unaligned access
-Date: Mon, 10 May 2010 17:06:01 +0100
-Message-ID: <AANLkTiliFhlbe7HAOyn9O3935MkmEuRumLKYY7Ew4DXQ@mail.gmail.com>
-References: <s2q91f916b91005060413pe1a1799etdea5ad730841a04e@mail.gmail.com>
+From: Stefan Berger <stefanb@us.ibm.com>
+Subject: Re: [PATCH] virtif: initial interface extensions
+Date: Mon, 10 May 2010 15:37:00 +0000 (UTC)
+Message-ID: <loom.20100510T172617-53@post.gmane.org>
+References: <C8083A0F.2EC10%scofeldm@cisco.com> <201005061842.51981.arnd@arndb.de> <201005090120.19958.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001485f87b92d411bc04863f951a
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.153]:16874 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751233Ab0EJQGD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 12:06:03 -0400
-Received: by fg-out-1718.google.com with SMTP id d23so1661933fga.1
-        for <netdev@vger.kernel.org>; Mon, 10 May 2010 09:06:01 -0700 (PDT)
-In-Reply-To: <s2q91f916b91005060413pe1a1799etdea5ad730841a04e@mail.gmail.com>
+Received: from lo.gmane.org ([80.91.229.12]:41314 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752532Ab0EJQKF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 May 2010 12:10:05 -0400
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1OBVYS-0000Xc-ID
+	for netdev@vger.kernel.org; Mon, 10 May 2010 18:10:04 +0200
+Received: from pool-74-101-125-124.nycmny.fios.verizon.net ([74.101.125.124])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 10 May 2010 18:10:04 +0200
+Received: from stefanb by pool-74-101-125-124.nycmny.fios.verizon.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 10 May 2010 18:10:04 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---001485f87b92d411bc04863f951a
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
+Arnd Bergmann <arnd <at> arndb.de> writes:
 
-RnJvbSBiMjc3ZGJjMjU2ZGU3YjFhOGM0N2NhMzc0OTE0YzA5N2ZmNGNkZDUwIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBOZWlsIEpvbmVzIDxOZWlsSmF5QGdtYWlsLmNvbT4KRGF0ZTog
-VGh1LCA2IE1heSAyMDEwIDExOjIwOjUzICswMTAwClN1YmplY3Q6IFtQQVRDSF0gZHJpdmVycy9u
-ZXQvdXNiL2FzaXguYzogwqAgwqAgwqAgwqBGaXggdW5hbGlnbmVkIGFjY2Vzc2VzCgpVc2luZyB0
-aGlzIGRyaXZlciBjYW4gY2F1c2UgdW5hbGlnbmVkIGFjY2Vzc2VzIGluIHRoZSBJUCBsYXllcgpU
-aGlzIGhhcyBiZWVuIGZpeGVkIGJ5IGFsaWduaW5nIHRoZSBza2IgZGF0YSBjb3JyZWN0bHkgdXNp
-bmcgdGhlCnNwYXJlIHJvb20gbGVmdCBvdmVyIGJ5IHRoZSA0IGJ5dGUgaGVhZGVyIGluc2VydGVk
-IGJldHdlZW4gcGFja2V0cwpieSB0aGUgZGV2aWNlLgoKU2lnbmVkLW9mZi1ieTogTmVpbCBKb25l
-cyA8TmVpbEpheUBnbWFpbC5jb20+Ci0tLQrCoGRyaXZlcnMvbmV0L3VzYi9hc2l4LmMgfCDCoCAz
-NyArKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKystCsKgMSBmaWxlcyBjaGFuZ2Vk
-LCAzNiBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMv
-bmV0L3VzYi9hc2l4LmMgYi9kcml2ZXJzL25ldC91c2IvYXNpeC5jCmluZGV4IGE1MTYxODUuLjVi
-NGYwZGYgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3VzYi9hc2l4LmMKKysrIGIvZHJpdmVycy9u
-ZXQvdXNiL2FzaXguYwpAQCAtMzE5LDE2ICszMTksNTEgQEAgc3RhdGljIGludCBhc2l4X3J4X2Zp
-eHVwKHN0cnVjdCB1c2JuZXQgKmRldiwKc3RydWN0IHNrX2J1ZmYgKnNrYikKwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAvKiBnZXQgdGhlIHBhY2tldCBsZW5ndGggKi8KwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqBzaXplID0gKHUxNikgKGhlYWRlciAmIDB4MDAwMGZmZmYpOwoKLSDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCBpZiAoKHNrYi0+bGVuKSAtICgoc2l6ZSArIDEpICYgMHhmZmZlKSA9PSAwKQorIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIGlmICgoc2tiLT5sZW4pIC0gKChzaXplICsgMSkgJiAweGZmZmUp
-ID09IDApIHsKKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCB1OCBhbGlnbm1lbnQg
-PSAodTMyKXNrYi0+ZGF0YSAmIDB4MzsKKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCBpZiAoYWxpZ25tZW50ICE9IDB4MikgeworIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIC8qCisgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAqIG5vdCAxNmJpdCBhbGlnbmVkIHNvIHVzZSB0aGUgcm9vbSBwcm92aWRlZCBi
-eQorIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgKiB0aGUg
-MzIgYml0IGhlYWRlciB0byBhbGlnbiB0aGUgZGF0YQorIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgKgorIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgKiBub3RlIHdlIHdhbnQgMTZiaXQgYWxpZ25tZW50IGFzIE1BQyBo
-ZWFkZXIgaXMKKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCogMTRieXRlcyB0aHVzIGlwIGhlYWRlciB3aWxsIGJlIGFsaWduZWQgb24KKyDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCogMzJiaXQgYm91bmRhcnkgc28g
-YWNjZXNzaW5nIGlwaGVhZGVyIGVsZW1lbnRzCisgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAqIHVzaW5nIGEgY2FzdCB0byBzdHJ1Y3QgaXAgaGVhZGVyIHdv
-bnQgY2F1c2UKKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCogYW4gdW5hbGlnbmVkIGFjY2Vzc2VzLgorIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgKi8KKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCB1OCByZWFsaWdubWVudCA9IChhbGlnbm1lbnQgKyAyKSAmIDB4MzsKKyDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBtZW1tb3ZlKHNrYi0+ZGF0
-YSAtIHJlYWxpZ25tZW50LAorIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIHNrYi0+ZGF0YSwKKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBzaXplKTsKKyDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBza2ItPmRhdGEgLT0gcmVhbGlnbm1lbnQ7Cisg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgc2tiX3NldF90YWls
-X3BvaW50ZXIoc2tiLCBzaXplKTsKKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCB9
-CsKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgcmV0dXJuIDI7CisgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgfQorCisKwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBpZiAoc2l6ZSA+IEVUSF9G
-UkFNRV9MRU4pIHsKwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBkZXZlcnIoZGV2
-LCJhc2l4X3J4X2ZpeHVwKCkgQmFkIFJYIExlbmd0aCAlZCIsIHNpemUpOwrCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoHJldHVybiAwOwrCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoH0K
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBheF9za2IgPSBza2JfY2xvbmUoc2tiLCBHRlBfQVRPTUlD
-KTsKwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBpZiAoYXhfc2tiKSB7CisgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgdTggYWxpZ25tZW50ID0gKHUzMilwYWNrZXQgJiAweDM7CsKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgYXhfc2tiLT5sZW4gPSBzaXplOworCisgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgaWYgKGFsaWdubWVudCAhPSAweDIpIHsKKyDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCAvKgorIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgKiBub3QgMTZiaXQgYWxpZ25l
-ZCB1c2UgdGhlIHJvb20gcHJvdmlkZWQgYnkKKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCogdGhlIDMyIGJpdCBoZWFkZXIgdG8gYWxpZ24gdGhlIGRhdGEK
-KyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCovCisgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgdTggcmVhbGlnbm1lbnQg
-PSAoYWxpZ25tZW50ICsgMikgJiAweDM7CisgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgbWVtbW92ZShwYWNrZXQgLSByZWFsaWdubWVudCwgcGFja2V0LCBzaXpl
-KTsKKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBwYWNrZXQg
-LT0gcmVhbGlnbm1lbnQ7CisgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgfQrCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoGF4X3NrYi0+ZGF0YSA9IHBhY2tldDsKKwor
-CsKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgc2tiX3NldF90YWlsX3BvaW50ZXIo
-YXhfc2tiLCBzaXplKTsKwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqB1c2JuZXRf
-c2tiX3JldHVybihkZXYsIGF4X3NrYik7CsKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgfSBlbHNlIHsK
-LS0KMS41LjUuMgo=
---001485f87b92d411bc04863f951a
-Content-Type: application/octet-stream;
-	name="0001-drivers-net-usb-asix.c-Fix-unaligned-accesses.patch"
-Content-Disposition: attachment;
-	filename="0001-drivers-net-usb-asix.c-Fix-unaligned-accesses.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_g8vh7dnn0
+[...]
 
-RnJvbSBiMjc3ZGJjMjU2ZGU3YjFhOGM0N2NhMzc0OTE0YzA5N2ZmNGNkZDUwIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBOZWlsIEpvbmVzIDxuam9uZXNAbG9mdHkubGUuaW1ndGVjLm9y
-Zz4KRGF0ZTogVGh1LCA2IE1heSAyMDEwIDExOjIwOjUzICswMTAwClN1YmplY3Q6IFtQQVRDSF0g
-ZHJpdmVycy9uZXQvdXNiL2FzaXguYzoJRml4IHVuYWxpZ25lZCBhY2Nlc3NlcwoKVXNpbmcgdGhp
-cyBkcml2ZXIgY2FuIGNhdXNlIHVuYWxpZ25lZCBhY2Nlc3NlcyBpbiB0aGUgSVAgbGF5ZXIKVGhp
-cyBoYXMgYmVlbiBmaXhlZCBieSBhbGlnbmluZyB0aGUgc2tiIGRhdGEgY29ycmVjdGx5IHVzaW5n
-IHRoZQpzcGFyZSByb29tIGxlZnQgb3ZlciBieSB0aGUgNCBieXRlIGhlYWRlciBpbnNlcnRlZCBi
-ZXR3ZWVuIHBhY2tldHMKYnkgdGhlIGRldmljZS4NCg0KU2lnbmVkLW9mZi1ieTogTmVpbCBKb25l
-cyA8TmVpbEpheUBnbWFpbC5jb20+Ci0tLQogZHJpdmVycy9uZXQvdXNiL2FzaXguYyB8ICAgMzcg
-KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrLQogMSBmaWxlcyBjaGFuZ2VkLCAz
-NiBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0
-L3VzYi9hc2l4LmMgYi9kcml2ZXJzL25ldC91c2IvYXNpeC5jCmluZGV4IGE1MTYxODUuLjViNGYw
-ZGYgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3VzYi9hc2l4LmMKKysrIGIvZHJpdmVycy9uZXQv
-dXNiL2FzaXguYwpAQCAtMzE5LDE2ICszMTksNTEgQEAgc3RhdGljIGludCBhc2l4X3J4X2ZpeHVw
-KHN0cnVjdCB1c2JuZXQgKmRldiwgc3RydWN0IHNrX2J1ZmYgKnNrYikKIAkJLyogZ2V0IHRoZSBw
-YWNrZXQgbGVuZ3RoICovCiAJCXNpemUgPSAodTE2KSAoaGVhZGVyICYgMHgwMDAwZmZmZik7CiAK
-LQkJaWYgKChza2ItPmxlbikgLSAoKHNpemUgKyAxKSAmIDB4ZmZmZSkgPT0gMCkKKwkJaWYgKChz
-a2ItPmxlbikgLSAoKHNpemUgKyAxKSAmIDB4ZmZmZSkgPT0gMCkgeworCQkJdTggYWxpZ25tZW50
-ID0gKHUzMilza2ItPmRhdGEgJiAweDM7CisJCQlpZiAoYWxpZ25tZW50ICE9IDB4MikgeworCQkJ
-CS8qCisJCQkJICogbm90IDE2Yml0IGFsaWduZWQgc28gdXNlIHRoZSByb29tIHByb3ZpZGVkIGJ5
-CisJCQkJICogdGhlIDMyIGJpdCBoZWFkZXIgdG8gYWxpZ24gdGhlIGRhdGEKKwkJCQkgKgorCQkJ
-CSAqIG5vdGUgd2Ugd2FudCAxNmJpdCBhbGlnbm1lbnQgYXMgTUFDIGhlYWRlciBpcworCQkJCSAq
-IDE0Ynl0ZXMgdGh1cyBpcCBoZWFkZXIgd2lsbCBiZSBhbGlnbmVkIG9uCisJCQkJICogMzJiaXQg
-Ym91bmRhcnkgc28gYWNjZXNzaW5nIGlwaGVhZGVyIGVsZW1lbnRzCisJCQkJICogdXNpbmcgYSBj
-YXN0IHRvIHN0cnVjdCBpcCBoZWFkZXIgd29udCBjYXVzZQorCQkJCSAqIGFuIHVuYWxpZ25lZCBh
-Y2Nlc3Nlcy4KKwkJCQkgKi8KKwkJCQl1OCByZWFsaWdubWVudCA9IChhbGlnbm1lbnQgKyAyKSAm
-IDB4MzsKKwkJCQltZW1tb3ZlKHNrYi0+ZGF0YSAtIHJlYWxpZ25tZW50LAorCQkJCQlza2ItPmRh
-dGEsCisJCQkJCXNpemUpOworCQkJCXNrYi0+ZGF0YSAtPSByZWFsaWdubWVudDsKKwkJCQlza2Jf
-c2V0X3RhaWxfcG9pbnRlcihza2IsIHNpemUpOworCQkJfQogCQkJcmV0dXJuIDI7CisJCX0KKwor
-CiAJCWlmIChzaXplID4gRVRIX0ZSQU1FX0xFTikgewogCQkJZGV2ZXJyKGRldiwiYXNpeF9yeF9m
-aXh1cCgpIEJhZCBSWCBMZW5ndGggJWQiLCBzaXplKTsKIAkJCXJldHVybiAwOwogCQl9CiAJCWF4
-X3NrYiA9IHNrYl9jbG9uZShza2IsIEdGUF9BVE9NSUMpOwogCQlpZiAoYXhfc2tiKSB7CisJCQl1
-OCBhbGlnbm1lbnQgPSAodTMyKXBhY2tldCAmIDB4MzsKIAkJCWF4X3NrYi0+bGVuID0gc2l6ZTsK
-KworCQkJaWYgKGFsaWdubWVudCAhPSAweDIpIHsKKwkJCQkvKgorCQkJCSAqIG5vdCAxNmJpdCBh
-bGlnbmVkIHVzZSB0aGUgcm9vbSBwcm92aWRlZCBieQorCQkJCSAqIHRoZSAzMiBiaXQgaGVhZGVy
-IHRvIGFsaWduIHRoZSBkYXRhCisJCQkJICovCisJCQkJdTggcmVhbGlnbm1lbnQgPSAoYWxpZ25t
-ZW50ICsgMikgJiAweDM7CisJCQkJbWVtbW92ZShwYWNrZXQgLSByZWFsaWdubWVudCwgcGFja2V0
-LCBzaXplKTsKKwkJCQlwYWNrZXQgLT0gcmVhbGlnbm1lbnQ7CisJCQl9CiAJCQlheF9za2ItPmRh
-dGEgPSBwYWNrZXQ7CisKKwogCQkJc2tiX3NldF90YWlsX3BvaW50ZXIoYXhfc2tiLCBzaXplKTsK
-IAkJCXVzYm5ldF9za2JfcmV0dXJuKGRldiwgYXhfc2tiKTsKIAkJfSBlbHNlIHsKLS0gCjEuNS41
-LjIKCg==
---001485f87b92d411bc04863f951a--
+> +	if (tb[IFLA_VIRTIF]) {
+> +		struct ifla_virtif_port_profile *ivp;
+> +		struct nlattr *virtif[IFLA_VIRTIF_MAX+1];
+> +		u32 vf;
+> +
+> +		err = nla_parse_nested(virtif, IFLA_VIRTIF_MAX,
+> +				       tb[IFLA_VIRTIF], ifla_virtif_policy);
+> +		if (err < 0)
+> +			return err;
+> +
+> +		if (!virtif[IFLA_VIRTIF_VF] || !virtif[IFLA_VIRTIF_PORT_PROFILE])
+> +			goto novirtif; /* IFLA_VIRTIF may be directed at user space */
+
+
+In what case would the IFLA_VIRTIF_PORT_PROFILE be provided? Would libvirt for
+example need to be aware of whether the Ethernet device can handle the setup
+protocol via its firmware and in this case provide the port profile parameter
+and in other cases provide other parameters? Certainly the user or upper layer
+management software would have to know it when creating the domain XML and in
+fact different types of parameters were needed. Obviously we should have one
+common set of (XML) parameters that go into the netlink message and that can be
+handled by the kernel driver if the firmware knows how to handle it or by
+LLDPAD. Libvirt would send the parameters via netlink message to trigger the
+setup protocol and the message may be received by kernel and LLDPAD. From what I
+can see LLDPAD also may need a way to probe the kernel driver whether it handled
+the setup protocol via firmware on a given interface, which may or may not be
+true for all interfaces, but may be necessary to avoid triggering the setup
+protocol twice.
+
+   Stefan
+
+
+
