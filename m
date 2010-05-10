@@ -1,110 +1,56 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: Re: [PATCH v2] sctp: Fix a race between ICMP protocol unreachable
- and connect()
-Date: Mon, 10 May 2010 10:56:07 +0800
-Message-ID: <4BE775C7.9070702@cn.fujitsu.com>
-References: <1273087783-18250-1-git-send-email-vladislav.yasevich@hp.com> <1273088166-18391-1-git-send-email-vladislav.yasevich@hp.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch v10 0/3] net: reserve ports for applications using fixed
+ port numbers
+Date: Mon, 10 May 2010 12:01:33 +0800
+Message-ID: <4BE7851D.2090304@redhat.com>
+References: <20100505103033.5600.77502.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Cc: linux-kernel@vger.kernel.org,
+	Octavian Purdila <opurdila@ixiacom.com>, ebiederm@xmission.com,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	penguin-kernel@I-love.SAKURA.ne.jp, netdev@vger.kernel.org,
+	Neil Horman <nhorman@tuxdriver.com>, xiaosuo@gmail.com,
+	adobriyan@gmail.com, David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Amerigo Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:62081 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1755027Ab0EJC6T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 May 2010 22:58:19 -0400
-In-Reply-To: <1273088166-18391-1-git-send-email-vladislav.yasevich@hp.com>
+Received: from mx1.redhat.com ([209.132.183.28]:38443 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751765Ab0EJD54 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 May 2010 23:57:56 -0400
+In-Reply-To: <20100505103033.5600.77502.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Vlad:
+(Adding Andrew into Cc, hope can hear from him.)
 
-> [.. removed leftover debuggin printk. should probably be queued for stable
->  as well... ]
+On 05/05/10 18:26, Amerigo Wang wrote:
+> Changes from the previous version:
+> - Use 'true' and 'false' for bool's;
+> - Fix some coding style problems;
+> - Allow appending lines to bitmap proc file so that it will be
+>    easier to add new bits.
 >
-> ICMP protocol unreachable handling completely disregarded
-> the fact that the user may have locket the socket.  It proceeded
-> to destroy the association, even though the user may have
-> held the lock and had a ref on the association.  This resulted
-> in the following:
+> ------------------>
 >
-> Attempt to release alive inet socket f6afcc00
+> This patch introduces /proc/sys/net/ipv4/ip_local_reserved_ports which
+> allows users to reserve ports for third-party applications.
 >
-> =========================
-> [ BUG: held lock freed! ]
-> -------------------------
-> somenu/2672 is freeing memory f6afcc00-f6afcfff, with a lock still held
-> there!
->  (sk_lock-AF_INET){+.+.+.}, at: [<c122098a>] sctp_connect+0x13/0x4c
-> 1 lock held by somenu/2672:
->  #0:  (sk_lock-AF_INET){+.+.+.}, at: [<c122098a>] sctp_connect+0x13/0x4c
+> The reserved ports will not be used by automatic port assignments
+> (e.g. when calling connect() or bind() with port number 0). Explicit
+> port allocation behavior is unchanged.
 >
-> stack backtrace:
-> Pid: 2672, comm: somenu Not tainted 2.6.32-telco #55
-> Call Trace:
->  [<c1232266>] ? printk+0xf/0x11
->  [<c1038553>] debug_check_no_locks_freed+0xce/0xff
->  [<c10620b4>] kmem_cache_free+0x21/0x66
->  [<c1185f25>] __sk_free+0x9d/0xab
->  [<c1185f9c>] sk_free+0x1c/0x1e
->  [<c1216e38>] sctp_association_put+0x32/0x89
->  [<c1220865>] __sctp_connect+0x36d/0x3f4
->  [<c122098a>] ? sctp_connect+0x13/0x4c
->  [<c102d073>] ? autoremove_wake_function+0x0/0x33
->  [<c12209a8>] sctp_connect+0x31/0x4c
->  [<c11d1e80>] inet_dgram_connect+0x4b/0x55
->  [<c11834fa>] sys_connect+0x54/0x71
->  [<c103a3a2>] ? lock_release_non_nested+0x88/0x239
->  [<c1054026>] ? might_fault+0x42/0x7c
->  [<c1054026>] ? might_fault+0x42/0x7c
->  [<c11847ab>] sys_socketcall+0x6d/0x178
->  [<c10da994>] ? trace_hardirqs_on_thunk+0xc/0x10
->  [<c1002959>] syscall_call+0x7/0xb
+> There are still some miss behaviors with regard to proc parsing in odd
+> invalid cases (for "40000\0-40001" all is acknowledged but only 40000
+> is accepted) but they are not easy to fix without changing the current
+> "acknowledge how much we accepted" behavior.
 >
-> This was because the sctp_wait_for_connect() would aqcure the socket
-> lock and then proceed to release the last reference count on the
-> association, thus cause the fully destruction path to finish freeing
-> the socket.
+> Because of that and because the same issues are present in the
+> existing proc_dointvec code as well I don't think its worth holding
+> the actual feature (port reservation) after such petty error recovery
+> issues.
 >
-> The simplest solution is to start a very short timer in case the socket
-> is owned by user.  When the timer expires, we can do some verification
-> and be able to do the release properly.
->   
-
-After reviewed this patch, I think we should delete active ICMP proto
-unreachable timer when free transport. since I don't reproduce this BUG,
-so I just do compile test only, sorry.
-
-[PATCH] sctp: delete active ICMP proto unreachable timer when free transport
-
-transport may be free before ICMP proto unreachable timer expire, so
-we should delete active ICMP proto unreachable timer when transport
-is going away.
-
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
----
- net/sctp/transport.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
-
-diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-index 4a36803..165d54e 100644
---- a/net/sctp/transport.c
-+++ b/net/sctp/transport.c
-@@ -173,6 +173,10 @@ void sctp_transport_free(struct sctp_transport *transport)
- 	    del_timer(&transport->T3_rtx_timer))
- 		sctp_transport_put(transport);
- 
-+	/* Delete the ICMP proto unreachable timer if it's active. */
-+	if (timer_pending(&transport->proto_unreach_timer) &&
-+	    del_timer(&transport->proto_unreach_timer))
-+		sctp_association_put(transport->asoc);
- 
- 	sctp_transport_put(transport);
- }
--- 
-1.6.5.2
-
-
+>
 
