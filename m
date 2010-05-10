@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 23/64] Bluetooth: Add timer to Acknowledge I-frames
-Date: Mon, 10 May 2010 11:37:13 +0200
-Message-ID: <c1b4f43be01c2a363be021485dd18cca33cfab8a.1273484097.git.marcel@holtmann.org>
+Subject: [PATCH 30/64] Bluetooth: Add sockopt configuration for txWindow on L2CAP
+Date: Mon, 10 May 2010 11:37:20 +0200
+Message-ID: <14b5aa71ec506f4e38ca6a1dc02ecd668ecfd902.1273484097.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -25,6 +25,13 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <6e3a59819fac19006fe4255b87928e5a12c54532.1273484096.git.marcel@holtmann.org>
  <8abb52ee00c4b3f857269eb6b7145991bab869bf.1273484096.git.marcel@holtmann.org>
  <05fbd89dd4153341717b33d9e8ae8bd29db6c1c8.1273484096.git.marcel@holtmann.org>
+ <c1b4f43be01c2a363be021485dd18cca33cfab8a.1273484097.git.marcel@holtmann.org>
+ <2fb862e215e53630066c677e06d7551fa38bf235.1273484097.git.marcel@holtmann.org>
+ <7b1c0049be3aabc18831ada339dbcf41ba8c81fd.1273484097.git.marcel@holtmann.org>
+ <1c7621596d11b9c3e19eb88a818758dee4901c95.1273484097.git.marcel@holtmann.org>
+ <10467e9e9b89272b25b56688bb276d0830e9ab9a.1273484097.git.marcel@holtmann.org>
+ <052897ca5019d9157ae09e5e84eee2a9ef5dccc6.1273484097.git.marcel@holtmann.org>
+ <855666cccc939d392316de17512e17a08b2fa05a.1273484097.git.marcel@holtmann.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -33,9 +40,9 @@ To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from senator.holtmann.net ([87.106.208.187]:53431 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755765Ab0EJJix (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:38:53 -0400
-In-Reply-To: <05fbd89dd4153341717b33d9e8ae8bd29db6c1c8.1273484096.git.marcel@holtmann.org>
+	with ESMTP id S1755833Ab0EJJi5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:38:57 -0400
+In-Reply-To: <855666cccc939d392316de17512e17a08b2fa05a.1273484097.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
@@ -43,110 +50,95 @@ List-ID: <netdev.vger.kernel.org>
 
 =46rom: Gustavo F. Padovan <padovan@profusion.mobi>
 
-We ack I-frames on each txWindow/5 I-frames received, but if the sender
-stop to send I-frames and it's not a txWindow multiple we can leave som=
-e
-frames unacked.
-So I added a timer to ack I-frames on this case. The timer expires in
-200ms.
+Now we can set/get Transmission Window size via sockopt.
 
 Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
 Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- include/net/bluetooth/l2cap.h |    4 ++++
- net/bluetooth/l2cap.c         |   15 +++++++++++++++
- 2 files changed, 19 insertions(+), 0 deletions(-)
+ include/net/bluetooth/l2cap.h |    2 ++
+ net/bluetooth/l2cap.c         |    7 ++++++-
+ 2 files changed, 8 insertions(+), 1 deletions(-)
 
 diff --git a/include/net/bluetooth/l2cap.h b/include/net/bluetooth/l2ca=
 p.h
-index d9c20c3..48f10f4 100644
+index 0f4e423..07ae4cc 100644
 --- a/include/net/bluetooth/l2cap.h
 +++ b/include/net/bluetooth/l2cap.h
-@@ -35,6 +35,7 @@
- #define L2CAP_DEFAULT_RETRANS_TO	1000    /* 1 second */
- #define L2CAP_DEFAULT_MONITOR_TO	12000   /* 12 seconds */
- #define L2CAP_DEFAULT_MAX_PDU_SIZE	672
-+#define L2CAP_DEFAULT_ACK_TO		200
+@@ -56,6 +56,7 @@ struct l2cap_options {
+ 	__u16 flush_to;
+ 	__u8  mode;
+ 	__u8  fcs;
++	__u16 txwin_size;
+ };
 =20
- #define L2CAP_CONN_TIMEOUT	(40000) /* 40 seconds */
- #define L2CAP_INFO_TIMEOUT	(4000)  /*  4 seconds */
-@@ -348,6 +349,7 @@ struct l2cap_pinfo {
+ #define L2CAP_CONNINFO	0x02
+@@ -339,6 +340,7 @@ struct l2cap_pinfo {
 =20
- 	struct timer_list	retrans_timer;
- 	struct timer_list	monitor_timer;
-+	struct timer_list	ack_timer;
- 	struct sk_buff_head	tx_queue;
- 	struct sk_buff_head	srej_queue;
- 	struct srej_list	srej_l;
-@@ -382,6 +384,8 @@ struct l2cap_pinfo {
- 		jiffies +  msecs_to_jiffies(L2CAP_DEFAULT_RETRANS_TO));
- #define __mod_monitor_timer() mod_timer(&l2cap_pi(sk)->monitor_timer, =
-\
- 		jiffies + msecs_to_jiffies(L2CAP_DEFAULT_MONITOR_TO));
-+#define __mod_ack_timer() mod_timer(&l2cap_pi(sk)->ack_timer, \
-+		jiffies + msecs_to_jiffies(L2CAP_DEFAULT_ACK_TO));
+ 	__u8		ident;
 =20
- static inline int l2cap_tx_window_full(struct sock *sk)
- {
++	__u8		tx_win;
+ 	__u8		remote_tx_win;
+ 	__u8		remote_max_tx;
+ 	__u16		retrans_timeout;
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index f386985..0300656 100644
+index c6bc1b9..5300796 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -2235,6 +2235,15 @@ static void l2cap_add_conf_opt(void **ptr, u8 ty=
-pe, u8 len, unsigned long val)
- 	*ptr +=3D L2CAP_CONF_OPT_SIZE + len;
- }
+@@ -782,6 +782,7 @@ static void l2cap_sock_init(struct sock *sk, struct=
+ sock *parent)
+ 		pi->omtu =3D l2cap_pi(parent)->omtu;
+ 		pi->mode =3D l2cap_pi(parent)->mode;
+ 		pi->fcs  =3D l2cap_pi(parent)->fcs;
++		pi->tx_win =3D l2cap_pi(parent)->tx_win;
+ 		pi->sec_level =3D l2cap_pi(parent)->sec_level;
+ 		pi->role_switch =3D l2cap_pi(parent)->role_switch;
+ 		pi->force_reliable =3D l2cap_pi(parent)->force_reliable;
+@@ -790,6 +791,7 @@ static void l2cap_sock_init(struct sock *sk, struct=
+ sock *parent)
+ 		pi->omtu =3D 0;
+ 		pi->mode =3D L2CAP_MODE_BASIC;
+ 		pi->fcs  =3D L2CAP_FCS_CRC16;
++		pi->tx_win =3D L2CAP_DEFAULT_TX_WINDOW;
+ 		pi->sec_level =3D BT_SECURITY_LOW;
+ 		pi->role_switch =3D 0;
+ 		pi->force_reliable =3D 0;
+@@ -1782,6 +1784,7 @@ static int l2cap_sock_setsockopt_old(struct socke=
+t *sock, int optname, char __us
+ 		opts.flush_to =3D l2cap_pi(sk)->flush_to;
+ 		opts.mode     =3D l2cap_pi(sk)->mode;
+ 		opts.fcs      =3D l2cap_pi(sk)->fcs;
++		opts.txwin_size =3D (__u16)l2cap_pi(sk)->tx_win;
 =20
-+static void l2cap_ack_timeout(unsigned long arg)
-+{
-+	struct sock *sk =3D (void *) arg;
-+
-+	bh_lock_sock(sk);
-+	l2cap_send_ack(l2cap_pi(sk));
-+	bh_unlock_sock(sk);
-+}
-+
- static inline void l2cap_ertm_init(struct sock *sk)
- {
- 	l2cap_pi(sk)->expected_ack_seq =3D 0;
-@@ -2247,6 +2256,8 @@ static inline void l2cap_ertm_init(struct sock *s=
-k)
- 			l2cap_retrans_timeout, (unsigned long) sk);
- 	setup_timer(&l2cap_pi(sk)->monitor_timer,
- 			l2cap_monitor_timeout, (unsigned long) sk);
-+	setup_timer(&l2cap_pi(sk)->ack_timer,
-+			l2cap_ack_timeout, (unsigned long) sk);
+ 		len =3D min_t(unsigned int, sizeof(opts), optlen);
+ 		if (copy_from_user((char *) &opts, optval, len)) {
+@@ -1793,6 +1796,7 @@ static int l2cap_sock_setsockopt_old(struct socke=
+t *sock, int optname, char __us
+ 		l2cap_pi(sk)->omtu =3D opts.omtu;
+ 		l2cap_pi(sk)->mode =3D opts.mode;
+ 		l2cap_pi(sk)->fcs  =3D opts.fcs;
++		l2cap_pi(sk)->tx_win =3D (__u8)opts.txwin_size;
+ 		break;
 =20
- 	__skb_queue_head_init(SREJ_QUEUE(sk));
- }
-@@ -2975,6 +2986,7 @@ static inline int l2cap_disconnect_req(struct l2c=
-ap_conn *conn, struct l2cap_cmd
- 		skb_queue_purge(SREJ_QUEUE(sk));
- 		del_timer(&l2cap_pi(sk)->retrans_timer);
- 		del_timer(&l2cap_pi(sk)->monitor_timer);
-+		del_timer(&l2cap_pi(sk)->ack_timer);
- 	}
+ 	case L2CAP_LM:
+@@ -1907,6 +1911,7 @@ static int l2cap_sock_getsockopt_old(struct socke=
+t *sock, int optname, char __us
+ 		opts.flush_to =3D l2cap_pi(sk)->flush_to;
+ 		opts.mode     =3D l2cap_pi(sk)->mode;
+ 		opts.fcs      =3D l2cap_pi(sk)->fcs;
++		opts.txwin_size =3D (__u16)l2cap_pi(sk)->tx_win;
 =20
- 	l2cap_chan_del(sk, ECONNRESET);
-@@ -3005,6 +3017,7 @@ static inline int l2cap_disconnect_rsp(struct l2c=
-ap_conn *conn, struct l2cap_cmd
- 		skb_queue_purge(SREJ_QUEUE(sk));
- 		del_timer(&l2cap_pi(sk)->retrans_timer);
- 		del_timer(&l2cap_pi(sk)->monitor_timer);
-+		del_timer(&l2cap_pi(sk)->ack_timer);
- 	}
+ 		len =3D min_t(unsigned int, len, sizeof(opts));
+ 		if (copy_to_user(optval, (char *) &opts, len))
+@@ -2324,7 +2329,7 @@ done:
 =20
- 	l2cap_chan_del(sk, 0);
-@@ -3484,6 +3497,8 @@ expected:
- 	if (err < 0)
- 		return err;
-=20
-+	__mod_ack_timer();
-+
- 	pi->num_to_ack =3D (pi->num_to_ack + 1) % L2CAP_DEFAULT_NUM_TO_ACK;
- 	if (pi->num_to_ack =3D=3D L2CAP_DEFAULT_NUM_TO_ACK - 1)
- 		l2cap_send_ack(pi);
+ 	case L2CAP_MODE_ERTM:
+ 		rfc.mode            =3D L2CAP_MODE_ERTM;
+-		rfc.txwin_size      =3D L2CAP_DEFAULT_TX_WINDOW;
++		rfc.txwin_size      =3D pi->tx_win;
+ 		rfc.max_transmit    =3D max_transmit;
+ 		rfc.retrans_timeout =3D 0;
+ 		rfc.monitor_timeout =3D 0;
 --=20
 1.6.6.1
 
