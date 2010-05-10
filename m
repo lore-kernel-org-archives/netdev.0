@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 29/64] Bluetooth: Send Ack after clear the SREJ list
-Date: Mon, 10 May 2010 11:37:19 +0200
-Message-ID: <855666cccc939d392316de17512e17a08b2fa05a.1273484097.git.marcel@holtmann.org>
+Subject: [PATCH 43/64] Bluetooth: Don't set control bits to zero first
+Date: Mon, 10 May 2010 11:37:33 +0200
+Message-ID: <44651b85cc3a076147af5d181fc4833ef8debc59.1273484098.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -31,17 +31,31 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <1c7621596d11b9c3e19eb88a818758dee4901c95.1273484097.git.marcel@holtmann.org>
  <10467e9e9b89272b25b56688bb276d0830e9ab9a.1273484097.git.marcel@holtmann.org>
  <052897ca5019d9157ae09e5e84eee2a9ef5dccc6.1273484097.git.marcel@holtmann.org>
+ <855666cccc939d392316de17512e17a08b2fa05a.1273484097.git.marcel@holtmann.org>
+ <14b5aa71ec506f4e38ca6a1dc02ecd668ecfd902.1273484097.git.marcel@holtmann.org>
+ <803020c6fa63aa738cfda3329c9675b42023e9d2.1273484097.git.marcel@holtmann.org>
+ <369ba30264826f38eefc61b93688100be8adbd4d.1273484097.git.marcel@holtmann.org>
+ <68d7f0ce911e41e463c45911be031cdf6a096fe8.1273484097.git.marcel@holtmann.org>
+ <f6e6b16823de0aff31cb8ee8c098383e3aceec58.1273484097.git.marcel@holtmann.org>
+ <0ee0d20855ae9271de3f6695f4cafc08ab2533bb.1273484097.git.marcel@holtmann.org>
+ <812e737e29a1d559e7bfbea675fdcfcbad9f5e1f.1273484097.git.marcel@holtmann.org>
+ <3b1a9f3fa6ad842991538da2c3b2e29e047b131f.1273484097.git.marcel@holtmann.org>
+ <84fb0a6334af0ccad3544f6972c055d90fbb9fbe.1273484097.git.marcel@holtmann.org>
+ <bd3c9e255e76ae232d417e3914ca5d80ca3e9485.1273484097.git.marcel@holtmann.org>
+ <0041ecfa3025d7612fdaab12b2f07c9c3c09f42f.1273484098.git.marcel@holtmann.org>
+ <afefdbc4cf3b9d409d07e1e5264e7ff88bc48711.1273484098.git.marcel@holtmann.org>
+ <01760bdde9a92413b7fff928d08e19352bf09d82.1273484098.git.marcel@holtmann.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53454 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53458 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755768Ab0EJJi4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:38:56 -0400
-In-Reply-To: <052897ca5019d9157ae09e5e84eee2a9ef5dccc6.1273484097.git.marcel@holtmann.org>
+	with ESMTP id S1755886Ab0EJJjF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:05 -0400
+In-Reply-To: <01760bdde9a92413b7fff928d08e19352bf09d82.1273484098.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
@@ -49,30 +63,48 @@ List-ID: <netdev.vger.kernel.org>
 
 =46rom: Gustavo F. Padovan <padovan@profusion.mobi>
 
-As specified by Bluetooth 3.0 spec we shall send an acknowledgment usin=
-g
-the Send-Ack() after clear the SREJ list.
+We can set the SAR bits in the control field directly.
 
 Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
 Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/l2cap.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ net/bluetooth/l2cap.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index e936913..c6bc1b9 100644
+index 31514d8..cfb18cd 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -3493,6 +3493,7 @@ static inline int l2cap_data_channel_iframe(struc=
-t sock *sk, u16 rx_control, str
- 			if (list_empty(SREJ_LIST(sk))) {
- 				pi->buffer_seq =3D pi->buffer_seq_srej;
- 				pi->conn_state &=3D ~L2CAP_CONN_SREJ_SENT;
-+				l2cap_send_ack(pi);
- 			}
+@@ -1636,16 +1636,15 @@ static inline int l2cap_sar_segment_sdu(struct =
+sock *sk, struct msghdr *msg, siz
+ 	__skb_queue_tail(&sar_queue, skb);
+ 	len -=3D pi->remote_mps;
+ 	size +=3D pi->remote_mps;
+-	control =3D 0;
+=20
+ 	while (len > 0) {
+ 		size_t buflen;
+=20
+ 		if (len > pi->remote_mps) {
+-			control |=3D L2CAP_SDU_CONTINUE;
++			control =3D L2CAP_SDU_CONTINUE;
+ 			buflen =3D pi->remote_mps;
  		} else {
- 			struct srej_list *l;
+-			control |=3D L2CAP_SDU_END;
++			control =3D L2CAP_SDU_END;
+ 			buflen =3D len;
+ 		}
+=20
+@@ -1658,7 +1657,6 @@ static inline int l2cap_sar_segment_sdu(struct so=
+ck *sk, struct msghdr *msg, siz
+ 		__skb_queue_tail(&sar_queue, skb);
+ 		len -=3D buflen;
+ 		size +=3D buflen;
+-		control =3D 0;
+ 	}
+ 	skb_queue_splice_tail(&sar_queue, TX_QUEUE(sk));
+ 	if (sk->sk_send_head =3D=3D NULL)
 --=20
 1.6.6.1
 
