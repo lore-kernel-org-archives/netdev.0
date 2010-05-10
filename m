@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 24/64] Bluetooth: Ignore Tx Window value with Streaming mode
-Date: Mon, 10 May 2010 11:37:14 +0200
-Message-ID: <2fb862e215e53630066c677e06d7551fa38bf235.1273484097.git.marcel@holtmann.org>
+Subject: [PATCH 29/64] Bluetooth: Send Ack after clear the SREJ list
+Date: Mon, 10 May 2010 11:37:19 +0200
+Message-ID: <855666cccc939d392316de17512e17a08b2fa05a.1273484097.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -26,17 +26,22 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <8abb52ee00c4b3f857269eb6b7145991bab869bf.1273484096.git.marcel@holtmann.org>
  <05fbd89dd4153341717b33d9e8ae8bd29db6c1c8.1273484096.git.marcel@holtmann.org>
  <c1b4f43be01c2a363be021485dd18cca33cfab8a.1273484097.git.marcel@holtmann.org>
+ <2fb862e215e53630066c677e06d7551fa38bf235.1273484097.git.marcel@holtmann.org>
+ <7b1c0049be3aabc18831ada339dbcf41ba8c81fd.1273484097.git.marcel@holtmann.org>
+ <1c7621596d11b9c3e19eb88a818758dee4901c95.1273484097.git.marcel@holtmann.org>
+ <10467e9e9b89272b25b56688bb276d0830e9ab9a.1273484097.git.marcel@holtmann.org>
+ <052897ca5019d9157ae09e5e84eee2a9ef5dccc6.1273484097.git.marcel@holtmann.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53446 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53454 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755815Ab0EJJiy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:38:54 -0400
-In-Reply-To: <c1b4f43be01c2a363be021485dd18cca33cfab8a.1273484097.git.marcel@holtmann.org>
+	with ESMTP id S1755768Ab0EJJi4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:38:56 -0400
+In-Reply-To: <052897ca5019d9157ae09e5e84eee2a9ef5dccc6.1273484097.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
@@ -44,28 +49,30 @@ List-ID: <netdev.vger.kernel.org>
 
 =46rom: Gustavo F. Padovan <padovan@profusion.mobi>
 
-Tx Window value shall not be used with Streaming Mode and the receiver
-of the config Request shall ignore its value.
+As specified by Bluetooth 3.0 spec we shall send an acknowledgment usin=
+g
+the Send-Ack() after clear the SREJ list.
 
 Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
 Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/l2cap.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ net/bluetooth/l2cap.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index 0300656..f604405 100644
+index e936913..c6bc1b9 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -2495,7 +2495,6 @@ done:
- 			break;
-=20
- 		case L2CAP_MODE_STREAMING:
--			pi->remote_tx_win =3D rfc.txwin_size;
- 			pi->max_pdu_size =3D rfc.max_pdu_size;
-=20
- 			pi->conf_state |=3D L2CAP_CONF_MODE_DONE;
+@@ -3493,6 +3493,7 @@ static inline int l2cap_data_channel_iframe(struc=
+t sock *sk, u16 rx_control, str
+ 			if (list_empty(SREJ_LIST(sk))) {
+ 				pi->buffer_seq =3D pi->buffer_seq_srej;
+ 				pi->conn_state &=3D ~L2CAP_CONN_SREJ_SENT;
++				l2cap_send_ack(pi);
+ 			}
+ 		} else {
+ 			struct srej_list *l;
 --=20
 1.6.6.1
 
