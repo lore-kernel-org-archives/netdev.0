@@ -1,43 +1,27 @@
-From: "Gerrit Binnenmars" <gerritbinnenmars@gmail.com>
-Subject: Fw: Subnet broadcast MTU issue?
-Date: Mon, 10 May 2010 21:51:21 +0200
-Message-ID: <623F3F55DDA14658A341954348829D1A@GerritRita>
+From: Sharat Masetty <sharat_masetty@yahoo.com>
+Subject: Question about more headroom in skb
+Date: Mon, 10 May 2010 13:09:27 -0700 (PDT)
+Message-ID: <682359.68270.qm@web112510.mail.gq1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="iso-8859-1";
-	reply-type=original
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f220.google.com ([209.85.219.220]:41808 "EHLO
-	mail-ew0-f220.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755969Ab0EJT7j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 15:59:39 -0400
-Received: by ewy20 with SMTP id 20so1107217ewy.1
-        for <netdev@vger.kernel.org>; Mon, 10 May 2010 12:59:37 -0700 (PDT)
+Received: from n6-vm0.bullet.mail.gq1.yahoo.com ([98.137.26.79]:22683 "HELO
+	n6-vm0.bullet.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756339Ab0EJUJ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 16:09:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Hello All,
 
-I have configured an ethernet port at MTU 9000 with ifconfig
-On this port I have an alias (with IP 192.168.100.254) for a network that 
-support only an MTU of 1500, I added ip route change 192.168.100.0/24 dev 
-eth0 src 192.168.100.254 mtu lock 1500.
+For my project I need 3 words of headroom in the skb in the network driver level, to add a  custom header to the ethernet packet. I looked into the tcp code and figured out tcp uses sk->sk_prot->max_header for header allocation size. But I was not able to confirm that all other transport protocol use the same mechanism(?) For example in UDP/ICMP I was not able to figure out from the code where the allocation and header reservation happens(Any light here would be really helpful.)
 
-Then ping -s 20000 192.168.100.253 works fine, with packets being fragmented 
-as expected at 1500 bytes
-but ping -b -s 20000 192.168.100.255 does not work, packets are fragmented 
-at approx. 9000 bytes.
+I have also looked at an API in skbuff skb_pad() which does what I want(add either headroom or tailroom), but I want to avoid that for performance reasons(skb_pad does kmalloc and memcpy). I want to figure out a good way(may be tune some parameters) to allocate extra 3 words for any skbuff independant of the transport protocol being used. Any light here would be very much appreciated.
 
-I tried ip route change table local broadcast 192.168.100.255 mtu lock 1500 
-without success.
+Thanks,
+Sharat.
 
-Is there a solution? Where in the source code is the MTU size for a 
-broadcast message determined?
 
-Thanks in advance,
-
-Gerrit Binnenmars 
+      
 
