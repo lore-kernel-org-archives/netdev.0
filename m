@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 37/64] Bluetooth: Optimize SREJ_QUEUE append
-Date: Mon, 10 May 2010 11:37:27 +0200
-Message-ID: <3b1a9f3fa6ad842991538da2c3b2e29e047b131f.1273484097.git.marcel@holtmann.org>
+Subject: [PATCH 39/64] Bluetooth: Add SOCK_STREAM support to L2CAP
+Date: Mon, 10 May 2010 11:37:29 +0200
+Message-ID: <bd3c9e255e76ae232d417e3914ca5d80ca3e9485.1273484097.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -39,17 +39,19 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <f6e6b16823de0aff31cb8ee8c098383e3aceec58.1273484097.git.marcel@holtmann.org>
  <0ee0d20855ae9271de3f6695f4cafc08ab2533bb.1273484097.git.marcel@holtmann.org>
  <812e737e29a1d559e7bfbea675fdcfcbad9f5e1f.1273484097.git.marcel@holtmann.org>
+ <3b1a9f3fa6ad842991538da2c3b2e29e047b131f.1273484097.git.marcel@holtmann.org>
+ <84fb0a6334af0ccad3544f6972c055d90fbb9fbe.1273484097.git.marcel@holtmann.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53454 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53446 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755745Ab0EJJjB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:01 -0400
-In-Reply-To: <812e737e29a1d559e7bfbea675fdcfcbad9f5e1f.1273484097.git.marcel@holtmann.org>
+	with ESMTP id S1755874Ab0EJJjD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:03 -0400
+In-Reply-To: <84fb0a6334af0ccad3544f6972c055d90fbb9fbe.1273484097.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
@@ -57,32 +59,173 @@ List-ID: <netdev.vger.kernel.org>
 
 =46rom: Gustavo F. Padovan <padovan@profusion.mobi>
 
-When the I-frame received is the expected, i.e., its tx_seq is equal to
-expected_tx_seq and we are under a SREJ, we can just add it to the tail
-of the list. Doing that we change the complexity from O(n) to O(1).
+if enable_ertm is true and we have SOCK_STREAM the default mode will be
+ERTM, otherwise Basic Mode.
 
 Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
 Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/l2cap.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+ net/bluetooth/l2cap.c |   40 ++++++++++++++++++++++++++--------------
+ 1 files changed, 26 insertions(+), 14 deletions(-)
 
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index 042fd96..187f46d 100644
+index 4c00720..1a32562 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -3542,7 +3542,9 @@ expected:
- 	pi->expected_tx_seq =3D (pi->expected_tx_seq + 1) % 64;
+@@ -224,7 +224,7 @@ static void __l2cap_chan_add(struct l2cap_conn *con=
+n, struct sock *sk, struct so
 =20
- 	if (pi->conn_state & L2CAP_CONN_SREJ_SENT) {
--		l2cap_add_to_srej_queue(sk, skb, tx_seq, sar);
-+		bt_cb(skb)->tx_seq =3D tx_seq;
-+		bt_cb(skb)->sar =3D sar;
-+		__skb_queue_tail(SREJ_QUEUE(sk), skb);
- 		return 0;
+ 	l2cap_pi(sk)->conn =3D conn;
+=20
+-	if (sk->sk_type =3D=3D SOCK_SEQPACKET) {
++	if (sk->sk_type =3D=3D SOCK_SEQPACKET || sk->sk_type =3D=3D SOCK_STRE=
+AM) {
+ 		/* Alloc CID for connection-oriented socket */
+ 		l2cap_pi(sk)->scid =3D l2cap_alloc_cid(l);
+ 	} else if (sk->sk_type =3D=3D SOCK_DGRAM) {
+@@ -452,7 +452,8 @@ static void l2cap_conn_start(struct l2cap_conn *con=
+n)
+ 	for (sk =3D l->head; sk; sk =3D l2cap_pi(sk)->next_c) {
+ 		bh_lock_sock(sk);
+=20
+-		if (sk->sk_type !=3D SOCK_SEQPACKET) {
++		if (sk->sk_type !=3D SOCK_SEQPACKET &&
++				sk->sk_type !=3D SOCK_STREAM) {
+ 			bh_unlock_sock(sk);
+ 			continue;
+ 		}
+@@ -512,7 +513,8 @@ static void l2cap_conn_ready(struct l2cap_conn *con=
+n)
+ 	for (sk =3D l->head; sk; sk =3D l2cap_pi(sk)->next_c) {
+ 		bh_lock_sock(sk);
+=20
+-		if (sk->sk_type !=3D SOCK_SEQPACKET) {
++		if (sk->sk_type !=3D SOCK_SEQPACKET &&
++				sk->sk_type !=3D SOCK_STREAM) {
+ 			l2cap_sock_clear_timer(sk);
+ 			sk->sk_state =3D BT_CONNECTED;
+ 			sk->sk_state_change(sk);
+@@ -721,7 +723,8 @@ static void __l2cap_sock_close(struct sock *sk, int=
+ reason)
+=20
+ 	case BT_CONNECTED:
+ 	case BT_CONFIG:
+-		if (sk->sk_type =3D=3D SOCK_SEQPACKET) {
++		if (sk->sk_type =3D=3D SOCK_SEQPACKET ||
++				sk->sk_type =3D=3D SOCK_STREAM) {
+ 			struct l2cap_conn *conn =3D l2cap_pi(sk)->conn;
+=20
+ 			sk->sk_state =3D BT_DISCONN;
+@@ -732,7 +735,8 @@ static void __l2cap_sock_close(struct sock *sk, int=
+ reason)
+ 		break;
+=20
+ 	case BT_CONNECT2:
+-		if (sk->sk_type =3D=3D SOCK_SEQPACKET) {
++		if (sk->sk_type =3D=3D SOCK_SEQPACKET ||
++				sk->sk_type =3D=3D SOCK_STREAM) {
+ 			struct l2cap_conn *conn =3D l2cap_pi(sk)->conn;
+ 			struct l2cap_conn_rsp rsp;
+ 			__u16 result;
+@@ -795,7 +799,10 @@ static void l2cap_sock_init(struct sock *sk, struc=
+t sock *parent)
+ 	} else {
+ 		pi->imtu =3D L2CAP_DEFAULT_MTU;
+ 		pi->omtu =3D 0;
+-		pi->mode =3D L2CAP_MODE_BASIC;
++		if (enable_ertm && sk->sk_type =3D=3D SOCK_STREAM)
++			pi->mode =3D L2CAP_MODE_ERTM;
++		else
++			pi->mode =3D L2CAP_MODE_BASIC;
+ 		pi->max_tx =3D max_transmit;
+ 		pi->fcs  =3D L2CAP_FCS_CRC16;
+ 		pi->tx_win =3D tx_window;
+@@ -852,7 +859,7 @@ static int l2cap_sock_create(struct net *net, struc=
+t socket *sock, int protocol,
+=20
+ 	sock->state =3D SS_UNCONNECTED;
+=20
+-	if (sock->type !=3D SOCK_SEQPACKET &&
++	if (sock->type !=3D SOCK_SEQPACKET && sock->type !=3D SOCK_STREAM &&
+ 			sock->type !=3D SOCK_DGRAM && sock->type !=3D SOCK_RAW)
+ 		return -ESOCKTNOSUPPORT;
+=20
+@@ -1000,7 +1007,8 @@ static int l2cap_do_connect(struct sock *sk)
+ 	l2cap_sock_set_timer(sk, sk->sk_sndtimeo);
+=20
+ 	if (hcon->state =3D=3D BT_CONNECTED) {
+-		if (sk->sk_type !=3D SOCK_SEQPACKET) {
++		if (sk->sk_type !=3D SOCK_SEQPACKET &&
++				sk->sk_type !=3D SOCK_STREAM) {
+ 			l2cap_sock_clear_timer(sk);
+ 			sk->sk_state =3D BT_CONNECTED;
+ 		} else
+@@ -1034,7 +1042,8 @@ static int l2cap_sock_connect(struct socket *sock=
+, struct sockaddr *addr, int al
+=20
+ 	lock_sock(sk);
+=20
+-	if (sk->sk_type =3D=3D SOCK_SEQPACKET && !la.l2_psm) {
++	if ((sk->sk_type =3D=3D SOCK_SEQPACKET || sk->sk_type =3D=3D SOCK_STR=
+EAM)
++			&& !la.l2_psm) {
+ 		err =3D -EINVAL;
+ 		goto done;
  	}
+@@ -1098,7 +1107,8 @@ static int l2cap_sock_listen(struct socket *sock,=
+ int backlog)
 =20
+ 	lock_sock(sk);
+=20
+-	if (sk->sk_state !=3D BT_BOUND || sock->type !=3D SOCK_SEQPACKET) {
++	if ((sock->type !=3D SOCK_SEQPACKET && sock->type !=3D SOCK_STREAM)
++			|| sk->sk_state !=3D BT_BOUND) {
+ 		err =3D -EBADFD;
+ 		goto done;
+ 	}
+@@ -1857,7 +1867,8 @@ static int l2cap_sock_setsockopt(struct socket *s=
+ock, int level, int optname, ch
+=20
+ 	switch (optname) {
+ 	case BT_SECURITY:
+-		if (sk->sk_type !=3D SOCK_SEQPACKET && sk->sk_type !=3D SOCK_RAW) {
++		if (sk->sk_type !=3D SOCK_SEQPACKET && sk->sk_type !=3D SOCK_STREAM
++				&& sk->sk_type !=3D SOCK_RAW) {
+ 			err =3D -EINVAL;
+ 			break;
+ 		}
+@@ -2007,7 +2018,8 @@ static int l2cap_sock_getsockopt(struct socket *s=
+ock, int level, int optname, ch
+=20
+ 	switch (optname) {
+ 	case BT_SECURITY:
+-		if (sk->sk_type !=3D SOCK_SEQPACKET && sk->sk_type !=3D SOCK_RAW) {
++		if (sk->sk_type !=3D SOCK_SEQPACKET && sk->sk_type !=3D SOCK_STREAM
++				&& sk->sk_type !=3D SOCK_RAW) {
+ 			err =3D -EINVAL;
+ 			break;
+ 		}
+@@ -2314,7 +2326,7 @@ static int l2cap_build_conf_req(struct sock *sk, =
+void *data)
+ {
+ 	struct l2cap_pinfo *pi =3D l2cap_pi(sk);
+ 	struct l2cap_conf_req *req =3D data;
+-	struct l2cap_conf_rfc rfc =3D { .mode =3D L2CAP_MODE_BASIC };
++	struct l2cap_conf_rfc rfc =3D { .mode =3D pi->mode };
+ 	void *ptr =3D req->data;
+=20
+ 	BT_DBG("sk %p", sk);
+@@ -3997,7 +4009,7 @@ static int l2cap_disconn_cfm(struct hci_conn *hco=
+n, u8 reason)
+=20
+ static inline void l2cap_check_encryption(struct sock *sk, u8 encrypt)
+ {
+-	if (sk->sk_type !=3D SOCK_SEQPACKET)
++	if (sk->sk_type !=3D SOCK_SEQPACKET && sk->sk_type !=3D SOCK_STREAM)
+ 		return;
+=20
+ 	if (encrypt =3D=3D 0x00) {
 --=20
 1.6.6.1
 
