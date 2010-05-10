@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 43/64] Bluetooth: Don't set control bits to zero first
-Date: Mon, 10 May 2010 11:37:33 +0200
-Message-ID: <44651b85cc3a076147af5d181fc4833ef8debc59.1273484098.git.marcel@holtmann.org>
+Subject: [PATCH 44/64] Bluetooth: Fix errors reported by checkpatch.pl
+Date: Mon, 10 May 2010 11:37:34 +0200
+Message-ID: <59203a21a56c53afeb6f45e059299e6f1437f30f.1273484098.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -45,17 +45,18 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <0041ecfa3025d7612fdaab12b2f07c9c3c09f42f.1273484098.git.marcel@holtmann.org>
  <afefdbc4cf3b9d409d07e1e5264e7ff88bc48711.1273484098.git.marcel@holtmann.org>
  <01760bdde9a92413b7fff928d08e19352bf09d82.1273484098.git.marcel@holtmann.org>
+ <44651b85cc3a076147af5d181fc4833ef8debc59.1273484098.git.marcel@holtmann.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53458 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53454 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755886Ab0EJJjF (ORCPT
+	with ESMTP id S1755814Ab0EJJjF (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:05 -0400
-In-Reply-To: <01760bdde9a92413b7fff928d08e19352bf09d82.1273484098.git.marcel@holtmann.org>
+In-Reply-To: <44651b85cc3a076147af5d181fc4833ef8debc59.1273484098.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
@@ -63,48 +64,68 @@ List-ID: <netdev.vger.kernel.org>
 
 =46rom: Gustavo F. Padovan <padovan@profusion.mobi>
 
-We can set the SAR bits in the control field directly.
-
 Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
 Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/l2cap.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+ net/bluetooth/l2cap.c |   11 +++++------
+ 1 files changed, 5 insertions(+), 6 deletions(-)
 
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index 31514d8..cfb18cd 100644
+index cfb18cd..2a981de 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -1636,16 +1636,15 @@ static inline int l2cap_sar_segment_sdu(struct =
-sock *sk, struct msghdr *msg, siz
- 	__skb_queue_tail(&sar_queue, skb);
- 	len -=3D pi->remote_mps;
- 	size +=3D pi->remote_mps;
--	control =3D 0;
+@@ -1400,7 +1400,7 @@ static int l2cap_ertm_send(struct sock *sk)
+ 		return 0;
 =20
- 	while (len > 0) {
- 		size_t buflen;
+ 	while ((skb =3D sk->sk_send_head) && (!l2cap_tx_window_full(sk)) &&
+-	       !(pi->conn_state & L2CAP_CONN_REMOTE_BUSY)) {
++			!(pi->conn_state & L2CAP_CONN_REMOTE_BUSY)) {
 =20
- 		if (len > pi->remote_mps) {
--			control |=3D L2CAP_SDU_CONTINUE;
-+			control =3D L2CAP_SDU_CONTINUE;
- 			buflen =3D pi->remote_mps;
- 		} else {
--			control |=3D L2CAP_SDU_END;
-+			control =3D L2CAP_SDU_END;
- 			buflen =3D len;
- 		}
+ 		if (pi->remote_max_tx &&
+ 				bt_cb(skb)->retries =3D=3D pi->remote_max_tx) {
+@@ -1490,9 +1490,8 @@ static inline int l2cap_skbuff_fromiovec(struct s=
+ock *sk, struct msghdr *msg, in
+ 	struct sk_buff **frag;
+ 	int err, sent =3D 0;
 =20
-@@ -1658,7 +1657,6 @@ static inline int l2cap_sar_segment_sdu(struct so=
-ck *sk, struct msghdr *msg, siz
- 		__skb_queue_tail(&sar_queue, skb);
- 		len -=3D buflen;
- 		size +=3D buflen;
--		control =3D 0;
- 	}
- 	skb_queue_splice_tail(&sar_queue, TX_QUEUE(sk));
- 	if (sk->sk_send_head =3D=3D NULL)
+-	if (memcpy_fromiovec(skb_put(skb, count), msg->msg_iov, count)) {
++	if (memcpy_fromiovec(skb_put(skb, count), msg->msg_iov, count))
+ 		return -EFAULT;
+-	}
+=20
+ 	sent +=3D count;
+ 	len  -=3D count;
+@@ -3347,7 +3346,7 @@ static void l2cap_add_to_srej_queue(struct sock *=
+sk, struct sk_buff *skb, u8 tx_
+ 		if (skb_queue_is_last(SREJ_QUEUE(sk), next_skb))
+ 			break;
+=20
+-	} while((next_skb =3D skb_queue_next(SREJ_QUEUE(sk), next_skb)));
++	} while ((next_skb =3D skb_queue_next(SREJ_QUEUE(sk), next_skb)));
+=20
+ 	__skb_queue_tail(SREJ_QUEUE(sk), skb);
+ }
+@@ -3446,7 +3445,7 @@ static void l2cap_check_srej_gap(struct sock *sk,=
+ u8 tx_seq)
+ 	struct sk_buff *skb;
+ 	u16 control;
+=20
+-	while((skb =3D skb_peek(SREJ_QUEUE(sk)))) {
++	while ((skb =3D skb_peek(SREJ_QUEUE(sk)))) {
+ 		if (bt_cb(skb)->tx_seq !=3D tx_seq)
+ 			break;
+=20
+@@ -3465,7 +3464,7 @@ static void l2cap_resend_srejframe(struct sock *s=
+k, u8 tx_seq)
+ 	struct srej_list *l, *tmp;
+ 	u16 control;
+=20
+-	list_for_each_entry_safe(l,tmp, SREJ_LIST(sk), list) {
++	list_for_each_entry_safe(l, tmp, SREJ_LIST(sk), list) {
+ 		if (l->tx_seq =3D=3D tx_seq) {
+ 			list_del(&l->list);
+ 			kfree(l);
 --=20
 1.6.6.1
 
