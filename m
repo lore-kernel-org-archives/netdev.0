@@ -1,78 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH V4 3/4] net: Use ip_route_input_noref() in input path
-Date: Mon, 10 May 2010 23:33:06 +0200
-Message-ID: <1273527186.10889.12.camel@edumazet-laptop>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] virtif: initial interface extensions
+Date: Mon, 10 May 2010 23:46:37 +0200
+Message-ID: <201005102346.38229.arnd@arndb.de>
+References: <C80DA4F7.2FBCF%scofeldm@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Stefan Berger <stefanb@us.ibm.com>, netdev@vger.kernel.org,
+	Arnd Bergmann <arnd@arndb.de>
+To: Scott Feldman <scofeldm@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:35213 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756016Ab0EJVdJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 17:33:09 -0400
-Received: by wwa36 with SMTP id 36so1964635wwa.19
-        for <netdev@vger.kernel.org>; Mon, 10 May 2010 14:33:08 -0700 (PDT)
+Received: from moutng.kundenserver.de ([212.227.17.8]:52539 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756902Ab0EJVrF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 17:47:05 -0400
+In-Reply-To: <C80DA4F7.2FBCF%scofeldm@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use ip_route_input_noref() in ip fast path, to avoid two atomic ops per
-incoming packet.
+On Monday 10 May 2010 20:56:39 Scott Feldman wrote:
+> On 5/10/10 8:37 AM, "Stefan Berger" <stefanb@us.ibm.com> wrote:
+> > In what case would the IFLA_VIRTIF_PORT_PROFILE be provided? Would libvirt for
+> > example need to be aware of whether the Ethernet device can handle the setup
+> > protocol via its firmware and in this case provide the port profile parameter
+> > and in other cases provide other parameters? Certainly the user or upper layer
+> > management software would have to know it when creating the domain XML and in
+> > fact different types of parameters were needed.
+> 
+> > Obviously we should have one
+> > common set of (XML) parameters that go into the netlink message and that can
+> > be handled by the kernel driver if the firmware knows how to handle it or by
+> > LLDPAD. 
+> 
+> With Arnd's latest additions, we have a single netlink msg, but the
+> parameter sets are disjoint between VDP/CDCP and what we need for the kernel
+> driver.  So that means the sender (libvirt in this case) needs to know about
+> both setups to send a single netlink msg.  An alternative is a have two
+> netlink msgs, one for each setup.  That still requires the sender to know
+> about two setups.
 
-Note: loopback is excluded from this optimization in ip_rcv_finish()
+There are two separate issues here. The first one is whether we're doing
+the association in the device driver or in user space. The assumption here
+is that if it's in the device driver, there will be a VF number to identify
+the channel, while in user space that is not needed.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
-net/ipv4/arp.c         |    2 +-
-net/ipv4/ip_input.c    |    4 ++--
-net/ipv4/xfrm4_input.c |    4 ++--
-3 files changed, 5 insertions(+), 5 deletions(-)
+The other question is which protocol we're using. There are as far as I
+can tell five options:
 
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index 6e74706..f4ae3d4 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -854,7 +854,7 @@ static int arp_process(struct sk_buff *skb)
- 	}
- 
- 	if (arp->ar_op == htons(ARPOP_REQUEST) &&
--	    ip_route_input(skb, tip, sip, 0, dev) == 0) {
-+	    ip_route_input_noref(skb, tip, sip, 0, dev) == 0) {
- 
- 		rt = skb_rtable(skb);
- 		addr_type = rt->rt_type;
-diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-index f8ab7a3..6d5b65a 100644
---- a/net/ipv4/ip_input.c
-+++ b/net/ipv4/ip_input.c
-@@ -331,8 +331,8 @@ static int ip_rcv_finish(struct sk_buff *skb)
- 	 *	how the packet travels inside Linux networking.
- 	 */
- 	if (skb_dst(skb) == NULL) {
--		int err = ip_route_input(skb, iph->daddr, iph->saddr, iph->tos,
--					 skb->dev);
-+		int err = ip_route_input_noref(skb, iph->daddr, iph->saddr,
-+					       iph->tos, skb->dev);
- 		if (unlikely(err)) {
- 			if (err == -EHOSTUNREACH)
- 				IP_INC_STATS_BH(dev_net(skb->dev),
-diff --git a/net/ipv4/xfrm4_input.c b/net/ipv4/xfrm4_input.c
-index c791bb6..e7972d8 100644
---- a/net/ipv4/xfrm4_input.c
-+++ b/net/ipv4/xfrm4_input.c
-@@ -27,8 +27,8 @@ static inline int xfrm4_rcv_encap_finish(struct sk_buff *skb)
- 	if (skb_dst(skb) == NULL) {
- 		const struct iphdr *iph = ip_hdr(skb);
- 
--		if (ip_route_input(skb, iph->daddr, iph->saddr, iph->tos,
--				   skb->dev))
-+		if (ip_route_input_noref(skb, iph->daddr, iph->saddr,
-+					 iph->tos, skb->dev))
- 			goto drop;
- 	}
- 	return dst_input(skb);
+1. enic device driver
+2. VDP
+3. CDCP
+4. CDCP + VDP
+5. enic + VDP
 
+The first two ones are the most interesting for now, since Linux cannot do
+S-VLANs yet, and they are required for CDCP. However, each of these options
+could theoreticall be done in the kernel (plus firmware) or in user space.
 
+If it's done in user space, the VF number is meaningless, because the setup
+of the software device is also done from software, but instead you need to
+take care of creating the software device with the correct parameters, e.g.
+a macvtap device connected to a VLAN interface using the numbers you pass
+in the VDP protocol.
 
+Right now, we're not planning to do the protocol that enic uses in LLDPAD,
+because it's not publically released. Similarly, there are no adapters that
+do VDP in firmware, but both these cases should be covered by the protocol
+and it would be good if libvirt could handle them.
 
+Stefan, can you just define the XML in a way that matches the netlink
+definition? What you need is something like
+
+1. VF number (optional, signifies that 2/3 are done in firmware)
+2. Lower-level protocol
+  2.1. CDCP
+     2.1.1 SVID
+     2.1.2 SCID
+  2.2. enic
+     2.2.1 port profile name
+     2.2.2 ...
+3. VDP
+  3.1 VSI type/version/provider
+  3.2 UUID
+  3.3 MAC/VLAN
+
+You need to have 2. or 3. or both, and 2.1/2.2 are mutually exclusive.
+
+	Arnd
