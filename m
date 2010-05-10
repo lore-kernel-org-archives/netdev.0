@@ -1,72 +1,48 @@
 From: kaber@trash.net
-Subject: [PATCH 51/84] netfilter: xtables: merge registration structure to NFPROTO_UNSPEC
-Date: Mon, 10 May 2010 22:18:22 +0200
-Message-ID: <1273522735-24672-52-git-send-email-kaber@trash.net>
+Subject: [PATCH 25/84] netfilter: xtables: reduce holes in struct xt_target
+Date: Mon, 10 May 2010 22:17:56 +0200
+Message-ID: <1273522735-24672-26-git-send-email-kaber@trash.net>
 References: <1273522735-24672-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:54523 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756726Ab0EJUTE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 16:19:04 -0400
 In-Reply-To: <1273522735-24672-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Jan Engelhardt <jengelh@medozas.de>
 
+This will save one full padding chunk (8 bytes on x86_64) per target.
+
 Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 ---
- net/netfilter/xt_state.c |   31 ++++++++++---------------------
- 1 files changed, 10 insertions(+), 21 deletions(-)
+ include/linux/netfilter/x_tables.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/netfilter/xt_state.c b/net/netfilter/xt_state.c
-index be00d7b..bb12718 100644
---- a/net/netfilter/xt_state.c
-+++ b/net/netfilter/xt_state.c
-@@ -53,35 +53,24 @@ static void state_mt_destroy(const struct xt_mtdtor_param *par)
- 	nf_ct_l3proto_module_put(par->family);
- }
+diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
+index cf91473..f8f5551 100644
+--- a/include/linux/netfilter/x_tables.h
++++ b/include/linux/netfilter/x_tables.h
+@@ -331,6 +331,7 @@ struct xt_target {
+ 	struct list_head list;
  
--static struct xt_match state_mt_reg[] __read_mostly = {
--	{
--		.name		= "state",
--		.family		= NFPROTO_IPV4,
--		.checkentry	= state_mt_check,
--		.match		= state_mt,
--		.destroy	= state_mt_destroy,
--		.matchsize	= sizeof(struct xt_state_info),
--		.me		= THIS_MODULE,
--	},
--	{
--		.name		= "state",
--		.family		= NFPROTO_IPV6,
--		.checkentry	= state_mt_check,
--		.match		= state_mt,
--		.destroy	= state_mt_destroy,
--		.matchsize	= sizeof(struct xt_state_info),
--		.me		= THIS_MODULE,
--	},
-+static struct xt_match state_mt_reg __read_mostly = {
-+	.name       = "state",
-+	.family     = NFPROTO_UNSPEC,
-+	.checkentry = state_mt_check,
-+	.match      = state_mt,
-+	.destroy    = state_mt_destroy,
-+	.matchsize  = sizeof(struct xt_state_info),
-+	.me         = THIS_MODULE,
+ 	const char name[XT_FUNCTION_MAXNAMELEN-1];
++	u_int8_t revision;
+ 
+ 	/* Returns verdict. Argument order changed since 2.6.9, as this
+ 	   must now handle non-linear skbs, using skb_copy_bits and
+@@ -363,7 +364,6 @@ struct xt_target {
+ 	unsigned short proto;
+ 
+ 	unsigned short family;
+-	u_int8_t revision;
  };
  
- static int __init state_mt_init(void)
- {
--	return xt_register_matches(state_mt_reg, ARRAY_SIZE(state_mt_reg));
-+	return xt_register_match(&state_mt_reg);
- }
- 
- static void __exit state_mt_exit(void)
- {
--	xt_unregister_matches(state_mt_reg, ARRAY_SIZE(state_mt_reg));
-+	xt_unregister_match(&state_mt_reg);
- }
- 
- module_init(state_mt_init);
+ /* Furniture shopping... */
 -- 
 1.7.0.4
 
