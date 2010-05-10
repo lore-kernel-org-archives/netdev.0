@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 63/64] Bluetooth: Use strict_strtoul instead of simple_strtoul
-Date: Mon, 10 May 2010 11:37:53 +0200
-Message-ID: <7b767cad296d17cfe071734f71a3b7b479534c8c.1273484099.git.marcel@holtmann.org>
+Subject: [PATCH 42/64] Bluetooth: Close L2CAP channel on invalid ReqSeq
+Date: Mon, 10 May 2010 11:37:32 +0200
+Message-ID: <01760bdde9a92413b7fff928d08e19352bf09d82.1273484098.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -44,97 +44,69 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <bd3c9e255e76ae232d417e3914ca5d80ca3e9485.1273484097.git.marcel@holtmann.org>
  <0041ecfa3025d7612fdaab12b2f07c9c3c09f42f.1273484098.git.marcel@holtmann.org>
  <afefdbc4cf3b9d409d07e1e5264e7ff88bc48711.1273484098.git.marcel@holtmann.org>
- <01760bdde9a92413b7fff928d08e19352bf09d82.1273484098.git.marcel@holtmann.org>
- <44651b85cc3a076147af5d181fc4833ef8debc59.1273484098.git.marcel@holtmann.org>
- <59203a21a56c53afeb6f45e059299e6f1437f30f.1273484098.git.marcel@holtmann.org>
- <0301ef04b5f49a95681694fc0d75af9441faa919.1273484098.git.marcel@holtmann.org>
- <a2e12a2a312f816d5970b0c809d43b399fbfe90c.1273484098.git.marcel@holtmann.org>
- <9b16dc6551cbde65d0ac525af3c46efab53a2c46.1273484098.git.marcel@holtmann.org>
- <ff12fd643334071084b6145cad3793bb6c956638.1273484098.git.marcel@holtmann.org>
- <9a9c6a34416b3743c09c00f3d6708d9df3c21629.1273484098.git.marcel@holtmann.org>
- <f11d676da4059c7888efca810ab300b931736a26.1273484098.git.marcel@holtmann.org>
- <18778a63ddc83bc89bda3b119fb02eb121512a66.1273484098.git.marcel@holtmann.org>
- <9b53350d3cf5b330c3261d89b5e62a2dc25c5653.1273484098.git.marcel@holtmann.org>
- <1890d36bb556a27684ad29654a9898ab9a5f57ee.1273484098.git.marcel@holtmann.org>
- <6161c0382bbab883a634d284f7367a88bbe88534.1273484098.git.marcel@holtmann.org>
- <dfc909befbfe967bd7f46ef33b6969c1b7f3cf42.1273484098.git.marcel@holtmann.org>
- <4178ba462a3e8ab5094e69606f01d9e95f2d5ea6.1273484098.git.marcel@holtmann.org>
- <844c0972427ee5f661158160aaca10b22b3dda60.1273484098.git.marcel@holtmann.org>
- <f48fd9c8cd746fdb055a97249a209c77dca0f710.1273484098.git.marcel@holtmann.org>
- <31f085fea891d5972e994dfb423231a3d4d60a8a.1273484099.git.marcel@holtmann.org>
- <903c843773a18e061817dd7a1a5c28dd41a3bf97.1273484099.git.marcel@holtmann.org>
- <64061607eab7cb146115927cb596de123c542d45.1273484099.git.marcel@holtmann.org>
- <f120c6b635a62d414876b517aec0468628acfc60.1273484099.git.marcel@holtmann.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53476 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53463 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755951Ab0EJJjT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:19 -0400
-In-Reply-To: <f120c6b635a62d414876b517aec0468628acfc60.1273484099.git.marcel@holtmann.org>
+	with ESMTP id S1755884Ab0EJJjF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:05 -0400
+In-Reply-To: <afefdbc4cf3b9d409d07e1e5264e7ff88bc48711.1273484098.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tomas Winkler <tomas.winkler@intel.com>
+=46rom: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
 
-Use strict_strtoul as suggested by checkpatch.pl for more strict input
-checking.
-
-Signed-off-by: Tomas Winkler <tomas.winkler@intel.com>
+Signed-off-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
+Acked-by: Gustavo F. Padovan <padovan@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/hci_sysfs.c |   18 ++++++------------
- 1 files changed, 6 insertions(+), 12 deletions(-)
+ net/bluetooth/l2cap.c |   18 +++++++++++++++++-
+ 1 files changed, 17 insertions(+), 1 deletions(-)
 
-diff --git a/net/bluetooth/hci_sysfs.c b/net/bluetooth/hci_sysfs.c
-index a978449..463ffa4 100644
---- a/net/bluetooth/hci_sysfs.c
-+++ b/net/bluetooth/hci_sysfs.c
-@@ -281,11 +281,9 @@ static ssize_t show_idle_timeout(struct device *dev, struct device_attribute *at
- static ssize_t store_idle_timeout(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
- {
- 	struct hci_dev *hdev = dev_get_drvdata(dev);
--	char *ptr;
--	__u32 val;
-+	unsigned long val;
- 
--	val = simple_strtoul(buf, &ptr, 10);
--	if (ptr == buf)
-+	if (strict_strtoul(buf, 0, &val) < 0)
- 		return -EINVAL;
- 
- 	if (val != 0 && (val < 500 || val > 3600000))
-@@ -305,11 +303,9 @@ static ssize_t show_sniff_max_interval(struct device *dev, struct device_attribu
- static ssize_t store_sniff_max_interval(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
- {
- 	struct hci_dev *hdev = dev_get_drvdata(dev);
--	char *ptr;
--	__u16 val;
-+	unsigned long val;
- 
--	val = simple_strtoul(buf, &ptr, 10);
--	if (ptr == buf)
-+	if (strict_strtoul(buf, 0, &val) < 0)
- 		return -EINVAL;
- 
- 	if (val < 0x0002 || val > 0xFFFE || val % 2)
-@@ -332,11 +328,9 @@ static ssize_t show_sniff_min_interval(struct device *dev, struct device_attribu
- static ssize_t store_sniff_min_interval(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
- {
- 	struct hci_dev *hdev = dev_get_drvdata(dev);
--	char *ptr;
--	__u16 val;
-+	unsigned long val;
- 
--	val = simple_strtoul(buf, &ptr, 10);
--	if (ptr == buf)
-+	if (strict_strtoul(buf, 0, &val) < 0)
- 		return -EINVAL;
- 
- 	if (val < 0x0002 || val > 0xFFFE || val % 2)
--- 
+diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
+index 478def7..31514d8 100644
+--- a/net/bluetooth/l2cap.c
++++ b/net/bluetooth/l2cap.c
+@@ -3772,7 +3772,7 @@ static inline int l2cap_data_channel(struct l2cap=
+_conn *conn, u16 cid, struct sk
+ 	struct sock *sk;
+ 	struct l2cap_pinfo *pi;
+ 	u16 control, len;
+-	u8 tx_seq;
++	u8 tx_seq, req_seq, next_tx_seq_offset, req_seq_offset;
+=20
+ 	sk =3D l2cap_get_chan_by_scid(&conn->chan_list, cid);
+ 	if (!sk) {
+@@ -3823,6 +3823,22 @@ static inline int l2cap_data_channel(struct l2ca=
+p_conn *conn, u16 cid, struct sk
+ 		if (l2cap_check_fcs(pi, skb))
+ 			goto drop;
+=20
++		req_seq =3D __get_reqseq(control);
++		req_seq_offset =3D (req_seq - pi->expected_ack_seq) % 64;
++		if (req_seq_offset < 0)
++			req_seq_offset +=3D 64;
++
++		next_tx_seq_offset =3D
++			(pi->next_tx_seq - pi->expected_ack_seq) % 64;
++		if (next_tx_seq_offset < 0)
++			next_tx_seq_offset +=3D 64;
++
++		/* check for invalid req-seq */
++		if (req_seq_offset > next_tx_seq_offset) {
++			l2cap_send_disconn_req(pi->conn, sk);
++			goto drop;
++		}
++
+ 		if (__is_iframe(control)) {
+ 			if (len < 4)
+ 				goto drop;
+--=20
 1.6.6.1
 
