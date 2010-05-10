@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 28/64] Bluetooth: Check the SDU size against the MTU value
-Date: Mon, 10 May 2010 11:37:18 +0200
-Message-ID: <052897ca5019d9157ae09e5e84eee2a9ef5dccc6.1273484097.git.marcel@holtmann.org>
+Subject: [PATCH 58/64] Bluetooth: Create per controller workqueue
+Date: Mon, 10 May 2010 11:37:48 +0200
+Message-ID: <f48fd9c8cd746fdb055a97249a209c77dca0f710.1273484098.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -30,52 +30,174 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <7b1c0049be3aabc18831ada339dbcf41ba8c81fd.1273484097.git.marcel@holtmann.org>
  <1c7621596d11b9c3e19eb88a818758dee4901c95.1273484097.git.marcel@holtmann.org>
  <10467e9e9b89272b25b56688bb276d0830e9ab9a.1273484097.git.marcel@holtmann.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+ <052897ca5019d9157ae09e5e84eee2a9ef5dccc6.1273484097.git.marcel@holtmann.org>
+ <855666cccc939d392316de17512e17a08b2fa05a.1273484097.git.marcel@holtmann.org>
+ <14b5aa71ec506f4e38ca6a1dc02ecd668ecfd902.1273484097.git.marcel@holtmann.org>
+ <803020c6fa63aa738cfda3329c9675b42023e9d2.1273484097.git.marcel@holtmann.org>
+ <369ba30264826f38eefc61b93688100be8adbd4d.1273484097.git.marcel@holtmann.org>
+ <68d7f0ce911e41e463c45911be031cdf6a096fe8.1273484097.git.marcel@holtmann.org>
+ <f6e6b16823de0aff31cb8ee8c098383e3aceec58.1273484097.git.marcel@holtmann.org>
+ <0ee0d20855ae9271de3f6695f4cafc08ab2533bb.1273484097.git.marcel@holtmann.org>
+ <812e737e29a1d559e7bfbea675fdcfcbad9f5e1f.1273484097.git.marcel@holtmann.org>
+ <3b1a9f3fa6ad842991538da2c3b2e29e047b131f.1273484097.git.marcel@holtmann.org>
+ <84fb0a6334af0ccad3544f6972c055d90fbb9fbe.1273484097.git.marcel@holtmann.org>
+ <bd3c9e255e76ae232d417e3914ca5d80ca3e9485.1273484097.git.marcel@holtmann.org>
+ <0041ecfa3025d7612fdaab12b2f07c9c3c09f42f.1273484098.git.marcel@holtmann.org>
+ <afefdbc4cf3b9d409d07e1e5264e7ff88bc48711.1273484098.git.marcel@holtmann.org>
+ <01760bdde9a92413b7fff928d08e19352bf09d82.1273484098.git.marcel@holtmann.org>
+ <44651b85cc3a076147af5d181fc4833ef8debc59.1273484098.git.marcel@holtmann.org>
+ <59203a21a56c53afeb6f45e059299e6f1437f30f.1273484098.git.marcel@holtmann.org>
+ <0301ef04b5f49a95681694fc0d75af9441faa919.1273484098.git.marcel@holtmann.org>
+ <a2e12a2a312f816d5970b0c809d43b399fbfe90c.1273484098.git.marcel@holtmann.org>
+ <9b16dc6551cbde65d0ac525af3c46efab53a2c46.1273484098.git.marcel@holtmann.org>
+ <ff12fd643334071084b6145cad3793bb6c956638.1273484098.git.marcel@holtmann.org>
+ <9a9c6a34416b3743c09c00f3d6708d9df3c21629.1273484098.git.marcel@holtmann.org>
+ <f11d676da4059c7888efca810ab300b931736a26.1273484098.git.marcel@holtmann.org>
+ <18778a63ddc83bc89bda3b119fb02eb121512a66.1273484098.git.marcel@holtmann.org>
+ <9b53350d3cf5b330c3261d89b5e62a2dc25c5653.1273484098.git.marcel@holtmann.org>
+ <1890d36bb556a27684ad29654a9898ab9a5f57ee.1273484098.git.marcel@holtmann.org>
+ <6161c0382bbab883a634d284f7367a88bbe88534.1273484098.git.marcel@holtmann.org>
+ <dfc909befbfe967bd7f46ef33b6969c1b7f3cf42.1273484098.git.marcel@holtmann.org>
+ <4178ba462a3e8ab5094e69606f01d9e95f2d5ea6.1273484098.git.marcel@holtmann.org>
+ <844c0972427ee5f661158160aaca10b22b3dda60.1273484098.git.marcel@holtmann.org>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53446 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53454 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755831Ab0EJJi4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:38:56 -0400
-In-Reply-To: <10467e9e9b89272b25b56688bb276d0830e9ab9a.1273484097.git.marcel@holtmann.org>
+	with ESMTP id S1755934Ab0EJJjP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:15 -0400
+In-Reply-To: <844c0972427ee5f661158160aaca10b22b3dda60.1273484098.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Gustavo F. Padovan <padovan@profusion.mobi>
+Instead of having a global workqueue for all controllers, it makes
+more sense to have a workqueue per controller.
 
-If the SDU size is greater than the MTU something is wrong, so report
-an error.
-
-Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
-[jprvita@profusion.mobi: set err to appropriate errno value]
-Signed-off-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/l2cap.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+ include/net/bluetooth/hci_core.h |    2 ++
+ net/bluetooth/hci_core.c         |   14 ++++++++++++++
+ net/bluetooth/hci_sysfs.c        |   16 +++-------------
+ 3 files changed, 19 insertions(+), 13 deletions(-)
 
-diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index 0889949..e936913 100644
---- a/net/bluetooth/l2cap.c
-+++ b/net/bluetooth/l2cap.c
-@@ -3338,6 +3338,11 @@ static int l2cap_sar_reassembly_sdu(struct sock =
-*sk, struct sk_buff *skb, u16 co
- 		pi->sdu_len =3D get_unaligned_le16(skb->data);
- 		skb_pull(skb, 2);
-=20
-+		if (pi->sdu_len > pi->imtu) {
-+			err =3D -EMSGSIZE;
-+			break;
-+		}
+diff --git a/include/net/bluetooth/hci_core.h b/include/net/bluetooth/hci_core.h
+index 4511df2..e42f6ed 100644
+--- a/include/net/bluetooth/hci_core.h
++++ b/include/net/bluetooth/hci_core.h
+@@ -107,6 +107,8 @@ struct hci_dev {
+ 	unsigned long	acl_last_tx;
+ 	unsigned long	sco_last_tx;
+ 
++	struct workqueue_struct	*workqueue;
 +
- 		pi->sdu =3D bt_skb_alloc(pi->sdu_len, GFP_ATOMIC);
- 		if (!pi->sdu) {
- 			err =3D -ENOMEM;
---=20
+ 	struct tasklet_struct	cmd_task;
+ 	struct tasklet_struct	rx_task;
+ 	struct tasklet_struct	tx_task;
+diff --git a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
+index 904f1e8..5e83f8e 100644
+--- a/net/bluetooth/hci_core.c
++++ b/net/bluetooth/hci_core.c
+@@ -37,6 +37,7 @@
+ #include <linux/fcntl.h>
+ #include <linux/init.h>
+ #include <linux/skbuff.h>
++#include <linux/workqueue.h>
+ #include <linux/interrupt.h>
+ #include <linux/notifier.h>
+ #include <linux/rfkill.h>
+@@ -928,6 +929,10 @@ int hci_register_dev(struct hci_dev *hdev)
+ 
+ 	write_unlock_bh(&hci_dev_list_lock);
+ 
++	hdev->workqueue = create_singlethread_workqueue(hdev->name);
++	if (!hdev->workqueue)
++		goto nomem;
++
+ 	hci_register_sysfs(hdev);
+ 
+ 	hdev->rfkill = rfkill_alloc(hdev->name, &hdev->dev,
+@@ -942,6 +947,13 @@ int hci_register_dev(struct hci_dev *hdev)
+ 	hci_notify(hdev, HCI_DEV_REG);
+ 
+ 	return id;
++
++nomem:
++	write_lock_bh(&hci_dev_list_lock);
++	list_del(&hdev->list);
++	write_unlock_bh(&hci_dev_list_lock);
++
++	return -ENOMEM;
+ }
+ EXPORT_SYMBOL(hci_register_dev);
+ 
+@@ -970,6 +982,8 @@ int hci_unregister_dev(struct hci_dev *hdev)
+ 
+ 	hci_unregister_sysfs(hdev);
+ 
++	destroy_workqueue(hdev->workqueue);
++
+ 	__hci_dev_put(hdev);
+ 
+ 	return 0;
+diff --git a/net/bluetooth/hci_sysfs.c b/net/bluetooth/hci_sysfs.c
+index 0e8e1a5..a978449 100644
+--- a/net/bluetooth/hci_sysfs.c
++++ b/net/bluetooth/hci_sysfs.c
+@@ -14,8 +14,6 @@ static struct class *bt_class;
+ struct dentry *bt_debugfs = NULL;
+ EXPORT_SYMBOL_GPL(bt_debugfs);
+ 
+-static struct workqueue_struct *bt_workq;
+-
+ static inline char *link_typetostr(int type)
+ {
+ 	switch (type) {
+@@ -161,14 +159,14 @@ void hci_conn_add_sysfs(struct hci_conn *conn)
+ {
+ 	BT_DBG("conn %p", conn);
+ 
+-	queue_work(bt_workq, &conn->work_add);
++	queue_work(conn->hdev->workqueue, &conn->work_add);
+ }
+ 
+ void hci_conn_del_sysfs(struct hci_conn *conn)
+ {
+ 	BT_DBG("conn %p", conn);
+ 
+-	queue_work(bt_workq, &conn->work_del);
++	queue_work(conn->hdev->workqueue, &conn->work_del);
+ }
+ 
+ static inline char *host_bustostr(int bus)
+@@ -487,17 +485,11 @@ void hci_unregister_sysfs(struct hci_dev *hdev)
+ 
+ int __init bt_sysfs_init(void)
+ {
+-	bt_workq = create_singlethread_workqueue("bluetooth");
+-	if (!bt_workq)
+-		return -ENOMEM;
+-
+ 	bt_debugfs = debugfs_create_dir("bluetooth", NULL);
+ 
+ 	bt_class = class_create(THIS_MODULE, "bluetooth");
+-	if (IS_ERR(bt_class)) {
+-		destroy_workqueue(bt_workq);
++	if (IS_ERR(bt_class))
+ 		return PTR_ERR(bt_class);
+-	}
+ 
+ 	return 0;
+ }
+@@ -507,6 +499,4 @@ void bt_sysfs_cleanup(void)
+ 	class_destroy(bt_class);
+ 
+ 	debugfs_remove_recursive(bt_debugfs);
+-
+-	destroy_workqueue(bt_workq);
+ }
+-- 
 1.6.6.1
 
