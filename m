@@ -1,85 +1,64 @@
 From: kaber@trash.net
-Subject: [PATCH 77/84] netfilter: bridge-netfilter: fix refragmenting IP traffic encapsulated in PPPoE traffic
-Date: Mon, 10 May 2010 22:18:48 +0200
-Message-ID: <1273522735-24672-78-git-send-email-kaber@trash.net>
+Subject: [PATCH 78/84] netfilter: x_tables: move sleeping allocation outside BH-disabled region
+Date: Mon, 10 May 2010 22:18:49 +0200
+Message-ID: <1273522735-24672-79-git-send-email-kaber@trash.net>
 References: <1273522735-24672-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54509 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756950Ab0EJUT3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 16:19:29 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1273522735-24672-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Bart De Schuymer <bdschuym@pandora.be>
+From: Jan Engelhardt <jengelh@medozas.de>
 
-The MTU for IP traffic encapsulated inside PPPoE traffic is smaller
-than the MTU of the Ethernet device (1500). Connection tracking
-gathers all IP packets and sometimes will refragment them in
-ip_fragment(). We then need to subtract the length of the
-encapsulating header from the mtu used in ip_fragment(). The check in
-br_nf_dev_queue_xmit() which determines if ip_fragment() has to be
-called is also updated for the PPPoE-encapsulated packets.
-nf_bridge_copy_header() is also updated to make sure the PPPoE data
-length field has the correct value.
+The jumpstack allocation needs to be moved out of the critical region.
+Corrects this notice:
 
-Signed-off-by: Bart De Schuymer <bdschuym@pandora.be>
+BUG: sleeping function called from invalid context at mm/slub.c:1705
+[  428.295762] in_atomic(): 1, irqs_disabled(): 0, pid: 9111, name: iptables
+[  428.295771] Pid: 9111, comm: iptables Not tainted 2.6.34-rc1 #2
+[  428.295776] Call Trace:
+[  428.295791]  [<c012138e>] __might_sleep+0xe5/0xed
+[  428.295801]  [<c019e8ca>] __kmalloc+0x92/0xfc
+[  428.295825]  [<f865b3bb>] ? xt_jumpstack_alloc+0x36/0xff [x_tables]
+
+Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/linux/netfilter_bridge.h |    7 +++++++
- net/bridge/br_netfilter.c        |    2 +-
- net/ipv4/ip_output.c             |    4 ++++
- 3 files changed, 12 insertions(+), 1 deletions(-)
+ net/netfilter/x_tables.c |   12 ++++++------
+ 1 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/netfilter_bridge.h b/include/linux/netfilter_bridge.h
-index ea0e44b..0ddd161 100644
---- a/include/linux/netfilter_bridge.h
-+++ b/include/linux/netfilter_bridge.h
-@@ -68,6 +68,13 @@ static inline unsigned int nf_bridge_encap_header_len(const struct sk_buff *skb)
- 	}
- }
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index 3ae3234..445de70 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -801,6 +801,12 @@ xt_replace_table(struct xt_table *table,
+ 	struct xt_table_info *private;
+ 	int ret;
  
-+static inline unsigned int nf_bridge_mtu_reduction(const struct sk_buff *skb)
-+{
-+	if (unlikely(skb->nf_bridge->mask & BRNF_PPPoE))
-+		return PPPOE_SES_HLEN;
-+	return 0;
-+}
++	ret = xt_jumpstack_alloc(newinfo);
++	if (ret < 0) {
++		*error = ret;
++		return NULL;
++	}
 +
- extern int br_handle_frame_finish(struct sk_buff *skb);
- /* Only used in br_device.c */
- static inline int br_nf_pre_routing_finish_bridge_slow(struct sk_buff *skb)
-diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 6b80ebc..93f80fe 100644
---- a/net/bridge/br_netfilter.c
-+++ b/net/bridge/br_netfilter.c
-@@ -745,7 +745,7 @@ static unsigned int br_nf_forward_arp(unsigned int hook, struct sk_buff *skb,
- static int br_nf_dev_queue_xmit(struct sk_buff *skb)
- {
- 	if (skb->nfct != NULL && skb->protocol == htons(ETH_P_IP) &&
--	    skb->len > skb->dev->mtu &&
-+	    skb->len + nf_bridge_mtu_reduction(skb) > skb->dev->mtu &&
- 	    !skb_is_gso(skb))
- 		return ip_fragment(skb, br_dev_queue_push_xmit);
- 	else
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index b0b2e30..d979710 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -469,6 +469,10 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ 	/* Do the substitution. */
+ 	local_bh_disable();
+ 	private = table->private;
+@@ -814,12 +820,6 @@ xt_replace_table(struct xt_table *table,
+ 		return NULL;
+ 	}
  
- 	hlen = iph->ihl * 4;
- 	mtu = dst_mtu(&rt->u.dst) - hlen;	/* Size of data space */
-+#ifdef CONFIG_BRIDGE_NETFILTER
-+	if (skb->nf_bridge)
-+		mtu -= nf_bridge_mtu_reduction(skb);
-+#endif
- 	IPCB(skb)->flags |= IPSKB_FRAG_COMPLETE;
+-	ret = xt_jumpstack_alloc(newinfo);
+-	if (ret < 0) {
+-		*error = ret;
+-		return NULL;
+-	}
+-
+ 	table->private = newinfo;
+ 	newinfo->initial_entries = private->initial_entries;
  
- 	/* When frag_list is given, use it. First, check its validity:
 -- 
 1.7.0.4
 
