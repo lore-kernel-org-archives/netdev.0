@@ -1,216 +1,92 @@
 From: kaber@trash.net
-Subject: [PATCH 33/84] netfilter: xtables: make use of xt_request_find_target
-Date: Mon, 10 May 2010 22:18:04 +0200
-Message-ID: <1273522735-24672-34-git-send-email-kaber@trash.net>
+Subject: [PATCH 31/84] netfilter: xtables: make use of caller family rather than target family
+Date: Mon, 10 May 2010 22:18:02 +0200
+Message-ID: <1273522735-24672-32-git-send-email-kaber@trash.net>
 References: <1273522735-24672-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:54512 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756743Ab0EJUTG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 16:19:06 -0400
 In-Reply-To: <1273522735-24672-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Jan Engelhardt <jengelh@medozas.de>
 
+Supplement to aa5fa3185791aac71c9172d4fda3e8729164b5d1.
+The semantic patch for this change is:
+
+// <smpl>
+@@
+struct xt_target_param *par;
+@@
+-par->target->family
++par->family
+
+@@
+struct xt_tgchk_param *par;
+@@
+-par->target->family
++par->family
+
+@@
+struct xt_tgdtor_param *par;
+@@
+-par->target->family
++par->family
+// </smpl>
+
 Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 ---
- net/bridge/netfilter/ebtables.c |   13 ++-----------
- net/ipv4/netfilter/arp_tables.c |   20 ++++++++------------
- net/ipv4/netfilter/ip_tables.c  |   20 ++++++++------------
- net/ipv6/netfilter/ip6_tables.c |   20 ++++++++------------
- net/netfilter/x_tables.c        |    4 +---
- net/sched/act_ipt.c             |    4 ++--
- 6 files changed, 29 insertions(+), 52 deletions(-)
+ net/ipv4/netfilter/ipt_CLUSTERIP.c |    6 +++---
+ net/netfilter/xt_NFQUEUE.c         |    4 ++--
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index 989d72c..6d3b256 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -395,13 +395,9 @@ ebt_check_watcher(struct ebt_entry_watcher *w, struct xt_tgchk_param *par,
- 	   left - sizeof(struct ebt_entry_watcher) < w->watcher_size)
- 		return -EINVAL;
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+index 0886f96..a20bee7 100644
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
++++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -401,9 +401,9 @@ static bool clusterip_tg_check(const struct xt_tgchk_param *par)
+ 	}
+ 	cipinfo->config = config;
  
--	watcher = try_then_request_module(
--		  xt_find_target(NFPROTO_BRIDGE, w->u.name, 0),
--		  "ebt_%s", w->u.name);
-+	watcher = xt_request_find_target(NFPROTO_BRIDGE, w->u.name, 0);
- 	if (IS_ERR(watcher))
- 		return PTR_ERR(watcher);
--	if (watcher == NULL)
--		return -ENOENT;
- 	w->u.watcher = watcher;
- 
- 	par->target   = watcher;
-@@ -714,15 +710,10 @@ ebt_check_entry(struct ebt_entry *e, struct net *net,
- 	t = (struct ebt_entry_target *)(((char *)e) + e->target_offset);
- 	gap = e->next_offset - e->target_offset;
- 
--	target = try_then_request_module(
--		 xt_find_target(NFPROTO_BRIDGE, t->u.name, 0),
--		 "ebt_%s", t->u.name);
-+	target = xt_request_find_target(NFPROTO_BRIDGE, t->u.name, 0);
- 	if (IS_ERR(target)) {
- 		ret = PTR_ERR(target);
- 		goto cleanup_watchers;
--	} else if (target == NULL) {
--		ret = -ENOENT;
--		goto cleanup_watchers;
+-	if (nf_ct_l3proto_try_module_get(par->target->family) < 0) {
++	if (nf_ct_l3proto_try_module_get(par->family) < 0) {
+ 		printk(KERN_WARNING "can't load conntrack support for "
+-				    "proto=%u\n", par->target->family);
++				    "proto=%u\n", par->family);
+ 		return false;
  	}
  
- 	t->u.target = target;
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index f07d77f..e8e363d 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -523,13 +523,11 @@ find_check_entry(struct arpt_entry *e, const char *name, unsigned int size)
- 		return ret;
+@@ -421,7 +421,7 @@ static void clusterip_tg_destroy(const struct xt_tgdtor_param *par)
  
- 	t = arpt_get_target(e);
--	target = try_then_request_module(xt_find_target(NFPROTO_ARP,
--							t->u.user.name,
--							t->u.user.revision),
--					 "arpt_%s", t->u.user.name);
--	if (IS_ERR(target) || !target) {
-+	target = xt_request_find_target(NFPROTO_ARP, t->u.user.name,
-+					t->u.user.revision);
-+	if (IS_ERR(target)) {
- 		duprintf("find_check_entry: `%s' not found\n", t->u.user.name);
--		ret = target ? PTR_ERR(target) : -ENOENT;
-+		ret = PTR_ERR(target);
- 		goto out;
- 	}
- 	t->u.kernel.target = target;
-@@ -1252,14 +1250,12 @@ check_compat_entry_size_and_hooks(struct compat_arpt_entry *e,
- 	entry_offset = (void *)e - (void *)base;
+ 	clusterip_config_put(cipinfo->config);
  
- 	t = compat_arpt_get_target(e);
--	target = try_then_request_module(xt_find_target(NFPROTO_ARP,
--							t->u.user.name,
--							t->u.user.revision),
--					 "arpt_%s", t->u.user.name);
--	if (IS_ERR(target) || !target) {
-+	target = xt_request_find_target(NFPROTO_ARP, t->u.user.name,
-+					t->u.user.revision);
-+	if (IS_ERR(target)) {
- 		duprintf("check_compat_entry_size_and_hooks: `%s' not found\n",
- 			 t->u.user.name);
--		ret = target ? PTR_ERR(target) : -ENOENT;
-+		ret = PTR_ERR(target);
- 		goto out;
- 	}
- 	t->u.kernel.target = target;
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index 73fdf20..e24ec48 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -701,13 +701,11 @@ find_check_entry(struct ipt_entry *e, struct net *net, const char *name,
- 	}
- 
- 	t = ipt_get_target(e);
--	target = try_then_request_module(xt_find_target(AF_INET,
--							t->u.user.name,
--							t->u.user.revision),
--					 "ipt_%s", t->u.user.name);
--	if (IS_ERR(target) || !target) {
-+	target = xt_request_find_target(NFPROTO_IPV4, t->u.user.name,
-+					t->u.user.revision);
-+	if (IS_ERR(target)) {
- 		duprintf("find_check_entry: `%s' not found\n", t->u.user.name);
--		ret = target ? PTR_ERR(target) : -ENOENT;
-+		ret = PTR_ERR(target);
- 		goto cleanup_matches;
- 	}
- 	t->u.kernel.target = target;
-@@ -1547,14 +1545,12 @@ check_compat_entry_size_and_hooks(struct compat_ipt_entry *e,
- 	}
- 
- 	t = compat_ipt_get_target(e);
--	target = try_then_request_module(xt_find_target(AF_INET,
--							t->u.user.name,
--							t->u.user.revision),
--					 "ipt_%s", t->u.user.name);
--	if (IS_ERR(target) || !target) {
-+	target = xt_request_find_target(NFPROTO_IPV4, t->u.user.name,
-+					t->u.user.revision);
-+	if (IS_ERR(target)) {
- 		duprintf("check_compat_entry_size_and_hooks: `%s' not found\n",
- 			 t->u.user.name);
--		ret = target ? PTR_ERR(target) : -ENOENT;
-+		ret = PTR_ERR(target);
- 		goto release_matches;
- 	}
- 	t->u.kernel.target = target;
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 1b2414e..842bef3 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -733,13 +733,11 @@ find_check_entry(struct ip6t_entry *e, struct net *net, const char *name,
- 	}
- 
- 	t = ip6t_get_target(e);
--	target = try_then_request_module(xt_find_target(AF_INET6,
--							t->u.user.name,
--							t->u.user.revision),
--					 "ip6t_%s", t->u.user.name);
--	if (IS_ERR(target) || !target) {
-+	target = xt_request_find_target(NFPROTO_IPV6, t->u.user.name,
-+					t->u.user.revision);
-+	if (IS_ERR(target)) {
- 		duprintf("find_check_entry: `%s' not found\n", t->u.user.name);
--		ret = target ? PTR_ERR(target) : -ENOENT;
-+		ret = PTR_ERR(target);
- 		goto cleanup_matches;
- 	}
- 	t->u.kernel.target = target;
-@@ -1581,14 +1579,12 @@ check_compat_entry_size_and_hooks(struct compat_ip6t_entry *e,
- 	}
- 
- 	t = compat_ip6t_get_target(e);
--	target = try_then_request_module(xt_find_target(AF_INET6,
--							t->u.user.name,
--							t->u.user.revision),
--					 "ip6t_%s", t->u.user.name);
--	if (IS_ERR(target) || !target) {
-+	target = xt_request_find_target(NFPROTO_IPV6, t->u.user.name,
-+					t->u.user.revision);
-+	if (IS_ERR(target)) {
- 		duprintf("check_compat_entry_size_and_hooks: `%s' not found\n",
- 			 t->u.user.name);
--		ret = target ? PTR_ERR(target) : -ENOENT;
-+		ret = PTR_ERR(target);
- 		goto release_matches;
- 	}
- 	t->u.kernel.target = target;
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index 9a248d4..bf2806a 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -250,9 +250,7 @@ struct xt_target *xt_request_find_target(u8 af, const char *name, u8 revision)
- 
- 	target = try_then_request_module(xt_find_target(af, name, revision),
- 					 "%st_%s", xt_prefix[af], name);
--	if (IS_ERR(target) || !target)
--		return NULL;
--	return target;
-+	return (target != NULL) ? target : ERR_PTR(-ENOENT);
+-	nf_ct_l3proto_module_put(par->target->family);
++	nf_ct_l3proto_module_put(par->family);
  }
- EXPORT_SYMBOL_GPL(xt_request_find_target);
  
-diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
-index 082c520..b9f79c2 100644
---- a/net/sched/act_ipt.c
-+++ b/net/sched/act_ipt.c
-@@ -46,8 +46,8 @@ static int ipt_init_target(struct ipt_entry_target *t, char *table, unsigned int
+ #ifdef CONFIG_COMPAT
+diff --git a/net/netfilter/xt_NFQUEUE.c b/net/netfilter/xt_NFQUEUE.c
+index a37e216..7cc0de6 100644
+--- a/net/netfilter/xt_NFQUEUE.c
++++ b/net/netfilter/xt_NFQUEUE.c
+@@ -71,10 +71,10 @@ nfqueue_tg_v1(struct sk_buff *skb, const struct xt_target_param *par)
+ 	u32 queue = info->queuenum;
  
- 	target = xt_request_find_target(AF_INET, t->u.user.name,
- 					t->u.user.revision);
--	if (!target)
--		return -ENOENT;
-+	if (IS_ERR(target))
-+		return PTR_ERR(target);
- 
- 	t->u.kernel.target = target;
- 	par.table     = table;
+ 	if (info->queues_total > 1) {
+-		if (par->target->family == NFPROTO_IPV4)
++		if (par->family == NFPROTO_IPV4)
+ 			queue = hash_v4(skb) % info->queues_total + queue;
+ #if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
+-		else if (par->target->family == NFPROTO_IPV6)
++		else if (par->family == NFPROTO_IPV6)
+ 			queue = hash_v6(skb) % info->queues_total + queue;
+ #endif
+ 	}
 -- 
 1.7.0.4
 
