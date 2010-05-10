@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 14/64] Bluetooth: Check if SDU size is greater than MTU on L2CAP
-Date: Mon, 10 May 2010 11:37:04 +0200
-Message-ID: <36f2fd585f43199f006a3b5ff84e95815102cd31.1273484096.git.marcel@holtmann.org>
+Subject: [PATCH 38/64] Bluetooth: Add Kconfig option for L2CAP Extended Features
+Date: Mon, 10 May 2010 11:37:28 +0200
+Message-ID: <84fb0a6334af0ccad3544f6972c055d90fbb9fbe.1273484097.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -16,17 +16,41 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <d5392c8f1e9faef089bb7cb66c3314da8bddd1fe.1273484096.git.marcel@holtmann.org>
  <1d8f5d16913d74e428950ee02fe9ff7e6391c120.1273484096.git.marcel@holtmann.org>
  <277ffbe362823d18a17792fbd8e507010e666299.1273484096.git.marcel@holtmann.org>
+ <36f2fd585f43199f006a3b5ff84e95815102cd31.1273484096.git.marcel@holtmann.org>
+ <9e917af13d59182f95bbb5483dc0c4254dfb7944.1273484096.git.marcel@holtmann.org>
+ <f0946ccfc7da403a46b7ff7cb2e3deffac108742.1273484096.git.marcel@holtmann.org>
+ <73edaa9933219e25d6733b78d1e2c881025705e2.1273484096.git.marcel@holtmann.org>
+ <e072745f4adb01b909bd08a0cfc8f79348f4d2c6.1273484096.git.marcel@holtmann.org>
+ <99b0d4b7b09edeacf4542bced5c01239375b51a9.1273484096.git.marcel@holtmann.org>
+ <6e3a59819fac19006fe4255b87928e5a12c54532.1273484096.git.marcel@holtmann.org>
+ <8abb52ee00c4b3f857269eb6b7145991bab869bf.1273484096.git.marcel@holtmann.org>
+ <05fbd89dd4153341717b33d9e8ae8bd29db6c1c8.1273484096.git.marcel@holtmann.org>
+ <c1b4f43be01c2a363be021485dd18cca33cfab8a.1273484097.git.marcel@holtmann.org>
+ <2fb862e215e53630066c677e06d7551fa38bf235.1273484097.git.marcel@holtmann.org>
+ <7b1c0049be3aabc18831ada339dbcf41ba8c81fd.1273484097.git.marcel@holtmann.org>
+ <1c7621596d11b9c3e19eb88a818758dee4901c95.1273484097.git.marcel@holtmann.org>
+ <10467e9e9b89272b25b56688bb276d0830e9ab9a.1273484097.git.marcel@holtmann.org>
+ <052897ca5019d9157ae09e5e84eee2a9ef5dccc6.1273484097.git.marcel@holtmann.org>
+ <855666cccc939d392316de17512e17a08b2fa05a.1273484097.git.marcel@holtmann.org>
+ <14b5aa71ec506f4e38ca6a1dc02ecd668ecfd902.1273484097.git.marcel@holtmann.org>
+ <803020c6fa63aa738cfda3329c9675b42023e9d2.1273484097.git.marcel@holtmann.org>
+ <369ba30264826f38eefc61b93688100be8adbd4d.1273484097.git.marcel@holtmann.org>
+ <68d7f0ce911e41e463c45911be031cdf6a096fe8.1273484097.git.marcel@holtmann.org>
+ <f6e6b16823de0aff31cb8ee8c098383e3aceec58.1273484097.git.marcel@holtmann.org>
+ <0ee0d20855ae9271de3f6695f4cafc08ab2533bb.1273484097.git.marcel@holtmann.org>
+ <812e737e29a1d559e7bfbea675fdcfcbad9f5e1f.1273484097.git.marcel@holtmann.org>
+ <3b1a9f3fa6ad842991538da2c3b2e29e047b131f.1273484097.git.marcel@holtmann.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53431 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53458 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755653Ab0EJJir (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:38:47 -0400
-In-Reply-To: <277ffbe362823d18a17792fbd8e507010e666299.1273484096.git.marcel@holtmann.org>
+	with ESMTP id S1755873Ab0EJJjC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:02 -0400
+In-Reply-To: <3b1a9f3fa6ad842991538da2c3b2e29e047b131f.1273484097.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
@@ -34,41 +58,59 @@ List-ID: <netdev.vger.kernel.org>
 
 =46rom: Gustavo F. Padovan <padovan@profusion.mobi>
 
-After reassembly the SDU we need to check his size. It can't overflow
-the MTU size.
+The L2CAP Extended Features are still unstable and under development,
+so we are adding them under the EXPERIMENTAL flag to get more feedback
+on them. L2CAP Extended Features includes the Enhanced Retransmission
+and Streaming Modes, Frame Check Sequence (FCS), and Segmentation and
+Reassemby (SAR).
 
 Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
 Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/l2cap.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
+ net/bluetooth/Kconfig |   13 +++++++++++++
+ net/bluetooth/l2cap.c |    4 ++++
+ 2 files changed, 17 insertions(+), 0 deletions(-)
 
+diff --git a/net/bluetooth/Kconfig b/net/bluetooth/Kconfig
+index ed37168..ee3b304 100644
+--- a/net/bluetooth/Kconfig
++++ b/net/bluetooth/Kconfig
+@@ -43,6 +43,19 @@ config BT_L2CAP
+ 	  Say Y here to compile L2CAP support into the kernel or say M to
+ 	  compile it as module (l2cap).
+=20
++config BT_L2CAP_EXT_FEATURES
++	bool "L2CAP Extended Features support (EXPERIMENTAL)"
++	depends on BT_L2CAP && EXPERIMENTAL
++	help
++	  This option enables the L2CAP Extended Features support. These
++	  new features include the Enhanced Retransmission and Streaming
++	  Modes, the Frame Check Sequence (FCS), and Segmentation and
++	  Reassembly (SAR) for L2CAP packets. They are a required for the
++	  new Alternate MAC/PHY and the Bluetooth Medical Profile.
++
++	  You should say N unless you know what you are doing. Note that
++	  this is in an experimental state yet.
++
+ config BT_SCO
+ 	tristate "SCO links support"
+ 	depends on BT
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index ac00f5f..2e354d2 100644
+index 187f46d..4c00720 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -3277,15 +3277,19 @@ static int l2cap_sar_reassembly_sdu(struct sock=
- *sk, struct sk_buff *skb, u16 co
- 		pi->conn_state &=3D ~L2CAP_CONN_SAR_SDU;
- 		pi->partial_sdu_len +=3D skb->len;
+@@ -55,7 +55,11 @@
 =20
-+		if (pi->partial_sdu_len > pi->imtu)
-+			goto drop;
-+
- 		if (pi->partial_sdu_len =3D=3D pi->sdu_len) {
- 			_skb =3D skb_clone(pi->sdu, GFP_ATOMIC);
- 			err =3D sock_queue_rcv_skb(sk, _skb);
- 			if (err < 0)
- 				kfree_skb(_skb);
- 		}
--		kfree_skb(pi->sdu);
- 		err =3D 0;
+ #define VERSION "2.14"
 =20
-+drop:
-+		kfree_skb(pi->sdu);
- 		break;
- 	}
++#ifdef CONFIG_BT_L2CAP_EXT_FEATURES
++static int enable_ertm =3D 1;
++#else
+ static int enable_ertm =3D 0;
++#endif
+ static int max_transmit =3D L2CAP_DEFAULT_MAX_TX;
+ static int tx_window =3D L2CAP_DEFAULT_TX_WINDOW;
 =20
 --=20
 1.6.6.1
