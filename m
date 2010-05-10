@@ -1,108 +1,169 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH 4/9 v2] netdev: bfin_mac: deduce Ethernet FCS from hardware IP payload checksum
-Date: Mon, 10 May 2010 11:39:09 -0400
-Message-ID: <1273505954-32588-4-git-send-email-vapier@gentoo.org>
-References: <1273505954-32588-1-git-send-email-vapier@gentoo.org>
-Cc: uclinux-dist-devel@blackfin.uclinux.org,
-	Sonic Zhang <sonic.zhang@analog.com>,
-	Jon Kowal <jon.kowal@dspecialists.de>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:43484 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753049Ab0EJPgX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 May 2010 11:36:23 -0400
-In-Reply-To: <1273505954-32588-1-git-send-email-vapier@gentoo.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: mmotm 2010-04-28 - RCU whinges
+Date: Mon, 10 May 2010 17:40:58 +0200
+Message-ID: <4BE8290A.2080707@trash.net>
+References: <1272865137.2173.179.camel@edumazet-laptop>	<1272865267.2173.180.camel@edumazet-laptop>	<1272865436.2173.182.camel@edumazet-laptop> <20100502.225509.233880079.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------030908070500050408000807"
+Cc: eric.dumazet@gmail.com, Valdis.Kletnieks@vt.edu,
+	akpm@linux-foundation.org, peterz@infradead.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20100502.225509.233880079.davem@davemloft.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sonic Zhang <sonic.zhang@analog.com>
+This is a multi-part message in MIME format.
+--------------030908070500050408000807
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 8bit
 
-IP checksum is based on 16-bit one's complement algorithm, so to deduce a
-value from checksum is equal to add its complement.
+David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 03 May 2010 07:43:56 +0200
+> 
+>> Le lundi 03 mai 2010 à 07:41 +0200, Eric Dumazet a écrit :
+>>
+>>> Oops scratch that, I'll resend a correct version.
+>>>
+>>>
+>> Sorry, patch _is_ fine, I had one brain collapse when re-reading it, I
+>> thought a different mutex was in use in one of the functions.
+> 
+> Ok, Patrick please review, thanks.
 
-Unfortunately, the Blackfin on-chip MAC checksum logic only works when the
-IP packet has a header length of 20 bytes.  This is true for most IPv4
-packets, but not for IPv6 packets or IPv4 packets which use header options.
-So only use the hardware checksum when appropriate.
+Actually we don't need the rcu_dereference() calls at all since
+registration and unregistration are protected by the mutexes.
 
-Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
-Signed-off-by: Jon Kowal <jon.kowal@dspecialists.de>
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
----
-v2
-	- folded the ipv4 checks into this patch
+I queued this patch in nf-next, the only reason why I haven't
+submitted it yet is that I was unable to get git to cleanly export
+only the proper set of patches meant for -next due to a few merges,
+it insists on including 5 patches already merged upstream. If you
+don't mind ignoring the first 5 patches in the series, I'll send a
+pull request tonight.
 
- drivers/net/bfin_mac.c |   35 +++++++++++++++++++++++++++++++++--
- 1 files changed, 33 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-index f9ba598..b57b5ac 100644
---- a/drivers/net/bfin_mac.c
-+++ b/drivers/net/bfin_mac.c
-@@ -986,6 +986,7 @@ out:
- 	return NETDEV_TX_OK;
+
+--------------030908070500050408000807
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+commit ed86308f6179d8fa6151c2d0f652aad0091548e2
+Author: Patrick McHardy <kaber@trash.net>
+Date:   Fri Apr 9 16:42:15 2010 +0200
+
+    netfilter: remove invalid rcu_dereference() calls
+    
+    The CONFIG_PROVE_RCU option discovered a few invalid uses of
+    rcu_dereference() in netfilter. In all these cases, the code code
+    intends to check whether a pointer is already assigned when
+    performing registration or whether the assigned pointer matches
+    when performing unregistration. The entire registration/
+    unregistration is protected by a mutex, so we don't need the
+    rcu_dereference() calls.
+    
+    Reported-by: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+    Tested-by: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
+    Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+diff --git a/net/netfilter/nf_conntrack_ecache.c b/net/netfilter/nf_conntrack_ecache.c
+index d5a9bcd..849614a 100644
+--- a/net/netfilter/nf_conntrack_ecache.c
++++ b/net/netfilter/nf_conntrack_ecache.c
+@@ -81,11 +81,9 @@ EXPORT_SYMBOL_GPL(nf_ct_deliver_cached_events);
+ int nf_conntrack_register_notifier(struct nf_ct_event_notifier *new)
+ {
+ 	int ret = 0;
+-	struct nf_ct_event_notifier *notify;
+ 
+ 	mutex_lock(&nf_ct_ecache_mutex);
+-	notify = rcu_dereference(nf_conntrack_event_cb);
+-	if (notify != NULL) {
++	if (nf_conntrack_event_cb != NULL) {
+ 		ret = -EBUSY;
+ 		goto out_unlock;
+ 	}
+@@ -101,11 +99,8 @@ EXPORT_SYMBOL_GPL(nf_conntrack_register_notifier);
+ 
+ void nf_conntrack_unregister_notifier(struct nf_ct_event_notifier *new)
+ {
+-	struct nf_ct_event_notifier *notify;
+-
+ 	mutex_lock(&nf_ct_ecache_mutex);
+-	notify = rcu_dereference(nf_conntrack_event_cb);
+-	BUG_ON(notify != new);
++	BUG_ON(nf_conntrack_event_cb != new);
+ 	rcu_assign_pointer(nf_conntrack_event_cb, NULL);
+ 	mutex_unlock(&nf_ct_ecache_mutex);
  }
+@@ -114,11 +109,9 @@ EXPORT_SYMBOL_GPL(nf_conntrack_unregister_notifier);
+ int nf_ct_expect_register_notifier(struct nf_exp_event_notifier *new)
+ {
+ 	int ret = 0;
+-	struct nf_exp_event_notifier *notify;
  
-+#define IP_HEADER_OFF  0
- #define RX_ERROR_MASK (RX_LONG | RX_ALIGN | RX_CRC | RX_LEN | \
- 	RX_FRAG | RX_ADDR | RX_DMAO | RX_PHY | RX_LATE | RX_RANGE)
+ 	mutex_lock(&nf_ct_ecache_mutex);
+-	notify = rcu_dereference(nf_expect_event_cb);
+-	if (notify != NULL) {
++	if (nf_expect_event_cb != NULL) {
+ 		ret = -EBUSY;
+ 		goto out_unlock;
+ 	}
+@@ -134,11 +127,8 @@ EXPORT_SYMBOL_GPL(nf_ct_expect_register_notifier);
  
-@@ -994,6 +995,10 @@ static void bfin_mac_rx(struct net_device *dev)
- 	struct sk_buff *skb, *new_skb;
- 	unsigned short len;
- 	struct bfin_mac_local *lp __maybe_unused = netdev_priv(dev);
-+#if defined(BFIN_MAC_CSUM_OFFLOAD)
-+	unsigned int i;
-+	unsigned char fcs[ETH_FCS_LEN + 1];
-+#endif
+ void nf_ct_expect_unregister_notifier(struct nf_exp_event_notifier *new)
+ {
+-	struct nf_exp_event_notifier *notify;
+-
+ 	mutex_lock(&nf_ct_ecache_mutex);
+-	notify = rcu_dereference(nf_expect_event_cb);
+-	BUG_ON(notify != new);
++	BUG_ON(nf_expect_event_cb != new);
+ 	rcu_assign_pointer(nf_expect_event_cb, NULL);
+ 	mutex_unlock(&nf_ct_ecache_mutex);
+ }
+diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
+index 015725a..908f599 100644
+--- a/net/netfilter/nf_log.c
++++ b/net/netfilter/nf_log.c
+@@ -35,7 +35,6 @@ static struct nf_logger *__find_logger(int pf, const char *str_logger)
+ /* return EEXIST if the same logger is registred, 0 on success. */
+ int nf_log_register(u_int8_t pf, struct nf_logger *logger)
+ {
+-	const struct nf_logger *llog;
+ 	int i;
  
- 	/* check if frame status word reports an error condition
- 	 * we which case we simply drop the packet
-@@ -1027,6 +1032,8 @@ static void bfin_mac_rx(struct net_device *dev)
- 	current_rx_ptr->desc_a.start_addr = (unsigned long)new_skb->data - 2;
+ 	if (pf >= ARRAY_SIZE(nf_loggers))
+@@ -52,8 +51,7 @@ int nf_log_register(u_int8_t pf, struct nf_logger *logger)
+ 	} else {
+ 		/* register at end of list to honor first register win */
+ 		list_add_tail(&logger->list[pf], &nf_loggers_l[pf]);
+-		llog = rcu_dereference(nf_loggers[pf]);
+-		if (llog == NULL)
++		if (nf_loggers[pf] == NULL)
+ 			rcu_assign_pointer(nf_loggers[pf], logger);
+ 	}
  
- 	len = (unsigned short)((current_rx_ptr->status.status_word) & RX_FRLEN);
-+	/* Deduce Ethernet FCS length from Ethernet payload length */
-+	len -= ETH_FCS_LEN;
- 	skb_put(skb, len);
+@@ -65,13 +63,11 @@ EXPORT_SYMBOL(nf_log_register);
  
- 	skb->protocol = eth_type_trans(skb, dev);
-@@ -1034,8 +1041,32 @@ static void bfin_mac_rx(struct net_device *dev)
- 	bfin_rx_hwtstamp(dev, skb);
+ void nf_log_unregister(struct nf_logger *logger)
+ {
+-	const struct nf_logger *c_logger;
+ 	int i;
  
- #if defined(BFIN_MAC_CSUM_OFFLOAD)
--	skb->csum = current_rx_ptr->status.ip_payload_csum;
--	skb->ip_summed = CHECKSUM_COMPLETE;
-+	/* Checksum offloading only works for IPv4 packets with the standard IP header
-+	 * length of 20 bytes, because the blackfin MAC checksum calculation is
-+	 * based on that assumption. We must NOT use the calculated checksum if our
-+	 * IP version or header break that assumption.
-+	 */
-+	if (skb->data[IP_HEADER_OFF] == 0x45) {
-+		skb->csum = current_rx_ptr->status.ip_payload_csum;
-+		/*
-+		 * Deduce Ethernet FCS from hardware generated IP payload checksum.
-+		 * IP checksum is based on 16-bit one's complement algorithm.
-+		 * To deduce a value from checksum is equal to add its inversion.
-+		 * If the IP payload len is odd, the inversed FCS should also
-+		 * begin from odd address and leave first byte zero.
-+		 */
-+		if (skb->len % 2) {
-+			fcs[0] = 0;
-+			for (i = 0; i < ETH_FCS_LEN; i++)
-+				fcs[i + 1] = ~skb->data[skb->len + i];
-+			skb->csum = csum_partial(fcs, ETH_FCS_LEN + 1, skb->csum);
-+		} else {
-+			for (i = 0; i < ETH_FCS_LEN; i++)
-+				fcs[i] = ~skb->data[skb->len + i];
-+			skb->csum = csum_partial(fcs, ETH_FCS_LEN, skb->csum);
-+		}
-+		skb->ip_summed = CHECKSUM_COMPLETE;
-+	}
- #endif
- 
- 	netif_rx(skb);
--- 
-1.7.1
+ 	mutex_lock(&nf_log_mutex);
+ 	for (i = 0; i < ARRAY_SIZE(nf_loggers); i++) {
+-		c_logger = rcu_dereference(nf_loggers[i]);
+-		if (c_logger == logger)
++		if (nf_loggers[i] == logger)
+ 			rcu_assign_pointer(nf_loggers[i], NULL);
+ 		list_del(&logger->list[i]);
+ 	}
 
+--------------030908070500050408000807--
