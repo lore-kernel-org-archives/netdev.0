@@ -1,81 +1,97 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH v2] can: Add driver for esd CAN-USB/2 device
-Date: Mon, 10 May 2010 16:59:01 +0200
-Message-ID: <4BE81F35.60607@grandegger.com>
-References: <201005101528.50834.matthias.fuchs@esd.eu>
-	<4BE80D6E.3040205@grandegger.com>
-	<201005101640.39048.matthias.fuchs@esd.eu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: VLAN I/F's and TX queue.
+Date: Mon, 10 May 2010 17:14:56 +0200
+Message-ID: <1273504496.2221.14.camel@edumazet-laptop>
+References: <OF5A42C874.3AF220FE-ONC1257718.003ABC6E-C1257718.003F94D2@LocalDomain>
+	 <OF3F4D7278.DC6A6E51-ONC125771C.002B1AF4-C125771C.002C64E3@transmode.se>
+	 <1273222403.2261.26.camel@edumazet-laptop>  <4BE81793.3060905@trash.net>
+	 <1273502195.2221.4.camel@edumazet-laptop> <4BE81B24.4020601@trash.net>
+	 <OF60B75A13.F85EAE42-ONC125771F.00518947-C125771F.0051E8DC@transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Matthias Fuchs <matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <201005101640.39048.matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:36123 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752434Ab0EJPPB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 11:15:01 -0400
+Received: by fxm7 with SMTP id 7so186041fxm.19
+        for <netdev@vger.kernel.org>; Mon, 10 May 2010 08:15:00 -0700 (PDT)
+In-Reply-To: <OF60B75A13.F85EAE42-ONC125771F.00518947-C125771F.0051E8DC@transmode.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/10/2010 04:40 PM, Matthias Fuchs wrote:
-> Hi Wolfgang,
-> 
-> On Monday 10 May 2010 15:43, Wolfgang Grandegger wrote:
->> Hi Matthias,
->>
->> On 05/10/2010 03:28 PM, Matthias Fuchs wrote:
->>> This patch adds a driver for esd's USB high speed
->>> CAN interface. The driver supports devices with
->>> multiple CAN interfaces.
->>>
->>> Signed-off-by: Matthias Fuchs <matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
->>> ---
->>>
->>> version 2: 
->>>  - use bus-error reporting and counters
->>
->> I don't find support for CAN_CTRLMODE_BERR_REPORTING, apart from setting
->> the flag. If it's set bus error interrupts should be enabled or disabled
->> otherwise.
->>
->> Wolfgang.
-> I expect my implementation to be complete.
-> 
-> 1) In esd_usb2_rx_event() I pass tx/rxerr in cf->data[6/7].
-> 2) I implemented esd_usb2_get_berr_counter(). This function will 
->    return the last tx/rx error counters from the hardware that
->    are kept in priv->bec.
-> 3) tx/rx error counter cannot be requested from the hardware so
->    they are stored in priv->bec when they are received from the hardware.
->    There is no way to enable or disable this behavior.
-> 4) Finally I enabled the whole interface via CAN_CTRLMODE_BERR_REPORTING
->    for the CAN framework.
+Le lundi 10 mai 2010 =C3=A0 16:54 +0200, Joakim Tjernlund a =C3=A9crit =
+:
+> Patrick McHardy <kaber@trash.net> wrote on 2010/05/10 16:41:40:
+> >
+> > Eric Dumazet wrote:
+> > > Le lundi 10 mai 2010 =C3=A0 16:26 +0200, Patrick McHardy a =C3=A9=
+crit :
+> > >
+> > >> Is the intention just to avoid accounting the packet as dropped?
+> > >> That seems fine to me since in case of NET_XMIT_CN its actually
+> > >> not the currently transmitted packet that was dropped.
+> > >>
+> > >> But part of the intention of the above mentioned patch was actua=
+lly
+> > >> to inform higher layers of congestion so they can take action if
+> > >> desired, which would be defeated by this patch.
+> > >>
+> > >
+> > > I see, so maybe we want following patch instead ?
+> > >
+> > > (letting NET_XMIT_CN be given to caller, but accounting current p=
+acket
+> > > as transmitted ?)
+> >
+> > Perfect, thanks. I'd suggest to change macvlan in a similar fashion
+> > for consistency though.
+> >
+> > In any case please feel free to add my
+> >
+> > Acked-by: Patrick McHardy <kaber@trash.net>
+>=20
+> hmm, as I don't follow this could you tell me where the dropped pkgs
+> are accounted in my case:
+>  eth0      Link encap:Ethernet  HWaddr 00:AA:BB:CC:DD:EE
+>            UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>            RX packets:8886910 errors:0 dropped:0 overruns:0 frame:0
+>            TX packets:8880219 errors:0 dropped:0 overruns:0 carrier:0
+>            collisions:0 txqueuelen:100
+>            RX bytes:1626842951 (1.5 GiB)  TX bytes:1555540810 (1.4 Gi=
+B)
+>=20
+>  eth0.1    Link encap:Ethernet  HWaddr 00:AA:BB:CC:DD:EE
+>            UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>            RX packets:2163164 errors:0 dropped:0 overruns:0 frame:0
+>            TX packets:2161943 errors:0 dropped:98 overruns:0 carrier:=
+0
+>            collisions:0 txqueuelen:0
+>            RX bytes:2467090557 (2.2 GiB)  TX bytes:2480246455 (2.3 Gi=
+B)
+>=20
+>  eth0.1.1  Link encap:Ethernet  HWaddr 00:AA:BB:CC:DD:EE
+>            UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>            RX packets:2163164 errors:0 dropped:0 overruns:0 frame:0
+>            TX packets:2161943 errors:0 dropped:98 overruns:0 carrier:=
+0
+>            collisions:0 txqueuelen:0
+>            RX bytes:2458437901 (2.2 GiB)  TX bytes:2471598683 (2.3 Gi=
+B)
+>=20
+> -
 
-BERR_REPORTING != bus error counter
+As I already said to you, this is a side effect, because your eth0.1.1
+and eth0.1 have no queue.
 
-> I don't see where I missed anything.
+Packet is not dropped, its only a congestion indication.
 
-The equivalent to the following SJA1000 code is missing:
+If you use a queue on eth0.1.1, queue itself handle the queueing
+(obviously), and queue drops are not reported in 'ifconfig -a', but in=20
+'tc -s -d qdisc'
 
-           /* enable interrupts */
-           if (priv->can.ctrlmode & CAN_CTRLMODE_BERR_REPORTING)
-                   priv->write_reg(priv, REG_IER, IRQ_ALL);
-           else
-                   priv->write_reg(priv, REG_IER, IRQ_ALL & ~IRQ_BEI);
 
-The user must now explicitly enable bus error reporting with
-"ip ... type can berr_reporting on ....
 
-Wolfgang.
-
- 
-> Matthias
-> 
-> 
