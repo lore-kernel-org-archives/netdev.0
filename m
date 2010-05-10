@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 38/64] Bluetooth: Add Kconfig option for L2CAP Extended Features
-Date: Mon, 10 May 2010 11:37:28 +0200
-Message-ID: <84fb0a6334af0ccad3544f6972c055d90fbb9fbe.1273484097.git.marcel@holtmann.org>
+Subject: [PATCH 32/64] Bluetooth: Add module parameter for txWindow size on L2CAP
+Date: Mon, 10 May 2010 11:37:22 +0200
+Message-ID: <369ba30264826f38eefc61b93688100be8adbd4d.1273484097.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -34,23 +34,17 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <855666cccc939d392316de17512e17a08b2fa05a.1273484097.git.marcel@holtmann.org>
  <14b5aa71ec506f4e38ca6a1dc02ecd668ecfd902.1273484097.git.marcel@holtmann.org>
  <803020c6fa63aa738cfda3329c9675b42023e9d2.1273484097.git.marcel@holtmann.org>
- <369ba30264826f38eefc61b93688100be8adbd4d.1273484097.git.marcel@holtmann.org>
- <68d7f0ce911e41e463c45911be031cdf6a096fe8.1273484097.git.marcel@holtmann.org>
- <f6e6b16823de0aff31cb8ee8c098383e3aceec58.1273484097.git.marcel@holtmann.org>
- <0ee0d20855ae9271de3f6695f4cafc08ab2533bb.1273484097.git.marcel@holtmann.org>
- <812e737e29a1d559e7bfbea675fdcfcbad9f5e1f.1273484097.git.marcel@holtmann.org>
- <3b1a9f3fa6ad842991538da2c3b2e29e047b131f.1273484097.git.marcel@holtmann.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53458 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53454 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755873Ab0EJJjC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:02 -0400
-In-Reply-To: <3b1a9f3fa6ad842991538da2c3b2e29e047b131f.1273484097.git.marcel@holtmann.org>
+	with ESMTP id S1755733Ab0EJJi7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:38:59 -0400
+In-Reply-To: <803020c6fa63aa738cfda3329c9675b42023e9d2.1273484097.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
@@ -58,60 +52,50 @@ List-ID: <netdev.vger.kernel.org>
 
 =46rom: Gustavo F. Padovan <padovan@profusion.mobi>
 
-The L2CAP Extended Features are still unstable and under development,
-so we are adding them under the EXPERIMENTAL flag to get more feedback
-on them. L2CAP Extended Features includes the Enhanced Retransmission
-and Streaming Modes, Frame Check Sequence (FCS), and Segmentation and
-Reassemby (SAR).
+Very useful for testing purposes.
 
 Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
-Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
+[jprvita@profusion.mobi: improved parameter description]
+Signed-off-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/Kconfig |   13 +++++++++++++
- net/bluetooth/l2cap.c |    4 ++++
- 2 files changed, 17 insertions(+), 0 deletions(-)
+ net/bluetooth/l2cap.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
 
-diff --git a/net/bluetooth/Kconfig b/net/bluetooth/Kconfig
-index ed37168..ee3b304 100644
---- a/net/bluetooth/Kconfig
-+++ b/net/bluetooth/Kconfig
-@@ -43,6 +43,19 @@ config BT_L2CAP
- 	  Say Y here to compile L2CAP support into the kernel or say M to
- 	  compile it as module (l2cap).
-=20
-+config BT_L2CAP_EXT_FEATURES
-+	bool "L2CAP Extended Features support (EXPERIMENTAL)"
-+	depends on BT_L2CAP && EXPERIMENTAL
-+	help
-+	  This option enables the L2CAP Extended Features support. These
-+	  new features include the Enhanced Retransmission and Streaming
-+	  Modes, the Frame Check Sequence (FCS), and Segmentation and
-+	  Reassembly (SAR) for L2CAP packets. They are a required for the
-+	  new Alternate MAC/PHY and the Bluetooth Medical Profile.
-+
-+	  You should say N unless you know what you are doing. Note that
-+	  this is in an experimental state yet.
-+
- config BT_SCO
- 	tristate "SCO links support"
- 	depends on BT
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index 187f46d..4c00720 100644
+index 0b0b237..ff1466b 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -55,7 +55,11 @@
+@@ -57,6 +57,7 @@
 =20
- #define VERSION "2.14"
-=20
-+#ifdef CONFIG_BT_L2CAP_EXT_FEATURES
-+static int enable_ertm =3D 1;
-+#else
  static int enable_ertm =3D 0;
-+#endif
  static int max_transmit =3D L2CAP_DEFAULT_MAX_TX;
- static int tx_window =3D L2CAP_DEFAULT_TX_WINDOW;
++static int tx_window =3D L2CAP_DEFAULT_TX_WINDOW;
 =20
+ static u32 l2cap_feat_mask =3D L2CAP_FEAT_FIXED_CHAN;
+ static u8 l2cap_fixed_chan[8] =3D { 0x02, };
+@@ -791,7 +792,7 @@ static void l2cap_sock_init(struct sock *sk, struct=
+ sock *parent)
+ 		pi->omtu =3D 0;
+ 		pi->mode =3D L2CAP_MODE_BASIC;
+ 		pi->fcs  =3D L2CAP_FCS_CRC16;
+-		pi->tx_win =3D L2CAP_DEFAULT_TX_WINDOW;
++		pi->tx_win =3D tx_window;
+ 		pi->sec_level =3D BT_SECURITY_LOW;
+ 		pi->role_switch =3D 0;
+ 		pi->force_reliable =3D 0;
+@@ -4296,6 +4297,9 @@ MODULE_PARM_DESC(enable_ertm, "Enable enhanced re=
+transmission mode");
+ module_param(max_transmit, uint, 0644);
+ MODULE_PARM_DESC(max_transmit, "Max transmit value (default =3D 3)");
+=20
++module_param(tx_window, uint, 0644);
++MODULE_PARM_DESC(tx_window, "Transmission window size value (default =3D=
+ 63)");
++
+ MODULE_AUTHOR("Marcel Holtmann <marcel@holtmann.org>");
+ MODULE_DESCRIPTION("Bluetooth L2CAP ver " VERSION);
+ MODULE_VERSION(VERSION);
 --=20
 1.6.6.1
 
