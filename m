@@ -1,54 +1,110 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the rr tree with the net/wireless trees
-Date: Mon, 10 May 2010 11:57:51 +1000
-Message-ID: <20100510115751.fff295d8.sfr@canb.auug.org.au>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: Re: [PATCH v2] sctp: Fix a race between ICMP protocol unreachable
+ and connect()
+Date: Mon, 10 May 2010 10:56:07 +0800
+Message-ID: <4BE775C7.9070702@cn.fujitsu.com>
+References: <1273087783-18250-1-git-send-email-vladislav.yasevich@hp.com> <1273088166-18391-1-git-send-email-vladislav.yasevich@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Steve deRosier <steve@cozybit.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:62081 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1755027Ab0EJC6T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 May 2010 22:58:19 -0400
+In-Reply-To: <1273088166-18391-1-git-send-email-vladislav.yasevich@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Rusty,
+Hi Vlad:
 
-Today's linux-next merge of the rr tree got a conflict in
-drivers/net/wireless/libertas_tf/if_usb.c between commit
-e9bd5bcde7af27ebb92bb866afde5ef5e4f3dc6c ("libertastf: add configurable
-debug messages") from the net/wireless trees and commit
-8e4920955f49d45b4df026611e3daef8ed570bf3 ("param:lock-charp-simple") from
-the rr tree.
+> [.. removed leftover debuggin printk. should probably be queued for stable
+>  as well... ]
+>
+> ICMP protocol unreachable handling completely disregarded
+> the fact that the user may have locket the socket.  It proceeded
+> to destroy the association, even though the user may have
+> held the lock and had a ref on the association.  This resulted
+> in the following:
+>
+> Attempt to release alive inet socket f6afcc00
+>
+> =========================
+> [ BUG: held lock freed! ]
+> -------------------------
+> somenu/2672 is freeing memory f6afcc00-f6afcfff, with a lock still held
+> there!
+>  (sk_lock-AF_INET){+.+.+.}, at: [<c122098a>] sctp_connect+0x13/0x4c
+> 1 lock held by somenu/2672:
+>  #0:  (sk_lock-AF_INET){+.+.+.}, at: [<c122098a>] sctp_connect+0x13/0x4c
+>
+> stack backtrace:
+> Pid: 2672, comm: somenu Not tainted 2.6.32-telco #55
+> Call Trace:
+>  [<c1232266>] ? printk+0xf/0x11
+>  [<c1038553>] debug_check_no_locks_freed+0xce/0xff
+>  [<c10620b4>] kmem_cache_free+0x21/0x66
+>  [<c1185f25>] __sk_free+0x9d/0xab
+>  [<c1185f9c>] sk_free+0x1c/0x1e
+>  [<c1216e38>] sctp_association_put+0x32/0x89
+>  [<c1220865>] __sctp_connect+0x36d/0x3f4
+>  [<c122098a>] ? sctp_connect+0x13/0x4c
+>  [<c102d073>] ? autoremove_wake_function+0x0/0x33
+>  [<c12209a8>] sctp_connect+0x31/0x4c
+>  [<c11d1e80>] inet_dgram_connect+0x4b/0x55
+>  [<c11834fa>] sys_connect+0x54/0x71
+>  [<c103a3a2>] ? lock_release_non_nested+0x88/0x239
+>  [<c1054026>] ? might_fault+0x42/0x7c
+>  [<c1054026>] ? might_fault+0x42/0x7c
+>  [<c11847ab>] sys_socketcall+0x6d/0x178
+>  [<c10da994>] ? trace_hardirqs_on_thunk+0xc/0x10
+>  [<c1002959>] syscall_call+0x7/0xb
+>
+> This was because the sctp_wait_for_connect() would aqcure the socket
+> lock and then proceed to release the last reference count on the
+> association, thus cause the fully destruction path to finish freeing
+> the socket.
+>
+> The simplest solution is to start a very short timer in case the socket
+> is owned by user.  When the timer expires, we can do some verification
+> and be able to do the release properly.
+>   
 
-I fixed it up (see below) and can carry the fix as necessary.
+After reviewed this patch, I think we should delete active ICMP proto
+unreachable timer when free transport. since I don't reproduce this BUG,
+so I just do compile test only, sorry.
+
+[PATCH] sctp: delete active ICMP proto unreachable timer when free transport
+
+transport may be free before ICMP proto unreachable timer expire, so
+we should delete active ICMP proto unreachable timer when transport
+is going away.
+
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+---
+ net/sctp/transport.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+index 4a36803..165d54e 100644
+--- a/net/sctp/transport.c
++++ b/net/sctp/transport.c
+@@ -173,6 +173,10 @@ void sctp_transport_free(struct sctp_transport *transport)
+ 	    del_timer(&transport->T3_rtx_timer))
+ 		sctp_transport_put(transport);
+ 
++	/* Delete the ICMP proto unreachable timer if it's active. */
++	if (timer_pending(&transport->proto_unreach_timer) &&
++	    del_timer(&transport->proto_unreach_timer))
++		sctp_association_put(transport->asoc);
+ 
+ 	sctp_transport_put(transport);
+ }
 -- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+1.6.5.2
 
-diff --cc drivers/net/wireless/libertas_tf/if_usb.c
-index 4412c27,5f27411..0000000
---- a/drivers/net/wireless/libertas_tf/if_usb.c
-+++ b/drivers/net/wireless/libertas_tf/if_usb.c
-@@@ -811,14 -651,15 +811,17 @@@ static int if_usb_prog_firmware(struct 
-  	static int reset_count = 10;
-  	int ret = 0;
-  
- +	lbtf_deb_enter(LBTF_DEB_USB);
- +
-+ 	kparam_block_sysfs_write(fw_name);
-  	ret = request_firmware(&cardp->fw, lbtf_fw_name, &cardp->udev->dev);
-  	if (ret < 0) {
- -		printk(KERN_INFO "libertastf: firmware %s not found\n",
- -		       lbtf_fw_name);
- +		pr_err("request_firmware() failed with %#x\n", ret);
- +		pr_err("firmware %s not found\n", lbtf_fw_name);
-+ 		kparam_unblock_sysfs_write(fw_name);
-  		goto done;
-  	}
-+ 	kparam_unblock_sysfs_write(fw_name);
-  
-  	if (check_fwfile_format(cardp->fw->data, cardp->fw->size))
-  		goto release_fw;
+
+
