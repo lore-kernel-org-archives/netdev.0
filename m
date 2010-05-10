@@ -1,42 +1,61 @@
-From: kaber@trash.net
-Subject: [PATCH 05/84] netfilter: xt_CT: par->family is an nfproto
-Date: Mon, 10 May 2010 22:17:36 +0200
-Message-ID: <1273522735-24672-6-git-send-email-kaber@trash.net>
-References: <1273522735-24672-1-git-send-email-kaber@trash.net>
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1273522735-24672-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pankaj Thakkar <pthakkar@vmware.com>
+Subject: Re: RFC: Network Plugin Architecture (NPA) for vmxnet3
+Date: Mon, 10 May 2010 13:46:43 -0700
+Message-ID: <20100510204643.GH25364@vmware.com>
+References: <20100504230225.GP8323@vmware.com>
+ <4BE1B217.80600@redhat.com>
+ <20100505194417.GV8323@vmware.com>
+ <4BE284CE.7010808@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>,
+	"pv-drivers@vmware.com" <pv-drivers@vmware.com>,
+	Shreyas Bhatewara <sbhatewara@vmware.com>
+To: Avi Kivity <avi@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-outbound-2.vmware.com ([65.115.85.73]:33578 "EHLO
+	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932175Ab0EJUqo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 16:46:44 -0400
+Content-Disposition: inline
+In-Reply-To: <4BE284CE.7010808@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jan Engelhardt <jengelh@medozas.de>
+On Thu, May 06, 2010 at 01:58:54AM -0700, Avi Kivity wrote:
+> > We don't pass the whole VF to the guest. Only the BAR which is responsible for
+> > TX/RX/intr is mapped into guest space.
+> 
+> Does the SR/IOV spec guarantee that you will have such a separation?
 
-Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
----
- net/netfilter/xt_CT.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+No. This is a guideline which we provided to IHVs and would have to be enforced
+through testing/certification.
 
-diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
-index 61c50fa..fda603e 100644
---- a/net/netfilter/xt_CT.c
-+++ b/net/netfilter/xt_CT.c
-@@ -37,13 +37,13 @@ static unsigned int xt_ct_target(struct sk_buff *skb,
- 
- static u8 xt_ct_find_proto(const struct xt_tgchk_param *par)
- {
--	if (par->family == AF_INET) {
-+	if (par->family == NFPROTO_IPV4) {
- 		const struct ipt_entry *e = par->entryinfo;
- 
- 		if (e->ip.invflags & IPT_INV_PROTO)
- 			return 0;
- 		return e->ip.proto;
--	} else if (par->family == AF_INET6) {
-+	} else if (par->family == NFPROTO_IPV6) {
- 		const struct ip6t_entry *e = par->entryinfo;
- 
- 		if (e->ipv6.invflags & IP6T_INV_PROTO)
--- 
-1.7.0.4
+> How can you unmap the VF without guest cooperation?  If you're executing 
+> Plugin code, you can't yank anything out.
+
+In our Kawela plugin we don't have any reads from the memory space at all.
+Hence you can yank the VF anytime (the code loaded in the guest address space
+will keep on executing). Even if there were reads we can map the memory
+pages to a NULL page and return 0xffffffff so that the plugin can detect this
+and return an error to the shell. Remember there are no control operations in
+the plugin and the code is really small (about 1k lines compared to 5k lines in
+the full VF driver).
+
+> 
+> Are plugins executed with preemption/interrupts disabled?
+
+Depends on the model. Today the plugin code for checking the TX/RX rings runs
+in the deferred napi context.
+
+> What ISAs do those plugins support?
+
+x86 and x64.
+
+Thanks,
+
+-pankaj
 
