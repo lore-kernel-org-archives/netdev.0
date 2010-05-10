@@ -1,7 +1,7 @@
 From: kaber@trash.net
-Subject: [PATCH 66/84] netfilter: ipv6: move POSTROUTING invocation before fragmentation
-Date: Mon, 10 May 2010 22:18:37 +0200
-Message-ID: <1273522735-24672-67-git-send-email-kaber@trash.net>
+Subject: [PATCH 67/84] netfilter: ipv6: add IPSKB_REROUTED exclusion to NF_HOOK/POSTROUTING invocation
+Date: Mon, 10 May 2010 22:18:38 +0200
+Message-ID: <1273522735-24672-68-git-send-email-kaber@trash.net>
 References: <1273522735-24672-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
@@ -12,108 +12,45 @@ List-Id: netdev.vger.kernel.org
 
 From: Jan Engelhardt <jengelh@medozas.de>
 
-Patrick McHardy notes: "We used to invoke IPv4 POST_ROUTING after
-fragmentation as well just to defragment the packets in conntrack
-immediately afterwards, but that got changed during the
-netfilter-ipsec integration. Ideally IPv6 would behave like IPv4."
-
-This patch makes it so. Sending an oversized frame (e.g. `ping6
--s64000 -c1 ::1`) will now show up in POSTROUTING as a single skb
-rather than multiple ones.
+Similar to how IPv4's ip_output.c works, have ip6_output also check
+the IPSKB_REROUTED flag. It will be set from xt_TEE for cloned packets
+since Xtables can currently only deal with a single packet in flight
+at a time.
 
 Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+Acked-by: David S. Miller <davem@davemloft.net>
+[Patrick: changed to use an IP6SKB value instead of IPSKB]
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/ipv6/ip6_output.c |   49 +++++++++++++++++++++++--------------------------
- 1 files changed, 23 insertions(+), 26 deletions(-)
+ include/linux/ipv6.h  |    1 +
+ net/ipv6/ip6_output.c |    5 +++--
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index e0cc9a7..7bdf6ff 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -250,6 +250,7 @@ struct inet6_skb_parm {
+ 
+ #define IP6SKB_XFRM_TRANSFORMED	1
+ #define IP6SKB_FORWARDED	2
++#define IP6SKB_REROUTED		4
+ };
+ 
+ #define IP6CB(skb)	((struct inet6_skb_parm*)((skb)->cb))
 diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 4535b7a..236ac78 100644
+index 236ac78..c10a38a 100644
 --- a/net/ipv6/ip6_output.c
 +++ b/net/ipv6/ip6_output.c
-@@ -82,22 +82,6 @@ int ip6_local_out(struct sk_buff *skb)
- }
- EXPORT_SYMBOL_GPL(ip6_local_out);
- 
--static int ip6_output_finish(struct sk_buff *skb)
--{
--	struct dst_entry *dst = skb_dst(skb);
--
--	if (dst->hh)
--		return neigh_hh_output(dst->hh, skb);
--	else if (dst->neighbour)
--		return dst->neighbour->output(skb);
--
--	IP6_INC_STATS_BH(dev_net(dst->dev),
--			 ip6_dst_idev(dst), IPSTATS_MIB_OUTNOROUTES);
--	kfree_skb(skb);
--	return -EINVAL;
--
--}
--
- /* dev_loopback_xmit for use with netfilter. */
- static int ip6_dev_loopback_xmit(struct sk_buff *newskb)
- {
-@@ -111,8 +95,7 @@ static int ip6_dev_loopback_xmit(struct sk_buff *newskb)
- 	return 0;
- }
- 
--
--static int ip6_output2(struct sk_buff *skb)
-+static int ip6_finish_output2(struct sk_buff *skb)
- {
- 	struct dst_entry *dst = skb_dst(skb);
- 	struct net_device *dev = dst->dev;
-@@ -150,8 +133,15 @@ static int ip6_output2(struct sk_buff *skb)
- 				skb->len);
- 	}
- 
--	return NF_HOOK(NFPROTO_IPV6, NF_INET_POST_ROUTING, skb, NULL, skb->dev,
--		       ip6_output_finish);
-+	if (dst->hh)
-+		return neigh_hh_output(dst->hh, skb);
-+	else if (dst->neighbour)
-+		return dst->neighbour->output(skb);
-+
-+	IP6_INC_STATS_BH(dev_net(dst->dev),
-+			 ip6_dst_idev(dst), IPSTATS_MIB_OUTNOROUTES);
-+	kfree_skb(skb);
-+	return -EINVAL;
- }
- 
- static inline int ip6_skb_dst_mtu(struct sk_buff *skb)
-@@ -162,21 +152,28 @@ static inline int ip6_skb_dst_mtu(struct sk_buff *skb)
- 	       skb_dst(skb)->dev->mtu : dst_mtu(skb_dst(skb));
- }
- 
-+static int ip6_finish_output(struct sk_buff *skb)
-+{
-+	if ((skb->len > ip6_skb_dst_mtu(skb) && !skb_is_gso(skb)) ||
-+	    dst_allfrag(skb_dst(skb)))
-+		return ip6_fragment(skb, ip6_finish_output2);
-+	else
-+		return ip6_finish_output2(skb);
-+}
-+
- int ip6_output(struct sk_buff *skb)
- {
-+	struct net_device *dev = skb_dst(skb)->dev;
- 	struct inet6_dev *idev = ip6_dst_idev(skb_dst(skb));
- 	if (unlikely(idev->cnf.disable_ipv6)) {
--		IP6_INC_STATS(dev_net(skb_dst(skb)->dev), idev,
-+		IP6_INC_STATS(dev_net(dev), idev,
- 			      IPSTATS_MIB_OUTDISCARDS);
- 		kfree_skb(skb);
+@@ -172,8 +172,9 @@ int ip6_output(struct sk_buff *skb)
  		return 0;
  	}
  
--	if ((skb->len > ip6_skb_dst_mtu(skb) && !skb_is_gso(skb)) ||
--				dst_allfrag(skb_dst(skb)))
--		return ip6_fragment(skb, ip6_output2);
--	else
--		return ip6_output2(skb);
-+	return NF_HOOK(NFPROTO_IPV6, NF_INET_POST_ROUTING, skb, NULL, dev,
-+		       ip6_finish_output);
+-	return NF_HOOK(NFPROTO_IPV6, NF_INET_POST_ROUTING, skb, NULL, dev,
+-		       ip6_finish_output);
++	return NF_HOOK_COND(NFPROTO_IPV6, NF_INET_POST_ROUTING, skb, NULL, dev,
++			    ip6_finish_output,
++			    !(IP6CB(skb)->flags & IP6SKB_REROUTED));
  }
  
  /*
