@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 46/64] Bluetooth: Remove unneeded control vars
-Date: Mon, 10 May 2010 11:37:36 +0200
-Message-ID: <a2e12a2a312f816d5970b0c809d43b399fbfe90c.1273484098.git.marcel@holtmann.org>
+Subject: [PATCH 48/64] Bluetooth: Fix lockdep annotation on ERTM
+Date: Mon, 10 May 2010 11:37:38 +0200
+Message-ID: <ff12fd643334071084b6145cad3793bb6c956638.1273484098.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -48,17 +48,19 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <44651b85cc3a076147af5d181fc4833ef8debc59.1273484098.git.marcel@holtmann.org>
  <59203a21a56c53afeb6f45e059299e6f1437f30f.1273484098.git.marcel@holtmann.org>
  <0301ef04b5f49a95681694fc0d75af9441faa919.1273484098.git.marcel@holtmann.org>
+ <a2e12a2a312f816d5970b0c809d43b399fbfe90c.1273484098.git.marcel@holtmann.org>
+ <9b16dc6551cbde65d0ac525af3c46efab53a2c46.1273484098.git.marcel@holtmann.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53463 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53454 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755819Ab0EJJjH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:07 -0400
-In-Reply-To: <0301ef04b5f49a95681694fc0d75af9441faa919.1273484098.git.marcel@holtmann.org>
+	with ESMTP id S1755909Ab0EJJjI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:08 -0400
+In-Reply-To: <9b16dc6551cbde65d0ac525af3c46efab53a2c46.1273484098.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
@@ -66,71 +68,30 @@ List-ID: <netdev.vger.kernel.org>
 
 =46rom: Gustavo F. Padovan <padovan@profusion.mobi>
 
-Trivial clean up.
+A spin_lock_init() call was missing. :)
 
 Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
 Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/l2cap.c |   14 ++++----------
- 1 files changed, 4 insertions(+), 10 deletions(-)
+ net/bluetooth/l2cap.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index d0d0330..5a5203f 100644
+index eb5cb29..6b08f4d 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -1239,7 +1239,6 @@ static int l2cap_sock_getname(struct socket *sock=
-, struct sockaddr *addr, int *l
- static void l2cap_monitor_timeout(unsigned long arg)
- {
- 	struct sock *sk =3D (void *) arg;
--	u16 control;
+@@ -1622,7 +1622,7 @@ static inline int l2cap_sar_segment_sdu(struct so=
+ck *sk, struct msghdr *msg, siz
+ 	u16 control;
+ 	size_t size =3D 0;
 =20
- 	bh_lock_sock(sk);
- 	if (l2cap_pi(sk)->retry_count >=3D l2cap_pi(sk)->remote_max_tx) {
-@@ -1251,15 +1250,13 @@ static void l2cap_monitor_timeout(unsigned long=
- arg)
- 	l2cap_pi(sk)->retry_count++;
- 	__mod_monitor_timer();
-=20
--	control =3D L2CAP_CTRL_POLL;
--	l2cap_send_rr_or_rnr(l2cap_pi(sk), control);
-+	l2cap_send_rr_or_rnr(l2cap_pi(sk), L2CAP_CTRL_POLL);
- 	bh_unlock_sock(sk);
- }
-=20
- static void l2cap_retrans_timeout(unsigned long arg)
- {
- 	struct sock *sk =3D (void *) arg;
--	u16 control;
-=20
- 	bh_lock_sock(sk);
- 	l2cap_pi(sk)->retry_count =3D 1;
-@@ -1267,8 +1264,7 @@ static void l2cap_retrans_timeout(unsigned long a=
-rg)
-=20
- 	l2cap_pi(sk)->conn_state |=3D L2CAP_CONN_WAIT_F;
-=20
--	control =3D L2CAP_CTRL_POLL;
--	l2cap_send_rr_or_rnr(l2cap_pi(sk), control);
-+	l2cap_send_rr_or_rnr(l2cap_pi(sk), L2CAP_CTRL_POLL);
- 	bh_unlock_sock(sk);
- }
-=20
-@@ -3716,10 +3712,8 @@ static inline void l2cap_data_channel_rnrframe(s=
-truct sock *sk, u16 rx_control)
-=20
- 	if (!(pi->conn_state & L2CAP_CONN_SREJ_SENT)) {
- 		del_timer(&pi->retrans_timer);
--		if (rx_control & L2CAP_CTRL_POLL) {
--			u16 control =3D L2CAP_CTRL_FINAL;
--			l2cap_send_rr_or_rnr(pi, control);
--		}
-+		if (rx_control & L2CAP_CTRL_POLL)
-+			l2cap_send_rr_or_rnr(pi, L2CAP_CTRL_FINAL);
- 		return;
- 	}
-=20
+-	__skb_queue_head_init(&sar_queue);
++	skb_queue_head_init(&sar_queue);
+ 	control =3D L2CAP_SDU_START;
+ 	skb =3D l2cap_create_iframe_pdu(sk, msg, pi->remote_mps, control, len=
+);
+ 	if (IS_ERR(skb))
 --=20
 1.6.6.1
 
