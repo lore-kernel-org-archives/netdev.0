@@ -1,144 +1,100 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 30/64] Bluetooth: Add sockopt configuration for txWindow on L2CAP
-Date: Mon, 10 May 2010 11:37:20 +0200
-Message-ID: <14b5aa71ec506f4e38ca6a1dc02ecd668ecfd902.1273484097.git.marcel@holtmann.org>
+Subject: [PATCH 05/64] Bluetooth: Trivial clean ups to SCO
+Date: Mon, 10 May 2010 11:36:55 +0200
+Message-ID: <b9dbdbc1f4404cba2e64939c30c87d59c9796e4e.1273484095.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
  <4f7ac1814ef6f0773e57ffd159a1dd57a3c80521.1273484095.git.marcel@holtmann.org>
  <0d861d8b8edd139a9b291cb262d08dec8dc3922d.1273484095.git.marcel@holtmann.org>
- <b9dbdbc1f4404cba2e64939c30c87d59c9796e4e.1273484095.git.marcel@holtmann.org>
- <c69163e9ed5048407cc84f439cbfecc53f6f7131.1273484095.git.marcel@holtmann.org>
- <faaebd192ec9c3febcab98149d1309199a5b886c.1273484095.git.marcel@holtmann.org>
- <7dffe4210233a2860c3f41477c40b3252edf2b7d.1273484095.git.marcel@holtmann.org>
- <d1daa091e8612f3aab14d28b5836375fafe155e1.1273484096.git.marcel@holtmann.org>
- <e8235c6bdd1c7ffbaa7eb8dcdbb46c51f1e5d72e.1273484096.git.marcel@holtmann.org>
- <d5392c8f1e9faef089bb7cb66c3314da8bddd1fe.1273484096.git.marcel@holtmann.org>
- <1d8f5d16913d74e428950ee02fe9ff7e6391c120.1273484096.git.marcel@holtmann.org>
- <277ffbe362823d18a17792fbd8e507010e666299.1273484096.git.marcel@holtmann.org>
- <36f2fd585f43199f006a3b5ff84e95815102cd31.1273484096.git.marcel@holtmann.org>
- <9e917af13d59182f95bbb5483dc0c4254dfb7944.1273484096.git.marcel@holtmann.org>
- <f0946ccfc7da403a46b7ff7cb2e3deffac108742.1273484096.git.marcel@holtmann.org>
- <73edaa9933219e25d6733b78d1e2c881025705e2.1273484096.git.marcel@holtmann.org>
- <e072745f4adb01b909bd08a0cfc8f79348f4d2c6.1273484096.git.marcel@holtmann.org>
- <99b0d4b7b09edeacf4542bced5c01239375b51a9.1273484096.git.marcel@holtmann.org>
- <6e3a59819fac19006fe4255b87928e5a12c54532.1273484096.git.marcel@holtmann.org>
- <8abb52ee00c4b3f857269eb6b7145991bab869bf.1273484096.git.marcel@holtmann.org>
- <05fbd89dd4153341717b33d9e8ae8bd29db6c1c8.1273484096.git.marcel@holtmann.org>
- <c1b4f43be01c2a363be021485dd18cca33cfab8a.1273484097.git.marcel@holtmann.org>
- <2fb862e215e53630066c677e06d7551fa38bf235.1273484097.git.marcel@holtmann.org>
- <7b1c0049be3aabc18831ada339dbcf41ba8c81fd.1273484097.git.marcel@holtmann.org>
- <1c7621596d11b9c3e19eb88a818758dee4901c95.1273484097.git.marcel@holtmann.org>
- <10467e9e9b89272b25b56688bb276d0830e9ab9a.1273484097.git.marcel@holtmann.org>
- <052897ca5019d9157ae09e5e84eee2a9ef5dccc6.1273484097.git.marcel@holtmann.org>
- <855666cccc939d392316de17512e17a08b2fa05a.1273484097.git.marcel@holtmann.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from senator.holtmann.net ([87.106.208.187]:53431 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755833Ab0EJJi5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:38:57 -0400
-In-Reply-To: <855666cccc939d392316de17512e17a08b2fa05a.1273484097.git.marcel@holtmann.org>
+	with ESMTP id S1755692Ab0EJJij (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:38:39 -0400
+In-Reply-To: <0d861d8b8edd139a9b291cb262d08dec8dc3922d.1273484095.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Gustavo F. Padovan <padovan@profusion.mobi>
+From: Gustavo F. Padovan <padovan@profusion.mobi>
 
-Now we can set/get Transmission Window size via sockopt.
+Remove extra braces and labels, break over column 80 lines, etc
 
 Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
-Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- include/net/bluetooth/l2cap.h |    2 ++
- net/bluetooth/l2cap.c         |    7 ++++++-
- 2 files changed, 8 insertions(+), 1 deletions(-)
+ net/bluetooth/sco.c |   23 +++++++++++------------
+ 1 files changed, 11 insertions(+), 12 deletions(-)
 
-diff --git a/include/net/bluetooth/l2cap.h b/include/net/bluetooth/l2ca=
-p.h
-index 0f4e423..07ae4cc 100644
---- a/include/net/bluetooth/l2cap.h
-+++ b/include/net/bluetooth/l2cap.h
-@@ -56,6 +56,7 @@ struct l2cap_options {
- 	__u16 flush_to;
- 	__u8  mode;
- 	__u8  fcs;
-+	__u16 txwin_size;
- };
-=20
- #define L2CAP_CONNINFO	0x02
-@@ -339,6 +340,7 @@ struct l2cap_pinfo {
-=20
- 	__u8		ident;
-=20
-+	__u8		tx_win;
- 	__u8		remote_tx_win;
- 	__u8		remote_max_tx;
- 	__u16		retrans_timeout;
-diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index c6bc1b9..5300796 100644
---- a/net/bluetooth/l2cap.c
-+++ b/net/bluetooth/l2cap.c
-@@ -782,6 +782,7 @@ static void l2cap_sock_init(struct sock *sk, struct=
- sock *parent)
- 		pi->omtu =3D l2cap_pi(parent)->omtu;
- 		pi->mode =3D l2cap_pi(parent)->mode;
- 		pi->fcs  =3D l2cap_pi(parent)->fcs;
-+		pi->tx_win =3D l2cap_pi(parent)->tx_win;
- 		pi->sec_level =3D l2cap_pi(parent)->sec_level;
- 		pi->role_switch =3D l2cap_pi(parent)->role_switch;
- 		pi->force_reliable =3D l2cap_pi(parent)->force_reliable;
-@@ -790,6 +791,7 @@ static void l2cap_sock_init(struct sock *sk, struct=
- sock *parent)
- 		pi->omtu =3D 0;
- 		pi->mode =3D L2CAP_MODE_BASIC;
- 		pi->fcs  =3D L2CAP_FCS_CRC16;
-+		pi->tx_win =3D L2CAP_DEFAULT_TX_WINDOW;
- 		pi->sec_level =3D BT_SECURITY_LOW;
- 		pi->role_switch =3D 0;
- 		pi->force_reliable =3D 0;
-@@ -1782,6 +1784,7 @@ static int l2cap_sock_setsockopt_old(struct socke=
-t *sock, int optname, char __us
- 		opts.flush_to =3D l2cap_pi(sk)->flush_to;
- 		opts.mode     =3D l2cap_pi(sk)->mode;
- 		opts.fcs      =3D l2cap_pi(sk)->fcs;
-+		opts.txwin_size =3D (__u16)l2cap_pi(sk)->tx_win;
-=20
- 		len =3D min_t(unsigned int, sizeof(opts), optlen);
- 		if (copy_from_user((char *) &opts, optval, len)) {
-@@ -1793,6 +1796,7 @@ static int l2cap_sock_setsockopt_old(struct socke=
-t *sock, int optname, char __us
- 		l2cap_pi(sk)->omtu =3D opts.omtu;
- 		l2cap_pi(sk)->mode =3D opts.mode;
- 		l2cap_pi(sk)->fcs  =3D opts.fcs;
-+		l2cap_pi(sk)->tx_win =3D (__u8)opts.txwin_size;
- 		break;
-=20
- 	case L2CAP_LM:
-@@ -1907,6 +1911,7 @@ static int l2cap_sock_getsockopt_old(struct socke=
-t *sock, int optname, char __us
- 		opts.flush_to =3D l2cap_pi(sk)->flush_to;
- 		opts.mode     =3D l2cap_pi(sk)->mode;
- 		opts.fcs      =3D l2cap_pi(sk)->fcs;
-+		opts.txwin_size =3D (__u16)l2cap_pi(sk)->tx_win;
-=20
- 		len =3D min_t(unsigned int, len, sizeof(opts));
- 		if (copy_to_user(optval, (char *) &opts, len))
-@@ -2324,7 +2329,7 @@ done:
-=20
- 	case L2CAP_MODE_ERTM:
- 		rfc.mode            =3D L2CAP_MODE_ERTM;
--		rfc.txwin_size      =3D L2CAP_DEFAULT_TX_WINDOW;
-+		rfc.txwin_size      =3D pi->tx_win;
- 		rfc.max_transmit    =3D max_transmit;
- 		rfc.retrans_timeout =3D 0;
- 		rfc.monitor_timeout =3D 0;
---=20
+diff --git a/net/bluetooth/sco.c b/net/bluetooth/sco.c
+index 541b26e..4767928 100644
+--- a/net/bluetooth/sco.c
++++ b/net/bluetooth/sco.c
+@@ -165,11 +165,11 @@ static inline int sco_chan_add(struct sco_conn *conn, struct sock *sk, struct so
+ 	int err = 0;
+ 
+ 	sco_conn_lock(conn);
+-	if (conn->sk) {
++	if (conn->sk)
+ 		err = -EBUSY;
+-	} else {
++	else
+ 		__sco_chan_add(conn, sk, parent);
+-	}
++
+ 	sco_conn_unlock(conn);
+ 	return err;
+ }
+@@ -241,21 +241,19 @@ static inline int sco_send_frame(struct sock *sk, struct msghdr *msg, int len)
+ 	BT_DBG("sk %p len %d", sk, len);
+ 
+ 	count = min_t(unsigned int, conn->mtu, len);
+-	if (!(skb = bt_skb_send_alloc(sk, count, msg->msg_flags & MSG_DONTWAIT, &err)))
++	skb = bt_skb_send_alloc(sk, count,
++			msg->msg_flags & MSG_DONTWAIT, &err);
++	if (!skb)
+ 		return err;
+ 
+ 	if (memcpy_fromiovec(skb_put(skb, count), msg->msg_iov, count)) {
+-		err = -EFAULT;
+-		goto fail;
++		kfree_skb(skb);
++		return -EFAULT;
+ 	}
+ 
+ 	hci_send_sco(conn->hcon, skb);
+ 
+ 	return count;
+-
+-fail:
+-	kfree_skb(skb);
+-	return err;
+ }
+ 
+ static inline void sco_recv_frame(struct sco_conn *conn, struct sk_buff *skb)
+@@ -625,7 +623,7 @@ static int sco_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 			    struct msghdr *msg, size_t len)
+ {
+ 	struct sock *sk = sock->sk;
+-	int err = 0;
++	int err;
+ 
+ 	BT_DBG("sock %p, sk %p", sock, sk);
+ 
+@@ -850,7 +848,8 @@ static void sco_conn_ready(struct sco_conn *conn)
+ 
+ 		bh_lock_sock(parent);
+ 
+-		sk = sco_sock_alloc(sock_net(parent), NULL, BTPROTO_SCO, GFP_ATOMIC);
++		sk = sco_sock_alloc(sock_net(parent), NULL,
++				BTPROTO_SCO, GFP_ATOMIC);
+ 		if (!sk) {
+ 			bh_unlock_sock(parent);
+ 			goto done;
+-- 
 1.6.6.1
 
