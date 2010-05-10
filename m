@@ -1,78 +1,40 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: virtio: put last_used and last_avail index into ring itself.
-Date: Mon, 10 May 2010 12:41:56 +0930
-Message-ID: <201005101241.57237.rusty@rustcorp.com.au>
-References: <cover.1257349249.git.mst@redhat.com> <201005071235.40590.rusty@rustcorp.com.au> <20100509085733.GD16775@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] IPv4: unresolved multicast route cleanup
+Date: Mon, 10 May 2010 02:04:39 -0700 (PDT)
+Message-ID: <20100510.020439.172566219.davem@davemloft.net>
+References: <4BDE9BCB.8040803@indakom.de>
+	<20100503.154128.10559786.davem@davemloft.net>
+	<4BE7C68F.1040403@indakom.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
- virtualization@lists.linux-foundation.org,
- kvm@vger.kernel.org,
- linux-kernel@vger.kernel.org,
- mingo@elte.hu,
- linux-mm@kvack.org,
- akpm@linux-foundation.org,
- hpa@zytor.com,
- gregory.haskins@gmail.com,
- s.hetze@linux-ag.com,
- Daniel Walker <dwalker@fifo99.com>,
- Eric Dumazet <eric.dumazet@gmail.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20100509085733.GD16775@redhat.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: andreas.meissner@indakom.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60484
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750898Ab0EJJEc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:04:32 -0400
+In-Reply-To: <4BE7C68F.1040403@indakom.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 9 May 2010 06:27:33 pm Michael S. Tsirkin wrote:
-> On Fri, May 07, 2010 at 12:35:39PM +0930, Rusty Russell wrote:
-> > Then there's padding to page boundary.  That puts us on a cacheline again
-> > for the used ring; also 2 bytes per entry.
-> > 
+From: Andreas Meissner <andreas.meissner@indakom.de>
+Date: Mon, 10 May 2010 10:40:47 +0200
+
+> David Miller wrote:
+>> 
+>> Your email client has corrupted tabs into space characters, and
+>> the new code in your patch is not indented properly.
+>> 
 > 
-> Hmm, is used ring really 2 bytes per entry?
+> 2nd try. Indentation should be ok now, hopefully.
 
-Err, no, I am an idiot.
+Please don't resubmit patches this way.  I have to now scour the
+mailing list archives to get your commit message, and you also
+haven't specifically signed off on this specific new patch so
+I couldn't use it anyways.
 
-> /* u32 is used here for ids for padding reasons. */
-> struct vring_used_elem {
->         /* Index of start of used descriptor chain. */
->         __u32 id;
->         /* Total length of the descriptor chain which was used (written to) */
->         __u32 len;
-> };
-> 
-> struct vring_used {
->         __u16 flags;
->         __u16 idx;
->         struct vring_used_elem ring[];
-> };
-
-OK, now I get it.  Sorry, I was focussed on the avail ring.
-
-> I thought that used ring has 8 bytes per entry, and that struct
-> vring_used is aligned at page boundary, this
-> would mean that ring element is at offset 4 bytes from page boundary.
-> Thus with cacheline size 128 bytes, each 4th element crosses
-> a cacheline boundary. If we had a 4 byte padding after idx, each
-> used element would always be completely within a single cacheline.
-
-I think the numbers are: every 16th entry hits two cachelines.  So currently
-the first 15 entries are "free" (assuming we hit the idx cacheline anyway),
-then 1 in 16 cost 2 cachelines.  That makes the aligned version win when
-N > 240.
-
-But, we access the array linearly.  So the extra cacheline cost is in fact
-amortized.  I doubt it could be measured, but maybe vring_get_buf() should
-prefetch?  While you're there, we could use an & rather than a mod on the
-calculation, which may actually be measurable :)
-
-Cheers,
-Rusty.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Always make full, clean resubmissions of your patch, with the
+original subject line and full commit message cleanly included
+as in your original posting.
