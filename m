@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 52/64] Bluetooth: Completes the I-frame tx_seq check logic on RECV
-Date: Mon, 10 May 2010 11:37:42 +0200
-Message-ID: <9b53350d3cf5b330c3261d89b5e62a2dc25c5653.1273484098.git.marcel@holtmann.org>
+Subject: [PATCH 56/64] Bluetooth: Prevents buffer overflow on l2cap_ertm_reassembly_sdu()
+Date: Mon, 10 May 2010 11:37:46 +0200
+Message-ID: <4178ba462a3e8ab5094e69606f01d9e95f2d5ea6.1273484098.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -54,149 +54,78 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <9a9c6a34416b3743c09c00f3d6708d9df3c21629.1273484098.git.marcel@holtmann.org>
  <f11d676da4059c7888efca810ab300b931736a26.1273484098.git.marcel@holtmann.org>
  <18778a63ddc83bc89bda3b119fb02eb121512a66.1273484098.git.marcel@holtmann.org>
+ <9b53350d3cf5b330c3261d89b5e62a2dc25c5653.1273484098.git.marcel@holtmann.org>
+ <1890d36bb556a27684ad29654a9898ab9a5f57ee.1273484098.git.marcel@holtmann.org>
+ <6161c0382bbab883a634d284f7367a88bbe88534.1273484098.git.marcel@holtmann.org>
+ <dfc909befbfe967bd7f46ef33b6969c1b7f3cf42.1273484098.git.marcel@holtmann.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53474 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53458 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755921Ab0EJJjL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:11 -0400
-In-Reply-To: <18778a63ddc83bc89bda3b119fb02eb121512a66.1273484098.git.marcel@holtmann.org>
+	with ESMTP id S1755768Ab0EJJjO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:14 -0400
+In-Reply-To: <dfc909befbfe967bd7f46ef33b6969c1b7f3cf42.1273484098.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
+=46rom: Gustavo F. Padovan <padovan@profusion.mobi>
 
-Add checks for invalid tx_seq and fixes the duplicated tx_seq check.
+The checks should be done before the the memcpy to avoid buffer
+overflow.
 
-Signed-off-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
-Acked-by: Gustavo F. Padovan <padovan@profusion.mobi>
+Reported-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
+Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/l2cap.c |   40 ++++++++++++++++++++++++++++++++++++----
- 1 files changed, 36 insertions(+), 4 deletions(-)
+ net/bluetooth/l2cap.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index cfd6724..481cec2 100644
+index fe663e9..9ef01c3 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -3302,7 +3302,7 @@ static inline void l2cap_send_i_or_rr_or_rnr(stru=
-ct sock *sk)
- 	}
- }
+@@ -3470,12 +3470,12 @@ static int l2cap_ertm_reassembly_sdu(struct soc=
+k *sk, struct sk_buff *skb, u16 c
+ 		if (!pi->sdu)
+ 			goto disconnect;
 =20
--static void l2cap_add_to_srej_queue(struct sock *sk, struct sk_buff *s=
-kb, u8 tx_seq, u8 sar)
-+static int l2cap_add_to_srej_queue(struct sock *sk, struct sk_buff *sk=
-b, u8 tx_seq, u8 sar)
- {
- 	struct sk_buff *next_skb;
+-		memcpy(skb_put(pi->sdu, skb->len), skb->data, skb->len);
+-
+ 		pi->partial_sdu_len +=3D skb->len;
+ 		if (pi->partial_sdu_len > pi->sdu_len)
+ 			goto drop;
 =20
-@@ -3312,13 +3312,16 @@ static void l2cap_add_to_srej_queue(struct sock=
- *sk, struct sk_buff *skb, u8 tx_
- 	next_skb =3D skb_peek(SREJ_QUEUE(sk));
- 	if (!next_skb) {
- 		__skb_queue_tail(SREJ_QUEUE(sk), skb);
--		return;
-+		return 0;
- 	}
-=20
- 	do {
-+		if (bt_cb(next_skb)->tx_seq =3D=3D tx_seq)
-+			return -EINVAL;
++		memcpy(skb_put(pi->sdu, skb->len), skb->data, skb->len);
 +
- 		if (bt_cb(next_skb)->tx_seq > tx_seq) {
- 			__skb_queue_before(SREJ_QUEUE(sk), next_skb, skb);
--			return;
-+			return 0;
+ 		break;
+=20
+ 	case L2CAP_SDU_END:
+@@ -3486,8 +3486,6 @@ static int l2cap_ertm_reassembly_sdu(struct sock =
+*sk, struct sk_buff *skb, u16 c
+ 			goto disconnect;
+=20
+ 		if (!(pi->conn_state & L2CAP_CONN_SAR_RETRY)) {
+-			memcpy(skb_put(pi->sdu, skb->len), skb->data, skb->len);
+-
+ 			pi->partial_sdu_len +=3D skb->len;
+=20
+ 			if (pi->partial_sdu_len > pi->imtu)
+@@ -3495,6 +3493,8 @@ static int l2cap_ertm_reassembly_sdu(struct sock =
+*sk, struct sk_buff *skb, u16 c
+=20
+ 			if (pi->partial_sdu_len !=3D pi->sdu_len)
+ 				goto drop;
++
++			memcpy(skb_put(pi->sdu, skb->len), skb->data, skb->len);
  		}
 =20
- 		if (skb_queue_is_last(SREJ_QUEUE(sk), next_skb))
-@@ -3327,6 +3330,8 @@ static void l2cap_add_to_srej_queue(struct sock *=
-sk, struct sk_buff *skb, u8 tx_
- 	} while ((next_skb =3D skb_queue_next(SREJ_QUEUE(sk), next_skb)));
-=20
- 	__skb_queue_tail(SREJ_QUEUE(sk), skb);
-+
-+	return 0;
- }
-=20
- static int l2cap_ertm_reassembly_sdu(struct sock *sk, struct sk_buff *=
-skb, u16 control)
-@@ -3579,6 +3584,7 @@ static inline int l2cap_data_channel_iframe(struc=
-t sock *sk, u16 rx_control, str
- 	u8 tx_seq =3D __get_txseq(rx_control);
- 	u8 req_seq =3D __get_reqseq(rx_control);
- 	u8 sar =3D rx_control >> L2CAP_CTRL_SAR_SHIFT;
-+	u8 tx_seq_offset, expected_tx_seq_offset;
- 	int num_to_ack =3D (pi->tx_win/6) + 1;
- 	int err =3D 0;
-=20
-@@ -3598,6 +3604,16 @@ static inline int l2cap_data_channel_iframe(stru=
-ct sock *sk, u16 rx_control, str
- 	if (tx_seq =3D=3D pi->expected_tx_seq)
- 		goto expected;
-=20
-+	tx_seq_offset =3D (tx_seq - pi->buffer_seq) % 64;
-+	if (tx_seq_offset < 0)
-+		tx_seq_offset +=3D 64;
-+
-+	/* invalid tx_seq */
-+	if (tx_seq_offset >=3D pi->tx_win) {
-+		l2cap_send_disconn_req(pi->conn, sk);
-+		goto drop;
-+	}
-+
- 	if (pi->conn_state & L2CAP_CONN_SREJ_SENT) {
- 		struct srej_list *first;
-=20
-@@ -3617,7 +3633,10 @@ static inline int l2cap_data_channel_iframe(stru=
-ct sock *sk, u16 rx_control, str
- 			}
- 		} else {
- 			struct srej_list *l;
--			l2cap_add_to_srej_queue(sk, skb, tx_seq, sar);
-+
-+			/* duplicated tx_seq */
-+			if (l2cap_add_to_srej_queue(sk, skb, tx_seq, sar) < 0)
-+				goto drop;
-=20
- 			list_for_each_entry(l, SREJ_LIST(sk), list) {
- 				if (l->tx_seq =3D=3D tx_seq) {
-@@ -3628,6 +3647,15 @@ static inline int l2cap_data_channel_iframe(stru=
-ct sock *sk, u16 rx_control, str
- 			l2cap_send_srejframe(sk, tx_seq);
- 		}
- 	} else {
-+		expected_tx_seq_offset =3D
-+			(pi->expected_tx_seq - pi->buffer_seq) % 64;
-+		if (expected_tx_seq_offset < 0)
-+			expected_tx_seq_offset +=3D 64;
-+
-+		/* duplicated tx_seq */
-+		if (tx_seq_offset < expected_tx_seq_offset)
-+			goto drop;
-+
- 		pi->conn_state |=3D L2CAP_CONN_SREJ_SENT;
-=20
- 		INIT_LIST_HEAD(SREJ_LIST(sk));
-@@ -3676,6 +3704,10 @@ expected:
- 		l2cap_send_ack(pi);
-=20
- 	return 0;
-+
-+drop:
-+	kfree_skb(skb);
-+	return 0;
- }
-=20
- static inline void l2cap_data_channel_rrframe(struct sock *sk, u16 rx_=
-control)
+ 		_skb =3D skb_clone(pi->sdu, GFP_ATOMIC);
 --=20
 1.6.6.1
 
