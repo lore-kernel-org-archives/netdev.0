@@ -1,61 +1,84 @@
 From: kaber@trash.net
-Subject: [PATCH 52/84] netfilter: ctnetlink: compute message size properly
-Date: Mon, 10 May 2010 22:18:23 +0200
-Message-ID: <1273522735-24672-53-git-send-email-kaber@trash.net>
+Subject: [PATCH 75/84] netfilter: xtables: remove old comments about reentrancy
+Date: Mon, 10 May 2010 22:18:46 +0200
+Message-ID: <1273522735-24672-76-git-send-email-kaber@trash.net>
 References: <1273522735-24672-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:54523 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756739Ab0EJUT2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 16:19:28 -0400
 In-Reply-To: <1273522735-24672-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jpirko@redhat.com>
+From: Jan Engelhardt <jengelh@medozas.de>
 
-Message size should be dependent on the presence of an accounting
-extension, not on CONFIG_NF_CT_ACCT definition.
-
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/nf_conntrack_netlink.c |   17 ++++++++++++-----
- 1 files changed, 12 insertions(+), 5 deletions(-)
+ net/ipv4/netfilter/ip_tables.c   |    2 --
+ net/ipv4/netfilter/ipt_REJECT.c  |    3 ---
+ net/ipv6/netfilter/ip6_tables.c  |    2 --
+ net/ipv6/netfilter/ip6t_REJECT.c |    3 ---
+ 4 files changed, 0 insertions(+), 10 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index 2b2af63..9a0c0d9 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -426,6 +426,17 @@ ctnetlink_proto_size(const struct nf_conn *ct)
- }
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 70900ec..bb5e0d9 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -434,8 +434,6 @@ ipt_do_table(struct sk_buff *skb,
+ 			continue;
+ 		}
  
- static inline size_t
-+ctnetlink_counters_size(const struct nf_conn *ct)
-+{
-+	if (!nf_ct_ext_exist(ct, NF_CT_EXT_ACCT))
-+		return 0;
-+	return 2 * nla_total_size(0) /* CTA_COUNTERS_ORIG|REPL */
-+	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_PACKETS */
-+	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_BYTES */
-+	       ;
-+}
-+
-+static inline size_t
- ctnetlink_nlmsg_size(const struct nf_conn *ct)
+-		/* Targets which reenter must return
+-		   abs. verdicts */
+ 		tgpar.target   = t->u.kernel.target;
+ 		tgpar.targinfo = t->data;
+ 
+diff --git a/net/ipv4/netfilter/ipt_REJECT.c b/net/ipv4/netfilter/ipt_REJECT.c
+index b026014..038fa0b 100644
+--- a/net/ipv4/netfilter/ipt_REJECT.c
++++ b/net/ipv4/netfilter/ipt_REJECT.c
+@@ -139,9 +139,6 @@ reject_tg(struct sk_buff *skb, const struct xt_target_param *par)
  {
- 	return NLMSG_ALIGN(sizeof(struct nfgenmsg))
-@@ -435,11 +446,7 @@ ctnetlink_nlmsg_size(const struct nf_conn *ct)
- 	       + 3 * nla_total_size(sizeof(u_int8_t)) /* CTA_PROTO_NUM */
- 	       + nla_total_size(sizeof(u_int32_t)) /* CTA_ID */
- 	       + nla_total_size(sizeof(u_int32_t)) /* CTA_STATUS */
--#ifdef CONFIG_NF_CT_ACCT
--	       + 2 * nla_total_size(0) /* CTA_COUNTERS_ORIG|REPL */
--	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_PACKETS */
--	       + 2 * nla_total_size(sizeof(uint64_t)) /* CTA_COUNTERS_BYTES */
--#endif
-+	       + ctnetlink_counters_size(ct)
- 	       + nla_total_size(sizeof(u_int32_t)) /* CTA_TIMEOUT */
- 	       + nla_total_size(0) /* CTA_PROTOINFO */
- 	       + nla_total_size(0) /* CTA_HELP */
+ 	const struct ipt_reject_info *reject = par->targinfo;
+ 
+-	/* WARNING: This code causes reentry within iptables.
+-	   This means that the iptables jump stack is now crap.  We
+-	   must return an absolute verdict. --RR */
+ 	switch (reject->with) {
+ 	case IPT_ICMP_NET_UNREACHABLE:
+ 		send_unreach(skb, ICMP_NET_UNREACH);
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 2a2770b..7afa117 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -451,8 +451,6 @@ ip6t_do_table(struct sk_buff *skb,
+ 			continue;
+ 		}
+ 
+-		/* Targets which reenter must return
+-		   abs. verdicts */
+ 		tgpar.target   = t->u.kernel.target;
+ 		tgpar.targinfo = t->data;
+ 
+diff --git a/net/ipv6/netfilter/ip6t_REJECT.c b/net/ipv6/netfilter/ip6t_REJECT.c
+index 55b9b2d..dad9762 100644
+--- a/net/ipv6/netfilter/ip6t_REJECT.c
++++ b/net/ipv6/netfilter/ip6t_REJECT.c
+@@ -179,9 +179,6 @@ reject_tg6(struct sk_buff *skb, const struct xt_target_param *par)
+ 	struct net *net = dev_net((par->in != NULL) ? par->in : par->out);
+ 
+ 	pr_debug("%s: medium point\n", __func__);
+-	/* WARNING: This code causes reentry within ip6tables.
+-	   This means that the ip6tables jump stack is now crap.  We
+-	   must return an absolute verdict. --RR */
+ 	switch (reject->with) {
+ 	case IP6T_ICMP6_NO_ROUTE:
+ 		send_unreach(net, skb, ICMPV6_NOROUTE, par->hooknum);
 -- 
 1.7.0.4
 
