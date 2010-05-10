@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 26/64] Bluetooth: Fix configuration of the MPS value
-Date: Mon, 10 May 2010 11:37:16 +0200
-Message-ID: <1c7621596d11b9c3e19eb88a818758dee4901c95.1273484097.git.marcel@holtmann.org>
+Subject: [PATCH 45/64] Bluetooth: Remove set of SrejSaveReqSeq under receipt of REJ frame
+Date: Mon, 10 May 2010 11:37:35 +0200
+Message-ID: <0301ef04b5f49a95681694fc0d75af9441faa919.1273484098.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -28,17 +28,36 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <c1b4f43be01c2a363be021485dd18cca33cfab8a.1273484097.git.marcel@holtmann.org>
  <2fb862e215e53630066c677e06d7551fa38bf235.1273484097.git.marcel@holtmann.org>
  <7b1c0049be3aabc18831ada339dbcf41ba8c81fd.1273484097.git.marcel@holtmann.org>
+ <1c7621596d11b9c3e19eb88a818758dee4901c95.1273484097.git.marcel@holtmann.org>
+ <10467e9e9b89272b25b56688bb276d0830e9ab9a.1273484097.git.marcel@holtmann.org>
+ <052897ca5019d9157ae09e5e84eee2a9ef5dccc6.1273484097.git.marcel@holtmann.org>
+ <855666cccc939d392316de17512e17a08b2fa05a.1273484097.git.marcel@holtmann.org>
+ <14b5aa71ec506f4e38ca6a1dc02ecd668ecfd902.1273484097.git.marcel@holtmann.org>
+ <803020c6fa63aa738cfda3329c9675b42023e9d2.1273484097.git.marcel@holtmann.org>
+ <369ba30264826f38eefc61b93688100be8adbd4d.1273484097.git.marcel@holtmann.org>
+ <68d7f0ce911e41e463c45911be031cdf6a096fe8.1273484097.git.marcel@holtmann.org>
+ <f6e6b16823de0aff31cb8ee8c098383e3aceec58.1273484097.git.marcel@holtmann.org>
+ <0ee0d20855ae9271de3f6695f4cafc08ab2533bb.1273484097.git.marcel@holtmann.org>
+ <812e737e29a1d559e7bfbea675fdcfcbad9f5e1f.1273484097.git.marcel@holtmann.org>
+ <3b1a9f3fa6ad842991538da2c3b2e29e047b131f.1273484097.git.marcel@holtmann.org>
+ <84fb0a6334af0ccad3544f6972c055d90fbb9fbe.1273484097.git.marcel@holtmann.org>
+ <bd3c9e255e76ae232d417e3914ca5d80ca3e9485.1273484097.git.marcel@holtmann.org>
+ <0041ecfa3025d7612fdaab12b2f07c9c3c09f42f.1273484098.git.marcel@holtmann.org>
+ <afefdbc4cf3b9d409d07e1e5264e7ff88bc48711.1273484098.git.marcel@holtmann.org>
+ <01760bdde9a92413b7fff928d08e19352bf09d82.1273484098.git.marcel@holtmann.org>
+ <44651b85cc3a076147af5d181fc4833ef8debc59.1273484098.git.marcel@holtmann.org>
+ <59203a21a56c53afeb6f45e059299e6f1437f30f.1273484098.git.marcel@holtmann.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53454 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53446 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755787Ab0EJJiz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:38:55 -0400
-In-Reply-To: <7b1c0049be3aabc18831ada339dbcf41ba8c81fd.1273484097.git.marcel@holtmann.org>
+	with ESMTP id S1755896Ab0EJJjG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:06 -0400
+In-Reply-To: <59203a21a56c53afeb6f45e059299e6f1437f30f.1273484098.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
@@ -46,155 +65,33 @@ List-ID: <netdev.vger.kernel.org>
 
 =46rom: Gustavo F. Padovan <padovan@profusion.mobi>
 
-We were accepting values bigger than we can accept. This was leading
-ERTM to drop packets because of wrong FCS checks.
+That action is not specified by the ERTM spec, so removing it.
 
 Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
 Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- include/net/bluetooth/l2cap.h |    3 ++-
- net/bluetooth/l2cap.c         |   36 ++++++++++++++++++++-------------=
----
- 2 files changed, 22 insertions(+), 17 deletions(-)
+ net/bluetooth/l2cap.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/bluetooth/l2cap.h b/include/net/bluetooth/l2ca=
-p.h
-index 48f10f4..0f4e423 100644
---- a/include/net/bluetooth/l2cap.h
-+++ b/include/net/bluetooth/l2cap.h
-@@ -343,7 +343,8 @@ struct l2cap_pinfo {
- 	__u8		remote_max_tx;
- 	__u16		retrans_timeout;
- 	__u16		monitor_timeout;
--	__u16		max_pdu_size;
-+	__u16		remote_mps;
-+	__u16		mps;
-=20
- 	__le16		sport;
-=20
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index c50c057..94be5db 100644
+index 2a981de..d0d0330 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -1606,21 +1606,21 @@ static inline int l2cap_sar_segment_sdu(struct =
-sock *sk, struct msghdr *msg, siz
+@@ -3670,10 +3670,8 @@ static inline void l2cap_data_channel_rejframe(s=
+truct sock *sk, u16 rx_control)
+ 		pi->next_tx_seq =3D pi->expected_ack_seq;
+ 		l2cap_ertm_send(sk);
 =20
- 	__skb_queue_head_init(&sar_queue);
- 	control =3D L2CAP_SDU_START;
--	skb =3D l2cap_create_iframe_pdu(sk, msg, pi->max_pdu_size, control, l=
-en);
-+	skb =3D l2cap_create_iframe_pdu(sk, msg, pi->remote_mps, control, len=
-);
- 	if (IS_ERR(skb))
- 		return PTR_ERR(skb);
-=20
- 	__skb_queue_tail(&sar_queue, skb);
--	len -=3D pi->max_pdu_size;
--	size +=3Dpi->max_pdu_size;
-+	len -=3D pi->remote_mps;
-+	size +=3D pi->remote_mps;
- 	control =3D 0;
-=20
- 	while (len > 0) {
- 		size_t buflen;
-=20
--		if (len > pi->max_pdu_size) {
-+		if (len > pi->remote_mps) {
- 			control |=3D L2CAP_SDU_CONTINUE;
--			buflen =3D pi->max_pdu_size;
-+			buflen =3D pi->remote_mps;
- 		} else {
- 			control |=3D L2CAP_SDU_END;
- 			buflen =3D len;
-@@ -1701,7 +1701,7 @@ static int l2cap_sock_sendmsg(struct kiocb *iocb,=
- struct socket *sock, struct ms
- 	case L2CAP_MODE_ERTM:
- 	case L2CAP_MODE_STREAMING:
- 		/* Entire SDU fits into one PDU */
--		if (len <=3D pi->max_pdu_size) {
-+		if (len <=3D pi->remote_mps) {
- 			control =3D L2CAP_SDU_UNSEGMENTED;
- 			skb =3D l2cap_create_iframe_pdu(sk, msg, len, control, 0);
- 			if (IS_ERR(skb)) {
-@@ -2330,7 +2330,7 @@ done:
- 		rfc.monitor_timeout =3D 0;
- 		rfc.max_pdu_size    =3D cpu_to_le16(L2CAP_DEFAULT_MAX_PDU_SIZE);
- 		if (L2CAP_DEFAULT_MAX_PDU_SIZE > pi->conn->mtu - 10)
--			rfc.max_pdu_size =3D pi->conn->mtu - 10;
-+			rfc.max_pdu_size =3D cpu_to_le16(pi->conn->mtu - 10);
-=20
- 		l2cap_add_conf_opt(&ptr, L2CAP_CONF_RFC,
- 					sizeof(rfc), (unsigned long) &rfc);
-@@ -2353,7 +2353,7 @@ done:
- 		rfc.monitor_timeout =3D 0;
- 		rfc.max_pdu_size    =3D cpu_to_le16(L2CAP_DEFAULT_MAX_PDU_SIZE);
- 		if (L2CAP_DEFAULT_MAX_PDU_SIZE > pi->conn->mtu - 10)
--			rfc.max_pdu_size =3D pi->conn->mtu - 10;
-+			rfc.max_pdu_size =3D cpu_to_le16(pi->conn->mtu - 10);
-=20
- 		l2cap_add_conf_opt(&ptr, L2CAP_CONF_RFC,
- 					sizeof(rfc), (unsigned long) &rfc);
-@@ -2482,7 +2482,10 @@ done:
- 		case L2CAP_MODE_ERTM:
- 			pi->remote_tx_win =3D rfc.txwin_size;
- 			pi->remote_max_tx =3D rfc.max_transmit;
--			pi->max_pdu_size =3D rfc.max_pdu_size;
-+			if (rfc.max_pdu_size > pi->conn->mtu - 10)
-+				rfc.max_pdu_size =3D le16_to_cpu(pi->conn->mtu - 10);
-+
-+			pi->remote_mps =3D le16_to_cpu(rfc.max_pdu_size);
-=20
- 			rfc.retrans_timeout =3D L2CAP_DEFAULT_RETRANS_TO;
- 			rfc.monitor_timeout =3D L2CAP_DEFAULT_MONITOR_TO;
-@@ -2495,7 +2498,10 @@ done:
- 			break;
-=20
- 		case L2CAP_MODE_STREAMING:
--			pi->max_pdu_size =3D rfc.max_pdu_size;
-+			if (rfc.max_pdu_size > pi->conn->mtu - 10)
-+				rfc.max_pdu_size =3D le16_to_cpu(pi->conn->mtu - 10);
-+
-+			pi->remote_mps =3D le16_to_cpu(rfc.max_pdu_size);
-=20
- 			pi->conf_state |=3D L2CAP_CONF_MODE_DONE;
-=20
-@@ -2574,11 +2580,10 @@ static int l2cap_parse_conf_rsp(struct sock *sk=
-, void *rsp, int len, void *data,
- 			pi->remote_tx_win   =3D rfc.txwin_size;
- 			pi->retrans_timeout =3D rfc.retrans_timeout;
- 			pi->monitor_timeout =3D rfc.monitor_timeout;
--			pi->max_pdu_size    =3D le16_to_cpu(rfc.max_pdu_size);
-+			pi->mps    =3D le16_to_cpu(rfc.max_pdu_size);
- 			break;
- 		case L2CAP_MODE_STREAMING:
--			pi->max_pdu_size    =3D le16_to_cpu(rfc.max_pdu_size);
--			break;
-+			pi->mps    =3D le16_to_cpu(rfc.max_pdu_size);
- 		}
+-		if (pi->conn_state & L2CAP_CONN_WAIT_F) {
+-			pi->srej_save_reqseq =3D tx_seq;
++		if (pi->conn_state & L2CAP_CONN_WAIT_F)
+ 			pi->conn_state |=3D L2CAP_CONN_REJ_ACT;
+-		}
  	}
-=20
-@@ -3753,7 +3758,7 @@ static inline int l2cap_data_channel(struct l2cap=
-_conn *conn, u16 cid, struct sk
- 		 * Receiver will miss it and start proper recovery
- 		 * procedures and ask retransmission.
- 		 */
--		if (len > L2CAP_DEFAULT_MAX_PDU_SIZE)
-+		if (len > pi->mps)
- 			goto drop;
-=20
- 		if (l2cap_check_fcs(pi, skb))
-@@ -3784,8 +3789,7 @@ static inline int l2cap_data_channel(struct l2cap=
-_conn *conn, u16 cid, struct sk
- 		if (pi->fcs =3D=3D L2CAP_FCS_CRC16)
- 			len -=3D 2;
-=20
--		if (len > L2CAP_DEFAULT_MAX_PDU_SIZE || len < 4
--				|| __is_sframe(control))
-+		if (len > pi->mps || len < 4 || __is_sframe(control))
- 			goto drop;
-=20
- 		if (l2cap_check_fcs(pi, skb))
+ }
+ static inline void l2cap_data_channel_srejframe(struct sock *sk, u16 r=
+x_control)
 --=20
 1.6.6.1
 
