@@ -1,7 +1,7 @@
 From: Marcel Holtmann <marcel@holtmann.org>
-Subject: [PATCH 34/64] Bluetooth: Fix bug when retransmitting I-frames
-Date: Mon, 10 May 2010 11:37:24 +0200
-Message-ID: <f6e6b16823de0aff31cb8ee8c098383e3aceec58.1273484097.git.marcel@holtmann.org>
+Subject: [PATCH 16/64] Bluetooth: Move set of P-bit to l2cap_send_sframe()
+Date: Mon, 10 May 2010 11:37:06 +0200
+Message-ID: <f0946ccfc7da403a46b7ff7cb2e3deffac108742.1273484096.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
  <fe1aff710756ac73c455d214845c74e304d0e966.1273484095.git.marcel@holtmann.org>
  <acce90d6a957812081b83ac4d1133e93a43569c6.1273484095.git.marcel@holtmann.org>
@@ -18,35 +18,17 @@ References: <cover.1273484094.git.marcel@holtmann.org>
  <277ffbe362823d18a17792fbd8e507010e666299.1273484096.git.marcel@holtmann.org>
  <36f2fd585f43199f006a3b5ff84e95815102cd31.1273484096.git.marcel@holtmann.org>
  <9e917af13d59182f95bbb5483dc0c4254dfb7944.1273484096.git.marcel@holtmann.org>
- <f0946ccfc7da403a46b7ff7cb2e3deffac108742.1273484096.git.marcel@holtmann.org>
- <73edaa9933219e25d6733b78d1e2c881025705e2.1273484096.git.marcel@holtmann.org>
- <e072745f4adb01b909bd08a0cfc8f79348f4d2c6.1273484096.git.marcel@holtmann.org>
- <99b0d4b7b09edeacf4542bced5c01239375b51a9.1273484096.git.marcel@holtmann.org>
- <6e3a59819fac19006fe4255b87928e5a12c54532.1273484096.git.marcel@holtmann.org>
- <8abb52ee00c4b3f857269eb6b7145991bab869bf.1273484096.git.marcel@holtmann.org>
- <05fbd89dd4153341717b33d9e8ae8bd29db6c1c8.1273484096.git.marcel@holtmann.org>
- <c1b4f43be01c2a363be021485dd18cca33cfab8a.1273484097.git.marcel@holtmann.org>
- <2fb862e215e53630066c677e06d7551fa38bf235.1273484097.git.marcel@holtmann.org>
- <7b1c0049be3aabc18831ada339dbcf41ba8c81fd.1273484097.git.marcel@holtmann.org>
- <1c7621596d11b9c3e19eb88a818758dee4901c95.1273484097.git.marcel@holtmann.org>
- <10467e9e9b89272b25b56688bb276d0830e9ab9a.1273484097.git.marcel@holtmann.org>
- <052897ca5019d9157ae09e5e84eee2a9ef5dccc6.1273484097.git.marcel@holtmann.org>
- <855666cccc939d392316de17512e17a08b2fa05a.1273484097.git.marcel@holtmann.org>
- <14b5aa71ec506f4e38ca6a1dc02ecd668ecfd902.1273484097.git.marcel@holtmann.org>
- <803020c6fa63aa738cfda3329c9675b42023e9d2.1273484097.git.marcel@holtmann.org>
- <369ba30264826f38eefc61b93688100be8adbd4d.1273484097.git.marcel@holtmann.org>
- <68d7f0ce911e41e463c45911be031cdf6a096fe8.1273484097.git.marcel@holtmann.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:53460 "EHLO
+Received: from senator.holtmann.net ([87.106.208.187]:53441 "EHLO
 	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755863Ab0EJJjA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:39:00 -0400
-In-Reply-To: <68d7f0ce911e41e463c45911be031cdf6a096fe8.1273484097.git.marcel@holtmann.org>
+	with ESMTP id S1755715Ab0EJJis (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 05:38:48 -0400
+In-Reply-To: <9e917af13d59182f95bbb5483dc0c4254dfb7944.1273484096.git.marcel@holtmann.org>
 In-Reply-To: <cover.1273484094.git.marcel@holtmann.org>
 References: <cover.1273484094.git.marcel@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
@@ -54,59 +36,45 @@ List-ID: <netdev.vger.kernel.org>
 
 =46rom: Gustavo F. Padovan <padovan@profusion.mobi>
 
-If there is no frames to retransmit l2cap was crashing the kernel, now
-we check if the queue is empty first.
+Abstract the send of of P-bit and avoids code duplication like we
+did with the setting of F-bit.
 
 Signed-off-by: Gustavo F. Padovan <padovan@profusion.mobi>
 Reviewed-by: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
 Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 ---
- net/bluetooth/l2cap.c |   12 ++++++++----
- 1 files changed, 8 insertions(+), 4 deletions(-)
+ net/bluetooth/l2cap.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index f9e4da2..4c7b2d2 100644
+index 0a739ef..852c140 100644
 --- a/net/bluetooth/l2cap.c
 +++ b/net/bluetooth/l2cap.c
-@@ -3546,7 +3546,8 @@ expected:
- 		if (pi->conn_state & L2CAP_CONN_REJ_ACT)
- 			pi->conn_state &=3D ~L2CAP_CONN_REJ_ACT;
- 		else {
--			sk->sk_send_head =3D TX_QUEUE(sk)->next;
-+			if (!skb_queue_empty(TX_QUEUE(sk)))
-+				sk->sk_send_head =3D TX_QUEUE(sk)->next;
- 			pi->next_tx_seq =3D pi->expected_ack_seq;
- 			l2cap_ertm_send(sk);
- 		}
-@@ -3593,7 +3594,8 @@ static inline void l2cap_data_channel_rrframe(str=
-uct sock *sk, u16 rx_control)
- 		if (pi->conn_state & L2CAP_CONN_REJ_ACT)
- 			pi->conn_state &=3D ~L2CAP_CONN_REJ_ACT;
- 		else {
--			sk->sk_send_head =3D TX_QUEUE(sk)->next;
-+			if (!skb_queue_empty(TX_QUEUE(sk)))
-+				sk->sk_send_head =3D TX_QUEUE(sk)->next;
- 			pi->next_tx_seq =3D pi->expected_ack_seq;
- 			l2cap_ertm_send(sk);
- 		}
-@@ -3625,12 +3627,14 @@ static inline void l2cap_data_channel_rejframe(=
-struct sock *sk, u16 rx_control)
- 		if (pi->conn_state & L2CAP_CONN_REJ_ACT)
- 			pi->conn_state &=3D ~L2CAP_CONN_REJ_ACT;
- 		else {
--			sk->sk_send_head =3D TX_QUEUE(sk)->next;
-+			if (!skb_queue_empty(TX_QUEUE(sk)))
-+				sk->sk_send_head =3D TX_QUEUE(sk)->next;
- 			pi->next_tx_seq =3D pi->expected_ack_seq;
- 			l2cap_ertm_send(sk);
- 		}
- 	} else {
--		sk->sk_send_head =3D TX_QUEUE(sk)->next;
-+		if (!skb_queue_empty(TX_QUEUE(sk)))
-+			sk->sk_send_head =3D TX_QUEUE(sk)->next;
- 		pi->next_tx_seq =3D pi->expected_ack_seq;
- 		l2cap_ertm_send(sk);
+@@ -357,6 +357,11 @@ static inline int l2cap_send_sframe(struct l2cap_p=
+info *pi, u16 control)
+ 		pi->conn_state &=3D ~L2CAP_CONN_SEND_FBIT;
+ 	}
 =20
++	if (pi->conn_state & L2CAP_CONN_SEND_PBIT) {
++		control |=3D L2CAP_CTRL_POLL;
++		pi->conn_state &=3D ~L2CAP_CONN_SEND_PBIT;
++	}
++
+ 	skb =3D bt_skb_alloc(count, GFP_ATOMIC);
+ 	if (!skb)
+ 		return -ENOMEM;
+@@ -3364,10 +3369,6 @@ static void l2cap_send_srejframe(struct sock *sk=
+, u8 tx_seq)
+ 	while (tx_seq !=3D pi->expected_tx_seq) {
+ 		control =3D L2CAP_SUPER_SELECT_REJECT;
+ 		control |=3D pi->expected_tx_seq << L2CAP_CTRL_REQSEQ_SHIFT;
+-		if (pi->conn_state & L2CAP_CONN_SEND_PBIT) {
+-			control |=3D L2CAP_CTRL_POLL;
+-			pi->conn_state &=3D ~L2CAP_CONN_SEND_PBIT;
+-		}
+ 		l2cap_send_sframe(pi, control);
+=20
+ 		new =3D kzalloc(sizeof(struct srej_list), GFP_ATOMIC);
 --=20
 1.6.6.1
 
