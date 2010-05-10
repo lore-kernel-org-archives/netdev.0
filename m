@@ -1,7 +1,7 @@
 From: kaber@trash.net
-Subject: [PATCH 01/84] netfilter: include/linux/netfilter/nf_conntrack_tuple_common.h: Checkpatch cleanup
-Date: Mon, 10 May 2010 22:17:32 +0200
-Message-ID: <1273522735-24672-2-git-send-email-kaber@trash.net>
+Subject: [PATCH 05/84] netfilter: xt_CT: par->family is an nfproto
+Date: Mon, 10 May 2010 22:17:36 +0200
+Message-ID: <1273522735-24672-6-git-send-email-kaber@trash.net>
 References: <1273522735-24672-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
@@ -10,31 +10,33 @@ In-Reply-To: <1273522735-24672-1-git-send-email-kaber@trash.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrea Gelmini <andrea.gelmini@gelma.net>
+From: Jan Engelhardt <jengelh@medozas.de>
 
-include/linux/netfilter/nf_conntrack_tuple_common.h:5: ERROR: open brace '{' following enum go on the same line
-
-Signed-off-by: Andrea Gelmini <andrea.gelmini@gelma.net>
-Acked-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 ---
- .../linux/netfilter/nf_conntrack_tuple_common.h    |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ net/netfilter/xt_CT.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/netfilter/nf_conntrack_tuple_common.h b/include/linux/netfilter/nf_conntrack_tuple_common.h
-index 8e145f0..2ea22b0 100644
---- a/include/linux/netfilter/nf_conntrack_tuple_common.h
-+++ b/include/linux/netfilter/nf_conntrack_tuple_common.h
-@@ -1,8 +1,7 @@
- #ifndef _NF_CONNTRACK_TUPLE_COMMON_H
- #define _NF_CONNTRACK_TUPLE_COMMON_H
+diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
+index 61c50fa..fda603e 100644
+--- a/net/netfilter/xt_CT.c
++++ b/net/netfilter/xt_CT.c
+@@ -37,13 +37,13 @@ static unsigned int xt_ct_target(struct sk_buff *skb,
  
--enum ip_conntrack_dir
--{
-+enum ip_conntrack_dir {
- 	IP_CT_DIR_ORIGINAL,
- 	IP_CT_DIR_REPLY,
- 	IP_CT_DIR_MAX
+ static u8 xt_ct_find_proto(const struct xt_tgchk_param *par)
+ {
+-	if (par->family == AF_INET) {
++	if (par->family == NFPROTO_IPV4) {
+ 		const struct ipt_entry *e = par->entryinfo;
+ 
+ 		if (e->ip.invflags & IPT_INV_PROTO)
+ 			return 0;
+ 		return e->ip.proto;
+-	} else if (par->family == AF_INET6) {
++	} else if (par->family == NFPROTO_IPV6) {
+ 		const struct ip6t_entry *e = par->entryinfo;
+ 
+ 		if (e->ipv6.invflags & IP6T_INV_PROTO)
 -- 
 1.7.0.4
 
