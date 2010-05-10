@@ -1,81 +1,54 @@
 From: kaber@trash.net
-Subject: [PATCH 00/84] netfilter: netfilter update for 2.6.35
-Date: Mon, 10 May 2010 22:17:31 +0200
-Message-ID: <1273522735-24672-1-git-send-email-kaber@trash.net>
+Subject: [PATCH 04/84] netfilter: net/netfilter/ipvs/ip_vs_ftp.c: Remove use of NIPQUAD
+Date: Mon, 10 May 2010 22:17:35 +0200
+Message-ID: <1273522735-24672-5-git-send-email-kaber@trash.net>
+References: <1273522735-24672-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:54503 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756572Ab0EJUS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 16:18:58 -0400
+In-Reply-To: <1273522735-24672-1-git-send-email-kaber@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Joe Perches <joe@perches.com>
 
-appologies for not sending this earlier in smaller batches, as mentioned
-earlier I ran into some problems with git. Following is a first netfilter
-update for 2.6.35, containing:
+NIPQUAD has very few uses left.
 
-- various smaller cleanups, optimizations, Kconfig updates etc.
+Remove this use and make the code have the identical form of the only
+other use of "%u,%u,%u,%u,%u,%u" in net/ipv4/netfilter/nf_nat_ftp.c
 
-- merging of the xt_MARK module with xt_mark and xt_CONNMARK with xt_connmark
-  to decrease overhead when using modular kernels, saving 14k on 32 bit,
-  from Jan
+Signed-off-by: Joe Perches <joe@perches.com>
+Acked-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ net/netfilter/ipvs/ip_vs_ftp.c |   10 ++++++++--
+ 1 files changed, 8 insertions(+), 2 deletions(-)
 
-- scheduling of the NOTRACK module for removal, obsoleted by the CT module
-
-- removal of the compat /proc directory of xt_recent
-
-- addition of an entry reaper to the recent module, from Tim Gardner
-
-- support for changing UID/GID of the recent /proc files, from Jan
-
-- use of NFPROTO values in NF_HOOK calls in IPv4/IPv6/bridging/DECnet, from Jan
-
-- a change to the xtables ->checkentry() function signature to support
-  returning errno codes, from Jan
-
-- removal of old revisions of the hashlimit, multiport and string matches,
-  from Jan
-
-- ctnetlink message size computation fixes with conntrack accounting,
-  from Jiri Pirko
-
-- hashlimit match RCU conversion, from Eric
-
-- userspace queuing checksum fixes, from Herbert
-
-- fixes for netfilter RCU warnings, from myself
-
-- fixes for the LED target to avoid invalid errors when replacing the
-  ruleset
-
-- fixes for iproute compilation breakage due to XT_ALIGN cleanups, from
-  Alexey Dobriyan
-
-- bridge netfilter cleanups, simplification and comment updates from Bart
-
-- bridge netfilter MAC header fixes when using DNAT
-
-- bridge netfilter refragmentation fixes for PPPoe, from Bart
-
-- a change to the IPv6 POST_ROUTING invocation to make it receive
-  unfragmented packets like IPv4, from Jan
-
-- a fix for the IPv6 xfrm lookup in ip6_route_me_harder, from Ulrich Weber
-
-- more appropriate default log level (KERNL_NOTICE instead of KERN_EMERG) for
-  the IPv4 and IPv6 LOG targets, from myself
-
-- addition of the TEE target, which can be used to clone packets and send
-  them to other hosts, f.i. IDS or logging hosts, from Jan
-
-- a patch to make iptables and ip6tables reentrant by moving the jump stack
-  to a seperately allocated area. This will allow to get rid of the per
-  CPU ruleset duplication in the future. From Jan.
-
-The patches won't apply cleanly because of some conflicts resolved during
-merges, please pull from:
-
-git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
-
-Thanks!
+diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
+index 73f38ea..9f63283 100644
+--- a/net/netfilter/ipvs/ip_vs_ftp.c
++++ b/net/netfilter/ipvs/ip_vs_ftp.c
+@@ -208,8 +208,14 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
+ 		 */
+ 		from.ip = n_cp->vaddr.ip;
+ 		port = n_cp->vport;
+-		sprintf(buf, "%u,%u,%u,%u,%u,%u", NIPQUAD(from.ip),
+-			(ntohs(port)>>8)&255, ntohs(port)&255);
++		snprintf(buf, sizeof(buf), "%u,%u,%u,%u,%u,%u",
++			 ((unsigned char *)&from.ip)[0],
++			 ((unsigned char *)&from.ip)[1],
++			 ((unsigned char *)&from.ip)[2],
++			 ((unsigned char *)&from.ip)[3],
++			 ntohs(port) >> 8,
++			 ntohs(port) & 0xFF);
++
+ 		buf_len = strlen(buf);
+ 
+ 		/*
+-- 
+1.7.0.4
 
