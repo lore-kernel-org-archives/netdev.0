@@ -1,95 +1,109 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP-MD5 checksum failure on x86_64 SMP
-Date: Tue, 11 May 2010 08:27:47 +0200
-Message-ID: <1273559267.2339.6.camel@edumazet-laptop>
-References: <1273085598.2367.233.camel@edumazet-laptop>
-	 <i2y571fb4001005060455m39bed7f7if5fcfc45b12bc4d3@mail.gmail.com>
-	 <1273147586.2357.63.camel@edumazet-laptop>
-	 <20100506.220443.135536330.davem@davemloft.net>
-	 <1273210329.2222.42.camel@edumazet-laptop>
-	 <20100507101451.1b4286b7@nehalam>
-	 <1273252893.2261.84.camel@edumazet-laptop>
-	 <20100507103639.4f1a51fa@nehalam>
-	 <1273268446.2325.53.camel@edumazet-laptop>
-	 <D1C2B1EC-ABE8-4D87-9227-6D0F1C1C8B77@guavus.com>
-	 <1273504693.2221.17.camel@edumazet-laptop>
-	 <AAFABD0F-C66F-44C2-8BDC-FB489EA8655F@guavus.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Networking
+Date: Tue, 11 May 2010 00:01:43 -0700 (PDT)
+Message-ID: <20100511.000143.221595639.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	"<bhaskie@gmail.com>" <bhaskie@gmail.com>,
-	"<bhutchings@solarflare.com>" <bhutchings@solarflare.com>,
-	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>
-To: Bijay Singh <Bijay.Singh@guavus.com>
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:38842 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756906Ab0EKG2a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 May 2010 02:28:30 -0400
-Received: by wyb32 with SMTP id 32so658583wyb.19
-        for <netdev@vger.kernel.org>; Mon, 10 May 2010 23:28:28 -0700 (PDT)
-In-Reply-To: <AAFABD0F-C66F-44C2-8BDC-FB489EA8655F@guavus.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44881
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933062Ab0EKHBf convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 May 2010 03:01:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 11 mai 2010 =C3=A0 04:08 +0000, Bijay Singh a =C3=A9crit :
-> Hi Eric,
->=20
-> I guess that makes me the enviable one. So I am keen to test out this=
- feature
 
->  completely, as long as I know what to do as a next step, directions,=
- patches.
->=20
+1) Fix SCTP race between connect() and ICMP unreachable, from Vlad Yase=
+vich.
 
-MTU > 4000 is not reliable because of high order allocations on typical
-NICS. I am afraid you need NIC able to deliver page fragments.
+2) Micrel phy driver OOPS fix, based upon a report by Ingo Molnar.
 
-Its working here (32bit kernel) with a tg3 NIC, but I got following
-message :
+3) Firmware loading warn_on fix from Christian Lamparter.
 
-ifconfig eth3 mtu 9000
-=2E..
-[51492.936500] 167731 total pagecache pages
-[51492.936500] 0 pages in swap cache
-[51492.936500] Swap cache stats: add 0, delete 0, find 0/0
-[51492.936500] Free swap  =3D 4192928kB
-[51492.936500] Total swap =3D 4192928kB
-[51492.936500] 1114110 pages RAM
-[51492.936500] 885761 pages HighMem
-[51492.936500] 77073 pages reserved
-[51492.936500] 134483 pages shared
-[51492.936500] 159131 pages non-shared
-[51492.953027] tg3 0000:14:04.1: eth3: Using a smaller RX standard ring=
-=2E
-Only 183 out of 511 buffers were allocated successfully
+4) UDP logs garbage addresses on short packets.  Fix from Bj=F8rn Mork.
 
-$ ethtool -g eth3
-Ring parameters for eth3:
-Pre-set maximums:
-RX:		511
-RX Mini:	0
-RX Jumbo:	0
-TX:		511
-Current hardware settings:
-RX:		183
-RX Mini:	0
-RX Jumbo:	0
-TX:		511
+5) IPV6_RECVERR incorrectly handles locally generated errors, fix from
+   Brian Haley.
 
-$ cat /proc/buddyinfo
-Node 0, zone      DMA      5      2      1      1      2      2      2 =
-     1      0      1      0=20
-Node 0, zone   Normal   4285   1823    248     73      9      5      0 =
-     0      0      0      0=20
-Node 0, zone  HighMem     97    199    921    583    383    261    155 =
-   117     69     41    649=20
+6) IPV4 multicast purges routes too quickly due to mishandling of timer=
+s.
+   Fix from Andreas Meissner.
 
-I know that if I try to stress RX path, I'll get failures.
+7) Passive scans busted in iwlwifi, fix from Johannes Berg.
 
-Could you explain me why you need both big MTUS and TCP-MD5 ?
+8) De-auth request handling fix in mac80211 from Reinette Chatre.
 
+9) gianfar needs to purge cached recycled SKBs on MTU change, fix from
+   Sebastian Andrzej Siewior
 
+Please pull, thanks a lot!
 
+The following changes since commit 8777c793d6a24c7f3adf52b1b1086e9706de=
+4589:
+  Linus Torvalds (1):
+        Merge branch 'for-linus' of git://git.kernel.org/.../tj/wq
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
+
+Andreas Meissner (1):
+      IPv4: unresolved multicast route cleanup
+
+Bj=F8rn Mork (1):
+      ipv4: udp: fix short packet and bad checksum logging
+
+Brian Haley (1):
+      IPv6: fix IPV6_RECVERR handling of locally-generated errors
+
+Christian Lamparter (1):
+      ar9170: wait for asynchronous firmware loading
+
+David S. Miller (3):
+      phy: Fix initialization in micrel driver.
+      net: Fix FDDI and TR config checks in ipv4 arp and LLC.
+      Merge branch 'master' of git://git.kernel.org/.../linville/wirele=
+ss-2.6
+
+Eric Dumazet (1):
+      veth: Dont kfree_skb() after dev_forward_skb()
+
+Johannes Berg (1):
+      iwlwifi: work around passive scan issue
+
+Reinette Chatre (1):
+      mac80211: remove association work when processing deauth request
+
+Sebastian Andrzej Siewior (1):
+      net/gianfar: drop recycled skbs on MTU change
+
+Vlad Yasevich (1):
+      sctp: Fix a race between ICMP protocol unreachable and connect()
+
+ drivers/net/gianfar.c                       |    2 +-
+ drivers/net/phy/micrel.c                    |    1 +
+ drivers/net/veth.c                          |    1 -
+ drivers/net/wireless/ath/ar9170/usb.c       |   11 ++++++++
+ drivers/net/wireless/ath/ar9170/usb.h       |    1 +
+ drivers/net/wireless/iwlwifi/iwl-commands.h |    4 ++-
+ drivers/net/wireless/iwlwifi/iwl-scan.c     |   23 ++++++++++++++----
+ drivers/net/wireless/iwlwifi/iwl3945-base.c |    3 +-
+ include/net/sctp/sm.h                       |    1 +
+ include/net/sctp/structs.h                  |    3 ++
+ net/core/dev.c                              |   11 ++++----
+ net/ipv4/arp.c                              |    6 ++--
+ net/ipv4/ipmr.c                             |    3 +-
+ net/ipv4/udp.c                              |    6 ++--
+ net/ipv6/datagram.c                         |    8 ++++-
+ net/llc/llc_sap.c                           |    2 +-
+ net/mac80211/mlme.c                         |    3 +-
+ net/sctp/input.c                            |   22 ++++++++++++++---
+ net/sctp/sm_sideeffect.c                    |   35 +++++++++++++++++++=
+++++++++
+ net/sctp/transport.c                        |    2 +
+ 20 files changed, 118 insertions(+), 30 deletions(-)
