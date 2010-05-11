@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 08/12] e1000e: Incorrect function pointer set for
-	force_speed_duplex on 82577
-Date: Mon, 10 May 2010 18:01:30 -0700
-Message-ID: <20100511010128.30827.12447.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 09/12] e1000e: fix checks for manageability
+	enabled and management pass-through
+Date: Mon, 10 May 2010 18:01:51 -0700
+Message-ID: <20100511010150.30827.4384.stgit@localhost.localdomain>
 References: <20100511005801.30827.50808.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,80 +12,224 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta02.westchester.pa.mail.comcast.net ([76.96.62.24]:51151
-	"EHLO qmta02.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757406Ab0EKBBu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 21:01:50 -0400
+Received: from qmta13.westchester.pa.mail.comcast.net ([76.96.59.243]:43958
+	"EHLO qmta13.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757406Ab0EKBCL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 21:02:11 -0400
 In-Reply-To: <20100511005801.30827.50808.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-The force_speed_duplex function pointer was incorrectly set.  Instead of
-calling the 82577-specific version it was calling the m88 version which,
-among other incorrect things, reset the PHY causing autonegotiation to be
-re-enabled in the PHY resulting in the link defaulting to half-duplex.
-The 82577-specific force_speed_duplex function also had an issue where
-it disabled Auto-MDI-X which caused the link to not come up.
+The mac->arc_subsystem was being incorrectly used to flag whether or not
+manageability was enabled when it should only be used to state whether the
+ARC (Host interface) subsystem is available on a particular MAC _and_ only
+valid when any manageability is enabled. The ARC subsystem is currently
+only available on 80003es2lan and 82573 parts supported by the driver.
+
+A new flag, has_fwsm, is introduced to be used when checking if
+manageability is enabled but only on parts that acutally have an FWSM
+register. While the above parts have an FWSM register, there are other
+parts that have FWSM but do not have support for the ARC subsystem,
+namely 82571/2 and ICHx/PCH.
+
+And then there are parts that have manageability, but do not have either
+FWSM register or support for the ARC subsystem - these are 82574 and 82583.
+
+For 80003es2lan, 82571/2/3 and ICH/PCH parts, this patch makes no
+functional changes, it only corrects the usage of the manageability flags.
+For 82574 and 82583, it fixes the incorrect accesses of the non-existent
+FWSM register and ARC subsystem as well as corrects the check for
+management pass-through.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/ich8lan.c |    1 +
- drivers/net/e1000e/phy.c     |   21 +--------------------
- 2 files changed, 2 insertions(+), 20 deletions(-)
+ drivers/net/e1000e/82571.c   |   19 +++++++++++++++----
+ drivers/net/e1000e/defines.h |    2 ++
+ drivers/net/e1000e/es2lan.c  |    9 ++++++---
+ drivers/net/e1000e/hw.h      |    1 +
+ drivers/net/e1000e/ich8lan.c |    6 ++++--
+ drivers/net/e1000e/lib.c     |   31 ++++++++++++++++++++++++-------
+ 6 files changed, 52 insertions(+), 16 deletions(-)
 
+diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
+index 1e73edd..8bad24d 100644
+--- a/drivers/net/e1000e/82571.c
++++ b/drivers/net/e1000e/82571.c
+@@ -234,9 +234,6 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
+ 	mac->mta_reg_count = 128;
+ 	/* Set rar entry count */
+ 	mac->rar_entry_count = E1000_RAR_ENTRIES;
+-	/* Set if manageability features are enabled. */
+-	mac->arc_subsystem_valid = (er32(FWSM) & E1000_FWSM_MODE_MASK)
+-	                ? true : false;
+ 	/* Adaptive IFS supported */
+ 	mac->adaptive_ifs = true;
+ 
+@@ -271,6 +268,16 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
+ 		func->set_lan_id = e1000_set_lan_id_single_port;
+ 		func->check_mng_mode = e1000e_check_mng_mode_generic;
+ 		func->led_on = e1000e_led_on_generic;
++
++		/* FWSM register */
++		mac->has_fwsm = true;
++		/*
++		 * ARC supported; valid only if manageability features are
++		 * enabled.
++		 */
++		mac->arc_subsystem_valid =
++			(er32(FWSM) & E1000_FWSM_MODE_MASK)
++			? true : false;
+ 		break;
+ 	case e1000_82574:
+ 	case e1000_82583:
+@@ -281,6 +288,9 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
+ 	default:
+ 		func->check_mng_mode = e1000e_check_mng_mode_generic;
+ 		func->led_on = e1000e_led_on_generic;
++
++		/* FWSM register */
++		mac->has_fwsm = true;
+ 		break;
+ 	}
+ 
+@@ -993,9 +1003,10 @@ static s32 e1000_init_hw_82571(struct e1000_hw *hw)
+ 	/* ...for both queues. */
+ 	switch (mac->type) {
+ 	case e1000_82573:
++		e1000e_enable_tx_pkt_filtering(hw);
++		/* fall through */
+ 	case e1000_82574:
+ 	case e1000_82583:
+-		e1000e_enable_tx_pkt_filtering(hw);
+ 		reg_data = er32(GCR);
+ 		reg_data |= E1000_GCR_L1_ACT_WITHOUT_L0S_RX;
+ 		ew32(GCR, reg_data);
+diff --git a/drivers/net/e1000e/defines.h b/drivers/net/e1000e/defines.h
+index 227147f..4dc02c7 100644
+--- a/drivers/net/e1000e/defines.h
++++ b/drivers/net/e1000e/defines.h
+@@ -629,6 +629,8 @@
+ #define NVM_ALT_MAC_ADDR_PTR       0x0037
+ #define NVM_CHECKSUM_REG           0x003F
+ 
++#define E1000_NVM_INIT_CTRL2_MNGM 0x6000 /* Manageability Operation Mode mask */
++
+ #define E1000_NVM_CFG_DONE_PORT_0  0x40000 /* MNG config cycle done */
+ #define E1000_NVM_CFG_DONE_PORT_1  0x80000 /* ...for second port */
+ 
+diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
+index 27d2158..7fcac78 100644
+--- a/drivers/net/e1000e/es2lan.c
++++ b/drivers/net/e1000e/es2lan.c
+@@ -221,9 +221,12 @@ static s32 e1000_init_mac_params_80003es2lan(struct e1000_adapter *adapter)
+ 	mac->mta_reg_count = 128;
+ 	/* Set rar entry count */
+ 	mac->rar_entry_count = E1000_RAR_ENTRIES;
+-	/* Set if manageability features are enabled. */
+-	mac->arc_subsystem_valid = (er32(FWSM) & E1000_FWSM_MODE_MASK)
+-                        ? true : false;
++	/* FWSM register */
++	mac->has_fwsm = true;
++	/* ARC supported; valid only if manageability features are enabled. */
++	mac->arc_subsystem_valid =
++	        (er32(FWSM) & E1000_FWSM_MODE_MASK)
++	                ? true : false;
+ 	/* Adaptive IFS not supported */
+ 	mac->adaptive_ifs = false;
+ 
+diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
+index 6f66c37..287ee95 100644
+--- a/drivers/net/e1000e/hw.h
++++ b/drivers/net/e1000e/hw.h
+@@ -830,6 +830,7 @@ struct e1000_mac_info {
+ 	u8  forced_speed_duplex;
+ 
+ 	bool adaptive_ifs;
++	bool has_fwsm;
+ 	bool arc_subsystem_valid;
+ 	bool autoneg;
+ 	bool autoneg_failed;
 diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index 61f8927..e1f244a 100644
+index e1f244a..8efe9a7 100644
 --- a/drivers/net/e1000e/ich8lan.c
 +++ b/drivers/net/e1000e/ich8lan.c
-@@ -330,6 +330,7 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
- 		phy->ops.get_cable_length = e1000_get_cable_length_82577;
- 		phy->ops.get_info = e1000_get_phy_info_82577;
- 		phy->ops.commit = e1000e_phy_sw_reset;
-+		break;
- 	case e1000_phy_82578:
- 		phy->ops.check_polarity = e1000_check_polarity_m88;
- 		phy->ops.force_speed_duplex = e1000e_phy_force_speed_duplex_m88;
-diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
-index 7f3ceb9..b4ac82d 100644
---- a/drivers/net/e1000e/phy.c
-+++ b/drivers/net/e1000e/phy.c
-@@ -3116,9 +3116,7 @@ s32 e1000_check_polarity_82577(struct e1000_hw *hw)
-  *  e1000_phy_force_speed_duplex_82577 - Force speed/duplex for I82577 PHY
-  *  @hw: pointer to the HW structure
-  *
-- *  Calls the PHY setup function to force speed and duplex.  Clears the
-- *  auto-crossover to force MDI manually.  Waits for link and returns
-- *  successful if link up is successful, else -E1000_ERR_PHY (-2).
-+ *  Calls the PHY setup function to force speed and duplex.
-  **/
- s32 e1000_phy_force_speed_duplex_82577(struct e1000_hw *hw)
- {
-@@ -3137,23 +3135,6 @@ s32 e1000_phy_force_speed_duplex_82577(struct e1000_hw *hw)
- 	if (ret_val)
- 		goto out;
+@@ -503,8 +503,10 @@ static s32 e1000_init_mac_params_ich8lan(struct e1000_adapter *adapter)
+ 	mac->rar_entry_count = E1000_ICH_RAR_ENTRIES;
+ 	if (mac->type == e1000_ich8lan)
+ 		mac->rar_entry_count--;
+-	/* Set if manageability features are enabled. */
+-	mac->arc_subsystem_valid = true;
++	/* FWSM register */
++	mac->has_fwsm = true;
++	/* ARC subsystem not supported */
++	mac->arc_subsystem_valid = false;
+ 	/* Adaptive IFS supported */
+ 	mac->adaptive_ifs = true;
  
--	/*
--	 * Clear Auto-Crossover to force MDI manually.  82577 requires MDI
--	 * forced whenever speed and duplex are forced.
--	 */
--	ret_val = phy->ops.read_reg(hw, I82577_PHY_CTRL_2, &phy_data);
--	if (ret_val)
--		goto out;
--
--	phy_data &= ~I82577_PHY_CTRL2_AUTO_MDIX;
--	phy_data &= ~I82577_PHY_CTRL2_FORCE_MDI_MDIX;
--
--	ret_val = phy->ops.write_reg(hw, I82577_PHY_CTRL_2, phy_data);
--	if (ret_val)
--		goto out;
--
--	e_dbg("I82577_PHY_CTRL_2: %X\n", phy_data);
--
- 	udelay(1);
+diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
+index b32361d..a968e3a 100644
+--- a/drivers/net/e1000e/lib.c
++++ b/drivers/net/e1000e/lib.c
+@@ -2272,6 +2272,11 @@ static s32 e1000_mng_enable_host_if(struct e1000_hw *hw)
+ 	u32 hicr;
+ 	u8 i;
  
- 	if (phy->autoneg_wait_to_complete) {
++	if (!(hw->mac.arc_subsystem_valid)) {
++		e_dbg("ARC subsystem not valid.\n");
++		return -E1000_ERR_HOST_INTERFACE_COMMAND;
++	}
++
+ 	/* Check that the host interface is enabled. */
+ 	hicr = er32(HICR);
+ 	if ((hicr & E1000_HICR_EN) == 0) {
+@@ -2530,9 +2535,9 @@ bool e1000e_enable_mng_pass_thru(struct e1000_hw *hw)
+ 	manc = er32(MANC);
+ 
+ 	if (!(manc & E1000_MANC_RCV_TCO_EN))
+-		return ret_val;
++		goto out;
+ 
+-	if (hw->mac.arc_subsystem_valid) {
++	if (hw->mac.has_fwsm) {
+ 		fwsm = er32(FWSM);
+ 		factps = er32(FACTPS);
+ 
+@@ -2540,16 +2545,28 @@ bool e1000e_enable_mng_pass_thru(struct e1000_hw *hw)
+ 		    ((fwsm & E1000_FWSM_MODE_MASK) ==
+ 		     (e1000_mng_mode_pt << E1000_FWSM_MODE_SHIFT))) {
+ 			ret_val = true;
+-			return ret_val;
++			goto out;
+ 		}
+-	} else {
+-		if ((manc & E1000_MANC_SMBUS_EN) &&
+-		    !(manc & E1000_MANC_ASF_EN)) {
++	} else if ((hw->mac.type == e1000_82574) ||
++		   (hw->mac.type == e1000_82583)) {
++		u16 data;
++
++		factps = er32(FACTPS);
++		e1000_read_nvm(hw, NVM_INIT_CONTROL2_REG, 1, &data);
++
++		if (!(factps & E1000_FACTPS_MNGCG) &&
++		    ((data & E1000_NVM_INIT_CTRL2_MNGM) ==
++		     (e1000_mng_mode_pt << 13))) {
+ 			ret_val = true;
+-			return ret_val;
++			goto out;
+ 		}
++	} else if ((manc & E1000_MANC_SMBUS_EN) &&
++		    !(manc & E1000_MANC_ASF_EN)) {
++			ret_val = true;
++			goto out;
+ 	}
+ 
++out:
+ 	return ret_val;
+ }
+ 
 
