@@ -1,7 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 05/12] e1000e: cleanup multiple common exit points
-Date: Mon, 10 May 2010 18:00:31 -0700
-Message-ID: <20100511010029.30827.82837.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 06/12] e1000e: Remove EN_MAC_ADDR_FILTER check
+	from enable_mng_pass_thru check
+Date: Mon, 10 May 2010 18:00:50 -0700
+Message-ID: <20100511010048.30827.12737.stgit@localhost.localdomain>
 References: <20100511005801.30827.50808.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,117 +12,52 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.westchester.pa.mail.comcast.net ([76.96.62.96]:33409
-	"EHLO qmta09.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757406Ab0EKBAs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 21:00:48 -0400
+Received: from qmta07.westchester.pa.mail.comcast.net ([76.96.62.64]:47506
+	"EHLO qmta07.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757406Ab0EKBBJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 21:01:09 -0400
 In-Reply-To: <20100511005801.30827.50808.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-...in e1000_update_nvm_checksum_ich8lan().
+Patch addresses issues when manageability passthrough is enabled, but the
+MAC_ADDR_FILTER bit is not set in the MANC register.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/ich8lan.c |   41 +++++++++++++++++------------------------
- 1 files changed, 17 insertions(+), 24 deletions(-)
+ drivers/net/e1000e/lib.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index b8c4dce..448e123 100644
---- a/drivers/net/e1000e/ich8lan.c
-+++ b/drivers/net/e1000e/ich8lan.c
-@@ -1938,18 +1938,14 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
- 		new_bank_offset = nvm->flash_bank_size;
- 		old_bank_offset = 0;
- 		ret_val = e1000_erase_flash_bank_ich8lan(hw, 1);
--		if (ret_val) {
--			nvm->ops.release(hw);
--			goto out;
--		}
-+		if (ret_val)
-+			goto release;
- 	} else {
- 		old_bank_offset = nvm->flash_bank_size;
- 		new_bank_offset = 0;
- 		ret_val = e1000_erase_flash_bank_ich8lan(hw, 0);
--		if (ret_val) {
--			nvm->ops.release(hw);
--			goto out;
--		}
-+		if (ret_val)
-+			goto release;
- 	}
+diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
+index b0d2a60..b32361d 100644
+--- a/drivers/net/e1000e/lib.c
++++ b/drivers/net/e1000e/lib.c
+@@ -2515,10 +2515,11 @@ s32 e1000e_mng_write_dhcp_info(struct e1000_hw *hw, u8 *buffer, u16 length)
+ }
  
- 	for (i = 0; i < E1000_ICH8_SHADOW_RAM_WORDS; i++) {
-@@ -2005,8 +2001,7 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
- 	if (ret_val) {
- 		/* Possibly read-only, see e1000e_write_protect_nvm_ich8lan() */
- 		e_dbg("Flash commit failed.\n");
--		nvm->ops.release(hw);
--		goto out;
-+		goto release;
- 	}
+ /**
+- *  e1000e_enable_mng_pass_thru - Enable processing of ARP's
++ *  e1000e_enable_mng_pass_thru - Check if management passthrough is needed
+  *  @hw: pointer to the HW structure
+  *
+- *  Verifies the hardware needs to allow ARPs to be processed by the host.
++ *  Verifies the hardware needs to leave interface enabled so that frames can
++ *  be directed to and from the management interface.
+  **/
+ bool e1000e_enable_mng_pass_thru(struct e1000_hw *hw)
+ {
+@@ -2528,8 +2529,7 @@ bool e1000e_enable_mng_pass_thru(struct e1000_hw *hw)
  
- 	/*
-@@ -2017,18 +2012,15 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
- 	 */
- 	act_offset = new_bank_offset + E1000_ICH_NVM_SIG_WORD;
- 	ret_val = e1000_read_flash_word_ich8lan(hw, act_offset, &data);
--	if (ret_val) {
--		nvm->ops.release(hw);
--		goto out;
--	}
-+	if (ret_val)
-+		goto release;
-+
- 	data &= 0xBFFF;
- 	ret_val = e1000_retry_write_flash_byte_ich8lan(hw,
- 						       act_offset * 2 + 1,
- 						       (u8)(data >> 8));
--	if (ret_val) {
--		nvm->ops.release(hw);
--		goto out;
--	}
-+	if (ret_val)
-+		goto release;
+ 	manc = er32(MANC);
  
- 	/*
- 	 * And invalidate the previously valid segment by setting
-@@ -2038,10 +2030,8 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
- 	 */
- 	act_offset = (old_bank_offset + E1000_ICH_NVM_SIG_WORD) * 2 + 1;
- 	ret_val = e1000_retry_write_flash_byte_ich8lan(hw, act_offset, 0);
--	if (ret_val) {
--		nvm->ops.release(hw);
--		goto out;
--	}
-+	if (ret_val)
-+		goto release;
+-	if (!(manc & E1000_MANC_RCV_TCO_EN) ||
+-	    !(manc & E1000_MANC_EN_MAC_ADDR_FILTER))
++	if (!(manc & E1000_MANC_RCV_TCO_EN))
+ 		return ret_val;
  
- 	/* Great!  Everything worked, we can now clear the cached entries. */
- 	for (i = 0; i < E1000_ICH8_SHADOW_RAM_WORDS; i++) {
-@@ -2049,14 +2039,17 @@ static s32 e1000_update_nvm_checksum_ich8lan(struct e1000_hw *hw)
- 		dev_spec->shadow_ram[i].value = 0xFFFF;
- 	}
- 
-+release:
- 	nvm->ops.release(hw);
- 
- 	/*
- 	 * Reload the EEPROM, or else modifications will not appear
- 	 * until after the next adapter reset.
- 	 */
--	e1000e_reload_nvm(hw);
--	msleep(10);
-+	if (!ret_val) {
-+		e1000e_reload_nvm(hw);
-+		msleep(10);
-+	}
- 
- out:
- 	if (ret_val)
+ 	if (hw->mac.arc_subsystem_valid) {
 
