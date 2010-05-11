@@ -1,147 +1,186 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: TCP-MD5 checksum failure on x86_64 SMP
-Date: Tue, 11 May 2010 22:50:36 +0200
-Message-ID: <1273611036.2512.18.camel@edumazet-laptop>
-References: <1273085598.2367.233.camel@edumazet-laptop>
-	 <i2y571fb4001005060455m39bed7f7if5fcfc45b12bc4d3@mail.gmail.com>
-	 <1273147586.2357.63.camel@edumazet-laptop>
-	 <20100506.220443.135536330.davem@davemloft.net>
-	 <1273210329.2222.42.camel@edumazet-laptop>
-	 <20100507101451.1b4286b7@nehalam>
-	 <1273252893.2261.84.camel@edumazet-laptop>
-	 <20100507103639.4f1a51fa@nehalam>
-	 <1273268446.2325.53.camel@edumazet-laptop>
-	 <D1C2B1EC-ABE8-4D87-9227-6D0F1C1C8B77@guavus.com>
-	 <1273504693.2221.17.camel@edumazet-laptop>
-	 <AAFABD0F-C66F-44C2-8BDC-FB489EA8655F@guavus.com>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH net-next-2.6 1/2] bonding: add keep_all parameter
+Date: Tue, 11 May 2010 17:03:45 -0400
+Message-ID: <20100511210344.GH7497@gospo.rdu.redhat.com>
+References: <20100511002949.GA7497@gospo.rdu.redhat.com> <7958.1273598301@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	"<bhaskie@gmail.com>" <bhaskie@gmail.com>,
-	"<bhutchings@solarflare.com>" <bhutchings@solarflare.com>,
-	netdev <netdev@vger.kernel.org>,
-	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-To: Bijay Singh <Bijay.Singh@guavus.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:45308 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932097Ab0EKU6W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 May 2010 16:58:22 -0400
-Received: by fxm15 with SMTP id 15so79660fxm.19
-        for <netdev@vger.kernel.org>; Tue, 11 May 2010 13:58:21 -0700 (PDT)
-In-Reply-To: <AAFABD0F-C66F-44C2-8BDC-FB489EA8655F@guavus.com>
+Received: from mx1.redhat.com ([209.132.183.28]:36721 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750726Ab0EKVDs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 May 2010 17:03:48 -0400
+Content-Disposition: inline
+In-Reply-To: <7958.1273598301@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 11 mai 2010 =C3=A0 04:08 +0000, Bijay Singh a =C3=A9crit :
-> Hi Eric,
->=20
-> I guess that makes me the enviable one. So I am keen to test out this=
- feature completely, as long as I know what to do as a next step, direc=
-tions, patches.
->=20
-> Thanks
+On Tue, May 11, 2010 at 10:18:21AM -0700, Jay Vosburgh wrote:
+> Andy Gospodarek <andy@greyhouse.net> wrote:
+> 
+> >
+> >In an effort to suppress duplicate frames on certain bonding modes
+> >(specifically the modes that do not require additional configuration on
+> >the switch or switches connected to the host),
+> 
+> 	Strictly speaking, the above is incorrect, as the duplicate
+> suppression is turned on for the active-backup inactive slaves as well
+> as 802.3ad ports that are disabled (any slave that gets the "inactive"
+> flag bit set).
 
+It is also effective when using ALB and TLB, right?  I can change the
+language if you would like to increase the description's accuracy.
 
-I believe third problem comes from commit 4957faad
-(TCPCT part 1g: Responder Cookie =3D> Initiator), from William Allen
-Simpson.
+> 
+> >[...] code was added in the
+> >generic receive patch in 2.6.16.  The current behavior works quite well
+> >for most users, but there are some times it would be nice to restore old
+> >functionality and allow all frames to make their way up the stack.
+> 
+> 	Reading netdev lately, it sure looks like everybody wants ways
+> to shut off or bypass the duplicate suppression.
+> 
 
-When a SYN-ACK packet is built (in tcp_synack_options()),
-it specifically forbids a TIMESTAMP option to be included if SACK is
-also selected :
+I see that too, which was part of the reason to add a configuration
+option.  I know many of the people that complained that they were seeing
+dups will complain again if they show up in the future, so a config
+option seemed like the best way to satisfy both.
 
-doing_ts &=3D !ireq->sack_ok;
+> >This patch adds support for a new module option and sysfs file called
+> >'keep_all' that will restore pre-2.6.16 functionality if the user
+> >desires.  The default value is '0' and retains existing behavior, but
+> >the user can set it to '1' and allow all frames up if desired.
+> 
+> 	Since this is really meant for the queue tagging stuff in the
+> next patch, should this really be something that's enabled automatically
+> if the queues are configured in such a way that the inactive slave is
+> going to receive traffic?
+> 
 
-Problem is this mask is done on a local variable. socket is still marke=
-d
-as being timestamp enabled.
+Part of the reason not to have it happen automatically is that the
+second patch *should* allow simple pass-through of queue-mapping (though
+I didn't mention that specifically) from bond device to underlying
+slaves if the user is aware of the number of output queues in their
+NIC and doesn't set the queue_ids for any of the slaves.
 
+Another reason not to turn it on automatically is if the network patch
+for transmission and reception are actually different.  The 'keep_all=1'
+flag might not be needed if transmission is happening on an inactive
+interface, but the active interface will receive all responses due to
+the way the network is designed.
 
-Later, when we build tcp options for data packets, we _include_ a
-timestamp, while our SYNACK didnt mention the option. =20
+Again, a big part of the motivation patch was bringing back that
+old-functionality to those that desire it and was why I split this out
+from the next patch.
+ 
+> 	I also wonder if something like this would satisfy the FCOE guys
+> without making __netif_receive_skb / skb_bond_should_drop even more
+> complicated than they already are.
 
-So the following trafic can happen (and fails) :
+I'd love to think so, but you never know.
 
-18:38:29.041966 IP 192.168.0.33.58906 > 192.168.0.56.22226: Flags [S], =
-seq 4014064674, win 8860, options [mss 4430,sackOK,TS val 519041 ecr 0,=
-nop,wscale 7,nop,nop,md5can't check - 9b44126367effcf3247fcbf6da76b24d]=
-, length 0
-18:38:29.042072 IP 192.168.0.56.22226 > 192.168.0.33.58906: Flags [S.],=
- seq 586328714, ack 4014064675, win 5792, options [nop,nop,md5can't che=
-ck - badd847799ded46f39642c341cc7e92b,mss 1460,nop,nop,sackOK,nop,wscal=
-e 7], length 0
-18:38:29.042093 IP 192.168.0.33.58906 > 192.168.0.56.22226: Flags [.], =
-ack 1, win 70, options [nop,nop,md5can't check - 3994ef6987df02a592963f=
-ba04c5d313], length 0
-18:38:29.043217 IP 192.168.0.33.58906 > 192.168.0.56.22226: Flags [.], =
-seq 1:1441, ack 1, win 70, options [nop,nop,md5can't check - 8399f7ccab=
-3a6b8c5a3027ed58bba314], length 1440
-18:38:29.043226 IP 192.168.0.33.58906 > 192.168.0.56.22226: Flags [P.],=
- seq 1441:2501, ack 1, win 70, options [nop,nop,md5can't check - 701ebf=
-65b1894a6bed4cefbf7a56596a], length 1060
-18:38:29.043374 IP 192.168.0.56.22226 > 192.168.0.33.58906: Flags [.], =
-ack 1441, win 68, options [nop,nop,md5can't check - 1badb315ba436ab59bf=
-f5b37daa871be,nop,nop,TS val 113051377 ecr 519041], length 0
-18:38:29.043383 IP 192.168.0.56.22226 > 192.168.0.33.58906: Flags [.], =
-ack 2501, win 91, options [nop,nop,md5can't check - 120564dcb99f822f3b7=
-0910282a6ed9d,nop,nop,TS val 113051377 ecr 519041], length 0
-18:38:29.043673 IP 192.168.0.56.22226 > 192.168.0.33.58906: Flags [.], =
-seq 1:1429, ack 2501, win 91, options [nop,nop,md5can't check - fe5dfb4=
-38065373b52ba85bf800876a8,nop,nop,TS val 113051377 ecr 519041], length =
-1428
-18:38:29.043681 IP 192.168.0.56.22226 > 192.168.0.33.58906: Flags [P.],=
- seq 1429:2500, ack 2501, win 91, options [nop,nop,md5can't check - 7a9=
-10cd5ff357bf0e2c8d3489aafaa86,nop,nop,TS val 113051377 ecr 519041], len=
-gth 1071
-18:38:32.037786 IP 192.168.0.56.22226 > 192.168.0.33.58906: Flags [.], =
-seq 1:1429, ack 2501, win 91, options [nop,nop,md5can't check - fe5dfb4=
-38065373b52ba85bf800876a8,nop,nop,TS val 113051677 ecr 519041], length =
-1428
-18:38:38.037708 IP 192.168.0.56.22226 > 192.168.0.33.58906: Flags [.], =
-seq 1:1429, ack 2501, win 91, options [nop,nop,md5can't check - fe5dfb4=
-38065373b52ba85bf800876a8,nop,nop,TS val 113052277 ecr 519041], length =
-1428
-18:38:50.037524 IP 192.168.0.56.22226 > 192.168.0.33.58906: Flags [.], =
-seq 1:1429, ack 2501, win 91, options [nop,nop,md5can't check - fe5dfb4=
-38065373b52ba85bf800876a8,nop,nop,TS val 113053477 ecr 519041], length =
-1428
+> >Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+> >Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> >---
+> > Documentation/networking/bonding.txt |   15 ++++++++++++
+> > drivers/net/bonding/bond_main.c      |   15 ++++++++++++
+> > drivers/net/bonding/bond_sysfs.c     |   43 +++++++++++++++++++++++++++++++++-
+> > drivers/net/bonding/bonding.h        |    1 +
+> > include/linux/if.h                   |    1 +
+> > net/core/dev.c                       |   26 +++++++++++---------
+> > 6 files changed, 88 insertions(+), 13 deletions(-)
+> >
+> >diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+> >index 61f516b..d64fd2f 100644
+> >--- a/Documentation/networking/bonding.txt
+> >+++ b/Documentation/networking/bonding.txt
+> >@@ -399,6 +399,21 @@ fail_over_mac
+> > 	This option was added in bonding version 3.2.0.  The "follow"
+> > 	policy was added in bonding version 3.3.0.
+> >
+> >+keep_all
+> >+
+> >+	Option to specify whether or not you will keep all frames
+> >+	received on an interface that is a member of a bond.  Right
+> >+	now checking is done to ensure that most frames ultimately
+> >+	classified as duplicates are dropped to keep noise to a
+> >+	minimum.  The feature to drop duplicates was added in kernel
+> >+	version 2.6.16 (bonding driver version 3.0.2) and this will
+> >+	allow that original behavior to be restored if desired.
+> >+
+> >+	A value of 0 (default) will preserve the current behavior and
+> >+	will drop all duplicate frames the bond may receive.  A value
+> >+	of 1 will not attempt to avoid duplicate frames and pass all
+> >+	of them up the stack.
+> 
+> 	Two thoughts (presuming for the moment that this doesn't
+> change): first, bump the driver version and mention when it was added;
+> second, mention that this only applies to active-backup mode.
+> 
 
+Happy to update the version.  But shouldn't this impact ALB and TLB
+modes too since they have a concept of 'active' slaves?
 
-Could you try following patch ?
+> > lacp_rate
+> >
+> > 	Option specifying the rate in which we'll ask our link partner
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 5db3a2c..0be21cd 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -668,7 +668,7 @@ static unsigned tcp_synack_options(struct sock *sk,
- 	u8 cookie_plus =3D (xvp !=3D NULL && !xvp->cookie_out_never) ?
- 			 xvp->cookie_plus :
- 			 0;
--	bool doing_ts =3D ireq->tstamp_ok;
-+	bool doing_ts;
-=20
- #ifdef CONFIG_TCP_MD5SIG
- 	*md5 =3D tcp_rsk(req)->af_specific->md5_lookup(sk, req);
-@@ -681,11 +681,12 @@ static unsigned tcp_synack_options(struct sock *s=
-k,
- 		 * rather than TS in order to fit in better with old,
- 		 * buggy kernels, but that was deemed to be unnecessary.
- 		 */
--		doing_ts &=3D !ireq->sack_ok;
-+		ireq->tstamp_ok &=3D !ireq->sack_ok;
- 	}
- #else
- 	*md5 =3D NULL;
- #endif
-+	doing_ts =3D ireq->tstamp_ok;
-=20
- 	/* We always send an MSS option. */
- 	opts->mss =3D mss;
+<snip>
 
+> >--- a/net/core/dev.c
+> >+++ b/net/core/dev.c
+> >@@ -2758,21 +2758,23 @@ int __skb_bond_should_drop(struct sk_buff *skb, struct net_device *master)
+> > 		skb_bond_set_mac_by_master(skb, master);
+> > 	}
+> >
+> >-	if (dev->priv_flags & IFF_SLAVE_INACTIVE) {
+> >-		if ((dev->priv_flags & IFF_SLAVE_NEEDARP) &&
+> >-		    skb->protocol == __cpu_to_be16(ETH_P_ARP))
+> >-			return 0;
+> >+	if (unlikely(!(master->priv_flags & IFF_BONDING_KEEP_ALL))) {
+> 
+> 	So it's unlikely that "keep all" will be turned off?
+> 
 
+Grrrr.  That should be an if(likely!(....  Good catch.
 
-
-
+> >+		if (dev->priv_flags & IFF_SLAVE_INACTIVE) {
+> >+			if ((dev->priv_flags & IFF_SLAVE_NEEDARP) &&
+> >+			    skb->protocol == __cpu_to_be16(ETH_P_ARP))
+> >+				return 0;
+> >
+> >-		if (master->priv_flags & IFF_MASTER_ALB) {
+> >-			if (skb->pkt_type != PACKET_BROADCAST &&
+> >-			    skb->pkt_type != PACKET_MULTICAST)
+> >+			if (master->priv_flags & IFF_MASTER_ALB) {
+> >+				if (skb->pkt_type != PACKET_BROADCAST &&
+> >+				    skb->pkt_type != PACKET_MULTICAST)
+> >+					return 0;
+> >+			}
+> >+			if (master->priv_flags & IFF_MASTER_8023AD &&
+> >+			    skb->protocol == __cpu_to_be16(ETH_P_SLOW))
+> > 				return 0;
+> >-		}
+> >-		if (master->priv_flags & IFF_MASTER_8023AD &&
+> >-		    skb->protocol == __cpu_to_be16(ETH_P_SLOW))
+> >-			return 0;
+> >
+> >-		return 1;
+> >+			return 1;
+> >+		}
+> > 	}
+> > 	return 0;
+> > }
+> >-- 
+> >1.6.2.5
+> 
+> 	-J
+> 
+> ---
+> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
