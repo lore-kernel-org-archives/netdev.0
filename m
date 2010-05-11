@@ -1,125 +1,104 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next] net/: (netfilter related) Remove unnecessary
- returns from void function()s
-Date: Tue, 11 May 2010 10:52:26 -0700
-Message-ID: <1273600346.20514.247.camel@Joe-Laptop.home>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: ixgbe - problem with packet/bytes count on all
+	queues
+Date: Tue, 11 May 2010 11:00:07 -0700 (Pacific Daylight Time)
+Message-ID: <alpine.WNT.2.00.1005111058150.7656@jbrandeb-desk1.amr.corp.intel.com>
+References: <4BCACD5A.6070809@itcare.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:2148 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750939Ab0EKRw2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 May 2010 13:52:28 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: e1000-devel@lists.sourceforge.net,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: =?ISO-8859-2?Q?Pawe=B3_Staszewski?= <pstaszewski@itcare.pl>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <4BCACD5A.6070809@itcare.pl>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-This patch removes from net/ netfilter files
-all the unnecessary return; statements that precede the
-last closing brace of void functions.
-
-It does not remove the returns that are immediately
-preceded by a label as gcc doesn't like that.
-
-Done via:
-$ grep -rP --include=*.[ch] -l "return;\n}" net/ | \
-  xargs perl -i -e 'local $/ ; while (<>) { s/\n[ \t\n]+return;\n}/\n}/g; print; }'
-
-Signed-off-by: Joe Perches <joe@perches.com>
----
- net/ipv4/netfilter/ip_queue.c                  |    1 -
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |    1 -
- net/ipv4/netfilter/nf_nat_proto_gre.c          |    1 -
- net/ipv6/netfilter/ip6_queue.c                 |    1 -
- net/netfilter/nf_conntrack_netlink.c           |    1 -
- net/netfilter/nf_queue.c                       |    1 -
- net/netfilter/xt_time.c                        |    1 -
- 7 files changed, 0 insertions(+), 7 deletions(-)
-
-diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
-index c838238..a4e5fc5 100644
---- a/net/ipv4/netfilter/ip_queue.c
-+++ b/net/ipv4/netfilter/ip_queue.c
-@@ -461,7 +461,6 @@ __ipq_rcv_skb(struct sk_buff *skb)
- 
- 	if (flags & NLM_F_ACK)
- 		netlink_ack(skb, nlh, 0);
--	return;
- }
- 
- static void
-diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-index 2bb1f87..33cc9f2 100644
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-@@ -452,6 +452,5 @@ module_exit(nf_conntrack_l3proto_ipv4_fini);
- 
- void need_ipv4_conntrack(void)
- {
--	return;
- }
- EXPORT_SYMBOL_GPL(need_ipv4_conntrack);
-diff --git a/net/ipv4/netfilter/nf_nat_proto_gre.c b/net/ipv4/netfilter/nf_nat_proto_gre.c
-index d7e8920..39efbe6 100644
---- a/net/ipv4/netfilter/nf_nat_proto_gre.c
-+++ b/net/ipv4/netfilter/nf_nat_proto_gre.c
-@@ -144,6 +144,5 @@ module_exit(nf_nat_proto_gre_fini);
- 
- void nf_nat_need_gre(void)
- {
--	return;
- }
- EXPORT_SYMBOL_GPL(nf_nat_need_gre);
-diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
-index 8656eb7..8c20174 100644
---- a/net/ipv6/netfilter/ip6_queue.c
-+++ b/net/ipv6/netfilter/ip6_queue.c
-@@ -462,7 +462,6 @@ __ipq_rcv_skb(struct sk_buff *skb)
- 
- 	if (flags & NLM_F_ACK)
- 		netlink_ack(skb, nlh, 0);
--	return;
- }
- 
- static void
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index 4e55403..354cee4 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -2109,7 +2109,6 @@ static void __exit ctnetlink_exit(void)
- 
- 	nfnetlink_subsys_unregister(&ctnl_exp_subsys);
- 	nfnetlink_subsys_unregister(&ctnl_subsys);
--	return;
- }
- 
- module_init(ctnetlink_init);
-diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
-index c49ef21..0b1103c 100644
---- a/net/netfilter/nf_queue.c
-+++ b/net/netfilter/nf_queue.c
-@@ -279,7 +279,6 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
- 	}
- 	rcu_read_unlock();
- 	kfree(entry);
--	return;
- }
- EXPORT_SYMBOL(nf_reinject);
- 
-diff --git a/net/netfilter/xt_time.c b/net/netfilter/xt_time.c
-index d8556fd..328eb99 100644
---- a/net/netfilter/xt_time.c
-+++ b/net/netfilter/xt_time.c
-@@ -148,7 +148,6 @@ static void localtime_3(struct xtm *r, time_t time)
- 	}
- 
- 	r->month    = i + 1;
--	return;
- }
- 
- static bool
-
-
+CgpPbiBTdW4sIDE4IEFwciAyMDEwLCBQYXdlxYIgU3Rhc3pld3NraSB3cm90ZToKCj4gSGVsbG8K
+PiAKPiBJIHdhbnQgdG8gYXNrIGlzIHRoaXMgYSBub3JtYWwgYmVoYXZpb3Igb2YgaXhnYiBkcml2
+ZXIgYW5kIDgyNTk4RUIgbmljLgo+IGxvb2sgZm9yIHR4X3F1ZXVlXzcgc3RhdHM6CgpIaSwgc29y
+cnkgbm8tb25lIHJlcGxpZWQuCgo+ICAgZXRodG9vbCAtUyBldGgyCj4gTklDIHN0YXRpc3RpY3M6
+Cj4gICAgICAgcnhfcGFja2V0czogMzUxMDMyNTIKPiAgICAgICB0eF9wYWNrZXRzOiAxNzcwMzcx
+NzMxCj4gICAgICAgcnhfYnl0ZXM6IDM2MDIwNTI0MTYKPiAgICAgICB0eF9ieXRlczogMTM2OTc3
+ODI3Ngo+ICAgICAgIHJ4X3BrdHNfbmljOiAxMzgxMjEwMDYwMTgKPiAgICAgICB0eF9wa3RzX25p
+YzogMTIyMDMzMTYzMjI2Cj4gICAgICAgcnhfYnl0ZXNfbmljOiAxMDE0ODQ1Mjg4NDc5ODEKPiAg
+ICAgICB0eF9ieXRlc19uaWM6IDkyMjU4Nzk5MDkyMDY5Cj4gICAgICAgbHNjX2ludDogMQo+ICAg
+ICAgIHR4X2J1c3k6IDAKPiAgICAgICBub25fZW9wX2Rlc2NzOiAwCj4gICAgICAgcnhfZXJyb3Jz
+OiAwCj4gICAgICAgdHhfZXJyb3JzOiAwCj4gICAgICAgcnhfZHJvcHBlZDogMAo+ICAgICAgIHR4
+X2Ryb3BwZWQ6IDAKPiAgICAgICBtdWx0aWNhc3Q6IDQ5MDIyNgo+ICAgICAgIGJyb2FkY2FzdDog
+MTI0MTA0OTEyCj4gICAgICAgcnhfbm9fYnVmZmVyX2NvdW50OiAwCj4gICAgICAgY29sbGlzaW9u
+czogMAo+ICAgICAgIHJ4X292ZXJfZXJyb3JzOiAwCj4gICAgICAgcnhfY3JjX2Vycm9yczogMAo+
+ICAgICAgIHJ4X2ZyYW1lX2Vycm9yczogMAo+ICAgICAgIGh3X3JzY19hZ2dyZWdhdGVkOiAwCj4g
+ICAgICAgaHdfcnNjX2ZsdXNoZWQ6IDAKPiAgICAgICBmZGlyX21hdGNoOiAwCj4gICAgICAgZmRp
+cl9taXNzOiAwCj4gICAgICAgcnhfZmlmb19lcnJvcnM6IDAKPiAgICAgICByeF9taXNzZWRfZXJy
+b3JzOiAwCj4gICAgICAgdHhfYWJvcnRlZF9lcnJvcnM6IDAKPiAgICAgICB0eF9jYXJyaWVyX2Vy
+cm9yczogMAo+ICAgICAgIHR4X2ZpZm9fZXJyb3JzOiAwCj4gICAgICAgdHhfaGVhcnRiZWF0X2Vy
+cm9yczogMAo+ICAgICAgIHR4X3RpbWVvdXRfY291bnQ6IDAKPiAgICAgICB0eF9yZXN0YXJ0X3F1
+ZXVlOiAxMTExMzAKPiAgICAgICByeF9sb25nX2xlbmd0aF9lcnJvcnM6IDM4NTk5Cj4gICAgICAg
+cnhfc2hvcnRfbGVuZ3RoX2Vycm9yczogMAo+ICAgICAgIHR4X2Zsb3dfY29udHJvbF94b246IDAK
+PiAgICAgICByeF9mbG93X2NvbnRyb2xfeG9uOiAwCj4gICAgICAgdHhfZmxvd19jb250cm9sX3hv
+ZmY6IDAKPiAgICAgICByeF9mbG93X2NvbnRyb2xfeG9mZjogMAo+ICAgICAgIHJ4X2NzdW1fb2Zm
+bG9hZF9lcnJvcnM6IDE1NTQxOTEKPiAgICAgICBhbGxvY19yeF9wYWdlX2ZhaWxlZDogMAo+ICAg
+ICAgIGFsbG9jX3J4X2J1ZmZfZmFpbGVkOiAwCj4gICAgICAgcnhfbm9fZG1hX3Jlc291cmNlczog
+MAo+ICAgICAgIHR4X3F1ZXVlXzBfcGFja2V0czogMTA4Njg1MzUxNjIzCj4gICAgICAgdHhfcXVl
+dWVfMF9ieXRlczogNzk3MDE0MDIwMjU1NDQKPiAgICAgICB0eF9xdWV1ZV8xX3BhY2tldHM6IDM5
+ODgwMjQ2OTgKPiAgICAgICB0eF9xdWV1ZV8xX2J5dGVzOiAzMzUzNTMwNDY3Nzc1Cj4gICAgICAg
+dHhfcXVldWVfMl9wYWNrZXRzOiAxODkzMzA1NzA3Cj4gICAgICAgdHhfcXVldWVfMl9ieXRlczog
+MTcwNTM1NzE4NjAzNAo+ICAgICAgIHR4X3F1ZXVlXzNfcGFja2V0czogMTc4Nzg1MjYxMwo+ICAg
+ICAgIHR4X3F1ZXVlXzNfYnl0ZXM6IDE1MTg2MzI0ODIzNzAKPiAgICAgICB0eF9xdWV1ZV80X3Bh
+Y2tldHM6IDE4NDMxMDg2ODQKPiAgICAgICB0eF9xdWV1ZV80X2J5dGVzOiAxNjQxNDc0NjAyNTA0
+Cj4gICAgICAgdHhfcXVldWVfNV9wYWNrZXRzOiAxODgyNjM3NDY3Cj4gICAgICAgdHhfcXVldWVf
+NV9ieXRlczogMTYyOTkwNTc2Njk5Mwo+ICAgICAgIHR4X3F1ZXVlXzZfcGFja2V0czogMTk1Mjc1
+OTgwMgo+ICAgICAgIHR4X3F1ZXVlXzZfYnl0ZXM6IDE2ODA2NjY1OTE3NzEKPiAgICAgICB0eF9x
+dWV1ZV83X3BhY2tldHM6IDAKPiAgICAgICB0eF9xdWV1ZV83X2J5dGVzOiAwCj4gICAgICAgcnhf
+cXVldWVfMF9wYWNrZXRzOiAxNzM2MTczNTU5Mgo+ICAgICAgIHJ4X3F1ZXVlXzBfYnl0ZXM6IDEy
+NTg1NzI4NTE4MDc3Cj4gICAgICAgcnhfcXVldWVfMV9wYWNrZXRzOiAxNzE5NDI2MjkxNgo+ICAg
+ICAgIHJ4X3F1ZXVlXzFfYnl0ZXM6IDEyNTE4NzMxNTgzNDY0Cj4gICAgICAgcnhfcXVldWVfMl9w
+YWNrZXRzOiAxNzM0MjMxMjM0OAo+ICAgICAgIHJ4X3F1ZXVlXzJfYnl0ZXM6IDEyNzM0OTU5MDYz
+MTc2Cj4gICAgICAgcnhfcXVldWVfM19wYWNrZXRzOiAxNzM2NzYzMjA1MQo+ICAgICAgIHJ4X3F1
+ZXVlXzNfYnl0ZXM6IDEyNjU2MjE5OTg0NTIxCj4gICAgICAgcnhfcXVldWVfNF9wYWNrZXRzOiAx
+NzE1MDMwNzE2NAo+ICAgICAgIHJ4X3F1ZXVlXzRfYnl0ZXM6IDEyNDA4NTI2NzU0MDE5Cj4gICAg
+ICAgcnhfcXVldWVfNV9wYWNrZXRzOiAxNzIwNjcyMTg0Mgo+ICAgICAgIHJ4X3F1ZXVlXzVfYnl0
+ZXM6IDEyNDcwNjY2MDM5ODkzCj4gICAgICAgcnhfcXVldWVfNl9wYWNrZXRzOiAxNzIwMjIxMDU3
+Mgo+ICAgICAgIHJ4X3F1ZXVlXzZfYnl0ZXM6IDEyNDMxNDI5Mjk4OTUwCj4gICAgICAgcnhfcXVl
+dWVfN19wYWNrZXRzOiAxNzI5NTgyMjgyMgo+ICAgICAgIHJ4X3F1ZXVlXzdfYnl0ZXM6IDEyNTcz
+Mjk5NDg4MjM5Cj4gCj4gYW5kIGhlcmUgbG9vayBhdCBtdWx0aXEgcXVldWUgbnVtYmVyIDg6Cj4g
+dGMgLXMgLWQgY2xhc3Mgc2hvdyBkZXYgZXRoMgo+IGNsYXNzIG11bHRpcSAxOjEgcGFyZW50IDE6
+Cj4gICBTZW50IDY5MDU1NjA2NzU5MDUgYnl0ZXMgNTEwNzQzODQwIHBrdCAoZHJvcHBlZCAwLCBv
+dmVybGltaXRzIDAgCj4gcmVxdWV1ZXMgMCkKPiAgIGJhY2tsb2cgMGIgMHAgcmVxdWV1ZXMgMAo+
+IGNsYXNzIG11bHRpcSAxOjIgcGFyZW50IDE6Cj4gICBTZW50IDI4MDY5OTc0Mzk5MCBieXRlcyAz
+MzAyMTA0NDIgcGt0IChkcm9wcGVkIDAsIG92ZXJsaW1pdHMgMCByZXF1ZXVlcyAwKQo+ICAgYmFj
+a2xvZyAwYiAwcCByZXF1ZXVlcyAwCj4gY2xhc3MgbXVsdGlxIDE6MyBwYXJlbnQgMToKPiAgIFNl
+bnQgMTI4NTI4NjY2OTcxIGJ5dGVzIDE0MjA1MzEwNiBwa3QgKGRyb3BwZWQgMCwgb3ZlcmxpbWl0
+cyAwIHJlcXVldWVzIDApCj4gICBiYWNrbG9nIDBiIDBwIHJlcXVldWVzIDAKPiBjbGFzcyBtdWx0
+aXEgMTo0IHBhcmVudCAxOgo+ICAgU2VudCAxMjMwODY3MTA2OTQgYnl0ZXMgMTQwNDU0MTE5IHBr
+dCAoZHJvcHBlZCAwLCBvdmVybGltaXRzIDAgcmVxdWV1ZXMgMCkKPiAgIGJhY2tsb2cgMGIgMHAg
+cmVxdWV1ZXMgMAo+IGNsYXNzIG11bHRpcSAxOjUgcGFyZW50IDE6Cj4gICBTZW50IDEyMTAyNzc3
+OTA4MyBieXRlcyAxNDYxNjQwNjYgcGt0IChkcm9wcGVkIDAsIG92ZXJsaW1pdHMgMCByZXF1ZXVl
+cyAwKQo+ICAgYmFja2xvZyAwYiAwcCByZXF1ZXVlcyAwCj4gY2xhc3MgbXVsdGlxIDE6NiBwYXJl
+bnQgMToKPiAgIFNlbnQgMTE2MjQ1NTIwMTk1IGJ5dGVzIDE0MTU5NzYxMCBwa3QgKGRyb3BwZWQg
+MCwgb3ZlcmxpbWl0cyAwIHJlcXVldWVzIDApCj4gICBiYWNrbG9nIDBiIDBwIHJlcXVldWVzIDAK
+PiBjbGFzcyBtdWx0aXEgMTo3IHBhcmVudCAxOgo+ICAgU2VudCAxMzMzMTA1NTM4ODcgYnl0ZXMg
+MTUxMTQxNzE0IHBrdCAoZHJvcHBlZCAwLCBvdmVybGltaXRzIDAgcmVxdWV1ZXMgMCkKPiAgIGJh
+Y2tsb2cgMGIgMHAgcmVxdWV1ZXMgMAo+IGNsYXNzIG11bHRpcSAxOjggcGFyZW50IDE6Cj4gICBT
+ZW50IDAgYnl0ZXMgMCBwa3QgKGRyb3BwZWQgMCwgb3ZlcmxpbWl0cyAwIHJlcXVldWVzIDApCj4g
+ICBiYWNrbG9nIDBiIDBwIHJlcXVldWVzIDAKPiAKPiBJcyB0aGF0IG5vcm1hbCB0aGF0IGRyaXZl
+ciBkb24ndCB1c2UgcXVldWUgbnVtYmVyIDggPwoKVGhpcyBzZWVtcyBleHRyZW1lbHkgdW51c3Vh
+bCwgY2FuIHlvdSB0ZWxsIHVzIHdoYXQga2VybmVsIHZlcnNpb24geW91J3JlIAp1c2luZyBhbmQg
+d2hhdCBraW5kIG9mIHRlc3QgeW91J3JlIHJ1bm5pbmc/CgppdCBhbG1vc3Qgc2VlbXMgdGhhdCB0
+aGVyZSBpcyBhbiBvZmYgYnkgb25lIHNvbWV3aGVyZSwgd2hhdCBraW5kIG9mIAp0cmFmZmljIGlz
+IGJlaW5nIHRyYW5zbWl0dGVkPwoKSmVzc2UKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQoKX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KRTEwMDAtZGV2ZWwgbWFp
+bGluZyBsaXN0CkUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3Rz
+LnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby9lMTAwMC1kZXZlbApUbyBsZWFybiBtb3Jl
+IGFib3V0IEludGVsJiMxNzQ7IEV0aGVybmV0LCB2aXNpdCBodHRwOi8vY29tbXVuaXRpZXMuaW50
+ZWwuY29tL2NvbW11bml0eS93aXJlZAo=
