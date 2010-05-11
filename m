@@ -1,1037 +1,640 @@
-From: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
-Subject: Re: ixgbe - problem with packet/bytes count on all queues
-Date: Tue, 11 May 2010 21:40:56 +0200
-Message-ID: <4BE9B2C8.8040909@itcare.pl>
-References: <4BCACD5A.6070809@itcare.pl> <alpine.WNT.2.00.1005111058150.7656@jbrandeb-desk1.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Network Development list <netdev@vger.kernel.org>,
-	e1000-devel@lists.sourceforge.net
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH net-next-2.6 2/2] bonding: allow user-controlled output slave selection
+Date: Tue, 11 May 2010 13:09:39 -0700
+Message-ID: <17897.1273608579@death.nxdomain.ibm.com>
+References: <20100511003245.GB7497@gospo.rdu.redhat.com>
+Cc: netdev@vger.kernel.org
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from r242-33.iq.pl ([86.111.242.33]:46540 "EHLO smtp.iq.pl"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752829Ab0EKTrk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 May 2010 15:47:40 -0400
-In-Reply-To: <alpine.WNT.2.00.1005111058150.7656@jbrandeb-desk1.amr.corp.intel.com>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:44798 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753144Ab0EKUJw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 May 2010 16:09:52 -0400
+Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
+	by e32.co.us.ibm.com (8.14.3/8.13.1) with ESMTP id o4BK2ixQ025474
+	for <netdev@vger.kernel.org>; Tue, 11 May 2010 14:02:44 -0600
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o4BK9hnR048022
+	for <netdev@vger.kernel.org>; Tue, 11 May 2010 14:09:45 -0600
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o4BKCXcn010188
+	for <netdev@vger.kernel.org>; Tue, 11 May 2010 14:12:33 -0600
+In-reply-to: <20100511003245.GB7497@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 2010-05-11 20:00, Brandeburg, Jesse pisze:
+Andy Gospodarek <andy@greyhouse.net> wrote:
+
+>This patch give the user the ability to control the output slave for
+>round-robin and active-backup bonding.  Similar functionality was
+>discussed in the past, but Jay Vosburgh indicated he would rather see a
+>feature like this added to existing modes rather than creating a
+>completely new mode.  Jay's thoughts as well as Neil's input surrounding
+>some of the issues with the first implementation pushed us toward a
+>design that relied on the queue_mapping rather than skb marks.
+>Round-robin and active-backup modes were chosen as the first users of
+>this slave selection as they seemed like the most logical choices when
+>considering a multi-switch environment.
 >
-> On Sun, 18 Apr 2010, Pawe=C5=82 Staszewski wrote:
+>Round-robin mode works without any modification, but active-backup does
+>require inclusion of the first patch in this series and setting
+>the 'keep_all' flag.  This will allow reception of unicast traffic on
+>any of the backup interfaces.
+
+	Yes, I did think that the mark business fit better into existing
+modes (I thought of it as kind of a new hash for xor and 802.3ad modes).
+I also didn't expect to see so much new stuff (this, as well as the FCOE
+special cases being discussed elsewhere) being shoehorned into the
+active-backup mode.  I'm not so sure that adding so many special cases
+to active-backup is a good thing.
+
+	Now, I'm starting to wonder if you were right, and it would be
+better overall to have a "manual" mode that would hopefully satisfy this
+case as well as the FCOE special case.  I don't think either of these is
+a bad use case, I'm just not sure the right way to handle them is
+another special knob in active-backup mode (either directly, or
+implicitly in __netif_receive_skb), which wasn't what I expected to see.
+
+	I presume you're overloading active-backup because it's not
+etherchannel, 802.3ad, etc, and just talks right to the switch.  For the
+regular load balance modes, I still think overlay into the existing
+modes is preferable (more on that later); I'm thinking of "manual"
+instead of another tweak to active-backup.
+
+	If users want to have actual hot-standby functionality, then
+active-backup would do that, and nothing else (and it can be multi-queue
+aware, but only one slave active at a time).
+
+	Users who want the set of bonded slaves to look like a big
+multiqueue buffet could use this "manual" mode and set things up however
+they want.  One way to set it up is simply that the bond is N queues
+wide, where N is the total of the queue counts of all the slaves.  If a
+slave fails, N gets smaller, and the user code has to deal with that.
+Since the queue count of a device can't change dynamically, the bond
+would have to actually be set up with some big number of queues, and
+then only a subset is actually active (or there is some sort of wrap).
+
+	In such an implementation, each slave would have a range of
+queue IDs, not necessarily just one.  I'm a bit leery of exposing an API
+where each slave is one queue ID, as it could make transitioning to real
+multi-queue awareness difficult.
+
+	There might also be a way to tie it in to the new RPS code on
+the receive side.
+
+	If the slaves all have the same MAC and attach to a single
+switch via etherchannel, then it all looks pretty much like a single big
+honkin' multiqueue device.  The switch probably won't map the flows back
+the same way, though.
+
+	If the slaves are on discrete switches (without etherchannel),
+things become more complicated.  If the slaves have the same MAC, then
+the switches will be irritated about seeing that same MAC coming in from
+multiple places.  If the slaves have different MACs, then ARP has the
+same sort of issues.
+
+	In thinking about it, if it's linux bonding at both ends, there
+could be any number of discrete switches in the path, and it wouldn't
+matter as long as the linux end can work things out, e.g.,
+
+        -- switch 1 --
+hostA  /              \  hostB
+bond  ---- switch 2 ---- bond
+       \              /
+        -- switch 3 --
+
+	For something like this, the switches would never share MAC
+information for the bonding slaves.  The issue here then becomes more of
+detecting link failures (it would require either a "trunk failover" type
+of function on the switch, or some kind of active probe between the
+bonds).
+
+	Now, I realize that I'm babbling a bit, as from reading your
+description, this isn't necessarily your target topology (which sounded
+more like a case of slave A can reach only network X, and slave B can
+reach anywhere, so sending to network X should use slave A
+preferentially), or, as long as I'm doing ASCII-art,
+
+       --- switch 1 ---- network X
+hostA /               /
+bond  ---- switch 2 -+-- anywhere
+
+	Is that an accurate representation?  Or is it something a bit
+different, e.g.,
+
+       --- switch 1 ---- network X -\
+hostA /                             /
+bond  ---- switch 2 ---- anywhere --
+
+	I.e., the "anywhere" connects back to network X from the
+outside, so to speak.  Or, oh, maybe I'm missing it entirely, and you're
+thinking of something like this:
+
+       --- switch 1 --- VPN --- web site
+hostA /                          /
+bond  ---- switch 2 - Internet -/
+
+	Where you prefer to hit "web site" via the VPN (perhaps it's a
+more efficient or secure path), but can do it from the public network at
+large if necessary.
+
+	Now, regardless of the above, your first patch ("keep_all") is
+to deal with the reverse problem, if this is a piggyback on top of
+active-backup mode: how to get packets back, when both channels can be
+active simultaneously.  That actually dovetails to a degree with work
+I've been doing lately, but the solution there probably isn't what
+you're looking for (there's a user space daemon to do path finding, and
+the "bond IP" address is piggybacked on the slaves' MAC addresses, which
+are not changed; the "bond IP" set exists in a separate subnet all its
+own).
+
+	As I said, I'm not convinced that the "keep_all" option to
+active-backup is really better than just a "manual" mode that lacks the
+dup suppression and expects the user to set everything up.
+
+	As for the round-robin change in this patch, if I'm reading it
+right, then the way it works is that the packets are round-robined,
+unless there's a queue id passed in, in which case it's assigned to the
+slave mapped to that queue id.  I'm not entirely sure why you picked
+round-robin mode for that over balance-xor; it doesn't seem to fit well
+with the description in the documentation.  Or is it just sort of a
+demonstrator?
+
+	I do like one other aspect of the patch, and that's the concept
+of overlaying the queue map on top of the balance algorithm.  So, e.g.,
+balance-xor would do its usual thing, unless the packet is queue mapped,
+in which case the packet's assignment is obeyed.  The balance-xor could
+even optionally do its xor across the full set of all slaves output
+queues instead of just across the slaves.  Round-robin can operate
+similarly.  For those modes, a "balance by queue vs. balance by slave"
+seems like a reasonable knob to have.
+
+	I do understand that you're proposing something relatively
+simple, and I'm thinking out loud about alternate or additional
+implementation details.  Some of this is "ooh ahh what if", but we also
+don't want to end up with something that's forwards incompatible, and
+I'm hoping to find one solution to multiple problems.
+
+	Thoughts?
+
+	-J
+
+>This was tested with IPv4-based filters as well as VLAN-based filters
+>with good results.
 >
->   =20
->> Hello
->>
->> I want to ask is this a normal behavior of ixgb driver and 82598EB n=
-ic.
->> look for tx_queue_7 stats:
->>     =20
-> Hi, sorry no-one replied.
+>More information as well as a configuration example is available in the
+>patch to Documentation/networking/bonding.txt.
 >
->   =20
-Thanks for reply :)
->>    ethtool -S eth2
->> NIC statistics:
->>        rx_packets: 35103252
->>        tx_packets: 1770371731
->>        rx_bytes: 3602052416
->>        tx_bytes: 1369778276
->>        rx_pkts_nic: 138121006018
->>        tx_pkts_nic: 122033163226
->>        rx_bytes_nic: 101484528847981
->>        tx_bytes_nic: 92258799092069
->>        lsc_int: 1
->>        tx_busy: 0
->>        non_eop_descs: 0
->>        rx_errors: 0
->>        tx_errors: 0
->>        rx_dropped: 0
->>        tx_dropped: 0
->>        multicast: 490226
->>        broadcast: 124104912
->>        rx_no_buffer_count: 0
->>        collisions: 0
->>        rx_over_errors: 0
->>        rx_crc_errors: 0
->>        rx_frame_errors: 0
->>        hw_rsc_aggregated: 0
->>        hw_rsc_flushed: 0
->>        fdir_match: 0
->>        fdir_miss: 0
->>        rx_fifo_errors: 0
->>        rx_missed_errors: 0
->>        tx_aborted_errors: 0
->>        tx_carrier_errors: 0
->>        tx_fifo_errors: 0
->>        tx_heartbeat_errors: 0
->>        tx_timeout_count: 0
->>        tx_restart_queue: 111130
->>        rx_long_length_errors: 38599
->>        rx_short_length_errors: 0
->>        tx_flow_control_xon: 0
->>        rx_flow_control_xon: 0
->>        tx_flow_control_xoff: 0
->>        rx_flow_control_xoff: 0
->>        rx_csum_offload_errors: 1554191
->>        alloc_rx_page_failed: 0
->>        alloc_rx_buff_failed: 0
->>        rx_no_dma_resources: 0
->>        tx_queue_0_packets: 108685351623
->>        tx_queue_0_bytes: 79701402025544
->>        tx_queue_1_packets: 3988024698
->>        tx_queue_1_bytes: 3353530467775
->>        tx_queue_2_packets: 1893305707
->>        tx_queue_2_bytes: 1705357186034
->>        tx_queue_3_packets: 1787852613
->>        tx_queue_3_bytes: 1518632482370
->>        tx_queue_4_packets: 1843108684
->>        tx_queue_4_bytes: 1641474602504
->>        tx_queue_5_packets: 1882637467
->>        tx_queue_5_bytes: 1629905766993
->>        tx_queue_6_packets: 1952759802
->>        tx_queue_6_bytes: 1680666591771
->>        tx_queue_7_packets: 0
->>        tx_queue_7_bytes: 0
->>        rx_queue_0_packets: 17361735592
->>        rx_queue_0_bytes: 12585728518077
->>        rx_queue_1_packets: 17194262916
->>        rx_queue_1_bytes: 12518731583464
->>        rx_queue_2_packets: 17342312348
->>        rx_queue_2_bytes: 12734959063176
->>        rx_queue_3_packets: 17367632051
->>        rx_queue_3_bytes: 12656219984521
->>        rx_queue_4_packets: 17150307164
->>        rx_queue_4_bytes: 12408526754019
->>        rx_queue_5_packets: 17206721842
->>        rx_queue_5_bytes: 12470666039893
->>        rx_queue_6_packets: 17202210572
->>        rx_queue_6_bytes: 12431429298950
->>        rx_queue_7_packets: 17295822822
->>        rx_queue_7_bytes: 12573299488239
->>
->> and here look at multiq queue number 8:
->> tc -s -d class show dev eth2
->> class multiq 1:1 parent 1:
->>    Sent 6905560675905 bytes 510743840 pkt (dropped 0, overlimits 0
->> requeues 0)
->>    backlog 0b 0p requeues 0
->> class multiq 1:2 parent 1:
->>    Sent 280699743990 bytes 330210442 pkt (dropped 0, overlimits 0 re=
-queues 0)
->>    backlog 0b 0p requeues 0
->> class multiq 1:3 parent 1:
->>    Sent 128528666971 bytes 142053106 pkt (dropped 0, overlimits 0 re=
-queues 0)
->>    backlog 0b 0p requeues 0
->> class multiq 1:4 parent 1:
->>    Sent 123086710694 bytes 140454119 pkt (dropped 0, overlimits 0 re=
-queues 0)
->>    backlog 0b 0p requeues 0
->> class multiq 1:5 parent 1:
->>    Sent 121027779083 bytes 146164066 pkt (dropped 0, overlimits 0 re=
-queues 0)
->>    backlog 0b 0p requeues 0
->> class multiq 1:6 parent 1:
->>    Sent 116245520195 bytes 141597610 pkt (dropped 0, overlimits 0 re=
-queues 0)
->>    backlog 0b 0p requeues 0
->> class multiq 1:7 parent 1:
->>    Sent 133310553887 bytes 151141714 pkt (dropped 0, overlimits 0 re=
-queues 0)
->>    backlog 0b 0p requeues 0
->> class multiq 1:8 parent 1:
->>    Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->>    backlog 0b 0p requeues 0
->>
->> Is that normal that driver don't use queue number 8 ?
->>     =20
-> This seems extremely unusual, can you tell us what kernel version you=
-'re
-> using and what kind of test you're running?
+>Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+>Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+>---
+> Documentation/networking/bonding.txt |   76 +++++++++++++++++++++-
+> drivers/net/bonding/bond_main.c      |   77 +++++++++++++++++++++-
+> drivers/net/bonding/bond_sysfs.c     |  117 +++++++++++++++++++++++++++++++++-
+> drivers/net/bonding/bonding.h        |    5 ++
+> include/linux/if_bonding.h           |    1 +
+> 5 files changed, 270 insertions(+), 6 deletions(-)
 >
->   =20
-Kernel 2.6.33.1
-Traffic type - normal Internet traffic from many users.
-2Gbit/s RX + 2.6Gbit/s TX
-
-tc -s -d qdisc show dev eth2
-qdisc mq 0: root
-  Sent 71590101434962 bytes 2410582579 pkt (dropped 0, overlimits 0=20
-requeues 199799)
-  backlog 0b 0p requeues 199799
-
-Configuration for this nic:
-4: eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP=20
-qlen 10000
-8: vlan0100@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfsc=
-=20
-state UP qlen 100
-9: vlan0101@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfsc=
-=20
-state UP qlen 100
-10: vlan0102@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-11: vlan0103@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-12: vlan0104@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-13: vlan0105@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-14: vlan0106@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-15: vlan0107@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-16: vlan0108@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-17: vlan0109@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-18: vlan0110@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-19: vlan0111@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-20: vlan0112@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-21: vlan0113@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-22: vlan0140@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-23: vlan0141@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-24: vlan0143@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-25: vlan0300@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-26: vlan0114@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-27: vlan0450@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-28: vlan0401@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-29: vlan0402@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-30: vlan0301@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-31: vlan0302@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-32: vlan0303@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-33: vlan0304@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-34: vlan0305@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-35: vlan0306@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-36: vlan0307@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-37: vlan0308@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-38: vlan0309@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-39: vlan0310@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-40: vlan0311@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-41: vlan0312@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-42: vlan0313@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-43: vlan0403@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-44: vlan0314@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-45: vlan0315@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-46: vlan0316@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-47: vlan0317@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-48: vlan0318@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-49: vlan0404@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-50: vlan0405@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-51: vlan0115@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-52: vlan0406@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-53: vlan0116@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-54: vlan0490@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-55: vlan0491@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-56: vlan0319@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-57: vlan0320@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-58: vlan0321@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-59: vlan0322@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-60: vlan0323@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-61: vlan0324@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-62: vlan0325@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-63: vlan0326@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-64: vlan0327@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-65: vlan0328@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-66: vlan0329@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-67: vlan0330@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-68: vlan0331@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-69: vlan0332@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-70: vlan0333@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-71: vlan0334@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-72: vlan0335@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-73: vlan0336@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-74: vlan0337@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-75: vlan0338@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-76: vlan0339@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-77: vlan0340@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-78: vlan0341@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-79: vlan0342@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-80: vlan0343@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-81: vlan0344@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-82: vlan0345@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-83: vlan0117@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-84: vlan0118@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-85: vlan0119@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq=20
-state UP qlen 100
-86: vlan0120@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-87: vlan0121@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-88: vlan0122@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-89: vlan0407@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-90: vlan0408@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-91: vlan0409@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-92: vlan0410@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-93: vlan0411@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-94: vlan0430@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-95: vlan0431@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-96: vlan0432@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-97: vlan0433@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc hfs=
-c=20
-state UP qlen 100
-98: vlan0434@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-99: vlan0435@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-100: vlan0436@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-101: vlan0437@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-102: vlan0438@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-103: vlan0439@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-104: vlan0440@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-105: vlan0451@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-106: vlan0452@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-107: vlan0453@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-108: vlan0454@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-109: vlan0455@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-110: vlan0456@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-111: vlan0457@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-112: vlan0458@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-113: vlan0459@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-114: vlan0461@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-115: vlan0202@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-116: vlan0460@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-117: vlan0462@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-118: vlan0463@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-119: vlan0464@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-120: vlan0203@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-121: vlan0503@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-122: vlan0504@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-123: vlan0130@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-124: vlan0131@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-125: vlan0132@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-126: vlan0133@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-127: vlan0134@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-128: vlan0135@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-129: vlan0136@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-130: vlan0137@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-131: vlan0138@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-132: vlan0123@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-133: vlan0124@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-134: vlan0125@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-135: vlan0126@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-136: vlan0127@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-137: vlan0128@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-138: vlan0129@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-139: vlan0139@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-140: vlan0465@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-141: vlan0466@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-142: vlan0467@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-143: vlan0468@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-144: vlan0469@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-145: vlan0470@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-146: vlan0471@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-147: vlan0472@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-148: vlan0473@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-149: vlan0215@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-150: vlan0144@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-151: vlan0145@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-152: vlan0146@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-153: vlan0147@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-154: vlan0148@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-155: vlan0150@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-156: vlan0151@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-157: vlan0152@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-158: vlan0153@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-hfsc state UP qlen 100
-159: vlan0412@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-160: vlan0413@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-161: vlan0414@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-162: vlan0415@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-163: vlan0416@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-164: vlan0154@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-165: vlan0155@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-166: vlan0156@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-167: vlan0157@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-168: vlan0158@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-169: vlan0159@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-170: vlan0160@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-171: vlan0161@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-172: vlan0162@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-173: vlan0163@eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc=20
-noqueue state UP qlen 100
-
-more info about nic:
-ethtool -i eth2
-driver: ixgbe
-version: 2.0.44-k2
-firmware-version: 1.12-2
-bus-info: 0000:01:00.0
-
-ethtool -k eth2
-Offload parameters for eth2:
-rx-checksumming: on
-tx-checksumming: on
-scatter-gather: on
-tcp-segmentation-offload: on
-udp-fragmentation-offload: off
-generic-segmentation-offload: off
-generic-receive-offload: off
-large-receive-offload: off
-
-
-
-and other weird thing is after delete qdisc:
-I think this is also not normal.
-
-tc qdisc del dev eth2 root
-tc -s -d class show dev eth2
-class mq :1 root
-  Sent 2608239 bytes 3000 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :2 root
-  Sent 3831841 bytes 3301 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :3 root
-  Sent 3518993 bytes 4016 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :4 root
-  Sent 1750040 bytes 2657 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :5 root
-  Sent 740596 bytes 1221 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :6 root
-  Sent 143782921 bytes 210547 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :7 root
-  Sent 3935866 bytes 5059 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :8 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :9 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :a root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :b root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :c root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :d root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :e root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :f root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :10 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :11 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :12 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :13 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :14 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :15 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :16 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :17 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :18 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :19 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :1a root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :1b root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :1c root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :1d root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :1e root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :1f root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :20 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :21 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :22 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :23 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :24 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :25 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :26 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :27 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :28 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :29 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :2a root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :2b root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :2c root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :2d root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :2e root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :2f root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :30 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :31 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :32 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :33 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :34 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :35 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :36 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :37 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :38 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :39 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :3a root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :3b root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :3c root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :3d root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :3e root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :3f root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :40 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :41 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :42 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :43 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :44 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :45 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :46 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :47 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :48 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :49 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :4a root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :4b root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :4c root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :4d root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :4e root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :4f root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :50 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :51 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :52 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :53 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :54 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :55 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :56 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :57 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :58 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :59 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :5a root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :5b root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :5c root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :5d root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :5e root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :5f root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :60 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :61 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :62 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :63 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :64 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :65 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :66 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :67 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :68 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :69 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :6a root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :6b root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :6c root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :6d root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :6e root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :6f root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :70 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :71 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :72 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :73 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :74 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :75 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :76 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :77 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :78 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :79 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :7a root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :7b root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :7c root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :7d root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :7e root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :7f root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class mq :80 root
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-
-
-Normal i have multiq qdisc attached to device - and no difference when=20
-this is bfifo, pfifo or multiq
-tc qdisc add dev eth2 root handle 1: multiq
-then
-  tc -s -d class show dev eth2
-class multiq 1:1 parent 1:
-  Sent 2458266 bytes 3288 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class multiq 1:2 parent 1:
-  Sent 6259789 bytes 5390 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class multiq 1:3 parent 1:
-  Sent 4451430 bytes 5457 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class multiq 1:4 parent 1:
-  Sent 2915648 bytes 3917 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class multiq 1:5 parent 1:
-  Sent 1156897 bytes 1761 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class multiq 1:6 parent 1:
-  Sent 181776227 bytes 255856 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class multiq 1:7 parent 1:
-  Sent 5510686 bytes 6832 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-class multiq 1:8 parent 1:
-  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
-  backlog 0b 0p requeues 0
-
-
-
-> it almost seems that there is an off by one somewhere, what kind of
-> traffic is being transmitted?
+>diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+>index d64fd2f..fd277c1 100644
+>--- a/Documentation/networking/bonding.txt
+>+++ b/Documentation/networking/bonding.txt
+>@@ -49,6 +49,7 @@ Table of Contents
+> 3.3	Configuring Bonding Manually with Ifenslave
+> 3.3.1		Configuring Multiple Bonds Manually
+> 3.4	Configuring Bonding Manually via Sysfs
+>+3.5	Overriding Configuration for Special Cases
 >
-> Jesse
+> 4. Querying Bonding Configuration
+> 4.1	Bonding Configuration
+>@@ -1333,8 +1334,79 @@ echo 2000 > /sys/class/net/bond1/bonding/arp_interval
+> echo +eth2 > /sys/class/net/bond1/bonding/slaves
+> echo +eth3 > /sys/class/net/bond1/bonding/slaves
+>
+>-
+>-4. Querying Bonding Configuration 
+>+3.5 Overriding Configuration for Special Cases
+>+----------------------------------------------
+>+Nominally, when using the bonding driver, the physical port which transmits a
+>+frame is selected by the bonding driver, and is not relevant to the user or
+>+system administrator.  The output port is simply selected using the policies of
+>+the selected bonding mode.  On occasion however, it is helpful to direct certain
+>+classes of traffic to certain physical interfaces on output to implement
+>+slightly more complex policies.  For example, to reach a web server over a
+>+bonded interface in which eth0 connects to a private network, while eth1
+>+connects via a public network, it may be desirous to bias the bond to send said
+>+traffic over eth0 first, using eth1 only as a fall back, while all other traffic
+>+can safely be sent over either interface.  Such configurations may be achieved
+>+using the traffic control utilities inherent in linux.
+>+
+>+By default the bonding driver is multiqueue aware and 16 queues are created
+>+when the driver initializes (see Documentation/networking/multiqueue.txt
+>+for details).  If more or less queues are desired the module parameter
+>+tx_queues can be used to change this value.  There is no sysfs parameter
+>+available as the allocation is done at module init time.
+>+
+>+The output of the file /proc/net/bonding/bondX has changed so the output Queue
+>+ID is now printed for each slave:
+>+
+>+Bonding Mode: fault-tolerance (active-backup)
+>+Primary Slave: None
+>+Currently Active Slave: eth0
+>+MII Status: up
+>+MII Polling Interval (ms): 0
+>+Up Delay (ms): 0
+>+Down Delay (ms): 0
+>+
+>+Slave Interface: eth0
+>+MII Status: up
+>+Link Failure Count: 0
+>+Permanent HW addr: 00:1a:a0:12:8f:cb
+>+Slave queue ID: 0
+>+
+>+Slave Interface: eth1
+>+MII Status: up
+>+Link Failure Count: 0
+>+Permanent HW addr: 00:1a:a0:12:8f:cc
+>+Slave queue ID: 2
+>+
+>+The queue_id for a slave can be set using the command:
+>+
+>+# echo "eth1:2" > /sys/class/net/bond0/bonding/queue_id
+>+
+>+Any interface that needs a queue_id set should set it with multiple calls
+>+like the one above until proper priorities are set for all interfaces.  On
+>+distributions that allow configuration via initscripts, multiple 'queue_id'
+>+arguments can be added to BONDING_OPTS to set all needed slave queues.
+>+
+>+These queue id's can be used in conjunction with the tc utility to configure
+>+a multiqueue qdisc and filters to bias certain traffic to transmit on certain
+>+slave devices.  For instance, say we wanted, in the above configuration to
+>+force all traffic bound to 192.168.1.100 to use eth1 in the bond as its output
+>+device. The following commands would accomplish this:
+>+
+>+# tc qdisc add dev bond0 handle 1 root multiq
+>+
+>+# tc filter add dev bond0 protocol ip parent 1: prio 1 u32 match ip dst \
+>+	192.168.1.100 action skbedit queue_mapping 2
+>+
+>+These commands tell the kernel to attach a multiqueue queue discipline to the
+>+bond0 interface and filter traffic enqueued to it, such that packets with a dst
+>+ip of 192.168.1.100 have their output queue mapping value overwritten to 2.
+>+This value is then passed into the driver, causing the normal output path
+>+selection policy to be overridden, selecting instead qid 2, which maps to eth1.
+>+
+>+Note that qid values begin at 1.  qid 0 is reserved to initiate to the driver
+>+that normal output policy selection should take place.
+>+
+>+4 Querying Bonding Configuration
+> =================================
+>
+> 4.1 Bonding Configuration
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index eb86363..aa6a79a 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -90,6 +90,7 @@
+> #define BOND_LINK_ARP_INTERV	0
+>
+> static int max_bonds	= BOND_DEFAULT_MAX_BONDS;
+>+static int tx_queues	= BOND_DEFAULT_TX_QUEUES;
+> static int num_grat_arp = 1;
+> static int num_unsol_na = 1;
+> static int miimon	= BOND_LINK_MON_INTERV;
+>@@ -111,6 +112,8 @@ static struct bond_params bonding_defaults;
+>
+> module_param(max_bonds, int, 0);
+> MODULE_PARM_DESC(max_bonds, "Max number of bonded devices");
+>+module_param(tx_queues, int, 0);
+>+MODULE_PARM_DESC(tx_queues, "Max number of transmit queues (default = 16)");
+> module_param(num_grat_arp, int, 0644);
+> MODULE_PARM_DESC(num_grat_arp, "Number of gratuitous ARP packets to send on failover event");
+> module_param(num_unsol_na, int, 0644);
+>@@ -1532,6 +1535,12 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+> 		goto err_undo_flags;
+> 	}
+>
+>+	/*
+>+	 * Set the new_slave's queue_id to be zero.  Queue ID mapping
+>+	 * is set via sysfs or module option if desired.
+>+	 */
+>+	new_slave->queue_id = 0;
+>+
+> 	/* save slave's original flags before calling
+> 	 * netdev_set_master and dev_open
+> 	 */
+>@@ -1790,6 +1799,7 @@ err_restore_mac:
+> 	}
+>
+> err_free:
+>+	new_slave->queue_id = 0;
+> 	kfree(new_slave);
+>
+> err_undo_flags:
+>@@ -1977,6 +1987,7 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
+> 				   IFF_SLAVE_INACTIVE | IFF_BONDING |
+> 				   IFF_SLAVE_NEEDARP);
+>
+>+	slave->queue_id = 0;
+> 	kfree(slave);
+>
+> 	return 0;  /* deletion OK */
+>@@ -3269,6 +3280,7 @@ static void bond_info_show_slave(struct seq_file *seq,
+> 		else
+> 			seq_puts(seq, "Aggregator ID: N/A\n");
+> 	}
+>+	seq_printf(seq, "Slave queue ID: %d\n", slave->queue_id);
+> }
+>
+> static int bond_info_seq_show(struct seq_file *seq, void *v)
+>@@ -4405,9 +4417,59 @@ static void bond_set_xmit_hash_policy(struct bonding *bond)
+> 	}
+> }
+>
+>+/*
+>+ * Lookup the slave that corresponds to a qid
+>+ */
+>+static inline int bond_slave_override(struct bonding *bond,
+>+				      struct sk_buff *skb)
+>+{
+>+	int i, res = 1;
+>+	struct slave *slave = NULL;
+>+	struct slave *check_slave;
+>+
+>+	read_lock(&bond->lock);
+>+
+>+	if (!BOND_IS_OK(bond) || !skb->queue_mapping)
+>+		goto out;
+>+
+>+	/* Find out if any slaves have the same mapping as this skb. */
+>+	bond_for_each_slave(bond, check_slave, i) {
+>+		if (check_slave->queue_id == skb->queue_mapping) {
+>+			slave = check_slave;
+>+			break;
+>+		}
+>+	}
+>+
+>+	/* If the slave isn't UP, use default transmit policy. */
+>+	if (slave && slave->queue_id && IS_UP(slave->dev) &&
+>+	    (slave->link == BOND_LINK_UP)) {
+>+		res = bond_dev_queue_xmit(bond, skb, slave->dev);
+>+	}
+>+
+>+out:
+>+	read_unlock(&bond->lock);
+>+	return res;
+>+}
+>+
+>+static u16 bond_select_queue(struct net_device *dev, struct sk_buff *skb)
+>+{
+>+	/*
+>+	 * This helper function exists to help dev_pick_tx get the correct
+>+	 * destination queue.  Using a helper function skips the a call to
+>+	 * skb_tx_hash and will put the skbs in the queue we expect on their
+>+	 * way down to the bonding driver.
+>+	 */
+>+	return skb->queue_mapping;
+>+}
+>+
+> static netdev_tx_t bond_start_xmit(struct sk_buff *skb, struct net_device *dev)
+> {
+>-	const struct bonding *bond = netdev_priv(dev);
+>+	struct bonding *bond = netdev_priv(dev);
+>+
+>+	if (TX_QUEUE_OVERRIDE(bond->params.mode)) {
+>+		if (!bond_slave_override(bond, skb))
+>+			return NETDEV_TX_OK;
+>+	}
+>
+> 	switch (bond->params.mode) {
+> 	case BOND_MODE_ROUNDROBIN:
+>@@ -4492,6 +4554,7 @@ static const struct net_device_ops bond_netdev_ops = {
+> 	.ndo_open		= bond_open,
+> 	.ndo_stop		= bond_close,
+> 	.ndo_start_xmit		= bond_start_xmit,
+>+	.ndo_select_queue	= bond_select_queue,
+> 	.ndo_get_stats		= bond_get_stats,
+> 	.ndo_do_ioctl		= bond_do_ioctl,
+> 	.ndo_set_multicast_list	= bond_set_multicast_list,
+>@@ -4763,6 +4826,13 @@ static int bond_check_params(struct bond_params *params)
+> 		}
+> 	}
+>
+>+	if (tx_queues < 1 || tx_queues > 255) {
+>+		pr_warning("Warning: tx_queues (%d) should be between "
+>+			   "1 and 255, resetting to %d\n",
+>+			   tx_queues, BOND_DEFAULT_TX_QUEUES);
+>+		tx_queues = BOND_DEFAULT_TX_QUEUES;
+>+	}
+>+
+> 	if ((keep_all != 0) && (keep_all != 1)) {
+> 		pr_warning("Warning: keep_all module parameter (%d), "
+> 			   "not of valid value (0/1), so it was set to "
+>@@ -4940,6 +5010,7 @@ static int bond_check_params(struct bond_params *params)
+> 	params->primary[0] = 0;
+> 	params->primary_reselect = primary_reselect_value;
+> 	params->fail_over_mac = fail_over_mac_value;
+>+	params->tx_queues = tx_queues;
+> 	params->keep_all = keep_all;
+>
+> 	if (primary) {
+>@@ -5027,8 +5098,8 @@ int bond_create(struct net *net, const char *name)
+>
+> 	rtnl_lock();
+>
+>-	bond_dev = alloc_netdev(sizeof(struct bonding), name ? name : "",
+>-				bond_setup);
+>+	bond_dev = alloc_netdev_mq(sizeof(struct bonding), name ? name : "",
+>+				bond_setup, tx_queues);
+> 	if (!bond_dev) {
+> 		pr_err("%s: eek! can't alloc netdev!\n", name);
+> 		rtnl_unlock();
+>diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+>index 44651ce..87bfcf1 100644
+>--- a/drivers/net/bonding/bond_sysfs.c
+>+++ b/drivers/net/bonding/bond_sysfs.c
+>@@ -1472,6 +1472,121 @@ static ssize_t bonding_show_ad_partner_mac(struct device *d,
+> static DEVICE_ATTR(ad_partner_mac, S_IRUGO, bonding_show_ad_partner_mac, NULL);
+>
+> /*
+>+ * Show the queue_ids of the slaves in the current bond.
+>+ */
+>+static ssize_t bonding_show_queue_id(struct device *d,
+>+				     struct device_attribute *attr,
+>+				     char *buf)
+>+{
+>+	struct slave *slave;
+>+	int i, res = 0;
+>+	struct bonding *bond = to_bond(d);
+>+
+>+	if (!rtnl_trylock())
+>+		return restart_syscall();
+>+
+>+	read_lock(&bond->lock);
+>+	bond_for_each_slave(bond, slave, i) {
+>+		if (res > (PAGE_SIZE - 6)) {
+>+			/* not enough space for another interface name */
+>+			if ((PAGE_SIZE - res) > 10)
+>+				res = PAGE_SIZE - 10;
+>+			res += sprintf(buf + res, "++more++ ");
+>+			break;
+>+		}
+>+		res += sprintf(buf + res, "%s:%d ",
+>+			       slave->dev->name, slave->queue_id);
+>+	}
+>+	read_unlock(&bond->lock);
+>+	if (res)
+>+		buf[res-1] = '\n'; /* eat the leftover space */
+>+	rtnl_unlock();
+>+	return res;
+>+}
+>+
+>+/*
+>+ * Set the queue_ids of the  slaves in the current bond.  The bond
+>+ * interface must be enslaved for this to work.
+>+ */
+>+static ssize_t bonding_store_queue_id(struct device *d,
+>+				      struct device_attribute *attr,
+>+				      const char *buffer, size_t count)
+>+{
+>+	struct slave *slave, *update_slave;
+>+	struct bonding *bond = to_bond(d);
+>+	u16 qid;
+>+	int i, ret = count;
+>+	char *delim;
+>+	struct net_device *sdev = NULL;
+>+
+>+	if (!rtnl_trylock())
+>+		return restart_syscall();
+>+
+>+	/* delim will point to queue id if successful */
+>+	delim = strchr(buffer, ':');
+>+	if (!delim)
+>+		goto err_no_cmd;
+>+
+>+	/*
+>+	 * Terminate string that points to device name and bump it
+>+	 * up one, so we can read the queue id there.
+>+	 */
+>+	*delim = '\0';
+>+	if (sscanf(++delim, "%hd\n", &qid) != 1)
+>+		goto err_no_cmd;
+>+
+>+	/* Check buffer length, valid ifname and queue id */
+>+	if (strlen(buffer) > IFNAMSIZ ||
+>+	    !dev_valid_name(buffer) ||
+>+	    qid > bond->params.tx_queues)
+>+		goto err_no_cmd;
+>+
+>+	/* Get the pointer to that interface if it exists */
+>+	sdev = __dev_get_by_name(dev_net(bond->dev), buffer);
+>+	if (!sdev)
+>+		goto err_no_cmd;
+>+
+>+	read_lock(&bond->lock);
+>+
+>+	/* Search for thes slave and check for duplicate qids */
+>+	update_slave = NULL;
+>+	bond_for_each_slave(bond, slave, i) {
+>+		if (sdev == slave->dev)
+>+			/*
+>+			 * We don't need to check the matching
+>+			 * slave for dups, since we're overwriting it
+>+			 */
+>+			update_slave = slave;
+>+		else if (qid && qid == slave->queue_id) {
+>+			goto err_no_cmd_unlock;
+>+		}
+>+	}
+>+
+>+	if (!update_slave)
+>+		goto err_no_cmd_unlock;
+>+
+>+	/* Actually set the qids for the slave */
+>+	update_slave->queue_id = qid;
+>+
+>+	read_unlock(&bond->lock);
+>+out:
+>+	rtnl_unlock();
+>+	return ret;
+>+
+>+err_no_cmd_unlock:
+>+	read_unlock(&bond->lock);
+>+err_no_cmd:
+>+	pr_info("invalid input for queue_id set for %s.\n",
+>+		bond->dev->name);
+>+	ret = -EPERM;
+>+	goto out;
+>+}
+>+
+>+static DEVICE_ATTR(queue_id, S_IRUGO | S_IWUSR, bonding_show_queue_id,
+>+		   bonding_store_queue_id);
+>+
+>+
+>+/*
+>  * Show and set the keep_all flag.
+>  */
+> static ssize_t bonding_show_keep(struct device *d,
+>@@ -1513,7 +1628,6 @@ static DEVICE_ATTR(keep_all, S_IRUGO | S_IWUSR,
+> 		   bonding_show_keep, bonding_store_keep);
 >
 >
->   =20
+>-
+> static struct attribute *per_bond_attrs[] = {
+> 	&dev_attr_slaves.attr,
+> 	&dev_attr_mode.attr,
+>@@ -1539,6 +1653,7 @@ static struct attribute *per_bond_attrs[] = {
+> 	&dev_attr_ad_actor_key.attr,
+> 	&dev_attr_ad_partner_key.attr,
+> 	&dev_attr_ad_partner_mac.attr,
+>+	&dev_attr_queue_id.attr,
+> 	&dev_attr_keep_all.attr,
+> 	NULL,
+> };
+>diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+>index 3b7532f..274a3a1 100644
+>--- a/drivers/net/bonding/bonding.h
+>+++ b/drivers/net/bonding/bonding.h
+>@@ -60,6 +60,9 @@
+> 		 ((mode) == BOND_MODE_TLB)          ||	\
+> 		 ((mode) == BOND_MODE_ALB))
+>
+>+#define TX_QUEUE_OVERRIDE(mode)				\
+>+			(((mode) == BOND_MODE_ACTIVEBACKUP) ||	\
+>+			 ((mode) == BOND_MODE_ROUNDROBIN))
+> /*
+>  * Less bad way to call ioctl from within the kernel; this needs to be
+>  * done some other way to get the call out of interrupt context.
+>@@ -131,6 +134,7 @@ struct bond_params {
+> 	char primary[IFNAMSIZ];
+> 	int primary_reselect;
+> 	__be32 arp_targets[BOND_MAX_ARP_TARGETS];
+>+	int tx_queues;
+> 	int keep_all;
+> };
+>
+>@@ -166,6 +170,7 @@ struct slave {
+> 	u8     perm_hwaddr[ETH_ALEN];
+> 	u16    speed;
+> 	u8     duplex;
+>+	u16    queue_id;
+> 	struct ad_slave_info ad_info; /* HUGE - better to dynamically alloc */
+> 	struct tlb_slave_info tlb_info;
+> };
+>diff --git a/include/linux/if_bonding.h b/include/linux/if_bonding.h
+>index cd525fa..2c79943 100644
+>--- a/include/linux/if_bonding.h
+>+++ b/include/linux/if_bonding.h
+>@@ -83,6 +83,7 @@
+>
+> #define BOND_DEFAULT_MAX_BONDS  1   /* Default maximum number of devices to support */
+>
+>+#define BOND_DEFAULT_TX_QUEUES 16   /* Default number of tx queues per device */
+> /* hashing types */
+> #define BOND_XMIT_POLICY_LAYER2		0 /* layer 2 (MAC only), default */
+> #define BOND_XMIT_POLICY_LAYER34	1 /* layer 3+4 (IP ^ (TCP || UDP)) */
+>-- 
+>1.6.2.5
 
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
