@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 09/12] e1000e: fix checks for manageability
-	enabled and management pass-through
-Date: Mon, 10 May 2010 18:01:51 -0700
-Message-ID: <20100511010150.30827.4384.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 10/12] e1000e: move settting of flow control
+	refresh timer to link setup code
+Date: Mon, 10 May 2010 18:02:12 -0700
+Message-ID: <20100511010210.30827.6899.stgit@localhost.localdomain>
 References: <20100511005801.30827.50808.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,224 +12,75 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta13.westchester.pa.mail.comcast.net ([76.96.59.243]:43958
-	"EHLO qmta13.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757406Ab0EKBCL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 21:02:11 -0400
+Received: from qmta06.emeryville.ca.mail.comcast.net ([76.96.30.56]:43878 "EHLO
+	qmta06.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757406Ab0EKBCa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 21:02:30 -0400
 In-Reply-To: <20100511005801.30827.50808.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-The mac->arc_subsystem was being incorrectly used to flag whether or not
-manageability was enabled when it should only be used to state whether the
-ARC (Host interface) subsystem is available on a particular MAC _and_ only
-valid when any manageability is enabled. The ARC subsystem is currently
-only available on 80003es2lan and 82573 parts supported by the driver.
-
-A new flag, has_fwsm, is introduced to be used when checking if
-manageability is enabled but only on parts that acutally have an FWSM
-register. While the above parts have an FWSM register, there are other
-parts that have FWSM but do not have support for the ARC subsystem,
-namely 82571/2 and ICHx/PCH.
-
-And then there are parts that have manageability, but do not have either
-FWSM register or support for the ARC subsystem - these are 82574 and 82583.
-
-For 80003es2lan, 82571/2/3 and ICH/PCH parts, this patch makes no
-functional changes, it only corrects the usage of the manageability flags.
-For 82574 and 82583, it fixes the incorrect accesses of the non-existent
-FWSM register and ARC subsystem as well as corrects the check for
-management pass-through.
+The flow control refresh timer value needs to be saved off so that it can
+be programmed into the approrpiate register when applicable but without a
+reset, e.g. when changing flow control parameters via ethtool.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/82571.c   |   19 +++++++++++++++----
- drivers/net/e1000e/defines.h |    2 ++
- drivers/net/e1000e/es2lan.c  |    9 ++++++---
  drivers/net/e1000e/hw.h      |    1 +
- drivers/net/e1000e/ich8lan.c |    6 ++++--
- drivers/net/e1000e/lib.c     |   31 ++++++++++++++++++++++++-------
- 6 files changed, 52 insertions(+), 16 deletions(-)
+ drivers/net/e1000e/ich8lan.c |    2 ++
+ drivers/net/e1000e/netdev.c  |    5 +----
+ 3 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index 1e73edd..8bad24d 100644
---- a/drivers/net/e1000e/82571.c
-+++ b/drivers/net/e1000e/82571.c
-@@ -234,9 +234,6 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
- 	mac->mta_reg_count = 128;
- 	/* Set rar entry count */
- 	mac->rar_entry_count = E1000_RAR_ENTRIES;
--	/* Set if manageability features are enabled. */
--	mac->arc_subsystem_valid = (er32(FWSM) & E1000_FWSM_MODE_MASK)
--	                ? true : false;
- 	/* Adaptive IFS supported */
- 	mac->adaptive_ifs = true;
- 
-@@ -271,6 +268,16 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
- 		func->set_lan_id = e1000_set_lan_id_single_port;
- 		func->check_mng_mode = e1000e_check_mng_mode_generic;
- 		func->led_on = e1000e_led_on_generic;
-+
-+		/* FWSM register */
-+		mac->has_fwsm = true;
-+		/*
-+		 * ARC supported; valid only if manageability features are
-+		 * enabled.
-+		 */
-+		mac->arc_subsystem_valid =
-+			(er32(FWSM) & E1000_FWSM_MODE_MASK)
-+			? true : false;
- 		break;
- 	case e1000_82574:
- 	case e1000_82583:
-@@ -281,6 +288,9 @@ static s32 e1000_init_mac_params_82571(struct e1000_adapter *adapter)
- 	default:
- 		func->check_mng_mode = e1000e_check_mng_mode_generic;
- 		func->led_on = e1000e_led_on_generic;
-+
-+		/* FWSM register */
-+		mac->has_fwsm = true;
- 		break;
- 	}
- 
-@@ -993,9 +1003,10 @@ static s32 e1000_init_hw_82571(struct e1000_hw *hw)
- 	/* ...for both queues. */
- 	switch (mac->type) {
- 	case e1000_82573:
-+		e1000e_enable_tx_pkt_filtering(hw);
-+		/* fall through */
- 	case e1000_82574:
- 	case e1000_82583:
--		e1000e_enable_tx_pkt_filtering(hw);
- 		reg_data = er32(GCR);
- 		reg_data |= E1000_GCR_L1_ACT_WITHOUT_L0S_RX;
- 		ew32(GCR, reg_data);
-diff --git a/drivers/net/e1000e/defines.h b/drivers/net/e1000e/defines.h
-index 227147f..4dc02c7 100644
---- a/drivers/net/e1000e/defines.h
-+++ b/drivers/net/e1000e/defines.h
-@@ -629,6 +629,8 @@
- #define NVM_ALT_MAC_ADDR_PTR       0x0037
- #define NVM_CHECKSUM_REG           0x003F
- 
-+#define E1000_NVM_INIT_CTRL2_MNGM 0x6000 /* Manageability Operation Mode mask */
-+
- #define E1000_NVM_CFG_DONE_PORT_0  0x40000 /* MNG config cycle done */
- #define E1000_NVM_CFG_DONE_PORT_1  0x80000 /* ...for second port */
- 
-diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
-index 27d2158..7fcac78 100644
---- a/drivers/net/e1000e/es2lan.c
-+++ b/drivers/net/e1000e/es2lan.c
-@@ -221,9 +221,12 @@ static s32 e1000_init_mac_params_80003es2lan(struct e1000_adapter *adapter)
- 	mac->mta_reg_count = 128;
- 	/* Set rar entry count */
- 	mac->rar_entry_count = E1000_RAR_ENTRIES;
--	/* Set if manageability features are enabled. */
--	mac->arc_subsystem_valid = (er32(FWSM) & E1000_FWSM_MODE_MASK)
--                        ? true : false;
-+	/* FWSM register */
-+	mac->has_fwsm = true;
-+	/* ARC supported; valid only if manageability features are enabled. */
-+	mac->arc_subsystem_valid =
-+	        (er32(FWSM) & E1000_FWSM_MODE_MASK)
-+	                ? true : false;
- 	/* Adaptive IFS not supported */
- 	mac->adaptive_ifs = false;
- 
 diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
-index 6f66c37..287ee95 100644
+index 287ee95..fa314b4 100644
 --- a/drivers/net/e1000e/hw.h
 +++ b/drivers/net/e1000e/hw.h
-@@ -830,6 +830,7 @@ struct e1000_mac_info {
- 	u8  forced_speed_duplex;
- 
- 	bool adaptive_ifs;
-+	bool has_fwsm;
- 	bool arc_subsystem_valid;
- 	bool autoneg;
- 	bool autoneg_failed;
+@@ -901,6 +901,7 @@ struct e1000_fc_info {
+ 	u32 high_water;          /* Flow control high-water mark */
+ 	u32 low_water;           /* Flow control low-water mark */
+ 	u16 pause_time;          /* Flow control pause timer */
++	u16 refresh_time;        /* Flow control refresh timer */
+ 	bool send_xon;           /* Flow control send XON */
+ 	bool strict_ieee;        /* Strict IEEE mode */
+ 	enum e1000_fc_mode current_mode; /* FC mode in effect */
 diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index e1f244a..8efe9a7 100644
+index 8efe9a7..2b2cffc 100644
 --- a/drivers/net/e1000e/ich8lan.c
 +++ b/drivers/net/e1000e/ich8lan.c
-@@ -503,8 +503,10 @@ static s32 e1000_init_mac_params_ich8lan(struct e1000_adapter *adapter)
- 	mac->rar_entry_count = E1000_ICH_RAR_ENTRIES;
- 	if (mac->type == e1000_ich8lan)
- 		mac->rar_entry_count--;
--	/* Set if manageability features are enabled. */
--	mac->arc_subsystem_valid = true;
-+	/* FWSM register */
-+	mac->has_fwsm = true;
-+	/* ARC subsystem not supported */
-+	mac->arc_subsystem_valid = false;
- 	/* Adaptive IFS supported */
- 	mac->adaptive_ifs = true;
- 
-diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
-index b32361d..a968e3a 100644
---- a/drivers/net/e1000e/lib.c
-+++ b/drivers/net/e1000e/lib.c
-@@ -2272,6 +2272,11 @@ static s32 e1000_mng_enable_host_if(struct e1000_hw *hw)
- 	u32 hicr;
- 	u8 i;
- 
-+	if (!(hw->mac.arc_subsystem_valid)) {
-+		e_dbg("ARC subsystem not valid.\n");
-+		return -E1000_ERR_HOST_INTERFACE_COMMAND;
-+	}
+@@ -2823,6 +2823,8 @@ static s32 e1000_setup_link_ich8lan(struct e1000_hw *hw)
+ 	ew32(FCTTV, hw->fc.pause_time);
+ 	if ((hw->phy.type == e1000_phy_82578) ||
+ 	    (hw->phy.type == e1000_phy_82577)) {
++		ew32(FCRTV_PCH, hw->fc.refresh_time);
 +
- 	/* Check that the host interface is enabled. */
- 	hicr = er32(HICR);
- 	if ((hicr & E1000_HICR_EN) == 0) {
-@@ -2530,9 +2535,9 @@ bool e1000e_enable_mng_pass_thru(struct e1000_hw *hw)
- 	manc = er32(MANC);
- 
- 	if (!(manc & E1000_MANC_RCV_TCO_EN))
--		return ret_val;
-+		goto out;
- 
--	if (hw->mac.arc_subsystem_valid) {
-+	if (hw->mac.has_fwsm) {
- 		fwsm = er32(FWSM);
- 		factps = er32(FACTPS);
- 
-@@ -2540,16 +2545,28 @@ bool e1000e_enable_mng_pass_thru(struct e1000_hw *hw)
- 		    ((fwsm & E1000_FWSM_MODE_MASK) ==
- 		     (e1000_mng_mode_pt << E1000_FWSM_MODE_SHIFT))) {
- 			ret_val = true;
--			return ret_val;
-+			goto out;
+ 		ret_val = hw->phy.ops.write_reg(hw,
+ 		                             PHY_REG(BM_PORT_CTRL_PAGE, 27),
+ 		                             hw->fc.pause_time);
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 16a03c5..d1f60c5 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -3134,6 +3134,7 @@ void e1000e_reset(struct e1000_adapter *adapter)
+ 			fc->high_water = 0x5000;
+ 			fc->low_water  = 0x3000;
  		}
--	} else {
--		if ((manc & E1000_MANC_SMBUS_EN) &&
--		    !(manc & E1000_MANC_ASF_EN)) {
-+	} else if ((hw->mac.type == e1000_82574) ||
-+		   (hw->mac.type == e1000_82583)) {
-+		u16 data;
-+
-+		factps = er32(FACTPS);
-+		e1000_read_nvm(hw, NVM_INIT_CONTROL2_REG, 1, &data);
-+
-+		if (!(factps & E1000_FACTPS_MNGCG) &&
-+		    ((data & E1000_NVM_INIT_CTRL2_MNGM) ==
-+		     (e1000_mng_mode_pt << 13))) {
- 			ret_val = true;
--			return ret_val;
-+			goto out;
- 		}
-+	} else if ((manc & E1000_MANC_SMBUS_EN) &&
-+		    !(manc & E1000_MANC_ASF_EN)) {
-+			ret_val = true;
-+			goto out;
- 	}
++		fc->refresh_time = 0x1000;
+ 	} else {
+ 		if ((adapter->flags & FLAG_HAS_ERT) &&
+ 		    (adapter->netdev->mtu > ETH_DATA_LEN))
+@@ -3171,10 +3172,6 @@ void e1000e_reset(struct e1000_adapter *adapter)
+ 	if (mac->ops.init_hw(hw))
+ 		e_err("Hardware Error\n");
  
-+out:
- 	return ret_val;
- }
+-	/* additional part of the flow-control workaround above */
+-	if (hw->mac.type == e1000_pchlan)
+-		ew32(FCRTV_PCH, 0x1000);
+-
+ 	e1000_update_mng_vlan(adapter);
  
+ 	/* Enable h/w to recognize an 802.1Q VLAN Ethernet packet */
 
