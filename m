@@ -1,24 +1,39 @@
-From: Jon Zhou <Jon.Zhou@jdsu.com>
-Subject: get beyond 1Gbps with pktgen  on 10Gb nic?
-Date: Tue, 11 May 2010 06:13:19 -0700
-Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497D752C7@MILEXCH2.ds.jdsu.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: get beyond 1Gbps with pktgen  on 10Gb nic?
+Date: Tue, 11 May 2010 14:35:25 +0100
+Message-ID: <1273584925.2107.6.camel@achroite.uk.solarflarecom.com>
+References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497D752C7@MILEXCH2.ds.jdsu.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jon Zhou <Jon.Zhou@jdsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og106.obsmtp.com ([64.18.2.165]:44258 "HELO
-	exprod7og106.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1757081Ab0EKNW0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 May 2010 09:22:26 -0400
-Content-Language: en-US
+Received: from exchange.solarflare.com ([216.237.3.220]:21505 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756924Ab0EKNfa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 May 2010 09:35:30 -0400
+In-Reply-To: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497D752C7@MILEXCH2.ds.jdsu.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hi there:
+On Tue, 2010-05-11 at 06:13 -0700, Jon Zhou wrote:
+> hi there:
+> 
+> anyone can get beyond 1Gbps with pktgen or other SW traffic generator with 10Gb nic(intel 82599 or BCM 57711)?
+> found that some one had met similar situation with broadcom 10G nic but no solution yet
 
-anyone can get beyond 1Gbps with pktgen or other SW traffic generator with 10Gb nic(intel 82599 or BCM 57711)?
-found that some one had met similar situation with broadcom 10G nic but no solution yet
+I don't know about those specific controllers, but you should be able to
+achieve close to 10G line rate with netperf's TCP_STREAM on any recent
+PC server.  UDP throughput tends to be poorer as there is less support
+for offloading segmentation and reassembly.  Performance may also be
+constrained by PCI Express bandwidth (you need a real 8-lane slot) and
+memory bandwidth (a single memory bank may not be enough).
 
-thanks
-jon
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
