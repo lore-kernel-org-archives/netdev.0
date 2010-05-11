@@ -1,61 +1,66 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next-2.6 1/2] bonding: add keep_all parameter
-Date: Tue, 11 May 2010 14:17:57 -0400
-Message-ID: <20100511181757.GA14545@hmsreliant.think-freely.org>
-References: <20100511002949.GA7497@gospo.rdu.redhat.com>
- <7958.1273598301@death.nxdomain.ibm.com>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 1/5] drivers/net/wireless/hostap: Drop memory allocation cast
+Date: Tue, 11 May 2010 20:25:56 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005112025280.4330@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:36814 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756972Ab0EKSSE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 May 2010 14:18:04 -0400
-Content-Disposition: inline
-In-Reply-To: <7958.1273598301@death.nxdomain.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: Jouni Malinen <j@w1.fi>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 11, 2010 at 10:18:21AM -0700, Jay Vosburgh wrote:
-> Andy Gospodarek <andy@greyhouse.net> wrote:
-> 
-> >
-> >In an effort to suppress duplicate frames on certain bonding modes
-> >(specifically the modes that do not require additional configuration on
-> >the switch or switches connected to the host),
-> 
-> 	Strictly speaking, the above is incorrect, as the duplicate
-> suppression is turned on for the active-backup inactive slaves as well
-> as 802.3ad ports that are disabled (any slave that gets the "inactive"
-> flag bit set).
-> 
-> >[...] code was added in the
-> >generic receive patch in 2.6.16.  The current behavior works quite well
-> >for most users, but there are some times it would be nice to restore old
-> >functionality and allow all frames to make their way up the stack.
-> 
-> 	Reading netdev lately, it sure looks like everybody wants ways
-> to shut off or bypass the duplicate suppression.
-> 
-> >This patch adds support for a new module option and sysfs file called
-> >'keep_all' that will restore pre-2.6.16 functionality if the user
-> >desires.  The default value is '0' and retains existing behavior, but
-> >the user can set it to '1' and allow all frames up if desired.
-> 
-> 	Since this is really meant for the queue tagging stuff in the
-> next patch, should this really be something that's enabled automatically
-> if the queues are configured in such a way that the inactive slave is
-> going to receive traffic?
-> 
-I agree that it might be usefull to have this on by default, we can't really
-know if the queues are going to be setup to direct traffic to inactive slaves
-until after the module is loaded and the interface is created.  Setting up tc
-filters to steer traffic will only occur after the interface is other wise
-configured (bond needs to be created, and slaves need to be added).  Perhaps
-user space could tie the the setting of this variable in sysfs to tc
-configuration in some way?
+From: Julia Lawall <julia@diku.dk>
 
-Neil
+Drop cast on the result of kmalloc and similar functions.
 
+The semantic patch that makes this change is as follows:
+(http://coccinelle.lip6.fr/)
+
+// <smpl>
+@@
+type T;
+@@
+
+- (T *)
+  (\(kmalloc\|kzalloc\|kcalloc\|kmem_cache_alloc\|kmem_cache_zalloc\|
+   kmem_cache_alloc_node\|kmalloc_node\|kzalloc_node\)(...))
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+ drivers/net/wireless/hostap/hostap_80211_rx.c |    3 +--
+ drivers/net/wireless/hostap/hostap_ioctl.c    |    3 +--
+ 2 files changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/wireless/hostap/hostap_80211_rx.c b/drivers/net/wireless/hostap/hostap_80211_rx.c
+index f4c5612..e0b3e8d 100644
+--- a/drivers/net/wireless/hostap/hostap_80211_rx.c
++++ b/drivers/net/wireless/hostap/hostap_80211_rx.c
+@@ -355,8 +355,7 @@ static struct hostap_bss_info *__hostap_add_bss(local_info_t *local, u8 *bssid,
+ 		list_del(&bss->list);
+ 		local->num_bss_info--;
+ 	} else {
+-		bss = (struct hostap_bss_info *)
+-			kmalloc(sizeof(*bss), GFP_ATOMIC);
++		bss = kmalloc(sizeof(*bss), GFP_ATOMIC);
+ 		if (bss == NULL)
+ 			return NULL;
+ 	}
+diff --git a/drivers/net/wireless/hostap/hostap_ioctl.c b/drivers/net/wireless/hostap/hostap_ioctl.c
+index 9a08230..a85e43a 100644
+--- a/drivers/net/wireless/hostap/hostap_ioctl.c
++++ b/drivers/net/wireless/hostap/hostap_ioctl.c
+@@ -3039,8 +3039,7 @@ static int prism2_ioctl_priv_download(local_info_t *local, struct iw_point *p)
+ 	    p->length > 1024 || !p->pointer)
+ 		return -EINVAL;
+ 
+-	param = (struct prism2_download_param *)
+-		kmalloc(p->length, GFP_KERNEL);
++	param = kmalloc(p->length, GFP_KERNEL);
+ 	if (param == NULL)
+ 		return -ENOMEM;
+ 
