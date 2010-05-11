@@ -1,81 +1,58 @@
-From: Dimitris Michailidis <dm@chelsio.com>
-Subject: Re: [PATCH net-next 3/3] cxgb4: report GRO stats with ethtool -S
-Date: Tue, 11 May 2010 01:45:36 -0700
-Message-ID: <4BE91930.5040109@chelsio.com>
-References: <1273543089-10938-1-git-send-email-dm@chelsio.com> <1273543089-10938-2-git-send-email-dm@chelsio.com> <1273543089-10938-3-git-send-email-dm@chelsio.com> <4BE8C8CD.1000200@candelatech.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 72/84] netfilter: xtables: inclusion of xt_TEE
+Date: Tue, 11 May 2010 13:42:02 +0200
+Message-ID: <4BE9428A.5090402@trash.net>
+References: <1273522735-24672-1-git-send-email-kaber@trash.net>	 <1273522735-24672-73-git-send-email-kaber@trash.net> <1273524779.2590.236.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:29481 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751317Ab0EKIpl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 May 2010 04:45:41 -0400
-In-Reply-To: <4BE8C8CD.1000200@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1273524779.2590.236.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ben Greear wrote:
-> On 05/10/2010 06:58 PM, Dimitris Michailidis wrote:
->> Signed-off-by: Dimitris Michailidis<dm@chelsio.com>
-> 
-> One of these is on-wire packets?  If so, maybe use the same
-> string as Intel ixgbe uses:
-> 
-> rx_pkts_nic  # Pkts received by NIC from wire.
-> rx_bytes_nic # Bytes received by NIC from wire.
-> tx_pkts_nic  # Pkts transmitted to wire by NIC.
-> tx_bytes_nic # Bytes transmitted to wire by NIC.
-
-The two stats I'm adding don't correspond to any of the 4 above.  One is the 
-superpackets coming out of GRO, the other is packets merged by GRO to create 
-the superpackets.
-
-> 
-> Thanks,
-> Ben
-> 
-> 
-> 
+Eric Dumazet wrote:
+> Le lundi 10 mai 2010 =E0 22:18 +0200, kaber@trash.net a =E9crit :
+>> From: Jan Engelhardt <jengelh@medozas.de>
+>>
+>> xt_TEE can be used to clone and reroute a packet. This can for
+>> example be used to copy traffic at a router for logging purposes
+>> to another dedicated machine.
+>>
+>> References: http://www.gossamer-threads.com/lists/iptables/devel/687=
+81
+>> Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+>> Signed-off-by: Patrick McHardy <kaber@trash.net>
 >> ---
->>   drivers/net/cxgb4/cxgb4_main.c |    6 ++++++
->>   1 files changed, 6 insertions(+), 0 deletions(-)
->>
->> diff --git a/drivers/net/cxgb4/cxgb4_main.c 
->> b/drivers/net/cxgb4/cxgb4_main.c
->> index 80c3fc5..90d375b 100644
->> --- a/drivers/net/cxgb4/cxgb4_main.c
->> +++ b/drivers/net/cxgb4/cxgb4_main.c
->> @@ -859,6 +859,8 @@ static char stats_strings[][ETH_GSTRING_LEN] = {
->>       "RxCsumGood         ",
->>       "VLANextractions    ",
->>       "VLANinsertions     ",
->> +    "GROpackets         ",
->> +    "GROmerged          ",
->>   };
->>
->>   static int get_sset_count(struct net_device *dev, int sset)
->> @@ -922,6 +924,8 @@ struct queue_port_stats {
->>       u64 rx_csum;
->>       u64 vlan_ex;
->>       u64 vlan_ins;
->> +    u64 gro_pkts;
->> +    u64 gro_merged;
->>   };
->>
->>   static void collect_sge_port_stats(const struct adapter *adap,
->> @@ -938,6 +942,8 @@ static void collect_sge_port_stats(const struct 
->> adapter *adap,
->>           s->rx_csum += rx->stats.rx_cso;
->>           s->vlan_ex += rx->stats.vlan_ex;
->>           s->vlan_ins += tx->vlan_ins;
->> +        s->gro_pkts += rx->stats.lro_pkts;
->> +        s->gro_merged += rx->stats.lro_merged;
->>       }
->>   }
->>
-> 
-> 
+>=20
+>> +static bool tee_tg_route_oif(struct flowi *f, struct net *net,
+>> +			     const struct xt_tee_tginfo *info)
+>> +{
+>> +	const struct net_device *dev;
+>> +
+>> +	if (*info->oif !=3D '\0')
+>> +		return true;
+>> +	dev =3D dev_get_by_name(net, info->oif);
+>> +	if (dev =3D=3D NULL)
+>> +		return false;
+>> +	f->oif =3D dev->ifindex;
+>> +	return true;
+>> +}
+>> +
+>=20
+> This leaks a refcount on device.
+>=20
+> But I see patch 76/84 replaces the whole thing, so this is probably
+> harmless.
 
+Correct, that patch replaces the per-packet lookup and uses
+netdevice notifiers to store the ifindex of the output device,
+without keeping a reference at all.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
