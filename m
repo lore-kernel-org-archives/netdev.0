@@ -1,8 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 07/12] e1000e: Cleanup
-	e1000_sw_lcd_config_ich8lan()
-Date: Mon, 10 May 2010 18:01:10 -0700
-Message-ID: <20100511010108.30827.47964.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 08/12] e1000e: Incorrect function pointer set for
+	force_speed_duplex on 82577
+Date: Mon, 10 May 2010 18:01:30 -0700
+Message-ID: <20100511010128.30827.12447.stgit@localhost.localdomain>
 References: <20100511005801.30827.50808.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -12,218 +12,80 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta13.westchester.pa.mail.comcast.net ([76.96.59.243]:43958
-	"EHLO qmta13.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757406Ab0EKBB3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 21:01:29 -0400
+Received: from qmta02.westchester.pa.mail.comcast.net ([76.96.62.24]:51151
+	"EHLO qmta02.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757406Ab0EKBBu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 21:01:50 -0400
 In-Reply-To: <20100511005801.30827.50808.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-After every reset all ICH/PCH parts call this function which acquires the
-swflag, performs a workaround on applicable parts and releases the swflag.
-There is no reason for parts for which this workaround is not applicable
-to acquire and release the swflag so the function should just return
-without doing anything for these parts.  This also provides for the
-indentation of most of the function contents to be shifted left cleaning up
-the code.
+The force_speed_duplex function pointer was incorrectly set.  Instead of
+calling the 82577-specific version it was calling the m88 version which,
+among other incorrect things, reset the PHY causing autonegotiation to be
+re-enabled in the PHY resulting in the link defaulting to half-duplex.
+The 82577-specific force_speed_duplex function also had an issue where
+it disabled Auto-MDI-X which caused the link to not come up.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/ich8lan.c |  152 +++++++++++++++++++++---------------------
- 1 files changed, 75 insertions(+), 77 deletions(-)
+ drivers/net/e1000e/ich8lan.c |    1 +
+ drivers/net/e1000e/phy.c     |   21 +--------------------
+ 2 files changed, 2 insertions(+), 20 deletions(-)
 
 diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index 448e123..61f8927 100644
+index 61f8927..e1f244a 100644
 --- a/drivers/net/e1000e/ich8lan.c
 +++ b/drivers/net/e1000e/ich8lan.c
-@@ -815,11 +815,16 @@ static s32 e1000_check_reset_block_ich8lan(struct e1000_hw *hw)
+@@ -330,6 +330,7 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
+ 		phy->ops.get_cable_length = e1000_get_cable_length_82577;
+ 		phy->ops.get_info = e1000_get_phy_info_82577;
+ 		phy->ops.commit = e1000e_phy_sw_reset;
++		break;
+ 	case e1000_phy_82578:
+ 		phy->ops.check_polarity = e1000_check_polarity_m88;
+ 		phy->ops.force_speed_duplex = e1000e_phy_force_speed_duplex_m88;
+diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
+index 7f3ceb9..b4ac82d 100644
+--- a/drivers/net/e1000e/phy.c
++++ b/drivers/net/e1000e/phy.c
+@@ -3116,9 +3116,7 @@ s32 e1000_check_polarity_82577(struct e1000_hw *hw)
+  *  e1000_phy_force_speed_duplex_82577 - Force speed/duplex for I82577 PHY
+  *  @hw: pointer to the HW structure
+  *
+- *  Calls the PHY setup function to force speed and duplex.  Clears the
+- *  auto-crossover to force MDI manually.  Waits for link and returns
+- *  successful if link up is successful, else -E1000_ERR_PHY (-2).
++ *  Calls the PHY setup function to force speed and duplex.
   **/
- static s32 e1000_sw_lcd_config_ich8lan(struct e1000_hw *hw)
+ s32 e1000_phy_force_speed_duplex_82577(struct e1000_hw *hw)
  {
-+	struct e1000_adapter *adapter = hw->adapter;
- 	struct e1000_phy_info *phy = &hw->phy;
- 	u32 i, data, cnf_size, cnf_base_addr, sw_cfg_mask;
--	s32 ret_val;
-+	s32 ret_val = 0;
- 	u16 word_addr, reg_data, reg_addr, phy_page = 0;
- 
-+	if (!(hw->mac.type == e1000_ich8lan && phy->type == e1000_phy_igp_3) &&
-+		!(hw->mac.type == e1000_pchlan))
-+		return ret_val;
-+
- 	ret_val = hw->phy.ops.acquire(hw);
+@@ -3137,23 +3135,6 @@ s32 e1000_phy_force_speed_duplex_82577(struct e1000_hw *hw)
  	if (ret_val)
- 		return ret_val;
-@@ -831,97 +836,90 @@ static s32 e1000_sw_lcd_config_ich8lan(struct e1000_hw *hw)
- 	 * Therefore, after each PHY reset, we will load the
- 	 * configuration data out of the NVM manually.
- 	 */
--	if ((hw->mac.type == e1000_ich8lan && phy->type == e1000_phy_igp_3) ||
--		(hw->mac.type == e1000_pchlan)) {
--		struct e1000_adapter *adapter = hw->adapter;
+ 		goto out;
+ 
+-	/*
+-	 * Clear Auto-Crossover to force MDI manually.  82577 requires MDI
+-	 * forced whenever speed and duplex are forced.
+-	 */
+-	ret_val = phy->ops.read_reg(hw, I82577_PHY_CTRL_2, &phy_data);
+-	if (ret_val)
+-		goto out;
 -
--		/* Check if SW needs to configure the PHY */
--		if ((adapter->pdev->device == E1000_DEV_ID_ICH8_IGP_M_AMT) ||
--		    (adapter->pdev->device == E1000_DEV_ID_ICH8_IGP_M) ||
--		    (hw->mac.type == e1000_pchlan))
--			sw_cfg_mask = E1000_FEXTNVM_SW_CONFIG_ICH8M;
--		else
--			sw_cfg_mask = E1000_FEXTNVM_SW_CONFIG;
-+	if ((adapter->pdev->device == E1000_DEV_ID_ICH8_IGP_M_AMT) ||
-+	    (adapter->pdev->device == E1000_DEV_ID_ICH8_IGP_M) ||
-+	    (hw->mac.type == e1000_pchlan))
-+		sw_cfg_mask = E1000_FEXTNVM_SW_CONFIG_ICH8M;
-+	else
-+		sw_cfg_mask = E1000_FEXTNVM_SW_CONFIG;
- 
--		data = er32(FEXTNVM);
--		if (!(data & sw_cfg_mask))
--			goto out;
-+	data = er32(FEXTNVM);
-+	if (!(data & sw_cfg_mask))
-+		goto out;
- 
--		/* Wait for basic configuration completes before proceeding */
--		e1000_lan_init_done_ich8lan(hw);
-+	/* Wait for basic configuration completes before proceeding */
-+	e1000_lan_init_done_ich8lan(hw);
- 
-+	/*
-+	 * Make sure HW does not configure LCD from PHY
-+	 * extended configuration before SW configuration
-+	 */
-+	data = er32(EXTCNF_CTRL);
-+	if (data & E1000_EXTCNF_CTRL_LCD_WRITE_ENABLE)
-+		goto out;
-+
-+	cnf_size = er32(EXTCNF_SIZE);
-+	cnf_size &= E1000_EXTCNF_SIZE_EXT_PCIE_LENGTH_MASK;
-+	cnf_size >>= E1000_EXTCNF_SIZE_EXT_PCIE_LENGTH_SHIFT;
-+	if (!cnf_size)
-+		goto out;
-+
-+	cnf_base_addr = data & E1000_EXTCNF_CTRL_EXT_CNF_POINTER_MASK;
-+	cnf_base_addr >>= E1000_EXTCNF_CTRL_EXT_CNF_POINTER_SHIFT;
-+
-+	if (!(data & E1000_EXTCNF_CTRL_OEM_WRITE_ENABLE) &&
-+	    (hw->mac.type == e1000_pchlan)) {
- 		/*
--		 * Make sure HW does not configure LCD from PHY
--		 * extended configuration before SW configuration
-+		 * HW configures the SMBus address and LEDs when the
-+		 * OEM and LCD Write Enable bits are set in the NVM.
-+		 * When both NVM bits are cleared, SW will configure
-+		 * them instead.
- 		 */
--		data = er32(EXTCNF_CTRL);
--		if (data & E1000_EXTCNF_CTRL_LCD_WRITE_ENABLE)
-+		data = er32(STRAP);
-+		data &= E1000_STRAP_SMBUS_ADDRESS_MASK;
-+		reg_data = data >> E1000_STRAP_SMBUS_ADDRESS_SHIFT;
-+		reg_data |= HV_SMB_ADDR_PEC_EN | HV_SMB_ADDR_VALID;
-+		ret_val = e1000_write_phy_reg_hv_locked(hw, HV_SMB_ADDR,
-+							reg_data);
-+		if (ret_val)
- 			goto out;
- 
--		cnf_size = er32(EXTCNF_SIZE);
--		cnf_size &= E1000_EXTCNF_SIZE_EXT_PCIE_LENGTH_MASK;
--		cnf_size >>= E1000_EXTCNF_SIZE_EXT_PCIE_LENGTH_SHIFT;
--		if (!cnf_size)
-+		data = er32(LEDCTL);
-+		ret_val = e1000_write_phy_reg_hv_locked(hw, HV_LED_CONFIG,
-+							(u16)data);
-+		if (ret_val)
- 			goto out;
-+	}
- 
--		cnf_base_addr = data & E1000_EXTCNF_CTRL_EXT_CNF_POINTER_MASK;
--		cnf_base_addr >>= E1000_EXTCNF_CTRL_EXT_CNF_POINTER_SHIFT;
+-	phy_data &= ~I82577_PHY_CTRL2_AUTO_MDIX;
+-	phy_data &= ~I82577_PHY_CTRL2_FORCE_MDI_MDIX;
 -
--		if (!(data & E1000_EXTCNF_CTRL_OEM_WRITE_ENABLE) &&
--		    (hw->mac.type == e1000_pchlan)) {
--			/*
--			 * HW configures the SMBus address and LEDs when the
--			 * OEM and LCD Write Enable bits are set in the NVM.
--			 * When both NVM bits are cleared, SW will configure
--			 * them instead.
--			 */
--			data = er32(STRAP);
--			data &= E1000_STRAP_SMBUS_ADDRESS_MASK;
--			reg_data = data >> E1000_STRAP_SMBUS_ADDRESS_SHIFT;
--			reg_data |= HV_SMB_ADDR_PEC_EN | HV_SMB_ADDR_VALID;
--			ret_val = e1000_write_phy_reg_hv_locked(hw, HV_SMB_ADDR,
--			                                        reg_data);
--			if (ret_val)
--				goto out;
+-	ret_val = phy->ops.write_reg(hw, I82577_PHY_CTRL_2, phy_data);
+-	if (ret_val)
+-		goto out;
 -
--			data = er32(LEDCTL);
--			ret_val = e1000_write_phy_reg_hv_locked(hw,
--			                                        HV_LED_CONFIG,
--			                                        (u16)data);
--			if (ret_val)
--				goto out;
--		}
--		/* Configure LCD from extended configuration region. */
-+	/* Configure LCD from extended configuration region. */
+-	e_dbg("I82577_PHY_CTRL_2: %X\n", phy_data);
+-
+ 	udelay(1);
  
--		/* cnf_base_addr is in DWORD */
--		word_addr = (u16)(cnf_base_addr << 1);
-+	/* cnf_base_addr is in DWORD */
-+	word_addr = (u16)(cnf_base_addr << 1);
- 
--		for (i = 0; i < cnf_size; i++) {
--			ret_val = e1000_read_nvm(hw, (word_addr + i * 2), 1,
--			                           &reg_data);
--			if (ret_val)
--				goto out;
-+	for (i = 0; i < cnf_size; i++) {
-+		ret_val = e1000_read_nvm(hw, (word_addr + i * 2), 1,
-+					 &reg_data);
-+		if (ret_val)
-+			goto out;
- 
--			ret_val = e1000_read_nvm(hw, (word_addr + i * 2 + 1),
--			                           1, &reg_addr);
--			if (ret_val)
--				goto out;
-+		ret_val = e1000_read_nvm(hw, (word_addr + i * 2 + 1),
-+					 1, &reg_addr);
-+		if (ret_val)
-+			goto out;
- 
--			/* Save off the PHY page for future writes. */
--			if (reg_addr == IGP01E1000_PHY_PAGE_SELECT) {
--				phy_page = reg_data;
--				continue;
--			}
-+		/* Save off the PHY page for future writes. */
-+		if (reg_addr == IGP01E1000_PHY_PAGE_SELECT) {
-+			phy_page = reg_data;
-+			continue;
-+		}
- 
--			reg_addr &= PHY_REG_MASK;
--			reg_addr |= phy_page;
-+		reg_addr &= PHY_REG_MASK;
-+		reg_addr |= phy_page;
- 
--			ret_val = phy->ops.write_reg_locked(hw,
--			                                    (u32)reg_addr,
--			                                    reg_data);
--			if (ret_val)
--				goto out;
--		}
-+		ret_val = phy->ops.write_reg_locked(hw, (u32)reg_addr,
-+						    reg_data);
-+		if (ret_val)
-+			goto out;
- 	}
- 
- out:
+ 	if (phy->autoneg_wait_to_complete) {
 
