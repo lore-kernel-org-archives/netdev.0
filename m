@@ -1,51 +1,59 @@
-From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Subject: RE: e1000e fails probe
-Date: Mon, 10 May 2010 18:33:56 -0700
-Message-ID: <8DD2590731AB5D4C9DBF71A877482A90010D1DE754@orsmsx509.amr.corp.intel.com>
-References: <20100510185018.3478bcae@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Pete Zaitcev <zaitcev@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: [PATCH net-next 2/3] cxgb4: report the PCIe link speed
+Date: Mon, 10 May 2010 18:58:08 -0700
+Message-ID: <1273543089-10938-2-git-send-email-dm@chelsio.com>
+References: <1273543089-10938-1-git-send-email-dm@chelsio.com>
+Cc: Dimitris Michailidis <dm@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:37020 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751750Ab0EKBeC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 21:34:02 -0400
-In-Reply-To: <20100510185018.3478bcae@redhat.com>
-Content-Language: en-US
+Received: from stargate.chelsio.com ([67.207.112.58]:13268 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932156Ab0EKB6L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 May 2010 21:58:11 -0400
+Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
+	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o4B1wATT007194
+	for <netdev@vger.kernel.org>; Mon, 10 May 2010 18:58:10 -0700
+In-Reply-To: <1273543089-10938-1-git-send-email-dm@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday, May 10, 2010 5:50 PM, Pete Zaitcev wrote:
-> Dear All:
-> 
-> I have a box where e1000e would refuse to probe the onboard interface
-> with the following in dmesg:
-> 
-> e1000e: Intel(R) PRO/1000 Network Driver - 1.0.2-k2
-> e1000e: Copyright (c) 1999 - 2009 Intel Corporation.
-> e1000e 0000:00:19.0: PCI INT A -> GSI 20 (level, low) -> IRQ 20
-> e1000e 0000:00:19.0: setting latency timer to 64
-> e1000e 0000:00:19.0: irq 34 for MSI/MSI-X
-> 0000:00:19.0: 0000:00:19.0: MDI Error
-> e1000e 0000:00:19.0: PCI INT A disabled
-> e1000e: probe of 0000:00:19.0 failed with error -2
-> 
-> The "MDI Error" seems to indicate a hardware failure, so I paid it no
-> mind until I noticed that RHEL 5 works. So, I diffed the drivers
-> between Linus' 2.6.34-rc5 and RHEL's 2.6.18-180.el5, with the
-> following 
-> minimal patch working for me:
+Report the PCIe link speed (2.5 or 5 Gbps).
 
-Hi Pete,
+Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
+---
+ drivers/net/cxgb4/cxgb4_main.c |   10 ++++++++--
+ 1 files changed, 8 insertions(+), 2 deletions(-)
 
-Sorry you are having problems with e1000e.  You didn't mention which LOM device was on this system - is the PCI device id 0x10ea, 0x10eb, 0x10ef or 0x10f0?
+diff --git a/drivers/net/cxgb4/cxgb4_main.c b/drivers/net/cxgb4/cxgb4_main.c
+index a73cda9..80c3fc5 100644
+--- a/drivers/net/cxgb4/cxgb4_main.c
++++ b/drivers/net/cxgb4/cxgb4_main.c
+@@ -3080,6 +3080,12 @@ static void __devinit print_port_info(struct adapter *adap)
+ 
+ 	int i;
+ 	char buf[80];
++	const char *spd = "";
++
++	if (adap->params.pci.speed == PCI_EXP_LNKSTA_CLS_2_5GB)
++		spd = " 2.5 GT/s";
++	else if (adap->params.pci.speed == PCI_EXP_LNKSTA_CLS_5_0GB)
++		spd = " 5 GT/s";
+ 
+ 	for_each_port(adap, i) {
+ 		struct net_device *dev = adap->port[i];
+@@ -3099,10 +3105,10 @@ static void __devinit print_port_info(struct adapter *adap)
+ 			--bufp;
+ 		sprintf(bufp, "BASE-%s", base[pi->port_type]);
+ 
+-		netdev_info(dev, "Chelsio %s rev %d %s %sNIC PCIe x%d%s\n",
++		netdev_info(dev, "Chelsio %s rev %d %s %sNIC PCIe x%d%s%s\n",
+ 			    adap->params.vpd.id, adap->params.rev,
+ 			    buf, is_offload(adap) ? "R" : "",
+-			    adap->params.pci.width,
++			    adap->params.pci.width, spd,
+ 			    (adap->flags & USING_MSIX) ? " MSI-X" :
+ 			    (adap->flags & USING_MSI) ? " MSI" : "");
+ 		if (adap->name == dev->name)
+-- 
+1.5.4
 
-What BIOS version is on the system?
-
-Would you be able to try a patch that is already in DaveM's net-next-2.6 tree?  If so, it is http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commitdiff;h=627c8a041f7aaaea93c766f69bd61d952a277586
-
-Thanks,
-Bruce.
