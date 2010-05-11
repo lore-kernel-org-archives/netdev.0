@@ -1,109 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Tue, 11 May 2010 00:01:43 -0700 (PDT)
-Message-ID: <20100511.000143.221595639.davem@davemloft.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 1/9] netdev: bfin_mac: add support for IEEE 1588 PTP
+Date: Tue, 11 May 2010 09:07:16 +0200
+Message-ID: <20100511070716.GA3254@riccoc20.at.omicron.at>
+References: <1273505954-32588-1-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	uclinux-dist-devel@blackfin.uclinux.org,
+	Barry Song <barry.song@analog.com>
+To: Mike Frysinger <vapier@gentoo.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44881
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933062Ab0EKHBf convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 May 2010 03:01:35 -0400
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:57159 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754227Ab0EKHHK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 May 2010 03:07:10 -0400
+Received: by fxm19 with SMTP id 19so17028fxm.19
+        for <netdev@vger.kernel.org>; Tue, 11 May 2010 00:07:08 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1273505954-32588-1-git-send-email-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, May 10, 2010 at 11:39:06AM -0400, Mike Frysinger wrote:
+> diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
+> index 587f93c..6a9519f 100644
+> --- a/drivers/net/bfin_mac.c
+> +++ b/drivers/net/bfin_mac.c
+...
+> +#define PTP_CLK 25000000
+> +
+> +static void bfin_mac_hwtstamp_init(struct net_device *netdev)
+> +{
+> +	struct bfin_mac_local *lp = netdev_priv(netdev);
+> +	u64 append;
+> +
+> +	/* Initialize hardware timer */
+> +	append = PTP_CLK * (1ULL << 32);
+> +	do_div(append, get_sclk());
+> +	bfin_write_EMAC_PTP_ADDEND((u32)append);
 
-1) Fix SCTP race between connect() and ICMP unreachable, from Vlad Yase=
-vich.
+It appears that one can tune this PTP clock.
 
-2) Micrel phy driver OOPS fix, based upon a report by Ingo Molnar.
+I recently posted a suggestion for a PTP clock class driver. Would you
+care to take a look at that and say whether that API would also work
+for the blackfin?
 
-3) Firmware loading warn_on fix from Christian Lamparter.
+Thanks,
+Richard
 
-4) UDP logs garbage addresses on short packets.  Fix from Bj=F8rn Mork.
-
-5) IPV6_RECVERR incorrectly handles locally generated errors, fix from
-   Brian Haley.
-
-6) IPV4 multicast purges routes too quickly due to mishandling of timer=
-s.
-   Fix from Andreas Meissner.
-
-7) Passive scans busted in iwlwifi, fix from Johannes Berg.
-
-8) De-auth request handling fix in mac80211 from Reinette Chatre.
-
-9) gianfar needs to purge cached recycled SKBs on MTU change, fix from
-   Sebastian Andrzej Siewior
-
-Please pull, thanks a lot!
-
-The following changes since commit 8777c793d6a24c7f3adf52b1b1086e9706de=
-4589:
-  Linus Torvalds (1):
-        Merge branch 'for-linus' of git://git.kernel.org/.../tj/wq
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Andreas Meissner (1):
-      IPv4: unresolved multicast route cleanup
-
-Bj=F8rn Mork (1):
-      ipv4: udp: fix short packet and bad checksum logging
-
-Brian Haley (1):
-      IPv6: fix IPV6_RECVERR handling of locally-generated errors
-
-Christian Lamparter (1):
-      ar9170: wait for asynchronous firmware loading
-
-David S. Miller (3):
-      phy: Fix initialization in micrel driver.
-      net: Fix FDDI and TR config checks in ipv4 arp and LLC.
-      Merge branch 'master' of git://git.kernel.org/.../linville/wirele=
-ss-2.6
-
-Eric Dumazet (1):
-      veth: Dont kfree_skb() after dev_forward_skb()
-
-Johannes Berg (1):
-      iwlwifi: work around passive scan issue
-
-Reinette Chatre (1):
-      mac80211: remove association work when processing deauth request
-
-Sebastian Andrzej Siewior (1):
-      net/gianfar: drop recycled skbs on MTU change
-
-Vlad Yasevich (1):
-      sctp: Fix a race between ICMP protocol unreachable and connect()
-
- drivers/net/gianfar.c                       |    2 +-
- drivers/net/phy/micrel.c                    |    1 +
- drivers/net/veth.c                          |    1 -
- drivers/net/wireless/ath/ar9170/usb.c       |   11 ++++++++
- drivers/net/wireless/ath/ar9170/usb.h       |    1 +
- drivers/net/wireless/iwlwifi/iwl-commands.h |    4 ++-
- drivers/net/wireless/iwlwifi/iwl-scan.c     |   23 ++++++++++++++----
- drivers/net/wireless/iwlwifi/iwl3945-base.c |    3 +-
- include/net/sctp/sm.h                       |    1 +
- include/net/sctp/structs.h                  |    3 ++
- net/core/dev.c                              |   11 ++++----
- net/ipv4/arp.c                              |    6 ++--
- net/ipv4/ipmr.c                             |    3 +-
- net/ipv4/udp.c                              |    6 ++--
- net/ipv6/datagram.c                         |    8 ++++-
- net/llc/llc_sap.c                           |    2 +-
- net/mac80211/mlme.c                         |    3 +-
- net/sctp/input.c                            |   22 ++++++++++++++---
- net/sctp/sm_sideeffect.c                    |   35 +++++++++++++++++++=
-++++++++
- net/sctp/transport.c                        |    2 +
- 20 files changed, 118 insertions(+), 30 deletions(-)
