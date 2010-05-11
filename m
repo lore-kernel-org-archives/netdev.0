@@ -1,68 +1,30 @@
-From: Bijay Singh <Bijay.Singh@guavus.com>
-Subject: Re: TCP-MD5 checksum failure on x86_64 SMP
-Date: Tue, 11 May 2010 04:08:30 +0000
-Message-ID: <AAFABD0F-C66F-44C2-8BDC-FB489EA8655F@guavus.com>
-References: <1273085598.2367.233.camel@edumazet-laptop>
- <i2y571fb4001005060455m39bed7f7if5fcfc45b12bc4d3@mail.gmail.com>
- <1273147586.2357.63.camel@edumazet-laptop>
- <20100506.220443.135536330.davem@davemloft.net>
- <1273210329.2222.42.camel@edumazet-laptop> <20100507101451.1b4286b7@nehalam>
- <1273252893.2261.84.camel@edumazet-laptop> <20100507103639.4f1a51fa@nehalam>
- <1273268446.2325.53.camel@edumazet-laptop>
- <D1C2B1EC-ABE8-4D87-9227-6D0F1C1C8B77@guavus.com>
- <1273504693.2221.17.camel@edumazet-laptop>
+From: Pete Zaitcev <zaitcev@redhat.com>
+Subject: Re: e1000e fails probe
+Date: Mon, 10 May 2010 22:43:08 -0600
+Message-ID: <20100510224308.4334fd11@redhat.com>
+References: <20100510185018.3478bcae@redhat.com>
+	<8DD2590731AB5D4C9DBF71A877482A90010D1DE754@orsmsx509.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	"<bhaskie@gmail.com>" <bhaskie@gmail.com>,
-	"<bhutchings@solarflare.com>" <bhutchings@solarflare.com>,
-	"<netdev@vger.kernel.org>" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	zaitcev@redhat.com
+To: "Allan, Bruce W" <bruce.w.allan@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [204.232.241.167] ([204.232.241.167]:30066 "EHLO mx1.guavus.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1750789Ab0EKEId convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 May 2010 00:08:33 -0400
-In-Reply-To: <1273504693.2221.17.camel@edumazet-laptop>
-Content-Language: en-US
-Content-ID: <9acf7e25-19a9-4d22-9814-d435c88c2aac>
+Received: from mx1.redhat.com ([209.132.183.28]:28395 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751561Ab0EKEnF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 May 2010 00:43:05 -0400
+In-Reply-To: <8DD2590731AB5D4C9DBF71A877482A90010D1DE754@orsmsx509.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+On Mon, 10 May 2010 18:33:56 -0700
+"Allan, Bruce W" <bruce.w.allan@intel.com> wrote:
 
-I guess that makes me the enviable one. So I am keen to test out this f=
-eature completely, as long as I know what to do as a next step, directi=
-ons, patches.
+> Would you be able to try a patch that is already in DaveM's net-next-2.6 tree?  If so, it is http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commitdiff;h=627c8a041f7aaaea93c766f69bd61d952a277586
 
-Thanks,
-Bijay
+I was too quick to claim victory here. I did an rmmod+insmod,
+it worked. Then I rebooted and it didn't. Weird...
 
-On 10-May-2010, at 8:48 PM, Eric Dumazet wrote:
-
-> Le lundi 10 mai 2010 =E0 14:55 +0000, Bijay Singh a =E9crit :
->> Hi,
->> I had noticed the corruption in the context and actually did what is=
- mentioned.
->>=20
->> I allocated the context on the stack and plugged in the md5.c functi=
-ons. I was able to temporarily solve the problem, all this before I got=
- a response on this thread.
->>=20
->> But now I have seeing another problem, when i change the MTU on the =
-interface from 1500 to 4470 none of the message from the peer get thru =
-and I get hash failed message. I am wondering if this is another bug ge=
-tting hit in this scenario.
->=20
-> Thats very fine, but you mix very different problems.
->=20
-> Step by step resolution is required, and clean patches too, because
-> plugging md5.c functions is not an option for stable series :)
->=20
-> Obviously, nobody seriously used TCP-MD5 on linux, but you...
->=20
->=20
->=20
-
+-- Pete
