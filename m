@@ -1,81 +1,95 @@
-From: Juan Quintela <quintela@redhat.com>
-Subject: Re: [PATCH RFC] vhost: fix barrier pairing
-Date: Wed, 12 May 2010 11:22:12 +0200
-Message-ID: <m3wrv9tqyj.fsf@trasno.mitica>
-References: <20100511172633.GA9091@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] bnx2x: avoid TX timeout when stopping device
+Date: Wed, 12 May 2010 11:27:38 +0200
+Message-ID: <1273656458.2621.22.camel@edumazet-laptop>
+References: <20100512110921.0e3f45fc@dhcp-lab-109.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Eilon Greenstein <eilong@broadcom.com>,
+	Vladislav Zolotarov <vladz@broadcom.com>,
+	Dmitry Kravkov <dmitry@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Breno Leitao <leitao@linux.vnet.ibm.com>
+To: Stanislaw Gruszka <sgruszka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35806 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751091Ab0ELJWs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 May 2010 05:22:48 -0400
-In-Reply-To: <20100511172633.GA9091@redhat.com> (Michael S. Tsirkin's message
-	of "Tue, 11 May 2010 20:26:33 +0300")
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:38076 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752238Ab0ELJ1m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 May 2010 05:27:42 -0400
+Received: by fxm15 with SMTP id 15so96509fxm.19
+        for <netdev@vger.kernel.org>; Wed, 12 May 2010 02:27:40 -0700 (PDT)
+In-Reply-To: <20100512110921.0e3f45fc@dhcp-lab-109.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Michael S. Tsirkin" <mst@redhat.com> wrote:
-> According to memory-barriers.txt, an smp memory barrier
-> should always be paired with another smp memory barrier,
-> and I quote "a lack of appropriate pairing is almost certainly an
-> error".
->
-> In case of vhost, failure to flush out used index
-> update before looking at the interrupt disable flag
-> could result in missed interrupts, resulting in
-> networking hang under stress.
->
-> This might happen when flags read bypasses used index write.
-> So we see interrupts disabled and do not interrupt, at the
-> same time guest writes flags value to enable interrupt,
-> reads an old used index value, thinks that
-> used ring is empty and waits for interrupt.
->
-> Note: the barrier we pair with here is in
-> drivers/virtio/virtio_ring.c, function
-> vring_enable_cb.
->
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Le mercredi 12 mai 2010 =C3=A0 11:09 +0200, Stanislaw Gruszka a =C3=A9c=
+rit :
+> When stop device call netif_carrier_off() just after disabling TX que=
+ue to
+> avoid possibility of netdev watchdog warning and ->ndo_tx_timeout() i=
+nvocation.
+>=20
+> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
 > ---
->
-> Dave, I think this is needed in 2.6.34, I'll send a pull
-> request after doing some more testing.
->
-> Rusty, Juan, could you take a look as well please?
-> Thanks!
 
-I would have prefered to put it:
+This reminds me I saw some strange things in bnx2.c for a similar
+symptom.
 
-void vhost_add_used_and_signal(struct vhost_dev *dev,
-			       struct vhost_virtqueue *vq,
-			       unsigned int head, int len)
-{
-	vhost_add_used(vq, head, len);
->>>>    smp_mb();
-	vhost_signal(dev, vq);
-}
+Commit e6bf95ffa8d6f8f4b7ee33ea01490d95b0bbeb6e
 
-Because it looks strange to have a barrier as the 1st instruction of a
-function.  And this way it is clearer (at least to me) what we are
-protecting.
+Would you take a look at this too ?
 
-But on the other hand, we would have to put a comment explainingthat all
-users of vhost_signal() have to put that smp_mb() so .....
+Or if this kind of trans_start refresh on all queues is really needed,
+it should be a core network provided function, not implemented on every
+driver...
 
-Perhaps just improving the commet stating that the corresponding barrier
-is there?
+Thanks :)
 
-> Note: the barrier we pair with here is in
-> drivers/virtio/virtio_ring.c, function
-> vring_enable_cb.
+>  drivers/net/bnx2x_main.c |    6 ++----
+>  1 files changed, 2 insertions(+), 4 deletions(-)
+>=20
+> diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
+> index 2bc35c7..57ff5b3 100644
+> --- a/drivers/net/bnx2x_main.c
+> +++ b/drivers/net/bnx2x_main.c
+> @@ -8499,6 +8499,7 @@ static int bnx2x_nic_unload(struct bnx2x *bp, i=
+nt unload_mode)
+> =20
+>  	/* Disable HW interrupts, NAPI and Tx */
+>  	bnx2x_netif_stop(bp, 1);
+> +	netif_carrier_off(bp->dev);
+> =20
+>  	del_timer_sync(&bp->timer);
+>  	SHMEM_WR(bp, func_mb[BP_FUNC(bp)].drv_pulse_mb,
+> @@ -8524,8 +8525,6 @@ static int bnx2x_nic_unload(struct bnx2x *bp, i=
+nt unload_mode)
+> =20
+>  	bp->state =3D BNX2X_STATE_CLOSED;
+> =20
+> -	netif_carrier_off(bp->dev);
+> -
+>  	/* The last driver must disable a "close the gate" if there is no
+>  	 * parity attention or "process kill" pending.
+>  	 */
+> @@ -13431,6 +13430,7 @@ static int bnx2x_eeh_nic_unload(struct bnx2x =
+*bp)
+>  	bp->rx_mode =3D BNX2X_RX_MODE_NONE;
+> =20
+>  	bnx2x_netif_stop(bp, 0);
+> +	netif_carrier_off(bp->dev);
+> =20
+>  	del_timer_sync(&bp->timer);
+>  	bp->stats_state =3D STATS_STATE_DISABLED;
+> @@ -13457,8 +13457,6 @@ static int bnx2x_eeh_nic_unload(struct bnx2x =
+*bp)
+> =20
+>  	bp->state =3D BNX2X_STATE_CLOSED;
+> =20
+> -	netif_carrier_off(bp->dev);
+> -
+>  	return 0;
+>  }
+> =20
 
-Good catch.
 
-Later, Juan.
