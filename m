@@ -1,18 +1,18 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 12/16] tipc: Reduce footprint by un-inlining nmap routines
-Date: Tue, 11 May 2010 20:30:14 -0400
-Message-ID: <ac466f8ca7f68d49163378453dad196bb0438eb8.1273621271.git.paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 08/16] tipc: remove abstraction for link_max_pkt
+Date: Tue, 11 May 2010 20:30:10 -0400
+Message-ID: <e27464e11b421c9c768ec5946fd8f364ce389683.1273621271.git.paul.gortmaker@windriver.com>
 References: <1273624218-22514-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: allan.stephens@windriver.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:35255 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:35235 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754158Ab0ELAac (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 May 2010 20:30:32 -0400
+	with ESMTP id S1753136Ab0ELAa3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 May 2010 20:30:29 -0400
 Received: from ALA-MAIL03.corp.ad.wrs.com (ala-mail03 [147.11.57.144])
-	by mail.windriver.com (8.14.3/8.14.3) with ESMTP id o4C0UWas000129
-	for <netdev@vger.kernel.org>; Tue, 11 May 2010 17:30:32 -0700 (PDT)
+	by mail.windriver.com (8.14.3/8.14.3) with ESMTP id o4C0UT1t000110
+	for <netdev@vger.kernel.org>; Tue, 11 May 2010 17:30:29 -0700 (PDT)
 In-Reply-To: <1273624218-22514-1-git-send-email-paul.gortmaker@windriver.com>
 In-Reply-To: <f90800f460df4ef216412e83e148771d2b6a7183.1273621271.git.paul.gortmaker@windriver.com>
 References: <f90800f460df4ef216412e83e148771d2b6a7183.1273621271.git.paul.gortmaker@windriver.com>
@@ -21,165 +21,123 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-Converts nmap inline routines that are more than one line into standard
-functions, thereby eliminating a significant amount of repeated code.
+This is just a straight return of a field; there is no
+value in the abstraction of hiding it behind a function.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/bcast.c |   60 +++++++++++++++++++++++++++++++++++++++++++++++++++
- net/tipc/bcast.h |   63 +++--------------------------------------------------
- 2 files changed, 64 insertions(+), 59 deletions(-)
+ net/tipc/link.c |   27 +++++++++++----------------
+ 1 files changed, 11 insertions(+), 16 deletions(-)
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index a8f22e7..1ee6424 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -822,3 +822,63 @@ void tipc_bclink_stop(void)
- 	spin_unlock_bh(&bc_lock);
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index c95038f..441b26a 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -232,11 +232,6 @@ static int link_congested(struct link *l_ptr)
+ 	return (l_ptr->out_queue_size >= l_ptr->queue_limit[0]);
  }
  
-+
-+/**
-+ * tipc_nmap_add - add a node to a node map
-+ */
-+
-+void tipc_nmap_add(struct tipc_node_map *nm_ptr, u32 node)
-+{
-+	int n = tipc_node(node);
-+	int w = n / WSIZE;
-+	u32 mask = (1 << (n % WSIZE));
-+
-+	if ((nm_ptr->map[w] & mask) == 0) {
-+		nm_ptr->count++;
-+		nm_ptr->map[w] |= mask;
-+	}
-+}
-+
-+/**
-+ * tipc_nmap_remove - remove a node from a node map
-+ */
-+
-+void tipc_nmap_remove(struct tipc_node_map *nm_ptr, u32 node)
-+{
-+	int n = tipc_node(node);
-+	int w = n / WSIZE;
-+	u32 mask = (1 << (n % WSIZE));
-+
-+	if ((nm_ptr->map[w] & mask) != 0) {
-+		nm_ptr->map[w] &= ~mask;
-+		nm_ptr->count--;
-+	}
-+}
-+
-+/**
-+ * tipc_nmap_diff - find differences between node maps
-+ * @nm_a: input node map A
-+ * @nm_b: input node map B
-+ * @nm_diff: output node map A-B (i.e. nodes of A that are not in B)
-+ */
-+
-+void tipc_nmap_diff(struct tipc_node_map *nm_a, struct tipc_node_map *nm_b,
-+				  struct tipc_node_map *nm_diff)
-+{
-+	int stop = ARRAY_SIZE(nm_a->map);
-+	int w;
-+	int b;
-+	u32 map;
-+
-+	memset(nm_diff, 0, sizeof(*nm_diff));
-+	for (w = 0; w < stop; w++) {
-+		map = nm_a->map[w] ^ (nm_a->map[w] & nm_b->map[w]);
-+		nm_diff->map[w] = map;
-+		if (map != 0) {
-+			for (b = 0 ; b < WSIZE; b++) {
-+				if (map & (1 << b))
-+					nm_diff->count++;
-+			}
-+		}
-+	}
-+}
-diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
-index 2b1c4a7..cd77981 100644
---- a/net/tipc/bcast.h
-+++ b/net/tipc/bcast.h
-@@ -72,38 +72,8 @@ struct tipc_node;
- 
- extern const char tipc_bclink_name[];
- 
--
--/**
-- * tipc_nmap_add - add a node to a node map
-- */
--
--static inline void tipc_nmap_add(struct tipc_node_map *nm_ptr, u32 node)
+-static u32 link_max_pkt(struct link *l_ptr)
 -{
--	int n = tipc_node(node);
--	int w = n / WSIZE;
--	u32 mask = (1 << (n % WSIZE));
--
--	if ((nm_ptr->map[w] & mask) == 0) {
--		nm_ptr->count++;
--		nm_ptr->map[w] |= mask;
--	}
+-	return l_ptr->max_pkt;
 -}
 -
--/**
-- * tipc_nmap_remove - remove a node from a node map
-- */
--
--static inline void tipc_nmap_remove(struct tipc_node_map *nm_ptr, u32 node)
--{
--	int n = tipc_node(node);
--	int w = n / WSIZE;
--	u32 mask = (1 << (n % WSIZE));
--
--	if ((nm_ptr->map[w] & mask) != 0) {
--		nm_ptr->map[w] &= ~mask;
--		nm_ptr->count--;
--	}
--}
-+void tipc_nmap_add(struct tipc_node_map *nm_ptr, u32 node);
-+void tipc_nmap_remove(struct tipc_node_map *nm_ptr, u32 node);
+ static void link_init_max_pkt(struct link *l_ptr)
+ {
+ 	u32 max_pkt;
+@@ -562,7 +557,7 @@ static int link_schedule_port(struct link *l_ptr, u32 origport, u32 sz)
+ 		if (!list_empty(&p_ptr->wait_list))
+ 			goto exit;
+ 		p_ptr->publ.congested = 1;
+-		p_ptr->waiting_pkts = 1 + ((sz - 1) / link_max_pkt(l_ptr));
++		p_ptr->waiting_pkts = 1 + ((sz - 1) / l_ptr->max_pkt);
+ 		list_add_tail(&p_ptr->wait_list, &l_ptr->waiting_ports);
+ 		l_ptr->stats.link_congs++;
+ exit:
+@@ -1015,7 +1010,7 @@ static int link_bundle_buf(struct link *l_ptr,
+ 		return 0;
+ 	if (skb_tailroom(bundler) < (pad + size))
+ 		return 0;
+-	if (link_max_pkt(l_ptr) < (to_pos + size))
++	if (l_ptr->max_pkt < (to_pos + size))
+ 		return 0;
  
- /**
-  * tipc_nmap_equal - test for equality of node maps
-@@ -114,33 +84,8 @@ static inline int tipc_nmap_equal(struct tipc_node_map *nm_a, struct tipc_node_m
- 	return !memcmp(nm_a, nm_b, sizeof(*nm_a));
+ 	skb_put(bundler, pad + size);
+@@ -1062,7 +1057,7 @@ int tipc_link_send_buf(struct link *l_ptr, struct sk_buff *buf)
+ 	u32 queue_size = l_ptr->out_queue_size;
+ 	u32 imp = msg_tot_importance(msg);
+ 	u32 queue_limit = l_ptr->queue_limit[imp];
+-	u32 max_packet = link_max_pkt(l_ptr);
++	u32 max_packet = l_ptr->max_pkt;
+ 
+ 	msg_set_prevnode(msg, tipc_own_addr);	/* If routed message */
+ 
+@@ -1193,7 +1188,7 @@ static int link_send_buf_fast(struct link *l_ptr, struct sk_buff *buf,
+ 	int res = msg_data_sz(msg);
+ 
+ 	if (likely(!link_congested(l_ptr))) {
+-		if (likely(msg_size(msg) <= link_max_pkt(l_ptr))) {
++		if (likely(msg_size(msg) <= l_ptr->max_pkt)) {
+ 			if (likely(list_empty(&l_ptr->b_ptr->cong_links))) {
+ 				link_add_to_outqueue(l_ptr, buf, msg);
+ 				if (likely(tipc_bearer_send(l_ptr->b_ptr, buf,
+@@ -1210,7 +1205,7 @@ static int link_send_buf_fast(struct link *l_ptr, struct sk_buff *buf,
+ 			}
+ 		}
+ 		else
+-			*used_max_pkt = link_max_pkt(l_ptr);
++			*used_max_pkt = l_ptr->max_pkt;
+ 	}
+ 	return tipc_link_send_buf(l_ptr, buf);  /* All other cases */
  }
+@@ -1317,7 +1312,7 @@ exit:
+ 			 * then re-try fast path or fragment the message
+ 			 */
  
--/**
-- * tipc_nmap_diff - find differences between node maps
-- * @nm_a: input node map A
-- * @nm_b: input node map B
-- * @nm_diff: output node map A-B (i.e. nodes of A that are not in B)
-- */
--
--static inline void tipc_nmap_diff(struct tipc_node_map *nm_a, struct tipc_node_map *nm_b,
--				  struct tipc_node_map *nm_diff)
--{
--	int stop = ARRAY_SIZE(nm_a->map);
--	int w;
--	int b;
--	u32 map;
--
--	memset(nm_diff, 0, sizeof(*nm_diff));
--	for (w = 0; w < stop; w++) {
--		map = nm_a->map[w] ^ (nm_a->map[w] & nm_b->map[w]);
--		nm_diff->map[w] = map;
--		if (map != 0) {
--			for (b = 0 ; b < WSIZE; b++) {
--				if (map & (1 << b))
--					nm_diff->count++;
--			}
--		}
--	}
--}
-+void tipc_nmap_diff(struct tipc_node_map *nm_a, struct tipc_node_map *nm_b,
-+				  struct tipc_node_map *nm_diff);
+-			sender->publ.max_pkt = link_max_pkt(l_ptr);
++			sender->publ.max_pkt = l_ptr->max_pkt;
+ 			tipc_node_unlock(node);
+ 			read_unlock_bh(&tipc_net_lock);
  
- /**
-  * tipc_port_list_add - add a port to a port list, ensuring no duplicates
+@@ -1480,8 +1475,8 @@ error:
+ 			tipc_node_unlock(node);
+ 			goto reject;
+ 		}
+-		if (link_max_pkt(l_ptr) < max_pkt) {
+-			sender->publ.max_pkt = link_max_pkt(l_ptr);
++		if (l_ptr->max_pkt < max_pkt) {
++			sender->publ.max_pkt = l_ptr->max_pkt;
+ 			tipc_node_unlock(node);
+ 			for (; buf_chain; buf_chain = buf) {
+ 				buf = buf_chain->next;
+@@ -2679,7 +2674,7 @@ int tipc_link_send_long_buf(struct link *l_ptr, struct sk_buff *buf)
+ 	u32 dsz = msg_data_sz(inmsg);
+ 	unchar *crs = buf->data;
+ 	u32 rest = insize;
+-	u32 pack_sz = link_max_pkt(l_ptr);
++	u32 pack_sz = l_ptr->max_pkt;
+ 	u32 fragm_sz = pack_sz - INT_H_SIZE;
+ 	u32 fragm_no = 1;
+ 	u32 destaddr;
+@@ -3125,7 +3120,7 @@ static int tipc_link_stats(const char *name, char *buf, const u32 buf_size)
+ 	tipc_printf(&pb, "Link <%s>\n"
+ 			 "  %s  MTU:%u  Priority:%u  Tolerance:%u ms"
+ 			 "  Window:%u packets\n",
+-		    l_ptr->name, status, link_max_pkt(l_ptr),
++		    l_ptr->name, status, l_ptr->max_pkt,
+ 		    l_ptr->priority, l_ptr->tolerance, l_ptr->queue_limit[0]);
+ 	tipc_printf(&pb, "  RX packets:%u fragments:%u/%u bundles:%u/%u\n",
+ 		    l_ptr->next_in_no - l_ptr->stats.recv_info,
+@@ -3270,7 +3265,7 @@ u32 tipc_link_get_max_pkt(u32 dest, u32 selector)
+ 		tipc_node_lock(n_ptr);
+ 		l_ptr = n_ptr->active_links[selector & 1];
+ 		if (l_ptr)
+-			res = link_max_pkt(l_ptr);
++			res = l_ptr->max_pkt;
+ 		tipc_node_unlock(n_ptr);
+ 	}
+ 	read_unlock_bh(&tipc_net_lock);
 -- 
 1.7.1.rc2
 
