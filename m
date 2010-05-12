@@ -1,18 +1,18 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 08/16] tipc: remove abstraction for link_max_pkt
-Date: Tue, 11 May 2010 20:30:10 -0400
-Message-ID: <e27464e11b421c9c768ec5946fd8f364ce389683.1273621271.git.paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 11/16] tipc: Reduce footprint by un-inlining address routines
+Date: Tue, 11 May 2010 20:30:13 -0400
+Message-ID: <65ef8f6e73376f8a8ba0e37827552c86ebe0d81f.1273621271.git.paul.gortmaker@windriver.com>
 References: <1273624218-22514-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: allan.stephens@windriver.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:35235 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:35250 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753136Ab0ELAa3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 May 2010 20:30:29 -0400
+	with ESMTP id S1754065Ab0ELAab (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 May 2010 20:30:31 -0400
 Received: from ALA-MAIL03.corp.ad.wrs.com (ala-mail03 [147.11.57.144])
-	by mail.windriver.com (8.14.3/8.14.3) with ESMTP id o4C0UT1t000110
-	for <netdev@vger.kernel.org>; Tue, 11 May 2010 17:30:29 -0700 (PDT)
+	by mail.windriver.com (8.14.3/8.14.3) with ESMTP id o4C0UVIc000120
+	for <netdev@vger.kernel.org>; Tue, 11 May 2010 17:30:31 -0700 (PDT)
 In-Reply-To: <1273624218-22514-1-git-send-email-paul.gortmaker@windriver.com>
 In-Reply-To: <f90800f460df4ef216412e83e148771d2b6a7183.1273621271.git.paul.gortmaker@windriver.com>
 References: <f90800f460df4ef216412e83e148771d2b6a7183.1273621271.git.paul.gortmaker@windriver.com>
@@ -21,123 +21,112 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-This is just a straight return of a field; there is no
-value in the abstraction of hiding it behind a function.
+Convert address-related inline routines that are more than one
+line into standard functions, thereby eliminating a significant
+amount of repeated code.
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/link.c |   27 +++++++++++----------------
- 1 files changed, 11 insertions(+), 16 deletions(-)
+ net/tipc/addr.c |   32 ++++++++++++++++++++++++++++++++
+ net/tipc/addr.h |   37 +++----------------------------------
+ 2 files changed, 35 insertions(+), 34 deletions(-)
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index c95038f..441b26a 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -232,11 +232,6 @@ static int link_congested(struct link *l_ptr)
- 	return (l_ptr->out_queue_size >= l_ptr->queue_limit[0]);
+diff --git a/net/tipc/addr.c b/net/tipc/addr.c
+index e5207a1..c048543 100644
+--- a/net/tipc/addr.c
++++ b/net/tipc/addr.c
+@@ -92,3 +92,35 @@ int tipc_addr_node_valid(u32 addr)
+ 	return (tipc_addr_domain_valid(addr) && tipc_node(addr));
  }
  
--static u32 link_max_pkt(struct link *l_ptr)
++int tipc_in_scope(u32 domain, u32 addr)
++{
++	if (!domain || (domain == addr))
++		return 1;
++	if (domain == (addr & 0xfffff000u)) /* domain <Z.C.0> */
++		return 1;
++	if (domain == (addr & 0xff000000u)) /* domain <Z.0.0> */
++		return 1;
++	return 0;
++}
++
++/**
++ * tipc_addr_scope - convert message lookup domain to a 2-bit scope value
++ */
++
++int tipc_addr_scope(u32 domain)
++{
++	if (likely(!domain))
++		return TIPC_ZONE_SCOPE;
++	if (tipc_node(domain))
++		return TIPC_NODE_SCOPE;
++	if (tipc_cluster(domain))
++		return TIPC_CLUSTER_SCOPE;
++	return TIPC_ZONE_SCOPE;
++}
++
++char *tipc_addr_string_fill(char *string, u32 addr)
++{
++	snprintf(string, 16, "<%u.%u.%u>",
++		 tipc_zone(addr), tipc_cluster(addr), tipc_node(addr));
++	return string;
++}
+diff --git a/net/tipc/addr.h b/net/tipc/addr.h
+index 4d4aee0..c1cc572 100644
+--- a/net/tipc/addr.h
++++ b/net/tipc/addr.h
+@@ -67,32 +67,6 @@ static inline int may_route(u32 addr)
+ 	return(addr ^ tipc_own_addr) >> 11;
+ }
+ 
+-static inline int tipc_in_scope(u32 domain, u32 addr)
 -{
--	return l_ptr->max_pkt;
+-	if (!domain || (domain == addr))
+-		return 1;
+-	if (domain == (addr & 0xfffff000u)) /* domain <Z.C.0> */
+-		return 1;
+-	if (domain == (addr & 0xff000000u)) /* domain <Z.0.0> */
+-		return 1;
+-	return 0;
 -}
 -
- static void link_init_max_pkt(struct link *l_ptr)
- {
- 	u32 max_pkt;
-@@ -562,7 +557,7 @@ static int link_schedule_port(struct link *l_ptr, u32 origport, u32 sz)
- 		if (!list_empty(&p_ptr->wait_list))
- 			goto exit;
- 		p_ptr->publ.congested = 1;
--		p_ptr->waiting_pkts = 1 + ((sz - 1) / link_max_pkt(l_ptr));
-+		p_ptr->waiting_pkts = 1 + ((sz - 1) / l_ptr->max_pkt);
- 		list_add_tail(&p_ptr->wait_list, &l_ptr->waiting_ports);
- 		l_ptr->stats.link_congs++;
- exit:
-@@ -1015,7 +1010,7 @@ static int link_bundle_buf(struct link *l_ptr,
- 		return 0;
- 	if (skb_tailroom(bundler) < (pad + size))
- 		return 0;
--	if (link_max_pkt(l_ptr) < (to_pos + size))
-+	if (l_ptr->max_pkt < (to_pos + size))
- 		return 0;
- 
- 	skb_put(bundler, pad + size);
-@@ -1062,7 +1057,7 @@ int tipc_link_send_buf(struct link *l_ptr, struct sk_buff *buf)
- 	u32 queue_size = l_ptr->out_queue_size;
- 	u32 imp = msg_tot_importance(msg);
- 	u32 queue_limit = l_ptr->queue_limit[imp];
--	u32 max_packet = link_max_pkt(l_ptr);
-+	u32 max_packet = l_ptr->max_pkt;
- 
- 	msg_set_prevnode(msg, tipc_own_addr);	/* If routed message */
- 
-@@ -1193,7 +1188,7 @@ static int link_send_buf_fast(struct link *l_ptr, struct sk_buff *buf,
- 	int res = msg_data_sz(msg);
- 
- 	if (likely(!link_congested(l_ptr))) {
--		if (likely(msg_size(msg) <= link_max_pkt(l_ptr))) {
-+		if (likely(msg_size(msg) <= l_ptr->max_pkt)) {
- 			if (likely(list_empty(&l_ptr->b_ptr->cong_links))) {
- 				link_add_to_outqueue(l_ptr, buf, msg);
- 				if (likely(tipc_bearer_send(l_ptr->b_ptr, buf,
-@@ -1210,7 +1205,7 @@ static int link_send_buf_fast(struct link *l_ptr, struct sk_buff *buf,
- 			}
- 		}
- 		else
--			*used_max_pkt = link_max_pkt(l_ptr);
-+			*used_max_pkt = l_ptr->max_pkt;
- 	}
- 	return tipc_link_send_buf(l_ptr, buf);  /* All other cases */
+-/**
+- * tipc_addr_scope - convert message lookup domain to a 2-bit scope value
+- */
+-
+-static inline int tipc_addr_scope(u32 domain)
+-{
+-	if (likely(!domain))
+-		return TIPC_ZONE_SCOPE;
+-	if (tipc_node(domain))
+-		return TIPC_NODE_SCOPE;
+-	if (tipc_cluster(domain))
+-		return TIPC_CLUSTER_SCOPE;
+-	return TIPC_ZONE_SCOPE;
+-}
+-
+ /**
+  * addr_domain - convert 2-bit scope value to equivalent message lookup domain
+  *
+@@ -110,14 +84,9 @@ static inline int addr_domain(int sc)
+ 	return tipc_addr(tipc_zone(tipc_own_addr), 0, 0);
  }
-@@ -1317,7 +1312,7 @@ exit:
- 			 * then re-try fast path or fragment the message
- 			 */
  
--			sender->publ.max_pkt = link_max_pkt(l_ptr);
-+			sender->publ.max_pkt = l_ptr->max_pkt;
- 			tipc_node_unlock(node);
- 			read_unlock_bh(&tipc_net_lock);
- 
-@@ -1480,8 +1475,8 @@ error:
- 			tipc_node_unlock(node);
- 			goto reject;
- 		}
--		if (link_max_pkt(l_ptr) < max_pkt) {
--			sender->publ.max_pkt = link_max_pkt(l_ptr);
-+		if (l_ptr->max_pkt < max_pkt) {
-+			sender->publ.max_pkt = l_ptr->max_pkt;
- 			tipc_node_unlock(node);
- 			for (; buf_chain; buf_chain = buf) {
- 				buf = buf_chain->next;
-@@ -2679,7 +2674,7 @@ int tipc_link_send_long_buf(struct link *l_ptr, struct sk_buff *buf)
- 	u32 dsz = msg_data_sz(inmsg);
- 	unchar *crs = buf->data;
- 	u32 rest = insize;
--	u32 pack_sz = link_max_pkt(l_ptr);
-+	u32 pack_sz = l_ptr->max_pkt;
- 	u32 fragm_sz = pack_sz - INT_H_SIZE;
- 	u32 fragm_no = 1;
- 	u32 destaddr;
-@@ -3125,7 +3120,7 @@ static int tipc_link_stats(const char *name, char *buf, const u32 buf_size)
- 	tipc_printf(&pb, "Link <%s>\n"
- 			 "  %s  MTU:%u  Priority:%u  Tolerance:%u ms"
- 			 "  Window:%u packets\n",
--		    l_ptr->name, status, link_max_pkt(l_ptr),
-+		    l_ptr->name, status, l_ptr->max_pkt,
- 		    l_ptr->priority, l_ptr->tolerance, l_ptr->queue_limit[0]);
- 	tipc_printf(&pb, "  RX packets:%u fragments:%u/%u bundles:%u/%u\n",
- 		    l_ptr->next_in_no - l_ptr->stats.recv_info,
-@@ -3270,7 +3265,7 @@ u32 tipc_link_get_max_pkt(u32 dest, u32 selector)
- 		tipc_node_lock(n_ptr);
- 		l_ptr = n_ptr->active_links[selector & 1];
- 		if (l_ptr)
--			res = link_max_pkt(l_ptr);
-+			res = l_ptr->max_pkt;
- 		tipc_node_unlock(n_ptr);
- 	}
- 	read_unlock_bh(&tipc_net_lock);
+-static inline char *tipc_addr_string_fill(char *string, u32 addr)
+-{
+-	snprintf(string, 16, "<%u.%u.%u>",
+-		 tipc_zone(addr), tipc_cluster(addr), tipc_node(addr));
+-	return string;
+-}
+-
+ int tipc_addr_domain_valid(u32);
+ int tipc_addr_node_valid(u32 addr);
+-
++int tipc_in_scope(u32 domain, u32 addr);
++int tipc_addr_scope(u32 domain);
++char *tipc_addr_string_fill(char *string, u32 addr);
+ #endif
 -- 
 1.7.1.rc2
 
