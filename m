@@ -1,51 +1,29 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: mmotm 2010-05-11 - dies in pm_qos_update_request()
-Date: Thu, 13 May 2010 00:33:25 +0200
-Message-ID: <201005130033.25723.rjw@sisk.pl>
-References: <201005120149.o4C1n7P4002637@imap1.linux-foundation.org> <201005122307.20860.rjw@sisk.pl> <17286.1273702370@localhost>
+From: Mike McCormack <mikem@ring3k.org>
+Subject: [PATCH 0/5] sky2: Avoid memory allocations on suspend/resume
+Date: Thu, 13 May 2010 08:16:15 +0900
+Message-ID: <4BEB36BF.1050006@ring3k.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-2"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: Valdis.Kletnieks@vt.edu
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <17286.1273702370@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:48719 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755771Ab0ELXZW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 May 2010 19:25:22 -0400
+Received: by pwi5 with SMTP id 5so326811pwi.19
+        for <netdev@vger.kernel.org>; Wed, 12 May 2010 16:25:22 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 13 May 2010, Valdis.Kletnieks@vt.edu wrote:
-> On Wed, 12 May 2010 23:07:20 +0200, "Rafael J. Wysocki" said:
->  
-> > > I suspect this commit:
-> > > 
-> > > commit 23606cf5d1192c2b17912cb2ef6e62f9b11de133
-> > > Author: Rafael J. Wysocki <rjw@sisk.pl>
-> > > Date:   Sun Mar 14 14:35:17 2010 +0000
-> > > 
-> > >     e1000e / PCI / PM: Add basic runtime PM support (rev. 4)
-> > 
-> > No, I don't think so.  I'm running -rc6 with this patch applied on a box with
-> > e1000e and it works just fine.
-> > 
-> > Please try to revert this one instead:
-> > 
-> > http://git.kernel.org/?p=linux/kernel/git/rafael/suspend-2.6.git;a=patch;h=ed77134bfccf5e75b6cbadab268e559dbe6a4ebb
-> 
-> Isn't a clean revert - build dies with:
-> 
->   CC      net/mac80211/scan.o
-> net/mac80211/scan.c: In function 'ieee80211_scan_state_decision':
-> net/mac80211/scan.c:510: error: implicit declaration of function 'pm_qos_request'
-> make[1]: *** [net/mac80211/scan.o] Error 1
-> make: *** [net/mac80211/scan.o] Error 2
-> 
-> Will investigate more later, find what other commit needs reverting.
+Hi Stephen,
 
-Simply rename pm_qos_request() to pm_qos_requirement() in
-ieee80211_scan_state_decision() and it should build.
+This patch set rearranges sky2_suspend and sky2_resume so that we don't free memory and reallocate it when suspending.
 
-Rafael
+Furthermore, there's two small fixes (Avoid race in sky2_change_mtu) for which I've clarified the commit message, and
+(Restore multicast after restart) which restores the multicast settings after reset, as they may be lost.
+
+thanks,
+
+Mike
