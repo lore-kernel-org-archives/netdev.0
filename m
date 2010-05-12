@@ -1,65 +1,86 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] net sched: cleanup and rate limit warning
-Date: Wed, 12 May 2010 11:17:06 -0700
-Message-ID: <20100512111706.616dc7cf@nehalam>
-References: <20100511172412.76aff184@nehalam>
-	<1273684674.16074.0.camel@bigi>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: get beyond 1Gbps with pktgen on 10Gb nic?
+Date: Wed, 12 May 2010 11:32:46 -0700
+Message-ID: <4BEAF44E.8090201@hp.com>
+References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497D752C7@MILEXCH2.ds.jdsu.net>	<1273584925.2107.6.camel@achroite.uk.solarflarecom.com>	<4BE97DD7.7000704@candelatech.com>	<4A6A2125329CFD4D8CC40C9E8ABCAB9F2497D85C81@MILEXCH2.ds.jdsu.net> <AANLkTilZseWJCHnDXSjwUYol7ewXewIhMJG-tqWO_C86@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Cc: Jon Zhou <Jon.Zhou@jdsu.com>, Ben Greear <greearb@candelatech.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jesse Brandeburg <jesse.brandeburg@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:58994 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751148Ab0ELSRJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 May 2010 14:17:09 -0400
-In-Reply-To: <1273684674.16074.0.camel@bigi>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:13415 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754730Ab0ELScu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 May 2010 14:32:50 -0400
+In-Reply-To: <AANLkTilZseWJCHnDXSjwUYol7ewXewIhMJG-tqWO_C86@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 12 May 2010 13:17:54 -0400
-jamal <hadi@cyberus.ca> wrote:
-
-> On Tue, 2010-05-11 at 17:24 -0700, Stephen Hemminger wrote:
-> > If the user has a bad classification configuration, and gets a packet
-> > that goes through too many steps.
+Jesse Brandeburg wrote:
+> On Tue, May 11, 2010 at 9:00 PM, Jon Zhou <Jon.Zhou@jdsu.com> wrote:
 > 
-> Can you pass me the setup which caused this to be hit?
+>> I just used multi netperf instances to reach 900K pps/8Gb+ traffic on the
+>> Broadcom 10G nic:
+
+>>
+>>command:
+>>
+>>for i in 1 2 3 4 5 6 7 8 9 10
+>>do
+>>netperf -l 60 -H 192.168.0.53 -- -m 60 -s 100M -S 100M &
+>>done
+
+100 Megabytes seems a trifle excessive as a socket buffer size.  I would suggest 
+  lopping-off a few zeros and use 1M instead.  Or, one can let linux auto-tune 
+the socket buffers/windows - just don't accept the socket buffer size reported 
+by the classic netperf command - it is from the initial creation of the socket. 
+  To get what it became by the end of the test one should use the "omni" tests. 
+  Contact me offlist or via netperf-talk in the netperf.org domain for more on that.
+
+>> the msg size was assigned as 64 bytes, but when I checked the file captured
+>> by tcpdump, found that netperf sent many frames which are large than 64
+>> bytes(i.e.4000-10K+ bytes) and these frames were truncated by tcpdump.
+>>
+>> so that the actual avg packet size is around 1500 bytes, but what I want is
+>> avg packet: 300-400 bytes and reach 5Gb+.
+>>
+>>does it make sense?
 > 
-> cheers,
-> jamal
+> 
+> if you set the TCP_NODELAY (to disable nagle) option on netperf 
 
+If he was seeing 4K to 10K byte frames in his tcpdump, that was likely TSO above 
+and beyond nagle.  I was going to say it also suggests he was running tcpdump on 
+the sending side rather than the receiver, but then there is LRO/GRO isn't there...
 
-The Vyatta syntax is:
+> (check netperf -t TCP_STREAM -- -h) then you should be able to control packet
+>  size.
 
- traffic-limiter test-traffic-limit {
-     class 2048 {
-         bandwidth 1mbit
-         burst 500kbit
-         match onebox {
-             ip {
-                 destination {
-                     address 192.168.100.99/32
-                 }
-             }
-         }
-     }
- }
+Or at least influence it meaningfully :)  If he was seeing 4K to 10K byte frames 
+in his tcpdump, that was likely TSO above and beyond nagle.If there are packet 
+losses and retransmissions, the retransmissions, which may or may not include 
+new data may be larger.
 
-Which generates these TC commands.
+The "netperf -t TCP_STREAM -- -h" to get test-specific help shown by Jesse will 
+show the option you need to add to set TCP_NODELAY.  For additional descriptions 
+of netperf command options:
 
-root@VC6:~# tc qdisc show dev eth0
-qdisc pfifo_fast 0: root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
-qdisc ingress ffff: parent ffff:fff1 ---------------- 
+http://www.netperf.org/svn/netperf2/tags/netperf-2.4.5/doc/netperf.html
 
-root@VC6:~# tc filter show dev eth0 parent ffff:
-filter protocol all pref 20 u32 
-filter protocol all pref 20 u32 fh 800: ht divisor 1 
-filter protocol all pref 20 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid ffff:800 
-  match c0a86463/ffffffff at 16
- police 0x3 rate 1000Kbit burst 63999b mtu 2Kb action reclassify overhead 0b 
-ref 1 bind 1
+For "quick and dirty" testing, the loop as it appears above is "ok" but I would 
+suggest abusing the confidence intervals code to minimize the skew error:
 
+http://www.netperf.org/svn/netperf2/tags/netperf-2.4.5/doc/netperf.html#Using-Netperf-to-Measure-Aggregate-Performance
 
-I think the bad part is the huge burst size.
+happy benchmarking,
+
+rick jones
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
