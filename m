@@ -1,68 +1,20 @@
-From: Jon Zhou <Jon.Zhou@jdsu.com>
-Subject: RE: does the broadcom bnx2x support RSS/multi queue
-Date: Wed, 12 May 2010 02:34:51 -0700
-Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497D85DCD@MILEXCH2.ds.jdsu.net>
-References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497D85D43@MILEXCH2.ds.jdsu.net>
- <1273650119.2621.5.camel@edumazet-laptop>
- <1273655947.4491.5.camel@lb-tlvb-eilong.il.broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "eilong@broadcom.com" <eilong@broadcom.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 0/4]netxen: bug fixes
+Date: Wed, 12 May 2010 02:53:01 -0700
+Message-ID: <1273657985-13405-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og126.obsmtp.com ([64.18.2.206]:35157 "HELO
-	exprod7og126.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751717Ab0ELJfE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 May 2010 05:35:04 -0400
-In-Reply-To: <1273655947.4491.5.camel@lb-tlvb-eilong.il.broadcom.com>
-Content-Language: en-US
+Received: from mvnat01.qlogic.com ([198.186.3.73]:5224 "HELO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1755344Ab0ELJxJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 May 2010 05:53:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-aGkgZWlsb246DQoNCmRvIHlvdSB0aGluayBJIG5lZWQgdG8gdXBkYXRlIHRoZSBrZXJuZWwgYWxz
-bz8NCg0KdGhhbmtzIQ0Kam9uDQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBF
-aWxvbiBHcmVlbnN0ZWluIFttYWlsdG86ZWlsb25nQGJyb2FkY29tLmNvbV0gDQpTZW50OiBXZWRu
-ZXNkYXksIE1heSAxMiwgMjAxMCA1OjE5IFBNDQpUbzogRXJpYyBEdW1hemV0DQpDYzogSm9uIFpo
-b3U7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNClN1YmplY3Q6IFJlOiBkb2VzIHRoZSBicm9hZGNv
-bSBibngyeCBzdXBwb3J0IFJTUy9tdWx0aSBxdWV1ZQ0KDQpPbiBXZWQsIDIwMTAtMDUtMTIgYXQg
-MDA6NDEgLTA3MDAsIEVyaWMgRHVtYXpldCB3cm90ZToNCj4gTGUgbWVyY3JlZGkgMTIgbWFpIDIw
-MTAgw6AgMDA6MzEgLTA3MDAsIEpvbiBaaG91IGEgw6ljcml0IDoNCj4gPiBoaSB0aGVyZQ0KPiA+
-IA0KPiA+IEkgYW0gbm90IHN1cmUgaWYgbXkgQnJvYWRjb20gMTBHIG5pYyBkcml2ZXIoYm54Mngp
-IHN1cHBvcnQgUlNTL211bHRpIHF1ZXVlDQo+ID4gDQo+ID4gaWJtLWJjLTUzOi9ob21lL3J1aXpo
-b3UvbnByb2JlICMgdW5hbWUgLWENCj4gPiBMaW51eCBpYm0tYmMtNTMgMi42LjI3LjE5LTUtZGVm
-YXVsdCAjMSBTTVAgMjAwOS0wMi0yOCAwNDo0MDoyMSArMDEwMCB4ODZfNjQgeDg2XzY0IHg4Nl82
-NCBHTlUvTGludXgNCj4gPiANCj4gPiBpYm0tYmMtNTM6L2hvbWUvcnVpemhvdS9ucHJvYmUgIyBl
-dGh0b29sIC1TIGV0aDUNCj4gPiBOSUMgc3RhdGlzdGljczoNCj4gPiAgICAgIHJ4X2J5dGVzOiA2
-ODEwMDE3MA0KPiA+ICAgICAgcnhfZXJyb3JfYnl0ZXM6IDANCj4gPiAgICAgIHR4X2J5dGVzOiAw
-DQo+ID4gICAgICB0eF9lcnJvcl9ieXRlczogMA0KPiA+ICAgICAgcnhfdWNhc3RfcGFja2V0czog
-MjAxNjU0DQo+ID4gICAgICByeF9tY2FzdF9wYWNrZXRzOiAwDQo+ID4gICAgICByeF9iY2FzdF9w
-YWNrZXRzOiAwDQo+ID4gICAgICB0eF9wYWNrZXRzOiAwDQo+ID4gICAgICB0eF9tYWNfZXJyb3Jz
-OiAwDQo+ID4gICAgICB0eF9jYXJyaWVyX2Vycm9yczogMA0KPiA+ICAgICAgcnhfY3JjX2Vycm9y
-czogMA0KPiA+ICAgICAgcnhfYWxpZ25fZXJyb3JzOiAwDQo+ID4gICAgICB0eF9zaW5nbGVfY29s
-bGlzaW9uczogMA0KPiA+ICAgICAgdHhfbXVsdGlfY29sbGlzaW9uczogMA0KPiA+ICAgICAgdHhf
-ZGVmZXJyZWQ6IDANCj4gPiAgICAgIHR4X2V4Y2Vzc19jb2xsaXNpb25zOiAwDQo+ID4gICAgICB0
-eF9sYXRlX2NvbGxpc2lvbnM6IDANCj4gPiAgICAgIHR4X3RvdGFsX2NvbGxpc2lvbnM6IDANCj4g
-PiAgICAgIHJ4X2ZyYWdtZW50czogMA0KPiA+ICAgICAgcnhfamFiYmVyczogMA0KPiA+ICAgICAg
-cnhfdW5kZXJzaXplX3BhY2tldHM6IDANCj4gPiAgICAgIHJ4X292ZXJzaXplX3BhY2tldHM6IDAN
-Cj4gPiAgICAgIHR4XzY0X2J5dGVfcGFja2V0czogMA0KPiA+ICAgICAgdHhfNjVfdG9fMTI3X2J5
-dGVfcGFja2V0czogMA0KPiA+ICAgICAgdHhfMTI4X3RvXzI1NV9ieXRlX3BhY2tldHM6IDANCj4g
-PiAgICAgIHR4XzI1Nl90b181MTFfYnl0ZV9wYWNrZXRzOiAwDQo+ID4gICAgICB0eF81MTJfdG9f
-MTAyM19ieXRlX3BhY2tldHM6IDANCj4gPiAgICAgIHR4XzEwMjRfdG9fMTUyMl9ieXRlX3BhY2tl
-dHM6IDANCj4gPiAgICAgIHR4XzE1MjNfdG9fOTAyMl9ieXRlX3BhY2tldHM6IDANCj4gPiAgICAg
-IHJ4X3hvbl9mcmFtZXM6IDANCj4gPiAgICAgIHJ4X3hvZmZfZnJhbWVzOiAwDQo+ID4gICAgICB0
-eF94b25fZnJhbWVzOiAwDQo+ID4gICAgICB0eF94b2ZmX2ZyYW1lczogMA0KPiA+ICAgICAgcnhf
-bWFjX2N0cmxfZnJhbWVzOiAwDQo+ID4gICAgICByeF9maWx0ZXJlZF9wYWNrZXRzOiAwDQo+ID4g
-ICAgICByeF9kaXNjYXJkczogMA0KPiA+ICAgICAgcnhfZndfZGlzY2FyZHM6IDANCj4gPiAgICAg
-IGJyYl9kaXNjYXJkOiAwDQo+ID4gICAgICBicmJfdHJ1bmNhdGU6IDANCj4gPiAgICAgIHJ4X3Bo
-eV9pcF9lcnJfZGlzY2FyZHM6IDANCj4gPiAgICAgIHJ4X3NrYl9hbGxvY19kaXNjYXJkOiAwDQo+
-ID4gICAgICByeF9jc3VtX29mZmxvYWRfZXJyb3JzOiA2DQo+ID4gDQo+ID4gdGhlIGRyaXZlciB2
-ZXIgaXM6DQo+ID4gYm54MnhfbWFpbi5jDQo+ID4gI2RlZmluZSBEUlZfTU9EVUxFX1ZFUlNJT04g
-ICAgICAiMS40NS4yNiINCj4gPiANCj4gPiBsb29rcyBub3Qgc3VwcG9ydD8NCj4gPiANCj4gPiB0
-aGFua3MNCj4gPiBqb24NCj4gDQo+IFBlciBxdWV1ZSBzdGF0cyB3ZXJlIGFkZGVkIGxhc3QgeWVh
-ciBvbmx5IChUaHUgRmViIDEyIDA4OjM2OjMzIDIwMDkpDQo+IA0KPiBZb3UgbWlnaHQgY2hlY2sg
-ImdyZXAgZXRoNSAvcHJvYy9pbnRlcnJ1cHRzIg0KPiANCj4gT3IgdXBncmFkZSB0byAyLjYuMzMu
-eCBrZXJuZWwgOikNCj4gDQpUaGUgSFcgYW5kIGN1cnJlbnQgZHJpdmVyIHN1cHBvcnQgbXVsdGkt
-cXVldWUuIEhvd2V2ZXIsIHlvdSBhcmUgdXNpbmcgYSB2ZXJzaW9uIHdoaWNoIGlzIHRvbyBvbGQu
-DQoNCg0KDQoNCg0K
+Hi
+  Series of 4 patches to fix diagnostic tools access and register usage
+  for NX3031.
+  Please apply them on net-next branch.
+
+-Amit
