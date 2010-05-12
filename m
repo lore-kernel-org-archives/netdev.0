@@ -1,68 +1,100 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: [PATCH net-next] bnx2x: avoid TX timeout when stopping device
-Date: Wed, 12 May 2010 11:09:21 +0200
-Message-ID: <20100512110921.0e3f45fc@dhcp-lab-109.englab.brq.redhat.com>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: does the broadcom bnx2x support RSS/multi queue
+Date: Wed, 12 May 2010 12:19:07 +0300
+Message-ID: <1273655947.4491.5.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497D85D43@MILEXCH2.ds.jdsu.net>
+ <1273650119.2621.5.camel@edumazet-laptop>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eilon Greenstein <eilong@broadcom.com>,
-	Vladislav Zolotarov <vladz@broadcom.com>,
-	Dmitry Kravkov <dmitry@broadcom.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Jon Zhou" <Jon.Zhou@jdsu.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1034 "EHLO mx1.redhat.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3621 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754408Ab0ELJHZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 May 2010 05:07:25 -0400
+	id S1750801Ab0ELJTZ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 May 2010 05:19:25 -0400
+In-Reply-To: <1273650119.2621.5.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When stop device call netif_carrier_off() just after disabling TX queue to
-avoid possibility of netdev watchdog warning and ->ndo_tx_timeout() invocation.
+On Wed, 2010-05-12 at 00:41 -0700, Eric Dumazet wrote:
+> Le mercredi 12 mai 2010 =C3=A0 00:31 -0700, Jon Zhou a =C3=A9crit :
+> > hi there
+> >=20
+> > I am not sure if my Broadcom 10G nic driver(bnx2x) support RSS/mult=
+i queue
+> >=20
+> > ibm-bc-53:/home/ruizhou/nprobe # uname -a
+> > Linux ibm-bc-53 2.6.27.19-5-default #1 SMP 2009-02-28 04:40:21 +010=
+0 x86_64 x86_64 x86_64 GNU/Linux
+> >=20
+> > ibm-bc-53:/home/ruizhou/nprobe # ethtool -S eth5
+> > NIC statistics:
+> >      rx_bytes: 68100170
+> >      rx_error_bytes: 0
+> >      tx_bytes: 0
+> >      tx_error_bytes: 0
+> >      rx_ucast_packets: 201654
+> >      rx_mcast_packets: 0
+> >      rx_bcast_packets: 0
+> >      tx_packets: 0
+> >      tx_mac_errors: 0
+> >      tx_carrier_errors: 0
+> >      rx_crc_errors: 0
+> >      rx_align_errors: 0
+> >      tx_single_collisions: 0
+> >      tx_multi_collisions: 0
+> >      tx_deferred: 0
+> >      tx_excess_collisions: 0
+> >      tx_late_collisions: 0
+> >      tx_total_collisions: 0
+> >      rx_fragments: 0
+> >      rx_jabbers: 0
+> >      rx_undersize_packets: 0
+> >      rx_oversize_packets: 0
+> >      tx_64_byte_packets: 0
+> >      tx_65_to_127_byte_packets: 0
+> >      tx_128_to_255_byte_packets: 0
+> >      tx_256_to_511_byte_packets: 0
+> >      tx_512_to_1023_byte_packets: 0
+> >      tx_1024_to_1522_byte_packets: 0
+> >      tx_1523_to_9022_byte_packets: 0
+> >      rx_xon_frames: 0
+> >      rx_xoff_frames: 0
+> >      tx_xon_frames: 0
+> >      tx_xoff_frames: 0
+> >      rx_mac_ctrl_frames: 0
+> >      rx_filtered_packets: 0
+> >      rx_discards: 0
+> >      rx_fw_discards: 0
+> >      brb_discard: 0
+> >      brb_truncate: 0
+> >      rx_phy_ip_err_discards: 0
+> >      rx_skb_alloc_discard: 0
+> >      rx_csum_offload_errors: 6
+> >=20
+> > the driver ver is:
+> > bnx2x_main.c
+> > #define DRV_MODULE_VERSION      "1.45.26"
+> >=20
+> > looks not support?
+> >=20
+> > thanks
+> > jon
+>=20
+> Per queue stats were added last year only (Thu Feb 12 08:36:33 2009)
+>=20
+> You might check "grep eth5 /proc/interrupts"
+>=20
+> Or upgrade to 2.6.33.x kernel :)
+>=20
+The HW and current driver support multi-queue. However, you are using a=
+ version which is too old.
 
-Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
----
- drivers/net/bnx2x_main.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 2bc35c7..57ff5b3 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -8499,6 +8499,7 @@ static int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
- 
- 	/* Disable HW interrupts, NAPI and Tx */
- 	bnx2x_netif_stop(bp, 1);
-+	netif_carrier_off(bp->dev);
- 
- 	del_timer_sync(&bp->timer);
- 	SHMEM_WR(bp, func_mb[BP_FUNC(bp)].drv_pulse_mb,
-@@ -8524,8 +8525,6 @@ static int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode)
- 
- 	bp->state = BNX2X_STATE_CLOSED;
- 
--	netif_carrier_off(bp->dev);
--
- 	/* The last driver must disable a "close the gate" if there is no
- 	 * parity attention or "process kill" pending.
- 	 */
-@@ -13431,6 +13430,7 @@ static int bnx2x_eeh_nic_unload(struct bnx2x *bp)
- 	bp->rx_mode = BNX2X_RX_MODE_NONE;
- 
- 	bnx2x_netif_stop(bp, 0);
-+	netif_carrier_off(bp->dev);
- 
- 	del_timer_sync(&bp->timer);
- 	bp->stats_state = STATS_STATE_DISABLED;
-@@ -13457,8 +13457,6 @@ static int bnx2x_eeh_nic_unload(struct bnx2x *bp)
- 
- 	bp->state = BNX2X_STATE_CLOSED;
- 
--	netif_carrier_off(bp->dev);
--
- 	return 0;
- }
- 
--- 
-1.5.5.6
+
+
 
