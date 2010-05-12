@@ -1,18 +1,18 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 13/16] tipc: Reduce footprint by un-inlining port list routines
-Date: Tue, 11 May 2010 20:30:15 -0400
-Message-ID: <7f1f098b6118144d29e12af4f70e354606031229.1273621271.git.paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 09/16] tipc: Relocate trivial link status functions to header file
+Date: Tue, 11 May 2010 20:30:11 -0400
+Message-ID: <c6d04742cfda323e05a3c56ecd3899df6a87a593.1273621271.git.paul.gortmaker@windriver.com>
 References: <1273624218-22514-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: allan.stephens@windriver.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:35257 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:35237 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754173Ab0ELAad (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 May 2010 20:30:33 -0400
+	with ESMTP id S1753573Ab0ELAaa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 May 2010 20:30:30 -0400
 Received: from ALA-MAIL03.corp.ad.wrs.com (ala-mail03 [147.11.57.144])
-	by mail.windriver.com (8.14.3/8.14.3) with ESMTP id o4C0UWLp000133
-	for <netdev@vger.kernel.org>; Tue, 11 May 2010 17:30:32 -0700 (PDT)
+	by mail.windriver.com (8.14.3/8.14.3) with ESMTP id o4C0UTwh000113
+	for <netdev@vger.kernel.org>; Tue, 11 May 2010 17:30:30 -0700 (PDT)
 In-Reply-To: <1273624218-22514-1-git-send-email-paul.gortmaker@windriver.com>
 In-Reply-To: <f90800f460df4ef216412e83e148771d2b6a7183.1273621271.git.paul.gortmaker@windriver.com>
 References: <f90800f460df4ef216412e83e148771d2b6a7183.1273621271.git.paul.gortmaker@windriver.com>
@@ -21,138 +21,124 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <allan.stephens@windriver.com>
 
-Converts port list inline routines that are more than one line into
-standard functions, thereby eliminating a significant amount of
-repeated code.
+Rather than live in link.c where they can only be used in that file alone,
+these helper routines are better served by being in link.h
+
+Relocated are the following:
+
+	link_working_working
+	link_working_unknown
+	link_reset_unknown
+	link_reset_reset
+	link_blocked
+	link_congested
 
 Signed-off-by: Allan Stephens <allan.stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/bcast.c |   50 ++++++++++++++++++++++++++++++++++++++++++++++++++
- net/tipc/bcast.h |   52 ++--------------------------------------------------
- 2 files changed, 52 insertions(+), 50 deletions(-)
+ net/tipc/discover.c |    2 +-
+ net/tipc/link.c     |   30 ------------------------------
+ net/tipc/link.h     |   35 +++++++++++++++++++++++++++++++++++
+ 3 files changed, 36 insertions(+), 31 deletions(-)
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 1ee6424..a008c66 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -882,3 +882,53 @@ void tipc_nmap_diff(struct tipc_node_map *nm_a, struct tipc_node_map *nm_b,
+diff --git a/net/tipc/discover.c b/net/tipc/discover.c
+index 74b7d1e..ce1390a 100644
+--- a/net/tipc/discover.c
++++ b/net/tipc/discover.c
+@@ -224,7 +224,7 @@ void tipc_disc_recv_msg(struct sk_buff *buf, struct bearer *b_ptr)
+ 			memcpy(addr, &media_addr, sizeof(*addr));
+ 			tipc_link_reset(link);
  		}
- 	}
+-		link_fully_up = (link->state == WORKING_WORKING);
++		link_fully_up = link_working_working(link);
+ 		spin_unlock_bh(&n_ptr->lock);
+ 		if ((type == DSC_RESP_MSG) || link_fully_up)
+ 			return;
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 441b26a..e8320bf 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -202,36 +202,6 @@ static unsigned int align(unsigned int i)
+ 	return (i + 3) & ~3u;
  }
-+
-+/**
-+ * tipc_port_list_add - add a port to a port list, ensuring no duplicates
-+ */
-+
-+void tipc_port_list_add(struct port_list *pl_ptr, u32 port)
-+{
-+	struct port_list *item = pl_ptr;
-+	int i;
-+	int item_sz = PLSIZE;
-+	int cnt = pl_ptr->count;
-+
-+	for (; ; cnt -= item_sz, item = item->next) {
-+		if (cnt < PLSIZE)
-+			item_sz = cnt;
-+		for (i = 0; i < item_sz; i++)
-+			if (item->ports[i] == port)
-+				return;
-+		if (i < PLSIZE) {
-+			item->ports[i] = port;
-+			pl_ptr->count++;
-+			return;
-+		}
-+		if (!item->next) {
-+			item->next = kmalloc(sizeof(*item), GFP_ATOMIC);
-+			if (!item->next) {
-+				warn("Incomplete multicast delivery, no memory\n");
-+				return;
-+			}
-+			item->next->next = NULL;
-+		}
-+	}
-+}
-+
-+/**
-+ * tipc_port_list_free - free dynamically created entries in port_list chain
-+ *
-+ */
-+
-+void tipc_port_list_free(struct port_list *pl_ptr)
-+{
-+	struct port_list *item;
-+	struct port_list *next;
-+
-+	for (item = pl_ptr->next; item; item = next) {
-+		next = item->next;
-+		kfree(item);
-+	}
-+}
-+
-diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
-index cd77981..e8c2b81 100644
---- a/net/tipc/bcast.h
-+++ b/net/tipc/bcast.h
-@@ -87,56 +87,8 @@ static inline int tipc_nmap_equal(struct tipc_node_map *nm_a, struct tipc_node_m
- void tipc_nmap_diff(struct tipc_node_map *nm_a, struct tipc_node_map *nm_b,
- 				  struct tipc_node_map *nm_diff);
  
--/**
-- * tipc_port_list_add - add a port to a port list, ensuring no duplicates
-- */
--
--static inline void tipc_port_list_add(struct port_list *pl_ptr, u32 port)
+-static int link_working_working(struct link *l_ptr)
 -{
--	struct port_list *item = pl_ptr;
--	int i;
--	int item_sz = PLSIZE;
--	int cnt = pl_ptr->count;
--
--	for (; ; cnt -= item_sz, item = item->next) {
--		if (cnt < PLSIZE)
--			item_sz = cnt;
--		for (i = 0; i < item_sz; i++)
--			if (item->ports[i] == port)
--				return;
--		if (i < PLSIZE) {
--			item->ports[i] = port;
--			pl_ptr->count++;
--			return;
--		}
--		if (!item->next) {
--			item->next = kmalloc(sizeof(*item), GFP_ATOMIC);
--			if (!item->next) {
--				warn("Incomplete multicast delivery, no memory\n");
--				return;
--			}
--			item->next->next = NULL;
--		}
--	}
+-	return (l_ptr->state == WORKING_WORKING);
 -}
 -
--/**
-- * tipc_port_list_free - free dynamically created entries in port_list chain
-- *
-- * Note: First item is on stack, so it doesn't need to be released
-- */
--
--static inline void tipc_port_list_free(struct port_list *pl_ptr)
+-static int link_working_unknown(struct link *l_ptr)
 -{
--	struct port_list *item;
--	struct port_list *next;
--
--	for (item = pl_ptr->next; item; item = next) {
--		next = item->next;
--		kfree(item);
--	}
+-	return (l_ptr->state == WORKING_UNKNOWN);
 -}
 -
-+void tipc_port_list_add(struct port_list *pl_ptr, u32 port);
-+void tipc_port_list_free(struct port_list *pl_ptr);
+-static int link_reset_unknown(struct link *l_ptr)
+-{
+-	return (l_ptr->state == RESET_UNKNOWN);
+-}
+-
+-static int link_reset_reset(struct link *l_ptr)
+-{
+-	return (l_ptr->state == RESET_RESET);
+-}
+-
+-static int link_blocked(struct link *l_ptr)
+-{
+-	return (l_ptr->exp_msg_count || l_ptr->blocked);
+-}
+-
+-static int link_congested(struct link *l_ptr)
+-{
+-	return (l_ptr->out_queue_size >= l_ptr->queue_limit[0]);
+-}
+-
+ static void link_init_max_pkt(struct link *l_ptr)
+ {
+ 	u32 max_pkt;
+diff --git a/net/tipc/link.h b/net/tipc/link.h
+index 6a51e38..2e5385c 100644
+--- a/net/tipc/link.h
++++ b/net/tipc/link.h
+@@ -292,4 +292,39 @@ static inline u32 lesser(u32 left, u32 right)
+ 	return less_eq(left, right) ? left : right;
+ }
  
- int  tipc_bclink_init(void);
- void tipc_bclink_stop(void);
++
++/*
++ * Link status checking routines
++ */
++
++static inline int link_working_working(struct link *l_ptr)
++{
++	return (l_ptr->state == WORKING_WORKING);
++}
++
++static inline int link_working_unknown(struct link *l_ptr)
++{
++	return (l_ptr->state == WORKING_UNKNOWN);
++}
++
++static inline int link_reset_unknown(struct link *l_ptr)
++{
++	return (l_ptr->state == RESET_UNKNOWN);
++}
++
++static inline int link_reset_reset(struct link *l_ptr)
++{
++	return (l_ptr->state == RESET_RESET);
++}
++
++static inline int link_blocked(struct link *l_ptr)
++{
++	return (l_ptr->exp_msg_count || l_ptr->blocked);
++}
++
++static inline int link_congested(struct link *l_ptr)
++{
++	return (l_ptr->out_queue_size >= l_ptr->queue_limit[0]);
++}
++
+ #endif
 -- 
 1.7.1.rc2
 
