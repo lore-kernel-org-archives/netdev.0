@@ -1,61 +1,79 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: linux-next: Tree for May 12 (netfilter: xt_TEE)
-Date: Wed, 12 May 2010 22:11:35 +0200 (CEST)
-Message-ID: <alpine.LSU.2.01.1005122210180.11190@obet.zrqbmnf.qr>
-References: <20100512164638.75e6e111.sfr@canb.auug.org.au> <20100512085045.483f0e2d.randy.dunlap@oracle.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] net sched: cleanup and rate limit warning
+Date: Wed, 12 May 2010 13:20:42 -0700
+Message-ID: <20100512132042.3b38da18@nehalam>
+References: <20100511172412.76aff184@nehalam>
+	<1273684674.16074.0.camel@bigi>
+	<20100512111706.616dc7cf@nehalam>
+	<1273691628.16074.15.camel@bigi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	netdev <netdev@vger.kernel.org>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>, linux-next@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	sebastian.classen@freenet.ag,
-	Randy Dunlap <randy.dunlap@oracle.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100512085045.483f0e2d.randy.dunlap@oracle.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: hadi@cyberus.ca
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:52073 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756251Ab0ELUUo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 May 2010 16:20:44 -0400
+In-Reply-To: <1273691628.16074.15.camel@bigi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 2010-05-12 17:50, Randy Dunlap wrote:
->On Wed, 12 May 2010 16:46:38 +1000 Stephen Rothwell wrote:
->
->net/built-in.o: In function `tee_tg_route6':
->xt_TEE.c:(.text+0x45ca5): undefined reference to `ip6_route_output'
->net/built-in.o: In function `tee_tg6':
->xt_TEE.c:(.text+0x45d79): undefined reference to `ip6_local_out'
+On Wed, 12 May 2010 15:13:48 -0400
+jamal <hadi@cyberus.ca> wrote:
 
-parent cba7a98a474a4f2a9316473734ba76829191a78a (v2.6.34-rc5-1489-gcba7a98)
-commit cff884ea0de4bf8729ac33bb5d98ac9d39d09019
-Author: Jan Engelhardt <jengelh@medozas.de>
-Date:   Wed May 12 22:10:03 2010 +0200
+> Thanks for the info Stephen.
+> 
+> On Wed, 2010-05-12 at 11:17 -0700, Stephen Hemminger wrote:
+> 
+> > The Vyatta syntax is:
+> > 
+> >  traffic-limiter test-traffic-limit {
+> >      class 2048 {
+> >          bandwidth 1mbit
+> >          burst 500kbit
+> >          match onebox {
+> >              ip {
+> >                  destination {
+> >                      address 192.168.100.99/32
+> >                  }
+> >              }
+> >          }
+> >      }
+> >  }
+> > 
+> 
+> ;-> I guess kids these days prefer juniperism over ciscoism?
+> Why dont they just learn linuxism?;->
+> 
+> > Which generates these TC commands.
+> > 
+> > root@VC6:~# tc qdisc show dev eth0
+> > qdisc pfifo_fast 0: root bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+> > qdisc ingress ffff: parent ffff:fff1 ---------------- 
+> > 
+> > root@VC6:~# tc filter show dev eth0 parent ffff:
+> > filter protocol all pref 20 u32 
+> > filter protocol all pref 20 u32 fh 800: ht divisor 1 
+> > filter protocol all pref 20 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid ffff:800 
+> >   match c0a86463/ffffffff at 16
+> >  police 0x3 rate 1000Kbit burst 63999b mtu 2Kb action reclassify overhead 0b 
+> > ref 1 bind 1
+> > 
+> > 
+> > I think the bad part is the huge burst size.
+> 
+> That may be - but it seems your tool is the culprit.
+> It is generating wrong tc commands if i read the intent correctly.
+> Basically what the tc command is saying is "if you exceed the 1Mbit upto
+> a burst of 500kbit then reclassify".
+> "Reclassify" means literally that: to reuse the same classification rule
+> again, which will find that  we have exceeded 1M which will ask
+> reclassify .... loop.... I am glad that code is there ;->
 
-netfilter: xtables: add missing depends for xt_TEE
+The tool isn't generating an action (just tc filter ... police ..)
+so it is getting the unfortunate default of reclassify.
 
-Aviod these link-time errors when IPV6=m, XT_TEE=y:
 
-net/built-in.o: In function `tee_tg_route6':
-xt_TEE.c:(.text+0x45ca5): undefined reference to `ip6_route_output'
-net/built-in.o: In function `tee_tg6':
-xt_TEE.c:(.text+0x45d79): undefined reference to `ip6_local_out'
-
-Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
----
- net/netfilter/Kconfig |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 673a6c8..e223f47 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -505,6 +505,7 @@ config NETFILTER_XT_TARGET_RATEEST
- config NETFILTER_XT_TARGET_TEE
- 	tristate '"TEE" - packet cloning to alternate destiantion'
- 	depends on NETFILTER_ADVANCED
-+	depends on (IPV6 || IPV6=n)
- 	---help---
- 	This option adds a "TEE" target with which a packet can be cloned and
- 	this clone be rerouted to another nexthop.
 -- 
-# Created with git-export-patch
