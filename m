@@ -1,47 +1,58 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-next-2.6] [PPP] cleanup: remove pppoe_ioctl() declaration.
-Date: Wed, 12 May 2010 08:37:36 +0300
-Message-ID: <AANLkTinUFYCHp-9qw3bHIqolKrS0X33FjFmDsdS2XWec@mail.gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [Uclinux-dist-devel] [PATCH 1/9] netdev: bfin_mac: add support
+ for IEEE 1588 PTP
+Date: Wed, 12 May 2010 09:20:50 +0200
+Message-ID: <20100512072050.GA2934@riccoc20.at.omicron.at>
+References: <1273505954-32588-1-git-send-email-vapier@gentoo.org>
+ <20100511070716.GA3254@riccoc20.at.omicron.at>
+ <AANLkTikcdpIlZAE-AwahNie8KOys7jIhiNb9kiT_B7Av@mail.gmail.com>
+ <AANLkTilpgUrQfFpmgHhUSCprbnTSC9LCGpFxSUEaGSWr@mail.gmail.com>
+ <AANLkTimPOxc4RQ5iDMk8N9xYFb95VaqFleUa_nG4Gwwn@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=0016e6db2b151a766e04865f0a94
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Barry Song <21cnbao@gmail.com>, netdev@vger.kernel.org,
+	Barry Song <barry.song@analog.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	uclinux-dist-devel@blackfin.uclinux.org
+To: Mike Frysinger <vapier.adi@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:46593 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751391Ab0ELFhi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 May 2010 01:37:38 -0400
-Received: by wyb32 with SMTP id 32so501872wyb.19
-        for <netdev@vger.kernel.org>; Tue, 11 May 2010 22:37:36 -0700 (PDT)
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:53467 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750894Ab0ELHUl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 May 2010 03:20:41 -0400
+Received: by fxm4 with SMTP id 4so241503fxm.19
+        for <netdev@vger.kernel.org>; Wed, 12 May 2010 00:20:40 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <AANLkTimPOxc4RQ5iDMk8N9xYFb95VaqFleUa_nG4Gwwn@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---0016e6db2b151a766e04865f0a94
-Content-Type: text/plain; charset=ISO-8859-1
+On Tue, May 11, 2010 at 11:31:37PM -0400, Mike Frysinger wrote:
+> On Tue, May 11, 2010 at 23:20, Barry Song wrote:
+> >
+> > I think the API can work for blackfin. =A0But our PTP driver is bas=
+ed on
+> > drivers/net/igb and has worked together with user-space PTPD utilit=
+y.
+> > Here he is writing a different driver framework. It is not the mome=
+nt
+> > for us to merge now. Maybe next kernel version after his patches ha=
+ve
+> > been popular.
+>=20
+> i'm not going to merge them into our tree ahead of the net->mainline
+> merge.  Richard would just like some feedback on the proposed
+> framework to make sure it doesnt have limitations we'd have to fix
+> after things get merged.
 
-Hi,
-  - This patch removes pppoe_ioctl()  declaration in
-drivers/net/pppoe.c as it is unneeded.
+Yes, thats right. It is enough just to know that the API *could* work
+for blackfin. The idea is to have a standard API that works for all
+current (and likely future) PTP hardware clocks.
 
+The patch set is still under active development and review, so it is
+better for you to wait until the dust settles.
 
-Regards,
-Rami Rosen
+Thanks,
+Richard
 
-
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
-
---0016e6db2b151a766e04865f0a94
-Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
-Content-Disposition: attachment; filename="patch.txt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_g93pxcs40
-
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3BwcG9lLmMgYi9kcml2ZXJzL25ldC9wcHBvZS5jDQpv
-bGQgbW9kZSAxMDA2NDQNCm5ldyBtb2RlIDEwMDc1NQ0KaW5kZXggOTlmMDMxYS4uNmZkODRlZA0K
-LS0tIGEvZHJpdmVycy9uZXQvcHBwb2UuYw0KKysrIGIvZHJpdmVycy9uZXQvcHBwb2UuYw0KQEAg
-LTg5LDcgKzg5LDYgQEANCiAjZGVmaW5lIFBQUE9FX0hBU0hfU0laRSAoMSA8PCBQUFBPRV9IQVNI
-X0JJVFMpDQogI2RlZmluZSBQUFBPRV9IQVNIX01BU0sJKFBQUE9FX0hBU0hfU0laRSAtIDEpDQog
-DQotc3RhdGljIGludCBwcHBvZV9pb2N0bChzdHJ1Y3Qgc29ja2V0ICpzb2NrLCB1bnNpZ25lZCBp
-bnQgY21kLCB1bnNpZ25lZCBsb25nIGFyZyk7DQogc3RhdGljIGludCBwcHBvZV94bWl0KHN0cnVj
-dCBwcHBfY2hhbm5lbCAqY2hhbiwgc3RydWN0IHNrX2J1ZmYgKnNrYik7DQogc3RhdGljIGludCBf
-X3BwcG9lX3htaXQoc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKTsNCiANCg==
---0016e6db2b151a766e04865f0a94--
