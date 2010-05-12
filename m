@@ -1,95 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] bnx2x: avoid TX timeout when stopping device
-Date: Wed, 12 May 2010 11:27:38 +0200
-Message-ID: <1273656458.2621.22.camel@edumazet-laptop>
-References: <20100512110921.0e3f45fc@dhcp-lab-109.englab.brq.redhat.com>
+From: Jon Zhou <Jon.Zhou@jdsu.com>
+Subject: RE: does the broadcom bnx2x support RSS/multi queue
+Date: Wed, 12 May 2010 02:34:51 -0700
+Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497D85DCD@MILEXCH2.ds.jdsu.net>
+References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497D85D43@MILEXCH2.ds.jdsu.net>
+ <1273650119.2621.5.camel@edumazet-laptop>
+ <1273655947.4491.5.camel@lb-tlvb-eilong.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Eilon Greenstein <eilong@broadcom.com>,
-	Vladislav Zolotarov <vladz@broadcom.com>,
-	Dmitry Kravkov <dmitry@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Breno Leitao <leitao@linux.vnet.ibm.com>
-To: Stanislaw Gruszka <sgruszka@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "eilong@broadcom.com" <eilong@broadcom.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:38076 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752238Ab0ELJ1m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 May 2010 05:27:42 -0400
-Received: by fxm15 with SMTP id 15so96509fxm.19
-        for <netdev@vger.kernel.org>; Wed, 12 May 2010 02:27:40 -0700 (PDT)
-In-Reply-To: <20100512110921.0e3f45fc@dhcp-lab-109.englab.brq.redhat.com>
+Received: from exprod7og126.obsmtp.com ([64.18.2.206]:35157 "HELO
+	exprod7og126.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751717Ab0ELJfE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 May 2010 05:35:04 -0400
+In-Reply-To: <1273655947.4491.5.camel@lb-tlvb-eilong.il.broadcom.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 12 mai 2010 =C3=A0 11:09 +0200, Stanislaw Gruszka a =C3=A9c=
-rit :
-> When stop device call netif_carrier_off() just after disabling TX que=
-ue to
-> avoid possibility of netdev watchdog warning and ->ndo_tx_timeout() i=
-nvocation.
->=20
-> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
-> ---
-
-This reminds me I saw some strange things in bnx2.c for a similar
-symptom.
-
-Commit e6bf95ffa8d6f8f4b7ee33ea01490d95b0bbeb6e
-
-Would you take a look at this too ?
-
-Or if this kind of trans_start refresh on all queues is really needed,
-it should be a core network provided function, not implemented on every
-driver...
-
-Thanks :)
-
->  drivers/net/bnx2x_main.c |    6 ++----
->  1 files changed, 2 insertions(+), 4 deletions(-)
->=20
-> diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-> index 2bc35c7..57ff5b3 100644
-> --- a/drivers/net/bnx2x_main.c
-> +++ b/drivers/net/bnx2x_main.c
-> @@ -8499,6 +8499,7 @@ static int bnx2x_nic_unload(struct bnx2x *bp, i=
-nt unload_mode)
-> =20
->  	/* Disable HW interrupts, NAPI and Tx */
->  	bnx2x_netif_stop(bp, 1);
-> +	netif_carrier_off(bp->dev);
-> =20
->  	del_timer_sync(&bp->timer);
->  	SHMEM_WR(bp, func_mb[BP_FUNC(bp)].drv_pulse_mb,
-> @@ -8524,8 +8525,6 @@ static int bnx2x_nic_unload(struct bnx2x *bp, i=
-nt unload_mode)
-> =20
->  	bp->state =3D BNX2X_STATE_CLOSED;
-> =20
-> -	netif_carrier_off(bp->dev);
-> -
->  	/* The last driver must disable a "close the gate" if there is no
->  	 * parity attention or "process kill" pending.
->  	 */
-> @@ -13431,6 +13430,7 @@ static int bnx2x_eeh_nic_unload(struct bnx2x =
-*bp)
->  	bp->rx_mode =3D BNX2X_RX_MODE_NONE;
-> =20
->  	bnx2x_netif_stop(bp, 0);
-> +	netif_carrier_off(bp->dev);
-> =20
->  	del_timer_sync(&bp->timer);
->  	bp->stats_state =3D STATS_STATE_DISABLED;
-> @@ -13457,8 +13457,6 @@ static int bnx2x_eeh_nic_unload(struct bnx2x =
-*bp)
-> =20
->  	bp->state =3D BNX2X_STATE_CLOSED;
-> =20
-> -	netif_carrier_off(bp->dev);
-> -
->  	return 0;
->  }
-> =20
-
-
+aGkgZWlsb246DQoNCmRvIHlvdSB0aGluayBJIG5lZWQgdG8gdXBkYXRlIHRoZSBrZXJuZWwgYWxz
+bz8NCg0KdGhhbmtzIQ0Kam9uDQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBF
+aWxvbiBHcmVlbnN0ZWluIFttYWlsdG86ZWlsb25nQGJyb2FkY29tLmNvbV0gDQpTZW50OiBXZWRu
+ZXNkYXksIE1heSAxMiwgMjAxMCA1OjE5IFBNDQpUbzogRXJpYyBEdW1hemV0DQpDYzogSm9uIFpo
+b3U7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNClN1YmplY3Q6IFJlOiBkb2VzIHRoZSBicm9hZGNv
+bSBibngyeCBzdXBwb3J0IFJTUy9tdWx0aSBxdWV1ZQ0KDQpPbiBXZWQsIDIwMTAtMDUtMTIgYXQg
+MDA6NDEgLTA3MDAsIEVyaWMgRHVtYXpldCB3cm90ZToNCj4gTGUgbWVyY3JlZGkgMTIgbWFpIDIw
+MTAgw6AgMDA6MzEgLTA3MDAsIEpvbiBaaG91IGEgw6ljcml0IDoNCj4gPiBoaSB0aGVyZQ0KPiA+
+IA0KPiA+IEkgYW0gbm90IHN1cmUgaWYgbXkgQnJvYWRjb20gMTBHIG5pYyBkcml2ZXIoYm54Mngp
+IHN1cHBvcnQgUlNTL211bHRpIHF1ZXVlDQo+ID4gDQo+ID4gaWJtLWJjLTUzOi9ob21lL3J1aXpo
+b3UvbnByb2JlICMgdW5hbWUgLWENCj4gPiBMaW51eCBpYm0tYmMtNTMgMi42LjI3LjE5LTUtZGVm
+YXVsdCAjMSBTTVAgMjAwOS0wMi0yOCAwNDo0MDoyMSArMDEwMCB4ODZfNjQgeDg2XzY0IHg4Nl82
+NCBHTlUvTGludXgNCj4gPiANCj4gPiBpYm0tYmMtNTM6L2hvbWUvcnVpemhvdS9ucHJvYmUgIyBl
+dGh0b29sIC1TIGV0aDUNCj4gPiBOSUMgc3RhdGlzdGljczoNCj4gPiAgICAgIHJ4X2J5dGVzOiA2
+ODEwMDE3MA0KPiA+ICAgICAgcnhfZXJyb3JfYnl0ZXM6IDANCj4gPiAgICAgIHR4X2J5dGVzOiAw
+DQo+ID4gICAgICB0eF9lcnJvcl9ieXRlczogMA0KPiA+ICAgICAgcnhfdWNhc3RfcGFja2V0czog
+MjAxNjU0DQo+ID4gICAgICByeF9tY2FzdF9wYWNrZXRzOiAwDQo+ID4gICAgICByeF9iY2FzdF9w
+YWNrZXRzOiAwDQo+ID4gICAgICB0eF9wYWNrZXRzOiAwDQo+ID4gICAgICB0eF9tYWNfZXJyb3Jz
+OiAwDQo+ID4gICAgICB0eF9jYXJyaWVyX2Vycm9yczogMA0KPiA+ICAgICAgcnhfY3JjX2Vycm9y
+czogMA0KPiA+ICAgICAgcnhfYWxpZ25fZXJyb3JzOiAwDQo+ID4gICAgICB0eF9zaW5nbGVfY29s
+bGlzaW9uczogMA0KPiA+ICAgICAgdHhfbXVsdGlfY29sbGlzaW9uczogMA0KPiA+ICAgICAgdHhf
+ZGVmZXJyZWQ6IDANCj4gPiAgICAgIHR4X2V4Y2Vzc19jb2xsaXNpb25zOiAwDQo+ID4gICAgICB0
+eF9sYXRlX2NvbGxpc2lvbnM6IDANCj4gPiAgICAgIHR4X3RvdGFsX2NvbGxpc2lvbnM6IDANCj4g
+PiAgICAgIHJ4X2ZyYWdtZW50czogMA0KPiA+ICAgICAgcnhfamFiYmVyczogMA0KPiA+ICAgICAg
+cnhfdW5kZXJzaXplX3BhY2tldHM6IDANCj4gPiAgICAgIHJ4X292ZXJzaXplX3BhY2tldHM6IDAN
+Cj4gPiAgICAgIHR4XzY0X2J5dGVfcGFja2V0czogMA0KPiA+ICAgICAgdHhfNjVfdG9fMTI3X2J5
+dGVfcGFja2V0czogMA0KPiA+ICAgICAgdHhfMTI4X3RvXzI1NV9ieXRlX3BhY2tldHM6IDANCj4g
+PiAgICAgIHR4XzI1Nl90b181MTFfYnl0ZV9wYWNrZXRzOiAwDQo+ID4gICAgICB0eF81MTJfdG9f
+MTAyM19ieXRlX3BhY2tldHM6IDANCj4gPiAgICAgIHR4XzEwMjRfdG9fMTUyMl9ieXRlX3BhY2tl
+dHM6IDANCj4gPiAgICAgIHR4XzE1MjNfdG9fOTAyMl9ieXRlX3BhY2tldHM6IDANCj4gPiAgICAg
+IHJ4X3hvbl9mcmFtZXM6IDANCj4gPiAgICAgIHJ4X3hvZmZfZnJhbWVzOiAwDQo+ID4gICAgICB0
+eF94b25fZnJhbWVzOiAwDQo+ID4gICAgICB0eF94b2ZmX2ZyYW1lczogMA0KPiA+ICAgICAgcnhf
+bWFjX2N0cmxfZnJhbWVzOiAwDQo+ID4gICAgICByeF9maWx0ZXJlZF9wYWNrZXRzOiAwDQo+ID4g
+ICAgICByeF9kaXNjYXJkczogMA0KPiA+ICAgICAgcnhfZndfZGlzY2FyZHM6IDANCj4gPiAgICAg
+IGJyYl9kaXNjYXJkOiAwDQo+ID4gICAgICBicmJfdHJ1bmNhdGU6IDANCj4gPiAgICAgIHJ4X3Bo
+eV9pcF9lcnJfZGlzY2FyZHM6IDANCj4gPiAgICAgIHJ4X3NrYl9hbGxvY19kaXNjYXJkOiAwDQo+
+ID4gICAgICByeF9jc3VtX29mZmxvYWRfZXJyb3JzOiA2DQo+ID4gDQo+ID4gdGhlIGRyaXZlciB2
+ZXIgaXM6DQo+ID4gYm54MnhfbWFpbi5jDQo+ID4gI2RlZmluZSBEUlZfTU9EVUxFX1ZFUlNJT04g
+ICAgICAiMS40NS4yNiINCj4gPiANCj4gPiBsb29rcyBub3Qgc3VwcG9ydD8NCj4gPiANCj4gPiB0
+aGFua3MNCj4gPiBqb24NCj4gDQo+IFBlciBxdWV1ZSBzdGF0cyB3ZXJlIGFkZGVkIGxhc3QgeWVh
+ciBvbmx5IChUaHUgRmViIDEyIDA4OjM2OjMzIDIwMDkpDQo+IA0KPiBZb3UgbWlnaHQgY2hlY2sg
+ImdyZXAgZXRoNSAvcHJvYy9pbnRlcnJ1cHRzIg0KPiANCj4gT3IgdXBncmFkZSB0byAyLjYuMzMu
+eCBrZXJuZWwgOikNCj4gDQpUaGUgSFcgYW5kIGN1cnJlbnQgZHJpdmVyIHN1cHBvcnQgbXVsdGkt
+cXVldWUuIEhvd2V2ZXIsIHlvdSBhcmUgdXNpbmcgYSB2ZXJzaW9uIHdoaWNoIGlzIHRvbyBvbGQu
+DQoNCg0KDQoNCg0K
