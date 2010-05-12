@@ -1,48 +1,259 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] net sched: cleanup and rate limit warning
-Date: Tue, 11 May 2010 17:24:12 -0700
-Message-ID: <20100511172412.76aff184@nehalam>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next-2.6 2/2] bonding: allow user-controlled output
+ slave selection
+Date: Tue, 11 May 2010 20:27:25 -0400
+Message-ID: <20100512002725.GA2460@localhost.localdomain>
+References: <20100511003245.GB7497@gospo.rdu.redhat.com>
+ <17897.1273608579@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, jamal <hadi@cyberus.ca>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:57003 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752716Ab0ELAYP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 May 2010 20:24:15 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:32932 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751439Ab0ELA1i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 May 2010 20:27:38 -0400
+Content-Disposition: inline
+In-Reply-To: <17897.1273608579@death.nxdomain.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the user has a bad classification configuration, and gets a packet
-that goes through too many steps. Chances are more packets will arrive,
-and the message spew will overrun syslog because it is not rate limited.
-And because it is not tagged with appropriate priority it can't not be screened.
+On Tue, May 11, 2010 at 01:09:39PM -0700, Jay Vosburgh wrote:
+> Andy Gospodarek <andy@greyhouse.net> wrote:
+> 
+> >This patch give the user the ability to control the output slave for
+> >round-robin and active-backup bonding.  Similar functionality was
+> >discussed in the past, but Jay Vosburgh indicated he would rather see a
+> >feature like this added to existing modes rather than creating a
+> >completely new mode.  Jay's thoughts as well as Neil's input surrounding
+> >some of the issues with the first implementation pushed us toward a
+> >design that relied on the queue_mapping rather than skb marks.
+> >Round-robin and active-backup modes were chosen as the first users of
+> >this slave selection as they seemed like the most logical choices when
+> >considering a multi-switch environment.
+> >
+> >Round-robin mode works without any modification, but active-backup does
+> >require inclusion of the first patch in this series and setting
+> >the 'keep_all' flag.  This will allow reception of unicast traffic on
+> >any of the backup interfaces.
+> 
+> 	Yes, I did think that the mark business fit better into existing
+> modes (I thought of it as kind of a new hash for xor and 802.3ad modes).
+> I also didn't expect to see so much new stuff (this, as well as the FCOE
+> special cases being discussed elsewhere) being shoehorned into the
+> active-backup mode.  I'm not so sure that adding so many special cases
+> to active-backup is a good thing.
+> 
+> 	Now, I'm starting to wonder if you were right, and it would be
+> better overall to have a "manual" mode that would hopefully satisfy this
+> case as well as the FCOE special case.  I don't think either of these is
+> a bad use case, I'm just not sure the right way to handle them is
+> another special knob in active-backup mode (either directly, or
+> implicitly in __netif_receive_skb), which wasn't what I expected to see.
+> 
+I honestly don't think a separate mode is warranted here.  While I'm not opposed
+to adding a new mode, I really think doing so is no different from overloading
+an existing mode.  I say that because to add a new mode in which we explicitly
+expect traffic to be directed to various slaves requires that we implement a
+policy for frames which have no queue mapping determined on egress.  Any policy
+I can think of is really an approximation of an existing policy, so we may as
+well reuse the policy code that we already have in place.  About the only way a
+separate mode makes sense is in the 'passthrough' queue mode you document below.
+In this model, in which queue ids map to slaves in a 1:1 fashion it doesn't make
+senes.
 
-Added the qdisc to the message to try and give some more context when
-the message does arrive.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 	I presume you're overloading active-backup because it's not
+> etherchannel, 802.3ad, etc, and just talks right to the switch.  For the
+> regular load balance modes, I still think overlay into the existing
+> modes is preferable (more on that later); I'm thinking of "manual"
+> instead of another tweak to active-backup.
+> 
+> 	If users want to have actual hot-standby functionality, then
+> active-backup would do that, and nothing else (and it can be multi-queue
+> aware, but only one slave active at a time).
+> 
+Yes, but active backup doesn't provide prefered output path selection in and of
+itself.  Thats the feature here.
 
----
-Please think about this for 2.6.34 and could even be -stable material.
+> 	Users who want the set of bonded slaves to look like a big
+> multiqueue buffet could use this "manual" mode and set things up however
+> they want.  One way to set it up is simply that the bond is N queues
+> wide, where N is the total of the queue counts of all the slaves.  If a
+> slave fails, N gets smaller, and the user code has to deal with that.
+> Since the queue count of a device can't change dynamically, the bond
+> would have to actually be set up with some big number of queues, and
+> then only a subset is actually active (or there is some sort of wrap).
+> 
+> 	In such an implementation, each slave would have a range of
+> queue IDs, not necessarily just one.  I'm a bit leery of exposing an API
+> where each slave is one queue ID, as it could make transitioning to real
+> multi-queue awareness difficult.
+> 
+I'm sorry, what exactly do you mean when you say 'real' multi queue
+awareness?  How is this any less real than any other implementation?  The
+approach you outline above isn't any more or less valid than this one.
 
---- a/net/sched/sch_api.c	2010-05-11 17:08:42.177374275 -0700
-+++ b/net/sched/sch_api.c	2010-05-11 17:16:59.560612078 -0700
-@@ -1637,9 +1638,12 @@ reclassify:
- 		tp = otp;
- 
- 		if (verd++ >= MAX_REC_LOOP) {
--			printk("rule prio %u protocol %02x reclassify loop, "
--			       "packet dropped\n",
--			       tp->prio&0xffff, ntohs(tp->protocol));
-+			if (net_ratelimit())
-+				printk(KERN_NOTICE
-+				       "%s: packet reclassify loop"
-+					  " rule prio %u protocol %02x\n",
-+				       tp->q->ops->id,
-+				       tp->prio & 0xffff, ntohs(tp->protocol));
- 			return TC_ACT_SHOT;
- 		}
- 		skb->tc_verd = SET_TC_VERD(skb->tc_verd, verd);
+While we're on the subject, Andy and I did discuss a model simmilar to what you
+describe above (what I'll refer to as a queue id passthrough model), in which
+you can tell the bonding driver to map a frame to a queue, and the bonding
+driver doesn't really do anything with the queue id other than pass to the slave
+device for hardware based multiqueue tx handling.  While we could do that, its
+my feeling such a model isn't the way to go for two primary reasons:
+
+1) Inconsistent behavior.  Such an implementation makes assumptions regarding
+queue id specification within a driver.  For example, What if one of the slaves
+reserves some fixed number of low order queues for a sepecific purpose, and as
+such general use queues begin an at offset from zero, while other slaves do not.
+While its easy to accomidate such needs when writing the tc filters, if a slave
+fails over, such a bias would change output traffic behavior, as the bonding
+driver can't be clearly informed of such a bias.  Likewise, what if a slave
+driver allocates more queues than it actually supports in hardware (like the
+implementation you propose, ixgbe IIRC actually does this).  If slaves handled
+unimplemented tx queues different (if one wrapped queues, while the other simply
+dropped frames to unimplemented queues for instance).  A failover would change
+traffic patterns dramatically.
+
+2) Need.  While (1) can pretty easily be managed with a few configuration
+guidelines (output queues on slaves have to be configured identically, lets
+chaos and madness befall you, etc), theres really no reason to bind users to
+such a system.  We're using tc filters to set the queue id on skbs enqueued to
+the bonding driver, theres absolutely no reason you can add addition filters to
+the slaves directly.  Since the bonding driver uses dev_queue_xmit to send a
+frame to a slave, it has the opportunity to pass through another set of queuing
+diciplines and filters that can reset and re-assign the skbs queue mapping.  So
+with the approach in this patch you can get both direct output control without
+sacrificing actual hardware tx output queue control.  With a passthrough model,
+you save a bit of filter configuration, but at the expense of having to be much
+more careful about how you configure your slave nics, and detecting such errors
+in configuration would be rather difficult to track down, as it would require
+the generation of traffic that hit the right filter after a failover.
+
+
+> 	There might also be a way to tie it in to the new RPS code on
+> the receive side.
+> 
+> 	If the slaves all have the same MAC and attach to a single
+> switch via etherchannel, then it all looks pretty much like a single big
+> honkin' multiqueue device.  The switch probably won't map the flows back
+> the same way, though.
+> 
+I agree, they probably wont.  Receive side handling wasn't really our focus here
+though.  Thats largely why we chose round robin and active backup as our first
+modes to use this with.  They are already written to expect frames on either
+interface.
+
+> 	If the slaves are on discrete switches (without etherchannel),
+> things become more complicated.  If the slaves have the same MAC, then
+> the switches will be irritated about seeing that same MAC coming in from
+> multiple places.  If the slaves have different MACs, then ARP has the
+> same sort of issues.
+> 
+> 	In thinking about it, if it's linux bonding at both ends, there
+> could be any number of discrete switches in the path, and it wouldn't
+> matter as long as the linux end can work things out, e.g.,
+> 
+>         -- switch 1 --
+> hostA  /              \  hostB
+> bond  ---- switch 2 ---- bond
+>        \              /
+>         -- switch 3 --
+> 
+> 	For something like this, the switches would never share MAC
+> information for the bonding slaves.  The issue here then becomes more of
+> detecting link failures (it would require either a "trunk failover" type
+> of function on the switch, or some kind of active probe between the
+> bonds).
+> 
+> 	Now, I realize that I'm babbling a bit, as from reading your
+> description, this isn't necessarily your target topology (which sounded
+> more like a case of slave A can reach only network X, and slave B can
+> reach anywhere, so sending to network X should use slave A
+> preferentially), or, as long as I'm doing ASCII-art,
+> 
+>        --- switch 1 ---- network X
+> hostA /               /
+> bond  ---- switch 2 -+-- anywhere
+> 
+> 	Is that an accurate representation?  Or is it something a bit
+> different, e.g.,
+> 
+>        --- switch 1 ---- network X -\
+> hostA /                             /
+> bond  ---- switch 2 ---- anywhere --
+> 
+> 	I.e., the "anywhere" connects back to network X from the
+> outside, so to speak.  Or, oh, maybe I'm missing it entirely, and you're
+> thinking of something like this:
+> 
+>        --- switch 1 --- VPN --- web site
+> hostA /                          /
+> bond  ---- switch 2 - Internet -/
+> 
+> 	Where you prefer to hit "web site" via the VPN (perhaps it's a
+> more efficient or secure path), but can do it from the public network at
+> large if necessary.
+> 
+Yes, this one.  I think the other models are equally interesting, but this model
+in which either path had universal reachabilty, but for some classes of traffic
+one path is preferred over the other is the one we had in mind.
+
+> 	Now, regardless of the above, your first patch ("keep_all") is
+> to deal with the reverse problem, if this is a piggyback on top of
+> active-backup mode: how to get packets back, when both channels can be
+> active simultaneously.  That actually dovetails to a degree with work
+> I've been doing lately, but the solution there probably isn't what
+> you're looking for (there's a user space daemon to do path finding, and
+> the "bond IP" address is piggybacked on the slaves' MAC addresses, which
+> are not changed; the "bond IP" set exists in a separate subnet all its
+> own).
+> 
+> 	As I said, I'm not convinced that the "keep_all" option to
+> active-backup is really better than just a "manual" mode that lacks the
+> dup suppression and expects the user to set everything up.
+> 
+> 	As for the round-robin change in this patch, if I'm reading it
+> right, then the way it works is that the packets are round-robined,
+> unless there's a queue id passed in, in which case it's assigned to the
+> slave mapped to that queue id.  I'm not entirely sure why you picked
+> round-robin mode for that over balance-xor; it doesn't seem to fit well
+> with the description in the documentation.  Or is it just sort of a
+> demonstrator?
+> 
+It was selected because round robin allows transmits on any interface already,
+and expects frames on any interface, so it was a 'safe' choice.  I would think
+balance-xor would also work.  Ideally it would be nice to get more modes
+supporting this mechanism.
+
+> 	I do like one other aspect of the patch, and that's the concept
+> of overlaying the queue map on top of the balance algorithm.  So, e.g.,
+> balance-xor would do its usual thing, unless the packet is queue mapped,
+> in which case the packet's assignment is obeyed.  The balance-xor could
+> even optionally do its xor across the full set of all slaves output
+> queues instead of just across the slaves.  Round-robin can operate
+> similarly.  For those modes, a "balance by queue vs. balance by slave"
+> seems like a reasonable knob to have.
+Not sure what you mean here.  In the model implemented by this patch, there is
+one output queue per slave, and as such, balance by queue == balance by slave.
+That would make sense in the model you describe earlier in this note, but not in
+the model presented by this patch.
+
+> 
+> 	I do understand that you're proposing something relatively
+> simple, and I'm thinking out loud about alternate or additional
+> implementation details.  Some of this is "ooh ahh what if", but we also
+> don't want to end up with something that's forwards incompatible, and
+> I'm hoping to find one solution to multiple problems.
+> 
+For clarification, can you ennumerate what other problems you are trying to
+solve with this feature, or features simmilar to this?  From this email, the one
+that I most clearly see is the desire to allow a passthrough mode of queue
+selection, which I think I've noted can be done already (even without this
+patch), by attaching additional tc filters to the slaves output queues directly.
+What else do you have in mind?
+
+Thanks & Regards
+Neil
+
+> 
