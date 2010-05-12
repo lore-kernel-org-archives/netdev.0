@@ -1,41 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: does the broadcom bnx2x support RSS/multi queue
-Date: Wed, 12 May 2010 11:59:54 +0200
-Message-ID: <1273658394.2621.26.camel@edumazet-laptop>
-References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497D85D43@MILEXCH2.ds.jdsu.net>
-	 <1273650119.2621.5.camel@edumazet-laptop>
-	 <1273655947.4491.5.camel@lb-tlvb-eilong.il.broadcom.com>
-	 <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497D85DCD@MILEXCH2.ds.jdsu.net>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: [PATCH net-next] bnx2x: avoid TX timeout when stopping device
+Date: Wed, 12 May 2010 12:58:15 +0200
+Message-ID: <20100512125815.0dad8ad0@dhcp-lab-109.englab.brq.redhat.com>
+References: <20100512110921.0e3f45fc@dhcp-lab-109.englab.brq.redhat.com>
+	<1273656458.2621.22.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "eilong@broadcom.com" <eilong@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jon Zhou <Jon.Zhou@jdsu.com>
+Cc: netdev@vger.kernel.org, Eilon Greenstein <eilong@broadcom.com>,
+	Vladislav Zolotarov <vladz@broadcom.com>,
+	Dmitry Kravkov <dmitry@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Breno Leitao <leitao@linux.vnet.ibm.com>,
+	Matt Carlson <mcarlson@broadcom.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:58441 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755265Ab0ELJ76 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 May 2010 05:59:58 -0400
-Received: by fxm15 with SMTP id 15so131610fxm.19
-        for <netdev@vger.kernel.org>; Wed, 12 May 2010 02:59:57 -0700 (PDT)
-In-Reply-To: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497D85DCD@MILEXCH2.ds.jdsu.net>
+Received: from mx1.redhat.com ([209.132.183.28]:45526 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755528Ab0ELK4K convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 May 2010 06:56:10 -0400
+In-Reply-To: <1273656458.2621.22.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 12 mai 2010 =C3=A0 02:34 -0700, Jon Zhou a =C3=A9crit :
-> hi eilon:
+On Wed, 12 May 2010 11:27:38 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> Le mercredi 12 mai 2010 =C3=A0 11:09 +0200, Stanislaw Gruszka a =C3=A9=
+crit :
+> > When stop device call netif_carrier_off() just after disabling TX q=
+ueue to
+> > avoid possibility of netdev watchdog warning and ->ndo_tx_timeout()=
+ invocation.
+> >=20
+> > Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+> > ---
 >=20
-> do you think I need to update the kernel also?
+> This reminds me I saw some strange things in bnx2.c for a similar
+> symptom.
 >=20
-> thanks!
-> jon
+> Commit e6bf95ffa8d6f8f4b7ee33ea01490d95b0bbeb6e
+>=20
+> Would you take a look at this too ?
 
-I believe both of us (Eilong and me) stated your kernel version was too
-old.
+I can send RFC patch for bnx2, and tg3 as I think it needs similar fix.
+=20
+> Or if this kind of trans_start refresh on all queues is really needed=
+,
+> it should be a core network provided function, not implemented on eve=
+ry
+> driver...
 
-In order to play with multiqueue, you should use a very recent kernel,
-or hit various bottlenecks and bugs.
+I think netif_carrier_off() should be used, since touching trans_start =
+make
+timeout only less probable, but not prevent it.=20
 
-
-
+Stanislaw
