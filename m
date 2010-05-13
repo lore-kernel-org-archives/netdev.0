@@ -1,43 +1,109 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] TBF: stop qdisc infanticide
-Date: Thu, 13 May 2010 09:17:17 -0700
-Message-ID: <20100513091717.78bd7f1f@nehalam>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>
+From: kaber@trash.net
+Subject: [PATCH 03/12] netfilter: xtables: dissolve do_match function
+Date: Thu, 13 May 2010 18:16:16 +0200
+Message-ID: <1273767385-18225-4-git-send-email-kaber@trash.net>
+References: <1273767385-18225-1-git-send-email-kaber@trash.net>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:42344 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759347Ab0EMQRX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 May 2010 12:17:23 -0400
+Received: from stinky.trash.net ([213.144.137.162]:58078 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758971Ab0EMQQb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 May 2010 12:16:31 -0400
+In-Reply-To: <1273767385-18225-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Several netem users have complained that when using TBF for rate control
-that any change to TBF parameters destroys the child qdisc. A typical
-use is to have a test that sets up netem + TBF then changes bandwidth
-setting.  But every time the parameters of TBF are changed it destroys
-the child qdisc, requiring reconfiguration. Other qdisc's like HTB
-don't do this.
+From: Jan Engelhardt <jengelh@medozas.de>
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+---
+ net/ipv4/netfilter/ip_tables.c  |   22 +++++-----------------
+ net/ipv6/netfilter/ip6_tables.c |   22 +++++-----------------
+ 2 files changed, 10 insertions(+), 34 deletions(-)
 
-
---- a/net/sched/sch_tbf.c	2010-05-12 20:41:06.257006386 -0700
-+++ b/net/sched/sch_tbf.c	2010-05-12 20:52:35.671216316 -0700
-@@ -273,7 +273,11 @@ static int tbf_change(struct Qdisc* sch,
- 	if (max_size < 0)
- 		goto done;
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index f92818f..265cedf 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -173,21 +173,6 @@ ipt_error(struct sk_buff *skb, const struct xt_target_param *par)
+ 	return NF_DROP;
+ }
  
--	if (qopt->limit > 0) {
-+	if (q->qdisc) {
-+		err = fifo_set_limit(q->qdisc, qopt->limit);
-+		if (err)
-+			goto done;
-+	} else if (qopt->limit > 0) {
- 		child = fifo_create_dflt(sch, &bfifo_qdisc_ops, qopt->limit);
- 		if (IS_ERR(child)) {
- 			err = PTR_ERR(child);
+-/* Performance critical - called for every packet */
+-static inline bool
+-do_match(const struct ipt_entry_match *m, const struct sk_buff *skb,
+-	 struct xt_match_param *par)
+-{
+-	par->match     = m->u.kernel.match;
+-	par->matchinfo = m->data;
+-
+-	/* Stop iteration if it doesn't match */
+-	if (!m->u.kernel.match->match(skb, par))
+-		return true;
+-	else
+-		return false;
+-}
+-
+ /* Performance critical */
+ static inline struct ipt_entry *
+ get_entry(const void *base, unsigned int offset)
+@@ -379,9 +364,12 @@ ipt_do_table(struct sk_buff *skb,
+ 			continue;
+ 		}
+ 
+-		xt_ematch_foreach(ematch, e)
+-			if (do_match(ematch, skb, &mtpar) != 0)
++		xt_ematch_foreach(ematch, e) {
++			mtpar.match     = ematch->u.kernel.match;
++			mtpar.matchinfo = ematch->data;
++			if (!mtpar.match->match(skb, &mtpar))
+ 				goto no_match;
++		}
+ 
+ 		ADD_COUNTER(e->counters, ntohs(ip->tot_len), 1);
+ 
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 7afa117..f8ac4a0 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -205,21 +205,6 @@ ip6t_error(struct sk_buff *skb, const struct xt_target_param *par)
+ 	return NF_DROP;
+ }
+ 
+-/* Performance critical - called for every packet */
+-static inline bool
+-do_match(const struct ip6t_entry_match *m, const struct sk_buff *skb,
+-	 struct xt_match_param *par)
+-{
+-	par->match     = m->u.kernel.match;
+-	par->matchinfo = m->data;
+-
+-	/* Stop iteration if it doesn't match */
+-	if (!m->u.kernel.match->match(skb, par))
+-		return true;
+-	else
+-		return false;
+-}
+-
+ static inline struct ip6t_entry *
+ get_entry(const void *base, unsigned int offset)
+ {
+@@ -402,9 +387,12 @@ ip6t_do_table(struct sk_buff *skb,
+ 			continue;
+ 		}
+ 
+-		xt_ematch_foreach(ematch, e)
+-			if (do_match(ematch, skb, &mtpar) != 0)
++		xt_ematch_foreach(ematch, e) {
++			mtpar.match     = ematch->u.kernel.match;
++			mtpar.matchinfo = ematch->data;
++			if (!mtpar.match->match(skb, &mtpar))
+ 				goto no_match;
++		}
+ 
+ 		ADD_COUNTER(e->counters,
+ 			    ntohs(ipv6_hdr(skb)->payload_len) +
+-- 
+1.7.0.4
+
