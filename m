@@ -1,40 +1,52 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: [PATCH net-next] ixgbevf: Enable GRO by default
-Date: Thu, 13 May 2010 12:51:14 -0700
-Message-ID: <1273780274.30943.6.camel@localhost.localdomain>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 6/20] drivers/net: Use kzalloc
+Date: Thu, 13 May 2010 22:00:22 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005132200050.6282@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:46677 "EHLO e7.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932610Ab0EMTv0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 May 2010 15:51:26 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: Lennert Buytenhek <buytenh@wantstofly.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Enable GRO by default for performance. 
+From: Julia Lawall <julia@diku.dk>
 
-Signed-off-by: Shirley Ma <xma@us.ibm.com>
+Use kzalloc rather than the combination of kmalloc and memset.
+
+The semantic patch that makes this change is as follows:
+(http://coccinelle.lip6.fr/)
+
+// <smpl>
+@@
+expression x,size,flags;
+statement S;
+@@
+
+-x = kmalloc(size,flags);
++x = kzalloc(size,flags);
+ if (x == NULL) S
+-memset(x, 0, size);
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
 ---
+ drivers/net/mv643xx_eth.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff -u -p a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+--- a/drivers/net/mv643xx_eth.c
++++ b/drivers/net/mv643xx_eth.c
+@@ -2608,10 +2608,9 @@ static int mv643xx_eth_shared_probe(stru
+ 		goto out;
  
- drivers/net/ixgbevf/ixgbevf_main.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ixgbevf/ixgbevf_main.c b/drivers/net/ixgbevf/ixgbevf_main.c
-index 40f47b8..1bbb05e 100644
---- a/drivers/net/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ixgbevf/ixgbevf_main.c
-@@ -3415,6 +3415,7 @@ static int __devinit ixgbevf_probe(struct pci_dev *pdev,
- 	netdev->features |= NETIF_F_IPV6_CSUM;
- 	netdev->features |= NETIF_F_TSO;
- 	netdev->features |= NETIF_F_TSO6;
-+	netdev->features |= NETIF_F_GRO;
- 	netdev->vlan_features |= NETIF_F_TSO;
- 	netdev->vlan_features |= NETIF_F_TSO6;
- 	netdev->vlan_features |= NETIF_F_IP_CSUM;
-
-
+ 	ret = -ENOMEM;
+-	msp = kmalloc(sizeof(*msp), GFP_KERNEL);
++	msp = kzalloc(sizeof(*msp), GFP_KERNEL);
+ 	if (msp == NULL)
+ 		goto out;
+-	memset(msp, 0, sizeof(*msp));
+ 
+ 	msp->base = ioremap(res->start, res->end - res->start + 1);
+ 	if (msp->base == NULL)
