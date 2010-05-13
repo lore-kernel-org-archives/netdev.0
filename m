@@ -1,52 +1,45 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] TBF: stop qdisc infanticide
-Date: Thu, 13 May 2010 18:30:46 +0200
-Message-ID: <4BEC2936.2060800@trash.net>
-References: <20100513091717.78bd7f1f@nehalam>	<4BEC2760.7080704@trash.net> <20100513092728.766ee059@nehalam>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] net sched: cleanup and rate limit warning
+Date: Thu, 13 May 2010 12:40:08 -0400
+Message-ID: <1273768808.6117.5.camel@bigi>
+References: <20100511172412.76aff184@nehalam>
+	 <1273684674.16074.0.camel@bigi> <20100512111706.616dc7cf@nehalam>
+	 <1273691628.16074.15.camel@bigi> <20100512132042.3b38da18@nehalam>
+	 <1273696903.16074.25.camel@bigi> <4BEBFAD4.1030608@trash.net>
+	 <1273767626.6117.3.camel@bigi>  <20100513092643.6551cb48@nehalam>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58306 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756954Ab0EMQau (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 May 2010 12:30:50 -0400
-In-Reply-To: <20100513092728.766ee059@nehalam>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:59300 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753979Ab0EMQkP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 May 2010 12:40:15 -0400
+Received: by wyb32 with SMTP id 32so1047911wyb.19
+        for <netdev@vger.kernel.org>; Thu, 13 May 2010 09:40:13 -0700 (PDT)
+In-Reply-To: <20100513092643.6551cb48@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Thu, 13 May 2010 18:22:56 +0200
-> Patrick McHardy <kaber@trash.net> wrote:
-> 
->> Stephen Hemminger wrote:
->>> Several netem users have complained that when using TBF for rate control
->>> that any change to TBF parameters destroys the child qdisc. A typical
->>> use is to have a test that sets up netem + TBF then changes bandwidth
->>> setting.  But every time the parameters of TBF are changed it destroys
->>> the child qdisc, requiring reconfiguration. Other qdisc's like HTB
->>> don't do this.
->>>
->>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->>>
->>>
->>> --- a/net/sched/sch_tbf.c	2010-05-12 20:41:06.257006386 -0700
->>> +++ b/net/sched/sch_tbf.c	2010-05-12 20:52:35.671216316 -0700
->>> @@ -273,7 +273,11 @@ static int tbf_change(struct Qdisc* sch,
->>>  	if (max_size < 0)
->>>  		goto done;
->>>  
->>> -	if (qopt->limit > 0) {
->>> +	if (q->qdisc) {
->>> +		err = fifo_set_limit(q->qdisc, qopt->limit);
->>> +		if (err)
->>> +			goto done;
->> q->qdisc is never NULL since a noop_qdisc is assigned by default. Also
->> this should check that the child is in fact one of the *fifos.
-> 
-> But the child will be netem and fifo_set_limit ignores non-fifo.
+On Thu, 2010-05-13 at 09:26 -0700, Stephen Hemminger wrote:
 
-OK, but it does need to make sure the child is not a noop_qdisc,
-otherwise it won't create the default bfifo.
+> > 
+> 
+> And the kernel message needs to be fixed to prevent total
+> log overload for the next poor sop who makes the same mistake.
+> 
+> Please accept the patch.
+
+I have no problem with the patch. Dont think it needs to go to stable
+but i'll let Dave call it.
+
+Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+
+cheers,
+jamal
+
