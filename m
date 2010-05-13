@@ -1,90 +1,32 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH 1/9] mm: add generic adaptive large memory allocation
- APIs
-Date: Thu, 13 May 2010 15:20:16 +0200
-Message-ID: <1273756816.5605.3547.camel@twins>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [PATCH 1/9] mm: add generic adaptive large memory allocationAPIs
+Date: Thu, 13 May 2010 22:36:51 +0900
+Message-ID: <201005132236.ADJ57893.FLFFMtOVJHOOSQ@I-love.SAKURA.ne.jp>
 References: <1273744285-8128-1-git-send-email-xiaosuo@gmail.com>
+	<1273756816.5605.3547.camel@twins>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: akpm@linux-foundation.org, Hoang-Nam Nguyen <hnguyen@de.ibm.com>,  Christoph Raisch <raisch@de.ibm.com>, Roland Dreier <rolandd@cisco.com>, Sean Hefty <sean.hefty@intel.com>, Hal Rosenstock <hal.rosenstock@gmail.com>, Divy Le Ray <divy@chelsio.com>, "James E.J. Bottomley" <James.Bottomley@suse.de>,  Theodore Ts'o <tytso@mit.edu>, Andreas Dilger <adilger@sun.com>, Alexander Viro <viro@zeniv.linux.org.uk>, Paul Menage <menage@google.com>, Li Zefan <lizf@cn.fujitsu.com>, linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,  netdev@vger.kernel.org, linux-scsi@vger.kernel.org, linux-ext4@vger.kernel.org,  linux-fsdevel@vger.kernel.org, linux-mm@kvack.org,  containers@lists.linux-foundation.org, Eric Dumazet <eric.dumazet@gmail.com>,  Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1273744285-8128-1-git-send-email-xiaosuo@gmail.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, hnguyen@de.ibm.com, raisch@de.ibm.com,
+	rolandd@cisco.com, sean.hefty@intel.com, hal.rosenstock@gmail.com,
+	divy@chelsio.com, James.Bottomley@suse.de, tytso@mit.edu,
+	adilger@sun.com, viro@zeniv.linux.org.uk, menage@google.com,
+	lizf@cn.fujitsu.com, linux-rdma@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-scsi@vger.kernel.org, linux-ext4@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, linux-mm@kvack.org,
+	containers@lists.linux-foundation.org, eric.dumazet@gmail.com
+To: peterz@infradead.org, xiaosuo@gmail.com
+Return-path: <linux-ext4-owner@vger.kernel.org>
+In-Reply-To: <1273756816.5605.3547.camel@twins>
+Sender: linux-ext4-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2010-05-13 at 17:51 +0800, Changli Gao wrote:
-> +void *__kvmalloc(size_t size, gfp_t flags)
-> +{
-> +       void *ptr;
-> +
-> +       if (size < PAGE_SIZE)
-> +               return kmalloc(size, GFP_KERNEL | flags);
-> +       size =3D PAGE_ALIGN(size);
-> +       if (is_power_of_2(size))
-> +               ptr =3D (void *)__get_free_pages(GFP_KERNEL | flags |
-> +                                              __GFP_NOWARN, get_order(si=
-ze));
-> +       else
-> +               ptr =3D alloc_pages_exact(size, GFP_KERNEL | flags |
-> +                                             __GFP_NOWARN);
-> +       if (ptr !=3D NULL) {
-> +               virt_to_head_page(ptr)->private =3D size;
-> +               return ptr;
-> +       }
-> +
-> +       ptr =3D vmalloc(size);
-> +       if (ptr !=3D NULL && (flags & __GFP_ZERO))
-> +               memset(ptr, 0, size);
-> +
-> +       return ptr;
-> +}
-> +EXPORT_SYMBOL(__kvmalloc);
+Peter Zijlstra wrote:
+> NAK, I really utterly dislike that inatomic argument. The alloc side
+> doesn't function in atomic context either. Please keep the thing
+> symmetric in that regards.
 
-So if I do kvmalloc(size, GFP_ATOMIC) I get GFP_KERNEL|GFP_ATOMIC, which
-is not a recommended variation because one should not mix __GFP_WAIT and
-__GFP_HIGH.
-
-So I would simply drop the gfp argument to avoid confusion.
-
-> +void __kvfree(void *ptr, bool inatomic)
-> +{
-> +       if (unlikely(ZERO_OR_NULL_PTR(ptr)))
-> +               return;
-> +       if (is_vmalloc_addr(ptr)) {
-> +               if (inatomic) {
-> +                       struct work_struct *work;
-> +
-> +                       work =3D ptr;
-> +                       BUILD_BUG_ON(sizeof(struct work_struct) > PAGE_SI=
-ZE);
-> +                       INIT_WORK(work, kvfree_work);
-> +                       schedule_work(work);
-> +               } else {
-> +                       vfree(ptr);
-> +               }
-> +       } else {
-> +               struct page *page;
-> +
-> +               page =3D virt_to_head_page(ptr);
-> +               if (PageSlab(page) || PageCompound(page))
-> +                       kfree(ptr);
-> +               else if (is_power_of_2(page->private))
-> +                       free_pages((unsigned long)ptr,
-> +                                  get_order(page->private));
-> +               else
-> +                       free_pages_exact(ptr, page->private);
-> +       }
-> +}
-> +EXPORT_SYMBOL(__kvfree);=20
-
-NAK, I really utterly dislike that inatomic argument. The alloc side
-doesn't function in atomic context either. Please keep the thing
-symmetric in that regards.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Excuse me. kmalloc(GFP_KERNEL) may sleep (and therefore cannot be used in
+atomic context). However, kfree() for memory allocated with kmalloc(GFP_KERNEL)
+never sleep (and therefore can be used in atomic context).
+Why kmalloc() and kfree() are NOT kept symmetric?
