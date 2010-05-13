@@ -1,79 +1,43 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: mmotm 2010-05-11 - dies in pm_qos_update_request()
-Date: Thu, 13 May 2010 10:34:38 -0400
-Message-ID: <4793.1273761278@localhost>
-References: <201005120149.o4C1n7P4002637@imap1.linux-foundation.org> <5525.1273693962@localhost>
-            <201005122307.20860.rjw@sisk.pl>
-Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1273761278_3844P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Mark Gross <mgross@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: Your message of "Wed, 12 May 2010 23:07:20 +0200."
-             <201005122307.20860.rjw@sisk.pl>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Milton Miller <miltonm@bga.com>
+Subject: [PATCH 1/9] mm: add generic adaptive large memory allocation APIs
+Date: Thu, 13 May 2010 09:39:36 -0500
+Message-ID: <1273761576_4060@mail4.comsite.net>
+References: <1273744285-8128-1-git-send-email-xiaosuo@gmail.com>
+Cc: akpm@linux-foundation.org, Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Roland Dreier <rolandd@cisco.com>, Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	Divy Le Ray <divy@chelsio.com>,
+	"James E.J. Bottomley" <James.Bottomley@suse.de>,
+	"Theodore Ts'o" <tytso@mit.edu>, Andreas Dilger <adilger@sun.com>,
+	Alexander Viro <viro@zeniv.linux.org.uk>,
+	Paul Menage <menage@google.com>, Li Zefan <lizf@cn.fujitsu.com>,
+	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	linux-ext4@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	linux-mm@kvack.org, containers@lists.linux-foundation.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Peter Zijlstra <peterz@infradead.org>, Changli Gao <xiaosuo@gmail.com>
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1273744285-8128-1-git-send-email-xiaosuo@gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_1273761278_3844P
-Content-Type: text/plain; charset=us-ascii
+On Thu, 13 May 2010 at 17:51:25 +0800, Changli Gao wrote:
 
-On Wed, 12 May 2010 23:07:20 +0200, "Rafael J. Wysocki" said:
-> On Wednesday 12 May 2010, Valdis.Kletnieks@vt.edu wrote:
-> > On Tue, 11 May 2010 18:21:22 PDT, akpm@linux-foundation.org said:
-> > > The mm-of-the-moment snapshot 2010-05-11-18-20 has been uploaded to
-> > > 
-> > >    http://userweb.kernel.org/~akpm/mmotm/
-> > 
-> > Dell Latitude E6500, x86_64 kernel.
-> > 
-> > Died a horrid death at boot in the e1000e driver.  Seems to be
-> > something in linux-next.patch. Didn't get a netconsole trace for obvious
-> > reasons...
-> > 
-> > Copied-by-hand traceback:
-> > pm_qos_update_request()+0x22
-> > e1000_configure+0x478
-> > e1000_open_device+0xee
-> > ? _raw_notifier_call_chain+0xf
-> > __dev_open+0xec
-> > dev_open+0x1b
-> > netpoll_setup+0x28b
-> > init_netconsole+0xbc
-> > 
-> > I suspect this commit:
-> > 
-> > commit 23606cf5d1192c2b17912cb2ef6e62f9b11de133
-> > Author: Rafael J. Wysocki <rjw@sisk.pl>
-> > Date:   Sun Mar 14 14:35:17 2010 +0000
-> > 
-> >     e1000e / PCI / PM: Add basic runtime PM support (rev. 4)
+> +static inline void *kvcalloc(size_t n, size_t size)
+> +{
+> +	return __kvmalloc(n * size, __GFP_ZERO);
 > 
-> No, I don't think so.  I'm running -rc6 with this patch applied on a box with
-> e1000e and it works just fine.
-> 
-> Please try to revert this one instead:
-> 
-> http://git.kernel.org/?p=linux/kernel/git/rafael/suspend-2.6.git;a=patch;h=ed77134bfccf5e75b6cbadab268e559dbe6a4ebb
 
-Confirming - reverting that patch and doing the build fixup results in a
-kernel that doesn't blow up in the e1000e driver...
+This needs multiply overflow checking like kcalloc.
 
---==_Exmh_1273761278_3844P
-Content-Type: application/pgp-signature
+milton
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQFL7A3+cC3lWbTT17ARAm3PAKDAE87ziAO2wE6RkIcdkh3geTyBNgCeNxGQ
-pN4PRpx1eTZUoKSO5fvSmfo=
-=Zq3X
------END PGP SIGNATURE-----
-
---==_Exmh_1273761278_3844P--
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
