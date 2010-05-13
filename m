@@ -1,38 +1,41 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] net sched: cleanup and rate limit warning
-Date: Thu, 13 May 2010 15:12:52 +0200
-Message-ID: <4BEBFAD4.1030608@trash.net>
-References: <20100511172412.76aff184@nehalam>	 <1273684674.16074.0.camel@bigi> <20100512111706.616dc7cf@nehalam>	 <1273691628.16074.15.camel@bigi>  <20100512132042.3b38da18@nehalam> <1273696903.16074.25.camel@bigi>
+From: Markus Feldmann <feldmann_markus@gmx.de>
+Subject: iptables NEW or SYN
+Date: Thu, 13 May 2010 15:17:32 +0200
+Message-ID: <hsgu5c$d8c$1@dough.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:55152 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751512Ab0EMNMz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 May 2010 09:12:55 -0400
-In-Reply-To: <1273696903.16074.25.camel@bigi>
+Received: from lo.gmane.org ([80.91.229.12]:42358 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752852Ab0EMNRp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 May 2010 09:17:45 -0400
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1OCYIH-0000q3-HX
+	for netdev@vger.kernel.org; Thu, 13 May 2010 15:17:41 +0200
+Received: from 188.96.72.98 ([188.96.72.98])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 13 May 2010 15:17:41 +0200
+Received: from feldmann_markus by 188.96.72.98 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 13 May 2010 15:17:41 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-jamal wrote:
-> On Wed, 2010-05-12 at 13:20 -0700, Stephen Hemminger wrote:
-> 
->> The tool isn't generating an action (just tc filter ... police ..)
->> so it is getting the unfortunate default of reclassify.
-> 
-> Ah ok. 
-> My advice: you should never ever depend on defaults when you
-> can be explicit and say "drop". Or have the users in your tool be able
-> to specify what action to take if rate is exceeded etc (actually i think
-> juniper does that) 
-> I think "drop" would be the sane default for over-limit - my memory is
-> hazy because i assumed that was the default but there may have been some
-> reservations on that default. Patrick?
+Hi All,
 
-I don't remeber ever discussing that, the choice of "reclassify" as
-default precedes TC actions and is already present in the oldest
-iproute2 version I could find (2.2.4-ss000225).
+i am still experiment with iptables and the state extension. Some of my 
+rules shall catch packets with the state NEW, but it doesn't catch all 
+packets. Sometimes there are packets that have the SYN Flag set which go 
+through my rules with the state NEW.
+
+Any idea why?
+I thought SYN is included in the state NEW, is that wrong?
+
+What is the difference between SYN and NEW?
+
+regards Markus
+
