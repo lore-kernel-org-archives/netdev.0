@@ -1,73 +1,47 @@
-From: Andreas Dilger <andreas.dilger@oracle.com>
-Subject: Re: [PATCH 0/9] mm: generic adaptive large memory allocation APIs
-Date: Thu, 13 May 2010 15:56:43 -0600
-Message-ID: <7280ADBE-F4BF-43B4-8BAC-5BF129C9DDB3@oracle.com>
-References: <1273744147-7594-1-git-send-email-xiaosuo@gmail.com> <1273763055.4353.136.camel@mulgrave.site>
-Mime-Version: 1.0 (Apple Message framework v1078)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
-Cc: Changli Gao <xiaosuo@gmail.com>, Andrew Morton <akpm@linux-foundation.org>,
-        Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
-        Christoph Raisch <raisch@de.ibm.com>,
-        Roland Dreier <rolandd@cisco.com>, Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock <hal.rosenstock@gmail.com>,
-        Divy Le Ray <divy@chelsio.com>, "Theodore Ts'o" <tytso@mit.edu>,
-        Alexander Viro <viro@zeniv.linux.org.uk>,
-        Paul Menage <menage@google.com>, Li Zefan <lizf@cn.fujitsu.com>,
-        linux-rdma@vger.kernel.org,
-        "linux-kernel@vger.kernel.org Mailinglist" <linux-kernel@vger.kernel.org>,
-        netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-        "linux-ext4@vger.kernel.org development" <linux-ext4@vger.kernel.org>,
-        linux-fsdevel@vger.kernel.org, linux-mm@kvack.org,
-        containers@lists.linux-foundation.org
-To: James Bottomley <James.Bottomley@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1273763055.4353.136.camel@mulgrave.site>
-Sender: owner-linux-mm@kvack.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next] ixgbevf: Enable GRO by default
+Date: Thu, 13 May 2010 15:16:18 -0700
+Message-ID: <u2k9929d2391005131516u5cd353e7rda5120830b6d0834@mail.gmail.com>
+References: <1273780274.30943.6.camel@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	davem@davemloft.net, kvm@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1273780274.30943.6.camel@localhost.localdomain>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On 2010-05-13, at 09:04, James Bottomley wrote:
-> This isn't necessarily true ... most drivers and filesystems have to
-> know what type they're getting.  Often they have to do extra tricks to
-> process vmalloc areas.  Conversely, large kmalloc areas are a very
-> precious commodity: if a driver or filesystem can handle vmalloc for
-> large allocations, it should: it's easier for us to expand the vmalloc
-> area than to try to make page reclaim keep large contiguous areas ... =
-I
-> notice your proposed API does the exact opposite of this ... tries
-> kmalloc first and then does vmalloc.
->=20
-> Given this policy problem, isn't it easier simply to hand craft the
-> vmalloc fall back to kmalloc (or vice versa) in the driver than add =
-this
-> whole massive raft of APIs for it?
-
-I know we wouldn't mind using large vmalloc allocations for e.g. =
-per-group arrays in ext4 (allocated once per mount), but I'd always =
-understood that using vmalloc for general purpose uses can have a =
-significant impact because the vmalloc() engine has (had?) serious =
-performance problems.  That means it is better performance-wise to have =
-a wrapper function like this to switch between kmalloc() and vmalloc() =
-based on the allocation size, but it makes the code ugly.  Having the =
-wrapper in the kernel would at least identify the different places that =
-are using this kind of workaround.
-
-If the performance of vmalloc() has been improved in the last few years, =
-then I'd be happy to just use vmalloc() all the time.  That said, =
-vmalloc still isn't suitable for sub-page allocations, so if you have a =
-variable-sized allocation that may be very small or very large the small =
-allocations will waste a whole page and a wrapper is still needed, or =
-vmalloc should be changed to call kmalloc/kfree for the sub-page =
-allocations.
-
-Cheers, Andreas
---
-Andreas Dilger
-Lustre Technical Lead
-Oracle Corporation Canada Inc.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+T24gVGh1LCBNYXkgMTMsIDIwMTAgYXQgMTI6NTEsIFNoaXJsZXkgTWEgPG1hc2hpcmxlQHVzLmli
+bS5jb20+IHdyb3RlOgo+IEVuYWJsZSBHUk8gYnkgZGVmYXVsdCBmb3IgcGVyZm9ybWFuY2UuCj4K
+PiBTaWduZWQtb2ZmLWJ5OiBTaGlybGV5IE1hIDx4bWFAdXMuaWJtLmNvbT4KPiAtLS0KPgo+IMKg
+ZHJpdmVycy9uZXQvaXhnYmV2Zi9peGdiZXZmX21haW4uYyB8IMKgIMKgMSArCj4gwqAxIGZpbGVz
+IGNoYW5nZWQsIDEgaW5zZXJ0aW9ucygrKSwgMCBkZWxldGlvbnMoLSkKPgo+IGRpZmYgLS1naXQg
+YS9kcml2ZXJzL25ldC9peGdiZXZmL2l4Z2JldmZfbWFpbi5jIGIvZHJpdmVycy9uZXQvaXhnYmV2
+Zi9peGdiZXZmX21haW4uYwo+IGluZGV4IDQwZjQ3YjguLjFiYmIwNWUgMTAwNjQ0Cj4gLS0tIGEv
+ZHJpdmVycy9uZXQvaXhnYmV2Zi9peGdiZXZmX21haW4uYwo+ICsrKyBiL2RyaXZlcnMvbmV0L2l4
+Z2JldmYvaXhnYmV2Zl9tYWluLmMKPiBAQCAtMzQxNSw2ICszNDE1LDcgQEAgc3RhdGljIGludCBf
+X2RldmluaXQgaXhnYmV2Zl9wcm9iZShzdHJ1Y3QgcGNpX2RldiAqcGRldiwKPiDCoCDCoCDCoCDC
+oG5ldGRldi0+ZmVhdHVyZXMgfD0gTkVUSUZfRl9JUFY2X0NTVU07Cj4gwqAgwqAgwqAgwqBuZXRk
+ZXYtPmZlYXR1cmVzIHw9IE5FVElGX0ZfVFNPOwo+IMKgIMKgIMKgIMKgbmV0ZGV2LT5mZWF0dXJl
+cyB8PSBORVRJRl9GX1RTTzY7Cj4gKyDCoCDCoCDCoCBuZXRkZXYtPmZlYXR1cmVzIHw9IE5FVElG
+X0ZfR1JPOwo+IMKgIMKgIMKgIMKgbmV0ZGV2LT52bGFuX2ZlYXR1cmVzIHw9IE5FVElGX0ZfVFNP
+Owo+IMKgIMKgIMKgIMKgbmV0ZGV2LT52bGFuX2ZlYXR1cmVzIHw9IE5FVElGX0ZfVFNPNjsKPiDC
+oCDCoCDCoCDCoG5ldGRldi0+dmxhbl9mZWF0dXJlcyB8PSBORVRJRl9GX0lQX0NTVU07Cj4KPgoK
+VGhhbmtzLCBJIGhhdmUgYWRkZWQgdGhlIHBhdGNoIHRvIG15IHF1ZXVlLgoKLS0gCkNoZWVycywK
+SmVmZgoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fXwpFMTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxA
+bGlzdHMuc291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3Rz
+L2xpc3RpbmZvL2UxMDAwLWRldmVsClRvIGxlYXJuIG1vcmUgYWJvdXQgSW50ZWwmIzE3NDsgRXRo
+ZXJuZXQsIHZpc2l0IGh0dHA6Ly9jb21tdW5pdGllcy5pbnRlbC5jb20vY29tbXVuaXR5L3dpcmVk
+Cg==
