@@ -1,41 +1,51 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] net sched: cleanup and rate limit warning
-Date: Thu, 13 May 2010 12:20:26 -0400
-Message-ID: <1273767626.6117.3.camel@bigi>
-References: <20100511172412.76aff184@nehalam>
-	 <1273684674.16074.0.camel@bigi> <20100512111706.616dc7cf@nehalam>
-	 <1273691628.16074.15.camel@bigi>  <20100512132042.3b38da18@nehalam>
-	 <1273696903.16074.25.camel@bigi>  <4BEBFAD4.1030608@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] TBF: stop qdisc infanticide
+Date: Thu, 13 May 2010 18:22:56 +0200
+Message-ID: <4BEC2760.7080704@trash.net>
+References: <20100513091717.78bd7f1f@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:42772 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757101Ab0EMQUc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 May 2010 12:20:32 -0400
-Received: by wwi18 with SMTP id 18so1004367wwi.19
-        for <netdev@vger.kernel.org>; Thu, 13 May 2010 09:20:31 -0700 (PDT)
-In-Reply-To: <4BEBFAD4.1030608@trash.net>
+Received: from stinky.trash.net ([213.144.137.162]:58176 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757101Ab0EMQXA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 May 2010 12:23:00 -0400
+In-Reply-To: <20100513091717.78bd7f1f@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-05-13 at 15:12 +0200, Patrick McHardy wrote:
+Stephen Hemminger wrote:
+> Several netem users have complained that when using TBF for rate control
+> that any change to TBF parameters destroys the child qdisc. A typical
+> use is to have a test that sets up netem + TBF then changes bandwidth
+> setting.  But every time the parameters of TBF are changed it destroys
+> the child qdisc, requiring reconfiguration. Other qdisc's like HTB
+> don't do this.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> 
+> 
+> --- a/net/sched/sch_tbf.c	2010-05-12 20:41:06.257006386 -0700
+> +++ b/net/sched/sch_tbf.c	2010-05-12 20:52:35.671216316 -0700
+> @@ -273,7 +273,11 @@ static int tbf_change(struct Qdisc* sch,
+>  	if (max_size < 0)
+>  		goto done;
+>  
+> -	if (qopt->limit > 0) {
+> +	if (q->qdisc) {
+> +		err = fifo_set_limit(q->qdisc, qopt->limit);
+> +		if (err)
+> +			goto done;
 
-> I don't remeber ever discussing that, the choice of "reclassify" as
-> default precedes TC actions and is already present in the oldest
-> iproute2 version I could find (2.2.4-ss000225).
+q->qdisc is never NULL since a noop_qdisc is assigned by default. Also
+this should check that the child is in fact one of the *fifos.
 
-I think i confused it with unrelated discussion.
-
-If its been there from day 0 then we should leave it as is - rationale:
-it will help to catch config bugs.
-Stephen needs to fix his tool regardless...
-
-cheers,
-jamal
+> +	} else if (qopt->limit > 0) {
+>  		child = fifo_create_dflt(sch, &bfifo_qdisc_ops, qopt->limit);
+>  		if (IS_ERR(child)) {
+>  			err = PTR_ERR(child);
+> 
 
