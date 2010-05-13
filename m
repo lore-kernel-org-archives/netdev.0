@@ -1,53 +1,90 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH net-next] net/: (netfilter related) Remove unnecessary
- returns from void function()s
-Date: Thu, 13 May 2010 15:20:04 +0200
-Message-ID: <4BEBFC84.5020707@trash.net>
-References: <1273600346.20514.247.camel@Joe-Laptop.home>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH 1/9] mm: add generic adaptive large memory allocation
+ APIs
+Date: Thu, 13 May 2010 15:20:16 +0200
+Message-ID: <1273756816.5605.3547.camel@twins>
+References: <1273744285-8128-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1273600346.20514.247.camel@Joe-Laptop.home>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: akpm@linux-foundation.org, Hoang-Nam Nguyen <hnguyen@de.ibm.com>,  Christoph Raisch <raisch@de.ibm.com>, Roland Dreier <rolandd@cisco.com>, Sean Hefty <sean.hefty@intel.com>, Hal Rosenstock <hal.rosenstock@gmail.com>, Divy Le Ray <divy@chelsio.com>, "James E.J. Bottomley" <James.Bottomley@suse.de>,  Theodore Ts'o <tytso@mit.edu>, Andreas Dilger <adilger@sun.com>, Alexander Viro <viro@zeniv.linux.org.uk>, Paul Menage <menage@google.com>, Li Zefan <lizf@cn.fujitsu.com>, linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,  netdev@vger.kernel.org, linux-scsi@vger.kernel.org, linux-ext4@vger.kernel.org,  linux-fsdevel@vger.kernel.org, linux-mm@kvack.org,  containers@lists.linux-foundation.org, Eric Dumazet <eric.dumazet@gmail.com>,  Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1273744285-8128-1-git-send-email-xiaosuo@gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Joe Perches wrote:
-> This patch removes from net/ netfilter files
-> all the unnecessary return; statements that precede the
-> last closing brace of void functions.
-> 
-> It does not remove the returns that are immediately
-> preceded by a label as gcc doesn't like that.
-> 
-> Done via:
-> $ grep -rP --include=*.[ch] -l "return;\n}" net/ | \
->   xargs perl -i -e 'local $/ ; while (<>) { s/\n[ \t\n]+return;\n}/\n}/g; print; }'
-> 
+On Thu, 2010-05-13 at 17:51 +0800, Changli Gao wrote:
+> +void *__kvmalloc(size_t size, gfp_t flags)
+> +{
+> +       void *ptr;
+> +
+> +       if (size < PAGE_SIZE)
+> +               return kmalloc(size, GFP_KERNEL | flags);
+> +       size =3D PAGE_ALIGN(size);
+> +       if (is_power_of_2(size))
+> +               ptr =3D (void *)__get_free_pages(GFP_KERNEL | flags |
+> +                                              __GFP_NOWARN, get_order(si=
+ze));
+> +       else
+> +               ptr =3D alloc_pages_exact(size, GFP_KERNEL | flags |
+> +                                             __GFP_NOWARN);
+> +       if (ptr !=3D NULL) {
+> +               virt_to_head_page(ptr)->private =3D size;
+> +               return ptr;
+> +       }
+> +
+> +       ptr =3D vmalloc(size);
+> +       if (ptr !=3D NULL && (flags & __GFP_ZERO))
+> +               memset(ptr, 0, size);
+> +
+> +       return ptr;
+> +}
+> +EXPORT_SYMBOL(__kvmalloc);
 
-Applied, but I changed the patch to keep the two return statements
-below in otherwise empty function bodies since I consider that more
-aesthetically pleasing.
+So if I do kvmalloc(size, GFP_ATOMIC) I get GFP_KERNEL|GFP_ATOMIC, which
+is not a recommended variation because one should not mix __GFP_WAIT and
+__GFP_HIGH.
 
-> --- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-> +++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-> @@ -452,6 +452,5 @@ module_exit(nf_conntrack_l3proto_ipv4_fini);
->  
->  void need_ipv4_conntrack(void)
->  {
-> -	return;
->  }
->  EXPORT_SYMBOL_GPL(need_ipv4_conntrack);
-> diff --git a/net/ipv4/netfilter/nf_nat_proto_gre.c b/net/ipv4/netfilter/nf_nat_proto_gre.c
-> index d7e8920..39efbe6 100644
-> --- a/net/ipv4/netfilter/nf_nat_proto_gre.c
-> +++ b/net/ipv4/netfilter/nf_nat_proto_gre.c
-> @@ -144,6 +144,5 @@ module_exit(nf_nat_proto_gre_fini);
->  
->  void nf_nat_need_gre(void)
->  {
-> -	return;
->  }
+So I would simply drop the gfp argument to avoid confusion.
+
+> +void __kvfree(void *ptr, bool inatomic)
+> +{
+> +       if (unlikely(ZERO_OR_NULL_PTR(ptr)))
+> +               return;
+> +       if (is_vmalloc_addr(ptr)) {
+> +               if (inatomic) {
+> +                       struct work_struct *work;
+> +
+> +                       work =3D ptr;
+> +                       BUILD_BUG_ON(sizeof(struct work_struct) > PAGE_SI=
+ZE);
+> +                       INIT_WORK(work, kvfree_work);
+> +                       schedule_work(work);
+> +               } else {
+> +                       vfree(ptr);
+> +               }
+> +       } else {
+> +               struct page *page;
+> +
+> +               page =3D virt_to_head_page(ptr);
+> +               if (PageSlab(page) || PageCompound(page))
+> +                       kfree(ptr);
+> +               else if (is_power_of_2(page->private))
+> +                       free_pages((unsigned long)ptr,
+> +                                  get_order(page->private));
+> +               else
+> +                       free_pages_exact(ptr, page->private);
+> +       }
+> +}
+> +EXPORT_SYMBOL(__kvfree);=20
+
+NAK, I really utterly dislike that inatomic argument. The alloc side
+doesn't function in atomic context either. Please keep the thing
+symmetric in that regards.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
