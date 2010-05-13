@@ -1,17 +1,17 @@
 From: "Rafael J. Wysocki" <rjw@sisk.pl>
 Subject: Re: mmotm 2010-05-11 - dies in pm_qos_update_request()
-Date: Fri, 14 May 2010 00:24:50 +0200
-Message-ID: <201005140024.50279.rjw@sisk.pl>
+Date: Fri, 14 May 2010 00:32:31 +0200
+Message-ID: <201005140032.31670.rjw@sisk.pl>
 References: <201005120149.o4C1n7P4002637@imap1.linux-foundation.org>
 	<201005122307.20860.rjw@sisk.pl> <4793.1273761278@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+Cc: Mark Gross <mgross@linux.intel.com>, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Andrew Morton <akpm@linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org
-To: Valdis.Kletnieks@vt.edu,
- Mark Gross <mgross@linux.intel.com>
+	"David S. Miller" <davem@davemloft.net>
+To: Valdis.Kletnieks@vt.edu
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 In-Reply-To: <4793.1273761278@localhost>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
@@ -66,11 +66,13 @@ On Thursday 13 May 2010, Valdis.Kletnieks@vt.edu wrote:
 > Confirming - reverting that patch and doing the build fixup results in a
 > kernel that doesn't blow up in the e1000e driver...
 
-Then I guess there's an initializations problem somewhere.
+Can you try the tree at:
 
-Mark, any chance to look into that any time soon?  If we don't resolve this
-before the merge window opens, I'm afraid I'll have to revert that commit
-from my tree.
+git://git.kernel.org/pub/scm/linux/kernel/git/rafael/suspend-2.6.git linux-next
+
+without the other linux-next changes, please?
+
+I'm not seeing the problem you're reporting on my test box with e1000e.
 
 Rafael
 
