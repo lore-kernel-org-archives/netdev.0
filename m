@@ -1,8 +1,8 @@
 From: Scott Feldman <scofeldm@cisco.com>
-Subject: [net-next-2.6 V6 PATCH 1/2] Add netlink support for virtual port
-	management (was iovnl)
-Date: Thu, 13 May 2010 13:17:44 -0700
-Message-ID: <20100513201720.25579.51230.stgit@savbu-pc100.cisco.com>
+Subject: [net-next-2.6 V6 PATCH 2/2] Add ndo_{set|get}_vf_port support for
+	enic dynamic vnics
+Date: Thu, 13 May 2010 13:17:51 -0700
+Message-ID: <20100513201749.25579.65685.stgit@savbu-pc100.cisco.com>
 References: <20100513201714.25579.53530.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,252 +10,410 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, chrisw@redhat.com, arnd@arndb.de
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-2.cisco.com ([171.71.176.71]:39900 "EHLO
-	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758736Ab0EMURo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 May 2010 16:17:44 -0400
+Received: from sj-iport-1.cisco.com ([171.71.176.70]:41346 "EHLO
+	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932319Ab0EMURv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 May 2010 16:17:51 -0400
 In-Reply-To: <20100513201714.25579.53530.stgit@savbu-pc100.cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Scott Feldman <scofeldm@cisco.com>
 
-Add new netdev ops ndo_{set|get}_vf_port to allow setting of
-port-profile on a netdev interface.  Extends netlink socket RTM_SETLINK/
-RTM_GETLINK with new sub cmd called IFLA_VF_PORT (added to end of
-IFLA_cmd list).
+Add enic ndo_{set|get}_vf_port ops to support setting/getting
+port-profile for enic dynamic devices.  Enic dynamic devices are just like
+normal enic eth devices except dynamic enics require an extra configuration
+step to assign a port-profile identifier to the interface before the
+interface is useable.  Once a port-profile is assigned, link comes up on the
+interface and is ready for I/O.  The port-profile is used to configure the
+network port assigned to the interface.  The network port configuration
+includes VLAN membership, QoS policies, and port security settings typical
+of a data center network.
 
-A port-profile is used to configure/enable the external switch virtual port
-backing the netdev interface, not to configure the host-facing side of the
-netdev.  A port-profile is an identifier known to the switch.  How port-
-profiles are installed on the switch or how available port-profiles are
-made know to the host is outside the scope of this patch.
+A dynamic enic initially has a zero-mac address.  Before a port-profile is
+assigned, a valid non-zero unicast mac address should be assign to the
+dynamic enic interface.
 
-There are two types of port-profiles specs in the netlink msg.  The first spec
-is for 802.1Qbg (pre-)standard, VDP protocol.  The second spec is for devices
-that run a similar protocol as VDP but in firmware, thus hiding the protocol
-details.  In either case, the specs have much in common and makes sense to
-define the netlink msg as the union of the two specs.  For example, both specs
-have a notition of associating/deassociating a port-profile.  And both specs
-require some information from the hypervisor manager, such as client port
-instance ID.
-
-The general flow is the port-profile is applied to a host netdev interface
-using RTM_SETLINK, the receiver of the RTM_SETLINK msg communicates with the
-switch, and the switch virtual port backing the host netdev interface is
-configured/enabled based on the settings defined by the port-profile.  What
-those settings comprise, and how those settings are managed is again
-outside the scope of this patch, since this patch only deals with the
-first step in the flow.
-
-There is a RTM_GETLINK cmd to to return port-profile setting of an
-interface and to also return the status of the last port-profile
-association.
-
-IFLA_VF_PORT is modeled after the existing IFLA_VF_* cmd where a
-VF number is passed in to identify the virtual function (VF) of an SR-IOV-
-capable device.  In this case, the target of IFLA_VF_PORT msg is the
-netdev physical function (PF) device.  The PF will apply the port-profile
-to the VF.  IFLA_VF_PORT can also be used for devices that don't
-adhere to SR-IOV and can apply the port-profile directly to the netdev
-target.  In this case, the VF number is ignored.
-
-Passing in a NULL port-profile is used to delete the port-profile association.
-
-Acked-by: Arnd Bergmann <arnd@arndb.de>
 Signed-off-by: Scott Feldman <scofeldm@cisco.com>
 Signed-off-by: Roopa Prabhu<roprabhu@cisco.com>
 ---
- include/linux/if_link.h   |   52 +++++++++++++++++++
- include/linux/netdevice.h |   10 ++++
- net/core/rtnetlink.c      |  122 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 183 insertions(+), 1 deletions(-)
+ drivers/net/enic/Makefile    |    2 
+ drivers/net/enic/enic.h      |    9 +
+ drivers/net/enic/enic_main.c |  321 +++++++++++++++++++++++++++++++++++++++---
+ drivers/net/enic/enic_res.c  |    5 -
+ drivers/net/enic/enic_res.h  |    1 
+ drivers/net/enic/vnic_dev.c  |   58 +++++++-
+ drivers/net/enic/vnic_dev.h  |    7 +
+ drivers/net/enic/vnic_vic.c  |   73 ++++++++++
+ drivers/net/enic/vnic_vic.h  |   59 ++++++++
+ 9 files changed, 500 insertions(+), 35 deletions(-)
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index cfd420b..d93a4a5 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -116,6 +116,7 @@ enum {
- 	IFLA_VF_TX_RATE,	/* TX Bandwidth Allocation */
- 	IFLA_VFINFO,
- 	IFLA_STATS64,
-+	IFLA_VF_PORT,
- 	__IFLA_MAX
+diff --git a/drivers/net/enic/Makefile b/drivers/net/enic/Makefile
+index 391c3bc..e7b6c31 100644
+--- a/drivers/net/enic/Makefile
++++ b/drivers/net/enic/Makefile
+@@ -1,5 +1,5 @@
+ obj-$(CONFIG_ENIC) := enic.o
+ 
+ enic-y := enic_main.o vnic_cq.o vnic_intr.o vnic_wq.o \
+-	enic_res.o vnic_dev.o vnic_rq.o
++	enic_res.o vnic_dev.o vnic_rq.o vnic_vic.o
+ 
+diff --git a/drivers/net/enic/enic.h b/drivers/net/enic/enic.h
+index 5fa56f1..91088be 100644
+--- a/drivers/net/enic/enic.h
++++ b/drivers/net/enic/enic.h
+@@ -34,7 +34,7 @@
+ 
+ #define DRV_NAME		"enic"
+ #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
+-#define DRV_VERSION		"1.3.1.1"
++#define DRV_VERSION		"1.3.1.1-pp"
+ #define DRV_COPYRIGHT		"Copyright 2008-2009 Cisco Systems, Inc"
+ #define PFX			DRV_NAME ": "
+ 
+@@ -74,6 +74,12 @@ struct enic_msix_entry {
+ 	void *devid;
  };
  
-@@ -259,4 +260,55 @@ struct ifla_vf_info {
- 	__u32 qos;
- 	__u32 tx_rate;
- };
-+
-+/* VF Port management section */
-+
-+enum {
-+	IFLA_VF_PORT_UNSPEC,
-+	IFLA_VF_PORT_VF,		/* __u32 */
-+	IFLA_VF_PORT_PROFILE,		/* string */
-+	IFLA_VF_PORT_VSI_TYPE,		/* 802.1Qbg (pre-)standard VDP */
-+	IFLA_VF_PORT_INSTANCE_UUID,	/* binary UUID */
-+	IFLA_VF_PORT_HOST_UUID,		/* binary UUID */
-+	IFLA_VF_PORT_REQUEST,		/* __u8 */
-+	IFLA_VF_PORT_RESPONSE,		/* __u16, output only */
-+	__IFLA_VF_PORT_MAX,
++struct enic_port_profile {
++	char name[VF_PORT_PROFILE_MAX];
++	u8 instance_uuid[VF_PORT_UUID_MAX];
++	u8 host_uuid[VF_PORT_UUID_MAX];
 +};
 +
-+#define IFLA_VF_PORT_MAX (__IFLA_VF_PORT_MAX - 1)
-+
-+#define VF_PORT_PROFILE_MAX	40
-+#define VF_PORT_UUID_MAX	16
-+
-+enum {
-+	VF_PORT_REQUEST_PREASSOCIATE = 0,
-+	VF_PORT_REQUEST_PREASSOCIATE_RR,
-+	VF_PORT_REQUEST_ASSOCIATE,
-+	VF_PORT_REQUEST_DISASSOCIATE,
-+};
-+
-+enum {
-+	VF_PORT_VDP_RESPONSE_SUCCESS = 0,
-+	VF_PORT_VDP_RESPONSE_INVALID_FORMAT,
-+	VF_PORT_VDP_RESPONSE_INSUFFICIENT_RESOURCES,
-+	VF_PORT_VDP_RESPONSE_UNUSED_VTID,
-+	VF_PORT_VDP_RESPONSE_VTID_VIOLATION,
-+	VF_PORT_VDP_RESPONSE_VTID_VERSION_VIOALTION,
-+	VF_PORT_VDP_RESPONSE_OUT_OF_SYNC,
-+	/* 0x08-0xFF reserved for future VDP use */
-+	VF_PORT_PROFILE_RESPONSE_SUCCESS = 0x100,
-+	VF_PORT_PROFILE_RESPONSE_INPROGRESS,
-+	VF_PORT_PROFILE_RESPONSE_INVALID,
-+	VF_PORT_PROFILE_RESPONSE_BADSTATE,
-+	VF_PORT_PROFILE_RESPONSE_INSUFFICIENT_RESOURCES,
-+	VF_PORT_PROFILE_RESPONSE_ERROR,
-+};
-+
-+struct ifla_vf_port_vsi {
-+	__u8 vsi_mgr_id;
-+	__u8 vsi_type_id[3];
-+	__u8 vsi_type_version;
-+	__u8 pad[3];
-+};
-+
- #endif /* _LINUX_IF_LINK_H */
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 69022d4..c2ba8d4 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -686,6 +686,10 @@ struct netdev_rx_queue {
-  * int (*ndo_set_vf_tx_rate)(struct net_device *dev, int vf, int rate);
-  * int (*ndo_get_vf_config)(struct net_device *dev,
-  *			    int vf, struct ifla_vf_info *ivf);
-+ * int (*ndo_set_vf_port)(struct net_device *dev, int vf,
-+ *			  struct nlattr *vf_port[]);
-+ * int (*ndo_get_vf_port)(struct net_device *dev, int vf,
-+ *			  struct sk_buff *skb);
-  */
- #define HAVE_NET_DEVICE_OPS
- struct net_device_ops {
-@@ -735,6 +739,12 @@ struct net_device_ops {
- 	int			(*ndo_get_vf_config)(struct net_device *dev,
- 						     int vf,
- 						     struct ifla_vf_info *ivf);
-+	int			(*ndo_set_vf_port)(struct net_device *dev,
-+						   int vf,
-+						   struct nlattr *vf_port[]);
-+	int			(*ndo_get_vf_port)(struct net_device *dev,
-+						   int vf,
-+						   struct sk_buff *skb);
- #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
- 	int			(*ndo_fcoe_enable)(struct net_device *dev);
- 	int			(*ndo_fcoe_disable)(struct net_device *dev);
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 23a71cb..de14d36 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -653,6 +653,26 @@ static inline int rtnl_vfinfo_size(const struct net_device *dev)
- 		return 0;
- }
+ /* Per-instance private data structure */
+ struct enic {
+ 	struct net_device *netdev;
+@@ -95,6 +101,7 @@ struct enic {
+ 	u32 port_mtu;
+ 	u32 rx_coalesce_usecs;
+ 	u32 tx_coalesce_usecs;
++	struct enic_port_profile pp;
  
-+static size_t rtnl_vf_port_size(const struct net_device *dev)
+ 	/* work queue cache line section */
+ 	____cacheline_aligned struct vnic_wq wq[ENIC_WQ_MAX];
+diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
+index 1232887..fb8bf4a 100644
+--- a/drivers/net/enic/enic_main.c
++++ b/drivers/net/enic/enic_main.c
+@@ -29,6 +29,7 @@
+ #include <linux/etherdevice.h>
+ #include <linux/if_ether.h>
+ #include <linux/if_vlan.h>
++#include <linux/if_link.h>
+ #include <linux/ethtool.h>
+ #include <linux/in.h>
+ #include <linux/ip.h>
+@@ -40,6 +41,7 @@
+ #include "vnic_dev.h"
+ #include "vnic_intr.h"
+ #include "vnic_stats.h"
++#include "vnic_vic.h"
+ #include "enic_res.h"
+ #include "enic.h"
+ 
+@@ -49,10 +51,12 @@
+ #define ENIC_DESC_MAX_SPLITS		(MAX_TSO / WQ_ENET_MAX_DESC_LEN + 1)
+ 
+ #define PCI_DEVICE_ID_CISCO_VIC_ENET         0x0043  /* ethernet vnic */
++#define PCI_DEVICE_ID_CISCO_VIC_ENET_DYN     0x0044  /* enet dynamic vnic */
+ 
+ /* Supported devices */
+ static DEFINE_PCI_DEVICE_TABLE(enic_id_table) = {
+ 	{ PCI_VDEVICE(CISCO, PCI_DEVICE_ID_CISCO_VIC_ENET) },
++	{ PCI_VDEVICE(CISCO, PCI_DEVICE_ID_CISCO_VIC_ENET_DYN) },
+ 	{ 0, }	/* end of table */
+ };
+ 
+@@ -113,6 +117,11 @@ static const struct enic_stat enic_rx_stats[] = {
+ static const unsigned int enic_n_tx_stats = ARRAY_SIZE(enic_tx_stats);
+ static const unsigned int enic_n_rx_stats = ARRAY_SIZE(enic_rx_stats);
+ 
++static int enic_is_dynamic(struct enic *enic)
 +{
-+	size_t vf_port_size = nla_total_size(sizeof(struct nlattr))
-+						     /* VF_PORT_VF */
-+		+ nla_total_size(VF_PORT_PROFILE_MAX)/* VF_PORT_PROFILE */
-+		+ nla_total_size(sizeof(struct ifla_vf_port_vsi))
-+						     /* VF_PORT_VSI_TYPE */
-+		+ nla_total_size(VF_PORT_UUID_MAX)   /* VF_PORT_VSI_INSTANCE */
-+		+ nla_total_size(VF_PORT_UUID_MAX)   /* VF_PORT_HOST_UUID */
-+		+ nla_total_size(1)		     /* VF_PROT_VDP_REQUEST */
-+		+ nla_total_size(2);		     /* VF_PORT_VDP_RESPONSE */
-+
-+	if (!dev->netdev_ops->ndo_get_vf_port || !dev->dev.parent)
-+		return 0;
-+	if (dev_num_vf(dev->dev.parent))
-+		return vf_port_size * dev_num_vf(dev->dev.parent);
-+	else
-+		return vf_port_size;
++	return enic->pdev->device == PCI_DEVICE_ID_CISCO_VIC_ENET_DYN;
 +}
 +
- static inline size_t if_nlmsg_size(const struct net_device *dev)
+ static int enic_get_settings(struct net_device *netdev,
+ 	struct ethtool_cmd *ecmd)
  {
- 	return NLMSG_ALIGN(sizeof(struct ifinfomsg))
-@@ -673,9 +693,67 @@ static inline size_t if_nlmsg_size(const struct net_device *dev)
- 	       + nla_total_size(1) /* IFLA_LINKMODE */
- 	       + nla_total_size(4) /* IFLA_NUM_VF */
- 	       + nla_total_size(rtnl_vfinfo_size(dev)) /* IFLA_VFINFO */
-+	       + rtnl_vf_port_size(dev) /* IFLA_VF_PORT */
- 	       + rtnl_link_get_size(dev); /* IFLA_LINKINFO */
+@@ -810,14 +819,73 @@ static void enic_reset_mcaddrs(struct enic *enic)
+ 
+ static int enic_set_mac_addr(struct net_device *netdev, char *addr)
+ {
+-	if (!is_valid_ether_addr(addr))
+-		return -EADDRNOTAVAIL;
++	struct enic *enic = netdev_priv(netdev);
++
++	if (enic_is_dynamic(enic)) {
++		if (!is_valid_ether_addr(addr) && !is_zero_ether_addr(addr))
++			return -EADDRNOTAVAIL;
++	} else {
++		if (!is_valid_ether_addr(addr))
++			return -EADDRNOTAVAIL;
++	}
+ 
+ 	memcpy(netdev->dev_addr, addr, netdev->addr_len);
+ 
+ 	return 0;
  }
  
-+static int rtnl_vf_port_fill_nest(struct sk_buff *skb, struct net_device *dev,
-+	int vf)
++static int enic_dev_add_station_addr(struct enic *enic)
 +{
-+	struct nlattr *data;
-+	int err;
++	int err = 0;
 +
-+	data = nla_nest_start(skb, IFLA_VF_PORT);
-+	if (!data)
-+		return -EMSGSIZE;
-+
-+	if (vf >= 0)
-+		nla_put_u32(skb, IFLA_VF_PORT_VF, vf);
-+
-+	err = dev->netdev_ops->ndo_get_vf_port(dev, vf, skb);
-+	if (err == -EMSGSIZE) {
-+		nla_nest_cancel(skb, data);
-+		return -EMSGSIZE;
-+	} else if (err) {
-+		nla_nest_cancel(skb, data);
-+		return 0;
++	if (is_valid_ether_addr(enic->netdev->dev_addr)) {
++		spin_lock(&enic->devcmd_lock);
++		err = vnic_dev_add_addr(enic->vdev, enic->netdev->dev_addr);
++		spin_unlock(&enic->devcmd_lock);
 +	}
 +
-+	nla_nest_end(skb, data);
-+
-+	return 0;
++	return err;
 +}
 +
-+static int rtnl_vf_port_fill(struct sk_buff *skb, struct net_device *dev)
++static int enic_dev_del_station_addr(struct enic *enic)
 +{
-+	int num_vf;
++	int err = 0;
++
++	if (is_valid_ether_addr(enic->netdev->dev_addr)) {
++		spin_lock(&enic->devcmd_lock);
++		err = vnic_dev_del_addr(enic->vdev, enic->netdev->dev_addr);
++		spin_unlock(&enic->devcmd_lock);
++	}
++
++	return err;
++}
++
++static int enic_set_mac_address(struct net_device *netdev, void *p)
++{
++	struct enic *enic = netdev_priv(netdev);
++	struct sockaddr *saddr = p;
++	char *addr = saddr->sa_data;
++	int err = -EOPNOTSUPP;
++
++	if (enic_is_dynamic(enic)) {
++		if (netif_running(enic->netdev)) {
++			err = enic_dev_del_station_addr(enic);
++			if (err)
++				return err;
++		}
++		err = enic_set_mac_addr(netdev, addr);
++		if (err)
++			return err;
++		if (netif_running(enic->netdev)) {
++			err = enic_dev_add_station_addr(enic);
++			if (err)
++				return err;
++		}
++	}
++
++	return err;
++}
++
+ /* netif_tx_lock held, BHs disabled */
+ static void enic_set_multicast_list(struct net_device *netdev)
+ {
+@@ -922,6 +990,209 @@ static void enic_tx_timeout(struct net_device *netdev)
+ 	schedule_work(&enic->reset);
+ }
+ 
++static int enic_vnic_dev_deinit(struct enic *enic)
++{
 +	int err;
 +
-+	if (!dev->netdev_ops->ndo_get_vf_port || !dev->dev.parent)
-+		return 0;
++	spin_lock(&enic->devcmd_lock);
++	err = vnic_dev_deinit(enic->vdev);
++	spin_unlock(&enic->devcmd_lock);
 +
-+	num_vf = dev_num_vf(dev->dev.parent);
++	return err;
++}
 +
-+	if (num_vf) {
-+		int i;
++static int enic_dev_init_prov(struct enic *enic, struct vic_provinfo *vp)
++{
++	int err;
 +
-+		for (i = 0; i < num_vf; i++) {
-+			err = rtnl_vf_port_fill_nest(skb, dev, i);
-+			if (err)
-+				goto nla_put_failure;
-+		}
-+	} else  {
-+		err = rtnl_vf_port_fill_nest(skb, dev, -1);
-+		if (err)
-+			goto nla_put_failure;
++	spin_lock(&enic->devcmd_lock);
++	err = vnic_dev_init_prov(enic->vdev,
++		(u8 *)vp, vic_provinfo_size(vp));
++	spin_unlock(&enic->devcmd_lock);
++
++	return err;
++}
++
++static int enic_dev_init_done(struct enic *enic, int *done, int *error)
++{
++	int err;
++
++	spin_lock(&enic->devcmd_lock);
++	err = vnic_dev_init_done(enic->vdev, done, error);
++	spin_unlock(&enic->devcmd_lock);
++
++	return err;
++}
++
++static int enic_set_port_profile(struct enic *enic, int vf, u8 *mac,
++	char *name, u8 *instance_uuid, u8 *host_uuid)
++{
++	struct vic_provinfo *vp;
++	u8 oui[3] = VIC_PROVINFO_CISCO_OUI;
++	unsigned short *uuid;
++	char uuid_str[38];
++	static char *uuid_fmt = "%04X%04X-%04X-%04X-%04X-%04X%04X%04X";
++	int err;
++
++	if (!name)
++		return -EINVAL;
++
++	if (!is_valid_ether_addr(mac))
++		return -EADDRNOTAVAIL;
++
++	vp = vic_provinfo_alloc(GFP_KERNEL, oui, VIC_PROVINFO_LINUX_TYPE);
++	if (!vp)
++		return -ENOMEM;
++
++	vic_provinfo_add_tlv(vp,
++		VIC_LINUX_PROV_TLV_PORT_PROFILE_NAME_STR,
++		strlen(name) + 1, name);
++
++	vic_provinfo_add_tlv(vp,
++		VIC_LINUX_PROV_TLV_CLIENT_MAC_ADDR,
++		ETH_ALEN, mac);
++
++	if (instance_uuid) {
++		uuid = (unsigned short *)instance_uuid;
++		sprintf(uuid_str, uuid_fmt,
++			uuid[0], uuid[1], uuid[2], uuid[3],
++			uuid[4], uuid[5], uuid[6], uuid[7]);
++		vic_provinfo_add_tlv(vp,
++			VIC_LINUX_PROV_TLV_CLIENT_UUID_STR,
++			sizeof(uuid_str), uuid_str);
 +	}
++
++	if (host_uuid) {
++		uuid = (unsigned short *)host_uuid;
++		sprintf(uuid_str, uuid_fmt,
++			uuid[0], uuid[1], uuid[2], uuid[3],
++			uuid[4], uuid[5], uuid[6], uuid[7]);
++		vic_provinfo_add_tlv(vp,
++			VIC_LINUX_PROV_TLV_HOST_UUID_STR,
++			sizeof(uuid_str), uuid_str);
++	}
++
++	err = enic_vnic_dev_deinit(enic);
++	if (err)
++		goto err_out;
++
++	memset(&enic->pp, 0, sizeof(enic->pp));
++
++	err = enic_dev_init_prov(enic, vp);
++	if (err)
++		goto err_out;
++
++	memcpy(enic->pp.name, name, VF_PORT_PROFILE_MAX);
++	if (instance_uuid)
++		memcpy(enic->pp.instance_uuid,
++			instance_uuid, VF_PORT_UUID_MAX);
++	if (host_uuid)
++		memcpy(enic->pp.host_uuid,
++			host_uuid, VF_PORT_UUID_MAX);
++
++err_out:
++	vic_provinfo_free(vp);
++
++	return err;
++}
++
++static int enic_unset_port_profile(struct enic *enic, int vf)
++{
++	memset(&enic->pp, 0, sizeof(enic->pp));
++	return enic_vnic_dev_deinit(enic);
++}
++
++static int enic_set_vf_port(struct net_device *netdev, int vf,
++	struct nlattr *vf_port[])
++{
++	struct enic *enic = netdev_priv(netdev);
++	char *name = NULL;
++	u8 *instance_uuid = NULL;
++	u8 *host_uuid = NULL;
++	u8 request = VF_PORT_REQUEST_DISASSOCIATE;
++
++	if (!enic_is_dynamic(enic))
++		return -EOPNOTSUPP;
++
++	if (vf_port[IFLA_VF_PORT_REQUEST])
++		request = nla_get_u8(vf_port[IFLA_VF_PORT_REQUEST]);
++
++	switch (request) {
++	case VF_PORT_REQUEST_ASSOCIATE:
++
++		if (vf_port[IFLA_VF_PORT_PROFILE])
++			name = nla_data(vf_port[IFLA_VF_PORT_PROFILE]);
++
++		if (vf_port[IFLA_VF_PORT_INSTANCE_UUID])
++			instance_uuid =
++				nla_data(vf_port[IFLA_VF_PORT_INSTANCE_UUID]);
++
++		if (vf_port[IFLA_VF_PORT_HOST_UUID])
++			host_uuid = nla_data(vf_port[IFLA_VF_PORT_HOST_UUID]);
++
++		return enic_set_port_profile(enic, vf,
++			netdev->dev_addr, name,
++			instance_uuid, host_uuid);
++
++	case VF_PORT_REQUEST_DISASSOCIATE:
++
++		return enic_unset_port_profile(enic, vf);
++
++	default:
++		break;
++	}
++
++	return -EOPNOTSUPP;
++}
++
++static int enic_get_vf_port(struct net_device *netdev, int vf,
++	struct sk_buff *skb)
++{
++	struct enic *enic = netdev_priv(netdev);
++	int err, error, done;
++	u16 response = VF_PORT_PROFILE_RESPONSE_SUCCESS;
++
++	if (!enic_is_dynamic(enic))
++		return -EOPNOTSUPP;
++
++	err = enic_dev_init_done(enic, &done, &error);
++
++	if (err)
++		return err;
++
++	switch (error) {
++	case ERR_SUCCESS:
++		if (!done)
++			response = VF_PORT_PROFILE_RESPONSE_INPROGRESS;
++		break;
++	case ERR_EINVAL:
++		response = VF_PORT_PROFILE_RESPONSE_INVALID;
++		break;
++	case ERR_EBADSTATE:
++		response = VF_PORT_PROFILE_RESPONSE_BADSTATE;
++		break;
++	case ERR_ENOMEM:
++		response = VF_PORT_PROFILE_RESPONSE_INSUFFICIENT_RESOURCES;
++		break;
++	default:
++		response = VF_PORT_PROFILE_RESPONSE_ERROR;
++		break;
++	}
++
++	NLA_PUT_U16(skb, IFLA_VF_PORT_RESPONSE, response);
++	NLA_PUT(skb, IFLA_VF_PORT_PROFILE, VF_PORT_PROFILE_MAX,
++		enic->pp.name);
++	NLA_PUT(skb, IFLA_VF_PORT_INSTANCE_UUID, VF_PORT_UUID_MAX,
++		enic->pp.instance_uuid);
++	NLA_PUT(skb, IFLA_VF_PORT_HOST_UUID, VF_PORT_UUID_MAX,
++		enic->pp.host_uuid);
 +
 +	return 0;
 +
@@ -263,89 +421,371 @@ index 23a71cb..de14d36 100644
 +	return -EMSGSIZE;
 +}
 +
- static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			    int type, u32 pid, u32 seq, u32 change,
- 			    unsigned int flags)
-@@ -747,17 +825,23 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 		goto nla_put_failure;
- 	copy_rtnl_link_stats64(nla_data(attr), stats);
+ static void enic_free_rq_buf(struct vnic_rq *rq, struct vnic_rq_buf *buf)
+ {
+ 	struct enic *enic = vnic_dev_priv(rq->vdev);
+@@ -1440,9 +1711,7 @@ static int enic_open(struct net_device *netdev)
+ 	for (i = 0; i < enic->rq_count; i++)
+ 		vnic_rq_enable(&enic->rq[i]);
  
-+	if (dev->dev.parent)
-+		NLA_PUT_U32(skb, IFLA_NUM_VF, dev_num_vf(dev->dev.parent));
+-	spin_lock(&enic->devcmd_lock);
+-	enic_add_station_addr(enic);
+-	spin_unlock(&enic->devcmd_lock);
++	enic_dev_add_station_addr(enic);
+ 	enic_set_multicast_list(netdev);
+ 
+ 	netif_wake_queue(netdev);
+@@ -1489,6 +1758,8 @@ static int enic_stop(struct net_device *netdev)
+ 	netif_carrier_off(netdev);
+ 	netif_tx_disable(netdev);
+ 
++	enic_dev_del_station_addr(enic);
 +
- 	if (dev->netdev_ops->ndo_get_vf_config && dev->dev.parent) {
- 		int i;
- 		struct ifla_vf_info ivi;
+ 	for (i = 0; i < enic->wq_count; i++) {
+ 		err = vnic_wq_disable(&enic->wq[i]);
+ 		if (err)
+@@ -1775,20 +2046,22 @@ static void enic_clear_intr_mode(struct enic *enic)
+ }
  
--		NLA_PUT_U32(skb, IFLA_NUM_VF, dev_num_vf(dev->dev.parent));
- 		for (i = 0; i < dev_num_vf(dev->dev.parent); i++) {
- 			if (dev->netdev_ops->ndo_get_vf_config(dev, i, &ivi))
- 				break;
- 			NLA_PUT(skb, IFLA_VFINFO, sizeof(ivi), &ivi);
- 		}
+ static const struct net_device_ops enic_netdev_ops = {
+-	.ndo_open		= enic_open,
+-	.ndo_stop		= enic_stop,
+-	.ndo_start_xmit		= enic_hard_start_xmit,
+-	.ndo_get_stats		= enic_get_stats,
+-	.ndo_validate_addr	= eth_validate_addr,
+-	.ndo_set_mac_address 	= eth_mac_addr,
+-	.ndo_set_multicast_list	= enic_set_multicast_list,
+-	.ndo_change_mtu		= enic_change_mtu,
+-	.ndo_vlan_rx_register	= enic_vlan_rx_register,
+-	.ndo_vlan_rx_add_vid	= enic_vlan_rx_add_vid,
+-	.ndo_vlan_rx_kill_vid	= enic_vlan_rx_kill_vid,
+-	.ndo_tx_timeout		= enic_tx_timeout,
++	.ndo_open			= enic_open,
++	.ndo_stop			= enic_stop,
++	.ndo_start_xmit			= enic_hard_start_xmit,
++	.ndo_get_stats			= enic_get_stats,
++	.ndo_validate_addr		= eth_validate_addr,
++	.ndo_set_multicast_list		= enic_set_multicast_list,
++	.ndo_set_mac_address		= enic_set_mac_address,
++	.ndo_change_mtu			= enic_change_mtu,
++	.ndo_vlan_rx_register		= enic_vlan_rx_register,
++	.ndo_vlan_rx_add_vid		= enic_vlan_rx_add_vid,
++	.ndo_vlan_rx_kill_vid		= enic_vlan_rx_kill_vid,
++	.ndo_tx_timeout			= enic_tx_timeout,
++	.ndo_set_vf_port		= enic_set_vf_port,
++	.ndo_get_vf_port		= enic_get_vf_port,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+-	.ndo_poll_controller	= enic_poll_controller,
++	.ndo_poll_controller		= enic_poll_controller,
+ #endif
+ };
+ 
+@@ -2010,11 +2283,13 @@ static int __devinit enic_probe(struct pci_dev *pdev,
+ 
+ 	netif_carrier_off(netdev);
+ 
+-	err = vnic_dev_init(enic->vdev, 0);
+-	if (err) {
+-		printk(KERN_ERR PFX
+-			"vNIC dev init failed, aborting.\n");
+-		goto err_out_dev_close;
++	if (!enic_is_dynamic(enic)) {
++		err = vnic_dev_init(enic->vdev, 0);
++		if (err) {
++			printk(KERN_ERR PFX
++				"vNIC dev init failed, aborting.\n");
++			goto err_out_dev_close;
++		}
  	}
-+
-+	if (rtnl_vf_port_fill(skb, dev))
-+		goto nla_put_failure;
-+
- 	if (dev->rtnl_link_ops) {
- 		if (rtnl_link_fill(skb, dev) < 0)
- 			goto nla_put_failure;
-@@ -824,6 +908,7 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 				    .len = sizeof(struct ifla_vf_vlan) },
- 	[IFLA_VF_TX_RATE]	= { .type = NLA_BINARY,
- 				    .len = sizeof(struct ifla_vf_tx_rate) },
-+	[IFLA_VF_PORT]		= { .type = NLA_NESTED },
- };
- EXPORT_SYMBOL(ifla_policy);
  
-@@ -832,6 +917,20 @@ static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
- 	[IFLA_INFO_DATA]	= { .type = NLA_NESTED },
- };
+ 	err = enic_dev_init(enic);
+diff --git a/drivers/net/enic/enic_res.c b/drivers/net/enic/enic_res.c
+index 02839bf..9b18840 100644
+--- a/drivers/net/enic/enic_res.c
++++ b/drivers/net/enic/enic_res.c
+@@ -103,11 +103,6 @@ int enic_get_vnic_config(struct enic *enic)
+ 	return 0;
+ }
  
-+static const struct nla_policy ifla_vf_port_policy[IFLA_VF_PORT_MAX+1] = {
-+	[IFLA_VF_PORT_VF]		= { .type = NLA_U32 },
-+	[IFLA_VF_PORT_PROFILE]		= { .type = NLA_STRING,
-+				.len = VF_PORT_PROFILE_MAX },
-+	[IFLA_VF_PORT_VSI_TYPE]		= { .type = NLA_BINARY,
-+				.len = sizeof(struct ifla_vf_port_vsi)},
-+	[IFLA_VF_PORT_INSTANCE_UUID]	= { .type = NLA_BINARY,
-+				.len = VF_PORT_UUID_MAX },
-+	[IFLA_VF_PORT_HOST_UUID]	= { .type = NLA_STRING,
-+				.len = VF_PORT_UUID_MAX },
-+	[IFLA_VF_PORT_REQUEST]		= { .type = NLA_U8, },
-+	[IFLA_VF_PORT_RESPONSE]		= { .type = NLA_U16, },
+-void enic_add_station_addr(struct enic *enic)
+-{
+-	vnic_dev_add_addr(enic->vdev, enic->mac_addr);
+-}
+-
+ void enic_add_multicast_addr(struct enic *enic, u8 *addr)
+ {
+ 	vnic_dev_add_addr(enic->vdev, addr);
+diff --git a/drivers/net/enic/enic_res.h b/drivers/net/enic/enic_res.h
+index abc1974..494664f 100644
+--- a/drivers/net/enic/enic_res.h
++++ b/drivers/net/enic/enic_res.h
+@@ -131,7 +131,6 @@ static inline void enic_queue_rq_desc(struct vnic_rq *rq,
+ struct enic;
+ 
+ int enic_get_vnic_config(struct enic *);
+-void enic_add_station_addr(struct enic *enic);
+ void enic_add_multicast_addr(struct enic *enic, u8 *addr);
+ void enic_del_multicast_addr(struct enic *enic, u8 *addr);
+ void enic_add_vlan(struct enic *enic, u16 vlanid);
+diff --git a/drivers/net/enic/vnic_dev.c b/drivers/net/enic/vnic_dev.c
+index d43a9d4..2b3e16d 100644
+--- a/drivers/net/enic/vnic_dev.c
++++ b/drivers/net/enic/vnic_dev.c
+@@ -530,7 +530,7 @@ void vnic_dev_packet_filter(struct vnic_dev *vdev, int directed, int multicast,
+ 		printk(KERN_ERR "Can't set packet filter\n");
+ }
+ 
+-void vnic_dev_add_addr(struct vnic_dev *vdev, u8 *addr)
++int vnic_dev_add_addr(struct vnic_dev *vdev, u8 *addr)
+ {
+ 	u64 a0 = 0, a1 = 0;
+ 	int wait = 1000;
+@@ -543,9 +543,11 @@ void vnic_dev_add_addr(struct vnic_dev *vdev, u8 *addr)
+ 	err = vnic_dev_cmd(vdev, CMD_ADDR_ADD, &a0, &a1, wait);
+ 	if (err)
+ 		printk(KERN_ERR "Can't add addr [%pM], %d\n", addr, err);
++
++	return err;
+ }
+ 
+-void vnic_dev_del_addr(struct vnic_dev *vdev, u8 *addr)
++int vnic_dev_del_addr(struct vnic_dev *vdev, u8 *addr)
+ {
+ 	u64 a0 = 0, a1 = 0;
+ 	int wait = 1000;
+@@ -558,6 +560,8 @@ void vnic_dev_del_addr(struct vnic_dev *vdev, u8 *addr)
+ 	err = vnic_dev_cmd(vdev, CMD_ADDR_DEL, &a0, &a1, wait);
+ 	if (err)
+ 		printk(KERN_ERR "Can't del addr [%pM], %d\n", addr, err);
++
++	return err;
+ }
+ 
+ int vnic_dev_raise_intr(struct vnic_dev *vdev, u16 intr)
+@@ -682,6 +686,56 @@ int vnic_dev_init(struct vnic_dev *vdev, int arg)
+ 	return r;
+ }
+ 
++int vnic_dev_init_done(struct vnic_dev *vdev, int *done, int *err)
++{
++	u64 a0 = 0, a1 = 0;
++	int wait = 1000;
++	int ret;
++
++	*done = 0;
++
++	ret = vnic_dev_cmd(vdev, CMD_INIT_STATUS, &a0, &a1, wait);
++	if (ret)
++		return ret;
++
++	*done = (a0 == 0);
++
++	*err = (a0 == 0) ? a1 : 0;
++
++	return 0;
++}
++
++int vnic_dev_init_prov(struct vnic_dev *vdev, u8 *buf, u32 len)
++{
++	u64 a0, a1 = len;
++	int wait = 1000;
++	u64 prov_pa;
++	void *prov_buf;
++	int ret;
++
++	prov_buf = pci_alloc_consistent(vdev->pdev, len, &prov_pa);
++	if (!prov_buf)
++		return -ENOMEM;
++
++	memcpy(prov_buf, buf, len);
++
++	a0 = prov_pa;
++
++	ret = vnic_dev_cmd(vdev, CMD_INIT_PROV_INFO, &a0, &a1, wait);
++
++	pci_free_consistent(vdev->pdev, len, prov_buf, prov_pa);
++
++	return ret;
++}
++
++int vnic_dev_deinit(struct vnic_dev *vdev)
++{
++	u64 a0 = 0, a1 = 0;
++	int wait = 1000;
++
++	return vnic_dev_cmd(vdev, CMD_DEINIT, &a0, &a1, wait);
++}
++
+ int vnic_dev_link_status(struct vnic_dev *vdev)
+ {
+ 	if (vdev->linkstatus)
+diff --git a/drivers/net/enic/vnic_dev.h b/drivers/net/enic/vnic_dev.h
+index f5be640..caccce3 100644
+--- a/drivers/net/enic/vnic_dev.h
++++ b/drivers/net/enic/vnic_dev.h
+@@ -103,8 +103,8 @@ int vnic_dev_stats_dump(struct vnic_dev *vdev, struct vnic_stats **stats);
+ int vnic_dev_hang_notify(struct vnic_dev *vdev);
+ void vnic_dev_packet_filter(struct vnic_dev *vdev, int directed, int multicast,
+ 	int broadcast, int promisc, int allmulti);
+-void vnic_dev_add_addr(struct vnic_dev *vdev, u8 *addr);
+-void vnic_dev_del_addr(struct vnic_dev *vdev, u8 *addr);
++int vnic_dev_add_addr(struct vnic_dev *vdev, u8 *addr);
++int vnic_dev_del_addr(struct vnic_dev *vdev, u8 *addr);
+ int vnic_dev_mac_addr(struct vnic_dev *vdev, u8 *mac_addr);
+ int vnic_dev_raise_intr(struct vnic_dev *vdev, u16 intr);
+ int vnic_dev_notify_setcmd(struct vnic_dev *vdev,
+@@ -124,6 +124,9 @@ int vnic_dev_disable(struct vnic_dev *vdev);
+ int vnic_dev_open(struct vnic_dev *vdev, int arg);
+ int vnic_dev_open_done(struct vnic_dev *vdev, int *done);
+ int vnic_dev_init(struct vnic_dev *vdev, int arg);
++int vnic_dev_init_done(struct vnic_dev *vdev, int *done, int *err);
++int vnic_dev_init_prov(struct vnic_dev *vdev, u8 *buf, u32 len);
++int vnic_dev_deinit(struct vnic_dev *vdev);
+ int vnic_dev_soft_reset(struct vnic_dev *vdev, int arg);
+ int vnic_dev_soft_reset_done(struct vnic_dev *vdev, int *done);
+ void vnic_dev_set_intr_mode(struct vnic_dev *vdev,
+diff --git a/drivers/net/enic/vnic_vic.c b/drivers/net/enic/vnic_vic.c
+new file mode 100644
+index 0000000..d769772
+--- /dev/null
++++ b/drivers/net/enic/vnic_vic.c
+@@ -0,0 +1,73 @@
++/*
++ * Copyright 2010 Cisco Systems, Inc.  All rights reserved.
++ *
++ * This program is free software; you may redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; version 2 of the License.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ *
++ */
++
++#include <linux/kernel.h>
++#include <linux/errno.h>
++#include <linux/types.h>
++#include <linux/slab.h>
++
++#include "vnic_vic.h"
++
++struct vic_provinfo *vic_provinfo_alloc(gfp_t flags, u8 *oui, u8 type)
++{
++	struct vic_provinfo *vp = kzalloc(VIC_PROVINFO_MAX_DATA, flags);
++
++	if (!vp || !oui)
++		return NULL;
++
++	memcpy(vp->oui, oui, sizeof(vp->oui));
++	vp->type = type;
++	vp->length = htonl(sizeof(vp->num_tlvs));
++
++	return vp;
++}
++
++void vic_provinfo_free(struct vic_provinfo *vp)
++{
++	kfree(vp);
++}
++
++int vic_provinfo_add_tlv(struct vic_provinfo *vp, u16 type, u16 length,
++	void *value)
++{
++	struct vic_provinfo_tlv *tlv;
++
++	if (!vp || !value)
++		return -EINVAL;
++
++	if (ntohl(vp->length) + sizeof(*tlv) + length >
++		VIC_PROVINFO_MAX_TLV_DATA)
++		return -ENOMEM;
++
++	tlv = (struct vic_provinfo_tlv *)((u8 *)vp->tlv +
++		ntohl(vp->length) - sizeof(vp->num_tlvs));
++
++	tlv->type = htons(type);
++	tlv->length = htons(length);
++	memcpy(tlv->value, value, length);
++
++	vp->num_tlvs = htonl(ntohl(vp->num_tlvs) + 1);
++	vp->length = htonl(ntohl(vp->length) + sizeof(*tlv) + length);
++
++	return 0;
++}
++
++size_t vic_provinfo_size(struct vic_provinfo *vp)
++{
++	return vp ?  ntohl(vp->length) + sizeof(*vp) - sizeof(vp->num_tlvs) : 0;
++}
+diff --git a/drivers/net/enic/vnic_vic.h b/drivers/net/enic/vnic_vic.h
+new file mode 100644
+index 0000000..085c2a2
+--- /dev/null
++++ b/drivers/net/enic/vnic_vic.h
+@@ -0,0 +1,59 @@
++/*
++ * Copyright 2010 Cisco Systems, Inc.  All rights reserved.
++ *
++ * This program is free software; you may redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; version 2 of the License.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ *
++ */
++
++#ifndef _VNIC_VIC_H_
++#define _VNIC_VIC_H_
++
++/* Note: All integer fields in NETWORK byte order */
++
++/* Note: String field lengths include null char */
++
++#define VIC_PROVINFO_CISCO_OUI		{ 0x00, 0x00, 0x0c }
++#define VIC_PROVINFO_LINUX_TYPE		0x2
++
++enum vic_linux_prov_tlv_type {
++	VIC_LINUX_PROV_TLV_PORT_PROFILE_NAME_STR = 0,
++	VIC_LINUX_PROV_TLV_CLIENT_MAC_ADDR = 1,			/* u8[6] */
++	VIC_LINUX_PROV_TLV_CLIENT_NAME_STR = 2,
++	VIC_LINUX_PROV_TLV_HOST_UUID_STR = 8,
++	VIC_LINUX_PROV_TLV_CLIENT_UUID_STR = 9,
 +};
 +
- struct net *rtnl_link_get_net(struct net *src_net, struct nlattr *tb[])
- {
- 	struct net *net;
-@@ -1028,6 +1127,27 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
- 	}
- 	err = 0;
- 
-+	if (tb[IFLA_VF_PORT]) {
-+		struct nlattr *vf_port[IFLA_VF_PORT_MAX+1];
-+		int vf = -1;
++struct vic_provinfo {
++	u8 oui[3];		/* OUI of data provider */
++	u8 type;		/* provider-specific type */
++	u32 length;		/* length of data below */
++	u32 num_tlvs;		/* number of tlvs */
++	struct vic_provinfo_tlv {
++		u16 type;
++		u16 length;
++		u8 value[0];
++	} tlv[0];
++} __attribute__ ((packed));
 +
-+		err = nla_parse_nested(vf_port, IFLA_VF_PORT_MAX,
-+			tb[IFLA_VF_PORT], ifla_vf_port_policy);
-+		if (err < 0)
-+			goto errout;
++#define VIC_PROVINFO_MAX_DATA		1385
++#define VIC_PROVINFO_MAX_TLV_DATA (VIC_PROVINFO_MAX_DATA - \
++	sizeof(struct vic_provinfo))
 +
-+		if (vf_port[IFLA_VF_PORT_VF])
-+			vf = nla_get_u32(vf_port[IFLA_VF_PORT_VF]);
++struct vic_provinfo *vic_provinfo_alloc(gfp_t flags, u8 *oui, u8 type);
++void vic_provinfo_free(struct vic_provinfo *vp);
++int vic_provinfo_add_tlv(struct vic_provinfo *vp, u16 type, u16 length,
++	void *value);
++size_t vic_provinfo_size(struct vic_provinfo *vp);
 +
-+		err = -EOPNOTSUPP;
-+		if (ops->ndo_set_vf_port)
-+			err = ops->ndo_set_vf_port(dev, vf, vf_port);
-+		if (err < 0)
-+			goto errout;
-+		modified = 1;
-+	}
-+	err = 0;
-+
- errout:
- 	if (err < 0 && modified && net_ratelimit())
- 		printk(KERN_WARNING "A link change request failed with "
++#endif	/* _VNIC_VIC_H_ */
 
