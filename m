@@ -1,21 +1,26 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 13/20] net/caif: Use kzalloc
-Date: Thu, 13 May 2010 22:03:32 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1005132203150.6282@ask.diku.dk>
+Subject: [PATCH 14/20] drivers/net/vmxnet3: Use kzalloc
+Date: Thu, 13 May 2010 22:05:40 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005132204040.6282@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+To: Shreyas Bhatewara <sbhatewara@vmware.com>,
+	"VMware, Inc." <pv-drivers@vmware.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw2.diku.dk ([130.225.96.92]:42061 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753057Ab0EMUFq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 May 2010 16:05:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Julia Lawall <julia@diku.dk>
 
 Use kzalloc rather than the combination of kmalloc and memset.
 
-A simplified version of the semantic patch that makes this change is as
-follows: (http://coccinelle.lip6.fr/)
+The semantic patch that makes this change is as follows:
+(http://coccinelle.lip6.fr/)
 
 // <smpl>
 @@
@@ -32,41 +37,24 @@ statement S;
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- net/caif/cfcnfg.c |    3 +--
- net/caif/cfctrl.c |    3 +--
- 2 files changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/vmxnet3/vmxnet3_drv.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff -u -p a/net/caif/cfcnfg.c b/net/caif/cfcnfg.c
---- a/net/caif/cfcnfg.c
-+++ b/net/caif/cfcnfg.c
-@@ -65,12 +65,11 @@ struct cfcnfg *cfcnfg_create(void)
- 	struct cfcnfg *this;
- 	struct cfctrl_rsp *resp;
- 	/* Initiate this layer */
--	this = kmalloc(sizeof(struct cfcnfg), GFP_ATOMIC);
-+	this = kzalloc(sizeof(struct cfcnfg), GFP_ATOMIC);
- 	if (!this) {
- 		pr_warning("CAIF: %s(): Out of memory\n", __func__);
- 		return NULL;
+diff -u -p a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -1369,13 +1369,12 @@ vmxnet3_rq_create(struct vmxnet3_rx_queu
+ 
+ 	sz = sizeof(struct vmxnet3_rx_buf_info) * (rq->rx_ring[0].size +
+ 						   rq->rx_ring[1].size);
+-	bi = kmalloc(sz, GFP_KERNEL);
++	bi = kzalloc(sz, GFP_KERNEL);
+ 	if (!bi) {
+ 		printk(KERN_ERR "%s: failed to allocate rx bufinfo\n",
+ 		       adapter->netdev->name);
+ 		goto err;
  	}
--	memset(this, 0, sizeof(struct cfcnfg));
- 	this->mux = cfmuxl_create();
- 	if (!this->mux)
- 		goto out_of_mem;
-diff -u -p a/net/caif/cfctrl.c b/net/caif/cfctrl.c
---- a/net/caif/cfctrl.c
-+++ b/net/caif/cfctrl.c
-@@ -284,12 +284,11 @@ int cfctrl_linkup_request(struct cflayer
- 			   __func__, param->linktype);
- 		return -EINVAL;
- 	}
--	req = kmalloc(sizeof(*req), GFP_KERNEL);
-+	req = kzalloc(sizeof(*req), GFP_KERNEL);
- 	if (!req) {
- 		pr_warning("CAIF: %s(): Out of memory\n", __func__);
- 		return -ENOMEM;
- 	}
--	memset(req, 0, sizeof(*req));
- 	req->client_layer = user_layer;
- 	req->cmd = CFCTRL_CMD_LINK_SETUP;
- 	req->param = *param;
+-	memset(bi, 0, sz);
+ 	rq->buf_info[0] = bi;
+ 	rq->buf_info[1] = bi + rq->rx_ring[0].size;
+ 
