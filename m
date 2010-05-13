@@ -1,82 +1,47 @@
-From: James Bottomley <James.Bottomley@suse.de>
-Subject: Re: [PATCH 0/9] mm: generic adaptive large memory allocation APIs
-Date: Thu, 13 May 2010 10:04:15 -0500
-Message-ID: <1273763055.4353.136.camel@mulgrave.site>
-References: <1273744147-7594-1-git-send-email-xiaosuo@gmail.com>
+From: ratheesh k <ratheesh.ksz@gmail.com>
+Subject: Re: iptables NEW or SYN
+Date: Thu, 13 May 2010 20:51:55 +0530
+Message-ID: <AANLkTilBAxOHBF_pZbaDDFnnUXaVVqm-45csjEI3ze1U@mail.gmail.com>
+References: <hsgu5c$d8c$1@dough.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Roland Dreier <rolandd@cisco.com>, Sean Hefty <sean.hefty@intel.com>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Divy Le Ray <divy@chelsio.com>, Theodore Ts'o <tytso@mit.edu>,
-	Andreas Dilger <adilger@sun.com>,
-	Alexander Viro <viro@zeniv.linux.org.uk>,
-	Paul Menage <menage@google.com>, Li Zefan <lizf@cn.fujitsu.com>,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	linux-ext4@vger.kernel.org, linux-fsdevel@vger.kernel.org,
-	linux-mm@kvack.org, containers@lists.linux-foundation.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1273744147-7594-1-git-send-email-xiaosuo@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Netfilter mailing list <netfilter@vger.kernel.org>
+To: Markus Feldmann <feldmann_markus@gmx.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:45591 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752179Ab0EMPV4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 May 2010 11:21:56 -0400
+In-Reply-To: <hsgu5c$d8c$1@dough.gmane.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-05-13 at 17:49 +0800, Changli Gao wrote:
-> generic adaptive large memory allocation APIs
-> 
-> kv*alloc are used to allocate large contiguous memory and the users don't mind
-> whether the memory is physically or virtually contiguous. The allocator always
-> try its best to allocate physically contiguous memory first.
+On Thu, May 13, 2010 at 6:47 PM, Markus Feldmann <feldmann_markus@gmx.d=
+e> wrote:
+> Hi All,
+>
+> i am still experiment with iptables and the state extension. Some of =
+my
+> rules shall catch packets with the state NEW, but it doesn't catch al=
+l
+> packets. Sometimes there are packets that have the SYN Flag set which=
+ go
+> through my rules with the state NEW.
+>
+> Any idea why?
+> I thought SYN is included in the state NEW, is that wrong?
+>
+> What is the difference between SYN and NEW?
+>
+> regards Markus
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
 
-This isn't necessarily true ... most drivers and filesystems have to
-know what type they're getting.  Often they have to do extra tricks to
-process vmalloc areas.  Conversely, large kmalloc areas are a very
-precious commodity: if a driver or filesystem can handle vmalloc for
-large allocations, it should: it's easier for us to expand the vmalloc
-area than to try to make page reclaim keep large contiguous areas ... I
-notice your proposed API does the exact opposite of this ... tries
-kmalloc first and then does vmalloc.
-
-Given this policy problem, isn't it easier simply to hand craft the
-vmalloc fall back to kmalloc (or vice versa) in the driver than add this
-whole massive raft of APIs for it?
-
-> In this patch set, some APIs are introduced: kvmalloc(), kvzalloc(), kvcalloc(),
-> kvrealloc(), kvfree() and kvfree_inatomic().
-> 
-> Some code are converted to use the new generic APIs instead.
-> 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-> ----
->  drivers/infiniband/hw/ehca/ipz_pt_fn.c |   22 +-----
->  drivers/net/cxgb3/cxgb3_defs.h         |    2 
->  drivers/net/cxgb3/cxgb3_offload.c      |   31 ---------
->  drivers/net/cxgb3/l2t.c                |    4 -
->  drivers/net/cxgb4/cxgb4.h              |    3 
->  drivers/net/cxgb4/cxgb4_main.c         |   37 +----------
->  drivers/net/cxgb4/l2t.c                |    2 
->  drivers/scsi/cxgb3i/cxgb3i_ddp.c       |   12 +--
->  drivers/scsi/cxgb3i/cxgb3i_ddp.h       |   26 -------
->  drivers/scsi/cxgb3i/cxgb3i_offload.c   |    6 -
->  fs/ext4/super.c                        |   21 +-----
->  fs/file.c                              |  109 ++++-----------------------------
->  include/linux/mm.h                     |   31 +++++++++
->  include/linux/vmalloc.h                |    1 
->  kernel/cgroup.c                        |   47 +-------------
->  kernel/relay.c                         |   35 ----------
->  mm/nommu.c                             |    6 +
->  mm/util.c                              |  104 +++++++++++++++++++++++++++++++
->  mm/vmalloc.c                           |   14 ++++
->  19 files changed, 207 insertions(+), 306 deletions(-)
-
-James
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Please use  netfilter-users list advise of  experts in netfilter  .
+-Ratheesh .
