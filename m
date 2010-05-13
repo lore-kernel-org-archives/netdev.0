@@ -1,109 +1,41 @@
-From: kaber@trash.net
-Subject: [PATCH 03/12] netfilter: xtables: dissolve do_match function
-Date: Thu, 13 May 2010 18:16:16 +0200
-Message-ID: <1273767385-18225-4-git-send-email-kaber@trash.net>
-References: <1273767385-18225-1-git-send-email-kaber@trash.net>
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] net sched: cleanup and rate limit warning
+Date: Thu, 13 May 2010 12:20:26 -0400
+Message-ID: <1273767626.6117.3.camel@bigi>
+References: <20100511172412.76aff184@nehalam>
+	 <1273684674.16074.0.camel@bigi> <20100512111706.616dc7cf@nehalam>
+	 <1273691628.16074.15.camel@bigi>  <20100512132042.3b38da18@nehalam>
+	 <1273696903.16074.25.camel@bigi>  <4BEBFAD4.1030608@trash.net>
+Reply-To: hadi@cyberus.ca
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:58078 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758971Ab0EMQQb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 May 2010 12:16:31 -0400
-In-Reply-To: <1273767385-18225-1-git-send-email-kaber@trash.net>
+Received: from mail-ww0-f46.google.com ([74.125.82.46]:42772 "EHLO
+	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757101Ab0EMQUc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 May 2010 12:20:32 -0400
+Received: by wwi18 with SMTP id 18so1004367wwi.19
+        for <netdev@vger.kernel.org>; Thu, 13 May 2010 09:20:31 -0700 (PDT)
+In-Reply-To: <4BEBFAD4.1030608@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jan Engelhardt <jengelh@medozas.de>
+On Thu, 2010-05-13 at 15:12 +0200, Patrick McHardy wrote:
 
-Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
----
- net/ipv4/netfilter/ip_tables.c  |   22 +++++-----------------
- net/ipv6/netfilter/ip6_tables.c |   22 +++++-----------------
- 2 files changed, 10 insertions(+), 34 deletions(-)
+> I don't remeber ever discussing that, the choice of "reclassify" as
+> default precedes TC actions and is already present in the oldest
+> iproute2 version I could find (2.2.4-ss000225).
 
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index f92818f..265cedf 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -173,21 +173,6 @@ ipt_error(struct sk_buff *skb, const struct xt_target_param *par)
- 	return NF_DROP;
- }
- 
--/* Performance critical - called for every packet */
--static inline bool
--do_match(const struct ipt_entry_match *m, const struct sk_buff *skb,
--	 struct xt_match_param *par)
--{
--	par->match     = m->u.kernel.match;
--	par->matchinfo = m->data;
--
--	/* Stop iteration if it doesn't match */
--	if (!m->u.kernel.match->match(skb, par))
--		return true;
--	else
--		return false;
--}
--
- /* Performance critical */
- static inline struct ipt_entry *
- get_entry(const void *base, unsigned int offset)
-@@ -379,9 +364,12 @@ ipt_do_table(struct sk_buff *skb,
- 			continue;
- 		}
- 
--		xt_ematch_foreach(ematch, e)
--			if (do_match(ematch, skb, &mtpar) != 0)
-+		xt_ematch_foreach(ematch, e) {
-+			mtpar.match     = ematch->u.kernel.match;
-+			mtpar.matchinfo = ematch->data;
-+			if (!mtpar.match->match(skb, &mtpar))
- 				goto no_match;
-+		}
- 
- 		ADD_COUNTER(e->counters, ntohs(ip->tot_len), 1);
- 
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 7afa117..f8ac4a0 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -205,21 +205,6 @@ ip6t_error(struct sk_buff *skb, const struct xt_target_param *par)
- 	return NF_DROP;
- }
- 
--/* Performance critical - called for every packet */
--static inline bool
--do_match(const struct ip6t_entry_match *m, const struct sk_buff *skb,
--	 struct xt_match_param *par)
--{
--	par->match     = m->u.kernel.match;
--	par->matchinfo = m->data;
--
--	/* Stop iteration if it doesn't match */
--	if (!m->u.kernel.match->match(skb, par))
--		return true;
--	else
--		return false;
--}
--
- static inline struct ip6t_entry *
- get_entry(const void *base, unsigned int offset)
- {
-@@ -402,9 +387,12 @@ ip6t_do_table(struct sk_buff *skb,
- 			continue;
- 		}
- 
--		xt_ematch_foreach(ematch, e)
--			if (do_match(ematch, skb, &mtpar) != 0)
-+		xt_ematch_foreach(ematch, e) {
-+			mtpar.match     = ematch->u.kernel.match;
-+			mtpar.matchinfo = ematch->data;
-+			if (!mtpar.match->match(skb, &mtpar))
- 				goto no_match;
-+		}
- 
- 		ADD_COUNTER(e->counters,
- 			    ntohs(ipv6_hdr(skb)->payload_len) +
--- 
-1.7.0.4
+I think i confused it with unrelated discussion.
+
+If its been there from day 0 then we should leave it as is - rationale:
+it will help to catch config bugs.
+Stephen needs to fix his tool regardless...
+
+cheers,
+jamal
 
