@@ -1,41 +1,53 @@
-From: Markus Feldmann <feldmann_markus@gmx.de>
-Subject: iptables NEW or SYN
-Date: Thu, 13 May 2010 15:17:32 +0200
-Message-ID: <hsgu5c$d8c$1@dough.gmane.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH net-next] net/: (netfilter related) Remove unnecessary
+ returns from void function()s
+Date: Thu, 13 May 2010 15:20:04 +0200
+Message-ID: <4BEBFC84.5020707@trash.net>
+References: <1273600346.20514.247.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:42358 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752852Ab0EMNRp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 May 2010 09:17:45 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1OCYIH-0000q3-HX
-	for netdev@vger.kernel.org; Thu, 13 May 2010 15:17:41 +0200
-Received: from 188.96.72.98 ([188.96.72.98])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 13 May 2010 15:17:41 +0200
-Received: from feldmann_markus by 188.96.72.98 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 13 May 2010 15:17:41 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1273600346.20514.247.camel@Joe-Laptop.home>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi All,
+Joe Perches wrote:
+> This patch removes from net/ netfilter files
+> all the unnecessary return; statements that precede the
+> last closing brace of void functions.
+> 
+> It does not remove the returns that are immediately
+> preceded by a label as gcc doesn't like that.
+> 
+> Done via:
+> $ grep -rP --include=*.[ch] -l "return;\n}" net/ | \
+>   xargs perl -i -e 'local $/ ; while (<>) { s/\n[ \t\n]+return;\n}/\n}/g; print; }'
+> 
 
-i am still experiment with iptables and the state extension. Some of my 
-rules shall catch packets with the state NEW, but it doesn't catch all 
-packets. Sometimes there are packets that have the SYN Flag set which go 
-through my rules with the state NEW.
+Applied, but I changed the patch to keep the two return statements
+below in otherwise empty function bodies since I consider that more
+aesthetically pleasing.
 
-Any idea why?
-I thought SYN is included in the state NEW, is that wrong?
-
-What is the difference between SYN and NEW?
-
-regards Markus
-
+> --- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+> +++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+> @@ -452,6 +452,5 @@ module_exit(nf_conntrack_l3proto_ipv4_fini);
+>  
+>  void need_ipv4_conntrack(void)
+>  {
+> -	return;
+>  }
+>  EXPORT_SYMBOL_GPL(need_ipv4_conntrack);
+> diff --git a/net/ipv4/netfilter/nf_nat_proto_gre.c b/net/ipv4/netfilter/nf_nat_proto_gre.c
+> index d7e8920..39efbe6 100644
+> --- a/net/ipv4/netfilter/nf_nat_proto_gre.c
+> +++ b/net/ipv4/netfilter/nf_nat_proto_gre.c
+> @@ -144,6 +144,5 @@ module_exit(nf_nat_proto_gre_fini);
+>  
+>  void nf_nat_need_gre(void)
+>  {
+> -	return;
+>  }
