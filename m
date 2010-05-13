@@ -1,89 +1,29 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 15/20] drivers/net: Use kcalloc or kzalloc
-Date: Thu, 13 May 2010 22:06:01 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1005132205420.6282@ask.diku.dk>
+From: Scott Feldman <scofeldm@cisco.com>
+Subject: [net-next-2.6 V6 PATCH 0/2] Add virtual port netlink support
+Date: Thu, 13 May 2010 13:17:14 -0700
+Message-ID: <20100513201714.25579.53530.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, chrisw@redhat.com, arnd@arndb.de
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-2.cisco.com ([171.71.176.71]:39820 "EHLO
+	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759164Ab0EMURQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 May 2010 16:17:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
+The following series adds virtual port netlink support and adds an
+implementation to Cisco's enic netdev driver:
 
-Use kcalloc or kzalloc rather than the combination of kmalloc and memset.
+	1/2: Adds virtual netlink RTM_SETLINK/RTM_GETLINK support, and
+	     adds matching netdev ops net_{set|get}_vf_port.
 
-The semantic patch that makes this change is as follows:
-(http://coccinelle.lip6.fr/)
+	2/2: Adds enic support for net_{set|get}_vf_port for enic
+	     dynamic devices.
 
-// <smpl>
-@@
-expression x,y,flags;
-statement S;
-type T;
-@@
-
-x = 
--   kmalloc
-+   kcalloc
-           (
--           y * sizeof(T),
-+           y, sizeof(T),
-                flags);
- if (x == NULL) S
--memset(x, 0, y * sizeof(T));
-
-@@
-expression x,size,flags;
-statement S;
-@@
-
--x = kmalloc(size,flags);
-+x = kzalloc(size,flags);
- if (x == NULL) S
--memset(x, 0, size);
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
----
- drivers/net/ibmveth.c |    3 +--
- drivers/net/ksz884x.c |    3 +--
- 2 files changed, 2 insertions(+), 4 deletions(-)
-
-diff -u -p a/drivers/net/ibmveth.c b/drivers/net/ibmveth.c
---- a/drivers/net/ibmveth.c
-+++ b/drivers/net/ibmveth.c
-@@ -199,7 +199,7 @@ static int ibmveth_alloc_buffer_pool(str
- 		return -1;
- 	}
- 
--	pool->skbuff = kmalloc(sizeof(void*) * pool->size, GFP_KERNEL);
-+	pool->skbuff = kcalloc(pool->size, sizeof(void *), GFP_KERNEL);
- 
- 	if(!pool->skbuff) {
- 		kfree(pool->dma_addr);
-@@ -210,7 +210,6 @@ static int ibmveth_alloc_buffer_pool(str
- 		return -1;
- 	}
- 
--	memset(pool->skbuff, 0, sizeof(void*) * pool->size);
- 	memset(pool->dma_addr, 0, sizeof(dma_addr_t) * pool->size);
- 
- 	for(i = 0; i < pool->size; ++i) {
-diff -u -p a/drivers/net/ksz884x.c b/drivers/net/ksz884x.c
---- a/drivers/net/ksz884x.c
-+++ b/drivers/net/ksz884x.c
-@@ -7049,10 +7049,9 @@ static int __init pcidev_init(struct pci
- 			mib_port_count = SWITCH_PORT_NUM;
- 		}
- 		hw->mib_port_cnt = TOTAL_PORT_NUM;
--		hw->ksz_switch = kmalloc(sizeof(struct ksz_switch), GFP_KERNEL);
-+		hw->ksz_switch = kzalloc(sizeof(struct ksz_switch), GFP_KERNEL);
- 		if (!hw->ksz_switch)
- 			goto pcidev_init_alloc_err;
--		memset(hw->ksz_switch, 0, sizeof(struct ksz_switch));
- 
- 		sw = hw->ksz_switch;
- 	}
+Acked-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Scott Feldman <scofeldm@cisco.com>
+Signed-off-by: Roopa Prabhu<roprabhu@cisco.com>
