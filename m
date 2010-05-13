@@ -1,150 +1,49 @@
-From: Jon Zhou <Jon.Zhou@jdsu.com>
-Subject: RE: does the broadcom bnx2x support RSS/multi queue
-Date: Thu, 13 May 2010 02:44:09 -0700
-Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497DECAE8@MILEXCH2.ds.jdsu.net>
-References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497D85D43@MILEXCH2.ds.jdsu.net>
- <1273650119.2621.5.camel@edumazet-laptop>
- <1273655947.4491.5.camel@lb-tlvb-eilong.il.broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "eilong@broadcom.com" <eilong@broadcom.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og101.obsmtp.com ([64.18.2.155]:58024 "HELO
-	exprod7og101.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751212Ab0EMJol (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 May 2010 05:44:41 -0400
-In-Reply-To: <1273655947.4491.5.camel@lb-tlvb-eilong.il.broadcom.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH 0/9] mm: generic adaptive large memory allocation APIs
+Date: Thu, 13 May 2010 17:49:07 +0800
+Message-ID: <1273744147-7594-1-git-send-email-xiaosuo@gmail.com>
+Cc: Hoang-Nam Nguyen <hnguyen@de.ibm.com>, Christoph Raisch <raisch@de.ibm.com>, Roland Dreier <rolandd@cisco.com>, Sean Hefty <sean.hefty@intel.com>, Hal Rosenstock <hal.rosenstock@gmail.com>, Divy Le Ray <divy@chelsio.com>, "James E.J. Bottomley" <James.Bottomley@suse.de>, "Theodore Ts'o" <tytso@mit.edu>, Andreas Dilger <adilger@sun.com>, Alexander Viro <viro@zeniv.linux.org.uk>, Paul Menage <menage@google.com>, Li Zefan <lizf@cn.fujitsu.com>, linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org, netdev@vger.kernel.org, linux-scsi@vger.kernel.org, linux-ext4@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-mm@kvack.org, containers@lists.linux-foundation.org, Changli Gao <xiaosuo@gmail.com>
+To: akpm@linux-foundation.org
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-aGk6DQoNCkkganVzdCB0cmllZCB0byBpbnNhbGwgMS41Mi4xMiBkcml2ZXI6DQoNCmluc21vZCAu
-L1BGX1JJTkcvZHJpdmVycy9icm9hZGNvbS9uZXR4dHJlbWUyLTUuMi41MC9ibngyeC0xLjUyLjEy
-L3NyYy9ibngyeC5rbyBtdWx0aV9tb2RlPTEgbnVtX3F1ZXVlcz00IGludF9tb2RlPTMgZGVidWc9
-MQ0KaWZjb25maWcgZXRoNSB1cA0KDQpidXQgc2VlbXMgTVNJIG5vdCBlbmFibGVkOg0KMzQ6ICAg
-ICAgICAgMjYgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAg
-ICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAg
-ICAgMCAgICAgICAgICAwICAgNDk0NzA2MTEgICA2MzQyNzE0MCAgICAgICAgICAwICAgICAgICAg
-IDAgICBJTy1BUElDLWZhc3Rlb2kgICBldGg1DQo0MzE0OiAgICAgICAgICAyICAgICAgICAgIDAg
-ICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAg
-ICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAg
-ICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgbm9uZS08TlVMTD4N
-CjQzMTY6ICAgICAgICAgIDIgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAg
-ICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAg
-IDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAw
-ICAgICAgICAgIDAgICAgICBub25lLTxOVUxMPg0KNDMxODogICAgICAgICAgMiAgICAgICAgICAw
-ICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAg
-ICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAg
-ICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgIG5vbmUtPE5VTEw+
-DQo0MzIxOiAgICAgICA2NTEwICAgICAgICA3MjggICAgICAgMTc4NiAgICAgICAgICAwICAgICAg
-ICAgMTQgICAgICAgICAgMCAgICAgICAgIDU3ICAgICAgICAzODAgICAgICAgICAgMCAgICAgICAg
-ICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgMTAwICAgICAgICAxMzkgICAgICAgICAg
-MCAgICAgICAgICAwICAgUENJLU1TSS1lZGdlICAgICAgZXRoMQ0KNDMyMjogICAgICAgMTEwMiAg
-ICAgICAgICAwICAgICAgIDI1NTYgICAgICAgIDc4OCAgICAgICAgICAwICAgICAgICAgIDUgICAg
-ICAgICAgMCAgICAgICAxMzM4ICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAg
-ICAgIDAgICAgICAgIDE3NCAgICAgICAgIDQ1ICAgICAgICA0MTEgICAgICAgICAgMCAgIFBDSS1N
-U0ktZWRnZSAgICAgIGV0aDENCjQzMjM6ICAgICAgICAgMjEgICAgICAgICAgMCAgICAgICAgICAw
-ICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAg
-ICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICA3ODQgICAg
-ICAgMTEwMyAgICAgICAgIDU2ICAgICAgICAgODcgICBQQ0ktTVNJLWVkZ2UgICAgICBldGgxDQo0
-Mw0KDQpjb3VsZCBnaXZlIHNvbWUgdGlwcz8NCnRoYW5rcyENCg0KTWF5IDEzIDAzOjM3OjU5IGli
-bS1iYy01MyBrZXJuZWw6IEJyb2FkY29tIE5ldFh0cmVtZSBJSSA1NzcxeCAxMEdpZ2FiaXQgRXRo
-ZXJuZXQgRHJpdmVyIGJueDJ4IDEuNTIuMTIgKCREYXRlVGltZTogMjAwOS8xMi8xNyAxMjoxNDo1
-MCAkKQ0KTWF5IDEzIDAzOjM3OjU5IGlibS1iYy01MyBrZXJuZWw6IGJueDJ4IDAwMDA6MTU6MDAu
-MDogUENJIElOVCBBIC0+IEdTSSAyNCAobGV2ZWwsIGxvdykgLT4gSVJRIDI0DQpNYXkgMTMgMDM6
-Mzc6NTkgaWJtLWJjLTUzIGtlcm5lbDogYm54MnggMDAwMDoxNTowMC4wOiBzZXR0aW5nIGxhdGVu
-Y3kgdGltZXIgdG8gNjQNCk1heSAxMyAwMzozNzo1OSBpYm0tYmMtNTMga2VybmVsOiBibngyeDog
-cGFydCBudW1iZXIgMzk0RDQzNDItMzEzNzM3MzUtMzEzMTQxMzEtNDczMDMzDQpNYXkgMTMgMDM6
-Mzc6NTkgaWJtLWJjLTUzIGtlcm5lbDogZXRoMjogQnJvYWRjb20gTmV0WHRyZW1lIElJIEJDTTU3
-NzExIFhHYiAoQTApIFBDSS1FIHg4IDVHSHogKEdlbjIpIGZvdW5kIGF0IG1lbSBhMDAwMDAwMCwg
-SVJRIDI0LCBub2RlIGFkZHIgZmZmZjg4MDFkYjgxMDIxMA0KTWF5IDEzIDAzOjM3OjU5IGlibS1i
-Yy01MyBrZXJuZWw6IGJueDJ4IDAwMDA6MTU6MDAuMTogUENJIElOVCBCIC0+IEdTSSAzNCAobGV2
-ZWwsIGxvdykgLT4gSVJRIDM0DQpNYXkgMTMgMDM6Mzc6NTkgaWJtLWJjLTUzIGtlcm5lbDogYm54
-MnggMDAwMDoxNTowMC4xOiBzZXR0aW5nIGxhdGVuY3kgdGltZXIgdG8gNjQNCk1heSAxMyAwMzoz
-Nzo1OSBpYm0tYmMtNTMga2VybmVsOiBldGgyIHJlbmFtZWQgdG8gZXRoMyBieSB1ZGV2ZCBbMjQ1
-NjldDQpNYXkgMTMgMDM6Mzc6NTkgaWJtLWJjLTUzIGtlcm5lbDogYm54Mng6IHBhcnQgbnVtYmVy
-IDM5NEQ0MzQyLTMxMzczNzM1LTMxMzE0MTMxLTQ3MzAzMw0KTWF5IDEzIDAzOjM3OjU5IGlibS1i
-Yy01MyBrZXJuZWw6IHVkZXY6IHJlbmFtZWQgbmV0d29yayBpbnRlcmZhY2UgZXRoMiB0byBldGgz
-DQpNYXkgMTMgMDM6Mzc6NTkgaWJtLWJjLTUzIGlmdXA6ICAgICBldGgzICAgICAgZGV2aWNlOiBC
-cm9hZGNvbSBDb3Jwb3JhdGlvbiBOZXRYdHJlbWUgSUkgQkNNNTc3MTEgMTBHaWdhYml0IFBDSWUN
-Ck1heSAxMyAwMzozNzo1OSBpYm0tYmMtNTMgU3VTRWZpcmV3YWxsMjogU3VTRWZpcmV3YWxsMiBu
-b3QgYWN0aXZlDQpNYXkgMTMgMDM6Mzc6NTkgaWJtLWJjLTUzIGtlcm5lbDogZXRoMjogQnJvYWRj
-b20gTmV0WHRyZW1lIElJIEJDTTU3NzExIFhHYiAoQTApIFBDSS1FIHg4IDVHSHogKEdlbjIpIGZv
-dW5kIGF0IG1lbSBhMDgwMDAwMCwgSVJRIDM0LCBub2RlIGFkZHIgZmZmZjg4MDIwMDgyODIxMA0K
-TWF5IDEzIDAzOjM3OjU5IGlibS1iYy01MyBrZXJuZWw6IGJueDJ4IDAwMDA6MWE6MDAuMDogUENJ
-IElOVCBBIC0+IEdTSSAyNiAobGV2ZWwsIGxvdykgLT4gSVJRIDI2DQpNYXkgMTMgMDM6Mzc6NTkg
-aWJtLWJjLTUzIGtlcm5lbDogYm54MnggMDAwMDoxYTowMC4wOiBzZXR0aW5nIGxhdGVuY3kgdGlt
-ZXIgdG8gNjQNCk1heSAxMyAwMzozNzo1OSBpYm0tYmMtNTMga2VybmVsOiBibngyeDogcGFydCBu
-dW1iZXIgMzk0RDQzNDItMzEzNzM3MzUtMzEzMTQxMzEtNDczMDMzDQpNYXkgMTMgMDM6Mzc6NTkg
-aWJtLWJjLTUzIGtlcm5lbDogZXRoMiByZW5hbWVkIHRvIGV0aDUgYnkgdWRldmQgWzI0NjQyXQ0K
-TWF5IDEzIDAzOjM3OjU5IGlibS1iYy01MyBrZXJuZWw6IHVkZXY6IHJlbmFtZWQgbmV0d29yayBp
-bnRlcmZhY2UgZXRoMiB0byBldGg1DQpNYXkgMTMgMDM6Mzc6NTkgaWJtLWJjLTUzIGlmdXA6ICAg
-ICBldGg1ICAgICAgZGV2aWNlOiBCcm9hZGNvbSBDb3Jwb3JhdGlvbiBOZXRYdHJlbWUgSUkgQkNN
-NTc3MTEgMTBHaWdhYml0IFBDSWUNCk1heSAxMyAwMzozNzo1OSBpYm0tYmMtNTMgaWZ1cDogICAg
-IGV0aDUgICAgICBTdGFydG1vZGUgaXMgJ29mZicNCk1heSAxMyAwMzozNzo1OSBpYm0tYmMtNTMg
-a2VybmVsOiBldGgyOiBCcm9hZGNvbSBOZXRYdHJlbWUgSUkgQkNNNTc3MTEgWEdiIChBMCkgUENJ
-LUUgeDggNUdIeiAoR2VuMikgZm91bmQgYXQgbWVtIDlhMDAwMDAwLCBJUlEgMjYsIG5vZGUgYWRk
-ciBmZmZmODgwMjAzMGY4MjEwDQpNYXkgMTMgMDM6Mzc6NTkgaWJtLWJjLTUzIGtlcm5lbDogYm54
-MnggMDAwMDoxYTowMC4xOiBQQ0kgSU5UIEIgLT4gR1NJIDI1IChsZXZlbCwgbG93KSAtPiBJUlEg
-MjUNCk1heSAxMyAwMzozNzo1OSBpYm0tYmMtNTMga2VybmVsOiBibngyeCAwMDAwOjFhOjAwLjE6
-IHNldHRpbmcgbGF0ZW5jeSB0aW1lciB0byA2NA0KTWF5IDEzIDAzOjM3OjU5IGlibS1iYy01MyBr
-ZXJuZWw6IGJueDJ4OiBwYXJ0IG51bWJlciAzOTRENDM0Mi0zMTM3MzczNS0zMTMxNDEzMS00NzMw
-MzMNCk1heSAxMyAwMzozNzo1OSBpYm0tYmMtNTMgaWZ1cDogICAgIGV0aDIgICAgICBkZXZpY2U6
-IEJyb2FkY29tIENvcnBvcmF0aW9uIE5ldFh0cmVtZSBJSSBCQ001NzcxMSAxMEdpZ2FiaXQgUENJ
-ZQ0KTWF5IDEzIDAzOjM3OjU5IGlibS1iYy01MyBTdVNFZmlyZXdhbGwyOiBTdVNFZmlyZXdhbGwy
-IG5vdCBhY3RpdmUNCk1heSAxMyAwMzozODowMCBpYm0tYmMtNTMga2VybmVsOiBldGg0OiBCcm9h
-ZGNvbSBOZXRYdHJlbWUgSUkgQkNNNTc3MTEgWEdiIChBMCkgUENJLUUgeDggNUdIeiAoR2VuMikg
-Zm91bmQgYXQgbWVtIDlhODAwMDAwLCBJUlEgMjUsIG5vZGUgYWRkciBmZmZmODgwMjhkNWE4MjEw
-DQpNYXkgMTMgMDM6Mzg6MDAgaWJtLWJjLTUzIGlmdXA6ICAgICBldGg0ICAgICAgZGV2aWNlOiBC
-cm9hZGNvbSBDb3Jwb3JhdGlvbiBOZXRYdHJlbWUgSUkgQkNNNTc3MTEgMTBHaWdhYml0IFBDSWUN
-Ck1heSAxMyAwMzozODowMCBpYm0tYmMtNTMgU3VTRWZpcmV3YWxsMjogU3VTRWZpcmV3YWxsMiBu
-b3QgYWN0aXZlDQpNYXkgMTMgMDM6Mzg6MTIgaWJtLWJjLTUzIGtlcm5lbDogYm54Mng6IGV0aDUg
-TklDIExpbmsgaXMgVXAsIDEwMDAwIE1icHMgZnVsbCBkdXBsZXgsIHJlY2VpdmUgJiB0cmFuc21p
-dCBmbG93IGNvbnRyb2wgT04NCg0KSSB0aGluayB0aGVyZSBzaG91bGQgYmUgInVzaW5nIE1TSS1Y
-IiBvciBzb21ldGhpbmcgbGlrZSB0aGF0DQoNCg0KLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0N
-CkZyb206IEVpbG9uIEdyZWVuc3RlaW4gW21haWx0bzplaWxvbmdAYnJvYWRjb20uY29tXSANClNl
-bnQ6IFdlZG5lc2RheSwgTWF5IDEyLCAyMDEwIDU6MTkgUE0NClRvOiBFcmljIER1bWF6ZXQNCkNj
-OiBKb24gWmhvdTsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KU3ViamVjdDogUmU6IGRvZXMgdGhl
-IGJyb2FkY29tIGJueDJ4IHN1cHBvcnQgUlNTL211bHRpIHF1ZXVlDQoNCk9uIFdlZCwgMjAxMC0w
-NS0xMiBhdCAwMDo0MSAtMDcwMCwgRXJpYyBEdW1hemV0IHdyb3RlOg0KPiBMZSBtZXJjcmVkaSAx
-MiBtYWkgMjAxMCDDoCAwMDozMSAtMDcwMCwgSm9uIFpob3UgYSDDqWNyaXQgOg0KPiA+IGhpIHRo
-ZXJlDQo+ID4gDQo+ID4gSSBhbSBub3Qgc3VyZSBpZiBteSBCcm9hZGNvbSAxMEcgbmljIGRyaXZl
-cihibngyeCkgc3VwcG9ydCBSU1MvbXVsdGkgcXVldWUNCj4gPiANCj4gPiBpYm0tYmMtNTM6L2hv
-bWUvcnVpemhvdS9ucHJvYmUgIyB1bmFtZSAtYQ0KPiA+IExpbnV4IGlibS1iYy01MyAyLjYuMjcu
-MTktNS1kZWZhdWx0ICMxIFNNUCAyMDA5LTAyLTI4IDA0OjQwOjIxICswMTAwIHg4Nl82NCB4ODZf
-NjQgeDg2XzY0IEdOVS9MaW51eA0KPiA+IA0KPiA+IGlibS1iYy01MzovaG9tZS9ydWl6aG91L25w
-cm9iZSAjIGV0aHRvb2wgLVMgZXRoNQ0KPiA+IE5JQyBzdGF0aXN0aWNzOg0KPiA+ICAgICAgcnhf
-Ynl0ZXM6IDY4MTAwMTcwDQo+ID4gICAgICByeF9lcnJvcl9ieXRlczogMA0KPiA+ICAgICAgdHhf
-Ynl0ZXM6IDANCj4gPiAgICAgIHR4X2Vycm9yX2J5dGVzOiAwDQo+ID4gICAgICByeF91Y2FzdF9w
-YWNrZXRzOiAyMDE2NTQNCj4gPiAgICAgIHJ4X21jYXN0X3BhY2tldHM6IDANCj4gPiAgICAgIHJ4
-X2JjYXN0X3BhY2tldHM6IDANCj4gPiAgICAgIHR4X3BhY2tldHM6IDANCj4gPiAgICAgIHR4X21h
-Y19lcnJvcnM6IDANCj4gPiAgICAgIHR4X2NhcnJpZXJfZXJyb3JzOiAwDQo+ID4gICAgICByeF9j
-cmNfZXJyb3JzOiAwDQo+ID4gICAgICByeF9hbGlnbl9lcnJvcnM6IDANCj4gPiAgICAgIHR4X3Np
-bmdsZV9jb2xsaXNpb25zOiAwDQo+ID4gICAgICB0eF9tdWx0aV9jb2xsaXNpb25zOiAwDQo+ID4g
-ICAgICB0eF9kZWZlcnJlZDogMA0KPiA+ICAgICAgdHhfZXhjZXNzX2NvbGxpc2lvbnM6IDANCj4g
-PiAgICAgIHR4X2xhdGVfY29sbGlzaW9uczogMA0KPiA+ICAgICAgdHhfdG90YWxfY29sbGlzaW9u
-czogMA0KPiA+ICAgICAgcnhfZnJhZ21lbnRzOiAwDQo+ID4gICAgICByeF9qYWJiZXJzOiAwDQo+
-ID4gICAgICByeF91bmRlcnNpemVfcGFja2V0czogMA0KPiA+ICAgICAgcnhfb3ZlcnNpemVfcGFj
-a2V0czogMA0KPiA+ICAgICAgdHhfNjRfYnl0ZV9wYWNrZXRzOiAwDQo+ID4gICAgICB0eF82NV90
-b18xMjdfYnl0ZV9wYWNrZXRzOiAwDQo+ID4gICAgICB0eF8xMjhfdG9fMjU1X2J5dGVfcGFja2V0
-czogMA0KPiA+ICAgICAgdHhfMjU2X3RvXzUxMV9ieXRlX3BhY2tldHM6IDANCj4gPiAgICAgIHR4
-XzUxMl90b18xMDIzX2J5dGVfcGFja2V0czogMA0KPiA+ICAgICAgdHhfMTAyNF90b18xNTIyX2J5
-dGVfcGFja2V0czogMA0KPiA+ICAgICAgdHhfMTUyM190b185MDIyX2J5dGVfcGFja2V0czogMA0K
-PiA+ICAgICAgcnhfeG9uX2ZyYW1lczogMA0KPiA+ICAgICAgcnhfeG9mZl9mcmFtZXM6IDANCj4g
-PiAgICAgIHR4X3hvbl9mcmFtZXM6IDANCj4gPiAgICAgIHR4X3hvZmZfZnJhbWVzOiAwDQo+ID4g
-ICAgICByeF9tYWNfY3RybF9mcmFtZXM6IDANCj4gPiAgICAgIHJ4X2ZpbHRlcmVkX3BhY2tldHM6
-IDANCj4gPiAgICAgIHJ4X2Rpc2NhcmRzOiAwDQo+ID4gICAgICByeF9md19kaXNjYXJkczogMA0K
-PiA+ICAgICAgYnJiX2Rpc2NhcmQ6IDANCj4gPiAgICAgIGJyYl90cnVuY2F0ZTogMA0KPiA+ICAg
-ICAgcnhfcGh5X2lwX2Vycl9kaXNjYXJkczogMA0KPiA+ICAgICAgcnhfc2tiX2FsbG9jX2Rpc2Nh
-cmQ6IDANCj4gPiAgICAgIHJ4X2NzdW1fb2ZmbG9hZF9lcnJvcnM6IDYNCj4gPiANCj4gPiB0aGUg
-ZHJpdmVyIHZlciBpczoNCj4gPiBibngyeF9tYWluLmMNCj4gPiAjZGVmaW5lIERSVl9NT0RVTEVf
-VkVSU0lPTiAgICAgICIxLjQ1LjI2Ig0KPiA+IA0KPiA+IGxvb2tzIG5vdCBzdXBwb3J0Pw0KPiA+
-IA0KPiA+IHRoYW5rcw0KPiA+IGpvbg0KPiANCj4gUGVyIHF1ZXVlIHN0YXRzIHdlcmUgYWRkZWQg
-bGFzdCB5ZWFyIG9ubHkgKFRodSBGZWIgMTIgMDg6MzY6MzMgMjAwOSkNCj4gDQo+IFlvdSBtaWdo
-dCBjaGVjayAiZ3JlcCBldGg1IC9wcm9jL2ludGVycnVwdHMiDQo+IA0KPiBPciB1cGdyYWRlIHRv
-IDIuNi4zMy54IGtlcm5lbCA6KQ0KPiANClRoZSBIVyBhbmQgY3VycmVudCBkcml2ZXIgc3VwcG9y
-dCBtdWx0aS1xdWV1ZS4gSG93ZXZlciwgeW91IGFyZSB1c2luZyBhIHZlcnNpb24gd2hpY2ggaXMg
-dG9vIG9sZC4NCg0KDQoNCg0KDQo=
+generic adaptive large memory allocation APIs
+
+kv*alloc are used to allocate large contiguous memory and the users don't mind
+whether the memory is physically or virtually contiguous. The allocator always
+try its best to allocate physically contiguous memory first.
+
+In this patch set, some APIs are introduced: kvmalloc(), kvzalloc(), kvcalloc(),
+kvrealloc(), kvfree() and kvfree_inatomic().
+
+Some code are converted to use the new generic APIs instead.
+
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+ drivers/infiniband/hw/ehca/ipz_pt_fn.c |   22 +-----
+ drivers/net/cxgb3/cxgb3_defs.h         |    2 
+ drivers/net/cxgb3/cxgb3_offload.c      |   31 ---------
+ drivers/net/cxgb3/l2t.c                |    4 -
+ drivers/net/cxgb4/cxgb4.h              |    3 
+ drivers/net/cxgb4/cxgb4_main.c         |   37 +----------
+ drivers/net/cxgb4/l2t.c                |    2 
+ drivers/scsi/cxgb3i/cxgb3i_ddp.c       |   12 +--
+ drivers/scsi/cxgb3i/cxgb3i_ddp.h       |   26 -------
+ drivers/scsi/cxgb3i/cxgb3i_offload.c   |    6 -
+ fs/ext4/super.c                        |   21 +-----
+ fs/file.c                              |  109 ++++-----------------------------
+ include/linux/mm.h                     |   31 +++++++++
+ include/linux/vmalloc.h                |    1 
+ kernel/cgroup.c                        |   47 +-------------
+ kernel/relay.c                         |   35 ----------
+ mm/nommu.c                             |    6 +
+ mm/util.c                              |  104 +++++++++++++++++++++++++++++++
+ mm/vmalloc.c                           |   14 ++++
+ 19 files changed, 207 insertions(+), 306 deletions(-)
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
