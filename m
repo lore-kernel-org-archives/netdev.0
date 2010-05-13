@@ -1,35 +1,54 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] net/: (netfilter related) Remove unnecessary
- returns from void function()s
-Date: Thu, 13 May 2010 08:52:24 -0700
-Message-ID: <1273765944.21514.35.camel@Joe-Laptop.home>
-References: <1273600346.20514.247.camel@Joe-Laptop.home>
-	 <4BEBFC84.5020707@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+From: kaber@trash.net
+Subject: [PATCH 00/12] netfilter: netfilter update
+Date: Thu, 13 May 2010 18:16:13 +0200
+Message-ID: <1273767385-18225-1-git-send-email-kaber@trash.net>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4BEBFC84.5020707@trash.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2010-05-13 at 15:20 +0200, Patrick McHardy wrote:
-> Joe Perches wrote:
-> > This patch removes from net/ netfilter files
-> > all the unnecessary return; statements that precede the
-> > last closing brace of void functions.
-> > Done via:
-> > $ grep -rP --include=*.[ch] -l "return;\n}" net/ | \
-> >   xargs perl -i -e 'local $/ ; while (<>) { s/\n[ \t\n]+return;\n}/\n}/g; print; }'
-> > 
-> Applied, but I changed the patch to keep the two return statements
-> below in otherwise empty function bodies since I consider that more
-> aesthetically pleasing.
+following is a second netfilter update, containing:
 
-No worries, thanks.
-The patch is just for taste and consistency.
+- a compilation fix for ip_tables with CONFIG_NETFILTER_DEBUG=y, from Jan
 
+- a fix for an invalid return value in the multiport match introduced in
+  the last series, from Jan
+
+- patches to combine the match and target parameters into a common structure,
+  from Jan
+
+- Bart's patch to fix the NULL pointer dereference in bridge netfilter
+  reported by Stephen
+
+- minor cleanups and improvements from Jan, Stephen and Joe
+
+Please apply or pull from:
+
+git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
+
+Thanks!
+
+Bart De Schuymer (1):
+      netfilter: bridge-netfilter: fix crash in br_nf_forward_finish()
+
+Jan Engelhardt (8):
+      netfilter: ip_tables: fix compilation when debug is enabled
+      netfilter: xtables: fix incorrect return code
+      netfilter: xtables: dissolve do_match function
+      netfilter: xtables: combine struct xt_match_param and xt_target_param
+      netfilter: xtables: substitute temporary defines by final name
+      netfilter: xtables: deconstify struct xt_action_param for matches
+      netfilter: xtables: change hotdrop pointer to direct modification
+      netfilter: xtables: combine built-in extension structs
+
+Joe Perches (1):
+      netfilter: remove unnecessary returns from void function()s
+
+Patrick McHardy (1):
+      Merge branch 'master' of git://dev.medozas.de/linux
+
+Stephen Hemminger (2):
+      netfilter: change NF_ASSERT to WARN_ON
+      netfilter: cleanup printk messages
 
