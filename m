@@ -1,62 +1,101 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: manual merge of the net tree with the
- wireless-current tree
-Date: Thu, 13 May 2010 11:02:48 +1000
-Message-ID: <20100513110248.06cc6ee7.sfr@canb.auug.org.au>
-References: <20100512121539.8956720a.sfr@canb.auug.org.au>
-	<1273680943.2370.9533.camel@rchatre-DESK>
+From: Michael Ellerman <michael@ellerman.id.au>
+Subject: Re: Config Items appearing twice in same Kconfig file?
+Date: Thu, 13 May 2010 11:08:49 +1000
+Message-ID: <1273712929.25436.5.camel@concordia>
+References: <20100512143445.GA32559@faui48a.informatik.uni-erlangen.de>
+	<20100512144017.GA722@faui48a.informatik.uni-erlangen.de>
+Reply-To: michael@ellerman.id.au
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Thu__13_May_2010_11_02_48_+1000_RdT26GH2h/3z9OPG"
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-next@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: reinette chatre <reinette.chatre@intel.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1273680943.2370.9533.camel@rchatre-DESK>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============9149217305822838533=="
+Cc: linux-ia64@vger.kernel.org, vamos@i4.informatik.uni-erlangen.de,
+	Jesse Barnes <jbarnes@virtuousgeek.org>, Timo Teras <timo.teras@iki.fi>,
+	Chen Liqin <liqin.chen@sunplusct.com>, Paul Mackerras <paulus@samba.org>,
+	"H. Peter Anvin" <hpa@zytor.com>, Lennox Wu <lennox.wu@gmail.com>,
+	Jesper Nilsson <jesper.nilsson@axis.com>,
+	"Pekka Savola \(ipv6\)" <pekkas@netcore.fi>, x86@kernel.org,
+	James Morris <jmorris@namei.org>, Ingo Molnar <mingo@redhat.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, Matt Turner <mattst88@gmail.com>,
+	Fenghua Yu <fenghua.yu@intel.com>, Mike Frysinger <vapier@gentoo.org>,
+	Arnd Bergmann <arnd@arndb.de>, Graf Yang <graf.yang@analog.com>,
+	Mikael Starvik <starvik@axis.com>,
+	Ivan Kokshaysky <ink@jurassic.park.msu.ru>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	Richard Henderson <rth@twiddle.net>, Karsten Keil <isdn@linux-pi
+To: Christoph Egger <siccegge@cs.fau.de>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20100512144017.GA722@faui48a.informatik.uni-erlangen.de>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Thu__13_May_2010_11_02_48_+1000_RdT26GH2h/3z9OPG
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
+
+--===============9149217305822838533==
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-h/kN6/EO2DvGfQAWWQqy"
+
+
+--=-h/kN6/EO2DvGfQAWWQqy
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-Hi Reinette,
-
-On Wed, 12 May 2010 09:15:43 -0700 reinette chatre <reinette.chatre@intel.c=
-om> wrote:
->
-> Please note that this member of iwl_priv is now located in two
-> places ... here and also in the device specific union a few lines up
-> inside the _agn struct. In the code it is indeed the one in the _agn
-> struct that is being used (see usage in iwl-agn.c), so adding this line
-> is not necessary.
+On Wed, 2010-05-12 at 16:40 +0200, Christoph Egger wrote:
+> Just noticed it might have been worth adding the output so everyone
+> out there doesn't ned to grep through his tree for reference:
 >=20
-> This should not cause any problems with driver operation and can
-> probably remain as such if indeed it is cleaned up somewhere else before
-> it hits you again or linux-2.6.
+> % grep  ^config **/Kconfig* | sort | uniq -dc                            =
+  =20
 
-Thanks for pointing this out.  I will update my merge resolution in
-linux-next and I assume it will be done correctly when Dave or John also
-do that merge.
+That didn't actually work for me?
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+>       2 arch/powerpc/Kconfig:config KERNEL_START
+>       2 arch/powerpc/Kconfig:config PAGE_OFFSET
+>       2 arch/powerpc/Kconfig:config PHYSICAL_START
+>       2 arch/powerpc/Kconfig:config RELOCATABLE
 
---Signature=_Thu__13_May_2010_11_02_48_+1000_RdT26GH2h/3z9OPG
-Content-Type: application/pgp-signature
+The duplication of these is caused by the second definitions being
+inside an "if PPC64" block.
+
+For PAGE_OFFSET and KERNEL_START we want the 2nd definitions, the
+default value is different between 32 & 64 bit.
+
+For RELOCATABLE it's a little weird, but we want the 2nd definition
+because the depends condition is different between 32 & 64bit - though
+they could probably be merged.
+
+I don't really see why we need two versions of PHYSICAL_START.
+
+cheers
+
+--=-h/kN6/EO2DvGfQAWWQqy
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.10 (GNU/Linux)
 
-iEYEARECAAYFAkvrT7gACgkQjjKRsyhoI8yKIQCdEdoBjymrK72iUFURllMjQUuW
-bMkAn0DfK3r029BFvcXcsqJbZEhf1OLD
-=eWUG
+iEYEABECAAYFAkvrUR0ACgkQdSjSd0sB4dJ7HwCgmCXXhb0zeKo4q5rwizaQsc1u
+qnUAoKwiE9Qk0disa6OQAd42Mv7OowT2
+=UXV0
 -----END PGP SIGNATURE-----
 
---Signature=_Thu__13_May_2010_11_02_48_+1000_RdT26GH2h/3z9OPG--
+--=-h/kN6/EO2DvGfQAWWQqy--
+
+
+--===============9149217305822838533==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Linuxppc-dev mailing list
+Linuxppc-dev@lists.ozlabs.org
+https://lists.ozlabs.org/listinfo/linuxppc-dev
+--===============9149217305822838533==--
