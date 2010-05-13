@@ -1,118 +1,38 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH 8/9] cxgb3: use kvzalloc and kvfree
-Date: Thu, 13 May 2010 19:14:31 +0800
-Message-ID: <1273749271-10469-1-git-send-email-xiaosuo@gmail.com>
-Cc: Divy Le Ray <divy@chelsio.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Changli Gao <xiaosuo@gmail.com>
-To: akpm@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: RE: does the broadcom bnx2x support RSS/multi queue
+Date: Thu, 13 May 2010 14:32:20 +0300
+Message-ID: <1273750340.1423.2.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497D85D43@MILEXCH2.ds.jdsu.net>
+ <1273650119.2621.5.camel@edumazet-laptop>
+ <1273655947.4491.5.camel@lb-tlvb-eilong.il.broadcom.com>
+ <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497DECAE8@MILEXCH2.ds.jdsu.net>
+Reply-To: eilong@broadcom.com
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Jon Zhou" <Jon.Zhou@jdsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:2306 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758696Ab0EMLci (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 May 2010 07:32:38 -0400
+In-Reply-To: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497DECAE8@MILEXCH2.ds.jdsu.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-use kvzalloc and kvfree
+On Thu, 2010-05-13 at 02:44 -0700, Jon Zhou wrote:
+> insmod ./PF_RING/drivers/broadcom/netxtreme2-5.2.50/bnx2x-1.52.12/src/bnx2x.ko multi_mode=1 num_queues=4 int_mode=3 debug=1
+There is no need to set multi_mode or int_mode - you are using the
+default values. However, I need more information on why you are using
+INTA and not MSI-X, so please set the debug to 0x20
 
-use kvzalloc and kvfree
+> but seems MSI not enabled:
+> 34:         26          0          0          0          0          0          0          0          0          0          0          0   49470611   63427140          0          0   IO-APIC-fasteoi   eth5
+Indeed, you are using INT# - this is why you do not have multi-queue.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- drivers/net/cxgb3/cxgb3_defs.h    |    2 --
- drivers/net/cxgb3/cxgb3_offload.c |   31 ++-----------------------------
- drivers/net/cxgb3/l2t.c           |    4 ++--
- 3 files changed, 4 insertions(+), 33 deletions(-)
-diff --git a/drivers/net/cxgb3/cxgb3_defs.h b/drivers/net/cxgb3/cxgb3_defs.h
-index 47e5376..d3c662f 100644
---- a/drivers/net/cxgb3/cxgb3_defs.h
-+++ b/drivers/net/cxgb3/cxgb3_defs.h
-@@ -41,8 +41,6 @@
- 
- #define VALIDATE_TID 1
- 
--void *cxgb_alloc_mem(unsigned long size);
--void cxgb_free_mem(void *addr);
- void cxgb_neigh_update(struct neighbour *neigh);
- void cxgb_redirect(struct dst_entry *old, struct dst_entry *new);
- 
-diff --git a/drivers/net/cxgb3/cxgb3_offload.c b/drivers/net/cxgb3/cxgb3_offload.c
-index c6485b3..799c9b7 100644
---- a/drivers/net/cxgb3/cxgb3_offload.c
-+++ b/drivers/net/cxgb3/cxgb3_offload.c
-@@ -39,7 +39,6 @@
- #include <linux/if_vlan.h>
- #include <net/netevent.h>
- #include <linux/highmem.h>
--#include <linux/vmalloc.h>
- 
- #include "common.h"
- #include "regs.h"
-@@ -1156,32 +1155,6 @@ void cxgb_redirect(struct dst_entry *old, struct dst_entry *new)
- }
- 
- /*
-- * Allocate a chunk of memory using kmalloc or, if that fails, vmalloc.
-- * The allocated memory is cleared.
-- */
--void *cxgb_alloc_mem(unsigned long size)
--{
--	void *p = kmalloc(size, GFP_KERNEL);
--
--	if (!p)
--		p = vmalloc(size);
--	if (p)
--		memset(p, 0, size);
--	return p;
--}
--
--/*
-- * Free memory allocated through t3_alloc_mem().
-- */
--void cxgb_free_mem(void *addr)
--{
--	if (is_vmalloc_addr(addr))
--		vfree(addr);
--	else
--		kfree(addr);
--}
--
--/*
-  * Allocate and initialize the TID tables.  Returns 0 on success.
-  */
- static int init_tid_tabs(struct tid_info *t, unsigned int ntids,
-@@ -1191,7 +1164,7 @@ static int init_tid_tabs(struct tid_info *t, unsigned int ntids,
- 	unsigned long size = ntids * sizeof(*t->tid_tab) +
- 	    natids * sizeof(*t->atid_tab) + nstids * sizeof(*t->stid_tab);
- 
--	t->tid_tab = cxgb_alloc_mem(size);
-+	t->tid_tab = kvzalloc(size);
- 	if (!t->tid_tab)
- 		return -ENOMEM;
- 
-@@ -1227,7 +1200,7 @@ static int init_tid_tabs(struct tid_info *t, unsigned int ntids,
- 
- static void free_tid_maps(struct tid_info *t)
- {
--	cxgb_free_mem(t->tid_tab);
-+	kvfree(t->tid_tab);
- }
- 
- static inline void add_adapter(struct adapter *adap)
-diff --git a/drivers/net/cxgb3/l2t.c b/drivers/net/cxgb3/l2t.c
-index 2f3ee72..71e8c32 100644
---- a/drivers/net/cxgb3/l2t.c
-+++ b/drivers/net/cxgb3/l2t.c
-@@ -420,7 +420,7 @@ struct l2t_data *t3_init_l2t(unsigned int l2t_capacity)
- 	struct l2t_data *d;
- 	int i, size = sizeof(*d) + l2t_capacity * sizeof(struct l2t_entry);
- 
--	d = cxgb_alloc_mem(size);
-+	d = kvzalloc(size);
- 	if (!d)
- 		return NULL;
- 
-@@ -441,6 +441,6 @@ struct l2t_data *t3_init_l2t(unsigned int l2t_capacity)
- 
- void t3_free_l2t(struct l2t_data *d)
- {
--	cxgb_free_mem(d);
-+	kvfree(d);
- }
- 
+Eilon
+
+
