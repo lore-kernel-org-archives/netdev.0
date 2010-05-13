@@ -1,75 +1,72 @@
-From: "Arce, Abraham" <x0066660@ti.com>
-Subject: RE: [PATCH 2.6.34-rc6] net: Improve ks8851 snl transmit performance
-Date: Thu, 13 May 2010 18:39:35 -0500
-Message-ID: <27F9C60D11D683428E133F85D2BB4A53043E113D4C@dlee03.ent.ti.com>
-References: <14385191E87B904DBD836449AA30269D021A64@MORGANITE.micrel.com>
- <27F9C60D11D683428E133F85D2BB4A53043DF7779A@dlee03.ent.ti.com>
- <14385191E87B904DBD836449AA30269D021A66@MORGANITE.micrel.com>
+From: Dan Williams <dan.j.williams@intel.com>
+Subject: Re: [PATCH 2/2] ioat2,3: convert to producer/consumer locking
+Date: Thu, 13 May 2010 16:42:30 -0700
+Message-ID: <AANLkTinHKVk9iWTKgEwcuKgmoCyCif2kSy3v0ZIsZ50p@mail.gmail.com>
+References: <20100511184949.6139.96826.stgit@localhost.localdomain>
+	 <20100511185141.6139.98842.stgit@localhost.localdomain>
+	 <31229.1273653365@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Jan, Sebastien" <s-jan@ti.com>
-To: "Ha, Tristram" <Tristram.Ha@micrel.com>,
-	Ben Dooks <ben@simtec.co.uk>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, linux-raid@vger.kernel.org,
+	netdev@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Maciej Sosnowski <maciej.sosnowski@intel.com>
+To: David Howells <dhowells@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <14385191E87B904DBD836449AA30269D021A66@MORGANITE.micrel.com>
-Content-Language: en-US
+In-Reply-To: <31229.1273653365@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tristram,
+On Wed, May 12, 2010 at 1:36 AM, David Howells <dhowells@redhat.com> wr=
+ote:
+>
+> Out of interest, does it make the code smaller if you mark
+> ioat2_get_ring_ent() and ioat2_ring_mask() with __attribute_const__?
+>
+> I'm not sure whether it'll affect how long gcc is willing to cache th=
+ese, but
+> once computed, I would guess they won't change within the calling fun=
+ction.
 
-> The latest nuttcp default size for UDP is 1500 bytes, rather than 8192 bytes.
-> In my case, the transmit performance improves from 10 Mbps to 11.  Have you
-> tried TCP?
-> 
+Unfortunately, it does not make a difference, but I'll keep this in
+mind if ioat2_get_ring_ent() ever gets more complicated (which it
+might in the future).
 
-Not yet... one point to highlight before:
+> Also, is the device you're driving watching the ring and its indices?=
+ =A0If so,
+> does it modify the indices? =A0If that is the case, you might need to=
+ use
+> read_barrier_depends() rather than smp_read_barrier_depends().
 
-  - SPI controller clock rate is 24 MHz, unable to set ~40 MHz, 
+The device does not observe the indices directly.  Instead we
+increment a free running 'count' register by the distance between
+ioat->pending and ioat->head.
 
-Now testing in 2.6.34 rc7 using now TCP, nuttcp version 6.1.2:
+>
+>> + =A0 =A0 =A0 =A0 =A0 =A0 prefetch(ioat2_get_ring_ent(ioat, idx + i =
++ 1));
+>> + =A0 =A0 =A0 =A0 =A0 =A0 desc =3D ioat2_get_ring_ent(ioat, idx + i)=
+;
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 dump_desc_dbg(ioat, desc);
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 tx =3D &desc->txd;
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (tx->cookie) {
+>
+> Is this right, I wonder? =A0You're prefetching [i+1] before reading [=
+i]? =A0Doesn't
+> this mean that you might have to wait for [i+1] to be retrieved from =
+RAM before
+> [i] can be read? =A0Should you instead read tx->cookie before issuing=
+ the
+> prefetch? =A0Admittedly, this is only likely to affect the reading of=
+ the head of
+> the queue - subsequent reads in the same loop will, of course, have b=
+een
+> prefetched.
 
-Before the patch
+Yes, it should be the other way around.
 
-  # /testsuites/ethernet/bin/nuttcp -i -Ri50m 10.87.231.229
-      1.1460 MB /   1.00 sec =    9.6134 Mbps
-      1.1858 MB /   1.00 sec =    9.9473 Mbps
-      1.2258 MB /   1.00 sec =   10.2828 Mbps
-      1.1996 MB /   1.00 sec =   10.0628 Mbps
-      1.2203 MB /   1.00 sec =   10.2365 Mbps
-      1.2258 MB /   1.00 sec =   10.2828 Mbps
-      1.2134 MB /   1.00 sec =   10.1786 Mbps
-      1.2235 MB /   1.00 sec =   10.2636 Mbps
-      1.2134 MB /   1.00 sec =   10.1785 Mbps
-      1.2120 MB /   1.00 sec =   10.1670 Mbps
+Thanks!
 
-     12.6250 MB /  10.46 sec =   10.1240 Mbps 2 %TX 0 %RX 0 retrans 7.91 msRTT
-
-  # /testsuites/ethernet/bin/nuttcp 10.87.231.229
-     12.9319 MB /  10.58 sec =   10.2553 Mbps 1 %TX 0 %RX 0 retrans 7.90 msRTT
-
-After the patch
-
-  # /testsuites/ethernet/bin/nuttcp -i -Ri50m 10.87.231.229
-      1.1671 MB /   1.00 sec =    9.7902 Mbps
-      1.2169 MB /   1.00 sec =   10.2077 Mbps
-      1.2175 MB /   1.00 sec =   10.2134 Mbps
-      1.2396 MB /   1.00 sec =   10.3986 Mbps
-      1.2396 MB /   1.00 sec =   10.3987 Mbps
-      1.2387 MB /   1.00 sec =   10.3910 Mbps
-      1.2410 MB /   1.00 sec =   10.4102 Mbps
-      1.2203 MB /   1.00 sec =   10.2365 Mbps
-      1.2382 MB /   1.00 sec =   10.3871 Mbps
-      1.2369 MB /   1.00 sec =   10.3755 Mbps
-
-     12.8125 MB /  10.45 sec =   10.2820 Mbps 2 %TX 0 %RX 0 retrans 7.90 msRTT
-
-  # /testsuites/ethernet/bin/nuttcp 10.87.231.229
-     13.0808 MB /  10.64 sec =   10.3123 Mbps 1 %TX 0 %RX 0 retrans 7.90 msRTT
-
-Best Regards
-Abraham
+--
+Dan
