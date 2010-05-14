@@ -1,48 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net-next] drivers/net: Remove unnecessary returns
- from void function()s
-Date: Fri, 14 May 2010 00:19:45 -0700 (PDT)
-Message-ID: <20100514.001945.52204757.davem@davemloft.net>
-References: <1273769886.21514.72.camel@Joe-Laptop.home>
-	<20100513.190953.233716325.davem@davemloft.net>
-	<1273816980.1583.40.camel@Joe-Laptop.home>
+From: "George B." <georgeb@gmail.com>
+Subject: Re: Question about vlans, bonding, etc.
+Date: Fri, 14 May 2010 00:28:08 -0700
+Message-ID: <AANLkTin0oTCakXcIBwDZ4PUKZk0oRYkUUiPUUyEPoF3m@mail.gmail.com>
+References: <i2tb65cae941005031706o19a6f1e9zc86b33d73462113f@mail.gmail.com>
+	 <1272948506.2407.174.camel@edumazet-laptop>
+	 <AANLkTikVJqN6m5nsJsFSNHS_HbOFyt0hGr_8MHu6tWDR@mail.gmail.com>
+	 <20100513181218.021aa771@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: joe@perches.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56424
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755241Ab0ENHTi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 May 2010 03:19:38 -0400
-In-Reply-To: <1273816980.1583.40.camel@Joe-Laptop.home>
+Received: from mail-pz0-f204.google.com ([209.85.222.204]:45596 "EHLO
+	mail-pz0-f204.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757674Ab0ENH2J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 May 2010 03:28:09 -0400
+Received: by pzk42 with SMTP id 42so1209611pzk.4
+        for <netdev@vger.kernel.org>; Fri, 14 May 2010 00:28:08 -0700 (PDT)
+In-Reply-To: <20100513181218.021aa771@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Thu, 13 May 2010 23:03:00 -0700
+On Thu, May 13, 2010 at 6:12 PM, Stephen Hemminger
+<shemminger@vyatta.com> wrote:
+> On Thu, 13 May 2010 18:10:33 -0700
+> "George B." <georgeb@gmail.com> wrote:
+>
+>> vlan5 on the second interface, vconfig balks that it already exists.
+>
+> vconfig is stupid. use 'ip link'
+>
+>
+> --
+>
 
-> On Thu, 2010-05-13 at 19:09 -0700, David Miller wrote:
->> Ok, please remake this patch with those cases removed.
-> 
-> This patch removes from drivers/net/ all the unnecessary
-> return; statements that precede the last closing brace of
-> void functions.
-> 
-> It does not remove the returns that are immediately
-> preceded by a label as gcc doesn't like that.
-> 
-> It also does not remove null void functions with return.
-> 
-> Done via:
-> $ grep -rP --include=*.[ch] -l "return;\n}" net/ | \
->   xargs perl -i -e 'local $/ ; while (<>) { s/\n[ \t\n]+return;\n}/\n}/g; print; }'
-> 
-> with some cleanups by hand.
-> 
-> Compile tested x86 allmodconfig only.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-
-Applied, thanks a lot Joe.
+It still didn't work but I was using 2.6.32  it works using 2.6.34-rc7
