@@ -1,46 +1,46 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [patch 2.6.35 05/25] wimax/i2400m: correct the error path handlers in dev_start()
-Date: Fri, 14 May 2010 14:45:04 -0700
-Message-ID: <49d72df3f6cd63b49528306a2577ae7a6a0e9d6b.1273708027.git.inaky.perez-gonzalez@intel.com>
-References: <cover.1273708027.git.inaky.perez-gonzalez@intel.com>
-Cc: Cindy H Kao <cindy.h.kao@intel.com>
-To: netdev@vger.kernel.org, wimax@linuxwimax.org
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: loosing IPMI-card by loading netconsole
+Date: Sat, 15 May 2010 00:11:21 +0200
+Message-ID: <4BEDCA89.7000707@kernel.org>
+References: <20100514134544.GA26674@gretchen.aei.mpg.de>	 <DDC57477F5D6F845A0DDCB99D3C4812D0CA63BB9E4@orsmsx510.amr.corp.intel.com>	 <4BED79EB.1000204@kernel.org> <1273858653.15067.1335.camel@calx>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "Ronciak, John" <john.ronciak@intel.com>,
+	Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Carsten Aulbert <carsten.aulbert@aei.mpg.de>
+To: Matt Mackall <mpm@selenic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga05.intel.com ([192.55.52.89]:52149 "EHLO
-	fmsmga101.fm.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932399Ab0ENVtI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 May 2010 17:49:08 -0400
-In-Reply-To: <cover.1273708027.git.inaky.perez-gonzalez@intel.com>
+Received: from hera.kernel.org ([140.211.167.34]:35050 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750823Ab0ENWLc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 May 2010 18:11:32 -0400
+In-Reply-To: <1273858653.15067.1335.camel@calx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cindy H Kao <cindy.h.kao@intel.com>
+Hello,
 
-This fix is to correct order of the handlers in the error path
-of dev_start(). When i2400m_firmware_check fails, all the works done
-before it should be released or cleared.
+On 05/14/2010 07:37 PM, Matt Mackall wrote:
+>> On 2.6.27.39, netconsole + IPMI works fine.  On 2.6.32.7, as soon as
+>> netconsole is loaded, IPMI stops working.  Unloading netconsole
+>> doesn't revive IPMI but detaching the driver from the controller does.
+>> In both cases, usual networking works fine.
+> 
+> Looks like a job for bisect.
 
-Signed-off-by: Cindy H Kao <cindy.h.kao@intel.com>
----
- drivers/net/wimax/i2400m/driver.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Yeap, sure, it would be effective but I kind of want to leave
+bisection as the last resort.  Bisection is a somewhat painful process
+especially when the machine isn't right next to you and someone who
+has overall knowledge can often identify the problem much easier with
+appropriate debugging info.
 
-diff --git a/drivers/net/wimax/i2400m/driver.c b/drivers/net/wimax/i2400m/driver.c
-index 94dc83c..3a6c8dd 100644
---- a/drivers/net/wimax/i2400m/driver.c
-+++ b/drivers/net/wimax/i2400m/driver.c
-@@ -403,10 +403,10 @@ retry:
- 
- error_dev_initialize:
- error_check_mac_addr:
-+error_fw_check:
- 	i2400m->ready = 0;
- 	wmb();		/* see i2400m->ready's documentation  */
- 	flush_workqueue(i2400m->work_queue);
--error_fw_check:
- 	if (i2400m->bus_dev_stop)
- 		i2400m->bus_dev_stop(i2400m);
- error_bus_dev_start:
+Thanks.
+
 -- 
-1.6.6.1
-
+tejun
