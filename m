@@ -1,39 +1,63 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH 1/9] mm: add generic adaptive large memory allocation
- APIs
-Date: Fri, 14 May 2010 10:03:34 +0200
-Message-ID: <1273824214.5605.3625.camel@twins>
-References: <1273744285-8128-1-git-send-email-xiaosuo@gmail.com>
-	 <1273756816.5605.3547.camel@twins>
-	 <AANLkTinLT5g5SKjqmQlS2kxvvMq1gsi1jPDgOKTnrT-q@mail.gmail.com>
+From: Jon Zhou <Jon.Zhou@jdsu.com>
+Subject: why get different number of MSI-X vector for broadcom bnx2x every
+ time
+Date: Fri, 14 May 2010 01:01:57 -0700
+Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497DED2BE@MILEXCH2.ds.jdsu.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: akpm@linux-foundation.org, Hoang-Nam Nguyen <hnguyen@de.ibm.com>,  Christoph Raisch <raisch@de.ibm.com>, Roland Dreier <rolandd@cisco.com>, Sean Hefty <sean.hefty@intel.com>, Hal Rosenstock <hal.rosenstock@gmail.com>, Divy Le Ray <divy@chelsio.com>, "James E.J. Bottomley" <James.Bottomley@suse.de>,  Theodore Ts'o <tytso@mit.edu>, Andreas Dilger <adilger@sun.com>, Alexander Viro <viro@zeniv.linux.org.uk>, Paul Menage <menage@google.com>, Li Zefan <lizf@cn.fujitsu.com>, linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,  netdev@vger.kernel.org, linux-scsi@vger.kernel.org, linux-ext4@vger.kernel.org,  linux-fsdevel@vger.kernel.org, linux-mm@kvack.org,  containers@lists.linux-foundation.org, Eric Dumazet <eric.dumazet@gmail.com>,  Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <AANLkTinLT5g5SKjqmQlS2kxvvMq1gsi1jPDgOKTnrT-q@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod7og115.obsmtp.com ([64.18.2.217]:48511 "HELO
+	exprod7og115.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1754017Ab0ENIFE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 May 2010 04:05:04 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-05-13 at 22:08 +0800, Changli Gao wrote:
-> > NAK, I really utterly dislike that inatomic argument. The alloc side
-> > doesn't function in atomic context either. Please keep the thing
-> > symmetric in that regards.
-> >
->=20
-> There are some users, who release memory in atomic context. for
-> example: fs/file.c: fdmem.=20
+hi there:
 
-urgh, but yeah, aside from not using vmalloc to allocate fd tables one
-needs to deal with this.
+bnx2x_enable_msix :
 
-But if that is the only one, I'd let them do the workqueue thing that's
-already there. If there really are more people wanting to do this, then
-maybe add: kvfree_atomic().
+...
+rc = pci_enable_msix(bp->pdev, &bp->msix_table[0],
+			     BNX2X_NUM_QUEUES(bp) + offset);
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+	/* 
+	 * reconfigure number of tx/rx queues according to available
+	 * MSI-X vectors
+	 */
+	if (rc >= BNX2X_MIN_MSIX_VEC_CNT) {
+		/* vectors available for FP */
+		int fp_vec = rc - BNX2X_MSIX_VEC_FP_START;
+
+
+sometimes I can run up the driver with 4 queues but most of time I can only get 2 queues
+why?
+
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_set_num_queues:8053(eth5)]set number of queues to 15
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7544(eth5)]msix_table[0].entry = 0 (slowpath)
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7549(eth5)]msix_table[1].entry = 1 (CNIC)
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[2].entry = 2 (fastpath #0)
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[3].entry = 3 (fastpath #1)
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[4].entry = 4 (fastpath #2)
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[5].entry = 5 (fastpath #3)
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[6].entry = 6 (fastpath #4)
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[7].entry = 7 (fastpath #5)
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[8].entry = 8 (fastpath #6)
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[9].entry = 9 (fastpath #7)
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[10].entry = 10 (fastpath #8)
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[11].entry = 11 (fastpath #9)
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[12].entry = 12 (fastpath #10)
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[13].entry = 13 (fastpath #11)
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[14].entry = 14 (fastpath #12)
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[15].entry = 15 (fastpath #13)
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[16].entry = 16 (fastpath #14)
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7571(eth5)]Trying to use less MSI-X vectors: 4
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7584(eth5)]New queue configuration set: 2
+May 14 01:40:16 ibm-bc-54 kernel: bnx2x: eth5: using MSI-X  IRQs: sp 4321  fp[0] 4319 ... fp[1] 4318
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_nic_init:6067(eth5)]queue[0]:  bnx2x_init_sb(ffff8803e6810780,ffff8803f9c4f000)  cl_id 0  sb 1  cos 0
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_nic_init:6067(eth5)]queue[1]:  bnx2x_init_sb(ffff8803e6810780,ffff8803fb006000)  cl_id 1  sb 2  cos 0
+May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_init_rx_rings:5305(eth5)]mtu 1500  rx_buf_size 1650
+ 
