@@ -1,31 +1,62 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Question about vlans, bonding, etc.
-Date: Thu, 13 May 2010 18:12:18 -0700
-Message-ID: <20100513181218.021aa771@nehalam>
-References: <i2tb65cae941005031706o19a6f1e9zc86b33d73462113f@mail.gmail.com>
-	<1272948506.2407.174.camel@edumazet-laptop>
-	<AANLkTikVJqN6m5nsJsFSNHS_HbOFyt0hGr_8MHu6tWDR@mail.gmail.com>
+From: Paul LeoNerd Evans <leonerd@leonerd.org.uk>
+Subject: PF_PACKET + bind() to proto + outbound packets
+Date: Fri, 14 May 2010 02:14:35 +0100
+Message-ID: <20100514011435.GL18613@cel.leo>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: "George B." <georgeb@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="bPg9NdpM9EETxvqt"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:50186 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753313Ab0ENBMU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 May 2010 21:12:20 -0400
-In-Reply-To: <AANLkTikVJqN6m5nsJsFSNHS_HbOFyt0hGr_8MHu6tWDR@mail.gmail.com>
+Received: from cel.leonerd.org.uk ([81.187.167.226]:42768 "EHLO cel.leo"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753251Ab0ENBOh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 May 2010 21:14:37 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 13 May 2010 18:10:33 -0700
-"George B." <georgeb@gmail.com> wrote:
 
-> vlan5 on the second interface, vconfig balks that it already exists.
+--bPg9NdpM9EETxvqt
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-vconfig is stupid. use 'ip link'
+I'm writing a small traffic watching program, to capture IPv4 packets.
 
+If I have a PF_PACKET socket bound to no particular protocol it sees
+both inbound and outbound packets; I can then apply a BPF filter for
+just one protocol (i.e. IPv4).
 
--- 
+But if instead I bind the socket to the IPv4 protocol specifically, it
+no longer sees any outbound packets created by the machine, only inbound
+ones.
+
+Is there perhaps some ioctl or sockopt I could enable, to see these
+outbound packets too?
+
+Further, would there actually be much difference in practice, in terms
+of performance, abilities, etc... even if this were an option turned on?
+What's the preferred method of snooping on all of the machine's, for
+example, IPv4 traffic?
+
+--=20
+Paul "LeoNerd" Evans
+
+leonerd@leonerd.org.uk
+ICQ# 4135350       |  Registered Linux# 179460
+http://www.leonerd.org.uk/
+
+--bPg9NdpM9EETxvqt
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iD8DBQFL7KP7vLS2TC8cBo0RAiyoAJ49uwYaP1JFaofFYEC7ojtHEl8qGACeL9vz
+wmHWHDIWD2PBeDS1xaKdVMk=
+=Sh+m
+-----END PGP SIGNATURE-----
+
+--bPg9NdpM9EETxvqt--
