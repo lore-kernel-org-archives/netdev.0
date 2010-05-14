@@ -1,75 +1,57 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCHv2] netfilter: Remove skb_is_nonlinear check from	nf_conntrack_sip
-Date: Fri, 14 May 2010 20:13:03 +0200
-Message-ID: <4BED92AF.50704@trash.net>
-References: <20100514180138.GF15969@obsidianresearch.com>
+From: Chris Wright <chrisw@redhat.com>
+Subject: Re: [net-next-2.6 V7 PATCH 1/2] Add netlink support for virtual port
+ management (was iovnl)
+Date: Fri, 14 May 2010 11:25:26 -0700
+Message-ID: <20100514182526.GO5798@x200.localdomain>
+References: <C812DA73.31839%scofeldm@cisco.com>
+ <4BED91D0.5020407@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040804060400000405070906"
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100514180138.GF15969@obsidianresearch.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Scott Feldman <scofeldm@cisco.com>, Arnd Bergmann <arnd@arndb.de>,
+	davem@davemloft.net, netdev@vger.kernel.org, chrisw@redhat.com
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:58753 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751191Ab0ENSZe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 May 2010 14:25:34 -0400
+Content-Disposition: inline
+In-Reply-To: <4BED91D0.5020407@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------040804060400000405070906
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-
-Jason Gunthorpe wrote:
-> At least the XEN net front driver always produces non linear skbs,
-> so the SIP module does nothing at all when used with that NIC.
+* Patrick McHardy (kaber@trash.net) wrote:
+> Scott Feldman wrote:
+> > On 5/14/10 10:29 AM, "Arnd Bergmann" <arnd@arndb.de> wrote:
+> > 
+> >> I was thinking that a device could have both IFLA_VF_PORTS and IFLA_PORT_SELF,
+> >> but you know more about the IOV specifics. If an adapter having multiple
+> >> VFs always gets configured as VF 0 itself, that would be fine as well,
+> >> otherwise
+> >> we could have an extra argument to the two device driver callbacks to
+> >> differentiate VF/SELF. As long as this does not impact the user ABI, we
+> >> could do either.
+> > 
+> > I think you're right.  I should have said AND/OR.  I would rather not have
+> > an extra argument to the driver callbacks.
+> >   
+> >>> I think we should redo the other IFLA_VF_xxx msgs in the same style.  I'm
+> >>> not going to tackle that for IFLA_VF_PORTS patch, but it would be a good
+> >>> followup patch.
+> >> I fear it's too late for that now. While we have not yet released 2.6.34
+> >> and 2.6.33 does not contain the broken message, it's extremely late in the
+> >> stabilization phase of v2.6.34, so I doubt that there is still a chance for
+> >> that at this point.
+> > 
+> > That's too bad.  I wish Patrick's objections were honored and then we
+> > wouldn't have followed that broken model!  Can the broken msgs be disabled
+> > somehow for 2.6.34?  Keep the definitions in if_link.h but fail the SET/GET
+> > actions in rtnetlink.c?
 > 
-> Unconditionally linearize the skb..
-> 
-> Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-> ---
->  net/netfilter/nf_conntrack_sip.c |    9 +++------
->  1 files changed, 3 insertions(+), 6 deletions(-)
-> 
-> Patrick/Jan, thanks.. This is what I wanted to do in the first place,
-> but I couldn't convince myself it was safe, as no other nf code does
-> this..
+> That would be a possibility. Unfortunately I don't think we can fix
+> this in a backwards compatible way.
 
-Your patch is based on an old version, the current version also
-supports TCP. I'll commit this patch to my tree after some testing.
+$ git describe --contains ebc08a6f47ee76ecad8e9f26c26e6ec9b46ca659
+v2.6.34-rc1~233^2~336
 
---------------040804060400000405070906
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
-index b20f427..45750cc 100644
---- a/net/netfilter/nf_conntrack_sip.c
-+++ b/net/netfilter/nf_conntrack_sip.c
-@@ -1393,10 +1393,8 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
- 
- 	nf_ct_refresh(ct, skb, sip_timeout * HZ);
- 
--	if (skb_is_nonlinear(skb)) {
--		pr_debug("Copy of skbuff not supported yet.\n");
-+	if (unlikely(skb_linearize(skb)))
- 		return NF_ACCEPT;
--	}
- 
- 	dptr = skb->data + dataoff;
- 	datalen = skb->len - dataoff;
-@@ -1455,10 +1453,8 @@ static int sip_help_udp(struct sk_buff *skb, unsigned int protoff,
- 
- 	nf_ct_refresh(ct, skb, sip_timeout * HZ);
- 
--	if (skb_is_nonlinear(skb)) {
--		pr_debug("Copy of skbuff not supported yet.\n");
-+	if (unlikely(skb_linearize(skb)))
- 		return NF_ACCEPT;
--	}
- 
- 	dptr = skb->data + dataoff;
- 	datalen = skb->len - dataoff;
-
---------------040804060400000405070906--
+It's not released yet?
