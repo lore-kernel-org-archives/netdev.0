@@ -1,94 +1,159 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: RE: [net-next-2.6 V7 PATCH 1/2] Add netlink support for virtual
- port management (was iovnl)
-Date: Fri, 14 May 2010 14:56:43 -0600
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FF39989D4@rrsmsx501.amr.corp.intel.com>
-References: <C812DA73.31839%scofeldm@cisco.com> <4BED91D0.5020407@trash.net>
- <20100514182526.GO5798@x200.localdomain> <4BED9A85.4080507@trash.net>
- <20100514184803.GP5798@x200.localdomain> <4BED9B5B.6010001@trash.net>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next] net: Remove unnecessary semicolons after switch
+ statements
+Date: Fri, 14 May 2010 13:58:26 -0700
+Message-ID: <1273870706.1705.8.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Scott Feldman <scofeldm@cisco.com>, Arnd Bergmann <arnd@arndb.de>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>, Chris Wright <chrisw@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:46487 "EHLO mga01.intel.com"
+Received: from mail.perches.com ([173.55.12.10]:2243 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758419Ab0ENU5D convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 May 2010 16:57:03 -0400
-In-Reply-To: <4BED9B5B.6010001@trash.net>
-Content-Language: en-US
+	id S1759925Ab0ENU61 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 May 2010 16:58:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Also added an explicit break; to avoid
+a fallthrough in net/ipv4/tcp_input.c
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
->On Behalf Of Patrick McHardy
->Sent: Friday, May 14, 2010 11:50 AM
->To: Chris Wright
->Cc: Scott Feldman; Arnd Bergmann; davem@davemloft.net;
->shemminger@vyatta.com; netdev@vger.kernel.org
->Subject: Re: [net-next-2.6 V7 PATCH 1/2] Add netlink support for virtual
->port management (was iovnl)
->
->Chris Wright wrote:
->> * Patrick McHardy (kaber@trash.net) wrote:
->>> Chris Wright wrote:
->>>> * Patrick McHardy (kaber@trash.net) wrote:
->>>>> Scott Feldman wrote:
->>>>>> On 5/14/10 10:29 AM, "Arnd Bergmann" <arnd@arndb.de> wrote:
->>>>>>
->>>>>>>> I think we should redo the other IFLA_VF_xxx msgs in the same
->style.  I'm
->>>>>>>> not going to tackle that for IFLA_VF_PORTS patch, but it would be
->a good
->>>>>>>> followup patch.
->>>>>>> I fear it's too late for that now. While we have not yet released
->2.6.34
->>>>>>> and 2.6.33 does not contain the broken message, it's extremely
->late in the
->>>>>>> stabilization phase of v2.6.34, so I doubt that there is still a
->chance for
->>>>>>> that at this point.
->>>>>> That's too bad.  I wish Patrick's objections were honored and then
->we
->>>>>> wouldn't have followed that broken model!  Can the broken msgs be
->disabled
->>>>>> somehow for 2.6.34?  Keep the definitions in if_link.h but fail the
->SET/GET
->>>>>> actions in rtnetlink.c?
->>>>> That would be a possibility. Unfortunately I don't think we can fix
->>>>> this in a backwards compatible way.
->>>> $ git describe --contains ebc08a6f47ee76ecad8e9f26c26e6ec9b46ca659
->>>> v2.6.34-rc1~233^2~336
->>>>
->>>> It's not released yet?
->>> Correct, it was added in 2.6.34-rc.
->>
->> AFAICT iproute2 hasn't been released either w/ that support.
->> So, I'll prepare patches to fix it (or disable as Scott mentioned).
->> What do you think?
->
->That would be great, otherwise we'll probably have to support it
->forever.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ net/8021q/vlan_core.c |    2 +-
+ net/core/ethtool.c    |    4 ++--
+ net/ipv4/tcp.c        |    2 +-
+ net/ipv4/tcp_input.c  |    5 +++--
+ net/rds/tcp_connect.c |    2 +-
+ net/socket.c          |    2 +-
+ net/xfrm/xfrm_hash.h  |    6 +++---
+ 7 files changed, 12 insertions(+), 11 deletions(-)
 
-I'd really like to find a way to fix this, instead of having the functionality disabled.
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index c584a0a..bd537fc 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -61,7 +61,7 @@ int vlan_hwaccel_do_receive(struct sk_buff *skb)
+ 					dev->dev_addr))
+ 			skb->pkt_type = PACKET_HOST;
+ 		break;
+-	};
++	}
+ 	return 0;
+ }
+ 
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 1a7db92..a0f4964 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -522,7 +522,7 @@ static int ethtool_get_rx_ntuple(struct net_device *dev, void __user *useraddr)
+ 			p += ETH_GSTRING_LEN;
+ 			num_strings++;
+ 			goto unknown_filter;
+-		};
++		}
+ 
+ 		/* now the rest of the filters */
+ 		switch (fsc->fs.flow_type) {
+@@ -646,7 +646,7 @@ static int ethtool_get_rx_ntuple(struct net_device *dev, void __user *useraddr)
+ 			p += ETH_GSTRING_LEN;
+ 			num_strings++;
+ 			break;
+-		};
++		}
+ 		sprintf(p, "\tVLAN: %d, mask: 0x%x\n",
+ 			fsc->fs.vlan_tag, fsc->fs.vlan_tag_mask);
+ 		p += ETH_GSTRING_LEN;
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 8ce2974..9d4c8fc 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2215,7 +2215,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+ 	default:
+ 		/* fallthru */
+ 		break;
+-	};
++	}
+ 
+ 	if (optlen < sizeof(int))
+ 		return -EINVAL;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index e82162c..3e6dafc 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3845,12 +3845,13 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
+ 					/* 16-bit multiple */
+ 					opt_rx->cookie_plus = opsize;
+ 					*hvpp = ptr;
++					break;
+ 				default:
+ 					/* ignore option */
+ 					break;
+-				};
++				}
+ 				break;
+-			};
++			}
+ 
+ 			ptr += opsize-2;
+ 			length -= opsize;
+diff --git a/net/rds/tcp_connect.c b/net/rds/tcp_connect.c
+index 0562562..c397524 100644
+--- a/net/rds/tcp_connect.c
++++ b/net/rds/tcp_connect.c
+@@ -141,7 +141,7 @@ void rds_tcp_conn_shutdown(struct rds_connection *conn)
+ 
+ 		release_sock(sock->sk);
+ 		sock_release(sock);
+-	};
++	}
+ 
+ 	if (tc->t_tinc) {
+ 		rds_inc_put(&tc->t_tinc->ti_inc);
+diff --git a/net/socket.c b/net/socket.c
+index dae8c6b..f9f7d08 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -2615,7 +2615,7 @@ static int bond_ioctl(struct net *net, unsigned int cmd,
+ 		return dev_ioctl(net, cmd, uifr);
+ 	default:
+ 		return -EINVAL;
+-	};
++	}
+ }
+ 
+ static int siocdevprivate_ioctl(struct net *net, unsigned int cmd,
+diff --git a/net/xfrm/xfrm_hash.h b/net/xfrm/xfrm_hash.h
+index 1396572..8e69533 100644
+--- a/net/xfrm/xfrm_hash.h
++++ b/net/xfrm/xfrm_hash.h
+@@ -55,7 +55,7 @@ static inline unsigned __xfrm_src_hash(xfrm_address_t *daddr,
+ 	case AF_INET6:
+ 		h ^= __xfrm6_daddr_saddr_hash(daddr, saddr);
+ 		break;
+-	};
++	}
+ 	return (h ^ (h >> 16)) & hmask;
+ }
+ 
+@@ -102,7 +102,7 @@ static inline unsigned int __sel_hash(struct xfrm_selector *sel, unsigned short
+ 
+ 		h = __xfrm6_daddr_saddr_hash(daddr, saddr);
+ 		break;
+-	};
++	}
+ 	h ^= (h >> 16);
+ 	return h & hmask;
+ }
+@@ -119,7 +119,7 @@ static inline unsigned int __addr_hash(xfrm_address_t *daddr, xfrm_address_t *sa
+ 	case AF_INET6:
+ 		h = __xfrm6_daddr_saddr_hash(daddr, saddr);
+ 		break;
+-	};
++	}
+ 	h ^= (h >> 16);
+ 	return h & hmask;
+ }
 
-I know Patrick had objections to how the data structures were set up, but I figured that was something we'd tackle later, especially since the series got merged after Patrick's email, and with no further objection. At that point, things got quiet, I got shuffled onto another project, and we all thought things were OK.
 
-At this point, Scott's work depends on what I did, so it's probably more work to unwind my stuff and respin his, than to just fix mine.
-
-Can we quickly respin the kernel side to take care of Patrick's objections, and work the userspace side over the next week or so? The userspace side is where the real fiddly bits will be. I'll drop what I'm working on and get this taken care of as quickly as I can.
-
-Sorry for the confusion - I thought we were OK, until yesterday.
-
--Mitch
-
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
