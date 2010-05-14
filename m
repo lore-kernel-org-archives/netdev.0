@@ -1,71 +1,50 @@
-From: kaber@trash.net
-Subject: [PATCH] net_sched: sch_hfsc: fix classification loops
-Date: Fri, 14 May 2010 20:08:14 +0200
-Message-ID: <1273860494-23328-1-git-send-email-kaber@trash.net>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [net-next-2.6 V7 PATCH 1/2] Add netlink support for virtual port
+ management (was iovnl)
+Date: Fri, 14 May 2010 20:09:20 +0200
+Message-ID: <4BED91D0.5020407@trash.net>
+References: <C812DA73.31839%scofeldm@cisco.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>, davem@davemloft.net,
+	netdev@vger.kernel.org, chrisw@redhat.com
+To: Scott Feldman <scofeldm@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:50117 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:50133 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753442Ab0ENSIP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 May 2010 14:08:15 -0400
+	with ESMTP id S1758812Ab0ENSJV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 May 2010 14:09:21 -0400
+In-Reply-To: <C812DA73.31839%scofeldm@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
+Scott Feldman wrote:
+> On 5/14/10 10:29 AM, "Arnd Bergmann" <arnd@arndb.de> wrote:
+> 
+>> I was thinking that a device could have both IFLA_VF_PORTS and IFLA_PORT_SELF,
+>> but you know more about the IOV specifics. If an adapter having multiple
+>> VFs always gets configured as VF 0 itself, that would be fine as well,
+>> otherwise
+>> we could have an extra argument to the two device driver callbacks to
+>> differentiate VF/SELF. As long as this does not impact the user ABI, we
+>> could do either.
+> 
+> I think you're right.  I should have said AND/OR.  I would rather not have
+> an extra argument to the driver callbacks.
+>   
+>>> I think we should redo the other IFLA_VF_xxx msgs in the same style.  I'm
+>>> not going to tackle that for IFLA_VF_PORTS patch, but it would be a good
+>>> followup patch.
+>> I fear it's too late for that now. While we have not yet released 2.6.34
+>> and 2.6.33 does not contain the broken message, it's extremely late in the
+>> stabilization phase of v2.6.34, so I doubt that there is still a chance for
+>> that at this point.
+> 
+> That's too bad.  I wish Patrick's objections were honored and then we
+> wouldn't have followed that broken model!  Can the broken msgs be disabled
+> somehow for 2.6.34?  Keep the definitions in if_link.h but fail the SET/GET
+> actions in rtnetlink.c?
 
-When attaching filters to a class pointing to a class higher up in the
-hierarchy, classification may enter an endless loop. Currently this is
-prevented for filters that are already resolved, but not for filters
-resolved at runtime.
-
-Only allow filters to point downwards in the hierarchy, similar to what
-CBQ does.
-
-Reported-by: Pawel Staszewski <pstaszewski@itcare.pl>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
----
- net/sched/sch_hfsc.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
-
-diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index b38b39c..a435cf1 100644
---- a/net/sched/sch_hfsc.c
-+++ b/net/sched/sch_hfsc.c
-@@ -1155,7 +1155,7 @@ static struct hfsc_class *
- hfsc_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- {
- 	struct hfsc_sched *q = qdisc_priv(sch);
--	struct hfsc_class *cl;
-+	struct hfsc_class *head, *cl;
- 	struct tcf_result res;
- 	struct tcf_proto *tcf;
- 	int result;
-@@ -1166,6 +1166,7 @@ hfsc_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- 			return cl;
- 
- 	*qerr = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
-+	head = &q->root;
- 	tcf = q->root.filter_list;
- 	while (tcf && (result = tc_classify(skb, tcf, &res)) >= 0) {
- #ifdef CONFIG_NET_CLS_ACT
-@@ -1180,6 +1181,8 @@ hfsc_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- 		if ((cl = (struct hfsc_class *)res.class) == NULL) {
- 			if ((cl = hfsc_find_class(res.classid, sch)) == NULL)
- 				break; /* filter selected invalid classid */
-+			if (cl->level >= head->level)
-+				break; /* filter may only point downwards */
- 		}
- 
- 		if (cl->level == 0)
-@@ -1187,6 +1190,7 @@ hfsc_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
- 
- 		/* apply inner filter chain */
- 		tcf = cl->filter_list;
-+		head = cl;
- 	}
- 
- 	/* classification failed, try default class */
--- 
-1.7.0.4
-
+That would be a possibility. Unfortunately I don't think we can fix
+this in a backwards compatible way.
