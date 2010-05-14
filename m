@@ -1,37 +1,46 @@
-From: "Ronciak, John" <john.ronciak@intel.com>
-Subject: RE: SR-IOV PCI quirk for 82599?
-Date: Fri, 14 May 2010 09:57:35 -0700
-Message-ID: <DDC57477F5D6F845A0DDCB99D3C4812D0CA63BBBE6@orsmsx510.amr.corp.intel.com>
-References: <0199E0D51A61344794750DC57738F58E70B078DCA0@GVW1118EXC.americas.hpqcorp.net>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH -next] netfilter: xt_TEE depends on NF_CONNTRACK
+Date: Fri, 14 May 2010 10:12:18 -0700
+Message-ID: <20100514101218.16cdb0ad.randy.dunlap@oracle.com>
+References: <20100514161407.740da901.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "Fischer, Anna" <anna.fischer@hp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:53513 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753968Ab0ENQ6B convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 May 2010 12:58:01 -0400
-In-Reply-To: <0199E0D51A61344794750DC57738F58E70B078DCA0@GVW1118EXC.americas.hpqcorp.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev <netdev@vger.kernel.org>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	netfilter-devel@vger.kernel.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20100514161407.740da901.sfr@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> There is a PCI quirk for the 82576 controller that programs the PCI
-> BARs to use Flash memory if the BIOS has not allocated resources for
-> the SR-IOV VF BARs.
-> 
-> Is there a similar quirk for the 82599, or can even the same one be
-> used for that device?
-> 
-> Thanks,
-> Anna
-The quirk is for system BIOS's that don't fully support SR-IOV.  The quirk is for those systems with these bad BIOS's with our (and others) devices in them.  So we think the same quirk could be used but we have never test with it in a system with a Niantic device in it.  So we don't know if it would work or not.  It should but without testing there is no way to know for sure.
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Cheers,
-John
+Fix xt_TEE build for the case of NF_CONNTRACK=m and
+NETFILTER_XT_TARGET_TEE=y:
 
+xt_TEE.c:(.text+0x6df5c): undefined reference to `nf_conntrack_untracked'
+4x
 
+Built with all 4 m/y combinations.
+
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+Cc:	Patrick McHardy <kaber@trash.net>
+Cc:	Jan Engelhardt <jengelh@medozas.de>
+---
+ net/netfilter/Kconfig |    1 +
+ 1 file changed, 1 insertion(+)
+
+--- linux-next-20100514.orig/net/netfilter/Kconfig
++++ linux-next-20100514/net/netfilter/Kconfig
+@@ -506,6 +506,7 @@ config NETFILTER_XT_TARGET_TEE
+ 	tristate '"TEE" - packet cloning to alternate destiantion'
+ 	depends on NETFILTER_ADVANCED
+ 	depends on (IPV6 || IPV6=n)
++	depends on !NF_CONNTRACK || NF_CONNTRACK
+ 	---help---
+ 	This option adds a "TEE" target with which a packet can be cloned and
+ 	this clone be rerouted to another nexthop.
