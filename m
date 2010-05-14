@@ -1,48 +1,39 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: loosing IPMI-card by loading netconsole
-Date: Sat, 15 May 2010 00:24:07 +0200
-Message-ID: <4BEDCD87.4090602@kernel.org>
-References: <20100514134544.GA26674@gretchen.aei.mpg.de>	 <DDC57477F5D6F845A0DDCB99D3C4812D0CA63BB9E4@orsmsx510.amr.corp.intel.com>	 <4BED79EB.1000204@kernel.org> <1273858653.15067.1335.camel@calx>	 <4BEDCA89.7000707@kernel.org> <1273875413.15067.1348.camel@calx>
+From: john stultz <johnstul@us.ibm.com>
+Subject: Re: TSC unstable due to TSC halts in idle?
+Date: Fri, 14 May 2010 15:28:31 -0700
+Message-ID: <AANLkTimeXEaUnzSBuilbQLHj_oho3ia9EgyPGpB7vJRI@mail.gmail.com>
+References: <Pine.LNX.4.64.1005142208290.6220@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "Ronciak, John" <john.ronciak@intel.com>,
-	Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Carsten Aulbert <carsten.aulbert@aei.mpg.de>
-To: Matt Mackall <mpm@selenic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:39213 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752531Ab0ENWYQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 May 2010 18:24:16 -0400
-In-Reply-To: <1273875413.15067.1348.camel@calx>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Thomas Gleixner <tglx@linutronix.de>, linux-kernel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>, Len Brown <len.brown@intel.com>,
+	Shaohua Li <shaohua.li@intel.com>, hawk@comx.dk
+To: Jesper Dangaard Brouer <hawk@diku.dk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.1005142208290.6220@ask.diku.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On Fri, May 14, 2010 at 1:13 PM, Jesper Dangaard Brouer <hawk@diku.dk> =
+wrote:
+> I want to know, if its safe to enable the TSC clocksource, when the
+> kernel reports:
+> =A0"Marking TSC unstable due to TSC halts in idle"
+>
+> The system selects HPET (in current_clocksource), but I can still see
+> TSC as an available clocksource (in
+> /sys/devices/system/clocksource/clocksource0/available_clocksource).
+>
+> Is it safe to enable TSC manually (by changing current_clocksource)?
+> (my workload is 10Git/s routing, cannot survive with a slow clock)
+>
+>
+> Any trick to avoid this? (e.g. kernel config setting, or a /sys/ sett=
+ing
+> which changes the minimum P-state?)
 
-On 05/15/2010 12:16 AM, Matt Mackall wrote:
->> Yeap, sure, it would be effective but I kind of want to leave
->> bisection as the last resort.  Bisection is a somewhat painful process
->> especially when the machine isn't right next to you and someone who
->> has overall knowledge can often identify the problem much easier with
->> appropriate debugging info.
-> 
-> Well nothing jumps to mind in the netpoll/netconsole code and I haven't
-> heard any similar reports. My guess is it's something obscure, so I
-> think the sooner you start bisecting... Even one or two tests will get
-> us a lot closer to figuring out what changed in the last 1.5 years.
+Might try booting with the max-cstate=3D1 option.
 
-I see.  I was hoping it would ring a bell to someone.  We'll probably
-try to provide the info Jesse asked and if that doesn't lead anywhere
-start bisecting.
-
-Thank you.
-
--- 
-tejun
+thanks
+-john
