@@ -1,76 +1,67 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: loosing IPMI-card by loading netconsole
-Date: Fri, 14 May 2010 12:37:33 -0500
-Message-ID: <1273858653.15067.1335.camel@calx>
-References: <20100514134544.GA26674@gretchen.aei.mpg.de>
-	 <DDC57477F5D6F845A0DDCB99D3C4812D0CA63BB9E4@orsmsx510.amr.corp.intel.com>
-	 <4BED79EB.1000204@kernel.org>
+From: Scott Feldman <scofeldm@cisco.com>
+Subject: Re: [net-next-2.6 V7 PATCH 1/2] Add netlink support for virtual port
+ management (was iovnl)
+Date: Fri, 14 May 2010 10:46:11 -0700
+Message-ID: <C812DA73.31839%scofeldm@cisco.com>
+References: <201005141929.41534.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+	charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: "Ronciak, John" <john.ronciak@intel.com>,
-	Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Carsten Aulbert <carsten.aulbert@aei.mpg.de>
-To: Tejun Heo <tj@kernel.org>
+Cc: Patrick McHardy <kaber@trash.net>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <chrisw@redhat.com>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from waste.org ([173.11.57.241]:44251 "EHLO waste.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756760Ab0ENRhh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 May 2010 13:37:37 -0400
-In-Reply-To: <4BED79EB.1000204@kernel.org>
+Received: from sj-iport-1.cisco.com ([171.71.176.70]:11150 "EHLO
+	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756706Ab0ENRqT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 May 2010 13:46:19 -0400
+In-Reply-To: <201005141929.41534.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-05-14 at 18:27 +0200, Tejun Heo wrote:
-> Hello, John.
-> 
-> As Henning seems offline, I'll try to fill in.
-> 
-> On 05/14/2010 04:51 PM, Ronciak, John wrote:
-> > Sorry to hear about the problem you are having Henning.  What do you
-> > mean when you say "it disappears"?
-> 
-> It stops responding to IPMI requests.
-> 
-> > Can both eth0 and eth1 ping (or be pinged)?  Do all the networking
-> > devices still show up in the system when you do an 'lspci'?
-> 
-> Yeah, everything other than IPMI works just fine.
-> 
-> > What happens if you down and then up the interface you are having
-> > problems with?  Does 'rmmod' do the same thing as your removal
-> > method?
-> 
-> Haven't tried these but well I think rmmoding should achieve about the
-> same thing.
-> 
-> > Is there anything in the system logs saying anything about the
-> > interfaces?
-> 
-> Nope.
-> 
-> > We have not had reports of this so this is a bit unusual.  Please let us know.
-> > 
-> > Does this happen on other systems as well or just one particular system?
-> 
-> Yeah, it happens on at least several hundred machines, so not an
-> isolated hardware issue at all.
-> 
-> To sum up.
-> 
-> On 2.6.27.39, netconsole + IPMI works fine.  On 2.6.32.7, as soon as
-> netconsole is loaded, IPMI stops working.  Unloading netconsole
-> doesn't revive IPMI but detaching the driver from the controller does.
-> In both cases, usual networking works fine.
+On 5/14/10 10:29 AM, "Arnd Bergmann" <arnd@arndb.de> wrote:
 
-Looks like a job for bisect.
+> On Friday 14 May 2010 19:19:00 Scott Feldman wrote:
+>> I want to make sure I've got this right before starting on ver8 of patch:
+>> 
+>>     - we'll use the layout listed above
+>> 
+>>     - RTM_SETLINK msg includes the full nested layout
+>> 
+>>         - contains IFLA_VF_PORTs for all VFs of a PF
+>>         - OR, contains IFLA_PORT_SELF if PF is it's own VF
+>> 
+>>         - it's up to the receiver to compare for changes for each VF
+>> 
+>>     - RTM_GETLINK msg includes the full nested layout
+>> 
+>>         - same rules as RTM_SETLINK above
+> 
+> I was thinking that a device could have both IFLA_VF_PORTS and IFLA_PORT_SELF,
+> but you know more about the IOV specifics. If an adapter having multiple
+> VFs always gets configured as VF 0 itself, that would be fine as well,
+> otherwise
+> we could have an extra argument to the two device driver callbacks to
+> differentiate VF/SELF. As long as this does not impact the user ABI, we
+> could do either.
 
--- 
-Mathematics is the supreme nostalgia of our time.
+I think you're right.  I should have said AND/OR.  I would rather not have
+an extra argument to the driver callbacks.
+  
+>> I think we should redo the other IFLA_VF_xxx msgs in the same style.  I'm
+>> not going to tackle that for IFLA_VF_PORTS patch, but it would be a good
+>> followup patch.
+> 
+> I fear it's too late for that now. While we have not yet released 2.6.34
+> and 2.6.33 does not contain the broken message, it's extremely late in the
+> stabilization phase of v2.6.34, so I doubt that there is still a chance for
+> that at this point.
 
+That's too bad.  I wish Patrick's objections were honored and then we
+wouldn't have followed that broken model!  Can the broken msgs be disabled
+somehow for 2.6.34?  Keep the definitions in if_link.h but fail the SET/GET
+actions in rtnetlink.c?
+
+-scott
 
