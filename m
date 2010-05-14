@@ -1,72 +1,91 @@
-From: Dan Williams <dan.j.williams@intel.com>
-Subject: Re: [PATCH 2/2] ioat2,3: convert to producer/consumer locking
-Date: Thu, 13 May 2010 16:42:30 -0700
-Message-ID: <AANLkTinHKVk9iWTKgEwcuKgmoCyCif2kSy3v0ZIsZ50p@mail.gmail.com>
-References: <20100511184949.6139.96826.stgit@localhost.localdomain>
-	 <20100511185141.6139.98842.stgit@localhost.localdomain>
-	 <31229.1273653365@redhat.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: [PATCH] netfilter: Remove skb_is_nonlinear check from
+	nf_conntrack_sip
+Date: Thu, 13 May 2010 18:38:34 -0600
+Message-ID: <20100514003834.GY15969@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, linux-raid@vger.kernel.org,
-	netdev@vger.kernel.org,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Maciej Sosnowski <maciej.sosnowski@intel.com>
-To: David Howells <dhowells@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <31229.1273653365@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 12, 2010 at 1:36 AM, David Howells <dhowells@redhat.com> wr=
-ote:
->
-> Out of interest, does it make the code smaller if you mark
-> ioat2_get_ring_ent() and ioat2_ring_mask() with __attribute_const__?
->
-> I'm not sure whether it'll affect how long gcc is willing to cache th=
-ese, but
-> once computed, I would guess they won't change within the calling fun=
-ction.
+At least the XEN net front driver always produces non linear skbs,
+so the SIP module does nothing at all when used with that NIC.
 
-Unfortunately, it does not make a difference, but I'll keep this in
-mind if ioat2_get_ring_ent() ever gets more complicated (which it
-might in the future).
+Copy the hacky technique for accessing SKB data from the ftp conntrack,
+better than nothing..
 
-> Also, is the device you're driving watching the ring and its indices?=
- =A0If so,
-> does it modify the indices? =A0If that is the case, you might need to=
- use
-> read_barrier_depends() rather than smp_read_barrier_depends().
+Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+---
+ net/netfilter/nf_conntrack_sip.c |   21 ++++++++++++++-------
+ 1 files changed, 14 insertions(+), 7 deletions(-)
 
-The device does not observe the indices directly.  Instead we
-increment a free running 'count' register by the distance between
-ioat->pending and ioat->head.
+diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
+index 4b57216..37dd7a4 100644
+--- a/net/netfilter/nf_conntrack_sip.c
++++ b/net/netfilter/nf_conntrack_sip.c
+@@ -30,6 +30,10 @@ MODULE_DESCRIPTION("SIP connection tracking helper");
+ MODULE_ALIAS("ip_conntrack_sip");
+ MODULE_ALIAS_NFCT_HELPER("sip");
+ 
++/* This is slow, but it's simple. --RR */
++static char *sip_buffer;
++static DEFINE_SPINLOCK(nf_sip_lock);
++
+ #define MAX_PORTS	8
+ static unsigned short ports[MAX_PORTS];
+ static unsigned int ports_c;
+@@ -1275,17 +1279,14 @@ static int sip_help(struct sk_buff *skb,
+ 
+ 	nf_ct_refresh(ct, skb, sip_timeout * HZ);
+ 
+-	if (!skb_is_nonlinear(skb))
+-		dptr = skb->data + dataoff;
+-	else {
+-		pr_debug("Copy of skbuff not supported yet.\n");
+-		return NF_ACCEPT;
+-	}
+-
+ 	datalen = skb->len - dataoff;
+ 	if (datalen < strlen("SIP/2.0 200"))
+ 		return NF_ACCEPT;
+ 
++	spin_lock_bh(&nf_sip_lock);
++	dptr = skb_header_pointer(skb, dataoff, datalen, sip_buffer);
++	BUG_ON(dptr == NULL);
++
+ 	if (strnicmp(dptr, "SIP/2.0 ", strlen("SIP/2.0 ")) != 0)
+ 		ret = process_sip_request(skb, &dptr, &datalen);
+ 	else
+@@ -1297,6 +1298,7 @@ static int sip_help(struct sk_buff *skb,
+ 			ret = NF_DROP;
+ 	}
+ 
++	spin_unlock_bh(&nf_sip_lock);
+ 	return ret;
+ }
+ 
+@@ -1329,6 +1331,7 @@ static void nf_conntrack_sip_fini(void)
+ 			nf_conntrack_helper_unregister(&sip[i][j]);
+ 		}
+ 	}
++	kfree(sip_buffer);
+ }
+ 
+ static int __init nf_conntrack_sip_init(void)
+@@ -1336,6 +1339,10 @@ static int __init nf_conntrack_sip_init(void)
+ 	int i, j, ret;
+ 	char *tmpname;
+ 
++	sip_buffer = kmalloc(65536, GFP_KERNEL);
++	if (!sip_buffer)
++		return -ENOMEM;
++
+ 	if (ports_c == 0)
+ 		ports[ports_c++] = SIP_PORT;
+ 
+-- 
+1.6.0.4
 
->
->> + =A0 =A0 =A0 =A0 =A0 =A0 prefetch(ioat2_get_ring_ent(ioat, idx + i =
-+ 1));
->> + =A0 =A0 =A0 =A0 =A0 =A0 desc =3D ioat2_get_ring_ent(ioat, idx + i)=
-;
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 dump_desc_dbg(ioat, desc);
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 tx =3D &desc->txd;
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (tx->cookie) {
->
-> Is this right, I wonder? =A0You're prefetching [i+1] before reading [=
-i]? =A0Doesn't
-> this mean that you might have to wait for [i+1] to be retrieved from =
-RAM before
-> [i] can be read? =A0Should you instead read tx->cookie before issuing=
- the
-> prefetch? =A0Admittedly, this is only likely to affect the reading of=
- the head of
-> the queue - subsequent reads in the same loop will, of course, have b=
-een
-> prefetched.
-
-Yes, it should be the other way around.
-
-Thanks!
-
---
-Dan
