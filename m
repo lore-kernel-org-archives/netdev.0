@@ -1,42 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/12] netfilter: netfilter update
-Date: Thu, 13 May 2010 19:07:31 -0700 (PDT)
-Message-ID: <20100513.190731.258096719.davem@davemloft.net>
-References: <1273767385-18225-1-git-send-email-kaber@trash.net>
+Subject: Re: [PATCH net-next] drivers/net: Remove unnecessary returns from
+ void function()s
+Date: Thu, 13 May 2010 19:09:53 -0700 (PDT)
+Message-ID: <20100513.190953.233716325.davem@davemloft.net>
+References: <1273606224.20514.295.camel@Joe-Laptop.home>
+	<1273769886.21514.72.camel@Joe-Laptop.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52923
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49264
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752201Ab0ENCHY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 May 2010 22:07:24 -0400
-In-Reply-To: <1273767385-18225-1-git-send-email-kaber@trash.net>
+	by vger.kernel.org with ESMTP id S1751250Ab0ENCJp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 May 2010 22:09:45 -0400
+In-Reply-To: <1273769886.21514.72.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: kaber@trash.net
-Date: Thu, 13 May 2010 18:16:13 +0200
+From: Joe Perches <joe@perches.com>
+Date: Thu, 13 May 2010 09:58:06 -0700
 
-> following is a second netfilter update, containing:
+> fyi: Patrick McHardy prefers null statement void functions to
+> keep the return.
 > 
-> - a compilation fix for ip_tables with CONFIG_NETFILTER_DEBUG=y, from Jan
-> 
-> - a fix for an invalid return value in the multiport match introduced in
->   the last series, from Jan
-> 
-> - patches to combine the match and target parameters into a common structure,
->   from Jan
-> 
-> - Bart's patch to fix the NULL pointer dereference in bridge netfilter
->   reported by Stephen
-> 
-> - minor cleanups and improvements from Jan, Stephen and Joe
-> 
-> Please apply or pull from:
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
+> There are some more removals of return like this in the patch.
+> If a new patch should be generated, do tell.
 
-Pulled, thanks Patrick.
+Ok, please remake this patch with those cases removed.
+
+Thanks Joe.
+
