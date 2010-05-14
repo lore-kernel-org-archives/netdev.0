@@ -1,65 +1,71 @@
-From: Anton Vorontsov <avorontsov@mvista.com>
-Subject: [PATCH] gianfar: Remove legacy PM callbacks
-Date: Fri, 14 May 2010 18:27:36 +0400
-Message-ID: <20100514142736.GB13137@oksana.dev.rtsoft.ru>
+From: "Ronciak, John" <john.ronciak@intel.com>
+Subject: RE: loosing IPMI-card by loading netconsole
+Date: Fri, 14 May 2010 07:51:38 -0700
+Message-ID: <DDC57477F5D6F845A0DDCB99D3C4812D0CA63BB9E4@orsmsx510.amr.corp.intel.com>
+References: <20100514134544.GA26674@gretchen.aei.mpg.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Matt Mackall <mpm@selenic.com>,
+	Carsten Aulbert <carsten.aulbert@aei.mpg.de>,
+	Tejun Heo <tj@kernel.org>
+To: Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from imap.ru.mvista.com ([213.79.90.228]:34243 "EHLO
-	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754187Ab0ENO1h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 May 2010 10:27:37 -0400
-Content-Disposition: inline
+Received: from mga09.intel.com ([134.134.136.24]:37039 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751614Ab0ENOvl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 May 2010 10:51:41 -0400
+In-Reply-To: <20100514134544.GA26674@gretchen.aei.mpg.de>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These callbacks were needed because dev_pm_ops support for OF
-platform devices was in the powerpc tree, and the patch that
-added dev_pm_ops for gianfar driver was in the netdev tree. Now
-that netdev and powerpc trees have merged into Linus' tree, we
-can remove the legacy hooks.
-
-Signed-off-by: Anton Vorontsov <avorontsov@mvista.com>
----
- drivers/net/gianfar.c |   14 --------------
- 1 files changed, 0 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 5d3763f..fb23f04 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -1288,21 +1288,9 @@ static struct dev_pm_ops gfar_pm_ops = {
- 
- #define GFAR_PM_OPS (&gfar_pm_ops)
- 
--static int gfar_legacy_suspend(struct of_device *ofdev, pm_message_t state)
--{
--	return gfar_suspend(&ofdev->dev);
--}
--
--static int gfar_legacy_resume(struct of_device *ofdev)
--{
--	return gfar_resume(&ofdev->dev);
--}
--
- #else
- 
- #define GFAR_PM_OPS NULL
--#define gfar_legacy_suspend NULL
--#define gfar_legacy_resume NULL
- 
- #endif
- 
-@@ -3055,8 +3043,6 @@ static struct of_platform_driver gfar_driver = {
- 
- 	.probe = gfar_probe,
- 	.remove = gfar_remove,
--	.suspend = gfar_legacy_suspend,
--	.resume = gfar_legacy_resume,
- 	.driver.pm = GFAR_PM_OPS,
- };
- 
--- 
-1.7.0.5
+U29ycnkgdG8gaGVhciBhYm91dCB0aGUgcHJvYmxlbSB5b3UgYXJlIGhhdmluZyBIZW5uaW5nLiAg
+V2hhdCBkbyB5b3UgbWVhbiB3aGVuIHlvdSBzYXkgIml0IGRpc2FwcGVhcnMiPyAgQ2FuIGJvdGgg
+ZXRoMCBhbmQgZXRoMSBwaW5nIChvciBiZSBwaW5nZWQpPyAgRG8gYWxsIHRoZSBuZXR3b3JraW5n
+IGRldmljZXMgc3RpbGwgc2hvdyB1cCBpbiB0aGUgc3lzdGVtIHdoZW4geW91IGRvIGFuICdsc3Bj
+aSc/ICBXaGF0IGhhcHBlbnMgaWYgeW91IGRvd24gYW5kIHRoZW4gdXAgdGhlIGludGVyZmFjZSB5
+b3UgYXJlIGhhdmluZyBwcm9ibGVtcyB3aXRoPyAgRG9lcyAncm1tb2QnIGRvIHRoZSBzYW1lIHRo
+aW5nIGFzIHlvdXIgcmVtb3ZhbCBtZXRob2Q/ICBJcyB0aGVyZSBhbnl0aGluZyBpbiB0aGUgc3lz
+dGVtIGxvZ3Mgc2F5aW5nIGFueXRoaW5nIGFib3V0IHRoZSBpbnRlcmZhY2VzPw0KDQpXZSBoYXZl
+IG5vdCBoYWQgcmVwb3J0cyBvZiB0aGlzIHNvIHRoaXMgaXMgYSBiaXQgdW51c3VhbC4gIFBsZWFz
+ZSBsZXQgdXMga25vdy4NCg0KRG9lcyB0aGlzIGhhcHBlbiBvbiBvdGhlciBzeXN0ZW1zIGFzIHdl
+bGwgb3IganVzdCBvbmUgcGFydGljdWxhciBzeXN0ZW0/DQoNCg0KQ2hlZXJzLA0KSm9obg0KDQoN
+Cj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSGVubmluZyBGZWhybWFubiBb
+bWFpbHRvOmhlbm5pbmcuZmVocm1hbm5AYWVpLm1wZy5kZV0NCj4gU2VudDogRnJpZGF5LCBNYXkg
+MTQsIDIwMTAgNjo0NiBBTQ0KPiBUbzogS2lyc2hlciwgSmVmZnJleSBUDQo+IENjOiBCcmFuZGVi
+dXJnLCBKZXNzZTsgQWxsYW4sIEJydWNlIFc7IFdhc2tpZXdpY3ogSnIsIFBldGVyIFA7IFJvbmNp
+YWssDQo+IEpvaG47IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IE1hdHQgTWFja2FsbDsgQ2Fyc3Rl
+biBBdWxiZXJ0OyBUZWp1biBIZW8NCj4gU3ViamVjdDogbG9vc2luZyBJUE1JLWNhcmQgYnkgbG9h
+ZGluZyBuZXRjb25zb2xlDQo+IA0KPiBIZWxsbywNCj4gDQo+IFdlIGhhdmUgU3VwZXJNaWNybyBQ
+RFNNIDIrIGJvYXJkcyB0b2dldGhlciB3aXRoIDgyNTczRSBhbmQgODI1NzNMIEludGVsDQo+IE5J
+Q3MuDQo+IEFkZGl0aW9uYWwgd2UgaGF2ZSBJUE1JIGNhcmRzIHdoaWNoIGFyZSB0dW5uZWxlZCB2
+aWEgdGhlIDgyNTczRSBOSUMuDQo+IA0KPiBXZSBhcmUgdXNpbmcgdGhlIGUxMDAwZSBkcml2ZXIg
+Zm9yIE5JQ3MgdG9nZXRoZXIgd2l0aCB0aGUgbmV0Y29uc29sZQ0KPiBkcml2ZXIuDQo+IChuZXRj
+b25zb2xlIG5ldGNvbnNvbGU9NDQ0NEBjbGllbnRfSVAvZXRoMSw1MTRAc2VydmVyX0lQL3NlcnZl
+cl9NQUMpLg0KPiBOZXRjb25zb2xlIGlzIHVzaW5nIHRoZSBOSUMgd2hpY2ggaXMgTk9UIHVzZWQg
+YnkgdGhlIElQTUkgY2FyZC4NCj4gDQo+IFVzdWFsbHkgd2UgYXJlIGFibGUgdG8gYWNjZXNzIHRo
+ZSBJUE1JIGNhcmQgcmVtb3RlbHkgd2l0aCBpcG1pdG9vbHMuDQo+IA0KPiBIYXZpbmcgdGhlIGtl
+cm5lbCAyLjYuMjcuMzkgaW5zdGFsbGVkIGV2ZXJ5dGhpbmcgd29ya2VkIHRvZ2V0aGVyLCB0aGUN
+Cj4gTklDcywgcmVtb3RlbHkgYWNjZXNzaW5nIHRoZSBJUE1JIGNhcmRzIGFuZCBuZXRjb25zb2xl
+Lg0KPiANCj4gVGhlIGRyaXZlciB2ZXJzaW9uIG9mIGUxMDAwZSBpcyAwLjMuMy4zLWs2Lg0KPiAN
+Cj4gVXNpbmcgYSBtb3JlIHJlY2VudCBrZXJuZWw6IDIuNi4zMi43IHdlIGxvc3QgdGhlIGFiaWxp
+dHkgb2YgcmVtb3RlbHkNCj4gYWNjZXNzaW5nIHRoZSBJUE1JIGNhcmQgd2hlbiB0aGUgbmV0Y29u
+c29sZSBkcml2ZXIgaXMgbG9hZGVkLg0KPiBUaGUgSVBNSSBjYXJkIGlzIGFjY2Vzc2libGUgYmVm
+b3JlIHRoZSBuZXRjb25zb2xlIGRyaXZlciBpcyBsb2FkZWQgYW5kDQo+IGRpc2FwcGVhcnMgb25j
+ZSB3ZSB1c2UgbmV0Y29uc29sZS4gRXZlbiB1bmxvYWRpbmcgbmV0Y29uc29sZSBkb2VzIG5vdA0K
+PiBoZWxwIHRoZW4uDQo+IA0KPiBXZSBnZXQgdGhlIElQTUkgY2FyZCBiYWNrIHdoZW4gJ3JlbW92
+aW5nJyBldGgwOg0KPiBlY2hvIDEgPiAvc3lzL2RldmljZXMvcGNpMDAwMDowMC8wMDAwOjAwOjFj
+LjQvMDAwMDowZDowMC4wL3JlbW92ZQ0KPiANCj4gMGQ6MDAuMCBpcyBldGgwLg0KPiANCj4gDQo+
+IFRoZSB2ZXJzaW9uIG9mIHRoZSBlMTAwMGUgZHJpdmVyIGlzIDEuMC4yLWsyLg0KPiANCj4gSSBj
+b21waWxlZCBhbmQgbG9hZGVkIGEgbGF0ZXIgdmVyc2lvbiBvZiB0aGlzIGRyaXZlciAoMS4xLjE5
+KSB3aXRob3V0DQo+IHNvbHZpbmcgdGhpcyBwcm9ibGVtLg0KPiANCj4gDQo+IEZvciBldGgwICg4
+MjU3M0UpIHdlIGhhdmUgYSBmaXJtd2FyZSB2ZXJzaW9uIDAuMTUtNCBpbnN0YWxsZWQgYW5kIGZv
+cg0KPiBldGgxIHdlIHVzZSB0aGUgZmlybXdhcmUgdmVyc2lvbiAwLjUtNy4gQnV0IHRoaXMgaXMg
+dGhlIHNhbWUgZm9yIGJvdGgNCj4ga2VybmVsIHZlcnNpb25zLg0KPiANCj4gRG8geW91IGhhdmUg
+YW4gaWRlYT8NCj4gDQo+IFRoYW5rIHlvdSBhbmQgY2hlZXJzLA0KPiBIZW5uaW5nDQoNCg==
