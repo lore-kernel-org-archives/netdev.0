@@ -1,50 +1,48 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [net-next-2.6 V6 PATCH 1/2] Add netlink support for virtual port management (was iovnl)
-Date: Fri, 14 May 2010 09:17:28 +0200
-Message-ID: <201005140917.28655.arnd@arndb.de>
-References: <20100513201714.25579.53530.stgit@savbu-pc100.cisco.com> <20100513210828.GD30483@x200.localdomain> <4BEC6B19.1040808@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2 net-next] drivers/net: Remove unnecessary returns
+ from void function()s
+Date: Fri, 14 May 2010 00:19:45 -0700 (PDT)
+Message-ID: <20100514.001945.52204757.davem@davemloft.net>
+References: <1273769886.21514.72.camel@Joe-Laptop.home>
+	<20100513.190953.233716325.davem@davemloft.net>
+	<1273816980.1583.40.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Chris Wright <chrisw@redhat.com>,
-	Scott Feldman <scofeldm@cisco.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:50990 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757430Ab0ENHRs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 May 2010 03:17:48 -0400
-In-Reply-To: <4BEC6B19.1040808@trash.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56424
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755241Ab0ENHTi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 May 2010 03:19:38 -0400
+In-Reply-To: <1273816980.1583.40.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 13 May 2010, Patrick McHardy wrote:
-> > +enum {
-> > +     VF_PORT_REQUEST_PREASSOCIATE = 0,
-> > +     VF_PORT_REQUEST_PREASSOCIATE_RR,
-> > +     VF_PORT_REQUEST_ASSOCIATE,
-> > +     VF_PORT_REQUEST_DISASSOCIATE,
-> > +};
+From: Joe Perches <joe@perches.com>
+Date: Thu, 13 May 2010 23:03:00 -0700
+
+> On Thu, 2010-05-13 at 19:09 -0700, David Miller wrote:
+>> Ok, please remake this patch with those cases removed.
 > 
-> Do multiple of these commands have to be issued in order to
-> reach "associated" state? That also wouldn't fit into the
-> rtnetlink design, which contains state, not commands.
+> This patch removes from drivers/net/ all the unnecessary
+> return; statements that precede the last closing brace of
+> void functions.
+> 
+> It does not remove the returns that are immediately
+> preceded by a label as gcc doesn't like that.
+> 
+> It also does not remove null void functions with return.
+> 
+> Done via:
+> $ grep -rP --include=*.[ch] -l "return;\n}" net/ | \
+>   xargs perl -i -e 'local $/ ; while (<>) { s/\n[ \t\n]+return;\n}/\n}/g; print; }'
+> 
+> with some cleanups by hand.
+> 
+> Compile tested x86 allmodconfig only.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-In 802.1Qbg (see http://www.ieee802.org/1/files/public/docs2010/bg-joint-evb-0410v1.pdf)
-they are defined both as state and as commands. I suggested
-using the same definition so that we can use the exact values
-when forming or receiving a TLV for the VDP protocol. We can change
-freely between the first three during guest migration, but the port
-(identified by the UUID) can only be in associate state on one
-machine, and the switches would use that information to redirect
-the data flow to the target of the migration.
-
-The disassociate state is a bit strange in netlink because it
-essentially means that the other information is now invalid,
-but I'm not sure if there is a good alternative. If the switch
-tells us that it is setting the link into disassociate state,
-that should still be visible in netlink.
-
-	Arnd
+Applied, thanks a lot Joe.
