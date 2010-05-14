@@ -1,85 +1,58 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: RE: why get different number of MSI-X vector for broadcom bnx2x
- every time
-Date: Fri, 14 May 2010 13:02:50 -0700
-Message-ID: <2DFD360E328B3941911E6D28B085D990107B83BB47@SJEXCHCCR01.corp.ad.broadcom.com>
-References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497DED2BE@MILEXCH2.ds.jdsu.net>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: TSC unstable due to TSC halts in idle?
+Date: Fri, 14 May 2010 22:13:57 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005142208290.6220@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-To: "Jon Zhou" <Jon.Zhou@jdsu.com>, netdev <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Len Brown <len.brown@intel.com>,
+	Shaohua Li <shaohua.li@intel.com>, hawk@comx.dk
+To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4057 "EHLO MMS3.broadcom.com"
+Received: from mgw2.diku.dk ([130.225.96.92]:44913 "EHLO mgw2.diku.dk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754341Ab0ENUDB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 May 2010 16:03:01 -0400
-In-Reply-To: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497DED2BE@MILEXCH2.ds.jdsu.net>
-Content-Language: en-US
+	id S1753861Ab0ENUOC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 May 2010 16:14:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
 
-Your system (from the log below) allowed bnx2x to use only 4 MSI-X vectors instead of 16 required by the driver.
+Hi Thomas,
 
-Regards,
-Dmitry
+I want to know, if its safe to enable the TSC clocksource, when the
+kernel reports:
+  "Marking TSC unstable due to TSC halts in idle"
 
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Jon Zhou
-Sent: Friday, May 14, 2010 11:02 AM
-To: netdev
-Subject: why get different number of MSI-X vector for broadcom bnx2x every time
+The system selects HPET (in current_clocksource), but I can still see
+TSC as an available clocksource (in
+/sys/devices/system/clocksource/clocksource0/available_clocksource).
 
-hi there:
-
-bnx2x_enable_msix :
-
-...
-rc = pci_enable_msix(bp->pdev, &bp->msix_table[0],
-			     BNX2X_NUM_QUEUES(bp) + offset);
-
-	/* 
-	 * reconfigure number of tx/rx queues according to available
-	 * MSI-X vectors
-	 */
-	if (rc >= BNX2X_MIN_MSIX_VEC_CNT) {
-		/* vectors available for FP */
-		int fp_vec = rc - BNX2X_MSIX_VEC_FP_START;
+Is it safe to enable TSC manually (by changing current_clocksource)?
+(my workload is 10Git/s routing, cannot survive with a slow clock)
 
 
-sometimes I can run up the driver with 4 queues but most of time I can only get 2 queues
-why?
+Any trick to avoid this? (e.g. kernel config setting, or a /sys/ setting
+which changes the minimum P-state?)
 
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_set_num_queues:8053(eth5)]set number of queues to 15
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7544(eth5)]msix_table[0].entry = 0 (slowpath)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7549(eth5)]msix_table[1].entry = 1 (CNIC)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[2].entry = 2 (fastpath #0)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[3].entry = 3 (fastpath #1)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[4].entry = 4 (fastpath #2)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[5].entry = 5 (fastpath #3)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[6].entry = 6 (fastpath #4)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[7].entry = 7 (fastpath #5)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[8].entry = 8 (fastpath #6)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[9].entry = 9 (fastpath #7)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[10].entry = 10 (fastpath #8)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[11].entry = 11 (fastpath #9)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[12].entry = 12 (fastpath #10)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[13].entry = 13 (fastpath #11)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[14].entry = 14 (fastpath #12)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[15].entry = 15 (fastpath #13)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[16].entry = 16 (fastpath #14)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7571(eth5)]Trying to use less MSI-X vectors: 4
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7584(eth5)]New queue configuration set: 2
-May 14 01:40:16 ibm-bc-54 kernel: bnx2x: eth5: using MSI-X  IRQs: sp 4321  fp[0] 4319 ... fp[1] 4318
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_nic_init:6067(eth5)]queue[0]:  bnx2x_init_sb(ffff8803e6810780,ffff8803f9c4f000)  cl_id 0  sb 1  cos 0
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_nic_init:6067(eth5)]queue[1]:  bnx2x_init_sb(ffff8803e6810780,ffff8803fb006000)  cl_id 1  sb 2  cos 0
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_init_rx_rings:5305(eth5)]mtu 1500  rx_buf_size 1650
- 
+
+The system is a new HP370-G6 server, with two Xeon X5550 CPUs.  Its
+(currently) running a Debian compiled kernel 2.6.26-2-amd64.
+
+Kernel log:
+  checking TSC synchronization [CPU#0 -> CPU#1]: passed.
+  checking TSC synchronization [CPU#0 -> CPU#2]: passed.
+  ...
+  checking TSC synchronization [CPU#0 -> CPU#14]: passed.
+  checking TSC synchronization [CPU#0 -> CPU#15]: passed.
+  Marking TSC unstable due to TSC halts in idle
+
+
+Cheers,
+   Jesper Brouer
+
 --
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
