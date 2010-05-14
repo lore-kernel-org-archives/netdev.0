@@ -1,59 +1,59 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Implementation of the LISP protocol (GSOC 2010)
-Date: Fri, 14 May 2010 23:34:21 +0200
-Message-ID: <4BEDC1DD.6070807@trash.net>
-References: <87ocgijhtz.wl%alex.lorca@gmail.com>
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: [patch 2.6.35 01/25] wimax/i2400m: fix incorrect return -ESHUTDOWN
+	when there is no Tx buffer available
+Date: Fri, 14 May 2010 14:45:00 -0700
+Message-ID: <4818d14de36228a749f714b450a85c1b35542e6f.1273708027.git.inaky.perez-gonzalez@intel.com>
+References: <cover.1273708027.git.inaky.perez-gonzalez@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Johannes Berg <johannes@sipsolutions.net>
-To: Alex Lorca <alex.lorca@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:53251 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754072Ab0ENVeX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 May 2010 17:34:23 -0400
-In-Reply-To: <87ocgijhtz.wl%alex.lorca@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Prasanna S.Panchamukhi" <prasannax.s.panchamukhi@intel.com>
+To: netdev@vger.kernel.org,
+	wimax@linuxwimax.org
+Return-path: <wimax-bounces@linuxwimax.org>
+In-Reply-To: <cover.1273708027.git.inaky.perez-gonzalez@intel.com>
+List-Unsubscribe: <http://lists.linuxwimax.org/options/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxwimax.org/pipermail/wimax>
+List-Post: <mailto:wimax@linuxwimax.org>
+List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
+List-Subscribe: <http://lists.linuxwimax.org/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
+Sender: wimax-bounces@linuxwimax.org
+Errors-To: wimax-bounces@linuxwimax.org
+List-Id: netdev.vger.kernel.org
 
-Alex Lorca wrote:
-> Hi
-> 
-> My name is Alex Lorca and I'm working in the implementation of LISP
-> [0] in Linux for the Google Summer of Code 2010 program, so I'll be
-> bothering the list with silly questions for the next months. Any
-> feedback is much appreciated.
-> 
-> Basically, LISP is somewhat of a tunneling protocol that creates
-> tunnels on demand between routers called Ingress Tunnel Router (ITR)
-> and Egress Tunnel Router (ETR). ITRs encapsulate normal traffic
-> appending a special header and send it to ETRs where it gets
-> decapsulated. The purpose of this is to forward packets from hosts
-> behind then ITR to hosts behind the ETR because they can't reach
-> each other directly using their public IPs (more info in [0]). The
-> encapsulation is done like this:
-> 
->  IP | UDP | LISP | IP | ...
-> 
-> The idea is to implement something like ipip or ip_gre: a virtual
-> interface that takes care of the LISP packets, creating and
-> maintaining tunnels, decapsulating/encapsulating and forwarding
-> packets. This includes also the userspace tools for administration.
-> Ideally, for the implementation to be useful, the process has to have
-> as lowest latency as possible since almost all the traffic directed to
-> the LISP interface is to be forwarded.
-> 
-> I've come across the first problem: since the IP protocol number field
-> in the LISP packets is UDP (17) I can't send the packet to a layer 4
-> handler function via the registered protocols table. The only thing
-> that comes to my mind is just replace the l4 handler for UDP (udp_rcv)
-> in the protocol table. Is there a cleaner way to do this?
+From: Prasanna S.Panchamukhi <prasannax.s.panchamukhi@intel.com>
 
-You can use an encapsulation socket - check out udp_queue_rcv_skb().
+i2400m_tx() routine was returning -ESHUTDOWN even when there was no Tx buffer
+available. This patch fixes the i2400m_tx() to return -ESHUTDOWN only when
+the device is down(i2400m->tx_buf is NULL) and also to return -ENOSPC
+when there is no Tx buffer. Error seen in the kernel log.
+kernel: i2400m_sdio mmc0:0001:1: can't send message 0x5606: -108
+kernel: i2400m_sdio mmc0:0001:1: Failed to issue 'Enter power save'command: -108
 
-> Also, is there others tunnel like implementations in linux, aside from
-> ipip, gre and sit?
+Signed-off-by: Prasanna S.Panchamukhi <prasannax.s.panchamukhi@intel.com>
+---
+ drivers/net/wimax/i2400m/tx.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-L2TP.
+diff --git a/drivers/net/wimax/i2400m/tx.c b/drivers/net/wimax/i2400m/tx.c
+index 6db909e..fab27e4 100644
+--- a/drivers/net/wimax/i2400m/tx.c
++++ b/drivers/net/wimax/i2400m/tx.c
+@@ -643,9 +643,11 @@ int i2400m_tx(struct i2400m *i2400m, const void *buf, size_t buf_len,
+ 	 * current one is out of payload slots or we have a singleton,
+ 	 * close it and start a new one */
+ 	spin_lock_irqsave(&i2400m->tx_lock, flags);
+-	result = -ESHUTDOWN;
+-	if (i2400m->tx_buf == NULL)
++	/* If tx_buf is NULL, device is shutdown */
++	if (i2400m->tx_buf == NULL) {
++		result = -ESHUTDOWN;
+ 		goto error_tx_new;
++	}
+ try_new:
+ 	if (unlikely(i2400m->tx_msg == NULL))
+ 		i2400m_tx_new(i2400m);
+-- 
+1.6.6.1
