@@ -1,66 +1,86 @@
-From: "Ronciak, John" <john.ronciak@intel.com>
-Subject: RE: loosing IPMI-card by loading netconsole
-Date: Fri, 14 May 2010 09:39:34 -0700
-Message-ID: <DDC57477F5D6F845A0DDCB99D3C4812D0CA63BBB78@orsmsx510.amr.corp.intel.com>
-References: <20100514134544.GA26674@gretchen.aei.mpg.de>
- <DDC57477F5D6F845A0DDCB99D3C4812D0CA63BB9E4@orsmsx510.amr.corp.intel.com>
- <4BED79EB.1000204@kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [net-next-2.6 V7 PATCH 1/2] Add netlink support for virtual port
+ management (was iovnl)
+Date: Fri, 14 May 2010 18:42:12 +0200
+Message-ID: <4BED7D64.3070500@trash.net>
+References: <20100514013144.1816.31191.stgit@savbu-pc100.cisco.com> <20100514013526.1816.45104.stgit@savbu-pc100.cisco.com> <4BED2CD8.4020209@trash.net> <201005141412.01578.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Matt Mackall <mpm@selenic.com>,
-	Carsten Aulbert <carsten.aulbert@aei.mpg.de>
-To: Tejun Heo <tj@kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Scott Feldman <scofeldm@cisco.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, chrisw@redhat.com
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:10906 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753442Ab0ENQjl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 May 2010 12:39:41 -0400
-In-Reply-To: <4BED79EB.1000204@kernel.org>
-Content-Language: en-US
+Received: from stinky.trash.net ([213.144.137.162]:48582 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751422Ab0ENQmN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 May 2010 12:42:13 -0400
+In-Reply-To: <201005141412.01578.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IFRlanVuIEhlbyBbbWFpbHRv
-OnRqQGtlcm5lbC5vcmddDQo+IFNlbnQ6IEZyaWRheSwgTWF5IDE0LCAyMDEwIDk6MjcgQU0NCj4g
-VG86IFJvbmNpYWssIEpvaG4NCj4gQ2M6IEhlbm5pbmcgRmVocm1hbm47IEtpcnNoZXIsIEplZmZy
-ZXkgVDsgQnJhbmRlYnVyZywgSmVzc2U7IEFsbGFuLA0KPiBCcnVjZSBXOyBXYXNraWV3aWN6IEpy
-LCBQZXRlciBQOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBNYXR0IE1hY2thbGw7DQo+IENhcnN0
-ZW4gQXVsYmVydA0KPiBTdWJqZWN0OiBSZTogbG9vc2luZyBJUE1JLWNhcmQgYnkgbG9hZGluZyBu
-ZXRjb25zb2xlDQo+IA0KPiBIZWxsbywgSm9obi4NCj4gDQo+IEFzIEhlbm5pbmcgc2VlbXMgb2Zm
-bGluZSwgSSdsbCB0cnkgdG8gZmlsbCBpbi4NCj4gDQo+IE9uIDA1LzE0LzIwMTAgMDQ6NTEgUE0s
-IFJvbmNpYWssIEpvaG4gd3JvdGU6DQo+ID4gU29ycnkgdG8gaGVhciBhYm91dCB0aGUgcHJvYmxl
-bSB5b3UgYXJlIGhhdmluZyBIZW5uaW5nLiAgV2hhdCBkbyB5b3UNCj4gPiBtZWFuIHdoZW4geW91
-IHNheSAiaXQgZGlzYXBwZWFycyI/DQo+IA0KPiBJdCBzdG9wcyByZXNwb25kaW5nIHRvIElQTUkg
-cmVxdWVzdHMuDQo+IA0KPiA+IENhbiBib3RoIGV0aDAgYW5kIGV0aDEgcGluZyAob3IgYmUgcGlu
-Z2VkKT8gIERvIGFsbCB0aGUgbmV0d29ya2luZw0KPiA+IGRldmljZXMgc3RpbGwgc2hvdyB1cCBp
-biB0aGUgc3lzdGVtIHdoZW4geW91IGRvIGFuICdsc3BjaSc/DQo+IA0KPiBZZWFoLCBldmVyeXRo
-aW5nIG90aGVyIHRoYW4gSVBNSSB3b3JrcyBqdXN0IGZpbmUuDQo+IA0KPiA+IFdoYXQgaGFwcGVu
-cyBpZiB5b3UgZG93biBhbmQgdGhlbiB1cCB0aGUgaW50ZXJmYWNlIHlvdSBhcmUgaGF2aW5nDQo+
-ID4gcHJvYmxlbXMgd2l0aD8gIERvZXMgJ3JtbW9kJyBkbyB0aGUgc2FtZSB0aGluZyBhcyB5b3Vy
-IHJlbW92YWwNCj4gbWV0aG9kPw0KPiANCj4gSGF2ZW4ndCB0cmllZCB0aGVzZSBidXQgd2VsbCBJ
-IHRoaW5rIHJtbW9kaW5nIHNob3VsZCBhY2hpZXZlIGFib3V0IHRoZQ0KPiBzYW1lIHRoaW5nLg0K
-PiANCj4gPiBJcyB0aGVyZSBhbnl0aGluZyBpbiB0aGUgc3lzdGVtIGxvZ3Mgc2F5aW5nIGFueXRo
-aW5nIGFib3V0IHRoZQ0KPiA+IGludGVyZmFjZXM/DQo+IA0KPiBOb3BlLg0KPiANCj4gPiBXZSBo
-YXZlIG5vdCBoYWQgcmVwb3J0cyBvZiB0aGlzIHNvIHRoaXMgaXMgYSBiaXQgdW51c3VhbC4gIFBs
-ZWFzZSBsZXQNCj4gdXMga25vdy4NCj4gPg0KPiA+IERvZXMgdGhpcyBoYXBwZW4gb24gb3RoZXIg
-c3lzdGVtcyBhcyB3ZWxsIG9yIGp1c3Qgb25lIHBhcnRpY3VsYXINCj4gc3lzdGVtPw0KPiANCj4g
-WWVhaCwgaXQgaGFwcGVucyBvbiBhdCBsZWFzdCBzZXZlcmFsIGh1bmRyZWQgbWFjaGluZXMsIHNv
-IG5vdCBhbg0KPiBpc29sYXRlZCBoYXJkd2FyZSBpc3N1ZSBhdCBhbGwuDQo+IA0KPiBUbyBzdW0g
-dXAuDQo+IA0KPiBPbiAyLjYuMjcuMzksIG5ldGNvbnNvbGUgKyBJUE1JIHdvcmtzIGZpbmUuICBP
-biAyLjYuMzIuNywgYXMgc29vbiBhcw0KPiBuZXRjb25zb2xlIGlzIGxvYWRlZCwgSVBNSSBzdG9w
-cyB3b3JraW5nLiAgVW5sb2FkaW5nIG5ldGNvbnNvbGUgZG9lc24ndA0KPiByZXZpdmUgSVBNSSBi
-dXQgZGV0YWNoaW5nIHRoZSBkcml2ZXIgZnJvbSB0aGUgY29udHJvbGxlciBkb2VzLg0KPiBJbiBi
-b3RoIGNhc2VzLCB1c3VhbCBuZXR3b3JraW5nIHdvcmtzIGZpbmUuDQo+IA0KPiBUaGFua3MuDQo+
-IA0KPiAtLQ0KPiBUZWp1bg0KVGhhbmtzIFRlanVuLg0KDQpTaW5jZSB0aGUgbmV0d29ya2luZyB0
-aGluZ3Mgc2VlbSB0byBiZSBvcGVyYXRpb25hbCBjb3VsZCBpdCBiZSB0aGF0IHdpdGggdGhlIG5l
-d2VyIGtlcm5lbCB0aGUgdHVubmVscyB5b3UgaGFkIHNldHVwIHNvbWVob3cgbm8gbG9uZ2VyIGV4
-aXN0IG9yIGhhdmUgYmVlbiBkaXNhYmxlZCBzb21laG93PyAgV2hlbiB0aGlzIGludGVyZmFjZSBp
-cyByZW1vdmVkIGFuZCBzZXR1cCBhZ2FpbiBpdCBnZXRzIHRoaW5ncyBmaXhlZCB1cCBhZ2Fpbj8N
-Cg0KQ2hlZXJzLA0KSm9obg0KDQo=
+Arnd Bergmann wrote:
+> On Friday 14 May 2010, Patrick McHardy wrote:
+>>> +static int rtnl_vf_port_fill_nest(struct sk_buff *skb, struct net_device *dev,
+>>> +				  int vf)
+>>> +{
+>>> +	struct nlattr *data;
+>>> +	int err;
+>>> +
+>>> +	data = nla_nest_start(skb, IFLA_VF_PORT);
+>> We usually use a top-level attribute to encapsulate lists of identical
+>> attributes. The other iflink attributes may only occur once and are
+>> usually parsed using nla_parse_nested(), which will parse all
+>> IFLA_VF_PORT attributes, but only return the last one.
+>>
+>> Something like:
+>>
+>> iflink message:
+>> ...
+>> [IFLA_VF_PORTS]
+>>   [IFLA_VF_PORT]
+>>     [IFLA_VF_PORT_*], ...
+>>   [IFLA_VF_PORT]
+>>     [IFLA_VF_PORT_*], ...
+>>   ...
+> 
+> Ah, I was wondering about this already. Does this mean that IFLA_VFINFO
+> does this incorrectly as well?
+
+Yes.
+
+>>>  static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+>>>  			    int type, u32 pid, u32 seq, u32 change,
+>>>  			    unsigned int flags)
+>>> @@ -747,17 +819,23 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+>>>  		goto nla_put_failure;
+>>>  	copy_rtnl_link_stats64(nla_data(attr), stats);
+>>>  
+>>> +	if (dev->dev.parent)
+>>> +		NLA_PUT_U32(skb, IFLA_NUM_VF, dev_num_vf(dev->dev.parent));
+>> Just wondering, is the only case where dev.parent is non-NULL
+>> really when virtual ports are present?
+> 
+> No, but if parent is NULL, we must not call dev_num_vf(). The way that enic
+> needs the attributes, they can be either for the VF of dev->dev.parent (the
+> PCI PF), or for the PF itself, even if it does not have VFs, in which case
+> it would be interesting to have IFLA_NUM_VF = 0 in the output.
+
+I see. I was mainly wondering about completely different types of
+devices.
+
+> Maybe a better structure would be to separate the two cases, also allowing
+> a port profile to be associated with both the PF and with each of its VFs?
+> 
+> Something like this:
+> 
+> [IFLA_NUM_VF]
+> [IFLA_VF_PORTS]
+>   [IFLA_VF_PORT]
+>     [IFLA_VF_PORT_*], ...
+>   [IFLA_VF_PORT]
+>     [IFLA_VF_PORT_*], ...
+> [IFLA_PORT_SELF]
+>   [IFLA_VF_PORT_*], ...
+
+That would also be fine.
