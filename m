@@ -1,86 +1,96 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [net-next-2.6 V7 PATCH 1/2] Add netlink support for virtual port
- management (was iovnl)
-Date: Fri, 14 May 2010 18:42:12 +0200
-Message-ID: <4BED7D64.3070500@trash.net>
-References: <20100514013144.1816.31191.stgit@savbu-pc100.cisco.com> <20100514013526.1816.45104.stgit@savbu-pc100.cisco.com> <4BED2CD8.4020209@trash.net> <201005141412.01578.arnd@arndb.de>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH v3 0/3] ptp: IEEE 1588 clock support
+Date: Fri, 14 May 2010 18:44:53 +0200
+Message-ID: <cover.1273855016.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Scott Feldman <scofeldm@cisco.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, chrisw@redhat.com
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: linuxppc-dev@lists.ozlabs.org, devicetree-discuss@lists.ozlabs.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:48582 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751422Ab0ENQmN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 May 2010 12:42:13 -0400
-In-Reply-To: <201005141412.01578.arnd@arndb.de>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:33666 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751422Ab0ENQoo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 May 2010 12:44:44 -0400
+Received: by fxm6 with SMTP id 6so1699490fxm.19
+        for <netdev@vger.kernel.org>; Fri, 14 May 2010 09:44:43 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann wrote:
-> On Friday 14 May 2010, Patrick McHardy wrote:
->>> +static int rtnl_vf_port_fill_nest(struct sk_buff *skb, struct net_device *dev,
->>> +				  int vf)
->>> +{
->>> +	struct nlattr *data;
->>> +	int err;
->>> +
->>> +	data = nla_nest_start(skb, IFLA_VF_PORT);
->> We usually use a top-level attribute to encapsulate lists of identical
->> attributes. The other iflink attributes may only occur once and are
->> usually parsed using nla_parse_nested(), which will parse all
->> IFLA_VF_PORT attributes, but only return the last one.
->>
->> Something like:
->>
->> iflink message:
->> ...
->> [IFLA_VF_PORTS]
->>   [IFLA_VF_PORT]
->>     [IFLA_VF_PORT_*], ...
->>   [IFLA_VF_PORT]
->>     [IFLA_VF_PORT_*], ...
->>   ...
-> 
-> Ah, I was wondering about this already. Does this mean that IFLA_VFINFO
-> does this incorrectly as well?
+Now and again there has been talk on this list of adding PTP support
+into Linux. One part of the picture is already in place, the
+SO_TIMESTAMPING API for hardware time stamping. This patch set offers
+the missing second part needed for complete IEEE 1588 support.
 
-Yes.
+The only feature still to be implemented is the hook into the PPS
+subsystem, to synchronize the Linux clock to the PTP clock.
 
->>>  static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
->>>  			    int type, u32 pid, u32 seq, u32 change,
->>>  			    unsigned int flags)
->>> @@ -747,17 +819,23 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
->>>  		goto nla_put_failure;
->>>  	copy_rtnl_link_stats64(nla_data(attr), stats);
->>>  
->>> +	if (dev->dev.parent)
->>> +		NLA_PUT_U32(skb, IFLA_NUM_VF, dev_num_vf(dev->dev.parent));
->> Just wondering, is the only case where dev.parent is non-NULL
->> really when virtual ports are present?
-> 
-> No, but if parent is NULL, we must not call dev_num_vf(). The way that enic
-> needs the attributes, they can be either for the VF of dev->dev.parent (the
-> PCI PF), or for the PF itself, even if it does not have VFs, in which case
-> it would be interesting to have IFLA_NUM_VF = 0 in the output.
+Enjoy,
+Richard
 
-I see. I was mainly wondering about completely different types of
-devices.
+* Patch ChangeLog
+** v3
+*** general
+   - Added documentation on writing clock drivers.
+   - Added the ioctls for the ancillary clock features.
+   - Changed wrong subsys_initcall() to module_init() in clock drivers.
+   - Removed the (too coarse) character device mutex.
+   - Setting the clock now requires CAP_SYS_TIME.
+*** gianfar
+   - Added alarm feature.
+   - Added device tree node binding description.
+   - Added fine grain locking of the clock registers.
+   - Added the external time stamp feature.
+   - Added white space for better style.
+   - Coverted base+offset to structure pointers for register access.
+   - When removing the driver, we now disable all PTP functions.
 
-> Maybe a better structure would be to separate the two cases, also allowing
-> a port profile to be associated with both the PF and with each of its VFs?
-> 
-> Something like this:
-> 
-> [IFLA_NUM_VF]
-> [IFLA_VF_PORTS]
->   [IFLA_VF_PORT]
->     [IFLA_VF_PORT_*], ...
->   [IFLA_VF_PORT]
->     [IFLA_VF_PORT_*], ...
-> [IFLA_PORT_SELF]
->   [IFLA_VF_PORT_*], ...
+** v2
+   - Changed clock list from a static array into a dynamic list. Also,
+     use a bitmap to manage the clock's minor numbers.
+   - Replaced character device semaphore with a mutex.
+   - Drop .ko from module names in Kbuild help.
+   - Replace deprecated unifdef-y with header-y for user space header file.
+   - Added links to both of the ptpd patches on sourceforge.
+   - Gianfar driver now gets parameters from device tree.
+   - Added API documentation to Documentation/ptp/ptp.txt
 
-That would also be fine.
+
+Richard Cochran (3):
+  ptp: Added a brand new class driver for ptp clocks.
+  ptp: Added a clock that uses the Linux system time.
+  ptp: Added a clock that uses the eTSEC found on the MPC85xx.
+
+ Documentation/powerpc/dts-bindings/fsl/tsec.txt |   56 +++
+ Documentation/ptp/ptp.txt                       |   95 ++++
+ Documentation/ptp/testptp.c                     |  245 +++++++++++
+ Documentation/ptp/testptp.mk                    |   33 ++
+ arch/powerpc/boot/dts/mpc8313erdb.dts           |   14 +
+ arch/powerpc/boot/dts/p2020ds.dts               |   14 +
+ arch/powerpc/boot/dts/p2020rdb.dts              |   14 +
+ drivers/Kconfig                                 |    2 +
+ drivers/Makefile                                |    1 +
+ drivers/net/Makefile                            |    1 +
+ drivers/net/gianfar_ptp.c                       |  521 +++++++++++++++++++++++
+ drivers/net/gianfar_ptp_reg.h                   |  113 +++++
+ drivers/ptp/Kconfig                             |   51 +++
+ drivers/ptp/Makefile                            |    6 +
+ drivers/ptp/ptp_clock.c                         |  512 ++++++++++++++++++++++
+ drivers/ptp/ptp_linux.c                         |  136 ++++++
+ include/linux/Kbuild                            |    1 +
+ include/linux/ptp_clock.h                       |   79 ++++
+ include/linux/ptp_clock_kernel.h                |  137 ++++++
+ kernel/time/ntp.c                               |    2 +
+ 20 files changed, 2033 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/ptp/ptp.txt
+ create mode 100644 Documentation/ptp/testptp.c
+ create mode 100644 Documentation/ptp/testptp.mk
+ create mode 100644 drivers/net/gianfar_ptp.c
+ create mode 100644 drivers/net/gianfar_ptp_reg.h
+ create mode 100644 drivers/ptp/Kconfig
+ create mode 100644 drivers/ptp/Makefile
+ create mode 100644 drivers/ptp/ptp_clock.c
+ create mode 100644 drivers/ptp/ptp_linux.c
+ create mode 100644 include/linux/ptp_clock.h
+ create mode 100644 include/linux/ptp_clock_kernel.h
+
