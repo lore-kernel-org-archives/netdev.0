@@ -1,40 +1,46 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCHv2] netfilter: Remove skb_is_nonlinear check from nf_conntrack_sip
-Date: Fri, 14 May 2010 20:45:59 +0200
-Message-ID: <4BED9A67.5070204@trash.net>
-References: <20100514180138.GF15969@obsidianresearch.com> <4BED92AF.50704@trash.net> <alpine.LSU.2.01.1005142032270.13800@obet.zrqbmnf.qr>
+Subject: Re: [net-next-2.6 V7 PATCH 1/2] Add netlink support for virtual port
+ management (was iovnl)
+Date: Fri, 14 May 2010 20:46:29 +0200
+Message-ID: <4BED9A85.4080507@trash.net>
+References: <C812DA73.31839%scofeldm@cisco.com> <4BED91D0.5020407@trash.net> <20100514182526.GO5798@x200.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.01.1005142032270.13800@obet.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Scott Feldman <scofeldm@cisco.com>, Arnd Bergmann <arnd@arndb.de>,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Chris Wright <chrisw@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:50722 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757574Ab0ENSqa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 May 2010 14:46:30 -0400
+In-Reply-To: <20100514182526.GO5798@x200.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jan Engelhardt wrote:
-> On Friday 2010-05-14 20:13, Patrick McHardy wrote:
->> Jason Gunthorpe wrote:
->>> At least the XEN net front driver always produces non linear skbs,
->>> so the SIP module does nothing at all when used with that NIC.
+Chris Wright wrote:
+> * Patrick McHardy (kaber@trash.net) wrote:
+>> Scott Feldman wrote:
+>>> On 5/14/10 10:29 AM, "Arnd Bergmann" <arnd@arndb.de> wrote:
 >>>
->>> Unconditionally linearize the skb..
->>>
->>> Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
->>> ---
->>>  net/netfilter/nf_conntrack_sip.c |    9 +++------
->>>  1 files changed, 3 insertions(+), 6 deletions(-)
->>>
->>> Patrick/Jan, thanks.. This is what I wanted to do in the first place,
->>> but I couldn't convince myself it was safe, as no other nf code does
->>> this..
->> Your patch is based on an old version, the current version also
->> supports TCP. I'll commit this patch to my tree after some testing.
+>>>>> I think we should redo the other IFLA_VF_xxx msgs in the same style.  I'm
+>>>>> not going to tackle that for IFLA_VF_PORTS patch, but it would be a good
+>>>>> followup patch.
+>>>> I fear it's too late for that now. While we have not yet released 2.6.34
+>>>> and 2.6.33 does not contain the broken message, it's extremely late in the
+>>>> stabilization phase of v2.6.34, so I doubt that there is still a chance for
+>>>> that at this point.
+>>> That's too bad.  I wish Patrick's objections were honored and then we
+>>> wouldn't have followed that broken model!  Can the broken msgs be disabled
+>>> somehow for 2.6.34?  Keep the definitions in if_link.h but fail the SET/GET
+>>> actions in rtnetlink.c?
+>> That would be a possibility. Unfortunately I don't think we can fix
+>> this in a backwards compatible way.
 > 
-> nf_defrag defragments the packets, but then they're still non-linear?
-> I'm clearly missing something, could somenoe elaborate?
+> $ git describe --contains ebc08a6f47ee76ecad8e9f26c26e6ec9b46ca659
+> v2.6.34-rc1~233^2~336
+> 
+> It's not released yet?
 
-We're talking about packets with non-linear data, which is unrelated
-to fragments. Reassembled fragments are non-linear as well though.
+Correct, it was added in 2.6.34-rc.
