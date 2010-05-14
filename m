@@ -1,321 +1,71 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC] NF: IP tables idletimer target implementation
-Date: Fri, 14 May 2010 18:03:25 +0200
-Message-ID: <4BED744D.3040400@trash.net>
-References: <1273841458-10443-1-git-send-email-luciano.coelho@nokia.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: loosing IPMI-card by loading netconsole
+Date: Fri, 14 May 2010 18:27:23 +0200
+Message-ID: <4BED79EB.1000204@kernel.org>
+References: <20100514134544.GA26674@gretchen.aei.mpg.de> <DDC57477F5D6F845A0DDCB99D3C4812D0CA63BB9E4@orsmsx510.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Timo Teras <timo.teras@iki.fi>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>
-To: Luciano Coelho <luciano.coelho@nokia.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1273841458-10443-1-git-send-email-luciano.coelho@nokia.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Matt Mackall <mpm@selenic.com>,
+	Carsten Aulbert <carsten.aulbert@aei.mpg.de>
+To: "Ronciak, John" <john.ronciak@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hera.kernel.org ([140.211.167.34]:52837 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752240Ab0ENQ1i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 May 2010 12:27:38 -0400
+In-Reply-To: <DDC57477F5D6F845A0DDCB99D3C4812D0CA63BB9E4@orsmsx510.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Please CC netfilter-devel on future submissions.
+Hello, John.
 
-Luciano Coelho wrote:
-> It adds a file to the sysfs for each interface that is brought up.  The file
-> contains the time remaining before the event is triggered.  This file can
-> also be used to set the timer manually.
+As Henning seems offline, I'll try to fill in.
 
-What is this used for? It doesn't seem to smart to poll manually
-if you get an event anyways, and the timeout can already be set
-per rule.
+On 05/14/2010 04:51 PM, Ronciak, John wrote:
+> Sorry to hear about the problem you are having Henning.  What do you
+> mean when you say "it disappears"?
 
-> diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
-> index 1833bdb..91fba9a 100644
-> --- a/net/ipv4/netfilter/Kconfig
-> +++ b/net/ipv4/netfilter/Kconfig
-> @@ -204,6 +204,23 @@ config IP_NF_TARGET_REDIRECT
->  
->  	  To compile it as a module, choose M here.  If unsure, say N.
->  
-> +config IP_NF_TARGET_IDLETIMER
+It stops responding to IPMI requests.
 
-This should be a x_tables target, there's nothing IPv4-specific
-about it.
+> Can both eth0 and eth1 ping (or be pinged)?  Do all the networking
+> devices still show up in the system when you do an 'lspci'?
 
-> diff --git a/net/ipv4/netfilter/ipt_IDLETIMER.c b/net/ipv4/netfilter/ipt_IDLETIMER.c
-> new file mode 100644
-> index 0000000..2c5b465
-> --- /dev/null
-> +++ b/net/ipv4/netfilter/ipt_IDLETIMER.c
+Yeah, everything other than IPMI works just fine.
 
-> +
-> +#ifdef CONFIG_IP_NF_TARGET_IDLETIMER_DEBUG
-> +#define DEBUGP(format, args...) printk(KERN_DEBUG \
-> +				       "ipt_IDLETIMER:%s:" format "\n", \
-> +				       __func__ , ## args)
-> +#else
-> +#define DEBUGP(format, args...)
-> +#endif
+> What happens if you down and then up the interface you are having
+> problems with?  Does 'rmmod' do the same thing as your removal
+> method?
 
-Please use pr_debug and get rid of the config option.
+Haven't tried these but well I think rmmoding should achieve about the
+same thing.
 
-> +
-> +/*
-> + * Internal timer management.
-> + */
-> +static ssize_t utimer_attr_show(struct device *dev,
-> +				struct device_attribute *attr, char *buf);
-> +static ssize_t utimer_attr_store(struct device *dev,
-> +				 struct device_attribute *attr,
-> +				 const char *buf, size_t count);
-> +
-> +struct utimer_t {
-> +	char name[IFNAMSIZ];
-> +	struct list_head entry;
-> +	struct timer_list timer;
-> +	struct work_struct work;
-> +	struct net *net;
-> +};
-> +
-> +static LIST_HEAD(active_utimer_head);
-> +static DEFINE_SPINLOCK(list_lock);
-> +static DEVICE_ATTR(idletimer, 0644, utimer_attr_show, utimer_attr_store);
-> +
-> +static void utimer_delete(struct utimer_t *timer)
-> +{
-> +	DEBUGP("Deleting timer '%s'\n", timer->name);
-> +
-> +	list_del(&timer->entry);
-> +	del_timer_sync(&timer->timer);
-> +	put_net(timer->net);
-> +	kfree(timer);
-> +}
-> +
-> +static void utimer_work(struct work_struct *work)
-> +{
-> +	struct utimer_t *timer = container_of(work, struct utimer_t, work);
-> +	struct net_device *netdev = NULL;
+> Is there anything in the system logs saying anything about the
+> interfaces?
 
-Unnecessary initialization.
+Nope.
 
-> +
-> +	netdev = dev_get_by_name(timer->net, timer->name);
-> +
-> +	if (netdev != NULL) {
-> +		sysfs_notify(&netdev->dev.kobj, NULL,
-> +			     "idletimer");
-> +		dev_put(netdev);
-> +	}
-> +}
-> +
-> +static void utimer_expired(unsigned long data)
-> +{
-> +	struct utimer_t *timer = (struct utimer_t *) data;
-> +
-> +	DEBUGP("Timer '%s' expired\n", timer->name);
-> +
-> +	spin_lock_bh(&list_lock);
-> +	utimer_delete(timer);
-> +	spin_unlock_bh(&list_lock);
-> +
-> +	schedule_work(&timer->work);
+> We have not had reports of this so this is a bit unusual.  Please let us know.
+> 
+> Does this happen on other systems as well or just one particular system?
 
-Use after free, utimer_delete() frees the timer.
+Yeah, it happens on at least several hundred machines, so not an
+isolated hardware issue at all.
 
-> +}
-> +
-> +static struct utimer_t *utimer_create(const char *name,
-> +				      struct net *net)
-> +{
-> +	struct utimer_t *timer;
-> +
-> +	timer = kmalloc(sizeof(struct utimer_t), GFP_ATOMIC);
-> +	if (timer == NULL)
-> +		return NULL;
-> +
-> +	list_add(&timer->entry, &active_utimer_head);
-> +	strlcpy(timer->name, name, sizeof(timer->name));
-> +	timer->net = get_net(net);
+To sum up.
 
-How does this handle namespace exit?
+On 2.6.27.39, netconsole + IPMI works fine.  On 2.6.32.7, as soon as
+netconsole is loaded, IPMI stops working.  Unloading netconsole
+doesn't revive IPMI but detaching the driver from the controller does.
+In both cases, usual networking works fine.
 
-> +
-> +	init_timer(&timer->timer);
-> +	timer->timer.function = utimer_expired;
-> +	timer->timer.data = (unsigned long) timer;
+Thanks.
 
-setup_timer()
-
-> +
-> +	INIT_WORK(&timer->work, utimer_work);
-> +
-> +	DEBUGP("Created timer '%s'\n", timer->name);
-> +
-> +	return timer;
-> +}
-> +
-> +static struct utimer_t *__utimer_find(const char *name, const struct net *net)
-> +{
-> +	struct utimer_t *entry;
-> +
-> +	list_for_each_entry(entry, &active_utimer_head, entry) {
-> +		if (!strcmp(name, entry->name) && net == entry->net)
-> +			return entry;
-> +	}
-> +
-> +	return NULL;
-> +}
-> +
-> +static void utimer_modify(const char *name,
-> +			  struct net *net,
-> +			  unsigned long expires)
-> +{
-> +	struct utimer_t *timer;
-> +
-> +	DEBUGP("Modifying timer '%s'\n", name);
-> +	spin_lock_bh(&list_lock);
-> +	timer = __utimer_find(name, net);
-
-So you're scanning the list up to twice per packet? That seems
-highly suboptimal, why not create the timer when the rule is
-created and only update the timeout? You could use the interfaces
-specified in struct ipt_ip.
-
-> +	if (timer == NULL)
-> +		timer = utimer_create(name, net);
-> +	mod_timer(&timer->timer, expires);
-> +	spin_unlock_bh(&list_lock);
-> +}
-> +
-> +static ssize_t utimer_attr_show(struct device *dev,
-> +				struct device_attribute *attr, char *buf)
-> +{
-> +	struct utimer_t *timer;
-> +	struct net_device *netdev = to_net_dev(dev);
-> +	unsigned long expires = 0;
-> +
-> +	spin_lock_bh(&list_lock);
-> +	timer = __utimer_find(netdev->name, dev_net(netdev));
-> +	if (timer)
-> +		expires = timer->timer.expires;
-> +	spin_unlock_bh(&list_lock);
-> +
-> +	if (expires)
-> +		return sprintf(buf, "%lu\n", (expires-jiffies) / HZ);
-> +
-> +	return sprintf(buf, "0\n");
-> +}
-> +
-> +static ssize_t utimer_attr_store(struct device *dev,
-> +				 struct device_attribute *attr,
-> +				 const char *buf, size_t count)
-> +{
-> +	int expires;
-> +	struct net_device *netdev = to_net_dev(dev);
-> +
-> +	if (sscanf(buf, "%d", &expires) == 1) {
-> +		if (expires > 0)
-
-Using %u seems better.
-
-> +			utimer_modify(netdev->name,
-> +				      dev_net(netdev),
-> +				      jiffies+HZ*(unsigned long)expires);
-> +	}
-> +
-> +	return count;
-> +}
-> +
-> +static int utimer_notifier_call(struct notifier_block *this,
-> +				unsigned long event, void *ptr)
-> +{
-> +	struct net_device *netdev = ptr;
-> +	int ret;
-> +
-> +	switch (event) {
-> +	case NETDEV_UP:
-> +		DEBUGP("NETDEV_UP: %s\n", netdev->name);
-> +		ret = device_create_file(&netdev->dev,
-> +					 &dev_attr_idletimer);
-> +		WARN_ON(ret);
-> +
-> +		break;
-> +	case NETDEV_DOWN:
-> +		DEBUGP("NETDEV_DOWN: %s\n", netdev->name);
-> +		device_remove_file(&netdev->dev,
-> +				   &dev_attr_idletimer);
-> +		break;
-> +	}
-> +
-> +	return NOTIFY_DONE;
-> +}
-> +
-> +static struct notifier_block utimer_notifier_block = {
-> +	.notifier_call	= utimer_notifier_call,
-> +};
-> +
-> +
-> +static int utimer_init(void)
-> +{
-> +	return register_netdevice_notifier(&utimer_notifier_block);
-> +}
-> +
-> +static void utimer_fini(void)
-> +{
-> +	struct utimer_t *entry, *next;
-> +	struct net_device *dev;
-> +	struct net *net;
-> +
-> +	list_for_each_entry_safe(entry, next, &active_utimer_head, entry)
-> +		utimer_delete(entry);
-> +
-> +	rtnl_lock();
-
-deadlock? unregister_netdevice_notifier() already takes the RTNL.
-
-> +	unregister_netdevice_notifier(&utimer_notifier_block);
-> +	for_each_net(net) {
-> +		for_each_netdev(net, dev) {
-> +			utimer_notifier_call(&utimer_notifier_block,
-> +					     NETDEV_DOWN, dev);
-> +		}
-> +	}
-> +	rtnl_unlock();
-> +}
-> +
-> +/*
-> + * The actual iptables plugin.
-> + */
-> +static unsigned int ipt_idletimer_target(struct sk_buff *skb,
-> +					 const struct xt_action_param *par)
-> +{
-> +	const struct ipt_idletimer_info *target = par->targinfo;
-> +	unsigned long expires;
-> +
-> +	expires = jiffies + HZ*target->timeout;
-> +
-> +	if (par->in != NULL)
-> +		utimer_modify(par->in->name,
-> +			      dev_net(par->in),
-> +			      expires);
-> +
-> +	if (par->out != NULL)
-> +		utimer_modify(par->out->name,
-> +			      dev_net(par->out),
-> +			      expires);
-> +
-> +	return XT_CONTINUE;
-> +}
-> +
-> +static int ipt_idletimer_checkentry(const struct xt_tgchk_param *par)
-> +{
-> +	const struct ipt_idletimer_info *info = par->targinfo;
-> +
-> +	if (info->timeout == 0) {
-> +		DEBUGP("timeout value is zero\n");
-> +		return false;
-> +	}
-> +
-> +	return true;
-
-The return convention in the current net-next tree is 0 for
-no error or an errno code otherwise.
-
-> +}
+-- 
+tejun
