@@ -1,147 +1,120 @@
-From: Jon Zhou <Jon.Zhou@jdsu.com>
-Subject: RE: does the broadcom bnx2x support RSS/multi queue
-Date: Thu, 13 May 2010 18:03:17 -0700
-Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497DED0F9@MILEXCH2.ds.jdsu.net>
-References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497D85D43@MILEXCH2.ds.jdsu.net>
- <1273650119.2621.5.camel@edumazet-laptop>
- <1273655947.4491.5.camel@lb-tlvb-eilong.il.broadcom.com>
- <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497DECAE8@MILEXCH2.ds.jdsu.net>
- <1273750340.1423.2.camel@lb-tlvb-eilong.il.broadcom.com>
+From: "George B." <georgeb@gmail.com>
+Subject: Re: Question about vlans, bonding, etc.
+Date: Thu, 13 May 2010 18:10:33 -0700
+Message-ID: <AANLkTikVJqN6m5nsJsFSNHS_HbOFyt0hGr_8MHu6tWDR@mail.gmail.com>
+References: <i2tb65cae941005031706o19a6f1e9zc86b33d73462113f@mail.gmail.com>
+	 <1272948506.2407.174.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "eilong@broadcom.com" <eilong@broadcom.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og108.obsmtp.com ([64.18.2.169]:38431 "HELO
-	exprod7og108.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753297Ab0ENBE3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 May 2010 21:04:29 -0400
-In-Reply-To: <1273750340.1423.2.camel@lb-tlvb-eilong.il.broadcom.com>
-Content-Language: en-US
+Received: from mail-pz0-f204.google.com ([209.85.222.204]:49652 "EHLO
+	mail-pz0-f204.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753374Ab0ENBKe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 May 2010 21:10:34 -0400
+Received: by pzk42 with SMTP id 42so1068224pzk.4
+        for <netdev@vger.kernel.org>; Thu, 13 May 2010 18:10:33 -0700 (PDT)
+In-Reply-To: <1272948506.2407.174.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-aGkgZWlsb246DQoNCkkgZ290IHRoZXNlIGxvZyB3aGVuIGFwcGxpZWQgZGVidWc9MHgyMCx3aHkg
-IiBNU0kgaXMgbm90IGF0dGFpbmFibGUiPw0KdGhhbmtzDQoNCg0KTWF5IDEzIDE4OjUzOjI2IGli
-bS1iYy01MyBrZXJuZWw6IEJyb2FkY29tIE5ldFh0cmVtZSBJSSA1NzcxeCAxMEdpZ2FiaXQgRXRo
-ZXJuZXQNCiBEcml2ZXIgYm54MnggMS41Mi4xMiAoJERhdGVUaW1lOiAyMDA5LzEyLzE3IDEyOjE0
-OjUwICQpDQpNYXkgMTMgMTg6NTM6MjYgaWJtLWJjLTUzIGtlcm5lbDogYm54MnggMDAwMDoxNTow
-MC4wOiBQQ0kgSU5UIEEgLT4gR1NJIDI0IChsZXZlbA0KLCBsb3cpIC0+IElSUSAyNA0KTWF5IDEz
-IDE4OjUzOjI2IGlibS1iYy01MyBrZXJuZWw6IGJueDJ4IDAwMDA6MTU6MDAuMDogc2V0dGluZyBs
-YXRlbmN5IHRpbWVyIHRvIDYNCjQNCk1heSAxMyAxODo1MzoyNiBpYm0tYmMtNTMga2VybmVsOiBi
-bngyeDogcGFydCBudW1iZXIgMzk0RDQzNDItMzEzNzM3MzUtMzEzMTQxMzEtDQo0NzMwMzMNCk1h
-eSAxMyAxODo1MzoyNiBpYm0tYmMtNTMga2VybmVsOiBldGgyOiBCcm9hZGNvbSBOZXRYdHJlbWUg
-SUkgQkNNNTc3MTEgWEdiIChBMCkNClBDSS1FIHg4IDVHSHogKEdlbjIpIGZvdW5kIGF0IG1lbSBh
-MDAwMDAwMCwgSVJRIDI0LCBub2RlIGFkZHIgZmZmZjg4MDFkYjliMDIxMA0KTWF5IDEzIDE4OjUz
-OjI2IGlibS1iYy01MyBrZXJuZWw6IGJueDJ4IDAwMDA6MTU6MDAuMTogUENJIElOVCBCIC0+IEdT
-SSAzNCAobGV2ZWwNCiwgbG93KSAtPiBJUlEgMzQNCk1heSAxMyAxODo1MzoyNiBpYm0tYmMtNTMg
-a2VybmVsOiBibngyeCAwMDAwOjE1OjAwLjE6IHNldHRpbmcgbGF0ZW5jeSB0aW1lciB0byA2DQo0
-DQpNYXkgMTMgMTg6NTM6MjYgaWJtLWJjLTUzIGtlcm5lbDogZXRoMiByZW5hbWVkIHRvIGV0aDMg
-YnkgdWRldmQgWzMwNzQ5XQ0KTWF5IDEzIDE4OjUzOjI2IGlibS1iYy01MyBrZXJuZWw6IGJueDJ4
-OiBwYXJ0IG51bWJlciAzOTRENDM0Mi0zMTM3MzczNS0zMTMxNDEzMS0NCjQ3MzAzMw0KTWF5IDEz
-IDE4OjUzOjI2IGlibS1iYy01MyBrZXJuZWw6IHVkZXY6IHJlbmFtZWQgbmV0d29yayBpbnRlcmZh
-Y2UgZXRoMiB0byBldGgzDQpNYXkgMTMgMTg6NTM6MjYgaWJtLWJjLTUzIGlmdXA6ICAgICBldGgz
-ICAgICAgZGV2aWNlOiBCcm9hZGNvbSBDb3Jwb3JhdGlvbiBOZXRYdA0KcmVtZSBJSSBCQ001Nzcx
-MSAxMEdpZ2FiaXQgUENJZQ0KTWF5IDEzIDE4OjUzOjI2IGlibS1iYy01MyBTdVNFZmlyZXdhbGwy
-OiBTdVNFZmlyZXdhbGwyIG5vdCBhY3RpdmUNCk1heSAxMyAxODo1MzoyNiBpYm0tYmMtNTMga2Vy
-bmVsOiBldGgyOiBCcm9hZGNvbSBOZXRYdHJlbWUgSUkgQkNNNTc3MTEgWEdiIChBMCkNClBDSS1F
-IHg4IDVHSHogKEdlbjIpIGZvdW5kIGF0IG1lbSBhMDgwMDAwMCwgSVJRIDM0LCBub2RlIGFkZHIg
-ZmZmZjg4MDFkYjlhODIxMA0KTWF5IDEzIDE4OjUzOjI2IGlibS1iYy01MyBrZXJuZWw6IGJueDJ4
-IDAwMDA6MWE6MDAuMDogUENJIElOVCBBIC0+IEdTSSAyNiAobGV2ZWwNCiwgbG93KSAtPiBJUlEg
-MjYNCk1heSAxMyAxODo1MzoyNiBpYm0tYmMtNTMga2VybmVsOiBibngyeCAwMDAwOjFhOjAwLjA6
-IHNldHRpbmcgbGF0ZW5jeSB0aW1lciB0byA2DQo0DQpNYXkgMTMgMTg6NTM6MjYgaWJtLWJjLTUz
-IGtlcm5lbDogZXRoMiByZW5hbWVkIHRvIGV0aDUgYnkgdWRldmQgWzMwODIyXQ0KTWF5IDEzIDE4
-OjUzOjI2IGlibS1iYy01MyBrZXJuZWw6IGJueDJ4OiBwYXJ0IG51bWJlciAzOTRENDM0Mi0zMTM3
-MzczNS0zMTMxNDEzMS0NCjQ3MzAzMw0KTWF5IDEzIDE4OjUzOjI2IGlibS1iYy01MyBrZXJuZWw6
-IHVkZXY6IHJlbmFtZWQgbmV0d29yayBpbnRlcmZhY2UgZXRoMiB0byBldGg1DQpNYXkgMTMgMTg6
-NTM6MjcgaWJtLWJjLTUzIGlmdXA6ICAgICBldGg1ICAgICAgZGV2aWNlOiBCcm9hZGNvbSBDb3Jw
-b3JhdGlvbiBOZXRYdA0KcmVtZSBJSSBCQ001NzcxMSAxMEdpZ2FiaXQgUENJZQ0KTWF5IDEzIDE4
-OjUzOjI3IGlibS1iYy01MyBpZnVwOiAgICAgZXRoNSAgICAgIFN0YXJ0bW9kZSBpcyAnb2ZmJw0K
-TWF5IDEzIDE4OjUzOjI3IGlibS1iYy01MyBrZXJuZWw6IGV0aDI6IEJyb2FkY29tIE5ldFh0cmVt
-ZSBJSSBCQ001NzcxMSBYR2IgKEEwKQ0KUENJLUUgeDggNUdIeiAoR2VuMikgZm91bmQgYXQgbWVt
-IDlhMDAwMDAwLCBJUlEgMjYsIG5vZGUgYWRkciBmZmZmODgwMjAzYzE4MjEwDQpNYXkgMTMgMTg6
-NTM6MjcgaWJtLWJjLTUzIGtlcm5lbDogYm54MnggMDAwMDoxYTowMC4xOiBQQ0kgSU5UIEIgLT4g
-R1NJIDI1IChsZXZlbA0KLCBsb3cpIC0+IElSUSAyNQ0KTWF5IDEzIDE4OjUzOjI3IGlibS1iYy01
-MyBrZXJuZWw6IGJueDJ4IDAwMDA6MWE6MDAuMTogc2V0dGluZyBsYXRlbmN5IHRpbWVyIHRvIDYN
-CjQNCk1heSAxMyAxODo1MzoyNyBpYm0tYmMtNTMga2VybmVsOiBibngyeDogcGFydCBudW1iZXIg
-Mzk0RDQzNDItMzEzNzM3MzUtMzEzMTQxMzEtDQo0NzMwMzMNCk1heSAxMyAxODo1MzoyNyBpYm0t
-YmMtNTMgaWZ1cDogICAgIGV0aDIgICAgICBkZXZpY2U6IEJyb2FkY29tIENvcnBvcmF0aW9uIE5l
-dFh0DQpyZW1lIElJIEJDTTU3NzExIDEwR2lnYWJpdCBQQ0llDQpNYXkgMTMgMTg6NTM6MjcgaWJt
-LWJjLTUzIFN1U0VmaXJld2FsbDI6IFN1U0VmaXJld2FsbDIgbm90IGFjdGl2ZQ0KDQoNCk1heSAx
-MyAxODo1MzoyNyBpYm0tYmMtNTMga2VybmVsOiBldGg0OiBCcm9hZGNvbSBOZXRYdHJlbWUgSUkg
-QkNNNTc3MTEgWEdiIChBMCkNClBDSS1FIHg4IDVHSHogKEdlbjIpIGZvdW5kIGF0IG1lbSA5YTgw
-MDAwMCwgSVJRIDI1LCBub2RlIGFkZHIgZmZmZjg4MDFmNzk0MDIxMA0KTWF5IDEzIDE4OjUzOjI3
-IGlibS1iYy01MyBpZnVwOiAgICAgZXRoNCAgICAgIGRldmljZTogQnJvYWRjb20gQ29ycG9yYXRp
-b24gTmV0WHQNCnJlbWUgSUkgQkNNNTc3MTEgMTBHaWdhYml0IFBDSWUNCk1heSAxMyAxODo1Mzoy
-NyBpYm0tYmMtNTMgU3VTRWZpcmV3YWxsMjogU3VTRWZpcmV3YWxsMiBub3QgYWN0aXZlDQpNYXkg
-MTMgMTg6NTQ6MDUgaWJtLWJjLTUzIGtlcm5lbDogW2JueDJ4X3NldF9udW1fcXVldWVzOjgxMzQo
-ZXRoNSldc2V0IG51bWJlciBvZiBxdWV1ZXMgdG8gNA0KTWF5IDEzIDE4OjU0OjA1IGlibS1iYy01
-MyBrZXJuZWw6IFtibngyeF9lbmFibGVfbXNpeDo3NjI1KGV0aDUpXW1zaXhfdGFibGVbMF0uZW50
-cnkgPSAwIChzbG93cGF0aCkNCk1heSAxMyAxODo1NDowNSBpYm0tYmMtNTMga2VybmVsOiBbYm54
-MnhfZW5hYmxlX21zaXg6NzYzMChldGg1KV1tc2l4X3RhYmxlWzFdLmVudHJ5ID0gMSAoQ05JQykN
-Ck1heSAxMyAxODo1NDowNSBpYm0tYmMtNTMga2VybmVsOiBbYm54MnhfZW5hYmxlX21zaXg6NzYz
-NyhldGg1KV1tc2l4X3RhYmxlWzJdLmVudHJ5ID0gMiAoZmFzdHBhdGggIzApDQpNYXkgMTMgMTg6
-NTQ6MDUgaWJtLWJjLTUzIGtlcm5lbDogW2JueDJ4X2VuYWJsZV9tc2l4Ojc2MzcoZXRoNSldbXNp
-eF90YWJsZVszXS5lbnRyeSA9IDMgKGZhc3RwYXRoICMxKQ0KTWF5IDEzIDE4OjU0OjA1IGlibS1i
-Yy01MyBrZXJuZWw6IFtibngyeF9lbmFibGVfbXNpeDo3NjM3KGV0aDUpXW1zaXhfdGFibGVbNF0u
-ZW50cnkgPSA0IChmYXN0cGF0aCAjMikNCk1heSAxMyAxODo1NDowNSBpYm0tYmMtNTMga2VybmVs
-OiBbYm54MnhfZW5hYmxlX21zaXg6NzYzNyhldGg1KV1tc2l4X3RhYmxlWzVdLmVudHJ5ID0gNSAo
-ZmFzdHBhdGggIzMpDQpNYXkgMTMgMTg6NTQ6MDUgaWJtLWJjLTUzIGtlcm5lbDogW2JueDJ4X2Vu
-YWJsZV9tc2l4Ojc2NjcoZXRoNSldTVNJLVggaXMgbm90IGF0dGFpbmFibGUgIHJjIC0yOA0KTWF5
-IDEzIDE4OjU0OjA1IGlibS1iYy01MyBrZXJuZWw6IFtibngyeF9lbmFibGVfbXNpOjc3MjYoZXRo
-NSldTVNJIGlzIG5vdCBhdHRhaW5hYmxlDQpNYXkgMTMgMTg6NTQ6MDUgaWJtLWJjLTUzIGtlcm5l
-bDogW2JueDJ4X25pY19pbml0OjYxNDgoZXRoNSldcXVldWVbMF06ICBibngyeF9pbml0X3NiKGZm
-ZmY4ODAxZGI5YTg3ODAsZmZmZjg4MDFkNzBmYzAwMCkgIGNsX2lkIDAgIHNiIDEgIGNvcyAwDQpN
-YXkgMTMgMTg6NTQ6MDUgaWJtLWJjLTUzIGtlcm5lbDogW2JueDJ4X2luaXRfcnhfcmluZ3M6NTM4
-NihldGg1KV1tdHUgMTUwMCAgcnhfYnVmX3NpemUgMTY1MA0KTWF5IDEzIDE4OjU0OjA1IGlibS1i
-Yy01MyBrZXJuZWw6IFtibngyeF9zZXRfc3Rvcm1fcnhfbW9kZTo1NzUzKGV0aDUpXXJ4IG1vZGUg
-MCAgbWFzayAweDENCk1heSAxMyAxODo1NDowNSBpYm0tYmMtNTMga2VybmVsOiBbYm54MnhfaW5p
-dF9pbnRlcm5hbF9mdW5jOjYwNjEoZXRoNSldQWxsIE1JTiB2YWx1ZXMgYXJlIHplcm9lcyAgZmFp
-cm5lc3Mgd2lsbCBiZSBkaXNhYmxlZA0KTWF5IDEzIDE4OjU0OjA1IGlibS1iYy01MyBrZXJuZWw6
-IFtibngyeF9pbml0X2luZF90YWJsZTo1Njg4KGV0aDUpXUluaXRpYWxpemluZyBpbmRpcmVjdGlv
-biB0YWJsZSAgbXVsdGlfbW9kZSAxDQpNYXkgMTMgMTg6NTQ6MDYgaWJtLWJjLTUzIGtlcm5lbDog
-W2JueDJ4X3dhaXRfcmFtcm9kOjc5NDEoZXRoNSldd2FpdGluZyBmb3Igc3RhdGUgdG8gYmVjb21l
-IDMwMDAgb24gSURYIFswXQ0KTWF5IDEzIDE4OjU0OjA2IGlibS1iYy01MyBrZXJuZWw6IFtibngy
-eF9zcF9ldmVudDoxMTkxKGV0aDUpXWdvdCBzZXR1cCByYW1yb2QNCk1heSAxMyAxODo1NDowNiBp
-Ym0tYmMtNTMga2VybmVsOiBbYm54Mnhfc2V0X21hY19hZGRyX2UxaF9nZW46NzkyNyhldGg1KV1z
-ZXR0aW5nIE1BQyAoMDAxYTo2NDc2OjAzNjcpICBFMUhPViAwICBDTElEIG1hc2sgMQ0KTWF5IDEz
-IDE4OjU0OjA2IGlibS1iYy01MyBrZXJuZWw6IFtibngyeF93YWl0X3JhbXJvZDo3OTQxKGV0aDUp
-XXdhaXRpbmcgZm9yIHN0YXRlIHRvIGJlY29tZSAwIG9uIElEWCBbMF0NCk1heSAxMyAxODo1NDow
-NiBpYm0tYmMtNTMga2VybmVsOiBbYm54Mnhfc3BfZXZlbnQ6MTIxNShldGg1KV1nb3Qgc2V0IG1h
-YyByYW1yb2QNCk1heSAxMyAxODo1NDowNiBpYm0tYmMtNTMga2VybmVsOiBbYm54Mnhfc2V0X3J4
-X21vZGU6MTI4MzMoZXRoNSldZGV2LT5mbGFncyA9IDEwMDINCk1heSAxMyAxODo1NDowNiBpYm0t
-YmMtNTMga2VybmVsOiBbYm54Mnhfc2V0X3N0b3JtX3J4X21vZGU6NTc1MyhldGg1KV1yeCBtb2Rl
-IDEgIG1hc2sgMHgxDQpNYXkgMTMgMTg6NTQ6MDYgaWJtLWJjLTUzIGtlcm5lbDogW2JueDJ4X3Nl
-dF9yeF9tb2RlOjEyODMzKGV0aDUpXWRldi0+ZmxhZ3MgPSAxMDAzDQpNYXkgMTMgMTg6NTQ6MDYg
-aWJtLWJjLTUzIGtlcm5lbDogW2JueDJ4X3NldF9zdG9ybV9yeF9tb2RlOjU3NTMoZXRoNSldcngg
-bW9kZSAxICBtYXNrIDB4MQ0KTWF5IDEzIDE4OjU0OjA2IGlibS1iYy01MyBrZXJuZWw6IFtibngy
-eF9zZXRfcnhfbW9kZToxMjgzMyhldGg1KV1kZXYtPmZsYWdzID0gMTAwMw0KTWF5IDEzIDE4OjU0
-OjA2IGlibS1iYy01MyBrZXJuZWw6IFtibngyeF9zZXRfcnhfbW9kZToxMjkyNyhldGg1KV1BZGRp
-bmcgbWNhc3QgTUFDOiBmZmZmODgwM2Y1OGE0YzA4DQpNYXkgMTMgMTg6NTQ6MDYgaWJtLWJjLTUz
-IGtlcm5lbDogW2JueDJ4X3NldF9zdG9ybV9yeF9tb2RlOjU3NTMoZXRoNSldcnggbW9kZSAxICBt
-YXNrIDB4MQ0KTWF5IDEzIDE4OjU0OjA2IGlibS1iYy01MyBrZXJuZWw6IFtibngyeF9zZXRfcnhf
-bW9kZToxMjgzMyhldGg1KV1kZXYtPmZsYWdzID0gMTAwMw0KTWF5IDEzIDE4OjU0OjA2IGlibS1i
-Yy01MyBrZXJuZWw6IFtibngyeF9zZXRfcnhfbW9kZToxMjkyNyhldGg1KV1BZGRpbmcgbWNhc3Qg
-TUFDOiBmZmZmODgwM2Y1OGE0YzA4DQpNYXkgMTMgMTg6NTQ6MDYgaWJtLWJjLTUzIGtlcm5lbDog
-W2JueDJ4X3NldF9zdG9ybV9yeF9tb2RlOjU3NTMoZXRoNSldcnggbW9kZSAxICBtYXNrIDB4MQ0K
-TWF5IDEzIDE4OjU0OjA2IGlibS1iYy01MyBrZXJuZWw6IGJueDJ4OiBldGg1IE5JQyBMaW5rIGlz
-IFVwLCAxMDAwMCBNYnBzIGZ1bGwgZHVwbGV4LCByZWNlaXZlICYgdHJhbnNtaXQgZmxvdyBjb250
-cm9sIE9ODQoNCg0KDQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBFaWxvbiBH
-cmVlbnN0ZWluIFttYWlsdG86ZWlsb25nQGJyb2FkY29tLmNvbV0gDQpTZW50OiBUaHVyc2RheSwg
-TWF5IDEzLCAyMDEwIDc6MzIgUE0NClRvOiBKb24gWmhvdQ0KQ2M6IEVyaWMgRHVtYXpldDsgbmV0
-ZGV2QHZnZXIua2VybmVsLm9yZw0KU3ViamVjdDogUkU6IGRvZXMgdGhlIGJyb2FkY29tIGJueDJ4
-IHN1cHBvcnQgUlNTL211bHRpIHF1ZXVlDQoNCk9uIFRodSwgMjAxMC0wNS0xMyBhdCAwMjo0NCAt
-MDcwMCwgSm9uIFpob3Ugd3JvdGU6DQo+IGluc21vZCAuL1BGX1JJTkcvZHJpdmVycy9icm9hZGNv
-bS9uZXR4dHJlbWUyLTUuMi41MC9ibngyeC0xLjUyLjEyL3NyYy9ibngyeC5rbyBtdWx0aV9tb2Rl
-PTEgbnVtX3F1ZXVlcz00IGludF9tb2RlPTMgZGVidWc9MQ0KVGhlcmUgaXMgbm8gbmVlZCB0byBz
-ZXQgbXVsdGlfbW9kZSBvciBpbnRfbW9kZSAtIHlvdSBhcmUgdXNpbmcgdGhlDQpkZWZhdWx0IHZh
-bHVlcy4gSG93ZXZlciwgSSBuZWVkIG1vcmUgaW5mb3JtYXRpb24gb24gd2h5IHlvdSBhcmUgdXNp
-bmcNCklOVEEgYW5kIG5vdCBNU0ktWCwgc28gcGxlYXNlIHNldCB0aGUgZGVidWcgdG8gMHgyMA0K
-DQo+IGJ1dCBzZWVtcyBNU0kgbm90IGVuYWJsZWQ6DQo+IDM0OiAgICAgICAgIDI2ICAgICAgICAg
-IDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAw
-ICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAg
-IDQ5NDcwNjExICAgNjM0MjcxNDAgICAgICAgICAgMCAgICAgICAgICAwICAgSU8tQVBJQy1mYXN0
-ZW9pICAgZXRoNQ0KSW5kZWVkLCB5b3UgYXJlIHVzaW5nIElOVCMgLSB0aGlzIGlzIHdoeSB5b3Ug
-ZG8gbm90IGhhdmUgbXVsdGktcXVldWUuDQoNCkVpbG9uDQoNCg0K
+On Mon, May 3, 2010 at 9:48 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
+rote:
+> Le lundi 03 mai 2010 =E0 17:06 -0700, George B. a =E9crit :
+>> Watching the "Receive issues with bonding and vlans" thread brought =
+a
+>> question to mind. =A0In what order should things be done for best
+>> performance?
+>>
+>> For example, say I have a pair of ethernet interfaces. =A0Do I slave=
+ the
+>> ethernet interfaces to the bond device and then make the vlans on th=
+e
+>> bond devices?
+>> Or do I make the vlans on the ethernet devices and then bond the vla=
+n
+>> interfaces?
+>>
+>> In the first case I would have:
+>>
+>>
+>>
+>> bond0.3--| =A0 =A0 |------eth0
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0bond0
+>> bond0.5--| =A0 =A0 |------eth1
+>>
+>> The second case would be:
+>>
+>> =A0 =A0 =A0 |------------------eth0.5-----|
+>> =A0 =A0 =A0 | =A0 =A0 =A0 =A0 =A0|-------eth0.3---eth0
+>> bond0 =A0bond1
+>> =A0 =A0 =A0 | =A0 =A0 =A0 =A0 =A0|-------eth1.3---eth1
+>> =A0 =A0 =A0 |------------------eth1.5-----|
+>>
+>> I am using he first method currently as it seemed more intuitive to =
+me
+>> at the time to bond the ethernets and then put the vlans on the bond=
+s
+>> but it seems life might be easier for the vlan driver if it is bound
+>> directly to the hardware. =A0I am using Intel NICs (igb driver) with=
+ 4
+>> queues per NIC.
+>>
+>> Would there be a performance difference expected between the two
+>> configurations? =A0Can the vlan driver "see through" the bond interf=
+ace
+>> to the
+>> hardware and take advantage of multiple queues if the hardware
+>> supports it in the first configuration?
+>
+> Unfortunatly, first combination is not multiqueue aware yet.
+>
+> You'll need to patch bonding driver like this if your nics have 4
+> queues :
+>
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bo=
+nd_main.c
+> index 85e813c..98cc3c0 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -4915,8 +4915,8 @@ int bond_create(struct net *net, const char *na=
+me)
+>
+> =A0 =A0 =A0 =A0rtnl_lock();
+>
+> - =A0 =A0 =A0 bond_dev =3D alloc_netdev(sizeof(struct bonding), name =
+? name : "",
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bond_se=
+tup);
+> + =A0 =A0 =A0 bond_dev =3D alloc_netdev_mq(sizeof(struct bonding), na=
+me ? name : "",
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bond_se=
+tup, 4);
+> =A0 =A0 =A0 =A0if (!bond_dev) {
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0pr_err("%s: eek! can't alloc netdev!\n=
+", name);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rtnl_unlock();
+>
+>
+>
+
+I just got around to fooling with this some.  It would seem to me that
+I should be able to get better performance if I could create the vlans
+on the ethernet interfaces and then bond them together.  For example,
+it seems intuitive that I should be able to create vlan eth0.5 and
+eth1.5 and then enslave them.  Problem is that when I try to create
+vlan5 on the second interface, vconfig balks that it already exists.
+Yes, I know it exists, but I want vlan5 on two interfaces and I want
+to use ifenslave to bond them together into a bond interface.  So if I
+have 10 vlans, I would have 10 vlans on each ethernet interface and 10
+bond interfaces.  The way it seems I am forced to do it now is bond
+the two NICs together and add all the vlans to the single bond
+interface.  It seems that the bond interface would then become a
+bottleneck for all the vlans.
+
+Is there some physical reason why it is not possible to create the
+same vlan on multiple interfaces as long as the naming convention
+keeps them named separately so they can be distinguished from each
+other?
