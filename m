@@ -1,25 +1,66 @@
-From: "Fischer, Anna" <anna.fischer@hp.com>
-Subject: SR-IOV PCI quirk for 82599?
-Date: Fri, 14 May 2010 16:26:02 +0000
-Message-ID: <0199E0D51A61344794750DC57738F58E70B078DCA0@GVW1118EXC.americas.hpqcorp.net>
+From: "Ronciak, John" <john.ronciak@intel.com>
+Subject: RE: loosing IPMI-card by loading netconsole
+Date: Fri, 14 May 2010 09:39:34 -0700
+Message-ID: <DDC57477F5D6F845A0DDCB99D3C4812D0CA63BBB78@orsmsx510.amr.corp.intel.com>
+References: <20100514134544.GA26674@gretchen.aei.mpg.de>
+ <DDC57477F5D6F845A0DDCB99D3C4812D0CA63BB9E4@orsmsx510.amr.corp.intel.com>
+ <4BED79EB.1000204@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Matt Mackall <mpm@selenic.com>,
+	Carsten Aulbert <carsten.aulbert@aei.mpg.de>
+To: Tejun Heo <tj@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:8920 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752240Ab0ENQ1t convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 May 2010 12:27:49 -0400
+Received: from mga14.intel.com ([143.182.124.37]:10906 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753442Ab0ENQjl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 May 2010 12:39:41 -0400
+In-Reply-To: <4BED79EB.1000204@kernel.org>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a PCI quirk for the 82576 controller that programs the PCI BARs to use Flash memory if the BIOS has not allocated resources for the SR-IOV VF BARs.
-
-Is there a similar quirk for the 82599, or can even the same one be used for that device?
-
-Thanks,
-Anna 
+DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IFRlanVuIEhlbyBbbWFpbHRv
+OnRqQGtlcm5lbC5vcmddDQo+IFNlbnQ6IEZyaWRheSwgTWF5IDE0LCAyMDEwIDk6MjcgQU0NCj4g
+VG86IFJvbmNpYWssIEpvaG4NCj4gQ2M6IEhlbm5pbmcgRmVocm1hbm47IEtpcnNoZXIsIEplZmZy
+ZXkgVDsgQnJhbmRlYnVyZywgSmVzc2U7IEFsbGFuLA0KPiBCcnVjZSBXOyBXYXNraWV3aWN6IEpy
+LCBQZXRlciBQOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBNYXR0IE1hY2thbGw7DQo+IENhcnN0
+ZW4gQXVsYmVydA0KPiBTdWJqZWN0OiBSZTogbG9vc2luZyBJUE1JLWNhcmQgYnkgbG9hZGluZyBu
+ZXRjb25zb2xlDQo+IA0KPiBIZWxsbywgSm9obi4NCj4gDQo+IEFzIEhlbm5pbmcgc2VlbXMgb2Zm
+bGluZSwgSSdsbCB0cnkgdG8gZmlsbCBpbi4NCj4gDQo+IE9uIDA1LzE0LzIwMTAgMDQ6NTEgUE0s
+IFJvbmNpYWssIEpvaG4gd3JvdGU6DQo+ID4gU29ycnkgdG8gaGVhciBhYm91dCB0aGUgcHJvYmxl
+bSB5b3UgYXJlIGhhdmluZyBIZW5uaW5nLiAgV2hhdCBkbyB5b3UNCj4gPiBtZWFuIHdoZW4geW91
+IHNheSAiaXQgZGlzYXBwZWFycyI/DQo+IA0KPiBJdCBzdG9wcyByZXNwb25kaW5nIHRvIElQTUkg
+cmVxdWVzdHMuDQo+IA0KPiA+IENhbiBib3RoIGV0aDAgYW5kIGV0aDEgcGluZyAob3IgYmUgcGlu
+Z2VkKT8gIERvIGFsbCB0aGUgbmV0d29ya2luZw0KPiA+IGRldmljZXMgc3RpbGwgc2hvdyB1cCBp
+biB0aGUgc3lzdGVtIHdoZW4geW91IGRvIGFuICdsc3BjaSc/DQo+IA0KPiBZZWFoLCBldmVyeXRo
+aW5nIG90aGVyIHRoYW4gSVBNSSB3b3JrcyBqdXN0IGZpbmUuDQo+IA0KPiA+IFdoYXQgaGFwcGVu
+cyBpZiB5b3UgZG93biBhbmQgdGhlbiB1cCB0aGUgaW50ZXJmYWNlIHlvdSBhcmUgaGF2aW5nDQo+
+ID4gcHJvYmxlbXMgd2l0aD8gIERvZXMgJ3JtbW9kJyBkbyB0aGUgc2FtZSB0aGluZyBhcyB5b3Vy
+IHJlbW92YWwNCj4gbWV0aG9kPw0KPiANCj4gSGF2ZW4ndCB0cmllZCB0aGVzZSBidXQgd2VsbCBJ
+IHRoaW5rIHJtbW9kaW5nIHNob3VsZCBhY2hpZXZlIGFib3V0IHRoZQ0KPiBzYW1lIHRoaW5nLg0K
+PiANCj4gPiBJcyB0aGVyZSBhbnl0aGluZyBpbiB0aGUgc3lzdGVtIGxvZ3Mgc2F5aW5nIGFueXRo
+aW5nIGFib3V0IHRoZQ0KPiA+IGludGVyZmFjZXM/DQo+IA0KPiBOb3BlLg0KPiANCj4gPiBXZSBo
+YXZlIG5vdCBoYWQgcmVwb3J0cyBvZiB0aGlzIHNvIHRoaXMgaXMgYSBiaXQgdW51c3VhbC4gIFBs
+ZWFzZSBsZXQNCj4gdXMga25vdy4NCj4gPg0KPiA+IERvZXMgdGhpcyBoYXBwZW4gb24gb3RoZXIg
+c3lzdGVtcyBhcyB3ZWxsIG9yIGp1c3Qgb25lIHBhcnRpY3VsYXINCj4gc3lzdGVtPw0KPiANCj4g
+WWVhaCwgaXQgaGFwcGVucyBvbiBhdCBsZWFzdCBzZXZlcmFsIGh1bmRyZWQgbWFjaGluZXMsIHNv
+IG5vdCBhbg0KPiBpc29sYXRlZCBoYXJkd2FyZSBpc3N1ZSBhdCBhbGwuDQo+IA0KPiBUbyBzdW0g
+dXAuDQo+IA0KPiBPbiAyLjYuMjcuMzksIG5ldGNvbnNvbGUgKyBJUE1JIHdvcmtzIGZpbmUuICBP
+biAyLjYuMzIuNywgYXMgc29vbiBhcw0KPiBuZXRjb25zb2xlIGlzIGxvYWRlZCwgSVBNSSBzdG9w
+cyB3b3JraW5nLiAgVW5sb2FkaW5nIG5ldGNvbnNvbGUgZG9lc24ndA0KPiByZXZpdmUgSVBNSSBi
+dXQgZGV0YWNoaW5nIHRoZSBkcml2ZXIgZnJvbSB0aGUgY29udHJvbGxlciBkb2VzLg0KPiBJbiBi
+b3RoIGNhc2VzLCB1c3VhbCBuZXR3b3JraW5nIHdvcmtzIGZpbmUuDQo+IA0KPiBUaGFua3MuDQo+
+IA0KPiAtLQ0KPiBUZWp1bg0KVGhhbmtzIFRlanVuLg0KDQpTaW5jZSB0aGUgbmV0d29ya2luZyB0
+aGluZ3Mgc2VlbSB0byBiZSBvcGVyYXRpb25hbCBjb3VsZCBpdCBiZSB0aGF0IHdpdGggdGhlIG5l
+d2VyIGtlcm5lbCB0aGUgdHVubmVscyB5b3UgaGFkIHNldHVwIHNvbWVob3cgbm8gbG9uZ2VyIGV4
+aXN0IG9yIGhhdmUgYmVlbiBkaXNhYmxlZCBzb21laG93PyAgV2hlbiB0aGlzIGludGVyZmFjZSBp
+cyByZW1vdmVkIGFuZCBzZXR1cCBhZ2FpbiBpdCBnZXRzIHRoaW5ncyBmaXhlZCB1cCBhZ2Fpbj8N
+Cg0KQ2hlZXJzLA0KSm9obg0KDQo=
