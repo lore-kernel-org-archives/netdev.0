@@ -1,58 +1,43 @@
-From: Jesper Dangaard Brouer <hawk@diku.dk>
-Subject: TSC unstable due to TSC halts in idle?
-Date: Fri, 14 May 2010 22:13:57 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1005142208290.6220@ask.diku.dk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next] netfilter: xt_TEE depends on NF_CONNTRACK
+Date: Fri, 14 May 2010 13:52:39 -0700 (PDT)
+Message-ID: <20100514.135239.149842985.davem@davemloft.net>
+References: <20100514161407.740da901.sfr@canb.auug.org.au>
+	<20100514101218.16cdb0ad.randy.dunlap@oracle.com>
+	<4BED8650.5040808@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Len Brown <len.brown@intel.com>,
-	Shaohua Li <shaohua.li@intel.com>, hawk@comx.dk
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:44913 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753861Ab0ENUOC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 May 2010 16:14:02 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: randy.dunlap@oracle.com, sfr@canb.auug.org.au,
+	netdev@vger.kernel.org, jengelh@medozas.de,
+	netfilter-devel@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: kaber@trash.net
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <4BED8650.5040808@trash.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Patrick McHardy <kaber@trash.net>
+Date: Fri, 14 May 2010 19:20:16 +0200
 
-Hi Thomas,
+> Randy Dunlap wrote:
+>> From: Randy Dunlap <randy.dunlap@oracle.com>
+>> 
+>> Fix xt_TEE build for the case of NF_CONNTRACK=m and
+>> NETFILTER_XT_TARGET_TEE=y:
+>> 
+>> xt_TEE.c:(.text+0x6df5c): undefined reference to `nf_conntrack_untracked'
+>> 4x
+>> 
+>> Built with all 4 m/y combinations.
+>> 
+>> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+>> Cc:	Patrick McHardy <kaber@trash.net>
+>> Cc:	Jan Engelhardt <jengelh@medozas.de>
+> 
+> Acked-by: Patrick McHardy <kaber@trash.net>
+> 
+> Dave, please apply directly. Thanks!
 
-I want to know, if its safe to enable the TSC clocksource, when the
-kernel reports:
-  "Marking TSC unstable due to TSC halts in idle"
-
-The system selects HPET (in current_clocksource), but I can still see
-TSC as an available clocksource (in
-/sys/devices/system/clocksource/clocksource0/available_clocksource).
-
-Is it safe to enable TSC manually (by changing current_clocksource)?
-(my workload is 10Git/s routing, cannot survive with a slow clock)
-
-
-Any trick to avoid this? (e.g. kernel config setting, or a /sys/ setting
-which changes the minimum P-state?)
-
-
-The system is a new HP370-G6 server, with two Xeon X5550 CPUs.  Its
-(currently) running a Debian compiled kernel 2.6.26-2-amd64.
-
-Kernel log:
-  checking TSC synchronization [CPU#0 -> CPU#1]: passed.
-  checking TSC synchronization [CPU#0 -> CPU#2]: passed.
-  ...
-  checking TSC synchronization [CPU#0 -> CPU#14]: passed.
-  checking TSC synchronization [CPU#0 -> CPU#15]: passed.
-  Marking TSC unstable due to TSC halts in idle
-
-
-Cheers,
-   Jesper Brouer
-
---
--------------------------------------------------------------------
-MSc. Master of Computer Science
-Dept. of Computer Science, University of Copenhagen
-Author of http://www.adsl-optimizer.dk
--------------------------------------------------------------------
+Done, thanks everyone.
