@@ -1,35 +1,58 @@
-From: Scott Feldman <scofeldm@cisco.com>
-Subject: Re: [net-next-2.6 V7 PATCH 1/2] Add netlink support for virtual port
- management (was iovnl)
-Date: Fri, 14 May 2010 10:54:50 -0700
-Message-ID: <C812DC7A.31859%scofeldm@cisco.com>
-References: <20100514173530.GI5798@x200.localdomain>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: [PATCHv2] netfilter: Remove skb_is_nonlinear check from
+	nf_conntrack_sip
+Date: Fri, 14 May 2010 12:01:38 -0600
+Message-ID: <20100514180138.GF15969@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, Arnd Bergmann <arnd@arndb.de>,
-	<davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Chris Wright <chrisw@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-4.cisco.com ([171.68.10.86]:4609 "EHLO
-	sj-iport-4.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757586Ab0ENRyx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 May 2010 13:54:53 -0400
-In-Reply-To: <20100514173530.GI5798@x200.localdomain>
+Received: from [139.142.54.143] ([139.142.54.143]:53166 "EHLO quartz.orcorp.ca"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1758608Ab0ENSBo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 May 2010 14:01:44 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/14/10 10:35 AM, "Chris Wright" <chrisw@redhat.com> wrote:
+At least the XEN net front driver always produces non linear skbs,
+so the SIP module does nothing at all when used with that NIC.
 
-> Patrick layed out some nice details before.  Here's the link:
-> 
-> http://thread.gmane.org/gmane.linux.network/151605/focus=151738
+Unconditionally linearize the skb..
 
-Double drats, it looks like that one was caught too late.  So we're
-collectively agreeing to let a known bad netlink msg in?  I guess it can be
-fixed up later with a IFLA_VF_INFOS nest, and move away from the broken
-msgs.
+Signed-off-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+---
+ net/netfilter/nf_conntrack_sip.c |    9 +++------
+ 1 files changed, 3 insertions(+), 6 deletions(-)
 
--scott
+Patrick/Jan, thanks.. This is what I wanted to do in the first place,
+but I couldn't convince myself it was safe, as no other nf code does
+this..
+
+Unfortunately I can no longer test it :(
+ 
+diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
+index 4b57216..02d0b59 100644
+--- a/net/netfilter/nf_conntrack_sip.c
++++ b/net/netfilter/nf_conntrack_sip.c
+@@ -1275,13 +1275,10 @@ static int sip_help(struct sk_buff *skb,
+ 
+ 	nf_ct_refresh(ct, skb, sip_timeout * HZ);
+ 
+-	if (!skb_is_nonlinear(skb))
+-		dptr = skb->data + dataoff;
+-	else {
+-		pr_debug("Copy of skbuff not supported yet.\n");
+-		return NF_ACCEPT;
+-	}
++	if (unlikely(skb_linearize(skb)))
++		return NF_DROP;
+ 
++	dptr = skb->data + dataoff;
+ 	datalen = skb->len - dataoff;
+ 	if (datalen < strlen("SIP/2.0 200"))
+ 		return NF_ACCEPT;
+-- 
+1.6.0.4
 
