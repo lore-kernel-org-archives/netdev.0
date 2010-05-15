@@ -1,78 +1,84 @@
-From: Jesper Dangaard Brouer <hawk@diku.dk>
-Subject: Re: TSC unstable due to TSC halts in idle?
-Date: Sat, 15 May 2010 11:54:15 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1005151139280.16599@ask.diku.dk>
-References: <Pine.LNX.4.64.1005142208290.6220@ask.diku.dk>
- <AANLkTimeXEaUnzSBuilbQLHj_oho3ia9EgyPGpB7vJRI@mail.gmail.com>
- <1273878957.2825.175.camel@sbs-t61.sc.intel.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH] rndis_host: Poll status channel before control channel
+Date: Sat, 15 May 2010 14:37:15 +0100
+Message-ID: <1273930635.2564.23.camel@localhost>
+References: <1271718508.2197.12.camel@localhost>
+	 <20100512.234259.35058609.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: john stultz <johnstul@us.ibm.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"Brown, Len" <len.brown@intel.com>,
-	"Li, Shaohua" <shaohua.li@intel.com>, "hawk@comx.dk" <hawk@comx.dk>
-To: Suresh Siddha <suresh.b.siddha@intel.com>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-mybSuiYZ/34y1iTqmZfQ"
+Cc: dbrownell@users.sourceforge.net, john.carr@unrouted.co.uk,
+	netdev@vger.kernel.org, vzeeaxwl@myfairpoint.net,
+	herton@mandriva.com.br
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw1.diku.dk ([130.225.96.91]:38768 "EHLO mgw1.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753103Ab0EOJyV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 May 2010 05:54:21 -0400
-In-Reply-To: <1273878957.2825.175.camel@sbs-t61.sc.intel.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:58119 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753372Ab0EONh2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 May 2010 09:37:28 -0400
+In-Reply-To: <20100512.234259.35058609.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-On Fri, 14 May 2010, Suresh Siddha wrote:
-> On Fri, 2010-05-14 at 15:28 -0700, john stultz wrote:
->> On Fri, May 14, 2010 at 1:13 PM, Jesper Dangaard Brouer <hawk@diku.dk> wrote:
->>> I want to know, if its safe to enable the TSC clocksource, when the
->>> kernel reports:
->>>  "Marking TSC unstable due to TSC halts in idle"
->>>
->>> The system selects HPET (in current_clocksource), but I can still see
->>> TSC as an available clocksource (in
->>> /sys/devices/system/clocksource/clocksource0/available_clocksource).
->>>
->>> Is it safe to enable TSC manually (by changing current_clocksource)?
->>> (my workload is 10Git/s routing, cannot survive with a slow clock)
->>>
->>>
->>> Any trick to avoid this? (e.g. kernel config setting, or a /sys/ setting
->>> which changes the minimum P-state?)
->>
->> Might try booting with the max-cstate=1 option.
+--=-mybSuiYZ/34y1iTqmZfQ
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, 2010-05-12 at 23:42 -0700, David Miller wrote:
+> From: Ben Hutchings <ben@decadent.org.uk>
+> Date: Tue, 20 Apr 2010 00:08:28 +0100
+>=20
+> > Some RNDIS devices don't respond on the control channel until polled
+> > on the status channel.  In particular, this was reported to be the
+> > case for the 2Wire HomePortal 1000SW.
+> >=20
+> > This is roughly based on a patch by John Carr <john.carr@unrouted.co.uk=
 >
-> Jesper mentioned that it is xeon 5550. TSC's for that processor doesn't
-> stop in idle.
+> > which is reported to be needed for use with some Windows Mobile devices
+> > and which is currently applied by Mandriva.
+> >=20
+> > Reported-by: Mark Glassberg <vzeeaxwl@myfairpoint.net>
+> > Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+> > Tested-by: Mark Glassberg <vzeeaxwl@myfairpoint.net>
+> > ---
+> > Note that this change hasn't yet been tested with any other RNDIS
+> > devices.  John, can you confirm whether this also handles the WinMob
+> > devices?
+>=20
+> Still waiting for this to get tested.  Is there really nobody in the
+> world with RNDIS devices who can test this patch?  If so, maybe that's
+> a good reason to not apply it :-))))
 
-Thanks, then it should be safe to force using TSC, even on this older 
-kernel.
+This has been in Debian unstable since 1 May and I haven't seen any
+fall-out yet.  However I acknowledge that absence of evidence is not
+evidence of absence.
 
+Ben.
 
-> Perhaps he is using an older kernel which doesn't detect this fact. 
-> Jesper, more recent kernels should be able to use TSC as the 
-> clocksource.
+--=20
+Ben Hutchings
+Once a job is fouled up, anything done to improve it makes it worse.
 
-Guess this it the problem. As I'm running a standard Debian compiled 
-kernel 2.6.26-2-amd64 (which comes with Debian lenny).  I'm not going to 
-run with this kernel in production, as it doesn't have multiqueue support 
-and doesn't support the NICs I'm using.
+--=-mybSuiYZ/34y1iTqmZfQ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-I'm already annoyed with this old kernel, as it doesn't support any of the 
-NICs in the machine, not even the build in NICs in the HP370 G6 server.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
 
-I'll boot a new kernel on the machine Monday, and I'll complain if it 
-didn't solve the issue, else consider this issue solved "in a newer kernel 
-version".
+iQIVAwUAS+6jiue/yOyVhhEJAQInsw/+Mh1uOqB10X2gR/UfZAh7KFmPddrV9G5k
+uPrl9PRMIvQcAw8ipP24ZtYwdZ5wlhipy7zqNprMaeRuG4mmqZMIq1755Tn5s2fQ
+RHnISVLMI2GrbZOi6mWxbyQ7gWjc7gjvf5mH0+z2/OJa/Gzb8uRgSNRF2kI6tb6G
+pPRH5qtRgkETLczvM8rXgDRTPKfu4AByKuKLsSIXqOdh0EOwj55ABeA7O83T7YRv
+RvXNCU+yiwhB5+ZGqWE0khJzhYeR+A4Ss1+npCweLOl1gCdFhZn7N0qyn6lGFX8/
+WHd+4DIQZbYFX9RVL15fbv+P+W1fEC2uNlLTvfN7UQVRwIhE2K8f7WxKDX1LU+J4
+j8kYH+G7xaFUCYPvmoCo+FM91DKyb2CRBKe4bbLA/rhRF/25qkXuDIZe+bmsX+3m
+o8JmKgB7MH52Ejz5mCnvnNu4AzWRxNfPZor4X47Hvt7OfKY6reMqe4pH7ZEggBEl
+pX5cv4ODN7EXEuKbu6I5wijEFXp6id0TPFH2wS0JXzztt9Bkds4+bsgdvfQbcAhU
+AHWkeVhkff+t3ZgfeN69bbGgPTg05mLk30C6VW6pxK0iRaIWUzkObFGeXrzlbj9n
+vtNYnylmAb3PwnX/NOghW9XI8kRi/Fn+ZVYpvJ+RNvDeiKm4L5Ood/LpOFCW/QSN
+QMUaKlSWXGk=
+=V4cK
+-----END PGP SIGNATURE-----
 
-Cheers,
-   Jesper Brouer
-
---
--------------------------------------------------------------------
-MSc. Master of Computer Science
-Dept. of Computer Science, University of Copenhagen
-Author of http://www.adsl-optimizer.dk
--------------------------------------------------------------------
+--=-mybSuiYZ/34y1iTqmZfQ--
