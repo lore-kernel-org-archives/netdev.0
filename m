@@ -1,94 +1,303 @@
-From: Jon Zhou <Jon.Zhou@jdsu.com>
-Subject: RE: why get different number of MSI-X vector for broadcom bnx2x
- every time
-Date: Fri, 14 May 2010 20:12:56 -0700
-Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497D752C9@MILEXCH2.ds.jdsu.net>
-References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497DED2BE@MILEXCH2.ds.jdsu.net>,<2DFD360E328B3941911E6D28B085D990107B83BB47@SJEXCHCCR01.corp.ad.broadcom.com>
+From: Chris Wright <chrisw@sous-sol.org>
+Subject: [PATCH] rtnetlink: make SR-IOV VF interface symmetric
+Date: Fri, 14 May 2010 20:14:16 -0700
+Message-ID: <20100515031416.GE15313@sequoia.sous-sol.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Dmitry Kravkov <dmitry@broadcom.com>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: arnd@arndb.de, scofeldm@cisco.com, shemminger@vyatta.com,
+	netdev@vger.kernel.org
+To: davem@davemloft.net, kaber@trash.net, mitch.a.williams@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og106.obsmtp.com ([64.18.2.165]:44899 "HELO
-	exprod7og106.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751787Ab0EODNv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 May 2010 23:13:51 -0400
-In-Reply-To: <2DFD360E328B3941911E6D28B085D990107B83BB47@SJEXCHCCR01.corp.ad.broadcom.com>
-Content-Language: en-US
+Received: from sous-sol.org ([216.99.217.87]:45206 "EHLO sequoia.sous-sol.org"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752854Ab0EODOi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 May 2010 23:14:38 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Now we have a set of nested attributes:
 
-hi Dmitry
-the system,is the kernel(2.6.27) or the hardware?
-thanks!
-jon
-________________________________________
-From: Dmitry Kravkov [dmitry@broadcom.com]
-Sent: Saturday, May 15, 2010 4:02 AM
-To: Jon Zhou; netdev
-Subject: RE: why get different number of MSI-X vector for broadcom bnx2x every time
+  IFLA_VFINFO_LIST (NESTED)
+    IFLA_VF_INFO (NESTED)
+      IFLA_VF_MAC
+      IFLA_VF_VLAN
+      IFLA_VF_TX_RATE
 
-Hi
+This allows a single set to operate on multiple attributes if desired.
+Among other things, it means a dump can be replayed to set state.
 
-Your system (from the log below) allowed bnx2x to use only 4 MSI-X vectors instead of 16 required by the driver.
+The current interface has yet to be released, so this seems like
+something to consider for 2.6.34.
 
-Regards,
-Dmitry
+Signed-off-by: Chris Wright <chrisw@sous-sol.org
+---
 
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Jon Zhou
-Sent: Friday, May 14, 2010 11:02 AM
-To: netdev
-Subject: why get different number of MSI-X vector for broadcom bnx2x every time
+Stephen, I'll send the iproute2 update as well
 
-hi there:
+ include/linux/if_link.h |   23 ++++++-
+ net/core/rtnetlink.c    |  159 ++++++++++++++++++++++++++++++++--------------
+ 2 files changed, 129 insertions(+), 53 deletions(-)
 
-bnx2x_enable_msix :
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index c9bf92c..d94963b 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -79,10 +79,7 @@ enum {
+ 	IFLA_NET_NS_PID,
+ 	IFLA_IFALIAS,
+ 	IFLA_NUM_VF,		/* Number of VFs if device is SR-IOV PF */
+-	IFLA_VF_MAC,		/* Hardware queue specific attributes */
+-	IFLA_VF_VLAN,
+-	IFLA_VF_TX_RATE,	/* TX Bandwidth Allocation */
+-	IFLA_VFINFO,
++	IFLA_VFINFO_LIST,
+ 	__IFLA_MAX
+ };
+ 
+@@ -203,6 +200,24 @@ enum macvlan_mode {
+ 
+ /* SR-IOV virtual function managment section */
+ 
++enum {
++	IFLA_VF_INFO_UNSPEC,
++	IFLA_VF_INFO,
++	__IFLA_VF_INFO_MAX,
++};
++
++#define IFLA_VF_INFO_MAX (__IFLA_VF_INFO_MAX - 1)
++
++enum {
++	IFLA_VF_UNSPEC,
++	IFLA_VF_MAC,		/* Hardware queue specific attributes */
++	IFLA_VF_VLAN,
++	IFLA_VF_TX_RATE,	/* TX Bandwidth Allocation */
++	__IFLA_VF_MAX,
++};
++
++#define IFLA_VF_MAX (__IFLA_VF_MAX - 1)
++
+ struct ifla_vf_mac {
+ 	__u32 vf;
+ 	__u8 mac[32]; /* MAX_ADDR_LEN */
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index fe776c9..074afcd 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -602,12 +602,19 @@ static void copy_rtnl_link_stats(struct rtnl_link_stats *a,
+ 	a->tx_compressed = b->tx_compressed;
+ };
+ 
++/* All VF info */
+ static inline int rtnl_vfinfo_size(const struct net_device *dev)
+ {
+-	if (dev->dev.parent && dev_is_pci(dev->dev.parent))
+-		return dev_num_vf(dev->dev.parent) *
+-			sizeof(struct ifla_vf_info);
+-	else
++	if (dev->dev.parent && dev_is_pci(dev->dev.parent)) {
++		
++		int num_vfs = dev_num_vf(dev->dev.parent);
++		size_t size = nlmsg_total_size(sizeof(struct nlattr));
++		size += nlmsg_total_size(num_vfs * sizeof(struct nlattr));
++		size += num_vfs * (sizeof(struct ifla_vf_mac) +
++				  sizeof(struct ifla_vf_vlan) +
++				  sizeof(struct ifla_vf_tx_rate));
++		return size;
++	} else
+ 		return 0;
+ }
+ 
+@@ -629,7 +636,7 @@ static inline size_t if_nlmsg_size(const struct net_device *dev)
+ 	       + nla_total_size(1) /* IFLA_OPERSTATE */
+ 	       + nla_total_size(1) /* IFLA_LINKMODE */
+ 	       + nla_total_size(4) /* IFLA_NUM_VF */
+-	       + nla_total_size(rtnl_vfinfo_size(dev)) /* IFLA_VFINFO */
++	       + rtnl_vfinfo_size(dev) /* IFLA_VFINFO_LIST */
+ 	       + rtnl_link_get_size(dev); /* IFLA_LINKINFO */
+ }
+ 
+@@ -700,14 +707,37 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 
+ 	if (dev->netdev_ops->ndo_get_vf_config && dev->dev.parent) {
+ 		int i;
+-		struct ifla_vf_info ivi;
+ 
+-		NLA_PUT_U32(skb, IFLA_NUM_VF, dev_num_vf(dev->dev.parent));
+-		for (i = 0; i < dev_num_vf(dev->dev.parent); i++) {
++		struct nlattr *vfinfo, *vf;
++		int num_vfs = dev_num_vf(dev->dev.parent);
++
++		NLA_PUT_U32(skb, IFLA_NUM_VF, num_vfs);
++		vfinfo = nla_nest_start(skb, IFLA_VFINFO_LIST);
++		if (!vfinfo)
++			goto nla_put_failure;
++		for (i = 0; i < num_vfs; i++) {
++			struct ifla_vf_info ivi;
++			struct ifla_vf_mac vf_mac;
++			struct ifla_vf_vlan vf_vlan;
++			struct ifla_vf_tx_rate vf_tx_rate;
+ 			if (dev->netdev_ops->ndo_get_vf_config(dev, i, &ivi))
+ 				break;
+-			NLA_PUT(skb, IFLA_VFINFO, sizeof(ivi), &ivi);
++			vf_mac.vf = vf_vlan.vf = vf_tx_rate.vf = ivi.vf;
++			memcpy(vf_mac.mac, ivi.mac, sizeof(ivi.mac));
++			vf_vlan.vlan = ivi.vlan;
++			vf_vlan.qos = ivi.qos;
++			vf_tx_rate.rate = ivi.tx_rate;
++			vf = nla_nest_start(skb, IFLA_VF_INFO);
++			if (!vf) {
++				nla_nest_cancel(skb, vfinfo);
++				goto nla_put_failure;
++			}
++			NLA_PUT(skb, IFLA_VF_MAC, sizeof(vf_mac), &vf_mac);
++			NLA_PUT(skb, IFLA_VF_VLAN, sizeof(vf_vlan), &vf_vlan);
++			NLA_PUT(skb, IFLA_VF_TX_RATE, sizeof(vf_tx_rate), &vf_tx_rate);
++			nla_nest_end(skb, vf);
+ 		}
++		nla_nest_end(skb, vfinfo);
+ 	}
+ 	if (dev->rtnl_link_ops) {
+ 		if (rtnl_link_fill(skb, dev) < 0)
+@@ -769,12 +799,7 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_LINKINFO]		= { .type = NLA_NESTED },
+ 	[IFLA_NET_NS_PID]	= { .type = NLA_U32 },
+ 	[IFLA_IFALIAS]	        = { .type = NLA_STRING, .len = IFALIASZ-1 },
+-	[IFLA_VF_MAC]		= { .type = NLA_BINARY,
+-				    .len = sizeof(struct ifla_vf_mac) },
+-	[IFLA_VF_VLAN]		= { .type = NLA_BINARY,
+-				    .len = sizeof(struct ifla_vf_vlan) },
+-	[IFLA_VF_TX_RATE]	= { .type = NLA_BINARY,
+-				    .len = sizeof(struct ifla_vf_tx_rate) },
++	[IFLA_VFINFO_LIST]	= {. type = NLA_NESTED },
+ };
+ EXPORT_SYMBOL(ifla_policy);
+ 
+@@ -783,6 +808,19 @@ static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
+ 	[IFLA_INFO_DATA]	= { .type = NLA_NESTED },
+ };
+ 
++static const struct nla_policy ifla_vfinfo_policy[IFLA_VF_INFO_MAX+1] = {
++	[IFLA_VF_INFO]		= { .type = NLA_NESTED },
++};
++
++static const struct nla_policy ifla_vf_policy[IFLA_VF_MAX+1] = {
++	[IFLA_VF_MAC]		= { .type = NLA_BINARY,
++				    .len = sizeof(struct ifla_vf_mac) },
++	[IFLA_VF_VLAN]		= { .type = NLA_BINARY,
++				    .len = sizeof(struct ifla_vf_vlan) },
++	[IFLA_VF_TX_RATE]	= { .type = NLA_BINARY,
++				    .len = sizeof(struct ifla_vf_tx_rate) },
++};
++
+ struct net *rtnl_link_get_net(struct net *src_net, struct nlattr *tb[])
+ {
+ 	struct net *net;
+@@ -812,6 +850,52 @@ static int validate_linkmsg(struct net_device *dev, struct nlattr *tb[])
+ 	return 0;
+ }
+ 
++static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
++{
++	int rem, err = -EINVAL;
++	struct nlattr *vf;
++	const struct net_device_ops *ops = dev->netdev_ops;
++	
++	nla_for_each_nested(vf, attr, rem) {
++		switch (nla_type(vf)) {
++		case IFLA_VF_MAC: {
++			struct ifla_vf_mac *ivm;
++			ivm = nla_data(vf);
++			err = -EOPNOTSUPP;
++			if (ops->ndo_set_vf_mac)
++				err = ops->ndo_set_vf_mac(dev, ivm->vf,
++							  ivm->mac);
++			break;
++		}
++		case IFLA_VF_VLAN: {
++			struct ifla_vf_vlan *ivv;
++			ivv = nla_data(vf);
++			err = -EOPNOTSUPP;
++			if (ops->ndo_set_vf_vlan)
++				err = ops->ndo_set_vf_vlan(dev, ivv->vf,
++							   ivv->vlan,
++							   ivv->qos);
++			break;
++		}
++		case IFLA_VF_TX_RATE: {
++			struct ifla_vf_tx_rate *ivt;
++			ivt = nla_data(vf);
++			err = -EOPNOTSUPP;
++			if (ops->ndo_set_vf_tx_rate)
++				err = ops->ndo_set_vf_tx_rate(dev, ivt->vf,
++							      ivt->rate);
++			break;
++		}
++		default:
++			err = -EINVAL;
++			break;
++		}
++		if (err)
++			break;
++	}
++	return err;
++}
++
+ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
+ 		      struct nlattr **tb, char *ifname, int modified)
+ {
+@@ -942,40 +1026,17 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
+ 		write_unlock_bh(&dev_base_lock);
+ 	}
+ 
+-	if (tb[IFLA_VF_MAC]) {
+-		struct ifla_vf_mac *ivm;
+-		ivm = nla_data(tb[IFLA_VF_MAC]);
+-		err = -EOPNOTSUPP;
+-		if (ops->ndo_set_vf_mac)
+-			err = ops->ndo_set_vf_mac(dev, ivm->vf, ivm->mac);
+-		if (err < 0)
+-			goto errout;
+-		modified = 1;
+-	}
+-
+-	if (tb[IFLA_VF_VLAN]) {
+-		struct ifla_vf_vlan *ivv;
+-		ivv = nla_data(tb[IFLA_VF_VLAN]);
+-		err = -EOPNOTSUPP;
+-		if (ops->ndo_set_vf_vlan)
+-			err = ops->ndo_set_vf_vlan(dev, ivv->vf,
+-						   ivv->vlan,
+-						   ivv->qos);
+-		if (err < 0)
+-			goto errout;
+-		modified = 1;
+-	}
+-	err = 0;
+-
+-	if (tb[IFLA_VF_TX_RATE]) {
+-		struct ifla_vf_tx_rate *ivt;
+-		ivt = nla_data(tb[IFLA_VF_TX_RATE]);
+-		err = -EOPNOTSUPP;
+-		if (ops->ndo_set_vf_tx_rate)
+-			err = ops->ndo_set_vf_tx_rate(dev, ivt->vf, ivt->rate);
+-		if (err < 0)
+-			goto errout;
+-		modified = 1;
++	if (tb[IFLA_VFINFO_LIST]) {
++		struct nlattr *attr;
++		int rem;
++		nla_for_each_nested(attr, tb[IFLA_VFINFO_LIST], rem) {
++			if (nla_type(attr) != IFLA_VF_INFO)
++				goto errout;
++			err = do_setvfinfo(dev, attr);
++			if (err < 0)
++				goto errout;
++			modified = 1;
++		}
+ 	}
+ 	err = 0;
+ 
+-- 
+1.6.5.2
 
-...
-rc = pci_enable_msix(bp->pdev, &bp->msix_table[0],
-                             BNX2X_NUM_QUEUES(bp) + offset);
-
-        /*
-         * reconfigure number of tx/rx queues according to available
-         * MSI-X vectors
-         */
-        if (rc >= BNX2X_MIN_MSIX_VEC_CNT) {
-                /* vectors available for FP */
-                int fp_vec = rc - BNX2X_MSIX_VEC_FP_START;
-
-
-sometimes I can run up the driver with 4 queues but most of time I can only get 2 queues
-why?
-
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_set_num_queues:8053(eth5)]set number of queues to 15
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7544(eth5)]msix_table[0].entry = 0 (slowpath)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7549(eth5)]msix_table[1].entry = 1 (CNIC)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[2].entry = 2 (fastpath #0)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[3].entry = 3 (fastpath #1)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[4].entry = 4 (fastpath #2)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[5].entry = 5 (fastpath #3)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[6].entry = 6 (fastpath #4)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[7].entry = 7 (fastpath #5)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[8].entry = 8 (fastpath #6)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[9].entry = 9 (fastpath #7)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[10].entry = 10 (fastpath #8)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[11].entry = 11 (fastpath #9)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[12].entry = 12 (fastpath #10)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[13].entry = 13 (fastpath #11)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[14].entry = 14 (fastpath #12)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[15].entry = 15 (fastpath #13)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7556(eth5)]msix_table[16].entry = 16 (fastpath #14)
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7571(eth5)]Trying to use less MSI-X vectors: 4
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_enable_msix:7584(eth5)]New queue configuration set: 2
-May 14 01:40:16 ibm-bc-54 kernel: bnx2x: eth5: using MSI-X  IRQs: sp 4321  fp[0] 4319 ... fp[1] 4318
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_nic_init:6067(eth5)]queue[0]:  bnx2x_init_sb(ffff8803e6810780,ffff8803f9c4f000)  cl_id 0  sb 1  cos 0
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_nic_init:6067(eth5)]queue[1]:  bnx2x_init_sb(ffff8803e6810780,ffff8803fb006000)  cl_id 1  sb 2  cos 0
-May 14 01:40:16 ibm-bc-54 kernel: [bnx2x_init_rx_rings:5305(eth5)]mtu 1500  rx_buf_size 1650
-
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
