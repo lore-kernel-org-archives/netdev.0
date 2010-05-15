@@ -1,17 +1,22 @@
-From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
-Subject: [PATCH 10/37] drivers/net/wireless/libertas_tf: Use kmemdup
-Date: Sat, 15 May 2010 23:16:03 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1005152315450.21345@ask.diku.dk>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 12/37] drivers/net/wireless/wl12xx: Use kmemdup
+Date: Sat, 15 May 2010 23:16:39 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005152316220.21345@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: Luciano Coelho <luciano.coelho@nokia.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-ja
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw2.diku.dk ([130.225.96.92]:41702 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755161Ab0EOVQo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 May 2010 17:16:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+From: Julia Lawall <julia@diku.dk>
 
 Use kmemdup when some other buffer is immediately copied into the
 allocated region.
@@ -31,27 +36,47 @@ statement S;
 -  memcpy(to, from, size);
 // </smpl>
 
-Signed-off-by: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/net/wireless/libertas_tf/if_usb.c |    5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/wireless/wl12xx/wl1271_main.c |    8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-diff -u -p a/drivers/net/wireless/libertas_tf/if_usb.c b/drivers/net/wireless/libertas_tf/if_usb.c
---- a/drivers/net/wireless/libertas_tf/if_usb.c
-+++ b/drivers/net/wireless/libertas_tf/if_usb.c
-@@ -538,7 +538,8 @@ static void if_usb_receive_fwload(struct
- 		return;
+diff -u -p a/drivers/net/wireless/wl12xx/wl1271_main.c b/drivers/net/wireless/wl12xx/wl1271_main.c
+--- a/drivers/net/wireless/wl12xx/wl1271_main.c
++++ b/drivers/net/wireless/wl12xx/wl1271_main.c
+@@ -573,7 +573,7 @@ static int wl1271_fetch_nvs(struct wl127
+ 		goto out;
  	}
  
--	syncfwheader = kmalloc(sizeof(struct fwsyncheader), GFP_ATOMIC);
-+	syncfwheader = kmemdup(skb->data, sizeof(struct fwsyncheader),
-+			       GFP_ATOMIC);
- 	if (!syncfwheader) {
- 		lbtf_deb_usbd(&cardp->udev->dev, "Failure to allocate syncfwheader\n");
- 		kfree_skb(skb);
-@@ -546,8 +547,6 @@ static void if_usb_receive_fwload(struct
- 		return;
+-	wl->nvs = kmalloc(sizeof(struct wl1271_nvs_file), GFP_KERNEL);
++	wl->nvs = kmemdup(fw->data, sizeof(struct wl1271_nvs_file), GFP_KERNEL);
+ 
+ 	if (!wl->nvs) {
+ 		wl1271_error("could not allocate memory for the nvs file");
+@@ -581,8 +581,6 @@ static int wl1271_fetch_nvs(struct wl127
+ 		goto out;
  	}
  
--	memcpy(syncfwheader, skb->data, sizeof(struct fwsyncheader));
+-	memcpy(wl->nvs, fw->data, sizeof(struct wl1271_nvs_file));
+-
+ out:
+ 	release_firmware(fw);
+ 
+@@ -2350,15 +2348,13 @@ struct ieee80211_hw *wl1271_alloc_hw(voi
+ 		goto err_hw_alloc;
+ 	}
+ 
+-	plat_dev = kmalloc(sizeof(wl1271_device), GFP_KERNEL);
++	plat_dev = kmemdup(&wl1271_device, sizeof(wl1271_device), GFP_KERNEL);
+ 	if (!plat_dev) {
+ 		wl1271_error("could not allocate platform_device");
+ 		ret = -ENOMEM;
+ 		goto err_plat_alloc;
+ 	}
+ 
+-	memcpy(plat_dev, &wl1271_device, sizeof(wl1271_device));
+-
+ 	wl = hw->priv;
+ 	memset(wl, 0, sizeof(*wl));
+ 
