@@ -1,21 +1,16 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 26/37] drivers/net/wireless/ipw2x00: Use kmemdup
-Date: Sat, 15 May 2010 23:21:01 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1005152320450.21345__37210.390813607$1273958552$gmane$org@ask.diku.dk>
+Subject: [PATCH 32/37] drivers/net/wireless/p54: Use kmemdup
+Date: Sat, 15 May 2010 23:22:55 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005152322390.21345@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Zhu Yi <yi.zhu@intel.com>,
-	Reinette Chatre <reinette.chatre@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
+To: Michael Wu <flamingice@sourmilk.net>,
 	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.k
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:35454 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756076Ab0EOVVH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 May 2010 17:21:07 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitor
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Julia Lawall <julia@diku.dk>
 
@@ -40,24 +35,41 @@ statement S;
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/net/wireless/ipw2x00/ipw2200.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/wireless/p54/eeprom.c |    4 ++--
+ drivers/net/wireless/p54/p54usb.c |    3 +--
+ 2 files changed, 3 insertions(+), 4 deletions(-)
 
-diff -u -p a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
---- a/drivers/net/wireless/ipw2x00/ipw2200.c
-+++ b/drivers/net/wireless/ipw2x00/ipw2200.c
-@@ -6626,13 +6626,12 @@ static int ipw_wx_set_genie(struct net_d
- 		return -EINVAL;
+diff -u -p a/drivers/net/wireless/p54/p54usb.c b/drivers/net/wireless/p54/p54usb.c
+--- a/drivers/net/wireless/p54/p54usb.c
++++ b/drivers/net/wireless/p54/p54usb.c
+@@ -433,10 +433,9 @@ static int p54u_firmware_reset_3887(stru
+ 	u8 *buf;
+ 	int ret;
  
- 	if (wrqu->data.length) {
--		buf = kmalloc(wrqu->data.length, GFP_KERNEL);
-+		buf = kmemdup(extra, wrqu->data.length, GFP_KERNEL);
- 		if (buf == NULL) {
- 			err = -ENOMEM;
- 			goto out;
- 		}
+-	buf = kmalloc(4, GFP_KERNEL);
++	buf = kmemdup(p54u_romboot_3887, 4, GFP_KERNEL);
+ 	if (!buf)
+ 		return -ENOMEM;
+-	memcpy(buf, p54u_romboot_3887, 4);
+ 	ret = p54u_bulk_msg(priv, P54U_PIPE_DATA,
+ 			    buf, 4);
+ 	kfree(buf);
+diff -u -p a/drivers/net/wireless/p54/eeprom.c b/drivers/net/wireless/p54/eeprom.c
+--- a/drivers/net/wireless/p54/eeprom.c
++++ b/drivers/net/wireless/p54/eeprom.c
+@@ -599,13 +599,13 @@ int p54_parse_eeprom(struct ieee80211_hw
+ 			}
+ 			break;
+ 		case PDR_PRISM_ZIF_TX_IQ_CALIBRATION:
+-			priv->iq_autocal = kmalloc(data_len, GFP_KERNEL);
++			priv->iq_autocal = kmemdup(entry->data, data_len,
++						   GFP_KERNEL);
+ 			if (!priv->iq_autocal) {
+ 				err = -ENOMEM;
+ 				goto err;
+ 			}
  
--		memcpy(buf, extra, wrqu->data.length);
- 		kfree(ieee->wpa_ie);
- 		ieee->wpa_ie = buf;
- 		ieee->wpa_ie_len = wrqu->data.length;
+-			memcpy(priv->iq_autocal, entry->data, data_len);
+ 			priv->iq_autocal_len = data_len / sizeof(struct pda_iq_autocal_entry);
+ 			break;
+ 		case PDR_DEFAULT_COUNTRY:
