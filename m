@@ -1,18 +1,18 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 13/37] drivers/net/wireless/iwmc3200wifi: Use kmemdup
-Date: Sat, 15 May 2010 23:16:58 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1005152316400.21345__43269.3938528702$1273958285$gmane$org@ask.diku.dk>
+Subject: [PATCH 14/37] drivers/net/wireless/ath/ath9k: Use kmemdup
+Date: Sat, 15 May 2010 23:17:19 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005152316580.21345__36765.8080337152$1273958288$gmane$org@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Samuel Ortiz <samuel.ortiz@intel.com>, Zhu Yi <yi.zhu@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.o
+To: "Luis R. Rodriguez" <lrodriguez@atheros.com>,
+	Jouni Malinen <jmalinen@atheros.com>,
+	Sujith Manoharan <Sujith.Manoharan@atheros.com>,
+	Vasanthakumar Thiagarajan <vasanth@atheros.com>,
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:41708 "EHLO mgw2.diku.dk"
+Received: from mgw1.diku.dk ([130.225.96.91]:46709 "EHLO mgw1.diku.dk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753833Ab0EOVRD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 May 2010 17:17:03 -0400
+	id S1753833Ab0EOVRY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 May 2010 17:17:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -39,26 +39,23 @@ statement S;
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/net/wireless/iwmc3200wifi/rx.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/wireless/ath/ath9k/hif_usb.c |    4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff -u -p a/drivers/net/wireless/iwmc3200wifi/rx.c b/drivers/net/wireless/iwmc3200wifi/rx.c
---- a/drivers/net/wireless/iwmc3200wifi/rx.c
-+++ b/drivers/net/wireless/iwmc3200wifi/rx.c
-@@ -321,14 +321,14 @@ iwm_rx_ticket_node_alloc(struct iwm_priv
- 		return ERR_PTR(-ENOMEM);
- 	}
+diff -u -p a/drivers/net/wireless/ath/ath9k/hif_usb.c b/drivers/net/wireless/ath/ath9k/hif_usb.c
+--- a/drivers/net/wireless/ath/ath9k/hif_usb.c
++++ b/drivers/net/wireless/ath/ath9k/hif_usb.c
+@@ -901,12 +901,10 @@ static void ath9k_hif_usb_reboot(struct 
+ 	void *buf;
+ 	int ret;
  
--	ticket_node->ticket = kzalloc(sizeof(struct iwm_rx_ticket), GFP_KERNEL);
-+	ticket_node->ticket = kmemdup(ticket, sizeof(struct iwm_rx_ticket),
-+				      GFP_KERNEL);
- 	if (!ticket_node->ticket) {
- 		IWM_ERR(iwm, "Couldn't allocate RX ticket\n");
- 		kfree(ticket_node);
- 		return ERR_PTR(-ENOMEM);
- 	}
+-	buf = kmalloc(4, GFP_KERNEL);
++	buf = kmemdup(&reboot_cmd, 4, GFP_KERNEL);
+ 	if (!buf)
+ 		return;
  
--	memcpy(ticket_node->ticket, ticket, sizeof(struct iwm_rx_ticket));
- 	INIT_LIST_HEAD(&ticket_node->node);
- 
- 	return ticket_node;
+-	memcpy(buf, &reboot_cmd, 4);
+-
+ 	ret = usb_bulk_msg(udev, usb_sndbulkpipe(udev, USB_REG_OUT_PIPE),
+ 			   buf, 4, NULL, HZ);
+ 	if (ret)
