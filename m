@@ -1,18 +1,23 @@
-From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
-Subject: [PATCH 24/37] drivers/net/wireless/b43: Use kmemdup
-Date: Sat, 15 May 2010 23:20:26 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1005152320070.21345@ask.diku.dk>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 26/37] drivers/net/wireless/ipw2x00: Use kmemdup
+Date: Sat, 15 May 2010 23:21:01 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005152320450.21345__37210.390813607$1273958552$gmane$org@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Stefano Brivio <stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-ja
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: Zhu Yi <yi.zhu@intel.com>,
+	Reinette Chatre <reinette.chatre@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.k
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw2.diku.dk ([130.225.96.92]:35454 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756076Ab0EOVVH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 May 2010 17:21:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+From: Julia Lawall <julia@diku.dk>
 
 Use kmemdup when some other buffer is immediately copied into the
 allocated region.
@@ -32,33 +37,27 @@ statement S;
 -  memcpy(to, from, size);
 // </smpl>
 
-Signed-off-by: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/net/wireless/b43/dma.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/wireless/ipw2x00/ipw2200.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff -u -p a/drivers/net/wireless/b43/dma.c b/drivers/net/wireless/b43/dma.c
---- a/drivers/net/wireless/b43/dma.c
-+++ b/drivers/net/wireless/b43/dma.c
-@@ -1221,14 +1221,14 @@ static int dma_tx_fragment(struct b43_dm
- 	meta->dmaaddr = map_descbuffer(ring, skb->data, skb->len, 1);
- 	/* create a bounce buffer in zone_dma on mapping failure. */
- 	if (b43_dma_mapping_error(ring, meta->dmaaddr, skb->len, 1)) {
--		priv_info->bouncebuffer = kmalloc(skb->len, GFP_ATOMIC | GFP_DMA);
-+		priv_info->bouncebuffer = kmemdup(skb->data, skb->len,
-+						  GFP_ATOMIC | GFP_DMA);
- 		if (!priv_info->bouncebuffer) {
- 			ring->current_slot = old_top_slot;
- 			ring->used_slots = old_used_slots;
- 			err = -ENOMEM;
- 			goto out_unmap_hdr;
- 		}
--		memcpy(priv_info->bouncebuffer, skb->data, skb->len);
+diff -u -p a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
+--- a/drivers/net/wireless/ipw2x00/ipw2200.c
++++ b/drivers/net/wireless/ipw2x00/ipw2200.c
+@@ -6626,13 +6626,12 @@ static int ipw_wx_set_genie(struct net_d
+ 		return -EINVAL;
  
- 		meta->dmaaddr = map_descbuffer(ring, priv_info->bouncebuffer, skb->len, 1);
- 		if (b43_dma_mapping_error(ring, meta->dmaaddr, skb->len, 1)) {
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ 	if (wrqu->data.length) {
+-		buf = kmalloc(wrqu->data.length, GFP_KERNEL);
++		buf = kmemdup(extra, wrqu->data.length, GFP_KERNEL);
+ 		if (buf == NULL) {
+ 			err = -ENOMEM;
+ 			goto out;
+ 		}
+ 
+-		memcpy(buf, extra, wrqu->data.length);
+ 		kfree(ieee->wpa_ie);
+ 		ieee->wpa_ie = buf;
+ 		ieee->wpa_ie_len = wrqu->data.length;
