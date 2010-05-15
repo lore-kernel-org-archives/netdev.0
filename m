@@ -1,303 +1,3639 @@
-From: Chris Wright <chrisw@sous-sol.org>
-Subject: [PATCH] rtnetlink: make SR-IOV VF interface symmetric
-Date: Fri, 14 May 2010 20:14:16 -0700
-Message-ID: <20100515031416.GE15313@sequoia.sous-sol.org>
+From: Carsten Aulbert <carsten.aulbert@aei.mpg.de>
+Subject: Re: loosing IPMI-card by loading netconsole
+Date: Sat, 15 May 2010 10:26:17 +0200
+Message-ID: <201005151026.20356.carsten.aulbert@aei.mpg.de>
+References: <20100514134544.GA26674@gretchen.aei.mpg.de> <4BED79EB.1000204@kernel.org> <1273857641.3057.20.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: arnd@arndb.de, scofeldm@cisco.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org
-To: davem@davemloft.net, kaber@trash.net, mitch.a.williams@intel.com
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_sql7LNKAuk4EACq"
+Cc: Tejun Heo <tj@kernel.org>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Matt Mackall <mpm@selenic.com>,
+	e1000-devel@lists.sourceforge.net
+To: "\"Brandeburg, Jesse\"" <jesse.brandeburg@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sous-sol.org ([216.99.217.87]:45206 "EHLO sequoia.sous-sol.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752854Ab0EODOi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 May 2010 23:14:38 -0400
-Content-Disposition: inline
+Received: from welcomes-you.com ([188.40.94.149]:60157 "EHLO
+	smtp.welcomes-you.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752624Ab0EOIdg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 May 2010 04:33:36 -0400
+In-Reply-To: <1273857641.3057.20.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now we have a set of nested attributes:
+--Boundary-00=_sql7LNKAuk4EACq
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
 
-  IFLA_VFINFO_LIST (NESTED)
-    IFLA_VF_INFO (NESTED)
-      IFLA_VF_MAC
-      IFLA_VF_VLAN
-      IFLA_VF_TX_RATE
+Hi all,
 
-This allows a single set to operate on multiple attributes if desired.
-Among other things, it means a dump can be replayed to set state.
+I'll try to gather some information:
 
-The current interface has yet to be released, so this seems like
-something to consider for 2.6.34.
+The system under question is Supermicro PSDML-LN2+ based, eth0 is a 82573E 
+while eth1 is a 82573L. IPMI is piggy-bagged onto eth0, eth1 is our "data 
+network" running with large jumbo frames:
 
-Signed-off-by: Chris Wright <chrisw@sous-sol.org
----
+# ifconfig
+eth0      Link encap:Ethernet  HWaddr 00:30:48:96:e1:e2
+          inet addr:172.26.1.26  Bcast:172.31.255.255  Mask:255.240.0.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:673128 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:104281 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:100
+          RX bytes:46271457 (44.1 MiB)  TX bytes:8238586 (7.8 MiB)
+          Memory:ee100000-ee120000
 
-Stephen, I'll send the iproute2 update as well
+eth1      Link encap:Ethernet  HWaddr 00:30:48:96:e1:e3
+          inet addr:10.10.1.26  Bcast:10.255.255.255  Mask:255.0.0.0
+          UP BROADCAST RUNNING MULTICAST  MTU:9000  Metric:1
+          RX packets:17660268 errors:0 dropped:72239 overruns:0 frame:0
+          TX packets:10941117 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:86507558735 (80.5 GiB)  TX bytes:7011613344 (6.5 GiB)
+          Memory:ee200000-ee220000
 
- include/linux/if_link.h |   23 ++++++-
- net/core/rtnetlink.c    |  159 ++++++++++++++++++++++++++++++++--------------
- 2 files changed, 129 insertions(+), 53 deletions(-)
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index c9bf92c..d94963b 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -79,10 +79,7 @@ enum {
- 	IFLA_NET_NS_PID,
- 	IFLA_IFALIAS,
- 	IFLA_NUM_VF,		/* Number of VFs if device is SR-IOV PF */
--	IFLA_VF_MAC,		/* Hardware queue specific attributes */
--	IFLA_VF_VLAN,
--	IFLA_VF_TX_RATE,	/* TX Bandwidth Allocation */
--	IFLA_VFINFO,
-+	IFLA_VFINFO_LIST,
- 	__IFLA_MAX
- };
- 
-@@ -203,6 +200,24 @@ enum macvlan_mode {
- 
- /* SR-IOV virtual function managment section */
- 
-+enum {
-+	IFLA_VF_INFO_UNSPEC,
-+	IFLA_VF_INFO,
-+	__IFLA_VF_INFO_MAX,
-+};
-+
-+#define IFLA_VF_INFO_MAX (__IFLA_VF_INFO_MAX - 1)
-+
-+enum {
-+	IFLA_VF_UNSPEC,
-+	IFLA_VF_MAC,		/* Hardware queue specific attributes */
-+	IFLA_VF_VLAN,
-+	IFLA_VF_TX_RATE,	/* TX Bandwidth Allocation */
-+	__IFLA_VF_MAX,
-+};
-+
-+#define IFLA_VF_MAX (__IFLA_VF_MAX - 1)
-+
- struct ifla_vf_mac {
- 	__u32 vf;
- 	__u8 mac[32]; /* MAX_ADDR_LEN */
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index fe776c9..074afcd 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -602,12 +602,19 @@ static void copy_rtnl_link_stats(struct rtnl_link_stats *a,
- 	a->tx_compressed = b->tx_compressed;
- };
- 
-+/* All VF info */
- static inline int rtnl_vfinfo_size(const struct net_device *dev)
- {
--	if (dev->dev.parent && dev_is_pci(dev->dev.parent))
--		return dev_num_vf(dev->dev.parent) *
--			sizeof(struct ifla_vf_info);
--	else
-+	if (dev->dev.parent && dev_is_pci(dev->dev.parent)) {
-+		
-+		int num_vfs = dev_num_vf(dev->dev.parent);
-+		size_t size = nlmsg_total_size(sizeof(struct nlattr));
-+		size += nlmsg_total_size(num_vfs * sizeof(struct nlattr));
-+		size += num_vfs * (sizeof(struct ifla_vf_mac) +
-+				  sizeof(struct ifla_vf_vlan) +
-+				  sizeof(struct ifla_vf_tx_rate));
-+		return size;
-+	} else
- 		return 0;
- }
- 
-@@ -629,7 +636,7 @@ static inline size_t if_nlmsg_size(const struct net_device *dev)
- 	       + nla_total_size(1) /* IFLA_OPERSTATE */
- 	       + nla_total_size(1) /* IFLA_LINKMODE */
- 	       + nla_total_size(4) /* IFLA_NUM_VF */
--	       + nla_total_size(rtnl_vfinfo_size(dev)) /* IFLA_VFINFO */
-+	       + rtnl_vfinfo_size(dev) /* IFLA_VFINFO_LIST */
- 	       + rtnl_link_get_size(dev); /* IFLA_LINKINFO */
- }
- 
-@@ -700,14 +707,37 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 
- 	if (dev->netdev_ops->ndo_get_vf_config && dev->dev.parent) {
- 		int i;
--		struct ifla_vf_info ivi;
- 
--		NLA_PUT_U32(skb, IFLA_NUM_VF, dev_num_vf(dev->dev.parent));
--		for (i = 0; i < dev_num_vf(dev->dev.parent); i++) {
-+		struct nlattr *vfinfo, *vf;
-+		int num_vfs = dev_num_vf(dev->dev.parent);
-+
-+		NLA_PUT_U32(skb, IFLA_NUM_VF, num_vfs);
-+		vfinfo = nla_nest_start(skb, IFLA_VFINFO_LIST);
-+		if (!vfinfo)
-+			goto nla_put_failure;
-+		for (i = 0; i < num_vfs; i++) {
-+			struct ifla_vf_info ivi;
-+			struct ifla_vf_mac vf_mac;
-+			struct ifla_vf_vlan vf_vlan;
-+			struct ifla_vf_tx_rate vf_tx_rate;
- 			if (dev->netdev_ops->ndo_get_vf_config(dev, i, &ivi))
- 				break;
--			NLA_PUT(skb, IFLA_VFINFO, sizeof(ivi), &ivi);
-+			vf_mac.vf = vf_vlan.vf = vf_tx_rate.vf = ivi.vf;
-+			memcpy(vf_mac.mac, ivi.mac, sizeof(ivi.mac));
-+			vf_vlan.vlan = ivi.vlan;
-+			vf_vlan.qos = ivi.qos;
-+			vf_tx_rate.rate = ivi.tx_rate;
-+			vf = nla_nest_start(skb, IFLA_VF_INFO);
-+			if (!vf) {
-+				nla_nest_cancel(skb, vfinfo);
-+				goto nla_put_failure;
-+			}
-+			NLA_PUT(skb, IFLA_VF_MAC, sizeof(vf_mac), &vf_mac);
-+			NLA_PUT(skb, IFLA_VF_VLAN, sizeof(vf_vlan), &vf_vlan);
-+			NLA_PUT(skb, IFLA_VF_TX_RATE, sizeof(vf_tx_rate), &vf_tx_rate);
-+			nla_nest_end(skb, vf);
- 		}
-+		nla_nest_end(skb, vfinfo);
- 	}
- 	if (dev->rtnl_link_ops) {
- 		if (rtnl_link_fill(skb, dev) < 0)
-@@ -769,12 +799,7 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_LINKINFO]		= { .type = NLA_NESTED },
- 	[IFLA_NET_NS_PID]	= { .type = NLA_U32 },
- 	[IFLA_IFALIAS]	        = { .type = NLA_STRING, .len = IFALIASZ-1 },
--	[IFLA_VF_MAC]		= { .type = NLA_BINARY,
--				    .len = sizeof(struct ifla_vf_mac) },
--	[IFLA_VF_VLAN]		= { .type = NLA_BINARY,
--				    .len = sizeof(struct ifla_vf_vlan) },
--	[IFLA_VF_TX_RATE]	= { .type = NLA_BINARY,
--				    .len = sizeof(struct ifla_vf_tx_rate) },
-+	[IFLA_VFINFO_LIST]	= {. type = NLA_NESTED },
- };
- EXPORT_SYMBOL(ifla_policy);
- 
-@@ -783,6 +808,19 @@ static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
- 	[IFLA_INFO_DATA]	= { .type = NLA_NESTED },
- };
- 
-+static const struct nla_policy ifla_vfinfo_policy[IFLA_VF_INFO_MAX+1] = {
-+	[IFLA_VF_INFO]		= { .type = NLA_NESTED },
-+};
-+
-+static const struct nla_policy ifla_vf_policy[IFLA_VF_MAX+1] = {
-+	[IFLA_VF_MAC]		= { .type = NLA_BINARY,
-+				    .len = sizeof(struct ifla_vf_mac) },
-+	[IFLA_VF_VLAN]		= { .type = NLA_BINARY,
-+				    .len = sizeof(struct ifla_vf_vlan) },
-+	[IFLA_VF_TX_RATE]	= { .type = NLA_BINARY,
-+				    .len = sizeof(struct ifla_vf_tx_rate) },
-+};
-+
- struct net *rtnl_link_get_net(struct net *src_net, struct nlattr *tb[])
- {
- 	struct net *net;
-@@ -812,6 +850,52 @@ static int validate_linkmsg(struct net_device *dev, struct nlattr *tb[])
- 	return 0;
- }
- 
-+static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
-+{
-+	int rem, err = -EINVAL;
-+	struct nlattr *vf;
-+	const struct net_device_ops *ops = dev->netdev_ops;
-+	
-+	nla_for_each_nested(vf, attr, rem) {
-+		switch (nla_type(vf)) {
-+		case IFLA_VF_MAC: {
-+			struct ifla_vf_mac *ivm;
-+			ivm = nla_data(vf);
-+			err = -EOPNOTSUPP;
-+			if (ops->ndo_set_vf_mac)
-+				err = ops->ndo_set_vf_mac(dev, ivm->vf,
-+							  ivm->mac);
-+			break;
-+		}
-+		case IFLA_VF_VLAN: {
-+			struct ifla_vf_vlan *ivv;
-+			ivv = nla_data(vf);
-+			err = -EOPNOTSUPP;
-+			if (ops->ndo_set_vf_vlan)
-+				err = ops->ndo_set_vf_vlan(dev, ivv->vf,
-+							   ivv->vlan,
-+							   ivv->qos);
-+			break;
-+		}
-+		case IFLA_VF_TX_RATE: {
-+			struct ifla_vf_tx_rate *ivt;
-+			ivt = nla_data(vf);
-+			err = -EOPNOTSUPP;
-+			if (ops->ndo_set_vf_tx_rate)
-+				err = ops->ndo_set_vf_tx_rate(dev, ivt->vf,
-+							      ivt->rate);
-+			break;
-+		}
-+		default:
-+			err = -EINVAL;
-+			break;
-+		}
-+		if (err)
-+			break;
-+	}
-+	return err;
-+}
-+
- static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
- 		      struct nlattr **tb, char *ifname, int modified)
- {
-@@ -942,40 +1026,17 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
- 		write_unlock_bh(&dev_base_lock);
- 	}
- 
--	if (tb[IFLA_VF_MAC]) {
--		struct ifla_vf_mac *ivm;
--		ivm = nla_data(tb[IFLA_VF_MAC]);
--		err = -EOPNOTSUPP;
--		if (ops->ndo_set_vf_mac)
--			err = ops->ndo_set_vf_mac(dev, ivm->vf, ivm->mac);
--		if (err < 0)
--			goto errout;
--		modified = 1;
--	}
--
--	if (tb[IFLA_VF_VLAN]) {
--		struct ifla_vf_vlan *ivv;
--		ivv = nla_data(tb[IFLA_VF_VLAN]);
--		err = -EOPNOTSUPP;
--		if (ops->ndo_set_vf_vlan)
--			err = ops->ndo_set_vf_vlan(dev, ivv->vf,
--						   ivv->vlan,
--						   ivv->qos);
--		if (err < 0)
--			goto errout;
--		modified = 1;
--	}
--	err = 0;
--
--	if (tb[IFLA_VF_TX_RATE]) {
--		struct ifla_vf_tx_rate *ivt;
--		ivt = nla_data(tb[IFLA_VF_TX_RATE]);
--		err = -EOPNOTSUPP;
--		if (ops->ndo_set_vf_tx_rate)
--			err = ops->ndo_set_vf_tx_rate(dev, ivt->vf, ivt->rate);
--		if (err < 0)
--			goto errout;
--		modified = 1;
-+	if (tb[IFLA_VFINFO_LIST]) {
-+		struct nlattr *attr;
-+		int rem;
-+		nla_for_each_nested(attr, tb[IFLA_VFINFO_LIST], rem) {
-+			if (nla_type(attr) != IFLA_VF_INFO)
-+				goto errout;
-+			err = do_setvfinfo(dev, attr);
-+			if (err < 0)
-+				goto errout;
-+			modified = 1;
-+		}
- 	}
- 	err = 0;
- 
--- 
-1.6.5.2
 
+# ethtool -i eth0
+driver: e1000e
+version: 1.0.2-k2
+firmware-version: 0.15-4
+bus-info: 0000:0d:00.0
+
+ethtool -i eth1
+driver: e1000e
+version: 1.0.2-k2
+firmware-version: 0.5-7
+bus-info: 0000:0e:00.0
+
+lscpi:
+0d:00.0 0200: 8086:108c (rev 03)
+        Subsystem: 15d9:108c    
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
+Stepping- SERR+ FastB2B- DisINTx+
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- 
+<TAbort- <MAbort- >SERR- <PERR- INTx- 
+        Latency: 0, Cache Line Size: 64 bytes                                                                
+        Interrupt: pin A routed to IRQ 29                                                                    
+        Region 0: Memory at ee100000 (32-bit, non-prefetchable) [size=128K]                                  
+        Region 2: I/O ports at 4000 [size=32]                                                                
+        Capabilities: [c8] Power Management version 2                                                        
+                Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA 
+PME(D0+,D1-,D2-,D3hot+,D3cold+)                   
+                Status: D0 PME-Enable- DSel=0 DScale=1 PME-                                                  
+        Capabilities: [d0] Message Signalled Interrupts: Mask- 64bit+ 
+Queue=0/0 Enable+                      
+                Address: 00000000fee0f00c  Data: 41c1                                                        
+        Capabilities: [e0] Express (v1) Endpoint, MSI 00                                                     
+                DevCap: MaxPayload 256 bytes, PhantFunc 0, Latency L0s <512ns, 
+L1 <64us                      
+                        ExtTag- AttnBtn- AttnInd- PwrInd- RBE- FLReset-                                      
+                DevCtl: Report errors: Correctable+ Non-Fatal+ Fatal+ 
+Unsupported+
+                        RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+
+                        MaxPayload 128 bytes, MaxReadReq 512 bytes
+                DevSta: CorrErr- UncorrErr+ FatalErr- UnsuppReq+ AuxPwr+ 
+TransPend-
+                LnkCap: Port #0, Speed 2.5GT/s, Width x1, ASPM unknown, 
+Latency L0 <128ns, L1 <64us
+                        ClockPM- Suprise- LLActRep- BwNot-
+                LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- Retrain- 
+CommClk-
+                        ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+                LnkSta: Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+ 
+DLActive- BWMgmt- ABWMgmt-
+        Capabilities: [100] Advanced Error Reporting <?>
+        Capabilities: [140] Device Serial Number e2-e1-96-ff-ff-48-30-00
+        Kernel driver in use: e1000e
+        Kernel modules: e1000e
+
+0e:00.0 0200: 8086:109a
+        Subsystem: 15d9:109a
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
+Stepping- SERR+ FastB2B- DisINTx+
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- 
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 0, Cache Line Size: 64 bytes
+        Interrupt: pin A routed to IRQ 30
+        Region 0: Memory at ee200000 (32-bit, non-prefetchable) [size=128K]
+        Region 2: I/O ports at 5000 [size=32]
+        Capabilities: [c8] Power Management version 2
+                Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA 
+PME(D0+,D1-,D2-,D3hot+,D3cold+)
+                Status: D0 PME-Enable- DSel=0 DScale=1 PME-
+        Capabilities: [d0] Message Signalled Interrupts: Mask- 64bit+ 
+Queue=0/0 Enable+
+                Address: 00000000fee0f00c  Data: 41b1
+        Capabilities: [e0] Express (v1) Endpoint, MSI 00
+                DevCap: MaxPayload 256 bytes, PhantFunc 0, Latency L0s <512ns, 
+L1 <64us
+                        ExtTag- AttnBtn- AttnInd- PwrInd- RBE- FLReset-
+                DevCtl: Report errors: Correctable+ Non-Fatal+ Fatal+ 
+Unsupported+
+                        RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+
+                        MaxPayload 128 bytes, MaxReadReq 512 bytes
+                DevSta: CorrErr- UncorrErr+ FatalErr- UnsuppReq+ AuxPwr+ 
+TransPend-
+                LnkCap: Port #0, Speed 2.5GT/s, Width x1, ASPM unknown, 
+Latency L0 <128ns, L1 <64us
+                        ClockPM+ Suprise- LLActRep- BwNot-
+                LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- Retrain- 
+CommClk-
+                        ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+                LnkSta: Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+ 
+DLActive- BWMgmt- ABWMgmt-
+        Capabilities: [100] Advanced Error Reporting <?>
+        Capabilities: [140] Device Serial Number e3-e1-96-ff-ff-48-30-00
+        Kernel driver in use: e1000e
+        Kernel modules: e1000e
+
+
+***************************************************************************
+OK, now the detailed parts:
+
+IPMI is currently blocked, i.e. I can query the card locally via the kernel 
+module, but not remotely. netconsole is loaded and working via eth1.
+
+# ethtool -S eth0                                     
+NIC statistics:                                                                 
+     rx_packets: 673400                                                         
+     tx_packets: 104323                                                         
+     rx_bytes: 48982938                                                         
+     tx_bytes: 8659194                                                          
+     rx_broadcast: 619125                                                       
+     tx_broadcast: 3                                                            
+     rx_multicast: 2088                                                         
+     tx_multicast: 0                                                            
+     rx_errors: 0                                                               
+     tx_errors: 0                                                               
+     tx_dropped: 0                                                              
+     multicast: 2088                                                            
+     collisions: 0                                                              
+     rx_length_errors: 0                                                        
+     rx_over_errors: 0                                                          
+     rx_crc_errors: 0                                                           
+     rx_frame_errors: 0                                                         
+     rx_no_buffer_count: 0                                                      
+     rx_missed_errors: 0                                                        
+     tx_aborted_errors: 0                                                       
+     tx_carrier_errors: 0                                                       
+     tx_fifo_errors: 0                                                          
+     tx_heartbeat_errors: 0                                                     
+     tx_window_errors: 0                                                        
+     tx_abort_late_coll: 0                                                      
+     tx_deferred_ok: 0                                                          
+     tx_single_coll_ok: 0                                                       
+     tx_multi_coll_ok: 0                                                        
+     tx_timeout_count: 0                                                        
+     tx_restart_queue: 0                                                        
+     rx_long_length_errors: 0                                                   
+     rx_short_length_errors: 0                                                  
+     rx_align_errors: 0                                                         
+     tx_tcp_seg_good: 0                                                         
+     tx_tcp_seg_failed: 0                                                       
+     rx_flow_control_xon: 0                                                     
+     rx_flow_control_xoff: 0                                                    
+     tx_flow_control_xon: 0                                                     
+     tx_flow_control_xoff: 0                                                    
+     rx_long_byte_count: 48982938                                               
+     rx_csum_offload_good: 76752                                                
+     rx_csum_offload_errors: 0                                                  
+     rx_header_split: 0                                                         
+     alloc_rx_buff_failed: 0                                                    
+     tx_smbus: 2                                                                
+     rx_smbus: 594496                                                           
+     dropped_smbus: 0                                                           
+     rx_dma_failed: 0                                                           
+     tx_dma_failed: 0                                                           
+n0126:/build/ethregs-1.7.2# ethtool -S eth1
+NIC statistics:                            
+     rx_packets: 17664653                  
+     tx_packets: 10941353                  
+     rx_bytes: 86578358008                 
+     tx_bytes: 7055320722                  
+     rx_broadcast: 4761580                 
+     tx_broadcast: 1252
+     rx_multicast: 0
+     tx_multicast: 0
+     rx_errors: 0
+     tx_errors: 0
+     tx_dropped: 0
+     multicast: 0
+     collisions: 0
+     rx_length_errors: 0
+     rx_over_errors: 0
+     rx_crc_errors: 0
+     rx_frame_errors: 0
+     rx_no_buffer_count: 1985
+     rx_missed_errors: 72239
+     tx_aborted_errors: 0
+     tx_carrier_errors: 0
+     tx_fifo_errors: 0
+     tx_heartbeat_errors: 0
+     tx_window_errors: 0
+     tx_abort_late_coll: 0
+     tx_deferred_ok: 0
+     tx_single_coll_ok: 0
+     tx_multi_coll_ok: 0
+     tx_timeout_count: 0
+     tx_restart_queue: 1920
+     rx_long_length_errors: 0
+     rx_short_length_errors: 0
+     rx_align_errors: 0
+     tx_tcp_seg_good: 127295
+     tx_tcp_seg_failed: 0
+     rx_flow_control_xon: 0
+     rx_flow_control_xoff: 0
+     tx_flow_control_xon: 0
+     tx_flow_control_xoff: 0
+     rx_long_byte_count: 86578358008
+     rx_csum_offload_good: 12907089
+     rx_csum_offload_errors: 0
+     rx_header_split: 750356
+     alloc_rx_buff_failed: 0
+     tx_smbus: 0
+     rx_smbus: 0
+     dropped_smbus: 0
+     rx_dma_failed: 0
+     tx_dma_failed: 0
+
+ethreg result attached
+
+******************************************************************************
+
+After rebooting without netconsole the IPMI card was still not working, using 
+the echo 1 > ... /remove command from Henning's original email suddenly made 
+IPMI working again.
+
+After that I rebooted the machine while watching the progress via ipmitool's 
+sol activate, however during the boot sequence suddenly the kernel output 
+slowed to a crawl. About 1-2 minutes later remote IPMI broke down again.
+
+netconsole was NOT loaded, thus I don't think that this is really related.
+
+OK, how to proceed?
+
+e.g. how can I re-enable the interface once I issued
+
+echo 1 > /sys/devices/pci0000:00/0000:00:1c.4/0000:0d:00.0/remove
+
+Cheers
+
+Carsten
+
+--Boundary-00=_sql7LNKAuk4EACq
+Content-Type: text/plain;
+  charset="UTF-8";
+  name="ethregs.IPMInotworkingNOnetconsole"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="ethregs.IPMInotworkingNOnetconsole"
+
+0e:00.0 (8086:109a)
+Intel Corporation 82573L Gigabit Ethernet Controller
+	Name           Value
+	~~~~           ~~~~~
+	CTRL           00140248
+	STATUS         80080783
+	EECD           06008318
+	EERD           f7460012
+	CTRL_EXT       28780000
+	FLA            00000608
+	MDIC           182a7800
+	FCAL           00c28001
+	FCAH           00000100
+	FCT            00008808
+	VET            00008100
+	ITR            000000c3
+	ICS            00000000
+	IMS            0000009d
+	IMC            0000009d
+	IAM            ffffffff
+	RCTL           06078422
+	FCTTV          00000680
+	TCTL           3103f0fa
+	TIPG           00602008
+	AIT            00000000
+	LEDCTL         00078406
+	EXTCNF_CTRL    1000000a
+	EXTCNF_SIZE    00000004
+	PBA            0012000e
+	PBS            00000020
+	EEMNGCTL       80000000
+	EEARBC         00000100
+	FLASHT         00000002
+	EEWR           00000002
+	FLSWCTL        c0000000
+	FLSWDATA       00000000
+	FLSWCNT        00000000
+	FLOP           0004db00
+	ERT            00002100
+	FCRTL          80002ff8
+	FCRTH          00003000
+	PSRCTL         04040401
+	RDBAL          00eb8000
+	RDBAH          00000002
+	RDLEN          00002000
+	RDH            0000005e
+	RDT            0000005a
+	RDTR           00000000
+	RXDCTL         00010003
+	RADV           00000008
+	RDBAL1         00000000
+	RDBAH1         00000200
+	RDLEN1         00000000
+	RDH1           00000000
+	RDT1           00000000
+	RSRPD          00000000
+	RAID           00000000
+	CPUVEC         00000000
+	TDFH           00000ae4
+	TDFT           00000ae4
+	TDFHS          00000ae4
+	TDFTS          00000ae4
+	TDFPC          00000000
+	TDBAL          16bd1000
+	TDBAH          00000002
+	TDLEN          00001000
+	TDH            00000076
+	TDT            00000076
+	TIDV           00000008
+	TXDCTL         01410000
+	TADV           00000020
+	TARC0          00000403
+	TDBAL1         80400000
+	TDBAH1         00000000
+	TDLEN1         00000000
+	TDH1           00000000
+	TDT1           00000000
+	TXDCTL1        00400000
+	TARC1          00000403
+	ICRXPTC        00000000
+	ICRXATC        00000000
+	ICTXPTC        00000000
+	ICTXATC        00000000
+	ICTXQEC        00000000
+	ICTXQMTC       00000000
+	ICRXDMTC       00000000
+	ICRXOC         00000000
+	RXCSUM         00001300
+	RFCTL          00038000
+	MTA[0]         00000000
+	MTA[1]         00000000
+	MTA[2]         00000000
+	MTA[3]         00000000
+	MTA[4]         00000000
+	MTA[5]         00000000
+	MTA[6]         00000000
+	MTA[7]         00000000
+	MTA[8]         00000000
+	MTA[9]         00000000
+	MTA[10]        00000000
+	MTA[11]        00000000
+	MTA[12]        00000000
+	MTA[13]        00000000
+	MTA[14]        00000000
+	MTA[15]        00000000
+	MTA[16]        00000000
+	MTA[17]        00000000
+	MTA[18]        00000000
+	MTA[19]        00000000
+	MTA[20]        00000000
+	MTA[21]        00000000
+	MTA[22]        00000000
+	MTA[23]        00000000
+	MTA[24]        00000000
+	MTA[25]        00000000
+	MTA[26]        00000000
+	MTA[27]        00000000
+	MTA[28]        00000000
+	MTA[29]        00000000
+	MTA[30]        00000000
+	MTA[31]        00000000
+	MTA[32]        00000000
+	MTA[33]        00000000
+	MTA[34]        00000000
+	MTA[35]        00000000
+	MTA[36]        00000000
+	MTA[37]        00000000
+	MTA[38]        00000000
+	MTA[39]        00000000
+	MTA[40]        00000000
+	MTA[41]        00000000
+	MTA[42]        00000000
+	MTA[43]        00000000
+	MTA[44]        00000000
+	MTA[45]        00000000
+	MTA[46]        00000000
+	MTA[47]        00000000
+	MTA[48]        00000000
+	MTA[49]        00000000
+	MTA[50]        00000000
+	MTA[51]        00000000
+	MTA[52]        00000000
+	MTA[53]        00000000
+	MTA[54]        00000000
+	MTA[55]        00000000
+	MTA[56]        00000000
+	MTA[57]        00000000
+	MTA[58]        00000000
+	MTA[59]        00000000
+	MTA[60]        00000000
+	MTA[61]        00000000
+	MTA[62]        00000000
+	MTA[63]        00000000
+	MTA[64]        00000000
+	MTA[65]        00000000
+	MTA[66]        00000000
+	MTA[67]        00000000
+	MTA[68]        00000000
+	MTA[69]        00000000
+	MTA[70]        00000000
+	MTA[71]        00000000
+	MTA[72]        00000000
+	MTA[73]        00000000
+	MTA[74]        00000000
+	MTA[75]        00000000
+	MTA[76]        00000000
+	MTA[77]        00000000
+	MTA[78]        00000000
+	MTA[79]        00000000
+	MTA[80]        00000000
+	MTA[81]        00000000
+	MTA[82]        00000000
+	MTA[83]        00000000
+	MTA[84]        00000000
+	MTA[85]        00000000
+	MTA[86]        00000000
+	MTA[87]        00000000
+	MTA[88]        00000000
+	MTA[89]        00000000
+	MTA[90]        00000000
+	MTA[91]        00000000
+	MTA[92]        00000000
+	MTA[93]        00000000
+	MTA[94]        00000000
+	MTA[95]        00000000
+	MTA[96]        00000000
+	MTA[97]        00000000
+	MTA[98]        00000000
+	MTA[99]        00000000
+	MTA[100]       00000000
+	MTA[101]       00000000
+	MTA[102]       00000000
+	MTA[103]       00000000
+	MTA[104]       00000000
+	MTA[105]       00000000
+	MTA[106]       00000000
+	MTA[107]       00000000
+	MTA[108]       00000000
+	MTA[109]       00000000
+	MTA[110]       00000000
+	MTA[111]       00000000
+	MTA[112]       00000000
+	MTA[113]       00000000
+	MTA[114]       00000000
+	MTA[115]       00000000
+	MTA[116]       00000000
+	MTA[117]       00000000
+	MTA[118]       00000000
+	MTA[119]       00000000
+	MTA[120]       00000000
+	MTA[121]       00000000
+	MTA[122]       00000000
+	MTA[123]       00000000
+	MTA[124]       00000000
+	MTA[125]       00000000
+	MTA[126]       00000000
+	MTA[127]       00000000
+	RAL[0]         96483000
+	RAH[0]         8000e3e1
+	RAL[1]         005e0001
+	RAH[1]         80000100
+	RAL[2]         00000000
+	RAH[2]         00000000
+	RAL[3]         00000000
+	RAH[3]         00000000
+	RAL[4]         00000000
+	RAH[4]         00000000
+	RAL[5]         00000000
+	RAH[5]         00000000
+	RAL[6]         00000000
+	RAH[6]         00000000
+	RAL[7]         00000000
+	RAH[7]         00000000
+	RAL[8]         00000000
+	RAH[8]         00000000
+	RAL[9]         00000000
+	RAH[9]         00000000
+	RAL[10]        00000000
+	RAH[10]        00000000
+	RAL[11]        00000000
+	RAH[11]        00000000
+	RAL[12]        00000000
+	RAH[12]        00000000
+	RAL[13]        00000000
+	RAH[13]        00000000
+	RAL[14]        00000000
+	RAH[14]        00000000
+	RAL[15]        00000000
+	RAH[15]        00020010
+	VFTA[0]        00000000
+	VFTA[1]        00000000
+	VFTA[2]        00000000
+	VFTA[3]        00000000
+	VFTA[4]        00000000
+	VFTA[5]        00000000
+	VFTA[6]        00000000
+	VFTA[7]        00000000
+	VFTA[8]        00000000
+	VFTA[9]        00000000
+	VFTA[10]       00000000
+	VFTA[11]       00000000
+	VFTA[12]       00000000
+	VFTA[13]       00000000
+	VFTA[14]       00000000
+	VFTA[15]       00000000
+	VFTA[16]       00000000
+	VFTA[17]       00000000
+	VFTA[18]       00000000
+	VFTA[19]       00000000
+	VFTA[20]       00000000
+	VFTA[21]       00000000
+	VFTA[22]       00000000
+	VFTA[23]       00000000
+	VFTA[24]       00000000
+	VFTA[25]       00000000
+	VFTA[26]       00000000
+	VFTA[27]       00000000
+	VFTA[28]       00000000
+	VFTA[29]       00000000
+	VFTA[30]       00000000
+	VFTA[31]       00000000
+	VFTA[32]       00000000
+	VFTA[33]       00000000
+	VFTA[34]       00000000
+	VFTA[35]       00000000
+	VFTA[36]       00000000
+	VFTA[37]       00000000
+	VFTA[38]       00000000
+	VFTA[39]       00000000
+	VFTA[40]       00000000
+	VFTA[41]       00000000
+	VFTA[42]       00000000
+	VFTA[43]       00000000
+	VFTA[44]       00000000
+	VFTA[45]       00000000
+	VFTA[46]       00000000
+	VFTA[47]       00000000
+	VFTA[48]       00000000
+	VFTA[49]       00000000
+	VFTA[50]       00000000
+	VFTA[51]       00000000
+	VFTA[52]       00000000
+	VFTA[53]       00000000
+	VFTA[54]       00000000
+	VFTA[55]       00000000
+	VFTA[56]       00000000
+	VFTA[57]       00000000
+	VFTA[58]       00000000
+	VFTA[59]       00000000
+	VFTA[60]       00000000
+	VFTA[61]       00000000
+	VFTA[62]       00000000
+	VFTA[63]       00000000
+	VFTA[64]       00000000
+	VFTA[65]       00000000
+	VFTA[66]       00000000
+	VFTA[67]       00000000
+	VFTA[68]       00000000
+	VFTA[69]       00000000
+	VFTA[70]       00000000
+	VFTA[71]       00000000
+	VFTA[72]       00000000
+	VFTA[73]       00000000
+	VFTA[74]       00000000
+	VFTA[75]       00000000
+	VFTA[76]       00000000
+	VFTA[77]       00000000
+	VFTA[78]       00000000
+	VFTA[79]       00000000
+	VFTA[80]       00000000
+	VFTA[81]       00000000
+	VFTA[82]       00000000
+	VFTA[83]       00000000
+	VFTA[84]       00000000
+	VFTA[85]       00000000
+	VFTA[86]       00000000
+	VFTA[87]       00000000
+	VFTA[88]       00000000
+	VFTA[89]       00000000
+	VFTA[90]       00000000
+	VFTA[91]       00000000
+	VFTA[92]       00000000
+	VFTA[93]       00000000
+	VFTA[94]       00000000
+	VFTA[95]       00000000
+	VFTA[96]       00000000
+	VFTA[97]       00000000
+	VFTA[98]       00000000
+	VFTA[99]       00000000
+	VFTA[100]      00000000
+	VFTA[101]      00000000
+	VFTA[102]      00000000
+	VFTA[103]      00000000
+	VFTA[104]      00000000
+	VFTA[105]      00000000
+	VFTA[106]      00000000
+	VFTA[107]      00000000
+	VFTA[108]      00000000
+	VFTA[109]      00000000
+	VFTA[110]      00000000
+	VFTA[111]      00000000
+	VFTA[112]      00000000
+	VFTA[113]      00000000
+	VFTA[114]      00000000
+	VFTA[115]      00000000
+	VFTA[116]      00000000
+	VFTA[117]      00000000
+	VFTA[118]      00000000
+	VFTA[119]      00000000
+	VFTA[120]      00000000
+	VFTA[121]      00000000
+	VFTA[122]      00000000
+	VFTA[123]      00000000
+	VFTA[124]      00000000
+	VFTA[125]      00000000
+	VFTA[126]      00000000
+	VFTA[127]      00000000
+	WUC            00000000
+	WUFC           00000000
+	WUS            00000000
+	MRQC           00000000
+	MANC           00000100
+	IPAV           00000000
+	MANC2H         00000000
+	RSSIM          00000000
+	RSSIR          00000001
+	WUPL           9ce201fa
+	GCR            0e000000
+	GSCL_1         00000000
+	GSCL_2         00000000
+	GSCL_3         00000000
+	GSCL_4         00000000
+	FACTPS         a1041046
+	FWSM           00000000
+	RETA[0]        00000015
+	RETA[1]        0000006b
+	RETA[2]        00000004
+	RETA[3]        000000e2
+	RETA[4]        00000070
+	RETA[5]        00000077
+	RETA[6]        00000018
+	RETA[7]        00000001
+	RETA[8]        00000029
+	RETA[9]        00000069
+	RETA[10]       00000004
+	RETA[11]       00000081
+	RETA[12]       00000040
+	RETA[13]       0000001e
+	RETA[14]       00000093
+	RETA[15]       000000c3
+	RETA[16]       0000001b
+	RETA[17]       0000002f
+	RETA[18]       00000002
+	RETA[19]       000000f4
+	RETA[20]       000000bd
+	RETA[21]       000000b6
+	RETA[22]       000000af
+	RETA[23]       00000029
+	RETA[24]       00000003
+	RETA[25]       0000001e
+	RETA[26]       00000011
+	RETA[27]       000000a5
+	RETA[28]       0000008f
+	RETA[29]       0000000b
+	RETA[30]       00000059
+	RETA[31]       00000006
+	RETA[32]       00000008
+	RETA[33]       000000d8
+	RETA[34]       00000099
+	RETA[35]       000000fb
+	RETA[36]       0000003c
+	RETA[37]       0000006c
+	RETA[38]       00000011
+	RETA[39]       00000027
+	RETA[40]       00000029
+	RETA[41]       00000097
+	RETA[42]       00000055
+	RETA[43]       000000a2
+	RETA[44]       00000019
+	RETA[45]       0000006e
+	RETA[46]       00000011
+	RETA[47]       00000060
+	RETA[48]       000000ef
+	RETA[49]       000000c1
+	RETA[50]       00000033
+	RETA[51]       000000a2
+	RETA[52]       00000007
+	RETA[53]       0000008a
+	RETA[54]       0000006c
+	RETA[55]       000000c2
+	RETA[56]       00000029
+	RETA[57]       0000002e
+	RETA[58]       0000008b
+	RETA[59]       00000063
+	RETA[60]       00000035
+	RETA[61]       00000015
+	RETA[62]       00000091
+	RETA[63]       000000ec
+	RETA[64]       00000045
+	RETA[65]       0000003b
+	RETA[66]       0000001d
+	RETA[67]       00000040
+	RETA[68]       000000c5
+	RETA[69]       00000082
+	RETA[70]       000000b3
+	RETA[71]       000000b6
+	RETA[72]       0000000a
+	RETA[73]       0000009b
+	RETA[74]       000000d2
+	RETA[75]       000000d2
+	RETA[76]       0000004a
+	RETA[77]       0000004e
+	RETA[78]       00000010
+	RETA[79]       000000e0
+	RETA[80]       0000003a
+	RETA[81]       000000ae
+	RETA[82]       0000000d
+	RETA[83]       00000070
+	RETA[84]       0000001a
+	RETA[85]       000000e7
+	RETA[86]       000000c7
+	RETA[87]       000000a5
+	RETA[88]       0000006d
+	RETA[89]       0000002f
+	RETA[90]       00000061
+	RETA[91]       00000026
+	RETA[92]       0000000f
+	RETA[93]       0000001f
+	RETA[94]       00000019
+	RETA[95]       000000ed
+	RETA[96]       00000059
+	RETA[97]       00000003
+	RETA[98]       00000058
+	RETA[99]       000000c9
+	RETA[100]      0000006d
+	RETA[101]      000000aa
+	RETA[102]      0000000b
+	RETA[103]      00000063
+	RETA[104]      000000cd
+	RETA[105]      0000001f
+	RETA[106]      00000018
+	RETA[107]      00000042
+	RETA[108]      00000079
+	RETA[109]      0000000f
+	RETA[110]      0000005b
+	RETA[111]      00000042
+	RETA[112]      00000049
+	RETA[113]      0000006e
+	RETA[114]      00000008
+	RETA[115]      00000076
+	RETA[116]      0000002d
+	RETA[117]      00000059
+	RETA[118]      00000047
+	RETA[119]      000000a6
+	RETA[120]      00000090
+	RETA[121]      00000002
+	RETA[122]      000000cb
+	RETA[123]      00000049
+	RETA[124]      00000093
+	RETA[125]      00000009
+	RETA[126]      00000016
+	RETA[127]      000000f2
+	RSSRK[0]       00000000
+	RSSRK[1]       00000000
+	RSSRK[2]       00000000
+	RSSRK[3]       00000000
+	RSSRK[4]       00000000
+	RSSRK[5]       00000000
+	RSSRK[6]       00000000
+	RSSRK[7]       00000000
+	RSSRK[8]       00000000
+	RSSRK[9]       00000000
+	RSSRK[10]      00000000
+	RSSRK[11]      00000000
+	RSSRK[12]      00000000
+	RSSRK[13]      00000000
+	RSSRK[14]      00000000
+	RSSRK[15]      00000000
+	RSSRK[16]      00000000
+	RSSRK[17]      00000000
+	RSSRK[18]      00000000
+	RSSRK[19]      00000000
+	RSSRK[20]      00000000
+	RSSRK[21]      00000000
+	RSSRK[22]      00000000
+	RSSRK[23]      00000000
+	RSSRK[24]      00000000
+	RSSRK[25]      00000000
+	RSSRK[26]      00000000
+	RSSRK[27]      00000000
+	RSSRK[28]      00000000
+	RSSRK[29]      00000000
+	RSSRK[30]      00000000
+	RSSRK[31]      00000000
+	RSSRK[32]      00000000
+	RSSRK[33]      00000000
+	RSSRK[34]      00000000
+	RSSRK[35]      00000000
+	RSSRK[36]      00000000
+	RSSRK[37]      00000000
+	RSSRK[38]      00000000
+	RSSRK[39]      00000000
+	FFLT[0]        00000000
+	FFLT[1]        fffc0000
+	FFLT[2]        00000000
+	FFLT[3]        00000000
+	FFLT[4]        00000000
+	FFLT[5]        00000000
+	FFLT[6]        00000000
+	FFLT[7]        00000000
+	FFLT[8]        00000080
+	FFLT[9]        00000000
+	FFLT[10]       00000002
+	FFLT[11]       00000000
+	HICR           00000000
+	FFMT[0]        00000006
+	FFMT[1]        00000006
+	FFMT[2]        00000009
+	FFMT[3]        00000009
+	FFMT[4]        0000000e
+	FFMT[5]        0000000e
+	FFMT[6]        0000000d
+	FFMT[7]        0000000d
+	FFMT[8]        0000000b
+	FFMT[9]        0000000b
+	FFMT[10]       0000000d
+	FFMT[11]       0000000d
+	FFMT[12]       00000004
+	FFMT[13]       00000004
+	FFMT[14]       00000000
+	FFMT[15]       00000000
+	FFMT[16]       00000000
+	FFMT[17]       00000000
+	FFMT[18]       00000009
+	FFMT[19]       00000009
+	FFMT[20]       00000001
+	FFMT[21]       00000001
+	FFMT[22]       00000006
+	FFMT[23]       00000006
+	FFMT[24]       00000003
+	FFMT[25]       00000003
+	FFMT[26]       00000004
+	FFMT[27]       00000004
+	FFMT[28]       00000005
+	FFMT[29]       00000005
+	FFMT[30]       0000000c
+	FFMT[31]       0000000c
+	FFMT[32]       00000000
+	FFMT[33]       00000000
+	FFMT[34]       00000008
+	FFMT[35]       00000008
+	FFMT[36]       00000002
+	FFMT[37]       00000002
+	FFMT[38]       0000000e
+	FFMT[39]       0000000e
+	FFMT[40]       00000003
+	FFMT[41]       00000003
+	FFMT[42]       0000000b
+	FFMT[43]       0000000b
+	FFMT[44]       00000001
+	FFMT[45]       00000001
+	FFMT[46]       00000005
+	FFMT[47]       00000005
+	FFMT[48]       00000003
+	FFMT[49]       00000003
+	FFMT[50]       00000001
+	FFMT[51]       00000001
+	FFMT[52]       0000000a
+	FFMT[53]       0000000a
+	FFMT[54]       00000003
+	FFMT[55]       00000003
+	FFMT[56]       00000001
+	FFMT[57]       00000001
+	FFMT[58]       0000000d
+	FFMT[59]       0000000d
+	FFMT[60]       00000008
+	FFMT[61]       00000008
+	FFMT[62]       00000002
+	FFMT[63]       00000002
+	FFMT[64]       00000002
+	FFMT[65]       00000002
+	FFMT[66]       00000007
+	FFMT[67]       00000007
+	FFMT[68]       00000004
+	FFMT[69]       00000004
+	FFMT[70]       00000006
+	FFMT[71]       00000006
+	FFMT[72]       0000000e
+	FFMT[73]       0000000e
+	FFMT[74]       0000000e
+	FFMT[75]       0000000e
+	FFMT[76]       0000000f
+	FFMT[77]       0000000f
+	FFMT[78]       00000002
+	FFMT[79]       00000002
+	FFMT[80]       00000000
+	FFMT[81]       00000000
+	FFMT[82]       0000000b
+	FFMT[83]       0000000b
+	FFMT[84]       00000009
+	FFMT[85]       00000009
+	FFMT[86]       00000009
+	FFMT[87]       00000009
+	FFMT[88]       0000000a
+	FFMT[89]       0000000a
+	FFMT[90]       0000000d
+	FFMT[91]       0000000d
+	FFMT[92]       00000005
+	FFMT[93]       00000005
+	FFMT[94]       00000006
+	FFMT[95]       00000006
+	FFMT[96]       00000003
+	FFMT[97]       00000003
+	FFMT[98]       0000000d
+	FFMT[99]       0000000d
+	FFMT[100]      00000009
+	FFMT[101]      00000009
+	FFMT[102]      0000000d
+	FFMT[103]      0000000d
+	FFMT[104]      00000001
+	FFMT[105]      00000001
+	FFMT[106]      0000000e
+	FFMT[107]      0000000e
+	FFMT[108]      0000000b
+	FFMT[109]      0000000b
+	FFMT[110]      00000000
+	FFMT[111]      00000000
+	FFMT[112]      00000001
+	FFMT[113]      00000001
+	FFMT[114]      00000000
+	FFMT[115]      00000000
+	FFMT[116]      00000008
+	FFMT[117]      00000008
+	FFMT[118]      0000000a
+	FFMT[119]      0000000a
+	FFMT[120]      00000001
+	FFMT[121]      00000001
+	FFMT[122]      00000006
+	FFMT[123]      00000006
+	FFMT[124]      00000002
+	FFMT[125]      00000002
+	FFMT[126]      0000000f
+	FFMT[127]      0000000f
+	FFVT[0]        a6d21076
+	FFVT[1]        a6d21076
+	FFVT[2]        14fddf8e
+	FFVT[3]        14fddf8e
+	FFVT[4]        af998eff
+	FFVT[5]        af998eff
+	FFVT[6]        72ee35eb
+	FFVT[7]        72ee35eb
+	FFVT[8]        4595b5d0
+	FFVT[9]        4595b5d0
+	FFVT[10]       9ce2d272
+	FFVT[11]       9ce2d272
+	FFVT[12]       65ccdb20
+	FFVT[13]       65ccdb20
+	FFVT[14]       7a6d632f
+	FFVT[15]       7a6d632f
+	FFVT[16]       c9fd53bd
+	FFVT[17]       c9fd53bd
+	FFVT[18]       138adc2d
+	FFVT[19]       138adc2d
+	FFVT[20]       5a7c8912
+	FFVT[21]       5a7c8912
+	FFVT[22]       080da768
+	FFVT[23]       080da768
+	FFVT[24]       e00a93c6
+	FFVT[25]       e00a93c6
+	FFVT[26]       3d05bbe0
+	FFVT[27]       3d05bbe0
+	FFVT[28]       8dc0ad89
+	FFVT[29]       8dc0ad89
+	FFVT[30]       a0267e00
+	FFVT[31]       a0267e00
+	FFVT[32]       45f0b43f
+	FFVT[33]       45f0b43f
+	FFVT[34]       62120156
+	FFVT[35]       62120156
+	FFVT[36]       a6213b97
+	FFVT[37]       a6213b97
+	FFVT[38]       ea15b0b6
+	FFVT[39]       ea15b0b6
+	FFVT[40]       a4176212
+	FFVT[41]       a4176212
+	FFVT[42]       ae88d158
+	FFVT[43]       ae88d158
+	FFVT[44]       541de595
+	FFVT[45]       541de595
+	FFVT[46]       15d56ace
+	FFVT[47]       15d56ace
+	FFVT[48]       45824374
+	FFVT[49]       45824374
+	FFVT[50]       2ba17885
+	FFVT[51]       2ba17885
+	FFVT[52]       b63201ea
+	FFVT[53]       b63201ea
+	FFVT[54]       b1ff88da
+	FFVT[55]       b1ff88da
+	FFVT[56]       f24edcea
+	FFVT[57]       f24edcea
+	FFVT[58]       b068c2e7
+	FFVT[59]       b068c2e7
+	FFVT[60]       58a6584c
+	FFVT[61]       58a6584c
+	FFVT[62]       ca6624d0
+	FFVT[63]       ca6624d0
+	FFVT[64]       d66319d3
+	FFVT[65]       d66319d3
+	FFVT[66]       437f892f
+	FFVT[67]       437f892f
+	FFVT[68]       6298ced1
+	FFVT[69]       6298ced1
+	FFVT[70]       d8f20b8e
+	FFVT[71]       d8f20b8e
+	FFVT[72]       00a8562c
+	FFVT[73]       00a8562c
+	FFVT[74]       536016e4
+	FFVT[75]       536016e4
+	FFVT[76]       81723c11
+	FFVT[77]       81723c11
+	FFVT[78]       6baf812a
+	FFVT[79]       6baf812a
+	FFVT[80]       579813dc
+	FFVT[81]       579813dc
+	FFVT[82]       f1099664
+	FFVT[83]       f1099664
+	FFVT[84]       484724af
+	FFVT[85]       484724af
+	FFVT[86]       9473f82f
+	FFVT[87]       9473f82f
+	FFVT[88]       2086be8f
+	FFVT[89]       2086be8f
+	FFVT[90]       505baa7a
+	FFVT[91]       505baa7a
+	FFVT[92]       e106d4d4
+	FFVT[93]       e106d4d4
+	FFVT[94]       035cf124
+	FFVT[95]       035cf124
+	FFVT[96]       80e38b56
+	FFVT[97]       80e38b56
+	FFVT[98]       03ef854a
+	FFVT[99]       03ef854a
+	FFVT[100]      ece8d8c9
+	FFVT[101]      ece8d8c9
+	FFVT[102]      a1d4c1a9
+	FFVT[103]      a1d4c1a9
+	FFVT[104]      e800f0b6
+	FFVT[105]      e800f0b6
+	FFVT[106]      7019d873
+	FFVT[107]      7019d873
+	FFVT[108]      a45554ff
+	FFVT[109]      a45554ff
+	FFVT[110]      29f98242
+	FFVT[111]      29f98242
+	FFVT[112]      b517937f
+	FFVT[113]      b517937f
+	FFVT[114]      a4d35dd5
+	FFVT[115]      a4d35dd5
+	FFVT[116]      52328c1b
+	FFVT[117]      52328c1b
+	FFVT[118]      09f59e76
+	FFVT[119]      09f59e76
+	FFVT[120]      1968c620
+	FFVT[121]      1968c620
+	FFVT[122]      cba89964
+	FFVT[123]      cba89964
+	FFVT[124]      42dc73e1
+	FFVT[125]      42dc73e1
+	FFVT[126]      06efaa25
+	FFVT[127]      06efaa25
+
+
+0d:00.0 (8086:108c)
+Intel Corporation 82573E Gigabit Ethernet Controller (Copper)
+	Name           Value
+	~~~~           ~~~~~
+	CTRL           18140248
+	STATUS         80080743
+	EECD           02011b18
+	EERD           ffff0026
+	CTRL_EXT       28780000
+	FLA            00000608
+	MDIC           18316d4c
+	FCAL           00c28001
+	FCAH           00000100
+	FCT            00008808
+	VET            00008100
+	ITR            000003d0
+	ICS            00000000
+	IMS            0000009d
+	IMC            0000009d
+	IAM            ffffffff
+	RCTL           04048002
+	FCTTV          00000680
+	TCTL           3103f0fa
+	TIPG           00602008
+	AIT            00000000
+	LEDCTL         00078406
+	EXTCNF_CTRL    10000008
+	EXTCNF_SIZE    00000000
+	PBA            000c0014
+	PBS            00000020
+	EEMNGCTL       800000f7
+	EEARBC         00080100
+	FLASHT         00000002
+	EEWR           00000002
+	FLSWCTL        c0000000
+	FLSWDATA       00000000
+	FLSWCNT        00000000
+	FLOP           00012000
+	ERT            00000000
+	FCRTL          800047f8
+	FCRTH          00004800
+	PSRCTL         00040402
+	RDBAL          15b98000
+	RDBAH          00000002
+	RDLEN          00001000
+	RDH            0000008d
+	RDT            0000008b
+	RDTR           00000000
+	RXDCTL         00010000
+	RADV           00000008
+	RDBAL1         00000000
+	RDBAH1         01200200
+	RDLEN1         00000000
+	RDH1           00000000
+	RDT1           00000000
+	RSRPD          00000000
+	RAID           00000000
+	CPUVEC         00000000
+	TDFH           00000b16
+	TDFT           00000b16
+	TDFHS          00000b16
+	TDFTS          00000b16
+	TDFPC          00000000
+	TDBAL          1602b000
+	TDBAH          00000002
+	TDLEN          00001000
+	TDH            00000021
+	TDT            00000021
+	TIDV           00000008
+	TXDCTL         01410000
+	TADV           00000020
+	TARC0          00000403
+	TDBAL1         00800000
+	TDBAH1         10000500
+	TDLEN1         00000000
+	TDH1           00000000
+	TDT1           00000000
+	TXDCTL1        00400000
+	TARC1          00000403
+	ICRXPTC        00000000
+	ICRXATC        00000000
+	ICTXPTC        00000000
+	ICTXATC        00000000
+	ICTXQEC        00000000
+	ICTXQMTC       00000000
+	ICRXDMTC       00000000
+	ICRXOC         00000000
+	RXCSUM         00000300
+	RFCTL          00000000
+	MTA[0]         00000000
+	MTA[1]         00000000
+	MTA[2]         00000000
+	MTA[3]         00000000
+	MTA[4]         00000000
+	MTA[5]         00000000
+	MTA[6]         00000000
+	MTA[7]         00000000
+	MTA[8]         00000000
+	MTA[9]         00000000
+	MTA[10]        00000000
+	MTA[11]        00000000
+	MTA[12]        00000000
+	MTA[13]        00000000
+	MTA[14]        00000000
+	MTA[15]        00000000
+	MTA[16]        00000000
+	MTA[17]        00000000
+	MTA[18]        00000000
+	MTA[19]        00000000
+	MTA[20]        00000000
+	MTA[21]        00000000
+	MTA[22]        00000000
+	MTA[23]        00000000
+	MTA[24]        00000000
+	MTA[25]        00000000
+	MTA[26]        00000000
+	MTA[27]        00000000
+	MTA[28]        00000000
+	MTA[29]        00000000
+	MTA[30]        00000000
+	MTA[31]        00000000
+	MTA[32]        00000000
+	MTA[33]        00000000
+	MTA[34]        00000000
+	MTA[35]        00000000
+	MTA[36]        00000000
+	MTA[37]        00000000
+	MTA[38]        00000000
+	MTA[39]        00000000
+	MTA[40]        00000000
+	MTA[41]        00000000
+	MTA[42]        00000000
+	MTA[43]        00000000
+	MTA[44]        00000000
+	MTA[45]        00000000
+	MTA[46]        00000000
+	MTA[47]        00000000
+	MTA[48]        00000000
+	MTA[49]        00000000
+	MTA[50]        00000000
+	MTA[51]        00000000
+	MTA[52]        00000000
+	MTA[53]        00000000
+	MTA[54]        00000000
+	MTA[55]        00000000
+	MTA[56]        00000000
+	MTA[57]        00000000
+	MTA[58]        00000000
+	MTA[59]        00000000
+	MTA[60]        00000000
+	MTA[61]        00000000
+	MTA[62]        00000000
+	MTA[63]        00000000
+	MTA[64]        00000000
+	MTA[65]        00000000
+	MTA[66]        00000000
+	MTA[67]        00000000
+	MTA[68]        00000000
+	MTA[69]        00000000
+	MTA[70]        00000000
+	MTA[71]        00000000
+	MTA[72]        00000000
+	MTA[73]        00000000
+	MTA[74]        00000000
+	MTA[75]        00000000
+	MTA[76]        00000000
+	MTA[77]        00000000
+	MTA[78]        00000000
+	MTA[79]        00000000
+	MTA[80]        00000000
+	MTA[81]        00000000
+	MTA[82]        00000000
+	MTA[83]        00000000
+	MTA[84]        00000000
+	MTA[85]        00000000
+	MTA[86]        00000000
+	MTA[87]        00000000
+	MTA[88]        00000000
+	MTA[89]        00000000
+	MTA[90]        00000000
+	MTA[91]        00000000
+	MTA[92]        00000000
+	MTA[93]        00000000
+	MTA[94]        00000000
+	MTA[95]        00000000
+	MTA[96]        00000000
+	MTA[97]        00000000
+	MTA[98]        00000000
+	MTA[99]        00000000
+	MTA[100]       00000000
+	MTA[101]       00000000
+	MTA[102]       00000000
+	MTA[103]       00000000
+	MTA[104]       00000000
+	MTA[105]       00000000
+	MTA[106]       00000000
+	MTA[107]       00000000
+	MTA[108]       00000000
+	MTA[109]       00000000
+	MTA[110]       00000000
+	MTA[111]       00000000
+	MTA[112]       00000000
+	MTA[113]       00000000
+	MTA[114]       00000000
+	MTA[115]       00000000
+	MTA[116]       00000000
+	MTA[117]       00000000
+	MTA[118]       00000000
+	MTA[119]       00000000
+	MTA[120]       00000000
+	MTA[121]       00000000
+	MTA[122]       00000000
+	MTA[123]       00000000
+	MTA[124]       00000000
+	MTA[125]       00000000
+	MTA[126]       00000000
+	MTA[127]       00000000
+	RAL[0]         96483000
+	RAH[0]         8000e2e1
+	RAL[1]         005e0001
+	RAH[1]         80000100
+	RAL[2]         00000000
+	RAH[2]         00000000
+	RAL[3]         00000000
+	RAH[3]         00000000
+	RAL[4]         00000000
+	RAH[4]         00000000
+	RAL[5]         00000000
+	RAH[5]         00000000
+	RAL[6]         00000000
+	RAH[6]         00000000
+	RAL[7]         00000000
+	RAH[7]         00000000
+	RAL[8]         00000000
+	RAH[8]         00000000
+	RAL[9]         00000000
+	RAH[9]         00000000
+	RAL[10]        00000000
+	RAH[10]        00000000
+	RAL[11]        00000000
+	RAH[11]        00000000
+	RAL[12]        00000000
+	RAH[12]        00000000
+	RAL[13]        00000000
+	RAH[13]        00000000
+	RAL[14]        00000000
+	RAH[14]        00000000
+	RAL[15]        96483000
+	RAH[15]        0000e2e1
+	VFTA[0]        00000000
+	VFTA[1]        00000000
+	VFTA[2]        00000000
+	VFTA[3]        00000000
+	VFTA[4]        00000000
+	VFTA[5]        00000000
+	VFTA[6]        00000000
+	VFTA[7]        00000000
+	VFTA[8]        00000000
+	VFTA[9]        00000000
+	VFTA[10]       00000000
+	VFTA[11]       00000000
+	VFTA[12]       00000000
+	VFTA[13]       00000000
+	VFTA[14]       00000000
+	VFTA[15]       00000000
+	VFTA[16]       00000000
+	VFTA[17]       00000000
+	VFTA[18]       00000000
+	VFTA[19]       00000000
+	VFTA[20]       00000000
+	VFTA[21]       00000000
+	VFTA[22]       00000000
+	VFTA[23]       00000000
+	VFTA[24]       00000000
+	VFTA[25]       00000000
+	VFTA[26]       00000000
+	VFTA[27]       00000000
+	VFTA[28]       00000000
+	VFTA[29]       00000000
+	VFTA[30]       00000000
+	VFTA[31]       00000000
+	VFTA[32]       00000000
+	VFTA[33]       00000000
+	VFTA[34]       00000000
+	VFTA[35]       00000000
+	VFTA[36]       00000000
+	VFTA[37]       00000000
+	VFTA[38]       00000000
+	VFTA[39]       00000000
+	VFTA[40]       00000000
+	VFTA[41]       00000000
+	VFTA[42]       00000000
+	VFTA[43]       00000000
+	VFTA[44]       00000000
+	VFTA[45]       00000000
+	VFTA[46]       00000000
+	VFTA[47]       00000000
+	VFTA[48]       00000000
+	VFTA[49]       00000000
+	VFTA[50]       00000000
+	VFTA[51]       00000000
+	VFTA[52]       00000000
+	VFTA[53]       00000000
+	VFTA[54]       00000000
+	VFTA[55]       00000000
+	VFTA[56]       00000000
+	VFTA[57]       00000000
+	VFTA[58]       00000000
+	VFTA[59]       00000000
+	VFTA[60]       00000000
+	VFTA[61]       00000000
+	VFTA[62]       00000000
+	VFTA[63]       00000000
+	VFTA[64]       00000000
+	VFTA[65]       00000000
+	VFTA[66]       00000000
+	VFTA[67]       00000000
+	VFTA[68]       00000000
+	VFTA[69]       00000000
+	VFTA[70]       00000000
+	VFTA[71]       00000000
+	VFTA[72]       00000000
+	VFTA[73]       00000000
+	VFTA[74]       00000000
+	VFTA[75]       00000000
+	VFTA[76]       00000000
+	VFTA[77]       00000000
+	VFTA[78]       00000000
+	VFTA[79]       00000000
+	VFTA[80]       00000000
+	VFTA[81]       00000000
+	VFTA[82]       00000000
+	VFTA[83]       00000000
+	VFTA[84]       00000000
+	VFTA[85]       00000000
+	VFTA[86]       00000000
+	VFTA[87]       00000000
+	VFTA[88]       00000000
+	VFTA[89]       00000000
+	VFTA[90]       00000000
+	VFTA[91]       00000000
+	VFTA[92]       00000000
+	VFTA[93]       00000000
+	VFTA[94]       00000000
+	VFTA[95]       00000000
+	VFTA[96]       00000000
+	VFTA[97]       00000000
+	VFTA[98]       00000000
+	VFTA[99]       00000000
+	VFTA[100]      00000000
+	VFTA[101]      00000000
+	VFTA[102]      00000000
+	VFTA[103]      00000000
+	VFTA[104]      00000000
+	VFTA[105]      00000000
+	VFTA[106]      00000000
+	VFTA[107]      00000000
+	VFTA[108]      00000000
+	VFTA[109]      00000000
+	VFTA[110]      00000000
+	VFTA[111]      00000000
+	VFTA[112]      00000000
+	VFTA[113]      00000000
+	VFTA[114]      00000000
+	VFTA[115]      00000000
+	VFTA[116]      00000000
+	VFTA[117]      00000000
+	VFTA[118]      00000000
+	VFTA[119]      00000000
+	VFTA[120]      00000000
+	VFTA[121]      00000000
+	VFTA[122]      00000000
+	VFTA[123]      00000000
+	VFTA[124]      00000000
+	VFTA[125]      00000000
+	VFTA[126]      00000000
+	VFTA[127]      00000000
+	WUC            00000000
+	WUFC           00000000
+	WUS            00000000
+	MRQC           00000000
+	MANC           0022a300
+	IPAV           00000000
+	MANC2H         00000380
+	RSSIM          00000000
+	RSSIR          00000000
+	WUPL           28167f49
+	GCR            0e000000
+	GSCL_1         00000000
+	GSCL_2         00000000
+	GSCL_3         00000000
+	GSCL_4         00000000
+	FACTPS         01041046
+	FWSM           00018044
+	RETA[0]        0000008c
+	RETA[1]        0000001f
+	RETA[2]        00000082
+	RETA[3]        00000086
+	RETA[4]        0000009f
+	RETA[5]        00000066
+	RETA[6]        0000005a
+	RETA[7]        0000004b
+	RETA[8]        0000001e
+	RETA[9]        000000af
+	RETA[10]       000000dc
+	RETA[11]       000000e5
+	RETA[12]       0000002d
+	RETA[13]       000000aa
+	RETA[14]       0000009b
+	RETA[15]       0000001c
+	RETA[16]       00000053
+	RETA[17]       000000e6
+	RETA[18]       00000096
+	RETA[19]       00000084
+	RETA[20]       000000b1
+	RETA[21]       0000006b
+	RETA[22]       000000b7
+	RETA[23]       000000de
+	RETA[24]       00000010
+	RETA[25]       000000d4
+	RETA[26]       000000ef
+	RETA[27]       00000034
+	RETA[28]       00000038
+	RETA[29]       0000000e
+	RETA[30]       00000012
+	RETA[31]       0000001d
+	RETA[32]       00000001
+	RETA[33]       0000004b
+	RETA[34]       000000e3
+	RETA[35]       0000001e
+	RETA[36]       0000001b
+	RETA[37]       0000009b
+	RETA[38]       0000008e
+	RETA[39]       00000068
+	RETA[40]       00000015
+	RETA[41]       000000e2
+	RETA[42]       000000c7
+	RETA[43]       000000c6
+	RETA[44]       00000034
+	RETA[45]       0000007a
+	RETA[46]       000000b6
+	RETA[47]       00000014
+	RETA[48]       000000aa
+	RETA[49]       0000006f
+	RETA[50]       000000fa
+	RETA[51]       00000085
+	RETA[52]       00000032
+	RETA[53]       0000004e
+	RETA[54]       0000003f
+	RETA[55]       0000004c
+	RETA[56]       00000099
+	RETA[57]       0000003d
+	RETA[58]       000000f2
+	RETA[59]       000000ae
+	RETA[60]       00000011
+	RETA[61]       0000006f
+	RETA[62]       000000b7
+	RETA[63]       0000000b
+	RETA[64]       0000009b
+	RETA[65]       00000007
+	RETA[66]       0000000a
+	RETA[67]       0000009a
+	RETA[68]       000000a3
+	RETA[69]       00000020
+	RETA[70]       000000f3
+	RETA[71]       00000084
+	RETA[72]       0000004d
+	RETA[73]       00000048
+	RETA[74]       0000008b
+	RETA[75]       00000021
+	RETA[76]       000000c7
+	RETA[77]       00000053
+	RETA[78]       000000a3
+	RETA[79]       0000008b
+	RETA[80]       000000d4
+	RETA[81]       0000004a
+	RETA[82]       000000c2
+	RETA[83]       000000c0
+	RETA[84]       0000003b
+	RETA[85]       00000069
+	RETA[86]       00000082
+	RETA[87]       0000005e
+	RETA[88]       00000098
+	RETA[89]       0000007a
+	RETA[90]       00000017
+	RETA[91]       00000084
+	RETA[92]       000000ab
+	RETA[93]       0000004a
+	RETA[94]       000000c7
+	RETA[95]       00000014
+	RETA[96]       0000001d
+	RETA[97]       0000006a
+	RETA[98]       00000077
+	RETA[99]       00000014
+	RETA[100]      000000b9
+	RETA[101]      0000000a
+	RETA[102]      000000c2
+	RETA[103]      0000003d
+	RETA[104]      00000055
+	RETA[105]      000000aa
+	RETA[106]      000000b4
+	RETA[107]      00000004
+	RETA[108]      00000047
+	RETA[109]      00000053
+	RETA[110]      000000f7
+	RETA[111]      00000016
+	RETA[112]      0000008b
+	RETA[113]      000000d3
+	RETA[114]      000000b2
+	RETA[115]      00000074
+	RETA[116]      0000003b
+	RETA[117]      0000002b
+	RETA[118]      0000009d
+	RETA[119]      00000016
+	RETA[120]      0000002b
+	RETA[121]      000000ce
+	RETA[122]      0000008e
+	RETA[123]      00000044
+	RETA[124]      00000027
+	RETA[125]      0000004b
+	RETA[126]      000000c2
+	RETA[127]      00000086
+	RSSRK[0]       00000000
+	RSSRK[1]       00000000
+	RSSRK[2]       00000000
+	RSSRK[3]       00000000
+	RSSRK[4]       00000000
+	RSSRK[5]       00000000
+	RSSRK[6]       00000000
+	RSSRK[7]       00000000
+	RSSRK[8]       00000000
+	RSSRK[9]       00000000
+	RSSRK[10]      00000000
+	RSSRK[11]      00000000
+	RSSRK[12]      00000000
+	RSSRK[13]      00000000
+	RSSRK[14]      00000000
+	RSSRK[15]      00000000
+	RSSRK[16]      00000000
+	RSSRK[17]      00000000
+	RSSRK[18]      00000000
+	RSSRK[19]      00000000
+	RSSRK[20]      00000000
+	RSSRK[21]      00000000
+	RSSRK[22]      00000000
+	RSSRK[23]      00000000
+	RSSRK[24]      00000000
+	RSSRK[25]      00000000
+	RSSRK[26]      00000000
+	RSSRK[27]      00000000
+	RSSRK[28]      00000000
+	RSSRK[29]      00000000
+	RSSRK[30]      00000000
+	RSSRK[31]      00000000
+	RSSRK[32]      00000000
+	RSSRK[33]      00000000
+	RSSRK[34]      00000000
+	RSSRK[35]      00000000
+	RSSRK[36]      00000000
+	RSSRK[37]      00000000
+	RSSRK[38]      00000000
+	RSSRK[39]      00000000
+	FFLT[0]        00000000
+	FFLT[1]        fffc0000
+	FFLT[2]        00000000
+	FFLT[3]        00000000
+	FFLT[4]        00000000
+	FFLT[5]        00000000
+	FFLT[6]        00000000
+	FFLT[7]        00000000
+	FFLT[8]        00000000
+	FFLT[9]        00000000
+	FFLT[10]       00000000
+	FFLT[11]       00000000
+	HICR           00000101
+	FFMT[0]        0000000c
+	FFMT[1]        0000000c
+	FFMT[2]        0000000d
+	FFMT[3]        0000000d
+	FFMT[4]        0000000c
+	FFMT[5]        0000000c
+	FFMT[6]        0000000f
+	FFMT[7]        0000000f
+	FFMT[8]        00000001
+	FFMT[9]        00000001
+	FFMT[10]       00000006
+	FFMT[11]       00000006
+	FFMT[12]       00000004
+	FFMT[13]       00000004
+	FFMT[14]       0000000c
+	FFMT[15]       0000000c
+	FFMT[16]       0000000e
+	FFMT[17]       0000000e
+	FFMT[18]       00000001
+	FFMT[19]       00000001
+	FFMT[20]       00000001
+	FFMT[21]       00000001
+	FFMT[22]       00000001
+	FFMT[23]       00000001
+	FFMT[24]       00000000
+	FFMT[25]       00000000
+	FFMT[26]       00000001
+	FFMT[27]       00000001
+	FFMT[28]       00000002
+	FFMT[29]       00000002
+	FFMT[30]       0000000f
+	FFMT[31]       0000000f
+	FFMT[32]       00000001
+	FFMT[33]       00000001
+	FFMT[34]       00000003
+	FFMT[35]       00000003
+	FFMT[36]       0000000c
+	FFMT[37]       0000000c
+	FFMT[38]       00000002
+	FFMT[39]       00000002
+	FFMT[40]       00000008
+	FFMT[41]       00000008
+	FFMT[42]       0000000f
+	FFMT[43]       0000000f
+	FFMT[44]       00000008
+	FFMT[45]       00000008
+	FFMT[46]       00000004
+	FFMT[47]       00000004
+	FFMT[48]       00000006
+	FFMT[49]       00000006
+	FFMT[50]       00000007
+	FFMT[51]       00000007
+	FFMT[52]       00000002
+	FFMT[53]       00000002
+	FFMT[54]       0000000b
+	FFMT[55]       0000000b
+	FFMT[56]       00000008
+	FFMT[57]       00000008
+	FFMT[58]       00000003
+	FFMT[59]       00000003
+	FFMT[60]       00000004
+	FFMT[61]       00000004
+	FFMT[62]       00000000
+	FFMT[63]       00000000
+	FFMT[64]       00000001
+	FFMT[65]       00000001
+	FFMT[66]       0000000e
+	FFMT[67]       0000000e
+	FFMT[68]       00000007
+	FFMT[69]       00000007
+	FFMT[70]       0000000b
+	FFMT[71]       0000000b
+	FFMT[72]       00000006
+	FFMT[73]       00000006
+	FFMT[74]       00000009
+	FFMT[75]       00000009
+	FFMT[76]       00000009
+	FFMT[77]       00000009
+	FFMT[78]       00000009
+	FFMT[79]       00000009
+	FFMT[80]       0000000f
+	FFMT[81]       0000000f
+	FFMT[82]       00000009
+	FFMT[83]       00000009
+	FFMT[84]       0000000a
+	FFMT[85]       0000000a
+	FFMT[86]       00000000
+	FFMT[87]       00000000
+	FFMT[88]       0000000b
+	FFMT[89]       0000000b
+	FFMT[90]       00000003
+	FFMT[91]       00000003
+	FFMT[92]       00000001
+	FFMT[93]       00000001
+	FFMT[94]       00000004
+	FFMT[95]       00000004
+	FFMT[96]       0000000b
+	FFMT[97]       0000000b
+	FFMT[98]       0000000c
+	FFMT[99]       0000000c
+	FFMT[100]      0000000a
+	FFMT[101]      0000000a
+	FFMT[102]      00000009
+	FFMT[103]      00000009
+	FFMT[104]      00000000
+	FFMT[105]      00000000
+	FFMT[106]      00000003
+	FFMT[107]      00000003
+	FFMT[108]      00000006
+	FFMT[109]      00000006
+	FFMT[110]      00000008
+	FFMT[111]      00000008
+	FFMT[112]      0000000e
+	FFMT[113]      0000000e
+	FFMT[114]      00000007
+	FFMT[115]      00000007
+	FFMT[116]      0000000c
+	FFMT[117]      0000000c
+	FFMT[118]      00000007
+	FFMT[119]      00000007
+	FFMT[120]      00000009
+	FFMT[121]      00000009
+	FFMT[122]      00000001
+	FFMT[123]      00000001
+	FFMT[124]      00000001
+	FFMT[125]      00000001
+	FFMT[126]      0000000f
+	FFMT[127]      0000000f
+	FFVT[0]        69386efe
+	FFVT[1]        69386efe
+	FFVT[2]        47dac1bd
+	FFVT[3]        47dac1bd
+	FFVT[4]        0af977e3
+	FFVT[5]        0af977e3
+	FFVT[6]        0bf35fcd
+	FFVT[7]        0bf35fcd
+	FFVT[8]        396325cb
+	FFVT[9]        396325cb
+	FFVT[10]       45fb2966
+	FFVT[11]       45fb2966
+	FFVT[12]       85fe3e31
+	FFVT[13]       85fe3e31
+	FFVT[14]       e6b90940
+	FFVT[15]       e6b90940
+	FFVT[16]       fcf5c382
+	FFVT[17]       fcf5c382
+	FFVT[18]       68b90289
+	FFVT[19]       68b90289
+	FFVT[20]       0fada5ed
+	FFVT[21]       0fada5ed
+	FFVT[22]       67f87890
+	FFVT[23]       67f87890
+	FFVT[24]       2dd69d55
+	FFVT[25]       2dd69d55
+	FFVT[26]       0f78a7b0
+	FFVT[27]       0f78a7b0
+	FFVT[28]       138d13f7
+	FFVT[29]       138d13f7
+	FFVT[30]       e302400a
+	FFVT[31]       e302400a
+	FFVT[32]       bc8ebaf7
+	FFVT[33]       bc8ebaf7
+	FFVT[34]       96fe79fb
+	FFVT[35]       96fe79fb
+	FFVT[36]       df5aa33b
+	FFVT[37]       df5aa33b
+	FFVT[38]       91212c9e
+	FFVT[39]       91212c9e
+	FFVT[40]       71c517b4
+	FFVT[41]       71c517b4
+	FFVT[42]       0bb6697f
+	FFVT[43]       0bb6697f
+	FFVT[44]       63018c23
+	FFVT[45]       63018c23
+	FFVT[46]       48a35d54
+	FFVT[47]       48a35d54
+	FFVT[48]       95f4d375
+	FFVT[49]       95f4d375
+	FFVT[50]       4699c679
+	FFVT[51]       4699c679
+	FFVT[52]       06e7adde
+	FFVT[53]       06e7adde
+	FFVT[54]       e31f1b6d
+	FFVT[55]       e31f1b6d
+	FFVT[56]       888919d6
+	FFVT[57]       888919d6
+	FFVT[58]       4751a142
+	FFVT[59]       4751a142
+	FFVT[60]       676fef06
+	FFVT[61]       676fef06
+	FFVT[62]       792d0e82
+	FFVT[63]       792d0e82
+	FFVT[64]       1066713d
+	FFVT[65]       1066713d
+	FFVT[66]       8f55fa4d
+	FFVT[67]       8f55fa4d
+	FFVT[68]       5fe46f1a
+	FFVT[69]       5fe46f1a
+	FFVT[70]       cacbc51e
+	FFVT[71]       cacbc51e
+	FFVT[72]       04470301
+	FFVT[73]       04470301
+	FFVT[74]       6b3dfea9
+	FFVT[75]       6b3dfea9
+	FFVT[76]       bd00be00
+	FFVT[77]       bd00be00
+	FFVT[78]       7079cb0c
+	FFVT[79]       7079cb0c
+	FFVT[80]       e7180acc
+	FFVT[81]       e7180acc
+	FFVT[82]       25755bec
+	FFVT[83]       25755bec
+	FFVT[84]       bcdd8914
+	FFVT[85]       bcdd8914
+	FFVT[86]       9ed3128d
+	FFVT[87]       9ed3128d
+	FFVT[88]       dc48587b
+	FFVT[89]       dc48587b
+	FFVT[90]       e9755ebf
+	FFVT[91]       e9755ebf
+	FFVT[92]       9ff23883
+	FFVT[93]       9ff23883
+	FFVT[94]       52d8233d
+	FFVT[95]       52d8233d
+	FFVT[96]       cdcf21c0
+	FFVT[97]       cdcf21c0
+	FFVT[98]       9069a69f
+	FFVT[99]       9069a69f
+	FFVT[100]      b52c57f5
+	FFVT[101]      b52c57f5
+	FFVT[102]      42977681
+	FFVT[103]      42977681
+	FFVT[104]      ab8b671a
+	FFVT[105]      ab8b671a
+	FFVT[106]      4edc0c8b
+	FFVT[107]      4edc0c8b
+	FFVT[108]      f41c47f0
+	FFVT[109]      f41c47f0
+	FFVT[110]      ab4edb12
+	FFVT[111]      ab4edb12
+	FFVT[112]      c096a36f
+	FFVT[113]      c096a36f
+	FFVT[114]      ed46c26a
+	FFVT[115]      ed46c26a
+	FFVT[116]      aca39e0b
+	FFVT[117]      aca39e0b
+	FFVT[118]      e01ed8b5
+	FFVT[119]      e01ed8b5
+	FFVT[120]      604c1ef5
+	FFVT[121]      604c1ef5
+	FFVT[122]      0dbbfeae
+	FFVT[123]      0dbbfeae
+	FFVT[124]      9478dbb7
+	FFVT[125]      9478dbb7
+	FFVT[126]      f95cfa23
+	FFVT[127]      f95cfa23
+
+
+
+--Boundary-00=_sql7LNKAuk4EACq
+Content-Type: text/plain;
+  charset="UTF-8";
+  name="ethregs.IPMInotworking"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="ethregs.IPMInotworking"
+
+0e:00.0 (8086:109a)
+Intel Corporation 82573L Gigabit Ethernet Controller
+	Name           Value
+	~~~~           ~~~~~
+	CTRL           00140248
+	STATUS         80080783
+	EECD           06008318
+	EERD           f7460012
+	CTRL_EXT       28780000
+	FLA            00000608
+	MDIC           182a7800
+	FCAL           00c28001
+	FCAH           00000100
+	FCT            00008808
+	VET            00008100
+	ITR            000000c3
+	ICS            00000000
+	IMS            0000009d
+	IMC            0000009d
+	IAM            ffffffff
+	RCTL           06078422
+	FCTTV          00000680
+	TCTL           3103f0fa
+	TIPG           00602008
+	AIT            00000000
+	LEDCTL         00078406
+	EXTCNF_CTRL    1000000a
+	EXTCNF_SIZE    00000004
+	PBA            0012000e
+	PBS            00000020
+	EEMNGCTL       80000000
+	EEARBC         00000100
+	FLASHT         00000002
+	EEWR           00000002
+	FLSWCTL        c0000000
+	FLSWDATA       00000000
+	FLSWCNT        00000000
+	FLOP           0004db00
+	ERT            00002100
+	FCRTL          80002ff8
+	FCRTH          00003000
+	PSRCTL         04040401
+	RDBAL          13a7e000
+	RDBAH          00000002
+	RDLEN          00002000
+	RDH            00000004
+	RDT            00000000
+	RDTR           00000000
+	RXDCTL         00010003
+	RADV           00000008
+	RDBAL1         00000000
+	RDBAH1         00000200
+	RDLEN1         00000000
+	RDH1           00000000
+	RDT1           00000000
+	RSRPD          00000000
+	RAID           00000000
+	CPUVEC         00000000
+	TDFH           00000f8e
+	TDFT           00000f8e
+	TDFHS          00000f8e
+	TDFTS          00000f8e
+	TDFPC          00000000
+	TDBAL          13986000
+	TDBAH          00000002
+	TDLEN          00001000
+	TDH            000000bd
+	TDT            000000bd
+	TIDV           00000008
+	TXDCTL         01410000
+	TADV           00000020
+	TARC0          00000403
+	TDBAL1         80400000
+	TDBAH1         00000000
+	TDLEN1         00000000
+	TDH1           00000000
+	TDT1           00000000
+	TXDCTL1        00400000
+	TARC1          00000403
+	ICRXPTC        00000000
+	ICRXATC        00000000
+	ICTXPTC        00000000
+	ICTXATC        00000000
+	ICTXQEC        00000000
+	ICTXQMTC       00000000
+	ICRXDMTC       00000000
+	ICRXOC         00000000
+	RXCSUM         00001300
+	RFCTL          00038000
+	MTA[0]         00000000
+	MTA[1]         00000000
+	MTA[2]         00000000
+	MTA[3]         00000000
+	MTA[4]         00000000
+	MTA[5]         00000000
+	MTA[6]         00000000
+	MTA[7]         00000000
+	MTA[8]         00000000
+	MTA[9]         00000000
+	MTA[10]        00000000
+	MTA[11]        00000000
+	MTA[12]        00000000
+	MTA[13]        00000000
+	MTA[14]        00000000
+	MTA[15]        00000000
+	MTA[16]        00000000
+	MTA[17]        00000000
+	MTA[18]        00000000
+	MTA[19]        00000000
+	MTA[20]        00000000
+	MTA[21]        00000000
+	MTA[22]        00000000
+	MTA[23]        00000000
+	MTA[24]        00000000
+	MTA[25]        00000000
+	MTA[26]        00000000
+	MTA[27]        00000000
+	MTA[28]        00000000
+	MTA[29]        00000000
+	MTA[30]        00000000
+	MTA[31]        00000000
+	MTA[32]        00000000
+	MTA[33]        00000000
+	MTA[34]        00000000
+	MTA[35]        00000000
+	MTA[36]        00000000
+	MTA[37]        00000000
+	MTA[38]        00000000
+	MTA[39]        00000000
+	MTA[40]        00000000
+	MTA[41]        00000000
+	MTA[42]        00000000
+	MTA[43]        00000000
+	MTA[44]        00000000
+	MTA[45]        00000000
+	MTA[46]        00000000
+	MTA[47]        00000000
+	MTA[48]        00000000
+	MTA[49]        00000000
+	MTA[50]        00000000
+	MTA[51]        00000000
+	MTA[52]        00000000
+	MTA[53]        00000000
+	MTA[54]        00000000
+	MTA[55]        00000000
+	MTA[56]        00000000
+	MTA[57]        00000000
+	MTA[58]        00000000
+	MTA[59]        00000000
+	MTA[60]        00000000
+	MTA[61]        00000000
+	MTA[62]        00000000
+	MTA[63]        00000000
+	MTA[64]        00000000
+	MTA[65]        00000000
+	MTA[66]        00000000
+	MTA[67]        00000000
+	MTA[68]        00000000
+	MTA[69]        00000000
+	MTA[70]        00000000
+	MTA[71]        00000000
+	MTA[72]        00000000
+	MTA[73]        00000000
+	MTA[74]        00000000
+	MTA[75]        00000000
+	MTA[76]        00000000
+	MTA[77]        00000000
+	MTA[78]        00000000
+	MTA[79]        00000000
+	MTA[80]        00000000
+	MTA[81]        00000000
+	MTA[82]        00000000
+	MTA[83]        00000000
+	MTA[84]        00000000
+	MTA[85]        00000000
+	MTA[86]        00000000
+	MTA[87]        00000000
+	MTA[88]        00000000
+	MTA[89]        00000000
+	MTA[90]        00000000
+	MTA[91]        00000000
+	MTA[92]        00000000
+	MTA[93]        00000000
+	MTA[94]        00000000
+	MTA[95]        00000000
+	MTA[96]        00000000
+	MTA[97]        00000000
+	MTA[98]        00000000
+	MTA[99]        00000000
+	MTA[100]       00000000
+	MTA[101]       00000000
+	MTA[102]       00000000
+	MTA[103]       00000000
+	MTA[104]       00000000
+	MTA[105]       00000000
+	MTA[106]       00000000
+	MTA[107]       00000000
+	MTA[108]       00000000
+	MTA[109]       00000000
+	MTA[110]       00000000
+	MTA[111]       00000000
+	MTA[112]       00000000
+	MTA[113]       00000000
+	MTA[114]       00000000
+	MTA[115]       00000000
+	MTA[116]       00000000
+	MTA[117]       00000000
+	MTA[118]       00000000
+	MTA[119]       00000000
+	MTA[120]       00000000
+	MTA[121]       00000000
+	MTA[122]       00000000
+	MTA[123]       00000000
+	MTA[124]       00000000
+	MTA[125]       00000000
+	MTA[126]       00000000
+	MTA[127]       00000000
+	RAL[0]         96483000
+	RAH[0]         8000e3e1
+	RAL[1]         005e0001
+	RAH[1]         80000100
+	RAL[2]         00000000
+	RAH[2]         00000000
+	RAL[3]         00000000
+	RAH[3]         00000000
+	RAL[4]         00000000
+	RAH[4]         00000000
+	RAL[5]         00000000
+	RAH[5]         00000000
+	RAL[6]         00000000
+	RAH[6]         00000000
+	RAL[7]         00000000
+	RAH[7]         00000000
+	RAL[8]         00000000
+	RAH[8]         00000000
+	RAL[9]         00000000
+	RAH[9]         00000000
+	RAL[10]        00000000
+	RAH[10]        00000000
+	RAL[11]        00000000
+	RAH[11]        00000000
+	RAL[12]        00000000
+	RAH[12]        00000000
+	RAL[13]        00000000
+	RAH[13]        00000000
+	RAL[14]        00000000
+	RAH[14]        00000000
+	RAL[15]        00000000
+	RAH[15]        00020010
+	VFTA[0]        00000000
+	VFTA[1]        00000000
+	VFTA[2]        00000000
+	VFTA[3]        00000000
+	VFTA[4]        00000000
+	VFTA[5]        00000000
+	VFTA[6]        00000000
+	VFTA[7]        00000000
+	VFTA[8]        00000000
+	VFTA[9]        00000000
+	VFTA[10]       00000000
+	VFTA[11]       00000000
+	VFTA[12]       00000000
+	VFTA[13]       00000000
+	VFTA[14]       00000000
+	VFTA[15]       00000000
+	VFTA[16]       00000000
+	VFTA[17]       00000000
+	VFTA[18]       00000000
+	VFTA[19]       00000000
+	VFTA[20]       00000000
+	VFTA[21]       00000000
+	VFTA[22]       00000000
+	VFTA[23]       00000000
+	VFTA[24]       00000000
+	VFTA[25]       00000000
+	VFTA[26]       00000000
+	VFTA[27]       00000000
+	VFTA[28]       00000000
+	VFTA[29]       00000000
+	VFTA[30]       00000000
+	VFTA[31]       00000000
+	VFTA[32]       00000000
+	VFTA[33]       00000000
+	VFTA[34]       00000000
+	VFTA[35]       00000000
+	VFTA[36]       00000000
+	VFTA[37]       00000000
+	VFTA[38]       00000000
+	VFTA[39]       00000000
+	VFTA[40]       00000000
+	VFTA[41]       00000000
+	VFTA[42]       00000000
+	VFTA[43]       00000000
+	VFTA[44]       00000000
+	VFTA[45]       00000000
+	VFTA[46]       00000000
+	VFTA[47]       00000000
+	VFTA[48]       00000000
+	VFTA[49]       00000000
+	VFTA[50]       00000000
+	VFTA[51]       00000000
+	VFTA[52]       00000000
+	VFTA[53]       00000000
+	VFTA[54]       00000000
+	VFTA[55]       00000000
+	VFTA[56]       00000000
+	VFTA[57]       00000000
+	VFTA[58]       00000000
+	VFTA[59]       00000000
+	VFTA[60]       00000000
+	VFTA[61]       00000000
+	VFTA[62]       00000000
+	VFTA[63]       00000000
+	VFTA[64]       00000000
+	VFTA[65]       00000000
+	VFTA[66]       00000000
+	VFTA[67]       00000000
+	VFTA[68]       00000000
+	VFTA[69]       00000000
+	VFTA[70]       00000000
+	VFTA[71]       00000000
+	VFTA[72]       00000000
+	VFTA[73]       00000000
+	VFTA[74]       00000000
+	VFTA[75]       00000000
+	VFTA[76]       00000000
+	VFTA[77]       00000000
+	VFTA[78]       00000000
+	VFTA[79]       00000000
+	VFTA[80]       00000000
+	VFTA[81]       00000000
+	VFTA[82]       00000000
+	VFTA[83]       00000000
+	VFTA[84]       00000000
+	VFTA[85]       00000000
+	VFTA[86]       00000000
+	VFTA[87]       00000000
+	VFTA[88]       00000000
+	VFTA[89]       00000000
+	VFTA[90]       00000000
+	VFTA[91]       00000000
+	VFTA[92]       00000000
+	VFTA[93]       00000000
+	VFTA[94]       00000000
+	VFTA[95]       00000000
+	VFTA[96]       00000000
+	VFTA[97]       00000000
+	VFTA[98]       00000000
+	VFTA[99]       00000000
+	VFTA[100]      00000000
+	VFTA[101]      00000000
+	VFTA[102]      00000000
+	VFTA[103]      00000000
+	VFTA[104]      00000000
+	VFTA[105]      00000000
+	VFTA[106]      00000000
+	VFTA[107]      00000000
+	VFTA[108]      00000000
+	VFTA[109]      00000000
+	VFTA[110]      00000000
+	VFTA[111]      00000000
+	VFTA[112]      00000000
+	VFTA[113]      00000000
+	VFTA[114]      00000000
+	VFTA[115]      00000000
+	VFTA[116]      00000000
+	VFTA[117]      00000000
+	VFTA[118]      00000000
+	VFTA[119]      00000000
+	VFTA[120]      00000000
+	VFTA[121]      00000000
+	VFTA[122]      00000000
+	VFTA[123]      00000000
+	VFTA[124]      00000000
+	VFTA[125]      00000000
+	VFTA[126]      00000000
+	VFTA[127]      00000000
+	WUC            00000000
+	WUFC           00000000
+	WUS            00000000
+	MRQC           00000000
+	MANC           00000100
+	IPAV           00000000
+	MANC2H         00000000
+	RSSIM          00000000
+	RSSIR          00000001
+	WUPL           9ce201fa
+	GCR            0e000000
+	GSCL_1         00000000
+	GSCL_2         00000000
+	GSCL_3         00000000
+	GSCL_4         00000000
+	FACTPS         21041046
+	FWSM           00000000
+	RETA[0]        00000015
+	RETA[1]        0000006b
+	RETA[2]        00000004
+	RETA[3]        000000e2
+	RETA[4]        00000070
+	RETA[5]        00000077
+	RETA[6]        00000018
+	RETA[7]        00000001
+	RETA[8]        00000029
+	RETA[9]        00000069
+	RETA[10]       00000004
+	RETA[11]       00000081
+	RETA[12]       00000040
+	RETA[13]       0000001e
+	RETA[14]       00000093
+	RETA[15]       000000c3
+	RETA[16]       0000001b
+	RETA[17]       0000002f
+	RETA[18]       00000002
+	RETA[19]       000000f4
+	RETA[20]       000000bd
+	RETA[21]       000000b6
+	RETA[22]       000000af
+	RETA[23]       00000029
+	RETA[24]       00000003
+	RETA[25]       0000001e
+	RETA[26]       00000011
+	RETA[27]       000000a5
+	RETA[28]       0000008f
+	RETA[29]       0000000b
+	RETA[30]       00000059
+	RETA[31]       00000006
+	RETA[32]       00000008
+	RETA[33]       000000d8
+	RETA[34]       00000099
+	RETA[35]       000000fb
+	RETA[36]       0000003c
+	RETA[37]       0000006c
+	RETA[38]       00000011
+	RETA[39]       00000027
+	RETA[40]       00000029
+	RETA[41]       00000097
+	RETA[42]       00000055
+	RETA[43]       000000a2
+	RETA[44]       00000019
+	RETA[45]       0000006e
+	RETA[46]       00000011
+	RETA[47]       00000060
+	RETA[48]       000000ef
+	RETA[49]       000000c1
+	RETA[50]       00000033
+	RETA[51]       000000a2
+	RETA[52]       00000007
+	RETA[53]       0000008a
+	RETA[54]       0000006c
+	RETA[55]       000000c2
+	RETA[56]       00000029
+	RETA[57]       0000002e
+	RETA[58]       0000008b
+	RETA[59]       00000063
+	RETA[60]       00000035
+	RETA[61]       00000015
+	RETA[62]       00000091
+	RETA[63]       000000ec
+	RETA[64]       00000045
+	RETA[65]       0000003b
+	RETA[66]       0000001d
+	RETA[67]       00000040
+	RETA[68]       000000c5
+	RETA[69]       00000082
+	RETA[70]       000000b3
+	RETA[71]       000000b6
+	RETA[72]       0000000a
+	RETA[73]       0000009b
+	RETA[74]       000000d2
+	RETA[75]       000000d2
+	RETA[76]       0000004a
+	RETA[77]       0000004e
+	RETA[78]       00000010
+	RETA[79]       000000e0
+	RETA[80]       0000003a
+	RETA[81]       000000ae
+	RETA[82]       0000000d
+	RETA[83]       00000070
+	RETA[84]       0000001a
+	RETA[85]       000000e7
+	RETA[86]       000000c7
+	RETA[87]       000000a5
+	RETA[88]       0000006d
+	RETA[89]       0000002f
+	RETA[90]       00000061
+	RETA[91]       00000026
+	RETA[92]       0000000f
+	RETA[93]       0000001f
+	RETA[94]       00000019
+	RETA[95]       000000ed
+	RETA[96]       00000059
+	RETA[97]       00000003
+	RETA[98]       00000058
+	RETA[99]       000000c9
+	RETA[100]      0000006d
+	RETA[101]      000000aa
+	RETA[102]      0000000b
+	RETA[103]      00000063
+	RETA[104]      000000cd
+	RETA[105]      0000001f
+	RETA[106]      00000018
+	RETA[107]      00000042
+	RETA[108]      00000079
+	RETA[109]      0000000f
+	RETA[110]      0000005b
+	RETA[111]      00000042
+	RETA[112]      00000049
+	RETA[113]      0000006e
+	RETA[114]      00000008
+	RETA[115]      00000076
+	RETA[116]      0000002d
+	RETA[117]      00000059
+	RETA[118]      00000047
+	RETA[119]      000000a6
+	RETA[120]      00000090
+	RETA[121]      00000002
+	RETA[122]      000000cb
+	RETA[123]      00000049
+	RETA[124]      00000093
+	RETA[125]      00000009
+	RETA[126]      00000016
+	RETA[127]      000000f2
+	RSSRK[0]       00000000
+	RSSRK[1]       00000000
+	RSSRK[2]       00000000
+	RSSRK[3]       00000000
+	RSSRK[4]       00000000
+	RSSRK[5]       00000000
+	RSSRK[6]       00000000
+	RSSRK[7]       00000000
+	RSSRK[8]       00000000
+	RSSRK[9]       00000000
+	RSSRK[10]      00000000
+	RSSRK[11]      00000000
+	RSSRK[12]      00000000
+	RSSRK[13]      00000000
+	RSSRK[14]      00000000
+	RSSRK[15]      00000000
+	RSSRK[16]      00000000
+	RSSRK[17]      00000000
+	RSSRK[18]      00000000
+	RSSRK[19]      00000000
+	RSSRK[20]      00000000
+	RSSRK[21]      00000000
+	RSSRK[22]      00000000
+	RSSRK[23]      00000000
+	RSSRK[24]      00000000
+	RSSRK[25]      00000000
+	RSSRK[26]      00000000
+	RSSRK[27]      00000000
+	RSSRK[28]      00000000
+	RSSRK[29]      00000000
+	RSSRK[30]      00000000
+	RSSRK[31]      00000000
+	RSSRK[32]      00000000
+	RSSRK[33]      00000000
+	RSSRK[34]      00000000
+	RSSRK[35]      00000000
+	RSSRK[36]      00000000
+	RSSRK[37]      00000000
+	RSSRK[38]      00000000
+	RSSRK[39]      00000000
+	FFLT[0]        00000000
+	FFLT[1]        fffc0000
+	FFLT[2]        00000000
+	FFLT[3]        00000000
+	FFLT[4]        00000000
+	FFLT[5]        00000000
+	FFLT[6]        00000000
+	FFLT[7]        00000000
+	FFLT[8]        00000080
+	FFLT[9]        00000000
+	FFLT[10]       00000002
+	FFLT[11]       00000000
+	HICR           00000000
+	FFMT[0]        00000006
+	FFMT[1]        00000006
+	FFMT[2]        00000009
+	FFMT[3]        00000009
+	FFMT[4]        0000000e
+	FFMT[5]        0000000e
+	FFMT[6]        0000000d
+	FFMT[7]        0000000d
+	FFMT[8]        0000000b
+	FFMT[9]        0000000b
+	FFMT[10]       0000000d
+	FFMT[11]       0000000d
+	FFMT[12]       00000004
+	FFMT[13]       00000004
+	FFMT[14]       00000000
+	FFMT[15]       00000000
+	FFMT[16]       00000000
+	FFMT[17]       00000000
+	FFMT[18]       00000009
+	FFMT[19]       00000009
+	FFMT[20]       00000001
+	FFMT[21]       00000001
+	FFMT[22]       00000006
+	FFMT[23]       00000006
+	FFMT[24]       00000003
+	FFMT[25]       00000003
+	FFMT[26]       00000004
+	FFMT[27]       00000004
+	FFMT[28]       00000005
+	FFMT[29]       00000005
+	FFMT[30]       0000000c
+	FFMT[31]       0000000c
+	FFMT[32]       00000000
+	FFMT[33]       00000000
+	FFMT[34]       00000008
+	FFMT[35]       00000008
+	FFMT[36]       00000002
+	FFMT[37]       00000002
+	FFMT[38]       0000000e
+	FFMT[39]       0000000e
+	FFMT[40]       00000003
+	FFMT[41]       00000003
+	FFMT[42]       0000000b
+	FFMT[43]       0000000b
+	FFMT[44]       00000001
+	FFMT[45]       00000001
+	FFMT[46]       00000005
+	FFMT[47]       00000005
+	FFMT[48]       00000003
+	FFMT[49]       00000003
+	FFMT[50]       00000001
+	FFMT[51]       00000001
+	FFMT[52]       0000000a
+	FFMT[53]       0000000a
+	FFMT[54]       00000003
+	FFMT[55]       00000003
+	FFMT[56]       00000001
+	FFMT[57]       00000001
+	FFMT[58]       0000000d
+	FFMT[59]       0000000d
+	FFMT[60]       00000008
+	FFMT[61]       00000008
+	FFMT[62]       00000002
+	FFMT[63]       00000002
+	FFMT[64]       00000002
+	FFMT[65]       00000002
+	FFMT[66]       00000007
+	FFMT[67]       00000007
+	FFMT[68]       00000004
+	FFMT[69]       00000004
+	FFMT[70]       00000006
+	FFMT[71]       00000006
+	FFMT[72]       0000000e
+	FFMT[73]       0000000e
+	FFMT[74]       0000000e
+	FFMT[75]       0000000e
+	FFMT[76]       0000000f
+	FFMT[77]       0000000f
+	FFMT[78]       00000002
+	FFMT[79]       00000002
+	FFMT[80]       00000000
+	FFMT[81]       00000000
+	FFMT[82]       0000000b
+	FFMT[83]       0000000b
+	FFMT[84]       00000009
+	FFMT[85]       00000009
+	FFMT[86]       00000009
+	FFMT[87]       00000009
+	FFMT[88]       0000000a
+	FFMT[89]       0000000a
+	FFMT[90]       0000000d
+	FFMT[91]       0000000d
+	FFMT[92]       00000005
+	FFMT[93]       00000005
+	FFMT[94]       00000006
+	FFMT[95]       00000006
+	FFMT[96]       00000003
+	FFMT[97]       00000003
+	FFMT[98]       0000000d
+	FFMT[99]       0000000d
+	FFMT[100]      00000009
+	FFMT[101]      00000009
+	FFMT[102]      0000000d
+	FFMT[103]      0000000d
+	FFMT[104]      00000001
+	FFMT[105]      00000001
+	FFMT[106]      0000000e
+	FFMT[107]      0000000e
+	FFMT[108]      0000000b
+	FFMT[109]      0000000b
+	FFMT[110]      00000000
+	FFMT[111]      00000000
+	FFMT[112]      00000001
+	FFMT[113]      00000001
+	FFMT[114]      00000000
+	FFMT[115]      00000000
+	FFMT[116]      00000008
+	FFMT[117]      00000008
+	FFMT[118]      0000000a
+	FFMT[119]      0000000a
+	FFMT[120]      00000001
+	FFMT[121]      00000001
+	FFMT[122]      00000006
+	FFMT[123]      00000006
+	FFMT[124]      00000002
+	FFMT[125]      00000002
+	FFMT[126]      0000000f
+	FFMT[127]      0000000f
+	FFVT[0]        a6d21076
+	FFVT[1]        a6d21076
+	FFVT[2]        14fddf8e
+	FFVT[3]        14fddf8e
+	FFVT[4]        af998eff
+	FFVT[5]        af998eff
+	FFVT[6]        72ee35eb
+	FFVT[7]        72ee35eb
+	FFVT[8]        4595b5d0
+	FFVT[9]        4595b5d0
+	FFVT[10]       9ce2d272
+	FFVT[11]       9ce2d272
+	FFVT[12]       65ccdb20
+	FFVT[13]       65ccdb20
+	FFVT[14]       7a6d632f
+	FFVT[15]       7a6d632f
+	FFVT[16]       c9fd53bd
+	FFVT[17]       c9fd53bd
+	FFVT[18]       138adc2d
+	FFVT[19]       138adc2d
+	FFVT[20]       5a7c8912
+	FFVT[21]       5a7c8912
+	FFVT[22]       080da768
+	FFVT[23]       080da768
+	FFVT[24]       e00a93c6
+	FFVT[25]       e00a93c6
+	FFVT[26]       3d05bbe0
+	FFVT[27]       3d05bbe0
+	FFVT[28]       8dc0ad89
+	FFVT[29]       8dc0ad89
+	FFVT[30]       a0267e00
+	FFVT[31]       a0267e00
+	FFVT[32]       45f0b43f
+	FFVT[33]       45f0b43f
+	FFVT[34]       62120156
+	FFVT[35]       62120156
+	FFVT[36]       a6213b97
+	FFVT[37]       a6213b97
+	FFVT[38]       ea15b0b6
+	FFVT[39]       ea15b0b6
+	FFVT[40]       a4176212
+	FFVT[41]       a4176212
+	FFVT[42]       ae88d158
+	FFVT[43]       ae88d158
+	FFVT[44]       541de595
+	FFVT[45]       541de595
+	FFVT[46]       15d56ace
+	FFVT[47]       15d56ace
+	FFVT[48]       45824374
+	FFVT[49]       45824374
+	FFVT[50]       2ba17885
+	FFVT[51]       2ba17885
+	FFVT[52]       b63201ea
+	FFVT[53]       b63201ea
+	FFVT[54]       b1ff88da
+	FFVT[55]       b1ff88da
+	FFVT[56]       f24edcea
+	FFVT[57]       f24edcea
+	FFVT[58]       b068c2e7
+	FFVT[59]       b068c2e7
+	FFVT[60]       58a6584c
+	FFVT[61]       58a6584c
+	FFVT[62]       ca6624d0
+	FFVT[63]       ca6624d0
+	FFVT[64]       d66319d3
+	FFVT[65]       d66319d3
+	FFVT[66]       437f892f
+	FFVT[67]       437f892f
+	FFVT[68]       6298ced1
+	FFVT[69]       6298ced1
+	FFVT[70]       d8f20b8e
+	FFVT[71]       d8f20b8e
+	FFVT[72]       00a8562c
+	FFVT[73]       00a8562c
+	FFVT[74]       536016e4
+	FFVT[75]       536016e4
+	FFVT[76]       81723c11
+	FFVT[77]       81723c11
+	FFVT[78]       6baf812a
+	FFVT[79]       6baf812a
+	FFVT[80]       579813dc
+	FFVT[81]       579813dc
+	FFVT[82]       f1099664
+	FFVT[83]       f1099664
+	FFVT[84]       484724af
+	FFVT[85]       484724af
+	FFVT[86]       9473f82f
+	FFVT[87]       9473f82f
+	FFVT[88]       2086be8f
+	FFVT[89]       2086be8f
+	FFVT[90]       505baa7a
+	FFVT[91]       505baa7a
+	FFVT[92]       e106d4d4
+	FFVT[93]       e106d4d4
+	FFVT[94]       035cf124
+	FFVT[95]       035cf124
+	FFVT[96]       80e38b56
+	FFVT[97]       80e38b56
+	FFVT[98]       03ef854a
+	FFVT[99]       03ef854a
+	FFVT[100]      ece8d8c9
+	FFVT[101]      ece8d8c9
+	FFVT[102]      a1d4c1a9
+	FFVT[103]      a1d4c1a9
+	FFVT[104]      e800f0b6
+	FFVT[105]      e800f0b6
+	FFVT[106]      7019d873
+	FFVT[107]      7019d873
+	FFVT[108]      a45554ff
+	FFVT[109]      a45554ff
+	FFVT[110]      29f98242
+	FFVT[111]      29f98242
+	FFVT[112]      b517937f
+	FFVT[113]      b517937f
+	FFVT[114]      a4d35dd5
+	FFVT[115]      a4d35dd5
+	FFVT[116]      52328c1b
+	FFVT[117]      52328c1b
+	FFVT[118]      09f59e76
+	FFVT[119]      09f59e76
+	FFVT[120]      1968c620
+	FFVT[121]      1968c620
+	FFVT[122]      cba89964
+	FFVT[123]      cba89964
+	FFVT[124]      42dc73e1
+	FFVT[125]      42dc73e1
+	FFVT[126]      06efaa25
+	FFVT[127]      06efaa25
+
+
+0d:00.0 (8086:108c)
+Intel Corporation 82573E Gigabit Ethernet Controller (Copper)
+	Name           Value
+	~~~~           ~~~~~
+	CTRL           18140248
+	STATUS         80080743
+	EECD           02011b18
+	EERD           ffff0026
+	CTRL_EXT       28780000
+	FLA            00000608
+	MDIC           18316d0c
+	FCAL           00c28001
+	FCAH           00000100
+	FCT            00008808
+	VET            00008100
+	ITR            000003d0
+	ICS            00000000
+	IMS            0000009d
+	IMC            0000009d
+	IAM            ffffffff
+	RCTL           04048002
+	FCTTV          00000680
+	TCTL           3103f0fa
+	TIPG           00602008
+	AIT            00000000
+	LEDCTL         00078406
+	EXTCNF_CTRL    10000008
+	EXTCNF_SIZE    00000000
+	PBA            000c0014
+	PBS            00000020
+	EEMNGCTL       800000f7
+	EEARBC         00080100
+	FLASHT         00000002
+	EEWR           00000002
+	FLSWCTL        c0000000
+	FLSWDATA       00000000
+	FLSWCNT        00000000
+	FLOP           00012000
+	ERT            00000000
+	FCRTL          800047f8
+	FCRTH          00004800
+	PSRCTL         00040402
+	RDBAL          1310c000
+	RDBAH          00000002
+	RDLEN          00001000
+	RDH            0000007e
+	RDT            0000007c
+	RDTR           00000000
+	RXDCTL         00010000
+	RADV           00000008
+	RDBAL1         00000000
+	RDBAH1         01200200
+	RDLEN1         00000000
+	RDH1           00000000
+	RDT1           00000000
+	RSRPD          00000000
+	RAID           00000000
+	CPUVEC         00000000
+	TDFH           00000bde
+	TDFT           00000bde
+	TDFHS          00000bde
+	TDFTS          00000bde
+	TDFPC          00000000
+	TDBAL          16a50000
+	TDBAH          00000002
+	TDLEN          00001000
+	TDH            00000086
+	TDT            00000086
+	TIDV           00000008
+	TXDCTL         01410000
+	TADV           00000020
+	TARC0          00000403
+	TDBAL1         00800000
+	TDBAH1         10000500
+	TDLEN1         00000000
+	TDH1           00000000
+	TDT1           00000000
+	TXDCTL1        00400000
+	TARC1          00000403
+	ICRXPTC        00000000
+	ICRXATC        00000000
+	ICTXPTC        00000000
+	ICTXATC        00000000
+	ICTXQEC        00000000
+	ICTXQMTC       00000000
+	ICRXDMTC       00000000
+	ICRXOC         00000000
+	RXCSUM         00000300
+	RFCTL          00000000
+	MTA[0]         00000000
+	MTA[1]         00000000
+	MTA[2]         00000000
+	MTA[3]         00000000
+	MTA[4]         00000000
+	MTA[5]         00000000
+	MTA[6]         00000000
+	MTA[7]         00000000
+	MTA[8]         00000000
+	MTA[9]         00000000
+	MTA[10]        00000000
+	MTA[11]        00000000
+	MTA[12]        00000000
+	MTA[13]        00000000
+	MTA[14]        00000000
+	MTA[15]        00000000
+	MTA[16]        00000000
+	MTA[17]        00000000
+	MTA[18]        00000000
+	MTA[19]        00000000
+	MTA[20]        00000000
+	MTA[21]        00000000
+	MTA[22]        00000000
+	MTA[23]        00000000
+	MTA[24]        00000000
+	MTA[25]        00000000
+	MTA[26]        00000000
+	MTA[27]        00000000
+	MTA[28]        00000000
+	MTA[29]        00000000
+	MTA[30]        00000000
+	MTA[31]        00000000
+	MTA[32]        00000000
+	MTA[33]        00000000
+	MTA[34]        00000000
+	MTA[35]        00000000
+	MTA[36]        00000000
+	MTA[37]        00000000
+	MTA[38]        00000000
+	MTA[39]        00000000
+	MTA[40]        00000000
+	MTA[41]        00000000
+	MTA[42]        00000000
+	MTA[43]        00000000
+	MTA[44]        00000000
+	MTA[45]        00000000
+	MTA[46]        00000000
+	MTA[47]        00000000
+	MTA[48]        00000000
+	MTA[49]        00000000
+	MTA[50]        00000000
+	MTA[51]        00000000
+	MTA[52]        00000000
+	MTA[53]        00000000
+	MTA[54]        00000000
+	MTA[55]        00000000
+	MTA[56]        00000000
+	MTA[57]        00000000
+	MTA[58]        00000000
+	MTA[59]        00000000
+	MTA[60]        00000000
+	MTA[61]        00000000
+	MTA[62]        00000000
+	MTA[63]        00000000
+	MTA[64]        00000000
+	MTA[65]        00000000
+	MTA[66]        00000000
+	MTA[67]        00000000
+	MTA[68]        00000000
+	MTA[69]        00000000
+	MTA[70]        00000000
+	MTA[71]        00000000
+	MTA[72]        00000000
+	MTA[73]        00000000
+	MTA[74]        00000000
+	MTA[75]        00000000
+	MTA[76]        00000000
+	MTA[77]        00000000
+	MTA[78]        00000000
+	MTA[79]        00000000
+	MTA[80]        00000000
+	MTA[81]        00000000
+	MTA[82]        00000000
+	MTA[83]        00000000
+	MTA[84]        00000000
+	MTA[85]        00000000
+	MTA[86]        00000000
+	MTA[87]        00000000
+	MTA[88]        00000000
+	MTA[89]        00000000
+	MTA[90]        00000000
+	MTA[91]        00000000
+	MTA[92]        00000000
+	MTA[93]        00000000
+	MTA[94]        00000000
+	MTA[95]        00000000
+	MTA[96]        00000000
+	MTA[97]        00000000
+	MTA[98]        00000000
+	MTA[99]        00000000
+	MTA[100]       00000000
+	MTA[101]       00000000
+	MTA[102]       00000000
+	MTA[103]       00000000
+	MTA[104]       00000000
+	MTA[105]       00000000
+	MTA[106]       00000000
+	MTA[107]       00000000
+	MTA[108]       00000000
+	MTA[109]       00000000
+	MTA[110]       00000000
+	MTA[111]       00000000
+	MTA[112]       00000000
+	MTA[113]       00000000
+	MTA[114]       00000000
+	MTA[115]       00000000
+	MTA[116]       00000000
+	MTA[117]       00000000
+	MTA[118]       00000000
+	MTA[119]       00000000
+	MTA[120]       00000000
+	MTA[121]       00000000
+	MTA[122]       00000000
+	MTA[123]       00000000
+	MTA[124]       00000000
+	MTA[125]       00000000
+	MTA[126]       00000000
+	MTA[127]       00000000
+	RAL[0]         96483000
+	RAH[0]         8000e2e1
+	RAL[1]         005e0001
+	RAH[1]         80000100
+	RAL[2]         00000000
+	RAH[2]         00000000
+	RAL[3]         00000000
+	RAH[3]         00000000
+	RAL[4]         00000000
+	RAH[4]         00000000
+	RAL[5]         00000000
+	RAH[5]         00000000
+	RAL[6]         00000000
+	RAH[6]         00000000
+	RAL[7]         00000000
+	RAH[7]         00000000
+	RAL[8]         00000000
+	RAH[8]         00000000
+	RAL[9]         00000000
+	RAH[9]         00000000
+	RAL[10]        00000000
+	RAH[10]        00000000
+	RAL[11]        00000000
+	RAH[11]        00000000
+	RAL[12]        00000000
+	RAH[12]        00000000
+	RAL[13]        00000000
+	RAH[13]        00000000
+	RAL[14]        00000000
+	RAH[14]        00000000
+	RAL[15]        96483000
+	RAH[15]        0000e2e1
+	VFTA[0]        00000000
+	VFTA[1]        00000000
+	VFTA[2]        00000000
+	VFTA[3]        00000000
+	VFTA[4]        00000000
+	VFTA[5]        00000000
+	VFTA[6]        00000000
+	VFTA[7]        00000000
+	VFTA[8]        00000000
+	VFTA[9]        00000000
+	VFTA[10]       00000000
+	VFTA[11]       00000000
+	VFTA[12]       00000000
+	VFTA[13]       00000000
+	VFTA[14]       00000000
+	VFTA[15]       00000000
+	VFTA[16]       00000000
+	VFTA[17]       00000000
+	VFTA[18]       00000000
+	VFTA[19]       00000000
+	VFTA[20]       00000000
+	VFTA[21]       00000000
+	VFTA[22]       00000000
+	VFTA[23]       00000000
+	VFTA[24]       00000000
+	VFTA[25]       00000000
+	VFTA[26]       00000000
+	VFTA[27]       00000000
+	VFTA[28]       00000000
+	VFTA[29]       00000000
+	VFTA[30]       00000000
+	VFTA[31]       00000000
+	VFTA[32]       00000000
+	VFTA[33]       00000000
+	VFTA[34]       00000000
+	VFTA[35]       00000000
+	VFTA[36]       00000000
+	VFTA[37]       00000000
+	VFTA[38]       00000000
+	VFTA[39]       00000000
+	VFTA[40]       00000000
+	VFTA[41]       00000000
+	VFTA[42]       00000000
+	VFTA[43]       00000000
+	VFTA[44]       00000000
+	VFTA[45]       00000000
+	VFTA[46]       00000000
+	VFTA[47]       00000000
+	VFTA[48]       00000000
+	VFTA[49]       00000000
+	VFTA[50]       00000000
+	VFTA[51]       00000000
+	VFTA[52]       00000000
+	VFTA[53]       00000000
+	VFTA[54]       00000000
+	VFTA[55]       00000000
+	VFTA[56]       00000000
+	VFTA[57]       00000000
+	VFTA[58]       00000000
+	VFTA[59]       00000000
+	VFTA[60]       00000000
+	VFTA[61]       00000000
+	VFTA[62]       00000000
+	VFTA[63]       00000000
+	VFTA[64]       00000000
+	VFTA[65]       00000000
+	VFTA[66]       00000000
+	VFTA[67]       00000000
+	VFTA[68]       00000000
+	VFTA[69]       00000000
+	VFTA[70]       00000000
+	VFTA[71]       00000000
+	VFTA[72]       00000000
+	VFTA[73]       00000000
+	VFTA[74]       00000000
+	VFTA[75]       00000000
+	VFTA[76]       00000000
+	VFTA[77]       00000000
+	VFTA[78]       00000000
+	VFTA[79]       00000000
+	VFTA[80]       00000000
+	VFTA[81]       00000000
+	VFTA[82]       00000000
+	VFTA[83]       00000000
+	VFTA[84]       00000000
+	VFTA[85]       00000000
+	VFTA[86]       00000000
+	VFTA[87]       00000000
+	VFTA[88]       00000000
+	VFTA[89]       00000000
+	VFTA[90]       00000000
+	VFTA[91]       00000000
+	VFTA[92]       00000000
+	VFTA[93]       00000000
+	VFTA[94]       00000000
+	VFTA[95]       00000000
+	VFTA[96]       00000000
+	VFTA[97]       00000000
+	VFTA[98]       00000000
+	VFTA[99]       00000000
+	VFTA[100]      00000000
+	VFTA[101]      00000000
+	VFTA[102]      00000000
+	VFTA[103]      00000000
+	VFTA[104]      00000000
+	VFTA[105]      00000000
+	VFTA[106]      00000000
+	VFTA[107]      00000000
+	VFTA[108]      00000000
+	VFTA[109]      00000000
+	VFTA[110]      00000000
+	VFTA[111]      00000000
+	VFTA[112]      00000000
+	VFTA[113]      00000000
+	VFTA[114]      00000000
+	VFTA[115]      00000000
+	VFTA[116]      00000000
+	VFTA[117]      00000000
+	VFTA[118]      00000000
+	VFTA[119]      00000000
+	VFTA[120]      00000000
+	VFTA[121]      00000000
+	VFTA[122]      00000000
+	VFTA[123]      00000000
+	VFTA[124]      00000000
+	VFTA[125]      00000000
+	VFTA[126]      00000000
+	VFTA[127]      00000000
+	WUC            00000000
+	WUFC           00000000
+	WUS            00000000
+	MRQC           00000000
+	MANC           0022a300
+	IPAV           00000000
+	MANC2H         00000380
+	RSSIM          00000000
+	RSSIR          00000000
+	WUPL           28167f49
+	GCR            0e000000
+	GSCL_1         00000000
+	GSCL_2         00000000
+	GSCL_3         00000000
+	GSCL_4         00000000
+	FACTPS         01041046
+	FWSM           00018044
+	RETA[0]        0000008c
+	RETA[1]        0000001f
+	RETA[2]        00000082
+	RETA[3]        00000086
+	RETA[4]        0000009f
+	RETA[5]        00000066
+	RETA[6]        0000005a
+	RETA[7]        0000004b
+	RETA[8]        0000001e
+	RETA[9]        000000af
+	RETA[10]       000000dc
+	RETA[11]       000000e5
+	RETA[12]       0000002d
+	RETA[13]       000000aa
+	RETA[14]       0000009b
+	RETA[15]       0000001c
+	RETA[16]       00000053
+	RETA[17]       000000e6
+	RETA[18]       00000096
+	RETA[19]       00000084
+	RETA[20]       000000b1
+	RETA[21]       0000006b
+	RETA[22]       000000b7
+	RETA[23]       000000de
+	RETA[24]       00000010
+	RETA[25]       000000d4
+	RETA[26]       000000ef
+	RETA[27]       00000034
+	RETA[28]       00000038
+	RETA[29]       0000000e
+	RETA[30]       00000012
+	RETA[31]       0000001d
+	RETA[32]       00000001
+	RETA[33]       0000004b
+	RETA[34]       000000e3
+	RETA[35]       0000001e
+	RETA[36]       0000001b
+	RETA[37]       0000009b
+	RETA[38]       0000008e
+	RETA[39]       00000068
+	RETA[40]       00000015
+	RETA[41]       000000e2
+	RETA[42]       000000c7
+	RETA[43]       000000c6
+	RETA[44]       00000034
+	RETA[45]       0000007a
+	RETA[46]       000000b6
+	RETA[47]       00000014
+	RETA[48]       000000aa
+	RETA[49]       0000006f
+	RETA[50]       000000fa
+	RETA[51]       00000085
+	RETA[52]       00000032
+	RETA[53]       0000004e
+	RETA[54]       0000003f
+	RETA[55]       0000004c
+	RETA[56]       00000099
+	RETA[57]       0000003d
+	RETA[58]       000000f2
+	RETA[59]       000000ae
+	RETA[60]       00000011
+	RETA[61]       0000006f
+	RETA[62]       000000b7
+	RETA[63]       0000000b
+	RETA[64]       0000009b
+	RETA[65]       00000007
+	RETA[66]       0000000a
+	RETA[67]       0000009a
+	RETA[68]       000000a3
+	RETA[69]       00000020
+	RETA[70]       000000f3
+	RETA[71]       00000084
+	RETA[72]       0000004d
+	RETA[73]       00000048
+	RETA[74]       0000008b
+	RETA[75]       00000021
+	RETA[76]       000000c7
+	RETA[77]       00000053
+	RETA[78]       000000a3
+	RETA[79]       0000008b
+	RETA[80]       000000d4
+	RETA[81]       0000004a
+	RETA[82]       000000c2
+	RETA[83]       000000c0
+	RETA[84]       0000003b
+	RETA[85]       00000069
+	RETA[86]       00000082
+	RETA[87]       0000005e
+	RETA[88]       00000098
+	RETA[89]       0000007a
+	RETA[90]       00000017
+	RETA[91]       00000084
+	RETA[92]       000000ab
+	RETA[93]       0000004a
+	RETA[94]       000000c7
+	RETA[95]       00000014
+	RETA[96]       0000001d
+	RETA[97]       0000006a
+	RETA[98]       00000077
+	RETA[99]       00000014
+	RETA[100]      000000b9
+	RETA[101]      0000000a
+	RETA[102]      000000c2
+	RETA[103]      0000003d
+	RETA[104]      00000055
+	RETA[105]      000000aa
+	RETA[106]      000000b4
+	RETA[107]      00000004
+	RETA[108]      00000047
+	RETA[109]      00000053
+	RETA[110]      000000f7
+	RETA[111]      00000016
+	RETA[112]      0000008b
+	RETA[113]      000000d3
+	RETA[114]      000000b2
+	RETA[115]      00000074
+	RETA[116]      0000003b
+	RETA[117]      0000002b
+	RETA[118]      0000009d
+	RETA[119]      00000016
+	RETA[120]      0000002b
+	RETA[121]      000000ce
+	RETA[122]      0000008e
+	RETA[123]      00000044
+	RETA[124]      00000027
+	RETA[125]      0000004b
+	RETA[126]      000000c2
+	RETA[127]      00000086
+	RSSRK[0]       00000000
+	RSSRK[1]       00000000
+	RSSRK[2]       00000000
+	RSSRK[3]       00000000
+	RSSRK[4]       00000000
+	RSSRK[5]       00000000
+	RSSRK[6]       00000000
+	RSSRK[7]       00000000
+	RSSRK[8]       00000000
+	RSSRK[9]       00000000
+	RSSRK[10]      00000000
+	RSSRK[11]      00000000
+	RSSRK[12]      00000000
+	RSSRK[13]      00000000
+	RSSRK[14]      00000000
+	RSSRK[15]      00000000
+	RSSRK[16]      00000000
+	RSSRK[17]      00000000
+	RSSRK[18]      00000000
+	RSSRK[19]      00000000
+	RSSRK[20]      00000000
+	RSSRK[21]      00000000
+	RSSRK[22]      00000000
+	RSSRK[23]      00000000
+	RSSRK[24]      00000000
+	RSSRK[25]      00000000
+	RSSRK[26]      00000000
+	RSSRK[27]      00000000
+	RSSRK[28]      00000000
+	RSSRK[29]      00000000
+	RSSRK[30]      00000000
+	RSSRK[31]      00000000
+	RSSRK[32]      00000000
+	RSSRK[33]      00000000
+	RSSRK[34]      00000000
+	RSSRK[35]      00000000
+	RSSRK[36]      00000000
+	RSSRK[37]      00000000
+	RSSRK[38]      00000000
+	RSSRK[39]      00000000
+	FFLT[0]        00000000
+	FFLT[1]        fffc0000
+	FFLT[2]        00000000
+	FFLT[3]        00000000
+	FFLT[4]        00000000
+	FFLT[5]        00000000
+	FFLT[6]        00000000
+	FFLT[7]        00000000
+	FFLT[8]        00000000
+	FFLT[9]        00000000
+	FFLT[10]       00000000
+	FFLT[11]       00000000
+	HICR           00000109
+	FFMT[0]        0000000c
+	FFMT[1]        0000000c
+	FFMT[2]        0000000d
+	FFMT[3]        0000000d
+	FFMT[4]        0000000c
+	FFMT[5]        0000000c
+	FFMT[6]        0000000f
+	FFMT[7]        0000000f
+	FFMT[8]        00000001
+	FFMT[9]        00000001
+	FFMT[10]       00000006
+	FFMT[11]       00000006
+	FFMT[12]       00000004
+	FFMT[13]       00000004
+	FFMT[14]       0000000c
+	FFMT[15]       0000000c
+	FFMT[16]       0000000e
+	FFMT[17]       0000000e
+	FFMT[18]       00000001
+	FFMT[19]       00000001
+	FFMT[20]       00000001
+	FFMT[21]       00000001
+	FFMT[22]       00000001
+	FFMT[23]       00000001
+	FFMT[24]       00000000
+	FFMT[25]       00000000
+	FFMT[26]       00000001
+	FFMT[27]       00000001
+	FFMT[28]       00000002
+	FFMT[29]       00000002
+	FFMT[30]       0000000f
+	FFMT[31]       0000000f
+	FFMT[32]       00000001
+	FFMT[33]       00000001
+	FFMT[34]       00000003
+	FFMT[35]       00000003
+	FFMT[36]       0000000c
+	FFMT[37]       0000000c
+	FFMT[38]       00000002
+	FFMT[39]       00000002
+	FFMT[40]       00000008
+	FFMT[41]       00000008
+	FFMT[42]       0000000f
+	FFMT[43]       0000000f
+	FFMT[44]       00000008
+	FFMT[45]       00000008
+	FFMT[46]       00000004
+	FFMT[47]       00000004
+	FFMT[48]       00000006
+	FFMT[49]       00000006
+	FFMT[50]       00000007
+	FFMT[51]       00000007
+	FFMT[52]       00000002
+	FFMT[53]       00000002
+	FFMT[54]       0000000b
+	FFMT[55]       0000000b
+	FFMT[56]       00000008
+	FFMT[57]       00000008
+	FFMT[58]       00000003
+	FFMT[59]       00000003
+	FFMT[60]       00000004
+	FFMT[61]       00000004
+	FFMT[62]       00000000
+	FFMT[63]       00000000
+	FFMT[64]       00000001
+	FFMT[65]       00000001
+	FFMT[66]       0000000e
+	FFMT[67]       0000000e
+	FFMT[68]       00000007
+	FFMT[69]       00000007
+	FFMT[70]       0000000b
+	FFMT[71]       0000000b
+	FFMT[72]       00000006
+	FFMT[73]       00000006
+	FFMT[74]       00000009
+	FFMT[75]       00000009
+	FFMT[76]       00000009
+	FFMT[77]       00000009
+	FFMT[78]       00000009
+	FFMT[79]       00000009
+	FFMT[80]       0000000f
+	FFMT[81]       0000000f
+	FFMT[82]       00000009
+	FFMT[83]       00000009
+	FFMT[84]       0000000a
+	FFMT[85]       0000000a
+	FFMT[86]       00000000
+	FFMT[87]       00000000
+	FFMT[88]       0000000b
+	FFMT[89]       0000000b
+	FFMT[90]       00000003
+	FFMT[91]       00000003
+	FFMT[92]       00000001
+	FFMT[93]       00000001
+	FFMT[94]       00000004
+	FFMT[95]       00000004
+	FFMT[96]       0000000b
+	FFMT[97]       0000000b
+	FFMT[98]       0000000c
+	FFMT[99]       0000000c
+	FFMT[100]      0000000a
+	FFMT[101]      0000000a
+	FFMT[102]      00000009
+	FFMT[103]      00000009
+	FFMT[104]      00000000
+	FFMT[105]      00000000
+	FFMT[106]      00000003
+	FFMT[107]      00000003
+	FFMT[108]      00000006
+	FFMT[109]      00000006
+	FFMT[110]      00000008
+	FFMT[111]      00000008
+	FFMT[112]      0000000e
+	FFMT[113]      0000000e
+	FFMT[114]      00000007
+	FFMT[115]      00000007
+	FFMT[116]      0000000c
+	FFMT[117]      0000000c
+	FFMT[118]      00000007
+	FFMT[119]      00000007
+	FFMT[120]      00000009
+	FFMT[121]      00000009
+	FFMT[122]      00000001
+	FFMT[123]      00000001
+	FFMT[124]      00000001
+	FFMT[125]      00000001
+	FFMT[126]      0000000f
+	FFMT[127]      0000000f
+	FFVT[0]        69386efe
+	FFVT[1]        69386efe
+	FFVT[2]        47dac1bd
+	FFVT[3]        47dac1bd
+	FFVT[4]        0af977e3
+	FFVT[5]        0af977e3
+	FFVT[6]        0bf35fcd
+	FFVT[7]        0bf35fcd
+	FFVT[8]        396325cb
+	FFVT[9]        396325cb
+	FFVT[10]       45fb2966
+	FFVT[11]       45fb2966
+	FFVT[12]       85fe3e31
+	FFVT[13]       85fe3e31
+	FFVT[14]       e6b90940
+	FFVT[15]       e6b90940
+	FFVT[16]       fcf5c382
+	FFVT[17]       fcf5c382
+	FFVT[18]       68b90289
+	FFVT[19]       68b90289
+	FFVT[20]       0fada5ed
+	FFVT[21]       0fada5ed
+	FFVT[22]       67f87890
+	FFVT[23]       67f87890
+	FFVT[24]       2dd69d55
+	FFVT[25]       2dd69d55
+	FFVT[26]       0f78a7b0
+	FFVT[27]       0f78a7b0
+	FFVT[28]       138d13f7
+	FFVT[29]       138d13f7
+	FFVT[30]       e302400a
+	FFVT[31]       e302400a
+	FFVT[32]       bc8ebaf7
+	FFVT[33]       bc8ebaf7
+	FFVT[34]       96fe79fb
+	FFVT[35]       96fe79fb
+	FFVT[36]       df5aa33b
+	FFVT[37]       df5aa33b
+	FFVT[38]       91212c9e
+	FFVT[39]       91212c9e
+	FFVT[40]       71c517b4
+	FFVT[41]       71c517b4
+	FFVT[42]       0bb6697f
+	FFVT[43]       0bb6697f
+	FFVT[44]       63018c23
+	FFVT[45]       63018c23
+	FFVT[46]       48a35d54
+	FFVT[47]       48a35d54
+	FFVT[48]       95f4d375
+	FFVT[49]       95f4d375
+	FFVT[50]       4699c679
+	FFVT[51]       4699c679
+	FFVT[52]       06e7adde
+	FFVT[53]       06e7adde
+	FFVT[54]       e31f1b6d
+	FFVT[55]       e31f1b6d
+	FFVT[56]       888919d6
+	FFVT[57]       888919d6
+	FFVT[58]       4751a142
+	FFVT[59]       4751a142
+	FFVT[60]       676fef06
+	FFVT[61]       676fef06
+	FFVT[62]       792d0e82
+	FFVT[63]       792d0e82
+	FFVT[64]       1066713d
+	FFVT[65]       1066713d
+	FFVT[66]       8f55fa4d
+	FFVT[67]       8f55fa4d
+	FFVT[68]       5fe46f1a
+	FFVT[69]       5fe46f1a
+	FFVT[70]       cacbc51e
+	FFVT[71]       cacbc51e
+	FFVT[72]       04470301
+	FFVT[73]       04470301
+	FFVT[74]       6b3dfea9
+	FFVT[75]       6b3dfea9
+	FFVT[76]       bd00be00
+	FFVT[77]       bd00be00
+	FFVT[78]       7079cb0c
+	FFVT[79]       7079cb0c
+	FFVT[80]       e7180acc
+	FFVT[81]       e7180acc
+	FFVT[82]       25755bec
+	FFVT[83]       25755bec
+	FFVT[84]       bcdd8914
+	FFVT[85]       bcdd8914
+	FFVT[86]       9ed3128d
+	FFVT[87]       9ed3128d
+	FFVT[88]       dc48587b
+	FFVT[89]       dc48587b
+	FFVT[90]       e9755ebf
+	FFVT[91]       e9755ebf
+	FFVT[92]       9ff23883
+	FFVT[93]       9ff23883
+	FFVT[94]       52d8233d
+	FFVT[95]       52d8233d
+	FFVT[96]       cdcf21c0
+	FFVT[97]       cdcf21c0
+	FFVT[98]       9069a69f
+	FFVT[99]       9069a69f
+	FFVT[100]      b52c57f5
+	FFVT[101]      b52c57f5
+	FFVT[102]      42977681
+	FFVT[103]      42977681
+	FFVT[104]      ab8b671a
+	FFVT[105]      ab8b671a
+	FFVT[106]      4edc0c8b
+	FFVT[107]      4edc0c8b
+	FFVT[108]      f41c47f0
+	FFVT[109]      f41c47f0
+	FFVT[110]      ab4edb12
+	FFVT[111]      ab4edb12
+	FFVT[112]      c096a36f
+	FFVT[113]      c096a36f
+	FFVT[114]      ed46c26a
+	FFVT[115]      ed46c26a
+	FFVT[116]      aca39e0b
+	FFVT[117]      aca39e0b
+	FFVT[118]      e01ed8b5
+	FFVT[119]      e01ed8b5
+	FFVT[120]      604c1ef5
+	FFVT[121]      604c1ef5
+	FFVT[122]      0dbbfeae
+	FFVT[123]      0dbbfeae
+	FFVT[124]      9478dbb7
+	FFVT[125]      9478dbb7
+	FFVT[126]      f95cfa23
+	FFVT[127]      f95cfa23
+
+
+
+--Boundary-00=_sql7LNKAuk4EACq--
