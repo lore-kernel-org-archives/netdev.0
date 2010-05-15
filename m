@@ -1,1706 +1,884 @@
-From: Rakesh Ranjan <rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH 3/3] cxgb4i_v3: iscsi and libcxgbi library for handling common part
-Date: Sat, 15 May 2010 22:54:09 +0530
-Message-ID: <1273944249-311-4-git-send-email-rakesh@chelsio.com>
-References: <1273944249-311-1-git-send-email-rakesh@chelsio.com>
- <1273944249-311-2-git-send-email-rakesh@chelsio.com>
- <1273944249-311-3-git-send-email-rakesh@chelsio.com>
-Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [patch] pm_qos update fixing mmotm 2010-05-11
+	-dies in pm_qos_update_request()
+Date: Sat, 15 May 2010 21:38:47 +0200
+Message-ID: <201005152138.47178.rjw@sisk.pl>
+References: <20100515021922.GA5041@thegnar.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Karen Xie <kxie-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        James Bottomley <James.Bottomley-JuX6DAaQMKPCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>,
-        Mike Christie <michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org>, Anish Bhatt <anish-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-        Rakesh Ranjan <rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-        Rakesh Ranjan <rranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: NETDEVML <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, SCSIDEVML <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        OISCSIML <open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Return-path: <open-iscsi+bncCKnrzee6GxDCsrvfBBoESIM7LA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <1273944249-311-3-git-send-email-rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-List-Post: <http://groups.google.com/group/open-iscsi/post?hl=en_US>,
-	<mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/?hl=en_US>, <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/open-iscsi?hl=en_US>
-Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/open-iscsi/subscribe?hl=en_US>,
-	<mailto:open-iscsi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/open-iscsi/subscribe?hl=en_US>,
-	<mailto:open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: mgross@linux.intel.com, Valdis.Kletnieks@vt.eu,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	linux-pm@lists.linux-foundation.org, akpm@linux-foundation.org,
+	davem@davemloft.net
+To: markgross@thegnar.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20100515021922.GA5041@thegnar.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-From: Rakesh Ranjan <rranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+On Saturday 15 May 2010, mgross wrote:
+> I apologize for the goofy email address.  
+> 
+> The following is a fix for the crash reported by Valdis.
+> 
+> The problem was that the original pm_qos silently fails when a request
+> update is passed to a parameter that has not been added to the list
+> yet.  It seems that the e1000e is doing this.  This update restores this
+> behavior.
+> 
+> I need to think about how to better handle such abuse, but for now this
+> restores the original behavior.
+
+Can you please post a signed-off incremental patch against
+
+git://git.kernel.org/pub/scm/linux/kernel/git/rafael/suspend-2.6.git for-llinus
+
+that contains your original PM QOS update?
+
+Thanks,
+Rafael
 
 
-Signed-off-by: Rakesh Ranjan <rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
----
- drivers/scsi/cxgb4i/cxgb4i_iscsi.c |  617 ++++++++++++++++++++++++++++++++++++
- drivers/scsi/cxgb4i/libcxgbi.c     |  589 ++++++++++++++++++++++++++++++++++
- drivers/scsi/cxgb4i/libcxgbi.h     |  430 +++++++++++++++++++++++++
- 3 files changed, 1636 insertions(+), 0 deletions(-)
- create mode 100644 drivers/scsi/cxgb4i/cxgb4i_iscsi.c
- create mode 100644 drivers/scsi/cxgb4i/libcxgbi.c
- create mode 100644 drivers/scsi/cxgb4i/libcxgbi.h
+> Signed-off-by: markgross <markgross@thegnar.org>
+> --mgross
+> 
+> 
+> From 66700dc26ab7582bc7351541ba2e6241cc4b4144 Mon Sep 17 00:00:00 2001
+> From: mgross <mgross@mgross-desktop.(none)>
+> Date: Fri, 14 May 2010 19:05:44 -0700
+> Subject: [PATCH] PM QOS update
+>  This patch changes the string based list management to a handle base
+>  implementation to help with the hot path use of pm-qos, it also renames
+>  much of the API to use "request" as opposed to "requirement" that was
+>  used in the initial implementation.  I did this because request more
+>  accurately represents what it actually does.
+> 
+> Also, I added a string based ABI for users wanting to use a string
+> interface.  So if the user writes 0xDDDDDDDD formatted hex it will be
+> accepted by the interface.  (someone asked me for it and I don't think
+> it hurts anything.)
+> 
+> This patch updates some documentation input I got from Randy.
+> 
+> This version handles a use case where pm_qos update requests need to
+> silently not fail if the update is being sent to a handle that is null.
+> This is what happened in the initial version of pm-qos if you used a
+> string that wasn't in the list.
+> 
+> Signed-off-by: markgross <mgross@linux.intel.com>
+> ---
+>  Documentation/power/pm_qos_interface.txt |   48 ++++---
+>  drivers/acpi/processor_idle.c            |    2 +-
+>  drivers/cpuidle/governors/ladder.c       |    2 +-
+>  drivers/cpuidle/governors/menu.c         |    2 +-
+>  drivers/net/e1000e/netdev.c              |   22 ++--
+>  drivers/net/igbvf/netdev.c               |    6 +-
+>  drivers/net/wireless/ipw2x00/ipw2100.c   |   11 +-
+>  include/linux/netdevice.h                |    4 +
+>  include/linux/pm_qos_params.h            |   14 +-
+>  include/sound/pcm.h                      |    3 +-
+>  kernel/pm_qos_params.c                   |  217 +++++++++++++++---------------
+>  net/mac80211/mlme.c                      |    2 +-
+>  sound/core/pcm.c                         |    3 -
+>  sound/core/pcm_native.c                  |   14 +-
+>  14 files changed, 179 insertions(+), 171 deletions(-)
+> 
+> diff --git a/Documentation/power/pm_qos_interface.txt b/Documentation/power/pm_qos_interface.txt
+> index c40866e..bfed898 100644
+> --- a/Documentation/power/pm_qos_interface.txt
+> +++ b/Documentation/power/pm_qos_interface.txt
+> @@ -18,44 +18,46 @@ and pm_qos_params.h.  This is done because having the available parameters
+>  being runtime configurable or changeable from a driver was seen as too easy to
+>  abuse.
+>  
+> -For each parameter a list of performance requirements is maintained along with
+> +For each parameter a list of performance requests is maintained along with
+>  an aggregated target value.  The aggregated target value is updated with
+> -changes to the requirement list or elements of the list.  Typically the
+> -aggregated target value is simply the max or min of the requirement values held
+> +changes to the request list or elements of the list.  Typically the
+> +aggregated target value is simply the max or min of the request values held
+>  in the parameter list elements.
+>  
+>  From kernel mode the use of this interface is simple:
+> -pm_qos_add_requirement(param_id, name, target_value):
+> -Will insert a named element in the list for that identified PM_QOS parameter
+> -with the target value.  Upon change to this list the new target is recomputed
+> -and any registered notifiers are called only if the target value is now
+> -different.
+>  
+> -pm_qos_update_requirement(param_id, name, new_target_value):
+> -Will search the list identified by the param_id for the named list element and
+> -then update its target value, calling the notification tree if the aggregated
+> -target is changed.  with that name is already registered.
+> +handle = pm_qos_add_request(param_class, target_value):
+> +Will insert an element into the list for that identified PM_QOS class with the
+> +target value.  Upon change to this list the new target is recomputed and any
+> +registered notifiers are called only if the target value is now different.
+> +Clients of pm_qos need to save the returned handle.
+>  
+> -pm_qos_remove_requirement(param_id, name):
+> -Will search the identified list for the named element and remove it, after
+> -removal it will update the aggregate target and call the notification tree if
+> -the target was changed as a result of removing the named requirement.
+> +void pm_qos_update_request(handle, new_target_value):
+> +Will update the list element pointed to by the handle with the new target value
+> +and recompute the new aggregated target, calling the notification tree if the
+> +target is changed.
+> +
+> +void pm_qos_remove_request(handle):
+> +Will remove the element.  After removal it will update the aggregate target and
+> +call the notification tree if the target was changed as a result of removing
+> +the request.
+>  
+>  
+>  From user mode:
+> -Only processes can register a pm_qos requirement.  To provide for automatic
+> -cleanup for process the interface requires the process to register its
+> -parameter requirements in the following way:
+> +Only processes can register a pm_qos request.  To provide for automatic
+> +cleanup of a process, the interface requires the process to register its
+> +parameter requests in the following way:
+>  
+>  To register the default pm_qos target for the specific parameter, the process
+>  must open one of /dev/[cpu_dma_latency, network_latency, network_throughput]
+>  
+>  As long as the device node is held open that process has a registered
+> -requirement on the parameter.  The name of the requirement is "process_<PID>"
+> -derived from the current->pid from within the open system call.
+> +request on the parameter.
+>  
+> -To change the requested target value the process needs to write a s32 value to
+> -the open device node.  This translates to a pm_qos_update_requirement call.
+> +To change the requested target value the process needs to write an s32 value to
+> +the open device node.  Alternatively the user mode program could write a hex
+> +string for the value using 10 char long format e.g. "0x12345678".  This
+> +translates to a pm_qos_update_request call.
+>  
+>  To remove the user mode request for a target value simply close the device
+>  node.
+> diff --git a/drivers/acpi/processor_idle.c b/drivers/acpi/processor_idle.c
+> index 5939e7f..c3817e1 100644
+> --- a/drivers/acpi/processor_idle.c
+> +++ b/drivers/acpi/processor_idle.c
+> @@ -698,7 +698,7 @@ static int acpi_processor_power_seq_show(struct seq_file *seq, void *offset)
+>  		   "max_cstate:              C%d\n"
+>  		   "maximum allowed latency: %d usec\n",
+>  		   pr->power.state ? pr->power.state - pr->power.states : 0,
+> -		   max_cstate, pm_qos_requirement(PM_QOS_CPU_DMA_LATENCY));
+> +		   max_cstate, pm_qos_request(PM_QOS_CPU_DMA_LATENCY));
+>  
+>  	seq_puts(seq, "states:\n");
+>  
+> diff --git a/drivers/cpuidle/governors/ladder.c b/drivers/cpuidle/governors/ladder.c
+> index 1c1ceb4..12c9890 100644
+> --- a/drivers/cpuidle/governors/ladder.c
+> +++ b/drivers/cpuidle/governors/ladder.c
+> @@ -67,7 +67,7 @@ static int ladder_select_state(struct cpuidle_device *dev)
+>  	struct ladder_device *ldev = &__get_cpu_var(ladder_devices);
+>  	struct ladder_device_state *last_state;
+>  	int last_residency, last_idx = ldev->last_state_idx;
+> -	int latency_req = pm_qos_requirement(PM_QOS_CPU_DMA_LATENCY);
+> +	int latency_req = pm_qos_request(PM_QOS_CPU_DMA_LATENCY);
+>  
+>  	/* Special case when user has set very strict latency requirement */
+>  	if (unlikely(latency_req == 0)) {
+> diff --git a/drivers/cpuidle/governors/menu.c b/drivers/cpuidle/governors/menu.c
+> index f8e57c6..b81ad9c 100644
+> --- a/drivers/cpuidle/governors/menu.c
+> +++ b/drivers/cpuidle/governors/menu.c
+> @@ -182,7 +182,7 @@ static u64 div_round64(u64 dividend, u32 divisor)
+>  static int menu_select(struct cpuidle_device *dev)
+>  {
+>  	struct menu_device *data = &__get_cpu_var(menu_devices);
+> -	int latency_req = pm_qos_requirement(PM_QOS_CPU_DMA_LATENCY);
+> +	int latency_req = pm_qos_request(PM_QOS_CPU_DMA_LATENCY);
+>  	int i;
+>  	int multiplier;
+>  
+> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+> index dbf8178..d5d55c6 100644
+> --- a/drivers/net/e1000e/netdev.c
+> +++ b/drivers/net/e1000e/netdev.c
+> @@ -2524,12 +2524,12 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
+>  			 * excessive C-state transition latencies result in
+>  			 * dropped transactions.
+>  			 */
+> -			pm_qos_update_requirement(PM_QOS_CPU_DMA_LATENCY,
+> -						  adapter->netdev->name, 55);
+> +			pm_qos_update_request(
+> +				adapter->netdev->pm_qos_req, 55);
+>  		} else {
+> -			pm_qos_update_requirement(PM_QOS_CPU_DMA_LATENCY,
+> -						  adapter->netdev->name,
+> -						  PM_QOS_DEFAULT_VALUE);
+> +			pm_qos_update_request(
+> +				adapter->netdev->pm_qos_req,
+> +				PM_QOS_DEFAULT_VALUE);
+>  		}
+>  	}
+>  
+> @@ -2824,8 +2824,8 @@ int e1000e_up(struct e1000_adapter *adapter)
+>  
+>  	/* DMA latency requirement to workaround early-receive/jumbo issue */
+>  	if (adapter->flags & FLAG_HAS_ERT)
+> -		pm_qos_add_requirement(PM_QOS_CPU_DMA_LATENCY,
+> -		                       adapter->netdev->name,
+> +		adapter->netdev->pm_qos_req =
+> +			pm_qos_add_request(PM_QOS_CPU_DMA_LATENCY,
+>  				       PM_QOS_DEFAULT_VALUE);
+>  
+>  	/* hardware has been reset, we need to reload some things */
+> @@ -2887,9 +2887,11 @@ void e1000e_down(struct e1000_adapter *adapter)
+>  	e1000_clean_tx_ring(adapter);
+>  	e1000_clean_rx_ring(adapter);
+>  
+> -	if (adapter->flags & FLAG_HAS_ERT)
+> -		pm_qos_remove_requirement(PM_QOS_CPU_DMA_LATENCY,
+> -		                          adapter->netdev->name);
+> +	if (adapter->flags & FLAG_HAS_ERT) {
+> +		pm_qos_remove_request(
+> +			      adapter->netdev->pm_qos_req);
+> +		adapter->netdev->pm_qos_req = NULL;
+> +	}
+>  
+>  	/*
+>  	 * TODO: for power management, we could drop the link and
+> diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/igbvf/netdev.c
+> index 1b1edad..f16e981 100644
+> --- a/drivers/net/igbvf/netdev.c
+> +++ b/drivers/net/igbvf/netdev.c
+> @@ -48,6 +48,7 @@
+>  #define DRV_VERSION "1.0.0-k0"
+>  char igbvf_driver_name[] = "igbvf";
+>  const char igbvf_driver_version[] = DRV_VERSION;
+> +struct pm_qos_request_list *igbvf_driver_pm_qos_req;
+>  static const char igbvf_driver_string[] =
+>  				"Intel(R) Virtual Function Network Driver";
+>  static const char igbvf_copyright[] = "Copyright (c) 2009 Intel Corporation.";
+> @@ -2899,7 +2900,7 @@ static int __init igbvf_init_module(void)
+>  	printk(KERN_INFO "%s\n", igbvf_copyright);
+>  
+>  	ret = pci_register_driver(&igbvf_driver);
+> -	pm_qos_add_requirement(PM_QOS_CPU_DMA_LATENCY, igbvf_driver_name,
+> +	igbvf_driver_pm_qos_req = pm_qos_add_request(PM_QOS_CPU_DMA_LATENCY,
+>  	                       PM_QOS_DEFAULT_VALUE);
+>  
+>  	return ret;
+> @@ -2915,7 +2916,8 @@ module_init(igbvf_init_module);
+>  static void __exit igbvf_exit_module(void)
+>  {
+>  	pci_unregister_driver(&igbvf_driver);
+> -	pm_qos_remove_requirement(PM_QOS_CPU_DMA_LATENCY, igbvf_driver_name);
+> +	pm_qos_remove_request(igbvf_driver_pm_qos_req);
+> +	igbvf_driver_pm_qos_req = NULL;
+>  }
+>  module_exit(igbvf_exit_module);
+>  
+> diff --git a/drivers/net/wireless/ipw2x00/ipw2100.c b/drivers/net/wireless/ipw2x00/ipw2100.c
+> index 9b72c45..2b05fe5 100644
+> --- a/drivers/net/wireless/ipw2x00/ipw2100.c
+> +++ b/drivers/net/wireless/ipw2x00/ipw2100.c
+> @@ -174,6 +174,8 @@ that only one external action is invoked at a time.
+>  #define DRV_DESCRIPTION	"Intel(R) PRO/Wireless 2100 Network Driver"
+>  #define DRV_COPYRIGHT	"Copyright(c) 2003-2006 Intel Corporation"
+>  
+> +struct pm_qos_request_list *ipw2100_pm_qos_req;
+> +
+>  /* Debugging stuff */
+>  #ifdef CONFIG_IPW2100_DEBUG
+>  #define IPW2100_RX_DEBUG	/* Reception debugging */
+> @@ -1739,7 +1741,7 @@ static int ipw2100_up(struct ipw2100_priv *priv, int deferred)
+>  	/* the ipw2100 hardware really doesn't want power management delays
+>  	 * longer than 175usec
+>  	 */
+> -	pm_qos_update_requirement(PM_QOS_CPU_DMA_LATENCY, "ipw2100", 175);
+> +	pm_qos_update_request(ipw2100_pm_qos_req, 175);
+>  
+>  	/* If the interrupt is enabled, turn it off... */
+>  	spin_lock_irqsave(&priv->low_lock, flags);
+> @@ -1887,8 +1889,7 @@ static void ipw2100_down(struct ipw2100_priv *priv)
+>  	ipw2100_disable_interrupts(priv);
+>  	spin_unlock_irqrestore(&priv->low_lock, flags);
+>  
+> -	pm_qos_update_requirement(PM_QOS_CPU_DMA_LATENCY, "ipw2100",
+> -			PM_QOS_DEFAULT_VALUE);
+> +	pm_qos_update_request(ipw2100_pm_qos_req, PM_QOS_DEFAULT_VALUE);
+>  
+>  	/* We have to signal any supplicant if we are disassociating */
+>  	if (associated)
+> @@ -6669,7 +6670,7 @@ static int __init ipw2100_init(void)
+>  	if (ret)
+>  		goto out;
+>  
+> -	pm_qos_add_requirement(PM_QOS_CPU_DMA_LATENCY, "ipw2100",
+> +	ipw2100_pm_qos_req = pm_qos_add_request(PM_QOS_CPU_DMA_LATENCY,
+>  			PM_QOS_DEFAULT_VALUE);
+>  #ifdef CONFIG_IPW2100_DEBUG
+>  	ipw2100_debug_level = debug;
+> @@ -6692,7 +6693,7 @@ static void __exit ipw2100_exit(void)
+>  			   &driver_attr_debug_level);
+>  #endif
+>  	pci_unregister_driver(&ipw2100_pci_driver);
+> -	pm_qos_remove_requirement(PM_QOS_CPU_DMA_LATENCY, "ipw2100");
+> +	pm_qos_remove_request(ipw2100_pm_qos_req);
+>  }
+>  
+>  module_init(ipw2100_init);
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index fa8b476..3857517 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -31,6 +31,7 @@
+>  #include <linux/if_link.h>
+>  
+>  #ifdef __KERNEL__
+> +#include <linux/pm_qos_params.h>
+>  #include <linux/timer.h>
+>  #include <linux/delay.h>
+>  #include <linux/mm.h>
+> @@ -711,6 +712,9 @@ struct net_device {
+>  	 * the interface.
+>  	 */
+>  	char			name[IFNAMSIZ];
+> +
+> +	struct pm_qos_request_list *pm_qos_req;
+> +
+>  	/* device name hash chain */
+>  	struct hlist_node	name_hlist;
+>  	/* snmp alias */
+> diff --git a/include/linux/pm_qos_params.h b/include/linux/pm_qos_params.h
+> index d74f75e..8ba440e 100644
+> --- a/include/linux/pm_qos_params.h
+> +++ b/include/linux/pm_qos_params.h
+> @@ -14,12 +14,14 @@
+>  #define PM_QOS_NUM_CLASSES 4
+>  #define PM_QOS_DEFAULT_VALUE -1
+>  
+> -int pm_qos_add_requirement(int qos, char *name, s32 value);
+> -int pm_qos_update_requirement(int qos, char *name, s32 new_value);
+> -void pm_qos_remove_requirement(int qos, char *name);
+> +struct pm_qos_request_list;
+>  
+> -int pm_qos_requirement(int qos);
+> +struct pm_qos_request_list *pm_qos_add_request(int pm_qos_class, s32 value);
+> +void pm_qos_update_request(struct pm_qos_request_list *pm_qos_req,
+> +		s32 new_value);
+> +void pm_qos_remove_request(struct pm_qos_request_list *pm_qos_req);
+>  
+> -int pm_qos_add_notifier(int qos, struct notifier_block *notifier);
+> -int pm_qos_remove_notifier(int qos, struct notifier_block *notifier);
+> +int pm_qos_request(int pm_qos_class);
+> +int pm_qos_add_notifier(int pm_qos_class, struct notifier_block *notifier);
+> +int pm_qos_remove_notifier(int pm_qos_class, struct notifier_block *notifier);
+>  
+> diff --git a/include/sound/pcm.h b/include/sound/pcm.h
+> index 8b611a5..dd76cde 100644
+> --- a/include/sound/pcm.h
+> +++ b/include/sound/pcm.h
+> @@ -29,6 +29,7 @@
+>  #include <linux/poll.h>
+>  #include <linux/mm.h>
+>  #include <linux/bitops.h>
+> +#include <linux/pm_qos_params.h>
+>  
+>  #define snd_pcm_substream_chip(substream) ((substream)->private_data)
+>  #define snd_pcm_chip(pcm) ((pcm)->private_data)
+> @@ -365,7 +366,7 @@ struct snd_pcm_substream {
+>  	int number;
+>  	char name[32];			/* substream name */
+>  	int stream;			/* stream (direction) */
+> -	char latency_id[20];		/* latency identifier */
+> +	struct pm_qos_request_list *latency_pm_qos_req; /* pm_qos request */
+>  	size_t buffer_bytes_max;	/* limit ring buffer size */
+>  	struct snd_dma_buffer dma_buffer;
+>  	unsigned int dma_buf_id;
+> diff --git a/kernel/pm_qos_params.c b/kernel/pm_qos_params.c
+> index 3db49b9..dfa1425 100644
+> --- a/kernel/pm_qos_params.c
+> +++ b/kernel/pm_qos_params.c
+> @@ -2,7 +2,7 @@
+>   * This module exposes the interface to kernel space for specifying
+>   * QoS dependencies.  It provides infrastructure for registration of:
+>   *
+> - * Dependents on a QoS value : register requirements
+> + * Dependents on a QoS value : register requests
+>   * Watchers of QoS value : get notified when target QoS value changes
+>   *
+>   * This QoS design is best effort based.  Dependents register their QoS needs.
+> @@ -14,19 +14,21 @@
+>   * timeout: usec <-- currently not used.
+>   * throughput: kbs (kilo byte / sec)
+>   *
+> - * There are lists of pm_qos_objects each one wrapping requirements, notifiers
+> + * There are lists of pm_qos_objects each one wrapping requests, notifiers
+>   *
+> - * User mode requirements on a QOS parameter register themselves to the
+> + * User mode requests on a QOS parameter register themselves to the
+>   * subsystem by opening the device node /dev/... and writing there request to
+>   * the node.  As long as the process holds a file handle open to the node the
+>   * client continues to be accounted for.  Upon file release the usermode
+> - * requirement is removed and a new qos target is computed.  This way when the
+> - * requirement that the application has is cleaned up when closes the file
+> + * request is removed and a new qos target is computed.  This way when the
+> + * request that the application has is cleaned up when closes the file
+>   * pointer or exits the pm_qos_object will get an opportunity to clean up.
+>   *
+>   * Mark Gross <mgross@linux.intel.com>
+>   */
+>  
+> +/*#define DEBUG*/
+> +
+>  #include <linux/pm_qos_params.h>
+>  #include <linux/sched.h>
+>  #include <linux/spinlock.h>
+> @@ -42,25 +44,25 @@
+>  #include <linux/uaccess.h>
+>  
+>  /*
+> - * locking rule: all changes to requirements or notifiers lists
+> + * locking rule: all changes to requests or notifiers lists
+>   * or pm_qos_object list and pm_qos_objects need to happen with pm_qos_lock
+>   * held, taken with _irqsave.  One lock to rule them all
+>   */
+> -struct requirement_list {
+> +struct pm_qos_request_list {
+>  	struct list_head list;
+>  	union {
+>  		s32 value;
+>  		s32 usec;
+>  		s32 kbps;
+>  	};
+> -	char *name;
+> +	int pm_qos_class;
+>  };
+>  
+>  static s32 max_compare(s32 v1, s32 v2);
+>  static s32 min_compare(s32 v1, s32 v2);
+>  
+>  struct pm_qos_object {
+> -	struct requirement_list requirements;
+> +	struct pm_qos_request_list requests;
+>  	struct blocking_notifier_head *notifiers;
+>  	struct miscdevice pm_qos_power_miscdev;
+>  	char *name;
+> @@ -72,7 +74,7 @@ struct pm_qos_object {
+>  static struct pm_qos_object null_pm_qos;
+>  static BLOCKING_NOTIFIER_HEAD(cpu_dma_lat_notifier);
+>  static struct pm_qos_object cpu_dma_pm_qos = {
+> -	.requirements = {LIST_HEAD_INIT(cpu_dma_pm_qos.requirements.list)},
+> +	.requests = {LIST_HEAD_INIT(cpu_dma_pm_qos.requests.list)},
+>  	.notifiers = &cpu_dma_lat_notifier,
+>  	.name = "cpu_dma_latency",
+>  	.default_value = 2000 * USEC_PER_SEC,
+> @@ -82,7 +84,7 @@ static struct pm_qos_object cpu_dma_pm_qos = {
+>  
+>  static BLOCKING_NOTIFIER_HEAD(network_lat_notifier);
+>  static struct pm_qos_object network_lat_pm_qos = {
+> -	.requirements = {LIST_HEAD_INIT(network_lat_pm_qos.requirements.list)},
+> +	.requests = {LIST_HEAD_INIT(network_lat_pm_qos.requests.list)},
+>  	.notifiers = &network_lat_notifier,
+>  	.name = "network_latency",
+>  	.default_value = 2000 * USEC_PER_SEC,
+> @@ -93,8 +95,7 @@ static struct pm_qos_object network_lat_pm_qos = {
+>  
+>  static BLOCKING_NOTIFIER_HEAD(network_throughput_notifier);
+>  static struct pm_qos_object network_throughput_pm_qos = {
+> -	.requirements =
+> -		{LIST_HEAD_INIT(network_throughput_pm_qos.requirements.list)},
+> +	.requests = {LIST_HEAD_INIT(network_throughput_pm_qos.requests.list)},
+>  	.notifiers = &network_throughput_notifier,
+>  	.name = "network_throughput",
+>  	.default_value = 0,
+> @@ -135,31 +136,34 @@ static s32 min_compare(s32 v1, s32 v2)
+>  }
+>  
+>  
+> -static void update_target(int target)
+> +static void update_target(int pm_qos_class)
+>  {
+>  	s32 extreme_value;
+> -	struct requirement_list *node;
+> +	struct pm_qos_request_list *node;
+>  	unsigned long flags;
+>  	int call_notifier = 0;
+>  
+>  	spin_lock_irqsave(&pm_qos_lock, flags);
+> -	extreme_value = pm_qos_array[target]->default_value;
+> +	extreme_value = pm_qos_array[pm_qos_class]->default_value;
+>  	list_for_each_entry(node,
+> -			&pm_qos_array[target]->requirements.list, list) {
+> -		extreme_value = pm_qos_array[target]->comparitor(
+> +			&pm_qos_array[pm_qos_class]->requests.list, list) {
+> +		extreme_value = pm_qos_array[pm_qos_class]->comparitor(
+>  				extreme_value, node->value);
+>  	}
+> -	if (atomic_read(&pm_qos_array[target]->target_value) != extreme_value) {
+> +	if (atomic_read(&pm_qos_array[pm_qos_class]->target_value) !=
+> +			extreme_value) {
+>  		call_notifier = 1;
+> -		atomic_set(&pm_qos_array[target]->target_value, extreme_value);
+> -		pr_debug(KERN_ERR "new target for qos %d is %d\n", target,
+> -			atomic_read(&pm_qos_array[target]->target_value));
+> +		atomic_set(&pm_qos_array[pm_qos_class]->target_value,
+> +				extreme_value);
+> +		pr_debug(KERN_ERR "new target for qos %d is %d\n", pm_qos_class,
+> +			atomic_read(&pm_qos_array[pm_qos_class]->target_value));
+>  	}
+>  	spin_unlock_irqrestore(&pm_qos_lock, flags);
+>  
+>  	if (call_notifier)
+> -		blocking_notifier_call_chain(pm_qos_array[target]->notifiers,
+> -			(unsigned long) extreme_value, NULL);
+> +		blocking_notifier_call_chain(
+> +				pm_qos_array[pm_qos_class]->notifiers,
+> +					(unsigned long) extreme_value, NULL);
+>  }
+>  
+>  static int register_pm_qos_misc(struct pm_qos_object *qos)
+> @@ -185,125 +189,113 @@ static int find_pm_qos_object_by_minor(int minor)
+>  }
+>  
+>  /**
+> - * pm_qos_requirement - returns current system wide qos expectation
+> + * pm_qos_request - returns current system wide qos expectation
+>   * @pm_qos_class: identification of which qos value is requested
+>   *
+>   * This function returns the current target value in an atomic manner.
+>   */
+> -int pm_qos_requirement(int pm_qos_class)
+> +int pm_qos_request(int pm_qos_class)
+>  {
+>  	return atomic_read(&pm_qos_array[pm_qos_class]->target_value);
+>  }
+> -EXPORT_SYMBOL_GPL(pm_qos_requirement);
+> +EXPORT_SYMBOL_GPL(pm_qos_request);
+>  
+>  /**
+> - * pm_qos_add_requirement - inserts new qos request into the list
+> + * pm_qos_add_request - inserts new qos request into the list
+>   * @pm_qos_class: identifies which list of qos request to us
+> - * @name: identifies the request
+>   * @value: defines the qos request
+>   *
+>   * This function inserts a new entry in the pm_qos_class list of requested qos
+>   * performance characteristics.  It recomputes the aggregate QoS expectations
+> - * for the pm_qos_class of parameters.
+> + * for the pm_qos_class of parameters, and returns the pm_qos_request list
+> + * element as a handle for use in updating and removal.  Call needs to save
+> + * this handle for later use.
+>   */
+> -int pm_qos_add_requirement(int pm_qos_class, char *name, s32 value)
+> +struct pm_qos_request_list *pm_qos_add_request(int pm_qos_class, s32 value)
+>  {
+> -	struct requirement_list *dep;
+> +	struct pm_qos_request_list *dep;
+>  	unsigned long flags;
+>  
+> -	dep = kzalloc(sizeof(struct requirement_list), GFP_KERNEL);
+> +	dep = kzalloc(sizeof(struct pm_qos_request_list), GFP_KERNEL);
+>  	if (dep) {
+>  		if (value == PM_QOS_DEFAULT_VALUE)
+>  			dep->value = pm_qos_array[pm_qos_class]->default_value;
+>  		else
+>  			dep->value = value;
+> -		dep->name = kstrdup(name, GFP_KERNEL);
+> -		if (!dep->name)
+> -			goto cleanup;
+> +		dep->pm_qos_class = pm_qos_class;
+>  
+>  		spin_lock_irqsave(&pm_qos_lock, flags);
+>  		list_add(&dep->list,
+> -			&pm_qos_array[pm_qos_class]->requirements.list);
+> +			&pm_qos_array[pm_qos_class]->requests.list);
+>  		spin_unlock_irqrestore(&pm_qos_lock, flags);
+>  		update_target(pm_qos_class);
+> -
+> -		return 0;
+>  	}
+>  
+> -cleanup:
+> -	kfree(dep);
+> -	return -ENOMEM;
+> +	return dep;
+>  }
+> -EXPORT_SYMBOL_GPL(pm_qos_add_requirement);
+> +EXPORT_SYMBOL_GPL(pm_qos_add_request);
+>  
+>  /**
+> - * pm_qos_update_requirement - modifies an existing qos request
+> - * @pm_qos_class: identifies which list of qos request to us
+> - * @name: identifies the request
+> + * pm_qos_update_request - modifies an existing qos request
+> + * @pm_qos_req : handle to list element holding a pm_qos request to use
+>   * @value: defines the qos request
+>   *
+> - * Updates an existing qos requirement for the pm_qos_class of parameters along
+> + * Updates an existing qos request for the pm_qos_class of parameters along
+>   * with updating the target pm_qos_class value.
+>   *
+> - * If the named request isn't in the list then no change is made.
+> + * Attempts are made to make this code callable on hot code paths.
+>   */
+> -int pm_qos_update_requirement(int pm_qos_class, char *name, s32 new_value)
+> +void pm_qos_update_request(struct pm_qos_request_list *pm_qos_req,
+> +		s32 new_value)
+>  {
+>  	unsigned long flags;
+> -	struct requirement_list *node;
+>  	int pending_update = 0;
+> +	s32 temp;
+>  
+> -	spin_lock_irqsave(&pm_qos_lock, flags);
+> -	list_for_each_entry(node,
+> -		&pm_qos_array[pm_qos_class]->requirements.list, list) {
+> -		if (strcmp(node->name, name) == 0) {
+> -			if (new_value == PM_QOS_DEFAULT_VALUE)
+> -				node->value =
+> -				pm_qos_array[pm_qos_class]->default_value;
+> -			else
+> -				node->value = new_value;
+> +	if (pm_qos_req) { /*guard against callers passing in null */
+> +		spin_lock_irqsave(&pm_qos_lock, flags);
+> +		if (new_value == PM_QOS_DEFAULT_VALUE)
+> +			temp = pm_qos_array[pm_qos_req->pm_qos_class]->
+> +				default_value;
+> +		else
+> +			temp = new_value;
+> +
+> +		if (temp != pm_qos_req->value) {
+>  			pending_update = 1;
+> -			break;
+> +			pm_qos_req->value = temp;
+>  		}
+> +		spin_unlock_irqrestore(&pm_qos_lock, flags);
+>  	}
+> -	spin_unlock_irqrestore(&pm_qos_lock, flags);
+>  	if (pending_update)
+> -		update_target(pm_qos_class);
+> -
+> -	return 0;
+> +		update_target(pm_qos_req->pm_qos_class);
+>  }
+> -EXPORT_SYMBOL_GPL(pm_qos_update_requirement);
+> +EXPORT_SYMBOL_GPL(pm_qos_update_request);
+>  
+>  /**
+> - * pm_qos_remove_requirement - modifies an existing qos request
+> - * @pm_qos_class: identifies which list of qos request to us
+> - * @name: identifies the request
+> + * pm_qos_remove_request - modifies an existing qos request
+> + * @pm_qos_req: handle to request list element
+>   *
+> - * Will remove named qos request from pm_qos_class list of parameters and
+> - * recompute the current target value for the pm_qos_class.
+> + * Will remove pm qos request from the list of requests and
+> + * recompute the current target value for the pm_qos_class.  Call this
+> + * on slow code paths.
+>   */
+> -void pm_qos_remove_requirement(int pm_qos_class, char *name)
+> +void pm_qos_remove_request(struct pm_qos_request_list *pm_qos_req)
+>  {
+>  	unsigned long flags;
+> -	struct requirement_list *node;
+> -	int pending_update = 0;
+> +	int qos_class;
+> +
+> +	if (pm_qos_req == NULL)
+> +		return;
+> +		/* silent return to keep pcm code cleaner */
+>  
+> +	qos_class = pm_qos_req->pm_qos_class;
+>  	spin_lock_irqsave(&pm_qos_lock, flags);
+> -	list_for_each_entry(node,
+> -		&pm_qos_array[pm_qos_class]->requirements.list, list) {
+> -		if (strcmp(node->name, name) == 0) {
+> -			kfree(node->name);
+> -			list_del(&node->list);
+> -			kfree(node);
+> -			pending_update = 1;
+> -			break;
+> -		}
+> -	}
+> +	list_del(&pm_qos_req->list);
+> +	kfree(pm_qos_req);
+>  	spin_unlock_irqrestore(&pm_qos_lock, flags);
+> -	if (pending_update)
+> -		update_target(pm_qos_class);
+> +	update_target(qos_class);
+>  }
+> -EXPORT_SYMBOL_GPL(pm_qos_remove_requirement);
+> +EXPORT_SYMBOL_GPL(pm_qos_remove_request);
+>  
+>  /**
+>   * pm_qos_add_notifier - sets notification entry for changes to target value
+> @@ -313,7 +305,7 @@ EXPORT_SYMBOL_GPL(pm_qos_remove_requirement);
+>   * will register the notifier into a notification chain that gets called
+>   * upon changes to the pm_qos_class target value.
+>   */
+> - int pm_qos_add_notifier(int pm_qos_class, struct notifier_block *notifier)
+> +int pm_qos_add_notifier(int pm_qos_class, struct notifier_block *notifier)
+>  {
+>  	int retval;
+>  
+> @@ -343,21 +335,16 @@ int pm_qos_remove_notifier(int pm_qos_class, struct notifier_block *notifier)
+>  }
+>  EXPORT_SYMBOL_GPL(pm_qos_remove_notifier);
+>  
+> -#define PID_NAME_LEN 32
+> -
+>  static int pm_qos_power_open(struct inode *inode, struct file *filp)
+>  {
+> -	int ret;
+>  	long pm_qos_class;
+> -	char name[PID_NAME_LEN];
+>  
+>  	pm_qos_class = find_pm_qos_object_by_minor(iminor(inode));
+>  	if (pm_qos_class >= 0) {
+> -		filp->private_data = (void *)pm_qos_class;
+> -		snprintf(name, PID_NAME_LEN, "process_%d", current->pid);
+> -		ret = pm_qos_add_requirement(pm_qos_class, name,
+> -					PM_QOS_DEFAULT_VALUE);
+> -		if (ret >= 0)
+> +		filp->private_data = (void *) pm_qos_add_request(pm_qos_class,
+> +				PM_QOS_DEFAULT_VALUE);
+> +
+> +		if (filp->private_data)
+>  			return 0;
+>  	}
+>  	return -EPERM;
+> @@ -365,32 +352,40 @@ static int pm_qos_power_open(struct inode *inode, struct file *filp)
+>  
+>  static int pm_qos_power_release(struct inode *inode, struct file *filp)
+>  {
+> -	int pm_qos_class;
+> -	char name[PID_NAME_LEN];
+> +	struct pm_qos_request_list *req;
+>  
+> -	pm_qos_class = (long)filp->private_data;
+> -	snprintf(name, PID_NAME_LEN, "process_%d", current->pid);
+> -	pm_qos_remove_requirement(pm_qos_class, name);
+> +	req = (struct pm_qos_request_list *)filp->private_data;
+> +	pm_qos_remove_request(req);
+>  
+>  	return 0;
+>  }
+>  
+> +
+>  static ssize_t pm_qos_power_write(struct file *filp, const char __user *buf,
+>  		size_t count, loff_t *f_pos)
+>  {
+>  	s32 value;
+> -	int pm_qos_class;
+> -	char name[PID_NAME_LEN];
+> -
+> -	pm_qos_class = (long)filp->private_data;
+> -	if (count != sizeof(s32))
+> +	int x;
+> +	char ascii_value[11];
+> +	struct pm_qos_request_list *pm_qos_req;
+> +
+> +	if (count == sizeof(s32)) {
+> +		if (copy_from_user(&value, buf, sizeof(s32)))
+> +			return -EFAULT;
+> +	} else if (count == 11) { /* len('0x12345678/0') */
+> +		if (copy_from_user(ascii_value, buf, 11))
+> +			return -EFAULT;
+> +		x = sscanf(ascii_value, "%x", &value);
+> +		if (x != 1)
+> +			return -EINVAL;
+> +		pr_debug(KERN_ERR "%s, %d, 0x%x\n", ascii_value, x, value);
+> +	} else
+>  		return -EINVAL;
+> -	if (copy_from_user(&value, buf, sizeof(s32)))
+> -		return -EFAULT;
+> -	snprintf(name, PID_NAME_LEN, "process_%d", current->pid);
+> -	pm_qos_update_requirement(pm_qos_class, name, value);
+>  
+> -	return  sizeof(s32);
+> +	pm_qos_req = (struct pm_qos_request_list *)filp->private_data;
+> +	pm_qos_update_request(pm_qos_req, value);
+> +
+> +	return count;
+>  }
+>  
+>  
+> diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
+> index 875c8de..88f95e7 100644
+> --- a/net/mac80211/mlme.c
+> +++ b/net/mac80211/mlme.c
+> @@ -495,7 +495,7 @@ void ieee80211_recalc_ps(struct ieee80211_local *local, s32 latency)
+>  		s32 beaconint_us;
+>  
+>  		if (latency < 0)
+> -			latency = pm_qos_requirement(PM_QOS_NETWORK_LATENCY);
+> +			latency = pm_qos_request(PM_QOS_NETWORK_LATENCY);
+>  
+>  		beaconint_us = ieee80211_tu_to_usec(
+>  					found->vif.bss_conf.beacon_int);
+> diff --git a/sound/core/pcm.c b/sound/core/pcm.c
+> index 0d428d0..cbe815d 100644
+> --- a/sound/core/pcm.c
+> +++ b/sound/core/pcm.c
+> @@ -648,9 +648,6 @@ int snd_pcm_new_stream(struct snd_pcm *pcm, int stream, int substream_count)
+>  		substream->number = idx;
+>  		substream->stream = stream;
+>  		sprintf(substream->name, "subdevice #%i", idx);
+> -		snprintf(substream->latency_id, sizeof(substream->latency_id),
+> -			 "ALSA-PCM%d-%d%c%d", pcm->card->number, pcm->device,
+> -			 (stream ? 'c' : 'p'), idx);
+>  		substream->buffer_bytes_max = UINT_MAX;
+>  		if (prev == NULL)
+>  			pstr->substream = substream;
+> diff --git a/sound/core/pcm_native.c b/sound/core/pcm_native.c
+> index 20b5982..192dd40 100644
+> --- a/sound/core/pcm_native.c
+> +++ b/sound/core/pcm_native.c
+> @@ -484,11 +484,13 @@ static int snd_pcm_hw_params(struct snd_pcm_substream *substream,
+>  	snd_pcm_timer_resolution_change(substream);
+>  	runtime->status->state = SNDRV_PCM_STATE_SETUP;
+>  
+> -	pm_qos_remove_requirement(PM_QOS_CPU_DMA_LATENCY,
+> -				substream->latency_id);
+> +	if (substream->latency_pm_qos_req) {
+> +		pm_qos_remove_request(substream->latency_pm_qos_req);
+> +		substream->latency_pm_qos_req = NULL;
+> +	}
+>  	if ((usecs = period_to_usecs(runtime)) >= 0)
+> -		pm_qos_add_requirement(PM_QOS_CPU_DMA_LATENCY,
+> -					substream->latency_id, usecs);
+> +		substream->latency_pm_qos_req = pm_qos_add_request(
+> +					PM_QOS_CPU_DMA_LATENCY, usecs);
+>  	return 0;
+>   _error:
+>  	/* hardware might be unuseable from this time,
+> @@ -543,8 +545,8 @@ static int snd_pcm_hw_free(struct snd_pcm_substream *substream)
+>  	if (substream->ops->hw_free)
+>  		result = substream->ops->hw_free(substream);
+>  	runtime->status->state = SNDRV_PCM_STATE_OPEN;
+> -	pm_qos_remove_requirement(PM_QOS_CPU_DMA_LATENCY,
+> -		substream->latency_id);
+> +	pm_qos_remove_request(substream->latency_pm_qos_req);
+> +	substream->latency_pm_qos_req = NULL;
+>  	return result;
+>  }
+>  
+> 
 
-diff --git a/drivers/scsi/cxgb4i/cxgb4i_iscsi.c b/drivers/scsi/cxgb4i/cxgb4i_iscsi.c
-new file mode 100644
-index 0000000..a10ab6d
---- /dev/null
-+++ b/drivers/scsi/cxgb4i/cxgb4i_iscsi.c
-@@ -0,0 +1,617 @@
-+/*
-+ * cxgb4i_iscsi.c: Chelsio T4 iSCSI driver.
-+ *
-+ * Copyright (c) 2010 Chelsio Communications, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation.
-+ *
-+ * Written by: Karen Xie (kxie-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org)
-+ * Written by: Rakesh Ranjan (rranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org)
-+ */
-+
-+#include <linux/inet.h>
-+#include <linux/crypto.h>
-+#include <linux/if_vlan.h>
-+#include <net/dst.h>
-+#include <net/tcp.h>
-+#include <scsi/scsi_cmnd.h>
-+#include <scsi/scsi_device.h>
-+#include <scsi/scsi_eh.h>
-+#include <scsi/scsi_host.h>
-+#include <scsi/scsi.h>
-+#include <scsi/iscsi_proto.h>
-+#include <scsi/libiscsi.h>
-+#include <scsi/scsi_transport_iscsi.h>
-+
-+#include "cxgb4i.h"
-+
-+/*
-+ * align pdu size to multiple of 512 for better performance
-+ */
-+#define cxgb4i_align_pdu_size(n) do { n = (n) & (~511); } while (0)
-+
-+static struct scsi_transport_template *cxgb4i_scsi_transport;
-+static struct scsi_host_template cxgb4i_host_template;
-+static struct iscsi_transport cxgb4i_iscsi_transport;
-+
-+struct cxgbi_hba *cxgb4i_hba_add(struct cxgb4i_snic *snic,
-+					struct net_device *dev)
-+{
-+	struct cxgbi_hba *chba;
-+	struct Scsi_Host *shost;
-+	int err;
-+
-+	shost = iscsi_host_alloc(&cxgb4i_host_template, sizeof(*chba), 1);
-+
-+	if (!shost) {
-+		cxgbi_log_info("snic 0x%p, ndev 0x%p, host alloc failed\n",
-+				snic, dev);
-+		return NULL;
-+	}
-+
-+	shost->transportt = cxgb4i_scsi_transport;
-+	shost->max_lun = CXGB4I_MAX_LUN;
-+	shost->max_id = CXGB4I_MAX_TARGET;
-+	shost->max_channel = 0;
-+	shost->max_cmd_len = 16;
-+
-+	chba = iscsi_host_priv(shost);
-+	cxgbi_log_debug("snic %p, cdev %p\n", snic, &snic->cdev);
-+	chba->cdev = &snic->cdev;
-+	chba->ndev = dev;
-+	chba->shost = shost;
-+
-+	pci_dev_get(snic->lldi.pdev);
-+	err = iscsi_host_add(shost, &snic->lldi.pdev->dev);
-+	if (err) {
-+		cxgbi_log_info("snic 0x%p, dev 0x%p, host add failed\n",
-+				snic, dev);
-+		goto pci_dev_put;
-+	}
-+
-+	return chba;
-+
-+pci_dev_put:
-+	pci_dev_put(snic->lldi.pdev);
-+	scsi_host_put(shost);
-+	return NULL;
-+}
-+
-+void cxgb4i_hba_remove(struct cxgbi_hba *chba)
-+{
-+	iscsi_host_remove(chba->shost);
-+	pci_dev_put(cxgb4i_get_snic(chba->cdev)->lldi.pdev);
-+	iscsi_host_free(chba->shost);
-+}
-+
-+static struct iscsi_endpoint *cxgb4i_ep_connect(struct Scsi_Host *shost,
-+						struct sockaddr *dst_addr,
-+						int non_blocking)
-+{
-+	struct iscsi_endpoint *iep;
-+	struct cxgbi_endpoint *cep;
-+	struct cxgbi_hba *hba = NULL;
-+	struct cxgbi_sock *csk = NULL;
-+	struct cxgb4i_snic *snic;
-+	int err = 0;
-+
-+	if (shost)
-+		hba = iscsi_host_priv(shost);
-+
-+	snic = cxgb4i_find_snic(hba ? hba->ndev : NULL,
-+			((struct sockaddr_in *)dst_addr)->sin_addr.s_addr);
-+	if (!snic) {
-+		cxgbi_log_info("ep connect no snic\n");
-+		err = -ENOSPC;
-+		goto release_conn;
-+	}
-+
-+	csk = cxgb4i_sock_create(snic);
-+	if (!csk) {
-+		cxgbi_log_info("ep connect OOM\n");
-+		err = -ENOMEM;
-+		goto release_conn;
-+	}
-+	err = cxgb4i_sock_connect(hba ? hba->ndev : NULL, csk,
-+				(struct sockaddr_in *)dst_addr);
-+	if (err < 0) {
-+		cxgbi_log_info("ep connect failed\n");
-+		goto release_conn;
-+	}
-+
-+	hba = cxgb4i_hba_find_by_netdev(csk->dst->dev);
-+	if (!hba) {
-+		err = -ENOSPC;
-+		cxgbi_log_info("Not going through cxgb4i device\n");
-+		goto release_conn;
-+	}
-+
-+	if (shost && hba != iscsi_host_priv(shost)) {
-+		err = -ENOSPC;
-+		cxgbi_log_info("Could not connect through request host %u\n",
-+				shost->host_no);
-+		goto release_conn;
-+	}
-+
-+	if (cxgbi_sock_is_closing(csk)) {
-+		err = -ENOSPC;
-+		cxgbi_log_info("ep connect unable to connect\n");
-+		goto release_conn;
-+	}
-+
-+	iep = iscsi_create_endpoint(sizeof(*cep));
-+	if (!iep) {
-+		err = -ENOMEM;
-+		cxgbi_log_info("iscsi alloc ep, OOM\n");
-+		goto release_conn;
-+	}
-+
-+	cep = iep->dd_data;
-+	cep->csk = csk;
-+	cep->chba = hba;
-+
-+	cxgbi_api_debug("iep 0x%p, cep 0x%p, csk 0x%p, hba 0x%p\n",
-+			iep, cep, csk, hba);
-+
-+	return iep;
-+
-+release_conn:
-+	cxgbi_api_debug("conn 0x%p failed, release\n", csk);
-+	if (csk)
-+		cxgb4i_sock_release(csk);
-+
-+	return ERR_PTR(err);
-+}
-+
-+static int cxgb4i_ep_poll(struct iscsi_endpoint *ep, int timeout_ms)
-+{
-+	struct cxgbi_endpoint *cep = ep->dd_data;
-+	struct cxgbi_sock *csk = cep->csk;
-+
-+	if (!cxgbi_sock_is_established(csk))
-+		return 0;
-+
-+	return 1;
-+}
-+
-+static void cxgb4i_ep_disconnect(struct iscsi_endpoint *ep)
-+{
-+	struct cxgbi_endpoint *cep = ep->dd_data;
-+	struct cxgbi_conn *cconn = cep->cconn;
-+
-+	if (cconn && cconn->iconn) {
-+		iscsi_suspend_tx(cconn->iconn);
-+
-+		write_lock_bh(&cep->csk->callback_lock);
-+		cep->csk->user_data = NULL;
-+		cconn->cep = NULL;
-+		write_unlock_bh(&cep->csk->callback_lock);
-+	}
-+
-+	cxgb4i_sock_release(cep->csk);
-+	iscsi_destroy_endpoint(ep);
-+}
-+
-+static struct iscsi_cls_session *
-+cxgb4i_create_session(struct iscsi_endpoint *ep, u16 cmds_max, u16 qdepth,
-+							u32 initial_cmdsn)
-+{
-+	struct cxgbi_endpoint *cep;
-+	struct cxgbi_hba *chba;
-+	struct Scsi_Host *shost;
-+	struct iscsi_cls_session *cls_session;
-+	struct iscsi_session *session;
-+
-+	if (!ep) {
-+		cxgbi_log_error("missing endpoint\n");
-+		return NULL;
-+	}
-+
-+	cep = ep->dd_data;
-+	chba = cep->chba;
-+	shost = chba->shost;
-+
-+	BUG_ON(chba != iscsi_host_priv(shost));
-+
-+	cls_session = iscsi_session_setup(&cxgb4i_iscsi_transport, shost,
-+					cmds_max, 0,
-+					sizeof(struct iscsi_tcp_task) +
-+					sizeof(struct cxgbi_task_data),
-+					initial_cmdsn, ISCSI_MAX_TARGET);
-+	if (!cls_session)
-+		return NULL;
-+
-+	session = cls_session->dd_data;
-+	if (iscsi_tcp_r2tpool_alloc(session))
-+		goto remove_session;
-+
-+	return cls_session;
-+
-+remove_session:
-+	iscsi_session_teardown(cls_session);
-+	return NULL;
-+}
-+
-+static void cxgb4i_destroy_session(struct iscsi_cls_session *cls_session)
-+{
-+	iscsi_tcp_r2tpool_free(cls_session->dd_data);
-+	iscsi_session_teardown(cls_session);
-+}
-+
-+static inline int cxgb4i_conn_max_xmit_dlength(struct iscsi_conn *conn)
-+{
-+	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
-+	struct cxgbi_conn *cconn = tcp_conn->dd_data;
-+	unsigned int max = max(512 * MAX_SKB_FRAGS, SKB_TX_HEADROOM);
-+
-+	max = min(cxgb4i_get_snic(cconn->chba->cdev)->tx_max_size, max);
-+	if (conn->max_xmit_dlength)
-+		conn->max_xmit_dlength = min(conn->max_xmit_dlength, max);
-+	else
-+		conn->max_xmit_dlength = max;
-+	cxgb4i_align_pdu_size(conn->max_xmit_dlength);
-+	return 0;
-+}
-+
-+static inline int cxgb4i_conn_max_recv_dlength(struct iscsi_conn *conn)
-+{
-+	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
-+	struct cxgbi_conn *cconn = tcp_conn->dd_data;
-+	unsigned int max = cxgb4i_get_snic(cconn->chba->cdev)->rx_max_size;
-+
-+	cxgb4i_align_pdu_size(max);
-+
-+	if (conn->max_recv_dlength) {
-+		if (conn->max_recv_dlength > max) {
-+			cxgbi_log_error("MaxRecvDataSegmentLength %u too big."
-+					" Need to be <= %u.\n",
-+					conn->max_recv_dlength, max);
-+			return -EINVAL;
-+		}
-+		conn->max_recv_dlength = min(conn->max_recv_dlength, max);
-+		cxgb4i_align_pdu_size(conn->max_recv_dlength);
-+	} else
-+		conn->max_recv_dlength = max;
-+
-+	return 0;
-+}
-+
-+static struct iscsi_cls_conn *
-+cxgb4i_create_conn(struct iscsi_cls_session *cls_session, u32 cid)
-+{
-+	struct iscsi_cls_conn *cls_conn;
-+	struct iscsi_conn *conn;
-+	struct iscsi_tcp_conn *tcp_conn;
-+	struct cxgbi_conn *cconn;
-+
-+	cls_conn = iscsi_tcp_conn_setup(cls_session, sizeof(*cconn), cid);
-+	if (!cls_conn)
-+		return NULL;
-+
-+	conn = cls_conn->dd_data;
-+	tcp_conn = conn->dd_data;
-+	cconn = tcp_conn->dd_data;
-+
-+	cconn->iconn = conn;
-+	return cls_conn;
-+}
-+
-+static int cxgb4i_bind_conn(struct iscsi_cls_session *cls_session,
-+				struct iscsi_cls_conn *cls_conn,
-+				u64 transport_eph, int is_leading)
-+{
-+	struct iscsi_conn *conn = cls_conn->dd_data;
-+	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
-+	struct cxgbi_conn *cconn = tcp_conn->dd_data;
-+	struct iscsi_endpoint *ep;
-+	struct cxgbi_endpoint *cep;
-+	struct cxgbi_sock *csk;
-+	int err;
-+
-+	ep = iscsi_lookup_endpoint(transport_eph);
-+	if (!ep)
-+		return -EINVAL;
-+
-+	/*  setup ddp pagesize */
-+	cep = ep->dd_data;
-+	csk = cep->csk;
-+	err = cxgb4i_ddp_setup_conn_host_pagesize(csk, csk->hwtid, 0);
-+	if (err < 0)
-+		return err;
-+
-+	err = iscsi_conn_bind(cls_session, cls_conn, is_leading);
-+	if (err)
-+		return -EINVAL;
-+
-+	/*  calculate the tag idx bits needed for this conn based on cmds_max */
-+	cconn->task_idx_bits = (__ilog2_u32(conn->session->cmds_max - 1)) + 1;
-+
-+	read_lock(&csk->callback_lock);
-+	csk->user_data = conn;
-+	cconn->chba = cep->chba;
-+	cconn->cep = cep;
-+	cep->cconn = cconn;
-+	read_unlock(&csk->callback_lock);
-+
-+	cxgb4i_conn_max_xmit_dlength(conn);
-+	cxgb4i_conn_max_recv_dlength(conn);
-+
-+	spin_lock_bh(&conn->session->lock);
-+	sprintf(conn->portal_address, "%pI4", &csk->daddr.sin_addr.s_addr);
-+	conn->portal_port = ntohs(csk->daddr.sin_port);
-+	spin_unlock_bh(&conn->session->lock);
-+
-+	/*  init recv engine */
-+	iscsi_tcp_hdr_recv_prep(tcp_conn);
-+
-+	return 0;
-+}
-+
-+static int
-+cxgb4i_get_conn_param(struct iscsi_cls_conn *cls_conn,
-+			enum iscsi_param param, char *buff)
-+{
-+	struct iscsi_conn *iconn = cls_conn->dd_data;
-+	int len;
-+
-+	switch (param) {
-+	case ISCSI_PARAM_CONN_PORT:
-+		spin_lock_bh(&iconn->session->lock);
-+		len = sprintf(buff, "%hu\n", iconn->portal_port);
-+		spin_unlock_bh(&iconn->session->lock);
-+		break;
-+	case ISCSI_PARAM_CONN_ADDRESS:
-+		spin_lock_bh(&iconn->session->lock);
-+		len = sprintf(buff, "%s\n", iconn->portal_address);
-+		spin_unlock_bh(&iconn->session->lock);
-+		break;
-+	default:
-+		return iscsi_conn_get_param(cls_conn, param, buff);
-+	}
-+	return len;
-+}
-+
-+static int
-+cxgb4i_set_conn_param(struct iscsi_cls_conn *cls_conn,
-+			enum iscsi_param param, char *buf, int buflen)
-+{
-+	struct iscsi_conn *conn = cls_conn->dd_data;
-+	struct iscsi_session *session = conn->session;
-+	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
-+	struct cxgbi_conn *cconn = tcp_conn->dd_data;
-+	struct cxgbi_sock *csk = cconn->cep->csk;
-+	int value, err = 0;
-+
-+	switch (param) {
-+	case ISCSI_PARAM_HDRDGST_EN:
-+		err = iscsi_set_param(cls_conn, param, buf, buflen);
-+		if (!err && conn->hdrdgst_en)
-+			err = cxgb4i_ddp_setup_conn_digest(csk, csk->hwtid,
-+							conn->hdrdgst_en,
-+							conn->datadgst_en, 0);
-+		break;
-+	case ISCSI_PARAM_DATADGST_EN:
-+		err = iscsi_set_param(cls_conn, param, buf, buflen);
-+		if (!err && conn->datadgst_en)
-+			err = cxgb4i_ddp_setup_conn_digest(csk, csk->hwtid,
-+							conn->hdrdgst_en,
-+							conn->datadgst_en, 0);
-+		break;
-+	case ISCSI_PARAM_MAX_R2T:
-+		sscanf(buf, "%d", &value);
-+		if (value <= 0 || !is_power_of_2(value))
-+			return -EINVAL;
-+		if (session->max_r2t == value)
-+			break;
-+		iscsi_tcp_r2tpool_free(session);
-+		err = iscsi_set_param(cls_conn, param, buf, buflen);
-+		if (!err && iscsi_tcp_r2tpool_alloc(session))
-+			return -ENOMEM;
-+	case ISCSI_PARAM_MAX_RECV_DLENGTH:
-+		err = iscsi_set_param(cls_conn, param, buf, buflen);
-+		if (!err)
-+			err = cxgb4i_conn_max_recv_dlength(conn);
-+		break;
-+	case ISCSI_PARAM_MAX_XMIT_DLENGTH:
-+		err = iscsi_set_param(cls_conn, param, buf, buflen);
-+		if (!err)
-+			err = cxgb4i_conn_max_xmit_dlength(conn);
-+		break;
-+	default:
-+		return iscsi_set_param(cls_conn, param, buf, buflen);
-+	}
-+	return err;
-+}
-+
-+static int
-+cxgb4i_set_host_param(struct Scsi_Host *shost,
-+			enum iscsi_host_param param, char *buff, int buflen)
-+{
-+	struct cxgbi_hba *chba = iscsi_host_priv(shost);
-+
-+	if (!chba->ndev) {
-+		shost_printk(KERN_ERR, shost, "Could not set host param. "
-+				"Netdev for host not set\n");
-+		return -ENODEV;
-+	}
-+
-+	cxgbi_api_debug("param %d, buff %s\n", param, buff);
-+
-+	switch (param) {
-+	case ISCSI_HOST_PARAM_IPADDRESS:
-+	{
-+		__be32 addr = in_aton(buff);
-+		cxgb4i_set_iscsi_ipv4(chba, addr);
-+		return 0;
-+	}
-+
-+	case ISCSI_HOST_PARAM_HWADDRESS:
-+	case ISCSI_HOST_PARAM_NETDEV_NAME:
-+		return 0;
-+
-+	default:
-+		return iscsi_host_set_param(shost, param, buff, buflen);
-+	}
-+}
-+
-+static int
-+cxgb4i_get_host_param(struct Scsi_Host *shost,
-+			enum iscsi_host_param param, char *buff)
-+{
-+	struct cxgbi_hba *chba = iscsi_host_priv(shost);
-+	int len = 0;
-+
-+	if (!chba->ndev) {
-+		shost_printk(KERN_ERR, shost, "Could not set host param. "
-+				"Netdev for host not set\n");
-+		return -ENODEV;
-+	}
-+
-+	cxgbi_api_debug("hba %s, param %d\n", chba->ndev->name, param);
-+
-+	switch (param) {
-+	case ISCSI_HOST_PARAM_HWADDRESS:
-+		len = sysfs_format_mac(buff, chba->ndev->dev_addr, 6);
-+		break;
-+	case ISCSI_HOST_PARAM_NETDEV_NAME:
-+		len = sprintf(buff, "%s\n", chba->ndev->name);
-+		break;
-+	case ISCSI_HOST_PARAM_IPADDRESS:
-+	{
-+		__be32 addr;
-+
-+		addr = cxgb4i_get_iscsi_ipv4(chba);
-+		len = sprintf(buff, "%pI4", &addr);
-+		break;
-+	}
-+	default:
-+		return iscsi_host_get_param(shost, param, buff);
-+	}
-+
-+	return len;
-+}
-+
-+static void cxgb4i_get_conn_stats(struct iscsi_cls_conn *cls_conn,
-+				struct iscsi_stats *stats)
-+{
-+	struct iscsi_conn *conn = cls_conn->dd_data;
-+
-+	stats->txdata_octets = conn->txdata_octets;
-+	stats->rxdata_octets = conn->rxdata_octets;
-+	stats->scsicmd_pdus = conn->scsicmd_pdus_cnt;
-+	stats->dataout_pdus = conn->dataout_pdus_cnt;
-+	stats->scsirsp_pdus = conn->scsirsp_pdus_cnt;
-+	stats->datain_pdus = conn->datain_pdus_cnt;
-+	stats->r2t_pdus = conn->r2t_pdus_cnt;
-+	stats->tmfcmd_pdus = conn->tmfcmd_pdus_cnt;
-+	stats->tmfrsp_pdus = conn->tmfrsp_pdus_cnt;
-+	stats->digest_err = 0;
-+	stats->timeout_err = 0;
-+	stats->custom_length = 1;
-+	strcpy(stats->custom[0].desc, "eh_abort_cnt");
-+	stats->custom[0].value = conn->eh_abort_cnt;
-+}
-+
-+static struct scsi_host_template cxgb4i_host_template = {
-+	.module				= THIS_MODULE,
-+	.name				= "Chelsio T4 iSCSI initiator",
-+	.proc_name			= "cxgb4i",
-+	.queuecommand			= iscsi_queuecommand,
-+	.change_queue_depth		= iscsi_change_queue_depth,
-+	.can_queue			= CXGB4I_SCSI_HOST_QDEPTH,
-+	.sg_tablesize			= SG_ALL,
-+	.max_sectors			= 0xFFFF,
-+	.cmd_per_lun			= ISCSI_DEF_CMD_PER_LUN,
-+	.eh_abort_handler		= iscsi_eh_abort,
-+	.eh_device_reset_handler	= iscsi_eh_device_reset,
-+	.eh_target_reset_handler	= iscsi_eh_recover_target,
-+	.target_alloc			= iscsi_target_alloc,
-+	.use_clustering			= DISABLE_CLUSTERING,
-+	.this_id			= -1,
-+};
-+
-+#define	CXGB4I_CAPS	(CAP_RECOVERY_L0 | CAP_MULTI_R2T |	\
-+			CAP_HDRDGST | CAP_DATADGST |		\
-+			CAP_DIGEST_OFFLOAD | CAP_PADDING_OFFLOAD)
-+#define	CXGB4I_PMASK	(ISCSI_MAX_RECV_DLENGTH | ISCSI_MAX_XMIT_DLENGTH | \
-+			ISCSI_HDRDGST_EN | ISCSI_DATADGST_EN | \
-+			ISCSI_INITIAL_R2T_EN | ISCSI_MAX_R2T | \
-+			ISCSI_IMM_DATA_EN | ISCSI_FIRST_BURST | \
-+			ISCSI_MAX_BURST | ISCSI_PDU_INORDER_EN | \
-+			ISCSI_DATASEQ_INORDER_EN | ISCSI_ERL | \
-+			ISCSI_CONN_PORT | ISCSI_CONN_ADDRESS | \
-+			ISCSI_EXP_STATSN | ISCSI_PERSISTENT_PORT | \
-+			ISCSI_PERSISTENT_ADDRESS | ISCSI_TARGET_NAME | \
-+			ISCSI_TPGT | ISCSI_USERNAME | \
-+			ISCSI_PASSWORD | ISCSI_USERNAME_IN | \
-+			ISCSI_PASSWORD_IN | ISCSI_FAST_ABORT | \
-+			ISCSI_ABORT_TMO | ISCSI_LU_RESET_TMO | \
-+			ISCSI_TGT_RESET_TMO | ISCSI_PING_TMO | \
-+			ISCSI_RECV_TMO | ISCSI_IFACE_NAME | \
-+			ISCSI_INITIATOR_NAME)
-+#define	CXGB4I_HPMASK	(ISCSI_HOST_HWADDRESS | ISCSI_HOST_IPADDRESS | \
-+			ISCSI_HOST_INITIATOR_NAME | ISCSI_HOST_INITIATOR_NAME)
-+
-+static struct iscsi_transport cxgb4i_iscsi_transport = {
-+	.owner				= THIS_MODULE,
-+	.name				= "cxgb4i",
-+	.caps				= CXGB4I_CAPS,
-+	.param_mask			= CXGB4I_PMASK,
-+	.host_param_mask		= CXGB4I_HPMASK,
-+	.get_host_param			= cxgb4i_get_host_param,
-+	.set_host_param			= cxgb4i_set_host_param,
-+
-+	.create_session			= cxgb4i_create_session,
-+	.destroy_session		= cxgb4i_destroy_session,
-+	.get_session_param		= iscsi_session_get_param,
-+
-+	.create_conn			= cxgb4i_create_conn,
-+	.bind_conn			= cxgb4i_bind_conn,
-+	.destroy_conn			= iscsi_tcp_conn_teardown,
-+	.start_conn			= iscsi_conn_start,
-+	.stop_conn			= iscsi_conn_stop,
-+	.get_conn_param			= cxgb4i_get_conn_param,
-+	.set_param			= cxgb4i_set_conn_param,
-+	.get_stats			= cxgb4i_get_conn_stats,
-+
-+	.send_pdu			= iscsi_conn_send_pdu,
-+
-+	.init_task			= iscsi_tcp_task_init,
-+	.xmit_task			= iscsi_tcp_task_xmit,
-+	.cleanup_task			= cxgbi_cleanup_task,
-+
-+	.alloc_pdu			= cxgbi_conn_alloc_pdu,
-+	.init_pdu			= cxgbi_conn_init_pdu,
-+	.xmit_pdu			= cxgbi_conn_xmit_pdu,
-+	.parse_pdu_itt			= cxgbi_parse_pdu_itt,
-+
-+	.ep_connect			= cxgb4i_ep_connect,
-+	.ep_poll			= cxgb4i_ep_poll,
-+	.ep_disconnect			= cxgb4i_ep_disconnect,
-+
-+	.session_recovery_timedout	= iscsi_session_recovery_timedout,
-+};
-+
-+int cxgb4i_iscsi_init(void)
-+{
-+	cxgb4i_scsi_transport = iscsi_register_transport(
-+					&cxgb4i_iscsi_transport);
-+	if (!cxgb4i_scsi_transport) {
-+		cxgbi_log_error("Could not register cxgb4i transport\n");
-+		return -ENODATA;
-+	}
-+
-+	return 0;
-+}
-+
-+void cxgb4i_iscsi_cleanup(void)
-+{
-+	if (cxgb4i_scsi_transport) {
-+		cxgbi_api_debug("cxgb4i transport 0x%p removed\n",
-+				cxgb4i_scsi_transport);
-+		iscsi_unregister_transport(&cxgb4i_iscsi_transport);
-+	}
-+}
-+
-diff --git a/drivers/scsi/cxgb4i/libcxgbi.c b/drivers/scsi/cxgb4i/libcxgbi.c
-new file mode 100644
-index 0000000..98f904b
---- /dev/null
-+++ b/drivers/scsi/cxgb4i/libcxgbi.c
-@@ -0,0 +1,589 @@
-+/*
-+ * libcxgbi.c: Chelsio common library for T3/T4 iSCSI driver.
-+ *
-+ * Copyright (c) 2010 Chelsio Communications, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation.
-+ *
-+ * Written by: Karen Xie (kxie-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org)
-+ * Written by: Rakesh Ranjan (rranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org)
-+ */
-+
-+#include <linux/skbuff.h>
-+#include <linux/crypto.h>
-+#include <linux/scatterlist.h>
-+#include <linux/pci.h>
-+#include <scsi/scsi_cmnd.h>
-+#include <scsi/scsi_host.h>
-+
-+#include "libcxgbi.h"
-+
-+/* always allocate rooms for AHS */
-+#define SKB_TX_PDU_HEADER_LEN	\
-+	(sizeof(struct iscsi_hdr) + ISCSI_MAX_AHS_SIZE)
-+
-+/*
-+ * pdu receive, interact with libiscsi_tcp
-+ */
-+static inline int read_pdu_skb(struct iscsi_conn *conn, struct sk_buff *skb,
-+			       unsigned int offset, int offloaded)
-+{
-+	int status = 0;
-+	int bytes_read;
-+
-+	bytes_read = iscsi_tcp_recv_skb(conn, skb, offset, offloaded, &status);
-+	switch (status) {
-+	case ISCSI_TCP_CONN_ERR:
-+		return -EIO;
-+	case ISCSI_TCP_SUSPENDED:
-+		/* no transfer - just have caller flush queue */
-+		return bytes_read;
-+	case ISCSI_TCP_SKB_DONE:
-+		/*
-+		 * pdus should always fit in the skb and we should get
-+		 * segment done notifcation.
-+		 */
-+		iscsi_conn_printk(KERN_ERR, conn, "Invalid pdu or skb.");
-+		return -EFAULT;
-+	case ISCSI_TCP_SEGMENT_DONE:
-+		return bytes_read;
-+	default:
-+		iscsi_conn_printk(KERN_ERR, conn, "Invalid iscsi_tcp_recv_skb "
-+				  "status %d\n", status);
-+		return -EINVAL;
-+	}
-+}
-+
-+int cxgbi_conn_read_bhs_pdu_skb(struct iscsi_conn *conn,
-+					struct sk_buff *skb)
-+{
-+	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
-+	struct cxgbi_conn *cconn = tcp_conn->dd_data;
-+	struct cxgbi_device *cdev = cconn->chba->cdev;
-+
-+	int rc;
-+
-+	cxgbi_rx_debug("conn 0x%p, skb 0x%p, len %u, flag 0x%x.\n",
-+			conn, skb, skb->len, cdev->get_skb_ulp_mode(skb));
-+
-+	if (!iscsi_tcp_recv_segment_is_hdr(tcp_conn)) {
-+		iscsi_conn_failure(conn, ISCSI_ERR_PROTO);
-+		return -EIO;
-+	}
-+
-+	if (conn->hdrdgst_en && (cdev->get_skb_ulp_mode(skb)
-+				& ULP2_FLAG_HCRC_ERROR)) {
-+		iscsi_conn_failure(conn, ISCSI_ERR_HDR_DGST);
-+		return -EIO;
-+	}
-+
-+	rc = read_pdu_skb(conn, skb, 0, 0);
-+	if (rc <= 0)
-+		return rc;
-+
-+	return 0;
-+}
-+
-+int cxgbi_conn_read_data_pdu_skb(struct iscsi_conn *conn,
-+				    struct sk_buff *skb)
-+{
-+	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
-+	struct cxgbi_conn *cconn = tcp_conn->dd_data;
-+	struct cxgbi_device *cdev = cconn->chba->cdev;
-+	bool offloaded = 0;
-+	unsigned int offset = 0;
-+	int rc;
-+
-+	cxgbi_rx_debug("conn 0x%p, skb 0x%p, len %u, flag 0x%x.\n",
-+			conn, skb, skb->len, cdev->get_skb_ulp_mode(skb));
-+
-+	if (conn->datadgst_en &&
-+		(cdev->get_skb_ulp_mode(skb) & ULP2_FLAG_DCRC_ERROR)) {
-+		iscsi_conn_failure(conn, ISCSI_ERR_DATA_DGST);
-+		return -EIO;
-+	}
-+
-+	if (iscsi_tcp_recv_segment_is_hdr(tcp_conn))
-+		return 0;
-+
-+	if (conn->hdrdgst_en)
-+		offset = ISCSI_DIGEST_SIZE;
-+
-+	if (cdev->get_skb_ulp_mode(skb) & ULP2_FLAG_DATA_DDPED) {
-+		cxgbi_rx_debug("skb 0x%p, opcode 0x%x, data %u, ddp'ed, "
-+				"itt 0x%x.\n",
-+				skb,
-+				tcp_conn->in.hdr->opcode & ISCSI_OPCODE_MASK,
-+				tcp_conn->in.datalen,
-+				ntohl(tcp_conn->in.hdr->itt));
-+		offloaded = 1;
-+	} else {
-+		cxgbi_rx_debug("skb 0x%p, opcode 0x%x, data %u, NOT ddp'ed, "
-+				"itt 0x%x.\n",
-+				skb,
-+				tcp_conn->in.hdr->opcode & ISCSI_OPCODE_MASK,
-+				tcp_conn->in.datalen,
-+				ntohl(tcp_conn->in.hdr->itt));
-+	}
-+
-+	rc = read_pdu_skb(conn, skb, 0, offloaded);
-+	if (rc < 0)
-+		return rc;
-+	else
-+		return 0;
-+}
-+
-+static int sgl_seek_offset(struct scatterlist *sgl, unsigned int sgcnt,
-+				unsigned int offset, unsigned int *off,
-+				struct scatterlist **sgp)
-+{
-+	int i;
-+	struct scatterlist *sg;
-+
-+	for_each_sg(sgl, sg, sgcnt, i) {
-+		if (offset < sg->length) {
-+			*off = offset;
-+			*sgp = sg;
-+			return 0;
-+		}
-+		offset -= sg->length;
-+	}
-+	return -EFAULT;
-+}
-+
-+static int sgl_read_to_frags(struct scatterlist *sg, unsigned int sgoffset,
-+				unsigned int dlen, skb_frag_t *frags,
-+				int frag_max)
-+{
-+	unsigned int datalen = dlen;
-+	unsigned int sglen = sg->length - sgoffset;
-+	struct page *page = sg_page(sg);
-+	int i;
-+
-+	i = 0;
-+	do {
-+		unsigned int copy;
-+
-+		if (!sglen) {
-+			sg = sg_next(sg);
-+			if (!sg) {
-+				cxgbi_log_error("sg NULL, len %u/%u.\n",
-+								datalen, dlen);
-+				return -EINVAL;
-+			}
-+			sgoffset = 0;
-+			sglen = sg->length;
-+			page = sg_page(sg);
-+
-+		}
-+		copy = min(datalen, sglen);
-+		if (i && page == frags[i - 1].page &&
-+		    sgoffset + sg->offset ==
-+			frags[i - 1].page_offset + frags[i - 1].size) {
-+			frags[i - 1].size += copy;
-+		} else {
-+			if (i >= frag_max) {
-+				cxgbi_log_error("too many pages %u, "
-+						 "dlen %u.\n", frag_max, dlen);
-+				return -EINVAL;
-+			}
-+
-+			frags[i].page = page;
-+			frags[i].page_offset = sg->offset + sgoffset;
-+			frags[i].size = copy;
-+			i++;
-+		}
-+		datalen -= copy;
-+		sgoffset += copy;
-+		sglen -= copy;
-+	} while (datalen);
-+
-+	return i;
-+}
-+
-+int cxgbi_conn_alloc_pdu(struct iscsi_task *task, u8 opcode)
-+{
-+	struct iscsi_tcp_conn *tcp_conn = task->conn->dd_data;
-+	struct cxgbi_conn *cconn = tcp_conn->dd_data;
-+	struct cxgbi_device *cdev = cconn->chba->cdev;
-+	struct iscsi_conn *conn = task->conn;
-+	struct iscsi_tcp_task *tcp_task = task->dd_data;
-+	struct cxgbi_task_data *tdata = task->dd_data + sizeof(*tcp_task);
-+	struct scsi_cmnd *sc = task->sc;
-+	int headroom = SKB_TX_PDU_HEADER_LEN;
-+
-+	tcp_task->dd_data = tdata;
-+	task->hdr = NULL;
-+
-+	/* write command, need to send data pdus */
-+	if (cdev->skb_extra_headroom && (opcode == ISCSI_OP_SCSI_DATA_OUT ||
-+	    (opcode == ISCSI_OP_SCSI_CMD &&
-+	    (scsi_bidi_cmnd(sc) || sc->sc_data_direction == DMA_TO_DEVICE))))
-+		headroom += min(cdev->skb_extra_headroom,
-+					conn->max_xmit_dlength);
-+
-+	tdata->skb = alloc_skb(cdev->skb_tx_headroom + headroom, GFP_ATOMIC);
-+	if (!tdata->skb)
-+		return -ENOMEM;
-+	skb_reserve(tdata->skb, cdev->skb_tx_headroom);
-+
-+	cxgbi_tx_debug("task 0x%p, opcode 0x%x, skb 0x%p.\n",
-+			task, opcode, tdata->skb);
-+
-+	task->hdr = (struct iscsi_hdr *)tdata->skb->data;
-+	task->hdr_max = SKB_TX_PDU_HEADER_LEN;
-+
-+	/* data_out uses scsi_cmd's itt */
-+	if (opcode != ISCSI_OP_SCSI_DATA_OUT)
-+		cxgbi_reserve_itt(task, &task->hdr->itt);
-+
-+	return 0;
-+}
-+
-+int cxgbi_conn_init_pdu(struct iscsi_task *task, unsigned int offset,
-+			      unsigned int count)
-+{
-+	struct iscsi_tcp_conn *tcp_conn = task->conn->dd_data;
-+	struct cxgbi_conn *cconn = tcp_conn->dd_data;
-+	struct cxgbi_device *cdev = cconn->chba->cdev;
-+	struct iscsi_conn *conn = task->conn;
-+	struct iscsi_tcp_task *tcp_task = task->dd_data;
-+	struct cxgbi_task_data *tdata = tcp_task->dd_data;
-+	struct sk_buff *skb = tdata->skb;
-+	unsigned int datalen = count;
-+	int i, padlen = iscsi_padding(count);
-+	struct page *pg;
-+
-+	cxgbi_tx_debug("task 0x%p,0x%p, offset %u, count %u, skb 0x%p.\n",
-+			task, task->sc, offset, count, skb);
-+
-+	skb_put(skb, task->hdr_len);
-+	cdev->tx_skb_setmode(skb, conn->hdrdgst_en,
-+				datalen ? conn->datadgst_en : 0);
-+	if (!count)
-+		return 0;
-+
-+	if (task->sc) {
-+		struct scsi_data_buffer *sdb = scsi_out(task->sc);
-+		struct scatterlist *sg = NULL;
-+		int err;
-+
-+		tdata->offset = offset;
-+		tdata->count = count;
-+		err = sgl_seek_offset(sdb->table.sgl, sdb->table.nents,
-+					tdata->offset, &tdata->sgoffset, &sg);
-+		if (err < 0) {
-+			cxgbi_log_warn("tpdu, sgl %u, bad offset %u/%u.\n",
-+					sdb->table.nents, tdata->offset,
-+					sdb->length);
-+			return err;
-+		}
-+		err = sgl_read_to_frags(sg, tdata->sgoffset, tdata->count,
-+					tdata->frags, MAX_PDU_FRAGS);
-+		if (err < 0) {
-+			cxgbi_log_warn("tpdu, sgl %u, bad offset %u + %u.\n",
-+					sdb->table.nents, tdata->offset,
-+					tdata->count);
-+			return err;
-+		}
-+		tdata->nr_frags = err;
-+
-+		if (tdata->nr_frags > MAX_SKB_FRAGS ||
-+		    (padlen && tdata->nr_frags == MAX_SKB_FRAGS)) {
-+			char *dst = skb->data + task->hdr_len;
-+			skb_frag_t *frag = tdata->frags;
-+
-+			/* data fits in the skb's headroom */
-+			for (i = 0; i < tdata->nr_frags; i++, frag++) {
-+				char *src = kmap_atomic(frag->page,
-+							KM_SOFTIRQ0);
-+
-+				memcpy(dst, src+frag->page_offset, frag->size);
-+				dst += frag->size;
-+				kunmap_atomic(src, KM_SOFTIRQ0);
-+			}
-+			if (padlen) {
-+				memset(dst, 0, padlen);
-+				padlen = 0;
-+			}
-+			skb_put(skb, count + padlen);
-+		} else {
-+			/* data fit into frag_list */
-+			for (i = 0; i < tdata->nr_frags; i++)
-+				get_page(tdata->frags[i].page);
-+
-+			memcpy(skb_shinfo(skb)->frags, tdata->frags,
-+				sizeof(skb_frag_t) * tdata->nr_frags);
-+			skb_shinfo(skb)->nr_frags = tdata->nr_frags;
-+			skb->len += count;
-+			skb->data_len += count;
-+			skb->truesize += count;
-+		}
-+
-+	} else {
-+		pg = virt_to_page(task->data);
-+
-+		get_page(pg);
-+		skb_fill_page_desc(skb, 0, pg, offset_in_page(task->data),
-+					count);
-+		skb->len += count;
-+		skb->data_len += count;
-+		skb->truesize += count;
-+	}
-+
-+	if (padlen) {
-+		i = skb_shinfo(skb)->nr_frags;
-+		get_page(cdev->pad_page);
-+		skb_fill_page_desc(skb, skb_shinfo(skb)->nr_frags,
-+					cdev->pad_page, 0, padlen);
-+
-+		skb->data_len += padlen;
-+		skb->truesize += padlen;
-+		skb->len += padlen;
-+	}
-+
-+	return 0;
-+}
-+
-+int cxgbi_conn_xmit_pdu(struct iscsi_task *task)
-+{
-+	struct iscsi_tcp_conn *tcp_conn = task->conn->dd_data;
-+	struct cxgbi_conn *cconn = tcp_conn->dd_data;
-+	struct cxgbi_device *cdev = cconn->chba->cdev;
-+	struct iscsi_tcp_task *tcp_task = task->dd_data;
-+	struct cxgbi_task_data *tdata = tcp_task->dd_data;
-+	struct sk_buff *skb = tdata->skb;
-+	unsigned int datalen;
-+	int err;
-+
-+	if (!skb)
-+		return 0;
-+
-+	datalen = skb->data_len;
-+	tdata->skb = NULL;
-+	err = cdev->sock_send_pdus(cconn->cep->csk, skb);
-+	if (err > 0) {
-+		int pdulen = err;
-+
-+		cxgbi_tx_debug("task 0x%p, skb 0x%p, len %u/%u, rv %d.\n",
-+				task, skb, skb->len, skb->data_len, err);
-+
-+		if (task->conn->hdrdgst_en)
-+			pdulen += ISCSI_DIGEST_SIZE;
-+		if (datalen && task->conn->datadgst_en)
-+			pdulen += ISCSI_DIGEST_SIZE;
-+
-+		task->conn->txdata_octets += pdulen;
-+		return 0;
-+	}
-+
-+	if (err == -EAGAIN || err == -ENOBUFS) {
-+		/* reset skb to send when we are called again */
-+		tdata->skb = skb;
-+		return err;
-+	}
-+
-+	kfree_skb(skb);
-+	cxgbi_tx_debug("itt 0x%x, skb 0x%p, len %u/%u, xmit err %d.\n",
-+			task->itt, skb, skb->len, skb->data_len, err);
-+	iscsi_conn_printk(KERN_ERR, task->conn, "xmit err %d.\n", err);
-+	iscsi_conn_failure(task->conn, ISCSI_ERR_XMIT_FAILED);
-+	return err;
-+}
-+
-+int cxgbi_pdu_init(struct cxgbi_device *cdev)
-+{
-+	if (cdev->skb_tx_headroom > (512 * MAX_SKB_FRAGS))
-+		cdev->skb_extra_headroom = cdev->skb_tx_headroom;
-+	cdev->pad_page = alloc_page(GFP_KERNEL);
-+	if (cdev->pad_page)
-+		return -ENOMEM;
-+	memset(page_address(cdev->pad_page), 0, PAGE_SIZE);
-+	return 0;
-+
-+	/*
-+	if (SKB_TX_HEADROOM > (512 * MAX_SKB_FRAGS))
-+		skb_extra_headroom = SKB_TX_HEADROOM;
-+	pad_page = alloc_page(GFP_KERNEL);
-+	if (!pad_page)
-+		return -ENOMEM;
-+	memset(page_address(pad_page), 0, PAGE_SIZE);
-+	return 0;*/
-+}
-+
-+void cxgbi_pdu_cleanup(struct cxgbi_device *cdev)
-+{
-+	if (cdev->pad_page) {
-+		__free_page(cdev->pad_page);
-+		cdev->pad_page = NULL;
-+	}
-+}
-+
-+void cxgbi_conn_tx_open(struct cxgbi_sock *csk)
-+{
-+	struct iscsi_conn *conn = csk->user_data;
-+
-+	if (conn) {
-+		cxgbi_tx_debug("cn 0x%p, cid %d.\n", csk, conn->id);
-+		iscsi_conn_queue_work(conn);
-+	}
-+}
-+
-+int cxgbi_sock_get_port(struct cxgbi_sock *csk)
-+{
-+	unsigned int start;
-+	int idx;
-+
-+	if (!csk->cdev->pmap)
-+		goto error_out;
-+
-+	if (csk->saddr.sin_port) {
-+		cxgbi_log_error("connect, sin_port none ZERO %u\n",
-+				ntohs(csk->saddr.sin_port));
-+		return -EADDRINUSE;
-+	}
-+
-+	spin_lock_bh(&csk->cdev->pmap->lock);
-+	start = idx = csk->cdev->pmap->next;
-+
-+	do {
-+		if (++idx >= csk->cdev->pmap->max_connect)
-+			idx = 0;
-+		if (!csk->cdev->pmap->port_csk[idx]) {
-+			csk->saddr.sin_port =
-+				htons(csk->cdev->pmap->sport_base + idx);
-+			csk->cdev->pmap->next = idx;
-+			csk->cdev->pmap->port_csk[idx] = csk;
-+			spin_unlock_bh(&csk->cdev->pmap->lock);
-+
-+			cxgbi_conn_debug("reserved port %u\n",
-+					csk->cdev->pmap->sport_base + idx);
-+
-+			return 0;
-+		}
-+	} while (idx != start);
-+	spin_unlock_bh(&csk->cdev->pmap->lock);
-+
-+error_out:
-+	return -EADDRNOTAVAIL;
-+}
-+
-+void cxgbi_sock_put_port(struct cxgbi_sock *csk)
-+{
-+	if (csk->saddr.sin_port) {
-+		int idx = ntohs(csk->saddr.sin_port) -
-+			csk->cdev->pmap->sport_base;
-+
-+		csk->saddr.sin_port = 0;
-+		if (idx < 0 || idx >= csk->cdev->pmap->max_connect)
-+			return;
-+
-+		spin_lock_bh(&csk->cdev->pmap->lock);
-+		csk->cdev->pmap->port_csk[idx] = NULL;
-+		spin_unlock_bh(&csk->cdev->pmap->lock);
-+
-+		cxgbi_conn_debug("released port %u\n",
-+				csk->cdev->pmap->sport_base + idx);
-+	}
-+}
-+
-+void cxgbi_release_itt(struct iscsi_task *task, itt_t hdr_itt)
-+{
-+	struct scsi_cmnd *sc = task->sc;
-+	struct iscsi_tcp_conn *tcp_conn = task->conn->dd_data;
-+	struct cxgbi_conn *cconn = tcp_conn->dd_data;
-+	struct cxgbi_device *cdev = cconn->chba->cdev;
-+	struct cxgbi_tag_format *tformat = &cdev->tag_format;
-+	u32 tag = ntohl((__force u32)hdr_itt);
-+
-+	cxgbi_tag_debug("release tag 0x%x.\n", tag);
-+
-+	if (sc &&
-+		(scsi_bidi_cmnd(sc) ||
-+		 sc->sc_data_direction == DMA_FROM_DEVICE) &&
-+			cxgbi_is_ddp_tag(tformat, tag))
-+		cdev->ddp_tag_release(cdev, tag);
-+}
-+
-+
-+int cxgbi_reserve_itt(struct iscsi_task *task, itt_t *hdr_itt)
-+{
-+	struct scsi_cmnd *sc = task->sc;
-+	struct iscsi_conn *conn = task->conn;
-+	struct iscsi_session *sess = conn->session;
-+	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
-+	struct cxgbi_conn *cconn = tcp_conn->dd_data;
-+	struct cxgbi_device *cdev = cconn->chba->cdev;
-+	struct cxgbi_tag_format *tformat = &cdev->tag_format;
-+	u32 sw_tag = (sess->age << cconn->task_idx_bits) | task->itt;
-+	u32 tag;
-+	int err = -EINVAL;
-+
-+	if (sc &&
-+		(scsi_bidi_cmnd(sc) ||
-+		 sc->sc_data_direction == DMA_FROM_DEVICE) &&
-+			cxgbi_sw_tag_usable(tformat, sw_tag)) {
-+
-+		struct cxgbi_sock *csk = cconn->cep->csk;
-+		struct cxgbi_gather_list *gl;
-+
-+		gl = cdev->ddp_make_gl(scsi_in(sc)->length,
-+					scsi_in(sc)->table.sgl,
-+					scsi_in(sc)->table.nents,
-+					cdev->pdev, GFP_ATOMIC);
-+		if (gl) {
-+			tag = sw_tag;
-+			err = cdev->ddp_tag_reserve(cdev, csk->hwtid,
-+							tformat, &tag,
-+							gl, GFP_ATOMIC);
-+			if (err < 0)
-+				cdev->ddp_release_gl(gl, cdev->pdev);
-+		}
-+	}
-+	if (err < 0)
-+		tag = cxgbi_set_non_ddp_tag(tformat, sw_tag);
-+	/*  the itt need to sent in big-endian order */
-+	*hdr_itt = (__force itt_t)htonl(tag);
-+
-+	cxgbi_tag_debug("new sc 0x%p tag 0x%x/0x%x (itt 0x%x, age 0x%x).\n",
-+			sc, tag, *hdr_itt, task->itt, sess->age);
-+	return 0;
-+}
-+
-+
-+void cxgbi_parse_pdu_itt(struct iscsi_conn *conn, itt_t itt,
-+				int *idx, int *age)
-+{
-+	struct iscsi_tcp_conn *tcp_conn = conn->dd_data;
-+	struct cxgbi_conn *cconn = tcp_conn->dd_data;
-+	struct cxgbi_device *cdev = cconn->chba->cdev;
-+	u32 tag = ntohl((__force u32) itt);
-+	u32 sw_bits;
-+
-+	sw_bits = cxgbi_tag_nonrsvd_bits(&cdev->tag_format, tag);
-+	if (idx)
-+		*idx = sw_bits & ((1 << cconn->task_idx_bits) - 1);
-+	if (age)
-+		*age = (sw_bits >> cconn->task_idx_bits) & ISCSI_AGE_MASK;
-+
-+	cxgbi_tag_debug("parse tag 0x%x/0x%x, sw 0x%x, itt 0x%x, age 0x%x.\n",
-+			tag, itt, sw_bits, idx ? *idx : 0xFFFFF,
-+			age ? *age : 0xFF);
-+}
-+
-+void cxgbi_cleanup_task(struct iscsi_task *task)
-+{
-+	struct cxgbi_task_data *tdata = task->dd_data +
-+				sizeof(struct iscsi_tcp_task);
-+
-+	/*  never reached the xmit task callout */
-+	if (tdata->skb)
-+		__kfree_skb(tdata->skb);
-+	memset(tdata, 0, sizeof(*tdata));
-+
-+	cxgbi_release_itt(task, task->hdr_itt);
-+	iscsi_tcp_cleanup_task(task);
-+}
-+
-diff --git a/drivers/scsi/cxgb4i/libcxgbi.h b/drivers/scsi/cxgb4i/libcxgbi.h
-new file mode 100644
-index 0000000..058a9aa
---- /dev/null
-+++ b/drivers/scsi/cxgb4i/libcxgbi.h
-@@ -0,0 +1,430 @@
-+/*
-+ * libcxgbi.h: Chelsio common library for T3/T4 iSCSI driver.
-+ *
-+ * Copyright (c) 2010 Chelsio Communications, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation.
-+ *
-+ * Written by: Karen Xie (kxie-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org)
-+ * Written by: Rakesh Ranjan (rranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org)
-+ */
-+
-+#ifndef	__LIBCXGBI_H__
-+#define	__LIBCXGBI_H__
-+
-+#include <linux/errno.h>
-+#include <linux/types.h>
-+#include <linux/list.h>
-+#include <linux/netdevice.h>
-+#include <linux/if_vlan.h>
-+#include <linux/scatterlist.h>
-+#include <linux/skbuff.h>
-+#include <scsi/libiscsi_tcp.h>
-+
-+
-+#define	cxgbi_log_error(fmt...)	printk(KERN_ERR "cxgbi: ERR! " fmt)
-+#define cxgbi_log_warn(fmt...)	printk(KERN_WARNING "cxgbi: WARN! " fmt)
-+#define cxgbi_log_info(fmt...)	printk(KERN_INFO "cxgbi: " fmt)
-+#define cxgbi_debug_log(fmt, args...) \
-+	printk(KERN_INFO "cxgbi: %s - " fmt, __func__ , ## args)
-+
-+
-+#ifdef	__DEBUG_CXGB4I__
-+#define	cxgbi_log_debug	cxgbi_debug_log
-+#else
-+#define cxgbi_log_debug(fmt...)
-+#endif
-+
-+#ifdef __DEBUG_CXGB4I_TAG__
-+#define cxgbi_tag_debug        cxgbi_log_debug
-+#else
-+#define cxgbi_tag_debug(fmt...)
-+#endif
-+
-+#ifdef __DEBUG_CXGB4I_API__
-+#define cxgbi_api_debug        cxgbi_log_debug
-+#else
-+#define cxgbi_api_debug(fmt...)
-+#endif
-+
-+#ifdef __DEBUG_CXGB4I_CONN__
-+#define cxgbi_conn_debug         cxgbi_log_debug
-+#else
-+#define cxgbi_conn_debug(fmt...)
-+#endif
-+
-+#ifdef __DEBUG_CXGB4I_TX__
-+#define cxgbi_tx_debug           cxgbi_log_debug
-+#else
-+#define cxgbi_tx_debug(fmt...)
-+#endif
-+
-+#ifdef __DEBUG_CXGB4I_RX__
-+#define cxgbi_rx_debug           cxgbi_log_debug
-+#else
-+#define cxgbi_rx_debug(fmt...)
-+#endif
-+
-+#define	ISCSI_PDU_NONPAYLOAD_LEN	312 /* bhs(48) + ahs(256) + digest(8)*/
-+#define ULP2_MAX_PKT_SIZE		16224
-+#define ULP2_MAX_PDU_PAYLOAD	\
-+	(ULP2_MAX_PKT_SIZE - ISCSI_PDU_NONPAYLOAD_LEN)
-+
-+/* # of pages a pagepod can hold without needing another pagepod */
-+#define PPOD_PAGES			4
-+#define PPOD_PAGES_MAX			4
-+#define PPOD_PAGES_SHIFT		2       /*  4 pages per pod */
-+
-+
-+struct cxgbi_tag_format {
-+	unsigned char sw_bits;
-+	unsigned char rsvd_bits;
-+	unsigned char rsvd_shift;
-+	unsigned char filler[1];
-+	unsigned int rsvd_mask;
-+};
-+
-+struct cxgbi_gather_list {
-+	unsigned int tag;
-+	unsigned int length;
-+	unsigned int offset;
-+	unsigned int nelem;
-+	struct page **pages;
-+	dma_addr_t phys_addr[0];
-+};
-+
-+struct cxgbi_sock {
-+	struct net_device *egdev;
-+	struct cxgbi_device *cdev;
-+
-+	unsigned long flags;
-+	unsigned int qset;
-+	unsigned int rss_qid;
-+
-+	unsigned int hwtid;
-+	unsigned int atid;
-+
-+	unsigned int tx_chan;
-+	unsigned int rx_chan;
-+	unsigned int mss_idx;
-+	unsigned int smac_idx;
-+	unsigned char port_id;
-+
-+	void *l2t;
-+
-+	int wr_max_cred;
-+	int wr_cred;
-+	int wr_una_cred;
-+
-+	struct sk_buff *wr_pending_head;
-+	struct sk_buff *wr_pending_tail;
-+	struct sk_buff *cpl_close;
-+	struct sk_buff *cpl_abort_req;
-+	struct sk_buff *cpl_abort_rpl;
-+	struct sk_buff *skb_ulp_lhdr;
-+	spinlock_t lock;
-+	atomic_t refcnt;
-+	volatile unsigned int state;
-+	struct sockaddr_in saddr;
-+	struct sockaddr_in daddr;
-+	struct dst_entry *dst;
-+	struct sk_buff_head receive_queue;
-+	struct sk_buff_head write_queue;
-+	struct timer_list retry_timer;
-+	int err;
-+	rwlock_t callback_lock;
-+	void *user_data;
-+
-+	u32 rcv_nxt;
-+	u32 copied_seq;
-+	u32 rcv_wup;
-+	u32 snd_nxt;
-+	u32 snd_una;
-+	u32 write_seq;
-+};
-+
-+enum cxgbi_sock_states{
-+	CXGBI_CSK_ST_CONNECTING = 1,
-+	CXGBI_CSK_ST_ESTABLISHED,
-+	CXGBI_CSK_ST_ACTIVE_CLOSE,
-+	CXGBI_CSK_ST_PASSIVE_CLOSE,
-+	CXGBI_CSK_ST_CLOSE_WAIT_1,
-+	CXGBI_CSK_ST_CLOSE_WAIT_2,
-+	CXGBI_CSK_ST_ABORTING,
-+	CXGBI_CSK_ST_CLOSED,
-+};
-+
-+enum cxgbi_sock_flags {
-+	CXGBI_CSK_FL_ABORT_RPL_RCVD,	/*received one ABORT_RPL_RSS message */
-+	CXGBI_CSK_FL_ABORT_REQ_RCVD,	/*received one ABORT_REQ_RSS message */
-+	CXGBI_CSK_FL_ABORT_RPL_PENDING,	/* expecting an abort reply */
-+	CXGBI_CSK_FL_TX_DATA_SENT,	/* already sent a TX_DATA WR */
-+	CXGBI_CSK_FL_ACTIVE_CLOSE_NEEDED,	/* need to be closed */
-+	CXGBI_CSK_FL_OFFLOAD_DOWN,		/* offload function off */
-+};
-+
-+static inline void cxgbi_sock_set_flag(struct cxgbi_sock *csk,
-+					enum cxgbi_sock_flags flag)
-+{
-+	__set_bit(flag, &csk->flags);
-+	cxgbi_conn_debug("csk 0x%p, set %d, state %u, flags 0x%lu\n",
-+			csk, flag, csk->state, csk->flags);
-+}
-+
-+static inline void cxgbi_sock_clear_flag(struct cxgbi_sock *csk,
-+					enum cxgbi_sock_flags flag)
-+{
-+	__clear_bit(flag, &csk->flags);
-+	cxgbi_conn_debug("csk 0x%p, clear %d, state %u, flags 0x%lu\n",
-+			csk, flag, csk->state, csk->flags);
-+}
-+
-+static inline int cxgbi_sock_flag(struct cxgbi_sock *csk,
-+				enum cxgbi_sock_flags flag)
-+{
-+	if (csk == NULL)
-+		return 0;
-+
-+	return test_bit(flag, &csk->flags);
-+}
-+
-+static inline void cxgbi_sock_set_state(struct cxgbi_sock *csk, int state)
-+{
-+	csk->state = state;
-+}
-+
-+static inline void cxgbi_sock_hold(struct cxgbi_sock *csk)
-+{
-+	atomic_inc(&csk->refcnt);
-+}
-+
-+static inline void cxgbi_sock_put(struct cxgbi_sock *csk)
-+{
-+	if (atomic_dec_and_test(&csk->refcnt)) {
-+		cxgbi_conn_debug("free csk 0x%p, state %u, flags 0x%lx\n",
-+				csk, csk->state, csk->flags);
-+		kfree(csk);
-+	}
-+}
-+
-+static inline unsigned int cxgbi_sock_is_closing(
-+			const struct cxgbi_sock *csk)
-+{
-+	return csk->state >= CXGBI_CSK_ST_ACTIVE_CLOSE;
-+}
-+
-+static inline unsigned int cxgbi_sock_is_established(
-+				const struct cxgbi_sock *csk)
-+{
-+	return csk->state == CXGBI_CSK_ST_ESTABLISHED;
-+}
-+
-+int cxgbi_sock_get_port(struct cxgbi_sock *);
-+void cxgbi_sock_put_port(struct cxgbi_sock *);
-+
-+struct cxgbi_hba {
-+	struct net_device *ndev;
-+	struct Scsi_Host *shost;
-+	struct cxgbi_device *cdev;
-+	__be32 ipv4addr;
-+};
-+
-+struct cxgbi_ports_map {
-+	unsigned int max_connect;
-+	unsigned short sport_base;
-+	spinlock_t lock;
-+	unsigned int next;
-+	struct cxgbi_sock *port_csk[0];
-+};
-+
-+struct cxgbi_device {
-+	struct list_head list_head;
-+	struct net_device *ndev;
-+	struct pci_dev *pdev;
-+	unsigned int skb_tx_headroom;
-+	unsigned int skb_extra_headroom;
-+	struct page *pad_page;
-+
-+	void (*tx_skb_setmode)(struct sk_buff *, int, int);
-+	int (*sock_send_pdus)(struct cxgbi_sock *, struct sk_buff *);
-+	int (*ddp_tag_reserve)(struct cxgbi_device *, unsigned int,
-+				struct cxgbi_tag_format *, u32 *,
-+				struct cxgbi_gather_list *, gfp_t);
-+	void (*ddp_tag_release)(struct cxgbi_device *, u32);
-+	struct cxgbi_gather_list* (*ddp_make_gl)(unsigned int,
-+						struct scatterlist *,
-+						unsigned int,
-+						struct pci_dev *,
-+						gfp_t);
-+	void (*ddp_release_gl)(struct cxgbi_gather_list *, struct pci_dev *);
-+	__u16 (*get_skb_ulp_mode)(struct sk_buff *);
-+
-+	struct cxgbi_tag_format tag_format;
-+	struct cxgbi_ports_map *pmap;
-+
-+	void *dd_data;
-+};
-+
-+struct cxgbi_conn {
-+	struct list_head list_head;
-+	struct cxgbi_endpoint *cep;
-+	struct iscsi_conn *iconn;
-+	struct cxgbi_hba *chba;
-+	u32 task_idx_bits;
-+};
-+
-+struct cxgbi_endpoint {
-+	struct cxgbi_conn *cconn;
-+	struct cxgbi_hba *chba;
-+	struct cxgbi_sock *csk;
-+};
-+
-+#define MAX_PDU_FRAGS	((ULP2_MAX_PDU_PAYLOAD + 512 - 1) / 512)
-+struct cxgbi_task_data {
-+	unsigned short nr_frags;
-+	skb_frag_t frags[MAX_PDU_FRAGS];
-+	struct sk_buff *skb;
-+	unsigned int offset;
-+	unsigned int count;
-+	unsigned int sgoffset;
-+};
-+
-+static inline int cxgbi_is_ddp_tag(struct cxgbi_tag_format *tformat, u32 tag)
-+{
-+	return !(tag & (1 << (tformat->rsvd_bits + tformat->rsvd_shift - 1)));
-+}
-+
-+static inline int cxgbi_sw_tag_usable(struct cxgbi_tag_format *tformat,
-+					u32 sw_tag)
-+{
-+	sw_tag >>= (32 - tformat->rsvd_bits);
-+	return !sw_tag;
-+}
-+
-+static inline u32 cxgbi_set_non_ddp_tag(struct cxgbi_tag_format *tformat,
-+					u32 sw_tag)
-+{
-+	unsigned char shift = tformat->rsvd_bits + tformat->rsvd_shift - 1;
-+
-+	u32 mask = (1 << shift) - 1;
-+
-+	if (sw_tag && (sw_tag & ~mask)) {
-+		u32 v1 = sw_tag & ((1 << shift) - 1);
-+		u32 v2 = (sw_tag >> (shift - 1)) << shift;
-+
-+		return v2 | v1 | 1 << shift;
-+	}
-+
-+	return sw_tag | 1 << shift;
-+}
-+
-+static inline u32 cxgbi_ddp_tag_base(struct cxgbi_tag_format *tformat,
-+					u32 sw_tag)
-+{
-+	u32 mask = (1 << tformat->rsvd_shift) - 1;
-+
-+	if (sw_tag && (sw_tag & ~mask)) {
-+		u32 v1 = sw_tag & mask;
-+		u32 v2 = sw_tag >> tformat->rsvd_shift;
-+
-+		v2 <<= tformat->rsvd_bits + tformat->rsvd_shift;
-+
-+		return v2 | v1;
-+	}
-+
-+	return sw_tag;
-+}
-+
-+static inline u32 cxgbi_tag_rsvd_bits(struct cxgbi_tag_format *tformat,
-+					u32 tag)
-+{
-+	if (cxgbi_is_ddp_tag(tformat, tag))
-+		return (tag >> tformat->rsvd_shift) & tformat->rsvd_mask;
-+
-+	return 0;
-+}
-+
-+static inline u32 cxgbi_tag_nonrsvd_bits(struct cxgbi_tag_format *tformat,
-+					u32 tag)
-+{
-+	unsigned char shift = tformat->rsvd_bits + tformat->rsvd_shift - 1;
-+	u32 v1, v2;
-+
-+	if (cxgbi_is_ddp_tag(tformat, tag)) {
-+		v1 = tag & ((1 << tformat->rsvd_shift) - 1);
-+		v2 = (tag >> (shift + 1)) << tformat->rsvd_shift;
-+	} else {
-+		u32 mask = (1 << shift) - 1;
-+		tag &= ~(1 << shift);
-+		v1 = tag & mask;
-+		v2 = (tag >> 1) & ~mask;
-+	}
-+	return v1 | v2;
-+}
-+
-+static inline void *cxgbi_alloc_big_mem(unsigned int size,
-+					gfp_t gfp)
-+{
-+	void *p = kmalloc(size, gfp);
-+	if (!p)
-+		p = vmalloc(size);
-+	if (p)
-+		memset(p, 0, size);
-+	return p;
-+}
-+
-+static inline void cxgbi_free_big_mem(void *addr)
-+{
-+	if (is_vmalloc_addr(addr))
-+		vfree(addr);
-+	else
-+		kfree(addr);
-+}
-+
-+#define RX_DDP_STATUS_IPP_SHIFT		27      /* invalid pagepod */
-+#define RX_DDP_STATUS_TID_SHIFT		26      /* tid mismatch */
-+#define RX_DDP_STATUS_COLOR_SHIFT	25      /* color mismatch */
-+#define RX_DDP_STATUS_OFFSET_SHIFT	24      /* offset mismatch */
-+#define RX_DDP_STATUS_ULIMIT_SHIFT	23      /* ulimit error */
-+#define RX_DDP_STATUS_TAG_SHIFT		22      /* tag mismatch */
-+#define RX_DDP_STATUS_DCRC_SHIFT	21      /* dcrc error */
-+#define RX_DDP_STATUS_HCRC_SHIFT	20      /* hcrc error */
-+#define RX_DDP_STATUS_PAD_SHIFT		19      /* pad error */
-+#define RX_DDP_STATUS_PPP_SHIFT		18      /* pagepod parity error */
-+#define RX_DDP_STATUS_LLIMIT_SHIFT	17      /* llimit error */
-+#define RX_DDP_STATUS_DDP_SHIFT		16      /* ddp'able */
-+#define RX_DDP_STATUS_PMM_SHIFT		15      /* pagepod mismatch */
-+
-+
-+#define ULP2_FLAG_DATA_READY		0x1
-+#define ULP2_FLAG_DATA_DDPED		0x2
-+#define ULP2_FLAG_HCRC_ERROR		0x4
-+#define ULP2_FLAG_DCRC_ERROR		0x8
-+#define ULP2_FLAG_PAD_ERROR		0x10
-+
-+static inline void *cplhdr(struct sk_buff *skb)
-+{
-+	return skb->data;
-+}
-+
-+int cxgbi_reserve_itt(struct iscsi_task *task, itt_t *hdr_itt);
-+void cxgbi_release_itt(struct iscsi_task *task, itt_t hdr_itt);
-+void cxgbi_parse_pdu_itt(struct iscsi_conn *conn, itt_t itt,
-+				int *idx, int *age);
-+void cxgbi_cleanup_task(struct iscsi_task *task);
-+
-+int cxgbi_conn_read_bhs_pdu_skb(struct iscsi_conn *, struct sk_buff *);
-+int cxgbi_conn_read_data_pdu_skb(struct iscsi_conn *, struct sk_buff *);
-+void cxgbi_conn_tx_open(struct cxgbi_sock *);
-+int cxgbi_conn_init_pdu(struct iscsi_task *, unsigned int , unsigned int);
-+int cxgbi_conn_alloc_pdu(struct iscsi_task *, u8);
-+int cxgbi_conn_xmit_pdu(struct iscsi_task *);
-+
-+int cxgbi_pdu_init(struct cxgbi_device *);
-+void cxgbi_pdu_cleanup(struct cxgbi_device *);
-+
-+
-+#endif	/*__LIBCXGBI_H__*/
-+
--- 
-1.6.6.1
 
--- 
-You received this message because you are subscribed to the Google Groups "open-iscsi" group.
-To post to this group, send email to open-iscsi-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-To unsubscribe from this group, send email to open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-For more options, visit this group at http://groups.google.com/group/open-iscsi?hl=en.
+------------------------------------------------------------------------------
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
