@@ -1,18 +1,17 @@
-From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
-Subject: [PATCH 19/37] drivers/net/usb: Use kmemdup
-Date: Sat, 15 May 2010 23:18:58 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1005152318410.21345@ask.diku.dk>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 25/37] drivers/net/usb: Use kmemdup
+Date: Sat, 15 May 2010 23:20:45 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005152320270.21345@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Petko Manolov <petkan-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-janitors@vge
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Greg Kroah-Hartman <gregkh@suse.de>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+From: Julia Lawall <julia@diku.dk>
 
 Use kmemdup when some other buffer is immediately copied into the
 allocated region.
@@ -32,46 +31,42 @@ statement S;
 -  memcpy(to, from, size);
 // </smpl>
 
-Signed-off-by: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/net/usb/pegasus.c |    6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/usb/asix.c    |    3 +--
+ drivers/net/usb/mcs7830.c |    4 +---
+ 2 files changed, 2 insertions(+), 5 deletions(-)
 
-diff -u -p a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
---- a/drivers/net/usb/pegasus.c
-+++ b/drivers/net/usb/pegasus.c
-@@ -203,13 +203,12 @@ static int set_registers(pegasus_t * peg
- 	char *buffer;
- 	DECLARE_WAITQUEUE(wait, current);
+diff -u -p a/drivers/net/usb/asix.c b/drivers/net/usb/asix.c
+--- a/drivers/net/usb/asix.c
++++ b/drivers/net/usb/asix.c
+@@ -224,10 +224,9 @@ static int asix_write_cmd(struct usbnet 
+ 		   cmd, value, index, size);
  
--	buffer = kmalloc(size, GFP_KERNEL);
-+	buffer = kmemdup(data, size, GFP_KERNEL);
- 	if (!buffer) {
- 		netif_warn(pegasus, drv, pegasus->net,
- 			   "out of memory in %s\n", __func__);
- 		return -ENOMEM;
+ 	if (data) {
+-		buf = kmalloc(size, GFP_KERNEL);
++		buf = kmemdup(data, size, GFP_KERNEL);
+ 		if (!buf)
+ 			goto out;
+-		memcpy(buf, data, size);
  	}
+ 
+ 	err = usb_control_msg(
+diff -u -p a/drivers/net/usb/mcs7830.c b/drivers/net/usb/mcs7830.c
+--- a/drivers/net/usb/mcs7830.c
++++ b/drivers/net/usb/mcs7830.c
+@@ -142,12 +142,10 @@ static int mcs7830_set_reg(struct usbnet
+ 	int ret;
+ 	void *buffer;
+ 
+-	buffer = kmalloc(size, GFP_NOIO);
++	buffer = kmemdup(data, size, GFP_NOIO);
+ 	if (buffer == NULL)
+ 		return -ENOMEM;
+ 
 -	memcpy(buffer, data, size);
- 
- 	add_wait_queue(&pegasus->ctrl_wait, &wait);
- 	set_current_state(TASK_UNINTERRUPTIBLE);
-@@ -255,13 +254,12 @@ static int set_register(pegasus_t * pega
- 	char *tmp;
- 	DECLARE_WAITQUEUE(wait, current);
- 
--	tmp = kmalloc(1, GFP_KERNEL);
-+	tmp = kmemdup(&data, 1, GFP_KERNEL);
- 	if (!tmp) {
- 		netif_warn(pegasus, drv, pegasus->net,
- 			   "out of memory in %s\n", __func__);
- 		return -ENOMEM;
- 	}
--	memcpy(tmp, &data, 1);
- 	add_wait_queue(&pegasus->ctrl_wait, &wait);
- 	set_current_state(TASK_UNINTERRUPTIBLE);
- 	while (pegasus->flags & ETH_REGS_CHANGED)
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-
+ 	ret = usb_control_msg(xdev, usb_sndctrlpipe(xdev, 0), MCS7830_WR_BREQ,
+ 			      MCS7830_WR_BMREQ, 0x0000, index, buffer,
+ 			      size, MCS7830_CTRL_TIMEOUT);
