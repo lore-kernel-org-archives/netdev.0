@@ -1,18 +1,18 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 12/37] drivers/net/wireless/wl12xx: Use kmemdup
-Date: Sat, 15 May 2010 23:16:39 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1005152316220.21345@ask.diku.dk>
+Subject: [PATCH 13/37] drivers/net/wireless/iwmc3200wifi: Use kmemdup
+Date: Sat, 15 May 2010 23:16:58 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005152316400.21345__43269.3938528702$1273958285$gmane$org@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Luciano Coelho <luciano.coelho@nokia.com>,
+To: Samuel Ortiz <samuel.ortiz@intel.com>, Zhu Yi <yi.zhu@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
 	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-ja
+	linux-wireless@vger.kernel.o
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:41702 "EHLO mgw2.diku.dk"
+Received: from mgw2.diku.dk ([130.225.96.92]:41708 "EHLO mgw2.diku.dk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755161Ab0EOVQo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 May 2010 17:16:44 -0400
+	id S1753833Ab0EOVRD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 15 May 2010 17:17:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -39,44 +39,26 @@ statement S;
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/net/wireless/wl12xx/wl1271_main.c |    8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+ drivers/net/wireless/iwmc3200wifi/rx.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff -u -p a/drivers/net/wireless/wl12xx/wl1271_main.c b/drivers/net/wireless/wl12xx/wl1271_main.c
---- a/drivers/net/wireless/wl12xx/wl1271_main.c
-+++ b/drivers/net/wireless/wl12xx/wl1271_main.c
-@@ -573,7 +573,7 @@ static int wl1271_fetch_nvs(struct wl127
- 		goto out;
+diff -u -p a/drivers/net/wireless/iwmc3200wifi/rx.c b/drivers/net/wireless/iwmc3200wifi/rx.c
+--- a/drivers/net/wireless/iwmc3200wifi/rx.c
++++ b/drivers/net/wireless/iwmc3200wifi/rx.c
+@@ -321,14 +321,14 @@ iwm_rx_ticket_node_alloc(struct iwm_priv
+ 		return ERR_PTR(-ENOMEM);
  	}
  
--	wl->nvs = kmalloc(sizeof(struct wl1271_nvs_file), GFP_KERNEL);
-+	wl->nvs = kmemdup(fw->data, sizeof(struct wl1271_nvs_file), GFP_KERNEL);
- 
- 	if (!wl->nvs) {
- 		wl1271_error("could not allocate memory for the nvs file");
-@@ -581,8 +581,6 @@ static int wl1271_fetch_nvs(struct wl127
- 		goto out;
+-	ticket_node->ticket = kzalloc(sizeof(struct iwm_rx_ticket), GFP_KERNEL);
++	ticket_node->ticket = kmemdup(ticket, sizeof(struct iwm_rx_ticket),
++				      GFP_KERNEL);
+ 	if (!ticket_node->ticket) {
+ 		IWM_ERR(iwm, "Couldn't allocate RX ticket\n");
+ 		kfree(ticket_node);
+ 		return ERR_PTR(-ENOMEM);
  	}
  
--	memcpy(wl->nvs, fw->data, sizeof(struct wl1271_nvs_file));
--
- out:
- 	release_firmware(fw);
+-	memcpy(ticket_node->ticket, ticket, sizeof(struct iwm_rx_ticket));
+ 	INIT_LIST_HEAD(&ticket_node->node);
  
-@@ -2350,15 +2348,13 @@ struct ieee80211_hw *wl1271_alloc_hw(voi
- 		goto err_hw_alloc;
- 	}
- 
--	plat_dev = kmalloc(sizeof(wl1271_device), GFP_KERNEL);
-+	plat_dev = kmemdup(&wl1271_device, sizeof(wl1271_device), GFP_KERNEL);
- 	if (!plat_dev) {
- 		wl1271_error("could not allocate platform_device");
- 		ret = -ENOMEM;
- 		goto err_plat_alloc;
- 	}
- 
--	memcpy(plat_dev, &wl1271_device, sizeof(wl1271_device));
--
- 	wl = hw->priv;
- 	memset(wl, 0, sizeof(*wl));
- 
+ 	return ticket_node;
