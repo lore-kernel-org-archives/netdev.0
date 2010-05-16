@@ -1,78 +1,40 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: bnx2/BCM5709: why 5 interrupts on a 4 core system
- (2.6.33.3)
-Date: Sun, 16 May 2010 13:00:44 -0700
-Message-ID: <C27F8246C663564A84BB7AB3439772421B7814753A@IRVEXCHCCR01.corp.ad.broadcom.com>
-References: <4BF0465A.5030307@ans.pl>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: TCP-MD5 checksum failure on x86_64 SMP
+Date: Sun, 16 May 2010 21:53:28 +0200
+Message-ID: <1274039609.2299.6.camel@edumazet-laptop>
+References: <1273611036.2512.18.camel@edumazet-laptop>
+	 <1273634421.2512.21.camel@edumazet-laptop>
+	 <20100512152207.0e0c321a@nehalam>
+	 <20100512.152406.193725816.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "'Krzysztof Oledzki'" <ole@ans.pl>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, Bijay.Singh@guavus.com, bhaskie@gmail.com,
+	bhutchings@solarflare.com, netdev@vger.kernel.org,
+	ilpo.jarvinen@helsinki.fi
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1726 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751664Ab0EPUAw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 May 2010 16:00:52 -0400
-In-Reply-To: <4BF0465A.5030307@ans.pl>
-Content-Language: en-US
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:55818 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751664Ab0EPUMH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 May 2010 16:12:07 -0400
+Received: by wyf19 with SMTP id 19so5583wyf.19
+        for <netdev@vger.kernel.org>; Sun, 16 May 2010 13:12:04 -0700 (PDT)
+In-Reply-To: <20100512.152406.193725816.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Krzysztof Oledzki wrote:
+Le mercredi 12 mai 2010 =C3=A0 15:24 -0700, David Miller a =C3=A9crit :
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Wed, 12 May 2010 15:22:07 -0700
+>=20
+> > Yes, that looks like a possible bug, not sure what hardware
+> > generates frag_list.
+>=20
+> GRO generates frag_list
 
-> On 2010-05-16 20:51, Michael Chan wrote:
-> > Krzysztof Oledzki wrote:
-> >
-> >>
-> >> Why the driver registers 5 interrupts instead of 4? How to
-> >> limit it to 4?
-> >>
-> >
-> > The first vector (eth0-0) handles link interrupt and other slow
-> > path events.  It also has an RX ring for non-IP packets that are
-> > not hashed by the RSS hash.  The majority of the rx packets should
-> > be hashed to the rx rings eth0-1 - eth0-4, so I would assign these
-> > vectors to different CPUs.
->
-> Thank you for your prompt response.
->
-> In my case the first vector must be handling something more:
->  - "ping -f 192.168.0.1" increases interrupts on both eth1-0
-> and eth1-4
->  - "ping -f 192.168.0.2" increases interrupts on both eth1-0
-> and eth1-3
->  - "ping -f 192.168.0.3" increases interrupts on both eth1-0
-> and eth1-1
->  - "ping -f 192.168.0.7" increases interrupts on both eth1-0
-> and eth1-2
->
->             CPU0       CPU1       CPU2       CPU3
->   67:    1563979          0          0          0
-> PCI-MSI-edge      eth1-0
->   68:    1072869          0          0          0
-> PCI-MSI-edge      eth1-1
->   69:     137905          0          0          0
-> PCI-MSI-edge      eth1-2
->   70:     259246          0          0          0
-> PCI-MSI-edge      eth1-3
->   71:     760252          0          0          0
-> PCI-MSI-edge      eth1-4
->
-> As you can see, eth1-1 + eth1-2 + eth1-3 + eth1-4 ~= eth1-0.
+ixgbe (82599) too, if I understand well this driver (TCP Receive Side
+Coalescing RSC)
 
-I think that ICMP ping packets will always go to ring 0 (eth1-0)
-because they are non-IP packets.  I need to double check tomorrow
-on how exactly the hashing works on RX.  Can you try running IP
-traffic?  IP packets should theoretically go to rings 1 - 4.
-
->
-> So, it seems that TX or RX is always handled by the first vector.
-> I'll try to find if it is TX or RX.
->
-> BTW: I'm using .1Q vlans over bonding, does it change anything?
-
-That should not matter, as the VLAN tag is stripped before hashing.
 
 
