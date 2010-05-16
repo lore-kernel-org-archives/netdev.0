@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 2.6.35 00/25] WiMAX pull request
-Date: Sat, 15 May 2010 23:24:19 -0700 (PDT)
-Message-ID: <20100515.232419.235675367.davem@davemloft.net>
-References: <cover.1273708027.git.inaky.perez-gonzalez@intel.com>
+Subject: Re: [PATCH 0/6] netns support in the kobject layer
+Date: Sat, 15 May 2010 23:26:43 -0700 (PDT)
+Message-ID: <20100515.232643.212422307.davem@davemloft.net>
+References: <m1fx3hk6gw.fsf@fess.ebiederm.org>
+	<m1d3xb4239.fsf@fess.ebiederm.org>
+	<20100506200404.GA21805@kroah.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wimax@linuxwimax.org,
-	inaky.perez-gonzalez@intel.com
-To: inaky@linux.intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41818
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751690Ab0EPGYL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 May 2010 02:24:11 -0400
-In-Reply-To: <cover.1273708027.git.inaky.perez-gonzalez@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ebiederm@xmission.com, gregkh@suse.de, kay.sievers@vrfy.org,
+	linux-kernel@vger.kernel.org, tj@kernel.org,
+	cornelia.huck@de.ibm.com, eric.dumazet@gmail.com, bcrl@lhnet.ca,
+	serue@us.ibm.com, netdev@vger.kernel.org
+To: greg@kroah.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100506200404.GA21805@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Date: Fri, 14 May 2010 14:44:59 -0700
+From: Greg KH <greg@kroah.com>
+Date: Thu, 6 May 2010 13:04:04 -0700
 
-> The following changes since commit 2b0b05ddc04b6d45e71cd36405df512075786f1e:
->   Marcel Holtmann (1):
->         Bluetooth: Fix issues where sk_sleep() helper is needed now
+> On Tue, May 04, 2010 at 05:35:54PM -0700, Eric W. Biederman wrote:
+>> 
+>> With the tagged sysfs support finally merged into Greg's tree,
+>> it is time for the last little bits of work to get the kobject
+>> layer and network namespaces to play together properly.
+>> 
+>> These patches are roughly evenly divided between network layer work
+>> and sysfs layer work.  Last time this conundrum came up I believe
+>> we decided that the easiest way to handle this was for Greg to carry
+>> all of the patches.  David, Greg does that still make sense?
 > 
-> are available in the git repository at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/inaky/wimax.git master
-> 
-> Patches follow for reviewing convenience.
+> That's fine, if I get David's ack on these.
 
-Pulled, thanks a lot.
+Looks good to me:
+
+Acked-by: David S. Miller <davem@davemloft.net>
