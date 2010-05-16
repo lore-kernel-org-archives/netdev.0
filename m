@@ -1,68 +1,34 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH] r6040: fix link checking with switches
-Date: Sun, 16 May 2010 14:30:56 +0200
-Message-ID: <201005161430.57429.florian@openwrt.org>
-Reply-To: Florian Fainelli <florian@openwrt.org>
+From: Nathan Williams <nathan@traverse.com.au>
+Subject: [PATCH] atm: select FW_LOADER in Kconfig for solos-pci
+Date: Sun, 16 May 2010 23:12:36 +1000 (EST)
+Message-ID: <alpine.DEB.1.10.1005162220500.15165@debian>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:41965 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751463Ab0EPMbF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 May 2010 08:31:05 -0400
-Received: by wwg30 with SMTP id 30so291582wwg.19
-        for <netdev@vger.kernel.org>; Sun, 16 May 2010 05:31:02 -0700 (PDT)
+Received: from smtp.virginbroadband.com.au ([123.200.191.11]:51939 "EHLO
+	smtp.virginbroadband.com.au" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752074Ab0EPNVl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 May 2010 09:21:41 -0400
+Received: from [121.91.118.133] (unknown [121.91.118.133])
+	by smtp.virginbroadband.com.au (Postfix) with ESMTP id B7A9D65A5056
+	for <netdev@vger.kernel.org>; Sun, 16 May 2010 23:12:49 +1000 (EST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current link checking logic only works for one port, which is not correct
-for swiches were multiple ports can have different link status. As a result
-we would only check for link status on port 1 of the switch. Move the calls
-to mii_check_media in r6040_timer which will be polling a single PHY chip
-correctly and assume link is up for switches.
+solos-pci uses request_firmware() for firmware upgrades
 
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
----
- drivers/net/r6040.c |    8 +++-----
- 1 files changed, 3 insertions(+), 5 deletions(-)
+Signed-off-by: Nathan Williams <nathan@traverse.com.au>
 
-diff --git a/drivers/net/r6040.c b/drivers/net/r6040.c
-index 4122916..eeee379 100644
---- a/drivers/net/r6040.c
-+++ b/drivers/net/r6040.c
-@@ -400,9 +400,6 @@ static void r6040_init_mac_regs(struct net_device *dev)
- 	 * we may got called by r6040_tx_timeout which has left
- 	 * some unsent tx buffers */
- 	iowrite16(0x01, ioaddr + MTPR);
--
--	/* Check media */
--	mii_check_media(&lp->mii_if, 1, 1);
- }
- 
- static void r6040_tx_timeout(struct net_device *dev)
-@@ -530,8 +527,6 @@ static int r6040_phy_mode_chk(struct net_device *dev)
- 			phy_dat = 0x0000;
- 	}
- 
--	mii_check_media(&lp->mii_if, 0, 1);
--
- 	return phy_dat;
- };
- 
-@@ -813,6 +808,9 @@ static void r6040_timer(unsigned long data)
- 
- 	/* Timer active again */
- 	mod_timer(&lp->timer, round_jiffies(jiffies + HZ));
-+
-+	/* Check media */
-+	mii_check_media(&lp->mii_if, 1, 1);
- }
- 
- /* Read/set MAC address routines */
--- 
-1.7.1
-
+diff --git a/drivers/atm/Kconfig b/drivers/atm/Kconfig
+index 191b85e..f1a0a00 100644
+--- a/drivers/atm/Kconfig
++++ b/drivers/atm/Kconfig
+@@ -394,6 +394,7 @@ config ATM_HE_USE_SUNI
+ config ATM_SOLOS
+ 	tristate "Solos ADSL2+ PCI Multiport card driver"
+ 	depends on PCI
++	select FW_LOADER
+ 	help
+ 	  Support for the Solos multiport ADSL2+ card.
 
