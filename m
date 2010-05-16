@@ -1,36 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: adjust handle_macvlan to pass port
- struct to hook
-Date: Sat, 15 May 2010 23:48:26 -0700 (PDT)
-Message-ID: <20100515.234826.135552334.davem@davemloft.net>
-References: <20100506113352.GB3406@psychotron.lab.eng.brq.redhat.com>
-	<4BE819B6.3020101@trash.net>
+Subject: Re: [PATCH] xfrm: fix policy unreferencing on larval drop
+Date: Sat, 15 May 2010 23:49:38 -0700 (PDT)
+Message-ID: <20100515.234938.25121429.davem@davemloft.net>
+References: <1273146734-8022-1-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jpirko@redhat.com, netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46935
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46940
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751337Ab0EPGsR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 May 2010 02:48:17 -0400
-In-Reply-To: <4BE819B6.3020101@trash.net>
+	by vger.kernel.org with ESMTP id S1752470Ab0EPGt3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 May 2010 02:49:29 -0400
+In-Reply-To: <1273146734-8022-1-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Mon, 10 May 2010 16:35:34 +0200
+From: Timo Teras <timo.teras@iki.fi>
+Date: Thu,  6 May 2010 14:52:14 +0300
 
-> Jiri Pirko wrote:
->> Now there's null check here and also again in the hook. Looking at bridge bits
->> which are simmilar, port structure is rcu_dereferenced right away in
->> handle_bridge and passed to hook. Looks nicer.
->> 
->> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> I mistakenly had the error path to use num_pols to decide how
+> many policies we need to drop (cruft from earlier patch set
+> version which did not handle socket policies right).
 > 
-> Looks fine, thanks.
+> This is wrong since normally we do not keep explicit references
+> (instead we hold reference to the cache entry which holds references
+> to policies). drop_pols is set to num_pols if we are holding the
+> references, so use that. Otherwise we eventually BUG_ON inside
+> xfrm_policy_destroy due to premature policy deletion.
 > 
-> Acked-by: Patrick McHardy <kaber@trash.net>
+> Signed-off-by: Timo Teras <timo.teras@iki.fi>
 
-Applied, thanks.
+Applied, thanks a lot Timo.
