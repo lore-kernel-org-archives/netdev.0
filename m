@@ -1,58 +1,133 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Sun, 16 May 2010 01:32:39 -0700 (PDT)
-Message-ID: <20100516.013239.180390751.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: [PATCH] dm9000: fix "BUG: spinlock recursion"
+Date: Sun, 16 May 2010 13:06:47 +0300
+Message-ID: <1274004407-12323-1-git-send-email-baruch@tkos.co.il>
+Cc: Baruch Siach <baruch@tkos.co.il>, stable@kernel.org,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Ben Dooks <ben-linux@fluff.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tango.tkos.co.il ([62.219.50.35]:40338 "EHLO tango.tkos.co.il"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752296Ab0EPLAZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 May 2010 07:00:25 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+dm9000_set_rx_csum and dm9000_hash_table are called from atomic context (in
+dm9000_init_dm9000), and from non-atomic context (via ethtool_ops and
+net_device_ops respectively). This causes a spinlock recursion BUG. Fix this by
+renaming these functions to *_unlocked for the atomic context, and make the
+original functions locking wrappers for use in the non-atomic context.
 
-1) The new SR-IOV VF netlink messages had a critical error in their
-   design, they were not designed to be symmetric (therefore you can't
-   take a netlink message dump, and use the elements to recreate
-   configurations like you can with other netlink message types).
+Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+Cc: stable@kernel.org
+Cc: Sascha Hauer <s.hauer@pengutronix.de>
+Cc: Ben Dooks <ben-linux@fluff.org>
+---
+ drivers/net/dm9000.c |   38 +++++++++++++++++++++++++++-----------
+ 1 files changed, 27 insertions(+), 11 deletions(-)
 
-   Cure this by using nested netlink attributes.
+diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
+index 7f9960f..3556b2c 100644
+--- a/drivers/net/dm9000.c
++++ b/drivers/net/dm9000.c
+@@ -476,17 +476,13 @@ static uint32_t dm9000_get_rx_csum(struct net_device *dev)
+ 	return dm->rx_csum;
+ }
+ 
+-static int dm9000_set_rx_csum(struct net_device *dev, uint32_t data)
++static int dm9000_set_rx_csum_unlocked(struct net_device *dev, uint32_t data)
+ {
+ 	board_info_t *dm = to_dm9000_board(dev);
+-	unsigned long flags;
+ 
+ 	if (dm->can_csum) {
+ 		dm->rx_csum = data;
+-
+-		spin_lock_irqsave(&dm->lock, flags);
+ 		iow(dm, DM9000_RCSR, dm->rx_csum ? RCSR_CSUM : 0);
+-		spin_unlock_irqrestore(&dm->lock, flags);
+ 
+ 		return 0;
+ 	}
+@@ -494,6 +490,19 @@ static int dm9000_set_rx_csum(struct net_device *dev, uint32_t data)
+ 	return -EOPNOTSUPP;
+ }
+ 
++static int dm9000_set_rx_csum(struct net_device *dev, uint32_t data)
++{
++	board_info_t *dm = to_dm9000_board(dev);
++	unsigned long flags;
++	int ret;
++
++	spin_lock_irqsave(&dm->lock, flags);
++	ret = dm9000_set_rx_csum_unlocked(dev, data);
++	spin_unlock_irqrestore(&dm->lock, flags);
++
++	return ret;
++}
++
+ static int dm9000_set_tx_csum(struct net_device *dev, uint32_t data)
+ {
+ 	board_info_t *dm = to_dm9000_board(dev);
+@@ -722,7 +731,7 @@ static unsigned char dm9000_type_to_char(enum dm9000_type type)
+  *  Set DM9000 multicast address
+  */
+ static void
+-dm9000_hash_table(struct net_device *dev)
++dm9000_hash_table_unlocked(struct net_device *dev)
+ {
+ 	board_info_t *db = netdev_priv(dev);
+ 	struct dev_mc_list *mcptr;
+@@ -730,12 +739,9 @@ dm9000_hash_table(struct net_device *dev)
+ 	u32 hash_val;
+ 	u16 hash_table[4];
+ 	u8 rcr = RCR_DIS_LONG | RCR_DIS_CRC | RCR_RXEN;
+-	unsigned long flags;
+ 
+ 	dm9000_dbg(db, 1, "entering %s\n", __func__);
+ 
+-	spin_lock_irqsave(&db->lock, flags);
+-
+ 	for (i = 0, oft = DM9000_PAR; i < 6; i++, oft++)
+ 		iow(db, oft, dev->dev_addr[i]);
+ 
+@@ -765,6 +771,16 @@ dm9000_hash_table(struct net_device *dev)
+ 	}
+ 
+ 	iow(db, DM9000_RCR, rcr);
++}
++
++static void
++dm9000_hash_table(struct net_device *dev)
++{
++	board_info_t *db = netdev_priv(dev);
++	unsigned long flags;
++
++	spin_lock_irqsave(&db->lock, flags);
++	dm9000_hash_table_unlocked(dev);
+ 	spin_unlock_irqrestore(&db->lock, flags);
+ }
+ 
+@@ -784,7 +800,7 @@ dm9000_init_dm9000(struct net_device *dev)
+ 	db->io_mode = ior(db, DM9000_ISR) >> 6;	/* ISR bit7:6 keeps I/O mode */
+ 
+ 	/* Checksum mode */
+-	dm9000_set_rx_csum(dev, db->rx_csum);
++	dm9000_set_rx_csum_unlocked(dev, db->rx_csum);
+ 
+ 	/* GPIO0 on pre-activate PHY */
+ 	iow(db, DM9000_GPR, 0);	/* REG_1F bit0 activate phyxcer */
+@@ -811,7 +827,7 @@ dm9000_init_dm9000(struct net_device *dev)
+ 	iow(db, DM9000_ISR, ISR_CLR_STATUS); /* Clear interrupt status */
+ 
+ 	/* Set address filter table */
+-	dm9000_hash_table(dev);
++	dm9000_hash_table_unlocked(dev);
+ 
+ 	imr = IMR_PAR | IMR_PTM | IMR_PRM;
+ 	if (db->type != TYPE_DM9000E)
+-- 
+1.7.1
 
-   Better to fix this before it appears in a released kernel.
-
-   Fix from Chris Wright.
-
-2) The per-cpu TCP md5 signature state was not properly softirq
-   protected, leading to all kinds of corruptions.  Fix from Eric
-   Dumazet.
-
-3) SCTP transport teardown can leave a timer running, fix from Wei
-   Yongjun.
-
-Please pull, thanks!
-
-The following changes since commit 4fc4c3ce0dc1096cbd0daa3fe8f6905cbec2b87e:
-  Linus Torvalds (1):
-        Merge branch 'for-linus' of git://git.infradead.org/users/eparis/notify
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Chris Wright (1):
-      rtnetlink: make SR-IOV VF interface symmetric
-
-Eric Dumazet (1):
-      tcp: fix MD5 (RFC2385) support
-
-Wei Yongjun (1):
-      sctp: delete active ICMP proto unreachable timer when free transport
-
- include/linux/if_link.h |   23 ++++++-
- include/net/tcp.h       |   21 +-----
- net/core/rtnetlink.c    |  159 ++++++++++++++++++++++++++++++++--------------
- net/ipv4/tcp.c          |   34 +++++++---
- net/sctp/transport.c    |    4 +
- 5 files changed, 160 insertions(+), 81 deletions(-)
