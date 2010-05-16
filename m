@@ -1,46 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4] bridge: update sysfs link names if port device
- names have changed
-Date: Sat, 15 May 2010 23:12:29 -0700 (PDT)
-Message-ID: <20100515.231229.186295968.davem@davemloft.net>
-References: <20100510193107.722574297@vyatta.com>
-	<20100510193321.020451781@vyatta.com>
+Subject: Re: [patch 2.6.35 00/25] WiMAX pull request
+Date: Sat, 15 May 2010 23:24:19 -0700 (PDT)
+Message-ID: <20100515.232419.235675367.davem@davemloft.net>
+References: <cover.1273708027.git.inaky.perez-gonzalez@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	simon@fire.lp0.eu
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org, wimax@linuxwimax.org,
+	inaky.perez-gonzalez@intel.com
+To: inaky@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60902
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41818
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751952Ab0EPGMU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 May 2010 02:12:20 -0400
-In-Reply-To: <20100510193321.020451781@vyatta.com>
+	by vger.kernel.org with ESMTP id S1751690Ab0EPGYL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 May 2010 02:24:11 -0400
+In-Reply-To: <cover.1273708027.git.inaky.perez-gonzalez@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Mon, 10 May 2010 12:31:11 -0700
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Date: Fri, 14 May 2010 14:44:59 -0700
 
-> From: Simon Arlott <simon@fire.lp0.eu>
+> The following changes since commit 2b0b05ddc04b6d45e71cd36405df512075786f1e:
+>   Marcel Holtmann (1):
+>         Bluetooth: Fix issues where sk_sleep() helper is needed now
 > 
-> Links for each port are created in sysfs using the device
-> name, but this could be changed after being added to the
-> bridge.
+> are available in the git repository at:
 > 
-> As well as being unable to remove interfaces after this
-> occurs (because userspace tools don't recognise the new
-> name, and the kernel won't recognise the old name), adding
-> another interface with the old name to the bridge will
-> cause an error trying to create the sysfs link.
+>   git://git.kernel.org/pub/scm/linux/kernel/git/inaky/wimax.git master
 > 
-> This fixes the problem by listening for NETDEV_CHANGENAME
-> notifications and renaming the link.
-> 
-> https://bugzilla.kernel.org/show_bug.cgi?id=12743
-> 
-> Signed-off-by: Simon Arlott <simon@fire.lp0.eu>
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+> Patches follow for reviewing convenience.
 
-Applied.
+Pulled, thanks a lot.
