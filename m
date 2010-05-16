@@ -1,73 +1,52 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: VLAN I/F's and TX queue.
-Date: Sun, 16 May 2010 16:22:51 +0200
-Message-ID: <OFD8612D58.D91B0A31-ONC1257725.004CE192-C1257725.004EFF12@transmode.se>
-References: <OF803EE436.793B95D8-ONC125771C.003295C9-C125771C.00341AFF@transmode.se>	<4BE8191C.8020302@trash.net>
-	<OFC83B46CB.0E764A8E-ONC125771F.005109E4-C125771F.00518338@transmode.se> <20100516.004041.73702151.davem@davemloft.net>
+From: Michael Smith <michael@hurts.ca>
+Subject: Re: Weird TCP retransmit behaviour in recent kernels
+Date: Sun, 16 May 2010 12:08:16 -0400 (EDT)
+Message-ID: <alpine.LNX.2.00.1005161204380.3517@pentagram.it.hurts.ca>
+References: <alpine.LNX.2.00.1005141815560.3517@pentagram.it.hurts.ca> <alpine.DEB.2.00.1005160118240.30522@melkinpaasi.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: eric.dumazet@gmail.com, kaber@trash.net, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: MULTIPART/MIXED; BOUNDARY="705298730-1436740325-1274026096=:3517"
+Cc: Netdev <netdev@vger.kernel.org>
+To: =?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:47824 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754584Ab0EPO1Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 May 2010 10:27:25 -0400
-In-Reply-To: <20100516.004041.73702151.davem@davemloft.net>
+Received: from smtp106.rog.mail.re2.yahoo.com ([68.142.225.204]:28262 "HELO
+	smtp106.rog.mail.re2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752724Ab0EPQIS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 May 2010 12:08:18 -0400
+In-Reply-To: <alpine.DEB.2.00.1005160118240.30522@melkinpaasi.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-David Miller <davem@davemloft.net> wrote on 2010/05/16 09:40:41:
->
-> From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-> Date: Mon, 10 May 2010 16:50:20 +0200
->
-> > Patrick McHardy <kaber@trash.net> wrote on 2010/05/10 16:33:00:
-> >>
-> >> Joakim Tjernlund wrote:
-> >> > Eric Dumazet <eric.dumazet@gmail.com> wrote on 2010/05/07 10:53:23:
-> >> >>> 3) I would expect lost pkgs to be accounted on eth0 instead of
-> >> >>>    the VLAN interface(s) since that is where the pkg is lost, why
-> >> >>>    isn't it so?
-> >> >> You try to send packets on eth0.XXX, some are dropped, and accounted for
-> >> >> on eth0.XXX stats. What is wrong with this ?
-> >> >
-> >> > In this case one lost pkg is accounted for twice, once on eth0.1 and
-> >> > once more on eth0.1.1. Note that eth0.1.1 is stacked on
-> >> > top of eth0.1
-> >> >
-> >> > I would at least expect eth0 to also account lost pkgs too.
-> >> > I was confused by the current accounting as I knew that
-> >> > the underlying HW I/F should be the only I/F that could
-> >> > drop pkgs.
-> >>
-> >> In case of NET_XMIT_CN, the packet is dropped by the qdisc before
-> >> it reaches eth0, so its only accounted on the upper devices.
-> >
-> > hmm, I am afraid I don't follow this. Why would a pkg be dropped before
-> > it reaches eth0?
->
-> Because we have packet schedulers that sit before the device transmit
-> happens, and those packet schedulers enforce limits based upon
-> classification results or other criteria, and if those limits are
-> exceeded packets are droppers and NET_XMIT_CN is returned back up into
-> the transmit path of the networking stack.
+--705298730-1436740325-1274026096=:3517
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
-OK, but what I don't get is if pgks are dropped as soon as the underlying
-device cannot handle the pkg directly(returns !NETDEV_TX_OK or stops the queue)?
-Are !NETDEV_TX_OK and stopping the queue handled differently by upper layers?
-I would have expected the pkg be added to the TX queue and transmitted somewhat later.
-If not, what is the TX queue for?
+On Sun, 16 May 2010, Ilpo J=E4rvinen wrote:
 
->
-> The device never sees that packet get submitted to it's ->ndo_start_xmit()
-> routine, and this is entirely intentional.  And it is entirely intentional
-> that NET_XMIT_CN gets passed up into the caller, where protocols such as
-> TCP can key off this information to make congestion control decisions.
+> On Fri, 14 May 2010, Michael Smith wrote:
 
-In this case it gets passed up to the VLAN driver, should the VLAN driver
-do something else to use the TX queue?
+>> It seems like when consecutive packets are lost, the SLES11
+>> server retransmits the first packet when the timeout fires. The client
+>> ACKs, but the server doesn't retransmit the next lost packet; instead,
+>> it sends a couple more new packets, which don't get ACKed.
 
-      Jocke
+> This is where your problem is, they should get acked in a _compliant_
+> network (with duplicate ACKs).
 
+> Some have seen similar phenomena, every time it has been fault in some
+> middlebox/peer that does not do what it should. You can disable frto
+> using tcp_frto sysctl if you like, however, I disagree with you as I'm
+> pretty sure there is some broken middlebox in the network (which is tryin=
+g
+> to be too intelligent).
+
+Thanks - tcp_frto=3D0 works around the problem here. The network in the=20
+middle is provided by a number of other parties, so I can try to point=20
+them in the right direction, but unless Microsoft turns on FRTO by default=
+=20
+sometime soon, I doubt they will have time to care. :)
+
+Mike
+--705298730-1436740325-1274026096=:3517--
