@@ -1,36 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC 0/5] generic rx recycling
-Date: Sat, 15 May 2010 23:32:45 -0700 (PDT)
-Message-ID: <20100515.233245.90775757.davem@davemloft.net>
-References: <1273070870-7821-1-git-send-email-sebastian@breakpoint.cc>
+Subject: Re: [PATCH net-next-2.6] net: adjust handle_macvlan to pass port
+ struct to hook
+Date: Sat, 15 May 2010 23:48:26 -0700 (PDT)
+Message-ID: <20100515.234826.135552334.davem@davemloft.net>
+References: <20100506113352.GB3406@psychotron.lab.eng.brq.redhat.com>
+	<4BE819B6.3020101@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tglx@linutronix.de
-To: sebastian@breakpoint.cc
+Cc: jpirko@redhat.com, netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45696
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46935
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752333Ab0EPGci (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 May 2010 02:32:38 -0400
-In-Reply-To: <1273070870-7821-1-git-send-email-sebastian@breakpoint.cc>
+	by vger.kernel.org with ESMTP id S1751337Ab0EPGsR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 May 2010 02:48:17 -0400
+In-Reply-To: <4BE819B6.3020101@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-Date: Wed,  5 May 2010 16:47:45 +0200
+From: Patrick McHardy <kaber@trash.net>
+Date: Mon, 10 May 2010 16:35:34 +0200
 
-> This series merges the rx recycling code trying to come up with generic
-> code. Recycling skbs from the tx path for incomming rx skips the memory
-> allocater and improves latency during memory pressure.
-> This is now used by just by just four drivers in the tree which were doing
-> this on their own.
+> Jiri Pirko wrote:
+>> Now there's null check here and also again in the hook. Looking at bridge bits
+>> which are simmilar, port structure is rcu_dereferenced right away in
+>> handle_bridge and passed to hook. Looks nicer.
+>> 
+>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> 
+> Looks fine, thanks.
+> 
+> Acked-by: Patrick McHardy <kaber@trash.net>
 
-You're adding new unnecessary SMP locking to all of these drivers.
-
-In the gianfar original code the recycle queue is accessed lockless
-using __skb_dequeue() et al.  But you're using the skb_dequeue()
-interface in the generic version which takes the SKB queue lock
-which is absolutely unnecessary where these drivers make these
-calls since they already need to have their chip RX path locked
-already.
+Applied, thanks.
