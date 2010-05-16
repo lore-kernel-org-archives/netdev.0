@@ -1,35 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] skge: use the DMA state API instead of the pci
- equivalents
-Date: Sat, 15 May 2010 23:29:51 -0700 (PDT)
-Message-ID: <20100515.232951.43050353.davem@davemloft.net>
-References: <20100428095730K.fujita.tomonori@lab.ntt.co.jp>
-	<20100514183307.6c14f294@nehalam>
+Subject: Re: [RFC 0/5] generic rx recycling
+Date: Sat, 15 May 2010 23:32:45 -0700 (PDT)
+Message-ID: <20100515.233245.90775757.davem@davemloft.net>
+References: <1273070870-7821-1-git-send-email-sebastian@breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fujita.tomonori@lab.ntt.co.jp, netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Cc: netdev@vger.kernel.org, tglx@linutronix.de
+To: sebastian@breakpoint.cc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45690
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45696
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752324Ab0EPG3m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 May 2010 02:29:42 -0400
-In-Reply-To: <20100514183307.6c14f294@nehalam>
+	by vger.kernel.org with ESMTP id S1752333Ab0EPGci (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 May 2010 02:32:38 -0400
+In-Reply-To: <1273070870-7821-1-git-send-email-sebastian@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Fri, 14 May 2010 18:33:07 -0700
+From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Date: Wed,  5 May 2010 16:47:45 +0200
 
-> On Wed, 28 Apr 2010 09:57:04 +0900
-> FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp> wrote:
-> 
->> Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-> 
-> Yes, this works fine. Sorry for the delay but that test system
-> was offline for several months and the disk went bad.
-> 
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+> This series merges the rx recycling code trying to come up with generic
+> code. Recycling skbs from the tx path for incomming rx skips the memory
+> allocater and improves latency during memory pressure.
+> This is now used by just by just four drivers in the tree which were doing
+> this on their own.
 
-Applied, thanks.
+You're adding new unnecessary SMP locking to all of these drivers.
+
+In the gianfar original code the recycle queue is accessed lockless
+using __skb_dequeue() et al.  But you're using the skb_dequeue()
+interface in the generic version which takes the SKB queue lock
+which is absolutely unnecessary where these drivers make these
+calls since they already need to have their chip RX path locked
+already.
