@@ -1,33 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net-next: remove useless union keyword
-Date: Sun, 16 May 2010 00:53:02 -0700 (PDT)
-Message-ID: <20100516.005302.223474568.davem@davemloft.net>
-References: <1273223662-6804-1-git-send-email-xiaosuo@gmail.com>
+Subject: Re: [PATCH] rtnetlink: make SR-IOV VF interface symmetric
+Date: Sun, 16 May 2010 01:05:59 -0700 (PDT)
+Message-ID: <20100516.010559.133392397.davem@davemloft.net>
+References: <20100515031416.GE15313@sequoia.sous-sol.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+Cc: kaber@trash.net, mitch.a.williams@intel.com, arnd@arndb.de,
+	scofeldm@cisco.com, shemminger@vyatta.com, netdev@vger.kernel.org
+To: chrisw@sous-sol.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42206
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40996
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752914Ab0EPHwx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 May 2010 03:52:53 -0400
-In-Reply-To: <1273223662-6804-1-git-send-email-xiaosuo@gmail.com>
+	by vger.kernel.org with ESMTP id S1753166Ab0EPIFz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 May 2010 04:05:55 -0400
+In-Reply-To: <20100515031416.GE15313@sequoia.sous-sol.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Fri,  7 May 2010 17:14:22 +0800
+From: Chris Wright <chrisw@sous-sol.org>
+Date: Fri, 14 May 2010 20:14:16 -0700
 
-> remove useless union keyword in rtable, rt6_info and dn_route.
+> Now we have a set of nested attributes:
 > 
-> Since there is only one member in a union, the union keyword isn't useful.
+>   IFLA_VFINFO_LIST (NESTED)
+>     IFLA_VF_INFO (NESTED)
+>       IFLA_VF_MAC
+>       IFLA_VF_VLAN
+>       IFLA_VF_TX_RATE
 > 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> This allows a single set to operate on multiple attributes if desired.
+> Among other things, it means a dump can be replayed to set state.
+> 
+> The current interface has yet to be released, so this seems like
+> something to consider for 2.6.34.
+> 
+> Signed-off-by: Chris Wright <chrisw@sous-sol.org
 
-Sorry, this patch no longer applies cleanly to net-next-2.6
-
-Please respin and resubmit this patch.
-
-Thank you.
+Agreed, applied to net-2.6, thanks Chris!
