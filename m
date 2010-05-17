@@ -1,47 +1,46 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH] phy/marvell: Add special settings for D-Link DNS-323
-	rev C1
-Date: Mon, 17 May 2010 22:08:17 +1000
-Message-ID: <1274098097.21352.737.camel@pasglop>
-References: <1274056058.21352.697.camel@pasglop>
-	<20100517005942.GB27301@pengutronix.de>
-	<1274058457.21352.711.camel@pasglop>
-	<1274096214.21352.735.camel@pasglop>
-	<20100517120032.GI22781@pengutronix.de>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: [PATCH BUGFIX ] ipv6: fix the bug of address check
+Date: Mon, 17 May 2010 20:23:38 +0800
+Message-ID: <4BF1354A.3060003@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Nicolas Pitre <nico@fluxnic.net>,
-	linux-arm-kernel@lists.infradead.org, Herbert Valerio Riedel <hvr@gnu.org>
-To: Wolfram Sang <w.sang@pengutronix.de>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20100517120032.GI22781@pengutronix.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:52381 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752747Ab0EQMYj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 May 2010 08:24:39 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-05-17 at 14:00 +0200, Wolfram Sang wrote:
-> > The problem is that the fixups are called -after- the config_init()
-> > callback of the PHY driver. However, the marvell m88e1118 PHY driver
-> > will unconditionally reset the LEDs setting.
-> 
-> Haven't checked, just an idea: Is it possible to change the init of
-> the driver to use Read-Modify-Write and thus keep your settings?
 
-Well, the driver just unconditionally blasts the whole register and
-the value I want to put there is also a "raw" value of the whole
-register based on what the vendor code puts in there (in their old
-2.6.12 based port).
+If there are several IPv6 addresses with same hash value in hashlist,
+and they are all not matched with addr argument.
+In this case, ipv6_chk_addr() should return 0.
 
-So with only that at hand and no documentation for the actual PHY chip,
-I don't see a simple solution here.
+This bug is introduced by commit c2e21293c054817c42eb5fa9c613d2ad51954136
+(title: ipv6: convert addrconf list to hlist).
 
-Cheers,
-Ben.
+Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+---
+ net/ipv6/addrconf.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 3984f52..d8e5907 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1291,7 +1291,7 @@ int ipv6_chk_addr(struct net *net, struct in6_addr *addr,
+ 	}
+ 	rcu_read_unlock_bh();
+ 
+-	return ifp != NULL;
++	return node != NULL;
+ }
+ EXPORT_SYMBOL(ipv6_chk_addr);
+ 
+-- 
+1.6.3.3
