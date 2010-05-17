@@ -1,80 +1,204 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 0/6] netns support in the kobject layer
-Date: Mon, 17 May 2010 15:37:22 -0700
-Message-ID: <m1hbm6f93x.fsf@fess.ebiederm.org>
-References: <m1fx3hk6gw.fsf@fess.ebiederm.org>
-	<m1d3xb4239.fsf@fess.ebiederm.org> <20100506200404.GA21805@kroah.com>
-	<20100515.232643.212422307.davem@davemloft.net>
-	<20100517181133.GB18721@kroah.com> <m1zkzyfdob.fsf@fess.ebiederm.org>
-	<20100517210318.GA6170@suse.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: Introduce skb_tunnel_rx() helper
+Date: Tue, 18 May 2010 00:50:36 +0200
+Message-ID: <1274136636.2567.23.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <greg@kroah.com>, David Miller <davem@davemloft.net>,
-	kay.sievers@vrfy.org, linux-kernel@vger.kernel.org, tj@kernel.org,
-	cornelia.huck@de.ibm.com, eric.dumazet@gmail.com, bcrl@lhnet.ca,
-	serue@us.ibm.com, netdev@vger.kernel.org
-To: Greg KH <gregkh@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100517210318.GA6170@suse.de> (Greg KH's message of "Mon\, 17 May 2010 14\:03\:18 -0700")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f46.google.com ([74.125.82.46]:33574 "EHLO
+	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751381Ab0EQWuk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 May 2010 18:50:40 -0400
+Received: by wwi17 with SMTP id 17so71650wwi.19
+        for <netdev@vger.kernel.org>; Mon, 17 May 2010 15:50:38 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Greg KH <gregkh@suse.de> writes:
+skb rxhash should be cleared when a skb is handled by a tunnel before
+being delivered again, so that correct packet steering can take place.
 
-> On Mon, May 17, 2010 at 01:58:44PM -0700, Eric W. Biederman wrote:
->> Greg KH <greg@kroah.com> writes:
->> 
->> > On Sat, May 15, 2010 at 11:26:43PM -0700, David Miller wrote:
->> >> From: Greg KH <greg@kroah.com>
->> >> Date: Thu, 6 May 2010 13:04:04 -0700
->> >> 
->> >> > On Tue, May 04, 2010 at 05:35:54PM -0700, Eric W. Biederman wrote:
->> >> >> 
->> >> >> With the tagged sysfs support finally merged into Greg's tree,
->> >> >> it is time for the last little bits of work to get the kobject
->> >> >> layer and network namespaces to play together properly.
->> >> >> 
->> >> >> These patches are roughly evenly divided between network layer work
->> >> >> and sysfs layer work.  Last time this conundrum came up I believe
->> >> >> we decided that the easiest way to handle this was for Greg to carry
->> >> >> all of the patches.  David, Greg does that still make sense?
->> >> > 
->> >> > That's fine, if I get David's ack on these.
->> >> 
->> >> Looks good to me:
->> >> 
->> >> Acked-by: David S. Miller <davem@davemloft.net>
->> >
->> > Ok.  Eric, can you resend these to me when .35-rc1 is out so I can queue
->> > them up then to get some testing in linux-next so that they can make it
->> > into .36?
->> 
->> Grumble.  Grumble. Grumble.
->> 
->> If I must I will resend these, but these patches are already in
->> production use, and I had them to you weeks before the merge window
->> closed.
->
-> Yes, but they were not reviewed by the network maintainer until after
-> the merge window closed.
+There are other cleanups and accounting that we can factorize in a new
+helper, skb_tunnel_rx()
 
-Strictly speaking the day before but I get your point.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/net/dst.h     |   20 ++++++++++++++++++++
+ net/ipv4/ip_gre.c     |    9 +--------
+ net/ipv4/ipip.c       |    7 ++-----
+ net/ipv4/ipmr.c       |    8 +++-----
+ net/ipv6/ip6_tunnel.c |    8 ++------
+ net/ipv6/ip6mr.c      |    8 +++-----
+ net/ipv6/sit.c        |    8 +++-----
+ 7 files changed, 34 insertions(+), 34 deletions(-)
+diff --git a/include/net/dst.h b/include/net/dst.h
+index aac5a5f..d708c22 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -184,6 +184,26 @@ static inline void skb_dst_drop(struct sk_buff *skb)
+ 	skb->_skb_dst = 0UL;
+ }
+ 
++
++/**
++ *	skb_tunnel_rx - prepare skb for rx reinsert
++ *	@skb: buffer
++ *	@dev: tunnel device
++ *
++ *	After decapsulation, packet is going to re-enter (netif_rx()) our stack,
++ *	so make some cleanups, and perform accounting.
++ */
++static inline void skb_tunnel_rx(struct sk_buff *skb, struct net_device *dev)
++{
++	skb->dev = dev;
++	/* TODO : stats should be SMP safe */
++	dev->stats.rx_packets++;
++	dev->stats.rx_bytes += skb->len;
++	skb->rxhash = 0;
++	skb_dst_drop(skb);
++	nf_reset(skb);
++}
++
+ /* Children define the path of the packet through the
+  * Linux networking.  Thus, destinations are stackable.
+  */
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index fe381d1..498cf69 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -538,7 +538,6 @@ static int ipgre_rcv(struct sk_buff *skb)
+ 	struct ip_tunnel *tunnel;
+ 	int    offset = 4;
+ 	__be16 gre_proto;
+-	unsigned int len;
+ 
+ 	if (!pskb_may_pull(skb, 16))
+ 		goto drop_nolock;
+@@ -629,8 +628,6 @@ static int ipgre_rcv(struct sk_buff *skb)
+ 			tunnel->i_seqno = seqno + 1;
+ 		}
+ 
+-		len = skb->len;
+-
+ 		/* Warning: All skb pointers will be invalidated! */
+ 		if (tunnel->dev->type == ARPHRD_ETHER) {
+ 			if (!pskb_may_pull(skb, ETH_HLEN)) {
+@@ -644,11 +641,7 @@ static int ipgre_rcv(struct sk_buff *skb)
+ 			skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
+ 		}
+ 
+-		stats->rx_packets++;
+-		stats->rx_bytes += len;
+-		skb->dev = tunnel->dev;
+-		skb_dst_drop(skb);
+-		nf_reset(skb);
++		skb_tunnel_rx(skb, tunnel->dev);
+ 
+ 		skb_reset_network_header(skb);
+ 		ipgre_ecn_decapsulate(iph, skb);
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index 0b27b14..7fd6367 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -374,11 +374,8 @@ static int ipip_rcv(struct sk_buff *skb)
+ 		skb->protocol = htons(ETH_P_IP);
+ 		skb->pkt_type = PACKET_HOST;
+ 
+-		tunnel->dev->stats.rx_packets++;
+-		tunnel->dev->stats.rx_bytes += skb->len;
+-		skb->dev = tunnel->dev;
+-		skb_dst_drop(skb);
+-		nf_reset(skb);
++		skb_tunnel_rx(skb, tunnel->dev);
++
+ 		ipip_ecn_decapsulate(iph, skb);
+ 		netif_rx(skb);
+ 		rcu_read_unlock();
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 7a7ee1c..217ebe0 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -1831,14 +1831,12 @@ static int __pim_rcv(struct mr_table *mrt, struct sk_buff *skb,
+ 	skb->mac_header = skb->network_header;
+ 	skb_pull(skb, (u8*)encap - skb->data);
+ 	skb_reset_network_header(skb);
+-	skb->dev = reg_dev;
+ 	skb->protocol = htons(ETH_P_IP);
+ 	skb->ip_summed = 0;
+ 	skb->pkt_type = PACKET_HOST;
+-	skb_dst_drop(skb);
+-	reg_dev->stats.rx_bytes += skb->len;
+-	reg_dev->stats.rx_packets++;
+-	nf_reset(skb);
++
++	skb_tunnel_rx(skb, reg_dev);
++
+ 	netif_rx(skb);
+ 	dev_put(reg_dev);
+ 
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 2599870..8f39893 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -723,14 +723,10 @@ static int ip6_tnl_rcv(struct sk_buff *skb, __u16 protocol,
+ 		skb->protocol = htons(protocol);
+ 		skb->pkt_type = PACKET_HOST;
+ 		memset(skb->cb, 0, sizeof(struct inet6_skb_parm));
+-		skb->dev = t->dev;
+-		skb_dst_drop(skb);
+-		nf_reset(skb);
+ 
+-		dscp_ecn_decapsulate(t, ipv6h, skb);
++		skb_tunnel_rx(skb, t->dev);
+ 
+-		t->dev->stats.rx_packets++;
+-		t->dev->stats.rx_bytes += skb->len;
++		dscp_ecn_decapsulate(t, ipv6h, skb);
+ 		netif_rx(skb);
+ 		rcu_read_unlock();
+ 		return 0;
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index 163850e..bd9e7d3 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -658,14 +658,12 @@ static int pim6_rcv(struct sk_buff *skb)
+ 	skb->mac_header = skb->network_header;
+ 	skb_pull(skb, (u8 *)encap - skb->data);
+ 	skb_reset_network_header(skb);
+-	skb->dev = reg_dev;
+ 	skb->protocol = htons(ETH_P_IPV6);
+ 	skb->ip_summed = 0;
+ 	skb->pkt_type = PACKET_HOST;
+-	skb_dst_drop(skb);
+-	reg_dev->stats.rx_bytes += skb->len;
+-	reg_dev->stats.rx_packets++;
+-	nf_reset(skb);
++
++	skb_tunnel_rx(skb, reg_dev);
++
+ 	netif_rx(skb);
+ 	dev_put(reg_dev);
+ 	return 0;
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 5abae10..e51e650 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -566,11 +566,9 @@ static int ipip6_rcv(struct sk_buff *skb)
+ 			kfree_skb(skb);
+ 			return 0;
+ 		}
+-		tunnel->dev->stats.rx_packets++;
+-		tunnel->dev->stats.rx_bytes += skb->len;
+-		skb->dev = tunnel->dev;
+-		skb_dst_drop(skb);
+-		nf_reset(skb);
++
++		skb_tunnel_rx(skb, tunnel->dev);
++
+ 		ipip6_ecn_decapsulate(iph, skb);
+ 		netif_rx(skb);
+ 		rcu_read_unlock();
 
->  I already have your sysfs-namespace patches
-> queued up for .35, and that's a big enough change for me to feel
-> comfortable with at the moment.
->
->> Is there no way we can get these in for 2.6.35?
->
-> No, sorry.  One thing at a time please.
 
-Sure.
-
-If we are going to push this last bit off until the 2.6.36 time frame
-Dave, Greg mind if I flip around who I send these patches to?
-
-The big dependency is the sysfs-namespace patches which will be in
-2.6.35, and if the patches get into net-next as well as linux-next
-there will be a larger number of potential testers.
-
-Eric
