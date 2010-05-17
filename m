@@ -1,42 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] sky2: update
-Date: Mon, 17 May 2010 09:55:01 -0700 (PDT)
-Message-ID: <20100517.095501.71136126.davem@davemloft.net>
-References: <20100513161247.833356588@vyatta.com>
-	<20100514.031501.57481177.davem@davemloft.net>
-	<20100514081957.00f342d5@nehalam>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] rtnetlink: make SR-IOV VF interface symmetric
+Date: Mon, 17 May 2010 09:55:36 -0700
+Message-ID: <20100517095536.1ad6a317@nehalam>
+References: <20100515031416.GE15313@sequoia.sous-sol.org>
+	<20100517085936.39016980@nehalam>
+	<EA929A9653AAE14F841771FB1DE5A1365FF3999206@rrsmsx501.amr.corp.intel.com>
+	<20100517160732.GA8301@sequoia.sous-sol.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mikem@ring3k.org, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: "Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"kaber@trash.net" <kaber@trash.net>,
+	"arnd@arndb.de" <arnd@arndb.de>,
+	"scofeldm@cisco.com" <scofeldm@cisco.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Chris Wright <chrisw@sous-sol.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36459
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754885Ab0EQQyw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 May 2010 12:54:52 -0400
-In-Reply-To: <20100514081957.00f342d5@nehalam>
+Received: from mail.vyatta.com ([76.74.103.46]:35538 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754353Ab0EQQzn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 May 2010 12:55:43 -0400
+In-Reply-To: <20100517160732.GA8301@sequoia.sous-sol.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Fri, 14 May 2010 08:19:57 -0700
+On Mon, 17 May 2010 09:07:32 -0700
+Chris Wright <chrisw@sous-sol.org> wrote:
 
-> On Fri, 14 May 2010 03:15:01 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
+> * Williams, Mitch A (mitch.a.williams@intel.com) wrote:
+> > >-----Original Message-----
+> > >From: Stephen Hemminger [mailto:shemminger@vyatta.com]
+> > >Sent: Monday, May 17, 2010 9:00 AM
+> > >To: Chris Wright
+> > >Cc: davem@davemloft.net; kaber@trash.net; Williams, Mitch A;
+> > >arnd@arndb.de; scofeldm@cisco.com; netdev@vger.kernel.org
+> > >Subject: Re: [PATCH] rtnetlink: make SR-IOV VF interface symmetric
+> > >
+> > >On Fri, 14 May 2010 20:14:16 -0700
+> > >Chris Wright <chrisw@sous-sol.org> wrote:
+> > >
+> > >> Now we have a set of nested attributes:
+> > >>
+> > >>   IFLA_VFINFO_LIST (NESTED)
+> > >>     IFLA_VF_INFO (NESTED)
+> > >>       IFLA_VF_MAC
+> > >>       IFLA_VF_VLAN
+> > >>       IFLA_VF_TX_RATE
+> > >>
+> > >> This allows a single set to operate on multiple attributes if desired.
+> > >> Among other things, it means a dump can be replayed to set state.
+> > >>
+> > >> The current interface has yet to be released, so this seems like
+> > >> something to consider for 2.6.34.
+> > >>
+> > >> Signed-off-by: Chris Wright <chrisw@sous-sol.org
+> > >> ---
+> > >
+> > >iproute2 update please?
+> > >
+> > >Also I would really like documentation on this.
 > 
->> From: Stephen Hemminger <shemminger@vyatta.com>
->> Date: Thu, 13 May 2010 09:12:47 -0700
->> 
->> > Bunch of patches from Mike, with some additional comments.
->> 
->> All applied to net-next-2.6, thanks.
+> And a pony? ;-)
 > 
-> The first one needs to go to net-2.6 because it a regression:
-> Current code will lose multicast addresses when the automatic
-> recovery from stuck chip happens. Auto recovery happens a lot
-> under load on some configurations.
+> Docs in what form?
+> 
 
-2.6.34 got released yesterday, so it is a moot point.
+The man page for ip.8 already has some pieces from other version.
+Just fix them.  I just pushed up a couple of changes.
 
-Just submit it to -stable.
+-- 
