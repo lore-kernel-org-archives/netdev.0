@@ -1,67 +1,50 @@
-From: Andrew Hendry <andrew.hendry@gmail.com>
-Subject: [PATCH 4/4] X25: Remove bkl in sockopts
-Date: Mon, 17 May 2010 19:00:35 +1000
-Message-ID: <1274086835.4104.55.camel@ibex>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 5/7] qlcnic: fix internal loopback test
+Date: Mon, 17 May 2010 04:22:12 -0700
+Message-ID: <1274095334-32362-6-git-send-email-amit.salecha@qlogic.com>
+References: <1274095334-32362-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f174.google.com ([209.85.212.174]:34564 "EHLO
-	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754391Ab0EQJAl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 May 2010 05:00:41 -0400
-Received: by pxi5 with SMTP id 5so2420744pxi.19
-        for <netdev@vger.kernel.org>; Mon, 17 May 2010 02:00:41 -0700 (PDT)
+Received: from mvnat01.qlogic.com ([198.186.3.73]:49040 "EHLO
+	dut4145.unminc.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752021Ab0EQKVv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 May 2010 06:21:51 -0400
+In-Reply-To: <1274095334-32362-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 
-Removes the BKL in x25 setsock and getsockopts.
+Reset/set DEV_UP bit during allocation and deallocation of resources.
 
-Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
-
+Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- net/x25/af_x25.c |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+ drivers/net/qlcnic/qlcnic_main.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index e5c1e32..5e86d4e 100644
---- a/net/x25/af_x25.c
-+++ b/net/x25/af_x25.c
-@@ -453,7 +453,6 @@ static int x25_setsockopt(struct socket *sock, int level, int optname,
- 	struct sock *sk = sock->sk;
- 	int rc = -ENOPROTOOPT;
+diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
+index b076474..dde1e8a 100644
+--- a/drivers/net/qlcnic/qlcnic_main.c
++++ b/drivers/net/qlcnic/qlcnic_main.c
+@@ -870,6 +870,7 @@ void qlcnic_diag_free_res(struct net_device *netdev, int max_sds_rings)
+ 	struct qlcnic_host_sds_ring *sds_ring;
+ 	int ring;
  
--	lock_kernel();
- 	if (level != SOL_X25 || optname != X25_QBITINCL)
- 		goto out;
++	clear_bit(__QLCNIC_DEV_UP, &adapter->state);
+ 	if (adapter->diag_test == QLCNIC_INTERRUPT_TEST) {
+ 		for (ring = 0; ring < adapter->max_sds_rings; ring++) {
+ 			sds_ring = &adapter->recv_ctx.sds_rings[ring];
+@@ -920,6 +921,7 @@ int qlcnic_diag_alloc_res(struct net_device *netdev, int test)
+ 			qlcnic_enable_int(sds_ring);
+ 		}
+ 	}
++	set_bit(__QLCNIC_DEV_UP, &adapter->state);
  
-@@ -471,7 +470,6 @@ static int x25_setsockopt(struct socket *sock, int level, int optname,
- 		clear_bit(X25_Q_BIT_FLAG, &x25_sk(sk)->flags);
- 	rc = 0;
- out:
--	unlock_kernel();
- 	return rc;
+ 	return 0;
  }
- 
-@@ -481,7 +479,6 @@ static int x25_getsockopt(struct socket *sock, int level, int optname,
- 	struct sock *sk = sock->sk;
- 	int val, len, rc = -ENOPROTOOPT;
- 
--	lock_kernel();
- 	if (level != SOL_X25 || optname != X25_QBITINCL)
- 		goto out;
- 
-@@ -502,7 +499,6 @@ static int x25_getsockopt(struct socket *sock, int level, int optname,
- 	val = test_bit(X25_Q_BIT_FLAG, &x25_sk(sk)->flags);
- 	rc = copy_to_user(optval, &val, len) ? -EFAULT : 0;
- out:
--	unlock_kernel();
- 	return rc;
- }
- 
 -- 
-1.5.6.5
-
+1.5.6.1
 
