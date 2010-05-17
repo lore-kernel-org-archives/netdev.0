@@ -1,51 +1,28 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: manual merge of the net tree with Linus' tree
-Date: Mon, 17 May 2010 16:24:57 +1000
-Message-ID: <20100517162457.16d58054.sfr@canb.auug.org.au>
-References: <20100517120922.50d5e0fb.sfr@canb.auug.org.au>
-	<20100516.222803.226762774.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Mon__17_May_2010_16_24_57_+1000_ihxVIUsbYOAvczKu"
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jengelh@medozas.de,
-	chrisw@sous-sol.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100516.222803.226762774.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---Signature=_Mon__17_May_2010_16_24_57_+1000_ihxVIUsbYOAvczKu
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+From: frank.blaschka@de.ibm.com
+Subject: [patch 0/2] s390: qeth patches for 2.6.35 II
+Date: Mon, 17 May 2010 09:15:12 +0200
+Message-ID: <20100517071512.118564000@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate4.de.ibm.com ([195.212.17.164]:44835 "EHLO
+	mtagate4.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751588Ab0EQHPy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 May 2010 03:15:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hi Dave,
 
-On Sun, 16 May 2010 22:28:03 -0700 (PDT) David Miller <davem@davemloft.net>=
- wrote:
->
-> I'll merge net-2.6 into net-next-2.6 to fix this for you, and
-> in fact your merge is exactly what I will use.
+I just got 2 more qeth patches for 2.6.35 (net-next).
+Hope they can make it into net-next before the merge window.
 
-Great, thanks.
+shortlog:
+Ursula Braun (1)
+qeth: support the new OSA CHPID types OSX and OSM
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+Julia Lawall (1)
+drivers/s390/net: Drop memory allocation cast
 
---Signature=_Mon__17_May_2010_16_24_57_+1000_ihxVIUsbYOAvczKu
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAkvw4TkACgkQjjKRsyhoI8zn/QCfTBU8cU/OIZ8UuKW1UVzv23v7
-wS8An0LcyzWRKLKSXAzCGiRgL38IEPdd
-=K1NQ
------END PGP SIGNATURE-----
-
---Signature=_Mon__17_May_2010_16_24_57_+1000_ihxVIUsbYOAvczKu--
+Thanks,
+        Frank
