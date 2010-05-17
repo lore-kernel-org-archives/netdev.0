@@ -1,75 +1,42 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 1/37] drivers/net/wireless/libertas: Use kmemdup
-Date: Mon, 17 May 2010 09:35:17 -0700
-Message-ID: <1274114117.2382.0.camel@localhost.localdomain>
-References: <Pine.LNX.4.64.1005152312060.21345@ask.diku.dk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/6] sky2: update
+Date: Mon, 17 May 2010 09:55:01 -0700 (PDT)
+Message-ID: <20100517.095501.71136126.davem@davemloft.net>
+References: <20100513161247.833356588@vyatta.com>
+	<20100514.031501.57481177.davem@davemloft.net>
+	<20100514081957.00f342d5@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	libertas-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <Pine.LNX.4.64.1005152312060.21345-QfmoRoYWmW9knbxzx/v8hQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: mikem@ring3k.org, netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36459
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754885Ab0EQQyw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 May 2010 12:54:52 -0400
+In-Reply-To: <20100514081957.00f342d5@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2010-05-15 at 23:12 +0200, Julia Lawall wrote:
-> From: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
-> 
-> Use kmemdup when some other buffer is immediately copied into the
-> allocated region.
-> 
-> A simplified version of the semantic patch that makes this change is as
-> follows: (http://coccinelle.lip6.fr/)
-> 
-> // <smpl>
-> @@
-> expression from,to,size,flag;
-> statement S;
-> @@
-> 
-> -  to = \(kmalloc\|kzalloc\)(size,flag);
-> +  to = kmemdup(from,size,flag);
->    if (to==NULL || ...) S
-> -  memcpy(to, from, size);
-> // </smpl>
-> 
-> Signed-off-by: Julia Lawall <julia-dAYI7NvHqcQ@public.gmane.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Fri, 14 May 2010 08:19:57 -0700
 
-Acked-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-
-> ---
->  drivers/net/wireless/libertas/if_usb.c |    6 ++----
->  1 file changed, 2 insertions(+), 4 deletions(-)
+> On Fri, 14 May 2010 03:15:01 -0700 (PDT)
+> David Miller <davem@davemloft.net> wrote:
 > 
-> diff -u -p a/drivers/net/wireless/libertas/if_usb.c b/drivers/net/wireless/libertas/if_usb.c
-> --- a/drivers/net/wireless/libertas/if_usb.c
-> +++ b/drivers/net/wireless/libertas/if_usb.c
-> @@ -618,16 +618,14 @@ static void if_usb_receive_fwload(struct
->  		return;
->  	}
->  
-> -	syncfwheader = kmalloc(sizeof(struct fwsyncheader), GFP_ATOMIC);
-> +	syncfwheader = kmemdup(skb->data + IPFIELD_ALIGN_OFFSET,
-> +			       sizeof(struct fwsyncheader), GFP_ATOMIC);
->  	if (!syncfwheader) {
->  		lbs_deb_usbd(&cardp->udev->dev, "Failure to allocate syncfwheader\n");
->  		kfree_skb(skb);
->  		return;
->  	}
->  
-> -	memcpy(syncfwheader, skb->data + IPFIELD_ALIGN_OFFSET,
-> -	       sizeof(struct fwsyncheader));
-> -
->  	if (!syncfwheader->cmd) {
->  		lbs_deb_usb2(&cardp->udev->dev, "FW received Blk with correct CRC\n");
->  		lbs_deb_usb2(&cardp->udev->dev, "FW received Blk seqnum = %d\n",
+>> From: Stephen Hemminger <shemminger@vyatta.com>
+>> Date: Thu, 13 May 2010 09:12:47 -0700
+>> 
+>> > Bunch of patches from Mike, with some additional comments.
+>> 
+>> All applied to net-next-2.6, thanks.
+> 
+> The first one needs to go to net-2.6 because it a regression:
+> Current code will lose multicast addresses when the automatic
+> recovery from stuck chip happens. Auto recovery happens a lot
+> under load on some configurations.
 
+2.6.34 got released yesterday, so it is a moot point.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Just submit it to -stable.
