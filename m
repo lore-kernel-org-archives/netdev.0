@@ -1,130 +1,34 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [PATCH net-next-2.6] bonding: move slave MTU handling from sysfs
-Date: Mon, 17 May 2010 16:47:31 +0200
-Message-ID: <20100517144731.GE2878@psychotron.lab.eng.brq.redhat.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH v3 1/3] ptp: Added a brand new class driver for ptp clocks.
+Date: Mon, 17 May 2010 17:41:19 +0200
+Message-ID: <4BF1639F.60900@grandegger.com>
+References: <cover.1273855016.git.richard.cochran@omicron.at> <aa2a85799677c08001b152c2921d0e55d5693ffa.1273855017.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, fubar@us.ibm.com,
-	bonding-devel@lists.sourceforge.net, monis@voltaire.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	devicetree-discuss@lists.ozlabs.org
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24262 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752338Ab0EQOr4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 May 2010 10:47:56 -0400
-Content-Disposition: inline
+Received: from mail-out.m-online.net ([212.18.0.9]:53710 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754139Ab0EQPln (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 May 2010 11:41:43 -0400
+In-Reply-To: <aa2a85799677c08001b152c2921d0e55d5693ffa.1273855017.git.richard.cochran@omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For some reason, MTU handling (storing, and restoring) is taking  place in
-bond_sysfs. The correct place for this code is in bond_enslave, bond_release.
-So move it there.
+On 05/14/2010 06:45 PM, Richard Cochran wrote:
+> This patch adds an infrastructure for hardware clocks that implement
+> IEEE 1588, the Precision Time Protocol (PTP). A class driver offers a
+> registration method to particular hardware clock drivers. Each clock is
+> exposed to user space as a character device with ioctls that allow tuning
+> of the PTP clock.
+> 
+> Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 
-Jirka
+Tested-by: Wolfgang Grandegger <wg@denx.de>
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+on my Freescale MPC8313 setup with ptpd and ptpv2d.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 5e12462..2c3f9db 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1533,6 +1533,14 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	 */
- 	new_slave->original_flags = slave_dev->flags;
- 
-+	/* Save slave's original mtu and then set it to match the bond */
-+	new_slave->original_mtu = slave_dev->mtu;
-+	res = dev_set_mtu(slave_dev, bond->dev->mtu);
-+	if (res) {
-+		pr_debug("Error %d calling dev_set_mtu\n", res);
-+		goto err_free;
-+	}
-+
- 	/*
- 	 * Save slave's original ("permanent") mac address for modes
- 	 * that need it, and for restoring it upon release, and then
-@@ -1550,7 +1558,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 		res = dev_set_mac_address(slave_dev, &addr);
- 		if (res) {
- 			pr_debug("Error %d calling set_mac_address\n", res);
--			goto err_free;
-+			goto err_restore_mtu;
- 		}
- 	}
- 
-@@ -1785,6 +1793,9 @@ err_restore_mac:
- 		dev_set_mac_address(slave_dev, &addr);
- 	}
- 
-+err_restore_mtu:
-+	dev_set_mtu(slave_dev, new_slave->original_mtu);
-+
- err_free:
- 	kfree(new_slave);
- 
-@@ -1969,6 +1980,8 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
- 		dev_set_mac_address(slave_dev, &addr);
- 	}
- 
-+	dev_set_mtu(slave_dev, slave->original_mtu);
-+
- 	slave_dev->priv_flags &= ~(IFF_MASTER_8023AD | IFF_MASTER_ALB |
- 				   IFF_SLAVE_INACTIVE | IFF_BONDING |
- 				   IFF_SLAVE_NEEDARP);
-diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-index 392e291..4e84cfc 100644
---- a/drivers/net/bonding/bond_sysfs.c
-+++ b/drivers/net/bonding/bond_sysfs.c
-@@ -220,7 +220,6 @@ static ssize_t bonding_store_slaves(struct device *d,
- 	char command[IFNAMSIZ + 1] = { 0, };
- 	char *ifname;
- 	int i, res, ret = count;
--	u32 original_mtu;
- 	struct slave *slave;
- 	struct net_device *dev = NULL;
- 	struct bonding *bond = to_bond(d);
-@@ -281,43 +280,22 @@ static ssize_t bonding_store_slaves(struct device *d,
- 			memcpy(bond->dev->dev_addr, dev->dev_addr,
- 			       dev->addr_len);
- 
--		/* Set the slave's MTU to match the bond */
--		original_mtu = dev->mtu;
--		res = dev_set_mtu(dev, bond->dev->mtu);
--		if (res) {
--			ret = res;
--			goto out;
--		}
--
- 		res = bond_enslave(bond->dev, dev);
--		bond_for_each_slave(bond, slave, i)
--			if (strnicmp(slave->dev->name, ifname, IFNAMSIZ) == 0)
--				slave->original_mtu = original_mtu;
--		if (res)
--			ret = res;
- 
- 		goto out;
- 	}
- 
- 	if (command[0] == '-') {
- 		dev = NULL;
--		original_mtu = 0;
- 		bond_for_each_slave(bond, slave, i)
- 			if (strnicmp(slave->dev->name, ifname, IFNAMSIZ) == 0) {
- 				dev = slave->dev;
--				original_mtu = slave->original_mtu;
- 				break;
- 			}
- 		if (dev) {
- 			pr_info("%s: Removing slave %s\n",
- 				bond->dev->name, dev->name);
--				res = bond_release(bond->dev, dev);
--			if (res) {
--				ret = res;
--				goto out;
--			}
--			/* set the slave MTU to the default */
--			dev_set_mtu(dev, original_mtu);
-+			res = bond_release(bond->dev, dev);
- 		} else {
- 			pr_err("unable to remove non-existent slave %s for bond %s.\n",
- 			       ifname, bond->dev->name);
+Wolfgang.
