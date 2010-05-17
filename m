@@ -1,40 +1,41 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: Re: [PATCH] vhost: Storage class should be before const qualifier
-Date: Mon, 17 May 2010 15:27:48 +0200
-Message-ID: <20100517132748.GQ9489@distanz.ch>
-References: <1274101969-21109-1-git-send-email-tklauser@distanz.ch> <20100517131335.GA12126@redhat.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH net-next-2.6] bonding: remove unused variable "found"
+Date: Mon, 17 May 2010 15:49:54 +0200
+Message-ID: <20100517134953.GD2878@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from symlink.to.noone.org ([85.10.207.172]:33013 "EHLO sym.noone.org"
+Received: from mx1.redhat.com ([209.132.183.28]:5036 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754868Ab0EQNep (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 May 2010 09:34:45 -0400
+	id S1751805Ab0EQNt5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 May 2010 09:49:57 -0400
 Content-Disposition: inline
-In-Reply-To: <20100517131335.GA12126@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2010-05-17 at 15:13:35 +0200, Michael S. Tsirkin <mst@redhat.com> wrote:
-> On Mon, May 17, 2010 at 03:12:49PM +0200, Tobias Klauser wrote:
-> > The C99 specification states in section 6.11.5:
-> > 
-> > The placement of a storage-class specifier other than at the beginning
-> > of the declaration specifiers in a declaration is an obsolescent
-> > feature.
-> > 
-> > Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
-> 
-> 
-> Will apply, thanks!
-> Just to clarify: does some compiler/checker actually barf on this?
 
-GCC does emit a warning if the options '-std=c99 -W -Wall' are present.
-ICC also does warn about this, though I don't know whether this depends
-on any commandline options.
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-Cheers
-Tobias
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index b8bec08..392e291 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -219,7 +219,7 @@ static ssize_t bonding_store_slaves(struct device *d,
+ {
+ 	char command[IFNAMSIZ + 1] = { 0, };
+ 	char *ifname;
+-	int i, res, found, ret = count;
++	int i, res, ret = count;
+ 	u32 original_mtu;
+ 	struct slave *slave;
+ 	struct net_device *dev = NULL;
+@@ -245,7 +245,6 @@ static ssize_t bonding_store_slaves(struct device *d,
+ 	if (command[0] == '+') {
+ 
+ 		/* Got a slave name in ifname.  Is it already in the list? */
+-		found = 0;
+ 
+ 		dev = __dev_get_by_name(dev_net(bond->dev), ifname);
+ 		if (!dev) {
