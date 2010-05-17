@@ -1,216 +1,158 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: pull request: wireless-next-2.6 2010-05-17
-Date: Mon, 17 May 2010 14:26:53 -0400
-Message-ID: <20100517182653.GC2436@tuxdriver.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next-2.6 2/2] bonding: allow user-controlled output
+ slave selection
+Date: Mon, 17 May 2010 14:45:08 -0400
+Message-ID: <20100517184508.GD17419@hmsreliant.think-freely.org>
+References: <20100511003245.GB7497@gospo.rdu.redhat.com>
+ <17897.1273608579@death.nxdomain.ibm.com>
+ <20100512002725.GA2460@localhost.localdomain>
+ <25238.1273693314@death.nxdomain.ibm.com>
+ <20100512221408.GI7497@gospo.rdu.redhat.com>
+ <20100513171504.GD21535@shamino.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
+To: Andy Gospodarek <andy@greyhouse.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:44358 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751560Ab0EQSpS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 May 2010 14:45:18 -0400
 Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20100513171504.GD21535@shamino.rdu.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dave,
+On Thu, May 13, 2010 at 01:15:04PM -0400, Neil Horman wrote:
+> On Wed, May 12, 2010 at 06:14:08PM -0400, Andy Gospodarek wrote:
+> > On Wed, May 12, 2010 at 12:41:54PM -0700, Jay Vosburgh wrote:
+> > > Neil Horman <nhorman@tuxdriver.com> wrote:
+> > > 
+> > > >On Tue, May 11, 2010 at 01:09:39PM -0700, Jay Vosburgh wrote:
+> > > >> Andy Gospodarek <andy@greyhouse.net> wrote:
+> > > >> 
+> > > >> >This patch give the user the ability to control the output slave for
+> > > >> >round-robin and active-backup bonding.  Similar functionality was
+> > > >> >discussed in the past, but Jay Vosburgh indicated he would rather see a
+> > > >> >feature like this added to existing modes rather than creating a
+> > > >> >completely new mode.  Jay's thoughts as well as Neil's input surrounding
+> > > >> >some of the issues with the first implementation pushed us toward a
+> > > >> >design that relied on the queue_mapping rather than skb marks.
+> > > >> >Round-robin and active-backup modes were chosen as the first users of
+> > > >> >this slave selection as they seemed like the most logical choices when
+> > > >> >considering a multi-switch environment.
+> > > >> >
+> > > >> >Round-robin mode works without any modification, but active-backup does
+> > > >> >require inclusion of the first patch in this series and setting
+> > > >> >the 'keep_all' flag.  This will allow reception of unicast traffic on
+> > > >> >any of the backup interfaces.
+> > > >> 
+> > > >> 	Yes, I did think that the mark business fit better into existing
+> > > >> modes (I thought of it as kind of a new hash for xor and 802.3ad modes).
+> > > >> I also didn't expect to see so much new stuff (this, as well as the FCOE
+> > > >> special cases being discussed elsewhere) being shoehorned into the
+> > > >> active-backup mode.  I'm not so sure that adding so many special cases
+> > > >> to active-backup is a good thing.
+> > > >> 
+> > > >> 	Now, I'm starting to wonder if you were right, and it would be
+> > > >> better overall to have a "manual" mode that would hopefully satisfy this
+> > > >> case as well as the FCOE special case.  I don't think either of these is
+> > > >> a bad use case, I'm just not sure the right way to handle them is
+> > > >> another special knob in active-backup mode (either directly, or
+> > > >> implicitly in __netif_receive_skb), which wasn't what I expected to see.
+> > > >> 
+> > > >I honestly don't think a separate mode is warranted here.  While I'm not opposed
+> > > >to adding a new mode, I really think doing so is no different from overloading
+> > > >an existing mode.  I say that because to add a new mode in which we explicitly
+> > > >expect traffic to be directed to various slaves requires that we implement a
+> > > >policy for frames which have no queue mapping determined on egress.  Any policy
+> > > >I can think of is really an approximation of an existing policy, so we may as
+> > > >well reuse the policy code that we already have in place.  About the only way a
+> > > >separate mode makes sense is in the 'passthrough' queue mode you document below.
+> > > >In this model, in which queue ids map to slaves in a 1:1 fashion it doesn't make
+> > > >senes.
+> > > 
+> > > 	One goal I'm hoping to achieve is something that would satisfy
+> > > both the queue map stuff that you're looking for, and would meet the
+> > > needs of the FCOE people who also want to disable the duplicate
+> > > suppression (i.e., permit incoming traffic on the inactive slave) for a
+> > > different special case.
+> > > 
+> > > 	The FCOE proposal revolves around, essentially, active-backup
+> > > mode, but permitting incoming traffic on the inactive slave.  At the
+> > > moment, the patches attempt to special case things such that only
+> > > dev_add_pack listeners directly bound to the inactive slave are checked
+> > > (to permit the FCOE traffic to pass on the inactive slave, but still
+> > > dropping IP, as ip_rcv is a wildcard bind).
+> > > 
+> > > 	Your keep_all patch is, by and large, the same thing, except
+> > > that it permits anything to come in on the "inactive" slave, and it's a
+> > > switch that has to be turned on.
+> > > 
+> > > 	This seems like needless duplication to me; I'd prefer to see a
+> > > single solution that handles both cases instead of two special cases
+> > > that each do 90% of what the other does.
+> > > 
+> > > 	As far as a new mode goes, one major reason I think a separate
+> > > mode is warranted is the semantics: with either of these changes (to
+> > > permit more or less regular use of the "inactive" slaves), the mode
+> > > isn't really an "active-backup" mode any longer; there is no "inactive"
+> > > or "backup" slave.  I think of this as being a major change of
+> > > functionality, not simply a minor option.
+> > > 
+> > > 	Hence my thought that "active-backup" could stay as a "true" hot
+> > > standby mode (backup slaves are just that: for backup, only), and this
+> > > new mode would be the place to do the special queue-map / FCOE /
+> > > whatever that isn't really a hot standby configuration any longer.
+> > > 
+> > > 	As far as the behavior of the new mode (your concern about its
+> > > policy map approximations), in the end, it would probably act pretty
+> > > much like active-backup with your patch applied: traffic goes out the
+> > > active slave, unless directed otherwise.  It's a lot less complicated
+> > > than I had feared.
+> > > 
+> > 
+> > It's beginning to sound like the 'FCoE use-case' and the one Neil and I
+> > are proposing are quite similar.  The main goal of both is to have the
+> > option to have multiple slaves send and receive traffic during the
+> > steady-state, but in the event of a failover all traffic would run on a
+> > single interface.
+> > 
+> > The implementation proposed with this patch is a bit different that the
+> > 'mark-mode' patch you may recall I posted a few months ago.  It created
+> > a new mode that essentially did exactly what you are describing --
+> > transmit on the primary interface unless pushed to another interface via
+> > info in the skb and receive on all interfaces.  We initially did not
+> > create a new mode based on your reservations about the previous
+> > mark-mode patch and went the direction of enhancing one or two modes
+> > initially (figuring it would be good to run before walking), with the
+> > idea that other modes could take care of this output slave selection
+> > logic in the future.
+> 
+> 
+> So, its sounding to me like everyone is leaning toward a new mode approach here.
+> Before we go ahead and start coding, I hear the bullet points for this approach
+> as:
+> 
+> 1) Implement a new bond mode where queue ids are used to steer frames to output
+> interfaces
+> 
+> 2) Use said mode to imply universal frame reception (i.e. remove the keep_all
+> knob, and turn on that behavior when this new mode is selected)
+> 
+> 3) use John F.'s skb_should_drop changes to implement the keep_all feature.
+> 
+> Does that sound about right?
+> 
+> Regards
+> Neil
+> 
+Ping, Jay, any feedback on these bullet points.  I'd like to keep working on
+this while we have the time, but I'd rather not play guess & check on the list
+here any more than we need to.
 
-One last big batch intended for 2.6.35 -- these have all been in
-linux-next for several days.  Included are the usual driver updates for
-iwlwifi, ath9k, and rt2x00 along with a smattering of other bits
-(including some trivial fixups).
-
-Please let me know if there are problems!
-
-Thanks,
-
-John
-
----
-
-The following changes since commit 278554bd6579206921f5d8a523649a7a57f8850d:
-  David S. Miller (1):
-        Merge branch 'master' of master.kernel.org:/.../davem/net-2.6
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6.git for-davem
-
-Abhijeet Kolekar (3):
-      iwl3945: fix scan races
-      iwl3945: add plcp error checking
-      mac80211: fix paged defragmentation
-
-Dan Carpenter (3):
-      wl1271: add missing spin_lock()
-      wl1271: fix notifier interface supported test
-      wl1271: remove some unneeded code
-
-Felix Fietkau (4):
-      ath9k: use debugfs_remove_recursive() instead of keeping pointers to all entries
-      ath9k: add debugfs files for reading/writing the rx and tx chainmask
-      ath9k: add debugfs files for reading/writing registers
-      ath9k_hw: clean up EEPROM endian handling on AR9003
-
-Gertjan van Wingerde (6):
-      rt2x00: Consistently name skb frame descriptor skbdesc.
-      rt2x00: Fix beacon descriptor writing for rt61pci.
-      rt2x00: Re-order tx descriptor writing code in drivers.
-      rt2x00: Simplify TXD handling of beacons.
-      rt2x00: Dump beacons under a different identifier than TX frames.
-      rt2x00: In debugfs frame dumping allow the TX descriptor to be part of the skb.
-
-Johannes Berg (34):
-      iwlagn: wait for asynchronous firmware loading
-      iwlwifi: use vif iwl_bss_info_changed
-      iwl3945: use iwl3945_add_bcast_station
-      iwlwifi: pass address to iwl_remove_station
-      iwlwifi: manage IBSS station properly
-      iwlagn: show and store firmware build number
-      iwl3945: remove ucode access indirection
-      iwlwifi: remove ucode virtual functions
-      iwlwifi: move eeprom version printout to eeprom init
-      iwlagn: prepare for new firmware file format
-      iwlagn: implement loading a new firmware file type
-      iwlwifi: remove rts_threshold
-      iwlagn: move iwl_get_ra_sta_id to 4965
-      iwlagn: use vif->type to check station
-      iwlwifi: apply filter flags directly
-      iwlwifi: push virtual interface through
-      iwlagn: use virtual interface in TX aggregation handling
-      iwlwifi: remove useless priv->vif check
-      iwlwifi: use vif in iwl_ht_conf
-      iwlwifi: note that priv->bssid is used only by 3945
-      iwlwifi: fix iwl_sta_init_lq station ID
-      iwlwifi: split allocation/sending local station LQ
-      iwlwifi: rework broadcast station management
-      iwlwifi: track station IDs
-      iwlwifi: add iwl_sta_id()
-      iwlwifi: use iwl_find_station less
-      iwlagn: use iwl_sta_id() for aggregation
-      iwlwifi: use iwl_sta_id() for TKIP key update
-      iwlwifi: move iwl_find_station() to 4965
-      iwlwifi: rename iwl_add_local_station
-      iwlwifi: remove pointless HT check
-      iwlwifi: clear driver stations when going down
-      mac80211: don't process work item with wrong frame
-      mac80211: add offload channel switch support
-
-John W. Linville (2):
-      Merge branch 'master' of git://git.kernel.org/.../linville/wireless-2.6
-      Merge branch 'master' of git://git.kernel.org/.../linville/wireless-next-2.6 into for-davem
-
-Julia Lawall (1):
-      drivers/net/wireless/hostap: Drop memory allocation cast
-
-Luis R. Rodriguez (2):
-      ath5k: drop warning on jumbo frames
-      ath9k_hw: new initialization values for AR9003
-
-Reinette Chatre (3):
-      Merge branch 'wireless-2.6' into wireless-next-2.6
-      iwlwifi: make bcast LQ command available for later restore actions
-      iwlagn: work around rate scaling reset delay
-
-Shanyu Zhao (2):
-      iwlwifi: rename 6000 series Gen2 devices to Gen2a
-      iwlwifi: dump firmware build info in error case
-
-Steve Tanner (1):
-      ar9170usb: add vendor and device ID for Qwest/Actiontec 802AIN Wireless N USB Network Adapter
-
-Sujith.Manoharan-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org (5):
-      ath9k_htc: Lock sta_notify() callback
-      ath9k_htc: Allocate URBs properly
-      ath9k_htc: Reorder HTC initialization
-      ath9k_htc: Fix target ready race condition
-      ath9k_htc: Fix array overflow
-
-Vasanthakumar Thiagarajan (2):
-      ath9k: Fix bug in handling rx frames with invalid descriptor content
-      ath9k: Remove unused rx_edma in ath_rx_addbuffer_edma()
-
-Wey-Yi Guy (11):
-      iwlwifi: remove powersave debugfs if it is not supported
-      iwlwifi: rename "tx_power" to "chain_tx_power"
-      iwlwifi: remove device type checking for tx power in debugfs
-      iwlwifi: use .cfg to enable/disable continuous ucode trace
-      iwlwifi: use cfg to configure calibration operation
-      iwlwifi: give correct return information for tx power debugfs
-      iwlwifi: wimax co-exist code clean up
-      iwlwifi: checking for all the possible failure cases
-      iwlwifi: "tx power per chain" are part of ucode_tx_stats
-      iwlwifi: provide more comments for cfg structure
-      mac80211: check channel switch mode for future frames transmit
-
- drivers/net/wireless/ath/ar9170/usb.c            |    2 +
- drivers/net/wireless/ath/ath5k/base.c            |   12 +-
- drivers/net/wireless/ath/ath9k/ar9003_eeprom.c   |  174 +++----
- drivers/net/wireless/ath/ath9k/ar9003_eeprom.h   |   10 +-
- drivers/net/wireless/ath/ath9k/ar9003_initvals.h |  268 ++++++------
- drivers/net/wireless/ath/ath9k/debug.c           |  236 ++++++++--
- drivers/net/wireless/ath/ath9k/debug.h           |    8 +-
- drivers/net/wireless/ath/ath9k/hif_usb.c         |   58 ++--
- drivers/net/wireless/ath/ath9k/htc_drv_init.c    |    7 +
- drivers/net/wireless/ath/ath9k/htc_drv_main.c    |    4 +
- drivers/net/wireless/ath/ath9k/htc_hst.c         |   51 +-
- drivers/net/wireless/ath/ath9k/htc_hst.h         |   15 +-
- drivers/net/wireless/ath/ath9k/recv.c            |    3 +-
- drivers/net/wireless/hostap/hostap_80211_rx.c    |    3 +-
- drivers/net/wireless/hostap/hostap_ioctl.c       |    3 +-
- drivers/net/wireless/iwlwifi/iwl-1000.c          |    9 +-
- drivers/net/wireless/iwlwifi/iwl-3945.c          |  147 ++++--
- drivers/net/wireless/iwlwifi/iwl-3945.h          |   22 +-
- drivers/net/wireless/iwlwifi/iwl-4965.c          |  100 +++--
- drivers/net/wireless/iwlwifi/iwl-5000.c          |   27 +-
- drivers/net/wireless/iwlwifi/iwl-6000.c          |   51 ++-
- drivers/net/wireless/iwlwifi/iwl-agn-debugfs.c   |   16 +
- drivers/net/wireless/iwlwifi/iwl-agn-lib.c       |   31 +-
- drivers/net/wireless/iwlwifi/iwl-agn-tx.c        |   29 +-
- drivers/net/wireless/iwlwifi/iwl-agn-ucode.c     |  109 +++--
- drivers/net/wireless/iwlwifi/iwl-agn.c           |  556 +++++++++++++++-------
- drivers/net/wireless/iwlwifi/iwl-agn.h           |   14 +-
- drivers/net/wireless/iwlwifi/iwl-commands.h      |    6 +-
- drivers/net/wireless/iwlwifi/iwl-core.c          |  199 +++-----
- drivers/net/wireless/iwlwifi/iwl-core.h          |   60 ++-
- drivers/net/wireless/iwlwifi/iwl-debugfs.c       |   66 +--
- drivers/net/wireless/iwlwifi/iwl-dev.h           |   89 +++-
- drivers/net/wireless/iwlwifi/iwl-eeprom.c        |    7 +
- drivers/net/wireless/iwlwifi/iwl-power.c         |    5 +-
- drivers/net/wireless/iwlwifi/iwl-rx.c            |    9 +-
- drivers/net/wireless/iwlwifi/iwl-scan.c          |   16 +-
- drivers/net/wireless/iwlwifi/iwl-sta.c           |  456 ++++++++----------
- drivers/net/wireless/iwlwifi/iwl-sta.h           |   60 ++-
- drivers/net/wireless/iwlwifi/iwl3945-base.c      |  163 ++++---
- drivers/net/wireless/rt2x00/rt2400pci.c          |   26 +-
- drivers/net/wireless/rt2x00/rt2500pci.c          |   26 +-
- drivers/net/wireless/rt2x00/rt2500usb.c          |   55 ++-
- drivers/net/wireless/rt2x00/rt2800pci.c          |   14 +-
- drivers/net/wireless/rt2x00/rt2800usb.c          |    8 +-
- drivers/net/wireless/rt2x00/rt2x00debug.c        |   21 +-
- drivers/net/wireless/rt2x00/rt2x00dump.h         |    3 +
- drivers/net/wireless/rt2x00/rt2x00pci.c          |    9 -
- drivers/net/wireless/rt2x00/rt2x00queue.c        |   15 +-
- drivers/net/wireless/rt2x00/rt2x00queue.h        |    3 +
- drivers/net/wireless/rt2x00/rt2x00usb.c          |    8 -
- drivers/net/wireless/rt2x00/rt61pci.c            |   35 +-
- drivers/net/wireless/rt2x00/rt73usb.c            |   71 ++--
- drivers/net/wireless/wl12xx/wl1271_main.c        |    5 +-
- include/net/mac80211.h                           |   39 ++
- net/mac80211/driver-ops.h                        |   11 +
- net/mac80211/driver-trace.h                      |   49 ++
- net/mac80211/ieee80211_i.h                       |    3 +-
- net/mac80211/mlme.c                              |   59 +++-
- net/mac80211/rx.c                                |    6 +
- net/mac80211/work.c                              |   27 +-
- 60 files changed, 2152 insertions(+), 1442 deletions(-)
-
-Omnibus patch available here:
-
-	http://www.kernel.org/pub/linux/kernel/people/linville/wireless-next-2.6-2010-05-17.patch.bz2
-
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
