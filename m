@@ -1,7 +1,7 @@
 From: Andrew Hendry <andrew.hendry@gmail.com>
-Subject: [PATCH 1/4] X25: Move qbit flag to bitfield
-Date: Mon, 17 May 2010 18:59:41 +1000
-Message-ID: <1274086781.4104.52.camel@ibex>
+Subject: [PATCH 2/4] X25: Move interrupt flag to bitfield
+Date: Mon, 17 May 2010 19:00:02 +1000
+Message-ID: <1274086802.4104.53.camel@ibex>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -9,120 +9,86 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-px0-f174.google.com ([209.85.212.174]:46380 "EHLO
 	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753521Ab0EQI7s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 May 2010 04:59:48 -0400
-Received: by pxi5 with SMTP id 5so2420405pxi.19
-        for <netdev@vger.kernel.org>; Mon, 17 May 2010 01:59:48 -0700 (PDT)
+	with ESMTP id S1754420Ab0EQJAH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 May 2010 05:00:07 -0400
+Received: by mail-px0-f174.google.com with SMTP id 5so2420405pxi.19
+        for <netdev@vger.kernel.org>; Mon, 17 May 2010 02:00:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Moves the X25 q bit flag from char into a bitfield to allow BKL cleanup.
+Moves the x25 interrupt flag from char into bitfield.
 
 Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
 
 ---
- include/net/x25.h |    6 +++++-
- net/x25/af_x25.c  |   17 ++++++++++-------
- 2 files changed, 15 insertions(+), 8 deletions(-)
+ include/net/x25.h |    3 ++-
+ net/x25/af_x25.c  |    1 +
+ net/x25/x25_in.c  |    2 +-
+ net/x25/x25_out.c |    5 +++--
+ 4 files changed, 7 insertions(+), 4 deletions(-)
 
 diff --git a/include/net/x25.h b/include/net/x25.h
-index 468551e..7b5795e 100644
+index 7b5795e..1576e92 100644
 --- a/include/net/x25.h
 +++ b/include/net/x25.h
-@@ -113,6 +113,9 @@ enum {
- #define X25_MAX_AE_LEN 		40			/* Max num of semi-octets in AE - OSI Nw */
- #define X25_MAX_DTE_FACIL_LEN	21			/* Max length of DTE facility params */
+@@ -115,6 +115,7 @@ enum {
  
-+/* Bitset in x25_sock->flags for misc flags */
-+#define X25_Q_BIT_FLAG		0
-+
+ /* Bitset in x25_sock->flags for misc flags */
+ #define X25_Q_BIT_FLAG		0
++#define X25_INTERRUPT_FLAG	1
+ 
  /**
   *	struct x25_route - x25 routing entry
-  *	@node - entry in x25_list_lock
-@@ -146,10 +149,11 @@ struct x25_sock {
+@@ -149,7 +150,7 @@ struct x25_sock {
  	struct x25_address	source_addr, dest_addr;
  	struct x25_neigh	*neighbour;
  	unsigned int		lci, cudmatchlength;
--	unsigned char		state, condition, qbitincl, intflag, accptapprv;
-+	unsigned char		state, condition, intflag, accptapprv;
+-	unsigned char		state, condition, intflag, accptapprv;
++	unsigned char		state, condition, accptapprv;
  	unsigned short		vs, vr, va, vl;
  	unsigned long		t2, t21, t22, t23;
  	unsigned short		fraglen;
-+	unsigned long		flags;
- 	struct sk_buff_head	ack_queue;
- 	struct sk_buff_head	fragment_queue;
- 	struct sk_buff_head	interrupt_in_queue;
 diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index 296e65e..720534c 100644
+index 720534c..3d97b8c 100644
 --- a/net/x25/af_x25.c
 +++ b/net/x25/af_x25.c
-@@ -465,7 +465,10 @@ static int x25_setsockopt(struct socket *sock, int level, int optname,
- 	if (get_user(opt, (int __user *)optval))
- 		goto out;
- 
--	x25_sk(sk)->qbitincl = !!opt;
-+	if (opt)
-+		set_bit(X25_Q_BIT_FLAG, &x25_sk(sk)->flags);
-+	else
-+		clear_bit(X25_Q_BIT_FLAG, &x25_sk(sk)->flags);
- 	rc = 0;
- out:
- 	unlock_kernel();
-@@ -496,7 +499,7 @@ static int x25_getsockopt(struct socket *sock, int level, int optname,
- 	if (put_user(len, optlen))
- 		goto out;
- 
--	val = x25_sk(sk)->qbitincl;
-+	val = test_bit(X25_Q_BIT_FLAG, &x25_sk(sk)->flags);
- 	rc = copy_to_user(optval, &val, len) ? -EFAULT : 0;
- out:
- 	unlock_kernel();
-@@ -632,8 +635,8 @@ static struct sock *x25_make_new(struct sock *osk)
- 	x25->t22        = ox25->t22;
- 	x25->t23        = ox25->t23;
- 	x25->t2         = ox25->t2;
-+	x25->flags	= ox25->flags;
- 	x25->facilities = ox25->facilities;
--	x25->qbitincl   = ox25->qbitincl;
- 	x25->dte_facilities = ox25->dte_facilities;
+@@ -641,6 +641,7 @@ static struct sock *x25_make_new(struct sock *osk)
  	x25->cudmatchlength = ox25->cudmatchlength;
  	x25->accptapprv = ox25->accptapprv;
-@@ -1186,7 +1189,7 @@ static int x25_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	 *	If the Q BIT Include socket option is in force, the first
- 	 *	byte of the user data is the logical value of the Q Bit.
+ 
++	clear_bit(X25_INTERRUPT_FLAG, &x25->flags);
+ 	x25_init_timers(sk);
+ out:
+ 	return sk;
+diff --git a/net/x25/x25_in.c b/net/x25/x25_in.c
+index 372ac22..6317896 100644
+--- a/net/x25/x25_in.c
++++ b/net/x25/x25_in.c
+@@ -273,7 +273,7 @@ static int x25_state3_machine(struct sock *sk, struct sk_buff *skb, int frametyp
+ 			break;
+ 
+ 		case X25_INTERRUPT_CONFIRMATION:
+-			x25->intflag = 0;
++			clear_bit(X25_INTERRUPT_FLAG, &x25->flags);
+ 			break;
+ 
+ 		case X25_INTERRUPT:
+diff --git a/net/x25/x25_out.c b/net/x25/x25_out.c
+index 52351a2..d00649f 100644
+--- a/net/x25/x25_out.c
++++ b/net/x25/x25_out.c
+@@ -148,8 +148,9 @@ void x25_kick(struct sock *sk)
+ 	/*
+ 	 *	Transmit interrupt data.
  	 */
--	if (x25->qbitincl) {
-+	if (test_bit(X25_Q_BIT_FLAG, &x25->flags)) {
- 		qbit = skb->data[0];
- 		skb_pull(skb, 1);
+-	if (!x25->intflag && skb_peek(&x25->interrupt_out_queue) != NULL) {
+-		x25->intflag = 1;
++	if (skb_peek(&x25->interrupt_out_queue) != NULL &&
++		!test_and_set_bit(X25_INTERRUPT_FLAG, &x25->flags)) {
++
+ 		skb = skb_dequeue(&x25->interrupt_out_queue);
+ 		x25_transmit_link(skb, x25->neighbour);
  	}
-@@ -1242,7 +1245,7 @@ static int x25_sendmsg(struct kiocb *iocb, struct socket *sock,
- 		len = rc;
- 		if (rc < 0)
- 			kfree_skb(skb);
--		else if (x25->qbitincl)
-+		else if (test_bit(X25_Q_BIT_FLAG, &x25->flags))
- 			len++;
- 	}
- 
-@@ -1307,7 +1310,7 @@ static int x25_recvmsg(struct kiocb *iocb, struct socket *sock,
- 		/*
- 		 *	No Q bit information on Interrupt data.
- 		 */
--		if (x25->qbitincl) {
-+		if (test_bit(X25_Q_BIT_FLAG, &x25->flags)) {
- 			asmptr  = skb_push(skb, 1);
- 			*asmptr = 0x00;
- 		}
-@@ -1325,7 +1328,7 @@ static int x25_recvmsg(struct kiocb *iocb, struct socket *sock,
- 		skb_pull(skb, x25->neighbour->extended ?
- 				X25_EXT_MIN_LEN : X25_STD_MIN_LEN);
- 
--		if (x25->qbitincl) {
-+		if (test_bit(X25_Q_BIT_FLAG, &x25->flags)) {
- 			asmptr  = skb_push(skb, 1);
- 			*asmptr = qbit;
- 		}
 -- 
 1.5.6.5
 
