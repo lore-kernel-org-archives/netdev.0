@@ -1,61 +1,78 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: iproute2 issue with adding rules.
-Date: Mon, 17 May 2010 14:41:13 -0700
-Message-ID: <20100517144113.0a3cd438@nehalam>
-References: <4BF192F9.8000008@candelatech.com>
-	<4BF1A352.5020500@candelatech.com>
-	<4BF1A6D1.70507@candelatech.com>
-	<20100517203004.GD8301@sequoia.sous-sol.org>
-	<4BF1A855.3090905@candelatech.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [patch] pm_qos update fixing mmotm 2010-05-11
+	-dies in pm_qos_update_request()
+Date: Mon, 17 May 2010 23:58:00 +0200
+Message-ID: <201005172358.00076.rjw@sisk.pl>
+References: <20100515021922.GA5041@thegnar.org>
+	<201005170021.25427.rjw@sisk.pl>
+	<20100517001241.GA2962@thegnar.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Chris Wright <chrisw@sous-sol.org>, NetDev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:60082 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754840Ab0EQVlQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 May 2010 17:41:16 -0400
-In-Reply-To: <4BF1A855.3090905@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mgross@linux.intel.com, Valdis.Kletnieks@vt.eu,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	linux-pm@lists.linux-foundation.org, akpm@linux-foundation.org,
+	davem@davemloft.net
+To: markgross@thegnar.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20100517001241.GA2962@thegnar.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Mon, 17 May 2010 13:34:29 -0700
-Ben Greear <greearb@candelatech.com> wrote:
-
-> On 05/17/2010 01:30 PM, Chris Wright wrote:
-> > * Ben Greear (greearb@candelatech.com) wrote:
-> >> On 05/17/2010 01:13 PM, Ben Greear wrote:
-> >>> On 05/17/2010 12:03 PM, Ben Greear wrote:
-> >>>> On older releases, you can do this with iproute:
-> >>>>
-> >>>> # ip ru add from 9.9.9.2/32 table 226 pref 400
-> >>>> #
-> >>>>
-> >>>> But, in latest git, it returns an error:
-> >>>> # ip ru add from 9.9.9.2/32 table 226 pref 400
-> >>>> Error: an inet prefix is expected rather than "9.9.9.2/32".
-> >>>>
-> >>>> Is that on purpose?
-> >>>
-> >>> I was thinking maybe this was a library issue, since I compiled
-> >>> on one machine and ran the 'ip' exe on another. So, I tried compiling
-> >>> on the test system.
-> >>
-> >> I'm not thinking too well today, but this patch fixes the compile.
-> >> No idea if it's actually correct code.
-> >
-> > Needs more changes than that patch.
+On Monday 17 May 2010, mgross wrote:
+> On Mon, May 17, 2010 at 12:21:25AM +0200, Rafael J. Wysocki wrote:
+> > On Saturday 15 May 2010, mgross wrote:
+> > > On Sat, May 15, 2010 at 09:38:47PM +0200, Rafael J. Wysocki wrote:
+> > > > On Saturday 15 May 2010, mgross wrote:
+> > > > > I apologize for the goofy email address.  
+> > > > > 
+> > > > > The following is a fix for the crash reported by Valdis.
+> > > > > 
+> > > > > The problem was that the original pm_qos silently fails when a request
+> > > > > update is passed to a parameter that has not been added to the list
+> > > > > yet.  It seems that the e1000e is doing this.  This update restores this
+> > > > > behavior.
+> > > > > 
+> > > > > I need to think about how to better handle such abuse, but for now this
+> > > > > restores the original behavior.
+> > > > 
+> > > > Can you please post a signed-off incremental patch against
+> > > > 
+> > > > git://git.kernel.org/pub/scm/linux/kernel/git/rafael/suspend-2.6.git for-llinus
+> > > > 
+> > > > that contains your original PM QOS update?
+> > > 
+> > > No problem:
+> > >
+> > > Signed-off-by: markgross <markgross@thegnar.org>
+> > 
+> > Thanks!  Do you want to use this address for the sign-off or the Intel one?
 > 
-> Ok, I'll try going back a few commits to find something that compiles
-> w/out my hacks.
+> I guess so.  Ever since switching groups within intel last summer my
+> mgross@linux.intel.com address isn't checked as often as this one. 
 > 
-> Also, the rule addition does work..make install put ip in
-> a different place than it's installed in fedora, so I wasn't
-> actually running the latest code when I first tried to add
-> the rule.
+> The other option is to use my outlook email (mark.gross@intel.com), but
+> I really hate posting from outlook.  Besides, doing upstream kernel
+> stuff isn't my day job any more so using markgross@thegnar.org  makes
+> sense to me.
 
-Distributions never seem to agree where it should be: /sbin or /usr/sbin
-or even /bin
+Good.  Patch applied to suspend-2.6/for-linus.
 
+Thanks,
+Rafael
+
+------------------------------------------------------------------------------
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
