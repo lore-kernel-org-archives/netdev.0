@@ -1,111 +1,69 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH v2] Fix SJA1000 command register writes on SMP systems
-Date: Mon, 17 May 2010 22:17:40 +0200
-Message-ID: <4BF1A464.6070207@hartkopp.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: iproute2 issue with adding rules.
+Date: Mon, 17 May 2010 13:27:32 -0700
+Message-ID: <20100517132732.2b7fc1a1@nehalam>
+References: <4BF192F9.8000008@candelatech.com>
+	<4BF1A352.5020500@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: NetDev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:38170 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751782Ab0EQU1f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 May 2010 16:27:35 -0400
+In-Reply-To: <4BF1A352.5020500@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The SJA1000 command register is concurrently written in the rx-path to free
-the receive buffer _and_ in the tx-path to start the transmission.
+On Mon, 17 May 2010 13:13:06 -0700
+Ben Greear <greearb@candelatech.com> wrote:
 
-The SJA1000 data sheet, 6.4.4 COMMAND REGISTER (CMR) states:
-"Between two commands at least one internal clock cycle is needed in
-order to proceed. The internal clock is half of the external oscillator
-frequency."
+> On 05/17/2010 12:03 PM, Ben Greear wrote:
+> > On older releases, you can do this with iproute:
+> >
+> > # ip ru add from 9.9.9.2/32 table 226 pref 400
+> > #
+> >
+> > But, in latest git, it returns an error:
+> > # ip ru add from 9.9.9.2/32 table 226 pref 400
+> > Error: an inet prefix is expected rather than "9.9.9.2/32".
+> >
+> > Is that on purpose?
+>=20
+> I was thinking maybe this was a library issue, since I compiled
+> on one machine and ran the 'ip' exe on another.  So, I tried compilin=
+g
+> on the test system.
+>=20
+> But, iproute will not compile, apparently because it finds the
+> /usr/include/linux header files before whatever is packaged with
+> iproute:
+>=20
+> gcc -D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall -I../include -DRESOLV=
+E_HOSTNAMES -DLIBDIR=3D\"/usr/lib/\"   -c -o ipaddress.o ipaddress.c
+> ipaddress.c: In function =91print_linkinfo=92:
+> ipaddress.c:334: error: =91IFLA_VFINFO=92 undeclared (first use in th=
+is function)
+> ipaddress.c:334: error: (Each undeclared identifier is reported only =
+once
+> ipaddress.c:334: error: for each function it appears in.)
+> make[1]: *** [ipaddress.o] Error 1
+> make[1]: Leaving directory `/root/git/iproute2/ip'
+> make: *** [all] Error 2
+>=20
+>=20
+> I tried moving /usr/include/linux out of the way, but then it blows u=
+p
+> even worse (can't find errno.h, etc)
+>=20
+> Are we supposed to be able to compile iproute2 on a system with moder=
+ately
+> outdated kernel headers?
+>=20
+> If not, why bother with the iproute/include/linux directory at all?
 
-On SMP systems this leads to a write stall in the tx-path, which can be
-solved by adding some locking for the command register in the SMP case.
-In this special case we also read the status register to settle the command
-register write.
-
-Thanks to Klaus Hitschler for the original fix and detailed problem
-description.
-
-This patch applies on net-2.6 and (with some offsets) on net-next-2.6 .
-
-Signed-off-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-
----
-
-diff --git a/drivers/net/can/sja1000/sja1000.c b/drivers/net/can/sja1000/sja1000.c
-index 145b1a7..2760085 100644
---- a/drivers/net/can/sja1000/sja1000.c
-+++ b/drivers/net/can/sja1000/sja1000.c
-@@ -84,6 +84,27 @@ static struct can_bittiming_const sja1000_bittiming_const = {
- 	.brp_inc = 1,
- };
- +static void sja1000_write_cmdreg(struct sja1000_priv *priv, u8 val)
-+{
-+	/* the command register needs some locking on SMP systems */
-+
-+#ifdef CONFIG_SMP
-+
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&priv->cmdreg_lock, flags);
-+	priv->write_reg(priv, REG_CMR, val);
-+	priv->read_reg(priv, REG_SR);
-+	spin_unlock_irqrestore(&priv->cmdreg_lock, flags);
-+
-+#else
-+
-+	/* write to the command register without locking */
-+	priv->write_reg(priv, REG_CMR, val);
-+
-+#endif
-+}
-+
- static int sja1000_probe_chip(struct net_device *dev)
- {
- 	struct sja1000_priv *priv = netdev_priv(dev);
-@@ -297,7 +318,7 @@ static netdev_tx_t sja1000_start_xmit(struct sk_buff *skb,
-  	can_put_echo_skb(skb, dev, 0);
- -	priv->write_reg(priv, REG_CMR, CMD_TR);
-+	sja1000_write_cmdreg(priv, CMD_TR);
-  	return NETDEV_TX_OK;
- }
-@@ -346,7 +367,7 @@ static void sja1000_rx(struct net_device *dev)
- 	cf->can_id = id;
-  	/* release receive buffer */
--	priv->write_reg(priv, REG_CMR, CMD_RRB);
-+	sja1000_write_cmdreg(priv, CMD_RRB);
-  	netif_rx(skb);
- @@ -374,7 +395,7 @@ static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
- 		cf->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
- 		stats->rx_over_errors++;
- 		stats->rx_errors++;
--		priv->write_reg(priv, REG_CMR, CMD_CDO);	/* clear bit */
-+		sja1000_write_cmdreg(priv, CMD_CDO);	/* clear bit */
- 	}
-  	if (isrc & IRQ_EI) {
-diff --git a/drivers/net/can/sja1000/sja1000.h b/drivers/net/can/sja1000/sja1000.h
-index 97a622b..4527d95 100644
---- a/drivers/net/can/sja1000/sja1000.h
-+++ b/drivers/net/can/sja1000/sja1000.h
-@@ -168,6 +168,10 @@ struct sja1000_priv {
- 	void __iomem *reg_base;	 /* ioremap'ed address to registers */
- 	unsigned long irq_flags; /* for request_irq() */
- +#ifdef CONFIG_SMP
-+	spinlock_t cmdreg_lock; /* lock for concurrent cmd register writes */
-+#endif
-+
- 	u16 flags;		/* custom mode flags */
- 	u8 ocr;			/* output control register */
- 	u8 cdr;			/* clock divider register */
+The issue is the last minute VF changes in 2.6.34 are not supported
+in iproute util yet. Please wait until it is fixed.
