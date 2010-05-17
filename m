@@ -1,41 +1,43 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH] phy/marvell: Add special settings for D-Link DNS-323
-	rev C1
-Date: Mon, 17 May 2010 11:07:37 +1000
-Message-ID: <1274058457.21352.711.camel@pasglop>
-References: <1274056058.21352.697.camel@pasglop>
-	<20100517005942.GB27301@pengutronix.de>
+From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Subject: Re: [PATCH 1/9] mm: add generic adaptive large memory allocationAPIs
+Date: Mon, 17 May 2010 10:34:30 +0900 (JST)
+Message-ID: <20100517103050.21B6.A69D9226@jp.fujitsu.com>
+References: <1273756816.5605.3547.camel@twins> <201005132236.ADJ57893.FLFFMtOVJHOOSQ@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Nicolas Pitre <nico@fluxnic.net>,
-	linux-arm-kernel@lists.infradead.org, Herbert Valerio Riedel <hvr@gnu.org>
-To: Wolfram Sang <w.sang@pengutronix.de>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20100517005942.GB27301@pengutronix.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: kosaki.motohiro@jp.fujitsu.com, peterz@infradead.org,
+	xiaosuo@gmail.com, akpm@linux-foundation.org, hnguyen@de.ibm.com,
+	raisch@de.ibm.com, rolandd@cisco.com, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, divy@chelsio.com,
+	James.Bottomley@suse.de, tytso@mit.edu, adilger@sun.com,
+	viro@zeniv.linux.org.uk, menage@google.com, lizf@cn.fujitsu.com,
+	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	linux-ext4@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	linux-mm@kvack.org, containers@lists.linux-foundation.org,
+	eric.dumazet@gmail.com
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Return-path: <linux-ext4-owner@vger.kernel.org>
+In-Reply-To: <201005132236.ADJ57893.FLFFMtOVJHOOSQ@I-love.SAKURA.ne.jp>
+Sender: linux-ext4-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2010-05-17 at 02:59 +0200, Wolfram Sang wrote:
-> There is a fixup()-callback to prevent boardcode in the drivers. See
-> Documentation/networking/phy.txt, last chapter.
+> Peter Zijlstra wrote:
+> > NAK, I really utterly dislike that inatomic argument. The alloc side
+> > doesn't function in atomic context either. Please keep the thing
+> > symmetric in that regards.
+> 
+> Excuse me. kmalloc(GFP_KERNEL) may sleep (and therefore cannot be used in
+> atomic context). However, kfree() for memory allocated with kmalloc(GFP_KERNEL)
+> never sleep (and therefore can be used in atomic context).
+> Why kmalloc() and kfree() are NOT kept symmetric?
 
-Ah nice ! I missed that bit. I'll add a fixup and see if it works.
+In kmalloc case, we need to consider both kmalloc(GFP_KERNEL)/kfree() pair and
+kmalloc(GFP_ATOMIC)/kfree() pair. latter is mainly used on atomic context.
+To make kfree() atomic help to keep the implementation simple.
 
-The problem is that writing to this register seems to be part of a
-specific initialization sequence, which is done one way in the linux
-driver and differently in the vendor kernel. I don't know whether
-I can just 'override' the value and I have no docs for that part.
+But kvmalloc don't have GFP_ATOMIC feautre. that's big difference.
 
-But I'll definitely give it a go tonight.
 
-Cheers,
-Ben.
+
