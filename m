@@ -1,89 +1,68 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH BUGFIX ] ipv6: fix the bug of address check
-Date: Mon, 17 May 2010 10:31:34 -0700
-Message-ID: <20100517103134.06160257@nehalam>
-References: <4BF1354A.3060003@cn.fujitsu.com>
+Subject: Re: [PATCH -next] bridge: fix build for CONFIG_SYSFS disabled
+Date: Mon, 17 May 2010 10:56:54 -0700
+Message-ID: <20100517105654.2451e61f@nehalam>
+References: <20100517163521.649526d0.sfr@canb.auug.org.au>
+ <20100517091756.e232bdc2.randy.dunlap@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Shan Wei <shanwei@cn.fujitsu.com>
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: Randy Dunlap <randy.dunlap@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:42235 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:60722 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754244Ab0EQRbk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 May 2010 13:31:40 -0400
-In-Reply-To: <4BF1354A.3060003@cn.fujitsu.com>
+	id S1751657Ab0EQR5F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 May 2010 13:57:05 -0400
+In-Reply-To: <20100517091756.e232bdc2.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 17 May 2010 20:23:38 +0800
-Shan Wei <shanwei@cn.fujitsu.com> wrote:
+On Mon, 17 May 2010 09:17:56 -0700
+Randy Dunlap <randy.dunlap@oracle.com> wrote:
 
+> From: Randy Dunlap <randy.dunlap@oracle.com>
 > 
-> If there are several IPv6 addresses with same hash value in hashlist,
-> and they are all not matched with addr argument.
-> In this case, ipv6_chk_addr() should return 0.
+> Fix build when CONFIG_SYSFS is not enabled:
 > 
-> This bug is introduced by commit c2e21293c054817c42eb5fa9c613d2ad51954136
-> (title: ipv6: convert addrconf list to hlist).
+> net/bridge/br_if.c:136: error: 'struct net_bridge_port' has no member named 'sysfs_name'
 > 
-> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 > ---
->  net/ipv6/addrconf.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
+>  net/bridge/br_if.c |    2 ++
+>  1 file changed, 2 insertions(+)
 > 
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 3984f52..d8e5907 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -1291,7 +1291,7 @@ int ipv6_chk_addr(struct net *net, struct in6_addr *addr,
->  	}
->  	rcu_read_unlock_bh();
+> --- linux-next-20100517.orig/net/bridge/br_if.c
+> +++ linux-next-20100517/net/bridge/br_if.c
+> @@ -133,7 +133,9 @@ static void del_nbp(struct net_bridge_po
+>  	struct net_bridge *br = p->br;
+>  	struct net_device *dev = p->dev;
 >  
-> -	return ifp != NULL;
-> +	return node != NULL;
->  }
->  EXPORT_SYMBOL(ipv6_chk_addr);
+> +#ifdef CONFIG_SYSFS
+>  	sysfs_remove_link(br->ifobj, p->sysfs_name);
+> +#endif
+>  
+>  	dev_set_promiscuity(dev, -1);
 >  
 
-Why not this instead. I don't like depending on the value of the
-loop variable in the hlist_for_each()
+I don't like peppering code with #ifdef like this.
 
---- a/net/ipv6/addrconf.c	2010-05-17 10:27:58.218628126 -0700
-+++ b/net/ipv6/addrconf.c	2010-05-17 10:29:46.012198338 -0700
-@@ -1274,7 +1274,7 @@ static int ipv6_count_addresses(struct i
- int ipv6_chk_addr(struct net *net, struct in6_addr *addr,
- 		  struct net_device *dev, int strict)
- {
--	struct inet6_ifaddr *ifp = NULL;
-+	struct inet6_ifaddr *ifp;
- 	struct hlist_node *node;
- 	unsigned int hash = ipv6_addr_hash(addr);
+Turns out that in this place sysfs_name is always the same
+as the device name so instead:
+
+
+--- a/net/bridge/br_if.c	2010-05-17 10:40:49.808031840 -0700
++++ b/net/bridge/br_if.c	2010-05-17 10:49:47.767669246 -0700
+@@ -133,7 +133,7 @@ static void del_nbp(struct net_bridge_po
+ 	struct net_bridge *br = p->br;
+ 	struct net_device *dev = p->dev;
  
-@@ -1283,15 +1283,16 @@ int ipv6_chk_addr(struct net *net, struc
- 		if (!net_eq(dev_net(ifp->idev->dev), net))
- 			continue;
- 		if (ipv6_addr_equal(&ifp->addr, addr) &&
--		    !(ifp->flags&IFA_F_TENTATIVE)) {
--			if (dev == NULL || ifp->idev->dev == dev ||
--			    !(ifp->scope&(IFA_LINK|IFA_HOST) || strict))
--				break;
-+		    !(ifp->flags&IFA_F_TENTATIVE) &&
-+		    (dev == NULL || ifp->idev->dev == dev ||
-+		     !(ifp->scope&(IFA_LINK|IFA_HOST) || strict))) {
-+			rcu_read_unlock_bh();
-+			return 1;
- 		}
- 	}
--	rcu_read_unlock_bh();
+-	sysfs_remove_link(br->ifobj, p->sysfs_name);
++	sysfs_remove_link(br->ifobj, p->dev->name);
  
--	return ifp != NULL;
-+	rcu_read_unlock_bh();
-+	return 0;
- }
- EXPORT_SYMBOL(ipv6_chk_addr);
+ 	dev_set_promiscuity(dev, -1);
  
 
 
