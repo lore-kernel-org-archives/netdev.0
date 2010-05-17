@@ -1,54 +1,68 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 4/7] qlcnic: module param for firmware load option
-Date: Mon, 17 May 2010 04:22:11 -0700
-Message-ID: <1274095334-32362-5-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 1/7] qlcnic: fix memory leaks
+Date: Mon, 17 May 2010 04:22:08 -0700
+Message-ID: <1274095334-32362-2-git-send-email-amit.salecha@qlogic.com>
 References: <1274095334-32362-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:18680 "EHLO
+Received: from mvnat01.qlogic.com ([198.186.3.73]:5233 "EHLO
 	dut4145.unminc.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751374Ab0EQKVu (ORCPT
+	with ESMTP id S1751052Ab0EQKVu (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 17 May 2010 06:21:50 -0400
 In-Reply-To: <1274095334-32362-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-By default fw is loaded from flash, user can
-change this priority using load_fw_file module param.
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 
+Fixes memory leak in error path when memory allocation
+for adapter data structures fails.
+
+Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/qlcnic/qlcnic_main.c |    9 ++++++++-
- 1 files changed, 8 insertions(+), 1 deletions(-)
+ drivers/net/qlcnic/qlcnic_ctx.c  |    3 ++-
+ drivers/net/qlcnic/qlcnic_init.c |    4 ++--
+ 2 files changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 0a52d24..b076474 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -61,6 +61,10 @@ static int auto_fw_reset = AUTO_FW_RESET_ENABLED;
- module_param(auto_fw_reset, int, 0644);
- MODULE_PARM_DESC(auto_fw_reset, "Auto firmware reset (0=disabled, 1=enabled");
+diff --git a/drivers/net/qlcnic/qlcnic_ctx.c b/drivers/net/qlcnic/qlcnic_ctx.c
+index 0a6a399..c2c1f5c 100644
+--- a/drivers/net/qlcnic/qlcnic_ctx.c
++++ b/drivers/net/qlcnic/qlcnic_ctx.c
+@@ -421,7 +421,8 @@ int qlcnic_alloc_hw_resources(struct qlcnic_adapter *adapter)
  
-+static int load_fw_file;
-+module_param(load_fw_file, int, 0644);
-+MODULE_PARM_DESC(load_fw_file, "Load firmware from (0=flash, 1=file");
-+
- static int __devinit qlcnic_probe(struct pci_dev *pdev,
- 		const struct pci_device_id *ent);
- static void __devexit qlcnic_remove(struct pci_dev *pdev);
-@@ -585,7 +589,10 @@ qlcnic_start_firmware(struct qlcnic_adapter *adapter)
- 		/* This is the first boot after power up */
- 		QLCWR32(adapter, QLCNIC_CAM_RAM(0x1fc), QLCNIC_BDINFO_MAGIC);
+ 	if (addr == NULL) {
+ 		dev_err(&pdev->dev, "failed to allocate tx desc ring\n");
+-		return -ENOMEM;
++		err = -ENOMEM;
++		goto err_out_free;
+ 	}
  
--	qlcnic_request_firmware(adapter);
-+	if (load_fw_file)
-+		qlcnic_request_firmware(adapter);
-+	else
-+		adapter->fw_type = QLCNIC_FLASH_ROMIMAGE;
+ 	tx_ring->desc_head = (struct cmd_desc_type0 *)addr;
+diff --git a/drivers/net/qlcnic/qlcnic_init.c b/drivers/net/qlcnic/qlcnic_init.c
+index 77bfdab..dccd8c3 100644
+--- a/drivers/net/qlcnic/qlcnic_init.c
++++ b/drivers/net/qlcnic/qlcnic_init.c
+@@ -210,7 +210,7 @@ int qlcnic_alloc_sw_resources(struct qlcnic_adapter *adapter)
+ 	cmd_buf_arr = vmalloc(TX_BUFF_RINGSIZE(tx_ring));
+ 	if (cmd_buf_arr == NULL) {
+ 		dev_err(&netdev->dev, "failed to allocate cmd buffer ring\n");
+-		return -ENOMEM;
++		goto err_out;
+ 	}
+ 	memset(cmd_buf_arr, 0, TX_BUFF_RINGSIZE(tx_ring));
+ 	tx_ring->cmd_buf_arr = cmd_buf_arr;
+@@ -221,7 +221,7 @@ int qlcnic_alloc_sw_resources(struct qlcnic_adapter *adapter)
+ 	rds_ring = kzalloc(size, GFP_KERNEL);
+ 	if (rds_ring == NULL) {
+ 		dev_err(&netdev->dev, "failed to allocate rds ring struct\n");
+-		return -ENOMEM;
++		goto err_out;
+ 	}
+ 	recv_ctx->rds_rings = rds_ring;
  
- 	err = qlcnic_need_fw_reset(adapter);
- 	if (err < 0)
 -- 
 1.5.6.1
 
