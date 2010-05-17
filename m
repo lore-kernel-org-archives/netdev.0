@@ -1,120 +1,90 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: TCP-MD5 checksum failure on x86_64 SMP
-Date: Mon, 17 May 2010 10:22:48 -0700
-Message-ID: <20100517102248.1b80f354@nehalam>
-References: <1273085598.2367.233.camel@edumazet-laptop>
-	<i2y571fb4001005060455m39bed7f7if5fcfc45b12bc4d3@mail.gmail.com>
-	<1273147586.2357.63.camel@edumazet-laptop>
-	<20100506.220443.135536330.davem@davemloft.net>
-	<1273210329.2222.42.camel@edumazet-laptop>
-	<20100507101451.1b4286b7@nehalam>
-	<1273252893.2261.84.camel@edumazet-laptop>
-	<20100507103639.4f1a51fa@nehalam>
-	<1273268446.2325.53.camel@edumazet-laptop>
-	<D1C2B1EC-ABE8-4D87-9227-6D0F1C1C8B77@guavus.com>
-	<1273504693.2221.17.camel@edumazet-laptop>
-	<AAFABD0F-C66F-44C2-8BDC-FB489EA8655F@guavus.com>
-	<1273611036.2512.18.camel@edumazet-laptop>
-	<1274042939.2299.27.camel@edumazet-laptop>
-	<B58BD160-4613-4CE8-9899-70E2D028AE5B@guavus.com>
-	<1274072629.2299.58.camel@edumazet-laptop>
+Subject: Re: [PATCH BUGFIX ] ipv6: fix the bug of address check
+Date: Mon, 17 May 2010 10:31:34 -0700
+Message-ID: <20100517103134.06160257@nehalam>
+References: <4BF1354A.3060003@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Bijay Singh <Bijay.Singh@guavus.com>,
-	David Miller <davem@davemloft.net>,
-	"<bhaskie@gmail.com>" <bhaskie@gmail.com>,
-	"<bhutchings@solarflare.com>" <bhutchings@solarflare.com>,
-	netdev <netdev@vger.kernel.org>,
-	Ilpo =?ISO-8859-1?B?SuRydmluZW4=?= <ilpo.jarvinen@helsinki.fi>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Shan Wei <shanwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:50256 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:42235 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752678Ab0EQRW4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 May 2010 13:22:56 -0400
-In-Reply-To: <1274072629.2299.58.camel@edumazet-laptop>
+	id S1754244Ab0EQRbk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 May 2010 13:31:40 -0400
+In-Reply-To: <4BF1354A.3060003@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 17 May 2010 07:03:49 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Mon, 17 May 2010 20:23:38 +0800
+Shan Wei <shanwei@cn.fujitsu.com> wrote:
 
-> Le lundi 17 mai 2010 =E0 03:49 +0000, Bijay Singh a =E9crit :
->=20
-> > I am on quite an old kernel 2.6.27 and could not apply your patches=
-=2E
-> >=20
-> > Then i moved on to the kernel 2.6.32.11 however since then I have n=
-ot been able to bring up my card, this is something i need to fix befor=
-e i can test you fix. Working on that.
-> >=20
->=20
-> Thanks again for the status report.
->=20
-> I see bug is older than what I stated in my previous mail
->=20
-> I could reproduce it in my lab and confirm following patch fixes it
->=20
-> This is a stable candidate (2.6.27 kernels)
->=20
-> Thanks
->=20
-> [PATCH] tcp: tcp_synack_options() fix=20
->=20
-> Commit 33ad798c924b4a (tcp: options clean up) introduced a problem
-> if MD5+SACK+timestamps were used in initial SYN message.
->=20
-> Some stacks (old linux for example) try to negotiate MD5+SACK+TSTAMP
-> sessions, but since 20 bytes of tcp options space are not enough to
-> store all the bits needed, we chose to disable timestamps in this cas=
-e.
->=20
-> We send a SYN-ACK _without_ timestamp option, but socket has timestam=
-ps
-> enabled and all further outgoing messages contain a TS block, all wit=
-h
-> the initial timestamp of the remote peer.
->=20
-> Fix is to really disable timestamps option for the whole session.
->=20
-> Reported-by: Bijay Singh <Bijay.Singh@guavus.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> 
+> If there are several IPv6 addresses with same hash value in hashlist,
+> and they are all not matched with addr argument.
+> In this case, ipv6_chk_addr() should return 0.
+> 
+> This bug is introduced by commit c2e21293c054817c42eb5fa9c613d2ad51954136
+> (title: ipv6: convert addrconf list to hlist).
+> 
+> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
 > ---
->  net/ipv4/tcp_output.c |    5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 0dda86e..b8bb226 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -667,7 +667,7 @@ static unsigned tcp_synack_options(struct sock *s=
-k,
->  	u8 cookie_plus =3D (xvp !=3D NULL && !xvp->cookie_out_never) ?
->  			 xvp->cookie_plus :
->  			 0;
-> -	bool doing_ts =3D ireq->tstamp_ok;
-> +	bool doing_ts;
-> =20
->  #ifdef CONFIG_TCP_MD5SIG
->  	*md5 =3D tcp_rsk(req)->af_specific->md5_lookup(sk, req);
-> @@ -680,11 +680,12 @@ static unsigned tcp_synack_options(struct sock =
-*sk,
->  		 * rather than TS in order to fit in better with old,
->  		 * buggy kernels, but that was deemed to be unnecessary.
->  		 */
-> -		doing_ts &=3D !ireq->sack_ok;
-> +		ireq->tstamp_ok &=3D !ireq->sack_ok;
+>  net/ipv6/addrconf.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 3984f52..d8e5907 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -1291,7 +1291,7 @@ int ipv6_chk_addr(struct net *net, struct in6_addr *addr,
 >  	}
->  #else
->  	*md5 =3D NULL;
->  #endif
-> +	doing_ts =3D ireq->tstamp_ok;
-> =20
->  	/* We always send an MSS option. */
->  	opts->mss =3D mss;
->=20
->=20
+>  	rcu_read_unlock_bh();
+>  
+> -	return ifp != NULL;
+> +	return node != NULL;
+>  }
+>  EXPORT_SYMBOL(ipv6_chk_addr);
+>  
 
-Make this gets back to stable as well.
+Why not this instead. I don't like depending on the value of the
+loop variable in the hlist_for_each()
 
---=20
+--- a/net/ipv6/addrconf.c	2010-05-17 10:27:58.218628126 -0700
++++ b/net/ipv6/addrconf.c	2010-05-17 10:29:46.012198338 -0700
+@@ -1274,7 +1274,7 @@ static int ipv6_count_addresses(struct i
+ int ipv6_chk_addr(struct net *net, struct in6_addr *addr,
+ 		  struct net_device *dev, int strict)
+ {
+-	struct inet6_ifaddr *ifp = NULL;
++	struct inet6_ifaddr *ifp;
+ 	struct hlist_node *node;
+ 	unsigned int hash = ipv6_addr_hash(addr);
+ 
+@@ -1283,15 +1283,16 @@ int ipv6_chk_addr(struct net *net, struc
+ 		if (!net_eq(dev_net(ifp->idev->dev), net))
+ 			continue;
+ 		if (ipv6_addr_equal(&ifp->addr, addr) &&
+-		    !(ifp->flags&IFA_F_TENTATIVE)) {
+-			if (dev == NULL || ifp->idev->dev == dev ||
+-			    !(ifp->scope&(IFA_LINK|IFA_HOST) || strict))
+-				break;
++		    !(ifp->flags&IFA_F_TENTATIVE) &&
++		    (dev == NULL || ifp->idev->dev == dev ||
++		     !(ifp->scope&(IFA_LINK|IFA_HOST) || strict))) {
++			rcu_read_unlock_bh();
++			return 1;
+ 		}
+ 	}
+-	rcu_read_unlock_bh();
+ 
+-	return ifp != NULL;
++	rcu_read_unlock_bh();
++	return 0;
+ }
+ EXPORT_SYMBOL(ipv6_chk_addr);
+ 
+
+
+-- 
