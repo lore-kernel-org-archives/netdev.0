@@ -1,104 +1,113 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 6/7] qlcnic: remove unused register
-Date: Mon, 17 May 2010 04:22:13 -0700
-Message-ID: <1274095334-32362-7-git-send-email-amit.salecha@qlogic.com>
-References: <1274095334-32362-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:48303 "EHLO
-	dut4145.unminc.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754079Ab0EQKVw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 May 2010 06:21:52 -0400
-In-Reply-To: <1274095334-32362-1-git-send-email-amit.salecha@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH] Fix SJA1000 command register writes on SMP systems
+Date: Mon, 17 May 2010 13:06:09 +0200
+Message-ID: <4BF12321.6080506@hartkopp.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Removing register defines which are not used by Qlgoic CNA device.
+The SJA1000 command register is concurrently written in the rx-path to free
+the receive buffer _and_ in the tx-path to start the transmission.
+On SMP systems this leads to a write stall in the tx-path, which can be
+solved by adding some locking for the command register in the SMP case.
 
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Thanks to Klaus Hitschler for the original fix and detailed problem
+description.
+
+This patch applies on net-2.6 and (with some small offsets) on net-next-2.6.
+It is also a candidate for the stable series.
+
+Signed-off-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+
 ---
- drivers/net/qlcnic/qlcnic.h      |    2 --
- drivers/net/qlcnic/qlcnic_hdr.h  |   16 ----------------
- drivers/net/qlcnic/qlcnic_init.c |    2 --
- drivers/net/qlcnic/qlcnic_main.c |    1 -
- 4 files changed, 0 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index 2ed34cd..896d40d 100644
---- a/drivers/net/qlcnic/qlcnic.h
-+++ b/drivers/net/qlcnic/qlcnic.h
-@@ -149,8 +149,6 @@
- #define get_next_index(index, length)	\
- 	(((index) + 1) & ((length) - 1))
+diff --git a/drivers/net/can/sja1000/sja1000.c b/drivers/net/can/sja1000/sja1000.c
+index 145b1a7..2760085 100644
+--- a/drivers/net/can/sja1000/sja1000.c
++++ b/drivers/net/can/sja1000/sja1000.c
+@@ -84,6 +84,27 @@ static struct can_bittiming_const sja1000_bittiming_const = {
+ 	.brp_inc = 1,
+ };
  
--#define MPORT_MULTI_FUNCTION_MODE 0x2222
--
- /*
-  * Following data structures describe the descriptors that will be used.
-  * Added fileds of tcpHdrSize and ipHdrSize, The driver needs to do it only when
-diff --git a/drivers/net/qlcnic/qlcnic_hdr.h b/drivers/net/qlcnic/qlcnic_hdr.h
-index 1374078..ad9d167 100644
---- a/drivers/net/qlcnic/qlcnic_hdr.h
-+++ b/drivers/net/qlcnic/qlcnic_hdr.h
-@@ -563,32 +563,16 @@ enum {
- #define CRB_PF_LINK_SPEED_1		(QLCNIC_REG(0xe8))
- #define CRB_PF_LINK_SPEED_2		(QLCNIC_REG(0xec))
++static void sja1000_write_cmdreg(struct sja1000_priv *priv, u8 val)
++{
++	/* the command register needs some locking on SMP systems */
++
++#ifdef CONFIG_SMP
++
++	unsigned long flags;
++
++	spin_lock_irqsave(&priv->cmdreg_lock, flags);
++	priv->write_reg(priv, REG_CMR, val);
++	priv->read_reg(priv, REG_SR);
++	spin_unlock_irqrestore(&priv->cmdreg_lock, flags);
++
++#else
++
++	/* write to the command register without locking */
++	priv->write_reg(priv, REG_CMR, val);
++
++#endif
++}
++
+ static int sja1000_probe_chip(struct net_device *dev)
+ {
+ 	struct sja1000_priv *priv = netdev_priv(dev);
+@@ -297,7 +318,7 @@ static netdev_tx_t sja1000_start_xmit(struct sk_buff *skb,
  
--#define CRB_MPORT_MODE			(QLCNIC_REG(0xc4))
--#define CRB_DMA_SHIFT			(QLCNIC_REG(0xcc))
--
- #define CRB_TEMP_STATE			(QLCNIC_REG(0x1b4))
+ 	can_put_echo_skb(skb, dev, 0);
  
- #define CRB_V2P_0			(QLCNIC_REG(0x290))
- #define CRB_V2P(port)			(CRB_V2P_0+((port)*4))
- #define CRB_DRIVER_VERSION		(QLCNIC_REG(0x2a0))
+-	priv->write_reg(priv, REG_CMR, CMD_TR);
++	sja1000_write_cmdreg(priv, CMD_TR);
  
--#define CRB_SW_INT_MASK_0		(QLCNIC_REG(0x1d8))
--#define CRB_SW_INT_MASK_1		(QLCNIC_REG(0x1e0))
--#define CRB_SW_INT_MASK_2		(QLCNIC_REG(0x1e4))
--#define CRB_SW_INT_MASK_3		(QLCNIC_REG(0x1e8))
--
- #define CRB_FW_CAPABILITIES_1		(QLCNIC_CAM_RAM(0x128))
- #define CRB_MAC_BLOCK_START		(QLCNIC_CAM_RAM(0x1c0))
+ 	return NETDEV_TX_OK;
+ }
+@@ -346,7 +367,7 @@ static void sja1000_rx(struct net_device *dev)
+ 	cf->can_id = id;
  
- /*
-- * capabilities register, can be used to selectively enable/disable features
-- * for backward compability
-- */
--#define CRB_NIC_CAPABILITIES_HOST	QLCNIC_REG(0x1a8)
--
--#define INTR_SCHEME_PERPORT	      	0x1
--
--/*
-  * CrbPortPhanCntrHi/Lo is used to pass the address of HostPhantomIndex address
-  * which can be read by the Phantom host to get producer/consumer indexes from
-  * Phantom/Casper. If it is not HOST_SHARED_MEMORY, then the following
-diff --git a/drivers/net/qlcnic/qlcnic_init.c b/drivers/net/qlcnic/qlcnic_init.c
-index dccd8c3..71a4e66 100644
---- a/drivers/net/qlcnic/qlcnic_init.c
-+++ b/drivers/net/qlcnic/qlcnic_init.c
-@@ -1184,8 +1184,6 @@ int qlcnic_init_firmware(struct qlcnic_adapter *adapter)
- 	if (err)
- 		return err;
+ 	/* release receive buffer */
+-	priv->write_reg(priv, REG_CMR, CMD_RRB);
++	sja1000_write_cmdreg(priv, CMD_RRB);
  
--	QLCWR32(adapter, CRB_NIC_CAPABILITIES_HOST, INTR_SCHEME_PERPORT);
--	QLCWR32(adapter, CRB_MPORT_MODE, MPORT_MULTI_FUNCTION_MODE);
- 	QLCWR32(adapter, CRB_CMDPEG_STATE, PHAN_INITIALIZE_ACK);
+ 	netif_rx(skb);
  
- 	return err;
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index dde1e8a..f8bd1bd 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -606,7 +606,6 @@ qlcnic_start_firmware(struct qlcnic_adapter *adapter)
- 		msleep(1);
+@@ -374,7 +395,7 @@ static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
+ 		cf->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
+ 		stats->rx_over_errors++;
+ 		stats->rx_errors++;
+-		priv->write_reg(priv, REG_CMR, CMD_CDO);	/* clear bit */
++		sja1000_write_cmdreg(priv, CMD_CDO);	/* clear bit */
  	}
  
--	QLCWR32(adapter, CRB_DMA_SHIFT, 0x55555555);
- 	QLCWR32(adapter, QLCNIC_PEG_HALT_STATUS1, 0);
- 	QLCWR32(adapter, QLCNIC_PEG_HALT_STATUS2, 0);
+ 	if (isrc & IRQ_EI) {
+diff --git a/drivers/net/can/sja1000/sja1000.h b/drivers/net/can/sja1000/sja1000.h
+index 97a622b..4527d95 100644
+--- a/drivers/net/can/sja1000/sja1000.h
++++ b/drivers/net/can/sja1000/sja1000.h
+@@ -168,6 +168,10 @@ struct sja1000_priv {
+ 	void __iomem *reg_base;	 /* ioremap'ed address to registers */
+ 	unsigned long irq_flags; /* for request_irq() */
  
--- 
-1.5.6.1
-
++#ifdef CONFIG_SMP
++	spinlock_t cmdreg_lock; /* lock for concurrent cmd register writes */
++#endif
++
+ 	u16 flags;		/* custom mode flags */
+ 	u8 ocr;			/* output control register */
+ 	u8 cdr;			/* clock divider register */
