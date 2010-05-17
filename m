@@ -1,195 +1,129 @@
-From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v3 3/3] ptp: Added a clock that uses the eTSEC found on
-	the MPC85xx.
-Date: Mon, 17 May 2010 10:27:57 +0200
-Message-ID: <20100517082757.GA9703@riccoc20.at.omicron.at>
-References: <cover.1273855016.git.richard.cochran@omicron.at>
-	<ee6c3edca3ee6aa86565e59da999375f79c9de1b.1273855017.git.richard.cochran@omicron.at>
-	<4BED8C91.8020107@freescale.com>
+From: Andrew Hendry <andrew.hendry@gmail.com>
+Subject: [PATCH 1/4] X25: Move qbit flag to bitfield
+Date: Mon, 17 May 2010 18:59:41 +1000
+Message-ID: <1274086781.4104.52.camel@ibex>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-To: Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4BED8C91.8020107-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-px0-f174.google.com ([209.85.212.174]:46380 "EHLO
+	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753521Ab0EQI7s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 May 2010 04:59:48 -0400
+Received: by pxi5 with SMTP id 5so2420405pxi.19
+        for <netdev@vger.kernel.org>; Mon, 17 May 2010 01:59:48 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 14, 2010 at 12:46:57PM -0500, Scott Wood wrote:
-> On 05/14/2010 11:46 AM, Richard Cochran wrote:
-> >diff --git a/Documentation/powerpc/dts-bindings/fsl/tsec.txt b/Documentation/powerpc/dts-bindings/fsl/tsec.txt
-> 
-> Get rid of both device_type and model, and specify a compatible
-> string instead (e.g. "fsl,etsec-ptp").
+Moves the X25 q bit flag from char into a bitfield to allow BKL cleanup.
 
-Okay, will do. I really am at a loss at understanding all the rules in
-the whole device tree world. I just tried to follow
-Documentation/powerpc and what is already present in the kernel.
+Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
 
-> Or perhaps this should just be some additional properties on the
-> existing gianfar nodes, rather than presenting it as a separate
-> device?  How do you associate a given ptp block with the
-> corresponding gianfar node?
+---
+ include/net/x25.h |    6 +++++-
+ net/x25/af_x25.c  |   17 ++++++++++-------
+ 2 files changed, 15 insertions(+), 8 deletions(-)
 
-There only one PTP clock. Its registers repeat in each port's memory
-space, but you are only supposed to touch the first set of PTP
-registers. If you consider how PTP works, there can never be per port
-clocks, since this would make it impossible to make a boundary clock,
-for example.
+diff --git a/include/net/x25.h b/include/net/x25.h
+index 468551e..7b5795e 100644
+--- a/include/net/x25.h
++++ b/include/net/x25.h
+@@ -113,6 +113,9 @@ enum {
+ #define X25_MAX_AE_LEN 		40			/* Max num of semi-octets in AE - OSI Nw */
+ #define X25_MAX_DTE_FACIL_LEN	21			/* Max length of DTE facility params */
+ 
++/* Bitset in x25_sock->flags for misc flags */
++#define X25_Q_BIT_FLAG		0
++
+ /**
+  *	struct x25_route - x25 routing entry
+  *	@node - entry in x25_list_lock
+@@ -146,10 +149,11 @@ struct x25_sock {
+ 	struct x25_address	source_addr, dest_addr;
+ 	struct x25_neigh	*neighbour;
+ 	unsigned int		lci, cudmatchlength;
+-	unsigned char		state, condition, qbitincl, intflag, accptapprv;
++	unsigned char		state, condition, intflag, accptapprv;
+ 	unsigned short		vs, vr, va, vl;
+ 	unsigned long		t2, t21, t22, t23;
+ 	unsigned short		fraglen;
++	unsigned long		flags;
+ 	struct sk_buff_head	ack_queue;
+ 	struct sk_buff_head	fragment_queue;
+ 	struct sk_buff_head	interrupt_in_queue;
+diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+index 296e65e..720534c 100644
+--- a/net/x25/af_x25.c
++++ b/net/x25/af_x25.c
+@@ -465,7 +465,10 @@ static int x25_setsockopt(struct socket *sock, int level, int optname,
+ 	if (get_user(opt, (int __user *)optval))
+ 		goto out;
+ 
+-	x25_sk(sk)->qbitincl = !!opt;
++	if (opt)
++		set_bit(X25_Q_BIT_FLAG, &x25_sk(sk)->flags);
++	else
++		clear_bit(X25_Q_BIT_FLAG, &x25_sk(sk)->flags);
+ 	rc = 0;
+ out:
+ 	unlock_kernel();
+@@ -496,7 +499,7 @@ static int x25_getsockopt(struct socket *sock, int level, int optname,
+ 	if (put_user(len, optlen))
+ 		goto out;
+ 
+-	val = x25_sk(sk)->qbitincl;
++	val = test_bit(X25_Q_BIT_FLAG, &x25_sk(sk)->flags);
+ 	rc = copy_to_user(optval, &val, len) ? -EFAULT : 0;
+ out:
+ 	unlock_kernel();
+@@ -632,8 +635,8 @@ static struct sock *x25_make_new(struct sock *osk)
+ 	x25->t22        = ox25->t22;
+ 	x25->t23        = ox25->t23;
+ 	x25->t2         = ox25->t2;
++	x25->flags	= ox25->flags;
+ 	x25->facilities = ox25->facilities;
+-	x25->qbitincl   = ox25->qbitincl;
+ 	x25->dte_facilities = ox25->dte_facilities;
+ 	x25->cudmatchlength = ox25->cudmatchlength;
+ 	x25->accptapprv = ox25->accptapprv;
+@@ -1186,7 +1189,7 @@ static int x25_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 	 *	If the Q BIT Include socket option is in force, the first
+ 	 *	byte of the user data is the logical value of the Q Bit.
+ 	 */
+-	if (x25->qbitincl) {
++	if (test_bit(X25_Q_BIT_FLAG, &x25->flags)) {
+ 		qbit = skb->data[0];
+ 		skb_pull(skb, 1);
+ 	}
+@@ -1242,7 +1245,7 @@ static int x25_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 		len = rc;
+ 		if (rc < 0)
+ 			kfree_skb(skb);
+-		else if (x25->qbitincl)
++		else if (test_bit(X25_Q_BIT_FLAG, &x25->flags))
+ 			len++;
+ 	}
+ 
+@@ -1307,7 +1310,7 @@ static int x25_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 		/*
+ 		 *	No Q bit information on Interrupt data.
+ 		 */
+-		if (x25->qbitincl) {
++		if (test_bit(X25_Q_BIT_FLAG, &x25->flags)) {
+ 			asmptr  = skb_push(skb, 1);
+ 			*asmptr = 0x00;
+ 		}
+@@ -1325,7 +1328,7 @@ static int x25_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 		skb_pull(skb, x25->neighbour->extended ?
+ 				X25_EXT_MIN_LEN : X25_STD_MIN_LEN);
+ 
+-		if (x25->qbitincl) {
++		if (test_bit(X25_Q_BIT_FLAG, &x25->flags)) {
+ 			asmptr  = skb_push(skb, 1);
+ 			*asmptr = qbit;
+ 		}
+-- 
+1.5.6.5
 
-The whole idea of this PTP clock framework is to keep the clock
-drivers separate from the MAC drivers, even when they use the same
-hardware. The functionality is logically divided into two parts. The
-MAC provides time stamps, and the clock provides a way to control its
-offset and frequency.
 
-Up until this point, people have simply hacked new private ioctls into
-the driver for each MAC that supports PTP. That is not a good long
-term solution for PTP support in Linux.
-
-In general, I think it will not be hard to keep the MAC and the clock
-drivers from stepping on each other's toes. The eTSEC hardware is
-certainly able to be used in this way.
-
-> If there are differences in ptp implementation between different
-> versions of etsec, can the ptp driver see the etsec version
-> register?
-
-There are no differences (that I know of) in how the PTP clocks
-work. I have in house the mpc8313, the mpc8572, and the p2020. The
-mpc8572 appears to lack some of the TMR_CTRL bits, but this is
-probably a documentation bug. I will check it.
-
-> >+  - tclk_period  Timer reference clock period in nanoseconds.
-> >+  - tmr_prsc     Prescaler, divides the output clock.
-> >+  - tmr_add      Frequency compensation value.
-> >+  - cksel        0= external clock, 1= eTSEC system clock, 3= RTC clock input.
-> >+                 Currently the driver only supports choice "1".
-> >+  - tmr_fiper1   Fixed interval period pulse generator.
-> >+  - tmr_fiper2   Fixed interval period pulse generator.
-> 
-> Dashes are more typical in OF names than underscores, and it's
-> generally better to be a little more verbose -- these aren't local
-> loop iterators.
-
-The names come from the register mnemonics from the documentation. I
-prefer to use the same names as is found in the manuals. That way, a
-person working with docu in hand will have an easier job.
-
-> They should probably have an "fsl,ptp-" prefix as well.
-
-Okay, but must I then change the following code in order to find them?
-Does adding the prefix just mean that I also add it to my search
-strings, or is it preprocessed (stripped) somehow?
-
-static int get_of_u32(struct device_node *node, char *str, u32 *val)
-{
-	int plen;
-	const u32 *prop = of_get_property(node, str, &plen);
-
-	if (!prop || plen != sizeof(*prop))
-	   return -1;
-	   *val = *prop;
-	   return 0;
-}
-...
-	if (get_of_u32(node, "tclk_period",&etsects->tclk_period) ||
-	    get_of_u32(node, "tmr_prsc",&etsects->tmr_prsc) ||
-	    get_of_u32(node, "tmr_add",&etsects->tmr_add) ||
-	    get_of_u32(node, "cksel",&etsects->cksel) ||
-	    get_of_u32(node, "tmr_fiper1",&etsects->tmr_fiper1) ||
-	    get_of_u32(node, "tmr_fiper2",&etsects->tmr_fiper2))
-		return -ENODEV;
-
-> >+  These properties set the operational parameters for the PTP
-> >+  clock. You must choose these carefully for the clock to work right.
-> 
-> Do these values describe the way the hardware is, or how it's been
-> configured by firmware, or a set of values that are clearly optimal
-> for this particular board?  If it's just configuration for the Linux
-> driver, that could reasonably differ based on what a given user or
-> OS will want, the device tree probably isn't the right place for it.
-
-The values are related to the board. One important parameter is the
-input clock, and the rest reflect some engineering decisions/tradeoffs
-related to the signals to and from the PTP clock. There is not just
-one "optimal" choice, so I wanted to let the designer set the
-values. In any case, the parameters are definitely related to the
-board (not to the cpu or to linux), so I think the device tree is the
-right place for them.
-
-> This one has 3 interrupts?  The driver supports only two.
-
-The documentation does not specify the IRQ line that each event
-belongs to. After some trial and error, it appears that all of the
-ancillary clock interrupts arrive on the first interrupt. The other
-lines (one per port) must be for the Tx/Rx packet time stamp
-indication, but we don't need these for the clock or for the MAC.
-
-I'll just reduce the driver to one interrupt.
-
-> >+/* Private globals */
-> >+static struct ptp_clock *gianfar_clock;
-> 
-> Do you not support more than one of these?
-> 
-> >+static struct etsects the_clock;
-> 
-> "The" clock?  As oppsed to the "other" clock one line above? :-)
-
-The 'gianfar_clock' variable holds the returned instance from the
-class driver, while 'the_clock' is the driver's private data (and
-there can only be one driver).
-
-I'll combine these into one struct to make it more clear and less
-funny sounding.
-
-> >+	return IRQ_HANDLED;
-> 
-> Should only return IRQ_HANDLED if you found an event.
-
-Okay.
-
-> >+	if (get_of_u32(node, "tclk_period",&etsects->tclk_period) ||
-> >+	    get_of_u32(node, "tmr_prsc",&etsects->tmr_prsc) ||
-> >+	    get_of_u32(node, "tmr_add",&etsects->tmr_add) ||
-> >+	    get_of_u32(node, "cksel",&etsects->cksel) ||
-> >+	    get_of_u32(node, "tmr_fiper1",&etsects->tmr_fiper1) ||
-> >+	    get_of_u32(node, "tmr_fiper2",&etsects->tmr_fiper2))
-> >+		return -ENODEV;
-> 
-> Might want to print an error so the user knows what's missing.
-
-Okay.
-
-> You've got two IRQs, with the same handler, and the same dev_id?
-> From the manual it looks like there's one PTP interrupt per eTSEC
-> (which would explain 3 interrupts on p2020).
-
-Will reduce to just one IRQ.
-
-> >+static struct of_device_id match_table[] = {
-> >+	{ .type = "ptp_clock" },
-> >+	{},
-> >+};
-> 
-> This driver controls every possible PTP implementation?
-
-No, I only want to match with the eTSEC clock device. Given the
-compatible string above ("fsl,etsec-ptp"), what is the correct way to
-do this? (pointer to an existing driver to emulate would be enough)
-
-Thanks for your help,
-
-Richard
