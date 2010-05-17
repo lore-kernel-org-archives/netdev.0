@@ -1,155 +1,130 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6] can: sja1000 platform data fixes
-Date: Mon, 17 May 2010 16:42:23 +0200
-Message-ID: <4BF155CF.3030905@pengutronix.de>
-References: <4BF151D2.5030906@grandegger.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH net-next-2.6] bonding: move slave MTU handling from sysfs
+Date: Mon, 17 May 2010 16:47:31 +0200
+Message-ID: <20100517144731.GE2878@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============8492958907316124050=="
-Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4BF151D2.5030906-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============8492958907316124050==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig7CAD8E397604D657676E6483"
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig7CAD8E397604D657676E6483
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-Wolfgang Grandegger wrote:
-> The member "clock" of struct "sja1000_platform_data" is documented as
-> "CAN bus oscillator frequency in Hz" but it's actually used as the CAN
-> clock frequency, which is half of it. To avoid further confusion, this
-> patch fixes it by renaming the member to "osc_freq". That way, also
-> non mainline users will notice the change. The platform code for the
-> relevant boards is updated accordingly. Furthermore, pre-defined
-> values are now used for the members "ocr" and "cdr".
->=20
-> Signed-off-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-> CC: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-
-Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-
-Cheers, Marc
->=20
-> diff --git a/arch/arm/mach-mx2/pcm970-baseboard.c b/arch/arm/mach-mx2/p=
-cm970-baseboard.c
-> index 4aafd5b..f490a40 100644
-> --- a/arch/arm/mach-mx2/pcm970-baseboard.c
-> +++ b/arch/arm/mach-mx2/pcm970-baseboard.c
-> @@ -201,9 +201,9 @@ static struct resource pcm970_sja1000_resources[] =3D=
- {
->  };
-> =20
->  struct sja1000_platform_data pcm970_sja1000_platform_data =3D {
-> -	.clock		=3D 16000000 / 2,
-> -	.ocr		=3D 0x40 | 0x18,
-> -	.cdr		=3D 0x40,
-> +	.osc_freq	=3D 16000000,
-> +	.ocr		=3D OCR_TX1_PULLDOWN | OCR_TX0_PUSHPULL,
-> +	.cdr		=3D CDR_CBP,
->  };
-> =20
->  static struct platform_device pcm970_sja1000 =3D {
-> diff --git a/arch/arm/mach-mx3/mach-pcm037.c b/arch/arm/mach-mx3/mach-p=
-cm037.c
-> index 2df1ec5..78ecd75 100644
-> --- a/arch/arm/mach-mx3/mach-pcm037.c
-> +++ b/arch/arm/mach-mx3/mach-pcm037.c
-> @@ -530,9 +530,9 @@ static struct resource pcm970_sja1000_resources[] =3D=
- {
->  };
-> =20
->  struct sja1000_platform_data pcm970_sja1000_platform_data =3D {
-> -	.clock		=3D 16000000 / 2,
-> -	.ocr		=3D 0x40 | 0x18,
-> -	.cdr		=3D 0x40,
-> +	.osc_freq	=3D 16000000,
-> +	.ocr		=3D OCR_TX1_PULLDOWN | OCR_TX0_PUSHPULL,
-> +	.cdr		=3D CDR_CBP,
->  };
-> =20
->  static struct platform_device pcm970_sja1000 =3D {
-> diff --git a/drivers/net/can/sja1000/sja1000_platform.c b/drivers/net/c=
-an/sja1000/sja1000_platform.c
-> index b65cabb..d9fadc4 100644
-> --- a/drivers/net/can/sja1000/sja1000_platform.c
-> +++ b/drivers/net/can/sja1000/sja1000_platform.c
-> @@ -111,7 +111,8 @@ static int sp_probe(struct platform_device *pdev)
->  	dev->irq =3D res_irq->start;
->  	priv->irq_flags =3D res_irq->flags & (IRQF_TRIGGER_MASK | IRQF_SHARED=
-);
->  	priv->reg_base =3D addr;
-> -	priv->can.clock.freq =3D pdata->clock;
-> +	/* The CAN clock frequency is half the oscillator clock frequency */
-> +	priv->can.clock.freq =3D pdata->osc_freq / 2;
->  	priv->ocr =3D pdata->ocr;
->  	priv->cdr =3D pdata->cdr;
-> =20
-> diff --git a/include/linux/can/platform/sja1000.h b/include/linux/can/p=
-latform/sja1000.h
-> index 01ee2ae..96f8fcc 100644
-> --- a/include/linux/can/platform/sja1000.h
-> +++ b/include/linux/can/platform/sja1000.h
-> @@ -26,7 +26,7 @@
->  #define OCR_TX_SHIFT      2
-> =20
->  struct sja1000_platform_data {
-> -	u32 clock;	/* CAN bus oscillator frequency in Hz */
-> +	u32 osc_freq;	/* CAN bus oscillator frequency in Hz */
-> =20
->  	u8 ocr;		/* output control register */
->  	u8 cdr;		/* clock divider register */
-
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig7CAD8E397604D657676E6483
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
-
-iEYEARECAAYFAkvxVdMACgkQjTAFq1RaXHOvZACfVtRXCG9jM74av7YePxSQzA3F
-8d8Anjvieo32Y7sqM0FCHGkkl/QY1k8R
-=AzIt
------END PGP SIGNATURE-----
-
---------------enig7CAD8E397604D657676E6483--
-
---===============8492958907316124050==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net, monis@voltaire.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:24262 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752338Ab0EQOr4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 May 2010 10:47:56 -0400
 Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
+For some reason, MTU handling (storing, and restoring) is taking  place in
+bond_sysfs. The correct place for this code is in bond_enslave, bond_release.
+So move it there.
 
---===============8492958907316124050==--
+Jirka
+
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 5e12462..2c3f9db 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1533,6 +1533,14 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	 */
+ 	new_slave->original_flags = slave_dev->flags;
+ 
++	/* Save slave's original mtu and then set it to match the bond */
++	new_slave->original_mtu = slave_dev->mtu;
++	res = dev_set_mtu(slave_dev, bond->dev->mtu);
++	if (res) {
++		pr_debug("Error %d calling dev_set_mtu\n", res);
++		goto err_free;
++	}
++
+ 	/*
+ 	 * Save slave's original ("permanent") mac address for modes
+ 	 * that need it, and for restoring it upon release, and then
+@@ -1550,7 +1558,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		res = dev_set_mac_address(slave_dev, &addr);
+ 		if (res) {
+ 			pr_debug("Error %d calling set_mac_address\n", res);
+-			goto err_free;
++			goto err_restore_mtu;
+ 		}
+ 	}
+ 
+@@ -1785,6 +1793,9 @@ err_restore_mac:
+ 		dev_set_mac_address(slave_dev, &addr);
+ 	}
+ 
++err_restore_mtu:
++	dev_set_mtu(slave_dev, new_slave->original_mtu);
++
+ err_free:
+ 	kfree(new_slave);
+ 
+@@ -1969,6 +1980,8 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		dev_set_mac_address(slave_dev, &addr);
+ 	}
+ 
++	dev_set_mtu(slave_dev, slave->original_mtu);
++
+ 	slave_dev->priv_flags &= ~(IFF_MASTER_8023AD | IFF_MASTER_ALB |
+ 				   IFF_SLAVE_INACTIVE | IFF_BONDING |
+ 				   IFF_SLAVE_NEEDARP);
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 392e291..4e84cfc 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -220,7 +220,6 @@ static ssize_t bonding_store_slaves(struct device *d,
+ 	char command[IFNAMSIZ + 1] = { 0, };
+ 	char *ifname;
+ 	int i, res, ret = count;
+-	u32 original_mtu;
+ 	struct slave *slave;
+ 	struct net_device *dev = NULL;
+ 	struct bonding *bond = to_bond(d);
+@@ -281,43 +280,22 @@ static ssize_t bonding_store_slaves(struct device *d,
+ 			memcpy(bond->dev->dev_addr, dev->dev_addr,
+ 			       dev->addr_len);
+ 
+-		/* Set the slave's MTU to match the bond */
+-		original_mtu = dev->mtu;
+-		res = dev_set_mtu(dev, bond->dev->mtu);
+-		if (res) {
+-			ret = res;
+-			goto out;
+-		}
+-
+ 		res = bond_enslave(bond->dev, dev);
+-		bond_for_each_slave(bond, slave, i)
+-			if (strnicmp(slave->dev->name, ifname, IFNAMSIZ) == 0)
+-				slave->original_mtu = original_mtu;
+-		if (res)
+-			ret = res;
+ 
+ 		goto out;
+ 	}
+ 
+ 	if (command[0] == '-') {
+ 		dev = NULL;
+-		original_mtu = 0;
+ 		bond_for_each_slave(bond, slave, i)
+ 			if (strnicmp(slave->dev->name, ifname, IFNAMSIZ) == 0) {
+ 				dev = slave->dev;
+-				original_mtu = slave->original_mtu;
+ 				break;
+ 			}
+ 		if (dev) {
+ 			pr_info("%s: Removing slave %s\n",
+ 				bond->dev->name, dev->name);
+-				res = bond_release(bond->dev, dev);
+-			if (res) {
+-				ret = res;
+-				goto out;
+-			}
+-			/* set the slave MTU to the default */
+-			dev_set_mtu(dev, original_mtu);
++			res = bond_release(bond->dev, dev);
+ 		} else {
+ 			pr_err("unable to remove non-existent slave %s for bond %s.\n",
+ 			       ifname, bond->dev->name);
