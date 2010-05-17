@@ -1,35 +1,46 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH v3 3/3] ptp: Added a clock that uses the eTSEC found on
- the MPC85xx.
-Date: Mon, 17 May 2010 17:41:44 +0200
-Message-ID: <4BF163B8.9070509@grandegger.com>
-References: <cover.1273855016.git.richard.cochran@omicron.at> <ee6c3edca3ee6aa86565e59da999375f79c9de1b.1273855017.git.richard.cochran@omicron.at>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] rtnetlink: make SR-IOV VF interface symmetric
+Date: Mon, 17 May 2010 08:59:36 -0700
+Message-ID: <20100517085936.39016980@nehalam>
+References: <20100515031416.GE15313@sequoia.sous-sol.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	devicetree-discuss@lists.ozlabs.org
-To: Richard Cochran <richardcochran@gmail.com>
+Cc: davem@davemloft.net, kaber@trash.net, mitch.a.williams@intel.com,
+	arnd@arndb.de, scofeldm@cisco.com, netdev@vger.kernel.org
+To: Chris Wright <chrisw@sous-sol.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.10]:32832 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752936Ab0EQPmJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 May 2010 11:42:09 -0400
-In-Reply-To: <ee6c3edca3ee6aa86565e59da999375f79c9de1b.1273855017.git.richard.cochran@omicron.at>
+Received: from mail.vyatta.com ([76.74.103.46]:43668 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751893Ab0EQP7n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 May 2010 11:59:43 -0400
+In-Reply-To: <20100515031416.GE15313@sequoia.sous-sol.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/14/2010 06:46 PM, Richard Cochran wrote:
-> The eTSEC includes a PTP clock with quite a few features. This patch adds
-> support for the basic clock adjustment functions, plus two external time
-> stamps and one alarm.
+On Fri, 14 May 2010 20:14:16 -0700
+Chris Wright <chrisw@sous-sol.org> wrote:
+
+> Now we have a set of nested attributes:
 > 
-> Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
+>   IFLA_VFINFO_LIST (NESTED)
+>     IFLA_VF_INFO (NESTED)
+>       IFLA_VF_MAC
+>       IFLA_VF_VLAN
+>       IFLA_VF_TX_RATE
+> 
+> This allows a single set to operate on multiple attributes if desired.
+> Among other things, it means a dump can be replayed to set state.
+> 
+> The current interface has yet to be released, so this seems like
+> something to consider for 2.6.34.
+> 
+> Signed-off-by: Chris Wright <chrisw@sous-sol.org
+> ---
 
-Tested-by: Wolfgang Grandegger <wg@denx.de>
+iproute2 update please?
 
-on my Freescale MPC8313 setup with ptpd and ptpv2d.
+Also I would really like documentation on this.
 
-FYI: checkplatch.pl reports various errors for this patch series.
 
-Wolfgang.
+-- 
