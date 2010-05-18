@@ -1,54 +1,65 @@
-From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v3 3/3] ptp: Added a clock that uses the eTSEC found on
-	the MPC85xx.
-Date: Tue, 18 May 2010 08:36:08 +0200
-Message-ID: <20100518063608.GA2720@riccoc20.at.omicron.at>
-References: <cover.1273855016.git.richard.cochran@omicron.at>
-	<ee6c3edca3ee6aa86565e59da999375f79c9de1b.1273855017.git.richard.cochran@omicron.at>
-	<4BED8C91.8020107@freescale.com>
-	<20100517082757.GA9703@riccoc20.at.omicron.at>
-	<4BF18582.6000500@freescale.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] tcp: tcp_md5_hash_skb_data() frag_list handling
+Date: Tue, 18 May 2010 08:40:51 +0200
+Message-ID: <1274164851.2567.39.camel@edumazet-laptop>
+References: <20100517.231403.148532542.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-To: Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4BF18582.6000500-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f46.google.com ([74.125.82.46]:34467 "EHLO
+	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755285Ab0ERGky (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 02:40:54 -0400
+Received: by wwi17 with SMTP id 17so230377wwi.19
+        for <netdev@vger.kernel.org>; Mon, 17 May 2010 23:40:52 -0700 (PDT)
+In-Reply-To: <20100517.231403.148532542.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 17, 2010 at 01:05:54PM -0500, Scott Wood wrote:
-> >>> >+  - tmr_fiper1   Fixed interval period pulse generator.
-> >>> >+  - tmr_fiper2   Fixed interval period pulse generator.
-> >>
-> 
-> MPC8572 and P2020 have fiper3 as well.
+Le lundi 17 mai 2010 =C3=A0 23:14 -0700, David Miller a =C3=A9crit :
+> Eric, would you please formally submit that tcp md5 fraglist
+> fix to net/ipv4/tcp.c with proper signoffs?
 
-I doubt they really have a third fiper.
+Here it is, thanks !
 
-First of all, this signal is not routed anywhere on the boards. Also,
-according to the documentation, it has no bit in the TMR_CTRL or the
-TMR_TEMASK registers. Unless there is a bit in TMR_TEMASK, you cannot
-get an interrupt from it.
 
-If you cannot use the signal externally (in the "real" world) and you
-cannot get an interrupt, what good is it to have such a periodic
-signal? Polling the bit in the TMR_TEVENT to see when a pulse occurs
-seems pointless.
+[PATCH] tcp: tcp_md5_hash_skb_data() frag_list handling
 
-Scott, you have connections, right? Can you clarify this for me?
+tcp_md5_hash_skb_data() should handle skb->frag_list, and eventually
+recurse.
 
-Thanks,
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/tcp.c |    5 +++++
+ 1 file changed, 5 insertions(+)
 
-Richard
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 6596b4f..49d0d2b 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2999,6 +2999,7 @@ int tcp_md5_hash_skb_data(struct tcp_md5sig_pool =
+*hp,
+ 	const unsigned head_data_len =3D skb_headlen(skb) > header_len ?
+ 				       skb_headlen(skb) - header_len : 0;
+ 	const struct skb_shared_info *shi =3D skb_shinfo(skb);
++	struct sk_buff *frag_iter;
+=20
+ 	sg_init_table(&sg, 1);
+=20
+@@ -3013,6 +3014,10 @@ int tcp_md5_hash_skb_data(struct tcp_md5sig_pool=
+ *hp,
+ 			return 1;
+ 	}
+=20
++	skb_walk_frags(skb, frag_iter)
++		if (tcp_md5_hash_skb_data(hp, frag_iter, 0))
++			return 1;
++
+ 	return 0;
+ }
+=20
+
+
