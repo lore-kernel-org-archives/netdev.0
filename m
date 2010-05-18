@@ -1,64 +1,42 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] virtio: put last seen used index into ring itself
-Date: Tue, 18 May 2010 13:25:45 +0300
-Message-ID: <20100518102545.GA26338@redhat.com>
-References: <20100518004744.GA21359@redhat.com> <4BF26B87.3080902@redhat.com>
+From: "Roedel, Joerg" <Joerg.Roedel@amd.com>
+Subject: Re: Kernel crash with sky2
+Date: Tue, 18 May 2010 13:01:28 +0200
+Message-ID: <20100518110128.GK9007@amd.com>
+References: <20100517185228.GG9007@amd.com>
+ <20100517122236.7f33101f@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	Jiri Pirko <jpirko@redhat.com>, Shirley Ma <xma@us.ibm.com>,
-	Amit Shah <amit.shah@redhat.com>,
-	Mark McLoughlin <markmc@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, quintela@redhat.com,
-	alex.williamson@redhat.com
-To: Jes Sorensen <Jes.Sorensen@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14866 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757152Ab0ERKaB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 May 2010 06:30:01 -0400
+Received: from va3ehsobe003.messaging.microsoft.com ([216.32.180.13]:50763
+	"EHLO VA3EHSOBE003.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750895Ab0ERLBk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 07:01:40 -0400
 Content-Disposition: inline
-In-Reply-To: <4BF26B87.3080902@redhat.com>
+In-Reply-To: <20100517122236.7f33101f@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 18, 2010 at 12:27:19PM +0200, Jes Sorensen wrote:
-> On 05/18/10 02:47, Michael S. Tsirkin wrote:
-> > Generally, the Host end of the virtio ring doesn't need to see where
-> > Guest is up to in consuming the ring.  However, to completely understand
-> > what's going on from the outside, this information must be exposed.
-> > For example, host can reduce the number of interrupts by detecting
-> > that the guest is currently handling previous buffers.
-> > 
-> > Fortunately, we have room to expand: the ring is always a whole number
-> > of pages and there's hundreds of bytes of padding after the avail ring
-> > and the used ring, whatever the number of descriptors (which must be a
-> > power of 2).
-> 
-> Hi Michael,
-> 
-> Small build fix for this against Linus upstream.
-> 
-> Jes
-> 
-> 
-> Fix build of virtio_net.c
-> 
-> Signed-off-by: Jes.Sorensen@redhat.com
+Hi Stephen,
 
-Thanks, this is already fixed in v2 that I sent.
-
-> ---
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index d37e5be..679e2df 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -23,6 +23,7 @@
->  #include <linux/module.h>
->  #include <linux/virtio.h>
->  #include <linux/virtio_net.h>
-> +#include <linux/virtio_ring.h>
->  #include <linux/scatterlist.h>
->  #include <linux/if_vlan.h>
->  #include <linux/slab.h>
+On Mon, May 17, 2010 at 03:22:36PM -0400, Stephen Hemminger wrote:
+> On Mon, 17 May 2010 20:52:28 +0200
+> Joerg Roedel <joerg.roedel@amd.com> wrote:
+> > I experience the following crash with 2.6.34 in the sky2 code on my
+> > laptop when I plug off the lan-cable and then plug-off the power cable
+> > and switching to battery. It does not happen with acpi=off.
 > 
+> So you have a busted BIOS that powers off the device.
+
+Yeah you are right, its a BIOS issue. I tried to find out how the OS is
+informed about the device taken away. But none of the hotplug
+drivers or enabling acpi debug showed anything here. I wonder how this
+is done in the "other" operating system. Or how the device could be
+re-enabled, plugging the wires back doesn't help. Very weird.
+Anyway, I found a BIOS option to disable this behavior and now things
+work unpatched. Thanks for your help.
+
+	Joerg
+
+
