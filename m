@@ -1,114 +1,109 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: avoid one atomic op per cloned skb
-Date: Tue, 18 May 2010 20:58:44 +0200
-Message-ID: <1274209124.8274.41.camel@edumazet-laptop>
-References: <1274190047.8274.1.camel@edumazet-laptop>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH v3] Fix SJA1000 command register writes on SMP systems
+Date: Tue, 18 May 2010 21:05:54 +0200
+Message-ID: <4BF2E512.1090109@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:35567 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756669Ab0ERS6t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 14:58:49 -0400
-Received: by fxm10 with SMTP id 10so1485332fxm.19
-        for <netdev@vger.kernel.org>; Tue, 18 May 2010 11:58:47 -0700 (PDT)
-In-Reply-To: <1274190047.8274.1.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 18 mai 2010 =C3=A0 15:40 +0200, Eric Dumazet a =C3=A9crit :
-> Hi David
->=20
-> I know you said 'only patches', but I found following patch small
-> enough ?
->=20
+The SJA1000 command register is concurrently written in the rx-path to free
+the receive buffer _and_ in the tx-path to start the transmission.
 
-> Thanks
->=20
-> [PATCH] net: avoid one atomic op per cloned skb
->=20
-> skb_clone() can use atomic_set(clone_ref, 2) safely, because only
-> current thread can possibly touch clone_ref at this point.
->   =20
-> Add a WARN_ON_ONCE() for a while, to catch wrong assumptions.
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
->  net/core/skbuff.c |    3 ++-
->  1 files changed, 2 insertions(+), 1 deletion(-)
->=20
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index c543dd2..4444f15 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -628,7 +628,8 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gf=
-p_t gfp_mask)
->  	    n->fclone =3D=3D SKB_FCLONE_UNAVAILABLE) {
->  		atomic_t *fclone_ref =3D (atomic_t *) (n + 1);
->  		n->fclone =3D SKB_FCLONE_CLONE;
-> -		atomic_inc(fclone_ref);
-> +		WARN_ON_ONCE(atomic_read(fclone_ref) !=3D 1);
-> +		atomic_set(fclone_ref, 2);
->  	} else {
->  		n =3D kmem_cache_alloc(skbuff_head_cache, gfp_mask);
->  		if (!n)
->=20
->=20
+The SJA1000 data sheet, 6.4.4 COMMAND REGISTER (CMR) states:
+"Between two commands at least one internal clock cycle is needed in
+order to proceed. The internal clock is half of the external oscillator
+frequency."
 
-Oops, it needs more thinking, definitely not a 2.6.35 thing...
+On SMP systems the current implementation leads to a write stall in the
+tx-path, which can be solved by adding some general locking and some time
+to settle the write_reg() operation for the command register.
 
-There would be a race between skb_clone() and kfree_skbmem()
+Thanks to Klaus Hitschler for the original fix and detailed problem
+description.
 
-kfree_skbmem() must perform the atomic_dec_and_test() before setting
-skb->fclone to SKB_FCLONE_UNAVAILABLE.
+This patch applies on net-2.6 and (with some offsets) on net-next-2.6 .
 
-Doing so avoids dirtying skb->fclone right before kmem_cache_free()...
+Signed-off-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 
-
-V2 would be :
-
-[RFC v2] net: avoid one atomic op per cloned skb
-
-skb_clone() can use atomic_set(clone_ref, 2) safely, because only
-current thread can possibly touch clone_ref at this point.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index c543dd2..77d5a6b 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -370,13 +370,13 @@ static void kfree_skbmem(struct sk_buff *skb)
- 		fclone_ref =3D (atomic_t *) (skb + 1);
- 		other =3D skb - 1;
-=20
--		/* The clone portion is available for
--		 * fast-cloning again.
--		 */
--		skb->fclone =3D SKB_FCLONE_UNAVAILABLE;
--
- 		if (atomic_dec_and_test(fclone_ref))
- 			kmem_cache_free(skbuff_fclone_cache, other);
-+		else
-+			/* The clone portion is available for fast-cloning.=20
-+			 * Note this must be done after the fclone_ref change.
-+			 */
-+			skb->fclone =3D SKB_FCLONE_UNAVAILABLE;
- 		break;
- 	}
+
+diff --git a/drivers/net/can/sja1000/sja1000.c b/drivers/net/can/sja1000/sja1000.c
+index 145b1a7..dd70d0c 100644
+--- a/drivers/net/can/sja1000/sja1000.c
++++ b/drivers/net/can/sja1000/sja1000.c
+@@ -84,6 +84,20 @@ static struct can_bittiming_const sja1000_bittiming_const = {
+ 	.brp_inc = 1,
+ };
+ 
++static void sja1000_write_cmdreg(struct sja1000_priv *priv, u8 val)
++{
++	unsigned long flags;
++
++	/*
++	 * The command register needs some locking and time to settle
++	 * the write_reg() operation - especially on SMP systems.
++	 */
++	spin_lock_irqsave(&priv->cmdreg_lock, flags);
++	priv->write_reg(priv, REG_CMR, val);
++	priv->read_reg(priv, REG_SR);
++	spin_unlock_irqrestore(&priv->cmdreg_lock, flags);
++}
++
+ static int sja1000_probe_chip(struct net_device *dev)
+ {
+ 	struct sja1000_priv *priv = netdev_priv(dev);
+@@ -297,7 +311,7 @@ static netdev_tx_t sja1000_start_xmit(struct sk_buff *skb,
+ 
+ 	can_put_echo_skb(skb, dev, 0);
+ 
+-	priv->write_reg(priv, REG_CMR, CMD_TR);
++	sja1000_write_cmdreg(priv, CMD_TR);
+ 
+ 	return NETDEV_TX_OK;
  }
-@@ -628,7 +628,7 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_=
-t gfp_mask)
- 	    n->fclone =3D=3D SKB_FCLONE_UNAVAILABLE) {
- 		atomic_t *fclone_ref =3D (atomic_t *) (n + 1);
- 		n->fclone =3D SKB_FCLONE_CLONE;
--		atomic_inc(fclone_ref);
-+		atomic_set(fclone_ref, 2);
- 	} else {
- 		n =3D kmem_cache_alloc(skbuff_head_cache, gfp_mask);
- 		if (!n)
-
-
+@@ -346,7 +360,7 @@ static void sja1000_rx(struct net_device *dev)
+ 	cf->can_id = id;
+ 
+ 	/* release receive buffer */
+-	priv->write_reg(priv, REG_CMR, CMD_RRB);
++	sja1000_write_cmdreg(priv, CMD_RRB);
+ 
+ 	netif_rx(skb);
+ 
+@@ -374,7 +388,7 @@ static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
+ 		cf->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
+ 		stats->rx_over_errors++;
+ 		stats->rx_errors++;
+-		priv->write_reg(priv, REG_CMR, CMD_CDO);	/* clear bit */
++		sja1000_write_cmdreg(priv, CMD_CDO);	/* clear bit */
+ 	}
+ 
+ 	if (isrc & IRQ_EI) {
+diff --git a/drivers/net/can/sja1000/sja1000.h b/drivers/net/can/sja1000/sja1000.h
+index 97a622b..de8e778 100644
+--- a/drivers/net/can/sja1000/sja1000.h
++++ b/drivers/net/can/sja1000/sja1000.h
+@@ -167,6 +167,7 @@ struct sja1000_priv {
+ 
+ 	void __iomem *reg_base;	 /* ioremap'ed address to registers */
+ 	unsigned long irq_flags; /* for request_irq() */
++	spinlock_t cmdreg_lock;  /* lock for concurrent cmd register writes */
+ 
+ 	u16 flags;		/* custom mode flags */
+ 	u8 ocr;			/* output control register */
