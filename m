@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] ipv6 addrlabel: permit deletion of labels assigned
- to removed dev
-Date: Mon, 17 May 2010 17:08:24 -0700 (PDT)
-Message-ID: <20100517.170824.112586965.davem@davemloft.net>
-References: <1273267893-22485-1-git-send-email-fw@strlen.de>
+Subject: Re: [PATCH 1/1] ibmveth: Add suspend/resume support
+Date: Mon, 17 May 2010 17:09:21 -0700 (PDT)
+Message-ID: <20100517.170921.183060241.davem@davemloft.net>
+References: <201005071156.o47BuCYM007062@d03av03.boulder.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: fw@strlen.de
+To: brking@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59431
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54265
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752090Ab0ERAIP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 May 2010 20:08:15 -0400
-In-Reply-To: <1273267893-22485-1-git-send-email-fw@strlen.de>
+	by vger.kernel.org with ESMTP id S1752090Ab0ERAJM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 May 2010 20:09:12 -0400
+In-Reply-To: <201005071156.o47BuCYM007062@d03av03.boulder.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Fri,  7 May 2010 23:31:33 +0200
+From: Brian King <brking@linux.vnet.ibm.com>
+Date: Fri, 07 May 2010 13:56:08 -0500
 
-> as addrlabels with an interface index are left alone when the
-> interface gets removed this results in addrlabels that can no
-> longer be removed.
 > 
-> Restrict validation of index to adding new addrlabels.
+> Adds support for resuming from suspend for IBM virtual ethernet devices.
+> We may have lost an interrupt over the suspend, so we just kick the
+> interrupt handler to process anything that is outstanding.
 > 
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+> Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
 
-Applied, thanks Florian.
+Applied, thank you.
