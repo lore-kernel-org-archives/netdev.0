@@ -1,54 +1,114 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH v2] Fix SJA1000 command register writes on SMP systems
-Date: Tue, 18 May 2010 20:56:18 +0200
-Message-ID: <4BF2E2D2.8020604@hartkopp.net>
-References: <4BF1A464.6070207@hartkopp.net>
-	<20100517.223415.184853371.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: avoid one atomic op per cloned skb
+Date: Tue, 18 May 2010 20:58:44 +0200
+Message-ID: <1274209124.8274.41.camel@edumazet-laptop>
+References: <1274190047.8274.1.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20100517.223415.184853371.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:35567 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756669Ab0ERS6t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 14:58:49 -0400
+Received: by fxm10 with SMTP id 10so1485332fxm.19
+        for <netdev@vger.kernel.org>; Tue, 18 May 2010 11:58:47 -0700 (PDT)
+In-Reply-To: <1274190047.8274.1.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 18.05.2010 07:34, David Miller wrote:
-> From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-> Date: Mon, 17 May 2010 22:17:40 +0200
-> 
->> diff --git a/drivers/net/can/sja1000/sja1000.c b/drivers/net/can/sja1000/sja1000.c
->> index 145b1a7..2760085 100644
->> --- a/drivers/net/can/sja1000/sja1000.c
->> +++ b/drivers/net/can/sja1000/sja1000.c
->> @@ -84,6 +84,27 @@ static struct can_bittiming_const sja1000_bittiming_const = {
->>  	.brp_inc = 1,
->>  };
->>  +static void sja1000_write_cmdreg(struct sja1000_priv *priv, u8 val)
->> +{
->> +	/* the command register needs some locking on SMP systems */
->> +
->> +#ifdef CONFIG_SMP
-> 
-> Something is adding spurious leading spaces to lines in your patch.
+Le mardi 18 mai 2010 =C3=A0 15:40 +0200, Eric Dumazet a =C3=A9crit :
+> Hi David
+>=20
+> I know you said 'only patches', but I found following patch small
+> enough ?
+>=20
 
-Sorry. This was probably due to the v2 resend. Will fix.
+> Thanks
+>=20
+> [PATCH] net: avoid one atomic op per cloned skb
+>=20
+> skb_clone() can use atomic_set(clone_ref, 2) safely, because only
+> current thread can possibly touch clone_ref at this point.
+>   =20
+> Add a WARN_ON_ONCE() for a while, to catch wrong assumptions.
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+>  net/core/skbuff.c |    3 ++-
+>  1 files changed, 2 insertions(+), 1 deletion(-)
+>=20
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index c543dd2..4444f15 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -628,7 +628,8 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gf=
+p_t gfp_mask)
+>  	    n->fclone =3D=3D SKB_FCLONE_UNAVAILABLE) {
+>  		atomic_t *fclone_ref =3D (atomic_t *) (n + 1);
+>  		n->fclone =3D SKB_FCLONE_CLONE;
+> -		atomic_inc(fclone_ref);
+> +		WARN_ON_ONCE(atomic_read(fclone_ref) !=3D 1);
+> +		atomic_set(fclone_ref, 2);
+>  	} else {
+>  		n =3D kmem_cache_alloc(skbuff_head_cache, gfp_mask);
+>  		if (!n)
+>=20
+>=20
 
-> Also, please don't SMP conditionalize this code.  It makes it such that
-> lock debugging et al. can't be used to check this code on uniprocessor.
+Oops, it needs more thinking, definitely not a 2.6.35 thing...
 
-Ok.
+There would be a race between skb_clone() and kfree_skbmem()
 
-Will send an updated v3 patch shortly.
+kfree_skbmem() must perform the atomic_dec_and_test() before setting
+skb->fclone to SKB_FCLONE_UNAVAILABLE.
 
-Thanks,
-Oliver
+Doing so avoids dirtying skb->fclone right before kmem_cache_free()...
+
+
+V2 would be :
+
+[RFC v2] net: avoid one atomic op per cloned skb
+
+skb_clone() can use atomic_set(clone_ref, 2) safely, because only
+current thread can possibly touch clone_ref at this point.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index c543dd2..77d5a6b 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -370,13 +370,13 @@ static void kfree_skbmem(struct sk_buff *skb)
+ 		fclone_ref =3D (atomic_t *) (skb + 1);
+ 		other =3D skb - 1;
+=20
+-		/* The clone portion is available for
+-		 * fast-cloning again.
+-		 */
+-		skb->fclone =3D SKB_FCLONE_UNAVAILABLE;
+-
+ 		if (atomic_dec_and_test(fclone_ref))
+ 			kmem_cache_free(skbuff_fclone_cache, other);
++		else
++			/* The clone portion is available for fast-cloning.=20
++			 * Note this must be done after the fclone_ref change.
++			 */
++			skb->fclone =3D SKB_FCLONE_UNAVAILABLE;
+ 		break;
+ 	}
+ }
+@@ -628,7 +628,7 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_=
+t gfp_mask)
+ 	    n->fclone =3D=3D SKB_FCLONE_UNAVAILABLE) {
+ 		atomic_t *fclone_ref =3D (atomic_t *) (n + 1);
+ 		n->fclone =3D SKB_FCLONE_CLONE;
+-		atomic_inc(fclone_ref);
++		atomic_set(fclone_ref, 2);
+ 	} else {
+ 		n =3D kmem_cache_alloc(skbuff_head_cache, gfp_mask);
+ 		if (!n)
+
+
