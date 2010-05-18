@@ -1,37 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: tcp md5 fraglist...
-Date: Mon, 17 May 2010 23:35:37 -0700 (PDT)
-Message-ID: <20100517.233537.62328306.davem@davemloft.net>
-References: <20100517.231403.148532542.davem@davemloft.net>
-	<1274164224.2567.35.camel@edumazet-laptop>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v3 3/3] ptp: Added a clock that uses the eTSEC found on
+	the MPC85xx.
+Date: Tue, 18 May 2010 08:36:08 +0200
+Message-ID: <20100518063608.GA2720@riccoc20.at.omicron.at>
+References: <cover.1273855016.git.richard.cochran@omicron.at>
+	<ee6c3edca3ee6aa86565e59da999375f79c9de1b.1273855017.git.richard.cochran@omicron.at>
+	<4BED8C91.8020107@freescale.com>
+	<20100517082757.GA9703@riccoc20.at.omicron.at>
+	<4BF18582.6000500@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42521
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755263Ab0ERGf2 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 May 2010 02:35:28 -0400
-In-Reply-To: <1274164224.2567.35.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+To: Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4BF18582.6000500-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 18 May 2010 08:30:24 +0200
+On Mon, May 17, 2010 at 01:05:54PM -0500, Scott Wood wrote:
+> >>> >+  - tmr_fiper1   Fixed interval period pulse generator.
+> >>> >+  - tmr_fiper2   Fixed interval period pulse generator.
+> >>
+> 
+> MPC8572 and P2020 have fiper3 as well.
 
-> Le lundi 17 mai 2010 =E0 23:14 -0700, David Miller a =E9crit :
->> Eric, would you please formally submit that tcp md5 fraglist
->> fix to net/ipv4/tcp.c with proper signoffs?
->>=20
->> Thanks!
->=20
-> Sure, will do, but I doubt it is a real problem, because GRO or RSC
-> should not coalesce two segments with MD5 signature (they are guarant=
-eed
-> to differ for each segment ?)
+I doubt they really have a third fiper.
 
-Right, and I just checked that GRO does in fact check if the TCP
-options are different in any way.
+First of all, this signal is not routed anywhere on the boards. Also,
+according to the documentation, it has no bit in the TMR_CTRL or the
+TMR_TEMASK registers. Unless there is a bit in TMR_TEMASK, you cannot
+get an interrupt from it.
+
+If you cannot use the signal externally (in the "real" world) and you
+cannot get an interrupt, what good is it to have such a periodic
+signal? Polling the bit in the TMR_TEVENT to see when a pulse occurs
+seems pointless.
+
+Scott, you have connections, right? Can you clarify this for me?
+
+Thanks,
+
+Richard
