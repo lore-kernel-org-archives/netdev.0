@@ -1,54 +1,57 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: [PATCH net-next] ixgbe: return error in set_rar when
- index out of range
-Date: Tue, 18 May 2010 08:34:48 -0700
-Message-ID: <1274196888.8701.2.camel@localhost.localdomain>
+From: =?UTF-8?B?S3J6eXN6dG9mIE9sxJlkemtp?= <ole@ans.pl>
+Subject: Re: bnx2/BCM5709: why 5 interrupts on a 4 core system (2.6.33.3)
+Date: Tue, 18 May 2010 17:35:26 +0200
+Message-ID: <4BF2B3BE.60209@ans.pl>
+References: <C27F8246C663564A84BB7AB3439772421B78147539@IRVEXCHCCR01.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	davem@davemloft.net, kvm@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bizon.gios.gov.pl ([195.187.34.71]:57583 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756515Ab0ERPfc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 11:35:32 -0400
+In-Reply-To: <C27F8246C663564A84BB7AB3439772421B78147539@IRVEXCHCCR01.corp.ad.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Return -1 when set_rar index is out of range
+On 2010-05-16 20:51, Michael Chan wrote:
+> Krzysztof Oledzki wrote:
+>
+>>
+>> Why the driver registers 5 interrupts instead of 4? How to
+>> limit it to 4?
+>>
+>
+> The first vector (eth0-0) handles link interrupt and other slow
+> path events.  It also has an RX ring for non-IP packets that are
+> not hashed by the RSS hash.  The majority of the rx packets should
+> be hashed to the rx rings eth0-1 - eth0-4, so I would assign these
+> vectors to different CPUs.
 
-Signed-off-by: Shirley Ma <xma@us.ibm.com>
----
- 
- drivers/net/ixgbe/ixgbe_common.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+Did some more test on a two 4 core CPUs (8 CPUs reported to the system)=
+=20
+and on a two 4 core CPUs with HT (16 CPUs reported to the system) and i=
+n=20
+both cases there are 8 instead of 9 vectors: eth0-0 .. eth0-7 (irqs 61=20
+=2E. 68). However, dmesg shows that 9 interrupts are allocated:
 
-diff --git a/drivers/net/ixgbe/ixgbe_common.c
-b/drivers/net/ixgbe/ixgbe_common.c
-index 1159d91..77b3cf4 100644
---- a/drivers/net/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ixgbe/ixgbe_common.c
-@@ -1188,6 +1188,7 @@ s32 ixgbe_set_rar_generic(struct ixgbe_hw *hw, u32
-index, u8 *addr, u32 vmdq,
- 		IXGBE_WRITE_REG(hw, IXGBE_RAH(index), rar_high);
- 	} else {
- 		hw_dbg(hw, "RAR index %d is out of range.\n", index);
-+		return -1;
- 	}
- 
- 	return 0;
+bnx2 0000:01:00.0: irq 61 for MSI/MSI-X
+bnx2 0000:01:00.0: irq 62 for MSI/MSI-X
+bnx2 0000:01:00.0: irq 63 for MSI/MSI-X
+bnx2 0000:01:00.0: irq 64 for MSI/MSI-X
+bnx2 0000:01:00.0: irq 65 for MSI/MSI-X
+bnx2 0000:01:00.0: irq 66 for MSI/MSI-X
+bnx2 0000:01:00.0: irq 67 for MSI/MSI-X
+bnx2 0000:01:00.0: irq 68 for MSI/MSI-X
+bnx2 0000:01:00.0: irq 69 for MSI/MSI-X
 
+It such case, which ring will be used for slow path and non-IP packets=20
+and why there is no additional queue like in a 4CPU case?
 
+Best regards,
 
-------------------------------------------------------------------------------
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+			Krzysztof Ol=C4=99dzki
