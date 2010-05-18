@@ -1,45 +1,41 @@
 From: Dimitris Michailidis <dm@chelsio.com>
-Subject: [PATCH 3/3] cxgb4: notify upper drivers if the device is already up when they load
-Date: Tue, 18 May 2010 13:07:13 -0700
-Message-ID: <1274213233-26309-3-git-send-email-dm@chelsio.com>
-References: <1274213233-26309-1-git-send-email-dm@chelsio.com>
- <1274213233-26309-2-git-send-email-dm@chelsio.com>
+Subject: [PATCH 1/3] cxgb4: fix initial addition of MAC address
+Date: Tue, 18 May 2010 13:07:11 -0700
+Message-ID: <1274213233-26309-1-git-send-email-dm@chelsio.com>
 Cc: Dimitris Michailidis <dm@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:17226 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:22285 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753780Ab0ERUHP (ORCPT
+	with ESMTP id S1752801Ab0ERUHP (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 16:07:15 -0400
 Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
-	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o4IK7Fkq008165
-	for <netdev@vger.kernel.org>; Tue, 18 May 2010 13:07:15 -0700
-In-Reply-To: <1274213233-26309-2-git-send-email-dm@chelsio.com>
+	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o4IK7Eqg008162
+	for <netdev@vger.kernel.org>; Tue, 18 May 2010 13:07:14 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Upper layer drivers aren't notified that a device is ready if their modules
-load after the device becomes ready.  Add the missing notification.
+The call to add the MAC address during link initialization wasn't adding the
+address to one of the HW tables.  Fix.
 
 Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
 ---
- drivers/net/cxgb4/cxgb4_main.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ drivers/net/cxgb4/cxgb4_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/cxgb4/cxgb4_main.c b/drivers/net/cxgb4/cxgb4_main.c
-index 87161ce..58045b0 100644
+index 90d375b..1f59971 100644
 --- a/drivers/net/cxgb4/cxgb4_main.c
 +++ b/drivers/net/cxgb4/cxgb4_main.c
-@@ -2327,6 +2327,9 @@ static void uld_attach(struct adapter *adap, unsigned int uld)
- 		register_netevent_notifier(&cxgb4_netevent_nb);
- 		netevent_registered = true;
- 	}
-+
-+	if (adap->flags & FULL_INIT_DONE)
-+		ulds[uld].state_change(handle, CXGB4_STATE_UP);
- }
- 
- static void attach_ulds(struct adapter *adap)
+@@ -315,7 +315,7 @@ static int link_start(struct net_device *dev)
+ 	if (ret == 0) {
+ 		ret = t4_change_mac(pi->adapter, 0, pi->viid,
+ 				    pi->xact_addr_filt, dev->dev_addr, true,
+-				    false);
++				    true);
+ 		if (ret >= 0) {
+ 			pi->xact_addr_filt = ret;
+ 			ret = 0;
 -- 
 1.5.4
 
