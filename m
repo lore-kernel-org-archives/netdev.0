@@ -1,109 +1,37 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH v3] Fix SJA1000 command register writes on SMP systems
-Date: Tue, 18 May 2010 21:05:54 +0200
-Message-ID: <4BF2E512.1090109@hartkopp.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next] bridge: fix build for CONFIG_SYSFS disabled
+Date: Tue, 18 May 2010 12:26:40 -0700 (PDT)
+Message-ID: <20100518.122640.24579847.davem@davemloft.net>
+References: <4BF18468.5010005@oracle.com>
+	<20100517.223237.55871633.davem@davemloft.net>
+	<20100518102837.2622c3b1@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: randy.dunlap@oracle.com, sfr@canb.auug.org.au,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20100518102837.2622c3b1@nehalam>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The SJA1000 command register is concurrently written in the rx-path to free
-the receive buffer _and_ in the tx-path to start the transmission.
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Tue, 18 May 2010 10:28:37 -0700
 
-The SJA1000 data sheet, 6.4.4 COMMAND REGISTER (CMR) states:
-"Between two commands at least one internal clock cycle is needed in
-order to proceed. The internal clock is half of the external oscillator
-frequency."
+> 
+> From: Randy Dunlap <randy.dunlap@oracle.com>
+> 
+> Fix build when CONFIG_SYSFS is not enabled:
+> net/bridge/br_if.c:136: error: 'struct net_bridge_port' has no member named 'sysfs_name'
+> 
+> Note: dev->name == sysfs_name except when change name is in
+> progress, and we are protected from that by RTNL mutex.
+> 
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+> Acked-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-On SMP systems the current implementation leads to a write stall in the
-tx-path, which can be solved by adding some general locking and some time
-to settle the write_reg() operation for the command register.
+It's "Acked-by" :-)
 
-Thanks to Klaus Hitschler for the original fix and detailed problem
-description.
-
-This patch applies on net-2.6 and (with some offsets) on net-next-2.6 .
-
-Signed-off-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-
----
-
-diff --git a/drivers/net/can/sja1000/sja1000.c b/drivers/net/can/sja1000/sja1000.c
-index 145b1a7..dd70d0c 100644
---- a/drivers/net/can/sja1000/sja1000.c
-+++ b/drivers/net/can/sja1000/sja1000.c
-@@ -84,6 +84,20 @@ static struct can_bittiming_const sja1000_bittiming_const = {
- 	.brp_inc = 1,
- };
- 
-+static void sja1000_write_cmdreg(struct sja1000_priv *priv, u8 val)
-+{
-+	unsigned long flags;
-+
-+	/*
-+	 * The command register needs some locking and time to settle
-+	 * the write_reg() operation - especially on SMP systems.
-+	 */
-+	spin_lock_irqsave(&priv->cmdreg_lock, flags);
-+	priv->write_reg(priv, REG_CMR, val);
-+	priv->read_reg(priv, REG_SR);
-+	spin_unlock_irqrestore(&priv->cmdreg_lock, flags);
-+}
-+
- static int sja1000_probe_chip(struct net_device *dev)
- {
- 	struct sja1000_priv *priv = netdev_priv(dev);
-@@ -297,7 +311,7 @@ static netdev_tx_t sja1000_start_xmit(struct sk_buff *skb,
- 
- 	can_put_echo_skb(skb, dev, 0);
- 
--	priv->write_reg(priv, REG_CMR, CMD_TR);
-+	sja1000_write_cmdreg(priv, CMD_TR);
- 
- 	return NETDEV_TX_OK;
- }
-@@ -346,7 +360,7 @@ static void sja1000_rx(struct net_device *dev)
- 	cf->can_id = id;
- 
- 	/* release receive buffer */
--	priv->write_reg(priv, REG_CMR, CMD_RRB);
-+	sja1000_write_cmdreg(priv, CMD_RRB);
- 
- 	netif_rx(skb);
- 
-@@ -374,7 +388,7 @@ static int sja1000_err(struct net_device *dev, uint8_t isrc, uint8_t status)
- 		cf->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
- 		stats->rx_over_errors++;
- 		stats->rx_errors++;
--		priv->write_reg(priv, REG_CMR, CMD_CDO);	/* clear bit */
-+		sja1000_write_cmdreg(priv, CMD_CDO);	/* clear bit */
- 	}
- 
- 	if (isrc & IRQ_EI) {
-diff --git a/drivers/net/can/sja1000/sja1000.h b/drivers/net/can/sja1000/sja1000.h
-index 97a622b..de8e778 100644
---- a/drivers/net/can/sja1000/sja1000.h
-+++ b/drivers/net/can/sja1000/sja1000.h
-@@ -167,6 +167,7 @@ struct sja1000_priv {
- 
- 	void __iomem *reg_base;	 /* ioremap'ed address to registers */
- 	unsigned long irq_flags; /* for request_irq() */
-+	spinlock_t cmdreg_lock;  /* lock for concurrent cmd register writes */
- 
- 	u16 flags;		/* custom mode flags */
- 	u8 ocr;			/* output control register */
+Applied, thanks!
