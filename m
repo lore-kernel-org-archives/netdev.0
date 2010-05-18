@@ -1,40 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] netns support in the kobject layer
-Date: Mon, 17 May 2010 21:21:33 -0700 (PDT)
-Message-ID: <20100517.212133.58417630.davem@davemloft.net>
-References: <20100517210318.GA6170@suse.de>
-	<20100517.164821.189684939.davem@davemloft.net>
-	<20100518040844.GB19928@kroah.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] netem: correlated loss generation (v3)
+Date: Tue, 18 May 2010 07:19:21 +0200
+Message-ID: <1274159961.2567.26.camel@edumazet-laptop>
+References: <4BD84428.30904@uniroma2.it>  <20100517205621.036a06e0@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: gregkh@suse.de, ebiederm@xmission.com, kay.sievers@vrfy.org,
-	linux-kernel@vger.kernel.org, tj@kernel.org,
-	cornelia.huck@de.ibm.com, eric.dumazet@gmail.com, bcrl@lhnet.ca,
-	serue@us.ibm.com, netdev@vger.kernel.org
-To: greg@kroah.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100518040844.GB19928@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stefano Salsano <stefano.salsano@uniroma2.it>,
+	David Miller <davem@davemloft.net>,
+	Fabio Ludovici <fabio.ludovici@yahoo.it>,
+	netdev@vger.kernel.org, netem@lists.linuxfoundation.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:47155 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754285Ab0ERFTZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 01:19:25 -0400
+Received: by wyb39 with SMTP id 39so1030865wyb.19
+        for <netdev@vger.kernel.org>; Mon, 17 May 2010 22:19:23 -0700 (PDT)
+In-Reply-To: <20100517205621.036a06e0@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Greg KH <greg@kroah.com>
-Date: Mon, 17 May 2010 21:08:44 -0700
+Le lundi 17 mai 2010 =C3=A0 20:56 -0700, Stephen Hemminger a =C3=A9crit=
+ :
+> Subject: netem - revised correlated loss generator
+>=20
+> This is a patch originated with Stefano Salsano and Fabio Ludovici.
+> It provides several alternative loss models for use with netem.
+> There are two state machine based models and one table driven model.
+>=20
+> To simplify the original code:
+>    * eliminated the debugging messages and statistics
+>    * reformatted for clarity
+>    * changed API to nested attribute relating to loss
+>    * changed the table to always loop across bits
+>    * only allocate parameters needed
+>=20
+> Still untested, for comment only...
+> Should have tested version before 2.6.35 merge window closes.
+>=20
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-> On Mon, May 17, 2010 at 04:48:21PM -0700, David Miller wrote:
->> Greg, this is complete bullshit.
-> 
-> "complete bullshit"?  How about just a "little bullshit" :)
 
-Ok, it was a small turd instead of a big one :-)
+> +	if (loss[NETEM_LOSS_SEQUENCE]) {
+> +		struct dlgtable *dlg;
+> +		size_t len =3D nla_len(loss[NETEM_LOSS_SEQUENCE]);
+> +
+> +		dlg =3D kmalloc(sizeof(*dlg) + len, GFP_KERNEL);
 
->> I reviewed them last week, they are fine
->> and have been around forever.
->> 
->> Merge them in now, making them wait until 2.6.36 is completely rediculious.
-> 
-> Ok, as they are primarily affecting your subsystem, if you don't object,
-> I'll queue them up to my tree tomorrow and push them to Linus within
-> this merge period.
+No overflow check here, len comes from userland.
 
-Thanks.
+> +		if (dlg)
+> +			goto nomem;
+> +
+> +		dlg->length =3D len * BITS_PER_LONG;
+> +		dlg->index =3D 0;
+> +		memcpy(dlg->sequence, nla_data(loss[NETEM_LOSS_SEQUENCE]), len);
+> +
+> +		kfree(q->dlg);
+> +		q->dlg =3D dlg;
+> +	}
+> +
+> +	q->loss_model =3D model;
+> +	sch_tree_unlock(sch);
+
+
