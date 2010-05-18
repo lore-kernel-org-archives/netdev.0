@@ -1,40 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] Fix SJA1000 command register writes on SMP systems
-Date: Mon, 17 May 2010 22:34:15 -0700 (PDT)
-Message-ID: <20100517.223415.184853371.davem@davemloft.net>
-References: <4BF1A464.6070207@hartkopp.net>
+Subject: Re: [PATCH] tcp: tcp_synack_options() fix
+Date: Mon, 17 May 2010 22:35:45 -0700 (PDT)
+Message-ID: <20100517.223545.124051499.davem@davemloft.net>
+References: <1274072629.2299.58.camel@edumazet-laptop>
+	<20100517134240.1949f245@nehalam>
+	<1274130278.2567.10.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: wg@grandegger.com, netdev@vger.kernel.org,
-	socketcan-core@lists.berlios.de
-To: socketcan@hartkopp.net
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, Bijay.Singh@guavus.com, bhaskie@gmail.com,
+	bhutchings@solarflare.com, netdev@vger.kernel.org,
+	ilpo.jarvinen@helsinki.fi
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45286
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45294
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754802Ab0ERFeG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 01:34:06 -0400
-In-Reply-To: <4BF1A464.6070207@hartkopp.net>
+	by vger.kernel.org with ESMTP id S1755598Ab0ERFfg convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 May 2010 01:35:36 -0400
+In-Reply-To: <1274130278.2567.10.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Date: Mon, 17 May 2010 22:17:40 +0200
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 17 May 2010 23:04:38 +0200
 
-> diff --git a/drivers/net/can/sja1000/sja1000.c b/drivers/net/can/sja1000/sja1000.c
-> index 145b1a7..2760085 100644
-> --- a/drivers/net/can/sja1000/sja1000.c
-> +++ b/drivers/net/can/sja1000/sja1000.c
-> @@ -84,6 +84,27 @@ static struct can_bittiming_const sja1000_bittiming_const = {
->  	.brp_inc = 1,
->  };
->  +static void sja1000_write_cmdreg(struct sja1000_priv *priv, u8 val)
-> +{
-> +	/* the command register needs some locking on SMP systems */
-> +
-> +#ifdef CONFIG_SMP
+> Le lundi 17 mai 2010 =E0 13:42 -0700, Stephen Hemminger a =E9crit :
+>=20
+>> Since you are doing away with flag variable, why not this instead?
+>>=20
+>=20
+> Sure, we can eliminate this doing_ts variable and save few bytes
+>=20
+> Thanks
+>=20
+> [PATCH] tcp: tcp_synack_options() fix=20
 
-Something is adding spurious leading spaces to lines in your patch.
-
-Also, please don't SMP conditionalize this code.  It makes it such that
-lock debugging et al. can't be used to check this code on uniprocessor.
+Applied, thanks!
