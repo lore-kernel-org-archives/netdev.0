@@ -1,41 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net sched: cleanup and rate limit warning
-Date: Mon, 17 May 2010 23:06:13 -0700 (PDT)
-Message-ID: <20100517.230613.84405207.davem@davemloft.net>
-References: <1273767626.6117.3.camel@bigi>
-	<20100513092643.6551cb48@nehalam>
-	<1273768808.6117.5.camel@bigi>
+Subject: Re: [PATCH net-next] net: Remove unnecessary returns from void
+ function()s
+Date: Mon, 17 May 2010 23:08:32 -0700 (PDT)
+Message-ID: <20100517.230832.133881440.davem@davemloft.net>
+References: <1273599941.20514.235.camel@Joe-Laptop.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, kaber@trash.net, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Cc: netdev@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54637
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58814
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752881Ab0ERGGE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 02:06:04 -0400
-In-Reply-To: <1273768808.6117.5.camel@bigi>
+	by vger.kernel.org with ESMTP id S1755314Ab0ERGIX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 02:08:23 -0400
+In-Reply-To: <1273599941.20514.235.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: jamal <hadi@cyberus.ca>
-Date: Thu, 13 May 2010 12:40:08 -0400
+From: Joe Perches <joe@perches.com>
+Date: Tue, 11 May 2010 10:45:41 -0700
 
-> On Thu, 2010-05-13 at 09:26 -0700, Stephen Hemminger wrote:
+> This patch removes from net/ (but not any netfilter files)
+> all the unnecessary return; statements that precede the
+> last closing brace of void functions.
 > 
->> > 
->> 
->> And the kernel message needs to be fixed to prevent total
->> log overload for the next poor sop who makes the same mistake.
->> 
->> Please accept the patch.
+> It does not remove the returns that are immediately
+> preceded by a label as gcc doesn't like that.
 > 
-> I have no problem with the patch. Dont think it needs to go to stable
-> but i'll let Dave call it.
+> Done via:
+> $ grep -rP --include=*.[ch] -l "return;\n}" net/ | \
+>   xargs perl -i -e 'local $/ ; while (<>) { s/\n[ \t\n]+return;\n}/\n}/g; print; }'
 > 
-> Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Applied, I don't think it's -stable material personally.  If we start
-queueing stuff like this, it will be 200 instead of 100 patches in
-each -stable release :-)
+Applied, thanks.
