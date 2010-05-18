@@ -1,39 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] netns support in the kobject layer
-Date: Mon, 17 May 2010 16:48:21 -0700 (PDT)
-Message-ID: <20100517.164821.189684939.davem@davemloft.net>
-References: <20100517181133.GB18721@kroah.com>
-	<m1zkzyfdob.fsf@fess.ebiederm.org>
-	<20100517210318.GA6170@suse.de>
+Subject: Re: [PATCH 1/1] ipv6 addrlabel: permit deletion of labels assigned
+ to removed dev
+Date: Mon, 17 May 2010 17:08:24 -0700 (PDT)
+Message-ID: <20100517.170824.112586965.davem@davemloft.net>
+References: <1273267893-22485-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, greg@kroah.com, kay.sievers@vrfy.org,
-	linux-kernel@vger.kernel.org, tj@kernel.org,
-	cornelia.huck@de.ibm.com, eric.dumazet@gmail.com, bcrl@lhnet.ca,
-	serue@us.ibm.com, netdev@vger.kernel.org
-To: gregkh@suse.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100517210318.GA6170@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59431
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752090Ab0ERAIP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 May 2010 20:08:15 -0400
+In-Reply-To: <1273267893-22485-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Greg KH <gregkh@suse.de>
-Date: Mon, 17 May 2010 14:03:18 -0700
+From: Florian Westphal <fw@strlen.de>
+Date: Fri,  7 May 2010 23:31:33 +0200
 
-> On Mon, May 17, 2010 at 01:58:44PM -0700, Eric W. Biederman wrote:
->> Greg KH <greg@kroah.com> writes:
->> 
->> If I must I will resend these, but these patches are already in
->> production use, and I had them to you weeks before the merge window
->> closed.
+> as addrlabels with an interface index are left alone when the
+> interface gets removed this results in addrlabels that can no
+> longer be removed.
 > 
-> Yes, but they were not reviewed by the network maintainer until after
-> the merge window closed.  I already have your sysfs-namespace patches
-> queued up for .35, and that's a big enough change for me to feel
-> comfortable with at the moment.
+> Restrict validation of index to adding new addrlabels.
+> 
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-Greg, this is complete bullshit.  I reviewed them last week, they are fine
-and have been around forever.
-
-Merge them in now, making them wait until 2.6.36 is completely rediculious.
+Applied, thanks Florian.
