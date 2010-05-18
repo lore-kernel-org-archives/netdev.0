@@ -1,30 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 V9 PATCH 2/2] Add ndo_{set|get}_vf_port support
- for enic dynamic vnics
-Date: Mon, 17 May 2010 22:50:55 -0700 (PDT)
-Message-ID: <20100517.225055.209964640.davem@davemloft.net>
-References: <20100518054330.21787.29398.stgit@savbu-pc100.cisco.com>
-	<20100518054840.21787.65376.stgit@savbu-pc100.cisco.com>
+Subject: Re: [PATCH 6/20] drivers/net: Use kzalloc
+Date: Mon, 17 May 2010 22:55:26 -0700 (PDT)
+Message-ID: <20100517.225526.216768521.davem@davemloft.net>
+References: <Pine.LNX.4.64.1005132200050.6282@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, chrisw@redhat.com, arnd@arndb.de,
-	kaber@trash.net
-To: scofeldm@cisco.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43905
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755057Ab0ERFuq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 01:50:46 -0400
-In-Reply-To: <20100518054840.21787.65376.stgit@savbu-pc100.cisco.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: buytenh@wantstofly.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: julia@diku.dk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.1005132200050.6282@ask.diku.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Scott Feldman <scofeldm@cisco.com>
-Date: Mon, 17 May 2010 22:48:42 -0700
+From: Julia Lawall <julia@diku.dk>
+Date: Thu, 13 May 2010 22:00:22 +0200 (CEST)
 
- ...
-> Signed-off-by: Scott Feldman <scofeldm@cisco.com>
-> Signed-off-by: Roopa Prabhu<roprabhu@cisco.com>
+> From: Julia Lawall <julia@diku.dk>
+> 
+> Use kzalloc rather than the combination of kmalloc and memset.
+> 
+> The semantic patch that makes this change is as follows:
+> (http://coccinelle.lip6.fr/)
+> 
+> // <smpl>
+> @@
+> expression x,size,flags;
+> statement S;
+> @@
+> 
+> -x = kmalloc(size,flags);
+> +x = kzalloc(size,flags);
+>  if (x == NULL) S
+> -memset(x, 0, size);
+> // </smpl>
+> 
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
-Also applied, thanks for rebasing this Scott.
+Applied.
