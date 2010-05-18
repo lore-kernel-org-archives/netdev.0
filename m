@@ -1,45 +1,37 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH] net: Fix definition of netif_vdbg() when VERBOSE_DEBUG is
- not defined
-Date: Tue, 18 May 2010 17:56:32 +0100
-Message-ID: <1274201792.2113.3.camel@achroite.uk.solarflarecom.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 1/4] ipv6: Replace inet6_ifaddr->dead with state
+Date: Tue, 18 May 2010 10:23:34 -0700
+Message-ID: <20100518102334.70b6c0b4@nehalam>
+References: <20100518110243.GA7750@gondor.apana.org.au>
+	<E1OEKax-00022W-6K@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	Joe Perches <joe@perches.com>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, jbohac@suse.cz,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:16677 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751568Ab0ERQ4g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 12:56:36 -0400
+Received: from mail.vyatta.com ([76.74.103.46]:48755 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751568Ab0ERRXk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 May 2010 13:23:40 -0400
+In-Reply-To: <E1OEKax-00022W-6K@gondolin.me.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- include/linux/netdevice.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+On Tue, 18 May 2010 21:04:19 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index c1b2341..667c2a8 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2314,7 +2314,7 @@ do {								\
- #define netif_vdbg(priv, type, dev, format, args...)		\
- ({								\
- 	if (0)							\
--		netif_printk(KERN_DEBUG, dev, format, ##args);	\
-+		netif_printk(priv, type, KERN_DEBUG, dev, format, ##args); \
- 	0;							\
- })
- #endif
--- 
-1.6.2.5
+>  
+> +enum {
+> +	INET6_IFADDR_STATE_DAD,
+> +	INET6_IFADDR_STATE_POSTDAD,
+> +	INET6_IFADDR_STATE_UP,
+> +	INET6_IFADDR_STATE_DEAD,
+> +};
+> +
+>  #ifdef __KERNEL__
+
+Does this really need to be visible to user applications?
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
