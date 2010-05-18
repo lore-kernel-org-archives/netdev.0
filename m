@@ -1,59 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: avoid one atomic op per cloned skb
-Date: Tue, 18 May 2010 15:40:47 +0200
-Message-ID: <1274190047.8274.1.camel@edumazet-laptop>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] virtio: put last seen used index into ring itself
+Date: Tue, 18 May 2010 17:11:07 +0930
+Message-ID: <201005181711.08128.rusty@rustcorp.com.au>
+References: <20100518004744.GA21359@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Jiri Pirko <jpirko@redhat.com>, Shirley Ma <xma@us.ibm.com>,
+	Amit Shah <amit.shah@redhat.com>,
+	Mark McLoughlin <markmc@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, quintela@redhat.com,
+	alex.williamson@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.156]:9371 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757513Ab0ERNkv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 09:40:51 -0400
-Received: by fg-out-1718.google.com with SMTP id d23so3251765fga.1
-        for <netdev@vger.kernel.org>; Tue, 18 May 2010 06:40:50 -0700 (PDT)
+Received: from ozlabs.org ([203.10.76.45]:45892 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757316Ab0EROUR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 May 2010 10:20:17 -0400
+In-Reply-To: <20100518004744.GA21359@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David
+On Tue, 18 May 2010 10:17:44 am Michael S. Tsirkin wrote:
+> Generally, the Host end of the virtio ring doesn't need to see where
+> Guest is up to in consuming the ring.  However, to completely understand
+> what's going on from the outside, this information must be exposed.
+> For example, host can reduce the number of interrupts by detecting
+> that the guest is currently handling previous buffers.
 
-I know you said 'only patches', but I found following patch small
-enough ?
+Thanks applied.
 
-I have a followup patch to avoid two atomic ops per cloned skb on
-dataref (helps TCP tx path) but will submit it for 2.6.36, since its
-diffstat is a bit more than 3++- :)
-
-Thanks
-
-[PATCH] net: avoid one atomic op per cloned skb
-
-skb_clone() can use atomic_set(clone_ref, 2) safely, because only
-current thread can possibly touch clone_ref at this point.
-   
-Add a WARN_ON_ONCE() for a while, to catch wrong assumptions.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/core/skbuff.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index c543dd2..4444f15 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -628,7 +628,8 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
- 	    n->fclone == SKB_FCLONE_UNAVAILABLE) {
- 		atomic_t *fclone_ref = (atomic_t *) (n + 1);
- 		n->fclone = SKB_FCLONE_CLONE;
--		atomic_inc(fclone_ref);
-+		WARN_ON_ONCE(atomic_read(fclone_ref) != 1);
-+		atomic_set(fclone_ref, 2);
- 	} else {
- 		n = kmem_cache_alloc(skbuff_head_cache, gfp_mask);
- 		if (!n)
-
-
-
+Cheers,
+Rusty.
