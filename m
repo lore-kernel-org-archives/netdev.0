@@ -1,39 +1,105 @@
-From: =?UTF-8?B?S3J6eXN6dG9mIE9sxJlkemtp?= <ole@ans.pl>
-Subject: Re: bnx2/BCM5709: why 5 interrupts on a 4 core system (2.6.33.3)
-Date: Tue, 18 May 2010 16:55:17 +0200
-Message-ID: <4BF2AA55.5050100@ans.pl>
-References: <C27F8246C663564A84BB7AB3439772421B7814753A@IRVEXCHCCR01.corp.ad.broadcom.com>	 <1274040928.2299.17.camel@edumazet-laptop>  <4BF056F0.8010008@ans.pl>	 <1274042826.2299.26.camel@edumazet-laptop>  <4BF05FC2.4020804@ans.pl>	 <1274045180.2299.38.camel@edumazet-laptop>  <4BF2A288.7040304@ans.pl> <1274192761.8274.3.camel@edumazet-laptop>
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Subject: Re: dev_get_valid_name buggy with hash collision
+Date: Tue, 18 May 2010 16:55:36 +0200
+Message-ID: <4BF2AA68.5090008@free.fr>
+References: <4BF26926.4070507@free.fr> <201005181529.37420.opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michael Chan <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([195.187.34.71]:57461 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757872Ab0EROzX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 10:55:23 -0400
-In-Reply-To: <1274192761.8274.3.camel@edumazet-laptop>
+Received: from mtagate5.de.ibm.com ([195.212.17.165]:32898 "EHLO
+	mtagate5.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757580Ab0EROzj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 10:55:39 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate5.de.ibm.com (8.13.1/8.13.1) with ESMTP id o4IEtbaq006051
+	for <netdev@vger.kernel.org>; Tue, 18 May 2010 14:55:37 GMT
+Received: from d12av01.megacenter.de.ibm.com (d12av01.megacenter.de.ibm.com [9.149.165.212])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o4IEtb8i1716228
+	for <netdev@vger.kernel.org>; Tue, 18 May 2010 16:55:37 +0200
+Received: from d12av01.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av01.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id o4IEtb8r022483
+	for <netdev@vger.kernel.org>; Tue, 18 May 2010 16:55:37 +0200
+In-Reply-To: <201005181529.37420.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2010-05-18 16:26, Eric Dumazet wrote:
-> Le mardi 18 mai 2010 =C3=A0 16:22 +0200, Krzysztof Ol=C4=99dzki a =C3=
-=A9crit :
+On 05/18/2010 02:29 PM, Octavian Purdila wrote:
+> On Tuesday 18 May 2010 13:17:10 you wrote:
 >
->> Thank you. What happens if I set it to a lower/bigger value, than
->> avaliable txqueues in a NIC?
->
-> lower values ->  same situation than today (not all txqueues will be
-> used)
->
-> bigger values ->  it will be capped, so its only a bit more ram
-> allocated.
+>    
+>> the commit:
+>>
+>> commit d90310243fd750240755e217c5faa13e24f41536
+>> Author: Octavian Purdila<opurdila@ixiacom.com>
+>> Date:   Wed Nov 18 02:36:59 2009 +0000
+>>
+>>       net: device name allocation cleanups
+>>
+>> introduced a bug when there is a hash collision making impossible to
+>> rename a device with eth%d
+>>
+>>      
 
-So it is safe to put there little bigger value than needed. Thanks.
+[ ... ]
 
-Best regards,
+>> --- net-2.6.orig/net/core/dev.c
+>> +++ net-2.6/net/core/dev.c
+>> @@ -936,18 +936,22 @@ int dev_alloc_name(struct net_device *de
+>> }
+>> EXPORT_SYMBOL(dev_alloc_name);
+>>
+>> -static int dev_get_valid_name(struct net *net, const char *name, char *buf,
+>> -                             bool fmt)
+>> +static int dev_get_valid_name(struct net_device *dev, const char *name, bool
+>>      
+> fmt)
+>    
+>> {
+>> +       struct net *net;
+>> +
+>> +       BUG_ON(!dev_net(dev));
+>> +       net = dev_net(dev);
+>> +
+>>         if (!dev_valid_name(name))
+>>                 return -EINVAL;
+>>
+>>         if (fmt&&  strchr(name, '%'))
+>> -               return __dev_alloc_name(net, name, buf);
+>> +               return dev_alloc_name(dev, name);
+>>         else if (__dev_get_by_name(net, name))
+>>                 return -EEXIST;
+>> -       else if (buf != name)
+>> -               strlcpy(buf, name, IFNAMSIZ);
+>> +       else if (strncmp(dev->name, name, IFNAMSIZ))
+>> +                strlcpy(dev->name, name, IFNAMSIZ);
+>>
+>>      
+> Why do the strncmp, can't we preserve the (buf != name) condition
 
-			Krzysztof Ol=C4=99dzki
+The 'buf' parameter is no longer passed to the function. We have the 
+'dev'  and the 'newname' parameters.
+The pointer test was just to check 'dev_get_valid_name' was called from 
+the 'register_netdevice' function context with 'dev_get_valid_name(net, 
+dev->name, dev->name, 0)'. Comparing the strings is valid in this case.
+
+Otherwise dev_get_valid_name is called from:
+
+  *  "dev_change_net_namespace" with "dev%d" or "ifname" specified 
+within the netlink message. Both are different pointers, the first will 
+fall in the "if (fmt && strchr(name, '%'))".
+
+  * "dev_change_name", where the pointers are different and the strings 
+are different.
+
+I think it is safe to do the string comparison here. But maybe there are 
+a few simplifications (eg. remove fmt) to do.
+If you agree, I will send this patch against net-2.6 and the 
+simplifications against net-next-2.6.
+
+Thanks
+   -- Daniel
+
+
