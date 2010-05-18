@@ -1,44 +1,109 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH -next] bridge: fix build for CONFIG_SYSFS disabled
-Date: Tue, 18 May 2010 10:28:37 -0700
-Message-ID: <20100518102837.2622c3b1@nehalam>
-References: <20100517091756.e232bdc2.randy.dunlap@oracle.com>
-	<20100517105654.2451e61f@nehalam>
-	<4BF18468.5010005@oracle.com>
-	<20100517.223237.55871633.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: randy.dunlap@oracle.com, sfr@canb.auug.org.au,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100517.223237.55871633.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Subject: [PATCH] net-2.6 : fix dev_get_valid_name
+Date: Tue, 18 May 2010 19:35:12 +0200
+Message-ID: <1274204112-8920-1-git-send-email-daniel.lezcano@free.fr>
+Cc: opurdila@ixiacom.com, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate4.uk.ibm.com ([194.196.100.164]:53187 "EHLO
+	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758494Ab0ERRfV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 13:35:21 -0400
+Received: from d06nrmr1707.portsmouth.uk.ibm.com (d06nrmr1707.portsmouth.uk.ibm.com [9.149.39.225])
+	by mtagate4.uk.ibm.com (8.13.1/8.13.1) with ESMTP id o4IHZJhF020931
+	for <netdev@vger.kernel.org>; Tue, 18 May 2010 17:35:19 GMT
+Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
+	by d06nrmr1707.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o4IHZJO3635012
+	for <netdev@vger.kernel.org>; Tue, 18 May 2010 18:35:19 +0100
+Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id o4IHZJP6002201
+	for <netdev@vger.kernel.org>; Tue, 18 May 2010 18:35:19 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+the commit:
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+commit d90310243fd750240755e217c5faa13e24f41536
+Author: Octavian Purdila <opurdila@ixiacom.com>
+Date:   Wed Nov 18 02:36:59 2009 +0000
 
-Fix build when CONFIG_SYSFS is not enabled:
-net/bridge/br_if.c:136: error: 'struct net_bridge_port' has no member named 'sysfs_name'
+    net: device name allocation cleanups
 
-Note: dev->name == sysfs_name except when change name is in
-progress, and we are protected from that by RTNL mutex.
+introduced a bug when there is a hash collision making impossible
+to rename a device with eth%d. This bug is very hard to reproduce
+and appears rarely.
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-Acked-off-by: Stephen Hemminger <shemminger@vyatta.com>
+The problem is coming from we don't pass a temporary buffer to
+__dev_alloc_name but 'dev->name' which is modified by the function.
 
+A detailed explanation is here:
 
---- a/net/bridge/br_if.c	2010-05-17 10:51:48.638634187 -0700
-+++ b/net/bridge/br_if.c	2010-05-18 10:22:28.892111158 -0700
-@@ -133,7 +133,7 @@ static void del_nbp(struct net_bridge_po
- 	struct net_bridge *br = p->br;
- 	struct net_device *dev = p->dev;
+http://marc.info/?l=linux-netdev&m=127417784011987&w=2
+
+Signed-off-by: Daniel Lezcano <daniel.lezcano@free.fr>
+---
+ net/core/dev.c |   20 ++++++++++++--------
+ 1 files changed, 12 insertions(+), 8 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 264137f..4704a1a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -936,18 +936,22 @@ int dev_alloc_name(struct net_device *dev, const char *name)
+ }
+ EXPORT_SYMBOL(dev_alloc_name);
  
--	sysfs_remove_link(br->ifobj, p->sysfs_name);
-+	sysfs_remove_link(br->ifobj, p->dev->name);
+-static int dev_get_valid_name(struct net *net, const char *name, char *buf,
+-			      bool fmt)
++static int dev_get_valid_name(struct net_device *dev, const char *name, bool fmt)
+ {
++	struct net *net;
++
++	BUG_ON(!dev_net(dev));
++	net = dev_net(dev);
++
+ 	if (!dev_valid_name(name))
+ 		return -EINVAL;
  
- 	dev_set_promiscuity(dev, -1);
+ 	if (fmt && strchr(name, '%'))
+-		return __dev_alloc_name(net, name, buf);
++		return dev_alloc_name(dev, name);
+ 	else if (__dev_get_by_name(net, name))
+ 		return -EEXIST;
+-	else if (buf != name)
+-		strlcpy(buf, name, IFNAMSIZ);
++	else if (strncmp(dev->name, name, IFNAMSIZ))
++		 strlcpy(dev->name, name, IFNAMSIZ);
  
+ 	return 0;
+ }
+@@ -979,7 +983,7 @@ int dev_change_name(struct net_device *dev, const char *newname)
+ 
+ 	memcpy(oldname, dev->name, IFNAMSIZ);
+ 
+-	err = dev_get_valid_name(net, newname, dev->name, 1);
++	err = dev_get_valid_name(dev, newname, 1);
+ 	if (err < 0)
+ 		return err;
+ 
+@@ -5083,7 +5087,7 @@ int register_netdevice(struct net_device *dev)
+ 		}
+ 	}
+ 
+-	ret = dev_get_valid_name(net, dev->name, dev->name, 0);
++	ret = dev_get_valid_name(dev, dev->name, 0);
+ 	if (ret)
+ 		goto err_uninit;
+ 
+@@ -5661,7 +5665,7 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
+ 		/* We get here if we can't use the current device name */
+ 		if (!pat)
+ 			goto out;
+-		if (dev_get_valid_name(net, pat, dev->name, 1))
++		if (dev_get_valid_name(dev, pat, 1))
+ 			goto out;
+ 	}
+ 
+-- 
+1.7.0.4
+
