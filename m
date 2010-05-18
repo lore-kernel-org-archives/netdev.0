@@ -1,42 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pegasus: fix USB device ID for ETX-US2
-Date: Mon, 17 May 2010 22:42:04 -0700 (PDT)
-Message-ID: <20100517.224204.212416818.davem@davemloft.net>
-References: <4BF0FC1C.2020408@mvista.com>
+Subject: Re: [patch 0/2] s390: qeth patches for 2.6.35 II
+Date: Mon, 17 May 2010 22:43:26 -0700 (PDT)
+Message-ID: <20100517.224326.137854464.davem@davemloft.net>
+References: <20100517071512.118564000@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tabe@mvista.com
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: frank.blaschka@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38558
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40054
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755485Ab0ERFl4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 01:41:56 -0400
-In-Reply-To: <4BF0FC1C.2020408@mvista.com>
+	by vger.kernel.org with ESMTP id S1753975Ab0ERFnT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 01:43:19 -0400
+In-Reply-To: <20100517071512.118564000@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tadashi Abe <tabe@mvista.com>
-Date: Mon, 17 May 2010 17:19:40 +0900
+From: frank.blaschka@de.ibm.com
+Date: Mon, 17 May 2010 09:15:12 +0200
 
-> USB device ID definition for I-O Data ETX-US2 is wrong.
-> Correct ID is 0x093a. Here's snippet from /proc/bus/usb/devices;
+> I just got 2 more qeth patches for 2.6.35 (net-next).
+> Hope they can make it into net-next before the merge window.
 > 
-> T:  Bus=01 Lev=01 Prnt=01 Port=01 Cnt=01 Dev#=  2 Spd=480 MxCh= 0
-> D:  Ver= 2.00 Cls=ff(vend.) Sub=ff Prot=00 MxPS=64 #Cfgs=  1
-> P:  Vendor=04bb ProdID=093a Rev= 1.01
-> S:  Manufacturer=I-O DATA DEVICE,INC.
-> S:  Product=I-O DATA ETX2-US2
-> S:  SerialNumber=A26427
-> C:* #Ifs= 1 Cfg#= 1 Atr=80 MxPwr=224mA
-> I:* If#= 0 Alt= 0 #EPs= 3 Cls=ff(vend.) Sub=ff Prot=00 Driver=pegasus
-> E:  Ad=81(I) Atr=02(Bulk) MxPS= 512 Ivl=0ms
-> E:  Ad=02(O) Atr=02(Bulk) MxPS= 512 Ivl=0ms
-> E:  Ad=83(I) Atr=03(Int.) MxPS=   8 Ivl=125us
+> shortlog:
+> Ursula Braun (1)
+> qeth: support the new OSA CHPID types OSX and OSM
 > 
-> This patch enables pegasus driver to work fine with ETX-US2.
-> 
-> Signed-off-by: Tadashi Abe <tabe@mvista.com>
+> Julia Lawall (1)
+> drivers/s390/net: Drop memory allocation cast
 
-Applied, thanks.
+All applied, thanks.
