@@ -1,33 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 0/2] s390: qeth patches for 2.6.35 II
-Date: Mon, 17 May 2010 22:43:26 -0700 (PDT)
-Message-ID: <20100517.224326.137854464.davem@davemloft.net>
-References: <20100517071512.118564000@de.ibm.com>
+Subject: Re: [PATCH net/next] drivers/net: remove useless semicolons
+Date: Mon, 17 May 2010 22:48:00 -0700 (PDT)
+Message-ID: <20100517.224800.43047829.davem@davemloft.net>
+References: <1273824312.1583.47.camel@Joe-Laptop.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: frank.blaschka@de.ibm.com
+Cc: netdev@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40054
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40057
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753975Ab0ERFnT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 01:43:19 -0400
-In-Reply-To: <20100517071512.118564000@de.ibm.com>
+	by vger.kernel.org with ESMTP id S1752830Ab0ERFrv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 01:47:51 -0400
+In-Reply-To: <1273824312.1583.47.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: frank.blaschka@de.ibm.com
-Date: Mon, 17 May 2010 09:15:12 +0200
+From: Joe Perches <joe@perches.com>
+Date: Fri, 14 May 2010 01:05:12 -0700
 
-> I just got 2 more qeth patches for 2.6.35 (net-next).
-> Hope they can make it into net-next before the merge window.
+> switch and while statements don't need semicolons at end of statement
 > 
-> shortlog:
-> Ursula Braun (1)
-> qeth: support the new OSA CHPID types OSX and OSM
-> 
-> Julia Lawall (1)
-> drivers/s390/net: Drop memory allocation cast
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-All applied, thanks.
+Applied, thanks Joe.
