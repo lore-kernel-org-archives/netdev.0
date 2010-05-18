@@ -1,69 +1,87 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH net-next-2.6] bonding: remove redundant checks from
- bonding_store_slaves
-Date: Tue, 18 May 2010 14:23:13 +0200
-Message-ID: <20100518122312.GC2878@psychotron.lab.eng.brq.redhat.com>
-References: <20100518120944.GA2878@psychotron.lab.eng.brq.redhat.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: dev_get_valid_name buggy with hash collision
+Date: Tue, 18 May 2010 15:29:37 +0300
+Message-ID: <201005181529.37420.opurdila@ixiacom.com>
+References: <4BF26926.4070507@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, fubar@us.ibm.com,
-	bonding-devel@lists.sourceforge.net
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Daniel Lezcano <daniel.lezcano@free.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30871 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752633Ab0ERMXc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 May 2010 08:23:32 -0400
-Content-Disposition: inline
-In-Reply-To: <20100518120944.GA2878@psychotron.lab.eng.brq.redhat.com>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:10690 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751964Ab0ERM3k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 08:29:40 -0400
+In-Reply-To: <4BF26926.4070507@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please scratch this one too, will repost it after I post 2nd version of
-"[PATCH net-next-2.6] bonding: move slave MTU handling from sysfs"
+On Tuesday 18 May 2010 13:17:10 you wrote:
 
-Thanks, Jirka
+> the commit:
+> 
+> commit d90310243fd750240755e217c5faa13e24f41536
+> Author: Octavian Purdila <opurdila@ixiacom.com>
+> Date:   Wed Nov 18 02:36:59 2009 +0000
+> 
+>      net: device name allocation cleanups
+> 
+> introduced a bug when there is a hash collision making impossible to
+> rename a device with eth%d
+<snip>
 
-Tue, May 18, 2010 at 02:09:45PM CEST, jpirko@redhat.com wrote:
->Remove checks that duplicates similar checks in bond_enslave.
->
->Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->
->diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
->index 4e84cfc..6c44c07 100644
->--- a/drivers/net/bonding/bond_sysfs.c
->+++ b/drivers/net/bonding/bond_sysfs.c
->@@ -243,7 +243,7 @@ static ssize_t bonding_store_slaves(struct device *d,
+Hi Daniel,
+
+Thanks for the detailed explanation ! 
+
 > 
-> 	if (command[0] == '+') {
+> IMO, the bug is to pass the 'dev->name' parameter to __dev_alloc_name
+> directly instead of a temporary name.
+
+I agree.
+
 > 
->-		/* Got a slave name in ifname.  Is it already in the list? */
->+		/* Got a slave name in ifname. */
+> The patch in attachment fix the problem but I am not sure we shouldn't
+> go further and do more cleanup around this bug, so you may consider it
+> as a RFC more than a fix. If it is acceptable, I will send it as a patch
+> against net-2.6.
 > 
-> 		dev = __dev_get_by_name(dev_net(bond->dev), ifname);
-> 		if (!dev) {
->@@ -253,24 +253,6 @@ static ssize_t bonding_store_slaves(struct device *d,
-> 			goto out;
-> 		}
+
+The patch looks good to me, just one doubt here:
+
+>--- net-2.6.orig/net/core/dev.c
+>+++ net-2.6/net/core/dev.c
+>@@ -936,18 +936,22 @@ int dev_alloc_name(struct net_device *de
+> }
+> EXPORT_SYMBOL(dev_alloc_name);
 > 
->-		if (dev->flags & IFF_UP) {
->-			pr_err("%s: Error: Unable to enslave %s because it is already up.\n",
->-			       bond->dev->name, dev->name);
->-			ret = -EPERM;
->-			goto out;
->-		}
->-
->-		read_lock(&bond->lock);
->-		bond_for_each_slave(bond, slave, i)
->-			if (slave->dev == dev) {
->-				pr_err("%s: Interface %s is already enslaved!\n",
->-				       bond->dev->name, ifname);
->-				ret = -EPERM;
->-				read_unlock(&bond->lock);
->-				goto out;
->-			}
->-		read_unlock(&bond->lock);
->-
-> 		pr_info("%s: Adding slave %s.\n", bond->dev->name, ifname);
+>-static int dev_get_valid_name(struct net *net, const char *name, char *buf,
+>-                             bool fmt)
+>+static int dev_get_valid_name(struct net_device *dev, const char *name, bool 
+fmt)
+> {
+>+       struct net *net;
+>+
+>+       BUG_ON(!dev_net(dev));
+>+       net = dev_net(dev);
+>+
+>        if (!dev_valid_name(name))
+>                return -EINVAL;
 > 
-> 		/* If this is the first slave, then we need to set
+>        if (fmt && strchr(name, '%'))
+>-               return __dev_alloc_name(net, name, buf);
+>+               return dev_alloc_name(dev, name);
+>        else if (__dev_get_by_name(net, name))
+>                return -EEXIST;
+>-       else if (buf != name)
+>-               strlcpy(buf, name, IFNAMSIZ);
+>+       else if (strncmp(dev->name, name, IFNAMSIZ))
+>+                strlcpy(dev->name, name, IFNAMSIZ);
+> 
+
+Why do the strncmp, can't we preserve the (buf != name) condition?
+
+Thanks,
+tavi
