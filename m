@@ -1,57 +1,137 @@
-From: =?UTF-8?B?S3J6eXN6dG9mIE9sxJlkemtp?= <ole@ans.pl>
-Subject: Re: bnx2/BCM5709: why 5 interrupts on a 4 core system (2.6.33.3)
-Date: Tue, 18 May 2010 17:35:26 +0200
-Message-ID: <4BF2B3BE.60209@ans.pl>
-References: <C27F8246C663564A84BB7AB3439772421B78147539@IRVEXCHCCR01.corp.ad.broadcom.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH net-next-2.6] bonding: move slave MTU handling from sysfs V2
+Date: Tue, 18 May 2010 17:42:40 +0200
+Message-ID: <20100518154016.GD2878@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net, monis@voltaire.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([195.187.34.71]:57583 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756515Ab0ERPfc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 11:35:32 -0400
-In-Reply-To: <C27F8246C663564A84BB7AB3439772421B78147539@IRVEXCHCCR01.corp.ad.broadcom.com>
+Received: from mx1.redhat.com ([209.132.183.28]:58379 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755785Ab0ERPmx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 May 2010 11:42:53 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2010-05-16 20:51, Michael Chan wrote:
-> Krzysztof Oledzki wrote:
->
->>
->> Why the driver registers 5 interrupts instead of 4? How to
->> limit it to 4?
->>
->
-> The first vector (eth0-0) handles link interrupt and other slow
-> path events.  It also has an RX ring for non-IP packets that are
-> not hashed by the RSS hash.  The majority of the rx packets should
-> be hashed to the rx rings eth0-1 - eth0-4, so I would assign these
-> vectors to different CPUs.
+V1->V2: corrected res/ret use
 
-Did some more test on a two 4 core CPUs (8 CPUs reported to the system)=
-=20
-and on a two 4 core CPUs with HT (16 CPUs reported to the system) and i=
-n=20
-both cases there are 8 instead of 9 vectors: eth0-0 .. eth0-7 (irqs 61=20
-=2E. 68). However, dmesg shows that 9 interrupts are allocated:
+For some reason, MTU handling (storing, and restoring) is taking  place in
+bond_sysfs. The correct place for this code is in bond_enslave, bond_release.
+So move it there.
 
-bnx2 0000:01:00.0: irq 61 for MSI/MSI-X
-bnx2 0000:01:00.0: irq 62 for MSI/MSI-X
-bnx2 0000:01:00.0: irq 63 for MSI/MSI-X
-bnx2 0000:01:00.0: irq 64 for MSI/MSI-X
-bnx2 0000:01:00.0: irq 65 for MSI/MSI-X
-bnx2 0000:01:00.0: irq 66 for MSI/MSI-X
-bnx2 0000:01:00.0: irq 67 for MSI/MSI-X
-bnx2 0000:01:00.0: irq 68 for MSI/MSI-X
-bnx2 0000:01:00.0: irq 69 for MSI/MSI-X
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ drivers/net/bonding/bond_main.c  |   15 ++++++++++++++-
+ drivers/net/bonding/bond_sysfs.c |   22 ++--------------------
+ 2 files changed, 16 insertions(+), 21 deletions(-)
 
-It such case, which ring will be used for slow path and non-IP packets=20
-and why there is no additional queue like in a 4CPU case?
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 5e12462..2c3f9db 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1533,6 +1533,14 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	 */
+ 	new_slave->original_flags = slave_dev->flags;
+ 
++	/* Save slave's original mtu and then set it to match the bond */
++	new_slave->original_mtu = slave_dev->mtu;
++	res = dev_set_mtu(slave_dev, bond->dev->mtu);
++	if (res) {
++		pr_debug("Error %d calling dev_set_mtu\n", res);
++		goto err_free;
++	}
++
+ 	/*
+ 	 * Save slave's original ("permanent") mac address for modes
+ 	 * that need it, and for restoring it upon release, and then
+@@ -1550,7 +1558,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		res = dev_set_mac_address(slave_dev, &addr);
+ 		if (res) {
+ 			pr_debug("Error %d calling set_mac_address\n", res);
+-			goto err_free;
++			goto err_restore_mtu;
+ 		}
+ 	}
+ 
+@@ -1785,6 +1793,9 @@ err_restore_mac:
+ 		dev_set_mac_address(slave_dev, &addr);
+ 	}
+ 
++err_restore_mtu:
++	dev_set_mtu(slave_dev, new_slave->original_mtu);
++
+ err_free:
+ 	kfree(new_slave);
+ 
+@@ -1969,6 +1980,8 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		dev_set_mac_address(slave_dev, &addr);
+ 	}
+ 
++	dev_set_mtu(slave_dev, slave->original_mtu);
++
+ 	slave_dev->priv_flags &= ~(IFF_MASTER_8023AD | IFF_MASTER_ALB |
+ 				   IFF_SLAVE_INACTIVE | IFF_BONDING |
+ 				   IFF_SLAVE_NEEDARP);
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 392e291..29a7a8a 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -220,7 +220,6 @@ static ssize_t bonding_store_slaves(struct device *d,
+ 	char command[IFNAMSIZ + 1] = { 0, };
+ 	char *ifname;
+ 	int i, res, ret = count;
+-	u32 original_mtu;
+ 	struct slave *slave;
+ 	struct net_device *dev = NULL;
+ 	struct bonding *bond = to_bond(d);
+@@ -281,18 +280,7 @@ static ssize_t bonding_store_slaves(struct device *d,
+ 			memcpy(bond->dev->dev_addr, dev->dev_addr,
+ 			       dev->addr_len);
+ 
+-		/* Set the slave's MTU to match the bond */
+-		original_mtu = dev->mtu;
+-		res = dev_set_mtu(dev, bond->dev->mtu);
+-		if (res) {
+-			ret = res;
+-			goto out;
+-		}
+-
+ 		res = bond_enslave(bond->dev, dev);
+-		bond_for_each_slave(bond, slave, i)
+-			if (strnicmp(slave->dev->name, ifname, IFNAMSIZ) == 0)
+-				slave->original_mtu = original_mtu;
+ 		if (res)
+ 			ret = res;
+ 
+@@ -301,23 +289,17 @@ static ssize_t bonding_store_slaves(struct device *d,
+ 
+ 	if (command[0] == '-') {
+ 		dev = NULL;
+-		original_mtu = 0;
+ 		bond_for_each_slave(bond, slave, i)
+ 			if (strnicmp(slave->dev->name, ifname, IFNAMSIZ) == 0) {
+ 				dev = slave->dev;
+-				original_mtu = slave->original_mtu;
+ 				break;
+ 			}
+ 		if (dev) {
+ 			pr_info("%s: Removing slave %s\n",
+ 				bond->dev->name, dev->name);
+-				res = bond_release(bond->dev, dev);
+-			if (res) {
++			res = bond_release(bond->dev, dev);
++			if (res)
+ 				ret = res;
+-				goto out;
+-			}
+-			/* set the slave MTU to the default */
+-			dev_set_mtu(dev, original_mtu);
+ 		} else {
+ 			pr_err("unable to remove non-existent slave %s for bond %s.\n",
+ 			       ifname, bond->dev->name);
+-- 
+1.6.6.1
 
-Best regards,
-
-			Krzysztof Ol=C4=99dzki
