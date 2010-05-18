@@ -1,37 +1,32 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [PATCHv2] vhost-net: utilize PUBLISH_USED_IDX feature
-Date: Tue, 18 May 2010 20:47:19 +0300
-Message-ID: <4BF2D2A7.8030803@redhat.com>
-References: <20100518022105.GA23129@redhat.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] net-2.6 : fix dev_get_valid_name
+Date: Tue, 18 May 2010 10:54:51 -0700
+Message-ID: <20100518105451.05b060e8@nehalam>
+References: <1274204112-8920-1-git-send-email-daniel.lezcano@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Juan Quintela <quintela@redhat.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Arnd Bergmann <arnd@arndb.de>, kvm@vger.kernel.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, alex.williamson@redhat.com,
-	amit.shah@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100518022105.GA23129@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, opurdila@ixiacom.com, netdev@vger.kernel.org
+To: Daniel Lezcano <daniel.lezcano@free.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:34446 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932083Ab0ERRy5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 May 2010 13:54:57 -0400
+In-Reply-To: <1274204112-8920-1-git-send-email-daniel.lezcano@free.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/18/2010 05:21 AM, Michael S. Tsirkin wrote:
-> With PUBLISH_USED_IDX, guest tells us which used entries
-> it has consumed. This can be used to reduce the number
-> of interrupts: after we write a used entry, if the guest has not yet
-> consumed the previous entry, or if the guest has already consumed the
-> new entry, we do not need to interrupt.
-> This imporves bandwidth by 30% under some workflows.
->    
+On Tue, 18 May 2010 19:35:12 +0200
+Daniel Lezcano <daniel.lezcano@free.fr> wrote:
 
-Seems to be missing the cacheline alignment.
+> +static int dev_get_valid_name(struct net_device *dev, const char *name, bool fmt)
+>  {
+> +	struct net *net;
+> +
+> +	BUG_ON(!dev_net(dev));
+> +	net = dev_net(dev);
 
-Rusty's clarification did not satisfy me, I think it's needed.
+This is not really part of the same fix. And not sure why it is added here?
 
 -- 
-I have a truly marvellous patch that fixes the bug which this
-signature is too narrow to contain.
