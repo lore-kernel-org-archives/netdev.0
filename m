@@ -1,30 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] ibmveth: Add suspend/resume support
-Date: Mon, 17 May 2010 17:09:21 -0700 (PDT)
-Message-ID: <20100517.170921.183060241.davem@davemloft.net>
-References: <201005071156.o47BuCYM007062@d03av03.boulder.ibm.com>
+Subject: Re: [PATCH] drivers/net/usb/asix.c Fix unaligned access
+Date: Mon, 17 May 2010 17:18:39 -0700 (PDT)
+Message-ID: <20100517.171839.39191543.davem@davemloft.net>
+References: <s2q91f916b91005060413pe1a1799etdea5ad730841a04e@mail.gmail.com>
+	<AANLkTiliFhlbe7HAOyn9O3935MkmEuRumLKYY7Ew4DXQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: brking@linux.vnet.ibm.com
+To: neiljay@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54265
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43013
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752090Ab0ERAJM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 May 2010 20:09:12 -0400
-In-Reply-To: <201005071156.o47BuCYM007062@d03av03.boulder.ibm.com>
+	by vger.kernel.org with ESMTP id S1753591Ab0ERASa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 May 2010 20:18:30 -0400
+In-Reply-To: <AANLkTiliFhlbe7HAOyn9O3935MkmEuRumLKYY7Ew4DXQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Brian King <brking@linux.vnet.ibm.com>
-Date: Fri, 07 May 2010 13:56:08 -0500
+From: Neil Jones <neiljay@gmail.com>
+Date: Mon, 10 May 2010 17:06:01 +0100
 
+> Using this driver can cause unaligned accesses in the IP layer
+> This has been fixed by aligning the skb data correctly using the
+> spare room left over by the 4 byte header inserted between packets
+> by the device.
 > 
-> Adds support for resuming from suspend for IBM virtual ethernet devices.
-> We may have lost an interrupt over the suspend, so we just kick the
-> interrupt handler to process anything that is outstanding.
-> 
-> Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
+> Signed-off-by: Neil Jones <NeilJay@gmail.com>
 
-Applied, thank you.
+Applied, thanks.
