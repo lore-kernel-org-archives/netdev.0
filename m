@@ -1,37 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bfin_mac: fix memleak in mii_bus{probe|remove}
-Date: Tue, 18 May 2010 14:15:17 -0700 (PDT)
-Message-ID: <20100518.141517.215575310.davem@davemloft.net>
-References: <AANLkTikcB3f0KmkcnDsV46Xrpm3WcCLQklxbLSJfMTlW@mail.gmail.com>
-	<20100518113445.GA28386@coldcone>
-	<20100518.141318.45114681.davem@davemloft.net>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: [PATCH v3] Fix SJA1000 command register writes on SMP systems
+Date: Tue, 18 May 2010 23:31:09 +0200
+Message-ID: <20100518213109.GA29894@merkur.ravnborg.org>
+References: <4BF2E512.1090109@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sonic.adi@gmail.com, michael.hennerich@analog.com,
-	cooloney@kernel.org, uclinux-dist-devel@blackfin.uclinux.org,
-	netdev@vger.kernel.org
-To: kirjanov@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	SocketCAN Core Mailing List <socketcan-core@lists.berlios.de>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Wolfgang Grandegger <wg@grandegger.com>
+To: Oliver Hartkopp <socketcan@hartkopp.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53930
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754062Ab0ERVPH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 17:15:07 -0400
-In-Reply-To: <20100518.141318.45114681.davem@davemloft.net>
+Received: from pfepa.post.tele.dk ([195.41.46.235]:58175 "EHLO
+	pfepa.post.tele.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755563Ab0ERVbL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 17:31:11 -0400
+Content-Disposition: inline
+In-Reply-To: <4BF2E512.1090109@hartkopp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 18 May 2010 14:13:18 -0700 (PDT)
+Hi Oliver.
 
-> From: Denis Kirjanov <kirjanov@gmail.com>
-> Date: Tue, 18 May 2010 15:34:46 +0400
-> 
->> [PATCH] bfin_mac: fix memleak in mii_bus_{probe|remove}
->> Fix memory leak with miibus->irq
->> 
->> Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
-> 
-> I've already applied the original patch.
+> diff --git a/drivers/net/can/sja1000/sja1000.h b/drivers/net/can/sja1000/sja1000.h
+> index 97a622b..de8e778 100644
+> --- a/drivers/net/can/sja1000/sja1000.h
+> +++ b/drivers/net/can/sja1000/sja1000.h
+> @@ -167,6 +167,7 @@ struct sja1000_priv {
+>  
+>  	void __iomem *reg_base;	 /* ioremap'ed address to registers */
+>  	unsigned long irq_flags; /* for request_irq() */
+> +	spinlock_t cmdreg_lock;  /* lock for concurrent cmd register writes */
+>  
+>  	u16 flags;		/* custom mode flags */
+>  	u8 ocr;			/* output control register */
 
-Sorry, ignore this, I didn't see that this is a new patch.
+You define your spinlock inside a struct so you cannot use
+DEFINE_SPINLOCK().
+
+But then you need to use spin_lock_init() - which I fail to see
+you are doing in your patch.
+
+	Sam
