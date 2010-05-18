@@ -1,42 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 14/20] drivers/net/vmxnet3: Use kzalloc
-Date: Mon, 17 May 2010 22:55:44 -0700 (PDT)
-Message-ID: <20100517.225544.85428189.davem@davemloft.net>
-References: <Pine.LNX.4.64.1005132204040.6282@ask.diku.dk>
+Subject: Re: [PATCH 1/3] net sched: printk message severity
+Date: Mon, 17 May 2010 22:58:07 -0700 (PDT)
+Message-ID: <20100517.225807.22051427.davem@davemloft.net>
+References: <20100512163704.780058547@vyatta.com>
+	<20100512163719.414013223@vyatta.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sbhatewara@vmware.com, pv-drivers@vmware.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: julia@diku.dk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.1005132204040.6282@ask.diku.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56017
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755828Ab0ERF57 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 01:57:59 -0400
+In-Reply-To: <20100512163719.414013223@vyatta.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
-Date: Thu, 13 May 2010 22:05:40 +0200 (CEST)
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Wed, 12 May 2010 09:37:05 -0700
 
-> From: Julia Lawall <julia@diku.dk>
+> The previous patch encourage me to go look at all the messages in
+> the network scheduler and fix them. Many messages were missing
+> any severity level. Some serious ones that should never happen
+> were turned into WARN(), and the random noise messages that were
+> handled changed to pr_debug().
 > 
-> Use kzalloc rather than the combination of kmalloc and memset.
-> 
-> The semantic patch that makes this change is as follows:
-> (http://coccinelle.lip6.fr/)
-> 
-> // <smpl>
-> @@
-> expression x,size,flags;
-> statement S;
-> @@
-> 
-> -x = kmalloc(size,flags);
-> +x = kzalloc(size,flags);
->  if (x == NULL) S
-> -memset(x, 0, size);
-> // </smpl>
-> 
-> Signed-off-by: Julia Lawall <julia@diku.dk>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
 Applied.
