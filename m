@@ -1,85 +1,66 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next] ixgbe: return error in set_rar when index out of
-	range
-Date: Tue, 18 May 2010 17:19:03 -0700
-Message-ID: <AANLkTinu7M4fMmNXqlpMmMyRBySbY5lMGnRATI36xshZ@mail.gmail.com>
-References: <1274196888.8701.2.camel@localhost.localdomain>
+From: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
+Subject: Re: QoS weirdness : HTB accuracy
+Date: Tue, 18 May 2010 18:07:12 -0600
+Message-ID: <4BF32BB0.7010700@redfish-solutions.com>
+References: <067c83163988908ef546d7ff7f560a17@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, kvm@vger.kernel.org, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1274196888.8701.2.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+	netfilter <netfilter@vger.kernel.org>
+To: Julien Vehent <julien@linuxwall.info>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.redfish-solutions.com ([66.232.79.143]:46162 "EHLO
+	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752846Ab0ESAVU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 20:21:20 -0400
+In-Reply-To: <067c83163988908ef546d7ff7f560a17@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 18, 2010 at 08:34, Shirley Ma <mashirle@us.ibm.com> wrote:
-> Return -1 when set_rar index is out of range
+On 03/25/2010 12:06 PM, Julien Vehent wrote:
+> Hello folks,
 >
-> Signed-off-by: Shirley Ma <xma@us.ibm.com>
-> ---
+> I observe unused bandwidth on my QoS policy that I cannot explain.
+> Conditions are: I have a HTB tree with 8 classes and a total rate of
+> 768kbits. I use the ATM option so I assume the real rate to be something
+> close to 675kbits (about 88% of the ethernet rate).
 >
-> =C2=A0drivers/net/ixgbe/ixgbe_common.c | =C2=A0 =C2=A01 +
-> =C2=A01 files changed, 1 insertions(+), 0 deletions(-)
+> The sum of my 8 rates is exactly 768kbits. Some have ceil values up to
+> 768kbits.
 >
+> When class 20 "tcp_acks" starts borrowing, TC reduces the total bandwidth
+> down to 595kbits/S (minus 79kbits/s). And I can't explain why....
+>
+> The attached graph "tc_htb_weirdness.png" shows the result: there are
+> 'holes' in the sending rate. 
+>
+> I tried to play with burst sizes, r2q value and hysteresis mode, but the
+> results are the same.
+>
+> System is debian squeeze, kernel version is 2.6.26, iproute2 version is
+> 2.6.26 - 07/25/2008.
+>
+> I have attached two files:
+> - "tcrules.txt" : the traffic control rules
+> - "tc_htb_weirdness.png" : the rrdtool graph, resolution is 1 second.
+>
+> And here: http://jve.linuxwall.info/ressources/code/tc_hole_analysis.html
+> a sheet with some of the measures values. I used it to calculate the size
+> of one of the hole. The last table (with green and red cells) shows that,
+> when class 20 "tcp_acks" starts sending at unixtime 1265496813, there is a
+> lot of bandwidth left over (last column is all green). During the 95
+> seconds while class 20 is sending, 3880776 bits could be sent but are not.
+> That's about 40kbits/s on average. 
+>
+> Does anybody observess the same behavior? Any logical explanation to this
+> or is it a bug ?
+>
+>
+> Julien
 
+Sorry for the late response:  could this be an "aliasing" issue caused
+by sampling intervals (granularity)?
 
-I think this should use IXGBE_ERR_<blah> instead and there is another
-spot where this could be used.  Instead I propose this patch
-instead...
+-Philip
 
-ixgbe: return IXGBE_ERR_RAR_INDEX when out of range
-
-=46rom: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-
-Based on patch from Shirley Ma <xma@us.ibm.com>
-Return IXGBE_ERR_RAR_INDEX when RAR index is out of range, instead of
-returning IXGBE_SUCCESS.
-
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Acked-by: Don Skidmore <donald.c.skidmore@intel.com>
----
-
- drivers/net/ixgbe/ixgbe_common.c |    2 ++
- drivers/net/ixgbe/ixgbe_type.h   |    1 +
- 2 files changed, 3 insertions(+), 0 deletions(-)
-
-
-diff --git a/drivers/net/ixgbe/ixgbe_common.c b/drivers/net/ixgbe/ixgbe=
-_common.c
-index 1159d91..9595b1b 100644
---- a/drivers/net/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ixgbe/ixgbe_common.c
-@@ -1188,6 +1188,7 @@ s32 ixgbe_set_rar_generic(struct ixgbe_hw *hw,
-u32 index, u8 *addr, u32 vmdq,
- 		IXGBE_WRITE_REG(hw, IXGBE_RAH(index), rar_high);
- 	} else {
- 		hw_dbg(hw, "RAR index %d is out of range.\n", index);
-+		return IXGBE_ERR_RAR_INDEX;
- 	}
-
- 	return 0;
-@@ -1219,6 +1220,7 @@ s32 ixgbe_clear_rar_generic(struct ixgbe_hw *hw,
-u32 index)
- 		IXGBE_WRITE_REG(hw, IXGBE_RAH(index), rar_high);
- 	} else {
- 		hw_dbg(hw, "RAR index %d is out of range.\n", index);
-+		return IXGBE_ERR_RAR_INDEX;
- 	}
-
- 	/* clear VMDq pool/queue selection for this RAR */
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_t=
-ype.h
-index bd69196..37d2807 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -2600,6 +2600,7 @@ struct ixgbe_info {
- #define IXGBE_ERR_FDIR_REINIT_FAILED            -23
- #define IXGBE_ERR_EEPROM_VERSION                -24
- #define IXGBE_ERR_NO_SPACE                      -25
-+#define IXGBE_ERR_RAR_INDEX                     -26
- #define IXGBE_NOT_IMPLEMENTED                   0x7FFFFFFF
-
- #endif /* _IXGBE_TYPE_H_ */
