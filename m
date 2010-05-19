@@ -1,230 +1,68 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 7/7] ixgbe: add support for active DA cables
-Date: Tue, 18 May 2010 19:00:13 -0700
-Message-ID: <20100519020013.18654.78651.stgit@localhost.localdomain>
+Subject: [net-next PATCH 5/7] ixgbe: fix ixgbe_tx_is_paused logic
+Date: Tue, 18 May 2010 19:00:10 -0700
+Message-ID: <20100519020010.18654.48130.stgit@localhost.localdomain>
 References: <20100519020003.18654.94899.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Don Skidmore <donald.c.skidmore@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta02.emeryville.ca.mail.comcast.net ([76.96.30.24]:42835 "EHLO
-	qmta02.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753051Ab0ESCAO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 22:00:14 -0400
+Received: from qmta15.emeryville.ca.mail.comcast.net ([76.96.27.228]:60255
+	"EHLO qmta15.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752859Ab0ESCAL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 22:00:11 -0400
 In-Reply-To: <20100519020003.18654.94899.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: John Fastabend <john.r.fastabend@intel.com>
 
-This patch adds support of active DA cables.  This is
-renaming and adding some PHY type enumerations.
+The TFCS bits show the current XON state.  Meaning that the
+device is paused if these bits are 0.  This fixes the logic
+to work as it was intended.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_82599.c   |    8 ++++++--
- drivers/net/ixgbe/ixgbe_ethtool.c |    4 ++--
- drivers/net/ixgbe/ixgbe_main.c    |    6 ++++--
- drivers/net/ixgbe/ixgbe_phy.c     |   38 +++++++++++++++++++++++++++++++------
- drivers/net/ixgbe/ixgbe_phy.h     |    3 +++
- drivers/net/ixgbe/ixgbe_type.h    |    9 +++++++--
- 6 files changed, 54 insertions(+), 14 deletions(-)
+ drivers/net/ixgbe/ixgbe_main.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
-index dc197a4..e9706eb 100644
---- a/drivers/net/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ixgbe/ixgbe_82599.c
-@@ -2155,10 +2155,14 @@ sfp_check:
- 		goto out;
- 
- 	switch (hw->phy.type) {
--	case ixgbe_phy_tw_tyco:
--	case ixgbe_phy_tw_unknown:
-+	case ixgbe_phy_sfp_passive_tyco:
-+	case ixgbe_phy_sfp_passive_unknown:
- 		physical_layer = IXGBE_PHYSICAL_LAYER_SFP_PLUS_CU;
- 		break;
-+	case ixgbe_phy_sfp_ftl_active:
-+	case ixgbe_phy_sfp_active_unknown:
-+		physical_layer = IXGBE_PHYSICAL_LAYER_SFP_ACTIVE_DA;
-+		break;
- 	case ixgbe_phy_sfp_avago:
- 	case ixgbe_phy_sfp_ftl:
- 	case ixgbe_phy_sfp_intel:
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index 251767d..c50a754 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -212,8 +212,8 @@ static int ixgbe_get_settings(struct net_device *netdev,
- 		ecmd->port = PORT_FIBRE;
- 		break;
- 	case ixgbe_phy_nl:
--	case ixgbe_phy_tw_tyco:
--	case ixgbe_phy_tw_unknown:
-+	case ixgbe_phy_sfp_passive_tyco:
-+	case ixgbe_phy_sfp_passive_unknown:
- 	case ixgbe_phy_sfp_ftl:
- 	case ixgbe_phy_sfp_avago:
- 	case ixgbe_phy_sfp_intel:
 diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index caf1114..9551cbb 100644
+index f0f7329..d80bb1a 100644
 --- a/drivers/net/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -3118,8 +3118,10 @@ static inline bool ixgbe_is_sfp(struct ixgbe_hw *hw)
- 	case ixgbe_phy_sfp_ftl:
- 	case ixgbe_phy_sfp_intel:
- 	case ixgbe_phy_sfp_unknown:
--	case ixgbe_phy_tw_tyco:
--	case ixgbe_phy_tw_unknown:
-+	case ixgbe_phy_sfp_passive_tyco:
-+	case ixgbe_phy_sfp_passive_unknown:
-+	case ixgbe_phy_sfp_active_unknown:
-+	case ixgbe_phy_sfp_ftl_active:
- 		return true;
- 	default:
- 		return false;
-diff --git a/drivers/net/ixgbe/ixgbe_phy.c b/drivers/net/ixgbe/ixgbe_phy.c
-index d6d5b84..22d21af 100644
---- a/drivers/net/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ixgbe/ixgbe_phy.c
-@@ -531,6 +531,7 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
- 	u8 comp_codes_10g = 0;
- 	u8 oui_bytes[3] = {0, 0, 0};
- 	u8 cable_tech = 0;
-+	u8 cable_spec = 0;
- 	u16 enforce_sfp = 0;
+@@ -625,16 +625,16 @@ static void ixgbe_unmap_and_free_tx_resource(struct ixgbe_adapter *adapter,
+ }
  
- 	if (hw->mac.ops.get_media_type(hw) != ixgbe_media_type_fiber) {
-@@ -580,14 +581,30 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
- 			else
- 				hw->phy.sfp_type = ixgbe_sfp_type_unknown;
- 		} else if (hw->mac.type == ixgbe_mac_82599EB) {
--			if (cable_tech & IXGBE_SFF_DA_PASSIVE_CABLE)
-+			if (cable_tech & IXGBE_SFF_DA_PASSIVE_CABLE) {
- 				if (hw->bus.lan_id == 0)
- 					hw->phy.sfp_type =
- 					             ixgbe_sfp_type_da_cu_core0;
- 				else
- 					hw->phy.sfp_type =
- 					             ixgbe_sfp_type_da_cu_core1;
--			else if (comp_codes_10g & IXGBE_SFF_10GBASESR_CAPABLE)
-+			} else if (cable_tech & IXGBE_SFF_DA_ACTIVE_CABLE) {
-+				hw->phy.ops.read_i2c_eeprom(
-+						hw, IXGBE_SFF_CABLE_SPEC_COMP,
-+						&cable_spec);
-+				if (cable_spec &
-+				    IXGBE_SFF_DA_SPEC_ACTIVE_LIMITING) {
-+					if (hw->bus.lan_id == 0)
-+						hw->phy.sfp_type =
-+						ixgbe_sfp_type_da_act_lmt_core0;
-+					else
-+						hw->phy.sfp_type =
-+						ixgbe_sfp_type_da_act_lmt_core1;
-+				} else {
-+					hw->phy.sfp_type =
-+						ixgbe_sfp_type_unknown;
-+				}
-+			} else if (comp_codes_10g & IXGBE_SFF_10GBASESR_CAPABLE)
- 				if (hw->bus.lan_id == 0)
- 					hw->phy.sfp_type =
- 					              ixgbe_sfp_type_srlr_core0;
-@@ -637,10 +654,14 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
- 			switch (vendor_oui) {
- 			case IXGBE_SFF_VENDOR_OUI_TYCO:
- 				if (cable_tech & IXGBE_SFF_DA_PASSIVE_CABLE)
--					hw->phy.type = ixgbe_phy_tw_tyco;
-+					hw->phy.type =
-+						ixgbe_phy_sfp_passive_tyco;
- 				break;
- 			case IXGBE_SFF_VENDOR_OUI_FTL:
--				hw->phy.type = ixgbe_phy_sfp_ftl;
-+				if (cable_tech & IXGBE_SFF_DA_ACTIVE_CABLE)
-+					hw->phy.type = ixgbe_phy_sfp_ftl_active;
-+				else
-+					hw->phy.type = ixgbe_phy_sfp_ftl;
- 				break;
- 			case IXGBE_SFF_VENDOR_OUI_AVAGO:
- 				hw->phy.type = ixgbe_phy_sfp_avago;
-@@ -650,7 +671,11 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
- 				break;
- 			default:
- 				if (cable_tech & IXGBE_SFF_DA_PASSIVE_CABLE)
--					hw->phy.type = ixgbe_phy_tw_unknown;
-+					hw->phy.type =
-+						ixgbe_phy_sfp_passive_unknown;
-+				else if (cable_tech & IXGBE_SFF_DA_ACTIVE_CABLE)
-+					hw->phy.type =
-+						ixgbe_phy_sfp_active_unknown;
- 				else
- 					hw->phy.type = ixgbe_phy_sfp_unknown;
- 				break;
-@@ -658,7 +683,8 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
- 		}
- 
- 		/* All passive DA cables are supported */
--		if (cable_tech & IXGBE_SFF_DA_PASSIVE_CABLE) {
-+		if (cable_tech & (IXGBE_SFF_DA_PASSIVE_CABLE |
-+		    IXGBE_SFF_DA_ACTIVE_CABLE)) {
- 			status = 0;
- 			goto out;
- 		}
-diff --git a/drivers/net/ixgbe/ixgbe_phy.h b/drivers/net/ixgbe/ixgbe_phy.h
-index 9cf5f3b..c9c5459 100644
---- a/drivers/net/ixgbe/ixgbe_phy.h
-+++ b/drivers/net/ixgbe/ixgbe_phy.h
-@@ -40,9 +40,12 @@
- #define IXGBE_SFF_1GBE_COMP_CODES    0x6
- #define IXGBE_SFF_10GBE_COMP_CODES   0x3
- #define IXGBE_SFF_CABLE_TECHNOLOGY   0x8
-+#define IXGBE_SFF_CABLE_SPEC_COMP    0x3C
- 
- /* Bitmasks */
- #define IXGBE_SFF_DA_PASSIVE_CABLE           0x4
-+#define IXGBE_SFF_DA_ACTIVE_CABLE            0x8
-+#define IXGBE_SFF_DA_SPEC_ACTIVE_LIMITING    0x4
- #define IXGBE_SFF_1GBASESX_CAPABLE           0x1
- #define IXGBE_SFF_1GBASELX_CAPABLE           0x2
- #define IXGBE_SFF_10GBASESR_CAPABLE          0x10
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index bd69196..39b9be8 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -2108,6 +2108,7 @@ typedef u32 ixgbe_physical_layer;
- #define IXGBE_PHYSICAL_LAYER_1000BASE_BX  0x0400
- #define IXGBE_PHYSICAL_LAYER_10GBASE_KR   0x0800
- #define IXGBE_PHYSICAL_LAYER_10GBASE_XAUI 0x1000
-+#define IXGBE_PHYSICAL_LAYER_SFP_ACTIVE_DA 0x2000
- 
- /* Software ATR hash keys */
- #define IXGBE_ATR_BUCKET_HASH_KEY    0xE214AD3D
-@@ -2177,10 +2178,12 @@ enum ixgbe_phy_type {
- 	ixgbe_phy_qt,
- 	ixgbe_phy_xaui,
- 	ixgbe_phy_nl,
--	ixgbe_phy_tw_tyco,
--	ixgbe_phy_tw_unknown,
-+	ixgbe_phy_sfp_passive_tyco,
-+	ixgbe_phy_sfp_passive_unknown,
-+	ixgbe_phy_sfp_active_unknown,
- 	ixgbe_phy_sfp_avago,
- 	ixgbe_phy_sfp_ftl,
-+	ixgbe_phy_sfp_ftl_active,
- 	ixgbe_phy_sfp_unknown,
- 	ixgbe_phy_sfp_intel,
- 	ixgbe_phy_sfp_unsupported,
-@@ -2208,6 +2211,8 @@ enum ixgbe_sfp_type {
- 	ixgbe_sfp_type_da_cu_core1 = 4,
- 	ixgbe_sfp_type_srlr_core0 = 5,
- 	ixgbe_sfp_type_srlr_core1 = 6,
-+	ixgbe_sfp_type_da_act_lmt_core0 = 7,
-+	ixgbe_sfp_type_da_act_lmt_core1 = 8,
- 	ixgbe_sfp_type_not_present = 0xFFFE,
- 	ixgbe_sfp_type_unknown = 0xFFFF
- };
+ /**
+- * ixgbe_tx_is_paused - check if the tx ring is paused
++ * ixgbe_tx_xon_state - check the tx ring xon state
+  * @adapter: the ixgbe adapter
+  * @tx_ring: the corresponding tx_ring
+  *
+  * If not in DCB mode, checks TFCS.TXOFF, otherwise, find out the
+  * corresponding TC of this tx_ring when checking TFCS.
+  *
+- * Returns : true if paused
++ * Returns : true if in xon state (currently not paused)
+  */
+-static inline bool ixgbe_tx_is_paused(struct ixgbe_adapter *adapter,
++static inline bool ixgbe_tx_xon_state(struct ixgbe_adapter *adapter,
+                                       struct ixgbe_ring *tx_ring)
+ {
+ 	u32 txoff = IXGBE_TFCS_TXOFF;
+@@ -690,7 +690,7 @@ static inline bool ixgbe_check_tx_hang(struct ixgbe_adapter *adapter,
+ 	adapter->detect_tx_hung = false;
+ 	if (tx_ring->tx_buffer_info[eop].time_stamp &&
+ 	    time_after(jiffies, tx_ring->tx_buffer_info[eop].time_stamp + HZ) &&
+-	    !ixgbe_tx_is_paused(adapter, tx_ring)) {
++	    ixgbe_tx_xon_state(adapter, tx_ring)) {
+ 		/* detected Tx unit hang */
+ 		union ixgbe_adv_tx_desc *tx_desc;
+ 		tx_desc = IXGBE_TX_DESC_ADV(*tx_ring, eop);
 
