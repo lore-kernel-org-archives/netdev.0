@@ -1,50 +1,36 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH 6/7] ixgbe: dcb, do not tag tc_prio_control frames
-Date: Tue, 18 May 2010 19:00:11 -0700
-Message-ID: <20100519020011.18654.3836.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 1/7] ixgbe: fix header len when unsplit packet
+ overflows to data buffer
+Date: Tue, 18 May 2010 19:44:33 -0700 (PDT)
+Message-ID: <20100518.194433.191137438.davem@davemloft.net>
 References: <20100519020003.18654.94899.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org, gospo@redhat.com, shannon.nelson@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:46158 "EHLO
-	qmta09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753032Ab0ESCAM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 22:00:12 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46529
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752189Ab0ESCoZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 22:44:25 -0400
 In-Reply-To: <20100519020003.18654.94899.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 18 May 2010 19:00:03 -0700
 
-The network stack indicate packets should not be DCB
-tagged by setting the priority to TC_PRIO_CONTROL. One
-usage for this is lldp frames which are not suppossed
-to be tagged.
+> From: Shannon Nelson <shannon.nelson@intel.com>
+> 
+> When in packet split mode, packet type is not recognized, and the packet is
+> larger than the header size, the 82599 overflows the packet into the data
+> area, but doesn't set the HDR_LEN field.  We can safely assume the length
+> is the current header size.  This fixes an obscure corner case that can be
+> triggered by non-ip packet headers or (more likely) by disabling the L2
+> packet recognition.
+> 
+> Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-
- drivers/net/ixgbe/ixgbe_main.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index d80bb1a..caf1114 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -6075,7 +6075,8 @@ static netdev_tx_t ixgbe_xmit_frame(struct sk_buff *skb,
- 		}
- 		tx_flags <<= IXGBE_TX_FLAGS_VLAN_SHIFT;
- 		tx_flags |= IXGBE_TX_FLAGS_VLAN;
--	} else if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
-+	} else if (adapter->flags & IXGBE_FLAG_DCB_ENABLED &&
-+		   skb->priority != TC_PRIO_CONTROL) {
- 		tx_flags |= ((skb->queue_mapping & 0x7) << 13);
- 		tx_flags <<= IXGBE_TX_FLAGS_VLAN_SHIFT;
- 		tx_flags |= IXGBE_TX_FLAGS_VLAN;
-
+Applied.
