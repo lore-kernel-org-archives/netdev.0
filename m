@@ -1,84 +1,126 @@
-From: Sonic Zhang <sonic.adi@gmail.com>
-Subject: Re: [PATCH 06/11] netdev: bfin_mac: avoid tx skb overflows in the tx
-	DMA ring
-Date: Wed, 19 May 2010 17:23:16 +0800
-Message-ID: <AANLkTikKz6v09VTjtANmmcGHU1eKcVWjuDIO24KqkHWK@mail.gmail.com>
-References: <1273400337-26501-6-git-send-email-vapier@gentoo.org>
-	 <20100510.044035.199023238.davem@davemloft.net>
-	 <AANLkTimWjjXKwi_YLFPxBrCBu1qkiuaUKyo1UW5373lH@mail.gmail.com>
-	 <20100518.122953.236217958.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Wolfram Sang <w.sang@pengutronix.de>
+Subject: [PATCH] net/mpc52xx_phy: Various code cleanups
+Date: Wed, 19 May 2010 12:21:10 +0200
+Message-ID: <1274264470-2905-1-git-send-email-w.sang@pengutronix.de>
+Cc: netdev@vger.kernel.org, Wolfram Sang <w.sang@pengutronix.de>,
+	Grant Likely <grant.likely@secretlab.ca>
+To: linuxppc-dev@ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f194.google.com ([209.85.222.194]:42199 "EHLO
-	mail-pz0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754123Ab0ESJXR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 May 2010 05:23:17 -0400
-Received: by pzk32 with SMTP id 32so2614067pzk.21
-        for <netdev@vger.kernel.org>; Wed, 19 May 2010 02:23:16 -0700 (PDT)
-In-Reply-To: <20100518.122953.236217958.davem@davemloft.net>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:50317 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754554Ab0ESKVd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 May 2010 06:21:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 19, 2010 at 3:29 AM, David Miller <davem@davemloft.net> wro=
-te:
-> From: Sonic Zhang <sonic.adi@gmail.com>
-> Date: Tue, 18 May 2010 18:52:17 +0800
->
-> [ Please never drop the mailing list when you're trying to
-> =A0discuss something networking related with me, thanks.
-> =A0I've put the CC: back. ]
->
->> On Mon, May 10, 2010 at 7:40 PM, David Miller <davem@davemloft.net> =
-wrote:
->>> From: Mike Frysinger <vapier@gentoo.org>
->>> Date: Sun, =A09 May 2010 06:18:52 -0400
->>>
->>>> From: Sonic Zhang <sonic.zhang@analog.com>
->>>>
->>>> Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
->>>> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
->>>
->>> This should never ever happen, it's a bug and you should print a wa=
-rning
->>> message when and if it does actually occur.
->>>
->>> At any point where your ->next pointer hits tx_list_head, the queue
->>> should have been stopped by your driver and therefore the networkin=
-g
->>> core will never pass another packet to you.
->>
->> To reduce the tx output overhead, the tx interrupt is not enabled an=
-d
->> handled in this driver. So, the driver doesn't know when to restart
->> the tx queue if the queue is stopped in ndo_start_xmit() at the poin=
-t
->> where next pointer hits tx_list_head.
->>
->> In this case, although TX buffer list full rarely happens, the check
->> is still a safeguard.
->
-> You can't do that, if you don't use the TX interrupt then you can lea=
-ve
-> SKBs stale in your TX ring for indefinite periods of time which is
-> illegal.
+- don't free bus->irq (obsoleted by ca816d98170942371535b3e862813b0aba9b7d90)
+- don't dispose irqs (should be done in of_mdiobus_register())
+- use fec-pointer consistently in transfer()
+- use resource_size()
+- cosmetic fixes
 
-No, this doesn't happen, because before ndo_start_xmit() returns, the
-old TX buffers and skbs in the ring, which finished DMA operation, are
-freed. The only difference is that the free operation of a skb is done
-in next tx transfer.
+Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
+Cc: Grant Likely <grant.likely@secretlab.ca>
+---
 
-Sonic
+My phyCORE-MPC5200B-tiny still passes its test-suite after the patch
+(running via nfsroot).
 
->
-> SKBs hold onto resources that can't be held indefinitely, such as TCP
-> socket references and netfilter conntrack state. =A0So if you leave a
-> packet in your TX ring for a long time, there might be a TCP socket
-> that now cannot be closed and freed up because of that.
->
-> You must therefore free them very as soon as possible after the
-> hardware is done with them.
->
+ drivers/net/fec_mpc52xx_phy.c |   24 +++++-------------------
+ 1 files changed, 5 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/net/fec_mpc52xx_phy.c b/drivers/net/fec_mpc52xx_phy.c
+index 7658a08..35c90e0 100644
+--- a/drivers/net/fec_mpc52xx_phy.c
++++ b/drivers/net/fec_mpc52xx_phy.c
+@@ -29,15 +29,14 @@ static int mpc52xx_fec_mdio_transfer(struct mii_bus *bus, int phy_id,
+ 		int reg, u32 value)
+ {
+ 	struct mpc52xx_fec_mdio_priv *priv = bus->priv;
+-	struct mpc52xx_fec __iomem *fec;
++	struct mpc52xx_fec __iomem *fec = priv->regs;
+ 	int tries = 3;
+ 
+ 	value |= (phy_id << FEC_MII_DATA_PA_SHIFT) & FEC_MII_DATA_PA_MSK;
+ 	value |= (reg << FEC_MII_DATA_RA_SHIFT) & FEC_MII_DATA_RA_MSK;
+ 
+-	fec = priv->regs;
+ 	out_be32(&fec->ievent, FEC_IEVENT_MII);
+-	out_be32(&priv->regs->mii_data, value);
++	out_be32(&fec->mii_data, value);
+ 
+ 	/* wait for it to finish, this takes about 23 us on lite5200b */
+ 	while (!(in_be32(&fec->ievent) & FEC_IEVENT_MII) && --tries)
+@@ -47,7 +46,7 @@ static int mpc52xx_fec_mdio_transfer(struct mii_bus *bus, int phy_id,
+ 		return -ETIMEDOUT;
+ 
+ 	return value & FEC_MII_DATA_OP_RD ?
+-		in_be32(&priv->regs->mii_data) & FEC_MII_DATA_DATAMSK : 0;
++		in_be32(&fec->mii_data) & FEC_MII_DATA_DATAMSK : 0;
+ }
+ 
+ static int mpc52xx_fec_mdio_read(struct mii_bus *bus, int phy_id, int reg)
+@@ -69,9 +68,8 @@ static int mpc52xx_fec_mdio_probe(struct of_device *of,
+ 	struct device_node *np = of->node;
+ 	struct mii_bus *bus;
+ 	struct mpc52xx_fec_mdio_priv *priv;
+-	struct resource res = {};
++	struct resource res;
+ 	int err;
+-	int i;
+ 
+ 	bus = mdiobus_alloc();
+ 	if (bus == NULL)
+@@ -93,7 +91,7 @@ static int mpc52xx_fec_mdio_probe(struct of_device *of,
+ 	err = of_address_to_resource(np, 0, &res);
+ 	if (err)
+ 		goto out_free;
+-	priv->regs = ioremap(res.start, res.end - res.start + 1);
++	priv->regs = ioremap(res.start, resource_size(&res));
+ 	if (priv->regs == NULL) {
+ 		err = -ENOMEM;
+ 		goto out_free;
+@@ -118,10 +116,6 @@ static int mpc52xx_fec_mdio_probe(struct of_device *of,
+  out_unmap:
+ 	iounmap(priv->regs);
+  out_free:
+-	for (i=0; i<PHY_MAX_ADDR; i++)
+-		if (bus->irq[i] != PHY_POLL)
+-			irq_dispose_mapping(bus->irq[i]);
+-	kfree(bus->irq);
+ 	kfree(priv);
+ 	mdiobus_free(bus);
+ 
+@@ -133,23 +127,16 @@ static int mpc52xx_fec_mdio_remove(struct of_device *of)
+ 	struct device *dev = &of->dev;
+ 	struct mii_bus *bus = dev_get_drvdata(dev);
+ 	struct mpc52xx_fec_mdio_priv *priv = bus->priv;
+-	int i;
+ 
+ 	mdiobus_unregister(bus);
+ 	dev_set_drvdata(dev, NULL);
+-
+ 	iounmap(priv->regs);
+-	for (i=0; i<PHY_MAX_ADDR; i++)
+-		if (bus->irq[i] != PHY_POLL)
+-			irq_dispose_mapping(bus->irq[i]);
+ 	kfree(priv);
+-	kfree(bus->irq);
+ 	mdiobus_free(bus);
+ 
+ 	return 0;
+ }
+ 
+-
+ static struct of_device_id mpc52xx_fec_mdio_match[] = {
+ 	{ .compatible = "fsl,mpc5200b-mdio", },
+ 	{ .compatible = "fsl,mpc5200-mdio", },
+@@ -168,5 +155,4 @@ struct of_platform_driver mpc52xx_fec_mdio_driver = {
+ /* let fec driver call it, since this has to be registered before it */
+ EXPORT_SYMBOL_GPL(mpc52xx_fec_mdio_driver);
+ 
+-
+ MODULE_LICENSE("Dual BSD/GPL");
+-- 
+1.7.0
+
