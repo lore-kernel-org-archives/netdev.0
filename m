@@ -1,64 +1,69 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [GIT] Networking
-Date: Wed, 19 May 2010 12:13:02 +0100
-Message-ID: <1274267582.2763.24.camel@localhost>
-References: <20100518.233752.256882583.davem@davemloft.net>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH net-next-2.6] bonding: move dev_addr cpy to bond_enslave
+Date: Wed, 19 May 2010 13:14:29 +0200
+Message-ID: <20100519111428.GA2788@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-D/pchMba3QnnOe6pvnJO"
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100518.233752.256882583.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50499 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755835Ab0ESLOk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 May 2010 07:14:40 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Move the code that copies slave's mac address in case that's the first slave into
+bond_enslave. Ifenslave app does this also but that's not a problem. This is
+something that should be done in bond_enslave, and it shound not matter from
+where is it called.
 
---=-D/pchMba3QnnOe6pvnJO
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ drivers/net/bonding/bond_main.c  |    7 +++++++
+ drivers/net/bonding/bond_sysfs.c |    8 --------
+ 2 files changed, 7 insertions(+), 8 deletions(-)
 
-On Tue, 2010-05-18 at 23:37 -0700, David Miller wrote:
-[...]
-> Some other things that stand out:
->=20
-> 1) Allow the administrator to reserve port ranges, such that the
->    kernel bind allocation scheme won't use them.  From Amerigo Wang.
->=20
-> 2) ipv6 address et al. handling converted to use generic kernel lists.
->    From Stephem Hemminger.
->=20
-> 3) PHY module autoloading support from David Howells
-[...]
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 2c3f9db..4e7473e 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1522,6 +1522,13 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		}
+ 	}
+ 
++	/* If this is the first slave, then we need to set the master's hardware
++	 * address to be the same as the slave's. */
++	if (bond->slave_cnt == 0)
++		memcpy(bond->dev->dev_addr, slave_dev->dev_addr,
++		       slave_dev->addr_len);
++
++
+ 	new_slave = kzalloc(sizeof(struct slave), GFP_KERNEL);
+ 	if (!new_slave) {
+ 		res = -ENOMEM;
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index a4cbaf7..496ac1e 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -250,14 +250,6 @@ static ssize_t bonding_store_slaves(struct device *d,
+ 	switch (command[0]) {
+ 	case '+':
+ 		pr_info("%s: Adding slave %s.\n", bond->dev->name, dev->name);
+-
+-		/* If this is the first slave, then we need to set
+-		   the master's hardware address to be the same as the
+-		   slave's. */
+-		if (is_zero_ether_addr(bond->dev->dev_addr))
+-			memcpy(bond->dev->dev_addr, dev->dev_addr,
+-			       dev->addr_len);
+-
+ 		res = bond_enslave(bond->dev, dev);
+ 		break;
+ 
+-- 
+1.6.6.1
 
-For the record, that was actually David Woodhouse.
-
-Ben.
-
---=20
-Ben Hutchings
-Once a job is fouled up, anything done to improve it makes it worse.
-
---=-D/pchMba3QnnOe6pvnJO
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQIVAwUAS/PHsue/yOyVhhEJAQLJ/w/+P1QQof1U0Mx80Ffl1x1UEAz5soGkO9gH
-vRJPvVbKTn1P86nyJqeNgKEyhweboOTOJ8s9SXKXO2xlYpTjhYNFGfjWpbR8egsy
-Oph4HOQqo0DeV/3nsFUYLoeqD24TWi6taUjW2FoipMmnE6PaALB+vGpgj1h1VhES
-xncqcZgfTR7WwQp9k3rjEqJt+9kWu8BgPtyT1S/FZNdVPuH8Y6/c8CqcEfzZFjZI
-zjLc2zGTMokESb5TJPuqW635LDI7OZXS//uSVR9Nzg23cQQSWIfdcK5YZQRo6Pxi
-R+c7yDgwnQhW9OBHLMj6q+O4NReDzYh+d2cIKLNC880pVu8syaxkGsuLFl2f+Rjl
-9QCefOLP6Sn1tB6Aa/Orl8ewditCISXFQoI3luIA0D878fGEYn5ibeLbfaYlkiKt
-ZNetz0qLFUOwVwVZfsk4+ExbFfUydCtgyz9oRcBDEyo704STgRgKudXVfG5KfmcJ
-rvuq23pNjmWaeyHas5c2CmB7klRtv4Lm69PgDotdf/cG51pieh8mPYr15H8Qcu6L
-aPIyjQAxR3bZpOZ4vuRukqqXqqdT5TQZ8LwjGHyZ24wW8nzNrXh4/AcQPXyF7xJY
-HuulrlBOZ4uk0W6G0xvcdL+2huDDstfYS27qbqFNh2lnSNV39zxvbLI/l6ytOB7Y
-6mN0WCktWSQ=
-=4UAb
------END PGP SIGNATURE-----
-
---=-D/pchMba3QnnOe6pvnJO--
