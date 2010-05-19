@@ -1,52 +1,33 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH iproute2] document initcwnd
-Date: Wed, 19 May 2010 08:31:09 -0700
-Message-ID: <20100519083109.4f894943@nehalam>
-References: <alpine.LNX.2.00.1005050210230.8544@d>
-	<4BE171EC.20904@athenacr.com>
-	<alpine.LNX.2.00.1005051239290.28957@d>
-	<4BE1DB82.2030403@athenacr.com>
-	<20100505150343.0c09c6ba@nehalam>
-	<4BE21D64.4040600@athenacr.com>
+From: Kyle McMartin <kmcmartin@redhat.com>
+Subject: Re: sky2 poweroff screws up my network
+Date: Wed, 19 May 2010 11:34:12 -0400
+Message-ID: <20100519153412.GM3900@ihatethathostname.lab.bos.redhat.com>
+References: <20100519143208.GL3900@ihatethathostname.lab.bos.redhat.com>
+ <20100519081440.2883e71d@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: dormando <dormando@rydia.net>, netdev@vger.kernel.org,
-	Rick Jones <rick.jones2@hp.com>, shemminger@osdl.org
-To: Brian Bloniarz <bmb@athenacr.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Kyle McMartin <kmcmartin@redhat.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:33811 "EHLO mail.vyatta.com"
+Received: from mx1.redhat.com ([209.132.183.28]:28889 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751565Ab0ESPbN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 May 2010 11:31:13 -0400
-In-Reply-To: <4BE21D64.4040600@athenacr.com>
+	id S1752452Ab0ESPei (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 May 2010 11:34:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20100519081440.2883e71d@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 05 May 2010 21:37:40 -0400
-Brian Bloniarz <bmb@athenacr.com> wrote:
+On Wed, May 19, 2010 at 08:14:40AM -0700, Stephen Hemminger wrote:
+> The sky2 shutdown puts the chip in Wake On Lan state; this
+> does a separate link speed negotiation (100 mbit) which may be a problem
+> if speed duplex is forced.
+>
 
-> Stephen Hemminger wrote:
-> > On Wed, 05 May 2010 16:56:34 -0400
-> > Brian Bloniarz <bmb@athenacr.com> wrote:
-> > 
-> >> dormando wrote:
-> >>>> This sounds like TCP slow start.
-> >>>>
-> >>>> http://en.wikipedia.org/wiki/Slow-start
-> >>>>
-> >>>> As far as tunables you might want to play with the initcwnd route
-> >>>> flag (see "ip route help")
-> >>> Ah, yes, initcwnd was it. I'm well aware of TCP Congestion control / slow
-> >>> start / etc. However I couldn't find the damn tunable for it :)
-> >> Documenting the flag in ip(8) might increase its visibility
-> >> a little. I don't see it documented in the iproute2 git head,
-> >> though it shows up on http://linux.die.net/man/8/ip somehow.
-> >>
-> >> Stephen, do you know why that is?
-> > 
-> > No one sent me an official patch to change it?
-> 
-> Mention initcwnd in ip(8). Text taken from doc/ip-cref.tex.
+Hrm, I'd disabled WoL in ethtool explicitly hoping this sort of thing
+could be avioded, but it doesn't seem to help. :/
 
-Applied
+I'm not sure what you mean by "if speed duplex is forced," I've left the
+nic in autoneg mode.
+
+regards, Kyle
