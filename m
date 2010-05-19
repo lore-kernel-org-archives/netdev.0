@@ -1,106 +1,262 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [ANNOUNCE] iproute2 2.6.34
-Date: Wed, 19 May 2010 08:54:53 -0700
-Message-ID: <20100519085453.77d56521@nehalam>
+From: Daniel Mack <daniel@caiaq.de>
+Subject: [PATCH] drivers/net/arcnet/capmode.c: clean up code
+Date: Wed, 19 May 2010 18:00:57 +0200
+Message-ID: <1274284857-21932-1-git-send-email-daniel@caiaq.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:54462 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753722Ab0ESPy6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 May 2010 11:54:58 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Daniel Mack <daniel@caiaq.de>, Tejun Heo <tj@kernel.org>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Christoph Lameter <cl@linux-foundation.org>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This version of iproute2 utilities intended for use with 2.6.34 or
-later kernel, but should be backward compatible with older releases.
-In addition to build and man page fixes, this release includes a
-support for several new features:
+ - shuffle around functions to get rid of forward declarations
+ - fix some CodingStyle and indentation issues
+ - last but not least, get rid of the following CONFIG_MODULE=3Dn warni=
+ng:
 
-   * SR-IOV (I/O Virtualization) support.
-   * tuntap support
-   * bus-error reporting and counters
-   * new FIFO type head drop queue discipline
+	drivers/net/arcnet/capmode.c:52: warning: =E2=80=98capmode_proto=E2=80=
+=99 defined but not used
 
-The tar ball is available at:
-  http://devresources.linuxfoundation.org/dev/iproute2/download
+Signed-off-by: Daniel Mack <daniel@caiaq.de>
+Cc: Tejun Heo <tj@kernel.org>
+Cc: Jiri Kosina <jkosina@suse.cz>
+Cc: Christoph Lameter <cl@linux-foundation.org>
+Cc: Joe Perches <joe@perches.com>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/arcnet/capmode.c |  176 +++++++++++++++++++---------------=
+--------
+ 1 files changed, 79 insertions(+), 97 deletions(-)
 
-Repository:
-  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
-
-=46or more info on iproute2 see:
-  http://www.linuxfoundation.org/collaborate/workgroups/networking/ipro=
-ute2
-
-Report problems (or enhancements) to the netdev@vger.kernel.org mailing=
- list.
-
-Changes since last release (2.6.33)
-
-Alexandre Cassen (1):
-      Detect 6rd kernel missing support / 6rd tunnel scope
-
-Andreas Henriksson (2):
-      iproute2: detect iptables modules dir in configure.
-      iproute2: add option to build m_xt as a tc module (v3)
-
-Bart Trojanowski (1):
-      fix build issues with flex ver 2.5
-
-Brian Bloniarz (1):
-      ip: document initcwnd
-
-Chris Wright (1):
-      iproute2: rework SR-IOV VF support
-
-David Woodhouse (1):
-      Add 'ip tuntap' support.
-
-=46lorian Westphal (1):
-      iproute2: fix addrlabel interface names handling
-
-Hagen Paul Pfeifer (1):
-      tc: add new queue discipline: head drop fifo
-
-Jamal Hadi Salim (3):
-      xfrm: policy by mark
-      xfrm: Introduce xfrm by mark
-      xfrm: add support for SA by mark
-
-Jan Engelhardt (1):
-      ip: correctly report tunnel link type
-
-Michele Petrazzo - Unipex (1):
-      Continue after errors in -batch
-
-Williams, Mitch A (3):
-      Update man page to indicate current options
-      ip: Add support for setting and showing SR-IOV virtual funtion li=
-nk params
-      libnetlink: Modify the parser to track first duplicated attribute=
-s
-
-Wolfgang Grandegger (1):
-      iproute2: netlink support for bus-error reporting and counters
-
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E (1):
-      gaiconf: /etc/gai.conf configuration helper.
-
-jamal (1):
-      skbedit: use get_u32 for parsing mark
-
-laurent chavey (1):
-      Add initcwnd to iproute2
-
-Stephen Hemminger:
-      Fix line numbering on batch commands
-      Remove mirred debug message
-      Workaround missing ALIGN() macro.
-      Update ip.8 man page to describe route table id values
-      Update kernel headers to 2.6.34 final version
-      Add documentation for ip link add/delete sub-commands
-      ip: add documentation for initrwnd
-      v2.6.34
+diff --git a/drivers/net/arcnet/capmode.c b/drivers/net/arcnet/capmode.=
+c
+index 20e833a..e1810a3 100644
+--- a/drivers/net/arcnet/capmode.c
++++ b/drivers/net/arcnet/capmode.c
+@@ -37,67 +37,6 @@
+=20
+ #define VERSION "arcnet: cap mode (`c') encapsulation support loaded.\=
+n"
+=20
+-
+-static void rx(struct net_device *dev, int bufnum,
+-	       struct archdr *pkthdr, int length);
+-static int build_header(struct sk_buff *skb,
+-			struct net_device *dev,
+-			unsigned short type,
+-			uint8_t daddr);
+-static int prepare_tx(struct net_device *dev, struct archdr *pkt, int =
+length,
+-		      int bufnum);
+-static int ack_tx(struct net_device *dev, int acked);
+-
+-
+-static struct ArcProto capmode_proto =3D
+-{
+-	'r',
+-	XMTU,
+-	0,
+-       	rx,
+-	build_header,
+-	prepare_tx,
+-	NULL,
+-	ack_tx
+-};
+-
+-#ifdef MODULE
+-
+-static void arcnet_cap_init(void)
+-{
+-	int count;
+-
+-	for (count =3D 1; count <=3D 8; count++)
+-		if (arc_proto_map[count] =3D=3D arc_proto_default)
+-			arc_proto_map[count] =3D &capmode_proto;
+-
+-	/* for cap mode, we only set the bcast proto if there's no better one=
+ */
+-	if (arc_bcast_proto =3D=3D arc_proto_default)
+-		arc_bcast_proto =3D &capmode_proto;
+-
+-	arc_proto_default =3D &capmode_proto;
+-	arc_raw_proto =3D &capmode_proto;
+-}
+-
+-static int __init capmode_module_init(void)
+-{
+-	printk(VERSION);
+-	arcnet_cap_init();
+-	return 0;
+-}
+-
+-static void __exit capmode_module_exit(void)
+-{
+-	arcnet_unregister_proto(&capmode_proto);
+-}
+-module_init(capmode_module_init);
+-module_exit(capmode_module_exit);
+-
+-MODULE_LICENSE("GPL");
+-
+-#endif				/* MODULE */
+-
+-
+ /* packet receiver */
+ static void rx(struct net_device *dev, int bufnum,
+ 	       struct archdr *pkthdr, int length)
+@@ -229,65 +168,108 @@ static int prepare_tx(struct net_device *dev, st=
+ruct archdr *pkt, int length,
+ 	BUGMSG(D_DURING, "prepare_tx: length=3D%d ofs=3D%d\n",
+ 	       length,ofs);
+=20
+-	// Copy the arcnet-header + the protocol byte down:
++	/* Copy the arcnet-header + the protocol byte down: */
+ 	lp->hw.copy_to_card(dev, bufnum, 0, hard, ARC_HDR_SIZE);
+ 	lp->hw.copy_to_card(dev, bufnum, ofs, &pkt->soft.cap.proto,
+ 			    sizeof(pkt->soft.cap.proto));
+=20
+-	// Skip the extra integer we have written into it as a cookie
+-	// but write the rest of the message:
++	/* Skip the extra integer we have written into it as a cookie
++	   but write the rest of the message: */
+ 	lp->hw.copy_to_card(dev, bufnum, ofs+1,
+ 			    ((unsigned char*)&pkt->soft.cap.mes),length-1);
+=20
+ 	lp->lastload_dest =3D hard->dest;
+=20
+-	return 1;		/* done */
++	return 1;	/* done */
+ }
+=20
+-
+ static int ack_tx(struct net_device *dev, int acked)
+ {
+-  struct arcnet_local *lp =3D netdev_priv(dev);
+-  struct sk_buff *ackskb;
+-  struct archdr *ackpkt;
+-  int length=3Dsizeof(struct arc_cap);
++	struct arcnet_local *lp =3D netdev_priv(dev);
++	struct sk_buff *ackskb;
++	struct archdr *ackpkt;
++	int length=3Dsizeof(struct arc_cap);
++
++	BUGMSG(D_DURING, "capmode: ack_tx: protocol: %x: result: %d\n",
++		lp->outgoing.skb->protocol, acked);
+=20
+-  BUGMSG(D_DURING, "capmode: ack_tx: protocol: %x: result: %d\n",
+-	 lp->outgoing.skb->protocol, acked);
++	BUGLVL(D_SKB) arcnet_dump_skb(dev, lp->outgoing.skb, "ack_tx");
+=20
+-  BUGLVL(D_SKB) arcnet_dump_skb(dev, lp->outgoing.skb, "ack_tx");
++	/* Now alloc a skb to send back up through the layers: */
++	ackskb =3D alloc_skb(length + ARC_HDR_SIZE , GFP_ATOMIC);
++	if (ackskb =3D=3D NULL) {
++		BUGMSG(D_NORMAL, "Memory squeeze, can't acknowledge.\n");
++		goto free_outskb;
++	}
+=20
+-  /* Now alloc a skb to send back up through the layers: */
+-  ackskb =3D alloc_skb(length + ARC_HDR_SIZE , GFP_ATOMIC);
+-  if (ackskb =3D=3D NULL) {
+-	  BUGMSG(D_NORMAL, "Memory squeeze, can't acknowledge.\n");
+-	  goto free_outskb;
+-  }
++	skb_put(ackskb, length + ARC_HDR_SIZE );
++	ackskb->dev =3D dev;
+=20
+-  skb_put(ackskb, length + ARC_HDR_SIZE );
+-  ackskb->dev =3D dev;
++	skb_reset_mac_header(ackskb);
++	ackpkt =3D (struct archdr *)skb_mac_header(ackskb);
++	/* skb_pull(ackskb, ARC_HDR_SIZE); */
+=20
+-  skb_reset_mac_header(ackskb);
+-  ackpkt =3D (struct archdr *)skb_mac_header(ackskb);
+-  /* skb_pull(ackskb, ARC_HDR_SIZE); */
++	skb_copy_from_linear_data(lp->outgoing.skb, ackpkt,
++				  ARC_HDR_SIZE + sizeof(struct arc_cap));
++	ackpkt->soft.cap.proto =3D 0; /* using protocol 0 for acknowledge */
++	ackpkt->soft.cap.mes.ack=3Dacked;
+=20
++	BUGMSG(D_PROTO, "Ackknowledge for cap packet %x.\n",
++			*((int*)&ackpkt->soft.cap.cookie[0]));
++
++	ackskb->protocol =3D cpu_to_be16(ETH_P_ARCNET);
++
++	BUGLVL(D_SKB) arcnet_dump_skb(dev, ackskb, "ack_tx_recv");
++	netif_rx(ackskb);
++
++free_outskb:
++	dev_kfree_skb_irq(lp->outgoing.skb);
++	lp->outgoing.proto =3D NULL; /* We are always finished when in this p=
+rotocol */
++
++	return 0;
++}
+=20
+-  skb_copy_from_linear_data(lp->outgoing.skb, ackpkt,
+-		ARC_HDR_SIZE + sizeof(struct arc_cap));
+-  ackpkt->soft.cap.proto=3D0; /* using protocol 0 for acknowledge */
+-  ackpkt->soft.cap.mes.ack=3Dacked;
++static struct ArcProto capmode_proto =3D
++{
++	'r',
++	XMTU,
++	0,
++	rx,
++	build_header,
++	prepare_tx,
++	NULL,
++	ack_tx
++};
++
++static void arcnet_cap_init(void)
++{
++	int count;
+=20
+-  BUGMSG(D_PROTO, "Ackknowledge for cap packet %x.\n",
+-	 *((int*)&ackpkt->soft.cap.cookie[0]));
++	for (count =3D 1; count <=3D 8; count++)
++		if (arc_proto_map[count] =3D=3D arc_proto_default)
++			arc_proto_map[count] =3D &capmode_proto;
+=20
+-  ackskb->protocol =3D cpu_to_be16(ETH_P_ARCNET);
++	/* for cap mode, we only set the bcast proto if there's no better one=
+ */
++	if (arc_bcast_proto =3D=3D arc_proto_default)
++		arc_bcast_proto =3D &capmode_proto;
+=20
+-  BUGLVL(D_SKB) arcnet_dump_skb(dev, ackskb, "ack_tx_recv");
+-  netif_rx(ackskb);
++	arc_proto_default =3D &capmode_proto;
++	arc_raw_proto =3D &capmode_proto;
++}
+=20
+- free_outskb:
+-  dev_kfree_skb_irq(lp->outgoing.skb);
+-  lp->outgoing.proto =3D NULL; /* We are always finished when in this =
+protocol */
++static int __init capmode_module_init(void)
++{
++	printk(VERSION);
++	arcnet_cap_init();
++	return 0;
++}
+=20
+-  return 0;
++static void __exit capmode_module_exit(void)
++{
++	arcnet_unregister_proto(&capmode_proto);
+ }
++module_init(capmode_module_init);
++module_exit(capmode_module_exit);
++
++MODULE_LICENSE("GPL");
++
+--=20
+1.7.1
