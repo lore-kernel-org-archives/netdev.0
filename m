@@ -1,78 +1,71 @@
-From: Stefano Salsano <stefano.salsano@uniroma2.it>
-Subject: Re: [RFC] netem: correlated loss generation (v3)
-Date: Thu, 20 May 2010 00:52:00 +0200
-Message-ID: <4BF46B90.1000806@uniroma2.it>
-References: <4BD84428.30904@uniroma2.it> <20100517205621.036a06e0@nehalam> <20100519214239.GD5146@nuttenaction>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] net: fix problem in dequeuing from input_pkt_queue
+Date: Thu, 20 May 2010 07:45:42 +0800
+Message-ID: <AANLkTinvSgc3MTAJZEmhBqmRpYlHdOZ6HQ_j43_m8XX1@mail.gmail.com>
+References: <alpine.DEB.1.00.1005191440440.23271@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	Fabio Ludovici <fabio.ludovici@yahoo.it>,
-	netdev@vger.kernel.org, netem@lists.linuxfoundation.org
-To: Hagen Paul Pfeifer <hagen@jauu.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.uniroma2.it ([160.80.6.16]:54783 "EHLO smtp.uniroma2.it"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751881Ab0ESXMJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 May 2010 19:12:09 -0400
-In-Reply-To: <20100519214239.GD5146@nuttenaction>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:45488 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751475Ab0ESXqE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 May 2010 19:46:04 -0400
+Received: by pwi5 with SMTP id 5so1792664pwi.19
+        for <netdev@vger.kernel.org>; Wed, 19 May 2010 16:46:02 -0700 (PDT)
+In-Reply-To: <alpine.DEB.1.00.1005191440440.23271@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hagen Paul Pfeifer wrote:
-> * Stephen Hemminger | 2010-05-17 20:56:21 [-0700]:
-> 
-> Why mainline? I questioning the advantage for the big audience, it looks like
-> a academic only piece of software - correct me if I'm wrong.
+On Thu, May 20, 2010 at 5:47 AM, Tom Herbert <therbert@google.com> wrot=
+e:
+> Fix some issues introduced in batch skb dequeuing for input_pkt_queue=
+=2E
+> The primary issue it that the queue head must be incremented only
+> after a packet has been processed, that is only after
+> __netif_receive_skb has been called. =C2=A0This is needed for the mec=
+hanism
+> to prevent OOO packet in RFS. =C2=A0Also when flushing the input_pkt_=
+queue
+> and process_queue, the process queue should be done first to prevent
+> OOO packets.
 >
+> Because the input_pkt_queue has been effectively split into two queue=
+s,
+> the calculation of the tail ptr is no longer correct. =C2=A0The corre=
+ct value
+> would be head+input_pkt_queue->len+process_queue->len. =C2=A0To avoid
+> this calculation we added an explict input_queue_tail in softnet_data=
+=2E
+> The tail value is simply incremented when queuing to input_pkt_queue.
+>
+> In process_backlog the processing of the packet queue can be done
+> without irq's being disabled.
+>
+> =C2=A0static int napi_gro_complete(struct sk_buff *skb)
+> @@ -3320,26 +3319,24 @@ static int process_backlog(struct napi_struct=
+ *napi, int quota)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+> =C2=A0#endif
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0napi->weight =3D weight_p;
+> - =C2=A0 =C2=A0 =C2=A0 local_irq_disable();
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0while (work < quota) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0struct sk_buff=
+ *skb;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0unsigned int q=
+len;
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0while ((skb =3D=
+ __skb_dequeue(&sd->process_queue))) {
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 local_irq_enable();
 
-as an author, I can only give a "biased" point of view... anyway our 
-work started from a cooperation with an industry which needed to test 
-its solutions for fax/modem over IP under correlated loss.  When we put 
-our first version on the netem list, we were asked by people from 
-another industry to add the feature of loss patterns coming out from a 
-deterministic table.
-
-So my opinion is that the need to emulate "correlated" loss patterns is 
-not academic, but it is a real need from industry... of course we can 
-debate if it is a "niche" requirement or not
-
-> The authors pointed to some weak points in the implementation of the current
-> loss/correlation logic. But this "fix", add another - complicated component -
-> and let the broken components untouched ...
-
-Leaving or removing the broken component is an independent issue.
-
-May be we should allow to use the old syntax like this:
-
-tc qdisc change dev wlan0 root netem loss 2
-
-because it was working OK, and we should disallow to use the old model 
-in this way:
-
-tc qdisc change dev wlan0 root netem loss 2 10
-
-because this produces broken results...
-
-BR,
-Stefano
-
-> 
-> HGN
-> 
+we need to keep local irq disabled. If not, flush_backlog may be
+called, and it will access sd->process_queue.
 
 
--- 
-*******************************************************************
-Stefano Salsano
-Dipartimento Ingegneria Elettronica
-Universita' di Roma "Tor Vergata"
-Via del Politecnico, 1 - 00133 Roma - ITALY
-
-http://netgroup.uniroma2.it/Stefano_Salsano/
-
-E-mail  : stefano.salsano@uniroma2.it
-Cell.   : +39 320 4307310
-Office  : (Tel.) +39 06 72597770  (Fax.) +39 06 72597435
-*******************************************************************
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
