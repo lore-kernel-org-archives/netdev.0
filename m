@@ -1,97 +1,72 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [PATCH 2/3] workqueue: Add an API to create a singlethread
- workqueue attached to the current task's cgroup
-Date: Tue, 18 May 2010 17:04:51 -0700
-Message-ID: <1274227491.2370.110.camel@w-sridhar.beaverton.ibm.com>
+From: Sridhar Samudrala <samudrala.sridhar@gmail.com>
+Subject: [PATCH 1/3] cgroups: Add an API to attach a task to current task's
+ cgroup
+Date: Tue, 18 May 2010 17:04:48 -0700
+Message-ID: <1274227488.2370.107.camel@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 To: "Michael S. Tsirkin" <mst@redhat.com>,
 	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:60982 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753804Ab0ESAFI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 20:05:08 -0400
+Received: from mail-qy0-f183.google.com ([209.85.221.183]:63552 "EHLO
+	mail-qy0-f183.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755189Ab0ESAEx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 20:04:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a new kernel API to create a singlethread workqueue and attach it's
-task to current task's cgroup and cpumask.
+Add a new kernel API to attach a task to current task's cgroup
+in all the active hierarchies.
 
 Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
 
-diff --git a/include/linux/workqueue.h b/include/linux/workqueue.h
-index 9466e86..6d6f301 100644
---- a/include/linux/workqueue.h
-+++ b/include/linux/workqueue.h
-@@ -211,6 +211,7 @@ __create_workqueue_key(const char *name, int singlethread,
- #define create_freezeable_workqueue(name) __create_workqueue((name), 1, 1, 0)
- #define create_singlethread_workqueue(name) __create_workqueue((name), 1, 0, 0)
- 
-+extern struct workqueue_struct *create_singlethread_workqueue_in_current_cg(char *name); 
- extern void destroy_workqueue(struct workqueue_struct *wq);
- 
- extern int queue_work(struct workqueue_struct *wq, struct work_struct *work);
-diff --git a/kernel/workqueue.c b/kernel/workqueue.c
-index 5bfb213..6ba226e 100644
---- a/kernel/workqueue.c
-+++ b/kernel/workqueue.c
-@@ -35,6 +35,7 @@
- #include <linux/lockdep.h>
- #define CREATE_TRACE_POINTS
- #include <trace/events/workqueue.h>
-+#include <linux/cgroup.h>
+diff --git a/include/linux/cgroup.h b/include/linux/cgroup.h
+--- a/include/linux/cgroup.h
++++ b/include/linux/cgroup.h
+@@ -570,6 +570,7 @@ struct task_struct *cgroup_iter_next(struct cgroup *cgrp,
+ void cgroup_iter_end(struct cgroup *cgrp, struct cgroup_iter *it);
+ int cgroup_scan_tasks(struct cgroup_scanner *scan);
+ int cgroup_attach_task(struct cgroup *, struct task_struct *);
++int cgroup_attach_task_current_cg(struct task_struct *);
  
  /*
-  * The per-CPU workqueue (if single thread, we always use the first
-@@ -193,6 +194,45 @@ static const struct cpumask *cpu_singlethread_map __read_mostly;
-  */
- static cpumask_var_t cpu_populated_map __read_mostly;
+  * CSS ID is ID for cgroup_subsys_state structs under subsys. This only works
+diff --git a/kernel/cgroup.c b/kernel/cgroup.c
+index 6d870f2..6cfeb06 100644
+--- a/kernel/cgroup.c
++++ b/kernel/cgroup.c
+@@ -1788,6 +1788,29 @@ out:
+ 	return retval;
+ }
  
-+static struct task_struct *get_singlethread_wq_task(struct workqueue_struct *wq)
-+{
-+	return (per_cpu_ptr(wq->cpu_wq, singlethread_cpu))->thread;
-+}
-+
-+/* Create a singlethread workqueue and attach it's task to the current task's
-+ * cgroup and set it's cpumask to the current task's cpumask.
++/**
++ * cgroup_attach_task_current_cg - attach task 'tsk' to current task's cgroup
++ * @tsk: the task to be attached
 + */
-+struct workqueue_struct *create_singlethread_workqueue_in_current_cg(char *name)
++int cgroup_attach_task_current_cg(struct task_struct *tsk)
 +{
-+	struct workqueue_struct *wq;
-+	struct task_struct *task;
-+	cpumask_var_t mask;
++	struct cgroupfs_root *root;
++	struct cgroup *cur_cg;
++	int retval = 0;
 +
-+	wq = create_singlethread_workqueue(name);
-+	if (!wq)
-+		goto out;
++	cgroup_lock();
++	for_each_active_root(root) {
++		cur_cg = task_cgroup_from_root(current, root);
++		retval = cgroup_attach_task(cur_cg, tsk);
++		if (retval)
++			break;
++	}
++	cgroup_unlock();
 +
-+	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
-+		goto err;
-+			
-+	if (sched_getaffinity(current->pid, mask))
-+		goto err;
-+
-+	task = get_singlethread_wq_task(wq);
-+	if (sched_setaffinity(task->pid, mask))
-+		goto err;
-+
-+	if (cgroup_attach_task_current_cg(task))
-+		goto err;
-+out:	
-+	return wq;
-+err:
-+	destroy_workqueue(wq);
-+	wq = NULL;
-+	goto out;
++	return retval;
 +}
-+EXPORT_SYMBOL_GPL(create_singlethread_workqueue_in_current_cg);
++EXPORT_SYMBOL_GPL(cgroup_attach_task_current_cg);
 +
- /* If it's single threaded, it isn't in the list of workqueues. */
- static inline int is_wq_single_threaded(struct workqueue_struct *wq)
- {
-	
+ /*
+  * Attach task with pid 'pid' to cgroup 'cgrp'. Call with cgroup_mutex
+  * held. May take task_lock of task
+
 
