@@ -1,51 +1,64 @@
-From: Jon Zhou <Jon.Zhou@jdsu.com>
-Subject: RE: any change in socket systemcall or packet_mmap regarding
- multiqueue nic?
-Date: Wed, 19 May 2010 03:36:59 -0700
-Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497EFC946@MILEXCH2.ds.jdsu.net>
-References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497EFC786@MILEXCH2.ds.jdsu.net>
- <1274243074.2485.28.camel@edumazet-laptop>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [GIT] Networking
+Date: Wed, 19 May 2010 12:13:02 +0100
+Message-ID: <1274267582.2763.24.camel@localhost>
+References: <20100518.233752.256882583.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og121.obsmtp.com ([64.18.2.20]:38755 "HELO
-	exprod7og121.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753979Ab0ESKkT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 May 2010 06:40:19 -0400
-In-Reply-To: <1274243074.2485.28.camel@edumazet-laptop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-D/pchMba3QnnOe6pvnJO"
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100518.233752.256882583.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXSANClNlbnQ6IFdlZG5lc2RheSwgTWF5IDE5LCAyMDEw
-IDEyOjI1IFBNDQpUbzogSm9uIFpob3UNCkNjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQpTdWJq
-ZWN0OiBSZTogYW55IGNoYW5nZSBpbiBzb2NrZXQgc3lzdGVtY2FsbCBvciBwYWNrZXRfbW1hcCBy
-ZWdhcmRpbmcgbXVsdGlxdWV1ZSBuaWM/DQoNCkxlIG1hcmRpIDE4IG1haSAyMDEwIMOgIDE5OjU1
-IC0wNzAwLCBKb24gWmhvdSBhIMOpY3JpdCA6DQo+IGhpDQo+IHRoZSBtdWx0aXF1ZXVlIG5ldHdv
-cmtpbmcgY2FuIHV0aWxpemUgbXVsdGktY29yZSB0byBwcm9jZXNzIHBhY2tldHMgZnJvbSBtdWx0
-aXF1ZXVlIG5pYywNCj4gYnV0IGFueSBjaGFuZ2UgaW4gcmVsYXRlZCB1c2Vyc3BhY2UgYXBwbGlj
-YXRpb24gcGFydCwgc3VjaCBhcyBzb2NrZXQgc3lzdGVtIGNhbGwsIHBhY2tldF9tbWFwPyB0aGVz
-ZSB1c2Vyc3BhY2UgQVBJIGNhbiBhbHNvIHV0aWxpemUgbXVsdGljb3JlIHRvIHByb2Nlc3MgcGFj
-a2V0cyBmcm9tIGtlcm5lbD8NCj4gb3RoZXJ3aXNlIHRoZXkgaGF2ZSB0byByZWFkIGRhdGEgaW4g
-c2VyaWFsaXphdGlvbg0KPiANCg0KVGhhdHMgYSBiaXQgZ2VuZXJhbCBxdWVzdGlvbi4gV29ya3Mg
-YXJlIGluIHByb2dyZXNzLg0KDQpTbyBmYXIsIHlvdSBjYW4gdXNlIGEgbmV3IGNvbmRpdGlvbiBp
-biBmaWx0ZXJzIHRvIG1hdGNoIGEgZ2l2ZW4gcXVldWUNCmluZGV4IGZvciBpbmNvbWluZyBwYWNr
-ZXRzLiBBIHNuaWZmZXIgY291bGQgc2V0dXAgTiBkaWZmZXJlbnQgc29ja2V0cyB0bw0KcmVjZWl2
-ZSBkYXRhIGZyb20gTiBOSUMgcXVldWVzLg0KDQpqb24tPmlzIGl0IHNvbWV0aGluZyBsaWtlICJp
-b2N0bChmZCxTT0xfU09DS0VULHF1ZXVlX2lkLi4uKSxjb3VsZCB5b3UgdGVsbCB0aGUga2V5d29y
-ZD8NCg0KRm9yIHRjcCBmbG93cywgbm90aGluZyBpcyBuZWVkZWQsIHNpbmNlIGFsbCBwYWNrZXRz
-IG9mIGEgZ2l2ZW4gZmxvdw0Kc2hvdWxkIHVzZSBzYW1lIHF1ZXVlLg0KDQpidHcsZG8geW91IHRo
-aW5rIFJGUyBpcyBoZWxwZnVsIGZvciB0aGlzPw0KDQoNCkhvd2V2ZXIgdGhlIGN1cnJlbnQgdHgg
-cXVldWUgc2VsZWN0aW9uIGlzIGJhc2VkIG9uIHNrLT5za19oYXNoIHZhbHVlLCBhDQpsaW51eCBz
-aWRlIGNvbXB1dGVkIHZhbHVlLCBhbmQgdGhpcyBkaWZmZXJzIGZyb20gdGhlIHJ4IHF1ZXVlIHNl
-bGVjdGlvbg0KZG9uZSBieSB0aGUgTklDIGZpcm13YXJlLiBTbyB0eCBwYWNrZXRzIHVzZSBhIGRp
-ZmZlcmVudCBxdWV1ZSB0aGFuIHJ4DQpwYWNrZXRzIGZvciBhIGdpdmVuIHRjcCBmbG93LiBUaGlz
-IG1lYW5zIHRoaXMgaXMgc3Vib3B0aW1hbDogdGNwX2FjaygpDQpjYW4gcnVuIG9uIGEgZGlmZmVy
-ZW50IGNwdSB0aGFuIFRYIGNvbXBsZXRpb24gaGFuZGxlci4NCg0KVFggY29tcGxldGlvbiBoYW5k
-bGVyIHRvdWNoZXMgdGhlIGNsb25lZCBza2IgdGhhdCBUQ1AgdXNlZCB0byB0cmFuc21pdA0KYnVm
-ZmVyLiBJdHMgZnJlZWluZyB0b3VjaGVzIHRoZSBkYXRhcmVmIGF0b21pYyBjb3VudGVyIGluIHBh
-Y2tldC4NCg0KVGhpcyBzaG91bGQgYmUgYWRkcmVzc2VkIHNvbWVob3cuDQoNCg0KDQoNCg0K
+
+--=-D/pchMba3QnnOe6pvnJO
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, 2010-05-18 at 23:37 -0700, David Miller wrote:
+[...]
+> Some other things that stand out:
+>=20
+> 1) Allow the administrator to reserve port ranges, such that the
+>    kernel bind allocation scheme won't use them.  From Amerigo Wang.
+>=20
+> 2) ipv6 address et al. handling converted to use generic kernel lists.
+>    From Stephem Hemminger.
+>=20
+> 3) PHY module autoloading support from David Howells
+[...]
+
+For the record, that was actually David Woodhouse.
+
+Ben.
+
+--=20
+Ben Hutchings
+Once a job is fouled up, anything done to improve it makes it worse.
+
+--=-D/pchMba3QnnOe6pvnJO
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQIVAwUAS/PHsue/yOyVhhEJAQLJ/w/+P1QQof1U0Mx80Ffl1x1UEAz5soGkO9gH
+vRJPvVbKTn1P86nyJqeNgKEyhweboOTOJ8s9SXKXO2xlYpTjhYNFGfjWpbR8egsy
+Oph4HOQqo0DeV/3nsFUYLoeqD24TWi6taUjW2FoipMmnE6PaALB+vGpgj1h1VhES
+xncqcZgfTR7WwQp9k3rjEqJt+9kWu8BgPtyT1S/FZNdVPuH8Y6/c8CqcEfzZFjZI
+zjLc2zGTMokESb5TJPuqW635LDI7OZXS//uSVR9Nzg23cQQSWIfdcK5YZQRo6Pxi
+R+c7yDgwnQhW9OBHLMj6q+O4NReDzYh+d2cIKLNC880pVu8syaxkGsuLFl2f+Rjl
+9QCefOLP6Sn1tB6Aa/Orl8ewditCISXFQoI3luIA0D878fGEYn5ibeLbfaYlkiKt
+ZNetz0qLFUOwVwVZfsk4+ExbFfUydCtgyz9oRcBDEyo704STgRgKudXVfG5KfmcJ
+rvuq23pNjmWaeyHas5c2CmB7klRtv4Lm69PgDotdf/cG51pieh8mPYr15H8Qcu6L
+aPIyjQAxR3bZpOZ4vuRukqqXqqdT5TQZ8LwjGHyZ24wW8nzNrXh4/AcQPXyF7xJY
+HuulrlBOZ4uk0W6G0xvcdL+2huDDstfYS27qbqFNh2lnSNV39zxvbLI/l6ytOB7Y
+6mN0WCktWSQ=
+=4UAb
+-----END PGP SIGNATURE-----
+
+--=-D/pchMba3QnnOe6pvnJO--
