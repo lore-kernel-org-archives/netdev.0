@@ -1,74 +1,54 @@
-From: "Philip A. Prindeville" <philipp@redfish-solutions.com>
-Subject: Re: Network QoS support in applications
-Date: Tue, 18 May 2010 18:04:59 -0600
-Message-ID: <4BF32B2B.6010202@redfish-solutions.com>
-References: <87my01m0zm.fsf@purkki.valot.fi>	<4B5EF5DF.2070005@lemonia.org>	<4B9942A7.40205@redfish-solutions.com> <20100311.112754.142886660.davem@davemloft.net> <4B9944A0.5080308@redfish-solutions.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next PATCH 1/7] ixgbe: fix header len when unsplit packet
+	overflows to data buffer
+Date: Tue, 18 May 2010 19:00:03 -0700
+Message-ID: <20100519020003.18654.94899.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: dunc@lemonia.org, kalle.valo@iki.fi, kaber@trash.net,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:46162 "EHLO
-	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754153Ab0ESAWs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 20:22:48 -0400
-In-Reply-To: <4B9944A0.5080308@redfish-solutions.com>
+Received: from qmta02.emeryville.ca.mail.comcast.net ([76.96.30.24]:42835 "EHLO
+	qmta02.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751045Ab0ESCAE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 22:00:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/11/2010 12:29 PM, Philip A. Prindeville wrote:
-> On 03/11/2010 12:27 PM, David Miller wrote:
->   
->> From: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
->> Date: Thu, 11 Mar 2010 12:21:11 -0700
->>
->>     
->>> And yes, there will always be misbehaving users.  They are a fact of
->>> life.  That doesn't mean we should lobotomize the network.  We don't
->>> have an authentication mechanism on ICMP Redirects or Source-Quench,
->>>       
->> Which is why most networks block those packets from the outside.
->>
->>     
->>> Nor is ARP authenticated.
->>>       
->> Which is why people control who can plug into their physical
->> network.
->>
->> None of the things you are saying support the idea of having
->> applications decide what the DSCP marking should be.
->>     
->
-> Does "decide what the DSCP marking should be" include complying to the recommendations of RFC-4594?
->   
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-If anyone cares, here's an update:
+When in packet split mode, packet type is not recognized, and the packet is
+larger than the header size, the 82599 overflows the packet into the data
+area, but doesn't set the HDR_LEN field.  We can safely assume the length
+is the current header size.  This fixes an obscure corner case that can be
+triggered by non-ip packet headers or (more likely) by disabling the L2
+packet recognition.
 
-I've submitted patches for QoS configuration for:
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-APR/Apache (stalled);
-Proftpd (committed);
-Openssh (pending review);
-Firefox/Thunderbird (reviewed and on-track for commit);
-Cyrus (committed);
-Sendmail (submittted and acknowledged, but not yet reviewed);
-Curl (stalled);
+ drivers/net/ixgbe/ixgbe_main.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-All, as per the request of the maintainers, default to either no QoS
-markings or previous RFC-791 QoS markings if that's what they already
-supported (Proftpd and Openssh).
-
-If anyone can think of anything else that needs to be supported to
-impact a significant portion of network (or enterprise intranet)
-traffic, please call it out.
-
-And if anyone wants to see if they can help get Apache unstalled (it's
-mostly an autoconf issue with Solaris that's holding things up), please
-give me a holler offline.
-
-Thanks.
-
-
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 926ad8c..a9e091c 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -1201,9 +1201,10 @@ static bool ixgbe_clean_rx_irq(struct ixgbe_q_vector *q_vector,
+ 			hdr_info = le16_to_cpu(ixgbe_get_hdr_info(rx_desc));
+ 			len = (hdr_info & IXGBE_RXDADV_HDRBUFLEN_MASK) >>
+ 			       IXGBE_RXDADV_HDRBUFLEN_SHIFT;
+-			if (len > IXGBE_RX_HDR_SIZE)
+-				len = IXGBE_RX_HDR_SIZE;
+ 			upper_len = le16_to_cpu(rx_desc->wb.upper.length);
++			if ((len > IXGBE_RX_HDR_SIZE) ||
++			    (upper_len && !(hdr_info & IXGBE_RXDADV_SPH)))
++				len = IXGBE_RX_HDR_SIZE;
+ 		} else {
+ 			len = le16_to_cpu(rx_desc->wb.upper.length);
+ 		}
 
