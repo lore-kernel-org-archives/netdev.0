@@ -1,30 +1,82 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [GIT] Networking
-Date: Wed, 19 May 2010 09:09:16 -0400
-Message-ID: <20100519130916.GB2412@tuxdriver.com>
-References: <20100518.233752.256882583.davem@davemloft.net>
- <1274267582.2763.24.camel@localhost>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH net-next-2.6] bonding: optimize tlb_get_least_loaded_slave
+Date: Wed, 19 May 2010 15:26:39 +0200
+Message-ID: <20100519132638.GC2788@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, torvalds@linux-foundation.org,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: davem@davemloft.net, fubar@us.ibm.com,
+	bonding-devel@lists.sourceforge.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41712 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751624Ab0ESN0t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 May 2010 09:26:49 -0400
 Content-Disposition: inline
-In-Reply-To: <1274267582.2763.24.camel@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 19, 2010 at 12:13:02PM +0100, Ben Hutchings wrote:
-> On Tue, 2010-05-18 at 23:37 -0700, David Miller wrote:
+In the worst case, when the first loop breaks an the end of the slave list,
+the slave list is iterated through twice. This patch reduces this
+function only to one loop. Also makes it simpler.
 
-> > 3) PHY module autoloading support from David Howells
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ drivers/net/bonding/bond_alb.c |   33 +++++++++++++--------------------
+ 1 files changed, 13 insertions(+), 20 deletions(-)
 
-> For the record, that was actually David Woodhouse.
-
-All Davids are the same... :-)
-
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 40fdc41..25c14c6 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -233,34 +233,27 @@ static void tlb_deinitialize(struct bonding *bond)
+ 	_unlock_tx_hashtbl(bond);
+ }
+ 
++static long long compute_gap(struct slave *slave)
++{
++	return (s64) (slave->speed << 20) - /* Convert to Megabit per sec */
++	       (s64) (SLAVE_TLB_INFO(slave).load << 3); /* Bytes to bits */
++}
++
+ /* Caller must hold bond lock for read */
+ static struct slave *tlb_get_least_loaded_slave(struct bonding *bond)
+ {
+ 	struct slave *slave, *least_loaded;
+-	s64 max_gap;
+-	int i, found = 0;
+-
+-	/* Find the first enabled slave */
+-	bond_for_each_slave(bond, slave, i) {
+-		if (SLAVE_IS_OK(slave)) {
+-			found = 1;
+-			break;
+-		}
+-	}
+-
+-	if (!found) {
+-		return NULL;
+-	}
++	long long max_gap;
++	int i;
+ 
+-	least_loaded = slave;
+-	max_gap = (s64)(slave->speed << 20) - /* Convert to Megabit per sec */
+-			(s64)(SLAVE_TLB_INFO(slave).load << 3); /* Bytes to bits */
++	least_loaded = NULL;
++	max_gap = LLONG_MIN;
+ 
+ 	/* Find the slave with the largest gap */
+-	bond_for_each_slave_from(bond, slave, i, least_loaded) {
++	bond_for_each_slave(bond, slave, i) {
+ 		if (SLAVE_IS_OK(slave)) {
+-			s64 gap = (s64)(slave->speed << 20) -
+-					(s64)(SLAVE_TLB_INFO(slave).load << 3);
++			long long gap = compute_gap(slave);
++
+ 			if (max_gap < gap) {
+ 				least_loaded = slave;
+ 				max_gap = gap;
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+1.6.6.1
+
