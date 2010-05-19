@@ -1,90 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: avoid one atomic op per cloned skb
-Date: Wed, 19 May 2010 07:18:58 +0200
-Message-ID: <1274246338.2485.38.camel@edumazet-laptop>
-References: <1274190047.8274.1.camel@edumazet-laptop>
-	 <1274209124.8274.41.camel@edumazet-laptop>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the devicetree tree with the net tree
+Date: Wed, 19 May 2010 15:23:01 +1000
+Message-ID: <20100519152301.ad6cd9e9.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:53683 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751273Ab0ESFTE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 May 2010 01:19:04 -0400
-Received: by wwb22 with SMTP id 22so305908wwb.19
-        for <netdev@vger.kernel.org>; Tue, 18 May 2010 22:19:01 -0700 (PDT)
-In-Reply-To: <1274209124.8274.41.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Anton Vorontsov <avorontsov@mvista.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Grant Likely <grant.likely@secretlab.ca>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 18 mai 2010 =C3=A0 20:58 +0200, Eric Dumazet a =C3=A9crit :
+Hi Grant,
 
-> Oops, it needs more thinking, definitely not a 2.6.35 thing...
->=20
-> There would be a race between skb_clone() and kfree_skbmem()
->=20
-> kfree_skbmem() must perform the atomic_dec_and_test() before setting
-> skb->fclone to SKB_FCLONE_UNAVAILABLE.
->=20
-> Doing so avoids dirtying skb->fclone right before kmem_cache_free()..=
-=2E
->=20
->=20
-> V2 would be :
->=20
-> [RFC v2] net: avoid one atomic op per cloned skb
->=20
-> skb_clone() can use atomic_set(clone_ref, 2) safely, because only
-> current thread can possibly touch clone_ref at this point.
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index c543dd2..77d5a6b 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -370,13 +370,13 @@ static void kfree_skbmem(struct sk_buff *skb)
->  		fclone_ref =3D (atomic_t *) (skb + 1);
->  		other =3D skb - 1;
-> =20
-> -		/* The clone portion is available for
-> -		 * fast-cloning again.
-> -		 */
-> -		skb->fclone =3D SKB_FCLONE_UNAVAILABLE;
-> -
->  		if (atomic_dec_and_test(fclone_ref))
->  			kmem_cache_free(skbuff_fclone_cache, other);
-> +		else
-> +			/* The clone portion is available for fast-cloning.=20
-> +			 * Note this must be done after the fclone_ref change.
-> +			 */
-> +			skb->fclone =3D SKB_FCLONE_UNAVAILABLE;
+Today's linux-next merge of the devicetree tree got a conflict in
+drivers/net/gianfar.c between commit
+b14ed884df5968b0977114ebd5a22f58d0d15315 ("gianfar: Remove legacy PM
+callbacks") from the net tree and commit
+030d1870b731924034caf0c874981e2ed4f1becc ("drivers/net/of: don't use
+deprecated field in of_platform_driver") from the devicetree tree.
 
-This still is racy, because we are not allowed to access skb after the
-atomic_dec_and_test() :
+Just context changes.  I fixed it up (see below) and can carry the fix as
+necessary.
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-Other thread can now go past the final refcount decrement and free skb
-under us.
-
-Hmm...
-
->  		break;
->  	}
->  }
-> @@ -628,7 +628,7 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gf=
-p_t gfp_mask)
->  	    n->fclone =3D=3D SKB_FCLONE_UNAVAILABLE) {
->  		atomic_t *fclone_ref =3D (atomic_t *) (n + 1);
->  		n->fclone =3D SKB_FCLONE_CLONE;
-> -		atomic_inc(fclone_ref);
-> +		atomic_set(fclone_ref, 2);
->  	} else {
->  		n =3D kmem_cache_alloc(skbuff_head_cache, gfp_mask);
->  		if (!n)
->=20
-
-
-
+diff --cc drivers/net/gianfar.c
+index c6791cd,c3b292a..0000000
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@@ -3167,12 -3054,16 +3167,14 @@@ MODULE_DEVICE_TABLE(of, gfar_match)
+  
+  /* Structure for a device driver */
+  static struct of_platform_driver gfar_driver = {
+- 	.name = "fsl-gianfar",
+- 	.match_table = gfar_match,
+- 
++ 	.driver = {
++ 		.name = "fsl-gianfar",
++ 		.owner = THIS_MODULE,
++ 		.pm = GFAR_PM_OPS,
++ 		.of_match_table = gfar_match,
++ 	},
+  	.probe = gfar_probe,
+  	.remove = gfar_remove,
+- 	.driver.pm = GFAR_PM_OPS,
+ -	.suspend = gfar_legacy_suspend,
+ -	.resume = gfar_legacy_resume,
+  };
+  
+  static int __init gfar_init(void)
