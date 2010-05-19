@@ -1,334 +1,56 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next PATCH] ixgbe:add support for a new 82599 10G Base-T device
-Date: Wed, 19 May 2010 15:16:04 -0700
-Message-ID: <20100519221602.2535.86122.stgit@localhost.localdomain>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] vhost-net: utilize PUBLISH_USED_IDX feature
+Date: Thu, 20 May 2010 01:27:18 +0300
+Message-ID: <20100519222718.GB4111@redhat.com>
+References: <20100518011931.GA21918@redhat.com> <4BF41A33.8090309@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta11.emeryville.ca.mail.comcast.net ([76.96.27.211]:53908
-	"EHLO qmta11.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750943Ab0ESWQV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 May 2010 18:16:21 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, Juan Quintela <quintela@redhat.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Arnd Bergmann <arnd@arndb.de>, kvm@vger.kernel.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, alex.williamson@redhat.com,
+	amit.shah@redhat.com
+To: Avi Kivity <avi@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4BF41A33.8090309@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
+On Wed, May 19, 2010 at 08:04:51PM +0300, Avi Kivity wrote:
+> On 05/18/2010 04:19 AM, Michael S. Tsirkin wrote:
+>> With PUBLISH_USED_IDX, guest tells us which used entries
+>> it has consumed. This can be used to reduce the number
+>> of interrupts: after we write a used entry, if the guest has not yet
+>> consumed the previous entry, or if the guest has already consumed the
+>> new entry, we do not need to interrupt.
+>> This imporves bandwidth by 30% under some workflows.
+>>
+>> Signed-off-by: Michael S. Tsirkin<mst@redhat.com>
+>> ---
+>>
+>> Rusty, Dave, this patch depends on the patch
+>> "virtio: put last seen used index into ring itself"
+>> which is currently destined at Rusty's tree.
+>> Rusty, if you are taking that one for 2.6.35, please
+>> take this one as well.
+>> Dave, any objections?
+>>    
+>
+> I object: I think the index should have its own cacheline,
 
-This adds support for a new copper device for 82599, device id 0x151c.
-This 82599 10GBase-T device uses the PHY's internal temperature sensor
-to guard against over-temp conditions. In this scenario the PHY will be
-put in a low power mode and link will no longer be able to transmit or
-receive any data. When this occurs, the over-temp interrupt is latched
-and driver logs this error message. A HW reset or power cycle is
-required to clear this status.
+The issue here is that host/guest do not know each
+other's cache line size. I guess we could just put it
+at offset 128 or something like that ... Rusty?
 
-Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+> and that it should be documented before merging.
 
- drivers/net/ixgbe/ixgbe.h       |    3 ++
- drivers/net/ixgbe/ixgbe_82598.c |    1 +
- drivers/net/ixgbe/ixgbe_82599.c |    1 +
- drivers/net/ixgbe/ixgbe_main.c  |   68 +++++++++++++++++++++++++++++++++++++++
- drivers/net/ixgbe/ixgbe_phy.c   |   31 ++++++++++++++++++
- drivers/net/ixgbe/ixgbe_phy.h   |    3 ++
- drivers/net/ixgbe/ixgbe_type.h  |    4 ++
- 7 files changed, 111 insertions(+), 0 deletions(-)
+I think you meant to object to the virtio patch, not this one.  This
+patch does not introduce new layout, just implements host support.
+virtio spec patch will follow: it is not part of linux tree so
+there is no patch dependency.
 
-diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
-index d0ea3d6..ffae480 100644
---- a/drivers/net/ixgbe/ixgbe.h
-+++ b/drivers/net/ixgbe/ixgbe.h
-@@ -360,6 +360,7 @@ struct ixgbe_adapter {
- 	u32 flags2;
- #define IXGBE_FLAG2_RSC_CAPABLE                 (u32)(1)
- #define IXGBE_FLAG2_RSC_ENABLED                 (u32)(1 << 1)
-+#define IXGBE_FLAG2_TEMP_SENSOR_CAPABLE         (u32)(1 << 2)
- /* default to trying for four seconds */
- #define IXGBE_TRY_LINK_TIMEOUT (4 * HZ)
- 
-@@ -407,6 +408,8 @@ struct ixgbe_adapter {
- 	u16 eeprom_version;
- 
- 	int node;
-+	struct work_struct check_overtemp_task;
-+	u32 interrupt_event;
- 
- 	/* SR-IOV */
- 	DECLARE_BITMAP(active_vfs, IXGBE_MAX_VF_FUNCTIONS);
-diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
-index f2b7ff4..9c02d60 100644
---- a/drivers/net/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ixgbe/ixgbe_82598.c
-@@ -1236,6 +1236,7 @@ static struct ixgbe_phy_operations phy_ops_82598 = {
- 	.setup_link		= &ixgbe_setup_phy_link_generic,
- 	.setup_link_speed	= &ixgbe_setup_phy_link_speed_generic,
- 	.read_i2c_eeprom	= &ixgbe_read_i2c_eeprom_82598,
-+	.check_overtemp   = &ixgbe_tn_check_overtemp,
- };
- 
- struct ixgbe_info ixgbe_82598_info = {
-diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
-index e9706eb..a4e2901 100644
---- a/drivers/net/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ixgbe/ixgbe_82599.c
-@@ -2395,6 +2395,7 @@ static struct ixgbe_phy_operations phy_ops_82599 = {
- 	.write_i2c_byte         = &ixgbe_write_i2c_byte_generic,
- 	.read_i2c_eeprom        = &ixgbe_read_i2c_eeprom_generic,
- 	.write_i2c_eeprom       = &ixgbe_write_i2c_eeprom_generic,
-+	.check_overtemp         = &ixgbe_tn_check_overtemp,
- };
- 
- struct ixgbe_info ixgbe_82599_info = {
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 9551cbb..3ee702b 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -108,6 +108,8 @@ static DEFINE_PCI_DEVICE_TABLE(ixgbe_pci_tbl) = {
- 	 board_82599 },
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_CX4),
- 	 board_82599 },
-+	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_T3_LOM),
-+	 board_82599 },
- 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82599_COMBO_BACKPLANE),
- 	 board_82599 },
- 
-@@ -1618,6 +1620,47 @@ static void ixgbe_set_itr_msix(struct ixgbe_q_vector *q_vector)
- 	}
- }
- 
-+/**
-+ * ixgbe_check_overtemp_task - worker thread to check over tempurature
-+ * @work: pointer to work_struct containing our data
-+ **/
-+static void ixgbe_check_overtemp_task(struct work_struct *work)
-+{
-+	struct ixgbe_adapter *adapter = container_of(work,
-+	                                             struct ixgbe_adapter,
-+	                                             check_overtemp_task);
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	u32 eicr = adapter->interrupt_event;
-+
-+	if (adapter->flags2 & IXGBE_FLAG2_TEMP_SENSOR_CAPABLE) {
-+		switch (hw->device_id) {
-+		case IXGBE_DEV_ID_82599_T3_LOM: {
-+			u32 autoneg;
-+			bool link_up = false;
-+
-+			if (hw->mac.ops.check_link)
-+				hw->mac.ops.check_link(hw, &autoneg, &link_up, false);
-+
-+			if (((eicr & IXGBE_EICR_GPI_SDP0) && (!link_up)) ||
-+			    (eicr & IXGBE_EICR_LSC))
-+				/* Check if this is due to overtemp */
-+				if (hw->phy.ops.check_overtemp(hw) == IXGBE_ERR_OVERTEMP)
-+					break;
-+			}
-+			return;
-+		default:
-+			if (!(eicr & IXGBE_EICR_GPI_SDP0))
-+				return;
-+			break;
-+		}
-+		e_crit("Network adapter has been stopped because it has "
-+		        "over heated. Restart the computer. If the problem persists, "
-+		        "power off the system and replace the adapter\n");
-+		/* write to clear the interrupt */
-+		IXGBE_WRITE_REG(hw, IXGBE_EICR, IXGBE_EICR_GPI_SDP0);
-+	}
-+}
-+
- static void ixgbe_check_fan_failure(struct ixgbe_adapter *adapter, u32 eicr)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
-@@ -1689,6 +1732,10 @@ static irqreturn_t ixgbe_msix_lsc(int irq, void *data)
- 
- 	if (hw->mac.type == ixgbe_mac_82599EB) {
- 		ixgbe_check_sfp_event(adapter, eicr);
-+		adapter->interrupt_event = eicr;
-+		if ((adapter->flags2 & IXGBE_FLAG2_TEMP_SENSOR_CAPABLE) &&
-+		    ((eicr & IXGBE_EICR_GPI_SDP0) || (eicr & IXGBE_EICR_LSC)))
-+			schedule_work(&adapter->check_overtemp_task);
- 
- 		/* Handle Flow Director Full threshold interrupt */
- 		if (eicr & IXGBE_EICR_FLOW_DIR) {
-@@ -2190,6 +2237,8 @@ static inline void ixgbe_irq_enable(struct ixgbe_adapter *adapter)
- 	u32 mask;
- 
- 	mask = (IXGBE_EIMS_ENABLE_MASK & ~IXGBE_EIMS_RTX_QUEUE);
-+	if (adapter->flags2 & IXGBE_FLAG2_TEMP_SENSOR_CAPABLE)
-+		mask |= IXGBE_EIMS_GPI_SDP0;
- 	if (adapter->flags & IXGBE_FLAG_FAN_FAIL_CAPABLE)
- 		mask |= IXGBE_EIMS_GPI_SDP1;
- 	if (adapter->hw.mac.type == ixgbe_mac_82599EB) {
-@@ -2250,6 +2299,9 @@ static irqreturn_t ixgbe_intr(int irq, void *data)
- 		ixgbe_check_sfp_event(adapter, eicr);
- 
- 	ixgbe_check_fan_failure(adapter, eicr);
-+	if ((adapter->flags2 & IXGBE_FLAG2_TEMP_SENSOR_CAPABLE) &&
-+	    ((eicr & IXGBE_EICR_GPI_SDP0) || (eicr & IXGBE_EICR_LSC)))
-+		schedule_work(&adapter->check_overtemp_task);
- 
- 	if (napi_schedule_prep(&(q_vector->napi))) {
- 		adapter->tx_ring[0]->total_packets = 0;
-@@ -3265,6 +3317,13 @@ static int ixgbe_up_complete(struct ixgbe_adapter *adapter)
- 		IXGBE_WRITE_REG(hw, IXGBE_EIAM, IXGBE_EICS_RTX_QUEUE);
- 	}
- 
-+	/* Enable Thermal over heat sensor interrupt */
-+	if (adapter->flags2 & IXGBE_FLAG2_TEMP_SENSOR_CAPABLE) {
-+		gpie = IXGBE_READ_REG(hw, IXGBE_GPIE);
-+		gpie |= IXGBE_SDP0_GPIEN;
-+		IXGBE_WRITE_REG(hw, IXGBE_GPIE, gpie);
-+	}
-+
- 	/* Enable fan failure interrupt if media type is copper */
- 	if (adapter->flags & IXGBE_FLAG_FAN_FAIL_CAPABLE) {
- 		gpie = IXGBE_READ_REG(hw, IXGBE_GPIE);
-@@ -3666,6 +3725,9 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
- 	    adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE)
- 		cancel_work_sync(&adapter->fdir_reinit_task);
- 
-+	if (adapter->flags2 & IXGBE_FLAG2_TEMP_SENSOR_CAPABLE)
-+		cancel_work_sync(&adapter->check_overtemp_task);
-+
- 	/* disable transmits in the hardware now that interrupts are off */
- 	for (i = 0; i < adapter->num_tx_queues; i++) {
- 		j = adapter->tx_ring[i]->reg_idx;
-@@ -4645,6 +4707,8 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 		adapter->max_msix_q_vectors = MAX_MSIX_Q_VECTORS_82599;
- 		adapter->flags2 |= IXGBE_FLAG2_RSC_CAPABLE;
- 		adapter->flags2 |= IXGBE_FLAG2_RSC_ENABLED;
-+		if (hw->device_id == IXGBE_DEV_ID_82599_T3_LOM)
-+			adapter->flags2 |= IXGBE_FLAG2_TEMP_SENSOR_CAPABLE;
- 		if (dev->features & NETIF_F_NTUPLE) {
- 			/* Flow Director perfect filter enabled */
- 			adapter->flags |= IXGBE_FLAG_FDIR_PERFECT_CAPABLE;
-@@ -6561,7 +6625,9 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	}
- 
- 	/* reset_hw fills in the perm_addr as well */
-+	hw->phy.reset_if_overtemp = true;
- 	err = hw->mac.ops.reset_hw(hw);
-+	hw->phy.reset_if_overtemp = false;
- 	if (err == IXGBE_ERR_SFP_NOT_PRESENT &&
- 	    hw->mac.type == ixgbe_mac_82598EB) {
- 		/*
-@@ -6730,6 +6796,8 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	    adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE)
- 		INIT_WORK(&adapter->fdir_reinit_task, ixgbe_fdir_reinit_task);
- 
-+	if (adapter->flags2 & IXGBE_FLAG2_TEMP_SENSOR_CAPABLE)
-+		INIT_WORK(&adapter->check_overtemp_task, ixgbe_check_overtemp_task);
- #ifdef CONFIG_IXGBE_DCA
- 	if (dca_add_requester(&pdev->dev) == 0) {
- 		adapter->flags |= IXGBE_FLAG_DCA_ENABLED;
-diff --git a/drivers/net/ixgbe/ixgbe_phy.c b/drivers/net/ixgbe/ixgbe_phy.c
-index 22d21af..9c8fb85 100644
---- a/drivers/net/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ixgbe/ixgbe_phy.c
-@@ -135,6 +135,11 @@ static enum ixgbe_phy_type ixgbe_get_phy_type_from_id(u32 phy_id)
-  **/
- s32 ixgbe_reset_phy_generic(struct ixgbe_hw *hw)
- {
-+	/* Don't reset PHY if it's shut down due to overtemp. */
-+	if (!hw->phy.reset_if_overtemp &&
-+	    (IXGBE_ERR_OVERTEMP == hw->phy.ops.check_overtemp(hw)))
-+		return 0;
-+
- 	/*
- 	 * Perform soft PHY reset to the PHY_XS.
- 	 * This will cause a soft reset to the PHY
-@@ -1345,3 +1350,29 @@ s32 ixgbe_get_phy_firmware_version_tnx(struct ixgbe_hw *hw,
- 	return status;
- }
- 
-+/**
-+ *  ixgbe_tn_check_overtemp - Checks if an overtemp occured.
-+ *  @hw: pointer to hardware structure
-+ *
-+ *  Checks if the LASI temp alarm status was triggered due to overtemp
-+ **/
-+s32 ixgbe_tn_check_overtemp(struct ixgbe_hw *hw)
-+{
-+	s32 status = 0;
-+	u16 phy_data = 0;
-+
-+	if (hw->device_id != IXGBE_DEV_ID_82599_T3_LOM)
-+		goto out;
-+
-+	/* Check that the LASI temp alarm status was triggered */
-+	hw->phy.ops.read_reg(hw, IXGBE_TN_LASI_STATUS_REG,
-+	                     MDIO_MMD_PMAPMD, &phy_data);
-+
-+	if (!(phy_data & IXGBE_TN_LASI_STATUS_TEMP_ALARM))
-+		goto out;
-+
-+	status = IXGBE_ERR_OVERTEMP;
-+out:
-+	return status;
-+}
-+
-diff --git a/drivers/net/ixgbe/ixgbe_phy.h b/drivers/net/ixgbe/ixgbe_phy.h
-index c9c5459..ef4ba83 100644
---- a/drivers/net/ixgbe/ixgbe_phy.h
-+++ b/drivers/net/ixgbe/ixgbe_phy.h
-@@ -80,6 +80,8 @@
- #define IXGBE_I2C_T_SU_STO  4
- #define IXGBE_I2C_T_BUF     5
- 
-+#define IXGBE_TN_LASI_STATUS_REG        0x9005
-+#define IXGBE_TN_LASI_STATUS_TEMP_ALARM 0x0008
- 
- s32 ixgbe_init_phy_ops_generic(struct ixgbe_hw *hw);
- s32 ixgbe_identify_phy_generic(struct ixgbe_hw *hw);
-@@ -106,6 +108,7 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw);
- s32 ixgbe_get_sfp_init_sequence_offsets(struct ixgbe_hw *hw,
-                                         u16 *list_offset,
-                                         u16 *data_offset);
-+s32 ixgbe_tn_check_overtemp(struct ixgbe_hw *hw);
- s32 ixgbe_read_i2c_byte_generic(struct ixgbe_hw *hw, u8 byte_offset,
-                                 u8 dev_addr, u8 *data);
- s32 ixgbe_write_i2c_byte_generic(struct ixgbe_hw *hw, u8 byte_offset,
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index 39b9be8..2eb6e15 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -51,6 +51,7 @@
- #define IXGBE_DEV_ID_82599_KX4           0x10F7
- #define IXGBE_DEV_ID_82599_KX4_MEZZ      0x1514
- #define IXGBE_DEV_ID_82599_KR            0x1517
-+#define IXGBE_DEV_ID_82599_T3_LOM        0x151C
- #define IXGBE_DEV_ID_82599_CX4           0x10F9
- #define IXGBE_DEV_ID_82599_SFP           0x10FB
- #define IXGBE_DEV_ID_82599_SFP_EM        0x1507
-@@ -2470,6 +2471,7 @@ struct ixgbe_phy_operations {
- 	s32 (*write_i2c_byte)(struct ixgbe_hw *, u8, u8, u8);
- 	s32 (*read_i2c_eeprom)(struct ixgbe_hw *, u8 , u8 *);
- 	s32 (*write_i2c_eeprom)(struct ixgbe_hw *, u8, u8);
-+	s32 (*check_overtemp)(struct ixgbe_hw *);
- };
- 
- struct ixgbe_eeprom_info {
-@@ -2518,6 +2520,7 @@ struct ixgbe_phy_info {
- 	enum ixgbe_smart_speed          smart_speed;
- 	bool                            smart_speed_active;
- 	bool                            multispeed_fiber;
-+	bool                            reset_if_overtemp;
- };
- 
- #include "ixgbe_mbx.h"
-@@ -2605,6 +2608,7 @@ struct ixgbe_info {
- #define IXGBE_ERR_FDIR_REINIT_FAILED            -23
- #define IXGBE_ERR_EEPROM_VERSION                -24
- #define IXGBE_ERR_NO_SPACE                      -25
-+#define IXGBE_ERR_OVERTEMP                      -26
- #define IXGBE_NOT_IMPLEMENTED                   0x7FFFFFFF
- 
- #endif /* _IXGBE_TYPE_H_ */
-
+> -- 
+> Do not meddle in the internals of kernels, for they are subtle and quick to panic.
