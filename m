@@ -1,45 +1,56 @@
-From: Avi Kivity <avi@redhat.com>
-Subject: Re: [PATCH] vhost-net: utilize PUBLISH_USED_IDX feature
-Date: Wed, 19 May 2010 20:04:51 +0300
-Message-ID: <4BF41A33.8090309@redhat.com>
-References: <20100518011931.GA21918@redhat.com>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: dev_get_valid_name buggy with hash collision
+Date: Wed, 19 May 2010 20:05:49 +0300
+Message-ID: <201005192005.49459.opurdila@ixiacom.com>
+References: <4BF26926.4070507@free.fr> <201005181529.37420.opurdila@ixiacom.com> <4BF2AA68.5090008@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Juan Quintela <quintela@redhat.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Arnd Bergmann <arnd@arndb.de>, kvm@vger.kernel.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, alex.williamson@redhat.com,
-	amit.shah@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100518011931.GA21918@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Daniel Lezcano <daniel.lezcano@free.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:12427 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753524Ab0ESRHL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 May 2010 13:07:11 -0400
+In-Reply-To: <4BF2AA68.5090008@free.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/18/2010 04:19 AM, Michael S. Tsirkin wrote:
-> With PUBLISH_USED_IDX, guest tells us which used entries
-> it has consumed. This can be used to reduce the number
-> of interrupts: after we write a used entry, if the guest has not yet
-> consumed the previous entry, or if the guest has already consumed the
-> new entry, we do not need to interrupt.
-> This imporves bandwidth by 30% under some workflows.
->
-> Signed-off-by: Michael S. Tsirkin<mst@redhat.com>
-> ---
->
-> Rusty, Dave, this patch depends on the patch
-> "virtio: put last seen used index into ring itself"
-> which is currently destined at Rusty's tree.
-> Rusty, if you are taking that one for 2.6.35, please
-> take this one as well.
-> Dave, any objections?
->    
+On Tuesday 18 May 2010 17:55:36 you wrote:
 
-I object: I think the index should have its own cacheline, and that it 
-should be documented before merging.
+> >>         if (!dev_valid_name(name))
+> >>                 return -EINVAL;
+> >>
+> >>         if (fmt&&  strchr(name, '%'))
+> >> -               return __dev_alloc_name(net, name, buf);
+> >> +               return dev_alloc_name(dev, name);
+> >>         else if (__dev_get_by_name(net, name))
+> >>                 return -EEXIST;
+> >> -       else if (buf != name)
+> >> -               strlcpy(buf, name, IFNAMSIZ);
+> >> +       else if (strncmp(dev->name, name, IFNAMSIZ))
+> >> +                strlcpy(dev->name, name, IFNAMSIZ);
+> >
+> > Why do the strncmp, can't we preserve the (buf != name) condition
+> 
+> The 'buf' parameter is no longer passed to the function. We have the
+> 'dev'  and the 'newname' parameters.
+> The pointer test was just to check 'dev_get_valid_name' was called from
+> the 'register_netdevice' function context with 'dev_get_valid_name(net,
+> dev->name, dev->name, 0)'. Comparing the strings is valid in this case.
+> 
+> Otherwise dev_get_valid_name is called from:
+> 
+>   *  "dev_change_net_namespace" with "dev%d" or "ifname" specified
+> within the netlink message. Both are different pointers, the first will
+> fall in the "if (fmt && strchr(name, '%'))".
+> 
+>   * "dev_change_name", where the pointers are different and the strings
+> are different.
+> 
 
--- 
-Do not meddle in the internals of kernels, for they are subtle and quick to panic.
+True, but we why not use "if (dev->name !=name)" instead of strncmp? It should 
+yield the same results and it is lighter then full strncmp.
+
