@@ -1,32 +1,40 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH iproute] ip: add support for multicast rules
-Date: Wed, 19 May 2010 09:03:54 -0700
-Message-ID: <20100519090354.6dc6d82b@nehalam>
-References: <4BC48870.7070704@trash.net>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [PATCHv2] vhost-net: utilize PUBLISH_USED_IDX feature
+Date: Wed, 19 May 2010 19:15:09 +0300
+Message-ID: <4BF40E8D.7020409@redhat.com>
+References: <20100518022105.GA23129@redhat.com> <4BF2D2A7.8030803@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:37450 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751390Ab0ESQD5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 May 2010 12:03:57 -0400
-In-Reply-To: <4BC48870.7070704@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, Juan Quintela <quintela@redhat.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Arnd Bergmann <arnd@arndb.de>, kvm@vger.kernel.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, alex.williamson@redhat.com,
+	amit.shah@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4BF2D2A7.8030803@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 13 Apr 2010 17:06:24 +0200
-Patrick McHardy <kaber@trash.net> wrote:
+On 05/18/2010 08:47 PM, Avi Kivity wrote:
+> On 05/18/2010 05:21 AM, Michael S. Tsirkin wrote:
+>> With PUBLISH_USED_IDX, guest tells us which used entries
+>> it has consumed. This can be used to reduce the number
+>> of interrupts: after we write a used entry, if the guest has not yet
+>> consumed the previous entry, or if the guest has already consumed the
+>> new entry, we do not need to interrupt.
+>> This imporves bandwidth by 30% under some workflows.
+>
+> Seems to be missing the cacheline alignment.
+>
+> Rusty's clarification did not satisfy me, I think it's needed.
+>
 
-> This patch adds support for a "ip mrule" command, which is used
-> to configure multicast routing rules.
-> 
-> The corresponding kernel patches have been sent to Dave and
-> should (hopefully) appear in net-next soon.
+Oh, and this should definitely follow the patch to the virtio spec, not 
+precede it.
 
-The fib_rules.h file in iproute2 is kept in sync with the kernel
-headers. But I do not see the definitions of FIB_RULES_IPV4 etc
-in net-next kernel.  What happened to this?
-
+-- 
+Do not meddle in the internals of kernels, for they are subtle and quick to panic.
