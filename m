@@ -1,46 +1,29 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: linux-next: manual merge of the devicetree tree with the net tree
-Date: Tue, 18 May 2010 23:30:03 -0600
-Message-ID: <AANLkTikYNsOIXZFpqdTgFsTNkxc6xDuVOmnZJCrAw6jM@mail.gmail.com>
-References: <20100519152301.ad6cd9e9.sfr@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH NEXTv1 1/1] qlcnic: adding co maintainer
+Date: Tue, 18 May 2010 22:57:47 -0700 (PDT)
+Message-ID: <20100518.225747.146084562.davem@davemloft.net>
+References: <1274247063-28027-1-git-send-email-amit.salecha@qlogic.com>
+	<1274247063-28027-2-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Grant Likely <grant.likely@secretlab.ca>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Anton Vorontsov <avorontsov@mvista.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100519152301.ad6cd9e9.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	anirban.chakraborty@qlogic.com
+To: amit.salecha@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56772
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751831Ab0ESF5i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 May 2010 01:57:38 -0400
+In-Reply-To: <1274247063-28027-2-git-send-email-amit.salecha@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, May 18, 2010, Stephen Rothwell <sfr@canb.auug.org.au> wrote=
-:
-> Hi Grant,
->
-> Today's linux-next merge of the devicetree tree got a conflict in
-> drivers/net/gianfar.c between commit
-> b14ed884df5968b0977114ebd5a22f58d0d15315 ("gianfar: Remove legacy PM
-> callbacks") from the net tree and commit
-> 030d1870b731924034caf0c874981e2ed4f1becc ("drivers/net/of: don't use
-> deprecated field in of_platform_driver") from the devicetree tree.
->
-> Just context changes. =A0I fixed it up (see below) and can carry the =
-fix as
-> necessary.
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Date: Tue, 18 May 2010 22:31:03 -0700
 
-Looks right to me.  I'll probably wait until this and the other
-conflicting trees are merged by Linus before I send him my pull
-request so I can include the fixups.
+> Adding Anirban as co maintainer
+> 
+> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 
-Thanks,
-g.
-
-
---=20
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+Applied, thanks.
