@@ -1,112 +1,40 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: [PATCH] net-2.6 : V2 - fix dev_get_valid_name
-Date: Wed, 19 May 2010 22:12:19 +0200
-Message-ID: <1274299939-28132-1-git-send-email-daniel.lezcano@free.fr>
-Cc: opurdila@ixiacom.com, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: tun: Use netif_receive_skb instead of netif_rx
+Date: Wed, 19 May 2010 13:14:48 -0700 (PDT)
+Message-ID: <20100519.131448.200085502.davem@davemloft.net>
+References: <20100519075721.GA23926@gondor.apana.org.au>
+	<1274256582.2766.5.camel@edumazet-laptop>
+	<20100519082047.GA24331@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, tgraf@redhat.com, nhorman@redhat.com,
+	netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.uk.ibm.com ([194.196.100.164]:50793 "EHLO
-	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751522Ab0ESUMX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 May 2010 16:12:23 -0400
-Received: from d06nrmr1806.portsmouth.uk.ibm.com (d06nrmr1806.portsmouth.uk.ibm.com [9.149.39.193])
-	by mtagate4.uk.ibm.com (8.13.1/8.13.1) with ESMTP id o4JKCMDY002662
-	for <netdev@vger.kernel.org>; Wed, 19 May 2010 20:12:22 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
-	by d06nrmr1806.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o4JKCMNh708776
-	for <netdev@vger.kernel.org>; Wed, 19 May 2010 21:12:22 +0100
-Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id o4JKCLTI023519
-	for <netdev@vger.kernel.org>; Wed, 19 May 2010 21:12:21 +0100
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51807
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752895Ab0ESUOj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 May 2010 16:14:39 -0400
+In-Reply-To: <20100519082047.GA24331@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-the commit:
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 19 May 2010 18:20:47 +1000
 
-commit d90310243fd750240755e217c5faa13e24f41536
-Author: Octavian Purdila <opurdila@ixiacom.com>
-Date:   Wed Nov 18 02:36:59 2009 +0000
+> On Wed, May 19, 2010 at 10:09:42AM +0200, Eric Dumazet wrote:
+>> 
+>> 6) netif_rx() pro is that packet processing is done while stack usage is
+>> guaranteed to be low (from process_backlog, using a special softirq
+>> stack, instead of current stack)
+>> 
+>> After your patch, tun will use more stack. Is it safe on all contexts ?
+> 
+> Dave also raised this but I believe nothing changes with regards
+> to the stack.  We currently call do_softirq which does not switch
+> stacks.
 
-    net: device name allocation cleanups
-
-introduced a bug when there is a hash collision making impossible
-to rename a device with eth%d. This bug is very hard to reproduce
-and appears rarely.
-
-The problem is coming from we don't pass a temporary buffer to
-__dev_alloc_name but 'dev->name' which is modified by the function.
-
-A detailed explanation is here:
-
-http://marc.info/?l=linux-netdev&m=127417784011987&w=2
-
-Changelog:
- V2 : replaced strings comparison by pointers comparison
-
-Signed-off-by: Daniel Lezcano <daniel.lezcano@free.fr>
----
- net/core/dev.c |   20 ++++++++++++--------
- 1 files changed, 12 insertions(+), 8 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 264137f..a2bfe57 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -936,18 +936,22 @@ int dev_alloc_name(struct net_device *dev, const char *name)
- }
- EXPORT_SYMBOL(dev_alloc_name);
- 
--static int dev_get_valid_name(struct net *net, const char *name, char *buf,
--			      bool fmt)
-+static int dev_get_valid_name(struct net_device *dev, const char *name, bool fmt)
- {
-+	struct net *net;
-+
-+	BUG_ON(!dev_net(dev));
-+	net = dev_net(dev);
-+
- 	if (!dev_valid_name(name))
- 		return -EINVAL;
- 
- 	if (fmt && strchr(name, '%'))
--		return __dev_alloc_name(net, name, buf);
-+		return dev_alloc_name(dev, name);
- 	else if (__dev_get_by_name(net, name))
- 		return -EEXIST;
--	else if (buf != name)
--		strlcpy(buf, name, IFNAMSIZ);
-+	else if (dev->name != name)
-+		strlcpy(dev->name, name, IFNAMSIZ);
- 
- 	return 0;
- }
-@@ -979,7 +983,7 @@ int dev_change_name(struct net_device *dev, const char *newname)
- 
- 	memcpy(oldname, dev->name, IFNAMSIZ);
- 
--	err = dev_get_valid_name(net, newname, dev->name, 1);
-+	err = dev_get_valid_name(dev, newname, 1);
- 	if (err < 0)
- 		return err;
- 
-@@ -5083,7 +5087,7 @@ int register_netdevice(struct net_device *dev)
- 		}
- 	}
- 
--	ret = dev_get_valid_name(net, dev->name, dev->name, 0);
-+	ret = dev_get_valid_name(dev, dev->name, 0);
- 	if (ret)
- 		goto err_uninit;
- 
-@@ -5661,7 +5665,7 @@ int dev_change_net_namespace(struct net_device *dev, struct net *net, const char
- 		/* We get here if we can't use the current device name */
- 		if (!pat)
- 			goto out;
--		if (dev_get_valid_name(net, pat, dev->name, 1))
-+		if (dev_get_valid_name(dev, pat, 1))
- 			goto out;
- 	}
- 
--- 
-1.7.0.4
-
+do_softirq() _does_ switch stacks, it's a per-arch function that
+does the stack switch and calls __do_softirq() on the softirq
+stack.
