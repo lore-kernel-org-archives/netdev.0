@@ -1,126 +1,51 @@
-From: Wolfram Sang <w.sang@pengutronix.de>
-Subject: [PATCH] net/mpc52xx_phy: Various code cleanups
-Date: Wed, 19 May 2010 12:21:10 +0200
-Message-ID: <1274264470-2905-1-git-send-email-w.sang@pengutronix.de>
-Cc: netdev@vger.kernel.org, Wolfram Sang <w.sang@pengutronix.de>,
-	Grant Likely <grant.likely@secretlab.ca>
-To: linuxppc-dev@ozlabs.org
+From: Jon Zhou <Jon.Zhou@jdsu.com>
+Subject: RE: any change in socket systemcall or packet_mmap regarding
+ multiqueue nic?
+Date: Wed, 19 May 2010 03:36:59 -0700
+Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497EFC946@MILEXCH2.ds.jdsu.net>
+References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497EFC786@MILEXCH2.ds.jdsu.net>
+ <1274243074.2485.28.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:50317 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754554Ab0ESKVd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 May 2010 06:21:33 -0400
+Received: from exprod7og121.obsmtp.com ([64.18.2.20]:38755 "HELO
+	exprod7og121.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1753979Ab0ESKkT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 May 2010 06:40:19 -0400
+In-Reply-To: <1274243074.2485.28.camel@edumazet-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-- don't free bus->irq (obsoleted by ca816d98170942371535b3e862813b0aba9b7d90)
-- don't dispose irqs (should be done in of_mdiobus_register())
-- use fec-pointer consistently in transfer()
-- use resource_size()
-- cosmetic fixes
-
-Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
-Cc: Grant Likely <grant.likely@secretlab.ca>
----
-
-My phyCORE-MPC5200B-tiny still passes its test-suite after the patch
-(running via nfsroot).
-
- drivers/net/fec_mpc52xx_phy.c |   24 +++++-------------------
- 1 files changed, 5 insertions(+), 19 deletions(-)
-
-diff --git a/drivers/net/fec_mpc52xx_phy.c b/drivers/net/fec_mpc52xx_phy.c
-index 7658a08..35c90e0 100644
---- a/drivers/net/fec_mpc52xx_phy.c
-+++ b/drivers/net/fec_mpc52xx_phy.c
-@@ -29,15 +29,14 @@ static int mpc52xx_fec_mdio_transfer(struct mii_bus *bus, int phy_id,
- 		int reg, u32 value)
- {
- 	struct mpc52xx_fec_mdio_priv *priv = bus->priv;
--	struct mpc52xx_fec __iomem *fec;
-+	struct mpc52xx_fec __iomem *fec = priv->regs;
- 	int tries = 3;
- 
- 	value |= (phy_id << FEC_MII_DATA_PA_SHIFT) & FEC_MII_DATA_PA_MSK;
- 	value |= (reg << FEC_MII_DATA_RA_SHIFT) & FEC_MII_DATA_RA_MSK;
- 
--	fec = priv->regs;
- 	out_be32(&fec->ievent, FEC_IEVENT_MII);
--	out_be32(&priv->regs->mii_data, value);
-+	out_be32(&fec->mii_data, value);
- 
- 	/* wait for it to finish, this takes about 23 us on lite5200b */
- 	while (!(in_be32(&fec->ievent) & FEC_IEVENT_MII) && --tries)
-@@ -47,7 +46,7 @@ static int mpc52xx_fec_mdio_transfer(struct mii_bus *bus, int phy_id,
- 		return -ETIMEDOUT;
- 
- 	return value & FEC_MII_DATA_OP_RD ?
--		in_be32(&priv->regs->mii_data) & FEC_MII_DATA_DATAMSK : 0;
-+		in_be32(&fec->mii_data) & FEC_MII_DATA_DATAMSK : 0;
- }
- 
- static int mpc52xx_fec_mdio_read(struct mii_bus *bus, int phy_id, int reg)
-@@ -69,9 +68,8 @@ static int mpc52xx_fec_mdio_probe(struct of_device *of,
- 	struct device_node *np = of->node;
- 	struct mii_bus *bus;
- 	struct mpc52xx_fec_mdio_priv *priv;
--	struct resource res = {};
-+	struct resource res;
- 	int err;
--	int i;
- 
- 	bus = mdiobus_alloc();
- 	if (bus == NULL)
-@@ -93,7 +91,7 @@ static int mpc52xx_fec_mdio_probe(struct of_device *of,
- 	err = of_address_to_resource(np, 0, &res);
- 	if (err)
- 		goto out_free;
--	priv->regs = ioremap(res.start, res.end - res.start + 1);
-+	priv->regs = ioremap(res.start, resource_size(&res));
- 	if (priv->regs == NULL) {
- 		err = -ENOMEM;
- 		goto out_free;
-@@ -118,10 +116,6 @@ static int mpc52xx_fec_mdio_probe(struct of_device *of,
-  out_unmap:
- 	iounmap(priv->regs);
-  out_free:
--	for (i=0; i<PHY_MAX_ADDR; i++)
--		if (bus->irq[i] != PHY_POLL)
--			irq_dispose_mapping(bus->irq[i]);
--	kfree(bus->irq);
- 	kfree(priv);
- 	mdiobus_free(bus);
- 
-@@ -133,23 +127,16 @@ static int mpc52xx_fec_mdio_remove(struct of_device *of)
- 	struct device *dev = &of->dev;
- 	struct mii_bus *bus = dev_get_drvdata(dev);
- 	struct mpc52xx_fec_mdio_priv *priv = bus->priv;
--	int i;
- 
- 	mdiobus_unregister(bus);
- 	dev_set_drvdata(dev, NULL);
--
- 	iounmap(priv->regs);
--	for (i=0; i<PHY_MAX_ADDR; i++)
--		if (bus->irq[i] != PHY_POLL)
--			irq_dispose_mapping(bus->irq[i]);
- 	kfree(priv);
--	kfree(bus->irq);
- 	mdiobus_free(bus);
- 
- 	return 0;
- }
- 
--
- static struct of_device_id mpc52xx_fec_mdio_match[] = {
- 	{ .compatible = "fsl,mpc5200b-mdio", },
- 	{ .compatible = "fsl,mpc5200-mdio", },
-@@ -168,5 +155,4 @@ struct of_platform_driver mpc52xx_fec_mdio_driver = {
- /* let fec driver call it, since this has to be registered before it */
- EXPORT_SYMBOL_GPL(mpc52xx_fec_mdio_driver);
- 
--
- MODULE_LICENSE("Dual BSD/GPL");
--- 
-1.7.0
-
+DQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXSANClNlbnQ6IFdlZG5lc2RheSwgTWF5IDE5LCAyMDEw
+IDEyOjI1IFBNDQpUbzogSm9uIFpob3UNCkNjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnDQpTdWJq
+ZWN0OiBSZTogYW55IGNoYW5nZSBpbiBzb2NrZXQgc3lzdGVtY2FsbCBvciBwYWNrZXRfbW1hcCBy
+ZWdhcmRpbmcgbXVsdGlxdWV1ZSBuaWM/DQoNCkxlIG1hcmRpIDE4IG1haSAyMDEwIMOgIDE5OjU1
+IC0wNzAwLCBKb24gWmhvdSBhIMOpY3JpdCA6DQo+IGhpDQo+IHRoZSBtdWx0aXF1ZXVlIG5ldHdv
+cmtpbmcgY2FuIHV0aWxpemUgbXVsdGktY29yZSB0byBwcm9jZXNzIHBhY2tldHMgZnJvbSBtdWx0
+aXF1ZXVlIG5pYywNCj4gYnV0IGFueSBjaGFuZ2UgaW4gcmVsYXRlZCB1c2Vyc3BhY2UgYXBwbGlj
+YXRpb24gcGFydCwgc3VjaCBhcyBzb2NrZXQgc3lzdGVtIGNhbGwsIHBhY2tldF9tbWFwPyB0aGVz
+ZSB1c2Vyc3BhY2UgQVBJIGNhbiBhbHNvIHV0aWxpemUgbXVsdGljb3JlIHRvIHByb2Nlc3MgcGFj
+a2V0cyBmcm9tIGtlcm5lbD8NCj4gb3RoZXJ3aXNlIHRoZXkgaGF2ZSB0byByZWFkIGRhdGEgaW4g
+c2VyaWFsaXphdGlvbg0KPiANCg0KVGhhdHMgYSBiaXQgZ2VuZXJhbCBxdWVzdGlvbi4gV29ya3Mg
+YXJlIGluIHByb2dyZXNzLg0KDQpTbyBmYXIsIHlvdSBjYW4gdXNlIGEgbmV3IGNvbmRpdGlvbiBp
+biBmaWx0ZXJzIHRvIG1hdGNoIGEgZ2l2ZW4gcXVldWUNCmluZGV4IGZvciBpbmNvbWluZyBwYWNr
+ZXRzLiBBIHNuaWZmZXIgY291bGQgc2V0dXAgTiBkaWZmZXJlbnQgc29ja2V0cyB0bw0KcmVjZWl2
+ZSBkYXRhIGZyb20gTiBOSUMgcXVldWVzLg0KDQpqb24tPmlzIGl0IHNvbWV0aGluZyBsaWtlICJp
+b2N0bChmZCxTT0xfU09DS0VULHF1ZXVlX2lkLi4uKSxjb3VsZCB5b3UgdGVsbCB0aGUga2V5d29y
+ZD8NCg0KRm9yIHRjcCBmbG93cywgbm90aGluZyBpcyBuZWVkZWQsIHNpbmNlIGFsbCBwYWNrZXRz
+IG9mIGEgZ2l2ZW4gZmxvdw0Kc2hvdWxkIHVzZSBzYW1lIHF1ZXVlLg0KDQpidHcsZG8geW91IHRo
+aW5rIFJGUyBpcyBoZWxwZnVsIGZvciB0aGlzPw0KDQoNCkhvd2V2ZXIgdGhlIGN1cnJlbnQgdHgg
+cXVldWUgc2VsZWN0aW9uIGlzIGJhc2VkIG9uIHNrLT5za19oYXNoIHZhbHVlLCBhDQpsaW51eCBz
+aWRlIGNvbXB1dGVkIHZhbHVlLCBhbmQgdGhpcyBkaWZmZXJzIGZyb20gdGhlIHJ4IHF1ZXVlIHNl
+bGVjdGlvbg0KZG9uZSBieSB0aGUgTklDIGZpcm13YXJlLiBTbyB0eCBwYWNrZXRzIHVzZSBhIGRp
+ZmZlcmVudCBxdWV1ZSB0aGFuIHJ4DQpwYWNrZXRzIGZvciBhIGdpdmVuIHRjcCBmbG93LiBUaGlz
+IG1lYW5zIHRoaXMgaXMgc3Vib3B0aW1hbDogdGNwX2FjaygpDQpjYW4gcnVuIG9uIGEgZGlmZmVy
+ZW50IGNwdSB0aGFuIFRYIGNvbXBsZXRpb24gaGFuZGxlci4NCg0KVFggY29tcGxldGlvbiBoYW5k
+bGVyIHRvdWNoZXMgdGhlIGNsb25lZCBza2IgdGhhdCBUQ1AgdXNlZCB0byB0cmFuc21pdA0KYnVm
+ZmVyLiBJdHMgZnJlZWluZyB0b3VjaGVzIHRoZSBkYXRhcmVmIGF0b21pYyBjb3VudGVyIGluIHBh
+Y2tldC4NCg0KVGhpcyBzaG91bGQgYmUgYWRkcmVzc2VkIHNvbWVob3cuDQoNCg0KDQoNCg0K
