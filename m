@@ -1,33 +1,25 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 7/7] ixgbe: add support for active DA cables
-Date: Tue, 18 May 2010 19:45:03 -0700 (PDT)
-Message-ID: <20100518.194503.255377444.davem@davemloft.net>
-References: <20100519020003.18654.94899.stgit@localhost.localdomain>
-	<20100519020013.18654.78651.stgit@localhost.localdomain>
+From: Jon Zhou <Jon.Zhou@jdsu.com>
+Subject: any change in socket systemcall or packet_mmap regarding multiqueue
+ nic?
+Date: Tue, 18 May 2010 19:55:54 -0700
+Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497EFC786@MILEXCH2.ds.jdsu.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	donald.c.skidmore@intel.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46558
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755001Ab0ESCoz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 22:44:55 -0400
-In-Reply-To: <20100519020013.18654.78651.stgit@localhost.localdomain>
+Received: from exprod7og110.obsmtp.com ([64.18.2.173]:60584 "HELO
+	exprod7og110.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1753683Ab0ESDCo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 May 2010 23:02:44 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 18 May 2010 19:00:13 -0700
+hi
+the multiqueue networking can utilize multi-core to process packets from multiqueue nic,
+but any change in related userspace application part, such as socket system call, packet_mmap? these userspace API can also utilize multicore to process packets from kernel?
+otherwise they have to read data in serialization
 
-> From: Don Skidmore <donald.c.skidmore@intel.com>
-> 
-> This patch adds support of active DA cables.  This is
-> renaming and adding some PHY type enumerations.
-> 
-> Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-
-Applied.
+thanks
+jon 
