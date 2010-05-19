@@ -1,45 +1,45 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH net-next-2.6] can: SJA1000 add missing spin_lock_init()
-Date: Wed, 19 May 2010 18:46:38 +0200
-Message-ID: <4BF415EE.8090307@hartkopp.net>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: [PATCH] vhost-net: utilize PUBLISH_USED_IDX feature
+Date: Wed, 19 May 2010 20:04:51 +0300
+Message-ID: <4BF41A33.8090309@redhat.com>
+References: <20100518011931.GA21918@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: davem@davemloft.net, Juan Quintela <quintela@redhat.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Arnd Bergmann <arnd@arndb.de>, kvm@vger.kernel.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, alex.williamson@redhat.com,
+	amit.shah@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100518011931.GA21918@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-As remarked by Sam Ravnborg the spin_lock variable, that has been introduced
-in commit 57c8a456640fa3ca777652f11f2db4179a3e66b6 ("can: Fix SJA1000 command
-register writes on SMP systems") has not been initialized properly.
+On 05/18/2010 04:19 AM, Michael S. Tsirkin wrote:
+> With PUBLISH_USED_IDX, guest tells us which used entries
+> it has consumed. This can be used to reduce the number
+> of interrupts: after we write a used entry, if the guest has not yet
+> consumed the previous entry, or if the guest has already consumed the
+> new entry, we do not need to interrupt.
+> This imporves bandwidth by 30% under some workflows.
+>
+> Signed-off-by: Michael S. Tsirkin<mst@redhat.com>
+> ---
+>
+> Rusty, Dave, this patch depends on the patch
+> "virtio: put last seen used index into ring itself"
+> which is currently destined at Rusty's tree.
+> Rusty, if you are taking that one for 2.6.35, please
+> take this one as well.
+> Dave, any objections?
+>    
 
-This patch adds the initialization to allow spinlock debugging. 
+I object: I think the index should have its own cacheline, and that it 
+should be documented before merging.
 
-Signed-off-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-CC: Sam Ravnborg <sam-uyr5N9Q2VtJg9hUCZPvPmw@public.gmane.org>
-
----
-
-diff --git a/drivers/net/can/sja1000/sja1000.c b/drivers/net/can/sja1000/sja1000.c
-index 85f7cbf..0a8de01 100644
---- a/drivers/net/can/sja1000/sja1000.c
-+++ b/drivers/net/can/sja1000/sja1000.c
-@@ -599,6 +599,8 @@ struct net_device *alloc_sja1000dev(int sizeof_priv)
- 	priv->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES |
- 		CAN_CTRLMODE_BERR_REPORTING;
- 
-+	spin_lock_init(&priv->cmdreg_lock);
-+
- 	if (sizeof_priv)
- 		priv->priv = (void *)priv + sizeof(struct sja1000_priv);
+-- 
+Do not meddle in the internals of kernels, for they are subtle and quick to panic.
