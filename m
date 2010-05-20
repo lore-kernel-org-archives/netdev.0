@@ -1,68 +1,61 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] net: fix problem in dequeuing from input_pkt_queue
-Date: Thu, 20 May 2010 08:09:50 +0800
-Message-ID: <AANLkTinZHzZykWYWu9vOmK5ydtcB6ToVBKG1RKYSuSn4@mail.gmail.com>
-References: <alpine.DEB.1.00.1005191440440.23271@pokey.mtv.corp.google.com>
-	<AANLkTinvSgc3MTAJZEmhBqmRpYlHdOZ6HQ_j43_m8XX1@mail.gmail.com>
-	<AANLkTilxZdJifPtBANrDNdYWxiAMLY6AwA0KYm1yWjle@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC] netem: correlated loss generation (v3)
+Date: Wed, 19 May 2010 17:17:33 -0700
+Message-ID: <20100519171733.71c24539@nehalam>
+References: <4BD84428.30904@uniroma2.it>
+	<20100517205621.036a06e0@nehalam>
+	<20100519214239.GD5146@nuttenaction>
+	<4BF46B90.1000806@uniroma2.it>
+	<20100519230433.GE5146@nuttenaction>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Stefano Salsano <stefano.salsano@uniroma2.it>,
+	David Miller <davem@davemloft.net>,
+	Fabio Ludovici <fabio.ludovici@yahoo.it>,
+	netdev@vger.kernel.org, netem@lists.linuxfoundation.org
+To: Hagen Paul Pfeifer <hagen@jauu.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f174.google.com ([209.85.212.174]:42572 "EHLO
-	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752912Ab0ETAKP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 May 2010 20:10:15 -0400
-Received: by pxi18 with SMTP id 18so1030846pxi.19
-        for <netdev@vger.kernel.org>; Wed, 19 May 2010 17:10:14 -0700 (PDT)
-In-Reply-To: <AANLkTilxZdJifPtBANrDNdYWxiAMLY6AwA0KYm1yWjle@mail.gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:38142 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752307Ab0ETARj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 May 2010 20:17:39 -0400
+In-Reply-To: <20100519230433.GE5146@nuttenaction>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 20, 2010 at 7:58 AM, Tom Herbert <therbert@google.com> wrot=
-e:
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0napi->weight =3D weight_p;
->>> - =C2=A0 =C2=A0 =C2=A0 local_irq_disable();
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0while (work < quota) {
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0struct sk_bu=
-ff *skb;
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0unsigned int=
- qlen;
->>>
->>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0while ((skb =
-=3D __skb_dequeue(&sd->process_queue))) {
->>> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 local_irq_enable();
->>
->> we need to keep local irq disabled. If not, flush_backlog may be
->> called, and it will access sd->process_queue.
->>
->
-> It should be okay? =C2=A0process_backlog only runs in softirq so bott=
-om
-> halves are already disabled, and I don't think flush_backlog runs out
-> of an interrupt.
->
+On Thu, 20 May 2010 01:04:33 +0200
+Hagen Paul Pfeifer <hagen@jauu.net> wrote:
 
-Oh no. It is an IRQ handler.
+> * Stefano Salsano | 2010-05-20 00:52:00 [+0200]:
+> 
+> >So my opinion is that the need to emulate "correlated" loss patterns
+> >is not academic, but it is a real need from industry... of course we
+> >can debate if it is a "niche" requirement or not
+> 
+> netem is not in the processing hot path, so there is no issue to add an
+> additional component. If there are some[TM] users and it is usable, I am
+> fine with this patch!
+> 
+> >tc qdisc change dev wlan0 root netem loss 2 10
+> >
+> >because this produces broken results...
+> 
+> How to model this specific network characteristic (2% loss, correlation 10%)
+> with your modifications? Can you give us an example?
 
-  on_each_cpu(flush_backlog, dev, 1);
-=2E..
-int on_each_cpu(void (*func) (void *info), void *info, int wait)
-{
-        int ret =3D 0;
+The old model was useful, but it really didn't do correlated loss.
+For legacy, the old syntax will go through the same code and generate
+the same result.
 
-        preempt_disable();
-        ret =3D smp_call_function(func, info, wait);
-        local_irq_disable();
-        func(info);
-        local_irq_enable();
-        preempt_enable();
-        return ret;
-}
+iproute2 syntax is not finalized but, plan is simplified version of
+the NetemCLG paper.
 
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
+tc qdisc change dev eth0 root netem 
+      loss 2 10                              # compat syntax
+      loss random 2 10                       # same as above
+      loss deterministic file                # loss model based on bitmap
+      loss state p13 [p31 [p32 [p23 [p14]]]] # 4 state 
+      loss model  p [r [1-h [1-k]]]          # gilbert elliot model
+
+Any suggestions for better syntax are appreciated.
