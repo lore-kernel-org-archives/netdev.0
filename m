@@ -1,10 +1,15 @@
 From: sjur.brandeland@stericsson.com
-Subject: [PATCH net-next-2.6 3/8] caif: Bugfix - handle mem-allocation failures
-Date: Thu, 20 May 2010 09:44:03 +0200
-Message-ID: <1274341448-14924-4-git-send-email-sjur.brandeland@stericsson.com>
+Subject: [PATCH net-next-2.6 8/8] caif: Fixed splint warnings
+Date: Thu, 20 May 2010 09:44:08 +0200
+Message-ID: <1274341448-14924-9-git-send-email-sjur.brandeland@stericsson.com>
 References: <1274341448-14924-1-git-send-email-sjur.brandeland@stericsson.com>
  <1274341448-14924-2-git-send-email-sjur.brandeland@stericsson.com>
  <1274341448-14924-3-git-send-email-sjur.brandeland@stericsson.com>
+ <1274341448-14924-4-git-send-email-sjur.brandeland@stericsson.com>
+ <1274341448-14924-5-git-send-email-sjur.brandeland@stericsson.com>
+ <1274341448-14924-6-git-send-email-sjur.brandeland@stericsson.com>
+ <1274341448-14924-7-git-send-email-sjur.brandeland@stericsson.com>
+ <1274341448-14924-8-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN
 Content-Transfer-Encoding: 7BIT
@@ -15,147 +20,110 @@ To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from thalia-smout.broadpark.no ([80.202.8.21]:51603 "EHLO
 	thalia-smout.broadpark.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754039Ab0ETHoo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 May 2010 03:44:44 -0400
+	with ESMTP id S1754254Ab0ETHow (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 May 2010 03:44:52 -0400
 Received: from ignis-smin.broadpark.no ([unknown] [80.202.8.11])
  by thalia-smout.broadpark.no
  (Sun Java(tm) System Messaging Server 7u3-12.01 64bit (built Oct 15 2009))
- with ESMTP id <0L2P00CD0K626ZD0@thalia-smout.broadpark.no> for
- netdev@vger.kernel.org; Thu, 20 May 2010 09:44:26 +0200 (CEST)
+ with ESMTP id <0L2P00CF8K666ZD0@thalia-smout.broadpark.no> for
+ netdev@vger.kernel.org; Thu, 20 May 2010 09:44:30 +0200 (CEST)
 Received: from localhost.localdomain ([unknown] [84.49.77.207])
  by ignis-smin.broadpark.no
  (Sun Java(tm) System Messaging Server 7u3-12.01 64bit (built Oct 15 2009))
  with ESMTP id <0L2P008F5K603V20@ignis-smin.broadpark.no> for
- netdev@vger.kernel.org; Thu, 20 May 2010 09:44:26 +0200 (CEST)
-In-reply-to: <1274341448-14924-3-git-send-email-sjur.brandeland@stericsson.com>
+ netdev@vger.kernel.org; Thu, 20 May 2010 09:44:30 +0200 (CEST)
+In-reply-to: <1274341448-14924-8-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
-Add checks on memory allocation. It seems to be stable running test with
-injecting slab allocation failures.
+Compiled with splint and tested on 64bit x86.
 
 Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
 ---
- net/caif/cfpkt_skbuff.c |   25 +++++++++++++++++--------
- net/caif/cfserl.c       |    3 ++-
- net/caif/cfsrvl.c       |    6 ++++++
- 3 files changed, 25 insertions(+), 9 deletions(-)
+ net/caif/caif_socket.c |   10 +++++-----
+ net/caif/cfcnfg.c      |    2 +-
+ net/caif/cfmuxl.c      |    3 ++-
+ 3 files changed, 8 insertions(+), 7 deletions(-)
 
-diff --git a/net/caif/cfpkt_skbuff.c b/net/caif/cfpkt_skbuff.c
-index 83fff2f..a6fdf89 100644
---- a/net/caif/cfpkt_skbuff.c
-+++ b/net/caif/cfpkt_skbuff.c
-@@ -238,6 +238,7 @@ int cfpkt_add_head(struct cfpkt *pkt, const void *data2, u16 len)
- 	struct sk_buff *lastskb;
- 	u8 *to;
- 	const u8 *data = data2;
-+	int ret;
- 	if (unlikely(is_erronous(pkt)))
- 		return -EPROTO;
- 	if (unlikely(skb_headroom(skb) < len)) {
-@@ -246,9 +247,10 @@ int cfpkt_add_head(struct cfpkt *pkt, const void *data2, u16 len)
- 	}
+diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
+index 4bf2ed6..0fa614f 100644
+--- a/net/caif/caif_socket.c
++++ b/net/caif/caif_socket.c
+@@ -60,7 +60,7 @@ struct debug_fs_counter {
+ 	atomic_t num_rx_flow_off;
+ 	atomic_t num_rx_flow_on;
+ };
+-struct debug_fs_counter cnt;
++static struct debug_fs_counter cnt;
+ #define	dbfs_atomic_inc(v) atomic_inc(v)
+ #define	dbfs_atomic_dec(v) atomic_dec(v)
+ #else
+@@ -129,13 +129,13 @@ static void caif_read_unlock(struct sock *sk)
+ 	mutex_unlock(&cf_sk->readlock);
+ }
  
- 	/* Make sure data is writable */
--	if (unlikely(skb_cow_data(skb, 0, &lastskb) < 0)) {
-+	ret = skb_cow_data(skb, 0, &lastskb);
-+	if (unlikely(ret < 0)) {
- 		PKT_ERROR(pkt, "cfpkt_add_head: cow failed\n");
--		return -EPROTO;
-+		return ret;
- 	}
- 
- 	to = skb_push(skb, len);
-@@ -316,6 +318,8 @@ EXPORT_SYMBOL(cfpkt_setlen);
- struct cfpkt *cfpkt_create_uplink(const unsigned char *data, unsigned int len)
+-int sk_rcvbuf_lowwater(struct caifsock *cf_sk)
++static int sk_rcvbuf_lowwater(struct caifsock *cf_sk)
  {
- 	struct cfpkt *pkt = cfpkt_create_pfx(len + PKT_POSTFIX, PKT_PREFIX);
-+	if (!pkt)
-+		return NULL;
- 	if (unlikely(data != NULL))
- 		cfpkt_add_body(pkt, data, len);
- 	return pkt;
-@@ -344,12 +348,13 @@ struct cfpkt *cfpkt_append(struct cfpkt *dstpkt,
+ 	/* A quarter of full buffer is used a low water mark */
+ 	return cf_sk->sk.sk_rcvbuf / 4;
+ }
  
- 	if (dst->tail + neededtailspace > dst->end) {
- 		/* Create a dumplicate of 'dst' with more tail space */
-+		struct cfpkt *tmppkt;
- 		dstlen = skb_headlen(dst);
- 		createlen = dstlen + neededtailspace;
--		tmp = pkt_to_skb(
--			cfpkt_create(createlen + PKT_PREFIX + PKT_POSTFIX));
--		if (!tmp)
-+		tmppkt = cfpkt_create(createlen + PKT_PREFIX + PKT_POSTFIX);
-+		if (tmppkt == NULL)
- 			return NULL;
-+		tmp = pkt_to_skb(tmppkt);
- 		skb_set_tail_pointer(tmp, dstlen);
- 		tmp->len = dstlen;
- 		memcpy(tmp->data, dst->data, dstlen);
-@@ -368,6 +373,7 @@ struct cfpkt *cfpkt_split(struct cfpkt *pkt, u16 pos)
+-void caif_flow_ctrl(struct sock *sk, int mode)
++static void caif_flow_ctrl(struct sock *sk, int mode)
  {
- 	struct sk_buff *skb2;
- 	struct sk_buff *skb = pkt_to_skb(pkt);
-+	struct cfpkt *tmppkt;
- 	u8 *split = skb->data + pos;
- 	u16 len2nd = skb_tail_pointer(skb) - split;
+ 	struct caifsock *cf_sk;
+ 	cf_sk = container_of(sk, struct caifsock, sk);
+@@ -147,7 +147,7 @@ void caif_flow_ctrl(struct sock *sk, int mode)
+  * Copied from sock.c:sock_queue_rcv_skb(), but changed so packets are
+  * not dropped, but CAIF is sending flow off instead.
+  */
+-int caif_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
++static int caif_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ {
+ 	int err;
+ 	int skb_len;
+@@ -1184,7 +1184,7 @@ static struct net_proto_family caif_family_ops = {
+ 	.owner = THIS_MODULE,
+ };
  
-@@ -381,9 +387,12 @@ struct cfpkt *cfpkt_split(struct cfpkt *pkt, u16 pos)
- 	}
+-int af_caif_init(void)
++static int af_caif_init(void)
+ {
+ 	int err = sock_register(&caif_family_ops);
+ 	if (!err)
+diff --git a/net/caif/cfcnfg.c b/net/caif/cfcnfg.c
+index ca4077c..4d5fe51 100644
+--- a/net/caif/cfcnfg.c
++++ b/net/caif/cfcnfg.c
+@@ -258,7 +258,7 @@ static void cfcnfg_linkdestroy_rsp(struct cflayer *layer, u8 channel_id)
+ {
+ }
  
- 	/* Create a new packet for the second part of the data */
--	skb2 = pkt_to_skb(
--		cfpkt_create_pfx(len2nd + PKT_PREFIX + PKT_POSTFIX,
--				 PKT_PREFIX));
-+	tmppkt = cfpkt_create_pfx(len2nd + PKT_PREFIX + PKT_POSTFIX,
-+				  PKT_PREFIX);
-+	if (tmppkt == NULL)
-+		return NULL;
-+	skb2 = pkt_to_skb(tmppkt);
-+
- 
- 	if (skb2 == NULL)
- 		return NULL;
-diff --git a/net/caif/cfserl.c b/net/caif/cfserl.c
-index 06029ea..cb4325a 100644
---- a/net/caif/cfserl.c
-+++ b/net/caif/cfserl.c
-@@ -67,6 +67,8 @@ static int cfserl_receive(struct cflayer *l, struct cfpkt *newpkt)
- 		layr->incomplete_frm =
- 		    cfpkt_append(layr->incomplete_frm, newpkt, expectlen);
- 		pkt = layr->incomplete_frm;
-+		if (pkt == NULL)
-+			return -ENOMEM;
- 	} else {
- 		pkt = newpkt;
- 	}
-@@ -154,7 +156,6 @@ static int cfserl_receive(struct cflayer *l, struct cfpkt *newpkt)
- 			if (layr->usestx) {
- 				if (tail_pkt != NULL)
- 					pkt = cfpkt_append(pkt, tail_pkt, 0);
--
- 				/* Start search for next STX if frame failed */
- 				continue;
- 			} else {
-diff --git a/net/caif/cfsrvl.c b/net/caif/cfsrvl.c
-index aff31f3..6e5b707 100644
---- a/net/caif/cfsrvl.c
-+++ b/net/caif/cfsrvl.c
-@@ -123,6 +123,12 @@ static int cfservl_modemcmd(struct cflayer *layr, enum caif_modemcmd ctrl)
- 			struct caif_payload_info *info;
- 			u8 flow_off = SRVL_FLOW_OFF;
- 			pkt = cfpkt_create(SRVL_CTRL_PKT_SIZE);
-+			if (!pkt) {
-+				pr_warning("CAIF: %s(): Out of memory\n",
-+					__func__);
-+				return -ENOMEM;
-+			}
-+
- 			if (cfpkt_add_head(pkt, &flow_off, 1) < 0) {
- 				pr_err("CAIF: %s(): Packet is erroneous!\n",
- 					__func__);
+-int protohead[CFCTRL_SRV_MASK] = {
++static int protohead[CFCTRL_SRV_MASK] = {
+ 	[CFCTRL_SRV_VEI] = 4,
+ 	[CFCTRL_SRV_DATAGRAM] = 7,
+ 	[CFCTRL_SRV_UTIL] = 4,
+diff --git a/net/caif/cfmuxl.c b/net/caif/cfmuxl.c
+index 7372f27..b029872 100644
+--- a/net/caif/cfmuxl.c
++++ b/net/caif/cfmuxl.c
+@@ -174,10 +174,11 @@ struct cflayer *cfmuxl_remove_uplayer(struct cflayer *layr, u8 id)
+ 	spin_lock(&muxl->receive_lock);
+ 	up = get_up(muxl, id);
+ 	if (up == NULL)
+-		return NULL;
++		goto out;
+ 	memset(muxl->up_cache, 0, sizeof(muxl->up_cache));
+ 	list_del(&up->node);
+ 	cfsrvl_put(up);
++ out:
+ 	spin_unlock(&muxl->receive_lock);
+ 	return up;
+ }
 -- 
 1.6.3.3
 
