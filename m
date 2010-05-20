@@ -1,40 +1,35 @@
-From: Denis Kirjanov <dkirjanov@hera.kernel.org>
-Subject: [PATCH] sh_eth: Fix memleak in sh_mdio_release
-Date: Thu, 20 May 2010 14:00:59 +0000
-Message-ID: <20100520140059.GA8968@hera.kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH iproute] ip: add support for multicast rules
+Date: Thu, 20 May 2010 16:01:56 +0200
+Message-ID: <4BF540D4.1030903@trash.net>
+References: <4BC48870.7070704@trash.net> <20100519090354.6dc6d82b@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shimoda.yoshihiro@renesas.com, iwamatsu@nigauri.org,
-	morimoto.kuninori@renesas.com, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:59004 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754599Ab0ETOBH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 May 2010 10:01:07 -0400
-Content-Disposition: inline
+Received: from stinky.trash.net ([213.144.137.162]:53175 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753441Ab0ETOBz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 May 2010 10:01:55 -0400
+In-Reply-To: <20100519090354.6dc6d82b@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allocated memory for IRQs should be freed when releasing the mii_bus
+Stephen Hemminger wrote:
+> On Tue, 13 Apr 2010 17:06:24 +0200
+> Patrick McHardy <kaber@trash.net> wrote:
+> 
+>> This patch adds support for a "ip mrule" command, which is used
+>> to configure multicast routing rules.
+>>
+>> The corresponding kernel patches have been sent to Dave and
+>> should (hopefully) appear in net-next soon.
+> 
+> The fib_rules.h file in iproute2 is kept in sync with the kernel
+> headers. But I do not see the definitions of FIB_RULES_IPV4 etc
+> in net-next kernel.  What happened to this?
 
-Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
----
-
-drivers/net/sh_eth.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/sh_eth.c b/drivers/net/sh_eth.c
-index 586ed09..501a55f 100644
---- a/drivers/net/sh_eth.c
-+++ b/drivers/net/sh_eth.c
-@@ -1294,6 +1294,9 @@ static int sh_mdio_release(struct net_device *ndev)
- 	/* remove mdio bus info from net_device */
- 	dev_set_drvdata(&ndev->dev, NULL);
- 
-+	/* free interrupts memory */
-+	kfree(bus->irq);
-+
- 	/* free bitbang info */
- 	free_mdio_bitbang(bus);
- 
+Those got changed again during the addition of IPv6 support.
+I'll send a new version shortly, including IPv6 support.
