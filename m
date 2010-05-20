@@ -1,12 +1,9 @@
 From: sjur.brandeland@stericsson.com
-Subject: [PATCH net-next-2.6 5/8] caif: Add debug connection type for CAIF.
-Date: Thu, 20 May 2010 09:44:05 +0200
-Message-ID: <1274341448-14924-6-git-send-email-sjur.brandeland@stericsson.com>
+Subject: [PATCH net-next-2.6 2/8] caif: Bugfix - use standard Linux lists
+Date: Thu, 20 May 2010 09:44:02 +0200
+Message-ID: <1274341448-14924-3-git-send-email-sjur.brandeland@stericsson.com>
 References: <1274341448-14924-1-git-send-email-sjur.brandeland@stericsson.com>
  <1274341448-14924-2-git-send-email-sjur.brandeland@stericsson.com>
- <1274341448-14924-3-git-send-email-sjur.brandeland@stericsson.com>
- <1274341448-14924-4-git-send-email-sjur.brandeland@stericsson.com>
- <1274341448-14924-5-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN
 Content-Transfer-Encoding: 7BIT
@@ -17,154 +14,207 @@ To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from thalia-smout.broadpark.no ([80.202.8.21]:51603 "EHLO
 	thalia-smout.broadpark.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754026Ab0ETHoq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 May 2010 03:44:46 -0400
+	with ESMTP id S1753119Ab0ETHon (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 May 2010 03:44:43 -0400
 Received: from ignis-smin.broadpark.no ([unknown] [80.202.8.11])
  by thalia-smout.broadpark.no
  (Sun Java(tm) System Messaging Server 7u3-12.01 64bit (built Oct 15 2009))
- with ESMTP id <0L2P00CDQK636ZD0@thalia-smout.broadpark.no> for
- netdev@vger.kernel.org; Thu, 20 May 2010 09:44:27 +0200 (CEST)
+ with ESMTP id <0L2P00CCOK626ZD0@thalia-smout.broadpark.no> for
+ netdev@vger.kernel.org; Thu, 20 May 2010 09:44:26 +0200 (CEST)
 Received: from localhost.localdomain ([unknown] [84.49.77.207])
  by ignis-smin.broadpark.no
  (Sun Java(tm) System Messaging Server 7u3-12.01 64bit (built Oct 15 2009))
  with ESMTP id <0L2P008F5K603V20@ignis-smin.broadpark.no> for
- netdev@vger.kernel.org; Thu, 20 May 2010 09:44:27 +0200 (CEST)
-In-reply-to: <1274341448-14924-5-git-send-email-sjur.brandeland@stericsson.com>
+ netdev@vger.kernel.org; Thu, 20 May 2010 09:44:26 +0200 (CEST)
+In-reply-to: <1274341448-14924-2-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
-Added new CAIF protocol type CAIFPROTO_DEBUG for accessing
-CAIF debug on the ST Ericsson modems.
-
-There are two debug servers on the modem, one for radio related
-debug (CAIF_RADIO_DEBUG_SERVICE) and the other for
-communication/application related debug (CAIF_COM_DEBUG_SERVICE).
-
-The debug connection can contain trace debug printouts or
-interactive debug used for debugging and test.
-
-Debug connections can be of type STREAM or SEQPACKET.
+Use linux/list.h implementation instead of home brewed list.
 
 Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
 ---
- include/linux/caif/caif_socket.h |   40 +++++++++++++++++++++++++++++++++++++-
- net/caif/caif_config_util.c      |    5 ++++
- net/caif/caif_socket.c           |    5 ----
- 3 files changed, 44 insertions(+), 6 deletions(-)
+ include/net/caif/cfctrl.h |    4 +-
+ net/caif/cfctrl.c         |   92 +++++++++++++--------------------------------
+ 2 files changed, 28 insertions(+), 68 deletions(-)
 
-diff --git a/include/linux/caif/caif_socket.h b/include/linux/caif/caif_socket.h
-index 2a61eb1..3e8851b 100644
---- a/include/linux/caif/caif_socket.h
-+++ b/include/linux/caif/caif_socket.h
-@@ -62,6 +62,7 @@ enum caif_channel_priority {
-  * @CAIFPROTO_DATAGRAM_LOOP:	Datagram loopback channel, used for testing.
-  * @CAIFPROTO_UTIL:		Utility (Psock) channel.
-  * @CAIFPROTO_RFM:		Remote File Manager
-+ * @CAIFPROTO_DEBUG:		Debug link
-  *
-  * This enum defines the CAIF Channel type to be used. This defines
-  * the service to connect to on the modem.
-@@ -72,6 +73,7 @@ enum caif_protocol_type {
- 	CAIFPROTO_DATAGRAM_LOOP,
- 	CAIFPROTO_UTIL,
- 	CAIFPROTO_RFM,
-+	CAIFPROTO_DEBUG,
- 	_CAIFPROTO_MAX
- };
- #define	CAIFPROTO_MAX _CAIFPROTO_MAX
-@@ -85,6 +87,29 @@ enum caif_at_type {
+diff --git a/include/net/caif/cfctrl.h b/include/net/caif/cfctrl.h
+index 997603f..9402543 100644
+--- a/include/net/caif/cfctrl.h
++++ b/include/net/caif/cfctrl.h
+@@ -94,8 +94,8 @@ struct cfctrl_request_info {
+ 	enum cfctrl_cmd cmd;
+ 	u8 channel_id;
+ 	struct cfctrl_link_param param;
+-	struct cfctrl_request_info *next;
+ 	struct cflayer *client_layer;
++	struct list_head list;
  };
  
- /**
-+ * enum caif_debug_type - Content selection for debug connection
-+ * @CAIF_DEBUG_TRACE_INTERACTIVE: Connection will contain
-+ *				both trace and interactive debug.
-+ * @CAIF_DEBUG_TRACE:		Connection contains trace only.
-+ * @CAIF_DEBUG_INTERACTIVE:	Connection to interactive debug.
-+ */
-+enum caif_debug_type {
-+	CAIF_DEBUG_TRACE_INTERACTIVE = 0,
-+	CAIF_DEBUG_TRACE,
-+	CAIF_DEBUG_INTERACTIVE,
-+};
-+
-+/**
-+ * enum caif_debug_service - Debug Service to connect.
-+ * @CAIF_RADIO_DEBUG_SERVICE:  Debug on the Radio sub-system
-+ * @CAIF_COM_DEBUG_SERVICE:    Debug on the communication sub-system
-+ */
-+enum caif_debug_service {
-+	CAIF_RADIO_DEBUG_SERVICE = 1,
-+	CAIF_COM_DEBUG_SERVICE
-+};
-+
-+/**
-  * struct sockaddr_caif - the sockaddr structure for CAIF sockets.
-  * @family:		     Address family number, must be AF_CAIF.
-  * @u:			     Union of address data 'switched' by family.
-@@ -107,7 +132,14 @@ enum caif_at_type {
-  *
-  * @u.rfm.connection_id:     Connection ID for RFM.
-  *
-- * @u.rfm.volume:            Volume to mount.
-+ * @u.rfm.volume:             Volume to mount.
-+ *
-+ * @u.dbg:		     Applies when family = CAIFPROTO_DEBUG.
-+ *
-+ * @u.dbg.type:	     Type of debug connection to set up
-+ *			      (caif_debug_type).
-+ *
-+ * @u.dbg.service:	      Service sub-system to connect *
-  *
-  * Description:
-  * This structure holds the connect parameters used for setting up a
-@@ -130,6 +162,12 @@ struct sockaddr_caif {
- 			__u32 connection_id;
- 			char	  volume[16];
- 		} rfm;				/* CAIFPROTO_RFM */
-+		struct {
-+			__u8  type;		/* type:enum
-+						* caif_debug_type */
-+			__u8  service;		/* service:caif_debug_service */
-+		} dbg;				/* CAIFPROTO_DEBUG */
-+
- 	} u;
- };
+ struct cfctrl {
+@@ -103,7 +103,7 @@ struct cfctrl {
+ 	struct cfctrl_rsp res;
+ 	atomic_t req_seq_no;
+ 	atomic_t rsp_seq_no;
+-	struct cfctrl_request_info *first_req;
++	struct list_head list;
+ 	/* Protects from simultaneous access to first_req list */
+ 	spinlock_t info_list_lock;
+ #ifndef CAIF_NO_LOOP
+diff --git a/net/caif/cfctrl.c b/net/caif/cfctrl.c
+index 0ffe1e1..fcfda98 100644
+--- a/net/caif/cfctrl.c
++++ b/net/caif/cfctrl.c
+@@ -44,13 +44,14 @@ struct cflayer *cfctrl_create(void)
+ 	dev_info.id = 0xff;
+ 	memset(this, 0, sizeof(*this));
+ 	cfsrvl_init(&this->serv, 0, &dev_info);
+-	spin_lock_init(&this->info_list_lock);
+ 	atomic_set(&this->req_seq_no, 1);
+ 	atomic_set(&this->rsp_seq_no, 1);
+ 	this->serv.layer.receive = cfctrl_recv;
+ 	sprintf(this->serv.layer.name, "ctrl");
+ 	this->serv.layer.ctrlcmd = cfctrl_ctrlcmd;
+ 	spin_lock_init(&this->loop_linkid_lock);
++	spin_lock_init(&this->info_list_lock);
++	INIT_LIST_HEAD(&this->list);
+ 	this->loop_linkid = 1;
+ 	return &this->serv.layer;
+ }
+@@ -112,20 +113,10 @@ bool cfctrl_req_eq(struct cfctrl_request_info *r1,
+ void cfctrl_insert_req(struct cfctrl *ctrl,
+ 			      struct cfctrl_request_info *req)
+ {
+-	struct cfctrl_request_info *p;
+ 	spin_lock(&ctrl->info_list_lock);
+-	req->next = NULL;
+ 	atomic_inc(&ctrl->req_seq_no);
+ 	req->sequence_no = atomic_read(&ctrl->req_seq_no);
+-	if (ctrl->first_req == NULL) {
+-		ctrl->first_req = req;
+-		spin_unlock(&ctrl->info_list_lock);
+-		return;
+-	}
+-	p = ctrl->first_req;
+-	while (p->next != NULL)
+-		p = p->next;
+-	p->next = req;
++	list_add_tail(&req->list, &ctrl->list);
+ 	spin_unlock(&ctrl->info_list_lock);
+ }
  
-diff --git a/net/caif/caif_config_util.c b/net/caif/caif_config_util.c
-index 6f36580..76ae683 100644
---- a/net/caif/caif_config_util.c
-+++ b/net/caif/caif_config_util.c
-@@ -80,6 +80,11 @@ int connect_req_to_link_param(struct cfcnfg *cnfg,
- 		       l->u.utility.paramlen);
+@@ -133,46 +124,28 @@ void cfctrl_insert_req(struct cfctrl *ctrl,
+ struct cfctrl_request_info *cfctrl_remove_req(struct cfctrl *ctrl,
+ 					      struct cfctrl_request_info *req)
+ {
+-	struct cfctrl_request_info *p;
+-	struct cfctrl_request_info *ret;
++	struct cfctrl_request_info *p, *tmp, *first;
  
- 		break;
-+	case CAIFPROTO_DEBUG:
-+		l->linktype = CFCTRL_SRV_DBG;
-+		l->endpoint = s->sockaddr.u.dbg.service;
-+		l->chtype = s->sockaddr.u.dbg.type;
-+		break;
- 	default:
- 		return -EINVAL;
+ 	spin_lock(&ctrl->info_list_lock);
+-	if (ctrl->first_req == NULL) {
+-		spin_unlock(&ctrl->info_list_lock);
+-		return NULL;
+-	}
+-
+-	if (cfctrl_req_eq(req, ctrl->first_req)) {
+-		ret = ctrl->first_req;
+-		caif_assert(ctrl->first_req);
+-		atomic_set(&ctrl->rsp_seq_no,
+-				 ctrl->first_req->sequence_no);
+-		ctrl->first_req = ctrl->first_req->next;
+-		spin_unlock(&ctrl->info_list_lock);
+-		return ret;
+-	}
++	first = list_first_entry(&ctrl->list, struct cfctrl_request_info, list);
+ 
+-	p = ctrl->first_req;
+-
+-	while (p->next != NULL) {
+-		if (cfctrl_req_eq(req, p->next)) {
+-			pr_warning("CAIF: %s(): Requests are not "
++	list_for_each_entry_safe(p, tmp, &ctrl->list, list) {
++		if (cfctrl_req_eq(req, p)) {
++			if (p != first)
++				pr_warning("CAIF: %s(): Requests are not "
+ 					"received in order\n",
+ 					__func__);
+-			ret = p->next;
++
+ 			atomic_set(&ctrl->rsp_seq_no,
+-					p->next->sequence_no);
+-			p->next = p->next->next;
+-			spin_unlock(&ctrl->info_list_lock);
+-			return ret;
++					 p->sequence_no);
++			list_del(&p->list);
++			goto out;
+ 		}
+-		p = p->next;
  	}
-diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
-index 6d33de7..15fab8b 100644
---- a/net/caif/caif_socket.c
-+++ b/net/caif/caif_socket.c
-@@ -831,11 +831,6 @@ static int caif_connect(struct socket *sock, struct sockaddr *uaddr,
- 	if (uaddr->sa_family != AF_CAIF)
- 		goto out;
++	p = NULL;
++out:
+ 	spin_unlock(&ctrl->info_list_lock);
+-
+-	pr_warning("CAIF: %s(): Request does not match\n",
+-		   __func__);
+-	return NULL;
++	return p;
+ }
  
--	err = -ESOCKTNOSUPPORT;
--	if (unlikely(!(sk->sk_type == SOCK_STREAM &&
--		       cf_sk->sk.sk_protocol == CAIFPROTO_AT) &&
--		       sk->sk_type != SOCK_SEQPACKET))
--		goto out;
- 	switch (sock->state) {
- 	case SS_UNCONNECTED:
- 		/* Normal case, a fresh connect */
+ struct cfctrl_rsp *cfctrl_get_respfuncs(struct cflayer *layer)
+@@ -388,31 +361,18 @@ void cfctrl_getstartreason_req(struct cflayer *layer)
+ 
+ void cfctrl_cancel_req(struct cflayer *layr, struct cflayer *adap_layer)
+ {
+-	struct cfctrl_request_info *p, *req;
++	struct cfctrl_request_info *p, *tmp;
+ 	struct cfctrl *ctrl = container_obj(layr);
+ 	spin_lock(&ctrl->info_list_lock);
+-
+-	if (ctrl->first_req == NULL) {
+-		spin_unlock(&ctrl->info_list_lock);
+-		return;
+-	}
+-
+-	if (ctrl->first_req->client_layer == adap_layer) {
+-
+-		req = ctrl->first_req;
+-		ctrl->first_req = ctrl->first_req->next;
+-		kfree(req);
+-	}
+-
+-	p = ctrl->first_req;
+-	while (p != NULL && p->next != NULL) {
+-		if (p->next->client_layer == adap_layer) {
+-
+-			req = p->next;
+-			p->next = p->next->next;
+-			kfree(p->next);
++	pr_warning("CAIF: %s(): enter\n", __func__);
++
++	list_for_each_entry_safe(p, tmp, &ctrl->list, list) {
++		if (p->client_layer == adap_layer) {
++			pr_warning("CAIF: %s(): cancel req :%d\n", __func__,
++					p->sequence_no);
++			list_del(&p->list);
++			kfree(p);
+ 		}
+-		p = p->next;
+ 	}
+ 
+ 	spin_unlock(&ctrl->info_list_lock);
+@@ -634,7 +594,7 @@ static void cfctrl_ctrlcmd(struct cflayer *layr, enum caif_ctrlcmd ctrl,
+ 	case _CAIF_CTRLCMD_PHYIF_FLOW_OFF_IND:
+ 	case CAIF_CTRLCMD_FLOW_OFF_IND:
+ 		spin_lock(&this->info_list_lock);
+-		if (this->first_req != NULL) {
++		if (!list_empty(&this->list)) {
+ 			pr_debug("CAIF: %s(): Received flow off in "
+ 				   "control layer", __func__);
+ 		}
 -- 
 1.6.3.3
 
