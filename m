@@ -1,100 +1,62 @@
-From: <gregkh@suse.de>
-Subject: patch hotplug-netns-aware-uevent_helper.patch added to gregkh-2.6 tree
-Date: Thu, 20 May 2010 11:10:37 -0700
-Message-ID: <12743790373148@kroah.org>
-References: <1273019809-16472-5-git-send-email-ebiederm@xmission.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ANSI_X3.4-1968
-Content-Transfer-Encoding: 8bit
-To: ebiederm@xmission.com, bcrl@lhnet.ca, cornelia.huck@de.ibm.com,
-	davem@davemloft.net, eric.dumazet@gmail.com, gregkh@suse.de,
-	kay.sievers@vrfy.org, netdev@vger.kernel.org, serue@us.ibm.
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH net-next-2.6] bonding: move slave MTU handling from sysfs V2
+Date: Thu, 20 May 2010 11:21:59 -0700
+Message-ID: <32283.1274379719@death.nxdomain.ibm.com>
+References: <20100518154016.GD2878@psychotron.lab.eng.brq.redhat.com> <628.1274314061@death.nxdomain.ibm.com> <20100520053403.GA2867@psychotron.redhat.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	bonding-devel@lists.sourceforge.net, monis@voltaire.com
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:43233 "EHLO coco.kroah.org"
+Received: from e4.ny.us.ibm.com ([32.97.182.144]:51177 "EHLO e4.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757001Ab0ETSKw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 May 2010 14:10:52 -0400
-In-Reply-To: <1273019809-16472-5-git-send-email-ebiederm@xmission.com>
+	id S1754113Ab0ETSWE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 May 2010 14:22:04 -0400
+Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
+	by e4.ny.us.ibm.com (8.14.3/8.13.1) with ESMTP id o4KI9LXl016552
+	for <netdev@vger.kernel.org>; Thu, 20 May 2010 14:09:21 -0400
+Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
+	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o4KIM3fi107090
+	for <netdev@vger.kernel.org>; Thu, 20 May 2010 14:22:03 -0400
+Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
+	by d01av03.pok.ibm.com (8.14.3/8.13.1/NCO v10.0 AVout) with ESMTP id o4KIM1Z8023762
+	for <netdev@vger.kernel.org>; Thu, 20 May 2010 15:22:02 -0300
+In-reply-to: <20100520053403.GA2867@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Jiri Pirko <jpirko@redhat.com> wrote:
 
-This is a note to let you know that I've just added the patch titled
+>Thu, May 20, 2010 at 02:07:41AM CEST, fubar@us.ibm.com wrote:
+[...]
+>>	This chunk doesn't apply to net-next-2.6 because your context
+>>doesn't match; it looks like you've removed the variable "found" in your
+>>"before" source.  On closer inspection, "found" isn't actually used
+>>meaningfully, so I'm guessing you removed it in a prior patch but didn't
+>>submit that patch.
+>>
+>>	If that's the case, could you repost the whole series, with
+>>sequence numbers?
+>
+>I don't think that's necessary for now. The patch removing found was posted as a
+>first one:
+>http://patchwork.ozlabs.org/patch/52795/
+>
+>I tried it several times. Patches are cleanly applicable in order I posted it.
 
-    Subject: hotplug: netns aware uevent_helper
+	Ok, I tracked down a copy (not sure where mine went).  Sequence
+numbers do help in general, though, as a set of email messages aren't
+always delivered in the same order they're sent.
 
-to my gregkh-2.6 tree.  Its filename is
+	In any event, the patches all look ok to me (they do apply
+cleanly and compile, now that I have the complete set), but none of them
+are bug fixes, and should therefore probably wait until net-next
+reopens.  
 
-    hotplug-netns-aware-uevent_helper.patch
+	So, for whenever the tree is open:
 
-This tree can be found at 
-    http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-
->From ebiederm@xmission.com  Thu May 20 10:45:13 2010
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Tue,  4 May 2010 17:36:48 -0700
-Subject: hotplug: netns aware uevent_helper
-To: Greg Kroah-Hartman <gregkh@suse.de>
-Cc: Kay Sievers <kay.sievers@vrfy.org>, linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>, Cornelia Huck <cornelia.huck@de.ibm.com>, Eric Dumazet <eric.dumazet@gmail.com>, Benjamin LaHaise <bcrl@lhnet.ca>, Serge Hallyn <serue@us.ibm.com>, <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>, "Eric W. Biederman" <ebiederm@xmission.com>
-Message-ID: <1273019809-16472-5-git-send-email-ebiederm@xmission.com>
-
-
-From: Eric W. Biederman <ebiederm@xmission.com>
-
-It only makes sense for uevent_helper to get events
-in the intial namespaces.  It's invocation is not
-per namespace and it is not clear how we could make
-it's invocation namespace aware.
-
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-Acked-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+	-J
 
 ---
- lib/kobject_uevent.c |   19 +++++++++++++++++--
- 1 file changed, 17 insertions(+), 2 deletions(-)
-
---- a/lib/kobject_uevent.c
-+++ b/lib/kobject_uevent.c
-@@ -19,7 +19,7 @@
- #include <linux/kobject.h>
- #include <linux/module.h>
- #include <linux/slab.h>
--
-+#include <linux/user_namespace.h>
- #include <linux/socket.h>
- #include <linux/skbuff.h>
- #include <linux/netlink.h>
-@@ -99,6 +99,21 @@ static int kobj_bcast_filter(struct sock
- 	return 0;
- }
- 
-+static int kobj_usermode_filter(struct kobject *kobj)
-+{
-+	const struct kobj_ns_type_operations *ops;
-+
-+	ops = kobj_ns_ops(kobj);
-+	if (ops) {
-+		const void *init_ns, *ns;
-+		ns = kobj->ktype->namespace(kobj);
-+		init_ns = ops->initial_ns();
-+		return ns != init_ns;
-+	}
-+
-+	return 0;
-+}
-+
- /**
-  * kobject_uevent_env - send an uevent with environmental data
-  *
-@@ -274,7 +289,7 @@ int kobject_uevent_env(struct kobject *k
- #endif
- 
- 	/* call uevent_helper, usually only enabled during early boot */
--	if (uevent_helper[0]) {
-+	if (uevent_helper[0] && !kobj_usermode_filter(kobj)) {
- 		char *argv [3];
- 
- 		argv [0] = uevent_helper;
-
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
