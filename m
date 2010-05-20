@@ -1,35 +1,40 @@
-From: Paul Menage <menage@google.com>
-Subject: Re: [PATCH 1/3] cgroups: Add an API to attach a task to current
-	task's cgroup
-Date: Thu, 20 May 2010 15:26:52 -0700
-Message-ID: <AANLkTiknLBB9WkWwnyMQv-qmCFE0HpWIo5L20b79DgLs@mail.gmail.com>
-References: <1274227488.2370.107.camel@w-sridhar.beaverton.ibm.com>
-	 <AANLkTinsrFoLVKDFM5pcKcL_6MvAzhR6IzbNmWKh3BDh@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6 0/8] CAIF: Bugfixes and updates
+Date: Thu, 20 May 2010 15:27:43 -0700 (PDT)
+Message-ID: <20100520.152743.46361658.davem@davemloft.net>
+References: <1274341448-14924-1-git-send-email-sjur.brandeland@stericsson.com>
+	<20100520.005658.11949785.davem@davemloft.net>
+	<AANLkTilvQ8W5X-qvt6GvEj-1ZmmfwZJz079Rdi8K6Tll@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>
-To: Sridhar Samudrala <samudrala.sridhar@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTinsrFoLVKDFM5pcKcL_6MvAzhR6IzbNmWKh3BDh@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: sjur.brandeland@stericsson.com, netdev@vger.kernel.org,
+	marcel@holtmann.org, daniel.martensson@stericsson.com,
+	linus.walleji@stericsson.com
+To: sjurbren@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54620
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755024Ab0ETW1e convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 May 2010 18:27:34 -0400
+In-Reply-To: <AANLkTilvQ8W5X-qvt6GvEj-1ZmmfwZJz079Rdi8K6Tll@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 20, 2010 at 3:22 PM, Paul Menage <menage@google.com> wrote:
-> On Tue, May 18, 2010 at 5:04 PM, Sridhar Samudrala
-> <samudrala.sridhar@gmail.com> wrote:
->> Add a new kernel API to attach a task to current task's cgroup
->> in all the active hierarchies.
->>
->> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
->
-> Reviewed-by: Paul Menage <menage@google.com>
->
+=46rom: Sjur Br=E6ndeland <sjurbren@gmail.com>
+Date: Thu, 20 May 2010 23:08:27 +0200
 
-One other thought on this - this would be the first piece of code
-that's attaching a task to a cgroup without holding the cgroup
-directory inode i_mutex. I believe that this is probably OK.
+> Currently in caif_socket.c caif_seqpkt_recvmsg returns -EMSGSIZE if
+> skb don't fit in user buffer.
+> Would you consider my patch where I fix MSG_TRUNC to work properly a =
+bugfix?
 
-Paul
+You're really pushing it, but fine...
+
+This is the part I hate most about the merge window, people just
+want to slip in as much as they possibly can and justify it by
+any means necessary to suit their own personal needs instead of
+being amicable and abiding by the merge window rules which is
+for the good of everyone.
+
