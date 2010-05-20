@@ -1,64 +1,86 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: RFC: netfilter: synproxy iptables target
-Date: Thu, 20 May 2010 22:42:25 +0800
-Message-ID: <AANLkTimLBc58O4FA2S5wsA0kDD6eP7je_OGapfhPQK1s@mail.gmail.com>
-References: <AANLkTimp6S7MpwDAT8l-M0ZWjs2HIcUEfL5f8j9-QDZh@mail.gmail.com>
-	<4BF54310.6030004@trash.net> <AANLkTimjY_0yKfMtAUxI7He-QH5R5AdDCR3V8eKSgbGq@mail.gmail.com>
-	<1274365963.4046.39.camel@edumazet-laptop>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Subject: RE: loosing IPMI-card by loading netconsole
+Date: Thu, 20 May 2010 08:01:08 -0700
+Message-ID: <8DD2590731AB5D4C9DBF71A877482A900118AE59D9@orsmsx509.amr.corp.intel.com>
+References: <4BEDCD87.4090602@kernel.org> <20100518131216.GA24750@localhost>
+ <20100520101601.GA26235@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1274365963.4046.39.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Ronciak, John" <john.ronciak@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Carsten Aulbert <carsten.aulbert@aei.mpg.de>
+To: Henning Fehrmann <henning.fehrmann@aei.mpg.de>,
+	Tejun Heo <tj@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:32525 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750942Ab0ETPBN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 May 2010 11:01:13 -0400
+In-Reply-To: <20100520101601.GA26235@localhost>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 20, 2010 at 10:32 PM, Eric Dumazet <eric.dumazet@gmail.com>=
- wrote:
-> Le jeudi 20 mai 2010 =C3=A0 22:21 +0800, Changli Gao a =C3=A9crit :
->
->>
->> pure synproxy can be used on firewall to protect the internal server=
-s,
->> which don't support neither syncookies and synproxy, from the attack
->> of SYN-flood.
->>
->
-> protecting servers using conntracking ?
->
-> Thats seems very dangerous to me.
+Those lines should not be removed as the default behavior should be to strip the CRC, there was a bug in previous versions of the kernel/driver that caused the default behavior to be reversed from what was intended.  For your particular BMC, however, the CRC appears to be required so you will need to use the CrcStripping=0 module parameter to reverse the default behavior.
 
-If NAT is needed, conntracking is needed in any way. The conntrack
-won't be confirmed until the connection between firewall and client is
-established.
+-----Original Message-----
+From: Henning Fehrmann [mailto:henning.fehrmann@aei.mpg.de] 
+Sent: Thursday, May 20, 2010 3:16 AM
+To: Tejun Heo
+Cc: Ronciak, John; Kirsher, Jeffrey T; Brandeburg, Jesse; Allan, Bruce W; Waskiewicz Jr, Peter P; netdev@vger.kernel.org; Carsten Aulbert
+Subject: Re: loosing IPMI-card by loading netconsole
 
->
->> synproxy with defered connection relay acts as a layer 7 proxy, but
->> works in kernel space totally, unlike tcp splice tech., which needs
->> the applications in user space parse the requests, and establish the
->> connections.
->>
->
-> In the example given, only non persistent connections are handled...
->
-> These days, browsers and servers dont establish one socket per http
-> request...
->
->
 
-Yea. But some users still use non persistent connections, as they want
-to fetch URLs in parallel.
 
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Hello,
+> 
+> 
+> Let me re-describe the symptoms.
+> I am not loading any ipmi related modules and not the netconsole
+> module.
+> When booting out current 2.6.32 kernel we can not access the IPMI
+> remotely.
+> 
+> We had one case where the IPMI card was accessible while using this
+> kernel but probably due to the fact that eth0 was removed. We do not
+> consider this case anymore. 
+> 
+> This problem does not occur when using an older kernel. 
+> 
+> It has likely nothing to do with netconsole.
+> 
+> Here is the bisecting result:
+> 
+> The sha1 sum of the first bad commit is: 
+> 6e50912a442947d5fafd296ca6fdcbeb36b163ff
+> 
+> Hence, the last good commit has:
+> b2f8f7525c8aa1fdd8ad8c72c832dfb571d5f768
+
+I 'reverse patched' the changes: 
+
+diff --git a/drivers/net/e1000e/param.c b/drivers/net/e1000e/param.c
+index e909f96..1342e0b 100644
+--- a/drivers/net/e1000e/param.c
++++ b/drivers/net/e1000e/param.c
+@@ -427,6 +427,8 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
+                        e1000_validate_option(&crc_stripping, &opt, adapter);
+                        if (crc_stripping == OPTION_ENABLED)
+                                adapter->flags2 |= FLAG2_CRC_STRIPPING;
++               } else {
++                       adapter->flags2 |= FLAG2_CRC_STRIPPING;
+                }
+        }
+        { /* Kumeran Lock Loss Workaround */
+
+
+and compiled the kernel. This kernel works and the IPMI card is remotely accessible. 
+
+Can we savely remove this two lines or are we running into other problems?
+
+Cheers,
+Henning
