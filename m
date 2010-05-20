@@ -1,57 +1,130 @@
-From: =?UTF-8?B?S3J6eXN6dG9mIE9sxJlkemtp?= <ole@ans.pl>
-Subject: Re: bnx2x + SFP+ DA/2.6.33.3: Got bad status 0x0 when reading from
- SFP+ EEPROM -> SFP+ module is not initialized
-Date: Thu, 20 May 2010 22:54:54 +0200
-Message-ID: <4BF5A19E.5010003@ans.pl>
-References: <4BF56CA6.8080306@ans.pl>	<1274377770.28702.4.camel@lb-tlvb-eilong.il.broadcom.com>	<4BF57ADF.1060203@ans.pl>	<1274381113.28702.6.camel@lb-tlvb-eilong.il.broadcom.com> <4BF59058.6050205@ans.pl> <4BF59ABB.9070600@hp.com>
+From: Sven Wegener <sven.wegener@stealer.net>
+Subject: [PATCH] ipvs: Add missing locking during connection table hashing
+ and unhashing
+Date: Thu, 20 May 2010 22:55:32 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1005202243480.22717@titan.stealer.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eilong@broadcom.com, Michael Chan <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([195.187.34.71]:51246 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757089Ab0ETUzE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 May 2010 16:55:04 -0400
-In-Reply-To: <4BF59ABB.9070600@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>,
+	Wensong Zhang <wensong@linux-vs.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2010-05-20 22:25, Rick Jones wrote:
-> Some simple/simplistic thoughts/questions...
->
-> Has the DAC been used successfully prior to this?
+The code that hashes and unhashes connections from the connection table
+is missing locking of the connection being modified, which opens up a
+race condition and results in memory corruption when this race condition
+is hit.
 
-Yes. It was successfully used to connect two HP switches, before I=20
-received SFP+ SR modules, that allowed me to put the switches into=20
-distanced rooms.
+Here is what happens in pretty verbose form:
 
-> Do you have another HP ProCurve 10-GbE SFP+ 7m Direct Attach Cable (J=
-9285B) to try?
+CPU 0					CPU 1
+------------				------------
+An active connection is terminated and
+we schedule ip_vs_conn_expire() on this
+CPU to expire this connection.
 
-Yes. The same situation.
+					IRQ assignment is changed to this CPU,
+					but the expire timer stays scheduled on
+					the other CPU.
 
-> There's a transceiver and presumably an EEPROM at both ends of a DAC =
-right?
+					New connection from same ip:port comes
+					in right before the timer expires, we
+					find the inactive connection in our
+					connection table and get a reference to
+					it. We proper lock the connection in
+					tcp_state_transition() and read the
+					connection flags in set_tcp_state().
 
-Yes, I think there should be one. ;)
+ip_vs_conn_expire() gets called, we
+unhash the connection from our
+connection table and remove the hashed
+flag in ip_vs_conn_unhash(), without
+proper locking!
 
-> If
-> the EEPROM at one end were "bad" might the 57711 be happier with the =
-other end
-> of the DAC?
+					While still holding proper locks we
+					write the connection flags in
+					set_tcp_state() and this sets the hashed
+					flag again.
 
-Tested both ends. The same situation. :|
+ip_vs_conn_expire() fails to expire the
+connection, because the other CPU has
+incremented the reference count. We try
+to re-insert the connection into our
+connection table, but this fails in
+ip_vs_conn_hash(), because the hashed
+flag has been set by the other CPU. We
+re-schedule execution of
+ip_vs_conn_expire(). Now this connection
+has the hashed flag set, but isn't
+actually hashed in our connection table
+and has a dangling list_head.
 
-> Getting some sort of error message at the switch side, which may
-> (or may not) have more detailed diagnostics might help.
+					We drop the reference we held on the
+					connection and schedule the expire timer
+					for timeouting the connection on this
+					CPU. Further packets won't be able to
+					find this connection in our connection
+					table.
 
-There is no error message at the switch side. The switch shows that=20
-everything is correct.
+					ip_vs_conn_expire() gets called again,
+					we think it's already hashed, but the
+					list_head is dangling and while removing
+					the connection from our connection table
+					we write to the memory location where
+					this list_head points to.
 
-Best regards,
+The result will probably be a kernel oops at some other point in time.
 
-				Krzysztof Ol=C4=99dzki
+Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
+Cc: stable@kernel.org
+---
+ net/netfilter/ipvs/ip_vs_conn.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+This race condition is pretty subtle, but it can be triggered remotely.
+It needs the IRQ assignment change or another circumstance where packets
+coming from the same ip:port for the same service are being processed on
+different CPUs. And it involves hitting the exact time at which
+ip_vs_conn_expire() gets called. It can be avoided by making sure that
+all packets from one connection are always processed on the same CPU and
+can be made harder to exploit by changing the connection timeouts to
+some custom values.
+
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index d8f7e8e..ff04e9e 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -162,6 +162,7 @@ static inline int ip_vs_conn_hash(struct ip_vs_conn *cp)
+ 	hash = ip_vs_conn_hashkey(cp->af, cp->protocol, &cp->caddr, cp->cport);
+ 
+ 	ct_write_lock(hash);
++	spin_lock(&cp->lock);
+ 
+ 	if (!(cp->flags & IP_VS_CONN_F_HASHED)) {
+ 		list_add(&cp->c_list, &ip_vs_conn_tab[hash]);
+@@ -174,6 +175,7 @@ static inline int ip_vs_conn_hash(struct ip_vs_conn *cp)
+ 		ret = 0;
+ 	}
+ 
++	spin_unlock(&cp->lock);
+ 	ct_write_unlock(hash);
+ 
+ 	return ret;
+@@ -193,6 +195,7 @@ static inline int ip_vs_conn_unhash(struct ip_vs_conn *cp)
+ 	hash = ip_vs_conn_hashkey(cp->af, cp->protocol, &cp->caddr, cp->cport);
+ 
+ 	ct_write_lock(hash);
++	spin_lock(&cp->lock);
+ 
+ 	if (cp->flags & IP_VS_CONN_F_HASHED) {
+ 		list_del(&cp->c_list);
+@@ -202,6 +205,7 @@ static inline int ip_vs_conn_unhash(struct ip_vs_conn *cp)
+ 	} else
+ 		ret = 0;
+ 
++	spin_unlock(&cp->lock);
+ 	ct_write_unlock(hash);
+ 
+ 	return ret;
