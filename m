@@ -1,74 +1,54 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [net-next-2.6 V9 PATCH 1/2] Add netlink support for virtual port
- management (was iovnl)
-Date: Thu, 20 May 2010 16:24:22 +0200
-Message-ID: <4BF54616.1020508@trash.net>
-References: <20100518054330.21787.29398.stgit@savbu-pc100.cisco.com> <20100518054833.21787.45456.stgit@savbu-pc100.cisco.com>
+Subject: Re: RFC: netfilter: synproxy iptables target
+Date: Thu, 20 May 2010 16:25:17 +0200
+Message-ID: <4BF5464D.4090409@trash.net>
+References: <AANLkTimp6S7MpwDAT8l-M0ZWjs2HIcUEfL5f8j9-QDZh@mail.gmail.com> 	<4BF54310.6030004@trash.net> <AANLkTimjY_0yKfMtAUxI7He-QH5R5AdDCR3V8eKSgbGq@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, chrisw@redhat.com,
-	arnd@arndb.de
-To: Scott Feldman <scofeldm@cisco.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:53588 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751475Ab0ETOYW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 May 2010 10:24:22 -0400
-In-Reply-To: <20100518054833.21787.45456.stgit@savbu-pc100.cisco.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTimjY_0yKfMtAUxI7He-QH5R5AdDCR3V8eKSgbGq@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Scott Feldman wrote:
-> From: Scott Feldman <scofeldm@cisco.com>
+Changli Gao wrote:
+> On Thu, May 20, 2010 at 10:11 PM, Patrick McHardy <kaber@trash.net> wrote:
+>> Changli Gao wrote:
+>>> I have implemented a simple SYNPROXY iptables target. It is much like
+>>> the SYNPROXY implementation in pf of OpenBSD, but won't have state
+>>> until the first connection is established with the help of syncookies.
+>>> The code is hosted at github:
+>>>
+>>> http://github.com/xiaosuo/xiaosuo/tree/master/synproxy/
+>>>
+>>> Currently, it can work with firewall and local socket.
+>>>
+>>> It is in the very early stage, and ugly. And I will add --timeout
+>>> parameter to this target as TCP_DFER_ACCEPT, so I can do NAT basing on
+>>> the request data.
+>>>
+>>> i.e.
+>>>
+>>> iptables -t nat -A OUTPUT -p tcp -m synproxy --http-url "*.jpg" -j
+>>> DNAT --to-destination $image_http_server:80
+>>>
+>>> And is there any chance to merge it into mainline?
+>> If you can state a good use case, sure. I don't know much about the
+>> PF synproxy myself.
+>>
 > 
-> Add new netdev ops ndo_{set|get}_vf_port to allow setting of
-> port-profile on a netdev interface.  Extends netlink socket RTM_SETLINK/
-> RTM_GETLINK with two new sub msgs called IFLA_VF_PORTS and IFLA_PORT_SELF
-> (added to end of IFLA_cmd list).  These are both nested atrtibutes
-> using this layout:
+> pure synproxy can be used on firewall to protect the internal servers,
+> which don't support neither syncookies and synproxy, from the attack
+> of SYN-flood.
 > 
->...
+> synproxy with defered connection relay acts as a layer 7 proxy, but
+> works in kernel space totally, unlike tcp splice tech., which needs
+> the applications in user space parse the requests, and establish the
+> connections.
 
-Appologies for the delay, my mailserver failed me once again :|
-
-This version looks very good to me, just one question:
-
-> +static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
-> +{
-> +	struct nlattr *vf_ports;
-> +	struct nlattr *vf_port;
-> +	int vf;
-> +	int err;
-> +
-> +	vf_ports = nla_nest_start(skb, IFLA_VF_PORTS);
-> +	if (!vf_ports)
-> +		return -EMSGSIZE;
-> +
-> +	for (vf = 0; vf < dev_num_vf(dev->dev.parent); vf++) {
-> +		vf_port = nla_nest_start(skb, IFLA_VF_PORT);
-> +		if (!vf_port) {
-> +			nla_nest_cancel(skb, vf_ports);
-> +			return -EMSGSIZE;
-> +		}
-> +		NLA_PUT_U32(skb, IFLA_PORT_VF, vf);
-> +		err = dev->netdev_ops->ndo_get_vf_port(dev, vf, skb);
-> +		if (err) {
-> +nla_put_failure:
-> +			nla_nest_cancel(skb, vf_port);
-> +			continue;
-
-Are you sure you want to continue here? During a full dump
-this means that the last VF port fitting in the skb will most
-likely be incomplete since the higher layer code won't
-notice that the size was exceeded and the entry should be
-dumped into another skb.
-
-> +		}
-> +		nla_nest_end(skb, vf_port);
-> +	}
-> +
-> +	nla_nest_end(skb, vf_ports);
-> +
-> +	return 0;
-> +}
+I can't say much before seeing any code, but no general objections
+from my side.
