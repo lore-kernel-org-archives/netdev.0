@@ -1,8 +1,8 @@
 From: <gregkh@suse.de>
-Subject: patch kobj-send-hotplug-events-in-the-proper-namespace.patch added to gregkh-2.6 tree
-Date: Thu, 20 May 2010 11:10:37 -0700
-Message-ID: <1274379037308@kroah.org>
-References: <1273019809-16472-4-git-send-email-ebiederm@xmission.com>
+Subject: patch netns-teach-network-device-kobjects-which-namespace-they-are-in.patch added to gregkh-2.6 tree
+Date: Thu, 20 May 2010 11:10:39 -0700
+Message-ID: <12743790391416@kroah.org>
+References: <1273019809-16472-2-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ANSI_X3.4-1968
 Content-Transfer-Encoding: 8bit
@@ -10,85 +10,169 @@ To: ebiederm@xmission.com, bcrl@lhnet.ca, cornelia.huck@de.ibm.com,
 	davem@davemloft.net, eric.dumazet@gmail.com, gregkh@suse.de,
 	kay.sievers@vrfy.org, netdev@vger.kernel.org, serue@us.ibm.
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:43220 "EHLO coco.kroah.org"
+Received: from kroah.org ([198.145.64.141]:43252 "EHLO coco.kroah.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756997Ab0ETSKw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 May 2010 14:10:52 -0400
-In-Reply-To: <1273019809-16472-4-git-send-email-ebiederm@xmission.com>
+	id S1757004Ab0ETSKy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 May 2010 14:10:54 -0400
+In-Reply-To: <1273019809-16472-2-git-send-email-ebiederm@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 This is a note to let you know that I've just added the patch titled
 
-    Subject: kobj: Send hotplug events in the proper namespace.
+    Subject: [PATCH 2/6] netns: Teach network device kobjects which namespace they are in.
 
 to my gregkh-2.6 tree.  Its filename is
 
-    kobj-send-hotplug-events-in-the-proper-namespace.patch
+    netns-teach-network-device-kobjects-which-namespace-they-are-in.patch
 
 This tree can be found at 
     http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/
 
 
->From ebiederm@xmission.com  Thu May 20 10:44:38 2010
+>From ebiederm@xmission.com  Thu May 20 10:41:04 2010
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Tue,  4 May 2010 17:36:47 -0700
-Subject: kobj: Send hotplug events in the proper namespace.
+Date: Tue,  4 May 2010 17:36:45 -0700
+Subject: [PATCH 2/6] netns: Teach network device kobjects which namespace they are in.
 To: Greg Kroah-Hartman <gregkh@suse.de>
 Cc: Kay Sievers <kay.sievers@vrfy.org>, linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>, Cornelia Huck <cornelia.huck@de.ibm.com>, Eric Dumazet <eric.dumazet@gmail.com>, Benjamin LaHaise <bcrl@lhnet.ca>, Serge Hallyn <serue@us.ibm.com>, <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>, "Eric W. Biederman" <ebiederm@xmission.com>
-Message-ID: <1273019809-16472-4-git-send-email-ebiederm@xmission.com>
+Message-ID: <1273019809-16472-2-git-send-email-ebiederm@xmission.com>
 
 
 From: Eric W. Biederman <ebiederm@xmission.com>
 
-Utilize netlink_broacast_filtered to allow sending hotplug events
-in the proper namespace.
+The problem.  Network devices show up in sysfs and with the network
+namespace active multiple devices with the same name can show up in
+the same directory, ouch!
+
+To avoid that problem and allow existing applications in network namespaces
+to see the same interface that is currently presented in sysfs, this
+patch enables the tagging directory support in sysfs.
+
+By using the network namespace pointers as tags to separate out the
+the sysfs directory entries we ensure that we don't have conflicts
+in the directories and applications only see a limited set of
+the network devices.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 Acked-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
 ---
- lib/kobject_uevent.c |   22 ++++++++++++++++++++--
- 1 file changed, 20 insertions(+), 2 deletions(-)
+ include/linux/kobject.h |    1 +
+ net/Kconfig             |    8 ++++++++
+ net/core/net-sysfs.c    |   46 ++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 55 insertions(+)
 
---- a/lib/kobject_uevent.c
-+++ b/lib/kobject_uevent.c
-@@ -83,6 +83,22 @@ out:
- 	return ret;
- }
+--- a/include/linux/kobject.h
++++ b/include/linux/kobject.h
+@@ -142,6 +142,7 @@ extern const struct sysfs_ops kobj_sysfs
+  */
+ enum kobj_ns_type {
+ 	KOBJ_NS_TYPE_NONE = 0,
++	KOBJ_NS_TYPE_NET,
+ 	KOBJ_NS_TYPES
+ };
  
-+static int kobj_bcast_filter(struct sock *dsk, struct sk_buff *skb, void *data)
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -45,6 +45,14 @@ config COMPAT_NETLINK_MESSAGES
+ 
+ menu "Networking options"
+ 
++config NET_NS
++	bool "Network namespace support"
++	default n
++	depends on EXPERIMENTAL && NAMESPACES
++	help
++	  Allow user space to create what appear to be multiple instances
++	  of the network stack.
++
+ source "net/packet/Kconfig"
+ source "net/unix/Kconfig"
+ source "net/xfrm/Kconfig"
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -14,7 +14,9 @@
+ #include <linux/netdevice.h>
+ #include <linux/if_arp.h>
+ #include <linux/slab.h>
++#include <linux/nsproxy.h>
+ #include <net/sock.h>
++#include <net/net_namespace.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/wireless.h>
+ #include <net/wext.h>
+@@ -467,6 +469,37 @@ static struct attribute_group wireless_g
+ };
+ #endif
+ 
++static const void *net_current_ns(void)
 +{
-+	struct kobject *kobj = data;
-+	const struct kobj_ns_type_operations *ops;
-+
-+	ops = kobj_ns_ops(kobj);
-+	if (ops) {
-+		const void *sock_ns, *ns;
-+		ns = kobj->ktype->namespace(kobj);
-+		sock_ns = ops->netlink_ns(dsk);
-+		return sock_ns != ns;
-+	}
-+
-+	return 0;
++	return current->nsproxy->net_ns;
 +}
 +
- /**
-  * kobject_uevent_env - send an uevent with environmental data
-  *
-@@ -244,8 +260,10 @@ int kobject_uevent_env(struct kobject *k
- 			}
++static const void *net_initial_ns(void)
++{
++	return &init_net;
++}
++
++static const void *net_netlink_ns(struct sock *sk)
++{
++	return sock_net(sk);
++}
++
++static struct kobj_ns_type_operations net_ns_type_operations = {
++	.type = KOBJ_NS_TYPE_NET,
++	.current_ns = net_current_ns,
++	.netlink_ns = net_netlink_ns,
++	.initial_ns = net_initial_ns,
++};
++
++static void net_kobj_ns_exit(struct net *net)
++{
++	kobj_ns_exit(KOBJ_NS_TYPE_NET, net);
++}
++
++static struct pernet_operations sysfs_net_ops = {
++	.exit = net_kobj_ns_exit,
++};
++
+ #endif /* CONFIG_SYSFS */
  
- 			NETLINK_CB(skb).dst_group = 1;
--			retval = netlink_broadcast(uevent_sock, skb, 0, 1,
--						   GFP_KERNEL);
-+			retval = netlink_broadcast_filtered(uevent_sock, skb,
-+							    0, 1, GFP_KERNEL,
-+							    kobj_bcast_filter,
-+							    kobj);
- 			/* ENOBUFS should be handled in userspace */
- 			if (retval == -ENOBUFS)
- 				retval = 0;
+ #ifdef CONFIG_HOTPLUG
+@@ -507,6 +540,13 @@ static void netdev_release(struct device
+ 	kfree((char *)dev - dev->padded);
+ }
+ 
++static const void *net_namespace(struct device *d)
++{
++	struct net_device *dev;
++	dev = container_of(d, struct net_device, dev);
++	return dev_net(dev);
++}
++
+ static struct class net_class = {
+ 	.name = "net",
+ 	.dev_release = netdev_release,
+@@ -516,6 +556,8 @@ static struct class net_class = {
+ #ifdef CONFIG_HOTPLUG
+ 	.dev_uevent = netdev_uevent,
+ #endif
++	.ns_type = &net_ns_type_operations,
++	.namespace = net_namespace,
+ };
+ 
+ /* Delete sysfs entries but hold kobject reference until after all
+@@ -588,5 +630,9 @@ void netdev_initialize_kobject(struct ne
+ 
+ int netdev_kobject_init(void)
+ {
++	kobj_ns_type_register(&net_ns_type_operations);
++#ifdef CONFIG_SYSFS
++	register_pernet_subsys(&sysfs_net_ops);
++#endif
+ 	return class_register(&net_class);
+ }
 
