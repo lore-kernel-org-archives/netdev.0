@@ -1,43 +1,76 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: RFC: netfilter: synproxy iptables target
-Date: Thu, 20 May 2010 17:46:06 +0800
-Message-ID: <AANLkTimp6S7MpwDAT8l-M0ZWjs2HIcUEfL5f8j9-QDZh@mail.gmail.com>
+From: Henning Fehrmann <henning.fehrmann@aei.mpg.de>
+Subject: Re: loosing IPMI-card by loading netconsole
+Date: Thu, 20 May 2010 10:16:01 +0000
+Message-ID: <20100520101601.GA26235@localhost>
+References: <4BEDCD87.4090602@kernel.org>
+ <20100518131216.GA24750@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: "Ronciak, John" <john.ronciak@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Carsten Aulbert <carsten.aulbert@aei.mpg.de>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ox1.aei.mpg.de ([194.94.224.6]:34871 "EHLO ox1.aei.mpg.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755474Ab0ETKQW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 May 2010 06:16:22 -0400
+In-Reply-To: <20100518131216.GA24750@localhost>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I have implemented a simple SYNPROXY iptables target. It is much like
-the SYNPROXY implementation in pf of OpenBSD, but won't have state
-until the first connection is established with the help of syncookies.
-The code is hosted at github:
 
-http://github.com/xiaosuo/xiaosuo/tree/master/synproxy/
 
-Currently, it can work with firewall and local socket.
+Hello,
+> 
+> 
+> Let me re-describe the symptoms.
+> I am not loading any ipmi related modules and not the netconsole
+> module.
+> When booting out current 2.6.32 kernel we can not access the IPMI
+> remotely.
+> 
+> We had one case where the IPMI card was accessible while using this
+> kernel but probably due to the fact that eth0 was removed. We do not
+> consider this case anymore. 
+> 
+> This problem does not occur when using an older kernel. 
+> 
+> It has likely nothing to do with netconsole.
+> 
+> Here is the bisecting result:
+> 
+> The sha1 sum of the first bad commit is: 
+> 6e50912a442947d5fafd296ca6fdcbeb36b163ff
+> 
+> Hence, the last good commit has:
+> b2f8f7525c8aa1fdd8ad8c72c832dfb571d5f768
 
-It is in the very early stage, and ugly. And I will add --timeout
-parameter to this target as TCP_DFER_ACCEPT, so I can do NAT basing on
-the request data.
+I 'reverse patched' the changes: 
 
-i.e.
+diff --git a/drivers/net/e1000e/param.c b/drivers/net/e1000e/param.c
+index e909f96..1342e0b 100644
+--- a/drivers/net/e1000e/param.c
++++ b/drivers/net/e1000e/param.c
+@@ -427,6 +427,8 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
+                        e1000_validate_option(&crc_stripping, &opt, adapter);
+                        if (crc_stripping == OPTION_ENABLED)
+                                adapter->flags2 |= FLAG2_CRC_STRIPPING;
++               } else {
++                       adapter->flags2 |= FLAG2_CRC_STRIPPING;
+                }
+        }
+        { /* Kumeran Lock Loss Workaround */
 
-iptables -t nat -A OUTPUT -p tcp -m synproxy --http-url "*.jpg" -j
-DNAT --to-destination $image_http_server:80
 
-And is there any chance to merge it into mainline?
+and compiled the kernel. This kernel works and the IPMI card is remotely accessible. 
 
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Can we savely remove this two lines or are we running into other problems?
+
+Cheers,
+Henning
