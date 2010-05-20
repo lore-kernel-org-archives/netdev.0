@@ -1,29 +1,64 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT] Networking
-Date: Thu, 20 May 2010 09:31:04 -0700 (PDT)
-Message-ID: <alpine.LFD.2.00.1005200929150.23538@i5.linux-foundation.org>
-References: <20100518.233752.256882583.davem@davemloft.net> <20100519.193426.09743465.davem@davemloft.net>
+From: David L Stevens <dlstevens@us.ibm.com>
+Subject: [PATCH][VHOST] fix race with guest on multi-buffer used buffer
+ updates
+Date: Thu, 20 May 2010 09:58:06 -0700
+Message-ID: <1274374686.8492.12.camel@w-dls.beaverton.ibm.com>
+Reply-To: dlstevens@us.ibm.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100519.193426.09743465.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org
+To: mst@redhat.com
+Return-path: <kvm-owner@vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+[for Michael Tsirkin's vhost development git tree]
+
+This patch fixes a race between guest and host when
+adding used buffers wraps the ring. Without it, guests
+can see partial packets before num_buffers is set in
+the vnet header.
+
+Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
+
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 7f2568d..74790ab 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -1065,14 +1065,6 @@ static int __vhost_add_used_n(struct vhost_virtqueue *vq,
+ 		vq_err(vq, "Failed to write used");
+ 		return -EFAULT;
+ 	}
+-	/* Make sure buffer is written before we update index. */
+-	smp_wmb();
+-	if (put_user(vq->last_used_idx + count, &vq->used->idx)) {
+-		vq_err(vq, "Failed to increment used idx");
+-		return -EFAULT;
+-	}
+-	if (unlikely(vq->log_used))
+-		vhost_log_used(vq, used);
+ 	vq->last_used_idx += count;
+ 	return 0;
+ }
+@@ -1093,7 +1085,17 @@ int vhost_add_used_n(struct vhost_virtqueue *vq, struct vring_used_elem *heads,
+ 		heads += n;
+ 		count -= n;
+ 	}
+-	return __vhost_add_used_n(vq, heads, count);
++	r = __vhost_add_used_n(vq, heads, count);
++
++	/* Make sure buffer is written before we update index. */
++	smp_wmb();
++	if (put_user(vq->last_used_idx, &vq->used->idx)) {
++		vq_err(vq, "Failed to increment used idx");
++		return -EFAULT;
++	}
++	if (unlikely(vq->log_used))
++		vhost_log_used(vq, vq->used->ring + start);
++	return r;
+ }
+ 
+ /* This actually signals the guest, using eventfd. */
 
 
-On Wed, 19 May 2010, David Miller wrote:
-> > 
-> >   master.kernel.org:/pub/scm/linux/kernel/git/davem/net-next-2.6.git master
-> 
-> Ping?
-
-I'm still merging. I don't want to merge everything in one day, because I 
-want to encourage people that do nightly snapshots or find problems 
-quickly, and not force them to bisect through multiple thousand commits. 
-So I tend to try to merge in chunks.
-
-				Linus
