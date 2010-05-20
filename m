@@ -1,64 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: tun: Use netif_receive_skb instead of netif_rx
-Date: Thu, 20 May 2010 07:36:19 +0200
-Message-ID: <1274333779.2658.43.camel@edumazet-laptop>
-References: <4BF4517F.1010206@athenacr.com>
-	 <20100519.195533.22536631.davem@davemloft.net>
-	 <20100520025741.GA6129@gondor.apana.org.au>
-	 <20100519.200522.140743640.davem@davemloft.net>
-	 <20100520033446.GA6434@gondor.apana.org.au>
-	 <1274332507.2658.31.camel@edumazet-laptop>
-	 <20100520052059.GC7443@gondor.apana.org.au>
+From: Jon Zhou <Jon.Zhou@jdsu.com>
+Subject: will 2 cpu simultaneously  process packets which have same hash
+ value on multiqueue nic?
+Date: Wed, 19 May 2010 22:37:25 -0700
+Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497F5B7D6@MILEXCH2.ds.jdsu.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, bmb@athenacr.com,
-	tgraf@redhat.com, nhorman@tuxdriver.com, nhorman@redhat.com,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:58461 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752826Ab0ETFg0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 May 2010 01:36:26 -0400
-Received: by wyg36 with SMTP id 36so1031964wyg.19
-        for <netdev@vger.kernel.org>; Wed, 19 May 2010 22:36:24 -0700 (PDT)
-In-Reply-To: <20100520052059.GC7443@gondor.apana.org.au>
+Received: from exprod7og103.obsmtp.com ([64.18.2.159]:40891 "HELO
+	exprod7og103.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752425Ab0ETFhi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 May 2010 01:37:38 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 20 mai 2010 =C3=A0 15:20 +1000, Herbert Xu a =C3=A9crit :
-> On Thu, May 20, 2010 at 07:15:07AM +0200, Eric Dumazet wrote:
-> >=20
-> > I find this very biased, sorry.
-> >=20
-> > In fact, fd passing is just fine today, if we consider that we clas=
-sify
-> > packets using the identity of the process *using* the fd, not the o=
-ne
-> > that *created* it.
-> >=20
-> > Now your patch changes this, to the reverse, and you justify the ca=
-ching
-> > effect on socket. Sorry, this must be too convoluted for me.
->=20
-> I'm sorry you find this convoluted, but using the sending process's
-> classid is inherently broken.
->=20
-> Here is why: consider a TCP socket shared by two processes with
-> different classids both writing data to it.  Now suppose further
-> that each writes just one byte, which is then coalesced into a
-> single skb.
->=20
-> Whose classid should we use on the resulting skb?
+will 2 cpu simultaneously  process packets which have same hash value on multiqueue nic?
 
-I am ok with any kind of clarification, if its really documented as
-such, not as indirect effects of changes.
+let 's take broadcom 57711 bnx2x_main.c as an example:
 
-Right now, I am not sure classification is performed by the current
-process/cpu. Our queue handling can process packets queued by other cpu=
-s
-while we own the queue (__QDISC_STATE_RUNNING,) anyway.
+#1 packet1->queue=1
+#2 packet2->queue=1
 
+will cpu1 and cpu2 execute the function " bnx2x_rx_int" in parallel, to receive packet1 & packet2
 
+or it just depend on smp_affinity setting?
 
+thanks
+jon
