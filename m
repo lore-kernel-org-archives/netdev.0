@@ -1,34 +1,64 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [patch] IPVS: one-packet scheduling
-Date: Thu, 20 May 2010 17:17:40 +0200
-Message-ID: <4BF55294.9030908@trash.net>
-References: <20100519031408.GC18534@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Nick Chalk <nick@loadbalancer.org>
-To: Simon Horman <horms@verge.net.au>
+From: kaber@trash.net
+Subject: [PATCH 2/3] netfilter: nf_conntrack: fix a race in __nf_conntrack_confirm against nf_ct_get_next_corpse()
+Date: Thu, 20 May 2010 18:00:45 +0200
+Message-ID: <1274371246-26760-3-git-send-email-kaber@trash.net>
+References: <1274371246-26760-1-git-send-email-kaber@trash.net>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100519031408.GC18534@verge.net.au>
+In-Reply-To: <1274371246-26760-1-git-send-email-kaber@trash.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Simon Horman wrote:
-> From: Nick Chalk <nick@loadbalancer.org>
-> 
-> IPVS: one-packet scheduling
-> 
-> Allow one-packet scheduling for UDP connections. When the fwmark-based or
-> normal virtual service is marked with '-o' or '--ops' options all
-> connections are created only to schedule one packet. Useful to schedule UDP
-> packets from same client port to different real servers. Recommended with
-> RR or WRR schedulers (the connections are not visible with ipvsadm -L).
+From: Joerg Marx <joerg.marx@secunet.com>
 
-I'm afraid its too late in this merge window for new features
-since Dave has already sent his merge request to Linus.
+This race was triggered by a 'conntrack -F' command running in parallel
+to the insertion of a hash for a new connection. Losing this race led to
+a dead conntrack entry effectively blocking traffic for a particular
+connection until timeout or flushing the conntrack hashes again.
+Now the check for an already dying connection is done inside the lock.
 
-Please resend once the net-next (and nf-next) tree opens up.
+Signed-off-by: Joerg Marx <joerg.marx@secunet.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ include/net/netfilter/nf_conntrack_core.h |    2 +-
+ net/netfilter/nf_conntrack_core.c         |   10 ++++++++++
+ 2 files changed, 11 insertions(+), 1 deletions(-)
+
+diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
+index dffde8e..3d7524f 100644
+--- a/include/net/netfilter/nf_conntrack_core.h
++++ b/include/net/netfilter/nf_conntrack_core.h
+@@ -61,7 +61,7 @@ static inline int nf_conntrack_confirm(struct sk_buff *skb)
+ 	int ret = NF_ACCEPT;
+ 
+ 	if (ct && ct != &nf_conntrack_untracked) {
+-		if (!nf_ct_is_confirmed(ct) && !nf_ct_is_dying(ct))
++		if (!nf_ct_is_confirmed(ct))
+ 			ret = __nf_conntrack_confirm(skb);
+ 		if (likely(ret == NF_ACCEPT))
+ 			nf_ct_deliver_cached_events(ct);
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index b83c530..eeeb8bc 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -424,6 +424,16 @@ __nf_conntrack_confirm(struct sk_buff *skb)
+ 
+ 	spin_lock_bh(&nf_conntrack_lock);
+ 
++	/* We have to check the DYING flag inside the lock to prevent
++	   a race against nf_ct_get_next_corpse() possibly called from
++	   user context, else we insert an already 'dead' hash, blocking
++	   further use of that particular connection -JM */
++
++	if (unlikely(nf_ct_is_dying(ct))) {
++		spin_unlock_bh(&nf_conntrack_lock);
++		return NF_ACCEPT;
++	}
++
+ 	/* See if there's one in the list already, including reverse:
+ 	   NAT could have grabbed it without realizing, since we're
+ 	   not in the hash.  If there is, we lost race. */
+-- 
+1.7.0.4
+
