@@ -1,8 +1,8 @@
 From: <gregkh@suse.de>
-Subject: patch net-expose-all-network-devices-in-a-namespaces-in-sysfs.patch added to gregkh-2.6 tree
-Date: Thu, 20 May 2010 11:10:38 -0700
-Message-ID: <12743790383043@kroah.org>
-References: <1273019809-16472-6-git-send-email-ebiederm@xmission.com>
+Subject: patch netlink-implment-netlink_broadcast_filtered.patch added to gregkh-2.6 tree
+Date: Thu, 20 May 2010 11:10:39 -0700
+Message-ID: <1274379039870@kroah.org>
+References: <1273019809-16472-3-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ANSI_X3.4-1968
 Content-Transfer-Encoding: 8bit
@@ -10,198 +10,126 @@ To: ebiederm@xmission.com, bcrl@lhnet.ca, cornelia.huck@de.ibm.com,
 	davem@davemloft.net, eric.dumazet@gmail.com, gregkh@suse.de,
 	kay.sievers@vrfy.org, netdev@vger.kernel.org, serue@us.ibm.
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:43238 "EHLO coco.kroah.org"
+Received: from kroah.org ([198.145.64.141]:43260 "EHLO coco.kroah.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757003Ab0ETSKx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 May 2010 14:10:53 -0400
-In-Reply-To: <1273019809-16472-6-git-send-email-ebiederm@xmission.com>
+	id S1756555Ab0ETSKz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 May 2010 14:10:55 -0400
+In-Reply-To: <1273019809-16472-3-git-send-email-ebiederm@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 This is a note to let you know that I've just added the patch titled
 
-    Subject: net: Expose all network devices in a namespaces in sysfs
+    Subject: netlink: Implment netlink_broadcast_filtered
 
 to my gregkh-2.6 tree.  Its filename is
 
-    net-expose-all-network-devices-in-a-namespaces-in-sysfs.patch
+    netlink-implment-netlink_broadcast_filtered.patch
 
 This tree can be found at 
     http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/
 
 
->From ebiederm@xmission.com  Thu May 20 10:46:13 2010
+>From ebiederm@xmission.com  Thu May 20 10:43:10 2010
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Tue,  4 May 2010 17:36:49 -0700
-Subject: net: Expose all network devices in a namespaces in sysfs
+Date: Tue,  4 May 2010 17:36:46 -0700
+Subject: netlink: Implment netlink_broadcast_filtered
 To: Greg Kroah-Hartman <gregkh@suse.de>
 Cc: Kay Sievers <kay.sievers@vrfy.org>, linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>, Cornelia Huck <cornelia.huck@de.ibm.com>, Eric Dumazet <eric.dumazet@gmail.com>, Benjamin LaHaise <bcrl@lhnet.ca>, Serge Hallyn <serue@us.ibm.com>, <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>, "Eric W. Biederman" <ebiederm@xmission.com>
-Message-ID: <1273019809-16472-6-git-send-email-ebiederm@xmission.com>
+Message-ID: <1273019809-16472-3-git-send-email-ebiederm@xmission.com>
 
 
 From: Eric W. Biederman <ebiederm@xmission.com>
 
-This reverts commit aaf8cdc34ddba08122f02217d9d684e2f9f5d575.
+When netlink sockets are used to convey data that is in a namespace
+we need a way to select a subset of the listening sockets to deliver
+the packet to.  For the network namespace we have been doing this
+by only transmitting packets in the correct network namespace.
 
-Drivers like the ipw2100 call device_create_group when they
-are initialized and device_remove_group when they are shutdown.
-Moving them between namespaces deletes their sysfs groups early.
-
-In particular the following call chain results.
-netdev_unregister_kobject -> device_del -> kobject_del -> sysfs_remove_dir
-With sysfs_remove_dir recursively deleting all of it's subdirectories,
-and nothing adding them back.
-
-Ouch!
-
-Therefore we need to call something that ultimate calls sysfs_mv_dir
-as that sysfs function can move sysfs directories between namespaces
-without deleting their subdirectories or their contents.   Allowing
-us to avoid placing extra boiler plate into every driver that does
-something interesting with sysfs.
-
-Currently the function that provides that capability is device_rename.
-That is the code works without nasty side effects as originally written.
-
-So remove the misguided fix for moving devices between namespaces.  The
-bug in the kobject layer that inspired it has now been recognized and
-fixed.
+For data belonging to other namespaces netlink_bradcast_filtered
+provides a mechanism that allows us to examine the destination
+socket and to decide if we should transmit the specified packet
+to it.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 Acked-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
 ---
- net/core/dev.c       |   28 +++++-----------------------
- net/core/net-sysfs.c |   16 +---------------
- net/core/net-sysfs.h |    1 -
- 3 files changed, 6 insertions(+), 39 deletions(-)
+ include/linux/netlink.h  |    4 ++++
+ net/netlink/af_netlink.c |   21 +++++++++++++++++++--
+ 2 files changed, 23 insertions(+), 2 deletions(-)
 
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -984,15 +984,10 @@ int dev_change_name(struct net_device *d
- 		return err;
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -188,6 +188,10 @@ extern int netlink_has_listeners(struct
+ extern int netlink_unicast(struct sock *ssk, struct sk_buff *skb, __u32 pid, int nonblock);
+ extern int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, __u32 pid,
+ 			     __u32 group, gfp_t allocation);
++extern int netlink_broadcast_filtered(struct sock *ssk, struct sk_buff *skb,
++	__u32 pid, __u32 group, gfp_t allocation,
++	int (*filter)(struct sock *dsk, struct sk_buff *skb, void *data),
++	void *filter_data);
+ extern int netlink_set_err(struct sock *ssk, __u32 pid, __u32 group, int code);
+ extern int netlink_register_notifier(struct notifier_block *nb);
+ extern int netlink_unregister_notifier(struct notifier_block *nb);
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -978,6 +978,8 @@ struct netlink_broadcast_data {
+ 	int delivered;
+ 	gfp_t allocation;
+ 	struct sk_buff *skb, *skb2;
++	int (*tx_filter)(struct sock *dsk, struct sk_buff *skb, void *data);
++	void *tx_data;
+ };
  
- rollback:
--	/* For now only devices in the initial network namespace
--	 * are in sysfs.
--	 */
--	if (net_eq(net, &init_net)) {
--		ret = device_rename(&dev->dev, dev->name);
--		if (ret) {
--			memcpy(dev->name, oldname, IFNAMSIZ);
--			return ret;
--		}
-+	ret = device_rename(&dev->dev, dev->name);
-+	if (ret) {
-+		memcpy(dev->name, oldname, IFNAMSIZ);
-+		return ret;
- 	}
- 
- 	write_lock_bh(&dev_base_lock);
-@@ -5112,8 +5107,6 @@ int register_netdevice(struct net_device
- 	if (dev->features & NETIF_F_SG)
- 		dev->features |= NETIF_F_GSO;
- 
--	netdev_initialize_kobject(dev);
--
- 	ret = call_netdevice_notifiers(NETDEV_POST_INIT, dev);
- 	ret = notifier_to_errno(ret);
- 	if (ret)
-@@ -5634,15 +5627,6 @@ int dev_change_net_namespace(struct net_
- 	if (dev->features & NETIF_F_NETNS_LOCAL)
- 		goto out;
- 
--#ifdef CONFIG_SYSFS
--	/* Don't allow real devices to be moved when sysfs
--	 * is enabled.
--	 */
--	err = -EINVAL;
--	if (dev->dev.parent)
--		goto out;
--#endif
--
- 	/* Ensure the device has been registrered */
- 	err = -EINVAL;
- 	if (dev->reg_state != NETREG_REGISTERED)
-@@ -5693,8 +5677,6 @@ int dev_change_net_namespace(struct net_
- 	dev_unicast_flush(dev);
- 	dev_addr_discard(dev);
- 
--	netdev_unregister_kobject(dev);
--
- 	/* Actually switch the network namespace */
- 	dev_net_set(dev, net);
- 
-@@ -5707,7 +5689,7 @@ int dev_change_net_namespace(struct net_
- 	}
- 
- 	/* Fixup kobjects */
--	err = netdev_register_kobject(dev);
-+	err = device_rename(&dev->dev, dev->name);
- 	WARN_ON(err);
- 
- 	/* Add the device back in the hashes */
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -508,9 +508,6 @@ static int netdev_uevent(struct device *
- 	struct net_device *dev = to_net_dev(d);
- 	int retval;
- 
--	if (!net_eq(dev_net(dev), &init_net))
--		return 0;
--
- 	/* pass interface to uevent. */
- 	retval = add_uevent_var(env, "INTERFACE=%s", dev->name);
- 	if (retval)
-@@ -569,9 +566,6 @@ void netdev_unregister_kobject(struct ne
- 
- 	kobject_get(&dev->kobj);
- 
--	if (!net_eq(dev_net(net), &init_net))
--		return;
--
- 	device_del(dev);
+ static inline int do_one_broadcast(struct sock *sk,
+@@ -1020,6 +1022,9 @@ static inline int do_one_broadcast(struc
+ 		p->failure = 1;
+ 		if (nlk->flags & NETLINK_BROADCAST_SEND_ERROR)
+ 			p->delivery_failure = 1;
++	} else if (p->tx_filter && p->tx_filter(sk, p->skb2, p->tx_data)) {
++		kfree_skb(p->skb2);
++		p->skb2 = NULL;
+ 	} else if (sk_filter(sk, p->skb2)) {
+ 		kfree_skb(p->skb2);
+ 		p->skb2 = NULL;
+@@ -1038,8 +1043,10 @@ out:
+ 	return 0;
  }
  
-@@ -581,6 +575,7 @@ int netdev_register_kobject(struct net_d
- 	struct device *dev = &(net->dev);
- 	const struct attribute_group **groups = net->sysfs_groups;
- 
-+	device_initialize(dev);
- 	dev->class = &net_class;
- 	dev->platform_data = net;
- 	dev->groups = groups;
-@@ -603,9 +598,6 @@ int netdev_register_kobject(struct net_d
- #endif
- #endif /* CONFIG_SYSFS */
- 
--	if (!net_eq(dev_net(net), &init_net))
--		return 0;
--
- 	return device_add(dev);
- }
- 
-@@ -622,12 +614,6 @@ void netdev_class_remove_file(struct cla
- EXPORT_SYMBOL(netdev_class_create_file);
- EXPORT_SYMBOL(netdev_class_remove_file);
- 
--void netdev_initialize_kobject(struct net_device *net)
--{
--	struct device *device = &(net->dev);
--	device_initialize(device);
--}
--
- int netdev_kobject_init(void)
+-int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, u32 pid,
+-		      u32 group, gfp_t allocation)
++int netlink_broadcast_filtered(struct sock *ssk, struct sk_buff *skb, u32 pid,
++	u32 group, gfp_t allocation,
++	int (*filter)(struct sock *dsk, struct sk_buff *skb, void *data),
++	void *filter_data)
  {
- 	kobj_ns_type_register(&net_ns_type_operations);
---- a/net/core/net-sysfs.h
-+++ b/net/core/net-sysfs.h
-@@ -4,5 +4,4 @@
- int netdev_kobject_init(void);
- int netdev_register_kobject(struct net_device *);
- void netdev_unregister_kobject(struct net_device *);
--void netdev_initialize_kobject(struct net_device *);
- #endif
+ 	struct net *net = sock_net(ssk);
+ 	struct netlink_broadcast_data info;
+@@ -1059,6 +1066,8 @@ int netlink_broadcast(struct sock *ssk,
+ 	info.allocation = allocation;
+ 	info.skb = skb;
+ 	info.skb2 = NULL;
++	info.tx_filter = filter;
++	info.tx_data = filter_data;
+ 
+ 	/* While we sleep in clone, do not allow to change socket list */
+ 
+@@ -1083,6 +1092,14 @@ int netlink_broadcast(struct sock *ssk,
+ 	}
+ 	return -ESRCH;
+ }
++EXPORT_SYMBOL(netlink_broadcast_filtered);
++
++int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, u32 pid,
++		      u32 group, gfp_t allocation)
++{
++	return netlink_broadcast_filtered(ssk, skb, pid, group, allocation,
++		NULL, NULL);
++}
+ EXPORT_SYMBOL(netlink_broadcast);
+ 
+ struct netlink_set_err_data {
 
