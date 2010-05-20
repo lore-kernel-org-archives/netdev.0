@@ -1,38 +1,45 @@
-From: Denys Fedorysychenko <nuclearcat@nuclearcat.com>
-Subject: Re: HFSC classes going out of bounds, regression in recent kernels?
-Date: Thu, 20 May 2010 04:34:27 +0300
-Message-ID: <201005200434.28433.nuclearcat@nuclearcat.com>
-References: <201004061822.21735.nuclearcat@nuclearcat.com> <4BBB5543.40607@trash.net>
+From: zhou rui <wirelesser@gmail.com>
+Subject: Re: how many msi (msi-x) vectors can be setup?
+Date: Thu, 20 May 2010 10:04:25 +0800
+Message-ID: <AANLkTinV8MHMEySnJWzqr0fUdEb_sbJ484y86VpvtlhP@mail.gmail.com>
+References: <AANLkTikT3ThBnO8q3AvhS9t4jUu8npOwYmjY6WUMhseq@mail.gmail.com>
+	 <AANLkTimrQPhPomBC-x-E0b9BKDUmO2j2flZp_Qm2aAtK@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jeff Garzik <jeff@garzik.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Yinghai Lu <yinghai@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:43205 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752832Ab0ETBfF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 May 2010 21:35:05 -0400
-In-Reply-To: <4BBB5543.40607@trash.net>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:36730 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754406Ab0ETCE0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 May 2010 22:04:26 -0400
+Received: by pwi5 with SMTP id 5so1840236pwi.19
+        for <netdev@vger.kernel.org>; Wed, 19 May 2010 19:04:26 -0700 (PDT)
+In-Reply-To: <AANLkTimrQPhPomBC-x-E0b9BKDUmO2j2flZp_Qm2aAtK@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am trying to track down HFSC bug.
-It seems, most probably it is related to PSCHED_SHIFT at the end, i am doing 
-testing again. I will try to do complete clean build, maybe last time some .o 
-was left or i forgot to do make clean.
+it is kernel2.6.27, Intel(R) Xeon(R) CPU           E5540,64bit,16
+processors.,so there should be 16 vectors?
 
-SM_SHIFT in HFSC is calculated as 30 - PSCHED_SHIFT, and it is shifted too 
-much (or not enough) with new changes (ISM_SHIFT seems wrong too). So it is 
-most probably overflow or not enough resolution.
-I will try to change PSCHED_SHIFT back to confirm that, and at least i found 
-way to reproduce bug.
 
-Additionally in sch_hfsc.c i notice mentioned that PSCHED_SHIFT 10 is tick per 
-1024us, but i try to calculate their table (in source comments), it doesn't 
-fit with my calculations based on 1024us/tick, but fits well with 1024 
-nanosecond.
 
-Is it was 1024ns per tick and now 64ns per tick? Or it is microseconds(us) ?
+On Thu, May 20, 2010 at 4:33 AM, Yinghai Lu <yinghai@kernel.org> wrote:
+> On Wed, May 19, 2010 at 8:18 AM, zhou rui <wirelesser@gmail.com> wrot=
+e:
+>> hi there:
+>> how many msi (msi-x) vectors can be setup?
+>> the number is limited by hardware resource(nic), or kernel ?
+>> I found that the driver (broadcom 57711 ver 1.5.12) tried to request
+>> 16 queues on my kernel2.6.27,but only 2=A0 available
+>> will it be increased if I update the driver or kernel?
+>> and there is a limitiation in the system? if the other devices have
+>> already occupied too many MSI vectors then it is not enough.
+>
+> from kernel 2.6.19 x86_64, there is per-cpu vector irq support.
+>
+> depends your system : CPU num? 64bit or 32bit.
+>
+> YH
+>
