@@ -1,35 +1,44 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH iproute] ip: add support for multicast rules
-Date: Thu, 20 May 2010 16:01:56 +0200
-Message-ID: <4BF540D4.1030903@trash.net>
-References: <4BC48870.7070704@trash.net> <20100519090354.6dc6d82b@nehalam>
+Subject: Re: RFC: netfilter: synproxy iptables target
+Date: Thu, 20 May 2010 16:11:28 +0200
+Message-ID: <4BF54310.6030004@trash.net>
+References: <AANLkTimp6S7MpwDAT8l-M0ZWjs2HIcUEfL5f8j9-QDZh@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:53175 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:53403 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753441Ab0ETOBz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 May 2010 10:01:55 -0400
-In-Reply-To: <20100519090354.6dc6d82b@nehalam>
+	with ESMTP id S1752571Ab0ETOL2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 May 2010 10:11:28 -0400
+In-Reply-To: <AANLkTimp6S7MpwDAT8l-M0ZWjs2HIcUEfL5f8j9-QDZh@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger wrote:
-> On Tue, 13 Apr 2010 17:06:24 +0200
-> Patrick McHardy <kaber@trash.net> wrote:
+Changli Gao wrote:
+> I have implemented a simple SYNPROXY iptables target. It is much like
+> the SYNPROXY implementation in pf of OpenBSD, but won't have state
+> until the first connection is established with the help of syncookies.
+> The code is hosted at github:
 > 
->> This patch adds support for a "ip mrule" command, which is used
->> to configure multicast routing rules.
->>
->> The corresponding kernel patches have been sent to Dave and
->> should (hopefully) appear in net-next soon.
+> http://github.com/xiaosuo/xiaosuo/tree/master/synproxy/
 > 
-> The fib_rules.h file in iproute2 is kept in sync with the kernel
-> headers. But I do not see the definitions of FIB_RULES_IPV4 etc
-> in net-next kernel.  What happened to this?
+> Currently, it can work with firewall and local socket.
+> 
+> It is in the very early stage, and ugly. And I will add --timeout
+> parameter to this target as TCP_DFER_ACCEPT, so I can do NAT basing on
+> the request data.
+> 
+> i.e.
+> 
+> iptables -t nat -A OUTPUT -p tcp -m synproxy --http-url "*.jpg" -j
+> DNAT --to-destination $image_http_server:80
+> 
+> And is there any chance to merge it into mainline?
 
-Those got changed again during the addition of IPv6 support.
-I'll send a new version shortly, including IPv6 support.
+If you can state a good use case, sure. I don't know much about the
+PF synproxy myself.
