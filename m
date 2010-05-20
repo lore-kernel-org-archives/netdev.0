@@ -1,77 +1,38 @@
-From: Sonic Zhang <sonic.adi@gmail.com>
-Subject: Re: [PATCH 06/11] netdev: bfin_mac: avoid tx skb overflows in the tx
-	DMA ring
-Date: Thu, 20 May 2010 18:36:08 +0800
-Message-ID: <AANLkTimXggwofY3shs1jayiW3aRk4b3e24T2-GHcpyQo@mail.gmail.com>
-References: <AANLkTikKz6v09VTjtANmmcGHU1eKcVWjuDIO24KqkHWK@mail.gmail.com>
-	 <20100519.131219.172592870.davem@davemloft.net>
-	 <AANLkTimDFWyO8YaNJrWifkYS6g6zSvMZXmtEniCO1wb1@mail.gmail.com>
-	 <20100520.030835.267363374.davem@davemloft.net>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: will 2 cpu simultaneously process packets which have same
+ hash value on multiqueue nic?
+Date: Thu, 20 May 2010 14:46:07 +0300
+Message-ID: <1274355967.17395.5.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497F5B7D6@MILEXCH2.ds.jdsu.net>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Jon Zhou" <Jon.Zhou@jdsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:43204 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755053Ab0ETKgJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 May 2010 06:36:09 -0400
-Received: by pwi5 with SMTP id 5so2019511pwi.19
-        for <netdev@vger.kernel.org>; Thu, 20 May 2010 03:36:08 -0700 (PDT)
-In-Reply-To: <20100520.030835.267363374.davem@davemloft.net>
+Received: from mms1.broadcom.com ([216.31.210.17]:2607 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754283Ab0ETLqT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 May 2010 07:46:19 -0400
+In-Reply-To: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2497F5B7D6@MILEXCH2.ds.jdsu.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 20, 2010 at 6:08 PM, David Miller <davem@davemloft.net> wro=
-te:
-> From: Sonic Zhang <sonic.adi@gmail.com>
-> Date: Thu, 20 May 2010 17:38:07 +0800
->
->> On Thu, May 20, 2010 at 4:12 AM, David Miller <davem@davemloft.net> =
-wrote:
->>> From: Sonic Zhang <sonic.adi@gmail.com>
->>> Date: Wed, 19 May 2010 17:23:16 +0800
->>>
->>>> No, this doesn't happen, because before ndo_start_xmit() returns, =
-the
->>>> old TX buffers and skbs in the ring, which finished DMA operation,=
- are
->>>> freed. The only difference is that the free operation of a skb is =
-done
->>>> in next tx transfer.
->>>
->>> This is still illegal.
->>>
->>> What if TX activity stops right then, and there is no "next tx
->>> transfer"?
->>>
->> The skb remain in the TX ring will be freed finally when ndo_stop() =
-is
->> called to shutdown the network. So, this is not a problem.
->
-> You really don't understand me, and I'm starting to get really
-> frustrated. =A0You must free all packets in your TX ring in a very
-> small, finite, amount of time. =A0This is not optional. =A0And this
-> must happen regardless of what TX traffic which occurs in the future,
-> that means it must happen even if TX traffic suddenly stops.
->
+On Wed, 2010-05-19 at 22:37 -0700, Jon Zhou wrote:
+> will 2 cpu simultaneously  process packets which have same hash value on multiqueue nic?
+> 
+> let 's take broadcom 57711 bnx2x_main.c as an example:
+> 
+> #1 packet1->queue=1
+> #2 packet2->queue=1
+> 
+> will cpu1 and cpu2 execute the function " bnx2x_rx_int" in parallel, to receive packet1 & packet2
+Both packets will be handled by the same queue and the queue processing
+is serialized - so the packets will be handled one after the other.
 
-OK. I didn't figure out that the socket may not be closed if its skbs
-stay active somewhere in system for a long time. Thanks for your
-explanation. I will send a new patch to enabled tx interrupt and free
-skb from tx ring immediately.
+Regards,
+Eilon
 
 
-Sonic
-
-> Your driver's behavior is absolutely not acceptable.
->
-> Leaving the SKB In the TX ring like that means that potentially there
-> is a socket in the system or other major resource that cannot be rele=
-ased
-> and freed up.
->
-> Please stop your driver from keeping packets in the TX ring indefinit=
-ely.
->
