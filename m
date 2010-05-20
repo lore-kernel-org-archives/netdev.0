@@ -1,76 +1,73 @@
-From: Henning Fehrmann <henning.fehrmann@aei.mpg.de>
-Subject: Re: loosing IPMI-card by loading netconsole
-Date: Thu, 20 May 2010 10:16:01 +0000
-Message-ID: <20100520101601.GA26235@localhost>
-References: <4BEDCD87.4090602@kernel.org>
- <20100518131216.GA24750@localhost>
+From: Sonic Zhang <sonic.adi@gmail.com>
+Subject: Re: [PATCH 06/11] netdev: bfin_mac: avoid tx skb overflows in the tx
+	DMA ring
+Date: Thu, 20 May 2010 18:23:30 +0800
+Message-ID: <AANLkTikDeSLkUCRgnEQlyTbLzorCXTgVD7CIr4mN-xYQ@mail.gmail.com>
+References: <AANLkTikKz6v09VTjtANmmcGHU1eKcVWjuDIO24KqkHWK@mail.gmail.com>
+	 <20100519.131219.172592870.davem@davemloft.net>
+	 <AANLkTimDFWyO8YaNJrWifkYS6g6zSvMZXmtEniCO1wb1@mail.gmail.com>
+	 <20100520.030835.267363374.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "Ronciak, John" <john.ronciak@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Carsten Aulbert <carsten.aulbert@aei.mpg.de>
-To: Tejun Heo <tj@kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ox1.aei.mpg.de ([194.94.224.6]:34871 "EHLO ox1.aei.mpg.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755474Ab0ETKQW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 May 2010 06:16:22 -0400
-In-Reply-To: <20100518131216.GA24750@localhost>
-Content-Disposition: inline
+Received: from mail-px0-f174.google.com ([209.85.212.174]:53845 "EHLO
+	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751571Ab0ETKXb convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 May 2010 06:23:31 -0400
+Received: by pxi18 with SMTP id 18so1243996pxi.19
+        for <netdev@vger.kernel.org>; Thu, 20 May 2010 03:23:30 -0700 (PDT)
+In-Reply-To: <20100520.030835.267363374.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, May 20, 2010 at 6:08 PM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Sonic Zhang <sonic.adi@gmail.com>
+> Date: Thu, 20 May 2010 17:38:07 +0800
+>
+>> On Thu, May 20, 2010 at 4:12 AM, David Miller <davem@davemloft.net> =
+wrote:
+>>> From: Sonic Zhang <sonic.adi@gmail.com>
+>>> Date: Wed, 19 May 2010 17:23:16 +0800
+>>>
+>>>> No, this doesn't happen, because before ndo_start_xmit() returns, =
+the
+>>>> old TX buffers and skbs in the ring, which finished DMA operation,=
+ are
+>>>> freed. The only difference is that the free operation of a skb is =
+done
+>>>> in next tx transfer.
+>>>
+>>> This is still illegal.
+>>>
+>>> What if TX activity stops right then, and there is no "next tx
+>>> transfer"?
+>>>
+>> The skb remain in the TX ring will be freed finally when ndo_stop() =
+is
+>> called to shutdown the network. So, this is not a problem.
+>
+> You really don't understand me, and I'm starting to get really
+> frustrated. =A0You must free all packets in your TX ring in a very
+> small, finite, amount of time. =A0This is not optional. =A0And this
+> must happen regardless of what TX traffic which occurs in the future,
+> that means it must happen even if TX traffic suddenly stops.
+>
+> Your driver's behavior is absolutely not acceptable.
+>
+> Leaving the SKB In the TX ring like that means that potentially there
+> is a socket in the system or other major resource that cannot be rele=
+ased
+> and freed up.
+>
+> Please stop your driver from keeping packets in the TX ring indefinit=
+ely.
+>
 
+=46orgot to CC netdev mailing list in my last reply.
+Try again.
 
-Hello,
-> 
-> 
-> Let me re-describe the symptoms.
-> I am not loading any ipmi related modules and not the netconsole
-> module.
-> When booting out current 2.6.32 kernel we can not access the IPMI
-> remotely.
-> 
-> We had one case where the IPMI card was accessible while using this
-> kernel but probably due to the fact that eth0 was removed. We do not
-> consider this case anymore. 
-> 
-> This problem does not occur when using an older kernel. 
-> 
-> It has likely nothing to do with netconsole.
-> 
-> Here is the bisecting result:
-> 
-> The sha1 sum of the first bad commit is: 
-> 6e50912a442947d5fafd296ca6fdcbeb36b163ff
-> 
-> Hence, the last good commit has:
-> b2f8f7525c8aa1fdd8ad8c72c832dfb571d5f768
-
-I 'reverse patched' the changes: 
-
-diff --git a/drivers/net/e1000e/param.c b/drivers/net/e1000e/param.c
-index e909f96..1342e0b 100644
---- a/drivers/net/e1000e/param.c
-+++ b/drivers/net/e1000e/param.c
-@@ -427,6 +427,8 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
-                        e1000_validate_option(&crc_stripping, &opt, adapter);
-                        if (crc_stripping == OPTION_ENABLED)
-                                adapter->flags2 |= FLAG2_CRC_STRIPPING;
-+               } else {
-+                       adapter->flags2 |= FLAG2_CRC_STRIPPING;
-                }
-        }
-        { /* Kumeran Lock Loss Workaround */
-
-
-and compiled the kernel. This kernel works and the IPMI card is remotely accessible. 
-
-Can we savely remove this two lines or are we running into other problems?
-
-Cheers,
-Henning
+Sonic
