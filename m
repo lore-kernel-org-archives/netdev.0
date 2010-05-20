@@ -1,268 +1,310 @@
-From: =?UTF-8?B?S3J6eXN6dG9mIE9sxJlkemtp?= <ole@ans.pl>
-Subject: bnx2x + SFP+ DA/2.6.33.3: Got bad status 0x0 when reading from SFP+
- EEPROM -> SFP+ module is not initialized
-Date: Thu, 20 May 2010 19:08:54 +0200
-Message-ID: <4BF56CA6.8080306@ans.pl>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: tun: Use netif_receive_skb instead of netif_rx
+Date: Thu, 20 May 2010 13:29:18 -0400
+Message-ID: <20100520172918.GA17613@shamino.rdu.redhat.com>
+References: <4BF4517F.1010206@athenacr.com>
+ <20100519.195533.22536631.davem@davemloft.net>
+ <20100520025741.GA6129@gondor.apana.org.au>
+ <20100519.200522.140743640.davem@davemloft.net>
+ <20100520033446.GA6434@gondor.apana.org.au>
+ <1274332507.2658.31.camel@edumazet-laptop>
+ <20100520052059.GC7443@gondor.apana.org.au>
+ <1274333779.2658.43.camel@edumazet-laptop>
+ <20100520054642.GA7836@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eilon Greenstein <eilong@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, bmb@athenacr.com,
+	tgraf@redhat.com, nhorman@redhat.com, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bizon.gios.gov.pl ([195.187.34.71]:52550 "EHLO
-	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754286Ab0ETRJB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 May 2010 13:09:01 -0400
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:49458 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752398Ab0ETRa6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 May 2010 13:30:58 -0400
+Content-Disposition: inline
+In-Reply-To: <20100520054642.GA7836@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Thu, May 20, 2010 at 03:46:42PM +1000, Herbert Xu wrote:
+> On Thu, May 20, 2010 at 07:36:19AM +0200, Eric Dumazet wrote:
+> > 
+> > I am ok with any kind of clarification, if its really documented as
+> > such, not as indirect effects of changes.
+> 
+> But I did document this semantic change, quite verbosely too
+> at that :)
+> 
+> > Right now, I am not sure classification is performed by the current
+> > process/cpu. Our queue handling can process packets queued by other cpus
+> > while we own the queue (__QDISC_STATE_RUNNING,) anyway.
+> 
+> Classification should be done when the packet is enqueued.  So
+> you shouldn't really see other people's traffic.
+> 
+> The original requeueing would have broken this too, but that is
+> no longer with us :)
+> 
+> In my original submission I forgot to mention the case of TCP
+> transmission triggered by an incoming ACK, which is really the
+> same case as this.
+> 
+> So let me take this opportunity to resubmit with an updated
+> description:
+> 
+> cls_cgroup: Store classid in struct sock
+> 
+> Up until now cls_cgroup has relied on fetching the classid out of
+> the current executing thread.  This runs into trouble when a packet
+> processing is delayed in which case it may execute out of another
+> thread's context.
+> 
+> Furthermore, even when a packet is not delayed we may fail to
+> classify it if soft IRQs have been disabled, because this scenario
+> is indistinguishable from one where a packet unrelated to the
+> current thread is processed by a real soft IRQ.
+> 
+> In fact, the current semantics is inherently broken, as a single
+> skb may be constructed out of the writes of two different tasks.
+> A different manifestation of this problem is when the TCP stack
+> transmits in response of an incoming ACK.  This is currently
+> unclassified.
+> 
+> As we already have a concept of packet ownership for accounting
+> purposes in the skb->sk pointer, this is a natural place to store
+> the classid in a persistent manner.
+> 
+> This patch adds the cls_cgroup classid in struct sock, filling up
+> an existing hole on 64-bit :)
+> 
+> The value is set at socket creation time.  So all sockets created
+> via socket(2) automatically gains the ID of the thread creating it.
+> Now you may argue that this may not be the same as the thread that
+> is sending the packet.  However, we already have a precedence where
+> an fd is passed to a different thread, its security property is
+> inherited.  In this case, inheriting the classid of the thread
+> creating the socket is also the logical thing to do.
+> 
+> For sockets created on inbound connections through accept(2), we
+> inherit the classid of the original listening socket through
+> sk_clone, possibly preceding the actual accept(2) call.
+> 
+> In order to minimise risks, I have not made this the authoritative
+> classid.  For now it is only used as a backup when we execute
+> with soft IRQs disabled.  Once we're completely happy with its
+> semantics we can use it as the sole classid.
+> 
+> Footnote: I have rearranged the error path on cls_group module
+> creation.  If we didn't do this, then there is a window where
+> someone could create a tc rule using cls_group before the cgroup
+> subsystem has been registered.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> diff --git a/include/linux/cgroup.h b/include/linux/cgroup.h
+> index 8f78073..63c5036 100644
+> --- a/include/linux/cgroup.h
+> +++ b/include/linux/cgroup.h
+> @@ -410,6 +410,12 @@ struct cgroup_scanner {
+>  	void *data;
+>  };
+>  
+> +struct cgroup_cls_state
+> +{
+> +	struct cgroup_subsys_state css;
+> +	u32 classid;
+> +};
+> +
+>  /*
+>   * Add a new file to the given cgroup directory. Should only be
+>   * called by subsystems from within a populate() method
+> @@ -515,6 +521,10 @@ struct cgroup_subsys {
+>  	struct module *module;
+>  };
+>  
+> +#ifndef CONFIG_NET_CLS_CGROUP
+> +extern int net_cls_subsys_id;
+> +#endif
+> +
+>  #define SUBSYS(_x) extern struct cgroup_subsys _x ## _subsys;
+>  #include <linux/cgroup_subsys.h>
+>  #undef SUBSYS
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index 1ad6435..361a5dc 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -307,7 +307,7 @@ struct sock {
+>  	void			*sk_security;
+>  #endif
+>  	__u32			sk_mark;
+> -	/* XXX 4 bytes hole on 64 bit */
+> +	u32			sk_classid;
+>  	void			(*sk_state_change)(struct sock *sk);
+>  	void			(*sk_data_ready)(struct sock *sk, int bytes);
+>  	void			(*sk_write_space)(struct sock *sk);
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index c5812bb..70bc529 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -110,6 +110,7 @@
+>  #include <linux/tcp.h>
+>  #include <linux/init.h>
+>  #include <linux/highmem.h>
+> +#include <linux/cgroup.h>
+>  
+>  #include <asm/uaccess.h>
+>  #include <asm/system.h>
+> @@ -217,6 +218,32 @@ __u32 sysctl_rmem_default __read_mostly = SK_RMEM_MAX;
+>  int sysctl_optmem_max __read_mostly = sizeof(unsigned long)*(2*UIO_MAXIOV+512);
+>  EXPORT_SYMBOL(sysctl_optmem_max);
+>  
+> +#ifdef CONFIG_NET_CLS_CGROUP
+> +static inline u32 task_cls_classid(struct task_struct *p)
+> +{
+> +	return container_of(task_subsys_state(p, net_cls_subsys_id),
+> +			    struct cgroup_cls_state, css).classid;
+> +}
+> +#else
+> +int net_cls_subsys_id = -1;
+> +EXPORT_SYMBOL_GPL(net_cls_subsys_id);
+> +
+> +static inline u32 task_cls_classid(struct task_struct *p)
+> +{
+> +	int id;
+> +	u32 classid;
+> +
+> +	rcu_read_lock();
+> +	id = rcu_dereference(net_cls_subsys_id);
+> +	if (id >= 0)
+> +		classid = container_of(task_subsys_state(p, id),
+> +				       struct cgroup_cls_state, css)->classid;
+> +	rcu_read_unlock();
+> +
+> +	return classid;
+> +}
+> +#endif
+> +
+>  static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
+>  {
+>  	struct timeval tv;
+> @@ -1064,6 +1091,9 @@ struct sock *sk_alloc(struct net *net, int family, gfp_t priority,
+>  		sock_lock_init(sk);
+>  		sock_net_set(sk, get_net(net));
+>  		atomic_set(&sk->sk_wmem_alloc, 1);
+> +
+> +		if (!in_interrupt())
+> +			sk->sk_classid = task_cls_classid(current);
+>  	}
+>  
+>  	return sk;
+> diff --git a/net/sched/cls_cgroup.c b/net/sched/cls_cgroup.c
+> index 2211803..32c1296 100644
+> --- a/net/sched/cls_cgroup.c
+> +++ b/net/sched/cls_cgroup.c
+> @@ -16,14 +16,10 @@
+>  #include <linux/errno.h>
+>  #include <linux/skbuff.h>
+>  #include <linux/cgroup.h>
+> +#include <linux/rcupdate.h>
+>  #include <net/rtnetlink.h>
+>  #include <net/pkt_cls.h>
+> -
+> -struct cgroup_cls_state
+> -{
+> -	struct cgroup_subsys_state css;
+> -	u32 classid;
+> -};
+> +#include <net/sock.h>
+>  
+>  static struct cgroup_subsys_state *cgrp_create(struct cgroup_subsys *ss,
+>  					       struct cgroup *cgrp);
+> @@ -112,6 +108,10 @@ static int cls_cgroup_classify(struct sk_buff *skb, struct tcf_proto *tp,
+>  	struct cls_cgroup_head *head = tp->root;
+>  	u32 classid;
+>  
+> +	rcu_read_lock();
+> +	classid = task_cls_state(current)->classid;
+> +	rcu_read_unlock();
+> +
+>  	/*
+>  	 * Due to the nature of the classifier it is required to ignore all
+>  	 * packets originating from softirq context as accessing `current'
+> @@ -122,12 +122,12 @@ static int cls_cgroup_classify(struct sk_buff *skb, struct tcf_proto *tp,
+>  	 * calls by looking at the number of nested bh disable calls because
+>  	 * softirqs always disables bh.
+>  	 */
+> -	if (softirq_count() != SOFTIRQ_OFFSET)
+> -		return -1;
+> -
+> -	rcu_read_lock();
+> -	classid = task_cls_state(current)->classid;
+> -	rcu_read_unlock();
+> +	if (softirq_count() != SOFTIRQ_OFFSET) {
+> +	 	/* If there is an sk_classid we'll use that. */
+> +		if (!skb->sk)
+> +			return -1;
+> +		classid = skb->sk->sk_classid;
+> +	}
+>  
+>  	if (!classid)
+>  		return -1;
+> @@ -289,18 +289,35 @@ static struct tcf_proto_ops cls_cgroup_ops __read_mostly = {
+>  
+>  static int __init init_cgroup_cls(void)
+>  {
+> -	int ret = register_tcf_proto_ops(&cls_cgroup_ops);
+> -	if (ret)
+> -		return ret;
+> +	int ret;
+> +
+>  	ret = cgroup_load_subsys(&net_cls_subsys);
+>  	if (ret)
+> -		unregister_tcf_proto_ops(&cls_cgroup_ops);
+> +		goto out;
+> +
+> +#ifndef CONFIG_NET_CLS_CGROUP
+> +	/* We can't use rcu_assign_pointer because this is an int. */
+> +	smp_wmb();
+> +	net_cls_subsys_id = net_cls_subsys.subsys_id;
+> +#endif
+> +
+> +	ret = register_tcf_proto_ops(&cls_cgroup_ops);
+> +	if (ret)
+> +		cgroup_unload_subsys(&net_cls_subsys);
+> +
+> +out:
+>  	return ret;
+>  }
+>  
+>  static void __exit exit_cgroup_cls(void)
+>  {
+>  	unregister_tcf_proto_ops(&cls_cgroup_ops);
+> +
+> +#ifndef CONFIG_NET_CLS_CGROUP
+> +	net_cls_subsys_id = -1;
+> +	synchronize_rcu();
+> +#endif
+> +
+>  	cgroup_unload_subsys(&net_cls_subsys);
+>  }
+>  
+> Cheers,
+> -- 
+> Visit Openswan at http://www.openswan.org/
+> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-I would like to connect a dual port SFP+ NetXtreme II BCM57711
-10-Gigabit NIC to a HP J9309A ProCurve 4-Port 10GbE SFP+ zl Module
-using a HP ProCurve 10-GbE SFP+ 7m Direct Attach Cable (J9285B).
 
-Unfortuantely, it does not work. :( After connecting the switch and
-the server together and loading the bnx2x module the switch logs:
+So, I'm testing this patch out now, and unfotunately it doesn't seem to be
+working.  Every frame seems to be holding a classid of 0.  Trying to figure out
+why now.
 
-I 05/20/10 18:32:23 ports: port E4 is Blocked by STP
-I 05/20/10 18:32:23 ports: port E4 is now on-line
+Neil
 
-Here is the dmesg output from the server:
-
-Broadcom NetXtreme II 5771x 10Gigabit Ethernet Driver bnx2x 1.52.1-5 (2=
-009/11/09)
-bnx2x 0000:04:00.0: PCI INT A -> GSI 38 (level, low) -> IRQ 38
-bnx2x 0000:04:00.0: setting latency timer to 64
-bnx2x: part number 394D4342-31373735-31314131-473331
-bnx2x: Loading bnx2x-e1h-5.2.7.0.fw
-bnx2x 0000:04:00.0: firmware: requesting bnx2x-e1h-5.2.7.0.fw
-eth4: Broadcom NetXtreme II BCM57711 XGb (A0) PCI-E x8 5GHz (Gen2) foun=
-d at mem dc000000, IRQ 38, node addr 00:10:18:5f:e4:b4
-bnx2x 0000:04:00.1: PCI INT B -> GSI 45 (level, low) -> IRQ 45
-bnx2x 0000:04:00.1: setting latency timer to 64
-bnx2x: part number 394D4342-31373735-31314131-473331
-bnx2x: Loading bnx2x-e1h-5.2.7.0.fw
-bnx2x 0000:04:00.1: firmware: requesting bnx2x-e1h-5.2.7.0.fw
-eth5: Broadcom NetXtreme II BCM57711 XGb (A0) PCI-E x8 5GHz (Gen2) foun=
-d at mem dd000000, IRQ 45, node addr 00:10:18:5f:e4:b6
-bnx2x 0000:04:00.0: irq 97 for MSI/MSI-X
-bnx2x 0000:04:00.0: irq 98 for MSI/MSI-X
-bnx2x 0000:04:00.0: irq 99 for MSI/MSI-X
-bnx2x 0000:04:00.0: irq 100 for MSI/MSI-X
-bnx2x 0000:04:00.0: irq 101 for MSI/MSI-X
-bnx2x 0000:04:00.0: irq 102 for MSI/MSI-X
-bnx2x: eth4: using MSI-X  IRQs: sp 97  fp[0] 99 ... fp[3] 102
-ADDRCONF(NETDEV_UP): eth4: link is not ready
-bnx2x 0000:04:00.1: irq 103 for MSI/MSI-X
-bnx2x 0000:04:00.1: irq 104 for MSI/MSI-X
-bnx2x 0000:04:00.1: irq 105 for MSI/MSI-X
-bnx2x 0000:04:00.1: irq 106 for MSI/MSI-X
-bnx2x 0000:04:00.1: irq 107 for MSI/MSI-X
-bnx2x 0000:04:00.1: irq 108 for MSI/MSI-X
-bnx2x: eth5: using MSI-X  IRQs: sp 103  fp[0] 105 ... fp[3] 108
-ADDRCONF(NETDEV_UP): eth5: link is not ready
-bnx2x: eth5 NIC Link is Down
-bnx2x: eth5 NIC Link is Down
-
-Loading the driver with debug mode enabled (modprobe bnx2x debug=3D0x20=
-004) I got:
-
-bnx2x 0000:04:00.1: irq 103 for MSI/MSI-X
-bnx2x 0000:04:00.1: irq 104 for MSI/MSI-X
-bnx2x 0000:04:00.1: irq 105 for MSI/MSI-X
-bnx2x 0000:04:00.1: irq 106 for MSI/MSI-X
-bnx2x 0000:04:00.1: irq 107 for MSI/MSI-X
-bnx2x 0000:04:00.1: irq 108 for MSI/MSI-X
-bnx2x: eth5: using MSI-X  IRQs: sp 103  fp[0] 105 ... fp[3] 108
-[bnx2x_nic_load:7524(eth5)]pmf 1
-[bnx2x_link_reset:6171(eth5)]Resetting the link of port 1
-[bnx2x_set_led:5804(eth5)]bnx2x_set_led: port 1, mode 0
-[bnx2x_set_led:5806(eth5)]speed 0x0, hw_led_mode 0x1
-[bnx2x_stats_init:4597(eth5)]port_stx 0xa72f4  func_stx 0x0
-[bnx2x_phy_init:5966(eth5)]Phy Initialization started
-[bnx2x_phy_init:5968(eth5)]req_speed 10000, req_flowctrl 0
-[bnx2x_emac_init:255(eth5)]EMAC reset reg is 1024
-[bnx2x_phy_deassert:534(eth5)]bnx2x_phy_deassert:XGXS
-[bnx2x_phy_init:6140(eth5)]Phy address =3D 0x1
-[bnx2x_ext_phy_reset:2092(eth5)]Port 1: bnx2x_ext_phy_reset
-[bnx2x_calc_ieee_aneg_adv:1383(eth5)]ieee_fc =3D 0x1a0
-[bnx2x_ext_phy_init:3672(eth5)]control reg 0x2040 (after 0 ms)
-[bnx2x_ext_phy_init:4136(eth5)]Initializing BCM8727
-[bnx2x_ext_phy_init:4285(eth5)]Setting TX_CTRL1 0xc000,TX_CTRL2 0x40
-[bnx2x_link_int_enable:5338(eth5)]enabled XGXS interrupt
-[bnx2x_link_int_enable:5345(eth5)]enabled external phy int
-[bnx2x_link_int_enable:5366(eth5)]port 1, is_xgxs 1, int_status 0x0
-[bnx2x_link_int_enable:5370(eth5)] int_mask 0x3c8001, MI_INT 1, SERDES_=
-LINK 0
-[bnx2x_link_int_enable:5373(eth5)] 10G 0, XGXS_LINK 0
-[bnx2x_stats_handle:4469(eth5)]state 0 -> event 3 -> state 0
-[bnx2x_link_update:6375(eth5)]port 1, XGXS?1, int_status 0x0
-[bnx2x_link_update:6383(eth5)]int_mask 0x0 MI_INT 1, SERDES_LINK 0
-[bnx2x_link_update:6387(eth5)] 10G 0, XGXS_LINK 0
-[bnx2x_ext_phy_is_link_up:4809(eth5)]8727 RX_ALARM_STATUS 0x439
-ADDRCONF(NETDEV_UP): eth5: link is not ready
-[bnx2x_ext_phy_is_link_up:4819(eth5)]8727 LASI status 0x6
-[bnx2x_8727_handle_mod_abs:4622(eth5)]MOD_ABS indication show module is=
- present
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_read_sfp_module_eeprom:2818(eth5)]Got bad status 0x0 when r=
-eading from SFP+ EEPROM
-[bnx2x_8727_handle_mod_abs:4660(eth5)]SFP+ module is not initialized
-[bnx2x_8727_handle_mod_abs:4664(eth5)]8727 RX_ALARM_STATUS 0x438
-[bnx2x_ext_phy_is_link_up:4916(eth5)]Tx is disabled
-[bnx2x_link_settings_status:1958(eth5)]phy link down
-[bnx2x_link_settings_status:1976(eth5)]gp_status 0x208  phy_link_up 0 l=
-ine_speed 2710
-[bnx2x_link_settings_status:1980(eth5)]duplex 1  flow_ctrl 0x400 autone=
-g 0x0
-[bnx2x_link_settings_status:1981(eth5)]link_status 0x0
-[bnx2x_update_link_down:6285(eth5)]Port 1: Link is down
-[bnx2x_set_led:5804(eth5)]bnx2x_set_led: port 1, mode 0
-[bnx2x_set_led:5806(eth5)]speed 0x0, hw_led_mode 0x1
-bnx2x: eth5 NIC Link is Down
-[bnx2x_stats_handle:4469(eth5)]state 0 -> event 3 -> state 0
-[bnx2x_link_update:6375(eth5)]port 1, XGXS?1, int_status 0x0
-[bnx2x_link_update:6383(eth5)]int_mask 0x0 MI_INT 1, SERDES_LINK 0
-[bnx2x_link_update:6387(eth5)] 10G 0, XGXS_LINK 0
-[bnx2x_ext_phy_is_link_up:4809(eth5)]8727 RX_ALARM_STATUS 0x41c
-[bnx2x_ext_phy_is_link_up:4819(eth5)]8727 LASI status 0x2
-[bnx2x_ext_phy_is_link_up:4916(eth5)]Tx is disabled
-[bnx2x_link_settings_status:1958(eth5)]phy link down
-[bnx2x_link_settings_status:1976(eth5)]gp_status 0x208  phy_link_up 0 l=
-ine_speed 0
-[bnx2x_link_settings_status:1980(eth5)]duplex 1  flow_ctrl 0x400 autone=
-g 0x0
-[bnx2x_link_settings_status:1981(eth5)]link_status 0x0
-[bnx2x_update_link_down:6285(eth5)]Port 1: Link is down
-[bnx2x_set_led:5804(eth5)]bnx2x_set_led: port 1, mode 0
-[bnx2x_set_led:5806(eth5)]speed 0x0, hw_led_mode 0x1
-bnx2x: eth5 NIC Link is Down
-
-# uname -r
-2.6.33.3
-
-Is there something I can do to fix this? Like for example kernel/driver=
- or the firmware upgrade?
-
-Best regards,
-
-			Krzysztof Ol=C4=99dzki
