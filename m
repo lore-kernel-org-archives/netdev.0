@@ -1,8 +1,8 @@
 From: <gregkh@suse.de>
-Subject: patch netlink-implment-netlink_broadcast_filtered.patch added to gregkh-2.6 tree
-Date: Thu, 20 May 2010 11:10:39 -0700
-Message-ID: <1274379039870@kroah.org>
-References: <1273019809-16472-3-git-send-email-ebiederm@xmission.com>
+Subject: patch kobject-send-hotplug-events-in-all-network-namespaces.patch added to gregkh-2.6 tree
+Date: Thu, 20 May 2010 11:10:37 -0700
+Message-ID: <12743790374089@kroah.org>
+References: <1273019809-16472-1-git-send-email-ebiederm@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ANSI_X3.4-1968
 Content-Transfer-Encoding: 8bit
@@ -10,126 +10,164 @@ To: ebiederm@xmission.com, bcrl@lhnet.ca, cornelia.huck@de.ibm.com,
 	davem@davemloft.net, eric.dumazet@gmail.com, gregkh@suse.de,
 	kay.sievers@vrfy.org, netdev@vger.kernel.org, serue@us.ibm.
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kroah.org ([198.145.64.141]:43260 "EHLO coco.kroah.org"
+Received: from kroah.org ([198.145.64.141]:43214 "EHLO coco.kroah.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756555Ab0ETSKz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 May 2010 14:10:55 -0400
-In-Reply-To: <1273019809-16472-3-git-send-email-ebiederm@xmission.com>
+	id S1756494Ab0ETSKv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 May 2010 14:10:51 -0400
+In-Reply-To: <1273019809-16472-1-git-send-email-ebiederm@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 This is a note to let you know that I've just added the patch titled
 
-    Subject: netlink: Implment netlink_broadcast_filtered
+    Subject: kobject: Send hotplug events in all network namespaces
 
 to my gregkh-2.6 tree.  Its filename is
 
-    netlink-implment-netlink_broadcast_filtered.patch
+    kobject-send-hotplug-events-in-all-network-namespaces.patch
 
 This tree can be found at 
     http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/
 
 
->From ebiederm@xmission.com  Thu May 20 10:43:10 2010
+>From ebiederm@xmission.com  Thu May 20 10:40:26 2010
 From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Tue,  4 May 2010 17:36:46 -0700
-Subject: netlink: Implment netlink_broadcast_filtered
+Date: Tue,  4 May 2010 17:36:44 -0700
+Subject: kobject: Send hotplug events in all network namespaces
 To: Greg Kroah-Hartman <gregkh@suse.de>
 Cc: Kay Sievers <kay.sievers@vrfy.org>, linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>, Cornelia Huck <cornelia.huck@de.ibm.com>, Eric Dumazet <eric.dumazet@gmail.com>, Benjamin LaHaise <bcrl@lhnet.ca>, Serge Hallyn <serue@us.ibm.com>, <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>, "Eric W. Biederman" <ebiederm@xmission.com>
-Message-ID: <1273019809-16472-3-git-send-email-ebiederm@xmission.com>
+Message-ID: <1273019809-16472-1-git-send-email-ebiederm@xmission.com>
 
 
 From: Eric W. Biederman <ebiederm@xmission.com>
 
-When netlink sockets are used to convey data that is in a namespace
-we need a way to select a subset of the listening sockets to deliver
-the packet to.  For the network namespace we have been doing this
-by only transmitting packets in the correct network namespace.
-
-For data belonging to other namespaces netlink_bradcast_filtered
-provides a mechanism that allows us to examine the destination
-socket and to decide if we should transmit the specified packet
-to it.
+Open a copy of the uevent kernel socket in each network
+namespace so we can send uevents in all network namespaces.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 Acked-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
 ---
- include/linux/netlink.h  |    4 ++++
- net/netlink/af_netlink.c |   21 +++++++++++++++++++--
- 2 files changed, 23 insertions(+), 2 deletions(-)
+ lib/kobject_uevent.c |   68 +++++++++++++++++++++++++++++++++++++++++++++------
+ 1 file changed, 60 insertions(+), 8 deletions(-)
 
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -188,6 +188,10 @@ extern int netlink_has_listeners(struct
- extern int netlink_unicast(struct sock *ssk, struct sk_buff *skb, __u32 pid, int nonblock);
- extern int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, __u32 pid,
- 			     __u32 group, gfp_t allocation);
-+extern int netlink_broadcast_filtered(struct sock *ssk, struct sk_buff *skb,
-+	__u32 pid, __u32 group, gfp_t allocation,
-+	int (*filter)(struct sock *dsk, struct sk_buff *skb, void *data),
-+	void *filter_data);
- extern int netlink_set_err(struct sock *ssk, __u32 pid, __u32 group, int code);
- extern int netlink_register_notifier(struct notifier_block *nb);
- extern int netlink_unregister_notifier(struct notifier_block *nb);
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -978,6 +978,8 @@ struct netlink_broadcast_data {
- 	int delivered;
- 	gfp_t allocation;
- 	struct sk_buff *skb, *skb2;
-+	int (*tx_filter)(struct sock *dsk, struct sk_buff *skb, void *data);
-+	void *tx_data;
- };
+--- a/lib/kobject_uevent.c
++++ b/lib/kobject_uevent.c
+@@ -24,13 +24,19 @@
+ #include <linux/skbuff.h>
+ #include <linux/netlink.h>
+ #include <net/sock.h>
++#include <net/net_namespace.h>
  
- static inline int do_one_broadcast(struct sock *sk,
-@@ -1020,6 +1022,9 @@ static inline int do_one_broadcast(struc
- 		p->failure = 1;
- 		if (nlk->flags & NETLINK_BROADCAST_SEND_ERROR)
- 			p->delivery_failure = 1;
-+	} else if (p->tx_filter && p->tx_filter(sk, p->skb2, p->tx_data)) {
-+		kfree_skb(p->skb2);
-+		p->skb2 = NULL;
- 	} else if (sk_filter(sk, p->skb2)) {
- 		kfree_skb(p->skb2);
- 		p->skb2 = NULL;
-@@ -1038,8 +1043,10 @@ out:
+ 
+ u64 uevent_seqnum;
+ char uevent_helper[UEVENT_HELPER_PATH_LEN] = CONFIG_UEVENT_HELPER_PATH;
+ static DEFINE_SPINLOCK(sequence_lock);
+-#if defined(CONFIG_NET)
+-static struct sock *uevent_sock;
++#ifdef CONFIG_NET
++struct uevent_sock {
++	struct list_head list;
++	struct sock *sk;
++};
++static LIST_HEAD(uevent_sock_list);
++static DEFINE_MUTEX(uevent_sock_mutex);
+ #endif
+ 
+ /* the strings here must match the enum in include/linux/kobject.h */
+@@ -100,6 +106,9 @@ int kobject_uevent_env(struct kobject *k
+ 	u64 seq;
+ 	int i = 0;
+ 	int retval = 0;
++#ifdef CONFIG_NET
++	struct uevent_sock *ue_sk;
++#endif
+ 
+ 	pr_debug("kobject: '%s' (%p): %s\n",
+ 		 kobject_name(kobj), kobj, __func__);
+@@ -211,7 +220,9 @@ int kobject_uevent_env(struct kobject *k
+ 
+ #if defined(CONFIG_NET)
+ 	/* send netlink message */
+-	if (uevent_sock) {
++	mutex_lock(&uevent_sock_mutex);
++	list_for_each_entry(ue_sk, &uevent_sock_list, list) {
++		struct sock *uevent_sock = ue_sk->sk;
+ 		struct sk_buff *skb;
+ 		size_t len;
+ 
+@@ -241,6 +252,7 @@ int kobject_uevent_env(struct kobject *k
+ 		} else
+ 			retval = -ENOMEM;
+ 	}
++	mutex_unlock(&uevent_sock_mutex);
+ #endif
+ 
+ 	/* call uevent_helper, usually only enabled during early boot */
+@@ -320,18 +332,58 @@ int add_uevent_var(struct kobj_uevent_en
+ EXPORT_SYMBOL_GPL(add_uevent_var);
+ 
+ #if defined(CONFIG_NET)
+-static int __init kobject_uevent_init(void)
++static int uevent_net_init(struct net *net)
+ {
+-	uevent_sock = netlink_kernel_create(&init_net, NETLINK_KOBJECT_UEVENT,
+-					    1, NULL, NULL, THIS_MODULE);
+-	if (!uevent_sock) {
++	struct uevent_sock *ue_sk;
++
++	ue_sk = kzalloc(sizeof(*ue_sk), GFP_KERNEL);
++	if (!ue_sk)
++		return -ENOMEM;
++
++	ue_sk->sk = netlink_kernel_create(net, NETLINK_KOBJECT_UEVENT,
++					  1, NULL, NULL, THIS_MODULE);
++	if (!ue_sk->sk) {
+ 		printk(KERN_ERR
+ 		       "kobject_uevent: unable to create netlink socket!\n");
+ 		return -ENODEV;
+ 	}
+-	netlink_set_nonroot(NETLINK_KOBJECT_UEVENT, NL_NONROOT_RECV);
++	mutex_lock(&uevent_sock_mutex);
++	list_add_tail(&ue_sk->list, &uevent_sock_list);
++	mutex_unlock(&uevent_sock_mutex);
  	return 0;
  }
  
--int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, u32 pid,
--		      u32 group, gfp_t allocation)
-+int netlink_broadcast_filtered(struct sock *ssk, struct sk_buff *skb, u32 pid,
-+	u32 group, gfp_t allocation,
-+	int (*filter)(struct sock *dsk, struct sk_buff *skb, void *data),
-+	void *filter_data)
- {
- 	struct net *net = sock_net(ssk);
- 	struct netlink_broadcast_data info;
-@@ -1059,6 +1066,8 @@ int netlink_broadcast(struct sock *ssk,
- 	info.allocation = allocation;
- 	info.skb = skb;
- 	info.skb2 = NULL;
-+	info.tx_filter = filter;
-+	info.tx_data = filter_data;
- 
- 	/* While we sleep in clone, do not allow to change socket list */
- 
-@@ -1083,6 +1092,14 @@ int netlink_broadcast(struct sock *ssk,
- 	}
- 	return -ESRCH;
- }
-+EXPORT_SYMBOL(netlink_broadcast_filtered);
-+
-+int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, u32 pid,
-+		      u32 group, gfp_t allocation)
++static void uevent_net_exit(struct net *net)
 +{
-+	return netlink_broadcast_filtered(ssk, skb, pid, group, allocation,
-+		NULL, NULL);
++	struct uevent_sock *ue_sk;
++
++	mutex_lock(&uevent_sock_mutex);
++	list_for_each_entry(ue_sk, &uevent_sock_list, list) {
++		if (sock_net(ue_sk->sk) == net)
++			goto found;
++	}
++	mutex_unlock(&uevent_sock_mutex);
++	return;
++
++found:
++	list_del(&ue_sk->list);
++	mutex_unlock(&uevent_sock_mutex);
++
++	netlink_kernel_release(ue_sk->sk);
++	kfree(ue_sk);
 +}
- EXPORT_SYMBOL(netlink_broadcast);
- 
- struct netlink_set_err_data {
++
++static struct pernet_operations uevent_net_ops = {
++	.init	= uevent_net_init,
++	.exit	= uevent_net_exit,
++};
++
++static int __init kobject_uevent_init(void)
++{
++	netlink_set_nonroot(NETLINK_KOBJECT_UEVENT, NL_NONROOT_RECV);
++	return register_pernet_subsys(&uevent_net_ops);
++}
++
++
+ postcore_initcall(kobject_uevent_init);
+ #endif
 
