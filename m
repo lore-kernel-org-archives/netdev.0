@@ -1,40 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3] netfilter: netfilter fixes
-Date: Thu, 20 May 2010 23:12:30 -0700 (PDT)
-Message-ID: <20100520.231230.247122843.davem@davemloft.net>
-References: <1274371246-26760-1-git-send-email-kaber@trash.net>
+Subject: Re: [PATCH] sh_eth: Fix memleak in sh_mdio_release
+Date: Thu, 20 May 2010 23:14:00 -0700 (PDT)
+Message-ID: <20100520.231400.43444964.davem@davemloft.net>
+References: <20100520140059.GA8968@hera.kernel.org>
+	<AANLkTikXzLHCwIFashAm1Z22Mw6n0TxC0AcBc4ER7zI6@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: dkirjanov@hera.kernel.org, shimoda.yoshihiro@renesas.com,
+	morimoto.kuninori@renesas.com, netdev@vger.kernel.org
+To: iwamatsu@nigauri.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45768
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46459
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933062Ab0EUGMV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 May 2010 02:12:21 -0400
-In-Reply-To: <1274371246-26760-1-git-send-email-kaber@trash.net>
+	by vger.kernel.org with ESMTP id S933241Ab0EUGNv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 May 2010 02:13:51 -0400
+In-Reply-To: <AANLkTikXzLHCwIFashAm1Z22Mw6n0TxC0AcBc4ER7zI6@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: kaber@trash.net
-Date: Thu, 20 May 2010 18:00:43 +0200
+From: Nobuhiro Iwamatsu <iwamatsu@nigauri.org>
+Date: Fri, 21 May 2010 07:12:21 +0900
 
-> following are three fixes for netfilter:
-> 
-> - handling of non-linear skbs in the SIP conntrack helper. This fixes tracking
->   failures when running on the same machine as a SIP application that is
->   producing non-linear skbs. Long term this should be fixed by using the string
->   search API, but that is a bigger piece of work.
-> 
-> - fix for a race condition in nf_conntrack that might lead to conntrack entries
->   marked as dead entering the hash tables, blocking new connections with similar
->   keys.
-> 
-> - a fix for an incorrect comment about the checkentry return conventions.
-> 
-> Please apply or pull from:
-> 
-> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
+> 2010/5/20 Denis Kirjanov <dkirjanov@hera.kernel.org>:
+>> Allocated memory for IRQs should be freed when releasing the mii_bus
+>>
+>> Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
+...
+> Acked-by: Nobuhiro Iwamatsu <iwamatsu@nigauri.org>
 
-Pulled, thanks Patrick.
+Applied, thanks everyone.
