@@ -1,36 +1,79 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: tun: Use netif_receive_skb instead of netif_rx
-Date: Fri, 21 May 2010 09:16:30 +1000
-Message-ID: <20100520231630.GA22593@gondor.apana.org.au>
-References: <4BF4517F.1010206@athenacr.com> <20100519.195533.22536631.davem@davemloft.net> <20100520025741.GA6129@gondor.apana.org.au> <20100519.200522.140743640.davem@davemloft.net> <20100520033446.GA6434@gondor.apana.org.au> <1274332507.2658.31.camel@edumazet-laptop> <20100520052059.GC7443@gondor.apana.org.au> <1274333779.2658.43.camel@edumazet-laptop> <20100520054642.GA7836@gondor.apana.org.au> <20100520172918.GA17613@shamino.rdu.redhat.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build failure after merge of the suspend tree
+Date: Fri, 21 May 2010 10:29:13 +1000
+Message-ID: <20100521102913.ae4e8cd2.sfr@canb.auug.org.au>
+References: <20100507130821.3fb72c9d.sfr@canb.auug.org.au>
+	<201005080413.24465.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, bmb@athenacr.com,
-	tgraf@redhat.com, nhorman@redhat.com, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:58368 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754816Ab0ETXQt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 May 2010 19:16:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20100520172918.GA17613@shamino.rdu.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Helmut Schaa <Helmut.Schaa@gmx.de>,
+	netdev@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>,
+	David Miller <davem@davemloft.net>,
+	Linus <torvalds@linux-foundation.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <201005080413.24465.rjw@sisk.pl>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 20, 2010 at 01:29:18PM -0400, Neil Horman wrote:
+Hi John, Dave,
+
+On Sat, 8 May 2010 04:13:24 +0200 "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
 >
-> So, I'm testing this patch out now, and unfotunately it doesn't seem to be
-> working.  Every frame seems to be holding a classid of 0.  Trying to figure out
-> why now.
+> On Friday 07 May 2010, Stephen Rothwell wrote:
+> > 
+> > After merging the suspend tree, today's linux-next build (x86_64
+> > allmodconfig) failed like this:
+> > 
+> > net/mac80211/scan.c: In function 'ieee80211_scan_state_decision':
+> > net/mac80211/scan.c:510: error: implicit declaration of function 'pm_qos_requirement'
+> > 
+> > Caused by commit 62bad14fc6e0911a99882c261390968977d43283 ("PM QOS
+> > update") from the suspend tree interacting with commit
+> > df13cce53a7b28a81460e6bfc4857e9df4956141 ("mac80211: Improve software
+> > scan timing") from the net tree.
+> > 
+> > I have added the following merge fixup patch and can carry it as
+> > necessary:
+> 
+> Thanks a lot, please do so if that's not a problem.
+> 
+> Both trees are based on Linus' current and I don't see a good way of fixing
+> this issue in any of them individually.
 
-Not very surprising since tun.c doesn't go through the normal
-socket interface.  I'll send a additional patch for that.
+The suspend tree has been merged into Linus' tree, so this patch is
+needed in the net tree before it is merged (or as part of the merge).
 
-Cheers,
+Here is the patch again:
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Fri, 7 May 2010 13:02:54 +1000
+Subject: [PATCH] wireless: update for pm_qos_requirement to pm_qos_request rename
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ net/mac80211/scan.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/mac80211/scan.c b/net/mac80211/scan.c
+index e14c441..e1b0be7 100644
+--- a/net/mac80211/scan.c
++++ b/net/mac80211/scan.c
+@@ -510,7 +510,7 @@ static int ieee80211_scan_state_decision(struct ieee80211_local *local,
+ 		bad_latency = time_after(jiffies +
+ 				ieee80211_scan_get_channel_time(next_chan),
+ 				local->leave_oper_channel_time +
+-				usecs_to_jiffies(pm_qos_requirement(PM_QOS_NETWORK_LATENCY)));
++				usecs_to_jiffies(pm_qos_request(PM_QOS_NETWORK_LATENCY)));
+ 
+ 		listen_int_exceeded = time_after(jiffies +
+ 				ieee80211_scan_get_channel_time(next_chan),
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.7.1
+
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
