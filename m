@@ -1,59 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: tun: Use netif_receive_skb instead of netif_rx
-Date: Thu, 20 May 2010 22:49:44 -0700 (PDT)
-Message-ID: <20100520.224944.102694876.davem@davemloft.net>
-References: <20100520172918.GA17613@shamino.rdu.redhat.com>
-	<20100520231630.GA22593@gondor.apana.org.au>
-	<20100521003939.GA2223@localhost.localdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: linux-next: build failure after merge of the suspend tree
+Date: Fri, 21 May 2010 07:51:57 +0200
+Message-ID: <1274421117.4977.9.camel@edumazet-laptop>
+References: <20100507130821.3fb72c9d.sfr@canb.auug.org.au>
+	 <201005080413.24465.rjw@sisk.pl>
+	 <20100521102913.ae4e8cd2.sfr@canb.auug.org.au>
+	 <20100520.224644.21290162.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, eric.dumazet@gmail.com,
-	bmb@athenacr.com, tgraf@redhat.com, nhorman@redhat.com,
-	netdev@vger.kernel.org
-To: nhorman@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37600
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754702Ab0EUFtf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 May 2010 01:49:35 -0400
-In-Reply-To: <20100521003939.GA2223@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: sfr@canb.auug.org.au, linville@tuxdriver.com,
+	torvalds@linux-foundation.org, rjw@sisk.pl,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Helmut.Schaa@gmx.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20100520.224644.21290162.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Thu, 20 May 2010 20:39:39 -0400
+Le jeudi 20 mai 2010 =C3=A0 22:46 -0700, David Miller a =C3=A9crit :
+> From: Stephen Rothwell <sfr@canb.auug.org.au>
+> Date: Fri, 21 May 2010 10:29:13 +1000
+>=20
+> > On Sat, 8 May 2010 04:13:24 +0200 "Rafael J. Wysocki" <rjw@sisk.pl>=
+ wrote:
+> >>
+> >> On Friday 07 May 2010, Stephen Rothwell wrote:
+> >> Both trees are based on Linus' current and I don't see a good way =
+of fixing
+> >> this issue in any of them individually.
+> >=20
+> > The suspend tree has been merged into Linus' tree, so this patch is
+> > needed in the net tree before it is merged (or as part of the merge=
+).
+>=20
+> Since the net tree is still on it's way to Linus, we'll just have to
+> wait for him to do that merge.
+>=20
+> Then we can sort this out.  I don't want to touch a tree that is
+> already on it's way.
 
-> On Fri, May 21, 2010 at 09:16:30AM +1000, Herbert Xu wrote:
->> On Thu, May 20, 2010 at 01:29:18PM -0400, Neil Horman wrote:
->> >
->> > So, I'm testing this patch out now, and unfotunately it doesn't seem to be
->> > working.  Every frame seems to be holding a classid of 0.  Trying to figure out
->> > why now.
->> 
->> Not very surprising since tun.c doesn't go through the normal
->> socket interface.  I'll send a additional patch for that.
->> 
-> I don't think thats it.  I think its a chicken and egg situation.  I think the
-> problem is that tasks can't be assigned to cgroups until their created, and in
-> that time a sock can be created.  Its a natural race.  If you create a socket
-> before you assign it to a cgroup, that socket retains a classid of zero.  I'm
-> going to try modify the patch to update sockets owned by tasks when the cgroup
-> is assigned.
-
-Neil, you must not be using Herbert's most recent patch.
-
-Either that or you haven't even read it.
-
-Herbert's most recent patch doesn't create this chicken and egg
-problem you mention because it explicitly watches for cgroupid changes
-at all socket I/O operations including sendmsg() and sendmsg().  And
-if it sees a different cgroupid at a socket I/O call, it updates the
-cgroupid value in the socket.
-
-So you very much can change the cgroup of the process mid-socket
-ownership and it will work.
-
-The only problem is, as Herbert stated, tun.  Because it does it's
-networking I/O directly by calling netif_receive_skb() so it won't
-hit any of Herbert's cgroup check points.
+Linus merged your tree David.
