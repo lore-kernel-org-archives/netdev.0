@@ -1,37 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: gro: Fix bogus gso_size on the first fraglist entry
-Date: Thu, 20 May 2010 23:08:21 -0700 (PDT)
-Message-ID: <20100520.230821.20952507.davem@davemloft.net>
-References: <20100521024629.GA24700@gondor.apana.org.au>
+Subject: Re: [PATCH 0/3] netfilter: netfilter fixes
+Date: Thu, 20 May 2010 23:12:30 -0700 (PDT)
+Message-ID: <20100520.231230.247122843.davem@davemloft.net>
+References: <1274371246-26760-1-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yugzhang@redhat.com
-To: herbert@gondor.apana.org.au
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51822
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45768
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754476Ab0EUGIM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 May 2010 02:08:12 -0400
-In-Reply-To: <20100521024629.GA24700@gondor.apana.org.au>
+	by vger.kernel.org with ESMTP id S933062Ab0EUGMV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 May 2010 02:12:21 -0400
+In-Reply-To: <1274371246-26760-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 21 May 2010 12:46:29 +1000
+From: kaber@trash.net
+Date: Thu, 20 May 2010 18:00:43 +0200
 
-> gro: Fix bogus gso_size on the first fraglist entry
+> following are three fixes for netfilter:
 > 
-> When GRO produces fraglist entries, and the resulting skb hits
-> an interface that is incapable of TSO but capable of FRAGLIST,
-> we end up producing a bogus packet with gso_size non-zero.
+> - handling of non-linear skbs in the SIP conntrack helper. This fixes tracking
+>   failures when running on the same machine as a SIP application that is
+>   producing non-linear skbs. Long term this should be fixed by using the string
+>   search API, but that is a bigger piece of work.
 > 
-> This was reported in the field with older versions of KVM that
-> did not set the TSO bits on tuntap.
+> - fix for a race condition in nf_conntrack that might lead to conntrack entries
+>   marked as dead entering the hash tables, blocking new connections with similar
+>   keys.
 > 
-> This patch fixes that.
+> - a fix for an incorrect comment about the checkentry return conventions.
 > 
-> Reported-by: Igor Zhang <yugzhang@redhat.com>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Please apply or pull from:
+> 
+> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
 
-Applied and queued up for -stable, thanks!
+Pulled, thanks Patrick.
