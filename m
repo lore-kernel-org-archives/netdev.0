@@ -1,65 +1,47 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: tun: Use netif_receive_skb instead of netif_rx
-Date: Fri, 21 May 2010 11:16:32 +1000
-Message-ID: <20100521011632.GA23849@gondor.apana.org.au>
-References: <20100519.200522.140743640.davem@davemloft.net> <20100520033446.GA6434@gondor.apana.org.au> <1274332507.2658.31.camel@edumazet-laptop> <20100520052059.GC7443@gondor.apana.org.au> <1274333779.2658.43.camel@edumazet-laptop> <20100520054642.GA7836@gondor.apana.org.au> <20100520172918.GA17613@shamino.rdu.redhat.com> <20100520231630.GA22593@gondor.apana.org.au> <20100521003939.GA2223@localhost.localdomain> <20100521010211.GA23671@gondor.apana.org.au>
+Subject: gro: Fix bogus gso_size on the first fraglist entry
+Date: Fri, 21 May 2010 12:46:29 +1000
+Message-ID: <20100521024629.GA24700@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, bmb@athenacr.com,
-	tgraf@redhat.com, nhorman@redhat.com, netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: Igor Zhang <yugzhang@redhat.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:47962 "EHLO
+Received: from ringil.hengli.com.au ([216.59.3.182]:54584 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752696Ab0EUBQq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 May 2010 21:16:46 -0400
+	with ESMTP id S1753304Ab0EUCqd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 May 2010 22:46:33 -0400
 Content-Disposition: inline
-In-Reply-To: <20100521010211.GA23671@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 21, 2010 at 11:02:11AM +1000, Herbert Xu wrote:
-> 
-> That's what I meant above.  My patch will make tun.c to the
-> classid update every time it sends out a packet.
+Hi:
 
-Here it is:
+gro: Fix bogus gso_size on the first fraglist entry
 
-tun: Update classid on packet injection
+When GRO produces fraglist entries, and the resulting skb hits
+an interface that is incapable of TSO but capable of FRAGLIST,
+we end up producing a bogus packet with gso_size non-zero.
 
-This patch makes tun update its socket classid every time we
-inject a packet into the network stack.  This is so that any
-updates made by the admin to the process writing packets to
-tun is effected.
+This was reported in the field with older versions of KVM that
+did not set the TSO bits on tuntap.
 
+This patch fixes that.
+
+Reported-by: Igor Zhang <yugzhang@redhat.com>
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 4326520..a8a9aa8 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -525,6 +525,8 @@ static inline struct sk_buff *tun_alloc_skb(struct tun_struct *tun,
- 	struct sk_buff *skb;
- 	int err;
- 
-+	sock_update_classid(sk);
-+
- 	/* Under a page?  Don't bother with paged skb. */
- 	if (prepad + len < PAGE_SIZE || !linear)
- 		linear = len;
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 8f7fdf8..4969bd1 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1055,6 +1055,7 @@ void sock_update_classid(struct sock *sk)
- 	if (classid && classid != sk->sk_classid)
- 		sk->classid = classid;
- }
-+EXPORT_SYMBOL(sock_update_classid);
- #endif
- 
- /**
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 93c4e06..cad8e97 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2729,6 +2729,7 @@ int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+ 	*NAPI_GRO_CB(nskb) = *NAPI_GRO_CB(p);
+ 	skb_shinfo(nskb)->frag_list = p;
+ 	skb_shinfo(nskb)->gso_size = pinfo->gso_size;
++	pinfo->gso_size = 0;
+ 	skb_header_release(p);
+ 	nskb->prev = p;
 
 Cheers,
 -- 
