@@ -1,56 +1,65 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: Re: [PATCH] net-2.6 : V2 - fix dev_get_valid_name
-Date: Fri, 21 May 2010 15:10:13 +0200
-Message-ID: <4BF68635.4070202@free.fr>
-References: <1274299939-28132-1-git-send-email-daniel.lezcano@free.fr>
+From: =?UTF-8?B?S3J6eXN6dG9mIE9sxJlkemtp?= <ole@ans.pl>
+Subject: Re: bnx2x + SFP+ DA/2.6.33.3: Got bad status 0x0 when reading from
+ SFP+ EEPROM -> SFP+ module is not initialized
+Date: Fri, 21 May 2010 15:19:16 +0200
+Message-ID: <4BF68854.5060409@ans.pl>
+References: <4BF56CA6.8080306@ans.pl> <1274377770.28702.4.camel@lb-tlvb-eilong.il.broadcom.com> <4BF57ADF.1060203@ans.pl> <1274381113.28702.6.camel@lb-tlvb-eilong.il.broadcom.com> <4BF59058.6050205@ans.pl> <4BF59ABB.9070600@hp.com> <4BF5A19E.5010003@ans.pl> <1274446713.11082.3.camel@lb-tlvb-eilong.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: opurdila@ixiacom.com
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Rick Jones <rick.jones2@hp.com>, Michael Chan <mchan@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.uk.ibm.com ([194.196.100.167]:55049 "EHLO
-	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751692Ab0EUNKX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 May 2010 09:10:23 -0400
-Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
-	by mtagate7.uk.ibm.com (8.13.1/8.13.1) with ESMTP id o4LDAM5v010462
-	for <netdev@vger.kernel.org>; Fri, 21 May 2010 13:10:22 GMT
-Received: from d06av04.portsmouth.uk.ibm.com (d06av04.portsmouth.uk.ibm.com [9.149.37.216])
-	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o4LDAMk9495772
-	for <netdev@vger.kernel.org>; Fri, 21 May 2010 14:10:22 +0100
-Received: from d06av04.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av04.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id o4LDAL5Z019148
-	for <netdev@vger.kernel.org>; Fri, 21 May 2010 14:10:22 +0100
-In-Reply-To: <1274299939-28132-1-git-send-email-daniel.lezcano@free.fr>
+Received: from bizon.gios.gov.pl ([195.187.34.71]:42073 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753774Ab0EUNT3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 May 2010 09:19:29 -0400
+In-Reply-To: <1274446713.11082.3.camel@lb-tlvb-eilong.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/19/2010 10:12 PM, Daniel Lezcano wrote:
-> the commit:
+On 2010-05-21 14:58, Eilon Greenstein wrote:
+> On Thu, 2010-05-20 at 13:54 -0700, Krzysztof Ol=C4=99dzki wrote:
+>> On 2010-05-20 22:25, Rick Jones wrote:
+>>> Some simple/simplistic thoughts/questions...
+>>>
+>>> Has the DAC been used successfully prior to this?
+>>
+>> Yes. It was successfully used to connect two HP switches, before I
+>> received SFP+ SR modules, that allowed me to put the switches into
+>> distanced rooms.
 >
-> commit d90310243fd750240755e217c5faa13e24f41536
-> Author: Octavian Purdila<opurdila@ixiacom.com>
-> Date:   Wed Nov 18 02:36:59 2009 +0000
+> Krzysztof,
 >
->      net: device name allocation cleanups
->
-> introduced a bug when there is a hash collision making impossible
-> to rename a device with eth%d. This bug is very hard to reproduce
-> and appears rarely.
->
-> The problem is coming from we don't pass a temporary buffer to
-> __dev_alloc_name but 'dev->name' which is modified by the function.
->
-> A detailed explanation is here:
->
-> http://marc.info/?l=linux-netdev&m=127417784011987&w=2
->
-> Changelog:
->   V2 : replaced strings comparison by pointers comparison
->
-> Signed-off-by: Daniel Lezcano<daniel.lezcano@free.fr>
-> ---
->    
+> I would like to check in what speed the I2C is running at, and while =
+we
+> are there, to make sure it is at low speed (100KHz and not 400KHz). C=
+an
+> you please add this patch and let me know what you see:
 
-Octavian, are you ok with this patch ?
+Sure.
+
+>
+> diff --git a/drivers/net/bnx2x_link.c b/drivers/net/bnx2x_link.c
+
+<CUT>
+
+[bnx2x_8727_read_sfp_module_eeprom:2774(eth4)]I2C 2W speed 0x0, bit 8 0
+[bnx2x_8727_read_sfp_module_eeprom:2774(eth5)]I2C 2W speed 0x0, bit 8 0
+
+> Since we are already off for the weekend, I couldn't find a machine w=
+ith
+> this kind of board to test it for myself. On top of that, I don't hav=
+e
+> this type of DAC cable, so I need your help in this debug process.
+
+No problem. There is no need to ask for a help a person who depends on=20
+your support. ;) I would like to solve it as soon as possible so I'm=20
+willing to test everything you send me. ;)
+
+best regards,
+
+			Krzysztof Ol=C4=99dzki
+
