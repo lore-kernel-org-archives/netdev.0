@@ -1,33 +1,78 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: tun: Use netif_receive_skb instead of netif_rx
-Date: Fri, 21 May 2010 21:08:47 +1000
-Message-ID: <20100521110847.GA29878@gondor.apana.org.au>
-References: <20100520172918.GA17613@shamino.rdu.redhat.com> <20100520231630.GA22593@gondor.apana.org.au> <20100521003939.GA2223@localhost.localdomain> <20100520.224944.102694876.davem@davemloft.net> <20100521105128.GA29521@hmsreliant.think-freely.org>
+From: sjur.brandeland@stericsson.com
+Subject: [PATCH net-2.6 1/6] caif: Bugfix - wait_ev*_timeout returns long.
+Date: Fri, 21 May 2010 14:16:07 +0200
+Message-ID: <1274444172-31969-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	bmb@athenacr.com, tgraf@redhat.com, nhorman@redhat.com,
-	netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: TEXT/PLAIN
+Content-Transfer-Encoding: 7BIT
+Cc: sjurbr@gmail.com, linus.walleij@stericsson.com,
+	marcel@holtmann.org,
+	Sjur Braendeland <sjur.brandeland@stericsson.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:49091 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753899Ab0EULJF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 May 2010 07:09:05 -0400
-Content-Disposition: inline
-In-Reply-To: <20100521105128.GA29521@hmsreliant.think-freely.org>
+Received: from thalia-smout.broadpark.no ([80.202.8.21]:44152 "EHLO
+	thalia-smout.broadpark.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752801Ab0EUMQo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 May 2010 08:16:44 -0400
+Received: from ignis-smin.broadpark.no ([unknown] [80.202.8.11])
+ by thalia-smout.broadpark.no
+ (Sun Java(tm) System Messaging Server 7u3-12.01 64bit (built Oct 15 2009))
+ with ESMTP id <0L2R003S7RF9K140@thalia-smout.broadpark.no> for
+ netdev@vger.kernel.org; Fri, 21 May 2010 14:16:21 +0200 (CEST)
+Received: from localhost.localdomain ([unknown] [84.49.77.207])
+ by ignis-smin.broadpark.no
+ (Sun Java(tm) System Messaging Server 7u3-12.01 64bit (built Oct 15 2009))
+ with ESMTP id <0L2R006WURF8S590@ignis-smin.broadpark.no> for
+ netdev@vger.kernel.org; Fri, 21 May 2010 14:16:21 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 21, 2010 at 06:51:28AM -0400, Neil Horman wrote:
->
-> I read it, we just described the issue in diferent terms.
+From: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
-Yeah I wasn't clear enough with my email without an actual patch :)
+Discovered bug when testing on 64bit architecture.
+Fixed by using long to store result from wait_event_interruptible_timeout.
 
-Thanks for testing Neil!
+Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
+---
+ net/caif/caif_socket.c |   13 ++++++-------
+ 1 files changed, 6 insertions(+), 7 deletions(-)
+
+diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
+index c3a70c5..77e9956 100644
+--- a/net/caif/caif_socket.c
++++ b/net/caif/caif_socket.c
+@@ -920,17 +920,17 @@ wait_connect:
+ 	timeo = sock_sndtimeo(sk, flags & O_NONBLOCK);
+ 
+ 	release_sock(sk);
+-	err = wait_event_interruptible_timeout(*sk_sleep(sk),
++	err = -ERESTARTSYS;
++	timeo = wait_event_interruptible_timeout(*sk_sleep(sk),
+ 			sk->sk_state != CAIF_CONNECTING,
+ 			timeo);
+ 	lock_sock(sk);
+-	if (err < 0)
++	if (timeo < 0)
+ 		goto out; /* -ERESTARTSYS */
+-	if (err == 0 && sk->sk_state != CAIF_CONNECTED) {
+-		err = -ETIMEDOUT;
+-		goto out;
+-	}
+ 
++	err = -ETIMEDOUT;
++	if (timeo == 0 && sk->sk_state != CAIF_CONNECTED)
++		goto out;
+ 	if (sk->sk_state != CAIF_CONNECTED) {
+ 		sock->state = SS_UNCONNECTED;
+ 		err = sock_error(sk);
+@@ -945,7 +945,6 @@ out:
+ 	return err;
+ }
+ 
+-
+ /*
+  * caif_release() - Disconnect a CAIF Socket
+  * Copied and modified af_irda.c:irda_release().
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.6.3.3
+
