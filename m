@@ -1,33 +1,53 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: linux-next: manual merge of the driver-core tree with the net tree
-Date: Fri, 21 May 2010 00:43:55 -0700
-Message-ID: <m1pr0pwvgk.fsf@fess.ebiederm.org>
-References: <20100521162134.6b6326bd.sfr@canb.auug.org.au>
-	<m1tyq1wy4h.fsf@fess.ebiederm.org>
-	<20100520.235008.97331614.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sfr@canb.auug.org.au, greg@kroah.com, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, therbert@google.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100520.235008.97331614.davem@davemloft.net> (David Miller's message of "Thu\, 20 May 2010 23\:50\:08 -0700 \(PDT\)")
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: xiaohui.xin@intel.com
+Subject: [RFC][PATCH v6 01/19] Add a new structure for skb buffer from external.
+Date: Fri, 21 May 2010 17:30:17 +0800
+Message-ID: <1274434235-5929-2-git-send-email-xiaohui.xin@intel.com>
+References: <1274434235-5929-1-git-send-email-xiaohui.xin@intel.com>
+Cc: Xin Xiaohui <xiaohui.xin@intel.com>
+To: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
+	davem@davemloft.net, jdike@linux.intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:32584 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752302Ab0EUJXn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 May 2010 05:23:43 -0400
+In-Reply-To: <1274434235-5929-1-git-send-email-xiaohui.xin@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+From: Xin Xiaohui <xiaohui.xin@intel.com>
 
-> From: ebiederm@xmission.com (Eric W. Biederman)
-> Date: Thu, 20 May 2010 23:46:22 -0700
->
->> It looks right, except perhaps the RPS code looks like it will cause a
->> build failure with sysfs disabled, but that has nothing to do with your
->> changes.
->
-> CONFIG_RPS depends upon CONFIG_SMP && CONFIG_SYSFS, so no that build
-> failure is not possible.
+Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
+Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
+Reviewed-by: Jeff Dike <jdike@linux.intel.com>
+---
+ include/linux/skbuff.h |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
 
-That's the bit I'm missing.  My apologies if I caused any unnecessary worry.
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 124f90c..cf309c9 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -203,6 +203,18 @@ struct skb_shared_info {
+ 	void *		destructor_arg;
+ };
+ 
++/* The structure is for a skb which skb->data may point to
++ * an external buffer, which is not allocated from kernel space.
++ * Since the buffer is external, then the shinfo or frags are
++ * also extern too. It also contains a destructor for itself.
++ */
++struct skb_external_page {
++	u8              *start;
++	int             size;
++	struct skb_frag_struct *frags;
++	struct skb_shared_info *ushinfo;
++	void		(*dtor)(struct skb_external_page *);
++};
+ /* We divide dataref into two halves.  The higher 16 bits hold references
+  * to the payload part of skb->data.  The lower 16 bits hold references to
+  * the entire skb->data.  A clone of a headerless skb holds the length of
+-- 
+1.5.4.4
 
-Eric
