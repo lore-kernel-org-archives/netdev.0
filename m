@@ -1,7 +1,7 @@
 From: xiaohui.xin@intel.com
-Subject: [PATCH v6 17/19] Export proto_ops to vhost-net driver.
-Date: Fri, 21 May 2010 17:30:33 +0800
-Message-ID: <1274434235-5929-18-git-send-email-xiaohui.xin@intel.com>
+Subject: [RFC][PATCH v6 19/19] Provides multiple submits and asynchronous notifications.
+Date: Fri, 21 May 2010 17:30:35 +0800
+Message-ID: <1274434235-5929-20-git-send-email-xiaohui.xin@intel.com>
 References: <1274434235-5929-1-git-send-email-xiaohui.xin@intel.com>
  <1274434235-5929-2-git-send-email-xiaohui.xin@intel.com>
  <1274434235-5929-3-git-send-email-xiaohui.xin@intel.com>
@@ -19,390 +19,653 @@ References: <1274434235-5929-1-git-send-email-xiaohui.xin@intel.com>
  <1274434235-5929-15-git-send-email-xiaohui.xin@intel.com>
  <1274434235-5929-16-git-send-email-xiaohui.xin@intel.com>
  <1274434235-5929-17-git-send-email-xiaohui.xin@intel.com>
+ <1274434235-5929-18-git-send-email-xiaohui.xin@intel.com>
+ <1274434235-5929-19-git-send-email-xiaohui.xin@intel.com>
 Cc: Xin Xiaohui <xiaohui.xin@intel.com>
 To: netdev@vger.kernel.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
 	davem@davemloft.net, jdike@linux.intel.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1274434235-5929-17-git-send-email-xiaohui.xin@intel.com>
-Sender: kvm-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1274434235-5929-19-git-send-email-xiaohui.xin@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Xin Xiaohui <xiaohui.xin@intel.com>
 
-Currently, vhost-net is only user to the mp device.
+    The vhost-net backend now only supports synchronous send/recv
+    operations. The patch provides multiple submits and asynchronous
+    notifications. This is needed for zero-copy case.
 
-Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
-Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
-Reviewed-by: Jeff Dike <jdike@linux.intel.com>
+    Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
 ---
- drivers/vhost/mpassthru.c |  330 ++++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 325 insertions(+), 5 deletions(-)
+ drivers/vhost/net.c   |  255 ++++++++++++++++++++++++++++++++++++++++++++++++-
+ drivers/vhost/vhost.c |  120 +++++++++++++----------
+ drivers/vhost/vhost.h |   14 +++
+ 3 files changed, 333 insertions(+), 56 deletions(-)
 
-diff --git a/drivers/vhost/mpassthru.c b/drivers/vhost/mpassthru.c
-index de07f1e..d0df691 100644
---- a/drivers/vhost/mpassthru.c
-+++ b/drivers/vhost/mpassthru.c
-@@ -414,6 +414,11 @@ static void mp_put(struct mp_file *mfile)
- 		mp_detach(mfile->mp);
- }
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 9777583..9a0d162 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -24,6 +24,8 @@
+ #include <linux/if_arp.h>
+ #include <linux/if_tun.h>
+ #include <linux/if_macvlan.h>
++#include <linux/mpassthru.h>
++#include <linux/aio.h>
  
-+static void iocb_tag(struct kiocb *iocb)
-+{
-+	iocb->ki_flags = 1;
-+}
-+
- /* The callback to destruct the external buffers or skb */
- static void page_dtor(struct skb_external_page *ext_page)
- {
-@@ -449,7 +454,7 @@ static void page_dtor(struct skb_external_page *ext_page)
- 	 * Queue the notifier to wake up the backend driver
- 	 */
+ #include <net/sock.h>
  
--	create_iocb(info, info->total);
-+	iocb_tag(info->iocb);
- 
- 	sk = ctor->port.sock->sk;
- 	sk->sk_write_space(sk);
-@@ -569,8 +574,323 @@ failed:
- 	return NULL;
- }
- 
-+static void mp_sock_destruct(struct sock *sk)
-+{
-+	struct mp_struct *mp = container_of(sk, struct mp_sock, sk)->mp;
-+	kfree(mp);
-+}
-+
-+static void mp_sock_state_change(struct sock *sk)
-+{
-+	if (sk_has_sleeper(sk))
-+		wake_up_interruptible_sync_poll(sk->sk_sleep, POLLIN);
-+}
-+
-+static void mp_sock_write_space(struct sock *sk)
-+{
-+	if (sk_has_sleeper(sk))
-+		wake_up_interruptible_sync_poll(sk->sk_sleep, POLLOUT);
-+}
-+
-+static void mp_sock_data_ready(struct sock *sk, int coming)
-+{
-+	struct mp_struct *mp = container_of(sk, struct mp_sock, sk)->mp;
-+	struct page_ctor *ctor = NULL;
-+	struct sk_buff *skb = NULL;
-+	struct page_info *info = NULL;
-+	struct ethhdr *eth;
-+	struct kiocb *iocb = NULL;
-+	int len, i;
-+
-+	struct virtio_net_hdr hdr = {
-+		.flags = 0,
-+		.gso_type = VIRTIO_NET_HDR_GSO_NONE
-+	};
-+
-+	ctor = rcu_dereference(mp->ctor);
-+	if (!ctor)
-+		return;
-+
-+	while ((skb = skb_dequeue(&sk->sk_receive_queue)) != NULL) {
-+		if (skb_shinfo(skb)->destructor_arg) {
-+			info = container_of(skb_shinfo(skb)->destructor_arg,
-+					struct page_info, ext_page);
-+			info->skb = skb;
-+			if (skb->len > info->len) {
-+				mp->dev->stats.rx_dropped++;
-+				DBG(KERN_INFO "Discarded truncated rx packet: "
-+				    " len %d > %zd\n", skb->len, info->len);
-+				info->total = skb->len;
-+				goto clean;
-+			} else {
-+				int i;
-+				struct skb_shared_info *gshinfo =
-+					(struct skb_shared_info *)
-+					(&info->ushinfo);
-+				struct skb_shared_info *hshinfo =
-+					skb_shinfo(skb);
-+
-+				if (gshinfo->nr_frags < hshinfo->nr_frags)
-+					goto clean;
-+				eth = eth_hdr(skb);
-+				skb_push(skb, ETH_HLEN);
-+
-+				hdr.hdr_len = skb_headlen(skb);
-+				info->total = skb->len;
-+
-+				for (i = 0; i < gshinfo->nr_frags; i++)
-+					gshinfo->frags[i].size = 0;
-+				for (i = 0; i < hshinfo->nr_frags; i++)
-+					gshinfo->frags[i].size =
-+						hshinfo->frags[i].size;
-+			}
-+		} else {
-+			/* The skb composed with kernel buffers
-+			 * in case external buffers are not sufficent.
-+			 * The case should be rare.
-+			 */
-+			unsigned long flags;
-+			int i;
-+			struct skb_shared_info *gshinfo = NULL;
-+
-+			info = NULL;
-+
-+			spin_lock_irqsave(&ctor->read_lock, flags);
-+			if (!list_empty(&ctor->readq)) {
-+				info = list_first_entry(&ctor->readq,
-+						struct page_info, list);
-+				list_del(&info->list);
-+			}
-+			spin_unlock_irqrestore(&ctor->read_lock, flags);
-+			if (!info) {
-+				DBG(KERN_INFO
-+				    "No external buffer avaliable %p\n",
-+				    skb);
-+				skb_queue_head(&sk->sk_receive_queue,
-+						skb);
-+				break;
-+			}
-+			info->skb = skb;
-+			/* compute the guest skb frags info */
-+			gshinfo = (struct skb_shared_info *)
-+				  (info->ext_page.start +
-+				  SKB_DATA_ALIGN(info->ext_page.size));
-+
-+			if (gshinfo->nr_frags < skb_shinfo(skb)->nr_frags)
-+				goto clean;
-+
-+			eth = eth_hdr(skb);
-+			skb_push(skb, ETH_HLEN);
-+			info->total = skb->len;
-+
-+			for (i = 0; i < gshinfo->nr_frags; i++)
-+				gshinfo->frags[i].size = 0;
-+			for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
-+				gshinfo->frags[i].size =
-+					skb_shinfo(skb)->frags[i].size;
-+			hdr.hdr_len = min_t(int, skb->len,
-+					info->iov[1].iov_len);
-+			skb_copy_datagram_iovec(skb, 0, info->iov, skb->len);
-+		}
-+
-+		len = memcpy_toiovec(info->hdr, (unsigned char *)&hdr,
-+				sizeof hdr);
-+		if (len) {
-+			DBG(KERN_INFO
-+				"Unable to write vnet_hdr at addr %p: %d\n",
-+				info->hdr->iov_base, len);
-+			goto clean;
-+		}
-+
-+		iocb = create_iocb(info, skb->len + sizeof(hdr));
-+		continue;
-+
-+clean:
-+		kfree_skb(skb);
-+		for (i = 0; info->pages[i]; i++)
-+			put_page(info->pages[i]);
-+		kmem_cache_free(ext_page_info_cache, info);
-+	}
-+	return;
-+}
-+
-+static int mp_sendmsg(struct kiocb *iocb, struct socket *sock,
-+		struct msghdr *m, size_t total_len)
-+{
-+	struct mp_struct *mp = container_of(sock->sk, struct mp_sock, sk)->mp;
-+	struct page_ctor *ctor;
-+	struct iovec *iov = m->msg_iov;
-+	struct page_info *info = NULL;
-+	struct frag frags[MAX_SKB_FRAGS];
-+	struct sk_buff *skb;
-+	int count = m->msg_iovlen;
-+	int total = 0, header, n, i, len, rc;
-+	unsigned long base;
-+
-+	ctor = rcu_dereference(mp->ctor);
-+	if (!ctor)
-+		return -ENODEV;
-+
-+	total = iov_length(iov, count);
-+
-+	if (total < ETH_HLEN)
-+		return -EINVAL;
-+
-+	if (total <= COPY_THRESHOLD)
-+		goto copy;
-+
-+	n = 0;
-+	for (i = 0; i < count; i++) {
-+		base = (unsigned long)iov[i].iov_base;
-+		len = iov[i].iov_len;
-+		if (!len)
-+			continue;
-+		n += ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
-+		if (n > MAX_SKB_FRAGS)
-+			return -EINVAL;
-+	}
-+
-+copy:
-+	header = total > COPY_THRESHOLD ? COPY_HDR_LEN : total;
-+
-+	skb = alloc_skb(header + NET_IP_ALIGN, GFP_ATOMIC);
-+	if (!skb)
-+		goto drop;
-+
-+	skb_reserve(skb, NET_IP_ALIGN);
-+
-+	skb_set_network_header(skb, ETH_HLEN);
-+
-+	memcpy_fromiovec(skb->data, iov, header);
-+	skb_put(skb, header);
-+	skb->protocol = *((__be16 *)(skb->data) + ETH_ALEN);
-+
-+	if (header == total) {
-+		rc = total;
-+		info = alloc_small_page_info(ctor, iocb, total);
-+	} else {
-+		info = alloc_page_info(ctor, iocb, iov, count, frags, 0, total);
-+		if (info)
-+			for (i = 0; info->pages[i]; i++) {
-+				skb_add_rx_frag(skb, i, info->pages[i],
-+						frags[i].offset, frags[i].size);
-+				info->pages[i] = NULL;
-+			}
-+	}
-+	if (info != NULL) {
-+		info->desc_pos = iocb->ki_pos;
-+		info->total = total;
-+		info->skb = skb;
-+		skb_shinfo(skb)->destructor_arg = &info->ext_page;
-+		skb->dev = mp->dev;
-+		ctor->wq_len++;
-+		create_iocb(info, info->total);
-+		dev_queue_xmit(skb);
-+		return 0;
-+	}
-+drop:
-+	kfree_skb(skb);
-+	if (info) {
-+		for (i = 0; info->pages[i]; i++)
-+			put_page(info->pages[i]);
-+		kmem_cache_free(ext_page_info_cache, info);
-+	}
-+	mp->dev->stats.tx_dropped++;
-+	return -ENOMEM;
-+}
-+
-+static int mp_recvmsg(struct kiocb *iocb, struct socket *sock,
-+		struct msghdr *m, size_t total_len,
-+		int flags)
-+{
-+	struct mp_struct *mp = container_of(sock->sk, struct mp_sock, sk)->mp;
-+	struct page_ctor *ctor;
-+	struct iovec *iov = m->msg_iov;
-+	int count = m->msg_iovlen;
-+	int npages, payload;
-+	struct page_info *info;
-+	struct frag frags[MAX_SKB_FRAGS];
-+	unsigned long base;
-+	int i, len;
-+	unsigned long flag;
-+
-+	if (!(flags & MSG_DONTWAIT))
-+		return -EINVAL;
-+
-+	ctor = rcu_dereference(mp->ctor);
-+	if (!ctor)
-+		return -EINVAL;
-+
-+	/* Error detections in case invalid external buffer */
-+	if (count > 2 && iov[1].iov_len < ctor->port.hdr_len &&
-+			mp->dev->features & NETIF_F_SG) {
-+		return -EINVAL;
-+	}
-+
-+	npages = ctor->port.npages;
-+	payload = ctor->port.data_len;
-+
-+	/* If KVM guest virtio-net FE driver use SG feature */
-+	if (count > 2) {
-+		for (i = 2; i < count; i++) {
-+			base = (unsigned long)iov[i].iov_base & ~PAGE_MASK;
-+			len = iov[i].iov_len;
-+			if (npages == 1)
-+				len = min_t(int, len, PAGE_SIZE - base);
-+			else if (base)
-+				break;
-+			payload -= len;
-+			if (payload <= 0)
-+				goto proceed;
-+			if (npages == 1 || (len & ~PAGE_MASK))
-+				break;
-+		}
-+	}
-+
-+	if ((((unsigned long)iov[1].iov_base & ~PAGE_MASK)
-+				- NET_SKB_PAD - NET_IP_ALIGN) >= 0)
-+		goto proceed;
-+
-+	return -EINVAL;
-+
-+proceed:
-+	/* skip the virtnet head */
-+	iov++;
-+	count--;
-+
-+	if (!ctor->lock_pages)
-+		set_memlock_rlimit(ctor, RLIMIT_MEMLOCK,
-+				iocb->ki_user_data * 4096 * 2,
-+				iocb->ki_user_data * 4096 * 2);
-+
-+	/* Translate address to kernel */
-+	info = alloc_page_info(ctor, iocb, iov, count, frags, npages, 0);
-+	if (!info)
-+		return -ENOMEM;
-+	info->len = total_len;
-+	info->hdr[0].iov_base = iocb->ki_iovec[0].iov_base;
-+	info->hdr[0].iov_len = iocb->ki_iovec[0].iov_len;
-+	info->offset = frags[0].offset;
-+	info->desc_pos = iocb->ki_pos;
-+
-+	iov--;
-+	count++;
-+
-+	memcpy(info->iov, iov, sizeof(struct iovec) * count);
-+
-+	spin_lock_irqsave(&ctor->read_lock, flag);
-+	list_add_tail(&info->list, &ctor->readq);
-+	spin_unlock_irqrestore(&ctor->read_lock, flag);
-+
-+	ctor->rq_len++;
-+
-+	return 0;
-+}
-+
- /* Ops structure to mimic raw sockets with mp device */
- static const struct proto_ops mp_socket_ops = {
-+	.sendmsg = mp_sendmsg,
-+	.recvmsg = mp_recvmsg,
+@@ -45,10 +47,13 @@ enum vhost_net_poll_state {
+ 	VHOST_NET_POLL_STOPPED = 2,
  };
  
- static struct proto mp_proto = {
-@@ -693,10 +1013,10 @@ static long mp_chr_ioctl(struct file *file, unsigned int cmd,
- 		sk->sk_sndbuf = INT_MAX;
- 		container_of(sk, struct mp_sock, sk)->mp = mp;
++static struct kmem_cache *notify_cache;
++
+ struct vhost_net {
+ 	struct vhost_dev dev;
+ 	struct vhost_virtqueue vqs[VHOST_NET_VQ_MAX];
+ 	struct vhost_poll poll[VHOST_NET_VQ_MAX];
++	struct kmem_cache       *cache;
+ 	/* Tells us whether we are polling a socket for TX.
+ 	 * We only do this when socket buffer fills up.
+ 	 * Protected by tx vq lock. */
+@@ -93,11 +98,146 @@ static void tx_poll_start(struct vhost_net *net, struct socket *sock)
+ 	net->tx_poll_state = VHOST_NET_POLL_STARTED;
+ }
  
--		sk->sk_destruct = NULL;
--		sk->sk_data_ready = NULL;
--		sk->sk_write_space = NULL;
--		sk->sk_state_change = NULL;
-+		sk->sk_destruct = mp_sock_destruct;
-+		sk->sk_data_ready = mp_sock_data_ready;
-+		sk->sk_write_space = mp_sock_write_space;
-+		sk->sk_state_change = mp_sock_state_change;
- 		ret = mp_attach(mp, file);
- 		if (ret < 0)
- 			goto err_free_sk;
++struct kiocb *notify_dequeue(struct vhost_virtqueue *vq)
++{
++	struct kiocb *iocb = NULL;
++	unsigned long flags;
++
++	spin_lock_irqsave(&vq->notify_lock, flags);
++	if (!list_empty(&vq->notifier)) {
++		iocb = list_first_entry(&vq->notifier,
++				struct kiocb, ki_list);
++		list_del(&iocb->ki_list);
++	}
++	spin_unlock_irqrestore(&vq->notify_lock, flags);
++	return iocb;
++}
++
++static void handle_iocb(struct kiocb *iocb)
++{
++	struct vhost_virtqueue *vq = iocb->private;
++	unsigned long flags;
++
++	spin_lock_irqsave(&vq->notify_lock, flags);
++	list_add_tail(&iocb->ki_list, &vq->notifier);
++	spin_unlock_irqrestore(&vq->notify_lock, flags);
++}
++
++static int is_async_vq(struct vhost_virtqueue *vq)
++{
++	return (vq->link_state == VHOST_VQ_LINK_ASYNC);
++}
++
++static void handle_async_rx_events_notify(struct vhost_net *net,
++					  struct vhost_virtqueue *vq,
++					  struct socket *sock)
++{
++	struct kiocb *iocb = NULL;
++	struct vhost_log *vq_log = NULL;
++	int rx_total_len = 0;
++	unsigned int head, log, in, out;
++	int size;
++
++	if (!is_async_vq(vq))
++		return;
++
++	if (sock->sk->sk_data_ready)
++		sock->sk->sk_data_ready(sock->sk, 0);
++
++	vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) ?
++		vq->log : NULL;
++
++	while ((iocb = notify_dequeue(vq)) != NULL) {
++		vhost_add_used_and_signal(&net->dev, vq,
++				iocb->ki_pos, iocb->ki_nbytes);
++		size = iocb->ki_nbytes;
++		head = iocb->ki_pos;
++		rx_total_len += iocb->ki_nbytes;
++
++		if (iocb->ki_dtor)
++			iocb->ki_dtor(iocb);
++		kmem_cache_free(net->cache, iocb);
++
++		/* when log is enabled, recomputing the log info is needed,
++		 * since these buffers are in async queue, and may not get
++		 * the log info before.
++		 */
++		if (unlikely(vq_log)) {
++			if (!log)
++				__vhost_get_vq_desc(&net->dev, vq, vq->iov,
++						    ARRAY_SIZE(vq->iov),
++						    &out, &in, vq_log,
++						    &log, head);
++			vhost_log_write(vq, vq_log, log, size);
++		}
++		if (unlikely(rx_total_len >= VHOST_NET_WEIGHT)) {
++			vhost_poll_queue(&vq->poll);
++			break;
++		}
++	}
++}
++
++static void handle_async_tx_events_notify(struct vhost_net *net,
++					  struct vhost_virtqueue *vq)
++{
++	struct kiocb *iocb = NULL;
++	struct list_head *entry, *tmp;
++	unsigned long flags;
++	int tx_total_len = 0;
++
++	if (!is_async_vq(vq))
++		return;
++	spin_lock_irqsave(&vq->notify_lock, flags);
++	list_for_each_safe(entry, tmp, &vq->notifier) {
++		iocb = list_entry(entry,
++                                struct kiocb, ki_list);
++		if (!iocb->ki_flags)
++			continue;
++		list_del(&iocb->ki_list);	
++		vhost_add_used_and_signal(&net->dev, vq,
++				iocb->ki_pos, 0);
++		tx_total_len += iocb->ki_nbytes;
++
++		if (iocb->ki_dtor)
++			iocb->ki_dtor(iocb);
++
++		kmem_cache_free(net->cache, iocb);
++		if (unlikely(tx_total_len >= VHOST_NET_WEIGHT)) {
++			vhost_poll_queue(&vq->poll);
++			break;
++		}
++	}
++	spin_unlock_irqrestore(&vq->notify_lock, flags);
++}
++
++static struct kiocb *create_iocb(struct vhost_net *net,
++				 struct vhost_virtqueue *vq,
++				 unsigned head)
++{
++	struct kiocb *iocb = NULL;
++
++	if (!is_async_vq(vq))
++		return NULL;
++
++	iocb = kmem_cache_zalloc(net->cache, GFP_KERNEL);
++	if (!iocb)
++		return NULL;
++	iocb->private = vq;
++	iocb->ki_pos = head;
++	iocb->ki_dtor = handle_iocb;
++	if (vq == &net->dev.vqs[VHOST_NET_VQ_RX]) {
++		iocb->ki_user_data = vq->num;
++		iocb->ki_iovec = vq->hdr;
++	}
++	return iocb;
++}
++
+ /* Expects to be always run from workqueue - which acts as
+  * read-size critical section for our kind of RCU. */
+ static void handle_tx(struct vhost_net *net)
+ {
+ 	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_TX];
++	struct kiocb *iocb = NULL;
+ 	unsigned head, out, in, s;
+ 	struct msghdr msg = {
+ 		.msg_name = NULL,
+@@ -130,6 +270,8 @@ static void handle_tx(struct vhost_net *net)
+ 		tx_poll_stop(net);
+ 	hdr_size = vq->hdr_size;
+ 
++	handle_async_tx_events_notify(net, vq);
++
+ 	for (;;) {
+ 		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
+ 					 ARRAY_SIZE(vq->iov),
+@@ -157,6 +299,13 @@ static void handle_tx(struct vhost_net *net)
+ 		/* Skip header. TODO: support TSO. */
+ 		s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, out);
+ 		msg.msg_iovlen = out;
++
++		if (is_async_vq(vq)) {
++			iocb = create_iocb(net, vq, head);
++			if (!iocb)
++				break;
++		}
++
+ 		len = iov_length(vq->iov, out);
+ 		/* Sanity check */
+ 		if (!len) {
+@@ -166,12 +315,18 @@ static void handle_tx(struct vhost_net *net)
+ 			break;
+ 		}
+ 		/* TODO: Check specific error and bomb out unless ENOBUFS? */
+-		err = sock->ops->sendmsg(NULL, sock, &msg, len);
++		err = sock->ops->sendmsg(iocb, sock, &msg, len);
+ 		if (unlikely(err < 0)) {
++			if (is_async_vq(vq))
++				kmem_cache_free(net->cache, iocb);
+ 			vhost_discard_vq_desc(vq);
+ 			tx_poll_start(net, sock);
+ 			break;
+ 		}
++
++		if (is_async_vq(vq))
++			continue;
++
+ 		if (err != len)
+ 			pr_err("Truncated TX packet: "
+ 			       " len %d != %zd\n", err, len);
+@@ -183,6 +338,8 @@ static void handle_tx(struct vhost_net *net)
+ 		}
+ 	}
+ 
++	handle_async_tx_events_notify(net, vq);
++
+ 	mutex_unlock(&vq->mutex);
+ 	unuse_mm(net->dev.mm);
+ }
+@@ -192,6 +349,7 @@ static void handle_tx(struct vhost_net *net)
+ static void handle_rx(struct vhost_net *net)
+ {
+ 	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_RX];
++	struct kiocb *iocb = NULL;
+ 	unsigned head, out, in, log, s;
+ 	struct vhost_log *vq_log;
+ 	struct msghdr msg = {
+@@ -212,7 +370,8 @@ static void handle_rx(struct vhost_net *net)
+ 	int err;
+ 	size_t hdr_size;
+ 	struct socket *sock = rcu_dereference(vq->private_data);
+-	if (!sock || skb_queue_empty(&sock->sk->sk_receive_queue))
++	if (!sock || (skb_queue_empty(&sock->sk->sk_receive_queue) &&
++			vq->link_state == VHOST_VQ_LINK_SYNC))
+ 		return;
+ 
+ 	use_mm(net->dev.mm);
+@@ -220,9 +379,17 @@ static void handle_rx(struct vhost_net *net)
+ 	vhost_disable_notify(vq);
+ 	hdr_size = vq->hdr_size;
+ 
++	/* In async cases, when write log is enabled, in case the submitted
++	 * buffers did not get log info before the log enabling, so we'd
++	 * better recompute the log info when needed. We do this in
++	 * handle_async_rx_events_notify().
++	 */
++
+ 	vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) ?
+ 		vq->log : NULL;
+ 
++	handle_async_rx_events_notify(net, vq, sock);
++
+ 	for (;;) {
+ 		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
+ 					 ARRAY_SIZE(vq->iov),
+@@ -251,6 +418,13 @@ static void handle_rx(struct vhost_net *net)
+ 		s = move_iovec_hdr(vq->iov, vq->hdr, hdr_size, in);
+ 		msg.msg_iovlen = in;
+ 		len = iov_length(vq->iov, in);
++
++		if (is_async_vq(vq)) {
++			iocb = create_iocb(net, vq, head);
++			if (!iocb)
++				break;
++		}
++
+ 		/* Sanity check */
+ 		if (!len) {
+ 			vq_err(vq, "Unexpected header len for RX: "
+@@ -258,13 +432,20 @@ static void handle_rx(struct vhost_net *net)
+ 			       iov_length(vq->hdr, s), hdr_size);
+ 			break;
+ 		}
+-		err = sock->ops->recvmsg(NULL, sock, &msg,
++
++		err = sock->ops->recvmsg(iocb, sock, &msg,
+ 					 len, MSG_DONTWAIT | MSG_TRUNC);
+ 		/* TODO: Check specific error and bomb out unless EAGAIN? */
+ 		if (err < 0) {
++			if (is_async_vq(vq))
++				kmem_cache_free(net->cache, iocb);
+ 			vhost_discard_vq_desc(vq);
+ 			break;
+ 		}
++
++		if (is_async_vq(vq))
++			continue;
++
+ 		/* TODO: Should check and handle checksum. */
+ 		if (err > len) {
+ 			pr_err("Discarded truncated rx packet: "
+@@ -290,6 +471,8 @@ static void handle_rx(struct vhost_net *net)
+ 		}
+ 	}
+ 
++	handle_async_rx_events_notify(net, vq, sock);
++
+ 	mutex_unlock(&vq->mutex);
+ 	unuse_mm(net->dev.mm);
+ }
+@@ -343,6 +526,7 @@ static int vhost_net_open(struct inode *inode, struct file *f)
+ 	vhost_poll_init(n->poll + VHOST_NET_VQ_TX, handle_tx_net, POLLOUT);
+ 	vhost_poll_init(n->poll + VHOST_NET_VQ_RX, handle_rx_net, POLLIN);
+ 	n->tx_poll_state = VHOST_NET_POLL_DISABLED;
++	n->cache = NULL;
+ 
+ 	f->private_data = n;
+ 
+@@ -406,6 +590,21 @@ static void vhost_net_flush(struct vhost_net *n)
+ 	vhost_net_flush_vq(n, VHOST_NET_VQ_RX);
+ }
+ 
++static void vhost_async_cleanup(struct vhost_net *n)
++{
++	/* clean the notifier */
++	struct vhost_virtqueue *vq;
++	struct kiocb *iocb = NULL;
++	if (n->cache) {
++		vq = &n->dev.vqs[VHOST_NET_VQ_RX];
++		while ((iocb = notify_dequeue(vq)) != NULL)
++			kmem_cache_free(n->cache, iocb);
++		vq = &n->dev.vqs[VHOST_NET_VQ_TX];
++		while ((iocb = notify_dequeue(vq)) != NULL)
++			kmem_cache_free(n->cache, iocb);
++	}
++}
++
+ static int vhost_net_release(struct inode *inode, struct file *f)
+ {
+ 	struct vhost_net *n = f->private_data;
+@@ -422,6 +621,7 @@ static int vhost_net_release(struct inode *inode, struct file *f)
+ 	/* We do an extra flush before freeing memory,
+ 	 * since jobs can re-queue themselves. */
+ 	vhost_net_flush(n);
++	vhost_async_cleanup(n);
+ 	kfree(n);
+ 	return 0;
+ }
+@@ -473,21 +673,58 @@ static struct socket *get_tap_socket(int fd)
+ 	return sock;
+ }
+ 
+-static struct socket *get_socket(int fd)
++static struct socket *get_mp_socket(int fd)
++{
++	struct file *file = fget(fd);
++	struct socket *sock;
++	if (!file)
++		return ERR_PTR(-EBADF);
++	sock = mp_get_socket(file);
++	if (IS_ERR(sock))
++		fput(file);
++	return sock;
++}
++
++static struct socket *get_socket(struct vhost_virtqueue *vq, int fd,
++				 enum vhost_vq_link_state *state)
+ {
+ 	struct socket *sock;
+ 	/* special case to disable backend */
+ 	if (fd == -1)
+ 		return NULL;
++
++	*state = VHOST_VQ_LINK_SYNC;
++
+ 	sock = get_raw_socket(fd);
+ 	if (!IS_ERR(sock))
+ 		return sock;
+ 	sock = get_tap_socket(fd);
+ 	if (!IS_ERR(sock))
+ 		return sock;
++	/* If we dont' have notify_cache, then dont do mpassthru */
++	if (!notify_cache)
++		return ERR_PTR(-ENOTSOCK);
++	sock = get_mp_socket(fd);
++	if (!IS_ERR(sock)) {
++		*state = VHOST_VQ_LINK_ASYNC;
++		return sock;
++	}
+ 	return ERR_PTR(-ENOTSOCK);
+ }
+ 
++static void vhost_init_link_state(struct vhost_net *n, int index)
++{
++	struct vhost_virtqueue *vq = n->vqs + index;
++
++	WARN_ON(!mutex_is_locked(&vq->mutex));
++	if (vq->link_state == VHOST_VQ_LINK_ASYNC) {
++		INIT_LIST_HEAD(&vq->notifier);
++		spin_lock_init(&vq->notify_lock);
++		if (!n->cache)
++			n->cache = notify_cache;
++	}
++}
++
+ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
+ {
+ 	struct socket *sock, *oldsock;
+@@ -511,12 +748,14 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
+ 		r = -EFAULT;
+ 		goto err_vq;
+ 	}
+-	sock = get_socket(fd);
++	sock = get_socket(vq, fd, &vq->link_state);
+ 	if (IS_ERR(sock)) {
+ 		r = PTR_ERR(sock);
+ 		goto err_vq;
+ 	}
+ 
++	vhost_init_link_state(n, index);
++
+ 	/* start polling new socket */
+ 	oldsock = vq->private_data;
+ 	if (sock == oldsock)
+@@ -650,6 +889,10 @@ int vhost_net_init(void)
+ 	r = misc_register(&vhost_net_misc);
+ 	if (r)
+ 		goto err_reg;
++
++	notify_cache = kmem_cache_create("vhost_kiocb",
++					sizeof(struct kiocb), 0,
++					SLAB_HWCACHE_ALIGN, NULL);
+ 	return 0;
+ err_reg:
+ 	vhost_cleanup();
+@@ -663,6 +906,8 @@ void vhost_net_exit(void)
+ {
+ 	misc_deregister(&vhost_net_misc);
+ 	vhost_cleanup();
++	if (notify_cache)
++		kmem_cache_destroy(notify_cache);
+ }
+ module_exit(vhost_net_exit);
+ 
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index e69d238..ad3779c 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -861,61 +861,17 @@ static unsigned get_indirect(struct vhost_dev *dev, struct vhost_virtqueue *vq,
+ 	return 0;
+ }
+ 
+-/* This looks in the virtqueue and for the first available buffer, and converts
+- * it to an iovec for convenient access.  Since descriptors consist of some
+- * number of output then some number of input descriptors, it's actually two
+- * iovecs, but we pack them into one and note how many of each there were.
+- *
+- * This function returns the descriptor number found, or vq->num (which
+- * is never a valid descriptor number) if none was found. */
+-unsigned vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
+-			   struct iovec iov[], unsigned int iov_size,
+-			   unsigned int *out_num, unsigned int *in_num,
+-			   struct vhost_log *log, unsigned int *log_num)
++/* This computes the log info according to the index of buffer */
++unsigned __vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
++			     struct iovec iov[], unsigned int iov_size,
++			     unsigned int *out_num, unsigned int *in_num,
++			     struct vhost_log *log, unsigned int *log_num,
++			     unsigned int head)
+ {
+ 	struct vring_desc desc;
+-	unsigned int i, head, found = 0;
+-	u16 last_avail_idx;
++	unsigned int i = head, found = 0;
+ 	int ret;
+ 
+-	/* Check it isn't doing very strange things with descriptor numbers. */
+-	last_avail_idx = vq->last_avail_idx;
+-	if (get_user(vq->avail_idx, &vq->avail->idx)) {
+-		vq_err(vq, "Failed to access avail idx at %p\n",
+-		       &vq->avail->idx);
+-		return vq->num;
+-	}
+-
+-	if ((u16)(vq->avail_idx - last_avail_idx) > vq->num) {
+-		vq_err(vq, "Guest moved used index from %u to %u",
+-		       last_avail_idx, vq->avail_idx);
+-		return vq->num;
+-	}
+-
+-	/* If there's nothing new since last we looked, return invalid. */
+-	if (vq->avail_idx == last_avail_idx)
+-		return vq->num;
+-
+-	/* Only get avail ring entries after they have been exposed by guest. */
+-	smp_rmb();
+-
+-	/* Grab the next descriptor number they're advertising, and increment
+-	 * the index we've seen. */
+-	if (get_user(head, &vq->avail->ring[last_avail_idx % vq->num])) {
+-		vq_err(vq, "Failed to read head: idx %d address %p\n",
+-		       last_avail_idx,
+-		       &vq->avail->ring[last_avail_idx % vq->num]);
+-		return vq->num;
+-	}
+-
+-	/* If their number is silly, that's an error. */
+-	if (head >= vq->num) {
+-		vq_err(vq, "Guest says index %u > %u is available",
+-		       head, vq->num);
+-		return vq->num;
+-	}
+-
+-	/* When we start there are none of either input nor output. */
+ 	*out_num = *in_num = 0;
+ 	if (unlikely(log))
+ 		*log_num = 0;
+@@ -979,8 +935,70 @@ unsigned vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
+ 			*out_num += ret;
+ 		}
+ 	} while ((i = next_desc(&desc)) != -1);
++	return head;
++}
++
++/* This looks in the virtqueue and for the first available buffer, and converts
++ * it to an iovec for convenient access.  Since descriptors consist of some
++ * number of output then some number of input descriptors, it's actually two
++ * iovecs, but we pack them into one and note how many of each there were.
++ *
++ * This function returns the descriptor number found, or vq->num (which
++ * is never a valid descriptor number) if none was found. */
++unsigned vhost_get_vq_desc(struct vhost_dev *dev, struct vhost_virtqueue *vq,
++			   struct iovec iov[], unsigned int iov_size,
++			   unsigned int *out_num, unsigned int *in_num,
++			   struct vhost_log *log, unsigned int *log_num)
++{
++	struct vring_desc desc;
++	unsigned int i, head, found = 0;
++	u16 last_avail_idx;
++	int ret;
++
++	/* Check it isn't doing very strange things with descriptor numbers. */
++	last_avail_idx = vq->last_avail_idx;
++	if (get_user(vq->avail_idx, &vq->avail->idx)) {
++		vq_err(vq, "Failed to access avail idx at %p\n",
++		       &vq->avail->idx);
++		return vq->num;
++	}
++
++	if ((u16)(vq->avail_idx - last_avail_idx) > vq->num) {
++		vq_err(vq, "Guest moved used index from %u to %u",
++		       last_avail_idx, vq->avail_idx);
++		return vq->num;
++	}
++
++	/* If there's nothing new since last we looked, return invalid. */
++	if (vq->avail_idx == last_avail_idx)
++		return vq->num;
++
++	/* Only get avail ring entries after they have been exposed by guest. */
++	smp_rmb();
++
++	/* Grab the next descriptor number they're advertising, and increment
++	 * the index we've seen. */
++	if (get_user(head, &vq->avail->ring[last_avail_idx % vq->num])) {
++		vq_err(vq, "Failed to read head: idx %d address %p\n",
++		       last_avail_idx,
++		       &vq->avail->ring[last_avail_idx % vq->num]);
++		return vq->num;
++	}
++
++	/* If their number is silly, that's an error. */
++	if (head >= vq->num) {
++		vq_err(vq, "Guest says index %u > %u is available",
++		       head, vq->num);
++		return vq->num;
++	}
++
++	ret = __vhost_get_vq_desc(dev, vq, iov, iov_size,
++				  out_num, in_num,
++				  log, log_num, head);
+ 
+ 	/* On success, increment avail index. */
++	if (ret == vq->num)
++		return ret;
+ 	vq->last_avail_idx++;
+ 	return head;
+ }
+diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+index 44591ba..3c9cbce 100644
+--- a/drivers/vhost/vhost.h
++++ b/drivers/vhost/vhost.h
+@@ -43,6 +43,11 @@ struct vhost_log {
+ 	u64 len;
+ };
+ 
++enum vhost_vq_link_state {
++	VHOST_VQ_LINK_SYNC = 0,
++	VHOST_VQ_LINK_ASYNC = 1,
++};
++
+ /* The virtqueue structure describes a queue attached to a device. */
+ struct vhost_virtqueue {
+ 	struct vhost_dev *dev;
+@@ -96,6 +101,10 @@ struct vhost_virtqueue {
+ 	/* Log write descriptors */
+ 	void __user *log_base;
+ 	struct vhost_log log[VHOST_NET_MAX_SG];
++	/* Differiate async socket for 0-copy from normal */
++	enum vhost_vq_link_state link_state;
++	struct list_head notifier;
++	spinlock_t notify_lock;
+ };
+ 
+ struct vhost_dev {
+@@ -124,6 +133,11 @@ unsigned vhost_get_vq_desc(struct vhost_dev *, struct vhost_virtqueue *,
+ 			   struct iovec iov[], unsigned int iov_count,
+ 			   unsigned int *out_num, unsigned int *in_num,
+ 			   struct vhost_log *log, unsigned int *log_num);
++unsigned __vhost_get_vq_desc(struct vhost_dev *, struct vhost_virtqueue *,
++			   struct iovec iov[], unsigned int iov_count,
++			   unsigned int *out_num, unsigned int *in_num,
++			   struct vhost_log *log, unsigned int *log_num,
++			   unsigned int head);
+ void vhost_discard_vq_desc(struct vhost_virtqueue *);
+ 
+ int vhost_add_used(struct vhost_virtqueue *, unsigned int head, int len);
 -- 
 1.5.4.4
-
