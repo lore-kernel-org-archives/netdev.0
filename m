@@ -1,87 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: tc: RTM_GETQDISC causes kernel OOPS
-Date: Sat, 22 May 2010 09:18:06 +0200
-Message-ID: <1274512687.5020.21.camel@edumazet-laptop>
-References: <20100521224243.GD10247@nicira.com>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 1/27] net/can: Use memdup_user
+Date: Sat, 22 May 2010 10:18:34 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005221018130.13021@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jamal Hadi Salim <hadi@cyberus.ca>, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>
-To: Ben Pfaff <blp@nicira.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: Oliver Hartkopp <socketcan@hartkopp.net>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	socketcan-core@lists.berlios.de, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:41723 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752930Ab0EVHSM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 May 2010 03:18:12 -0400
-Received: by wwi18 with SMTP id 18so1220318wwi.19
-        for <netdev@vger.kernel.org>; Sat, 22 May 2010 00:18:10 -0700 (PDT)
-In-Reply-To: <20100521224243.GD10247@nicira.com>
+Received: from mgw1.diku.dk ([130.225.96.91]:60181 "EHLO mgw1.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752334Ab0EVISk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 May 2010 04:18:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 21 mai 2010 =C3=A0 15:42 -0700, Ben Pfaff a =C3=A9crit :
-> Hi.  While working on some library code for working with qdiscs and
-> classes I came upon a kernel OOPS.  Originally I came across it with =
-a
-> 2.6.26 kernel, but I can also reproduce it with unmodified v2.6.34 fr=
-om
-> kernel.org.
->=20
-> At the end of this mail I'm appending both an example of the OOPS and=
- a
-> simple test program that reliably reproduces the problem for me when =
-I
-> invoke it with "lo" as argument.  The program does not need to be run=
- as
-> root.
->=20
-> After the OOPS, a lot of networking and other system functions stop
-> working, so it seems to me a serious issue.
->=20
-> The null pointer dereference that causes the OOPS is the dereference =
-of
-> the return value of qdisc_dev() in tc_fill_qdisc() in
-> net/sched/sch_api.c line 1163:
->=20
->     1161	tcm->tcm__pad1 =3D 0;
->     1162	tcm->tcm__pad2 =3D 0;
->     1163	tcm->tcm_ifindex =3D qdisc_dev(q)->ifindex;
->     1164	tcm->tcm_parent =3D clid;
->     1165	tcm->tcm_handle =3D q->handle;
->=20
-> I am pretty sure about that, because if I add "WARN_ON(!qdisc_dev(q))=
-;"
-> just before line 1163 then that warning triggers.
->=20
-> Thanks,
+From: Julia Lawall <julia@diku.dk>
 
-Indeed, thanks for this very useful report !
+Use memdup_user when user data is immediately copied into the
+allocated region.
 
-We could add a check for TCQ_F_BUILTIN flag, or just make=20
-qdisc_notify() checks consistent for both old and new qdisc
+The semantic patch that makes this change is as follows:
+(http://coccinelle.lip6.fr/)
 
-What other people thinks ?
+// <smpl>
+@@
+expression from,to,size,flag;
+position p;
+identifier l1,l2;
+@@
 
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index fe35c1f..e454c73 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -1210,7 +1210,7 @@ static int qdisc_notify(struct net *net, struct s=
-k_buff *oskb,
- 		if (tc_fill_qdisc(skb, old, clid, pid, n->nlmsg_seq, 0, RTM_DELQDISC=
-) < 0)
- 			goto err_out;
- 	}
--	if (new) {
-+	if (new && new->handle) {
- 		if (tc_fill_qdisc(skb, new, clid, pid, n->nlmsg_seq, old ? NLM_F_REP=
-LACE : 0, RTM_NEWQDISC) < 0)
- 			goto err_out;
- 	}
+-  to = \(kmalloc@p\|kzalloc@p\)(size,flag);
++  to = memdup_user(from,size);
+   if (
+-      to==NULL
++      IS_ERR(to)
+                 || ...) {
+   <+... when != goto l1;
+-  -ENOMEM
++  PTR_ERR(to)
+   ...+>
+   }
+-  if (copy_from_user(to, from, size) != 0) {
+-    <+... when != goto l2;
+-    -EFAULT
+-    ...+>
+-  }
+// </smpl>
 
+Signed-off-by: Julia Lawall <julia@diku.dk>
 
+---
+ net/can/raw.c |   11 +++--------
+ 1 file changed, 3 insertions(+), 8 deletions(-)
 
-
-
-
+diff --git a/net/can/raw.c b/net/can/raw.c
+index da99cf1..ccfe633 100644
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -436,14 +436,9 @@ static int raw_setsockopt(struct socket *sock, int level, int optname,
+ 
+ 		if (count > 1) {
+ 			/* filter does not fit into dfilter => alloc space */
+-			filter = kmalloc(optlen, GFP_KERNEL);
+-			if (!filter)
+-				return -ENOMEM;
+-
+-			if (copy_from_user(filter, optval, optlen)) {
+-				kfree(filter);
+-				return -EFAULT;
+-			}
++			filter = memdup_user(optval, optlen);
++			if (IS_ERR(filter))
++				return PTR_ERR(filter);
+ 		} else if (count == 1) {
+ 			if (copy_from_user(&sfilter, optval, sizeof(sfilter)))
+ 				return -EFAULT;
