@@ -1,49 +1,41 @@
 From: Dan Carpenter <error27@gmail.com>
-Subject: [patch] sctp: dubious bitfields in sctp_transport
-Date: Sat, 22 May 2010 22:20:24 +0200
-Message-ID: <20100522202024.GL22515@bicker>
+Subject: bug report: xfrm: potential null deref in xfrm_bundle_lookup()
+Date: Sat, 22 May 2010 22:24:30 +0200
+Message-ID: <20100522202430.GN22515@bicker>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Sridhar Samudrala <sri@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Wei Yongjun <yjwei@cn.fujitsu.com>, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Vlad Yasevich <vladislav.yasevich@hp.com>
+Cc: netdev@vger.kernel.org
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:40666 "EHLO
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:47344 "EHLO
 	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755773Ab0EVUUt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 May 2010 16:20:49 -0400
+	with ESMTP id S1757978Ab0EVUZC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 May 2010 16:25:02 -0400
+Received: by vws9 with SMTP id 9so1653697vws.19
+        for <netdev@vger.kernel.org>; Sat, 22 May 2010 13:25:01 -0700 (PDT)
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sparse complains because these one-bit bitfields are signed.
-  include/net/sctp/structs.h:879:24: error: dubious one-bit signed bitfield
-  include/net/sctp/structs.h:889:31: error: dubious one-bit signed bitfield
-  include/net/sctp/structs.h:895:26: error: dubious one-bit signed bitfield
-  include/net/sctp/structs.h:898:31: error: dubious one-bit signed bitfield
-  include/net/sctp/structs.h:901:27: error: dubious one-bit signed bitfield
+This is a smatch thing.  I couldn't tell if it was a real issue so I
+thought I would send this mail to the experts.  :)
 
-It doesn't cause a problem in the current code, but it would be better
-to clean it up.  This was introduced by c0058a35aacc7: "sctp: Save some
-room in the sctp_transport by using bitfields".
+net/xfrm/xfrm_policy.c +1679 xfrm_bundle_lookup(51)
+	error: we previously assumed 'xdst' could be null.
+  1672          new_xdst = xfrm_resolve_and_create_bundle(pols, num_pols, fl, family, dst_orig);
+  1673          if (IS_ERR(new_xdst)) {
+  1674                  err = PTR_ERR(new_xdst);
+  1675                  if (err != -EAGAIN)
+  1676                          goto error;
+  1677                  if (oldflo == NULL)
+  1678                          goto make_dummy_bundle;
+  1679                  dst_hold(&xdst->u.dst);
+                                  ^^^^^^^^^^^
+	Can xdst be NULL here?  It would have to be something like
+	oldflo gets passed in as null and __xfrm_policy_lookup() fails.
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
----
-It looks like this header is exported to user space.  I don't know if
-that makes a difference.
+  1680                  return oldflo;
+  1681          }
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 6173c61..4b86011 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -876,7 +876,7 @@ struct sctp_transport {
- 
- 	/* Reference counting. */
- 	atomic_t refcnt;
--	int	 dead:1,
-+	__u32	 dead:1,
- 		/* RTO-Pending : A flag used to track if one of the DATA
- 		 *		chunks sent to this address is currently being
- 		 *		used to compute a RTT. If this flag is 0,
+regards,
+dan carpenter
