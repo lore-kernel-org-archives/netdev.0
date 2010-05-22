@@ -1,13 +1,13 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 22/27] net/dccp: Use memdup_user
-Date: Sat, 22 May 2010 10:25:19 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1005221025040.13021@ask.diku.dk>
+Subject: [PATCH 23/27] drivers/net/wireless/prism54: Use memdup_user
+Date: Sat, 22 May 2010 10:25:44 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005221025200.13021@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	"David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitor
+To: "Luis R. Rodriguez" <mcgrof@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janit
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -48,28 +48,28 @@ identifier l1,l2;
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- net/dccp/proto.c |   11 +++--------
+ drivers/net/wireless/prism54/isl_ioctl.c |   11 +++--------
  1 file changed, 3 insertions(+), 8 deletions(-)
 
-diff --git a/net/dccp/proto.c b/net/dccp/proto.c
-index b03ecf6..f79bcef 100644
---- a/net/dccp/proto.c
-+++ b/net/dccp/proto.c
-@@ -473,14 +473,9 @@ static int dccp_setsockopt_ccid(struct sock *sk, int type,
- 	if (optlen < 1 || optlen > DCCP_FEAT_MAX_SP_VALS)
- 		return -EINVAL;
+diff --git a/drivers/net/wireless/prism54/isl_ioctl.c b/drivers/net/wireless/prism54/isl_ioctl.c
+index 8d1190c..2a62c60 100644
+--- a/drivers/net/wireless/prism54/isl_ioctl.c
++++ b/drivers/net/wireless/prism54/isl_ioctl.c
+@@ -2751,14 +2751,9 @@ prism54_hostapd(struct net_device *ndev, struct iw_point *p)
+            p->length > PRISM2_HOSTAPD_MAX_BUF_SIZE || !p->pointer)
+                return -EINVAL;
  
--	val = kmalloc(optlen, GFP_KERNEL);
--	if (val == NULL)
--		return -ENOMEM;
+-       param = kmalloc(p->length, GFP_KERNEL);
+-       if (param == NULL)
+-               return -ENOMEM;
 -
--	if (copy_from_user(val, optval, optlen)) {
--		kfree(val);
--		return -EFAULT;
--	}
-+	val = memdup_user(optval, optlen);
-+	if (IS_ERR(val))
-+		return PTR_ERR(val);
+-       if (copy_from_user(param, p->pointer, p->length)) {
+-               kfree(param);
+-               return -EFAULT;
+-       }
++	param = memdup_user(p->pointer, p->length);
++	if (IS_ERR(param))
++		return PTR_ERR(param);
  
- 	lock_sock(sk);
- 	if (type == DCCP_SOCKOPT_TX_CCID || type == DCCP_SOCKOPT_CCID)
+        switch (param->cmd) {
+        case PRISM2_SET_ENCRYPTION:
