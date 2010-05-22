@@ -1,36 +1,49 @@
-From: "George B." <georgeb@gmail.com>
-Subject: Re: VLANs, bonding redux: vlan state does not follow ethernet
-Date: Sat, 22 May 2010 13:01:58 -0700
-Message-ID: <AANLkTimxEuV-qVGsLNUSCZN5ajvclZWEO-GxSYiT7ck2@mail.gmail.com>
-References: <AANLkTimxJHKjAEm7wMYObFn9U3Sc1WPRYUuFFIKwwAyD@mail.gmail.com>
-	 <AANLkTim9nKSOdTW9YcrfNNJCmZoJ6t40mY_9f60GrWuG@mail.gmail.com>
-	 <AANLkTimar_hs5zpvbB6iGUg3b9UqgUASqlhMtK81ccXZ@mail.gmail.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch] sctp: dubious bitfields in sctp_transport
+Date: Sat, 22 May 2010 22:20:24 +0200
+Message-ID: <20100522202024.GL22515@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sridhar Samudrala <sri@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Wei Yongjun <yjwei@cn.fujitsu.com>, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Vlad Yasevich <vladislav.yasevich@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:56491 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758061Ab0EVUCA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 May 2010 16:02:00 -0400
-Received: by fxm5 with SMTP id 5so1635652fxm.19
-        for <netdev@vger.kernel.org>; Sat, 22 May 2010 13:01:58 -0700 (PDT)
-In-Reply-To: <AANLkTimar_hs5zpvbB6iGUg3b9UqgUASqlhMtK81ccXZ@mail.gmail.com>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:40666 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755773Ab0EVUUt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 May 2010 16:20:49 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 22, 2010 at 10:47 AM, George B. <georgeb@gmail.com> wrote:
+Sparse complains because these one-bit bitfields are signed.
+  include/net/sctp/structs.h:879:24: error: dubious one-bit signed bitfield
+  include/net/sctp/structs.h:889:31: error: dubious one-bit signed bitfield
+  include/net/sctp/structs.h:895:26: error: dubious one-bit signed bitfield
+  include/net/sctp/structs.h:898:31: error: dubious one-bit signed bitfield
+  include/net/sctp/structs.h:901:27: error: dubious one-bit signed bitfield
 
+It doesn't cause a problem in the current code, but it would be better
+to clean it up.  This was introduced by c0058a35aacc7: "sctp: Save some
+room in the sctp_transport by using bitfields".
 
-> This is with both physical links up. =A0The arp monitor just causes t=
-he
-> links to constantly fail back and forth each arp_monitor interval.
->
+Signed-off-by: Dan Carpenter <error27@gmail.com>
+---
+It looks like this header is exported to user space.  I don't know if
+that makes a difference.
 
-I can get it to work with miimon and use_carrier=3D1 with the vlan
-interface (works to the raw ethernet without the use_carrier).
-
-It would be nice, though, for arp_monitor to actually work as by
-monitoring an IP on the core switch it would allow me to detect a
-failed uplink from the access switch.
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 6173c61..4b86011 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -876,7 +876,7 @@ struct sctp_transport {
+ 
+ 	/* Reference counting. */
+ 	atomic_t refcnt;
+-	int	 dead:1,
++	__u32	 dead:1,
+ 		/* RTO-Pending : A flag used to track if one of the DATA
+ 		 *		chunks sent to this address is currently being
+ 		 *		used to compute a RTT. If this flag is 0,
