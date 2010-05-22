@@ -1,59 +1,60 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: ixgbe: macvlan on PF/VF when SRIOV is enabled
-Date: Sat, 22 May 2010 10:53:09 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755A79C099C@orsmsx508.amr.corp.intel.com>
-References: <1274473846.8701.25.camel@localhost.localdomain>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch] ipmr: off by one in __ipmr_fill_mroute()
+Date: Sat, 22 May 2010 19:54:48 +0200
+Message-ID: <20100522175357.GF22515@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Shirley Ma <mashirle@us.ibm.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"kernel-janitors@vger.kernel.org David S. Miller"
+	<davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:34902 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756017Ab0EVRxN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 May 2010 13:53:13 -0400
-In-Reply-To: <1274473846.8701.25.camel@localhost.localdomain>
-Content-Language: en-US
+Received: from mail-qy0-f183.google.com ([209.85.221.183]:59468 "EHLO
+	mail-qy0-f183.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755859Ab0EVRz3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 May 2010 13:55:29 -0400
+Received: by qyk13 with SMTP id 13so3358633qyk.1
+        for <netdev@vger.kernel.org>; Sat, 22 May 2010 10:55:28 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2Vy
-bmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddDQo+T24gQmVoYWxm
-IE9mIFNoaXJsZXkgTWENCj5TZW50OiBGcmlkYXksIE1heSAyMSwgMjAxMCAxOjMxIFBNDQo+VG86
-IEtpcnNoZXIsIEplZmZyZXkgVA0KPkNjOiBkYXZlbUBkYXZlbWxvZnQubmV0OyBrdm1Admdlci5r
-ZXJuZWwub3JnOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPmUxMDAwLWRldmVsQGxpc3RzLnNv
-dXJjZWZvcmdlLm5ldA0KPlN1YmplY3Q6IGl4Z2JlOiBtYWN2bGFuIG9uIFBGL1ZGIHdoZW4gU1JJ
-T1YgaXMgZW5hYmxlZA0KPg0KPkhlbGxvIEplZmYsDQo+DQo+bWFjdmxhbiBkb2Vzbid0IHdvcmsg
-b24gUEYgd2hlbiBTUklPViBpcyBlbmFibGVkLiBDcmVhdGluZyBtYWN2bGFuIGhhcw0KPmJlZW4g
-c3VjY2Vzc2Z1bCwgYnV0IHBpbmcgKGljbXAgcmVxdWVzdCkgZ29lcyB0byBWRiBpbnRlcmZhY2Ug
-bm90DQo+UEYvbWFjdmxhbiBldmVuIGFycCBlbnRyeSBpcyBjb3JyZWN0LiBJIHBhdGNoZWQgaXhn
-YmUgZHJpdmVyLCBhbmQNCj5tYWN2bGFuL1BGIGhhcyB3b3JrZWQgd2l0aCB0aGUgcGF0Y2guIEJ1
-dCBJIGFtIG5vdCBzdXJlIHdoZXRoZXIgaXQgaXMNCj5yaWdodCBzaW5jZSBJIGRvbid0IGhhdmUg
-dGhlIEhXIHNwZWMuIFdoYXQgSSBkaWQgZm9yIGl4Z2JlIGRyaXZlciB3YXM6DQo+DQo+MS4gUEYn
-cyByYXIgaW5kZXggaXMgMCwgVk1EUSBpbmRleCBpcyBhZGF0cGVyLT5udW1fdmZzOw0KPjIuIFZG
-J3MgcmFyIGlzIGJhc2VkIG9uIHJhcl91c2VkX2NvdW50IGFuZCBtY19hZGRyX2luX3Jhcl9jb3Vu
-dCwgVk1EUQ0KPmluZGV4IGlzIDsNCj4zLiBQRidzIHNlY29uZGFyeSBhZGRyZXNzZXMgaXMgUEYn
-cyByYXIgaW5kZXggKyBpLCBWTURRIGluZGV4IGlzDQo+YWRhcHRlci0+bnVtX3Zmcy4NCg0KQXMg
-b2YgMi42LjM0IHRoZSBpeGdiZSBkcml2ZXIgZG9lcyBub3Qgc3VwcG9ydCBtdWx0aXBsZSBxdWV1
-ZXMgZm9yIG1hY3ZsYW4uDQpTdXBwb3J0IGZvciBtdWx0aXBsZSBxdWV1ZXMgZm9yIG1hY3ZsYW4g
-d2lsbCBjb21lIGluIGEgc3Vic2VxdWVudCByZWxlYXNlLg0KDQo+DQo+DQo+QmVmb3JlIEkgc3Vi
-bWl0IHRoZSBwYXRjaCwgSSB3YW50IHRvIHVuZGVyc3RhbmQgdGhlIHJpZ2h0IGluZGV4DQo+YXNz
-aWdubWVudCBmb3IgYm90aCByYXIgaW5kZXggYW5kIFZNRFEgaW5kZXgsIHdoZW4gU1JJT1YgZW5h
-YmxlZDoNCj4xLiBWTURRIGluZGV4IGZvciBQRiBpcyBhZGFwdGVyLT5udW1fdmZzLCBvciAwPyBy
-YXIgaW5kZXggaXMgMD8NCj4yLiBQRidzIHNlY29uZGFyeSBhZGRyZXNzIHJhciBpbmRleCBpcyBi
-YXNlZCBvbg0KPnJhcl91c2VkX2NvdW50L21jX2FkZHJfaW5fcmFyX2NvdW50Pw0KPjIuIFZGJ3Mg
-VlBEUSBpbmRleCBpcyBiYXNlZCBvbiB2ZiBudW1iZXI/DQo+My4gVkYncyByYXIgaW5kZXggaXMg
-dmYgKyAxLCBvciBzaG91bGQgYmUgYmFzZWQgb24gcmFyX3VzZWRfY291bnQ/DQo+DQo+SSBhbSBh
-bHNvIHdvcmtpbmcgb24gbWFjdmxhbiBvbiBWRi4gVGhlIHF1ZXN0aW9uIGhlcmUgaXMgd2hldGhl
-ciBtYWN2bGFuDQo+b24gVkYgc2hvdWxkIHdvcmsgb3Igbm90PyBMb29rcyBsaWtlIGl4Z2JldmYg
-c2Vjb25kYXJ5IGFkZHJlc3NlcyBhcmUgbm90DQo+aW4gcmVjZWl2ZXIgYWRkcmVzcyBmaWx0ZXIs
-IHNvIG1hY3ZsYW4gb24gVkYgZG9lc24ndCB3b3JrLg0KDQpUaGUgVkYgZHJpdmVyIGRvZXMgbm90
-IHN1cHBvcnQgbWFjdmxhbi4gIEZ1dHVyZSByZWxlYXNlcyBtYXkgYnV0IHRoZXJlDQphcmUgbm8g
-aW1tZWRpYXRlIHBsYW5zIHRvIHN1cHBvcnQgaXQuDQoNCi0gR3JlZyBSb3NlDQpJbnRlbCBDb3Jw
-Lg0KTGFuIEFjY2VzcyBEaXZpc2lvbg0KDQo=
+This fixes a smatch warning:
+	net/ipv4/ipmr.c +1917 __ipmr_fill_mroute(12) error: buffer overflow
+	'(mrt)->vif_table' 32 <= 32
+
+The ipv6 version had the same issue.
+
+Signed-off-by: Dan Carpenter <error27@gmail.com>
+
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 4588910..856123f 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -1911,7 +1911,7 @@ static int __ipmr_fill_mroute(struct mr_table *mrt, struct sk_buff *skb,
+ 	struct rtattr *mp_head;
+ 
+ 	/* If cache is unresolved, don't try to parse IIF and OIF */
+-	if (c->mfc_parent > MAXVIFS)
++	if (c->mfc_parent >= MAXVIFS)
+ 		return -ENOENT;
+ 
+ 	if (VIF_EXISTS(mrt, c->mfc_parent))
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index bd9e7d3..073071f 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -2017,7 +2017,7 @@ static int __ip6mr_fill_mroute(struct mr6_table *mrt, struct sk_buff *skb,
+ 	struct rtattr *mp_head;
+ 
+ 	/* If cache is unresolved, don't try to parse IIF and OIF */
+-	if (c->mf6c_parent > MAXMIFS)
++	if (c->mf6c_parent >= MAXMIFS)
+ 		return -ENOENT;
+ 
+ 	if (MIF_EXISTS(mrt, c->mf6c_parent))
