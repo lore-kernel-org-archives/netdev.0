@@ -1,17 +1,17 @@
 From: "Dr Raymond Kuo Fung Chien" <drfungch@yahoo.com.hk>
 Subject: REPLY ME....
 Date: Sat, 22 May 2010 19:15:12 +0800 (MYT)
-Message-ID: <87e6574b42000d76876aa129f5141e83.squirrel__31364.9876080037$1274527117$gmane$org@mail.pemuda.com.my>
+Message-ID: <5d8a737b73a2d3115b3791f88b65d32e.squirrel__28710.7819262475$1274527118$gmane$org@mail.pemuda.com.my>
 Reply-To: drfungch2020@yahoo.com.hk
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 69-64-69-152.dedicated.abac.net ([69.64.69.152]:34377 "EHLO
+Received: from 69-64-69-152.dedicated.abac.net ([69.64.69.152]:34191 "EHLO
 	imedia.com.my" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754785Ab0EVLRo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 May 2010 07:17:44 -0400
+	id S1754635Ab0EVLRe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 May 2010 07:17:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
