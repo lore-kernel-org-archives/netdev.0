@@ -1,18 +1,16 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 7/27] drivers/net/wan: Use memdup_user
-Date: Sat, 22 May 2010 10:20:26 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1005221020110.13021@ask.diku.dk>
+Subject: [PATCH 22/27] net/dccp: Use memdup_user
+Date: Sat, 22 May 2010 10:25:19 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005221025040.13021@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Mike McLagan <mike.mclagan@linux.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw1.diku.dk ([130.225.96.91]:60263 "EHLO mgw1.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753652Ab0EVIUb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 May 2010 04:20:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	"David S. Miller" <davem@davemloft.net>, dccp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitor
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Julia Lawall <julia@diku.dk>
 
@@ -50,28 +48,28 @@ identifier l1,l2;
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/net/wan/sdla.c |   11 +++--------
+ net/dccp/proto.c |   11 +++--------
  1 file changed, 3 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/wan/sdla.c b/drivers/net/wan/sdla.c
-index 43ae6f4..258efc2 100644
---- a/drivers/net/wan/sdla.c
-+++ b/drivers/net/wan/sdla.c
-@@ -1211,14 +1211,9 @@ static int sdla_xfer(struct net_device *dev, struct sdla_mem __user *info, int r
- 	}
- 	else
- 	{
--		temp = kmalloc(mem.len, GFP_KERNEL);
--		if (!temp)
--			return(-ENOMEM);
--		if(copy_from_user(temp, mem.data, mem.len))
--		{
--			kfree(temp);
--			return -EFAULT;
--		}
-+		temp = memdup_user(mem.data, mem.len);
-+		if (IS_ERR(temp))
-+			return PTR_ERR(temp);
- 		sdla_write(dev, mem.addr, temp, mem.len);
- 		kfree(temp);
- 	}
+diff --git a/net/dccp/proto.c b/net/dccp/proto.c
+index b03ecf6..f79bcef 100644
+--- a/net/dccp/proto.c
++++ b/net/dccp/proto.c
+@@ -473,14 +473,9 @@ static int dccp_setsockopt_ccid(struct sock *sk, int type,
+ 	if (optlen < 1 || optlen > DCCP_FEAT_MAX_SP_VALS)
+ 		return -EINVAL;
+ 
+-	val = kmalloc(optlen, GFP_KERNEL);
+-	if (val == NULL)
+-		return -ENOMEM;
+-
+-	if (copy_from_user(val, optval, optlen)) {
+-		kfree(val);
+-		return -EFAULT;
+-	}
++	val = memdup_user(optval, optlen);
++	if (IS_ERR(val))
++		return PTR_ERR(val);
+ 
+ 	lock_sock(sk);
+ 	if (type == DCCP_SOCKOPT_TX_CCID || type == DCCP_SOCKOPT_CCID)
