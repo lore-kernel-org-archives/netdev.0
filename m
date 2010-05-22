@@ -1,41 +1,39 @@
 From: Dan Carpenter <error27@gmail.com>
-Subject: bug report: xfrm: potential null deref in xfrm_bundle_lookup()
-Date: Sat, 22 May 2010 22:24:30 +0200
-Message-ID: <20100522202430.GN22515@bicker>
+Subject: [patch] pppoe: uninitialized variable in pppoe_flush_dev()
+Date: Sat, 22 May 2010 22:27:48 +0200
+Message-ID: <20100522202534.GO22515@bicker>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: timo.teras@iki.fi
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Denys Fedoryschenko <denys@visp.net.lb>,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Michal Ostrowski <mostrows@earthlink.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:47344 "EHLO
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:56255 "EHLO
 	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757978Ab0EVUZC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 May 2010 16:25:02 -0400
-Received: by vws9 with SMTP id 9so1653697vws.19
-        for <netdev@vger.kernel.org>; Sat, 22 May 2010 13:25:01 -0700 (PDT)
+	with ESMTP id S1757978Ab0EVU2L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 May 2010 16:28:11 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a smatch thing.  I couldn't tell if it was a real issue so I
-thought I would send this mail to the experts.  :)
+This assignment got deleted along with the checks by mistake.  This
+comes from:  8753d29fd "pppoe: remove unnecessary checks in
+pppoe_flush_dev"
 
-net/xfrm/xfrm_policy.c +1679 xfrm_bundle_lookup(51)
-	error: we previously assumed 'xdst' could be null.
-  1672          new_xdst = xfrm_resolve_and_create_bundle(pols, num_pols, fl, family, dst_orig);
-  1673          if (IS_ERR(new_xdst)) {
-  1674                  err = PTR_ERR(new_xdst);
-  1675                  if (err != -EAGAIN)
-  1676                          goto error;
-  1677                  if (oldflo == NULL)
-  1678                          goto make_dummy_bundle;
-  1679                  dst_hold(&xdst->u.dst);
-                                  ^^^^^^^^^^^
-	Can xdst be NULL here?  It would have to be something like
-	oldflo gets passed in as null and __xfrm_policy_lookup() fails.
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-  1680                  return oldflo;
-  1681          }
-
-regards,
-dan carpenter
+diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
+index b1b93ff..805b64d 100644
+--- a/drivers/net/pppoe.c
++++ b/drivers/net/pppoe.c
+@@ -289,6 +289,7 @@ static void pppoe_flush_dev(struct net_device *dev)
+ 	struct pppoe_net *pn;
+ 	int i;
+ 
++	pn = pppoe_pernet(dev_net(dev));
+ 	write_lock_bh(&pn->hash_lock);
+ 	for (i = 0; i < PPPOE_HASH_SIZE; i++) {
+ 		struct pppox_sock *po = pn->hash_table[i];
