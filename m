@@ -1,31 +1,38 @@
-From: Julien Vehent <julien@linuxwall.info>
-Subject: Re: QoS weirdness : HTB accuracy
-Date: Sat, 22 May 2010 16:29:21 +0200
-Message-ID: <e6bd0cff8dafc8b3af0760facb5fdc8c@localhost>
-References: <067c83163988908ef546d7ff7f560a17@localhost>
- <4BF32BB0.7010700@redfish-solutions.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: null dereference in ethoc_probe()
+Date: Sat, 22 May 2010 17:55:47 +0200
+Message-ID: <20100522155455.GE22515@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-	netfilter <netfilter@vger.kernel.org>
-To: "Philip A. Prindeville" <philipp_subx@redfish-solutions.com>
-Return-path: <netfilter-owner@vger.kernel.org>
-In-Reply-To: <4BF32BB0.7010700@redfish-solutions.com>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: thomas@wytron.com.tw
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:59071 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754742Ab0EVP4K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 May 2010 11:56:10 -0400
+Received: by vws9 with SMTP id 9so1587953vws.19
+        for <netdev@vger.kernel.org>; Sat, 22 May 2010 08:56:09 -0700 (PDT)
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 18 May 2010 18:07:12 -0600, "Philip A. Prindeville"
-<philipp_subx@redfish-solutions.com> wrote:
-> 
-> Sorry for the late response:  could this be an "aliasing" issue caused
-> by sampling intervals (granularity)?
-> 
-> -Philip
+The patch 0baa080c75c: "ethoc: use system memory as buffer" introduced a
+potential null dereference.
 
-I was, in fact, an error in my ruleset. I had put the 'linklayer atm' at
-both the branch and leaf levels, so the overhead was computed twice,
-creating those holes in the bandwidth.
+  1060  free:
+  1061          if (priv->dma_alloc)
+                    ^^^^^^^^^^^^^^^
+	priv can be null here.
 
-Julien
+  1062                  dma_free_coherent(NULL, priv->dma_alloc, priv->membase,
+  1063                          netdev->mem_start);
+  1064          free_netdev(netdev);
+
+Also I think the error handling is not as complete as it should be.  It
+seems like we should call devm_iounmap() and release some of the other
+resources as well.
+
+regards,
+dan carpenter
+
