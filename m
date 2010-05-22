@@ -1,16 +1,16 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 24/27] drivers/net/wan: Use memdup_user
-Date: Sat, 22 May 2010 10:26:04 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1005221025450.13021@ask.diku.dk>
+Subject: [PATCH 26/27] drivers/isdn: Use memdup_user
+Date: Sat, 22 May 2010 10:26:42 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005221026230.13021@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Kevin Curtis <kevin.curtis@farsite.co.uk>, netdev@vger.kernel.org,
+To: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:60785 "EHLO mgw2.diku.dk"
+Received: from mgw2.diku.dk ([130.225.96.92]:60801 "EHLO mgw2.diku.dk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753088Ab0EVI0J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 May 2010 04:26:09 -0400
+	id S1755831Ab0EVI0s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 May 2010 04:26:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -50,31 +50,101 @@ identifier l1,l2;
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/net/wan/farsync.c |   14 ++++----------
- 1 file changed, 4 insertions(+), 10 deletions(-)
+ drivers/isdn/i4l/isdn_ppp.c |   11 +++--------
+ drivers/isdn/pcbit/drv.c    |   10 +++-------
+ drivers/isdn/sc/ioctl.c     |   23 ++++++-----------------
+ 3 files changed, 12 insertions(+), 32 deletions(-)
 
-diff --git a/drivers/net/wan/farsync.c b/drivers/net/wan/farsync.c
-index e087b9a..43b7727 100644
---- a/drivers/net/wan/farsync.c
-+++ b/drivers/net/wan/farsync.c
-@@ -2038,16 +2038,10 @@ fst_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+diff --git a/drivers/isdn/i4l/isdn_ppp.c b/drivers/isdn/i4l/isdn_ppp.c
+index f37b8f6..8c46bae 100644
+--- a/drivers/isdn/i4l/isdn_ppp.c
++++ b/drivers/isdn/i4l/isdn_ppp.c
+@@ -449,14 +449,9 @@ static int get_filter(void __user *arg, struct sock_filter **p)
  
- 		/* Now copy the data to the card. */
- 
--		buf = kmalloc(wrthdr.size, GFP_KERNEL);
--		if (!buf)
--			return -ENOMEM;
+ 	/* uprog.len is unsigned short, so no overflow here */
+ 	len = uprog.len * sizeof(struct sock_filter);
+-	code = kmalloc(len, GFP_KERNEL);
+-	if (code == NULL)
+-		return -ENOMEM;
 -
--		if (copy_from_user(buf,
--				   ifr->ifr_data + sizeof (struct fstioc_write),
--				   wrthdr.size)) {
--			kfree(buf);
+-	if (copy_from_user(code, uprog.filter, len)) {
+-		kfree(code);
+-		return -EFAULT;
+-	}
++	code = memdup_user(uprog.filter, len);
++	if (IS_ERR(code))
++		return PTR_ERR(code);
+ 
+ 	err = sk_chk_filter(code, uprog.len);
+ 	if (err) {
+diff --git a/drivers/isdn/pcbit/drv.c b/drivers/isdn/pcbit/drv.c
+index 123c1d6..1507d2e 100644
+--- a/drivers/isdn/pcbit/drv.c
++++ b/drivers/isdn/pcbit/drv.c
+@@ -411,14 +411,10 @@ static int pcbit_writecmd(const u_char __user *buf, int len, int driver, int cha
+ 			return -EINVAL;
+ 		}
+ 
+-		cbuf = kmalloc(len, GFP_KERNEL);
+-		if (!cbuf)
+-			return -ENOMEM;
++		cbuf = memdup_user(buf, len);
++		if (IS_ERR(cbuf))
++			return PTR_ERR(cbuf);
+ 
+-		if (copy_from_user(cbuf, buf, len)) {
+-			kfree(cbuf);
 -			return -EFAULT;
 -		}
-+		buf = memdup_user(ifr->ifr_data + sizeof(struct fstioc_write),
-+				  wrthdr.size);
-+		if (IS_ERR(buf))
-+			return PTR_ERR(buf);
+ 		memcpy_toio(dev->sh_mem, cbuf, len);
+ 		kfree(cbuf);
+ 		return len;
+diff --git a/drivers/isdn/sc/ioctl.c b/drivers/isdn/sc/ioctl.c
+index 1081091..43c5dc3 100644
+--- a/drivers/isdn/sc/ioctl.c
++++ b/drivers/isdn/sc/ioctl.c
+@@ -215,19 +215,13 @@ int sc_ioctl(int card, scs_ioctl *data)
+ 		pr_debug("%s: DCBIOSETSPID: ioctl received\n",
+ 				sc_adapter[card]->devicename);
  
- 		memcpy_toio(card->mem + wrthdr.offset, buf, wrthdr.size);
- 		kfree(buf);
+-		spid = kmalloc(SCIOC_SPIDSIZE, GFP_KERNEL);
+-		if(!spid) {
+-			kfree(rcvmsg);
+-			return -ENOMEM;
+-		}
+-
+ 		/*
+ 		 * Get the spid from user space
+ 		 */
+-		if (copy_from_user(spid, data->dataptr, SCIOC_SPIDSIZE)) {
++		spid = memdup_user(data->dataptr, SCIOC_SPIDSIZE);
++		if (IS_ERR(spid)) {
+ 			kfree(rcvmsg);
+-			kfree(spid);
+-			return -EFAULT;
++			return PTR_ERR(spid);
+ 		}
+ 
+ 		pr_debug("%s: SCIOCSETSPID: setting channel %d spid to %s\n", 
+@@ -296,18 +290,13 @@ int sc_ioctl(int card, scs_ioctl *data)
+ 		pr_debug("%s: SCIOSETDN: ioctl received\n",
+ 				sc_adapter[card]->devicename);
+ 
+-		dn = kmalloc(SCIOC_DNSIZE, GFP_KERNEL);
+-		if (!dn) {
+-			kfree(rcvmsg);
+-			return -ENOMEM;
+-		}
+ 		/*
+ 		 * Get the spid from user space
+ 		 */
+-		if (copy_from_user(dn, data->dataptr, SCIOC_DNSIZE)) {
++		dn = memdup_user(data->dataptr, SCIOC_DNSIZE);
++		if (IS_ERR(dn)) {
+ 			kfree(rcvmsg);
+-			kfree(dn);
+-			return -EFAULT;
++			return PTR_ERR(dn);
+ 		}
+ 
+ 		pr_debug("%s: SCIOCSETDN: setting channel %d dn to %s\n", 
