@@ -1,16 +1,18 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 23/27] drivers/net/wireless/prism54: Use memdup_user
-Date: Sat, 22 May 2010 10:25:44 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1005221025200.13021@ask.diku.dk>
+Subject: [PATCH 24/27] drivers/net/wan: Use memdup_user
+Date: Sat, 22 May 2010 10:26:04 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005221025450.13021@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janit
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Kevin Curtis <kevin.curtis@farsite.co.uk>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw2.diku.dk ([130.225.96.92]:60785 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753088Ab0EVI0J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 May 2010 04:26:09 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Julia Lawall <julia@diku.dk>
 
@@ -48,28 +50,31 @@ identifier l1,l2;
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/net/wireless/prism54/isl_ioctl.c |   11 +++--------
- 1 file changed, 3 insertions(+), 8 deletions(-)
+ drivers/net/wan/farsync.c |   14 ++++----------
+ 1 file changed, 4 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/wireless/prism54/isl_ioctl.c b/drivers/net/wireless/prism54/isl_ioctl.c
-index 8d1190c..2a62c60 100644
---- a/drivers/net/wireless/prism54/isl_ioctl.c
-+++ b/drivers/net/wireless/prism54/isl_ioctl.c
-@@ -2751,14 +2751,9 @@ prism54_hostapd(struct net_device *ndev, struct iw_point *p)
-            p->length > PRISM2_HOSTAPD_MAX_BUF_SIZE || !p->pointer)
-                return -EINVAL;
+diff --git a/drivers/net/wan/farsync.c b/drivers/net/wan/farsync.c
+index e087b9a..43b7727 100644
+--- a/drivers/net/wan/farsync.c
++++ b/drivers/net/wan/farsync.c
+@@ -2038,16 +2038,10 @@ fst_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
  
--       param = kmalloc(p->length, GFP_KERNEL);
--       if (param == NULL)
--               return -ENOMEM;
+ 		/* Now copy the data to the card. */
+ 
+-		buf = kmalloc(wrthdr.size, GFP_KERNEL);
+-		if (!buf)
+-			return -ENOMEM;
 -
--       if (copy_from_user(param, p->pointer, p->length)) {
--               kfree(param);
--               return -EFAULT;
--       }
-+	param = memdup_user(p->pointer, p->length);
-+	if (IS_ERR(param))
-+		return PTR_ERR(param);
+-		if (copy_from_user(buf,
+-				   ifr->ifr_data + sizeof (struct fstioc_write),
+-				   wrthdr.size)) {
+-			kfree(buf);
+-			return -EFAULT;
+-		}
++		buf = memdup_user(ifr->ifr_data + sizeof(struct fstioc_write),
++				  wrthdr.size);
++		if (IS_ERR(buf))
++			return PTR_ERR(buf);
  
-        switch (param->cmd) {
-        case PRISM2_SET_ENCRYPTION:
+ 		memcpy_toio(card->mem + wrthdr.offset, buf, wrthdr.size);
+ 		kfree(buf);
