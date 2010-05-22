@@ -1,46 +1,56 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch] caif: cleanup: remove duplicate checks
-Date: Sat, 22 May 2010 22:45:19 +0200
-Message-ID: <20100522204519.GW22515@bicker>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH 1/5] net/phy/marvell: Expose IDs and flags in a .h and
+	add dns323 LEDs setup flag
+Date: Sun, 23 May 2010 08:53:34 +1000
+Message-ID: <1274568814.1931.148.camel@pasglop>
+References: <1274525683.1931.139.camel@pasglop>
+	<20100522130624.GA28561@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sjur Braendeland <sjur.brandeland@stericsson.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	kernel-janitors@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:42349 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758238Ab0EVUp4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 May 2010 16:45:56 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>, Nicolas Pitre <nico@fluxnic.net>
+To: Wolfram Sang <w.sang@pengutronix.de>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20100522130624.GA28561@pengutronix.de>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-These checks merely duplicate the things we've asserted already.  In the
-case of the checks for null we've already dereferenced those variables
-as well.
+On Sat, 2010-05-22 at 15:06 +0200, Wolfram Sang wrote:
+> On Sat, May 22, 2010 at 08:54:43PM +1000, Benjamin Herrenschmidt wrote:
+> > This moves the various known Marvell PHY IDs to include/linux/marvell_phy.h
+> > along with dev_flags definitions for use by the driver.
+> 
+> I think this one from the driver should go there, too:
+> 
+> #define M1145_DEV_FLAGS_RESISTANCE      0x00000001
+> 
+> (which makes me wonder how this flag was set as it was not exported before)
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
+I missed that one indeed.
 
-diff --git a/net/caif/cfcnfg.c b/net/caif/cfcnfg.c
-index df43f26..cc2f072 100644
---- a/net/caif/cfcnfg.c
-+++ b/net/caif/cfcnfg.c
-@@ -313,14 +313,10 @@ cfcnfg_linkup_rsp(struct cflayer *layer, u8 channel_id, enum cfctrl_srv serv,
- 	caif_assert(phyinfo->phy_layer != NULL);
- 	caif_assert(phyinfo->phy_layer->id == phyid);
- 
--	if (phyinfo != NULL &&
--	    phyinfo->phy_ref_count++ == 0 &&
--	    phyinfo->phy_layer != NULL &&
-+	if (phyinfo->phy_ref_count++ == 0 &&
- 	    phyinfo->phy_layer->modemcmd != NULL) {
--		caif_assert(phyinfo->phy_layer->id == phyid);
- 		phyinfo->phy_layer->modemcmd(phyinfo->phy_layer,
- 					     _CAIF_MODEMCMD_PHYIF_USEFULL);
--
- 	}
- 	adapt_layer->id = channel_id;
- 
+> and thus yours could be maybe like
+> 
+> #define M1118_DEV_FLAGS_ALT_LED_INIT	0x00000001
+> 
+> (or 1 << 0)
+
+Right, it should be 2. I'd rather keep the "DNS323" name in there
+since the LED setup is specific to that NAS and somebody else might
+need a different one. If we end up in the long run with too many
+of them, we'll find a better solution, but we aren't there yet.
+
+> Otherwise looks good enough to me.
+
+Ok, thanks. I'll respin the whole lot soon.
+
+Cheers,
+Ben.
