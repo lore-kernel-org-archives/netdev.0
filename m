@@ -1,42 +1,36 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch] e1000e: change logical negate to bitwise
-Date: Sat, 22 May 2010 21:45:50 +0200
-Message-ID: <20100522194550.GG22515@bicker>
+From: "George B." <georgeb@gmail.com>
+Subject: Re: VLANs, bonding redux: vlan state does not follow ethernet
+Date: Sat, 22 May 2010 13:01:58 -0700
+Message-ID: <AANLkTimxEuV-qVGsLNUSCZN5ajvclZWEO-GxSYiT7ck2@mail.gmail.com>
+References: <AANLkTimxJHKjAEm7wMYObFn9U3Sc1WPRYUuFFIKwwAyD@mail.gmail.com>
+	 <AANLkTim9nKSOdTW9YcrfNNJCmZoJ6t40mY_9f60GrWuG@mail.gmail.com>
+	 <AANLkTimar_hs5zpvbB6iGUg3b9UqgUASqlhMtK81ccXZ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f183.google.com ([209.85.221.183]:60568 "EHLO
-	mail-qy0-f183.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755773Ab0EVTr1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 May 2010 15:47:27 -0400
-Content-Disposition: inline
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:56491 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758061Ab0EVUCA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 May 2010 16:02:00 -0400
+Received: by fxm5 with SMTP id 5so1635652fxm.19
+        for <netdev@vger.kernel.org>; Sat, 22 May 2010 13:01:58 -0700 (PDT)
+In-Reply-To: <AANLkTimar_hs5zpvbB6iGUg3b9UqgUASqlhMtK81ccXZ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bitwise negate is intended here.  With the logical negate the 
-condition is always false.
+On Sat, May 22, 2010 at 10:47 AM, George B. <georgeb@gmail.com> wrote:
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 24507f3..57a7e41 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -2554,7 +2554,7 @@ static void e1000_init_manageability_pt(struct e1000_adapter *adapter)
- 			mdef = er32(MDEF(i));
- 
- 			/* Ignore filters with anything other than IPMI ports */
--			if (mdef & !(E1000_MDEF_PORT_623 | E1000_MDEF_PORT_664))
-+			if (mdef & ~(E1000_MDEF_PORT_623 | E1000_MDEF_PORT_664))
- 				continue;
- 
- 			/* Enable this decision filter in MANC2H */
+> This is with both physical links up. =A0The arp monitor just causes t=
+he
+> links to constantly fail back and forth each arp_monitor interval.
+>
+
+I can get it to work with miimon and use_carrier=3D1 with the vlan
+interface (works to the raw ethernet without the use_carrier).
+
+It would be nice, though, for arp_monitor to actually work as by
+monitoring an IP on the core switch it would allow me to detect a
+failed uplink from the access switch.
