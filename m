@@ -1,189 +1,268 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: Receiving of priority tagged packets
-Date: Sun, 23 May 2010 22:32:31 +0200
-Message-ID: <1274646751.5020.78.camel@edumazet-laptop>
-References: <8628FE4E7912BF47A96AE7DD7BAC0AADDDC6675BEC@SJEXCHCCR02.corp.ad.broadcom.com>
-	 <1274609194.5020.68.camel@edumazet-laptop>
-	 <8628FE4E7912BF47A96AE7DD7BAC0AADDDC6675BF5@SJEXCHCCR02.corp.ad.broadcom.com>
-	 <8628FE4E7912BF47A96AE7DD7BAC0AADDDC6675BF8@SJEXCHCCR02.corp.ad.broadcom.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next-2.6 2/2] bonding: allow user-controlled output
+ slave selection
+Date: Sun, 23 May 2010 18:59:06 -0400
+Message-ID: <20100523225906.GA2236@localhost.localdomain>
+References: <20100511003245.GB7497@gospo.rdu.redhat.com>
+ <17897.1273608579@death.nxdomain.ibm.com>
+ <20100512002725.GA2460@localhost.localdomain>
+ <25238.1273693314@death.nxdomain.ibm.com>
+ <20100512221408.GI7497@gospo.rdu.redhat.com>
+ <20100513171504.GD21535@shamino.rdu.redhat.com>
+ <20100517184508.GD17419@hmsreliant.think-freely.org>
+ <17188.1274124341@death.nxdomain.ibm.com>
+ <12958.1274145714@death.nxdomain.ibm.com>
+ <AANLkTilkujZ-XaPFNtlLp_9el6ABC7ICcxFIL13hDzWM@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Vladislav Zolotarov <vladz@broadcom.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:35406 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754047Ab0EWUcg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 May 2010 16:32:36 -0400
-Received: by wwe15 with SMTP id 15so82590wwe.19
-        for <netdev@vger.kernel.org>; Sun, 23 May 2010 13:32:34 -0700 (PDT)
-In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AADDDC6675BF8@SJEXCHCCR02.corp.ad.broadcom.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:40792 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755618Ab0EWW7V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 May 2010 18:59:21 -0400
+Content-Disposition: inline
+In-Reply-To: <AANLkTilkujZ-XaPFNtlLp_9el6ABC7ICcxFIL13hDzWM@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 23 mai 2010 =C3=A0 03:51 -0700, Vladislav Zolotarov a =C3=A9=
-crit :
+On Tue, May 18, 2010 at 08:57:05AM -0400, Andy Gospodarek wrote:
+> On Mon, May 17, 2010 at 9:21 PM, Jay Vosburgh <fubar@us.ibm.com> wrot=
+e:
+> > Jay Vosburgh <fubar@us.ibm.com> wrote:
+> > [...]
+> >> =A0 =A0 =A0 For your patch, I'm exploring the idea of not setting
+> >>IFF_SLAVE_INACTIVE on "inactive" slaves for an "all_slaves_active"
+> >>option (I think that's a more descriptive name than "keep_all") ins=
+tead
+> >>of adding a new KEEP_ALL flag bit to priv_flags. =A0Did you conside=
+r this
+> >>methodology and exclude it for some reason?
+> >
+> > =A0 =A0 =A0 =A0Following up to myself, I coded up approximately wha=
+t I was
+> > talking about. =A0This doesn't require the extra priv_flag, and the=
+ sysfs
+> > _store is a little more complicated, but this appears to work (test=
+ing
+> > with ping -f after clearing the switch's MAC table to induce traffi=
+c
+> > flooding). =A0I didn't change the option name from "keep_all" here,=
+ but as
+> > far as the functionality goes, this seems to do what I think you wa=
+nt it
+> > to.
+> >
 >=20
-> > -----Original Message-----
-> > From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel=
-=2Eorg] On
-> > Behalf Of Vladislav Zolotarov
-> > Sent: Sunday, May 23, 2010 1:23 PM
-> > To: Eric Dumazet
-> > Cc: netdev@vger.kernel.org
-> > Subject: RE: Receiving of priority tagged packets
-> >=20
-> >=20
-> > > -----Original Message-----
-> > > From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
-> > > Sent: Sunday, May 23, 2010 1:07 PM
-> > > To: Vladislav Zolotarov
-> > > Cc: netdev@vger.kernel.org
-> > > Subject: Re: Receiving of priority tagged packets
-> > >
-> > > Le dimanche 23 mai 2010 =C3=A0 02:36 -0700, Vladislav Zolotarov a=
- =C3=A9crit :
-> > > > Hello,
-> > > > We were playing with FCoE in our labs and saw the strange behav=
-ior of
-> > Linux
-> > > networking stack in regard to priority-tagged frames (the ones th=
-at have a
-> > > zero VID in a VLAN tag). We saw that until we explicitly added a =
-zero vlan
-> > > interface (vconfig add ethX 0) the stack refused to accept such p=
-ackets
-> > both
-> > > in HW VLAN acceleration mode (skb is indicated using
-> > > vlan_hwaccel_receive_skb()) and in a regular mode (skb is indicat=
-ed with
-> > > netif_receive_skb()).
-> > > >
-> > > > However "IEEE Std 802.1Q, 2006 Edition DRAFT D0.1" in section 6=
-=2E7 states
-> > > the following:
-> > > >
-> > > > Each Bridge Port shall support the following parameters for use=
- by these
-> > > (EISS tagging and detagging) functions:
-> > > > 	c) an Acceptable Frame Types parameter with at least one of th=
-e
-> > > following values:
-> > > > 		1) Admit Only VLAN-tagged frames;
-> > > > 		2) Admit Only Untagged and Priority-tagged frames;
-> > > > 		3) Admit All frames
-> > > >
-> > > > So I guess this means that priority tagged frames should be acc=
-epted
-> > > together with the untagged frames on the default interface ethX.
-> > > >
-> > > > Could anyone explain, pls., what's the expected behavior of the=
- Linux
-> > > Networking Stack in regard to the priority-tagged frames and what=
-'s
-> > expected
-> > > to be configured in order to start accepting them?
-> > > >
-> > > > Thanks in advance,
-> > > > vlad
-> > >
-> > > So if eth0.0 is setup, incoming vlanid=3D0 frames are delivered t=
-o eth0.0,
-> > > OK ? (This works in and out since commit 05423b241311c93)
-> > >
-> > > Now, if eth0.0 is not setup, you believe these frames should be d=
-irected
-> > > to eth0, as if they were not tagged ?
-> > >
-> > > That seems a bit strange.
-> >=20
-> > Well, as far as I understood this is what IEEE 802.1Q spec states..=
-=2E
+> I can test it here to be sure, but overall this seems like a fine
+> approach.  The IFF_SLAVE_INACTIVE doesn't seem to be used for much
+> other than duplicate suppression at this point, so it seems like a
+> logical choice.
 >=20
-> From the same spec:
+> As for the original name 'keep_all,' I tried to use something that
+> user would find easy to understand.  Obviously not all users think
+> alike. :-)
 >=20
-> ***************
-> 3.38 Priority-tagged frame: A tagged frame whose tag header carries p=
-riority information but carries no
-> VLAN identification information.
-> ***************
 >=20
-> Namely priority-tagged frames are frames that carry no VLAN identific=
-ation information and namely should be treated as non-VLAN packets.
->=20
-> However, as u mentioned above, current Networking Stack implementatio=
-n handles them as if they have VID 0.
->=20
-> These two are quite different ways to handle the frame, don=E2=80=99t=
- u think?
+Sorry, Just trying to keep this from falling off my radar.  Andy, any t=
+est
+results on this?
+Thanks
+Neil
 
-=46ollowing patch should fix it ?
-
-=46allback to ethX is ethX.0 is not used.
-
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index bd537fc..909f6e7 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -8,6 +8,9 @@
- int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
- 		      u16 vlan_tci, int polling)
+> > =A0 =A0 =A0 =A0-J
+> >
+> > diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/=
+bond_main.c
+> > index 5e12462..c80d2ff 100644
+> > --- a/drivers/net/bonding/bond_main.c
+> > +++ b/drivers/net/bonding/bond_main.c
+> > @@ -106,6 +106,7 @@ static int arp_interval =3D BOND_LINK_ARP_INTER=
+V;
+> > =A0static char *arp_ip_target[BOND_MAX_ARP_TARGETS];
+> > =A0static char *arp_validate;
+> > =A0static char *fail_over_mac;
+> > +static int keep_all =A0 =A0=3D 0;
+> > =A0static struct bond_params bonding_defaults;
+> >
+> > =A0module_param(max_bonds, int, 0);
+> > @@ -155,6 +156,9 @@ module_param(arp_validate, charp, 0);
+> > =A0MODULE_PARM_DESC(arp_validate, "validate src/dst of ARP probes: =
+none (default), active, backup or all");
+> > =A0module_param(fail_over_mac, charp, 0);
+> > =A0MODULE_PARM_DESC(fail_over_mac, "For active-backup, do not set a=
+ll slaves to the same MAC. =A0none (default), active or follow");
+> > +module_param(keep_all, int, 0);
+> > +MODULE_PARM_DESC(keep_all, "Keep all frames received on an interfa=
+ce"
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"0 for never (=
+default), 1 for always.");
+> >
+> > =A0/*----------------------------- Global variables ---------------=
+-------------*/
+> >
+> > @@ -4756,6 +4760,13 @@ static int bond_check_params(struct bond_par=
+ams *params)
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+> > =A0 =A0 =A0 =A0}
+> >
+> > + =A0 =A0 =A0 if ((keep_all !=3D 0) && (keep_all !=3D 1)) {
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 pr_warning("Warning: keep_all module =
+parameter (%d), "
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"not of valid =
+value (0/1), so it was set to "
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0"0\n", keep_al=
+l);
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 keep_all =3D 0;
+> > + =A0 =A0 =A0 }
+> > +
+> > =A0 =A0 =A0 =A0/* reset values for TLB/ALB */
+> > =A0 =A0 =A0 =A0if ((bond_mode =3D=3D BOND_MODE_TLB) ||
+> > =A0 =A0 =A0 =A0 =A0 =A0(bond_mode =3D=3D BOND_MODE_ALB)) {
+> > @@ -4926,6 +4937,7 @@ static int bond_check_params(struct bond_para=
+ms *params)
+> > =A0 =A0 =A0 =A0params->primary[0] =3D 0;
+> > =A0 =A0 =A0 =A0params->primary_reselect =3D primary_reselect_value;
+> > =A0 =A0 =A0 =A0params->fail_over_mac =3D fail_over_mac_value;
+> > + =A0 =A0 =A0 params->keep_all =3D keep_all;
+> >
+> > =A0 =A0 =A0 =A0if (primary) {
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0strncpy(params->primary, primary, IF=
+NAMSIZ);
+> > diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding=
+/bond_sysfs.c
+> > index b8bec08..73b3c03 100644
+> > --- a/drivers/net/bonding/bond_sysfs.c
+> > +++ b/drivers/net/bonding/bond_sysfs.c
+> > @@ -339,7 +339,6 @@ out:
+> >
+> > =A0static DEVICE_ATTR(slaves, S_IRUGO | S_IWUSR, bonding_show_slave=
+s,
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bonding_store_slaves);
+> > -
+> > =A0/*
+> > =A0* Show and set the bonding mode. =A0The bond interface must be d=
+own to
+> > =A0* change the mode.
+> > @@ -1472,6 +1471,59 @@ static ssize_t bonding_show_ad_partner_mac(s=
+truct device *d,
+> > =A0}
+> > =A0static DEVICE_ATTR(ad_partner_mac, S_IRUGO, bonding_show_ad_part=
+ner_mac, NULL);
+> >
+> > +/*
+> > + * Show and set the keep_all flag.
+> > + */
+> > +static ssize_t bonding_show_keep(struct device *d,
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0st=
+ruct device_attribute *attr,
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0ch=
+ar *buf)
+> > +{
+> > + =A0 =A0 =A0 struct bonding *bond =3D to_bond(d);
+> > +
+> > + =A0 =A0 =A0 return sprintf(buf, "%d\n", bond->params.keep_all);
+> > +}
+> > +
+> > +static ssize_t bonding_store_keep(struct device *d,
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 s=
+truct device_attribute *attr,
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 c=
+onst char *buf, size_t count)
+> > +{
+> > + =A0 =A0 =A0 int i, new_value, ret =3D count;
+> > + =A0 =A0 =A0 struct bonding *bond =3D to_bond(d);
+> > + =A0 =A0 =A0 struct slave *slave;
+> > +
+> > + =A0 =A0 =A0 if (sscanf(buf, "%d", &new_value) !=3D 1) {
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 pr_err("%s: no keep_all value specifi=
+ed.\n",
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bond->dev->name);
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ret =3D -EINVAL;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
+> > + =A0 =A0 =A0 }
+> > +
+> > + =A0 =A0 =A0 if (new_value =3D=3D bond->params.keep_all)
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
+> > +
+> > + =A0 =A0 =A0 if ((new_value =3D=3D 0) || (new_value =3D=3D 1)) {
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 bond->params.keep_all =3D new_value;
+> > + =A0 =A0 =A0 } else {
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 pr_info("%s: Ignoring invalid keep_al=
+l value %d.\n",
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bond->dev->name, new_=
+value);
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ret =3D -EINVAL;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out;
+> > + =A0 =A0 =A0 }
+> > +
+> > + =A0 =A0 =A0 bond_for_each_slave(bond, slave, i) {
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (slave->state =3D=3D BOND_STATE_BA=
+CKUP) {
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (new_value)
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 slave=
+->dev->priv_flags &=3D ~IFF_SLAVE_INACTIVE;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 else
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 slave=
+->dev->priv_flags |=3D IFF_SLAVE_INACTIVE;
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> > + =A0 =A0 =A0 }
+> > +out:
+> > + =A0 =A0 =A0 return count;
+> > +}
+> > +static DEVICE_ATTR(keep_all, S_IRUGO | S_IWUSR,
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bonding_show_keep, bonding_sto=
+re_keep);
+> > +
+> >
+> >
+> > =A0static struct attribute *per_bond_attrs[] =3D {
+> > @@ -1499,6 +1551,7 @@ static struct attribute *per_bond_attrs[] =3D=
  {
-+	struct net_device *vlan_dev;
-+	u16 vlan_id;
-+
- 	if (netpoll_rx(skb))
- 		return NET_RX_DROP;
-=20
-@@ -16,10 +19,14 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, struct v=
-lan_group *grp,
-=20
- 	skb->skb_iif =3D skb->dev->ifindex;
- 	__vlan_hwaccel_put_tag(skb, vlan_tci);
--	skb->dev =3D vlan_group_get_device(grp, vlan_tci & VLAN_VID_MASK);
-+	vlan_id =3D vlan_tci & VLAN_VID_MASK;
-+	vlan_dev =3D vlan_group_get_device(grp, vlan_id);
-=20
--	if (!skb->dev)
--		goto drop;
-+	if (vlan_dev)
-+		skb->dev =3D vlan_dev;
-+	else
-+		if (vlan_id)
-+			goto drop;
-=20
- 	return (polling ? netif_receive_skb(skb) : netif_rx(skb));
-=20
-@@ -82,16 +89,22 @@ vlan_gro_common(struct napi_struct *napi, struct vl=
-an_group *grp,
- 		unsigned int vlan_tci, struct sk_buff *skb)
- {
- 	struct sk_buff *p;
-+	struct net_device *vlan_dev;
-+	u16 vlan_id;
-=20
- 	if (skb_bond_should_drop(skb, ACCESS_ONCE(skb->dev->master)))
- 		goto drop;
-=20
- 	skb->skb_iif =3D skb->dev->ifindex;
- 	__vlan_hwaccel_put_tag(skb, vlan_tci);
--	skb->dev =3D vlan_group_get_device(grp, vlan_tci & VLAN_VID_MASK);
--
--	if (!skb->dev)
--		goto drop;
-+	vlan_id =3D vlan_tci & VLAN_VID_MASK;
-+	vlan_dev =3D vlan_group_get_device(grp, vlan_id);
-+
-+	if (vlan_dev)
-+		skb->dev =3D vlan_dev;
-+	else
-+		if (vlan_id)
-+			goto drop;
-=20
- 	for (p =3D napi->gro_list; p; p =3D p->next) {
- 		NAPI_GRO_CB(p)->same_flow =3D
-
-
-
-
+> > =A0 =A0 =A0 =A0&dev_attr_ad_actor_key.attr,
+> > =A0 =A0 =A0 =A0&dev_attr_ad_partner_key.attr,
+> > =A0 =A0 =A0 =A0&dev_attr_ad_partner_mac.attr,
+> > + =A0 =A0 =A0 &dev_attr_keep_all.attr,
+> > =A0 =A0 =A0 =A0NULL,
+> > =A0};
+> >
+> > diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bo=
+nding.h
+> > index 2aa3367..ef7969b 100644
+> > --- a/drivers/net/bonding/bonding.h
+> > +++ b/drivers/net/bonding/bonding.h
+> > @@ -131,6 +131,7 @@ struct bond_params {
+> > =A0 =A0 =A0 =A0char primary[IFNAMSIZ];
+> > =A0 =A0 =A0 =A0int primary_reselect;
+> > =A0 =A0 =A0 =A0__be32 arp_targets[BOND_MAX_ARP_TARGETS];
+> > + =A0 =A0 =A0 int keep_all;
+> > =A0};
+> >
+> > =A0struct bond_parm_tbl {
+> > @@ -291,7 +292,8 @@ static inline void bond_set_slave_inactive_flag=
+s(struct slave *slave)
+> > =A0 =A0 =A0 =A0struct bonding *bond =3D netdev_priv(slave->dev->mas=
+ter);
+> > =A0 =A0 =A0 =A0if (!bond_is_lb(bond))
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0slave->state =3D BOND_STATE_BACKUP;
+> > - =A0 =A0 =A0 slave->dev->priv_flags |=3D IFF_SLAVE_INACTIVE;
+> > + =A0 =A0 =A0 if (!bond->params.keep_all)
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 slave->dev->priv_flags |=3D IFF_SLAVE=
+_INACTIVE;
+> > =A0 =A0 =A0 =A0if (slave_do_arp_validate(bond, slave))
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0slave->dev->priv_flags |=3D IFF_SLAV=
+E_NEEDARP;
+> > =A0}
+> >
+> >
+> > ---
+> > =A0 =A0 =A0 =A0-Jay Vosburgh, IBM Linux Technology Center, fubar@us=
+=2Eibm.com
+> >
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>=20
