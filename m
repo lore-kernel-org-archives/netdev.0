@@ -1,8 +1,8 @@
 From: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
-Subject: [PATCH 7/7] isdn/gigaset: drop obsolete FIXME comment
-Date: Sun, 23 May 2010 02:27:43 +0200 (CEST)
-Message-ID: <20100522-patch-gigaset-07.tilman@imap.cc>
-References: <20100522-patch-gigaset-00.tilman@imap.cc>
+Subject: [PATCH 2/2] isdn/gigaset: remove dummy CAPI method implementations
+Date: Sun, 23 May 2010 03:15:43 +0200 (CEST)
+Message-ID: <20100523-patch-gigaset-02.tilman@imap.cc>
+References: <20100523-patch-gigaset-00.tilman@imap.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,7 +11,7 @@ Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Karsten Keil <keil-shG/GajIF
         i4ldeveloper-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 To: Karsten Keil <isdn-iHCpqvpFUx0uJkBD2foKsQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org>
-In-Reply-To: <20100522-patch-gigaset-00.tilman-ZTO5kqT2PaM@public.gmane.org>
+In-Reply-To: <20100523-patch-gigaset-00.tilman-ZTO5kqT2PaM@public.gmane.org>
 List-Unsubscribe: <https://www.isdn4linux.de/mailman/options/i4ldeveloper>,
 	<mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://www.isdn4linux.de/pipermail/i4ldeveloper/>
@@ -23,26 +23,61 @@ Sender: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 Errors-To: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Drop a FIXME comment with nothing left to fix.
+Dummy implementations for the optional CAPI controller operations
+load_firmware and reset_ctr can cause userspace callers to hang
+indefinitely. It's better not to implement them at all.
 
-Impact: cosmetic
+Impact: bugfix
 Signed-off-by: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
 ---
- drivers/isdn/gigaset/common.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+ drivers/isdn/gigaset/capi.c |   28 ++--------------------------
+ 1 files changed, 2 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/isdn/gigaset/common.c b/drivers/isdn/gigaset/common.c
-index f6f45f2..32f5a2c 100644
---- a/drivers/isdn/gigaset/common.c
-+++ b/drivers/isdn/gigaset/common.c
-@@ -801,8 +801,6 @@ struct cardstate *gigaset_initcs(struct gigaset_driver *drv, int channels,
- 	spin_unlock_irqrestore(&cs->lock, flags);
- 	setup_timer(&cs->timer, timer_tick, (unsigned long) cs);
- 	cs->timer.expires = jiffies + msecs_to_jiffies(GIG_TICK);
--	/* FIXME: can jiffies increase too much until the timer is added?
--	 * Same problem(?) with mod_timer() in timer_tick(). */
- 	add_timer(&cs->timer);
+diff --git a/drivers/isdn/gigaset/capi.c b/drivers/isdn/gigaset/capi.c
+index 964a55f..e72f86b 100644
+--- a/drivers/isdn/gigaset/capi.c
++++ b/drivers/isdn/gigaset/capi.c
+@@ -933,30 +933,6 @@ void gigaset_isdn_stop(struct cardstate *cs)
+  */
  
- 	gig_dbg(DEBUG_INIT, "cs initialized");
+ /*
+- * load firmware
+- */
+-static int gigaset_load_firmware(struct capi_ctr *ctr, capiloaddata *data)
+-{
+-	struct cardstate *cs = ctr->driverdata;
+-
+-	/* AVM specific operation, not needed for Gigaset -- ignore */
+-	dev_notice(cs->dev, "load_firmware ignored\n");
+-
+-	return 0;
+-}
+-
+-/*
+- * reset (deactivate) controller
+- */
+-static void gigaset_reset_ctr(struct capi_ctr *ctr)
+-{
+-	struct cardstate *cs = ctr->driverdata;
+-
+-	/* AVM specific operation, not needed for Gigaset -- ignore */
+-	dev_notice(cs->dev, "reset_ctr ignored\n");
+-}
+-
+-/*
+  * register CAPI application
+  */
+ static void gigaset_register_appl(struct capi_ctr *ctr, u16 appl,
+@@ -2213,8 +2189,8 @@ int gigaset_isdn_regdev(struct cardstate *cs, const char *isdnid)
+ 	iif->ctr.driverdata    = cs;
+ 	strncpy(iif->ctr.name, isdnid, sizeof(iif->ctr.name));
+ 	iif->ctr.driver_name   = "gigaset";
+-	iif->ctr.load_firmware = gigaset_load_firmware;
+-	iif->ctr.reset_ctr     = gigaset_reset_ctr;
++	iif->ctr.load_firmware = NULL;
++	iif->ctr.reset_ctr     = NULL;
+ 	iif->ctr.register_appl = gigaset_register_appl;
+ 	iif->ctr.release_appl  = gigaset_release_appl;
+ 	iif->ctr.send_message  = gigaset_send_message;
 -- 
 1.6.5.3.298.g39add
