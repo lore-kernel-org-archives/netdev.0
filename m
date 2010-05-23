@@ -1,122 +1,189 @@
-From: Andrea Gelmini <andrea.gelmini@gelma.net>
-Subject: [PATCH 184/199] drivers/atm/firestream.h: Checkpatch cleanup
-Date: Sun, 23 May 2010 22:06:00 +0200
-Message-ID: <1274645175-27335-1-git-send-email-andrea.gelmini@gelma.net>
-Cc: Chas Williams <chas@cmf.nrl.navy.mil>,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
-To: andrea.gelmini@gelma.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: Receiving of priority tagged packets
+Date: Sun, 23 May 2010 22:32:31 +0200
+Message-ID: <1274646751.5020.78.camel@edumazet-laptop>
+References: <8628FE4E7912BF47A96AE7DD7BAC0AADDDC6675BEC@SJEXCHCCR02.corp.ad.broadcom.com>
+	 <1274609194.5020.68.camel@edumazet-laptop>
+	 <8628FE4E7912BF47A96AE7DD7BAC0AADDDC6675BF5@SJEXCHCCR02.corp.ad.broadcom.com>
+	 <8628FE4E7912BF47A96AE7DD7BAC0AADDDC6675BF8@SJEXCHCCR02.corp.ad.broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Vladislav Zolotarov <vladz@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:28708 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754670Ab0EWUGd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 May 2010 16:06:33 -0400
-Received: by fg-out-1718.google.com with SMTP id 22so1028570fge.1
-        for <netdev@vger.kernel.org>; Sun, 23 May 2010 13:06:32 -0700 (PDT)
+Received: from mail-ww0-f46.google.com ([74.125.82.46]:35406 "EHLO
+	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754047Ab0EWUcg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 May 2010 16:32:36 -0400
+Received: by wwe15 with SMTP id 15so82590wwe.19
+        for <netdev@vger.kernel.org>; Sun, 23 May 2010 13:32:34 -0700 (PDT)
+In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AADDDC6675BF8@SJEXCHCCR02.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-drivers/atm/firestream.h:2: ERROR: trailing whitespace
-drivers/atm/firestream.h:4: ERROR: trailing whitespace
-drivers/atm/firestream.h:5: ERROR: trailing whitespace
-drivers/atm/firestream.h:6: ERROR: trailing whitespace
-drivers/atm/firestream.h:7: ERROR: trailing whitespace
-drivers/atm/firestream.h:191: ERROR: trailing whitespace
-drivers/atm/firestream.h:221: ERROR: trailing whitespace
-drivers/atm/firestream.h:232: ERROR: trailing whitespace
-drivers/atm/firestream.h:385: ERROR: trailing whitespace
-drivers/atm/firestream.h:458: ERROR: trailing whitespace
-drivers/atm/firestream.h:501: ERROR: trailing whitespace
-drivers/atm/firestream.h:501: ERROR: code indent should use tabs where possible
-drivers/atm/firestream.h:511: ERROR: trailing whitespace
+Le dimanche 23 mai 2010 =C3=A0 03:51 -0700, Vladislav Zolotarov a =C3=A9=
+crit :
+>=20
+> > -----Original Message-----
+> > From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel=
+=2Eorg] On
+> > Behalf Of Vladislav Zolotarov
+> > Sent: Sunday, May 23, 2010 1:23 PM
+> > To: Eric Dumazet
+> > Cc: netdev@vger.kernel.org
+> > Subject: RE: Receiving of priority tagged packets
+> >=20
+> >=20
+> > > -----Original Message-----
+> > > From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+> > > Sent: Sunday, May 23, 2010 1:07 PM
+> > > To: Vladislav Zolotarov
+> > > Cc: netdev@vger.kernel.org
+> > > Subject: Re: Receiving of priority tagged packets
+> > >
+> > > Le dimanche 23 mai 2010 =C3=A0 02:36 -0700, Vladislav Zolotarov a=
+ =C3=A9crit :
+> > > > Hello,
+> > > > We were playing with FCoE in our labs and saw the strange behav=
+ior of
+> > Linux
+> > > networking stack in regard to priority-tagged frames (the ones th=
+at have a
+> > > zero VID in a VLAN tag). We saw that until we explicitly added a =
+zero vlan
+> > > interface (vconfig add ethX 0) the stack refused to accept such p=
+ackets
+> > both
+> > > in HW VLAN acceleration mode (skb is indicated using
+> > > vlan_hwaccel_receive_skb()) and in a regular mode (skb is indicat=
+ed with
+> > > netif_receive_skb()).
+> > > >
+> > > > However "IEEE Std 802.1Q, 2006 Edition DRAFT D0.1" in section 6=
+=2E7 states
+> > > the following:
+> > > >
+> > > > Each Bridge Port shall support the following parameters for use=
+ by these
+> > > (EISS tagging and detagging) functions:
+> > > > 	c) an Acceptable Frame Types parameter with at least one of th=
+e
+> > > following values:
+> > > > 		1) Admit Only VLAN-tagged frames;
+> > > > 		2) Admit Only Untagged and Priority-tagged frames;
+> > > > 		3) Admit All frames
+> > > >
+> > > > So I guess this means that priority tagged frames should be acc=
+epted
+> > > together with the untagged frames on the default interface ethX.
+> > > >
+> > > > Could anyone explain, pls., what's the expected behavior of the=
+ Linux
+> > > Networking Stack in regard to the priority-tagged frames and what=
+'s
+> > expected
+> > > to be configured in order to start accepting them?
+> > > >
+> > > > Thanks in advance,
+> > > > vlad
+> > >
+> > > So if eth0.0 is setup, incoming vlanid=3D0 frames are delivered t=
+o eth0.0,
+> > > OK ? (This works in and out since commit 05423b241311c93)
+> > >
+> > > Now, if eth0.0 is not setup, you believe these frames should be d=
+irected
+> > > to eth0, as if they were not tagged ?
+> > >
+> > > That seems a bit strange.
+> >=20
+> > Well, as far as I understood this is what IEEE 802.1Q spec states..=
+=2E
+>=20
+> From the same spec:
+>=20
+> ***************
+> 3.38 Priority-tagged frame: A tagged frame whose tag header carries p=
+riority information but carries no
+> VLAN identification information.
+> ***************
+>=20
+> Namely priority-tagged frames are frames that carry no VLAN identific=
+ation information and namely should be treated as non-VLAN packets.
+>=20
+> However, as u mentioned above, current Networking Stack implementatio=
+n handles them as if they have VID 0.
+>=20
+> These two are quite different ways to handle the frame, don=E2=80=99t=
+ u think?
 
-Signed-off-by: Andrea Gelmini <andrea.gelmini@gelma.net>
----
- drivers/atm/firestream.h |   24 ++++++++++++------------
- 1 files changed, 12 insertions(+), 12 deletions(-)
+=46ollowing patch should fix it ?
 
-diff --git a/drivers/atm/firestream.h b/drivers/atm/firestream.h
-index 49e783e..840befd 100644
---- a/drivers/atm/firestream.h
-+++ b/drivers/atm/firestream.h
-@@ -1,10 +1,10 @@
- /* drivers/atm/firestream.h - FireStream 155 (MB86697) and
-- *                            FireStream  50 (MB86695) device driver 
-+ *                            FireStream  50 (MB86695) device driver
-  */
-- 
--/* Written & (C) 2000 by R.E.Wolff@BitWizard.nl 
-- * Copied snippets from zatm.c by Werner Almesberger, EPFL LRC/ICA 
-- * and ambassador.c Copyright (C) 1995-1999  Madge Networks Ltd 
+=46allback to ethX is ethX.0 is not used.
+
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index bd537fc..909f6e7 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -8,6 +8,9 @@
+ int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
+ 		      u16 vlan_tci, int polling)
+ {
++	struct net_device *vlan_dev;
++	u16 vlan_id;
 +
-+/* Written & (C) 2000 by R.E.Wolff@BitWizard.nl
-+ * Copied snippets from zatm.c by Werner Almesberger, EPFL LRC/ICA
-+ * and ambassador.c Copyright (C) 1995-1999  Madge Networks Ltd
-  */
- 
- /*
-@@ -188,7 +188,7 @@ struct FS_BPENTRY {
-  */
- 
- 
--/* And now for something completely different: 
-+/* And now for something completely different:
-  * The rest of the registers... */
- 
- 
-@@ -218,7 +218,7 @@ struct FS_BPENTRY {
- #define SARMODE0_ABRVCS_8k  (0x5 << 4)
- #define SARMODE0_ABRVCS_16k (0x6 << 4)
- #define SARMODE0_ABRVCS_32k (0x7 << 4)
--#define SARMODE0_ABRVCS_32  (0x9 << 4) /* The others are "8", this one really has to 
-+#define SARMODE0_ABRVCS_32  (0x9 << 4) /* The others are "8", this one really has to
- 					  be 9. Tell me you don't believe me. -- REW */
- 
- #define SARMODE0_RXVCS_0    (0x0 << 8)
-@@ -229,7 +229,7 @@ struct FS_BPENTRY {
- #define SARMODE0_RXVCS_16k  (0x5 << 8)
- #define SARMODE0_RXVCS_32k  (0x6 << 8)
- #define SARMODE0_RXVCS_64k  (0x7 << 8)
--#define SARMODE0_RXVCS_32   (0x8 << 8) 
-+#define SARMODE0_RXVCS_32   (0x8 << 8)
- 
- #define SARMODE0_CALSUP_1  (0x0 << 12)
- #define SARMODE0_CALSUP_2  (0x1 << 12)
-@@ -382,7 +382,7 @@ struct fs_transmit_config {
- #define TC_FLAGS_TRANSPARENT_PAYLOAD (0x1 << 29)
- #define TC_FLAGS_TRANSPARENT_CELL    (0x2 << 29)
- #define TC_FLAGS_STREAMING (0x1 << 28)
--#define TC_FLAGS_PACKET    (0x0) 
-+#define TC_FLAGS_PACKET    (0x0)
- #define TC_FLAGS_TYPE_ABR  (0x0 << 22)
- #define TC_FLAGS_TYPE_CBR  (0x1 << 22)
- #define TC_FLAGS_TYPE_VBR  (0x2 << 22)
-@@ -455,7 +455,7 @@ struct fs_vcc {
- 
- 
- struct queue {
--	struct FS_QENTRY *sa, *ea;  
-+	struct FS_QENTRY *sa, *ea;
- 	int offset;
- };
- 
-@@ -498,7 +498,7 @@ struct fs_dev {
- #define FS50_CHANNEL_BITS  5
- #define FS50_NR_CHANNELS      (1 << FS50_CHANNEL_BITS)
- 
--         
+ 	if (netpoll_rx(skb))
+ 		return NET_RX_DROP;
+=20
+@@ -16,10 +19,14 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, struct v=
+lan_group *grp,
+=20
+ 	skb->skb_iif =3D skb->dev->ifindex;
+ 	__vlan_hwaccel_put_tag(skb, vlan_tci);
+-	skb->dev =3D vlan_group_get_device(grp, vlan_tci & VLAN_VID_MASK);
++	vlan_id =3D vlan_tci & VLAN_VID_MASK;
++	vlan_dev =3D vlan_group_get_device(grp, vlan_id);
+=20
+-	if (!skb->dev)
+-		goto drop;
++	if (vlan_dev)
++		skb->dev =3D vlan_dev;
++	else
++		if (vlan_id)
++			goto drop;
+=20
+ 	return (polling ? netif_receive_skb(skb) : netif_rx(skb));
+=20
+@@ -82,16 +89,22 @@ vlan_gro_common(struct napi_struct *napi, struct vl=
+an_group *grp,
+ 		unsigned int vlan_tci, struct sk_buff *skb)
+ {
+ 	struct sk_buff *p;
++	struct net_device *vlan_dev;
++	u16 vlan_id;
+=20
+ 	if (skb_bond_should_drop(skb, ACCESS_ONCE(skb->dev->master)))
+ 		goto drop;
+=20
+ 	skb->skb_iif =3D skb->dev->ifindex;
+ 	__vlan_hwaccel_put_tag(skb, vlan_tci);
+-	skb->dev =3D vlan_group_get_device(grp, vlan_tci & VLAN_VID_MASK);
+-
+-	if (!skb->dev)
+-		goto drop;
++	vlan_id =3D vlan_tci & VLAN_VID_MASK;
++	vlan_dev =3D vlan_group_get_device(grp, vlan_id);
 +
- #define FS_DEV(atm_dev) ((struct fs_dev *) (atm_dev)->dev_data)
- #define FS_VCC(atm_vcc) ((struct fs_vcc *) (atm_vcc)->dev_data)
- 
-@@ -508,7 +508,7 @@ struct fs_dev {
- 
- #define IS_FS50(dev)  (dev->flags & FS_IS50)
- #define IS_FS155(dev) (dev->flags & FS_IS155)
-- 
-+
- /* Within limits this is user-configurable. */
- /* Note: Currently the sum (10 -> 1k channels) is hardcoded in the driver. */
- #define FS155_VPI_BITS 4
--- 
-1.7.1.251.gf80a2
++	if (vlan_dev)
++		skb->dev =3D vlan_dev;
++	else
++		if (vlan_id)
++			goto drop;
+=20
+ 	for (p =3D napi->gro_list; p; p =3D p->next) {
+ 		NAPI_GRO_CB(p)->same_flow =3D
+
+
+
 
