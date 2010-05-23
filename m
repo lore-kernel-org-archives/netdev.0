@@ -1,8 +1,8 @@
 From: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
-Subject: [PATCH 2/7] isdn/capi: make reset_ctr op truly optional
-Date: Sun, 23 May 2010 02:25:12 +0200 (CEST)
-Message-ID: <20100522-patch-gigaset-02.tilman@imap.cc>
-References: <20100522-patch-gigaset-00.tilman@imap.cc>
+Subject: [PATCH 1/2] isdn/capi: make reset_ctr op truly optional
+Date: Sun, 23 May 2010 03:15:13 +0200 (CEST)
+Message-ID: <20100523-patch-gigaset-01.tilman@imap.cc>
+References: <20100523-patch-gigaset-00.tilman@imap.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,7 +11,7 @@ Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Karsten Keil <keil-shG/GajIF
         i4ldeveloper-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 To: Karsten Keil <isdn-iHCpqvpFUx0uJkBD2foKsQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org>
-In-Reply-To: <20100522-patch-gigaset-00.tilman-ZTO5kqT2PaM@public.gmane.org>
+In-Reply-To: <20100523-patch-gigaset-00.tilman-ZTO5kqT2PaM@public.gmane.org>
 List-Unsubscribe: <https://www.isdn4linux.de/mailman/options/i4ldeveloper>,
 	<mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://www.isdn4linux.de/pipermail/i4ldeveloper/>
