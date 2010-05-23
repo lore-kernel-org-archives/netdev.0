@@ -1,8 +1,7 @@
 From: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
-Subject: [PATCH 3/7] isdn/gigaset: remove dummy CAPI method implementations
-Date: Sun, 23 May 2010 02:25:42 +0200 (CEST)
-Message-ID: <20100522-patch-gigaset-03.tilman@imap.cc>
-References: <20100522-patch-gigaset-00.tilman@imap.cc>
+Subject: [PATCH 0/7] ISDN patches for 2.6.35
+Date: Sun, 23 May 2010 02:24:12 +0200 (CEST)
+Message-ID: <20100522-patch-gigaset-00.tilman@imap.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,7 +10,6 @@ Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Karsten Keil <keil-shG/GajIF
         i4ldeveloper-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 To: Karsten Keil <isdn-iHCpqvpFUx0uJkBD2foKsQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org>
-In-Reply-To: <20100522-patch-gigaset-00.tilman-ZTO5kqT2PaM@public.gmane.org>
 List-Unsubscribe: <https://www.isdn4linux.de/mailman/options/i4ldeveloper>,
 	<mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://www.isdn4linux.de/pipermail/i4ldeveloper/>
@@ -23,61 +21,34 @@ Sender: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 Errors-To: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Dummy implementations for the optional CAPI controller operations
-load_firmware and reset_ctr can cause userspace callers to hang
-indefinitely. It's better not to implement them at all.
+Karsten, David,
 
-Impact: bugfix
-Signed-off-by: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
----
- drivers/isdn/gigaset/capi.c |   28 ++--------------------------
- 1 files changed, 2 insertions(+), 26 deletions(-)
+following are seven patches to the CAPI subsystem and the Gigaset
+driver I'd like to see included in kernel release 2.6.35.
+The first three respond to user reports about an observed hang of
+the userspace command "capiinit stop".
+The others are cleanups from the ongoing driver development.
 
-diff --git a/drivers/isdn/gigaset/capi.c b/drivers/isdn/gigaset/capi.c
-index 964a55f..e72f86b 100644
---- a/drivers/isdn/gigaset/capi.c
-+++ b/drivers/isdn/gigaset/capi.c
-@@ -933,30 +933,6 @@ void gigaset_isdn_stop(struct cardstate *cs)
-  */
- 
- /*
-- * load firmware
-- */
--static int gigaset_load_firmware(struct capi_ctr *ctr, capiloaddata *data)
--{
--	struct cardstate *cs = ctr->driverdata;
--
--	/* AVM specific operation, not needed for Gigaset -- ignore */
--	dev_notice(cs->dev, "load_firmware ignored\n");
--
--	return 0;
--}
--
--/*
-- * reset (deactivate) controller
-- */
--static void gigaset_reset_ctr(struct capi_ctr *ctr)
--{
--	struct cardstate *cs = ctr->driverdata;
--
--	/* AVM specific operation, not needed for Gigaset -- ignore */
--	dev_notice(cs->dev, "reset_ctr ignored\n");
--}
--
--/*
-  * register CAPI application
-  */
- static void gigaset_register_appl(struct capi_ctr *ctr, u16 appl,
-@@ -2213,8 +2189,8 @@ int gigaset_isdn_regdev(struct cardstate *cs, const char *isdnid)
- 	iif->ctr.driverdata    = cs;
- 	strncpy(iif->ctr.name, isdnid, sizeof(iif->ctr.name));
- 	iif->ctr.driver_name   = "gigaset";
--	iif->ctr.load_firmware = gigaset_load_firmware;
--	iif->ctr.reset_ctr     = gigaset_reset_ctr;
-+	iif->ctr.load_firmware = NULL;
-+	iif->ctr.reset_ctr     = NULL;
- 	iif->ctr.register_appl = gigaset_register_appl;
- 	iif->ctr.release_appl  = gigaset_release_appl;
- 	iif->ctr.send_message  = gigaset_send_message;
--- 
-1.6.5.3.298.g39add
+Thanks,
+Tilman
+
+Tilman Schmidt (7):
+  Documentation/isdn: CAPI controller interface amendment
+  isdn/capi: make reset_ctr op truly optional
+  isdn/gigaset: remove dummy CAPI method implementations
+  isdn/gigaset: adjust usb_gigaset tty write buffer limit
+  isdn/gigaset: avoid copying AT commands twice
+  isdn/gigaset: ignore irrelevant device responses
+  isdn/gigaset: drop obsolete FIXME comment
+
+ Documentation/isdn/INTERFACE.CAPI  |    8 +-
+ drivers/isdn/capi/kcapi.c          |    6 +
+ drivers/isdn/gigaset/bas-gigaset.c |   51 ++-----------
+ drivers/isdn/gigaset/capi.c        |   28 -------
+ drivers/isdn/gigaset/common.c      |    2 
+ drivers/isdn/gigaset/ev-layer.c    |  142 ++++++++++++-------------------------
+ drivers/isdn/gigaset/gigaset.h     |    9 --
+ drivers/isdn/gigaset/interface.c   |   36 +++++++--
+ drivers/isdn/gigaset/ser-gigaset.c |   27 +------
+ drivers/isdn/gigaset/usb-gigaset.c |   29 +------
+ 10 files changed, 117 insertions(+), 221 deletions(-)
