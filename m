@@ -1,50 +1,33 @@
-From: Scott Feldman <scofeldm@cisco.com>
-Subject: [net-next-2.6 PATCH 2/2] enic: Use random mac addr when associating
-	port-profile
-Date: Sat, 22 May 2010 20:29:58 -0700
-Message-ID: <20100523032957.20200.59700.stgit@savbu-pc100.cisco.com>
-References: <20100523032952.20200.30148.stgit@savbu-pc100.cisco.com>
+From: "Dear  Enter Email Account Owner" <updaten_account2@enter.net>
+Subject: Dear Enter Webmail Account Owner
+Date: Sun, 23 May 2010 06:39:22 +0200 (CEST)
+Message-ID: <c7d99fbf6a322a52dd98f9c565e30718.squirrel@webmail.kliksafe.nl>
+Reply-To: updaten_account2@live.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, chrisw@redhat.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-4.cisco.com ([171.68.10.86]:4913 "EHLO
-	sj-iport-4.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754166Ab0EWD36 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 May 2010 23:29:58 -0400
-In-Reply-To: <20100523032952.20200.30148.stgit@savbu-pc100.cisco.com>
+Received: from iron5.routit.net ([89.146.30.26]:39843 "EHLO iron5.routit.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751143Ab0EWEj1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 May 2010 00:39:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <scofeldm@cisco.com>
 
-Use random mac addr for interface when associating port-profile to 
-dynamic enic device, in the case no mac addr was previous assigned.
+Dear Enter Webmail Account Owner,
 
-Signed-off-by: Scott Feldman <scofeldm@cisco.com>
----
- drivers/net/enic/enic_main.c |    8 ++++++++
- 1 files changed, 8 insertions(+), 0 deletions(-)
+We intend to improve on our web email system by increasing our web email
+quota limit, our webmail interface for faster web surfing and conveniences
+to all users and adding more features to our webmail system,
 
-diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
-index 7e97323..6586b5c 100644
---- a/drivers/net/enic/enic_main.c
-+++ b/drivers/net/enic/enic_main.c
-@@ -1132,6 +1132,14 @@ static int enic_set_vf_port(struct net_device *netdev, int vf,
- 	switch (request) {
- 	case PORT_REQUEST_ASSOCIATE:
- 
-+		/* If the interface mac addr hasn't been assigned,
-+		 * assign a random mac addr before setting port-
-+		 * profile.
-+		 */
-+
-+		if (is_zero_ether_addr(netdev->dev_addr))
-+			random_ether_addr(netdev->dev_addr);
-+
- 		if (port[IFLA_PORT_PROFILE])
- 			name = nla_data(port[IFLA_PORT_PROFILE]);
- 
+You are to click the link below and validate your web email account
+failure may Result In loss Of important information in your Mailbox/Or
+cause limited access to it
 
+http://www.tnscoat.com/phpform/use/Mextty/form1.html
+
+
+Thanks for understanding and cooperation.
+Webmail Help Desk
