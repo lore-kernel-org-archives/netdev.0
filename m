@@ -1,66 +1,48 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: [PATCH 0/7] ISDN patches for 2.6.35
-Date: Sun, 23 May 2010 03:02:54 +0200
-Message-ID: <4BF87EBE.80008@imap.cc>
-References: <20100522-patch-gigaset-00.tilman@imap.cc> <20100522.174318.197930599.davem@davemloft.net>
+From: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
+Subject: [PATCH 7/7] isdn/gigaset: drop obsolete FIXME comment
+Date: Sun, 23 May 2010 02:27:43 +0200 (CEST)
+Message-ID: <20100522-patch-gigaset-07.tilman@imap.cc>
+References: <20100522-patch-gigaset-00.tilman@imap.cc>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigBCE673A4039BA12414C7A2D5"
-Cc: isdn@linux-pingi.de, hjlipp@web.de, keil@b1-systems.de,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3.smtp.messagingengine.com ([66.111.4.27]:58616 "EHLO
-	out3.smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751193Ab0EWBO2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 May 2010 21:14:28 -0400
-In-Reply-To: <20100522.174318.197930599.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Karsten Keil <keil-shG/GajIFYqbacvFa/9K2g@public.gmane.org>,
+        Hansjoerg Lipp <hjlipp-S0/GAf8tV78@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        i4ldeveloper-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
+To: Karsten Keil <isdn-iHCpqvpFUx0uJkBD2foKsQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org>
+In-Reply-To: <20100522-patch-gigaset-00.tilman-ZTO5kqT2PaM@public.gmane.org>
+List-Unsubscribe: <https://www.isdn4linux.de/mailman/options/i4ldeveloper>,
+	<mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://www.isdn4linux.de/pipermail/i4ldeveloper/>
+List-Post: <mailto:i4ldeveloper-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org>
+List-Help: <mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=help>
+List-Subscribe: <https://www.isdn4linux.de/mailman/listinfo/i4ldeveloper>,
+	<mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=subscribe>
+Sender: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
+Errors-To: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigBCE673A4039BA12414C7A2D5
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Drop a FIXME comment with nothing left to fix.
 
-Am 23.05.2010 02:43 schrieb David Miller:
-> What the heck about "no more cleanups or new features for networking"
-> do you not understand?
+Impact: cosmetic
+Signed-off-by: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
+---
+ drivers/isdn/gigaset/common.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-Sorry, I must have missed the posting where you wrote this. I just
-came back from a short holiday to find ~5k unread postings in LKML,
-including the announcement of 2.6.34, and I guess I inadvertently
-deleted the message you're referring to above.
-
-> I'm willing to take bug fixes only at this point so you'll need to
-> respin this series.
-
-Will do.
-
-Regards,
-Tilman
-
---=20
-Tilman Schmidt                    E-Mail: tilman@imap.cc
-Bonn, Germany
-Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
-Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
-
-
---------------enigBCE673A4039BA12414C7A2D5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.12 (GNU/Linux)
-Comment: Using GnuPG with SUSE - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAkv4fr4ACgkQQ3+did9BuFuXzwCdGU1XmhH4sTpUk9VSsXkg79sr
-uYkAnA1xJG+1nQ6Zu7bdrdyvS3aiqGpF
-=saBw
------END PGP SIGNATURE-----
-
---------------enigBCE673A4039BA12414C7A2D5--
+diff --git a/drivers/isdn/gigaset/common.c b/drivers/isdn/gigaset/common.c
+index f6f45f2..32f5a2c 100644
+--- a/drivers/isdn/gigaset/common.c
++++ b/drivers/isdn/gigaset/common.c
+@@ -801,8 +801,6 @@ struct cardstate *gigaset_initcs(struct gigaset_driver *drv, int channels,
+ 	spin_unlock_irqrestore(&cs->lock, flags);
+ 	setup_timer(&cs->timer, timer_tick, (unsigned long) cs);
+ 	cs->timer.expires = jiffies + msecs_to_jiffies(GIG_TICK);
+-	/* FIXME: can jiffies increase too much until the timer is added?
+-	 * Same problem(?) with mod_timer() in timer_tick(). */
+ 	add_timer(&cs->timer);
+ 
+ 	gig_dbg(DEBUG_INIT, "cs initialized");
+-- 
+1.6.5.3.298.g39add
