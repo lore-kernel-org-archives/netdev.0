@@ -1,38 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/7] ISDN patches for 2.6.35
-Date: Sat, 22 May 2010 17:43:18 -0700 (PDT)
-Message-ID: <20100522.174318.197930599.davem@davemloft.net>
-References: <20100522-patch-gigaset-00.tilman@imap.cc>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [patch] e1000e: change logical negate to bitwise
+Date: Sat, 22 May 2010 18:01:27 -0700
+Message-ID: <AANLkTil3USy0GrLLgShygH8PpOZPmVHwH5oSvNarAOhk@mail.gmail.com>
+References: <20100522194550.GG22515@bicker>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, hjlipp@web.de, keil@b1-systems.de,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: tilman@imap.cc
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100522-patch-gigaset-00.tilman@imap.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:60669 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755522Ab0EWBB2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 May 2010 21:01:28 -0400
+In-Reply-To: <20100522194550.GG22515@bicker>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tilman Schmidt <tilman@imap.cc>
-Date: Sun, 23 May 2010 02:24:12 +0200 (CEST)
+On Sat, May 22, 2010 at 12:45, Dan Carpenter <error27@gmail.com> wrote:
+> The bitwise negate is intended here. =C2=A0With the logical negate th=
+e
+> condition is always false.
+>
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
+>
+> diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.=
+c
+> index 24507f3..57a7e41 100644
+> --- a/drivers/net/e1000e/netdev.c
+> +++ b/drivers/net/e1000e/netdev.c
+> @@ -2554,7 +2554,7 @@ static void e1000_init_manageability_pt(struct =
+e1000_adapter *adapter)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0mdef =3D er32(MDEF(i));
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0/* Ignore filters with anything other than IPMI ports */
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 if (mdef & !(E1000_MDEF_PORT_623 | E1000_MDEF_PORT_664))
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 if (mdef & ~(E1000_MDEF_PORT_623 | E1000_MDEF_PORT_664))
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0continue;
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0/* Enable this decision filter in MANC2H */
+> --
 
-> Karsten, David,
-> 
-> following are seven patches to the CAPI subsystem and the Gigaset
-> driver I'd like to see included in kernel release 2.6.35.
-> The first three respond to user reports about an observed hang of
-> the userspace command "capiinit stop".
-> The others are cleanups from the ongoing driver development.
+Thanks Dan, I have added the patch to my queue.
 
-What the heck about "no more cleanups or new features for networking"
-do you not understand?
-
-When the merge window is openned, this is not a signal to you to send
-changes to me.  You should have stuff in weeks ahead of that time.
-
-I'm willing to take bug fixes only at this point so you'll need to
-respin this series.
-
-And Tilman, of all people you really should know better.
+--=20
+Cheers,
+Jeff
