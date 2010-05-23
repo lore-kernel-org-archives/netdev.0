@@ -1,106 +1,230 @@
 From: Andrea Gelmini <andrea.gelmini@gelma.net>
-Subject: [PATCH 062/199] Documentation/isdn/README.x25: Checkpatch cleanup
-Date: Sun, 23 May 2010 21:50:25 +0200
-Message-ID: <1274644226-23612-11-git-send-email-andrea.gelmini@gelma.net>
+Subject: [PATCH 063/199] Documentation/isdn/syncPPP.FAQ: Checkpatch cleanup
+Date: Sun, 23 May 2010 21:50:26 +0200
+Message-ID: <1274644226-23612-12-git-send-email-andrea.gelmini@gelma.net>
 References: <1274644226-23612-1-git-send-email-andrea.gelmini@gelma.net>
 Cc: Karsten Keil <isdn@linux-pingi.de>,
 	Randy Dunlap <rdunlap@xenotime.net>, netdev@vger.kernel.org,
 	linux-doc@vger.kernel.org
 To: andrea.gelmini@gelma.net
-Return-path: <linux-doc-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.159]:9896 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753535Ab0EWTvF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 May 2010 15:51:05 -0400
 In-Reply-To: <1274644226-23612-1-git-send-email-andrea.gelmini@gelma.net>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Documentation/isdn/README.x25:1: ERROR: trailing whitespace
-Documentation/isdn/README.x25:25: ERROR: trailing whitespace
-Documentation/isdn/README.x25:26: ERROR: trailing whitespace
-Documentation/isdn/README.x25:31: ERROR: trailing whitespace
-Documentation/isdn/README.x25:33: ERROR: trailing whitespace
-Documentation/isdn/README.x25:75: ERROR: trailing whitespace
-Documentation/isdn/README.x25:143: ERROR: trailing whitespace
-Documentation/isdn/README.x25:152: ERROR: trailing whitespace
-Documentation/isdn/README.x25:162: ERROR: trailing whitespace
-Documentation/isdn/README.x25:182: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:1: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:8: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:13: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:15: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:29: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:38: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:41: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:42: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:51: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:58: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:63: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:64: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:67: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:72: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:77: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:82: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:109: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:130: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:139: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:141: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:152: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:162: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:181: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:184: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:207: ERROR: trailing whitespace
+Documentation/isdn/syncPPP.FAQ:217: ERROR: trailing whitespace
 
 Signed-off-by: Andrea Gelmini <andrea.gelmini@gelma.net>
 ---
- Documentation/isdn/README.x25 |   19 +++++++++----------
- 1 files changed, 9 insertions(+), 10 deletions(-)
+ Documentation/isdn/syncPPP.FAQ |   52 ++++++++++++++++++++--------------------
+ 1 files changed, 26 insertions(+), 26 deletions(-)
 
-diff --git a/Documentation/isdn/README.x25 b/Documentation/isdn/README.x25
-index e561a77..c6fe709 100644
---- a/Documentation/isdn/README.x25
-+++ b/Documentation/isdn/README.x25
-@@ -1,4 +1,3 @@
--  
- X.25 support within isdn4linux
- ==============================
+diff --git a/Documentation/isdn/syncPPP.FAQ b/Documentation/isdn/syncPPP.FAQ
+index 3257a4b..bf4d912 100644
+--- a/Documentation/isdn/syncPPP.FAQ
++++ b/Documentation/isdn/syncPPP.FAQ
+@@ -1,18 +1,18 @@
+-simple isdn4linux PPP FAQ .. to be continued .. not 'debugged' 
++simple isdn4linux PPP FAQ .. to be continued .. not 'debugged'
+ -------------------------------------------------------------------
  
-@@ -22,15 +21,15 @@ more bugs as usual.
+ Q01: what's pppd, ipppd, syncPPP, asyncPPP ??
+ Q02: error message "this system lacks PPP support"
+ Q03: strange information using 'ifconfig'
+ Q04: MPPP?? What's that and how can I use it ...
+-Q05: I tried MPPP but it doesn't work 
++Q05: I tried MPPP but it doesn't work
+ Q06: can I use asynchronous PPP encapsulation with network devices
+ Q07: A SunISDN machine can't connect to my i4l system
+ Q08: I wanna talk to several machines, which need different configs
+ Q09: Starting the ipppd, I get only error messages from i4l
+-Q10: I wanna use dynamic IP address assignment 
++Q10: I wanna use dynamic IP address assignment
+ Q11: I can't connect. How can I check where the problem is.
+-Q12: How can I reduce login delay? 
++Q12: How can I reduce login delay?
  
- - Monitor your isdn connections while using this software. This should
-   prevent you from undesired phone bills in case of driver problems.
--  
-- 
+ -------------------------------------------------------------------
+ 
+@@ -26,7 +26,7 @@ A: The pppd is for asynchronous PPP .. asynchronous means
+    frames (bit based protocol) ... The PPP driver
+    in isdn4linux pushes all IP packets direct
+    to the network layer and all PPP protocol
+-   frames to the /dev/ippp* device. 
++   frames to the /dev/ippp* device.
+    So, the ipppd is a simple external network
+    protocol handler.
+ 
+@@ -35,11 +35,11 @@ A: The pppd is for asynchronous PPP .. asynchronous means
+    remote terminal server -> use the 'old' pppd
+ 
+    If your remote side immediately starts to send
+-   frames ... you probably connect to a 
++   frames ... you probably connect to a
+    syncPPP machine .. use the network device part
+    of isdn4linux with the 'syncppp' encapsulation
+-   and make sure, that the ipppd is running and 
+-   connected to at least one /dev/ippp*. Check the 
++   and make sure, that the ipppd is running and
++   connected to at least one /dev/ippp*. Check the
+    isdn4linux manual on how to configure a network device.
+ 
+ --
+@@ -48,38 +48,38 @@ Q02: when I start the ipppd .. I only get the
+    error message "this system lacks PPP support"
+ A: check that at least the device 'ippp0' exists.
+    (you can check this e.g with the program 'ifconfig')
+-   The ipppd NEEDS this device under THIS name .. 
++   The ipppd NEEDS this device under THIS name ..
+    If this device doesn't exists, use:
+ 	isdnctrl addif ippp0
+ 	isdnctrl encap ippp0 syncppp
+ 	... (see isdn4linux doc for more) ...
+ A: Maybe you have compiled the ipppd with another
+    kernel source tree than the kernel you currently
+-   run ... 
++   run ...
+ 
+ --
+ 
+ Q03: when I list the netdevices with ifconfig I see, that
+-   my ISDN interface has a HWaddr and IRQ=0 and Base 
+-   address = 0 
++   my ISDN interface has a HWaddr and IRQ=0 and Base
++   address = 0
+ A: The device is a fake ethernet device .. ignore IRQ and baseaddr
+    You need the HWaddr only for ethernet encapsulation.
+-   
 +
+ --
+ 
+ Q04: MPPP?? What's that and how can I use it ...
+ 
+-A: MPPP or MP or MPP (Warning: MP is also an 
++A: MPPP or MP or MPP (Warning: MP is also an
+    acronym for 'Multi Processor') stands for
+    Multi Point to Point and means bundling
+    of several channels to one logical stream.
+    To enable MPPP negotiation you must call the
+-   ipppd with the '+mp' option. 
++   ipppd with the '+mp' option.
+    You must also configure a slave device for
+    every additional channel. (see the i4l manual
+    for more)
+    To use channel bundling you must first activate
+-   the 'master' or initial call. Now you can add 
++   the 'master' or initial call. Now you can add
+    the slave channels with the command:
+        isdnctrl addlink <device>
+    e.g:
+@@ -106,7 +106,7 @@ Q06: can I use asynchronous PPP encapsulation
+ A: No .. that's not possible .. Use the standard
+    PPP package over the /dev/ttyI* devices. You
+    must not use the ipppd for this.
+-   
 +
+ --
  
+ Q07: A SunISDN machine tries to connect my i4l system,
+@@ -127,7 +127,7 @@ Q08: I wanna talk to remote machines, which need
+    a different configuration. The only way
+    I found to do this is to kill the ipppd and
+    start a new one with another config to connect
+-   to the second machine. 
++   to the second machine.
  
- How to configure the kernel
- ===========================
-- 
-+
- The ITU-T (former CCITT) X.25 network protocol layer has been implemented
--in the Linux source tree since version 2.1.16. The isdn subsystem might be 
-+in the Linux source tree since version 2.1.16. The isdn subsystem might be
- useful to run X.25 on top of ISDN. If you want to try it, select
+ A: you must bind a network interface explicitly to
+    an ippp device, where you can connect a (for this
+@@ -136,9 +136,9 @@ A: you must bind a network interface explicitly to
+ --
  
-    "CCITT X.25 Packet Layer"
-@@ -72,7 +71,7 @@ X.25 on top of isdn might be useful with two different scenarios:
-   also allows using the D-channel) is not supported by isdn4linux.
-   It should however be possible to establish such packet mode connections
-   with certain active isdn cards provided that the firmware supports X.31
--  and the driver exports this functionality to the user. Currently, 
-+  and the driver exports this functionality to the user. Currently,
-   the AVM B1 driver is the only driver which does so. (It should be
-   possible to access D-channel X.31 with active AVM cards using the
-   CAPI interface of the AVM-B1 driver).
-@@ -140,7 +139,7 @@ To test X.25 on top of isdn, you need to get
- - a recent version of the "isdnctrl" program that supports setting the new
-   X.25 specific parameters.
+ Q09: When I start the ipppd I only get error messages
+-   from the i4l driver .. 
++   from the i4l driver ..
  
--- the x25-utils-2.X package from 
-+- the x25-utils-2.X package from
-   ftp://ftp.hes.iki.fi/pub/ham/linux/ax25/x25utils-*
-   (don't confuse the x25-utils with the ax25-utils)
+-A: When starting, the ipppd calls functions which may 
++A: When starting, the ipppd calls functions which may
+    trigger a network packet. (e.g gethostbyname()).
+    Without the ipppd (at this moment, it is not
+    fully started) we can't handle this network request.
+@@ -149,7 +149,7 @@ A: When starting, the ipppd calls functions which may
  
-@@ -149,7 +148,7 @@ To test X.25 on top of isdn, you need to get
+ --
  
- Before compiling the user level utilities make sure that the compiler/
- preprocessor will fetch the proper kernel header files of this kernel
--source tree. Either make /usr/include/linux a symbolic link pointing to 
-+source tree. Either make /usr/include/linux a symbolic link pointing to
- this kernel's include/linux directory or set the appropriate compiler flags.
+-Q10: I wanna use dynamic IP address assignment ... How 
++Q10: I wanna use dynamic IP address assignment ... How
+    must I configure the network device.
  
- When all drivers and interfaces are loaded and configured you need to
-@@ -159,7 +158,7 @@ the usual ifconfig tool.
- ifconfig <iface-name> up
+ A: At least you must have a route which forwards
+@@ -159,7 +159,7 @@ A: At least you must have a route which forwards
+    Now you must choose a dummy IP address for your
+    interface.
+    If for some reason you can't set the default
+-   route to the ippp interface, you may take any 
++   route to the ippp interface, you may take any
+    address of the subnet from which you expect your
+    dynamic IP number and set a 'network route' for
+    this subnet to the ippp interface.
+@@ -178,10 +178,10 @@ A: You must know, how the ipppd gets the addresses it wanna
+    If your side doesn't know the IP address after negotiation, it
+    closes the connection!
+    You must allow overriding of address with the 'ipcp-accept-*'
+-   options, if you have set your own or the remote address 
++   options, if you have set your own or the remote address
+    explicitly.
  
- But a special x25route tool (distributed with the x25-util package)
--is needed to set up X.25 routes. I.e. 
-+is needed to set up X.25 routes. I.e.
+-A: Maybe you try these options .. e.g:   
++A: Maybe you try these options .. e.g:
  
- x25route add 01 <iface-name>
+     /sbin/ipppd :$REMOTE noipdefault /dev/ippp0
  
-@@ -179,6 +178,6 @@ provide useful examples for setting up X.25 on top of isdn.
+@@ -204,7 +204,7 @@ A: A good help log is the debug output from the ipppd...
+         you can see, whether there is activity on the card/line.
+    - there are at least a few RECV messages in the log:
+      -> fine: your card is dialing and your remote machine
+-        tries to talk with you. Maybe only a missing 
++        tries to talk with you. Maybe only a missing
+         authentication. Check your ipppd configuration again.
+    - the ipppd exits for some reason:
+      -> not good ... check /var/adm/syslog and /var/adm/daemon.
+@@ -214,7 +214,7 @@ A: A good help log is the debug output from the ipppd...
  
- The x25-utility package also contains an x25trace tool that can be
- used to monitor X.25 packets received by the network interfaces.
--The /proc/net/x25* files also contain useful information. 
-+The /proc/net/x25* files also contain useful information.
+ Q12: How can I reduce login delay?
  
- - Henner
+-A: Log a login session ('debug' log) and check which options 
++A: Log a login session ('debug' log) and check which options
+   your remote side rejects. Next time configure your ipppd
+   to not negotiate these options. Another 'side effect' is, that
+   this increases redundancy. (e.g your remote side is buggy and
 -- 
 1.7.1.251.gf80a2
 
