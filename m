@@ -1,80 +1,28 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: RE: Receiving of priority tagged packets
-Date: Sun, 23 May 2010 03:51:41 -0700
-Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDC6675BF8@SJEXCHCCR02.corp.ad.broadcom.com>
-References: <8628FE4E7912BF47A96AE7DD7BAC0AADDDC6675BEC@SJEXCHCCR02.corp.ad.broadcom.com>
- <1274609194.5020.68.camel@edumazet-laptop>
- <8628FE4E7912BF47A96AE7DD7BAC0AADDDC6675BF5@SJEXCHCCR02.corp.ad.broadcom.com>
+From: Karsten Keil <isdn@linux-pingi.de>
+Subject: Re: [PATCH 0/2] ISDN fixes for 2.6.35
+Date: Sun, 23 May 2010 13:01:50 +0200
+Message-ID: <201005231301.50967.isdn@linux-pingi.de>
+References: <20100523-patch-gigaset-00.tilman@imap.cc>
+Reply-To: isdn@linux-pingi.de
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3429 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752476Ab0EWKwK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 May 2010 06:52:10 -0400
-In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AADDDC6675BF5@SJEXCHCCR02.corp.ad.broadcom.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-6"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, Hansjoerg Lipp <hjlipp@web.de>,
+	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Karsten Keil <keil@b1-systems.de>
+To: Tilman Schmidt <tilman@imap.cc>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100523-patch-gigaset-00.tilman@imap.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
-ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uDQo+
-IEJlaGFsZiBPZiBWbGFkaXNsYXYgWm9sb3Rhcm92DQo+IFNlbnQ6IFN1bmRheSwgTWF5IDIzLCAy
-MDEwIDE6MjMgUE0NCj4gVG86IEVyaWMgRHVtYXpldA0KPiBDYzogbmV0ZGV2QHZnZXIua2VybmVs
-Lm9yZw0KPiBTdWJqZWN0OiBSRTogUmVjZWl2aW5nIG9mIHByaW9yaXR5IHRhZ2dlZCBwYWNrZXRz
-DQo+IA0KPiANCj4gPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiA+IEZyb206IEVyaWMg
-RHVtYXpldCBbbWFpbHRvOmVyaWMuZHVtYXpldEBnbWFpbC5jb21dDQo+ID4gU2VudDogU3VuZGF5
-LCBNYXkgMjMsIDIwMTAgMTowNyBQTQ0KPiA+IFRvOiBWbGFkaXNsYXYgWm9sb3Rhcm92DQo+ID4g
-Q2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gPiBTdWJqZWN0OiBSZTogUmVjZWl2aW5nIG9m
-IHByaW9yaXR5IHRhZ2dlZCBwYWNrZXRzDQo+ID4NCj4gPiBMZSBkaW1hbmNoZSAyMyBtYWkgMjAx
-MCDDoCAwMjozNiAtMDcwMCwgVmxhZGlzbGF2IFpvbG90YXJvdiBhIMOpY3JpdCA6DQo+ID4gPiBI
-ZWxsbywNCj4gPiA+IFdlIHdlcmUgcGxheWluZyB3aXRoIEZDb0UgaW4gb3VyIGxhYnMgYW5kIHNh
-dyB0aGUgc3RyYW5nZSBiZWhhdmlvciBvZg0KPiBMaW51eA0KPiA+IG5ldHdvcmtpbmcgc3RhY2sg
-aW4gcmVnYXJkIHRvIHByaW9yaXR5LXRhZ2dlZCBmcmFtZXMgKHRoZSBvbmVzIHRoYXQgaGF2ZSBh
-DQo+ID4gemVybyBWSUQgaW4gYSBWTEFOIHRhZykuIFdlIHNhdyB0aGF0IHVudGlsIHdlIGV4cGxp
-Y2l0bHkgYWRkZWQgYSB6ZXJvIHZsYW4NCj4gPiBpbnRlcmZhY2UgKHZjb25maWcgYWRkIGV0aFgg
-MCkgdGhlIHN0YWNrIHJlZnVzZWQgdG8gYWNjZXB0IHN1Y2ggcGFja2V0cw0KPiBib3RoDQo+ID4g
-aW4gSFcgVkxBTiBhY2NlbGVyYXRpb24gbW9kZSAoc2tiIGlzIGluZGljYXRlZCB1c2luZw0KPiA+
-IHZsYW5faHdhY2NlbF9yZWNlaXZlX3NrYigpKSBhbmQgaW4gYSByZWd1bGFyIG1vZGUgKHNrYiBp
-cyBpbmRpY2F0ZWQgd2l0aA0KPiA+IG5ldGlmX3JlY2VpdmVfc2tiKCkpLg0KPiA+ID4NCj4gPiA+
-IEhvd2V2ZXIgIklFRUUgU3RkIDgwMi4xUSwgMjAwNiBFZGl0aW9uIERSQUZUIEQwLjEiIGluIHNl
-Y3Rpb24gNi43IHN0YXRlcw0KPiA+IHRoZSBmb2xsb3dpbmc6DQo+ID4gPg0KPiA+ID4gRWFjaCBC
-cmlkZ2UgUG9ydCBzaGFsbCBzdXBwb3J0IHRoZSBmb2xsb3dpbmcgcGFyYW1ldGVycyBmb3IgdXNl
-IGJ5IHRoZXNlDQo+ID4gKEVJU1MgdGFnZ2luZyBhbmQgZGV0YWdnaW5nKSBmdW5jdGlvbnM6DQo+
-ID4gPiAJYykgYW4gQWNjZXB0YWJsZSBGcmFtZSBUeXBlcyBwYXJhbWV0ZXIgd2l0aCBhdCBsZWFz
-dCBvbmUgb2YgdGhlDQo+ID4gZm9sbG93aW5nIHZhbHVlczoNCj4gPiA+IAkJMSkgQWRtaXQgT25s
-eSBWTEFOLXRhZ2dlZCBmcmFtZXM7DQo+ID4gPiAJCTIpIEFkbWl0IE9ubHkgVW50YWdnZWQgYW5k
-IFByaW9yaXR5LXRhZ2dlZCBmcmFtZXM7DQo+ID4gPiAJCTMpIEFkbWl0IEFsbCBmcmFtZXMNCj4g
-PiA+DQo+ID4gPiBTbyBJIGd1ZXNzIHRoaXMgbWVhbnMgdGhhdCBwcmlvcml0eSB0YWdnZWQgZnJh
-bWVzIHNob3VsZCBiZSBhY2NlcHRlZA0KPiA+IHRvZ2V0aGVyIHdpdGggdGhlIHVudGFnZ2VkIGZy
-YW1lcyBvbiB0aGUgZGVmYXVsdCBpbnRlcmZhY2UgZXRoWC4NCj4gPiA+DQo+ID4gPiBDb3VsZCBh
-bnlvbmUgZXhwbGFpbiwgcGxzLiwgd2hhdCdzIHRoZSBleHBlY3RlZCBiZWhhdmlvciBvZiB0aGUg
-TGludXgNCj4gPiBOZXR3b3JraW5nIFN0YWNrIGluIHJlZ2FyZCB0byB0aGUgcHJpb3JpdHktdGFn
-Z2VkIGZyYW1lcyBhbmQgd2hhdCdzDQo+IGV4cGVjdGVkDQo+ID4gdG8gYmUgY29uZmlndXJlZCBp
-biBvcmRlciB0byBzdGFydCBhY2NlcHRpbmcgdGhlbT8NCj4gPiA+DQo+ID4gPiBUaGFua3MgaW4g
-YWR2YW5jZSwNCj4gPiA+IHZsYWQNCj4gPg0KPiA+IFNvIGlmIGV0aDAuMCBpcyBzZXR1cCwgaW5j
-b21pbmcgdmxhbmlkPTAgZnJhbWVzIGFyZSBkZWxpdmVyZWQgdG8gZXRoMC4wLA0KPiA+IE9LID8g
-KFRoaXMgd29ya3MgaW4gYW5kIG91dCBzaW5jZSBjb21taXQgMDU0MjNiMjQxMzExYzkzKQ0KPiA+
-DQo+ID4gTm93LCBpZiBldGgwLjAgaXMgbm90IHNldHVwLCB5b3UgYmVsaWV2ZSB0aGVzZSBmcmFt
-ZXMgc2hvdWxkIGJlIGRpcmVjdGVkDQo+ID4gdG8gZXRoMCwgYXMgaWYgdGhleSB3ZXJlIG5vdCB0
-YWdnZWQgPw0KPiA+DQo+ID4gVGhhdCBzZWVtcyBhIGJpdCBzdHJhbmdlLg0KPiANCj4gV2VsbCwg
-YXMgZmFyIGFzIEkgdW5kZXJzdG9vZCB0aGlzIGlzIHdoYXQgSUVFRSA4MDIuMVEgc3BlYyBzdGF0
-ZXMuLi4NCg0KRnJvbSB0aGUgc2FtZSBzcGVjOg0KDQoqKioqKioqKioqKioqKioNCjMuMzggUHJp
-b3JpdHktdGFnZ2VkIGZyYW1lOiBBIHRhZ2dlZCBmcmFtZSB3aG9zZSB0YWcgaGVhZGVyIGNhcnJp
-ZXMgcHJpb3JpdHkgaW5mb3JtYXRpb24gYnV0IGNhcnJpZXMgbm8NClZMQU4gaWRlbnRpZmljYXRp
-b24gaW5mb3JtYXRpb24uDQoqKioqKioqKioqKioqKioNCg0KTmFtZWx5IHByaW9yaXR5LXRhZ2dl
-ZCBmcmFtZXMgYXJlIGZyYW1lcyB0aGF0IGNhcnJ5IG5vIFZMQU4gaWRlbnRpZmljYXRpb24gaW5m
-b3JtYXRpb24gYW5kIG5hbWVseSBzaG91bGQgYmUgdHJlYXRlZCBhcyBub24tVkxBTiBwYWNrZXRz
-Lg0KDQpIb3dldmVyLCBhcyB1IG1lbnRpb25lZCBhYm92ZSwgY3VycmVudCBOZXR3b3JraW5nIFN0
-YWNrIGltcGxlbWVudGF0aW9uIGhhbmRsZXMgdGhlbSBhcyBpZiB0aGV5IGhhdmUgVklEIDAuDQoN
-ClRoZXNlIHR3byBhcmUgcXVpdGUgZGlmZmVyZW50IHdheXMgdG8gaGFuZGxlIHRoZSBmcmFtZSwg
-ZG9u4oCZdCB1IHRoaW5rPw0KDQo+IA0KPiA+DQo+ID4NCj4gPg0KPiANCj4gTu+/ve+/ve+/ve+/
-ve+/vXLvv73vv71577+977+977+9Yu+/vVjvv73vv73Hp3bvv71e77+9Kd66ey5u77+9K++/ve+/
-ve+/vXrvv71e77+9Ke+/ve+/ve+/vXcqDQo+IGpn77+977+977+9Hu+/ve+/ve+/ve+/ve+/vd2i
-ai/vv73vv73vv71677+93pbvv73vv70y77+93pnvv73vv73vv70m77+9Kd+h77+9Ye+/ve+/vX/v
-v73vv70e77+9R++/ve+/ve+/vWjvv70P77+9ajordu+/ve+/ve+/vXfvv73ZpQ0K
+On Sonntag, 23. Mai 2010 03:14:43 Tilman Schmidt wrote:
+> Karsten, David,
+> 
+> following are two patches to the CAPI subsystem and the Gigaset
+> driver I'd like to see included in kernel release 2.6.35.
+> Together they fix a reported hang of the userspace command
+> "capiinit stop".
 
+Acked-by: Karsten Keil <isdn@linux-pingi.de>
