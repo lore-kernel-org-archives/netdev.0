@@ -1,54 +1,44 @@
 From: Andrea Gelmini <andrea.gelmini@gelma.net>
-Subject: [PATCH 185/199] drivers/atm/idt77252_tables.h: Checkpatch cleanup
-Date: Sun, 23 May 2010 22:06:01 +0200
-Message-ID: <1274645175-27335-2-git-send-email-andrea.gelmini@gelma.net>
+Subject: [PATCH 188/199] drivers/atm/uPD98401.h: Checkpatch cleanup
+Date: Sun, 23 May 2010 22:06:04 +0200
+Message-ID: <1274645175-27335-5-git-send-email-andrea.gelmini@gelma.net>
 References: <1274645175-27335-1-git-send-email-andrea.gelmini@gelma.net>
 Cc: Chas Williams <chas@cmf.nrl.navy.mil>,
 	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
 To: andrea.gelmini@gelma.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:28708 "EHLO
+Received: from fg-out-1718.google.com ([72.14.220.153]:7443 "EHLO
 	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753598Ab0EWUG0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 May 2010 16:06:26 -0400
-Received: by fg-out-1718.google.com with SMTP id 22so1028570fge.1
-        for <netdev@vger.kernel.org>; Sun, 23 May 2010 13:06:25 -0700 (PDT)
+	with ESMTP id S1754790Ab0EWUGe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 May 2010 16:06:34 -0400
+Received: by fg-out-1718.google.com with SMTP id 22so1028593fge.1
+        for <netdev@vger.kernel.org>; Sun, 23 May 2010 13:06:33 -0700 (PDT)
 In-Reply-To: <1274645175-27335-1-git-send-email-andrea.gelmini@gelma.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-drivers/atm/idt77252_tables.h:7: ERROR: that open brace { should be on the previous line
-drivers/atm/idt77252_tables.h:267: ERROR: that open brace { should be on the previous line
+drivers/atm/uPD98401.h:2: ERROR: trailing whitespace
+drivers/atm/uPD98401.h:4: ERROR: trailing whitespace
 
 Signed-off-by: Andrea Gelmini <andrea.gelmini@gelma.net>
 ---
- drivers/atm/idt77252_tables.h |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+ drivers/atm/uPD98401.h |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/atm/idt77252_tables.h b/drivers/atm/idt77252_tables.h
-index b6c8ee5..2e814cf 100644
---- a/drivers/atm/idt77252_tables.h
-+++ b/drivers/atm/idt77252_tables.h
-@@ -3,8 +3,7 @@
-  * Cell Line Rate: 353207.55 (155520000 bps)
-  */
+diff --git a/drivers/atm/uPD98401.h b/drivers/atm/uPD98401.h
+index 0ab3650..4e6a3e0 100644
+--- a/drivers/atm/uPD98401.h
++++ b/drivers/atm/uPD98401.h
+@@ -1,7 +1,7 @@
+ /* drivers/atm/uPD98401.h - NEC uPD98401 (SAR) declarations */
+- 
++
+ /* Written 1995 by Werner Almesberger, EPFL LRC */
+- 
++
  
--static unsigned int log_to_rate[] =
--{
-+static unsigned int log_to_rate[] = {
- /* 000 */ 0x8d022e27, /* cps =     10.02, nrm =  3, interval = 35264.00 */
- /* 001 */ 0x8d362e11, /* cps =     10.42, nrm =  3, interval = 33856.00 */
- /* 002 */ 0x8d6e2bf8, /* cps =     10.86, nrm =  3, interval = 32512.00 */
-@@ -263,8 +262,7 @@ static unsigned int log_to_rate[] =
- /* 255 */ 0xc9630020, /* cps = 352768.00, nrm = 32, interval =     1.00 */
- };
- 
--static unsigned char rate_to_log[] =
--{
-+static unsigned char rate_to_log[] = {
- /*          1.00 =>   0 */ 0x00, /* =>     10.02 */
- /*          1.06 =>   0 */ 0x00, /* =>     10.02 */
- /*          1.12 =>   0 */ 0x00, /* =>     10.02 */
+ #ifndef DRIVERS_ATM_uPD98401_H
+ #define DRIVERS_ATM_uPD98401_H
 -- 
 1.7.1.251.gf80a2
 
