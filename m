@@ -1,65 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Receiving of priority tagged packets
-Date: Sun, 23 May 2010 12:06:34 +0200
-Message-ID: <1274609194.5020.68.camel@edumazet-laptop>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: RE: Receiving of priority tagged packets
+Date: Sun, 23 May 2010 03:22:58 -0700
+Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDC6675BF5@SJEXCHCCR02.corp.ad.broadcom.com>
 References: <8628FE4E7912BF47A96AE7DD7BAC0AADDDC6675BEC@SJEXCHCCR02.corp.ad.broadcom.com>
+ <1274609194.5020.68.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Vladislav Zolotarov <vladz@broadcom.com>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:57995 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753593Ab0EWKGj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 May 2010 06:06:39 -0400
-Received: by wwb13 with SMTP id 13so371052wwb.19
-        for <netdev@vger.kernel.org>; Sun, 23 May 2010 03:06:37 -0700 (PDT)
-In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AADDDC6675BEC@SJEXCHCCR02.corp.ad.broadcom.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:4637 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752904Ab0EWKXI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 May 2010 06:23:08 -0400
+In-Reply-To: <1274609194.5020.68.camel@edumazet-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 23 mai 2010 =C3=A0 02:36 -0700, Vladislav Zolotarov a =C3=A9=
-crit :
-> Hello,
-> We were playing with FCoE in our labs and saw the strange behavior of=
- Linux networking stack in regard to priority-tagged frames (the ones t=
-hat have a zero VID in a VLAN tag). We saw that until we explicitly add=
-ed a zero vlan interface (vconfig add ethX 0) the stack refused to acce=
-pt such packets both in HW VLAN acceleration mode (skb is indicated usi=
-ng vlan_hwaccel_receive_skb()) and in a regular mode (skb is indicated =
-with netif_receive_skb()).
->=20
-> However "IEEE Std 802.1Q, 2006 Edition DRAFT D0.1" in section 6.7 sta=
-tes the following:=20
->=20
-> Each Bridge Port shall support the following parameters for use by th=
-ese (EISS tagging and detagging) functions:
-> 	c) an Acceptable Frame Types parameter with at least one of the foll=
-owing values:
-> 		1) Admit Only VLAN-tagged frames;
-> 		2) Admit Only Untagged and Priority-tagged frames;
-> 		3) Admit All frames
->=20
-> So I guess this means that priority tagged frames should be accepted =
-together with the untagged frames on the default interface ethX.
->=20
-> Could anyone explain, pls., what's the expected behavior of the Linux=
- Networking Stack in regard to the priority-tagged frames and what's ex=
-pected to be configured in order to start accepting them?
->=20
-> Thanks in advance,
-> vlad
-
-So if eth0.0 is setup, incoming vlanid=3D0 frames are delivered to eth0=
-=2E0,
-OK ? (This works in and out since commit 05423b241311c93)
-
-Now, if eth0.0 is not setup, you believe these frames should be directe=
-d
-to eth0, as if they were not tagged ?
-
-That seems a bit strange.
-
-
+DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEVyaWMgRHVtYXpldCBbbWFp
+bHRvOmVyaWMuZHVtYXpldEBnbWFpbC5jb21dDQo+IFNlbnQ6IFN1bmRheSwgTWF5IDIzLCAyMDEw
+IDE6MDcgUE0NCj4gVG86IFZsYWRpc2xhdiBab2xvdGFyb3YNCj4gQ2M6IG5ldGRldkB2Z2VyLmtl
+cm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFJlY2VpdmluZyBvZiBwcmlvcml0eSB0YWdnZWQgcGFj
+a2V0cw0KPiANCj4gTGUgZGltYW5jaGUgMjMgbWFpIDIwMTAgw6AgMDI6MzYgLTA3MDAsIFZsYWRp
+c2xhdiBab2xvdGFyb3YgYSDDqWNyaXQgOg0KPiA+IEhlbGxvLA0KPiA+IFdlIHdlcmUgcGxheWlu
+ZyB3aXRoIEZDb0UgaW4gb3VyIGxhYnMgYW5kIHNhdyB0aGUgc3RyYW5nZSBiZWhhdmlvciBvZiBM
+aW51eA0KPiBuZXR3b3JraW5nIHN0YWNrIGluIHJlZ2FyZCB0byBwcmlvcml0eS10YWdnZWQgZnJh
+bWVzICh0aGUgb25lcyB0aGF0IGhhdmUgYQ0KPiB6ZXJvIFZJRCBpbiBhIFZMQU4gdGFnKS4gV2Ug
+c2F3IHRoYXQgdW50aWwgd2UgZXhwbGljaXRseSBhZGRlZCBhIHplcm8gdmxhbg0KPiBpbnRlcmZh
+Y2UgKHZjb25maWcgYWRkIGV0aFggMCkgdGhlIHN0YWNrIHJlZnVzZWQgdG8gYWNjZXB0IHN1Y2gg
+cGFja2V0cyBib3RoDQo+IGluIEhXIFZMQU4gYWNjZWxlcmF0aW9uIG1vZGUgKHNrYiBpcyBpbmRp
+Y2F0ZWQgdXNpbmcNCj4gdmxhbl9od2FjY2VsX3JlY2VpdmVfc2tiKCkpIGFuZCBpbiBhIHJlZ3Vs
+YXIgbW9kZSAoc2tiIGlzIGluZGljYXRlZCB3aXRoDQo+IG5ldGlmX3JlY2VpdmVfc2tiKCkpLg0K
+PiA+DQo+ID4gSG93ZXZlciAiSUVFRSBTdGQgODAyLjFRLCAyMDA2IEVkaXRpb24gRFJBRlQgRDAu
+MSIgaW4gc2VjdGlvbiA2Ljcgc3RhdGVzDQo+IHRoZSBmb2xsb3dpbmc6DQo+ID4NCj4gPiBFYWNo
+IEJyaWRnZSBQb3J0IHNoYWxsIHN1cHBvcnQgdGhlIGZvbGxvd2luZyBwYXJhbWV0ZXJzIGZvciB1
+c2UgYnkgdGhlc2UNCj4gKEVJU1MgdGFnZ2luZyBhbmQgZGV0YWdnaW5nKSBmdW5jdGlvbnM6DQo+
+ID4gCWMpIGFuIEFjY2VwdGFibGUgRnJhbWUgVHlwZXMgcGFyYW1ldGVyIHdpdGggYXQgbGVhc3Qg
+b25lIG9mIHRoZQ0KPiBmb2xsb3dpbmcgdmFsdWVzOg0KPiA+IAkJMSkgQWRtaXQgT25seSBWTEFO
+LXRhZ2dlZCBmcmFtZXM7DQo+ID4gCQkyKSBBZG1pdCBPbmx5IFVudGFnZ2VkIGFuZCBQcmlvcml0
+eS10YWdnZWQgZnJhbWVzOw0KPiA+IAkJMykgQWRtaXQgQWxsIGZyYW1lcw0KPiA+DQo+ID4gU28g
+SSBndWVzcyB0aGlzIG1lYW5zIHRoYXQgcHJpb3JpdHkgdGFnZ2VkIGZyYW1lcyBzaG91bGQgYmUg
+YWNjZXB0ZWQNCj4gdG9nZXRoZXIgd2l0aCB0aGUgdW50YWdnZWQgZnJhbWVzIG9uIHRoZSBkZWZh
+dWx0IGludGVyZmFjZSBldGhYLg0KPiA+DQo+ID4gQ291bGQgYW55b25lIGV4cGxhaW4sIHBscy4s
+IHdoYXQncyB0aGUgZXhwZWN0ZWQgYmVoYXZpb3Igb2YgdGhlIExpbnV4DQo+IE5ldHdvcmtpbmcg
+U3RhY2sgaW4gcmVnYXJkIHRvIHRoZSBwcmlvcml0eS10YWdnZWQgZnJhbWVzIGFuZCB3aGF0J3Mg
+ZXhwZWN0ZWQNCj4gdG8gYmUgY29uZmlndXJlZCBpbiBvcmRlciB0byBzdGFydCBhY2NlcHRpbmcg
+dGhlbT8NCj4gPg0KPiA+IFRoYW5rcyBpbiBhZHZhbmNlLA0KPiA+IHZsYWQNCj4gDQo+IFNvIGlm
+IGV0aDAuMCBpcyBzZXR1cCwgaW5jb21pbmcgdmxhbmlkPTAgZnJhbWVzIGFyZSBkZWxpdmVyZWQg
+dG8gZXRoMC4wLA0KPiBPSyA/IChUaGlzIHdvcmtzIGluIGFuZCBvdXQgc2luY2UgY29tbWl0IDA1
+NDIzYjI0MTMxMWM5MykNCj4gDQo+IE5vdywgaWYgZXRoMC4wIGlzIG5vdCBzZXR1cCwgeW91IGJl
+bGlldmUgdGhlc2UgZnJhbWVzIHNob3VsZCBiZSBkaXJlY3RlZA0KPiB0byBldGgwLCBhcyBpZiB0
+aGV5IHdlcmUgbm90IHRhZ2dlZCA/DQo+IA0KPiBUaGF0IHNlZW1zIGEgYml0IHN0cmFuZ2UuDQoN
+CldlbGwsIGFzIGZhciBhcyBJIHVuZGVyc3Rvb2QgdGhpcyBpcyB3aGF0IElFRUUgODAyLjFRIHNw
+ZWMgc3RhdGVzLi4uDQoNCj4gDQo+IA0KPiANCg0K
 
