@@ -1,51 +1,63 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH] net/irda: bfin_sir: IRDA is not affected by anomaly 05000230
-Date: Sun, 23 May 2010 04:00:10 -0400
-Message-ID: <1274601610-882-1-git-send-email-vapier@gentoo.org>
-Cc: uclinux-dist-devel@blackfin.uclinux.org,
-	Graf Yang <graf.yang@analog.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [patch] caif: cleanup: remove duplicate checks
+Date: Sun, 23 May 2010 10:27:42 +0200
+Message-ID: <4BF8E6FE.9000303@bfs.de>
+References: <20100522204519.GW22515@bicker>
+Reply-To: wharms@bfs.de
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Sjur Braendeland <sjur.brandeland@stericsson.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	kernel-janitors@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Dan Carpenter <error27@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:50046 "EHLO smtp.gentoo.org"
+Received: from mx01.sz.bfs.de ([194.94.69.103]:43317 "EHLO mx01.sz.bfs.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751900Ab0EWH4j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 May 2010 03:56:39 -0400
+	id S1752306Ab0EWI1t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 May 2010 04:27:49 -0400
+In-Reply-To: <20100522204519.GW22515@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Graf Yang <graf.yang@analog.com>
 
-Anomaly 05000230 (over sampling of the UART STOP bit) applies only when
-the peripheral is operating in UART mode.  So drop the anomaly handling
-in the IRDA code.
 
-Signed-off-by: Graf Yang <graf.yang@analog.com>
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
----
-Note: this is fine for 2.6.35 or 2.6.36
+Dan Carpenter schrieb:
+> These checks merely duplicate the things we've asserted already.  In the
+> case of the checks for null we've already dereferenced those variables
+> as well.
+> 
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> 
+> diff --git a/net/caif/cfcnfg.c b/net/caif/cfcnfg.c
+> index df43f26..cc2f072 100644
+> --- a/net/caif/cfcnfg.c
+> +++ b/net/caif/cfcnfg.c
+> @@ -313,14 +313,10 @@ cfcnfg_linkup_rsp(struct cflayer *layer, u8 channel_id, enum cfctrl_srv serv,
+>  	caif_assert(phyinfo->phy_layer != NULL);
+>  	caif_assert(phyinfo->phy_layer->id == phyid);
+>  
+> -	if (phyinfo != NULL &&
+> -	    phyinfo->phy_ref_count++ == 0 &&
+> -	    phyinfo->phy_layer != NULL &&
+> +	if (phyinfo->phy_ref_count++ == 0 &&
+>  	    phyinfo->phy_layer->modemcmd != NULL) {
+> -		caif_assert(phyinfo->phy_layer->id == phyid);
+>  		phyinfo->phy_layer->modemcmd(phyinfo->phy_layer,
+>  					     _CAIF_MODEMCMD_PHYIF_USEFULL);
+> -
+>  	}
+>  	adapt_layer->id = channel_id;
+>  
 
- drivers/net/irda/bfin_sir.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/irda/bfin_sir.c b/drivers/net/irda/bfin_sir.c
-index 911c082..f940dfa 100644
---- a/drivers/net/irda/bfin_sir.c
-+++ b/drivers/net/irda/bfin_sir.c
-@@ -107,8 +107,12 @@ static int bfin_sir_set_speed(struct bfin_sir_port *port, int speed)
- 	case 57600:
- 	case 115200:
- 
--		quot = (port->clk + (8 * speed)) / (16 * speed)\
--						- ANOMALY_05000230;
-+		/*
-+		 * IRDA is not affected by anomaly 05000230, so there is no
-+		 * need to tweak the divisor like he UART driver (which will
-+		 * slightly speed up the baud rate on us).
-+		 */
-+		quot = (port->clk + (8 * speed)) / (16 * speed);
- 
- 		do {
- 			udelay(utime);
--- 
-1.7.1
+hi Dan,
+the phyinfo->phy_ref_count++  is very hidden, perhaps in terms of readability
+it is better to move the phyinfo->phy_ref_count++ inside.
 
+just my 2 cents,
+
+re,
+ wh
