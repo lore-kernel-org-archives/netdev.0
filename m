@@ -1,422 +1,51 @@
-From: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
-Subject: [PATCH 5/7] isdn/gigaset: avoid copying AT commands twice
-Date: Sun, 23 May 2010 02:26:43 +0200 (CEST)
-Message-ID: <20100522-patch-gigaset-05.tilman@imap.cc>
-References: <20100522-patch-gigaset-00.tilman@imap.cc>
+From: andrew hendry <andrew.hendry@gmail.com>
+Subject: Re: [PATCH 09/12] X25: remove duplicated #include
+Date: Sun, 23 May 2010 11:52:06 +1000
+Message-ID: <AANLkTikAx8dcmA4VDfOo8IdunMK0sCmMOf3a03KUxxas@mail.gmail.com>
+References: <1274548380-188-1-git-send-email-weiyi.huang@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Karsten Keil <keil-shG/GajIFYqbacvFa/9K2g@public.gmane.org>,
-        Hansjoerg Lipp <hjlipp-S0/GAf8tV78@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        i4ldeveloper-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
-To: Karsten Keil <isdn-iHCpqvpFUx0uJkBD2foKsQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org>
-In-Reply-To: <20100522-patch-gigaset-00.tilman-ZTO5kqT2PaM@public.gmane.org>
-List-Unsubscribe: <https://www.isdn4linux.de/mailman/options/i4ldeveloper>,
-	<mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://www.isdn4linux.de/pipermail/i4ldeveloper/>
-List-Post: <mailto:i4ldeveloper-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org>
-List-Help: <mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=help>
-List-Subscribe: <https://www.isdn4linux.de/mailman/listinfo/i4ldeveloper>,
-	<mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=subscribe>
-Sender: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
-Errors-To: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Huang Weiyi <weiyi.huang@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:60358 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755970Ab0EWBwJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 May 2010 21:52:09 -0400
+Received: by iwn6 with SMTP id 6so2568560iwn.19
+        for <netdev@vger.kernel.org>; Sat, 22 May 2010 18:52:08 -0700 (PDT)
+In-Reply-To: <1274548380-188-1-git-send-email-weiyi.huang@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Change the Gigaset driver's internal write_cmd interface to accept a
-cmdbuf structure instead of a string. This avoids copying formatted
-AT commands a second time.
+With x25 patches its best to CC netdev, the x25 list is not very active=
+=2E
+Compile tested, looks fine for net-next.
 
-Impact: optimization
-Signed-off-by: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
----
- drivers/isdn/gigaset/bas-gigaset.c |   51 +++++-------------------
- drivers/isdn/gigaset/ev-layer.c    |   75 ++++++++++++++++-------------------
- drivers/isdn/gigaset/gigaset.h     |    4 +-
- drivers/isdn/gigaset/interface.c   |   36 ++++++++++++++---
- drivers/isdn/gigaset/ser-gigaset.c |   27 ++----------
- drivers/isdn/gigaset/usb-gigaset.c |   26 ++----------
- 6 files changed, 85 insertions(+), 134 deletions(-)
-
-diff --git a/drivers/isdn/gigaset/bas-gigaset.c b/drivers/isdn/gigaset/bas-gigaset.c
-index 47a5ffe..2dab531 100644
---- a/drivers/isdn/gigaset/bas-gigaset.c
-+++ b/drivers/isdn/gigaset/bas-gigaset.c
-@@ -1913,65 +1913,41 @@ static int start_cbsend(struct cardstate *cs)
-  * USB transmission is started if necessary.
-  * parameters:
-  *	cs		controller state structure
-- *	buf		command string to send
-- *	len		number of bytes to send (max. IF_WRITEBUF)
-- *	wake_tasklet	tasklet to run when transmission is completed
-- *			(NULL if none)
-+ *	cb		command buffer structure
-  * return value:
-  *	number of bytes queued on success
-  *	error code < 0 on error
-  */
--static int gigaset_write_cmd(struct cardstate *cs,
--			     const unsigned char *buf, int len,
--			     struct tasklet_struct *wake_tasklet)
-+static int gigaset_write_cmd(struct cardstate *cs, struct cmdbuf_t *cb)
- {
--	struct cmdbuf_t *cb;
- 	unsigned long flags;
- 	int rc;
- 
- 	gigaset_dbg_buffer(cs->mstate != MS_LOCKED ?
- 			     DEBUG_TRANSCMD : DEBUG_LOCKCMD,
--			   "CMD Transmit", len, buf);
--
--	if (len <= 0) {
--		/* nothing to do */
--		rc = 0;
--		goto notqueued;
--	}
-+			   "CMD Transmit", cb->len, cb->buf);
- 
- 	/* translate "+++" escape sequence sent as a single separate command
- 	 * into "close AT channel" command for error recovery
- 	 * The next command will reopen the AT channel automatically.
- 	 */
--	if (len == 3 && !memcmp(buf, "+++", 3)) {
-+	if (cb->len == 3 && !memcmp(cb->buf, "+++", 3)) {
-+		kfree(cb);
- 		rc = req_submit(cs->bcs, HD_CLOSE_ATCHANNEL, 0, BAS_TIMEOUT);
--		goto notqueued;
--	}
--
--	if (len > IF_WRITEBUF)
--		len = IF_WRITEBUF;
--	cb = kmalloc(sizeof(struct cmdbuf_t) + len, GFP_ATOMIC);
--	if (!cb) {
--		dev_err(cs->dev, "%s: out of memory\n", __func__);
--		rc = -ENOMEM;
--		goto notqueued;
-+		if (cb->wake_tasklet)
-+			tasklet_schedule(cb->wake_tasklet);
-+		return rc < 0 ? rc : cb->len;
- 	}
- 
--	memcpy(cb->buf, buf, len);
--	cb->len = len;
--	cb->offset = 0;
--	cb->next = NULL;
--	cb->wake_tasklet = wake_tasklet;
--
- 	spin_lock_irqsave(&cs->cmdlock, flags);
- 	cb->prev = cs->lastcmdbuf;
- 	if (cs->lastcmdbuf)
- 		cs->lastcmdbuf->next = cb;
- 	else {
- 		cs->cmdbuf = cb;
--		cs->curlen = len;
-+		cs->curlen = cb->len;
- 	}
--	cs->cmdbytes += len;
-+	cs->cmdbytes += cb->len;
- 	cs->lastcmdbuf = cb;
- 	spin_unlock_irqrestore(&cs->cmdlock, flags);
- 
-@@ -1988,12 +1964,7 @@ static int gigaset_write_cmd(struct cardstate *cs,
- 	}
- 	rc = start_cbsend(cs);
- 	spin_unlock_irqrestore(&cs->lock, flags);
--	return rc < 0 ? rc : len;
--
--notqueued:			/* request handled without queuing */
--	if (wake_tasklet)
--		tasklet_schedule(wake_tasklet);
--	return rc;
-+	return rc < 0 ? rc : cb->len;
- }
- 
- /* gigaset_write_room
-diff --git a/drivers/isdn/gigaset/ev-layer.c b/drivers/isdn/gigaset/ev-layer.c
-index 206c380..84a8901 100644
---- a/drivers/isdn/gigaset/ev-layer.c
-+++ b/drivers/isdn/gigaset/ev-layer.c
-@@ -799,48 +799,27 @@ static void schedule_init(struct cardstate *cs, int state)
- static void send_command(struct cardstate *cs, const char *cmd, int cid,
- 			 int dle, gfp_t kmallocflags)
- {
--	size_t cmdlen, buflen;
--	char *cmdpos, *cmdbuf, *cmdtail;
-+	struct cmdbuf_t *cb;
-+	size_t buflen;
- 
--	cmdlen = strlen(cmd);
--	buflen = 11 + cmdlen;
--	if (unlikely(buflen <= cmdlen)) {
--		dev_err(cs->dev, "integer overflow in buflen\n");
-+	buflen = strlen(cmd) + 12; /* DLE ( A T 1 2 3 4 5 <cmd> DLE ) \0 */
-+	cb = kmalloc(sizeof(struct cmdbuf_t) + buflen, kmallocflags);
-+	if (!cb) {
-+		dev_err(cs->dev, "%s: out of memory\n", __func__);
- 		return;
- 	}
--
--	cmdbuf = kmalloc(buflen, kmallocflags);
--	if (unlikely(!cmdbuf)) {
--		dev_err(cs->dev, "out of memory\n");
--		return;
--	}
--
--	cmdpos = cmdbuf + 9;
--	cmdtail = cmdpos + cmdlen;
--	memcpy(cmdpos, cmd, cmdlen);
--
--	if (cid > 0 && cid <= 65535) {
--		do {
--			*--cmdpos = '0' + cid % 10;
--			cid /= 10;
--			++cmdlen;
--		} while (cid);
--	}
--
--	cmdlen += 2;
--	*--cmdpos = 'T';
--	*--cmdpos = 'A';
--
--	if (dle) {
--		cmdlen += 4;
--		*--cmdpos = '(';
--		*--cmdpos = 0x10;
--		*cmdtail++ = 0x10;
--		*cmdtail++ = ')';
--	}
--
--	cs->ops->write_cmd(cs, cmdpos, cmdlen, NULL);
--	kfree(cmdbuf);
-+	if (cid > 0 && cid <= 65535)
-+		cb->len = snprintf(cb->buf, buflen,
-+				  dle ? "\020(AT%d%s\020)" : "AT%d%s",
-+				  cid, cmd);
-+	else
-+		cb->len = snprintf(cb->buf, buflen,
-+				  dle ? "\020(AT%s\020)" : "AT%s",
-+				  cmd);
-+	cb->offset = 0;
-+	cb->next = NULL;
-+	cb->wake_tasklet = NULL;
-+	cs->ops->write_cmd(cs, cb);
- }
- 
- static struct at_state_t *at_state_from_cid(struct cardstate *cs, int cid)
-@@ -1242,8 +1221,22 @@ static void do_action(int action, struct cardstate *cs,
- 		break;
- 	case ACT_HUPMODEM:
- 		/* send "+++" (hangup in unimodem mode) */
--		if (cs->connected)
--			cs->ops->write_cmd(cs, "+++", 3, NULL);
-+		if (cs->connected) {
-+			struct cmdbuf_t *cb;
-+
-+			cb = kmalloc(sizeof(struct cmdbuf_t) + 3, GFP_ATOMIC);
-+			if (!cb) {
-+				dev_err(cs->dev, "%s: out of memory\n",
-+					__func__);
-+				return;
-+			}
-+			memcpy(cb->buf, "+++", 3);
-+			cb->len = 3;
-+			cb->offset = 0;
-+			cb->next = NULL;
-+			cb->wake_tasklet = NULL;
-+			cs->ops->write_cmd(cs, cb);
-+		}
- 		break;
- 	case ACT_RING:
- 		/* get fresh AT state structure for new CID */
-diff --git a/drivers/isdn/gigaset/gigaset.h b/drivers/isdn/gigaset/gigaset.h
-index d32efb6..eb2fdac 100644
---- a/drivers/isdn/gigaset/gigaset.h
-+++ b/drivers/isdn/gigaset/gigaset.h
-@@ -575,9 +575,7 @@ struct bas_bc_state {
- struct gigaset_ops {
- 	/* Called from ev-layer.c/interface.c for sending AT commands to the
- 	   device */
--	int (*write_cmd)(struct cardstate *cs,
--			 const unsigned char *buf, int len,
--			 struct tasklet_struct *wake_tasklet);
-+	int (*write_cmd)(struct cardstate *cs, struct cmdbuf_t *cb);
- 
- 	/* Called from interface.c for additional device control */
- 	int (*write_room)(struct cardstate *cs);
-diff --git a/drivers/isdn/gigaset/interface.c b/drivers/isdn/gigaset/interface.c
-index c9f28dd..f45d686 100644
---- a/drivers/isdn/gigaset/interface.c
-+++ b/drivers/isdn/gigaset/interface.c
-@@ -339,7 +339,8 @@ static int if_tiocmset(struct tty_struct *tty, struct file *file,
- static int if_write(struct tty_struct *tty, const unsigned char *buf, int count)
- {
- 	struct cardstate *cs;
--	int retval = -ENODEV;
-+	struct cmdbuf_t *cb;
-+	int retval;
- 
- 	cs = (struct cardstate *) tty->driver_data;
- 	if (!cs) {
-@@ -355,18 +356,39 @@ static int if_write(struct tty_struct *tty, const unsigned char *buf, int count)
- 	if (!cs->connected) {
- 		gig_dbg(DEBUG_IF, "not connected");
- 		retval = -ENODEV;
--	} else if (!cs->open_count)
-+		goto done;
-+	}
-+	if (!cs->open_count) {
- 		dev_warn(cs->dev, "%s: device not opened\n", __func__);
--	else if (cs->mstate != MS_LOCKED) {
-+		retval = -ENODEV;
-+		goto done;
-+	}
-+	if (cs->mstate != MS_LOCKED) {
- 		dev_warn(cs->dev, "can't write to unlocked device\n");
- 		retval = -EBUSY;
--	} else {
--		retval = cs->ops->write_cmd(cs, buf, count,
--					    &cs->if_wake_tasklet);
-+		goto done;
-+	}
-+	if (count <= 0) {
-+		/* nothing to do */
-+		retval = 0;
-+		goto done;
- 	}
- 
--	mutex_unlock(&cs->mutex);
-+	cb = kmalloc(sizeof(struct cmdbuf_t) + count, GFP_KERNEL);
-+	if (!cb) {
-+		dev_err(cs->dev, "%s: out of memory\n", __func__);
-+		retval = -ENOMEM;
-+		goto done;
-+	}
- 
-+	memcpy(cb->buf, buf, count);
-+	cb->len = count;
-+	cb->offset = 0;
-+	cb->next = NULL;
-+	cb->wake_tasklet = &cs->if_wake_tasklet;
-+	retval = cs->ops->write_cmd(cs, cb);
-+done:
-+	mutex_unlock(&cs->mutex);
- 	return retval;
- }
- 
-diff --git a/drivers/isdn/gigaset/ser-gigaset.c b/drivers/isdn/gigaset/ser-gigaset.c
-index e96c058..d151dcb 100644
---- a/drivers/isdn/gigaset/ser-gigaset.c
-+++ b/drivers/isdn/gigaset/ser-gigaset.c
-@@ -241,30 +241,13 @@ static void flush_send_queue(struct cardstate *cs)
-  * return value:
-  *	number of bytes queued, or error code < 0
-  */
--static int gigaset_write_cmd(struct cardstate *cs, const unsigned char *buf,
--			     int len, struct tasklet_struct *wake_tasklet)
-+static int gigaset_write_cmd(struct cardstate *cs, struct cmdbuf_t *cb)
- {
--	struct cmdbuf_t *cb;
- 	unsigned long flags;
- 
- 	gigaset_dbg_buffer(cs->mstate != MS_LOCKED ?
- 				DEBUG_TRANSCMD : DEBUG_LOCKCMD,
--			   "CMD Transmit", len, buf);
--
--	if (len <= 0)
--		return 0;
--
--	cb = kmalloc(sizeof(struct cmdbuf_t) + len, GFP_ATOMIC);
--	if (!cb) {
--		dev_err(cs->dev, "%s: out of memory!\n", __func__);
--		return -ENOMEM;
--	}
--
--	memcpy(cb->buf, buf, len);
--	cb->len = len;
--	cb->offset = 0;
--	cb->next = NULL;
--	cb->wake_tasklet = wake_tasklet;
-+			   "CMD Transmit", cb->len, cb->buf);
- 
- 	spin_lock_irqsave(&cs->cmdlock, flags);
- 	cb->prev = cs->lastcmdbuf;
-@@ -272,9 +255,9 @@ static int gigaset_write_cmd(struct cardstate *cs, const unsigned char *buf,
- 		cs->lastcmdbuf->next = cb;
- 	else {
- 		cs->cmdbuf = cb;
--		cs->curlen = len;
-+		cs->curlen = cb->len;
- 	}
--	cs->cmdbytes += len;
-+	cs->cmdbytes += cb->len;
- 	cs->lastcmdbuf = cb;
- 	spin_unlock_irqrestore(&cs->cmdlock, flags);
- 
-@@ -282,7 +265,7 @@ static int gigaset_write_cmd(struct cardstate *cs, const unsigned char *buf,
- 	if (cs->connected)
- 		tasklet_schedule(&cs->write_tasklet);
- 	spin_unlock_irqrestore(&cs->lock, flags);
--	return len;
-+	return cb->len;
- }
- 
- /*
-diff --git a/drivers/isdn/gigaset/usb-gigaset.c b/drivers/isdn/gigaset/usb-gigaset.c
-index f65cf7d..4a66338 100644
---- a/drivers/isdn/gigaset/usb-gigaset.c
-+++ b/drivers/isdn/gigaset/usb-gigaset.c
-@@ -494,29 +494,13 @@ static int send_cb(struct cardstate *cs, struct cmdbuf_t *cb)
- }
- 
- /* Send command to device. */
--static int gigaset_write_cmd(struct cardstate *cs, const unsigned char *buf,
--			     int len, struct tasklet_struct *wake_tasklet)
-+static int gigaset_write_cmd(struct cardstate *cs, struct cmdbuf_t *cb)
- {
--	struct cmdbuf_t *cb;
- 	unsigned long flags;
- 
- 	gigaset_dbg_buffer(cs->mstate != MS_LOCKED ?
- 			     DEBUG_TRANSCMD : DEBUG_LOCKCMD,
--			   "CMD Transmit", len, buf);
--
--	if (len <= 0)
--		return 0;
--	cb = kmalloc(sizeof(struct cmdbuf_t) + len, GFP_ATOMIC);
--	if (!cb) {
--		dev_err(cs->dev, "%s: out of memory\n", __func__);
--		return -ENOMEM;
--	}
--
--	memcpy(cb->buf, buf, len);
--	cb->len = len;
--	cb->offset = 0;
--	cb->next = NULL;
--	cb->wake_tasklet = wake_tasklet;
-+			   "CMD Transmit", cb->len, cb->buf);
- 
- 	spin_lock_irqsave(&cs->cmdlock, flags);
- 	cb->prev = cs->lastcmdbuf;
-@@ -524,9 +508,9 @@ static int gigaset_write_cmd(struct cardstate *cs, const unsigned char *buf,
- 		cs->lastcmdbuf->next = cb;
- 	else {
- 		cs->cmdbuf = cb;
--		cs->curlen = len;
-+		cs->curlen = cb->len;
- 	}
--	cs->cmdbytes += len;
-+	cs->cmdbytes += cb->len;
- 	cs->lastcmdbuf = cb;
- 	spin_unlock_irqrestore(&cs->cmdlock, flags);
- 
-@@ -534,7 +518,7 @@ static int gigaset_write_cmd(struct cardstate *cs, const unsigned char *buf,
- 	if (cs->connected)
- 		tasklet_schedule(&cs->write_tasklet);
- 	spin_unlock_irqrestore(&cs->lock, flags);
--	return len;
-+	return cb->len;
- }
- 
- static int gigaset_write_room(struct cardstate *cs)
--- 
-1.6.5.3.298.g39add
+On Sun, May 23, 2010 at 3:13 AM, Huang Weiyi <weiyi.huang@gmail.com> wr=
+ote:
+> Remove duplicated #include('s) in
+> =A0drivers/net/wan/x25_asy.c
+>
+> Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
+> ---
+> =A0drivers/net/wan/x25_asy.c | =A0 =A02 --
+> =A01 files changed, 0 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/wan/x25_asy.c b/drivers/net/wan/x25_asy.c
+> index 166e77d..e47f5a9 100644
+> --- a/drivers/net/wan/x25_asy.c
+> +++ b/drivers/net/wan/x25_asy.c
+> @@ -37,8 +37,6 @@
+> =A0#include <net/x25device.h>
+> =A0#include "x25_asy.h"
+>
+> -#include <net/x25device.h>
+> -
+> =A0static struct net_device **x25_asy_devs;
+> =A0static int x25_asy_maxdev =3D SL_NRUNIT;
+>
+> --
+> 1.6.1.3
+>
+>
