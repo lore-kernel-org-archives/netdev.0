@@ -1,8 +1,8 @@
 From: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
-Subject: [PATCH 1/2] isdn/capi: make reset_ctr op truly optional
-Date: Sun, 23 May 2010 03:15:13 +0200 (CEST)
-Message-ID: <20100523-patch-gigaset-01.tilman@imap.cc>
-References: <20100523-patch-gigaset-00.tilman@imap.cc>
+Subject: [PATCH 1/7] Documentation/isdn: CAPI controller interface amendment
+Date: Sun, 23 May 2010 02:24:42 +0200 (CEST)
+Message-ID: <20100522-patch-gigaset-01.tilman@imap.cc>
+References: <20100522-patch-gigaset-00.tilman@imap.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,7 +11,7 @@ Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Karsten Keil <keil-shG/GajIF
         i4ldeveloper-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 To: Karsten Keil <isdn-iHCpqvpFUx0uJkBD2foKsQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Return-path: <i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org>
-In-Reply-To: <20100523-patch-gigaset-00.tilman-ZTO5kqT2PaM@public.gmane.org>
+In-Reply-To: <20100522-patch-gigaset-00.tilman-ZTO5kqT2PaM@public.gmane.org>
 List-Unsubscribe: <https://www.isdn4linux.de/mailman/options/i4ldeveloper>,
 	<mailto:i4ldeveloper-request-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://www.isdn4linux.de/pipermail/i4ldeveloper/>
@@ -23,32 +23,37 @@ Sender: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 Errors-To: i4ldeveloper-bounces-JX7+OpRa80SjiSfgN6Y1Ib39b6g2fGNp@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The CAPI controller operation reset_ctr is marked as optional, and
-not all drivers do implement it. Add a check to the kernel CAPI
-whether it exists before trying to call it.
+Mention that the CAPI controller methods load_firmware() and
+reset_ctr() are asynchronous, and should signal completion.
 
-Impact: oops prevention
+Impact: documentation
 Signed-off-by: Tilman Schmidt <tilman-ZTO5kqT2PaM@public.gmane.org>
 ---
- drivers/isdn/capi/kcapi.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+ Documentation/isdn/INTERFACE.CAPI |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/isdn/capi/kcapi.c b/drivers/isdn/capi/kcapi.c
-index bd00dce..bde3c88 100644
---- a/drivers/isdn/capi/kcapi.c
-+++ b/drivers/isdn/capi/kcapi.c
-@@ -1147,6 +1147,12 @@ load_unlock_out:
- 		if (ctr->state == CAPI_CTR_DETECTED)
- 			goto reset_unlock_out;
+diff --git a/Documentation/isdn/INTERFACE.CAPI b/Documentation/isdn/INTERFACE.CAPI
+index f172091..309eb5e 100644
+--- a/Documentation/isdn/INTERFACE.CAPI
++++ b/Documentation/isdn/INTERFACE.CAPI
+@@ -113,12 +113,16 @@ char *driver_name
+ int (*load_firmware)(struct capi_ctr *ctrlr, capiloaddata *ldata)
+ 	(optional) pointer to a callback function for sending firmware and
+ 	configuration data to the device
++	The function may return before the operation has completed.
++	Completion must be signalled by a call to capi_ctr_ready().
+ 	Return value: 0 on success, error code on error
+ 	Called in process context.
  
-+		if (ctr->reset_ctr == NULL) {
-+			printk(KERN_DEBUG "kcapi: reset: no reset function\n");
-+			retval = -ESRCH;
-+			goto reset_unlock_out;
-+		}
-+
- 		ctr->reset_ctr(ctr);
+ void (*reset_ctr)(struct capi_ctr *ctrlr)
+-	(optional) pointer to a callback function for performing a reset on
+-	the device, releasing all registered applications
++	(optional) pointer to a callback function for stopping the device,
++	releasing all registered applications
++	The function may return before the operation has completed.
++	Completion must be signalled by a call to capi_ctr_down().
+ 	Called in process context.
  
- 		retval = wait_on_ctr_state(ctr, CAPI_CTR_DETECTED);
+ void (*register_appl)(struct capi_ctr *ctrlr, u16 applid,
 -- 
 1.6.5.3.298.g39add
