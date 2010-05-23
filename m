@@ -1,56 +1,38 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 1/5] net/phy/marvell: Expose IDs and flags in a .h and
-	add dns323 LEDs setup flag
-Date: Sun, 23 May 2010 08:53:34 +1000
-Message-ID: <1274568814.1931.148.camel@pasglop>
-References: <1274525683.1931.139.camel@pasglop>
-	<20100522130624.GA28561@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/7] ISDN patches for 2.6.35
+Date: Sat, 22 May 2010 17:43:18 -0700 (PDT)
+Message-ID: <20100522.174318.197930599.davem@davemloft.net>
+References: <20100522-patch-gigaset-00.tilman@imap.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>, Nicolas Pitre <nico@fluxnic.net>
-To: Wolfram Sang <w.sang@pengutronix.de>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20100522130624.GA28561@pengutronix.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: isdn@linux-pingi.de, hjlipp@web.de, keil@b1-systems.de,
+	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: tilman@imap.cc
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100522-patch-gigaset-00.tilman@imap.cc>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2010-05-22 at 15:06 +0200, Wolfram Sang wrote:
-> On Sat, May 22, 2010 at 08:54:43PM +1000, Benjamin Herrenschmidt wrote:
-> > This moves the various known Marvell PHY IDs to include/linux/marvell_phy.h
-> > along with dev_flags definitions for use by the driver.
+From: Tilman Schmidt <tilman@imap.cc>
+Date: Sun, 23 May 2010 02:24:12 +0200 (CEST)
+
+> Karsten, David,
 > 
-> I think this one from the driver should go there, too:
-> 
-> #define M1145_DEV_FLAGS_RESISTANCE      0x00000001
-> 
-> (which makes me wonder how this flag was set as it was not exported before)
+> following are seven patches to the CAPI subsystem and the Gigaset
+> driver I'd like to see included in kernel release 2.6.35.
+> The first three respond to user reports about an observed hang of
+> the userspace command "capiinit stop".
+> The others are cleanups from the ongoing driver development.
 
-I missed that one indeed.
+What the heck about "no more cleanups or new features for networking"
+do you not understand?
 
-> and thus yours could be maybe like
-> 
-> #define M1118_DEV_FLAGS_ALT_LED_INIT	0x00000001
-> 
-> (or 1 << 0)
+When the merge window is openned, this is not a signal to you to send
+changes to me.  You should have stuff in weeks ahead of that time.
 
-Right, it should be 2. I'd rather keep the "DNS323" name in there
-since the LED setup is specific to that NAS and somebody else might
-need a different one. If we end up in the long run with too many
-of them, we'll find a better solution, but we aren't there yet.
+I'm willing to take bug fixes only at this point so you'll need to
+respin this series.
 
-> Otherwise looks good enough to me.
-
-Ok, thanks. I'll respin the whole lot soon.
-
-Cheers,
-Ben.
+And Tilman, of all people you really should know better.
