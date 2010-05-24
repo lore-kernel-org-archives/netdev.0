@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] ISDN fixes for 2.6.35
-Date: Sun, 23 May 2010 23:52:23 -0700 (PDT)
-Message-ID: <20100523.235223.116643622.davem@davemloft.net>
-References: <20100523-patch-gigaset-00.tilman@imap.cc>
-	<201005231301.50967.isdn@linux-pingi.de>
+Subject: Re: [PATCH] net/irda: bfin_sir: IRDA is not affected by anomaly
+ 05000230
+Date: Sun, 23 May 2010 23:54:15 -0700 (PDT)
+Message-ID: <20100523.235415.16641308.davem@davemloft.net>
+References: <1274601610-882-1-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tilman@imap.cc, hjlipp@web.de, i4ldeveloper@listserv.isdn4linux.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	keil@b1-systems.de
-To: isdn@linux-pingi.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201005231301.50967.isdn@linux-pingi.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org,
+	graf.yang@analog.com
+To: vapier@gentoo.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38952
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753654Ab0EXGyG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 02:54:06 -0400
+In-Reply-To: <1274601610-882-1-git-send-email-vapier@gentoo.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Karsten Keil <isdn@linux-pingi.de>
-Date: Sun, 23 May 2010 13:01:50 +0200
+From: Mike Frysinger <vapier@gentoo.org>
+Date: Sun, 23 May 2010 04:00:10 -0400
 
-> On Sonntag, 23. Mai 2010 03:14:43 Tilman Schmidt wrote:
->> Karsten, David,
->> 
->> following are two patches to the CAPI subsystem and the Gigaset
->> driver I'd like to see included in kernel release 2.6.35.
->> Together they fix a reported hang of the userspace command
->> "capiinit stop".
+> From: Graf Yang <graf.yang@analog.com>
 > 
-> Acked-by: Karsten Keil <isdn@linux-pingi.de>
+> Anomaly 05000230 (over sampling of the UART STOP bit) applies only when
+> the peripheral is operating in UART mode.  So drop the anomaly handling
+> in the IRDA code.
+> 
+> Signed-off-by: Graf Yang <graf.yang@analog.com>
+> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
 
-All applied, thanks everyone.
+Applied, thanks.
