@@ -1,34 +1,80 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH][VHOST] fix race with guest on multi-buffer used buffer
-	updates
-Date: Mon, 24 May 2010 20:52:03 +0300
-Message-ID: <20100524175203.GB6749@redhat.com>
-References: <20100524164205.GA6664@redhat.com> <OF4F730E37.19043E17-ON8825772D.00616972-8825772D.0062068B@us.ibm.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: ixgbe and SRIOV failure in driver?
+Date: Mon, 24 May 2010 11:57:28 -0600
+Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FF3C70D10@rrsmsx501.amr.corp.intel.com>
+References: <0199E0D51A61344794750DC57738F58E70B08A2A20@GVW1118EXC.americas.hpqcorp.net>
+ <43F901BD926A4E43B106BF17856F0755A79C061C@orsmsx508.amr.corp.intel.com>
+ <0199E0D51A61344794750DC57738F58E70B14DC9A7@GVW1118EXC.americas.hpqcorp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <OF4F730E37.19043E17-ON8825772D.00616972-8825772D.0062068B@us.ibm.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Fischer, Anna" <anna.fischer@hp.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:40396 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757689Ab0EXR5b convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 13:57:31 -0400
+In-Reply-To: <0199E0D51A61344794750DC57738F58E70B14DC9A7@GVW1118EXC.americas.hpqcorp.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 24, 2010 at 10:50:44AM -0700, David Stevens wrote:
-> Michael S. Tsirkin <mst@redhat.com> wrote on 05/24/2010 09:42:05 AM:
-> > 
-> > I see. The logging is still bugg though I think.
+Fischer, Anna wrote:
+>> Subject: RE: ixgbe and SRIOV failure in driver?
+>> 
+>>> -----Original Message-----
+>>> From: netdev-owner@vger.kernel.org
+>>> [mailto:netdev-owner@vger.kernel.org] On Behalf Of Fischer, Anna
+>>> Sent: Friday, May 21, 2010 9:33 AM 
+>>> To: e1000-devel@lists.sourceforge.net; netdev@vger.kernel.org
+>>> Subject: ixgbe and SRIOV failure in driver?
+>>> 
+>>> I am running a system with 3 Intel NICs. Two of them are 82598
+>>> devices, and one is a SRIOV capable 82599.
+>>> 
+>>> All devices use the ixgbe driver. What happens (I believe) now is
+>>> that when the driver loads at first, it sees the 82598 first
+>>> (because of its position in the PCI tree) and then it says "Device
+>>> not IOV capable - switching off IOV." 
+>>> 
+>>> So then it switches into non-IOV mode, and I can never enable SRIOV
+>>> on my 82599, because the driver does not enable it any more for
+>>> further devices. 
+>>> 
+>>> So to get around this issue, I tried to use pciback.hide to hide the
+>>> 82598 devices from the OS. That way I was hoping that the driver
+>>> would switch on SRIOV on my 82599. However, then I got a kernel
+>>> panic on boot (see below). 
+>>> 
+>>> I am running Xen 4 and the Dom0 kernel is a 2.6.31 kernel.
+>> 
+>> The ixgbe driver included with the 2.6.31 kernel does not support
+>> SR-IOV. Where did you get the driver that does?  Please run ethtool
+>> -i <ethx> and post the results.
 > 
-> Possibly; migration isn't working for me under load even
-> without mergeable buffers (investigating), so I haven't
-> yet been able to test wrap w/ logging, but did you see
-> something specific that's wrong?
+> I have installed the driver separately on my pv-ops kernel.
 > 
->                                                 +-DLS
+> [root@211052610-f-cpu ~]# ethtool -i eth
+> driver: ixgbe
+> version: 2.0.75.7-NAPI
+> firmware-version: 0.9-3
+> bus-info: 0000:05:00.0
+> 
+> I have attached a log on when the drivers loads. There is a bit more
+> debugging information enabled. You can see that the driver loads at
+> first on devices 0000:02:00.0 and 0000:02:00.1 which are 82598
+> devices and don't support SRIOV. So the driver switches off SRIOV.
+> When it loads it on the 82599 which sits on 0000:05:00.0, it does not
+> even have the SRIOV parameter enabled anymore, even though I load the
+> driver with 'modprobe ixgbe max_vfs=4'.      
 
-Yes, code only logs a single entry as dirty even if
-multiple entries have been written.
+Load the driver by specifying max_vfs for each adapter. For example if your adapters enumerate 82598, 82598, 82599:
 
--- 
-MST
+modprobe ixgbe max_vfs=0,0,4
+
+Thanks,
+Emil
