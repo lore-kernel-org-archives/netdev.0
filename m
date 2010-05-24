@@ -1,42 +1,34 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Question about an assignment in handle_ing()
-Date: Mon, 24 May 2010 13:22:36 +0200
-Message-ID: <20100524112236.GF2810@psychotron.lab.eng.brq.redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: cls_cgroup: Store classid in struct sock
+Date: Mon, 24 May 2010 21:24:38 +1000
+Message-ID: <20100524112438.GA29848@gondor.apana.org.au>
+References: <20100523.234441.66200781.davem@davemloft.net> <20100523.235557.165343768.davem@davemloft.net> <20100524070743.GA26871@gondor.apana.org.au> <20100524.001429.259990428.davem@davemloft.net> <20100524110950.GA22216@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	herbert@gondor.hengli.com.au, kaber@trash.net
-To: hadi@cyberus.ca
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	bmb@athenacr.com, tgraf@redhat.com, nhorman@redhat.com,
+	netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37881 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755456Ab0EXLXG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 May 2010 07:23:06 -0400
+Received: from ringil.hengli.com.au ([216.59.3.182]:51144 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756874Ab0EXLYz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 07:24:55 -0400
 Content-Disposition: inline
+In-Reply-To: <20100524110950.GA22216@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jamal.
+On Mon, May 24, 2010 at 07:09:50AM -0400, Neil Horman wrote:
+>
+> Excuse all my noise from before, Herberts patch works fine.  Apparently the
+> problem was mine.  QEMU creates several threads during startup, but adding the
+> processid to a cgroup doesn't cause its child threads to get added
+> automatically.  Doing this by hand causes this to work.
 
-I want to ask you about the following chunk of code of net/core/dev.c in function handle_ing():
-
-2699        if (*pt_prev) {
-2700                *ret = deliver_skb(skb, *pt_prev, orig_dev);
-2701                *pt_prev = NULL;
-2702        } else {
-2703                /* Huh? Why does turning on AF_PACKET affect this? */
-2704                skb->tc_verd = SET_TC_OK2MUNGE(skb->tc_verd);
-2705        }
-
-The assignment (in "else" statement) was added by you here:
-http://linux.bkbits.net:8080/linux-2.6.12-stable/?PAGE=cset&REV=40cfc085xjyQLyB1UiTbgaRZSlCN9w
-
-The comment was added after move of this code by Herbert:
-http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commitdiff;h=f697c3e8b35c18b2698d64137c0fa84b0cdb3d10
-
-Question is if this code is correct here. Maybe I'm missing something but
-why is this dependent on a ptype was found previously?
-
-Thanks,
-
-	Jirka
+Thanks a lot for testing Neil!
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
