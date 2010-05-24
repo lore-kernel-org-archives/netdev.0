@@ -1,65 +1,74 @@
-From: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
-Subject: RE: [PATCH 2.6.34-rc6] net: Improve ks8851 snl transmit performance
-Date: Mon, 24 May 2010 10:28:40 -0700
-Message-ID: <14385191E87B904DBD836449AA30269D6DF528@MORGANITE.micrel.com>
-References: <14385191E87B904DBD836449AA30269D021A64@MORGANITE.micrel.com> <20100516.002607.84408834.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH][VHOST] fix race with guest on multi-buffer used buffer
+	updates
+Date: Mon, 24 May 2010 19:42:05 +0300
+Message-ID: <20100524164205.GA6664@redhat.com>
+References: <20100524161351.GA6580@redhat.com> <OF1C9B2FC2.B6CFE18F-ON8825772D.0059C934-8825772D.005A61BA@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <ben@simtec.co.uk>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <x0066660@ti.com>, <s-jan@ti.com>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p01c11o143.mxlogic.net ([208.65.144.66]:43586 "EHLO
-	p01c11o143.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758034Ab0EXR2u convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 13:28:50 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <20100516.002607.84408834.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:57841 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757279Ab0EXRha (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 May 2010 13:37:30 -0400
+Content-Disposition: inline
+In-Reply-To: <OF1C9B2FC2.B6CFE18F-ON8825772D.0059C934-8825772D.005A61BA@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: "Ha, Tristram" <Tristram.Ha@Micrel.Com>
-> Date: Thu, 6 May 2010 15:50:27 -0700
+On Mon, May 24, 2010 at 09:27:15AM -0700, David Stevens wrote:
+> netdev-owner@vger.kernel.org wrote on 05/24/2010 09:13:51 AM:
 > 
->> From: Tristram Ha <Tristram.Ha@micrel.com>
->> 
->> Under heavy transmission the driver will put 4 1514-byte packets in
->> queue and stop the device transmit queue.  Only the last packet
->> triggers the transmit done interrupt and wakes up the device transmit
->> queue.  That means a bit of time is wasted when the CPU cannot send
->> any more packet.
->> 
->> The new implementation triggers the transmit interrupt when the
->> transmit buffer left is less than 3 packets.  The maximum transmit
->> buffer size is 6144 bytes.  This allows the device transmit queue to
->> be restarted sooner so that CPU can send more packets.
->> 
->> For TCP receiving it also has the benefit of not triggering any
-transmit interrupt at all.
->> 
->> There is a driver option no_tx_opt so that the driver can revert to
->> original implementation.  This allows user to verify if the transmit
->> performance actually improves.
->> 
->> Signed-off-by: Tristram Ha <Tristram.Ha@micrel.com>
+> > On Mon, May 24, 2010 at 08:52:40AM -0700, David Stevens wrote:
+> > > "Michael S. Tsirkin" <mst@redhat.com> wrote on 05/24/2010 03:17:10 AM:
+> > > 
+> > > > On Thu, May 20, 2010 at 09:58:06AM -0700, David L Stevens wrote:
+> > > > > [for Michael Tsirkin's vhost development git tree]
+> > > > > 
+> > > > > This patch fixes a race between guest and host when
+> > > > > adding used buffers wraps the ring. Without it, guests
+> > > > > can see partial packets before num_buffers is set in
+> > > > > the vnet header.
+> > > > > 
+> > > > > Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
+> > > > 
+> > > > Could you please explain what the race is?
+> > > 
+> > >         Sure. The pre-patch code in the ring-wrap case
+> > > does this:
+> > > 
+> > >         add part1 bufs
+> > >         update used index
+> > >         add part2 bufs
+> > >         update used index
+> > > 
+> > >         After we update the used index for part1, the part1
+> > > buffers are available to the guest. If the guest is
+> > > consuming at that point, it can process the partial
+> > > packet before the rest of the packet is there. In that
+> > > case, num_buffers will be greater than the number of
+> > > buffers available to the guest and it'll drop the
+> > > packet with a framing error. I was seeing 2 or 3 framing
+> > > errors every 100 million packets or so pre-patch, none
+> > > post-patch.
+> > >         Actually, the second sentence is incorrect in the
+> > > original description-- num_buffers is up to date when
+> > > the guest sees it, but the used index is not.
+> > > 
+> > >                                                 +-DLS
+> > 
+> > so this happens always - what does wrap-around refer to?
 > 
-> First, if you want to post patches you have to format them properly as
-ascii text with no longer
-> than 80 column lines in your commit message. 
-> I really don't want to hear about your email client being a reason you
-can't do this properly :-)
+>         The 2-part update only happens when a packet spans
+> the end/beginning of the vring (the wrap). The framing error only
+> happens if the guest sees the vring-wrapping packets
+> before the second used-index write (the race).
+>         So, the framing error doesn't happen always--it's
+> pretty rare. But with the patch, it never happens.
 > 
-> Second, I don't think you can use the skb->ip_summed for this hacked
-state tracking you are
-> using.  The packet might be shared with other entities, and therefore
-if you change the field it
-> won't be correct for them any more.  
+>                                                         +-DLS
 
-Sorry about the patch description.  I must have forgotten the rules.
-
-As the socket buffer is accepted by the lowest level network driver and
-reaches the end of its life, I think using one of its variables
-temporarily does not cause any harm.
+I see. The logging is still bugg though I think.
