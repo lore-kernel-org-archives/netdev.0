@@ -1,54 +1,100 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH net-next-2.6 2/2] bonding: allow user-controlled output
-	slave selection
-Date: Mon, 24 May 2010 11:31:08 -0400
-Message-ID: <20100524153108.GJ7497@gospo.rdu.redhat.com>
-References: <20100511003245.GB7497@gospo.rdu.redhat.com> <17897.1273608579@death.nxdomain.ibm.com> <20100512002725.GA2460@localhost.localdomain> <25238.1273693314@death.nxdomain.ibm.com> <20100512221408.GI7497@gospo.rdu.redhat.com> <20100513171504.GD21535@shamino.rdu.redhat.com> <20100517184508.GD17419@hmsreliant.think-freely.org> <17188.1274124341@death.nxdomain.ibm.com> <12958.1274145714@death.nxdomain.ibm.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH][VHOST] fix race with guest on multi-buffer used buffer	updates
+Date: Mon, 24 May 2010 08:52:40 -0700
+Message-ID: <OF343AB88F.017B31FE-ON8825772D.00564524-8825772D.00573773@us.ibm.com>
+References: <20100524101709.GA28349@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8068 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753617Ab0EXPb1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 May 2010 11:31:27 -0400
-Content-Disposition: inline
-In-Reply-To: <12958.1274145714@death.nxdomain.ibm.com>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:32863 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753537Ab0EXPw5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 11:52:57 -0400
+In-Reply-To: <20100524101709.GA28349@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 17, 2010 at 06:21:54PM -0700, Jay Vosburgh wrote:
-> Jay Vosburgh <fubar@us.ibm.com> wrote:
-> [...]
-> >	For your patch, I'm exploring the idea of not setting
-> >IFF_SLAVE_INACTIVE on "inactive" slaves for an "all_slaves_active"
-> >option (I think that's a more descriptive name than "keep_all") instead
-> >of adding a new KEEP_ALL flag bit to priv_flags.  Did you consider this
-> >methodology and exclude it for some reason?
+"Michael S. Tsirkin" <mst@redhat.com> wrote on 05/24/2010 03:17:10 AM:
+
+> On Thu, May 20, 2010 at 09:58:06AM -0700, David L Stevens wrote:
+> > [for Michael Tsirkin's vhost development git tree]
+> > 
+> > This patch fixes a race between guest and host when
+> > adding used buffers wraps the ring. Without it, guests
+> > can see partial packets before num_buffers is set in
+> > the vnet header.
+> > 
+> > Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
 > 
-> 	Following up to myself, I coded up approximately what I was
-> talking about.  This doesn't require the extra priv_flag, and the sysfs
-> _store is a little more complicated, but this appears to work (testing
-> with ping -f after clearing the switch's MAC table to induce traffic
-> flooding).  I didn't change the option name from "keep_all" here, but as
-> far as the functionality goes, this seems to do what I think you want it
-> to.
+> Could you please explain what the race is?
+
+        Sure. The pre-patch code in the ring-wrap case
+does this:
+
+        add part1 bufs
+        update used index
+        add part2 bufs
+        update used index
+
+        After we update the used index for part1, the part1
+buffers are available to the guest. If the guest is
+consuming at that point, it can process the partial
+packet before the rest of the packet is there. In that
+case, num_buffers will be greater than the number of
+buffers available to the guest and it'll drop the
+packet with a framing error. I was seeing 2 or 3 framing
+errors every 100 million packets or so pre-patch, none
+post-patch.
+        Actually, the second sentence is incorrect in the
+original description-- num_buffers is up to date when
+the guest sees it, but the used index is not.
+
+                                                +-DLS
+
+
 > 
-> 	-J
-
-This looks good to me, Jay.  I tested the patch here along with the
-patch that started this thread and it works as expected.
-
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-
-It seems like you were willing to take the patch that started this
-thread rather than a change that adds a new mode.  If we agree that this
-is the correct direction, can you take a look at the patch and decide if
-you are willing to ACK it as-is or if more changes are needed?
-
-Thanks,
-
--andy
+> > diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> > index 7f2568d..74790ab 100644
+> > --- a/drivers/vhost/vhost.c
+> > +++ b/drivers/vhost/vhost.c
+> > @@ -1065,14 +1065,6 @@ static int __vhost_add_used_n(struct 
+vhost_virtqueue *vq,
+> >        vq_err(vq, "Failed to write used");
+> >        return -EFAULT;
+> >     }
+> > -   /* Make sure buffer is written before we update index. */
+> > -   smp_wmb();
+> > -   if (put_user(vq->last_used_idx + count, &vq->used->idx)) {
+> > -      vq_err(vq, "Failed to increment used idx");
+> > -      return -EFAULT;
+> > -   }
+> > -   if (unlikely(vq->log_used))
+> > -      vhost_log_used(vq, used);
+> >     vq->last_used_idx += count;
+> >     return 0;
+> >  }
+> > @@ -1093,7 +1085,17 @@ int vhost_add_used_n(struct vhost_virtqueue 
+*vq, 
+> struct vring_used_elem *heads,
+> >        heads += n;
+> >        count -= n;
+> >     }
+> > -   return __vhost_add_used_n(vq, heads, count);
+> > +   r = __vhost_add_used_n(vq, heads, count);
+> > +
+> > +   /* Make sure buffer is written before we update index. */
+> > +   smp_wmb();
+> > +   if (put_user(vq->last_used_idx, &vq->used->idx)) {
+> > +      vq_err(vq, "Failed to increment used idx");
+> > +      return -EFAULT;
+> > +   }
+> > +   if (unlikely(vq->log_used))
+> > +      vhost_log_used(vq, vq->used->ring + start);
+> > +   return r;
+> >  }
+> > 
+> >  /* This actually signals the guest, using eventfd. */
+> > 
 
