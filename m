@@ -1,34 +1,43 @@
-From: =?UTF-8?Q?Sjur_Br=C3=A6ndeland?= <sjurbren@gmail.com>
-Subject: Re: [PATCH net-next-2.6 0/8] CAIF: Bugfixes and updates
-Date: Mon, 24 May 2010 22:50:00 +0200
-Message-ID: <AANLkTilkgN8Gj9zdQDMIk6bT_Yehir1IbISuxbn57xWD@mail.gmail.com>
-References: <1274341448-14924-1-git-send-email-sjur.brandeland@stericsson.com>
-	 <20100520.005658.11949785.davem@davemloft.net>
-	 <AANLkTilvQ8W5X-qvt6GvEj-1ZmmfwZJz079Rdi8K6Tll@mail.gmail.com>
-	 <20100520.152743.46361658.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] IPv6: keep route for tentative address
+Date: Mon, 24 May 2010 13:52:50 -0700 (PDT)
+Message-ID: <20100524.135250.160201215.davem@davemloft.net>
+References: <AANLkTin3CfATS0-ePL5WUSiuq0seRCQgM6xc-YwxpPEy@mail.gmail.com>
+	<20100524113118.47cc9852@nehalam>
+	<20100524184713.GA8627@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: sjur.brandeland@stericsson.com, netdev@vger.kernel.org,
-	marcel@holtmann.org, daniel.martensson@stericsson.com,
-	linus.walleji@stericsson.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, emils.tantilov@gmail.com,
+	netdev@vger.kernel.org, emil.s.tantilov@intel.com,
+	stable@kernel.org
+To: greg@kroah.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:64112 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755617Ab0EXUuD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 16:50:03 -0400
-Received: by bwz7 with SMTP id 7so1247938bwz.19
-        for <netdev@vger.kernel.org>; Mon, 24 May 2010 13:50:01 -0700 (PDT)
-In-Reply-To: <20100520.152743.46361658.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52224
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755617Ab0EXUwk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 16:52:40 -0400
+In-Reply-To: <20100524184713.GA8627@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
->> Would you consider my patch where I fix MSG_TRUNC to work properly a bugfix?
->
-> You're really pushing it, but fine...
+From: Greg KH <greg@kroah.com>
+Date: Mon, 24 May 2010 11:47:13 -0700
 
-Thanks Dave,
+> On Mon, May 24, 2010 at 11:31:18AM -0700, Stephen Hemminger wrote:
+>> Recent changes preserve IPv6 address when link goes down (good).
+>> But would cause address to point to dead dst entry (bad).
+>> The simplest fix is to just not delete route if address is
+>> being held for later use.
+>> 
+>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>> Signed-off-by: David S. Miller <davem@davemloft.net>
+>> (cherry picked from commit 93fa159abe50d3c55c7f83622d3f5c09b6e06f4b)
+>> ---
+>> Patch is for 2.6.34-stable (problem doesn't exist in earlier kernel)
+> 
+> Normally I wait for David to send networking patches for the stable
+> trees, so I would like to get David's ack on these two before I am
+> willing to apply them.
 
-Regards
-Sjur
+These two are fine to go to -stable, Greg please integrate.
