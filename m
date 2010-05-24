@@ -1,31 +1,35 @@
 From: =?UTF-8?Q?Sjur_Br=C3=A6ndeland?= <sjurbren@gmail.com>
-Subject: Re: [PATCH 03/12] caif: remove unused #include <linux/version.h>
-Date: Mon, 24 May 2010 21:51:41 +0200
-Message-ID: <AANLkTilQip3KCE9aFZWx3UOyUUdvqGhQKvvuqs2ZgPJj@mail.gmail.com>
-References: <1274548317-4044-1-git-send-email-weiyi.huang@gmail.com>
+Subject: Re: [patch] caif: remove unneeded null check in caif_connect()
+Date: Mon, 24 May 2010 21:56:01 +0200
+Message-ID: <AANLkTikM6_-YgLcBtcxN_TA1ISHkRk6fCEJVOS7pRZel__9984.64507652006$1274730998$gmane$org@mail.gmail.com>
+References: <20100522204342.GV22515@bicker>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Huang Weiyi <weiyi.huang@gmail.com>
+To: Dan Carpenter <error27@gmail.com>,
+	Sjur Braendeland <sjur.brandeland@stericsson.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vge
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:41119 "EHLO
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:36378 "EHLO
 	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753499Ab0EXTvo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 15:51:44 -0400
-Received: by bwz7 with SMTP id 7so1212135bwz.19
-        for <netdev@vger.kernel.org>; Mon, 24 May 2010 12:51:42 -0700 (PDT)
-In-Reply-To: <1274548317-4044-1-git-send-email-weiyi.huang@gmail.com>
+	with ESMTP id S1755759Ab0EXT4E convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 15:56:04 -0400
+In-Reply-To: <20100522204342.GV22515@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Huang Weiyi <weiyi.huang@gmail.com> wrote:
-> Remove unused #include <linux/version.h>('s) in
-> =C2=A0net/caif/caif_dev.c
-> =C2=A0net/caif/chnl_net.c
+Dan Carpenter <error27@gmail.com> wrote:
+> We already dereferenced uaddr towards the start of the function when =
+we
+> checked that "uaddr->sa_family !=3D AF_CAIF". =C2=A0Both the check he=
+re and the
+> earlier check were added in bece7b2398d0: "caif: Rewritten socket
+> implementation". =C2=A0Before that patch, we assumed that we recieved=
+ a valid
+> pointer for uaddr, and based on that, I have removed this check.
 >
-> Signed-off-by: Huang Weiyi <weiyi.huang@gmail.com>
-Looks good thanks.
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
+Thanks Looks good,
 Acked-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
-
-,
