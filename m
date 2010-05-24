@@ -1,70 +1,65 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH][VHOST] fix race with guest on multi-buffer used buffer	updates
-Date: Mon, 24 May 2010 09:27:15 -0700
-Message-ID: <OF1C9B2FC2.B6CFE18F-ON8825772D.0059C934-8825772D.005A61BA@us.ibm.com>
-References: <20100524161351.GA6580@redhat.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch v2] caif: cleanup: remove duplicate checks
+Date: Mon, 24 May 2010 18:29:34 +0200
+Message-ID: <20100524162815.GA22515@bicker>
+References: <20100522204519.GW22515@bicker> <4BF8E6FE.9000303@bfs.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Sjur Braendeland <sjur.brandeland@stericsson.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	kernel-janitors@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: walter harms <wharms@bfs.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:54584 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756326Ab0EXQ1b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 12:27:31 -0400
-In-Reply-To: <20100524161351.GA6580@redhat.com>
+Received: from mail-qy0-f183.google.com ([209.85.221.183]:43804 "EHLO
+	mail-qy0-f183.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757653Ab0EXQ36 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 12:29:58 -0400
+Content-Disposition: inline
+In-Reply-To: <4BF8E6FE.9000303@bfs.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netdev-owner@vger.kernel.org wrote on 05/24/2010 09:13:51 AM:
+"phyinfo" can never be null here because we assigned it an address, so I
+removed both the assert and the second check inside the if statement.  I
+removed the "phyinfo->phy_layer != NULL" check as well because that was
+asserted earlier.
 
-> On Mon, May 24, 2010 at 08:52:40AM -0700, David Stevens wrote:
-> > "Michael S. Tsirkin" <mst@redhat.com> wrote on 05/24/2010 03:17:10 AM:
-> > 
-> > > On Thu, May 20, 2010 at 09:58:06AM -0700, David L Stevens wrote:
-> > > > [for Michael Tsirkin's vhost development git tree]
-> > > > 
-> > > > This patch fixes a race between guest and host when
-> > > > adding used buffers wraps the ring. Without it, guests
-> > > > can see partial packets before num_buffers is set in
-> > > > the vnet header.
-> > > > 
-> > > > Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
-> > > 
-> > > Could you please explain what the race is?
-> > 
-> >         Sure. The pre-patch code in the ring-wrap case
-> > does this:
-> > 
-> >         add part1 bufs
-> >         update used index
-> >         add part2 bufs
-> >         update used index
-> > 
-> >         After we update the used index for part1, the part1
-> > buffers are available to the guest. If the guest is
-> > consuming at that point, it can process the partial
-> > packet before the rest of the packet is there. In that
-> > case, num_buffers will be greater than the number of
-> > buffers available to the guest and it'll drop the
-> > packet with a framing error. I was seeing 2 or 3 framing
-> > errors every 100 million packets or so pre-patch, none
-> > post-patch.
-> >         Actually, the second sentence is incorrect in the
-> > original description-- num_buffers is up to date when
-> > the guest sees it, but the used index is not.
-> > 
-> >                                                 +-DLS
-> 
-> so this happens always - what does wrap-around refer to?
+Walter Harms suggested I move the "phyinfo->phy_ref_count++;" outside
+the if condition for readability, so I have done that.
 
-        The 2-part update only happens when a packet spans
-the end/beginning of the vring (the wrap). The framing error only
-happens if the guest sees the vring-wrapping packets
-before the second used-index write (the race).
-        So, the framing error doesn't happen always--it's
-pretty rare. But with the patch, it never happens.
+Signed-off-by: Dan Carpenter <error27@gmail.com>
+---
+The original code increments phyinfo->phy_ref_count++ even if
+phyinfo->phy_layer->modemcmd is NULL.  I kept it the same in my code,
+but maybe I should change that?
 
-                                                        +-DLS
+v2: Removed an assert.  Moved the increment outside the if condition.
 
+diff --git a/net/caif/cfcnfg.c b/net/caif/cfcnfg.c
+index df43f26..7c81974 100644
+--- a/net/caif/cfcnfg.c
++++ b/net/caif/cfcnfg.c
+@@ -308,19 +308,15 @@ cfcnfg_linkup_rsp(struct cflayer *layer, u8 channel_id, enum cfctrl_srv serv,
+ 	caif_assert(cnfg != NULL);
+ 	caif_assert(phyid != 0);
+ 	phyinfo = &cnfg->phy_layers[phyid];
+-	caif_assert(phyinfo != NULL);
+ 	caif_assert(phyinfo->id == phyid);
+ 	caif_assert(phyinfo->phy_layer != NULL);
+ 	caif_assert(phyinfo->phy_layer->id == phyid);
+ 
+-	if (phyinfo != NULL &&
+-	    phyinfo->phy_ref_count++ == 0 &&
+-	    phyinfo->phy_layer != NULL &&
++	phyinfo->phy_ref_count++;
++	if (phyinfo->phy_ref_count == 1 &&
+ 	    phyinfo->phy_layer->modemcmd != NULL) {
+-		caif_assert(phyinfo->phy_layer->id == phyid);
+ 		phyinfo->phy_layer->modemcmd(phyinfo->phy_layer,
+ 					     _CAIF_MODEMCMD_PHYIF_USEFULL);
+-
+ 	}
+ 	adapt_layer->id = channel_id;
+ 
