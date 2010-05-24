@@ -1,52 +1,42 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: cls_cgroup: Store classid in struct sock
-Date: Mon, 24 May 2010 07:09:50 -0400
-Message-ID: <20100524110950.GA22216@hmsreliant.think-freely.org>
-References: <20100523.234441.66200781.davem@davemloft.net>
- <20100523.235557.165343768.davem@davemloft.net>
- <20100524070743.GA26871@gondor.apana.org.au>
- <20100524.001429.259990428.davem@davemloft.net>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Question about an assignment in handle_ing()
+Date: Mon, 24 May 2010 13:22:36 +0200
+Message-ID: <20100524112236.GF2810@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, eric.dumazet@gmail.com,
-	bmb@athenacr.com, tgraf@redhat.com, nhorman@redhat.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	herbert@gondor.hengli.com.au, kaber@trash.net
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:44658 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755361Ab0EXLKG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 07:10:06 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:37881 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755456Ab0EXLXG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 May 2010 07:23:06 -0400
 Content-Disposition: inline
-In-Reply-To: <20100524.001429.259990428.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 24, 2010 at 12:14:29AM -0700, David Miller wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
-> Date: Mon, 24 May 2010 17:07:43 +1000
-> 
-> > On Sun, May 23, 2010 at 11:55:57PM -0700, David Miller wrote:
-> >>
-> >> Probably you only tested the build with cgroups enabled?
-> > 
-> > Indeed, that does seem to be the problem here.  It turns out
-> > that their struct is only declared when CONFIG_CGROUPS is defined,
-> > how annoying.
-> > 
-> > Oh well I guess I'll follow their example :)
-> > 
-> > cls_cgroup: Store classid in struct sock
-> 
-> Thanks for fixing this up, applied.
-> 
+Hi Jamal.
 
+I want to ask you about the following chunk of code of net/core/dev.c in function handle_ing():
 
-Excuse all my noise from before, Herberts patch works fine.  Apparently the
-problem was mine.  QEMU creates several threads during startup, but adding the
-processid to a cgroup doesn't cause its child threads to get added
-automatically.  Doing this by hand causes this to work.
+2699        if (*pt_prev) {
+2700                *ret = deliver_skb(skb, *pt_prev, orig_dev);
+2701                *pt_prev = NULL;
+2702        } else {
+2703                /* Huh? Why does turning on AF_PACKET affect this? */
+2704                skb->tc_verd = SET_TC_OK2MUNGE(skb->tc_verd);
+2705        }
 
-Thanks
-Neil
+The assignment (in "else" statement) was added by you here:
+http://linux.bkbits.net:8080/linux-2.6.12-stable/?PAGE=cset&REV=40cfc085xjyQLyB1UiTbgaRZSlCN9w
 
+The comment was added after move of this code by Herbert:
+http://git.kernel.org/?p=linux/kernel/git/davem/net-next-2.6.git;a=commitdiff;h=f697c3e8b35c18b2698d64137c0fa84b0cdb3d10
+
+Question is if this code is correct here. Maybe I'm missing something but
+why is this dependent on a ptype was found previously?
+
+Thanks,
+
+	Jirka
