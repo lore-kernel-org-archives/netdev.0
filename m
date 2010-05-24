@@ -1,173 +1,41 @@
-From: "Fischer, Anna" <anna.fischer@hp.com>
-Subject: RE: ixgbe and SRIOV failure in driver?
-Date: Mon, 24 May 2010 09:49:27 +0000
-Message-ID: <0199E0D51A61344794750DC57738F58E70B14DC9A7@GVW1118EXC.americas.hpqcorp.net>
-References: <0199E0D51A61344794750DC57738F58E70B08A2A20@GVW1118EXC.americas.hpqcorp.net>
- <43F901BD926A4E43B106BF17856F0755A79C061C@orsmsx508.amr.corp.intel.com>
+From: Julien BLACHE <jb@jblache.org>
+Subject: Re: [regression] fib6_del() bug from 2.6.34-rc1 still present in 2.6.34
+Date: Mon, 24 May 2010 11:54:20 +0200
+Message-ID: <878w7962wj.fsf@sonic.technologeek.org>
+References: <87632g53tx.fsf@sonic.technologeek.org>
+	<4BF9DCB7.8040308@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="_002_0199E0D51A61344794750DC57738F58E70B14DC9A7GVW1118EXCame_"
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Shan Wei <shanwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0006.atlanta.hp.com ([15.192.0.43]:39404 "EHLO
-	g5t0006.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753603Ab0EXJwj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 05:52:39 -0400
-In-Reply-To: <43F901BD926A4E43B106BF17856F0755A79C061C@orsmsx508.amr.corp.intel.com>
-Content-Language: en-US
+Received: from ix.technologeek.org ([213.41.157.215]:35104 "EHLO
+	sonic.technologeek.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752364Ab0EXJy1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 05:54:27 -0400
+In-Reply-To: <4BF9DCB7.8040308@cn.fujitsu.com> (Shan Wei's message of "Mon, 24
+	May 2010 09:56:07 +0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---_002_0199E0D51A61344794750DC57738F58E70B14DC9A7GVW1118EXCame_
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+Shan Wei <shanwei@cn.fujitsu.com> wrote:
 
-> Subject: RE: ixgbe and SRIOV failure in driver?
->=20
-> >-----Original Message-----
-> >From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> >On Behalf Of Fischer, Anna
-> >Sent: Friday, May 21, 2010 9:33 AM
-> >To: e1000-devel@lists.sourceforge.net; netdev@vger.kernel.org
-> >Subject: ixgbe and SRIOV failure in driver?
-> >
-> >I am running a system with 3 Intel NICs. Two of them are 82598 devices,
-> >and one is a SRIOV capable 82599.
-> >
-> >All devices use the ixgbe driver. What happens (I believe) now is that
-> >when the driver loads at first, it sees the 82598 first (because of its
-> >position in the PCI tree) and then it says "Device not IOV capable -
-> >switching off IOV."
-> >
-> >So then it switches into non-IOV mode, and I can never enable SRIOV on
-> >my 82599, because the driver does not enable it any more for further
-> >devices.
-> >
-> >So to get around this issue, I tried to use pciback.hide to hide the
-> >82598 devices from the OS. That way I was hoping that the driver would
-> >switch on SRIOV on my 82599. However, then I got a kernel panic on boot
-> >(see below).
-> >
-> >I am running Xen 4 and the Dom0 kernel is a 2.6.31 kernel.
->=20
-> The ixgbe driver included with the 2.6.31 kernel does not support SR-IOV.
-> Where did you get the driver that does?  Please run ethtool -i <ethx>
-> and
-> post the results.
+Hi,
 
-I have installed the driver separately on my pv-ops kernel.
+> I saw the warning on 2.6.34-rc3. But on net-next tree the warning disappeared.
+> So I think the bug is fixed in net-next tree. My NIC driver is r8169.
+>
+> The net-next tree is newer than 2.6.34, maybe the fix is not queued to 2.6.34.
+> So the warning also be present in 2.6.34.
+> Can you try net-next tree firstly?
 
-[root@211052610-f-cpu ~]# ethtool -i eth
-driver: ixgbe
-version: 2.0.75.7-NAPI
-firmware-version: 0.9-3
-bus-info: 0000:05:00.0
+Unfortunately, this tree has a number of issues that prevent a
+successful boot into userland on my machine :/
 
-I have attached a log on when the drivers loads. There is a bit more debugg=
-ing information enabled. You can see that the driver loads at first on devi=
-ces 0000:02:00.0 and 0000:02:00.1 which are 82598 devices and don't support=
- SRIOV. So the driver switches off SRIOV. When it loads it on the 82599 whi=
-ch sits on 0000:05:00.0, it does not even have the SRIOV parameter enabled =
-anymore, even though I load the driver with 'modprobe ixgbe max_vfs=3D4'.
+Any idea what the fix(es) is so I can test it out?
 
-Thanks,
-Anna
+JB.
 
-
---_002_0199E0D51A61344794750DC57738F58E70B14DC9A7GVW1118EXCame_
-Content-Type: application/octet-stream; name="ixgbe-error.log"
-Content-Description: ixgbe-error.log
-Content-Disposition: attachment; filename="ixgbe-error.log"; size=4755;
-	creation-date="Mon, 24 May 2010 09:42:19 GMT";
-	modification-date="Mon, 24 May 2010 09:42:13 GMT"
-Content-Transfer-Encoding: base64
-
-WyAgNzE5LjEwMDI4MF0gaXhnYmU6IEludGVsKFIpIDEwIEdpZ2FiaXQgUENJIEV4cHJlc3MgTmV0
-d29yayBEcml2ZXIgLSB2ZXJzaW9uIDIuMC43NS43LU5BUEkKWyAgNzE5LjEwMDI4OV0gQ29weXJp
-Z2h0IChjKSAxOTk5LTIwMTAgSW50ZWwgQ29ycG9yYXRpb24uClsgIDcxOS4xMDAzODNdIGl4Z2Jl
-IDAwMDA6MDI6MDAuMDogUENJIElOVCBBIC0+IEdTSSAxNiAobGV2ZWwsIGxvdykgLT4gSVJRIDE2
-ClsgIDcxOS4xMDA0NDNdIGl4Z2JlIDAwMDA6MDI6MDAuMDogc2V0dGluZyBsYXRlbmN5IHRpbWVy
-IHRvIDY0ClsgIDcxOS4xNTkzMTJdIGl4Z2JlOiBJL08gVmlydHVhbGl6YXRpb24gKElPVikgc2V0
-IHRvIDIKWyAgNzE5LjE1OTMyMV0gaXhnYmU6IDAwMDA6MDI6MDAuMDogaXhnYmVfY2hlY2tfb3B0
-aW9uczogQ2hlY2tpbmcgSU9WIGNhcGFiaWxpdGllcy4KWyAgNzE5LjE1OTMyOF0gaXhnYmU6IDAw
-MDA6MDI6MDAuMDogaXhnYmVfY2hlY2tfb3B0aW9uczogSU9WIGlzIG5vdCBzdXBwb3J0ZWQgb24g
-dGhpcyBoYXJkd2FyZS4gIERpc2FibGluZyBJT1YuClsgIDcxOS4xNTkzMzZdIGl4Z2JlOiAwMDAw
-OjAyOjAwLjA6IGl4Z2JlX3Byb2JlOiBTUi1JT1YgZGlzYWJsZWQhIE5vdCBwcm9iaW5nIFZGLgpb
-ICA3MTkuMTY0NzA0XSBpeGdiZSAwMDAwOjAyOjAwLjA6IGlycSAzNyBmb3IgTVNJL01TSS1YClsg
-IDcxOS4xNjQ3MTRdIGl4Z2JlIDAwMDA6MDI6MDAuMDogaXJxIDM4IGZvciBNU0kvTVNJLVgKWyAg
-NzE5LjE2NDcyMl0gaXhnYmUgMDAwMDowMjowMC4wOiBpcnEgMzkgZm9yIE1TSS9NU0ktWApbICA3
-MTkuMTY0Nzg5XSBpeGdiZTogMDAwMDowMjowMC4wOiBpeGdiZV9pbml0X2ludGVycnVwdF9zY2hl
-bWU6IE11bHRpcXVldWUgRW5hYmxlZDogUnggUXVldWUgY291bnQgPSAyLCBUeCBRdWV1ZSBjb3Vu
-dCA9IDIKWyAgNzE5LjE2NTc3OV0gaXhnYmU6IGV0aDA6IGl4Z2JlX3Byb2JlOiAoUENJIEV4cHJl
-c3M6Mi41R2IvczpXaWR0aCB4OCkgMDA6MjQ6YTg6YzU6MDg6MDkKWyAgNzE5LjE2NTg1N10gaXhn
-YmU6IGV0aDA6IGl4Z2JlX3Byb2JlOiBNQUM6IDEsIFBIWTogMCwgUEJBIE5vOiBlMTU3MjgtMDAx
-ClsgIDcxOS4xNjU4NTldIGl4Z2JlOiBldGgwOiBpeGdiZV9wcm9iZTogR1JPIGlzIGVuYWJsZWQK
-WyAgNzE5LjE2NTg2MF0gaXhnYmU6IGV0aDA6IGl4Z2JlX3Byb2JlOiBJbnRlbChSKSAxMCBHaWdh
-Yml0IE5ldHdvcmsgQ29ubmVjdGlvbgpbICA3MTkuMTY1ODgzXSBpeGdiZSAwMDAwOjAyOjAwLjE6
-IFBDSSBJTlQgQiAtPiBHU0kgMTcgKGxldmVsLCBsb3cpIC0+IElSUSAxNwpbICA3MTkuMTY1OTA4
-XSBpeGdiZSAwMDAwOjAyOjAwLjE6IHNldHRpbmcgbGF0ZW5jeSB0aW1lciB0byA2NApbICA3MTku
-MjIzMDYzXSBpeGdiZTogMDAwMDowMjowMC4xOiBpeGdiZV9jaGVja19vcHRpb25zOiBDaGVja2lu
-ZyBJT1YgY2FwYWJpbGl0aWVzLgpbICA3MTkuMjIzMDcxXSBpeGdiZTogMDAwMDowMjowMC4xOiBp
-eGdiZV9jaGVja19vcHRpb25zOiBJT1YgZGlzYWJsZWQuClsgIDcxOS4yMjMwNzddIGl4Z2JlOiAw
-MDAwOjAyOjAwLjE6IGl4Z2JlX3Byb2JlOiBTUi1JT1YgZGlzYWJsZWQhIE5vdCBwcm9iaW5nIFZG
-LgpbICA3MTkuMjI4NTE3XSBpeGdiZSAwMDAwOjAyOjAwLjE6IGlycSA0MCBmb3IgTVNJL01TSS1Y
-ClsgIDcxOS4yMjg1MjZdIGl4Z2JlIDAwMDA6MDI6MDAuMTogaXJxIDQxIGZvciBNU0kvTVNJLVgK
-WyAgNzE5LjIyODUzNV0gaXhnYmUgMDAwMDowMjowMC4xOiBpcnEgNDIgZm9yIE1TSS9NU0ktWApb
-ICA3MTkuMjI4NTg5XSBpeGdiZTogMDAwMDowMjowMC4xOiBpeGdiZV9pbml0X2ludGVycnVwdF9z
-Y2hlbWU6IE11bHRpcXVldWUgRW5hYmxlZDogUnggUXVldWUgY291bnQgPSAyLCBUeCBRdWV1ZSBj
-b3VudCA9IDIKWyAgNzE5LjIyOTU5NV0gaXhnYmU6IGV0aDE6IGl4Z2JlX3Byb2JlOiAoUENJIEV4
-cHJlc3M6Mi41R2IvczpXaWR0aCB4OCkgMDA6MjQ6YTg6YzU6MDg6MDgKWyAgNzE5LjIyOTY3NV0g
-aXhnYmU6IGV0aDE6IGl4Z2JlX3Byb2JlOiBNQUM6IDEsIFBIWTogMCwgUEJBIE5vOiBlMTU3Mjgt
-MDAxClsgIDcxOS4yMjk2NzddIGl4Z2JlOiBldGgxOiBpeGdiZV9wcm9iZTogR1JPIGlzIGVuYWJs
-ZWQKWyAgNzE5LjIyOTY3OV0gaXhnYmU6IGV0aDE6IGl4Z2JlX3Byb2JlOiBJbnRlbChSKSAxMCBH
-aWdhYml0IE5ldHdvcmsgQ29ubmVjdGlvbgpbICA3MTkuMjI5Njk5XSBpeGdiZSAwMDAwOjA1OjAw
-LjA6IFBDSSBJTlQgQSAtPiBHU0kgMTYgKGxldmVsLCBsb3cpIC0+IElSUSAxNgpbICA3MTkuMjI5
-NzMyXSBpeGdiZSAwMDAwOjA1OjAwLjA6IHNldHRpbmcgbGF0ZW5jeSB0aW1lciB0byA2NApbICA3
-MTkuMzA1NDk0XSBpeGdiZTogMDAwMDowNTowMC4wOiBpeGdiZV9jaGVja19vcHRpb25zOiBDaGVj
-a2luZyBJT1YgY2FwYWJpbGl0aWVzLgpbICA3MTkuMzA1NTAzXSBpeGdiZTogMDAwMDowNTowMC4w
-OiBpeGdiZV9jaGVja19vcHRpb25zOiBJT1YgZGlzYWJsZWQuClsgIDcxOS4zMDU1MTBdIGl4Z2Jl
-OiAwMDAwOjA1OjAwLjA6IGl4Z2JlX2NoZWNrX29wdGlvbnM6IEZsb3cgRGlyZWN0b3IgaGFzaCBm
-aWx0ZXJpbmcgZW5hYmxlZApbICA3MTkuMzA1NTE2XSBpeGdiZTogMDAwMDowNTowMC4wOiBpeGdi
-ZV9jaGVja19vcHRpb25zOiBGbG93IERpcmVjdG9yIGFsbG9jYXRlZCA2NGtCIG9mIHBhY2tldCBi
-dWZmZXIKWyAgNzE5LjMwNTUyNF0gaXhnYmU6IDAwMDA6MDU6MDAuMDogaXhnYmVfY2hlY2tfb3B0
-aW9uczogQVRSIFR4IFBhY2tldCBzYW1wbGUgcmF0ZSBzZXQgdG8gZGVmYXVsdCBvZiAyMApbICA3
-MTkuMzA1NTMwXSBpeGdiZTogMDAwMDowNTowMC4wOiBpeGdiZV9wcm9iZTogU1ItSU9WIGRpc2Fi
-bGVkISBOb3QgcHJvYmluZyBWRi4KWyAgNzE5LjMzMTcyNF0gaXhnYmUgMDAwMDowNTowMC4wOiBp
-cnEgNDMgZm9yIE1TSS9NU0ktWApbICA3MTkuMzMxNzM0XSBpeGdiZSAwMDAwOjA1OjAwLjA6IGly
-cSA0NCBmb3IgTVNJL01TSS1YClsgIDcxOS4zMzE3NDFdIGl4Z2JlIDAwMDA6MDU6MDAuMDogaXJx
-IDQ1IGZvciBNU0kvTVNJLVgKWyAgNzE5LjMzMTgxMF0gaXhnYmU6IDAwMDA6MDU6MDAuMDogaXhn
-YmVfaW5pdF9pbnRlcnJ1cHRfc2NoZW1lOiBNdWx0aXF1ZXVlIEVuYWJsZWQ6IFJ4IFF1ZXVlIGNv
-dW50ID0gMiwgVHggUXVldWUgY291bnQgPSAyClsgIDcxOS4zMzQ4NDFdIGl4Z2JlOiBldGgxOiBp
-eGdiZV9wcm9iZTogKFBDSSBFeHByZXNzOjUuMEdiL3M6V2lkdGggeDQpIDAwOjFiOjIxOjVhOjI5
-OjVhClsgIDcxOS4zMzQ5MzJdIGl4Z2JlOiBldGgxOiBpeGdiZV9wcm9iZTogTUFDOiAyLCBQSFk6
-IDE1LCBTRlArOiA1LCBQQkEgTm86IGU2ODc4Ny0wMDIKWyAgNzE5LjMzNDkzNF0gaXhnYmU6IGV0
-aDE6IGl4Z2JlX3Byb2JlOiBHUk8gaXMgZW5hYmxlZApbICA3MTkuMzM0OTM2XSBpeGdiZTogZXRo
-MTogaXhnYmVfcHJvYmU6IEhXIFJTQyBpcyBlbmFibGVkClsgIDcxOS4zMzU3NTBdIGl4Z2JlOiBl
-dGgxOiBpeGdiZV9wcm9iZTogSW50ZWwoUikgMTAgR2lnYWJpdCBOZXR3b3JrIENvbm5lY3Rpb24K
-WyAgNzE5LjY3NTk5OF0gQUREUkNPTkYoTkVUREVWX1VQKTogZXRoMDogbGluayBpcyBub3QgcmVh
-ZHkKWyAgNzE5LjY4ODY1M10gaXhnYmU6IGV0aDA6IGl4Z2JlX3dhdGNoZG9nX3Rhc2s6IE5JQyBM
-aW5rIGlzIFVwIDEwIEdicHMsIEZsb3cgQ29udHJvbDogUlgvVFgKWyAgNzE5LjczOTk1Ml0gQURE
-UkNPTkYoTkVUREVWX1VQKTogZXRoMjogbGluayBpcyBub3QgcmVhZHkKWyAgNzE5Ljc0NDc2OF0g
-QUREUkNPTkYoTkVUREVWX0NIQU5HRSk6IGV0aDA6IGxpbmsgYmVjb21lcyByZWFkeQpbICA3MTku
-NzUwNDAyXSBpeGdiZTogZXRoMjogaXhnYmVfd2F0Y2hkb2dfdGFzazogTklDIExpbmsgaXMgVXAg
-MTAgR2JwcywgRmxvdyBDb250cm9sOiBSWC9UWApbICA3MTkuNzUzMDIzXSBBRERSQ09ORihORVRE
-RVZfQ0hBTkdFKTogZXRoMjogbGluayBiZWNvbWVzIHJlYWR5ClsgIDcxOS45OTM5MzldIEFERFJD
-T05GKE5FVERFVl9VUCk6IGV0aDA6IGxpbmsgaXMgbm90IHJlYWR5ClsgIDcyMC4wMDcwMThdIGl4
-Z2JlOiBldGgwOiBpeGdiZV93YXRjaGRvZ190YXNrOiBOSUMgTGluayBpcyBVcCAxMCBHYnBzLCBG
-bG93IENvbnRyb2w6IFJYL1RYClsgIDcyMC4wNTA5NThdIEFERFJDT05GKE5FVERFVl9VUCk6IGV0
-aDI6IGxpbmsgaXMgbm90IHJlYWR5ClsgIDcyMC4wNTMzOTZdIEFERFJDT05GKE5FVERFVl9DSEFO
-R0UpOiBldGgwOiBsaW5rIGJlY29tZXMgcmVhZHkKWyAgNzIwLjA2MjA4N10gaXhnYmU6IGV0aDI6
-IGl4Z2JlX3dhdGNoZG9nX3Rhc2s6IE5JQyBMaW5rIGlzIFVwIDEwIEdicHMsIEZsb3cgQ29udHJv
-bDogUlgvVFgKWyAgNzIwLjA2MjkyNV0gQUREUkNPTkYoTkVUREVWX0NIQU5HRSk6IGV0aDI6IGxp
-bmsgYmVjb21lcyByZWFkeQpbICA3MzAuNjg0MjQ0XSBldGgwOiBubyBJUHY2IHJvdXRlcnMgcHJl
-c2VudApbICA3MzAuNzg4MjQ1XSBldGgyOiBubyBJUHY2IHJvdXRlcnMgcHJlc2VudApbICA3ODEu
-MjM0NTE1XSBBRERSQ09ORihORVRERVZfVVApOiBldGg6IGxpbmsgaXMgbm90IHJlYWR5ClsgIDc4
-MS4zNzQyODRdIGl4Z2JlOiBldGg6IGl4Z2JlX3dhdGNoZG9nX3Rhc2s6IE5JQyBMaW5rIGlzIFVw
-IDEwIEdicHMsIEZsb3cgQ29udHJvbDogUlgvVFgKWyAgNzgxLjM3Njk1OF0gQUREUkNPTkYoTkVU
-REVWX0NIQU5HRSk6IGV0aDogbGluayBiZWNvbWVzIHJlYWR5ClsgIDc5Mi4xMDIyNDldIGV0aDog
-bm8gSVB2NiByb3V0ZXJzIHByZXNlbnQK
-
---_002_0199E0D51A61344794750DC57738F58E70B14DC9A7GVW1118EXCame_--
+-- 
+Julien BLACHE                                   <http://www.jblache.org> 
+<jb@jblache.org>                                  GPG KeyID 0xF5D65169
