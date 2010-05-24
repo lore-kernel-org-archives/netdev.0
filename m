@@ -1,8 +1,8 @@
 From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Subject: [RFC PATCH 1/2] netdev: add tracepoint to dev_hard_start_xmit, consume_skb
- and dev_kfree_skb_irq
-Date: Mon, 24 May 2010 13:51:23 +0900
-Message-ID: <4BFA05CB.7010900@jp.fujitsu.com>
+Subject: [RFC PATCH 2/2] netdev: perf script to show the number of tx-packets
+ in device
+Date: Mon, 24 May 2010 13:52:36 +0900
+Message-ID: <4BFA0614.6020804@jp.fujitsu.com>
 References: <4BFA0551.3080304@jp.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -11,168 +11,171 @@ Cc: davem@davemloft.net, nhorman@tuxdriver.com,
 	kaneshige.kenji@jp.fujitsu.com, izumi.taku@jp.fujitsu.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:46861 "EHLO
+Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:46932 "EHLO
 	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750874Ab0EXEvU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 00:51:20 -0400
-Received: from m6.gw.fujitsu.co.jp ([10.0.50.76])
-	by fgwmail5.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o4O4pJe9026589
+	with ESMTP id S1750866Ab0EXEwb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 00:52:31 -0400
+Received: from m1.gw.fujitsu.co.jp ([10.0.50.71])
+	by fgwmail5.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o4O4qUBV027043
 	for <netdev@vger.kernel.org> (envelope-from sanagi.koki@jp.fujitsu.com);
-	Mon, 24 May 2010 13:51:19 +0900
-Received: from smail (m6 [127.0.0.1])
-	by outgoing.m6.gw.fujitsu.co.jp (Postfix) with ESMTP id 85AC145DE54
-	for <netdev@vger.kernel.org>; Mon, 24 May 2010 13:51:19 +0900 (JST)
-Received: from s6.gw.fujitsu.co.jp (s6.gw.fujitsu.co.jp [10.0.50.96])
-	by m6.gw.fujitsu.co.jp (Postfix) with ESMTP id 5707445DE52
-	for <netdev@vger.kernel.org>; Mon, 24 May 2010 13:51:19 +0900 (JST)
-Received: from s6.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
-	by s6.gw.fujitsu.co.jp (Postfix) with ESMTP id 367F5E08001
-	for <netdev@vger.kernel.org>; Mon, 24 May 2010 13:51:19 +0900 (JST)
-Received: from m107.s.css.fujitsu.com (m107.s.css.fujitsu.com [10.249.87.107])
-	by s6.gw.fujitsu.co.jp (Postfix) with ESMTP id D78C91DB8016
-	for <netdev@vger.kernel.org>; Mon, 24 May 2010 13:51:18 +0900 (JST)
+	Mon, 24 May 2010 13:52:30 +0900
+Received: from smail (m1 [127.0.0.1])
+	by outgoing.m1.gw.fujitsu.co.jp (Postfix) with ESMTP id 0E18145DE4E
+	for <netdev@vger.kernel.org>; Mon, 24 May 2010 13:52:30 +0900 (JST)
+Received: from s1.gw.fujitsu.co.jp (s1.gw.fujitsu.co.jp [10.0.50.91])
+	by m1.gw.fujitsu.co.jp (Postfix) with ESMTP id E074E45DE4D
+	for <netdev@vger.kernel.org>; Mon, 24 May 2010 13:52:29 +0900 (JST)
+Received: from s1.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
+	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id CA0B51DB8049
+	for <netdev@vger.kernel.org>; Mon, 24 May 2010 13:52:29 +0900 (JST)
+Received: from m105.s.css.fujitsu.com (m105.s.css.fujitsu.com [10.249.87.105])
+	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id 7F2FC1DB8044
+	for <netdev@vger.kernel.org>; Mon, 24 May 2010 13:52:29 +0900 (JST)
 In-Reply-To: <4BFA0551.3080304@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds tracepoint to dev_hard_start_xmit, consume_skb and
-dev_kfree_skb_irq to monitor tx-packets in device.
+This patch adds perf script to calculate the time from entry of
+ndo_start_xmit to dev_kfree_skb_* and the number of tx-packets in device.
 
 Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
 ---
- include/trace/events/skb.h |   64 ++++++++++++++++++++++++++++++++++++++++++++
- net/core/dev.c             |    4 +++
- net/core/skbuff.c          |    1 +
- 3 files changed, 69 insertions(+), 0 deletions(-)
+ .../scripts/python/bin/tx-packet-in-device-record  |    2 +
+ .../scripts/python/bin/tx-packet-in-device-report  |    4 +
+ tools/perf/scripts/python/tx-packet-in-device.py   |  109 ++++++++++++++++++++
+ 3 files changed, 115 insertions(+), 0 deletions(-)
 
-diff --git a/include/trace/events/skb.h b/include/trace/events/skb.h
-index 4b2be6d..ed97580 100644
---- a/include/trace/events/skb.h
-+++ b/include/trace/events/skb.h
-@@ -9,6 +9,52 @@
- #include <linux/tracepoint.h>
- 
- /*
-+ *  netdev_start_xmit - invoked when skb is passed to the driver
-+ *  @skb:		pointer to struct sk_buff
-+ *  @dev:		pointer to struct net_device
-+ */
-+TRACE_EVENT(netdev_start_xmit,
+diff --git a/tools/perf/scripts/python/bin/tx-packet-in-device-record b/tools/perf/scripts/python/bin/tx-packet-in-device-record
+new file mode 100644
+index 0000000..18f2356
+--- /dev/null
++++ b/tools/perf/scripts/python/bin/tx-packet-in-device-record
+@@ -0,0 +1,2 @@
++#!/bin/bash
++perf record -c 1 -f -a -M -R -e skb:netdev_start_xmit -e skb:consume_skb -e skb:dev_kfree_skb_irq
+diff --git a/tools/perf/scripts/python/bin/tx-packet-in-device-report b/tools/perf/scripts/python/bin/tx-packet-in-device-report
+new file mode 100644
+index 0000000..8ef4cc2
+--- /dev/null
++++ b/tools/perf/scripts/python/bin/tx-packet-in-device-report
+@@ -0,0 +1,4 @@
++#!/bin/bash
++# description: netif_receive_skb counts per poll
++# args: [comm]
++perf trace -s ~/libexec/perf-core/scripts/python/tx-packet-in-device.py $1
+diff --git a/tools/perf/scripts/python/tx-packet-in-device.py b/tools/perf/scripts/python/tx-packet-in-device.py
+new file mode 100644
+index 0000000..fb1933f
+--- /dev/null
++++ b/tools/perf/scripts/python/tx-packet-in-device.py
+@@ -0,0 +1,109 @@
++# perf trace event handlers, generated by perf trace -g python
++# Licensed under the terms of the GNU GPL License version 2
 +
-+	TP_PROTO(struct sk_buff *skb,
-+		 struct net_device *dev),
++# The common_* event handler fields are the most useful fields common to
++# all events.  They don't necessarily correspond to the 'common_*' fields
++# in the format files.  Those fields not available as handler params can
++# be retrieved using Python functions of the form common_*(context).
++# See the perf-trace-python Documentation for the list of available functions.
 +
-+	TP_ARGS(skb, dev),
++import os
++import sys
 +
-+	TP_STRUCT__entry(
-+		__field(	const void *,	skbaddr		)
-+		__field(	unsigned int,	len		)
-+		__string(	name,		dev->name	)
-+       ),
++sys.path.append(os.environ['PERF_EXEC_PATH'] + \
++	'/scripts/python/Perf-Trace-Util/lib/Perf/Trace')
 +
-+	TP_fast_assign(
-+		__entry->skbaddr = skb;
-+		__entry->len = skb->len;
-+		__assign_str(name, dev->name);
-+	),
++from perf_trace_context import *
++from Core import *
++from Util import *
 +
-+	TP_printk("dev=%s skbaddr=%p len=%u",
-+		__get_str(name), __entry->skbaddr, __entry->len)
-+);
++# skb_dic = {skbaddr: {name:*, start_time:*}}
++#
++# skbaddr: address of skb through dev_hard_start_xmit
++# name: name of device
++# start_time: the time dev_start_hard_xmit pass
++skb_dic = {};
 +
-+TRACE_EVENT(consume_skb,
++# dev_stat_dic = {name: {pkt_in_tx:*, max_pkt_in_tx:*, total_pkt:*,
++#			 prev_time:*, total_time:*, max_lap_time:*,
++#			 total_lap_time:*}}
++#
++# name: name of device
++# pkt_in_tx: tx-packets a device has currently
++# max_pkt_in_tx: maximum of the above
++# total_pkt: total tx-packets through a device
++# prev_time: the time starting xmit or freeing skb
++#            happened previously
++# total_time: the time from first starting xmit to now
++# max_lap_time: maximum time from starting xmit to freein skb
++# total_lap_time: sum of time tx-packet is in device
++dev_stat_dic = {};
 +
-+	TP_PROTO(struct sk_buff *skb),
++def trace_end():
++	for name in sorted(dev_stat_dic.keys()):
++		cstat = dev_stat_dic[name]
++		print "%s\tTX packets=%d" %\
++			(name, cstat['total_pkt'])
++		print "\tlap time between start_xmit - free_skb:"
++		avg_nsec = avg(1.0 * cstat['total_lap_time'],
++				cstat['total_pkt'])
++		print "\t    avg=%fmsec" % (avg_nsec / 1000000.0)
++		print "\t    max=%fmsec" % (cstat['max_lap_time'] / 1000000.0)
++		print "\tnumber of packets in device:"
++		print "\t    avg=%7.2f" % avg(cstat['total_lap_time'] * 1.0,
++						cstat['total_time'])
++		print "\t    max=%4d" % cstat['max_pkt_in_tx']
++		print ""
 +
-+	TP_ARGS(skb),
++def skb__dev_kfree_skb_irq(event_name, context, common_cpu,
++	common_secs, common_nsecs, common_pid, common_comm,
++	skbaddr):
++		free_skb(event_name, context, common_cpu,
++		common_secs, common_nsecs, common_pid, common_comm,
++		skbaddr)
 +
-+	TP_STRUCT__entry(
-+		__field(	void *,		skbaddr		)
-+	),
++def skb__consume_skb(event_name, context, common_cpu,
++	common_secs, common_nsecs, common_pid, common_comm,
++	skbaddr):
++		free_skb(event_name, context, common_cpu,
++		common_secs, common_nsecs, common_pid, common_comm,
++		skbaddr)
 +
-+	TP_fast_assign(
-+		__entry->skbaddr = skb;
-+	),
++def free_skb(event_name, context, common_cpu,
++	common_secs, common_nsecs, common_pid, common_comm,
++	skbaddr):
++		if skbaddr in skb_dic.keys():
++			ctime = nsecs(common_secs, common_nsecs)
++			lap_time = ctime - skb_dic[skbaddr]['start_time']
++			cstat = dev_stat_dic[skb_dic[skbaddr]['name']]
++			cstat['total_lap_time'] += lap_time;
++			cstat['total_pkt'] += 1;
++			cstat = dev_stat_dic[skb_dic[skbaddr]['name']]
++			cstat['total_time'] += ctime - cstat['prev_time']
++			cstat['prev_time'] = ctime
++			cstat['pkt_in_tx'] -= 1;
++			if lap_time > cstat['max_lap_time']:
++				cstat['max_lap_time'] = lap_time
++			del skb_dic[skbaddr]
 +
-+	TP_printk("skbaddr=%p",
-+		__entry->skbaddr)
-+);
++def skb__netdev_start_xmit(event_name, context, common_cpu,
++	common_secs, common_nsecs, common_pid, common_comm,
++	skbaddr, len, name):
++		retry = 0
++		ctime = nsecs(common_secs, common_nsecs)
++		if skbaddr in skb_dic.keys():
++			retry = 1;
++		skb_dic[skbaddr] = {'name':name, 'start_time':ctime}
++		if name not in dev_stat_dic.keys():
++			dev_stat_dic[name] = {'pkt_in_tx':0, 'max_pkt_in_tx':0,\
++					'total_pkt':0,\
++					'prev_time':ctime, 'total_time':0,\
++					'max_lap_time':0, 'total_lap_time':0}
++		cstat = dev_stat_dic[name]
++		cstat['total_time'] += ctime - cstat['prev_time']
++		cstat['prev_time'] = ctime
++		if retry == 0:
++			cstat['pkt_in_tx'] += 1
++		if cstat['pkt_in_tx'] > cstat['max_pkt_in_tx']:
++			cstat['max_pkt_in_tx'] = cstat['pkt_in_tx']
 +
-+/*
-  * Tracepoint for free an sk_buff:
-  */
- TRACE_EVENT(kfree_skb,
-@@ -35,6 +81,24 @@ TRACE_EVENT(kfree_skb,
- 		__entry->skbaddr, __entry->protocol, __entry->location)
- );
- 
-+TRACE_EVENT(dev_kfree_skb_irq,
-+
-+	TP_PROTO(struct sk_buff *skb),
-+
-+	TP_ARGS(skb),
-+
-+	TP_STRUCT__entry(
-+		__field(	void *,		skbaddr		)
-+	),
-+
-+	TP_fast_assign(
-+		__entry->skbaddr = skb;
-+	),
-+
-+	TP_printk("skbaddr=%p",
-+		__entry->skbaddr)
-+);
-+
- TRACE_EVENT(skb_copy_datagram_iovec,
- 
- 	TP_PROTO(const struct sk_buff *skb, int len),
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 32611c8..647d812 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -130,6 +130,7 @@
- #include <linux/jhash.h>
- #include <linux/random.h>
- #include <trace/events/napi.h>
-+#include <trace/events/skb.h>
- #include <linux/pci.h>
- 
- #include "net-sysfs.h"
-@@ -1577,6 +1578,7 @@ void dev_kfree_skb_irq(struct sk_buff *skb)
- 		struct softnet_data *sd;
- 		unsigned long flags;
- 
-+		trace_dev_kfree_skb_irq(skb);
- 		local_irq_save(flags);
- 		sd = &__get_cpu_var(softnet_data);
- 		skb->next = sd->completion_queue;
-@@ -1919,6 +1921,7 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
- 				goto gso;
- 		}
- 
-+		trace_netdev_start_xmit(skb, dev);
- 		rc = ops->ndo_start_xmit(skb, dev);
- 		if (rc == NETDEV_TX_OK)
- 			txq_trans_update(txq);
-@@ -1939,6 +1942,7 @@ gso:
- 		if (dev->priv_flags & IFF_XMIT_DST_RELEASE)
- 			skb_dst_drop(nskb);
- 
-+		trace_netdev_start_xmit(nskb, dev);
- 		rc = ops->ndo_start_xmit(nskb, dev);
- 		if (unlikely(rc != NETDEV_TX_OK)) {
- 			if (rc & ~NETDEV_TX_MASK)
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index a9b0e1f..b9c963c 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -466,6 +466,7 @@ void consume_skb(struct sk_buff *skb)
- 		smp_rmb();
- 	else if (likely(!atomic_dec_and_test(&skb->users)))
- 		return;
-+	trace_consume_skb(skb);
- 	__kfree_skb(skb);
- }
- EXPORT_SYMBOL(consume_skb);
 
