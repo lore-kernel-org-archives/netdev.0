@@ -1,181 +1,44 @@
-From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Subject: [RFC PATCH 2/2] netdev: perf script to show the number of tx-packets
- in device
-Date: Mon, 24 May 2010 13:52:36 +0900
-Message-ID: <4BFA0614.6020804@jp.fujitsu.com>
-References: <4BFA0551.3080304@jp.fujitsu.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: cls_cgroup: Store classid in struct sock
+Date: Mon, 24 May 2010 15:42:11 +1000
+Message-ID: <20100524054211.GA26271@gondor.apana.org.au>
+References: <20100520172918.GA17613@shamino.rdu.redhat.com> <20100520231630.GA22593@gondor.apana.org.au> <20100521003939.GA2223@localhost.localdomain> <20100520.224944.102694876.davem@davemloft.net> <20100521105128.GA29521@hmsreliant.think-freely.org> <20100521110847.GA29878@gondor.apana.org.au> <20100521164054.GB29521@hmsreliant.think-freely.org> <20100522014957.GA8779@gondor.apana.org.au> <20100522122632.GA2075@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, nhorman@tuxdriver.com,
-	kaneshige.kenji@jp.fujitsu.com, izumi.taku@jp.fujitsu.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	bmb@athenacr.com, tgraf@redhat.com, nhorman@redhat.com,
+	netdev@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:46932 "EHLO
-	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750866Ab0EXEwb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 00:52:31 -0400
-Received: from m1.gw.fujitsu.co.jp ([10.0.50.71])
-	by fgwmail5.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o4O4qUBV027043
-	for <netdev@vger.kernel.org> (envelope-from sanagi.koki@jp.fujitsu.com);
-	Mon, 24 May 2010 13:52:30 +0900
-Received: from smail (m1 [127.0.0.1])
-	by outgoing.m1.gw.fujitsu.co.jp (Postfix) with ESMTP id 0E18145DE4E
-	for <netdev@vger.kernel.org>; Mon, 24 May 2010 13:52:30 +0900 (JST)
-Received: from s1.gw.fujitsu.co.jp (s1.gw.fujitsu.co.jp [10.0.50.91])
-	by m1.gw.fujitsu.co.jp (Postfix) with ESMTP id E074E45DE4D
-	for <netdev@vger.kernel.org>; Mon, 24 May 2010 13:52:29 +0900 (JST)
-Received: from s1.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
-	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id CA0B51DB8049
-	for <netdev@vger.kernel.org>; Mon, 24 May 2010 13:52:29 +0900 (JST)
-Received: from m105.s.css.fujitsu.com (m105.s.css.fujitsu.com [10.249.87.105])
-	by s1.gw.fujitsu.co.jp (Postfix) with ESMTP id 7F2FC1DB8044
-	for <netdev@vger.kernel.org>; Mon, 24 May 2010 13:52:29 +0900 (JST)
-In-Reply-To: <4BFA0551.3080304@jp.fujitsu.com>
+Received: from ringil.hengli.com.au ([216.59.3.182]:53138 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751430Ab0EXFmd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 01:42:33 -0400
+Content-Disposition: inline
+In-Reply-To: <20100522122632.GA2075@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds perf script to calculate the time from entry of
-ndo_start_xmit to dev_kfree_skb_* and the number of tx-packets in device.
+On Sat, May 22, 2010 at 08:26:32AM -0400, Neil Horman wrote:
+>
+> first place.  When we register the cgroup subsystem, we don't register an attach
+> method, so we never get a chance to assign task_cls_sate(tsk)->classid to any
+> non-zero value.  I've got a version of the patch that add that, but for some
 
-Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
----
- .../scripts/python/bin/tx-packet-in-device-record  |    2 +
- .../scripts/python/bin/tx-packet-in-device-report  |    4 +
- tools/perf/scripts/python/tx-packet-in-device.py   |  109 ++++++++++++++++++++
- 3 files changed, 115 insertions(+), 0 deletions(-)
+No I don't think you need an attach method.
 
-diff --git a/tools/perf/scripts/python/bin/tx-packet-in-device-record b/tools/perf/scripts/python/bin/tx-packet-in-device-record
-new file mode 100644
-index 0000000..18f2356
---- /dev/null
-+++ b/tools/perf/scripts/python/bin/tx-packet-in-device-record
-@@ -0,0 +1,2 @@
-+#!/bin/bash
-+perf record -c 1 -f -a -M -R -e skb:netdev_start_xmit -e skb:consume_skb -e skb:dev_kfree_skb_irq
-diff --git a/tools/perf/scripts/python/bin/tx-packet-in-device-report b/tools/perf/scripts/python/bin/tx-packet-in-device-report
-new file mode 100644
-index 0000000..8ef4cc2
---- /dev/null
-+++ b/tools/perf/scripts/python/bin/tx-packet-in-device-report
-@@ -0,0 +1,4 @@
-+#!/bin/bash
-+# description: netif_receive_skb counts per poll
-+# args: [comm]
-+perf trace -s ~/libexec/perf-core/scripts/python/tx-packet-in-device.py $1
-diff --git a/tools/perf/scripts/python/tx-packet-in-device.py b/tools/perf/scripts/python/tx-packet-in-device.py
-new file mode 100644
-index 0000000..fb1933f
---- /dev/null
-+++ b/tools/perf/scripts/python/tx-packet-in-device.py
-@@ -0,0 +1,109 @@
-+# perf trace event handlers, generated by perf trace -g python
-+# Licensed under the terms of the GNU GPL License version 2
-+
-+# The common_* event handler fields are the most useful fields common to
-+# all events.  They don't necessarily correspond to the 'common_*' fields
-+# in the format files.  Those fields not available as handler params can
-+# be retrieved using Python functions of the form common_*(context).
-+# See the perf-trace-python Documentation for the list of available functions.
-+
-+import os
-+import sys
-+
-+sys.path.append(os.environ['PERF_EXEC_PATH'] + \
-+	'/scripts/python/Perf-Trace-Util/lib/Perf/Trace')
-+
-+from perf_trace_context import *
-+from Core import *
-+from Util import *
-+
-+# skb_dic = {skbaddr: {name:*, start_time:*}}
-+#
-+# skbaddr: address of skb through dev_hard_start_xmit
-+# name: name of device
-+# start_time: the time dev_start_hard_xmit pass
-+skb_dic = {};
-+
-+# dev_stat_dic = {name: {pkt_in_tx:*, max_pkt_in_tx:*, total_pkt:*,
-+#			 prev_time:*, total_time:*, max_lap_time:*,
-+#			 total_lap_time:*}}
-+#
-+# name: name of device
-+# pkt_in_tx: tx-packets a device has currently
-+# max_pkt_in_tx: maximum of the above
-+# total_pkt: total tx-packets through a device
-+# prev_time: the time starting xmit or freeing skb
-+#            happened previously
-+# total_time: the time from first starting xmit to now
-+# max_lap_time: maximum time from starting xmit to freein skb
-+# total_lap_time: sum of time tx-packet is in device
-+dev_stat_dic = {};
-+
-+def trace_end():
-+	for name in sorted(dev_stat_dic.keys()):
-+		cstat = dev_stat_dic[name]
-+		print "%s\tTX packets=%d" %\
-+			(name, cstat['total_pkt'])
-+		print "\tlap time between start_xmit - free_skb:"
-+		avg_nsec = avg(1.0 * cstat['total_lap_time'],
-+				cstat['total_pkt'])
-+		print "\t    avg=%fmsec" % (avg_nsec / 1000000.0)
-+		print "\t    max=%fmsec" % (cstat['max_lap_time'] / 1000000.0)
-+		print "\tnumber of packets in device:"
-+		print "\t    avg=%7.2f" % avg(cstat['total_lap_time'] * 1.0,
-+						cstat['total_time'])
-+		print "\t    max=%4d" % cstat['max_pkt_in_tx']
-+		print ""
-+
-+def skb__dev_kfree_skb_irq(event_name, context, common_cpu,
-+	common_secs, common_nsecs, common_pid, common_comm,
-+	skbaddr):
-+		free_skb(event_name, context, common_cpu,
-+		common_secs, common_nsecs, common_pid, common_comm,
-+		skbaddr)
-+
-+def skb__consume_skb(event_name, context, common_cpu,
-+	common_secs, common_nsecs, common_pid, common_comm,
-+	skbaddr):
-+		free_skb(event_name, context, common_cpu,
-+		common_secs, common_nsecs, common_pid, common_comm,
-+		skbaddr)
-+
-+def free_skb(event_name, context, common_cpu,
-+	common_secs, common_nsecs, common_pid, common_comm,
-+	skbaddr):
-+		if skbaddr in skb_dic.keys():
-+			ctime = nsecs(common_secs, common_nsecs)
-+			lap_time = ctime - skb_dic[skbaddr]['start_time']
-+			cstat = dev_stat_dic[skb_dic[skbaddr]['name']]
-+			cstat['total_lap_time'] += lap_time;
-+			cstat['total_pkt'] += 1;
-+			cstat = dev_stat_dic[skb_dic[skbaddr]['name']]
-+			cstat['total_time'] += ctime - cstat['prev_time']
-+			cstat['prev_time'] = ctime
-+			cstat['pkt_in_tx'] -= 1;
-+			if lap_time > cstat['max_lap_time']:
-+				cstat['max_lap_time'] = lap_time
-+			del skb_dic[skbaddr]
-+
-+def skb__netdev_start_xmit(event_name, context, common_cpu,
-+	common_secs, common_nsecs, common_pid, common_comm,
-+	skbaddr, len, name):
-+		retry = 0
-+		ctime = nsecs(common_secs, common_nsecs)
-+		if skbaddr in skb_dic.keys():
-+			retry = 1;
-+		skb_dic[skbaddr] = {'name':name, 'start_time':ctime}
-+		if name not in dev_stat_dic.keys():
-+			dev_stat_dic[name] = {'pkt_in_tx':0, 'max_pkt_in_tx':0,\
-+					'total_pkt':0,\
-+					'prev_time':ctime, 'total_time':0,\
-+					'max_lap_time':0, 'total_lap_time':0}
-+		cstat = dev_stat_dic[name]
-+		cstat['total_time'] += ctime - cstat['prev_time']
-+		cstat['prev_time'] = ctime
-+		if retry == 0:
-+			cstat['pkt_in_tx'] += 1
-+		if cstat['pkt_in_tx'] > cstat['max_pkt_in_tx']:
-+			cstat['max_pkt_in_tx'] = cstat['pkt_in_tx']
-+
+The task_struct has a pointer to the cgroups, which in turn has
+a pointer to the cgroup_subsys_state that we allocated in the
+cls_cgroup module.
 
+Did you try building cls_cgroup into the kernel?
+
+Perhaps there is a bug in how we register it at run-time, or
+perhaps the cgroups infrastructure itself is buggy.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
