@@ -1,32 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 2/2] enic: Use random mac addr when
- associating port-profile
-Date: Sun, 23 May 2010 23:11:37 -0700 (PDT)
-Message-ID: <20100523.231137.04685507.davem@davemloft.net>
-References: <20100523032952.20200.30148.stgit@savbu-pc100.cisco.com>
-	<20100523032957.20200.59700.stgit@savbu-pc100.cisco.com>
+Subject: Re: [PATCH] net_sched: Fix qdisc_notify()
+Date: Sun, 23 May 2010 23:11:52 -0700 (PDT)
+Message-ID: <20100523.231152.116127631.davem@davemloft.net>
+References: <4BF7A929.2090007@trash.net>
+	<1274531509.12793.7.camel@bigi>
+	<1274596664.5020.40.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, chrisw@redhat.com
-To: scofeldm@cisco.com
+Cc: hadi@cyberus.ca, kaber@trash.net, blp@nicira.com,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51802
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51807
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753799Ab0EXGL1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 02:11:27 -0400
-In-Reply-To: <20100523032957.20200.59700.stgit@savbu-pc100.cisco.com>
+	by vger.kernel.org with ESMTP id S1753089Ab0EXGLm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 02:11:42 -0400
+In-Reply-To: <1274596664.5020.40.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <scofeldm@cisco.com>
-Date: Sat, 22 May 2010 20:29:58 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 23 May 2010 08:37:44 +0200
 
-> From: Scott Feldman <scofeldm@cisco.com>
+> [PATCH] net_sched: Fix qdisc_notify()
 > 
-> Use random mac addr for interface when associating port-profile to 
-> dynamic enic device, in the case no mac addr was previous assigned.
+> Ben Pfaff reported a kernel oops and provided a test program to
+> reproduce it.
 > 
-> Signed-off-by: Scott Feldman <scofeldm@cisco.com>
+> https://kerneltrap.org/mailarchive/linux-netdev/2010/5/21/6277805
+> 
+> tc_fill_qdisc() should not be called for builtin qdisc, or it
+> dereference a NULL pointer to get device ifindex.
+> 
+> Fix is to always use tc_qdisc_dump_ignore() before calling
+> tc_fill_qdisc().
+> 
+> Reported-by: Ben Pfaff <blp@nicira.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied.
+Applied and queued up for -stable.
