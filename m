@@ -1,34 +1,56 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: cls_cgroup: Store classid in struct sock
-Date: Mon, 24 May 2010 21:24:38 +1000
-Message-ID: <20100524112438.GA29848@gondor.apana.org.au>
-References: <20100523.234441.66200781.davem@davemloft.net> <20100523.235557.165343768.davem@davemloft.net> <20100524070743.GA26871@gondor.apana.org.au> <20100524.001429.259990428.davem@davemloft.net> <20100524110950.GA22216@hmsreliant.think-freely.org>
+From: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+Subject: [PATCH net-2.6] be2net: Bug fix in init code in probe
+Date: Mon, 24 May 2010 16:50:47 +0530
+Message-ID: <20100524112033.GA3666@serverengines.com>
+Reply-To: Sarveshwar Bandi <sarveshwarb@serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	bmb@athenacr.com, tgraf@redhat.com, nhorman@redhat.com,
-	netdev@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:51144 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756874Ab0EXLYz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 07:24:55 -0400
+Received: from segment-124-30.sify.net ([124.30.166.146]:33003 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756162Ab0EXL32 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 07:29:28 -0400
 Content-Disposition: inline
-In-Reply-To: <20100524110950.GA22216@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 24, 2010 at 07:09:50AM -0400, Neil Horman wrote:
->
-> Excuse all my noise from before, Herberts patch works fine.  Apparently the
-> problem was mine.  QEMU creates several threads during startup, but adding the
-> processid to a cgroup doesn't cause its child threads to get added
-> automatically.  Doing this by hand causes this to work.
+PCI function reset needs to invoked after fw init ioctl is issued.
 
-Thanks a lot for testing Neil!
+Signed-off-by: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+---
+ drivers/net/benet/be_main.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 058d7f9..1c79c20 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -2487,10 +2487,6 @@ static int __devinit be_probe(struct pci
+ 		status = be_cmd_POST(adapter);
+ 		if (status)
+ 			goto ctrl_clean;
+-
+-		status = be_cmd_reset_function(adapter);
+-		if (status)
+-			goto ctrl_clean;
+ 	}
+ 
+ 	/* tell fw we're ready to fire cmds */
+@@ -2498,6 +2494,12 @@ static int __devinit be_probe(struct pci
+ 	if (status)
+ 		goto ctrl_clean;
+ 
++	if (be_physfn(adapter)) {
++		status = be_cmd_reset_function(adapter);
++		if (status)
++			goto ctrl_clean;
++	}
++
+ 	status = be_stats_init(adapter);
+ 	if (status)
+ 		goto ctrl_clean;
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.4.0
+
