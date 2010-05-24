@@ -1,41 +1,71 @@
-From: Julien BLACHE <jb@jblache.org>
-Subject: Re: [regression] fib6_del() bug from 2.6.34-rc1 still present in 2.6.34
-Date: Mon, 24 May 2010 11:54:20 +0200
-Message-ID: <878w7962wj.fsf@sonic.technologeek.org>
-References: <87632g53tx.fsf@sonic.technologeek.org>
-	<4BF9DCB7.8040308@cn.fujitsu.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH][VHOST] fix race with guest on multi-buffer used buffer
+	updates
+Date: Mon, 24 May 2010 13:17:10 +0300
+Message-ID: <20100524101709.GA28349@redhat.com>
+References: <1274374686.8492.12.camel@w-dls.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Shan Wei <shanwei@cn.fujitsu.com>
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org
+To: David L Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ix.technologeek.org ([213.41.157.215]:35104 "EHLO
-	sonic.technologeek.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752364Ab0EXJy1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 05:54:27 -0400
-In-Reply-To: <4BF9DCB7.8040308@cn.fujitsu.com> (Shan Wei's message of "Mon, 24
-	May 2010 09:56:07 +0800")
+Received: from mx1.redhat.com ([209.132.183.28]:1638 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753632Ab0EXKV1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 May 2010 06:21:27 -0400
+Content-Disposition: inline
+In-Reply-To: <1274374686.8492.12.camel@w-dls.beaverton.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Shan Wei <shanwei@cn.fujitsu.com> wrote:
+On Thu, May 20, 2010 at 09:58:06AM -0700, David L Stevens wrote:
+> [for Michael Tsirkin's vhost development git tree]
+> 
+> This patch fixes a race between guest and host when
+> adding used buffers wraps the ring. Without it, guests
+> can see partial packets before num_buffers is set in
+> the vnet header.
+> 
+> Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
 
-Hi,
+Could you please explain what the race is?
 
-> I saw the warning on 2.6.34-rc3. But on net-next tree the warning disappeared.
-> So I think the bug is fixed in net-next tree. My NIC driver is r8169.
->
-> The net-next tree is newer than 2.6.34, maybe the fix is not queued to 2.6.34.
-> So the warning also be present in 2.6.34.
-> Can you try net-next tree firstly?
-
-Unfortunately, this tree has a number of issues that prevent a
-successful boot into userland on my machine :/
-
-Any idea what the fix(es) is so I can test it out?
-
-JB.
-
--- 
-Julien BLACHE                                   <http://www.jblache.org> 
-<jb@jblache.org>                                  GPG KeyID 0xF5D65169
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index 7f2568d..74790ab 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -1065,14 +1065,6 @@ static int __vhost_add_used_n(struct vhost_virtqueue *vq,
+>  		vq_err(vq, "Failed to write used");
+>  		return -EFAULT;
+>  	}
+> -	/* Make sure buffer is written before we update index. */
+> -	smp_wmb();
+> -	if (put_user(vq->last_used_idx + count, &vq->used->idx)) {
+> -		vq_err(vq, "Failed to increment used idx");
+> -		return -EFAULT;
+> -	}
+> -	if (unlikely(vq->log_used))
+> -		vhost_log_used(vq, used);
+>  	vq->last_used_idx += count;
+>  	return 0;
+>  }
+> @@ -1093,7 +1085,17 @@ int vhost_add_used_n(struct vhost_virtqueue *vq, struct vring_used_elem *heads,
+>  		heads += n;
+>  		count -= n;
+>  	}
+> -	return __vhost_add_used_n(vq, heads, count);
+> +	r = __vhost_add_used_n(vq, heads, count);
+> +
+> +	/* Make sure buffer is written before we update index. */
+> +	smp_wmb();
+> +	if (put_user(vq->last_used_idx, &vq->used->idx)) {
+> +		vq_err(vq, "Failed to increment used idx");
+> +		return -EFAULT;
+> +	}
+> +	if (unlikely(vq->log_used))
+> +		vhost_log_used(vq, vq->used->ring + start);
+> +	return r;
+>  }
+>  
+>  /* This actually signals the guest, using eventfd. */
+> 
