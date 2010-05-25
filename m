@@ -1,38 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] macvlan: do a proper cleanup in
- macvlan_common_newlink()
-Date: Mon, 24 May 2010 18:41:37 -0700 (PDT)
-Message-ID: <20100524.184137.44120295.davem@davemloft.net>
-References: <20100524155857.GO2810@psychotron.lab.eng.brq.redhat.com>
-	<20100524170224.GA2816@psychotron.redhat.com>
-	<4BFACBE0.4020109@trash.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build warning in Linus'  tree
+Date: Tue, 25 May 2010 11:46:14 +1000
+Message-ID: <20100525114614.fd61d822.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jpirko@redhat.com, netdev@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52217
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754449Ab0EYBl2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 May 2010 21:41:28 -0400
-In-Reply-To: <4BFACBE0.4020109@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Tue__25_May_2010_11_46_14_+1000_PTS0dIspDlqzk/=9"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Neil Jones <NeilJay@gmail.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
-Date: Mon, 24 May 2010 20:56:32 +0200
+--Signature=_Tue__25_May_2010_11_46_14_+1000_PTS0dIspDlqzk/=9
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Jiri Pirko wrote:
->> Mon, May 24, 2010 at 05:58:58PM CEST, jpirko@
->> Subject: [PATCH net-2.6] macvlan: do proper cleanup in macvlan_common_newlink() V2
->> 
->> Fixes possible memory leak.
-> 
-> Looks good, thanks.
-> 
->> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-> 
-> Acked-by: Patrick McHardy <kaber@trash.net>
+Hi Dave,
 
-Applied, thanks.
+Today's linux-next build (x86_64 allmodconfig) produced this warning:
+
+drivers/net/usb/asix.c: In function 'asix_rx_fixup':
+drivers/net/usb/asix.c:325: warning: cast from pointer to integer of differ=
+ent size
+drivers/net/usb/asix.c:354: warning: cast from pointer to integer of differ=
+ent size
+
+Introduced by commit 3f78d1f210ff89af77f042ab7f4a8fee39feb1c9
+("drivers/net/usb/asix.c: Fix unaligned accesses").  This commit casts
+skb->data to u32.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Tue__25_May_2010_11_46_14_+1000_PTS0dIspDlqzk/=9
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAkv7K+YACgkQjjKRsyhoI8y1WwCaA4fPBIcgEiHc220slTxhmHFj
+kFgAoJzAjvCRRUg8jvuX5dSqFCfBMXXL
+=WIpL
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__25_May_2010_11_46_14_+1000_PTS0dIspDlqzk/=9--
