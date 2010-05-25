@@ -1,46 +1,22 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-next-2.6] [PPP] cleanup: remove MIN_FRAG_SIZE definition.
-Date: Tue, 25 May 2010 23:00:46 +0300
-Message-ID: <AANLkTilPBlMQJsKaY8Ksa2GzQ1by9H8HMyXZCDoHcNPE@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless-2.6 2010-05-25
+Date: Tue, 25 May 2010 13:15:09 -0700 (PDT)
+Message-ID: <20100525.131509.184702276.davem@davemloft.net>
+References: <20100525170401.GE31753@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=0016e6d96d90fc9d5b0487709c97
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:50357 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934006Ab0EYUAs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 May 2010 16:00:48 -0400
-Received: by wyb29 with SMTP id 29so2685379wyb.19
-        for <netdev@vger.kernel.org>; Tue, 25 May 2010 13:00:47 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100525170401.GE31753@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---0016e6d96d90fc9d5b0487709c97
-Content-Type: text/plain; charset=ISO-8859-1
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Tue, 25 May 2010 13:04:02 -0400
 
-Hi,
- - This patch removes MIN_FRAG_SIZE definition in
-drivers/net/ppp_generic.c as it is unneeded.
+> git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
 
-
-Regards,
-Rami Rosen
-
-
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
-
---0016e6d96d90fc9d5b0487709c97
-Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
-Content-Disposition: attachment; filename="patch.txt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_g9n5etiv0
-
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3BwcF9nZW5lcmljLmMgYi9kcml2ZXJzL25ldC9wcHBf
-Z2VuZXJpYy5jCmluZGV4IDM1ZjE5NTMuLmEyMTQ4MzUgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0
-L3BwcF9nZW5lcmljLmMKKysrIGIvZHJpdmVycy9uZXQvcHBwX2dlbmVyaWMuYwpAQCAtNjksNyAr
-NjksNiBAQAogCiAjZGVmaW5lIE1QSERSTEVOCTYJLyogbXVsdGlsaW5rIHByb3RvY29sIGhlYWRl
-ciBsZW5ndGggKi8KICNkZWZpbmUgTVBIRFJMRU5fU1NOCTQJLyogZGl0dG8gd2l0aCBzaG9ydCBz
-ZXF1ZW5jZSBudW1iZXJzICovCi0jZGVmaW5lIE1JTl9GUkFHX1NJWkUJNjQKIAogLyoKICAqIEFu
-IGluc3RhbmNlIG9mIC9kZXYvcHBwIGNhbiBiZSBhc3NvY2lhdGVkIHdpdGggZWl0aGVyIGEgcHBw
-Cg==
---0016e6d96d90fc9d5b0487709c97--
+Pulled, thanks John.
