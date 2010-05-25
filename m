@@ -1,64 +1,50 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH RFC] netfilter: iptables target SYNPROXY
-Date: Tue, 25 May 2010 13:50:52 +0200 (CEST)
-Message-ID: <alpine.LSU.2.01.1005251347450.8202@obet.zrqbmnf.qr>
-References: <1274771218-3204-1-git-send-email-xiaosuo@gmail.com>  <alpine.LSU.2.01.1005251207450.1725@obet.zrqbmnf.qr> <AANLkTim2DrXuBPUBK0TseqVJ5lxPRQjK0P_QJVsbtYRC@mail.gmail.com>
+From: Anton Blanchard <anton@samba.org>
+Subject: Warning in net/ipv4/af_inet.c:154
+Date: Tue, 25 May 2010 21:58:14 +1000
+Message-ID: <20100525115813.GA28063@kryten>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTim2DrXuBPUBK0TseqVJ5lxPRQjK0P_QJVsbtYRC@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:46756 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754245Ab0EYMAZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 May 2010 08:00:25 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-On Tuesday 2010-05-25 13:26, Changli Gao wrote:
->> On Tuesday 2010-05-25 09:06, Changli Gao wrote:
->>> net/ipv4/netfilter/Kconfig =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0| =C2=A0 12
->>> net/ipv4/netfilter/Makefile =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 | =C2=A0 =C2=A01
->>> net/ipv4/netfilter/ipt_SYNPROXY.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- | =C2=A0658 ++++++++++++++++++++++++++++
->>> net/ipv4/syncookies.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0 21
->>> net/ipv4/tcp_ipv4.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0 =C2=A05
->>> net/netfilter/nf_conntrack_core.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- | =C2=A0 44 +
->>
->> Please make this an Xtables extension.
->> There is excellent documentation ("Writing Netfilter Modules" to goo=
-gle)
->> on the details if needed.
->
->Hmm. I don't know IPv6 well. So I leave it as an iptables extension,
->and hope sb. comes on with IPv6 support after it gets merged.
+Hi,
 
-This should still be xt even if it does not do ipv6.
+A build from last night (2.6.34-git9) is hitting the following WARN_ON on
+a ppc64 box:
 
->>>+ =C2=A0 =C2=A0 =C2=A0th =3D skb_header_pointer(skb, iph->ihl * 4, s=
-izeof(_th), &_th);
->>>+ =C2=A0 =C2=A0 =C2=A0BUG_ON(th =3D=3D NULL);
->>
->> I wouldn't call that a bug. I think that can happen on an evil TCP t=
-inygram
->> (with proper IPV4 header).
->
->I copied the code from file nf_conntrack_proto_tcp.c. In fact, BUG_ON
->isn't useful at all, as tcp_error is called before this function
->is called.
+Badness at net/ipv4/af_inet.c:154
 
-Ah I see it hard-depends on nf_conntrack_ipv4 (in Kconfig).
-That too could be done instead by using nf_ct_get_l3proto at runtime.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+NIP [c00000000062b034] .inet_sock_destruct+0x1b0/0x1f0
+LR [c0000000005b376c] .__sk_free+0x58/0x154
+Call Trace:
+[c000000000088c0c] .__local_bh_disable+0xdc/0xfc (unreliable)
+[c0000000005b376c] .__sk_free+0x58/0x154
+[c0000000005b3978] .sk_free+0x4c/0x60
+[c0000000005b3ab4] .sk_common_release+0x128/0x148
+[c00000000061da44] .udp_lib_close+0x28/0x40
+[c00000000062a990] .inet_release+0xd0/0xf8
+[c0000000005adbf8] .sock_release+0x60/0xec
+[c0000000005adcd0] .sock_close+0x4c/0x6c
+[c000000000186554] .__fput+0x184/0x270
+[c00000000018668c] .fput+0x4c/0x60
+[c000000000182248] .filp_close+0xc8/0xf4
+[c0000000000826d4] .put_files_struct+0xc8/0x158
+[c0000000000827d4] .exit_files+0x70/0x8c
+[c0000000000848cc] .do_exit+0x2c8/0x82c
+[c000000000084efc] .do_group_exit+0xcc/0x100
+[c000000000084f5c] .SyS_exit_group+0x2c/0x48
+[c000000000008554] syscall_exit+0x0/0x40
+
+Which is:
+
+        WARN_ON(sk->sk_forward_alloc);
+
+Anton
