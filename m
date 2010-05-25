@@ -1,32 +1,51 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [PATCH] mlx4_en: show device's port used
-Date: Tue, 25 May 2010 09:55:47 -0700
-Message-ID: <adaaarnzzsc.fsf@roland-alpha.cisco.com>
-References: <20100525135548.GA12749@mtldesk030.lab.mtl.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 1/3] cgroups: Add an API to attach a task to current
+	task's cgroup
+Date: Tue, 25 May 2010 19:53:34 +0300
+Message-ID: <20100525165334.GA27307@redhat.com>
+References: <1274227488.2370.107.camel@w-sridhar.beaverton.ibm.com> <AANLkTinsrFoLVKDFM5pcKcL_6MvAzhR6IzbNmWKh3BDh@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Linux RDMA list <linux-rdma@vger.kernel.org>,
-	yevgenyp@mellanox.co.il
-To: Eli Cohen <eli@mellanox.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-3.cisco.com ([171.71.176.72]:16618 "EHLO
-	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932602Ab0EYQzs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 May 2010 12:55:48 -0400
-In-Reply-To: <20100525135548.GA12749@mtldesk030.lab.mtl.com> (Eli Cohen's
-	message of "Tue, 25 May 2010 16:55:48 +0300")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Sridhar Samudrala <samudrala.sridhar@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	containers@lists.linux-foundation.org, lizf@cn.fujitsu.com
+To: Paul Menage <menage@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <AANLkTinsrFoLVKDFM5pcKcL_6MvAzhR6IzbNmWKh3BDh@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- > Add a sysfs file under /sys/class/net/<ethx> to show the port number within the
- > device that this network interface is using. This is needed as ConnectX devices
- > have two ports and it is useful to know which port the ethernet devices uses.
+On Thu, May 20, 2010 at 03:22:15PM -0700, Paul Menage wrote:
+> On Tue, May 18, 2010 at 5:04 PM, Sridhar Samudrala
+> <samudrala.sridhar@gmail.com> wrote:
+> > Add a new kernel API to attach a task to current task's cgroup
+> > in all the active hierarchies.
+> >
+> > Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+> 
+> Reviewed-by: Paul Menage <menage@google.com>
+> 
+> It would be more efficient to just attach directly to current->cgroups
+> rather than potentially creating/destroying one css_set for each
+> hierarchy until we've completely converged on current->cgroups - but
+> that would require a bunch of refactoring of the guts of
+> cgroup_attach_task() to ensure that the right can_attach()/attach()
+> callbacks are made. That doesn't really seem worthwhile right now for
+> the initial use, that I imagine isn't going to be
+> performance-sensitive.
+> 
+> Paul
 
-How do other multi-port ethernet devices handle this?  Seems that the
-cleanest way to handle this would be to add a place for drivers to set
-the port number, and export it to userspace in generic code (so everyone
-does it the same way).
+Is this patch suitable for 2.6.35?
+It is needed to fix the case where vhost user might cause a kernel thread
+to consume more CPU than allowed by the cgroup.
+Should I just merge it through the vhost tree?
+Ack for this?
+
+Thanks,
+
 -- 
-Roland Dreier <rolandd@cisco.com> || For corporate legal information go to:
-http://www.cisco.com/web/about/doing_business/legal/cri/index.html
+MST
