@@ -1,45 +1,30 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH RFC] netfilter: iptables target SYNPROXY
-Date: Wed, 26 May 2010 06:52:45 +0800
-Message-ID: <AANLkTild6hAh1PPeHj_Q06k8drq-O9O9Nc48Urknm4in@mail.gmail.com>
-References: <1274771218-3204-1-git-send-email-xiaosuo@gmail.com>
-	<alpine.DEB.2.00.1005251353370.20667@blackhole.kfki.hu> <AANLkTilbZ4PE7c6pep4bYvAx7ydx78qb4tKJi0vCjD52@mail.gmail.com>
-	<alpine.DEB.2.00.1005252100500.21791@blackhole.kfki.hu>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] Phonet: fix potential use-after-free in
+ pep_sock_close()
+Date: Tue, 25 May 2010 16:08:50 -0700 (PDT)
+Message-ID: <20100525.160850.193716383.davem@davemloft.net>
+References: <1274796709-29988-1-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.1005252100500.21791@blackhole.kfki.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: remi.denis-courmont@nokia.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41976
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751481Ab0EYXIl convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 May 2010 19:08:41 -0400
+In-Reply-To: <1274796709-29988-1-git-send-email-remi.denis-courmont@nokia.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 26, 2010 at 3:03 AM, Jozsef Kadlecsik
-<kadlec@blackhole.kfki.hu> wrote:
->>
->> Yea. Only MSS option is =C2=A0supported. But it is better than being=
- DoSed.
->> And you can set a threshold for SYNPROXY with limit match, then ther=
-e
->> isn't any difference if there isn't any SYN-flood attack.
->
-> If I (have to) limit SYNPROXY, why shouldn't I better limit the SYN
-> packets directly instead?
->
+=46rom: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+Date: Tue, 25 May 2010 17:11:49 +0300
 
-Without SYNPROXY, you have to drop the over limit SYN packets, and
-maybe normal SYN packets are dropped.
+> sk_common_release() might destroy our last reference to the socket.
+> So an extra temporary reference is needed during cleanup.
+>=20
+> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
---=20
-Regards=EF=BC=8C
-Changli Gao(xiaosuo@gmail.com)
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Patch applied, thank you.
