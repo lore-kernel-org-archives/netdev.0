@@ -1,132 +1,52 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH 2/2] rtl8192su: Fix procfs code for interfaces not named wlan0
-Date: Tue, 25 May 2010 04:25:57 +0100
-Message-ID: <1274757957.7908.19.camel@localhost>
-References: <1274757630.7908.12.camel@localhost>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] ipv4: Allow configuring subnets as local addresses
+Date: Mon, 24 May 2010 20:29:55 -0700
+Message-ID: <20100524202955.63ea2358@nehalam>
+References: <alpine.DEB.1.00.1005232249380.18495@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev <netdev@vger.kernel.org>
-To: Greg Kroah-Hartman <gregkh@suse.de>
-Return-path: <devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1274757630.7908.12.camel@localhost>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Sender: devel-bounces@linuxdriverproject.org
-Errors-To: devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:43526 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757254Ab0EYD36 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 May 2010 23:29:58 -0400
+In-Reply-To: <alpine.DEB.1.00.1005232249380.18495@pokey.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The current code creates directories in procfs named after interfaces,
-but doesn't handle renaming.  This can result in name collisions and
-consequent WARNINGs.  It also means that the interface name cannot
-reliably be used to remove the directory - in fact the current code
-doesn't even try, and always uses "wlan0"!
+On Sun, 23 May 2010 22:54:12 -0700 (PDT)
+Tom Herbert <therbert@google.com> wrote:
 
-Since the name of a proc_dir_entry is embedded in it, use that when
-removing it.
+> This patch allows a host to be configured to respond to any address in
+> a specified range as if it were local, without actually needing to
+> configure the address on an interface.  This is done through routing
+> table configuration.  For instance, to configure a host to respond
+> to any address in 10.1/16 received on eth0 as a local address we can do:
+> 
+> ip rule add from all iif eth0 lookup 200
+> ip route add local 10.1/16 dev lo proto kernel scope host src 127.0.0.1 table 200
+> 
+> This host is now reachable by any 10.1/16 address (route lookup on
+> input for packets received on eth0 can find the route).  On output, the
+> rule will not be matched so that this host can still send packets to
+> 10.1/16 (not sent on loopback).  Presumably, external routing can be
+> configured to make sense out of this.
+> 
+> To make this work, we needed to modify the logic in finding the
+> interface which is assigned a given source address for output
+> (dev_ip_find).  We perform a normal fib_lookup instead of just a
+> lookup on the local table, and in the lookup we ignore the input
+> interface for matching.
+> 
+> This patch is useful to implement IP-anycast for subnets of virtual
+> addresses.
+> 
+> Signed-off-by: Tom Herbert <therbert@google.com>
 
-Add a netdev notifier to catch interface renaming, and remove and
-re-add the directory at this point.
-
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
-This is compile-tested only.
-
-All this procfs crap should really be replaced - stats should be exposed
-through the proper wireless stats interface and registers through
-debugfs or not at all.  But for now let's patch it up to avoid the
-WARNING.
-
-Ben.
-
- drivers/staging/rtl8192su/r8192U_core.c |   35 ++++++++++++++++++++++++++++--
- 1 files changed, 32 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/staging/rtl8192su/r8192U_core.c b/drivers/staging/rtl8192su/r8192U_core.c
-index 90f2df4..4bd3710 100644
---- a/drivers/staging/rtl8192su/r8192U_core.c
-+++ b/drivers/staging/rtl8192su/r8192U_core.c
-@@ -27,6 +27,7 @@
- #include <linux/vmalloc.h>
- #include <linux/slab.h>
- #include <linux/eeprom_93cx6.h>
-+#include <linux/notifier.h>
- 
- #undef LOOP_TEST
- #undef DUMP_RX
-@@ -161,6 +162,8 @@ MODULE_PARM_DESC(channels," Channel bitmask for specific locales. NYI");
- static int __devinit rtl8192_usb_probe(struct usb_interface *intf,
- 			 const struct usb_device_id *id);
- static void __devexit rtl8192_usb_disconnect(struct usb_interface *intf);
-+static const struct net_device_ops rtl8192_netdev_ops;
-+static struct notifier_block proc_netdev_notifier;
- 
- static struct usb_driver rtl8192_usb_driver = {
- 	.name		= RTL819xU_MODULE_NAME,	          /* Driver name   */
-@@ -992,14 +995,22 @@ static int proc_get_stats_rx(char *page, char **start,
- 
- int rtl8192_proc_module_init(void)
- {
-+	int ret;
-+
- 	RT_TRACE(COMP_INIT, "Initializing proc filesystem");
- 	rtl8192_proc=create_proc_entry(RTL819xU_MODULE_NAME, S_IFDIR, init_net.proc_net);
--	return rtl8192_proc ? 0 : -ENOMEM;
-+	if (!rtl8192_proc)
-+		return -ENOMEM;
-+	ret = register_netdevice_notifier(&proc_netdev_notifier);
-+	if (ret)
-+		remove_proc_entry(RTL819xU_MODULE_NAME, init_net.proc_net);
-+	return ret;
- }
- 
-
- void rtl8192_proc_module_remove(void)
- {
-+	unregister_netdevice_notifier(&proc_netdev_notifier);
- 	remove_proc_entry(RTL819xU_MODULE_NAME, init_net.proc_net);
- }
- 
-@@ -1027,8 +1038,7 @@ void rtl8192_proc_remove_one(struct net_device *dev)
- 		remove_proc_entry("registers-e", priv->dir_dev);
- 	//	remove_proc_entry("cck-registers",priv->dir_dev);
- 	//	remove_proc_entry("ofdm-registers",priv->dir_dev);
--		//remove_proc_entry(dev->name, rtl8192_proc);
--		remove_proc_entry("wlan0", rtl8192_proc);
-+		remove_proc_entry(priv->dir_dev->name, rtl8192_proc);
- 		priv->dir_dev = NULL;
- 	}
- }
-@@ -1145,6 +1155,25 @@ void rtl8192_proc_init_one(struct net_device *dev)
- 		      dev->name);
- 	}
- }
-+
-+static int proc_netdev_event(struct notifier_block *this,
-+			     unsigned long event, void *ptr)
-+{
-+	struct net_device *net_dev = ptr;
-+
-+	if (net_dev->netdev_ops == &rtl8192_netdev_ops &&
-+	    event == NETDEV_CHANGENAME) {
-+		rtl8192_proc_remove_one(net_dev);
-+		rtl8192_proc_init_one(net_dev);
-+	}
-+
-+	return NOTIFY_DONE;
-+}
-+
-+static struct notifier_block proc_netdev_notifier = {
-+	.notifier_call = proc_netdev_event,
-+};
-+
- /****************************************************************************
-    -----------------------------MISC STUFF-------------------------
- *****************************************************************************/
--- 
-1.7.1
+It makes sense, no sure what else will break because of this.
+This won't work so well with routing daemons like Quagga(BGP, Zebra)
+etc because they believe loopback is special but they don't
+handle multiple routing tables well anyway.
