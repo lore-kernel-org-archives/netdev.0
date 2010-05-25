@@ -1,52 +1,45 @@
-From: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] mlx4_en: show device's port used
-Date: Tue, 25 May 2010 14:32:26 -0700
-Message-ID: <adask5fy8et.fsf@roland-alpha.cisco.com>
-References: <20100525135548.GA12749@mtldesk030.lab.mtl.com>
-	<adaaarnzzsc.fsf@roland-alpha.cisco.com>
-	<20100525174214.GA14745@mtldesk030.lab.mtl.com>
+From: Holger Freyther <zecke@selfish.org>
+Subject: Question regarding =?utf-8?b?SVBfVE9T?= and =?utf-8?b?U09fUFJJT1JJVFk=?=
+Date: Tue, 25 May 2010 21:19:32 +0000 (UTC)
+Message-ID: <loom.20100525T230503-375@post.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eli Cohen <eli-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linux RDMA list <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org
-To: Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100525174214.GA14745-8YAHvHwT2UEvbXDkjdHOrw/a8Rv0c6iv@public.gmane.org> (Eli Cohen's
-	message of "Tue, 25 May 2010 20:42:14 +0300")
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lo.gmane.org ([80.91.229.12]:35305 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758778Ab0EYVkF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 May 2010 17:40:05 -0400
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1OH1r2-0007fN-9m
+	for netdev@vger.kernel.org; Tue, 25 May 2010 23:40:04 +0200
+Received: from fuckup.club.berlin.ccc.de ([195.160.172.2])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 25 May 2010 23:40:04 +0200
+Received: from zecke by fuckup.club.berlin.ccc.de with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 25 May 2010 23:40:04 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- > I don't think there are many devices out there which have more than
- > one port.
+Hi all,
 
-??
+I have a minor question regarding the IP_TOS and SO_PRIORITY socket
+options. I was reading the man page for ip(7) and it pointed me to
+socket(7) to look at the SO_PRIORITY. My man page claims that setting
+the SO_PRIORITY will also set the tos on the outgoing IP header.
 
-http://developer.intel.com/network/connectivity/solutions/gigabit.htm
-http://www.broadcom.com/products/Ethernet-Controllers/Enterprise-Server/BCM5704C
+The problem is that I couldn't see the TOS set in my outgoing packets
+and I was not able to find the code propagating the sk_priority into the
+tos. On the other hand I could find that setting the IP_TOS will also
+set the sk_priority.
 
-etc
+Is this a documentation bug? Or did it work once? Or is it working and
+my code was just broken and I'm too blind to find it?
 
- > So this will require changing all the drivers to put some value there
- > or we would need to use a default value of 1 for drivers that don't
- > explicitly set a value.
+z.
 
-Yes, just set a default value.
 
- > > and export it to userspace in generic code (so everyone
- > > does it the same way).
-
- > Something like ethtool? But we still need an entry under
- > /sys/class/net/ethx/, right?
-
-It could be ethtool or a sysfs attr.
-
- - R.
--- 
-Roland Dreier <rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org> || For corporate legal information go to:
-http://www.cisco.com/web/about/doing_business/legal/cri/index.html
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
