@@ -1,63 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Warning in net/ipv4/af_inet.c:154
-Date: Tue, 25 May 2010 17:27:09 +0200
-Message-ID: <1274801229.5020.80.camel@edumazet-laptop>
-References: <20100525115813.GA28063@kryten>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: ixgbe: macvlan on PF/VF when SRIOV is enabled
+Date: Tue, 25 May 2010 08:57:51 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755A7A58B5F@orsmsx508.amr.corp.intel.com>
+References: <1274473846.8701.25.camel@localhost.localdomain>
+	 <43F901BD926A4E43B106BF17856F0755A79C099C@orsmsx508.amr.corp.intel.com>
+	 <1274720919.18023.19.camel@localhost.localdomain>
+	 <43F901BD926A4E43B106BF17856F0755A79C0E05@orsmsx508.amr.corp.intel.com>
+ <1274780239.18023.48.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Anton Blanchard <anton@samba.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:43758 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750800Ab0EYPb4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 May 2010 11:31:56 -0400
-Received: by bwz7 with SMTP id 7so1326376bwz.19
-        for <netdev@vger.kernel.org>; Tue, 25 May 2010 08:31:54 -0700 (PDT)
-In-Reply-To: <20100525115813.GA28063@kryten>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1274780239.18023.48.camel@localhost.localdomain>
+Content-Language: en-US
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 25 mai 2010 =C3=A0 21:58 +1000, Anton Blanchard a =C3=A9crit :
-> Hi,
->=20
-> A build from last night (2.6.34-git9) is hitting the following WARN_O=
-N on
-> a ppc64 box:
->=20
-> Badness at net/ipv4/af_inet.c:154
->=20
-> NIP [c00000000062b034] .inet_sock_destruct+0x1b0/0x1f0
-> LR [c0000000005b376c] .__sk_free+0x58/0x154
-> Call Trace:
-> [c000000000088c0c] .__local_bh_disable+0xdc/0xfc (unreliable)
-> [c0000000005b376c] .__sk_free+0x58/0x154
-> [c0000000005b3978] .sk_free+0x4c/0x60
-> [c0000000005b3ab4] .sk_common_release+0x128/0x148
-> [c00000000061da44] .udp_lib_close+0x28/0x40
-> [c00000000062a990] .inet_release+0xd0/0xf8
-> [c0000000005adbf8] .sock_release+0x60/0xec
-> [c0000000005adcd0] .sock_close+0x4c/0x6c
-> [c000000000186554] .__fput+0x184/0x270
-> [c00000000018668c] .fput+0x4c/0x60
-> [c000000000182248] .filp_close+0xc8/0xf4
-> [c0000000000826d4] .put_files_struct+0xc8/0x158
-> [c0000000000827d4] .exit_files+0x70/0x8c
-> [c0000000000848cc] .do_exit+0x2c8/0x82c
-> [c000000000084efc] .do_group_exit+0xcc/0x100
-> [c000000000084f5c] .SyS_exit_group+0x2c/0x48
-> [c000000000008554] syscall_exit+0x0/0x40
->=20
-> Which is:
->=20
->         WARN_ON(sk->sk_forward_alloc);
->=20
-
-Yes, the infamous one :)
-
-Is it reproductible ? What kind of workload is it ?
-What is the NIC involved ?
-
-
-
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogU2hpcmxleSBNYSBbbWFpbHRvOm1h
+c2hpcmxlQHVzLmlibS5jb21dDQo+U2VudDogVHVlc2RheSwgTWF5IDI1LCAyMDEwIDI6MzcgQU0N
+Cj5UbzogUm9zZSwgR3JlZ29yeSBWDQo+Q2M6IEtpcnNoZXIsIEplZmZyZXkgVDsgZGF2ZW1AZGF2
+ZW1sb2Z0Lm5ldDsga3ZtQHZnZXIua2VybmVsLm9yZzsNCj5uZXRkZXZAdmdlci5rZXJuZWwub3Jn
+OyBlMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQNCj5TdWJqZWN0OiBSRTogaXhnYmU6
+IG1hY3ZsYW4gb24gUEYvVkYgd2hlbiBTUklPViBpcyBlbmFibGVkDQo+DQo+T24gTW9uLCAyMDEw
+LTA1LTI0IGF0IDEwOjU0IC0wNzAwLCBSb3NlLCBHcmVnb3J5IFYgd3JvdGU6DQo+PiBXZSBsb29r
+IGZvcndhcmQgdG8gaXQgYW5kIHdpbGwgYmUgaGFwcHkgdG8gcHJvdmlkZSBmZWVkYmFjay4NCj5J
+IGhhdmUgc3VibWl0dGVkIHRoZSBwYXRjaCB0byBtYWtlIG1hY3ZsYW4gb24gUEYgd29ya3Mgd2hl
+biBTUklPViBpcw0KPmVuYWJsZWQuDQo+DQo+PiBPbmUgdGhpbmcgeW91IGNhbiBkbyBpcyBhbGxv
+Y2F0ZSBWRnMgYW5kIHRoZW4gbG9hZCB0aGUgVkYgZHJpdmVyIGluDQo+PiB5b3VyIGhvc3QgZG9t
+YWluIGFuZCB0aGVuIGFzc2lnbiBlYWNoIG9mIHRoZW0gYSBtYWN2bGFuIGZpbHRlci4gIFlvdSdk
+DQo+PiBnZXQgYSBzaW1pbGFyIGVmZmVjdC4NCj4NCj5UaGF0J3MgSSBhbSB0cnlpbmcgdG8gbWFr
+ZSBpdCB3b3JrIGZvciBtYWN2bGFuIG9uIFZGcyBpbiBob3N0IGRvbWFpbi4gSQ0KPm5lZWQgdG8g
+YWRkIFZGIHNlY29uZGFyeSBhZGRyZXNzZXMgaW4gYWRkcmVzcyBmaWx0ZXIsIHJpZ2h0Pw0KDQpK
+dXN0IHVzZSBpZmNvbmZpZyBhbmQgdmNvbmZpZyB1dGlsaXRpZXMgdG8gc2V0IHRoZSBNQUMgYW5k
+IFZMQU4gZm9yIGVhY2ggVkYuICBUaGVyZSBzaG91bGRuJ3QgYmUgYW55IG5lZWQgZm9yIHNlY29u
+ZGFyeSBhZGRyZXNzZXMgYmVjYXVzZSB0aGV5J3JlIG5vdCBsaWtlIHBoeXNpY2FsIGRldmljZXMg
+d2hlcmUgZWFjaCBWRiBoYXMgYSBwcmUtcHJvZ3JhbW1lZCBIVyBNQUMgYWRkcmVzcy4gIFRoZSBp
+bml0aWFsIE1BQyBhZGRyZXNzIG9mIGVhY2ggVkYgaXMgZ2VuZXJhdGVkIG9uIHRoZSBmbHkgZHVy
+aW5nIHRoZSBQRiBkcml2ZXIgaW5pdGlhbGl6YXRpb24uIFlvdSBjYW4gY2hhbmdlIGl0IGFzIHlv
+dSBzZWUgZml0IGFuZCB0aGVuIHB1dCB0aGUgVkYgb24gYSBWTEFOIHVzaW5nIHZjb25maWcuICBB
+ZnRlciB5b3UgZG8gdGhhdCB5b3UgaGF2ZSBhIG1hY3ZsYW4gZmlsdGVyIGZvciB0aGF0IFZGLg0K
+DQo+DQo+RG8geW91IGhhdmUgYW55IGFnZ3JlZ2F0aW9uIHBlcmZvcm1hbmNlIGNvbXBhcmlzb24g
+YmV0d2VlbiBtdWx0aXBsZQ0KPm1hY3ZsYW5zIG9uIFBGIGFuZCBzaW5nbGUgbWFjdmxhbiBwZXIg
+VkYgaW4gaG9zdCBkb21haW4/DQoNCk5vLCB3ZSBoYXZlbid0IGRvbmUgYW55IHBlcmZvcm1hbmNl
+IHRlc3Rpbmcgb2YgdGhhdCBwYXJ0aWN1bGFyIHNvcnQgYnV0IEkgaW1hZ2luZSB5b3Ugc2hvdWxk
+IGJlIGFibGUgdG8gZ2V0IGNsb3NlIHRvIGxpbmUgcmF0ZXMgdXNpbmcgbXVsdGlwbGUgVkZzIHdp
+dGggYSBzaW5nbGUgbWFjdmxhbiBmaWx0ZXIgZm9yIGVhY2guDQoNClJlZ2FyZHMsDQoNCi0gR3Jl
+Zw0KDQoNCg==
