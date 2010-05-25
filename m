@@ -1,45 +1,45 @@
-From: Holger Freyther <zecke@selfish.org>
-Subject: Question regarding =?utf-8?b?SVBfVE9T?= and =?utf-8?b?U09fUFJJT1JJVFk=?=
-Date: Tue, 25 May 2010 21:19:32 +0000 (UTC)
-Message-ID: <loom.20100525T230503-375@post.gmane.org>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH RFC] netfilter: iptables target SYNPROXY
+Date: Wed, 26 May 2010 06:52:45 +0800
+Message-ID: <AANLkTild6hAh1PPeHj_Q06k8drq-O9O9Nc48Urknm4in@mail.gmail.com>
+References: <1274771218-3204-1-git-send-email-xiaosuo@gmail.com>
+	<alpine.DEB.2.00.1005251353370.20667@blackhole.kfki.hu> <AANLkTilbZ4PE7c6pep4bYvAx7ydx78qb4tKJi0vCjD52@mail.gmail.com>
+	<alpine.DEB.2.00.1005252100500.21791@blackhole.kfki.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:35305 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758778Ab0EYVkF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 May 2010 17:40:05 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1OH1r2-0007fN-9m
-	for netdev@vger.kernel.org; Tue, 25 May 2010 23:40:04 +0200
-Received: from fuckup.club.berlin.ccc.de ([195.160.172.2])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 25 May 2010 23:40:04 +0200
-Received: from zecke by fuckup.club.berlin.ccc.de with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 25 May 2010 23:40:04 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.00.1005252100500.21791@blackhole.kfki.hu>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Wed, May 26, 2010 at 3:03 AM, Jozsef Kadlecsik
+<kadlec@blackhole.kfki.hu> wrote:
+>>
+>> Yea. Only MSS option is =C2=A0supported. But it is better than being=
+ DoSed.
+>> And you can set a threshold for SYNPROXY with limit match, then ther=
+e
+>> isn't any difference if there isn't any SYN-flood attack.
+>
+> If I (have to) limit SYNPROXY, why shouldn't I better limit the SYN
+> packets directly instead?
+>
 
-I have a minor question regarding the IP_TOS and SO_PRIORITY socket
-options. I was reading the man page for ip(7) and it pointed me to
-socket(7) to look at the SO_PRIORITY. My man page claims that setting
-the SO_PRIORITY will also set the tos on the outgoing IP header.
+Without SYNPROXY, you have to drop the over limit SYN packets, and
+maybe normal SYN packets are dropped.
 
-The problem is that I couldn't see the TOS set in my outgoing packets
-and I was not able to find the code propagating the sk_priority into the
-tos. On the other hand I could find that setting the IP_TOS will also
-set the sk_priority.
-
-Is this a documentation bug? Or did it work once? Or is it working and
-my code was just broken and I'm too blind to find it?
-
-z.
-
-
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
