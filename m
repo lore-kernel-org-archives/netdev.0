@@ -1,63 +1,48 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH net-next] ixgbe: make macvlan on PF
- working when SRIOV is enabled
-Date: Tue, 25 May 2010 10:15:45 -0700
-Message-ID: <1274807745.18023.71.camel@localhost.localdomain>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: [PATCH net-next] ixgbe: make macvlan on PF working when SRIOV
+ is enabled
+Date: Tue, 25 May 2010 10:24:21 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755A7A58C9D@orsmsx508.amr.corp.intel.com>
 References: <1274806509.18023.58.camel@localhost.localdomain>
+ <1274807745.18023.71.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	gregory.v.rose@intel.com, "davem@davemloft.net" <davem@davemloft.net>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
 	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: jeffrey.t.kirsher@intel.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1274806509.18023.58.camel@localhost.localdomain>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Shirley Ma <mashirle@us.ibm.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1274807745.18023.71.camel@localhost.localdomain>
+Content-Language: en-US
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-To produce this problem:
-
-1. modprobe ixgbe max_vfs=2 
-   eth4 is PF, eth5 is VF
-2. ip link set eth4 up
-3. ip link add link eth4 address 54:52:00:35:e3:20 macvlan2 type macvlan
-4. ip addr add 192.168.7.74/24 dev macvlan2
-5. ping macvlan2 from remote host, works
-6. ip link set eth5 up
-7. ping macvlan2 from remote host failed.
-
-Based on my understanding, the problem is:
-1. PF set_rar use rar index is 0, and vmdq index is adapter->num_vfs, 
-2. when macvlan2 is created, rar index is based rar_used_count, which
-would be 1.
-3. later when VF is up, the rar index is vf+1, and vmdq index is vf, so
-VF0 will overwrite macvlan2 rar entry.
-
-The fix here:
-1. make sure PF uses vmdq index = adapter->num_vfs during
-initialization, reset.
-2. reserve rar index for all VFs from 1 to num_vfs + 1.
-
-
-Please let me know whether my understanding is correct or not.
-
-Thanks
-Shirley
-
-
-------------------------------------------------------------------------------
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogU2hpcmxleSBNYSBbbWFpbHRvOm1h
+c2hpcmxlQHVzLmlibS5jb21dDQo+U2VudDogVHVlc2RheSwgTWF5IDI1LCAyMDEwIDEwOjE2IEFN
+DQo+VG86IEtpcnNoZXIsIEplZmZyZXkgVA0KPkNjOiBSb3NlLCBHcmVnb3J5IFY7IGRhdmVtQGRh
+dmVtbG9mdC5uZXQ7IGt2bUB2Z2VyLmtlcm5lbC5vcmc7DQo+bmV0ZGV2QHZnZXIua2VybmVsLm9y
+ZzsgZTEwMDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0DQo+U3ViamVjdDogUmU6IFtQQVRD
+SCBuZXQtbmV4dF0gaXhnYmU6IG1ha2UgbWFjdmxhbiBvbiBQRiB3b3JraW5nIHdoZW4NCj5TUklP
+ViBpcyBlbmFibGVkDQo+DQo+VG8gcHJvZHVjZSB0aGlzIHByb2JsZW06DQo+DQo+MS4gbW9kcHJv
+YmUgaXhnYmUgbWF4X3Zmcz0yDQo+ICAgZXRoNCBpcyBQRiwgZXRoNSBpcyBWRg0KPjIuIGlwIGxp
+bmsgc2V0IGV0aDQgdXANCj4zLiBpcCBsaW5rIGFkZCBsaW5rIGV0aDQgYWRkcmVzcyA1NDo1Mjow
+MDozNTplMzoyMCBtYWN2bGFuMiB0eXBlIG1hY3ZsYW4NCj40LiBpcCBhZGRyIGFkZCAxOTIuMTY4
+LjcuNzQvMjQgZGV2IG1hY3ZsYW4yDQo+NS4gcGluZyBtYWN2bGFuMiBmcm9tIHJlbW90ZSBob3N0
+LCB3b3Jrcw0KPjYuIGlwIGxpbmsgc2V0IGV0aDUgdXANCj43LiBwaW5nIG1hY3ZsYW4yIGZyb20g
+cmVtb3RlIGhvc3QgZmFpbGVkLg0KPg0KPkJhc2VkIG9uIG15IHVuZGVyc3RhbmRpbmcsIHRoZSBw
+cm9ibGVtIGlzOg0KPjEuIFBGIHNldF9yYXIgdXNlIHJhciBpbmRleCBpcyAwLCBhbmQgdm1kcSBp
+bmRleCBpcyBhZGFwdGVyLT5udW1fdmZzLA0KPjIuIHdoZW4gbWFjdmxhbjIgaXMgY3JlYXRlZCwg
+cmFyIGluZGV4IGlzIGJhc2VkIHJhcl91c2VkX2NvdW50LCB3aGljaA0KPndvdWxkIGJlIDEuDQo+
+My4gbGF0ZXIgd2hlbiBWRiBpcyB1cCwgdGhlIHJhciBpbmRleCBpcyB2ZisxLCBhbmQgdm1kcSBp
+bmRleCBpcyB2Ziwgc28NCj5WRjAgd2lsbCBvdmVyd3JpdGUgbWFjdmxhbjIgcmFyIGVudHJ5Lg0K
+Pg0KPlRoZSBmaXggaGVyZToNCj4xLiBtYWtlIHN1cmUgUEYgdXNlcyB2bWRxIGluZGV4ID0gYWRh
+cHRlci0+bnVtX3ZmcyBkdXJpbmcNCj5pbml0aWFsaXphdGlvbiwgcmVzZXQuDQo+Mi4gcmVzZXJ2
+ZSByYXIgaW5kZXggZm9yIGFsbCBWRnMgZnJvbSAxIHRvIG51bV92ZnMgKyAxLg0KPg0KPg0KPlBs
+ZWFzZSBsZXQgbWUga25vdyB3aGV0aGVyIG15IHVuZGVyc3RhbmRpbmcgaXMgY29ycmVjdCBvciBu
+b3QuDQoNClllcywgdGhhdCBhcHBlYXJzIHRvIGJlIGNvcnJlY3QuDQoNCldlJ2xsIHRlc3QgeW91
+ciBwYXRjaCBidXQgSSB0aGluayB5b3UncmUgb24gdGhlIHJpZ2h0IHRyYWNrLg0KDQotIEdyZWcN
+Cg0KDQo=
