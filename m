@@ -1,48 +1,41 @@
-From: "Rose, Gregory V" <gregory.v.rose@intel.com>
-Subject: RE: [PATCH net-next] ixgbe: make macvlan on PF working when SRIOV
- is enabled
-Date: Tue, 25 May 2010 10:24:21 -0700
-Message-ID: <43F901BD926A4E43B106BF17856F0755A7A58C9D@orsmsx508.amr.corp.intel.com>
-References: <1274806509.18023.58.camel@localhost.localdomain>
- <1274807745.18023.71.camel@localhost.localdomain>
+From: Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [PATCH] mlx4_en: show device's port used
+Date: Tue, 25 May 2010 20:42:14 +0300
+Message-ID: <20100525174214.GA14745@mtldesk030.lab.mtl.com>
+References: <20100525135548.GA12749@mtldesk030.lab.mtl.com>
+	<adaaarnzzsc.fsf@roland-alpha.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Shirley Ma <mashirle@us.ibm.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1274807745.18023.71.camel@localhost.localdomain>
-Content-Language: en-US
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Eli Cohen <eli-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linux RDMA list <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org
+To: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <adaaarnzzsc.fsf-BjVyx320WGW9gfZ95n9DRSW4+XlvGpQz@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogU2hpcmxleSBNYSBbbWFpbHRvOm1h
-c2hpcmxlQHVzLmlibS5jb21dDQo+U2VudDogVHVlc2RheSwgTWF5IDI1LCAyMDEwIDEwOjE2IEFN
-DQo+VG86IEtpcnNoZXIsIEplZmZyZXkgVA0KPkNjOiBSb3NlLCBHcmVnb3J5IFY7IGRhdmVtQGRh
-dmVtbG9mdC5uZXQ7IGt2bUB2Z2VyLmtlcm5lbC5vcmc7DQo+bmV0ZGV2QHZnZXIua2VybmVsLm9y
-ZzsgZTEwMDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0DQo+U3ViamVjdDogUmU6IFtQQVRD
-SCBuZXQtbmV4dF0gaXhnYmU6IG1ha2UgbWFjdmxhbiBvbiBQRiB3b3JraW5nIHdoZW4NCj5TUklP
-ViBpcyBlbmFibGVkDQo+DQo+VG8gcHJvZHVjZSB0aGlzIHByb2JsZW06DQo+DQo+MS4gbW9kcHJv
-YmUgaXhnYmUgbWF4X3Zmcz0yDQo+ICAgZXRoNCBpcyBQRiwgZXRoNSBpcyBWRg0KPjIuIGlwIGxp
-bmsgc2V0IGV0aDQgdXANCj4zLiBpcCBsaW5rIGFkZCBsaW5rIGV0aDQgYWRkcmVzcyA1NDo1Mjow
-MDozNTplMzoyMCBtYWN2bGFuMiB0eXBlIG1hY3ZsYW4NCj40LiBpcCBhZGRyIGFkZCAxOTIuMTY4
-LjcuNzQvMjQgZGV2IG1hY3ZsYW4yDQo+NS4gcGluZyBtYWN2bGFuMiBmcm9tIHJlbW90ZSBob3N0
-LCB3b3Jrcw0KPjYuIGlwIGxpbmsgc2V0IGV0aDUgdXANCj43LiBwaW5nIG1hY3ZsYW4yIGZyb20g
-cmVtb3RlIGhvc3QgZmFpbGVkLg0KPg0KPkJhc2VkIG9uIG15IHVuZGVyc3RhbmRpbmcsIHRoZSBw
-cm9ibGVtIGlzOg0KPjEuIFBGIHNldF9yYXIgdXNlIHJhciBpbmRleCBpcyAwLCBhbmQgdm1kcSBp
-bmRleCBpcyBhZGFwdGVyLT5udW1fdmZzLA0KPjIuIHdoZW4gbWFjdmxhbjIgaXMgY3JlYXRlZCwg
-cmFyIGluZGV4IGlzIGJhc2VkIHJhcl91c2VkX2NvdW50LCB3aGljaA0KPndvdWxkIGJlIDEuDQo+
-My4gbGF0ZXIgd2hlbiBWRiBpcyB1cCwgdGhlIHJhciBpbmRleCBpcyB2ZisxLCBhbmQgdm1kcSBp
-bmRleCBpcyB2Ziwgc28NCj5WRjAgd2lsbCBvdmVyd3JpdGUgbWFjdmxhbjIgcmFyIGVudHJ5Lg0K
-Pg0KPlRoZSBmaXggaGVyZToNCj4xLiBtYWtlIHN1cmUgUEYgdXNlcyB2bWRxIGluZGV4ID0gYWRh
-cHRlci0+bnVtX3ZmcyBkdXJpbmcNCj5pbml0aWFsaXphdGlvbiwgcmVzZXQuDQo+Mi4gcmVzZXJ2
-ZSByYXIgaW5kZXggZm9yIGFsbCBWRnMgZnJvbSAxIHRvIG51bV92ZnMgKyAxLg0KPg0KPg0KPlBs
-ZWFzZSBsZXQgbWUga25vdyB3aGV0aGVyIG15IHVuZGVyc3RhbmRpbmcgaXMgY29ycmVjdCBvciBu
-b3QuDQoNClllcywgdGhhdCBhcHBlYXJzIHRvIGJlIGNvcnJlY3QuDQoNCldlJ2xsIHRlc3QgeW91
-ciBwYXRjaCBidXQgSSB0aGluayB5b3UncmUgb24gdGhlIHJpZ2h0IHRyYWNrLg0KDQotIEdyZWcN
-Cg0KDQo=
+On Tue, May 25, 2010 at 09:55:47AM -0700, Roland Dreier wrote:
+> 
+> How do other multi-port ethernet devices handle this?
+I don't think there are many devices out there which have more than
+one port.
+
+>  Seems that the
+> cleanest way to handle this would be to add a place for drivers to set
+> the port number,
+So this will require changing all the drivers to put some value there
+or we would need to use a default value of 1 for drivers that don't
+explicitly set a value.
+
+> and export it to userspace in generic code (so everyone
+> does it the same way).
+Something like ethtool? But we still need an entry under
+/sys/class/net/ethx/, right?
+ 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
