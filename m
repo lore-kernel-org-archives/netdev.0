@@ -1,62 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Question about an assignment in handle_ing()
-Date: Tue, 25 May 2010 22:12:02 +1000
-Message-ID: <20100525121202.GA12712@gondor.apana.org.au>
-References: <20100524112236.GF2810@psychotron.lab.eng.brq.redhat.com> <1274781067.3878.872.camel@bigi> <20100525102603.GA11494@gondor.apana.org.au> <1274789024.3878.919.camel@bigi>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [PATCH RFC] netfilter: iptables target SYNPROXY
+Date: Tue, 25 May 2010 14:17:43 +0200 (CEST)
+Message-ID: <alpine.DEB.2.00.1005251353370.20667@blackhole.kfki.hu>
+References: <1274771218-3204-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, kaber@trash.net
-To: jamal <hadi@cyberus.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:58606 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755010Ab0EYMML (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 May 2010 08:12:11 -0400
-Content-Disposition: inline
-In-Reply-To: <1274789024.3878.919.camel@bigi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1274771218-3204-1-git-send-email-xiaosuo@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 25, 2010 at 08:03:44AM -0400, jamal wrote:
-> On Tue, 2010-05-25 at 20:26 +1000, Herbert Xu wrote:
+Hi,
+
+On Tue, 25 May 2010, Changli Gao wrote:
+
+> iptables target SYNPROXY.
 > 
-> > In that case you should be checking whether the skb is cloned.
-> 
-> That is the general rule used (and what i specify to do in the docs)..
-> but i recall there were issues if the packet path emanated from ingress
-> and included multiple netdevices (earlier ex with mirror applies). There
-> may have been bugs then, eg I could not assume that it i had any ptype
-> at all that the ptype will clone the packet. Does tcpdump guarantee
-> skb->clone being set? I will try to test some scenarios when i am back
-> +settled. 
+> This patch implements an iptables target SYNPROXY, which works in the raw table
+> of the PREROUTING chain, before conntracking system. Syncookies is used, so no
+> new state is introduced into the conntracking system. In fact, until the first
+> connection is established, conntracking system doesn't see any packets. So when
+> there is a SYN-flood attack, conntracking system won't be busy on finding and
+> deleting the un-assured ct.
 
-It is guaranteed, it is illegal to hold onto the skb contents
-without the reference that comes from cloning an skb.
+My main problem with your target is that by using it, important and useful 
+TCP options are lost: timestamp and SACK. That pushes back TCP by almost 
+twenty years.
 
-> "Most" for people running serious firewalls or routers is not to run
-> DHCP servers;-> They may client, but thats a short-lived session.
+Here you reason for the target that it protects conntrack itself, but in 
+the Kconfig text you write that it protects the servers behind the 
+firewall. Both can be true, but if the real goal is to defend the servers 
+then your target could simply send a faked ACK to complete the three way 
+handshake and that way TCP would not be crippled (conntrack timeout 
+should still be adjusted).
 
-The DHCP client may keep the AF_PACKET open even if there is no
-ongoing dialogue.
-
-> > Also
-> > the skb may still be cloned even if there is no AF_PACKET listener.
-> > In that case your optimisation may be incorrect.
-> 
-> Did you mean that as long as there are other ptypes - which may or 
-> not be doing af packet? 
-
-For ingress, the packet may have looped back from a virtual
-interface.  It may have been cloned on its way out of the virtual
-interface.
-
-Looking at ptype instead of checking whether the skb is cloned
-simply doesn't work in this case.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlec@mail.kfki.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : KFKI Research Institute for Particle and Nuclear Physics
+          H-1525 Budapest 114, POB. 49, Hungary
