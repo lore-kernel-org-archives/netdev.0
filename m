@@ -1,47 +1,62 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: RE: ixgbe: macvlan on PF/VF when SRIOV is enabled
-Date: Tue, 25 May 2010 02:37:19 -0700
-Message-ID: <1274780239.18023.48.camel@localhost.localdomain>
-References: <1274473846.8701.25.camel@localhost.localdomain>
-	 <43F901BD926A4E43B106BF17856F0755A79C099C@orsmsx508.amr.corp.intel.com>
-	 <1274720919.18023.19.camel@localhost.localdomain>
-	 <43F901BD926A4E43B106BF17856F0755A79C0E05@orsmsx508.amr.corp.intel.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Question about an assignment in handle_ing()
+Date: Tue, 25 May 2010 05:51:07 -0400
+Message-ID: <1274781067.3878.872.camel@bigi>
+References: <20100524112236.GF2810@psychotron.lab.eng.brq.redhat.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	herbert@gondor.hengli.com.au, kaber@trash.net
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:44620 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756597Ab0EYJhX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 May 2010 05:37:23 -0400
-In-Reply-To: <43F901BD926A4E43B106BF17856F0755A79C0E05@orsmsx508.amr.corp.intel.com>
+Received: from mail-qy0-f183.google.com ([209.85.221.183]:46519 "EHLO
+	mail-qy0-f183.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750851Ab0EYJvK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 May 2010 05:51:10 -0400
+Received: by qyk13 with SMTP id 13so6969427qyk.1
+        for <netdev@vger.kernel.org>; Tue, 25 May 2010 02:51:09 -0700 (PDT)
+In-Reply-To: <20100524112236.GF2810@psychotron.lab.eng.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-05-24 at 10:54 -0700, Rose, Gregory V wrote:
-> We look forward to it and will be happy to provide feedback.
-I have submitted the patch to make macvlan on PF works when SRIOV is
-enabled.
+Hi Jiri,
 
-> One thing you can do is allocate VFs and then load the VF driver in
-> your host domain and then assign each of them a macvlan filter.  You'd
-> get a similar effect.
+On Mon, 2010-05-24 at 13:22 +0200, Jiri Pirko wrote:
 
-That's I am trying to make it work for macvlan on VFs in host domain. I
-need to add VF secondary addresses in address filter, right?
+> Question is if this code is correct here. Maybe I'm missing something but
+> why is this dependent on a ptype was found previously?
 
-Do you have any aggregation performance comparison between multiple
-macvlans on PF and single macvlan per VF in host domain? I will run some
-test to figure it out. If you have some data to share that would be
-great.
+The code is correct. 
 
-Thanks
-Shirley
+Main reason for the else condn is driven by optimization:
+If you are running tcpdump or other af packet type code, the "if" condn
+is hit and matching actions are not allowed trample on that same packet
+data. They have to make a private copy; otherwise, the "else" is hit and
+(for optimization reason) you give ok to the actions that follow to
+munge the packet. Essentially, you dont want actions to alloc/copy every
+single time when you are not running tcpdump for example; reason is that
+most of the time you run tcpdump it is for debugging.
+[I had seen very observable differences on some old mips board back in
+the day on whether you avoided copy every time vs when debugging by
+running tcpdump and copied every packet.]
+
+There is a secondary reason for the else stmnt: you want tcpdump to see
+the naked packet as it came on say eth0. I am in travel mode at the
+moment, so i cant validate this for you via a testcase (which moves the
+else outside), but i know this was a problem back then...
+Example. If i had a packet sequence path as follows: 
+--> eth0-->tcpdump0-->filter match --> action: edit -->action: redirect
+to dummy0-->tcpdump1-->dummy0(drop and count)
+Then you want the packet on tcpdump0 to be whatever was seen by eth0.
+You want to see on tcpdump1 whatever was seen by dummy0 - which is an
+edited version of whatever was seen by eth0. 
+
+If this description makes sense to you (and since this has come up more
+than once before), would you be kind enough to submit a patch that fixes
+the current comment and add my ACK to it?
+
+cheers,
+jamal
 
