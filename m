@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] Phonet: fix potential use-after-free in
- pep_sock_close()
-Date: Tue, 25 May 2010 16:08:50 -0700 (PDT)
-Message-ID: <20100525.160850.193716383.davem@davemloft.net>
-References: <1274796709-29988-1-git-send-email-remi.denis-courmont@nokia.com>
+Subject: Re: [PATCH] hso: add support for new products
+Date: Tue, 25 May 2010 16:09:33 -0700 (PDT)
+Message-ID: <20100525.160933.226769909.davem@davemloft.net>
+References: <alpine.DEB.2.00.1005251402310.2667@filip-linux>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: remi.denis-courmont@nokia.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gregkh@suse.de, linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	j.dumon@option.com
+To: f.aben@option.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41976
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41980
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751481Ab0EYXIl convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 May 2010 19:08:41 -0400
-In-Reply-To: <1274796709-29988-1-git-send-email-remi.denis-courmont@nokia.com>
+	by vger.kernel.org with ESMTP id S1758953Ab0EYXJW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 May 2010 19:09:22 -0400
+In-Reply-To: <alpine.DEB.2.00.1005251402310.2667@filip-linux>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
-Date: Tue, 25 May 2010 17:11:49 +0300
+From: f.aben@option.com
+Date: Tue, 25 May 2010 14:33:01 +0200 (CEST)
 
-> sk_common_release() might destroy our last reference to the socket.
-> So an extra temporary reference is needed during cleanup.
->=20
-> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+> This patch adds a few new product id's for the hso driver.
+> 
+> Signed-off-by: Filip Aben <f.aben@option.com>
 
-Patch applied, thank you.
+Applied, thanks.
