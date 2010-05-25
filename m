@@ -1,59 +1,75 @@
-From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [patch 2.6.35] wimax/i2400m: fix bad race condition check in RX path
-Date: Tue, 25 May 2010 10:45:13 -0700
-Message-ID: <3a24934f065d23145f1c9c70da9f630c7a37795f.1274809476.git.inaky.perez-gonzalez@intel.com>
-References: <cover.1274809476.git.inaky.perez-gonzalez@intel.com>
-Cc: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-To: netdev@vger.kernel.org, wimax@linuxwimax.org
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] [stable-2.6.32 PATCH] ixgbe: backport bug fix for tx
+ panic
+Date: Tue, 25 May 2010 11:19:35 -0700
+Message-ID: <20100525181935.GA11150@kroah.com>
+References: <20100511004655.30590.74584.stgit@localhost.localdomain>
+ <AANLkTinHm8ukQ3KlcrMKWvQ-QrlmBcWeVD-i99Q9Z7JL@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: stable@kernel.org, Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Brandon <brandon@ifup.org>, davem@davemloft.net
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga12.intel.com ([143.182.124.36]:26854 "EHLO
-	azsmga102.ch.intel.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754710Ab0EYRsz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 May 2010 13:48:55 -0400
-In-Reply-To: <cover.1274809476.git.inaky.perez-gonzalez@intel.com>
+Received: from kroah.org ([198.145.64.141]:44515 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933086Ab0EYSWV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 May 2010 14:22:21 -0400
+Content-Disposition: inline
+In-Reply-To: <AANLkTinHm8ukQ3KlcrMKWvQ-QrlmBcWeVD-i99Q9Z7JL@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
+On Tue, May 25, 2010 at 12:15:12AM -0700, Jeff Kirsher wrote:
+> On Mon, May 10, 2010 at 17:46, Jeff Kirsher <jeffrey.t.kirsher@intel.=
+com> wrote:
+> > From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> >
+> > backporting this commit:
+> >
+> > commit fdd3d631cddad20ad9d3e1eb7dbf26825a8a121f
+> > Author: Krishna Kumar <krkumar2@in.ibm.com>
+> > Date: =A0 Wed Feb 3 13:13:10 2010 +0000
+> >
+> > =A0 =A0ixgbe: Fix return of invalid txq
+> >
+> > =A0 =A0a developer had complained of getting lots of warnings:
+> >
+> > =A0 =A0"eth16 selects TX queue 98, but real number of TX queues is =
+64"
+> >
+> > =A0 =A0http://www.mail-archive.com/e1000-devel@lists.sourceforge.ne=
+t/msg02200.html
+> >
+> > =A0 =A0As there was no follow up on that bug, I am submitting this
+> > =A0 =A0patch assuming that the other return points will not return
+> > =A0 =A0invalid txq's, and also that this fixes the bug (not tested)=
+=2E
+> >
+> > =A0 =A0Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+> > =A0 =A0Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> > =A0 =A0Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel=
+=2Ecom>
+> > =A0 =A0Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > =A0 =A0Signed-off-by: David S. Miller <davem@davemloft.net>
+> >
+> > CC: Brandon <brandon@ifup.org>
+> > Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> > ---
+> >
+> > =A0drivers/net/ixgbe/ixgbe_main.c | =A0 =A08 ++++++--
+> > =A01 files changed, 6 insertions(+), 2 deletions(-)
+> >
+>=20
+> Greg - status?  Did you queue this patch for the stable release and I=
+ missed it?
 
-The i2400m->rx_roq data structure is protected against race conditions
-with a reference count (i2400m->rx_roq_refcount); the pointer can be
-read-referenced under the i2400m->rx_lock spinlock.
+Nope, I missed it, sorry.
 
-The code in i2400m_rx_edata() wasn't properly following access
-protocol, performing an invalid check on i2400m->rx_roq (which is
-cleared to NULL when the refcount drops to zero). As such, it was
-missing to detect when the data structure is no longer valid and
-oopsing with a NULL pointer dereference.
+I'll make sure to get it for the next .32 round.
 
-This commit fixes said check by verifying, under the rx_lock spinlock,
-that i2400m->rx_roq is non-NULL and then increasing the reference
-count before dropping the spinlock.
+thanks,
 
-Signed-off-by: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
----
- drivers/net/wimax/i2400m/rx.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/wimax/i2400m/rx.c b/drivers/net/wimax/i2400m/rx.c
-index c835ae8..6cd12d6 100644
---- a/drivers/net/wimax/i2400m/rx.c
-+++ b/drivers/net/wimax/i2400m/rx.c
-@@ -1033,12 +1033,12 @@ void i2400m_rx_edata(struct i2400m *i2400m, struct sk_buff *skb_rx,
- 		ro_sn = (reorder >> I2400M_RO_SN_SHIFT) & I2400M_RO_SN;
- 
- 		spin_lock_irqsave(&i2400m->rx_lock, flags);
--		roq = &i2400m->rx_roq[ro_cin];
--		if (roq == NULL) {
-+		if (i2400m->rx_roq == NULL) {
- 			kfree_skb(skb);	/* rx_roq is already destroyed */
- 			spin_unlock_irqrestore(&i2400m->rx_lock, flags);
- 			goto error;
- 		}
-+		roq = &i2400m->rx_roq[ro_cin];
- 		kref_get(&i2400m->rx_roq_refcount);
- 		spin_unlock_irqrestore(&i2400m->rx_lock, flags);
- 
--- 
-1.6.6.1
-
+greg k-h
