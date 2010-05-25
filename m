@@ -1,74 +1,58 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: [stable-2.6.32 PATCH] ixgbe: backport bug fix for tx panic
-Date: Tue, 25 May 2010 09:27:25 -0700 (Pacific Daylight Time)
-Message-ID: <alpine.WNT.2.00.1005250926320.2708@jbrandeb-desk1.amr.corp.intel.com>
-References: <20100511004655.30590.74584.stgit@localhost.localdomain> <AANLkTinHm8ukQ3KlcrMKWvQ-QrlmBcWeVD-i99Q9Z7JL@mail.gmail.com>
+From: "Rose, Gregory V" <gregory.v.rose@intel.com>
+Subject: RE: ixgbe: macvlan on PF/VF when SRIOV is enabled
+Date: Tue, 25 May 2010 10:08:41 -0700
+Message-ID: <43F901BD926A4E43B106BF17856F0755A7A58C58@orsmsx508.amr.corp.intel.com>
+References: <1274473846.8701.25.camel@localhost.localdomain>
+	 <43F901BD926A4E43B106BF17856F0755A79C099C@orsmsx508.amr.corp.intel.com>
+	 <1274720919.18023.19.camel@localhost.localdomain>
+	 <43F901BD926A4E43B106BF17856F0755A79C0E05@orsmsx508.amr.corp.intel.com>
+	 <1274780239.18023.48.camel@localhost.localdomain>
+	 <43F901BD926A4E43B106BF17856F0755A7A58B5F@orsmsx508.amr.corp.intel.com>
+ <1274806289.18023.57.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "stable@kernel.org" <stable@kernel.org>,
-	"greg@kroah.com" <greg@kroah.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
 	"davem@davemloft.net" <davem@davemloft.net>,
-	Brandon <brandon@ifup.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTinHm8ukQ3KlcrMKWvQ-QrlmBcWeVD-i99Q9Z7JL@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:16942 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754277Ab0EYRIo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 May 2010 13:08:44 -0400
+In-Reply-To: <1274806289.18023.57.camel@localhost.localdomain>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On Tue, 25 May 2010, Jeff Kirsher wrote:
-
-> On Mon, May 10, 2010 at 17:46, Jeff Kirsher <jeffrey.t.kirsher@intel.=
-com> wrote:
-> > From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> >
-> > backporting this commit:
-> >
-> > commit fdd3d631cddad20ad9d3e1eb7dbf26825a8a121f
-> > Author: Krishna Kumar <krkumar2@in.ibm.com>
-> > Date: =C2=A0 Wed Feb 3 13:13:10 2010 +0000
-> >
-> > =C2=A0 =C2=A0ixgbe: Fix return of invalid txq
-> >
-> > =C2=A0 =C2=A0a developer had complained of getting lots of warnings=
-:
-> >
-> > =C2=A0 =C2=A0"eth16 selects TX queue 98, but real number of TX queu=
-es is 64"
-> >
-> > =C2=A0 =C2=A0http://www.mail-archive.com/e1000-devel@lists.sourcefo=
-rge.net/msg02200.html
-> >
-> > =C2=A0 =C2=A0As there was no follow up on that bug, I am submitting=
- this
-> > =C2=A0 =C2=A0patch assuming that the other return points will not r=
-eturn
-> > =C2=A0 =C2=A0invalid txq's, and also that this fixes the bug (not t=
-ested).
-> >
-> > =C2=A0 =C2=A0Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
-> > =C2=A0 =C2=A0Signed-off-by: Jesse Brandeburg <jesse.brandeburg@inte=
-l.com>
-> > =C2=A0 =C2=A0Acked-by: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr=
-@intel.com>
-> > =C2=A0 =C2=A0Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.c=
-om>
-> > =C2=A0 =C2=A0Signed-off-by: David S. Miller <davem@davemloft.net>
-> >
-> > CC: Brandon <brandon@ifup.org>
-> > Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> > ---
-> >
-> > =C2=A0drivers/net/ixgbe/ixgbe_main.c | =C2=A0 =C2=A08 ++++++--
-> > =C2=A01 files changed, 6 insertions(+), 2 deletions(-)
-> >
->=20
-> Greg - status?  Did you queue this patch for the stable release and I=
- missed it?
-
-Maybe we didn't say (and we should have) that this fixes a panic on=20
-machines with > 64 cores.  Please apply to -stable 32.
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogU2hpcmxleSBNYSBbbWFpbHRvOm1h
+c2hpcmxlQHVzLmlibS5jb21dDQo+U2VudDogVHVlc2RheSwgTWF5IDI1LCAyMDEwIDk6NTEgQU0N
+Cj5UbzogUm9zZSwgR3JlZ29yeSBWDQo+Q2M6IEtpcnNoZXIsIEplZmZyZXkgVDsgZGF2ZW1AZGF2
+ZW1sb2Z0Lm5ldDsga3ZtQHZnZXIua2VybmVsLm9yZzsNCj5uZXRkZXZAdmdlci5rZXJuZWwub3Jn
+OyBlMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQNCj5TdWJqZWN0OiBSRTogaXhnYmU6
+IG1hY3ZsYW4gb24gUEYvVkYgd2hlbiBTUklPViBpcyBlbmFibGVkDQo+DQo+T24gVHVlLCAyMDEw
+LTA1LTI1IGF0IDA4OjU3IC0wNzAwLCBSb3NlLCBHcmVnb3J5IFYgd3JvdGU6DQo+PiBKdXN0IHVz
+ZSBpZmNvbmZpZyBhbmQgdmNvbmZpZyB1dGlsaXRpZXMgdG8gc2V0IHRoZSBNQUMgYW5kIFZMQU4g
+Zm9yDQo+PiBlYWNoIFZGLiAgVGhlcmUgc2hvdWxkbid0IGJlIGFueSBuZWVkIGZvciBzZWNvbmRh
+cnkgYWRkcmVzc2VzIGJlY2F1c2UNCj4+IHRoZXkncmUgbm90IGxpa2UgcGh5c2ljYWwgZGV2aWNl
+cyB3aGVyZSBlYWNoIFZGIGhhcyBhIHByZS1wcm9ncmFtbWVkDQo+PiBIVyBNQUMgYWRkcmVzcy4g
+IFRoZSBpbml0aWFsIE1BQyBhZGRyZXNzIG9mIGVhY2ggVkYgaXMgZ2VuZXJhdGVkIG9uDQo+PiB0
+aGUgZmx5IGR1cmluZyB0aGUgUEYgZHJpdmVyIGluaXRpYWxpemF0aW9uLiBZb3UgY2FuIGNoYW5n
+ZSBpdCBhcyB5b3UNCj4+IHNlZSBmaXQgYW5kIHRoZW4gcHV0IHRoZSBWRiBvbiBhIFZMQU4gdXNp
+bmcgdmNvbmZpZy4gIEFmdGVyIHlvdSBkbw0KPj4gdGhhdCB5b3UgaGF2ZSBhIG1hY3ZsYW4gZmls
+dGVyIGZvciB0aGF0IFZGLg0KPg0KPkkgcnVuIG1hY3ZsYW4gdGVzdCBub3Qgdmxhbi4gbWFjdmxh
+biBpcyB1c2VkIHRvIGdpdmUgYSBzZWNvbmQgTUFDDQo+YWRkcmVzcyB0byBhIG5ldHdvcmsgYWRh
+cHRlciBhbmQgc2VlIGl0IGFzIGEgbmV3IGRldmljZSBhdCB0aGUgaGlnaGVyDQo+bGV2ZWxzLiBU
+aGUgY29tbWFuZCBpcyB1c2VkIGFzIGZvbGxvdzoNCj4NCj5pcCBsaW5rIGFkZCBsaW5rIGV0aDQg
+YWRkcmVzcyA1NDo1MjowMDozNTplMzoyMCBtYWN2bGFuMiB0eXBlIG1hY3ZsYW4NCj4NCj5JdCB3
+aWxsIGNyZWF0ZSBhbiBpbnRlcmZhY2UgbmFtZSBtYWN2bGFuMiB3aXRoIGFib3ZlIE1BQyBhZGRy
+ZXNzLiBJbg0KPmtlcm5lbCwgbmV0ZGV2IGV0aDQgbWFpbnRhaW5zIHRoaXMgc2Vjb25kYXJ5IGFk
+ZHJlc3MuDQoNClJpZ2h0LCBzbyB3aGF0IEknbSBzYXlpbmcgaXMgdGhhdCBpZiB5b3UgbG9hZCB0
+aGUgVkYgZHJpdmVyIGl0IHdpbGwgY3JlYXRlIGFuZCA8ZXRoPiBpbnRlcmZhY2UgZm9yIGVhY2gg
+VkYgeW91J3ZlIGNyZWF0ZWQuICBZb3UgY2FuIGFzc2lnbiBhIE1BQyBhbmQgVkxBTiB0byB0aGF0
+IDxldGg+IGludGVyZmFjZSBhbmQgd2lsbCBnZXQgZXNzZW50aWFsbHkgdGhlIHNhbWUgYmVoYXZp
+b3IuDQoNCi0gR3JlZw0KDQo=
