@@ -1,50 +1,57 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: Warning in net/ipv4/af_inet.c:154
-Date: Tue, 25 May 2010 21:58:14 +1000
-Message-ID: <20100525115813.GA28063@kryten>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Question about an assignment in handle_ing()
+Date: Tue, 25 May 2010 08:03:44 -0400
+Message-ID: <1274789024.3878.919.camel@bigi>
+References: <20100524112236.GF2810@psychotron.lab.eng.brq.redhat.com>
+	 <1274781067.3878.872.camel@bigi>
+	 <20100525102603.GA11494@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, kaber@trash.net
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:46756 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754245Ab0EYMAZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 May 2010 08:00:25 -0400
-Content-Disposition: inline
+Received: from mail-qy0-f183.google.com ([209.85.221.183]:62319 "EHLO
+	mail-qy0-f183.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754377Ab0EYMDr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 May 2010 08:03:47 -0400
+Received: by qyk13 with SMTP id 13so7122207qyk.1
+        for <netdev@vger.kernel.org>; Tue, 25 May 2010 05:03:47 -0700 (PDT)
+In-Reply-To: <20100525102603.GA11494@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2010-05-25 at 20:26 +1000, Herbert Xu wrote:
 
-Hi,
+> In that case you should be checking whether the skb is cloned.
 
-A build from last night (2.6.34-git9) is hitting the following WARN_ON on
-a ppc64 box:
+That is the general rule used (and what i specify to do in the docs)..
+but i recall there were issues if the packet path emanated from ingress
+and included multiple netdevices (earlier ex with mirror applies). There
+may have been bugs then, eg I could not assume that it i had any ptype
+at all that the ptype will clone the packet. Does tcpdump guarantee
+skb->clone being set? I will try to test some scenarios when i am back
++settled. 
 
-Badness at net/ipv4/af_inet.c:154
+> After all, tcpdump might have simply filtered the packet out.
 
-NIP [c00000000062b034] .inet_sock_destruct+0x1b0/0x1f0
-LR [c0000000005b376c] .__sk_free+0x58/0x154
-Call Trace:
-[c000000000088c0c] .__local_bh_disable+0xdc/0xfc (unreliable)
-[c0000000005b376c] .__sk_free+0x58/0x154
-[c0000000005b3978] .sk_free+0x4c/0x60
-[c0000000005b3ab4] .sk_common_release+0x128/0x148
-[c00000000061da44] .udp_lib_close+0x28/0x40
-[c00000000062a990] .inet_release+0xd0/0xf8
-[c0000000005adbf8] .sock_release+0x60/0xec
-[c0000000005adcd0] .sock_close+0x4c/0x6c
-[c000000000186554] .__fput+0x184/0x270
-[c00000000018668c] .fput+0x4c/0x60
-[c000000000182248] .filp_close+0xc8/0xf4
-[c0000000000826d4] .put_files_struct+0xc8/0x158
-[c0000000000827d4] .exit_files+0x70/0x8c
-[c0000000000848cc] .do_exit+0x2c8/0x82c
-[c000000000084efc] .do_group_exit+0xcc/0x100
-[c000000000084f5c] .SyS_exit_group+0x2c/0x48
-[c000000000008554] syscall_exit+0x0/0x40
+True - but i think thats an acceptable compromise.
 
-Which is:
+> BTW, this is the case whenever you run a DHCP client/server.  So
+> on most boxes your optimisation will never kick in as is.  
 
-        WARN_ON(sk->sk_forward_alloc);
+"Most" for people running serious firewalls or routers is not to run
+DHCP servers;-> They may client, but thats a short-lived session.
 
-Anton
+> Also
+> the skb may still be cloned even if there is no AF_PACKET listener.
+> In that case your optimisation may be incorrect.
+
+Did you mean that as long as there are other ptypes - which may or 
+not be doing af packet? 
+
+cheers,
+jamal
+
