@@ -1,48 +1,46 @@
-From: Paul Menage <menage@google.com>
-Subject: Re: [PATCH 1/3] cgroups: Add an API to attach a task to current
-	task's cgroup
-Date: Tue, 25 May 2010 11:34:12 -0700
-Message-ID: <AANLkTilawCLv5_XlStsFdOdLh-dmlIR3aUTyrVS-JF_s@mail.gmail.com>
-References: <1274227488.2370.107.camel@w-sridhar.beaverton.ibm.com>
-	<AANLkTinsrFoLVKDFM5pcKcL_6MvAzhR6IzbNmWKh3BDh@mail.gmail.com>
-	<20100525165334.GA27307@redhat.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next] ixgbe: make macvlan on PF working when SRIOV is
+	enabled
+Date: Tue, 25 May 2010 11:37:53 -0700
+Message-ID: <AANLkTinIsgRsLHFopaYxsUxLwEqr8SpOEWv6P9uFKzYh@mail.gmail.com>
+References: <1274806509.18023.58.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Sridhar Samudrala <samudrala.sridhar@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: gregory.v.rose@intel.com,
+	"davem@davemloft.net" <davem@davemloft.net>,
 	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	containers@lists.linux-foundation.org, lizf@cn.fujitsu.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20100525165334.GA27307@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:39928 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932294Ab0EYShy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 May 2010 14:37:54 -0400
+In-Reply-To: <1274806509.18023.58.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 25, 2010 at 9:53 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> On Thu, May 20, 2010 at 03:22:15PM -0700, Paul Menage wrote:
->> On Tue, May 18, 2010 at 5:04 PM, Sridhar Samudrala
->> <samudrala.sridhar@gmail.com> wrote:
->> > Add a new kernel API to attach a task to current task's cgroup
->> > in all the active hierarchies.
->> >
->> > Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
->>
->> Reviewed-by: Paul Menage <menage@google.com>
->>
->> It would be more efficient to just attach directly to current->cgroups
->> rather than potentially creating/destroying one css_set for each
->> hierarchy until we've completely converged on current->cgroups - but
->> that would require a bunch of refactoring of the guts of
->> cgroup_attach_task() to ensure that the right can_attach()/attach()
->> callbacks are made. That doesn't really seem worthwhile right now for
->> the initial use, that I imagine isn't going to be
->> performance-sensitive.
->>
->> Paul
+On Tue, May 25, 2010 at 09:55, Shirley Ma <mashirle@us.ibm.com> wrote:
+> When SRIOV is enabled, if we create macvlan on PF and load the VF dri=
+ver in host
+> domain, when macvlan/PF and VF interfaces are all up, the macvlan inc=
+oming network
+> traffics are directed to VF interface not PF interface. This patch ha=
+s fixed this
+> issue.
 >
-> Is this patch suitable for 2.6.35?
+> Signed-off-by: Shirley Ma <xma@us.ibm.com>
+> ---
+> =C2=A0drivers/net/ixgbe/ixgbe_common.c | =C2=A0 26 ++++++++++++++++--=
+--------
+> =C2=A01 files changed, 16 insertions(+), 10 deletions(-)
+>
 
-Should be OK, yes.
+Thanks, I have added the patch to my queue.
 
-Paul
+--=20
+Cheers,
+Jeff
