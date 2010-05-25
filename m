@@ -1,50 +1,43 @@
-From: reinette chatre <reinette.chatre@intel.com>
+From: Gertjan van Wingerde <gwingerde@gmail.com>
 Subject: Re: pull request: wireless-2.6 2010-05-25
-Date: Tue, 25 May 2010 14:08:15 -0700
-Message-ID: <1274821695.2091.16878.camel@rchatre-DESK>
-References: <20100525170401.GE31753@tuxdriver.com>
-	 <AANLkTilMYGSprjMnmRHlZPMvk1KLd1Yeqd_l26yyVRT6@mail.gmail.com>
-	 <4BFC2677.7050509@mandriva.org>
+Date: Tue, 25 May 2010 23:18:50 +0200
+Message-ID: <4BFC3EBA.1090607@gmail.com>
+References: <20100525170401.GE31753@tuxdriver.com> <4BFC331A.9030606@gmail.com> <20100525204235.GA27002@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "sedat.dilek@gmail.com" <sedat.dilek@gmail.com>,
-	Sedat Dilek <sedat.dilek@googlemail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Thomas Backlund <tmb@mandriva.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:59877 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934273Ab0EYVI2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 May 2010 17:08:28 -0400
-In-Reply-To: <4BFC2677.7050509@mandriva.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100525204235.GA27002@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2010-05-25 at 12:35 -0700, Thomas Backlund wrote:
-> 25.05.2010 22:23, Sedat Dilek skrev:
-> > "[1/2] iwlwifi: fix internal scan race" [1] is in this pull request.
-> > Isn't "[2/2] iwlagn: work around rate scaling reset delay" [2] missing?
-> > IIRC, both fixes were sent as a double-patch.
-> >
+On 05/25/10 22:42, John W. Linville wrote:
+> On Tue, May 25, 2010 at 10:29:14PM +0200, Gertjan van Wingerde wrote:
+>> On 05/25/10 19:04, John W. Linville wrote:
 > 
-> It's already upstream:
-> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=3bce6066263efb5733ee2141ac8b56684fb3b0a7
+>>> Gertjan van Wingerde (2):
+>>>       rt2x00: Fix rt2800usb TX descriptor writing.
+>>
+>> The patch causing the breakage this patch fixes wasn't actually upstream yet. So, 
+>> applying this patch only is now introducing a bug in 2.6.35. I guess it is better
+>> to revert this patch for 2.6.35.
+> 
+> Hmmm...OK.  Which patch introduces the bug this was intended to fix?
+> 
 
-Yes, thank you, [2] was sent upstream (targeting 2.6.35) a while ago but
-was later determined to be needed in 2.6.34 also. That is why it was
-sent together with another fix targeting 2.6.34 ... both were sent
-before 2.6.34 was released in the hopes that they will make it into
-2.6.34. Unfortunately these patches did not make it into 2.6.34 and with
-[2] already in 2.6.35 only [1] needed to be added there. 
+It's this one: 
 
-We will now have to send these patches to stable to get them into
-2.6.34.
+http://marc.info/?l=linux-wireless&m=127374343617025&w=2
 
-Reinette
+But that patch depends on a number of other unapplied patches :-(, namely:
 
+http://marc.info/?l=linux-wireless&m=127374940425538&w=2
+http://marc.info/?l=linux-wireless&m=127374344617058&w=2
+and
+http://marc.info/?l=linux-wireless&m=127374343217011&w=2
 
+---
+Gertjan.
