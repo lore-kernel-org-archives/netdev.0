@@ -1,51 +1,102 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build warning in Linus'  tree
-Date: Tue, 25 May 2010 11:46:14 +1000
-Message-ID: <20100525114614.fd61d822.sfr@canb.auug.org.au>
+From: "Arce, Abraham" <x0066660-l0cyMroinI0@public.gmane.org>
+Subject: NULL Pointer Deference: NFS & Telnet
+Date: Mon, 24 May 2010 21:19:50 -0500
+Message-ID: <27F9C60D11D683428E133F85D2BB4A53043E33A997@dlee03.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Tue__25_May_2010_11_46_14_+1000_PTS0dIspDlqzk/=9"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Neil Jones <NeilJay@gmail.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Language: en-US
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Tue__25_May_2010_11_46_14_+1000_PTS0dIspDlqzk/=9
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Hi,
 
-Hi Dave,
+I have 2 scenarios in which I am getting a NULL pointer dereference:
 
-Today's linux-next build (x86_64 allmodconfig) produced this warning:
+1) root filesystem over nfs
+2) telnet connection
 
-drivers/net/usb/asix.c: In function 'asix_rx_fixup':
-drivers/net/usb/asix.c:325: warning: cast from pointer to integer of differ=
-ent size
-drivers/net/usb/asix.c:354: warning: cast from pointer to integer of differ=
-ent size
+The issue appeared on this commit
 
-Introduced by commit 3f78d1f210ff89af77f042ab7f4a8fee39feb1c9
-("drivers/net/usb/asix.c: Fix unaligned accesses").  This commit casts
-skb->data to u32.
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=f8965467f366fd18f01feafb5db10512d7b4422c
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+The driver I am working with is drivers/net/ks8851.c
+Any help will be highly appreciated...
 
---Signature=_Tue__25_May_2010_11_46_14_+1000_PTS0dIspDlqzk/=9
-Content-Type: application/pgp-signature
+---
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+Scenario 1 | root filesystem over nfs
 
-iEYEARECAAYFAkv7K+YACgkQjjKRsyhoI8y1WwCaA4fPBIcgEiHc220slTxhmHFj
-kFgAoJzAjvCRRUg8jvuX5dSqFCfBMXXL
-=WIpL
------END PGP SIGNATURE-----
+Looking up port of RPC 100005/1 on 10.87.231.229
+VFS: Mounted root (nfs filesystem) on device 0:10.
+Freeing init memory: 128K
+Unable to handle kernel NULL pointer dereference at virtual address 00000000
+[..]
+PC is at put_page+0xc/0x120
+LR is at skb_release_data+0x74/0xb8
+[..]
+Backtrace:
+[<c0086dd0>] (put_page+0x0/0x120)
+[<c01d0a48>] (skb_release_data+0x0/0xb8)
+[<c01d1044>] (skb_release_all+0x0/0x20)
+[<c01d075c>] (__kfree_skb+0x0/0xbc)
+[<c01d0818>] (consume_skb+0x0/0x58)
+[<c01d39cc>] (skb_free_datagram+0x0/0x40)
+[<c023ff74>] (xs_udp_data_ready+0x0/0x1e8)
+[<c01ce034>] (sock_queue_rcv_skb+0x0/0x1c0)
+[<c01fbba8>] (ip_queue_rcv_skb+0x0/0x58)
+[<c02176c0>] (__udp_queue_rcv_skb+0x0/0x18c)
+[<c0218e28>] (udp_queue_rcv_skb+0x0/0x348)
+[<c02195a4>] (__udp4_lib_rcv+0x0/0x564)
+[<c0219b08>] (udp_rcv+0x0/0x20)
+[<c01f5f34>] (ip_local_deliver+0x0/0x264)
+[<c01f586c>] (ip_rcv+0x0/0x6c8)
+[<c01d7ec0>] (__netif_receive_skb+0x0/0x2d0)
+[<c01d8190>] (process_backlog+0x0/0x16c)
+[<c01d8e14>] (net_rx_action+0x0/0x18c)
+[<c00521a0>] (__do_softirq+0x0/0x12c)
+[<c00522cc>] (irq_exit+0x0/0x70)
+[<c0028000>] (asm_do_IRQ+0x0/0xc8)
 
---Signature=_Tue__25_May_2010_11_46_14_+1000_PTS0dIspDlqzk/=9--
+Complete log at http://pastebin.mozilla.org/728027
+
+---
+
+Scenario 2
+
+ 1. Root filesystem booted in ram
+ 2. eth0 brought up
+ 3. telnetd daemon started
+ 4. tried to connect through telnet
+
+# Unable to handle kernel NULL pointer dereference at virtual address 00000000
+pgd = d98e8000
+[..]
+PC is at put_page+0xc/0x120
+LR is at skb_release_data+0x74/0xb8
+[..]
+Backtrace:
+[<c0086dd0>] (put_page+0x0/0x120)
+[<c01d0a48>] (skb_release_data+0x0/0xb8)
+[<c01d1044>] (skb_release_all+0x0/0x20)
+[<c01d075c>] (__kfree_skb+0x0/0xbc)
+[<c0202444>] (tcp_recvmsg+0x0/0x93c)
+[<c02201e8>] (inet_recvmsg+0x0/0xec)
+[<c01c7fd0>] (sock_aio_read+0x0/0xf8)
+[<c00ab3ac>] (do_sync_read+0x0/0xec)
+[<c00abfbc>] (vfs_read+0x0/0x164)
+[<c00ac1a0>] (sys_read+0x0/0x70)
+[<c0029100>] (ret_fast_syscall+0x0/0x30)
+
+Complete log at http://pastebin.mozilla.org/728028
+
+Best Regards
+Abraham Arce
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
