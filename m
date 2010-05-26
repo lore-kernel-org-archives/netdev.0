@@ -1,67 +1,64 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] tcp: Socket option to set congestion window
-Date: Tue, 25 May 2010 22:08:58 -0700
-Message-ID: <20100525220858.1071f238@nehalam>
-References: <alpine.DEB.1.00.1005252157150.27170@pokey.mtv.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Warning in net/ipv4/af_inet.c:154
+Date: Wed, 26 May 2010 07:18:35 +0200
+Message-ID: <1274851115.25136.7.camel@edumazet-laptop>
+References: <20100525115813.GA28063@kryten>
+	 <1274801229.5020.80.camel@edumazet-laptop>  <20100526031943.GA28295@kryten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, ycheng@google.com
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Anton Blanchard <anton@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:57157 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752358Ab0EZFJB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 May 2010 01:09:01 -0400
-In-Reply-To: <alpine.DEB.1.00.1005252157150.27170@pokey.mtv.corp.google.com>
+Received: from mail-ww0-f46.google.com ([74.125.82.46]:39333 "EHLO
+	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751072Ab0EZFSn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 May 2010 01:18:43 -0400
+Received: by wwb13 with SMTP id 13so34622wwb.19
+        for <netdev@vger.kernel.org>; Tue, 25 May 2010 22:18:41 -0700 (PDT)
+In-Reply-To: <20100526031943.GA28295@kryten>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 25 May 2010 22:01:13 -0700 (PDT)
-Tom Herbert <therbert@google.com> wrote:
+Le mercredi 26 mai 2010 =C3=A0 13:19 +1000, Anton Blanchard a =C3=A9cri=
+t :
+> Hi,
+>=20
+> > > Which is:
+> > >=20
+> > >         WARN_ON(sk->sk_forward_alloc);
+> > >=20
+> >=20
+> > Yes, the infamous one :)
+> >=20
+> > Is it reproductible ? What kind of workload is it ?
+> > What is the NIC involved ?
+>=20
+> It was running sysbench against a postgresql database over localhost.=
+ In
+> each case I checked, sk_forward_alloc was less than one page.
 
-> This patch allows an application to set the TCP congestion window
-> for a connection through a socket option.  The maximum value that
-> may set is specified in a sysctl value.  When the sysctl is set to
-> zero, the default value, the socket option is disabled.
-> 
-> The socket option is most useful to set the initial congestion
-> window for a connection to a larger value than the default in
-> order to improve latency.  This socket option would typically be
-> used by an "intelligent" application which might have better knowledge
-> than the kernel as to what an appropriate initial congestion window is.
-> 
-> One use of this might be with an application which maintains per
-> client path characteristics.  This could allow setting the congestion
-> window more precisely than which could be achieved through the
-> route command.
-> 
-> A second use of this might be to reduce the number of simultaneous
-> connections that a client might open to the server; for instance
-> when a web browser opens multiple connections to a server.  With multiple
-> connections the aggregate congestion window is larger than that of a
-> single connecton (num_conns * cwnd), this effectively can be used to
-> circumvent slowstart and improve latency.  With this socket option, a
-> single connection with a large initial congestion window could be used,
-> which retains the latency properties of multiple connections but
-> nicely reducing # of connections (load) on the network.
-> 
-> The systctl to enable and control this feature is
-> 
->   net.ipv4.tcp_user_cwnd_max
-> 
-> The socket option call would be:
-> 
->   setsockopt(fd, IPPROTO_TCP, TCP_CWND, &val, sizeof (val))
-> 
-> where val is the congestion window in # MSS.
-> 
+ok. I am a bit surprised postgresql uses UDP
 
-The IETF TCP maintainers already think Linux TCP allows unsafe
-operation, this will just allow more possible misuse and prove
-their argument.  Until/unless this behavior was approved by
-a wider set of research, I don't think it should be accepted at
-this time.
+>=20
+> I notice we update sk_forward_alloc in sk_mem_charge and sk_mem_uncha=
+rge.
+> Since it isn't an atomic variable I went looking for a lock somewhere=
+ in
+> the call chain (first thought was the socket lock). I couldn't find
+> anything, but I could easily be missing something.
+>=20
+
+UDP path uses socket lock indeed to protect sk_forward_alloc non atomic
+updates.
+
+Check skb_free_datagram_locked() for example : sk_mem_reclaim_partial()
+is called inside the lock_sock_bh/unlock_sock_bh protected section, and
+*after* the uncharge done by skb_orphan(). This function was changed
+recently, so maybe your platform hit some bug somewhere.
+
+In receive path, we hold the socket lock while calling
+sock_queue_rcv_skb()
 
 
--- 
+
