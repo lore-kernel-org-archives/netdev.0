@@ -1,39 +1,50 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH] ethtool: Fix list of hash options in manual page
-Date: Wed, 26 May 2010 02:15:11 +0100
-Message-ID: <1274836511.19775.3.camel@localhost>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build warning in Linus' tree
+Date: Wed, 26 May 2010 11:43:06 +1000
+Message-ID: <20100526114306.5fa6fa0e.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: =?ISO-8859-1?Q?An=EDbal?= Monsalve Salazar <anibal@debian.org>,
-	netdev <netdev@vger.kernel.org>
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:47912 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759143Ab0EZBPW convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 May 2010 21:15:22 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Wed__26_May_2010_11_43_06_+1000_4JtEDsVOodOMmm_U"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Linus <torvalds@linux-foundation.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-'p' is not a valid option.
-The 'm' option was missing a preceding 'B' for bold.
+--Signature=_Wed__26_May_2010_11_43_06_+1000_4JtEDsVOodOMmm_U
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
---- ethtool-2.6.34.orig/ethtool.8
-+++ ethtool-2.6.34/ethtool.8
-@@ -47,7 +47,7 @@
- .\"
- .\"	\(*HO - hash options
- .\"
--.ds HO \fBp\fP|\fm\fP|\fBv\fP|\fBt\fP|\fBs\fP|\fBd\fP|\fBf\fP|\fBn\fP|\fBr\fP...
-+.ds HO \fBm\fP|\fBv\fP|\fBt\fP|\fBs\fP|\fBd\fP|\fBf\fP|\fBn\fP|\fBr\fP...
- .TH ETHTOOL 8 "July 2007" "Ethtool version 6"
- .SH NAME
- ethtool \- Display or change ethernet card settings
+Hi Dave,
 
--- 
-Ben Hutchings
-Once a job is fouled up, anything done to improve it makes it worse.
+Today's linux-next build (x86_64 allmodconfig) produced this warning:
+
+net/core/sock.c: In function 'sock_update_classid':
+include/net/cls_cgroup.h:42: warning: 'classid' may be used uninitialized i=
+n this function
+include/net/cls_cgroup.h:42: note: 'classid' was declared here
+
+In the case that rcu_dereference() returns a value < 0, classid will not
+be assigned in task_cls_classid().  I don't know if this is possible - if
+not, then why is the test there?
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Wed__26_May_2010_11_43_06_+1000_4JtEDsVOodOMmm_U
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAkv8fKoACgkQjjKRsyhoI8x8rACeNVbg5cEjY1XSSM3/tpBf/hCI
++98AnjFWamliWHa17+7nkP0ZOeO8G1Jg
+=4Brt
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__26_May_2010_11_43_06_+1000_4JtEDsVOodOMmm_U--
