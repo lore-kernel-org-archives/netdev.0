@@ -1,30 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build warning in Linus' tree
-Date: Tue, 25 May 2010 18:54:14 -0700 (PDT)
-Message-ID: <20100525.185414.226791146.davem@davemloft.net>
-References: <20100526114306.5fa6fa0e.sfr@canb.auug.org.au>
-	<20100526015110.GA21587@gondor.apana.org.au>
+From: "Arce, Abraham" <x0066660-l0cyMroinI0@public.gmane.org>
+Subject: RE: NULL Pointer Deference: NFS & Telnet
+Date: Tue, 25 May 2010 21:02:51 -0500
+Message-ID: <27F9C60D11D683428E133F85D2BB4A53043E3EDFF1@dlee03.ent.ti.com>
+References: <27F9C60D11D683428E133F85D2BB4A53043E33A997@dlee03.ent.ti.com>
+	<27F9C60D11D683428E133F85D2BB4A53043E3EDFE6@dlee03.ent.ti.com>
+ <20100525.185236.193707791.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	torvalds@linux-foundation.org
-To: herbert@gondor.apana.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100526015110.GA21587@gondor.apana.org.au>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org" <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>,
+	"Shilimkar, Santosh" <santosh.shilimkar-l0cyMroinI0@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100525.185236.193707791.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Content-Language: en-US
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 26 May 2010 11:51:10 +1000
+Thanks David,
 
-> cls_cgroup: Initialise classid when module is absent
+> > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> > index f8abf68..eb81f76 100644
+> > --- a/net/core/skbuff.c
+> > +++ b/net/core/skbuff.c
+> > @@ -334,7 +334,7 @@ static void skb_release_data(struct sk_buff *skb)
+> >  	if (!skb->cloned ||
+> >  	    !atomic_sub_return(skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1,
+> >  			       &skb_shinfo(skb)->dataref)) {
+> > -		if (skb_shinfo(skb)->nr_frags) {
+> > +		if (skb_shinfo(skb)->nr_frags && skb_has_frags(skb)) {
+> >  			int i;
+> >  			for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
+> >  				put_page(skb_shinfo(skb)->frags[i].page);
 > 
-> When the cls_cgroup module is not loaded, task_cls_classid will
-> return an uninitialised classid instead of zero.
+> skb_shinfo(skb)->nr_frags counts the number of entries contained
+> in the skb_shinfo(skb)->frags[] array.
 > 
-> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> This has nothing to do with the frag list pointer,
+> skb_shinfo(skb)->frag_list, which is what skb_has_frags()
+> tests.
+> 
+> You've got some kind of memory corruption going on and it
+> appears to have nothing to do with the code paths you're
+> playing with here.
 
-Applied, thanks Herbert.
+Do you have any recommendation on debugging technique/tool for this memory corruption issue?
+
+Best Regards
+Abraham
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
