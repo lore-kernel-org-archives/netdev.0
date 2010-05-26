@@ -1,52 +1,68 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] net/core: use net_device dev_id to indicate port number
-Date: Wed, 26 May 2010 08:33:18 -0700
-Message-ID: <20100526083318.5b7b7704@nehalam>
-References: <20100526095200.GA7370@mtldesk030.lab.mtl.com>
-	<20100526082306.25959fb6@nehalam>
-	<20100526152730.GA10890@mtldesk030.lab.mtl.com>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 1/17] net/rds: Add missing mutex_unlock
+Date: Wed, 26 May 2010 17:54:21 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005261754030.23743@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Eli Cohen <eli@mellanox.co.il>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-	rdreier@cisco.com, yevgenyp@mellanox.co.il
-To: Eli Cohen <eli@dev.mellanox.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:48779 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756675Ab0EZPdZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 May 2010 11:33:25 -0400
-In-Reply-To: <20100526152730.GA10890@mtldesk030.lab.mtl.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: Andy Grover <andy.grover@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 26 May 2010 18:27:30 +0300
-Eli Cohen <eli@dev.mellanox.co.il> wrote:
+From: Julia Lawall <julia@diku.dk>
 
-> On Wed, May 26, 2010 at 08:23:06AM -0700, Stephen Hemminger wrote:
-> > On Wed, 26 May 2010 12:52:00 +0300
-> > Eli Cohen <eli@mellanox.co.il> wrote:
-> > 
-> > > Today, there are no means to know which port of a hardware device a netdev
-> > > interface uses. struct net_device conatins a field, dev_id, that can be used
-> > > for that. This patch adds a new macro, SET_NETDEV_DEV_ID(), to provide a
-> > > standard way to set the value of this field.
-> > > Also also make use of this feature in the mlx4_en driver to set the port
-> > > number; port numbers are zero based.
-> > 
-> > Why is a macro wrapper needed?
-> > 
-> 
-> I guess for the same reason we use SET_NETDEV_DEV - to provide a
-> consistent interface for setting this value...
+Add a mutex_unlock missing on the error path.  In each case, whenever the
+label out is reached from elsewhere in the function, mutex is not locked.
 
-SET_NETDEV_DEV macro exists because at the time 2.5 kernel was being developed
-it was important to be able to maintain source compatibility between 2.4 and
-2.6 (nee 2.5) drivers. Since 2.4 did not have sysfs, the macro was a mechanism
-to allow the same code to run on both kernel versions.
+The semantic match that finds this problem is as follows:
+(http://coccinelle.lip6.fr/)
 
-Your situation is different, just use dev_id and update documentation if
-you need to.
+// <smpl>
+@@
+expression E1;
+@@
 
--- 
+* mutex_lock(E1);
+  <+... when != E1
+  if (...) {
+    ... when != E1
+*   return ...;
+  }
+  ...+>
+* mutex_unlock(E1);
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+ net/rds/ib_cm.c |    1 +
+ net/rds/iw_cm.c |    1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+index 10ed0d5..f688327 100644
+--- a/net/rds/ib_cm.c
++++ b/net/rds/ib_cm.c
+@@ -475,6 +475,7 @@ int rds_ib_cm_handle_connect(struct rdma_cm_id *cm_id,
+ 	err = rds_ib_setup_qp(conn);
+ 	if (err) {
+ 		rds_ib_conn_error(conn, "rds_ib_setup_qp failed (%d)\n", err);
++		mutex_unlock(&conn->c_cm_lock);
+ 		goto out;
+ 	}
+ 
+diff --git a/net/rds/iw_cm.c b/net/rds/iw_cm.c
+index a9d951b..b5dd6ac 100644
+--- a/net/rds/iw_cm.c
++++ b/net/rds/iw_cm.c
+@@ -452,6 +452,7 @@ int rds_iw_cm_handle_connect(struct rdma_cm_id *cm_id,
+ 	err = rds_iw_setup_qp(conn);
+ 	if (err) {
+ 		rds_iw_conn_error(conn, "rds_iw_setup_qp failed (%d)\n", err);
++		mutex_unlock(&conn->c_cm_lock);
+ 		goto out;
+ 	}
+ 
