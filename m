@@ -1,62 +1,73 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH v3] can: Add driver for esd CAN-USB/2 device
-Date: Wed, 26 May 2010 12:15:09 +0200
-Message-ID: <4BFCF4AD.6030000@grandegger.com>
-References: <201005261114.03214.matthias.fuchs@esd.eu>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: ipv6: Add GSO support on forwarding path
+Date: Wed, 26 May 2010 20:27:58 +1000
+Message-ID: <20100526102758.GA25914@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Matthias Fuchs <matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <201005261114.03214.matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: Ralf Baechle <ralf@linux-mips.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ringil.hengli.com.au ([216.59.3.182]:42807 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754432Ab0EZK2U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 May 2010 06:28:20 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Matthias,
+Hi:
 
-On 05/26/2010 11:14 AM, Matthias Fuchs wrote:
-> This patch adds a driver for esd's USB high speed
-> CAN interface. The driver supports devices with
-> multiple CAN interfaces.
-> 
-> Signed-off-by: Matthias Fuchs <matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
-> ---
-> version 3: 
->  - remove bus-error reporting feature because 
->    it cannot be controlled by user on demand
->    with current device's firmware
->  - rebased against current net-next-2.6 tree
-> 
-> version 2: 
->  - use bus-error reporting and counters
->  - minor cleanup
->  - rebased against current net-next-2.6 tree
->  - initial post to linux-usb list for review
+ipv6: Add GSO support on forwarding path
 
-I get the following compiler warnings when compiling the kernel:
+Currently we disallow GSO packets on the IPv6 forward path.
+This patch fixes this.
 
- CC      drivers/net/can/usb/esd_usb2.o
-drivers/net/can/usb/esd_usb2.c: In function 'esd_usb2_write_bulk_callback':
-drivers/net/can/usb/esd_usb2.c:466: error: implicit declaration of function 'usb_buffer_free'
-drivers/net/can/usb/esd_usb2.c: In function 'esd_usb2_setup_rx_urbs':
-drivers/net/can/usb/esd_usb2.c:562: error: implicit declaration of function 'usb_buffer_alloc'
-drivers/net/can/usb/esd_usb2.c:563: warning: assignment makes pointer from integer without a cast
-drivers/net/can/usb/esd_usb2.c: In function 'esd_usb2_start_xmit':
-drivers/net/can/usb/esd_usb2.c:732: warning: assignment makes pointer from integer without a cast
-make[4]: *** [drivers/net/can/usb/esd_usb2.o] Error 1
+Note that I discovered that our existing GSO MTU checks (e.g.,
+IPv4 forwarding) are buggy in that they skip the check altogether, 
+hen they really should be checking gso_size instead.
 
-This is due to commit e26bcf37234c67624f62d9fc95f922b8dbda1363.
-You need a similar fix like for ems_usb.c. Are you using a recent
-version of the net-next-2.6 tree?
+I have also been lazy here in that I haven't bothered to segment
+the GSO packet by hand before generating an ICMP message.  Someone
+should add that to be 100% correct.
 
-Wolfgang.
+Reported-by: Ralf Baechle <ralf@linux-mips.org>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 7cdfb4d..64f9c5a 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2117,6 +2117,13 @@ static inline int skb_is_gso(const struct sk_buff *skb)
+ 	return skb_shinfo(skb)->gso_size;
+ }
+ 
++static inline int skb_gso_len(const struct sk_buff *skb)
++{
++	return skb_is_gso(skb) ?
++	       skb_shinfo(skb)->gso_size + skb_transport_offset(skb) :
++	       skb->len;
++}
++
+ static inline int skb_is_gso_v6(const struct sk_buff *skb)
+ {
+ 	return skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6;
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index cd963f6..8904767 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -507,7 +507,7 @@ int ip6_forward(struct sk_buff *skb)
+ 	if (mtu < IPV6_MIN_MTU)
+ 		mtu = IPV6_MIN_MTU;
+ 
+-	if (skb->len > mtu) {
++	if (skb_gso_len(skb) > mtu) {
+ 		/* Again, force OUTPUT device used as source address */
+ 		skb->dev = dst->dev;
+ 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
