@@ -1,68 +1,73 @@
-From: Jon Zhou <Jon.Zhou@jdsu.com>
-Subject: RE: why the number of queue of NIC impact the ping results?
-Date: Wed, 26 May 2010 04:47:59 -0700
-Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2498091DA0@MILEXCH2.ds.jdsu.net>
-References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2498091D21@MILEXCH2.ds.jdsu.net>
- 	<AANLkTil27c_dBP0hgcEMSCUNakyU-4kc4_0ATw2gt2eT@mail.gmail.com>
- <AANLkTil1vLvEcA6MbiamYVRZbGpPh-I8sza0WHOX69hr@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [RFC] IFLA_PORT_* iproute2 cmd line
+Date: Wed, 26 May 2010 14:38:06 +0200
+Message-ID: <201005261438.07004.arnd@arndb.de>
+References: <C821E15E.35236%scofeldm@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Rahul Gundecha <rahul.gundecha@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Chris Wright <chrisw@redhat.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Stefan Berger <stefanb@us.ibm.com>,
+	Dirk Herrendoerfer <d.herrendoerfer@de.ibm.com>,
+	Vivek Kashyap <vivk@us.ibm.com>
+To: Scott Feldman <scofeldm@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og118.obsmtp.com ([64.18.2.8]:35967 "HELO
-	exprod7og118.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752126Ab0EZMGI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 May 2010 08:06:08 -0400
-In-Reply-To: <AANLkTil1vLvEcA6MbiamYVRZbGpPh-I8sza0WHOX69hr@mail.gmail.com>
-Content-Language: en-US
+Received: from moutng.kundenserver.de ([212.227.17.10]:55506 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754870Ab0EZMi1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 May 2010 08:38:27 -0400
+In-Reply-To: <C821E15E.35236%scofeldm@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No, I am using 1.52.12
-seems 1.45.21 doesn't support too much queues.
-I will try it with latest kernel.
+On Wednesday 26 May 2010, Scott Feldman wrote:
+> I need to provide an iproute2 patch for IFLA_PORT_* and I wanted to hash out
+> the cmd line before I submit it.  Here's what I think would work based on
+> previous input from Arnd:
+> 
+> Usage:  ip port associate DEVICE [ vf NUM ] {PROFILE|VSI}
+>         ip port pre-associate DEVICE [ vf NUM ] VSI
+>         ip port pre-associate-rr DEVICE [ vf NUM ] VSI
+>         ip port dis-associate DEVICE [ vf NUM ]
+>         ip port show [ DEVICE [ vf NUM ] ]
+> 
+>         PROFILE := port-profile PORT-PROFILE
+>                    [ instance-uuid INSTANCE-UUID ]
+>                    [ host-uuid HOST-UUID ]
+> 
+>         VSI := vsi managerid MGR typeid VTID typeidversion VER
+>                [ instance-uuid INSTANCE-UUID ]
+> 
+> Comments?
 
+The syntax of the PROFILE and VSI arguments seems ok, but I'm
+not sure where exactly to put them.
 
+When talking to the kernel, I think this should be part of 
+link command, because that is the underlying protocol:
 
+ip link set DEVICE [vf NUM] {associate {PROFILE|VSI}    |
+			     pre-associate-rr VSI       |
+			     pre-associate VSI          |
+			     disassociate }
+ip link show [ DEVICE [ vf NUM ] ] 
 
------Original Message-----
-=46rom: Rahul Gundecha [mailto:rahul.gundecha@gmail.com]=20
-Sent: Wednesday, May 26, 2010 7:17 PM
-To: netdev@vger.kernel.org
-Cc: Jon Zhou
-Subject: Fwd: why the number of queue of NIC impact the ping results?
+This will also let you combine the association with additional
+"vf mac" and "vf vlan" commands as needed.
 
-What is the driver version you are using?=A0 Is it 1.45.21, the one
-present in 2.6.27-19 ?
-Upgrading the whole kernel to latest version would be helpful for multi=
--queue.
+The more interesting question is how to do this when we
+talk to lldpad. One idea was to use the same protocol
+but to direct the message to a specific pid (that of lldpad).
+That would require adding an option like '-p PID' to ip
+that lets us change who we talk to.
 
-On Wed, May 26, 2010 at 2:31 PM, Jon Zhou <Jon.Zhou@jdsu.com> wrote:
->
-> broadcom bnx2x netxtreme2-5.2.50,kernel 2.6.27-19
->
-> @receiver:
->
-> insmod ./bnx2x.ko =A0multi_mode=3D1 num_queues=3D12/14/16
->
-> @sender:
-> ping receiver ->response OK
->
->
-> but no response when
->
-> insmod ./bnx2x.ko =A0multi_mode=3D1 num_queues=3D2/4/8/10
->
-> have any idea?
->
-> thanks
-> jon
->
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+Alternatively, we could also create a top-level command like
+the one you described, but just use it for the case when
+we're talking to lldpad, finding out the PID from the
+/var/run/lldpdad.pid internally. Right now, I'm leaning
+towards the more flexible option of being able to direct
+the command anywhere.
+
+	Arnd
