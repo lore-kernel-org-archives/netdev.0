@@ -1,32 +1,43 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH v3] can: Add driver for esd CAN-USB/2 device
-Date: Wed, 26 May 2010 15:47:34 +0200
-Message-ID: <201005261547.34596.oneukum@suse.de>
-References: <201005261114.03214.matthias.fuchs@esd.eu>
+From: Junchang Wang <junchangwang@gmail.com>
+Subject: [Patch] r8169: use u32 instead of unsigned long
+Date: Wed, 26 May 2010 22:01:11 +0800
+Message-ID: <AANLkTimxRFZtwWOEXZ7pNfUER1Qw_rolb0YcxLFfRwyK@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Socketcan-core@lists.berlios.de,
-	linux-usb@vger.kernel.org
-To: Matthias Fuchs <matthias.fuchs@esd.eu>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:40710 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755137Ab0EZNrZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 May 2010 09:47:25 -0400
-In-Reply-To: <201005261114.03214.matthias.fuchs@esd.eu>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:40265 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753035Ab0EZOBN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 May 2010 10:01:13 -0400
+Received: by pvg3 with SMTP id 3so1106435pvg.19
+        for <netdev@vger.kernel.org>; Wed, 26 May 2010 07:01:12 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Mittwoch, 26. Mai 2010 11:14:03 schrieb Matthias Fuchs:
-> +       netdev->trans_start = jiffies;
-> +
-> +       /* Slow down tx path */
-> +       if (atomic_read(&priv->active_tx_jobs) >= MAX_TX_URBS)
-> +               netif_stop_queue(netdev);
+RTL_R32 should return value with 32-bit width. But "unsigned long"
+implies u64 on some 64-bit platforms.
 
-Where is the queue started again?
+Signed-off-by: Junchang Wang <junchangwang@gmail.com>
+---
+ drivers/net/r8169.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-	Regards
-		Oliver
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 217e709..4234d6a 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -88,7 +88,7 @@ static const int multicast_filter_limit = 32;
+ #define RTL_W32(reg, val32)	writel ((val32), ioaddr + (reg))
+ #define RTL_R8(reg)		readb (ioaddr + (reg))
+ #define RTL_R16(reg)		readw (ioaddr + (reg))
+-#define RTL_R32(reg)		((unsigned long) readl (ioaddr + (reg)))
++#define RTL_R32(reg)		((u32) readl(ioaddr + (reg)))
+
+ enum mac_version {
+ 	RTL_GIGA_MAC_NONE   = 0x00,
+--
+
+
+--Junchang
