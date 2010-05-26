@@ -1,50 +1,134 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build warning in Linus' tree
-Date: Wed, 26 May 2010 11:43:06 +1000
-Message-ID: <20100526114306.5fa6fa0e.sfr@canb.auug.org.au>
+From: "Arce, Abraham" <x0066660-l0cyMroinI0@public.gmane.org>
+Subject: RE: NULL Pointer Deference: NFS & Telnet
+Date: Tue, 25 May 2010 20:48:02 -0500
+Message-ID: <27F9C60D11D683428E133F85D2BB4A53043E3EDFE6@dlee03.ent.ti.com>
+References: <27F9C60D11D683428E133F85D2BB4A53043E33A997@dlee03.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__26_May_2010_11_43_06_+1000_4JtEDsVOodOMmm_U"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Linus <torvalds@linux-foundation.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>,
+	"Shilimkar, Santosh" <santosh.shilimkar-l0cyMroinI0@public.gmane.org>
+To: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <27F9C60D11D683428E133F85D2BB4A53043E33A997-lTKHBJngVwKIQmiDNMet8wC/G2K4zDHf@public.gmane.org>
+Content-Language: en-US
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Wed__26_May_2010_11_43_06_+1000_4JtEDsVOodOMmm_U
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Hi,
 
-Hi Dave,
+I am able to avoid the NULL pointer dereference but not sure if the handling
+is the correct one... find the patch below...
 
-Today's linux-next build (x86_64 allmodconfig) produced this warning:
+> I have 2 scenarios in which I am getting a NULL pointer dereference:
+> 
+> 1) root filesystem over nfs
+> 2) telnet connection
+> 
+> The issue appeared on this commit
+> 
+> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-
+> 2.6.git;a=commit;h=f8965467f366fd18f01feafb5db10512d7b4422c
+> 
+> The driver I am working with is drivers/net/ks8851.c
+> Any help will be highly appreciated...
+>
+> ---
+> 
+> Scenario 1 | root filesystem over nfs
+> 
+> Looking up port of RPC 100005/1 on 10.87.231.229
+> VFS: Mounted root (nfs filesystem) on device 0:10.
+> Freeing init memory: 128K
+> Unable to handle kernel NULL pointer dereference at virtual address 00000000
+> [..]
+> PC is at put_page+0xc/0x120
+> LR is at skb_release_data+0x74/0xb8
+> [..]
+> Backtrace:
+> [<c0086dd0>] (put_page+0x0/0x120)
+> [<c01d0a48>] (skb_release_data+0x0/0xb8)
+> [<c01d1044>] (skb_release_all+0x0/0x20)
+> [<c01d075c>] (__kfree_skb+0x0/0xbc)
+> [<c01d0818>] (consume_skb+0x0/0x58)
+> [<c01d39cc>] (skb_free_datagram+0x0/0x40)
+> [<c023ff74>] (xs_udp_data_ready+0x0/0x1e8)
+> [<c01ce034>] (sock_queue_rcv_skb+0x0/0x1c0)
+> [<c01fbba8>] (ip_queue_rcv_skb+0x0/0x58)
+> [<c02176c0>] (__udp_queue_rcv_skb+0x0/0x18c)
+> [<c0218e28>] (udp_queue_rcv_skb+0x0/0x348)
+> [<c02195a4>] (__udp4_lib_rcv+0x0/0x564)
+> [<c0219b08>] (udp_rcv+0x0/0x20)
+> [<c01f5f34>] (ip_local_deliver+0x0/0x264)
+> [<c01f586c>] (ip_rcv+0x0/0x6c8)
+> [<c01d7ec0>] (__netif_receive_skb+0x0/0x2d0)
+> [<c01d8190>] (process_backlog+0x0/0x16c)
+> [<c01d8e14>] (net_rx_action+0x0/0x18c)
+> [<c00521a0>] (__do_softirq+0x0/0x12c)
+> [<c00522cc>] (irq_exit+0x0/0x70)
+> [<c0028000>] (asm_do_IRQ+0x0/0xc8)
+> 
+> Complete log at http://pastebin.mozilla.org/728027
+> 
+> ---
+> 
+> Scenario 2
+> 
+>  1. Root filesystem booted in ram
+>  2. eth0 brought up
+>  3. telnetd daemon started
+>  4. tried to connect through telnet
+> 
+> # Unable to handle kernel NULL pointer dereference at virtual address 00000000
+> pgd = d98e8000
+> [..]
+> PC is at put_page+0xc/0x120
+> LR is at skb_release_data+0x74/0xb8
+> [..]
+> Backtrace:
+> [<c0086dd0>] (put_page+0x0/0x120)
+> [<c01d0a48>] (skb_release_data+0x0/0xb8)
+> [<c01d1044>] (skb_release_all+0x0/0x20)
+> [<c01d075c>] (__kfree_skb+0x0/0xbc)
+> [<c0202444>] (tcp_recvmsg+0x0/0x93c)
+> [<c02201e8>] (inet_recvmsg+0x0/0xec)
+> [<c01c7fd0>] (sock_aio_read+0x0/0xf8)
+> [<c00ab3ac>] (do_sync_read+0x0/0xec)
+> [<c00abfbc>] (vfs_read+0x0/0x164)
+> [<c00ac1a0>] (sys_read+0x0/0x70)
+> [<c0029100>] (ret_fast_syscall+0x0/0x30)
+> 
+> Complete log at http://pastebin.mozilla.org/728028
+> 
 
-net/core/sock.c: In function 'sock_update_classid':
-include/net/cls_cgroup.h:42: warning: 'classid' may be used uninitialized i=
-n this function
-include/net/cls_cgroup.h:42: note: 'classid' was declared here
+Check for NULL data in sk_buff before sending to put_page
 
-In the case that rcu_dereference() returns a value < 0, classid will not
-be assigned in task_cls_classid().  I don't know if this is possible - if
-not, then why is the test there?
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+Signed-off-by: Abraham Arce <x0066660-l0cyMroinI0@public.gmane.org>
+---
+ net/core/skbuff.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
---Signature=_Wed__26_May_2010_11_43_06_+1000_4JtEDsVOodOMmm_U
-Content-Type: application/pgp-signature
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index f8abf68..eb81f76 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -334,7 +334,7 @@ static void skb_release_data(struct sk_buff *skb)
+ 	if (!skb->cloned ||
+ 	    !atomic_sub_return(skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1,
+ 			       &skb_shinfo(skb)->dataref)) {
+-		if (skb_shinfo(skb)->nr_frags) {
++		if (skb_shinfo(skb)->nr_frags && skb_has_frags(skb)) {
+ 			int i;
+ 			for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
+ 				put_page(skb_shinfo(skb)->frags[i].page);
+-- 
+1.5.4.3
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAkv8fKoACgkQjjKRsyhoI8x8rACeNVbg5cEjY1XSSM3/tpBf/hCI
-+98AnjFWamliWHa17+7nkP0ZOeO8G1Jg
-=4Brt
------END PGP SIGNATURE-----
-
---Signature=_Wed__26_May_2010_11_43_06_+1000_4JtEDsVOodOMmm_U--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
