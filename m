@@ -1,37 +1,36 @@
-From: Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: [PATCH] net/core: use net_device dev_id to indicate port number
-Date: Wed, 26 May 2010 19:09:19 +0300
-Message-ID: <20100526160919.GA11096@mtldesk030.lab.mtl.com>
-References: <20100526095200.GA7370@mtldesk030.lab.mtl.com>
-	<20100526082306.25959fb6@nehalam>
-	<20100526152730.GA10890@mtldesk030.lab.mtl.com>
-	<20100526083318.5b7b7704@nehalam>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [RFC] IFLA_PORT_* iproute2 cmd line
+Date: Wed, 26 May 2010 18:15:36 +0200
+Message-ID: <201005261815.36512.arnd@arndb.de>
+References: <C821E15E.35236%scofeldm@cisco.com> <20100526155616.GB2497@x200.localdomain> <OFB3363EDA.945755DA-ON8525772F.0057CBD1-8525772F.00589D2B@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Eli Cohen <eli-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org, yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org
-To: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20100526083318.5b7b7704@nehalam>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: Chris Wright <chrisw@redhat.com>,
+	Dirk Herrendoerfer <d.herrendoerfer@de.ibm.com>,
+	netdev@vger.kernel.org, Scott Feldman <scofeldm@cisco.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Vivek Kashyap <vivk@us.ibm.com>
+To: Stefan Berger <stefanb@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.17.8]:60746 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754174Ab0EZQPt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 May 2010 12:15:49 -0400
+In-Reply-To: <OFB3363EDA.945755DA-ON8525772F.0057CBD1-8525772F.00589D2B@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 26, 2010 at 08:33:18AM -0700, Stephen Hemminger wrote:
-> 
-> SET_NETDEV_DEV macro exists because at the time 2.5 kernel was being developed
-> it was important to be able to maintain source compatibility between 2.4 and
-> 2.6 (nee 2.5) drivers. Since 2.4 did not have sysfs, the macro was a mechanism
-> to allow the same code to run on both kernel versions.
-> 
-> Your situation is different, just use dev_id and update documentation if
-> you need to.
-> 
+On Wednesday 26 May 2010, Stefan Berger wrote:
+> I can start my dummy netlink 'server' twice and have two recipients of the 
+> libvirt 
+> message and thus two servers can (maliciously) respond. Well, netlink 
+> doesn't
+> seem to be as 'directed' as unixio. We could run the netlink type of 
+> messages
 
-OK, great. Things get much much simpler :-)
-I'll send another patch for mlx4_en only.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+libvirt can still check if the sender pid of the response is what it
+thinks it should be.
+
+	Arnd
