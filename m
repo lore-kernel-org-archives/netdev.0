@@ -1,58 +1,61 @@
-From: "Arce, Abraham" <x0066660-l0cyMroinI0@public.gmane.org>
-Subject: RE: NULL Pointer Deference: NFS & Telnet
-Date: Tue, 25 May 2010 21:02:51 -0500
-Message-ID: <27F9C60D11D683428E133F85D2BB4A53043E3EDFF1@dlee03.ent.ti.com>
-References: <27F9C60D11D683428E133F85D2BB4A53043E33A997@dlee03.ent.ti.com>
-	<27F9C60D11D683428E133F85D2BB4A53043E3EDFE6@dlee03.ent.ti.com>
- <20100525.185236.193707791.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build warning in Linus' tree
+Date: Wed, 26 May 2010 12:04:06 +1000
+Message-ID: <20100526120406.1906cecc.sfr@canb.auug.org.au>
+References: <20100525114614.fd61d822.sfr@canb.auug.org.au>
+	<20100524.215822.13254177.davem@davemloft.net>
+	<20100525.161929.112591425.davem@davemloft.net>
+	<20100525.162446.183058933.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org" <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>,
-	"Shilimkar, Santosh" <santosh.shilimkar-l0cyMroinI0@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100525.185236.193707791.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Content-Language: en-US
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Wed__26_May_2010_12_04_06_+1000_PwQ2G/=KdwW1ODXi"
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, NeilJay@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100525.162446.183058933.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thanks David,
+--Signature=_Wed__26_May_2010_12_04_06_+1000_PwQ2G/=KdwW1ODXi
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> > index f8abf68..eb81f76 100644
-> > --- a/net/core/skbuff.c
-> > +++ b/net/core/skbuff.c
-> > @@ -334,7 +334,7 @@ static void skb_release_data(struct sk_buff *skb)
-> >  	if (!skb->cloned ||
-> >  	    !atomic_sub_return(skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1,
-> >  			       &skb_shinfo(skb)->dataref)) {
-> > -		if (skb_shinfo(skb)->nr_frags) {
-> > +		if (skb_shinfo(skb)->nr_frags && skb_has_frags(skb)) {
-> >  			int i;
-> >  			for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
-> >  				put_page(skb_shinfo(skb)->frags[i].page);
-> 
-> skb_shinfo(skb)->nr_frags counts the number of entries contained
-> in the skb_shinfo(skb)->frags[] array.
-> 
-> This has nothing to do with the frag list pointer,
-> skb_shinfo(skb)->frag_list, which is what skb_has_frags()
-> tests.
-> 
-> You've got some kind of memory corruption going on and it
-> appears to have nothing to do with the code paths you're
-> playing with here.
+Hi Dave,
 
-Do you have any recommendation on debugging technique/tool for this memory corruption issue?
+On Tue, 25 May 2010 16:24:46 -0700 (PDT) David Miller <davem@davemloft.net>=
+ wrote:
+>
+> From: David Miller <davem@davemloft.net>
+> Date: Tue, 25 May 2010 16:19:29 -0700 (PDT)
+>=20
+> > Here is how I fixed this:
+> >=20
+> > --------------------
+> > drivers/net/usb/asix.c: Fix pointer cast.
+>=20
+> Sorry, that only took care of one of the two warnings :-)
+>=20
+> This patch is better.
 
-Best Regards
-Abraham
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks, looks good.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Wed__26_May_2010_12_04_06_+1000_PwQ2G/=KdwW1ODXi
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAkv8gZYACgkQjjKRsyhoI8yAywCdHfuAtKNUWMgCzKaqpCJDJHdb
+sPQAoIMtGvnWnswfj4fBJvfkmw/MzifC
+=kiYx
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__26_May_2010_12_04_06_+1000_PwQ2G/=KdwW1ODXi--
