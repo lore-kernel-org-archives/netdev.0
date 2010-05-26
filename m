@@ -1,62 +1,64 @@
-From: Eli Cohen <eli@mellanox.co.il>
-Subject: [PATCH] net/core: use net_device dev_id to indicate port number
-Date: Wed, 26 May 2010 12:52:00 +0300
-Message-ID: <20100526095200.GA7370@mtldesk030.lab.mtl.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH 0/2] fixes to arp_notify for virtual machine migration
+ use case
+Date: Wed, 26 May 2010 11:08:12 +0100
+Message-ID: <1274868492.24218.7350.camel@zakaz.uk.xensource.com>
+References: <1273671554.7572.11190.camel@zakaz.uk.xensource.com>
+	 <20100523.233722.232536798.davem@davemloft.net>
+	 <1274779201.24218.7164.camel@zakaz.uk.xensource.com>
+	 <20100525.230822.71096271.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-	rdreier@cisco.com, yevgenyp@mellanox.co.il
-To: davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"shemminger@linux-foundation.org" <shemminger@linux-foundation.org>,
+	Jeremy Fitzhardinge <Jeremy.Fitzhardinge@citrix.com>,
+	"stable@kernel.org" <stable@kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mellanox.co.il ([194.90.237.43]:36988 "EHLO mellanox.co.il"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932591Ab0EZJvy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 May 2010 05:51:54 -0400
-Content-Disposition: inline
+Received: from smtp02.citrix.com ([66.165.176.63]:52825 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932584Ab0EZKIQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 May 2010 06:08:16 -0400
+In-Reply-To: <20100525.230822.71096271.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Today, there are no means to know which port of a hardware device a netdev
-interface uses. struct net_device conatins a field, dev_id, that can be used
-for that. This patch adds a new macro, SET_NETDEV_DEV_ID(), to provide a
-standard way to set the value of this field.
-Also also make use of this feature in the mlx4_en driver to set the port
-number; port numbers are zero based.
+On Wed, 2010-05-26 at 07:08 +0100, David Miller wrote:
+> From: Ian Campbell <Ian.Campbell@citrix.com>
+> Date: Tue, 25 May 2010 10:20:01 +0100
+> 
+> > Anyway, assuming the fact that arp_notify is disabled by default hasn't
+> > changed your mind, would adding NETDEV_NOTIFY_PEERS triggered by
+> > netif_notify_peers() be appropriate or would it be preferable to simply
+> > add netif_notify_peers() which generates the existing NETDEV_CHANGEADDR?
+> 
+> A seperate NETDEV_NOTIFY_PEERS seems the best idea to me.
+> 
+> > I don't think there's any need for a new sysctl so I'll gate the new
+> > option on the existing arp_notify one.
+> 
+> Yep, sounds good.
 
-Signed-off-by: Eli Cohen <eli@mellanox.co.il>
----
- drivers/net/mlx4/en_netdev.c |    1 +
- include/linux/netdevice.h    |    5 +++++
- 2 files changed, 6 insertions(+), 0 deletions(-)
+The following changes since commit e40152ee1e1c7a63f4777791863215e3faa37a86:
+  Linus Torvalds (1):
+        Linus 2.6.34
 
-diff --git a/drivers/net/mlx4/en_netdev.c b/drivers/net/mlx4/en_netdev.c
-index 6c2b15b..612df1e 100644
---- a/drivers/net/mlx4/en_netdev.c
-+++ b/drivers/net/mlx4/en_netdev.c
-@@ -978,6 +978,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	}
- 
- 	SET_NETDEV_DEV(dev, &mdev->dev->pdev->dev);
-+	SET_NETDEV_DEV_ID(dev, port - 1);
- 
- 	/*
- 	 * Initialize driver private data
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 3857517..8d5f2c7 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1080,6 +1080,11 @@ static inline void *netdev_priv(const struct net_device *dev)
-  */
- #define SET_NETDEV_DEVTYPE(net, devtype)	((net)->dev.type = (devtype))
- 
-+/*
-+ * Set the port number of the physical device that this port net device uses
-+ */
-+#define SET_NETDEV_DEV_ID(net, devid)	((net)->dev_id = (devid))
-+
- /**
-  *	netif_napi_add - initialize a napi context
-  *	@dev:  network device
--- 
-1.7.1
+are available in the git repository at:
+
+  git://xenbits.xensource.com/people/ianc/linux-2.6.git for-netdev/fixes
+
+Ian Campbell (3):
+      arp_notify: document that a gratuitous ARP request is sent when this option is enabled
+      arp_notify: allow drivers to explicitly request a notification event.
+      xen: netfront: explicitly generate arp_notify event after migration.
+
+ Documentation/networking/ip-sysctl.txt |    2 +-
+ drivers/net/xen-netfront.c             |    1 +
+ include/linux/netdevice.h              |    2 ++
+ include/linux/notifier.h               |    1 +
+ net/ipv4/devinet.c                     |    1 +
+ net/sched/sch_generic.c                |   18 ++++++++++++++++++
+ 6 files changed, 24 insertions(+), 1 deletions(-)
+
 
