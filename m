@@ -1,40 +1,61 @@
-From: Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
-Subject: Re: [PATCH] net/core: Save the port number a netdevice uses
-Date: Wed, 26 May 2010 11:45:23 +0300
-Message-ID: <20100526084523.GA28748@mtldesk030.lab.mtl.com>
-References: <20100526081702.GA17160@mtldesk030.lab.mtl.com>
-	<20100526.013926.28807066.davem@davemloft.net>
+From: Richard Hartmann <richih.mailinglist@gmail.com>
+Subject: Re: [Patch] fix packet loss and massive ping spikes with PPP
+	multi-link
+Date: Wed, 26 May 2010 10:47:36 +0200
+Message-ID: <AANLkTikeld4fbr9r1Sq0jhfkWxf0ZlwOsufUIRvb1rFH@mail.gmail.com>
+References: <2d460de71003260850x7f90d04cy79ac853464108182@mail.gmail.com>
+	<AANLkTik_QdZN_nFoOVD3-1JTGN5oxRySCdV5_eDqvQve@mail.gmail.com>
+	<4BFBA3F2.2000301@bfs.de>
+	<AANLkTilnueP5HIfX03soMCYE93jubL000rpiOCN1xB2-@mail.gmail.com>
+	<4BFC0942.2030103@bfs.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: eli-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org,
-	yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20100526.013926.28807066.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: erik_list@caneris.com
+To: wharms@bfs.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-ppp@vger.kernel.org
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <4BFC0942.2030103@bfs.de>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 26, 2010 at 01:39:26AM -0700, David Miller wrote:
-> From: Eli Cohen <eli-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-> Date: Wed, 26 May 2010 11:17:02 +0300
-> 
-> > Today, there are no means to know which port of a hardware device a netdev
-> > interface uses. This patch adds a new field to struct net_device that is used
-> > to store this value. The network driver should use the SET_NETDEV_PORT_NUM()
-> > macro to set the port number for the device it manages. For drivers that do not
-> > set a value, a default value of 1 is set at alloc_netdev_mq().
-> > This patch also makes use of this feature in the mlx4_en driver.
-> > 
-> > Signed-off-by: Eli Cohen <eli-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-> 
-> We have an existing dev_id, use it.
+=3D=3DIt seems LKML & netdev were dropped from the To list, re-adding=3D=
+=3D
 
-Do you think we should use dev_id also for the sysfs file name so
-every driver can choose to interpret this field as it chooses to, or
-should I keep the sysfs file name as "port_number"?
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Hi Walter,
+
+
+> =C2=A0if (ppp->rrsched % ppp->n_channels =3D=3D i)
+>
+> since both do not change in that while() loop you can calculate in ad=
+vance
+> perhaps ppp->rrsched %=3D ppp->n_channels before the while ?
+> (that would reduce my bad feels about variables that only increments =
+also :)
+
+rrsched and i do change when appropriate. As they are used as a cheap
+way to get round robin, rrsched is not even initialized. One can argue
+that this should be done, but as it literally does not matter where the
+value starts counting....
+
+
+> btw: you are doing =C2=A0after loop() if(pch->chan =3D=3D NULL) conti=
+nue;
+> that means the else in the if below =C2=A0if (pch->chan) should never=
+ be reached.
+> Or is it likely that some channel will be dropped (?) ?
+
+Channels could be dropped and we need to guard against that.
+
+
+> btw: this is intentional ? looks strange
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if(ppp_ml_noexplode) {
+> + =C2=A0 =C2=A0 =C2=A0 }
+> + =C2=A0 =C2=A0 =C2=A0 else {
+
+Leftover from various printks for debugging reasons.
+
+
+Thanks for your feedback,
+Richard
