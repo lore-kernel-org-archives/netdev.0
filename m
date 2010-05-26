@@ -1,84 +1,64 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: RE: NULL Pointer Deference: NFS & Telnet
-Date: Wed, 26 May 2010 07:29:01 +0200
-Message-ID: <1274851741.25136.16.camel@edumazet-laptop>
-References: <27F9C60D11D683428E133F85D2BB4A53043E33A997@dlee03.ent.ti.com>
-	 <27F9C60D11D683428E133F85D2BB4A53043E3EDFE6@dlee03.ent.ti.com>
-	 <20100525.185236.193707791.davem@davemloft.net>
-	 <27F9C60D11D683428E133F85D2BB4A53043E3EDFF1@dlee03.ent.ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: Socket option to set congestion window
+Date: Tue, 25 May 2010 22:52:36 -0700 (PDT)
+Message-ID: <20100525.225236.226781050.davem@davemloft.net>
+References: <alpine.DEB.1.00.1005252157150.27170@pokey.mtv.corp.google.com>
+	<20100525220858.1071f238@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org" <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>,
-	"Shilimkar, Santosh" <santosh.shilimkar-l0cyMroinI0@public.gmane.org>
-To: "Arce, Abraham" <x0066660-l0cyMroinI0@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <27F9C60D11D683428E133F85D2BB4A53043E3EDFF1-lTKHBJngVwKIQmiDNMet8wC/G2K4zDHf@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: therbert@google.com, netdev@vger.kernel.org, ycheng@google.com
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50972
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751443Ab0EZFw1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 May 2010 01:52:27 -0400
+In-Reply-To: <20100525220858.1071f238@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 25 mai 2010 =C3=A0 21:02 -0500, Arce, Abraham a =C3=A9crit :
-> Thanks David,
->=20
-> > > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> > > index f8abf68..eb81f76 100644
-> > > --- a/net/core/skbuff.c
-> > > +++ b/net/core/skbuff.c
-> > > @@ -334,7 +334,7 @@ static void skb_release_data(struct sk_buff *=
-skb)
-> > >  	if (!skb->cloned ||
-> > >  	    !atomic_sub_return(skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + =
-1 : 1,
-> > >  			       &skb_shinfo(skb)->dataref)) {
-> > > -		if (skb_shinfo(skb)->nr_frags) {
-> > > +		if (skb_shinfo(skb)->nr_frags && skb_has_frags(skb)) {
-> > >  			int i;
-> > >  			for (i =3D 0; i < skb_shinfo(skb)->nr_frags; i++)
-> > >  				put_page(skb_shinfo(skb)->frags[i].page);
-> >=20
-> > skb_shinfo(skb)->nr_frags counts the number of entries contained
-> > in the skb_shinfo(skb)->frags[] array.
-> >=20
-> > This has nothing to do with the frag list pointer,
-> > skb_shinfo(skb)->frag_list, which is what skb_has_frags()
-> > tests.
-> >=20
-> > You've got some kind of memory corruption going on and it
-> > appears to have nothing to do with the code paths you're
-> > playing with here.
->=20
-> Do you have any recommendation on debugging technique/tool for this m=
-emory corruption issue?
->=20
-> Best Regards
-> Abraham
-> --
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Tue, 25 May 2010 22:08:58 -0700
 
-It seems quite strange. You have a skb->nr_frags > 0 value, but a
-frags[i].page =3D 0 value
+> The IETF TCP maintainers already think Linux TCP allows unsafe
+> operation, this will just allow more possible misuse and prove
+> their argument.  Until/unless this behavior was approved by
+> a wider set of research, I don't think it should be accepted at
+> this time.
 
-You might add following function :
+Yes, and two other points I'd like to add.
 
-shinfo_check(struct sk_buff *skb)
-{
-	struct skb_shared_info *shinfo =3D skb_shinfo(skb);
-	int i;
+1) Stop pretending a network path characteristic can be made into
+   an application level one, else I'll stop reading your patches.
 
-	WARN_ON(shinfo->nr_frags >=3D MAX_SKB_FRAGS);
-	for (i =3D 0; i < shinfo->nr_frags; i++)
-		WARN_ON(!shinfo->frags[i].page);
-}
+   You can try to use smoke and mirrors to make your justification by
+   saying that an application can circumvent things right now by
+   openning up multiple connections.  But guess what?  If that act
+   overflows a network queue, we'll pull the CWND back on all of those
+   connections while their CWNDs are still small and therefore way
+   before things get out of hand.
 
-And call it from various points, to check who corrupts your skb.
+   Whereas if you set the initial window high, the CWND is wildly out
+   of control before we are even started.
 
+   And even after your patch the "abuse" ability is still there.  So
+   since your patch doesn't prevent the "abuse", you really don't care
+   about CWND abuse.  Instead, you simply want to pimp your feature.
 
+2) The very last application I'd want to use something like this is a
+   damn web browser.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+   Maybe a program, which is extremely sophisticated, like a database
+   or caching manager, that runs privileged and somehow has complete
+   and constantly updated knowledge of the network topology from end
+   to end.  And iff, and only iff, we only would let privileged
+   applications make the setting.
+
+Right now we only allow to do this via a route setting, exactly because:
+
+1) It is a network path characteristic, full stop.
+
+2) Only humans can really know what the exact end to end path
+   characteristics are on a per-route basis, and given that whether it
+   is safe to increase the initial CWND as a result.
