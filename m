@@ -1,61 +1,41 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build warning in Linus' tree
-Date: Wed, 26 May 2010 12:04:06 +1000
-Message-ID: <20100526120406.1906cecc.sfr@canb.auug.org.au>
-References: <20100525114614.fd61d822.sfr@canb.auug.org.au>
-	<20100524.215822.13254177.davem@davemloft.net>
-	<20100525.161929.112591425.davem@davemloft.net>
-	<20100525.162446.183058933.davem@davemloft.net>
+From: Scott Feldman <scofeldm@cisco.com>
+Subject: [RFC] IFLA_PORT_* iproute2 cmd line
+Date: Tue, 25 May 2010 20:19:42 -0700
+Message-ID: <C821E15E.35236%scofeldm@cisco.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Wed__26_May_2010_12_04_06_+1000_PwQ2G/=KdwW1ODXi"
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, NeilJay@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100525.162446.183058933.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: Chris Wright <chrisw@redhat.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Arnd Bergmann <arnd@arndb.de>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-1.cisco.com ([171.71.176.70]:10696 "EHLO
+	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932105Ab0EZDTs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 May 2010 23:19:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Wed__26_May_2010_12_04_06_+1000_PwQ2G/=KdwW1ODXi
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I need to provide an iproute2 patch for IFLA_PORT_* and I wanted to hash out
+the cmd line before I submit it.  Here's what I think would work based on
+previous input from Arnd:
 
-Hi Dave,
+Usage:  ip port associate DEVICE [ vf NUM ] {PROFILE|VSI}
+        ip port pre-associate DEVICE [ vf NUM ] VSI
+        ip port pre-associate-rr DEVICE [ vf NUM ] VSI
+        ip port dis-associate DEVICE [ vf NUM ]
+        ip port show [ DEVICE [ vf NUM ] ]
 
-On Tue, 25 May 2010 16:24:46 -0700 (PDT) David Miller <davem@davemloft.net>=
- wrote:
->
-> From: David Miller <davem@davemloft.net>
-> Date: Tue, 25 May 2010 16:19:29 -0700 (PDT)
->=20
-> > Here is how I fixed this:
-> >=20
-> > --------------------
-> > drivers/net/usb/asix.c: Fix pointer cast.
->=20
-> Sorry, that only took care of one of the two warnings :-)
->=20
-> This patch is better.
+        PROFILE := port-profile PORT-PROFILE
+                   [ instance-uuid INSTANCE-UUID ]
+                   [ host-uuid HOST-UUID ]
 
-Thanks, looks good.
+        VSI := vsi managerid MGR typeid VTID typeidversion VER
+               [ instance-uuid INSTANCE-UUID ]
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+Comments?
 
---Signature=_Wed__26_May_2010_12_04_06_+1000_PwQ2G/=KdwW1ODXi
-Content-Type: application/pgp-signature
+-scott
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAkv8gZYACgkQjjKRsyhoI8yAywCdHfuAtKNUWMgCzKaqpCJDJHdb
-sPQAoIMtGvnWnswfj4fBJvfkmw/MzifC
-=kiYx
------END PGP SIGNATURE-----
-
---Signature=_Wed__26_May_2010_12_04_06_+1000_PwQ2G/=KdwW1ODXi--
