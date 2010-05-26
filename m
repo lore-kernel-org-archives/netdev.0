@@ -1,110 +1,130 @@
-From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 2/3] arp_notify: allow drivers to explicitly request a notification event.
-Date: Wed, 26 May 2010 11:09:42 +0100
-Message-ID: <1274868583-26291-2-git-send-email-ian.campbell@citrix.com>
-References: <1274868492.24218.7350.camel@zakaz.uk.xensource.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Jeremy Fitzhardinge <jeremy@goop.org>,
-	"David S. Miller" <davem@davemloft.net>, stable@kernel.org
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Warning in net/ipv4/af_inet.c:154
+Date: Wed, 26 May 2010 12:12:56 +0200
+Message-ID: <1274868776.2672.96.camel@edumazet-laptop>
+References: <20100525115813.GA28063@kryten>
+	 <1274801229.5020.80.camel@edumazet-laptop> <20100526031943.GA28295@kryten>
+	 <20100526.005634.48509140.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: anton@samba.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:42423 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933948Ab0EZKI5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 May 2010 06:08:57 -0400
-In-Reply-To: <1274868492.24218.7350.camel@zakaz.uk.xensource.com>
+Received: from fg-out-1718.google.com ([72.14.220.155]:29811 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752208Ab0EZKNA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 May 2010 06:13:00 -0400
+Received: by fg-out-1718.google.com with SMTP id e12so722871fga.1
+        for <netdev@vger.kernel.org>; Wed, 26 May 2010 03:12:59 -0700 (PDT)
+In-Reply-To: <20100526.005634.48509140.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently such notifications are only generated when the device comes up or the
-address changes. However one use case for these notifications is to enable
-faster network recovery after a virtual machine migration (by causing switches
-to relearn their MAC tables). A migration appears to the network stack as a
-temporary loss of carrier and therefore does not trigger either of the current
-conditions. Rather than adding carrier up as a trigger (which can cause issues
-when interfaces a flapping) simply add an interface which the driver can use
-to explicitly trigger the notification.
+Le mercredi 26 mai 2010 =C3=A0 00:56 -0700, David Miller a =C3=A9crit :
+> From: Anton Blanchard <anton@samba.org>
+> Date: Wed, 26 May 2010 13:19:43 +1000
+>=20
+> > I notice we update sk_forward_alloc in sk_mem_charge and sk_mem_unc=
+harge.
+> > Since it isn't an atomic variable I went looking for a lock somewhe=
+re in
+> > the call chain (first thought was the socket lock). I couldn't find
+> > anything, but I could easily be missing something.
+>=20
+> We take the lock properly for all of the skb_queue_rcv_skb() cases
+> but this rule isn't followed properly for skb_queue_err_skb().
+>=20
+> Eric, look at even things like skb_tstamp_tx().  Nothing locks the
+> socket in those cases, yet we dip down into sock_queue_err_skb() and
+> thus invoke skb_set_owner_r which goes into sk_mem_charge() and does
+> the non-atomic update on ->sk_forward_alloc.
+>=20
+> I am sure there are other cases with this problem involving
+> sock_queue_err_skb()...  ip_icmp_error() (via __udp4_lib_err()),
+> ipv6_icmp_error(), etc.
 
-Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
-Cc: stable@kernel.org
+All these points are indeed problematic, since a loooong time, so this
+is a stable material.
+
+You are 100% right David, maybe we should add a test when changing
+sk_forward_alloc to test if socket is locked (lockdep only test), but
+that's for 2.6.36 :)
+
+RAW path is not impacted (yet)
+
+Thanks
+
+[PATCH] net: fix sk_forward_alloc corruptions
+
+As David found out, sock_queue_err_skb() should be called with socket
+lock hold, or we risk sk_forward_alloc corruption, since we use non
+atomic operations to update this field.
+
+This patch adds bh_lock_sock()/bh_unlock_sock() pair to three spots.
+(BH already disabled)
+
+1) skb_tstamp_tx()=20
+2) Before calling ip_icmp_error(), in __udp4_lib_err()=20
+3) Before calling ipv6_icmp_error(), in __udp6_lib_err()
+
+Reported-by: Anton Blanchard <anton@samba.org>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- include/linux/netdevice.h |    2 ++
- include/linux/notifier.h  |    1 +
- net/ipv4/devinet.c        |    1 +
- net/sched/sch_generic.c   |   18 ++++++++++++++++++
- 4 files changed, 22 insertions(+), 0 deletions(-)
+ net/core/skbuff.c |    4 ++++
+ net/ipv4/udp.c    |    2 ++
+ net/ipv6/udp.c    |    6 ++++--
+ 3 files changed, 10 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index fa8b476..4737996 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1661,6 +1661,8 @@ extern void netif_carrier_on(struct net_device *dev);
- 
- extern void netif_carrier_off(struct net_device *dev);
- 
-+extern void netif_notify_peers(struct net_device *dev);
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index c543dd2..439e3b9 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2991,7 +2991,11 @@ void skb_tstamp_tx(struct sk_buff *orig_skb,
+ 	memset(serr, 0, sizeof(*serr));
+ 	serr->ee.ee_errno =3D ENOMSG;
+ 	serr->ee.ee_origin =3D SO_EE_ORIGIN_TIMESTAMPING;
 +
- /**
-  *	netif_dormant_on - mark device as dormant.
-  *	@dev: network device
-diff --git a/include/linux/notifier.h b/include/linux/notifier.h
-index fee6c2f..45477f2 100644
---- a/include/linux/notifier.h
-+++ b/include/linux/notifier.h
-@@ -203,6 +203,7 @@ static inline int notifier_to_errno(int ret)
- #define NETDEV_BONDING_NEWTYPE  0x000F
- #define NETDEV_POST_INIT	0x0010
- #define NETDEV_UNREGISTER_BATCH 0x0011
-+#define NETDEV_NOTIFY_PEERS	0x0012
- 
- #define SYS_DOWN	0x0001	/* Notify of system down */
- #define SYS_RESTART	SYS_DOWN
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 90e3d63..c12777f 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1081,6 +1081,7 @@ static int inetdev_event(struct notifier_block *this, unsigned long event,
- 		}
- 		ip_mc_up(in_dev);
- 		/* fall through */
-+	case NETDEV_NOTIFY_PEERS:
- 	case NETDEV_CHANGEADDR:
- 		/* Send gratuitous ARP to notify of link change */
- 		if (IN_DEV_ARP_NOTIFY(in_dev)) {
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index ff4dd53..2d7ca9e 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -325,6 +325,24 @@ void netif_carrier_off(struct net_device *dev)
++	bh_lock_sock(sk);
+ 	err =3D sock_queue_err_skb(sk, skb);
++	bh_unlock_sock(sk);
++
+ 	if (err)
+ 		kfree_skb(skb);
  }
- EXPORT_SYMBOL(netif_carrier_off);
- 
-+/**
-+ * 	netif_notify_peers - notify network peers about existence of @dev
-+ * 	@dev: network device
-+ *
-+ * Generate traffic such that interested network peers are aware of
-+ * @dev, such as by generating a gratuitous ARP. This may be used when
-+ * a device wants to inform the rest of the network about some sort of
-+ * reconfiguration such as a failover event or virtual machine
-+ * migration.
-+ */
-+void netif_notify_peers(struct net_device *dev)
-+{
-+	rtnl_lock();
-+	call_netdevice_notifiers(NETDEV_NOTIFY_PEERS, dev);
-+	rtnl_unlock();
-+}
-+EXPORT_SYMBOL(netif_notify_peers);
-+
- /* "NOOP" scheduler: the best scheduler, recommended for all interfaces
-    under all circumstances. It is difficult to invent anything faster or
-    cheaper.
--- 
-1.5.6.5
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 9de6a69..1d70ff0 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -634,7 +634,9 @@ void __udp4_lib_err(struct sk_buff *skb, u32 info, =
+struct udp_table *udptable)
+ 		if (!harderr || sk->sk_state !=3D TCP_ESTABLISHED)
+ 			goto out;
+ 	} else {
++		bh_lock_sock(sk);
+ 		ip_icmp_error(sk, skb, err, uh->dest, info, (u8 *)(uh+1));
++		bh_unlock_sock(sk);
+ 	}
+ 	sk->sk_err =3D err;
+ 	sk->sk_error_report(sk);
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 3d7a2c0..f441365 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -465,9 +465,11 @@ void __udp6_lib_err(struct sk_buff *skb, struct in=
+et6_skb_parm *opt,
+ 	if (sk->sk_state !=3D TCP_ESTABLISHED && !np->recverr)
+ 		goto out;
+=20
+-	if (np->recverr)
++	if (np->recverr) {
++		bh_lock_sock(sk);
+ 		ipv6_icmp_error(sk, skb, err, uh->dest, ntohl(info), (u8 *)(uh+1));
+-
++		bh_unlock_sock(sk);
++	}
+ 	sk->sk_err =3D err;
+ 	sk->sk_error_report(sk);
+ out:
+
 
