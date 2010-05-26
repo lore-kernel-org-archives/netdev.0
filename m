@@ -1,21 +1,20 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 1/17] net/rds: Add missing mutex_unlock
-Date: Wed, 26 May 2010 17:54:21 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1005261754030.23743@ask.diku.dk>
+Subject: [PATCH 4/17] drivers/isdn/hardware/mISDN: Add missing spin_unlock
+Date: Wed, 26 May 2010 17:55:10 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005261754560.23743@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Andy Grover <andy.grover@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>, rds-devel@oss.oracle.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Julia Lawall <julia@diku.dk>
 
-Add a mutex_unlock missing on the error path.  In each case, whenever the
-label out is reached from elsewhere in the function, mutex is not locked.
+Add a spin_unlock missing on the error path.  The return value of write_reg
+seems to be completely ignored, so it seems that the lock should be
+released in every case.
 
 The semantic match that finds this problem is as follows:
 (http://coccinelle.lip6.fr/)
@@ -25,44 +24,35 @@ The semantic match that finds this problem is as follows:
 expression E1;
 @@
 
-* mutex_lock(E1);
+* spin_lock(E1,...);
   <+... when != E1
   if (...) {
     ... when != E1
 *   return ...;
   }
   ...+>
-* mutex_unlock(E1);
+* spin_unlock(E1,...);
 // </smpl>
 
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- net/rds/ib_cm.c |    1 +
- net/rds/iw_cm.c |    1 +
- 2 files changed, 2 insertions(+)
+ drivers/isdn/hardware/mISDN/hfcsusb.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
-index 10ed0d5..f688327 100644
---- a/net/rds/ib_cm.c
-+++ b/net/rds/ib_cm.c
-@@ -475,6 +475,7 @@ int rds_ib_cm_handle_connect(struct rdma_cm_id *cm_id,
- 	err = rds_ib_setup_qp(conn);
- 	if (err) {
- 		rds_ib_conn_error(conn, "rds_ib_setup_qp failed (%d)\n", err);
-+		mutex_unlock(&conn->c_cm_lock);
- 		goto out;
- 	}
+diff --git a/drivers/isdn/hardware/mISDN/hfcsusb.c b/drivers/isdn/hardware/mISDN/hfcsusb.c
+index b3b7e28..8700474 100644
+--- a/drivers/isdn/hardware/mISDN/hfcsusb.c
++++ b/drivers/isdn/hardware/mISDN/hfcsusb.c
+@@ -97,8 +97,10 @@ static int write_reg(struct hfcsusb *hw, __u8 reg, __u8 val)
+ 			hw->name, __func__, reg, val);
  
-diff --git a/net/rds/iw_cm.c b/net/rds/iw_cm.c
-index a9d951b..b5dd6ac 100644
---- a/net/rds/iw_cm.c
-+++ b/net/rds/iw_cm.c
-@@ -452,6 +452,7 @@ int rds_iw_cm_handle_connect(struct rdma_cm_id *cm_id,
- 	err = rds_iw_setup_qp(conn);
- 	if (err) {
- 		rds_iw_conn_error(conn, "rds_iw_setup_qp failed (%d)\n", err);
-+		mutex_unlock(&conn->c_cm_lock);
- 		goto out;
- 	}
- 
+ 	spin_lock(&hw->ctrl_lock);
+-	if (hw->ctrl_cnt >= HFC_CTRL_BUFSIZE)
++	if (hw->ctrl_cnt >= HFC_CTRL_BUFSIZE) {
++		spin_unlock(&hw->ctrl_lock);
+ 		return 1;
++	}
+ 	buf = &hw->ctrl_buff[hw->ctrl_in_idx];
+ 	buf->hfcs_reg = reg;
+ 	buf->reg_val = val;
