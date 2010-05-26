@@ -1,64 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Warning in net/ipv4/af_inet.c:154
-Date: Wed, 26 May 2010 07:18:35 +0200
-Message-ID: <1274851115.25136.7.camel@edumazet-laptop>
-References: <20100525115813.GA28063@kryten>
-	 <1274801229.5020.80.camel@edumazet-laptop>  <20100526031943.GA28295@kryten>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: RE: NULL Pointer Deference: NFS & Telnet
+Date: Wed, 26 May 2010 07:29:01 +0200
+Message-ID: <1274851741.25136.16.camel@edumazet-laptop>
+References: <27F9C60D11D683428E133F85D2BB4A53043E33A997@dlee03.ent.ti.com>
+	 <27F9C60D11D683428E133F85D2BB4A53043E3EDFE6@dlee03.ent.ti.com>
+	 <20100525.185236.193707791.davem@davemloft.net>
+	 <27F9C60D11D683428E133F85D2BB4A53043E3EDFF1@dlee03.ent.ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Anton Blanchard <anton@samba.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:39333 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751072Ab0EZFSn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 May 2010 01:18:43 -0400
-Received: by wwb13 with SMTP id 13so34622wwb.19
-        for <netdev@vger.kernel.org>; Tue, 25 May 2010 22:18:41 -0700 (PDT)
-In-Reply-To: <20100526031943.GA28295@kryten>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org" <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>,
+	"Shilimkar, Santosh" <santosh.shilimkar-l0cyMroinI0@public.gmane.org>
+To: "Arce, Abraham" <x0066660-l0cyMroinI0@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <27F9C60D11D683428E133F85D2BB4A53043E3EDFF1-lTKHBJngVwKIQmiDNMet8wC/G2K4zDHf@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 26 mai 2010 =C3=A0 13:19 +1000, Anton Blanchard a =C3=A9cri=
-t :
-> Hi,
+Le mardi 25 mai 2010 =C3=A0 21:02 -0500, Arce, Abraham a =C3=A9crit :
+> Thanks David,
 >=20
-> > > Which is:
-> > >=20
-> > >         WARN_ON(sk->sk_forward_alloc);
-> > >=20
+> > > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> > > index f8abf68..eb81f76 100644
+> > > --- a/net/core/skbuff.c
+> > > +++ b/net/core/skbuff.c
+> > > @@ -334,7 +334,7 @@ static void skb_release_data(struct sk_buff *=
+skb)
+> > >  	if (!skb->cloned ||
+> > >  	    !atomic_sub_return(skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + =
+1 : 1,
+> > >  			       &skb_shinfo(skb)->dataref)) {
+> > > -		if (skb_shinfo(skb)->nr_frags) {
+> > > +		if (skb_shinfo(skb)->nr_frags && skb_has_frags(skb)) {
+> > >  			int i;
+> > >  			for (i =3D 0; i < skb_shinfo(skb)->nr_frags; i++)
+> > >  				put_page(skb_shinfo(skb)->frags[i].page);
 > >=20
-> > Yes, the infamous one :)
+> > skb_shinfo(skb)->nr_frags counts the number of entries contained
+> > in the skb_shinfo(skb)->frags[] array.
 > >=20
-> > Is it reproductible ? What kind of workload is it ?
-> > What is the NIC involved ?
+> > This has nothing to do with the frag list pointer,
+> > skb_shinfo(skb)->frag_list, which is what skb_has_frags()
+> > tests.
+> >=20
+> > You've got some kind of memory corruption going on and it
+> > appears to have nothing to do with the code paths you're
+> > playing with here.
 >=20
-> It was running sysbench against a postgresql database over localhost.=
- In
-> each case I checked, sk_forward_alloc was less than one page.
-
-ok. I am a bit surprised postgresql uses UDP
-
+> Do you have any recommendation on debugging technique/tool for this m=
+emory corruption issue?
 >=20
-> I notice we update sk_forward_alloc in sk_mem_charge and sk_mem_uncha=
-rge.
-> Since it isn't an atomic variable I went looking for a lock somewhere=
- in
-> the call chain (first thought was the socket lock). I couldn't find
-> anything, but I could easily be missing something.
->=20
+> Best Regards
+> Abraham
+> --
 
-UDP path uses socket lock indeed to protect sk_forward_alloc non atomic
-updates.
+It seems quite strange. You have a skb->nr_frags > 0 value, but a
+frags[i].page =3D 0 value
 
-Check skb_free_datagram_locked() for example : sk_mem_reclaim_partial()
-is called inside the lock_sock_bh/unlock_sock_bh protected section, and
-*after* the uncharge done by skb_orphan(). This function was changed
-recently, so maybe your platform hit some bug somewhere.
+You might add following function :
 
-In receive path, we hold the socket lock while calling
-sock_queue_rcv_skb()
+shinfo_check(struct sk_buff *skb)
+{
+	struct skb_shared_info *shinfo =3D skb_shinfo(skb);
+	int i;
+
+	WARN_ON(shinfo->nr_frags >=3D MAX_SKB_FRAGS);
+	for (i =3D 0; i < shinfo->nr_frags; i++)
+		WARN_ON(!shinfo->frags[i].page);
+}
+
+And call it from various points, to check who corrupts your skb.
 
 
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
