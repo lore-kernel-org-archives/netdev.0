@@ -1,96 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: NULL Pointer Deference: NFS & Telnet
-Date: Wed, 26 May 2010 22:48:53 +0200
-Message-ID: <1274906933.2542.17.camel@edumazet-laptop>
-References: <27F9C60D11D683428E133F85D2BB4A53043E33A997@dlee03.ent.ti.com>
-	 <27F9C60D11D683428E133F85D2BB4A53043E3EDFE6@dlee03.ent.ti.com>
-	 <20100525.185236.193707791.davem@davemloft.net>
-	 <27F9C60D11D683428E133F85D2BB4A53043E3EDFF1@dlee03.ent.ti.com>
-	 <1274851741.25136.16.camel@edumazet-laptop>
-	 <27F9C60D11D683428E133F85D2BB4A53043E3EE6A3@dlee03.ent.ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: Socket option to set congestion window
+Date: Wed, 26 May 2010 14:08:18 -0700 (PDT)
+Message-ID: <20100526.140818.245406045.davem@davemloft.net>
+References: <20100525.225236.226781050.davem@davemloft.net>
+	<AANLkTinHGMtfw4Oydfgx0w7QLb-HyYSKdI-4smD-BEkq@mail.gmail.com>
+	<87fx1e1sat.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
-	"tony@atomide.com" <tony@atomide.com>,
-	"Shilimkar, Santosh" <santosh.shilimkar@ti.com>,
-	"Ha, Tristram" <Tristram.Ha@micrel.com>
-To: "Arce, Abraham" <x0066660@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <27F9C60D11D683428E133F85D2BB4A53043E3EE6A3@dlee03.ent.ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: therbert@google.com, shemminger@vyatta.com, netdev@vger.kernel.org,
+	ycheng@google.com
+To: andi@firstfloor.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44494
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753696Ab0EZVIJ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 May 2010 17:08:09 -0400
+In-Reply-To: <87fx1e1sat.fsf@basil.nowhere.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 26 mai 2010 =C3=A0 15:19 -0500, Arce, Abraham a =C3=A9crit =
-:
+=46rom: Andi Kleen <andi@firstfloor.org>
+Date: Wed, 26 May 2010 19:33:46 +0200
 
-> By increasing the allocation length of our rx skbuff the corruption i=
-ssue is fixed... I have increased it by 2... Were we writing outside ou=
-r boundaries of skb data?
+> Tom Herbert <therbert@google.com> writes:
+>>>
+>> Thanks to NAT, the concept of a network path or even host specific
+>> path is a weakened concept.=A0 On the Internet this may be a path
+>> characteristic per client, which unfortunately has no visibility in
+>> the kernel other than per connection state.=A0 When a single IP addr=
+ess
+>> may have thousands of hosts behind it, caching TCP parameters for th=
+at
+>> IP address is implicitly doing a huge aggregation-- probably dicey..=
+=2E
 >=20
-> Please let me know about this approach...
+> Yes all of Saudi-Arabia used to be (is?) one IP address...
 >=20
-> diff --git a/drivers/net/ks8851.c b/drivers/net/ks8851.c
-> index b4fb07a..6da81e1 100644
-> --- a/drivers/net/ks8851.c
-> +++ b/drivers/net/ks8851.c
-> @@ -504,7 +504,7 @@ static void ks8851_rx_pkts(struct ks8851_net *ks)
->                                ks->rc_rxqcr | RXQCR_SDA | RXQCR_ADRFE=
-);
->=20
->                 if (rxlen > 0) {
-> -                       skb =3D netdev_alloc_skb(ks->netdev, rxlen + =
-2 + 8);
-> +                       skb =3D netdev_alloc_skb(ks->netdev, rxlen + =
-4 + 8);
->                         if (!skb) {
->=20
-> Best Regards
-> Abraham
->=20
+> Caching anything per IP is bogus.
 
-Yes that makes sense, nr_frag is right after the packet (padded to L1
-cache size)
+And letting the applications choose the CWND is better?!?!
 
-But please do the correct allocation ?
+Every single proposal being mentioned in this thread has huge,
+obvious, downsides.
 
-Also, we dont need FCS ?
+Just because there are some cases of people NAT'ing many machines
+behind one IP address doesn't mean we kill performance for the rest of
+the world (the majority of internet usage btw) by not caching TCP path
+characteristics per IP address.
 
-diff --git a/drivers/net/ks8851.c b/drivers/net/ks8851.c
-index b4fb07a..05bd312 100644
---- a/drivers/net/ks8851.c
-+++ b/drivers/net/ks8851.c
-@@ -503,8 +503,9 @@ static void ks8851_rx_pkts(struct ks8851_net *ks)
- 		ks8851_wrreg16(ks, KS_RXQCR,
- 			       ks->rc_rxqcr | RXQCR_SDA | RXQCR_ADRFE);
-=20
--		if (rxlen > 0) {
--			skb =3D netdev_alloc_skb(ks->netdev, rxlen + 2 + 8);
-+		if (rxlen > 4) {
-+			rxlen -=3D 4;
-+			skb =3D netdev_alloc_skb(ks->netdev, 2 + 8 + ALIGN(rxlen, 4));
- 			if (!skb) {
- 				/* todo - dump frame and move on */
- 			}
-@@ -513,7 +514,7 @@ static void ks8851_rx_pkts(struct ks8851_net *ks)
- 			 * for the status header and 4 bytes of garbage */
- 			skb_reserve(skb, 2 + 4 + 4);
-=20
--			rxpkt =3D skb_put(skb, rxlen - 4) - 8;
-+			rxpkt =3D skb_put(skb, rxlen) - 8;
-=20
- 			/* align the packet length to 4 bytes, and add 4 bytes
- 			 * as we're getting the rx status header as well */
-@@ -526,7 +527,7 @@ static void ks8851_rx_pkts(struct ks8851_net *ks)
- 			netif_rx(skb);
-=20
- 			ks->netdev->stats.rx_packets++;
--			ks->netdev->stats.rx_bytes +=3D rxlen - 4;
-+			ks->netdev->stats.rx_bytes +=3D rxlen;
- 		}
-=20
- 		ks8851_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr);
+And just because applications open up many sockets to get better TCP
+latency and work around per-connection CWND limits DOES NOT mean we
+let the application increase the initial CWND so it can abuse this
+EVEN MORE and cause EVEN BIGGER problems.
+
+If people have real, sane, ideas about how to attack this problem I am
+all ears.  But everything proposed here so far is complete and utter
+crap.
