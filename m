@@ -1,38 +1,40 @@
-From: Jon Zhou <Jon.Zhou@jdsu.com>
-Subject: MSI-X resource become less and less
-Date: Wed, 26 May 2010 01:38:49 -0700
-Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F2498091D15@MILEXCH2.ds.jdsu.net>
+From: Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+Subject: Re: [PATCH] net/core: Save the port number a netdevice uses
+Date: Wed, 26 May 2010 11:45:23 +0300
+Message-ID: <20100526084523.GA28748@mtldesk030.lab.mtl.com>
+References: <20100526081702.GA17160@mtldesk030.lab.mtl.com>
+	<20100526.013926.28807066.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og127.obsmtp.com ([64.18.2.210]:49833 "HELO
-	exprod7og127.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751654Ab0EZIjh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 May 2010 04:39:37 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eli-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org,
+	yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20100526.013926.28807066.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-let's take Broadcom bnx2x as example:
+On Wed, May 26, 2010 at 01:39:26AM -0700, David Miller wrote:
+> From: Eli Cohen <eli-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+> Date: Wed, 26 May 2010 11:17:02 +0300
+> 
+> > Today, there are no means to know which port of a hardware device a netdev
+> > interface uses. This patch adds a new field to struct net_device that is used
+> > to store this value. The network driver should use the SET_NETDEV_PORT_NUM()
+> > macro to set the port number for the device it manages. For drivers that do not
+> > set a value, a default value of 1 is set at alloc_netdev_mq().
+> > This patch also makes use of this feature in the mlx4_en driver.
+> > 
+> > Signed-off-by: Eli Cohen <eli-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+> 
+> We have an existing dev_id, use it.
 
-first of all I can insmod bnx2x.ko multi_mode=1 num_queue=16
-but when I do this:
-rmmod bnx2x; insmod bnx2x.ko multi_mode=1 num_queue=8   ->OK 8 queues
-rmmod bnx2x; insmod bnx2x.ko multi_mode=1 num_queue=4   ->OK 4 queues
-
-...
-finally I do this:
-rmmod bnx2x; insmod bnx2x.ko multi_mode=1 num_queue=4
-
-I found the driver can only get 1 or 2 queues! it doesn't come back to 4+ queues any longer!
-
-MSI-X resource become less and less, any resource isn't free?
-
-kernel:2.6.27.19
-XEON 5500 16 core
-
-thanks
-jon
-
+Do you think we should use dev_id also for the sysfs file name so
+every driver can choose to interpret this field as it chooses to, or
+should I keep the sysfs file name as "port_number"?
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
