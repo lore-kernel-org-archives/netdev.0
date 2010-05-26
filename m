@@ -1,61 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: linux-next: build warning in Linus' tree
-Date: Wed, 26 May 2010 11:51:10 +1000
-Message-ID: <20100526015110.GA21587@gondor.apana.org.au>
-References: <20100526114306.5fa6fa0e.sfr@canb.auug.org.au>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: NULL Pointer Deference: NFS & Telnet
+Date: Tue, 25 May 2010 18:52:36 -0700 (PDT)
+Message-ID: <20100525.185236.193707791.davem@davemloft.net>
+References: <27F9C60D11D683428E133F85D2BB4A53043E33A997@dlee03.ent.ti.com>
+	<27F9C60D11D683428E133F85D2BB4A53043E3EDFE6@dlee03.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Linus <torvalds@linux-foundation.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100526114306.5fa6fa0e.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org, santosh.shilimkar-l0cyMroinI0@public.gmane.org
+To: x0066660-l0cyMroinI0@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <27F9C60D11D683428E133F85D2BB4A53043E3EDFE6-lTKHBJngVwKIQmiDNMet8wC/G2K4zDHf@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 26, 2010 at 11:43:06AM +1000, Stephen Rothwell wrote:
-> Hi Dave,
-> 
-> Today's linux-next build (x86_64 allmodconfig) produced this warning:
-> 
-> net/core/sock.c: In function 'sock_update_classid':
-> include/net/cls_cgroup.h:42: warning: 'classid' may be used uninitialized in this function
-> include/net/cls_cgroup.h:42: note: 'classid' was declared here
-> 
-> In the case that rcu_dereference() returns a value < 0, classid will not
-> be assigned in task_cls_classid().  I don't know if this is possible - if
-> not, then why is the test there?
+From: "Arce, Abraham" <x0066660-l0cyMroinI0@public.gmane.org>
+Date: Tue, 25 May 2010 20:48:02 -0500
 
-This is a genuine bug.  I don't know why my gcc didn't warn about
-it.
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index f8abf68..eb81f76 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -334,7 +334,7 @@ static void skb_release_data(struct sk_buff *skb)
+>  	if (!skb->cloned ||
+>  	    !atomic_sub_return(skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1,
+>  			       &skb_shinfo(skb)->dataref)) {
+> -		if (skb_shinfo(skb)->nr_frags) {
+> +		if (skb_shinfo(skb)->nr_frags && skb_has_frags(skb)) {
+>  			int i;
+>  			for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
+>  				put_page(skb_shinfo(skb)->frags[i].page);
 
-cls_cgroup: Initialise classid when module is absent
+skb_shinfo(skb)->nr_frags counts the number of entries contained
+in the skb_shinfo(skb)->frags[] array.
 
-When the cls_cgroup module is not loaded, task_cls_classid will
-return an uninitialised classid instead of zero.
+This has nothing to do with the frag list pointer,
+skb_shinfo(skb)->frag_list, which is what skb_has_frags()
+tests.
 
-Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/include/net/cls_cgroup.h b/include/net/cls_cgroup.h
-index 6cf4486..726cc35 100644
---- a/include/net/cls_cgroup.h
-+++ b/include/net/cls_cgroup.h
-@@ -39,7 +39,7 @@ extern int net_cls_subsys_id;
- static inline u32 task_cls_classid(struct task_struct *p)
- {
- 	int id;
--	u32 classid;
-+	u32 classid = 0;
- 
- 	if (in_interrupt())
- 		return 0;
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+You've got some kind of memory corruption going on and it
+appears to have nothing to do with the code paths you're
+playing with here.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
