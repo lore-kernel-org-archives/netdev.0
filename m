@@ -1,51 +1,49 @@
 From: Dan Carpenter <error27@gmail.com>
-Subject: [patch 1/2] be2net: add unlock on error path
-Date: Wed, 26 May 2010 16:46:35 +0200
-Message-ID: <20100526144634.GL22515@bicker>
+Subject: [patch] caif: unlock on error path in cfserl_receive()
+Date: Wed, 26 May 2010 17:16:48 +0200
+Message-ID: <20100526151648.GA15439@bicker>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Subbu Seetharaman <subbus@serverengines.com>,
-	Sarveshwar Bandi <sarveshwarb@serverengines.com>,
-	Ajit Khaparde <ajitk@serverengines.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	kernel-janitors@vger.kernel.org
-To: Sathya Perla <sathyap@serverengines.com>
+To: Sjur Braendeland <sjur.brandeland@stericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:58207 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754180Ab0EZOy3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 May 2010 10:54:29 -0400
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:53327 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755391Ab0EZPRl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 May 2010 11:17:41 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The unlock accidentally got removed from the error path in dd131e76e5:
-"be2net: Bug fix to avoid disabling bottom half during firmware upgrade."
+There was an spin_unlock missing on the error path.  The spin_lock was
+tucked in with the declarations so it was hard to spot.  I added a new
+line.
 
 Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-index c911bfb..18d5789 100644
---- a/drivers/net/benet/be_cmds.c
-+++ b/drivers/net/benet/be_cmds.c
-@@ -1429,7 +1429,7 @@ int be_cmd_write_flashrom(struct be_adapter *adapter, struct be_dma_mem *cmd,
- 	wrb = wrb_from_mccq(adapter);
- 	if (!wrb) {
- 		status = -EBUSY;
--		goto err;
-+		goto err_unlock;
- 	}
- 	req = cmd->va;
- 	sge = nonembedded_sgl(wrb);
-@@ -1457,7 +1457,10 @@ int be_cmd_write_flashrom(struct be_adapter *adapter, struct be_dma_mem *cmd,
- 	else
- 		status = adapter->flash_status;
- 
--err:
-+	return status;
+diff --git a/net/caif/cfserl.c b/net/caif/cfserl.c
+index cb4325a..965c5ba 100644
+--- a/net/caif/cfserl.c
++++ b/net/caif/cfserl.c
+@@ -59,16 +59,18 @@ static int cfserl_receive(struct cflayer *l, struct cfpkt *newpkt)
+ 	u8 stx = CFSERL_STX;
+ 	int ret;
+ 	u16 expectlen = 0;
 +
-+err_unlock:
-+	spin_unlock_bh(&adapter->mcc_lock);
- 	return status;
- }
+ 	caif_assert(newpkt != NULL);
+ 	spin_lock(&layr->sync);
  
+ 	if (layr->incomplete_frm != NULL) {
+-
+ 		layr->incomplete_frm =
+ 		    cfpkt_append(layr->incomplete_frm, newpkt, expectlen);
+ 		pkt = layr->incomplete_frm;
+-		if (pkt == NULL)
++		if (pkt == NULL) {
++			spin_unlock(&layr->sync);
+ 			return -ENOMEM;
++		}
+ 	} else {
+ 		pkt = newpkt;
+ 	}
