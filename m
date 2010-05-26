@@ -1,73 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: ipv6: Add GSO support on forwarding path
-Date: Wed, 26 May 2010 20:27:58 +1000
-Message-ID: <20100526102758.GA25914@gondor.apana.org.au>
+From: =?UTF-8?q?R=C3=A9mi=20Denis-Courmont?=
+	<remi.denis-courmont@nokia.com>
+Subject: [PATCH net 1/1] Phonet: listening socket lock protects the connected socket list
+Date: Wed, 26 May 2010 13:44:44 +0300
+Message-ID: <1274870684-18428-1-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Ralf Baechle <ralf@linux-mips.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:42807 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754432Ab0EZK2U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 May 2010 06:28:20 -0400
-Content-Disposition: inline
+Received: from smtp.nokia.com ([192.100.122.233]:26285 "EHLO
+	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752265Ab0EZKnu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 May 2010 06:43:50 -0400
+Received: from esebh106.NOE.Nokia.com (esebh106.ntc.nokia.com [172.21.138.213])
+	by mgw-mx06.nokia.com (Switch-3.3.3/Switch-3.3.3) with ESMTP id o4QAhAcR032638
+	for <netdev@vger.kernel.org>; Wed, 26 May 2010 13:43:47 +0300
+Received: from localhost.localdomain (esdhcp037246.research.nokia.com [172.21.37.246])
+	by mgw-sa02.ext.nokia.com (Switch-3.3.3/Switch-3.3.3) with ESMTP id o4QAh8lj009612
+	for <netdev@vger.kernel.org>; Wed, 26 May 2010 13:43:08 +0300
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi:
+=46rom: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-ipv6: Add GSO support on forwarding path
+The accept()'d socket need to be unhashed while the (listen()'ing)
+socket lock is held. This fixes a race condition that could lead to an
+OOPS.
 
-Currently we disallow GSO packets on the IPv6 forward path.
-This patch fixes this.
+Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+---
+ net/phonet/pep.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-Note that I discovered that our existing GSO MTU checks (e.g.,
-IPv4 forwarding) are buggy in that they skip the check altogether, 
-hen they really should be checking gso_size instead.
+diff --git a/net/phonet/pep.c b/net/phonet/pep.c
+index 7b048a3..94d72e8 100644
+--- a/net/phonet/pep.c
++++ b/net/phonet/pep.c
+@@ -1045,12 +1045,12 @@ static void pep_sock_unhash(struct sock *sk)
+ 	lock_sock(sk);
+ 	if ((1 << sk->sk_state) & ~(TCPF_CLOSE|TCPF_LISTEN)) {
+ 		skparent =3D pn->listener;
+-		sk_del_node_init(sk);
+ 		release_sock(sk);
+=20
+-		sk =3D skparent;
+ 		pn =3D pep_sk(skparent);
+-		lock_sock(sk);
++		lock_sock(skparent);
++		sk_del_node_init(sk);
++		sk =3D skparent;
+ 	}
+ 	/* Unhash a listening sock only when it is closed
+ 	 * and all of its active connected pipes are closed. */
+--=20
+1.7.0.4
 
-I have also been lazy here in that I haven't bothered to segment
-the GSO packet by hand before generating an ICMP message.  Someone
-should add that to be 100% correct.
-
-Reported-by: Ralf Baechle <ralf@linux-mips.org>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 7cdfb4d..64f9c5a 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2117,6 +2117,13 @@ static inline int skb_is_gso(const struct sk_buff *skb)
- 	return skb_shinfo(skb)->gso_size;
- }
- 
-+static inline int skb_gso_len(const struct sk_buff *skb)
-+{
-+	return skb_is_gso(skb) ?
-+	       skb_shinfo(skb)->gso_size + skb_transport_offset(skb) :
-+	       skb->len;
-+}
-+
- static inline int skb_is_gso_v6(const struct sk_buff *skb)
- {
- 	return skb_shinfo(skb)->gso_type & SKB_GSO_TCPV6;
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index cd963f6..8904767 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -507,7 +507,7 @@ int ip6_forward(struct sk_buff *skb)
- 	if (mtu < IPV6_MIN_MTU)
- 		mtu = IPV6_MIN_MTU;
- 
--	if (skb->len > mtu) {
-+	if (skb_gso_len(skb) > mtu) {
- 		/* Again, force OUTPUT device used as source address */
- 		skb->dev = dst->dev;
- 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
