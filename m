@@ -1,21 +1,19 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 9/17] net/iucv: Add missing spin_unlock
-Date: Wed, 26 May 2010 17:56:48 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1005261756330.23743@ask.diku.dk>
+Subject: [PATCH 8/17] net/caif: Add missing spin_unlock
+Date: Wed, 26 May 2010 17:56:33 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005261756150.23743@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Ursula Braun <ursula.braun@de.ibm.com>, linux390@de.ibm.com,
-	"David S. , Miller" <davem@davemloft.net>,
-	linux-s390@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.or
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Julia Lawall <julia@diku.dk>
 
-Add a spin_unlock missing on the error path.  There seems like no reason
-why the lock should continue to be held if the kzalloc fail.
+Add a spin_unlock missing on the error path.  The spin lock is used in a
+balanced way elsewhere in the file.
 
 The semantic match that finds this problem is as follows:
 (http://coccinelle.lip6.fr/)
@@ -38,19 +36,23 @@ expression E1;
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- net/iucv/af_iucv.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/caif/cfmuxl.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/iucv/af_iucv.c b/net/iucv/af_iucv.c
-index c8b4599..9637e45 100644
---- a/net/iucv/af_iucv.c
-+++ b/net/iucv/af_iucv.c
-@@ -1619,7 +1619,7 @@ static void iucv_callback_rx(struct iucv_path *path, struct iucv_message *msg)
- save_message:
- 	save_msg = kzalloc(sizeof(struct sock_msg_q), GFP_ATOMIC | GFP_DMA);
- 	if (!save_msg)
--		return;
-+		goto out_unlock;
- 	save_msg->path = path;
- 	save_msg->msg = *msg;
- 
+diff --git a/net/caif/cfmuxl.c b/net/caif/cfmuxl.c
+index 7372f27..80c8d33 100644
+--- a/net/caif/cfmuxl.c
++++ b/net/caif/cfmuxl.c
+@@ -174,10 +174,11 @@ struct cflayer *cfmuxl_remove_uplayer(struct cflayer *layr, u8 id)
+ 	spin_lock(&muxl->receive_lock);
+ 	up = get_up(muxl, id);
+ 	if (up == NULL)
+-		return NULL;
++		goto out;
+ 	memset(muxl->up_cache, 0, sizeof(muxl->up_cache));
+ 	list_del(&up->node);
+ 	cfsrvl_put(up);
++out:
+ 	spin_unlock(&muxl->receive_lock);
+ 	return up;
+ }
