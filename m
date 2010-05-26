@@ -1,68 +1,42 @@
-From: arno@natisbad.org (Arnaud Ebalard)
-Subject: [REGRESSION,BISECTED] MIPv6 support broken by f4f914b58019f0
-Date: Wed, 26 May 2010 19:01:55 +0200
-Message-ID: <87zkzmppfg.fsf@small.ssi.corp>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] tcp: Socket option to set congestion window
+Date: Wed, 26 May 2010 19:33:46 +0200
+Message-ID: <87fx1e1sat.fsf@basil.nowhere.org>
+References: <alpine.DEB.1.00.1005252157150.27170@pokey.mtv.corp.google.com>
+	<20100525220858.1071f238@nehalam>
+	<20100525.225236.226781050.davem@davemloft.net>
+	<AANLkTinHGMtfw4Oydfgx0w7QLb-HyYSKdI-4smD-BEkq@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
-	<yoshfuji@linux-ipv6.org>, Jiri Olsa <jolsa@redhat.com>,
-	Scott Otto <scott.otto@alcatel-lucent.com>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
+	netdev@vger.kernel.org, ycheng@google.com
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from copper.chdir.org ([88.191.97.87]:55796 "EHLO copper.chdir.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933199Ab0EZRUv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 May 2010 13:20:51 -0400
+Received: from one.firstfloor.org ([213.235.205.2]:39022 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757234Ab0EZRdw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 May 2010 13:33:52 -0400
+In-Reply-To: <AANLkTinHGMtfw4Oydfgx0w7QLb-HyYSKdI-4smD-BEkq@mail.gmail.com> (Tom Herbert's message of "Wed\, 26 May 2010 00\:06\:35 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Tom Herbert <therbert@google.com> writes:
+>>
+> Thanks to NAT, the concept of a network path or even host specific
+> path is a weakened concept.=A0 On the Internet this may be a path
+> characteristic per client, which unfortunately has no visibility in
+> the kernel other than per connection state.=A0 When a single IP addre=
+ss
+> may have thousands of hosts behind it, caching TCP parameters for tha=
+t
+> IP address is implicitly doing a huge aggregation-- probably dicey...
 
-I just updated my laptop's kernel to 2.6.34 (previously running .33 and
-configured to act as an IPsec/IKE-protected MIPv6 Mobile Node using
-racoon and umip): after rebooting on the new kernel, the transport mode
-SA protecting MIPv6 signaling traffic are missing.
+Yes all of Saudi-Arabia used to be (is?) one IP address...
 
-I bisected the issue down to f4f914b58019f0e50d521bbbadfaee260d766f95
-(net: ipv6 bind to device issue) which was added after 2.6.34-rc5: 
+Caching anything per IP is bogus.
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index c2438e8..05ebd78 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -815,7 +815,7 @@ struct dst_entry * ip6_route_output(struct net *net, struct sock *sk,
- {
-        int flags = 0;
- 
--       if (rt6_need_strict(&fl->fl6_dst))
-+       if (fl->oif || rt6_need_strict(&fl->fl6_dst))
-                flags |= RT6_LOOKUP_F_IFACE;
- 
-        if (!ipv6_addr_any(&fl->fl6_src))
+-Andi
 
-Reverting the patch on a 2.6.34 gives me a working kernel.
-
-With MIPv6, the Home Address is bound to a tunnel interface but the
-routing/XFRM code will not always send packet via this virtual device
-(in fact, I would say never when IPsec is used for protecting signaling
-and data traffic):
-
- - Signaling traffic will be sent using a Care-of Address from another
-   interface (with the addition of a Home Address Option in a
-   Destination Option Header)
- - Data traffic (when protected by tunnel mode IPsec) will also be sent
-   via another interface.
-
-I *suspect* that previous commit somehow changes the lose coupling
-between the address and the device to enforce a strict routing via
-associated interface.
-
-I will try and take a look at the code tomorrow to understand what
-really happens but if someone has ideas, I am interested.
-
-Cheers,
-
-a+
-
-ps: I use the same working setup for all kernels since 2.6.28
+--=20
+ak@linux.intel.com -- Speaking for myself only.
