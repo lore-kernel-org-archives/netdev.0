@@ -1,37 +1,77 @@
-From: Stanislaw Gruszka <stf_xl@wp.pl>
-Subject: Re: [Linux-ATM-General] RX/close vcc race with solos/atmtcp/usbatm/he
-Date: Wed, 26 May 2010 20:51:09 +0200
-Message-ID: <20100526185109.GA2555@r2bh72.net.upc.cz>
-References: <1274872584.20576.13579.camel@macbook.infradead.org>
+From: Andy Grover <andy.grover@oracle.com>
+Subject: Re: [PATCH 1/17] net/rds: Add missing mutex_unlock
+Date: Wed, 26 May 2010 10:55:02 -0700
+Message-ID: <4BFD6076.9000005@oracle.com>
+References: <Pine.LNX.4.64.1005261754030.23743@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4.wp.pl ([212.77.101.8]:29936 "EHLO mx4.wp.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753578Ab0EZRuL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 May 2010 13:50:11 -0400
-Content-Disposition: inline
-In-Reply-To: <1274872584.20576.13579.camel@macbook.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, Zach Brown <zach.brown@oracle.com>
+To: Julia Lawall <julia@diku.dk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.1005261754030.23743@ask.diku.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 26, 2010 at 12:16:24PM +0100, David Woodhouse wrote:
-> The problem is that the 'find_vcc' functions in these drivers are
-> returning a vcc with the ATM_VF_READY bit cleared, because it's already
-> in the process of being destroyed. If we fix that simple oversight,
-> there's still a race condition because the socket can still be closed
-> (and completely freed, afaict) between our call to find_vcc() and our
-> call to vcc->push() in the RX tasklet.
-> 
-> Here's a patch for solos-pci which should fix it. We prevent the race by
-> making the dev->ops->close() function wait for the RX tasklet to
-> complete, so it can't still be using the vcc in question.
+Reviewed-by: Zach Brown <zach.brown@oracle.com>
+Acked-by: Andy Grover <andy.grover@oracle.com>
 
-I do not think this is problem with usbatm. We use custom vcc_list with
-custom usbatm_vcc_data entries. We remove entry on atmdev_ops->close()
-within tasklet_disable()/tasklet_enable() section. After that
-rx tasklet will not find usbatm_vcc_data for corresponding vpi, vpi.
+-- Andy
 
-Stanislaw
+On 05/26/2010 08:54 AM, Julia Lawall wrote:
+> From: Julia Lawall<julia@diku.dk>
+>
+> Add a mutex_unlock missing on the error path.  In each case, whenever the
+> label out is reached from elsewhere in the function, mutex is not locked.
+>
+> The semantic match that finds this problem is as follows:
+> (http://coccinelle.lip6.fr/)
+>
+> //<smpl>
+> @@
+> expression E1;
+> @@
+>
+> * mutex_lock(E1);
+>    <+... when != E1
+>    if (...) {
+>      ... when != E1
+> *   return ...;
+>    }
+>    ...+>
+> * mutex_unlock(E1);
+> //</smpl>
+>
+> Signed-off-by: Julia Lawall<julia@diku.dk>
+>
+> ---
+>   net/rds/ib_cm.c |    1 +
+>   net/rds/iw_cm.c |    1 +
+>   2 files changed, 2 insertions(+)
+>
+> diff --git a/net/rds/ib_cm.c b/net/rds/ib_cm.c
+> index 10ed0d5..f688327 100644
+> --- a/net/rds/ib_cm.c
+> +++ b/net/rds/ib_cm.c
+> @@ -475,6 +475,7 @@ int rds_ib_cm_handle_connect(struct rdma_cm_id *cm_id,
+>   	err = rds_ib_setup_qp(conn);
+>   	if (err) {
+>   		rds_ib_conn_error(conn, "rds_ib_setup_qp failed (%d)\n", err);
+> +		mutex_unlock(&conn->c_cm_lock);
+>   		goto out;
+>   	}
+>
+> diff --git a/net/rds/iw_cm.c b/net/rds/iw_cm.c
+> index a9d951b..b5dd6ac 100644
+> --- a/net/rds/iw_cm.c
+> +++ b/net/rds/iw_cm.c
+> @@ -452,6 +452,7 @@ int rds_iw_cm_handle_connect(struct rdma_cm_id *cm_id,
+>   	err = rds_iw_setup_qp(conn);
+>   	if (err) {
+>   		rds_iw_conn_error(conn, "rds_iw_setup_qp failed (%d)\n", err);
+> +		mutex_unlock(&conn->c_cm_lock);
+>   		goto out;
+>   	}
+>
