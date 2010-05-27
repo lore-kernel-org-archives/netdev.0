@@ -1,85 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net: replace hooks in __netif_receive_skb
-Date: Thu, 27 May 2010 16:17:46 +0200
-Message-ID: <1274969866.2523.22.camel@edumazet-laptop>
-References: <20100527134935.GA6916@psychotron.lab.eng.brq.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, shemminger@vyatta.com,
-	kaber@trash.net
-To: Jiri Pirko <jpirko@redhat.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] skb: make skb_recycle_check() return a bool value
+Date: Thu, 27 May 2010 22:33:23 +0800
+Message-ID: <1274970803-8051-1-git-send-email-xiaosuo@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:39726 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757924Ab0E0ORv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 10:17:51 -0400
-Received: by wyb29 with SMTP id 29so4217546wyb.19
-        for <netdev@vger.kernel.org>; Thu, 27 May 2010 07:17:50 -0700 (PDT)
-In-Reply-To: <20100527134935.GA6916@psychotron.lab.eng.brq.redhat.com>
+Received: from mail-pz0-f176.google.com ([209.85.222.176]:52980 "EHLO
+	mail-pz0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757707Ab0E0Og4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 10:36:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 27 mai 2010 =C3=A0 15:49 +0200, Jiri Pirko a =C3=A9crit :
+make skb_recycle_check() return a bool value
 
-> +/**
-> + *	netdev_rx_handler_unregister - unregister receive handler
-> + *	@dev: device to unregister a handler from
-> + *	@rh: receive handler to unregister
-> + *
-> + *	Unregister a receive hander from a device.
-> + */
-> +void netdev_rx_handler_unregister(struct net_device *dev,
-> +				  struct netdev_rx_handler *rh)
-> +{
-> +	struct netdev_rx_handler *rh1;
-> +
-> +	spin_lock_bh(&dev->rx_handlers_lock);
-> +	list_for_each_entry(rh1, &dev->rx_handlers, list) {
-> +		if (rx_handlers_equal(rh, rh1)) {
-> +			list_del_rcu(&rh1->list);
-> +			synchronize_net();
-> +			kfree(rh1);
-> +			break;
-> +		}
-> +	}
-> +	spin_unlock_bh(&dev->rx_handlers_lock);
-> +}
-> +EXPORT_SYMBOL(netdev_rx_handler_unregister);
-> +
+make skb_recycle_check() return a bool value
 
-Please dont synchronize_net(); inside the spin_lock_bh() section, at a
-very minimum.
-
-void netdev_rx_handler_unregister(struct net_device *dev,
-                                 struct netdev_rx_handler *rh)
-{
-        struct netdev_rx_handler *rh1, *found =3D NULL;
-
-       spin_lock_bh(&dev->rx_handlers_lock);
-       list_for_each_entry(rh1, &dev->rx_handlers, list) {
-               if (rx_handlers_equal(rh, rh1)) {
-               		list_del_rcu(&rh1->list);
-			found =3D rh1;
-               		break;
-               }
-	}
-	spin_unlock_bh(&dev->rx_handlers_lock);
-	if (found) {
-		synchronize_net();
-		kfree(rh1);
-	}
-}
-
-
-This synchronize_net() proliferation makes me very nervous.
-
-Am I the only one that think this thing is/should be avoided as much as
-possible ?
-
-Please dont use synchronize_net() but a call_rcu(), there is absolutely
-no point making this thread waits 30 or 40 ms, there is no risk here.
-
-Thanks
-
-
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+ include/linux/skbuff.h |    2 +-
+ net/core/skbuff.c      |   12 ++++++------
+ 2 files changed, 7 insertions(+), 7 deletions(-)
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 7cdfb4d..bf243fc 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -501,7 +501,7 @@ static inline struct sk_buff *alloc_skb_fclone(unsigned int size,
+ 	return __alloc_skb(size, priority, 1, -1);
+ }
+ 
+-extern int skb_recycle_check(struct sk_buff *skb, int skb_size);
++extern bool skb_recycle_check(struct sk_buff *skb, int skb_size);
+ 
+ extern struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src);
+ extern struct sk_buff *skb_clone(struct sk_buff *skb,
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index c543dd2..d430876 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -482,22 +482,22 @@ EXPORT_SYMBOL(consume_skb);
+  *	reference count dropping and cleans up the skbuff as if it
+  *	just came from __alloc_skb().
+  */
+-int skb_recycle_check(struct sk_buff *skb, int skb_size)
++bool skb_recycle_check(struct sk_buff *skb, int skb_size)
+ {
+ 	struct skb_shared_info *shinfo;
+ 
+ 	if (irqs_disabled())
+-		return 0;
++		return false;
+ 
+ 	if (skb_is_nonlinear(skb) || skb->fclone != SKB_FCLONE_UNAVAILABLE)
+-		return 0;
++		return false;
+ 
+ 	skb_size = SKB_DATA_ALIGN(skb_size + NET_SKB_PAD);
+ 	if (skb_end_pointer(skb) - skb->head < skb_size)
+-		return 0;
++		return false;
+ 
+ 	if (skb_shared(skb) || skb_cloned(skb))
+-		return 0;
++		return false;
+ 
+ 	skb_release_head_state(skb);
+ 
+@@ -509,7 +509,7 @@ int skb_recycle_check(struct sk_buff *skb, int skb_size)
+ 	skb->data = skb->head + NET_SKB_PAD;
+ 	skb_reset_tail_pointer(skb);
+ 
+-	return 1;
++	return true;
+ }
+ EXPORT_SYMBOL(skb_recycle_check);
+ 
