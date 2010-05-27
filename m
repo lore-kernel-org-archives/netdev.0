@@ -1,79 +1,37 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] skb: make skb_recycle_check() return a bool value
-Date: Thu, 27 May 2010 22:33:23 +0800
-Message-ID: <1274970803-8051-1-git-send-email-xiaosuo@gmail.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: =?ISO-8859-1?Q?Mart=EDn_Ferrari?= <martin.ferrari@gmail.com>
+Subject: Question about netns & AF_UNIX
+Date: Thu, 27 May 2010 16:38:29 +0200
+Message-ID: <AANLkTikBuXfzS-UIL7bDMvfpL5lx9gMqHTpGg-jrm5Zv@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f176.google.com ([209.85.222.176]:52980 "EHLO
-	mail-pz0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757707Ab0E0Og4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 10:36:56 -0400
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:64592 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757090Ab0E0Oib convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 10:38:31 -0400
+Received: by vws9 with SMTP id 9so10063vws.19
+        for <netdev@vger.kernel.org>; Thu, 27 May 2010 07:38:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-make skb_recycle_check() return a bool value
+Hi, again a question about netns...
 
-make skb_recycle_check() return a bool value
+I seem to recall being able to use AF_UNIX sockets across network name
+spaces, but I cannot reproduce that with a current kernel. Probably my
+test was fubar (I've lost the script).
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- include/linux/skbuff.h |    2 +-
- net/core/skbuff.c      |   12 ++++++------
- 2 files changed, 7 insertions(+), 7 deletions(-)
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 7cdfb4d..bf243fc 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -501,7 +501,7 @@ static inline struct sk_buff *alloc_skb_fclone(unsigned int size,
- 	return __alloc_skb(size, priority, 1, -1);
- }
- 
--extern int skb_recycle_check(struct sk_buff *skb, int skb_size);
-+extern bool skb_recycle_check(struct sk_buff *skb, int skb_size);
- 
- extern struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src);
- extern struct sk_buff *skb_clone(struct sk_buff *skb,
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index c543dd2..d430876 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -482,22 +482,22 @@ EXPORT_SYMBOL(consume_skb);
-  *	reference count dropping and cleans up the skbuff as if it
-  *	just came from __alloc_skb().
-  */
--int skb_recycle_check(struct sk_buff *skb, int skb_size)
-+bool skb_recycle_check(struct sk_buff *skb, int skb_size)
- {
- 	struct skb_shared_info *shinfo;
- 
- 	if (irqs_disabled())
--		return 0;
-+		return false;
- 
- 	if (skb_is_nonlinear(skb) || skb->fclone != SKB_FCLONE_UNAVAILABLE)
--		return 0;
-+		return false;
- 
- 	skb_size = SKB_DATA_ALIGN(skb_size + NET_SKB_PAD);
- 	if (skb_end_pointer(skb) - skb->head < skb_size)
--		return 0;
-+		return false;
- 
- 	if (skb_shared(skb) || skb_cloned(skb))
--		return 0;
-+		return false;
- 
- 	skb_release_head_state(skb);
- 
-@@ -509,7 +509,7 @@ int skb_recycle_check(struct sk_buff *skb, int skb_size)
- 	skb->data = skb->head + NET_SKB_PAD;
- 	skb_reset_tail_pointer(skb);
- 
--	return 1;
-+	return true;
- }
- EXPORT_SYMBOL(skb_recycle_check);
- 
+In any case: is a design decision to forbid this, even when the file
+system is shared? I found some discussions from 2008, but I don't see
+an agreement being reached...
+
+I also wonder if filedescriptor passing thru ancilliary messages will
+work (that is, with unix sockets that I've created before the netns
+change).
+
+Thanks
+
+--=20
+Mart=EDn Ferrari
