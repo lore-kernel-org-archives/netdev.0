@@ -1,71 +1,48 @@
-From: "Vincent, Pradeep" <pradeepv@amazon.com>
-Subject: UDP Fragmentation and DF bit..
-Date: Wed, 26 May 2010 18:45:47 -0700
-Message-ID: <C8231CDB.16FC5%pradeepv@amazon.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: Socket option to set congestion window
+Date: Wed, 26 May 2010 20:04:43 -0700 (PDT)
+Message-ID: <20100526.200443.232751390.davem@davemloft.net>
+References: <20100526212745.GC24615@basil.fritz.box>
+	<20100526.151014.70204145.davem@davemloft.net>
+	<20100526231512.GD2684@nuttenaction>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andi@firstfloor.org, therbert@google.com, shemminger@vyatta.com,
+	netdev@vger.kernel.org, ycheng@google.com
+To: hagen@jauu.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-fw-4101.amazon.com ([72.21.198.25]:20126 "EHLO
-	smtp-fw-4101.amazon.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753131Ab0E0Bpv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 May 2010 21:45:51 -0400
-Received: from ex-hub-9001.ant.amazon.com (ex-hub-9001.sea19.amazon.com [10.185.10.26])
-	by smtp-in-9003.sea19.amazon.com (8.12.11/8.12.11) with ESMTP id o4R1jnUO006267
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=FAIL)
-	for <netdev@vger.kernel.org>; Thu, 27 May 2010 01:45:49 GMT
-Content-Language: en
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38030
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757566Ab0E0DEe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 May 2010 23:04:34 -0400
+In-Reply-To: <20100526231512.GD2684@nuttenaction>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After running into issues with UDP in multi-MTU network environment, I
-started digging through the code and found somewhat inconsistent behavi=
-or
-(if I read the code right)
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Date: Thu, 27 May 2010 01:15:12 +0200
 
-OMan 7 ip=B9 declares that =B3The  system-wide  default  is  controlled=
-  by  the
-ip_no_pmtu_disc  sysctl  for SOCK_STREAM  sockets,  and  disabled  on a=
-ll
-others.=B2 which led me to think ODF=B9 bit will not be set for UDP pac=
-kets.
-But..
+> How can a domain defined as {process,peer-IP} fair to the 1MB
+> bottleneck link?
 
-The code in ip_output.c seems to do the following,
+You're asking about a network level issue in terms of what can be done
+on a local end-node.
 
-1. If packet size <=3D current PMTU, then set the DF=3D1 and send the p=
-acket
-out.
-2. If packet size > current PMTU, then set DF=3D0 and send the packet o=
-ut
-after fragmentation.
+All an end-node can do is abide by congestion control rules and respond
+to packet drops, as has been going on for decades.
 
-In a network environment where MTU-big and MTU-small co-exist (and have
-router=B9s fragmentation turned off in favor of PMTU discovery), UDP pa=
-ckets
-that are > MTU-small and < MTU-big find the PMTU effectively but UDP pa=
-ckets
-that are > MTU-big get dropped. This looks like inconsistent behavior t=
-o me
-and doesn=B9t seem to match the advertised behavior.
+People have basically (especially in Europe) given up on crazy crap
+like RSVP and other forms of bandwidth limiting and reservation.  They
+just oversubscribe their links, and increase their capacity as traffic
+increases dictate.  It just isn't all that manageable to put people's
+traffic into classes and control what they do on a large scale.
 
-Is there a reason why PMTU support for UDP is somewhat inconsistent ?
+I'm also skeptical about those who say the fight belongs squarely at
+the end nodes.  If you want to control the network traffic of the
+meeting point of your dumbbell, you'll need a machine there doing RED
+or traffic limiting.  End-host schemes simply aren't going to work
+because I can just add more end-hosts to reintroduce the problem.
 
-Is there a reason ODF=B9 bit cannot be set on fragmented packets on UDP
-transmission ? I couldn=B9t find anything in RFC for IP protocol that
-prohibited DF bit on fragmented packets. Did I miss
-something here ?
-
-Would it be reasonable if PMTU discovery is performed (DF bit set +
-appropriate icmp logic) even for locally fragmented packets ? I think t=
-his
-will be a great help for UDP users that don=B9t have PMTU handling logi=
-c in
-the application (most udp applications belong to this category in my
-experience). Thoughts ?
-
-Thanks,
-
-- Pradeep Vincent
-
+The dumbbell situation is independant of the end-node issues, that's
+all I'm really saying.
