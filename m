@@ -1,84 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: boot crash in arp_error_report() (Re: [GIT] Networking)
-Date: Thu, 27 May 2010 21:47:17 +0200
-Message-ID: <1274989637.2446.1.camel@edumazet-laptop>
-References: <20100525.165945.39198480.davem@davemloft.net>
-	 <20100527190652.GA20303@elte.hu>
-	 <alpine.LFD.2.00.1005271213091.3689@i5.linux-foundation.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH net-next-2.6] net: replace hooks in __netif_receive_skb
+ V2
+Date: Thu, 27 May 2010 13:08:22 -0700
+Message-ID: <20100527130822.02cb1661@nehalam>
+References: <20100527180813.GA3714@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ingo Molnar <mingo@elte.hu>, David Miller <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.1005271213091.3689@i5.linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net,
+	eric.dumazet@gmail.com
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:33689 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757842Ab0E0UI3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 May 2010 16:08:29 -0400
+In-Reply-To: <20100527180813.GA3714@psychotron.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 27 mai 2010 =C3=A0 12:27 -0700, Linus Torvalds a =C3=A9crit :
->=20
-> On Thu, 27 May 2010, Ingo Molnar wrote:
-> >=20
-> > FYI, this boot crash in arp_error_report() started triggering in -t=
-ip testing:
-> >=20
-> > [  113.285384] BUG: unable to handle kernel paging request at 6b6b6=
-b87
->=20
-> That's the POISON_FREE signature, with an offset of 28 (0x1c).
->=20
-> And it looks like the whole function got captured in the Code: sequen=
-ce.=20
-> It looks like this:
->=20
->    0:	55                   	push   %ebp
->    1:	89 e5                	mov    %esp,%ebp
->    3:	53                   	push   %ebx
->    4:	0f 1f 44 00 00       	nopl   0x0(%eax,%eax,1)
->    9:	89 d3                	mov    %edx,%ebx
->    b:	89 d0                	mov    %edx,%eax
->    d:	e8 fa fb ff ff       	call   0xfffffc0c		# skb_dst()
->   12:	85 c0                	test   %eax,%eax		# dst
->   14:	74 12                	je     0x28
->   16:	8b 40 40             	mov    0x40(%eax),%eax		# dst->ops
->   19:	85 c0                	test   %eax,%eax
->   1b:	74 0b                	je     0x28
->   1d:*	8b 50 1c             	mov    0x1c(%eax),%edx     <-- trapping =
-instruction
->   20:	85 d2                	test   %edx,%edx
->   22:	74 04                	je     0x28
->   24:	89 d8                	mov    %ebx,%eax
->   26:	ff d2                	call   *%edx			# dst->ops->link_failure()
->   28:	89 d8                	mov    %ebx,%eax
->   2a:	e8 9b 50 fa ff       	call   0xfffa50ca		# skb_free()
->   2f:	5b                   	pop    %ebx
->   30:	5d                   	pop    %ebp
->   31:	c3                   	ret   =20
->=20
-> Where most of it is "dst_link_failure()" being inlined (that last "ca=
-llq"=20
-> is the call to kfree_skb().
->=20
-> Looks like 'dst' points to free'd memory, so when we load a pointer f=
-rom=20
-> it (the dst->ops) field, we get 0x6b6b6b6b, and then when we try to l=
-oad
-> dst->ops->link_failure it oopses.
->=20
-> tl;dr: that
->=20
-> 	struct dst_entry *dst =3D skb_dst(skb);
->=20
-> in dst_link_failure seems to result in a stale skb.
->=20
-> 		Linus
-> --
+On Thu, 27 May 2010 20:08:24 +0200
+Jiri Pirko <jpirko@redhat.com> wrote:
 
-I am looking at this bug report, as I am probably at fault, please give
-me one or two hour ;)
+> changelog:
+> v1->v2
+> 	- writers are locked by rtnl_lock (removed unnecessary spinlock)
+> 	- using call_rcu in unregister
+> 	- nicer macvlan_port_create cleanup
+> 	- struct rx_hanler is made const in funtion parameters
+> 
+> What this patch does is it removes two receive frame hooks (for bridge and for
+> macvlan) from __netif_receive_skb. These are replaced them with a general
+> list of rx_handlers which is iterated thru instead.
+> 
+> Then a network driver (of virtual netdev like macvlan or bridge) can register
+> an rx_handler for needed net device.
+> 
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-Thanks
+I wonder if we really need the chaining.  What about allowing only one
+hook per device (and return -EBUSY)?  That also gets rid of the allocation,
+and the extra overhead.
+
+The handler hook, has to be export GPL, since we really don't want more
+network stack abuse by 3rd parties.
