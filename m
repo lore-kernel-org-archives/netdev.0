@@ -1,78 +1,77 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [REGRESSION,BISECTED] MIPv6 support broken by f4f914b58019f0
-Date: Fri, 28 May 2010 02:39:40 +0900
-Message-ID: <4BFEAE5C.2080703@linux-ipv6.org>
-References: <87zkzmppfg.fsf@small.ssi.corp> <4BFDC14F.6050407@hp.com>
+From: =?utf-8?q?Eric=20B=C3=A9nard?= <eric@eukrea.com>
+Subject: [PATCH] net/fec: fix pm to survive to suspend/resume
+Date: Thu, 27 May 2010 19:53:48 +0200
+Message-ID: <1274982828-13082-1-git-send-email-eric@eukrea.com>
+References: <536177.31761.qm@web51001.mail.re2.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Arnaud Ebalard <arno@natisbad.org>,
-	David Miller <davem@davemloft.net>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Scott Otto <scott.otto@alcatel-lucent.com>,
-	netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Brian Haley <brian.haley@hp.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: s.hauer@pengutronix.de, sshtylyov@mvista.com,
+	linux-arm-kernel@lists.infradead.org, fabioestevam@yahoo.com,
+	netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:46178 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753843Ab0E0Rjm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 13:39:42 -0400
-In-Reply-To: <4BFDC14F.6050407@hp.com>
+Received: from smtpfb2-g21.free.fr ([212.27.42.10]:55439 "EHLO
+	smtpfb2-g21.free.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753843Ab0E0Ryh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 13:54:37 -0400
+Received: from smtp2-g21.free.fr (smtp2-g21.free.fr [212.27.42.2])
+	by smtpfb2-g21.free.fr (Postfix) with ESMTP id C8CC1D1AD62
+	for <netdev@vger.kernel.org>; Thu, 27 May 2010 19:54:32 +0200 (CEST)
+In-Reply-To: <536177.31761.qm@web51001.mail.re2.yahoo.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+* with this patch, if the connection if active before suspend, it
+will be active after resume.
+* before this patch, it was necessary to close the interface and
+reopen it to recover the connection.
 
-Brian Haley wrote:
-> On 05/26/2010 01:01 PM, Arnaud Ebalard wrote:
->> Hi,
->>
->> I just updated my laptop's kernel to 2.6.34 (previously running .33 and
->> configured to act as an IPsec/IKE-protected MIPv6 Mobile Node using
->> racoon and umip): after rebooting on the new kernel, the transport mode
->> SA protecting MIPv6 signaling traffic are missing.
->>
->> I bisected the issue down to f4f914b58019f0e50d521bbbadfaee260d766f95
->> (net: ipv6 bind to device issue) which was added after 2.6.34-rc5: 
->>
->> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
->> index c2438e8..05ebd78 100644
->> --- a/net/ipv6/route.c
->> +++ b/net/ipv6/route.c
->> @@ -815,7 +815,7 @@ struct dst_entry * ip6_route_output(struct net *net, struct sock *sk,
->>  {
->>         int flags = 0;
->>  
->> -       if (rt6_need_strict(&fl->fl6_dst))
->> +       if (fl->oif || rt6_need_strict(&fl->fl6_dst))
->>                 flags |= RT6_LOOKUP_F_IFACE;
-> 
-> Can you see if fl->oif is at least a sane value here?  Maybe there's some
-> partially un-initialized flowi getting passed-in, a quick source code check
-> didn't find anything obvious.
-> 
-> The other thought is that it's the tunnel code calling it, as it's going
-> to set 'oif' (actually it caches a whole flowi) from the tunnel parms ifindex/link
-> value.  It could have been setting it forever, but ip6_route_output() just
-> never enforced it until now.
+Signed-off-by: Eric B=C3=A9nard <eric@eukrea.com>
+Cc: s.hauer@pengutronix.de
+Cc: sshtylyov@mvista.com
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: fabioestevam@yahoo.com
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/fec.c |   10 +++++++---
+ 1 files changed, 7 insertions(+), 3 deletions(-)
 
-Well, I'd like to rethink the original bug report / fix.
-There are several factors:
+diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+index 9b4e8f7..1521972 100644
+--- a/drivers/net/fec.c
++++ b/drivers/net/fec.c
+@@ -1974,10 +1974,11 @@ fec_suspend(struct platform_device *dev, pm_mes=
+sage_t state)
+ 	struct fec_enet_private *fep;
+=20
+ 	if (ndev) {
+-		fep =3D netdev_priv(ndev);
+ 		if (netif_running(ndev)) {
++			fep =3D netdev_priv(ndev);
++			netif_stop_queue(ndev);
+ 			netif_device_detach(ndev);
+-			fec_stop(ndev);
++			clk_disable(fep->clk);
+ 		}
+ 	}
+ 	return 0;
+@@ -1987,11 +1988,14 @@ static int
+ fec_resume(struct platform_device *dev)
+ {
+ 	struct net_device *ndev =3D platform_get_drvdata(dev);
++	struct fec_enet_private *fep;
+=20
+ 	if (ndev) {
+ 		if (netif_running(ndev)) {
+-			fec_enet_init(ndev, 0);
++			fep =3D netdev_priv(ndev);
++			clk_enable(fep->clk);
+ 			netif_device_attach(ndev);
++			netif_start_queue(ndev);
+ 		}
+ 	}
+ 	return 0;
+--=20
+1.6.3.3
 
-1) CONFIG_IPV6_ROUTER_PREF?
-2) Is it host, or router?
-3) next-hop reachability
-
-If CONFIG_IPV6_ROUTER_PREF is enabled and the node is host,
-and one nexthop has better reachability, the route is always
-preferred even if upper layer specified specific interface.
-If we do not like this behavior, we should change
-rt6_score_route() not to return -1 something like this:
-
-         n = rt6_check_neigh(rt);
-         if (!n && (strict & RT6_LOOKUP_F_REACHABLE) && !oif)
-                 return -1;
-
-instead of ip6_route_output().
-
---yoshfuji
