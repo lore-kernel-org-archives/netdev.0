@@ -1,46 +1,63 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next-2.6] net: replace hooks in __netif_receive_skb
- V2
-Date: Thu, 27 May 2010 13:08:22 -0700
-Message-ID: <20100527130822.02cb1661@nehalam>
-References: <20100527180813.GA3714@psychotron.redhat.com>
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Subject: Re: Question about netns & AF_UNIX
+Date: Thu, 27 May 2010 22:16:28 +0200
+Message-ID: <4BFED31C.2070702@free.fr>
+References: <AANLkTikBuXfzS-UIL7bDMvfpL5lx9gMqHTpGg-jrm5Zv@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net,
-	eric.dumazet@gmail.com
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
+To: =?ISO-8859-1?Q?Mart=EDn_Ferrari?= <martin.ferrari@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:33689 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757842Ab0E0UI3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 May 2010 16:08:29 -0400
-In-Reply-To: <20100527180813.GA3714@psychotron.redhat.com>
+Received: from mtagate6.uk.ibm.com ([194.196.100.166]:45555 "EHLO
+	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754155Ab0E0UQk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 16:16:40 -0400
+Received: from d06nrmr1806.portsmouth.uk.ibm.com (d06nrmr1806.portsmouth.uk.ibm.com [9.149.39.193])
+	by mtagate6.uk.ibm.com (8.13.1/8.13.1) with ESMTP id o4RKGcQD002369
+	for <netdev@vger.kernel.org>; Thu, 27 May 2010 20:16:38 GMT
+Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
+	by d06nrmr1806.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o4RKGcZo1220666
+	for <netdev@vger.kernel.org>; Thu, 27 May 2010 21:16:38 +0100
+Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av01.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id o4RKGcwY029847
+	for <netdev@vger.kernel.org>; Thu, 27 May 2010 21:16:38 +0100
+In-Reply-To: <AANLkTikBuXfzS-UIL7bDMvfpL5lx9gMqHTpGg-jrm5Zv@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 27 May 2010 20:08:24 +0200
-Jiri Pirko <jpirko@redhat.com> wrote:
+On 05/27/2010 04:38 PM, Mart=EDn Ferrari wrote:
+> Hi, again a question about netns...
+>
+> I seem to recall being able to use AF_UNIX sockets across network nam=
+e
+> spaces, but I cannot reproduce that with a current kernel. Probably m=
+y
+> test was fubar (I've lost the script).
+>   =20
 
-> changelog:
-> v1->v2
-> 	- writers are locked by rtnl_lock (removed unnecessary spinlock)
-> 	- using call_rcu in unregister
-> 	- nicer macvlan_port_create cleanup
-> 	- struct rx_hanler is made const in funtion parameters
-> 
-> What this patch does is it removes two receive frame hooks (for bridge and for
-> macvlan) from __netif_receive_skb. These are replaced them with a general
-> list of rx_handlers which is iterated thru instead.
-> 
-> Then a network driver (of virtual netdev like macvlan or bridge) can register
-> an rx_handler for needed net device.
-> 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+No, that was never the case. Maybe you tested with a patched kernel=20
+allowing to cross-namespace connect.
+> In any case: is a design decision to forbid this, even when the file
+> system is shared? I found some discussions from 2008, but I don't see
+> an agreement being reached...
+>   =20
 
-I wonder if we really need the chaining.  What about allowing only one
-hook per device (and return -EBUSY)?  That also gets rid of the allocation,
-and the extra overhead.
+There was a discussion about that but with a simple hack removing the=20
+test against the namespace when connecting.
+The problem is nobody investigated that against credentials in ancillar=
+y=20
+messages, or other particularity of the af_unix socket vs the namespace=
+s.
 
-The handler hook, has to be export GPL, since we really don't want more
-network stack abuse by 3rd parties.
+> I also wonder if filedescriptor passing thru ancilliary messages will
+> work (that is, with unix sockets that I've created before the netns
+> change).
+>   =20
+
+Yes.
+
+Thanks
+   -- Daniel
