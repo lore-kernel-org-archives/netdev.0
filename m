@@ -1,61 +1,34 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 1/3] cgroups: Add an API to attach a task to current
-	task's cgroup
-Date: Thu, 27 May 2010 12:16:29 +0300
-Message-ID: <20100527091629.GB6308@redhat.com>
-References: <1274227488.2370.107.camel@w-sridhar.beaverton.ibm.com> <AANLkTinsrFoLVKDFM5pcKcL_6MvAzhR6IzbNmWKh3BDh@mail.gmail.com> <20100525165334.GA27307@redhat.com> <AANLkTilawCLv5_XlStsFdOdLh-dmlIR3aUTyrVS-JF_s@mail.gmail.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: ipv6: Add GSO support on forwarding path
+Date: Thu, 27 May 2010 10:22:46 +0100
+Message-ID: <20100527092246.GB15298@linux-mips.org>
+References: <20100526102758.GA25914@gondor.apana.org.au>
+ <20100526152019.GA11985@linux-mips.org>
+ <20100526221601.GA3369@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Sridhar Samudrala <samudrala.sridhar@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	containers@lists.linux-foundation.org, lizf@cn.fujitsu.com,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Ben Blum <bblum@andrew.cmu.edu>,
-	KAMEZAWA Hiroyuki <kamezawa.hioryu@jp.fujitsu.com>
-To: Paul Menage <menage@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45429 "EHLO mx1.redhat.com"
+Received: from h5.dl5rb.org.uk ([81.2.74.5]:50372 "EHLO h5.dl5rb.org.uk"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751946Ab0E0JVS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 May 2010 05:21:18 -0400
+	id S1755428Ab0E0JXB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 May 2010 05:23:01 -0400
 Content-Disposition: inline
-In-Reply-To: <AANLkTilawCLv5_XlStsFdOdLh-dmlIR3aUTyrVS-JF_s@mail.gmail.com>
+In-Reply-To: <20100526221601.GA3369@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 25, 2010 at 11:34:12AM -0700, Paul Menage wrote:
-> On Tue, May 25, 2010 at 9:53 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> > On Thu, May 20, 2010 at 03:22:15PM -0700, Paul Menage wrote:
-> >> On Tue, May 18, 2010 at 5:04 PM, Sridhar Samudrala
-> >> <samudrala.sridhar@gmail.com> wrote:
-> >> > Add a new kernel API to attach a task to current task's cgroup
-> >> > in all the active hierarchies.
-> >> >
-> >> > Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-> >>
-> >> Reviewed-by: Paul Menage <menage@google.com>
-> >>
-> >> It would be more efficient to just attach directly to current->cgroups
-> >> rather than potentially creating/destroying one css_set for each
-> >> hierarchy until we've completely converged on current->cgroups - but
-> >> that would require a bunch of refactoring of the guts of
-> >> cgroup_attach_task() to ensure that the right can_attach()/attach()
-> >> callbacks are made. That doesn't really seem worthwhile right now for
-> >> the initial use, that I imagine isn't going to be
-> >> performance-sensitive.
-> >>
-> >> Paul
-> >
-> > Is this patch suitable for 2.6.35?
-> 
-> Should be OK, yes.
-> 
-> Paul
+On Thu, May 27, 2010 at 08:16:01AM +1000, Herbert Xu wrote:
 
-So I'll add your Acked-by tag then, and merge through the vhost tree
-together with the patch that uses this.
+> > I tested this on top of a 2.6.34 release kernel and asked the user
+> > experiencing the problem to re-test and the problem still persists.
+> 
+> OK, it looks like my patch doesn't work because the transport
+> header isn't set on the forwarding path.  Here's an updated patch:
 
--- 
-MST
+Still no improvment.  I've moved all the collected tcpdumps to
+ftp://www.linux-ax25.org/pub/traces/ including a README file describing
+contents.
+
+  Ralf
