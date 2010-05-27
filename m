@@ -1,39 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: boot crash in arp_error_report()
-Date: Thu, 27 May 2010 16:10:11 -0700 (PDT)
-Message-ID: <20100527.161011.104042698.davem@davemloft.net>
-References: <alpine.LFD.2.00.1005271213091.3689@i5.linux-foundation.org>
-	<1274989637.2446.1.camel@edumazet-laptop>
-	<1274991504.2446.13.camel@edumazet-laptop>
+Subject: Re: [GIT PULL net-2.6] vhost-net: error handling fixes
+Date: Thu, 27 May 2010 16:13:36 -0700 (PDT)
+Message-ID: <20100527.161336.189713948.davem@davemloft.net>
+References: <20100527115714.GA7899@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, mingo@elte.hu, tglx@linutronix.de,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	krkumar2@in.ibm.com
+To: mst@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1274991504.2446.13.camel@edumazet-laptop>
+In-Reply-To: <20100527115714.GA7899@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 27 May 2010 22:18:24 +0200
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 27 May 2010 14:57:14 +0300
 
-> [PATCH] net: fix __neigh_event_send()
+> David,
+> The following tree includes fixes dealing with error handling
+> in vhost-net. It is on top of net-2.6.
+> Please merge it for 2.6.35.
+> Thanks!
 > 
-> commit 7fee226ad23 (net: add a noref bit on skb dst) missed one spot
-> where an skb is enqueued, with a possibly not refcounted dst entry.
+> The following changes since commit 8a74ad60a546b13bd1096b2a61a7a5c6fd9ae17c:
 > 
-> __neigh_event_send() inserts skb into arp_queue, so we must make sure
-> dst entry is refcounted, or dst entry can be freed by garbage collector
-> after caller exits from rcu protected section.
+>   net: fix lock_sock_bh/unlock_sock_bh (2010-05-27 00:30:53 -0700)
 > 
-> Reported-by: Ingo Molnar <mingo@elte.hu>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net
 
-Applied, thanks Eric.
-
-Ingo can we get a confirmation that this fixes the bootup crash?
-
-Thanks!
+Pulled, thanks Michael.
