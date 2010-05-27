@@ -1,62 +1,88 @@
-From: Sarveshwar Bandi <sarveshwarb@serverengines.com>
-Subject: Re: [patch 2/2] be2net: remove superfluous externs
-Date: Thu, 27 May 2010 12:02:54 +0530
-Message-ID: <20100527063252.GB12380@serverengines.com>
-References: <20100526144739.GM22515@bicker>
-Reply-To: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [RFC] IFLA_PORT_* iproute2 cmd line
+Date: Thu, 27 May 2010 09:00:29 +0200
+Message-ID: <201005270900.29776.arnd@arndb.de>
+References: <C8228316.35508%scofeldm@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sathya Perla <sathyap@serverengines.com>,
-	Subbu Seetharaman <subbus@serverengines.com>,
-	Ajit Khaparde <ajitk@serverengines.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <error27@gmail.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Chris Wright <chrisw@redhat.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Stefan Berger <stefanb@us.ibm.com>,
+	Dirk Herrendoerfer <d.herrendoerfer@de.ibm.com>,
+	Vivek Kashyap <vivk@us.ibm.com>
+To: Scott Feldman <scofeldm@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:54978 "EHLO
-	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751039Ab0E0Gcw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 02:32:52 -0400
-Content-Disposition: inline
-In-Reply-To: <20100526144739.GM22515@bicker>
+Received: from moutng.kundenserver.de ([212.227.17.10]:49736 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750967Ab0E0HAu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 03:00:50 -0400
+In-Reply-To: <C8228316.35508%scofeldm@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks.
+On Wednesday 26 May 2010, Scott Feldman wrote:
+> On 5/26/10 5:38 AM, "Arnd Bergmann" <arnd@arndb.de> wrote:
+> 
+> How does this strike you?
+> 
+>   Usage: ip link add link DEV [ name ] NAME
+>                      [ txqueuelen PACKETS ]
+>                      [ address LLADDR ]
+>                      [ broadcast LLADDR ]
+>                      [ mtu MTU ]
+>                      type TYPE [ ARGS ]
+>          ip link delete DEV type TYPE [ ARGS ]
+> 
+>          ip link set DEVICE [ { up | down } ]
+>                             [ arp { on | off } ]
+>                             [ dynamic { on | off } ]
+>                             [ multicast { on | off } ]
+>                             [ allmulticast { on | off } ]
+>                             [ promisc { on | off } ]
+>                             [ trailers { on | off } ]
+>                             [ txqueuelen PACKETS ]
+>                             [ name NEWNAME ]
+>                             [ address LLADDR ]
+>                             [ broadcast LLADDR ]
+>                             [ mtu MTU ]
+>                             [ netns PID ]
+>                             [ alias NAME ]
+> +                           [ virtualport MODE {PROFILE|VSI} ]
+>                             [ vf NUM [ mac LLADDR ]
+>                                      [ vlan VLANID [ qos VLAN-QOS ] ]
+> -                                    [ rate TXRATE ] ]
+> +                                    [ rate TXRATE ]
+> +                                    [ virtualport MODE {PROFILE|VSI} ] ]
+>          ip link show [ DEVICE ]
+> 
+>   TYPE := { vlan | veth | vcan | dummy | ifb | macvlan | can }
+> +
+> + MODE := { associate | preassociate | preassociaterr | disassociate }
+> +
+> + PROFILE := port-profile PORT-PROFILE
+> +            [ instance-uuid INSTANCE-UUID ]
+> +            [ host-uuid HOST-UUID ]
+> + 
+> + VSI := vsi managerid MGR typeid VTID typeidversion VER
+> +        [ instance-uuid INSTANCE-UUID ]
 
-Acked-by: Sarveshwar Bandi <sarveshwarb@serverengines.com>
-On 26/05/10 16:47 +0200, Dan Carpenter wrote:
-> This fixes some sparse warnings:
-> drivers/net/benet/be_cmds.c:1503:12: warning: function
-> 	'be_cmd_enable_magic_wol' with external linkage has definition
-> drivers/net/benet/be_cmds.c:1668:12: warning: function
-> 	'be_cmd_get_seeprom_data' with external linkage has definition
+Right, exactly what I was thinking of. I would probably use
+some shorter keywords (virtual-port -> port, port-profile -> profile,
+instance-uuid -> instance, host-uuid -> host), but I really
+don't have a strong opionion on that, so I'f fine with
+whatever you and others come up with in that regard.
+
+> > The more interesting question is how to do this when we
+> > talk to lldpad. One idea was to use the same protocol
+> > but to direct the message to a specific pid (that of lldpad).
+> > That would require adding an option like '-p PID' to ip
+> > that lets us change who we talk to.
 > 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
-> 
-> diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-> index c911bfb..f9c0d4d 100644
-> --- a/drivers/net/benet/be_cmds.c
-> +++ b/drivers/net/benet/be_cmds.c
-> @@ -1497,7 +1500,7 @@ err:
->  	return status;
->  }
->  
-> -extern int be_cmd_enable_magic_wol(struct be_adapter *adapter, u8 *mac,
-> +int be_cmd_enable_magic_wol(struct be_adapter *adapter, u8 *mac,
->  				struct be_dma_mem *nonemb_cmd)
->  {
->  	struct be_mcc_wrb *wrb;
-> @@ -1662,7 +1665,7 @@ err:
->  	return status;
->  }
->  
-> -extern int be_cmd_get_seeprom_data(struct be_adapter *adapter,
-> +int be_cmd_get_seeprom_data(struct be_adapter *adapter,
->  				struct be_dma_mem *nonemb_cmd)
->  {
->  	struct be_mcc_wrb *wrb;
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Let me get the user-to-kernel part working to establish the cmd line and you
+> can follow up with alternative addressing schemes.
+
+ok.
+
+	Arnd
