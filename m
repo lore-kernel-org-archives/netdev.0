@@ -1,420 +1,528 @@
-From: Flavio Leitner <fbl@sysclose.org>
-Subject: Re: [v5 Patch 1/3] netpoll: add generic support for bridge and
- bonding devices
-Date: Thu, 27 May 2010 15:05:45 -0300
-Message-ID: <20100527180545.GA2345@sysclose.org>
-References: <20100505081514.5157.83783.sendpatchset@localhost.localdomain>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH net-next-2.6] net: replace hooks in __netif_receive_skb V2
+Date: Thu, 27 May 2010 20:08:24 +0200
+Message-ID: <20100527180813.GA3714@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Matt Mackall <mpm@selenic.com>,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	Andy Gospodarek <gospo@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Jeff Moyer <jmoyer@redhat.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	bonding-devel@lists.sourceforge.net,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	David Miller <davem@davemloft.net>
-To: Amerigo Wang <amwang@redhat.com>
+Cc: davem@davemloft.net, shemminger@vyatta.com, kaber@trash.net,
+	eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caiajhbdcbbj.dreamhost.com ([208.97.132.119]:58335 "EHLO
-	homiemail-a20.g.dreamhost.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754493Ab0E0SFu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 14:05:50 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:18524 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753897Ab0E0SId (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 May 2010 14:08:33 -0400
 Content-Disposition: inline
-In-Reply-To: <20100505081514.5157.83783.sendpatchset@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+changelog:
+v1->v2
+	- writers are locked by rtnl_lock (removed unnecessary spinlock)
+	- using call_rcu in unregister
+	- nicer macvlan_port_create cleanup
+	- struct rx_hanler is made const in funtion parameters
 
-Hi guys!
+What this patch does is it removes two receive frame hooks (for bridge and for
+macvlan) from __netif_receive_skb. These are replaced them with a general
+list of rx_handlers which is iterated thru instead.
 
-I finally could test this to see if an old problem reported on bugzilla[1] was
-fixed now, but unfortunately it is still there.
+Then a network driver (of virtual netdev like macvlan or bridge) can register
+an rx_handler for needed net device.
 
-The ticket is private I guess, but basically the problem happens when bonding
-driver tries to print something after it had taken the write_lock (monitor
-functions, enslave/de-enslave), so the printk() will pass through netpoll, then
-on bonding again which no matter what mode you use, it will try to read_lock()
-the lock again. The result is a deadlock and the entire system hangs.
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ drivers/net/macvlan.c      |   27 ++++++--
+ include/linux/if_bridge.h  |    2 -
+ include/linux/if_macvlan.h |    4 -
+ include/linux/netdevice.h  |   18 +++++
+ net/bridge/br.c            |    2 -
+ net/bridge/br_if.c         |   14 ++++
+ net/bridge/br_input.c      |   12 +++-
+ net/bridge/br_private.h    |    3 +-
+ net/core/dev.c             |  160 ++++++++++++++++++++++++++------------------
+ 9 files changed, 160 insertions(+), 82 deletions(-)
 
-I manage to get a fresh backtrace with mode 1, see below:
-
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 87e8d4c..f6b7924 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -145,15 +145,16 @@ static void macvlan_broadcast(struct sk_buff *skb,
+ }
  
-[   93.167079] Call Trace:
-[   93.167079]  [<ffffffff81034cf9>] warn_slowpath_common+0x77/0x8f
-[   93.167079]  [<ffffffff81034d5e>] warn_slowpath_fmt+0x3c/0x3e
-[   93.167079]  [<ffffffff81366aef>] ? _raw_read_trylock+0x11/0x4b
-[   93.167079]  [<ffffffffa02a2c42>] ? bond_start_xmit+0x12b/0x401 [bonding]
--> read_lock fails
-[   93.167079]  [<ffffffffa02a2c9f>] bond_start_xmit+0x188/0x401 [bonding]
-[   93.167079]  [<ffffffff81055b37>] ? trace_hardirqs_off+0xd/0xf
-[   93.167079]  [<ffffffff812dfdb9>] netpoll_send_skb+0xbd/0x1f3
-[   93.167079]  [<ffffffff812e00ed>] netpoll_send_udp+0x1fe/0x20d
-[   93.167079]  [<ffffffffa02c017c>] write_msg+0x89/0xcd [netconsole]
-[   93.167079]  [<ffffffff81034e65>] __call_console_drivers+0x67/0x79
-[   93.167079]  [<ffffffff81034ed0>] _call_console_drivers+0x59/0x5d
-[   93.167079]  [<ffffffff810352d3>] release_console_sem+0x121/0x1d7
-[   93.167079]  [<ffffffff8103590a>] vprintk+0x35d/0x393
-[   93.167079]  [<ffffffff8103f947>] ? add_timer+0x17/0x19
-[   93.167079]  [<ffffffff81046ddf>] ? queue_delayed_work_on+0xa2/0xa9
-[   93.167079]  [<ffffffff81363bb8>] printk+0x3c/0x44
-[   93.167079]  [<ffffffffa02a3b17>] bond_select_active_slave+0x105/0x109 [bonding] 
--> write_locked
-[   93.167079]  [<ffffffffa02a4798>] bond_mii_monitor+0x479/0x4ed [bonding]
-[   93.167079]  [<ffffffff81046009>] worker_thread+0x1ef/0x2e2
-
-In this case, the message should be 
-    "bonding: bond0: making interface eth0 the new active one"
-
-I did the following patch to discard the packet if it was IN_NETPOLL
-and the read_lock() fails, so I could go ahead testing it:
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 5e12462..a3b8bad 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4258,8 +4258,19 @@ static int bond_xmit_activebackup(struct sk_buff *skb, struct net_device *bond_d
- 	struct bonding *bond = netdev_priv(bond_dev);
- 	int res = 1;
+ /* called under rcu_read_lock() from netif_receive_skb */
+-static struct sk_buff *macvlan_handle_frame(struct macvlan_port *port,
+-					    struct sk_buff *skb)
++static struct sk_buff *macvlan_handle_frame(struct sk_buff *skb)
+ {
++	struct macvlan_port *port;
+ 	const struct ethhdr *eth = eth_hdr(skb);
+ 	const struct macvlan_dev *vlan;
+ 	const struct macvlan_dev *src;
+ 	struct net_device *dev;
+ 	unsigned int len;
  
--	read_lock(&bond->lock);
--	read_lock(&bond->curr_slave_lock);
-+	if (read_trylock(&bond->lock) == 0 && 
-+		(bond_dev->flags & IFF_IN_NETPOLL)) {
-+			dev_kfree_skb(skb);
-+			return NETDEV_TX_OK;
-+	}
++	port = rcu_dereference(skb->dev->macvlan_port);
+ 	if (is_multicast_ether_addr(eth->h_dest)) {
+ 		src = macvlan_hash_lookup(port, eth->h_source);
+ 		if (!src)
+@@ -511,10 +512,16 @@ static void macvlan_setup(struct net_device *dev)
+ 	dev->tx_queue_len	= 0;
+ }
+ 
++static const struct netdev_rx_handler macvlan_rx_handler = {
++	.order		= NETDEV_RX_HANDLER_ORDER_MACVLAN,
++	.callback	= macvlan_handle_frame,
++};
 +
-+	if (read_trylock(&bond->curr_slave_lock) == 0 && 
-+		(bond_dev->flags & IFF_IN_NETPOLL)) {
-+			read_unlock(&bond->lock);
-+			dev_kfree_skb(skb);
-+			return NETDEV_TX_OK;
-+	}
-+			
+ static int macvlan_port_create(struct net_device *dev)
+ {
+ 	struct macvlan_port *port;
+ 	unsigned int i;
++	int err;
  
- 	if (!BOND_IS_OK(bond))
- 		goto out;
-
-
-and I found another problem.  The function netpoll_send_skb() checks
-if the npinfo's queue length is zero and if it's not, it will queue
-the packet to make sure it's in order and then schedule the thread
-to run. Later, the thread wakes up running queue_process() which disables
-interrupts before calling ndo_start_xmit().  However, dev_queue_xmit()
-uses rcu_*_bh() and before return, it will enable the interrupts again,
-spitting this:
-
-------------[ cut here ]------------
-WARNING: at kernel/softirq.c:143 local_bh_enable+0x3c/0x86()
-Hardware name: Precision WorkStation 490
-Modules linked in: netconsole bonding sunrpc ip6t_REJECT xt_tcpudp nf_conntrack_ipv6]
-Pid: 17, comm: events/2 Not tainted 2.6.34-04700-gd938a70 #21
-Call Trace:
- [<ffffffff810381d6>] warn_slowpath_common+0x77/0x8f
- [<ffffffff810381fd>] warn_slowpath_null+0xf/0x11
- [<ffffffff8103d691>] local_bh_enable+0x3c/0x86
- [<ffffffff812e4d85>] dev_queue_xmit+0x462/0x493
- [<ffffffffa018805f>] bond_dev_queue_xmit+0x1bd/0x1e3 [bonding]
- [<ffffffffa01881dd>] bond_start_xmit+0x158/0x37b [bonding]
--> interrupts disabled
- [<ffffffff812f3fca>] queue_process+0x9d/0xf9
- [<ffffffff8104d022>] worker_thread+0x19d/0x224
- [<ffffffff812f3f2d>] ? queue_process+0x0/0xf9
- [<ffffffff81050819>] ? autoremove_wake_function+0x0/0x34
- [<ffffffff8104ce85>] ? worker_thread+0x0/0x224
- [<ffffffff8105040b>] kthread+0x7a/0x82
- [<ffffffff810036d4>] kernel_thread_helper+0x4/0x10
- [<ffffffff81050391>] ? kthread+0x0/0x82
- [<ffffffff810036d0>] ? kernel_thread_helper+0x0/0x10
----[ end trace 74e3904503fdb632 ]---
-
-kernel/softirq.c:
-141 static inline void _local_bh_enable_ip(unsigned long ip)
-142 {
-143         WARN_ON_ONCE(in_irq() || irqs_disabled());
-144 #ifdef CONFIG_TRACE_IRQFLAGS
-145         local_irq_disable();
-146 #endif
-147         /*
-148          * Are softirqs going to be turned on now:
-149          */
-
-
-The git is updated up to:
-  d938a70 be2net: increase POST timeout for EEH recovery
-
-Two slave interfaces, bonding mode 1, netconsole over bond0.
-
-[1] https://bugzilla.redhat.com/show_bug.cgi?id=248374#c5
-
-
-regards,
-fbl
-
-
-On Wed, May 05, 2010 at 04:11:15AM -0400, Amerigo Wang wrote:
-> V5:
-> Fix coding style problems pointed by David.
-> 
-> V4:
-> Use "unlikely" to mark netpoll call path, suggested by Stephen.
-> Handle NETDEV_GOING_DOWN case.
-> 
-> V3:
-> Update to latest Linus' tree.
-> Fix deadlocks when releasing slaves of bonding devices.
-> Thanks to Andy.
-> 
-> V2:
-> Fix some bugs of previous version.
-> Remove ->netpoll_setup and ->netpoll_xmit, they are not necessary.
-> Don't poll all underlying devices, poll ->real_dev in struct netpoll.
-> Thanks to David for suggesting above.
-> 
-> ------------>
-> 
-> This whole patchset is for adding netpoll support to bridge and bonding
-> devices. I already tested it for bridge, bonding, bridge over bonding,
-> and bonding over bridge. It looks fine now.
-> 
-> 
-> To make bridge and bonding support netpoll, we need to adjust
-> some netpoll generic code. This patch does the following things:
-> 
-> 1) introduce two new priv_flags for struct net_device:
->    IFF_IN_NETPOLL which identifies we are processing a netpoll;
->    IFF_DISABLE_NETPOLL is used to disable netpoll support for a device
->    at run-time;
-> 
-> 2) introduce one new method for netdev_ops:
->    ->ndo_netpoll_cleanup() is used to clean up netpoll when a device is
->      removed.
-> 
-> 3) introduce netpoll_poll_dev() which takes a struct net_device * parameter;
->    export netpoll_send_skb() and netpoll_poll_dev() which will be used later;
-> 
-> 4) hide a pointer to struct netpoll in struct netpoll_info, ditto.
-> 
-> 5) introduce ->real_dev for struct netpoll.
-> 
-> 6) introduce a new status NETDEV_BONDING_DESLAE, which is used to disable
->    netconsole before releasing a slave, to avoid deadlocks.
-> 
-> Cc: David Miller <davem@davemloft.net>
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Signed-off-by: WANG Cong <amwang@redhat.com>
-> 
-> ---
-> 
-> Index: linux-2.6/include/linux/if.h
-> ===================================================================
-> --- linux-2.6.orig/include/linux/if.h
-> +++ linux-2.6/include/linux/if.h
-> @@ -71,6 +71,8 @@
->  					 * release skb->dst
->  					 */
->  #define IFF_DONT_BRIDGE 0x800		/* disallow bridging this ether dev */
-> +#define IFF_IN_NETPOLL	0x1000		/* whether we are processing netpoll */
-> +#define IFF_DISABLE_NETPOLL	0x2000	/* disable netpoll at run-time */
->  
->  #define IF_GET_IFACE	0x0001		/* for querying only */
->  #define IF_GET_PROTO	0x0002
-> Index: linux-2.6/include/linux/netdevice.h
-> ===================================================================
-> --- linux-2.6.orig/include/linux/netdevice.h
-> +++ linux-2.6/include/linux/netdevice.h
-> @@ -667,6 +667,7 @@ struct net_device_ops {
->  						        unsigned short vid);
->  #ifdef CONFIG_NET_POLL_CONTROLLER
->  	void                    (*ndo_poll_controller)(struct net_device *dev);
-> +	void			(*ndo_netpoll_cleanup)(struct net_device *dev);
->  #endif
->  	int			(*ndo_set_vf_mac)(struct net_device *dev,
->  						  int queue, u8 *mac);
-> Index: linux-2.6/include/linux/netpoll.h
-> ===================================================================
-> --- linux-2.6.orig/include/linux/netpoll.h
-> +++ linux-2.6/include/linux/netpoll.h
-> @@ -14,6 +14,7 @@
->  
->  struct netpoll {
->  	struct net_device *dev;
-> +	struct net_device *real_dev;
->  	char dev_name[IFNAMSIZ];
->  	const char *name;
->  	void (*rx_hook)(struct netpoll *, int, char *, int);
-> @@ -36,8 +37,11 @@ struct netpoll_info {
->  	struct sk_buff_head txq;
->  
->  	struct delayed_work tx_work;
-> +
-> +	struct netpoll *netpoll;
->  };
->  
-> +void netpoll_poll_dev(struct net_device *dev);
->  void netpoll_poll(struct netpoll *np);
->  void netpoll_send_udp(struct netpoll *np, const char *msg, int len);
->  void netpoll_print_options(struct netpoll *np);
-> @@ -47,6 +51,7 @@ int netpoll_trap(void);
->  void netpoll_set_trap(int trap);
->  void netpoll_cleanup(struct netpoll *np);
->  int __netpoll_rx(struct sk_buff *skb);
-> +void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb);
->  
->  
->  #ifdef CONFIG_NETPOLL
-> Index: linux-2.6/net/core/netpoll.c
-> ===================================================================
-> --- linux-2.6.orig/net/core/netpoll.c
-> +++ linux-2.6/net/core/netpoll.c
-> @@ -179,9 +179,8 @@ static void service_arp_queue(struct net
->  	}
->  }
->  
-> -void netpoll_poll(struct netpoll *np)
-> +void netpoll_poll_dev(struct net_device *dev)
->  {
-> -	struct net_device *dev = np->dev;
->  	const struct net_device_ops *ops;
->  
->  	if (!dev || !netif_running(dev))
-> @@ -201,6 +200,11 @@ void netpoll_poll(struct netpoll *np)
->  	zap_completion_queue();
->  }
->  
-> +void netpoll_poll(struct netpoll *np)
-> +{
-> +	netpoll_poll_dev(np->dev);
-> +}
-> +
->  static void refill_skbs(void)
->  {
->  	struct sk_buff *skb;
-> @@ -282,7 +286,7 @@ static int netpoll_owner_active(struct n
->  	return 0;
->  }
->  
-> -static void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
-> +void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
->  {
->  	int status = NETDEV_TX_BUSY;
->  	unsigned long tries;
-> @@ -308,7 +312,9 @@ static void netpoll_send_skb(struct netp
->  		     tries > 0; --tries) {
->  			if (__netif_tx_trylock(txq)) {
->  				if (!netif_tx_queue_stopped(txq)) {
-> +					dev->priv_flags |= IFF_IN_NETPOLL;
->  					status = ops->ndo_start_xmit(skb, dev);
-> +					dev->priv_flags &= ~IFF_IN_NETPOLL;
->  					if (status == NETDEV_TX_OK)
->  						txq_trans_update(txq);
->  				}
-> @@ -756,7 +762,10 @@ int netpoll_setup(struct netpoll *np)
->  		atomic_inc(&npinfo->refcnt);
->  	}
->  
-> -	if (!ndev->netdev_ops->ndo_poll_controller) {
-> +	npinfo->netpoll = np;
-> +
-> +	if ((ndev->priv_flags & IFF_DISABLE_NETPOLL) ||
-> +	    !ndev->netdev_ops->ndo_poll_controller) {
->  		printk(KERN_ERR "%s: %s doesn't support polling, aborting.\n",
->  		       np->name, np->dev_name);
->  		err = -ENOTSUPP;
-> @@ -878,6 +887,7 @@ void netpoll_cleanup(struct netpoll *np)
->  			}
->  
->  			if (atomic_dec_and_test(&npinfo->refcnt)) {
-> +				const struct net_device_ops *ops;
->  				skb_queue_purge(&npinfo->arp_tx);
->  				skb_queue_purge(&npinfo->txq);
->  				cancel_rearming_delayed_work(&npinfo->tx_work);
-> @@ -885,7 +895,11 @@ void netpoll_cleanup(struct netpoll *np)
->  				/* clean after last, unfinished work */
->  				__skb_queue_purge(&npinfo->txq);
->  				kfree(npinfo);
-> -				np->dev->npinfo = NULL;
-> +				ops = np->dev->netdev_ops;
-> +				if (ops->ndo_netpoll_cleanup)
-> +					ops->ndo_netpoll_cleanup(np->dev);
-> +				else
-> +					np->dev->npinfo = NULL;
->  			}
->  		}
->  
-> @@ -908,6 +922,7 @@ void netpoll_set_trap(int trap)
->  		atomic_dec(&trapped);
->  }
->  
-> +EXPORT_SYMBOL(netpoll_send_skb);
->  EXPORT_SYMBOL(netpoll_set_trap);
->  EXPORT_SYMBOL(netpoll_trap);
->  EXPORT_SYMBOL(netpoll_print_options);
-> @@ -915,4 +930,5 @@ EXPORT_SYMBOL(netpoll_parse_options);
->  EXPORT_SYMBOL(netpoll_setup);
->  EXPORT_SYMBOL(netpoll_cleanup);
->  EXPORT_SYMBOL(netpoll_send_udp);
-> +EXPORT_SYMBOL(netpoll_poll_dev);
->  EXPORT_SYMBOL(netpoll_poll);
-> Index: linux-2.6/drivers/net/netconsole.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/netconsole.c
-> +++ linux-2.6/drivers/net/netconsole.c
-> @@ -665,7 +665,8 @@ static int netconsole_netdev_event(struc
->  	struct netconsole_target *nt;
->  	struct net_device *dev = ptr;
->  
-> -	if (!(event == NETDEV_CHANGENAME || event == NETDEV_UNREGISTER))
-> +	if (!(event == NETDEV_CHANGENAME || event == NETDEV_UNREGISTER ||
-> +	      event == NETDEV_BONDING_DESLAVE || event == NETDEV_GOING_DOWN))
->  		goto done;
->  
->  	spin_lock_irqsave(&target_list_lock, flags);
-> @@ -677,19 +678,21 @@ static int netconsole_netdev_event(struc
->  				strlcpy(nt->np.dev_name, dev->name, IFNAMSIZ);
->  				break;
->  			case NETDEV_UNREGISTER:
-> -				if (!nt->enabled)
-> -					break;
->  				netpoll_cleanup(&nt->np);
-> +				/* Fall through */
-> +			case NETDEV_GOING_DOWN:
-> +			case NETDEV_BONDING_DESLAVE:
->  				nt->enabled = 0;
-> -				printk(KERN_INFO "netconsole: network logging stopped"
-> -					", interface %s unregistered\n",
-> -					dev->name);
->  				break;
->  			}
->  		}
->  		netconsole_target_put(nt);
->  	}
->  	spin_unlock_irqrestore(&target_list_lock, flags);
-> +	if (event == NETDEV_UNREGISTER || event == NETDEV_BONDING_DESLAVE)
-> +		printk(KERN_INFO "netconsole: network logging stopped, "
-> +			"interface %s %s\n",  dev->name,
-> +			event == NETDEV_UNREGISTER ? "unregistered" : "released slaves");
->  
->  done:
->  	return NOTIFY_DONE;
-> Index: linux-2.6/include/linux/notifier.h
-> ===================================================================
-> --- linux-2.6.orig/include/linux/notifier.h
-> +++ linux-2.6/include/linux/notifier.h
-> @@ -203,6 +203,7 @@ static inline int notifier_to_errno(int 
->  #define NETDEV_BONDING_NEWTYPE  0x000F
->  #define NETDEV_POST_INIT	0x0010
->  #define NETDEV_UNREGISTER_BATCH 0x0011
-> +#define NETDEV_BONDING_DESLAVE  0x0012
->  
->  #define SYS_DOWN	0x0001	/* Notify of system down */
->  #define SYS_RESTART	SYS_DOWN
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+ 	if (dev->type != ARPHRD_ETHER || dev->flags & IFF_LOOPBACK)
+ 		return -EINVAL;
+@@ -528,13 +535,26 @@ static int macvlan_port_create(struct net_device *dev)
+ 	for (i = 0; i < MACVLAN_HASH_SIZE; i++)
+ 		INIT_HLIST_HEAD(&port->vlan_hash[i]);
+ 	rcu_assign_pointer(dev->macvlan_port, port);
++
++	err = netdev_rx_handler_register(dev, &macvlan_rx_handler);
++	if (err)
++		goto cleanup;
++
+ 	return 0;
++
++cleanup:
++	rcu_assign_pointer(dev->macvlan_port, NULL);
++	synchronize_rcu();
++	kfree(port);
++
++	return err;
+ }
+ 
+ static void macvlan_port_destroy(struct net_device *dev)
+ {
+ 	struct macvlan_port *port = dev->macvlan_port;
+ 
++	netdev_rx_handler_unregister(dev, &macvlan_rx_handler);
+ 	rcu_assign_pointer(dev->macvlan_port, NULL);
+ 	synchronize_rcu();
+ 	kfree(port);
+@@ -767,14 +787,12 @@ static int __init macvlan_init_module(void)
+ 	int err;
+ 
+ 	register_netdevice_notifier(&macvlan_notifier_block);
+-	macvlan_handle_frame_hook = macvlan_handle_frame;
+ 
+ 	err = macvlan_link_register(&macvlan_link_ops);
+ 	if (err < 0)
+ 		goto err1;
+ 	return 0;
+ err1:
+-	macvlan_handle_frame_hook = NULL;
+ 	unregister_netdevice_notifier(&macvlan_notifier_block);
+ 	return err;
+ }
+@@ -782,7 +800,6 @@ err1:
+ static void __exit macvlan_cleanup_module(void)
+ {
+ 	rtnl_link_unregister(&macvlan_link_ops);
+-	macvlan_handle_frame_hook = NULL;
+ 	unregister_netdevice_notifier(&macvlan_notifier_block);
+ }
+ 
+diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
+index 938b7e8..0d241a5 100644
+--- a/include/linux/if_bridge.h
++++ b/include/linux/if_bridge.h
+@@ -102,8 +102,6 @@ struct __fdb_entry {
+ #include <linux/netdevice.h>
+ 
+ extern void brioctl_set(int (*ioctl_hook)(struct net *, unsigned int, void __user *));
+-extern struct sk_buff *(*br_handle_frame_hook)(struct net_bridge_port *p,
+-					       struct sk_buff *skb);
+ extern int (*br_should_route_hook)(struct sk_buff *skb);
+ 
+ #endif
+diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
+index 9ea047a..c26a0e4 100644
+--- a/include/linux/if_macvlan.h
++++ b/include/linux/if_macvlan.h
+@@ -84,8 +84,4 @@ extern int macvlan_link_register(struct rtnl_link_ops *ops);
+ extern netdev_tx_t macvlan_start_xmit(struct sk_buff *skb,
+ 				      struct net_device *dev);
+ 
+-
+-extern struct sk_buff *(*macvlan_handle_frame_hook)(struct macvlan_port *,
+-						    struct sk_buff *);
+-
+ #endif /* _LINUX_IF_MACVLAN_H */
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index a1bff65..f54b97d 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -254,6 +254,16 @@ struct netdev_hw_addr_list {
+ #define netdev_for_each_mc_addr(ha, dev) \
+ 	netdev_hw_addr_list_for_each(ha, &(dev)->mc)
+ 
++
++struct netdev_rx_handler {
++	struct list_head	list;
++	unsigned int		order;
++#define NETDEV_RX_HANDLER_ORDER_BRIDGE	1
++#define NETDEV_RX_HANDLER_ORDER_MACVLAN	2
++	struct sk_buff		*(*callback)(struct sk_buff *skb);
++	struct rcu_head		rcu;
++};
++
+ struct hh_cache {
+ 	struct hh_cache *hh_next;	/* Next entry			     */
+ 	atomic_t	hh_refcnt;	/* number of users                   */
+@@ -1031,6 +1041,9 @@ struct net_device {
+ 	/* GARP */
+ 	struct garp_port	*garp_port;
+ 
++	/* receive handlers (hooks) list */
++	struct list_head	rx_handlers;
++
+ 	/* class/net/name entry */
+ 	struct device		dev;
+ 	/* space for optional device, statistics, and wireless sysfs groups */
+@@ -1685,6 +1698,11 @@ static inline void napi_free_frags(struct napi_struct *napi)
+ 	napi->skb = NULL;
+ }
+ 
++extern int netdev_rx_handler_register(struct net_device *dev,
++				      const struct netdev_rx_handler *rh);
++extern void netdev_rx_handler_unregister(struct net_device *dev,
++					 const struct netdev_rx_handler *rh);
++
+ extern void		netif_nit_deliver(struct sk_buff *skb);
+ extern int		dev_valid_name(const char *name);
+ extern int		dev_ioctl(struct net *net, unsigned int cmd, void __user *);
+diff --git a/net/bridge/br.c b/net/bridge/br.c
+index 76357b5..c8436fa 100644
+--- a/net/bridge/br.c
++++ b/net/bridge/br.c
+@@ -63,7 +63,6 @@ static int __init br_init(void)
+ 		goto err_out4;
+ 
+ 	brioctl_set(br_ioctl_deviceless_stub);
+-	br_handle_frame_hook = br_handle_frame;
+ 
+ #if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
+ 	br_fdb_test_addr_hook = br_fdb_test_addr;
+@@ -100,7 +99,6 @@ static void __exit br_deinit(void)
+ 	br_fdb_test_addr_hook = NULL;
+ #endif
+ 
+-	br_handle_frame_hook = NULL;
+ 	br_fdb_fini();
+ }
+ 
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index 18b245e..45270e5 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -119,6 +119,11 @@ static void destroy_nbp_rcu(struct rcu_head *head)
+ 	destroy_nbp(p);
+ }
+ 
++static const struct netdev_rx_handler br_rx_handler = {
++	.order		= NETDEV_RX_HANDLER_ORDER_BRIDGE,
++	.callback	= br_handle_frame,
++};
++
+ /* Delete port(interface) from bridge is done in two steps.
+  * via RCU. First step, marks device as down. That deletes
+  * all the timers and stops new packets from flowing through.
+@@ -147,6 +152,7 @@ static void del_nbp(struct net_bridge_port *p)
+ 
+ 	list_del_rcu(&p->list);
+ 
++	netdev_rx_handler_unregister(dev, &br_rx_handler);
+ 	rcu_assign_pointer(dev->br_port, NULL);
+ 
+ 	br_multicast_del_port(p);
+@@ -429,6 +435,11 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ 		goto err2;
+ 
+ 	rcu_assign_pointer(dev->br_port, p);
++
++	err = netdev_rx_handler_register(dev, &br_rx_handler);
++	if (err)
++		goto err3;
++
+ 	dev_disable_lro(dev);
+ 
+ 	list_add_rcu(&p->list, &br->port_list);
+@@ -451,6 +462,9 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ 	br_netpoll_enable(br, dev);
+ 
+ 	return 0;
++err3:
++	rcu_assign_pointer(dev->br_port, NULL);
++	synchronize_rcu();
+ err2:
+ 	br_fdb_delete_by_port(br, p, 1);
+ err1:
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index d36e700..99647d8 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -131,15 +131,19 @@ static inline int is_link_local(const unsigned char *dest)
+ }
+ 
+ /*
+- * Called via br_handle_frame_hook.
+  * Return NULL if skb is handled
+- * note: already called with rcu_read_lock (preempt_disabled)
++ * note: already called with rcu_read_lock (preempt_disabled) from
++ * netif_receive_skb
+  */
+-struct sk_buff *br_handle_frame(struct net_bridge_port *p, struct sk_buff *skb)
++struct sk_buff *br_handle_frame(struct sk_buff *skb)
+ {
++	struct net_bridge_port *p;
+ 	const unsigned char *dest = eth_hdr(skb)->h_dest;
+ 	int (*rhook)(struct sk_buff *skb);
+ 
++	if (skb->pkt_type == PACKET_LOOPBACK)
++		return skb;
++
+ 	if (!is_valid_ether_addr(eth_hdr(skb)->h_source))
+ 		goto drop;
+ 
+@@ -147,6 +151,8 @@ struct sk_buff *br_handle_frame(struct net_bridge_port *p, struct sk_buff *skb)
+ 	if (!skb)
+ 		return NULL;
+ 
++	p = rcu_dereference(skb->dev->br_port);
++
+ 	if (unlikely(is_link_local(dest))) {
+ 		/* Pause frames shouldn't be passed up by driver anyway */
+ 		if (skb->protocol == htons(ETH_P_PAUSE))
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 0f4a74b..c83519b 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -331,8 +331,7 @@ extern void br_features_recompute(struct net_bridge *br);
+ 
+ /* br_input.c */
+ extern int br_handle_frame_finish(struct sk_buff *skb);
+-extern struct sk_buff *br_handle_frame(struct net_bridge_port *p,
+-				       struct sk_buff *skb);
++extern struct sk_buff *br_handle_frame(struct sk_buff *skb);
+ 
+ /* br_ioctl.c */
+ extern int br_dev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6c82065..548104e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2585,70 +2585,14 @@ static inline int deliver_skb(struct sk_buff *skb,
+ 	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+ }
+ 
+-#if defined(CONFIG_BRIDGE) || defined (CONFIG_BRIDGE_MODULE)
+-
+-#if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
++#if (defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)) && \
++    (defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE))
+ /* This hook is defined here for ATM LANE */
+ int (*br_fdb_test_addr_hook)(struct net_device *dev,
+ 			     unsigned char *addr) __read_mostly;
+ EXPORT_SYMBOL_GPL(br_fdb_test_addr_hook);
+ #endif
+ 
+-/*
+- * If bridge module is loaded call bridging hook.
+- *  returns NULL if packet was consumed.
+- */
+-struct sk_buff *(*br_handle_frame_hook)(struct net_bridge_port *p,
+-					struct sk_buff *skb) __read_mostly;
+-EXPORT_SYMBOL_GPL(br_handle_frame_hook);
+-
+-static inline struct sk_buff *handle_bridge(struct sk_buff *skb,
+-					    struct packet_type **pt_prev, int *ret,
+-					    struct net_device *orig_dev)
+-{
+-	struct net_bridge_port *port;
+-
+-	if (skb->pkt_type == PACKET_LOOPBACK ||
+-	    (port = rcu_dereference(skb->dev->br_port)) == NULL)
+-		return skb;
+-
+-	if (*pt_prev) {
+-		*ret = deliver_skb(skb, *pt_prev, orig_dev);
+-		*pt_prev = NULL;
+-	}
+-
+-	return br_handle_frame_hook(port, skb);
+-}
+-#else
+-#define handle_bridge(skb, pt_prev, ret, orig_dev)	(skb)
+-#endif
+-
+-#if defined(CONFIG_MACVLAN) || defined(CONFIG_MACVLAN_MODULE)
+-struct sk_buff *(*macvlan_handle_frame_hook)(struct macvlan_port *p,
+-					     struct sk_buff *skb) __read_mostly;
+-EXPORT_SYMBOL_GPL(macvlan_handle_frame_hook);
+-
+-static inline struct sk_buff *handle_macvlan(struct sk_buff *skb,
+-					     struct packet_type **pt_prev,
+-					     int *ret,
+-					     struct net_device *orig_dev)
+-{
+-	struct macvlan_port *port;
+-
+-	port = rcu_dereference(skb->dev->macvlan_port);
+-	if (!port)
+-		return skb;
+-
+-	if (*pt_prev) {
+-		*ret = deliver_skb(skb, *pt_prev, orig_dev);
+-		*pt_prev = NULL;
+-	}
+-	return macvlan_handle_frame_hook(port, skb);
+-}
+-#else
+-#define handle_macvlan(skb, pt_prev, ret, orig_dev)	(skb)
+-#endif
+-
+ #ifdef CONFIG_NET_CLS_ACT
+ /* TODO: Maybe we should just force sch_ingress to be compiled in
+  * when CONFIG_NET_CLS_ACT is? otherwise some useless instructions
+@@ -2744,6 +2688,85 @@ void netif_nit_deliver(struct sk_buff *skb)
+ 	rcu_read_unlock();
+ }
+ 
++static bool rx_handlers_equal(const struct netdev_rx_handler *rh1,
++			      const struct netdev_rx_handler *rh2)
++{
++	return (rh1->order == rh2->order) && (rh1->callback == rh2->callback);
++}
++
++/**
++ *	netdev_rx_handler_register - register receive handler
++ *	@dev: device to register a handler for
++ *	@rh: receive handler to register
++ *
++ *	Register a receive hander for a device. This handler will then be
++ *	called from __netif_receive_skb. A negative errno code is returned
++ *	on a failure.
++ *
++ *	The caller must hold the rtnl_mutex.
++ */
++int netdev_rx_handler_register(struct net_device *dev,
++			       const struct netdev_rx_handler *rh)
++{
++	struct list_head *iter, *add_after;
++	struct netdev_rx_handler *rh1;
++	int err = 0;
++
++	ASSERT_RTNL();
++	add_after = &dev->rx_handlers;
++	list_for_each(iter, &dev->rx_handlers) {
++		rh1 = list_entry(iter, struct netdev_rx_handler, list);
++		if (rx_handlers_equal(rh, rh1))
++			return -EEXIST;
++		if (rh1->order > rh->order)
++			break;
++		add_after = iter;
++	}
++	rh1 = kzalloc(sizeof(*rh), GFP_KERNEL);
++	if (!rh1)
++		return -ENOMEM;
++
++	rh1->order = rh->order;
++	rh1->callback = rh->callback;
++	list_add_rcu(&rh1->list, add_after);
++
++	return err;
++}
++EXPORT_SYMBOL(netdev_rx_handler_register);
++
++static void rx_handler_rcu_free(struct rcu_head *head)
++{
++	struct netdev_rx_handler *rh;
++
++	rh = container_of(head, struct netdev_rx_handler, rcu);
++	kfree(rh);
++}
++
++/**
++ *	netdev_rx_handler_unregister - unregister receive handler
++ *	@dev: device to unregister a handler from
++ *	@rh: receive handler to unregister
++ *
++ *	Unregister a receive hander from a device.
++ *
++ *	The caller must hold the rtnl_mutex.
++ */
++void netdev_rx_handler_unregister(struct net_device *dev,
++				  const struct netdev_rx_handler *rh)
++{
++	struct netdev_rx_handler *rh1;
++
++	ASSERT_RTNL();
++	list_for_each_entry(rh1, &dev->rx_handlers, list) {
++		if (rx_handlers_equal(rh, rh1)) {
++			list_del_rcu(&rh1->list);
++			call_rcu(&rh1->rcu, rx_handler_rcu_free);
++			return;
++		}
++	}
++}
++EXPORT_SYMBOL(netdev_rx_handler_unregister);
++
+ static inline void skb_bond_set_mac_by_master(struct sk_buff *skb,
+ 					      struct net_device *master)
+ {
+@@ -2796,6 +2819,7 @@ EXPORT_SYMBOL(__skb_bond_should_drop);
+ static int __netif_receive_skb(struct sk_buff *skb)
+ {
+ 	struct packet_type *ptype, *pt_prev;
++	struct netdev_rx_handler *rh;
+ 	struct net_device *orig_dev;
+ 	struct net_device *master;
+ 	struct net_device *null_or_orig;
+@@ -2859,12 +2883,18 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ ncls:
+ #endif
+ 
+-	skb = handle_bridge(skb, &pt_prev, &ret, orig_dev);
+-	if (!skb)
+-		goto out;
+-	skb = handle_macvlan(skb, &pt_prev, &ret, orig_dev);
+-	if (!skb)
+-		goto out;
++	/*
++	 * Go through various rx handlers, like bridge, macvlan etc.
++	 */
++	list_for_each_entry_rcu(rh, &skb->dev->rx_handlers, list) {
++		if (pt_prev) {
++			ret = deliver_skb(skb, pt_prev, orig_dev);
++			pt_prev = NULL;
++		}
++		skb = rh->callback(skb);
++		if (!skb)
++			goto out;
++	}
+ 
+ 	/*
+ 	 * Make sure frames received on VLAN interfaces stacked on
+@@ -5371,6 +5401,8 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
+ 	dev_mc_init(dev);
+ 	dev_uc_init(dev);
+ 
++	INIT_LIST_HEAD(&dev->rx_handlers);
++
+ 	dev_net_set(dev, &init_net);
+ 
+ 	dev->_tx = tx;
 -- 
-Flavio
+1.6.6.1
+
