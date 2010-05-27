@@ -1,34 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL net-2.6] vhost-net: error handling fixes
-Date: Thu, 27 May 2010 16:13:36 -0700 (PDT)
-Message-ID: <20100527.161336.189713948.davem@davemloft.net>
-References: <20100527115714.GA7899@redhat.com>
+Subject: Re: ipv6: Add GSO support on forwarding path
+Date: Thu, 27 May 2010 16:14:46 -0700 (PDT)
+Message-ID: <20100527.161446.112617306.davem@davemloft.net>
+References: <20100526221601.GA3369@gondor.apana.org.au>
+	<20100527102429.GA9017@gondor.apana.org.au>
+	<20100527115440.GA9952@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	krkumar2@in.ibm.com
-To: mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100527115714.GA7899@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ralf@linux-mips.org, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56550
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750852Ab0E0XOg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 19:14:36 -0400
+In-Reply-To: <20100527115440.GA9952@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Thu, 27 May 2010 14:57:14 +0300
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 27 May 2010 21:54:40 +1000
 
-> David,
-> The following tree includes fixes dealing with error handling
-> in vhost-net. It is on top of net-2.6.
-> Please merge it for 2.6.35.
-> Thanks!
+> On Thu, May 27, 2010 at 08:24:29PM +1000, Herbert Xu wrote:
+>> 
+>> Actually, this patch is still not quite right for the GSO case.
+>> Right now it's only adding the IP header size, not the full header
+>> size.
+>> 
+>> I need to think a bit more about this.
 > 
-> The following changes since commit 8a74ad60a546b13bd1096b2a61a7a5c6fd9ae17c:
+> Let's do it the old way first, so that it at least works for the
+> common case.  I'll fix it properly later.
 > 
->   net: fix lock_sock_bh/unlock_sock_bh (2010-05-27 00:30:53 -0700)
-> 
-> are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net
+> ipv6: Add GSO support on forwarding path
 
-Pulled, thanks Michael.
+Ok, applied, thanks Herbert.
