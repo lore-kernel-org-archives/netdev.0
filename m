@@ -1,8 +1,8 @@
 From: Sarveshwar Bandi <sarveshwarb@serverengines.com>
-Subject: Re: [patch 1/2] be2net: add unlock on error path
-Date: Thu, 27 May 2010 12:01:57 +0530
-Message-ID: <20100527063156.GA12380@serverengines.com>
-References: <20100526144634.GL22515@bicker>
+Subject: Re: [patch 2/2] be2net: remove superfluous externs
+Date: Thu, 27 May 2010 12:02:54 +0530
+Message-ID: <20100527063252.GB12380@serverengines.com>
+References: <20100526144739.GM22515@bicker>
 Reply-To: Sarveshwar Bandi <sarveshwarb@serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -13,49 +13,49 @@ Cc: Sathya Perla <sathyap@serverengines.com>,
 	kernel-janitors@vger.kernel.org
 To: Dan Carpenter <error27@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:54860 "EHLO
+Received: from segment-124-30.sify.net ([124.30.166.146]:54978 "EHLO
 	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750979Ab0E0Gb5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 02:31:57 -0400
+	by vger.kernel.org with ESMTP id S1751039Ab0E0Gcw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 02:32:52 -0400
 Content-Disposition: inline
-In-Reply-To: <20100526144634.GL22515@bicker>
+In-Reply-To: <20100526144739.GM22515@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks
+Thanks.
 
-Acked-by: Sarveshwar Bandi <sarveshwarb@serverengines.com> 
-On 26/05/10 16:46 +0200, Dan Carpenter wrote:
-> The unlock accidentally got removed from the error path in dd131e76e5:
-> "be2net: Bug fix to avoid disabling bottom half during firmware upgrade."
->
+Acked-by: Sarveshwar Bandi <sarveshwarb@serverengines.com>
+On 26/05/10 16:47 +0200, Dan Carpenter wrote:
+> This fixes some sparse warnings:
+> drivers/net/benet/be_cmds.c:1503:12: warning: function
+> 	'be_cmd_enable_magic_wol' with external linkage has definition
+> drivers/net/benet/be_cmds.c:1668:12: warning: function
+> 	'be_cmd_get_seeprom_data' with external linkage has definition
+> 
 > Signed-off-by: Dan Carpenter <error27@gmail.com>
 > 
 > diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-> index c911bfb..18d5789 100644
+> index c911bfb..f9c0d4d 100644
 > --- a/drivers/net/benet/be_cmds.c
 > +++ b/drivers/net/benet/be_cmds.c
-> @@ -1429,7 +1429,7 @@ int be_cmd_write_flashrom(struct be_adapter *adapter, struct be_dma_mem *cmd,
->  	wrb = wrb_from_mccq(adapter);
->  	if (!wrb) {
->  		status = -EBUSY;
-> -		goto err;
-> +		goto err_unlock;
->  	}
->  	req = cmd->va;
->  	sge = nonembedded_sgl(wrb);
-> @@ -1457,7 +1457,10 @@ int be_cmd_write_flashrom(struct be_adapter *adapter, struct be_dma_mem *cmd,
->  	else
->  		status = adapter->flash_status;
->  
-> -err:
-> +	return status;
-> +
-> +err_unlock:
-> +	spin_unlock_bh(&adapter->mcc_lock);
+> @@ -1497,7 +1500,7 @@ err:
 >  	return status;
 >  }
 >  
+> -extern int be_cmd_enable_magic_wol(struct be_adapter *adapter, u8 *mac,
+> +int be_cmd_enable_magic_wol(struct be_adapter *adapter, u8 *mac,
+>  				struct be_dma_mem *nonemb_cmd)
+>  {
+>  	struct be_mcc_wrb *wrb;
+> @@ -1662,7 +1665,7 @@ err:
+>  	return status;
+>  }
+>  
+> -extern int be_cmd_get_seeprom_data(struct be_adapter *adapter,
+> +int be_cmd_get_seeprom_data(struct be_adapter *adapter,
+>  				struct be_dma_mem *nonemb_cmd)
+>  {
+>  	struct be_mcc_wrb *wrb;
 > --
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
