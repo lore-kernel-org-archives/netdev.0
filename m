@@ -1,66 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: ipv6: Add GSO support on forwarding path
-Date: Thu, 27 May 2010 21:54:40 +1000
-Message-ID: <20100527115440.GA9952@gondor.apana.org.au>
-References: <20100526102758.GA25914@gondor.apana.org.au> <20100526152019.GA11985@linux-mips.org> <20100526221601.GA3369@gondor.apana.org.au> <20100527102429.GA9017@gondor.apana.org.au>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [GIT PULL net-2.6] vhost-net: error handling fixes
+Date: Thu, 27 May 2010 14:57:14 +0300
+Message-ID: <20100527115714.GA7899@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ralf Baechle <ralf@linux-mips.org>
+Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	krkumar2@in.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:34381 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932464Ab0E0Lyu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 07:54:50 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:52867 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754935Ab0E0MBl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 May 2010 08:01:41 -0400
 Content-Disposition: inline
-In-Reply-To: <20100527102429.GA9017@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 27, 2010 at 08:24:29PM +1000, Herbert Xu wrote:
-> 
-> Actually, this patch is still not quite right for the GSO case.
-> Right now it's only adding the IP header size, not the full header
-> size.
-> 
-> I need to think a bit more about this.
+David,
+The following tree includes fixes dealing with error handling
+in vhost-net. It is on top of net-2.6.
+Please merge it for 2.6.35.
+Thanks!
 
-Let's do it the old way first, so that it at least works for the
-common case.  I'll fix it properly later.
+The following changes since commit 8a74ad60a546b13bd1096b2a61a7a5c6fd9ae17c:
 
-ipv6: Add GSO support on forwarding path
+  net: fix lock_sock_bh/unlock_sock_bh (2010-05-27 00:30:53 -0700)
 
-Currently we disallow GSO packets on the IPv6 forward path.
-This patch fixes this.
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net
 
-Note that I discovered that our existing GSO MTU checks (e.g.,
-IPv4 forwarding) are buggy in that they skip the check altogether, 
-hen they really should be checking gso_size + header instead.
+Krishna Kumar (1):
+      vhost: Fix host panic if ioctl called with wrong index
 
-I have also been lazy here in that I haven't bothered to segment
-the GSO packet by hand before generating an ICMP message.  Someone
-should add that to be 100% correct.
+Takuya Yoshikawa (3):
+      vhost: fix to check the return value of copy_to/from_user() correctly
+      vhost-net: fix to check the return value of copy_to/from_user() correctly
+      vhost: fix the memory leak which will happen when memory_access_ok fails
 
-Reported-by: Ralf Baechle <ralf@linux-mips.org>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+ drivers/vhost/net.c   |   14 ++++++------
+ drivers/vhost/vhost.c |   57 +++++++++++++++++++++++++++---------------------
+ 2 files changed, 39 insertions(+), 32 deletions(-)
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index cd963f6..89425af 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -507,7 +507,7 @@ int ip6_forward(struct sk_buff *skb)
- 	if (mtu < IPV6_MIN_MTU)
- 		mtu = IPV6_MIN_MTU;
- 
--	if (skb->len > mtu) {
-+	if (skb->len > mtu && !skb_is_gso(skb)) {
- 		/* Again, force OUTPUT device used as source address */
- 		skb->dev = dst->dev;
- 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu);
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+MST
