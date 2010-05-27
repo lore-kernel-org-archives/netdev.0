@@ -1,50 +1,56 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 2/3] workqueue: Add an API to create a singlethread
-	workqueue attached to the current task's cgroup
-Date: Thu, 27 May 2010 16:12:54 +0300
-Message-ID: <20100527131254.GB7974@redhat.com>
-References: <1274227491.2370.110.camel@w-sridhar.beaverton.ibm.com> <20100527091426.GA6308@redhat.com> <20100527124448.GA4241@redhat.com>
+From: John Linn <John.Linn@xilinx.com>
+Subject: RE: [PATCH 2/2] net: ll_temac: fix checksum offload logic
+Date: Thu, 27 May 2010 07:26:00 -0600
+Message-ID: <4d2d980b-53f6-457a-b4ef-b1bf82f95138@VA3EHSMHS017.ehs.local>
+References: <1274894959-27473-1-git-send-email-john.linn@xilinx.com><0690e798-1e5e-4416-90dc-04a9df16600f@SG2EHSMHS005.ehs.local> <20100526.204517.35032653.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sridhar Samudrala <sri@us.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Tejun Heo <tj@kernel.org>, Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
-To: Oleg Nesterov <oleg@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100527124448.GA4241@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <linuxppc-dev@ozlabs.org>,
+	<grant.likely@secretlab.ca>, <jwboyer@linux.vnet.ibm.com>,
+	<john.williams@petalogix.com>, <michal.simek@petalogix.com>,
+	"Brian Hill" <bhill@xilinx.com>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-va3.bigfish.com ([216.32.180.114]:42655 "EHLO
+	mail185-va3-R.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756689Ab0E0N2B convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 May 2010 09:28:01 -0400
+Content-Class: urn:content-classes:message
+In-Reply-To: <20100526.204517.35032653.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 27, 2010 at 02:44:48PM +0200, Oleg Nesterov wrote:
-> On 05/27, Michael S. Tsirkin wrote:
-> >
-> > On Tue, May 18, 2010 at 05:04:51PM -0700, Sridhar Samudrala wrote:
-> > > Add a new kernel API to create a singlethread workqueue and attach it's
-> > > task to current task's cgroup and cpumask.
-> > >
-> > > Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-> >
-> > Could someone familiar with workqueue code please comment on whether
-> > this patch is suitable for 2.6.35?
-> >
-> > It is needed to fix the case where vhost user might cause a kernel
-> > thread to consume more CPU than allowed by the cgroup.
-> > Should I merge it through the vhost tree?
-> > Ack for this?
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Wednesday, May 26, 2010 9:45 PM
+> To: John Linn
+> Cc: netdev@vger.kernel.org; linuxppc-dev@ozlabs.org;
+grant.likely@secretlab.ca;
+> jwboyer@linux.vnet.ibm.com; john.williams@petalogix.com;
+michal.simek@petalogix.com; Brian Hill
+> Subject: Re: [PATCH 2/2] net: ll_temac: fix checksum offload logic
 > 
-> I don't understand the reasons for this patch, but this doesn't matter.
+> aFrom: John Linn <john.linn@xilinx.com>
+> Date: Wed, 26 May 2010 11:29:19 -0600
+> 
+> > The current checksum offload code does not work and this corrects
+> > that functionality. It also updates the interrupt coallescing
+> > initialization so than there are fewer interrupts and performance
+> > is increased.
+> >
+> > Signed-off-by: Brian Hill <brian.hill@xilinx.com>
+> > Signed-off-by: John Linn <john.linn@xilinx.com>
+> 
+> Applied, although I changed "temac_features" to be explicitly
+> "unsigned int" instead of just plain "unsigned"
 
-Depending on userspace application, driver can create a lot of work
-for a workqueue to handle. By making the workqueue thread
-belong in a cgroup, we make it possible to the CPU and other
-resources thus consumed.
+Awesome! Appreciate the help with both patches David.
 
--- 
-MST
+> 
+
+
+This email and any attachments are intended for the sole use of the named recipient(s) and contain(s) confidential information that may be proprietary, privileged or copyrighted under applicable law. If you are not the intended recipient, do not read, copy, or forward this email message or any attachments. Delete this email message and any attachments immediately.
+
+
