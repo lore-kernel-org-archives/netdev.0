@@ -1,54 +1,50 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
+From: Andi Kleen <andi@firstfloor.org>
 Subject: Re: [PATCH] tcp: Socket option to set congestion window
-Date: Thu, 27 May 2010 09:46:45 +0200
-Message-ID: <20100527074645.GC2728@nuttenaction>
-References: <20100526231512.GD2684@nuttenaction>
- <20100526.200443.232751390.davem@davemloft.net>
- <20100527070827.GB2728@nuttenaction>
- <20100527.002851.02281005.davem@davemloft.net>
+Date: Thu, 27 May 2010 09:57:18 +0200
+Message-ID: <20100527075717.GA6800@basil.fritz.box>
+References: <87fx1e1sat.fsf@basil.nowhere.org> <20100526.140818.245406045.davem@davemloft.net> <20100526212745.GC24615@basil.fritz.box> <20100526.151014.70204145.davem@davemloft.net> <4BFDA0B6.8030701@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: andi@firstfloor.org, therbert@google.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org, ycheng@google.com
-To: David Miller <davem@davemloft.net>
+Cc: andi@firstfloor.org, David Miller <davem@davemloft.net>,
+	therbert@google.com, shemminger@vyatta.com, netdev@vger.kernel.org,
+	ycheng@google.com
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:37990 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750852Ab0E0Hqq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 03:46:46 -0400
+Received: from one.firstfloor.org ([213.235.205.2]:47514 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755428Ab0E0H5X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 03:57:23 -0400
 Content-Disposition: inline
-In-Reply-To: <20100527.002851.02281005.davem@davemloft.net>
+In-Reply-To: <4BFDA0B6.8030701@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* David Miller | 2010-05-27 00:28:51 [-0700]:
+> Then all the app does is say "I'am in peer id foo" right?  Is that really 
+> that much different from making the setsockopt() call for a different cwnd 
+> value? Particularly if say the limit were not a global sysctl, but based on 
+> the existing per-route value (perhaps expanded to have a min, max and 
+> default?)
 
->Superior or not, it's simply never going to happen.  We are far beyond
->being able to get to where we were before NAT'ing and shaping devices
->started to get inserted everywhere on the network.
->
->And I also don't see any of this stuff as fundamentally proprietary.
+The worst case with peer id would be app using an own peer id
+for each connection. So each connection would have an own cwnd,
+just like today. So the worst case is the same as today.
 
-We will see! If no real interaction between peers is required
-ISP/Carrier/InternetExchanges will start to put their proprietary components
-into the network. Because they have niffty features, the product developed
-phase is shorten (no borring standardizations necessary) and so on. This is no
-new insight.
+If it shares connections between peer ids the real effective cwnd
+of all those connections would be also never be "worse" (that is
+larger) than it could be on single connection. 
 
->People want deep packet inspection, people want to control their user's
->traffic.  And people, most importantly, are willing to pay for this.
->
->Therefore, these elements will always be in the network.
->
->Better to co-exist with them and use them to our advantage instead of
->fantasizing about a utopia where they don't exist.
+So this limits the cwnds effectively with peer ids, although it also 
+gives a nice way to reuse an already existing cwnd for a new
+connection (this does not make things worse because in theory
+the app could have reused the same connection too) 
 
-Sure, we have no alternative.
+So overall peer ids don't allow to enlarge cwnds over today.
 
-HGN
+If the cwnd is fully application controlled all these limits
+are not there and a bittorrent client could just always set 
+it to 1 million.
 
+-Andi
 
 -- 
-Hagen Paul Pfeifer <hagen@jauu.net>  ||  http://jauu.net/
-Telephone: +49 174 5455209           ||  Key Id: 0x98350C22
-Key Fingerprint: 490F 557B 6C48 6D7E 5706 2EA2 4A22 8D45 9835 0C22
+ak@linux.intel.com -- Speaking for myself only.
