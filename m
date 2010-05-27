@@ -1,61 +1,129 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 6/11] drivers/net: Eliminate a NULL pointer dereference
-Date: Thu, 27 May 2010 14:33:32 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1005271433180.5422@ask.diku.dk>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH 2/3] workqueue: Add an API to create a singlethread
+	workqueue attached to the current task's cgroup
+Date: Thu, 27 May 2010 14:44:48 +0200
+Message-ID: <20100527124448.GA4241@redhat.com>
+References: <1274227491.2370.110.camel@w-sridhar.beaverton.ibm.com> <20100527091426.GA6308@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:48516 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750831Ab0E0Mdh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 May 2010 08:33:37 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sridhar Samudrala <sri@us.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
+	Tejun Heo <tj@kernel.org>, Jiri Kosina <jkosina@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100527091426.GA6308@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <julia@diku.dk>
+On 05/27, Michael S. Tsirkin wrote:
+>
+> On Tue, May 18, 2010 at 05:04:51PM -0700, Sridhar Samudrala wrote:
+> > Add a new kernel API to create a singlethread workqueue and attach it's
+> > task to current task's cgroup and cpumask.
+> >
+> > Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+>
+> Could someone familiar with workqueue code please comment on whether
+> this patch is suitable for 2.6.35?
+>
+> It is needed to fix the case where vhost user might cause a kernel
+> thread to consume more CPU than allowed by the cgroup.
+> Should I merge it through the vhost tree?
+> Ack for this?
 
-At the point of the print, dev is NULL.
+I don't understand the reasons for this patch, but this doesn't matter.
 
-A simplified version of the semantic match that finds this problem is as
-follows: (http://coccinelle.lip6.fr/)
+I don't really see any need to change workqueue.c,
 
-// <smpl>
-@r exists@
-expression E,E1;
-identifier f;
-statement S1,S2,S3;
-@@
+> > +static struct task_struct *get_singlethread_wq_task(struct workqueue_struct *wq)
+> > +{
+> > +	return (per_cpu_ptr(wq->cpu_wq, singlethread_cpu))->thread;
+> > +}
 
-if ((E == NULL && ...) || ...)
-{
-  ... when != if (...) S1 else S2
-      when != E = E1
-* E->f
-  ... when any
-  return ...;
-}
-else S3
-// </smpl>
+(Not sure this trivial static helper with the single caller makes sense, but
+ see below)
 
-Signed-off-by: Julia Lawall <julia@diku.dk>
+> > +/* Create a singlethread workqueue and attach it's task to the current task's
+> > + * cgroup and set it's cpumask to the current task's cpumask.
+> > + */
+> > +struct workqueue_struct *create_singlethread_workqueue_in_current_cg(char *name)
+> > +{
+> > +	struct workqueue_struct *wq;
+> > +	struct task_struct *task;
+> > +	cpumask_var_t mask;
+> > +
+> > +	wq = create_singlethread_workqueue(name);
+> > +	if (!wq)
+> > +		goto out;
+> > +
+> > +	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
+> > +		goto err;
+> > +			
+> > +	if (sched_getaffinity(current->pid, mask))
+> > +		goto err;
+> > +
+> > +	task = get_singlethread_wq_task(wq);
+> > +	if (sched_setaffinity(task->pid, mask))
+> > +		goto err;
+> > +
+> > +	if (cgroup_attach_task_current_cg(task))
+> > +		goto err;
+> > +out:	
+> > +	return wq;
+> > +err:
+> > +	destroy_workqueue(wq);
+> > +	wq = NULL;
+> > +	goto out;
+> > +}
 
----
- drivers/net/3c507.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Instead, cgroup.c (or whoever needs this) can do
 
-diff --git a/drivers/net/3c507.c b/drivers/net/3c507.c
-index 82eaf65..ea9b7a0 100644
---- a/drivers/net/3c507.c
-+++ b/drivers/net/3c507.c
-@@ -551,8 +551,7 @@ static irqreturn_t el16_interrupt(int irq, void *dev_id)
- 	void __iomem *shmem;
- 
- 	if (dev == NULL) {
--		pr_err("%s: net_interrupt(): irq %d for unknown device.\n",
--			dev->name, irq);
-+		pr_err("net_interrupt(): irq %d for unknown device.\n", irq);
- 		return IRQ_NONE;
- 	}
- 
+	struct move_struct {
+		struct work_struct work;
+		int ret;
+	};
+
+	static void move_func(struct work_struct *work)
+	{
+		struct move_struct *move = container_of(...);
+
+		if (cgroup_attach_task_current_cg(current))
+			ret = -EANY;
+	}
+
+	static struct workqueue_struct *create_singlethread_workqueue_in_current_cg(char *name)
+	{
+		struct workqueue_struct *wq;
+		struct move_struct move = {
+			.work = __WORK_INITIALIZER(move_func);
+		};
+
+		wq = create_singlethread_workqueue(name);
+		if (!wq)
+			return NULL;
+
+		queue_work(&move.work);
+		flush_work(&move.work);
+
+		if (move.ret) {
+			destroy_workqueue(wq);
+			wq = NULL;
+		}
+
+		return wq;
+	}
+
+Or. Just export wq_per_cpu() from workqueue.c (probably with a better name) and
+use it like the patch does.
+
+But, imho, create_singlethread_workqueue_in_current_cg() does not belong
+to  workqueue.c.
+
+Oleg.
