@@ -1,50 +1,42 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 3/3] vhost: fix the memory leak which will happen when
-	memory_access_ok fails
-Date: Thu, 27 May 2010 13:49:12 +0300
-Message-ID: <20100527104912.GC7278@redhat.com>
-References: <20100527185803.0c0213a1.yoshikawa.takuya@oss.ntt.co.jp> <20100527190356.cbf2aac7.yoshikawa.takuya@oss.ntt.co.jp>
+Subject: [GIT PULL net-next-2.6] vhost-net cleanups
+Date: Thu, 27 May 2010 13:58:49 +0300
+Message-ID: <20100527105849.GA7590@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org
-To: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53430 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755034Ab0E0Kxf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 May 2010 06:53:35 -0400
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	jdike@linux.intel.com, tklauser@distanz.ch
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20100527190356.cbf2aac7.yoshikawa.takuya@oss.ntt.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 27, 2010 at 07:03:56PM +0900, Takuya Yoshikawa wrote:
-> We need to free newmem when vhost_set_memory() fails to complete.
-> 
-> Signed-off-by: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
-> ---
+David,
+The following tree is on top of net-next-2.6.
+Please merge it for 2.6.36.
+Thanks!
 
-Thanks, applied.
+The following changes since commit 7a9b149212f3716c598afe973b6261fd58453b7a:
 
->  drivers/vhost/vhost.c |    4 +++-
->  1 files changed, 3 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index 9633a3c..1241a22 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -337,8 +337,10 @@ static long vhost_set_memory(struct vhost_dev *d, struct vhost_memory __user *m)
->  		return -EFAULT;
->  	}
->  
-> -	if (!memory_access_ok(d, newmem, vhost_has_feature(d, VHOST_F_LOG_ALL)))
-> +	if (!memory_access_ok(d, newmem, vhost_has_feature(d, VHOST_F_LOG_ALL))) {
-> +		kfree(newmem);
->  		return -EFAULT;
-> +	}
->  	oldmem = d->memory;
->  	rcu_assign_pointer(d->memory, newmem);
->  	synchronize_rcu();
-> -- 
-> 1.7.0.4
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/usb-2.6 (2010-05-20 21:26:12 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net-next
+
+Jeff Dike (1):
+      vhost-net: minor cleanup
+
+Michael S. Tsirkin (1):
+      vhost: whitespace fix
+
+Tobias Klauser (1):
+      vhost: Storage class should be before const qualifier
+
+ drivers/vhost/net.c   |   13 ++++++-------
+ drivers/vhost/vhost.c |    4 ++--
+ 2 files changed, 8 insertions(+), 9 deletions(-)
+-- 
+MST
