@@ -1,65 +1,56 @@
-From: Anton Blanchard <anton@samba.org>
+From: David Miller <davem@davemloft.net>
 Subject: Re: Warning in net/ipv4/af_inet.c:154
-Date: Thu, 27 May 2010 13:56:17 +1000
-Message-ID: <20100527035617.GB28295@kryten>
-References: <20100525115813.GA28063@kryten>
- <1274801229.5020.80.camel@edumazet-laptop>
- <20100526031943.GA28295@kryten>
- <20100526.005634.48509140.davem@davemloft.net>
- <1274868776.2672.96.camel@edumazet-laptop>
+Date: Wed, 26 May 2010 21:06:00 -0700 (PDT)
+Message-ID: <20100526.210600.242135655.davem@davemloft.net>
+References: <20100526.005634.48509140.davem@davemloft.net>
+	<1274868776.2672.96.camel@edumazet-laptop>
+	<20100527035617.GB28295@kryten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: anton@samba.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:46901 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757387Ab0E0D6A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 May 2010 23:58:00 -0400
-Content-Disposition: inline
-In-Reply-To: <1274868776.2672.96.camel@edumazet-laptop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53975
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750821Ab0E0EFu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 00:05:50 -0400
+In-Reply-To: <20100527035617.GB28295@kryten>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- 
-Hi Eric,
+From: Anton Blanchard <anton@samba.org>
+Date: Thu, 27 May 2010 13:56:17 +1000
 
-> You are 100% right David, maybe we should add a test when changing
-> sk_forward_alloc to test if socket is locked (lockdep only test), but
-> that's for 2.6.36 :)
+> I'm somewhat confused by the two stage locking in the socket lock
+> (ie sk_lock.slock and sk_lock.owned).
+> 
+> What state should the socket lock be in for serialising updates of
+> sk_forward_alloc? In some cases we appear to update it with sk_lock.slock =
+> unlocked, sk_lock.owned = 1:
 
-Thanks for the patch, unfortunately I can still hit the WARN_ON. I'm somewhat
-confused by the two stage locking in the socket lock (ie sk_lock.slock and
-sk_lock.owned).
+If sh_lock.owned=1 the user has grabbed exclusive sleepable lock on the
+socket, it does this via something approximating:
 
-What state should the socket lock be in for serialising updates of
-sk_forward_alloc? In some cases we appear to update it with sk_lock.slock =
-unlocked, sk_lock.owned = 1:
+retry:
+	spin_lock(&sk_lock.slock);
+	was_locked = sk_lock.owned;
+	if (!was_locked)
+		sk_lock.owned = 1;
+	spin_unlock(&sk_lock.slock);
+	if (was_locked) {
+		sleep_on(condition(sk_lock.owned));
+		goto retry;
+	}
 
-NIP [c0000000005b4ad0] .sock_queue_rcv_skb
-LR [c0000000005b4acc] .sock_queue_rcv_skb
-Call Trace:
-[c0000000005f9fcc] .ip_queue_rcv_skb
-[c00000000061d604] .__udp_queue_rcv_skb
-[c0000000005b1a38] .release_sock
-[c0000000006205f0] .udp_sendmsg
-[c0000000006290d4] .inet_sendmsg
-[c0000000005abfb4] .sock_sendmsg
-[c0000000005ae9dc] .SyS_sendto
-[c0000000005ab6c0] .SyS_send
+This allows user context code to sleep with exclusive access to the
+socket.
 
-And other times we update it with sk_lock.slock = locked, sk_lock.owned = 0:
+Code that cannot sleep takes the spinlock, and queues the work if the
+owner field if non-zero.  Else, it keeps the spinlock held and does
+the work.
 
-NIP [c0000000005b2b6c] .sock_rfree
-LR [c0000000005b2b68] .sock_rfree
-Call Trace:
-[c0000000005bca10] .skb_free_datagram_locked
-[c00000000061fe88] .udp_recvmsg
-[c0000000006285e8] .inet_recvmsg
-[c0000000005abe0c] .sock_recvmsg
-[c0000000005ae358] .SyS_recvfrom
+In either case, socket modifications are thus done completely protected
+from other contexts.
 
-I see we sometimes take sk_lock.slock then check the owned field, but we
-aren't doing that all the time.
 
-Anton
