@@ -1,50 +1,62 @@
 From: Andi Kleen <andi@firstfloor.org>
 Subject: Re: [PATCH] tcp: Socket option to set congestion window
-Date: Thu, 27 May 2010 09:57:18 +0200
-Message-ID: <20100527075717.GA6800@basil.fritz.box>
-References: <87fx1e1sat.fsf@basil.nowhere.org> <20100526.140818.245406045.davem@davemloft.net> <20100526212745.GC24615@basil.fritz.box> <20100526.151014.70204145.davem@davemloft.net> <4BFDA0B6.8030701@hp.com>
+Date: Thu, 27 May 2010 10:00:25 +0200
+Message-ID: <20100527080025.GB6800@basil.fritz.box>
+References: <87fx1e1sat.fsf@basil.nowhere.org> <20100526.140818.245406045.davem@davemloft.net> <20100526212745.GC24615@basil.fritz.box> <20100526.151014.70204145.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: andi@firstfloor.org, David Miller <davem@davemloft.net>,
-	therbert@google.com, shemminger@vyatta.com, netdev@vger.kernel.org,
-	ycheng@google.com
-To: Rick Jones <rick.jones2@hp.com>
+Cc: andi@firstfloor.org, therbert@google.com, shemminger@vyatta.com,
+	netdev@vger.kernel.org, ycheng@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:47514 "EHLO
+Received: from one.firstfloor.org ([213.235.205.2]:37982 "EHLO
 	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755428Ab0E0H5X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 03:57:23 -0400
+	with ESMTP id S1756251Ab0E0IA1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 04:00:27 -0400
 Content-Disposition: inline
-In-Reply-To: <4BFDA0B6.8030701@hp.com>
+In-Reply-To: <20100526.151014.70204145.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Then all the app does is say "I'am in peer id foo" right?  Is that really 
-> that much different from making the setsockopt() call for a different cwnd 
-> value? Particularly if say the limit were not a global sysctl, but based on 
-> the existing per-route value (perhaps expanded to have a min, max and 
-> default?)
+On Wed, May 26, 2010 at 03:10:14PM -0700, David Miller wrote:
+> From: Andi Kleen <andi@firstfloor.org>
+> Date: Wed, 26 May 2010 23:27:45 +0200
+> 
+> > As I understand the idea was that the application knows
+> > what flows belong to a single peer and wants to have
+> > a single cwnd for all of those. Perhaps there would
+> > be a way to generalize that to tell it to the kernel.
+> > 
+> > e.g. have a "peer id"  that is known by applications
+> > and the kernel could manage cwnds shared between connections
+> > associated with the same peer id?
+> > 
+> > Just an idea, I admit I haven't thought very deeply
+> > about this. Feel free to poke holes into it.
+> 
+> Yes, a CWND "domain" that can include multiple sockets is
+> something that might gain some traction.
+> 
+> The "domain" could just simply be the tuple {process,peer-IP}
 
-The worst case with peer id would be app using an own peer id
-for each connection. So each connection would have an own cwnd,
-just like today. So the worst case is the same as today.
+If process is in there this wouldn't work for a multi process
+server?
 
-If it shares connections between peer ids the real effective cwnd
-of all those connections would be also never be "worse" (that is
-larger) than it could be on single connection. 
+Perhaps having it associated with a FD so that it could
+be passed around with unix sockets if needed (just would
+need to make sure the AF_UNIX gc can handle such cycles)
 
-So this limits the cwnds effectively with peer ids, although it also 
-gives a nice way to reuse an already existing cwnd for a new
-connection (this does not make things worse because in theory
-the app could have reused the same connection too) 
+peer_id = open_peer_id();   
+/* peer id is like a fd */
 
-So overall peer ids don't allow to enlarge cwnds over today.
+socket = socket( ... ); 
+set_peer_id(socket, peer_id); 
 
-If the cwnd is fully application controlled all these limits
-are not there and a bittorrent client could just always set 
-it to 1 million.
 
--Andi
+...
 
+close(peer_id);
+
+-andi
 -- 
 ak@linux.intel.com -- Speaking for myself only.
