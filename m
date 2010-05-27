@@ -1,41 +1,43 @@
-From: Dan Smith <danms@us.ibm.com>
-Subject: Re: Question about netns & AF_UNIX
-Date: Thu, 27 May 2010 11:08:56 -0700
-Message-ID: <87d3whb4jr.fsf@caffeine.danplanet.com>
-References: <AANLkTikBuXfzS-UIL7bDMvfpL5lx9gMqHTpGg-jrm5Zv@mail.gmail.com>
+From: Prarit Bhargava <prarit@redhat.com>
+Subject: [PATCH]: niu: fix uninitialized variable warning
+Date: Thu, 27 May 2010 14:35:03 -0400
+Message-ID: <20100527183100.24251.12228.sendpatchset@prarit.bos.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
-To: =?utf-8?Q?Mart=C3=ADn?= Ferrari <martin.ferrari@gmail.com>
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Prarit Bhargava <prarit@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw0.danplanet.com ([71.245.107.82]:41462 "EHLO
-	mail.danplanet.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932573Ab0E0SI7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 14:08:59 -0400
-In-Reply-To: <AANLkTikBuXfzS-UIL7bDMvfpL5lx9gMqHTpGg-jrm5Zv@mail.gmail.com>
- (=?utf-8?Q?=22Mart=C3=ADn?= Ferrari"'s message of "Thu\, 27 May 2010
- 16\:38\:29 +0200")
+Received: from mx1.redhat.com ([209.132.183.28]:25872 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754941Ab0E0SfF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 May 2010 14:35:05 -0400
+Received: from int-mx05.intmail.prod.int.phx2.redhat.com (int-mx05.intmail.prod.int.phx2.redhat.com [10.5.11.18])
+	by mx1.redhat.com (8.13.8/8.13.8) with ESMTP id o4RIZ4Nv024701
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Thu, 27 May 2010 14:35:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MF> I seem to recall being able to use AF_UNIX sockets across network name
-MF> spaces, but I cannot reproduce that with a current kernel. Probably my
-MF> test was fubar (I've lost the script).
+=46ixes warning:
 
-If you are in different network namespaces, the binding of UNIX
-sockets is also kept separate.  Even though the filesystem is shared,
-this seems to make the most sense to me.  Named pipes on the
-filesystem would still be shared, by the way.
+drivers/net/niu.c: In function =E2=80=98niu_process_rx_pkt=E2=80=99:
+drivers/net/niu.c:3457: error: =E2=80=98link=E2=80=99 may be used unini=
+tialized in this function
 
-MF> I also wonder if filedescriptor passing thru ancilliary messages will
-MF> work (that is, with unix sockets that I've created before the netns
-MF> change).
+Signed-off-by: Prarit Bhargava <prarit@redhat.com>
 
-I think that will work, as will binding a socket and then doing a
-setns().
-
--- 
-Dan Smith
-IBM Linux Technology Center
-email: danms@us.ibm.com
+diff --git a/drivers/net/niu.c b/drivers/net/niu.c
+index 30abb4e..3ace57b 100644
+--- a/drivers/net/niu.c
++++ b/drivers/net/niu.c
+@@ -3454,7 +3454,7 @@ static int niu_process_rx_pkt(struct napi_struct =
+*napi, struct niu *np,
+=20
+ 	num_rcr =3D 0;
+ 	while (1) {
+-		struct page *page, **link;
++		struct page *page, **uninitialized_var(link);
+ 		u32 rcr_size, append_size;
+ 		u64 addr, val, off;
+=20
