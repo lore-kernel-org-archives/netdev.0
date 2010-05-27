@@ -1,38 +1,39 @@
-From: Prarit Bhargava <prarit@redhat.com>
-Subject: [PATCH]: bnx2: Fix uninitialized variable warning in bnx2_disable_forced_2g5()
-Date: Thu, 27 May 2010 18:13:01 -0400
-Message-ID: <20100527220856.25418.86593.sendpatchset@prarit.bos.redhat.com>
-Cc: Prarit Bhargava <prarit@redhat.com>
-To: netdev@vger.kernel.org, mchan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62082 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757930Ab0E0WNC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 May 2010 18:13:02 -0400
-Received: from int-mx08.intmail.prod.int.phx2.redhat.com (int-mx08.intmail.prod.int.phx2.redhat.com [10.5.11.21])
-	by mx1.redhat.com (8.13.8/8.13.8) with ESMTP id o4RMD1Db029395
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 27 May 2010 18:13:02 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: boot crash in arp_error_report()
+Date: Thu, 27 May 2010 16:10:11 -0700 (PDT)
+Message-ID: <20100527.161011.104042698.davem@davemloft.net>
+References: <alpine.LFD.2.00.1005271213091.3689@i5.linux-foundation.org>
+	<1274989637.2446.1.camel@edumazet-laptop>
+	<1274991504.2446.13.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, mingo@elte.hu, tglx@linutronix.de,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1274991504.2446.13.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fix warning:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 27 May 2010 22:18:24 +0200
 
-drivers/net/bnx2.c: In function 'bnx2_disable_forced_2g5':
-drivers/net/bnx2.c:1489: warning: 'bmcr' may be used uninitialized in this function
+> [PATCH] net: fix __neigh_event_send()
+> 
+> commit 7fee226ad23 (net: add a noref bit on skb dst) missed one spot
+> where an skb is enqueued, with a possibly not refcounted dst entry.
+> 
+> __neigh_event_send() inserts skb into arp_queue, so we must make sure
+> dst entry is refcounted, or dst entry can be freed by garbage collector
+> after caller exits from rcu protected section.
+> 
+> Reported-by: Ingo Molnar <mingo@elte.hu>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Signed-off-by: Prarit Bhargava <prarit@redhat.com>
+Applied, thanks Eric.
 
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 667f419..7e2f8ac 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -1486,7 +1486,7 @@ bnx2_enable_forced_2g5(struct bnx2 *bp)
- static void
- bnx2_disable_forced_2g5(struct bnx2 *bp)
- {
--	u32 bmcr;
-+	u32 uninitialized_var(bmcr);
- 
- 	if (!(bp->phy_flags & BNX2_PHY_FLAG_2_5G_CAPABLE))
- 		return;
+Ingo can we get a confirmation that this fixes the bootup crash?
+
+Thanks!
