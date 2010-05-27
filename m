@@ -1,37 +1,183 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
+From: Jiri Pirko <jpirko@redhat.com>
 Subject: Re: [PATCH net-next-2.6] net: replace hooks in __netif_receive_skb
-Date: Thu, 27 May 2010 07:47:15 -0700
-Message-ID: <20100527074715.743f7420@nehalam>
+Date: Thu, 27 May 2010 16:57:11 +0200
+Message-ID: <20100527145710.GB6916@psychotron.lab.eng.brq.redhat.com>
 References: <20100527134935.GA6916@psychotron.lab.eng.brq.redhat.com>
+ <4BFE7C7E.8090803@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net,
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, shemminger@vyatta.com,
 	eric.dumazet@gmail.com
-To: Jiri Pirko <jpirko@redhat.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:48426 "EHLO mail.vyatta.com"
+Received: from mx1.redhat.com ([209.132.183.28]:18842 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753220Ab0E0OrV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 May 2010 10:47:21 -0400
-In-Reply-To: <20100527134935.GA6916@psychotron.lab.eng.brq.redhat.com>
+	id S1757842Ab0E0O5S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 May 2010 10:57:18 -0400
+Content-Disposition: inline
+In-Reply-To: <4BFE7C7E.8090803@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 27 May 2010 15:49:36 +0200
-Jiri Pirko <jpirko@redhat.com> wrote:
+Thu, May 27, 2010 at 04:06:54PM CEST, kaber@trash.net wrote:
+>Jiri Pirko wrote:
+>> @@ -511,10 +512,16 @@ static void macvlan_setup(struct net_device *dev)
+>>  	dev->tx_queue_len	= 0;
+>>  }
+>>  
+>> +static struct netdev_rx_handler macvlan_rx_handler = {
+>> +	.order		= NETDEV_RX_HANDLER_ORDER_MACVLAN,
+>> +	.callback	= macvlan_handle_frame,
+>> +};
+>
+>It seems this could be const since you duplicate it on
+>registration.
 
-> What this patch does is it removes two receive frame hooks (for bridge and for
-> macvlan) from __netif_receive_skb. These are replaced them with a general
-> list of rx_handlers which is iterated thru instead.
-> 
-> Then a network driver (of virtual netdev like macvlan or bridge) can register
-> an rx_handler for needed net device to be called from __netif_receive_skb.
-> 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+Noted.
+>
+>> +
+>>  static int macvlan_port_create(struct net_device *dev)
+>>  {
+>>  	struct macvlan_port *port;
+>>  	unsigned int i;
+>> +	int err;
+>>  
+>>  	if (dev->type != ARPHRD_ETHER || dev->flags & IFF_LOOPBACK)
+>>  		return -EINVAL;
+>> @@ -528,6 +535,15 @@ static int macvlan_port_create(struct net_device *dev)
+>>  	for (i = 0; i < MACVLAN_HASH_SIZE; i++)
+>>  		INIT_HLIST_HEAD(&port->vlan_hash[i]);
+>>  	rcu_assign_pointer(dev->macvlan_port, port);
+>> +
+>> +	err = netdev_rx_handler_register(dev, &macvlan_rx_handler);
+>> +	if (err) {
+>> +		rcu_assign_pointer(dev->macvlan_port, NULL);
+>> +		synchronize_rcu();
+>> +		kfree(port);
+>> +		return err;
+>> +	}
+>
+>I'd prefer goto-based unroll since that makes changes in the
+>future easier.
 
-This is almost identical to my previous RFC but it is per device.
+Ok, I thought this won't be necessary in this case, but right, looks better.
+>
+>> +
+>>  	return 0;
+>>  }
+>>  
+>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>> index a1bff65..8e95b2d 100644
+>> --- a/include/linux/netdevice.h
+>> +++ b/include/linux/netdevice.h
+>> @@ -254,6 +254,15 @@ struct netdev_hw_addr_list {
+>>  #define netdev_for_each_mc_addr(ha, dev) \
+>>  	netdev_hw_addr_list_for_each(ha, &(dev)->mc)
+>>  
+>> +
+>> +struct netdev_rx_handler {
+>> +	struct list_head	list;
+>> +	unsigned int		order;
+>> +#define NETDEV_RX_HANDLER_ORDER_BRIDGE	1
+>> +#define NETDEV_RX_HANDLER_ORDER_MACVLAN	2
+>
+>Any reason for not using an enum?
 
-Why bother with a rx handler lock, why not just use RTNL since the
-hook should only be changed from control operations.
+No, I can use enum, but this "inlining" gives a person who is looking at the
+code the connection on the first look.
 
+>
+>> +	struct sk_buff		*(*callback)(struct sk_buff *skb);
+>> +};
+>> +
+>>  struct hh_cache {
+>>  	struct hh_cache *hh_next;	/* Next entry			     */
+>>  	atomic_t	hh_refcnt;	/* number of users                   */
+>> @@ -1031,6 +1040,10 @@ struct net_device {
+>>  	/* GARP */
+>>  	struct garp_port	*garp_port;
+>>  
+>> +	/* receive handlers (hooks) list */
+>> +	spinlock_t		rx_handlers_lock;
+>> +	struct list_head	rx_handlers;
+>> +
+>>  	/* class/net/name entry */
+>>  	struct device		dev;
+>>  	/* space for optional device, statistics, and wireless sysfs groups */
+>> diff --git a/net/core/dev.c b/net/core/dev.c
+>> index 6c82065..8d4a817 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -2744,6 +2688,82 @@ void netif_nit_deliver(struct sk_buff *skb)
+>>  	rcu_read_unlock();
+>>  }
+>>  
+>> +static bool rx_handlers_equal(struct netdev_rx_handler *rh1,
+>> +			      struct netdev_rx_handler *rh2)
+>> +{
+>> +	return (rh1->order == rh2->order) && (rh1->callback == rh2->callback);
+>> +}
+>> +
+>> +/**
+>> + *	netdev_rx_handler_register - register receive handler
+>> + *	@dev: device to register a handler for
+>> + *	@rh: receive handler to register
+>> + *
+>> + *	Register a receive hander for a device. This handler will then be
+>> + *	called from __netif_receive_skb. A negative errno code is returned
+>> + *	on a failure.
+>> + */
+>> +int netdev_rx_handler_register(struct net_device *dev,
+>> +			       struct netdev_rx_handler *rh)
+>> +{
+>> +	struct list_head *list, *add_after;
+>> +	struct netdev_rx_handler *rh1;
+>> +	int err = 0;
+>> +
+>> +	spin_lock_bh(&dev->rx_handlers_lock);
+>
+>Why are you using a spin lock and even disable BHs? This function
+>should only be called from user context, so a mutex will work fine
+>(and would fix the use of GFP_KERNEL in an atomic section).
+
+Right, I will use rather rtnl_lock as suggested by Stephen.
+
+>
+>> +	add_after = &dev->rx_handlers;
+>> +	list_for_each(list, &dev->rx_handlers) {
+>
+>Naming the element "list" is confusing. Also this should be
+>using list_for_each_entry().
+
+Well I'm not using list_for_each_entry because I use the list_head cursor as a
+head in list_add_rcu (add_after assignment)
+
+>
+>> +		rh1 = list_entry(list, struct netdev_rx_handler, list);
+>> +		if (rx_handlers_equal(rh, rh1)) {
+>> +			err = -EEXIST;
+>> +			goto unlock;
+>> +		}
+>> +		if (rh1->order > rh->order)
+>> +			break;
+>> +		add_after = list;
+>> +	}
+>> +	rh1 = kzalloc(sizeof(*rh), GFP_KERNEL);
+>> +	if (!rh1) {
+>> +		err = -ENOMEM;
+>> +		goto unlock;
+>> +	}
+>> +
+>> +	rh1->order = rh->order;
+>> +	rh1->callback = rh->callback;
+>> +	list_add_rcu(&rh1->list, add_after);
+>> +
+>> +unlock:
+>> +	spin_unlock_bh(&dev->rx_handlers_lock);
+>> +
+>> +	return err;
+>> +}
+>> +EXPORT_SYMBOL(netdev_rx_handler_register);
+
+
+Thanks all for comments, I'll send V2 soon
