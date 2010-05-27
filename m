@@ -1,40 +1,67 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: issue about virtio-net driver to suppoprt vhost mergeable
-	buffer with zero-copy to support PS mode
-Date: Thu, 27 May 2010 11:20:25 +0300
-Message-ID: <20100527082025.GA5579@redhat.com>
-References: <F2E9EB7348B8264F86B6AB8151CE2D790B7958E740@shsmsx502.ccr.corp.intel.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch 1/3] rds/iw_rdma: using too much stack space
+Date: Thu, 27 May 2010 11:08:33 +0200
+Message-ID: <20100527090833.GR22515@bicker>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Herbert Xu <herbert@gondor.hengli.com.au>
-To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>, rds-devel@oss.oracle.com,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Andy Grover <andy.grover@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:52185 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752580Ab0E0JIy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 05:08:54 -0400
 Content-Disposition: inline
-In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D790B7958E740@shsmsx502.ccr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 27, 2010 at 09:21:02AM +0800, Xin, Xiaohui wrote:
-> Michael,
-> I'm now looking into the vhost mergeable buffer, and I tried to use it to support PS mode with zero-copy. And I found an issue there that I have to modify the guest virito-net driver.
-> 
-> When guest virtio-net driver submits mergeable buffers, it submits multiple pages outside. In zero-copy case, vhost cannot know which page is used to put header, and which page is used to put payload. Then vhost can only reserves 12 bytes for each page. That means, the page_offset of the payload DMAed into the guest buffer is always 12 bytes. But guest virtio-net driver always use offset 0 to put the data (See receive_mergeable()). That's where the zero-copy use mergeable buffer must modify.
-> 
-> Have I missed something here? And how do you think about it?
-> 
-> Thanks 
-> Xiaohui 
+struct rds_sock is pretty big, it uses 944 bytes.  The inclusion of 
+struct sock is what does it, struct sock uses 700 bytes.
 
-Maybe you can teach the hardware skip the first 12 bytes: qemu will
-call an ioctl telling hardware what the virtio header size is.
-This is how we plan to do it for tap.
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-Alternatively, buffers can be used in any order.
-So we can have hardware use N buffers for the packet, and then
-have vhost put the header in buffer N+1.
+diff --git a/net/rds/iw_rdma.c b/net/rds/iw_rdma.c
+index 13dc186..742ab6a 100644
+--- a/net/rds/iw_rdma.c
++++ b/net/rds/iw_rdma.c
+@@ -178,23 +178,29 @@ int rds_iw_update_cm_id(struct rds_iw_device *rds_iwdev, struct rdma_cm_id *cm_i
+ {
+ 	struct sockaddr_in *src_addr, *dst_addr;
+ 	struct rds_iw_device *rds_iwdev_old;
+-	struct rds_sock rs;
++	struct rds_sock *rs;
+ 	struct rdma_cm_id *pcm_id;
+-	int rc;
++	int ret;
++
++	rs = kmalloc(sizeof(*rs), GFP_KERNEL);
++	if (!rs)
++		return -ENOMEM;
+ 
+ 	src_addr = (struct sockaddr_in *)&cm_id->route.addr.src_addr;
+ 	dst_addr = (struct sockaddr_in *)&cm_id->route.addr.dst_addr;
+ 
+-	rs.rs_bound_addr = src_addr->sin_addr.s_addr;
+-	rs.rs_bound_port = src_addr->sin_port;
+-	rs.rs_conn_addr = dst_addr->sin_addr.s_addr;
+-	rs.rs_conn_port = dst_addr->sin_port;
++	rs->rs_bound_addr = src_addr->sin_addr.s_addr;
++	rs->rs_bound_port = src_addr->sin_port;
++	rs->rs_conn_addr = dst_addr->sin_addr.s_addr;
++	rs->rs_conn_port = dst_addr->sin_port;
+ 
+-	rc = rds_iw_get_device(&rs, &rds_iwdev_old, &pcm_id);
+-	if (rc)
++	ret = rds_iw_get_device(rs, &rds_iwdev_old, &pcm_id);
++	if (ret)
+ 		rds_iw_remove_cm_id(rds_iwdev, cm_id);
+ 
+-	return rds_iw_add_cm_id(rds_iwdev, cm_id);
++	ret = rds_iw_add_cm_id(rds_iwdev, cm_id);
++	kfree(rs);
++	return ret;
+ }
+ 
+ void rds_iw_add_conn(struct rds_iw_device *rds_iwdev, struct rds_connection *conn)
 
--- 
-MST
