@@ -1,68 +1,161 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: UDP Fragmentation and DF bit..
-Date: Thu, 27 May 2010 11:43:35 +0200
-Message-ID: <87bpc11xyw.fsf@basil.nowhere.org>
-References: <C8231CDB.16FC5%pradeepv@amazon.com>
+From: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
+Subject: [PATCH 1/3] vhost: fix to check the return value of
+ copy_to/from_user() correctly
+Date: Thu, 27 May 2010 18:58:03 +0900
+Message-ID: <20100527185803.0c0213a1.yoshikawa.takuya@oss.ntt.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Vincent\, Pradeep" <pradeepv@amazon.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org
+To: mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:60900 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755408Ab0E0Jnl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 05:43:41 -0400
-In-Reply-To: <C8231CDB.16FC5%pradeepv@amazon.com> (Pradeep Vincent's message of "Wed\, 26 May 2010 18\:45\:47 -0700")
+Received: from serv2.oss.ntt.co.jp ([222.151.198.100]:47877 "EHLO
+	serv2.oss.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757378Ab0E0J5k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 05:57:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Vincent, Pradeep" <pradeepv@amazon.com> writes:
+copy_to/from_user() returns the number of bytes that could not be copied.
 
-> OMan 7 ip=B9 declares that =B3The  system-wide  default  is  controll=
-ed  by  the
-> ip_no_pmtu_disc  sysctl  for SOCK_STREAM  sockets,  and  disabled  on=
- all
-> others.=B2 which led me to think ODF=B9 bit will not be set for UDP p=
-ackets.
-> But..
+So we need to check if it is not zero, and in that case, we should return
+the error number -EFAULT rather than directly return the return value from
+copy_to/from_user().
 
-One should add ip.7 is not really a spec, just documentation
-how things were quite a few years ago. It unfortunately
-does often not get updated when things change.
+Signed-off-by: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
+---
+ drivers/vhost/vhost.c |   51 ++++++++++++++++++++++++++----------------------
+ 1 files changed, 28 insertions(+), 23 deletions(-)
 
->
-> In a network environment where MTU-big and MTU-small co-exist (and ha=
-ve
-> router=B9s fragmentation turned off in favor of PMTU discovery), UDP =
-packets
-> that are > MTU-small and < MTU-big find the PMTU effectively but UDP
-> packets
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 5c9c657..9633a3c 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -320,10 +320,8 @@ static long vhost_set_memory(struct vhost_dev *d, struct vhost_memory __user *m)
+ {
+ 	struct vhost_memory mem, *newmem, *oldmem;
+ 	unsigned long size = offsetof(struct vhost_memory, regions);
+-	long r;
+-	r = copy_from_user(&mem, m, size);
+-	if (r)
+-		return r;
++	if (copy_from_user(&mem, m, size))
++		return -EFAULT;
+ 	if (mem.padding)
+ 		return -EOPNOTSUPP;
+ 	if (mem.nregions > VHOST_MEMORY_MAX_NREGIONS)
+@@ -333,11 +331,10 @@ static long vhost_set_memory(struct vhost_dev *d, struct vhost_memory __user *m)
+ 		return -ENOMEM;
+ 
+ 	memcpy(newmem, &mem, size);
+-	r = copy_from_user(newmem->regions, m->regions,
+-			   mem.nregions * sizeof *m->regions);
+-	if (r) {
++	if (copy_from_user(newmem->regions, m->regions,
++			   mem.nregions * sizeof *m->regions)) {
+ 		kfree(newmem);
+-		return r;
++		return -EFAULT;
+ 	}
+ 
+ 	if (!memory_access_ok(d, newmem, vhost_has_feature(d, VHOST_F_LOG_ALL)))
+@@ -389,9 +386,10 @@ static long vhost_set_vring(struct vhost_dev *d, int ioctl, void __user *argp)
+ 			r = -EBUSY;
+ 			break;
+ 		}
+-		r = copy_from_user(&s, argp, sizeof s);
+-		if (r < 0)
++		if (copy_from_user(&s, argp, sizeof s)) {
++			r = -EFAULT;
+ 			break;
++		}
+ 		if (!s.num || s.num > 0xffff || (s.num & (s.num - 1))) {
+ 			r = -EINVAL;
+ 			break;
+@@ -405,9 +403,10 @@ static long vhost_set_vring(struct vhost_dev *d, int ioctl, void __user *argp)
+ 			r = -EBUSY;
+ 			break;
+ 		}
+-		r = copy_from_user(&s, argp, sizeof s);
+-		if (r < 0)
++		if (copy_from_user(&s, argp, sizeof s)) {
++			r = -EFAULT;
+ 			break;
++		}
+ 		if (s.num > 0xffff) {
+ 			r = -EINVAL;
+ 			break;
+@@ -419,12 +418,14 @@ static long vhost_set_vring(struct vhost_dev *d, int ioctl, void __user *argp)
+ 	case VHOST_GET_VRING_BASE:
+ 		s.index = idx;
+ 		s.num = vq->last_avail_idx;
+-		r = copy_to_user(argp, &s, sizeof s);
++		if (copy_to_user(argp, &s, sizeof s))
++			r = -EFAULT;
+ 		break;
+ 	case VHOST_SET_VRING_ADDR:
+-		r = copy_from_user(&a, argp, sizeof a);
+-		if (r < 0)
++		if (copy_from_user(&a, argp, sizeof a)) {
++			r = -EFAULT;
+ 			break;
++		}
+ 		if (a.flags & ~(0x1 << VHOST_VRING_F_LOG)) {
+ 			r = -EOPNOTSUPP;
+ 			break;
+@@ -477,9 +478,10 @@ static long vhost_set_vring(struct vhost_dev *d, int ioctl, void __user *argp)
+ 		vq->used = (void __user *)(unsigned long)a.used_user_addr;
+ 		break;
+ 	case VHOST_SET_VRING_KICK:
+-		r = copy_from_user(&f, argp, sizeof f);
+-		if (r < 0)
++		if (copy_from_user(&f, argp, sizeof f)) {
++			r = -EFAULT;
+ 			break;
++		}
+ 		eventfp = f.fd == -1 ? NULL : eventfd_fget(f.fd);
+ 		if (IS_ERR(eventfp)) {
+ 			r = PTR_ERR(eventfp);
+@@ -492,9 +494,10 @@ static long vhost_set_vring(struct vhost_dev *d, int ioctl, void __user *argp)
+ 			filep = eventfp;
+ 		break;
+ 	case VHOST_SET_VRING_CALL:
+-		r = copy_from_user(&f, argp, sizeof f);
+-		if (r < 0)
++		if (copy_from_user(&f, argp, sizeof f)) {
++			r = -EFAULT;
+ 			break;
++		}
+ 		eventfp = f.fd == -1 ? NULL : eventfd_fget(f.fd);
+ 		if (IS_ERR(eventfp)) {
+ 			r = PTR_ERR(eventfp);
+@@ -510,9 +513,10 @@ static long vhost_set_vring(struct vhost_dev *d, int ioctl, void __user *argp)
+ 			filep = eventfp;
+ 		break;
+ 	case VHOST_SET_VRING_ERR:
+-		r = copy_from_user(&f, argp, sizeof f);
+-		if (r < 0)
++		if (copy_from_user(&f, argp, sizeof f)) {
++			r = -EFAULT;
+ 			break;
++		}
+ 		eventfp = f.fd == -1 ? NULL : eventfd_fget(f.fd);
+ 		if (IS_ERR(eventfp)) {
+ 			r = PTR_ERR(eventfp);
+@@ -575,9 +579,10 @@ long vhost_dev_ioctl(struct vhost_dev *d, unsigned int ioctl, unsigned long arg)
+ 		r = vhost_set_memory(d, argp);
+ 		break;
+ 	case VHOST_SET_LOG_BASE:
+-		r = copy_from_user(&p, argp, sizeof p);
+-		if (r < 0)
++		if (copy_from_user(&p, argp, sizeof p)) {
++			r = -EFAULT;
+ 			break;
++		}
+ 		if ((u64)(unsigned long)p != p) {
+ 			r = -EFAULT;
+ 			break;
+-- 
+1.7.0.4
 
-
-I don't understand your mtu-small/big concept. PMTU is per IP and per
-flow. So there's only always a single PMTU, not small and big.
-
-Or do you refer to a single IP NAT situation where a single IP
-shares different MTUs?
-
-> Is there a reason ODF=B9 bit cannot be set on fragmented packets on U=
-DP
-> transmission ? I couldn=B9t find anything in RFC for IP protocol that
-> prohibited DF bit on fragmented packets. Did I miss
-> something here ?
-
-> Would it be reasonable if PMTU discovery is performed (DF bit set +
-> appropriate icmp logic) even for locally fragmented packets ? I think
-> this
-
-
-DF=3D1 on fragments would mean the application has to do pmtu discovery
-even with fragments for the case when the kernel does not know=20
-the path mtu yet. But if the app supports pmtu discovery it's better
-to not use fragments in the first place.
-
--Andi
-
---=20
-ak@linux.intel.com -- Speaking for myself only.
