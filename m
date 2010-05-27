@@ -1,46 +1,58 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [GIT PULL net-2.6] vhost-net: error handling fixes
-Date: Thu, 27 May 2010 14:57:14 +0300
-Message-ID: <20100527115714.GA7899@redhat.com>
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 4/11] drivers/net/hamradio: Eliminate a NULL pointer dereference
+Date: Thu, 27 May 2010 14:33:00 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005271432450.5422@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: Jean-Paul Roubelat <jpr@f6fbb.org>, linux-hams@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	krkumar2@in.ibm.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52867 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754935Ab0E0MBl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 May 2010 08:01:41 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	kernel-janitors@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David,
-The following tree includes fixes dealing with error handling
-in vhost-net. It is on top of net-2.6.
-Please merge it for 2.6.35.
-Thanks!
+From: Julia Lawall <julia@diku.dk>
 
-The following changes since commit 8a74ad60a546b13bd1096b2a61a7a5c6fd9ae17c:
+At the point of the print, dev is NULL.
 
-  net: fix lock_sock_bh/unlock_sock_bh (2010-05-27 00:30:53 -0700)
+A simplified version of the semantic match that finds this problem is as
+follows: (http://coccinelle.lip6.fr/)
 
-are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net
+// <smpl>
+@r exists@
+expression E,E1;
+identifier f;
+statement S1,S2,S3;
+@@
 
-Krishna Kumar (1):
-      vhost: Fix host panic if ioctl called with wrong index
+if ((E == NULL && ...) || ...)
+{
+  ... when != if (...) S1 else S2
+      when != E = E1
+* E->f
+  ... when any
+  return ...;
+}
+else S3
+// </smpl>
 
-Takuya Yoshikawa (3):
-      vhost: fix to check the return value of copy_to/from_user() correctly
-      vhost-net: fix to check the return value of copy_to/from_user() correctly
-      vhost: fix the memory leak which will happen when memory_access_ok fails
+Signed-off-by: Julia Lawall <julia@diku.dk>
 
- drivers/vhost/net.c   |   14 ++++++------
- drivers/vhost/vhost.c |   57 +++++++++++++++++++++++++++---------------------
- 2 files changed, 39 insertions(+), 32 deletions(-)
+---
+ drivers/net/hamradio/yam.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
--- 
-MST
+diff --git a/drivers/net/hamradio/yam.c b/drivers/net/hamradio/yam.c
+index 694132e..4e7d1d0 100644
+--- a/drivers/net/hamradio/yam.c
++++ b/drivers/net/hamradio/yam.c
+@@ -1151,8 +1151,7 @@ static int __init yam_init_driver(void)
+ 		dev = alloc_netdev(sizeof(struct yam_port), name,
+ 				   yam_setup);
+ 		if (!dev) {
+-			printk(KERN_ERR "yam: cannot allocate net device %s\n",
+-			       dev->name);
++			pr_err("yam: cannot allocate net device\n");
+ 			err = -ENOMEM;
+ 			goto error;
+ 		}
