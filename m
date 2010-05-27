@@ -1,15 +1,18 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 4/11] drivers/net/hamradio: Eliminate a NULL pointer dereference
-Date: Thu, 27 May 2010 14:33:00 +0200 (CEST)
-Message-ID: <Pine.LNX.4.64.1005271432450.5422@ask.diku.dk>
+Subject: [PATCH 6/11] drivers/net: Eliminate a NULL pointer dereference
+Date: Thu, 27 May 2010 14:33:32 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005271433180.5422@ask.diku.dk>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: Jean-Paul Roubelat <jpr@f6fbb.org>, linux-hams@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	kernel-janitors@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw2.diku.dk ([130.225.96.92]:48516 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750831Ab0E0Mdh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 May 2010 08:33:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Julia Lawall <julia@diku.dk>
 
@@ -39,20 +42,20 @@ else S3
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- drivers/net/hamradio/yam.c |    3 +--
+ drivers/net/3c507.c |    3 +--
  1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/hamradio/yam.c b/drivers/net/hamradio/yam.c
-index 694132e..4e7d1d0 100644
---- a/drivers/net/hamradio/yam.c
-+++ b/drivers/net/hamradio/yam.c
-@@ -1151,8 +1151,7 @@ static int __init yam_init_driver(void)
- 		dev = alloc_netdev(sizeof(struct yam_port), name,
- 				   yam_setup);
- 		if (!dev) {
--			printk(KERN_ERR "yam: cannot allocate net device %s\n",
--			       dev->name);
-+			pr_err("yam: cannot allocate net device\n");
- 			err = -ENOMEM;
- 			goto error;
- 		}
+diff --git a/drivers/net/3c507.c b/drivers/net/3c507.c
+index 82eaf65..ea9b7a0 100644
+--- a/drivers/net/3c507.c
++++ b/drivers/net/3c507.c
+@@ -551,8 +551,7 @@ static irqreturn_t el16_interrupt(int irq, void *dev_id)
+ 	void __iomem *shmem;
+ 
+ 	if (dev == NULL) {
+-		pr_err("%s: net_interrupt(): irq %d for unknown device.\n",
+-			dev->name, irq);
++		pr_err("net_interrupt(): irq %d for unknown device.\n", irq);
+ 		return IRQ_NONE;
+ 	}
+ 
