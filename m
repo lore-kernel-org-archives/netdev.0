@@ -1,62 +1,40 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH] tcp: Socket option to set congestion window
-Date: Thu, 27 May 2010 10:00:25 +0200
-Message-ID: <20100527080025.GB6800@basil.fritz.box>
-References: <87fx1e1sat.fsf@basil.nowhere.org> <20100526.140818.245406045.davem@davemloft.net> <20100526212745.GC24615@basil.fritz.box> <20100526.151014.70204145.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: issue about virtio-net driver to suppoprt vhost mergeable
+	buffer with zero-copy to support PS mode
+Date: Thu, 27 May 2010 11:20:25 +0300
+Message-ID: <20100527082025.GA5579@redhat.com>
+References: <F2E9EB7348B8264F86B6AB8151CE2D790B7958E740@shsmsx502.ccr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: andi@firstfloor.org, therbert@google.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org, ycheng@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:37982 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756251Ab0E0IA1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 04:00:27 -0400
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.hengli.com.au>
+To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20100526.151014.70204145.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D790B7958E740@shsmsx502.ccr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 26, 2010 at 03:10:14PM -0700, David Miller wrote:
-> From: Andi Kleen <andi@firstfloor.org>
-> Date: Wed, 26 May 2010 23:27:45 +0200
+On Thu, May 27, 2010 at 09:21:02AM +0800, Xin, Xiaohui wrote:
+> Michael,
+> I'm now looking into the vhost mergeable buffer, and I tried to use it to support PS mode with zero-copy. And I found an issue there that I have to modify the guest virito-net driver.
 > 
-> > As I understand the idea was that the application knows
-> > what flows belong to a single peer and wants to have
-> > a single cwnd for all of those. Perhaps there would
-> > be a way to generalize that to tell it to the kernel.
-> > 
-> > e.g. have a "peer id"  that is known by applications
-> > and the kernel could manage cwnds shared between connections
-> > associated with the same peer id?
-> > 
-> > Just an idea, I admit I haven't thought very deeply
-> > about this. Feel free to poke holes into it.
+> When guest virtio-net driver submits mergeable buffers, it submits multiple pages outside. In zero-copy case, vhost cannot know which page is used to put header, and which page is used to put payload. Then vhost can only reserves 12 bytes for each page. That means, the page_offset of the payload DMAed into the guest buffer is always 12 bytes. But guest virtio-net driver always use offset 0 to put the data (See receive_mergeable()). That's where the zero-copy use mergeable buffer must modify.
 > 
-> Yes, a CWND "domain" that can include multiple sockets is
-> something that might gain some traction.
+> Have I missed something here? And how do you think about it?
 > 
-> The "domain" could just simply be the tuple {process,peer-IP}
+> Thanks 
+> Xiaohui 
 
-If process is in there this wouldn't work for a multi process
-server?
+Maybe you can teach the hardware skip the first 12 bytes: qemu will
+call an ioctl telling hardware what the virtio header size is.
+This is how we plan to do it for tap.
 
-Perhaps having it associated with a FD so that it could
-be passed around with unix sockets if needed (just would
-need to make sure the AF_UNIX gc can handle such cycles)
+Alternatively, buffers can be used in any order.
+So we can have hardware use N buffers for the packet, and then
+have vhost put the header in buffer N+1.
 
-peer_id = open_peer_id();   
-/* peer id is like a fd */
-
-socket = socket( ... ); 
-set_peer_id(socket, peer_id); 
-
-
-...
-
-close(peer_id);
-
--andi
 -- 
-ak@linux.intel.com -- Speaking for myself only.
+MST
