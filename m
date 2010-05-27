@@ -1,43 +1,41 @@
-From: Prarit Bhargava <prarit@redhat.com>
-Subject: [PATCH]: niu: fix uninitialized variable warning
-Date: Thu, 27 May 2010 14:35:03 -0400
-Message-ID: <20100527183100.24251.12228.sendpatchset@prarit.bos.redhat.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] tcp: Socket option to set congestion window
+Date: Thu, 27 May 2010 20:56:56 +0200
+Message-ID: <20100527185656.GD6800@basil.fritz.box>
+References: <20100526212745.GC24615@basil.fritz.box> <20100526.151014.70204145.davem@davemloft.net> <20100526231512.GD2684@nuttenaction> <20100526.200443.232751390.davem@davemloft.net> <20100527070827.GB2728@nuttenaction> <AANLkTime8wfTLfdNMAx_HYr6XO0DiO12r5FVdGBjVNwT@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Prarit Bhargava <prarit@redhat.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
+	David Miller <davem@davemloft.net>, andi@firstfloor.org,
+	shemminger@vyatta.com, netdev@vger.kernel.org, ycheng@google.com
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25872 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754941Ab0E0SfF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 May 2010 14:35:05 -0400
-Received: from int-mx05.intmail.prod.int.phx2.redhat.com (int-mx05.intmail.prod.int.phx2.redhat.com [10.5.11.18])
-	by mx1.redhat.com (8.13.8/8.13.8) with ESMTP id o4RIZ4Nv024701
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 27 May 2010 14:35:04 -0400
+Received: from one.firstfloor.org ([213.235.205.2]:42202 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759544Ab0E0S46 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 14:56:58 -0400
+Content-Disposition: inline
+In-Reply-To: <AANLkTime8wfTLfdNMAx_HYr6XO0DiO12r5FVdGBjVNwT@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46ixes warning:
+> It would be better, by almost any perspective, to rein in the number
+> of connections servers are allowing clients to open.  However this
+> isn't going to happen if this means increase latency for end users,
+> there's is no competitive rationale for servers to do that.  That's
+> where a primary motivation of this patch becomes evident.  Instead of
+> a server allowing 6 connections from a client, for instance, it could
+> allow just one connection but with a initial congestion window equal
+> to the aggregate of the 6 connections.  This reduces connections and
 
-drivers/net/niu.c: In function =E2=80=98niu_process_rx_pkt=E2=80=99:
-drivers/net/niu.c:3457: error: =E2=80=98link=E2=80=99 may be used unini=
-tialized in this function
+I thought the point was to avoid cwnd inflation by multiple connections?
+Now you're saying you actually want larger cwnds? 
 
-Signed-off-by: Prarit Bhargava <prarit@redhat.com>
+If you simply want larger CWNDs the easiest is to bump up the
+define in your local build.
 
-diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index 30abb4e..3ace57b 100644
---- a/drivers/net/niu.c
-+++ b/drivers/net/niu.c
-@@ -3454,7 +3454,7 @@ static int niu_process_rx_pkt(struct napi_struct =
-*napi, struct niu *np,
-=20
- 	num_rcr =3D 0;
- 	while (1) {
--		struct page *page, **link;
-+		struct page *page, **uninitialized_var(link);
- 		u32 rcr_size, append_size;
- 		u64 addr, val, off;
-=20
+But that cannot be done by default obviously.
+
+-Andi
+-- 
+ak@linux.intel.com -- Speaking for myself only.
