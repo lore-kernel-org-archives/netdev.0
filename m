@@ -1,65 +1,78 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 2/3] workqueue: Add an API to create a singlethread
-	workqueue attached to the current task's cgroup
-Date: Thu, 27 May 2010 20:32:07 +0300
-Message-ID: <20100527173207.GA21880@redhat.com>
-References: <1274227491.2370.110.camel@w-sridhar.beaverton.ibm.com> <20100527091426.GA6308@redhat.com> <20100527124448.GA4241@redhat.com> <20100527131254.GB7974@redhat.com> <4BFE9ABA.6030907@kernel.org> <20100527163954.GA21710@redhat.com> <4BFEA434.6080405@kernel.org>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [REGRESSION,BISECTED] MIPv6 support broken by f4f914b58019f0
+Date: Fri, 28 May 2010 02:39:40 +0900
+Message-ID: <4BFEAE5C.2080703@linux-ipv6.org>
+References: <87zkzmppfg.fsf@small.ssi.corp> <4BFDC14F.6050407@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oleg Nesterov <oleg@redhat.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4BFEA434.6080405@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Arnaud Ebalard <arno@natisbad.org>,
+	David Miller <davem@davemloft.net>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Scott Otto <scott.otto@alcatel-lucent.com>,
+	netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Brian Haley <brian.haley@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:46178 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753843Ab0E0Rjm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 13:39:42 -0400
+In-Reply-To: <4BFDC14F.6050407@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 27, 2010 at 06:56:20PM +0200, Tejun Heo wrote:
-> Hello,
+Hi,
+
+Brian Haley wrote:
+> On 05/26/2010 01:01 PM, Arnaud Ebalard wrote:
+>> Hi,
+>>
+>> I just updated my laptop's kernel to 2.6.34 (previously running .33 and
+>> configured to act as an IPsec/IKE-protected MIPv6 Mobile Node using
+>> racoon and umip): after rebooting on the new kernel, the transport mode
+>> SA protecting MIPv6 signaling traffic are missing.
+>>
+>> I bisected the issue down to f4f914b58019f0e50d521bbbadfaee260d766f95
+>> (net: ipv6 bind to device issue) which was added after 2.6.34-rc5: 
+>>
+>> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+>> index c2438e8..05ebd78 100644
+>> --- a/net/ipv6/route.c
+>> +++ b/net/ipv6/route.c
+>> @@ -815,7 +815,7 @@ struct dst_entry * ip6_route_output(struct net *net, struct sock *sk,
+>>  {
+>>         int flags = 0;
+>>  
+>> -       if (rt6_need_strict(&fl->fl6_dst))
+>> +       if (fl->oif || rt6_need_strict(&fl->fl6_dst))
+>>                 flags |= RT6_LOOKUP_F_IFACE;
 > 
-> On 05/27/2010 06:39 PM, Michael S. Tsirkin wrote:
-> >> Unless you're gonna convert every driver to use this
-> >> special kind of workqueue (and what happens when multiple tasks from
-> >> different cgroups share the driver?),
-> > 
-> > We'll then create a workqueue per task. Each workqueue will have the
-> > right cgroup. But we are not trying to selve the problem for
-> > every driver.
+> Can you see if fl->oif is at least a sane value here?  Maybe there's some
+> partially un-initialized flowi getting passed-in, a quick source code check
+> didn't find anything obvious.
 > 
-> Ah... I see.  You're gonna use multiple workqueues.  Once concern that
-> I have is that this is abuse of workqueue interface to certain level
-> and depends on the implementation detail of workqueue rather than its
-> intended usage model.
+> The other thought is that it's the tunnel code calling it, as it's going
+> to set 'oif' (actually it caches a whole flowi) from the tunnel parms ifindex/link
+> value.  It could have been setting it forever, but ip6_route_output() just
+> never enforced it until now.
 
-Well, this is why I proposed adding a new API for creating
-workqueue within workqueue.c, rather than exposing the task
-and attaching it to cgroups in our driver: so that workqueue
-maintainers can fix the implementation if it ever changes.
+Well, I'd like to rethink the original bug report / fix.
+There are several factors:
 
-And after all, it's an internal API, we can always change
-it later if we need.
+1) CONFIG_IPV6_ROUTER_PREF?
+2) Is it host, or router?
+3) next-hop reachability
 
-> stop_machine() was a similar case and in the
-> end it was better served by a different mechanism built on kthread
-> directly (cpu_stop).  Wouldn't it be cleaner to use kthread directly
-> for your case too?  You're basically trying to use workqueue as a
-> frontend to kthread, so...
-> 
-> Thanks.
+If CONFIG_IPV6_ROUTER_PREF is enabled and the node is host,
+and one nexthop has better reachability, the route is always
+preferred even if upper layer specified specific interface.
+If we do not like this behavior, we should change
+rt6_score_route() not to return -1 something like this:
 
-Well, yes but we are using APIs like flush_work etc. These are very
-handy.  It seems much easier than rolling our own queue on top of kthread.
+         n = rt6_check_neigh(rt);
+         if (!n && (strict & RT6_LOOKUP_F_REACHABLE) && !oif)
+                 return -1;
 
-Makes sense?
+instead of ip6_route_output().
 
-> -- 
-> tejun
+--yoshfuji
