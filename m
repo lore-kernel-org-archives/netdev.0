@@ -1,47 +1,38 @@
-From: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
-Subject: [PATCH 3/3] vhost: fix the memory leak which will happen when
- memory_access_ok fails
-Date: Thu, 27 May 2010 19:03:56 +0900
-Message-ID: <20100527190356.cbf2aac7.yoshikawa.takuya@oss.ntt.co.jp>
-References: <20100527185803.0c0213a1.yoshikawa.takuya@oss.ntt.co.jp>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: ipv6: Add GSO support on forwarding path
+Date: Thu, 27 May 2010 11:14:16 +0100
+Message-ID: <20100527101416.GA19372@linux-mips.org>
+References: <20100526102758.GA25914@gondor.apana.org.au>
+ <20100526152019.GA11985@linux-mips.org>
+ <20100526221601.GA3369@gondor.apana.org.au>
+ <20100527092246.GB15298@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org
-To: mst@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from serv2.oss.ntt.co.jp ([222.151.198.100]:48090 "EHLO
-	serv2.oss.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757884Ab0E0KDd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 06:03:33 -0400
-In-Reply-To: <20100527185803.0c0213a1.yoshikawa.takuya@oss.ntt.co.jp>
+Received: from h5.dl5rb.org.uk ([81.2.74.5]:57597 "EHLO h5.dl5rb.org.uk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757706Ab0E0KOa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 May 2010 06:14:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20100527092246.GB15298@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We need to free newmem when vhost_set_memory() fails to complete.
+On Thu, May 27, 2010 at 10:22:46AM +0100, Ralf Baechle wrote:
 
-Signed-off-by: Takuya Yoshikawa <yoshikawa.takuya@oss.ntt.co.jp>
----
- drivers/vhost/vhost.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+> > > I tested this on top of a 2.6.34 release kernel and asked the user
+> > > experiencing the problem to re-test and the problem still persists.
+> > 
+> > OK, it looks like my patch doesn't work because the transport
+> > header isn't set on the forwarding path.  Here's an updated patch:
+> 
+> Still no improvment.  I've moved all the collected tcpdumps to
+> ftp://www.linux-ax25.org/pub/traces/ including a README file describing
+> contents.
 
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 9633a3c..1241a22 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -337,8 +337,10 @@ static long vhost_set_memory(struct vhost_dev *d, struct vhost_memory __user *m)
- 		return -EFAULT;
- 	}
- 
--	if (!memory_access_ok(d, newmem, vhost_has_feature(d, VHOST_F_LOG_ALL)))
-+	if (!memory_access_ok(d, newmem, vhost_has_feature(d, VHOST_F_LOG_ALL))) {
-+		kfree(newmem);
- 		return -EFAULT;
-+	}
- 	oldmem = d->memory;
- 	rcu_assign_pointer(d->memory, newmem);
- 	synchronize_rcu();
--- 
-1.7.0.4
+Uh..  Of course I should have upgraded the host not the client.  And
+after having done that things are working fine now.  Thanks!
 
+  Ralf
