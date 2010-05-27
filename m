@@ -1,65 +1,68 @@
-From: bengan@bag.org
-Subject: ipsec and gre on the same interface
-Date: Thu, 27 May 2010 11:28:57 +0200
-Message-ID: <201005271128.57865.bengan@bag.org>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: UDP Fragmentation and DF bit..
+Date: Thu, 27 May 2010 11:43:35 +0200
+Message-ID: <87bpc11xyw.fsf@basil.nowhere.org>
+References: <C8231CDB.16FC5%pradeepv@amazon.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev\@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Vincent\, Pradeep" <pradeepv@amazon.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.bag.org ([194.68.48.90]:52234 "EHLO nic.bag.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751978Ab0E0JjX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 May 2010 05:39:23 -0400
-Received: from linux-do4z.localnet (235.211.216.81.static.ksn.siw.siwnet.net [81.216.211.235])
-	by nic.bag.org (Postfix) with ESMTP id 34D7526C002
-	for <netdev@vger.kernel.org>; Thu, 27 May 2010 11:28:52 +0200 (CEST)
+Received: from one.firstfloor.org ([213.235.205.2]:60900 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755408Ab0E0Jnl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 05:43:41 -0400
+In-Reply-To: <C8231CDB.16FC5%pradeepv@amazon.com> (Pradeep Vincent's message of "Wed\, 26 May 2010 18\:45\:47 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+"Vincent, Pradeep" <pradeepv@amazon.com> writes:
 
-I've got a set up with two boxes (routers) with ipsec and gre (quagga for the 
-routing) that works but that includes 2 different interfaces in each box. But 
-I would like to do this in a box with only one interface for ipsec and gre. Is 
-that possible? In a vmware setup I have eth0 and eth1 as my two interfaces and 
-established an endpoint for the gre tunnel in eth1 I can get ipsec and gre 
-running and forwarding packets. But when I want to do the same thing with only 
-one interface it doesn't work.
+> OMan 7 ip=B9 declares that =B3The  system-wide  default  is  controll=
+ed  by  the
+> ip_no_pmtu_disc  sysctl  for SOCK_STREAM  sockets,  and  disabled  on=
+ all
+> others.=B2 which led me to think ODF=B9 bit will not be set for UDP p=
+ackets.
+> But..
 
-Am I doing something really stupid or should this work? If I'm doing something 
-really stupid could you explain what?
+One should add ip.7 is not really a spec, just documentation
+how things were quite a few years ago. It unfortunately
+does often not get updated when things change.
 
-
-The setup
-
-Working setup
-
-       ****          ****                                                 
-       *  *----------*  *                                                 
-       ****          ****                                                 
-              ipsec                                                            
-           <-------->                                                     
-
-              gre 
-       <----------------> 
+>
+> In a network environment where MTU-big and MTU-small co-exist (and ha=
+ve
+> router=B9s fragmentation turned off in favor of PMTU discovery), UDP =
+packets
+> that are > MTU-small and < MTU-big find the PMTU effectively but UDP
+> packets
 
 
+I don't understand your mtu-small/big concept. PMTU is per IP and per
+flow. So there's only always a single PMTU, not small and big.
 
-The setup I would like to get working
+Or do you refer to a single IP NAT situation where a single IP
+shares different MTUs?
 
-       ****          ****                                                 
-       *  *----------*  *                                                 
-       ****          ****                                                 
-              ipsec                                                            
-           <-------->                                                     
+> Is there a reason ODF=B9 bit cannot be set on fragmented packets on U=
+DP
+> transmission ? I couldn=B9t find anything in RFC for IP protocol that
+> prohibited DF bit on fragmented packets. Did I miss
+> something here ?
 
-              gre 
-           <--------> 
-
-
-regards,
+> Would it be reasonable if PMTU discovery is performed (DF bit set +
+> appropriate icmp logic) even for locally fragmented packets ? I think
+> this
 
 
-/bengan
+DF=3D1 on fragments would mean the application has to do pmtu discovery
+even with fragments for the case when the kernel does not know=20
+the path mtu yet. But if the app supports pmtu discovery it's better
+to not use fragments in the first place.
+
+-Andi
+
+--=20
+ak@linux.intel.com -- Speaking for myself only.
