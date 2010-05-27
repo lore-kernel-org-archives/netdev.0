@@ -1,44 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: Socket option to set congestion window
-Date: Thu, 27 May 2010 00:28:51 -0700 (PDT)
-Message-ID: <20100527.002851.02281005.davem@davemloft.net>
-References: <20100526231512.GD2684@nuttenaction>
-	<20100526.200443.232751390.davem@davemloft.net>
-	<20100527070827.GB2728@nuttenaction>
+Subject: Re: [PATCH] net: fix lock_sock_bh/unlock_sock_bh
+Date: Thu, 27 May 2010 00:29:36 -0700 (PDT)
+Message-ID: <20100527.002936.68139951.davem@davemloft.net>
+References: <1274937618.2542.46.camel@edumazet-laptop>
+	<20100526.222332.233688655.davem@davemloft.net>
+	<20100527060923.GD28295@kryten>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andi@firstfloor.org, therbert@google.com, shemminger@vyatta.com,
-	netdev@vger.kernel.org, ycheng@google.com
-To: hagen@jauu.net
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: anton@samba.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40850
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40856
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757023Ab0E0H2l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 03:28:41 -0400
-In-Reply-To: <20100527070827.GB2728@nuttenaction>
+	by vger.kernel.org with ESMTP id S1754752Ab0E0H30 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 03:29:26 -0400
+In-Reply-To: <20100527060923.GD28295@kryten>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Date: Thu, 27 May 2010 09:08:27 +0200
+From: Anton Blanchard <anton@samba.org>
+Date: Thu, 27 May 2010 16:09:23 +1000
 
-> And by the way, the IETF (and our) paradigm is still to shift functionality to
-> end hosts - not into network core. "The Rise of the stupid network" [1] is
-> still a paradigm that is superior to the alternative where vendors put their
-> proprietary algorithms into the network and change the behavior in a
-> uncontrollable fashion.
+> 
+>> > [PATCH v2] net: fix lock_sock_bh/unlock_sock_bh
+>> > 
+>> > This new sock lock primitive was introduced to speedup some user context
+>> > socket manipulation. But it is unsafe to protect two threads, one using
+>> > regular lock_sock/release_sock, one using lock_sock_bh/unlock_sock_bh
+>> > 
+>> > This patch changes lock_sock_bh to be careful against 'owned' state.
+>> > If owned is found to be set, we must take the slow path.
+>> > lock_sock_bh() now returns a boolean to say if the slow path was taken,
+>> > and this boolean is used at unlock_sock_bh time to call the appropriate
+>> > unlock function.
+>> > 
+>> > After this change, BH are either disabled or enabled during the
+>> > lock_sock_bh/unlock_sock_bh protected section. This might be misleading,
+>> > so we rename these functions to lock_sock_fast()/unlock_sock_fast().
+>> > 
+>> > Reported-by: Anton Blanchard <anton@samba.org>
+>> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> 
+>> Looks good, I'll wait for positive testing from Anton before applying
+>> this.
+> 
+> Thanks guys, this fixed it.
+> 
+> Tested-by: Anton Blanchard <anton@samba.org>
 
-Superior or not, it's simply never going to happen.  We are far beyond
-being able to get to where we were before NAT'ing and shaping devices
-started to get inserted everywhere on the network.
-
-And I also don't see any of this stuff as fundamentally proprietary.
-
-People want deep packet inspection, people want to control their user's
-traffic.  And people, most importantly, are willing to pay for this.
-
-Therefore, these elements will always be in the network.
-
-Better to co-exist with them and use them to our advantage instead of
-fantasizing about a utopia where they don't exist.
+Thanks for testing Anton, I'll apply this now.
