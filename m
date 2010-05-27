@@ -1,59 +1,93 @@
-From: John Williams <john.williams@petalogix.com>
-Subject: Re: [PATCH 1/2] net: ll_temac: fix interrupt bug when interrupt 0 is
-	used
-Date: Thu, 27 May 2010 14:12:18 +1000
-Message-ID: <AANLkTin0Lg8HCpCAmyy_ybPlv6K9_iyE2aFrhifw486D@mail.gmail.com>
-References: <6f264a7a-e5da-494a-a24d-1578ca422807@VA3EHSMHS016.ehs.local>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Warning in net/ipv4/af_inet.c:154
+Date: Thu, 27 May 2010 06:18:46 +0200
+Message-ID: <1274933926.2542.26.camel@edumazet-laptop>
+References: <20100525115813.GA28063@kryten>
+	 <1274801229.5020.80.camel@edumazet-laptop> <20100526031943.GA28295@kryten>
+	 <20100526.005634.48509140.davem@davemloft.net>
+	 <1274868776.2672.96.camel@edumazet-laptop>  <20100527035617.GB28295@kryten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	grant.likely@secretlab.ca, jwboyer@linux.vnet.ibm.com,
-	michal.simek@petalogix.com, Brian Hill <brian.hill@xilinx.com>
-To: John Linn <john.linn@xilinx.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Anton Blanchard <anton@samba.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:56530 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750756Ab0E0EMU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 00:12:20 -0400
-Received: by vws9 with SMTP id 9so4973892vws.19
-        for <netdev@vger.kernel.org>; Wed, 26 May 2010 21:12:19 -0700 (PDT)
-In-Reply-To: <6f264a7a-e5da-494a-a24d-1578ca422807@VA3EHSMHS016.ehs.local>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:52062 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750724Ab0E0ESv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 May 2010 00:18:51 -0400
+Received: by wyb29 with SMTP id 29so3822221wyb.19
+        for <netdev@vger.kernel.org>; Wed, 26 May 2010 21:18:50 -0700 (PDT)
+In-Reply-To: <20100527035617.GB28295@kryten>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 27, 2010 at 3:29 AM, John Linn <john.linn@xilinx.com> wrote=
-:
-> The code is not checking the interrupt for DMA correctly so that an
-> interrupt number of 0 will cause a false error.
->
-> Signed-off-by: Brian Hill <brian.hill@xilinx.com>
-> Signed-off-by: John Linn <john.linn@xilinx.com>
-> ---
-> =A0drivers/net/ll_temac_main.c | =A0 =A02 +-
-> =A01 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.=
-c
-> index fa7620e..0615737 100644
-> --- a/drivers/net/ll_temac_main.c
-> +++ b/drivers/net/ll_temac_main.c
-> @@ -950,7 +950,7 @@ temac_of_probe(struct of_device *op, const struct=
- of_device_id *match)
->
-> =A0 =A0 =A0 =A0lp->rx_irq =3D irq_of_parse_and_map(np, 0);
-> =A0 =A0 =A0 =A0lp->tx_irq =3D irq_of_parse_and_map(np, 1);
-> - =A0 =A0 =A0 if (!lp->rx_irq || !lp->tx_irq) {
-> + =A0 =A0 =A0 if ((lp->rx_irq =3D=3D NO_IRQ) || (lp->tx_irq =3D=3D NO=
-_IRQ)) {
+Le jeudi 27 mai 2010 =C3=A0 13:56 +1000, Anton Blanchard a =C3=A9crit :
+> Hi Eric,
+>=20
+> > You are 100% right David, maybe we should add a test when changing
+> > sk_forward_alloc to test if socket is locked (lockdep only test), b=
+ut
+> > that's for 2.6.36 :)
+>=20
+> Thanks for the patch, unfortunately I can still hit the WARN_ON. I'm =
+somewhat
+> confused by the two stage locking in the socket lock (ie sk_lock.sloc=
+k and
+> sk_lock.owned).
+>=20
+> What state should the socket lock be in for serialising updates of
+> sk_forward_alloc? In some cases we appear to update it with sk_lock.s=
+lock =3D
+> unlocked, sk_lock.owned =3D 1:
+>=20
+> NIP [c0000000005b4ad0] .sock_queue_rcv_skb
+> LR [c0000000005b4acc] .sock_queue_rcv_skb
+> Call Trace:
+> [c0000000005f9fcc] .ip_queue_rcv_skb
+> [c00000000061d604] .__udp_queue_rcv_skb
+> [c0000000005b1a38] .release_sock
+> [c0000000006205f0] .udp_sendmsg
+> [c0000000006290d4] .inet_sendmsg
+> [c0000000005abfb4] .sock_sendmsg
+> [c0000000005ae9dc] .SyS_sendto
+> [c0000000005ab6c0] .SyS_send
+>=20
+> And other times we update it with sk_lock.slock =3D locked, sk_lock.o=
+wned =3D 0:
+>=20
+> NIP [c0000000005b2b6c] .sock_rfree
+> LR [c0000000005b2b68] .sock_rfree
+> Call Trace:
+> [c0000000005bca10] .skb_free_datagram_locked
+> [c00000000061fe88] .udp_recvmsg
+> [c0000000006285e8] .inet_recvmsg
+> [c0000000005abe0c] .sock_recvmsg
+> [c0000000005ae358] .SyS_recvfrom
+>=20
+> I see we sometimes take sk_lock.slock then check the owned field, but=
+ we
+> aren't doing that all the time.
+>=20
 
-Personally I think this is the right thing to do.  But, I thought the
-IRQ 0 =3D=3D NO_IRQ (AKA "all-the-world's-an-x86-and-if-not-it-should-b=
-e")
-holy war was already fought and won (or lost, depending on your
-perspective)?
+Old rule was :
 
-I seem to recall giving reluctant assent to a patch from Grant a few
-months ago that touched MicroBlaze thus?
+A Process context was using=20
+lock + test_and_set_or_sleep + unlock (sk_lock.slock =3D unlocked,
+sk_lock.owned =3D 1)
 
-John
+softirq handler was using :
+(sk_lock.slock =3D locked, sk_lock.owned =3D0)
+
+I added a shortcut, but it seems wrong as is
+
+Process context :
+
+lock only (sk_lock.slock =3D locked, sk_lock.owned =3D ???)
+
+So I should add a test on owned. If set (by another thread), we should =
+take the slow path.
+
+Thanks !
+
+
