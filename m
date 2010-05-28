@@ -1,118 +1,223 @@
-From: Bryan Wu <bryan.wu@canonical.com>
-Subject: Re: [PATCH 2/2] netdev/fec: fix ifconfig eth0 down hang issue
-Date: Fri, 28 May 2010 13:26:42 +0800
-Message-ID: <4BFF5412.1030303@canonical.com>
-References: <1273199239-11057-1-git-send-email-bryan.wu@canonical.com> <1273199239-11057-3-git-send-email-bryan.wu@canonical.com>
-Reply-To: bryan.wu@canonical.com
+From: Luciano Coelho <luciano.coelho@nokia.com>
+Subject: Re: [RFC] netfilter: WIP: Xtables idletimer target implementation
+Date: Fri, 28 May 2010 08:25:04 +0300
+Message-ID: <1275024304.3754.45.camel@powerslave>
+References: <1274993689-23928-1-git-send-email-luciano.coelho@nokia.com>
+	 <alpine.LSU.2.01.1005280057190.14077@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Sascha Hauer <s.hauer@pengutronix.de>,
-	Greg Ungerer <gerg@uclinux.org>,
-	Amit Kucheria <amit.kucheria@canonical.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: afleming@gmail.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1273199239-11057-3-git-send-email-bryan.wu@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kaber@trash.net" <kaber@trash.net>, Timo Teras <timo.teras@iki.fi>
+To: ext Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.01.1005280057190.14077@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since this patch is for another bug and doesn't depend on my first one patch.
-Could you please review this?
+Hi Jan,
 
-Thanks,
--Bryan
+Thanks a lot for your comments!
 
-On 05/07/2010 10:27 AM, Bryan Wu wrote:
-> BugLink: http://bugs.launchpad.net/bugs/559065
+On Fri, 2010-05-28 at 01:17 +0200, ext Jan Engelhardt wrote:
+> On Thursday 2010-05-27 22:54, Luciano Coelho wrote:
+> >There are still some issues to be resolved:
+> >
+> >How to treat several rules for the same interface?
+> >
+> >We need a key for the timer list.  I'm using the targinfo pointer for that,
+> >but this looks shaky, because there is no assurance that this pointer will
+> >live for the entire lifetime of the rule.
 > 
-> In fec open/close function, we need to use phy_connect and phy_disconnect
-> operation before we start/stop phy. Otherwise it will cause system hang.
+> Well xt_quota for example has its targinfo around at all times,
+> as have other modules.
+
+Great, so this will work.  I had checked the x_tables code and it seemed
+that the lifetime of targinfo was sufficient, but I was not sure this
+would be safe in the future.  Now, if this changes in the future, my
+module won't be the only one to break ;)
+
+
+> >This is now an x_tables target, so other protocols need to be implemented.
 > 
-> Only call fec_enet_mii_probe() in open function, because the first open
-> action will cause NULL pointer error.
+> Huh? You're not looking at packets, so why does it need proto-specific
+> stuff?
+
+I need to associate the timers with specific interfaces, because it's
+the idle time of the interfaces that the userspace in interested in.  I
+didn't find any other way to associate the timers with them, except by
+looking at the iniface and outiface values in ipt_ip (and eventually,
+with IPv6 properly implemented, in ip6t_ip6).  This is what Patrick
+suggested when he checked my previous patch [1] and triggered me to do a
+major rework on my module ;)
+
+Do you have any other suggestion on how I can associate the rules to
+specific interfaces?
+
+
+> >+static
+> >+struct utimer_t *__utimer_find_by_info(const struct xt_idletimer_info *info)
+> >+{
+> >+	struct utimer_t *entry;
+> >+
+> >+	list_for_each_entry(entry, &active_utimer_head, entry) {
+> >+		if (info == entry->info) {
+> >+			return entry;
+> >+		}
+> >+	}
+> >+
+> >+	return NULL;
+> >+}
 > 
-> Signed-off-by: Bryan Wu <bryan.wu@canonical.com>
-> ---
->  drivers/net/fec.c |   28 ++++++++++++++++------------
->  1 files changed, 16 insertions(+), 12 deletions(-)
+> Can do with less braces.
+
+Sure.  These remained there after I removed some traces.  I'll clean
+this up.
+
+
+> >+static void utimer_expired(unsigned long data)
+> >+{
+> >+	struct utimer_t *timer = (struct utimer_t *) data;
+> >+
+> >+	pr_debug("xt_idletimer: timer '%s' ns %p expired\n",
+> >+		 timer->name, timer->net);
+> >+
+> >+	schedule_work(&timer->work);
+> >+}
 > 
-> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-> index 9c58f6b..af4243f 100644
-> --- a/drivers/net/fec.c
-> +++ b/drivers/net/fec.c
-> @@ -678,6 +678,8 @@ static int fec_enet_mii_probe(struct net_device *dev)
->  	struct phy_device *phy_dev = NULL;
->  	int phy_addr;
->  
-> +	fep->phy_dev = NULL;
-> +
->  	/* find the first phy */
->  	for (phy_addr = 0; phy_addr < PHY_MAX_ADDR; phy_addr++) {
->  		if (fep->mii_bus->phy_map[phy_addr]) {
-> @@ -708,6 +710,11 @@ static int fec_enet_mii_probe(struct net_device *dev)
->  	fep->link = 0;
->  	fep->full_duplex = 0;
->  
-> +	printk(KERN_INFO "%s: Freescale FEC PHY driver [%s] "
-> +		"(mii_bus:phy_addr=%s, irq=%d)\n", dev->name,
-> +		fep->phy_dev->drv->name, dev_name(&fep->phy_dev->dev),
-> +		fep->phy_dev->irq);
-> +
->  	return 0;
->  }
->  
-> @@ -753,13 +760,8 @@ static int fec_enet_mii_init(struct platform_device *pdev)
->  	if (mdiobus_register(fep->mii_bus))
->  		goto err_out_free_mdio_irq;
->  
-> -	if (fec_enet_mii_probe(dev) != 0)
-> -		goto err_out_unregister_bus;
-> -
->  	return 0;
->  
-> -err_out_unregister_bus:
-> -	mdiobus_unregister(fep->mii_bus);
->  err_out_free_mdio_irq:
->  	kfree(fep->mii_bus->irq);
->  err_out_free_mdiobus:
-> @@ -912,7 +914,12 @@ fec_enet_open(struct net_device *dev)
->  	if (ret)
->  		return ret;
->  
-> -	/* schedule a link state check */
-> +	/* Probe and connect to PHY when open the interface */
-> +	ret = fec_enet_mii_probe(dev);
-> +	if (ret) {
-> +		fec_enet_free_buffers(dev);
-> +		return ret;
-> +	}
->  	phy_start(fep->phy_dev);
->  	netif_start_queue(dev);
->  	fep->opened = 1;
-> @@ -926,10 +933,12 @@ fec_enet_close(struct net_device *dev)
->  
->  	/* Don't know what to do yet. */
->  	fep->opened = 0;
-> -	phy_stop(fep->phy_dev);
->  	netif_stop_queue(dev);
->  	fec_stop(dev);
->  
-> +	if (fep->phy_dev)
-> +		phy_disconnect(fep->phy_dev);
-> +
->          fec_enet_free_buffers(dev);
->  
->  	return 0;
-> @@ -1293,11 +1302,6 @@ fec_probe(struct platform_device *pdev)
->  	if (ret)
->  		goto failed_register;
->  
-> -	printk(KERN_INFO "%s: Freescale FEC PHY driver [%s] "
-> -		"(mii_bus:phy_addr=%s, irq=%d)\n", ndev->name,
-> -		fep->phy_dev->drv->name, dev_name(&fep->phy_dev->dev),
-> -		fep->phy_dev->irq);
-> -
->  	return 0;
->  
->  failed_register:
+> You don't need xt_idletimer, because pr_debug already prints
+> that (with #define pr_fmt(fmt) KBUILD_MODNAME ": " as many
+> other modules do)
+
+Ok, I'll change it.  Thanks for pointing out.
+
+
+> >+
+> >+static struct utimer_t *utimer_create(const char *name,
+> >+				      struct net *net,
+> >+				      const struct xt_idletimer_info *info)
+> >+{
+> >+	struct utimer_t *timer;
+> >+
+> >+	timer = kmalloc(sizeof(struct utimer_t), GFP_ATOMIC);
+> >+	if (timer == NULL)
+> >+		return NULL;
+> 
+> This is called from user context, so GFP_KERNEL will perfectly suffice.
+
+Yup, will change.
+
+
+> >+static int xt_idletimer_checkentry(const struct xt_tgchk_param *par)
+> >+{
+> >+	const struct xt_idletimer_info *info = par->targinfo;
+> >+	const struct ipt_entry *entryinfo = par->entryinfo;
+> >+	const struct ipt_ip *ip = &entryinfo->ip;
+> 
+> I'm not sure spying on ipt_ip is a long-term viable solution.
+
+Do you have any other suggestions on how I could get an interface
+associated with the rule? I thought about having the userspace pass the
+interface as an option to the rule (like I already do for the timeout
+value), but that looked ugly to me, since the interface can already be
+defined as part of the ruleset.
+
+
+> >+	pr_debug("xt_idletimer: checkentry targinfo %p\n", par->targinfo);
+> >+
+> >+	if (info->timeout == 0) {
+> >+		pr_debug("xt_idletimer: timeout value is zero\n");
+> >+		return -EINVAL;
+> >+	}
+> >+
+> >+	/* FIXME: implement support for other protocol families */
+> >+	switch (par->family) {
+> >+	case NFPROTO_IPV4   :
+> >+		pr_debug("xt_idletimer: NFPROTO_IPV4\n");
+> >+		break;
+> >+
+> >+	default:
+> >+		pr_debug("xt_idletimer: Unsupported protocol family family!\n");
+> >+		return -EINVAL;
+> >+	}
+> >+
+> >+	if (strlen(ip->iniface) == 0 && strlen(ip->outiface) == 0) {
+> >+		pr_debug("xt_idletimer: in or out interface must "
+> >+			 "be specified\n");
+> >+		return -EINVAL;
+> >+	}
+> >+
+> >+	if (utimer_create(ip->iniface, par->net, info) == NULL) {
+> >+		pr_debug("xt_idletimer: failed to create timer\n");
+> >+		return -ENOMEM;
+> >+	}
+> 
+> What about outiface?
+> What blows up when iniface is empty?
+
+Ooops! I've redone this part of the code so many times and in this
+version I completely forgot to include the outiface.  I'll fix it.
+
+
+> >+static void xt_idletimer_destroy(const struct xt_tgdtor_param *par)
+> >+{
+> >+	const struct xt_idletimer_info *info = par->targinfo;
+> >+
+> >+	pr_debug("xt_idletimer: destroy targinfo %p\n", par->targinfo);
+> >+
+> >+	utimer_delete(info);
+> >+}
+> >+
+> >+static int __init init(void)
+> >+{
+> >+	int ret;
+> >+
+> >+	ret = utimer_init();
+> >+	if (ret)
+> >+		return ret;
+> >+
+> >+	ret =  xt_register_target(&xt_idletimer);
+> >+	if (ret < 0) {
+> >+		utimer_fini();
+> >+		return ret;
+> >+	}
+> >+
+> >+	return 0;
+> >+}
+> >+
+> >+static void __exit fini(void)
+> >+{
+> >+	xt_unregister_target(&xt_idletimer);
+> >+	utimer_fini();
+> >+}
+> >+
+> >+module_init(init);
+> >+module_exit(fini);
+> 
+> Call it just exit?
+
+Yes.
+
+
+> Also give the functions better names (see other modules), that is going
+> to be unrecognizable in stacktraces otherwise.
+
+I agree.  These names are coming from the original code.  I thought
+about changing them to something clearer, but didn't bother to do it
+yet, because I was focusing on the actual functionality.  I'll change
+the names.
+
+Again, thanks for your comments.  I'll rework and submit v2 soon.
+
+Ah, and please excuse my lameness of mistyping the netdev email address
+when I submitted the patch.  I fixed it now.
+
+[1]
+http://article.gmane.org/gmane.comp.security.firewalls.netfilter.devel/33934
+
+
+-- 
+Cheers,
+Luca.
+
