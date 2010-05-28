@@ -1,82 +1,52 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 2/3] workqueue: Add an API to create a singlethread
-	workqueue attached to the current task's cgroup
-Date: Fri, 28 May 2010 18:08:30 +0300
-Message-ID: <20100528150830.GB21880@redhat.com>
-References: <1274227491.2370.110.camel@w-sridhar.beaverton.ibm.com> <20100527091426.GA6308@redhat.com> <20100527124448.GA4241@redhat.com> <20100527131254.GB7974@redhat.com> <4BFE9ABA.6030907@kernel.org> <20100527163954.GA21710@redhat.com> <4BFEA434.6080405@kernel.org> <20100527173207.GA21880@redhat.com> <4BFEE216.2070807@kernel.org>
+From: Bryan Wu <bryan.wu@canonical.com>
+Subject: Re: [PATCH] netdev/fec: fix ifconfig eth0 down hang issue
+Date: Fri, 28 May 2010 23:13:48 +0800
+Message-ID: <4BFFDDAC.7000909@canonical.com>
+References: <1275037685-14555-1-git-send-email-bryan.wu@canonical.com> <20100528144506.GB13777@pengutronix.de>
+Reply-To: bryan.wu@canonical.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oleg Nesterov <oleg@redhat.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
-To: Tejun Heo <tj@kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, afleming@gmail.com, s.hauer@pengutronix.de,
+	gerg@uclinux.org, amit.kucheria@canonical.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Wolfram Sang <w.sang@pengutronix.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4BFEE216.2070807@kernel.org>
+In-Reply-To: <20100528144506.GB13777@pengutronix.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 27, 2010 at 11:20:22PM +0200, Tejun Heo wrote:
-> Hello, Michael.
+On 05/28/2010 10:45 PM, Wolfram Sang wrote:
+> On Fri, May 28, 2010 at 05:08:05PM +0800, Bryan Wu wrote:
+>> BugLink: http://bugs.launchpad.net/bugs/559065
+>>
+>> In fec open/close function, we need to use phy_connect and phy_disconnect
+>> operation before we start/stop phy. Otherwise it will cause system hang.
+>>
+>> Only call fec_enet_mii_probe() in open function, because the first open
+>> action will cause NULL pointer error.
+>>
+>> Signed-off-by: Bryan Wu <bryan.wu@canonical.com>
 > 
-> On 05/27/2010 07:32 PM, Michael S. Tsirkin wrote:
-> > Well, this is why I proposed adding a new API for creating
-> > workqueue within workqueue.c, rather than exposing the task
-> > and attaching it to cgroups in our driver: so that workqueue
-> > maintainers can fix the implementation if it ever changes.
-> > 
-> > And after all, it's an internal API, we can always change
-> > it later if we need.
-> ...
-> > Well, yes but we are using APIs like flush_work etc. These are very
-> > handy.  It seems much easier than rolling our own queue on top of kthread.
+> We use this patch for 1 month now and didn't encounter any flaws so far.
 > 
-> The thing is that this kind of one-off usage becomes problemetic when
-> you're trying to change the implementation detail.  All current
-> workqueue users don't care which thread they run on and they shouldn't
-> as each work owns the context only for the duration the work is
-> executing.  If this sort of fundamental guidelines are followed, the
-> implementation can be improved in pretty much transparent way but when
-> you start depending on specific implementation details, things become
-> messy pretty quickly.
+> Tested-by: Wolfram Sang <w.sang@pengutronix.de>
 > 
-> If this type of usage were more common, adding proper way to account
-> work usage according to cgroups would make sense but that's not the
-> case here and I removed the only exception case recently while trying
-> to implement cmwq and if this is added.  So, this would be the only
-> one which makes such extra assumptions in the whole kernel.  One way
-> or the other, workqueue needs to be improved and I don't really think
-> adding the single exception at this point is a good idea.
+> Oops, too late... well, one for the comfortable feeling ;)
 > 
-> The thing I realized after stop_machine conversion was that there was
-> no reason to use workqueue there at all.  There already are more than
-> enough not-too-difficult synchronization constructs and if you're
-> using a thread for dedicated purposes, code complexity isn't that
-> different either way.  Plus, it would also be clearer that dedicated
-> threads are required there for what reason.  So, I strongly suggest
-> using a kthread.  If there are issues which are noticeably difficult
-> to solve with kthread, we can definitely talk about that and think
-> about things again.
-> 
-> Thank you.
 
-Well, we have create_singlethread_workqueue, right?
-This is not very different ... is it?
+Thanks a lot, Wolfram. You are real helpful here.
+Because my babbage board has broken for several weeks, I don't have hardware to
+test my FEC patches.
 
-Just copying structures and code from workqueue.c,
-adding vhost_ in front of it will definitely work:
-there is nothing magic about the workqueue library.
-But this just involves cut and paste which might be best avoided.
-One final idea before we go the cut and paste way: how about
-'create_workqueue_from_task' that would get a thread and have workqueue
-run there?
+The performance drop issue still hangs in my brain. As soon as I have a new
+patch, could you please help to test? Or do you guys found any performance drop
+solution on your hardware? IIRC, you reported similar issue as us.
 
-> -- 
-> tejun
+Best regards,
+-- 
+Bryan Wu <bryan.wu@canonical.com>
+Kernel Developer    +86.138-1617-6545 Mobile
+Ubuntu Kernel Team | Hardware Enablement Team
+Canonical Ltd.      www.canonical.com
+Ubuntu - Linux for human beings | www.ubuntu.com
