@@ -1,77 +1,84 @@
-From: Scott Feldman <scofeldm@cisco.com>
-Subject: [net-2.6 PATCH 1/2] netlink: bug fix: don't overrun skbs on vf_port
-	dump
-Date: Fri, 28 May 2010 00:15:46 -0700
-Message-ID: <20100528071546.4058.1332.stgit@localhost.localdomain>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [Patch] fix packet loss and massive ping spikes with PPP 	multi-link
+Date: Fri, 28 May 2010 09:28:29 +0200
+Message-ID: <4BFF709D.5040005@bfs.de>
+References: <2d460de71003260850x7f90d04cy79ac853464108182@mail.gmail.com>	<AANLkTik_QdZN_nFoOVD3-1JTGN5oxRySCdV5_eDqvQve@mail.gmail.com>	<4BFBA3F2.2000301@bfs.de>	<AANLkTilnueP5HIfX03soMCYE93jubL000rpiOCN1xB2-@mail.gmail.com>	<4BFC0942.2030103@bfs.de> <AANLkTikeld4fbr9r1Sq0jhfkWxf0ZlwOsufUIRvb1rFH@mail.gmail.com>
+Reply-To: wharms@bfs.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: chrisw@redhat.com, netdev@vger.kernel.org, kaber@trash.net,
-	arnd@arndb.de
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-5.cisco.com ([171.68.10.87]:32699 "EHLO
-	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754121Ab0E1HQC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 May 2010 03:16:02 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-From: Scott Feldman <scofeldm@cisco.com>
-
-Noticed by Patrick McHardy: was continuing to fill skb after a
-nla_put_failure, ignoring the size calculated by upper layer.  Now,
-return -EMSGSIZE on any overruns, but also allow netdev to
-fail ndo_get_vf_port with error other than -EMSGSIZE, thus unwinding
-nest.
-
-Signed-off-by: Scott Feldman <scofeldm@cisco.com>
----
- net/core/rtnetlink.c |   15 +++++++++------
- 1 files changed, 9 insertions(+), 6 deletions(-)
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-ppp@vger.kernel.org, erik_list@caneris.com
+To: Richard Hartmann <richih.mailinglist@gmail.com>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <AANLkTikeld4fbr9r1Sq0jhfkWxf0ZlwOsufUIRvb1rFH@mail.gmail.com>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 7ab86f3..7331bb2 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -722,14 +722,13 @@ static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
- 
- 	for (vf = 0; vf < dev_num_vf(dev->dev.parent); vf++) {
- 		vf_port = nla_nest_start(skb, IFLA_VF_PORT);
--		if (!vf_port) {
--			nla_nest_cancel(skb, vf_ports);
--			return -EMSGSIZE;
--		}
-+		if (!vf_port)
-+			goto nla_put_failure;
- 		NLA_PUT_U32(skb, IFLA_PORT_VF, vf);
- 		err = dev->netdev_ops->ndo_get_vf_port(dev, vf, skb);
-+		if (err == -EMSGSIZE)
-+			goto nla_put_failure;
- 		if (err) {
--nla_put_failure:
- 			nla_nest_cancel(skb, vf_port);
- 			continue;
- 		}
-@@ -739,6 +738,10 @@ nla_put_failure:
- 	nla_nest_end(skb, vf_ports);
- 
- 	return 0;
-+
-+nla_put_failure:
-+	nla_nest_cancel(skb, vf_ports);
-+	return -EMSGSIZE;
- }
- 
- static int rtnl_port_self_fill(struct sk_buff *skb, struct net_device *dev)
-@@ -753,7 +756,7 @@ static int rtnl_port_self_fill(struct sk_buff *skb, struct net_device *dev)
- 	err = dev->netdev_ops->ndo_get_vf_port(dev, PORT_SELF_VF, skb);
- 	if (err) {
- 		nla_nest_cancel(skb, port_self);
--		return err;
-+		return (err == -EMSGSIZE) ? err : 0;
- 	}
- 
- 	nla_nest_end(skb, port_self);
 
+Richard Hartmann schrieb:
+> ==It seems LKML & netdev were dropped from the To list, re-adding==
+> 
+> Hi Walter,
+> 
+> 
+>>  if (ppp->rrsched % ppp->n_channels == i)
+>>
+>> since both do not change in that while() loop you can calculate in advance
+>> perhaps ppp->rrsched %= ppp->n_channels before the while ?
+>> (that would reduce my bad feels about variables that only increments also :)
+> 
+> rrsched and i do change when appropriate. As they are used as a cheap
+> way to get round robin, rrsched is not even initialized. One can argue
+> that this should be done, but as it literally does not matter where the
+> value starts counting....
+> 
+
+yep,
+the problem is that you will trigger a warning "variable uninitialised".
+And as programmer you are trained to spot such kind of code.
+in short you violated "the rule of least surprise", simply set it to 99
+and add a comment that the value does not matter because it is actualy a
+random seed.
+Basicly the same reason for the ppp->rrsched %= ppp->n_channels outside
+the loop. 1. people/compiler are happy because they see the variable
+is used. 2. no need to recalculate the if in a loop (never trust optimisers).
+
+/*
+perhaps rr_chanel is a better name ? round robin channel
+that would requiere the changes but explain what it actualy is
+*/
+
+
+
+> 
+>> btw: you are doing  after loop() if(pch->chan == NULL) continue;
+>> that means the else in the if below  if (pch->chan) should never be reached.
+>> Or is it likely that some channel will be dropped (?) ?
+> 
+> Channels could be dropped and we need to guard against that.
+> 
+
+please add a comment about that. i can garantee you someone will spot it
+and remove either the pch->chan == NULL or the else.
+
+
+
+just my 2 cents,
+wh
+
+
+> 
+>> btw: this is intentional ? looks strange
+>>
+>>        if(ppp_ml_noexplode) {
+>> +       }
+>> +       else {
+> 
+> Leftover from various printks for debugging reasons.
+> 
+> 
+> Thanks for your feedback,
+> Richard
+> 
