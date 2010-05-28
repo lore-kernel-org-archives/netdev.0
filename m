@@ -1,64 +1,82 @@
-From: Maxim Levitsky <maximlevitsky-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: MDNS is broken in latest -git
-Date: Fri, 28 May 2010 18:02:28 +0300
-Message-ID: <1275058948.2754.7.camel@maxim-laptop>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 2/3] workqueue: Add an API to create a singlethread
+	workqueue attached to the current task's cgroup
+Date: Fri, 28 May 2010 18:08:30 +0300
+Message-ID: <20100528150830.GB21880@redhat.com>
+References: <1274227491.2370.110.camel@w-sridhar.beaverton.ibm.com> <20100527091426.GA6308@redhat.com> <20100527124448.GA4241@redhat.com> <20100527131254.GB7974@redhat.com> <4BFE9ABA.6030907@kernel.org> <20100527163954.GA21710@redhat.com> <4BFEA434.6080405@kernel.org> <20100527173207.GA21880@redhat.com> <4BFEE216.2070807@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Oleg Nesterov <oleg@redhat.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4BFEE216.2070807@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On latest git, it became impossible to use hostname.local alias to
-access my network hosts.
+On Thu, May 27, 2010 at 11:20:22PM +0200, Tejun Heo wrote:
+> Hello, Michael.
+> 
+> On 05/27/2010 07:32 PM, Michael S. Tsirkin wrote:
+> > Well, this is why I proposed adding a new API for creating
+> > workqueue within workqueue.c, rather than exposing the task
+> > and attaching it to cgroups in our driver: so that workqueue
+> > maintainers can fix the implementation if it ever changes.
+> > 
+> > And after all, it's an internal API, we can always change
+> > it later if we need.
+> ...
+> > Well, yes but we are using APIs like flush_work etc. These are very
+> > handy.  It seems much easier than rolling our own queue on top of kthread.
+> 
+> The thing is that this kind of one-off usage becomes problemetic when
+> you're trying to change the implementation detail.  All current
+> workqueue users don't care which thread they run on and they shouldn't
+> as each work owns the context only for the duration the work is
+> executing.  If this sort of fundamental guidelines are followed, the
+> implementation can be improved in pretty much transparent way but when
+> you start depending on specific implementation details, things become
+> messy pretty quickly.
+> 
+> If this type of usage were more common, adding proper way to account
+> work usage according to cgroups would make sense but that's not the
+> case here and I removed the only exception case recently while trying
+> to implement cmwq and if this is added.  So, this would be the only
+> one which makes such extra assumptions in the whole kernel.  One way
+> or the other, workqueue needs to be improved and I don't really think
+> adding the single exception at this point is a good idea.
+> 
+> The thing I realized after stop_machine conversion was that there was
+> no reason to use workqueue there at all.  There already are more than
+> enough not-too-difficult synchronization constructs and if you're
+> using a thread for dedicated purposes, code complexity isn't that
+> different either way.  Plus, it would also be clearer that dedicated
+> threads are required there for what reason.  So, I strongly suggest
+> using a kthread.  If there are issues which are noticeably difficult
+> to solve with kthread, we can definitely talk about that and think
+> about things again.
+> 
+> Thank you.
 
-In fact when I look at 'avahi-discover' I see nothing but local
-services.
+Well, we have create_singlethread_workqueue, right?
+This is not very different ... is it?
 
-I did a bisect, but unfortunely ended with merge commit, although
-bisection seem to be normal (and I didn't do any shortcuts).
+Just copying structures and code from workqueue.c,
+adding vhost_ in front of it will definitely work:
+there is nothing magic about the workqueue library.
+But this just involves cut and paste which might be best avoided.
+One final idea before we go the cut and paste way: how about
+'create_workqueue_from_task' that would get a thread and have workqueue
+run there?
 
-I own a iwl3945 wireless card.
-
-
-The bisection log:
-
-git bisect start
-# good: [537b60d17894b7c19a6060feae40299d7109d6e7] Merge branch 'x86-uv-for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/tip/linux-2.6-tip
-git bisect good 537b60d17894b7c19a6060feae40299d7109d6e7
-# bad: [d515e86e639890b33a09390d062b0831664f04a2] Merge branch 'for_linus' of git://git.kernel.org/pub/scm/linux/kernel/git/jack/linux-udf-2.6
-git bisect bad d515e86e639890b33a09390d062b0831664f04a2
-# good: [a26272e5200765691e67d6780e52b32498fdb659] Merge branch 'docs-next' of git://git.lwn.net/linux-2.6
-git bisect good a26272e5200765691e67d6780e52b32498fdb659
-# good: [10fc51b9953112ade61e33ff2f6f005f005a2361] skge: use the DMA state API instead of the pci equivalents
-git bisect good 10fc51b9953112ade61e33ff2f6f005f005a2361
-# bad: [c316ba3b518bc35ce5aef5421135220389f4eb98] Merge branch 'linux-next' of git://git.infradead.org/ubi-2.6
-git bisect bad c316ba3b518bc35ce5aef5421135220389f4eb98
-# bad: [7a9b149212f3716c598afe973b6261fd58453b7a] Merge git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/usb-2.6
-git bisect bad 7a9b149212f3716c598afe973b6261fd58453b7a
-# good: [726ef428af41b1fbdf569772ab73de0844c4e0f2] USB: belkin_sa: minor clean-ups
-git bisect good 726ef428af41b1fbdf569772ab73de0844c4e0f2
-# good: [6fe70aae0d128339febfabc073ba4c4a03de4f45] Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6 into for-davem
-git bisect good 6fe70aae0d128339febfabc073ba4c4a03de4f45
-# bad: [57b610805ce92dbd79fc97509f80fa5391b99623] net: Add netlink support for virtual port management (was iovnl)
-git bisect bad 57b610805ce92dbd79fc97509f80fa5391b99623
-# good: [78ad38923094a479453f5b02b37a012377a36f34] qlcnic: fix internal loopback test
-git bisect good 78ad38923094a479453f5b02b37a012377a36f34
-# good: [e1bc7eedbafe0415cdfd82e17e6f65bb3369239d] atm: select FW_LOADER in Kconfig for solos-pci
-git bisect good e1bc7eedbafe0415cdfd82e17e6f65bb3369239d
-# bad: [eedf042a63ffef050ebc015de19b52dc065e830b] ipv6: fix the bug of address check
-git bisect bad eedf042a63ffef050ebc015de19b52dc065e830b
-# good: [99bf236612801351834b441314379bc5304d62ce] drivers/net/usb: Use kmemdup
-git bisect good 99bf236612801351834b441314379bc5304d62ce
-# good: [380fefb2ddabd4cd5f14dbe090481f0544e65078] dm9000: fix "BUG: spinlock recursion"
-git bisect good 380fefb2ddabd4cd5f14dbe090481f0544e65078
-# bad: [820ae8a80eb59962aefbbd4908dfe144ec0f9edb] Merge branch 'for-davem' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6
-git bisect bad 820ae8a80eb59962aefbbd4908dfe144ec0f9edb
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> -- 
+> tejun
