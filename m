@@ -1,80 +1,50 @@
-From: Ivan Novick <novickivan@gmail.com>
-Subject: Re: Choppy TCP send performance
-Date: Fri, 28 May 2010 15:23:12 -0700
-Message-ID: <AANLkTik_fbneB1iQrxCrOBuvlmn-s8wVpjTe-SQe0W2-@mail.gmail.com>
-References: <AANLkTilSrX5PifVHlxMjTK-wo_viD8IS_1m1k-vPOlE3@mail.gmail.com>
-	<1275081377.2472.13.camel@edumazet-laptop>
-	<AANLkTilZxoSEGOhmWdk2RbIGMmCMi2yNJm9rUwIzDIoL@mail.gmail.com>
-	<1275084055.2472.15.camel@edumazet-laptop>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH 1/2] Export firmware assigned labels of network devices
+ to sysfs
+Date: Fri, 28 May 2010 15:27:45 -0700
+Message-ID: <20100528222745.GA28678@kroah.com>
+References: <20100528115520.GA24114@littleblue.us.dell.com>
+ <20100528154041.GA27186@kroah.com>
+ <20100528181100.GA12806@auslistsprd01.us.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Tim Heath <theath@greenplum.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:62336 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754219Ab0E1WXN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 May 2010 18:23:13 -0400
-Received: by vws9 with SMTP id 9so1579743vws.19
-        for <netdev@vger.kernel.org>; Fri, 28 May 2010 15:23:12 -0700 (PDT)
-In-Reply-To: <1275084055.2472.15.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "K, Narendra" <Narendra_K@dell.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-hotplug@vger.kernel.org" <linux-hotplug@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"Hargrave, Jordan" <Jordan_Hargrave@dell.com>,
+	"Rose, Charles" <Charles_Rose@dell.com>,
+	"Nijhawan, Vijay" <Vijay_Nijhawan@dell.com>
+To: Matt Domsch <Matt_Domsch@dell.com>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100528181100.GA12806@auslistsprd01.us.dell.com>
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 28, 2010 at 3:00 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le vendredi 28 mai 2010 =E0 14:35 -0700, Ivan Novick a =E9crit :
->> On Fri, May 28, 2010 at 2:16 PM, Eric Dumazet <eric.dumazet@gmail.co=
-m> wrote:
->> > Le vendredi 28 mai 2010 =E0 13:38 -0700, Ivan Novick a =E9crit :
->> >> sk_stream_wait_memory seems to be called when the send buffer is =
-full
->> >> and the next send call does not complete until the send buffer
->> >> utilization goes down from 4,194,304 bytes to 2,814,968 bytes.
->> >>
->> >> This implies that the send that blocks on a full send buffer will=
- not
->> >> complete until there is 1 meg of free space in the send buffer ev=
-en
->> >> though the send could be accepted into the OS with only 128KB of =
-free
->> >> space.
->> >>
->> >
->> > static void sock_def_write_space(struct sock *sk)
->> > {
->> > ...
->> > if ((atomic_read(&sk->sk_wmem_alloc) << 1) <=3D sk->sk_sndbuf) {
->> > ...
->> >
->> >
->> > Quick answer is : No, this is not tunable ( independantly than SND=
-BUF )
->> >
->> > SO_SNDLOWAT is not implemented on linux, yet (its value is : 1).
->> >
->> >
->> > Why would you want to wakeup your thread more than necessary ?
->>
->> Cool. =A0This helps me understand what is happening.
->>
->> My user thread wants to wake up as soon as the OS can accept my data
->> so that it can continue doing work and interact with other component=
-s
->> in the system. =A0This is an application issue, i can work around it=
- now
->> that i have a better understanding of what the kernel is doing.
->
-> If you use poll() or select() before issuing your write(), I believe =
-it
-> should be OK.
+On Fri, May 28, 2010 at 01:11:00PM -0500, Matt Domsch wrote:
+> On Fri, May 28, 2010 at 08:40:41AM -0700, Greg KH wrote:
+> > On Fri, May 28, 2010 at 06:55:21AM -0500, K, Narendra wrote:
+> > > +static const char dell_dsm_uuid[] = {
+> > 
+> > Um, a dell specific uuid in a generic file?  What happens when we need
+> > to support another manufacturer?
+> > 
+> > > +       0xD0, 0x37, 0xC9, 0xE5, 0x53, 0x35, 0x7A, 0x4D,
+> > > +       0x91, 0x17, 0xEA, 0x4D, 0x19, 0xC3, 0x43, 0x4D
+> > > +};
+> 
+> This simply needs to be renamed.  It's defined in the ECN, so will be
+> part of the spec, and is not vendor-unique, but defined once for all
+> implementations.  It separates this _DSM function from others.
 
-=46rom my tests select will not return until the same threshold is met
-of free space: if ((atomic_read(&sk->sk_wmem_alloc) << 1) <=3D
-sk->sk_sndbuf
+Ok, that makes a bit more sense.
 
-I got that from systemtap output
+Care to post that ECN publically?  And no, the Linux Foundation does not
+have a PCI-SIG membership, the PCI-SIG keeps forbidding it.  Other
+operating systems are allowed to join but not Linux.  Strange but
+true...
 
-Cheers,
-Ivan
+thanks,
+
+greg k-h
