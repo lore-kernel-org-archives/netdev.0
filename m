@@ -1,69 +1,70 @@
-From: arno@natisbad.org (Arnaud Ebalard)
-Subject: Re: [REGRESSION,BISECTED] MIPv6 support broken by f4f914b58019f0
-Date: Fri, 28 May 2010 23:15:55 +0200
-Message-ID: <87ljb3ohh0.fsf@small.ssi.corp>
-References: <87zkzmppfg.fsf@small.ssi.corp> <4BFDC14F.6050407@hp.com>
-	<8739xdqsuz.fsf@small.ssi.corp> <4BFECA65.7030102@hp.com>
-	<87sk5d2h4u.fsf@small.ssi.corp> <4C000E37.7080306@linux-ipv6.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Choppy TCP send performance
+Date: Fri, 28 May 2010 23:16:17 +0200
+Message-ID: <1275081377.2472.13.camel@edumazet-laptop>
+References: <AANLkTilSrX5PifVHlxMjTK-wo_viD8IS_1m1k-vPOlE3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Brian Haley <brian.haley@hp.com>,
-	David Miller <davem@davemloft.net>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Scott Otto <scott.otto@alcatel-lucent.com>,
-	netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Tim Heath <theath@greenplum.com>
+To: Ivan Novick <novickivan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from copper.chdir.org ([88.191.97.87]:56986 "EHLO copper.chdir.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753022Ab0E1VQN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 May 2010 17:16:13 -0400
-In-Reply-To: <4C000E37.7080306@linux-ipv6.org> (YOSHIFUJI Hideaki's message of
-	"Sat, 29 May 2010 03:40:55 +0900")
+Received: from mail-ww0-f46.google.com ([74.125.82.46]:41420 "EHLO
+	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753022Ab0E1VQW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 May 2010 17:16:22 -0400
+Received: by wwb28 with SMTP id 28so67586wwb.19
+        for <netdev@vger.kernel.org>; Fri, 28 May 2010 14:16:21 -0700 (PDT)
+In-Reply-To: <AANLkTilSrX5PifVHlxMjTK-wo_viD8IS_1m1k-vPOlE3@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Le vendredi 28 mai 2010 =C3=A0 13:38 -0700, Ivan Novick a =C3=A9crit :
+> Hello,
+>=20
+> I am using RHEL5 and have 1 Gigabit NIC cards.
+>=20
+> When doing a loop sending 128 KB blocks of data using TCP.  I am usin=
+g
+> system tap to debug the performance and finding that:
+>=20
+> 90% of the send calls take about 100 micro seconds and 10% of the sen=
+d
+> calls take about 10 miliseconds.  The average send time is about 1
+> milisecond
+>=20
+> The 10% of the calls taking about 10 milliseconds seem to be
+> correlated with "sk_stream_wait_memory" calls in the kernel.
+>=20
+> sk_stream_wait_memory seems to be called when the send buffer is full
+> and the next send call does not complete until the send buffer
+> utilization goes down from 4,194,304 bytes to 2,814,968 bytes.
+>=20
+> This implies that the send that blocks on a full send buffer will not
+> complete until there is 1 meg of free space in the send buffer even
+> though the send could be accepted into the OS with only 128KB of free
+> space.
+>=20
+> Do you think I am misinterpreting this data or is there a way to even
+> out the send calls so that they they are more even in duration: appro=
+x
+> 1 milisecond per call.  Is there a parameter to reduce how much space
+> needs to be free in the send buffer before a blocking send call can
+> complete from user space?
 
-YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org> writes:
+static void sock_def_write_space(struct sock *sk)
+{
+=2E..
+if ((atomic_read(&sk->sk_wmem_alloc) << 1) <=3D sk->sk_sndbuf) {
+=2E..
 
->>> I guess I always believed setting SO_BINDTODEVICE should always force
->>> traffic out that interface, but from Yoshifuji's email it seems that
->>> maybe wasn't the intention, at least for things that don't meet
->>> the rt_need_strict() criteria like globals.  I don't know the history
->>> behind the setsockopt.
->>
->> The behavior I would expect from a combination of RFC 4191 and
->> SO_BINDTODEVICE sockopt would be the use of the interface as outgoing
->> interface and then the use of the best router (using router preference
->> info, reachability, ...) available on the subnet. IIRC, the router
->> preference info is per default router list in the RFC, i.e. per
->> interface.
->
-> Good point.
->
-> Whatever our original intention/thought was,
-> current RFC says that we should honor outgoing interface
-> specified by user (by IPV6_PKTINFO etc.), as we do for
-> SO_BINDTODEVICE in IPv4 as well.
->
-> In this sense, checking sk->sk_bound_dev_if in
-> ip6_route_output() is not enough because we need to
-> take outgoing interface specified in ancillary data
-> into account, which is set to fl->oif.
->
-> How about adding additional "flags" parameter
-> for ip6_route_output()?
 
-I think this may provide a better long term solution but getting all
-combinations of cases (SO_BINDTODEVICE and other IPv6 sockopts) work
-together (possibly with external info like RFC 4191 ones gathered from
-RA or specific local routing config) will be a bit tricky.
+Quick answer is : No, this is not tunable ( independantly than SNDBUF )
 
-Meanwhile, regarding the regression, as Brian's fix handles most
-cases, I think it would be useful to apply it and push it to the
-stable team.
+SO_SNDLOWAT is not implemented on linux, yet (its value is : 1).
 
-Cheers,
 
-a+
+Why would you want to wakeup your thread more than necessary ?
+
+
+
