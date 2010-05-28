@@ -1,155 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Fri, 28 May 2010 04:07:39 -0700 (PDT)
-Message-ID: <20100528.040739.212703844.davem@davemloft.net>
+From: "Domsch, Matt" <Matt_Domsch@Dell.com>
+Subject: Re: [PATCH 1/2] Export firmware assigned labels of network devices
+ to sysfs
+Date: Fri, 28 May 2010 08:16:30 -0500
+Message-ID: <20100528131630.GA21575@mdomsch-pws380.aus.amer.dell.com>
+References: <20100528115520.GA24114@littleblue.us.dell.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-hotplug@vger.kernel.org" <linux-hotplug@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"Hargrave, Jordan" <Jordan_Hargrave@Dell.com>,
+	"Rose, Charles" <Charles_Rose@Dell.com>,
+	"Nijhawan, Vijay" <Vijay_Nijhawan@Dell.com>
+To: "K, Narendra" <Narendra_K@Dell.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100528115520.GA24114@littleblue.us.dell.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, May 28, 2010 at 06:55:21AM -0500, K, Narendra wrote:
+> Hello,
+> 
+> This patch is in continuation of an earlier discussion -
+> 
+> http://marc.info/?l=linux-netdev&m=126712978908314&w=3
+> 
+> The patch has the following review suggestions from the community incorporated -
+> 
+> 1. The name of the attribute has been changed from "smbiosname" to "label" to hide
+> the implementation details.
+> 2. The implementation has been moved to a new file drivers/pci/pci-label.c
+> 
+> The patch has following enhancements over the earlier patch -
+> 
+> 1.Implement support for ACPI _DSM(Device Specific Method) provided by
+> the system firmware. The _DSM returns an index which is the instance number and
+> a label assigned to the network device by the system firmware. The onboard devices
+> will have lower indexes than the add-in devices. The patch exports both index and
+> the label to sysfs.
+> 
+> For Example -
+> 
+> cat /sys/class/net/eth0/device/label
+> Embedded Broadcom 5709C NIC 1
+> 
+> cat /sys/devices/pci0000:00/0000:00:01.0/0000:01:00.0/index
+> 1
+> 
+> Please refer to the PCI-SIG Draft ECN
+> "PCIe Device Labeling under Operating Systems Draft ECN" at this link -
+> http://www.pcisig.com/specifications/pciexpress/review_zone/.
+> 
+> It would be great to know your views on this ECN. Please let us know if you have
+> have any suggestions or changes.
 
-Several fixes including the one for the bootup failure Ingo reported
-yesterday:
+Please note: the 30-day review period for this Draft ECN ends on June
+21, 2010.  If there are objections to this approach, or modifications
+you believe are necessary, please raise them before this point so we
+may adjust the draft before it is ratified.
 
-1) Network cgroup needs to initialize classid properly when module
-   is absent, fix from Herbert Xu.
+Thanks,
+Matt
 
-2) GRO packets unconditionally dropped in ipv6 forwarding path, oops,
-   also from Herbert Xu.
-
-3) {un,}lock_sock_bh() is busted, it needs to properly arbitrate
-   between user context lockers and async ones.  From Eric Dumazet.
-
-   Fixes sk->sk_forward_alloc WARN_ON() reported by Anton Blanchard.
-
-4) When __neigh_event_send() does __skb_queue_tail() it needs to force
-   a reference to the skb->dst using skb_dst_force().  Fix from Eric
-   Dumazet.
-
-   Fixes a bootup failure reported by Ingo Molnar.
-
-5) Several "if (x == NULL) x->foo" style NULL deref fixes from Julia
-   Lawall.
-
-6) Broadcom CNIC driver memory context init fix from Michael Chan.
-
-7) FEC driver hangs on interface down because of improper PHY
-   programming, fix from Bryan Wu.
-
-8) Two vf_port/vfinfo netlink bug fixes from Scott Feldman:
-   a) vf_port dump overruns netlink SKBs
-   b) vfinfo blobs are sized incorrectly
-
-9) Increase be2net POST timeout for EEH recovery, from Sathya Perla.
-
-10) be2net ended up with the erroneous:
-
-	while (...) {
-	} while (...);
-
-    after some recent changes, fix.  From Sarveshwar Bandi.
-
-11) Array index limit check in __ip{,6}mr_fill_mroute() is off by one,
-    fix from Dan Carpenter.
-
-12) ll_temac fixes (interrupt validity fix, checksum offloading bugs)
-    from Brian Hill.
-
-13) IUCV protocol fails to release spinlock on memory allocation
-    failure, from Julia Lawall.
-
-14) VHOST fixes via Michael S. Tsirkin:
-    a) vhost_set_ring index check is off by one, from Krishna Kumar.
-    b) VHOST makes user copy return value checks wrongly, from Takuya Yoshikawa.
-    c) leak on memory_access_ok() failure, also from Takuya Yoshikawa.
-
-15) New netfilter xt_tee module needs to use skb_dst_drop() instead of
-    the now verbotten dst_release(skb_dst(skb)).  From Eric Dumazet.
-
-Please pull, thanks a lot!
-
-The following changes since commit 63a6440326e4cd01d6a663069208a0e68e9b833f:
-  Linus Torvalds (1):
-        Merge git://git.kernel.org/.../pkl/squashfs-linus
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Brian Hill (2):
-      net: ll_temac: fix interrupt bug when interrupt 0 is used
-      net: ll_temac: fix checksum offload logic
-
-Bryan Wu (1):
-      netdev/fec: fix ifconfig eth0 down hang issue
-
-Dan Carpenter (2):
-      ipmr: off by one in __ipmr_fill_mroute()
-      sctp: dubious bitfields in sctp_transport
-
-Eric Dumazet (3):
-      net: fix lock_sock_bh/unlock_sock_bh
-      net: fix __neigh_event_send()
-      xt_tee: use skb_dst_drop()
-
-Herbert Xu (2):
-      cls_cgroup: Initialise classid when module is absent
-      ipv6: Add GSO support on forwarding path
-
-Julia Lawall (3):
-      net/iucv: Add missing spin_unlock
-      drivers/net/hamradio: Eliminate a NULL pointer dereference
-      drivers/net: Eliminate a NULL pointer dereference
-
-Krishna Kumar (1):
-      vhost: Fix host panic if ioctl called with wrong index
-
-Michael Chan (1):
-      cnic: Fix context memory init. on 5709.
-
-Sarveshwar Bandi (1):
-      be2net: Patch removes redundant while statement in loop.
-
-Sathya Perla (1):
-      be2net: increase POST timeout for EEH recovery
-
-Scott Feldman (2):
-      netlink: bug fix: don't overrun skbs on vf_port dump
-      netlink: bug fix: wrong size was calculated for vfinfo list blob
-
-Takuya Yoshikawa (3):
-      vhost: fix to check the return value of copy_to/from_user() correctly
-      vhost-net: fix to check the return value of copy_to/from_user() correctly
-      vhost: fix the memory leak which will happen when memory_access_ok fails
-
- drivers/net/3c507.c         |    3 +-
- drivers/net/benet/be_cmds.c |    2 +-
- drivers/net/benet/be_main.c |    2 +-
- drivers/net/cnic.c          |   10 ++----
- drivers/net/cnic_if.h       |    4 +-
- drivers/net/fec.c           |   28 ++++++++------
- drivers/net/hamradio/yam.c  |    3 +-
- drivers/net/ll_temac.h      |    5 +++
- drivers/net/ll_temac_main.c |   84 ++++++++++++++++++++++++++++++-------------
- drivers/vhost/net.c         |   14 ++++----
- drivers/vhost/vhost.c       |   57 ++++++++++++++++-------------
- include/net/cls_cgroup.h    |    2 +-
- include/net/sctp/structs.h  |    2 +-
- include/net/sock.h          |   20 +++++++---
- net/core/datagram.c         |    6 ++-
- net/core/neighbour.c        |    1 +
- net/core/rtnetlink.c        |   26 ++++++++------
- net/core/sock.c             |   33 +++++++++++++++++
- net/ipv4/ipmr.c             |    2 +-
- net/ipv4/udp.c              |   14 ++++---
- net/ipv6/ip6_output.c       |    2 +-
- net/ipv6/ip6mr.c            |    2 +-
- net/ipv6/udp.c              |    5 ++-
- net/iucv/af_iucv.c          |    2 +-
- net/netfilter/xt_TEE.c      |    4 +-
- 25 files changed, 214 insertions(+), 119 deletions(-)
+-- 
+Matt Domsch
+Technology Strategist
+Dell | Office of the CTO
