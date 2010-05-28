@@ -1,51 +1,63 @@
-From: Matthias Fuchs <matthias.fuchs-iOnpLzIbIdM@public.gmane.org>
-Subject: Re: [PATCH v3] can: Add driver for esd CAN-USB/2 device
-Date: Fri, 28 May 2010 16:19:33 +0200
-Message-ID: <201005281619.33845.matthias.fuchs@esd.eu>
-References: <201005261114.03214.matthias.fuchs@esd.eu>
-	<201005261547.34596.oneukum@suse.de>
+From: Wolfram Sang <w.sang@pengutronix.de>
+Subject: Re: [PATCH] netdev/fec: fix ifconfig eth0 down hang issue
+Date: Fri, 28 May 2010 16:45:06 +0200
+Message-ID: <20100528144506.GB13777@pengutronix.de>
+References: <1275037685-14555-1-git-send-email-bryan.wu@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <201005261547.34596.oneukum-l3A5Bk7waGM@public.gmane.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="FkmkrVfFsRoUs1wW"
+Cc: davem@davemloft.net, afleming@gmail.com, s.hauer@pengutronix.de,
+	gerg@uclinux.org, amit.kucheria@canonical.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Bryan Wu <bryan.wu@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:52835 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757375Ab0E1OpK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 May 2010 10:45:10 -0400
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1275037685-14555-1-git-send-email-bryan.wu@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 26 May 2010 15:47, Oliver Neukum wrote:
-> Am Mittwoch, 26. Mai 2010 11:14:03 schrieb Matthias Fuchs:
-> > +       netdev->trans_start = jiffies;
-> > +
-> > +       /* Slow down tx path */
-> > +       if (atomic_read(&priv->active_tx_jobs) >= MAX_TX_URBS)
-> > +               netif_stop_queue(netdev);
-> 
-> Where is the queue started again?
-> 
-> 	Regards
-> 		Oliver
 
-This is done in the ack-patch for sent messages:
+--FkmkrVfFsRoUs1wW
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-static void esd_usb2_tx_done_msg(struct esd_usb2_net_priv *priv,
-				 struct esd_usb2_msg *msg)
-{
-...
-	atomic_dec(&priv->active_tx_jobs);
+On Fri, May 28, 2010 at 05:08:05PM +0800, Bryan Wu wrote:
+> BugLink: http://bugs.launchpad.net/bugs/559065
+>=20
+> In fec open/close function, we need to use phy_connect and phy_disconnect
+> operation before we start/stop phy. Otherwise it will cause system hang.
+>=20
+> Only call fec_enet_mii_probe() in open function, because the first open
+> action will cause NULL pointer error.
+>=20
+> Signed-off-by: Bryan Wu <bryan.wu@canonical.com>
 
-	netif_wake_queue(netdev);
-}
+We use this patch for 1 month now and didn't encounter any flaws so far.
 
-Matthias
+Tested-by: Wolfram Sang <w.sang@pengutronix.de>
+
+Oops, too late... well, one for the comfortable feeling ;)
+
+--=20
+Pengutronix e.K.                           | Wolfram Sang                |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+
+--FkmkrVfFsRoUs1wW
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAkv/1vIACgkQD27XaX1/VRts1wCdGd2G46UyGCSelOVlZd8wk4zW
+vVIAn3qc5kP5a2Ccaky4uQJZP25Ef1KN
+=pUk+
+-----END PGP SIGNATURE-----
+
+--FkmkrVfFsRoUs1wW--
