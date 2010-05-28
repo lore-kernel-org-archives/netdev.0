@@ -1,52 +1,53 @@
-From: Bryan Wu <bryan.wu@canonical.com>
-Subject: Re: [PATCH] netdev/fec: fix ifconfig eth0 down hang issue
-Date: Fri, 28 May 2010 23:13:48 +0800
-Message-ID: <4BFFDDAC.7000909@canonical.com>
-References: <1275037685-14555-1-git-send-email-bryan.wu@canonical.com> <20100528144506.GB13777@pengutronix.de>
-Reply-To: bryan.wu@canonical.com
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH v3] can: Add driver for esd CAN-USB/2 device
+Date: Fri, 28 May 2010 17:26:00 +0200
+Message-ID: <201005281726.00855.oneukum@suse.de>
+References: <201005261114.03214.matthias.fuchs@esd.eu> <201005261547.34596.oneukum@suse.de> <201005281619.33845.matthias.fuchs@esd.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, afleming@gmail.com, s.hauer@pengutronix.de,
-	gerg@uclinux.org, amit.kucheria@canonical.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Wolfram Sang <w.sang@pengutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100528144506.GB13777@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Socketcan-core@lists.berlios.de,
+	linux-usb@vger.kernel.org
+To: Matthias Fuchs <matthias.fuchs@esd.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:36838 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750929Ab0E1PZy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 May 2010 11:25:54 -0400
+In-Reply-To: <201005281619.33845.matthias.fuchs@esd.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/28/2010 10:45 PM, Wolfram Sang wrote:
-> On Fri, May 28, 2010 at 05:08:05PM +0800, Bryan Wu wrote:
->> BugLink: http://bugs.launchpad.net/bugs/559065
->>
->> In fec open/close function, we need to use phy_connect and phy_disconnect
->> operation before we start/stop phy. Otherwise it will cause system hang.
->>
->> Only call fec_enet_mii_probe() in open function, because the first open
->> action will cause NULL pointer error.
->>
->> Signed-off-by: Bryan Wu <bryan.wu@canonical.com>
+Am Freitag, 28. Mai 2010 16:19:33 schrieb Matthias Fuchs:
+> On Wednesday 26 May 2010 15:47, Oliver Neukum wrote:
+> > Am Mittwoch, 26. Mai 2010 11:14:03 schrieb Matthias Fuchs:
+> > > +       netdev->trans_start = jiffies;
+> > > +
+> > > +       /* Slow down tx path */
+> > > +       if (atomic_read(&priv->active_tx_jobs) >= MAX_TX_URBS)
+> > > +               netif_stop_queue(netdev);
+> > 
+> > Where is the queue started again?
+> > 
+> > 	Regards
+> > 		Oliver
 > 
-> We use this patch for 1 month now and didn't encounter any flaws so far.
+> This is done in the ack-patch for sent messages:
 > 
-> Tested-by: Wolfram Sang <w.sang@pengutronix.de>
+> static void esd_usb2_tx_done_msg(struct esd_usb2_net_priv *priv,
+> 				 struct esd_usb2_msg *msg)
+> {
+> ...
+> 	atomic_dec(&priv->active_tx_jobs);
 > 
-> Oops, too late... well, one for the comfortable feeling ;)
-> 
+> 	netif_wake_queue(netdev);
+> }
 
-Thanks a lot, Wolfram. You are real helpful here.
-Because my babbage board has broken for several weeks, I don't have hardware to
-test my FEC patches.
+Oh, I see. I am afraid this is a race. You have no guarantee that
+esd_usb2_tx_done_msg() runs after you stop the queue. If you do
+it that way you must stop the queue before you submit the URB
+due to which you want to stop it (and do the error handling)
 
-The performance drop issue still hangs in my brain. As soon as I have a new
-patch, could you please help to test? Or do you guys found any performance drop
-solution on your hardware? IIRC, you reported similar issue as us.
-
-Best regards,
--- 
-Bryan Wu <bryan.wu@canonical.com>
-Kernel Developer    +86.138-1617-6545 Mobile
-Ubuntu Kernel Team | Hardware Enablement Team
-Canonical Ltd.      www.canonical.com
-Ubuntu - Linux for human beings | www.ubuntu.com
+	Regards
+		Oliver
