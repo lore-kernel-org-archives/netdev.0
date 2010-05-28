@@ -1,105 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net: replace hooks in __netif_receive_skb
- V3
-Date: Fri, 28 May 2010 09:02:43 +0200
-Message-ID: <1275030163.2650.3.camel@edumazet-laptop>
-References: <20100527180813.GA3714@psychotron.redhat.com>
-	 <20100527130822.02cb1661@nehalam>
-	 <20100528055154.GB2823@psychotron.redhat.com>
-	 <20100528061241.GC2823@psychotron.redhat.com>
+From: Scott Feldman <scofeldm@cisco.com>
+Subject: [net-2.6 PATCH 2/2] netlink: bug fix: wrong size was calculated for
+	vfinfo list blob
+Date: Fri, 28 May 2010 00:15:51 -0700
+Message-ID: <20100528071551.4058.24521.stgit@localhost.localdomain>
+References: <20100528071546.4058.1332.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, shemminger@vyatta.com,
-	kaber@trash.net
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: chrisw@redhat.com, netdev@vger.kernel.org, kaber@trash.net,
+	arnd@arndb.de
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:38355 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753455Ab0E1HCr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 May 2010 03:02:47 -0400
-Received: by wyb29 with SMTP id 29so605269wyb.19
-        for <netdev@vger.kernel.org>; Fri, 28 May 2010 00:02:46 -0700 (PDT)
-In-Reply-To: <20100528061241.GC2823@psychotron.redhat.com>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:41639 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753321Ab0E1HPw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 May 2010 03:15:52 -0400
+In-Reply-To: <20100528071546.4058.1332.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 28 mai 2010 =C3=A0 08:12 +0200, Jiri Pirko a =C3=A9crit :
+From: Scott Feldman <scofeldm@cisco.com>
 
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index a1bff65..f54b97d 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -254,6 +254,16 @@ struct netdev_hw_addr_list {
->  #define netdev_for_each_mc_addr(ha, dev) \
->  	netdev_hw_addr_list_for_each(ha, &(dev)->mc)
-> =20
-> +
-> +struct netdev_rx_handler {
-> +	struct list_head	list;
-> +	unsigned int		order;
-> +#define NETDEV_RX_HANDLER_ORDER_BRIDGE	1
-> +#define NETDEV_RX_HANDLER_ORDER_MACVLAN	2
-> +	struct sk_buff		*(*callback)(struct sk_buff *skb);
-> +	struct rcu_head		rcu;
-> +};
-> +
->  struct hh_cache {
->  	struct hh_cache *hh_next;	/* Next entry			     */
->  	atomic_t	hh_refcnt;	/* number of users                   */
-> @@ -1031,6 +1041,9 @@ struct net_device {
->  	/* GARP */
->  	struct garp_port	*garp_port;
-> =20
-> +	/* receive handlers (hooks) list */
-> +	struct list_head	rx_handlers;
-> +
->  	/* class/net/name entry */
->  	struct device		dev;
->  	/* space for optional device, statistics, and wireless sysfs groups=
- */
-> @@ -1685,6 +1698,11 @@ static inline void napi_free_frags(struct napi=
-_struct *napi)
->  	napi->skb =3D NULL;
->  }
-> =20
+The wrong size was being calculated for vfinfo.  In one case, it was over-
+calculating using nlmsg_total_size on attrs, in another case, it was
+under-calculating by assuming ifla_vf_* structs are packed together, but
+each struct is it's own attr w/ hdr (and padding).
 
-Please chose another place to hold rx_handlers, to keep rx path memory
-needs to minimum cache lines. Somewhere in the following section :
-
-/*
- * Cache line mostly used on receive path (including eth_type_trans())
- */
-        unsigned long           last_rx;        /* Time of last Rx     =
- */
-        /* Interface address info used in eth_type_trans() */
-        unsigned char           *dev_addr;      /* hw address, (before =
-bcast
-                                                   because most packets=
- are
-                                                   unicast) */
-
-        struct netdev_hw_addr_list      dev_addrs; /* list of device
-                                                      hw addresses */
-
-        unsigned char           broadcast[MAX_ADDR_LEN];        /* hw b=
-cast add */
-
-#ifdef CONFIG_RPS
-        struct kset             *queues_kset;
-
-        struct netdev_rx_queue  *_rx;
-
-        /* Number of RX queues allocated at alloc_netdev_mq() time  */
-        unsigned int            num_rx_queues;
-#endif
-
-        struct netdev_queue     rx_queue;
+Signed-off-by: Scott Feldman <scofeldm@cisco.com>
+---
+ net/core/rtnetlink.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
 
 
-and before the :
-
-	struct netdev_queue     *_tx ____cacheline_aligned_in_smp;
-
-
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 7331bb2..1a2af24 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -650,11 +650,12 @@ static inline int rtnl_vfinfo_size(const struct net_device *dev)
+ 	if (dev->dev.parent && dev_is_pci(dev->dev.parent)) {
+ 
+ 		int num_vfs = dev_num_vf(dev->dev.parent);
+-		size_t size = nlmsg_total_size(sizeof(struct nlattr));
+-		size += nlmsg_total_size(num_vfs * sizeof(struct nlattr));
+-		size += num_vfs * (sizeof(struct ifla_vf_mac) +
+-				  sizeof(struct ifla_vf_vlan) +
+-				  sizeof(struct ifla_vf_tx_rate));
++		size_t size = nla_total_size(sizeof(struct nlattr));
++		size += nla_total_size(num_vfs * sizeof(struct nlattr));
++		size += num_vfs *
++			(nla_total_size(sizeof(struct ifla_vf_mac)) +
++			 nla_total_size(sizeof(struct ifla_vf_vlan)) +
++			 nla_total_size(sizeof(struct ifla_vf_tx_rate)));
+ 		return size;
+ 	} else
+ 		return 0;
 
