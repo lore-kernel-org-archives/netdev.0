@@ -1,63 +1,64 @@
-From: Wolfram Sang <w.sang@pengutronix.de>
-Subject: Re: [PATCH] netdev/fec: fix ifconfig eth0 down hang issue
-Date: Fri, 28 May 2010 16:45:06 +0200
-Message-ID: <20100528144506.GB13777@pengutronix.de>
-References: <1275037685-14555-1-git-send-email-bryan.wu@canonical.com>
+From: Maxim Levitsky <maximlevitsky-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: MDNS is broken in latest -git
+Date: Fri, 28 May 2010 18:02:28 +0300
+Message-ID: <1275058948.2754.7.camel@maxim-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="FkmkrVfFsRoUs1wW"
-Cc: davem@davemloft.net, afleming@gmail.com, s.hauer@pengutronix.de,
-	gerg@uclinux.org, amit.kucheria@canonical.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Bryan Wu <bryan.wu@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:52835 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757375Ab0E1OpK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 May 2010 10:45:10 -0400
-Content-Disposition: inline
-In-Reply-To: <1275037685-14555-1-git-send-email-bryan.wu@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+On latest git, it became impossible to use hostname.local alias to
+access my network hosts.
+
+In fact when I look at 'avahi-discover' I see nothing but local
+services.
+
+I did a bisect, but unfortunely ended with merge commit, although
+bisection seem to be normal (and I didn't do any shortcuts).
+
+I own a iwl3945 wireless card.
 
 
---FkmkrVfFsRoUs1wW
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+The bisection log:
 
-On Fri, May 28, 2010 at 05:08:05PM +0800, Bryan Wu wrote:
-> BugLink: http://bugs.launchpad.net/bugs/559065
->=20
-> In fec open/close function, we need to use phy_connect and phy_disconnect
-> operation before we start/stop phy. Otherwise it will cause system hang.
->=20
-> Only call fec_enet_mii_probe() in open function, because the first open
-> action will cause NULL pointer error.
->=20
-> Signed-off-by: Bryan Wu <bryan.wu@canonical.com>
+git bisect start
+# good: [537b60d17894b7c19a6060feae40299d7109d6e7] Merge branch 'x86-uv-for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/tip/linux-2.6-tip
+git bisect good 537b60d17894b7c19a6060feae40299d7109d6e7
+# bad: [d515e86e639890b33a09390d062b0831664f04a2] Merge branch 'for_linus' of git://git.kernel.org/pub/scm/linux/kernel/git/jack/linux-udf-2.6
+git bisect bad d515e86e639890b33a09390d062b0831664f04a2
+# good: [a26272e5200765691e67d6780e52b32498fdb659] Merge branch 'docs-next' of git://git.lwn.net/linux-2.6
+git bisect good a26272e5200765691e67d6780e52b32498fdb659
+# good: [10fc51b9953112ade61e33ff2f6f005f005a2361] skge: use the DMA state API instead of the pci equivalents
+git bisect good 10fc51b9953112ade61e33ff2f6f005f005a2361
+# bad: [c316ba3b518bc35ce5aef5421135220389f4eb98] Merge branch 'linux-next' of git://git.infradead.org/ubi-2.6
+git bisect bad c316ba3b518bc35ce5aef5421135220389f4eb98
+# bad: [7a9b149212f3716c598afe973b6261fd58453b7a] Merge git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/usb-2.6
+git bisect bad 7a9b149212f3716c598afe973b6261fd58453b7a
+# good: [726ef428af41b1fbdf569772ab73de0844c4e0f2] USB: belkin_sa: minor clean-ups
+git bisect good 726ef428af41b1fbdf569772ab73de0844c4e0f2
+# good: [6fe70aae0d128339febfabc073ba4c4a03de4f45] Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6 into for-davem
+git bisect good 6fe70aae0d128339febfabc073ba4c4a03de4f45
+# bad: [57b610805ce92dbd79fc97509f80fa5391b99623] net: Add netlink support for virtual port management (was iovnl)
+git bisect bad 57b610805ce92dbd79fc97509f80fa5391b99623
+# good: [78ad38923094a479453f5b02b37a012377a36f34] qlcnic: fix internal loopback test
+git bisect good 78ad38923094a479453f5b02b37a012377a36f34
+# good: [e1bc7eedbafe0415cdfd82e17e6f65bb3369239d] atm: select FW_LOADER in Kconfig for solos-pci
+git bisect good e1bc7eedbafe0415cdfd82e17e6f65bb3369239d
+# bad: [eedf042a63ffef050ebc015de19b52dc065e830b] ipv6: fix the bug of address check
+git bisect bad eedf042a63ffef050ebc015de19b52dc065e830b
+# good: [99bf236612801351834b441314379bc5304d62ce] drivers/net/usb: Use kmemdup
+git bisect good 99bf236612801351834b441314379bc5304d62ce
+# good: [380fefb2ddabd4cd5f14dbe090481f0544e65078] dm9000: fix "BUG: spinlock recursion"
+git bisect good 380fefb2ddabd4cd5f14dbe090481f0544e65078
+# bad: [820ae8a80eb59962aefbbd4908dfe144ec0f9edb] Merge branch 'for-davem' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next-2.6
+git bisect bad 820ae8a80eb59962aefbbd4908dfe144ec0f9edb
 
-We use this patch for 1 month now and didn't encounter any flaws so far.
 
-Tested-by: Wolfram Sang <w.sang@pengutronix.de>
-
-Oops, too late... well, one for the comfortable feeling ;)
-
---=20
-Pengutronix e.K.                           | Wolfram Sang                |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-
---FkmkrVfFsRoUs1wW
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAkv/1vIACgkQD27XaX1/VRts1wCdGd2G46UyGCSelOVlZd8wk4zW
-vVIAn3qc5kP5a2Ccaky4uQJZP25Ef1KN
-=pUk+
------END PGP SIGNATURE-----
-
---FkmkrVfFsRoUs1wW--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
