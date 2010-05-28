@@ -1,39 +1,38 @@
-From: Maxim Levitsky <maximlevitsky-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: MDNS is broken in latest -git
-Date: Fri, 28 May 2010 20:09:51 +0300
-Message-ID: <1275066591.3390.4.camel@maxim-laptop>
-References: <1275058948.2754.7.camel@maxim-laptop>
+From: Finn Thain <fthain@telegraphics.com.au>
+Subject: Re: [PATCH] net: mac8390 - Sort out memory/MMIO accesses and casts
+ (was: Re: drivers/net/mac8390.c: Remove useless memcpy casting)
+Date: Sat, 29 May 2010 03:21:35 +1000 (EST)
+Message-ID: <alpine.OSX.2.00.1005290312230.691@localhost>
+References: <l2k10f740e81004151234t3004275az36e7873493067a8a@mail.gmail.com>  <alpine.OSX.2.00.1004161206300.271@localhost> <AANLkTikexlmuunBQ-ydNaD8fkKcLmrsfJSEgvyMJdNqU@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1275058948.2754.7.camel@maxim-laptop>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Joe Perches <joe@perches.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Linux/m68k <linux-m68k@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <AANLkTikexlmuunBQ-ydNaD8fkKcLmrsfJSEgvyMJdNqU@mail.gmail.com>
+Sender: linux-m68k-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2010-05-28 at 18:02 +0300, Maxim Levitsky wrote: 
-> On latest git, it became impossible to use hostname.local alias to
-> access my network hosts.
+
+On Sun, 23 May 2010, Geert Uytterhoeven wrote:
+
+> >> But here's a better solution. I do not have the hardware to test it, 
+> >> though. Finn, does it {look OK,work}?
+> >
+> > It looks fine. I can't test it right now, but I will do so when I get 
+> > the opportunity.
 > 
-> In fact when I look at 'avahi-discover' I see nothing but local
-> services.
+> Any news from the test front?
+
+This is commit ba0f916ca7ac79356e2ed32a85c3aa8255b104e7, right?
+If so, it tests OK here.
+
+Finn
+
 > 
-> I did a bisect, but unfortunely ended with merge commit, although
-> bisection seem to be normal (and I didn't do any shortcuts).
-
-Since starting 'wireshark' magicly temporarly fixes this, I suspect that
-mulicast packets don't get through.
-
-This smells like iwl3945 bug.
-
-I use linus' master tree now.
-
-Best regards,
-Maxim Levitsky
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Gr{oetje,eeting}s,
+> 
+> 						Geert
