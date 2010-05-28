@@ -1,51 +1,44 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: boot crash in arp_error_report()
-Date: Fri, 28 May 2010 10:05:31 +0200
-Message-ID: <20100528080531.GA9893@elte.hu>
-References: <alpine.LFD.2.00.1005271213091.3689@i5.linux-foundation.org>
- <1274989637.2446.1.camel@edumazet-laptop>
- <1274991504.2446.13.camel@edumazet-laptop>
- <20100527.161011.104042698.davem@davemloft.net>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [RFC] netfilter: WIP: Xtables idletimer target implementation
+Date: Fri, 28 May 2010 10:05:56 +0200 (CEST)
+Message-ID: <alpine.LSU.2.01.1005281001550.11570@obet.zrqbmnf.qr>
+References: <1274993689-23928-1-git-send-email-luciano.coelho@nokia.com>  <alpine.LSU.2.01.1005280057190.14077@obet.zrqbmnf.qr> <1275024304.3754.45.camel@powerslave>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, torvalds@linux-foundation.org,
-	tglx@linutronix.de, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mail.elte.hu ([157.181.151.9]:59332 "EHLO mx2.mail.elte.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755853Ab0E1IFm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 May 2010 04:05:42 -0400
-Content-Disposition: inline
-In-Reply-To: <20100527.161011.104042698.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kaber@trash.net" <kaber@trash.net>, Timo Teras <timo.teras@iki.fi>
+To: Luciano Coelho <luciano.coelho@nokia.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1275024304.3754.45.camel@powerslave>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-* David Miller <davem@davemloft.net> wrote:
+On Friday 2010-05-28 07:25, Luciano Coelho wrote:
+>
+>Do you have any other suggestion on how I can associate the rules to
+>specific interfaces?
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Thu, 27 May 2010 22:18:24 +0200
-> 
-> > [PATCH] net: fix __neigh_event_send()
-> > 
-> > commit 7fee226ad23 (net: add a noref bit on skb dst) missed one spot
-> > where an skb is enqueued, with a possibly not refcounted dst entry.
-> > 
-> > __neigh_event_send() inserts skb into arp_queue, so we must make sure
-> > dst entry is refcounted, or dst entry can be freed by garbage collector
-> > after caller exits from rcu protected section.
-> > 
-> > Reported-by: Ingo Molnar <mingo@elte.hu>
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> 
-> Applied, thanks Eric.
-> 
-> Ingo can we get a confirmation that this fixes the bootup crash?
+-A INPUT -i foo -j do
+-A do -j idletimer
 
-Sure, will let you know how it goes.
+A little funny, but actually this would allow me to keep a timer
+for a group of interfaces rather than just per-if.
 
-Thanks,
+>> >+static int xt_idletimer_checkentry(const struct xt_tgchk_param *par)
+>> >+{
+>> >+	const struct xt_idletimer_info *info = par->targinfo;
+>> >+	const struct ipt_entry *entryinfo = par->entryinfo;
+>> >+	const struct ipt_ip *ip = &entryinfo->ip;
+>> 
+>> I'm not sure spying on ipt_ip is a long-term viable solution.
+>
+>Do you have any other suggestions on how I could get an interface
+>associated with the rule? I thought about having the userspace pass the
+>interface as an option to the rule (like I already do for the timeout
+>value), but that looked ugly to me, since the interface can already be
+>defined as part of the ruleset.
 
-	Ingo
+I have patches ready since a while that decouple ipt_ip
+from a rule, so there is no guarantee that such will exist.
