@@ -1,32 +1,73 @@
-From: Richard Hartmann <richih.mailinglist@gmail.com>
-Subject: Re: [Patch] fix packet loss and massive ping spikes with PPP
-	multi-link
-Date: Sat, 29 May 2010 11:06:59 +0200
-Message-ID: <AANLkTimOxMHpysLR6fQn0fhLkvMZbEd0gcIwQlINq49J@mail.gmail.com>
-References: <2d460de71003260850x7f90d04cy79ac853464108182@mail.gmail.com>
-	<20100326160226.0159ac3b@lxorguk.ukuu.org.uk>
-	<4BACE827.4070006@gmail.com>
-	<20100326170428.6c1ad66c@lxorguk.ukuu.org.uk>
-	<4BB31E00.8060204@netservers.co.uk>
-	<20100529021624.GA2538@brick.ozlabs.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ben McKeegan <ben@netservers.co.uk>, netdev@vger.kernel.org,
-	linux-ppp@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	"Alexander E. Patrakov" <patrakov@gmail.com>,
-	linux-kernel@vger.kernel.org
-To: Paul Mackerras <paulus@samba.org>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <20100529021624.GA2538@brick.ozlabs.ibm.com>
-Sender: linux-ppp-owner@vger.kernel.org
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] act_nat: fix the wrong checksum when addr isn't in old_addr/mask
+Date: Sat, 29 May 2010 18:41:51 +0800
+Message-ID: <1275129711-21486-1-git-send-email-xiaosuo@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Changli Gao <xiaosuo@gmail.com>
+To: Jamal Hadi Salim <hadi@cyberus.ca>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, May 29, 2010 at 04:16, Paul Mackerras <paulus@samba.org> wrote:
+fix the wrong checksum when addr isn't in old_addr/mask
 
-> I like this a lot better than the other proposed patch.
+When addr isn't in old_addr/mask we don't do SNAT or DNAT, and we should not
+update the checksum too.
 
-Not that it really matters, but we would be happy with either patch
-as long as we can stop patching mainline :)
-
-
-Richard
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+ net/sched/act_nat.c |   32 +++++++++++++++++---------------
+ 1 file changed, 17 insertions(+), 15 deletions(-)
+diff --git a/net/sched/act_nat.c b/net/sched/act_nat.c
+index d885ba3..f9b12a9 100644
+--- a/net/sched/act_nat.c
++++ b/net/sched/act_nat.c
+@@ -142,24 +142,25 @@ static int tcf_nat(struct sk_buff *skb, struct tc_action *a,
+ 	else
+ 		addr = iph->daddr;
+ 
+-	if (!((old_addr ^ addr) & mask)) {
+-		if (skb_cloned(skb) &&
+-		    !skb_clone_writable(skb, sizeof(*iph)) &&
+-		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
+-			goto drop;
++	if ((old_addr ^ addr) & mask)
++		goto out;
+ 
+-		new_addr &= mask;
+-		new_addr |= addr & ~mask;
++	if (skb_cloned(skb) &&
++	    !skb_clone_writable(skb, sizeof(*iph)) &&
++	    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
++		goto drop;
+ 
+-		/* Rewrite IP header */
+-		iph = ip_hdr(skb);
+-		if (egress)
+-			iph->saddr = new_addr;
+-		else
+-			iph->daddr = new_addr;
++	new_addr &= mask;
++	new_addr |= addr & ~mask;
+ 
+-		csum_replace4(&iph->check, addr, new_addr);
+-	}
++	/* Rewrite IP header */
++	iph = ip_hdr(skb);
++	if (egress)
++		iph->saddr = new_addr;
++	else
++		iph->daddr = new_addr;
++
++	csum_replace4(&iph->check, addr, new_addr);
+ 
+ 	ihl = iph->ihl * 4;
+ 
+@@ -247,6 +248,7 @@ static int tcf_nat(struct sk_buff *skb, struct tc_action *a,
+ 		break;
+ 	}
+ 
++out:
+ 	return action;
+ 
+ drop:
