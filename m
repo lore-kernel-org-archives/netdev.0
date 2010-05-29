@@ -1,47 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2: Fix IRQ failures during kdump.
-Date: Fri, 28 May 2010 22:33:46 -0700 (PDT)
-Message-ID: <20100528.223346.27796527.davem@davemloft.net>
-References: <1275103462-8527-1-git-send-email-mchan@broadcom.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2010-05-28
+Date: Fri, 28 May 2010 23:01:58 -0700 (PDT)
+Message-ID: <20100528.230158.191386259.davem@davemloft.net>
+References: <20100528180952.GC2405@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-pci@vger.kernel.org
-To: mchan@broadcom.com
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1275103462-8527-1-git-send-email-mchan@broadcom.com>
-Sender: linux-pci-owner@vger.kernel.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100528180952.GC2405-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Fri, 28 May 2010 20:24:22 -0700
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Fri, 28 May 2010 14:09:53 -0400
 
-> When switching from the crashed kernel to the kdump kernel without going
-> through PCI reset, IRQs may not work if a different IRQ mode is used on
-> the kdump kernel.  The original IRQ mode used in the crashed kernel may
-> still be enabled and the new IRQ mode may not work.  For example, it
-> will fail when going from MSI-X mode to MSI mode.
+> Here are a few small fixes intended for 2.6.35.  Included are a null
+> pointer dereference fix, and a use-after-free fix, as well as some more
+> minor stuff.  It also include the revert of a earlier patch that I
+> inadvertantly merged out of order, effectively creating a bug rather
+> than fixing one.  The reverted patch will now be pointed at 2.6.36
+> instead.
 > 
-> We fix this by disabling MSI/MSI-X and enabling INTX in bnx2_init_board().
-> 
-> pci_save_state() is also moved to the end of bnx2_init_board() after
-> all config register fixups (including the new IRQ fixups) have been done.
-> 
-> Export pci_msi_off() from drivers/pci/pci.c for this purpose.
-> 
-> Update bnx2 version to 2.0.16.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Please let me know if there are problems!
 
-I sincerely doubt that your's will be the only device which will
-ever run into this issue.  Therefore handling it manually in
-each and every device driver, which is the trend you will be
-setting with this patch, doesn't make much sense.
-
-Any device which uses MSI in any way can run into this scenerio,
-wherein the device will be left with MSI enabled when we leave the
-crash kernel and jump into the kdump kernel.
-
-So this needs to be handled generically in the PCI layer or similar.
-
-I'm not applying this patch.
+Pulled, thanks John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
