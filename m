@@ -1,36 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch] r8169: use u32 instead of unsigned long
-Date: Fri, 28 May 2010 23:53:24 -0700 (PDT)
-Message-ID: <20100528.235324.52183500.davem@davemloft.net>
-References: <20100529040111.GA28225@host-a-55.ustcsz.edu.cn>
+Subject: Re: [PATCH] net: add rtnl assertion to linkwatch_run_queue
+Date: Sat, 29 May 2010 00:01:19 -0700 (PDT)
+Message-ID: <20100529.000119.13757121.davem@davemloft.net>
+References: <20100527055100.GA21234@hera.kernel.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: junchangwang@gmail.com
+Cc: eric.dumazet@gmail.com, shemminger@vyatta.com,
+	herbert@gondor.hengli.com.au, kaber@trash.net,
+	netdev@vger.kernel.org
+To: dkirjanov@hera.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51027
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53716
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751661Ab0E2GxO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 May 2010 02:53:14 -0400
-In-Reply-To: <20100529040111.GA28225@host-a-55.ustcsz.edu.cn>
+	by vger.kernel.org with ESMTP id S1751811Ab0E2HBJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 May 2010 03:01:09 -0400
+In-Reply-To: <20100527055100.GA21234@hera.kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Junchang Wang <junchangwang@gmail.com>
-Date: Sat, 29 May 2010 12:01:11 +0800
+From: Denis Kirjanov <dkirjanov@hera.kernel.org>
+Date: Thu, 27 May 2010 05:51:00 +0000
 
-> RTL_R32 should return value with 32-bit width. But "unsigned long"
-> implies u64 on some 64-bit platforms.
+> Add RTNL assertion to linkwatch_run_queue since function 
+> must be called with semaphore held
 > 
-> Signed-off-by: Junchang Wang <junchangwang@gmail.com>
+> Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
 
-I fail to see why there is a need to cast the return value
-of readl() at all.
+This function is exported purely for netdev_wait_allrefs()'s sake
+and for no other purpose.
 
-It returns a 32-bit integer on all platforms.
+In fact, I'd say this is entirely a private functional interface
+specifically built for generic network interface tear-down.
 
-Secondly, 8139too.c has the same unnecessary cast.
+If you are trying to use this function in another context, that's
+something you need to discuss with us first before we start peppering
+it with various assertions.
 
-So the thing to do is to kill the casts completely from both
-drivers defining this register read macro.
+I am not applying this patch.
