@@ -1,125 +1,90 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [PATCH 1/3] korina: fix deadlock on RX FIFO overrun
-Date: Sun, 30 May 2010 01:23:34 +0200
-Message-ID: <20100529232343.ABC1D4CD45@orbit.nwl.cc>
-Cc: Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+Subject: [PATCH] Exclude DAHDI devices from being probed by netjet
+Date: Sun, 30 May 2010 02:29:46 +0300
+Message-ID: <20100529232946.GA1748@xorcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([91.121.169.95]:42759 "EHLO orbit.nwl.cc"
+Received: from local.xorcom.com ([62.90.10.53]:52308 "EHLO local.xorcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754381Ab0E2XXr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 May 2010 19:23:47 -0400
+	id S1756072Ab0E2XiZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 May 2010 19:38:25 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-By calling korina_restart(), the IRQ handler tries to disable the
-interrupt it's currently serving. This leads to a deadlock since
-disable_irq() waits for any running IRQ handlers to finish before
-returning. This patch addresses the issue by turning korina_restart()
-into a workqueue task, which is then scheduled when needed.
+Many early Zaptel / DAHDI devices were based on the same Netjet PCI
+chipset. However they are not the ISDN BRI adapters the netjet driver
+expects to driver.
 
-Reproducing the deadlock is easily done using e.g. GNU netcat to send
-large amounts of UDP data to the host running this driver.
+The patch excludes devices based solely on sub-vendor ID. It seems that
+all of those drivers probe for that, and I don't have a better way to
+check what are the exact sub-product IDs.
 
-Note that the same problem (and fix) applies to TX FIFO underruns, but
-apparently these are less easy to trigger.
+Notes:
+1. It seems that the same change need also be applied to some hisax
+   (i4l) drivers.
+2. I don't have more precise data than the PCI ID tables in the drivers.
+   Does this run the risk of excluding some actual Netjet ISDN cards?
+3. A more informative failure message may help (if one is actually needed).
+4. The MAINTAINERS file lists the git tree
+   git://git.kernel.org/pub/scm/linux/kernel/git/kkeil/isdn-2.6.git but
+   it does not seem to exist.
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
+Signed-off-by: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
 ---
- drivers/net/korina.c |   27 +++++++++++++--------------
- 1 files changed, 13 insertions(+), 14 deletions(-)
+ drivers/isdn/hardware/mISDN/netjet.c |   30 +++++++++++++++++++++++++++---
+ 1 files changed, 27 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/korina.c b/drivers/net/korina.c
-index 26bf1b7..13533f9 100644
---- a/drivers/net/korina.c
-+++ b/drivers/net/korina.c
-@@ -135,6 +135,7 @@ struct korina_private {
- 	struct napi_struct napi;
- 	struct timer_list media_check_timer;
- 	struct mii_if_info mii_if;
-+	struct work_struct restart_task;
- 	struct net_device *dev;
- 	int phy_addr;
- };
-@@ -890,12 +891,12 @@ static int korina_init(struct net_device *dev)
+diff --git a/drivers/isdn/hardware/mISDN/netjet.c b/drivers/isdn/hardware/mISDN/netjet.c
+index 0a3553d..42dded4 100644
+--- a/drivers/isdn/hardware/mISDN/netjet.c
++++ b/drivers/isdn/hardware/mISDN/netjet.c
+@@ -1060,9 +1060,33 @@ nj_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	int cfg;
+ 	struct tiger_hw *card;
  
- /*
-  * Restart the RC32434 ethernet controller.
-- * FIXME: check the return status where we call it
-  */
--static int korina_restart(struct net_device *dev)
-+static void korina_restart_task(struct work_struct *work)
- {
--	struct korina_private *lp = netdev_priv(dev);
--	int ret;
-+	struct korina_private *lp = container_of(work,
-+			struct korina_private, restart_task);
-+	struct net_device *dev = lp->dev;
- 
- 	/*
- 	 * Disable interrupts
-@@ -916,10 +917,9 @@ static int korina_restart(struct net_device *dev)
- 
- 	napi_disable(&lp->napi);
- 
--	ret = korina_init(dev);
--	if (ret < 0) {
-+	if (korina_init(dev) < 0) {
- 		printk(KERN_ERR "%s: cannot restart device\n", dev->name);
--		return ret;
-+		return;
+-	if (pdev->subsystem_vendor == 0x8086 &&
+-	    pdev->subsystem_device == 0x0003) {
+-		pr_notice("Netjet: Digium X100P/X101P not handled\n");
++	switch (pdev->subsystem_vendor) {
++	/* Fall-through */
++	case 0x2151: /* Yeastart YSTDM8xx (ystdm8xx) */
++	case 0xe16b: /* Zapata Project PCI-Radio (pciradio) */
++	case 0x6159: /* Digium Wildcard T100/E100 (wct1xxp) */
++	case 0x71fe: /* Digium Wildcard TE110P (wcte1xp) */
++	case 0x795e: /* Digium Wildcard TE110P (wcte1xp) */
++	case 0x797e: /* Digium Wildcard TE110P (wcte1xp) */
++	case 0x79de: /* Digium Wildcard TE110P (wcte1xp) */
++	case 0x79df: /* Digium Wildcard TE110P (wcte1xp) */
++	case 0x8084: /* Digium Wildcard X101P clone (wcfxo) */
++	case 0x8085: /* Digium Wildcard X101P (wcfxo) */
++	case 0x8086: /* Digium Wildcard X101P clone (wcfxo) */
++	case 0x8087: /* Digium Wildcard X101P clone (wcfxo) */
++	case 0xa800: /* Digium Wildcard TDM400P Rev H (wctdm) */
++	case 0xa801: /* Digium Wildcard TDM400P Rev H (wctdm) */
++	case 0xa8fd: /* Digium Wildcard TDM400P Rev H (wctdm) */
++	case 0xa901: /* Digium Wildcard TDM400P Rev H (wctdm) */
++	case 0xa908: /* Digium Wildcard TDM400P Rev H (wctdm) */
++	case 0xa9fd: /* Digium Wildcard TDM400P Rev H (wctdm) */
++	case 0xb100: /* Digium Wildcard TDM400P Rev E/F (wctdm) */
++	case 0xb118: /* Digium Wildcard TDM400P Rev I (wctdm) */
++	case 0xb119: /* Digium Wildcard TDM400P Rev I (wctdm) */
++	case 0xb1d9: /* Digium Wildcard TDM400P Rev I (wctdm) */
++	case 0xa159: /* Digium Wildcard S400P Prototype (wctdm) */
++	case 0xe159: /* Digium Wildcard S400P Prototype (wctdm) */
++		pr_notice("Netjet: DAHDI device not supported.\n");
+ 		return -ENODEV;
  	}
- 	korina_multicast_list(dev);
  
-@@ -927,8 +927,6 @@ static int korina_restart(struct net_device *dev)
- 	enable_irq(lp->ovr_irq);
- 	enable_irq(lp->tx_irq);
- 	enable_irq(lp->rx_irq);
--
--	return ret;
- }
- 
- static void korina_clear_and_restart(struct net_device *dev, u32 value)
-@@ -937,7 +935,7 @@ static void korina_clear_and_restart(struct net_device *dev, u32 value)
- 
- 	netif_stop_queue(dev);
- 	writel(value, &lp->eth_regs->ethintfc);
--	korina_restart(dev);
-+	schedule_work(&lp->restart_task);
- }
- 
- /* Ethernet Tx Underflow interrupt */
-@@ -962,11 +960,8 @@ static irqreturn_t korina_und_interrupt(int irq, void *dev_id)
- static void korina_tx_timeout(struct net_device *dev)
- {
- 	struct korina_private *lp = netdev_priv(dev);
--	unsigned long flags;
- 
--	spin_lock_irqsave(&lp->lock, flags);
--	korina_restart(dev);
--	spin_unlock_irqrestore(&lp->lock, flags);
-+	schedule_work(&lp->restart_task);
- }
- 
- /* Ethernet Rx Overflow interrupt */
-@@ -1086,6 +1081,8 @@ static int korina_close(struct net_device *dev)
- 
- 	napi_disable(&lp->napi);
- 
-+	cancel_work_sync(&lp->restart_task);
-+
- 	free_irq(lp->rx_irq, dev);
- 	free_irq(lp->tx_irq, dev);
- 	free_irq(lp->ovr_irq, dev);
-@@ -1198,6 +1195,8 @@ static int korina_probe(struct platform_device *pdev)
- 	}
- 	setup_timer(&lp->media_check_timer, korina_poll_media, (unsigned long) dev);
- 
-+	INIT_WORK(&lp->restart_task, korina_restart_task);
-+
- 	printk(KERN_INFO "%s: " DRV_NAME "-" DRV_VERSION " " DRV_RELDATE "\n",
- 			dev->name);
- out:
 -- 
-1.6.4.4
+1.7.1
 
+
+-- 
+               Tzafrir Cohen
+icq#16849755              jabber:tzafrir.cohen@xorcom.com
++972-50-7952406           mailto:tzafrir.cohen@xorcom.com
+http://www.xorcom.com  iax:guest@local.xorcom.com/tzafrir
