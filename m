@@ -1,49 +1,32 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] net: mac8390 - Sort out memory/MMIO accesses and casts
-	(was: Re: drivers/net/mac8390.c: Remove useless memcpy casting)
-Date: Sat, 29 May 2010 10:03:47 +0200
-Message-ID: <AANLkTilLXOSb2P_m4uUubmJar2VMFXizzpa_mQ1j8GPz@mail.gmail.com>
-References: <l2k10f740e81004151234t3004275az36e7873493067a8a@mail.gmail.com>
-	<alpine.OSX.2.00.1004161206300.271@localhost>
-	<AANLkTikexlmuunBQ-ydNaD8fkKcLmrsfJSEgvyMJdNqU@mail.gmail.com>
-	<alpine.OSX.2.00.1005290312230.691@localhost>
+From: Richard Hartmann <richih.mailinglist@gmail.com>
+Subject: Re: [Patch] fix packet loss and massive ping spikes with PPP
+	multi-link
+Date: Sat, 29 May 2010 11:06:59 +0200
+Message-ID: <AANLkTimOxMHpysLR6fQn0fhLkvMZbEd0gcIwQlINq49J@mail.gmail.com>
+References: <2d460de71003260850x7f90d04cy79ac853464108182@mail.gmail.com>
+	<20100326160226.0159ac3b@lxorguk.ukuu.org.uk>
+	<4BACE827.4070006@gmail.com>
+	<20100326170428.6c1ad66c@lxorguk.ukuu.org.uk>
+	<4BB31E00.8060204@netservers.co.uk>
+	<20100529021624.GA2538@brick.ozlabs.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Joe Perches <joe@perches.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"Linux/m68k" <linux-m68k@vger.kernel.org>
-To: Finn Thain <fthain@telegraphics.com.au>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <alpine.OSX.2.00.1005290312230.691@localhost>
-Sender: linux-m68k-owner@vger.kernel.org
+Cc: Ben McKeegan <ben@netservers.co.uk>, netdev@vger.kernel.org,
+	linux-ppp@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	"Alexander E. Patrakov" <patrakov@gmail.com>,
+	linux-kernel@vger.kernel.org
+To: Paul Mackerras <paulus@samba.org>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <20100529021624.GA2538@brick.ozlabs.ibm.com>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 28, 2010 at 19:21, Finn Thain <fthain@telegraphics.com.au> wrote:
-> On Sun, 23 May 2010, Geert Uytterhoeven wrote:
->> >> But here's a better solution. I do not have the hardware to test it,
->> >> though. Finn, does it {look OK,work}?
->> >
->> > It looks fine. I can't test it right now, but I will do so when I get
->> > the opportunity.
->>
->> Any news from the test front?
->
-> This is commit ba0f916ca7ac79356e2ed32a85c3aa8255b104e7, right?
+On Sat, May 29, 2010 at 04:16, Paul Mackerras <paulus@samba.org> wrote:
 
-Yep.
+> I like this a lot better than the other proposed patch.
 
-> If so, it tests OK here.
+Not that it really matters, but we would be happy with either patch
+as long as we can stop patching mainline :)
 
-Thanks for testing!
 
-Gr{oetje,eeting}s,
-
-						Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
+Richard
