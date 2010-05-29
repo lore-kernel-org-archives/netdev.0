@@ -1,29 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/17] net/rds: Add missing mutex_unlock
-Date: Sat, 29 May 2010 00:19:40 -0700 (PDT)
-Message-ID: <20100529.001940.232917698.davem@davemloft.net>
-References: <Pine.LNX.4.64.1005261754030.23743@ask.diku.dk>
-	<4BFD6076.9000005@oracle.com>
+Subject: Re: [PATCH net 1/1] Phonet: listening socket lock protects the
+ connected socket list
+Date: Sat, 29 May 2010 00:20:02 -0700 (PDT)
+Message-ID: <20100529.002002.220041357.davem@davemloft.net>
+References: <1274870684-18428-1-git-send-email-remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: julia@diku.dk, rds-devel@oss.oracle.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	zach.brown@oracle.com
-To: andy.grover@oracle.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: remi.denis-courmont@nokia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38351
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38362
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752207Ab0E2HT3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 May 2010 03:19:29 -0400
-In-Reply-To: <4BFD6076.9000005@oracle.com>
+	by vger.kernel.org with ESMTP id S1754785Ab0E2HTw convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 May 2010 03:19:52 -0400
+In-Reply-To: <1274870684-18428-1-git-send-email-remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Grover <andy.grover@oracle.com>
-Date: Wed, 26 May 2010 10:55:02 -0700
+=46rom: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+Date: Wed, 26 May 2010 13:44:44 +0300
 
-> Reviewed-by: Zach Brown <zach.brown@oracle.com>
-> Acked-by: Andy Grover <andy.grover@oracle.com>
+> From: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+>=20
+> The accept()'d socket need to be unhashed while the (listen()'ing)
+> socket lock is held. This fixes a race condition that could lead to a=
+n
+> OOPS.
+>=20
+> Signed-off-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
 Applied.
