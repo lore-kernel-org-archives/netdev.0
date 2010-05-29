@@ -1,44 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Warning in net/ipv4/af_inet.c:154
-Date: Sat, 29 May 2010 00:21:24 -0700 (PDT)
-Message-ID: <20100529.002124.149815573.davem@davemloft.net>
-References: <20100526031943.GA28295@kryten>
-	<20100526.005634.48509140.davem@davemloft.net>
-	<1274868776.2672.96.camel@edumazet-laptop>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH] net: mac8390 - Sort out memory/MMIO accesses and casts
+	(was: Re: drivers/net/mac8390.c: Remove useless memcpy casting)
+Date: Sat, 29 May 2010 10:03:47 +0200
+Message-ID: <AANLkTilLXOSb2P_m4uUubmJar2VMFXizzpa_mQ1j8GPz@mail.gmail.com>
+References: <l2k10f740e81004151234t3004275az36e7873493067a8a@mail.gmail.com>
+	<alpine.OSX.2.00.1004161206300.271@localhost>
+	<AANLkTikexlmuunBQ-ydNaD8fkKcLmrsfJSEgvyMJdNqU@mail.gmail.com>
+	<alpine.OSX.2.00.1005290312230.691@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: anton@samba.org, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38377
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753579Ab0E2HVN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 May 2010 03:21:13 -0400
-In-Reply-To: <1274868776.2672.96.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Joe Perches <joe@perches.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"Linux/m68k" <linux-m68k@vger.kernel.org>
+To: Finn Thain <fthain@telegraphics.com.au>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <alpine.OSX.2.00.1005290312230.691@localhost>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 26 May 2010 12:12:56 +0200
+On Fri, May 28, 2010 at 19:21, Finn Thain <fthain@telegraphics.com.au> wrote:
+> On Sun, 23 May 2010, Geert Uytterhoeven wrote:
+>> >> But here's a better solution. I do not have the hardware to test it,
+>> >> though. Finn, does it {look OK,work}?
+>> >
+>> > It looks fine. I can't test it right now, but I will do so when I get
+>> > the opportunity.
+>>
+>> Any news from the test front?
+>
+> This is commit ba0f916ca7ac79356e2ed32a85c3aa8255b104e7, right?
 
-> [PATCH] net: fix sk_forward_alloc corruptions
-> 
-> As David found out, sock_queue_err_skb() should be called with socket
-> lock hold, or we risk sk_forward_alloc corruption, since we use non
-> atomic operations to update this field.
-> 
-> This patch adds bh_lock_sock()/bh_unlock_sock() pair to three spots.
-> (BH already disabled)
-> 
-> 1) skb_tstamp_tx() 
-> 2) Before calling ip_icmp_error(), in __udp4_lib_err() 
-> 3) Before calling ipv6_icmp_error(), in __udp6_lib_err()
-> 
-> Reported-by: Anton Blanchard <anton@samba.org>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Yep.
 
-This wasn't the direct cause of Anton's problems but is
-a serious legitimate bug.
+> If so, it tests OK here.
 
-So, applied, thanks!
+Thanks for testing!
+
+Gr{oetje,eeting}s,
+
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
