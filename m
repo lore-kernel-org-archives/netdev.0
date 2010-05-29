@@ -1,33 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-2.6 2010-05-28
-Date: Fri, 28 May 2010 23:01:58 -0700 (PDT)
-Message-ID: <20100528.230158.191386259.davem@davemloft.net>
-References: <20100528180952.GC2405@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] IPv6: fix Mobile IPv6 regression
+Date: Fri, 28 May 2010 23:03:02 -0700 (PDT)
+Message-ID: <20100528.230302.241910488.davem@davemloft.net>
+References: <87hblss92x.fsf@small.ssi.corp>
+	<4C00047D.3010404@hp.com>
+	<4C0008C7.7020302@hp.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100528180952.GC2405-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: arno@natisbad.org, otts@alcatel-lucent.com,
+	yoshfuji@linux-ipv6.org, jolsa@redhat.com, netdev@vger.kernel.org
+To: brian.haley@hp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34381
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751300Ab0E2GCw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 May 2010 02:02:52 -0400
+In-Reply-To: <4C0008C7.7020302@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Fri, 28 May 2010 14:09:53 -0400
+From: Brian Haley <brian.haley@hp.com>
+Date: Fri, 28 May 2010 14:17:43 -0400
 
-> Here are a few small fixes intended for 2.6.35.  Included are a null
-> pointer dereference fix, and a use-after-free fix, as well as some more
-> minor stuff.  It also include the revert of a earlier patch that I
-> inadvertantly merged out of order, effectively creating a bug rather
-> than fixing one.  The reverted patch will now be pointed at 2.6.36
-> instead.
+> Commit f4f914b5 (net: ipv6 bind to device issue) caused
+> a regression with Mobile IPv6 when it changed the meaning
+> of fl->oif to become a strict requirement of the route
+> lookup.  Instead, only force strict mode when
+> sk->sk_bound_dev_if is set on the calling socket, getting
+> the intended behavior and fixing the regression.
 > 
-> Please let me know if there are problems!
+> Tested-by: Arnaud Ebalard <arno@natisbad.org>
+> Signed-off-by: Brian Haley <brian.haley@hp.com>
 
-Pulled, thanks John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, and queued for -stable, thanks for fixing this.
