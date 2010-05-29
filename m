@@ -1,30 +1,36 @@
-From: "Sam L. Carl" <mail@traffictractor.com>
-Subject: RE: Hey, Opt In Email Lists Give Away!
-Date: Sat, 29 May 2010 15:12:24 +0100
-Message-ID: <00ec1bdb$40327$22fb6336165278@regina>
-Reply-To: "Sam L. Carl" <mail@traffictractor.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] bnx2: Fix IRQ failures during kdump.
+Date: Sat, 29 May 2010 09:01:56 -0700
+Message-ID: <20100529090156.29067f28@nehalam>
+References: <1275103462-8527-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.8]:64202 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754619Ab0E2OM1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 May 2010 10:12:27 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
+To: "Michael Chan" <mchan@broadcom.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1275103462-8527-1-git-send-email-mchan@broadcom.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hey, 
+On Fri, 28 May 2010 20:24:22 -0700
+"Michael Chan" <mchan@broadcom.com> wrote:
 
-You have to check this out if your a webmaster. http://www.traffictractor.com is giving away thousands of opt in emails. 
+> When switching from the crashed kernel to the kdump kernel without going
+> through PCI reset, IRQs may not work if a different IRQ mode is used on
+> the kdump kernel.  The original IRQ mode used in the crashed kernel may
+> still be enabled and the new IRQ mode may not work.  For example, it
+> will fail when going from MSI-X mode to MSI mode.
+> 
+> We fix this by disabling MSI/MSI-X and enabling INTX in bnx2_init_board().
+> 
+> pci_save_state() is also moved to the end of bnx2_init_board() after
+> all config register fixups (including the new IRQ fixups) have been done.
+> 
+> Export pci_msi_off() from drivers/pci/pci.c for this purpose.
+> 
+> Update bnx2 version to 2.0.16.
 
-This is huge! Everyone is talking about it now. With these opt in email addresses you can do so much. It takes years and a lot of money to build a list from scratch but now you have the chance to grab a massive list.
-
-Use it for ezine, email, autoresponders, they will bring your website a huge amount of power, traffic and sales. 
-
-You have to check it out at http://www.traffictractor.com
-
-All the best,
-Sam L. Carl
-
+This is probably a generic problem for many drivers. So why not
+get the kdump code to fix it for all.
