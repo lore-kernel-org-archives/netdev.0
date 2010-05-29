@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/17] drivers/isdn/hardware/mISDN: Add missing
- spin_unlock
-Date: Sat, 29 May 2010 00:19:50 -0700 (PDT)
-Message-ID: <20100529.001950.71558279.davem@davemloft.net>
-References: <Pine.LNX.4.64.1005261754560.23743@ask.diku.dk>
+Subject: Re: [patch 2/2] be2net: remove superfluous externs
+Date: Sat, 29 May 2010 00:20:15 -0700 (PDT)
+Message-ID: <20100529.002015.173876275.davem@davemloft.net>
+References: <20100526144739.GM22515@bicker>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: julia@diku.dk
+Cc: sathyap@serverengines.com, subbus@serverengines.com,
+	sarveshwarb@serverengines.com, ajitk@serverengines.com,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: error27@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38357
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38371
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754032Ab0E2HTj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 May 2010 03:19:39 -0400
-In-Reply-To: <Pine.LNX.4.64.1005261754560.23743@ask.diku.dk>
+	by vger.kernel.org with ESMTP id S1753696Ab0E2HUF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 May 2010 03:20:05 -0400
+In-Reply-To: <20100526144739.GM22515@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
-Date: Wed, 26 May 2010 17:55:10 +0200 (CEST)
+From: Dan Carpenter <error27@gmail.com>
+Date: Wed, 26 May 2010 16:47:39 +0200
 
-> From: Julia Lawall <julia@diku.dk>
+> This fixes some sparse warnings:
+> drivers/net/benet/be_cmds.c:1503:12: warning: function
+> 	'be_cmd_enable_magic_wol' with external linkage has definition
+> drivers/net/benet/be_cmds.c:1668:12: warning: function
+> 	'be_cmd_get_seeprom_data' with external linkage has definition
 > 
-> Add a spin_unlock missing on the error path.  The return value of write_reg
-> seems to be completely ignored, so it seems that the lock should be
-> released in every case.
-> 
-> The semantic match that finds this problem is as follows:
-> (http://coccinelle.lip6.fr/)
- ...
-> Signed-off-by: Julia Lawall <julia@diku.dk>
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-Applied, thanks.
+Applied.
