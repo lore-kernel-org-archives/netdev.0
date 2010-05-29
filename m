@@ -1,33 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2: Fix IRQ failures during kdump.
-Date: Fri, 28 May 2010 23:50:52 -0700 (PDT)
-Message-ID: <20100528.235052.241451895.davem@davemloft.net>
-References: <1275103462-8527-1-git-send-email-mchan@broadcom.com>
-	<20100529064512.GA21336@lackof.org>
+Subject: Re: [Patch] r8169: use u32 instead of unsigned long
+Date: Fri, 28 May 2010 23:53:24 -0700 (PDT)
+Message-ID: <20100528.235324.52183500.davem@davemloft.net>
+References: <20100529040111.GA28225@host-a-55.ustcsz.edu.cn>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org
-To: grundler@parisc-linux.org
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20100529064512.GA21336@lackof.org>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
+To: junchangwang@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51027
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751661Ab0E2GxO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 May 2010 02:53:14 -0400
+In-Reply-To: <20100529040111.GA28225@host-a-55.ustcsz.edu.cn>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Grant Grundler <grundler@parisc-linux.org>
-Date: Sat, 29 May 2010 00:45:12 -0600
+From: Junchang Wang <junchangwang@gmail.com>
+Date: Sat, 29 May 2010 12:01:11 +0800
 
-> If that's true, then this can't be handled in the generic PCI layer (as
-> suggested by davem) unless the device driver could register multiple interrupt
-> handlers even if only one is active at a time.
+> RTL_R32 should return value with 32-bit width. But "unsigned long"
+> implies u64 on some 64-bit platforms.
+> 
+> Signed-off-by: Junchang Wang <junchangwang@gmail.com>
 
-The generic PCI layer very well can turn off MSI on all devices
-when it starts up or a device is plugged in.
+I fail to see why there is a need to cast the return value
+of readl() at all.
 
-That's all he is doing.
+It returns a 32-bit integer on all platforms.
 
-Drivers essentially expect that the device comes up in INTX mode
-when the driver probes the device.  All his change is doing
-is forcing that to be true, and there is no reason the generic
-PCI code can't do that.
+Secondly, 8139too.c has the same unnecessary cast.
+
+So the thing to do is to kill the casts completely from both
+drivers defining this register read macro.
