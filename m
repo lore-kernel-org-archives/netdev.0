@@ -1,33 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bnx2: Fix IRQ failures during kdump.
-Date: Sat, 29 May 2010 16:05:27 -0700 (PDT)
-Message-ID: <20100529.160527.108793180.davem@davemloft.net>
-References: <20100528.235052.241451895.davem@davemloft.net>
-	<C27F8246C663564A84BB7AB3439772421B78147573@IRVEXCHCCR01.corp.ad.broadcom.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: grundler@parisc-linux.org, netdev@vger.kernel.org,
-	linux-pci@vger.kernel.org
-To: mchan@broadcom.com
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <C27F8246C663564A84BB7AB3439772421B78147573@IRVEXCHCCR01.corp.ad.broadcom.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [PATCH 3/3] korina: count RX DMA OVR as rx_fifo_error
+Date: Sun, 30 May 2010 01:23:36 +0200
+Message-ID: <20100529232345.CA3124CD45@orbit.nwl.cc>
+References: <1275175416-21267-1-git-send-email-phil@nwl.cc>
+ <1275175416-21267-2-git-send-email-phil@nwl.cc>
+Cc: Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbit.nwl.cc ([91.121.169.95]:45301 "EHLO orbit.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754598Ab0E2XXq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 May 2010 19:23:46 -0400
+In-Reply-To: <1275175416-21267-2-git-send-email-phil@nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Sat, 29 May 2010 09:22:07 -0700
+This way, RX DMA overruns (actually being caused by overrun of the
+512byte input FIFO) show up in ifconfig output. The rx_fifo_errors
+counter is unused otherwise.
 
-> I think there may be more issues after thinking about it some more.
-> The device is essentially still active at this time.  The PCI
-> layer can turn off certain things, but enabling INTX can lead to
-> "irq x: nobody cared" if the driver is not ready for it.  The
-> device really needs to be reset by the driver to be totally
-> reliable.
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ drivers/net/korina.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-We still have to find some generic way to do this.
+diff --git a/drivers/net/korina.c b/drivers/net/korina.c
+index 3e9b6b7..c7a9bef 100644
+--- a/drivers/net/korina.c
++++ b/drivers/net/korina.c
+@@ -376,7 +376,7 @@ static int korina_rx(struct net_device *dev, int limit)
+ 		if (devcs & ETH_RX_LE)
+ 			dev->stats.rx_length_errors++;
+ 		if (devcs & ETH_RX_OVR)
+-			dev->stats.rx_over_errors++;
++			dev->stats.rx_fifo_errors++;
+ 		if (devcs & ETH_RX_CV)
+ 			dev->stats.rx_frame_errors++;
+ 		if (devcs & ETH_RX_CES)
+-- 
+1.6.4.4
 
-My position still stands, and it is entirely rediculious to
-have every single driver have to attend to all of these
-esoteric details just to handle interrupts properly.  Drivers
-are hard enough to write as-is.
