@@ -1,55 +1,41 @@
-From: "Domsch, Matt" <Matt_Domsch@Dell.com>
-Subject: Re: [PATCH 1/2] Export firmware assigned labels of network devices
- to sysfs
-Date: Fri, 28 May 2010 23:51:40 -0500
-Message-ID: <20100529045140.GA22563@mdomsch-pws380.aus.amer.dell.com>
-References: <20100528115520.GA24114@littleblue.us.dell.com>
- <20100528154041.GA27186@kroah.com>
- <20100528181100.GA12806@auslistsprd01.us.dell.com>
- <20100528222745.GA28678@kroah.com>
+From: Junchang Wang <junchangwang@gmail.com>
+Subject: [Patch] r8169: use u32 instead of unsigned long
+Date: Sat, 29 May 2010 12:01:11 +0800
+Message-ID: <20100529040111.GA28225@host-a-55.ustcsz.edu.cn>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "K, Narendra" <Narendra_K@Dell.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-hotplug@vger.kernel.org" <linux-hotplug@vger.kernel.org>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"Hargrave, Jordan" <Jordan_Hargrave@Dell.com>,
-	"Rose, Charles" <Charles_Rose@Dell.com>,
-	"Nijhawan, Vijay" <Vijay_Nijhawan@Dell.com>
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: romieu@fr.zoreil.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [58.211.218.74] ([58.211.218.74]:59200 "EHLO
+	host-a-55.ustcsz.edu.cn" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750953Ab0E2FES (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 May 2010 01:04:18 -0400
 Content-Disposition: inline
-In-Reply-To: <20100528222745.GA28678@kroah.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 28, 2010 at 05:27:45PM -0500, Greg KH wrote:
-> On Fri, May 28, 2010 at 01:11:00PM -0500, Matt Domsch wrote:
-> > On Fri, May 28, 2010 at 08:40:41AM -0700, Greg KH wrote:
-> > > On Fri, May 28, 2010 at 06:55:21AM -0500, K, Narendra wrote:
-> > > > +static const char dell_dsm_uuid[] = {
-> > > 
-> > > Um, a dell specific uuid in a generic file?  What happens when we need
-> > > to support another manufacturer?
-> > > 
-> > > > +       0xD0, 0x37, 0xC9, 0xE5, 0x53, 0x35, 0x7A, 0x4D,
-> > > > +       0x91, 0x17, 0xEA, 0x4D, 0x19, 0xC3, 0x43, 0x4D
-> > > > +};
-> > 
-> > This simply needs to be renamed.  It's defined in the ECN, so will be
-> > part of the spec, and is not vendor-unique, but defined once for all
-> > implementations.  It separates this _DSM function from others.
-> 
-> Ok, that makes a bit more sense.
-> 
-> Care to post that ECN publically?  And no, the Linux Foundation does not
-> have a PCI-SIG membership, the PCI-SIG keeps forbidding it.  Other
-> operating systems are allowed to join but not Linux.  Strange but
-> true...
+RTL_R32 should return value with 32-bit width. But "unsigned long"
+implies u64 on some 64-bit platforms.
 
-I'm looking into it, and should know more next week.
+Signed-off-by: Junchang Wang <junchangwang@gmail.com>
+---
+Sorry for coding style flaw in previous email. 
 
--- 
-Matt Domsch
-Technology Strategist
-Dell | Office of the CTO
+drivers/net/r8169.c |    2 +-
+1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 217e709..4234d6a 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -88,7 +88,7 @@ static const int multicast_filter_limit = 32;
+ #define RTL_W32(reg, val32)	writel ((val32), ioaddr + (reg))
+ #define RTL_R8(reg)		readb (ioaddr + (reg))
+ #define RTL_R16(reg)		readw (ioaddr + (reg))
+-#define RTL_R32(reg)		((unsigned long) readl (ioaddr + (reg)))
++#define RTL_R32(reg)		((u32) readl(ioaddr + (reg)))
+ 
+ enum mac_version {
+ 	RTL_GIGA_MAC_NONE   = 0x00,
+--
