@@ -1,68 +1,53 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] Exclude DAHDI devices from being probed by netjet
-Date: Sun, 30 May 2010 15:07:37 +0100
-Message-ID: <20100530150737.52bc342a@lxorguk.ukuu.org.uk>
-References: <20100529232946.GA1748@xorcom.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH v2] act_nat: fix the wrong checksum when addr isn't in
+	old_addr/mask
+Date: Sun, 30 May 2010 22:11:29 +0800
+Message-ID: <AANLkTilr0YX2xQW80BZmRVyAk2jv-PlkXmJkaLGj3-7v@mail.gmail.com>
+References: <1275179219-10424-1-git-send-email-xiaosuo@gmail.com>
+	<1275223421.3587.0.camel@bigi> <20100530125811.GA8120@gondor.apana.org.au>
+	<AANLkTinDe-AluGZx87q3nvxCfushfeH0jS35Fav95IXk@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100529232946.GA1748@xorcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jamal <hadi@cyberus.ca>, "David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:51884 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753966Ab0E3OLu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 May 2010 10:11:50 -0400
+Received: by pvg11 with SMTP id 11so1014721pvg.19
+        for <netdev@vger.kernel.org>; Sun, 30 May 2010 07:11:49 -0700 (PDT)
+In-Reply-To: <AANLkTinDe-AluGZx87q3nvxCfushfeH0jS35Fav95IXk@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> 2. I don't have more precise data than the PCI ID tables in the drivers.
->    Does this run the risk of excluding some actual Netjet ISDN cards?
+On Sun, May 30, 2010 at 9:33 PM, Changli Gao <xiaosuo@gmail.com> wrote:
+> On Sun, May 30, 2010 at 8:58 PM, Herbert Xu <herbert@gondor.apana.org=
+=2Eau> wrote:
+>>
+>> Yes the patch is correct.
+>>
+>> However, the fact that you need this patch means that your act_nat
+>> setup isn't perfect. =C2=A0Ideally all the unNATed packets should be
+>> filtered out before you hit act_nat.
+>
+> Thinking about this topologic:
+>
+> client -> DNAT -> router -> server.
+>
+> DNAT is used to map a public IP to server's private IP. If a
+> DEST_UNREACH ICMP packet is sent out by router, in order to handle
+> this ICMP packet correctly, I have to pass it to act_nat.c. How can I
+> filter out the other packets? By inspecting the inner IP destination
+> address of this ICMP packet? Maybe I can use u32 with complicate
+> parameters.
+>
 
-Is there a reason you are seeing so many different vendor values - surely
-you should see a single 'Digium' subvendor, and various subdevice values ?
+Oh, I can pass all the ICMP packets, and the packets to the public IP
+and the packets from the private IP.
 
-
-> +	switch (pdev->subsystem_vendor) {
-> +	/* Fall-through */
-> +	case 0x2151: /* Yeastart YSTDM8xx (ystdm8xx) */
-> +	case 0xe16b: /* Zapata Project PCI-Radio (pciradio) */
-> +	case 0x6159: /* Digium Wildcard T100/E100 (wct1xxp) */
-> +	case 0x71fe: /* Digium Wildcard TE110P (wcte1xp) */
-> +	case 0x795e: /* Digium Wildcard TE110P (wcte1xp) */
-> +	case 0x797e: /* Digium Wildcard TE110P (wcte1xp) */
-> +	case 0x79de: /* Digium Wildcard TE110P (wcte1xp) */
-> +	case 0x79df: /* Digium Wildcard TE110P (wcte1xp) */
-> +	case 0x8084: /* Digium Wildcard X101P clone (wcfxo) */
-> +	case 0x8085: /* Digium Wildcard X101P (wcfxo) */
-> +	case 0x8086: /* Digium Wildcard X101P clone (wcfxo) */
-> +	case 0x8087: /* Digium Wildcard X101P clone (wcfxo) */
-> +	case 0xa800: /* Digium Wildcard TDM400P Rev H (wctdm) */
-> +	case 0xa801: /* Digium Wildcard TDM400P Rev H (wctdm) */
-> +	case 0xa8fd: /* Digium Wildcard TDM400P Rev H (wctdm) */
-> +	case 0xa901: /* Digium Wildcard TDM400P Rev H (wctdm) */
-> +	case 0xa908: /* Digium Wildcard TDM400P Rev H (wctdm) */
-> +	case 0xa9fd: /* Digium Wildcard TDM400P Rev H (wctdm) */
-> +	case 0xb100: /* Digium Wildcard TDM400P Rev E/F (wctdm) */
-> +	case 0xb118: /* Digium Wildcard TDM400P Rev I (wctdm) */
-> +	case 0xb119: /* Digium Wildcard TDM400P Rev I (wctdm) */
-> +	case 0xb1d9: /* Digium Wildcard TDM400P Rev I (wctdm) */
-> +	case 0xa159: /* Digium Wildcard S400P Prototype (wctdm) */
-> +	case 0xe159: /* Digium Wildcard S400P Prototype (wctdm) */
-
-That might be better as a table. You can then als include the name and
-match details in the report which will help diagnose problems with it eg
-
-	struct whatever {
-		u16 svid, sdid;
-		const char *name;
-	}
-
-And then print
-
-	netjet: %s card is not supported by this driver (%04X, %04X).\n", 
-		name, svid, sdid
-
-		
-Then again we don't seem to have a driver for these other kernel devices
-so perhaps the safe default would be to warn and continue unless a module
-option is set. At least initially.
-
-Alan
+--=20
+Regards=EF=BC=8C
+Changli Gao(xiaosuo@gmail.com)
