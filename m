@@ -1,47 +1,68 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Subject: Re: [PATCH] bnx2: Fix IRQ failures during kdump.
-Date: Sat, 29 May 2010 19:24:01 -0600
-Message-ID: <20100530012401.GC9132@parisc-linux.org>
-References: <20100528.235052.241451895.davem@davemloft.net> <C27F8246C663564A84BB7AB3439772421B78147573@IRVEXCHCCR01.corp.ad.broadcom.com> <20100529.160527.108793180.davem@davemloft.net>
+From: Aurelien Jarno <aurelien@aurel32.net>
+Subject: IAMT broken by commit 82776a4bcd7aa5fbcd2e6339b3ce88b727dd40ab
+Date: Sun, 30 May 2010 03:02:19 +0200
+Message-ID: <20100530010219.GA20368@volta.aurel32.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mchan@broadcom.com, grundler@parisc-linux.org,
-	netdev@vger.kernel.org, linux-pci@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Bruce Allan <bruce.w.allan@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hall.aurel32.net ([88.191.82.174]:41826 "EHLO hall.aurel32.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753114Ab0E3BmL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 May 2010 21:42:11 -0400
 Content-Disposition: inline
-In-Reply-To: <20100529.160527.108793180.davem@davemloft.net>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 29, 2010 at 04:05:27PM -0700, David Miller wrote:
-> From: "Michael Chan" <mchan@broadcom.com>
-> Date: Sat, 29 May 2010 09:22:07 -0700
-> 
-> > I think there may be more issues after thinking about it some more.
-> > The device is essentially still active at this time.  The PCI
-> > layer can turn off certain things, but enabling INTX can lead to
-> > "irq x: nobody cared" if the driver is not ready for it.  The
-> > device really needs to be reset by the driver to be totally
-> > reliable.
-> 
-> We still have to find some generic way to do this.
-> 
-> My position still stands, and it is entirely rediculious to
-> have every single driver have to attend to all of these
-> esoteric details just to handle interrupts properly.  Drivers
-> are hard enough to write as-is.
+Hi,
 
-I think we can do this generically.  PCI has disable bits for MSI,
-MSI-X and pin-based interrupts.  So we can leave MSIs enabled, but disable
-interrupt generation.
+I have recently upgrade my kernel, and found that Intel AMT support is
+not working anymore as expected. I have configured IAMT so that is=20
+always available, even when the machine is off ("Desktop: ON in S0, S3,
+S4-5").
 
-We should probably set the interrupt type back to pin-based before the
-kexec kernel starts, right?  Or do we expect drivers to handle being
-initialised with the device still set to MSI mode?
+On recent kernels, IAMT support does not work after the machine has=20
+been powered-off. Even worse, it also goes into this state when I try
+to reboot it.
 
--- 
-Matthew Wilcox				Intel Open Source Technology Centre
-"Bill, look, we understand that you're interested in selling us this
-operating system, but compare it to ours.  We can't possibly take such
-a retrograde step."
+I have done a bisect and got this commit:
+
+|=A0commit 82776a4bcd7aa5fbcd2e6339b3ce88b727dd40ab
+| Author: Bruce Allan <bruce.w.allan@intel.com>
+| Date:   Fri Aug 14 14:35:33 2009 +0000
+|=20
+|     e1000e: WoL does not work on 82577/82578 with manageability enabl=
+ed
+|    =20
+|     With manageability (Intel AMT) enabled via BIOS, PHY wakeup does =
+not get
+|     configured on newer parts which use PHY wakeup vs. MAC wakeup whi=
+ch causes
+|=A0    WoL to not work.  The driver should configure PHY wakeup whethe=
+r or not
+|     manageability is enabled.
+|    =20
+|     Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+|     Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+|     Signed-off-by: David S. Miller <davem@davemloft.net>
+
+I have tried to revert it on recent kernels (2.6.34), and IAMT is then
+working as expected. My machine is using a Gigabyte EQ45M-S2 motherboar=
+d
+with an 82567LM-3 ethernet chip (8086:10de), that is a different model
+than the one of the original problem.
+
+I do wonder if the changes in the patch should not only be done on some=
+=20
+chip models, and I will appreciate any help in fixing this issue.
+
+Thanks,
+Aurelien
+
+
+--=20
+Aurelien Jarno                          GPG: 1024D/F1BCDB73
+aurelien@aurel32.net                 http://www.aurel32.net
