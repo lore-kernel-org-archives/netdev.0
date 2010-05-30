@@ -1,30 +1,39 @@
-From: David Miller <davem@davemloft.net>
+From: Andi Kleen <andi@firstfloor.org>
 Subject: Re: [PATCH] bnx2: Fix IRQ failures during kdump.
-Date: Sat, 29 May 2010 20:49:06 -0700 (PDT)
-Message-ID: <20100529.204906.55850229.davem@davemloft.net>
-References: <C27F8246C663564A84BB7AB3439772421B78147573@IRVEXCHCCR01.corp.ad.broadcom.com>
-	<20100529.160527.108793180.davem@davemloft.net>
-	<20100530012401.GC9132@parisc-linux.org>
+Date: Sun, 30 May 2010 11:43:32 +0200
+Message-ID: <87ocfxzpvf.fsf@basil.nowhere.org>
+References: <1275103462-8527-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, grundler@parisc-linux.org,
-	netdev@vger.kernel.org, linux-pci@vger.kernel.org
-To: matthew@wil.cx
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20100530012401.GC9132@parisc-linux.org>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org
+To: "Michael Chan" <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from one.firstfloor.org ([213.235.205.2]:51989 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752245Ab0E3Jnf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 May 2010 05:43:35 -0400
+In-Reply-To: <1275103462-8527-1-git-send-email-mchan@broadcom.com> (Michael Chan's message of "Fri\, 28 May 2010 20\:24\:22 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Sat, 29 May 2010 19:24:01 -0600
+"Michael Chan" <mchan@broadcom.com> writes:
 
-> We should probably set the interrupt type back to pin-based before the
-> kexec kernel starts, right?  Or do we expect drivers to handle being
-> initialised with the device still set to MSI mode?
+> When switching from the crashed kernel to the kdump kernel without going
+> through PCI reset, IRQs may not work if a different IRQ mode is used on
 
-The expectation is that the device comes up in INTX mode, which is the
-default after a PCI reset.
+PCIe with AER actually does support per link root port reset
+(e.g. used for AER)
 
-Basically all of these issues tend to be about the fact that unlike on
-a normal boot, after a kexec an intermediate PCI reset has not occured.
+I've been wondering for some time if kexec should not simply
+use that to reset all the devices, instead of addings hacks
+around this to all drivers.
+
+That would fix your problems too, right?
+
+The question is just if AER is widely enough supported for this.
+
+-Andi
+
+-- 
+ak@linux.intel.com -- Speaking for myself only.
