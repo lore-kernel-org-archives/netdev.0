@@ -1,98 +1,125 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 3/3] vhost: apply cpumask and cgroup to vhost pollers
-Date: Sun, 30 May 2010 22:25:01 +0200
-Message-ID: <4C02C99D.9070204@kernel.org>
-References: <20100527091426.GA6308@redhat.com> <20100527124448.GA4241@redhat.com> <20100527131254.GB7974@redhat.com> <4BFE9ABA.6030907@kernel.org> <20100527163954.GA21710@redhat.com> <4BFEA434.6080405@kernel.org> <20100527173207.GA21880@redhat.com> <4BFEE216.2070807@kernel.org> <20100528150830.GB21880@redhat.com> <4BFFE742.2060205@kernel.org> <20100530112925.GB27611@redhat.com>
+From: Julia Lawall <julia@diku.dk>
+Subject: Re: Subject: [PATCH] net/ipv6: Use GFP_ATOMIC when a lock is held
+Date: Sun, 30 May 2010 22:50:16 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005302248500.19253@ask.diku.dk>
+References: <Pine.LNX.4.64.1005302147310.19253@ask.diku.dk>
+ <1275250288.2472.21.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Oleg Nesterov <oleg@redhat.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100530112925.GB27611@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-511516320-1925940719-1275252616=:19253"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw2.diku.dk ([130.225.96.92]:36415 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754127Ab0E3UuY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 May 2010 16:50:24 -0400
+In-Reply-To: <1275250288.2472.21.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Apply the cpumask and cgroup of the initializing task to the created
-vhost poller.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Based on Sridhar Samudrala's patch.
+---511516320-1925940719-1275252616=:19253
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
 
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Cc: Sridhar Samudrala <samudrala.sridhar@gmail.com>
----
- drivers/vhost/vhost.c |   36 +++++++++++++++++++++++++++++++-----
- 1 file changed, 31 insertions(+), 5 deletions(-)
+On Sun, 30 May 2010, Eric Dumazet wrote:
 
-Index: work/drivers/vhost/vhost.c
-===================================================================
---- work.orig/drivers/vhost/vhost.c
-+++ work/drivers/vhost/vhost.c
-@@ -23,6 +23,7 @@
- #include <linux/highmem.h>
- #include <linux/slab.h>
- #include <linux/kthread.h>
-+#include <linux/cgroup.h>
+> Le dimanche 30 mai 2010 à 21:48 +0200, Julia Lawall a écrit :
+> > From: Julia Lawall <julia@diku.dk>
+> > 
+> > A spin lock is taken near the beginning of the enclosing function.
+> > 
+> > The semantic patch that makes this change is as follows:
+> > (http://coccinelle.lip6.fr/)
+> > 
+> > // <smpl>
+> > @@
+> > @@
+> > 
+> > spin_lock(...)
+> > ... when != spin_unlock(...)
+> > -GFP_KERNEL
+> > +GFP_ATOMIC
+> > // </smpl>
+> > 
+> > Signed-off-by: Julia Lawall <julia@diku.dk>
+> > 
+> > ---
+> >  net/ipv6/sit.c |    2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > 
+> > diff -u -p a/net/ipv6/sit.c b/net/ipv6/sit.c
+> > --- a/net/ipv6/sit.c
+> > +++ b/net/ipv6/sit.c
+> > @@ -358,7 +358,7 @@ ipip6_tunnel_add_prl(struct ip_tunnel *t
+> >  		goto out;
+> >  	}
+> >  
+> > -	p = kzalloc(sizeof(struct ip_tunnel_prl_entry), GFP_KERNEL);
+> > +	p = kzalloc(sizeof(struct ip_tunnel_prl_entry), GFP_ATOMIC);
+> >  	if (!p) {
+> >  		err = -ENOBUFS;
+> >  		goto out;
+> 
+> Nice catch, but what about allocating this outside of the locked
+> section ?
 
- #include <linux/net.h>
- #include <linux/if_packet.h>
-@@ -176,12 +177,30 @@ repeat:
- long vhost_dev_init(struct vhost_dev *dev,
- 		    struct vhost_virtqueue *vqs, int nvqs)
- {
--	struct task_struct *poller;
--	int i;
-+	struct task_struct *poller = NULL;
-+	cpumask_var_t mask;
-+	int i, ret = -ENOMEM;
-+
-+	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
-+		goto out;
+I think the proposed patch does not work, because the for loop overwrites 
+p.  That use of p looks like it is completely local to the for loop, so 
+perhaps a new variable p1 could be added to be used there?
 
- 	poller = kthread_create(vhost_poller, dev, "vhost-%d", current->pid);
--	if (IS_ERR(poller))
--		return PTR_ERR(poller);
-+	if (IS_ERR(poller)) {
-+		ret = PTR_ERR(poller);
-+		goto out;
-+	}
-+
-+	ret = sched_getaffinity(current->pid, mask);
-+	if (ret)
-+		goto out;
-+
-+	ret = sched_setaffinity(poller->pid, mask);
-+	if (ret)
-+		goto out;
-+
-+	ret = cgroup_attach_task_current_cg(poller);
-+	if (ret)
-+		goto out;
+julia
 
- 	dev->vqs = vqs;
- 	dev->nvqs = nvqs;
-@@ -202,7 +221,14 @@ long vhost_dev_init(struct vhost_dev *de
- 			vhost_poll_init(&dev->vqs[i].poll,
- 					dev->vqs[i].handle_kick, POLLIN, dev);
- 	}
--	return 0;
-+
-+	wake_up_process(poller);	/* avoid contributing to loadavg */
-+	ret = 0;
-+out:
-+	if (ret)
-+		kthread_stop(poller);
-+	free_cpumask_var(mask);
-+	return ret;
- }
-
- /* Caller should have device mutex */
+> diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+> index e51e650..ff3dd84 100644
+> --- a/net/ipv6/sit.c
+> +++ b/net/ipv6/sit.c
+> @@ -340,6 +340,10 @@ ipip6_tunnel_add_prl(struct ip_tunnel *t, struct ip_tunnel_prl *a, int chg)
+>  	if (a->addr == htonl(INADDR_ANY))
+>  		return -EINVAL;
+>  
+> +	p = kzalloc(sizeof(struct ip_tunnel_prl_entry), GFP_KERNEL);
+> +	if (!p)
+> +		return -ENOBUFS;
+> +
+>  	spin_lock(&ipip6_prl_lock);
+>  
+>  	for (p = t->prl; p; p = p->next) {
+> @@ -358,19 +362,16 @@ ipip6_tunnel_add_prl(struct ip_tunnel *t, struct ip_tunnel_prl *a, int chg)
+>  		goto out;
+>  	}
+>  
+> -	p = kzalloc(sizeof(struct ip_tunnel_prl_entry), GFP_KERNEL);
+> -	if (!p) {
+> -		err = -ENOBUFS;
+> -		goto out;
+> -	}
+>  
+>  	p->next = t->prl;
+>  	p->addr = a->addr;
+>  	p->flags = a->flags;
+>  	t->prl_count++;
+>  	rcu_assign_pointer(t->prl, p);
+> +	p = NULL;
+>  out:
+>  	spin_unlock(&ipip6_prl_lock);
+> +	kfree(p);
+>  	return err;
+>  }
+>  
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+---511516320-1925940719-1275252616=:19253--
