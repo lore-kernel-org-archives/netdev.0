@@ -1,41 +1,60 @@
-From: Junchang Wang <junchangwang@gmail.com>
-Subject: [Patch]r8169: remove unnecessary cast of readl()'s return value
-Date: Sun, 30 May 2010 20:26:07 +0800
-Message-ID: <20100530122606.GC1146@host-a-55.ustcsz.edu.cn>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH v2] act_nat: fix the wrong checksum when addr isn't in
+ old_addr/mask
+Date: Sun, 30 May 2010 08:43:41 -0400
+Message-ID: <1275223421.3587.0.camel@bigi>
+References: <1275179219-10424-1-git-send-email-xiaosuo@gmail.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, romieu@fr.zoreil.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:51646 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752801Ab0E3MZy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 May 2010 08:25:54 -0400
-Received: by pvg11 with SMTP id 11so995977pvg.19
-        for <netdev@vger.kernel.org>; Sun, 30 May 2010 05:25:53 -0700 (PDT)
-Content-Disposition: inline
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:36338 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752540Ab0E3Mnr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 May 2010 08:43:47 -0400
+Received: by vws11 with SMTP id 11so1009868vws.19
+        for <netdev@vger.kernel.org>; Sun, 30 May 2010 05:43:46 -0700 (PDT)
+In-Reply-To: <1275179219-10424-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-readl() returns a 32-bit integer on all platforms.
-There is no need to cast its return value.
 
-Signed-off-by: Junchang Wang <junchangwang@gmail.com>
----
- drivers/net/r8169.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Copying Herbert, taking linux-kernel off...
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 217e709..ca93cdf 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -88,7 +88,7 @@ static const int multicast_filter_limit = 32;
- #define RTL_W32(reg, val32)	writel ((val32), ioaddr + (reg))
- #define RTL_R8(reg)		readb (ioaddr + (reg))
- #define RTL_R16(reg)		readw (ioaddr + (reg))
--#define RTL_R32(reg)		((unsigned long) readl (ioaddr + (reg)))
-+#define RTL_R32(reg)		readl (ioaddr + (reg))
- 
- enum mac_version {
- 	RTL_GIGA_MAC_NONE   = 0x00,
---
+On Sun, 2010-05-30 at 08:26 +0800, Changli Gao wrote:
+> fix the wrong checksum when addr isn't in old_addr/mask
+> 
+> For TCP and UDP packets, when addr isn't in old_addr/mask we don't do SNAT or
+> DNAT, and we should not update layer 4 checksum.
+> 
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> ----
+>  net/sched/act_nat.c |    4 ++++
+>  1 file changed, 4 insertions(+)
+> diff --git a/net/sched/act_nat.c b/net/sched/act_nat.c
+> index d885ba3..5709494 100644
+> --- a/net/sched/act_nat.c
+> +++ b/net/sched/act_nat.c
+> @@ -159,6 +159,9 @@ static int tcf_nat(struct sk_buff *skb, struct tc_action *a,
+>  			iph->daddr = new_addr;
+>  
+>  		csum_replace4(&iph->check, addr, new_addr);
+> +	} else if ((iph->frag_off & htons(IP_OFFSET)) ||
+> +		   iph->protocol != IPPROTO_ICMP) {
+> +		goto out;
+>  	}
+>  
+>  	ihl = iph->ihl * 4;
+> @@ -247,6 +250,7 @@ static int tcf_nat(struct sk_buff *skb, struct tc_action *a,
+>  		break;
+>  	}
+>  
+> +out:
+>  	return action;
+>  
+>  drop:
+
