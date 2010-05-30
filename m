@@ -1,106 +1,82 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Subject: [PATCH] net/ipv6: Use GFP_ATOMIC when a lock is held
-Date: Sun, 30 May 2010 22:11:28 +0200
-Message-ID: <1275250288.2472.21.camel@edumazet-laptop>
-References: <Pine.LNX.4.64.1005302147310.19253@ask.diku.dk>
+From: Tejun Heo <tj@kernel.org>
+Subject: [PATCH 2/3] cgroups: Add an API to attach a task to current task's
+ cgroup
+Date: Sun, 30 May 2010 22:24:39 +0200
+Message-ID: <4C02C987.6020805@kernel.org>
+References: <20100527091426.GA6308@redhat.com> <20100527124448.GA4241@redhat.com> <20100527131254.GB7974@redhat.com> <4BFE9ABA.6030907@kernel.org> <20100527163954.GA21710@redhat.com> <4BFEA434.6080405@kernel.org> <20100527173207.GA21880@redhat.com> <4BFEE216.2070807@kernel.org> <20100528150830.GB21880@redhat.com> <4BFFE742.2060205@kernel.org> <20100530112925.GB27611@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Julia Lawall <julia@diku.dk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:38254 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754456Ab0E3ULe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 May 2010 16:11:34 -0400
-In-Reply-To: <Pine.LNX.4.64.1005302147310.19253@ask.diku.dk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Oleg Nesterov <oleg@redhat.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20100530112925.GB27611@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le dimanche 30 mai 2010 =C3=A0 21:48 +0200, Julia Lawall a =C3=A9crit :
-> From: Julia Lawall <julia@diku.dk>
->=20
-> A spin lock is taken near the beginning of the enclosing function.
->=20
-> The semantic patch that makes this change is as follows:
-> (http://coccinelle.lip6.fr/)
->=20
-> // <smpl>
-> @@
-> @@
->=20
-> spin_lock(...)
-> ... when !=3D spin_unlock(...)
-> -GFP_KERNEL
-> +GFP_ATOMIC
-> // </smpl>
->=20
-> Signed-off-by: Julia Lawall <julia@diku.dk>
->=20
-> ---
->  net/ipv6/sit.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> diff -u -p a/net/ipv6/sit.c b/net/ipv6/sit.c
-> --- a/net/ipv6/sit.c
-> +++ b/net/ipv6/sit.c
-> @@ -358,7 +358,7 @@ ipip6_tunnel_add_prl(struct ip_tunnel *t
->  		goto out;
->  	}
-> =20
-> -	p =3D kzalloc(sizeof(struct ip_tunnel_prl_entry), GFP_KERNEL);
-> +	p =3D kzalloc(sizeof(struct ip_tunnel_prl_entry), GFP_ATOMIC);
->  	if (!p) {
->  		err =3D -ENOBUFS;
->  		goto out;
+From: Sridhar Samudrala <samudrala.sridhar@gmail.com>
 
-Nice catch, but what about allocating this outside of the locked
-section ?
+Add a new kernel API to attach a task to current task's cgroup
+in all the active hierarchies.
 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index e51e650..ff3dd84 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -340,6 +340,10 @@ ipip6_tunnel_add_prl(struct ip_tunnel *t, struct i=
-p_tunnel_prl *a, int chg)
- 	if (a->addr =3D=3D htonl(INADDR_ANY))
- 		return -EINVAL;
-=20
-+	p =3D kzalloc(sizeof(struct ip_tunnel_prl_entry), GFP_KERNEL);
-+	if (!p)
-+		return -ENOBUFS;
-+
- 	spin_lock(&ipip6_prl_lock);
-=20
- 	for (p =3D t->prl; p; p =3D p->next) {
-@@ -358,19 +362,16 @@ ipip6_tunnel_add_prl(struct ip_tunnel *t, struct =
-ip_tunnel_prl *a, int chg)
- 		goto out;
- 	}
-=20
--	p =3D kzalloc(sizeof(struct ip_tunnel_prl_entry), GFP_KERNEL);
--	if (!p) {
--		err =3D -ENOBUFS;
--		goto out;
--	}
-=20
- 	p->next =3D t->prl;
- 	p->addr =3D a->addr;
- 	p->flags =3D a->flags;
- 	t->prl_count++;
- 	rcu_assign_pointer(t->prl, p);
-+	p =3D NULL;
- out:
- 	spin_unlock(&ipip6_prl_lock);
-+	kfree(p);
- 	return err;
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+---
+ include/linux/cgroup.h |    1 +
+ kernel/cgroup.c        |   23 +++++++++++++++++++++++
+ 2 files changed, 24 insertions(+)
+
+Index: work/include/linux/cgroup.h
+===================================================================
+--- work.orig/include/linux/cgroup.h
++++ work/include/linux/cgroup.h
+@@ -570,6 +570,7 @@ struct task_struct *cgroup_iter_next(str
+ void cgroup_iter_end(struct cgroup *cgrp, struct cgroup_iter *it);
+ int cgroup_scan_tasks(struct cgroup_scanner *scan);
+ int cgroup_attach_task(struct cgroup *, struct task_struct *);
++int cgroup_attach_task_current_cg(struct task_struct *);
+
+ /*
+  * CSS ID is ID for cgroup_subsys_state structs under subsys. This only works
+Index: work/kernel/cgroup.c
+===================================================================
+--- work.orig/kernel/cgroup.c
++++ work/kernel/cgroup.c
+@@ -1788,6 +1788,29 @@ out:
+ 	return retval;
  }
-=20
 
-
++/**
++ * cgroup_attach_task_current_cg - attach task 'tsk' to current task's cgroup
++ * @tsk: the task to be attached
++ */
++int cgroup_attach_task_current_cg(struct task_struct *tsk)
++{
++	struct cgroupfs_root *root;
++	struct cgroup *cur_cg;
++	int retval = 0;
++
++	cgroup_lock();
++	for_each_active_root(root) {
++		cur_cg = task_cgroup_from_root(current, root);
++		retval = cgroup_attach_task(cur_cg, tsk);
++		if (retval)
++			break;
++	}
++	cgroup_unlock();
++
++	return retval;
++}
++EXPORT_SYMBOL_GPL(cgroup_attach_task_current_cg);
++
+ /*
+  * Attach task with pid 'pid' to cgroup 'cgrp'. Call with cgroup_mutex
+  * held. May take task_lock of task
