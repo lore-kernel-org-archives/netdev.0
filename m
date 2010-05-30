@@ -1,75 +1,47 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH] bnx2: Fix IRQ failures during kdump.
-Date: Sun, 30 May 2010 19:30:15 +0200
-Message-ID: <20100530173014.GB14556@basil.fritz.box>
-References: <1275103462-8527-1-git-send-email-mchan@broadcom.com> <87ocfxzpvf.fsf@basil.nowhere.org> <C27F8246C663564A84BB7AB3439772421B78147574@IRVEXCHCCR01.corp.ad.broadcom.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [Patch]8139too: remove unnecessary cast of ioread32()'s return
+ value
+Date: Sun, 30 May 2010 13:35:51 -0400
+Message-ID: <4C02A1F7.6030701@garzik.org>
+References: <20100530122213.GB1146@host-a-55.ustcsz.edu.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: 'Andi Kleen' <andi@firstfloor.org>,
-	"'davem@davemloft.net'" <davem@davemloft.net>,
-	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	"'linux-pci@vger.kernel.org'" <linux-pci@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <C27F8246C663564A84BB7AB3439772421B78147574@IRVEXCHCCR01.corp.ad.broadcom.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: davem@davemloft.net, romieu@fr.zoreil.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:45849 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751740Ab0E3Rf6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 May 2010 13:35:58 -0400
+Received: by gwaa12 with SMTP id a12so2170593gwa.19
+        for <netdev@vger.kernel.org>; Sun, 30 May 2010 10:35:56 -0700 (PDT)
+In-Reply-To: <20100530122213.GB1146@host-a-55.ustcsz.edu.cn>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 30, 2010 at 09:12:15AM -0700, Michael Chan wrote:
-> Andi Kleen wrote:
-> 
-> > "Michael Chan" <mchan@broadcom.com> writes:
-> > 
-> > > When switching from the crashed kernel to the kdump kernel without
-> > going
-> > > through PCI reset, IRQs may not work if a different IRQ mode is used
-> > on
-> > 
-> > PCIe with AER actually does support per link root port reset
-> > (e.g. used for AER)
-> 
-> Do you mean the slot_reset function in the pci_error_handlers?  This
+On 05/30/2010 08:22 AM, Junchang Wang wrote:
+> ioread32() returns a 32-bit integer on all platforms.
+> There is no need to cast its return value.
+>
+> Signed-off-by: Junchang Wang<junchangwang@gmail.com>
+> ---
+>   drivers/net/8139too.c |    8 ++++----
+>   1 files changed, 4 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
+> index 4ba7293..cc7d462 100644
+> --- a/drivers/net/8139too.c
+> +++ b/drivers/net/8139too.c
+> @@ -662,7 +662,7 @@ static const struct ethtool_ops rtl8139_ethtool_ops;
+>   /* read MMIO register */
+>   #define RTL_R8(reg)		ioread8 (ioaddr + (reg))
+>   #define RTL_R16(reg)		ioread16 (ioaddr + (reg))
+> -#define RTL_R32(reg)		((unsigned long) ioread32 (ioaddr + (reg)))
+> +#define RTL_R32(reg)		ioread32 (ioaddr + (reg))
 
-Well the fallback code in the PCIE root port driver 
-that does the actual resets.
+Have you verified this matches all architectures definition of readl()?
 
-It could be called directly before kexec.
+	Jeff
 
-> needs to be called in the context of the crashed kernel, right?
 
-It could be done on kexec, however of course you would rely
-on PCI root port data structures still being intact on a crash
-(I guess that's reasonable, they are not very complicated)
 
-> 
-> > 
-> > I've been wondering for some time if kexec should not simply
-> > use that to reset all the devices, instead of addings hacks
-> > around this to all drivers.
-> > 
-> > That would fix your problems too, right?
-> 
-> If it is called in the context of the crashed kernel, it won't work.
-> We would reset it and put in back into the same IRQ mode.
-
-Who would put it back? Your driver wouldn't be called anymore.
-
-> 
-> > 
-> > The question is just if AER is widely enough supported for this.
-> > 
-> 
-> Some newer PCIe devices support Function Level Reset, and that would
-> be ideal.  But most existing devices including bnx2 devices don't have
-> this feature.
-
-Root port reset should be fine for this case. Even if some
-innocent device on the same root port gets reset too that shouldn't matter. 
-Only drawback for the NIC would be that you have to renegotiate links I think. 
-
-Also there are systems without AER support.
-
--Andi
--- 
-ak@linux.intel.com -- Speaking for myself only.
