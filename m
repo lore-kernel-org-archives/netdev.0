@@ -1,48 +1,54 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [Patch]r8169: remove unnecessary cast of readl()'s return value
-Date: Sun, 30 May 2010 13:36:12 -0400
-Message-ID: <4C02A20C.5010007@garzik.org>
-References: <20100530122606.GC1146@host-a-55.ustcsz.edu.cn>
+From: Julia Lawall <julia@diku.dk>
+Subject: Subject: [PATCH] net/ipv6: Use GFP_ATOMIC when a lock is held
+Date: Sun, 30 May 2010 21:48:03 +0200 (CEST)
+Message-ID: <Pine.LNX.4.64.1005302147310.19253@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, romieu@fr.zoreil.com, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yosh
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:61722 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751701Ab0E3RgQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 May 2010 13:36:16 -0400
-Received: by gyg13 with SMTP id 13so2184592gyg.19
-        for <netdev@vger.kernel.org>; Sun, 30 May 2010 10:36:15 -0700 (PDT)
-In-Reply-To: <20100530122606.GC1146@host-a-55.ustcsz.edu.cn>
+Received: from mgw1.diku.dk ([130.225.96.91]:58059 "EHLO mgw1.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752803Ab0E3TsK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 May 2010 15:48:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/30/2010 08:26 AM, Junchang Wang wrote:
-> readl() returns a 32-bit integer on all platforms.
-> There is no need to cast its return value.
->
-> Signed-off-by: Junchang Wang<junchangwang@gmail.com>
-> ---
->   drivers/net/r8169.c |    2 +-
->   1 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-> index 217e709..ca93cdf 100644
-> --- a/drivers/net/r8169.c
-> +++ b/drivers/net/r8169.c
-> @@ -88,7 +88,7 @@ static const int multicast_filter_limit = 32;
->   #define RTL_W32(reg, val32)	writel ((val32), ioaddr + (reg))
->   #define RTL_R8(reg)		readb (ioaddr + (reg))
->   #define RTL_R16(reg)		readw (ioaddr + (reg))
-> -#define RTL_R32(reg)		((unsigned long) readl (ioaddr + (reg)))
-> +#define RTL_R32(reg)		readl (ioaddr + (reg))
+From: Julia Lawall <julia@diku.dk>
 
-Ditto last email:  have you verified this matches all arch's definition 
-of readl()?
+A spin lock is taken near the beginning of the enclosing function.
 
-	Jeff
+The semantic patch that makes this change is as follows:
+(http://coccinelle.lip6.fr/)
 
+// <smpl>
+@@
+@@
 
+spin_lock(...)
+... when != spin_unlock(...)
+-GFP_KERNEL
++GFP_ATOMIC
+// </smpl>
 
+Signed-off-by: Julia Lawall <julia@diku.dk>
 
+---
+ net/ipv6/sit.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff -u -p a/net/ipv6/sit.c b/net/ipv6/sit.c
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -358,7 +358,7 @@ ipip6_tunnel_add_prl(struct ip_tunnel *t
+ 		goto out;
+ 	}
+ 
+-	p = kzalloc(sizeof(struct ip_tunnel_prl_entry), GFP_KERNEL);
++	p = kzalloc(sizeof(struct ip_tunnel_prl_entry), GFP_ATOMIC);
+ 	if (!p) {
+ 		err = -ENOBUFS;
+ 		goto out;
