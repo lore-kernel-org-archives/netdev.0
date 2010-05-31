@@ -1,57 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] netfilter: xtables: stackptr should be percpu
-Date: Mon, 31 May 2010 15:44:08 +0200
-Message-ID: <1275313448.3291.49.camel@edumazet-laptop>
-References: <1275303998-2435-1-git-send-email-dfeng@redhat.com>
-	 <alpine.LSU.2.01.1005311350580.31799@obet.zrqbmnf.qr>
-	 <1275311580.3291.44.camel@edumazet-laptop>
-	 <alpine.LSU.2.01.1005311519340.25402@obet.zrqbmnf.qr>
+From: Michael Ellerman <michael@ellerman.id.au>
+Subject: Re: [PATCH 1/2] Export firmware assigned labels of network devices
+ to sysfs
+Date: Tue, 01 Jun 2010 00:07:56 +1000
+Message-ID: <1275314876.21246.29.camel@concordia>
+References: <20100528115520.GA24114@littleblue.us.dell.com>
+Reply-To: michael@ellerman.id.au
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Xiaotian Feng <dfeng@redhat.com>, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Alexey Dobriyan <adobriyan@gmail.com>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.01.1005311519340.25402@obet.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-yg7SOU5BEOdTQoE7Z/GI"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-hotplug@vger.kernel.org" <linux-hotplug@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"Domsch, Matt" <Matt_Domsch@dell.com>,
+	"Hargrave, Jordan" <Jordan_Hargrave@dell.com>,
+	"Rose, Charles" <Charles_Rose@dell.com>,
+	"Nijhawan, Vijay" <Vijay_Nijhawan@dell.com>
+To: "K, Narendra" <Narendra_K@dell.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20100528115520.GA24114@littleblue.us.dell.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le lundi 31 mai 2010 =C3=A0 15:22 +0200, Jan Engelhardt a =C3=A9crit :
-> On Monday 2010-05-31 15:13, Eric Dumazet wrote:
-> >
-> >All cpus share a single cache line for their 'stackptr' storage,
-> >introduced in commit f3c5c1bfd4
-> >
-> >This is a stable candidate (2.6.34)
+
+--=-yg7SOU5BEOdTQoE7Z/GI
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Fri, 2010-05-28 at 06:55 -0500, K, Narendra wrote:
+> Hello,
 >=20
-> Stackptr was first introduced for 2.6.35-rcX.
+> This patch is in continuation of an earlier discussion -
 >=20
-
-Indeed, I was fooled by 'git describe'
-
-> >+	i->stackptr =3D alloc_percpu(unsigned int);
-> > 	if (i->stackptr =3D=3D NULL)
-> > 		return -ENOMEM;
-> >-	memset(i->stackptr, 0, size);
-> >=20
-> > 	size =3D sizeof(void **) * nr_cpu_ids;
-> > 	if (size > PAGE_SIZE)
+> http://marc.info/?l=3Dlinux-netdev&m=3D126712978908314&w=3D3
 >=20
-> Are alloc_percpu areas cleared?
+> The patch has the following review suggestions from the community incorpo=
+rated -
 >=20
+> 1. The name of the attribute has been changed from "smbiosname" to "label=
+" to hide
+> the implementation details.
+> 2. The implementation has been moved to a new file drivers/pci/pci-label.=
+c
 
-Yes, allocated chunks are cleared.
+You've changed the name, which is good, but the implementation is still
+100% dependant on ACPI or DMI AFAICS.
+
+So it seems to me until it's supported on another platform it may as
+well go in pci-acpi.c, or at least only be compiled if (ACPI || DMI).
+Otherwise it's just dead code.
+
+cheers
 
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+--=-yg7SOU5BEOdTQoE7Z/GI
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEABECAAYFAkwDwrwACgkQdSjSd0sB4dLJIACcC4FH/RiVuZyPbrhGNCy5bmFU
+YOQAoKIOIajhue1Csy0TwzRcrsWayR1V
+=Z/vZ
+-----END PGP SIGNATURE-----
+
+--=-yg7SOU5BEOdTQoE7Z/GI--
