@@ -1,7 +1,7 @@
 From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [PATCH] netfilter: don't xt_jumpstack_alloc twice in xt_register_table
-Date: Mon, 31 May 2010 16:34:32 +0200
-Message-ID: <4C03C8F8.8050602@trash.net>
+Date: Mon, 31 May 2010 16:37:17 +0200
+Message-ID: <4C03C99D.5010904@trash.net>
 References: <1275303998-2435-1-git-send-email-dfeng@redhat.com> <alpine.LSU.2.01.1005311350580.31799@obet.zrqbmnf.qr> <alpine.LSU.2.01.1005311519160.25402@obet.zrqbmnf.qr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
@@ -14,10 +14,14 @@ Cc: Xiaotian Feng <dfeng@redhat.com>, netfilter-devel@vger.kernel.org,
 	Rusty Russell <rusty@rustcorp.com.au>,
 	Alexey Dobriyan <adobriyan@gmail.com>
 To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:59036 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751402Ab0EaOhT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 May 2010 10:37:19 -0400
 In-Reply-To: <alpine.LSU.2.01.1005311519160.25402@obet.zrqbmnf.qr>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Jan Engelhardt wrote:
 > On Monday 2010-05-31 13:51, Jan Engelhardt wrote:
@@ -33,4 +37,4 @@ Jan Engelhardt wrote:
 > 
 > Acked-By: Jan Engelhardt <jengelh@medozas.de>
 
-Applied, thanks everyone.
+Applied, thanks.
