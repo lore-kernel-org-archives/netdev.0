@@ -1,28 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch]r8169: remove unnecessary cast of readl()'s return value
-Date: Mon, 31 May 2010 00:33:44 -0700 (PDT)
-Message-ID: <20100531.003344.116356421.davem@davemloft.net>
-References: <20100530122606.GC1146@host-a-55.ustcsz.edu.cn>
+Subject: Re: [PATCH] drivers/net/arcnet/capmode.c: clean up code
+Date: Mon, 31 May 2010 00:35:39 -0700 (PDT)
+Message-ID: <20100531.003539.200382257.davem@davemloft.net>
+References: <20100531.002429.71095599.davem@davemloft.net>
+	<1275291070-23062-1-git-send-email-daniel@caiaq.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: junchangwang@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37726
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756656Ab0EaHdf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 May 2010 03:33:35 -0400
-In-Reply-To: <20100530122606.GC1146@host-a-55.ustcsz.edu.cn>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: linux-kernel@vger.kernel.org, tj@kernel.org, jkosina@suse.cz,
+	cl@linux-foundation.org, joe@perches.com, netdev@vger.kernel.org
+To: daniel@caiaq.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1275291070-23062-1-git-send-email-daniel@caiaq.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Junchang Wang <junchangwang@gmail.com>
-Date: Sun, 30 May 2010 20:26:07 +0800
-
-> readl() returns a 32-bit integer on all platforms.
-> There is no need to cast its return value.
-> 
-> Signed-off-by: Junchang Wang <junchangwang@gmail.com>
-
-Applied.
+RnJvbTogRGFuaWVsIE1hY2sgPGRhbmllbEBjYWlhcS5kZT4NCkRhdGU6IE1vbiwgMzEgTWF5IDIw
+MTAgMDk6MzE6MTAgKzAyMDANCg0KPiAgLSBzaHVmZmxlIGFyb3VuZCBmdW5jdGlvbnMgdG8gZ2V0
+IHJpZCBvZiBmb3J3YXJkIGRlY2xhcmF0aW9ucw0KPiAgLSBmaXggc29tZSBDb2RpbmdTdHlsZSBh
+bmQgaW5kZW50YXRpb24gaXNzdWVzDQo+ICAtIGxhc3QgYnV0IG5vdCBsZWFzdCwgZ2V0IHJpZCBv
+ZiB0aGUgZm9sbG93aW5nIENPTkZJR19NT0RVTEU9biB3YXJuaW5nOg0KPiANCj4gCWRyaXZlcnMv
+bmV0L2FyY25ldC9jYXBtb2RlLmM6NTI6IHdhcm5pbmc6IKFjYXBtb2RlX3Byb3RvoiBkZWZpbmVk
+IGJ1dCBub3QgdXNlZA0KPiANCj4gU2lnbmVkLW9mZi1ieTogRGFuaWVsIE1hY2sgPGRhbmllbEBj
+YWlhcS5kZT4NCg0KQXBwbGllZCwgYnV0Og0KDQo+ICtNT0RVTEVfTElDRU5TRSgiR1BMIik7DQo+
+ICsNCj4gLS0gDQo+IDEuNy4xDQo+IA0KDQpFeHRyYW5lb3VzIGVtcHR5IGxpbmUgYXQgZW5kIG9m
+IGZpbGUsIHdoaWNoIEdJVCB3YXJuZWQgYWJvdXQuDQpJIGZpeGVkIGl0IHVwIGJlZm9yZSBhcHBs
+eWluZyB5b3VyIHBhdGNoLg0KDQpUaGFua3MuDQo=
