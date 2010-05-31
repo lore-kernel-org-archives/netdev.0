@@ -1,81 +1,75 @@
-From: Anatolij Gustschin <agust@denx.de>
-Subject: [PATCH v2] can: mpc5xxx_can.c: Fix build failure
-Date: Mon, 31 May 2010 20:56:03 +0200
-Message-ID: <1275332163-570-1-git-send-email-agust@denx.de>
-References: <1275323499-15543-1-git-send-email-agust@denx.de>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Anatolij Gustschin <agust@denx.de>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Grant Likely <grant.likely@secretlab.ca>
-To: netdev@vger.kernel.org, socketcan-core@lists.berlios.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:46154 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756930Ab0EaS4N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 May 2010 14:56:13 -0400
-In-Reply-To: <1275323499-15543-1-git-send-email-agust@denx.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Flavio Leitner <fbl@sysclose.org>
+Subject: Re: [v5 Patch 1/3] netpoll: add generic support for bridge and
+ bonding devices
+Date: Mon, 31 May 2010 16:08:20 -0300
+Message-ID: <20100531190820.GA24569@sysclose.org>
+References: <20100505081514.5157.83783.sendpatchset@localhost.localdomain>
+ <20100527180545.GA2345@sysclose.org>
+ <4BFF2EA5.9090008@redhat.com>
+ <20100528194041.GC2345@sysclose.org>
+ <4C034FA4.5000401@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Matt Mackall <mpm@selenic.com>,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	Andy Gospodarek <gospo@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Jeff Moyer <jmoyer@redhat.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	bonding-devel@lists.sourceforge.net,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	David Miller <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4C034FA4.5000401@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fixes build error caused by the OF device_node pointer
-being moved into struct device.
+On Mon, May 31, 2010 at 01:56:52PM +0800, Cong Wang wrote:
+> Hi, Flavio,
+> 
+> Please use the attached patch instead, try to see if it solves
+> all your problems.
 
-Signed-off-by: Anatolij Gustschin <agust@denx.de>
-Cc: Wolfgang Grandegger <wg@grandegger.com>
-Cc: Grant Likely <grant.likely@secretlab.ca>
----
-v1 -> v2:
- - also fix building for mpc5200 which also didn't work
-   as reported by Wolfgang.
+I tried and it hangs. No backtraces this time.
+The bond_change_active_slave() prints before NETDEV_BONDING_FAILOVER
+notification, so I think it won't work. 
 
- drivers/net/can/mscan/mpc5xxx_can.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+Please, correct if I'm wrong, but when a failover happens with your 
+patch applied, the netconsole would be disabled forever even with
+another healthy slave, right?
 
-diff --git a/drivers/net/can/mscan/mpc5xxx_can.c b/drivers/net/can/mscan/mpc5xxx_can.c
-index 8af8442..af75393 100644
---- a/drivers/net/can/mscan/mpc5xxx_can.c
-+++ b/drivers/net/can/mscan/mpc5xxx_can.c
-@@ -73,7 +73,7 @@ static u32 __devinit mpc52xx_can_get_clock(struct of_device *ofdev,
- 	else
- 		*mscan_clksrc = MSCAN_CLKSRC_XTAL;
- 
--	freq = mpc5xxx_get_bus_frequency(ofdev->node);
-+	freq = mpc5xxx_get_bus_frequency(ofdev->dev.of_node);
- 	if (!freq)
- 		return 0;
- 
-@@ -152,7 +152,7 @@ static u32 __devinit mpc512x_can_get_clock(struct of_device *ofdev,
- 	}
- 
- 	/* Determine the MSCAN device index from the physical address */
--	pval = of_get_property(ofdev->node, "reg", &plen);
-+	pval = of_get_property(ofdev->dev.of_node, "reg", &plen);
- 	BUG_ON(!pval || plen < sizeof(*pval));
- 	clockidx = (*pval & 0x80) ? 1 : 0;
- 	if (*pval & 0x2000)
-@@ -168,11 +168,11 @@ static u32 __devinit mpc512x_can_get_clock(struct of_device *ofdev,
- 	 */
- 	if (clock_name && !strcmp(clock_name, "ip")) {
- 		*mscan_clksrc = MSCAN_CLKSRC_IPS;
--		freq = mpc5xxx_get_bus_frequency(ofdev->node);
-+		freq = mpc5xxx_get_bus_frequency(ofdev->dev.of_node);
- 	} else {
- 		*mscan_clksrc = MSCAN_CLKSRC_BUS;
- 
--		pval = of_get_property(ofdev->node,
-+		pval = of_get_property(ofdev->dev.of_node,
- 				       "fsl,mscan-clock-divider", &plen);
- 		if (pval && plen == sizeof(*pval))
- 			clockdiv = *pval;
-@@ -251,7 +251,7 @@ static int __devinit mpc5xxx_can_probe(struct of_device *ofdev,
- 				       const struct of_device_id *id)
- {
- 	struct mpc5xxx_can_data *data = (struct mpc5xxx_can_data *)id->data;
--	struct device_node *np = ofdev->node;
-+	struct device_node *np = ofdev->dev.of_node;
- 	struct net_device *dev;
- 	struct mscan_priv *priv;
- 	void __iomem *base;
+fbl
+
+
+> 
+> Thanks a lot!
+> 
+
+> diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+> index ca142c4..2d1d594 100644
+> --- a/drivers/net/netconsole.c
+> +++ b/drivers/net/netconsole.c
+> @@ -666,7 +666,8 @@ static int netconsole_netdev_event(struct notifier_block *this,
+>  	struct net_device *dev = ptr;
+>  
+>  	if (!(event == NETDEV_CHANGENAME || event == NETDEV_UNREGISTER ||
+> -	      event == NETDEV_BONDING_DESLAVE || event == NETDEV_GOING_DOWN))
+> +	      event == NETDEV_BONDING_DESLAVE || event == NETDEV_GOING_DOWN ||
+> +	      event == NETDEV_BONDING_FAILOVER))
+>  		goto done;
+>  
+>  	spin_lock_irqsave(&target_list_lock, flags);
+> @@ -682,6 +683,7 @@ static int netconsole_netdev_event(struct notifier_block *this,
+>  				/* Fall through */
+>  			case NETDEV_GOING_DOWN:
+>  			case NETDEV_BONDING_DESLAVE:
+> +			case NETDEV_BONDING_FAILOVER:
+>  				nt->enabled = 0;
+>  				break;
+>  			}
+
+
 -- 
-1.7.0.4
-
+Flavio
