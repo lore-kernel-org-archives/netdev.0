@@ -1,48 +1,68 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH] netfilter: don't xt_jumpstack_alloc twice in
- xt_register_table
-Date: Mon, 31 May 2010 13:51:37 +0200 (CEST)
-Message-ID: <alpine.LSU.2.01.1005311350580.31799@obet.zrqbmnf.qr>
-References: <1275303998-2435-1-git-send-email-dfeng@redhat.com>
+From: Jiri Olsa <jolsa@redhat.com>
+Subject: Re: [PATCH] IPv6: fix Mobile IPv6 regression
+Date: Mon, 31 May 2010 14:49:02 +0200
+Message-ID: <20100531124902.GE1929@jolsa.lab.eng.brq.redhat.com>
+References: <87zkzmppfg.fsf@small.ssi.corp>
+ <4BFDC14F.6050407@hp.com>
+ <8739xdqsuz.fsf@small.ssi.corp>
+ <4BFECA65.7030102@hp.com>
+ <4BFEE49C.8060301@lucent.com>
+ <87hblss92x.fsf@small.ssi.corp>
+ <4C00047D.3010404@hp.com>
+ <4C0008C7.7020302@hp.com>
+ <20100531084620.GB1929@jolsa.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Alexey Dobriyan <adobriyan@gmail.com>
-To: Xiaotian Feng <dfeng@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1275303998-2435-1-git-send-email-dfeng@redhat.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Arnaud Ebalard <arno@natisbad.org>,
+	Scott C Otto <otts@alcatel-lucent.com>,
+	YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
+	<yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
+To: Brian Haley <brian.haley@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52425 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753837Ab0EaMuT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 May 2010 08:50:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20100531084620.GB1929@jolsa.lab.eng.brq.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-On Monday 2010-05-31 13:06, Xiaotian Feng wrote:
-
->In xt_register_table, xt_jumpstack_alloc is called first, later
->xt_replace_table is used. But in xt_replace_table, xt_jumpstack_alloc
->will be used again. Then the memory allocated by previous xt_jumpstack_alloc
->will be leaked. We can simply remove the previous xt_jumpstack_alloc because
->there aren't any users of newinfo between xt_jumpstack_alloc and
->xt_replace_table.
-
-Indeed that seems to be so.
-
->diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
->index 445de70..47b1e79 100644
->--- a/net/netfilter/x_tables.c
->+++ b/net/netfilter/x_tables.c
->@@ -844,10 +844,6 @@ struct xt_table *xt_register_table(struct net *net,
-> 	struct xt_table_info *private;
-> 	struct xt_table *t, *table;
+On Mon, May 31, 2010 at 10:46:20AM +0200, Jiri Olsa wrote:
+> On Fri, May 28, 2010 at 02:17:43PM -0400, Brian Haley wrote:
+> > Commit f4f914b5 (net: ipv6 bind to device issue) caused
+> > a regression with Mobile IPv6 when it changed the meaning
+> > of fl->oif to become a strict requirement of the route
+> > lookup.  Instead, only force strict mode when
+> > sk->sk_bound_dev_if is set on the calling socket, getting
+> > the intended behavior and fixing the regression.
+> > 
+> > Tested-by: Arnaud Ebalard <arno@natisbad.org>
+> > Signed-off-by: Brian Haley <brian.haley@hp.com>
+> > 
+> > diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> > index 294cbe8..252d761 100644
+> > --- a/net/ipv6/route.c
+> > +++ b/net/ipv6/route.c
+> > @@ -814,7 +814,7 @@ struct dst_entry * ip6_route_output(struct net *net, struct sock *sk,
+> >  {
+> >  	int flags = 0;
+> >  
+> > -	if (fl->oif || rt6_need_strict(&fl->fl6_dst))
+> > +	if ((sk && sk->sk_bound_dev_if) || rt6_need_strict(&fl->fl6_dst))
+> >  		flags |= RT6_LOOKUP_F_IFACE;
+> >  
+> >  	if (!ipv6_addr_any(&fl->fl6_src))
+> hi,
 > 
->-	ret = xt_jumpstack_alloc(newinfo);
->-	if (ret < 0)
->-		return ERR_PTR(ret);
->-
-> 	/* Don't add one object to multiple lists. */
-> 	table = kmemdup(input_table, sizeof(struct xt_table), GFP_KERNEL);
-> 	if (!table) {
+> sorry for the late reply, I was out last week..
+> 
+> the change looks ok, I'll verify it with the reproducer
+> I used for the last fix
+> 
+> thanks,
+> jirka
+it passed the test for me, so it looks fine
+
+jirka
