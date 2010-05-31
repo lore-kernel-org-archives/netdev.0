@@ -1,58 +1,45 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH] ixp4xx: Support the all multicast flag on the NPE devices.
-Date: Mon, 31 May 2010 16:09:13 +0200
-Message-ID: <m3pr0c17ue.fsf@intrepid.localdomain>
-References: <20100531131102.GA15870@riccoc20.at.omicron.at>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH] netfilter: xtables: stackptr should be percpu
+Date: Mon, 31 May 2010 16:09:24 +0200 (CEST)
+Message-ID: <alpine.LSU.2.01.1005311608570.20623@obet.zrqbmnf.qr>
+References: <1275303998-2435-1-git-send-email-dfeng@redhat.com>  <alpine.LSU.2.01.1005311350580.31799@obet.zrqbmnf.qr>  <1275311580.3291.44.camel@edumazet-laptop>  <alpine.LSU.2.01.1005311519340.25402@obet.zrqbmnf.qr>
+ <1275313448.3291.49.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20100531131102.GA15870@riccoc20.at.omicron.at> (Richard
-	Cochran's message of "Mon, 31 May 2010 15:11:02 +0200")
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Xiaotian Feng <dfeng@redhat.com>, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Alexey Dobriyan <adobriyan@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1275313448.3291.49.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Richard Cochran <richardcochran@gmail.com> writes:
 
-> This patch adds support for the IFF_ALLMULTI flag. Previously only the
-> IFF_PROMISC flag was supported.
+On Monday 2010-05-31 15:44, Eric Dumazet wrote:
+>Le lundi 31 mai 2010 =C3=A0 15:22 +0200, Jan Engelhardt a =C3=A9crit :
+>> On Monday 2010-05-31 15:13, Eric Dumazet wrote:
+>> >
+>> >All cpus share a single cache line for their 'stackptr' storage,
+>> >introduced in commit f3c5c1bfd4
+>> >
+>> >This is a stable candidate (2.6.34)
+>>=20
+>> Stackptr was first introduced for 2.6.35-rcX.
 >
-> Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
-> ---
->  drivers/net/arm/ixp4xx_eth.c |   11 +++++++++++
->  1 files changed, 11 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/arm/ixp4xx_eth.c b/drivers/net/arm/ixp4xx_eth.c
-> index 6be8b09..5d35064 100644
-> --- a/drivers/net/arm/ixp4xx_eth.c
-> +++ b/drivers/net/arm/ixp4xx_eth.c
-> @@ -739,6 +739,17 @@ static void eth_set_mcast_list(struct net_device *dev)
->  	struct dev_mc_list *mclist;
->  	u8 diffs[ETH_ALEN], *addr;
->  	int i;
-> +	u8 allmulti[] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00 };
-> +
-> +	if (dev->flags & IFF_ALLMULTI) {
-> +		for (i = 0; i < ETH_ALEN; i++) {
-> +			__raw_writel(allmulti[i], &port->regs->mcast_addr[i]);
-> +			__raw_writel(allmulti[i], &port->regs->mcast_mask[i]);
-> +		}
-> +		__raw_writel(DEFAULT_RX_CNTRL0 | RX_CNTRL0_ADDR_FLTR_EN,
-> +			&port->regs->rx_control[0]);
-> +		return;
-> +	}
+>Indeed, I was fooled by 'git describe'
 
-Looks good, though I'd prefer a bit of "const" and "static" in the
-allmulti[] declaration. Would you please repost? TIA.
--- 
-Krzysztof Halasa
+Keep your friends close, and your enemies closer ;-)
+
+	git describe --contains f3c5c1bfd
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
