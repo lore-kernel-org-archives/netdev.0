@@ -1,16 +1,17 @@
-From: "news.gmane.org" <francois.valenduc@tvcablenet.be>
-Subject: Kernel panic with the b44 driver in 2.6.35-rc1
-Date: Mon, 31 May 2010 21:58:43 +0200
-Message-ID: <4C0414F3.8030409@tvcablenet.be>
+From: =?ISO-8859-1?Q?Fran=E7ois_Valenduc?=
+	<francois.valenduc@tvcablenet.be>
+Subject: Kernel panic at startup with the b44 driver
+Date: Mon, 31 May 2010 22:16:25 +0200
+Message-ID: <4C041919.3060101@tvcablenet.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mirapoint3.brutele.be ([212.68.199.148]:57289 "EHLO
-	mirapoint3.brutele.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757237Ab0EaUEt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 May 2010 16:04:49 -0400
+Received: from mirapoint21.brutele.be ([212.68.199.158]:47391 "EHLO
+	mirapoint21.brutele.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757301Ab0EaURC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 May 2010 16:17:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
