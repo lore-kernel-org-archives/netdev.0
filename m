@@ -1,31 +1,34 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] mlx4_en: use net_device dev_id to indicate port number
-Date: Mon, 31 May 2010 00:33:02 -0700 (PDT)
-Message-ID: <20100531.003302.70210008.davem@davemloft.net>
-References: <20100527055624.GA18736@mtldesk030.lab.mtl.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6 1/4] atm: [nicstar] reformatted with
+ Lindent
+Date: Mon, 31 May 2010 00:33:11 -0700 (PDT)
+Message-ID: <20100531.003311.232761574.davem@davemloft.net>
+References: <201005291903.o4TJ3iFh004998@thirdoffive.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org, yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org
-To: eli-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100527055624.GA18736-8YAHvHwT2UEvbXDkjdHOrw/a8Rv0c6iv@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: chas@cmf.nrl.navy.mil
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37700
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753450Ab0EaHdC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 May 2010 03:33:02 -0400
+In-Reply-To: <201005291903.o4TJ3iFh004998@thirdoffive.cmf.nrl.navy.mil>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eli Cohen <eli-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
-Date: Thu, 27 May 2010 08:56:24 +0300
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Date: Sat, 29 May 2010 15:03:44 -0400
 
-> Today, there are no means to know which port of a hardware device a netdev
-> interface uses. struct net_device conatins a field, dev_id, that can be used
-> for that. Use this field to save the port number in ConnectX that is being used
-> by the net device; port numbers are zero based.
+> From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
 > 
-> Signed-off-by: Eli Cohen <eli-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+> Author: chas williams - CONTRACTOR <chas@relax.cmf.nrl.navy.mil>
+> Date:   Fri May 28 18:43:47 2010 -0400
+> 
+>     atm: [nicstar] reformatted with Lindent
+>     
+>     Signed-off-by: Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+> 
 
 Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
