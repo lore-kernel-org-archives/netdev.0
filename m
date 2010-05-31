@@ -1,36 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mac8390: change an error return code and some cleanup,
- take 4
-Date: Mon, 31 May 2010 04:30:56 -0700 (PDT)
-Message-ID: <20100531.043056.258120791.davem@davemloft.net>
-References: <alpine.LNX.2.00.1005311905520.469@nippy.intranet>
-	<AANLkTilkooBglbk33yDHmk8c_ZdlamOW8FVvuvjQaNsF@mail.gmail.com>
-	<alpine.LNX.2.00.1005312011210.469@nippy.intranet>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH] netfilter: don't xt_jumpstack_alloc twice in
+ xt_register_table
+Date: Mon, 31 May 2010 13:51:37 +0200 (CEST)
+Message-ID: <alpine.LSU.2.01.1005311350580.31799@obet.zrqbmnf.qr>
+References: <1275303998-2435-1-git-send-email-dfeng@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: geert@linux-m68k.org, joe@perches.com, p_gortmaker@yahoo.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-m68k@vger.kernel.org
-To: fthain@telegraphics.com.au
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1005312011210.469@nippy.intranet>
-Sender: linux-m68k-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Alexey Dobriyan <adobriyan@gmail.com>
+To: Xiaotian Feng <dfeng@redhat.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1275303998-2435-1-git-send-email-dfeng@redhat.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: fthain@telegraphics.com.au
-Date: Mon, 31 May 2010 21:07:09 +1000 (EST)
 
-> Apparently David now wants me to submit this again --
+On Monday 2010-05-31 13:06, Xiaotian Feng wrote:
+
+>In xt_register_table, xt_jumpstack_alloc is called first, later
+>xt_replace_table is used. But in xt_replace_table, xt_jumpstack_alloc
+>will be used again. Then the memory allocated by previous xt_jumpstack_alloc
+>will be leaked. We can simply remove the previous xt_jumpstack_alloc because
+>there aren't any users of newinfo between xt_jumpstack_alloc and
+>xt_replace_table.
+
+Indeed that seems to be so.
+
+>diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+>index 445de70..47b1e79 100644
+>--- a/net/netfilter/x_tables.c
+>+++ b/net/netfilter/x_tables.c
+>@@ -844,10 +844,6 @@ struct xt_table *xt_register_table(struct net *net,
+> 	struct xt_table_info *private;
+> 	struct xt_table *t, *table;
 > 
-> if (ei_debug)
-> 	pr_debug(...)
-> 
-> David, if that code is acceptable, please let me know.
-
-The only thing I care about is at the moment that you don't do
-something that ends up dropping the pr_fmt prefix.
-
-The pr_fmt define at the beginning of the driver is for nothing
-if we end up adding exceptions that end up eliding it for no
-good reason.  And that's what your patch was doing.
+>-	ret = xt_jumpstack_alloc(newinfo);
+>-	if (ret < 0)
+>-		return ERR_PTR(ret);
+>-
+> 	/* Don't add one object to multiple lists. */
+> 	table = kmemdup(input_table, sizeof(struct xt_table), GFP_KERNEL);
+> 	if (!table) {
