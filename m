@@ -1,39 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: tcp_md5_hash_skb_data() frag_list handling
-Date: Mon, 31 May 2010 00:30:23 -0700 (PDT)
-Message-ID: <20100531.003023.39160973.davem@davemloft.net>
-References: <20100517.231403.148532542.davem@davemloft.net>
-	<1274164851.2567.39.camel@edumazet-laptop>
+Subject: Re: [PATCH 2/27] drivers/net: Use memdup_user
+Date: Mon, 31 May 2010 00:30:38 -0700 (PDT)
+Message-ID: <20100531.003038.59657905.davem@davemloft.net>
+References: <Pine.LNX.4.64.1005221018350.13021@ask.diku.dk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54286
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756438Ab0EaHaO convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 May 2010 03:30:14 -0400
-In-Reply-To: <1274164851.2567.39.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: paulus@samba.org, linux-ppp@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: julia@diku.dk
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.1005221018350.13021@ask.diku.dk>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 18 May 2010 08:40:51 +0200
+From: Julia Lawall <julia@diku.dk>
+Date: Sat, 22 May 2010 10:18:59 +0200 (CEST)
 
-> Le lundi 17 mai 2010 =E0 23:14 -0700, David Miller a =E9crit :
->> Eric, would you please formally submit that tcp md5 fraglist
->> fix to net/ipv4/tcp.c with proper signoffs?
->=20
-> Here it is, thanks !
->=20
->=20
-> [PATCH] tcp: tcp_md5_hash_skb_data() frag_list handling
->=20
-> tcp_md5_hash_skb_data() should handle skb->frag_list, and eventually
-> recurse.
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> From: Julia Lawall <julia@diku.dk>
+> 
+> Use memdup_user when user data is immediately copied into the
+> allocated region.
+> 
+> The semantic patch that makes this change is as follows:
+> (http://coccinelle.lip6.fr/)
+ ..
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
 Applied.
