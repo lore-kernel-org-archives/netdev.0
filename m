@@ -1,52 +1,53 @@
-From: <Narendra_K@Dell.com>
-Subject: RE: [PATCH 1/2] Export firmware assigned labels of network devices to sysfs
-Date: Tue, 1 Jun 2010 00:12:26 +0530
-Message-ID: <EDA0A4495861324DA2618B4C45DCB3EE612864@blrx3m08.blr.amer.dell.com>
-References: <20100528115520.GA24114@littleblue.us.dell.com> <1275314876.21246.29.camel@concordia>
+From: Anatolij Gustschin <agust@denx.de>
+Subject: Re: [PATCH] can: mpc5xxx_can.c: Fix build failure
+Date: Mon, 31 May 2010 20:54:23 +0200
+Message-ID: <20100531205423.0840fd08@wker>
+References: <1275323499-15543-1-git-send-email-agust@denx.de>
+	<4C03FF75.3010208@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="UTF-8"
-Content-Transfer-Encoding: base64
-Cc: <netdev@vger.kernel.org>, <linux-hotplug@vger.kernel.org>,
-	<linux-pci@vger.kernel.org>, <Matt_Domsch@Dell.com>,
-	<Jordan_Hargrave@Dell.com>, <Charles_Rose@Dell.com>,
-	<Vijay_Nijhawan@Dell.com>
-To: <michael@ellerman.id.au>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, socketcan-core@lists.berlios.de,
+	"David S. Miller" <davem@davemloft.net>,
+	Grant Likely <grant.likely@secretlab.ca>
+To: Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60pc101.us.dell.com ([143.166.85.206]:44577 "EHLO
-	ausc60pc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756079Ab0EaSmd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 May 2010 14:42:33 -0400
-Content-class: urn:content-classes:message
-In-Reply-To: <1275314876.21246.29.camel@concordia>
+Received: from mail-out.m-online.net ([212.18.0.9]:33943 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756201Ab0EaSy2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 May 2010 14:54:28 -0400
+In-Reply-To: <4C03FF75.3010208@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LQ0KPiBvd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJl
-aGFsZiBPZiBNaWNoYWVsIEVsbGVybWFuDQo+IFNlbnQ6IE1vbmRheSwgTWF5IDMxLCAyMDEwIDc6
-MzggUE0NCj4gVG86IEssIE5hcmVuZHJhDQo+IENjOiBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBs
-aW51eC1ob3RwbHVnQHZnZXIua2VybmVsLm9yZzsgbGludXgtDQo+IHBjaUB2Z2VyLmtlcm5lbC5v
-cmc7IERvbXNjaCwgTWF0dDsgSGFyZ3JhdmUsIEpvcmRhbjsgUm9zZSwgQ2hhcmxlczsNCj4gTmlq
-aGF3YW4sIFZpamF5DQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggMS8yXSBFeHBvcnQgZmlybXdhcmUg
-YXNzaWduZWQgbGFiZWxzIG9mIG5ldHdvcmsNCj4gZGV2aWNlcyB0byBzeXNmcw0KPiANCj4gT24g
-RnJpLCAyMDEwLTA1LTI4IGF0IDA2OjU1IC0wNTAwLCBLLCBOYXJlbmRyYSB3cm90ZToNCj4gPiBI
-ZWxsbywNCj4gPg0KPiA+IFRoaXMgcGF0Y2ggaXMgaW4gY29udGludWF0aW9uIG9mIGFuIGVhcmxp
-ZXIgZGlzY3Vzc2lvbiAtDQo+ID4NCj4gPiBodHRwOi8vbWFyYy5pbmZvLz9sPWxpbnV4LW5ldGRl
-diZtPTEyNjcxMjk3ODkwODMxNCZ3PTMNCj4gPg0KPiA+IFRoZSBwYXRjaCBoYXMgdGhlIGZvbGxv
-d2luZyByZXZpZXcgc3VnZ2VzdGlvbnMgZnJvbSB0aGUgY29tbXVuaXR5DQo+ID4gaW5jb3Jwb3Jh
-dGVkIC0NCj4gPg0KPiA+IDEuIFRoZSBuYW1lIG9mIHRoZSBhdHRyaWJ1dGUgaGFzIGJlZW4gY2hh
-bmdlZCBmcm9tICJzbWJpb3NuYW1lIiB0bw0KPiA+ICJsYWJlbCIgdG8gaGlkZSB0aGUgaW1wbGVt
-ZW50YXRpb24gZGV0YWlscy4NCj4gPiAyLiBUaGUgaW1wbGVtZW50YXRpb24gaGFzIGJlZW4gbW92
-ZWQgdG8gYSBuZXcgZmlsZQ0KPiA+IGRyaXZlcnMvcGNpL3BjaS1sYWJlbC5jDQo+IA0KPiBZb3Un
-dmUgY2hhbmdlZCB0aGUgbmFtZSwgd2hpY2ggaXMgZ29vZCwgYnV0IHRoZSBpbXBsZW1lbnRhdGlv
-biBpcyBzdGlsbA0KPiAxMDAlIGRlcGVuZGFudCBvbiBBQ1BJIG9yIERNSSBBRkFJQ1MuDQo+IA0K
-PiBTbyBpdCBzZWVtcyB0byBtZSB1bnRpbCBpdCdzIHN1cHBvcnRlZCBvbiBhbm90aGVyIHBsYXRm
-b3JtIGl0IG1heSBhcw0KPiB3ZWxsIGdvIGluIHBjaS1hY3BpLmMsIA0KDQpZb3UgbWVhbiB0aGUg
-QUNQSSBfRFNNID8gSWYgeWVzLCBpdCBpcyBleHBlY3RlZCB0byBiZWNvbWUgYSBzdGFuZGFyZCB2
-ZXJ5IHNvb24uIEkgYXNzdW1lIHlvdSBtZWFudCBub24tRGVsbCBwbGF0Zm9ybXMgYnkgYW5vdGhl
-ciBwbGF0Zm9ybS4NCg0KPiBvciBhdCBsZWFzdCBvbmx5IGJlIGNvbXBpbGVkIGlmIChBQ1BJIHx8
-IERNSSkuDQo+IE90aGVyd2lzZSBpdCdzIGp1c3QgZGVhZCBjb2RlLg0KPiANCg0KSXMgRE1JIG5v
-dCBpbXBsZW1lbnRlZCB3aWRlbHkgdG9kYXkgPyBQbGVhc2UgY29ycmVjdCBtZSBpZiBJIGFtIG1p
-c3Npbmcgc29tZXRoaW5nIGhlcmUuDQoNCldpdGggcmVnYXJkcywNCk5hcmVuZHJhIEsNCg0KDQoN
-Cg==
+Hi Wolfgang,
+
+On Mon, 31 May 2010 20:27:01 +0200
+Wolfgang Grandegger <wg@grandegger.com> wrote:
+...
+> > @@ -251,7 +251,7 @@ static int __devinit mpc5xxx_can_probe(struct of_device *ofdev,
+> >  				       const struct of_device_id *id)
+> >  {
+> >  	struct mpc5xxx_can_data *data = (struct mpc5xxx_can_data *)id->data;
+> > -	struct device_node *np = ofdev->node;
+> > +	struct device_node *np = ofdev->dev.of_node;
+> >  	struct net_device *dev;
+> >  	struct mscan_priv *priv;
+> >  	void __iomem *base;
+> 
+> The patch seems incomplete. I get at least one more warning (because
+> I'm compiling for 52xx, I guess):
+
+Yes, this is true. Unfortunately I didn't compile for 5200 and the issue
+didn't show up.
+
+>   CC      drivers/net/can/mscan/mpc5xxx_can.o
+> drivers/net/can/mscan/mpc5xxx_can.c: In function 'mpc52xx_can_get_clock':
+> drivers/net/can/mscan/mpc5xxx_can.c:76: error: 'struct of_device' has no member named 'node'
+> 
+> Should I send v2? Thanks for fixing that. I also checked the
+> sja1000_of_platform driver,  which was converted correctly.
+
+I will send v2 patch shortly. Thanks for reporting!
+
+Anatolij
