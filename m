@@ -1,42 +1,29 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [RFC] netfilter: WIP: Xtables idletimer target implementation
-Date: Mon, 31 May 2010 21:51:17 +0200 (CEST)
-Message-ID: <alpine.LSU.2.01.1005312143470.23758@obet.zrqbmnf.qr>
-References: <1274993689-23928-1-git-send-email-luciano.coelho@nokia.com>  <alpine.LSU.2.01.1005280057190.14077@obet.zrqbmnf.qr>  <1275024304.3754.45.camel@powerslave>  <alpine.LSU.2.01.1005281001550.11570@obet.zrqbmnf.qr>  <1275040724.24490.121.camel@chilepepper>
-  <4C03DCF3.1080001@trash.net> <1275333179.11744.23.camel@powerslave>
+From: "news.gmane.org" <francois.valenduc@tvcablenet.be>
+Subject: Kernel panic with the b44 driver in 2.6.35-rc1
+Date: Mon, 31 May 2010 21:58:43 +0200
+Message-ID: <4C0414F3.8030409@tvcablenet.be>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: ext Patrick McHardy <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Timo Teras <timo.teras@iki.fi>
-To: Luciano Coelho <luciano.coelho@nokia.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1275333179.11744.23.camel@powerslave>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mirapoint3.brutele.be ([212.68.199.148]:57289 "EHLO
+	mirapoint3.brutele.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757237Ab0EaUEt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 May 2010 16:04:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello everybody,
 
-On Monday 2010-05-31 21:12, Luciano Coelho wrote:
->
->I considered this option, but then I didn't find a proper place where to
->include the attribute in sysfs, since I cannot add it as part of the
->interface (eg. /sys/class/net/wlan0/idletimer) as I was doing before.
+I have a kernel panic at startup with the b44 driver with the 2.6.35-rc=
+1
+kernel. I have submitted a bug report (see
+https://bugzilla.kernel.org/show_bug.cgi?id=3D16074) but until know, I
+din't get any answer yet. Does anybody knows what's happening. I have
+tried several git-bisect run but I didn't find any conclusive result.
+The first bad-commit was different each time and if I revert it, the
+problem still occurs anyway.
 
-You couldn't have done that before either, because the interface name
-in ipt_ip may refer to an interface that does not exist at all times.
-
->The other option would be to make the idletimer as part of the
->xt_IDLETIMER module object in sysfs
->(ie. /sys/module/xt_IDLETIMER/<user_supplied_name>), but it looks out of
->place.
-
-I like it. It follows /proc/net/xt_{hashlimit,recent}/<user_supplied_name>.
-
->And I think adding it as /sys/class/net/idletimer is most likely
->out of the question.
-
-It follows /sys/class/leds/...
-
-
-I'm impartial though.
+Thanks in advance for your help,
+=46ran=E7ois Valenduc
