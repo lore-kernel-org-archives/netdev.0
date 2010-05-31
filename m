@@ -1,56 +1,54 @@
-From: kaber@trash.net
-Subject: [PATCH 1/2] netfilter: don't xt_jumpstack_alloc twice in xt_register_table
-Date: Mon, 31 May 2010 18:14:46 +0200
-Message-ID: <1275322487-19026-2-git-send-email-kaber@trash.net>
-References: <1275322487-19026-1-git-send-email-kaber@trash.net>
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH] ixp4xx: Support the all multicast flag on the NPE devices.
+Date: Mon, 31 May 2010 18:23:37 +0200
+Message-ID: <m3y6f0yr92.fsf@intrepid.localdomain>
+References: <20100531131102.GA15870@riccoc20.at.omicron.at>
+	<m3pr0c17ue.fsf@intrepid.localdomain>
+	<20100531153419.GA17317@riccoc20.at.omicron.at>
+	<19459.57149.428000.694558@pilspetsen.it.uu.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Richard Cochran <richardcochran@gmail.com>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Mikael Pettersson <mikpe@it.uu.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:60784 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751886Ab0EaQOw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 May 2010 12:14:52 -0400
-In-Reply-To: <1275322487-19026-1-git-send-email-kaber@trash.net>
+Received: from khc.piap.pl ([195.187.100.11]:43432 "EHLO khc.piap.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751317Ab0EaQXk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 May 2010 12:23:40 -0400
+In-Reply-To: <19459.57149.428000.694558@pilspetsen.it.uu.se> (Mikael
+	Pettersson's message of "Mon, 31 May 2010 18:09:33 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xiaotian Feng <dfeng@redhat.com>
+Mikael Pettersson <mikpe@it.uu.se> writes:
 
-In xt_register_table, xt_jumpstack_alloc is called first, later
-xt_replace_table is used. But in xt_replace_table, xt_jumpstack_alloc
-will be used again. Then the memory allocated by previous xt_jumpstack_alloc
-will be leaked. We can simply remove the previous xt_jumpstack_alloc because
-there aren't any users of newinfo between xt_jumpstack_alloc and
-xt_replace_table.
+>  > +	static const u8 allmulti[] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00 };
+>  > +
+>  > +	if (dev->flags & IFF_ALLMULTI) {
+>  > +		for (i = 0; i < ETH_ALEN; i++) {
+>  > +			__raw_writel(allmulti[i], &port->regs->mcast_addr[i]);
+>  > +			__raw_writel(allmulti[i], &port->regs->mcast_mask[i]);
+>
+> Seems a bit excessive to define a lookup table for a computation
+> that amounts to nothing more than "i ? 0 : 1".
+>
+> Something like the following would IMO be cleaner:
+>
+> 	if (...) {
+> 		for (...) {
+> 			u8 multi = i ? 0x00 : 0x01;
+> 			__raw_writel(multi, ...);
+> 			...
+> 		}
+> 	}
 
-Signed-off-by: Xiaotian Feng <dfeng@redhat.com>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Jan Engelhardt <jengelh@medozas.de>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Rusty Russell <rusty@rustcorp.com.au>
-Cc: Alexey Dobriyan <adobriyan@gmail.com>
-Acked-By: Jan Engelhardt <jengelh@medozas.de>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
----
- net/netfilter/x_tables.c |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+Well... cleaner = easier to understand?
+I don't think so, the array is clearly a MAC address (mask) and the
+"i ? 0x00 : 0x01" (which one could simply write as "!i") requires some
+additional attention.
 
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index 445de70..47b1e79 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -844,10 +844,6 @@ struct xt_table *xt_register_table(struct net *net,
- 	struct xt_table_info *private;
- 	struct xt_table *t, *table;
- 
--	ret = xt_jumpstack_alloc(newinfo);
--	if (ret < 0)
--		return ERR_PTR(ret);
--
- 	/* Don't add one object to multiple lists. */
- 	table = kmemdup(input_table, sizeof(struct xt_table), GFP_KERNEL);
- 	if (!table) {
+It's a slow "admin" path so an unmeasurable speedup doesn't mean
+anything.
 -- 
-1.7.0.4
-
+Krzysztof Halasa
