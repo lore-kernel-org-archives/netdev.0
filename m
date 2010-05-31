@@ -1,65 +1,65 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] ixp4xx: Support the all multicast flag on the NPE
- devices.
-Date: Mon, 31 May 2010 17:34:19 +0200
-Message-ID: <20100531153419.GA17317@riccoc20.at.omicron.at>
-References: <20100531131102.GA15870@riccoc20.at.omicron.at>
- <m3pr0c17ue.fsf@intrepid.localdomain>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH 1/3] vhost: replace vhost_workqueue with per-vhost	kthread
+Date: Mon, 31 May 2010 17:38:41 +0200
+Message-ID: <4C03D801.9090106@kernel.org>
+References: <20100527163954.GA21710@redhat.com> <4BFEA434.6080405@kernel.org> <20100527173207.GA21880@redhat.com> <4BFEE216.2070807@kernel.org> <20100528150830.GB21880@redhat.com> <4BFFE742.2060205@kernel.org> <20100530112925.GB27611@redhat.com> <4C02C961.9050606@kernel.org> <20100531143945.GA6497@redhat.com> <4C03D0BE.1040601@kernel.org> <20100531153104.GA9452@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Krzysztof Halasa <khc@pm.waw.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.156]:43822 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754478Ab0EaPds (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 May 2010 11:33:48 -0400
-Received: by fg-out-1718.google.com with SMTP id l26so807672fgb.1
-        for <netdev@vger.kernel.org>; Mon, 31 May 2010 08:33:47 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <m3pr0c17ue.fsf@intrepid.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
+To: Oleg Nesterov <oleg@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20100531153104.GA9452@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 31, 2010 at 04:09:13PM +0200, Krzysztof Halasa wrote:
-> Looks good, though I'd prefer a bit of "const" and "static" in the
-> allmulti[] declaration. Would you please repost? TIA.
+Hello,
 
-Okay, here it is.
+On 05/31/2010 05:31 PM, Oleg Nesterov wrote:
+>> I might have slightly over engineered this part not knowing the
+>> expected workload.  ->queue_seq/->done_seq pair is to guarantee that
+>> flushers never get starved.
+> 
+> Ah, indeed.
+> 
+> Well, afaics we do not need 2 counters anyway, both vhost_poll_queue()
+> and vhost_poller() could increment the single counter and the flusher
+> can take bit 0 into account. But I agree 2 counters are much more clean.
 
-Thanks,
-Richard
+Right, we can do that too.  Cool. :-)
 
-This patch adds support for the IFF_ALLMULTI flag. Previously only the
-IFF_PROMISC flag was supported.
+>>>> +static int vhost_poller(void *data)
+>>>> +{
+>>>> +	struct vhost_dev *dev = data;
+>>>> +	struct vhost_poll *poll;
+>>>> +
+>>>> +repeat:
+>>>> +	set_current_state(TASK_INTERRUPTIBLE);	/* mb paired w/ kthread_stop */
+>>>
+>>> I don't understand the comment... why do we need this barrier?
+>>
+>> So that either kthread_stop()'s should_stop = 1 in kthread_stop() is
+>> visible to kthread_should_stop() or task state is set to RUNNING.
+> 
+> Of course, you are right. I am really surprized I asked this question ;)
 
-Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
----
- drivers/net/arm/ixp4xx_eth.c |   11 +++++++++++
- 1 files changed, 11 insertions(+), 0 deletions(-)
+This part is always a bit tricky tho.  Maybe it would be a good idea
+to make kthread_stop() do periodic wakeups.  It's already injecting
+one rather unexpected wake up into the mix anyway so there isn't much
+point in avoiding multiple and it would make designing kthread loops
+easier.  Or maybe what we need is something like kthread_idle() which
+encapsulates the check and sleep part.
 
-diff --git a/drivers/net/arm/ixp4xx_eth.c b/drivers/net/arm/ixp4xx_eth.c
-index 6be8b09..42b4361 100644
---- a/drivers/net/arm/ixp4xx_eth.c
-+++ b/drivers/net/arm/ixp4xx_eth.c
-@@ -739,6 +739,17 @@ static void eth_set_mcast_list(struct net_device *dev)
- 	struct dev_mc_list *mclist;
- 	u8 diffs[ETH_ALEN], *addr;
- 	int i;
-+	static const u8 allmulti[] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00 };
-+
-+	if (dev->flags & IFF_ALLMULTI) {
-+		for (i = 0; i < ETH_ALEN; i++) {
-+			__raw_writel(allmulti[i], &port->regs->mcast_addr[i]);
-+			__raw_writel(allmulti[i], &port->regs->mcast_mask[i]);
-+		}
-+		__raw_writel(DEFAULT_RX_CNTRL0 | RX_CNTRL0_ADDR_FLTR_EN,
-+			&port->regs->rx_control[0]);
-+		return;
-+	}
- 
- 	if ((dev->flags & IFF_PROMISC) || netdev_mc_empty(dev)) {
- 		__raw_writel(DEFAULT_RX_CNTRL0 & ~RX_CNTRL0_ADDR_FLTR_EN,
+Thanks.
+
 -- 
-1.6.3.3
-
+tejun
