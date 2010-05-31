@@ -1,32 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: remove zap_completion_queue
-Date: Mon, 31 May 2010 00:30:12 -0700 (PDT)
-Message-ID: <20100531.003012.183030076.davem@davemloft.net>
-References: <1274346963.4046.25.camel@edumazet-laptop>
+Subject: Re: [PATCH] tcp: tcp_md5_hash_skb_data() frag_list handling
+Date: Mon, 31 May 2010 00:30:23 -0700 (PDT)
+Message-ID: <20100531.003023.39160973.davem@davemloft.net>
+References: <20100517.231403.148532542.davem@davemloft.net>
+	<1274164851.2567.39.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54281
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54286
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756397Ab0EaHaE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 May 2010 03:30:04 -0400
-In-Reply-To: <1274346963.4046.25.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1756438Ab0EaHaO convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 May 2010 03:30:14 -0400
+In-Reply-To: <1274164851.2567.39.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 20 May 2010 11:16:03 +0200
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 18 May 2010 08:40:51 +0200
 
-> netpoll does an interesting work in zap_completion_queue(), but this was
-> before we did skb orphaning before delivering packets to device.
-> 
-> It now makes sense to add a test in dev_kfree_skb_irq() to not queue a
-> skb if already orphaned, and to remove netpoll zap_completion_queue() as
-> a bonus.
-> 
+> Le lundi 17 mai 2010 =E0 23:14 -0700, David Miller a =E9crit :
+>> Eric, would you please formally submit that tcp md5 fraglist
+>> fix to net/ipv4/tcp.c with proper signoffs?
+>=20
+> Here it is, thanks !
+>=20
+>=20
+> [PATCH] tcp: tcp_md5_hash_skb_data() frag_list handling
+>=20
+> tcp_md5_hash_skb_data() should handle skb->frag_list, and eventually
+> recurse.
+>=20
 > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
 Applied.
