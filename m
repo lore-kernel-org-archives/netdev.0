@@ -1,88 +1,89 @@
-From: Luciano Coelho <luciano.coelho@nokia.com>
-Subject: Re: [RFC] netfilter: WIP: Xtables idletimer target implementation
-Date: Mon, 31 May 2010 22:12:59 +0300
-Message-ID: <1275333179.11744.23.camel@powerslave>
-References: <1274993689-23928-1-git-send-email-luciano.coelho@nokia.com>
-	 <alpine.LSU.2.01.1005280057190.14077@obet.zrqbmnf.qr>
-	 <1275024304.3754.45.camel@powerslave>
-	 <alpine.LSU.2.01.1005281001550.11570@obet.zrqbmnf.qr>
-	 <1275040724.24490.121.camel@chilepepper>  <4C03DCF3.1080001@trash.net>
+From: Ben Gardiner <bengardiner-ScDXFp4xN3PN+rMO2ozGnw@public.gmane.org>
+Subject: Re: Network QoS support in applications
+Date: Mon, 31 May 2010 15:30:31 -0400
+Message-ID: <AANLkTindWCmxtAJU5R3ey_18_3wNUuMGc-jq_EY_itiN@mail.gmail.com>
+References: <87my01m0zm.fsf@purkki.valot.fi>
+	<4B5EF5DF.2070005@lemonia.org>
+	<4B9942A7.40205@redfish-solutions.com>
+	<20100311.112754.142886660.davem@davemloft.net>
+	<4B9944A0.5080308@redfish-solutions.com>
+	<4BF32B2B.6010202@redfish-solutions.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: ext Jan Engelhardt <jengelh@medozas.de>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Timo Teras <timo.teras@iki.fi>
-To: ext Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([192.100.122.233]:28926 "EHLO
-	mgw-mx06.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754701Ab0EaTUA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 May 2010 15:20:00 -0400
-In-Reply-To: <4C03DCF3.1080001@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, dunc-9b9L1Hpe0sBAfugRpC6u6w@public.gmane.org,
+	kalle.valo-X3B1VOXEql0@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Philip A. Prindeville" <philipp-9z15yex7P+UJvtFkdXX2HpqQE7yCjDx5@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4BF32B2B.6010202-9z15yex7P+UJvtFkdXX2HpqQE7yCjDx5@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2010-05-31 at 17:59 +0200, ext Patrick McHardy wrote:
-> Luciano Coelho wrote:
-> > On Fri, 2010-05-28 at 10:05 +0200, ext Jan Engelhardt wrote:
-> >> On Friday 2010-05-28 07:25, Luciano Coelho wrote:
-> >>> Do you have any other suggestion on how I can associate the rules to
-> >>> specific interfaces?
-> >> -A INPUT -i foo -j do
-> >> -A do -j idletimer
-> >>
-> >> A little funny, but actually this would allow me to keep a timer
-> >> for a group of interfaces rather than just per-if.
-> > 
-> > Yes, this is what our userspace apps are doing.  I've formulated my
-> > question in an unclear way.  If you check the rest of the code, I create
-> > sysfs files under the interface's directory and use it as an attribute
-> > to notify the userspace when the timer has expired.
-> > 
-> > In short, I need to figure out a way to associate each rule with an
-> > interface in sysfs, so I can notify the userspace when the timer has
-> > expired.  I couldn't figure out another way to do it.  Any suggestions?
-> 
-> How about just using an arbitrary user-supplied name? People can
-> name them after interfaces, or anything else.
+On Tue, May 18, 2010 at 8:04 PM, Philip A. Prindeville
+<philipp-9z15yex7P+UJvtFkdXX2HpqQE7yCjDx5@public.gmane.org> wrote:
+> On 03/11/2010 12:29 PM, Philip A. Prindeville wrote:
+>> On 03/11/2010 12:27 PM, David Miller wrote:
+>>
+>>> From: "Philip A. Prindeville" <philipp_subx-9z15yex7P+UJvtFkdXX2HpqQE7yCjDx5@public.gmane.org>
+>>> Date: Thu, 11 Mar 2010 12:21:11 -0700
+>>>
+>>>
+>>>> And yes, there will always be misbehaving users. =A0They are a fac=
+t of
+>>>> life. =A0That doesn't mean we should lobotomize the network. =A0We=
+ don't
+>>>> have an authentication mechanism on ICMP Redirects or Source-Quenc=
+h,
+>>>>
+>>> Which is why most networks block those packets from the outside.
+>>>
+>>>
+>>>> Nor is ARP authenticated.
+>>>>
+>>> Which is why people control who can plug into their physical
+>>> network.
+>>>
+>>> None of the things you are saying support the idea of having
+>>> applications decide what the DSCP marking should be.
+>>>
+>>
+>> Does "decide what the DSCP marking should be" include complying to t=
+he recommendations of RFC-4594?
+>>
+>
+> If anyone cares, here's an update:
+>
+> I've submitted patches for QoS configuration for:
+>
+> APR/Apache (stalled);
+> Proftpd (committed);
+> Openssh (pending review);
+> Firefox/Thunderbird (reviewed and on-track for commit);
+> Cyrus (committed);
+> Sendmail (submittted and acknowledged, but not yet reviewed);
+> Curl (stalled);
+>
+> All, as per the request of the maintainers, default to either no QoS
+> markings or previous RFC-791 QoS markings if that's what they already
+> supported (Proftpd and Openssh).
+>
+> If anyone can think of anything else that needs to be supported to
+> impact a significant portion of network (or enterprise intranet)
+> traffic, please call it out.
 
-I considered this option, but then I didn't find a proper place where to
-include the attribute in sysfs, since I cannot add it as part of the
-interface (eg. /sys/class/net/wlan0/idletimer) as I was doing before.
-The other option would be to make the idletimer as part of the
-xt_IDLETIMER module object in sysfs
-(ie. /sys/module/xt_IDLETIMER/<user_supplied_name>), but it looks out of
-place.  And I think adding it as /sys/class/net/idletimer is most likely
-out of the question.
+wget [1], like curl, is used for downloads of artifacts by some build s=
+ystems.
 
-The latest "solution" I came up with, is to associate the idletimer with
-every interface that it hits.  Whenever a packet arrives, I check which
-interface it came from and add the timer to it (eg.
-in /sys/class/net/wlan0/idletimer if the packet came via wlan0).  This
-causes a bit extra processing per packet, but in most cases there
-shouldn't be too many interfaces in the list, so the search should be
-fairly quick.  And if performance becomes a problem, it can be worked
-around by adding only one interface per ruleset, so the list will never
-grow bigger than one node.
+[1] http://www.gnu.org/software/wget/
 
-I think these two solutions would work.  I prefer the second one,
-because we don't need to add the idletimer attribute in an artificial
-place in sysfs.
-
-The problem that remains with either solution is if the interface is
-already idle when the rule created.  In that case, the timer won't start
-(or at least will not be associated with that interface).  It will only
-start when the first packet hits.  The only solution I see for this is
-to add the interface name as an option to the target.  Maybe something
-like "--autostart=wlan0"?
-
-I'll send a new RFC patch soon with this ideas implemented, to better
-express what I mean (C code can be easier to read than English :P)
-
-
--- 
-Cheers,
-Luca.
-
+--=20
+Ben Gardiner
+Nanometrics Inc.
++1 (613) 592-6776 x239
+http://www.nanometrics.ca
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
