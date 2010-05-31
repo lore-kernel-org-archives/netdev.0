@@ -1,39 +1,43 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netfilter: don't xt_jumpstack_alloc twice in xt_register_table
-Date: Mon, 31 May 2010 16:37:17 +0200
-Message-ID: <4C03C99D.5010904@trash.net>
-References: <1275303998-2435-1-git-send-email-dfeng@redhat.com> <alpine.LSU.2.01.1005311350580.31799@obet.zrqbmnf.qr> <alpine.LSU.2.01.1005311519160.25402@obet.zrqbmnf.qr>
+Subject: Re: [PATCH] netfilter: xtables: stackptr should be percpu
+Date: Mon, 31 May 2010 16:37:49 +0200
+Message-ID: <4C03C9BD.2080907@trash.net>
+References: <1275303998-2435-1-git-send-email-dfeng@redhat.com>  <alpine.LSU.2.01.1005311350580.31799@obet.zrqbmnf.qr> <1275311580.3291.44.camel@edumazet-laptop> <alpine.LSU.2.01.1005311519340.25402@obet.zrqbmnf.qr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Xiaotian Feng <dfeng@redhat.com>, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Xiaotian Feng <dfeng@redhat.com>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
 	Andrew Morton <akpm@linux-foundation.org>,
 	Rusty Russell <rusty@rustcorp.com.au>,
 	Alexey Dobriyan <adobriyan@gmail.com>
 To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59036 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751402Ab0EaOhT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 May 2010 10:37:19 -0400
-In-Reply-To: <alpine.LSU.2.01.1005311519160.25402@obet.zrqbmnf.qr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.01.1005311519340.25402@obet.zrqbmnf.qr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Jan Engelhardt wrote:
-> On Monday 2010-05-31 13:51, Jan Engelhardt wrote:
->> On Monday 2010-05-31 13:06, Xiaotian Feng wrote:
+> On Monday 2010-05-31 15:13, Eric Dumazet wrote:
+>> All cpus share a single cache line for their 'stackptr' storage,
+>> introduced in commit f3c5c1bfd4
 >>
->>> In xt_register_table, xt_jumpstack_alloc is called first, later
->>> xt_replace_table is used. But in xt_replace_table, xt_jumpstack_alloc
->>> will be used again. Then the memory allocated by previous xt_jumpstack_alloc
->>> will be leaked. We can simply remove the previous xt_jumpstack_alloc because
->>> there aren't any users of newinfo between xt_jumpstack_alloc and
->>> xt_replace_table.
->> Indeed that seems to be so.
+>> This is a stable candidate (2.6.34)
+> 
+> Stackptr was first introduced for 2.6.35-rcX.
+> 
+>> +	i->stackptr = alloc_percpu(unsigned int);
+>> 	if (i->stackptr == NULL)
+>> 		return -ENOMEM;
+>> -	memset(i->stackptr, 0, size);
+>>
+>> 	size = sizeof(void **) * nr_cpu_ids;
+>> 	if (size > PAGE_SIZE)
+> 
+> Are alloc_percpu areas cleared?
 > 
 > Acked-By: Jan Engelhardt <jengelh@medozas.de>
 
