@@ -1,46 +1,46 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH 2/3] cgroups: Add an API to attach a task to current task's
- cgroup
-Date: Mon, 31 May 2010 09:00:01 +0200
-Message-ID: <4C035E71.7000106@kernel.org>
-References: <20100527091426.GA6308@redhat.com> <20100527124448.GA4241@redhat.com> <20100527131254.GB7974@redhat.com> <4BFE9ABA.6030907@kernel.org> <20100527163954.GA21710@redhat.com> <4BFEA434.6080405@kernel.org> <20100527173207.GA21880@redhat.com> <4BFEE216.2070807@kernel.org> <20100528150830.GB21880@redhat.com> <4BFFE742.2060205@kernel.org> <20100530112925.GB27611@redhat.com> <4C02C987.6020805@kernel.org> <4C030BC1.6000607@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] mac8390: change an error return code and some cleanup,
+ take 4
+Date: Mon, 31 May 2010 00:19:47 -0700 (PDT)
+Message-ID: <20100531.001947.193703044.davem@davemloft.net>
+References: <alpine.OSX.2.00.1004171258330.358@localhost>
+	<20100421.163041.158540277.davem@davemloft.net>
+	<alpine.OSX.2.00.1005290255580.691@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
-To: Li Zefan <lizf@cn.fujitsu.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C030BC1.6000607@cn.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: joe@perches.com, p_gortmaker@yahoo.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-m68k@vger.kernel.org
+To: fthain@telegraphics.com.au
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <alpine.OSX.2.00.1005290255580.691@localhost>
+Sender: linux-m68k-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/31/2010 03:07 AM, Li Zefan wrote:
-> 04:24, Tejun Heo wrote:
->> From: Sridhar Samudrala <samudrala.sridhar@gmail.com>
->>
->> Add a new kernel API to attach a task to current task's cgroup
->> in all the active hierarchies.
->>
->> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-> 
-> Acked-by: Li Zefan <lizf@cn.fujitsu.com>
-> 
-> btw: you lost the reviewed-by tag given by Paul Menage.
+From: Finn Thain <fthain@telegraphics.com.au>
+Date: Sat, 29 May 2010 03:29:01 +1000 (EST)
 
-I only got bounced the original posting.  Michael, can you please add
-it if/when you commit these?
+> @@ -662,7 +665,7 @@ static void mac8390_no_reset(struct net_
+>  {
+>  	ei_status.txing = 0;
+>  	if (ei_debug > 1)
+> -		pr_info("reset not supported\n");
+> +		printk(KERN_DEBUG pr_fmt("reset not supported\n"));
+>  	return;
 
-Thank you.
+Use pr_debug() or pr_devel().   Anything which explicitly codes
+out a "printk(KERN_*" is suspect, we have interfaces for this. The
+whole point of defining pr_fmt at the top of the driver is so
+that in the driver, we use pr_foo() which includes the pr_fmt
+string at the beginning.  If you bypass it you avoid the intended
+effect of that pr_fmt define.
 
--- 
-tejun
+This is getting tiring Finn.
+
+So we're already past 4 iterations of this silly simple patch, and I
+want to remind you yet again what an incredibly hard time you gave Joe
+Perches for his changes to this file which in the end were entirely
+correct and well formed, and he got it right on his first attempt.
+
+I advise you to think twice before snapping at another developer's
+work in the future.
