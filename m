@@ -1,55 +1,34 @@
-From: <Narendra_K@Dell.com>
-Subject: RE: [PATCH 1/2] Export firmware assigned labels of network devices to sysfs
-Date: Mon, 31 May 2010 13:25:34 +0530
-Message-ID: <EDA0A4495861324DA2618B4C45DCB3EE61285B@blrx3m08.blr.amer.dell.com>
-References: <20100528115520.GA24114@littleblue.us.dell.com> <20100528154041.GA27186@kroah.com> <20100528181100.GA12806@auslistsprd01.us.dell.com>
+From: Meelis Roos <mroos@linux.ee>
+Subject: Fore 200 firmware
+Date: Mon, 31 May 2010 11:06:31 +0300 (EEST)
+Message-ID: <alpine.SOC.1.00.1005311058180.2805@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <linux-hotplug@vger.kernel.org>,
-	<linux-pci@vger.kernel.org>, <Jordan_Hargrave@Dell.com>,
-	<Charles_Rose@Dell.com>, <Vijay_Nijhawan@Dell.com>
-To: <Matt_Domsch@Dell.com>, <greg@kroah.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <20100528181100.GA12806@auslistsprd01.us.dell.com>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Chas Williams <chas@cmf.nrl.navy.mil>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.it.da.ut.ee ([193.40.5.67]:38502 "EHLO smtp2.it.da.ut.ee"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751717Ab0EaIcI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 May 2010 04:32:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Matt Domsch [mailto:Matt_Domsch@dell.com]
-> Sent: Friday, May 28, 2010 11:41 PM
-> To: Greg KH
-> Cc: K, Narendra; netdev@vger.kernel.org;
-linux-hotplug@vger.kernel.org;
-> linux-pci@vger.kernel.org; Hargrave, Jordan; Rose, Charles; Nijhawan,
-> Vijay
-> Subject: Re: [PATCH 1/2] Export firmware assigned labels of network
-> devices to sysfs
-> 
-> On Fri, May 28, 2010 at 08:40:41AM -0700, Greg KH wrote:
-> > On Fri, May 28, 2010 at 06:55:21AM -0500, K, Narendra wrote:
-> > > +static const char dell_dsm_uuid[] = {
-> >
-> > Um, a dell specific uuid in a generic file?  What happens when we
-> need
-> > to support another manufacturer?
-> >
-> > > +       0xD0, 0x37, 0xC9, 0xE5, 0x53, 0x35, 0x7A, 0x4D,
-> > > +       0x91, 0x17, 0xEA, 0x4D, 0x19, 0xC3, 0x43, 0x4D
-> > > +};
-> 
-> This simply needs to be renamed.  It's defined in the ECN, so will be
-> part of the spec, and is not vendor-unique, but defined once for all
-> implementations.  It separates this _DSM function from others.
-> 
-> Thanks for the quick feedback.
+Hello,
 
-Matt,
+commit 9c54004ea717116a10886e254e26502ffb1136e9 (atm: [fore200e] 
+convert to use request_firmware()) made the fore driver user 
+request_firmware() but also removed the building of firmware image.
 
-Thanks for the clarification. My understanding of the uuid was
-incorrect. Would address this in the next version of the patch.
+So the current state is that drivers/atm contains the C dump of fore 200 
+firmware in drivers/atm/fore200e_pca_fw.c but this firmware is not built 
+and not installed by make install. It's also not present in 
+linux-firware tree/packages so the fore driver can not load its firmware 
+from anywhere. I guess this is not the intended outcome.
 
-With regards,
-Narendra K
+Should we move the firmware to linux-firmware repository and remove 
+drivers/atm/fore200e_pca_fw.c or should we convert and install the 
+firmware in kernel build system?
+
+-- 
+Meelis Roos (mroos@linux.ee)
