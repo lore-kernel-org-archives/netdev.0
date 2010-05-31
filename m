@@ -1,110 +1,71 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [PATCH 1/3] vhost: replace vhost_workqueue with per-vhost
-	kthread
-Date: Mon, 31 May 2010 16:39:45 +0200
-Message-ID: <20100531143945.GA6497@redhat.com>
-References: <20100527131254.GB7974@redhat.com> <4BFE9ABA.6030907@kernel.org> <20100527163954.GA21710@redhat.com> <4BFEA434.6080405@kernel.org> <20100527173207.GA21880@redhat.com> <4BFEE216.2070807@kernel.org> <20100528150830.GB21880@redhat.com> <4BFFE742.2060205@kernel.org> <20100530112925.GB27611@redhat.com> <4C02C961.9050606@kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] mac8390: change an error return code and some cleanup,
+ take 4
+Date: Mon, 31 May 2010 08:08:13 -0700
+Message-ID: <1275318493.6503.206.camel@Joe-Laptop.home>
+References: <alpine.OSX.2.00.1004171258330.358@localhost>
+	 <20100421.163041.158540277.davem@davemloft.net>
+	 <alpine.OSX.2.00.1005290255580.691@localhost>
+	 <20100531.001947.193703044.davem@davemloft.net>
+	 <alpine.LNX.2.00.1005311905520.469@nippy.intranet>
+	 <AANLkTilkooBglbk33yDHmk8c_ZdlamOW8FVvuvjQaNsF@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4C02C961.9050606@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: fthain@telegraphics.com.au, David Miller <davem@davemloft.net>,
+	p_gortmaker@yahoo.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-m68k@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <AANLkTilkooBglbk33yDHmk8c_ZdlamOW8FVvuvjQaNsF@mail.gmail.com>
+Sender: linux-m68k-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/30, Tejun Heo wrote:
->
-> This conversion is to make each vhost use a dedicated kthread so that
-> resource control via cgroup can be applied.
+On Mon, 2010-05-31 at 11:58 +0200, Geert Uytterhoeven wrote:
+> > To make it plain: there are 25 files or so that use ei_debug. Three of
+> > those that now have the KERN_DEBUG printk's suppresed by the DEBUG macro
+> > only do so as an apparently unintended side effect of a commit that claims
+> > to "implement dynmic debug infrastructure". (Go figure.)
+> >
+> > http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commitdiff;h=dd0fab5b940c0b65f26ac5b01485bac1f690ace6
+> >
+> > Your suggestion to use pr_debug is invoking compile time infrastructure
+> > (the DEBUG macro), so it is not in the spirit of this commit, and it is
+> > not relevant to any criticism from you or Joe of the earlier submissions.
+> >
+> > Please apply the patch.
+> 
+> `pr_debug()' indeed now may generate code if DEBUG is not defined,
+> i.e. if CONFIG_DYNAMIC_DEBUG is enabled.
+> This is intented for debug infrastructure the user may want to enable later.
+> 
+> If you want the old behavior, you can use `pr_devel()' instead, which
+> only generates code if DEBUG is defined.
+> This is intended for debug infrastructure for developers only.
+> 
+> However, you used `printk(KERN_DEBUG pr_fmt()...)`, which always generates code.
+> I'm still not 100% sure that was intentional?
 
-Personally, I agree. I think This is better than play with workqueue thread.
+There are many uses of KERN_DEBUG that are reasonable to have
+always enabled.
 
-A couple of simple questions after the quick glance at the unapplied patch...
+There is no pr_<level> macro/function that is always enabled.
 
->  void vhost_poll_flush(struct vhost_poll *poll)
->  {
-> -	flush_work(&poll->work);
-> +	int seq = poll->queue_seq;
-> +
-> +	if (seq - poll->done_seq > 0)
-> +		wait_event(poll->done, seq - poll->done_seq <= 0);
+David, would you accept a new pr_<level> in kernel.h
+for that purpose?
 
-The check before wait_event() is not needed, please note that wait_event()
-checks the condition before __wait_event().
+If so, do you have an opinion what it should be named?
 
-What I can't understand is why we do have ->queue_seq and ->done_seq.
+I think pr_dbg is not ideal as dev_dbg is already in use
+and can get optimized away.
 
-Isn't the single "bool poll->active" enough? vhost_poll_queue() sets
-->active == T, vhost_poller() clears it before wake_up_all(poll->done).
+Maybe one of:
 
-> +static int vhost_poller(void *data)
-> +{
-> +	struct vhost_dev *dev = data;
-> +	struct vhost_poll *poll;
-> +
-> +repeat:
-> +	set_current_state(TASK_INTERRUPTIBLE);	/* mb paired w/ kthread_stop */
+	pr_always_dbg
+	pr_dbg_always
+	pr_dbg_noopt
+	pr_tdbg
 
-I don't understand the comment... why do we need this barrier?
+or something better?  Anyone else?
 
-> +	if (kthread_should_stop()) {
-> +		__set_current_state(TASK_RUNNING);
-> +		return 0;
-> +	}
-> +
-> +	poll = NULL;
-> +	spin_lock(&dev->poller_lock);
-> +	if (!list_empty(&dev->poll_list)) {
-> +		poll = list_first_entry(&dev->poll_list,
-> +					struct vhost_poll, node);
-> +		list_del_init(&poll->node);
-> +	}
-> +	spin_unlock(&dev->poller_lock);
-> +
-> +	if (poll) {
-> +		__set_current_state(TASK_RUNNING);
-> +		poll->fn(poll);
-> +		smp_wmb();	/* paired with rmb in vhost_poll_flush() */
-> +		poll->done_seq = poll->queue_seq;
-> +		wake_up_all(&poll->done);
-> +	} else
-> +		schedule();
-> +
-> +	goto repeat;
-> +}
-
-Given that vhost_poll_queue() does list_add() and wake_up_process() under
-->poller_lock, I don't think we need any barriers to change ->state.
-
-IOW, can't vhost_poller() simply do
-
-	while(!kthread_should_stop()) {
-
-		poll = NULL;
-		spin_lock(&dev->poller_lock);
-		if (!list_empty(&dev->poll_list)) {
-			...
-		} else
-			 __set_current_state(TASK_INTERRUPTIBLE);
-		spin_unlock(&dev->poller_lock);
-
-		if (poll) {
-			...
-		} else
-			schedule();
-	}
-
-?
-
-Oleg.
+http://lkml.org/lkml/2009/10/1/399
