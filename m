@@ -1,139 +1,37 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH 1/3] vhost: replace vhost_workqueue with per-vhost	kthread
-Date: Mon, 31 May 2010 17:07:42 +0200
-Message-ID: <4C03D0BE.1040601@kernel.org>
-References: <20100527131254.GB7974@redhat.com> <4BFE9ABA.6030907@kernel.org> <20100527163954.GA21710@redhat.com> <4BFEA434.6080405@kernel.org> <20100527173207.GA21880@redhat.com> <4BFEE216.2070807@kernel.org> <20100528150830.GB21880@redhat.com> <4BFFE742.2060205@kernel.org> <20100530112925.GB27611@redhat.com> <4C02C961.9050606@kernel.org> <20100531143945.GA6497@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] mac8390: change an error return code and some cleanup,
+ take 4
+Date: Mon, 31 May 2010 08:14:12 -0700 (PDT)
+Message-ID: <20100531.081412.27799681.davem@davemloft.net>
+References: <alpine.LNX.2.00.1005311905520.469@nippy.intranet>
+	<AANLkTilkooBglbk33yDHmk8c_ZdlamOW8FVvuvjQaNsF@mail.gmail.com>
+	<1275318493.6503.206.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
-To: Oleg Nesterov <oleg@redhat.com>
+Cc: geert@linux-m68k.org, fthain@telegraphics.com.au,
+	p_gortmaker@yahoo.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-m68k@vger.kernel.org
+To: joe@perches.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100531143945.GA6497@redhat.com>
+In-Reply-To: <1275318493.6503.206.camel@Joe-Laptop.home>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+From: Joe Perches <joe@perches.com>
+Date: Mon, 31 May 2010 08:08:13 -0700
 
-On 05/31/2010 04:39 PM, Oleg Nesterov wrote:
-> On 05/30, Tejun Heo wrote:
->>
->> This conversion is to make each vhost use a dedicated kthread so that
->> resource control via cgroup can be applied.
-> 
-> Personally, I agree. I think This is better than play with workqueue thread.
+> There are many uses of KERN_DEBUG that are reasonable to have
+> always enabled.
 
-Yeap, I think so too.  In vhost's case tho, as it exports a lot of
-workqueue characteristics to vhost users, it's a bit more complex than
-I wish it were.  It can probably be simplified more if someone who
-knows the code better takes a look or maybe we need to make this kind
-of things easier by providing a generic helpers if more cases like
-this spring up, but if that happens probably the RTTD would be somehow
-teaching workqueue how to deal with cgroups.  As this is the first
-case, I guess open coding is okay for now.
+Doubtful.
 
-> A couple of simple questions after the quick glance at the unapplied patch...
-> 
->>  void vhost_poll_flush(struct vhost_poll *poll)
->>  {
->> -	flush_work(&poll->work);
->> +	int seq = poll->queue_seq;
->> +
->> +	if (seq - poll->done_seq > 0)
->> +		wait_event(poll->done, seq - poll->done_seq <= 0);
-> 
-> The check before wait_event() is not needed, please note that wait_event()
-> checks the condition before __wait_event().
+pr_debug() makes a ton of sense as currently implemented.
+It's for messages that we want both compile time and
+run-time control over.
 
-Heh... right, I was looking at __wait_event() and thinking "ooh... we
-can skip lock in the fast path".  :-)
-
-> What I can't understand is why we do have ->queue_seq and ->done_seq.
-> 
-> Isn't the single "bool poll->active" enough? vhost_poll_queue() sets
-> ->active == T, vhost_poller() clears it before wake_up_all(poll->done).
-
-I might have slightly over engineered this part not knowing the
-expected workload.  ->queue_seq/->done_seq pair is to guarantee that
-flushers never get starved.  Without sequencing queueings and
-executions, flushers should wait for !pending && !active which can
-take some time to come if the poll in question is very busy.
-
->> +static int vhost_poller(void *data)
->> +{
->> +	struct vhost_dev *dev = data;
->> +	struct vhost_poll *poll;
->> +
->> +repeat:
->> +	set_current_state(TASK_INTERRUPTIBLE);	/* mb paired w/ kthread_stop */
-> 
-> I don't understand the comment... why do we need this barrier?
-
-So that either kthread_stop()'s should_stop = 1 in kthread_stop() is
-visible to kthread_should_stop() or task state is set to RUNNING.
-
->> +	if (kthread_should_stop()) {
->> +		__set_current_state(TASK_RUNNING);
->> +		return 0;
->> +	}
->> +
->> +	poll = NULL;
->> +	spin_lock(&dev->poller_lock);
->> +	if (!list_empty(&dev->poll_list)) {
->> +		poll = list_first_entry(&dev->poll_list,
->> +					struct vhost_poll, node);
->> +		list_del_init(&poll->node);
->> +	}
->> +	spin_unlock(&dev->poller_lock);
->> +
->> +	if (poll) {
->> +		__set_current_state(TASK_RUNNING);
->> +		poll->fn(poll);
->> +		smp_wmb();	/* paired with rmb in vhost_poll_flush() */
->> +		poll->done_seq = poll->queue_seq;
->> +		wake_up_all(&poll->done);
->> +	} else
->> +		schedule();
->> +
->> +	goto repeat;
->> +}
-> 
-> Given that vhost_poll_queue() does list_add() and wake_up_process() under
-> ->poller_lock, I don't think we need any barriers to change ->state.
-> 
-> IOW, can't vhost_poller() simply do
-> 
-> 	while(!kthread_should_stop()) {
-> 
-> 		poll = NULL;
-> 		spin_lock(&dev->poller_lock);
-> 		if (!list_empty(&dev->poll_list)) {
-> 			...
-> 		} else
-> 			 __set_current_state(TASK_INTERRUPTIBLE);
-> 		spin_unlock(&dev->poller_lock);
-> 
-> 		if (poll) {
-> 			...
-> 		} else
-> 			schedule();
-> 	}
-> ?
-
-But then kthread_stop() can happen between kthread_should_stop() and
-__set_current_state(TASK_INTERRUPTIBLE) and poller can just sleep in
-schedule() not knowing that.
-
-Thank you.
-
--- 
-tejun
+The case we have here in mac8390 seems like it should stay
+as pr_info().  Because 1) it's already controlled by a
+run-time knob so controlling it even further is confusing
+and 2) the message is "informative", it lets the user know
+a feature cannot be enabled, thus pr_info().
