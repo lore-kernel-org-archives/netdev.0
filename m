@@ -1,49 +1,38 @@
-From: =?ISO-8859-1?Q?Mart=EDn_Ferrari?= <martin.ferrari@gmail.com>
-Subject: Re: Question about netns & AF_UNIX
-Date: Mon, 31 May 2010 11:19:52 +0200
-Message-ID: <AANLkTim208jFNjlPelRnt849s3isVlyrtSXcLrUzIsZX@mail.gmail.com>
-References: <AANLkTikBuXfzS-UIL7bDMvfpL5lx9gMqHTpGg-jrm5Zv@mail.gmail.com>
-	<87d3whb4jr.fsf@caffeine.danplanet.com>
+From: fthain@telegraphics.com.au
+Subject: Re: [PATCH] mac8390: change an error return code and some cleanup,
+ take 4
+Date: Mon, 31 May 2010 19:21:26 +1000 (EST)
+Message-ID: <alpine.LNX.2.00.1005311905520.469@nippy.intranet>
+References: <alpine.OSX.2.00.1004171258330.358@localhost> <20100421.163041.158540277.davem@davemloft.net> <alpine.OSX.2.00.1005290255580.691@localhost> <20100531.001947.193703044.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
-To: Dan Smith <danms@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:48533 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755889Ab0EaJTz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 May 2010 05:19:55 -0400
-Received: by vws9 with SMTP id 9so467246vws.19
-        for <netdev@vger.kernel.org>; Mon, 31 May 2010 02:19:52 -0700 (PDT)
-In-Reply-To: <87d3whb4jr.fsf@caffeine.danplanet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Hi,
-
-On Thu, May 27, 2010 at 20:08, Dan Smith <danms@us.ibm.com> wrote:
-
-> If you are in different network namespaces, the binding of UNIX
-> sockets is also kept separate. =A0Even though the filesystem is share=
-d,
-> this seems to make the most sense to me.
-
-To me it was the opposite, I thought natural that UNIX sockets would
-continue to work, at least when they are bound to a filesystem entry.
-Also it is a nice and clean way to communicate across namespaces
-without assuming lots of things about the network configuration.
-
->=A0Named pipes on the
-> filesystem would still be shared, by the way.
-
-Yes, today I've tried with named pipes and worked. It's just that they
-aren't as nice as UNIX sockets :)
-
-Thanks.
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: joe@perches.com, p_gortmaker@yahoo.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-m68k@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <20100531.001947.193703044.davem@davemloft.net>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+On Mon, 31 May 2010, David Miller wrote:
 
---=20
-Mart=EDn Ferrari
+> This is getting tiring Finn.
+
+I agree. My patch addresses all of the criticism of the earlier 
+submissions.
+
+To make it plain: there are 25 files or so that use ei_debug. Three of 
+those that now have the KERN_DEBUG printk's suppresed by the DEBUG macro 
+only do so as an apparently unintended side effect of a commit that claims 
+to "implement dynmic debug infrastructure". (Go figure.)
+
+http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commitdiff;h=dd0fab5b940c0b65f26ac5b01485bac1f690ace6
+
+Your suggestion to use pr_debug is invoking compile time infrastructure 
+(the DEBUG macro), so it is not in the spirit of this commit, and it is 
+not relevant to any criticism from you or Joe of the earlier submissions.
+
+Please apply the patch.
+
+Finn
