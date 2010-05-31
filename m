@@ -1,66 +1,51 @@
-From: Anatolij Gustschin <agust@denx.de>
-Subject: [PATCH] can: mpc5xxx_can.c: Fix build failure
-Date: Mon, 31 May 2010 18:31:39 +0200
-Message-ID: <1275323499-15543-1-git-send-email-agust@denx.de>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Anatolij Gustschin <agust@denx.de>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Grant Likely <grant.likely@secretlab.ca>
-To: netdev@vger.kernel.org, socketcan-core@lists.berlios.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-out.m-online.net ([212.18.0.9]:38414 "EHLO
-	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751194Ab0EaQb6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 May 2010 12:31:58 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben McKeegan <ben@netservers.co.uk>
+Subject: Re: [Patch] fix packet loss and massive ping spikes with PPP multi-link
+Date: Mon, 31 May 2010 17:20:29 +0100
+Message-ID: <4C03E1CD.4000809@netservers.co.uk>
+References: <2d460de71003260850x7f90d04cy79ac853464108182@mail.gmail.com> <20100326160226.0159ac3b@lxorguk.ukuu.org.uk> <4BACE827.4070006@gmail.com> <20100326170428.6c1ad66c@lxorguk.ukuu.org.uk> <4BB31E00.8060204@netservers.co.uk> <20100529021624.GA2538@brick.ozlabs.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	"Alexander E. Patrakov" <patrakov@gmail.com>,
+	Richard Hartmann <richih.mailinglist@gmail.com>,
+	linux-kernel@vger.kernel.org
+To: Paul Mackerras <paulus@samba.org>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <20100529021624.GA2538@brick.ozlabs.ibm.com>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fixes build error caused by the OF device_node pointer
-being moved into struct device.
+Paul Mackerras wrote:
 
-Signed-off-by: Anatolij Gustschin <agust@denx.de>
-Cc: Wolfgang Grandegger <wg@grandegger.com>
-Cc: Grant Likely <grant.likely@secretlab.ca>
----
- drivers/net/can/mscan/mpc5xxx_can.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+>> I needed to do something similar a while back and I took a very
+>> different approach, which I think is more flexible.   Rather than
+>> implement a new round-robin scheduler I simply introduced a target
+>> minimum fragment size into the fragment size calculation, as a per
+>> bundle parameter that can be configured via a new ioctl.  This
+>> modifies the algorithm so that it tries to limit the number of
+>> fragments such that each fragment is at least the minimum size.  If
+>> the minimum size is greater than the packet size it will not be
+>> fragmented all but will instead just get sent down the next
+>> available channel.
+>>
+>> A pppd plugin generates the ioctl call allowing this to be tweaked
+>> per connection.  It is more flexible in that you can still have the
+>> larger packets fragmented if you wish.
+> 
+> I like this a lot better than the other proposed patch.  It adds less
+> code because it uses the fact that ppp_mp_explode() already has a
+> round-robin capability using the ppp->nxchan field, plus it provides a
+> way to control it per bundle via pppd.
+> 
+> If you fix up the indentation issues (2-space indent in some of the
+> added code -- if you're using emacs, set c-basic-offset to 8), I'll
+> ack it and hopefully DaveM will pick it up.
 
-diff --git a/drivers/net/can/mscan/mpc5xxx_can.c b/drivers/net/can/mscan/mpc5xxx_can.c
-index 8af8442..f48deaf 100644
---- a/drivers/net/can/mscan/mpc5xxx_can.c
-+++ b/drivers/net/can/mscan/mpc5xxx_can.c
-@@ -152,7 +152,7 @@ static u32 __devinit mpc512x_can_get_clock(struct of_device *ofdev,
- 	}
- 
- 	/* Determine the MSCAN device index from the physical address */
--	pval = of_get_property(ofdev->node, "reg", &plen);
-+	pval = of_get_property(ofdev->dev.of_node, "reg", &plen);
- 	BUG_ON(!pval || plen < sizeof(*pval));
- 	clockidx = (*pval & 0x80) ? 1 : 0;
- 	if (*pval & 0x2000)
-@@ -168,11 +168,11 @@ static u32 __devinit mpc512x_can_get_clock(struct of_device *ofdev,
- 	 */
- 	if (clock_name && !strcmp(clock_name, "ip")) {
- 		*mscan_clksrc = MSCAN_CLKSRC_IPS;
--		freq = mpc5xxx_get_bus_frequency(ofdev->node);
-+		freq = mpc5xxx_get_bus_frequency(ofdev->dev.of_node);
- 	} else {
- 		*mscan_clksrc = MSCAN_CLKSRC_BUS;
- 
--		pval = of_get_property(ofdev->node,
-+		pval = of_get_property(ofdev->dev.of_node,
- 				       "fsl,mscan-clock-divider", &plen);
- 		if (pval && plen == sizeof(*pval))
- 			clockdiv = *pval;
-@@ -251,7 +251,7 @@ static int __devinit mpc5xxx_can_probe(struct of_device *ofdev,
- 				       const struct of_device_id *id)
- {
- 	struct mpc5xxx_can_data *data = (struct mpc5xxx_can_data *)id->data;
--	struct device_node *np = ofdev->node;
-+	struct device_node *np = ofdev->dev.of_node;
- 	struct net_device *dev;
- 	struct mscan_priv *priv;
- 	void __iomem *base;
--- 
-1.7.0.4
+Okay, I'll fix it up when I'm back at work Tuesday and submit (today is 
+a UK public holiday) and also dig out and fix up the userspace code to 
+go with it.
+
+Ben.
 
