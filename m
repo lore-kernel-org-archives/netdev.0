@@ -1,38 +1,75 @@
-From: Junchang Wang <junchangwang@gmail.com>
-Subject: Re: [Patch]8139too: remove unnecessary cast of ioread32()'s return
- value
-Date: Mon, 31 May 2010 08:22:12 +0800
-Message-ID: <20100531002210.GA4388@host-a-55.ustcsz.edu.cn>
-References: <20100530122213.GB1146@host-a-55.ustcsz.edu.cn>
- <4C02A1F7.6030701@garzik.org>
+From: James Morris <jmorris@namei.org>
+Subject: Re: [audit] Suppress runtime loading of audit module.
+Date: Mon, 31 May 2010 10:27:43 +1000 (EST)
+Message-ID: <alpine.LRH.2.00.1005311026560.24571@tundra.namei.org>
+References: <201005242057.EBJ00004.JOOFVHLFFQOStM@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: Jeff Garzik <jeff@garzik.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f204.google.com ([209.85.222.204]:65227 "EHLO
-	mail-pz0-f204.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751582Ab0EaAV5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 May 2010 20:21:57 -0400
-Received: by pzk42 with SMTP id 42so1392248pzk.4
-        for <netdev@vger.kernel.org>; Sun, 30 May 2010 17:21:56 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4C02A1F7.6030701@garzik.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Audit-ML <linux-audit@redhat.com>,
+	linux-security-module@vger.kernel.org, netdev@vger.kernel.org
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <201005242057.EBJ00004.JOOFVHLFFQOStM@I-love.SAKURA.ne.jp>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, May 30, 2010 at 01:35:51PM -0400, Jeff Garzik wrote:
->
->Have you verified this matches all architectures definition of readl()?
->
+Might be best for the networking folk to look at this.
 
-Hi Jeff,
 
-Thanks for your question. Just browsed the kernel. ioread32() returns either 
-unsigned int or u32 in all arches. There is no arch that uses unsigned long 
-or something else.
 
-Secondly, There's a bug if an arch returns unsigned long. What happen when 
-programmers invoke sizeof(ioread32()) on 64-bit platforms?
+On Mon, 24 May 2010, Tetsuo Handa wrote:
 
---Junchang
+> I noticed that request_module("net-pf-16-proto-9") is issued whenever 'Enter'
+> key is pressed if CONFIG_AUDIT=n and console is /dev/tty0 . net-pf-16-proto-9
+> is known as audit but CONFIG_AUDIT is "bool". Therefore, trying to load
+> net-pf-16-proto-9 at runtime does not make sense.
+> 
+> Call trace obtained by inserting WARN_ON(protocol == 9);
+> ------------[ cut here ]------------
+> WARNING: at net/netlink/af_netlink.c:450 netlink_create+0x1cd/0x1e0()
+> Hardware name: VMware Virtual Platform
+> Modules linked in: mptspi mptscsih mptbase scsi_transport_spi ext3 jbd mbcache
+> Pid: 1, comm: bash Not tainted 2.6.34 #10
+> Call Trace:
+>  [<c06227ad>] ? netlink_create+0x1cd/0x1e0
+>  [<c043c9cc>] warn_slowpath_common+0x7c/0xa0
+>  [<c06227ad>] ? netlink_create+0x1cd/0x1e0
+>  [<c043ca05>] warn_slowpath_null+0x15/0x20
+>  [<c06227ad>] netlink_create+0x1cd/0x1e0
+>  [<c0600790>] ? __sock_create+0xe0/0x240
+>  [<c06225e0>] ? netlink_create+0x0/0x1e0
+>  [<c06007b8>] __sock_create+0x108/0x240
+>  [<c060072e>] ? __sock_create+0x7e/0x240
+>  [<c060095a>] sock_create+0x3a/0x50
+>  [<c0600ae6>] sys_socket+0x36/0x60
+>  [<c0601f69>] sys_socketcall+0x89/0x290
+>  [<c0402b83>] ? sysenter_exit+0xf/0x18
+>  [<c0524db4>] ? trace_hardirqs_on_thunk+0xc/0x10
+>  [<c0402b50>] sysenter_do_call+0x12/0x36
+> ---[ end trace 4da698b4c0bf1613 ]---
+> 
+> Signed-off-by: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+> ---
+>  net/netlink/af_netlink.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> --- linux-2.6.34.orig/net/netlink/af_netlink.c
+> +++ linux-2.6.34/net/netlink/af_netlink.c
+> @@ -446,7 +446,7 @@ static int netlink_create(struct net *ne
+>  
+>  	netlink_lock_table();
+>  #ifdef CONFIG_MODULES
+> -	if (!nl_table[protocol].registered) {
+> +	if (!nl_table[protocol].registered && protocol != 9) {
+>  		netlink_unlock_table();
+>  		request_module("net-pf-%d-proto-%d", PF_NETLINK, protocol);
+>  		netlink_lock_table();
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+
+-- 
+James Morris
+<jmorris@namei.org>
