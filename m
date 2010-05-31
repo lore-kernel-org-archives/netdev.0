@@ -1,62 +1,107 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] mac8390: change an error return code and some cleanup,
-	take 4
-Date: Mon, 31 May 2010 11:58:30 +0200
-Message-ID: <AANLkTilkooBglbk33yDHmk8c_ZdlamOW8FVvuvjQaNsF@mail.gmail.com>
-References: <alpine.OSX.2.00.1004171258330.358@localhost>
-	<20100421.163041.158540277.davem@davemloft.net>
-	<alpine.OSX.2.00.1005290255580.691@localhost>
-	<20100531.001947.193703044.davem@davemloft.net>
-	<alpine.LNX.2.00.1005311905520.469@nippy.intranet>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH UPDATED2 3/3] vhost: apply cpumask and cgroup to vhost
+ pollers
+Date: Mon, 31 May 2010 12:20:39 +0200
+Message-ID: <4C038D77.3060508@kernel.org>
+References: <20100527091426.GA6308@redhat.com> <20100527124448.GA4241@redhat.com> <20100527131254.GB7974@redhat.com> <4BFE9ABA.6030907@kernel.org> <20100527163954.GA21710@redhat.com> <4BFEA434.6080405@kernel.org> <20100527173207.GA21880@redhat.com> <4BFEE216.2070807@kernel.org> <20100528150830.GB21880@redhat.com> <4BFFE742.2060205@kernel.org> <20100530112925.GB27611@redhat.com> <4C02C99D.9070204@kernel.org> <4C030CB8.505@cn.fujitsu.com> <4C035E22.9010001@kernel.org> <4C0369CD.70008@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, joe@perches.com,
-	p_gortmaker@yahoo.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-m68k@vger.kernel.org
-To: fthain@telegraphics.com.au
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1005311905520.469@nippy.intranet>
-Sender: linux-m68k-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
+To: Li Zefan <lizf@cn.fujitsu.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4C0369CD.70008@cn.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 31, 2010 at 11:21,  <fthain@telegraphics.com.au> wrote:
-> On Mon, 31 May 2010, David Miller wrote:
->> This is getting tiring Finn.
->
-> I agree. My patch addresses all of the criticism of the earlier
-> submissions.
->
-> To make it plain: there are 25 files or so that use ei_debug. Three of
-> those that now have the KERN_DEBUG printk's suppresed by the DEBUG macro
-> only do so as an apparently unintended side effect of a commit that claims
-> to "implement dynmic debug infrastructure". (Go figure.)
->
-> http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commitdiff;h=dd0fab5b940c0b65f26ac5b01485bac1f690ace6
->
-> Your suggestion to use pr_debug is invoking compile time infrastructure
-> (the DEBUG macro), so it is not in the spirit of this commit, and it is
-> not relevant to any criticism from you or Joe of the earlier submissions.
->
-> Please apply the patch.
+Apply the cpumask and cgroup of the initializing task to the created
+vhost poller.
 
-`pr_debug()' indeed now may generate code if DEBUG is not defined,
-i.e. if CONFIG_DYNAMIC_DEBUG is enabled.
-This is intented for debug infrastructure the user may want to enable later.
+Based on Sridhar Samudrala's patch.  Li Zefan spotted a bug in error
+path (twice), fixed (twice).
 
-If you want the old behavior, you can use `pr_devel()' instead, which
-only generates code if DEBUG is defined.
-This is intended for debug infrastructure for developers only.
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Cc: Sridhar Samudrala <samudrala.sridhar@gmail.com>
+Cc: Li Zefan <lizf@cn.fujitsu.com>
+---
+Heh... that's embarrassing.  Let's see if I can get it right the third
+time.
 
-However, you used `printk(KERN_DEBUG pr_fmt()...)`, which always generates code.
-I'm still not 100% sure that was intentional?
+Thank you.
 
-Gr{oetje,eeting}s,
+ drivers/vhost/vhost.c |   36 ++++++++++++++++++++++++++++++++----
+ 1 file changed, 32 insertions(+), 4 deletions(-)
 
-						Geert
+Index: work/drivers/vhost/vhost.c
+===================================================================
+--- work.orig/drivers/vhost/vhost.c
++++ work/drivers/vhost/vhost.c
+@@ -23,6 +23,7 @@
+ #include <linux/highmem.h>
+ #include <linux/slab.h>
+ #include <linux/kthread.h>
++#include <linux/cgroup.h>
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+ #include <linux/net.h>
+ #include <linux/if_packet.h>
+@@ -177,11 +178,29 @@ long vhost_dev_init(struct vhost_dev *de
+ 		    struct vhost_virtqueue *vqs, int nvqs)
+ {
+ 	struct task_struct *poller;
+-	int i;
++	cpumask_var_t mask;
++	int i, ret = -ENOMEM;
++
++	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
++		goto out_free_mask;
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
+ 	poller = kthread_create(vhost_poller, dev, "vhost-%d", current->pid);
+-	if (IS_ERR(poller))
+-		return PTR_ERR(poller);
++	if (IS_ERR(poller)) {
++		ret = PTR_ERR(poller);
++		goto out_free_mask;
++	}
++
++	ret = sched_getaffinity(current->pid, mask);
++	if (ret)
++		goto out_stop_poller;
++
++	ret = sched_setaffinity(poller->pid, mask);
++	if (ret)
++		goto out_stop_poller;
++
++	ret = cgroup_attach_task_current_cg(poller);
++	if (ret)
++		goto out_stop_poller;
+
+ 	dev->vqs = vqs;
+ 	dev->nvqs = nvqs;
+@@ -202,7 +221,16 @@ long vhost_dev_init(struct vhost_dev *de
+ 			vhost_poll_init(&dev->vqs[i].poll,
+ 					dev->vqs[i].handle_kick, POLLIN, dev);
+ 	}
+-	return 0;
++
++	wake_up_process(poller);	/* avoid contributing to loadavg */
++	ret = 0;
++	goto out_free_mask;
++
++out_stop_poller:
++	kthread_stop(poller);
++out_free_mask:
++	free_cpumask_var(mask);
++	return ret;
+ }
+
+ /* Caller should have device mutex */
