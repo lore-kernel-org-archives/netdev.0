@@ -1,37 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 4/4] atm: [he] rewrite buffer handling in
- receive path
-Date: Mon, 31 May 2010 00:33:28 -0700 (PDT)
-Message-ID: <20100531.003328.15260135.davem@davemloft.net>
-References: <201005291905.o4TJ5XrX006431@thirdoffive.cmf.nrl.navy.mil>
+Subject: Re: [Patch]8139too: remove unnecessary cast of ioread32()'s return
+ value
+Date: Mon, 31 May 2010 00:33:39 -0700 (PDT)
+Message-ID: <20100531.003339.242155242.davem@davemloft.net>
+References: <20100530122213.GB1146@host-a-55.ustcsz.edu.cn>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: chas@cmf.nrl.navy.mil
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
+To: junchangwang@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37715
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37720
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756624Ab0EaHdS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 May 2010 03:33:18 -0400
-In-Reply-To: <201005291905.o4TJ5XrX006431@thirdoffive.cmf.nrl.navy.mil>
+	by vger.kernel.org with ESMTP id S1753516Ab0EaHd3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 May 2010 03:33:29 -0400
+In-Reply-To: <20100530122213.GB1146@host-a-55.ustcsz.edu.cn>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Date: Sat, 29 May 2010 15:05:33 -0400
+From: Junchang Wang <junchangwang@gmail.com>
+Date: Sun, 30 May 2010 20:22:14 +0800
 
-> From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+> ioread32() returns a 32-bit integer on all platforms.
+> There is no need to cast its return value.
 > 
-> Author: chas williams - CONTRACTOR <chas@relax.cmf.nrl.navy.mil>
-> Date:   Fri May 28 19:50:47 2010 -0400
-> 
->     atm: [he] rewrite buffer handling in receive path
->     
->     Instead of a fixed list of buffers, use the buffer pool correctly and
->     keep track of the outstanding buffer indexes using a fixed table.
->     Resolves reported HBUF_ERR's -- failures due to lack of receive buffers.
->     
->     Signed-off-by: Chas Williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+> Signed-off-by: Junchang Wang <junchangwang@gmail.com>
 
 Applied.
