@@ -1,50 +1,82 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] net/ipv4/tcp_input.c: fix compilation breakage when
- FASTRETRANS_DEBUG > 1
-Date: Mon, 31 May 2010 11:20:55 -0700
-Message-ID: <1275330055.14079.8.camel@Joe-Laptop.home>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH] can: mpc5xxx_can.c: Fix build failure
+Date: Mon, 31 May 2010 20:27:01 +0200
+Message-ID: <4C03FF75.3010208@grandegger.com>
+References: <1275323499-15543-1-git-send-email-agust@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, socketcan-core@lists.berlios.de,
+	"David S. Miller" <davem@davemloft.net>,
+	Grant Likely <grant.likely@secretlab.ca>
+To: Anatolij Gustschin <agust@denx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:2459 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754760Ab0EaSU5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 May 2010 14:20:57 -0400
+Received: from mail-out.m-online.net ([212.18.0.9]:53899 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751581Ab0EaS1S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 May 2010 14:27:18 -0400
+In-Reply-To: <1275323499-15543-1-git-send-email-agust@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit: c720c7e8383aff1cb219bddf474ed89d850336e3 missed these.
+Hi Anatolij,
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- net/ipv4/tcp_input.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+On 05/31/2010 06:31 PM, Anatolij Gustschin wrote:
+> Fixes build error caused by the OF device_node pointer
+> being moved into struct device.
+> 
+> Signed-off-by: Anatolij Gustschin <agust@denx.de>
+> Cc: Wolfgang Grandegger <wg@grandegger.com>
+> Cc: Grant Likely <grant.likely@secretlab.ca>
+> ---
+>  drivers/net/can/mscan/mpc5xxx_can.c |    8 ++++----
+>  1 files changed, 4 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/can/mscan/mpc5xxx_can.c b/drivers/net/can/mscan/mpc5xxx_can.c
+> index 8af8442..f48deaf 100644
+> --- a/drivers/net/can/mscan/mpc5xxx_can.c
+> +++ b/drivers/net/can/mscan/mpc5xxx_can.c
+> @@ -152,7 +152,7 @@ static u32 __devinit mpc512x_can_get_clock(struct of_device *ofdev,
+>  	}
+>  
+>  	/* Determine the MSCAN device index from the physical address */
+> -	pval = of_get_property(ofdev->node, "reg", &plen);
+> +	pval = of_get_property(ofdev->dev.of_node, "reg", &plen);
+>  	BUG_ON(!pval || plen < sizeof(*pval));
+>  	clockidx = (*pval & 0x80) ? 1 : 0;
+>  	if (*pval & 0x2000)
+> @@ -168,11 +168,11 @@ static u32 __devinit mpc512x_can_get_clock(struct of_device *ofdev,
+>  	 */
+>  	if (clock_name && !strcmp(clock_name, "ip")) {
+>  		*mscan_clksrc = MSCAN_CLKSRC_IPS;
+> -		freq = mpc5xxx_get_bus_frequency(ofdev->node);
+> +		freq = mpc5xxx_get_bus_frequency(ofdev->dev.of_node);
+>  	} else {
+>  		*mscan_clksrc = MSCAN_CLKSRC_BUS;
+>  
+> -		pval = of_get_property(ofdev->node,
+> +		pval = of_get_property(ofdev->dev.of_node,
+>  				       "fsl,mscan-clock-divider", &plen);
+>  		if (pval && plen == sizeof(*pval))
+>  			clockdiv = *pval;
+> @@ -251,7 +251,7 @@ static int __devinit mpc5xxx_can_probe(struct of_device *ofdev,
+>  				       const struct of_device_id *id)
+>  {
+>  	struct mpc5xxx_can_data *data = (struct mpc5xxx_can_data *)id->data;
+> -	struct device_node *np = ofdev->node;
+> +	struct device_node *np = ofdev->dev.of_node;
+>  	struct net_device *dev;
+>  	struct mscan_priv *priv;
+>  	void __iomem *base;
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 3e6dafc..548d575 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2639,7 +2639,7 @@ static void DBGUNDO(struct sock *sk, const char *msg)
- 	if (sk->sk_family == AF_INET) {
- 		printk(KERN_DEBUG "Undo %s %pI4/%u c%u l%u ss%u/%u p%u\n",
- 		       msg,
--		       &inet->daddr, ntohs(inet->dport),
-+		       &inet->inet_daddr, ntohs(inet->inet_dport),
- 		       tp->snd_cwnd, tcp_left_out(tp),
- 		       tp->snd_ssthresh, tp->prior_ssthresh,
- 		       tp->packets_out);
-@@ -2649,7 +2649,7 @@ static void DBGUNDO(struct sock *sk, const char *msg)
- 		struct ipv6_pinfo *np = inet6_sk(sk);
- 		printk(KERN_DEBUG "Undo %s %pI6/%u c%u l%u ss%u/%u p%u\n",
- 		       msg,
--		       &np->daddr, ntohs(inet->dport),
-+		       &np->daddr, ntohs(inet->inet_dport),
- 		       tp->snd_cwnd, tcp_left_out(tp),
- 		       tp->snd_ssthresh, tp->prior_ssthresh,
- 		       tp->packets_out);
+The patch seems incomplete. I get at least one more warning (because
+I'm compiling for 52xx, I guess):
 
+  CC      drivers/net/can/mscan/mpc5xxx_can.o
+drivers/net/can/mscan/mpc5xxx_can.c: In function 'mpc52xx_can_get_clock':
+drivers/net/can/mscan/mpc5xxx_can.c:76: error: 'struct of_device' has no member named 'node'
 
+Should I send v2? Thanks for fixing that. I also checked the
+sja1000_of_platform driver,  which was converted correctly.
+
+Wolfgang.
