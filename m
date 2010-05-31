@@ -1,58 +1,67 @@
-From: Xiaotian Feng <dfeng@redhat.com>
-Subject: [PATCH] netfilter: don't xt_jumpstack_alloc twice in xt_register_table
-Date: Mon, 31 May 2010 19:06:38 +0800
-Message-ID: <1275303998-2435-1-git-send-email-dfeng@redhat.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Xiaotian Feng <dfeng@redhat.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Alexey Dobriyan <adobriyan@gmail.com>
-To: netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: [PATCH] virtio-net: pass gfp to add_buf
+Date: Mon, 31 May 2010 20:40:01 +0930
+Message-ID: <201005312040.01737.rusty@rustcorp.com.au>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2888 "EHLO mx1.redhat.com"
+Received: from ozlabs.org ([203.10.76.45]:58607 "EHLO ozlabs.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751541Ab0EaLHi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 May 2010 07:07:38 -0400
+	id S1751652Ab0EaLKG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 May 2010 07:10:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In xt_register_table, xt_jumpstack_alloc is called first, later
-xt_replace_table is used. But in xt_replace_table, xt_jumpstack_alloc
-will be used again. Then the memory allocated by previous xt_jumpstack_alloc
-will be leaked. We can simply remove the previous xt_jumpstack_alloc because
-there aren't any users of newinfo between xt_jumpstack_alloc and
-xt_replace_table.
+From: "Michael S. Tsirkin" <mst@redhat.com>
 
-Signed-off-by: Xiaotian Feng <dfeng@redhat.com>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Jan Engelhardt <jengelh@medozas.de>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Rusty Russell <rusty@rustcorp.com.au>
-Cc: Alexey Dobriyan <adobriyan@gmail.com>
+(Dave: the virtqueue_add_buf_gfp is in Linus' tree, so please queue
+ this trivial use now.  Thanks!)
+
+virtio-net bounces buffer allocations off to
+a thread if it can't allocate buffers from the atomic
+pool. However, if posting buffers still requires atomic
+buffers, this is unlikely to succeed.
+Fix by passing in the proper gfp_t parameter.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 ---
- net/netfilter/x_tables.c |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+ drivers/net/virtio_net.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index 445de70..47b1e79 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -844,10 +844,6 @@ struct xt_table *xt_register_table(struct net *net,
- 	struct xt_table_info *private;
- 	struct xt_table *t, *table;
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -341,7 +341,7 @@ static int add_recvbuf_small(struct virt
  
--	ret = xt_jumpstack_alloc(newinfo);
--	if (ret < 0)
--		return ERR_PTR(ret);
--
- 	/* Don't add one object to multiple lists. */
- 	table = kmemdup(input_table, sizeof(struct xt_table), GFP_KERNEL);
- 	if (!table) {
--- 
-1.7.0.1
-
+ 	skb_to_sgvec(skb, vi->rx_sg + 1, 0, skb->len);
+ 
+-	err = virtqueue_add_buf(vi->rvq, vi->rx_sg, 0, 2, skb);
++	err = virtqueue_add_buf_gfp(vi->rvq, vi->rx_sg, 0, 2, skb, gfp);
+ 	if (err < 0)
+ 		dev_kfree_skb(skb);
+ 
+@@ -386,8 +386,8 @@ static int add_recvbuf_big(struct virtne
+ 
+ 	/* chain first in list head */
+ 	first->private = (unsigned long)list;
+-	err = virtqueue_add_buf(vi->rvq, vi->rx_sg, 0, MAX_SKB_FRAGS + 2,
+-				       first);
++	err = virtqueue_add_buf_gfp(vi->rvq, vi->rx_sg, 0, MAX_SKB_FRAGS + 2,
++				    first, gfp);
+ 	if (err < 0)
+ 		give_pages(vi, first);
+ 
+@@ -405,7 +405,7 @@ static int add_recvbuf_mergeable(struct 
+ 
+ 	sg_init_one(vi->rx_sg, page_address(page), PAGE_SIZE);
+ 
+-	err = virtqueue_add_buf(vi->rvq, vi->rx_sg, 0, 1, page);
++	err = virtqueue_add_buf_gfp(vi->rvq, vi->rx_sg, 0, 1, page, gfp);
+ 	if (err < 0)
+ 		give_pages(vi, page);
+ 
