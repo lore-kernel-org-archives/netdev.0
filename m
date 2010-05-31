@@ -1,36 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] caif: remove unneeded null check in caif_connect()
-Date: Mon, 31 May 2010 00:32:00 -0700 (PDT)
-Message-ID: <20100531.003200.102574775.davem@davemloft.net>
-References: <20100522204342.GV22515@bicker>
-	<AANLkTikM6_-YgLcBtcxN_TA1ISHkRk6fCEJVOS7pRZel@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] mlx4_en: use net_device dev_id to indicate port number
+Date: Mon, 31 May 2010 00:33:02 -0700 (PDT)
+Message-ID: <20100531.003302.70210008.davem@davemloft.net>
+References: <20100527055624.GA18736@mtldesk030.lab.mtl.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: error27@gmail.com, sjur.brandeland@stericsson.com,
-	eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: sjurbren@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTikM6_-YgLcBtcxN_TA1ISHkRk6fCEJVOS7pRZel@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org, yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org
+To: eli-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100527055624.GA18736-8YAHvHwT2UEvbXDkjdHOrw/a8Rv0c6iv@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Sjur Br=E6ndeland <sjurbren@gmail.com>
-Date: Mon, 24 May 2010 21:56:01 +0200
+From: Eli Cohen <eli-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
+Date: Thu, 27 May 2010 08:56:24 +0300
 
-> Dan Carpenter <error27@gmail.com> wrote:
->> We already dereferenced uaddr towards the start of the function when=
- we
->> checked that "uaddr->sa_family !=3D AF_CAIF". =A0Both the check here=
- and the
->> earlier check were added in bece7b2398d0: "caif: Rewritten socket
->> implementation". =A0Before that patch, we assumed that we recieved a=
- valid
->> pointer for uaddr, and based on that, I have removed this check.
->>
->> Signed-off-by: Dan Carpenter <error27@gmail.com>
-> Thanks Looks good,
-> Acked-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
+> Today, there are no means to know which port of a hardware device a netdev
+> interface uses. struct net_device conatins a field, dev_id, that can be used
+> for that. Use this field to save the port number in ConnectX that is being used
+> by the net device; port numbers are zero based.
+> 
+> Signed-off-by: Eli Cohen <eli-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org>
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
