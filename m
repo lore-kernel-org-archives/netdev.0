@@ -1,54 +1,59 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: [PATCH] IP: Increment INADDRERRORS if routing for a packet is not
- successful
-Date: Tue, 1 Jun 2010 16:13:39 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1006011609280.9438@router.home>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH 00/12] sfc changes for 2.6.36
+Date: Tue, 01 Jun 2010 22:16:07 +0100
+Message-ID: <1275426967.2114.25.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nlpi157.sbcis.sbc.com ([207.115.36.171]:50318 "EHLO
-	nlpi157.prodigy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753044Ab0FAVNq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 17:13:46 -0400
+Received: from mail.solarflare.com ([216.237.3.220]:50325 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754694Ab0FAVQK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 17:16:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Something like this would have been very helpful during recent debugging
-of multicast issues. Silent discards are bad.
+Here's a first series of changes for 2.6.36.
 
+The major feature here is RX buffer recycling, which improves
+performance on networks with heavy multicast traffic.  Other than that,
+there are various bug fixes and cleanup.
 
-If the kernel perceives that something is wrong with an incoming packet then the
-IP stack currently silently discards packets. This makes it difficult to diagnose
-problems with the network configurations (such as a misbehaving kernel
-subsystem discarding multicast packets because the reverse path filter
-does not like multicast subscriptions on the second NIC with rp_filter=1).
+Ben.
 
-It is also necessary to know how many inbound packets are discarded to
-assess networking issues in general with a NIC.
+Ben Hutchings (3):
+  sfc: Rename struct efx_mcdi_phy_cfg to efx_mcdi_phy_data
+  sfc: Only count bad packets in rx_errors
+  sfc: Get port number from CS_PORT_NUM, not PCI function number
 
-Signed-off-by: Christoph Lameter <cl@linux-foundation.org>
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+Steve Hodgson (9):
+  sfc: Reschedule any resets scheduled inside efx_pm_freeze()
+  sfc: Workaround flush failures on Falcon B0
+  sfc: Synchronise link_advertising and wanted_fc on Siena
+  sfc: Wait for the link to stay up before running loopback selftest
+  sfc: Allow DRV_GEN events to be used outside of selftests
+  sfc: Remove efx_rx_queue::add_lock
+  sfc: Support only two rx buffers per page
+  sfc: Recycle discarded rx buffers back onto the queue
+  sfc: Allow shared pages to be recycled
 
----
- net/ipv4/route.c |    3 +++
- 1 file changed, 3 insertions(+)
+ drivers/net/sfc/efx.c         |   69 +++-----
+ drivers/net/sfc/efx.h         |    4 +-
+ drivers/net/sfc/falcon.c      |    8 +-
+ drivers/net/sfc/mcdi_phy.c    |   21 ++-
+ drivers/net/sfc/net_driver.h  |   46 +++--
+ drivers/net/sfc/nic.c         |   55 +++++--
+ drivers/net/sfc/nic.h         |    4 +-
+ drivers/net/sfc/rx.c          |  393 +++++++++++++++++++----------------------
+ drivers/net/sfc/selftest.c    |   26 ++--
+ drivers/net/sfc/siena.c       |    4 +
+ drivers/net/sfc/workarounds.h |    2 +-
+ 11 files changed, 317 insertions(+), 315 deletions(-)
 
-Index: linux-2.6/net/ipv4/route.c
-===================================================================
---- linux-2.6.orig/net/ipv4/route.c	2010-06-01 11:46:10.000000000 -0500
-+++ linux-2.6/net/ipv4/route.c	2010-06-01 11:52:55.000000000 -0500
-@@ -2981,6 +2981,9 @@ static int inet_rtm_getroute(struct sk_b
- 		rt = skb_rtable(skb);
- 		if (err == 0 && rt->u.dst.error)
- 			err = -rt->u.dst.error;
-+		if (err)
-+			IP_INC_STATS_BH(dev_net(skb->dev),
-+					IPSTATS_MIB_INADDRERRORS);
- 	} else {
- 		struct flowi fl = {
- 			.nl_u = {
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
