@@ -1,30 +1,29 @@
-From: Sjur BRENDELAND <sjur.brandeland@stericsson.com>
-Subject: RE: [patch 1/2] caif: remove unneeded variable from caif_net_open()
-Date: Tue, 1 Jun 2010 09:19:06 +0200
-Message-ID: <81C3A93C17462B4BBD7E272753C10579169C3C247B@EXDCVYMBSTM005.EQ1STM.local>
-References: <20100601070855.GD5483@bicker>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] be2net: convert hdr.timeout in be_cmd_loopback_test()
+ to le32
+Date: Tue, 01 Jun 2010 00:19:41 -0700 (PDT)
+Message-ID: <20100601.001941.220043828.davem@davemloft.net>
+References: <20100601070122.GA2608@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <error27@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: sathyap@serverengines.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:60171 "EHLO
-	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753411Ab0FAHTa convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Jun 2010 03:19:30 -0400
-In-Reply-To: <20100601070855.GD5483@bicker>
-Content-Language: en-US
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42469
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753411Ab0FAHTb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 03:19:31 -0400
+In-Reply-To: <20100601070122.GA2608@serverengines.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dan Carpenter wrote:
-> We don't use the "ser" variable so I've removed it.
-> 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+From: Sathya Perla <sathyap@serverengines.com>
+Date: Tue, 1 Jun 2010 12:31:22 +0530
 
-Looks good thanks,
-Acked-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
+> The current code fails on ppc as hdr.timeout is not being converted
+> to le32.
+> 
+> Signed-off-by: Sathya Perla <sathyap@serverengines.com>
+
+Applied.
