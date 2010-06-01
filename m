@@ -1,278 +1,462 @@
-From: sonic zhang <sonic.adi@gmail.com>
-Subject: [PATCH] netdev:bfin_mac: reclaim and free tx skb as soon as
-	possible after transfer
-Date: Tue, 1 Jun 2010 17:19:34 +0800
-Message-ID: <1275383974.1010.5.camel@eight.analog.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: [PATCH 1/3] vhost: replace vhost_workqueue with per-vhost kthread
+Date: Tue, 01 Jun 2010 11:34:19 +0200
+Message-ID: <4C04D41B.4050704@kernel.org>
+References: <20100527163954.GA21710@redhat.com> <4BFEA434.6080405@kernel.org> <20100527173207.GA21880@redhat.com> <4BFEE216.2070807@kernel.org> <20100528150830.GB21880@redhat.com> <4BFFE742.2060205@kernel.org> <20100530112925.GB27611@redhat.com> <4C02C961.9050606@kernel.org> <20100531152221.GB2987@redhat.com> <4C03D983.9010905@kernel.org> <20100531160020.GC3067@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	uclinux-dist-devel <uclinux-dist-devel@blackfin.uclinux.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nwd2mail10.analog.com ([137.71.25.55]:45606 "EHLO
-	nwd2mail10.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753104Ab0FAJKu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 05:10:50 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Oleg Nesterov <oleg@redhat.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100531160020.GC3067@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-SKBs hold onto resources that can't be held indefinitely, such as TCP
-socket references and netfilter conntrack state.  So if a packet is left
-in TX ring for a long time, there might be a TCP socket that cannot be
-closed and freed up.
+Replace vhost_workqueue with per-vhost kthread.  Other than callback
+argument change from struct work_struct * to struct vhost_work *,
+there's no visible change to vhost_poll_*() interface.
 
-Current blackfin EMAC driver always reclaim and free used tx skbs in future
-transfers. The problem is that future transfer may not come as soon as
-possible. This patch start a timer after transfer to reclaim and free skb.
-There is nearly no performance drop with this patch.
+This conversion is to make each vhost use a dedicated kthread so that
+resource control via cgroup can be applied.
 
-TX interrupt is not enabled for 2 reasons:
+Partially based on Sridhar Samudrala's patch.
 
-1) If Blackfin EMAC TX transfer control is turned on, endless TX 
-interrupts are triggered no matter if TX DMA is enabled. Since DMA walks
-down the ring automatically, TX transfer control can't be turned off in the
-middle. The only way is to disable TX interrupt completely.
+* Updated to use sub structure vhost_work instead of directly using
+  vhost_poll at Michael's suggestion.
 
-2) skb can not be freed from interrupt context. A work queue or tasklet
-has to be created, which introduce more overhead than timer only solution.
+* Added flusher wake_up() optimization at Michael's suggestion.
 
-
-
-Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+NOT_SIGNED_OFF_YET
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Cc: Sridhar Samudrala <samudrala.sridhar@gmail.com>
 ---
- drivers/net/bfin_mac.c |  111 +++++++++++++++++++++++++++++------------------
- drivers/net/bfin_mac.h |    5 ++
- 2 files changed, 73 insertions(+), 43 deletions(-)
+Okay, here's the updated version.  I'm still in the process of setting
+up the testing environment.  I'll be traveling from this afternoon
+till tomorrow so I don't think I'll be able to test it before that.
+If you can give it a shot, it would be great.
 
-diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-index 368f333..f2eebed 100644
---- a/drivers/net/bfin_mac.c
-+++ b/drivers/net/bfin_mac.c
-@@ -922,61 +922,68 @@ static void bfin_mac_hwtstamp_init(struct net_device *netdev)
- # define bfin_tx_hwtstamp(dev, skb)
- #endif
- 
--static void adjust_tx_list(void)
-+static inline void _tx_reclaim_skb(void)
-+{
-+	do {
-+		tx_list_head->desc_a.config &= ~DMAEN;
-+		tx_list_head->status.status_word = 0;
-+		if (tx_list_head->skb) {
-+			dev_kfree_skb(tx_list_head->skb);
-+			tx_list_head->skb = NULL;
-+		}
-+		tx_list_head = tx_list_head->next;
+Thanks.
+
+ drivers/vhost/net.c   |   56 ++++++++++---------------
+ drivers/vhost/vhost.c |  110 ++++++++++++++++++++++++++++++++++++++------------
+ drivers/vhost/vhost.h |   38 +++++++++++------
+ 3 files changed, 133 insertions(+), 71 deletions(-)
+
+Index: work/drivers/vhost/net.c
+===================================================================
+--- work.orig/drivers/vhost/net.c
++++ work/drivers/vhost/net.c
+@@ -294,54 +294,58 @@ static void handle_rx(struct vhost_net *
+ 	unuse_mm(net->dev.mm);
+ }
+
+-static void handle_tx_kick(struct work_struct *work)
++static void handle_tx_kick(struct vhost_work *work)
+ {
+-	struct vhost_virtqueue *vq;
+-	struct vhost_net *net;
+-	vq = container_of(work, struct vhost_virtqueue, poll.work);
+-	net = container_of(vq->dev, struct vhost_net, dev);
++	struct vhost_virtqueue *vq = container_of(work, struct vhost_virtqueue,
++						  poll.work);
++	struct vhost_net *net = container_of(vq->dev, struct vhost_net, dev);
 +
-+	} while (tx_list_head->status.status_word != 0);
+ 	handle_tx(net);
+ }
+
+-static void handle_rx_kick(struct work_struct *work)
++static void handle_rx_kick(struct vhost_work *work)
+ {
+-	struct vhost_virtqueue *vq;
+-	struct vhost_net *net;
+-	vq = container_of(work, struct vhost_virtqueue, poll.work);
+-	net = container_of(vq->dev, struct vhost_net, dev);
++	struct vhost_virtqueue *vq = container_of(work, struct vhost_virtqueue,
++						  poll.work);
++	struct vhost_net *net = container_of(vq->dev, struct vhost_net, dev);
++
+ 	handle_rx(net);
+ }
+
+-static void handle_tx_net(struct work_struct *work)
++static void handle_tx_net(struct vhost_work *work)
+ {
+-	struct vhost_net *net;
+-	net = container_of(work, struct vhost_net, poll[VHOST_NET_VQ_TX].work);
++	struct vhost_net *net = container_of(work, struct vhost_net,
++					     poll[VHOST_NET_VQ_TX].work);
+ 	handle_tx(net);
+ }
+
+-static void handle_rx_net(struct work_struct *work)
++static void handle_rx_net(struct vhost_work *work)
+ {
+-	struct vhost_net *net;
+-	net = container_of(work, struct vhost_net, poll[VHOST_NET_VQ_RX].work);
++	struct vhost_net *net = container_of(work, struct vhost_net,
++					     poll[VHOST_NET_VQ_RX].work);
+ 	handle_rx(net);
+ }
+
+ static int vhost_net_open(struct inode *inode, struct file *f)
+ {
+ 	struct vhost_net *n = kmalloc(sizeof *n, GFP_KERNEL);
++	struct vhost_dev *dev;
+ 	int r;
++
+ 	if (!n)
+ 		return -ENOMEM;
++
++	dev = &n->dev;
+ 	n->vqs[VHOST_NET_VQ_TX].handle_kick = handle_tx_kick;
+ 	n->vqs[VHOST_NET_VQ_RX].handle_kick = handle_rx_kick;
+-	r = vhost_dev_init(&n->dev, n->vqs, VHOST_NET_VQ_MAX);
++	r = vhost_dev_init(dev, n->vqs, VHOST_NET_VQ_MAX);
+ 	if (r < 0) {
+ 		kfree(n);
+ 		return r;
+ 	}
+
+-	vhost_poll_init(n->poll + VHOST_NET_VQ_TX, handle_tx_net, POLLOUT);
+-	vhost_poll_init(n->poll + VHOST_NET_VQ_RX, handle_rx_net, POLLIN);
++	vhost_poll_init(n->poll + VHOST_NET_VQ_TX, handle_tx_net, POLLOUT, dev);
++	vhost_poll_init(n->poll + VHOST_NET_VQ_RX, handle_rx_net, POLLIN, dev);
+ 	n->tx_poll_state = VHOST_NET_POLL_DISABLED;
+
+ 	f->private_data = n;
+@@ -644,25 +648,13 @@ static struct miscdevice vhost_net_misc
+
+ static int vhost_net_init(void)
+ {
+-	int r = vhost_init();
+-	if (r)
+-		goto err_init;
+-	r = misc_register(&vhost_net_misc);
+-	if (r)
+-		goto err_reg;
+-	return 0;
+-err_reg:
+-	vhost_cleanup();
+-err_init:
+-	return r;
+-
++	return misc_register(&vhost_net_misc);
+ }
+ module_init(vhost_net_init);
+
+ static void vhost_net_exit(void)
+ {
+ 	misc_deregister(&vhost_net_misc);
+-	vhost_cleanup();
+ }
+ module_exit(vhost_net_exit);
+
+Index: work/drivers/vhost/vhost.c
+===================================================================
+--- work.orig/drivers/vhost/vhost.c
++++ work/drivers/vhost/vhost.c
+@@ -17,12 +17,12 @@
+ #include <linux/mm.h>
+ #include <linux/miscdevice.h>
+ #include <linux/mutex.h>
+-#include <linux/workqueue.h>
+ #include <linux/rcupdate.h>
+ #include <linux/poll.h>
+ #include <linux/file.h>
+ #include <linux/highmem.h>
+ #include <linux/slab.h>
++#include <linux/kthread.h>
+
+ #include <linux/net.h>
+ #include <linux/if_packet.h>
+@@ -37,8 +37,6 @@ enum {
+ 	VHOST_MEMORY_F_LOG = 0x1,
+ };
+
+-static struct workqueue_struct *vhost_workqueue;
+-
+ static void vhost_poll_func(struct file *file, wait_queue_head_t *wqh,
+ 			    poll_table *pt)
+ {
+@@ -52,23 +50,31 @@ static void vhost_poll_func(struct file
+ static int vhost_poll_wakeup(wait_queue_t *wait, unsigned mode, int sync,
+ 			     void *key)
+ {
+-	struct vhost_poll *poll;
+-	poll = container_of(wait, struct vhost_poll, wait);
++	struct vhost_poll *poll = container_of(wait, struct vhost_poll, wait);
++
+ 	if (!((unsigned long)key & poll->mask))
+ 		return 0;
+
+-	queue_work(vhost_workqueue, &poll->work);
++	vhost_poll_queue(poll);
+ 	return 0;
+ }
+
+ /* Init poll structure */
+-void vhost_poll_init(struct vhost_poll *poll, work_func_t func,
+-		     unsigned long mask)
++void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
++		     unsigned long mask, struct vhost_dev *dev)
+ {
+-	INIT_WORK(&poll->work, func);
++	struct vhost_work *work = &poll->work;
++
+ 	init_waitqueue_func_entry(&poll->wait, vhost_poll_wakeup);
+ 	init_poll_funcptr(&poll->table, vhost_poll_func);
+ 	poll->mask = mask;
++	poll->dev = dev;
++
++	INIT_LIST_HEAD(&work->node);
++	work->fn = fn;
++	init_waitqueue_head(&work->done);
++	atomic_set(&work->flushing, 0);
++	work->queue_seq = work->done_seq = 0;
+ }
+
+ /* Start polling a file. We add ourselves to file's wait queue. The caller must
+@@ -92,12 +98,28 @@ void vhost_poll_stop(struct vhost_poll *
+  * locks that are also used by the callback. */
+ void vhost_poll_flush(struct vhost_poll *poll)
+ {
+-	flush_work(&poll->work);
++	struct vhost_work *work = &poll->work;
++	int seq = work->queue_seq;
++
++	atomic_inc(&work->flushing);
++	smp_mb__after_atomic_inc();	/* mb flush-b0 paired with worker-b1 */
++	wait_event(work->done, seq - work->done_seq <= 0);
++	atomic_dec(&work->flushing);
++	smp_mb__after_atomic_dec();	/* rmb flush-b1 paired with worker-b0 */
+ }
+
+ void vhost_poll_queue(struct vhost_poll *poll)
+ {
+-	queue_work(vhost_workqueue, &poll->work);
++	struct vhost_dev *dev = poll->dev;
++	struct vhost_work *work = &poll->work;
++
++	spin_lock(&dev->work_lock);
++	if (list_empty(&work->node)) {
++		list_add_tail(&work->node, &dev->work_list);
++		work->queue_seq++;
++		wake_up_process(dev->worker);
++	}
++	spin_unlock(&dev->work_lock);
+ }
+
+ static void vhost_vq_reset(struct vhost_dev *dev,
+@@ -125,10 +147,52 @@ static void vhost_vq_reset(struct vhost_
+ 	vq->log_ctx = NULL;
+ }
+
++static int vhost_worker(void *data)
++{
++	struct vhost_dev *dev = data;
++	struct vhost_work *work;
++
++repeat:
++	set_current_state(TASK_INTERRUPTIBLE);	/* mb paired w/ kthread_stop */
++
++	if (kthread_should_stop()) {
++		__set_current_state(TASK_RUNNING);
++		return 0;
++	}
++
++	work = NULL;
++	spin_lock(&dev->work_lock);
++	if (!list_empty(&dev->work_list)) {
++		work = list_first_entry(&dev->work_list,
++					struct vhost_work, node);
++		list_del_init(&work->node);
++	}
++	spin_unlock(&dev->work_lock);
++
++	if (work) {
++		__set_current_state(TASK_RUNNING);
++		work->fn(work);
++		smp_wmb();	/* wmb worker-b0 paired with flush-b1 */
++		work->done_seq = work->queue_seq;
++		smp_mb();	/* mb worker-b1 paired with flush-b0 */
++		if (atomic_read(&work->flushing))
++			wake_up_all(&work->done);
++	} else
++		schedule();
++
++	goto repeat;
 +}
 +
-+static void tx_reclaim_skb(struct bfin_mac_local *lp)
+ long vhost_dev_init(struct vhost_dev *dev,
+ 		    struct vhost_virtqueue *vqs, int nvqs)
  {
- 	int timeout_cnt = MAX_TIMEOUT_CNT;
- 
--	if (tx_list_head->status.status_word != 0 &&
--	    current_tx_ptr != tx_list_head) {
--		goto adjust_head;	/* released something, just return; */
--	}
-+	if (tx_list_head->status.status_word != 0)
-+		_tx_reclaim_skb();
- 
--	/*
--	 * if nothing released, check wait condition
--	 * current's next can not be the head,
--	 * otherwise the dma will not stop as we want
--	 */
--	if (current_tx_ptr->next->next == tx_list_head) {
-+	if (current_tx_ptr->next == tx_list_head) {
- 		while (tx_list_head->status.status_word == 0) {
-+			/* slow down polling to avoid too many queue stop. */
- 			udelay(10);
--			if (tx_list_head->status.status_word != 0 ||
--			    !(bfin_read_DMA2_IRQ_STATUS() & DMA_RUN)) {
--				goto adjust_head;
--			}
--			if (timeout_cnt-- < 0) {
--				printk(KERN_ERR DRV_NAME
--				": wait for adjust tx list head timeout\n");
-+			/* reclaim skb if DMA is not running. */
-+			if (!(bfin_read_DMA2_IRQ_STATUS() & DMA_RUN))
-+				break;
-+			if (timeout_cnt-- < 0)
- 				break;
--			}
--		}
--		if (tx_list_head->status.status_word != 0) {
--			goto adjust_head;
- 		}
++	struct task_struct *worker;
+ 	int i;
 +
-+		if (timeout_cnt >= 0)
-+			_tx_reclaim_skb();
-+		else
-+			netif_stop_queue(lp->ndev);
++	worker = kthread_create(vhost_worker, dev, "vhost-%d", current->pid);
++	if (IS_ERR(worker))
++		return PTR_ERR(worker);
++
+ 	dev->vqs = vqs;
+ 	dev->nvqs = nvqs;
+ 	mutex_init(&dev->mutex);
+@@ -136,6 +200,9 @@ long vhost_dev_init(struct vhost_dev *de
+ 	dev->log_file = NULL;
+ 	dev->memory = NULL;
+ 	dev->mm = NULL;
++	spin_lock_init(&dev->work_lock);
++	INIT_LIST_HEAD(&dev->work_list);
++	dev->worker = worker;
+
+ 	for (i = 0; i < dev->nvqs; ++i) {
+ 		dev->vqs[i].dev = dev;
+@@ -143,9 +210,10 @@ long vhost_dev_init(struct vhost_dev *de
+ 		vhost_vq_reset(dev, dev->vqs + i);
+ 		if (dev->vqs[i].handle_kick)
+ 			vhost_poll_init(&dev->vqs[i].poll,
+-					dev->vqs[i].handle_kick,
+-					POLLIN);
++					dev->vqs[i].handle_kick, POLLIN, dev);
  	}
- 
--	return;
-+	if (current_tx_ptr->next != tx_list_head &&
-+		netif_queue_stopped(lp->ndev))
-+		netif_wake_queue(lp->ndev);
- 
--adjust_head:
--	do {
--		tx_list_head->desc_a.config &= ~DMAEN;
--		tx_list_head->status.status_word = 0;
--		if (tx_list_head->skb) {
--			dev_kfree_skb(tx_list_head->skb);
--			tx_list_head->skb = NULL;
--		} else {
--			printk(KERN_ERR DRV_NAME
--			       ": no sk_buff in a transmitted frame!\n");
--		}
--		tx_list_head = tx_list_head->next;
--	} while (tx_list_head->status.status_word != 0 &&
--		 current_tx_ptr != tx_list_head);
--	return;
-+	if (tx_list_head != current_tx_ptr) {
-+		/* shorten the timer interval if tx queue is stopped */
-+		if (netif_queue_stopped(lp->ndev))
-+			lp->tx_reclaim_timer.expires =
-+				jiffies + (TX_RECLAIM_JIFFIES >> 4);
-+		else
-+			lp->tx_reclaim_timer.expires =
-+				jiffies + TX_RECLAIM_JIFFIES;
 +
-+		mod_timer(&lp->tx_reclaim_timer,
-+			lp->tx_reclaim_timer.expires);
-+	}
- 
-+	return;
++	wake_up_process(worker);	/* avoid contributing to loadavg */
+ 	return 0;
  }
- 
- static int bfin_mac_hard_start_xmit(struct sk_buff *skb,
- 				struct net_device *dev)
- {
-+	struct bfin_mac_local *lp = netdev_priv(dev);
- 	u16 *data;
- 	u32 data_align = (unsigned long)(skb->data) & 0x3;
- 	union skb_shared_tx *shtx = skb_tx(skb);
-@@ -1009,8 +1016,6 @@ static int bfin_mac_hard_start_xmit(struct sk_buff *skb,
- 			skb->len);
- 		current_tx_ptr->desc_a.start_addr =
- 			(u32)current_tx_ptr->packet;
--		if (current_tx_ptr->status.status_word != 0)
--			current_tx_ptr->status.status_word = 0;
- 		blackfin_dcache_flush_range(
- 			(u32)current_tx_ptr->packet,
- 			(u32)(current_tx_ptr->packet + skb->len + 2));
-@@ -1022,6 +1027,9 @@ static int bfin_mac_hard_start_xmit(struct sk_buff *skb,
- 	 */
- 	SSYNC();
- 
-+	/* always clear status buffer before start tx dma */
-+	current_tx_ptr->status.status_word = 0;
+
+@@ -217,6 +285,9 @@ void vhost_dev_cleanup(struct vhost_dev
+ 	if (dev->mm)
+ 		mmput(dev->mm);
+ 	dev->mm = NULL;
 +
- 	/* enable this packet's dma */
- 	current_tx_ptr->desc_a.config |= DMAEN;
- 
-@@ -1037,13 +1045,14 @@ static int bfin_mac_hard_start_xmit(struct sk_buff *skb,
- 	bfin_write_EMAC_OPMODE(bfin_read_EMAC_OPMODE() | TE);
- 
- out:
--	adjust_tx_list();
++	WARN_ON(!list_empty(&dev->work_list));
++	kthread_stop(dev->worker);
+ }
+
+ static int log_access_ok(void __user *log_base, u64 addr, unsigned long sz)
+@@ -1113,16 +1184,3 @@ void vhost_disable_notify(struct vhost_v
+ 		vq_err(vq, "Failed to enable notification at %p: %d\n",
+ 		       &vq->used->flags, r);
+ }
 -
- 	bfin_tx_hwtstamp(dev, skb);
- 
- 	current_tx_ptr = current_tx_ptr->next;
- 	dev->stats.tx_packets++;
- 	dev->stats.tx_bytes += (skb->len);
-+
-+	tx_reclaim_skb(lp);
-+
- 	return NETDEV_TX_OK;
- }
- 
-@@ -1167,8 +1176,11 @@ real_rx:
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void bfin_mac_poll(struct net_device *dev)
- {
-+	struct bfin_mac_local *lp = netdev_priv(dev);
-+
- 	disable_irq(IRQ_MAC_RX);
- 	bfin_mac_interrupt(IRQ_MAC_RX, dev);
-+	tx_reclaim_skb(lp);
- 	enable_irq(IRQ_MAC_RX);
- }
- #endif				/* CONFIG_NET_POLL_CONTROLLER */
-@@ -1232,12 +1244,20 @@ static int bfin_mac_enable(void)
- /* Our watchdog timed out. Called by the networking layer */
- static void bfin_mac_timeout(struct net_device *dev)
- {
-+	struct bfin_mac_local *lp = netdev_priv(dev);
-+
- 	pr_debug("%s: %s\n", dev->name, __func__);
- 
- 	bfin_mac_disable();
- 
-+	if (timer_pending(&lp->tx_reclaim_timer))
-+		del_timer(&(lp->tx_reclaim_timer));
-+
- 	/* reset tx queue */
--	tx_list_tail = tx_list_head->next;
-+	current_tx_ptr = tx_list_head;
-+
-+	if (netif_queue_stopped(lp->ndev))
-+		netif_wake_queue(lp->ndev);
- 
- 	bfin_mac_enable();
- 
-@@ -1430,6 +1450,7 @@ static int __devinit bfin_mac_probe(struct platform_device *pdev)
- 	SET_NETDEV_DEV(ndev, &pdev->dev);
- 	platform_set_drvdata(pdev, ndev);
- 	lp = netdev_priv(ndev);
-+	lp->ndev = ndev;
- 
- 	/* Grab the MAC address in the MAC */
- 	*(__le32 *) (&(ndev->dev_addr[0])) = cpu_to_le32(bfin_read_EMAC_ADDRLO());
-@@ -1485,6 +1506,10 @@ static int __devinit bfin_mac_probe(struct platform_device *pdev)
- 	ndev->netdev_ops = &bfin_mac_netdev_ops;
- 	ndev->ethtool_ops = &bfin_mac_ethtool_ops;
- 
-+	init_timer(&lp->tx_reclaim_timer);
-+	lp->tx_reclaim_timer.data = (unsigned long)(lp);
-+	lp->tx_reclaim_timer.function = (void *)tx_reclaim_skb;
-+
- 	spin_lock_init(&lp->lock);
- 
- 	/* now, enable interrupts */
-diff --git a/drivers/net/bfin_mac.h b/drivers/net/bfin_mac.h
-index 1ae7b82..04e4050 100644
---- a/drivers/net/bfin_mac.h
-+++ b/drivers/net/bfin_mac.h
-@@ -13,9 +13,12 @@
- #include <linux/net_tstamp.h>
- #include <linux/clocksource.h>
- #include <linux/timecompare.h>
-+#include <linux/timer.h>
- 
- #define BFIN_MAC_CSUM_OFFLOAD
- 
-+#define TX_RECLAIM_JIFFIES (HZ / 5)
-+
- struct dma_descriptor {
- 	struct dma_descriptor *next_dma_desc;
- 	unsigned long start_addr;
-@@ -68,6 +71,8 @@ struct bfin_mac_local {
- 
- 	int wol;		/* Wake On Lan */
- 	int irq_wake_requested;
-+	struct timer_list tx_reclaim_timer;
-+	struct net_device *ndev;
- 
- 	/* MII and PHY stuffs */
- 	int old_link;          /* used by bf537_adjust_link */
--- 
-1.6.0
+-int vhost_init(void)
+-{
+-	vhost_workqueue = create_singlethread_workqueue("vhost");
+-	if (!vhost_workqueue)
+-		return -ENOMEM;
+-	return 0;
+-}
+-
+-void vhost_cleanup(void)
+-{
+-	destroy_workqueue(vhost_workqueue);
+-}
+Index: work/drivers/vhost/vhost.h
+===================================================================
+--- work.orig/drivers/vhost/vhost.h
++++ work/drivers/vhost/vhost.h
+@@ -5,13 +5,13 @@
+ #include <linux/vhost.h>
+ #include <linux/mm.h>
+ #include <linux/mutex.h>
+-#include <linux/workqueue.h>
+ #include <linux/poll.h>
+ #include <linux/file.h>
+ #include <linux/skbuff.h>
+ #include <linux/uio.h>
+ #include <linux/virtio_config.h>
+ #include <linux/virtio_ring.h>
++#include <asm/atomic.h>
 
+ struct vhost_device;
 
+@@ -20,19 +20,31 @@ enum {
+ 	VHOST_NET_MAX_SG = MAX_SKB_FRAGS + 2,
+ };
 
++struct vhost_work;
++typedef void (*vhost_work_fn_t)(struct vhost_work *work);
++
++struct vhost_work {
++	struct list_head	  node;
++	vhost_work_fn_t		  fn;
++	wait_queue_head_t	  done;
++	atomic_t		  flushing;
++	int			  queue_seq;
++	int			  done_seq;
++};
++
+ /* Poll a file (eventfd or socket) */
+ /* Note: there's nothing vhost specific about this structure. */
+ struct vhost_poll {
+ 	poll_table                table;
+ 	wait_queue_head_t        *wqh;
+ 	wait_queue_t              wait;
+-	/* struct which will handle all actual work. */
+-	struct work_struct        work;
++	struct vhost_work	  work;
+ 	unsigned long		  mask;
++	struct vhost_dev	 *dev;
+ };
+
+-void vhost_poll_init(struct vhost_poll *poll, work_func_t func,
+-		     unsigned long mask);
++void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
++		     unsigned long mask, struct vhost_dev *dev);
+ void vhost_poll_start(struct vhost_poll *poll, struct file *file);
+ void vhost_poll_stop(struct vhost_poll *poll);
+ void vhost_poll_flush(struct vhost_poll *poll);
+@@ -63,7 +75,7 @@ struct vhost_virtqueue {
+ 	struct vhost_poll poll;
+
+ 	/* The routine to call when the Guest pings us, or timeout. */
+-	work_func_t handle_kick;
++	vhost_work_fn_t handle_kick;
+
+ 	/* Last available index we saw. */
+ 	u16 last_avail_idx;
+@@ -86,11 +98,11 @@ struct vhost_virtqueue {
+ 	struct iovec hdr[VHOST_NET_MAX_SG];
+ 	size_t hdr_size;
+ 	/* We use a kind of RCU to access private pointer.
+-	 * All readers access it from workqueue, which makes it possible to
+-	 * flush the workqueue instead of synchronize_rcu. Therefore readers do
++	 * All readers access it from worker, which makes it possible to
++	 * flush the vhost_work instead of synchronize_rcu. Therefore readers do
+ 	 * not need to call rcu_read_lock/rcu_read_unlock: the beginning of
+-	 * work item execution acts instead of rcu_read_lock() and the end of
+-	 * work item execution acts instead of rcu_read_lock().
++	 * vhost_work execution acts instead of rcu_read_lock() and the end of
++	 * vhost_work execution acts instead of rcu_read_lock().
+ 	 * Writers use virtqueue mutex. */
+ 	void *private_data;
+ 	/* Log write descriptors */
+@@ -110,6 +122,9 @@ struct vhost_dev {
+ 	int nvqs;
+ 	struct file *log_file;
+ 	struct eventfd_ctx *log_ctx;
++	spinlock_t work_lock;
++	struct list_head work_list;
++	struct task_struct *worker;
+ };
+
+ long vhost_dev_init(struct vhost_dev *, struct vhost_virtqueue *vqs, int nvqs);
+@@ -136,9 +151,6 @@ bool vhost_enable_notify(struct vhost_vi
+ int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
+ 		    unsigned int log_num, u64 len);
+
+-int vhost_init(void);
+-void vhost_cleanup(void);
+-
+ #define vq_err(vq, fmt, ...) do {                                  \
+ 		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
+ 		if ((vq)->error_ctx)                               \
