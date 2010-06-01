@@ -1,364 +1,391 @@
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH net-next-2.6 2/2] qlcnic: NIC Partitioning - Add non privileged
- mode support
-Date: Tue, 1 Jun 2010 14:33:09 -0700
-Message-ID: <alpine.OSX.2.00.1006011428590.45836@macintosh-2.qlogic.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH 08/12] sfc: Support only two rx buffers per page
+Date: Tue, 01 Jun 2010 22:33:17 +0100
+Message-ID: <1275427997.2114.48.camel@achroite.uk.solarflarecom.com>
+References: <1275426967.2114.25.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Amit Salecha <amit.salecha@qlogic.com>,
-	Ameen Rahman <ameen.rahman@qlogic.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexcashub1.qlogic.com ([198.70.193.61]:45536 "EHLO
-	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753192Ab0FAVdO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 17:33:14 -0400
+Received: from exchange.solarflare.com ([216.237.3.220]:51726 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757314Ab0FAVdU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 17:33:20 -0400
+In-Reply-To: <1275426967.2114.25.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Steve Hodgson <shodgson@solarflare.com>
 
-Added support for NIC functions that work in non privileged mode where these 
-functions are privileged to do IO only, the control operations are handled via 
-privileged functions.
-Bumped up version number to 5.0.3.
+- Pull the loop handling into efx_init_rx_buffers_(skb|page)
+- Remove rx_queue->buf_page, and associated clean up code
+- Remove unmap_addr, since unmap_addr is trivially calculable
 
-Please apply.
+This will allow us to recycle discarded buffers directly
+from efx_rx_packet(), since will never be in the middle of
+splitting a page.
 
-thanks,
-Anirban
-
-Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/qlcnic/qlcnic.h      |   13 +---
- drivers/net/qlcnic/qlcnic_hdr.h  |   14 +++--
- drivers/net/qlcnic/qlcnic_main.c |  124 +++++++++++++++++++++++++++++++++++---
- 3 files changed, 128 insertions(+), 23 deletions(-)
+ drivers/net/sfc/net_driver.h |   10 --
+ drivers/net/sfc/rx.c         |  228 ++++++++++++++++++------------------------
+ 2 files changed, 96 insertions(+), 142 deletions(-)
 
-diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index 31a0b43..02db363 100644
---- a/drivers/net/qlcnic/qlcnic.h
-+++ b/drivers/net/qlcnic/qlcnic.h
-@@ -51,8 +51,8 @@
- 
- #define _QLCNIC_LINUX_MAJOR 5
- #define _QLCNIC_LINUX_MINOR 0
--#define _QLCNIC_LINUX_SUBVERSION 2
--#define QLCNIC_LINUX_VERSIONID  "5.0.2"
-+#define _QLCNIC_LINUX_SUBVERSION 3
-+#define QLCNIC_LINUX_VERSIONID  "5.0.3"
- #define QLCNIC_DRV_IDC_VER  0x01
- 
- #define QLCNIC_VERSION_CODE(a, b, c)	(((a) << 24) + ((b) << 16) + (c))
-@@ -891,6 +891,7 @@ struct qlcnic_mac_req {
- #define QLCNIC_LRO_ENABLED		0x08
- #define QLCNIC_BRIDGE_ENABLED       	0X10
- #define QLCNIC_DIAG_ENABLED		0x20
-+#define QLCNIC_NPAR_ENABLED		0x40
- #define QLCNIC_IS_MSI_FAMILY(adapter) \
- 	((adapter)->flags & (QLCNIC_MSI_ENABLED | QLCNIC_MSIX_ENABLED))
- 
-@@ -1159,13 +1160,6 @@ int qlcnic_check_loopback_buff(unsigned char *data);
- netdev_tx_t qlcnic_xmit_frame(struct sk_buff *skb, struct net_device *netdev);
- void qlcnic_process_rcv_ring_diag(struct qlcnic_host_sds_ring *sds_ring);
- 
--/* Functions from qlcnic_vf.c */
--int qlcnicvf_config_bridged_mode(struct qlcnic_adapter *, u32);
--int qlcnicvf_config_led(struct qlcnic_adapter *, u32, u32);
--int qlcnicvf_set_ilb_mode(struct qlcnic_adapter *adapter);
--void qlcnicvf_clear_ilb_mode(struct qlcnic_adapter *adapter);
--void qlcnicvf_set_port_mode(struct qlcnic_adapter *adapter);
--
- /* Management functions */
- int qlcnic_set_mac_address(struct qlcnic_adapter *, u8*);
- int qlcnic_get_mac_address(struct qlcnic_adapter *, u8*);
-@@ -1234,6 +1228,7 @@ struct qlcnic_nic_template {
- 	int (*config_led) (struct qlcnic_adapter *, u32, u32);
- 	int (*set_ilb_mode) (struct qlcnic_adapter *);
- 	void (*clear_ilb_mode) (struct qlcnic_adapter *);
-+	int (*start_firmware) (struct qlcnic_adapter *);
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
+index 4539803..59c8ecc 100644
+--- a/drivers/net/sfc/net_driver.h
++++ b/drivers/net/sfc/net_driver.h
+@@ -222,7 +222,6 @@ struct efx_tx_queue {
+  *	If both this and skb are %NULL, the buffer slot is currently free.
+  * @data: Pointer to ethernet header
+  * @len: Buffer length, in bytes.
+- * @unmap_addr: DMA address to unmap
+  */
+ struct efx_rx_buffer {
+ 	dma_addr_t dma_addr;
+@@ -230,7 +229,6 @@ struct efx_rx_buffer {
+ 	struct page *page;
+ 	char *data;
+ 	unsigned int len;
+-	dma_addr_t unmap_addr;
  };
  
- #define QLCDB(adapter, lvl, _fmt, _args...) do {	\
-diff --git a/drivers/net/qlcnic/qlcnic_hdr.h b/drivers/net/qlcnic/qlcnic_hdr.h
-index 1bcfb12..7b81cab 100644
---- a/drivers/net/qlcnic/qlcnic_hdr.h
-+++ b/drivers/net/qlcnic/qlcnic_hdr.h
-@@ -701,10 +701,11 @@ enum {
- #define QLCNIC_CRB_DEV_REF_COUNT	(QLCNIC_CAM_RAM(0x138))
- #define QLCNIC_CRB_DEV_STATE		(QLCNIC_CAM_RAM(0x140))
+ /**
+@@ -257,11 +255,6 @@ struct efx_rx_buffer {
+  * @alloc_page_count: RX allocation strategy counter.
+  * @alloc_skb_count: RX allocation strategy counter.
+  * @slow_fill: Timer used to defer efx_nic_generate_fill_event().
+- * @buf_page: Page for next RX buffer.
+- *	We can use a single page for multiple RX buffers. This tracks
+- *	the remaining space in the allocation.
+- * @buf_dma_addr: Page's DMA address.
+- * @buf_data: Page's host address.
+  * @flushed: Use when handling queue flushing
+  */
+ struct efx_rx_queue {
+@@ -284,9 +277,6 @@ struct efx_rx_queue {
+ 	struct timer_list slow_fill;
+ 	unsigned int slow_fill_count;
  
--#define QLCNIC_CRB_DRV_STATE               (QLCNIC_CAM_RAM(0x144))
--#define QLCNIC_CRB_DRV_SCRATCH             (QLCNIC_CAM_RAM(0x148))
--#define QLCNIC_CRB_DEV_PARTITION_INFO      (QLCNIC_CAM_RAM(0x14c))
-+#define QLCNIC_CRB_DRV_STATE		(QLCNIC_CAM_RAM(0x144))
-+#define QLCNIC_CRB_DRV_SCRATCH		(QLCNIC_CAM_RAM(0x148))
-+#define QLCNIC_CRB_DEV_PARTITION_INFO	(QLCNIC_CAM_RAM(0x14c))
- #define QLCNIC_CRB_DRV_IDC_VER		(QLCNIC_CAM_RAM(0x174))
-+#define QLCNIC_CRB_DEV_NPAR_STATE	(QLCNIC_CAM_RAM(0x19c))
- #define QLCNIC_ROM_DEV_INIT_TIMEOUT	(0x3e885c)
- #define QLCNIC_ROM_DRV_RESET_TIMEOUT	(0x3e8860)
- 
-@@ -717,6 +718,9 @@ enum {
- #define QLCNIC_DEV_FAILED		0x6
- #define QLCNIC_DEV_QUISCENT		0x7
- 
-+#define QLCNIC_DEV_NPAR_NOT_RDY	0
-+#define QLCNIC_DEV_NPAR_RDY		1
-+
- #define QLC_DEV_CHECK_ACTIVE(VAL, FN)		((VAL) &= (1 << (FN * 4)))
- #define QLC_DEV_SET_REF_CNT(VAL, FN)		((VAL) |= (1 << (FN * 4)))
- #define QLC_DEV_CLR_REF_CNT(VAL, FN)		((VAL) &= ~(1 << (FN * 4)))
-@@ -732,8 +736,8 @@ enum {
- #define QLCNIC_TYPE_ISCSI		3
- 
- #define QLCNIC_RCODE_DRIVER_INFO		0x20000000
--#define QLCNIC_RCODE_DRIVER_CAN_RELOAD		0x40000000
--#define QLCNIC_RCODE_FATAL_ERROR		0x80000000
-+#define QLCNIC_RCODE_DRIVER_CAN_RELOAD		BIT_30
-+#define QLCNIC_RCODE_FATAL_ERROR		BIT_31
- #define QLCNIC_FWERROR_PEGNUM(code)		((code) & 0xff)
- #define QLCNIC_FWERROR_CODE(code)		((code >> 8) & 0xfffff)
- 
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 1e5e66f..119bcae 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -103,7 +103,14 @@ static irqreturn_t qlcnic_msix_intr(int irq, void *data);
- 
- static struct net_device_stats *qlcnic_get_stats(struct net_device *netdev);
- static void qlcnic_config_indev_addr(struct net_device *dev, unsigned long);
--
-+static int qlcnic_start_firmware(struct qlcnic_adapter *);
-+
-+static void qlcnic_dev_set_npar_ready(struct qlcnic_adapter *);
-+static void qlcnicvf_clear_ilb_mode(struct qlcnic_adapter *);
-+static int qlcnicvf_set_ilb_mode(struct qlcnic_adapter *);
-+static int qlcnicvf_config_led(struct qlcnic_adapter *, u32, u32);
-+static int qlcnicvf_config_bridged_mode(struct qlcnic_adapter *, u32);
-+static int qlcnicvf_start_firmware(struct qlcnic_adapter *);
- /*  PCI Device ID Table  */
- #define ENTRY(device) \
- 	{PCI_DEVICE(PCI_VENDOR_ID_QLOGIC, (device)), \
-@@ -375,7 +382,8 @@ static struct qlcnic_nic_template qlcnic_ops = {
- 	.config_bridged_mode = qlcnic_config_bridged_mode,
- 	.config_led = qlcnic_config_led,
- 	.set_ilb_mode = qlcnic_set_ilb_mode,
--	.clear_ilb_mode = qlcnic_clear_ilb_mode
-+	.clear_ilb_mode = qlcnic_clear_ilb_mode,
-+	.start_firmware = qlcnic_start_firmware
+-	struct page *buf_page;
+-	dma_addr_t buf_dma_addr;
+-	char *buf_data;
+ 	enum efx_flush_state flushed;
  };
  
- static struct qlcnic_nic_template qlcnic_pf_ops = {
-@@ -383,7 +391,17 @@ static struct qlcnic_nic_template qlcnic_pf_ops = {
- 	.config_bridged_mode = qlcnic_config_bridged_mode,
- 	.config_led = qlcnic_config_led,
- 	.set_ilb_mode = qlcnic_set_ilb_mode,
--	.clear_ilb_mode = qlcnic_clear_ilb_mode
-+	.clear_ilb_mode = qlcnic_clear_ilb_mode,
-+	.start_firmware = qlcnic_start_firmware
-+};
-+
-+static struct qlcnic_nic_template qlcnic_vf_ops = {
-+	.get_mac_addr = qlcnic_get_mac_address,
-+	.config_bridged_mode = qlcnicvf_config_bridged_mode,
-+	.config_led = qlcnicvf_config_led,
-+	.set_ilb_mode = qlcnicvf_set_ilb_mode,
-+	.clear_ilb_mode = qlcnicvf_clear_ilb_mode,
-+	.start_firmware = qlcnicvf_start_firmware
- };
- 
- static void
-@@ -467,7 +485,6 @@ qlcnic_cleanup_pci_map(struct qlcnic_adapter *adapter)
- 		iounmap(adapter->ahw.pci_base0);
+diff --git a/drivers/net/sfc/rx.c b/drivers/net/sfc/rx.c
+index bf1e55e..615a1fc 100644
+--- a/drivers/net/sfc/rx.c
++++ b/drivers/net/sfc/rx.c
+@@ -98,155 +98,132 @@ static inline unsigned int efx_rx_buf_size(struct efx_nic *efx)
+ 	return PAGE_SIZE << efx->rx_buffer_order;
  }
  
--/* Use api lock to access this function */
- static int
- qlcnic_set_function_modes(struct qlcnic_adapter *adapter)
+-
+ /**
+- * efx_init_rx_buffer_skb - create new RX buffer using skb-based allocation
++ * efx_init_rx_buffers_skb - create EFX_RX_BATCH skb-based RX buffers
+  *
+  * @rx_queue:		Efx RX queue
+- * @rx_buf:		RX buffer structure to populate
+  *
+- * This allocates memory for a new receive buffer, maps it for DMA,
+- * and populates a struct efx_rx_buffer with the relevant
+- * information.  Return a negative error code or 0 on success.
++ * This allocates EFX_RX_BATCH skbs, maps them for DMA, and populates a
++ * struct efx_rx_buffer for each one. Return a negative error code or 0
++ * on success. May fail having only inserted fewer than EFX_RX_BATCH
++ * buffers.
+  */
+-static int efx_init_rx_buffer_skb(struct efx_rx_queue *rx_queue,
+-				  struct efx_rx_buffer *rx_buf)
++static int efx_init_rx_buffers_skb(struct efx_rx_queue *rx_queue)
  {
-@@ -567,6 +584,7 @@ qlcnic_get_driver_mode(struct qlcnic_adapter *adapter)
- 		/* Set privilege level for other functions */
- 		if (qlcnic_config_npars)
- 			qlcnic_set_function_modes(adapter);
-+		qlcnic_dev_set_npar_ready(adapter);
- 		dev_info(&adapter->pdev->dev,
- 			"HAL Version: %d, Management function\n",
- 			adapter->fw_hal_version);
-@@ -578,6 +596,13 @@ qlcnic_get_driver_mode(struct qlcnic_adapter *adapter)
- 			adapter->fw_hal_version);
- 		adapter->nic_ops = &qlcnic_pf_ops;
- 		break;
-+	case QLCNIC_NON_PRIV_FUNC:
-+		adapter->op_mode = QLCNIC_NON_PRIV_FUNC;
-+		dev_info(&adapter->pdev->dev,
-+			"HAL Version: %d Non Privileged function\n",
-+			adapter->fw_hal_version);
-+		adapter->nic_ops = &qlcnic_vf_ops;
-+		break;
- 	default:
- 		dev_info(&adapter->pdev->dev, "Unknown function mode: %d\n",
- 			priv_level);
-@@ -772,6 +797,8 @@ wait_init:
- 	QLCWR32(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_READY);
- 	qlcnic_idc_debug_info(adapter, 1);
+ 	struct efx_nic *efx = rx_queue->efx;
+ 	struct net_device *net_dev = efx->net_dev;
++	struct efx_rx_buffer *rx_buf;
+ 	int skb_len = efx->rx_buffer_len;
++	unsigned index, count;
  
-+	qlcnic_dev_set_npar_ready(adapter);
+-	rx_buf->skb = netdev_alloc_skb(net_dev, skb_len);
+-	if (unlikely(!rx_buf->skb))
+-		return -ENOMEM;
++	for (count = 0; count < EFX_RX_BATCH; ++count) {
++		index = rx_queue->added_count & EFX_RXQ_MASK;
++		rx_buf = efx_rx_buffer(rx_queue, index);
+ 
+-	/* Adjust the SKB for padding and checksum */
+-	skb_reserve(rx_buf->skb, NET_IP_ALIGN);
+-	rx_buf->len = skb_len - NET_IP_ALIGN;
+-	rx_buf->data = (char *)rx_buf->skb->data;
+-	rx_buf->skb->ip_summed = CHECKSUM_UNNECESSARY;
++		rx_buf->skb = netdev_alloc_skb(net_dev, skb_len);
++		if (unlikely(!rx_buf->skb))
++			return -ENOMEM;
++		rx_buf->page = NULL;
+ 
+-	rx_buf->dma_addr = pci_map_single(efx->pci_dev,
+-					  rx_buf->data, rx_buf->len,
+-					  PCI_DMA_FROMDEVICE);
++		/* Adjust the SKB for padding and checksum */
++		skb_reserve(rx_buf->skb, NET_IP_ALIGN);
++		rx_buf->len = skb_len - NET_IP_ALIGN;
++		rx_buf->data = (char *)rx_buf->skb->data;
++		rx_buf->skb->ip_summed = CHECKSUM_UNNECESSARY;
 +
- 	qlcnic_check_options(adapter);
++		rx_buf->dma_addr = pci_map_single(efx->pci_dev,
++						  rx_buf->data, rx_buf->len,
++						  PCI_DMA_FROMDEVICE);
++		if (unlikely(pci_dma_mapping_error(efx->pci_dev,
++						   rx_buf->dma_addr))) {
++			dev_kfree_skb_any(rx_buf->skb);
++			rx_buf->skb = NULL;
++			return -EIO;
++		}
  
- 	if (adapter->fw_hal_version != QLCNIC_FW_BASE &&
-@@ -1244,7 +1271,7 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (qlcnic_setup_idc_param(adapter))
- 		goto err_out_iounmap;
- 
--	err = qlcnic_start_firmware(adapter);
-+	err = adapter->nic_ops->start_firmware(adapter);
- 	if (err) {
- 		dev_err(&pdev->dev, "Loading fw failed.Please Reboot\n");
- 		goto err_out_decr_ref;
-@@ -1410,7 +1437,7 @@ qlcnic_resume(struct pci_dev *pdev)
- 	pci_set_master(pdev);
- 	pci_restore_state(pdev);
- 
--	err = qlcnic_start_firmware(adapter);
-+	err = adapter->nic_ops->start_firmware(adapter);
- 	if (err) {
- 		dev_err(&pdev->dev, "failed to start firmware\n");
- 		return err;
-@@ -2260,7 +2287,7 @@ qlcnic_fwinit_work(struct work_struct *work)
- {
- 	struct qlcnic_adapter *adapter = container_of(work,
- 			struct qlcnic_adapter, fw_work.work);
--	u32 dev_state = 0xf;
-+	u32 dev_state = 0xf, npar_state;
- 
- 	if (qlcnic_api_lock(adapter))
- 		goto err_ret;
-@@ -2273,6 +2300,19 @@ qlcnic_fwinit_work(struct work_struct *work)
- 		return;
+-	if (unlikely(pci_dma_mapping_error(efx->pci_dev, rx_buf->dma_addr))) {
+-		dev_kfree_skb_any(rx_buf->skb);
+-		rx_buf->skb = NULL;
+-		return -EIO;
++		++rx_queue->added_count;
++		++rx_queue->alloc_skb_count;
  	}
  
-+	if (adapter->op_mode == QLCNIC_NON_PRIV_FUNC) {
-+		npar_state = QLCRD32(adapter, QLCNIC_CRB_DEV_NPAR_STATE);
-+		if (npar_state == QLCNIC_DEV_NPAR_RDY) {
-+			qlcnic_api_unlock(adapter);
-+			goto wait_npar;
-+		} else {
-+			qlcnic_schedule_work(adapter, qlcnic_fwinit_work,
-+				FW_POLL_DELAY);
-+			qlcnic_api_unlock(adapter);
-+			return;
-+		}
-+	}
-+
- 	if (adapter->fw_wait_cnt++ > adapter->reset_ack_timeo) {
- 		dev_err(&adapter->pdev->dev, "Reset:Failed to get ack %d sec\n",
- 					adapter->reset_ack_timeo);
-@@ -2305,7 +2345,7 @@ skip_ack_check:
- 
- 		qlcnic_api_unlock(adapter);
- 
--		if (!qlcnic_start_firmware(adapter)) {
-+		if (!adapter->nic_ops->start_firmware(adapter)) {
- 			qlcnic_schedule_work(adapter, qlcnic_attach_work, 0);
- 			return;
- 		}
-@@ -2314,6 +2354,7 @@ skip_ack_check:
- 
- 	qlcnic_api_unlock(adapter);
- 
-+wait_npar:
- 	dev_state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
- 	QLCDB(adapter, HW, "Func waiting: Device state=%u\n", dev_state);
- 
-@@ -2328,7 +2369,7 @@ skip_ack_check:
- 		break;
- 
- 	default:
--		if (!qlcnic_start_firmware(adapter)) {
-+		if (!adapter->nic_ops->start_firmware(adapter)) {
- 			qlcnic_schedule_work(adapter, qlcnic_attach_work, 0);
- 			return;
- 		}
-@@ -2402,6 +2443,30 @@ qlcnic_dev_request_reset(struct qlcnic_adapter *adapter)
- 	qlcnic_api_unlock(adapter);
+ 	return 0;
  }
  
-+/* Transit to NPAR READY state from NPAR NOT READY state */
-+static void
-+qlcnic_dev_set_npar_ready(struct qlcnic_adapter *adapter)
-+{
-+	u32 state;
+ /**
+- * efx_init_rx_buffer_page - create new RX buffer using page-based allocation
++ * efx_init_rx_buffers_page - create EFX_RX_BATCH page-based RX buffers
+  *
+  * @rx_queue:		Efx RX queue
+- * @rx_buf:		RX buffer structure to populate
+  *
+- * This allocates memory for a new receive buffer, maps it for DMA,
+- * and populates a struct efx_rx_buffer with the relevant
+- * information.  Return a negative error code or 0 on success.
++ * This allocates memory for EFX_RX_BATCH receive buffers, maps them for DMA,
++ * and populates struct efx_rx_buffers for each one. Return a negative error
++ * code or 0 on success. If a single page can be split between two buffers,
++ * then the page will either be inserted fully, or not at at all.
+  */
+-static int efx_init_rx_buffer_page(struct efx_rx_queue *rx_queue,
+-				   struct efx_rx_buffer *rx_buf)
++static int efx_init_rx_buffers_page(struct efx_rx_queue *rx_queue)
+ {
+ 	struct efx_nic *efx = rx_queue->efx;
+-	int bytes, space, offset;
+-
+-	bytes = efx->rx_buffer_len - EFX_PAGE_IP_ALIGN;
+-
+-	/* If there is space left in the previously allocated page,
+-	 * then use it. Otherwise allocate a new one */
+-	rx_buf->page = rx_queue->buf_page;
+-	if (rx_buf->page == NULL) {
+-		dma_addr_t dma_addr;
+-
+-		rx_buf->page = alloc_pages(__GFP_COLD | __GFP_COMP | GFP_ATOMIC,
+-					   efx->rx_buffer_order);
+-		if (unlikely(rx_buf->page == NULL))
++	struct efx_rx_buffer *rx_buf;
++	struct page *page;
++	char *page_addr;
++	dma_addr_t dma_addr;
++	unsigned index, count;
 +
-+	if (adapter->op_mode == QLCNIC_NON_PRIV_FUNC ||
-+		adapter->fw_hal_version == QLCNIC_FW_BASE)
-+		return;
++	/* We can split a page between two buffers */
++	BUILD_BUG_ON(EFX_RX_BATCH & 1);
 +
-+	if (qlcnic_api_lock(adapter))
-+		return;
++	for (count = 0; count < EFX_RX_BATCH; ++count) {
++		page = alloc_pages(__GFP_COLD | __GFP_COMP | GFP_ATOMIC,
++				   efx->rx_buffer_order);
++		if (unlikely(page == NULL))
+ 			return -ENOMEM;
+-
+-		dma_addr = pci_map_page(efx->pci_dev, rx_buf->page,
+-					0, efx_rx_buf_size(efx),
++		dma_addr = pci_map_page(efx->pci_dev, page, 0,
++					efx_rx_buf_size(efx),
+ 					PCI_DMA_FROMDEVICE);
+-
+ 		if (unlikely(pci_dma_mapping_error(efx->pci_dev, dma_addr))) {
+-			__free_pages(rx_buf->page, efx->rx_buffer_order);
+-			rx_buf->page = NULL;
++			__free_pages(page, efx->rx_buffer_order);
+ 			return -EIO;
+ 		}
+-
+-		rx_queue->buf_page = rx_buf->page;
+-		rx_queue->buf_dma_addr = dma_addr;
+-		rx_queue->buf_data = (page_address(rx_buf->page) +
+-				      EFX_PAGE_IP_ALIGN);
+-	}
+-
+-	rx_buf->len = bytes;
+-	rx_buf->data = rx_queue->buf_data;
+-	offset = efx_rx_buf_offset(rx_buf);
+-	rx_buf->dma_addr = rx_queue->buf_dma_addr + offset;
+-
+-	/* Try to pack multiple buffers per page */
+-	if (efx->rx_buffer_order == 0) {
+-		/* The next buffer starts on the next 512 byte boundary */
+-		rx_queue->buf_data += ((bytes + 0x1ff) & ~0x1ff);
+-		offset += ((bytes + 0x1ff) & ~0x1ff);
+-
+-		space = efx_rx_buf_size(efx) - offset;
+-		if (space >= bytes) {
+-			/* Refs dropped on kernel releasing each skb */
+-			get_page(rx_queue->buf_page);
+-			goto out;
++		EFX_BUG_ON_PARANOID(dma_addr & (PAGE_SIZE - 1));
++		page_addr = page_address(page) + EFX_PAGE_IP_ALIGN;
++		dma_addr += EFX_PAGE_IP_ALIGN;
 +
-+	state = QLCRD32(adapter, QLCNIC_CRB_DEV_NPAR_STATE);
++	split:
++		index = rx_queue->added_count & EFX_RXQ_MASK;
++		rx_buf = efx_rx_buffer(rx_queue, index);
++		rx_buf->dma_addr = dma_addr;
++		rx_buf->skb = NULL;
++		rx_buf->page = page;
++		rx_buf->data = page_addr;
++		rx_buf->len = efx->rx_buffer_len - EFX_PAGE_IP_ALIGN;
++		++rx_queue->added_count;
++		++rx_queue->alloc_page_count;
 +
-+	if (state != QLCNIC_DEV_NPAR_RDY) {
-+		QLCWR32(adapter, QLCNIC_CRB_DEV_NPAR_STATE,
-+			QLCNIC_DEV_NPAR_RDY);
-+		QLCDB(adapter, DRV, "NPAR READY state set\n");
-+	}
-+
-+	qlcnic_api_unlock(adapter);
-+}
-+
- static void
- qlcnic_schedule_work(struct qlcnic_adapter *adapter,
- 		work_func_t func, int delay)
-@@ -2889,6 +2954,47 @@ done:
- 	return NOTIFY_DONE;
++		if ((~count & 1) && (efx->rx_buffer_len < (PAGE_SIZE >> 1))) {
++			/* Use the second half of the page */
++			get_page(page);
++			dma_addr += (PAGE_SIZE >> 1);
++			page_addr += (PAGE_SIZE >> 1);
++			++count;
++			goto split;
+ 		}
+ 	}
+ 
+-	/* This is the final RX buffer for this page, so mark it for
+-	 * unmapping */
+-	rx_queue->buf_page = NULL;
+-	rx_buf->unmap_addr = rx_queue->buf_dma_addr;
+-
+- out:
+ 	return 0;
  }
  
-+static int
-+qlcnicvf_start_firmware(struct qlcnic_adapter *adapter)
-+{
-+	int err;
+-/* This allocates memory for a new receive buffer, maps it for DMA,
+- * and populates a struct efx_rx_buffer with the relevant
+- * information.
+- */
+-static int efx_init_rx_buffer(struct efx_rx_queue *rx_queue,
+-			      struct efx_rx_buffer *new_rx_buf)
+-{
+-	int rc = 0;
+-
+-	if (rx_queue->channel->rx_alloc_push_pages) {
+-		new_rx_buf->skb = NULL;
+-		rc = efx_init_rx_buffer_page(rx_queue, new_rx_buf);
+-		rx_queue->alloc_page_count++;
+-	} else {
+-		new_rx_buf->page = NULL;
+-		rc = efx_init_rx_buffer_skb(rx_queue, new_rx_buf);
+-		rx_queue->alloc_skb_count++;
+-	}
+-
+-	if (unlikely(rc < 0))
+-		EFX_LOG_RL(rx_queue->efx, "%s RXQ[%d] =%d\n", __func__,
+-			   rx_queue->queue, rc);
+-	return rc;
+-}
+-
+ static void efx_unmap_rx_buffer(struct efx_nic *efx,
+ 				struct efx_rx_buffer *rx_buf)
+ {
+ 	if (rx_buf->page) {
+ 		EFX_BUG_ON_PARANOID(rx_buf->skb);
+-		if (rx_buf->unmap_addr) {
+-			pci_unmap_page(efx->pci_dev, rx_buf->unmap_addr,
 +
-+	err = qlcnic_can_start_firmware(adapter);
-+	if (err)
-+		return err;
-+
-+	qlcnic_check_options(adapter);
-+
-+	adapter->need_fw_reset = 0;
-+
-+	return err;
-+}
-+
-+static int
-+qlcnicvf_config_bridged_mode(struct qlcnic_adapter *adapter, u32 enable)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+static int
-+qlcnicvf_config_led(struct qlcnic_adapter *adapter, u32 state, u32 rate)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+static int
-+qlcnicvf_set_ilb_mode(struct qlcnic_adapter *adapter)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+static void
-+qlcnicvf_clear_ilb_mode(struct qlcnic_adapter *adapter)
-+{
-+	return;
-+}
-+
-+
- static struct notifier_block	qlcnic_netdev_cb = {
- 	.notifier_call = qlcnic_netdev_event,
- };
++		/* Unmap the buffer if there's only one buffer per page(s),
++		 * or this is the second half of a two buffer page. */
++		if (efx->rx_buffer_order != 0 ||
++		    (efx_rx_buf_offset(rx_buf) & (PAGE_SIZE >> 1)) != 0) {
++			pci_unmap_page(efx->pci_dev,
++				       rx_buf->dma_addr & ~(PAGE_SIZE - 1),
+ 				       efx_rx_buf_size(efx),
+ 				       PCI_DMA_FROMDEVICE);
+-			rx_buf->unmap_addr = 0;
+ 		}
+ 	} else if (likely(rx_buf->skb)) {
+ 		pci_unmap_single(efx->pci_dev, rx_buf->dma_addr,
+@@ -286,9 +263,9 @@ static void efx_fini_rx_buffer(struct efx_rx_queue *rx_queue,
+  */
+ void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue)
+ {
+-	struct efx_rx_buffer *rx_buf;
+-	unsigned fill_level, index;
+-	int i, space, rc = 0;
++	struct efx_channel *channel = rx_queue->channel;
++	unsigned fill_level;
++	int space, rc = 0;
+ 
+ 	/* Calculate current fill level, and exit if we don't need to fill */
+ 	fill_level = (rx_queue->added_count - rx_queue->removed_count);
+@@ -309,21 +286,18 @@ void efx_fast_push_rx_descriptors(struct efx_rx_queue *rx_queue)
+ 	EFX_TRACE(rx_queue->efx, "RX queue %d fast-filling descriptor ring from"
+ 		  " level %d to level %d using %s allocation\n",
+ 		  rx_queue->queue, fill_level, rx_queue->fast_fill_limit,
+-		  rx_queue->channel->rx_alloc_push_pages ? "page" : "skb");
++		  channel->rx_alloc_push_pages ? "page" : "skb");
+ 
+ 	do {
+-		for (i = 0; i < EFX_RX_BATCH; ++i) {
+-			index = rx_queue->added_count & EFX_RXQ_MASK;
+-			rx_buf = efx_rx_buffer(rx_queue, index);
+-			rc = efx_init_rx_buffer(rx_queue, rx_buf);
+-			if (unlikely(rc)) {
+-				/* Ensure that we don't leave the rx queue
+-				 * empty */
+-				if (rx_queue->added_count == rx_queue->removed_count)
+-					efx_schedule_slow_fill(rx_queue);
+-				goto out;
+-			}
+-			++rx_queue->added_count;
++		if (channel->rx_alloc_push_pages)
++			rc = efx_init_rx_buffers_page(rx_queue);
++		else
++			rc = efx_init_rx_buffers_skb(rx_queue);
++		if (unlikely(rc)) {
++			/* Ensure that we don't leave the rx queue empty */
++			if (rx_queue->added_count == rx_queue->removed_count)
++				efx_schedule_slow_fill(rx_queue);
++			goto out;
+ 		}
+ 	} while ((space -= EFX_RX_BATCH) >= EFX_RX_BATCH);
+ 
+@@ -638,16 +612,6 @@ void efx_fini_rx_queue(struct efx_rx_queue *rx_queue)
+ 			efx_fini_rx_buffer(rx_queue, rx_buf);
+ 		}
+ 	}
+-
+-	/* For a page that is part-way through splitting into RX buffers */
+-	if (rx_queue->buf_page != NULL) {
+-		pci_unmap_page(rx_queue->efx->pci_dev, rx_queue->buf_dma_addr,
+-			       efx_rx_buf_size(rx_queue->efx),
+-			       PCI_DMA_FROMDEVICE);
+-		__free_pages(rx_queue->buf_page,
+-			     rx_queue->efx->rx_buffer_order);
+-		rx_queue->buf_page = NULL;
+-	}
+ }
+ 
+ void efx_remove_rx_queue(struct efx_rx_queue *rx_queue)
 -- 
-1.6.0.2
+1.6.2.5
+
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
