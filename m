@@ -1,506 +1,121 @@
-From: Scott Feldman <scofeldm@cisco.com>
-Subject: [PATCH] iproute2: add VF_PORT support
-Date: Tue, 01 Jun 2010 11:40:13 -0700
-Message-ID: <20100601184013.3602.11639.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: chrisw@redhat.com, netdev@vger.kernel.org, arnd@arndb.de
-To: shemminger@vyatta.com
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [v5 Patch 1/3] netpoll: add generic support for bridge and bonding devices
+Date: Tue, 01 Jun 2010 11:42:47 -0700
+Message-ID: <24059.1275417767@death.nxdomain.ibm.com>
+References: <20100505081514.5157.83783.sendpatchset@localhost.localdomain> <20100527180545.GA2345@sysclose.org> <4BFF2EA5.9090008@redhat.com> <20100528194041.GC2345@sysclose.org> <4C034FA4.5000401@redhat.com> <20100531190820.GA24569@sysclose.org> <4C04D98D.4020509@redhat.com>
+Cc: Flavio Leitner <fbl@sysclose.org>, linux-kernel@vger.kernel.org,
+	Matt Mackall <mpm@selenic.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org,
+	Andy Gospodarek <gospo@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Jeff Moyer <jmoyer@redhat.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	bonding-devel@lists.sourceforge.net,
+	David Miller <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-6.cisco.com ([171.71.176.117]:40111 "EHLO
-	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752173Ab0FASkO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 14:40:14 -0400
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:37124 "EHLO e9.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752035Ab0FASmw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Jun 2010 14:42:52 -0400
+In-reply-to: <4C04D98D.4020509@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Scott Feldman <scofeldm@cisco.com>
+Cong Wang <amwang@redhat.com> wrote:
 
-Add support for recently added IFLA_VF_PORTS.  VF port netlink msg layout is
+>On 06/01/10 03:08, Flavio Leitner wrote:
+>> On Mon, May 31, 2010 at 01:56:52PM +0800, Cong Wang wrote:
+>>> Hi, Flavio,
+>>>
+>>> Please use the attached patch instead, try to see if it solves
+>>> all your problems.
+>>
+>> I tried and it hangs. No backtraces this time.
+>> The bond_change_active_slave() prints before NETDEV_BONDING_FAILOVER
+>> notification, so I think it won't work.
+>
+>Ah, I thought the same.
+>
+>>
+>> Please, correct if I'm wrong, but when a failover happens with your
+>> patch applied, the netconsole would be disabled forever even with
+>> another healthy slave, right?
+>>
+>
+>Yes, this is an easy solution, because bonding has several modes,
+>it is complex to make netpoll work in different modes.
 
-        [IFLA_NUM_VF]
-        [IFLA_VF_PORTS]
-                [IFLA_VF_PORT]
-                        [IFLA_PORT_*], ...
-                [IFLA_VF_PORT]
-                        [IFLA_PORT_*], ...
-                ...
-        [IFLA_PORT_SELF]
-                [IFLA_PORT_*], ...
+	If I understand correctly, the root cause of the problem with
+netconsole and bonding is that bonding is, ultimately, performing
+printks with a write lock held, and when netconsole recursively calls
+into bonding to send the printk over the netconsole, there is a deadlock
+(when the bonding xmit function attempts to acquire the same lock for
+read).
 
-The iproute2 cmd line for link set is now:
+	You're trying to avoid the deadlock by shutting off netconsole
+(permanently, it looks like) for one problem case: a failover, which
+does some printks with a write lock held.
 
-Usage: ip link add link DEV [ name ] NAME
-                   [ txqueuelen PACKETS ]
-                   [ address LLADDR ]
-                   [ broadcast LLADDR ]
-                   [ mtu MTU ]
-                   type TYPE [ ARGS ]
-       ip link delete DEV type TYPE [ ARGS ]
+	This doesn't look to me like a complete solution, there are
+other cases in bonding that will do printk with write locks held.  I
+suspect those will also hang netconsole as things exist today, and won't
+be affected by your patch below.
 
-       ip link set DEVICE [ { up | down } ]
-                          [ arp { on | off } ]
-                          [ dynamic { on | off } ]
-                          [ multicast { on | off } ]
-                          [ allmulticast { on | off } ]
-                          [ promisc { on | off } ]
-                          [ trailers { on | off } ]
-                          [ txqueuelen PACKETS ]
-                          [ name NEWNAME ]
-                          [ address LLADDR ]
-                          [ broadcast LLADDR ]
-                          [ mtu MTU ]
-                          [ netns PID ]
-                          [ alias NAME ]
-                          [ port MODE { PROFILE | VSI } ]
-                          [ vf NUM [ mac LLADDR ]
-                                   [ vlan VLANID [ qos VLAN-QOS ] ]
-                                   [ rate TXRATE ]
-                                   [ port MODE { PROFILE | VSI } ] ]
-       ip link show [ DEVICE ]
+	For example:
 
-TYPE := { vlan | veth | vcan | dummy | ifb | macvlan | can }
-MODE := { assoc | preassoc | preassocrr | disassoc }
-PROFILE := profile PROFILE
-           [ instance UUID ]
-           [ host UUID ]
-VSI := vsi mgr MGRID type VTID ver VER
-       [ instance UUID ]
+	The sysfs functions to set the primary (bonding_store_primary)
+or active (bonding_store_active_slave) options: a pr_info is called to
+provide a log message of the results.  These could be tested by setting
+the primary or active options via sysfs, e.g.,
 
-Signed-off-by: Scott Feldman <scofeldm@cisco.com>
+echo eth0 > /sys/class/net/bond0/bonding/primary
+echo eth0 > /sys/class/net/bond0/bonding/active
+
+	If the kernel is defined with DEBUG, there are a few pr_debug
+calls within write_locks (bond_del_vlan, for example).
+
+	If the slave's underlying device driver's ndo_vlan_rx_register
+or ndo_vlan_rx_kill_vid functions call printk (and it looks like some do
+for error cases, e.g., igbvf, ehea, enic), those would also presumably
+deadlock (because bonding holds its write_lock when calling the ndo_
+vlan functions).
+
+	It also appears that (with the patch below) some nominally
+normal usage patterns will immediately disable netconsole.  The one that
+comes to mind is if the primary= option is set (to "eth1" for this
+example), but that slave not enslaved first (the slaves are added, say,
+eth0 then eth1).  In that situation, when the primary slave (eth1 here)
+is added, the first thing that will happen is a failover, and that will
+disable netconsole.
+
+	Thoughts?
+
+	-J
+
+>Would you like to test the following patch?
+>
+>Thanks much!
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index 5e12462..59ade92 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -1109,6 +1109,14 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+> 	if (old_active == new_active)
+> 		return;
+>
+>+	write_unlock_bh(&bond->curr_slave_lock);
+>+	read_unlock(&bond->lock);
+>+
+>+	netdev_bonding_change(bond->dev, NETDEV_BONDING_DESLAVE);
+>+
+>+	read_lock(&bond->lock);
+>+	write_lock_bh(&bond->curr_slave_lock);
+>+
+> 	if (new_active) {
+> 		new_active->jiffies = jiffies;
+>
+
 ---
- ip/ipaddress.c |  115 ++++++++++++++++++++++++++++
- ip/iplink.c    |  227 +++++++++++++++++++++++++++++++++++++++++++++++---------
- 2 files changed, 304 insertions(+), 38 deletions(-)
-
-
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 3a411b1..5c3e696 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -187,6 +187,107 @@ static void print_linktype(FILE *fp, struct rtattr *tb)
- 	}
- }
- 
-+static void print_port(FILE *fp, struct rtattr *port[])
-+{
-+	struct ifla_port_vsi *vsi;
-+#define uuid_fmt "%02X%02X%02X%02X-%02X%02X-%02X%02X-" \
-+	"%02X%02X-%02X%02X%02X%02X%02X%02X"
-+	unsigned char *uuid;
-+	__u8 request;
-+	__u16 response;
-+
-+	if (port[IFLA_PORT_VF])
-+		fprintf(fp, "\n    vf %d port",
-+			*(__u32 *)RTA_DATA(port[IFLA_PORT_VF]));
-+	else
-+		fprintf(fp, "\n    port");
-+
-+	if (port[IFLA_PORT_REQUEST]) {
-+		request = *(__u8 *)RTA_DATA(port[IFLA_PORT_REQUEST]);
-+		fprintf(fp, " %s",
-+			request == PORT_REQUEST_PREASSOCIATE ? "preassoc" :
-+			request == PORT_REQUEST_PREASSOCIATE_RR ? "preassocrr" :
-+			request == PORT_REQUEST_ASSOCIATE ? "assoc" :
-+			request == PORT_REQUEST_DISASSOCIATE ? "disassoc" :
-+			"unknown request");
-+	}
-+
-+	if (port[IFLA_PORT_PROFILE])
-+		fprintf(fp, " profile \"%s\"",
-+			(char *)RTA_DATA(port[IFLA_PORT_PROFILE]));
-+
-+	if (port[IFLA_PORT_VSI_TYPE]) {
-+		vsi = RTA_DATA(port[IFLA_PORT_VSI_TYPE]);
-+		fprintf(fp, " vsi mgr %d type 0x%02x%02x%02x ver %d",
-+			vsi->vsi_mgr_id, vsi->vsi_type_id[0],
-+			vsi->vsi_type_id[1], vsi->vsi_type_id[2],
-+			vsi->vsi_type_version);
-+	}
-+
-+	if (port[IFLA_PORT_RESPONSE]) {
-+		response = *(__u16 *)RTA_DATA(port[IFLA_PORT_RESPONSE]);
-+		fprintf(fp, " status: %s",
-+			response == PORT_VDP_RESPONSE_SUCCESS ?
-+				"SUCCESS" :
-+			response == PORT_VDP_RESPONSE_INVALID_FORMAT ?
-+				"INVALID FORMAT" :
-+			response == PORT_VDP_RESPONSE_INSUFFICIENT_RESOURCES ?
-+				"INSUFFICIENT RESOURCES" :
-+			response == PORT_VDP_RESPONSE_UNUSED_VTID ?
-+				"UNUSED VTID" :
-+			response == PORT_VDP_RESPONSE_VTID_VIOLATION ?
-+				"VTID VIOLATION" :
-+			response == PORT_VDP_RESPONSE_VTID_VERSION_VIOALTION ?
-+				"VTID VERSION VIOLATION" :
-+			response == PORT_VDP_RESPONSE_OUT_OF_SYNC ?
-+				"OUT-OF-SYNC" :
-+			response == PORT_PROFILE_RESPONSE_SUCCESS ?
-+				"SUCCESS" :
-+			response == PORT_PROFILE_RESPONSE_INPROGRESS ?
-+				"IN-PROGRESS" :
-+			response == PORT_PROFILE_RESPONSE_INVALID ?
-+				"INVALID" :
-+			response == PORT_PROFILE_RESPONSE_BADSTATE ?
-+				"BAD STATE" :
-+			response ==PORT_PROFILE_RESPONSE_INSUFFICIENT_RESOURCES?
-+				"INSUFFICIENT RESOURCES" :
-+			response == PORT_PROFILE_RESPONSE_ERROR ?
-+				"ERROR" :
-+			"UNKNOWN RESPONSE");
-+	}
-+
-+	if (port[IFLA_PORT_INSTANCE_UUID]) {
-+		uuid = RTA_DATA(port[IFLA_PORT_INSTANCE_UUID]);
-+		fprintf(fp, "\n        instance "uuid_fmt,
-+			uuid[0],  uuid[1],  uuid[2],  uuid[3],
-+			uuid[4],  uuid[5],  uuid[6],  uuid[7],
-+			uuid[8],  uuid[9],  uuid[10], uuid[11],
-+			uuid[12], uuid[13], uuid[14], uuid[15]);
-+	}
-+
-+	if (port[IFLA_PORT_HOST_UUID]) {
-+		uuid = RTA_DATA(port[IFLA_PORT_HOST_UUID]);
-+		fprintf(fp, "\n            host "uuid_fmt,
-+			uuid[0],  uuid[1],  uuid[2],  uuid[3],
-+			uuid[4],  uuid[5],  uuid[6],  uuid[7],
-+			uuid[8],  uuid[9],  uuid[10], uuid[11],
-+			uuid[12], uuid[13], uuid[14], uuid[15]);
-+	}
-+}
-+
-+static void print_vfport(FILE *fp, struct rtattr *vfport)
-+{
-+	struct rtattr *port[IFLA_PORT_MAX+1];
-+
-+	if (vfport->rta_type != IFLA_VF_PORT) {
-+		fprintf(stderr, "BUG: rta type is %d\n", vfport->rta_type);
-+		return;
-+	}
-+
-+	parse_rtattr_nested(port, IFLA_PORT_MAX, vfport);
-+	print_port(fp, port);
-+}
-+
- static void print_vfinfo(FILE *fp, struct rtattr *vfinfo)
- {
- 	struct ifla_vf_mac *vf_mac;
-@@ -421,6 +522,20 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 			print_vfinfo(fp, i);
- 	}
- 
-+	if (do_link && tb[IFLA_PORT_SELF]) {
-+		struct rtattr *port[IFLA_PORT_MAX+1];
-+		parse_rtattr_nested(port, IFLA_PORT_MAX, tb[IFLA_PORT_SELF]);
-+		print_port(fp, port);
-+	}
-+
-+	if (do_link && tb[IFLA_VF_PORTS] && tb[IFLA_NUM_VF]) {
-+		struct rtattr *i, *vfports = tb[IFLA_VF_PORTS];
-+		int rem = RTA_PAYLOAD(vfports);
-+		for (i = RTA_DATA(vfports); RTA_OK(i, rem);
-+			i = RTA_NEXT(i, rem))
-+			print_vfport(fp, i);
-+	}
-+
- 	fprintf(fp, "\n");
- 	fflush(fp);
- 	return 0;
-diff --git a/ip/iplink.c b/ip/iplink.c
-index cb2c4f5..04f55ee 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -68,14 +68,22 @@ void iplink_usage(void)
- 	fprintf(stderr, "	                  [ mtu MTU ]\n");
- 	fprintf(stderr, "	                  [ netns PID ]\n");
- 	fprintf(stderr, "			  [ alias NAME ]\n");
-+	fprintf(stderr, "			  [ port MODE { PROFILE | VSI } ]\n");
- 	fprintf(stderr, "	                  [ vf NUM [ mac LLADDR ]\n");
- 	fprintf(stderr, "				   [ vlan VLANID [ qos VLAN-QOS ] ]\n");
--	fprintf(stderr, "				   [ rate TXRATE ] ] \n");
-+	fprintf(stderr, "				   [ rate TXRATE ]\n");
-+	fprintf(stderr, "				   [ port MODE { PROFILE | VSI } ] ]\n");
- 	fprintf(stderr, "       ip link show [ DEVICE ]\n");
- 
- 	if (iplink_have_newlink()) {
- 		fprintf(stderr, "\n");
- 		fprintf(stderr, "TYPE := { vlan | veth | vcan | dummy | ifb | macvlan | can }\n");
-+		fprintf(stderr, "MODE := { assoc | preassoc | preassocrr | disassoc }\n");
-+		fprintf(stderr, "PROFILE := profile PROFILE\n");
-+		fprintf(stderr, "           [ instance UUID ]\n");
-+		fprintf(stderr, "           [ host UUID ]\n");
-+		fprintf(stderr, "VSI := vsi mgr MGRID type VTID ver VER\n");
-+		fprintf(stderr, "       [ instance UUID ]\n");
- 	}
- 	exit(-1);
- }
-@@ -176,55 +184,170 @@ struct iplink_req {
- 	char			buf[1024];
- };
- 
--int iplink_parse_vf(int vf, int *argcp, char ***argvp,
--			   struct iplink_req *req)
-+void iplink_parse_port(int vf, int *argcp, char ***argvp,
-+		       struct iplink_req *req)
-+{
-+	int argc = *argcp;
-+	char **argv = *argvp;
-+	struct rtattr *nest, *nest_inner = NULL;
-+	struct ifla_port_vsi port_vsi;
-+	char *port_profile = NULL;
-+	char *instance_uuid = NULL;
-+	char *host_uuid = NULL;
-+	unsigned char uuid[16];
-+	char *uuid_fmt = "%02X%02X%02X%02X-%02X%02X-%02X%02X-"
-+		"%02X%02X-%02X%02X%02X%02X%02X%02X";
-+	int parsed;
-+	int manager_id = -1;
-+	int type_id = -1;
-+	int type_id_version = -1;
-+	int request = -1;
-+	int vsi = 0;
-+
-+	if (NEXT_ARG_OK()) {
-+		NEXT_ARG();
-+		if (matches(*argv, "assoc") == 0)
-+			request = PORT_REQUEST_ASSOCIATE;
-+		else if (matches(*argv, "preassoc") == 0)
-+			request = PORT_REQUEST_PREASSOCIATE;
-+		else if (matches(*argv, "preassocrr") == 0)
-+			request = PORT_REQUEST_PREASSOCIATE_RR;
-+		else if (matches(*argv, "disassoc") == 0)
-+			request = PORT_REQUEST_DISASSOCIATE;
-+	}
-+
-+	while (NEXT_ARG_OK()) {
-+		NEXT_ARG();
-+		if (matches(*argv, "vsi") == 0) {
-+			vsi = 1;
-+		} else if (matches(*argv, "mgr") == 0) {
-+			NEXT_ARG();
-+			if (get_integer(&manager_id, *argv, 0))
-+				invarg("Invalid \"mgr\" value\n", *argv);
-+		} else if (matches(*argv, "type") == 0) {
-+			NEXT_ARG();
-+			if (get_integer(&type_id, *argv, 0))
-+				invarg("Invalid \"type\" value\n", *argv);
-+		} else if (matches(*argv, "ver") == 0) {
-+			NEXT_ARG();
-+			if (get_integer(&type_id_version, *argv, 0))
-+				invarg("Invalid \"ver\" value\n", *argv);
-+		} else if (matches(*argv, "profile") == 0) {
-+			NEXT_ARG();
-+			port_profile = *argv;
-+		} else if (matches(*argv, "instance") == 0) {
-+			NEXT_ARG();
-+			instance_uuid = *argv;
-+		} else if (matches(*argv, "host") == 0) {
-+			NEXT_ARG();
-+			host_uuid = *argv;
-+		} else {
-+			/* rewind arg */
-+			PREV_ARG();
-+			break;
-+		}
-+	}
-+
-+	if (argc == *argcp)
-+		incomplete_command();
-+
-+	if (vf == PORT_SELF_VF) {
-+		nest = addattr_nest(&req->n, sizeof(*req), IFLA_PORT_SELF);
-+	} else {
-+		nest = addattr_nest(&req->n, sizeof(*req), IFLA_VF_PORTS);
-+		nest_inner = addattr_nest(&req->n, sizeof(*req), IFLA_VF_PORT);
-+		addattr_l(&req->n, sizeof(*req), IFLA_PORT_VF,
-+			(uint32_t *)&vf, sizeof(uint32_t));
-+	}
-+
-+	if (port_profile)
-+		addattr_l(&req->n, sizeof(*req), IFLA_PORT_PROFILE,
-+			port_profile, strlen(port_profile));
-+
-+	if (instance_uuid) {
-+		parsed = sscanf(instance_uuid, uuid_fmt,
-+			&uuid[0],  &uuid[1],  &uuid[2],  &uuid[3],
-+			&uuid[4],  &uuid[5],  &uuid[6],  &uuid[7],
-+			&uuid[8],  &uuid[9],  &uuid[10], &uuid[11],
-+			&uuid[12], &uuid[13], &uuid[14], &uuid[15]);
-+		if (parsed != sizeof(uuid))
-+			invarg("Invalid \"uuid\" value\n", instance_uuid);
-+		addattr_l(&req->n, sizeof(*req), IFLA_PORT_INSTANCE_UUID,
-+			uuid, sizeof(uuid));
-+
-+	}
-+
-+	if (host_uuid) {
-+		parsed = sscanf(host_uuid, uuid_fmt,
-+			&uuid[0],  &uuid[1],  &uuid[2],  &uuid[3],
-+			&uuid[4],  &uuid[5],  &uuid[6],  &uuid[7],
-+			&uuid[8],  &uuid[9],  &uuid[10], &uuid[11],
-+			&uuid[12], &uuid[13], &uuid[14], &uuid[15]);
-+		if (parsed != sizeof(uuid))
-+			invarg("Invalid \"uuid\" value\n", host_uuid);
-+		addattr_l(&req->n, sizeof(*req), IFLA_PORT_HOST_UUID,
-+			uuid, sizeof(uuid));
-+
-+	}
-+
-+	if (vsi) {
-+		port_vsi.vsi_mgr_id = manager_id;
-+		memcpy(&port_vsi.vsi_type_id, &type_id,
-+			sizeof(port_vsi.vsi_type_id));
-+		port_vsi.vsi_type_version = type_id_version;
-+		addattr_l(&req->n, sizeof(*req), IFLA_PORT_VSI_TYPE,
-+			&port_vsi, sizeof(port_vsi));
-+	}
-+
-+	addattr_l(&req->n, sizeof(*req), IFLA_PORT_REQUEST,
-+		&request, 1);
-+
-+	if (nest_inner)
-+		addattr_nest_end(&req->n, nest_inner);
-+	addattr_nest_end(&req->n, nest);
-+
-+	*argcp = argc;
-+	*argvp = argv;
-+}
-+
-+void iplink_parse_vf(int vf, int *argcp, char ***argvp,
-+		     struct iplink_req *req)
- {
- 	int len, argc = *argcp;
- 	char **argv = *argvp;
-+	struct rtattr *vflist;
- 	struct rtattr *vfinfo;
--
--	vfinfo = addattr_nest(&req->n, sizeof(*req), IFLA_VF_INFO);
-+	char *mac = NULL;
-+	char *vlan = NULL;
-+	char *qos = NULL;
-+	char *rate = NULL;
-+	struct ifla_vf_mac ivm = { .vf = vf, };
-+	struct ifla_vf_vlan ivv = { .vf = vf, .qos = 0, };
-+	struct ifla_vf_tx_rate ivt = { .vf = vf, };
- 
- 	while (NEXT_ARG_OK()) {
- 		NEXT_ARG();
--		if (matches(*argv, "mac") == 0) {
--			struct ifla_vf_mac ivm;
-+		if (matches(*argv, "port") == 0) {
-+			iplink_parse_port(vf, &argc, &argv, req);
-+		} else if (matches(*argv, "mac") == 0) {
- 			NEXT_ARG();
--			ivm.vf = vf;
--			len = ll_addr_a2n((char *)ivm.mac, 32, *argv);
--			if (len < 0)
--				return -1;
--			addattr_l(&req->n, sizeof(*req), IFLA_VF_MAC, &ivm, sizeof(ivm));
-+			mac = *argv;
- 		} else if (matches(*argv, "vlan") == 0) {
--			struct ifla_vf_vlan ivv;
- 			NEXT_ARG();
--			if (get_unsigned(&ivv.vlan, *argv, 0)) {
--				invarg("Invalid \"vlan\" value\n", *argv);
--			}
--			ivv.vf = vf;
--			ivv.qos = 0;
-+			vlan = *argv;
- 			if (NEXT_ARG_OK()) {
- 				NEXT_ARG();
- 				if (matches(*argv, "qos") == 0) {
- 					NEXT_ARG();
--					if (get_unsigned(&ivv.qos, *argv, 0)) {
--						invarg("Invalid \"qos\" value\n", *argv);
--					}
-+					qos = *argv;
- 				} else {
- 					/* rewind arg */
- 					PREV_ARG();
- 				}
- 			}
--			addattr_l(&req->n, sizeof(*req), IFLA_VF_VLAN, &ivv, sizeof(ivv));
- 		} else if (matches(*argv, "rate") == 0) {
--			struct ifla_vf_tx_rate ivt;
- 			NEXT_ARG();
--			if (get_unsigned(&ivt.rate, *argv, 0)) {
--				invarg("Invalid \"rate\" value\n", *argv);
--			}
--			ivt.vf = vf;
--			addattr_l(&req->n, sizeof(*req), IFLA_VF_TX_RATE, &ivt, sizeof(ivt));
--		
-+			rate = *argv;
- 		} else {
- 			/* rewind arg */
- 			PREV_ARG();
-@@ -235,11 +358,43 @@ int iplink_parse_vf(int vf, int *argcp, char ***argvp,
- 	if (argc == *argcp)
- 		incomplete_command();
- 
--	addattr_nest_end(&req->n, vfinfo);
-+	if (mac || vlan || rate) {
-+
-+		vflist = addattr_nest(&req->n, sizeof(*req), IFLA_VFINFO_LIST);
-+		vfinfo = addattr_nest(&req->n, sizeof(*req), IFLA_VF_INFO);
-+
-+		if (mac) {
-+			len = ll_addr_a2n((char *)ivm.mac, 32, mac);
-+			if (len < 0)
-+				invarg("Invalid \"mac\" value\n", mac);
-+			addattr_l(&req->n, sizeof(*req), IFLA_VF_MAC,
-+				&ivm, sizeof(ivm));
-+		}
-+
-+		if (vlan) {
-+			if (get_unsigned(&ivv.vlan, vlan, 0))
-+				invarg("Invalid \"vlan\" value\n", vlan);
-+			if (qos) {
-+				if (get_unsigned(&ivv.qos, qos, 0))
-+					invarg("Invalid \"qos\" value\n", qos);
-+			}
-+			addattr_l(&req->n, sizeof(*req), IFLA_VF_VLAN,
-+				&ivv, sizeof(ivv));
-+		}
-+
-+		if (rate) {
-+			if (get_unsigned(&ivt.rate, rate, 0))
-+				invarg("Invalid \"rate\" value\n", rate);
-+			addattr_l(&req->n, sizeof(*req), IFLA_VF_TX_RATE,
-+				&ivt, sizeof(ivt));
-+		}
-+
-+		addattr_nest_end(&req->n, vfinfo);
-+		addattr_nest_end(&req->n, vflist);
-+	}
- 
- 	*argcp = argc;
- 	*argvp = argv;
--	return 0;
- }
- 
- 
-@@ -349,18 +504,14 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 				req->i.ifi_flags |= IFF_NOARP;
- 			} else
- 				return on_off("noarp");
-+		} else if (strcmp(*argv, "port") == 0) {
-+			iplink_parse_port(vf, &argc, &argv, req);
- 		} else if (strcmp(*argv, "vf") == 0) {
--			struct rtattr *vflist;
- 			NEXT_ARG();
- 			if (get_integer(&vf,  *argv, 0)) {
- 				invarg("Invalid \"vf\" value\n", *argv);
- 			}
--			vflist = addattr_nest(&req->n, sizeof(*req),
--					      IFLA_VFINFO_LIST);
--			len = iplink_parse_vf(vf, &argc, &argv, req);
--			if (len < 0)
--				return -1;
--			addattr_nest_end(&req->n, vflist);
-+			iplink_parse_vf(vf, &argc, &argv, req);
- #ifdef IFF_DYNAMIC
- 		} else if (matches(*argv, "dynamic") == 0) {
- 			NEXT_ARG();
-
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
