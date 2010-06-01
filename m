@@ -1,34 +1,37 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: Kernel panic with the b44 driver in 2.6.35-rc1
-Date: Tue, 1 Jun 2010 09:33:19 -0400
-Message-ID: <20100601133318.GA26701@tuxdriver.com>
-References: <4C0414F3.8030409@tvcablenet.be>
+Subject: Re: [Regression] [2.6.35-rc1] ssb_is_sprom_available
+Date: Tue, 1 Jun 2010 09:34:02 -0400
+Message-ID: <20100601133402.GB26701@tuxdriver.com>
+References: <201005312155.20602.maciej.rutecki@gmail.com>
+ <20100531205300.GB32708@parisc-linux.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: "news.gmane.org" <francois.valenduc@tvcablenet.be>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:57144 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755885Ab0FANpL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 09:45:11 -0400
+Cc: Maciej Rutecki <maciej.rutecki@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	linux-pci@vger.kernel.org, linux-usb@vger.kernel.org,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, netdev@vger.kernel.org,
+	Michael Buesch <mb@bu3sch.de>
+To: Matthew Wilcox <matthew@wil.cx>
+Return-path: <linux-pci-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4C0414F3.8030409@tvcablenet.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20100531205300.GB32708@parisc-linux.org>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 31, 2010 at 09:58:43PM +0200, news.gmane.org wrote:
+On Mon, May 31, 2010 at 02:53:00PM -0600, Matthew Wilcox wrote:
+> On Mon, May 31, 2010 at 09:55:20PM +0200, Maciej Rutecki wrote:
+> > Last known good: 2.6.34
+> > Failing kernel: 2.6.35-rc1
+> > 
+> > subsystem: PCI, USB(?)
+> > 
+> > Kernel dies during booting on message "ssb_is_sprom_available", see picture:
+> > http://www.unixy.pl/maciek/download/kernel/2.6.35-rc1/gumis/DSC_0011.JPG
+> 
+> Um, looks like it's something to do with the Sonics Silicon Backplane,
+> not PCI, nor USB.
 
-> I have a kernel panic at startup with the b44 driver with the 2.6.35-rc1
-> kernel. I have submitted a bug report (see
-> https://bugzilla.kernel.org/show_bug.cgi?id=16074) but until know, I
-> din't get any answer yet. Does anybody knows what's happening. I have
-> tried several git-bisect run but I didn't find any conclusive result.
-> The first bad-commit was different each time and if I revert it, the
-> problem still occurs anyway.
-
-This patch is already on its way to Linus -- it should fix the problem
-you are seeing:
+Fix is on its way...
 
 commit da1fdb02d9200ff28b6f3a380d21930335fe5429
 Author: Christoph Fritz <chf.fritz@googlemail.com>
