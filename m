@@ -1,99 +1,53 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch 2/2] caif: add newlines after declarations in caif_serial.c
-Date: Tue, 1 Jun 2010 09:09:33 +0200
-Message-ID: <20100601070933.GE5483@bicker>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] greth: Fix build after OF device conversions.
+Date: Tue, 01 Jun 2010 00:10:59 -0700 (PDT)
+Message-ID: <20100601.001059.241461551.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Sjur Braendeland <sjur.brandeland@stericsson.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: grant.likely@secretlab.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:57686 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753119Ab0FAHJx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 03:09:53 -0400
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42952
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752864Ab0FAHKu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 03:10:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I added newlines after the declarations in caif_serial.c.  This is
-normal kernel style, although I can't see anywhere it's documented.
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
 
-diff --git a/drivers/net/caif/caif_serial.c b/drivers/net/caif/caif_serial.c
-index f30a6a0..3e706f0 100644
---- a/drivers/net/caif/caif_serial.c
-+++ b/drivers/net/caif/caif_serial.c
-@@ -174,6 +174,7 @@ static void ldisc_receive(struct tty_struct *tty, const u8 *data,
- 	struct ser_device *ser;
- 	int ret;
- 	u8 *p;
-+
- 	ser = tty->disc_data;
+I've pushed this to net-2.6
+
+ drivers/net/greth.c |   11 +++++------
+ 1 files changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/greth.c b/drivers/net/greth.c
+index f37a4c1..3a029d0 100644
+--- a/drivers/net/greth.c
++++ b/drivers/net/greth.c
+@@ -1607,14 +1607,13 @@ static struct of_device_id greth_of_match[] = {
+ MODULE_DEVICE_TABLE(of, greth_of_match);
  
- 	/*
-@@ -221,6 +222,7 @@ static int handle_tx(struct ser_device *ser)
- 	struct tty_struct *tty;
- 	struct sk_buff *skb;
- 	int tty_wr, len, room;
-+
- 	tty = ser->tty;
- 	ser->tx_started = true;
+ static struct of_platform_driver greth_of_driver = {
+-	.name = "grlib-greth",
+-	.match_table = greth_of_match,
++	.driver = {
++		.name = "grlib-greth",
++		.owner = THIS_MODULE,
++		.of_match_table = greth_of_match,
++	},
+ 	.probe = greth_of_probe,
+ 	.remove = __devexit_p(greth_of_remove),
+-	.driver = {
+-		   .owner = THIS_MODULE,
+-		   .name = "grlib-greth",
+-		   },
+ };
  
-@@ -281,6 +283,7 @@ error:
- static int caif_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct ser_device *ser;
-+
- 	BUG_ON(dev == NULL);
- 	ser = netdev_priv(dev);
- 
-@@ -299,6 +302,7 @@ static int caif_xmit(struct sk_buff *skb, struct net_device *dev)
- static void ldisc_tx_wakeup(struct tty_struct *tty)
- {
- 	struct ser_device *ser;
-+
- 	ser = tty->disc_data;
- 	BUG_ON(ser == NULL);
- 	BUG_ON(ser->tty != tty);
-@@ -348,6 +352,7 @@ static void ldisc_close(struct tty_struct *tty)
- 	struct ser_device *ser = tty->disc_data;
- 	/* Remove may be called inside or outside of rtnl_lock */
- 	int islocked = rtnl_is_locked();
-+
- 	if (!islocked)
- 		rtnl_lock();
- 	/* device is freed automagically by net-sysfs */
-@@ -374,6 +379,7 @@ static struct tty_ldisc_ops caif_ldisc = {
- static int register_ldisc(void)
- {
- 	int result;
-+
- 	result = tty_register_ldisc(N_CAIF, &caif_ldisc);
- 	if (result < 0) {
- 		pr_err("cannot register CAIF ldisc=%d err=%d\n", N_CAIF,
-@@ -391,6 +397,7 @@ static const struct net_device_ops netdev_ops = {
- static void caifdev_setup(struct net_device *dev)
- {
- 	struct ser_device *serdev = netdev_priv(dev);
-+
- 	dev->features = 0;
- 	dev->netdev_ops = &netdev_ops;
- 	dev->type = ARPHRD_CAIF;
-@@ -423,6 +430,7 @@ static int caif_net_close(struct net_device *dev)
- static int __init caif_ser_init(void)
- {
- 	int ret;
-+
- 	ret = register_ldisc();
- 	debugfsdir = debugfs_create_dir("caif_serial", NULL);
- 	return ret;
-@@ -433,6 +441,7 @@ static void __exit caif_ser_exit(void)
- 	struct ser_device *ser = NULL;
- 	struct list_head *node;
- 	struct list_head *_tmp;
-+
- 	list_for_each_safe(node, _tmp, &ser_list) {
- 		ser = list_entry(node, struct ser_device, node);
- 		dev_close(ser->dev);
+ static int __init greth_init(void)
+-- 
+1.7.0.4
+
