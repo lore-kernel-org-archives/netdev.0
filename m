@@ -1,41 +1,47 @@
-From: Richard Hartmann <richih.mailinglist@gmail.com>
-Subject: Re: [Patch] fix packet loss and massive ping spikes with PPP
-	multi-link
-Date: Tue, 1 Jun 2010 13:28:59 +0200
-Message-ID: <AANLkTinpsIs7qMSpQ78fWCTHh03iLBIwRlsU7sqJau08@mail.gmail.com>
-References: <2d460de71003260850x7f90d04cy79ac853464108182@mail.gmail.com>
-	<20100326160226.0159ac3b@lxorguk.ukuu.org.uk>
-	<4BACE827.4070006@gmail.com>
-	<20100326170428.6c1ad66c@lxorguk.ukuu.org.uk>
-	<4BB31E00.8060204@netservers.co.uk>
-	<20100529021624.GA2538@brick.ozlabs.ibm.com>
-	<AANLkTil7fk_ikrSPiZnqcJSLGCrzcCrCwbeuUMY5Yu5v@mail.gmail.com>
-	<4C04ECA3.1080905@netservers.co.uk>
+From: Finn Thain <fthain@telegraphics.com.au>
+Subject: [PATCH 1/2] mac8390: propagate error code from request_irq
+Date: Tue, 1 Jun 2010 22:18:32 +1000 (EST)
+Message-ID: <alpine.OSX.2.00.1006011738330.299@localhost>
+References: <alpine.LNX.2.00.1005312011210.469@nippy.intranet> <20100531.043056.258120791.davem@davemloft.net> <alpine.OSX.2.00.1005312244520.1490@localhost> <20100531.060225.68146363.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Paul Mackerras <paulus@samba.org>, netdev@vger.kernel.org,
-	linux-ppp@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	"Alexander E. Patrakov" <patrakov@gmail.com>,
-	linux-kernel@vger.kernel.org
-To: Ben McKeegan <ben@netservers.co.uk>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <4C04ECA3.1080905@netservers.co.uk>
-Sender: linux-ppp-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: geert@linux-m68k.org, joe@perches.com, p_gortmaker@yahoo.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-m68k@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <20100531.060225.68146363.davem@davemloft.net>
+Sender: linux-m68k-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 1, 2010 at 13:18, Ben McKeegan <ben@netservers.co.uk> wrote=
-:
 
-> This isn't really a bug fix. =C2=A0Its a behavioural change to work a=
-round poor
-> quality/mismatched underlying PPP channels.
+Use the request_irq() error code as the return value for mac8390_open(). 
+EAGAIN doesn't make sense for Nubus slot IRQs. Only this driver can claim 
+this IRQ (until the NIC is removed, which means everything is powered 
+down).
 
-Maybe not a bug in the Linux kernel itself, but certainly in the real w=
-orld
-that exists around Linux. Similar to how a change to a device driver th=
-at
-is needed to work around broken hardware is a bug fix, imo.
+Signed-off-by: Finn Thain <fthain@telegraphics.com.au>
 
-
-RIchard
+Index: linux-2.6.34/drivers/net/mac8390.c
+===================================================================
+--- linux-2.6.34.orig/drivers/net/mac8390.c	2010-06-01 20:20:29.000000000 +1000
++++ linux-2.6.34/drivers/net/mac8390.c	2010-06-01 20:22:23.000000000 +1000
+@@ -643,12 +643,13 @@ static int __init mac8390_initdev(struct
+ 
+ static int mac8390_open(struct net_device *dev)
+ {
++	int err;
++
+ 	__ei_open(dev);
+-	if (request_irq(dev->irq, __ei_interrupt, 0, "8390 Ethernet", dev)) {
+-		pr_info("%s: unable to get IRQ %d.\n", dev->name, dev->irq);
+-		return -EAGAIN;
+-	}
+-	return 0;
++	err = request_irq(dev->irq, __ei_interrupt, 0, "8390 Ethernet", dev);
++	if (err)
++		pr_info("%s: unable to get IRQ %d\n", dev->name, dev->irq);
++	return err;
+ }
+ 
+ static int mac8390_close(struct net_device *dev)
