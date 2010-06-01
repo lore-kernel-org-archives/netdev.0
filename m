@@ -1,101 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] use unfair spinlock when running on hypervisor.
-Date: Tue, 01 Jun 2010 23:39:14 +0200
-Message-ID: <1275428354.2638.104.camel@edumazet-laptop>
-References: <20100601093515.GH24302@redhat.com>
-	 <87sk56ycka.fsf@basil.nowhere.org> <20100601162414.GA6191@redhat.com>
-	 <20100601163807.GA11880@basil.fritz.box>  <4C053ACC.5020708@redhat.com>
+From: "Mr. Berkley Shands" <bshands@exegy.com>
+Subject: 2.6.32 and Multicast group membership
+Date: Tue, 01 Jun 2010 16:39:00 -0500
+Message-ID: <4C057DF4.3000305@exegy.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andi Kleen <andi@firstfloor.org>, Gleb Natapov <gleb@redhat.com>,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, hpa@zytor.com,
-	mingo@elte.hu, npiggin@suse.de, tglx@linutronix.de,
-	mtosatti@redhat.com, netdev <netdev@vger.kernel.org>
-To: Avi Kivity <avi@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C053ACC.5020708@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Net Dev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 205.158.150.226.ptr.us.xo.net ([205.158.150.226]:15020 "EHLO
+	mail.exegy.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753044Ab0FAVyN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 17:54:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 01 juin 2010 =C3=A0 19:52 +0300, Avi Kivity a =C3=A9crit :
+starting in 2.6.32, my multicast connections stop getting data after 
+60-100 seconds.
+The identical user code works fine under 2.6.22 through 2.6.31.
 
-> What I'd like to see eventually is a short-term-unfair, long-term-fai=
-r=20
-> spinlock.  Might make sense for bare metal as well.  But it won't be=20
-> easy to write.
->=20
+The NIC (an intel 82586) has two ports on the same subnet
+(eth0 at 172.16.21.55/24 and eth1 at 172.16.21.56/24)
 
-This thread rings a bell here :)
+      if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&req, 
+sizeof(req)))
+      {
+         perror("setsockopt IP_ADD_MEMBERSHIP failed");
+         ::exit(-1);
+      }
 
-Yes, ticket spinlocks are sometime slower, especially in workloads wher=
-e
-a spinlock needs to be taken several times to handle one unit of work,
-and many cpus competing.
+If I do ADD_MEMBERSHIP on just one of these interfaces, the sockets 
+still get data.
+But if I join on both interfaces, one or both will stop getting packets
+after 60-100 seconds. Sniffing with tcpdump shows the Cisco layer 3 switch
+is not getting its responses back to keep the multicast group open.
+The HP layer 2 switch does not seem to care, it keeps the data flowing 
+regardless
+of which physical port the join is executed on.
 
-We currently have kind of a similar problem in network stack, and we
-have a patch to speedup xmit path by an order of magnitude, letting one
-cpu (the consumer cpu) to get unfair access to the (ticket) spinlock.
-(It can compete with no more than one other cpu)
+Changing IP_MULTICAST_ALL has no effect :-(
+Did I miss something? New code that I have to specify to keep the Cisco 
+happy?
 
-Boost from ~50.000 to ~600.000 pps on a dual quad core machine (E5450
-@3.00GHz) on a particular workload (many cpus want to xmit their
-packets)
+tia
 
-( patch : http://patchwork.ozlabs.org/patch/53163/ )
-
-
-It could be possible to write such a generic beast, with a cascade or
-regular ticket spinlocks ?
-
-One ticket spinlock at first stage (only if some conditions are met, ak=
-a
-slow path), then an 'primary' spinlock at second stage.
+Berkley
 
 
-// generic implementation
-// (x86 could use 16bit fields for users_in & user_out)
-struct cascade_lock {
-	atomic_t 	users_in;
-	int		users_out;
-	spinlock_t	primlock;
-	spinlock_t	slowpathlock; // could be outside of this structure, shared=
- by many 'cascade_locks'
-};
+-- 
 
-/*
- * In kvm case, you might call hypervisor when slowpathlock is about to=
- be taken ?
- * When a cascade lock is unlocked, and relocked right after, this cpu =
-has unfair
- * priority and could get the lock before cpus blocked in slowpathlock =
-(especially if
- * an hypervisor call was done)
- *
- * In network xmit path, the dequeue thread would use highprio_user=3Dt=
-rue mode
- * In network xmit path, the 'contended' enqueueing thread would set a =
-negative threshold,
- *  to force a 'lowprio_user' mode.
- */
-void cascade_lock(struct cascade_lock *l, bool highprio_user, int thres=
-hold)
-{
-	bool slowpath =3D false;
+// E. F. Berkley Shands, MSc//
 
-	atomic_inc(&l->users_in); // no real need for atomic_inc_return()
-	if (atomic_read(&l->users_in) - l->users_out > threshold && !highprio_=
-user)) {
-		spin_lock(&l->slowpathlock);
-		slowpath =3D true;
-	}
-	spin_lock(&l->primlock);
-	if (slowpath)
-		spin_unlock(&l->slowpathlock);
-}
+** Exegy Inc.**
 
-void cascade_unlock(struct cascade_lock *l)
-{
-	l->users_out++;
-	spin_unlock(&l->primlock);
-}
+349 Marshall Road, Suite 100
+
+St. Louis , MO  63119
+
+Direct:  (314) 218-3600 X450
+
+Cell:  (314) 303-2546
+
+Office:  (314) 218-3600
+
+Fax:  (314) 218-3601
+
+ 
+
+The Usual Disclaimer follows...
+
+ 
+
+
