@@ -1,49 +1,38 @@
-From: walter harms <wharms@bfs.de>
-Subject: Re: [patch 1/2] caif: remove unneeded variable from caif_net_open()
-Date: Tue, 01 Jun 2010 09:27:02 +0200
-Message-ID: <4C04B646.9080506@bfs.de>
-References: <20100601070855.GD5483@bicker>
-Reply-To: wharms@bfs.de
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next]atl1c: Add AR8151 v2 support and change L0s/L1
+ routine
+Date: Tue, 01 Jun 2010 00:28:23 -0700 (PDT)
+Message-ID: <20100601.002823.124079598.davem@davemloft.net>
+References: <12752881361777-git-send-email-jie.yang@atheros.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Sjur Braendeland <sjur.brandeland@stericsson.com>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <error27@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx01.sz.bfs.de ([194.94.69.103]:1570 "EHLO mx01.sz.bfs.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754526Ab0FAH1Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Jun 2010 03:27:25 -0400
-In-Reply-To: <20100601070855.GD5483@bicker>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Luis.Rodriguez@Atheros.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jie.yang@atheros.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <12752881361777-git-send-email-jie.yang@atheros.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: <jie.yang@atheros.com>
+Date: Mon, 31 May 2010 14:42:16 +0800
 
-
-Dan Carpenter schrieb:
-> We don't use the "ser" variable so I've removed it.
+> From: Jie.Yang@atheros.com
 > 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> Add AR8151 v2.0 Gigabit 1000 support
+> Change jumbo frame size to 6K
+> Update L0s/L1 rountine
+>         when link speed is 100M or 1G, set L1 link timer to 4 for l1d_2 and l2c_b2
+>         set L1 link timer to 7 for l2c_b, set L1 link timer to 0xF for others.
+> Update atl1c_suspend routine
+> 	just refactory the function, add atl1c_phy_power_saving routine,
+> 	when Wake On Lan enable, this func will be called to save power,
+> 	it will reautoneg PHY to 10/100M speed depend on the link
+> 	partners link capability.
+> Update atl1c_configure_des_ring
+>         do not use l2c_b default SRAM configuration.
 > 
-> diff --git a/drivers/net/caif/caif_serial.c b/drivers/net/caif/caif_serial.c
-> index 09257ca..f30a6a0 100644
-> --- a/drivers/net/caif/caif_serial.c
-> +++ b/drivers/net/caif/caif_serial.c
-> @@ -410,8 +410,6 @@ static void caifdev_setup(struct net_device *dev)
->  
->  static int caif_net_open(struct net_device *dev)
->  {
-> -	struct ser_device *ser;
-> -	ser = netdev_priv(dev);
->  	netif_wake_queue(dev);
->  	return 0;
->  }
+> Signed-off-by: Jie.Yang@atheros.com
 
-
-what makes caif_net_open() obsolet ?
-
-re,
- wh
-
+Applied, thank you.
