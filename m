@@ -1,53 +1,48 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: DDoS attack causing bad effect on conntrack searches
-Date: Tue, 01 Jun 2010 12:41:38 +0200
-Message-ID: <4C04E3E2.7020209@trash.net>
-References: <1271941082.14501.189.camel@jdb-workstation>	 <q2h412e6f7f1004220613m488c2ee4r6d24a8d1e65997d4@mail.gmail.com>	 <4BD04C74.9020402@trash.net> <1271946961.7895.5665.camel@edumazet-laptop>	 <1271948029.7895.5707.camel@edumazet-laptop>	 <20100422155123.GA2524@linux.vnet.ibm.com>	 <1271952128.7895.5851.camel@edumazet-laptop>	 <Pine.LNX.4.64.1004222213290.10919@ask.diku.dk>	 <1272056237.4599.7.camel@edumazet-laptop>	 <Pine.LNX.4.64.1004241219280.32071@ask.diku.dk>	 <1272139861.20714.525.camel@edumazet-laptop>	 <1272292568.13192.43.camel@jdb-workstation>	 <1275340896.2478.26.camel@edumazet-laptop>	 <AANLkTikw3uonDB4nPXg8FVFN_07F_wq0SA_ayyAHL6VM@mail.gmail.com>	 <1275368732.2478.88.camel@edumazet-laptop>  <4C04DE73.6050605@trash.net> <1275388310.2738.2.camel@edumazet-laptop>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH 3/3] vhost: apply cpumask and cgroup to vhost workers
+Date: Tue, 01 Jun 2010 12:56:33 +0200
+Message-ID: <4C04E761.4020800@kernel.org>
+References: <20100527173207.GA21880@redhat.com> <4BFEE216.2070807@kernel.org> <20100528150830.GB21880@redhat.com> <4BFFE742.2060205@kernel.org> <20100530112925.GB27611@redhat.com> <4C02C961.9050606@kernel.org> <20100531152221.GB2987@redhat.com> <4C03D983.9010905@kernel.org> <20100531160020.GC3067@redhat.com> <4C04D453.9040208@kernel.org> <20100601101703.GB9178@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>, hawk@comx.dk,
-	Jesper Dangaard Brouer <hawk@diku.dk>,
-	paulmck@linux.vnet.ibm.com,
-	Linux Kernel Network Hackers <netdev@vger.kernel.org>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1275388310.2738.2.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Oleg Nesterov <oleg@redhat.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hera.kernel.org ([140.211.167.34]:41769 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753128Ab0FAK5Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Jun 2010 06:57:16 -0400
+In-Reply-To: <20100601101703.GB9178@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Le mardi 01 juin 2010 =E0 12:18 +0200, Patrick McHardy a =E9crit :
->=20
->> If a new conntrack is created in PRE_ROUTING or LOCAL_OUT, it will b=
-e
->> added to the unconfirmed list and moved to the hash as soon as the
->> packet passes POST_ROUTING. This means the number of unconfirmed ent=
-ries
->> created by the network is bound by the number of CPUs due to BH
->> processing. The number created by locally generated packets is unbou=
-nd
->> in case of preemptible kernels however.
->>
->=20
-> OK, we should have a percpu list then.
+Hello,
 
-Yes, that makes sense.
+On 06/01/2010 12:17 PM, Michael S. Tsirkin wrote:
+> Something that I wanted to figure out - what happens if the
+> CPU mask limits us to a certain CPU that subsequently goes offline?
 
-> BTW, I notice nf_conntrack_untracked is incorrectly annotated
-> '__read_mostly'.
->=20
-> It can be written very often :(
->=20
-> Should'nt we special case it and let be really const ?
+The thread gets unbound during the last steps of cpu offlining.
 
-That would need quite a bit of special-casing to avoid touching
-the reference counts. So far this is completely hidden, so I'd
-say it just shouldn't be marked __read_mostly. Alternatively we
-can make "untracked" a nfctinfo state.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Will e.g. flush block forever or until that CPU comes back?
+> Also, does singlethreaded workqueue behave in the same way?
+
+So, things will proceed as usual although the thread will lose its
+affinity.  Singlethread wqs don't bind their workers (and they
+shouldn't! :-).  MT ones explicitly manage workers according to cpu
+up/down events.
+
+Thanks.
+
+-- 
+tejun
