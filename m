@@ -1,64 +1,188 @@
-From: Andy Fleming <afleming@gmail.com>
-Subject: Re: [PATCH] phylib: Add support for the LXT973 phy.
-Date: Tue, 1 Jun 2010 17:39:22 -0500
-Message-ID: <AANLkTilKJVZiKLRUlL7AeaqSnlAs2u5sTW7o2vfvEKns@mail.gmail.com>
-References: <20100531130932.GA15845@riccoc20.at.omicron.at>
+From: Dmytro Milinevskyy <milinevskyy@gmail.com>
+Subject: Re: [PATCH] [ath5k][leds] Ability to disable leds support. If leds
+	support enabled do not force mac802.11 leds layer selection.
+Date: Wed, 2 Jun 2010 02:01:32 +0300
+Message-ID: <AANLkTiklAs6MM-LkEzkiZbmLG78WednhDXm4oXRcdgMX@mail.gmail.com>
+References: <4c056b50.0c3fdf0a.500b.44af@mx.google.com> <AANLkTinFCuqgvnEGFmssL5R1J9-Yx7JB8mO9yKdXuYUj@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.26]:40005 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754605Ab0FAWjY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 18:39:24 -0400
-Received: by ey-out-2122.google.com with SMTP id d26so283357eyd.19
-        for <netdev@vger.kernel.org>; Tue, 01 Jun 2010 15:39:22 -0700 (PDT)
-In-Reply-To: <20100531130932.GA15845@riccoc20.at.omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ath5k-devel@lists.ath5k.org, Jiri Slaby <jirislaby@gmail.com>,
+	Nick Kossifidis <mickflemm@gmail.com>,
+	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	GeunSik Lim <geunsik.lim@samsung.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Lukas Turek <8an@praha12.net>,
+	Mark Hindley <mark@hindley.org.uk>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Jiri Kosina <jkosina@suse.cz>, Kalle Valo <kalle.valo@iki.fi>,
+	Keng-Yu Lin <keng-yu.lin@canonical.com>,
+	Luca Verdesca <magooz@salug.it>,
+	Shahar Or <shahar@shahar-or.co.il>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Bob Copeland <me@bobcopeland.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTinFCuqgvnEGFmssL5R1J9-Yx7JB8mO9yKdXuYUj@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 31, 2010 at 8:09 AM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> This patch implements a work around for Erratum 5, "3.3 V Fiber Speed
-> Selection." If the hardware wiring does not respect this erratum, the=
-n
-> fiber optic mode will not work properly.
+Bob, thanks for the response.
+
+I will rework the patch.
+
+>> -/* GPIO-controlled software LED */
+>> -#define AR5K_SOFTLED_PIN       0
+>> -#define AR5K_SOFTLED_ON                0
+>> -#define AR5K_SOFTLED_OFF       1
+>> -
 >
-> Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
+> Please drop this hunk, no problem keeping it around.
 
+I suppose this should go away with another patch to keep current
+clean. These dfinitions are not related to the subject.
 
+Regards,
+
+-- Dima
+
+On Tue, Jun 1, 2010 at 11:34 PM, Bob Copeland <me@bobcopeland.com> wrot=
+e:
+> On Wed, Apr 7, 2010 at 2:58 PM, Dmytro Milinevskyy
+> <milinevskyy@gmail.com> wrote:
+>> Hello!
 >
-> +static int lxt973_probe(struct phy_device *phydev)
-> +{
-> + =A0 =A0 =A0 int val =3D phy_read(phydev, MII_LXT973_PCR);
-> +
-> + =A0 =A0 =A0 if (val & PCR_FIBER_SELECT) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /*
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* If fiber is selected, then the onl=
-y correct setting
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* is 100Mbps, full duplex, and auto =
-negotiation off.
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 val =3D phy_read(phydev, MII_BMCR);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 val |=3D (BMCR_SPEED100 | BMCR_FULLDPLX=
-);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 val &=3D ~BMCR_ANENABLE;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 phy_write(phydev, MII_BMCR, val);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* Remember that the port is in fiber m=
-ode. */
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 phydev->priv =3D lxt973_probe;
-
-
-That's a bit hacky.  There is a dev_flags field, which could be used
-for this.  Probably, we should add a more general way of saying what
-sort of port this is.  But don't use the presence and absence of
-"priv", as it could one day get used for a different purpose, and this
-seems like it would leave us open to strange bugs.
-
-Also, is this erratum true for all lxt973 models, or is it fixed in
-some revisions?
-
-
-Andy
+> Thanks, comments inline.
+>
+>
+>> +config ATH5K_LEDS
+>> + =A0 =A0 =A0 tristate "Atheros 5xxx wireless cards LEDs support"
+>> + =A0 =A0 =A0 depends on ATH5K
+>> + =A0 =A0 =A0 ---help---
+>> + =A0 =A0 =A0 =A0 Atheros 5xxx LED support.
+>> +
+>
+> This can select the proper LED classes? =A0Then you can get rid of an=
+other
+> ifdef check later.
+>
+>> -/* GPIO-controlled software LED */
+>> -#define AR5K_SOFTLED_PIN =A0 =A0 =A0 0
+>> -#define AR5K_SOFTLED_ON =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A00
+>> -#define AR5K_SOFTLED_OFF =A0 =A0 =A0 1
+>> -
+>
+> Please drop this hunk, no problem keeping it around.
+>
+>> +#ifdef CONFIG_ATH5K_LEDS
+>> =A0/* LED functions */
+>> =A0int ath5k_init_leds(struct ath5k_softc *sc);
+>> =A0void ath5k_led_enable(struct ath5k_softc *sc);
+>> =A0void ath5k_led_off(struct ath5k_softc *sc);
+>> =A0void ath5k_unregister_leds(struct ath5k_softc *sc);
+>> +#else
+>> +#define ath5k_init_leds(sc) do {} while (0)
+>> +#define ath5k_led_enable(sc) do {} while (0)
+>> +#define ath5k_led_off(sc) do {} while (0)
+>> +#define ath5k_unregister_leds(sc) do {} while (0)
+>> +#endif
+>
+> I prefer:
+>
+> #ifdef
+> ...
+> #else
+> static inline int ath5k_init_leds(struct ath5k_softc *sc)
+> {
+> =A0 =A0return 0;
+> }
+> ...
+> #endif
+>
+> so you get type-checking. =A0Also this doesn't quite work in your ver=
+sion:
+>
+> =A0 =A0int foo =3D ath5k_init_leds(sc);
+>
+>> +#ifdef CONFIG_ATH5K_LEDS
+>> =A0/*
+>> =A0* State for LED triggers
+>> =A0*/
+>> =A0struct ath5k_led
+>> =A0{
+>> - =A0 =A0 =A0 char name[ATH5K_LED_MAX_NAME_LEN + 1]; =A0/* name of t=
+he LED in sysfs */
+>> =A0 =A0 =A0 =A0struct ath5k_softc *sc; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ /* driver state */
+>> +#ifdef CONFIG_LEDS_CLASS
+>> + =A0 =A0 =A0 char name[ATH5K_LED_MAX_NAME_LEN + 1]; =A0/* name of t=
+he LED in sysfs */
+>> =A0 =A0 =A0 =A0struct led_classdev led_dev; =A0 =A0 =A0 =A0 =A0 =A0/=
+* led classdev */
+>> +#endif
+>> =A0};
+>> +#endif
+>
+> Why move name?
+>
+>> =A0/* Rfkill */
+>> =A0struct ath5k_rfkill {
+>> @@ -186,9 +190,6 @@ struct ath5k_softc {
+>>
+>> =A0 =A0 =A0 =A0u8 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bssidma=
+sk[ETH_ALEN];
+>>
+>> - =A0 =A0 =A0 unsigned int =A0 =A0 =A0 =A0 =A0 =A0led_pin, =A0 =A0 =A0=
+ =A0/* GPIO pin for driving LED */
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 led_on=
+; =A0 =A0 =A0 =A0 /* pin setting for LED on */
+>> -
+>> =A0 =A0 =A0 =A0struct tasklet_struct =A0 restq; =A0 =A0 =A0 =A0 =A0/=
+* reset tasklet */
+>>
+>> =A0 =A0 =A0 =A0unsigned int =A0 =A0 =A0 =A0 =A0 =A0rxbufsize; =A0 =A0=
+ =A0/* rx size based on mtu */
+>> @@ -196,7 +197,6 @@ struct ath5k_softc {
+>> =A0 =A0 =A0 =A0spinlock_t =A0 =A0 =A0 =A0 =A0 =A0 =A0rxbuflock;
+>> =A0 =A0 =A0 =A0u32 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 *rxlink; =
+=A0 =A0 =A0 =A0/* link ptr in last RX desc */
+>> =A0 =A0 =A0 =A0struct tasklet_struct =A0 rxtq; =A0 =A0 =A0 =A0 =A0 /=
+* rx intr tasklet */
+>> - =A0 =A0 =A0 struct ath5k_led =A0 =A0 =A0 =A0rx_led; =A0 =A0 =A0 =A0=
+ /* rx led */
+>>
+>> =A0 =A0 =A0 =A0struct list_head =A0 =A0 =A0 =A0txbuf; =A0 =A0 =A0 =A0=
+ =A0/* transmit buffer */
+>> =A0 =A0 =A0 =A0spinlock_t =A0 =A0 =A0 =A0 =A0 =A0 =A0txbuflock;
+>> @@ -204,7 +204,14 @@ struct ath5k_softc {
+>> =A0 =A0 =A0 =A0struct ath5k_txq =A0 =A0 =A0 =A0txqs[AR5K_NUM_TX_QUEU=
+ES]; =A0 =A0 =A0 /* tx queues */
+>> =A0 =A0 =A0 =A0struct ath5k_txq =A0 =A0 =A0 =A0*txq; =A0 =A0 =A0 =A0=
+ =A0 /* main tx queue */
+>> =A0 =A0 =A0 =A0struct tasklet_struct =A0 txtq; =A0 =A0 =A0 =A0 =A0 /=
+* tx intr tasklet */
+>> +
+>> +
+>> +#ifdef CONFIG_ATH5K_LEDS
+>> + =A0 =A0 =A0 unsigned int =A0 =A0 =A0 =A0 =A0 =A0led_pin, =A0 =A0 =A0=
+ =A0/* GPIO pin for driving LED */
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 led_on=
+; =A0 =A0 =A0 =A0 /* pin setting for LED on */
+>> + =A0 =A0 =A0 struct ath5k_led =A0 =A0 =A0 =A0rx_led; =A0 =A0 =A0 =A0=
+ /* rx led */
+>> =A0 =A0 =A0 =A0struct ath5k_led =A0 =A0 =A0 =A0tx_led; =A0 =A0 =A0 =A0=
+ /* tx led */
+>> +#endif
+>
+> You might want to do this in two stages: move the led-dependent thing=
+s
+> together in the structure (or into a separate structure) and then onl=
+y
+> have one #ifdef section.
+>
+> Still too many ifdefs in general.
+>
+> --
+> Bob Copeland %% www.bobcopeland.com
+>
