@@ -1,175 +1,278 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Tue, 01 Jun 2010 01:35:27 -0700 (PDT)
-Message-ID: <20100601.013527.235698453.davem@davemloft.net>
+From: sonic zhang <sonic.adi@gmail.com>
+Subject: [PATCH] netdev:bfin_mac: reclaim and free tx skb as soon as
+	possible after transfer
+Date: Tue, 1 Jun 2010 17:19:34 +0800
+Message-ID: <1275383974.1010.5.camel@eight.analog.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	uclinux-dist-devel <uclinux-dist-devel@blackfin.uclinux.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44449
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753607Ab0FAIfR convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Jun 2010 04:35:17 -0400
+Received: from nwd2mail10.analog.com ([137.71.25.55]:45606 "EHLO
+	nwd2mail10.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753104Ab0FAJKu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 05:10:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+SKBs hold onto resources that can't be held indefinitely, such as TCP
+socket references and netfilter conntrack state.  So if a packet is left
+in TX ring for a long time, there might be a TCP socket that cannot be
+closed and freed up.
 
-1) OF device conversions broke greth driver build.
+Current blackfin EMAC driver always reclaim and free used tx skbs in future
+transfers. The problem is that future transfer may not come as soon as
+possible. This patch start a timer after transfer to reclaim and free skb.
+There is nearly no performance drop with this patch.
 
-2) mpc5xxx_can.c driver build fix from Anatolij Gustschin.
+TX interrupt is not enabled for 2 reasons:
 
-3) Mobile IPV6 broken by output interface routing change, fix
-   from Brian Haley.
+1) If Blackfin EMAC TX transfer control is turned on, endless TX 
+interrupts are triggered no matter if TX DMA is enabled. Since DMA walks
+down the ring automatically, TX transfer control can't be turned off in the
+middle. The only way is to disable TX interrupt completely.
 
-4) ar9170usb use after free fix from Christian Lamparter.
+2) skb can not be freed from interrupt context. A work queue or tasklet
+has to be created, which introduce more overhead than timer only solution.
 
-5) Missing unlock on error in be2net from Dan Carpenter.
 
-6) hdr.timeout accesses in be2net need to be little-endian, fix
-   from Sathya Perla.
 
-7) Busted connected socket list locking in Phonet, fix from
-   R=E9mi Denis-Courmont.
-
-8) Two netfilter fixes via Patrick McHardy:
-   a) Accidental double-allocation in xt_register_table fixes
-      by Xiaotian Feng
-   b) xtables stackptr needs to be percpu, from Eric Dumazet
-
-9) TCP compile fix with debugging options enabled, from Joe Perches.
-
-10) Missing unlock and GFP_KERNEL with lock held fix in ISDN
-    from Julia Lawall.
-
-11) Two changes from Eric Dumazet that attempt to cure sock_queue_err_s=
-kb()'s
-    erroneous modifications ->sk_forward_alloc without locking.
-
-12) ksz884x driver returns wrong type from ->ndo_start_xmit() and
-    is missing validate_addr in netdev_ops.  From Denis Kirjanov.
-
-13) Wireless bug fixes from John Linville and co.
-
-Please pull, thanks a lot!
-
-The following changes since commit 67a3e12b05e055c0415c556a315a3d3eb637=
-e29e:
-  Linus Torvalds (1):
-        Linux 2.6.35-rc1
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Anatolij Gustschin (1):
-      can: mpc5xxx_can.c: Fix build failure
-
-Brian Haley (1):
-      IPv6: fix Mobile IPv6 regression
-
-Changli Gao (1):
-      skb: make skb_recycle_check() return a bool value
-
-Christian Lamparter (1):
-      ar9170usb: fix read from freed driver context
-
-Christoph Fritz (1):
-      ssb: fix NULL ptr deref when pcihost_wrapper is used
-
-Dan Carpenter (3):
-      be2net: add unlock on error path
-      be2net: remove superfluous externs
-      caif: unlock on error path in cfserl_receive()
-
-David S. Miller (4):
-      Merge branch 'master' of git://git.kernel.org/.../linville/wirele=
-ss-2.6
-      Merge branch 'master' of /home/davem/src/GIT/linux-2.6/
-      greth: Fix build after OF device conversions.
-      Merge branch 'master' of git://git.kernel.org/.../kaber/nf-2.6
-
-Denis Kirjanov (2):
-      ksz884x: convert to netdev_tx_t
-      ksz884x: Add missing validate_addr hook
-
-Eric Dumazet (3):
-      net: fix sk_forward_alloc corruptions
-      netfilter: xtables: stackptr should be percpu
-      net: sock_queue_err_skb() dont mess with sk_forward_alloc
-
-Joe Perches (1):
-      net/ipv4/tcp_input.c: fix compilation breakage when FASTRETRANS_D=
-EBUG > 1
-
-Johannes Berg (1):
-      mac80211: make a function static
-
-John W. Linville (1):
-      Revert "rt2x00: Fix rt2800usb TX descriptor writing."
-
-Julia Lawall (3):
-      drivers/isdn/hardware/mISDN: Add missing spin_unlock
-      net/rds: Add missing mutex_unlock
-      drivers/isdn/hardware/mISDN: Use GFP_ATOMIC when a lock is held
-
-Justin P. Mattock (1):
-      ath9k: Fix ath_print in xmit for hardware reset.
-
-Mark Ware (1):
-      fs_enet: Adjust BDs after tx error
-
-Michael S. Tsirkin (1):
-      virtio-net: pass gfp to add_buf
-
-Prarit Bhargava (1):
-      libertas: fix uninitialized variable warning
-
-R=E9mi Denis-Courmont (1):
-      Phonet: listening socket lock protects the connected socket list
-
-Sathya Perla (1):
-      be2net: convert hdr.timeout in be_cmd_loopback_test() to le32
-
-Vasanthakumar Thiagarajan (1):
-      ath9k: Fix bug in the way "bf_tx_aborted" of struct ath_buf is us=
-ed
-
-Xiaotian Feng (1):
-      netfilter: don't xt_jumpstack_alloc twice in xt_register_table
-
- drivers/isdn/hardware/mISDN/hfcsusb.c   |    4 ++-
- drivers/isdn/hardware/mISDN/netjet.c    |    4 +-
- drivers/net/benet/be_cmds.c             |   13 +++++---
- drivers/net/can/mscan/mpc5xxx_can.c     |   10 +++---
- drivers/net/fs_enet/mac-fcc.c           |   49 +++++++++++++++++++++++=
-++++----
- drivers/net/greth.c                     |   11 +++----
- drivers/net/ksz884x.c                   |    3 +-
- drivers/net/virtio_net.c                |    8 ++--
- drivers/net/wireless/ath/ar9170/usb.c   |   14 +++++++-
- drivers/net/wireless/ath/ath9k/xmit.c   |    6 ++-
- drivers/net/wireless/libertas/rx.c      |    5 +--
- drivers/net/wireless/rt2x00/rt2800usb.c |    2 +-
- drivers/ssb/pci.c                       |    9 ++++--
- drivers/ssb/sprom.c                     |    1 +
- include/linux/netfilter/x_tables.h      |    2 +-
- include/linux/skbuff.h                  |    2 +-
- include/net/sock.h                      |   15 +---------
- net/caif/cfserl.c                       |    6 ++-
- net/core/skbuff.c                       |   42 ++++++++++++++++++++++-=
+Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
 ---
- net/ipv4/netfilter/ip_tables.c          |    2 +-
- net/ipv4/tcp_input.c                    |    4 +-
- net/ipv4/udp.c                          |    4 +-
- net/ipv6/netfilter/ip6_tables.c         |    2 +-
- net/ipv6/route.c                        |    2 +-
- net/mac80211/chan.c                     |    2 +-
- net/netfilter/x_tables.c                |   17 ++---------
- net/phonet/pep.c                        |    6 ++--
- net/rds/ib_cm.c                         |    1 +
- net/rds/iw_cm.c                         |    1 +
- 29 files changed, 157 insertions(+), 90 deletions(-)
+ drivers/net/bfin_mac.c |  111 +++++++++++++++++++++++++++++------------------
+ drivers/net/bfin_mac.h |    5 ++
+ 2 files changed, 73 insertions(+), 43 deletions(-)
+
+diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
+index 368f333..f2eebed 100644
+--- a/drivers/net/bfin_mac.c
++++ b/drivers/net/bfin_mac.c
+@@ -922,61 +922,68 @@ static void bfin_mac_hwtstamp_init(struct net_device *netdev)
+ # define bfin_tx_hwtstamp(dev, skb)
+ #endif
+ 
+-static void adjust_tx_list(void)
++static inline void _tx_reclaim_skb(void)
++{
++	do {
++		tx_list_head->desc_a.config &= ~DMAEN;
++		tx_list_head->status.status_word = 0;
++		if (tx_list_head->skb) {
++			dev_kfree_skb(tx_list_head->skb);
++			tx_list_head->skb = NULL;
++		}
++		tx_list_head = tx_list_head->next;
++
++	} while (tx_list_head->status.status_word != 0);
++}
++
++static void tx_reclaim_skb(struct bfin_mac_local *lp)
+ {
+ 	int timeout_cnt = MAX_TIMEOUT_CNT;
+ 
+-	if (tx_list_head->status.status_word != 0 &&
+-	    current_tx_ptr != tx_list_head) {
+-		goto adjust_head;	/* released something, just return; */
+-	}
++	if (tx_list_head->status.status_word != 0)
++		_tx_reclaim_skb();
+ 
+-	/*
+-	 * if nothing released, check wait condition
+-	 * current's next can not be the head,
+-	 * otherwise the dma will not stop as we want
+-	 */
+-	if (current_tx_ptr->next->next == tx_list_head) {
++	if (current_tx_ptr->next == tx_list_head) {
+ 		while (tx_list_head->status.status_word == 0) {
++			/* slow down polling to avoid too many queue stop. */
+ 			udelay(10);
+-			if (tx_list_head->status.status_word != 0 ||
+-			    !(bfin_read_DMA2_IRQ_STATUS() & DMA_RUN)) {
+-				goto adjust_head;
+-			}
+-			if (timeout_cnt-- < 0) {
+-				printk(KERN_ERR DRV_NAME
+-				": wait for adjust tx list head timeout\n");
++			/* reclaim skb if DMA is not running. */
++			if (!(bfin_read_DMA2_IRQ_STATUS() & DMA_RUN))
++				break;
++			if (timeout_cnt-- < 0)
+ 				break;
+-			}
+-		}
+-		if (tx_list_head->status.status_word != 0) {
+-			goto adjust_head;
+ 		}
++
++		if (timeout_cnt >= 0)
++			_tx_reclaim_skb();
++		else
++			netif_stop_queue(lp->ndev);
+ 	}
+ 
+-	return;
++	if (current_tx_ptr->next != tx_list_head &&
++		netif_queue_stopped(lp->ndev))
++		netif_wake_queue(lp->ndev);
+ 
+-adjust_head:
+-	do {
+-		tx_list_head->desc_a.config &= ~DMAEN;
+-		tx_list_head->status.status_word = 0;
+-		if (tx_list_head->skb) {
+-			dev_kfree_skb(tx_list_head->skb);
+-			tx_list_head->skb = NULL;
+-		} else {
+-			printk(KERN_ERR DRV_NAME
+-			       ": no sk_buff in a transmitted frame!\n");
+-		}
+-		tx_list_head = tx_list_head->next;
+-	} while (tx_list_head->status.status_word != 0 &&
+-		 current_tx_ptr != tx_list_head);
+-	return;
++	if (tx_list_head != current_tx_ptr) {
++		/* shorten the timer interval if tx queue is stopped */
++		if (netif_queue_stopped(lp->ndev))
++			lp->tx_reclaim_timer.expires =
++				jiffies + (TX_RECLAIM_JIFFIES >> 4);
++		else
++			lp->tx_reclaim_timer.expires =
++				jiffies + TX_RECLAIM_JIFFIES;
++
++		mod_timer(&lp->tx_reclaim_timer,
++			lp->tx_reclaim_timer.expires);
++	}
+ 
++	return;
+ }
+ 
+ static int bfin_mac_hard_start_xmit(struct sk_buff *skb,
+ 				struct net_device *dev)
+ {
++	struct bfin_mac_local *lp = netdev_priv(dev);
+ 	u16 *data;
+ 	u32 data_align = (unsigned long)(skb->data) & 0x3;
+ 	union skb_shared_tx *shtx = skb_tx(skb);
+@@ -1009,8 +1016,6 @@ static int bfin_mac_hard_start_xmit(struct sk_buff *skb,
+ 			skb->len);
+ 		current_tx_ptr->desc_a.start_addr =
+ 			(u32)current_tx_ptr->packet;
+-		if (current_tx_ptr->status.status_word != 0)
+-			current_tx_ptr->status.status_word = 0;
+ 		blackfin_dcache_flush_range(
+ 			(u32)current_tx_ptr->packet,
+ 			(u32)(current_tx_ptr->packet + skb->len + 2));
+@@ -1022,6 +1027,9 @@ static int bfin_mac_hard_start_xmit(struct sk_buff *skb,
+ 	 */
+ 	SSYNC();
+ 
++	/* always clear status buffer before start tx dma */
++	current_tx_ptr->status.status_word = 0;
++
+ 	/* enable this packet's dma */
+ 	current_tx_ptr->desc_a.config |= DMAEN;
+ 
+@@ -1037,13 +1045,14 @@ static int bfin_mac_hard_start_xmit(struct sk_buff *skb,
+ 	bfin_write_EMAC_OPMODE(bfin_read_EMAC_OPMODE() | TE);
+ 
+ out:
+-	adjust_tx_list();
+-
+ 	bfin_tx_hwtstamp(dev, skb);
+ 
+ 	current_tx_ptr = current_tx_ptr->next;
+ 	dev->stats.tx_packets++;
+ 	dev->stats.tx_bytes += (skb->len);
++
++	tx_reclaim_skb(lp);
++
+ 	return NETDEV_TX_OK;
+ }
+ 
+@@ -1167,8 +1176,11 @@ real_rx:
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void bfin_mac_poll(struct net_device *dev)
+ {
++	struct bfin_mac_local *lp = netdev_priv(dev);
++
+ 	disable_irq(IRQ_MAC_RX);
+ 	bfin_mac_interrupt(IRQ_MAC_RX, dev);
++	tx_reclaim_skb(lp);
+ 	enable_irq(IRQ_MAC_RX);
+ }
+ #endif				/* CONFIG_NET_POLL_CONTROLLER */
+@@ -1232,12 +1244,20 @@ static int bfin_mac_enable(void)
+ /* Our watchdog timed out. Called by the networking layer */
+ static void bfin_mac_timeout(struct net_device *dev)
+ {
++	struct bfin_mac_local *lp = netdev_priv(dev);
++
+ 	pr_debug("%s: %s\n", dev->name, __func__);
+ 
+ 	bfin_mac_disable();
+ 
++	if (timer_pending(&lp->tx_reclaim_timer))
++		del_timer(&(lp->tx_reclaim_timer));
++
+ 	/* reset tx queue */
+-	tx_list_tail = tx_list_head->next;
++	current_tx_ptr = tx_list_head;
++
++	if (netif_queue_stopped(lp->ndev))
++		netif_wake_queue(lp->ndev);
+ 
+ 	bfin_mac_enable();
+ 
+@@ -1430,6 +1450,7 @@ static int __devinit bfin_mac_probe(struct platform_device *pdev)
+ 	SET_NETDEV_DEV(ndev, &pdev->dev);
+ 	platform_set_drvdata(pdev, ndev);
+ 	lp = netdev_priv(ndev);
++	lp->ndev = ndev;
+ 
+ 	/* Grab the MAC address in the MAC */
+ 	*(__le32 *) (&(ndev->dev_addr[0])) = cpu_to_le32(bfin_read_EMAC_ADDRLO());
+@@ -1485,6 +1506,10 @@ static int __devinit bfin_mac_probe(struct platform_device *pdev)
+ 	ndev->netdev_ops = &bfin_mac_netdev_ops;
+ 	ndev->ethtool_ops = &bfin_mac_ethtool_ops;
+ 
++	init_timer(&lp->tx_reclaim_timer);
++	lp->tx_reclaim_timer.data = (unsigned long)(lp);
++	lp->tx_reclaim_timer.function = (void *)tx_reclaim_skb;
++
+ 	spin_lock_init(&lp->lock);
+ 
+ 	/* now, enable interrupts */
+diff --git a/drivers/net/bfin_mac.h b/drivers/net/bfin_mac.h
+index 1ae7b82..04e4050 100644
+--- a/drivers/net/bfin_mac.h
++++ b/drivers/net/bfin_mac.h
+@@ -13,9 +13,12 @@
+ #include <linux/net_tstamp.h>
+ #include <linux/clocksource.h>
+ #include <linux/timecompare.h>
++#include <linux/timer.h>
+ 
+ #define BFIN_MAC_CSUM_OFFLOAD
+ 
++#define TX_RECLAIM_JIFFIES (HZ / 5)
++
+ struct dma_descriptor {
+ 	struct dma_descriptor *next_dma_desc;
+ 	unsigned long start_addr;
+@@ -68,6 +71,8 @@ struct bfin_mac_local {
+ 
+ 	int wol;		/* Wake On Lan */
+ 	int irq_wake_requested;
++	struct timer_list tx_reclaim_timer;
++	struct net_device *ndev;
+ 
+ 	/* MII and PHY stuffs */
+ 	int old_link;          /* used by bf537_adjust_link */
+-- 
+1.6.0
+
+
+
