@@ -1,68 +1,60 @@
-From: <Narendra_K@Dell.com>
-Subject: Call trace related to bonding seen in 2.6.34
-Date: Tue, 1 Jun 2010 23:15:22 +0530
-Message-ID: <EDA0A4495861324DA2618B4C45DCB3EE612882@blrx3m08.blr.amer.dell.com>
+From: =?ISO-8859-1?Q?Fran=E7ois_Valenduc?=
+	<francois.valenduc@tvcablenet.be>
+Subject: Re: Kernel panic with the b44 driver in 2.6.35-rc1
+Date: Tue, 01 Jun 2010 20:06:26 +0200
+Message-ID: <4C054C22.2090309@tvcablenet.be>
+References: <4C0414F3.8030409@tvcablenet.be> <20100601133318.GA26701@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: <fubar@us.ibm.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausxipps301.us.dell.com ([143.166.148.223]:60745 "EHLO
-	ausxipps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754881Ab0FARzo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 13:55:44 -0400
-Content-class: urn:content-classes:message
+Received: from mirapoint3.brutele.be ([212.68.199.148]:57563 "EHLO
+	mirapoint3.brutele.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751171Ab0FASGx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 14:06:53 -0400
+In-Reply-To: <20100601133318.GA26701@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Le 01/06/10 15:33, John W. Linville a =E9crit :
+> On Mon, May 31, 2010 at 09:58:43PM +0200, news.gmane.org wrote:
+>=20
+>> I have a kernel panic at startup with the b44 driver with the 2.6.35=
+-rc1
+>> kernel. I have submitted a bug report (see
+>> https://bugzilla.kernel.org/show_bug.cgi?id=3D16074) but until know,=
+ I
+>> din't get any answer yet. Does anybody knows what's happening. I hav=
+e
+>> tried several git-bisect run but I didn't find any conclusive result=
+=2E
+>> The first bad-commit was different each time and if I revert it, the
+>> problem still occurs anyway.
+>=20
+> This patch is already on its way to Linus -- it should fix the proble=
+m
+> you are seeing:
+>=20
+> commit da1fdb02d9200ff28b6f3a380d21930335fe5429
+> Author: Christoph Fritz <chf.fritz@googlemail.com>
+> Date:   Fri May 28 10:45:59 2010 +0200
+>=20
+>     ssb: fix NULL ptr deref when pcihost_wrapper is used
+>    =20
+>     Ethernet driver b44 does register ssb by it's pcihost_wrapper
+>     and doesn't set ssb_chipcommon. A check on this value
+>     introduced with commit d53cdbb94a52a920d5420ed64d986c3523a56743
+>     and ea2db495f92ad2cf3301623e60cb95b4062bc484 triggers:
+>    =20
+>     BUG: unable to handle kernel NULL pointer dereference at 00000010
+>     IP: [<c1266c36>] ssb_is_sprom_available+0x16/0x30
+>    =20
+>     Signed-off-by: Christoph Fritz <chf.fritz@googlemail.com>
+>     Signed-off-by: John W. Linville <linville@tuxdriver.com>
+>=20
+This patch indeed solve my problem.
 
-Call trace related to bond_mii_monitor  as described in this thread -
-http://patchwork.ozlabs.org/patch/41288/ was seen on 2.6.34 kernel.
-(Trace is similar to what is described in the post dated 2009-12-17
-21:31:36.) The trace is seen when the network service is stopped. The
-issue occurs when the network service is started and stopped in quick
-succession. 
-
-Bonding device configuration parameters are as below -
-
-Bonding driver version:3.6.0
-Mode: balance-alb (issue is also seen with active-backup mode)
-Miimon=100
-3 slaves with link up and one slave with link down.
-
-Though this requires more thought and investigation, I thought this
-could be a good data point. The below change to the bonding driver
-seemed to make the issue go away -
-
-drivers/net/bonding/bond_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c
-b/drivers/net/bonding/bond_main.c
-index 0075514..f280aaf 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2408,7 +2408,7 @@ void bond_mii_monitor(struct work_struct *work)
-        }
-
- re_arm:
--       if (bond->params.miimon)
-+       if (bond->params.miimon && !bond->kill_timers)
-                queue_delayed_work(bond->wq, &bond->mii_work,
- 
-msecs_to_jiffies(bond->params.miimon));
- out:
-
-
-
-
-Any thoughts ?
-
-
-With regards,
-Narendra K
-
+Thanks for your help,
+=46ran=E7ois Valenduc
 
