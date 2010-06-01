@@ -1,188 +1,55 @@
-From: Dmytro Milinevskyy <milinevskyy@gmail.com>
-Subject: Re: [PATCH] [ath5k][leds] Ability to disable leds support. If leds
-	support enabled do not force mac802.11 leds layer selection.
-Date: Wed, 2 Jun 2010 02:01:32 +0300
-Message-ID: <AANLkTiklAs6MM-LkEzkiZbmLG78WednhDXm4oXRcdgMX@mail.gmail.com>
-References: <4c056b50.0c3fdf0a.500b.44af@mx.google.com> <AANLkTinFCuqgvnEGFmssL5R1J9-Yx7JB8mO9yKdXuYUj@mail.gmail.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [2.6.35-rc1 regression] tg3 vpd r/w failed
+Date: Tue, 1 Jun 2010 16:28:47 -0700
+Message-ID: <20100601232847.GA16274@mcarlson.broadcom.com>
+References: <19461.26529.591960.912204@pilspetsen.it.uu.se>
+ <20100601.153209.135521213.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ath5k-devel@lists.ath5k.org, Jiri Slaby <jirislaby@gmail.com>,
-	Nick Kossifidis <mickflemm@gmail.com>,
-	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	GeunSik Lim <geunsik.lim@samsung.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Lukas Turek <8an@praha12.net>,
-	Mark Hindley <mark@hindley.org.uk>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Jiri Kosina <jkosina@suse.cz>, Kalle Valo <kalle.valo@iki.fi>,
-	Keng-Yu Lin <keng-yu.lin@canonical.com>,
-	Luca Verdesca <magooz@salug.it>,
-	Shahar Or <shahar@shahar-or.co.il>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Bob Copeland <me@bobcopeland.com>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "mikpe@it.uu.se" <mikpe@it.uu.se>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Matthew Carlson" <mcarlson@broadcom.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTinFCuqgvnEGFmssL5R1J9-Yx7JB8mO9yKdXuYUj@mail.gmail.com>
+In-Reply-To: <20100601.153209.135521213.davem@davemloft.net>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Bob, thanks for the response.
+On Tue, Jun 01, 2010 at 03:32:09PM -0700, David Miller wrote:
+> 
+> Mikael I'm getting tired of continuing to add the proper
+> mailing list CC: for your sparc bug reports.  Please make
+> sure to add sparclinux@vger.kernel.org to your reports
+> in the future.
+> 
+> Thanks.
+> 
+> > Booting 2.6.35-rc1 on a Sun Blade 2500 Red with builtin tg3 I get:
+> > 
+> > tg3.c:v3.110 (April 9, 2010)
+> > PCI: Enabling device: (0000:00:03.0), cmd 2
+> > ...
+> > tg3 0000:00:03.0: vpd r/w failed.  This is likely a firmware bug on this device.  Contact the card vendor for a firmware update.
+> > tg3 0000:00:03.0: vpd r/w failed.  This is likely a firmware bug on this device.  Contact the card vendor for a firmware update.
+> > tg3 0000:00:03.0: vpd r/w failed.  This is likely a firmware bug on this device.  Contact the card vendor for a firmware update.
+> > tg3 0000:00:03.0: eth0: Tigon3 [partno(none) rev 1002] (PCI:66MHz:64-bit) MAC address ...
+> > tg3 0000:00:03.0: eth0: attached PHY is 5703 (10/100/1000Base-T Ethernet) (WireSpeed[1])
+> > tg3 0000:00:03.0: eth0: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
+> > tg3 0000:00:03.0: eth0: dma_rwctrl[763f0000] dma_mask[32-bit]
+> > ...
+> > tg3 0000:00:03.0: eth0: No firmware running
+> > tg3 0000:00:03.0: eth0: Link is up at 100 Mbps, full duplex
+> > tg3 0000:00:03.0: eth0: Flow control is on for TX and on for RX
+> > 
+> > The three 'vpd r/w failed' messages are new and did not occur with 2.6.34
+> > or earlier kernels.
 
-I will rework the patch.
-
->> -/* GPIO-controlled software LED */
->> -#define AR5K_SOFTLED_PIN       0
->> -#define AR5K_SOFTLED_ON                0
->> -#define AR5K_SOFTLED_OFF       1
->> -
->
-> Please drop this hunk, no problem keeping it around.
-
-I suppose this should go away with another patch to keep current
-clean. These dfinitions are not related to the subject.
-
-Regards,
-
--- Dima
-
-On Tue, Jun 1, 2010 at 11:34 PM, Bob Copeland <me@bobcopeland.com> wrot=
-e:
-> On Wed, Apr 7, 2010 at 2:58 PM, Dmytro Milinevskyy
-> <milinevskyy@gmail.com> wrote:
->> Hello!
->
-> Thanks, comments inline.
->
->
->> +config ATH5K_LEDS
->> + =A0 =A0 =A0 tristate "Atheros 5xxx wireless cards LEDs support"
->> + =A0 =A0 =A0 depends on ATH5K
->> + =A0 =A0 =A0 ---help---
->> + =A0 =A0 =A0 =A0 Atheros 5xxx LED support.
->> +
->
-> This can select the proper LED classes? =A0Then you can get rid of an=
-other
-> ifdef check later.
->
->> -/* GPIO-controlled software LED */
->> -#define AR5K_SOFTLED_PIN =A0 =A0 =A0 0
->> -#define AR5K_SOFTLED_ON =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A00
->> -#define AR5K_SOFTLED_OFF =A0 =A0 =A0 1
->> -
->
-> Please drop this hunk, no problem keeping it around.
->
->> +#ifdef CONFIG_ATH5K_LEDS
->> =A0/* LED functions */
->> =A0int ath5k_init_leds(struct ath5k_softc *sc);
->> =A0void ath5k_led_enable(struct ath5k_softc *sc);
->> =A0void ath5k_led_off(struct ath5k_softc *sc);
->> =A0void ath5k_unregister_leds(struct ath5k_softc *sc);
->> +#else
->> +#define ath5k_init_leds(sc) do {} while (0)
->> +#define ath5k_led_enable(sc) do {} while (0)
->> +#define ath5k_led_off(sc) do {} while (0)
->> +#define ath5k_unregister_leds(sc) do {} while (0)
->> +#endif
->
-> I prefer:
->
-> #ifdef
-> ...
-> #else
-> static inline int ath5k_init_leds(struct ath5k_softc *sc)
-> {
-> =A0 =A0return 0;
-> }
-> ...
-> #endif
->
-> so you get type-checking. =A0Also this doesn't quite work in your ver=
-sion:
->
-> =A0 =A0int foo =3D ath5k_init_leds(sc);
->
->> +#ifdef CONFIG_ATH5K_LEDS
->> =A0/*
->> =A0* State for LED triggers
->> =A0*/
->> =A0struct ath5k_led
->> =A0{
->> - =A0 =A0 =A0 char name[ATH5K_LED_MAX_NAME_LEN + 1]; =A0/* name of t=
-he LED in sysfs */
->> =A0 =A0 =A0 =A0struct ath5k_softc *sc; =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- /* driver state */
->> +#ifdef CONFIG_LEDS_CLASS
->> + =A0 =A0 =A0 char name[ATH5K_LED_MAX_NAME_LEN + 1]; =A0/* name of t=
-he LED in sysfs */
->> =A0 =A0 =A0 =A0struct led_classdev led_dev; =A0 =A0 =A0 =A0 =A0 =A0/=
-* led classdev */
->> +#endif
->> =A0};
->> +#endif
->
-> Why move name?
->
->> =A0/* Rfkill */
->> =A0struct ath5k_rfkill {
->> @@ -186,9 +190,6 @@ struct ath5k_softc {
->>
->> =A0 =A0 =A0 =A0u8 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0bssidma=
-sk[ETH_ALEN];
->>
->> - =A0 =A0 =A0 unsigned int =A0 =A0 =A0 =A0 =A0 =A0led_pin, =A0 =A0 =A0=
- =A0/* GPIO pin for driving LED */
->> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 led_on=
-; =A0 =A0 =A0 =A0 /* pin setting for LED on */
->> -
->> =A0 =A0 =A0 =A0struct tasklet_struct =A0 restq; =A0 =A0 =A0 =A0 =A0/=
-* reset tasklet */
->>
->> =A0 =A0 =A0 =A0unsigned int =A0 =A0 =A0 =A0 =A0 =A0rxbufsize; =A0 =A0=
- =A0/* rx size based on mtu */
->> @@ -196,7 +197,6 @@ struct ath5k_softc {
->> =A0 =A0 =A0 =A0spinlock_t =A0 =A0 =A0 =A0 =A0 =A0 =A0rxbuflock;
->> =A0 =A0 =A0 =A0u32 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 *rxlink; =
-=A0 =A0 =A0 =A0/* link ptr in last RX desc */
->> =A0 =A0 =A0 =A0struct tasklet_struct =A0 rxtq; =A0 =A0 =A0 =A0 =A0 /=
-* rx intr tasklet */
->> - =A0 =A0 =A0 struct ath5k_led =A0 =A0 =A0 =A0rx_led; =A0 =A0 =A0 =A0=
- /* rx led */
->>
->> =A0 =A0 =A0 =A0struct list_head =A0 =A0 =A0 =A0txbuf; =A0 =A0 =A0 =A0=
- =A0/* transmit buffer */
->> =A0 =A0 =A0 =A0spinlock_t =A0 =A0 =A0 =A0 =A0 =A0 =A0txbuflock;
->> @@ -204,7 +204,14 @@ struct ath5k_softc {
->> =A0 =A0 =A0 =A0struct ath5k_txq =A0 =A0 =A0 =A0txqs[AR5K_NUM_TX_QUEU=
-ES]; =A0 =A0 =A0 /* tx queues */
->> =A0 =A0 =A0 =A0struct ath5k_txq =A0 =A0 =A0 =A0*txq; =A0 =A0 =A0 =A0=
- =A0 /* main tx queue */
->> =A0 =A0 =A0 =A0struct tasklet_struct =A0 txtq; =A0 =A0 =A0 =A0 =A0 /=
-* tx intr tasklet */
->> +
->> +
->> +#ifdef CONFIG_ATH5K_LEDS
->> + =A0 =A0 =A0 unsigned int =A0 =A0 =A0 =A0 =A0 =A0led_pin, =A0 =A0 =A0=
- =A0/* GPIO pin for driving LED */
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 led_on=
-; =A0 =A0 =A0 =A0 /* pin setting for LED on */
->> + =A0 =A0 =A0 struct ath5k_led =A0 =A0 =A0 =A0rx_led; =A0 =A0 =A0 =A0=
- /* rx led */
->> =A0 =A0 =A0 =A0struct ath5k_led =A0 =A0 =A0 =A0tx_led; =A0 =A0 =A0 =A0=
- /* tx led */
->> +#endif
->
-> You might want to do this in two stages: move the led-dependent thing=
-s
-> together in the structure (or into a separate structure) and then onl=
-y
-> have one #ifdef section.
->
-> Still too many ifdefs in general.
->
-> --
-> Bob Copeland %% www.bobcopeland.com
->
+These messages are originating from the PCI layer.  It looks like your
+device does not have NVRAM, which is a known issue.  I have an idea on
+how to reduce the noise, but let me investigate it a little more before
+I commit to it.
