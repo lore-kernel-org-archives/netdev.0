@@ -1,40 +1,39 @@
-From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
-Subject: Re: Fore 200 firmware
-Date: Tue, 01 Jun 2010 11:49:35 -0400
-Message-ID: <201006011549.o51FnZFk028507@thirdoffive.cmf.nrl.navy.mil>
-References: <alpine.SOC.1.00.1006011747570.22519@math.ut.ee>
-Reply-To: chas3@users.sourceforge.net
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] ppp: eliminate shadowed variable name
+Date: Tue, 1 Jun 2010 09:05:46 -0700
+Message-ID: <20100601090546.79c1fca0@nehalam>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Meelis Roos <mroos@linux.ee>
+To: Paul Mackerras <paulus@samba.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:55997 "EHLO
-	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932110Ab0FAPuD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 11:50:03 -0400
-In-reply-to: <alpine.SOC.1.00.1006011747570.22519@math.ut.ee>
+Received: from mail.vyatta.com ([76.74.103.46]:47463 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756171Ab0FAQFx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Jun 2010 12:05:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In message <alpine.SOC.1.00.1006011747570.22519@math.ut.ee>,Meelis Roos writes:
->2.5.1 does not seem to contain the firmware.
+Sparse complains about shadowed declaration of skb. So use other
+name.
 
-oops -- i didnt commit it to the repo.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
->does not have to redo the detective work I am doing. Packaging it along 
->with linux-atm packages (atm-tools in Debian) does not seem correct, so 
->do we need to make a special firmware package out of it or just add to 
->some other firmware repo that is packaged already?
 
-i dont care which happens really.  i would to think it is part of
-atm-tools since the fore200e driver really isnt useful with the
-atm tools.
-
->What's the licence of the firmware anyway - unknown likely?
-
-it says the firmware is gpl.  look at fore200e_firmware_copyright
-in one of the old kernel distros.
-
->And we can probably remove drivers/atm/fore200e_pca_fw.c if we 
->distribute the firmware out of kernel tree.
-
-i dont think it is in the current net-next-2.6 tree?
+--- a/drivers/net/ppp_generic.c	2010-06-01 08:49:58.859739636 -0700
++++ b/drivers/net/ppp_generic.c	2010-06-01 08:50:41.184870657 -0700
+@@ -1927,9 +1927,9 @@ ppp_receive_mp_frame(struct ppp *ppp, st
+ 	/* If the queue is getting long, don't wait any longer for packets
+ 	   before the start of the queue. */
+ 	if (skb_queue_len(&ppp->mrq) >= PPP_MP_MAX_QLEN) {
+-		struct sk_buff *skb = skb_peek(&ppp->mrq);
+-		if (seq_before(ppp->minseq, skb->sequence))
+-			ppp->minseq = skb->sequence;
++		struct sk_buff *mskb = skb_peek(&ppp->mrq);
++		if (seq_before(ppp->minseq, mskb->sequence))
++			ppp->minseq = mskb->sequence;
+ 	}
+ 
+ 	/* Pull completed packets off the queue and receive them. */
