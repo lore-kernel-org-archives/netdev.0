@@ -1,117 +1,100 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH 3/3] vhost: apply cpumask and cgroup to vhost workers
-Date: Tue, 01 Jun 2010 10:19:14 -0700
-Message-ID: <1275412754.989.10.camel@w-sridhar.beaverton.ibm.com>
-References: <20100527163954.GA21710@redhat.com>
-	 <4BFEA434.6080405@kernel.org> <20100527173207.GA21880@redhat.com>
-	 <4BFEE216.2070807@kernel.org> <20100528150830.GB21880@redhat.com>
-	 <4BFFE742.2060205@kernel.org> <20100530112925.GB27611@redhat.com>
-	 <4C02C961.9050606@kernel.org> <20100531152221.GB2987@redhat.com>
-	 <4C03D983.9010905@kernel.org> <20100531160020.GC3067@redhat.com>
-	 <4C04D453.9040208@kernel.org>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] cls_u32: use skb_copy_bits() to dereference data safely
+Date: Wed, 2 Jun 2010 01:47:00 +0800
+Message-ID: <AANLkTilkweiJPmQOUv78lKL9ohZo1StzlJcBw0johYi0@mail.gmail.com>
+References: <1275272665-19047-1-git-send-email-xiaosuo@gmail.com>
+	<1275395667.3587.38.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Oleg Nesterov <oleg@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
-To: Tejun Heo <tj@kernel.org>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4C04D453.9040208@kernel.org>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: hadi@cyberus.ca
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pz0-f185.google.com ([209.85.222.185]:62431 "EHLO
+	mail-pz0-f185.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756735Ab0FARrV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 13:47:21 -0400
+Received: by pzk15 with SMTP id 15so1633247pzk.15
+        for <netdev@vger.kernel.org>; Tue, 01 Jun 2010 10:47:20 -0700 (PDT)
+In-Reply-To: <1275395667.3587.38.camel@bigi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-06-01 at 11:35 +0200, Tejun Heo wrote:
-> Apply the cpumask and cgroup of the initializing task to the created
-> vhost worker.
-> 
-> Based on Sridhar Samudrala's patch.  Li Zefan spotted a bug in error
-> path (twice), fixed (twice).
-> 
-> Signed-off-by: Tejun Heo <tj@kernel.org>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Cc: Sridhar Samudrala <samudrala.sridhar@gmail.com>
-> Cc: Li Zefan <lizf@cn.fujitsu.com>
-> ---
->  drivers/vhost/vhost.c |   34 ++++++++++++++++++++++++++++++----
->  1 file changed, 30 insertions(+), 4 deletions(-)
-> 
-> Index: work/drivers/vhost/vhost.c
-> ===================================================================
-> --- work.orig/drivers/vhost/vhost.c
-> +++ work/drivers/vhost/vhost.c
-> @@ -23,6 +23,7 @@
->  #include <linux/highmem.h>
->  #include <linux/slab.h>
->  #include <linux/kthread.h>
-> +#include <linux/cgroup.h>
-> 
->  #include <linux/net.h>
->  #include <linux/if_packet.h>
-> @@ -187,11 +188,29 @@ long vhost_dev_init(struct vhost_dev *de
->  		    struct vhost_virtqueue *vqs, int nvqs)
->  {
->  	struct task_struct *worker;
-> -	int i;
-> +	cpumask_var_t mask;
-> +	int i, ret = -ENOMEM;
-> +
-> +	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
-> +		goto out_free_mask;
+On Tue, Jun 1, 2010 at 8:34 PM, jamal <hadi@cyberus.ca> wrote:
+> Hi Changli,
+>
+> On Mon, 2010-05-31 at 10:24 +0800, Changli Gao wrote:
+>> use skb_copy_bits() to dereference data safely
+>>
+>> the original skb->data dereference isn't safe, as there isn't any skb->len or
+>> skb_is_nonlinear() check.
+>
+> I dont see any safety issue in current code in this respect. Do you have
+> a specific scenario where this would be unsafe? We inspect in 32 bit
+> chunks walking the packet data and stop when there is no more packet
+> data.
 
-I think this is another bug in the error path. You should simply
-do a return instead of a goto here when aloc_cpu_mask fails.
+I added the following debug code into cls_u32.c
 
-Thanks
-Sridhar
-> 
->  	worker = kthread_create(vhost_worker, dev, "vhost-%d", current->pid);
-> -	if (IS_ERR(worker))
-> -		return PTR_ERR(worker);
-> +	if (IS_ERR(worker)) {
-> +		ret = PTR_ERR(worker);
-> +		goto out_free_mask;
-> +	}
-> +
-> +	ret = sched_getaffinity(current->pid, mask);
-> +	if (ret)
-> +		goto out_stop_worker;
-> +
-> +	ret = sched_setaffinity(worker->pid, mask);
-> +	if (ret)
-> +		goto out_stop_worker;
-> +
-> +	ret = cgroup_attach_task_current_cg(worker);
-> +	if (ret)
-> +		goto out_stop_worker;
-> 
->  	dev->vqs = vqs;
->  	dev->nvqs = nvqs;
-> @@ -214,7 +233,14 @@ long vhost_dev_init(struct vhost_dev *de
->  	}
-> 
->  	wake_up_process(worker);	/* avoid contributing to loadavg */
-> -	return 0;
-> +	ret = 0;
-> +	goto out_free_mask;
-> +
-> +out_stop_worker:
-> +	kthread_stop(worker);
-> +out_free_mask:
-> +	free_cpumask_var(mask);
-> +	return ret;
->  }
-> 
->  /* Caller should have device mutex */
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+                for (i = n->sel.nkeys; i>0; i--, key++) {
++                       int off;
++
++                       off = key->off+(off2&key->offmask) + (ptr - skb->data);
++                       if (off + 4 > skb->len)
++                               printk("skb->len: %d, off: %d\n",
+skb->len, off);
 
+                        if
+((*(__be32*)(ptr+key->off+(off2&key->offmask))^key->val)&key->mask) {
+                                n = n->next;
+@@ -179,8 +186,13 @@ check_terminal:
+
+                ht = n->ht_down;
+                sel = 0;
+-               if (ht->divisor)
++               if (ht->divisor) {
++                       int off = ptr - skb->data + n->sel.hoff;
++                       if (off + 4 > skb->len)
++                               printk("skb->len: %d, off: %d\n", skb->len,
++                                       off);
+                        sel =
+ht->divisor&u32_hash_fold(*(__be32*)(ptr+n->sel.hoff),
+&n->sel,n->fshift);
++               }
+
+the tc filter command is:
+
+tc filter add dev eth0 parent 8001:0 proto ip  u32 match u32
+0x00000000 0x0000ffff at 40
+
+Then I execute nc to connect to an UDP port:
+
+localhost linux # nc -u 192.168.235.1 80
+
+localhost linux #
+
+just press enter.
+
+I got these demsg:
+
+[ 7525.330604] skb->len: 43, off: 54
+
+we are trying to access the memory out of this skb.
+
+>
+>> skb_copy_bits() is used instead in this patch. And
+>> when the skb isn't long enough, we terminate the function u32_classify()
+>> immediately with -1.
+>>
+>
+> That could be a very interesting optimization - but i see it as _very
+> hard_ to do with current u32 given it has branching and different
+> branches would have different lengths etc. You'd have to essentially do
+> some math in user space as to what min length would suffice given
+> a specified filter and pass that to the kernel.
+>
+
+It isn't an optimization, but an error exit. :)
+
+-- 
+Regards,
+Changli Gao(xiaosuo@gmail.com)
