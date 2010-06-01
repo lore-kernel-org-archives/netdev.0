@@ -1,44 +1,35 @@
-From: Sathya Perla <sathyap@serverengines.com>
-Subject: [PATCH] be2net: convert hdr.timeout in be_cmd_loopback_test() to
- le32
-Date: Tue, 1 Jun 2010 12:31:22 +0530
-Message-ID: <20100601070122.GA2608@serverengines.com>
-Reply-To: Sathya Perla <sathyap@serverengines.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch 1/2] caif: remove unneeded variable from caif_net_open()
+Date: Tue, 1 Jun 2010 09:08:55 +0200
+Message-ID: <20100601070855.GD5483@bicker>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	kernel-janitors@vger.kernel.org
+To: Sjur Braendeland <sjur.brandeland@stericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from segment-124-30.sify.net ([124.30.166.146]:51545 "EHLO
-	ubuntu.ubuntu-domain" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752127Ab0FAHBY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 03:01:24 -0400
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:49321 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751926Ab0FAHJM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 03:09:12 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current code fails on ppc as hdr.timeout is not being converted
-to le32.
+We don't use the "ser" variable so I've removed it.
 
-Pls apply to net-2.6.
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-Signed-off-by: Sathya Perla <sathyap@serverengines.com>
----
- drivers/net/benet/be_cmds.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-index 9e305d7..b9ad799 100644
---- a/drivers/net/benet/be_cmds.c
-+++ b/drivers/net/benet/be_cmds.c
-@@ -1593,7 +1593,7 @@ int be_cmd_loopback_test(struct be_adapter *adapter, u32 port_num,
+diff --git a/drivers/net/caif/caif_serial.c b/drivers/net/caif/caif_serial.c
+index 09257ca..f30a6a0 100644
+--- a/drivers/net/caif/caif_serial.c
++++ b/drivers/net/caif/caif_serial.c
+@@ -410,8 +410,6 @@ static void caifdev_setup(struct net_device *dev)
  
- 	be_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_LOWLEVEL,
- 			OPCODE_LOWLEVEL_LOOPBACK_TEST, sizeof(*req));
--	req->hdr.timeout = 4;
-+	req->hdr.timeout = cpu_to_le32(4);
- 
- 	req->pattern = cpu_to_le64(pattern);
- 	req->src_port = cpu_to_le32(port_num);
--- 
-1.6.5.2
-
+ static int caif_net_open(struct net_device *dev)
+ {
+-	struct ser_device *ser;
+-	ser = netdev_priv(dev);
+ 	netif_wake_queue(dev);
+ 	return 0;
+ }
