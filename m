@@ -1,42 +1,54 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH] can: mpc5xxx_can.c: Fix build failure
-Date: Tue, 01 Jun 2010 08:20:50 +0200
-Message-ID: <4C04A6C2.2090705@grandegger.com>
-References: <1275323499-15543-1-git-send-email-agust@denx.de>
-	<4C03FF75.3010208@grandegger.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: sock_queue_err_skb() dont mess with
+ sk_forward_alloc
+Date: Mon, 31 May 2010 23:44:32 -0700 (PDT)
+Message-ID: <20100531.234432.191383736.davem@davemloft.net>
+References: <1274868776.2672.96.camel@edumazet-laptop>
+	<20100529.002124.149815573.davem@davemloft.net>
+	<1275321766.3291.100.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-To: Anatolij Gustschin <agust-ynQEQJNshbs@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4C03FF75.3010208-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: anton@samba.org, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54626
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752240Ab0FAGoW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 02:44:22 -0400
+In-Reply-To: <1275321766.3291.100.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/31/2010 08:27 PM, Wolfgang Grandegger wrote:
-> Hi Anatolij,
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 31 May 2010 18:02:46 +0200
+
+> There is also a problem in ip_recv_error(), not called with socket
+> locked, skb freed -> potential corruption.
 > 
-> On 05/31/2010 06:31 PM, Anatolij Gustschin wrote:
->> Fixes build error caused by the OF device_node pointer
->> being moved into struct device.
->>
->> Signed-off-by: Anatolij Gustschin <agust-ynQEQJNshbs@public.gmane.org>
->> Cc: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
->> Cc: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+> If current socket is 'owned' by a user thread, then we can still corrupt
+> sk_forward_alloc, even if we use bh_lock_sock()
+> 
+> I dont think we need to have another backlog for such case, maybe we
+> could account for skb->truesize in sk_rmem_alloc (this is atomic), and
+> not account for sk_mem_charge ?
 
-Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+That sounds fine to me.
 
-Thanks,
+> [PATCH] net: sock_queue_err_skb() dont mess with sk_forward_alloc
+> 
+> Correct sk_forward_alloc handling for error_queue would need to use a
+> backlog of frames that softirq handler could not deliver because socket
+> is owned by user thread. Or extend backlog processing to be able to
+> process normal and error packets.
+> 
+> Another possibility is to not use mem charge for error queue, this is
+> what I implemented in this patch.
+> 
+> Note: this reverts commit 29030374
+> (net: fix sk_forward_alloc corruptions), since we dont need to lock
+> socket anymore.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Wolfgang.
+Looks good, applied, thanks Eric.
