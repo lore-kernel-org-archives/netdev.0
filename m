@@ -1,77 +1,88 @@
-From: arno@natisbad.org (Arnaud Ebalard)
-Subject: Re: [PATCHv2] Refactor update of IPv6 flow destination address for srcrt (RH) option
-Date: Tue, 01 Jun 2010 23:58:11 +0200
-Message-ID: <87mxve8lfw.fsf@small.ssi.corp>
-References: <87wruid8rx.fsf@small.ssi.corp> <8739x6d0ky.fsf@small.ssi.corp>
-	<1275422925.19372.114.camel@Joe-Laptop.home>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] IP: Increment INADDRERRORS if routing for a packet is
+ not successful
+Date: Wed, 02 Jun 2010 00:07:34 +0200
+Message-ID: <1275430054.2638.115.camel@edumazet-laptop>
+References: <alpine.DEB.2.00.1006011609280.9438@router.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?=
-	<yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>
+To: Christoph Lameter <cl@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from copper.chdir.org ([88.191.97.87]:42624 "EHLO copper.chdir.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753044Ab0FAV61 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Jun 2010 17:58:27 -0400
-In-Reply-To: <1275422925.19372.114.camel@Joe-Laptop.home> (Joe Perches's
-	message of "Tue, 01 Jun 2010 13:08:45 -0700")
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:59377 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755389Ab0FAWHj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 18:07:39 -0400
+Received: by wyi11 with SMTP id 11so1410310wyi.19
+        for <netdev@vger.kernel.org>; Tue, 01 Jun 2010 15:07:38 -0700 (PDT)
+In-Reply-To: <alpine.DEB.2.00.1006011609280.9438@router.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Le mardi 01 juin 2010 =C3=A0 16:13 -0500, Christoph Lameter a =C3=A9cri=
+t :
+> Something like this would have been very helpful during recent debugg=
+ing
+> of multicast issues. Silent discards are bad.
+>=20
 
-Joe Perches <joe@perches.com> writes:
+>=20
+> If the kernel perceives that something is wrong with an incoming pack=
+et then the
+> IP stack currently silently discards packets. This makes it difficult=
+ to diagnose
+> problems with the network configurations (such as a misbehaving kerne=
+l
+> subsystem discarding multicast packets because the reverse path filte=
+r
+> does not like multicast subscriptions on the second NIC with rp_filte=
+r=3D1).
+>=20
+> It is also necessary to know how many inbound packets are discarded t=
+o
+> assess networking issues in general with a NIC.
+>=20
+> Signed-off-by: Christoph Lameter <cl@linux-foundation.org>
+> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+>=20
 
->> +static inline struct in6_addr *srcrt_dst_flow_update(struct in6_addr *final,
->> +						     struct in6_addr *fl6dst,
->> +						     const struct ipv6_txoptions *opt)
->> +{
->> +	if (opt && opt->srcrt) {
->> +		const struct rt0_hdr *rt0 = (struct rt0_hdr *)opt->srcrt;
->> +		ipv6_addr_copy(final, fl6dst);
->> +		ipv6_addr_copy(fl6dst, rt0->addr);
->> +		return final;
->> +	}
->> +	return NULL;
->> +}
->> +
->
-> Should this be inline?  Maybe it'd be better moved to exthdrs.c
+I disagree with this patch.
 
-I thought it was small enough to keep it inline in ipv6.h but removing
-the inline and moving it to exthdrs.c makes sense. 
+IPSTATS_MIB_INADDRERRORS has a strong meaning, part of RFCS.
 
-> Perhaps this is clearer as something like:
->
-> /**
->  * fl6_update_dst - update flow destination address
->  *
->  * @fl: flowlabel fl_dst to update
->  * @opt: struct ipv6_txoptions
->  * @orig: original fl_dst if modified
->  *
->  * Returns NULL if no txoptions or no srcrt, otherwise
->  * returns orig and initial value of fl->fl6_dst set in orig
->  */
-> struct in6_addr *fl6_update_dst(struct ip6_flowlabel *fl,
-> 				const struct ipv6_txoptions *opt,
-> 				struct in6_addr *orig)
-> {
-> 	if (!opt || !opt->srcrt)
-> 		return NULL;
->
-> 	ipv6_addr_copy(orig, &fl->fl6_dst);
-> 	ipv6_addr_copy(&fl->fl6_dst, ((struct rt0_hdr *)opt->srcrt)->addr);
-> 	return orig;
-> }
+In this path, we simulate the routing of a virtual packet, not its
+delivery.
 
-I'll send an updated new version tomorrow, i.e. in a few hours (with
-s/ip6_flowlabel/flowi/).
+This should not affect IPSTATS SNMP entries.
 
-Thanks for your feedback.
+You should use another MIB entry, say LINUX_MIB_INROUTEERRORS ?
 
-Cheers,
+Dont inet_rtm_getroute() caller gets an error status anyway ?
 
-a+
+> ---
+>  net/ipv4/route.c |    3 +++
+>  1 file changed, 3 insertions(+)
+>=20
+> Index: linux-2.6/net/ipv4/route.c
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+> --- linux-2.6.orig/net/ipv4/route.c	2010-06-01 11:46:10.000000000 -05=
+00
+> +++ linux-2.6/net/ipv4/route.c	2010-06-01 11:52:55.000000000 -0500
+> @@ -2981,6 +2981,9 @@ static int inet_rtm_getroute(struct sk_b
+>  		rt =3D skb_rtable(skb);
+>  		if (err =3D=3D 0 && rt->u.dst.error)
+>  			err =3D -rt->u.dst.error;
+> +		if (err)
+> +			IP_INC_STATS_BH(dev_net(skb->dev),
+> +					IPSTATS_MIB_INADDRERRORS);
+>  	} else {
+>  		struct flowi fl =3D {
+>  			.nl_u =3D {
+>=20
+>=20
+
+
