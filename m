@@ -1,23 +1,37 @@
-From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Subject: RE: IAMT broken by commit 82776a4bcd7aa5fbcd2e6339b3ce88b727dd40ab
-Date: Tue, 1 Jun 2010 16:33:27 -0700
-Message-ID: <8DD2590731AB5D4C9DBF71A877482A900118D29D0A@orsmsx509.amr.corp.intel.com>
-References: <20100530010219.GA20368@volta.aurel32.net>
+From: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Subject: Re: IAMT broken by commit 82776a4bcd7aa5fbcd2e6339b3ce88b727dd40ab
+Date: Tue, 1 Jun 2010 16:35:08 -0700
+Message-ID: <A78C6259B11833419567082E2DC0C25601504EE527@orsmsx508.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Aurelien Jarno <aurelien@aurel32.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>
+To: "Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"'aurelien@aurel32.net'" <aurelien@aurel32.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:13551 "EHLO mga02.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:45488 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756329Ab0FAXdm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 19:33:42 -0400
-In-Reply-To: <20100530010219.GA20368@volta.aurel32.net>
+	id S1756329Ab0FAXfJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 19:35:09 -0400
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+Thanks.
+
+--
+Cheers,
+Jeff
+
+
+-----Original Message-----
+=46rom: Allan, Bruce W <bruce.w.allan@intel.com>
+To: Aurelien Jarno <aurelien@aurel32.net>; Kirsher, Jeffrey T <jeffrey.=
+t.kirsher@intel.com>
+CC: netdev@vger.kernel.org <netdev@vger.kernel.org>
+Sent: Tue Jun 01 16:33:27 2010
+Subject: RE: IAMT broken by commit 82776a4bcd7aa5fbcd2e6339b3ce88b727dd=
+40ab
 
 I will look into this in the next couple days.
 
