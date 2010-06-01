@@ -1,60 +1,56 @@
-From: =?ISO-8859-1?Q?Fran=E7ois_Valenduc?=
-	<francois.valenduc@tvcablenet.be>
-Subject: Re: Kernel panic with the b44 driver in 2.6.35-rc1
-Date: Tue, 01 Jun 2010 20:06:26 +0200
-Message-ID: <4C054C22.2090309@tvcablenet.be>
-References: <4C0414F3.8030409@tvcablenet.be> <20100601133318.GA26701@tuxdriver.com>
+From: Luciano Coelho <luciano.coelho@nokia.com>
+Subject: Re: [RFC] netfilter: WIP: Xtables idletimer target implementation
+Date: Tue, 01 Jun 2010 21:33:17 +0300
+Message-ID: <1275417197.14585.2.camel@powerslave>
+References: <1274993689-23928-1-git-send-email-luciano.coelho@nokia.com>
+	 <alpine.LSU.2.01.1005280057190.14077@obet.zrqbmnf.qr>
+	 <1275024304.3754.45.camel@powerslave>
+	 <alpine.LSU.2.01.1005281001550.11570@obet.zrqbmnf.qr>
+	 <1275040724.24490.121.camel@chilepepper>  <4C03DCF3.1080001@trash.net>
+	 <1275333179.11744.23.camel@powerslave>
+	 <alpine.LSU.2.01.1005312143470.23758@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mirapoint3.brutele.be ([212.68.199.148]:57563 "EHLO
-	mirapoint3.brutele.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751171Ab0FASGx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 14:06:53 -0400
-In-Reply-To: <20100601133318.GA26701@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: ext Patrick McHardy <kaber@trash.net>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Timo Teras <timo.teras@iki.fi>
+To: ext Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.01.1005312143470.23758@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 01/06/10 15:33, John W. Linville a =E9crit :
-> On Mon, May 31, 2010 at 09:58:43PM +0200, news.gmane.org wrote:
->=20
->> I have a kernel panic at startup with the b44 driver with the 2.6.35=
--rc1
->> kernel. I have submitted a bug report (see
->> https://bugzilla.kernel.org/show_bug.cgi?id=3D16074) but until know,=
- I
->> din't get any answer yet. Does anybody knows what's happening. I hav=
-e
->> tried several git-bisect run but I didn't find any conclusive result=
-=2E
->> The first bad-commit was different each time and if I revert it, the
->> problem still occurs anyway.
->=20
-> This patch is already on its way to Linus -- it should fix the proble=
-m
-> you are seeing:
->=20
-> commit da1fdb02d9200ff28b6f3a380d21930335fe5429
-> Author: Christoph Fritz <chf.fritz@googlemail.com>
-> Date:   Fri May 28 10:45:59 2010 +0200
->=20
->     ssb: fix NULL ptr deref when pcihost_wrapper is used
->    =20
->     Ethernet driver b44 does register ssb by it's pcihost_wrapper
->     and doesn't set ssb_chipcommon. A check on this value
->     introduced with commit d53cdbb94a52a920d5420ed64d986c3523a56743
->     and ea2db495f92ad2cf3301623e60cb95b4062bc484 triggers:
->    =20
->     BUG: unable to handle kernel NULL pointer dereference at 00000010
->     IP: [<c1266c36>] ssb_is_sprom_available+0x16/0x30
->    =20
->     Signed-off-by: Christoph Fritz <chf.fritz@googlemail.com>
->     Signed-off-by: John W. Linville <linville@tuxdriver.com>
->=20
-This patch indeed solve my problem.
+On Mon, 2010-05-31 at 21:51 +0200, ext Jan Engelhardt wrote:
+> On Monday 2010-05-31 21:12, Luciano Coelho wrote:
+> >
+> >I considered this option, but then I didn't find a proper place where to
+> >include the attribute in sysfs, since I cannot add it as part of the
+> >interface (eg. /sys/class/net/wlan0/idletimer) as I was doing before.
+> 
+> You couldn't have done that before either, because the interface name
+> in ipt_ip may refer to an interface that does not exist at all times.
+> 
+> >The other option would be to make the idletimer as part of the
+> >xt_IDLETIMER module object in sysfs
+> >(ie. /sys/module/xt_IDLETIMER/<user_supplied_name>), but it looks out of
+> >place.
+> 
+> I like it. It follows /proc/net/xt_{hashlimit,recent}/<user_supplied_name>.
 
-Thanks for your help,
-=46ran=E7ois Valenduc
+I'm starting to like this more and more too, as my code is getting much
+smaller ;)
+
+One quick question, though.  Do you have any ideas on how I can make
+sure that the user doesn't supply the same name twice (ie. two rules
+with the same user_supplied_name)?
+
+The problem is that the userspace always re-adds all the existing rules
+before inserting a new one and only later deletes the old rules. :\
+
+
+-- 
+Cheers,
+Luca.
 
