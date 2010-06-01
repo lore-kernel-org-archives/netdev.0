@@ -1,106 +1,60 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 3/3] vhost: apply cpumask and cgroup to vhost workers
-Date: Tue, 1 Jun 2010 13:17:03 +0300
-Message-ID: <20100601101703.GB9178@redhat.com>
-References: <20100527173207.GA21880@redhat.com> <4BFEE216.2070807@kernel.org> <20100528150830.GB21880@redhat.com> <4BFFE742.2060205@kernel.org> <20100530112925.GB27611@redhat.com> <4C02C961.9050606@kernel.org> <20100531152221.GB2987@redhat.com> <4C03D983.9010905@kernel.org> <20100531160020.GC3067@redhat.com> <4C04D453.9040208@kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: DDoS attack causing bad effect on conntrack searches
+Date: Tue, 01 Jun 2010 12:31:50 +0200
+Message-ID: <1275388310.2738.2.camel@edumazet-laptop>
+References: <1271941082.14501.189.camel@jdb-workstation>
+	 <q2h412e6f7f1004220613m488c2ee4r6d24a8d1e65997d4@mail.gmail.com>
+	 <4BD04C74.9020402@trash.net> <1271946961.7895.5665.camel@edumazet-laptop>
+	 <1271948029.7895.5707.camel@edumazet-laptop>
+	 <20100422155123.GA2524@linux.vnet.ibm.com>
+	 <1271952128.7895.5851.camel@edumazet-laptop>
+	 <Pine.LNX.4.64.1004222213290.10919@ask.diku.dk>
+	 <1272056237.4599.7.camel@edumazet-laptop>
+	 <Pine.LNX.4.64.1004241219280.32071@ask.diku.dk>
+	 <1272139861.20714.525.camel@edumazet-laptop>
+	 <1272292568.13192.43.camel@jdb-workstation>
+	 <1275340896.2478.26.camel@edumazet-laptop>
+	 <AANLkTikw3uonDB4nPXg8FVFN_07F_wq0SA_ayyAHL6VM@mail.gmail.com>
+	 <1275368732.2478.88.camel@edumazet-laptop>  <4C04DE73.6050605@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oleg Nesterov <oleg@redhat.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4C04D453.9040208@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Changli Gao <xiaosuo@gmail.com>, hawk@comx.dk,
+	Jesper Dangaard Brouer <hawk@diku.dk>,
+	paulmck@linux.vnet.ibm.com,
+	Linux Kernel Network Hackers <netdev@vger.kernel.org>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:63757 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752955Ab0FAKb4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 06:31:56 -0400
+In-Reply-To: <4C04DE73.6050605@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 01, 2010 at 11:35:15AM +0200, Tejun Heo wrote:
-> Apply the cpumask and cgroup of the initializing task to the created
-> vhost worker.
-> 
-> Based on Sridhar Samudrala's patch.  Li Zefan spotted a bug in error
-> path (twice), fixed (twice).
-> 
-> Signed-off-by: Tejun Heo <tj@kernel.org>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Cc: Sridhar Samudrala <samudrala.sridhar@gmail.com>
-> Cc: Li Zefan <lizf@cn.fujitsu.com>
+Le mardi 01 juin 2010 =C3=A0 12:18 +0200, Patrick McHardy a =C3=A9crit =
+:
 
-Something that I wanted to figure out - what happens if the
-CPU mask limits us to a certain CPU that subsequently goes offline?
-Will e.g. flush block forever or until that CPU comes back?
-Also, does singlethreaded workqueue behave in the same way?
+> If a new conntrack is created in PRE_ROUTING or LOCAL_OUT, it will be
+> added to the unconfirmed list and moved to the hash as soon as the
+> packet passes POST_ROUTING. This means the number of unconfirmed entr=
+ies
+> created by the network is bound by the number of CPUs due to BH
+> processing. The number created by locally generated packets is unboun=
+d
+> in case of preemptible kernels however.
+>=20
 
-> ---
->  drivers/vhost/vhost.c |   34 ++++++++++++++++++++++++++++++----
->  1 file changed, 30 insertions(+), 4 deletions(-)
-> 
-> Index: work/drivers/vhost/vhost.c
-> ===================================================================
-> --- work.orig/drivers/vhost/vhost.c
-> +++ work/drivers/vhost/vhost.c
-> @@ -23,6 +23,7 @@
->  #include <linux/highmem.h>
->  #include <linux/slab.h>
->  #include <linux/kthread.h>
-> +#include <linux/cgroup.h>
-> 
->  #include <linux/net.h>
->  #include <linux/if_packet.h>
-> @@ -187,11 +188,29 @@ long vhost_dev_init(struct vhost_dev *de
->  		    struct vhost_virtqueue *vqs, int nvqs)
->  {
->  	struct task_struct *worker;
-> -	int i;
-> +	cpumask_var_t mask;
-> +	int i, ret = -ENOMEM;
-> +
-> +	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
-> +		goto out_free_mask;
-> 
->  	worker = kthread_create(vhost_worker, dev, "vhost-%d", current->pid);
-> -	if (IS_ERR(worker))
-> -		return PTR_ERR(worker);
-> +	if (IS_ERR(worker)) {
-> +		ret = PTR_ERR(worker);
-> +		goto out_free_mask;
-> +	}
-> +
-> +	ret = sched_getaffinity(current->pid, mask);
-> +	if (ret)
-> +		goto out_stop_worker;
-> +
-> +	ret = sched_setaffinity(worker->pid, mask);
-> +	if (ret)
-> +		goto out_stop_worker;
-> +
-> +	ret = cgroup_attach_task_current_cg(worker);
-> +	if (ret)
-> +		goto out_stop_worker;
-> 
->  	dev->vqs = vqs;
->  	dev->nvqs = nvqs;
-> @@ -214,7 +233,14 @@ long vhost_dev_init(struct vhost_dev *de
->  	}
-> 
->  	wake_up_process(worker);	/* avoid contributing to loadavg */
-> -	return 0;
-> +	ret = 0;
-> +	goto out_free_mask;
-> +
-> +out_stop_worker:
-> +	kthread_stop(worker);
-> +out_free_mask:
-> +	free_cpumask_var(mask);
-> +	return ret;
->  }
-> 
->  /* Caller should have device mutex */
+OK, we should have a percpu list then.
+
+BTW, I notice nf_conntrack_untracked is incorrectly annotated
+'__read_mostly'.
+
+It can be written very often :(
+
+Should'nt we special case it and let be really const ?
+
+
+
