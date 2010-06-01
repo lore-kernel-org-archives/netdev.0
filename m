@@ -1,49 +1,38 @@
-From: Steven Walter <stevenrwalter@gmail.com>
-Subject: [PATCH 1/2] tulip: explicity set to D0 power state during init
-Date: Mon, 31 May 2010 23:11:53 -0400
-Message-ID: <1275361913-5630-1-git-send-email-stevenrwalter@gmail.com>
-References: <AANLkTilr33y7rlJpjto5blK4wXKaVst1O4IM0JgPNP7B@mail.gmail.com>
-Cc: Steven Walter <stevenrwalter@gmail.com>
-To: grundler@parisc-linux.org, kyle@mcmartin.ca, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f179.google.com ([209.85.211.179]:53045 "EHLO
-	mail-yw0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752898Ab0FADMH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 May 2010 23:12:07 -0400
-Received: by ywh9 with SMTP id 9so3181787ywh.17
-        for <netdev@vger.kernel.org>; Mon, 31 May 2010 20:12:06 -0700 (PDT)
-In-Reply-To: <AANLkTilr33y7rlJpjto5blK4wXKaVst1O4IM0JgPNP7B@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 20/21] net/ipv6/mcast.c: Remove unnecessary kmalloc casts
+Date: Mon, 31 May 2010 20:23:22 -0700
+Message-ID: <52b8781064af8d4b1051f5ac175f7b7f175ff1ed.1275360951.git.joe@perches.com>
+References: <cover.1275360951.git.joe@perches.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1275360951.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-During the first suspend the chip would refuse to enter D3.  Subsequent
-suspends worked okay.  During resume the chip is commanded into D0.
-Doing so during initialization fixes the initial suspend.
-
-Signed-off-by: Steven Walter <stevenrwalter@gmail.com>
-Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/tulip/tulip_core.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
+ net/ipv6/mcast.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/tulip/tulip_core.c b/drivers/net/tulip/tulip_core.c
-index 3810db9..ec013c2 100644
---- a/drivers/net/tulip/tulip_core.c
-+++ b/drivers/net/tulip/tulip_core.c
-@@ -1380,6 +1380,13 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
- 		return i;
- 	}
- 
-+	/* The chip will fail to enter a low-power state later unless
-+	 * first explicitly commanded into D0 */
-+	if (pci_set_power_state(pdev, PCI_D0)) {
-+		printk (KERN_NOTICE PFX
-+			"Failed to set power state to D0\n");
-+	}
-+
- 	irq = pdev->irq;
- 
- 	/* alloc_etherdev ensures aligned and zeroed private structures */
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index 59f1881..7b5fb43 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -1995,8 +1995,7 @@ static int sf_setstate(struct ifmcaddr6 *pmc)
+ 				    &psf->sf_addr))
+ 					break;
+ 			if (!dpsf) {
+-				dpsf = (struct ip6_sf_list *)
+-					kmalloc(sizeof(*dpsf), GFP_ATOMIC);
++				dpsf = kmalloc(sizeof(*dpsf), GFP_ATOMIC);
+ 				if (!dpsf)
+ 					continue;
+ 				*dpsf = *psf;
 -- 
-1.6.3.3
-
+1.7.0.3.311.g6a6955
