@@ -1,59 +1,76 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] cls_u32: use skb_copy_bits() to dereference data safely
-Date: Wed, 2 Jun 2010 21:14:55 +0800
-Message-ID: <AANLkTil0sLvcHRTcGTfYYlCYzDH07sl7xgk6EcjL99cl@mail.gmail.com>
-References: <AANLkTilkweiJPmQOUv78lKL9ohZo1StzlJcBw0johYi0@mail.gmail.com>
-	<1275481219.14363.6.camel@bigi> <1275481538.14363.10.camel@bigi>
-	<20100602.054520.228955151.davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: sysfs class/net/ problem
+Date: Wed, 02 Jun 2010 15:16:51 +0200
+Message-ID: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg KH <greg@kroah.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:44122 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754087Ab0FBNPQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 09:15:16 -0400
-Received: by pvg16 with SMTP id 16so48557pvg.19
-        for <netdev@vger.kernel.org>; Wed, 02 Jun 2010 06:15:15 -0700 (PDT)
-In-Reply-To: <20100602.054520.228955151.davem@davemloft.net>
+Received: from he.sipsolutions.net ([78.46.109.217]:55423 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757704Ab0FBNQ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 09:16:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 2, 2010 at 8:45 PM, David Miller <davem@davemloft.net> wrot=
-e:
-> From: jamal <hadi@cyberus.ca>
-> Date: Wed, 02 Jun 2010 08:25:38 -0400
->
->> --- a/net/sched/cls_u32.c
->> +++ b/net/sched/cls_u32.c
->> @@ -135,6 +135,9 @@ next_knode:
->>
->> =A0for (i =3D n->sel.nkeys; i>0; i--, key++) {
->>
->> + =A0 =A0 =A0 =A0int toff =3D key->off+(off2&key->offmask)- 4;
->> + =A0 =A0 =A0 =A0if (unlikely(toff > skb->len))
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0/* bailout here - needs some thought */
->> =A0 =A0 =A0 =A0 =A0if ((*(__be32*)(ptr+key->off+(off2&key->offmask))=
-^key->v
->
-> I don't think it's that simple.
->
-> You can't dereference from the skb->data linear area if your offset i=
-s
-> beyond "skb->len - skb->data_len" (aka. skb_headlen()) since that's
-> where the paged or fragmented portion starts.
->
-> We really need to use skb_copy_bits() if we want to allow
-> any offset into the SKB, and because of all the ways
-> packets can be transformed and constructed we absolutely
-> have to.
->
+Hi,
 
-Maybe skb_header_pointer() is lighter.
+I didn't find anything related in the archives, if I missed it I'd
+appreciate a pointer. I'm currently experiencing the following:
+
+# ip link
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN 
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UNKNOWN qlen 1000
+    link/ether 52:54:00:12:34:56 brd ff:ff:ff:ff:ff:ff
+# ls -l /sys/class/net/
+total 0
+lrwxrwxrwx 1 root root 0 Jun  2 13:12 eth0 -> ../../devices/pci0000:00/0000:00:03.0/net/eth0
+lrwxrwxrwx 1 root root 0 Jun  2 13:12 lo -> ../../devices/virtual/net/lo
+# insmod cfg80211.ko ; insmod mac80211.ko ; insmod mac80211_hwsim.ko  radios=3 
+# ip link
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN 
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UNKNOWN qlen 1000
+    link/ether 52:54:00:12:34:56 brd ff:ff:ff:ff:ff:ff
+5: wlan0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 1000
+    link/ether 02:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+6: wlan1: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 1000
+    link/ether 02:00:00:00:01:00 brd ff:ff:ff:ff:ff:ff
+7: wlan2: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN qlen 1000
+    link/ether 02:00:00:00:02:00 brd ff:ff:ff:ff:ff:ff
+8: hwsim0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN 
+    link/ieee802.11/radiotap 12:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+# ls -l /sys/class/net/
+total 0
+lrwxrwxrwx 1 root root 0 Jun  2 13:12 eth0 -> ../../devices/pci0000:00/0000:00:03.0/net/eth0
+lrwxrwxrwx 1 root root 0 Jun  2 13:14 hwsim0 -> ../../devices/virtual/net/hwsim0
+lrwxrwxrwx 1 root root 0 Jun  2 13:12 lo -> ../../devices/virtual/net/lo
+lrwxrwxrwx 1 root root 0 Jun  2 13:14 wlan0 -> ../../devices/virtual/mac80211_hwsim/hwsim0/wlan0
+lrwxrwxrwx 1 root root 0 Jun  2 13:14 wlan1 -> ../../devices/virtual/mac80211_hwsim/hwsim1/wlan1
+lrwxrwxrwx 1 root root 0 Jun  2 13:14 wlan2 -> ../../devices/virtual/mac80211_hwsim/hwsim2/wlan2
+# rmmod mac80211_hwsim mac80211 cfg80211
+# ip link
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN 
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UNKNOWN qlen 1000
+    link/ether 52:54:00:12:34:56 brd ff:ff:ff:ff:ff:ff
+# ls -l /sys/class/net/
+total 0
+lrwxrwxrwx 1 root root 0 Jun  2 13:12 eth0 -> ../../devices/pci0000:00/0000:00:03.0/net/eth0
+lrwxrwxrwx 1 root root 0 Jun  2 13:12 lo -> ../../devices/virtual/net/lo
+lrwxrwxrwx 1 root root 0 Jun  2 13:14 wlan0 -> ../../devices/virtual/mac80211_hwsim/hwsim0/wlan0
+lrwxrwxrwx 1 root root 0 Jun  2 13:14 wlan1 -> ../../devices/virtual/mac80211_hwsim/hwsim1/wlan1
+lrwxrwxrwx 1 root root 0 Jun  2 13:14 wlan2 -> ../../devices/virtual/mac80211_hwsim/hwsim2/wlan2
 
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+The same problem doesn't happen with veth, so I'm not sure what's
+causing the problem.
+
+Help please?
+
+johannes
+
