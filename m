@@ -1,31 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv3] Refactor update of IPv6 flowi destination address
- for srcrt (RH) option
-Date: Wed, 02 Jun 2010 07:08:52 -0700 (PDT)
-Message-ID: <20100602.070852.171505220.davem@davemloft.net>
-References: <8739x6d0ky.fsf@small.ssi.corp>
-	<1275422925.19372.114.camel@Joe-Laptop.home>
-	<87sk55q44a.fsf_-_@small.ssi.corp>
+Subject: Re: [PATCH net-next-2.6] net: replace hooks in __netif_receive_skb
+ V5
+Date: Wed, 02 Jun 2010 07:11:42 -0700 (PDT)
+Message-ID: <20100602.071142.219752193.davem@davemloft.net>
+References: <20100528073345.GD2823@psychotron.redhat.com>
+	<20100601082805.1c84b16d@nehalam>
+	<20100602075207.GD2603@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: arno@natisbad.org
+Cc: netdev@vger.kernel.org, kaber@trash.net, eric.dumazet@gmail.com,
+	shemminger@vyatta.com
+To: jpirko@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42212
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42221
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751489Ab0FBOIn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 10:08:43 -0400
-In-Reply-To: <87sk55q44a.fsf_-_@small.ssi.corp>
+	by vger.kernel.org with ESMTP id S932403Ab0FBOLd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 10:11:33 -0400
+In-Reply-To: <20100602075207.GD2603@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: arno@natisbad.org (Arnaud Ebalard)
-Date: Wed, 02 Jun 2010 09:35:01 +0200
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Wed, 2 Jun 2010 09:52:08 +0200
 
-> Here is a v3 based on the comments I received from Joe. The helper is
-> now in exthdrs.c (no more inline) and has a proper name.
+> What this patch does is it removes two receive frame hooks (for bridge and for
+> macvlan) from __netif_receive_skb. These are replaced them with a single
+> hook for both. It only supports one hook per device because it makes no
+> sense to do bridging and macvlan on the same device.
 > 
-> Applies on net-2.6. Tested on 2.6.34.
+> Then a network driver (of virtual netdev like macvlan or bridge) can register
+> an rx_handler for needed net device.
+> 
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Looks good, applied to net-next-2.6, thanks.
+Ok, this looks good to me.  Applied, thanks everyone.
