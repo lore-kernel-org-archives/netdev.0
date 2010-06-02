@@ -1,308 +1,113 @@
-From: Jon Mason <jon.mason@exar.com>
-Subject: Re: [PATCH]: vxge: Fix checkstack warning in vxge_probe()
-Date: Tue, 01 Jun 2010 22:03:16 -0500
-Message-ID: <1275447796.721.58.camel@arkham>
-References: <20100528175735.30903.21134.sendpatchset@prarit.bos.redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH nf-next-2.6] netfilter: vmalloc_node cleanup
+Date: Wed, 02 Jun 2010 07:02:30 +0200
+Message-ID: <1275454950.2638.121.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, mschmidt@redhat.com
-To: Prarit Bhargava <prarit@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.neterion.com ([72.1.205.142]:5935 "EHLO owa.neterion.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756520Ab0FBDEv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jun 2010 23:04:51 -0400
-In-Reply-To: <20100528175735.30903.21134.sendpatchset@prarit.bos.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2010-05-28 at 14:01 -0400, Prarit Bhargava wrote:
-> Linux 2.6.33 reports this checkstack warning:
->=20
-> drivers/net/vxge/vxge-main.c: In function 'vxge_probe':
-> drivers/net/vxge/vxge-main.c:4409: warning: the frame size of 1028 by=
-tes is larger than 1024 bytes
->=20
-> This warning does not occur in the latest linux-2.6 or linux-next, ho=
-wever,
-> when I do a 'make -j32 CONFIG_FRAME_WARN=3D512' instead of 1024 I see
->=20
-> drivers/net/vxge/vxge-main.c: In function =E2=80=98vxge_probe=E2=80=99=
-:
-> drivers/net/vxge/vxge-main.c:4423: warning: the frame size of 1024 by=
-tes is larger than 512 bytes
->=20
-> This patch moves the large vxge_config struct off the stack.
+Using vmalloc_node(size, numa_node_id()) for temporary storage is not
+needed. vmalloc(size) is more respectful of user NUMA policy.
 
-The patch is sufficient, but I think it doesn't go far enough.  The
-struct vxge_config in struct vxgedev should be malloc'd as well.  struc=
-t
-vxgedev is entirely too big and needs to be smaller, for cache perf and
-other reasons.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/netfilter/arp_tables.c |    7 +++----
+ net/ipv4/netfilter/ip_tables.c  |    4 ++--
+ net/ipv6/netfilter/ip6_tables.c |    7 +++----
+ 3 files changed, 8 insertions(+), 10 deletions(-)
 
-Thanks,
-Jon
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+index 1ac01b1..16c0ba0 100644
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -758,7 +758,7 @@ static struct xt_counters *alloc_counters(const struct xt_table *table)
+ 	 * about).
+ 	 */
+ 	countersize = sizeof(struct xt_counters) * private->number;
+-	counters = vmalloc_node(countersize, numa_node_id());
++	counters = vmalloc(countersize);
+ 
+ 	if (counters == NULL)
+ 		return ERR_PTR(-ENOMEM);
+@@ -1005,8 +1005,7 @@ static int __do_replace(struct net *net, const char *name,
+ 	struct arpt_entry *iter;
+ 
+ 	ret = 0;
+-	counters = vmalloc_node(num_counters * sizeof(struct xt_counters),
+-				numa_node_id());
++	counters = vmalloc(num_counters * sizeof(struct xt_counters));
+ 	if (!counters) {
+ 		ret = -ENOMEM;
+ 		goto out;
+@@ -1159,7 +1158,7 @@ static int do_add_counters(struct net *net, const void __user *user,
+ 	if (len != size + num_counters * sizeof(struct xt_counters))
+ 		return -EINVAL;
+ 
+-	paddc = vmalloc_node(len - size, numa_node_id());
++	paddc = vmalloc(len - size);
+ 	if (!paddc)
+ 		return -ENOMEM;
+ 
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 63958f3..7c0b8ad 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -928,7 +928,7 @@ static struct xt_counters *alloc_counters(const struct xt_table *table)
+ 	   (other than comefrom, which userspace doesn't care
+ 	   about). */
+ 	countersize = sizeof(struct xt_counters) * private->number;
+-	counters = vmalloc_node(countersize, numa_node_id());
++	counters = vmalloc(countersize);
+ 
+ 	if (counters == NULL)
+ 		return ERR_PTR(-ENOMEM);
+@@ -1352,7 +1352,7 @@ do_add_counters(struct net *net, const void __user *user,
+ 	if (len != size + num_counters * sizeof(struct xt_counters))
+ 		return -EINVAL;
+ 
+-	paddc = vmalloc_node(len - size, numa_node_id());
++	paddc = vmalloc(len - size);
+ 	if (!paddc)
+ 		return -ENOMEM;
+ 
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 6f517bd..82945ef 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -943,7 +943,7 @@ static struct xt_counters *alloc_counters(const struct xt_table *table)
+ 	   (other than comefrom, which userspace doesn't care
+ 	   about). */
+ 	countersize = sizeof(struct xt_counters) * private->number;
+-	counters = vmalloc_node(countersize, numa_node_id());
++	counters = vmalloc(countersize);
+ 
+ 	if (counters == NULL)
+ 		return ERR_PTR(-ENOMEM);
+@@ -1213,8 +1213,7 @@ __do_replace(struct net *net, const char *name, unsigned int valid_hooks,
+ 	struct ip6t_entry *iter;
+ 
+ 	ret = 0;
+-	counters = vmalloc_node(num_counters * sizeof(struct xt_counters),
+-				numa_node_id());
++	counters = vmalloc(num_counters * sizeof(struct xt_counters));
+ 	if (!counters) {
+ 		ret = -ENOMEM;
+ 		goto out;
+@@ -1368,7 +1367,7 @@ do_add_counters(struct net *net, const void __user *user, unsigned int len,
+ 	if (len != size + num_counters * sizeof(struct xt_counters))
+ 		return -EINVAL;
+ 
+-	paddc = vmalloc_node(len - size, numa_node_id());
++	paddc = vmalloc(len - size);
+ 	if (!paddc)
+ 		return -ENOMEM;
+ 
 
->=20
-> Signed-off-by: Prarit Bhargava <prarit@redhat.com>
->=20
-> diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-mai=
-n.c
-> index 2bab364..b955802 100644
-> --- a/drivers/net/vxge/vxge-main.c
-> +++ b/drivers/net/vxge/vxge-main.c
-> @@ -4016,7 +4016,7 @@ vxge_probe(struct pci_dev *pdev, const struct p=
-ci_device_id *pre)
->  	int high_dma =3D 0;
->  	u64 vpath_mask =3D 0;
->  	struct vxgedev *vdev;
-> -	struct vxge_config ll_config;
-> +	struct vxge_config *ll_config =3D NULL;
->  	struct vxge_hw_device_config *device_config =3D NULL;
->  	struct vxge_hw_device_attr attr;
->  	int i, j, no_of_vpath =3D 0, max_vpath_supported =3D 0;
-> @@ -4075,17 +4075,24 @@ vxge_probe(struct pci_dev *pdev, const struct=
- pci_device_id *pre)
->  		goto _exit0;
->  	}
-> =20
-> -	memset(&ll_config, 0, sizeof(struct vxge_config));
-> -	ll_config.tx_steering_type =3D TX_MULTIQ_STEERING;
-> -	ll_config.intr_type =3D MSI_X;
-> -	ll_config.napi_weight =3D NEW_NAPI_WEIGHT;
-> -	ll_config.rth_steering =3D RTH_STEERING;
-> +	ll_config =3D kzalloc(sizeof(*ll_config), GFP_KERNEL);
-> +	if (!ll_config) {
-> +		ret =3D -ENOMEM;
-> +		vxge_debug_init(VXGE_ERR,
-> +			"ll_config : malloc failed %s %d",
-> +			__FILE__, __LINE__);
-> +		goto _exit0;
-> +	}
-> +	ll_config->tx_steering_type =3D TX_MULTIQ_STEERING;
-> +	ll_config->intr_type =3D MSI_X;
-> +	ll_config->napi_weight =3D NEW_NAPI_WEIGHT;
-> +	ll_config->rth_steering =3D RTH_STEERING;
-> =20
->  	/* get the default configuration parameters */
->  	vxge_hw_device_config_default_get(device_config);
-> =20
->  	/* initialize configuration parameters */
-> -	vxge_device_config_init(device_config, &ll_config.intr_type);
-> +	vxge_device_config_init(device_config, &ll_config->intr_type);
-> =20
->  	ret =3D pci_enable_device(pdev);
->  	if (ret) {
-> @@ -4138,7 +4145,7 @@ vxge_probe(struct pci_dev *pdev, const struct p=
-ci_device_id *pre)
->  		(unsigned long long)pci_resource_start(pdev, 0));
-> =20
->  	status =3D vxge_hw_device_hw_info_get(attr.bar0,
-> -			&ll_config.device_hw_info);
-> +			&ll_config->device_hw_info);
->  	if (status !=3D VXGE_HW_OK) {
->  		vxge_debug_init(VXGE_ERR,
->  			"%s: Reading of hardware info failed."
-> @@ -4147,7 +4154,7 @@ vxge_probe(struct pci_dev *pdev, const struct p=
-ci_device_id *pre)
->  		goto _exit3;
->  	}
-> =20
-> -	if (ll_config.device_hw_info.fw_version.major !=3D
-> +	if (ll_config->device_hw_info.fw_version.major !=3D
->  		VXGE_DRIVER_FW_VERSION_MAJOR) {
->  		vxge_debug_init(VXGE_ERR,
->  			"%s: Incorrect firmware version."
-> @@ -4157,7 +4164,7 @@ vxge_probe(struct pci_dev *pdev, const struct p=
-ci_device_id *pre)
->  		goto _exit3;
->  	}
-> =20
-> -	vpath_mask =3D ll_config.device_hw_info.vpath_mask;
-> +	vpath_mask =3D ll_config->device_hw_info.vpath_mask;
->  	if (vpath_mask =3D=3D 0) {
->  		vxge_debug_ll_config(VXGE_TRACE,
->  			"%s: No vpaths available in device", VXGE_DRIVER_NAME);
-> @@ -4169,10 +4176,10 @@ vxge_probe(struct pci_dev *pdev, const struct=
- pci_device_id *pre)
->  		"%s:%d  Vpath mask =3D %llx", __func__, __LINE__,
->  		(unsigned long long)vpath_mask);
-> =20
-> -	function_mode =3D ll_config.device_hw_info.function_mode;
-> -	host_type =3D ll_config.device_hw_info.host_type;
-> +	function_mode =3D ll_config->device_hw_info.function_mode;
-> +	host_type =3D ll_config->device_hw_info.host_type;
->  	is_privileged =3D __vxge_hw_device_is_privilaged(host_type,
-> -		ll_config.device_hw_info.func_id);
-> +		ll_config->device_hw_info.func_id);
-> =20
->  	/* Check how many vpaths are available */
->  	for (i =3D 0; i < VXGE_HW_MAX_VIRTUAL_PATHS; i++) {
-> @@ -4186,7 +4193,7 @@ vxge_probe(struct pci_dev *pdev, const struct p=
-ci_device_id *pre)
-> =20
->  	/* Enable SRIOV mode, if firmware has SRIOV support and if it is a =
-PF */
->  	if (is_sriov(function_mode) && (max_config_dev > 1) &&
-> -		(ll_config.intr_type !=3D INTA) &&
-> +		(ll_config->intr_type !=3D INTA) &&
->  		(is_privileged =3D=3D VXGE_HW_OK)) {
->  		ret =3D pci_enable_sriov(pdev, ((max_config_dev - 1) < num_vfs)
->  			? (max_config_dev - 1) : num_vfs);
-> @@ -4199,7 +4206,7 @@ vxge_probe(struct pci_dev *pdev, const struct p=
-ci_device_id *pre)
->  	 * Configure vpaths and get driver configured number of vpaths
->  	 * which is less than or equal to the maximum vpaths per function.
->  	 */
-> -	no_of_vpath =3D vxge_config_vpaths(device_config, vpath_mask, &ll_c=
-onfig);
-> +	no_of_vpath =3D vxge_config_vpaths(device_config, vpath_mask, ll_co=
-nfig);
->  	if (!no_of_vpath) {
->  		vxge_debug_ll_config(VXGE_ERR,
->  			"%s: No more vpaths to configure", VXGE_DRIVER_NAME);
-> @@ -4234,21 +4241,21 @@ vxge_probe(struct pci_dev *pdev, const struct=
- pci_device_id *pre)
->  	/* set private device info */
->  	pci_set_drvdata(pdev, hldev);
-> =20
-> -	ll_config.gro_enable =3D VXGE_GRO_ALWAYS_AGGREGATE;
-> -	ll_config.fifo_indicate_max_pkts =3D VXGE_FIFO_INDICATE_MAX_PKTS;
-> -	ll_config.addr_learn_en =3D addr_learn_en;
-> -	ll_config.rth_algorithm =3D RTH_ALG_JENKINS;
-> -	ll_config.rth_hash_type_tcpipv4 =3D VXGE_HW_RING_HASH_TYPE_TCP_IPV4=
-;
-> -	ll_config.rth_hash_type_ipv4 =3D VXGE_HW_RING_HASH_TYPE_NONE;
-> -	ll_config.rth_hash_type_tcpipv6 =3D VXGE_HW_RING_HASH_TYPE_NONE;
-> -	ll_config.rth_hash_type_ipv6 =3D VXGE_HW_RING_HASH_TYPE_NONE;
-> -	ll_config.rth_hash_type_tcpipv6ex =3D VXGE_HW_RING_HASH_TYPE_NONE;
-> -	ll_config.rth_hash_type_ipv6ex =3D VXGE_HW_RING_HASH_TYPE_NONE;
-> -	ll_config.rth_bkt_sz =3D RTH_BUCKET_SIZE;
-> -	ll_config.tx_pause_enable =3D VXGE_PAUSE_CTRL_ENABLE;
-> -	ll_config.rx_pause_enable =3D VXGE_PAUSE_CTRL_ENABLE;
-> -
-> -	if (vxge_device_register(hldev, &ll_config, high_dma, no_of_vpath,
-> +	ll_config->gro_enable =3D VXGE_GRO_ALWAYS_AGGREGATE;
-> +	ll_config->fifo_indicate_max_pkts =3D VXGE_FIFO_INDICATE_MAX_PKTS;
-> +	ll_config->addr_learn_en =3D addr_learn_en;
-> +	ll_config->rth_algorithm =3D RTH_ALG_JENKINS;
-> +	ll_config->rth_hash_type_tcpipv4 =3D VXGE_HW_RING_HASH_TYPE_TCP_IPV=
-4;
-> +	ll_config->rth_hash_type_ipv4 =3D VXGE_HW_RING_HASH_TYPE_NONE;
-> +	ll_config->rth_hash_type_tcpipv6 =3D VXGE_HW_RING_HASH_TYPE_NONE;
-> +	ll_config->rth_hash_type_ipv6 =3D VXGE_HW_RING_HASH_TYPE_NONE;
-> +	ll_config->rth_hash_type_tcpipv6ex =3D VXGE_HW_RING_HASH_TYPE_NONE;
-> +	ll_config->rth_hash_type_ipv6ex =3D VXGE_HW_RING_HASH_TYPE_NONE;
-> +	ll_config->rth_bkt_sz =3D RTH_BUCKET_SIZE;
-> +	ll_config->tx_pause_enable =3D VXGE_PAUSE_CTRL_ENABLE;
-> +	ll_config->rx_pause_enable =3D VXGE_PAUSE_CTRL_ENABLE;
-> +
-> +	if (vxge_device_register(hldev, ll_config, high_dma, no_of_vpath,
->  		&vdev)) {
->  		ret =3D -EINVAL;
->  		goto _exit4;
-> @@ -4279,7 +4286,7 @@ vxge_probe(struct pci_dev *pdev, const struct p=
-ci_device_id *pre)
->  		vdev->vpaths[j].vdev =3D vdev;
->  		vdev->vpaths[j].max_mac_addr_cnt =3D max_mac_vpath;
->  		memcpy((u8 *)vdev->vpaths[j].macaddr,
-> -				(u8 *)ll_config.device_hw_info.mac_addrs[i],
-> +				ll_config->device_hw_info.mac_addrs[i],
->  				ETH_ALEN);
-> =20
->  		/* Initialize the mac address list header */
-> @@ -4300,18 +4307,18 @@ vxge_probe(struct pci_dev *pdev, const struct=
- pci_device_id *pre)
-> =20
->  	macaddr =3D (u8 *)vdev->vpaths[0].macaddr;
-> =20
-> -	ll_config.device_hw_info.serial_number[VXGE_HW_INFO_LEN - 1] =3D '\=
-0';
-> -	ll_config.device_hw_info.product_desc[VXGE_HW_INFO_LEN - 1] =3D '\0=
-';
-> -	ll_config.device_hw_info.part_number[VXGE_HW_INFO_LEN - 1] =3D '\0'=
-;
-> +	ll_config->device_hw_info.serial_number[VXGE_HW_INFO_LEN - 1] =3D '=
-\0';
-> +	ll_config->device_hw_info.product_desc[VXGE_HW_INFO_LEN - 1] =3D '\=
-0';
-> +	ll_config->device_hw_info.part_number[VXGE_HW_INFO_LEN - 1] =3D '\0=
-';
-> =20
->  	vxge_debug_init(VXGE_TRACE, "%s: SERIAL NUMBER: %s",
-> -		vdev->ndev->name, ll_config.device_hw_info.serial_number);
-> +		vdev->ndev->name, ll_config->device_hw_info.serial_number);
-> =20
->  	vxge_debug_init(VXGE_TRACE, "%s: PART NUMBER: %s",
-> -		vdev->ndev->name, ll_config.device_hw_info.part_number);
-> +		vdev->ndev->name, ll_config->device_hw_info.part_number);
-> =20
->  	vxge_debug_init(VXGE_TRACE, "%s: Neterion %s Server Adapter",
-> -		vdev->ndev->name, ll_config.device_hw_info.product_desc);
-> +		vdev->ndev->name, ll_config->device_hw_info.product_desc);
-> =20
->  	vxge_debug_init(VXGE_TRACE, "%s: MAC ADDR: %pM",
->  		vdev->ndev->name, macaddr);
-> @@ -4321,11 +4328,11 @@ vxge_probe(struct pci_dev *pdev, const struct=
- pci_device_id *pre)
-> =20
->  	vxge_debug_init(VXGE_TRACE,
->  		"%s: Firmware version : %s Date : %s", vdev->ndev->name,
-> -		ll_config.device_hw_info.fw_version.version,
-> -		ll_config.device_hw_info.fw_date.date);
-> +		ll_config->device_hw_info.fw_version.version,
-> +		ll_config->device_hw_info.fw_date.date);
-> =20
->  	if (new_device) {
-> -		switch (ll_config.device_hw_info.function_mode) {
-> +		switch (ll_config->device_hw_info.function_mode) {
->  		case VXGE_HW_FUNCTION_MODE_SINGLE_FUNCTION:
->  			vxge_debug_init(VXGE_TRACE,
->  			"%s: Single Function Mode Enabled", vdev->ndev->name);
-> @@ -4348,7 +4355,7 @@ vxge_probe(struct pci_dev *pdev, const struct p=
-ci_device_id *pre)
->  	vxge_print_parm(vdev, vpath_mask);
-> =20
->  	/* Store the fw version for ethttool option */
-> -	strcpy(vdev->fw_version, ll_config.device_hw_info.fw_version.versio=
-n);
-> +	strcpy(vdev->fw_version, ll_config->device_hw_info.fw_version.versi=
-on);
->  	memcpy(vdev->ndev->dev_addr, (u8 *)vdev->vpaths[0].macaddr, ETH_ALE=
-N);
->  	memcpy(vdev->ndev->perm_addr, vdev->ndev->dev_addr, ETH_ALEN);
-> =20
-> @@ -4387,7 +4394,7 @@ vxge_probe(struct pci_dev *pdev, const struct p=
-ci_device_id *pre)
->  	 * present to prevent such a failure.
->  	 */
-> =20
-> -	if (ll_config.device_hw_info.function_mode =3D=3D
-> +	if (ll_config->device_hw_info.function_mode =3D=3D
->  		VXGE_HW_FUNCTION_MODE_MULTI_FUNCTION)
->  		if (vdev->config.intr_type =3D=3D INTA)
->  			vxge_hw_device_unmask_all(hldev);
-> @@ -4399,6 +4406,7 @@ vxge_probe(struct pci_dev *pdev, const struct p=
-ci_device_id *pre)
->  	VXGE_COPY_DEBUG_INFO_TO_LL(vdev, vxge_hw_device_error_level_get(hld=
-ev),
->  		vxge_hw_device_trace_level_get(hldev));
-> =20
-> +	kfree(ll_config);
->  	return 0;
-> =20
->  _exit5:
-> @@ -4416,6 +4424,7 @@ _exit2:
->  _exit1:
->  	pci_disable_device(pdev);
->  _exit0:
-> +	kfree(ll_config);
->  	kfree(device_config);
->  	driver_config->config_dev_cnt--;
->  	pci_set_drvdata(pdev, NULL);
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
