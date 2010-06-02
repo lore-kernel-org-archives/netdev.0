@@ -1,59 +1,45 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: sysfs class/net/ problem
-Date: Wed, 02 Jun 2010 19:00:07 +0200
-Message-ID: <1275498007.3915.20.camel@jlt3.sipsolutions.net>
-References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
-	 <20100602154608.GB12361@kroah.com>
-	 <1275493693.3915.12.camel@jlt3.sipsolutions.net>
-	 <m1ljaxxvcj.fsf@fess.ebiederm.org>
-	 <1275495677.3915.16.camel@jlt3.sipsolutions.net>
-	 <m14ohlxu51.fsf@fess.ebiederm.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] net/core: Save the port number a netdevice uses
+Date: Wed, 02 Jun 2010 10:12:22 -0700 (PDT)
+Message-ID: <20100602.101222.51286679.davem@davemloft.net>
+References: <20100526090850.GB28748@mtldesk030.lab.mtl.com>
+	<20100526.021635.179940939.davem@davemloft.net>
+	<1275496949.2115.18.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:44704 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758205Ab0FBRAK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 13:00:10 -0400
-In-Reply-To: <m14ohlxu51.fsf@fess.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org,
+	yevgenyp-VPRAkNaXOzVS1MOuV/RT9w@public.gmane.org
+To: bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1275496949.2115.18.camel-xQnnTUlwzDrdvaEqJLTMTA9jg9n5Vt1AMm0uRHvK7Nw@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2010-06-02 at 09:43 -0700, Eric W. Biederman wrote:
+From: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
+Date: Wed, 02 Jun 2010 17:42:29 +0100
 
-> > Hmm. I'm also not seeing it with veth, it would seem that ought to be
-> > similar?
+> On Wed, 2010-05-26 at 02:16 -0700, David Miller wrote:
+>> From: Eli Cohen <eli-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
+>> Date: Wed, 26 May 2010 12:08:52 +0300
+>> 
+>> > So if I understand you correctly, you think that I should not bother
+>> > to set a default value of 1. Each driver that cares about the value
+>> > of this field, will set it however they want.
+>> 
+>> I actually mean that the value "0" should mean the first port,
+>> the value "1" should mean the second port, etc.
 > 
-> Since it is the register_netdev path it should be exactly the same.
-> 
-> The big change I made is I in some instances I replaced
-> sysfs_remove_link with sysfs_delete_link so I could have enough
-> information to infer which network namespace the link was in.  Since
-> wlan0 is a netdevice all of that information should already be there.
+> There's a compatibility problem here though: when user-space looks at
+> this number it can't tell whether "0" really means the first port or
+> that the driver isn't setting dev_id.
 
-I have no idea :)
+That's perfect, it means we don't have to add explicit settings to
+drivers which driver only one port.  Ie. the vast majority of
+cases.
 
-> > I don't know if that's happening .. just guessing that it might cause
-> > such a problem, and maybe some things are deferred somehow? Since netdev
-> > destruction can be deferred, but the wifi sysfs destruction isn't. But
-> > then that link there should cause the refcount to not go down until the
-> > link goes away>?
-> 
-> unregister_netdevice will defer the final destruction but it does not
-> defer netdev_unregister_kobject -> device_del.
-> 
-> What happens if in exit_mac80211_hwsim you call unregister_netdev before
-> mac80211_hwsim_free?
-> 
-> At a quick glance it simply looks like you have the ordering reversed in your
-> module cleanup, and this is not network namespace related at all.
-
-Nah, the unregister_netdev there removes the "hwsim0" device, while the
-mac80211_hwsim_free() will remove all the others, so the ordering of
-those two doesn't matter.
-
-johannes
-
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
