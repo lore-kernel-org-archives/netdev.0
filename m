@@ -1,69 +1,82 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: [PATCH] epic100: Test __BIG_ENDIAN instead of (non-existent) CONFIG_BIG_ENDIAN
-Date: Wed, 02 Jun 2010 13:36:53 -0700
-Message-ID: <ada4ohlrx22.fsf@roland-alpha.cisco.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH] sfc: Store port number in net_device::dev_id
+Date: Wed, 02 Jun 2010 21:39:56 +0100
+Message-ID: <1275511200.2115.23.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-5.cisco.com ([171.68.10.87]:57170 "EHLO
-	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758027Ab0FBUg6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 16:36:58 -0400
+Received: from exchange.solarflare.com ([216.237.3.220]:4089 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758661Ab0FBUkD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 16:40:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Probably no one has used this driver on big-endian systems, since it was
-setting up descriptor swapping if CONFIG_BIG_ENDIAN is set, which it
-never is, since that symbol is not mentioned anywhere else in the kernel
-source.  Switch this test to a check for __BIG_ENDIAN so it has a chance
-at working.
+This exposes the port number to userland through sysfs.
 
-Signed-off-by: Roland Dreier <rolandd@cisco.com>
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/epic100.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
+Following on from the earlier discussion of dev_id, here's the necessary
+change for sfc.  This depends on commit dd8f61d "sfc: Get port number
+from CS_PORT_NUM, not PCI function number".  Please consider including
+both of these in net-2.6.
 
-diff --git a/drivers/net/epic100.c b/drivers/net/epic100.c
-index 6838dfc..4c27465 100644
---- a/drivers/net/epic100.c
-+++ b/drivers/net/epic100.c
-@@ -87,6 +87,7 @@ static int rx_copybreak;
- #include <linux/bitops.h>
- #include <asm/io.h>
- #include <asm/uaccess.h>
-+#include <asm/byteorder.h>
+Ben.
+
+ drivers/net/sfc/net_driver.h |    4 +---
+ drivers/net/sfc/siena.c      |    2 +-
+ 2 files changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
+index 6b2e440..a8783b4 100644
+--- a/drivers/net/sfc/net_driver.h
++++ b/drivers/net/sfc/net_driver.h
+@@ -649,7 +649,6 @@ union efx_multicast_hash {
+  * struct efx_nic - an Efx NIC
+  * @name: Device name (net device name or bus id before net device registered)
+  * @pci_dev: The PCI device
+- * @port_num: Index of this host port within the controller
+  * @type: Controller type attributes
+  * @legacy_irq: IRQ number
+  * @workqueue: Workqueue for port reconfigures and the HW monitor.
+@@ -733,7 +732,6 @@ union efx_multicast_hash {
+ struct efx_nic {
+ 	char name[IFNAMSIZ];
+ 	struct pci_dev *pci_dev;
+-	unsigned port_num;
+ 	const struct efx_nic_type *type;
+ 	int legacy_irq;
+ 	struct workqueue_struct *workqueue;
+@@ -836,7 +834,7 @@ static inline const char *efx_dev_name(struct efx_nic *efx)
  
- /* These identify the driver base version and may not be removed. */
- static char version[] __devinitdata =
-@@ -230,7 +231,7 @@ static const u16 media2miictl[16] = {
-  * The EPIC100 Rx and Tx buffer descriptors.  Note that these
-  * really ARE host-endian; it's not a misannotation.  We tell
-  * the card to byteswap them internally on big-endian hosts -
-- * look for #ifdef CONFIG_BIG_ENDIAN in epic_open().
-+ * look for #ifdef __BIG_ENDIAN in epic_open().
-  */
+ static inline unsigned int efx_port_num(struct efx_nic *efx)
+ {
+-	return efx->port_num;
++	return efx->net_dev->dev_id;
+ }
  
- struct epic_tx_desc {
-@@ -690,7 +691,7 @@ static int epic_open(struct net_device *dev)
- 		outl((inl(ioaddr + NVCTL) & ~0x003C) | 0x4800, ioaddr + NVCTL);
+ /**
+diff --git a/drivers/net/sfc/siena.c b/drivers/net/sfc/siena.c
+index 7ecd255..f2b1e61 100644
+--- a/drivers/net/sfc/siena.c
++++ b/drivers/net/sfc/siena.c
+@@ -222,7 +222,7 @@ static int siena_probe_nic(struct efx_nic *efx)
+ 	}
  
- 	/* Tell the chip to byteswap descriptors on big-endian hosts */
--#ifdef CONFIG_BIG_ENDIAN
-+#ifdef __BIG_ENDIAN
- 	outl(0x4432 | (RX_FIFO_THRESH<<8), ioaddr + GENCTL);
- 	inl(ioaddr + GENCTL);
- 	outl(0x0432 | (RX_FIFO_THRESH<<8), ioaddr + GENCTL);
-@@ -806,7 +807,7 @@ static void epic_restart(struct net_device *dev)
- 	for (i = 16; i > 0; i--)
- 		outl(0x0008, ioaddr + TEST1);
+ 	efx_reado(efx, &reg, FR_AZ_CS_DEBUG);
+-	efx->port_num = EFX_OWORD_FIELD(reg, FRF_CZ_CS_PORT_NUM) - 1;
++	efx->net_dev->dev_id = EFX_OWORD_FIELD(reg, FRF_CZ_CS_PORT_NUM) - 1;
  
--#ifdef CONFIG_BIG_ENDIAN
-+#ifdef __BIG_ENDIAN
- 	outl(0x0432 | (RX_FIFO_THRESH<<8), ioaddr + GENCTL);
- #else
- 	outl(0x0412 | (RX_FIFO_THRESH<<8), ioaddr + GENCTL);
+ 	efx_mcdi_init(efx);
+ 
+-- 
+1.6.2.5
 
 -- 
-Roland Dreier <rolandd@cisco.com> || For corporate legal information go to:
-http://www.cisco.com/web/about/doing_business/legal/cri/index.html
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
