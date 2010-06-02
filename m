@@ -1,53 +1,235 @@
-From: Luciano Coelho <luciano.coelho@nokia.com>
-Subject: Re: [PATCH v2] netfilter: Xtables: idletimer target implementation
-Date: Wed, 02 Jun 2010 22:52:28 +0300
-Message-ID: <1275508348.2797.26.camel@powerslave>
-References: <1275486062-23753-1-git-send-email-luciano.coelho@nokia.com>
-	 <alpine.LSU.2.01.1006021708370.27340@obet.zrqbmnf.qr>
-	 <1275503835.1574.0.camel@powerslave> <1275505553.2797.2.camel@powerslave>
-	 <alpine.LSU.2.01.1006022127430.32028@obet.zrqbmnf.qr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"kaber@trash.net" <kaber@trash.net>, Timo Teras <timo.teras@iki.fi>
-To: ext Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.01.1006022127430.32028@obet.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH 3/3] net: deliver skbs on inactive slaves to exact matches
+Date: Wed, 02 Jun 2010 13:01:30 -0700
+Message-ID: <14208.1275508890@death.nxdomain.ibm.com>
+References: <20100513073106.3528.45412.stgit@jf-dev2-dcblab> <20100513073117.3528.33132.stgit@jf-dev2-dcblab> <4BFDFAAA.8070701@intel.com> <20100602.033623.84369970.davem@davemloft.net>
+Cc: john.r.fastabend@intel.com, andy@greyhouse.net,
+	nhorman@tuxdriver.com, bonding-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e38.co.us.ibm.com ([32.97.110.159]:39346 "EHLO
+	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933085Ab0FBUBw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 16:01:52 -0400
+Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
+	by e38.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id o52JtIME024335
+	for <netdev@vger.kernel.org>; Wed, 2 Jun 2010 13:55:18 -0600
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o52K1Z6O136832
+	for <netdev@vger.kernel.org>; Wed, 2 Jun 2010 14:01:38 -0600
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o52K1XGX019453
+	for <netdev@vger.kernel.org>; Wed, 2 Jun 2010 14:01:34 -0600
+In-reply-to: <20100602.033623.84369970.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-06-02 at 21:29 +0200, ext Jan Engelhardt wrote:
-> On Wednesday 2010-06-02 21:05, Luciano Coelho wrote:
-> >> > >+	idletimer_tg_kobj = kobject_create_and_add("idletimer",
-> >> > >+						   &THIS_MODULE->mkobj.kobj);
-> >> > 
-> >> > Isn't this going to oops when you compile this module as =y?
-> >> 
-> >> Damn, that's true. :(
-> >> 
-> >> I'll investigate how to fix this.
-> >
-> >Would it be too hacky to force it to be a module (ie. add "depends on m"
-> >in Kconfig)?
-> >
-> >Besides /sys/module/xt_IDLETIMER and /sys/class/net, which we have
-> >already discarded, I can't find any other place that would make sense to
-> >add the idletimer in the kernel object hierarchy...
-> 
-> While THIS_MODULE is NULL in =y mode, /sys/module/<xyz> can still exist 
-> (cf. /sys/module/printk). I just don't know how to get at the kobj for 
-> it, but the existence of it must mean it's there somewhere. Might ask 
-> sysfs authors.
+David Miller <davem@davemloft.net> wrote:
 
-Okay, good to know.  My initial theory was that /sys/module/xt_IDLETIMER
-(pointed to by THIS_MODULE) would exist even if it was linked into the
-kernel itself, but now it's obvious that it doesn't.
+>From: John Fastabend <john.r.fastabend@intel.com>
+>Date: Wed, 26 May 2010 21:52:58 -0700
+>
+>> I know you were looking over this series at one point.  Did you have
+>> any comments?  Sorry for the ping just wanted to keep this on my
+>> radar.
+>
+>I'll hold this last one until Jay has a chance to comment on it.
 
-I'll investigate how printk does that.
+	I've looked at it, and was initially hoping to combine this with
+Andy/Neil's vaguely similar changes, but I don't see a reasonable way to
+do that.
 
--- 
-Cheers,
-Luca.
+	I think the functionality is reasonable, i.e., adding a facility
+to implement "direct bind" delivery of packets on inactive bonding
+slaves (where direct bind means that the struct packet_type has a
+non-NULL dev).
 
+	I have a couple of concerns about the patch itself:
+
+>From: John Fastabend <john.r.fastabend@intel.com>
+>Subject: [PATCH 3/3] net: deliver skbs on inactive slaves to exact matches
+>To: andy@greyhouse.net, fubar@us.ibm.com, nhorman@tuxdriver.com,
+> bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
+>Cc: john.r.fastabend@intel.com
+>Date: Thu, 13 May 2010 00:31:17 -0700
+>
+>Currently, the accelerated receive path for VLAN's will
+>drop packets if the real device is an inactive slave and
+>is not one of the special pkts tested for in
+>skb_bond_should_drop().  This behavior is different then
+>the non-accelerated path and for pkts over a bonded vlan.
+>
+>For example,
+>
+>vlanx -> bond0 -> ethx
+>
+>will be dropped in the vlan path and not delivered to any
+>packet handlers at all.  However,
+>
+>bond0 -> vlanx -> ethx
+>
+>and
+>
+>bond0 -> ethx
+>
+>will be delivered to handlers that match the exact dev,
+>because the VLAN path checks the real_dev which is not a
+>slave and netif_recv_skb() doesn't drop frames but only
+>delivers them to exact matches.
+>
+>This patch adds a sk_buff flag which is used for tagging
+>skbs that would previously been dropped and allows the
+>skb to continue to skb_netif_recv().  Here we add
+>logic to check for the bond_should_drop flag and if it
+>is set only deliver to handlers that match exactly.  This
+>makes both paths above consistent and gives pkt handlers
+>a way to identify skbs that come from inactive slaves.
+>Without this patch in some configurations skbs will be
+>delivered to handlers with exact matches and in others
+>be dropped out right in the vlan path.
+>
+>I have tested the following 4 configurations in failover modes
+>and load balancing modes.
+>
+># bond0 -> ethx
+>
+># vlanx -> bond0 -> ethx
+>
+># bond0 -> vlanx -> ethx
+>
+># bond0 -> ethx
+>            |
+>  vlanx -> --
+>
+>Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>---
+>
+> include/linux/skbuff.h |    8 +++++++-
+> net/8021q/vlan_core.c  |    8 ++++++--
+> net/core/dev.c         |   23 +++++++++++++++++++----
+> 3 files changed, 32 insertions(+), 7 deletions(-)
+>
+>diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+>index c9525bc..5ba4fd5 100644
+>--- a/include/linux/skbuff.h
+>+++ b/include/linux/skbuff.h
+>@@ -379,8 +379,14 @@ struct sk_buff {
+>
+> 	kmemcheck_bitfield_begin(flags2);
+> 	__u16			queue_mapping:16;
+>-#ifdef CONFIG_IPV6_NDISC_NODETYPE
+>+#if defined(CONFIG_IPV6_NDISC_NODETYPE) && \
+>+    (defined(CONFIG_BONDING) || defined(CONFIG_BONDING_MODULE))
+>+	__u8			ndisc_nodetype:2,
+>+				bond_should_drop:1;
+>+#elif defined(CONFIG_IPV6_NDISC_NODETYPE)
+> 	__u8			ndisc_nodetype:2;
+>+#elif defined(CONFIG_BONDING) || defined(CONFIG_BONDING_MODULE)
+>+	__u8			bond_should_drop:1;
+> #endif
+
+	First, this looks like too much #ifdef soup here.  None of the
+bonding-specific code in the packet receive processing path has
+historically been #ifdefed out; there are more examples further down in
+the patch.
+
+	Second, should the field be named something generic, e.g.,
+"deliver_no_wcard" to indicate its function?  "bond_should_drop" doesn't
+really describe what the field is used for (which is to specify that the
+packet should be delivered only to non-wildcard packet handlers).  With
+this change, packets are never dropped outright as the result of what
+the bonding "should drop" logic says.
+
+	I'm open to alternatives to using a field in the sk_buff; John's
+original submission added a PACKET_DROP (to supplant PACKET_LOCAL,
+PACKET_BROADCAST, etc), but that seemed like a loss of information to
+me.  I haven't thought of a way to efficiently accomplish John's goal
+without putting state into the skb somewhere.
+
+	-J
+
+> 	kmemcheck_bitfield_end(flags2);
+>
+>diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+>index c584a0a..57ac2d3 100644
+>--- a/net/8021q/vlan_core.c
+>+++ b/net/8021q/vlan_core.c
+>@@ -11,8 +11,10 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
+> 	if (netpoll_rx(skb))
+> 		return NET_RX_DROP;
+>
+>+#if defined(CONFIG_BONDING) || defined(CONFIG_BONDING_MODULE)
+> 	if (skb_bond_should_drop(skb, ACCESS_ONCE(skb->dev->master)))
+>-		goto drop;
+>+		skb->bond_should_drop = 1;
+>+#endif
+> 	skb->skb_iif = skb->dev->ifindex;
+> 	__vlan_hwaccel_put_tag(skb, vlan_tci);
+>@@ -83,8 +85,10 @@ vlan_gro_common(struct napi_struct *napi, struct vlan_group *grp,
+> {
+> 	struct sk_buff *p;
+>
+>+#if defined(CONFIG_BONDING) || defined(CONFIG_BONDING_MODULE)
+> 	if (skb_bond_should_drop(skb, ACCESS_ONCE(skb->dev->master)))
+>-		goto drop;
+>+		skb->bond_should_drop = 1;
+>+#endif
+>
+> 	skb->skb_iif = skb->dev->ifindex;
+> 	__vlan_hwaccel_put_tag(skb, vlan_tci);
+>diff --git a/net/core/dev.c b/net/core/dev.c
+>index 3dc691d..92fdff4 100644
+>--- a/net/core/dev.c
+>+++ b/net/core/dev.c
+>@@ -2782,11 +2782,13 @@ static int __netif_receive_skb(struct sk_buff *skb)
+> {
+> 	struct packet_type *ptype, *pt_prev;
+> 	struct net_device *orig_dev;
+>-	struct net_device *master;
+> 	struct net_device *null_or_orig;
+> 	struct net_device *orig_or_bond;
+> 	int ret = NET_RX_DROP;
+> 	__be16 type;
+>+#if defined(CONFIG_BONDING) || defined(CONFIG_BONDING_MODULE)
+>+	struct net_device *master;
+>+#endif
+>
+> 	if (!skb->tstamp.tv64)
+> 		net_timestamp(skb);
+>@@ -2801,15 +2803,28 @@ static int __netif_receive_skb(struct sk_buff *skb)
+> 	if (!skb->skb_iif)
+> 		skb->skb_iif = skb->dev->ifindex;
+>
+>+	/*
+>+	 * bonding note: skbs received on inactive slaves should only
+>+	 * be delivered to pkt handlers that are exact matches.  Also
+>+	 * the bond_should_drop flag will be set.  If packet handlers
+>+	 * are sensitive to duplicate packets these skbs will need to
+>+	 * be dropped at the handler.  The vlan accel path may have
+>+	 * already set the bond_should_drop flag.
+>+	 */
+> 	null_or_orig = NULL;
+> 	orig_dev = skb->dev;
+>+#if defined(CONFIG_BONDING) || defined(CONFIG_BONDING_MODULE)
+> 	master = ACCESS_ONCE(orig_dev->master);
+>-	if (master) {
+>-		if (skb_bond_should_drop(skb, master))
+>+	if (skb->bond_should_drop)
+>+		null_or_orig = orig_dev;
+>+	else if (master) {
+>+		if (skb_bond_should_drop(skb, master)) {
+>+			skb->bond_should_drop = 1;
+> 			null_or_orig = orig_dev; /* deliver only exact match */
+>-		else
+>+		} else
+> 			skb->dev = master;
+> 	}
+>+#endif
+>
+> 	__get_cpu_var(softnet_data).processed++;
+>
+>
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
