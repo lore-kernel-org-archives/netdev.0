@@ -1,28 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] bonding: make bonding_store_slaves simpler
-Date: Wed, 02 Jun 2010 03:40:49 -0700 (PDT)
-Message-ID: <20100602.034049.62364442.davem@davemloft.net>
-References: <20100518154638.GF2878@psychotron.lab.eng.brq.redhat.com>
+Subject: Re: [PATCH] net/mpc52xx_phy: Various code cleanups
+Date: Wed, 02 Jun 2010 03:45:40 -0700 (PDT)
+Message-ID: <20100602.034540.73663475.davem@davemloft.net>
+References: <1274264470-2905-1-git-send-email-w.sang@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com,
-	bonding-devel@lists.sourceforge.net
-To: jpirko@redhat.com
+Cc: linuxppc-dev@ozlabs.org, netdev@vger.kernel.org,
+	grant.likely@secretlab.ca
+To: w.sang@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33780
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45945
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757749Ab0FBKkj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 06:40:39 -0400
-In-Reply-To: <20100518154638.GF2878@psychotron.lab.eng.brq.redhat.com>
+	by vger.kernel.org with ESMTP id S1755213Ab0FBKpc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 06:45:32 -0400
+In-Reply-To: <1274264470-2905-1-git-send-email-w.sang@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Tue, 18 May 2010 17:46:39 +0200
+From: Wolfram Sang <w.sang@pengutronix.de>
+Date: Wed, 19 May 2010 12:21:10 +0200
 
-> This patch makes bonding_store_slaves function nicer and easier to understand.
+> - don't free bus->irq (obsoleted by ca816d98170942371535b3e862813b0aba9b7d90)
+> - don't dispose irqs (should be done in of_mdiobus_register())
+> - use fec-pointer consistently in transfer()
+> - use resource_size()
+> - cosmetic fixes
 > 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
 
-Applied.
+Applied, thanks.
