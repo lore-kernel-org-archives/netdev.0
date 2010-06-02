@@ -1,73 +1,76 @@
-From: "Paoloni, Gabriele" <gabriele.paoloni@intel.com>
-Subject: RE: [PATCH] ppp_generic: fix multilink fragment sizes
-Date: Wed, 2 Jun 2010 16:17:59 +0100
-Message-ID: <DF7BB929B28FCF479E888E3D9F8D9E88D3E16B5A@irsmsx502.ger.corp.intel.com>
-References: <4C0670E2.1090708@netservers.co.uk>
- <1275491094-9526-1-git-send-email-ben@netservers.co.uk>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: [PATCH] IP: Increment INADDRERRORS if routing for a packet is
+ not successful
+Date: Wed, 2 Jun 2010 10:27:13 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1006021025200.30182@router.home>
+References: <alpine.DEB.2.00.1006011609280.9438@router.home> <1275430054.2638.115.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>,
-	"linux-ppp@vger.kernel.org" <linux-ppp@vger.kernel.org>,
-	"paulus@samba.org" <paulus@samba.org>
-To: Ben McKeegan <ben@netservers.co.uk>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <1275491094-9526-1-git-send-email-ben@netservers.co.uk>
-Content-Language: en-US
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811839-1266566856-1275492433=:30182"
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nlpi157.sbcis.sbc.com ([207.115.36.171]:39366 "EHLO
+	nlpi157.prodigy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757699Ab0FBP1S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 11:27:18 -0400
+In-Reply-To: <1275430054.2638.115.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The proposed patch looks wrong to me.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-nbigger is already doing the job; I didn't use DIV_ROUND_UP because in general we don't have always to roundup, otherwise we would exceed the total bandwidth.
+---1463811839-1266566856-1275492433=:30182
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
-Regards
+On Wed, 2 Jun 2010, Eric Dumazet wrote:
 
-Gabriele Paoloni
+> Le mardi 01 juin 2010 =C3=A0 16:13 -0500, Christoph Lameter a =C3=A9crit =
+:
+> > Something like this would have been very helpful during recent debuggin=
+g
+> > of multicast issues. Silent discards are bad.
+> >
+>
+> >
+> > If the kernel perceives that something is wrong with an incoming packet=
+ then the
+> > IP stack currently silently discards packets. This makes it difficult t=
+o diagnose
+> > problems with the network configurations (such as a misbehaving kernel
+> > subsystem discarding multicast packets because the reverse path filter
+> > does not like multicast subscriptions on the second NIC with rp_filter=
+=3D1).
+> >
+> > It is also necessary to know how many inbound packets are discarded to
+> > assess networking issues in general with a NIC.
+> >
+> > Signed-off-by: Christoph Lameter <cl@linux-foundation.org>
+> > Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+> >
+>
+> I disagree with this patch.
+>
+> IPSTATS_MIB_INADDRERRORS has a strong meaning, part of RFCS.
+>
+> In this path, we simulate the routing of a virtual packet, not its
+> delivery.
+>
+> This should not affect IPSTATS SNMP entries.
+>
+> You should use another MIB entry, say LINUX_MIB_INROUTEERRORS ?
+>
+> Dont inet_rtm_getroute() caller gets an error status anyway ?
 
------Original Message-----
-From: Ben McKeegan [mailto:ben@netservers.co.uk] 
-Sent: 02 June 2010 16:05
-To: davem@davemloft.net
-Cc: ben@netservers.co.uk; netdev@vger.kernel.org; linux-kernel@vger.kernel.org; Paoloni, Gabriele; alan@lxorguk.ukuu.org.uk; linux-ppp@vger.kernel.org; paulus@samba.org
-Subject: [PATCH] ppp_generic: fix multilink fragment sizes
+Yes but they are not increment any counter. If packets are dropped because
+of the rp_filter setting interfering f.e. then the packets vanish without
+any accounting.
 
-Fix bug in multilink fragment size calculation introduced by
-commit 9c705260feea6ae329bc6b6d5f6d2ef0227eda0a
-"ppp: ppp_mp_explode() redesign"
-
-Signed-off-by: Ben McKeegan <ben@netservers.co.uk>
----
- drivers/net/ppp_generic.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
-index 0db3894..8b36bfe 100644
---- a/drivers/net/ppp_generic.c
-+++ b/drivers/net/ppp_generic.c
-@@ -1416,7 +1416,8 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
- 		flen = len;
- 		if (nfree > 0) {
- 			if (pch->speed == 0) {
--				flen = totlen/nfree;
-+				if (nfree > 1)
-+					flen = DIV_ROUND_UP(len, nfree);
- 				if (nbigger > 0) {
- 					flen++;
- 					nbigger--;
--- 
-1.5.6.5
-
---------------------------------------------------------------
-Intel Shannon Limited
-Registered in Ireland
-Registered Office: Collinstown Industrial Park, Leixlip, County Kildare
-Registered Number: 308263
-Business address: Dromore House, East Park, Shannon, Co. Clare
-
-This e-mail and any attachments may contain confidential material for the sole use of the intended recipient(s). Any review or distribution by others is strictly prohibited. If you are not the intended recipient, please contact the sender and delete all copies.
+LINUX_MIB_INROUTEERRORS? Does it mean I can create a series of new
+counters that allow us to diagnose and distinguish all the different
+causes of packet loss? We would love to have that.
 
 
+---1463811839-1266566856-1275492433=:30182--
