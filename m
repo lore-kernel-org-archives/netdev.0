@@ -1,60 +1,94 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] net/core: Save the port number a netdevice uses
-Date: Wed, 02 Jun 2010 17:42:29 +0100
-Message-ID: <1275496949.2115.18.camel@achroite.uk.solarflarecom.com>
-References: <20100526084523.GA28748@mtldesk030.lab.mtl.com>
-	 <20100526.015526.102555441.davem@davemloft.net>
-	 <20100526090850.GB28748@mtldesk030.lab.mtl.com>
-	 <20100526.021635.179940939.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: sysfs class/net/ problem
+Date: Wed, 02 Jun 2010 09:43:22 -0700
+Message-ID: <m14ohlxu51.fsf@fess.ebiederm.org>
+References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
+	<20100602154608.GB12361@kroah.com>
+	<1275493693.3915.12.camel@jlt3.sipsolutions.net>
+	<m1ljaxxvcj.fsf@fess.ebiederm.org>
+	<1275495677.3915.16.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Eli Cohen <eli@dev.mellanox.co.il>,
-	netdev <netdev@vger.kernel.org>, linux-rdma@vger.kernel.org,
-	Roland Dreier <rdreier@cisco.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:46572 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752875Ab0FBQmd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 12:42:33 -0400
-In-Reply-To: <20100526.021635.179940939.davem@davemloft.net>
+Received: from out02.mta.xmission.com ([166.70.13.232]:58224 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753959Ab0FBQn2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 12:43:28 -0400
+In-Reply-To: <1275495677.3915.16.camel@jlt3.sipsolutions.net> (Johannes Berg's message of "Wed\, 02 Jun 2010 18\:21\:17 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-05-26 at 02:16 -0700, David Miller wrote:
-> From: Eli Cohen <eli@dev.mellanox.co.il>
-> Date: Wed, 26 May 2010 12:08:52 +0300
-> 
-> > So if I understand you correctly, you think that I should not bother
-> > to set a default value of 1. Each driver that cares about the value
-> > of this field, will set it however they want.
-> 
-> I actually mean that the value "0" should mean the first port,
-> the value "1" should mean the second port, etc.
+Johannes Berg <johannes@sipsolutions.net> writes:
 
-There's a compatibility problem here though: when user-space looks at
-this number it can't tell whether "0" really means the first port or
-that the driver isn't setting dev_id.  In order to tell that it would
-have to check the driver or kernel version too, and this is really nasty
-(what if the driver was backported?).  So I think that 1-based numbering
-for drivers that previously didn't set dev_id.
+> On Wed, 2010-06-02 at 09:17 -0700, Eric W. Biederman wrote:
+>
+>> >> Ah, so the network devices aren't getting removed?
+>> >
+>> > Well the netdevs are gone, just the links aren't going away. the
+>> > mac80211_hwsim directory is gone too.
+>> >
+>> >> Do you have network namespaces enabled in your kernel or disabled?
+>> >
+>> > enabled
+>> >
+>> >> And this is 2.6.35-rc1, right?
+>> >
+>> > yes.
+>> >
+>> > Come to think of it, maybe somehow it ends up removing
+>> > mac80211_hwsim/hwsim0 before wlan0, and thus the link stays around? I
+>> > guess I could make it print messages about that somehow?
+>> 
+>> The wireless drivers are a little different, and come to think of it
+>> network namespace support has been added to the wireless drivers since
+>> last I looked closely. 
+>
+> Yeah, I now need to go add tagged sysfs support to it too.
+>
+>>  Do you know what creates/deletes these links?
+>> Is it the normal register_netdevice -> device_add path?
+>
+> Yes, they aren't done specially.
 
-Why does this matter?  I'm maintaining the firmware update program for
-Solarflare NICs under Linux.  Some of the firmware it updates is
-per-port and some of it is per-board.  It needs to be able to tell which
-net and PCI devices are associated with the same board.  At the moment
-it works on the basis of PCI addresses, but this is unreliable in the
-presence of virtualisation.  It would be better to use board serial
-number and the port identifier that I just changed the driver to use,
-but since there are existing driver versions always leave dev_id = 0, I
-it needs to be able to tell whether dev_id is meaningful.
 
-Ben.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+>> I definitely changed the symlink code a little making things network namespace
+>> aware so it is reasonable to assume that something in my changes affected the
+>> wireless drivers.
+>
+>> I took a quick look and with my patches against 2.6.33 I'm not seeing this.
+>
+> Hmm. I'm also not seeing it with veth, it would seem that ought to be
+> similar?
+
+Since it is the register_netdev path it should be exactly the same.
+
+The big change I made is I in some instances I replaced
+sysfs_remove_link with sysfs_delete_link so I could have enough
+information to infer which network namespace the link was in.  Since
+wlan0 is a netdevice all of that information should already be there.
+
+
+>> I take a closer look at 2.6.35-rc1 and see if I can figure out what is
+>> going on.  It would definitely be wrong if hwsim0 is removed before
+>> wlan0.
+>
+> I don't know if that's happening .. just guessing that it might cause
+> such a problem, and maybe some things are deferred somehow? Since netdev
+> destruction can be deferred, but the wifi sysfs destruction isn't. But
+> then that link there should cause the refcount to not go down until the
+> link goes away>?
+
+unregister_netdevice will defer the final destruction but it does not
+defer netdev_unregister_kobject -> device_del.
+
+What happens if in exit_mac80211_hwsim you call unregister_netdev before
+mac80211_hwsim_free?
+
+At a quick glance it simply looks like you have the ordering reversed in your
+module cleanup, and this is not network namespace related at all.
+
+Eric
 
