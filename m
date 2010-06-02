@@ -1,49 +1,69 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: [PATCH] IP: Increment INADDRERRORS if routing for a packet is
- not successful
-Date: Wed, 2 Jun 2010 15:11:35 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1006021506560.32431@router.home>
-References: <1275496439.2725.203.camel@edumazet-laptop>  <alpine.DEB.2.00.1006021140320.30182@router.home>  <20100602.101258.134121018.davem@davemloft.net>  <20100602.103102.121237521.davem@davemloft.net>  <1275500802.2519.7.camel@edumazet-laptop>
- <alpine.DEB.2.00.1006021255001.32431@router.home>  <1275504070.2519.12.camel@edumazet-laptop>  <alpine.DEB.2.00.1006021355040.32431@router.home> <1275506732.2519.23.camel@edumazet-laptop>
+From: Roland Dreier <rdreier@cisco.com>
+Subject: [PATCH] epic100: Test __BIG_ENDIAN instead of (non-existent) CONFIG_BIG_ENDIAN
+Date: Wed, 02 Jun 2010 13:36:53 -0700
+Message-ID: <ada4ohlrx22.fsf@roland-alpha.cisco.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	shemminger@vyatta.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nlpi129.sbcis.sbc.com ([207.115.36.143]:47164 "EHLO
-	nlpi129.prodigy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932865Ab0FBULr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 16:11:47 -0400
-In-Reply-To: <1275506732.2519.23.camel@edumazet-laptop>
+Received: from sj-iport-5.cisco.com ([171.68.10.87]:57170 "EHLO
+	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758027Ab0FBUg6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 16:36:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2 Jun 2010, Eric Dumazet wrote:
+Probably no one has used this driver on big-endian systems, since it was
+setting up descriptor swapping if CONFIG_BIG_ENDIAN is set, which it
+never is, since that symbol is not mentioned anywhere else in the kernel
+source.  Switch this test to a check for __BIG_ENDIAN so it has a chance
+at working.
 
->
-> Say we have eth0 on 192.168.0.1/24 and eth1 on 192.168.0.2/24
->
-> Then we cannot use rp_filter = 1, even with unicast trafic.
->
-> I really dont understand why you would setup rp_filter in such a
-> situation. This wont work.
+Signed-off-by: Roland Dreier <rolandd@cisco.com>
+---
+ drivers/net/epic100.c |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
 
-rp_filter was setup in the past and it worked. Stephen fixed it in 2.6.31
-for multicast and thus suddenly multicast stopped working on secondary
-interfaces when we moved to 2.6.32. rp_filter having to be off is okay but
-it does not feel correct.
+diff --git a/drivers/net/epic100.c b/drivers/net/epic100.c
+index 6838dfc..4c27465 100644
+--- a/drivers/net/epic100.c
++++ b/drivers/net/epic100.c
+@@ -87,6 +87,7 @@ static int rx_copybreak;
+ #include <linux/bitops.h>
+ #include <asm/io.h>
+ #include <asm/uaccess.h>
++#include <asm/byteorder.h>
+ 
+ /* These identify the driver base version and may not be removed. */
+ static char version[] __devinitdata =
+@@ -230,7 +231,7 @@ static const u16 media2miictl[16] = {
+  * The EPIC100 Rx and Tx buffer descriptors.  Note that these
+  * really ARE host-endian; it's not a misannotation.  We tell
+  * the card to byteswap them internally on big-endian hosts -
+- * look for #ifdef CONFIG_BIG_ENDIAN in epic_open().
++ * look for #ifdef __BIG_ENDIAN in epic_open().
+  */
+ 
+ struct epic_tx_desc {
+@@ -690,7 +691,7 @@ static int epic_open(struct net_device *dev)
+ 		outl((inl(ioaddr + NVCTL) & ~0x003C) | 0x4800, ioaddr + NVCTL);
+ 
+ 	/* Tell the chip to byteswap descriptors on big-endian hosts */
+-#ifdef CONFIG_BIG_ENDIAN
++#ifdef __BIG_ENDIAN
+ 	outl(0x4432 | (RX_FIFO_THRESH<<8), ioaddr + GENCTL);
+ 	inl(ioaddr + GENCTL);
+ 	outl(0x0432 | (RX_FIFO_THRESH<<8), ioaddr + GENCTL);
+@@ -806,7 +807,7 @@ static void epic_restart(struct net_device *dev)
+ 	for (i = 16; i > 0; i--)
+ 		outl(0x0008, ioaddr + TEST1);
+ 
+-#ifdef CONFIG_BIG_ENDIAN
++#ifdef __BIG_ENDIAN
+ 	outl(0x0432 | (RX_FIFO_THRESH<<8), ioaddr + GENCTL);
+ #else
+ 	outl(0x0412 | (RX_FIFO_THRESH<<8), ioaddr + GENCTL);
 
-> Now, I agree we should have a counter somewhere to help admins to
-> understand their error ;)
-
-Ah. Good.
-
-> Here is patch I am currently testing.
->
-> I finaly created a new counter, because its a linux specific check.
-
-Looks good which does not say too much given my limited networking
-knowledge.
-
-Reviewed-by: Christoph Lameter <cl@linux-foundation.org>
+-- 
+Roland Dreier <rolandd@cisco.com> || For corporate legal information go to:
+http://www.cisco.com/web/about/doing_business/legal/cri/index.html
