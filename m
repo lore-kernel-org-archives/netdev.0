@@ -1,42 +1,87 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH 3/3] vhost: apply cpumask and cgroup to vhost workers
-Date: Wed, 02 Jun 2010 01:59:32 +0200
-Message-ID: <4C059EE4.5070104@kernel.org>
-References: <20100527163954.GA21710@redhat.com>	 <4BFEA434.6080405@kernel.org> <20100527173207.GA21880@redhat.com>	 <4BFEE216.2070807@kernel.org> <20100528150830.GB21880@redhat.com>	 <4BFFE742.2060205@kernel.org> <20100530112925.GB27611@redhat.com>	 <4C02C961.9050606@kernel.org> <20100531152221.GB2987@redhat.com>	 <4C03D983.9010905@kernel.org> <20100531160020.GC3067@redhat.com>	 <4C04D453.9040208@kernel.org> <1275412754.989.10.camel@w-sridhar.beaverton.ibm.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH net-2.6] bnx2: Fix hang during rmmod bnx2.
+Date: Tue, 1 Jun 2010 18:05:36 -0700
+Message-ID: <1275440736-18058-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Oleg Nesterov <oleg@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1275412754.989.10.camel@w-sridhar.beaverton.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3647 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756428Ab0FBBDs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Jun 2010 21:03:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/01/2010 07:19 PM, Sridhar Samudrala wrote:
->> -	int i;
->> +	cpumask_var_t mask;
->> +	int i, ret = -ENOMEM;
->> +
->> +	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
->> +		goto out_free_mask;
-> 
-> I think this is another bug in the error path. You should simply
-> do a return instead of a goto here when aloc_cpu_mask fails.
+The regression is caused by:
 
-Oh... it's always safe to call free_cpumask_var() after failed
-alloc_cpumask_var(), so that part isn't broken.
+commit 4327ba435a56ada13eedf3eb332e583c7a0586a9
+    bnx2: Fix netpoll crash.
 
-Thanks.
+If ->open() and ->close() are called multiple times, the same napi structs
+will be added to dev->napi_list multiple times, corrupting the dev->napi_list.
+This causes free_netdev() to hang during rmmod.
 
+We fix this by calling netif_napi_del() during ->close().
+
+Also, bnx2_init_napi() must not be in the __devinit section since it is
+called by ->open().
+
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Benjamin Li <benli@broadcom.com>
+---
+ drivers/net/bnx2.c |   14 +++++++++++++-
+ 1 files changed, 13 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 188e356..949d7a9 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -247,6 +247,7 @@ static const struct flash_spec flash_5709 = {
+ MODULE_DEVICE_TABLE(pci, bnx2_pci_tbl);
+ 
+ static void bnx2_init_napi(struct bnx2 *bp);
++static void bnx2_del_napi(struct bnx2 *bp);
+ 
+ static inline u32 bnx2_tx_avail(struct bnx2 *bp, struct bnx2_tx_ring_info *txr)
+ {
+@@ -6270,6 +6271,7 @@ open_err:
+ 	bnx2_free_skbs(bp);
+ 	bnx2_free_irq(bp);
+ 	bnx2_free_mem(bp);
++	bnx2_del_napi(bp);
+ 	return rc;
+ }
+ 
+@@ -6537,6 +6539,7 @@ bnx2_close(struct net_device *dev)
+ 	bnx2_free_irq(bp);
+ 	bnx2_free_skbs(bp);
+ 	bnx2_free_mem(bp);
++	bnx2_del_napi(bp);
+ 	bp->link_up = 0;
+ 	netif_carrier_off(bp->dev);
+ 	bnx2_set_power_state(bp, PCI_D3hot);
+@@ -8227,7 +8230,16 @@ bnx2_bus_string(struct bnx2 *bp, char *str)
+ 	return str;
+ }
+ 
+-static void __devinit
++static void
++bnx2_del_napi(struct bnx2 *bp)
++{
++	int i;
++
++	for (i = 0; i < bp->irq_nvecs; i++)
++		netif_napi_del(&bp->bnx2_napi[i].napi);
++}
++
++static void
+ bnx2_init_napi(struct bnx2 *bp)
+ {
+ 	int i;
 -- 
-tejun
+1.6.4.GIT
+
+
