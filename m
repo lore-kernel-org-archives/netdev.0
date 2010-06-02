@@ -1,41 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cls_u32: use skb_copy_bits() to dereference data safely
-Date: Wed, 02 Jun 2010 05:47:36 -0700 (PDT)
-Message-ID: <20100602.054736.215546689.davem@davemloft.net>
-References: <1275395667.3587.38.camel@bigi>
-	<AANLkTilkweiJPmQOUv78lKL9ohZo1StzlJcBw0johYi0@mail.gmail.com>
-	<1275481219.14363.6.camel@bigi>
+Subject: Re: [PATCH]: vxge: Fix checkstack warning in vxge_probe()
+Date: Wed, 02 Jun 2010 05:51:31 -0700 (PDT)
+Message-ID: <20100602.055131.135985480.davem@davemloft.net>
+References: <20100528175735.30903.21134.sendpatchset@prarit.bos.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xiaosuo@gmail.com, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, mschmidt@redhat.com
+To: prarit@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51151
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53680
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932355Ab0FBMr0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 08:47:26 -0400
-In-Reply-To: <1275481219.14363.6.camel@bigi>
+	by vger.kernel.org with ESMTP id S1758064Ab0FBMvV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 08:51:21 -0400
+In-Reply-To: <20100528175735.30903.21134.sendpatchset@prarit.bos.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: jamal <hadi@cyberus.ca>
-Date: Wed, 02 Jun 2010 08:20:19 -0400
-
-> I am suprised we never caught this all this years and wondering why
-> this never crashed in your example?
-
-Well for one thing there is all sorts of "stuff" past the end of the
-valid skb->data area.  For example, there is some padding and then
-there is skb_shared_info().
-
-Furthermore, the kernel allocator can round up the size it uses for
-SLAB objects which gives even more padding past the end of even
-skb_shared_info().
-
-Futrhermore, the chance of the page past the page skb->data is in
-being invalid is very low.  You'd have to have invalid memory in the
-page after the skb->data.
-
-All of this conspires to just letting blind reads work in a large
-number of illegal cases.
+RnJvbTogUHJhcml0IEJoYXJnYXZhIDxwcmFyaXRAcmVkaGF0LmNvbT4NCkRhdGU6IEZyaSwgMjgg
+TWF5IDIwMTAgMTQ6MDE6NDkgLTA0MDANCg0KPiBMaW51eCAyLjYuMzMgcmVwb3J0cyB0aGlzIGNo
+ZWNrc3RhY2sgd2FybmluZzoNCj4gDQo+IGRyaXZlcnMvbmV0L3Z4Z2UvdnhnZS1tYWluLmM6IElu
+IGZ1bmN0aW9uICd2eGdlX3Byb2JlJzoNCj4gZHJpdmVycy9uZXQvdnhnZS92eGdlLW1haW4uYzo0
+NDA5OiB3YXJuaW5nOiB0aGUgZnJhbWUgc2l6ZSBvZiAxMDI4IGJ5dGVzIGlzIGxhcmdlciB0aGFu
+IDEwMjQgYnl0ZXMNCj4gDQo+IFRoaXMgd2FybmluZyBkb2VzIG5vdCBvY2N1ciBpbiB0aGUgbGF0
+ZXN0IGxpbnV4LTIuNiBvciBsaW51eC1uZXh0LCBob3dldmVyLA0KPiB3aGVuIEkgZG8gYSAnbWFr
+ZSAtajMyIENPTkZJR19GUkFNRV9XQVJOPTUxMicgaW5zdGVhZCBvZiAxMDI0IEkgc2VlDQo+IA0K
+PiBkcml2ZXJzL25ldC92eGdlL3Z4Z2UtbWFpbi5jOiBJbiBmdW5jdGlvbiChdnhnZV9wcm9iZaI6
+DQo+IGRyaXZlcnMvbmV0L3Z4Z2UvdnhnZS1tYWluLmM6NDQyMzogd2FybmluZzogdGhlIGZyYW1l
+IHNpemUgb2YgMTAyNCBieXRlcyBpcyBsYXJnZXIgdGhhbiA1MTIgYnl0ZXMNCj4gDQo+IFRoaXMg
+cGF0Y2ggbW92ZXMgdGhlIGxhcmdlIHZ4Z2VfY29uZmlnIHN0cnVjdCBvZmYgdGhlIHN0YWNrLg0K
+PiANCj4gU2lnbmVkLW9mZi1ieTogUHJhcml0IEJoYXJnYXZhIDxwcmFyaXRAcmVkaGF0LmNvbT4N
+Cg0KQXBwbGllZCB0byBuZXQtbmV4dC0yLjYsIHRoYW5rcy4NCg==
