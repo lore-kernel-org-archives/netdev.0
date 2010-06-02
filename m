@@ -1,37 +1,60 @@
-From: Christoph Lameter <cl@linux-foundation.org>
-Subject: Re: [PATCH] IP: Increment INADDRERRORS if routing for a packet is
- not successful
-Date: Wed, 2 Jun 2010 11:35:12 -0500 (CDT)
-Message-ID: <alpine.DEB.2.00.1006021131350.30182@router.home>
-References: <alpine.DEB.2.00.1006011609280.9438@router.home>  <1275430054.2638.115.camel@edumazet-laptop>  <alpine.DEB.2.00.1006021025200.30182@router.home>  <1275492754.2725.192.camel@edumazet-laptop>  <alpine.DEB.2.00.1006021103410.30182@router.home>
- <1275496088.2725.202.camel@edumazet-laptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] net/core: Save the port number a netdevice uses
+Date: Wed, 02 Jun 2010 17:42:29 +0100
+Message-ID: <1275496949.2115.18.camel@achroite.uk.solarflarecom.com>
+References: <20100526084523.GA28748@mtldesk030.lab.mtl.com>
+	 <20100526.015526.102555441.davem@davemloft.net>
+	 <20100526090850.GB28748@mtldesk030.lab.mtl.com>
+	 <20100526.021635.179940939.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Eli Cohen <eli@dev.mellanox.co.il>,
+	netdev <netdev@vger.kernel.org>, linux-rdma@vger.kernel.org,
+	Roland Dreier <rdreier@cisco.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nlpi157.sbcis.sbc.com ([207.115.36.171]:48968 "EHLO
-	nlpi157.prodigy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932706Ab0FBQfP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 12:35:15 -0400
-In-Reply-To: <1275496088.2725.202.camel@edumazet-laptop>
+Received: from mail.solarflare.com ([216.237.3.220]:46572 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752875Ab0FBQmd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 12:42:33 -0400
+In-Reply-To: <20100526.021635.179940939.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2 Jun 2010, Eric Dumazet wrote:
+On Wed, 2010-05-26 at 02:16 -0700, David Miller wrote:
+> From: Eli Cohen <eli@dev.mellanox.co.il>
+> Date: Wed, 26 May 2010 12:08:52 +0300
+> 
+> > So if I understand you correctly, you think that I should not bother
+> > to set a default value of 1. Each driver that cares about the value
+> > of this field, will set it however they want.
+> 
+> I actually mean that the value "0" should mean the first port,
+> the value "1" should mean the second port, etc.
 
-> Your patch has nothing to do with dropped packets because of rp_filter.
->
-> You inserted a counter increment in a path that is not taken at all by
-> packet delivery.
->
-> Maybe I missed something really obvious with your patch ?
+There's a compatibility problem here though: when user-space looks at
+this number it can't tell whether "0" really means the first port or
+that the driver isn't setting dev_id.  In order to tell that it would
+have to check the driver or kernel version too, and this is really nasty
+(what if the driver was backported?).  So I think that 1-based numbering
+for drivers that previously didn't set dev_id.
 
-rp_filter rejects a route and packets are dropped then.
+Why does this matter?  I'm maintaining the firmware update program for
+Solarflare NICs under Linux.  Some of the firmware it updates is
+per-port and some of it is per-board.  It needs to be able to tell which
+net and PCI devices are associated with the same board.  At the moment
+it works on the basis of PCI addresses, but this is unreliable in the
+presence of virtualisation.  It would be better to use board serial
+number and the port identifier that I just changed the driver to use,
+but since there are existing driver versions always leave dev_id = 0, I
+it needs to be able to tell whether dev_id is meaningful.
 
-> Have you considered CONFIG_NET_DROP_MONITOR ?
-> This one catches all possible cases, a developper doesnt have to patch
-> his kernel to add SNMP counters everywhere...
+Ben.
 
-Just looking at it. Great. A hook into skb_free. That will do.
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
