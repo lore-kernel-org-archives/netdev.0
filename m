@@ -1,53 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: add additional lock to qdisc to increase
- throughput
-Date: Wed, 02 Jun 2010 16:52:50 +0200
-Message-ID: <1275490370.2725.178.camel@edumazet-laptop>
-References: <20100323202553.21598.10754.stgit@gitlad.jf.intel.com>
-	 <1274454480.2439.418.camel@edumazet-laptop>
-	 <80769D7B14936844A23C0C43D9FBCF0F256284B068@orsmsx501.amr.corp.intel.com>
-	 <20100602.051019.180420492.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] act_pedit: access skb->data safely
+Date: Wed,  2 Jun 2010 22:55:02 +0800
+Message-ID: <1275490502-22608-1-git-send-email-xiaosuo@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Jamal Hadi Salim <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:59632 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753633Ab0FBOwz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 10:52:55 -0400
-Received: by wyi11 with SMTP id 11so1931708wyi.19
-        for <netdev@vger.kernel.org>; Wed, 02 Jun 2010 07:52:54 -0700 (PDT)
-In-Reply-To: <20100602.051019.180420492.davem@davemloft.net>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:56930 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755579Ab0FBOzS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 10:55:18 -0400
+Received: by pwj2 with SMTP id 2so1731147pwj.19
+        for <netdev@vger.kernel.org>; Wed, 02 Jun 2010 07:55:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 02 juin 2010 =C3=A0 05:10 -0700, David Miller a =C3=A9crit =
-:
-> From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-> Date: Fri, 21 May 2010 13:04:20 -0700
->=20
-> > Eric Dumazet wrote:
-> >> Tests with following script gave a boost from ~50.000 pps to ~600.=
-000
-> >> pps on a dual quad core machine (E5450 @3.00GHz), tg3 driver.
-> >> (A single netperf flow can reach ~800.000 pps on this platform)
-> >>=20
-> >> for j in `seq 0 3`; do
-> >>   for i in `seq 0 7`; do
-> >>     netperf -H 192.168.0.1 -t UDP_STREAM -l 60 -N -T $i -- -m 6 &
-> >>   done
-> >> done
-> >=20
-> > Running the same script with your patch my results went from 200Kpp=
-s to 1.2Mpps on a dual Xeon 5570.
-> >=20
-> > Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
->=20
-> Applied, thanks guys.
+access skb->data safely
 
-Thanks David, I realize you did all the necessary changes after
-qdisc_run_begin/qdisc_is_running/ integration ;)
+we should use skb_header_pointer() and skb_store_bits() to access skb->data to
+handle small or non-linear skbs.
 
-
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+ net/sched/act_pedit.c |   24 ++++++++++++++----------
+ 1 file changed, 14 insertions(+), 10 deletions(-)
+diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
+index fdbd0b7..50e3d94 100644
+--- a/net/sched/act_pedit.c
++++ b/net/sched/act_pedit.c
+@@ -125,7 +125,7 @@ static int tcf_pedit(struct sk_buff *skb, struct tc_action *a,
+ {
+ 	struct tcf_pedit *p = a->priv;
+ 	int i, munged = 0;
+-	u8 *pptr;
++	unsigned int off;
+ 
+ 	if (!(skb->tc_verd & TC_OK2MUNGE)) {
+ 		/* should we set skb->cloned? */
+@@ -134,7 +134,7 @@ static int tcf_pedit(struct sk_buff *skb, struct tc_action *a,
+ 		}
+ 	}
+ 
+-	pptr = skb_network_header(skb);
++	off = skb_network_offset(skb);
+ 
+ 	spin_lock(&p->tcf_lock);
+ 
+@@ -144,17 +144,17 @@ static int tcf_pedit(struct sk_buff *skb, struct tc_action *a,
+ 		struct tc_pedit_key *tkey = p->tcfp_keys;
+ 
+ 		for (i = p->tcfp_nkeys; i > 0; i--, tkey++) {
+-			u32 *ptr;
++			u32 *ptr, _data;
+ 			int offset = tkey->off;
+ 
+ 			if (tkey->offmask) {
+-				if (skb->len > tkey->at) {
+-					 char *j = pptr + tkey->at;
+-					 offset += ((*j & tkey->offmask) >>
+-						   tkey->shift);
+-				} else {
++				char *d, _d;
++
++				d = skb_header_pointer(skb, off + tkey->at, 1,
++						       &_d);
++				if (!d)
+ 					goto bad;
+-				}
++				offset += (*d & tkey->offmask) >> tkey->shift;
+ 			}
+ 
+ 			if (offset % 4) {
+@@ -169,9 +169,13 @@ static int tcf_pedit(struct sk_buff *skb, struct tc_action *a,
+ 				goto bad;
+ 			}
+ 
+-			ptr = (u32 *)(pptr+offset);
++			ptr = skb_header_pointer(skb, off + offset, 4, &_data);
++			if (!ptr)
++				goto bad;
+ 			/* just do it, baby */
+ 			*ptr = ((*ptr & tkey->mask) ^ tkey->val);
++			if (ptr == &_data)
++				skb_store_bits(skb, off + offset, ptr, 4);
+ 			munged++;
+ 		}
+ 
