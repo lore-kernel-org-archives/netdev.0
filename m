@@ -1,74 +1,53 @@
-From: Andy Fleming <afleming@gmail.com>
-Subject: Re: [PATCH] phylib: Add support for the LXT973 phy.
-Date: Wed, 2 Jun 2010 14:32:11 -0500
-Message-ID: <AANLkTinR9_VoWX8zZu93MeohHvCbCy_P5XWHH3rxlPuH@mail.gmail.com>
-References: <20100531130932.GA15845@riccoc20.at.omicron.at>
-	<AANLkTilKJVZiKLRUlL7AeaqSnlAs2u5sTW7o2vfvEKns@mail.gmail.com>
-	<20100602125527.GA20396@riccoc20.at.omicron.at>
-	<20100602.065017.139108801.davem@davemloft.net>
+From: Luciano Coelho <luciano.coelho@nokia.com>
+Subject: Re: [PATCH v2] netfilter: Xtables: idletimer target implementation
+Date: Wed, 02 Jun 2010 22:52:28 +0300
+Message-ID: <1275508348.2797.26.camel@powerslave>
+References: <1275486062-23753-1-git-send-email-luciano.coelho@nokia.com>
+	 <alpine.LSU.2.01.1006021708370.27340@obet.zrqbmnf.qr>
+	 <1275503835.1574.0.camel@powerslave> <1275505553.2797.2.camel@powerslave>
+	 <alpine.LSU.2.01.1006022127430.32028@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: richardcochran@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:60642 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932493Ab0FBTcN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 15:32:13 -0400
-Received: by wyi11 with SMTP id 11so2164989wyi.19
-        for <netdev@vger.kernel.org>; Wed, 02 Jun 2010 12:32:12 -0700 (PDT)
-In-Reply-To: <20100602.065017.139108801.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"kaber@trash.net" <kaber@trash.net>, Timo Teras <timo.teras@iki.fi>
+To: ext Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.01.1006022127430.32028@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 2, 2010 at 8:50 AM, David Miller <davem@davemloft.net> wrot=
-e:
-> From: Richard Cochran <richardcochran@gmail.com>
-> Date: Wed, 2 Jun 2010 14:55:27 +0200
->
->> On Tue, Jun 01, 2010 at 05:39:22PM -0500, Andy Fleming wrote:
->>> That's a bit hacky. =A0There is a dev_flags field, which could be u=
-sed
->>> for this. =A0Probably, we should add a more general way of saying w=
-hat
->>> sort of port this is. =A0But don't use the presence and absence of
->>> "priv", as it could one day get used for a different purpose, and t=
-his
->>> seems like it would leave us open to strange bugs.
->>
->> Okay, I changed it.
->>
->> At first, I was worried about using 'dev_flags' because I couldn't
->> tell exactly who may write to this field. Looking at tg.c and
->> broadcom.c, it appears that the MAC drivers may also write this
->> field. In contrast, the 'priv' field is surely private.
->
-> No, I think using dev_flags is absolutely the wrong way to do about
-> this.
+On Wed, 2010-06-02 at 21:29 +0200, ext Jan Engelhardt wrote:
+> On Wednesday 2010-06-02 21:05, Luciano Coelho wrote:
+> >> > >+	idletimer_tg_kobj = kobject_create_and_add("idletimer",
+> >> > >+						   &THIS_MODULE->mkobj.kobj);
+> >> > 
+> >> > Isn't this going to oops when you compile this module as =y?
+> >> 
+> >> Damn, that's true. :(
+> >> 
+> >> I'll investigate how to fix this.
+> >
+> >Would it be too hacky to force it to be a module (ie. add "depends on m"
+> >in Kconfig)?
+> >
+> >Besides /sys/module/xt_IDLETIMER and /sys/class/net, which we have
+> >already discarded, I can't find any other place that would make sense to
+> >add the idletimer in the kernel object hierarchy...
+> 
+> While THIS_MODULE is NULL in =y mode, /sys/module/<xyz> can still exist 
+> (cf. /sys/module/printk). I just don't know how to get at the kobj for 
+> it, but the existence of it must mean it's there somewhere. Might ask 
+> sysfs authors.
 
-Yeah, I was clearly not thinking clearly.  dev_flags will be
-overwritten, and is not meant for this.  I believe, what we should do
-is add a "port" field to the PHY device, and if PCR_FIBER_SELECT is
-set, then set the port field to PORT_FIBRE.  I'm not entirely clear on
-the semantics of that field in the ethtool cmd, but it seems like the
-right idea.
+Okay, good to know.  My initial theory was that /sys/module/xt_IDLETIMER
+(pointed to by THIS_MODULE) would exist even if it was linked into the
+kernel itself, but now it's obvious that it doesn't.
 
+I'll investigate how printk does that.
 
->
-> phy_device->priv "could one day get used for a different purpose"?
-> What in the world are you smoking Andy?
->
-> It's clearly a private state pointer for the PHY driver to use,
-> full stop. =A0There is absolutely no ambiguity of what this value
-> is and what it is used for and who owns it. =A0The comments in the
-> layout of struct phy_device state this clearly as well.
+-- 
+Cheers,
+Luca.
 
-Yes, it's private, and I would be fine with using priv, I just didn't
-think that it was correct to assign priv to point at the probe
-function as a mechanism for indicating that fiber is being used.  I
-believe that code should be more explicit than that.  priv is meant to
-point at private data, not to indicate an arbitrary attribute of the
-link by virtue of being non-null.
-
-Andy
