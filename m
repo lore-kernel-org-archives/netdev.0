@@ -1,45 +1,84 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] packet_mmap: expose hw packet timestamps to network
- packet capture utilities
-Date: Wed, 02 Jun 2010 05:54:24 -0700 (PDT)
-Message-ID: <20100602.055424.93467981.davem@davemloft.net>
-References: <09ED21B37E0F694688A2317C4FED9ED3046E444260@azsmsx504.amr.corp.intel.com>
-	<09ED21B37E0F694688A2317C4FED9ED3046E53F595@azsmsx504.amr.corp.intel.com>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH] netfilter: Xtables: idletimer target implementation
+Date: Wed, 2 Jun 2010 14:54:30 +0200 (CEST)
+Message-ID: <alpine.LSU.2.01.1006021444480.14585@obet.zrqbmnf.qr>
+References: <1275479897-16779-1-git-send-email-luciano.coelho@nokia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tcpdump-workers@lists.tcpdump.org
-To: scott.a.mcmillan@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44796
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753144Ab0FBMyO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 08:54:14 -0400
-In-Reply-To: <09ED21B37E0F694688A2317C4FED9ED3046E53F595@azsmsx504.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	kaber@trash.net, Timo Teras <timo.teras@iki.fi>
+To: Luciano Coelho <luciano.coelho@nokia.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1275479897-16779-1-git-send-email-luciano.coelho@nokia.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Mcmillan, Scott A" <scott.a.mcmillan@intel.com>
-Date: Thu, 27 May 2010 09:58:19 -0700
 
-> Subject: [RFC PATCH] packet_mmap: expose hw packet timestamps to network packet capture utilities
-> 
-> This patch adds a setting, PACKET_TIMESTAMP, to specify the packet
-> timestamp source that is exported to capture utilities like tcpdump
-> by packet_mmap.
-> 
-> PACKET_TIMESTAMP accepts the same integer bit field as
-> SO_TIMESTAMPING.  However, only the SOF_TIMESTAMPING_SYS_HARDWARE
-> and SOF_TIMESTAMPING_RAW_HARDWARE values are currently recognized by
-> PACKET_TIMESTAMP.  SOF_TIMESTAMPING_SYS_HARDWARE takes precedence
-> over SOF_TIMESTAMPING_RAW_HARDWARE if both bits are set.
-> 
-> If PACKET_TIMESTAMP is not set, a software timestamp generated
-> inside the networking stack is used (the behavior before this
-> setting was added).
-> 
-> Signed-off-by: Scott McMillan <scott.a.mcmillan@intel.com>
+On Wednesday 2010-06-02 13:58, Luciano Coelho wrote:
+>+
+>+#ifndef _XT_IDLETIMER_H
+>+#define _XT_IDLETIMER_H
+>+
+>+#define MAX_LABEL_SIZE 32
+>+
+>+struct idletimer_tg_info {
+>+	unsigned int timeout;
+>+
+>+	char label[MAX_LABEL_SIZE];
+>+};
 
-Ok, this looks fine, applied.
+As per "Writing Netfilter Modules" e-book, using "int" is a no-no.
 
-Thanks.
+> 
+>+config NETFILTER_XT_TARGET_IDLETIMER
+>+	tristate  "IDLETIMER target support"
+
+depends on NETFILTER_ADVANCED
+
+>xt_IDLETIMER.c
+>+struct idletimer_tg_attr {
+>+        struct attribute attr;
+>+	ssize_t	(*show)(struct kobject *kobj,
+>+			struct attribute *attr, char *buf);
+>+};
+
+Some indent seems to have gone wrong.
+
+>+	attr->attr.name = kstrdup(info->label, GFP_KERNEL);
+
+Need to check return value!
+
+>+	attr->attr.mode = 0444;
+
+attr->attr.mode = S_IRUGO;
+
+>+static struct xt_target idletimer_tg __read_mostly = {
+>+	.name		= "IDLETIMER",
+>+	.family		= NFPROTO_IPV4,
+
+NFPROTO_UNSPEC
+
+>+	.target		= idletimer_tg_target,
+>+	.targetsize     = sizeof(struct idletimer_tg_info),
+>+	.checkentry	= idletimer_tg_checkentry,
+>+	.destroy        = idletimer_tg_destroy,
+>+	.me		= THIS_MODULE,
+>+};
+>+
+>+static int __init idletimer_tg_init(void)
+>+{
+>+	int ret;
+>+
+>+	idletimer_tg_kobj = kobject_create_and_add("idletimer",
+>+						   &THIS_MODULE->mkobj.kobj);
+>+	if (!idletimer_tg_kobj)
+>+		return -ENOMEM;
+>+
+>+	/* FIXME: do we want to keep it in the module or in the net class? */
+
+I have only ever seen interfaces in /sys/class/net, so it might be
+wise to keep it that way in light of scripts doing 
+echo /sys/class/net/*  to get a list of interfaces.
+
+
+Looks quite ok.
