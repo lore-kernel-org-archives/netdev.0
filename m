@@ -1,27 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net: CONFIG_NET_NS reduction
-Date: Wed, 02 Jun 2010 05:17:41 -0700 (PDT)
-Message-ID: <20100602.051741.45151765.davem@davemloft.net>
-References: <1275411079.2738.231.camel@edumazet-laptop>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] cls_u32: use skb_copy_bits() to dereference data safely
+Date: Wed, 02 Jun 2010 08:20:19 -0400
+Message-ID: <1275481219.14363.6.camel@bigi>
+References: <1275272665-19047-1-git-send-email-xiaosuo@gmail.com>
+	 <1275395667.3587.38.camel@bigi>
+	 <AANLkTilkweiJPmQOUv78lKL9ohZo1StzlJcBw0johYi0@mail.gmail.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: eric.dumazet@gmail.com
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52601
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751616Ab0FBMRb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 08:17:31 -0400
-In-Reply-To: <1275411079.2738.231.camel@edumazet-laptop>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:60986 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932373Ab0FBMVQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 08:21:16 -0400
+Received: by gwaa12 with SMTP id a12so4484582gwa.19
+        for <netdev@vger.kernel.org>; Wed, 02 Jun 2010 05:21:15 -0700 (PDT)
+In-Reply-To: <AANLkTilkweiJPmQOUv78lKL9ohZo1StzlJcBw0johYi0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 01 Jun 2010 18:51:19 +0200
+Hi Changli,
 
-> Use read_pnet() and write_pnet() to reduce number of ifdef CONFIG_NET_NS
+On Wed, 2010-06-02 at 01:47 +0800, Changli Gao wrote:
+
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> I added the following debug code into cls_u32.c
+> 
+>                 for (i = n->sel.nkeys; i>0; i--, key++) {
+> +                       int off;
+> +
+> +                       off = key->off+(off2&key->offmask) + (ptr - skb->data);
+> +                       if (off + 4 > skb->len)
+> +                               printk("skb->len: %d, off: %d\n",
+> skb->len, off);
+> 
 
-Applied, thanks Eric.
+Ok, makes more sense. And thanks for taking time to construct a
+meaningful example.
+It is not a common use - but i agree it is a bug.
+I am suprised we never caught this all this years and wondering why this
+never crashed in your example?
+Can we make the fix very simple please? i.e no copy bits, this is the
+fast path.
+
+> It isn't an optimization, but an error exit. :)
+
+What i meant was if you can tell immediately what the maximum offset is
+then you dont need to go through for loop making comparison with each
+key. You could immediately bailout - which is an optimization ;->
+
+cheers,
+jamal
+
