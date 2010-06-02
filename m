@@ -1,129 +1,49 @@
-From: Luciano Coelho <luciano.coelho@nokia.com>
-Subject: Re: [PATCH] netfilter: Xtables: idletimer target implementation
-Date: Wed, 02 Jun 2010 16:37:16 +0300
-Message-ID: <1275485836.22501.24.camel@chilepepper>
-References: <1275479897-16779-1-git-send-email-luciano.coelho@nokia.com>
-	 <alpine.LSU.2.01.1006021444480.14585@obet.zrqbmnf.qr>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] cls_u32: use skb_copy_bits() to dereference data safely
+Date: Wed, 02 Jun 2010 09:47:06 -0400
+Message-ID: <1275486426.3545.6.camel@bigi>
+References: <20100602.054520.228955151.davem@davemloft.net>
+	 <AANLkTil0sLvcHRTcGTfYYlCYzDH07sl7xgk6EcjL99cl@mail.gmail.com>
+	 <1275485797.3545.4.camel@bigi>
+	 <20100602.064316.218079399.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"kaber@trash.net" <kaber@trash.net>, Timo Teras <timo.teras@iki.fi>
-To: ext Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LSU.2.01.1006021444480.14585@obet.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: xiaosuo@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:45829 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754183Ab0FBNrM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 09:47:12 -0400
+Received: by pwj2 with SMTP id 2so1691314pwj.19
+        for <netdev@vger.kernel.org>; Wed, 02 Jun 2010 06:47:11 -0700 (PDT)
+In-Reply-To: <20100602.064316.218079399.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jan,
+On Wed, 2010-06-02 at 06:43 -0700, David Miller wrote:
+> From: jamal <hadi@cyberus.ca>
 
-Thanks for your prompt review! I'll send v2 with the fixes you
-suggested.
-
-
-On Wed, 2010-06-02 at 14:54 +0200, ext Jan Engelhardt wrote:
-> On Wednesday 2010-06-02 13:58, Luciano Coelho wrote:
-> >+
-> >+#ifndef _XT_IDLETIMER_H
-> >+#define _XT_IDLETIMER_H
-> >+
-> >+#define MAX_LABEL_SIZE 32
-> >+
-> >+struct idletimer_tg_info {
-> >+	unsigned int timeout;
-> >+
-> >+	char label[MAX_LABEL_SIZE];
-> >+};
+> > 
+> > A little worse than skb_copy_bits(). In any case, this change is going
+> > to hurt.
 > 
-> As per "Writing Netfilter Modules" e-book, using "int" is a no-no.
+> Umm, Jamal what are you talking about?
 
-Sorry I missed that one.  Fixed in v2.
+;->
 
- 
-> >+config NETFILTER_XT_TARGET_IDLETIMER
-> >+	tristate  "IDLETIMER target support"
-> 
-> depends on NETFILTER_ADVANCED
+> Using skb_header_pointer(), if the offset is in range, there is no
+> change from today other than a comparison.
 
-Yes.
+Thats the part i glossed over - My eyes just saw "it calls
+skb_copy_bits()" ;->
 
+> If it is not in range, we use skb_copy_bits().  It's only for the
+> case where we have to fetch the value from the fragmented part
+> of the SKB.
 
-> >xt_IDLETIMER.c
-> >+struct idletimer_tg_attr {
-> >+        struct attribute attr;
-> >+	ssize_t	(*show)(struct kobject *kobj,
-> >+			struct attribute *attr, char *buf);
-> >+};
-> 
-> Some indent seems to have gone wrong.
-
-Fixed.
-
-
-> >+	attr->attr.name = kstrdup(info->label, GFP_KERNEL);
-> 
-> Need to check return value!
-
-Oops! Fixed in v2.  Also added sysfs_remove_file_from_group() if the
-struct idletimer_tg allocation fails.
-
-
-> >+	attr->attr.mode = 0444;
-> 
-> attr->attr.mode = S_IRUGO;
-
-Fixed.
-
-
-> 
-> >+static struct xt_target idletimer_tg __read_mostly = {
-> >+	.name		= "IDLETIMER",
-> >+	.family		= NFPROTO_IPV4,
-> 
-> NFPROTO_UNSPEC
-
-Yeps, this is a remain from the previous (and ugly) read from ipt_ip.
-Fixed.
-
-
-> 
-> >+	.target		= idletimer_tg_target,
-> >+	.targetsize     = sizeof(struct idletimer_tg_info),
-> >+	.checkentry	= idletimer_tg_checkentry,
-> >+	.destroy        = idletimer_tg_destroy,
-> >+	.me		= THIS_MODULE,
-> >+};
-> >+
-> >+static int __init idletimer_tg_init(void)
-> >+{
-> >+	int ret;
-> >+
-> >+	idletimer_tg_kobj = kobject_create_and_add("idletimer",
-> >+						   &THIS_MODULE->mkobj.kobj);
-> >+	if (!idletimer_tg_kobj)
-> >+		return -ENOMEM;
-> >+
-> >+	/* FIXME: do we want to keep it in the module or in the net class? */
-> 
-> I have only ever seen interfaces in /sys/class/net, so it might be
-> wise to keep it that way in light of scripts doing 
-> echo /sys/class/net/*  to get a list of interfaces.
-
-Yes, this is the only reason why I haven't put it under the net class,
-which would probably look cleaner.  In other classes it seems to be
-common to add misc attributes, but the net class (as of now) only
-contains interface subclasses, as you said.
-
-I'll change the FIXME to a clearer comment.
-
-
-> Looks quite ok.
-
-Thanks!
-
-
--- 
-Cheers,
-Luca.
+cheers,
+jamal
 
