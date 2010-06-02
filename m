@@ -1,479 +1,177 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH UPDATED 1/3] vhost: replace vhost_workqueue with per-vhost
- kthread
-Date: Wed, 02 Jun 2010 14:34:30 -0700
-Message-ID: <4C06CE66.8070506@us.ibm.com>
-References: <20100527163954.GA21710@redhat.com> <4BFEA434.6080405@kernel.org> <20100527173207.GA21880@redhat.com> <4BFEE216.2070807@kernel.org> <20100528150830.GB21880@redhat.com> <4BFFE742.2060205@kernel.org> <20100530112925.GB27611@redhat.com> <4C02C961.9050606@kernel.org> <20100531152221.GB2987@redhat.com> <4C03D983.9010905@kernel.org> <20100531160020.GC3067@redhat.com> <4C04D41B.4050704@kernel.org> <4C06A580.9060300@kernel.org>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: Re: [PATCH 1/8] ath9k: Determine Firmware on probe
+Date: Wed, 2 Jun 2010 14:54:46 -0700
+Message-ID: <AANLkTiky9UF-aqeZCFleOFSIVw3vDiYbLUdTkkYEWN2B@mail.gmail.com>
+References: <19462.12578.143627.398866@gargle.gargle.HOWL>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Oleg Nesterov <oleg@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
-To: Tejun Heo <tj@kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Sujith <Sujith.Manoharan@atheros.com>,
+	Marcel Holtmann <marcel@holtmann.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C06A580.9060300@kernel.org>
+In-Reply-To: <19462.12578.143627.398866@gargle.gargle.HOWL>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 6/2/2010 11:40 AM, Tejun Heo wrote:
-> Replace vhost_workqueue with per-vhost kthread.  Other than callback
-> argument change from struct work_struct * to struct vhost_work *,
-> there's no visible change to vhost_poll_*() interface.
+On Wed, Jun 2, 2010 at 3:23 AM, Sujith <Sujith.Manoharan@atheros.com> w=
+rote:
+> Do not assign the FW name to driver_info but determine
+> it dynamically on device probe. This facilitates adding new
+> firmware.
 >
-> This conversion is to make each vhost use a dedicated kthread so that
-> resource control via cgroup can be applied.
->
-> Partially based on Sridhar Samudrala's patch.
->
-> * Updated to use sub structure vhost_work instead of directly using
->    vhost_poll at Michael's suggestion.
->
-> * Added flusher wake_up() optimization at Michael's suggestion.
->
-> Signed-off-by: Tejun Heo<tj@kernel.org>
-> Cc: Michael S. Tsirkin<mst@redhat.com>
-> Cc: Sridhar Samudrala<samudrala.sridhar@gmail.com>
+> Signed-off-by: Sujith <Sujith.Manoharan@atheros.com>
 > ---
-> Okay, just tested it.  dev->work_lock had to be updated to use irq
-> operations but other than that it worked just fine.  Copied a large
-> file using scp and it seems to perform pretty well although I don't
-> have any reference of comparison.  So, here's the updated version with
-> the sign off.
->    
+> =C2=A0drivers/net/wireless/ath/ath9k/hif_usb.c | =C2=A0 39 ++++++++++=
+++++++++++----------
+> =C2=A0drivers/net/wireless/ath/ath9k/hif_usb.h | =C2=A0 =C2=A01 +
+> =C2=A02 files changed, 27 insertions(+), 13 deletions(-)
+>
+> diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.c b/drivers/net/w=
+ireless/ath/ath9k/hif_usb.c
+> index 77b3591..7da55eb 100644
+> --- a/drivers/net/wireless/ath/ath9k/hif_usb.c
+> +++ b/drivers/net/wireless/ath/ath9k/hif_usb.c
+> @@ -16,12 +16,9 @@
+>
+> =C2=A0#include "htc.h"
+>
+> -#define ATH9K_FW_USB_DEV(devid, fw) =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
+=C2=A0 =C2=A0 =C2=A0\
+> - =C2=A0 =C2=A0 =C2=A0 { USB_DEVICE(0x0cf3, devid), .driver_info =3D =
+(unsigned long) fw }
+> -
+> =C2=A0static struct usb_device_id ath9k_hif_usb_ids[] =3D {
+> - =C2=A0 =C2=A0 =C2=A0 ATH9K_FW_USB_DEV(0x9271, "ar9271.fw"),
+> - =C2=A0 =C2=A0 =C2=A0 ATH9K_FW_USB_DEV(0x1006, "ar9271.fw"),
+> + =C2=A0 =C2=A0 =C2=A0 { USB_DEVICE(0x0cf3, 0x9271) },
+> + =C2=A0 =C2=A0 =C2=A0 { USB_DEVICE(0x0cf3, 0x1006) },
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0{ },
+> =C2=A0};
+>
+> @@ -790,21 +787,21 @@ static int ath9k_hif_usb_download_fw(struct hif=
+_device_usb *hif_dev)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return -EIO;
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0dev_info(&hif_dev->udev->dev, "ath9k_htc: =
+Transferred FW: %s, size: %ld\n",
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0"ar9271.fw",=
+ (unsigned long) hif_dev->firmware->size);
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0hif_dev->fw_=
+name, (unsigned long) hif_dev->firmware->size);
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0return 0;
+> =C2=A0}
+>
+> -static int ath9k_hif_usb_dev_init(struct hif_device_usb *hif_dev,
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 const char *fw_name)
+> +static int ath9k_hif_usb_dev_init(struct hif_device_usb *hif_dev)
+> =C2=A0{
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0int ret;
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Request firmware */
+> - =C2=A0 =C2=A0 =C2=A0 ret =3D request_firmware(&hif_dev->firmware, f=
+w_name, &hif_dev->udev->dev);
+> + =C2=A0 =C2=A0 =C2=A0 ret =3D request_firmware(&hif_dev->firmware, h=
+if_dev->fw_name,
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0&hif_dev->udev->dev);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (ret) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0dev_err(&hif_d=
+ev->udev->dev,
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 "ath9k_htc: Firmware - %s not found\n", fw_name);
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 "ath9k_htc: Firmware - %s not found\n", hif_dev->fw_name);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto err_fw_re=
+q;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+>
+> @@ -820,7 +817,8 @@ static int ath9k_hif_usb_dev_init(struct hif_devi=
+ce_usb *hif_dev,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0ret =3D ath9k_hif_usb_download_fw(hif_dev)=
+;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (ret) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0dev_err(&hif_d=
+ev->udev->dev,
+> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 "ath9k_htc: Firmware - %s download failed\n", fw_name);
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 "ath9k_htc: Firmware - %s download failed\n",
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 hif_dev->fw_name);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto err_fw_do=
+wnload;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+>
+> @@ -847,7 +845,6 @@ static int ath9k_hif_usb_probe(struct usb_interfa=
+ce *interface,
+> =C2=A0{
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct usb_device *udev =3D interface_to_u=
+sbdev(interface);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct hif_device_usb *hif_dev;
+> - =C2=A0 =C2=A0 =C2=A0 const char *fw_name =3D (const char *) id->dri=
+ver_info;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0int ret =3D 0;
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0hif_dev =3D kzalloc(sizeof(struct hif_devi=
+ce_usb), GFP_KERNEL);
+> @@ -872,7 +869,23 @@ static int ath9k_hif_usb_probe(struct usb_interf=
+ace *interface,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto err_htc_h=
+w_alloc;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+>
+> - =C2=A0 =C2=A0 =C2=A0 ret =3D ath9k_hif_usb_dev_init(hif_dev, fw_nam=
+e);
+> + =C2=A0 =C2=A0 =C2=A0 /* Find out which firmware to load */
+> +
+> + =C2=A0 =C2=A0 =C2=A0 switch(hif_dev->device_id) {
+> + =C2=A0 =C2=A0 =C2=A0 case 0x9271:
+> + =C2=A0 =C2=A0 =C2=A0 case 0x1006:
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 hif_dev->fw_name =3D=
+ "ar9271.fw";
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 break;
+> + =C2=A0 =C2=A0 =C2=A0 default:
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 break;
+> + =C2=A0 =C2=A0 =C2=A0 }
+> +
+> + =C2=A0 =C2=A0 =C2=A0 if (!hif_dev->fw_name) {
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 dev_err(&udev->dev=
+, "Can't determine firmware !\n");
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 goto err_htc_hw_al=
+loc;
+> + =C2=A0 =C2=A0 =C2=A0 }
+> +
+> + =C2=A0 =C2=A0 =C2=A0 ret =3D ath9k_hif_usb_dev_init(hif_dev);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (ret) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0ret =3D -EINVA=
+L;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0goto err_hif_i=
+nit_usb;
+> diff --git a/drivers/net/wireless/ath/ath9k/hif_usb.h b/drivers/net/w=
+ireless/ath/ath9k/hif_usb.h
+> index 0aca49b..b2647e8 100644
+> --- a/drivers/net/wireless/ath/ath9k/hif_usb.h
+> +++ b/drivers/net/wireless/ath/ath9k/hif_usb.h
+> @@ -90,6 +90,7 @@ struct hif_device_usb {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct usb_anchor regout_submitted;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct usb_anchor rx_submitted;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct sk_buff *remain_skb;
+> + =C2=A0 =C2=A0 =C2=A0 const char *fw_name;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0int rx_remain_len;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0int rx_pkt_len;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0int rx_transfer_len;
 
-I tested this with 4 VMs running netperf TCP stream tests from guest to 
-host and i am seeing similar
-level of scalability in throughput i saw with the multi-thread workqueue 
-patch.
-            11200Mb/s - default         (host cpu utilization: 40%)
-            21600Mb/s - multi-thread (host cpu utilization: 86%)
+I had done some something similar for ar9170 a while back [1] when
+adding AVM FRITZ support to ar9170 and then got complaints from Marcel
+on this approach since it requires synching the PCI device IDs in two
+places. I frankly don't care how we do this but we should try to at
+least stick to one way of doing this.
 
-Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+[1] http://osdir.com/ml/linux-wireless/2009-05/msg01219.html
 
-Thanks
-Sridhar
-> Thanks.
->
->   drivers/vhost/net.c   |   56 ++++++++++---------------
->   drivers/vhost/vhost.c |  111 ++++++++++++++++++++++++++++++++++++++------------
->   drivers/vhost/vhost.h |   38 +++++++++++------
->   3 files changed, 134 insertions(+), 71 deletions(-)
->
-> Index: work/drivers/vhost/net.c
-> ===================================================================
-> --- work.orig/drivers/vhost/net.c
-> +++ work/drivers/vhost/net.c
-> @@ -294,54 +294,58 @@ static void handle_rx(struct vhost_net *
->   	unuse_mm(net->dev.mm);
->   }
->
-> -static void handle_tx_kick(struct work_struct *work)
-> +static void handle_tx_kick(struct vhost_work *work)
->   {
-> -	struct vhost_virtqueue *vq;
-> -	struct vhost_net *net;
-> -	vq = container_of(work, struct vhost_virtqueue, poll.work);
-> -	net = container_of(vq->dev, struct vhost_net, dev);
-> +	struct vhost_virtqueue *vq = container_of(work, struct vhost_virtqueue,
-> +						  poll.work);
-> +	struct vhost_net *net = container_of(vq->dev, struct vhost_net, dev);
-> +
->   	handle_tx(net);
->   }
->
-> -static void handle_rx_kick(struct work_struct *work)
-> +static void handle_rx_kick(struct vhost_work *work)
->   {
-> -	struct vhost_virtqueue *vq;
-> -	struct vhost_net *net;
-> -	vq = container_of(work, struct vhost_virtqueue, poll.work);
-> -	net = container_of(vq->dev, struct vhost_net, dev);
-> +	struct vhost_virtqueue *vq = container_of(work, struct vhost_virtqueue,
-> +						  poll.work);
-> +	struct vhost_net *net = container_of(vq->dev, struct vhost_net, dev);
-> +
->   	handle_rx(net);
->   }
->
-> -static void handle_tx_net(struct work_struct *work)
-> +static void handle_tx_net(struct vhost_work *work)
->   {
-> -	struct vhost_net *net;
-> -	net = container_of(work, struct vhost_net, poll[VHOST_NET_VQ_TX].work);
-> +	struct vhost_net *net = container_of(work, struct vhost_net,
-> +					     poll[VHOST_NET_VQ_TX].work);
->   	handle_tx(net);
->   }
->
-> -static void handle_rx_net(struct work_struct *work)
-> +static void handle_rx_net(struct vhost_work *work)
->   {
-> -	struct vhost_net *net;
-> -	net = container_of(work, struct vhost_net, poll[VHOST_NET_VQ_RX].work);
-> +	struct vhost_net *net = container_of(work, struct vhost_net,
-> +					     poll[VHOST_NET_VQ_RX].work);
->   	handle_rx(net);
->   }
->
->   static int vhost_net_open(struct inode *inode, struct file *f)
->   {
->   	struct vhost_net *n = kmalloc(sizeof *n, GFP_KERNEL);
-> +	struct vhost_dev *dev;
->   	int r;
-> +
->   	if (!n)
->   		return -ENOMEM;
-> +
-> +	dev =&n->dev;
->   	n->vqs[VHOST_NET_VQ_TX].handle_kick = handle_tx_kick;
->   	n->vqs[VHOST_NET_VQ_RX].handle_kick = handle_rx_kick;
-> -	r = vhost_dev_init(&n->dev, n->vqs, VHOST_NET_VQ_MAX);
-> +	r = vhost_dev_init(dev, n->vqs, VHOST_NET_VQ_MAX);
->   	if (r<  0) {
->   		kfree(n);
->   		return r;
->   	}
->
-> -	vhost_poll_init(n->poll + VHOST_NET_VQ_TX, handle_tx_net, POLLOUT);
-> -	vhost_poll_init(n->poll + VHOST_NET_VQ_RX, handle_rx_net, POLLIN);
-> +	vhost_poll_init(n->poll + VHOST_NET_VQ_TX, handle_tx_net, POLLOUT, dev);
-> +	vhost_poll_init(n->poll + VHOST_NET_VQ_RX, handle_rx_net, POLLIN, dev);
->   	n->tx_poll_state = VHOST_NET_POLL_DISABLED;
->
->   	f->private_data = n;
-> @@ -644,25 +648,13 @@ static struct miscdevice vhost_net_misc
->
->   static int vhost_net_init(void)
->   {
-> -	int r = vhost_init();
-> -	if (r)
-> -		goto err_init;
-> -	r = misc_register(&vhost_net_misc);
-> -	if (r)
-> -		goto err_reg;
-> -	return 0;
-> -err_reg:
-> -	vhost_cleanup();
-> -err_init:
-> -	return r;
-> -
-> +	return misc_register(&vhost_net_misc);
->   }
->   module_init(vhost_net_init);
->
->   static void vhost_net_exit(void)
->   {
->   	misc_deregister(&vhost_net_misc);
-> -	vhost_cleanup();
->   }
->   module_exit(vhost_net_exit);
->
-> Index: work/drivers/vhost/vhost.c
-> ===================================================================
-> --- work.orig/drivers/vhost/vhost.c
-> +++ work/drivers/vhost/vhost.c
-> @@ -17,12 +17,12 @@
->   #include<linux/mm.h>
->   #include<linux/miscdevice.h>
->   #include<linux/mutex.h>
-> -#include<linux/workqueue.h>
->   #include<linux/rcupdate.h>
->   #include<linux/poll.h>
->   #include<linux/file.h>
->   #include<linux/highmem.h>
->   #include<linux/slab.h>
-> +#include<linux/kthread.h>
->
->   #include<linux/net.h>
->   #include<linux/if_packet.h>
-> @@ -37,8 +37,6 @@ enum {
->   	VHOST_MEMORY_F_LOG = 0x1,
->   };
->
-> -static struct workqueue_struct *vhost_workqueue;
-> -
->   static void vhost_poll_func(struct file *file, wait_queue_head_t *wqh,
->   			    poll_table *pt)
->   {
-> @@ -52,23 +50,31 @@ static void vhost_poll_func(struct file
->   static int vhost_poll_wakeup(wait_queue_t *wait, unsigned mode, int sync,
->   			     void *key)
->   {
-> -	struct vhost_poll *poll;
-> -	poll = container_of(wait, struct vhost_poll, wait);
-> +	struct vhost_poll *poll = container_of(wait, struct vhost_poll, wait);
-> +
->   	if (!((unsigned long)key&  poll->mask))
->   		return 0;
->
-> -	queue_work(vhost_workqueue,&poll->work);
-> +	vhost_poll_queue(poll);
->   	return 0;
->   }
->
->   /* Init poll structure */
-> -void vhost_poll_init(struct vhost_poll *poll, work_func_t func,
-> -		     unsigned long mask)
-> +void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
-> +		     unsigned long mask, struct vhost_dev *dev)
->   {
-> -	INIT_WORK(&poll->work, func);
-> +	struct vhost_work *work =&poll->work;
-> +
->   	init_waitqueue_func_entry(&poll->wait, vhost_poll_wakeup);
->   	init_poll_funcptr(&poll->table, vhost_poll_func);
->   	poll->mask = mask;
-> +	poll->dev = dev;
-> +
-> +	INIT_LIST_HEAD(&work->node);
-> +	work->fn = fn;
-> +	init_waitqueue_head(&work->done);
-> +	atomic_set(&work->flushing, 0);
-> +	work->queue_seq = work->done_seq = 0;
->   }
->
->   /* Start polling a file. We add ourselves to file's wait queue. The caller must
-> @@ -92,12 +98,29 @@ void vhost_poll_stop(struct vhost_poll *
->    * locks that are also used by the callback. */
->   void vhost_poll_flush(struct vhost_poll *poll)
->   {
-> -	flush_work(&poll->work);
-> +	struct vhost_work *work =&poll->work;
-> +	int seq = work->queue_seq;
-> +
-> +	atomic_inc(&work->flushing);
-> +	smp_mb__after_atomic_inc();	/* mb flush-b0 paired with worker-b1 */
-> +	wait_event(work->done, seq - work->done_seq<= 0);
-> +	atomic_dec(&work->flushing);
-> +	smp_mb__after_atomic_dec();	/* rmb flush-b1 paired with worker-b0 */
->   }
->
->   void vhost_poll_queue(struct vhost_poll *poll)
->   {
-> -	queue_work(vhost_workqueue,&poll->work);
-> +	struct vhost_dev *dev = poll->dev;
-> +	struct vhost_work *work =&poll->work;
-> +	unsigned long flags;
-> +
-> +	spin_lock_irqsave(&dev->work_lock, flags);
-> +	if (list_empty(&work->node)) {
-> +		list_add_tail(&work->node,&dev->work_list);
-> +		work->queue_seq++;
-> +		wake_up_process(dev->worker);
-> +	}
-> +	spin_unlock_irqrestore(&dev->work_lock, flags);
->   }
->
->   static void vhost_vq_reset(struct vhost_dev *dev,
-> @@ -125,10 +148,52 @@ static void vhost_vq_reset(struct vhost_
->   	vq->log_ctx = NULL;
->   }
->
-> +static int vhost_worker(void *data)
-> +{
-> +	struct vhost_dev *dev = data;
-> +	struct vhost_work *work;
-> +
-> +repeat:
-> +	set_current_state(TASK_INTERRUPTIBLE);	/* mb paired w/ kthread_stop */
-> +
-> +	if (kthread_should_stop()) {
-> +		__set_current_state(TASK_RUNNING);
-> +		return 0;
-> +	}
-> +
-> +	work = NULL;
-> +	spin_lock_irq(&dev->work_lock);
-> +	if (!list_empty(&dev->work_list)) {
-> +		work = list_first_entry(&dev->work_list,
-> +					struct vhost_work, node);
-> +		list_del_init(&work->node);
-> +	}
-> +	spin_unlock_irq(&dev->work_lock);
-> +
-> +	if (work) {
-> +		__set_current_state(TASK_RUNNING);
-> +		work->fn(work);
-> +		smp_wmb();	/* wmb worker-b0 paired with flush-b1 */
-> +		work->done_seq = work->queue_seq;
-> +		smp_mb();	/* mb worker-b1 paired with flush-b0 */
-> +		if (atomic_read(&work->flushing))
-> +			wake_up_all(&work->done);
-> +	} else
-> +		schedule();
-> +
-> +	goto repeat;
-> +}
-> +
->   long vhost_dev_init(struct vhost_dev *dev,
->   		    struct vhost_virtqueue *vqs, int nvqs)
->   {
-> +	struct task_struct *worker;
->   	int i;
-> +
-> +	worker = kthread_create(vhost_worker, dev, "vhost-%d", current->pid);
-> +	if (IS_ERR(worker))
-> +		return PTR_ERR(worker);
-> +
->   	dev->vqs = vqs;
->   	dev->nvqs = nvqs;
->   	mutex_init(&dev->mutex);
-> @@ -136,6 +201,9 @@ long vhost_dev_init(struct vhost_dev *de
->   	dev->log_file = NULL;
->   	dev->memory = NULL;
->   	dev->mm = NULL;
-> +	spin_lock_init(&dev->work_lock);
-> +	INIT_LIST_HEAD(&dev->work_list);
-> +	dev->worker = worker;
->
->   	for (i = 0; i<  dev->nvqs; ++i) {
->   		dev->vqs[i].dev = dev;
-> @@ -143,9 +211,10 @@ long vhost_dev_init(struct vhost_dev *de
->   		vhost_vq_reset(dev, dev->vqs + i);
->   		if (dev->vqs[i].handle_kick)
->   			vhost_poll_init(&dev->vqs[i].poll,
-> -					dev->vqs[i].handle_kick,
-> -					POLLIN);
-> +					dev->vqs[i].handle_kick, POLLIN, dev);
->   	}
-> +
-> +	wake_up_process(worker);	/* avoid contributing to loadavg */
->   	return 0;
->   }
->
-> @@ -217,6 +286,9 @@ void vhost_dev_cleanup(struct vhost_dev
->   	if (dev->mm)
->   		mmput(dev->mm);
->   	dev->mm = NULL;
-> +
-> +	WARN_ON(!list_empty(&dev->work_list));
-> +	kthread_stop(dev->worker);
->   }
->
->   static int log_access_ok(void __user *log_base, u64 addr, unsigned long sz)
-> @@ -1113,16 +1185,3 @@ void vhost_disable_notify(struct vhost_v
->   		vq_err(vq, "Failed to enable notification at %p: %d\n",
->   		&vq->used->flags, r);
->   }
-> -
-> -int vhost_init(void)
-> -{
-> -	vhost_workqueue = create_singlethread_workqueue("vhost");
-> -	if (!vhost_workqueue)
-> -		return -ENOMEM;
-> -	return 0;
-> -}
-> -
-> -void vhost_cleanup(void)
-> -{
-> -	destroy_workqueue(vhost_workqueue);
-> -}
-> Index: work/drivers/vhost/vhost.h
-> ===================================================================
-> --- work.orig/drivers/vhost/vhost.h
-> +++ work/drivers/vhost/vhost.h
-> @@ -5,13 +5,13 @@
->   #include<linux/vhost.h>
->   #include<linux/mm.h>
->   #include<linux/mutex.h>
-> -#include<linux/workqueue.h>
->   #include<linux/poll.h>
->   #include<linux/file.h>
->   #include<linux/skbuff.h>
->   #include<linux/uio.h>
->   #include<linux/virtio_config.h>
->   #include<linux/virtio_ring.h>
-> +#include<asm/atomic.h>
->
->   struct vhost_device;
->
-> @@ -20,19 +20,31 @@ enum {
->   	VHOST_NET_MAX_SG = MAX_SKB_FRAGS + 2,
->   };
->
-> +struct vhost_work;
-> +typedef void (*vhost_work_fn_t)(struct vhost_work *work);
-> +
-> +struct vhost_work {
-> +	struct list_head	  node;
-> +	vhost_work_fn_t		  fn;
-> +	wait_queue_head_t	  done;
-> +	atomic_t		  flushing;
-> +	int			  queue_seq;
-> +	int			  done_seq;
-> +};
-> +
->   /* Poll a file (eventfd or socket) */
->   /* Note: there's nothing vhost specific about this structure. */
->   struct vhost_poll {
->   	poll_table                table;
->   	wait_queue_head_t        *wqh;
->   	wait_queue_t              wait;
-> -	/* struct which will handle all actual work. */
-> -	struct work_struct        work;
-> +	struct vhost_work	  work;
->   	unsigned long		  mask;
-> +	struct vhost_dev	 *dev;
->   };
->
-> -void vhost_poll_init(struct vhost_poll *poll, work_func_t func,
-> -		     unsigned long mask);
-> +void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
-> +		     unsigned long mask, struct vhost_dev *dev);
->   void vhost_poll_start(struct vhost_poll *poll, struct file *file);
->   void vhost_poll_stop(struct vhost_poll *poll);
->   void vhost_poll_flush(struct vhost_poll *poll);
-> @@ -63,7 +75,7 @@ struct vhost_virtqueue {
->   	struct vhost_poll poll;
->
->   	/* The routine to call when the Guest pings us, or timeout. */
-> -	work_func_t handle_kick;
-> +	vhost_work_fn_t handle_kick;
->
->   	/* Last available index we saw. */
->   	u16 last_avail_idx;
-> @@ -86,11 +98,11 @@ struct vhost_virtqueue {
->   	struct iovec hdr[VHOST_NET_MAX_SG];
->   	size_t hdr_size;
->   	/* We use a kind of RCU to access private pointer.
-> -	 * All readers access it from workqueue, which makes it possible to
-> -	 * flush the workqueue instead of synchronize_rcu. Therefore readers do
-> +	 * All readers access it from worker, which makes it possible to
-> +	 * flush the vhost_work instead of synchronize_rcu. Therefore readers do
->   	 * not need to call rcu_read_lock/rcu_read_unlock: the beginning of
-> -	 * work item execution acts instead of rcu_read_lock() and the end of
-> -	 * work item execution acts instead of rcu_read_lock().
-> +	 * vhost_work execution acts instead of rcu_read_lock() and the end of
-> +	 * vhost_work execution acts instead of rcu_read_lock().
->   	 * Writers use virtqueue mutex. */
->   	void *private_data;
->   	/* Log write descriptors */
-> @@ -110,6 +122,9 @@ struct vhost_dev {
->   	int nvqs;
->   	struct file *log_file;
->   	struct eventfd_ctx *log_ctx;
-> +	spinlock_t work_lock;
-> +	struct list_head work_list;
-> +	struct task_struct *worker;
->   };
->
->   long vhost_dev_init(struct vhost_dev *, struct vhost_virtqueue *vqs, int nvqs);
-> @@ -136,9 +151,6 @@ bool vhost_enable_notify(struct vhost_vi
->   int vhost_log_write(struct vhost_virtqueue *vq, struct vhost_log *log,
->   		    unsigned int log_num, u64 len);
->
-> -int vhost_init(void);
-> -void vhost_cleanup(void);
-> -
->   #define vq_err(vq, fmt, ...) do {                                  \
->   		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
->   		if ((vq)->error_ctx)                               \
->    
+  Luis
