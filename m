@@ -1,41 +1,48 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: sysfs class/net/ problem
-Date: Wed, 02 Jun 2010 19:52:37 +0200
-Message-ID: <1275501157.3915.22.camel@jlt3.sipsolutions.net>
-References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
-	 <20100602154608.GB12361@kroah.com>
-	 <1275493693.3915.12.camel@jlt3.sipsolutions.net>
-	 <m1ljaxxvcj.fsf@fess.ebiederm.org>
-	 <1275495677.3915.16.camel@jlt3.sipsolutions.net>
-	 <m14ohlxu51.fsf@fess.ebiederm.org>
-	 <1275498007.3915.20.camel@jlt3.sipsolutions.net>
-	 <m1ocftwdp7.fsf@fess.ebiederm.org>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [Patch]8139too: remove unnecessary cast of ioread32()'s return
+ value
+Date: Wed, 02 Jun 2010 13:52:52 -0400
+Message-ID: <4C069A74.503@garzik.org>
+References: <20100530.153451.193700815.davem@davemloft.net>	<4C02F3A2.90100@garzik.org>	<20100530.182948.71104948.davem@davemloft.net> <20100530.183557.104047217.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:55565 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754377Ab0FBRwj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 13:52:39 -0400
-In-Reply-To: <m1ocftwdp7.fsf@fess.ebiederm.org>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:38838 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754377Ab0FBRwz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 13:52:55 -0400
+Received: by gye5 with SMTP id 5so2371809gye.19
+        for <netdev@vger.kernel.org>; Wed, 02 Jun 2010 10:52:54 -0700 (PDT)
+In-Reply-To: <20100530.183557.104047217.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-06-02 at 10:23 -0700, Eric W. Biederman wrote:
+On 05/30/2010 09:35 PM, David Miller wrote:
+> From: David Miller<davem@davemloft.net>
+> Date: Sun, 30 May 2010 18:29:48 -0700 (PDT)
+>
+>> From: Jeff Garzik<jeff@garzik.org>
+>> Date: Sun, 30 May 2010 19:24:18 -0400
+>>
+>>> That was the genesis of the question.  Some arches still use unsigned
+>>> long.
+>>
+>> They are 32-bit.
+>
+> In fact the only two offenders are h8300 and m32r, which are
+> both 32-bit.
 
-> So far that hypothesis that the target of the symlink is being removed before
-> the actual actual link looks like it could cause this.
+The main interesting one is an ARM sub-arch that supports PCI.
 
-Yeah though I'm not sure how that would happen? Wouldn't the symlink
-cause the target kobject to still be referenced, and thus stay around
-until the symlink goes away?
 
-> Are there any other left overs in sysfs, besides just /sys/class/net/wlan0?
+> This is really in the realm of "who cares."
 
-No, not based on find /sys and diffing before/after anyway.
+Fair enough.  That answers my question.
 
-johannes
+	Jeff
+
+
 
