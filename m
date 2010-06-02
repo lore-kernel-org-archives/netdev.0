@@ -1,48 +1,58 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [Patch]8139too: remove unnecessary cast of ioread32()'s return
- value
-Date: Wed, 02 Jun 2010 13:52:52 -0400
-Message-ID: <4C069A74.503@garzik.org>
-References: <20100530.153451.193700815.davem@davemloft.net>	<4C02F3A2.90100@garzik.org>	<20100530.182948.71104948.davem@davemloft.net> <20100530.183557.104047217.davem@davemloft.net>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: [PATCH] IP: Increment INADDRERRORS if routing for a packet is
+ not successful
+Date: Wed, 2 Jun 2010 13:01:45 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1006021255001.32431@router.home>
+References: <1275496439.2725.203.camel@edumazet-laptop>  <alpine.DEB.2.00.1006021140320.30182@router.home>  <20100602.101258.134121018.davem@davemloft.net>  <20100602.103102.121237521.davem@davemloft.net> <1275500802.2519.7.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	shemminger@vyatta.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:38838 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754377Ab0FBRwz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 13:52:55 -0400
-Received: by gye5 with SMTP id 5so2371809gye.19
-        for <netdev@vger.kernel.org>; Wed, 02 Jun 2010 10:52:54 -0700 (PDT)
-In-Reply-To: <20100530.183557.104047217.davem@davemloft.net>
+Received: from nlpi129.sbcis.sbc.com ([207.115.36.143]:35186 "EHLO
+	nlpi129.prodigy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932299Ab0FBSBs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 14:01:48 -0400
+In-Reply-To: <1275500802.2519.7.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/30/2010 09:35 PM, David Miller wrote:
-> From: David Miller<davem@davemloft.net>
-> Date: Sun, 30 May 2010 18:29:48 -0700 (PDT)
+On Wed, 2 Jun 2010, Eric Dumazet wrote:
+
+> Here is the patch I cooked to account for RP_FILTER errors in multicast
+> path.
 >
->> From: Jeff Garzik<jeff@garzik.org>
->> Date: Sun, 30 May 2010 19:24:18 -0400
->>
->>> That was the genesis of the question.  Some arches still use unsigned
->>> long.
->>
->> They are 32-bit.
+> I will complete it to also do the unicast part before official
+> submission.
 >
-> In fact the only two offenders are h8300 and m32r, which are
-> both 32-bit.
+> Christoph, the official counter would be IPSTATS_MIB_INNOROUTES
 
-The main interesting one is an ARM sub-arch that supports PCI.
+Great. Thanks.
 
+> ipSystemStatsInNoRoutes OBJECT-TYPE
+>     SYNTAX     Counter32
+>     MAX-ACCESS read-only
+>     STATUS     current
+>     DESCRIPTION
+>            "The number of input IP datagrams discarded because no route
+>             could be found to transmit them to their destination.
 
-> This is really in the realm of "who cares."
+add "or because the rp_filter rejected the packet"? In the case of MC
+traffic you dont really need a route.
 
-Fair enough.  That answers my question.
+In my particular case it is a weird corner case for the rp_filter.
 
-	Jeff
+Two NICs are on the same subnet. Different multicast groups are joined
+on each (Using two NICs to balance the MC load since the drivers have
+some multicast limitations and having different interrupt lines for each
+NIC is also beneficial).
 
+The rp_filter rejects all multicast traffic to the subscriptions on the
+second NIC. I guess this is because the source address of the MC traffic
+(on the same subnet) is also reachable via the first NIC.
 
+So you could add also "because of breakage in the rp_filter (rp_filter
+ignores the multicast subscription tables when determining the correct
+reverse path of the packet)"
 
