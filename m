@@ -1,26 +1,44 @@
-From: "SHUNG EDWIN" <info@yahoo.com>
-Subject: (unknown)
-Date: Thu, 3 Jun 2010 04:31:52 +1400
-Message-ID: <20100602140714.M59766__35659.9642233506$1275501969$gmane$org@yahoo.com>
-Reply-To: shungedwin07@yahoo.com.hk
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: mac8390 - Sort out memory/MMIO accesses and casts
+Date: Wed, 02 Jun 2010 11:21:30 -0700
+Message-ID: <1275502890.23599.22.camel@Joe-Laptop.home>
+References: <1275500180-32640-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=iso-8859-1
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>,
+	Finn Thain <fthain@telegraphics.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [140.128.209.129] ([140.128.209.129]:2467 "EHLO
-	dns.caes.tc.edu.tw" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1756660Ab0FBSFT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 14:05:19 -0400
-Subject: 
+Received: from mail.perches.com ([173.55.12.10]:2561 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932628Ab0FBSVc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jun 2010 14:21:32 -0400
+In-Reply-To: <1275500180-32640-1-git-send-email-geert@linux-m68k.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- Dear Friend,
+On Wed, 2010-06-02 at 19:36 +0200, Geert Uytterhoeven wrote:
+> commit 5c7fffd0e3b57cb63f50bbd710868f012d67654f ("drivers/net/mac8390.c: Remove
+> useless memcpy casting") removed too many casts, introducing the following
+> warnings:
+> 
+> | drivers/net/mac8390.c:248: warning: passing argument 1 of '__builtin_memcpy' makes pointer from integer without a cast
+> | drivers/net/mac8390.c:253: warning: passing argument 1 of 'word_memcpy_tocard' makes pointer from integer without a cast
+> | drivers/net/mac8390.c:255: warning: passing argument 2 of 'word_memcpy_fromcard' makes pointer from integer without a cast
+> 
+> Instead of just readding the casts,
+>   - move all casts inside word_memcpy_{to,from}card(),
+>   - replace an incorrect memcpy() by memcpy_toio(),
+>   - add memcmp_withio() as a wrapper around memcmp(),
+>   - replace an incorrect memcpy_toio() by memcpy_fromio().
+> 
+> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> Tested-by: Finn Thain <fthain@telegraphics.com.au>
 
-I am Mr. Shung Hin Hui Edwin a manager on investor relations in Standard 
-Chartered Bank, Hong Kong. I have a business proposal for you. If interested 
-please contact me for details
+Thanks Geert and Finn.
 
-I greet
-Edwin Shung Hui Hin.
+Apologies for not setting up a cross-compiler to fix this.
+
+cheers, Joe
+
