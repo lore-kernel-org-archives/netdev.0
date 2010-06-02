@@ -1,69 +1,65 @@
-From: Michael Ellerman <michael@ellerman.id.au>
-Subject: RE: [PATCH 1/2] Export firmware assigned labels of network devices
- to sysfs
-Date: Thu, 03 Jun 2010 09:54:44 +1000
-Message-ID: <1275522884.17895.8.camel@concordia>
-References: <20100528115520.GA24114@littleblue.us.dell.com>
-	 <1275314876.21246.29.camel@concordia>
-	 <EDA0A4495861324DA2618B4C45DCB3EE612864@blrx3m08.blr.amer.dell.com>
-Reply-To: michael@ellerman.id.au
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Subject: RE: [net-next-2.6 PATCH 2/2] x86: Align skb w/ start of cache line
+ on newer core 2/Xeon Arch
+Date: Wed, 2 Jun 2010 16:55:16 -0700
+Message-ID: <80769D7B14936844A23C0C43D9FBCF0F2562CD2555@orsmsx501.amr.corp.intel.com>
+References: <20100602222230.12962.97260.stgit@localhost.localdomain>
+	 <20100602222506.12962.49240.stgit@localhost.localdomain>
+ <1275518650.29413.43.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-MyEyo0KaYUiHYSlJRRer"
-Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
-	linux-pci@vger.kernel.org, Matt_Domsch@Dell.com,
-	Jordan_Hargrave@Dell.com, Charles_Rose@Dell.com,
-	Vijay_Nijhawan@Dell.com
-To: Narendra_K@Dell.com
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-In-Reply-To: <EDA0A4495861324DA2618B4C45DCB3EE612864@blrx3m08.blr.amer.dell.com>
-Sender: linux-hotplug-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"mingo@redhat.com" <mingo@redhat.com>,
+	"tglx@linutronix.de" <tglx@linutronix.de>,
+	"hpa@zytor.com" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1275518650.29413.43.camel@edumazet-laptop>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---=-MyEyo0KaYUiHYSlJRRer
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, 2010-06-01 at 00:12 +0530, Narendra_K@Dell.com wrote:
-> > On Fri, 2010-05-28 at 06:55 -0500, K, Narendra wrote:
-> > > Hello,
-> > >
-> > > This patch is in continuation of an earlier discussion -
-> > >
-> > > http://marc.info/?l=3Dlinux-netdev&m=3D126712978908314&w=3D3
-> > >
-> > > The patch has the following review suggestions from the community
-> > > incorporated -
-> > >
-> > > 1. The name of the attribute has been changed from "smbiosname" to
-> > > "label" to hide the implementation details.
-> > > 2. The implementation has been moved to a new file
-> > > drivers/pci/pci-label.c
-> >=20
-> > You've changed the name, which is good, but the implementation is still
-> > 100% dependant on ACPI or DMI AFAICS.
-> >=20
-> > So it seems to me until it's supported on another platform it may as
-> > well go in pci-acpi.c,=20
->=20
-> You mean the ACPI _DSM ? If yes, it is expected to become a standard
-> very soon. I assume you meant non-Dell platforms by another platform.
-
-No. I mean non-x86 platforms, yes they still exist.
-
-cheers
-
---=-MyEyo0KaYUiHYSlJRRer
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEABECAAYFAkwG70EACgkQdSjSd0sB4dIkjACgxnKDonndNDqvSc7OIROZVY5V
-W7EAn1Ys4rmttJDv6ruSQ7WVp0Q82Rbe
-=sCsc
------END PGP SIGNATURE-----
-
---=-MyEyo0KaYUiHYSlJRRer--
-
+RXJpYyBEdW1hemV0IHdyb3RlOg0KPiBMZSBtZXJjcmVkaSAwMiBqdWluIDIwMTAgw6AgMTU6MjUg
+LTA3MDAsIEplZmYgS2lyc2hlciBhIMOpY3JpdCA6DQo+PiBGcm9tOiBBbGV4YW5kZXIgRHV5Y2sg
+PGFsZXhhbmRlci5oLmR1eWNrQGludGVsLmNvbT4NCj4+IA0KPj4geDg2IGFyY2hpdGVjdHVyZXMg
+Y2FuIGhhbmRsZSB1bmFsaWduZWQgYWNjZXNzZXMgaW4gaGFyZHdhcmUsIGFuZCBpdA0KPj4gaGFz
+IGJlZW4gc2hvd24gdGhhdCB1bmFsaWduZWQgRE1BIGFjY2Vzc2VzIGNhbiBiZSBleHBlbnNpdmUg
+b24NCj4+IE5laGFsZW0gYXJjaGl0ZWN0dXJlcy4gIEFzIHN1Y2ggd2Ugc2hvdWxkIG92ZXJ3cml0
+ZSBORVRfSVBfQUxJR04gYW5kDQo+PiBORVRfU0tCX1BBRCB0byByZXNvbHZlIHRoaXMgaXNzdWUu
+IA0KPj4gDQo+PiBTaWduZWQtb2ZmLWJ5OiBBbGV4YW5kZXIgRHV5Y2sgPGFsZXhhbmRlci5oLmR1
+eWNrQGludGVsLmNvbT4NCj4+IFNpZ25lZC1vZmYtYnk6IEplZmYgS2lyc2hlciA8amVmZnJleS50
+LmtpcnNoZXJAaW50ZWwuY29tPiAtLS0NCj4+IA0KPj4gIGFyY2gveDg2L2luY2x1ZGUvYXNtL3N5
+c3RlbS5oIHwgICAxMiArKysrKysrKysrKysNCj4+ICAxIGZpbGVzIGNoYW5nZWQsIDEyIGluc2Vy
+dGlvbnMoKyksIDAgZGVsZXRpb25zKC0pDQo+PiANCj4+IGRpZmYgLS1naXQgYS9hcmNoL3g4Ni9p
+bmNsdWRlL2FzbS9zeXN0ZW0uaA0KPj4gYi9hcmNoL3g4Ni9pbmNsdWRlL2FzbS9zeXN0ZW0uaCBp
+bmRleCBiOGZlNDhlLi44YWNiNDRlIDEwMDY0NCAtLS0NCj4+IGEvYXJjaC94ODYvaW5jbHVkZS9h
+c20vc3lzdGVtLmggKysrIGIvYXJjaC94ODYvaW5jbHVkZS9hc20vc3lzdGVtLmgNCj4+IEBAIC00
+NTcsNCArNDU3LDE2IEBAIHN0YXRpYyBpbmxpbmUgdm9pZCByZHRzY19iYXJyaWVyKHZvaWQpDQo+
+PiAgCWFsdGVybmF0aXZlKEFTTV9OT1AzLCAibGZlbmNlIiwgWDg2X0ZFQVRVUkVfTEZFTkNFX1JE
+VFNDKTsgIH0NCj4+IA0KPj4gKyNpZmRlZiBDT05GSUdfTUNPUkUyDQo+PiArLyoNCj4+ICsgKiBX
+ZSBoYW5kbGUgbW9zdCB1bmFsaWduZWQgYWNjZXNzZXMgaW4gaGFyZHdhcmUuICBPbiB0aGUgb3Ro
+ZXIgaGFuZA0KPj4gKyAqIHVuYWxpZ25lZCBETUEgY2FuIGJlIHF1aXRlIGV4cGVuc2l2ZSBvbiBz
+b21lIE5laGFsZW0gcHJvY2Vzc29ycy4NCj4+ICsgKiArICogQmFzZWQgb24gdGhpcyB3ZSBkaXNh
+YmxlIHRoZSBJUCBoZWFkZXIgYWxpZ25tZW50IGluIG5ldHdvcmsNCj4+IGRyaXZlcnMuICsgKiBX
+ZSBhbHNvIG1vZGlmeSBORVRfU0tCX1BBRCB0byBiZSBhIGNhY2hlbGluZSBpbiBzaXplLA0KPj4g
+dGh1cyBtYWludGFpbmluZyArICogY2FjaGVsaW5lIGFsaWdubWVudCBvZiBidWZmZXJzLg0KPj4g
+KyAqLw0KPj4gKyNkZWZpbmUgTkVUX0lQX0FMSUdOCTANCj4+ICsjZGVmaW5lIE5FVF9TS0JfUEFE
+CUwxX0NBQ0hFX0JZVEVTDQo+PiArI2VuZGlmDQo+PiAgI2VuZGlmIC8qIF9BU01fWDg2X1NZU1RF
+TV9IICovDQo+PiANCj4+IC0tDQo+IA0KPiBCdXQuLi4gTDFfQ0FDSEVfQllURVMgaXMgNjQgb24g
+TUNPUkUyLCBzbyB0aGlzIG1hdGNoZXMgY3VycmVudA0KPiBORVRfU0tCX1BBRCBkZWZpbml0aW9u
+Li4uDQo+IA0KPiAjaWZuZGVmIE5FVF9TS0JfUEFEDQo+ICNkZWZpbmUgTkVUX1NLQl9QQUQgNjQN
+Cj4gI2VuZGlmDQoNCkkgYWRtaXQgdGhlIGN1cnJlbnQgZGVmaW5pdGlvbiBpcyByZWR1bmRhbnQs
+IGJ1dCBORVRfU0tCX1BBRCBoYWQgYmVlbiAzMiB1bnRpbCB5b3VyIHJlY2VudCBjaGFuZ2Ugb2Yg
+dGhlIHZhbHVlLCBhbmQgcHJpb3IgdG8gMi42LjMwIHRoZSB2YWx1ZSB3YXMgMTYuICBJZiB0aGUg
+dmFsdWUgd2VyZSB0byBjaGFuZ2UgYWdhaW4gaXQgd291bGQgc2lsZW50bHkgYnJlYWsgdGhlIGNh
+Y2hlbGluZSBhbGlnbm1lbnQgd2hpY2ggaXMgcHJvdmlkZWQgYnkgdGhpcyBwYXRjaC4gIElmIHdl
+IHdlcmUgdG8gZGVmaW5lIE5FVF9TS0JfUEFEIHVzaW5nIEwxX0NBQ0hFX0JZVEVTIGluIHNrYnVm
+Zi5oIHRoZW4gSSBtaWdodCBiZSBtb3JlIGluY2xpbmVkIHRvIHRvIHB1bGwgdGhlIE5FVF9TS0Jf
+UEFEIGNoYW5nZSwgYnV0IHJpZ2h0IG5vdyBJIHdvdWxkIHByZWZlciB0byB0cmVhdCBORVRfU0tC
+X1BBRCBhcyBhIG1hZ2ljIG51bWJlciB0aGF0IGNvaW5jaWRlbnRseSBpcyB0aGUgc2FtZSBzaXpl
+IGFzIHRoZSBMMSBjYWNoZSBvbiBNQ09SRTIuDQoNClRoYW5rcywNCg0KQWxleA0K
