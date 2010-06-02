@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] mac8390: raise error logging priority
-Date: Wed, 02 Jun 2010 07:06:47 -0700 (PDT)
-Message-ID: <20100602.070647.106817718.davem@davemloft.net>
-References: <alpine.OSX.2.00.1005312244520.1490@localhost>
-	<20100531.060225.68146363.davem@davemloft.net>
-	<alpine.OSX.2.00.1006011739160.299@localhost>
+Subject: Re: [PATCHv3] Refactor update of IPv6 flowi destination address
+ for srcrt (RH) option
+Date: Wed, 02 Jun 2010 07:08:52 -0700 (PDT)
+Message-ID: <20100602.070852.171505220.davem@davemloft.net>
+References: <8739x6d0ky.fsf@small.ssi.corp>
+	<1275422925.19372.114.camel@Joe-Laptop.home>
+	<87sk55q44a.fsf_-_@small.ssi.corp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: geert@linux-m68k.org, joe@perches.com, p_gortmaker@yahoo.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-m68k@vger.kernel.org
-To: fthain@telegraphics.com.au
+Cc: joe@perches.com, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: arno@natisbad.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44644
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42212
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758242Ab0FBOGh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 10:06:37 -0400
-In-Reply-To: <alpine.OSX.2.00.1006011739160.299@localhost>
+	by vger.kernel.org with ESMTP id S1751489Ab0FBOIn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 10:08:43 -0400
+In-Reply-To: <87sk55q44a.fsf_-_@small.ssi.corp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Finn Thain <fthain@telegraphics.com.au>
-Date: Tue, 1 Jun 2010 22:18:56 +1000 (EST)
+From: arno@natisbad.org (Arnaud Ebalard)
+Date: Wed, 02 Jun 2010 09:35:01 +0200
 
-> Log error conditions using KERN_ERR priority.
+> Here is a v3 based on the comments I received from Joe. The helper is
+> now in exthdrs.c (no more inline) and has a proper name.
 > 
-> Signed-off-by: Finn Thain <fthain@telegraphics.com.au>
+> Applies on net-2.6. Tested on 2.6.34.
 
-Applied, thank you.
+Looks good, applied to net-next-2.6, thanks.
