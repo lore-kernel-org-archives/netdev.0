@@ -1,62 +1,68 @@
-From: Ben McKeegan <ben@netservers.co.uk>
-Subject: Re: [Patch] fix packet loss and massive ping spikes with PPP multi-link
-Date: Wed, 02 Jun 2010 15:55:30 +0100
-Message-ID: <4C0670E2.1090708@netservers.co.uk>
-References: <2d460de71003260850x7f90d04cy79ac853464108182@mail.gmail.com> <20100326160226.0159ac3b@lxorguk.ukuu.org.uk> <4BACE827.4070006@gmail.com> <20100326170428.6c1ad66c@lxorguk.ukuu.org.uk> <4BB31E00.8060204@netservers.co.uk> <20100529021624.GA2538@brick.ozlabs.ibm.com> <4C03E1CD.4000809@netservers.co.uk>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 00/12] sfc changes for 2.6.36
+Date: Wed, 02 Jun 2010 16:04:34 +0100
+Message-ID: <1275491074.2115.1.camel@achroite.uk.solarflarecom.com>
+References: <1275426967.2114.25.camel@achroite.uk.solarflarecom.com>
+	 <20100602.022144.63047920.davem@davemloft.net>
+	 <1275486746.2870.31.camel@localhost>
+	 <20100602.065711.191161830.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	"Alexander E. Patrakov" <patrakov@gmail.com>,
-	Richard Hartmann <richih.mailinglist@gmail.com>,
-	linux-kernel@vger.kernel.org, gabriele.paoloni@intel.com
-To: Paul Mackerras <paulus@samba.org>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <4C03E1CD.4000809@netservers.co.uk>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:38539 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755646Ab0FBPEi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 11:04:38 -0400
+In-Reply-To: <20100602.065711.191161830.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ben McKeegan wrote:
-> Paul Mackerras wrote:
+On Wed, 2010-06-02 at 06:57 -0700, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Wed, 02 Jun 2010 14:52:26 +0100
 > 
->>> I needed to do something similar a while back and I took a very
->>> different approach, which I think is more flexible.   Rather than
->>> implement a new round-robin scheduler I simply introduced a target
->>> minimum fragment size into the fragment size calculation, as a per
->>> bundle parameter that can be configured via a new ioctl.  This
->>> modifies the algorithm so that it tries to limit the number of
->>> fragments such that each fragment is at least the minimum size.  If
->>> the minimum size is greater than the packet size it will not be
->>> fragmented all but will instead just get sent down the next
->>> available channel.
->>>
->>> A pppd plugin generates the ioctl call allowing this to be tweaked
->>> per connection.  It is more flexible in that you can still have the
->>> larger packets fragmented if you wish.
->>
->> I like this a lot better than the other proposed patch.  It adds less
->> code because it uses the fact that ppp_mp_explode() already has a
->> round-robin capability using the ppp->nxchan field, plus it provides a
->> way to control it per bundle via pppd.
->>
->> If you fix up the indentation issues (2-space indent in some of the
->> added code -- if you're using emacs, set c-basic-offset to 8), I'll
->> ack it and hopefully DaveM will pick it up.
+> > Did you apply patch 12 "sfc: Get port number from CS_PORT_NUM, not PCI
+> > function number" to net-2.6?
 > 
-> Okay, I'll fix it up when I'm back at work Tuesday and submit (today is 
-> a UK public holiday) and also dig out and fix up the userspace code to 
-> go with it.
+> When you mix bug fixes and cleanups, I'm going to apply it all to
+> net-next-2.6 You didn't even specify an intended destination in your
+> subject lines, so you leave it entirely open for interpretation and
+> my choice.
+> 
+> So, if you want a bug fix added to net-2.6, tossing it into a series
+> which is not wholly appropriate for net-next-2.6 is not that way to
+> accomplish that.
 
-Still working on this, updating the patch wasn't as trivial as I thought 
-as it clashed with Gabriele Paoloni's ppp_mp_explode redesign.  However, 
-while looking at this code I believe I have found a bug which might have 
-been contributing to the poor performance the OP was experiencing.   For 
-the case where channel speeds are unknown and there are more than 2 
-channels it would miscalculate the fragment sizes so they are not 
-balanced on the channels.
+Well, I included a comment in the message and left it to your judgement
+as to whether it was more appropriate for net-next-2.6 or net-2.6.
 
-Patch for the bug to follow immediately.
+> The way to do it is:
+> 
+> 1) Submit the bug fix, explicitly state "[PATCH net-2.6 xxx] "
+>    in your subject line.
+> 
+> 2) Prepare your net-next-2.6 changes on top of that, and do one
+>    of two things:
+>    a) Explicitly state in your patch series in the "[PATCH net-next-2.6 0/xxx] "
+>       posting "this depends upon the bug fixes posted in the series
+>       XXX posted earlier.
+>    b) Wait for the bug fix to reach net-next-2.6 when I do a merge,
+>       then post your series.
 
-Regards,
+There are no dependencies in this case.
+
+> Otherwise you make life way to miserable and complicated for me,
+> the one who has to review and integrate all of your work.
+
+Sorry.
+
 Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
