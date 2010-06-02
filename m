@@ -1,64 +1,129 @@
-From: Maciej Rutecki <maciej.rutecki@gmail.com>
-Subject: Re: [Regression] [2.6.35-rc1] ssb_is_sprom_available
-Date: Wed, 2 Jun 2010 16:20:13 +0200
-Message-ID: <201006021620.13266.maciej.rutecki@gmail.com>
-References: <201005312155.20602.maciej.rutecki@gmail.com> <20100531205300.GB32708@parisc-linux.org> <20100601133402.GB26701@tuxdriver.com>
-Reply-To: maciej.rutecki@gmail.com
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Matthew Wilcox <matthew@wil.cx>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linux-pci@vger.kernel.org, linux-usb@vger.kernel.org,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, netdev@vger.kernel.org,
-	Michael Buesch <mb@bu3sch.de>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20100601133402.GB26701@tuxdriver.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH v3] cls_u32: use skb_header_pointer() to dereference data safely
+Date: Wed,  2 Jun 2010 22:25:18 +0800
+Message-ID: <1275488718-19588-1-git-send-email-xiaosuo@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Jamal Hadi Salim <hadi@cyberus.ca>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:57281 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756795Ab0FBOZp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 10:25:45 -0400
+Received: by pwj2 with SMTP id 2so1713581pwj.19
+        for <netdev@vger.kernel.org>; Wed, 02 Jun 2010 07:25:45 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On wtorek, 1 czerwca 2010 o 15:34:02 John W. Linville wrote:
-> On Mon, May 31, 2010 at 02:53:00PM -0600, Matthew Wilcox wrote:
-> > On Mon, May 31, 2010 at 09:55:20PM +0200, Maciej Rutecki wrote:
-> > > Last known good: 2.6.34
-> > > Failing kernel: 2.6.35-rc1
-> > >
-> > > subsystem: PCI, USB(?)
-> > >
-> > > Kernel dies during booting on message "ssb_is_sprom_available", see
-> > > picture:
-> > > http://www.unixy.pl/maciek/download/kernel/2.6.35-rc1/gumis/DSC_0011.JP
-> > >G
-> >
-> > Um, looks like it's something to do with the Sonics Silicon Backplane,
-> > not PCI, nor USB.
-> 
-> Fix is on its way...
-> 
-> commit da1fdb02d9200ff28b6f3a380d21930335fe5429
-> Author: Christoph Fritz <chf.fritz@googlemail.com>
-> Date:   Fri May 28 10:45:59 2010 +0200
-> 
->     ssb: fix NULL ptr deref when pcihost_wrapper is used
-> 
->     Ethernet driver b44 does register ssb by it's pcihost_wrapper
->     and doesn't set ssb_chipcommon. A check on this value
->     introduced with commit d53cdbb94a52a920d5420ed64d986c3523a56743
->     and ea2db495f92ad2cf3301623e60cb95b4062bc484 triggers:
-> 
->     BUG: unable to handle kernel NULL pointer dereference at 00000010
->     IP: [<c1266c36>] ssb_is_sprom_available+0x16/0x30
-> 
->     Signed-off-by: Christoph Fritz <chf.fritz@googlemail.com>
->     Signed-off-by: John W. Linville <linville@tuxdriver.com>
-> 
+use skb_header_pointer() to dereference data safely
 
-Yes this commit solves problem. Thanks
+the original skb->data dereference isn't safe, as there isn't any skb->len or
+skb_is_nonlinear() check. skb_header_pointer() is used instead in this patch.
+And when the skb isn't long enough, we terminate the function u32_classify()
+immediately with -1.
 
-Tested-by: Maciej Rutecki <maciej.rutecki@gmail.com>
-
--- 
-Maciej Rutecki
-http://www.maciek.unixy.pl
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+ net/sched/cls_u32.c |   49 ++++++++++++++++++++++++++++++++++++-------------
+ 1 file changed, 36 insertions(+), 13 deletions(-)
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index 9627542..4f52214 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -98,11 +98,11 @@ static int u32_classify(struct sk_buff *skb, struct tcf_proto *tp, struct tcf_re
+ {
+ 	struct {
+ 		struct tc_u_knode *knode;
+-		u8		  *ptr;
++		unsigned int	  off;
+ 	} stack[TC_U32_MAXDEPTH];
+ 
+ 	struct tc_u_hnode *ht = (struct tc_u_hnode*)tp->root;
+-	u8 *ptr = skb_network_header(skb);
++	unsigned int off = skb_network_offset(skb);
+ 	struct tc_u_knode *n;
+ 	int sdepth = 0;
+ 	int off2 = 0;
+@@ -134,8 +134,14 @@ next_knode:
+ #endif
+ 
+ 		for (i = n->sel.nkeys; i>0; i--, key++) {
+-
+-			if ((*(__be32*)(ptr+key->off+(off2&key->offmask))^key->val)&key->mask) {
++			unsigned int toff;
++			__be32 *data, _data;
++
++			toff = off + key->off + (off2 & key->offmask);
++			data = skb_header_pointer(skb, toff, 4, &_data);
++			if (!data)
++				goto out;
++			if ((*data ^ key->val) & key->mask) {
+ 				n = n->next;
+ 				goto next_knode;
+ 			}
+@@ -174,29 +180,45 @@ check_terminal:
+ 		if (sdepth >= TC_U32_MAXDEPTH)
+ 			goto deadloop;
+ 		stack[sdepth].knode = n;
+-		stack[sdepth].ptr = ptr;
++		stack[sdepth].off = off;
+ 		sdepth++;
+ 
+ 		ht = n->ht_down;
+ 		sel = 0;
+-		if (ht->divisor)
+-			sel = ht->divisor&u32_hash_fold(*(__be32*)(ptr+n->sel.hoff), &n->sel,n->fshift);
+-
++		if (ht->divisor) {
++			__be32 *data, _data;
++
++			data = skb_header_pointer(skb, off + n->sel.hoff, 4,
++						  &_data);
++			if (!data)
++				goto out;
++			sel = ht->divisor & u32_hash_fold(*data, &n->sel,
++							  n->fshift);
++		}
+ 		if (!(n->sel.flags&(TC_U32_VAROFFSET|TC_U32_OFFSET|TC_U32_EAT)))
+ 			goto next_ht;
+ 
+ 		if (n->sel.flags&(TC_U32_OFFSET|TC_U32_VAROFFSET)) {
+ 			off2 = n->sel.off + 3;
+-			if (n->sel.flags&TC_U32_VAROFFSET)
+-				off2 += ntohs(n->sel.offmask & *(__be16*)(ptr+n->sel.offoff)) >>n->sel.offshift;
++			if (n->sel.flags & TC_U32_VAROFFSET) {
++				__be16 *data, _data;
++
++				data = skb_header_pointer(skb,
++							  off + n->sel.offoff,
++							  2, &_data);
++				if (!data)
++					goto out;
++				off2 += ntohs(n->sel.offmask & *data) >>
++					n->sel.offshift;
++			}
+ 			off2 &= ~3;
+ 		}
+ 		if (n->sel.flags&TC_U32_EAT) {
+-			ptr += off2;
++			off += off2;
+ 			off2 = 0;
+ 		}
+ 
+-		if (ptr < skb_tail_pointer(skb))
++		if (off < skb->len)
+ 			goto next_ht;
+ 	}
+ 
+@@ -204,9 +226,10 @@ check_terminal:
+ 	if (sdepth--) {
+ 		n = stack[sdepth].knode;
+ 		ht = n->ht_up;
+-		ptr = stack[sdepth].ptr;
++		off = stack[sdepth].off;
+ 		goto check_terminal;
+ 	}
++out:
+ 	return -1;
+ 
+ deadloop:
