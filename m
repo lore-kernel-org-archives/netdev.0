@@ -1,73 +1,38 @@
-From: Denis Kirjanov <dkirjanov@hera.kernel.org>
-Subject: [PATCH] fec: convert legacy PM hooks to dem_pm_ops
-Date: Wed, 2 Jun 2010 19:27:04 +0000
-Message-ID: <20100602192704.GA22726@hera.kernel.org>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH v2] netfilter: Xtables: idletimer target implementation
+Date: Wed, 2 Jun 2010 21:29:10 +0200 (CEST)
+Message-ID: <alpine.LSU.2.01.1006022127430.32028@obet.zrqbmnf.qr>
+References: <1275486062-23753-1-git-send-email-luciano.coelho@nokia.com>  <alpine.LSU.2.01.1006021708370.27340@obet.zrqbmnf.qr>  <1275503835.1574.0.camel@powerslave> <1275505553.2797.2.camel@powerslave>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: s.hauer@pengutronix.de, eric@eukrea.com, gerg@uclinux.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:51728 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932897Ab0FBT1U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Jun 2010 15:27:20 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"kaber@trash.net" <kaber@trash.net>, Timo Teras <timo.teras@iki.fi>
+To: Luciano Coelho <luciano.coelho@nokia.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1275505553.2797.2.camel@powerslave>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch compile tested only.
 
-Convert legacy PM hooks to dev_pm_ops
-Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
----
-drivers/net/fec.c |   24 +++++++++++++++++++++---
- 1 files changed, 21 insertions(+), 3 deletions(-)
+On Wednesday 2010-06-02 21:05, Luciano Coelho wrote:
+>> > >+	idletimer_tg_kobj = kobject_create_and_add("idletimer",
+>> > >+						   &THIS_MODULE->mkobj.kobj);
+>> > 
+>> > Isn't this going to oops when you compile this module as =y?
+>> 
+>> Damn, that's true. :(
+>> 
+>> I'll investigate how to fix this.
+>
+>Would it be too hacky to force it to be a module (ie. add "depends on m"
+>in Kconfig)?
+>
+>Besides /sys/module/xt_IDLETIMER and /sys/class/net, which we have
+>already discarded, I can't find any other place that would make sense to
+>add the idletimer in the kernel object hierarchy...
 
-diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index 42d9ac9..6990791 100644
---- a/drivers/net/fec.c
-+++ b/drivers/net/fec.c
-@@ -1339,6 +1339,8 @@ fec_drv_remove(struct platform_device *pdev)
- 	return 0;
- }
- 
-+#ifdef CONFIG_PM
-+
- static int
- fec_suspend(struct platform_device *dev, pm_message_t state)
- {
-@@ -1369,15 +1371,31 @@ fec_resume(struct platform_device *dev)
- 	return 0;
- }
- 
-+static const struct dev_pm_ops fec_pm_ops = {
-+	.suspend	= fec_suspend,
-+	.resume		= fec_resume,
-+	.freeze		= fec_suspend,
-+	.thaw		= fec_resume,
-+	.poweroff	= fec_suspend,
-+	.restore	= fec_resume,
-+};
-+
-+#define FEC_PM_OPS (&fec_pm_ops)
-+
-+#else /* !CONFIG_PM */
-+
-+#define FEC_PM_OPS NULL
-+
-+#endif /* !CONFIG_PM */
-+
- static struct platform_driver fec_driver = {
- 	.driver	= {
- 		.name    = "fec",
- 		.owner	 = THIS_MODULE,
-+		.pm		 = FEC_PM_OPS,
- 	},
- 	.probe   = fec_probe,
- 	.remove  = __devexit_p(fec_drv_remove),
--	.suspend = fec_suspend,
--	.resume  = fec_resume,
- };
- 
- static int __init
+While THIS_MODULE is NULL in =y mode, /sys/module/<xyz> can still exist 
+(cf. /sys/module/printk). I just don't know how to get at the kobj for 
+it, but the existence of it must mean it's there somewhere. Might ask 
+sysfs authors.
