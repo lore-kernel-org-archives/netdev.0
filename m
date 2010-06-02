@@ -1,45 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/12] sfc changes for 2.6.36
-Date: Wed, 02 Jun 2010 02:21:44 -0700 (PDT)
-Message-ID: <20100602.022144.63047920.davem@davemloft.net>
-References: <1275426967.2114.25.camel@achroite.uk.solarflarecom.com>
+Subject: Re: [PATCH net-next-2.6 1/2] qlcnic: NIC Partitioning - Add basic
+ infrastructure support
+Date: Wed, 02 Jun 2010 02:23:21 -0700 (PDT)
+Message-ID: <20100602.022321.209988583.davem@davemloft.net>
+References: <alpine.OSX.2.00.1006011422230.45836@macintosh-2.qlogic.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org, amit.salecha@qlogic.com,
+	ameen.rahman@qlogic.com
+To: anirban.chakraborty@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52129
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33166
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753497Ab0FBJVf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 05:21:35 -0400
-In-Reply-To: <1275426967.2114.25.camel@achroite.uk.solarflarecom.com>
+	by vger.kernel.org with ESMTP id S1754931Ab0FBJXM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 05:23:12 -0400
+In-Reply-To: <alpine.OSX.2.00.1006011422230.45836@macintosh-2.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Tue, 01 Jun 2010 22:16:07 +0100
+From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Date: Tue, 1 Jun 2010 14:28:51 -0700
 
-> The major feature here is RX buffer recycling, which improves
-> performance on networks with heavy multicast traffic.  Other than that,
-> there are various bug fixes and cleanup.
+> Following changes have been added to enable the adapter to work in
+> NIC partitioning mode where multiple PCI functions of an adapter port can
+> be configured to work as NIC functions. The first function that is enumerated on
+> the PCI bus assumes the role of management function which, besides being able
+> to do all the NIC functionality, can configure other NIC partitions. Other NIC
+> functions can be configured as privileged or non privileged functions.
+> Privileged function can not configure other NIC functions but can do all the
+> NIC functionality including any firmware initialization, chip reset etc. Non
+> privileged functions can do only basic IO. For chip reset etc, it depends on the
+> privilege or management function.
 > 
-> Ben.
+> 1. Added code to determine PCI function number independent of kernel API.
+> 2. Added Driver - FW version 2.0 support.
+> 3. Changed producer and consumer register offset calculation.
+> 4. Added management and privileged operation modes for npar functions. A module
+>  parameter has been added to control it.
+> 5. Added support for configuring the eswitch in the adapter.
 > 
-> Ben Hutchings (3):
->   sfc: Rename struct efx_mcdi_phy_cfg to efx_mcdi_phy_data
->   sfc: Only count bad packets in rx_errors
->   sfc: Get port number from CS_PORT_NUM, not PCI function number
-> 
-> Steve Hodgson (9):
->   sfc: Reschedule any resets scheduled inside efx_pm_freeze()
->   sfc: Workaround flush failures on Falcon B0
->   sfc: Synchronise link_advertising and wanted_fc on Siena
->   sfc: Wait for the link to stay up before running loopback selftest
->   sfc: Allow DRV_GEN events to be used outside of selftests
->   sfc: Remove efx_rx_queue::add_lock
->   sfc: Support only two rx buffers per page
->   sfc: Recycle discarded rx buffers back onto the queue
->   sfc: Allow shared pages to be recycled
+> Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 
-ALl applied, thanks Ben.
+Applied.
