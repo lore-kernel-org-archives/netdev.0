@@ -1,48 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] IP: Increment INADDRERRORS if routing for a packet is
- not successful
-Date: Wed, 02 Jun 2010 17:32:34 +0200
-Message-ID: <1275492754.2725.192.camel@edumazet-laptop>
-References: <alpine.DEB.2.00.1006011609280.9438@router.home>
-	 <1275430054.2638.115.camel@edumazet-laptop>
-	 <alpine.DEB.2.00.1006021025200.30182@router.home>
+From: Finn Thain <fthain@telegraphics.com.au>
+Subject: Re: [PATCH 2/2] mac8390: raise error logging priority
+Date: Thu, 3 Jun 2010 01:36:15 +1000 (EST)
+Message-ID: <alpine.OSX.2.00.1006030122350.270@localhost>
+References: <alpine.OSX.2.00.1005312244520.1490@localhost> <20100531.060225.68146363.davem@davemloft.net> <alpine.OSX.2.00.1006011739160.299@localhost> <20100602.070647.106817718.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>
-To: Christoph Lameter <cl@linux-foundation.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: geert@linux-m68k.org, joe@perches.com, p_gortmaker@yahoo.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-m68k@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:52360 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932633Ab0FBPcj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 11:32:39 -0400
-Received: by wyi11 with SMTP id 11so1968098wyi.19
-        for <netdev@vger.kernel.org>; Wed, 02 Jun 2010 08:32:38 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.00.1006021025200.30182@router.home>
+Received: from www.telegraphics.com.au ([204.15.192.19]:46360 "EHLO
+	mail.telegraphics.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932626Ab0FBPge (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 11:36:34 -0400
+In-Reply-To: <20100602.070647.106817718.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 02 juin 2010 =C3=A0 10:27 -0500, Christoph Lameter a =C3=A9=
-crit :
 
-> Yes but they are not increment any counter. If packets are dropped be=
-cause
-> of the rp_filter setting interfering f.e. then the packets vanish wit=
-hout
-> any accounting.
->=20
+On Wed, 2 Jun 2010, David Miller wrote:
 
-But packets are vanishing either way.
+> 
+> Applied, thank you.
+> 
 
-> LINUX_MIB_INROUTEERRORS? Does it mean I can create a series of new
-> counters that allow us to diagnose and distinguish all the different
-> causes of packet loss? We would love to have that.
->=20
+You're welcome.
 
-=46or an example, you could take a look at commit 907cdda5205b
-(tcp: Add SNMP counter for DEFER_ACCEPT)
+And I ought to add, thanks, Joe, for your patches.
 
-Its pretty straigthforward, and wont conflict with monitoring apps.
+It is much harder than I had realised to do them right (or for that 
+matter, well enough).
 
-
+Finn
