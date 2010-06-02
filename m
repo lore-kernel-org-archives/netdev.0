@@ -1,65 +1,47 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: sysfs class/net/ problem
-Date: Wed, 02 Jun 2010 10:23:48 -0700
-Message-ID: <m1ocftwdp7.fsf@fess.ebiederm.org>
-References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
-	<20100602154608.GB12361@kroah.com>
-	<1275493693.3915.12.camel@jlt3.sipsolutions.net>
-	<m1ljaxxvcj.fsf@fess.ebiederm.org>
-	<1275495677.3915.16.camel@jlt3.sipsolutions.net>
-	<m14ohlxu51.fsf@fess.ebiederm.org>
-	<1275498007.3915.20.camel@jlt3.sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: mac8390 - Sort out memory/MMIO accesses and casts
+Date: Wed, 02 Jun 2010 10:26:50 -0700 (PDT)
+Message-ID: <20100602.102650.56364159.davem@davemloft.net>
+References: <alpine.OSX.2.00.1005290312230.691@localhost>
+	<AANLkTilLXOSb2P_m4uUubmJar2VMFXizzpa_mQ1j8GPz@mail.gmail.com>
+	<AANLkTilqknhgBCXd-5Yxj9U8gDzDfMmmZdwDOvf-8kbH@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:43159 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758035Ab0FBRXy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 13:23:54 -0400
-In-Reply-To: <1275498007.3915.20.camel@jlt3.sipsolutions.net> (Johannes Berg's message of "Wed\, 02 Jun 2010 19\:00\:07 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: fthain@telegraphics.com.au, joe@perches.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-m68k@vger.kernel.org
+To: geert@linux-m68k.org
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <AANLkTilqknhgBCXd-5Yxj9U8gDzDfMmmZdwDOvf-8kbH@mail.gmail.com>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Johannes Berg <johannes@sipsolutions.net> writes:
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Wed, 2 Jun 2010 19:24:08 +0200
 
-> On Wed, 2010-06-02 at 09:43 -0700, Eric W. Biederman wrote:
->
->> > Hmm. I'm also not seeing it with veth, it would seem that ought to be
->> > similar?
->> 
->> Since it is the register_netdev path it should be exactly the same.
->> 
->> The big change I made is I in some instances I replaced
->> sysfs_remove_link with sysfs_delete_link so I could have enough
->> information to infer which network namespace the link was in.  Since
->> wlan0 is a netdevice all of that information should already be there.
->
-> I have no idea :)
->
->> > I don't know if that's happening .. just guessing that it might cause
->> > such a problem, and maybe some things are deferred somehow? Since netdev
->> > destruction can be deferred, but the wifi sysfs destruction isn't. But
->> > then that link there should cause the refcount to not go down until the
->> > link goes away>?
->> 
->> unregister_netdevice will defer the final destruction but it does not
->> defer netdev_unregister_kobject -> device_del.
->> 
->> What happens if in exit_mac80211_hwsim you call unregister_netdev before
->> mac80211_hwsim_free?
->> 
->> At a quick glance it simply looks like you have the ordering reversed in your
->> module cleanup, and this is not network namespace related at all.
->
-> Nah, the unregister_netdev there removes the "hwsim0" device, while the
-> mac80211_hwsim_free() will remove all the others, so the ordering of
-> those two doesn't matter.
+> On Sat, May 29, 2010 at 10:03, Geert Uytterhoeven <geert@linux-m68k.org> wrote:
+>> On Fri, May 28, 2010 at 19:21, Finn Thain <fthain@telegraphics.com.au> wrote:
+>>> On Sun, 23 May 2010, Geert Uytterhoeven wrote:
+>>>> >> But here's a better solution. I do not have the hardware to test it,
+>>>> >> though. Finn, does it {look OK,work}?
+>>>> >
+>>>> > It looks fine. I can't test it right now, but I will do so when I get
+>>>> > the opportunity.
+>>>>
+>>>> Any news from the test front?
+>>>
+>>> This is commit ba0f916ca7ac79356e2ed32a85c3aa8255b104e7, right?
+>>
+>> Yep.
+>>
+>>> If so, it tests OK here.
+>>
+>> Thanks for testing!
+> 
+> David, will you take this one too?
 
-So far that hypothesis that the target of the symlink is being removed before
-the actual actual link looks like it could cause this.
+Please post a fresh copy, there is no way that sucker still applies cleanly
+as there have been some changes in this area recently.
 
-Are there any other left overs in sysfs, besides just /sys/class/net/wlan0?
-
-Eric
+Thanks.
