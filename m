@@ -1,88 +1,62 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] act_pedit: access skb->data safely
-Date: Wed,  2 Jun 2010 22:55:02 +0800
-Message-ID: <1275490502-22608-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Jamal Hadi Salim <hadi@cyberus.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:56930 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755579Ab0FBOzS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 10:55:18 -0400
-Received: by pwj2 with SMTP id 2so1731147pwj.19
-        for <netdev@vger.kernel.org>; Wed, 02 Jun 2010 07:55:18 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben McKeegan <ben@netservers.co.uk>
+Subject: Re: [Patch] fix packet loss and massive ping spikes with PPP multi-link
+Date: Wed, 02 Jun 2010 15:55:30 +0100
+Message-ID: <4C0670E2.1090708@netservers.co.uk>
+References: <2d460de71003260850x7f90d04cy79ac853464108182@mail.gmail.com> <20100326160226.0159ac3b@lxorguk.ukuu.org.uk> <4BACE827.4070006@gmail.com> <20100326170428.6c1ad66c@lxorguk.ukuu.org.uk> <4BB31E00.8060204@netservers.co.uk> <20100529021624.GA2538@brick.ozlabs.ibm.com> <4C03E1CD.4000809@netservers.co.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	"Alexander E. Patrakov" <patrakov@gmail.com>,
+	Richard Hartmann <richih.mailinglist@gmail.com>,
+	linux-kernel@vger.kernel.org, gabriele.paoloni@intel.com
+To: Paul Mackerras <paulus@samba.org>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <4C03E1CD.4000809@netservers.co.uk>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-access skb->data safely
+Ben McKeegan wrote:
+> Paul Mackerras wrote:
+> 
+>>> I needed to do something similar a while back and I took a very
+>>> different approach, which I think is more flexible.   Rather than
+>>> implement a new round-robin scheduler I simply introduced a target
+>>> minimum fragment size into the fragment size calculation, as a per
+>>> bundle parameter that can be configured via a new ioctl.  This
+>>> modifies the algorithm so that it tries to limit the number of
+>>> fragments such that each fragment is at least the minimum size.  If
+>>> the minimum size is greater than the packet size it will not be
+>>> fragmented all but will instead just get sent down the next
+>>> available channel.
+>>>
+>>> A pppd plugin generates the ioctl call allowing this to be tweaked
+>>> per connection.  It is more flexible in that you can still have the
+>>> larger packets fragmented if you wish.
+>>
+>> I like this a lot better than the other proposed patch.  It adds less
+>> code because it uses the fact that ppp_mp_explode() already has a
+>> round-robin capability using the ppp->nxchan field, plus it provides a
+>> way to control it per bundle via pppd.
+>>
+>> If you fix up the indentation issues (2-space indent in some of the
+>> added code -- if you're using emacs, set c-basic-offset to 8), I'll
+>> ack it and hopefully DaveM will pick it up.
+> 
+> Okay, I'll fix it up when I'm back at work Tuesday and submit (today is 
+> a UK public holiday) and also dig out and fix up the userspace code to 
+> go with it.
 
-we should use skb_header_pointer() and skb_store_bits() to access skb->data to
-handle small or non-linear skbs.
+Still working on this, updating the patch wasn't as trivial as I thought 
+as it clashed with Gabriele Paoloni's ppp_mp_explode redesign.  However, 
+while looking at this code I believe I have found a bug which might have 
+been contributing to the poor performance the OP was experiencing.   For 
+the case where channel speeds are unknown and there are more than 2 
+channels it would miscalculate the fragment sizes so they are not 
+balanced on the channels.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- net/sched/act_pedit.c |   24 ++++++++++++++----------
- 1 file changed, 14 insertions(+), 10 deletions(-)
-diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
-index fdbd0b7..50e3d94 100644
---- a/net/sched/act_pedit.c
-+++ b/net/sched/act_pedit.c
-@@ -125,7 +125,7 @@ static int tcf_pedit(struct sk_buff *skb, struct tc_action *a,
- {
- 	struct tcf_pedit *p = a->priv;
- 	int i, munged = 0;
--	u8 *pptr;
-+	unsigned int off;
- 
- 	if (!(skb->tc_verd & TC_OK2MUNGE)) {
- 		/* should we set skb->cloned? */
-@@ -134,7 +134,7 @@ static int tcf_pedit(struct sk_buff *skb, struct tc_action *a,
- 		}
- 	}
- 
--	pptr = skb_network_header(skb);
-+	off = skb_network_offset(skb);
- 
- 	spin_lock(&p->tcf_lock);
- 
-@@ -144,17 +144,17 @@ static int tcf_pedit(struct sk_buff *skb, struct tc_action *a,
- 		struct tc_pedit_key *tkey = p->tcfp_keys;
- 
- 		for (i = p->tcfp_nkeys; i > 0; i--, tkey++) {
--			u32 *ptr;
-+			u32 *ptr, _data;
- 			int offset = tkey->off;
- 
- 			if (tkey->offmask) {
--				if (skb->len > tkey->at) {
--					 char *j = pptr + tkey->at;
--					 offset += ((*j & tkey->offmask) >>
--						   tkey->shift);
--				} else {
-+				char *d, _d;
-+
-+				d = skb_header_pointer(skb, off + tkey->at, 1,
-+						       &_d);
-+				if (!d)
- 					goto bad;
--				}
-+				offset += (*d & tkey->offmask) >> tkey->shift;
- 			}
- 
- 			if (offset % 4) {
-@@ -169,9 +169,13 @@ static int tcf_pedit(struct sk_buff *skb, struct tc_action *a,
- 				goto bad;
- 			}
- 
--			ptr = (u32 *)(pptr+offset);
-+			ptr = skb_header_pointer(skb, off + offset, 4, &_data);
-+			if (!ptr)
-+				goto bad;
- 			/* just do it, baby */
- 			*ptr = ((*ptr & tkey->mask) ^ tkey->val);
-+			if (ptr == &_data)
-+				skb_store_bits(skb, off + offset, ptr, 4);
- 			munged++;
- 		}
- 
+Patch for the bug to follow immediately.
+
+Regards,
+Ben.
