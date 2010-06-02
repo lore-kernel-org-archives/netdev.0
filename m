@@ -1,52 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Christoph Lameter <cl@linux-foundation.org>
 Subject: Re: [PATCH] IP: Increment INADDRERRORS if routing for a packet is
  not successful
-Date: Wed, 02 Jun 2010 18:33:59 +0200
-Message-ID: <1275496439.2725.203.camel@edumazet-laptop>
-References: <alpine.DEB.2.00.1006021025200.30182@router.home>
-	 <1275492754.2725.192.camel@edumazet-laptop>
-	 <alpine.DEB.2.00.1006021103410.30182@router.home>
-	 <20100602.091909.113727983.davem@davemloft.net>
-	 <alpine.DEB.2.00.1006021126500.30182@router.home>
+Date: Wed, 2 Jun 2010 11:35:12 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1006021131350.30182@router.home>
+References: <alpine.DEB.2.00.1006011609280.9438@router.home>  <1275430054.2638.115.camel@edumazet-laptop>  <alpine.DEB.2.00.1006021025200.30182@router.home>  <1275492754.2725.192.camel@edumazet-laptop>  <alpine.DEB.2.00.1006021103410.30182@router.home>
+ <1275496088.2725.202.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	shemminger@vyatta.com
-To: Christoph Lameter <cl@linux-foundation.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:42252 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932745Ab0FBQeE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 12:34:04 -0400
-Received: by wwb28 with SMTP id 28so3041488wwb.19
-        for <netdev@vger.kernel.org>; Wed, 02 Jun 2010 09:34:02 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.00.1006021126500.30182@router.home>
+Received: from nlpi157.sbcis.sbc.com ([207.115.36.171]:48968 "EHLO
+	nlpi157.prodigy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932706Ab0FBQfP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 12:35:15 -0400
+In-Reply-To: <1275496088.2725.202.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 02 juin 2010 =C3=A0 11:27 -0500, Christoph Lameter a =C3=A9=
-crit :
-> On Wed, 2 Jun 2010, David Miller wrote:
->=20
-> > From: Christoph Lameter <cl@linux-foundation.org>
-> > Date: Wed, 2 Jun 2010 11:12:14 -0500 (CDT)
-> >
-> > > Its important to know why drops occur (any drops for that matter,=
- drops
-> > > mean retransmit which means latency).
-> >
-> > We know, that's why there is a networking tracepoint that allows yo=
-u
-> > to see where all drops occur. :-)
->=20
-> Where can I find out more about the network tracepoint?
->=20
+On Wed, 2 Jun 2010, Eric Dumazet wrote:
 
-take a look at=20
+> Your patch has nothing to do with dropped packets because of rp_filter.
+>
+> You inserted a counter increment in a path that is not taken at all by
+> packet delivery.
+>
+> Maybe I missed something really obvious with your patch ?
 
-http://www.redhat.com/docs/en-US/Red_Hat_Enterprise_Linux/html/SystemTa=
-p_Beginners_Guide/useful-systemtap-scripts.html#dropwatch
+rp_filter rejects a route and packets are dropped then.
 
+> Have you considered CONFIG_NET_DROP_MONITOR ?
+> This one catches all possible cases, a developper doesnt have to patch
+> his kernel to add SNMP counters everywhere...
 
-
+Just looking at it. Great. A hook into skb_free. That will do.
