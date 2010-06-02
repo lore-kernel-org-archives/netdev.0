@@ -1,98 +1,111 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH 2/2 net-next-2.6] net: QDISC_STATE_RUNNING dont need atomic
- bit ops
-Date: Wed, 02 Jun 2010 11:50:33 +0200
-Message-ID: <1275472233.2725.146.camel@edumazet-laptop>
-References: <20100323202553.21598.10754.stgit@gitlad.jf.intel.com>
-	 <1269377667.2915.25.camel@edumazet-laptop>
-	 <20100323.144512.140757007.davem@davemloft.net>
-	 <1269382380.2915.40.camel@edumazet-laptop>
-	 <20100521084349.0d6f8f9a@nehalam>
-	 <1274460275.2439.469.camel@edumazet-laptop>
-	 <1274463643.2439.473.camel@edumazet-laptop>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [v5 Patch 1/3] netpoll: add generic support for bridge and bonding
+ devices
+Date: Wed, 02 Jun 2010 18:04:45 +0800
+Message-ID: <4C062CBD.7090906@redhat.com>
+References: <20100505081514.5157.83783.sendpatchset@localhost.localdomain> <20100527180545.GA2345@sysclose.org> <4BFF2EA5.9090008@redhat.com> <20100528194041.GC2345@sysclose.org> <4C034FA4.5000401@redhat.com> <20100531190820.GA24569@sysclose.org> <4C04D98D.4020509@redhat.com> <24059.1275417767@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>,
+Cc: Flavio Leitner <fbl@sysclose.org>, linux-kernel@vger.kernel.org,
+	Matt Mackall <mpm@selenic.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org,
+	Andy Gospodarek <gospo@redhat.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Jeff Moyer <jmoyer@redhat.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	bonding-devel@lists.sourceforge.net,
 	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:54412 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932286Ab0FBJui (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 05:50:38 -0400
-Received: by wyi11 with SMTP id 11so1705787wyi.19
-        for <netdev@vger.kernel.org>; Wed, 02 Jun 2010 02:50:36 -0700 (PDT)
-In-Reply-To: <1274463643.2439.473.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <24059.1275417767@death.nxdomain.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-__QDISC_STATE_RUNNING is always changed while qdisc lock is held.
-
-We can avoid two atomic operations in xmit path, if we move this bit in
-a new __state container.
-
-Location of this __state container is carefully chosen so that fast path
-only dirties one qdisc cache line.
-
-THROTTLED bit could later be moved into this __state location too, to
-avoid dirtying first qdisc cache line.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- include/net/sch_generic.h |   15 +++++++++++----
- 1 file changed, 11 insertions(+), 4 deletions(-)
-
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 9707dae..b3591e4 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -23,11 +23,17 @@ struct qdisc_rate_table {
- };
- 
- enum qdisc_state_t {
--	__QDISC_STATE_RUNNING,
- 	__QDISC_STATE_SCHED,
- 	__QDISC_STATE_DEACTIVATED,
- };
- 
-+/*
-+ * following bits are only changed while qdisc lock is held
-+ */
-+enum qdisc___state_t {
-+	__QDISC___STATE_RUNNING,
-+};
-+
- struct qdisc_size_table {
- 	struct list_head	list;
- 	struct tc_sizespec	szopts;
-@@ -72,23 +78,24 @@ struct Qdisc {
- 	unsigned long		state;
- 	struct sk_buff_head	q;
- 	struct gnet_stats_basic_packed bstats;
-+	unsigned long		__state;
- 	struct gnet_stats_queue	qstats;
- 	struct rcu_head     rcu_head;
- };
- 
- static inline bool qdisc_is_running(struct Qdisc *qdisc)
- {
--	return test_bit(__QDISC_STATE_RUNNING, &qdisc->state);
-+	return test_bit(__QDISC___STATE_RUNNING, &qdisc->__state);
- }
- 
- static inline bool qdisc_run_begin(struct Qdisc *qdisc)
- {
--	return !test_and_set_bit(__QDISC_STATE_RUNNING, &qdisc->state);
-+	return !__test_and_set_bit(__QDISC___STATE_RUNNING, &qdisc->__state);
- }
- 
- static inline void qdisc_run_end(struct Qdisc *qdisc)
- {
--	clear_bit(__QDISC_STATE_RUNNING, &qdisc->state);
-+	__clear_bit(__QDISC___STATE_RUNNING, &qdisc->__state);
- }
- 
- struct Qdisc_class_ops {
+On 06/02/10 02:42, Jay Vosburgh wrote:
+> Cong Wang<amwang@redhat.com>  wrote:
+>
+>> On 06/01/10 03:08, Flavio Leitner wrote:
+>>> On Mon, May 31, 2010 at 01:56:52PM +0800, Cong Wang wrote:
+>>>> Hi, Flavio,
+>>>>
+>>>> Please use the attached patch instead, try to see if it solves
+>>>> all your problems.
+>>>
+>>> I tried and it hangs. No backtraces this time.
+>>> The bond_change_active_slave() prints before NETDEV_BONDING_FAILOVER
+>>> notification, so I think it won't work.
+>>
+>> Ah, I thought the same.
+>>
+>>>
+>>> Please, correct if I'm wrong, but when a failover happens with your
+>>> patch applied, the netconsole would be disabled forever even with
+>>> another healthy slave, right?
+>>>
+>>
+>> Yes, this is an easy solution, because bonding has several modes,
+>> it is complex to make netpoll work in different modes.
+>
+> 	If I understand correctly, the root cause of the problem with
+> netconsole and bonding is that bonding is, ultimately, performing
+> printks with a write lock held, and when netconsole recursively calls
+> into bonding to send the printk over the netconsole, there is a deadlock
+> (when the bonding xmit function attempts to acquire the same lock for
+> read).
 
 
+Yes.
+
+>
+> 	You're trying to avoid the deadlock by shutting off netconsole
+> (permanently, it looks like) for one problem case: a failover, which
+> does some printks with a write lock held.
+>
+> 	This doesn't look to me like a complete solution, there are
+> other cases in bonding that will do printk with write locks held.  I
+> suspect those will also hang netconsole as things exist today, and won't
+> be affected by your patch below.
+
+
+I can expect that, bonding modes are complex.
+
+>
+> 	For example:
+>
+> 	The sysfs functions to set the primary (bonding_store_primary)
+> or active (bonding_store_active_slave) options: a pr_info is called to
+> provide a log message of the results.  These could be tested by setting
+> the primary or active options via sysfs, e.g.,
+>
+> echo eth0>  /sys/class/net/bond0/bonding/primary
+> echo eth0>  /sys/class/net/bond0/bonding/active
+>
+> 	If the kernel is defined with DEBUG, there are a few pr_debug
+> calls within write_locks (bond_del_vlan, for example).
+>
+> 	If the slave's underlying device driver's ndo_vlan_rx_register
+> or ndo_vlan_rx_kill_vid functions call printk (and it looks like some do
+> for error cases, e.g., igbvf, ehea, enic), those would also presumably
+> deadlock (because bonding holds its write_lock when calling the ndo_
+> vlan functions).
+>
+> 	It also appears that (with the patch below) some nominally
+> normal usage patterns will immediately disable netconsole.  The one that
+> comes to mind is if the primary= option is set (to "eth1" for this
+> example), but that slave not enslaved first (the slaves are added, say,
+> eth0 then eth1).  In that situation, when the primary slave (eth1 here)
+> is added, the first thing that will happen is a failover, and that will
+> disable netconsole.
+>
+
+Thanks for your detailed explanation!
+
+This is why I said bonding is complex. I guess we would have to adjust
+netpoll code for different bonding cases, one solution seems not fix all.
+I am not sure how much work to do, since I am not familiar with bonding
+code. Maybe Andy can help?
+
+For the previous patch, it at least can make Flavio happy. :)
+
+Thanks!
