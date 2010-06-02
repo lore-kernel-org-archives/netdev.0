@@ -1,35 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] act_nat: fix the wrong checksum when addr isn't in
- old_addr/mask
-Date: Wed, 02 Jun 2010 06:52:16 -0700 (PDT)
-Message-ID: <20100602.065216.141241865.davem@davemloft.net>
-References: <1275179219-10424-1-git-send-email-xiaosuo@gmail.com>
-	<1275223421.3587.0.camel@bigi>
-	<20100530125811.GA8120@gondor.apana.org.au>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 00/12] sfc changes for 2.6.36
+Date: Wed, 02 Jun 2010 14:52:26 +0100
+Message-ID: <1275486746.2870.31.camel@localhost>
+References: <1275426967.2114.25.camel@achroite.uk.solarflarecom.com>
+	 <20100602.022144.63047920.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, xiaosuo@gmail.com, netdev@vger.kernel.org
-To: herbert@gondor.apana.org.au
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39870
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755062Ab0FBNwG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 09:52:06 -0400
-In-Reply-To: <20100530125811.GA8120@gondor.apana.org.au>
+Received: from mail.solarflare.com ([216.237.3.220]:34108 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755211Ab0FBNwa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 09:52:30 -0400
+In-Reply-To: <20100602.022144.63047920.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sun, 30 May 2010 22:58:11 +1000
-
-> Yes the patch is correct.
+On Wed, 2010-06-02 at 02:21 -0700, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Tue, 01 Jun 2010 22:16:07 +0100
 > 
-> However, the fact that you need this patch means that your act_nat
-> setup isn't perfect.  Ideally all the unNATed packets should be
-> filtered out before you hit act_nat.
+> > The major feature here is RX buffer recycling, which improves
+> > performance on networks with heavy multicast traffic.  Other than that,
+> > there are various bug fixes and cleanup.
+> > 
+> > Ben.
+> > 
+> > Ben Hutchings (3):
+> >   sfc: Rename struct efx_mcdi_phy_cfg to efx_mcdi_phy_data
+> >   sfc: Only count bad packets in rx_errors
+> >   sfc: Get port number from CS_PORT_NUM, not PCI function number
+> > 
+> > Steve Hodgson (9):
+> >   sfc: Reschedule any resets scheduled inside efx_pm_freeze()
+> >   sfc: Workaround flush failures on Falcon B0
+> >   sfc: Synchronise link_advertising and wanted_fc on Siena
+> >   sfc: Wait for the link to stay up before running loopback selftest
+> >   sfc: Allow DRV_GEN events to be used outside of selftests
+> >   sfc: Remove efx_rx_queue::add_lock
+> >   sfc: Support only two rx buffers per page
+> >   sfc: Recycle discarded rx buffers back onto the queue
+> >   sfc: Allow shared pages to be recycled
+> 
+> ALl applied, thanks Ben.
 
-Regardless of whether said configuration is optimal, we should
-handle this case correctly.
+Did you apply patch 12 "sfc: Get port number from CS_PORT_NUM, not PCI
+function number" to net-2.6?
 
-So I have applied this patch.
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
