@@ -1,40 +1,64 @@
-From: reinette chatre <reinette.chatre@intel.com>
-Subject: Re: pull request: wireless-2.6 2010-05-28
-Date: Wed, 02 Jun 2010 09:01:37 -0700
-Message-ID: <1275494497.2091.28731.camel@rchatre-DESK>
-References: <20100528180952.GC2405@tuxdriver.com>
-	 <AANLkTil8SLseSeq1M_Xg7P4AqMy3V_0jxc7by2Xuaqnb@mail.gmail.com>
-	 <1275409361.2091.27208.camel@rchatre-DESK>
-	 <AANLkTimo_CpVC0B99GMJtIllAye5Yqa5yiIAiFBY-pIN@mail.gmail.com>
+From: Christoph Lameter <cl@linux-foundation.org>
+Subject: Re: [PATCH] IP: Increment INADDRERRORS if routing for a packet is
+ not successful
+Date: Wed, 2 Jun 2010 11:12:14 -0500 (CDT)
+Message-ID: <alpine.DEB.2.00.1006021103410.30182@router.home>
+References: <alpine.DEB.2.00.1006011609280.9438@router.home>  <1275430054.2638.115.camel@edumazet-laptop>  <alpine.DEB.2.00.1006021025200.30182@router.home> <1275492754.2725.192.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Zheng, Jiajia" <jiajia.zheng@intel.com>,
-	"Kolekar, Abhijeet" <abhijeet.kolekar@intel.com>,
-	"Berg, Johannes" <johannes.berg@intel.com>
-To: "sedat.dilek@gmail.com" <sedat.dilek@gmail.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811839-135208990-1275495135=:30182"
+Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:22369 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756483Ab0FBQBi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Jun 2010 12:01:38 -0400
-In-Reply-To: <AANLkTimo_CpVC0B99GMJtIllAye5Yqa5yiIAiFBY-pIN@mail.gmail.com>
+Received: from nlpi129.sbcis.sbc.com ([207.115.36.143]:59170 "EHLO
+	nlpi129.prodigy.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932706Ab0FBQMV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 12:12:21 -0400
+In-Reply-To: <1275492754.2725.192.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-06-02 at 01:42 -0700, Sedat Dilek wrote:
-> What do you mean by "upstream"?
-> upstream for me is Linus-tree (linux-2.6 GIT master).
-> Patches against iwlwifi-2.6 GIT trees are not very helpful in my case.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Since the problem exists in 2.6.35-rc1 linux-2.6 is indeed the target
-for this fix.
+---1463811839-135208990-1275495135=:30182
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 
-Reinette
+On Wed, 2 Jun 2010, Eric Dumazet wrote:
 
+> Le mercredi 02 juin 2010 =C3=A0 10:27 -0500, Christoph Lameter a =C3=A9cr=
+it :
+>
+> > Yes but they are not increment any counter. If packets are dropped beca=
+use
+> > of the rp_filter setting interfering f.e. then the packets vanish witho=
+ut
+> > any accounting.
+> >
+>
+> But packets are vanishing either way.
 
+Its important to know why drops occur (any drops for that matter, drops
+mean retransmit which means latency). The symptom here was that
+multicast traffic on secondary interfaces was not being forwarded to the ap=
+plication.
+The rp_filter just dropped them and there was no way to easily track down
+the issue for the people experiencing the problem.
+
+In 2.6.31 the rp_filter was fixed to work properly with multicast and now
+it considers multicast traffic to secondary interfaces to have the wrong
+reverse path even though the multicast subscription occurred on the
+secondary interface. So it drops multicast traffic. The rp_filter has to
+be switched off when using multiple NICs for multicast load balancing.
+
+> > LINUX_MIB_INROUTEERRORS? Does it mean I can create a series of new
+> > counters that allow us to diagnose and distinguish all the different
+> > causes of packet loss? We would love to have that.
+> >
+>
+> For an example, you could take a look at commit 907cdda5205b
+> (tcp: Add SNMP counter for DEFER_ACCEPT)
+
+Well these are all TCP counters. I would add IP and UDP counters?
+---1463811839-135208990-1275495135=:30182--
