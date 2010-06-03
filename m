@@ -1,54 +1,112 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Question about an assignment in handle_ing()
-Date: Thu, 03 Jun 2010 08:58:16 -0400
-Message-ID: <1275569896.3445.53.camel@bigi>
-References: <1274789024.3878.919.camel@bigi>
-	 <20100525121202.GA12712@gondor.apana.org.au>
-	 <1274790038.3878.926.camel@bigi>
-	 <20100525124636.GA13161@gondor.apana.org.au>
-	 <1274793216.3878.947.camel@bigi>
-	 <20100525231307.GA19475@gondor.apana.org.au>
-	 <1274873881.3878.988.camel@bigi> <1275226150.3587.9.camel@bigi>
-	 <20100603080130.GA29709@gondor.apana.org.au>
-	 <1275569030.3445.49.camel@bigi>  <20100603124717.GB315@gondor.apana.org.au>
-	 <1275569594.3445.51.camel@bigi>
-Reply-To: hadi@cyberus.ca
+From: Luciano Coelho <luciano.coelho@nokia.com>
+Subject: Re: [PATCH v2] netfilter: Xtables: idletimer target implementation
+Date: Thu, 03 Jun 2010 16:17:42 +0300
+Message-ID: <1275571062.10855.255.camel@chilepepper>
+References: <1275486062-23753-1-git-send-email-luciano.coelho@nokia.com>
+	 <alpine.LSU.2.01.1006021708370.27340@obet.zrqbmnf.qr>
+	 <1275503835.1574.0.camel@powerslave> <1275505553.2797.2.camel@powerslave>
+	 <alpine.LSU.2.01.1006022127430.32028@obet.zrqbmnf.qr>
+	 <1275508348.2797.26.camel@powerslave> <1275509088.2797.29.camel@powerslave>
+	 <1275512485.2797.46.camel@powerslave>
+	 <1275548660.10855.4.camel@chilepepper>
+	 <alpine.LSU.2.01.1006030956000.9308@obet.zrqbmnf.qr>
+	 <1275559981.10855.141.camel@chilepepper>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, kaber@trash.net
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"kaber@trash.net" <kaber@trash.net>, Timo Teras <timo.teras@iki.fi>
+To: ext Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:51734 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753130Ab0FCNFW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 09:05:22 -0400
-Received: by yxl31 with SMTP id 31so18089yxl.19
-        for <netdev@vger.kernel.org>; Thu, 03 Jun 2010 06:05:21 -0700 (PDT)
-In-Reply-To: <1275569594.3445.51.camel@bigi>
+Received: from smtp.nokia.com ([192.100.105.134]:24984 "EHLO
+	mgw-mx09.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753512Ab0FCNSD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 09:18:03 -0400
+In-Reply-To: <1275559981.10855.141.camel@chilepepper>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-06-03 at 08:53 -0400, jamal wrote:
-> On Thu, 2010-06-03 at 22:47 +1000, Herbert Xu wrote:
-> 
-> > You *are* misreading what I wrote.
+On Thu, 2010-06-03 at 12:13 +0200, Coelho Luciano (Nokia-D/Helsinki)
+wrote:
+> On Thu, 2010-06-03 at 09:58 +0200, ext Jan Engelhardt wrote:
+> > On Thursday 2010-06-03 09:04, Luciano Coelho wrote:
+> > >
+> > >Looking closer, it seems that it makes a bit of sense to add a kernel
+> > >module to /sys/device/system.  I think it makes more sense than adding
+> > >to the module class or to the net class, actually.  The idletimer is not
+> > >a net device (so it doesn't fit in /sys/class/net) and it is not a
+> > >module, even though it may be handled by the xt_IDLETIMER module.
+> > >
+> > >So we can look at the xt_idletimer as a system device, which is not a
+> > >peripheral device in itself, but a software timer device (there are
+> > >already similar components).
+> > >
+> > >I'll add the kernel object we need as a system class device, so it will
+> > >go under /sys/devices/system/xt_idletimer.  Does that make sense to you?
 > > 
-> > As I've repeatedly stated, it is guaranteed that either tcpdump
-> > is finished with the skb, or you will see it as cloned.
+> > Mh.. somehow I'd pick /sys/devices/virtual/xt_idletimer.
+> > Or even create a /sys/net/xt_idletimer. (/sys has conceptual
+> > subsystems directly beneath it: devices, fs, kernel, ...)
 > 
-> I dont see the problem of when tcpdump sees the packet first.
-> pedit doesnt care if it is cloned or not.
-> What i am worried about - and couldnt parse in your email - is:
-> What happens when pedit gets to it first? would skb_cloned() be true
-> always/guaranteed?
+> Yes, I think I'll use the /sys/device/virtual/misc class.  That seems to
+> be the place where, well, miscellaneous devices go. :) I think it fits
+> pretty nicely in that concept.
 
-Never mind. You did answer this question above. You are saying it is
-guaranteed.
-I will send patches to remove the checks in both pedit and handle_ing().
-At some point i will test it....
+Argh, it seems that I'll never end this.  Pros and cons of a few
+different solutions:
 
-cheers,
-jamal
+1) /sys/devices/virtual/misc/xt_idletimer/<user_defined_label>
+
+The misc class is a char device, so if I add the xt_idletimer there,
+I'll get lots of useless things, like file operation functions etc.  And
+a few attributes that make sense to char devices are also added
+automatically, but will never be used with the xt_idletimer.
+
+2) /sys/devices/virtual/xt_idletimer/
+
+This solution seems to be okay, basically I create a new virtual class
+called xt_idletimer.  This will automatically create a link
+to /sys/class/xt_idletimer, so the user doesn't need to know that this
+is a virtual device at all.  One problem is that we'll have a few more
+device attributes than we need such as ./power/wakeup and ./uevent,
+which we won't use.
+
+    2a) /sys/devices/virtual/xt_idletimer/<user_defined_label>/timer
+
+Each timer set by the user will be added as a new device named
+<user_defined_label> under the xt_idletimer class.  Each of these
+devices will have one more attribute called timer (plus the
+autogenerated wakeup and uevent attributes).  The drawback is that we
+use a more resources than we need, since we have more kobjects and more
+attributes than we need.
+
+    2b) /sys/devices/virtual/xt_idletimer/timers/<user_defined_label>
+
+This solution is similar to 2a, but uses less resources, since we have
+only one kobject with several attributes (one for each user defined
+label).  We still have the extra attributes, though.
+
+3) /sys/devices/system/xt_idletimer/<user_defined_label>/timer
+
+This solution uses less resources, because the system device class
+doesn't contain any implicit attributes.
+
+4) /sys/devices/{system,virtual}/xt_idletimer/<user_defined_label>
+
+I tried this one, by creating the xt_idletimer class and adding
+attributes directly to it.  But due to restrictions in sysfs, I didn't
+figure out a way to dynamically add attributes to the class.  Or, more
+specifically, show()ing and notify()ing those dynamic attributes don't
+seem to be possible for class attributes.
+
+So, I think the best proposals are 2b and 3.  I have a slight preference
+towards 3, but 2b is also fine with me.  What do you think?
+
+
+
+
+-- 
+Cheers,
+Luca.
 
