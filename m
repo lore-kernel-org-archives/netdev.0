@@ -1,82 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] rps: tcp: fix rps_sock_flow_table table updates
-Date: Thu, 03 Jun 2010 21:03:58 +0200
-Message-ID: <1275591838.2533.37.camel@edumazet-laptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/2] net: Enable 64-bit net device statistics on 32-bit
+ architectures
+Date: Thu, 03 Jun 2010 20:11:38 +0100
+Message-ID: <1275592298.2106.36.camel@achroite.uk.solarflarecom.com>
+References: <1275576667.2106.11.camel@achroite.uk.solarflarecom.com>
+	 <1275586744.2106.22.camel@achroite.uk.solarflarecom.com>
+	 <20100603114738.41256434@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>,
-	David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:45309 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751646Ab0FCTEF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 15:04:05 -0400
-Received: by wwb28 with SMTP id 28so335064wwb.19
-        for <netdev@vger.kernel.org>; Thu, 03 Jun 2010 12:04:01 -0700 (PDT)
+Received: from exchange.solarflare.com ([216.237.3.220]:10830 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751054Ab0FCTLm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 15:11:42 -0400
+In-Reply-To: <20100603114738.41256434@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I believe a moderate SYN flood attack can corrupt RFS flow table
-(rps_sock_flow_table), making RPS/RFS much less effective.
+On Thu, 2010-06-03 at 11:47 -0700, Stephen Hemminger wrote:
+> On Thu, 03 Jun 2010 18:39:04 +0100
+> Ben Hutchings <bhutchings@solarflare.com> wrote:
+> 
+> > #if BITS_PER_LONG == 64
+> > +#define NET_DEVICE_STATS_DEFINE(name)	u64 name
+> > +#define RTNL_LINK_STATS64_READ(stats, name)				\
+> > +	ACCESS_ONCE((stats)->name)
+> > +#define RTNL_LINK_STATS64_READ_OFFSET(stats, offset)			\
+> > +	ACCESS_ONCE((const u64 *)((const u8 *)(stats) + (offset)))
+> > +#define RTNL_LINK_STATS64_READ32(stats, name)				\
+> > +	((u32)ACCESS_ONCE((stats)->name))
+> > +#else
+> > +#if defined(__LITTLE_ENDIAN)
+> > +#define NET_DEVICE_STATS_DEFINE(name)	u32 name, pad_ ## name
+> > +#define RTNL_LINK_STATS64_READ_OFFSET(stats, offset)			\
+> > +	(ACCESS_ONCE(*(const u32 *)((const u8 *)(stats) + (offset))) |	\
+> > +	 (u64)(*(const u32 *)((const u8 *)(stats) + (offset) + 4)) << 32)
+> > +#define RTNL_LINK_STATS64_READ32(stats, name)				\
+> > +	(((const volatile u32 *)&(stats)->name)[0])
+> > +#else
+> > +#define NET_DEVICE_STATS_DEFINE(name)	u32 pad_ ## name, name
+> > +#define RTNL_LINK_STATS64_READ_OFFSET(stats, offset)			\
+> > +	((u64)(*(const u32 *)((const u8 *)(stats) + (offset))) << 32 |	\
+> > +	 ACCESS_ONCE(*(const u32 *)((const u8 *)(stats) + (offset) + 4)))
+> > +#define RTNL_LINK_STATS64_READ32(stats, name)				\
+> > +	(((const volatile u32 *)&(stats)->name)[1])
+> > +#endif
+> > +#define RTNL_LINK_STATS64_READ(stats, name)				\
+> > +	RTNL_LINK_STATS64_READ_OFFSET(					\
+> > +		stats, offsetof(struct rtnl_link_stats64, name))
+> > +#endif
+> 
+> Macros... with multiple casts. Gack
 
-Even in a normal situation, server handling short lived sessions suffer
-from bad steering for the first data packet of a session, if another SYN
-packet is received for another session.
+RTNL_LINK_STATS64_READ_OFFSET() is only really needed in net-sysfs.c,
+and that ugliness could maybe be left there.  So maybe the accessors
+could be defined as something like:
 
-We do following action in tcp_v4_rcv() :
+#if BITS_PER_LONG == 64
 
-	sock_rps_save_rxhash(sk, skb->rxhash);
+static inline u64 rtnl_link_stats64_read(const u64 *field)
+{
+	return ACCESS_ONCE(*field);
+}
+static inline u32 rtnl_link_stats64_read32(const u64 *field)
+{
+	return ACCESS_ONCE(*field);
+}
 
-We should _not_ do this if sk is a LISTEN socket, as about each
-packet received on a LISTEN socket has a different rxhash than
-previous one.
- -> RPS_NO_CPU markers are spread all over rps_sock_flow_table.
+#else
 
-Also, it makes sense to protect sk->rxhash field changes with socket
-lock (We currently can change it even if user thread owns the lock
-and might use rxhash)
+static inline u64 rtnl_link_stats64_read(const u64 *field)
+{
+#if defined(__LITTLE_ENDIAN)
+	const u32 *low = (const u32 *)field, *high = low + 1;
+#else
+	const u32 *high = (const u32 *)field, *low = high + 1;
+#endif
+	return ACCESS_ONCE(*low) | (u64)*high << 32;
+}
+static inline u32 rtnl_link_stats64_read32(const u64 *field)
+{
+#if defined(__LITTLE_ENDIAN)
+	const u32 *low = (const u32 *)field;
+#else
+	const u32 *low = (const u32 *)field + 1;
+#endif
+	return ACCESS_ONCE(*low);
+}
 
-This patch moves sock_rps_save_rxhash() to a sock locked section,
-and only for non LISTEN sockets.
+#endif
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/tcp_ipv4.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+Ben.
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 202cf09..fe193e5 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1555,6 +1555,7 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
- #endif
- 
- 	if (sk->sk_state == TCP_ESTABLISHED) { /* Fast path */
-+		sock_rps_save_rxhash(sk, skb->rxhash);
- 		TCP_CHECK_TIMER(sk);
- 		if (tcp_rcv_established(sk, skb, tcp_hdr(skb), skb->len)) {
- 			rsk = sk;
-@@ -1579,7 +1580,9 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
- 			}
- 			return 0;
- 		}
--	}
-+	} else
-+		sock_rps_save_rxhash(sk, skb->rxhash);
-+
- 
- 	TCP_CHECK_TIMER(sk);
- 	if (tcp_rcv_state_process(sk, skb, tcp_hdr(skb), skb->len)) {
-@@ -1672,8 +1675,6 @@ process:
- 
- 	skb->dev = NULL;
- 
--	sock_rps_save_rxhash(sk, skb->rxhash);
--
- 	bh_lock_sock_nested(sk);
- 	ret = 0;
- 	if (!sock_owned_by_user(sk)) {
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
