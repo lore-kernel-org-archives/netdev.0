@@ -1,52 +1,64 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] IP: Increment INADDRERRORS if routing for a packet is
- not successful
-Date: Thu, 03 Jun 2010 05:54:00 +0200
-Message-ID: <1275537240.29413.45.camel@edumazet-laptop>
-References: <1275496439.2725.203.camel@edumazet-laptop>
-	 <alpine.DEB.2.00.1006021140320.30182@router.home>
-	 <20100602.101258.134121018.davem@davemloft.net>
-	 <20100602.103102.121237521.davem@davemloft.net>
-	 <20100602235007.02506d99.billfink@mindspring.com>
+Subject: Re: [PATCH v2] netdev:bfin_mac: reclaim and free tx skb as soon as
+ possible after transfer
+Date: Thu, 03 Jun 2010 06:05:19 +0200
+Message-ID: <1275537919.29413.55.camel@edumazet-laptop>
+References: <1275536881.18536.5.camel@eight.analog.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, cl@linux-foundation.org,
-	netdev@vger.kernel.org, shemminger@vyatta.com
-To: Bill Fink <billfink@mindspring.com>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	uclinux-dist-devel <uclinux-dist-devel@blackfin.uclinux.org>
+To: sonic zhang <sonic.adi@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:36742 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:35750 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933805Ab0FCDyE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 23:54:04 -0400
-Received: by wyi11 with SMTP id 11so2460554wyi.19
-        for <netdev@vger.kernel.org>; Wed, 02 Jun 2010 20:54:03 -0700 (PDT)
-In-Reply-To: <20100602235007.02506d99.billfink@mindspring.com>
+	with ESMTP id S1750770Ab0FCEKP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 00:10:15 -0400
+Received: by wyi11 with SMTP id 11so2465177wyi.19
+        for <netdev@vger.kernel.org>; Wed, 02 Jun 2010 21:10:13 -0700 (PDT)
+In-Reply-To: <1275536881.18536.5.camel@eight.analog.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 02 juin 2010 =C3=A0 23:50 -0400, Bill Fink a =C3=A9crit :
-> On Wed, 02 Jun 2010, David Miller wrote:
->=20
-> > Just in case people are really so clueless as to be unable to figur=
-e
-> > this out:
-> >=20
-> > echo 1 >/sys/kernel/debug/tracing/events/skb/kfree_skb/enable
-> > ...do some stuff...
-> > cat /sys/kernel/debug/tracing/trace
-> >=20
-> > You can even trace it using 'perf' by passing "skb:kfree_skb"
-> > as the event specifier.
->=20
-> Could someone remind me where to get documentation for obtaining
-> and using perf.
->=20
+Le jeudi 03 juin 2010 =C3=A0 11:48 +0800, sonic zhang a =C3=A9crit :
 
-Its sources are included in kernel tree
+>  	bfin_tx_hwtstamp(dev, skb);
+> =20
+>  	current_tx_ptr =3D current_tx_ptr->next;
+>  	dev->stats.tx_packets++;
+>  	dev->stats.tx_bytes +=3D (skb->len);
+> +
+> +	tx_reclaim_skb(lp);
+> +
+>  	return NETDEV_TX_OK;
+>  }
+> =20
 
-cd tools/perf
-make
-=2E/perf --help
+Not related to your patch, but reviewing it I see this driver still do
+the "dev->stats.tx_packets++; dev->stats.tx_bytes +=3D (skb->len);"
+
+This is not necessary and expensive, since we update txq stats in core
+network stack.
+
+	rc =3D ops->ndo_start_xmit(skb, dev);
+	if (rc =3D=3D NETDEV_TX_OK)
+		txq_trans_update(txq);  << here >>
+
+Doing these changes in a network driver dirties yet another cache line
+in a hot path.
+
+I suspect many drivers could be changed to avoid this double accounting=
+=2E
+
+A driver providing a ndo_get_stats() method can use the
+dev_txq_stats_fold() helper.
+
+driver not provinding a ndo_get_stats() method has nothing special to
+do, dev_get_stats() automatically calls dev_txq_stats_fold() to update
+dev->stats.{tx_packets|tx_bytes|tx_dropped} using txq stats.
+
+
 
 
