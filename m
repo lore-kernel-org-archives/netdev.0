@@ -1,57 +1,79 @@
-From: Sonic Zhang <sonic.adi@gmail.com>
-Subject: Re: [PATCH] netdev:bfin_mac: reclaim and free tx skb as soon as
-	possible after transfer
-Date: Thu, 3 Jun 2010 11:21:16 +0800
-Message-ID: <AANLkTim3WVTyMf2RvKRvyJn90sAyw1-ZShTfvvMlQolJ@mail.gmail.com>
-References: <1275383974.1010.5.camel@eight.analog.com>
-	<20100602.070233.37574714.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org
-To: David Miller <davem@davemloft.net>
+From: Amerigo Wang <amwang@redhat.com>
+Subject: [Patch 1/2] s2io: add dynamic LRO disable support
+Date: Wed, 2 Jun 2010 23:38:59 -0400
+Message-ID: <20100603034303.5305.55552.sendpatchset@localhost.localdomain>
+Cc: herbert.xu@redhat.com, nhorman@redhat.com, sgruszka@redhat.com,
+	Amerigo Wang <amwang@redhat.com>, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:60593 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933730Ab0FCDVS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 23:21:18 -0400
-Received: by pwj2 with SMTP id 2so2018444pwj.19
-        for <netdev@vger.kernel.org>; Wed, 02 Jun 2010 20:21:17 -0700 (PDT)
-In-Reply-To: <20100602.070233.37574714.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:46346 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933730Ab0FCDjF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jun 2010 23:39:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 2, 2010 at 10:02 PM, David Miller <davem@davemloft.net> wro=
-te:
-> From: sonic zhang <sonic.adi@gmail.com>
-> Date: Tue, 1 Jun 2010 17:19:34 +0800
->
->> @@ -1485,6 +1506,10 @@ static int __devinit bfin_mac_probe(struct pl=
-atform_device *pdev)
->> =A0 =A0 =A0 ndev->netdev_ops =3D &bfin_mac_netdev_ops;
->> =A0 =A0 =A0 ndev->ethtool_ops =3D &bfin_mac_ethtool_ops;
->>
->> + =A0 =A0 init_timer(&lp->tx_reclaim_timer);
->> + =A0 =A0 lp->tx_reclaim_timer.data =3D (unsigned long)(lp);
->
 
-OK
+This patch adds dynamic LRO diable support for s2io net driver.
 
-> Putting parenthesis around "lp" is excessive, please don't do this.
->
->> + =A0 =A0 lp->tx_reclaim_timer.function =3D (void *)tx_reclaim_skb;
->> +
->> =A0 =A0 =A0 spin_lock_init(&lp->lock);
->
-> Do not cast the function pointer to "void *" like this, it's ugly and=
- entirely
-> not necessary.
->
-> Instead have a wrapper function that uses the correct types as specif=
-ied
-> for timer functions, that calls the existing function.
->
+I don't have s2io card, so only did compiling test. Anyone who wants
+to test this is more than welcome.
 
-No problem.
+This is based on Neil's initial work.
 
-Sonic
+Signed-off-by: WANG Cong <amwang@redhat.com>
+Signed-off-by: Neil Horman <nhorman@redhat.com>
+Acked-by: Neil Horman <nhorman@redhat.com>
+Reviewed-by: Stanislaw Gruszka <sgruszka@redhat.com>
+
+
+---
+diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
+index 668327c..9db5df7 100644
+--- a/drivers/net/s2io.c
++++ b/drivers/net/s2io.c
+@@ -6684,6 +6684,35 @@ static int s2io_ethtool_op_set_tso(struct net_device *dev, u32 data)
+ 
+ 	return 0;
+ }
++static int s2io_ethtool_set_flags(struct net_device *dev, u32 data)
++{
++	struct s2io_nic *sp = netdev_priv(dev);
++	int rc = 0;
++	int changed = 0;
++
++	if (data & ETH_FLAG_LRO) {
++		if (lro_enable) {
++			if (!(dev->features & NETIF_F_LRO)) {
++				dev->features |= NETIF_F_LRO;
++				changed = 1;
++			}
++		} else
++			rc = -EINVAL;
++	} else if (dev->features & NETIF_F_LRO) {
++		dev->features &= ~NETIF_F_LRO;
++		changed = 1;
++	}
++
++	if (changed && netif_running(dev)) {
++		s2io_stop_all_tx_queue(sp);
++		s2io_card_down(sp);
++		sp->lro = dev->features & NETIF_F_LRO;
++		rc = s2io_card_up(sp);
++		s2io_start_all_tx_queue(sp);
++	}
++
++	return rc;
++}
+ 
+ static const struct ethtool_ops netdev_ethtool_ops = {
+ 	.get_settings = s2io_ethtool_gset,
+@@ -6701,6 +6730,8 @@ static const struct ethtool_ops netdev_ethtool_ops = {
+ 	.get_rx_csum = s2io_ethtool_get_rx_csum,
+ 	.set_rx_csum = s2io_ethtool_set_rx_csum,
+ 	.set_tx_csum = s2io_ethtool_op_set_tx_csum,
++	.set_flags = s2io_ethtool_set_flags,
++	.get_flags = ethtool_op_get_flags,
+ 	.set_sg = ethtool_op_set_sg,
+ 	.get_tso = s2io_ethtool_op_get_tso,
+ 	.set_tso = s2io_ethtool_op_set_tso,
