@@ -1,57 +1,45 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: 64-bit net_device_stats
-Date: Thu, 03 Jun 2010 15:51:07 +0100
-Message-ID: <1275576667.2106.11.camel@achroite.uk.solarflarecom.com>
-References: <AANLkTimRwNqPYh1MgXPhh3hHep7Koc3OJCCroEj_scqg@mail.gmail.com>
-	 <1275514469.2115.70.camel@achroite.uk.solarflarecom.com>
-	 <20100602145912.56ef62c2@nehalam>  <201006030138.17668.arnd@arndb.de>
+From: Rami Rosen <ramirose@gmail.com>
+Subject: [PATCH net-next-2.6] [PPPOE] fix return value of __pppoe_xmit()
+	method.
+Date: Thu, 3 Jun 2010 18:02:29 +0300
+Message-ID: <AANLkTimW3olb9_3Wo8HvtYRP_LOCEeHDGWuVQvGMvFxd@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, junchangwang@gmail.com,
-	romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: multipart/mixed; boundary=0016e65a085cdaa7770488217eb9
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:53968 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755139Ab0FCOvL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 10:51:11 -0400
-In-Reply-To: <201006030138.17668.arnd@arndb.de>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:57623 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755262Ab0FCPDU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 11:03:20 -0400
+Received: by wyi11 with SMTP id 11so125962wyi.19
+        for <netdev@vger.kernel.org>; Thu, 03 Jun 2010 08:03:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-06-03 at 01:38 +0200, Arnd Bergmann wrote:
-> On Wednesday 02 June 2010 23:59:12 Stephen Hemminger wrote:
-> > On Wed, 02 Jun 2010 22:34:29 +0100
-> > Ben Hutchings <bhutchings@solarflare.com> wrote:
-> > 
-> > > Changing the counter types to u64 for 32-bit architectures would remove
-> > > atomicity and expose half-updated counters to userland.  Changing the
-> > > driver interface significantly so that atomicity is not needed would
-> > > require changes to hundreds of drivers.
-> > 
-> > Another big issue is maintaining ABI compatibility for /proc and ioctl
-> > interfaces. So bigger values would only be available through netlink,
-> > and most applications using counters don't use netlink. 
-> 
-> Doesn't the /proc interface already allow 64 bit values in case of
-> 64 bit hosts running the same 32 bit user space?
+--0016e65a085cdaa7770488217eb9
+Content-Type: text/plain; charset=ISO-8859-1
 
-Yes.  And the most widely used consumer of /proc/net/dev, ifconfig,
-already parses them as 64-bit values.
+Hi,
+ __pppoe_xmit() in drivers/net/pppoe always returns 1.
+When the methods fails (via goto abort), it should return 0 and not 1.
 
-> For the ioctl interfaces, we can of course introduce additional
-> ioctl commands that always deal with 64 bit values, many other
-> subsystems have been extended in similar ways.
-[...]
+Regards,
+Rami Rosen
 
-Are there any ioctl interfaces to net_device_stats?  I didn't spot any.
 
-Ben.
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--0016e65a085cdaa7770488217eb9
+Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
+Content-Disposition: attachment; filename="patch.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_g9zprw8u0
 
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3BwcG9lLmMgYi9kcml2ZXJzL25ldC9wcHBvZS5jCmlu
+ZGV4IDgwNWI2NGQuLjdlYmI4ZTggMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3BwcG9lLmMKKysr
+IGIvZHJpdmVycy9uZXQvcHBwb2UuYwpAQCAtOTQ5LDcgKzk0OSw3IEBAIHN0YXRpYyBpbnQgX19w
+cHBvZV94bWl0KHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYikKIAogYWJvcnQ6
+CiAJa2ZyZWVfc2tiKHNrYik7Ci0JcmV0dXJuIDE7CisJcmV0dXJuIDA7CiB9CiAKIC8qKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioK
+--0016e65a085cdaa7770488217eb9--
