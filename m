@@ -1,66 +1,57 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [Bugme-new] [Bug 16083] New: swapper: Page allocation failure
-Date: Thu, 03 Jun 2010 23:37:16 +0200
-Message-ID: <1275601036.2533.63.camel@edumazet-laptop>
+Date: Thu, 03 Jun 2010 23:58:02 +0200
+Message-ID: <1275602282.2533.72.camel@edumazet-laptop>
 References: <bug-16083-10286@https.bugzilla.kernel.org/>
 	 <20100603130235.c372b38f.akpm@linux-foundation.org>
 	 <1275599603.2533.58.camel@edumazet-laptop>
+	 <20100603143915.f1b0ba2b.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:63835 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750921Ab0FCVvj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 17:51:39 -0400
-Received: by wyi11 with SMTP id 11so425131wyi.19
-        for <netdev@vger.kernel.org>; Thu, 03 Jun 2010 14:51:38 -0700 (PDT)
-In-Reply-To: <1275599603.2533.58.camel@edumazet-laptop>
+Received: from mail-ww0-f46.google.com ([74.125.82.46]:46671 "EHLO
+	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755721Ab0FCV6I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 17:58:08 -0400
+Received: by wwb28 with SMTP id 28so451548wwb.19
+        for <netdev@vger.kernel.org>; Thu, 03 Jun 2010 14:58:06 -0700 (PDT)
+In-Reply-To: <20100603143915.f1b0ba2b.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 03 juin 2010 =C3=A0 23:13 +0200, Eric Dumazet a =C3=A9crit :
+Le jeudi 03 juin 2010 =C3=A0 14:39 -0700, Andrew Morton a =C3=A9crit :
 
-> MTU=3D9000 on a system with 4K pages... Oh well...
+> Well.  The presence of this warning does serve to remind us how sucky
+> e1000[e] is :(
 >=20
-> maybe net/ipv6/mcast.c should cap dev->mtu to PAGE_SIZE-128 or
-> something, so that order-0 allocations are done.
+> I'm not particularly fussed either way - I'm just wondering if you gu=
+ys
+> think this thing meets the noise-to-benefit test...
 >=20
->=20
 
-Something like this patch (completely untested) :
+Well, in this particular case, I think its a genuine bug in the ipv6
+code, not on the e1000[e] driver :)
 
-[PATCH] ipv6: avoid high order allocations
+It allocates "a priori" dev->mtu sized skb that are filled by maybe one
+hundred bytes by caller.
 
-With mtu=3D9000, mld_newpack() use order-2 GFP_ATOMIC allocations, that
-are very unreliable, on machines where PAGE_SIZE=3D4K
+With MTU=3D9000, this means order-2 allocations. In an ideal world, it
+would be fine, but in practice, we know only fools can trust high order
+allocations.
 
-Limit allocated skbs to be at most one page. (order-0 allocations)
+Since code is prepared to chain skbs, just make sure we cap allocations
+to smaller units (up to 0xe80 bytes on a 64bit kernel)
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv6/mcast.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+So in this particular case, the bugzilla report can point to a real
+problem in our stack.
 
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index 59f1881..3484794 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -1356,7 +1356,10 @@ static struct sk_buff *mld_newpack(struct net_de=
-vice *dev, int size)
- 		     IPV6_TLV_PADN, 0 };
-=20
- 	/* we assume size > sizeof(ra) here */
--	skb =3D sock_alloc_send_skb(sk, size + LL_ALLOCATED_SPACE(dev), 1, &e=
-rr);
-+	size +=3D LL_ALLOCATED_SPACE(dev);
-+	/* limit our allocations to order-0 page */
-+	size =3D min(size, SKB_MAX_ORDER(0, 0));
-+	skb =3D sock_alloc_send_skb(sk, size, 1, &err);
-=20
- 	if (!skb)
- 		return NULL;
+=46ailed allocations had been silent, we probably would never have
+noticed.
+
+Hmm...
+
 
 
