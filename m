@@ -1,145 +1,210 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [PATCH v2] net: deliver skbs on inactive slaves to exact matches
-Date: Thu, 03 Jun 2010 12:30:11 -0700
-Message-ID: <20100603193011.4916.12354.stgit@jf-dev2-dcblab>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, nhorman@tuxdriver.com,
-	bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: fubar@us.ibm.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:26148 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753010Ab0FCTcX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Jun 2010 15:32:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dmytro Milinevskyy <milinevskyy@gmail.com>
+Subject: [PATCH] [ath5k][leds] Ability to disable leds support. If leds support enabled do not force mac802.11 leds layer selection.
+Date: Thu, 03 Jun 2010 22:39:30 +0300
+Message-ID: <4c0804e2.0c3ddf0a.2771.10f7@mx.google.com>
+Cc: Jiri Slaby <jirislaby@gmail.com>,
+	Nick Kossifidis <mickflemm@gmail.com>,
+	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
+	Bob Copeland <me@bobcopeland.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	GeunSik Lim <geunsik.lim@samsung.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Lukas Turek <8an@praha12.net>,
+	Mark Hindley <mark@hindley.org.uk>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Jiri Kosina <jkosina@suse.cz>, Kalle Valo <kalle.valo@iki.fi>,
+	Keng-Yu Lin <keng-yu.lin@canonical.com>,
+	Luca Verdesca <magooz@salug.it>,
+	Shahar Or <shahar@shahar-or.co.il>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently, the accelerated receive path for VLAN's will
-drop packets if the real device is an inactive slave and
-is not one of the special pkts tested for in
-skb_bond_should_drop().  This behavior is different then
-the non-accelerated path and for pkts over a bonded vlan.
+Hi!
 
-For example,
+Here is the patch to disable ath5k leds support on build stage.
+However if the leds support was enabled do not force selection of 802.11 leds layer.
+Depency on LEDS_CLASS is kept.
 
-vlanx -> bond0 -> ethx
+Suggestion given by Pavel Roskin and Bob Copeland applied.
 
-will be dropped in the vlan path and not delivered to any
-packet handlers at all.  However,
+Regards,
 
-bond0 -> vlanx -> ethx
+--Dima
 
-and
-
-bond0 -> ethx
-
-will be delivered to handlers that match the exact dev,
-because the VLAN path checks the real_dev which is not a
-slave and netif_recv_skb() doesn't drop frames but only
-delivers them to exact matches.
-
-This patch adds a sk_buff flag which is used for tagging
-skbs that would previously been dropped and allows the
-skb to continue to skb_netif_recv().  Here we add
-logic to check for the deliver_no_wcard flag and if it
-is set only deliver to handlers that match exactly.  This
-makes both paths above consistent and gives pkt handlers
-a way to identify skbs that come from inactive slaves.
-Without this patch in some configurations skbs will be
-delivered to handlers with exact matches and in others
-be dropped out right in the vlan path.
-
-I have tested the following 4 configurations in failover modes
-and load balancing modes.
-
-# bond0 -> ethx
-
-# vlanx -> bond0 -> ethx
-
-# bond0 -> vlanx -> ethx
-
-# bond0 -> ethx
-            |
-  vlanx -> --
-
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
+ drivers/net/wireless/ath/ath5k/Kconfig  |   12 +++++++++---
+ drivers/net/wireless/ath/ath5k/Makefile |    2 +-
+ drivers/net/wireless/ath/ath5k/ath5k.h  |   22 ++++++++++++++++++++++
+ drivers/net/wireless/ath/ath5k/base.h   |   13 +++++++++----
+ drivers/net/wireless/ath/ath5k/gpio.c   |    2 ++
+ 5 files changed, 43 insertions(+), 8 deletions(-)
 
- include/linux/skbuff.h |    5 ++++-
- net/8021q/vlan_core.c  |    4 ++--
- net/core/dev.c         |   17 ++++++++++++++---
- 3 files changed, 20 insertions(+), 6 deletions(-)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index bf243fc..f89e7fd 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -380,7 +380,10 @@ struct sk_buff {
- 	kmemcheck_bitfield_begin(flags2);
- 	__u16			queue_mapping:16;
- #ifdef CONFIG_IPV6_NDISC_NODETYPE
--	__u8			ndisc_nodetype:2;
-+	__u8			ndisc_nodetype:2,
-+				deliver_no_wcard:1;
+diff --git a/drivers/net/wireless/ath/ath5k/Kconfig b/drivers/net/wireless/ath/ath5k/Kconfig
+index eb83b7b..29f4572 100644
+--- a/drivers/net/wireless/ath/ath5k/Kconfig
++++ b/drivers/net/wireless/ath/ath5k/Kconfig
+@@ -1,9 +1,6 @@
+ config ATH5K
+ 	tristate "Atheros 5xxx wireless cards support"
+ 	depends on PCI && MAC80211
+-	select MAC80211_LEDS
+-	select LEDS_CLASS
+-	select NEW_LEDS
+ 	---help---
+ 	  This module adds support for wireless adapters based on
+ 	  Atheros 5xxx chipset.
+@@ -18,6 +15,15 @@ config ATH5K
+ 	  If you choose to build a module, it'll be called ath5k. Say M if
+ 	  unsure.
+ 
++
++config ATH5K_LEDS
++	tristate "Atheros 5xxx wireless cards LEDs support"
++	depends on ATH5K
++	select NEW_LEDS
++	select LEDS_CLASS
++	---help---
++	  Atheros 5xxx LED support.
++
+ config ATH5K_DEBUG
+ 	bool "Atheros 5xxx debugging"
+ 	depends on ATH5K
+diff --git a/drivers/net/wireless/ath/ath5k/Makefile b/drivers/net/wireless/ath/ath5k/Makefile
+index cc09595..6d552dd 100644
+--- a/drivers/net/wireless/ath/ath5k/Makefile
++++ b/drivers/net/wireless/ath/ath5k/Makefile
+@@ -10,8 +10,8 @@ ath5k-y				+= phy.o
+ ath5k-y				+= reset.o
+ ath5k-y				+= attach.o
+ ath5k-y				+= base.o
+-ath5k-y				+= led.o
+ ath5k-y				+= rfkill.o
+ ath5k-y				+= ani.o
+ ath5k-$(CONFIG_ATH5K_DEBUG)	+= debug.o
++ath5k-$(CONFIG_ATH5K_LEDS) += led.o
+ obj-$(CONFIG_ATH5K)		+= ath5k.o
+diff --git a/drivers/net/wireless/ath/ath5k/ath5k.h b/drivers/net/wireless/ath/ath5k/ath5k.h
+index 2785946..bb7e09a 100644
+--- a/drivers/net/wireless/ath/ath5k/ath5k.h
++++ b/drivers/net/wireless/ath/ath5k/ath5k.h
+@@ -1148,11 +1148,27 @@ struct ath5k_hw {
+ int ath5k_hw_attach(struct ath5k_softc *sc);
+ void ath5k_hw_detach(struct ath5k_hw *ah);
+ 
++#ifdef CONFIG_ATH5K_LEDS
+ /* LED functions */
+ int ath5k_init_leds(struct ath5k_softc *sc);
+ void ath5k_led_enable(struct ath5k_softc *sc);
+ void ath5k_led_off(struct ath5k_softc *sc);
+ void ath5k_unregister_leds(struct ath5k_softc *sc);
 +#else
-+	__u8			deliver_no_wcard:1;
- #endif
- 	kmemcheck_bitfield_end(flags2);
++static inline int ath5k_init_leds(struct ath5k_softc *sc)
++{
++	return 0;
++}
++static inline void ath5k_led_enable(struct ath5k_softc *sc)
++{
++}
++static inline void ath5k_led_off(struct ath5k_softc *sc)
++{
++}
++static inline void ath5k_unregister_leds(struct ath5k_softc *sc)
++{
++}
++#endif
  
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index bd537fc..50f58f5 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -12,7 +12,7 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, struct vlan_group *grp,
- 		return NET_RX_DROP;
+ /* Reset Functions */
+ int ath5k_hw_nic_wakeup(struct ath5k_hw *ah, int flags, bool initial);
+@@ -1233,7 +1249,13 @@ int ath5k_hw_set_slot_time(struct ath5k_hw *ah, unsigned int slot_time);
+ int ath5k_hw_init_desc_functions(struct ath5k_hw *ah);
  
- 	if (skb_bond_should_drop(skb, ACCESS_ONCE(skb->dev->master)))
--		goto drop;
-+		skb->deliver_no_wcard = 1;
+ /* GPIO Functions */
++#ifdef CONFIG_ATH5K_LEDS
+ void ath5k_hw_set_ledstate(struct ath5k_hw *ah, unsigned int state);
++#else
++static inline void ath5k_hw_set_ledstate(struct ath5k_hw *ah, unsigned int state)
++{
++}
++#endif
+ int ath5k_hw_set_gpio_input(struct ath5k_hw *ah, u32 gpio);
+ int ath5k_hw_set_gpio_output(struct ath5k_hw *ah, u32 gpio);
+ u32 ath5k_hw_get_gpio(struct ath5k_hw *ah, u32 gpio);
+diff --git a/drivers/net/wireless/ath/ath5k/base.h b/drivers/net/wireless/ath/ath5k/base.h
+index 56221bc..97b26c1 100644
+--- a/drivers/net/wireless/ath/ath5k/base.h
++++ b/drivers/net/wireless/ath/ath5k/base.h
+@@ -86,6 +86,7 @@ struct ath5k_txq {
  
- 	skb->skb_iif = skb->dev->ifindex;
- 	__vlan_hwaccel_put_tag(skb, vlan_tci);
-@@ -84,7 +84,7 @@ vlan_gro_common(struct napi_struct *napi, struct vlan_group *grp,
- 	struct sk_buff *p;
+ #define ATH5K_LED_MAX_NAME_LEN 31
  
- 	if (skb_bond_should_drop(skb, ACCESS_ONCE(skb->dev->master)))
--		goto drop;
-+		skb->deliver_no_wcard = 1;
++#ifdef CONFIG_ATH5K_LEDS
+ /*
+  * State for LED triggers
+  */
+@@ -95,6 +96,7 @@ struct ath5k_led
+ 	struct ath5k_softc *sc;			/* driver state */
+ 	struct led_classdev led_dev;		/* led classdev */
+ };
++#endif
  
- 	skb->skb_iif = skb->dev->ifindex;
- 	__vlan_hwaccel_put_tag(skb, vlan_tci);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index ccba781..9c356fd 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2821,13 +2821,24 @@ static int __netif_receive_skb(struct sk_buff *skb)
- 	if (!skb->skb_iif)
- 		skb->skb_iif = skb->dev->ifindex;
+ /* Rfkill */
+ struct ath5k_rfkill {
+@@ -186,9 +188,6 @@ struct ath5k_softc {
  
-+	/*
-+	 * bonding note: skbs received on inactive slaves should only
-+	 * be delivered to pkt handlers that are exact matches.  Also
-+	 * the deliver_no_wcard flag will be set.  If packet handlers
-+	 * are sensitive to duplicate packets these skbs will need to
-+	 * be dropped at the handler.  The vlan accel path may have
-+	 * already set the deliver_no_wcard flag.
-+	 */
- 	null_or_orig = NULL;
- 	orig_dev = skb->dev;
- 	master = ACCESS_ONCE(orig_dev->master);
--	if (master) {
--		if (skb_bond_should_drop(skb, master))
-+	if (skb->deliver_no_wcard)
-+		null_or_orig = orig_dev;
-+	else if (master) {
-+		if (skb_bond_should_drop(skb, master)) {
-+			skb->deliver_no_wcard = 1;
- 			null_or_orig = orig_dev; /* deliver only exact match */
--		else
-+		} else
- 			skb->dev = master;
- 	}
+ 	u8			bssidmask[ETH_ALEN];
  
-
+-	unsigned int		led_pin,	/* GPIO pin for driving LED */
+-				led_on;		/* pin setting for LED on */
+-
+ 	struct tasklet_struct	restq;		/* reset tasklet */
+ 
+ 	unsigned int		rxbufsize;	/* rx size based on mtu */
+@@ -196,7 +195,6 @@ struct ath5k_softc {
+ 	spinlock_t		rxbuflock;
+ 	u32			*rxlink;	/* link ptr in last RX desc */
+ 	struct tasklet_struct	rxtq;		/* rx intr tasklet */
+-	struct ath5k_led	rx_led;		/* rx led */
+ 
+ 	struct list_head	txbuf;		/* transmit buffer */
+ 	spinlock_t		txbuflock;
+@@ -204,7 +202,14 @@ struct ath5k_softc {
+ 	struct ath5k_txq	txqs[AR5K_NUM_TX_QUEUES];	/* tx queues */
+ 	struct ath5k_txq	*txq;		/* main tx queue */
+ 	struct tasklet_struct	txtq;		/* tx intr tasklet */
++
++
++#ifdef CONFIG_ATH5K_LEDS
++	unsigned int		led_pin,	/* GPIO pin for driving LED */
++				led_on;		/* pin setting for LED on */
++	struct ath5k_led	rx_led;		/* rx led */
+ 	struct ath5k_led	tx_led;		/* tx led */
++#endif
+ 
+ 	struct ath5k_rfkill	rf_kill;
+ 
+diff --git a/drivers/net/wireless/ath/ath5k/gpio.c b/drivers/net/wireless/ath/ath5k/gpio.c
+index 64a27e7..9e757b3 100644
+--- a/drivers/net/wireless/ath/ath5k/gpio.c
++++ b/drivers/net/wireless/ath/ath5k/gpio.c
+@@ -25,6 +25,7 @@
+ #include "debug.h"
+ #include "base.h"
+ 
++#ifdef CONFIG_ATH5K_LEDS
+ /*
+  * Set led state
+  */
+@@ -76,6 +77,7 @@ void ath5k_hw_set_ledstate(struct ath5k_hw *ah, unsigned int state)
+ 	else
+ 		AR5K_REG_ENABLE_BITS(ah, AR5K_PCICFG, led_5210);
+ }
++#endif
+ 
+ /*
+  * Set GPIO inputs
+-- 
+1.7.1
