@@ -1,57 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
 Subject: Re: [Bugme-new] [Bug 16083] New: swapper: Page allocation failure
-Date: Thu, 03 Jun 2010 23:58:02 +0200
-Message-ID: <1275602282.2533.72.camel@edumazet-laptop>
+Date: Thu, 3 Jun 2010 15:01:08 -0700
+Message-ID: <20100603150108.38215813.akpm@linux-foundation.org>
 References: <bug-16083-10286@https.bugzilla.kernel.org/>
-	 <20100603130235.c372b38f.akpm@linux-foundation.org>
-	 <1275599603.2533.58.camel@edumazet-laptop>
-	 <20100603143915.f1b0ba2b.akpm@linux-foundation.org>
+	<20100603130235.c372b38f.akpm@linux-foundation.org>
+	<1275599603.2533.58.camel@edumazet-laptop>
+	<1275601036.2533.63.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:46671 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755721Ab0FCV6I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 17:58:08 -0400
-Received: by wwb28 with SMTP id 28so451548wwb.19
-        for <netdev@vger.kernel.org>; Thu, 03 Jun 2010 14:58:06 -0700 (PDT)
-In-Reply-To: <20100603143915.f1b0ba2b.akpm@linux-foundation.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:52745 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751959Ab0FCWBL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 18:01:11 -0400
+In-Reply-To: <1275601036.2533.63.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 03 juin 2010 =C3=A0 14:39 -0700, Andrew Morton a =C3=A9crit :
+On Thu, 03 Jun 2010 23:37:16 +0200
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> Well.  The presence of this warning does serve to remind us how sucky
-> e1000[e] is :(
->=20
-> I'm not particularly fussed either way - I'm just wondering if you gu=
-ys
-> think this thing meets the noise-to-benefit test...
->=20
+> Le jeudi 03 juin 2010 __ 23:13 +0200, Eric Dumazet a __crit :
+> 
+> > MTU=9000 on a system with 4K pages... Oh well...
+> > 
+> > maybe net/ipv6/mcast.c should cap dev->mtu to PAGE_SIZE-128 or
+> > something, so that order-0 allocations are done.
+> > 
+> > 
+> 
+> Something like this patch (completely untested) :
+> 
+> [PATCH] ipv6: avoid high order allocations
+> 
+> With mtu=9000, mld_newpack() use order-2 GFP_ATOMIC allocations, that
+> are very unreliable, on machines where PAGE_SIZE=4K
+> 
+> Limit allocated skbs to be at most one page. (order-0 allocations)
+> 
 
-Well, in this particular case, I think its a genuine bug in the ipv6
-code, not on the e1000[e] driver :)
+Maybe - I wouldn't know how desirable that is from the
+imapct-on-efficiency POV.  But I think most failures I've seen are for
+regular old tcpipv4.  Often with e1000, which does larger-than-needed
+allocations for (iirc) weird alignment requirements.
 
-It allocates "a priori" dev->mtu sized skb that are filled by maybe one
-hundred bytes by caller.
+> ---
+>  net/ipv6/mcast.c |    5 ++++-
+>  1 file changed, 4 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+> index 59f1881..3484794 100644
+> --- a/net/ipv6/mcast.c
+> +++ b/net/ipv6/mcast.c
+> @@ -1356,7 +1356,10 @@ static struct sk_buff *mld_newpack(struct net_device *dev, int size)
+>  		     IPV6_TLV_PADN, 0 };
+>  
+>  	/* we assume size > sizeof(ra) here */
+> -	skb = sock_alloc_send_skb(sk, size + LL_ALLOCATED_SPACE(dev), 1, &err);
+> +	size += LL_ALLOCATED_SPACE(dev);
+> +	/* limit our allocations to order-0 page */
+> +	size = min(size, SKB_MAX_ORDER(0, 0));
+> +	skb = sock_alloc_send_skb(sk, size, 1, &err);
+>  
+>  	if (!skb)
+>  		return NULL;
 
-With MTU=3D9000, this means order-2 allocations. In an ideal world, it
-would be fine, but in practice, we know only fools can trust high order
-allocations.
+An alternative which retains any performance benefit from the order-2
+allocation would be:
 
-Since code is prepared to chain skbs, just make sure we cap allocations
-to smaller units (up to 0xe80 bytes on a 64bit kernel)
+	p = alloc_pages(__GFP_NOWARN|..., 2);
+	if (!p)
+		p = alloc_pages(..., 0);
 
-So in this particular case, the bugzilla report can point to a real
-problem in our stack.
+if you see what I mean.
 
-=46ailed allocations had been silent, we probably would never have
-noticed.
-
-Hmm...
-
+This would also fix any retry/timeout-related stalls which people might
+experience when the order-2 allocation fails, so it might make things
+better in general.
 
 
