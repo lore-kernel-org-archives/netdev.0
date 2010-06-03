@@ -1,44 +1,36 @@
-From: Scott Feldman <scofeldm@cisco.com>
-Subject: Re: [net-next PATCH] drivers/net/enic: Use (pr|netdev)_<level> macro
- helpers
-Date: Thu, 03 Jun 2010 00:19:53 -0700
-Message-ID: <C82CA5A9.3677A%scofeldm@cisco.com>
-References: <1275492616.2489.20.camel@Joe-Laptop.home>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH v2] netfilter: Xtables: idletimer target implementation
+Date: Thu, 3 Jun 2010 09:58:27 +0200 (CEST)
+Message-ID: <alpine.LSU.2.01.1006030956000.9308@obet.zrqbmnf.qr>
+References: <1275486062-23753-1-git-send-email-luciano.coelho@nokia.com>  <alpine.LSU.2.01.1006021708370.27340@obet.zrqbmnf.qr>  <1275503835.1574.0.camel@powerslave> <1275505553.2797.2.camel@powerslave>  <alpine.LSU.2.01.1006022127430.32028@obet.zrqbmnf.qr>
+  <1275508348.2797.26.camel@powerslave> <1275509088.2797.29.camel@powerslave>  <1275512485.2797.46.camel@powerslave> <1275548660.10855.4.camel@chilepepper>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1275492616.2489.20.camel@Joe-Laptop.home>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"kaber@trash.net" <kaber@trash.net>, Timo Teras <timo.teras@iki.fi>
+To: Luciano Coelho <luciano.coelho@nokia.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1275548660.10855.4.camel@chilepepper>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 6/2/10 8:30 AM, "Joe Perches" <joe@perches.com> wrote:
 
-> Compile tested only
-> 
-> Add #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-> Remove #define PFX
-> Use pr_<level>
-> Use netdev_<level>
-> Remove trailing periods from most formats
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+On Thursday 2010-06-03 09:04, Luciano Coelho wrote:
+>
+>Looking closer, it seems that it makes a bit of sense to add a kernel
+>module to /sys/device/system.  I think it makes more sense than adding
+>to the module class or to the net class, actually.  The idletimer is not
+>a net device (so it doesn't fit in /sys/class/net) and it is not a
+>module, even though it may be handled by the xt_IDLETIMER module.
+>
+>So we can look at the xt_idletimer as a system device, which is not a
+>peripheral device in itself, but a software timer device (there are
+>already similar components).
+>
+>I'll add the kernel object we need as a system class device, so it will
+>go under /sys/devices/system/xt_idletimer.  Does that make sense to you?
 
-Thanks Joe.  I tested it and there are a couple places before the netdev is
-registered where we need dev_<level> rather than netdev_<level>, otherwise
-we get output like:
-
-enic 0000:08:00.0: (unregistered net_device): vNIC MAC addr
-00:25:b5:19:35:8f wq/rq 256/512
-
-I like the dev_name(dev) in there but not the "(unregister net_device)".
-
-Also there where a couple of lines longer than 80 chars.
-
-We can fix up the patch and resubmit if you like.
-
--scott
+Mh.. somehow I'd pick /sys/devices/virtual/xt_idletimer.
+Or even create a /sys/net/xt_idletimer. (/sys has conceptual
+subsystems directly beneath it: devices, fs, kernel, ...)
