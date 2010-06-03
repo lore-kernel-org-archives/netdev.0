@@ -1,106 +1,56 @@
-From: "Paoloni, Gabriele" <gabriele.paoloni@intel.com>
-Subject: RE: [PATCH] ppp_generic: fix multilink fragment sizes
-Date: Thu, 3 Jun 2010 09:41:59 +0100
-Message-ID: <DF7BB929B28FCF479E888E3D9F8D9E88D3E1706A@irsmsx502.ger.corp.intel.com>
-References: <4C0670E2.1090708@netservers.co.uk>
- <1275491094-9526-1-git-send-email-ben@netservers.co.uk>
- <DF7BB929B28FCF479E888E3D9F8D9E88D3E16B5A@irsmsx502.ger.corp.intel.com>
- <4C067EF7.9040609@netservers.co.uk>
+From: Junchang Wang <junchangwang@gmail.com>
+Subject: Re: [PATCH v2] netdev:bfin_mac: reclaim and free tx skb as soon as
+	possible after transfer
+Date: Thu, 3 Jun 2010 16:57:24 +0800
+Message-ID: <AANLkTinrW2w9x6dbzTAzSrElqUueFOC6tJaPNsVcnLBv@mail.gmail.com>
+References: <1275536881.18536.5.camel@eight.analog.com>
+	<1275537919.29413.55.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"alan@lxorguk.ukuu.org.uk" <alan@lxorguk.ukuu.org.uk>,
-	"linux-ppp@vger.kernel.org" <linux-ppp@vger.kernel.org>,
-	"paulus@samba.org" <paulus@samba.org>
-To: Ben McKeegan <ben@netservers.co.uk>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <4C067EF7.9040609@netservers.co.uk>
-Content-Language: en-US
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: sonic zhang <sonic.adi@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	uclinux-dist-devel <uclinux-dist-devel@blackfin.uclinux.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f179.google.com ([209.85.211.179]:42592 "EHLO
+	mail-yw0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758470Ab0FCI51 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 04:57:27 -0400
+Received: by ywh9 with SMTP id 9so6126762ywh.17
+        for <netdev@vger.kernel.org>; Thu, 03 Jun 2010 01:57:24 -0700 (PDT)
+In-Reply-To: <1275537919.29413.55.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi
+Hi Eric,
 
-I agree with you about replacing totlen with len (actually the previous one was quite bad).
-I think we don't need to round up anyway and nbigger is doing his job I think. Basically we are giving just one more byte to the first nbigger free channels and for the rest the integer division will round down automatically.
-
-For example say you have before transmitting 5 free channels and len is 83bytes
-
-nbigger will be (ln 1284) 83%5=3
-
-the frame will be split as follows: 17 - 17 - 17 - 16 - 16
-
-Since for the first three iterations the channel to tx on will get an extra byte (ln1427) and nbigger will be decreased by one (ln1428).
-
-The only change I would make to the code is to replace totlen with len @ln1425
-
-Now if you agree either me or you can submit a new patch.
-
-Regards
-
-Gabriele Paoloni   
-
->-----Original Message-----
->From: Ben McKeegan [mailto:ben@netservers.co.uk]
->Sent: 02 June 2010 16:56
->To: Paoloni, Gabriele
->Cc: davem@davemloft.net; netdev@vger.kernel.org; linux-
->kernel@vger.kernel.org; alan@lxorguk.ukuu.org.uk; linux-
->ppp@vger.kernel.org; paulus@samba.org
->Subject: Re: [PATCH] ppp_generic: fix multilink fragment sizes
+On Thu, Jun 3, 2010 at 12:05 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Not related to your patch, but reviewing it I see this driver still d=
+o
+> the "dev->stats.tx_packets++; dev->stats.tx_bytes +=3D (skb->len);"
 >
->Paoloni, Gabriele wrote:
->> The proposed patch looks wrong to me.
->>
->> nbigger is already doing the job; I didn't use DIV_ROUND_UP because in
->general we don't have always to roundup, otherwise we would exceed the
->total bandwidth.
+> This is not necessary and expensive, since we update txq stats in cor=
+e
+> network stack.
 >
->I was basing this on the original code prior to your patch, which used
->DIV_ROUND_UP to get the fragment size.  Looking more closely I see your
->point, the original code was starting with the larger fragment size and
->decrementing rather than starting with the smaller size and incrementing
->as your code does, so that makes sense.
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0rc =3D ops->ndo_start_xmit(skb, dev);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (rc =3D=3D NETDEV_TX_OK)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0txq_trans_upda=
+te(txq); =C2=A0<< here >>
 >
->
->>
->>  		flen = len;
->>  		if (nfree > 0) {
->>  			if (pch->speed == 0) {
->> -				flen = totlen/nfree;
->> +				if (nfree > 1)
->> +					flen = DIV_ROUND_UP(len, nfree);
->>  				if (nbigger > 0) {
->>  					flen++;
->>  					nbigger--;
->
->The important change here is the use of 'len' instead of 'totlen'.
->'nfree' and 'len' should decrease roughly proportionally with each
->iteration of the loop whereas 'totlen' remains unchanged.  Thus
->(totlen/nfree) gets bigger on each iteration whereas len/nfree should
->give roughly the same.  However, without rounding up here I'm not sure
->the logic is right either, since the side effect of nbigger is to make
->len decrease faster so it is not quite proportional to the decrease in
->nfree.  Is there a risk of ending up on the nfree == 1 iteration with
->flen == len - 1 and thus generating a superfluous extra 1 byte long
->fragment?  This would be a far worse situation than a slight imbalance
->in the size of the fragments.
->
->Perhaps the solution is to go back to a precalculated fragment size for
->the pch->speed == 0 case as per original code?
->
->Regards,
->Ben.
---------------------------------------------------------------
-Intel Shannon Limited
-Registered in Ireland
-Registered Office: Collinstown Industrial Park, Leixlip, County Kildare
-Registered Number: 308263
-Business address: Dromore House, East Park, Shannon, Co. Clare
 
-This e-mail and any attachments may contain confidential material for the sole use of the intended recipient(s). Any review or distribution by others is strictly prohibited. If you are not the intended recipient, please contact the sender and delete all copies.
+Good suggestion for drivers. But I wonder whether there are stats for
+received packets in core network stack.
+
+I.e., can I replace "dev->stats.rx_packets++" and "dev->stats.rx_bytes
++=3D (skb->len);" with something already maintained by core stack? I
+failed to find them.
+
+Thanks.
 
 
+--=20
+--Junchang
