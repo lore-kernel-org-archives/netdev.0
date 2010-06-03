@@ -1,27 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch 2/2]r8169: remove redundant RTL_W32
-Date: Thu, 03 Jun 2010 12:29:50 -0700 (PDT)
-Message-ID: <20100603.122950.193702477.davem@davemloft.net>
-References: <20100603112721.GD24909@host-a-55.ustcsz.edu.cn>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-2.6 2010-06-03
+Date: Thu, 03 Jun 2010 12:30:48 -0700 (PDT)
+Message-ID: <20100603.123048.226791381.davem@davemloft.net>
+References: <20100603173843.GB14597@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: junchangwang@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45360
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752915Ab0FCT3k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 15:29:40 -0400
-In-Reply-To: <20100603112721.GD24909@host-a-55.ustcsz.edu.cn>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100603173843.GB14597-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Junchang Wang <junchangwang@gmail.com>
-Date: Thu, 3 Jun 2010 19:27:23 +0800
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Thu, 3 Jun 2010 13:38:43 -0400
 
-> Writting "cmd" into "CounterAddrLow" twice is redundant.
+> This is a handful of fixes intended for 2.6.35.  The ath5k patch fixes a
+> problem reported by multiple people as "Commit 6b5d11 breaks association
+> with WPA enabled APs".  The ones from Johannes fix a locking problem and
+> and a problem caused by reading the wrong data location.
 > 
-> Signed-off-by: Junchang Wang <junchangwang@gmail.com>
+> Please let me know if there are problems!
 
-I definitely think this is being done on purpose.
+Pulled, thanks John!
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
