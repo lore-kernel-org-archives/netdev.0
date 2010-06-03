@@ -1,33 +1,28 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [Patch 2/2] mlx4: add dynamic LRO disable support
-Date: Thu, 03 Jun 2010 13:37:02 +0100
-Message-ID: <1275568622.2870.89.camel@localhost>
-References: <20100603034303.5305.55552.sendpatchset@localhost.localdomain>
-	 <20100603034312.5305.61000.sendpatchset@localhost.localdomain>
+Subject: Re: [Patch 2/2]r8169: remove redundant RTL_W32
+Date: Thu, 03 Jun 2010 13:40:10 +0100
+Message-ID: <1275568810.2870.90.camel@localhost>
+References: <20100603112721.GD24909@host-a-55.ustcsz.edu.cn>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert.xu@redhat.com, nhorman@redhat.com,
-	sgruszka@redhat.com, davem@davemloft.net
-To: Amerigo Wang <amwang@redhat.com>
+Cc: romieu@fr.zoreil.com, davem@davemloft.net, netdev@vger.kernel.org
+To: Junchang Wang <junchangwang@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:49297 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:49397 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752129Ab0FCMhH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 08:37:07 -0400
-In-Reply-To: <20100603034312.5305.61000.sendpatchset@localhost.localdomain>
+	with ESMTP id S1751621Ab0FCMkP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 08:40:15 -0400
+In-Reply-To: <20100603112721.GD24909@host-a-55.ustcsz.edu.cn>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-06-02 at 23:39 -0400, Amerigo Wang wrote:
-> This patch adds dynamic LRO diable support for mlx4 net driver.
-> It also fixes a bug of mlx4, which checks NETIF_F_LRO flag in rx
-> path without rtnl lock.
+On Thu, 2010-06-03 at 19:27 +0800, Junchang Wang wrote:
+> Writting "cmd" into "CounterAddrLow" twice is redundant.
 [...]
 
-Is that flag test actually unsafe - and if so, how is testing num_lro
-any better?  Perhaps access to net_device::features should be wrapped
-with ACCESS_ONCE() to ensure that reads and writes are atomic.
+I assume you've checked this against the datasheets for all 20 variants
+of this hardware?
 
 Ben.
 
