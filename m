@@ -1,47 +1,42 @@
-From: jamal <hadi@cyberus.ca>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: Question about an assignment in handle_ing()
-Date: Thu, 03 Jun 2010 08:53:14 -0400
-Message-ID: <1275569594.3445.51.camel@bigi>
-References: <1274789024.3878.919.camel@bigi>
-	 <20100525121202.GA12712@gondor.apana.org.au>
-	 <1274790038.3878.926.camel@bigi>
-	 <20100525124636.GA13161@gondor.apana.org.au>
-	 <1274793216.3878.947.camel@bigi>
-	 <20100525231307.GA19475@gondor.apana.org.au>
-	 <1274873881.3878.988.camel@bigi> <1275226150.3587.9.camel@bigi>
-	 <20100603080130.GA29709@gondor.apana.org.au>
-	 <1275569030.3445.49.camel@bigi>  <20100603124717.GB315@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+Date: Thu, 3 Jun 2010 22:56:47 +1000
+Message-ID: <20100603125647.GA595@gondor.apana.org.au>
+References: <1274790038.3878.926.camel@bigi> <20100525124636.GA13161@gondor.apana.org.au> <1274793216.3878.947.camel@bigi> <20100525231307.GA19475@gondor.apana.org.au> <1274873881.3878.988.camel@bigi> <1275226150.3587.9.camel@bigi> <20100603080130.GA29709@gondor.apana.org.au> <1275569030.3445.49.camel@bigi> <20100603124717.GB315@gondor.apana.org.au> <1275569594.3445.51.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
 	davem@davemloft.net, kaber@trash.net
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f179.google.com ([209.85.211.179]:37851 "EHLO
-	mail-yw0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753866Ab0FCMxV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 08:53:21 -0400
-Received: by ywh9 with SMTP id 9so71838ywh.17
-        for <netdev@vger.kernel.org>; Thu, 03 Jun 2010 05:53:18 -0700 (PDT)
-In-Reply-To: <20100603124717.GB315@gondor.apana.org.au>
+Received: from ringil.hengli.com.au ([216.59.3.182]:42131 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753249Ab0FCM4y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 08:56:54 -0400
+Content-Disposition: inline
+In-Reply-To: <1275569594.3445.51.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-06-03 at 22:47 +1000, Herbert Xu wrote:
+On Thu, Jun 03, 2010 at 08:53:14AM -0400, jamal wrote:
+>
+> I dont see the problem of when tcpdump sees the packet first.
+> pedit doesnt care if it is cloned or not.
+> What i am worried about - and couldnt parse in your email - is:
+> What happens when pedit gets to it first? would skb_cloned() be true
+> always/guaranteed?
 
-> You *are* misreading what I wrote.
-> 
-> As I've repeatedly stated, it is guaranteed that either tcpdump
-> is finished with the skb, or you will see it as cloned.
+Yes that's what I've been saying all along.  As long as the skb
+is still held up in af_packet's socket queue, the packet will be
+marked as cloned.
 
-I dont see the problem of when tcpdump sees the packet first.
-pedit doesnt care if it is cloned or not.
-What i am worried about - and couldnt parse in your email - is:
-What happens when pedit gets to it first? would skb_cloned() be true
-always/guaranteed?
+Only when tcpdump has done a recv(2) on the socket and liberated
+the skb in the queue, will you see the clone flag turned off in
+pedit.
 
-cheers,
-jamal
-
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
