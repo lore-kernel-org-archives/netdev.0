@@ -1,36 +1,66 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [Patch 1/2]r8169: remove rtl_rw_cpluscmd
-Date: Thu, 3 Jun 2010 23:42:57 +0200
-Message-ID: <20100603214257.GA3327@electric-eye.fr.zoreil.com>
-References: <20100603112428.GC24909@host-a-55.ustcsz.edu.cn>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bugme-new] [Bug 16083] New: swapper: Page allocation failure
+Date: Thu, 03 Jun 2010 23:37:16 +0200
+Message-ID: <1275601036.2533.63.camel@edumazet-laptop>
+References: <bug-16083-10286@https.bugzilla.kernel.org/>
+	 <20100603130235.c372b38f.akpm@linux-foundation.org>
+	 <1275599603.2533.58.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Junchang Wang <junchangwang@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 30.185.140-88.rev.gaoland.net ([88.140.185.30]:55001 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754835Ab0FCVt4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 17:49:56 -0400
-Content-Disposition: inline
-In-Reply-To: <20100603112428.GC24909@host-a-55.ustcsz.edu.cn>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:63835 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750921Ab0FCVvj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 17:51:39 -0400
+Received: by wyi11 with SMTP id 11so425131wyi.19
+        for <netdev@vger.kernel.org>; Thu, 03 Jun 2010 14:51:38 -0700 (PDT)
+In-Reply-To: <1275599603.2533.58.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Junchang Wang <junchangwang@gmail.com> :
-> Some clean up work. Please correct me if any of this is wrong.
-> 
-> Writting "cmd" back without modification is redundant.
-> Secondly, because rtl_rw_cpluscmd is just encapsulation of
-> RTL_R16, remove rtl_rw_cpluscmd.
+Le jeudi 03 juin 2010 =C3=A0 23:13 +0200, Eric Dumazet a =C3=A9crit :
 
-I'll figure that there may be some value in the patch if you
-test the change on revision X, Y and Z.
+> MTU=3D9000 on a system with 4K pages... Oh well...
+>=20
+> maybe net/ipv6/mcast.c should cap dev->mtu to PAGE_SIZE-128 or
+> something, so that order-0 allocations are done.
+>=20
+>=20
 
-Some cosmetic isolated in a sequence of changes can be fine too.
+Something like this patch (completely untested) :
 
-Otherwise I consider such cleanups as a (useless and) conceivably
-harmful distraction.
+[PATCH] ipv6: avoid high order allocations
 
--- 
-Ueimor
+With mtu=3D9000, mld_newpack() use order-2 GFP_ATOMIC allocations, that
+are very unreliable, on machines where PAGE_SIZE=3D4K
+
+Limit allocated skbs to be at most one page. (order-0 allocations)
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv6/mcast.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index 59f1881..3484794 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -1356,7 +1356,10 @@ static struct sk_buff *mld_newpack(struct net_de=
+vice *dev, int size)
+ 		     IPV6_TLV_PADN, 0 };
+=20
+ 	/* we assume size > sizeof(ra) here */
+-	skb =3D sock_alloc_send_skb(sk, size + LL_ALLOCATED_SPACE(dev), 1, &e=
+rr);
++	size +=3D LL_ALLOCATED_SPACE(dev);
++	/* limit our allocations to order-0 page */
++	size =3D min(size, SKB_MAX_ORDER(0, 0));
++	skb =3D sock_alloc_send_skb(sk, size, 1, &err);
+=20
+ 	if (!skb)
+ 		return NULL;
+
+
