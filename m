@@ -1,55 +1,68 @@
-From: Anatolij Gustschin <agust-ynQEQJNshbs@public.gmane.org>
-Subject: [PATCH] of/net: fs_enet/mii-bitbang.c: fix build breakage
-Date: Thu,  3 Jun 2010 03:06:54 +0200
-Message-ID: <1275527214-1000-1-git-send-email-agust@denx.de>
+From: Wu Fengguang <fengguang.wu@intel.com>
+Subject: [PATCH] ipconfig: document DHCP hostname and DNS record
+Date: Thu, 3 Jun 2010 10:02:44 +0800
+Message-ID: <20100603020244.GB4461@localhost>
+References: <20100531031953.GA10590@localhost>
+ <20100602.070531.73368509.davem@davemloft.net>
+ <20100602185601.GB14221@basil.fritz.box>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andi Kleen <andi@firstfloor.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100602185601.GB14221@basil.fritz.box>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fixes build error caused by the OF device_node
-pointer being moved into struct device
+On Thu, Jun 03, 2010 at 02:56:01AM +0800, Andi Kleen wrote:
+> On Wed, Jun 02, 2010 at 07:05:31AM -0700, David Miller wrote:
+> > From: Wu Fengguang <fengguang.wu@intel.com>
+> > Date: Mon, 31 May 2010 11:19:53 +0800
+> > 
+> > > Normally dhclient can be configured to send the "host-name" option
+> > > in DHCP requests to update the client's DNS record. However for an
+> > > NFSROOT system, dhclient shall never be called (which may change the
+> > > IP addr and therefore lose your root NFS mount connection).
+> > > 
+> > > So enable updating the DNS record with kernel parameter
+> > > 
+> > > 	ip=::::$HOST_NAME::dhcp
+> > > 
+> > > Signed-off-by: Wu Fengguang <fengguang.wu@intel.com>
+> > 
+> > Applied, thanks.
+> 
+> Small nit: Fengguang, please document the new option in 
+> Documentation/kernel-parameters.txt That could be done in a follow-on patch.
 
-Signed-off-by: Anatolij Gustschin <agust-ynQEQJNshbs@public.gmane.org>
+Good suggestion! Here is the document update.
+
+Thanks,
+Fengguang
 ---
- drivers/net/fs_enet/mii-bitbang.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ipconfig: document DHCP hostname and DNS record
 
-diff --git a/drivers/net/fs_enet/mii-bitbang.c b/drivers/net/fs_enet/mii-bitbang.c
-index 0f90685..3607340 100644
---- a/drivers/net/fs_enet/mii-bitbang.c
-+++ b/drivers/net/fs_enet/mii-bitbang.c
-@@ -169,7 +169,7 @@ static int __devinit fs_enet_mdio_probe(struct of_device *ofdev,
+Now it's possible to update the DNS record for $HOST_NAME with
+
+	ip=::::$HOST_NAME::dhcp
+
+CC: Andi Kleen <ak@linux.intel.com>
+Signed-off-by: Wu Fengguang <fengguang.wu@intel.com>
+---
+ Documentation/filesystems/nfs/nfsroot.txt |    2 ++
+ 1 file changed, 2 insertions(+)
+
+--- linux.orig/Documentation/filesystems/nfs/nfsroot.txt	2010-06-03 09:52:17.000000000 +0800
++++ linux/Documentation/filesystems/nfs/nfsroot.txt	2010-06-03 09:52:19.000000000 +0800
+@@ -124,6 +124,8 @@ ip=<client-ip>:<server-ip>:<gw-ip>:<netm
  
- 	new_bus->name = "CPM2 Bitbanged MII",
+   <hostname>	Name of the client. May be supplied by autoconfiguration,
+   		but its absence will not trigger autoconfiguration.
++		If specified and DHCP is used, the user provided hostname will
++		be carried in the DHCP request to hopefully update DNS record.
  
--	ret = fs_mii_bitbang_init(new_bus, ofdev->node);
-+	ret = fs_mii_bitbang_init(new_bus, ofdev->dev.of_node);
- 	if (ret)
- 		goto out_free_bus;
+   		Default: Client IP address is used in ASCII notation.
  
-@@ -181,7 +181,7 @@ static int __devinit fs_enet_mdio_probe(struct of_device *ofdev,
- 	new_bus->parent = &ofdev->dev;
- 	dev_set_drvdata(&ofdev->dev, new_bus);
- 
--	ret = of_mdiobus_register(new_bus, ofdev->node);
-+	ret = of_mdiobus_register(new_bus, ofdev->dev.of_node);
- 	if (ret)
- 		goto out_free_irqs;
- 
--- 
-1.7.0.4
