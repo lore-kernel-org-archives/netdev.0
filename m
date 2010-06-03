@@ -1,40 +1,68 @@
-From: Ben McKeegan <ben@netservers.co.uk>
-Subject: [PATCH] ppp_generic: fix multilink fragment sizes
-Date: Thu,  3 Jun 2010 10:14:33 +0100
-Message-ID: <1275556473-14613-1-git-send-email-ben@netservers.co.uk>
-References: <DF7BB929B28FCF479E888E3D9F8D9E88D3E1706A@irsmsx502.ger.corp.intel.com>
-Cc: ben@netservers.co.uk, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, gabriele.paoloni@intel.com,
-	alan@lxorguk.ukuu.org.uk, linux-ppp@vger.kernel.org,
-	paulus@samba.org
-To: davem@davemloft.net
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <DF7BB929B28FCF479E888E3D9F8D9E88D3E1706A@irsmsx502.ger.corp.intel.com>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] netdev:bfin_mac: reclaim and free tx skb as soon as
+  possible after transfer
+Date: Thu, 03 Jun 2010 11:19:09 +0200
+Message-ID: <1275556749.2456.24.camel@edumazet-laptop>
+References: <1275536881.18536.5.camel@eight.analog.com>
+	 <1275537919.29413.55.camel@edumazet-laptop>
+	 <AANLkTinrW2w9x6dbzTAzSrElqUueFOC6tJaPNsVcnLBv@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: sonic zhang <sonic.adi@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	uclinux-dist-devel <uclinux-dist-devel@blackfin.uclinux.org>
+To: Junchang Wang <junchangwang@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:37069 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933502Ab0FCJTN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 05:19:13 -0400
+Received: by fxm8 with SMTP id 8so2534811fxm.19
+        for <netdev@vger.kernel.org>; Thu, 03 Jun 2010 02:19:12 -0700 (PDT)
+In-Reply-To: <AANLkTinrW2w9x6dbzTAzSrElqUueFOC6tJaPNsVcnLBv@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix bug in multilink fragment size calculation introduced by
-commit 9c705260feea6ae329bc6b6d5f6d2ef0227eda0a
-"ppp: ppp_mp_explode() redesign"
+Le jeudi 03 juin 2010 =C3=A0 16:57 +0800, Junchang Wang a =C3=A9crit :
+> Hi Eric,
+>=20
+> On Thu, Jun 3, 2010 at 12:05 PM, Eric Dumazet <eric.dumazet@gmail.com=
+> wrote:
+> > Not related to your patch, but reviewing it I see this driver still=
+ do
+> > the "dev->stats.tx_packets++; dev->stats.tx_bytes +=3D (skb->len);"
+> >
+> > This is not necessary and expensive, since we update txq stats in c=
+ore
+> > network stack.
+> >
+> >        rc =3D ops->ndo_start_xmit(skb, dev);
+> >        if (rc =3D=3D NETDEV_TX_OK)
+> >                txq_trans_update(txq);  << here >>
+> >
+>=20
+> Good suggestion for drivers. But I wonder whether there are stats for
+> received packets in core network stack.
+>=20
 
-Signed-off-by: Ben McKeegan <ben@netservers.co.uk>
----
- drivers/net/ppp_generic.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+No its not there.
 
-diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
-index 0db3894..c980f74 100644
---- a/drivers/net/ppp_generic.c
-+++ b/drivers/net/ppp_generic.c
-@@ -1416,7 +1416,7 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
- 		flen = len;
- 		if (nfree > 0) {
- 			if (pch->speed == 0) {
--				flen = totlen/nfree;
-+				flen = len/nfree;
- 				if (nbigger > 0) {
- 					flen++;
- 					nbigger--;
--- 
-1.5.6.5
+> I.e., can I replace "dev->stats.rx_packets++" and "dev->stats.rx_byte=
+s
+> +=3D (skb->len);" with something already maintained by core stack? I
+> failed to find them.
+>=20
+
+As I said, core network takes care of three counters only, because it
+was 'free', as they share a cache line with a spinlock we must hold whe=
+n
+calling xmit function.
+
+In receive path, we dont dirty a cache line in core network, so updatin=
+g
+counters would add a cost. (modern NICs handle stats in firmware)
+
+
 
