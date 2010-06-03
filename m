@@ -1,210 +1,74 @@
-From: Dmytro Milinevskyy <milinevskyy@gmail.com>
-Subject: [PATCH] [ath5k][leds] Ability to disable leds support. If leds support enabled do not force mac802.11 leds layer selection.
-Date: Thu, 03 Jun 2010 22:39:30 +0300
-Message-ID: <4c0804e2.0c3ddf0a.2771.10f7@mx.google.com>
-Cc: Jiri Slaby <jirislaby@gmail.com>,
-	Nick Kossifidis <mickflemm@gmail.com>,
-	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
-	Bob Copeland <me@bobcopeland.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	GeunSik Lim <geunsik.lim@samsung.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	Lukas Turek <8an@praha12.net>,
-	Mark Hindley <mark@hindley.org.uk>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Jiri Kosina <jkosina@suse.cz>, Kalle Valo <kalle.valo@iki.fi>,
-	Keng-Yu Lin <keng-yu.lin@canonical.com>,
-	Luca Verdesca <magooz@salug.it>,
-	Shahar Or <shahar@shahar-or.co.il>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 16083] New: swapper: Page allocation failure
+Date: Thu, 3 Jun 2010 13:02:35 -0700
+Message-ID: <20100603130235.c372b38f.akpm@linux-foundation.org>
+References: <bug-16083-10286@https.bugzilla.kernel.org/>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:55006 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750873Ab0FCUCi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 16:02:38 -0400
+In-Reply-To: <bug-16083-10286@https.bugzilla.kernel.org/>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On Mon, 31 May 2010 15:55:12 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
 
-Here is the patch to disable ath5k leds support on build stage.
-However if the leds support was enabled do not force selection of 802.11 leds layer.
-Depency on LEDS_CLASS is kept.
+> https://bugzilla.kernel.org/show_bug.cgi?id=16083
+> 
+>            Summary: swapper: Page allocation failure
+>            Product: Memory Management
+>            Version: 2.5
+>     Kernel Version: 2.6.34
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: akpm@linux-foundation.org
+>         ReportedBy: sgunderson@bigfoot.com
+>         Regression: No
+> 
+> 
+> Hi,
+> 
+> Since upgrading from a Q9450 to 2xE5520 (and upgrading from 2.6.34-rc-something
+> to 2.6.34), I've started seeing these:
+> 
+> [605882.372418] swapper: page allocation failure. order:2, mode:0x4020
+> [605882.378981] Pid: 0, comm: swapper Not tainted 2.6.34 #1
+> [605882.384617] Call Trace:
+> [605882.387499]  <IRQ>  [<ffffffff81096d5a>] __alloc_pages_nodemask+0x5b0/0x629
+> [605882.395068]  [<ffffffff81096de5>] __get_free_pages+0x12/0x4f
+> [605882.401103]  [<ffffffff810bdeb4>] __kmalloc_track_caller+0x4c/0x156
+> [605882.407817]  [<ffffffff81245986>] ? sock_alloc_send_pskb+0xdd/0x32d
+> [605882.414556]  [<ffffffff8124a515>] __alloc_skb+0x66/0x15b
 
-Suggestion given by Pavel Roskin and Bob Copeland applied.
+I wonder if we should switch __alloc_skb() over to __GFP_NOWARN. 
+People keep on reporting events such as the above, and nobody's
+getting any value from this.
 
-Regards,
+Downsides:
 
---Dima
+- the change would tend to deprive MM developers of prompt "hey you
+  broke it again" notifications.
 
----
- drivers/net/wireless/ath/ath5k/Kconfig  |   12 +++++++++---
- drivers/net/wireless/ath/ath5k/Makefile |    2 +-
- drivers/net/wireless/ath/ath5k/ath5k.h  |   22 ++++++++++++++++++++++
- drivers/net/wireless/ath/ath5k/base.h   |   13 +++++++++----
- drivers/net/wireless/ath/ath5k/gpio.c   |    2 ++
- 5 files changed, 43 insertions(+), 8 deletions(-)
+- if a system is getting enough allocation failures to impact
+  throughput, the operators won't *know* that it's happening, and so
+  they won't make the changes necessary to reduce the frequency of
+  memory allocation failures.
 
-diff --git a/drivers/net/wireless/ath/ath5k/Kconfig b/drivers/net/wireless/ath/ath5k/Kconfig
-index eb83b7b..29f4572 100644
---- a/drivers/net/wireless/ath/ath5k/Kconfig
-+++ b/drivers/net/wireless/ath/ath5k/Kconfig
-@@ -1,9 +1,6 @@
- config ATH5K
- 	tristate "Atheros 5xxx wireless cards support"
- 	depends on PCI && MAC80211
--	select MAC80211_LEDS
--	select LEDS_CLASS
--	select NEW_LEDS
- 	---help---
- 	  This module adds support for wireless adapters based on
- 	  Atheros 5xxx chipset.
-@@ -18,6 +15,15 @@ config ATH5K
- 	  If you choose to build a module, it'll be called ath5k. Say M if
- 	  unsure.
- 
-+
-+config ATH5K_LEDS
-+	tristate "Atheros 5xxx wireless cards LEDs support"
-+	depends on ATH5K
-+	select NEW_LEDS
-+	select LEDS_CLASS
-+	---help---
-+	  Atheros 5xxx LED support.
-+
- config ATH5K_DEBUG
- 	bool "Atheros 5xxx debugging"
- 	depends on ATH5K
-diff --git a/drivers/net/wireless/ath/ath5k/Makefile b/drivers/net/wireless/ath/ath5k/Makefile
-index cc09595..6d552dd 100644
---- a/drivers/net/wireless/ath/ath5k/Makefile
-+++ b/drivers/net/wireless/ath/ath5k/Makefile
-@@ -10,8 +10,8 @@ ath5k-y				+= phy.o
- ath5k-y				+= reset.o
- ath5k-y				+= attach.o
- ath5k-y				+= base.o
--ath5k-y				+= led.o
- ath5k-y				+= rfkill.o
- ath5k-y				+= ani.o
- ath5k-$(CONFIG_ATH5K_DEBUG)	+= debug.o
-+ath5k-$(CONFIG_ATH5K_LEDS) += led.o
- obj-$(CONFIG_ATH5K)		+= ath5k.o
-diff --git a/drivers/net/wireless/ath/ath5k/ath5k.h b/drivers/net/wireless/ath/ath5k/ath5k.h
-index 2785946..bb7e09a 100644
---- a/drivers/net/wireless/ath/ath5k/ath5k.h
-+++ b/drivers/net/wireless/ath/ath5k/ath5k.h
-@@ -1148,11 +1148,27 @@ struct ath5k_hw {
- int ath5k_hw_attach(struct ath5k_softc *sc);
- void ath5k_hw_detach(struct ath5k_hw *ah);
- 
-+#ifdef CONFIG_ATH5K_LEDS
- /* LED functions */
- int ath5k_init_leds(struct ath5k_softc *sc);
- void ath5k_led_enable(struct ath5k_softc *sc);
- void ath5k_led_off(struct ath5k_softc *sc);
- void ath5k_unregister_leds(struct ath5k_softc *sc);
-+#else
-+static inline int ath5k_init_leds(struct ath5k_softc *sc)
-+{
-+	return 0;
-+}
-+static inline void ath5k_led_enable(struct ath5k_softc *sc)
-+{
-+}
-+static inline void ath5k_led_off(struct ath5k_softc *sc)
-+{
-+}
-+static inline void ath5k_unregister_leds(struct ath5k_softc *sc)
-+{
-+}
-+#endif
- 
- /* Reset Functions */
- int ath5k_hw_nic_wakeup(struct ath5k_hw *ah, int flags, bool initial);
-@@ -1233,7 +1249,13 @@ int ath5k_hw_set_slot_time(struct ath5k_hw *ah, unsigned int slot_time);
- int ath5k_hw_init_desc_functions(struct ath5k_hw *ah);
- 
- /* GPIO Functions */
-+#ifdef CONFIG_ATH5K_LEDS
- void ath5k_hw_set_ledstate(struct ath5k_hw *ah, unsigned int state);
-+#else
-+static inline void ath5k_hw_set_ledstate(struct ath5k_hw *ah, unsigned int state)
-+{
-+}
-+#endif
- int ath5k_hw_set_gpio_input(struct ath5k_hw *ah, u32 gpio);
- int ath5k_hw_set_gpio_output(struct ath5k_hw *ah, u32 gpio);
- u32 ath5k_hw_get_gpio(struct ath5k_hw *ah, u32 gpio);
-diff --git a/drivers/net/wireless/ath/ath5k/base.h b/drivers/net/wireless/ath/ath5k/base.h
-index 56221bc..97b26c1 100644
---- a/drivers/net/wireless/ath/ath5k/base.h
-+++ b/drivers/net/wireless/ath/ath5k/base.h
-@@ -86,6 +86,7 @@ struct ath5k_txq {
- 
- #define ATH5K_LED_MAX_NAME_LEN 31
- 
-+#ifdef CONFIG_ATH5K_LEDS
- /*
-  * State for LED triggers
-  */
-@@ -95,6 +96,7 @@ struct ath5k_led
- 	struct ath5k_softc *sc;			/* driver state */
- 	struct led_classdev led_dev;		/* led classdev */
- };
-+#endif
- 
- /* Rfkill */
- struct ath5k_rfkill {
-@@ -186,9 +188,6 @@ struct ath5k_softc {
- 
- 	u8			bssidmask[ETH_ALEN];
- 
--	unsigned int		led_pin,	/* GPIO pin for driving LED */
--				led_on;		/* pin setting for LED on */
--
- 	struct tasklet_struct	restq;		/* reset tasklet */
- 
- 	unsigned int		rxbufsize;	/* rx size based on mtu */
-@@ -196,7 +195,6 @@ struct ath5k_softc {
- 	spinlock_t		rxbuflock;
- 	u32			*rxlink;	/* link ptr in last RX desc */
- 	struct tasklet_struct	rxtq;		/* rx intr tasklet */
--	struct ath5k_led	rx_led;		/* rx led */
- 
- 	struct list_head	txbuf;		/* transmit buffer */
- 	spinlock_t		txbuflock;
-@@ -204,7 +202,14 @@ struct ath5k_softc {
- 	struct ath5k_txq	txqs[AR5K_NUM_TX_QUEUES];	/* tx queues */
- 	struct ath5k_txq	*txq;		/* main tx queue */
- 	struct tasklet_struct	txtq;		/* tx intr tasklet */
-+
-+
-+#ifdef CONFIG_ATH5K_LEDS
-+	unsigned int		led_pin,	/* GPIO pin for driving LED */
-+				led_on;		/* pin setting for LED on */
-+	struct ath5k_led	rx_led;		/* rx led */
- 	struct ath5k_led	tx_led;		/* tx led */
-+#endif
- 
- 	struct ath5k_rfkill	rf_kill;
- 
-diff --git a/drivers/net/wireless/ath/ath5k/gpio.c b/drivers/net/wireless/ath/ath5k/gpio.c
-index 64a27e7..9e757b3 100644
---- a/drivers/net/wireless/ath/ath5k/gpio.c
-+++ b/drivers/net/wireless/ath/ath5k/gpio.c
-@@ -25,6 +25,7 @@
- #include "debug.h"
- #include "base.h"
- 
-+#ifdef CONFIG_ATH5K_LEDS
- /*
-  * Set led state
-  */
-@@ -76,6 +77,7 @@ void ath5k_hw_set_ledstate(struct ath5k_hw *ah, unsigned int state)
- 	else
- 		AR5K_REG_ENABLE_BITS(ah, AR5K_PCICFG, led_5210);
- }
-+#endif
- 
- /*
-  * Set GPIO inputs
--- 
-1.7.1
+If these are likely to be a problem, perhaps networking could provide
+some other form of "hey, you keep on running out of memory"
+notification, if it doesn't already do so.
+
+Thoughts?
+
