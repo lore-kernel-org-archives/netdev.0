@@ -1,65 +1,34 @@
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Subject: RE: [net-next-2.6 PATCH 2/2] x86: Align skb w/ start of cache line
- on newer core 2/Xeon Arch
-Date: Wed, 2 Jun 2010 16:55:16 -0700
-Message-ID: <80769D7B14936844A23C0C43D9FBCF0F2562CD2555@orsmsx501.amr.corp.intel.com>
-References: <20100602222230.12962.97260.stgit@localhost.localdomain>
-	 <20100602222506.12962.49240.stgit@localhost.localdomain>
- <1275518650.29413.43.camel@edumazet-laptop>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH] epic100: Test __BIG_ENDIAN instead of (non-existent)
+ CONFIG_BIG_ENDIAN
+Date: Wed, 02 Jun 2010 20:08:27 -0400
+Message-ID: <4C06F27B.2080704@garzik.org>
+References: <ada4ohlrx22.fsf@roland-alpha.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"mingo@redhat.com" <mingo@redhat.com>,
-	"tglx@linutronix.de" <tglx@linutronix.de>,
-	"hpa@zytor.com" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1275518650.29413.43.camel@edumazet-laptop>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Roland Dreier <rdreier@cisco.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f179.google.com ([209.85.211.179]:48965 "EHLO
+	mail-yw0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932622Ab0FCAIe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 20:08:34 -0400
+Received: by ywh9 with SMTP id 9so5783479ywh.17
+        for <netdev@vger.kernel.org>; Wed, 02 Jun 2010 17:08:33 -0700 (PDT)
+In-Reply-To: <ada4ohlrx22.fsf@roland-alpha.cisco.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RXJpYyBEdW1hemV0IHdyb3RlOg0KPiBMZSBtZXJjcmVkaSAwMiBqdWluIDIwMTAgw6AgMTU6MjUg
-LTA3MDAsIEplZmYgS2lyc2hlciBhIMOpY3JpdCA6DQo+PiBGcm9tOiBBbGV4YW5kZXIgRHV5Y2sg
-PGFsZXhhbmRlci5oLmR1eWNrQGludGVsLmNvbT4NCj4+IA0KPj4geDg2IGFyY2hpdGVjdHVyZXMg
-Y2FuIGhhbmRsZSB1bmFsaWduZWQgYWNjZXNzZXMgaW4gaGFyZHdhcmUsIGFuZCBpdA0KPj4gaGFz
-IGJlZW4gc2hvd24gdGhhdCB1bmFsaWduZWQgRE1BIGFjY2Vzc2VzIGNhbiBiZSBleHBlbnNpdmUg
-b24NCj4+IE5laGFsZW0gYXJjaGl0ZWN0dXJlcy4gIEFzIHN1Y2ggd2Ugc2hvdWxkIG92ZXJ3cml0
-ZSBORVRfSVBfQUxJR04gYW5kDQo+PiBORVRfU0tCX1BBRCB0byByZXNvbHZlIHRoaXMgaXNzdWUu
-IA0KPj4gDQo+PiBTaWduZWQtb2ZmLWJ5OiBBbGV4YW5kZXIgRHV5Y2sgPGFsZXhhbmRlci5oLmR1
-eWNrQGludGVsLmNvbT4NCj4+IFNpZ25lZC1vZmYtYnk6IEplZmYgS2lyc2hlciA8amVmZnJleS50
-LmtpcnNoZXJAaW50ZWwuY29tPiAtLS0NCj4+IA0KPj4gIGFyY2gveDg2L2luY2x1ZGUvYXNtL3N5
-c3RlbS5oIHwgICAxMiArKysrKysrKysrKysNCj4+ICAxIGZpbGVzIGNoYW5nZWQsIDEyIGluc2Vy
-dGlvbnMoKyksIDAgZGVsZXRpb25zKC0pDQo+PiANCj4+IGRpZmYgLS1naXQgYS9hcmNoL3g4Ni9p
-bmNsdWRlL2FzbS9zeXN0ZW0uaA0KPj4gYi9hcmNoL3g4Ni9pbmNsdWRlL2FzbS9zeXN0ZW0uaCBp
-bmRleCBiOGZlNDhlLi44YWNiNDRlIDEwMDY0NCAtLS0NCj4+IGEvYXJjaC94ODYvaW5jbHVkZS9h
-c20vc3lzdGVtLmggKysrIGIvYXJjaC94ODYvaW5jbHVkZS9hc20vc3lzdGVtLmgNCj4+IEBAIC00
-NTcsNCArNDU3LDE2IEBAIHN0YXRpYyBpbmxpbmUgdm9pZCByZHRzY19iYXJyaWVyKHZvaWQpDQo+
-PiAgCWFsdGVybmF0aXZlKEFTTV9OT1AzLCAibGZlbmNlIiwgWDg2X0ZFQVRVUkVfTEZFTkNFX1JE
-VFNDKTsgIH0NCj4+IA0KPj4gKyNpZmRlZiBDT05GSUdfTUNPUkUyDQo+PiArLyoNCj4+ICsgKiBX
-ZSBoYW5kbGUgbW9zdCB1bmFsaWduZWQgYWNjZXNzZXMgaW4gaGFyZHdhcmUuICBPbiB0aGUgb3Ro
-ZXIgaGFuZA0KPj4gKyAqIHVuYWxpZ25lZCBETUEgY2FuIGJlIHF1aXRlIGV4cGVuc2l2ZSBvbiBz
-b21lIE5laGFsZW0gcHJvY2Vzc29ycy4NCj4+ICsgKiArICogQmFzZWQgb24gdGhpcyB3ZSBkaXNh
-YmxlIHRoZSBJUCBoZWFkZXIgYWxpZ25tZW50IGluIG5ldHdvcmsNCj4+IGRyaXZlcnMuICsgKiBX
-ZSBhbHNvIG1vZGlmeSBORVRfU0tCX1BBRCB0byBiZSBhIGNhY2hlbGluZSBpbiBzaXplLA0KPj4g
-dGh1cyBtYWludGFpbmluZyArICogY2FjaGVsaW5lIGFsaWdubWVudCBvZiBidWZmZXJzLg0KPj4g
-KyAqLw0KPj4gKyNkZWZpbmUgTkVUX0lQX0FMSUdOCTANCj4+ICsjZGVmaW5lIE5FVF9TS0JfUEFE
-CUwxX0NBQ0hFX0JZVEVTDQo+PiArI2VuZGlmDQo+PiAgI2VuZGlmIC8qIF9BU01fWDg2X1NZU1RF
-TV9IICovDQo+PiANCj4+IC0tDQo+IA0KPiBCdXQuLi4gTDFfQ0FDSEVfQllURVMgaXMgNjQgb24g
-TUNPUkUyLCBzbyB0aGlzIG1hdGNoZXMgY3VycmVudA0KPiBORVRfU0tCX1BBRCBkZWZpbml0aW9u
-Li4uDQo+IA0KPiAjaWZuZGVmIE5FVF9TS0JfUEFEDQo+ICNkZWZpbmUgTkVUX1NLQl9QQUQgNjQN
-Cj4gI2VuZGlmDQoNCkkgYWRtaXQgdGhlIGN1cnJlbnQgZGVmaW5pdGlvbiBpcyByZWR1bmRhbnQs
-IGJ1dCBORVRfU0tCX1BBRCBoYWQgYmVlbiAzMiB1bnRpbCB5b3VyIHJlY2VudCBjaGFuZ2Ugb2Yg
-dGhlIHZhbHVlLCBhbmQgcHJpb3IgdG8gMi42LjMwIHRoZSB2YWx1ZSB3YXMgMTYuICBJZiB0aGUg
-dmFsdWUgd2VyZSB0byBjaGFuZ2UgYWdhaW4gaXQgd291bGQgc2lsZW50bHkgYnJlYWsgdGhlIGNh
-Y2hlbGluZSBhbGlnbm1lbnQgd2hpY2ggaXMgcHJvdmlkZWQgYnkgdGhpcyBwYXRjaC4gIElmIHdl
-IHdlcmUgdG8gZGVmaW5lIE5FVF9TS0JfUEFEIHVzaW5nIEwxX0NBQ0hFX0JZVEVTIGluIHNrYnVm
-Zi5oIHRoZW4gSSBtaWdodCBiZSBtb3JlIGluY2xpbmVkIHRvIHRvIHB1bGwgdGhlIE5FVF9TS0Jf
-UEFEIGNoYW5nZSwgYnV0IHJpZ2h0IG5vdyBJIHdvdWxkIHByZWZlciB0byB0cmVhdCBORVRfU0tC
-X1BBRCBhcyBhIG1hZ2ljIG51bWJlciB0aGF0IGNvaW5jaWRlbnRseSBpcyB0aGUgc2FtZSBzaXpl
-IGFzIHRoZSBMMSBjYWNoZSBvbiBNQ09SRTIuDQoNClRoYW5rcywNCg0KQWxleA0K
+On 06/02/2010 04:36 PM, Roland Dreier wrote:
+> Probably no one has used this driver on big-endian systems, since it was
+> setting up descriptor swapping if CONFIG_BIG_ENDIAN is set, which it
+> never is, since that symbol is not mentioned anywhere else in the kernel
+> source.  Switch this test to a check for __BIG_ENDIAN so it has a chance
+> at working.
+>
+> Signed-off-by: Roland Dreier<rolandd@cisco.com>
+
+Acked-by: Jeff Garzik <jgarzik@redhat.com>
+
+
