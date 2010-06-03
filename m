@@ -1,45 +1,26 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-next-2.6] [PPPOE] fix return value of __pppoe_xmit()
-	method.
-Date: Thu, 3 Jun 2010 18:02:29 +0300
-Message-ID: <AANLkTimW3olb9_3Wo8HvtYRP_LOCEeHDGWuVQvGMvFxd@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next PATCH] drivers/net/enic: Use (pr|netdev)_<level>
+ macro helpers
+Date: Thu, 03 Jun 2010 08:11:24 -0700
+Message-ID: <1275577884.1703.11.camel@Joe-Laptop.home>
+References: <C82CA5A9.3677A%scofeldm@cisco.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=0016e65a085cdaa7770488217eb9
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:57623 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755262Ab0FCPDU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 11:03:20 -0400
-Received: by wyi11 with SMTP id 11so125962wyi.19
-        for <netdev@vger.kernel.org>; Thu, 03 Jun 2010 08:03:19 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Scott Feldman <scofeldm@cisco.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <C82CA5A9.3677A%scofeldm@cisco.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---0016e65a085cdaa7770488217eb9
-Content-Type: text/plain; charset=ISO-8859-1
+On Thu, 2010-06-03 at 00:19 -0700, Scott Feldman wrote:
+> I like the dev_name(dev) in there but not the "(unregister net_device)".
+> Also there where a couple of lines longer than 80 chars.
+> We can fix up the patch and resubmit if you like.
 
-Hi,
- __pppoe_xmit() in drivers/net/pppoe always returns 1.
-When the methods fails (via goto abort), it should return 0 and not 1.
+I'm not constrained by 80 char lines for formats.
+Have at it.  Fix it up to your liking.
 
-Regards,
-Rami Rosen
-
-
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
-
---0016e65a085cdaa7770488217eb9
-Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
-Content-Disposition: attachment; filename="patch.txt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_g9zprw8u0
-
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3BwcG9lLmMgYi9kcml2ZXJzL25ldC9wcHBvZS5jCmlu
-ZGV4IDgwNWI2NGQuLjdlYmI4ZTggMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3BwcG9lLmMKKysr
-IGIvZHJpdmVycy9uZXQvcHBwb2UuYwpAQCAtOTQ5LDcgKzk0OSw3IEBAIHN0YXRpYyBpbnQgX19w
-cHBvZV94bWl0KHN0cnVjdCBzb2NrICpzaywgc3RydWN0IHNrX2J1ZmYgKnNrYikKIAogYWJvcnQ6
-CiAJa2ZyZWVfc2tiKHNrYik7Ci0JcmV0dXJuIDE7CisJcmV0dXJuIDA7CiB9CiAKIC8qKioqKioq
-KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
-KioqKioqKioK
---0016e65a085cdaa7770488217eb9--
+cheers, Joe
