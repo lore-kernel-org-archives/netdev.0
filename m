@@ -1,39 +1,37 @@
-From: Junchang Wang <junchangwang@gmail.com>
-Subject: [Patch 2/2]r8169: remove redundant RTL_W32
-Date: Thu, 3 Jun 2010 19:27:23 +0800
-Message-ID: <20100603112721.GD24909@host-a-55.ustcsz.edu.cn>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] phylib: Add support for the LXT973 phy.
+Date: Thu, 3 Jun 2010 13:28:34 +0200
+Message-ID: <20100603112834.GA2724@riccoc20.at.omicron.at>
+References: <20100602125527.GA20396@riccoc20.at.omicron.at>
+ <20100602.065017.139108801.davem@davemloft.net>
+ <20100602150851.GA22591@riccoc20.at.omicron.at>
+ <20100602.081512.256851057.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: romieu@fr.zoreil.com
+Cc: afleming@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f185.google.com ([209.85.222.185]:45612 "EHLO
-	mail-pz0-f185.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750748Ab0FCL1W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 07:27:22 -0400
-Received: by pzk15 with SMTP id 15so3005328pzk.15
-        for <netdev@vger.kernel.org>; Thu, 03 Jun 2010 04:27:21 -0700 (PDT)
+Received: from fg-out-1718.google.com ([72.14.220.155]:10762 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750837Ab0FCL2I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 07:28:08 -0400
+Received: by fg-out-1718.google.com with SMTP id d23so391030fga.1
+        for <netdev@vger.kernel.org>; Thu, 03 Jun 2010 04:28:06 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <20100602.081512.256851057.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Writting "cmd" into "CounterAddrLow" twice is redundant.
+On Wed, Jun 02, 2010 at 08:15:12AM -0700, David Miller wrote:
+> From: Richard Cochran <richardcochran@gmail.com>
+> Date: Wed, 2 Jun 2010 17:08:51 +0200
+> 
+> > Well, is it okay to just use the first patch?
+> 
+> Wasn't there another change you were asked to make that got included
+> in the v2 patch?
 
-Signed-off-by: Junchang Wang <junchangwang@gmail.com>
----
- drivers/net/r8169.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+No, I don't think so. He did ask whether the erratum has been fixed.
+I will implement the 'port' field that he has suggested.
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 217e709..e0a77a0 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -1207,7 +1207,6 @@ static void rtl8169_update_counters(struct net_device *dev)
- 
- 	RTL_W32(CounterAddrHigh, (u64)paddr >> 32);
- 	cmd = (u64)paddr & DMA_BIT_MASK(32);
--	RTL_W32(CounterAddrLow, cmd);
- 	RTL_W32(CounterAddrLow, cmd | CounterDump);
- 
- 	while (wait--) {
---
+Richard
