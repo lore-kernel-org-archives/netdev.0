@@ -1,33 +1,77 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] of/net: fs_enet/mii-bitbang.c: fix build breakage
-Date: Wed, 2 Jun 2010 20:13:33 -0600
-Message-ID: <20100603021333.GH27186@angua.secretlab.ca>
-References: <1275527214-1000-1-git-send-email-agust@denx.de>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next-2.6] net: use __packed annotation (fwd)
+Date: Wed, 02 Jun 2010 19:26:57 -0700
+Message-ID: <1275532017.23599.127.camel@Joe-Laptop.home>
+References: <20100603021542.585D42436B@mail.perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Anatolij Gustschin <agust@denx.de>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f174.google.com ([209.85.212.174]:48995 "EHLO
-	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933577Ab0FCCNi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jun 2010 22:13:38 -0400
-Received: by pxi8 with SMTP id 8so250894pxi.19
-        for <netdev@vger.kernel.org>; Wed, 02 Jun 2010 19:13:36 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1275527214-1000-1-git-send-email-agust@denx.de>
+Received: from mail.perches.com ([173.55.12.10]:2637 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933577Ab0FCC06 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jun 2010 22:26:58 -0400
+In-Reply-To: <20100603021542.585D42436B@mail.perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 03, 2010 at 03:06:54AM +0200, Anatolij Gustschin wrote:
-> Fixes build error caused by the OF device_node
-> pointer being moved into struct device
-> 
-> Signed-off-by: Anatolij Gustschin <agust@denx.de>
-> ---
->  drivers/net/fs_enet/mii-bitbang.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
+Some comments:
 
-applied
+[]
+
+> diff --git a/include/linux/ncp_fs_sb.h b/include/linux/ncp_fs_sb.h
+> index 5ec9ca6..8da05bc 100644
+> --- a/include/linux/ncp_fs_sb.h
+> +++ b/include/linux/ncp_fs_sb.h
+> @@ -104,13 +104,13 @@ struct ncp_server {
+>  
+>  		unsigned int state;		/* STREAM only: receiver state */
+>  		struct {
+> -			__u32 magic __attribute__((packed));
+> -			__u32 len __attribute__((packed));
+> -			__u16 type __attribute__((packed));
+> -			__u16 p1 __attribute__((packed));
+> -			__u16 p2 __attribute__((packed));
+> -			__u16 p3 __attribute__((packed));
+> -			__u16 type2 __attribute__((packed));
+> +			__u32 magic __packed;
+> +			__u32 len __packed;
+> +			__u16 type __packed;
+> +			__u16 p1 __packed;
+> +			__u16 p2 __packed;
+> +			__u16 p3 __packed;
+> +			__u16 type2 __packed;
+>  		} buf;				/* STREAM only: temporary buffer */
+
+This could probably just be
+		struct {
+			__u32 magic;
+			__u32 len;
+			__u16 type;
+			__u16 p1;
+			__u16 p2;
+			__u16 p3;
+			__u16 type2;
+ 		} __packed buf;				/* STREAM only: temporary buffer */
+[]
+
+> diff --git a/net/iucv/iucv.c b/net/iucv/iucv.c
+> index f28ad2c..499c045 100644
+> --- a/net/iucv/iucv.c
+> +++ b/net/iucv/iucv.c
+> @@ -1463,7 +1463,7 @@ struct iucv_path_pending {
+>  	u32 res3;
+>  	u8  ippollfg;
+>  	u8  res4[3];
+> -} __attribute__ ((packed));
+> +} __packed;
+
+iucv also has some structs that are __attribute__ ((packed,aligned(8)));
+
+Perhaps those should become: __packed __aligned(8) instead of
+leaving them as is.
+
+
 
