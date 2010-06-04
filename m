@@ -1,57 +1,64 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [Patch 2/2] mlx4: add dynamic LRO disable support
-Date: Fri, 04 Jun 2010 15:25:52 +0100
-Message-ID: <1275661552.2095.13.camel@achroite.uk.solarflarecom.com>
-References: <20100603034303.5305.55552.sendpatchset@localhost.localdomain>
-	 <20100603034312.5305.61000.sendpatchset@localhost.localdomain>
-	 <1275568622.2870.89.camel@localhost>  <4C085D45.6040001@redhat.com>
+From: Satoru SATOH <satoru.satoh@gmail.com>
+Subject: Re: 200 millisecond timeouts in TCP
+Date: Sat, 5 Jun 2010 00:02:02 +0900
+Message-ID: <20100604150202.GA8268@localhost.localdomain>
+References: <AANLkTils4KHXwX79cLG6UvVOaDdddMqx-1tyUL3VtLQC@mail.gmail.com> <AANLkTilsYS8P2VqATmasXjjdhjPMMZznIHBByXc1i8cU@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert.xu@redhat.com, nhorman@redhat.com,
-	sgruszka@redhat.com, davem@davemloft.net
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ivan Novick <novickivan@gmail.com>, netdev@vger.kernel.org
+To: Ryousei Takano <ryousei@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:58710 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932405Ab0FDOZ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 10:25:56 -0400
-In-Reply-To: <4C085D45.6040001@redhat.com>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:62625 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752354Ab0FDPCJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 11:02:09 -0400
+Received: by pwj5 with SMTP id 5so27504pwj.19
+        for <netdev@vger.kernel.org>; Fri, 04 Jun 2010 08:02:07 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <AANLkTilsYS8P2VqATmasXjjdhjPMMZznIHBByXc1i8cU@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-06-04 at 09:56 +0800, Cong Wang wrote:
-> On 06/03/10 20:37, Ben Hutchings wrote:
-> > On Wed, 2010-06-02 at 23:39 -0400, Amerigo Wang wrote:
-> >> This patch adds dynamic LRO diable support for mlx4 net driver.
-> >> It also fixes a bug of mlx4, which checks NETIF_F_LRO flag in rx
-> >> path without rtnl lock.
-> > [...]
+It's possible to tune the RTO min value (rto_min) per route since
+2.6.23+.  (see also the manual of iproute2, ip(8) )
+
+- satoru
+
+On Fri, Jun 04, 2010 at 03:58:57PM +0900, Ryousei Takano wrote:
+> On Fri, Jun 4, 2010 at 7:37 AM, Ivan Novick <novickivan@gmail.com> wr=
+ote:
+> > Hello,
 > >
-> > Is that flag test actually unsafe - and if so, how is testing num_lro
-> > any better?  Perhaps access to net_device::features should be wrapped
-> > with ACCESS_ONCE() to ensure that reads and writes are atomic.
+> > Using tcpdump and systemtap I am seeing that sometimes retransmissi=
+on
+> > of data is sent after waiting 200 milliseconds. =C2=A0However somet=
+imes
+> > retransmissions happen quicker.
 > >
-> 
-> At least, I don't find there is any race with 'num_lro', thus
-> no lock is needed.
-
-In both cases there is a race condition but it is harmless so long as
-the read and the write are atomic.  There is a general assumption in
-networking code that this is the case for int and long.  Personally I
-would prefer to see this made explicit using ACCESS_ONCE(), but I don't
-see any specific problem in mlx4 (not that I'm familiar with this driver
-either).
-
-Now that I look at the patch again, I see you're using a static (i.e.
-global) variable to 'back up' the non-zero (enabled) value of num_lro.
-This is introducing a bug!  The correct value is apparently set in
-mlx4_en_get_profile(); you would need to replicate that.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+> > Is there a specifc event that causes these 200 milisec delays to ki=
+ck
+> > in? =C2=A0Are those events identifiable in netstat -s output?
+> >
+> > Also do you know if the timeout numbers for TCP are configurable pa=
+rameters?
+> >
+> The minimum RTO value is fixed to 200 ms.  It is useful to make the m=
+in/max
+> RTO values tunable.  For example, reducing the minimum RTO value is e=
+ffective
+> for TCP incast problem [1].  Of course, it may occur spurious retrans=
+missions.
+>=20
+> [1] Vijay Vasudevan, et al, Safe and Effective Fine-grained TCP Retra=
+nsmissions
+> for Datacenter Communication, SIGCOMM2009
+>=20
+> In Solaris, there are two tunable parameters: tcp_rexmit_interval_min=
+/max.
+>=20
+> Do you have plan to introduce sysctl parameters like these to the Lin=
+ux.
+>=20
+> Thanks,
+> Ryousei
