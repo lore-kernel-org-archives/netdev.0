@@ -1,45 +1,64 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC][PATCH] Fix another namespace issue with devices assigned
- to classes
-Date: Fri, 04 Jun 2010 08:54:12 +0200
-Message-ID: <1275634452.5189.1.camel@jlt3.sipsolutions.net>
-References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
-	 <20100602154608.GB12361@kroah.com>
-	 <1275493693.3915.12.camel@jlt3.sipsolutions.net>
-	 <m1ljaxxvcj.fsf@fess.ebiederm.org>
-	 <1275495677.3915.16.camel@jlt3.sipsolutions.net>
-	 <m14ohlxu51.fsf@fess.ebiederm.org>
-	 <1275498007.3915.20.camel@jlt3.sipsolutions.net>
-	 <m1ocftwdp7.fsf@fess.ebiederm.org>
-	 <1275501157.3915.22.camel@jlt3.sipsolutions.net>
-	 <m1y6exux6x.fsf@fess.ebiederm.org>
-	 <1275506732.3915.41.camel@jlt3.sipsolutions.net>
-	 <m16321t4ke.fsf@fess.ebiederm.org>  <m17hmhrl6v.fsf_-_@fess.ebiederm.org>
+From: Ryousei Takano <ryousei@gmail.com>
+Subject: Re: 200 millisecond timeouts in TCP
+Date: Fri, 4 Jun 2010 15:58:57 +0900
+Message-ID: <AANLkTilsYS8P2VqATmasXjjdhjPMMZznIHBByXc1i8cU@mail.gmail.com>
+References: <AANLkTils4KHXwX79cLG6UvVOaDdddMqx-1tyUL3VtLQC@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>,
-	Kay Sievers <kay.sievers@vrfy.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Ivan Novick <novickivan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:49608 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751073Ab0FDGyg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 02:54:36 -0400
-In-Reply-To: <m17hmhrl6v.fsf_-_@fess.ebiederm.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:41576 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751409Ab0FDG66 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 02:58:58 -0400
+Received: by vws11 with SMTP id 11so1236641vws.19
+        for <netdev@vger.kernel.org>; Thu, 03 Jun 2010 23:58:58 -0700 (PDT)
+In-Reply-To: <AANLkTils4KHXwX79cLG6UvVOaDdddMqx-1tyUL3VtLQC@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-06-02 at 17:53 -0700, Eric W. Biederman wrote:
+On Fri, Jun 4, 2010 at 7:37 AM, Ivan Novick <novickivan@gmail.com> wrot=
+e:
+> Hello,
+>
+> Using tcpdump and systemtap I am seeing that sometimes retransmission
+> of data is sent after waiting 200 milliseconds. =A0However sometimes
+> retransmissions happen quicker.
+>
+> Is there a specifc event that causes these 200 milisec delays to kick
+> in? =A0Are those events identifiable in netstat -s output?
+>
+> Also do you know if the timeout numbers for TCP are configurable para=
+meters?
+>
+The minimum RTO value is fixed to 200 ms.  It is useful to make the min=
+/max
+RTO values tunable.  For example, reducing the minimum RTO value is eff=
+ective
+for TCP incast problem [1].  Of course, it may occur spurious retransmi=
+ssions.
 
-> Johannes this should fix your issue with mac80211_hwsim, where
-> the device symlink were not destroyed when the driver was removed.
+[1] Vijay Vasudevan, et al, Safe and Effective Fine-grained TCP Retrans=
+missions
+for Datacenter Communication, SIGCOMM2009
 
-It does, thank you.
+In Solaris, there are two tunable parameters: tcp_rexmit_interval_min/m=
+ax.
 
-FWIW, I'm happy changing hwsim too, but I don't think I quite understand
-what you're proposing in your other email so I'll leave it up to you
-since you now know what is causing the problem :)
+Do you have plan to introduce sysctl parameters like these to the Linux=
+=2E
 
-johannes
+Thanks,
+Ryousei
 
+> I am testing on RHEL5 with this kernel: 2.6.18-164.15.1.el5.
+>
+> Cheers,
+> Ivan Novick
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
