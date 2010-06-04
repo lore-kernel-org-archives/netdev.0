@@ -1,37 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next-2.6] net sched: make pedit check for clones
-	instead
-Date: Fri, 4 Jun 2010 23:05:11 +1000
-Message-ID: <20100604130511.GA10925@gondor.apana.org.au>
-References: <1275655386.3445.62.camel@bigi>
+From: Andrew Hendry <andrew.hendry@gmail.com>
+Subject: net-next Build error in qlogic driver from randconfig.
+Date: Fri, 04 Jun 2010 23:20:22 +1000
+Message-ID: <1275657622.8635.13.camel@jaunty>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, Jiri Pirko <jpirko@redhat.com>,
-	netdev@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Amit Kumar Salecha <amit.salecha@qlogic.com>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:59272 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755284Ab0FDNFZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 09:05:25 -0400
-Content-Disposition: inline
-In-Reply-To: <1275655386.3445.62.camel@bigi>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:39017 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753357Ab0FDNWq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 09:22:46 -0400
+Received: by pwi3 with SMTP id 3so123302pwi.19
+        for <netdev@vger.kernel.org>; Fri, 04 Jun 2010 06:22:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 04, 2010 at 08:43:06AM -0400, jamal wrote:
-> And here's the second one. I noticed Changli's changes are not yet in
-> net-next. I will wait for that change to propagate and then send the
-> fix to pedit that i discussed with Herbert.
 
-Thanks Jamal!
+net-next currently gives a build error from a randconfig.
+# CONFIG_INET is not set
+CONFIG_QLCNIC=m
 
-BTW, I think this patch should go in first (before the one that
-removes the OK2MUNGE setting) to be on the safe side.
+ERROR: "qlcnicvf_set_ilb_mode" [drivers/net/qlcnic/qlcnic.ko] undefined!
+ERROR: "qlcnicvf_config_bridged_mode" [drivers/net/qlcnic/qlcnic.ko] undefined!
+ERROR: "qlcnicvf_config_led" [drivers/net/qlcnic/qlcnic.ko] undefined!
+ERROR: "qlcnicvf_clear_ilb_mode" [drivers/net/qlcnic/qlcnic.ko] undefined!
+ERROR: "qlcnicvf_start_firmware" [drivers/net/qlcnic/qlcnic.ko] undefined!
+make[1]: *** [__modpost] Error 1
+make: *** [modules] Error 2
+make: *** Waiting for unfinished jobs....
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
