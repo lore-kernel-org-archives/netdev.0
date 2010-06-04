@@ -1,76 +1,38 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH v2] net: check for refcount if pop a stacked dst_entry
-Date: Fri, 4 Jun 2010 13:57:38 +0200
-Message-ID: <20100604115737.GA5570@secunet.com>
-References: <20100604104012.GA13408@secunet.com>
- <20100604104115.GB13408@secunet.com>
- <1275648679.2482.43.camel@edumazet-laptop>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: no reassembly for outgoing packets on RAW socket
+Date: Fri, 04 Jun 2010 14:03:17 +0200
+Message-ID: <4C08EB85.3050900@trash.net>
+References: <20100604112708.GA1958@jolsa.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jiri Olsa <jolsa@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:44499 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753253Ab0FDL6M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Jun 2010 07:58:12 -0400
-Content-Disposition: inline
-In-Reply-To: <1275648679.2482.43.camel@edumazet-laptop>
+Received: from stinky.trash.net ([213.144.137.162]:49471 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751745Ab0FDMDU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 08:03:20 -0400
+In-Reply-To: <20100604112708.GA1958@jolsa.lab.eng.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-xfrm triggers a warning if dst_pop() drops a refcount
-on a noref dst. This patch changes dst_pop() to
-skb_dst_pop(). skb_dst_pop() drops the refcnt only
-on a refcounted dst. Also we don't clone the child
-dst_entry, so it is not refcounted and we can use
-skb_dst_set_noref() in xfrm_output_one().
+Jiri Olsa wrote:
+> hi,
+> 
+> I'd like to be able to sendout a single IP packet with MF flag set.
+> 
+> When using RAW sockets the packet will get stuck in the
+> netfilter (NF_INET_LOCAL_OUT nf_defrag_ipv4 reassembly unit)
+> and wont ever make it out..
+> 
+> I made a change which bypass the outgoing reassembly for
+> RAW sockets, but I'm not sure wether it's too invasive..
 
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- include/net/dst.h      |    6 +++---
- net/xfrm/xfrm_output.c |    4 ++--
- 2 files changed, 5 insertions(+), 5 deletions(-)
+That would break reassembly (and thus connection tracking) for cases
+where its really intended.
 
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 612069b..81d1413 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -250,11 +250,11 @@ static inline void skb_tunnel_rx(struct sk_buff *skb, struct net_device *dev)
-  * Linux networking.  Thus, destinations are stackable.
-  */
- 
--static inline struct dst_entry *dst_pop(struct dst_entry *dst)
-+static inline struct dst_entry *skb_dst_pop(struct sk_buff *skb)
- {
--	struct dst_entry *child = dst_clone(dst->child);
-+	struct dst_entry *child = skb_dst(skb)->child;
- 
--	dst_release(dst);
-+	skb_dst_drop(skb);
- 	return child;
- }
- 
-diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-index 6a32915..a3cca0a 100644
---- a/net/xfrm/xfrm_output.c
-+++ b/net/xfrm/xfrm_output.c
-@@ -95,13 +95,13 @@ resume:
- 			goto error_nolock;
- 		}
- 
--		dst = dst_pop(dst);
-+		dst = skb_dst_pop(skb);
- 		if (!dst) {
- 			XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTERROR);
- 			err = -EHOSTUNREACH;
- 			goto error_nolock;
- 		}
--		skb_dst_set(skb, dst);
-+		skb_dst_set_noref(skb, dst);
- 		x = dst->xfrm;
- 	} while (x && !(x->outer_mode->flags & XFRM_MODE_FLAG_TUNNEL));
- 
--- 
-1.5.6.5
+> Is there any standard for RAW sockets behaviour?
+> Or another way around? :)
 
+You could use the NOTRACK target to bypass connection tracking.
