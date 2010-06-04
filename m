@@ -1,46 +1,366 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
+From: Ivan Novick <novickivan@gmail.com>
 Subject: Re: 200 millisecond timeouts in TCP
-Date: Fri, 4 Jun 2010 01:10:02 +0200
-Message-ID: <20100603231002.GG6914@nuttenaction>
+Date: Thu, 3 Jun 2010 17:05:07 -0700
+Message-ID: <AANLkTin0soTsGJIqNVYp32AFf-H9I3yY9xHI1rgYBIVW@mail.gmail.com>
 References: <AANLkTils4KHXwX79cLG6UvVOaDdddMqx-1tyUL3VtLQC@mail.gmail.com>
+	<20100603231002.GG6914@nuttenaction>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Ivan Novick <novickivan@gmail.com>
+To: Hagen Paul Pfeifer <hagen@jauu.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:45779 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752675Ab0FCXKG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 19:10:06 -0400
-Content-Disposition: inline
-In-Reply-To: <AANLkTils4KHXwX79cLG6UvVOaDdddMqx-1tyUL3VtLQC@mail.gmail.com>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:50489 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750972Ab0FDAFJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 20:05:09 -0400
+Received: by vws11 with SMTP id 11so801192vws.19
+        for <netdev@vger.kernel.org>; Thu, 03 Jun 2010 17:05:08 -0700 (PDT)
+In-Reply-To: <20100603231002.GG6914@nuttenaction>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Ivan Novick | 2010-06-03 15:37:24 [-0700]:
+On Thu, Jun 3, 2010 at 4:10 PM, Hagen Paul Pfeifer <hagen@jauu.net> wro=
+te:
+> * Ivan Novick | 2010-06-03 15:37:24 [-0700]:
+>
+>>Using tcpdump and systemtap I am seeing that sometimes retransmission
+>>of data is sent after waiting 200 milliseconds. =A0However sometimes
+>>retransmissions happen quicker.
+>
+> Quicker as 200ms? Conservatively the minimum TCP RTO should be 1s (rf=
+c2988),
+> Linux differs from this default and define the minimum RTO to 200ms:
+>
+> #define TCP_RTO_MIN =A0 =A0 ((unsigned)(HZ/5))
+>
+> Can you post the tcpdump traces where the relevant retransmission is =
+recognizable?
+Here is the tcpdump, below.
+Cheers,
+Ivan Novick
 
->Using tcpdump and systemtap I am seeing that sometimes retransmission
->of data is sent after waiting 200 milliseconds.  However sometimes
->retransmissions happen quicker.
+tcpdump on machine dell-s1-1:
+000005 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168771588:168787516(15928) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240628>
+000052 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168749868 win 16200
+<nop,nop,timestamp 2077240628 1375977402>
+000086 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168754212 win 16200
+<nop,nop,timestamp 2077240628 1375977402>
+000026 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168757108 win 16200
+<nop,nop,timestamp 2077240628 1375977402>
+000040 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168762900 win 16200
+<nop,nop,timestamp 2077240628 1375977402>
+000013 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168787516:168803444(15928) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240628>
+000046 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168768692 win 16200
+<nop,nop,timestamp 2077240628 1375977402>
+000059 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168775932 win 16200
+<nop,nop,timestamp 2077240628 1375977402>
+000006 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168803444:168817924(14480) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240628>
+000049 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168781724 win 16200
+<nop,nop,timestamp 2077240628 1375977402>
+000444 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168786068 win 16200
+<nop,nop,timestamp 2077240629 1375977402>
+000025 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168787516 win 16200
+<nop,nop,timestamp 2077240629 1375977402,nop,nop,sack 1
+{168801996:168804892}>
+000020 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168817924:168819372(1448) ack 1 win 46 <nop,nop,timestamp 1375977403
+2077240629>
+000003 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168787516 win 16200
+<nop,nop,timestamp 2077240629 1375977402,nop,nop,sack 1
+{168801996:168806340}>
+000006 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168819372:168820820(1448) ack 1 win 46 <nop,nop,timestamp 1375977403
+2077240629>
+000003 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168787516 win 16200
+<nop,nop,timestamp 2077240629 1375977402,nop,nop,sack 1
+{168801996:168809236}>
+000005 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168820820:168822268(1448) ack 1 win 46 <nop,nop,timestamp 1375977403
+2077240629>
+000002 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168787516 win 16200
+<nop,nop,timestamp 2077240629 1375977402,nop,nop,sack 1
+{168801996:168812132}>
+000005 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168822268:168823716(1448) ack 1 win 46 <nop,nop,timestamp 1375977403
+2077240629>
+000002 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168787516 win 16200
+<nop,nop,timestamp 2077240629 1375977402,nop,nop,sack 1
+{168801996:168815028}>
+000005 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168823716:168825164(1448) ack 1 win 46 <nop,nop,timestamp 1375977403
+2077240629>
+000005 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168787516 win 16200
+<nop,nop,timestamp 2077240629 1375977402,nop,nop,sack 1
+{168801996:168817924}>
+000005 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168825164:168826612(1448) ack 1 win 46 <nop,nop,timestamp 1375977403
+2077240629>
+000412 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168787516 win 16200
+<nop,nop,timestamp 2077240629 1375977402,nop,nop,sack 1
+{168801996:168819372}>
+000007 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168787516:168788964(1448) ack 1 win 46 <nop,nop,timestamp 1375977403
+2077240629>
+000003 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168787516 win 16200
+<nop,nop,timestamp 2077240629 1375977402,nop,nop,sack 1
+{168801996:168822268}>
+000004 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168788964:168790412(1448) ack 1 win 46 <nop,nop,timestamp 1375977403
+2077240629>
+000003 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168787516 win 16200
+<nop,nop,timestamp 2077240629 1375977402,nop,nop,sack 1
+{168801996:168825164}>
+000003 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168790412:168791860(1448) ack 1 win 46 <nop,nop,timestamp 1375977403
+2077240629>
+000003 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168787516 win 16200
+<nop,nop,timestamp 2077240629 1375977402,nop,nop,sack 1
+{168801996:168826612}>
+000004 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168791860:168793308(1448) ack 1 win 46 <nop,nop,timestamp 1375977403
+2077240629>
+000383 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168788964 win 16188
+<nop,nop,timestamp 2077240629 1375977403,nop,nop,sack 1
+{168801996:168826612}>
+000006 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168793308:168794756(1448) ack 1 win 46 <nop,nop,timestamp 1375977404
+2077240629>
+000003 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168790412 win 16177
+<nop,nop,timestamp 2077240629 1375977403,nop,nop,sack 1
+{168801996:168826612}>
+000004 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168794756:168796204(1448) ack 1 win 46 <nop,nop,timestamp 1375977404
+2077240629>
+000003 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168793308 win 16154
+<nop,nop,timestamp 2077240629 1375977403,nop,nop,sack 1
+{168801996:168826612}>
+000005 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168796204:168797652(1448) ack 1 win 46 <nop,nop,timestamp 1375977404
+2077240629>
+000132 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168794756 win 16143
+<nop,nop,timestamp 2077240630 1375977404,nop,nop,sack 1
+{168801996:168826612}>
+000005 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168797652:168799100(1448) ack 1 win 46 <nop,nop,timestamp 1375977404
+2077240630>
+000018 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168797652 win 16120
+<nop,nop,timestamp 2077240630 1375977404,nop,nop,sack 1
+{168801996:168826612}>
+000006 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168799100:168800548(1448) ack 1 win 46 <nop,nop,timestamp 1375977404
+2077240630>
+000198 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168799100 win 16109
+<nop,nop,timestamp 2077240630 1375977404,nop,nop,sack 1
+{168801996:168826612}>
+000006 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168800548:168801996(1448) ack 1 win 46 <nop,nop,timestamp 1375977404
+2077240630>
+000024 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168800548 win 16098
+<nop,nop,timestamp 2077240630 1375977404,nop,nop,sack 1
+{168801996:168826612}>
+000007 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168826612:168828060(1448) ack 1 win 46 <nop,nop,timestamp 1375977404
+2077240630>
+203979 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168800548:168801996(1448) ack 1 win 46 <nop,nop,timestamp 1375977608
+2077240630>
+000110 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168828060 win 16200
+<nop,nop,timestamp 2077240834 1375977404,nop,nop,sack 1
+{168800548:168801996}>
 
-Quicker as 200ms? Conservatively the minimum TCP RTO should be 1s (rfc2988),
-Linux differs from this default and define the minimum RTO to 200ms:
+tcpdump on machine dell-s2-1:
 
-#define TCP_RTO_MIN	((unsigned)(HZ/5))
-
-Can you post the tcpdump traces where the relevant retransmission is recognizable?
-
->Also do you know if the timeout numbers for TCP are configurable parameters?
-
-Some values are documented in Documentation/networking/ip-sysctl.txt, you can
-find the relevant timer implementation in ipv4/tcp_input.c and the definition
-of TCP_RTO_MIN in include/net/tcp.h.
-
-
-Hagen Paul Pfeifer
-
-
--- 
-Hagen Paul Pfeifer <hagen@jauu.net>  ||  http://jauu.net/
-Telephone: +49 174 5455209           ||  Key Id: 0x98350C22
-Key Fingerprint: 490F 557B 6C48 6D7E 5706 2EA2 4A22 8D45 9835 0C22
+000032 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168746972 win 16200
+<nop,nop,timestamp 2077240628 1375977402>
+000022 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168746972:168748420(1448) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240627>
+000023 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168748420:168749868(1448) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240627>
+000013 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168749868 win 16200
+<nop,nop,timestamp 2077240628 1375977402>
+000037 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168749868:168751316(1448) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240627>
+000027 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168751316:168754212(2896) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240627>
+000021 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168754212 win 16200
+<nop,nop,timestamp 2077240628 1375977402>
+000005 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168754212:168755660(1448) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240627>
+000002 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168755660:168757108(1448) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240628>
+000004 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168757108 win 16200
+<nop,nop,timestamp 2077240628 1375977402>
+000019 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168757108:168760004(2896) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240628>
+000026 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168760004:168762900(2896) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240628>
+000011 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168762900 win 16200
+<nop,nop,timestamp 2077240628 1375977402>
+000014 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168762900:168765796(2896) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240628>
+000026 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168765796:168768692(2896) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240628>
+000011 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168768692 win 16200
+<nop,nop,timestamp 2077240628 1375977402>
+000016 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168768692:168773036(4344) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240628>
+000026 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168773036:168775932(2896) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240628>
+000017 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168775932 win 16200
+<nop,nop,timestamp 2077240628 1375977402>
+000008 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168775932:168778828(2896) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240628>
+000025 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168778828:168781724(2896) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240628>
+000012 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168781724 win 16200
+<nop,nop,timestamp 2077240628 1375977402>
+000014 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168781724:168784620(2896) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240628>
+000024 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168784620:168786068(1448) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240628>
+000025 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168786068:168787516(1448) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240628>
+000091 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168801996:168804892(2896) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240628>
+000009 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168804892:168806340(1448) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240628>
+000026 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168806340:168809236(2896) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240628>
+000027 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168809236:168812132(2896) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240628>
+000024 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168812132:168815028(2896) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240628>
+000029 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168815028:168817924(2896) ack 1 win 46 <nop,nop,timestamp 1375977402
+2077240628>
+000077 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168786068 win 16200
+<nop,nop,timestamp 2077240629 1375977402>
+000006 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168787516 win 16200
+<nop,nop,timestamp 2077240629 1375977402,nop,nop,sack 1
+{168801996:168804892}>
+000002 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168787516 win 16200
+<nop,nop,timestamp 2077240629 1375977402,nop,nop,sack 1
+{168801996:168806340}>
+000001 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168787516 win 16200
+<nop,nop,timestamp 2077240629 1375977402,nop,nop,sack 1
+{168801996:168809236}>
+000002 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168787516 win 16200
+<nop,nop,timestamp 2077240629 1375977402,nop,nop,sack 1
+{168801996:168812132}>
+000003 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168787516 win 16200
+<nop,nop,timestamp 2077240629 1375977402,nop,nop,sack 1
+{168801996:168815028}>
+000001 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168787516 win 16200
+<nop,nop,timestamp 2077240629 1375977402,nop,nop,sack 1
+{168801996:168817924}>
+000203 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168817924:168819372(1448) ack 1 win 46 <nop,nop,timestamp 1375977403
+2077240629>
+000028 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168819372:168822268(2896) ack 1 win 46 <nop,nop,timestamp 1375977403
+2077240629>
+000025 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168822268:168825164(2896) ack 1 win 46 <nop,nop,timestamp 1375977403
+2077240629>
+000024 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168825164:168826612(1448) ack 1 win 46 <nop,nop,timestamp 1375977403
+2077240629>
+000312 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168787516 win 16200
+<nop,nop,timestamp 2077240629 1375977402,nop,nop,sack 1
+{168801996:168819372}>
+000003 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168787516 win 16200
+<nop,nop,timestamp 2077240629 1375977402,nop,nop,sack 1
+{168801996:168822268}>
+000002 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168787516 win 16200
+<nop,nop,timestamp 2077240629 1375977402,nop,nop,sack 1
+{168801996:168825164}>
+000002 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168787516 win 16200
+<nop,nop,timestamp 2077240629 1375977402,nop,nop,sack 1
+{168801996:168826612}>
+000074 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168787516:168788964(1448) ack 1 win 46 <nop,nop,timestamp 1375977403
+2077240629>
+000013 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168788964 win 16188
+<nop,nop,timestamp 2077240629 1375977403,nop,nop,sack 1
+{168801996:168826612}>
+000013 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168788964:168790412(1448) ack 1 win 46 <nop,nop,timestamp 1375977403
+2077240629>
+000013 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168790412 win 16177
+<nop,nop,timestamp 2077240629 1375977403,nop,nop,sack 1
+{168801996:168826612}>
+000014 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168790412:168793308(2896) ack 1 win 46 <nop,nop,timestamp 1375977403
+2077240629>
+000015 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168793308 win 16154
+<nop,nop,timestamp 2077240629 1375977403,nop,nop,sack 1
+{168801996:168826612}>
+000333 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168793308:168794756(1448) ack 1 win 46 <nop,nop,timestamp 1375977404
+2077240629>
+000016 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168794756 win 16143
+<nop,nop,timestamp 2077240630 1375977404,nop,nop,sack 1
+{168801996:168826612}>
+000010 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168794756:168797652(2896) ack 1 win 46 <nop,nop,timestamp 1375977404
+2077240629>
+000013 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168797652 win 16120
+<nop,nop,timestamp 2077240630 1375977404,nop,nop,sack 1
+{168801996:168826612}>
+000111 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168797652:168799100(1448) ack 1 win 46 <nop,nop,timestamp 1375977404
+2077240630>
+000021 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168799100 win 16109
+<nop,nop,timestamp 2077240630 1375977404,nop,nop,sack 1
+{168801996:168826612}>
+000004 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168799100:168800548(1448) ack 1 win 46 <nop,nop,timestamp 1375977404
+2077240630>
+000003 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168800548 win 16098
+<nop,nop,timestamp 2077240630 1375977404,nop,nop,sack 1
+{168801996:168826612}>
+000258 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168800548:168801996(1448) ack 1 win 46 <nop,nop,timestamp 1375977404
+2077240630>
+000036 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168826612:168828060(1448) ack 1 win 46 <nop,nop,timestamp 1375977404
+2077240630>
+000030 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168826612 win 16077
+<nop,nop,timestamp 2077240630 1375977404>
+000003 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168828060 win 16066
+<nop,nop,timestamp 2077240630 1375977404>
+203890 IP dell-s1-1.46799 > dell-s2-1.47500: .
+168800548:168801996(1448) ack 1 win 46 <nop,nop,timestamp 1375977608
+2077240630>
+000042 IP dell-s2-1.47500 > dell-s1-1.46799: . ack 168828060 win 16200
+<nop,nop,timestamp 2077240834 1375977404,nop,nop,sack 1
+{168800548:168801996}>
