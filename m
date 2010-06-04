@@ -1,114 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] raw: avoid two atomics in xmit
-Date: Fri, 04 Jun 2010 10:23:57 +0200
-Message-ID: <1275639837.2482.17.camel@edumazet-laptop>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC][PATCH] Fix another namespace issue with devices assigned
+ to  classes
+Date: Fri, 04 Jun 2010 10:28:33 +0200
+Message-ID: <1275640113.9953.8.camel@jlt3.sipsolutions.net>
+References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
+	 <20100602154608.GB12361@kroah.com>
+	 <1275493693.3915.12.camel@jlt3.sipsolutions.net>
+	 <m1ljaxxvcj.fsf@fess.ebiederm.org>
+	 <1275495677.3915.16.camel@jlt3.sipsolutions.net>
+	 <m14ohlxu51.fsf@fess.ebiederm.org>
+	 <1275498007.3915.20.camel@jlt3.sipsolutions.net>
+	 <m1ocftwdp7.fsf@fess.ebiederm.org>
+	 <1275501157.3915.22.camel@jlt3.sipsolutions.net>
+	 <m1y6exux6x.fsf@fess.ebiederm.org>
+	 <1275506732.3915.41.camel@jlt3.sipsolutions.net>
+	 <m16321t4ke.fsf@fess.ebiederm.org> <m17hmhrl6v.fsf_-_@fess.ebiederm.org>
+	 <1275634452.5189.1.camel@jlt3.sipsolutions.net>
+	 <AANLkTingSwM7e8ldyT1FplF5WCHBsCBCwNkb5ZPHe6hB@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
+To: Kay Sievers <kay.sievers@vrfy.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:57616 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753330Ab0FDIYA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 04:24:00 -0400
-Received: by fxm8 with SMTP id 8so597363fxm.19
-        for <netdev@vger.kernel.org>; Fri, 04 Jun 2010 01:23:59 -0700 (PDT)
+Received: from he.sipsolutions.net ([78.46.109.217]:53954 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752815Ab0FDI2j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 04:28:39 -0400
+In-Reply-To: <AANLkTingSwM7e8ldyT1FplF5WCHBsCBCwNkb5ZPHe6hB@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Avoid two atomic ops per raw_send_hdrinc() call
+On Fri, 2010-06-04 at 10:15 +0200, Kay Sievers wrote:
+> On Fri, Jun 4, 2010 at 08:54, Johannes Berg <johannes@sipsolutions.net> wrote:
+> > On Wed, 2010-06-02 at 17:53 -0700, Eric W. Biederman wrote:
+> >
+> >> Johannes this should fix your issue with mac80211_hwsim, where
+> >> the device symlink were not destroyed when the driver was removed.
+> >
+> > It does, thank you.
+> >
+> > FWIW, I'm happy changing hwsim too, but I don't think I quite understand
+> > what you're proposing in your other email so I'll leave it up to you
+> > since you now know what is causing the problem :)
+> 
+> Assuming that hwsim is th parent of the network interface, it should
+> us a "struct bus_type" not a "struct class" for the subsystem it
+> assigns the devices to.
 
-Avoid two atomic ops per raw6_send_hdrinc() call
+It's all virtual, so yeah, I guess it is the parent? It currently
+creates a virtual struct device in the hwsim class and assigns that to
+the netdev parent indirectly via the wiphy or something like that.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/raw.c |    8 +++++---
- net/ipv6/raw.c |   12 +++++++-----
- 2 files changed, 12 insertions(+), 8 deletions(-)
+> Classes should not be used for anything completely simple, at best not
+> be used at all, they are just too simple. We never know about future
+> requirements, which usually all go wrong with the non-extendable class
+> logic.
+> 
+> The difference in the code to switch from class to bus should be minimal.
 
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 2c7a163..66cc3be 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -314,7 +314,7 @@ int raw_rcv(struct sock *sk, struct sk_buff *skb)
- }
- 
- static int raw_send_hdrinc(struct sock *sk, void *from, size_t length,
--			struct rtable *rt,
-+			struct rtable **rtp,
- 			unsigned int flags)
- {
- 	struct inet_sock *inet = inet_sk(sk);
-@@ -323,6 +323,7 @@ static int raw_send_hdrinc(struct sock *sk, void *from, size_t length,
- 	struct sk_buff *skb;
- 	unsigned int iphlen;
- 	int err;
-+	struct rtable *rt = *rtp;
- 
- 	if (length > rt->u.dst.dev->mtu) {
- 		ip_local_error(sk, EMSGSIZE, rt->rt_dst, inet->inet_dport,
-@@ -341,7 +342,8 @@ static int raw_send_hdrinc(struct sock *sk, void *from, size_t length,
- 
- 	skb->priority = sk->sk_priority;
- 	skb->mark = sk->sk_mark;
--	skb_dst_set(skb, dst_clone(&rt->u.dst));
-+	skb_dst_set(skb, &rt->u.dst);
-+	*rtp = NULL;
- 
- 	skb_reset_network_header(skb);
- 	iph = ip_hdr(skb);
-@@ -576,7 +578,7 @@ back_from_confirm:
- 
- 	if (inet->hdrincl)
- 		err = raw_send_hdrinc(sk, msg->msg_iov, len,
--					rt, msg->msg_flags);
-+					&rt, msg->msg_flags);
- 
- 	 else {
- 		if (!ipc.addr)
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 864eb8e..968b964 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -602,13 +602,14 @@ out:
- }
- 
- static int rawv6_send_hdrinc(struct sock *sk, void *from, int length,
--			struct flowi *fl, struct rt6_info *rt,
-+			struct flowi *fl, struct dst_entry **dstp,
- 			unsigned int flags)
- {
- 	struct ipv6_pinfo *np = inet6_sk(sk);
- 	struct ipv6hdr *iph;
- 	struct sk_buff *skb;
- 	int err;
-+	struct rt6_info *rt = (struct rt6_info *)*dstp;
- 
- 	if (length > rt->u.dst.dev->mtu) {
- 		ipv6_local_error(sk, EMSGSIZE, fl, rt->u.dst.dev->mtu);
-@@ -626,7 +627,8 @@ static int rawv6_send_hdrinc(struct sock *sk, void *from, int length,
- 
- 	skb->priority = sk->sk_priority;
- 	skb->mark = sk->sk_mark;
--	skb_dst_set(skb, dst_clone(&rt->u.dst));
-+	skb_dst_set(skb, &rt->u.dst);
-+	*dstp = NULL;
- 
- 	skb_put(skb, length);
- 	skb_reset_network_header(skb);
-@@ -886,9 +888,9 @@ static int rawv6_sendmsg(struct kiocb *iocb, struct sock *sk,
- 		goto do_confirm;
- 
- back_from_confirm:
--	if (inet->hdrincl) {
--		err = rawv6_send_hdrinc(sk, msg->msg_iov, len, &fl, (struct rt6_info*)dst, msg->msg_flags);
--	} else {
-+	if (inet->hdrincl)
-+		err = rawv6_send_hdrinc(sk, msg->msg_iov, len, &fl, &dst, msg->msg_flags);
-+	else {
- 		lock_sock(sk);
- 		err = ip6_append_data(sk, ip_generic_getfrag, msg->msg_iov,
- 			len, 0, hlimit, tclass, opt, &fl, (struct rt6_info*)dst,
+Does that mean cfg80211 (net/wireless/) should also not use a struct
+class? I'm not familiar with any of these details, mind helping me out?
 
+johannes
 
