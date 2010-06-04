@@ -1,64 +1,54 @@
-From: Ryousei Takano <ryousei@gmail.com>
-Subject: Re: 200 millisecond timeouts in TCP
-Date: Fri, 4 Jun 2010 15:58:57 +0900
-Message-ID: <AANLkTilsYS8P2VqATmasXjjdhjPMMZznIHBByXc1i8cU@mail.gmail.com>
-References: <AANLkTils4KHXwX79cLG6UvVOaDdddMqx-1tyUL3VtLQC@mail.gmail.com>
+From: Kay Sievers <kay.sievers@vrfy.org>
+Subject: Re: [RFC][PATCH] Fix another namespace issue with devices assigned to
+	classes
+Date: Fri, 4 Jun 2010 10:15:49 +0200
+Message-ID: <AANLkTingSwM7e8ldyT1FplF5WCHBsCBCwNkb5ZPHe6hB@mail.gmail.com>
+References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
+	<20100602154608.GB12361@kroah.com> <1275493693.3915.12.camel@jlt3.sipsolutions.net>
+	<m1ljaxxvcj.fsf@fess.ebiederm.org> <1275495677.3915.16.camel@jlt3.sipsolutions.net>
+	<m14ohlxu51.fsf@fess.ebiederm.org> <1275498007.3915.20.camel@jlt3.sipsolutions.net>
+	<m1ocftwdp7.fsf@fess.ebiederm.org> <1275501157.3915.22.camel@jlt3.sipsolutions.net>
+	<m1y6exux6x.fsf@fess.ebiederm.org> <1275506732.3915.41.camel@jlt3.sipsolutions.net>
+	<m16321t4ke.fsf@fess.ebiederm.org> <m17hmhrl6v.fsf_-_@fess.ebiederm.org>
+	<1275634452.5189.1.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Ivan Novick <novickivan@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:41576 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751409Ab0FDG66 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 02:58:58 -0400
-Received: by vws11 with SMTP id 11so1236641vws.19
-        for <netdev@vger.kernel.org>; Thu, 03 Jun 2010 23:58:58 -0700 (PDT)
-In-Reply-To: <AANLkTils4KHXwX79cLG6UvVOaDdddMqx-1tyUL3VtLQC@mail.gmail.com>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:33067 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753298Ab0FDIWp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 04:22:45 -0400
+Received: by gwaa12 with SMTP id a12so658628gwa.19
+        for <netdev@vger.kernel.org>; Fri, 04 Jun 2010 01:22:45 -0700 (PDT)
+In-Reply-To: <1275634452.5189.1.camel@jlt3.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 4, 2010 at 7:37 AM, Ivan Novick <novickivan@gmail.com> wrot=
-e:
-> Hello,
+On Fri, Jun 4, 2010 at 08:54, Johannes Berg <johannes@sipsolutions.net> wrote:
+> On Wed, 2010-06-02 at 17:53 -0700, Eric W. Biederman wrote:
 >
-> Using tcpdump and systemtap I am seeing that sometimes retransmission
-> of data is sent after waiting 200 milliseconds. =A0However sometimes
-> retransmissions happen quicker.
+>> Johannes this should fix your issue with mac80211_hwsim, where
+>> the device symlink were not destroyed when the driver was removed.
 >
-> Is there a specifc event that causes these 200 milisec delays to kick
-> in? =A0Are those events identifiable in netstat -s output?
+> It does, thank you.
 >
-> Also do you know if the timeout numbers for TCP are configurable para=
-meters?
->
-The minimum RTO value is fixed to 200 ms.  It is useful to make the min=
-/max
-RTO values tunable.  For example, reducing the minimum RTO value is eff=
-ective
-for TCP incast problem [1].  Of course, it may occur spurious retransmi=
-ssions.
+> FWIW, I'm happy changing hwsim too, but I don't think I quite understand
+> what you're proposing in your other email so I'll leave it up to you
+> since you now know what is causing the problem :)
 
-[1] Vijay Vasudevan, et al, Safe and Effective Fine-grained TCP Retrans=
-missions
-for Datacenter Communication, SIGCOMM2009
+Assuming that hwsim is th parent of the network interface, it should
+us a "struct bus_type" not a "struct class" for the subsystem it
+assigns the devices to.
 
-In Solaris, there are two tunable parameters: tcp_rexmit_interval_min/m=
-ax.
+Classes should not be used for anything completely simple, at best not
+be used at all, they are just too simple. We never know about future
+requirements, which usually all go wrong with the non-extendable class
+logic.
 
-Do you have plan to introduce sysctl parameters like these to the Linux=
-=2E
+The difference in the code to switch from class to bus should be minimal.
 
-Thanks,
-Ryousei
-
-> I am testing on RHEL5 with this kernel: 2.6.18-164.15.1.el5.
->
-> Cheers,
-> Ivan Novick
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
+Cheers,
+Kay
