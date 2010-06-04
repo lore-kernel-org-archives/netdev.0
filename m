@@ -1,45 +1,43 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH v2] ixgbevf: Enable GRO by default
-Date: Thu, 03 Jun 2010 20:19:25 -0700
-Message-ID: <20100604031911.16828.76874.stgit@localhost.localdomain>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next-2.6 PATCH] ixgbe: Use netdev_<level>, dev_<level>,
+ pr_<level>
+Date: Thu, 03 Jun 2010 20:20:05 -0700
+Message-ID: <1275621605.1703.38.camel@Joe-Laptop.home>
+References: <20100604025225.16120.30293.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com,
-	Shirley Ma <xma@us.ibm.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
+	Emil Tantilov <emil.s.tantilov@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta06.westchester.pa.mail.comcast.net ([76.96.62.56]:45221
-	"EHLO qmta06.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755122Ab0FDDTq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 23:19:46 -0400
+Received: from mail.perches.com ([173.55.12.10]:2644 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932161Ab0FDDUI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Jun 2010 23:20:08 -0400
+In-Reply-To: <20100604025225.16120.30293.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shirley Ma <mashirle@us.ibm.com>
+On Thu, 2010-06-03 at 19:53 -0700, Jeff Kirsher wrote:
+> From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-Enable GRO by default for performance.
+Hi Emil.
 
-Signed-off-by: Shirley Ma <xma@us.ibm.com>
-Acked-by: Greg Rose <gregory.v.rose@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
+> This patch is alternative to a previous patch submitted by Joe Perches.
 
- drivers/net/ixgbevf/ixgbevf_main.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+Why eliminate all the adapter->msg_enable tests?
 
-diff --git a/drivers/net/ixgbevf/ixgbevf_main.c b/drivers/net/ixgbevf/ixgbevf_main.c
-index a16cff7..73f1e75 100644
---- a/drivers/net/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ixgbevf/ixgbevf_main.c
-@@ -3411,6 +3411,7 @@ static int __devinit ixgbevf_probe(struct pci_dev *pdev,
- 	netdev->features |= NETIF_F_IPV6_CSUM;
- 	netdev->features |= NETIF_F_TSO;
- 	netdev->features |= NETIF_F_TSO6;
-+	netdev->features |= NETIF_F_GRO;
- 	netdev->vlan_features |= NETIF_F_TSO;
- 	netdev->vlan_features |= NETIF_F_TSO6;
- 	netdev->vlan_features |= NETIF_F_IP_CSUM;
+There are many changes like this. For instance:
+
+>  	if (link_up && (link_speed == IXGBE_LINK_SPEED_1GB_FULL))
+> -		netif_info(adapter, hw, adapter->netdev, "Smartspeed has"
+> -			" downgraded the link speed from the maximum"
+> -			" advertised\n");
+> +		e_info("Smartspeed has downgraded the link speed from "
+> +		       "the maximum advertised\n");
+
+This was only printed when NETIF_MSG_HW was set,
+now it's always printed.
+
 
