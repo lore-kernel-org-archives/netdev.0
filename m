@@ -1,69 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC nf-next-2.6] conntrack: per cpu nf_conntrack_untracked
-Date: Fri, 04 Jun 2010 14:36:04 +0200
-Message-ID: <1275654964.2482.150.camel@edumazet-laptop>
-References: <1271941082.14501.189.camel@jdb-workstation>
-	 <q2h412e6f7f1004220613m488c2ee4r6d24a8d1e65997d4@mail.gmail.com>
-	 <4BD04C74.9020402@trash.net> <1271946961.7895.5665.camel@edumazet-laptop>
-	 <1271948029.7895.5707.camel@edumazet-laptop>
-	 <20100422155123.GA2524@linux.vnet.ibm.com>
-	 <1271952128.7895.5851.camel@edumazet-laptop>
-	 <Pine.LNX.4.64.1004222213290.10919@ask.diku.dk>
-	 <1272056237.4599.7.camel@edumazet-laptop>
-	 <Pine.LNX.4.64.1004241219280.32071@ask.diku.dk>
-	 <1272139861.20714.525.camel@edumazet-laptop>
-	 <1272292568.13192.43.camel@jdb-workstation>
-	 <1275340896.2478.26.camel@edumazet-laptop>
-	 <AANLkTikw3uonDB4nPXg8FVFN_07F_wq0SA_ayyAHL6VM@mail.gmail.com>
-	 <1275368732.2478.88.camel@edumazet-laptop> <4C04DE73.6050605@trash.net>
-	 <1275388310.2738.2.camel@edumazet-laptop> <4C04E3E2.7020209@trash.net>
-	 <1275409203.2738.227.camel@edumazet-laptop> <4C08E62A.9020607@trash.net>
-	 <AANLkTilKEpFTg5bH8d9UE3a3DVJNAGYz10Jgkt6lXtJ0@mail.gmail.com>
-	 <4C08F1A4.2050906@trash.net>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: still having r8169 woes with XID 18000000
+Date: Fri, 4 Jun 2010 14:36:34 +0200
+Message-ID: <20100604123641.ED8154CD45@orbit.nwl.cc>
+References: <4C08ED47.1030800@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4C08F1A4.2050906@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: =?utf-8?B?ZnJhbsOnb2lz?= romieu <romieu@fr.zoreil.com>,
+	netdev@vger.kernel.org
+To: Timo =?utf-8?B?VGVyw6Rz?= <timo.teras@iki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from orbit.nwl.cc ([91.121.169.95]:51227 "EHLO orbit.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755637Ab0FDMgn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jun 2010 08:36:43 -0400
+Content-Disposition: inline
+In-Reply-To: <4C08ED47.1030800@iki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 04 juin 2010 =C3=A0 14:29 +0200, Patrick McHardy a =C3=A9cr=
-it :
-> Changli Gao wrote:
-> > On Fri, Jun 4, 2010 at 7:40 PM, Patrick McHardy <kaber@trash.net> w=
-rote:
-> >> Eric Dumazet wrote:
-> >>> Obviously, an IPS_UNTRACKED bit would be much easier to implement=
-=2E
-> >>> Would it be acceptable ?
-> >> That also would be fine. However the main idea behind using a nfct=
-info
-> >> bit was that we wouldn't need the untracked conntrack anymore at a=
-ll.
-> >> But I guess a per-cpu untrack conntrack would already be an improv=
-ement
-> >> over the current situation.
-> >=20
-> > I think Eric didn't mean ip_conntrack_info but ip_conntrack_status
-> > bit. Since we have had a IPS_TEMPLATE bit, I think another
-> > IPS_UNTRACKED bit is also acceptable.
+Hi,
+
+On Fri, Jun 04, 2010 at 03:10:47PM +0300, Timo Ter=C3=A4s wrote:
+> After fixing the MAC issues earlier, I'm still seeing some weird trou=
+ble
+> with my RTL8169sc/8110sc / XID 18000000 boards.
 >=20
-> Yes, of course. But using one of these bits implies that we'd still
-> have the untracked conntrack.
+> The box(es) were originally running 2.6.30.x kernel and everything
+> worked without major problems. But after upgrading to 2.6.32.x (and e=
+ven
+> with most of the newer fixes included too), it seems that the sometim=
+es
+> (not too often) some of the interfaces just won't work after reboot
+> (cold or hard). It's a 3-in-1 board, and usually when this happens on=
+e
+> of the interfaces won't work but the other two do work.
+>=20
+> Whenever an interface is "broken", the following conditions are true:
+>  - forcing it to 10mbit/s and disabling autoneg will make it work
+>  - when it's not working ethtool -S reports rx_errors and align_error=
+s
+> increasing
+>  - when autoneg is on, ethtool says that "Link Detected: no"
 
-Yes, it was my idea, with a per_cpu untracked conntrack.
+This (your last point) is about what we were experiencing at work using
+PCI-based Gigabit Realtek NICs. Our solution to the problem was to
+switch to a different NIC (Intel e1000), which obviously solves any
+problems. ;)
 
-I'll submit a patch, thanks.
+But I've done some tests before, mainly being inspired by these mails:
+http://permalink.gmane.org/gmane.linux.network/160136
+http://permalink.gmane.org/gmane.linux.network/160280
+and after some feedback from the mainboard manufacturer I've tested the
+out-of-tree driver Realtek provides (version 6.013.00), which seems to
+not have this issue. Very interesting results show up when comparing
+6.013 with 6.012 (citing myself):
 
+Comparing r8169-6.013 with it's predecessor 6.012, you'll find a newly
+enabled function rtl8169_phy_power_up() as well as some more invocation=
+s
+of rtl8169_phy_power_down().
 
+This is probably the solution to these (at least in our case) very
+sporadic, but highly annoying, problems. In fact, when our NIC didn't
+detect any link, it needed a full power-cycle (no success with
+reset-button), so almost not workaroundable.
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+HTH, Phil
