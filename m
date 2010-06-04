@@ -1,30 +1,50 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: 200 millisecond timeouts in TCP
-Date: Fri, 4 Jun 2010 02:45:28 +0200
-Message-ID: <20100604004528.GH6914@nuttenaction>
-References: <AANLkTils4KHXwX79cLG6UvVOaDdddMqx-1tyUL3VtLQC@mail.gmail.com>
- <20100603231002.GG6914@nuttenaction>
- <AANLkTimP3IJzLUew7avKjDq7M2imLi7QHGBwyg_2zrPo@mail.gmail.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: [PATCH] virtio_net: indicate oom when addbuf returns failure
+Date: Fri, 4 Jun 2010 10:28:56 +0930
+Message-ID: <201006041028.56798.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Ivan Novick <novickivan@gmail.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Bruce Rogers <brogers@novell.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
+To: stable@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:35914 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755767Ab0FDApa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 20:45:30 -0400
-Content-Disposition: inline
-In-Reply-To: <AANLkTimP3IJzLUew7avKjDq7M2imLi7QHGBwyg_2zrPo@mail.gmail.com>
+Received: from ozlabs.org ([203.10.76.45]:42537 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756893Ab0FDA67 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Jun 2010 20:58:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Ivan Novick | 2010-06-03 17:11:07 [-0700]:
+This patch is a subset of an already upstream patch, but this portion
+is useful in earlier releases.
 
->resending tcpdump output as attachments.
+Please consider for the 2.6.32 and 2.6.33 stable trees.
 
-Thank you, but where did you see a spurious retransmission? I looked over the
-trace and didn't find any. (it is late here, so most likely I missed it ;-)
+If the add_buf operation fails, indicate failure to the caller.
 
+Signed-off-by: Bruce Rogers <brogers@novell.com>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 
-HGN
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+
+@@ -318,6 +318,7 @@ static bool try_fill_recv_maxbufs(struct
+                        skb_unlink(skb, &vi->recv);
+                        trim_pages(vi, skb);
+                        kfree_skb(skb);
++                       oom = true;
+                        break;
+                }
+                vi->num++;
+@@ -368,6 +369,7 @@ static bool try_fill_recv(struct virtnet
+                if (err < 0) {
+                        skb_unlink(skb, &vi->recv);
+                        kfree_skb(skb);
++                       oom = true;
+                        break;
+                }
+                vi->num++;
