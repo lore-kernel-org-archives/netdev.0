@@ -1,47 +1,46 @@
-From: =?ISO-8859-1?Q?Timo_Ter=E4s?= <timo.teras@iki.fi>
-Subject: still having r8169 woes with XID 18000000
-Date: Fri, 04 Jun 2010 15:10:47 +0300
-Message-ID: <4C08ED47.1030800@iki.fi>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [RFC nf-next-2.6] conntrack: per cpu nf_conntrack_untracked
+Date: Fri, 4 Jun 2010 20:10:35 +0800
+Message-ID: <AANLkTilKEpFTg5bH8d9UE3a3DVJNAGYz10Jgkt6lXtJ0@mail.gmail.com>
+References: <1271941082.14501.189.camel@jdb-workstation> <q2h412e6f7f1004220613m488c2ee4r6d24a8d1e65997d4@mail.gmail.com>
+	<4BD04C74.9020402@trash.net> <1271946961.7895.5665.camel@edumazet-laptop>
+	<1271948029.7895.5707.camel@edumazet-laptop> <20100422155123.GA2524@linux.vnet.ibm.com>
+	<1271952128.7895.5851.camel@edumazet-laptop> <Pine.LNX.4.64.1004222213290.10919@ask.diku.dk>
+	<1272056237.4599.7.camel@edumazet-laptop> <Pine.LNX.4.64.1004241219280.32071@ask.diku.dk>
+	<1272139861.20714.525.camel@edumazet-laptop> <1272292568.13192.43.camel@jdb-workstation>
+	<1275340896.2478.26.camel@edumazet-laptop> <AANLkTikw3uonDB4nPXg8FVFN_07F_wq0SA_ayyAHL6VM@mail.gmail.com>
+	<1275368732.2478.88.camel@edumazet-laptop> <4C04DE73.6050605@trash.net>
+	<1275388310.2738.2.camel@edumazet-laptop> <4C04E3E2.7020209@trash.net>
+	<1275409203.2738.227.camel@edumazet-laptop> <4C08E62A.9020607@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?fran=E7ois_romieu?= <romieu@fr.zoreil.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Netfilter Developers <netfilter-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f223.google.com ([209.85.219.223]:61154 "EHLO
-	mail-ew0-f223.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751683Ab0FDMKs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 08:10:48 -0400
-Received: by ewy23 with SMTP id 23so288249ewy.1
-        for <netdev@vger.kernel.org>; Fri, 04 Jun 2010 05:10:46 -0700 (PDT)
+Received: from mail-pz0-f185.google.com ([209.85.222.185]:49424 "EHLO
+	mail-pz0-f185.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751683Ab0FDMK4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 08:10:56 -0400
+In-Reply-To: <4C08E62A.9020607@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Fri, Jun 4, 2010 at 7:40 PM, Patrick McHardy <kaber@trash.net> wrote:
+> Eric Dumazet wrote:
+>> Obviously, an IPS_UNTRACKED bit would be much easier to implement.
+>> Would it be acceptable ?
+>
+> That also would be fine. However the main idea behind using a nfctinfo
+> bit was that we wouldn't need the untracked conntrack anymore at all.
+> But I guess a per-cpu untrack conntrack would already be an improvement
+> over the current situation.
 
-After fixing the MAC issues earlier, I'm still seeing some weird trouble
-with my RTL8169sc/8110sc / XID 18000000 boards.
+I think Eric didn't mean ip_conntrack_info but ip_conntrack_status
+bit. Since we have had a IPS_TEMPLATE bit, I think another
+IPS_UNTRACKED bit is also acceptable.
 
-The box(es) were originally running 2.6.30.x kernel and everything
-worked without major problems. But after upgrading to 2.6.32.x (and even
-with most of the newer fixes included too), it seems that the sometimes
-(not too often) some of the interfaces just won't work after reboot
-(cold or hard). It's a 3-in-1 board, and usually when this happens one
-of the interfaces won't work but the other two do work.
-
-Whenever an interface is "broken", the following conditions are true:
- - forcing it to 10mbit/s and disabling autoneg will make it work
- - when it's not working ethtool -S reports rx_errors and align_errors
-increasing
- - when autoneg is on, ethtool says that "Link Detected: no"
-
-I do see that between the above two kernel versions PHY init code was
-introduced for this XID (RTL_GIGA_MAC_VER_05) in commit 2e955856ff. I
-wonder if it makes sense trying to revert this. Should the NIC still
-work? Do you see any other suspicious commits?
-
-Unrelated, I notice that if I have 1GB links autonegotiated, 'ip link'
-will show them as "state UNKNOWN". Forced manual links get "state UP" as
-expected. This is for the operstate field.
-
-- Timo
+-- 
+Regards,
+Changli Gao(xiaosuo@gmail.com)
