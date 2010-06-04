@@ -1,69 +1,65 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: still having r8169 woes with XID 18000000
-Date: Fri, 4 Jun 2010 14:36:34 +0200
-Message-ID: <20100604123641.ED8154CD45@orbit.nwl.cc>
-References: <4C08ED47.1030800@iki.fi>
+From: jamal <hadi@cyberus.ca>
+Subject: [PATCH net-next-2.6] net sched: make pedit check for clones instead
+Date: Fri, 04 Jun 2010 08:43:06 -0400
+Message-ID: <1275655386.3445.62.camel@bigi>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?utf-8?B?ZnJhbsOnb2lz?= romieu <romieu@fr.zoreil.com>,
-	netdev@vger.kernel.org
-To: Timo =?utf-8?B?VGVyw6Rz?= <timo.teras@iki.fi>
+Content-Type: multipart/mixed; boundary="=-1WkKpQoHsy/TaInedaie"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([91.121.169.95]:51227 "EHLO orbit.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755637Ab0FDMgn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Jun 2010 08:36:43 -0400
-Content-Disposition: inline
-In-Reply-To: <4C08ED47.1030800@iki.fi>
+Received: from mail-yw0-f187.google.com ([209.85.211.187]:37115 "EHLO
+	mail-yw0-f187.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753357Ab0FDMun (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 08:50:43 -0400
+Received: by ywh17 with SMTP id 17so384836ywh.1
+        for <netdev@vger.kernel.org>; Fri, 04 Jun 2010 05:50:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-On Fri, Jun 04, 2010 at 03:10:47PM +0300, Timo Ter=C3=A4s wrote:
-> After fixing the MAC issues earlier, I'm still seeing some weird trou=
-ble
-> with my RTL8169sc/8110sc / XID 18000000 boards.
->=20
-> The box(es) were originally running 2.6.30.x kernel and everything
-> worked without major problems. But after upgrading to 2.6.32.x (and e=
-ven
-> with most of the newer fixes included too), it seems that the sometim=
-es
-> (not too often) some of the interfaces just won't work after reboot
-> (cold or hard). It's a 3-in-1 board, and usually when this happens on=
-e
-> of the interfaces won't work but the other two do work.
->=20
-> Whenever an interface is "broken", the following conditions are true:
->  - forcing it to 10mbit/s and disabling autoneg will make it work
->  - when it's not working ethtool -S reports rx_errors and align_error=
-s
-> increasing
->  - when autoneg is on, ethtool says that "Link Detected: no"
+--=-1WkKpQoHsy/TaInedaie
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-This (your last point) is about what we were experiencing at work using
-PCI-based Gigabit Realtek NICs. Our solution to the problem was to
-switch to a different NIC (Intel e1000), which obviously solves any
-problems. ;)
+And here's the second one. I noticed Changli's changes are not yet in
+net-next. I will wait for that change to propagate and then send the
+fix to pedit that i discussed with Herbert.
 
-But I've done some tests before, mainly being inspired by these mails:
-http://permalink.gmane.org/gmane.linux.network/160136
-http://permalink.gmane.org/gmane.linux.network/160280
-and after some feedback from the mainboard manufacturer I've tested the
-out-of-tree driver Realtek provides (version 6.013.00), which seems to
-not have this issue. Very interesting results show up when comparing
-6.013 with 6.012 (citing myself):
+cheers,
+jamal
 
-Comparing r8169-6.013 with it's predecessor 6.012, you'll find a newly
-enabled function rtl8169_phy_power_up() as well as some more invocation=
-s
-of rtl8169_phy_power_down().
+--=-1WkKpQoHsy/TaInedaie
+Content-Disposition: attachment; filename="pedit1"
+Content-Type: text/plain; name="pedit1"; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 
-This is probably the solution to these (at least in our case) very
-sporadic, but highly annoying, problems. In fact, when our NIC didn't
-detect any link, it needed a full power-cycle (no success with
-reset-button), so almost not workaroundable.
+commit 0697bf778d48d155ef48f652cee8f103db3dcedb
+Author: Jamal Hadi Salim <hadi@cyberus.ca>
+Date:   Fri Jun 4 08:39:47 2010 -0400
 
-HTH, Phil
+    net sched: make pedit check for clones instead
+    
+    Now that the core path doesnt set OK to munge we detect
+    writable skbs by looking to see if they are cloned.
+    
+    Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
+index fdbd0b7..8d15caf 100644
+--- a/net/sched/act_pedit.c
++++ b/net/sched/act_pedit.c
+@@ -127,8 +127,7 @@ static int tcf_pedit(struct sk_buff *skb, struct tc_action *a,
+ 	int i, munged = 0;
+ 	u8 *pptr;
+ 
+-	if (!(skb->tc_verd & TC_OK2MUNGE)) {
+-		/* should we set skb->cloned? */
++	if (skb_cloned(skb)) {
+ 		if (pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
+ 			return p->tcf_action;
+ 		}
+
+--=-1WkKpQoHsy/TaInedaie--
+
