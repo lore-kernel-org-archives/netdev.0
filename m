@@ -1,66 +1,59 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCHv2 2/2] sfc: Implement 64-bit net device statistics on all
- architectures
-Date: Fri, 04 Jun 2010 23:06:06 +0100
-Message-ID: <1275689166.2095.39.camel@achroite.uk.solarflarecom.com>
-References: <1275689093.2095.36.camel@achroite.uk.solarflarecom.com>
+From: Ferenc Wagner <wferi@niif.hu>
+Subject: Re: Is CONFIG_IP_VS_IPV6 still/really dangerous?
+Date: Sat, 05 Jun 2010 00:21:58 +0200
+Message-ID: <87aarah20p.fsf@tac.ki.iif.hu>
+References: <87631y3nr3.fsf@tac.ki.iif.hu>
+	<AANLkTikQPaHYuOOAiJtIft9NnOZ2S1LXTVMi_BLD8gau@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, robert.gallagher@heanet.ie,
+	Julius Volz <juliusv@google.com>
+To: lvs-users@linuxvirtualserver.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:30680 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750886Ab0FDWGK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 18:06:10 -0400
-In-Reply-To: <1275689093.2095.36.camel@achroite.uk.solarflarecom.com>
+Received: from tac.ki.iif.hu ([193.6.222.43]:42843 "EHLO tac.ki.iif.hu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757146Ab0FDWWE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 18:22:04 -0400
+In-Reply-To: <AANLkTikQPaHYuOOAiJtIft9NnOZ2S1LXTVMi_BLD8gau@mail.gmail.com>
+	(Julius Volz's message of "Fri, 4 Jun 2010 16:14:37 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
-This is unchanged from v1.
+Julius Volz <juliusv@google.com> writes:
 
-Ben.
+> On Fri, Jun 4, 2010 at 3:56 PM, Ferenc Wagner <wferi@niif.hu> wrote:
+>
+>> In commit fab0de02fb0da83b90cec7fce4294747d86d5c6f CONFIG_IP_VS_IPV6=
+ is
+>> described as:
+>>
+>> =C2=A0 =C2=A0Add IPv6 support to IPVS. This is incomplete and might =
+be dangerous.
+>>
+>> I agree its implementation is incomplete. =C2=A0But I wonder if it's=
+ really
+>> dangerous in the sense that generic distribution kernels shouldn't
+>> enable it, because it can break unrelated (eg. IPv4 IPVS) functional=
+ity.
+>>
+>> What does that warning mean today? =C2=A0Isn't it out of date?
+>
+> I wrote the IPv6 support back in the day, but never used it
+> large-scale. Rob Gallagher from HEAnet was doing some bigger
+> experiments with it, but I'm not sure how far it went. CCing him.
+>
+> There are probably some other people out there that have tested it
+> extensively. Maybe try the lvs-users and lvs-devel mailing lists?
 
- drivers/net/sfc/efx.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+Sounds like a good idea!  So:
 
-diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index 26b0cc2..8ad476a 100644
---- a/drivers/net/sfc/efx.c
-+++ b/drivers/net/sfc/efx.c
-@@ -1492,11 +1492,11 @@ static int efx_net_stop(struct net_device *net_dev)
- }
- 
- /* Context: process, dev_base_lock or RTNL held, non-blocking. */
--static struct net_device_stats *efx_net_stats(struct net_device *net_dev)
-+static struct rtnl_link_stats64 *efx_net_stats(struct net_device *net_dev)
- {
- 	struct efx_nic *efx = netdev_priv(net_dev);
- 	struct efx_mac_stats *mac_stats = &efx->mac_stats;
--	struct net_device_stats *stats = &net_dev->stats;
-+	struct rtnl_link_stats64 *stats = &net_dev->stats64;
- 
- 	spin_lock_bh(&efx->stats_lock);
- 	efx->type->update_stats(efx);
-@@ -1630,7 +1630,7 @@ static void efx_set_multicast_list(struct net_device *net_dev)
- static const struct net_device_ops efx_netdev_ops = {
- 	.ndo_open		= efx_net_open,
- 	.ndo_stop		= efx_net_stop,
--	.ndo_get_stats		= efx_net_stats,
-+	.ndo_get_stats64	= efx_net_stats,
- 	.ndo_tx_timeout		= efx_watchdog,
- 	.ndo_start_xmit		= efx_hard_start_xmit,
- 	.ndo_validate_addr	= eth_validate_addr,
--- 
-1.6.2.5
+Dear lvs-users,
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+did you experience any breakage as a result of switching on
+CONFIG_IP_VS_IPV6?  I mean apart from it having incomplete
+functionality.  The gist of the question is whether this option
+is suitable for generic distro kernels or not, cf. above.
+--=20
+Thanks for your time,
+=46eri.
