@@ -1,69 +1,35 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/2] net: Enable 64-bit net device statistics on 32-bit
- architectures
-Date: Fri, 04 Jun 2010 21:47:05 +0100
-Message-ID: <1275684425.2095.32.camel@achroite.uk.solarflarecom.com>
-References: <1275576667.2106.11.camel@achroite.uk.solarflarecom.com>
-	 <1275586744.2106.22.camel@achroite.uk.solarflarecom.com>
-	 <20100603114738.41256434@nehalam>
-	 <1275592298.2106.36.camel@achroite.uk.solarflarecom.com>
-	 <20100604102852.08ce3cd1@nehalam>
-	 <1275675318.2095.30.camel@achroite.uk.solarflarecom.com>
-	 <20100604133930.34e2d53b@nehalam>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH V2 1/2] Export firmware assigned labels of network
+ devices to sysfs
+Date: Fri, 4 Jun 2010 13:49:55 -0700
+Message-ID: <20100604204955.GA20329@kroah.com>
+References: <EDA0A4495861324DA2618B4C45DCB3EE6128E1@blrx3m08.blr.amer.dell.com>
+ <20100603210715.GA18025@auslistsprd01.us.dell.com>
+ <EDA0A4495861324DA2618B4C45DCB3EE612913@blrx3m08.blr.amer.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, Arnd Bergmann <arnd@arndb.de>,
-	netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:25244 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756739Ab0FDUrJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 16:47:09 -0400
-In-Reply-To: <20100604133930.34e2d53b@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-hotplug@vger.kernel.org,
+	linux-pci@vger.kernel.org, Matt_Domsch@Dell.com
+To: Narendra_K@Dell.com
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <EDA0A4495861324DA2618B4C45DCB3EE612913@blrx3m08.blr.amer.dell.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2010-06-04 at 13:39 -0700, Stephen Hemminger wrote:
-> On Fri, 04 Jun 2010 19:15:18 +0100
-> Ben Hutchings <bhutchings@solarflare.com> wrote:
+On Sat, Jun 05, 2010 at 02:01:35AM +0530, Narendra_K@Dell.com wrote:
 > 
-> > On Fri, 2010-06-04 at 10:28 -0700, Stephen Hemminger wrote:
-> > > On Thu, 03 Jun 2010 20:11:38 +0100
-> > > Ben Hutchings <bhutchings@solarflare.com> wrote:
-> > > 
-> > > > static inline u64 rtnl_link_stats64_read(const u64 *field)
-> > > > {
-> > > > 	return ACCESS_ONCE(*field);
-> > > > }
-> > > > static inline u32 rtnl_link_stats64_read32(const u64 *field)
-> > > > {
-> > > > 	return ACCESS_ONCE(*field);
-> > > > }
-> > > 
-> > > Do we really care if compiler reorders access. I think not.
-> > > There was no order guarantee in the past.
-> > 
-> > Since these reads are potentially racing with writes, we want to ensure
-> > that they are atomic.  Without the volatile-qualification, the compiler
-> > can legitimately split or repeat the reads, though I don't see any
-> > particular reason why this is a likely optimisation.
-> > 
-> > Ben.
-> > 
 > 
-> But this part of the code is only being run on on 64 bit machines.
-> Updates of basic types for the CPU are atomic, lots of other code
-> already assumes this.
-> Take off your tin hat, this is excessive paranoia.
+> With regards,
 
-I like my tin hat, I'm sure I saw more oopses before I put it on. ;-)
+Um, what?
 
-Ben.
+Why are you resending this over and over with no additional content
+added?
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+If you have a new patch, send it.  Don't bury it at the bottom of
+another message, and then linewrap the thing...
 
+thanks,
+
+greg k-h
