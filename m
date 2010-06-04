@@ -1,145 +1,97 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH nf-next-2.6 2/2] conntrack: per_cpu untracking
-Date: Fri, 04 Jun 2010 22:15:22 +0200
-Message-ID: <1275682522.2490.6.camel@edumazet-laptop>
-References: <1271941082.14501.189.camel@jdb-workstation>
-	 <q2h412e6f7f1004220613m488c2ee4r6d24a8d1e65997d4@mail.gmail.com>
-	 <4BD04C74.9020402@trash.net> <1271946961.7895.5665.camel@edumazet-laptop>
-	 <1271948029.7895.5707.camel@edumazet-laptop>
-	 <20100422155123.GA2524@linux.vnet.ibm.com>
-	 <1271952128.7895.5851.camel@edumazet-laptop>
-	 <Pine.LNX.4.64.1004222213290.10919@ask.diku.dk>
-	 <1272056237.4599.7.camel@edumazet-laptop>
-	 <Pine.LNX.4.64.1004241219280.32071@ask.diku.dk>
-	 <1272139861.20714.525.camel@edumazet-laptop>
-	 <1272292568.13192.43.camel@jdb-workstation>
-	 <1275340896.2478.26.camel@edumazet-laptop>
-	 <AANLkTikw3uonDB4nPXg8FVFN_07F_wq0SA_ayyAHL6VM@mail.gmail.com>
-	 <1275368732.2478.88.camel@edumazet-laptop> <4C04DE73.6050605@trash.net>
-	 <1275388310.2738.2.camel@edumazet-laptop> <4C04E3E2.7020209@trash.net>
-	 <1275409203.2738.227.camel@edumazet-laptop> <4C08E62A.9020607@trash.net>
-	 <AANLkTilKEpFTg5bH8d9UE3a3DVJNAGYz10Jgkt6lXtJ0@mail.gmail.com>
-	 <4C08F1A4.2050906@trash.net>  <1275654964.2482.150.camel@edumazet-laptop>
-	 <1275668732.2482.201.camel@edumazet-laptop>
+From: =?UTF-8?B?VGltbyBUZXLDpHM=?= <timo.teras@iki.fi>
+Subject: Re: still having r8169 woes with XID 18000000
+Date: Fri, 04 Jun 2010 23:24:59 +0300
+Message-ID: <4C09611B.2090805@iki.fi>
+References: <4C08ED47.1030800@iki.fi> <20100604123641.ED8154CD45@orbit.nwl.cc> <4C08F953.1050800@iki.fi> <20100604134351.7981F4CD45@orbit.nwl.cc> <4C09387F.1050403@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	Netfilter Developers <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1275668732.2482.201.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?ZnJhbsOnb2lzIHJvbWlldQ==?= <romieu@fr.zoreil.com>,
+	netdev@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f223.google.com ([209.85.219.223]:43824 "EHLO
+	mail-ew0-f223.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752209Ab0FDUZA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 16:25:00 -0400
+Received: by ewy23 with SMTP id 23so410599ewy.1
+        for <netdev@vger.kernel.org>; Fri, 04 Jun 2010 13:24:58 -0700 (PDT)
+In-Reply-To: <4C09387F.1050403@iki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-NOTRACK makes all cpus share a cache line on nf_conntrack_untracked
-twice per packet, slowing down performance.
+On 06/04/2010 08:31 PM, Timo Ter=C3=A4s wrote:
+> On 06/04/2010 04:43 PM, Phil Sutter wrote:
+>> On Fri, Jun 04, 2010 at 04:02:11PM +0300, Timo Ter=C3=A4s wrote:
+>>>> Comparing r8169-6.013 with it's predecessor 6.012, you'll find a n=
+ewly
+>>>> enabled function rtl8169_phy_power_up() as well as some more invoc=
+ations
+>>>> of rtl8169_phy_power_down().
+>>>>
+>>>> This is probably the solution to these (at least in our case) very
+>>>> sporadic, but highly annoying, problems. In fact, when our NIC did=
+n't
+>>>> detect any link, it needed a full power-cycle (no success with
+>>>> reset-button), so almost not workaroundable.
+>>>
+> However, removing the specific phy config code
+> (rtl8169scd_hw_phy_config) which was introduced by commit 2e955856ff
+> seems to solve it. At least I was not able to reproduce the failure w=
+ith
+> 20-30 module reloads.
 
-This patch converts it to a per_cpu variable.
+Ok, I figured that either the data the phy config writes is bad, or mdi=
+o
+io is failing, so I added some additional checks to mdio_write and
+mdio_read. More loops (upto 2000 iterations) and debug print if it
+ultimately failed. And it did!
 
-We assume same cpu is used for a given packet, entering and exiting the
-NOTRACK state.
+At bootup I got this:
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- include/net/netfilter/nf_conntrack.h |    5 +--
- net/netfilter/nf_conntrack_core.c    |   36 ++++++++++++++++++-------
- 2 files changed, 28 insertions(+), 13 deletions(-)
+r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+r8169 0000:00:09.0: PCI->APIC IRQ transform: INT A -> IRQ 18
+r8169 0000:00:09.0: no PCI Express capability
+eth0: RTL8169sc/8110sc at 0xf835c000, 00:30:18:a6:2b:6c, XID 18000000 I=
+RQ 18
+r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+r8169 0000:00:0b.0: PCI->APIC IRQ transform: INT A -> IRQ 19
+r8169 0000:00:0b.0: no PCI Express capability
+eth1: RTL8169sc/8110sc at 0xf8360000, 00:30:18:a6:2b:6d, XID 18000000 I=
+RQ 19
+r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+r8169 0000:00:0c.0: PCI->APIC IRQ transform: INT A -> IRQ 16
+r8169 0000:00:0c.0: no PCI Express capability
+eth2: RTL8169sc/8110sc at 0xf8364000, 00:30:18:a6:2b:6e, XID 18000000 I=
+RQ 16
+r8169: mdio_write(f8364000, 0x00000003, 0000000a1) required 2000 cycles
+r8169: mdio_write(f8364000, 0x00000000, 000001000) required 2000 cycles
+r8169: mdio_write(f8364000, 0x00000000, 00000a0ff) required 2000 cycles
+r8169: mdio_write(f8364000, 0x00000014, 00000fb54) required 2000 cycles
 
-diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index 3bc38c7..84a4b6f 100644
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -261,11 +261,10 @@ extern s16 (*nf_ct_nat_offset)(const struct nf_conn *ct,
- 			       u32 seq);
- 
- /* Fake conntrack entry for untracked connections */
-+DECLARE_PER_CPU(struct nf_conn, nf_conntrack_untracked);
- static inline struct nf_conn *nf_ct_untracked_get(void)
- {
--	extern struct nf_conn nf_conntrack_untracked;
--
--	return &nf_conntrack_untracked;
-+	return &__raw_get_cpu_var(nf_conntrack_untracked);
- }
- extern void nf_ct_untracked_status_or(unsigned long bits);
- 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 6c1da21..9c66141 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -62,8 +62,8 @@ EXPORT_SYMBOL_GPL(nf_conntrack_htable_size);
- unsigned int nf_conntrack_max __read_mostly;
- EXPORT_SYMBOL_GPL(nf_conntrack_max);
- 
--struct nf_conn nf_conntrack_untracked;
--EXPORT_SYMBOL_GPL(nf_conntrack_untracked);
-+DEFINE_PER_CPU(struct nf_conn, nf_conntrack_untracked);
-+EXPORT_PER_CPU_SYMBOL(nf_conntrack_untracked);
- 
- static int nf_conntrack_hash_rnd_initted;
- static unsigned int nf_conntrack_hash_rnd;
-@@ -1183,10 +1183,21 @@ static void nf_ct_release_dying_list(struct net *net)
- 	spin_unlock_bh(&nf_conntrack_lock);
- }
- 
-+static int untrack_refs(void)
-+{
-+	int cnt = 0, cpu;
-+
-+	for_each_possible_cpu(cpu) {
-+		struct nf_conn *ct = &per_cpu(nf_conntrack_untracked, cpu);
-+
-+		cnt += atomic_read(&ct->ct_general.use) - 1;
-+	}
-+	return cnt;
-+}
-+
- static void nf_conntrack_cleanup_init_net(void)
- {
--	/* wait until all references to nf_conntrack_untracked are dropped */
--	while (atomic_read(&nf_conntrack_untracked.ct_general.use) > 1)
-+	while (untrack_refs() > 0)
- 		schedule();
- 
- 	nf_conntrack_helper_fini();
-@@ -1323,14 +1334,17 @@ module_param_call(hashsize, nf_conntrack_set_hashsize, param_get_uint,
- 
- void nf_ct_untracked_status_or(unsigned long bits)
- {
--	nf_conntrack_untracked.status |= bits;
-+	int cpu;
-+
-+	for_each_possible_cpu(cpu)
-+		per_cpu(nf_conntrack_untracked, cpu).status |= bits;
- }
- EXPORT_SYMBOL_GPL(nf_ct_untracked_status_or);
- 
- static int nf_conntrack_init_init_net(void)
- {
- 	int max_factor = 8;
--	int ret;
-+	int ret, cpu;
- 
- 	/* Idea from tcp.c: use 1/16384 of memory.  On i386: 32MB
- 	 * machine has 512 buckets. >= 1GB machines have 16384 buckets. */
-@@ -1369,10 +1383,12 @@ static int nf_conntrack_init_init_net(void)
- 		goto err_extend;
- #endif
- 	/* Set up fake conntrack: to never be deleted, not in any hashes */
--#ifdef CONFIG_NET_NS
--	nf_conntrack_untracked.ct_net = &init_net;
--#endif
--	atomic_set(&nf_conntrack_untracked.ct_general.use, 1);
-+	for_each_possible_cpu(cpu) {
-+		struct nf_conn *ct = &per_cpu(nf_conntrack_untracked, cpu);
-+
-+		write_pnet(&ct->ct_net, &init_net);
-+		atomic_set(&ct->ct_general.use, 1);
-+	}
- 	/*  - and look it like as a confirmed connection */
- 	nf_ct_untracked_status_or(IPS_CONFIRMED | IPS_UNTRACKED);
- 	return 0;
+And eth2 was not working. Reloading the module gave a lot of other
+mdio_write and mdio_read errors.
 
+It seems to be pretty random when the errors occur, but that's the
+reason why the NIC stops working: mdio_write() fails (one or more times=
+)
+at some crucial point of the board specific phy config code resulting i=
+n
+bad state.
 
+Any ideas how to debug this further?
+
+I guess next step is to compile the Realtek driver and see if that work=
+s
+right.
+
+> One more curiosity: if i do a hard power reset, the NIC has green lin=
+k
+> indicator led after power up. When loading the kernel module it goes =
+to
+> orange/red. I wonder why the difference.
+
+=46igured this. At startup it goes to 100mbit/s fixed mode. After modul=
+e
+load it gets 1gb/s. Setting it manually to 100mbit/s changes the color
+back to green. So it's just a speed indicator.
