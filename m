@@ -1,64 +1,47 @@
-From: Satoru SATOH <satoru.satoh@gmail.com>
-Subject: Re: 200 millisecond timeouts in TCP
-Date: Sat, 5 Jun 2010 00:02:02 +0900
-Message-ID: <20100604150202.GA8268@localhost.localdomain>
-References: <AANLkTils4KHXwX79cLG6UvVOaDdddMqx-1tyUL3VtLQC@mail.gmail.com> <AANLkTilsYS8P2VqATmasXjjdhjPMMZznIHBByXc1i8cU@mail.gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH] rps: tcp: fix rps_sock_flow_table table updates
+Date: Fri, 4 Jun 2010 08:15:10 -0700
+Message-ID: <AANLkTil2FPtr9PDoY4MGOpSdEkLW4qJesqzzjJr5FCwk@mail.gmail.com>
+References: <1275591838.2533.37.camel@edumazet-laptop>
+	<20100603.200721.59663365.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ivan Novick <novickivan@gmail.com>, netdev@vger.kernel.org
-To: Ryousei Takano <ryousei@gmail.com>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:62625 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752354Ab0FDPCJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 11:02:09 -0400
-Received: by pwj5 with SMTP id 5so27504pwj.19
-        for <netdev@vger.kernel.org>; Fri, 04 Jun 2010 08:02:07 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <AANLkTilsYS8P2VqATmasXjjdhjPMMZznIHBByXc1i8cU@mail.gmail.com>
+Received: from smtp-out.google.com ([74.125.121.35]:31026 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750972Ab0FDPPP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 11:15:15 -0400
+Received: from kpbe12.cbf.corp.google.com (kpbe12.cbf.corp.google.com [172.25.105.76])
+	by smtp-out.google.com with ESMTP id o54FFCrw021653
+	for <netdev@vger.kernel.org>; Fri, 4 Jun 2010 08:15:13 -0700
+Received: from pvh11 (pvh11.prod.google.com [10.241.210.203])
+	by kpbe12.cbf.corp.google.com with ESMTP id o54FFBXU013886
+	for <netdev@vger.kernel.org>; Fri, 4 Jun 2010 08:15:11 -0700
+Received: by pvh11 with SMTP id 11so781216pvh.13
+        for <netdev@vger.kernel.org>; Fri, 04 Jun 2010 08:15:11 -0700 (PDT)
+In-Reply-To: <20100603.200721.59663365.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's possible to tune the RTO min value (rto_min) per route since
-2.6.23+.  (see also the manual of iproute2, ip(8) )
+Looks good to me.   Thanks Eric.
 
-- satoru
+Tom
 
-On Fri, Jun 04, 2010 at 03:58:57PM +0900, Ryousei Takano wrote:
-> On Fri, Jun 4, 2010 at 7:37 AM, Ivan Novick <novickivan@gmail.com> wr=
-ote:
-> > Hello,
-> >
-> > Using tcpdump and systemtap I am seeing that sometimes retransmissi=
-on
-> > of data is sent after waiting 200 milliseconds. =C2=A0However somet=
-imes
-> > retransmissions happen quicker.
-> >
-> > Is there a specifc event that causes these 200 milisec delays to ki=
-ck
-> > in? =C2=A0Are those events identifiable in netstat -s output?
-> >
-> > Also do you know if the timeout numbers for TCP are configurable pa=
-rameters?
-> >
-> The minimum RTO value is fixed to 200 ms.  It is useful to make the m=
-in/max
-> RTO values tunable.  For example, reducing the minimum RTO value is e=
-ffective
-> for TCP incast problem [1].  Of course, it may occur spurious retrans=
-missions.
->=20
-> [1] Vijay Vasudevan, et al, Safe and Effective Fine-grained TCP Retra=
-nsmissions
-> for Datacenter Communication, SIGCOMM2009
->=20
-> In Solaris, there are two tunable parameters: tcp_rexmit_interval_min=
-/max.
->=20
-> Do you have plan to introduce sysctl parameters like these to the Lin=
-ux.
->=20
-> Thanks,
-> Ryousei
+On Thu, Jun 3, 2010 at 8:07 PM, David Miller <davem@davemloft.net> wrot=
+e:
+>
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 03 Jun 2010 21:03:58 +0200
+>
+> > I believe a moderate SYN flood attack can corrupt RFS flow table
+> > (rps_sock_flow_table), making RPS/RFS much less effective.
+> =A0...
+> > This patch moves sock_rps_save_rxhash() to a sock locked section,
+> > and only for non LISTEN sockets.
+>
+> This looks good to me.
+>
+> Tom, please review.
