@@ -1,61 +1,54 @@
-From: Julius Volz <juliusv@google.com>
-Subject: Re: Is CONFIG_IP_VS_IPV6 still/really dangerous?
-Date: Fri, 4 Jun 2010 16:14:37 +0200
-Message-ID: <AANLkTikQPaHYuOOAiJtIft9NnOZ2S1LXTVMi_BLD8gau@mail.gmail.com>
-References: <87631y3nr3.fsf@tac.ki.iif.hu>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH] [ath5k][leds] Ability to disable leds support. If leds
+ support enabled do not force mac802.11 leds layer selection.
+Date: Fri, 4 Jun 2010 10:09:19 -0400
+Message-ID: <20100604140919.GA2492@tuxdriver.com>
+References: <4c0804e2.0c3ddf0a.2771.10f7@mx.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, robert.gallagher@heanet.ie
-To: Ferenc Wagner <wferi@niif.hu>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Slaby <jirislaby@gmail.com>,
+	Nick Kossifidis <mickflemm@gmail.com>,
+	"Luis R. Rodriguez" <lrodriguez@atheros.com>,
+	Bob Copeland <me@bobcopeland.com>,
+	GeunSik Lim <geunsik.lim@samsung.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Lukas Turek <8an@praha12.net>,
+	Mark Hindley <mark@hindley.org.uk>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Jiri Kosina <jkosina@suse.cz>, Kalle Valo <kalle.valo@iki.fi>,
+	Keng-Yu Lin <keng-yu.lin@canonical.com>,
+	Luca Verdesca <magooz@salug.it>,
+	Shahar Or <shahar@shahar-or.co.il>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Dmytro Milinevskyy <milinevskyy@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:49962 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932293Ab0FDOOm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 10:14:42 -0400
-Received: from kpbe12.cbf.corp.google.com (kpbe12.cbf.corp.google.com [172.25.105.76])
-	by smtp-out.google.com with ESMTP id o54EEdhi022298
-	for <netdev@vger.kernel.org>; Fri, 4 Jun 2010 07:14:39 -0700
-Received: from gyf1 (gyf1.prod.google.com [10.243.50.65])
-	by kpbe12.cbf.corp.google.com with ESMTP id o54EEWrI021943
-	for <netdev@vger.kernel.org>; Fri, 4 Jun 2010 07:14:38 -0700
-Received: by gyf1 with SMTP id 1so1000529gyf.21
-        for <netdev@vger.kernel.org>; Fri, 04 Jun 2010 07:14:38 -0700 (PDT)
-In-Reply-To: <87631y3nr3.fsf@tac.ki.iif.hu>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:43312 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755921Ab0FDOPT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 10:15:19 -0400
+Content-Disposition: inline
+In-Reply-To: <4c0804e2.0c3ddf0a.2771.10f7@mx.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Ferenc,
+On Thu, Jun 03, 2010 at 10:39:30PM +0300, Dmytro Milinevskyy wrote:
+> Hi!
+> 
+> Here is the patch to disable ath5k leds support on build stage.
+> However if the leds support was enabled do not force selection of 802.11 leds layer.
+> Depency on LEDS_CLASS is kept.
+> 
+> Suggestion given by Pavel Roskin and Bob Copeland applied.
+> 
+> Regards,
+> 
+> --Dima
 
-On Fri, Jun 4, 2010 at 3:56 PM, Ferenc Wagner <wferi@niif.hu> wrote:
-> Hi,
->
-> In commit fab0de02fb0da83b90cec7fce4294747d86d5c6f CONFIG_IP_VS_IPV6 =
-is
-> described as:
->
-> =A0 =A0Add IPv6 support to IPVS. This is incomplete and might be dang=
-erous.
->
-> I agree its implementation is incomplete. =A0But I wonder if it's rea=
-lly
-> dangerous in the sense that generic distribution kernels shouldn't
-> enable it, because it can break unrelated (eg. IPv4 IPVS) functionali=
-ty.
->
-> What does that warning mean today? =A0Isn't it out of date?
+Needs at least a Signed-off-by line, and preferrably a changelog that
+explains what the patch is doing and (especially) why it is necessary.
 
-I wrote the IPv6 support back in the day, but never used it
-large-scale. Rob Gallagher from HEAnet was doing some bigger
-experiments with it, but I'm not sure how far it went. CCing him.
-
-There are probably some other people out there that have tested it
-extensively. Maybe try the lvs-users and lvs-devel mailing lists?
-
-http://www.linuxvirtualserver.org/mailing.html
-
-Julius
-
---=20
-Julius Volz - Site Reliability Engineer
-Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
