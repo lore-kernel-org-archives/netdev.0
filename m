@@ -1,85 +1,56 @@
-From: "Bruce Rogers" <brogers@novell.com>
-Subject: [PATCH] KVM: add schedule check to napi_enable call
-Date: Thu, 03 Jun 2010 18:48:31 -0600
-Message-ID: <4C07F8FF0200004800097554@sinclair.provo.novell.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+From: Mitchell Erblich <erblichs@earthlink.net>
+Subject: Re: 200 millisecond timeouts in TCP
+Date: Thu, 3 Jun 2010 18:13:19 -0700
+Message-ID: <A86A7D0E-F304-4322-8204-8F352E67D4E2@earthlink.net>
+References: <AANLkTils4KHXwX79cLG6UvVOaDdddMqx-1tyUL3VtLQC@mail.gmail.com> <20100603231002.GG6914@nuttenaction>
+Mime-Version: 1.0 (Apple Message framework v1078)
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 8BIT
-Cc: <rusty@rustcorp.com.au>
-To: <netdev@vger.kernel.org>
+Cc: Ivan Novick <novickivan@gmail.com>, netdev@vger.kernel.org
+To: Hagen Paul Pfeifer <hagen@jauu.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Content-Disposition: inline
+Received: from elasmtp-spurfowl.atl.sa.earthlink.net ([209.86.89.66]:36276
+	"EHLO elasmtp-spurfowl.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753403Ab0FDBNY convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Jun 2010 21:13:24 -0400
+In-Reply-To: <20100603231002.GG6914@nuttenaction>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please consider this patch for the 2.6.32, 2.6.33, and 2.6.34 stable trees as well as current development trees. (I've only tested on 2.6.32 however)
 
-    virtio_net: Add schedule check to napi_enable call
-    Under harsh testing conditions, including low memory, the guest would
-    stop receiving packets. With this patch applied we no longer see any
-    problems in the driver while performing these tests for extended periods
-    of time.
+On Jun 3, 2010, at 4:10 PM, Hagen Paul Pfeifer wrote:
 
-    Make sure napi is scheduled subsequent to each napi_enable.
+> * Ivan Novick | 2010-06-03 15:37:24 [-0700]:
+> 
+>> Using tcpdump and systemtap I am seeing that sometimes retransmission
+>> of data is sent after waiting 200 milliseconds.  However sometimes
+>> retransmissions happen quicker.
+> 
+> Quicker as 200ms? Conservatively the minimum TCP RTO should be 1s (rfc2988),
+> Linux differs from this default and define the minimum RTO to 200ms:
+> 
+> #define TCP_RTO_MIN	((unsigned)(HZ/5))
+> 
+> Can you post the tcpdump traces where the relevant retransmission is recognizable?
+> 
+>> Also do you know if the timeout numbers for TCP are configurable parameters?
+> 
+> Some values are documented in Documentation/networking/ip-sysctl.txt, you can
+> find the relevant timer implementation in ipv4/tcp_input.c and the definition
+> of TCP_RTO_MIN in include/net/tcp.h.
+> 
+> 
+> Hagen Paul Pfeifer
+> 
+> 
+> -- 
+> Hagen Paul Pfeifer <hagen@jauu.net>  ||  http://jauu.net/
+> Telephone: +49 174 5455209           ||  Key Id: 0x98350C22
+> Key Fingerprint: 490F 557B 6C48 6D7E 5706 2EA2 4A22 8D45 9835 0C22
 
-    Signed-off-by: Bruce Rogers <brogers@novell.com>
-    Signed-off-by: Olaf Kirch <okir@suse.de>
-    Acked-by: Rusty Russell <rusty@rustcorp.com.au>
-    Cc: stable@kernel.org
+Group, from page 7 of the Linux TCP Congestion Control doc.
 
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -388,6 +388,20 @@ static void skb_recv_done(struct virtque
-        }
- }
+"Linux TCP deviates from the IETF specification by al- lowing a minimum limit of 200 ms for the RTO."
 
-+static void virtnet_napi_enable(struct virtnet_info *vi)
-+{
-+       napi_enable(&vi->napi);
-+
-+       /* If all buffers were filled by other side before we napi_enabled, we
-+        * won't get another interrupt, so process any outstanding packets
-+        * now.  virtnet_poll wants re-enable the queue, so we disable here.
-+        * We synchronize against interrupts via NAPI_STATE_SCHED */
-+       if (napi_schedule_prep(&vi->napi)) {
-+               vi->rvq->vq_ops->disable_cb(vi->rvq);
-+               __napi_schedule(&vi->napi);
-+       }
-+}
-+
- static void refill_work(struct work_struct *work)
- {
-        struct virtnet_info *vi;
-@@ -397,7 +411,7 @@ static void refill_work(struct work_stru
-        napi_disable(&vi->napi);
-        try_fill_recv(vi, GFP_KERNEL);
-        still_empty = (vi->num == 0);
--       napi_enable(&vi->napi);
-+       virtnet_napi_enable(vi);
-
-        /* In theory, this can happen: if we don't get any buffers in
-         * we will *never* try to fill again. */
-@@ -589,16 +603,7 @@ static int virtnet_open(struct net_devic
- {
-        struct virtnet_info *vi = netdev_priv(dev);
-
--       napi_enable(&vi->napi);
--
--       /* If all buffers were filled by other side before we napi_enabled, we
--        * won't get another interrupt, so process any outstanding packets
--        * now.  virtnet_poll wants re-enable the queue, so we disable here.
--        * We synchronize against interrupts via NAPI_STATE_SCHED */
--       if (napi_schedule_prep(&vi->napi)) {
--               vi->rvq->vq_ops->disable_cb(vi->rvq);
--               __napi_schedule(&vi->napi);
--       }
-+       virtnet_napi_enable(vi);
-        return 0;
- }
-
-
-
-
-
-
-
+Mitchell Erblich
