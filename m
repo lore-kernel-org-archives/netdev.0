@@ -1,62 +1,61 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: still having r8169 woes with XID 18000000
-Date: Fri, 4 Jun 2010 15:43:44 +0200
-Message-ID: <20100604134351.7981F4CD45@orbit.nwl.cc>
-References: <4C08ED47.1030800@iki.fi> <20100604123641.ED8154CD45@orbit.nwl.cc> <4C08F953.1050800@iki.fi>
+From: Julius Volz <juliusv@google.com>
+Subject: Re: Is CONFIG_IP_VS_IPV6 still/really dangerous?
+Date: Fri, 4 Jun 2010 16:14:37 +0200
+Message-ID: <AANLkTikQPaHYuOOAiJtIft9NnOZ2S1LXTVMi_BLD8gau@mail.gmail.com>
+References: <87631y3nr3.fsf@tac.ki.iif.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	=?utf-8?B?ZnJhbsOnb2lz?= romieu <romieu@fr.zoreil.com>
-To: Timo =?utf-8?B?VGVyw6Rz?= <timo.teras@iki.fi>
+Cc: netdev@vger.kernel.org, robert.gallagher@heanet.ie
+To: Ferenc Wagner <wferi@niif.hu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([91.121.169.95]:45578 "EHLO orbit.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755696Ab0FDNnw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Jun 2010 09:43:52 -0400
-Content-Disposition: inline
-In-Reply-To: <4C08F953.1050800@iki.fi>
+Received: from smtp-out.google.com ([216.239.44.51]:49962 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932293Ab0FDOOm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 10:14:42 -0400
+Received: from kpbe12.cbf.corp.google.com (kpbe12.cbf.corp.google.com [172.25.105.76])
+	by smtp-out.google.com with ESMTP id o54EEdhi022298
+	for <netdev@vger.kernel.org>; Fri, 4 Jun 2010 07:14:39 -0700
+Received: from gyf1 (gyf1.prod.google.com [10.243.50.65])
+	by kpbe12.cbf.corp.google.com with ESMTP id o54EEWrI021943
+	for <netdev@vger.kernel.org>; Fri, 4 Jun 2010 07:14:38 -0700
+Received: by gyf1 with SMTP id 1so1000529gyf.21
+        for <netdev@vger.kernel.org>; Fri, 04 Jun 2010 07:14:38 -0700 (PDT)
+In-Reply-To: <87631y3nr3.fsf@tac.ki.iif.hu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi Ferenc,
 
-On Fri, Jun 04, 2010 at 04:02:11PM +0300, Timo Ter=C3=A4s wrote:
-> > Comparing r8169-6.013 with it's predecessor 6.012, you'll find a ne=
-wly
-> > enabled function rtl8169_phy_power_up() as well as some more invoca=
-tions
-> > of rtl8169_phy_power_down().
-> >=20
-> > This is probably the solution to these (at least in our case) very
-> > sporadic, but highly annoying, problems. In fact, when our NIC didn=
-'t
-> > detect any link, it needed a full power-cycle (no success with
-> > reset-button), so almost not workaroundable.
->=20
-> Sounds very similar to the problem I have. Thanks for the pointers!
->=20
-> It looks like the r8169 driver does have phy power up code in it, but
-> it's only executed for specific versions of the chip. Realtek driver
-> seems to do it unconditionally.
+On Fri, Jun 4, 2010 at 3:56 PM, Ferenc Wagner <wferi@niif.hu> wrote:
+> Hi,
+>
+> In commit fab0de02fb0da83b90cec7fce4294747d86d5c6f CONFIG_IP_VS_IPV6 =
+is
+> described as:
+>
+> =A0 =A0Add IPv6 support to IPVS. This is incomplete and might be dang=
+erous.
+>
+> I agree its implementation is incomplete. =A0But I wonder if it's rea=
+lly
+> dangerous in the sense that generic distribution kernels shouldn't
+> enable it, because it can break unrelated (eg. IPv4 IPVS) functionali=
+ty.
+>
+> What does that warning mean today? =A0Isn't it out of date?
 
-Hmm. I actually never looked at the corresponding parts of the
-in-tree-driver, but that would have definitely been the next step in
-order to fix it.
+I wrote the IPv6 support back in the day, but never used it
+large-scale. Rob Gallagher from HEAnet was doing some bigger
+experiments with it, but I'm not sure how far it went. CCing him.
 
-> The check seems to be:
->                 if ((tp->mac_version =3D=3D RTL_GIGA_MAC_VER_11) ||
->                     (tp->mac_version =3D=3D RTL_GIGA_MAC_VER_12) ||
->                     (tp->mac_version >=3D RTL_GIGA_MAC_VER_17)) {
->=20
-> I wonder if I should just add my mac version there (_VER_05) and test=
- if
-> it'll make it better.
+There are probably some other people out there that have tested it
+extensively. Maybe try the lvs-users and lvs-devel mailing lists?
 
-Surely worth a try. On the other hand, looking at the sheer mass of
-problem reports regarding this driver, making it worse is rather hard t=
-o
-do I guess. :)
+http://www.linuxvirtualserver.org/mailing.html
 
-(Good night and) good luck, Phil
+Julius
 
+--=20
+Julius Volz - Site Reliability Engineer
+Google Switzerland GmbH - Identification No.: CH-020.4.028.116-1
