@@ -1,90 +1,37 @@
-From: =?UTF-8?B?VGltbyBUZXLDpHM=?= <timo.teras@iki.fi>
-Subject: Re: still having r8169 woes with XID 18000000
-Date: Fri, 04 Jun 2010 16:02:11 +0300
-Message-ID: <4C08F953.1050800@iki.fi>
-References: <4C08ED47.1030800@iki.fi> <20100604123641.ED8154CD45@orbit.nwl.cc>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next-2.6] net sched: make pedit check for clones
+	instead
+Date: Fri, 4 Jun 2010 23:05:11 +1000
+Message-ID: <20100604130511.GA10925@gondor.apana.org.au>
+References: <1275655386.3445.62.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	=?UTF-8?B?ZnJhbsOnb2lzIHJvbWlldQ==?= <romieu@fr.zoreil.com>
-To: phil@nwl.cc
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, Jiri Pirko <jpirko@redhat.com>,
+	netdev@vger.kernel.org
+To: jamal <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.24]:53215 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753357Ab0FDNCN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 09:02:13 -0400
-Received: by ey-out-2122.google.com with SMTP id 25so100768eya.19
-        for <netdev@vger.kernel.org>; Fri, 04 Jun 2010 06:02:10 -0700 (PDT)
-In-Reply-To: <20100604123641.ED8154CD45@orbit.nwl.cc>
+Received: from ringil.hengli.com.au ([216.59.3.182]:59272 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755284Ab0FDNFZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 09:05:25 -0400
+Content-Disposition: inline
+In-Reply-To: <1275655386.3445.62.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/04/2010 03:36 PM, Phil Sutter wrote:
-> On Fri, Jun 04, 2010 at 03:10:47PM +0300, Timo Ter=C3=A4s wrote:
->> After fixing the MAC issues earlier, I'm still seeing some weird tro=
-uble
->> with my RTL8169sc/8110sc / XID 18000000 boards.
->>
->> The box(es) were originally running 2.6.30.x kernel and everything
->> worked without major problems. But after upgrading to 2.6.32.x (and =
-even
->> with most of the newer fixes included too), it seems that the someti=
-mes
->> (not too often) some of the interfaces just won't work after reboot
->> (cold or hard). It's a 3-in-1 board, and usually when this happens o=
-ne
->> of the interfaces won't work but the other two do work.
->>
->> Whenever an interface is "broken", the following conditions are true=
-:
->>  - forcing it to 10mbit/s and disabling autoneg will make it work
->>  - when it's not working ethtool -S reports rx_errors and align_erro=
-rs
->> increasing
->>  - when autoneg is on, ethtool says that "Link Detected: no"
->=20
-> This (your last point) is about what we were experiencing at work usi=
-ng
-> PCI-based Gigabit Realtek NICs. Our solution to the problem was to
-> switch to a different NIC (Intel e1000), which obviously solves any
-> problems. ;)
->=20
-> But I've done some tests before, mainly being inspired by these mails=
-:
-> http://permalink.gmane.org/gmane.linux.network/160136
-> http://permalink.gmane.org/gmane.linux.network/160280
-> and after some feedback from the mainboard manufacturer I've tested t=
-he
-> out-of-tree driver Realtek provides (version 6.013.00), which seems t=
-o
-> not have this issue. Very interesting results show up when comparing
-> 6.013 with 6.012 (citing myself):
->=20
-> Comparing r8169-6.013 with it's predecessor 6.012, you'll find a newl=
-y
-> enabled function rtl8169_phy_power_up() as well as some more invocati=
-ons
-> of rtl8169_phy_power_down().
->=20
-> This is probably the solution to these (at least in our case) very
-> sporadic, but highly annoying, problems. In fact, when our NIC didn't
-> detect any link, it needed a full power-cycle (no success with
-> reset-button), so almost not workaroundable.
+On Fri, Jun 04, 2010 at 08:43:06AM -0400, jamal wrote:
+> And here's the second one. I noticed Changli's changes are not yet in
+> net-next. I will wait for that change to propagate and then send the
+> fix to pedit that i discussed with Herbert.
 
-Sounds very similar to the problem I have. Thanks for the pointers!
+Thanks Jamal!
 
-It looks like the r8169 driver does have phy power up code in it, but
-it's only executed for specific versions of the chip. Realtek driver
-seems to do it unconditionally.
+BTW, I think this patch should go in first (before the one that
+removes the OK2MUNGE setting) to be on the safe side.
 
-The check seems to be:
-                if ((tp->mac_version =3D=3D RTL_GIGA_MAC_VER_11) ||
-                    (tp->mac_version =3D=3D RTL_GIGA_MAC_VER_12) ||
-                    (tp->mac_version >=3D RTL_GIGA_MAC_VER_17)) {
-
-I wonder if I should just add my mac version there (_VER_05) and test i=
-f
-it'll make it better.
-
-- Timo
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
