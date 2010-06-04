@@ -1,37 +1,31 @@
-From: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [Patch] infiniband: check local reserved ports
-Date: Fri, 04 Jun 2010 09:04:53 -0700
-Message-ID: <ada1vcmpyvu.fsf@roland-alpha.cisco.com>
-References: <20100603083106.6047.7657.sendpatchset@localhost.localdomain>
-	<ada1vcoqde3.fsf@roland-alpha.cisco.com> <4C085C9A.30506@redhat.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] [PATCH] virtio_net: indicate oom when addbuf returns
+ failure
+Date: Fri, 4 Jun 2010 09:05:40 -0700
+Message-ID: <20100604160540.GB26004@kroah.com>
+References: <201006041028.56798.rusty@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Tetsuo Handa <penguin-kernel-1yMVhJb1mP/7nzcFbJAaVXf5DAMn2ifp@public.gmane.org>,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4C085C9A.30506-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> (Cong Wang's message of "Fri, 04 Jun
-	2010 09:53:30 +0800")
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: stable@kernel.org, Herbert Xu <herbert@gondor.hengli.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	Bruce Rogers <brogers@novell.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kroah.org ([198.145.64.141]:55091 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752723Ab0FDQGz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jun 2010 12:06:55 -0400
+Content-Disposition: inline
+In-Reply-To: <201006041028.56798.rusty@rustcorp.com.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- > > Should this inet_is_reserved_local_port() test apply to all the "port
- > > spaces" that this code is handling?  I honestly am ignorant of the
- > > intended semantics of the new local_reserved_ports stuff, hence my question.
+On Fri, Jun 04, 2010 at 10:28:56AM +0930, Rusty Russell wrote:
+> This patch is a subset of an already upstream patch, but this portion
+> is useful in earlier releases.
 
- > Yes, but I only found this case, is there any else?
+What is the git commit id of that upstream patch?
 
-My question was more in the other direction: should this test apply to
-all the "port spaces" handled here?  From looking at the code, it
-appears the answer is yes -- it seems that putting a port in
-local_reserved_ports reserves that port for IPv4 and IPv6, UDP, TCP,
-SCTP, DCCP, everything, so we should probably reserve all RDMA CM ports too.
--- 
-Roland Dreier <rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org> || For corporate legal information go to:
-http://www.cisco.com/web/about/doing_business/legal/cri/index.html
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+thanks,
+
+greg k-h
