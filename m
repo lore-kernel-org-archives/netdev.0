@@ -1,40 +1,45 @@
-From: andrew hendry <andrew.hendry@gmail.com>
-Subject: Re: net-next Build error in qlogic driver from randconfig.
-Date: Fri, 4 Jun 2010 23:23:02 +1000
-Message-ID: <AANLkTin7jGpJ7y0MgU93jek5vsXoUFCpjcpHAP5LtyXd@mail.gmail.com>
-References: <1275657622.8635.13.camel@jaunty>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Amit Kumar Salecha <amit.salecha@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-To: netdev@vger.kernel.org
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] htb: remove two unnecessary assignments
+Date: Fri,  4 Jun 2010 19:33:33 +0800
+Message-ID: <1275651213-3343-1-git-send-email-xiaosuo@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Jamal Hadi Salim <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:59200 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755934Ab0FDNXD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 09:23:03 -0400
-Received: by iwn37 with SMTP id 37so984244iwn.19
-        for <netdev@vger.kernel.org>; Fri, 04 Jun 2010 06:23:02 -0700 (PDT)
-In-Reply-To: <1275657622.8635.13.camel@jaunty>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:43812 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755722Ab0FDNdF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 09:33:05 -0400
+Received: by pvg16 with SMTP id 16so561642pvg.19
+        for <netdev@vger.kernel.org>; Fri, 04 Jun 2010 06:33:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sorry ignore, i see it just got fixed.
+remove two unnecessary assignments
 
-On Fri, Jun 4, 2010 at 11:20 PM, Andrew Hendry <andrew.hendry@gmail.com> wrote:
->
-> net-next currently gives a build error from a randconfig.
-> # CONFIG_INET is not set
-> CONFIG_QLCNIC=m
->
-> ERROR: "qlcnicvf_set_ilb_mode" [drivers/net/qlcnic/qlcnic.ko] undefined!
-> ERROR: "qlcnicvf_config_bridged_mode" [drivers/net/qlcnic/qlcnic.ko] undefined!
-> ERROR: "qlcnicvf_config_led" [drivers/net/qlcnic/qlcnic.ko] undefined!
-> ERROR: "qlcnicvf_clear_ilb_mode" [drivers/net/qlcnic/qlcnic.ko] undefined!
-> ERROR: "qlcnicvf_start_firmware" [drivers/net/qlcnic/qlcnic.ko] undefined!
-> make[1]: *** [__modpost] Error 1
-> make: *** [modules] Error 2
-> make: *** Waiting for unfinished jobs....
->
->
->
+we don't need to assign NULL when initialize structure objects.
+
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+ net/sched/sch_htb.c |    2 --
+ 1 file changed, 2 deletions(-)
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 0b52b8d..4be8d04 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1550,7 +1550,6 @@ static const struct Qdisc_class_ops htb_class_ops = {
+ };
+ 
+ static struct Qdisc_ops htb_qdisc_ops __read_mostly = {
+-	.next		=	NULL,
+ 	.cl_ops		=	&htb_class_ops,
+ 	.id		=	"htb",
+ 	.priv_size	=	sizeof(struct htb_sched),
+@@ -1561,7 +1560,6 @@ static struct Qdisc_ops htb_qdisc_ops __read_mostly = {
+ 	.init		=	htb_init,
+ 	.reset		=	htb_reset,
+ 	.destroy	=	htb_destroy,
+-	.change		=	NULL /* htb_change */,
+ 	.dump		=	htb_dump,
+ 	.owner		=	THIS_MODULE,
+ };
