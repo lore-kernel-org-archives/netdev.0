@@ -1,56 +1,45 @@
-From: Mitchell Erblich <erblichs@earthlink.net>
-Subject: Re: 200 millisecond timeouts in TCP
-Date: Thu, 3 Jun 2010 18:13:19 -0700
-Message-ID: <A86A7D0E-F304-4322-8204-8F352E67D4E2@earthlink.net>
-References: <AANLkTils4KHXwX79cLG6UvVOaDdddMqx-1tyUL3VtLQC@mail.gmail.com> <20100603231002.GG6914@nuttenaction>
-Mime-Version: 1.0 (Apple Message framework v1078)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Ivan Novick <novickivan@gmail.com>, netdev@vger.kernel.org
-To: Hagen Paul Pfeifer <hagen@jauu.net>
+From: Junchang Wang <junchangwang@gmail.com>
+Subject: Re: [Patch 1/2]r8169: remove rtl_rw_cpluscmd
+Date: Fri, 4 Jun 2010 09:37:14 +0800
+Message-ID: <AANLkTinU-eRWzHV2HD7rGdC5sECkoEinDmZHZw9_llez@mail.gmail.com>
+References: <20100603112428.GC24909@host-a-55.ustcsz.edu.cn>
+	<20100603214257.GA3327@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-spurfowl.atl.sa.earthlink.net ([209.86.89.66]:36276
-	"EHLO elasmtp-spurfowl.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753403Ab0FDBNY convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Jun 2010 21:13:24 -0400
-In-Reply-To: <20100603231002.GG6914@nuttenaction>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:38359 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932217Ab0FDBhQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jun 2010 21:37:16 -0400
+Received: by gye5 with SMTP id 5so576885gye.19
+        for <netdev@vger.kernel.org>; Thu, 03 Jun 2010 18:37:15 -0700 (PDT)
+In-Reply-To: <20100603214257.GA3327@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> I'll figure that there may be some value in the patch if you
+> test the change on revision X, Y and Z.
 
-On Jun 3, 2010, at 4:10 PM, Hagen Paul Pfeifer wrote:
+Frankly, I just tested the patch on my NIC. It works fine.
 
-> * Ivan Novick | 2010-06-03 15:37:24 [-0700]:
-> 
->> Using tcpdump and systemtap I am seeing that sometimes retransmission
->> of data is sent after waiting 200 milliseconds.  However sometimes
->> retransmissions happen quicker.
-> 
-> Quicker as 200ms? Conservatively the minimum TCP RTO should be 1s (rfc2988),
-> Linux differs from this default and define the minimum RTO to 200ms:
-> 
-> #define TCP_RTO_MIN	((unsigned)(HZ/5))
-> 
-> Can you post the tcpdump traces where the relevant retransmission is recognizable?
-> 
->> Also do you know if the timeout numbers for TCP are configurable parameters?
-> 
-> Some values are documented in Documentation/networking/ip-sysctl.txt, you can
-> find the relevant timer implementation in ipv4/tcp_input.c and the definition
-> of TCP_RTO_MIN in include/net/tcp.h.
-> 
-> 
-> Hagen Paul Pfeifer
-> 
-> 
-> -- 
-> Hagen Paul Pfeifer <hagen@jauu.net>  ||  http://jauu.net/
-> Telephone: +49 174 5455209           ||  Key Id: 0x98350C22
-> Key Fingerprint: 490F 557B 6C48 6D7E 5706 2EA2 4A22 8D45 9835 0C22
+>
+> Some cosmetic isolated in a sequence of changes can be fine too.
+>
+> Otherwise I consider such cleanups as a (useless and) conceivably
+> harmful distraction.
 
-Group, from page 7 of the Linux TCP Congestion Control doc.
+As I said, those points really confused me while I was going over the
+driver. I searched google and mailing list archive but failed to get
+any traces. It seems they exist for a long time without any touch
+(care). So I decided to post the patches to see whether they are
+harmful or not.
 
-"Linux TCP deviates from the IETF specification by al- lowing a minimum limit of 200 ms for the RTO."
+OK. I'll bypass legacy hardware-related codes since they are really
+very tricky. :)
 
-Mitchell Erblich
+Thanks Francois.
+
+-- 
+--Junchang
