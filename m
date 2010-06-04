@@ -1,66 +1,37 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] act_mirred: don't clone skb when skb isn't shared
-Date: Fri,  4 Jun 2010 21:43:10 +0800
-Message-ID: <1275658990-15838-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Jamal Hadi Salim <hadi@cyberus.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:59181 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750849Ab0FDPm6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 11:42:58 -0400
-Received: by pvg16 with SMTP id 16so631466pvg.19
-        for <netdev@vger.kernel.org>; Fri, 04 Jun 2010 08:42:58 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Roland Dreier <rdreier-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [Patch] infiniband: check local reserved ports
+Date: Fri, 04 Jun 2010 09:04:53 -0700
+Message-ID: <ada1vcmpyvu.fsf@roland-alpha.cisco.com>
+References: <20100603083106.6047.7657.sendpatchset@localhost.localdomain>
+	<ada1vcoqde3.fsf@roland-alpha.cisco.com> <4C085C9A.30506@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Tetsuo Handa <penguin-kernel-1yMVhJb1mP/7nzcFbJAaVXf5DAMn2ifp@public.gmane.org>,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: Cong Wang <amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4C085C9A.30506-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> (Cong Wang's message of "Fri, 04 Jun
+	2010 09:53:30 +0800")
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-don't clone skb when skb isn't shared
+ > > Should this inet_is_reserved_local_port() test apply to all the "port
+ > > spaces" that this code is handling?  I honestly am ignorant of the
+ > > intended semantics of the new local_reserved_ports stuff, hence my question.
 
-When the tcf_action is TC_ACT_STOLEN, and the skb isn't shared, we don't need
-to clone a new skb. As the skb will be freed after this function returns, we
-can use it freely once we get a reference to it.
+ > Yes, but I only found this case, is there any else?
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- net/sched/act_mirred.c |   17 ++++++++++++-----
- 1 file changed, 12 insertions(+), 5 deletions(-)
-diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index c0b6863..79d4318 100644
---- a/net/sched/act_mirred.c
-+++ b/net/sched/act_mirred.c
-@@ -169,13 +169,20 @@ static int tcf_mirred(struct sk_buff *skb, struct tc_action *a,
- 		goto out;
- 	}
- 
--	skb2 = skb_act_clone(skb, GFP_ATOMIC);
--	if (skb2 == NULL)
--		goto out;
-+	at = G_TC_AT(skb->tc_verd);
-+	if (m->tcf_action == TC_ACT_STOLEN && !skb_shared(skb)) {
-+		skb2 = skb_get(skb);
-+		skb2->tc_verd = SET_TC_VERD(skb2->tc_verd, 0);
-+		skb2->tc_verd = CLR_TC_OK2MUNGE(skb2->tc_verd);
-+		skb2->tc_verd = CLR_TC_MUNGED(skb2->tc_verd);
-+	} else {
-+		skb2 = skb_act_clone(skb, GFP_ATOMIC);
-+		if (skb2 == NULL)
-+			goto out;
-+	}
- 
- 	m->tcf_bstats.bytes += qdisc_pkt_len(skb2);
- 	m->tcf_bstats.packets++;
--	at = G_TC_AT(skb->tc_verd);
- 	if (!(at & AT_EGRESS)) {
- 		if (m->tcfm_ok_push)
- 			skb_push(skb2, skb2->dev->hard_header_len);
-@@ -185,8 +192,8 @@ static int tcf_mirred(struct sk_buff *skb, struct tc_action *a,
- 	if (m->tcfm_eaction != TCA_EGRESS_MIRROR)
- 		skb2->tc_verd = SET_TC_FROM(skb2->tc_verd, at);
- 
--	skb2->dev = dev;
- 	skb2->skb_iif = skb->dev->ifindex;
-+	skb2->dev = dev;
- 	dev_queue_xmit(skb2);
- 	err = 0;
- 
+My question was more in the other direction: should this test apply to
+all the "port spaces" handled here?  From looking at the code, it
+appears the answer is yes -- it seems that putting a port in
+local_reserved_ports reserves that port for IPv4 and IPv6, UDP, TCP,
+SCTP, DCCP, everything, so we should probably reserve all RDMA CM ports too.
+-- 
+Roland Dreier <rolandd-FYB4Gu1CFyUAvxtiuMwx3w@public.gmane.org> || For corporate legal information go to:
+http://www.cisco.com/web/about/doing_business/legal/cri/index.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
