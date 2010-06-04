@@ -1,33 +1,34 @@
-From: <Narendra_K@Dell.com>
-Subject: RE: [PATCH V2 1/2] Export firmware assigned labels of network devices to sysfs
-Date: Sat, 5 Jun 2010 02:45:04 +0530
-Message-ID: <EDA0A4495861324DA2618B4C45DCB3EE61291A@blrx3m08.blr.amer.dell.com>
-References: <EDA0A4495861324DA2618B4C45DCB3EE6128E1@blrx3m08.blr.amer.dell.com> <20100603210715.GA18025@auslistsprd01.us.dell.com> <EDA0A4495861324DA2618B4C45DCB3EE612913@blrx3m08.blr.amer.dell.com> <20100604204955.GA20329@kroah.com>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: Ethernet drivers wiki page
+Date: Fri, 4 Jun 2010 14:52:24 -0700
+Message-ID: <AANLkTinSjJsqNvEhJZIE6cJxEkBtg-DO2dqZWMczUy2i@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <linux-hotplug@vger.kernel.org>,
-	<linux-pci@vger.kernel.org>, <Matt_Domsch@Dell.com>
-To: <greg@kroah.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <20100604204955.GA20329@kroah.com>
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "H. Peter Anvin" <hpa@kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Johannes Berg <johannes@sipsolutions.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:61126 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754036Ab0FDVwp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jun 2010 17:52:45 -0400
+Received: by vws5 with SMTP id 5so200647vws.19
+        for <netdev@vger.kernel.org>; Fri, 04 Jun 2010 14:52:44 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> 
-> Um, what?
-> 
-> Why are you resending this over and over with no additional content
-> added?
-> 
-> If you have a new patch, send it.  Don't bury it at the bottom of
-> another message, and then linewrap the thing...
-> 
+Where can I start adding documentation for our Ethernet drivers
+upstream? I was hoping for a wiki but I don't think we have a netdev
+one yet. Shall we create one or piggy back on something else? I'm
+reviewing:
 
-Greg, Sorry for the inconvenience caused. I have sent the V3 patch with
-changes mentioned.
+https://wiki.kernel.org/
 
-With regards,
-Narendra K
+FWIW, I want to see something like this:
+
+http://wireless.kernel.org/en/users/Drivers
+
+But for ethernet.
+
+  Luis
