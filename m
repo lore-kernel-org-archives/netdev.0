@@ -1,23 +1,15 @@
 From: xiaohui.xin@intel.com
-Subject: [RFC PATCH v7 10/19] Don't do skb recycle, if device use external buffer.
-Date: Sat,  5 Jun 2010 18:14:49 +0800
-Message-ID: <1275732899-5423-10-git-send-email-xiaohui.xin@intel.com>
+Subject: [RFC PATCH v7 02/19] Add a new struct for device to manipulate external buffer.
+Date: Sat,  5 Jun 2010 18:14:41 +0800
+Message-ID: <1275732899-5423-2-git-send-email-xiaohui.xin@intel.com>
 References: <1275732899-5423-1-git-send-email-xiaohui.xin@intel.com>
- <1275732899-5423-2-git-send-email-xiaohui.xin@intel.com>
- <1275732899-5423-3-git-send-email-xiaohui.xin@intel.com>
- <1275732899-5423-4-git-send-email-xiaohui.xin@intel.com>
- <1275732899-5423-5-git-send-email-xiaohui.xin@intel.com>
- <1275732899-5423-6-git-send-email-xiaohui.xin@intel.com>
- <1275732899-5423-7-git-send-email-xiaohui.xin@intel.com>
- <1275732899-5423-8-git-send-email-xiaohui.xin@intel.com>
- <1275732899-5423-9-git-send-email-xiaohui.xin@intel.com>
 Cc: Xin Xiaohui <xiaohui.xin@intel.com>
 To: netdev@vger.kernel.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
 	davem@davemloft.net, herbert@gondor.apana.org.au,
 	jdike@linux.intel.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1275732899-5423-9-git-send-email-xiaohui.xin@intel.com>
+In-Reply-To: <1275732899-5423-1-git-send-email-xiaohui.xin@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -27,25 +19,45 @@ Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
 Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
 Reviewed-by: Jeff Dike <jdike@linux.intel.com>
 ---
- net/core/skbuff.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+ include/linux/netdevice.h |   19 ++++++++++++++++++-
+ 1 files changed, 18 insertions(+), 1 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 38d19d0..37587f0 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -553,6 +553,12 @@ int skb_recycle_check(struct sk_buff *skb, int skb_size)
- 	if (skb_shared(skb) || skb_cloned(skb))
- 		return 0;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index fa8b476..bae725c 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -530,6 +530,22 @@ struct netdev_queue {
+ 	unsigned long		tx_dropped;
+ } ____cacheline_aligned_in_smp;
  
-+	/* if the device wants to do mediate passthru, the skb may
-+	 * get external buffer, so don't recycle
-+	 */
-+	if (dev_is_mpassthru(skb->dev))
-+		return 0;
-+
- 	skb_release_head_state(skb);
- 	shinfo = skb_shinfo(skb);
- 	atomic_set(&shinfo->dataref, 1);
++/* Add a structure in structure net_device, the new field is
++ * named as mp_port. It's for mediate passthru (zero-copy).
++ * It contains the capability for the net device driver,
++ * a socket, and an external buffer creator, external means
++ * skb buffer belongs to the device may not be allocated from
++ * kernel space.
++ */
++struct mpassthru_port	{
++	int		hdr_len;
++	int		data_len;
++	int		npages;
++	unsigned	flags;
++	struct socket	*sock;
++	struct skb_external_page *(*ctor)(struct mpassthru_port *,
++				struct sk_buff *, int);
++};
+ 
+ /*
+  * This structure defines the management hooks for network devices.
+@@ -952,7 +968,8 @@ struct net_device {
+ 	struct macvlan_port	*macvlan_port;
+ 	/* GARP */
+ 	struct garp_port	*garp_port;
+-
++	/* mpassthru */
++	struct mpassthru_port	*mp_port;
+ 	/* class/net/name entry */
+ 	struct device		dev;
+ 	/* space for optional device, statistics, and wireless sysfs groups */
 -- 
 1.5.4.4
