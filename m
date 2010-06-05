@@ -1,84 +1,123 @@
-From: =?UTF-8?B?VGltbyBUZXLDpHM=?= <timo.teras@iki.fi>
-Subject: Re: [PATCH] Re: still having r8169 woes with XID 18000000
-Date: Sat, 05 Jun 2010 12:21:58 +0300
-Message-ID: <4C0A1736.9030209@iki.fi>
-References: <4C08ED47.1030800@iki.fi>	 <20100604123641.ED8154CD45@orbit.nwl.cc> <4C08F953.1050800@iki.fi>	 <20100604134351.7981F4CD45@orbit.nwl.cc> <4C09387F.1050403@iki.fi>	 <4C09611B.2090805@iki.fi>  <4C09FF4B.4050601@iki.fi> <1275729201.5238.2.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Bugme-new] [Bug 16120] New: Oops: 0000 [#1] SMP, unable to
+ handle kernel NULL pointer dereference at (null)
+Date: Sat, 05 Jun 2010 11:34:17 +0200
+Message-ID: <1275730457.5238.14.camel@edumazet-laptop>
+References: <bug-16120-10286@https.bugzilla.kernel.org/>
+	 <20100604161737.25c7940a.akpm@linux-foundation.org>
+	 <1275729426.5238.6.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Phil Sutter <phil@nwl.cc>,
-	=?UTF-8?B?ZnJhbsOnb2lzIHJvbWlldQ==?= <romieu@fr.zoreil.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, alex.vizor@gmail.com,
+	Patrick McHardy <kaber@trash.net>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f223.google.com ([209.85.219.223]:52091 "EHLO
-	mail-ew0-f223.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932627Ab0FEJV6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jun 2010 05:21:58 -0400
-Received: by ewy23 with SMTP id 23so509794ewy.1
-        for <netdev@vger.kernel.org>; Sat, 05 Jun 2010 02:21:57 -0700 (PDT)
-In-Reply-To: <1275729201.5238.2.camel@edumazet-laptop>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:50824 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932651Ab0FEJeX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jun 2010 05:34:23 -0400
+Received: by wyi11 with SMTP id 11so1390877wyi.19
+        for <netdev@vger.kernel.org>; Sat, 05 Jun 2010 02:34:21 -0700 (PDT)
+In-Reply-To: <1275729426.5238.6.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/05/2010 12:13 PM, Eric Dumazet wrote:
-> Le samedi 05 juin 2010 =C3=A0 10:39 +0300, Timo Ter=C3=A4s a =C3=A9cr=
+Le samedi 05 juin 2010 =C3=A0 11:17 +0200, Eric Dumazet a =C3=A9crit :
+> Le vendredi 04 juin 2010 =C3=A0 16:17 -0700, Andrew Morton a =C3=A9cr=
 it :
->> Ok, I compared Realtek's and the in-tree driver. The only essential
->> difference is that Realtek driver uses udelay(100) in mdio_write()'s
->> busy polling loop where as the in-tree uses udelay(25). And that see=
-ms
->> to be the magic difference! Using udelay(100) fixes this!
->>
->> I'm guessing that the phy needs slight delay between consecutive
->> mdio_write's even if it has advertised that the write has been
->> completed. And yes, just adding a small delay in the end of mdio_wri=
-te
->> does seem to work too.
->>
->> Francois, you think the below patch is ok? Should I send it as prope=
-rly
->> formatted commit?
->>
->> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
->> index 217e709..6db62bf 100644
->> --- a/drivers/net/r8169.c
->> +++ b/drivers/net/r8169.c
->> @@ -559,6 +559,7 @@ static void mdio_write(void __iomem *ioaddr,
->>  			break;
->>  		udelay(25);
->>  	}
->> +	udelay(25);
->>  }
->>
->>  static int mdio_read(void __iomem *ioaddr, int reg_addr)
->> --
+> > (switched to email.  Please respond via emailed reply-to-all, not v=
+ia the
+> > bugzilla web interface).
+> >=20
+> > On Fri, 4 Jun 2010 09:25:58 GMT
+> > bugzilla-daemon@bugzilla.kernel.org wrote:
+> >=20
+> > > https://bugzilla.kernel.org/show_bug.cgi?id=3D16120
+> > >=20
+> > >            Summary: Oops: 0000 [#1] SMP, unable to handle kernel =
+NULL
+> > >                     pointer dereference at (null)
+> > >            Product: Platform Specific/Hardware
+> > >            Version: 2.5
+> > >     Kernel Version: 2.6.35-rc1
+> > >           Platform: All
+> > >         OS/Version: Linux
+> > >               Tree: Mainline
+> > >             Status: NEW
+> > >           Severity: high
+> > >           Priority: P1
+> > >          Component: x86-64
+> > >         AssignedTo: platform_x86_64@kernel-bugs.osdl.org
+> > >         ReportedBy: alex.vizor@gmail.com
+> > >         Regression: Yes
+> > >=20
+> > >=20
+> > > Created an attachment (id=3D26647)
+> > >  --> (https://bugzilla.kernel.org/attachment.cgi?id=3D26647) id)
 >=20
-> Sure this deserves an official patch with all prereqs, but please add=
- a
-> comment in mdio_write() why this extra udelay(25) is needed, especial=
-ly
-> since you say of udelay(100) 'fixes the bug'.
+> > > 2.6.35-rc1 kernel log
+> > >=20
+> > > It happens randomly, almost a week I used 2.6.35-rc1 and don't ha=
+ve any
+> > > problems. But since last day it happened twice.
+> > >=20
+> > > I attached kernel log, please inform me if I can help in investig=
+ation.
+> > >=20
+> >=20
+> > ip6mr_sk_done() oopsed.
+>=20
+> Only thing I found a first glance is a typo but this should not be th=
+e
+> root of the problem.
+>=20
 
-Uh, yes. The intention was to get feedback if this is the proper place
-for the delay. I first thought that maybe we could just add the delay t=
-o
-the phy config function writing the values in tight loop... but as it
-appears even some other mdio_writes seem to fail, this seems to be the
-logical and correct place.
+At a second glance, I think the problem is that we probably cleanup=20
+in the wrong order.
 
-Alternatively, I was thinking if someone had specs to check if they say
-anything about delay needed between mdio writes.
+ip6mr_rules_exit() is probably called before icmpv6_sk_exit() ?
 
-Reason why adding new delay in the end of the function is better is
-because using udelay(100) in the loop means that anything between
-0..100us has elapsed after the "write complete" is acked; if very
-unlucky the "write complete" happens just after our udelay has ended an=
-d
-there would be no delay between next mdio write.
+I dont know how to fix this order, no more time for me until Monday.
 
-Adding the additional udelay(25) in the end guarantees small delay
-between "write complete" ack and the next write. And yes, it needs a
-comment.
 
-I'll send a new patch shortly.
+We should reinit mr6_tables list in ip6mr_rules_exit() in any case
+
+
+[PATCH] ip6mr: fixes
+
+1) Fix a typo in ip6mr_for_each_table() definition
+
+2) Re-initiliaze mr6_tables in ip6mr_rules_exit()
+
+bugzilla report : https://bugzilla.kernel.org/attachment.cgi?id=3D26647
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index 073071f..e2ff192 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -120,7 +120,7 @@ static void mroute_clean_tables(struct mr6_table *m=
+rt);
+ static void ipmr_expire_process(unsigned long arg);
+=20
+ #ifdef CONFIG_IPV6_MROUTE_MULTIPLE_TABLES
+-#define ip6mr_for_each_table(mrt, met) \
++#define ip6mr_for_each_table(mrt, net) \
+ 	list_for_each_entry_rcu(mrt, &net->ipv6.mr6_tables, list)
+=20
+ static struct mr6_table *ip6mr_get_table(struct net *net, u32 id)
+@@ -256,6 +256,7 @@ static void __net_exit ip6mr_rules_exit(struct net =
+*net)
+=20
+ 	list_for_each_entry_safe(mrt, next, &net->ipv6.mr6_tables, list)
+ 		ip6mr_free_table(mrt);
++	INIT_LIST_HEAD(&net->ipv6.mr6_tables);
+ 	fib_rules_unregister(net->ipv6.mr6_rules_ops);
+ }
+ #else
+
+
