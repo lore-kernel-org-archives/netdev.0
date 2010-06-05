@@ -1,7 +1,7 @@
 From: xiaohui.xin@intel.com
-Subject: [RFC PATCH v7 16/19] Manipulate external buffers in mp device.
-Date: Sat,  5 Jun 2010 18:14:55 +0800
-Message-ID: <1275732899-5423-16-git-send-email-xiaohui.xin@intel.com>
+Subject: [RFC PATCH v7 12/19] Add a hook to intercept external buffers from NIC driver.
+Date: Sat,  5 Jun 2010 18:14:51 +0800
+Message-ID: <1275732899-5423-12-git-send-email-xiaohui.xin@intel.com>
 References: <1275732899-5423-1-git-send-email-xiaohui.xin@intel.com>
  <1275732899-5423-2-git-send-email-xiaohui.xin@intel.com>
  <1275732899-5423-3-git-send-email-xiaohui.xin@intel.com>
@@ -13,332 +13,78 @@ References: <1275732899-5423-1-git-send-email-xiaohui.xin@intel.com>
  <1275732899-5423-9-git-send-email-xiaohui.xin@intel.com>
  <1275732899-5423-10-git-send-email-xiaohui.xin@intel.com>
  <1275732899-5423-11-git-send-email-xiaohui.xin@intel.com>
- <1275732899-5423-12-git-send-email-xiaohui.xin@intel.com>
- <1275732899-5423-13-git-send-email-xiaohui.xin@intel.com>
- <1275732899-5423-14-git-send-email-xiaohui.xin@intel.com>
- <1275732899-5423-15-git-send-email-xiaohui.xin@intel.com>
-Cc: Xiaohui Xin <xiaohui.xin@intel.com>
+Cc: Xin Xiaohui <xiaohui.xin@intel.com>
 To: netdev@vger.kernel.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
 	davem@davemloft.net, herbert@gondor.apana.org.au,
 	jdike@linux.intel.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1275732899-5423-15-git-send-email-xiaohui.xin@intel.com>
-Sender: kvm-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1275732899-5423-11-git-send-email-xiaohui.xin@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Xiaohui Xin<xiaohui.xin@intel.com>
+From: Xin Xiaohui <xiaohui.xin@intel.com>
 
-How external buffer comes from, how to destroy.
-
+The hook is called in netif_receive_skb().
 Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
 Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
 Reviewed-by: Jeff Dike <jdike@linux.intel.com>
 ---
- drivers/vhost/mpassthru.c |  253 ++++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 251 insertions(+), 2 deletions(-)
+ net/core/dev.c |   35 +++++++++++++++++++++++++++++++++++
+ 1 files changed, 35 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/vhost/mpassthru.c b/drivers/vhost/mpassthru.c
-index 25e2f3e..8c48898 100644
---- a/drivers/vhost/mpassthru.c
-+++ b/drivers/vhost/mpassthru.c
-@@ -161,6 +161,39 @@ static int mp_dev_change_flags(struct net_device *dev, unsigned flags)
- 	return ret;
- }
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 37b389a..dc2f225 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2548,6 +2548,37 @@ err:
+ EXPORT_SYMBOL(netdev_mp_port_prep);
+ #endif
  
-+/* The main function to allocate external buffers */
-+static struct skb_external_page *page_ctor(struct mpassthru_port *port,
-+		struct sk_buff *skb, int npages)
-+{
-+	int i;
-+	unsigned long flags;
-+	struct page_ctor *ctor;
-+	struct page_info *info = NULL;
-+
-+	ctor = container_of(port, struct page_ctor, port);
-+
-+	spin_lock_irqsave(&ctor->read_lock, flags);
-+	if (!list_empty(&ctor->readq)) {
-+		info = list_first_entry(&ctor->readq, struct page_info, list);
-+		list_del(&info->list);
-+	}
-+	spin_unlock_irqrestore(&ctor->read_lock, flags);
-+	if (!info)
-+		return NULL;
-+
-+	for (i = 0; i < info->pnum; i++) {
-+		get_page(info->pages[i]);
-+		info->frag[i].page = info->pages[i];
-+		info->frag[i].page_offset = i ? 0 : info->offset;
-+		info->frag[i].size = port->npages > 1 ? PAGE_SIZE :
-+			port->data_len;
-+	}
-+	info->skb = skb;
-+	info->ext_page.frags = info->frag;
-+	info->ext_page.ushinfo = &info->ushinfo;
-+	return &info->ext_page;
-+}
-+
- static int page_ctor_attach(struct mp_struct *mp)
- {
- 	int rc;
-@@ -186,7 +219,7 @@ static int page_ctor_attach(struct mp_struct *mp)
- 
- 	dev_hold(dev);
- 	ctor->dev = dev;
--	ctor->port.ctor = NULL;
-+	ctor->port.ctor = page_ctor;
- 	ctor->port.sock = &mp->socket;
- 	ctor->lock_pages = 0;
- 	rc = netdev_mp_port_attach(dev, &ctor->port);
-@@ -252,11 +285,66 @@ static int set_memlock_rlimit(struct page_ctor *ctor, int resource,
- 	return 0;
- }
- 
-+static void relinquish_resource(struct page_ctor *ctor)
-+{
-+	if (!(ctor->dev->flags & IFF_UP) &&
-+			!(ctor->wq_len + ctor->rq_len))
-+		printk(KERN_INFO "relinquish_resource\n");
-+}
-+
-+static void mp_ki_dtor(struct kiocb *iocb)
-+{
-+	struct page_info *info = (struct page_info *)(iocb->private);
-+	int i;
-+
-+	if (info->flags == INFO_READ) {
-+		for (i = 0; i < info->pnum; i++) {
-+			if (info->pages[i]) {
-+				set_page_dirty_lock(info->pages[i]);
-+				put_page(info->pages[i]);
-+			}
-+		}
-+		info->skb->destructor = NULL;
-+		kfree_skb(info->skb);
-+		info->ctor->rq_len--;
-+	} else
-+		info->ctor->wq_len--;
-+	/* Decrement the number of locked pages */
-+	info->ctor->lock_pages -= info->pnum;
-+	kmem_cache_free(ext_page_info_cache, info);
-+	relinquish_resource(info->ctor);
-+
-+	return;
-+}
-+
-+static struct kiocb *create_iocb(struct page_info *info, int size)
-+{
-+	struct kiocb *iocb = NULL;
-+
-+	iocb = info->iocb;
-+	if (!iocb)
-+		return iocb;
-+	iocb->ki_flags = 0;
-+	iocb->ki_users = 1;
-+	iocb->ki_key = 0;
-+	iocb->ki_ctx = NULL;
-+	iocb->ki_cancel = NULL;
-+	iocb->ki_retry = NULL;
-+	iocb->ki_iovec = NULL;
-+	iocb->ki_eventfd = NULL;
-+	iocb->ki_pos = info->desc_pos;
-+	iocb->ki_nbytes = size;
-+	iocb->ki_dtor(iocb);
-+	iocb->private = (void *)info;
-+	iocb->ki_dtor = mp_ki_dtor;
-+
-+	return iocb;
-+}
-+
- static int page_ctor_detach(struct mp_struct *mp)
- {
- 	struct page_ctor *ctor;
- 	struct page_info *info;
--	struct kiocb *iocb = NULL;
- 	int i;
- 
- 	/* locked by mp_mutex */
-@@ -268,11 +356,17 @@ static int page_ctor_detach(struct mp_struct *mp)
- 		for (i = 0; i < info->pnum; i++)
- 			if (info->pages[i])
- 				put_page(info->pages[i]);
-+		create_iocb(info, 0);
-+		ctor->rq_len--;
- 		kmem_cache_free(ext_page_info_cache, info);
- 	}
-+
-+	relinquish_resource(ctor);
-+
- 	set_memlock_rlimit(ctor, RLIMIT_MEMLOCK,
- 			   ctor->o_rlim.rlim_cur,
- 			   ctor->o_rlim.rlim_max);
-+
- 	netdev_mp_port_detach(ctor->dev);
- 	dev_put(ctor->dev);
- 
-@@ -320,6 +414,161 @@ static void mp_put(struct mp_file *mfile)
- 		mp_detach(mfile->mp);
- }
- 
-+/* The callback to destruct the external buffers or skb */
-+static void page_dtor(struct skb_external_page *ext_page)
-+{
-+	struct page_info *info;
-+	struct page_ctor *ctor;
-+	struct sock *sk;
-+	struct sk_buff *skb;
-+	unsigned long flags;
-+
-+	if (!ext_page)
-+		return;
-+	info = container_of(ext_page, struct page_info, ext_page);
-+	if (!info)
-+		return;
-+	ctor = info->ctor;
-+	skb = info->skb;
-+
-+	if ((info->flags == INFO_READ) && info->skb)
-+		info->skb->head = NULL;
-+
-+	/* If the info->total is 0, make it to be reused */
-+	if (!info->total) {
-+		spin_lock_irqsave(&ctor->read_lock, flags);
-+		list_add(&info->list, &ctor->readq);
-+		spin_unlock_irqrestore(&ctor->read_lock, flags);
-+		return;
-+	}
-+
-+	if (info->flags == INFO_READ)
-+		return;
-+
-+	/* For transmit, we should wait for the DMA finish by hardware.
-+	 * Queue the notifier to wake up the backend driver
-+	 */
-+
-+	create_iocb(info, info->total);
-+
-+	sk = ctor->port.sock->sk;
-+	sk->sk_write_space(sk);
-+
-+	return;
-+}
-+
-+/* For small exteranl buffers transmit, we don't need to call
-+ * get_user_pages().
++#if defined(CONFIG_MEDIATE_PASSTHRU) || defined(CONFIG_MEDIATE_PASSTHRU_MODULE)
++/* Add a hook to intercept mediate passthru(zero-copy) packets,
++ * and insert it to the socket queue owned by mp_port specially.
 + */
-+static struct page_info *alloc_small_page_info(struct page_ctor *ctor,
-+		struct kiocb *iocb, int total)
++static inline struct sk_buff *handle_mpassthru(struct sk_buff *skb,
++					       struct packet_type **pt_prev,
++					       int *ret,
++					       struct net_device *orig_dev)
 +{
-+	struct page_info *info =
-+		kmem_cache_zalloc(ext_page_info_cache, GFP_KERNEL);
++	struct mpassthru_port *mp_port = NULL;
++	struct sock *sk = NULL;
 +
-+	if (!info)
-+		return NULL;
-+	info->total = total;
-+	info->ext_page.dtor = page_dtor;
-+	info->ctor = ctor;
-+	info->flags = INFO_WRITE;
-+	info->iocb = iocb;
-+	return info;
-+}
++	if (!dev_is_mpassthru(skb->dev))
++		return skb;
++	mp_port = skb->dev->mp_port;
 +
-+/* The main function to transform the guest user space address
-+ * to host kernel address via get_user_pages(). Thus the hardware
-+ * can do DMA directly to the external buffer address.
-+ */
-+static struct page_info *alloc_page_info(struct page_ctor *ctor,
-+		struct kiocb *iocb, struct iovec *iov,
-+		int count, struct frag *frags,
-+		int npages, int total)
-+{
-+	int rc;
-+	int i, j, n = 0;
-+	int len;
-+	unsigned long base, lock_limit;
-+	struct page_info *info = NULL;
-+
-+	lock_limit = current->signal->rlim[RLIMIT_MEMLOCK].rlim_cur;
-+	lock_limit >>= PAGE_SHIFT;
-+
-+	if (ctor->lock_pages + count > lock_limit && npages) {
-+		printk(KERN_INFO "exceed the locked memory rlimit.");
-+		return NULL;
++	if (*pt_prev) {
++		*ret = deliver_skb(skb, *pt_prev, orig_dev);
++		*pt_prev = NULL;
 +	}
 +
-+	info = kmem_cache_zalloc(ext_page_info_cache, GFP_KERNEL);
-+
-+	if (!info)
-+		return NULL;
-+
-+	for (i = j = 0; i < count; i++) {
-+		base = (unsigned long)iov[i].iov_base;
-+		len = iov[i].iov_len;
-+
-+		if (!len)
-+			continue;
-+		n = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
-+
-+		rc = get_user_pages_fast(base, n, npages ? 1 : 0,
-+				&info->pages[j]);
-+		if (rc != n)
-+			goto failed;
-+
-+		while (n--) {
-+			frags[j].offset = base & ~PAGE_MASK;
-+			frags[j].size = min_t(int, len,
-+					PAGE_SIZE - frags[j].offset);
-+			len -= frags[j].size;
-+			base += frags[j].size;
-+			j++;
-+		}
-+	}
-+
-+#ifdef CONFIG_HIGHMEM
-+	if (npages && !(dev->features & NETIF_F_HIGHDMA)) {
-+		for (i = 0; i < j; i++) {
-+			if (PageHighMem(info->pages[i]))
-+				goto failed;
-+		}
-+	}
-+#endif
-+
-+	info->total = total;
-+	info->ext_page.dtor = page_dtor;
-+	info->ctor = ctor;
-+	info->pnum = j;
-+	info->iocb = iocb;
-+	if (!npages)
-+		info->flags = INFO_WRITE;
-+	if (info->flags == INFO_READ) {
-+		info->ext_page.start = (u8 *)(((unsigned long)
-+				(pfn_to_kaddr(page_to_pfn(info->pages[0]))) +
-+				frags[0].offset));
-+#ifdef NET_SKBUFF_DATA_USES_OFFSET
-+		info->ext_page.size = SKB_DATA_ALIGN(
-+				iov[0].iov_len + NET_IP_ALIGN + NET_SKB_PAD);
-+#else
-+		info->ext_page.size = SKB_DATA_ALIGN(
-+				iov[0].iov_len + NET_IP_ALIGN + NET_SKB_PAD) -
-+			NET_IP_ALIGN - NET_SKB_PAD;
-+#endif
-+	}
-+	/* increment the number of locked pages */
-+	ctor->lock_pages += j;
-+	return info;
-+
-+failed:
-+	for (i = 0; i < j; i++)
-+		put_page(info->pages[i]);
-+
-+	kmem_cache_free(ext_page_info_cache, info);
++	sk = mp_port->sock->sk;
++	skb_queue_tail(&sk->sk_receive_queue, skb);
++	sk->sk_state_change(sk);
 +
 +	return NULL;
 +}
++#else
++#define handle_mpassthru(skb, pt_prev, ret, orig_dev)     (skb)
++#endif
 +
- /* Ops structure to mimic raw sockets with mp device */
- static const struct proto_ops mp_socket_ops = {
- };
+ /**
+  *	netif_receive_skb - process receive buffer from network
+  *	@skb: buffer to process
+@@ -2629,6 +2660,10 @@ int netif_receive_skb(struct sk_buff *skb)
+ ncls:
+ #endif
+ 
++	/* To intercept mediate passthru(zero-copy) packets here */
++	skb = handle_mpassthru(skb, &pt_prev, &ret, orig_dev);
++	if (!skb)
++		goto out;
+ 	skb = handle_bridge(skb, &pt_prev, &ret, orig_dev);
+ 	if (!skb)
+ 		goto out;
 -- 
 1.5.4.4
-
