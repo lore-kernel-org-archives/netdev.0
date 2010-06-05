@@ -1,63 +1,42 @@
-From: Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>
-Subject: RE: [Patch 1/2] s2io: add dynamic LRO disable support
-Date: Sat, 5 Jun 2010 01:53:25 -0700
-Message-ID: <FCA91A92EE52B041906A0358FC28FCC38EF129DB8F@FRE1EXCH02.hq.exar.com>
-References: <20100603034303.5305.55552.sendpatchset@localhost.localdomain>
- <20100603153811.7b14a1a8@leela>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Re: still having r8169 woes with XID 18000000
+Date: Sat, 05 Jun 2010 02:02:34 -0700 (PDT)
+Message-ID: <20100605.020234.15253307.davem@davemloft.net>
+References: <4C09387F.1050403@iki.fi>
+	<4C09611B.2090805@iki.fi>
+	<4C09FF4B.4050601@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Amerigo Wang <amwang@redhat.com>,
-	"herbert.xu@redhat.com" <herbert.xu@redhat.com>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sgruszka@redhat.com" <sgruszka@redhat.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Michal Schmidt <mschmidt@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: phil@nwl.cc, romieu@fr.zoreil.com, netdev@vger.kernel.org
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.exar.com ([204.154.183.83]:8852 "EHLO smtp1.exar.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932555Ab0FEI6e convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jun 2010 04:58:34 -0400
-In-Reply-To: <20100603153811.7b14a1a8@leela>
-Content-Language: en-US
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35788
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932555Ab0FEJCZ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Jun 2010 05:02:25 -0400
+In-Reply-To: <4C09FF4B.4050601@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +static int s2io_ethtool_set_flags(struct net_device *dev, u32 data)
-> +{
-> +	struct s2io_nic *sp = netdev_priv(dev);
-> +	int rc = 0;
-> +	int changed = 0;
-> +
-> +	if (data & ETH_FLAG_LRO) {
-> +		if (lro_enable) {
-> +			if (!(dev->features & NETIF_F_LRO)) {
-> +				dev->features |= NETIF_F_LRO;
-> +				changed = 1;
-> +			}
-> +		} else
-> +			rc = -EINVAL;
-> +	} else if (dev->features & NETIF_F_LRO) {
-> +		dev->features &= ~NETIF_F_LRO;
-> +		changed = 1;
-> +	}
-> +
-> +	if (changed && netif_running(dev)) {
-> +		s2io_stop_all_tx_queue(sp);
-> +		s2io_card_down(sp);
-> +		sp->lro = dev->features & NETIF_F_LRO;
-> +		rc = s2io_card_up(sp);
-In s2io_card_up, update ring->lro too as it is used in the fast path -
-		struct ring_info *ring = &mac_control->rings[i];
- 
- 		ring->mtu = dev->mtu;
-+		ring->lro = sp->lro;
+=46rom: Timo Ter=E4s <timo.teras@iki.fi>
+Date: Sat, 05 Jun 2010 10:39:55 +0300
 
-> +		s2io_start_all_tx_queue(sp);
+> Ok, I compared Realtek's and the in-tree driver. The only essential
+> difference is that Realtek driver uses udelay(100) in mdio_write()'s
+> busy polling loop where as the in-tree uses udelay(25). And that seem=
+s
+> to be the magic difference! Using udelay(100) fixes this!
+>=20
+> I'm guessing that the phy needs slight delay between consecutive
+> mdio_write's even if it has advertised that the write has been
+> completed. And yes, just adding a small delay in the end of mdio_writ=
+e
+> does seem to work too.
+>=20
+> Francois, you think the below patch is ok? Should I send it as proper=
+ly
+> formatted commit?
 
-The following line in init_shared_mem() is redundant and can be removed.
--	ring->lro = lro_enable;
-
-Thanks,
-Ram
+Excellent detective work, Francois please review!
