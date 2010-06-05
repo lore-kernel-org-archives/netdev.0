@@ -1,7 +1,7 @@
 From: xiaohui.xin@intel.com
-Subject: [RFC PATCH v7 00/19] Provide a zero-copy method on KVM virtio-net.
-Date: Sat,  5 Jun 2010 18:14:59 +0800
-Message-ID: <1275732899-5423-20-git-send-email-xiaohui.xin@intel.com>
+Subject: [RFC PATCH v7 17/19] Export proto_ops to vhost-net driver.
+Date: Sat,  5 Jun 2010 18:14:56 +0800
+Message-ID: <1275732899-5423-17-git-send-email-xiaohui.xin@intel.com>
 References: <1275732899-5423-1-git-send-email-xiaohui.xin@intel.com>
  <1275732899-5423-2-git-send-email-xiaohui.xin@intel.com>
  <1275732899-5423-3-git-send-email-xiaohui.xin@intel.com>
@@ -18,177 +18,360 @@ References: <1275732899-5423-1-git-send-email-xiaohui.xin@intel.com>
  <1275732899-5423-14-git-send-email-xiaohui.xin@intel.com>
  <1275732899-5423-15-git-send-email-xiaohui.xin@intel.com>
  <1275732899-5423-16-git-send-email-xiaohui.xin@intel.com>
- <1275732899-5423-17-git-send-email-xiaohui.xin@intel.com>
- <1275732899-5423-18-git-send-email-xiaohui.xin@intel.com>
- <1275732899-5423-19-git-send-email-xiaohui.xin@intel.com>
+Cc: Xin Xiaohui <xiaohui.xin@intel.com>
 To: netdev@vger.kernel.org, kvm@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
 	davem@davemloft.net, herbert@gondor.apana.org.au,
 	jdike@linux.intel.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1275732899-5423-19-git-send-email-xiaohui.xin@intel.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:65455 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932945Ab0FEKHT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Jun 2010 06:07:19 -0400
+In-Reply-To: <1275732899-5423-16-git-send-email-xiaohui.xin@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We provide an zero-copy method which driver side may get external
-buffers to DMA. Here external means driver don't use kernel space
-to allocate skb buffers. Currently the external buffer can be from
-guest virtio-net driver.
+From: Xin Xiaohui <xiaohui.xin@intel.com>
 
-The idea is simple, just to pin the guest VM user space and then
-let host NIC driver has the chance to directly DMA to it. 
-The patches are based on vhost-net backend driver. We add a device
-which provides proto_ops as sendmsg/recvmsg to vhost-net to
-send/recv directly to/from the NIC driver. KVM guest who use the
-vhost-net backend may bind any ethX interface in the host side to
-get copyless data transfer thru guest virtio-net frontend.
+Currently, vhost-net is only user to the mp device.
 
-patch 01-13:  	net core changes.
-patch 14-18:  	new device as interface to mantpulate external buffers.
-patch 19: 	for vhost-net.
+Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
+Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
+Reviewed-by: Jeff Dike <jdike@linux.intel.com>
+---
+ drivers/vhost/mpassthru.c |  295 ++++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 290 insertions(+), 5 deletions(-)
 
-The guest virtio-net driver submits multiple requests thru vhost-net
-backend driver to the kernel. And the requests are queued and then
-completed after corresponding actions in h/w are done.
+diff --git a/drivers/vhost/mpassthru.c b/drivers/vhost/mpassthru.c
+index 8c48898..23755ba 100644
+--- a/drivers/vhost/mpassthru.c
++++ b/drivers/vhost/mpassthru.c
+@@ -414,6 +414,11 @@ static void mp_put(struct mp_file *mfile)
+ 		mp_detach(mfile->mp);
+ }
+ 
++static void iocb_tag(struct kiocb *iocb)
++{
++	iocb->ki_flags = 1;
++}
++
+ /* The callback to destruct the external buffers or skb */
+ static void page_dtor(struct skb_external_page *ext_page)
+ {
+@@ -449,7 +454,7 @@ static void page_dtor(struct skb_external_page *ext_page)
+ 	 * Queue the notifier to wake up the backend driver
+ 	 */
+ 
+-	create_iocb(info, info->total);
++	iocb_tag(info->iocb);
+ 
+ 	sk = ctor->port.sock->sk;
+ 	sk->sk_write_space(sk);
+@@ -569,8 +574,288 @@ failed:
+ 	return NULL;
+ }
+ 
++static void mp_sock_destruct(struct sock *sk)
++{
++	struct mp_struct *mp = container_of(sk, struct mp_sock, sk)->mp;
++	kfree(mp);
++}
++
++static void mp_sock_state_change(struct sock *sk)
++{
++	if (sk_has_sleeper(sk))
++		wake_up_interruptible_sync_poll(sk->sk_sleep, POLLIN);
++}
++
++static void mp_sock_write_space(struct sock *sk)
++{
++	if (sk_has_sleeper(sk))
++		wake_up_interruptible_sync_poll(sk->sk_sleep, POLLOUT);
++}
++
++static void mp_sock_data_ready(struct sock *sk, int coming)
++{
++	struct mp_struct *mp = container_of(sk, struct mp_sock, sk)->mp;
++	struct page_ctor *ctor = NULL;
++	struct sk_buff *skb = NULL;
++	struct page_info *info = NULL;
++	struct ethhdr *eth;
++	struct kiocb *iocb = NULL;
++	int len, i;
++
++	struct virtio_net_hdr hdr = {
++		.flags = 0,
++		.gso_type = VIRTIO_NET_HDR_GSO_NONE
++	};
++
++	ctor = rcu_dereference(mp->ctor);
++	if (!ctor)
++		return;
++
++	while ((skb = skb_dequeue(&sk->sk_receive_queue)) != NULL) {
++		if (skb_shinfo(skb)->destructor_arg) {
++			info = container_of(skb_shinfo(skb)->destructor_arg,
++					struct page_info, ext_page);
++			info->skb = skb;
++			if (skb->len > info->len) {
++				mp->dev->stats.rx_dropped++;
++				DBG(KERN_INFO "Discarded truncated rx packet: "
++				    " len %d > %zd\n", skb->len, info->len);
++				info->total = skb->len;
++				goto clean;
++			} else {
++				eth = eth_hdr(skb);
++				skb_push(skb, ETH_HLEN);
++				info->total = skb->len;
++			}
++		} else {
++			/* The skb composed with kernel buffers
++			 * in case external buffers are not sufficent.
++			 * The case should be rare.
++			 */
++			unsigned long flags;
++			int i;
++			info = NULL;
++
++			spin_lock_irqsave(&ctor->read_lock, flags);
++			if (!list_empty(&ctor->readq)) {
++				info = list_first_entry(&ctor->readq,
++						struct page_info, list);
++				list_del(&info->list);
++			}
++			spin_unlock_irqrestore(&ctor->read_lock, flags);
++			if (!info) {
++				DBG(KERN_INFO
++				    "No external buffer avaliable %p\n",
++				    skb);
++				skb_queue_head(&sk->sk_receive_queue,
++						skb);
++				break;
++			}
++			info->skb = skb;
++			eth = eth_hdr(skb);
++			skb_push(skb, ETH_HLEN);
++			info->total = skb->len;
++			skb_copy_datagram_iovec(skb, 0, info->iov, skb->len);
++		}
++
++		len = memcpy_toiovec(info->hdr, (unsigned char *)&hdr,
++				sizeof hdr);
++		if (len) {
++			DBG(KERN_INFO
++				"Unable to write vnet_hdr at addr %p: %d\n",
++				info->hdr->iov_base, len);
++			goto clean;
++		}
++
++		iocb = create_iocb(info, skb->len + sizeof(hdr));
++		continue;
++
++clean:
++		kfree_skb(skb);
++		for (i = 0; info->pages[i]; i++)
++			put_page(info->pages[i]);
++		kmem_cache_free(ext_page_info_cache, info);
++	}
++	return;
++}
++
++static int mp_sendmsg(struct kiocb *iocb, struct socket *sock,
++		struct msghdr *m, size_t total_len)
++{
++	struct mp_struct *mp = container_of(sock->sk, struct mp_sock, sk)->mp;
++	struct page_ctor *ctor;
++	struct iovec *iov = m->msg_iov;
++	struct page_info *info = NULL;
++	struct frag frags[MAX_SKB_FRAGS];
++	struct sk_buff *skb;
++	int count = m->msg_iovlen;
++	int total = 0, header, n, i, len, rc;
++	unsigned long base;
++
++	ctor = rcu_dereference(mp->ctor);
++	if (!ctor)
++		return -ENODEV;
++
++	total = iov_length(iov, count);
++
++	if (total < ETH_HLEN)
++		return -EINVAL;
++
++	if (total <= COPY_THRESHOLD)
++		goto copy;
++
++	n = 0;
++	for (i = 0; i < count; i++) {
++		base = (unsigned long)iov[i].iov_base;
++		len = iov[i].iov_len;
++		if (!len)
++			continue;
++		n += ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
++		if (n > MAX_SKB_FRAGS)
++			return -EINVAL;
++	}
++
++copy:
++	header = total > COPY_THRESHOLD ? COPY_HDR_LEN : total;
++
++	skb = alloc_skb(header + NET_IP_ALIGN, GFP_ATOMIC);
++	if (!skb)
++		goto drop;
++
++	skb_reserve(skb, NET_IP_ALIGN);
++
++	skb_set_network_header(skb, ETH_HLEN);
++
++	memcpy_fromiovec(skb->data, iov, header);
++	skb_put(skb, header);
++	skb->protocol = *((__be16 *)(skb->data) + ETH_ALEN);
++
++	if (header == total) {
++		rc = total;
++		info = alloc_small_page_info(ctor, iocb, total);
++	} else {
++		info = alloc_page_info(ctor, iocb, iov, count, frags, 0, total);
++		if (info)
++			for (i = 0; info->pages[i]; i++) {
++				skb_add_rx_frag(skb, i, info->pages[i],
++						frags[i].offset, frags[i].size);
++				info->pages[i] = NULL;
++			}
++	}
++	if (info != NULL) {
++		info->desc_pos = iocb->ki_pos;
++		info->total = total;
++		info->skb = skb;
++		skb_shinfo(skb)->destructor_arg = &info->ext_page;
++		skb->dev = mp->dev;
++		ctor->wq_len++;
++		create_iocb(info, info->total);
++		dev_queue_xmit(skb);
++		return 0;
++	}
++drop:
++	kfree_skb(skb);
++	if (info) {
++		for (i = 0; info->pages[i]; i++)
++			put_page(info->pages[i]);
++		kmem_cache_free(ext_page_info_cache, info);
++	}
++	mp->dev->stats.tx_dropped++;
++	return -ENOMEM;
++}
++
++static int mp_recvmsg(struct kiocb *iocb, struct socket *sock,
++		struct msghdr *m, size_t total_len,
++		int flags)
++{
++	struct mp_struct *mp = container_of(sock->sk, struct mp_sock, sk)->mp;
++	struct page_ctor *ctor;
++	struct iovec *iov = m->msg_iov;
++	int count = m->msg_iovlen;
++	int npages, payload;
++	struct page_info *info;
++	struct frag frags[MAX_SKB_FRAGS];
++	unsigned long base;
++	int i, len;
++	unsigned long flag;
++
++	if (!(flags & MSG_DONTWAIT))
++		return -EINVAL;
++
++	ctor = rcu_dereference(mp->ctor);
++	if (!ctor)
++		return -EINVAL;
++
++	/* Error detections in case invalid external buffer */
++	if (count > 2 && iov[1].iov_len < ctor->port.hdr_len &&
++			mp->dev->features & NETIF_F_SG) {
++		return -EINVAL;
++	}
++
++	npages = ctor->port.npages;
++	payload = ctor->port.data_len;
++
++	/* If KVM guest virtio-net FE driver use SG feature */
++	if (count > 2) {
++		for (i = 2; i < count; i++) {
++			base = (unsigned long)iov[i].iov_base & ~PAGE_MASK;
++			len = iov[i].iov_len;
++			if (npages == 1)
++				len = min_t(int, len, PAGE_SIZE - base);
++			else if (base)
++				break;
++			payload -= len;
++			if (payload <= 0)
++				goto proceed;
++			if (npages == 1 || (len & ~PAGE_MASK))
++				break;
++		}
++	}
++
++	if ((((unsigned long)iov[1].iov_base & ~PAGE_MASK)
++				- NET_SKB_PAD - NET_IP_ALIGN) >= 0)
++		goto proceed;
++
++	return -EINVAL;
++
++proceed:
++	/* skip the virtnet head */
++	iov++;
++	count--;
++
++	if (!ctor->lock_pages || !ctor->rq_len)
++		set_memlock_rlimit(ctor, RLIMIT_MEMLOCK,
++				iocb->ki_user_data * 4096 * 2,
++				iocb->ki_user_data * 4096 * 2);
++
++	/* Translate address to kernel */
++	info = alloc_page_info(ctor, iocb, iov, count, frags, npages, 0);
++	if (!info)
++		return -ENOMEM;
++	info->len = total_len;
++	info->hdr[0].iov_base = iocb->ki_iovec[0].iov_base;
++	info->hdr[0].iov_len = iocb->ki_iovec[0].iov_len;
++	info->offset = frags[0].offset;
++	info->desc_pos = iocb->ki_pos;
++
++	iov--;
++	count++;
++
++	memcpy(info->iov, iov, sizeof(struct iovec) * count);
++
++	spin_lock_irqsave(&ctor->read_lock, flag);
++	list_add_tail(&info->list, &ctor->readq);
++	spin_unlock_irqrestore(&ctor->read_lock, flag);
++
++	ctor->rq_len++;
++
++	return 0;
++}
++
+ /* Ops structure to mimic raw sockets with mp device */
+ static const struct proto_ops mp_socket_ops = {
++	.sendmsg = mp_sendmsg,
++	.recvmsg = mp_recvmsg,
+ };
+ 
+ static struct proto mp_proto = {
+@@ -693,10 +978,10 @@ static long mp_chr_ioctl(struct file *file, unsigned int cmd,
+ 		sk->sk_sndbuf = INT_MAX;
+ 		container_of(sk, struct mp_sock, sk)->mp = mp;
+ 
+-		sk->sk_destruct = NULL;
+-		sk->sk_data_ready = NULL;
+-		sk->sk_write_space = NULL;
+-		sk->sk_state_change = NULL;
++		sk->sk_destruct = mp_sock_destruct;
++		sk->sk_data_ready = mp_sock_data_ready;
++		sk->sk_write_space = mp_sock_write_space;
++		sk->sk_state_change = mp_sock_state_change;
+ 		ret = mp_attach(mp, file);
+ 		if (ret < 0)
+ 			goto err_free_sk;
+-- 
+1.5.4.4
 
-For read, user space buffers are dispensed to NIC driver for rx when
-a page constructor API is invoked. Means NICs can allocate user buffers
-from a page constructor. We add a hook in netif_receive_skb() function
-to intercept the incoming packets, and notify the zero-copy device.
-
-For write, the zero-copy deivce may allocates a new host skb and puts
-payload on the skb_shinfo(skb)->frags, and copied the header to skb->data.
-The request remains pending until the skb is transmitted by h/w.
-
-Here, we have ever considered 2 ways to utilize the page constructor
-API to dispense the user buffers.
-
-One:	Modify __alloc_skb() function a bit, it can only allocate a 
-	structure of sk_buff, and the data pointer is pointing to a 
-	user buffer which is coming from a page constructor API.
-	Then the shinfo of the skb is also from guest.
-	When packet is received from hardware, the skb->data is filled
-	directly by h/w. What we have done is in this way.
-
-	Pros:	We can avoid any copy here.
-	Cons:	Guest virtio-net driver needs to allocate skb as almost
-		the same method with the host NIC drivers, say the size
-		of netdev_alloc_skb() and the same reserved space in the
-		head of skb. Many NIC drivers are the same with guest and
-		ok for this. But some lastest NIC drivers reserves special
-		room in skb head. To deal with it, we suggest to provide
-		a method in guest virtio-net driver to ask for parameter
-		we interest from the NIC driver when we know which device 
-		we have bind to do zero-copy. Then we ask guest to do so.
-		
-
-Two:	Modify driver to get user buffer allocated from a page constructor
-	API(to substitute alloc_page()), the user buffer are used as payload
-	buffers and filled by h/w directly when packet is received. Driver
-	should associate the pages with skb (skb_shinfo(skb)->frags). For 
-	the head buffer side, let host allocates skb, and h/w fills it. 
-	After that, the data filled in host skb header will be copied into
-	guest header buffer which is submitted together with the payload buffer.
-
-	Pros:	We could less care the way how guest or host allocates their
-		buffers.
-	Cons:	We still need a bit copy here for the skb header.
-
-We are not sure which way is the better here. This is the first thing we want
-to get comments from the community. We wish the modification to the network
-part will be generic which not used by vhost-net backend only, but a user
-application may use it as well when the zero-copy device may provides async
-read/write operations later.
-
-We have got comments from Michael. And he said the first method will break
-the compatiblity of virtio-net driver and may complicate the qemu live 
-migration. Currently, we tried to ignore the skb_reserve() if the device
-is doing zero-copy. Then guest virtio-net driver wil not changed. So we now
-continue to go with the first way. 
-But comments about the two ways are still appreicated.
-
-We provide multiple submits and asynchronous notifiicaton to 
-vhost-net too.
-
-Our goal is to improve the bandwidth and reduce the CPU usage.
-Exact performance data will be provided later. But for simple
-test with netperf, we found bindwidth up and CPU % up too,
-but the bindwidth up ratio is much more than CPU % up ratio.
-
-What we have not done yet:
-	packet split support
-	To support GRO
-	Performance tuning
-
-what we have done in v1:
-	polish the RCU usage
-	deal with write logging in asynchroush mode in vhost
-	add notifier block for mp device
-	rename page_ctor to mp_port in netdevice.h to make it looks generic
-	add mp_dev_change_flags() for mp device to change NIC state
-	add CONIFG_VHOST_MPASSTHRU to limit the usage when module is not load
-	a small fix for missing dev_put when fail
-	using dynamic minor instead of static minor number
-	a __KERNEL__ protect to mp_get_sock()
-
-what we have done in v2:
-	
-	remove most of the RCU usage, since the ctor pointer is only
-	changed by BIND/UNBIND ioctl, and during that time, NIC will be
-	stopped to get good cleanup(all outstanding requests are finished),
-	so the ctor pointer cannot be raced into wrong situation.
-
-	Remove the struct vhost_notifier with struct kiocb.
-	Let vhost-net backend to alloc/free the kiocb and transfer them
-	via sendmsg/recvmsg.
-
-	use get_user_pages_fast() and set_page_dirty_lock() when read.
-
-	Add some comments for netdev_mp_port_prep() and handle_mpassthru().
-
-what we have done in v3:
-	the async write logging is rewritten 
-	a drafted synchronous write function for qemu live migration
-	a limit for locked pages from get_user_pages_fast() to prevent Dos
-	by using RLIMIT_MEMLOCK
-	
-
-what we have done in v4:
-	add iocb completion callback from vhost-net to queue iocb in mp device
-	replace vq->receiver by mp_sock_data_ready()
-	remove stuff in mp device which access structures from vhost-net
-	modify skb_reserve() to ignore host NIC driver reserved space
-	rebase to the latest vhost tree
-	split large patches into small pieces, especially for net core part.
-	
-
-what we have done in v5:
-	address Arnd Bergmann's comments
-		-remove IFF_MPASSTHRU_EXCL flag in mp device
-		-Add CONFIG_COMPAT macro
-		-remove mp_release ops
-	move dev_is_mpassthru() as inline func
-	fix a bug in memory relinquish
-	Apply to current git (2.6.34-rc6) tree.
-
-what we have done in v6:
-	move create_iocb() out of page_dtor which may happen in interrupt context
-	-This remove the potential issues which lock called in interrupt context
-	make the cache used by mp, vhost as static, and created/destoryed during
-	modules init/exit functions.
-	-This makes multiple mp guest created at the same time.
-
-what we have done in v7:
-	some cleanup prepared to suppprt PS mode
-			
-performance:
-	using netperf with GSO/TSO disabled, 10G NIC, 
-	disabled packet split mode, with raw socket case compared to vhost.
-
-	bindwidth will be from 1.1Gbps to 1.7Gbps
-	CPU % from 120%-140% to 140%-160%
-
-	We have retested the performance based on 2.6.34-rc6 in above situtation.
-				BW		CPU %
-	vhost			1.4Gbps		120% ~ 130%
-	vhost + zero-copy	2.7Gbps		160% ~ 180%
