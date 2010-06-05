@@ -1,32 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH v2] ixgbevf: Enable GRO by default
-Date: Sat, 05 Jun 2010 03:05:02 -0700 (PDT)
-Message-ID: <20100605.030502.241907924.davem@davemloft.net>
-References: <20100604031911.16828.76874.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, xma@us.ibm.com,
-	gregory.v.rose@intel.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39714
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932654Ab0FEKEw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jun 2010 06:04:52 -0400
-In-Reply-To: <20100604031911.16828.76874.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: xiaohui.xin@intel.com
+Subject: [RFC PATCH v7 01/19] Add a new structure for skb buffer from external.
+Date: Sat,  5 Jun 2010 18:14:40 +0800
+Message-ID: <1275732899-5423-1-git-send-email-xiaohui.xin@intel.com>
+Cc: Xin Xiaohui <xiaohui.xin@intel.com>
+To: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
+	davem@davemloft.net, herbert@gondor.apana.org.au,
+	jdike@linux.intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 03 Jun 2010 20:19:25 -0700
+From: Xin Xiaohui <xiaohui.xin@intel.com>
 
-> From: Shirley Ma <mashirle@us.ibm.com>
-> 
-> Enable GRO by default for performance.
-> 
-> Signed-off-by: Shirley Ma <xma@us.ibm.com>
-> Acked-by: Greg Rose <gregory.v.rose@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
+Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
+Reviewed-by: Jeff Dike <jdike@linux.intel.com>
+---
+ include/linux/skbuff.h |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
 
-Applied, thanks.
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 124f90c..cf309c9 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -203,6 +203,18 @@ struct skb_shared_info {
+ 	void *		destructor_arg;
+ };
+ 
++/* The structure is for a skb which skb->data may point to
++ * an external buffer, which is not allocated from kernel space.
++ * Since the buffer is external, then the shinfo or frags are
++ * also extern too. It also contains a destructor for itself.
++ */
++struct skb_external_page {
++	u8              *start;
++	int             size;
++	struct skb_frag_struct *frags;
++	struct skb_shared_info *ushinfo;
++	void		(*dtor)(struct skb_external_page *);
++};
+ /* We divide dataref into two halves.  The higher 16 bits hold references
+  * to the payload part of skb->data.  The lower 16 bits hold references to
+  * the entire skb->data.  A clone of a headerless skb holds the length of
+-- 
+1.5.4.4
