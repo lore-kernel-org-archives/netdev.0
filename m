@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fec: convert legacy PM hooks to dem_pm_ops
-Date: Sat, 05 Jun 2010 02:55:01 -0700 (PDT)
-Message-ID: <20100605.025501.68155297.davem@davemloft.net>
-References: <20100602192704.GA22726@hera.kernel.org>
+Subject: Re: [Bugme-new] [Bug 16083] New: swapper: Page allocation failure
+Date: Sat, 05 Jun 2010 02:59:57 -0700 (PDT)
+Message-ID: <20100605.025957.27790926.davem@davemloft.net>
+References: <1275599603.2533.58.camel@edumazet-laptop>
+	<20100603143915.f1b0ba2b.akpm@linux-foundation.org>
+	<1275602282.2533.72.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, s.hauer@pengutronix.de,
-	linux-arm-kernel@lists.infradead.org, eric@eukrea.com, gerg@uclinux.org
-To: dkirjanov@hera.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20100602192704.GA22726@hera.kernel.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59430
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932654Ab0FEJ7r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jun 2010 05:59:47 -0400
+In-Reply-To: <1275602282.2533.72.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Denis Kirjanov <dkirjanov@hera.kernel.org>
-Date: Wed, 2 Jun 2010 19:27:04 +0000
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 03 Jun 2010 23:58:02 +0200
 
-> This patch compile tested only.
+> So in this particular case, the bugzilla report can point to a real
+> problem in our stack.
 > 
-> Convert legacy PM hooks to dev_pm_ops
-> Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
+> Failed allocations had been silent, we probably would never have
+> noticed.
 
-Applied, thanks.
+Agreed.
+
+We'd be instead scratching our heads over reports about IGMP/MLD
+reports not going out.
