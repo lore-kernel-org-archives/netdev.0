@@ -1,54 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 2/2][v2] bonding: allow user-controlled
- output slave selection
-Date: Sat, 05 Jun 2010 02:54:47 -0700 (PDT)
-Message-ID: <20100605.025447.02296169.davem@davemloft.net>
-References: <20100602184018.GL7497@gospo.rdu.redhat.com>
+Subject: Re: [PATCH] fec: convert legacy PM hooks to dem_pm_ops
+Date: Sat, 05 Jun 2010 02:55:01 -0700 (PDT)
+Message-ID: <20100605.025501.68155297.davem@davemloft.net>
+References: <20100602192704.GA22726@hera.kernel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@tuxdriver.com
-To: andy@greyhouse.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46398
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932734Ab0FEJyh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jun 2010 05:54:37 -0400
-In-Reply-To: <20100602184018.GL7497@gospo.rdu.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, s.hauer@pengutronix.de,
+	linux-arm-kernel@lists.infradead.org, eric@eukrea.com, gerg@uclinux.org
+To: dkirjanov@hera.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20100602192704.GA22726@hera.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Andy Gospodarek <andy@greyhouse.net>
-Date: Wed, 2 Jun 2010 14:40:18 -0400
+From: Denis Kirjanov <dkirjanov@hera.kernel.org>
+Date: Wed, 2 Jun 2010 19:27:04 +0000
 
+> This patch compile tested only.
 > 
-> v2: changed bonding module version, modified to apply on top of changes
-> from previous patch in series, and updated documentation to elaborate on
-> multiqueue awareness that now exists in bonding driver.
-> 
-> This patch give the user the ability to control the output slave for
-> round-robin and active-backup bonding.  Similar functionality was
-> discussed in the past, but Jay Vosburgh indicated he would rather see a
-> feature like this added to existing modes rather than creating a
-> completely new mode.  Jay's thoughts as well as Neil's input surrounding
-> some of the issues with the first implementation pushed us toward a
-> design that relied on the queue_mapping rather than skb marks.
-> Round-robin and active-backup modes were chosen as the first users of
-> this slave selection as they seemed like the most logical choices when
-> considering a multi-switch environment.
-> 
-> Round-robin mode works without any modification, but active-backup does
-> require inclusion of the first patch in this series and setting
-> the 'all_slaves_active' flag.  This will allow reception of unicast traffic on
-> any of the backup interfaces.
-> 
-> This was tested with IPv4-based filters as well as VLAN-based filters
-> with good results.
-> 
-> More information as well as a configuration example is available in the
-> patch to Documentation/networking/bonding.txt.
-> 
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> Convert legacy PM hooks to dev_pm_ops
+> Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
 
-Applied.
+Applied, thanks.
