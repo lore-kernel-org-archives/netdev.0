@@ -1,89 +1,59 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] act_mirred: don't clone skb when skb isn't shared
-Date: Sat, 5 Jun 2010 21:33:03 +0800
-Message-ID: <AANLkTinh6OylNU8NLXB6ZSb012AmzkFhzFQWPR-iAsrf@mail.gmail.com>
-References: <1275658990-15838-1-git-send-email-xiaosuo@gmail.com>
-	<1275742435.3490.31.camel@bigi> <AANLkTikHqzIr-SjPZe-iiMPxVG9PRR9-0A9qeMwzfLYp@mail.gmail.com>
-	<1275744299.3490.48.camel@bigi>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC] act_cpu: redirect skb receiving to a special CPU.
+Date: Sat, 05 Jun 2010 09:54:05 -0400
+Message-ID: <1275746045.3490.60.camel@bigi>
+References: <AANLkTikskTWJrULj2IKYhebxh9O_XTOMBy3i0wPY8thq@mail.gmail.com>
+	 <1275743224.3490.44.camel@bigi>
+	 <AANLkTiltF2APEnqHyHTtHA7JMNp3HX3aCu9UL3nUJ5_u@mail.gmail.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f174.google.com ([209.85.212.174]:48458 "EHLO
-	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754032Ab0FENdY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jun 2010 09:33:24 -0400
-Received: by pxi8 with SMTP id 8so622170pxi.19
-        for <netdev@vger.kernel.org>; Sat, 05 Jun 2010 06:33:23 -0700 (PDT)
-In-Reply-To: <1275744299.3490.48.camel@bigi>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:40445 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754707Ab0FENyI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jun 2010 09:54:08 -0400
+Received: by vws5 with SMTP id 5so1040259vws.19
+        for <netdev@vger.kernel.org>; Sat, 05 Jun 2010 06:54:07 -0700 (PDT)
+In-Reply-To: <AANLkTiltF2APEnqHyHTtHA7JMNp3HX3aCu9UL3nUJ5_u@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 5, 2010 at 9:24 PM, jamal <hadi@cyberus.ca> wrote:
-> On Sat, 2010-06-05 at 21:07 +0800, Changli Gao wrote:
->
->> Thanks. BTW: act_nat.c doesn't obey the following rule, and you plan
->> to remove TC_MUNGED and TC_OK2MUNGE?
->
->> 2) If you munge any packet thou shalt call pskb_expand_head in the case
->> someone else is referencing the skb. After that you "own" the skb.
->> You must also tell us if it is ok to munge the packet (TC_OK2MUNGE),
->> this way any action downstream can stomp on the packet.
->
-> That rule still applies but it is upto the discretion of the action.
-> i.e if the act_nat thinks it is ok for others down the street to trample
-> on the packet, it should tell us so. Maybe i should change the wording
-> to use the word "may" in that 3rd sentence.
-> [I will kill (low prio) TC_OK2MUNGE but not TC_MUNGED.]
->
+On Sat, 2010-06-05 at 21:26 +0800, Changli Gao wrote:
 
-If you kill TC_OK2MUNGE, you should kill TC_MUNGED too, as it will
-become useless.
+> ingress doesn't have any qdisc, but a class tree. The ingress_queue
+> will be sth. like this:
+[..]
 
-localhost linux # grep MUNGE net/sched/ -R
-net/sched/act_pedit.c:  if (!(skb->tc_verd & TC_OK2MUNGE)) {
-net/sched/act_pedit.c:                  skb->tc_verd =
-SET_TC_MUNGED(skb->tc_verd);
-net/sched/act_api.c:                    if (TC_MUNGED & skb->tc_verd) {
-net/sched/act_api.c:                            skb->tc_verd =
-SET_TC_OK2MUNGE(skb->tc_verd);
-net/sched/act_api.c:                            skb->tc_verd =
-CLR_TC_MUNGED(skb->tc_verd);
+> Then we can classify skbs in tree  manner.
+[..]
+> > The cpuid should be sufficient to map to a remote cpu queue, no?
+> 
+> It should be sufficient, but it isn't efficient. With map option, we
+> can use cls_flow to map traffic to classid, and use act_cpu map to map
+> classid to cpuid.
 
-int tcf_action_exec(struct sk_buff *skb, struct tc_action *act,
-                    struct tcf_result *res)
-{
-        struct tc_action *a;
-        int ret = -1;
+I am missing something, I would see the flow as:
+-->ethx/lo/etc->ingressqdisc->classify-->action(redirect to cpuidX)
+Why/when do you need the tree variant? If you are thinking of maybe
+rate limiting to a specific CPU, then would passing it to a policer
+first not be sufficient?  IOW, classid is not very useful.
 
-        if (skb->tc_verd & TC_NCLS) {
-                skb->tc_verd = CLR_TC_NCLS(skb->tc_verd);
-                ret = TC_ACT_OK;
-                goto exec_done;
-        }
-        while ((a = act) != NULL) {
-repeat:
-                if (a->ops && a->ops->act) {
-                        ret = a->ops->act(skb, a, res);
-                        if (TC_MUNGED & skb->tc_verd) {
-                                /* copied already, allow trampling */
-                                skb->tc_verd = SET_TC_OK2MUNGE(skb->tc_verd);
-                                skb->tc_verd = CLR_TC_MUNGED(skb->tc_verd);
-                        }
-                        if (ret == TC_ACT_REPEAT)
-                                goto repeat;    /* we need a ttl - JHS */
-                        if (ret != TC_ACT_PIPE)
-                                goto exec_done;
-                }
-                act = a->next;
-        }
-exec_done:
-        return ret;
-}
+> I won't implement a new netdevice, but reuse the softnet. Even, I'll
+> reuse the enqueue_to_backlog() introduced by RPS, and of course, use
+> IPIs as RPS. Is there another way to trigger an IRQ of the remote CPU?
 
-The bit OK2MUNGE relies on MUNGED only.
+I would look at it as "messaging of remote CPU" which may not result
+in an IRQ. I am pretty sure if you tried hard you could use HT in AMD
+hardware - the remote cpu may have an IRQ triggered but it wont be as
+expensive as IPI.
 
--- 
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+cheers,
+jamal
+
