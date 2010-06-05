@@ -1,52 +1,43 @@
-From: Changli Gao <xiaosuo@gmail.com>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: [PATCH] act_mirred: don't clone skb when skb isn't shared
-Date: Sat, 5 Jun 2010 21:07:55 +0800
-Message-ID: <AANLkTikHqzIr-SjPZe-iiMPxVG9PRR9-0A9qeMwzfLYp@mail.gmail.com>
+Date: Sat, 05 Jun 2010 09:24:59 -0400
+Message-ID: <1275744299.3490.48.camel@bigi>
 References: <1275658990-15838-1-git-send-email-xiaosuo@gmail.com>
-	<1275742435.3490.31.camel@bigi>
+	 <1275742435.3490.31.camel@bigi>
+	 <AANLkTikHqzIr-SjPZe-iiMPxVG9PRR9-0A9qeMwzfLYp@mail.gmail.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: hadi@cyberus.ca
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:45980 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933329Ab0FENIP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jun 2010 09:08:15 -0400
-Received: by pvg16 with SMTP id 16so916990pvg.19
-        for <netdev@vger.kernel.org>; Sat, 05 Jun 2010 06:08:15 -0700 (PDT)
-In-Reply-To: <1275742435.3490.31.camel@bigi>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:37915 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751574Ab0FENZC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jun 2010 09:25:02 -0400
+Received: by vws5 with SMTP id 5so1011353vws.19
+        for <netdev@vger.kernel.org>; Sat, 05 Jun 2010 06:25:01 -0700 (PDT)
+In-Reply-To: <AANLkTikHqzIr-SjPZe-iiMPxVG9PRR9-0A9qeMwzfLYp@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 5, 2010 at 8:53 PM, jamal <hadi@cyberus.ca> wrote:
-> On Fri, 2010-06-04 at 21:43 +0800, Changli Gao wrote:
->> don't clone skb when skb isn't shared
->>
->> When the tcf_action is TC_ACT_STOLEN, and the skb isn't shared, we don't need
->> to clone a new skb. As the skb will be freed after this function returns, we
->> can use it freely once we get a reference to it.
->
-> It looks like a good optimization - but i am not a big fan of one-offs
-> [because usability goes down and I am forced to explain it longer in the
-> rules (refer to: Documentation/networking/tc-actions-env-rules.txt)]
+On Sat, 2010-06-05 at 21:07 +0800, Changli Gao wrote:
 
-Thanks. BTW: act_nat.c doesn't obey the following rule, and you plan
-to remove TC_MUNGED and TC_OK2MUNGE?
+> Thanks. BTW: act_nat.c doesn't obey the following rule, and you plan
+> to remove TC_MUNGED and TC_OK2MUNGE?
 
-2) If you munge any packet thou shalt call pskb_expand_head in the case
-someone else is referencing the skb. After that you "own" the skb.
-You must also tell us if it is ok to munge the packet (TC_OK2MUNGE),
-this way any action downstream can stomp on the packet.
+> 2) If you munge any packet thou shalt call pskb_expand_head in the case
+> someone else is referencing the skb. After that you "own" the skb.
+> You must also tell us if it is ok to munge the packet (TC_OK2MUNGE),
+> this way any action downstream can stomp on the packet.
 
->
-> How about you update skb_act_clone to take take the action code as well
-> and do the check the if stolen/queued it does a skb_get otherwise it
-> calls skb_clone?
->
+That rule still applies but it is upto the discretion of the action.
+i.e if the act_nat thinks it is ok for others down the street to trample
+on the packet, it should tell us so. Maybe i should change the wording
+to use the word "may" in that 3rd sentence.
+[I will kill (low prio) TC_OK2MUNGE but not TC_MUNGED.]
 
-Good idea. Thanks.
+cheers,
+jamal
 
--- 
-Regards,
-Changli Gao(xiaosuo@gmail.com)
