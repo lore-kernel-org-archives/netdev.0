@@ -1,86 +1,63 @@
-From: =?UTF-8?B?VGltbyBUZXLDpHM=?= <timo.teras@iki.fi>
-Subject: [PATCH] Re: still having r8169 woes with XID 18000000
-Date: Sat, 05 Jun 2010 10:39:55 +0300
-Message-ID: <4C09FF4B.4050601@iki.fi>
-References: <4C08ED47.1030800@iki.fi> <20100604123641.ED8154CD45@orbit.nwl.cc> <4C08F953.1050800@iki.fi> <20100604134351.7981F4CD45@orbit.nwl.cc> <4C09387F.1050403@iki.fi> <4C09611B.2090805@iki.fi>
+From: Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>
+Subject: RE: [Patch 1/2] s2io: add dynamic LRO disable support
+Date: Sat, 5 Jun 2010 01:53:25 -0700
+Message-ID: <FCA91A92EE52B041906A0358FC28FCC38EF129DB8F@FRE1EXCH02.hq.exar.com>
+References: <20100603034303.5305.55552.sendpatchset@localhost.localdomain>
+ <20100603153811.7b14a1a8@leela>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Phil Sutter <phil@nwl.cc>,
-	=?UTF-8?B?ZnJhbsOnb2lzIHJvbWlldQ==?= <romieu@fr.zoreil.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Amerigo Wang <amwang@redhat.com>,
+	"herbert.xu@redhat.com" <herbert.xu@redhat.com>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sgruszka@redhat.com" <sgruszka@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Michal Schmidt <mschmidt@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ey-out-2122.google.com ([74.125.78.25]:12533 "EHLO
-	ey-out-2122.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755249Ab0FEHjy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jun 2010 03:39:54 -0400
-Received: by ey-out-2122.google.com with SMTP id 25so131266eya.19
-        for <netdev@vger.kernel.org>; Sat, 05 Jun 2010 00:39:53 -0700 (PDT)
-In-Reply-To: <4C09611B.2090805@iki.fi>
+Received: from webmail.exar.com ([204.154.183.83]:8852 "EHLO smtp1.exar.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932555Ab0FEI6e convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jun 2010 04:58:34 -0400
+In-Reply-To: <20100603153811.7b14a1a8@leela>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/04/2010 11:24 PM, Timo Ter=C3=A4s wrote:
-> On 06/04/2010 08:31 PM, Timo Ter=C3=A4s wrote:
-> r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-> r8169 0000:00:09.0: PCI->APIC IRQ transform: INT A -> IRQ 18
-> r8169 0000:00:09.0: no PCI Express capability
-> eth0: RTL8169sc/8110sc at 0xf835c000, 00:30:18:a6:2b:6c, XID 18000000=
- IRQ 18
-> r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-> r8169 0000:00:0b.0: PCI->APIC IRQ transform: INT A -> IRQ 19
-> r8169 0000:00:0b.0: no PCI Express capability
-> eth1: RTL8169sc/8110sc at 0xf8360000, 00:30:18:a6:2b:6d, XID 18000000=
- IRQ 19
-> r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-> r8169 0000:00:0c.0: PCI->APIC IRQ transform: INT A -> IRQ 16
-> r8169 0000:00:0c.0: no PCI Express capability
-> eth2: RTL8169sc/8110sc at 0xf8364000, 00:30:18:a6:2b:6e, XID 18000000=
- IRQ 16
-> r8169: mdio_write(f8364000, 0x00000003, 0000000a1) required 2000 cycl=
-es
-> r8169: mdio_write(f8364000, 0x00000000, 000001000) required 2000 cycl=
-es
-> r8169: mdio_write(f8364000, 0x00000000, 00000a0ff) required 2000 cycl=
-es
-> r8169: mdio_write(f8364000, 0x00000014, 00000fb54) required 2000 cycl=
-es
->=20
-> And eth2 was not working. Reloading the module gave a lot of other
-> mdio_write and mdio_read errors.
->=20
-> It seems to be pretty random when the errors occur, but that's the
-> reason why the NIC stops working: mdio_write() fails (one or more tim=
-es)
-> at some crucial point of the board specific phy config code resulting=
- in
-> bad state.
->=20
-> Any ideas how to debug this further?
+> +static int s2io_ethtool_set_flags(struct net_device *dev, u32 data)
+> +{
+> +	struct s2io_nic *sp = netdev_priv(dev);
+> +	int rc = 0;
+> +	int changed = 0;
+> +
+> +	if (data & ETH_FLAG_LRO) {
+> +		if (lro_enable) {
+> +			if (!(dev->features & NETIF_F_LRO)) {
+> +				dev->features |= NETIF_F_LRO;
+> +				changed = 1;
+> +			}
+> +		} else
+> +			rc = -EINVAL;
+> +	} else if (dev->features & NETIF_F_LRO) {
+> +		dev->features &= ~NETIF_F_LRO;
+> +		changed = 1;
+> +	}
+> +
+> +	if (changed && netif_running(dev)) {
+> +		s2io_stop_all_tx_queue(sp);
+> +		s2io_card_down(sp);
+> +		sp->lro = dev->features & NETIF_F_LRO;
+> +		rc = s2io_card_up(sp);
+In s2io_card_up, update ring->lro too as it is used in the fast path -
+		struct ring_info *ring = &mac_control->rings[i];
+ 
+ 		ring->mtu = dev->mtu;
++		ring->lro = sp->lro;
 
-Ok, I compared Realtek's and the in-tree driver. The only essential
-difference is that Realtek driver uses udelay(100) in mdio_write()'s
-busy polling loop where as the in-tree uses udelay(25). And that seems
-to be the magic difference! Using udelay(100) fixes this!
+> +		s2io_start_all_tx_queue(sp);
 
-I'm guessing that the phy needs slight delay between consecutive
-mdio_write's even if it has advertised that the write has been
-completed. And yes, just adding a small delay in the end of mdio_write
-does seem to work too.
+The following line in init_shared_mem() is redundant and can be removed.
+-	ring->lro = lro_enable;
 
-=46rancois, you think the below patch is ok? Should I send it as proper=
-ly
-formatted commit?
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 217e709..6db62bf 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -559,6 +559,7 @@ static void mdio_write(void __iomem *ioaddr,
- 			break;
- 		udelay(25);
- 	}
-+	udelay(25);
- }
-
- static int mdio_read(void __iomem *ioaddr, int reg_addr)
+Thanks,
+Ram
