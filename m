@@ -1,60 +1,57 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 1/2] net: ll_temac: fix interrupt bug when interrupt 0
- is used
-Date: Mon, 07 Jun 2010 07:57:25 +1000
-Message-ID: <1275861445.1931.2974.camel@pasglop>
-References: <6f264a7a-e5da-494a-a24d-1578ca422807@VA3EHSMHS016.ehs.local>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] virtio_net: indicate oom when addbuf returns failure
+Date: Mon, 7 Jun 2010 08:24:41 +1000
+Message-ID: <20100606222441.GA5992@gondor.apana.org.au>
+References: <201006041028.56798.rusty@rustcorp.com.au> <20100606201258.GA21196@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	grant.likely@secretlab.ca, jwboyer@linux.vnet.ibm.com,
-	michal.simek@petalogix.com, john.williams@petalogix.com,
-	Brian Hill <brian.hill@xilinx.com>
-To: John Linn <john.linn@xilinx.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rusty Russell <rusty@rustcorp.com.au>, stable@kernel.org,
+	Bruce Rogers <brogers@novell.com>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Shirley Ma <mashirle@us.ibm.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:59228 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754531Ab0FFV5k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Jun 2010 17:57:40 -0400
-In-Reply-To: <6f264a7a-e5da-494a-a24d-1578ca422807@VA3EHSMHS016.ehs.local>
+Received: from ringil.hengli.com.au ([216.59.3.182]:38265 "EHLO
+	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750717Ab0FFWY4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jun 2010 18:24:56 -0400
+Content-Disposition: inline
+In-Reply-To: <20100606201258.GA21196@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-05-26 at 11:29 -0600, John Linn wrote:
-> The code is not checking the interrupt for DMA correctly so that an
-> interrupt number of 0 will cause a false error.
-> 
-> Signed-off-by: Brian Hill <brian.hill@xilinx.com>
-> Signed-off-by: John Linn <john.linn@xilinx.com>
-> ---
->  drivers/net/ll_temac_main.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.c
-> index fa7620e..0615737 100644
-> --- a/drivers/net/ll_temac_main.c
-> +++ b/drivers/net/ll_temac_main.c
-> @@ -950,7 +950,7 @@ temac_of_probe(struct of_device *op, const struct of_device_id *match)
->  
->  	lp->rx_irq = irq_of_parse_and_map(np, 0);
->  	lp->tx_irq = irq_of_parse_and_map(np, 1);
-> -	if (!lp->rx_irq || !lp->tx_irq) {
-> +	if ((lp->rx_irq == NO_IRQ) || (lp->tx_irq == NO_IRQ)) {
->  		dev_err(&op->dev, "could not determine irqs\n");
->  		rc = -ENOMEM;
->  		goto nodev;
+On Sun, Jun 06, 2010 at 11:13:00PM +0300, Michael S. Tsirkin wrote:
+>
+> Actually this code looks strange:
+> Note that add_buf inicates out of memory
+> condition with a positive return value, and ring full
+> (which is not an error!) with -ENOSPC.
 
-Hasn't NO_IRQ been deprecated ?
+Indeed, this ultimately came from
 
-Linus made it clear a while back that interrupt 0 was not valid and
-that's the way it should be.
+commit 9ab86bbcf8be755256f0a5e994e0b38af6b4d399
+Author: Shirley Ma <mashirle@us.ibm.com>
+Date:   Fri Jan 29 03:20:04 2010 +0000
 
-We now have an interrupt remapping scheme on powerpc, so we ensure that
-0 always mean no interrupt. Other archs might need some fixups. Which
-are specifically needs this patch ?
+    virtio_net: Defer skb allocation in receive path Date: Wed, 13 Jan 2010 12:53:38 -0800
 
-Cheers,
-Ben.
+(Greg, please don't apply this even though I've just given you
+the upstream commit ID that you were asking for :)
 
+where it confuses a memory allocation error with an add_buf failure.
 
+> Possibly the right thing to do is to
+> 1. handle ENOMEM specially
+> 2. fix add_buf to return ENOMEM on error
+
+I think we should make it so that only a memory allocation error
+is returned as before.  There is no need for returning the add_buf
+error unless add_buf is now doing an allocation itself that needs
+to be retried.
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
