@@ -1,7 +1,8 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 01/10] tg3: Relocate APE mutex regs for 5717+
-Date: Sat, 5 Jun 2010 20:24:30 -0700
-Message-ID: <1275794679-11085-2-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 07/10] tg3: Use devfn to determine function
+ number
+Date: Sat, 5 Jun 2010 20:24:36 -0700
+Message-ID: <1275794679-11085-8-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,166 +10,69 @@ Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com,
 	"Michael Chan" <mchan@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4651 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4674 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933976Ab0FFDYx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S933977Ab0FFDYx (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 5 Jun 2010 23:24:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The 5717 and later devices relocate the APE mutex registers.  This patch
-organizes the code so that the driver can use the mutex registers in the
-old and new locations.
+The driver sometimes needs to know which function number the current
+device is.  This patch changes the code to use devfn over internal
+register values.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   44 ++++++++++++++++++++++++++++++++------------
- drivers/net/tg3.h |    6 ++++++
- 2 files changed, 38 insertions(+), 12 deletions(-)
+ drivers/net/tg3.c |   10 +++-------
+ drivers/net/tg3.h |    4 +---
+ 2 files changed, 4 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 573054a..bd33117 100644
+index 2dcde13..1e1c341 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -585,18 +585,23 @@ static void tg3_read_mem(struct tg3 *tp, u32 off, u32 *val)
- static void tg3_ape_lock_init(struct tg3 *tp)
- {
- 	int i;
-+	u32 regbase;
-+
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5761)
-+		regbase = TG3_APE_LOCK_GRANT;
-+	else
-+		regbase = TG3_APE_PER_LOCK_GRANT;
+@@ -1085,13 +1085,9 @@ static int tg3_mdio_init(struct tg3 *tp)
+ 	struct phy_device *phydev;
  
- 	/* Make sure the driver hasn't any stale locks. */
- 	for (i = 0; i < 8; i++)
--		tg3_ape_write32(tp, TG3_APE_LOCK_GRANT + 4 * i,
--				APE_LOCK_GRANT_DRIVER);
-+		tg3_ape_write32(tp, regbase + 4 * i, APE_LOCK_GRANT_DRIVER);
- }
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717) {
+-		u32 funcnum, is_serdes;
++		u32 is_serdes;
  
- static int tg3_ape_lock(struct tg3 *tp, int locknum)
- {
- 	int i, off;
- 	int ret = 0;
--	u32 status;
-+	u32 status, req, gnt;
+-		funcnum = tr32(TG3_CPMU_STATUS) & TG3_CPMU_STATUS_PCIE_FUNC;
+-		if (funcnum)
+-			tp->phy_addr = 2;
+-		else
+-			tp->phy_addr = 1;
++		tp->phy_addr = PCI_FUNC(tp->pdev->devfn) + 1;
  
- 	if (!(tp->tg3_flags3 & TG3_FLG3_ENABLE_APE))
- 		return 0;
-@@ -609,13 +614,21 @@ static int tg3_ape_lock(struct tg3 *tp, int locknum)
- 		return -EINVAL;
- 	}
- 
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5761) {
-+		req = TG3_APE_LOCK_REQ;
-+		gnt = TG3_APE_LOCK_GRANT;
-+	} else {
-+		req = TG3_APE_PER_LOCK_REQ;
-+		gnt = TG3_APE_PER_LOCK_GRANT;
-+	}
-+
- 	off = 4 * locknum;
- 
--	tg3_ape_write32(tp, TG3_APE_LOCK_REQ + off, APE_LOCK_REQ_DRIVER);
-+	tg3_ape_write32(tp, req + off, APE_LOCK_REQ_DRIVER);
- 
- 	/* Wait for up to 1 millisecond to acquire lock. */
- 	for (i = 0; i < 100; i++) {
--		status = tg3_ape_read32(tp, TG3_APE_LOCK_GRANT + off);
-+		status = tg3_ape_read32(tp, gnt + off);
- 		if (status == APE_LOCK_GRANT_DRIVER)
- 			break;
- 		udelay(10);
-@@ -623,7 +636,7 @@ static int tg3_ape_lock(struct tg3 *tp, int locknum)
- 
- 	if (status != APE_LOCK_GRANT_DRIVER) {
- 		/* Revoke the lock request. */
--		tg3_ape_write32(tp, TG3_APE_LOCK_GRANT + off,
-+		tg3_ape_write32(tp, gnt + off,
- 				APE_LOCK_GRANT_DRIVER);
- 
- 		ret = -EBUSY;
-@@ -634,7 +647,7 @@ static int tg3_ape_lock(struct tg3 *tp, int locknum)
- 
- static void tg3_ape_unlock(struct tg3 *tp, int locknum)
- {
--	int off;
-+	u32 gnt;
- 
- 	if (!(tp->tg3_flags3 & TG3_FLG3_ENABLE_APE))
- 		return;
-@@ -647,8 +660,12 @@ static void tg3_ape_unlock(struct tg3 *tp, int locknum)
- 		return;
- 	}
- 
--	off = 4 * locknum;
--	tg3_ape_write32(tp, TG3_APE_LOCK_GRANT + off, APE_LOCK_GRANT_DRIVER);
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5761)
-+		gnt = TG3_APE_LOCK_GRANT;
-+	else
-+		gnt = TG3_APE_PER_LOCK_GRANT;
-+
-+	tg3_ape_write32(tp, gnt + 4 * locknum, APE_LOCK_GRANT_DRIVER);
- }
- 
- static void tg3_disable_ints(struct tg3 *tp)
-@@ -6782,7 +6799,8 @@ static void tg3_restore_pci_state(struct tg3 *tp)
- 	/* Allow reads and writes to the APE register and memory space. */
- 	if (tp->tg3_flags3 & TG3_FLG3_ENABLE_APE)
- 		val |= PCISTATE_ALLOW_APE_CTLSPC_WR |
--		       PCISTATE_ALLOW_APE_SHMEM_WR;
-+		       PCISTATE_ALLOW_APE_SHMEM_WR |
-+		       PCISTATE_ALLOW_APE_PSPACE_WR;
- 	pci_write_config_dword(tp->pdev, TG3PCI_PCISTATE, val);
- 
- 	pci_write_config_word(tp->pdev, PCI_COMMAND, tp->pci_cmd);
-@@ -7720,7 +7738,8 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 		 */
- 		val = tr32(TG3PCI_PCISTATE);
- 		val |= PCISTATE_ALLOW_APE_CTLSPC_WR |
--		       PCISTATE_ALLOW_APE_SHMEM_WR;
-+		       PCISTATE_ALLOW_APE_SHMEM_WR |
-+		       PCISTATE_ALLOW_APE_PSPACE_WR;
- 		tw32(TG3PCI_PCISTATE, val);
- 	}
- 
-@@ -13242,7 +13261,8 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 		 * APE register and memory space.
- 		 */
- 		pci_state_reg |= PCISTATE_ALLOW_APE_CTLSPC_WR |
--				 PCISTATE_ALLOW_APE_SHMEM_WR;
-+				 PCISTATE_ALLOW_APE_SHMEM_WR |
-+				 PCISTATE_ALLOW_APE_PSPACE_WR;
- 		pci_write_config_dword(tp->pdev, TG3PCI_PCISTATE,
- 				       pci_state_reg);
- 	}
+ 		if (tp->pci_chip_rev_id != CHIPREV_ID_5717_A0)
+ 			is_serdes = tr32(SG_DIG_STATUS) & SG_DIG_IS_SERDES;
+@@ -13608,7 +13604,7 @@ static int __devinit tg3_get_device_address(struct tg3 *tp)
+ 		else
+ 			tg3_nvram_unlock(tp);
+ 	} else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717) {
+-		if (tr32(TG3_CPMU_STATUS) & TG3_CPMU_STATUS_PCIE_FUNC)
++		if (PCI_FUNC(tp->pdev->devfn))
+ 			mac_offset = 0xcc;
+ 	} else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906)
+ 		mac_offset = 0x10;
 diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index ce9c491..84ea0dc 100644
+index c245e80..878cdee 100644
 --- a/drivers/net/tg3.h
 +++ b/drivers/net/tg3.h
-@@ -231,6 +231,7 @@
- #define  PCISTATE_RETRY_SAME_DMA	 0x00002000
- #define  PCISTATE_ALLOW_APE_CTLSPC_WR	 0x00010000
- #define  PCISTATE_ALLOW_APE_SHMEM_WR	 0x00020000
-+#define  PCISTATE_ALLOW_APE_PSPACE_WR	 0x00040000
- #define TG3PCI_CLOCK_CTRL		0x00000074
- #define  CLOCK_CTRL_CORECLK_DISABLE	 0x00000200
- #define  CLOCK_CTRL_RXCLK_DISABLE	 0x00000400
-@@ -2209,6 +2210,11 @@
- #define  APE_EVENT_STATUS_STATE_SUSPEND	 0x00040000
- #define  APE_EVENT_STATUS_EVENT_PENDING	 0x80000000
+@@ -1073,10 +1073,8 @@
+ #define TG3_CPMU_HST_ACC		0x0000361c
+ #define  CPMU_HST_ACC_MACCLK_MASK	 0x001f0000
+ #define  CPMU_HST_ACC_MACCLK_6_25	 0x00130000
+-/* 0x3620 --> 0x362c unused */
++/* 0x3620 --> 0x3630 unused */
  
-+#define TG3_APE_PER_LOCK_REQ		0x8400
-+#define  APE_LOCK_PER_REQ_DRIVER	 0x00001000
-+#define TG3_APE_PER_LOCK_GRANT		0x8420
-+#define  APE_PER_LOCK_GRANT_DRIVER	 0x00001000
-+
- /* APE convenience enumerations. */
- #define TG3_APE_LOCK_GRC                1
- #define TG3_APE_LOCK_MEM                4
+-#define TG3_CPMU_STATUS			0x0000362c
+-#define  TG3_CPMU_STATUS_PCIE_FUNC	 0x20000000
+ #define TG3_CPMU_CLCK_STAT		0x00003630
+ #define  CPMU_CLCK_STAT_MAC_CLCK_MASK	 0x001f0000
+ #define  CPMU_CLCK_STAT_MAC_CLCK_62_5	 0x00000000
 -- 
 1.6.4.4
 
