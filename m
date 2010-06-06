@@ -1,68 +1,175 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: Re: Ethernet drivers wiki page
-Date: Sat, 5 Jun 2010 15:54:25 -0700
-Message-ID: <AANLkTin1s5HCp795WwAgvMbC0PWK0cv7CBmCmY_D3EOW@mail.gmail.com>
-References: <AANLkTinSjJsqNvEhJZIE6cJxEkBtg-DO2dqZWMczUy2i@mail.gmail.com>
-	<AANLkTik1isTBolg4IDchOlmKqXOLjQoobZrJ-9bb8ZL5@mail.gmail.com>
-	<20100604152324.1fa28f2f@nehalam>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: [PATCH net-next 01/10] tg3: Relocate APE mutex regs for 5717+
+Date: Sat, 5 Jun 2010 20:24:30 -0700
+Message-ID: <1275794679-11085-2-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, "H. Peter Anvin" <hpa@kernel.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	linux-kernel@vger.kernel.org,
-	"Luis R. Rodriguez" <mcgrof@gmail.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100604152324.1fa28f2f@nehalam>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com,
+	"Michael Chan" <mchan@broadcom.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:4651 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933976Ab0FFDYx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Jun 2010 23:24:53 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 4, 2010 at 3:23 PM, Stephen Hemminger <shemminger@vyatta.com> wrote:
-> On Fri, 4 Jun 2010 15:04:17 -0700
-> "Luis R. Rodriguez" <mcgrof@gmail.com> wrote:
->
->> On Fri, Jun 4, 2010 at 2:52 PM, Luis R. Rodriguez <mcgrof@gmail.com> wrote:
->> > Where can I start adding documentation for our Ethernet drivers
->> > upstream? I was hoping for a wiki but I don't think we have a netdev
->> > one yet. Shall we create one or piggy back on something else? I'm
->> > reviewing:
->> >
->> > https://wiki.kernel.org/
->> >
->> > FWIW, I want to see something like this:
->> >
->> > http://wireless.kernel.org/en/users/Drivers
->> >
->> > But for ethernet.
->>
->> Since I've stuffed a few ethernet drivers on compat-wireless I might
->> as well start carrying more. So now we'd have 802.11, Bluetooth and
->> Ethernet all backported using the same framework, automatically, down
->> to at least the oldest stable kernel supported listed on kernel.org
->> and using all a generic compat module.
->>
->> I want to document all this crap.
->
-> Why not Documentation/networking in kernel source?
+The 5717 and later devices relocate the APE mutex registers.  This patch
+organizes the code so that the driver can use the mutex registers in the
+old and new locations.
 
-I think a wiki works better for this sort of documentation, the
-documentation I intend on writing is for end users, not developers.
-Users tend to also search on google, not the kernel source.
+Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/tg3.c |   44 ++++++++++++++++++++++++++++++++------------
+ drivers/net/tg3.h |    6 ++++++
+ 2 files changed, 38 insertions(+), 12 deletions(-)
 
-> There is already documentation there though much of it is out of date.
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 573054a..bd33117 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -585,18 +585,23 @@ static void tg3_read_mem(struct tg3 *tp, u32 off, u32 *val)
+ static void tg3_ape_lock_init(struct tg3 *tp)
+ {
+ 	int i;
++	u32 regbase;
++
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5761)
++		regbase = TG3_APE_LOCK_GRANT;
++	else
++		regbase = TG3_APE_PER_LOCK_GRANT;
+ 
+ 	/* Make sure the driver hasn't any stale locks. */
+ 	for (i = 0; i < 8; i++)
+-		tg3_ape_write32(tp, TG3_APE_LOCK_GRANT + 4 * i,
+-				APE_LOCK_GRANT_DRIVER);
++		tg3_ape_write32(tp, regbase + 4 * i, APE_LOCK_GRANT_DRIVER);
+ }
+ 
+ static int tg3_ape_lock(struct tg3 *tp, int locknum)
+ {
+ 	int i, off;
+ 	int ret = 0;
+-	u32 status;
++	u32 status, req, gnt;
+ 
+ 	if (!(tp->tg3_flags3 & TG3_FLG3_ENABLE_APE))
+ 		return 0;
+@@ -609,13 +614,21 @@ static int tg3_ape_lock(struct tg3 *tp, int locknum)
+ 		return -EINVAL;
+ 	}
+ 
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5761) {
++		req = TG3_APE_LOCK_REQ;
++		gnt = TG3_APE_LOCK_GRANT;
++	} else {
++		req = TG3_APE_PER_LOCK_REQ;
++		gnt = TG3_APE_PER_LOCK_GRANT;
++	}
++
+ 	off = 4 * locknum;
+ 
+-	tg3_ape_write32(tp, TG3_APE_LOCK_REQ + off, APE_LOCK_REQ_DRIVER);
++	tg3_ape_write32(tp, req + off, APE_LOCK_REQ_DRIVER);
+ 
+ 	/* Wait for up to 1 millisecond to acquire lock. */
+ 	for (i = 0; i < 100; i++) {
+-		status = tg3_ape_read32(tp, TG3_APE_LOCK_GRANT + off);
++		status = tg3_ape_read32(tp, gnt + off);
+ 		if (status == APE_LOCK_GRANT_DRIVER)
+ 			break;
+ 		udelay(10);
+@@ -623,7 +636,7 @@ static int tg3_ape_lock(struct tg3 *tp, int locknum)
+ 
+ 	if (status != APE_LOCK_GRANT_DRIVER) {
+ 		/* Revoke the lock request. */
+-		tg3_ape_write32(tp, TG3_APE_LOCK_GRANT + off,
++		tg3_ape_write32(tp, gnt + off,
+ 				APE_LOCK_GRANT_DRIVER);
+ 
+ 		ret = -EBUSY;
+@@ -634,7 +647,7 @@ static int tg3_ape_lock(struct tg3 *tp, int locknum)
+ 
+ static void tg3_ape_unlock(struct tg3 *tp, int locknum)
+ {
+-	int off;
++	u32 gnt;
+ 
+ 	if (!(tp->tg3_flags3 & TG3_FLG3_ENABLE_APE))
+ 		return;
+@@ -647,8 +660,12 @@ static void tg3_ape_unlock(struct tg3 *tp, int locknum)
+ 		return;
+ 	}
+ 
+-	off = 4 * locknum;
+-	tg3_ape_write32(tp, TG3_APE_LOCK_GRANT + off, APE_LOCK_GRANT_DRIVER);
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5761)
++		gnt = TG3_APE_LOCK_GRANT;
++	else
++		gnt = TG3_APE_PER_LOCK_GRANT;
++
++	tg3_ape_write32(tp, gnt + 4 * locknum, APE_LOCK_GRANT_DRIVER);
+ }
+ 
+ static void tg3_disable_ints(struct tg3 *tp)
+@@ -6782,7 +6799,8 @@ static void tg3_restore_pci_state(struct tg3 *tp)
+ 	/* Allow reads and writes to the APE register and memory space. */
+ 	if (tp->tg3_flags3 & TG3_FLG3_ENABLE_APE)
+ 		val |= PCISTATE_ALLOW_APE_CTLSPC_WR |
+-		       PCISTATE_ALLOW_APE_SHMEM_WR;
++		       PCISTATE_ALLOW_APE_SHMEM_WR |
++		       PCISTATE_ALLOW_APE_PSPACE_WR;
+ 	pci_write_config_dword(tp->pdev, TG3PCI_PCISTATE, val);
+ 
+ 	pci_write_config_word(tp->pdev, PCI_COMMAND, tp->pci_cmd);
+@@ -7720,7 +7738,8 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 		 */
+ 		val = tr32(TG3PCI_PCISTATE);
+ 		val |= PCISTATE_ALLOW_APE_CTLSPC_WR |
+-		       PCISTATE_ALLOW_APE_SHMEM_WR;
++		       PCISTATE_ALLOW_APE_SHMEM_WR |
++		       PCISTATE_ALLOW_APE_PSPACE_WR;
+ 		tw32(TG3PCI_PCISTATE, val);
+ 	}
+ 
+@@ -13242,7 +13261,8 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 		 * APE register and memory space.
+ 		 */
+ 		pci_state_reg |= PCISTATE_ALLOW_APE_CTLSPC_WR |
+-				 PCISTATE_ALLOW_APE_SHMEM_WR;
++				 PCISTATE_ALLOW_APE_SHMEM_WR |
++				 PCISTATE_ALLOW_APE_PSPACE_WR;
+ 		pci_write_config_dword(tp->pdev, TG3PCI_PCISTATE,
+ 				       pci_state_reg);
+ 	}
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index ce9c491..84ea0dc 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -231,6 +231,7 @@
+ #define  PCISTATE_RETRY_SAME_DMA	 0x00002000
+ #define  PCISTATE_ALLOW_APE_CTLSPC_WR	 0x00010000
+ #define  PCISTATE_ALLOW_APE_SHMEM_WR	 0x00020000
++#define  PCISTATE_ALLOW_APE_PSPACE_WR	 0x00040000
+ #define TG3PCI_CLOCK_CTRL		0x00000074
+ #define  CLOCK_CTRL_CORECLK_DISABLE	 0x00000200
+ #define  CLOCK_CTRL_RXCLK_DISABLE	 0x00000400
+@@ -2209,6 +2210,11 @@
+ #define  APE_EVENT_STATUS_STATE_SUSPEND	 0x00040000
+ #define  APE_EVENT_STATUS_EVENT_PENDING	 0x80000000
+ 
++#define TG3_APE_PER_LOCK_REQ		0x8400
++#define  APE_LOCK_PER_REQ_DRIVER	 0x00001000
++#define TG3_APE_PER_LOCK_GRANT		0x8420
++#define  APE_PER_LOCK_GRANT_DRIVER	 0x00001000
++
+ /* APE convenience enumerations. */
+ #define TG3_APE_LOCK_GRC                1
+ #define TG3_APE_LOCK_MEM                4
+-- 
+1.6.4.4
 
-I think its because a git tree works well for code, but not for
-documentation. Technically I'm even an advocate for developer
-documentation on wikis too though.
 
-> This has the advantage of having change log and matching kernel version.
-
-With Ethernet I'd just stuff all new drivers into the wiki as they go
-into linux-next, after all the drivers would be available immediately
-even for use on older kernels, so the information would be up to date,
-we could just annotate as per what kernel release what feature went or
-what chipsets were supported. For example, see:
-
-http://wireless.kernel.org/en/users/Drivers/ath9k#supported_chipsets
-
-  Luis
