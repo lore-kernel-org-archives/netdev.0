@@ -1,50 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] phonet: use call_rcu for phonet device
- free
-Date: Mon, 07 Jun 2010 15:49:43 +0200
-Message-ID: <1275918583.2545.84.camel@edumazet-laptop>
-References: <20100607132738.GB2730@psychotron.lab.eng.brq.redhat.com>
-	 <474f08fed4a406e929af3d4142d3e185@chewa.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont <remi@remlab.net>
+From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
+Subject: Re: [Linux-ATM-General] RX/close vcc race with solos/atmtcp/usbatm/he
+Date: Mon, 07 Jun 2010 09:44:44 -0400
+Message-ID: <201006071344.o57DiiCx018593@thirdoffive.cmf.nrl.navy.mil>
+References: <1274872584.20576.13579.camel@macbook.infradead.org>
+Reply-To: chas3@users.sourceforge.net
+Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:43812 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750711Ab0FGNtr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 09:49:47 -0400
-Received: by fxm8 with SMTP id 8so2085851fxm.19
-        for <netdev@vger.kernel.org>; Mon, 07 Jun 2010 06:49:45 -0700 (PDT)
-In-Reply-To: <474f08fed4a406e929af3d4142d3e185@chewa.net>
+Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:51853 "EHLO
+	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751530Ab0FGNuH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 09:50:07 -0400
+Reply-To: chas3@users.sourceforge.net
+In-reply-to: <1274872584.20576.13579.camel@macbook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 07 juin 2010 =C3=A0 15:43 +0200, R=C3=A9mi Denis-Courmont a =C3=
-=A9crit :
-> On Mon, 7 Jun 2010 15:27:39 +0200, Jiri Pirko <jpirko@redhat.com> wro=
-te:
-> > Use call_rcu rather than synchronize_rcu.
-> >=20
-> > Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->=20
-> This looks fine to me, but what is the goal here? The RCU documentati=
-on
-> seems to imply that synchronize_rcu() is preferable over call_rcu() w=
-hen at
-> all possible.
->=20
+In message <1274872584.20576.13579.camel@macbook.infradead.org>,David Woodhouse
+ writes:
+>The problem is that the 'find_vcc' functions in these drivers are
+>returning a vcc with the ATM_VF_READY bit cleared, because it's already
+>in the process of being destroyed. If we fix that simple oversight,
+>there's still a race condition because the socket can still be closed
+>(and completely freed, afaict) between our call to find_vcc() and our
+>call to vcc->push() in the RX tasklet.
+...
+>Can anyone see a better approach -- short of rewriting the whole ATM
+>layer to make the locking saner?
 
-Thats not exactly that.
+vcc's are really sockets, so you could just increase the refcount --
+sock_hold().  after you push the packet, drop the refcount, sock_put()
+and hopefully things will be well.  however, i think the close routines
+dont really expect this behavior so the card driver's vcc close might
+need to be changed to wait around if the refcount on the vcc is > 1.
+or perhaps the driver independent part needs to do this.
 
-synchronize_rcu() is easier, in respect of memory use.
-But its drawback is current thread is blocked for several milli seconds=
-=2E
-
-In the end, call_rcu() is more scalable.
-
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-
-
+the he driver works around this issue by holding vcc_sklist_lock around
+the find_vcc and ->push() which happen to occur in the same tasklet.
