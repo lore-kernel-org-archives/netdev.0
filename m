@@ -1,19 +1,27 @@
-From: ratheesh k <ratheesh.ksz@gmail.com>
-Subject: in_dev->refcnt and dev->refcnt
-Date: Mon, 7 Jun 2010 14:50:28 +0530
-Message-ID: <AANLkTinijGlJRnqhcEbXhc84MXc62gbshxvTa6JeXo2K@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: in_dev->refcnt and dev->refcnt
+Date: Mon, 07 Jun 2010 11:30:53 +0200
+Message-ID: <1275903053.2545.21.camel@edumazet-laptop>
+References: <AANLkTinijGlJRnqhcEbXhc84MXc62gbshxvTa6JeXo2K@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org, linux-net@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:49891 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755995Ab0FGJU3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 05:20:29 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-net@vger.kernel.org
+To: ratheesh k <ratheesh.ksz@gmail.com>
+Return-path: <linux-net-owner@vger.kernel.org>
+In-Reply-To: <AANLkTinijGlJRnqhcEbXhc84MXc62gbshxvTa6JeXo2K@mail.gmail.com>
+Sender: linux-net-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Is there any relation between in_dev->refcnt and dev->refcnt ?  . My
-question is : if  put or get on one variable affects other ?
+Le lundi 07 juin 2010 =C3=A0 14:50 +0530, ratheesh k a =C3=A9crit :
+> Is there any relation between in_dev->refcnt and dev->refcnt ?  . My
+> question is : if  put or get on one variable affects other ?
+>=20
 
--Ratheesh
+No, there is no relation between them.
+
+You can increase / decrease one refcount or the other, using separate
+API.
+
+
+
