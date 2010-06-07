@@ -1,55 +1,46 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH] netconsole: queue console messages to send later
-Date: Mon, 7 Jun 2010 13:00:15 -0700
-Message-ID: <20100607130015.15555744@nehalam>
-References: <24059.1275417767@death.nxdomain.ibm.com>
-	<1275938692-26997-1-git-send-email-fleitner@redhat.com>
-	<1275940248.26597.70.camel@calx>
+From: Rakesh Ranjan <rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: cxgb4i_v4.2 submission
+Date: Tue,  8 Jun 2010 01:34:35 +0530
+Message-ID: <1275941078-1779-1-git-send-email-rakesh@chelsio.com>
+Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Flavio Leitner <fleitner@redhat.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>, Jay Vosburgh <fubar@us.ibm.com>,
-	Flavio Leitner <fbl@sysclose.org>,
-	Andy Gospodarek <gospo@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Jeff Moyer <jmoyer@redhat.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	bridge@lists.linux-foundation.org,
-	bonding-devel@lists.sourceforge.net
-To: Matt Mackall <mpm@selenic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1275940248.26597.70.camel@calx>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Karen Xie <kxie-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        James Bottomley <James.Bottomley-JuX6DAaQMKPCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>,
+        Mike Christie <michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org>, Anish Bhatt <anish-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: LK-NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        LK-SCSIDev <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        LK-iSCSIDev <open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+Return-path: <open-iscsi+bncCKnrzee6GxCLorXgBBoE48q1TA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Post: <http://groups.google.com/group/open-iscsi/post?hl=en_US>,
+	<mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/?hl=en_US>, <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/open-iscsi?hl=en_US>
+Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/open-iscsi/subscribe?hl=en_US>,
+	<mailto:open-iscsi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/open-iscsi/subscribe?hl=en_US>,
+	<mailto:open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Mon, 07 Jun 2010 14:50:48 -0500
-Matt Mackall <mpm@selenic.com> wrote:
+The following 3 patches add a new iscsi LLD driver cxgb4i to enable iscsi offload
+support on Chelsio's new 1G and 10G cards. This is updated version of previous cxgb4i
+patch. Please share you commnets after review.
 
-> On Mon, 2010-06-07 at 16:24 -0300, Flavio Leitner wrote:
-> > There are some networking drivers that hold a lock in the
-> > transmit path. Therefore, if a console message is printed
-> > after that, netconsole will push it through the transmit path,
-> > resulting in a deadlock.
-> 
-> This is an ongoing pain we've known about since before introducing the
-> netpoll code to the tree.
-> 
-> My take has always been that any form of queueing is contrary to the
-> goal of netpoll: timely delivery of messages even during machine-killing
-> situations like oopses. There may never be a second chance to deliver
-> the message as the machine may be locked solid. And there may be no
-> other way to get the message out of the box in such situations. Adding
-> queueing is a throwing-the-baby-out-with-the-bathwater fix.
-> 
-> I think Dave agrees with me here, and I believe he's said in the past
-> that drivers trying to print messages in such contexts should be
-> considered buggy.
-> 
+Changes since cxgb4i_v4:
+1. Convert some more functions to be static.
+2. Fixed some issues in cleanup path.
 
-Because it to hard to fix all possible device configurations.
-There should be any way to detect recursion and just drop the message to
-avoid deadlock.
+[PATCH 1/3] cxgb4i_v4.2 : add build support
+[PATCH 2/3] cxgb4i_v4.2 : libcxgbi common library part
+[PATCH 3/3] cxgb4i_v4.2 : main driver files
+
+Regards
+Rakesh Ranjan
 
 -- 
+You received this message because you are subscribed to the Google Groups "open-iscsi" group.
+To post to this group, send email to open-iscsi-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+To unsubscribe from this group, send email to open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit this group at http://groups.google.com/group/open-iscsi?hl=en.
