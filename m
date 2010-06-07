@@ -1,49 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 16120] New: Oops: 0000 [#1] SMP, unable to
- handle kernel NULL pointer dereference at (null)
-Date: Mon, 07 Jun 2010 02:58:29 -0700 (PDT)
-Message-ID: <20100607.025829.186328961.davem@davemloft.net>
-References: <1275729426.5238.6.camel@edumazet-laptop>
-	<1275730457.5238.14.camel@edumazet-laptop>
-	<1275904120.2545.40.camel@edumazet-laptop>
+From: Kay Sievers <kay.sievers@vrfy.org>
+Subject: Re: [RFC][PATCH] Fix another namespace issue with devices assigned to
+	classes
+Date: Mon, 7 Jun 2010 11:53:10 +0200
+Message-ID: <AANLkTin_qjU0-xXfMDYeYWRd0BmvT4OIdK4S_GQ3ZYUi@mail.gmail.com>
+References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
+	<20100602154608.GB12361@kroah.com> <1275493693.3915.12.camel@jlt3.sipsolutions.net>
+	<m1ljaxxvcj.fsf@fess.ebiederm.org> <1275495677.3915.16.camel@jlt3.sipsolutions.net>
+	<m14ohlxu51.fsf@fess.ebiederm.org> <1275498007.3915.20.camel@jlt3.sipsolutions.net>
+	<m1ocftwdp7.fsf@fess.ebiederm.org> <1275501157.3915.22.camel@jlt3.sipsolutions.net>
+	<m1y6exux6x.fsf@fess.ebiederm.org> <1275506732.3915.41.camel@jlt3.sipsolutions.net>
+	<m16321t4ke.fsf@fess.ebiederm.org> <m17hmhrl6v.fsf_-_@fess.ebiederm.org>
+	<1275634452.5189.1.camel@jlt3.sipsolutions.net> <AANLkTingSwM7e8ldyT1FplF5WCHBsCBCwNkb5ZPHe6hB@mail.gmail.com>
+	<1275640113.9953.8.camel@jlt3.sipsolutions.net> <AANLkTin6ub4k4QYSMnGLRw7lxQaz23Xmo2GQC1RrUf-X@mail.gmail.com>
+	<1275829701.3615.54.camel@jlt3.sipsolutions.net> <AANLkTinUAR2gkY7ipgXKy-pMHcmLuouEeyXxnP97U_7N@mail.gmail.com>
+	<1275903773.29978.1.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, alex.vizor@gmail.com,
-	kaber@trash.net
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42157
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752662Ab0FGJ6U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 05:58:20 -0400
-In-Reply-To: <1275904120.2545.40.camel@edumazet-laptop>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:57061 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751588Ab0FGKAI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 06:00:08 -0400
+Received: by gwb15 with SMTP id 15so967806gwb.19
+        for <netdev@vger.kernel.org>; Mon, 07 Jun 2010 03:00:07 -0700 (PDT)
+In-Reply-To: <1275903773.29978.1.camel@jlt3.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 07 Jun 2010 11:48:40 +0200
+On Mon, Jun 7, 2010 at 11:42, Johannes Berg <johannes@sipsolutions.net> wrote:
+> On Sun, 2010-06-06 at 19:17 +0200, Kay Sievers wrote:
+>
+>> There is no real difference between classes and buses. Actually we're
+>> working on merging them completely inside the kernel. Just declare a
+>> "struct bus_type" instead of a "struct class".
+>
+> Can you please tell me then how to device_create() without a class? I
+> cannot seem to create devices without a class at all, even using manual
+> allocation (yuck) and device_register crashes the kernel.
 
-> [PATCH net-2.6] ipmr: dont corrupt lists
-> 
-> ipmr_rules_exit() and ip6mr_rules_exit() free a list of items, but
-> forget to properly remove these items from list. List head is not
-> changed and still points to freed memory.
-> 
-> This can trigger a fault later when icmpv6_sk_exit() is called.
-> 
-> Fix is to either reinit list, or use list_del() to properly remove items
-> from list before freeing them.
-> 
-> bugzilla report : https://bugzilla.kernel.org/show_bug.cgi?id=16120
-> 
-> Introduced by commit d1db275dd3f6e4 (ipv6: ip6mr: support multiple
-> tables) and commit f0ad0860d01e (ipv4: ipmr: support multiple tables)
-> 
-> Reported-by: Alex Zhavnerchik <alex.vizor@gmail.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Patrick McHardy <kaber@trash.net>
+Right, this "convenience API" does not exist for buses. It's not doing
+much, just allocates a "struct device" and fills in the few values and
+calls device_register().
 
-Applied, thanks a lot Eric.
+Does your device create a device node? If not, device_create() should
+not be used anyway, because the corresponding device_destroy() will
+not do anything.
+
+Kay
