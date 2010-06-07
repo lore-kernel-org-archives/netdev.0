@@ -1,52 +1,44 @@
-From: Kay Sievers <kay.sievers@vrfy.org>
-Subject: Re: [RFC][PATCH] Fix another namespace issue with devices assigned to
-	classes
-Date: Mon, 7 Jun 2010 11:53:10 +0200
-Message-ID: <AANLkTin_qjU0-xXfMDYeYWRd0BmvT4OIdK4S_GQ3ZYUi@mail.gmail.com>
-References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
-	<20100602154608.GB12361@kroah.com> <1275493693.3915.12.camel@jlt3.sipsolutions.net>
-	<m1ljaxxvcj.fsf@fess.ebiederm.org> <1275495677.3915.16.camel@jlt3.sipsolutions.net>
-	<m14ohlxu51.fsf@fess.ebiederm.org> <1275498007.3915.20.camel@jlt3.sipsolutions.net>
-	<m1ocftwdp7.fsf@fess.ebiederm.org> <1275501157.3915.22.camel@jlt3.sipsolutions.net>
-	<m1y6exux6x.fsf@fess.ebiederm.org> <1275506732.3915.41.camel@jlt3.sipsolutions.net>
-	<m16321t4ke.fsf@fess.ebiederm.org> <m17hmhrl6v.fsf_-_@fess.ebiederm.org>
-	<1275634452.5189.1.camel@jlt3.sipsolutions.net> <AANLkTingSwM7e8ldyT1FplF5WCHBsCBCwNkb5ZPHe6hB@mail.gmail.com>
-	<1275640113.9953.8.camel@jlt3.sipsolutions.net> <AANLkTin6ub4k4QYSMnGLRw7lxQaz23Xmo2GQC1RrUf-X@mail.gmail.com>
-	<1275829701.3615.54.camel@jlt3.sipsolutions.net> <AANLkTinUAR2gkY7ipgXKy-pMHcmLuouEeyXxnP97U_7N@mail.gmail.com>
-	<1275903773.29978.1.camel@jlt3.sipsolutions.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [v5 Patch 1/3] netpoll: add generic support for bridge and
+ bonding devices
+Date: Mon, 07 Jun 2010 03:01:08 -0700 (PDT)
+Message-ID: <20100607.030108.235696592.davem@davemloft.net>
+References: <4C062CBD.7090906@redhat.com>
+	<20100604191841.GM7497@gospo.rdu.redhat.com>
+	<4C0CC29D.9070507@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:57061 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751588Ab0FGKAI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 06:00:08 -0400
-Received: by gwb15 with SMTP id 15so967806gwb.19
-        for <netdev@vger.kernel.org>; Mon, 07 Jun 2010 03:00:07 -0700 (PDT)
-In-Reply-To: <1275903773.29978.1.camel@jlt3.sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andy@greyhouse.net, fubar@us.ibm.com, fbl@sysclose.org,
+	linux-kernel@vger.kernel.org, mpm@selenic.com,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	gospo@redhat.com, nhorman@tuxdriver.com, jmoyer@redhat.com,
+	shemminger@linux-foundation.org,
+	bonding-devel@lists.sourceforge.net
+To: amwang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4C0CC29D.9070507@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 7, 2010 at 11:42, Johannes Berg <johannes@sipsolutions.net> wrote:
-> On Sun, 2010-06-06 at 19:17 +0200, Kay Sievers wrote:
->
->> There is no real difference between classes and buses. Actually we're
->> working on merging them completely inside the kernel. Just declare a
->> "struct bus_type" instead of a "struct class".
->
-> Can you please tell me then how to device_create() without a class? I
-> cannot seem to create devices without a class at all, even using manual
-> allocation (yuck) and device_register crashes the kernel.
+From: Cong Wang <amwang@redhat.com>
+Date: Mon, 07 Jun 2010 17:57:49 +0800
 
-Right, this "convenience API" does not exist for buses. It's not doing
-much, just allocates a "struct device" and fills in the few values and
-calls device_register().
+> Hmm, I still feel like this way is ugly, although it may work.
+> I guess David doesn't like it either.
 
-Does your device create a device node? If not, device_create() should
-not be used anyway, because the corresponding device_destroy() will
-not do anything.
+Of course I don't like it. :-)
 
-Kay
+I suspect the locking scheme will need to be changed.
+
+Besides, if we're going to hack this up and do write lock attempts in
+the read locking paths, there is no point in using a rwlock any more.
+And I'm personally in disfavor of all rwlock usage anyways (it dirties
+the cacheline for readers just as equally for writers, and if the
+critically protected code path is short enough, that shared cache
+line atomic operation will be the predominant cost).
+
+So I'd say, 1) make this a spinlock and 2) try to use RCU for the
+read path.
+
+That would fix everything.
