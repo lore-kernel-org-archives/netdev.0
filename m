@@ -1,65 +1,61 @@
-From: Mitchell Erblich <erblichs@earthlink.net>
-Subject: Re: [RFC PATCH v7 01/19] Add a new structure for skb buffer from external.
-Date: Mon, 7 Jun 2010 01:17:02 -0700
-Message-ID: <40119F5E-A745-4C50-8053-D5A701266AD5@earthlink.net>
-References: <1275732899-5423-1-git-send-email-xiaohui.xin@intel.com> <20100606161348.427822fb@nehalam> <87pr03gu1c.fsf@basil.nowhere.org>
-Mime-Version: 1.0 (Apple Message framework v1078)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Stephen Hemminger <shemminger@vyatta.com>, xiaohui.xin@intel.com,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
-	davem@davemloft.net, herbert@gondor.apana.org.au,
-	jdike@linux.intel.com
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <87pr03gu1c.fsf@basil.nowhere.org>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] phylib: Add support for the LXT973 phy.
+Date: Mon, 07 Jun 2010 01:18:35 -0700 (PDT)
+Message-ID: <20100607.011835.55846752.davem@davemloft.net>
+References: <20100602.065017.139108801.davem@davemloft.net>
+	<AANLkTinR9_VoWX8zZu93MeohHvCbCy_P5XWHH3rxlPuH@mail.gmail.com>
+	<20100605140017.GA2750@riccoc20.at.omicron.at>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: afleming@gmail.com, netdev@vger.kernel.org
+To: richardcochran@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54668
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756508Ab0FGISY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 04:18:24 -0400
+In-Reply-To: <20100605140017.GA2750@riccoc20.at.omicron.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Richard Cochran <richardcochran@gmail.com>
+Date: Sat, 5 Jun 2010 16:00:17 +0200
 
-On Jun 7, 2010, at 12:51 AM, Andi Kleen wrote:
-
-> Stephen Hemminger <shemminger@vyatta.com> writes:
+> On Wed, Jun 02, 2010 at 02:32:11PM -0500, Andy Fleming wrote:
+>> Yeah, I was clearly not thinking clearly.  dev_flags will be
+>> overwritten, and is not meant for this.  I believe, what we should do
+>> is add a "port" field to the PHY device, and if PCR_FIBER_SELECT is
+>> set, then set the port field to PORT_FIBRE.  I'm not entirely clear on
+>> the semantics of that field in the ethtool cmd, but it seems like the
+>> right idea.
 > 
->> Still not sure this is a good idea for a couple of reasons:
->> 
->> 1. We already have lots of special cases with skb's (frags and fraglist),
->>   and skb's travel through a lot of different parts of the kernel.  So any
->>   new change like this creates lots of exposed points for new bugs. Look
->>   at cases like MD5 TCP and netfilter, and forwarding these SKB's to ipsec
->>   and ppp and ...
->> 
->> 2. SKB's can have infinite lifetime in the kernel. If these buffers come from
->>   a fixed size pool in an external device, they can easily all get tied up
->>   if you have a slow listener. What happens then?
-> 
-> 3. If they come from an internal pool what happens when the kernel runs 
-> low on memory? How is that pool balanced against other kernel
-> memory users?
-> 
-> -Andi
-> 
-> -- 
-> ak@linux.intel.com -- Speaking for myself only.
+> Here is another try. Is that more like it?
 
-In general,
+I think this is overkill.
 
-When an internal pool is created/used, their SHOULD be a reason.
-Maybe, to keep allocation latency to a min, OR ...
+One, and only one, PHY driver wants to maintain a boolean state and
+we're adding a full 32-bit flags member to the generic PHY device
+struct to accomodate this?
 
-Now IMO, 
+Andy if you have ideas to use that state via ethtool or whatever in
+the future, you come back to us when the future arrives and you've
+implemented the code in the generic PHY lib code to do that stuff.
 
-internal pool objects should have a ref count and
-if that count is 0, then under memory pressure and/or num 
-of objects are above a high water mark, then they are freed,
+As it stands right now, that code doesn't exist so accomodating it is
+just silly.
 
-OR if there is a last reference age field, then the object is to be 
-cleaned if dirty, then freed,  
+I also think worrying about the phy_dev->priv pointer being misused in
+the future inside of this driver is a completely bogus argument by any
+measure.
 
-Else, the pool is allowed to grow if the number of objects in the
-pool is below a set max (max COULD equal Infinity).
+We have many cases all over the kernel tree, in drivers and elsewhere,
+where we encode integer states in what are normally pointer values
+when we need to maintain a small piece of state and don't need to do a
+full blown memory allocation to allocate a piece of extra memory to
+hold that state.
 
+Richard, please just resubmit your original patch and I will apply it.
 
+Thanks.
 
-Mitchell Erblich
