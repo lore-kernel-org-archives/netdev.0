@@ -1,45 +1,37 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [Linux-ATM-General] RX/close vcc race with
- solos/atmtcp/usbatm/he
-Date: Mon, 07 Jun 2010 21:49:52 +0100
-Message-ID: <1275943792.17903.5119.camel@macbook.infradead.org>
-References: <201006071637.o57GbqWd002514@thirdoffive.cmf.nrl.navy.mil>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
-To: chas3@users.sourceforge.net
+From: Peter Lieven <pl@dlh.net>
+Subject: RFS seems to have incompatiblities with bridged vlans
+Date: Mon, 7 Jun 2010 22:36:11 +0200
+Message-ID: <62C40338-045A-417E-9B90-E59A320E1343@dlh.net>
+Mime-Version: 1.0 (Apple Message framework v1078)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:44128 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751896Ab0FGUty (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 16:49:54 -0400
-In-Reply-To: <201006071637.o57GbqWd002514@thirdoffive.cmf.nrl.navy.mil>
+Received: from zion.dlh.net ([91.198.192.1]:42953 "EHLO mail.dlh.net"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752573Ab0FGVIE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 17:08:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-06-07 at 12:37 -0400, Chas Williams (CONTRACTOR) wrote:
-> i dont understand.  if you do a sock_hold() in find_vcc(), and then call
-> vcc->push() you should be able to call vcc->push() and then sock_put(). 
+Hi,
 
-Holding the reference doesn't stop the problem. The problem is
+i today tried out 2.6.32-rc2 and I see a lot of warning messages like this:
 
- vcc_release()
- --> vcc_destroy_socket()
-   --> br2684_push(vcc, NULL)
-         sets vcc->user_back = NULL
-         (which it what causes the oops when try try to feed it any
-          subsequent packets).
+Jun  7 22:33:15 172.21.55.20 kernel: [ 3012.575884] br141 received packet on queue 4, but number of RX queues is 1
 
- Only _later_ does vcc_release() call sock_put().
+The host is a SMP system with 8 cores, so I think there is expected to be one rx queue per CPU, but it seems
+the bridge iface has only one.
 
-It doesn't _matter_ that the tasklet is holding a reference on the
-socket, because it's not the sk_free() which is causing the problem. 
+The br141 config looks like this:
 
-Just making dev->ops->close() wait for the tasklet is perfectly
-sufficient. That call happens from vcc_destroy_socket() before the call
-to br2684_push(), and all is well.
+#brctl show br141
+bridge name	bridge id		STP enabled	interfaces
+br141		8000.001018593cdc	no		eth2.141
+							tap0
+							tap2
 
--- 
-dwmw2
+The bridge is basically a bridge between a 802.1q vlan at eth2 and some tap Interfaces bound to
+virtual machines on the system.
 
+Peter.
