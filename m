@@ -1,39 +1,58 @@
-From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
-Subject: Re: [Linux-ATM-General] RX/close vcc race with solos/atmtcp/usbatm/he
-Date: Mon, 07 Jun 2010 11:10:06 -0400
-Message-ID: <201006071510.o57FA6uP010212@thirdoffive.cmf.nrl.navy.mil>
-References: <1275920035.17903.4998.camel@macbook.infradead.org>
-Reply-To: chas3@users.sourceforge.net
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
-To: David Woodhouse <dwmw2@infradead.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] pkt_sched: gen_estimator: kill est_lock
+ rwlock
+Date: Mon, 07 Jun 2010 17:30:38 +0200
+Message-ID: <1275924638.2545.121.camel@edumazet-laptop>
+References: <1275921171.2545.102.camel@edumazet-laptop>
+	 <AANLkTimgmYjA7Xp19gycRHDXmwP1w1twn92cfT08tCv2@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Jarek Poplawski <jarkao2@gmail.com>
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:42775 "EHLO
-	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751387Ab0FGPKl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 11:10:41 -0400
-Reply-To: chas3@users.sourceforge.net
-In-reply-to: <1275920035.17903.4998.camel@macbook.infradead.org>
+Received: from mail-ww0-f46.google.com ([74.125.82.46]:50268 "EHLO
+	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751400Ab0FGPan (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 11:30:43 -0400
+Received: by wwe15 with SMTP id 15so499482wwe.19
+        for <netdev@vger.kernel.org>; Mon, 07 Jun 2010 08:30:42 -0700 (PDT)
+In-Reply-To: <AANLkTimgmYjA7Xp19gycRHDXmwP1w1twn92cfT08tCv2@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In message <1275920035.17903.4998.camel@macbook.infradead.org>,David Woodhouse 
-writes:
->On Mon, 2010-06-07 at 09:44 -0400, Chas Williams (CONTRACTOR) wrote:
->> vcc's are really sockets, so you could just increase the refcount --
->> sock_hold().
->
->There are rules about where we're allowed to call sock_hold(), and I
->don't think our find_vcc() functions can be made to meet them.
+Le lundi 07 juin 2010 =C3=A0 22:53 +0800, Changli Gao a =C3=A9crit :
 
-if you are using find_vcc() then you should already have a lock on the
-hash table for the vccs.  you can safely increment the ref count at
-this point.
+> Hmm. I don't think it is correct.
+>=20
+> Look at this code:
+>=20
+> void xt_rateest_put(struct xt_rateest *est)
+> {
+>         mutex_lock(&xt_rateest_mutex);
+>         if (--est->refcnt =3D=3D 0) {
+>                 hlist_del(&est->list);
+>                 gen_kill_estimator(&est->bstats, &est->rstats);
+>                 kfree(est);
+>         }
+>         mutex_unlock(&xt_rateest_mutex);
+> }
+>=20
+> est will be released after gen_kill_estimator() returns. After est is
+> freed, there may still be some other CPUs running in the branch:
+>      if (bstats) {
+>          ....
+>      }
+>=20
 
->In that case I think we might as well stick with the RCU-like solution I
->already implemented in the vcc close function -- which is just to wait
->for the tasklet to complete, thus ensuring that it's no longer using the
->defunct vcc.
+Oh well, I think I knew this from a previous attempt, but then I
+forgot :)
 
-the driver shouldnt close the vcc while the tasklet is running and
-using the vcc in question.  i guess the safest thing is to simply
-do as you are doing and not close while running the tasklet.
+I'll provide an updated patch, so that no other attempt is tried next
+yer, thanks !
+
+
+
