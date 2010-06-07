@@ -1,44 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] netdev:bfin_mac: reclaim and free tx skb as soon as
- possible after transfer
-Date: Mon, 07 Jun 2010 11:58:00 +0200
-Message-ID: <1275904680.2545.44.camel@edumazet-laptop>
-References: <1275536881.18536.5.camel@eight.analog.com>
-	 <AANLkTik4aWREeblhnbI3DU7a_CE11Rx0GvXi56O2yHzy@mail.gmail.com>
-	 <1275624354.2533.121.camel@edumazet-laptop>
-	 <AANLkTimO47rtvIwYAwpaMYtK5SEnhM0m3AxL5q-8lvA7@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bugme-new] [Bug 16120] New: Oops: 0000 [#1] SMP, unable to
+ handle kernel NULL pointer dereference at (null)
+Date: Mon, 07 Jun 2010 02:58:29 -0700 (PDT)
+Message-ID: <20100607.025829.186328961.davem@davemloft.net>
+References: <1275729426.5238.6.camel@edumazet-laptop>
+	<1275730457.5238.14.camel@edumazet-laptop>
+	<1275904120.2545.40.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	uclinux-dist-devel <uclinux-dist-devel@blackfin.uclinux.org>
-To: Sonic Zhang <sonic.adi@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, alex.vizor@gmail.com,
+	kaber@trash.net
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:48804 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752231Ab0FGJ6F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 05:58:05 -0400
-Received: by fxm8 with SMTP id 8so1902408fxm.19
-        for <netdev@vger.kernel.org>; Mon, 07 Jun 2010 02:58:03 -0700 (PDT)
-In-Reply-To: <AANLkTimO47rtvIwYAwpaMYtK5SEnhM0m3AxL5q-8lvA7@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42157
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752662Ab0FGJ6U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 05:58:20 -0400
+In-Reply-To: <1275904120.2545.40.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 04 juin 2010 =C3=A0 12:44 +0800, Sonic Zhang a =C3=A9crit :
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 07 Jun 2010 11:48:40 +0200
 
->=20
-> Yes, you are right. dev_kfree_skb_irq() queues used skb to the
-> complete queue. But, it is actually freed in the other soft irq
-> NET_TX_SOFTIRQ.
+> [PATCH net-2.6] ipmr: dont corrupt lists
+> 
+> ipmr_rules_exit() and ip6mr_rules_exit() free a list of items, but
+> forget to properly remove these items from list. List head is not
+> changed and still points to freed memory.
+> 
+> This can trigger a fault later when icmpv6_sk_exit() is called.
+> 
+> Fix is to either reinit list, or use list_del() to properly remove items
+> from list before freeing them.
+> 
+> bugzilla report : https://bugzilla.kernel.org/show_bug.cgi?id=16120
+> 
+> Introduced by commit d1db275dd3f6e4 (ipv6: ip6mr: support multiple
+> tables) and commit f0ad0860d01e (ipv4: ipmr: support multiple tables)
+> 
+> Reported-by: Alex Zhavnerchik <alex.vizor@gmail.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Patrick McHardy <kaber@trash.net>
 
-I guess you didnt understood my mail, so I'll re-explain :
-
-dev_kfree_skb_irq() queues skb only if packet is not already orphaned.
-
-As most packets are now orphaned (in recent kernels where your patch
-applies), dev_kfree_skb_irq() can free packet immediately, with no
-NET_TX_SOFTIRQ overhead.
-
-
-
+Applied, thanks a lot Eric.
