@@ -1,79 +1,57 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC][PATCH] Fix another namespace issue with devices assigned
- to  classes
-Date: Mon, 07 Jun 2010 12:14:46 +0200
-Message-ID: <1275905686.29978.3.camel@jlt3.sipsolutions.net>
-References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
-	 <20100602154608.GB12361@kroah.com>
-	 <1275493693.3915.12.camel@jlt3.sipsolutions.net>
-	 <m1ljaxxvcj.fsf@fess.ebiederm.org>
-	 <1275495677.3915.16.camel@jlt3.sipsolutions.net>
-	 <m14ohlxu51.fsf@fess.ebiederm.org>
-	 <1275498007.3915.20.camel@jlt3.sipsolutions.net>
-	 <m1ocftwdp7.fsf@fess.ebiederm.org>
-	 <1275501157.3915.22.camel@jlt3.sipsolutions.net>
-	 <m1y6exux6x.fsf@fess.ebiederm.org>
-	 <1275506732.3915.41.camel@jlt3.sipsolutions.net>
-	 <m16321t4ke.fsf@fess.ebiederm.org> <m17hmhrl6v.fsf_-_@fess.ebiederm.org>
-	 <1275634452.5189.1.camel@jlt3.sipsolutions.net>
-	 <AANLkTingSwM7e8ldyT1FplF5WCHBsCBCwNkb5ZPHe6hB@mail.gmail.com>
-	 <1275640113.9953.8.camel@jlt3.sipsolutions.net>
-	 <AANLkTin6ub4k4QYSMnGLRw7lxQaz23Xmo2GQC1RrUf-X@mail.gmail.com>
-	 <1275829701.3615.54.camel@jlt3.sipsolutions.net>
-	 <AANLkTinUAR2gkY7ipgXKy-pMHcmLuouEeyXxnP97U_7N@mail.gmail.com>
-	 <1275903773.29978.1.camel@jlt3.sipsolutions.net>
-	 <AANLkTin_qjU0-xXfMDYeYWRd0BmvT4OIdK4S_GQ3ZYUi@mail.gmail.com>
+From: Sonic Zhang <sonic.adi@gmail.com>
+Subject: Re: [PATCH v2] netdev:bfin_mac: reclaim and free tx skb as soon as
+	possible after transfer
+Date: Mon, 7 Jun 2010 18:26:32 +0800
+Message-ID: <AANLkTimTakJHg2wTrPjhgLPK7vh2qDjKgZVKuJ1si8er@mail.gmail.com>
+References: <1275536881.18536.5.camel@eight.analog.com>
+	<AANLkTik4aWREeblhnbI3DU7a_CE11Rx0GvXi56O2yHzy@mail.gmail.com>
+	<1275624354.2533.121.camel@edumazet-laptop>
+	<AANLkTimO47rtvIwYAwpaMYtK5SEnhM0m3AxL5q-8lvA7@mail.gmail.com>
+	<1275904680.2545.44.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
-To: Kay Sievers <kay.sievers@vrfy.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	uclinux-dist-devel <uclinux-dist-devel@blackfin.uclinux.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:51133 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750981Ab0FGKOx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 06:14:53 -0400
-In-Reply-To: <AANLkTin_qjU0-xXfMDYeYWRd0BmvT4OIdK4S_GQ3ZYUi@mail.gmail.com>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:40467 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751348Ab0FGK0f convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 06:26:35 -0400
+Received: by vws5 with SMTP id 5so3280527vws.19
+        for <netdev@vger.kernel.org>; Mon, 07 Jun 2010 03:26:34 -0700 (PDT)
+In-Reply-To: <1275904680.2545.44.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-06-07 at 11:53 +0200, Kay Sievers wrote:
+On Mon, Jun 7, 2010 at 5:58 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
+rote:
+> Le vendredi 04 juin 2010 =E0 12:44 +0800, Sonic Zhang a =E9crit :
+>
+>>
+>> Yes, you are right. dev_kfree_skb_irq() queues used skb to the
+>> complete queue. But, it is actually freed in the other soft irq
+>> NET_TX_SOFTIRQ.
+>
+> I guess you didnt understood my mail, so I'll re-explain :
+>
+> dev_kfree_skb_irq() queues skb only if packet is not already orphaned=
+=2E
+>
+> As most packets are now orphaned (in recent kernels where your patch
+> applies), dev_kfree_skb_irq() can free packet immediately, with no
+> NET_TX_SOFTIRQ overhead.
+>
+>
 
-> > Can you please tell me then how to device_create() without a class? I
-> > cannot seem to create devices without a class at all, even using manual
-> > allocation (yuck) and device_register crashes the kernel.
-> 
-> Right, this "convenience API" does not exist for buses. It's not doing
-> much, just allocates a "struct device" and fills in the few values and
-> calls device_register().
-> 
-> Does your device create a device node? If not, device_create() should
-> not be used anyway, because the corresponding device_destroy() will
-> not do anything.
+OK. I didn't notice the recent change in kernel to orphan most
+packets. You are right, my second reason is out of date.
 
-No, it doesn't need a dev node. I tried this:
+Thanks
 
-+               data->dev = kzalloc(sizeof(struct device), GFP_KERNEL);
-+               if (!data->dev) {
-                        err = -ENOMEM;
-                        goto failed_drvdata;
-                }
-+
-+               dev_set_name(data->dev, "hwsim%d", i);
-+               data->dev->bus = &hwsim_bus;
-                data->dev->driver = &mac80211_hwsim_driver;
- 
-+               err = device_register(data->dev);
-+               if (err) {
-+                       printk(KERN_DEBUG
-+                              "mac80211_hwsim: device_register failed (%d)\n",
-+                              err);
-+                       goto failed_drvdata;
-+               }
+Sonic
 
-(ignore the pluses, snipped from a patch) but it ran into a null ptr
-deref?
-
-johannes
-
+>
+>
