@@ -1,61 +1,93 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: John Fastabend <john.r.fastabend@intel.com>
 Subject: Re: RFS seems to have incompatiblities with bridged vlans
-Date: Tue, 08 Jun 2010 00:19:20 +0200
-Message-ID: <1275949160.2775.24.camel@edumazet-laptop>
-References: <62C40338-045A-417E-9B90-E59A320E1343@dlh.net>
-	 <20100607145910.2458ac87@nehalam>
+Date: Mon, 07 Jun 2010 15:30:42 -0700
+Message-ID: <4C0D7312.1020300@intel.com>
+References: <62C40338-045A-417E-9B90-E59A320E1343@dlh.net> <20100607145910.2458ac87@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Peter Lieven <pl@dlh.net>, davem@davemloft.net,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Peter Lieven <pl@dlh.net>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:56631 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753245Ab0FGWTZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 18:19:25 -0400
-Received: by wyi11 with SMTP id 11so2773148wyi.19
-        for <netdev@vger.kernel.org>; Mon, 07 Jun 2010 15:19:24 -0700 (PDT)
+Received: from mga14.intel.com ([143.182.124.37]:26213 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753477Ab0FGW35 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jun 2010 18:29:57 -0400
 In-Reply-To: <20100607145910.2458ac87@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 07 juin 2010 =C3=A0 14:59 -0700, Stephen Hemminger a =C3=A9cri=
-t :
+Stephen Hemminger wrote:
 > On Mon, 7 Jun 2010 22:36:11 +0200
 > Peter Lieven <pl@dlh.net> wrote:
->=20
-> > Hi,
-> >=20
-> > i today tried out 2.6.32-rc2 and I see a lot of warning messages li=
-ke this:
-> >=20
-> > Jun  7 22:33:15 172.21.55.20 kernel: [ 3012.575884] br141 received =
-packet on queue 4, but number of RX queues is 1
-> >=20
-> > The host is a SMP system with 8 cores, so I think there is expected=
- to be one rx queue per CPU, but it seems
-> > the bridge iface has only one.
-> >=20
->=20
-> The bridge interface has no queues. It doesn't queue any packets.=20
+> 
+>> Hi,
+>>
+>> i today tried out 2.6.32-rc2 and I see a lot of warning messages like this:
+>>
+>> Jun  7 22:33:15 172.21.55.20 kernel: [ 3012.575884] br141 received packet on queue 4, but number of RX queues is 1
+>>
+>> The host is a SMP system with 8 cores, so I think there is expected to be one rx queue per CPU, but it seems
+>> the bridge iface has only one.
+>>
+> 
+> The bridge interface has no queues. It doesn't queue any packets. 
 > The test in receive packet path is not appropriate in this case.
 > Not sure what the right fix is. Pretending the bridge device has
-> multiple queues (num_queues =3D=3D NUM_CPUS) is a possibility but
+> multiple queues (num_queues == NUM_CPUS) is a possibility but
 > seems like overhead without real increase in parallelism.
+> 
+> 
+> 
 
-We have same problem with bonding and multiqueue devices...
+There is always a possibility that the underlying device sets the 
+queue_mapping to be greater then num_cpus.  Also I suspect the same 
+issue exists with bonding devices.  Maybe something like the following 
+is worth while? compile tested only,
 
-It does make sense to pretend we have several queues, in case we have
-another stage like
+[PATCH] 8021q: vlan reassigns dev without check queue_mapping
 
-eth0	+
-  	+-> bond0  -> vlan.1000
-eth1	+
+recv path reassigns skb->dev without sanity checking the
+queue_mapping field.  This can result in the queue_mapping
+field being set incorrectly if the new dev supports less
+queues then the underlying device.
 
-because in this case, vlan.1000 would also be multiqueue, so tx will be
-parallelized on several queues.
+This patch just resets the queue_mapping to 0 which should
+resolve this issue?  Any thoughts?
 
+The same issue could happen on bonding devices as well.
 
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
 
+  net/8021q/vlan_core.c |    6 ++++++
+  1 files changed, 6 insertions(+), 0 deletions(-)
+
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index bd537fc..ad309f8 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -21,6 +21,9 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, struct 
+vlan_group *grp,
+  	if (!skb->dev)
+  		goto drop;
+
++	if (unlikely(skb->queue_mapping >= skb->dev->real_num_tx_queues))
++		skb_set_queue_mapping(skb, 0);
++
+  	return (polling ? netif_receive_skb(skb) : netif_rx(skb));
+
+  drop:
+@@ -93,6 +96,9 @@ vlan_gro_common(struct napi_struct *napi, struct 
+vlan_group *grp,
+  	if (!skb->dev)
+  		goto drop;
+
++	if (unlikely(skb->queue_mapping >= skb->dev->real_num_tx_queues))
++		skb_set_queue_mapping(skb, 0);
++
+  	for (p = napi->gro_list; p; p = p->next) {
+  		NAPI_GRO_CB(p)->same_flow =
+  			p->dev == skb->dev && !compare_ether_header(
