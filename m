@@ -1,30 +1,71 @@
-From: Roland Dreier <rdreier@cisco.com>
-Subject: Re: [Patch] infiniband: check local reserved ports
-Date: Mon, 07 Jun 2010 08:45:19 -0700
-Message-ID: <adad3w2onhs.fsf@roland-alpha.cisco.com>
-References: <20100603083106.6047.7657.sendpatchset@localhost.localdomain>
-	<ada1vcoqde3.fsf@roland-alpha.cisco.com> <4C085C9A.30506@redhat.com>
-	<ada1vcmpyvu.fsf@roland-alpha.cisco.com> <4C0CB610.4010305@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] pkt_sched: gen_estimator: kill est_lock
+ rwlock
+Date: Mon, 07 Jun 2010 17:55:51 +0200
+Message-ID: <1275926151.2545.126.camel@edumazet-laptop>
+References: <1275921171.2545.102.camel@edumazet-laptop>
+	 <AANLkTimgmYjA7Xp19gycRHDXmwP1w1twn92cfT08tCv2@mail.gmail.com>
+	 <1275924638.2545.121.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	davem@davemloft.net, linux-rdma@vger.kernel.org,
-	sean.hefty@intel.com
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Jarek Poplawski <jarkao2@gmail.com>
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtp-iport-2.cisco.com ([64.102.122.149]:41236 "EHLO
-	rtp-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751032Ab0FGPp1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 11:45:27 -0400
-In-Reply-To: <4C0CB610.4010305@redhat.com> (Cong Wang's message of "Mon, 07
-	Jun 2010 17:04:16 +0800")
+Received: from mail-ww0-f46.google.com ([74.125.82.46]:57491 "EHLO
+	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751966Ab0FGPzz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 11:55:55 -0400
+Received: by wwe15 with SMTP id 15so521618wwe.19
+        for <netdev@vger.kernel.org>; Mon, 07 Jun 2010 08:55:54 -0700 (PDT)
+In-Reply-To: <1275924638.2545.121.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- > So this patch looks good for you? :)
+Le lundi 07 juin 2010 =C3=A0 17:30 +0200, Eric Dumazet a =C3=A9crit :
+> Le lundi 07 juin 2010 =C3=A0 22:53 +0800, Changli Gao a =C3=A9crit :
+>=20
+> > Hmm. I don't think it is correct.
+> >=20
+> > Look at this code:
+> >=20
+> > void xt_rateest_put(struct xt_rateest *est)
+> > {
+> >         mutex_lock(&xt_rateest_mutex);
+> >         if (--est->refcnt =3D=3D 0) {
+> >                 hlist_del(&est->list);
+> >                 gen_kill_estimator(&est->bstats, &est->rstats);
+> >                 kfree(est);
+> >         }
+> >         mutex_unlock(&xt_rateest_mutex);
+> > }
+> >=20
+> > est will be released after gen_kill_estimator() returns. After est =
+is
+> > freed, there may still be some other CPUs running in the branch:
+> >      if (bstats) {
+> >          ....
+> >      }
+> >=20
+>=20
+> Oh well, I think I knew this from a previous attempt, but then I
+> forgot :)
+>=20
+> I'll provide an updated patch, so that no other attempt is tried next
+> yer, thanks !
+>=20
+>=20
 
-Yes, will queue it up, thanks.
--- 
-Roland Dreier <rolandd@cisco.com> || For corporate legal information go to:
-http://www.cisco.com/web/about/doing_business/legal/cri/index.html
+=46or your information, bug is already there before my patch.
+
+So this est_lock is a wrong protection, in the sense its so convoluted
+that nobody but you and me even noticed it was buggy in the first place=
+=2E
+
+(see commit 5d944c640b4 for a first patch)
+
+
+
