@@ -1,80 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: Fix slowness in read /proc/net/tcp
-Date: Mon, 07 Jun 2010 09:19:27 +0200
-Message-ID: <1275895167.2545.8.camel@edumazet-laptop>
-References: <alpine.DEB.1.00.1006062020180.24064@pokey.mtv.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/11] tg3: Bugfixes and 5719 support
+Date: Mon, 07 Jun 2010 00:28:05 -0700 (PDT)
+Message-ID: <20100607.002805.232920368.davem@davemloft.net>
+References: <1275794679-11085-1-git-send-email-mcarlson@broadcom.com>
+	<20100606.180029.42789560.davem@davemloft.net>
+	<20100607035934.GB11599@mcarlson.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Yakov Lerner <iler.ml@gmail.com>
-To: Tom Herbert <therbert@google.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andy@greyhouse.net
+To: mcarlson@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:36239 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755444Ab0FGHTc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 03:19:32 -0400
-Received: by wyi11 with SMTP id 11so2122693wyi.19
-        for <netdev@vger.kernel.org>; Mon, 07 Jun 2010 00:19:31 -0700 (PDT)
-In-Reply-To: <alpine.DEB.1.00.1006062020180.24064@pokey.mtv.corp.google.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41927
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756308Ab0FGH1z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 03:27:55 -0400
+In-Reply-To: <20100607035934.GB11599@mcarlson.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 06 juin 2010 =C3=A0 20:27 -0700, Tom Herbert a =C3=A9crit :
-> This patch address a serious performance issue in reading the
-> TCP sockets table (/proc/net/tcp).
->=20
-> Reading the full table is done by a number of sequential read
-> operations.  At each read operation, a seek is done to find the
-> last socket that was previously read.  This seek operation requires
-> that the sockets in the table need to be counted up to the current
-> file position, and to count each of these requires taking a lock for
-> each non-empty bucket.  The whole algorithm is O(n^2).
->=20
-> The fix is to cache the last bucket value, offset within the bucket,
-> and the file position returned by the last read operation.   On the
-> next sequential read, the bucket and offset are used to find the
-> last read socket immediately without needing ot scan the previous
-> buckets  the table.  This algorithm t read the whole table is O(n).
->=20
-> The improvement offered by this patch is easily show by performing
-> cat'ing /proc/net/tcp on a machine with a lot of connections.  With
-> about 182K connections in the table, I see the following:
->=20
-> - Without patch
-> time cat /proc/net/tcp > /dev/null
->=20
-> real	1m56.729s
-> user	0m0.214s
-> sys	1m56.344s
->=20
-> - With patch
-> time cat /proc/net/tcp > /dev/null
->=20
-> real	0m0.894s
-> user	0m0.290s
-> sys	0m0.594s
->=20
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Date: Sun, 6 Jun 2010 20:59:34 -0700
 
-This problem raises every year,  (last attempt from Yakov Lerner :
-http://kerneltrap.org/mailarchive/linux-netdev/2009/9/26/6256119 )
+> On Sun, Jun 06, 2010 at 06:00:29PM -0700, David Miller wrote:
+> The programming manual says this bit prevents a tx state machine lockup
+> due to tx mbuf corruption.  The conditions under which the tx mbufs get
+> corrupted is complicated, but the net effect of this bit is that the
+> RDMA engine acts a little more conservatively.
 
-And finally, someone motivated enough to use /proc/net/tcp found the
-right answer ;)
+That last phrase is a good description and could have been used to
+better name the register bit macro in question.  You're basically
+confirming that you named the register bit too tersely.
 
-Most netdev people tend to push inet_diag (netlink) interface instead o=
-f
-old /proc/net/tcp, but it seems old interface will still be used in
-2030, so :
+> The problem is that register definitions can change from asic rev to
+> asic rev.
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Frankly, this kind of justification really ticks me off.
 
-BTW, another problem of /proc/net/tcp is the buffer size used by netsta=
-t
-utility : 1024 bytes instead of PAGE_SIZE, making O(N^2) behavior even
-more palpable.
+How the heck does that make a difference?  Describe which chip revs
+the register bit is valid for in a comment for crying out loud.
 
+Document your hardware properly, not selectively or where you see
+it fit to do so.
 
+It's bad enough that you guys don't publish your hardware specs.
+As a consequence as much knowledge as possible must go into the
+driver sources.  Any piece of information you take away is bad.
+
+There are tons of chip register bits in this driver already which are
+only valid on certain hardware revs.  In fact, there are many.  Yet
+they are all still there in tg3.h whether they are used by the driver
+or not.  In fact, if I recall correctly, the DMA burst size controls
+are pretty much different on every single rev of the chip.
+
+Documenting where for which chips a register bit is valid is
+pervasively done elsewhere, and is nothing new.  Your driver and your
+hardware is not special.
 
