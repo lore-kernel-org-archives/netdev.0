@@ -1,86 +1,179 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Virtual device and ARP table
-Date: Mon, 07 Jun 2010 14:22:00 +0200
-Message-ID: <1275913320.2545.53.camel@edumazet-laptop>
-References: <4C0CC810.7030501@unibas.ch>
+From: Kay Sievers <kay.sievers@vrfy.org>
+Subject: Re: [RFC][PATCH] Fix another namespace issue with devices assigned
+ to  classes
+Date: Mon, 07 Jun 2010 14:26:03 +0200
+Message-ID: <1275913563.1823.1.camel@yio.site>
+References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
+	 <20100602154608.GB12361@kroah.com>
+	 <1275493693.3915.12.camel@jlt3.sipsolutions.net>
+	 <m1ljaxxvcj.fsf@fess.ebiederm.org>
+	 <1275495677.3915.16.camel@jlt3.sipsolutions.net>
+	 <m14ohlxu51.fsf@fess.ebiederm.org>
+	 <1275498007.3915.20.camel@jlt3.sipsolutions.net>
+	 <m1ocftwdp7.fsf@fess.ebiederm.org>
+	 <1275501157.3915.22.camel@jlt3.sipsolutions.net>
+	 <m1y6exux6x.fsf@fess.ebiederm.org>
+	 <1275506732.3915.41.camel@jlt3.sipsolutions.net>
+	 <m16321t4ke.fsf@fess.ebiederm.org> <m17hmhrl6v.fsf_-_@fess.ebiederm.org>
+	 <1275634452.5189.1.camel@jlt3.sipsolutions.net>
+	 <AANLkTingSwM7e8ldyT1FplF5WCHBsCBCwNkb5ZPHe6hB@mail.gmail.com>
+	 <1275640113.9953.8.camel@jlt3.sipsolutions.net>
+	 <AANLkTin6ub4k4QYSMnGLRw7lxQaz23Xmo2GQC1RrUf-X@mail.gmail.com>
+	 <1275829701.3615.54.camel@jlt3.sipsolutions.net>
+	 <AANLkTinUAR2gkY7ipgXKy-pMHcmLuouEeyXxnP97U_7N@mail.gmail.com>
+	 <1275903773.29978.1.camel@jlt3.sipsolutions.net>
+	 <AANLkTin_qjU0-xXfMDYeYWRd0BmvT4OIdK4S_GQ3ZYUi@mail.gmail.com>
+	 <1275905686.29978.3.camel@jlt3.sipsolutions.net>
+	 <AANLkTikMDvpEzrtFVue8gStudKONxuQmVx9B2w1JM1vO@mail.gmail.com>
+	 <1275910905.29978.7.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Christophe Jelger <Christophe.Jelger@unibas.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C0CC810.7030501@unibas.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fg-out-1718.google.com ([72.14.220.159]:36028 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752558Ab0FGM1F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 08:27:05 -0400
+Received: by fg-out-1718.google.com with SMTP id d23so1633516fga.1
+        for <netdev@vger.kernel.org>; Mon, 07 Jun 2010 05:27:03 -0700 (PDT)
+In-Reply-To: <1275910905.29978.7.camel@jlt3.sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le lundi 07 juin 2010 =C3=A0 12:21 +0200, Christophe Jelger a =C3=A9cri=
-t :
-> Hello,
->=20
-> I am currently "resurrecting" a Linux module (called LUNAR) which I=20
-> co-developed in 2007 and I'm having a weird kernel crash. This code=20
-> basically used to work fine up to 2.6.18 which was the latest version=
-=20
-> before we stopped our development. I quickly ported it to 2.6.{31,32}=
-:=20
-> it compiles fine and loads fine, but it crashes/hangs the kernel when=
-=20
-> it's really being used.
->=20
-> The module is a virtual device used for MANET routing: with the curre=
-nt=20
-> version, it basically "captures" DNS requests sent to the virtual=20
-> interface --> this triggers the sending of a fake DNS reply (see belo=
-w)=20
-> and the creation of an ARP table entry for the destination (the MANET=
-=20
-> route is built at the same time). Packets can then be sent to the=20
-> destination.
->=20
-> The problem I'm having is that the kernel quickly hangs after I creat=
-e a=20
-> new ARP entry (actually only if it's being used). If the entry I crea=
-te=20
-> is set to NUD_PERMANENT, then everything works fine! I use=20
-> __neigh_lookup_errno to lookup/create the entry and neigh_lookup to=20
-> set/update the MAC address. Note that the ARP entry is created withou=
-t=20
-> problem, but typically even just doing a userspace "arp -a" command c=
-an=20
-> crash the kernel (it also hangs the userspace command!). Doing "arp -=
-na"=20
-> usually does NOT crash the kernel!
->=20
-> I guess the problem comes from a combination of ARP + DNS=20
-> lookups/replies. Note that my kernel module has its own internal fake=
-=20
-> DNS server which captures lookups and sends replies directly back to =
-the=20
-> stack. What is amazing: if the ARP entry I create is set to=20
-> NUD_PERMANENT, then I don't get any crash (however I cannot develop m=
-y=20
-> module with permanent ARP entries).
->=20
-> I'm wondering if there were any major changes to the neighbor and arp=
-=20
-> code (between 2.6.18 and 2.6.31) that are somehow causing this proble=
-m ?...
->=20
-> Any hint is very welcome.
->=20
-> thanks in advance,
-> Christophe
->=20
-> PS: I can easily reproduce the problem, and was trying to debug with=20
-> qemu and gdb server but so fra no success to clearly identify the=20
-> problem. Last point: it seems the kernel does not really "crash" but=20
-> rather ends up in some unstable state and maybe in a loop.
-> --
+On Mon, Jun 7, 2010 at 13:41, Johannes Berg <johannes@sipsolutions.net> wrote:
+> (mind you, I think we probably need to have the bus/driver assignment,
+> but I wanted to try out your suggestion first)
 
-Hi Christophe
+Class device can never have a driver. And unregistered drivers can
+not be used, what you try to do here. That all should just be removed or
+properly registered with the core if needed.
 
-You should ask these kind of questions on netdev instead of lkml.
+> So I removed bus/driver assignment from the above code just to try it
+> out, and got
+>
+> Device 'hwsim0' does not have a release() function, it is broken and
+> must be fixed.
 
-And of course, post your patch, or send us a crystal ball ;)
+The driver core expects the resources of the device to be freed on
+release. You can provide an empty release function because you do this
+from a global list of devices.
 
-Yes, many things changed between 2.6.18 and 2.6.34
+> This has evolved far too much for me right now. Can we just apply the
+> initial patch from Eric and be happier for a while? I can't justify
+> spending this much time on it right now. Alternatively, you could look
+> at hwsim too, since it's all virtual, nothing special is required, I do
+> testing in a virtual machine ...
+>
+> current patch is at
+> http://johannes.sipsolutions.net/patches/kernel/all/2010-06-07-11:41/hwsim-bus.patch
+
+Here is something that seems to work for me.
+
+Cheers,
+Kay
+
+
+
+diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
+index 6f8cb3e..d210ce6 100644
+--- a/drivers/net/wireless/mac80211_hwsim.c
++++ b/drivers/net/wireless/mac80211_hwsim.c
+@@ -194,7 +194,13 @@ static inline void hwsim_clear_sta_magic(struct ieee80211_sta *sta)
+ 	sp->magic = 0;
+ }
+ 
+-static struct class *hwsim_class;
++static struct bus_type hwsim_bus = {
++	.name = "mac80211_hwsim",
++};
++
++static struct device hwsim_parent = {
++	.init_name = "mac80211_hwsim",
++};
+ 
+ static struct net_device *hwsim_mon; /* global monitor netdev */
+ 
+@@ -1071,14 +1077,10 @@ static void mac80211_hwsim_free(void)
+ 		device_unregister(data->dev);
+ 		ieee80211_free_hw(data->hw);
+ 	}
+-	class_destroy(hwsim_class);
++	device_unregister(&hwsim_parent);
++	bus_unregister(&hwsim_bus);
+ }
+ 
+-
+-static struct device_driver mac80211_hwsim_driver = {
+-	.name = "mac80211_hwsim"
+-};
+-
+ static const struct net_device_ops hwsim_netdev_ops = {
+ 	.ndo_start_xmit 	= hwsim_mon_xmit,
+ 	.ndo_change_mtu		= eth_change_mtu,
+@@ -1231,6 +1233,9 @@ DEFINE_SIMPLE_ATTRIBUTE(hwsim_fops_group,
+ 			hwsim_fops_group_read, hwsim_fops_group_write,
+ 			"%llx\n");
+ 
++/* all devices are kept in out own list and the ressources are freed on exit */
++static void hwsim_dev_release(struct device* dev) {}
++
+ static int __init init_mac80211_hwsim(void)
+ {
+ 	int i, err = 0;
+@@ -1251,9 +1256,15 @@ static int __init init_mac80211_hwsim(void)
+ 	spin_lock_init(&hwsim_radio_lock);
+ 	INIT_LIST_HEAD(&hwsim_radios);
+ 
+-	hwsim_class = class_create(THIS_MODULE, "mac80211_hwsim");
+-	if (IS_ERR(hwsim_class))
+-		return PTR_ERR(hwsim_class);
++	err = bus_register(&hwsim_bus);
++	if (err)
++		return err;
++
++	err = device_register(&hwsim_parent);
++	if (err) {
++		bus_unregister(&hwsim_bus);
++		return err;
++	}
+ 
+ 	memset(addr, 0, ETH_ALEN);
+ 	addr[0] = 0x02;
+@@ -1271,16 +1282,24 @@ static int __init init_mac80211_hwsim(void)
+ 		data = hw->priv;
+ 		data->hw = hw;
+ 
+-		data->dev = device_create(hwsim_class, NULL, 0, hw,
+-					  "hwsim%d", i);
+-		if (IS_ERR(data->dev)) {
+-			printk(KERN_DEBUG
+-			       "mac80211_hwsim: device_create "
+-			       "failed (%ld)\n", PTR_ERR(data->dev));
++		data->dev = kzalloc(sizeof(struct device), GFP_KERNEL);
++		if (!data->dev) {
+ 			err = -ENOMEM;
+ 			goto failed_drvdata;
+ 		}
+-		data->dev->driver = &mac80211_hwsim_driver;
++
++		dev_set_name(data->dev, "hwsim%d", i);
++		data->dev->parent = &hwsim_parent;
++		data->dev->bus = &hwsim_bus;
++		data->dev->release = hwsim_dev_release;
++
++		err = device_register(data->dev);
++		if (err) {
++			printk(KERN_DEBUG
++			       "mac80211_hwsim: device_register failed (%d)\n",
++			       err);
++			goto failed_drvdata;
++		}
+ 
+ 		SET_IEEE80211_DEV(hw, data->dev);
+ 		addr[3] = i >> 8;
+
+
+
