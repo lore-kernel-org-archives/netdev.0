@@ -1,60 +1,50 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch 2/2] mlx4: add dynamic LRO disable support
-Date: Mon, 07 Jun 2010 16:51:49 +0800
-Message-ID: <4C0CB325.2040704@redhat.com>
-References: <20100603034303.5305.55552.sendpatchset@localhost.localdomain>	 <20100603034312.5305.61000.sendpatchset@localhost.localdomain>	 <1275568622.2870.89.camel@localhost>  <4C085D45.6040001@redhat.com> <1275661552.2095.13.camel@achroite.uk.solarflarecom.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC][PATCH] Fix another namespace issue with devices assigned
+ to  classes
+Date: Mon, 07 Jun 2010 11:42:53 +0200
+Message-ID: <1275903773.29978.1.camel@jlt3.sipsolutions.net>
+References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
+	 <20100602154608.GB12361@kroah.com>
+	 <1275493693.3915.12.camel@jlt3.sipsolutions.net>
+	 <m1ljaxxvcj.fsf@fess.ebiederm.org>
+	 <1275495677.3915.16.camel@jlt3.sipsolutions.net>
+	 <m14ohlxu51.fsf@fess.ebiederm.org>
+	 <1275498007.3915.20.camel@jlt3.sipsolutions.net>
+	 <m1ocftwdp7.fsf@fess.ebiederm.org>
+	 <1275501157.3915.22.camel@jlt3.sipsolutions.net>
+	 <m1y6exux6x.fsf@fess.ebiederm.org>
+	 <1275506732.3915.41.camel@jlt3.sipsolutions.net>
+	 <m16321t4ke.fsf@fess.ebiederm.org> <m17hmhrl6v.fsf_-_@fess.ebiederm.org>
+	 <1275634452.5189.1.camel@jlt3.sipsolutions.net>
+	 <AANLkTingSwM7e8ldyT1FplF5WCHBsCBCwNkb5ZPHe6hB@mail.gmail.com>
+	 <1275640113.9953.8.camel@jlt3.sipsolutions.net>
+	 <AANLkTin6ub4k4QYSMnGLRw7lxQaz23Xmo2GQC1RrUf-X@mail.gmail.com>
+	 <1275829701.3615.54.camel@jlt3.sipsolutions.net>
+	 <AANLkTinUAR2gkY7ipgXKy-pMHcmLuouEeyXxnP97U_7N@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert.xu@redhat.com, nhorman@redhat.com,
-	sgruszka@redhat.com, davem@davemloft.net
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
+To: Kay Sievers <kay.sievers@vrfy.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61477 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751424Ab0FGJhX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jun 2010 05:37:23 -0400
-In-Reply-To: <1275661552.2095.13.camel@achroite.uk.solarflarecom.com>
+Received: from he.sipsolutions.net ([78.46.109.217]:59479 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752157Ab0FGJm7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 05:42:59 -0400
+In-Reply-To: <AANLkTinUAR2gkY7ipgXKy-pMHcmLuouEeyXxnP97U_7N@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/04/10 22:25, Ben Hutchings wrote:
-> On Fri, 2010-06-04 at 09:56 +0800, Cong Wang wrote:
->> On 06/03/10 20:37, Ben Hutchings wrote:
->>> On Wed, 2010-06-02 at 23:39 -0400, Amerigo Wang wrote:
->>>> This patch adds dynamic LRO diable support for mlx4 net driver.
->>>> It also fixes a bug of mlx4, which checks NETIF_F_LRO flag in rx
->>>> path without rtnl lock.
->>> [...]
->>>
->>> Is that flag test actually unsafe - and if so, how is testing num_lro
->>> any better?  Perhaps access to net_device::features should be wrapped
->>> with ACCESS_ONCE() to ensure that reads and writes are atomic.
->>>
->>
->> At least, I don't find there is any race with 'num_lro', thus
->> no lock is needed.
->
-> In both cases there is a race condition but it is harmless so long as
-> the read and the write are atomic.  There is a general assumption in
-> networking code that this is the case for int and long.  Personally I
-> would prefer to see this made explicit using ACCESS_ONCE(), but I don't
-> see any specific problem in mlx4 (not that I'm familiar with this driver
-> either).
+On Sun, 2010-06-06 at 19:17 +0200, Kay Sievers wrote:
 
-Hmm, right, it seems mlx4_en_add() is async too.
-I will pick your suggestion.
+> There is no real difference between classes and buses. Actually we're
+> working on merging them completely inside the kernel. Just declare a
+> "struct bus_type" instead of a "struct class".
 
+Can you please tell me then how to device_create() without a class? I
+cannot seem to create devices without a class at all, even using manual
+allocation (yuck) and device_register crashes the kernel.
 
->
-> Now that I look at the patch again, I see you're using a static (i.e.
-> global) variable to 'back up' the non-zero (enabled) value of num_lro.
-> This is introducing a bug!  The correct value is apparently set in
-> mlx4_en_get_profile(); you would need to replicate that.
->
-
-Oh, probably, but unfortunately 'num_lro' is static so only visible
-in en_main.c.
-
-Thanks!
+johannes
 
