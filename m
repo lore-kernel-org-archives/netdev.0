@@ -1,33 +1,61 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: fix random mdio_write failures
-Date: Mon, 7 Jun 2010 23:51:15 +0200
-Message-ID: <20100607215115.GA6583@electric-eye.fr.zoreil.com>
-References: <4C0A1736.9030209@iki.fi>
- <1275733273-28321-1-git-send-email-timo.teras@iki.fi>
- <20100605124103.GA3213@electric-eye.fr.zoreil.com>
- <4C31B2E3BE2B481DB749C669DFE23645@realtek.com.tw>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: RFS seems to have incompatiblities with bridged vlans
+Date: Tue, 08 Jun 2010 00:19:20 +0200
+Message-ID: <1275949160.2775.24.camel@edumazet-laptop>
+References: <62C40338-045A-417E-9B90-E59A320E1343@dlh.net>
+	 <20100607145910.2458ac87@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "'Timo =?utf-8?Q?Ter=C3=A4s'?=" <timo.teras@iki.fi>,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: hayeswang <hayeswang@realtek.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Peter Lieven <pl@dlh.net>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 30.185.140-88.rev.gaoland.net ([88.140.185.30]:50980 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752431Ab0FGVvl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 17:51:41 -0400
-Content-Disposition: inline
-In-Reply-To: <4C31B2E3BE2B481DB749C669DFE23645@realtek.com.tw>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:56631 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753245Ab0FGWTZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 18:19:25 -0400
+Received: by wyi11 with SMTP id 11so2773148wyi.19
+        for <netdev@vger.kernel.org>; Mon, 07 Jun 2010 15:19:24 -0700 (PDT)
+In-Reply-To: <20100607145910.2458ac87@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hayeswang <hayeswang@realtek.com> :
-> Our hardware engineer suggests that check the completed indication
-> per 100 micro seconds. And it needs 20 micro seconds delay after the 
-> completed indication for the next command.
+Le lundi 07 juin 2010 =C3=A0 14:59 -0700, Stephen Hemminger a =C3=A9cri=
+t :
+> On Mon, 7 Jun 2010 22:36:11 +0200
+> Peter Lieven <pl@dlh.net> wrote:
+>=20
+> > Hi,
+> >=20
+> > i today tried out 2.6.32-rc2 and I see a lot of warning messages li=
+ke this:
+> >=20
+> > Jun  7 22:33:15 172.21.55.20 kernel: [ 3012.575884] br141 received =
+packet on queue 4, but number of RX queues is 1
+> >=20
+> > The host is a SMP system with 8 cores, so I think there is expected=
+ to be one rx queue per CPU, but it seems
+> > the bridge iface has only one.
+> >=20
+>=20
+> The bridge interface has no queues. It doesn't queue any packets.=20
+> The test in receive packet path is not appropriate in this case.
+> Not sure what the right fix is. Pretending the bridge device has
+> multiple queues (num_queues =3D=3D NUM_CPUS) is a possibility but
+> seems like overhead without real increase in parallelism.
 
-Should we do the same for mdio_read as well (100 us per iteration + 
-an extra 20 us) ?
+We have same problem with bonding and multiqueue devices...
 
--- 
-Ueimor
+It does make sense to pretend we have several queues, in case we have
+another stage like
+
+eth0	+
+  	+-> bond0  -> vlan.1000
+eth1	+
+
+because in this case, vlan.1000 would also be multiqueue, so tx will be
+parallelized on several queues.
+
+
+
