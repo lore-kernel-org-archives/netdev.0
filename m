@@ -1,39 +1,156 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch 2/2] mlx4: add dynamic LRO disable support
-Date: Mon, 07 Jun 2010 21:15:46 +0800
-Message-ID: <4C0CF102.8090603@redhat.com>
-References: <20100603034303.5305.55552.sendpatchset@localhost.localdomain>	<20100603034312.5305.61000.sendpatchset@localhost.localdomain>	<1275568622.2870.89.camel@localhost>	<4C085D45.6040001@redhat.com>	<1275661552.2095.13.camel@achroite.uk.solarflarecom.com>	<4C0CB325.2040704@redhat.com> <20100607130038.11581e28@dhcp-lab-109.englab.brq.redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] ip: Router Alert RCU conversion
+Date: Mon, 07 Jun 2010 15:12:08 +0200
+Message-ID: <1275916328.2545.64.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
-	herbert.xu@redhat.com, nhorman@redhat.com, davem@davemloft.net
-To: Stanislaw Gruszka <sgruszka@redhat.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49804 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751032Ab0FGNLr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jun 2010 09:11:47 -0400
-In-Reply-To: <20100607130038.11581e28@dhcp-lab-109.englab.brq.redhat.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:38895 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754370Ab0FGNMN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 09:12:13 -0400
+Received: by fxm8 with SMTP id 8so2051368fxm.19
+        for <netdev@vger.kernel.org>; Mon, 07 Jun 2010 06:12:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/07/10 19:00, Stanislaw Gruszka wrote:
-> On Mon, 07 Jun 2010 16:51:49 +0800
-> Cong Wang<amwang@redhat.com>  wrote:
->
->>> Now that I look at the patch again, I see you're using a static (i.e.
->>> global) variable to 'back up' the non-zero (enabled) value of num_lro.
->>> This is introducing a bug!  The correct value is apparently set in
->>> mlx4_en_get_profile(); you would need to replicate that.
->>>
->>
->> Oh, probably, but unfortunately 'num_lro' is static so only visible
->> in en_main.c.
->
-> So just remove "static" and make it global :-)
->
+Straightforward conversion to RCU.
 
-Not that easy, it is defined with a macro which is also used
-by other parameters. :-/
+One rwlock becomes a spinlock, and is static.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/net/ip.h       |    2 +-
+ net/ipv4/ip_input.c    |   11 +++--------
+ net/ipv4/ip_sockglue.c |   23 ++++++++++++++---------
+ 3 files changed, 18 insertions(+), 18 deletions(-)
+
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 452f229..9982c97 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -62,10 +62,10 @@ struct ip_ra_chain {
+ 	struct ip_ra_chain	*next;
+ 	struct sock		*sk;
+ 	void			(*destructor)(struct sock *);
++	struct rcu_head		rcu;
+ };
+ 
+ extern struct ip_ra_chain *ip_ra_chain;
+-extern rwlock_t ip_ra_lock;
+ 
+ /* IP flags. */
+ #define IP_CE		0x8000		/* Flag: "Congestion"		*/
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index d52c9da..08a3b12 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -146,7 +146,7 @@
+ #include <linux/netlink.h>
+ 
+ /*
+- *	Process Router Attention IP option
++ *	Process Router Attention IP option (RFC 2113)
+  */
+ int ip_call_ra_chain(struct sk_buff *skb)
+ {
+@@ -155,8 +155,7 @@ int ip_call_ra_chain(struct sk_buff *skb)
+ 	struct sock *last = NULL;
+ 	struct net_device *dev = skb->dev;
+ 
+-	read_lock(&ip_ra_lock);
+-	for (ra = ip_ra_chain; ra; ra = ra->next) {
++	for (ra = rcu_dereference(ip_ra_chain); ra; ra = rcu_dereference(ra->next)) {
+ 		struct sock *sk = ra->sk;
+ 
+ 		/* If socket is bound to an interface, only report
+@@ -167,10 +166,8 @@ int ip_call_ra_chain(struct sk_buff *skb)
+ 		     sk->sk_bound_dev_if == dev->ifindex) &&
+ 		    net_eq(sock_net(sk), dev_net(dev))) {
+ 			if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
+-				if (ip_defrag(skb, IP_DEFRAG_CALL_RA_CHAIN)) {
+-					read_unlock(&ip_ra_lock);
++				if (ip_defrag(skb, IP_DEFRAG_CALL_RA_CHAIN))
+ 					return 1;
+-				}
+ 			}
+ 			if (last) {
+ 				struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
+@@ -183,10 +180,8 @@ int ip_call_ra_chain(struct sk_buff *skb)
+ 
+ 	if (last) {
+ 		raw_rcv(last, skb);
+-		read_unlock(&ip_ra_lock);
+ 		return 1;
+ 	}
+-	read_unlock(&ip_ra_lock);
+ 	return 0;
+ }
+ 
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index ce23178..08b9519 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -239,7 +239,12 @@ int ip_cmsg_send(struct net *net, struct msghdr *msg, struct ipcm_cookie *ipc)
+    sent to multicast group to reach destination designated router.
+  */
+ struct ip_ra_chain *ip_ra_chain;
+-DEFINE_RWLOCK(ip_ra_lock);
++static DEFINE_SPINLOCK(ip_ra_lock);
++
++static void ip_ra_free_rcu(struct rcu_head *head)
++{
++	kfree(container_of(head, struct ip_ra_chain, rcu));
++}
+ 
+ int ip_ra_control(struct sock *sk, unsigned char on,
+ 		  void (*destructor)(struct sock *))
+@@ -251,35 +256,35 @@ int ip_ra_control(struct sock *sk, unsigned char on,
+ 
+ 	new_ra = on ? kmalloc(sizeof(*new_ra), GFP_KERNEL) : NULL;
+ 
+-	write_lock_bh(&ip_ra_lock);
++	spin_lock_bh(&ip_ra_lock);
+ 	for (rap = &ip_ra_chain; (ra = *rap) != NULL; rap = &ra->next) {
+ 		if (ra->sk == sk) {
+ 			if (on) {
+-				write_unlock_bh(&ip_ra_lock);
++				spin_unlock_bh(&ip_ra_lock);
+ 				kfree(new_ra);
+ 				return -EADDRINUSE;
+ 			}
+-			*rap = ra->next;
+-			write_unlock_bh(&ip_ra_lock);
++			rcu_assign_pointer(*rap, ra->next);
++			spin_unlock_bh(&ip_ra_lock);
+ 
+ 			if (ra->destructor)
+ 				ra->destructor(sk);
+ 			sock_put(sk);
+-			kfree(ra);
++			call_rcu(&ra->rcu, ip_ra_free_rcu);
+ 			return 0;
+ 		}
+ 	}
+ 	if (new_ra == NULL) {
+-		write_unlock_bh(&ip_ra_lock);
++		spin_unlock_bh(&ip_ra_lock);
+ 		return -ENOBUFS;
+ 	}
+ 	new_ra->sk = sk;
+ 	new_ra->destructor = destructor;
+ 
+ 	new_ra->next = ra;
+-	*rap = new_ra;
++	rcu_assign_pointer(*rap, new_ra);
+ 	sock_hold(sk);
+-	write_unlock_bh(&ip_ra_lock);
++	spin_unlock_bh(&ip_ra_lock);
+ 
+ 	return 0;
+ }
+
 
