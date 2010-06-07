@@ -1,63 +1,55 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [PATCH net-next-2.6] macvlan: use call_rcu for port free
-Date: Mon, 7 Jun 2010 13:36:29 +0200
-Message-ID: <20100607113629.GA2730@psychotron.lab.eng.brq.redhat.com>
+From: Alexander Strakh <strakh@ispras.ru>
+Subject: BUG: double spinlock in "drivers/net/3c505.c"
+Date: Mon, 7 Jun 2010 15:17:28 +0400
+Message-ID: <201006071517.28744.strakh@ispras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kaber@trash.net
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Craig Southeren <craigs@ineluki.apana.org.au>,
+	Andrew Tridgell <tridge@nimbus.anu.edu.au>,
+	Alan Cox <Alan.Cox@linux.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Philip Blundell <philb@gnu.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:17232 "EHLO mx1.redhat.com"
+Received: from smtp.ispras.ru ([83.149.198.201]:42196 "EHLO smtp.ispras.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752558Ab0FGLgg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jun 2010 07:36:36 -0400
-Content-Disposition: inline
+	id S1756453Ab0FGLiS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jun 2010 07:38:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use call_rcu rather than synchronize_rcu.
+	KERNEL_VERSION: 2.6.35-rc1
+        SUBJECT: duble spinlock  in function elp_start_xmit
+        SUBSCRIBE:
+        In driver drivers/net/3c505.c in function elp_start_xmit:
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
----
- drivers/net/macvlan.c |   12 ++++++++++--
- 1 files changed, 10 insertions(+), 2 deletions(-)
+1. In line 1075 we have first spinlock. In the next line we called 
+check_3c505_dma:
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 53422ce..59c3155 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -37,6 +37,7 @@ struct macvlan_port {
- 	struct net_device	*dev;
- 	struct hlist_head	vlan_hash[MACVLAN_HASH_SIZE];
- 	struct list_head	vlans;
-+	struct rcu_head		rcu;
- };
- 
- static struct macvlan_dev *macvlan_hash_lookup(const struct macvlan_port *port,
-@@ -540,14 +541,21 @@ static int macvlan_port_create(struct net_device *dev)
- 	return err;
- }
- 
-+static void macvlan_port_rcu_free(struct rcu_head *head)
-+{
-+	struct macvlan_port *port;
-+
-+	port = container_of(head, struct macvlan_port, rcu);
-+	kfree(port);
-+}
-+
- static void macvlan_port_destroy(struct net_device *dev)
- {
- 	struct macvlan_port *port = dev->macvlan_port;
- 
- 	netdev_rx_handler_unregister(dev);
- 	rcu_assign_pointer(dev->macvlan_port, NULL);
--	synchronize_rcu();
--	kfree(port);
-+	call_rcu(&port->rcu, macvlan_port_rcu_free);
- }
- 
- static int macvlan_validate(struct nlattr *tb[], struct nlattr *data[])
--- 
-1.7.0.1
+1070 static netdev_tx_t elp_start_xmit(struct sk_buff *skb, struct net_device 
+*dev)
+1071 {
+1072         unsigned long flags;
+1073         elp_device *adapter = netdev_priv(dev);
+1074
+1075         spin_lock_irqsave(&adapter->lock, flags);
+1076         check_3c505_dma(dev);
 
+2. In function check_3c505_dma we have second spinloock at line 301.
+
+ 293 static inline void check_3c505_dma(struct net_device *dev)
+ 294 {
+ 295         elp_device *adapter = netdev_priv(dev);
+ 296         if (adapter->dmaing && time_after(jiffies, adapter-
+>current_dma.start_time + 10)) {
+ 297                 unsigned long flags, f;
+ 298                 pr_err("%s: DMA %s timed out, %d bytes left\n", dev-
+>name,
+ 299                         adapter->current_dma.direction ? "download" : 
+"upload",
+ 300                         get_dma_residue(dev->dma));
+ 301                 spin_lock_irqsave(&adapter->lock, flags);
+
+
+Found by Linux Device Drivers Verification Project (Svace Detector)
