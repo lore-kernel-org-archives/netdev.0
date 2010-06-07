@@ -1,53 +1,30 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [Linux-ATM-General] RX/close vcc race with
- solos/atmtcp/usbatm/he
-Date: Mon, 07 Jun 2010 17:04:07 +0100
-Message-ID: <1275926647.17903.5077.camel@macbook.infradead.org>
-References: <201006071510.o57FA6uP010212@thirdoffive.cmf.nrl.navy.mil>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+From: "Chas Williams (CONTRACTOR)" <chas@cmf.nrl.navy.mil>
+Subject: Re: [Linux-ATM-General] RX/close vcc race with solos/atmtcp/usbatm/he
+Date: Mon, 07 Jun 2010 12:37:52 -0400
+Message-ID: <201006071637.o57GbqWd002514@thirdoffive.cmf.nrl.navy.mil>
+References: <1275926647.17903.5077.camel@macbook.infradead.org>
+Reply-To: chas3@users.sourceforge.net
 Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
-To: chas3@users.sourceforge.net
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:55652 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752550Ab0FGQEK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 12:04:10 -0400
-In-Reply-To: <201006071510.o57FA6uP010212@thirdoffive.cmf.nrl.navy.mil>
+Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:42468 "EHLO
+	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752331Ab0FGQie (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 12:38:34 -0400
+In-reply-to: <1275926647.17903.5077.camel@macbook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-06-07 at 11:10 -0400, Chas Williams (CONTRACTOR) wrote:
-> In message <1275920035.17903.4998.camel@macbook.infradead.org>,David Woodhouse 
-> writes:
-> >On Mon, 2010-06-07 at 09:44 -0400, Chas Williams (CONTRACTOR) wrote:
-> >> vcc's are really sockets, so you could just increase the refcount --
-> >> sock_hold().
-> >
-> >There are rules about where we're allowed to call sock_hold(), and I
-> >don't think our find_vcc() functions can be made to meet them.
-> 
-> if you are using find_vcc() then you should already have a lock on the
-> hash table for the vccs.  you can safely increment the ref count at
-> this point.
+In message <1275926647.17903.5077.camel@macbook.infradead.org>,David Woodhouse 
+writes:
+>You can still hit the oops that way -- br2684_push() is setting
+>vcc->user_back to NULL before the final sock_put() anyway, and that's
+>what was causing the oops.
 
-You can still hit the oops that way -- br2684_push() is setting
-vcc->user_back to NULL before the final sock_put() anyway, and that's
-what was causing the oops.
-
-> >In that case I think we might as well stick with the RCU-like solution I
-> >already implemented in the vcc close function -- which is just to wait
-> >for the tasklet to complete, thus ensuring that it's no longer using the
-> >defunct vcc.
-> 
-> the driver shouldnt close the vcc while the tasklet is running and
-> using the vcc in question.  i guess the safest thing is to simply
-> do as you are doing and not close while running the tasklet.
-
-OK. :)
-
--- 
-David Woodhouse                            Open Source Technology Centre
-David.Woodhouse@intel.com                              Intel Corporation
+i dont understand.  if you do a sock_hold() in find_vcc(), and then call
+vcc->push() you should be able to call vcc->push() and then sock_put().
+the solos driver is broken since the result find_vcc() does not do
+anything to keep the resulting vcc from evaporating.  find_vcc() should
+be taking a reference on the vcc, or the lock needs to held around
+any usage of the results from find_vcc().
 
