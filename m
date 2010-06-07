@@ -1,40 +1,33 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: RFS seems to have incompatiblities with bridged vlans
-Date: Mon, 7 Jun 2010 14:59:10 -0700
-Message-ID: <20100607145910.2458ac87@nehalam>
-References: <62C40338-045A-417E-9B90-E59A320E1343@dlh.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: fix random mdio_write failures
+Date: Mon, 7 Jun 2010 23:51:15 +0200
+Message-ID: <20100607215115.GA6583@electric-eye.fr.zoreil.com>
+References: <4C0A1736.9030209@iki.fi>
+ <1275733273-28321-1-git-send-email-timo.teras@iki.fi>
+ <20100605124103.GA3213@electric-eye.fr.zoreil.com>
+ <4C31B2E3BE2B481DB749C669DFE23645@realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Peter Lieven <pl@dlh.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "'Timo =?utf-8?Q?Ter=C3=A4s'?=" <timo.teras@iki.fi>,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: hayeswang <hayeswang@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34145 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752431Ab0FGV7Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jun 2010 17:59:16 -0400
-In-Reply-To: <62C40338-045A-417E-9B90-E59A320E1343@dlh.net>
+Received: from 30.185.140-88.rev.gaoland.net ([88.140.185.30]:50980 "EHLO
+	electric-eye.fr.zoreil.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752431Ab0FGVvl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 17:51:41 -0400
+Content-Disposition: inline
+In-Reply-To: <4C31B2E3BE2B481DB749C669DFE23645@realtek.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 7 Jun 2010 22:36:11 +0200
-Peter Lieven <pl@dlh.net> wrote:
+hayeswang <hayeswang@realtek.com> :
+> Our hardware engineer suggests that check the completed indication
+> per 100 micro seconds. And it needs 20 micro seconds delay after the 
+> completed indication for the next command.
 
-> Hi,
-> 
-> i today tried out 2.6.32-rc2 and I see a lot of warning messages like this:
-> 
-> Jun  7 22:33:15 172.21.55.20 kernel: [ 3012.575884] br141 received packet on queue 4, but number of RX queues is 1
-> 
-> The host is a SMP system with 8 cores, so I think there is expected to be one rx queue per CPU, but it seems
-> the bridge iface has only one.
-> 
+Should we do the same for mdio_read as well (100 us per iteration + 
+an extra 20 us) ?
 
-The bridge interface has no queues. It doesn't queue any packets. 
-The test in receive packet path is not appropriate in this case.
-Not sure what the right fix is. Pretending the bridge device has
-multiple queues (num_queues == NUM_CPUS) is a possibility but
-seems like overhead without real increase in parallelism.
-
-
-
+-- 
+Ueimor
