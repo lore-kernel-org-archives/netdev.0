@@ -1,53 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net: avoid two atomic ops in ip_rcv_options()
-Date: Mon, 07 Jun 2010 15:54:46 +0200
-Message-ID: <1275918886.2545.87.camel@edumazet-laptop>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [Linux-ATM-General] RX/close vcc race with
+ solos/atmtcp/usbatm/he
+Date: Mon, 07 Jun 2010 15:13:55 +0100
+Message-ID: <1275920035.17903.4998.camel@macbook.infradead.org>
+References: <201006071344.o57DiiCx018593@thirdoffive.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
+To: chas3@users.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:47323 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750867Ab0FGNyu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 09:54:50 -0400
-Received: by wyi11 with SMTP id 11so2377634wyi.19
-        for <netdev@vger.kernel.org>; Mon, 07 Jun 2010 06:54:48 -0700 (PDT)
+Received: from casper.infradead.org ([85.118.1.10]:57578 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751105Ab0FGON6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 10:13:58 -0400
+In-Reply-To: <201006071344.o57DiiCx018593@thirdoffive.cmf.nrl.navy.mil>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-in_dev_get() -> __in_dev_get_rcu() in a rcu protected function.
+On Mon, 2010-06-07 at 09:44 -0400, Chas Williams (CONTRACTOR) wrote:
+> vcc's are really sockets, so you could just increase the refcount --
+> sock_hold().
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/ip_input.c |    6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+There are rules about where we're allowed to call sock_hold(), and I
+don't think our find_vcc() functions can be made to meet them.
 
-diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-index d52c9da..27b5a09 100644
---- a/net/ipv4/ip_input.c
-+++ b/net/ipv4/ip_input.c
-@@ -298,18 +298,16 @@ static inline int ip_rcv_options(struct sk_buff *skb)
- 	}
- 
- 	if (unlikely(opt->srr)) {
--		struct in_device *in_dev = in_dev_get(dev);
-+		struct in_device *in_dev = __in_dev_get_rcu(dev);
-+
- 		if (in_dev) {
- 			if (!IN_DEV_SOURCE_ROUTE(in_dev)) {
- 				if (IN_DEV_LOG_MARTIANS(in_dev) &&
- 				    net_ratelimit())
- 					printk(KERN_INFO "source route option %pI4 -> %pI4\n",
- 					       &iph->saddr, &iph->daddr);
--				in_dev_put(in_dev);
- 				goto drop;
- 			}
--
--			in_dev_put(in_dev);
- 		}
- 
- 		if (ip_options_rcv_srr(skb))
+> however, i think the close routines dont really expect this behavior
+> so the card driver's vcc close might need to be changed to wait around
+> if the refcount on the vcc is > 1.
 
+In that case I think we might as well stick with the RCU-like solution I
+already implemented in the vcc close function -- which is just to wait
+for the tasklet to complete, thus ensuring that it's no longer using the
+defunct vcc.
+
+-- 
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
 
