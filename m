@@ -1,45 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: Fix slowness in read /proc/net/tcp
-Date: Mon, 07 Jun 2010 12:32:11 +0200
-Message-ID: <1275906731.2545.47.camel@edumazet-laptop>
-References: <alpine.DEB.1.00.1006062020180.24064@pokey.mtv.corp.google.com>
-	 <1275895167.2545.8.camel@edumazet-laptop>
-	 <87eigjgrcw.fsf@basil.nowhere.org>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: [Patch 2/2] mlx4: add dynamic LRO disable support
+Date: Mon, 7 Jun 2010 13:00:38 +0200
+Message-ID: <20100607130038.11581e28@dhcp-lab-109.englab.brq.redhat.com>
+References: <20100603034303.5305.55552.sendpatchset@localhost.localdomain>
+	<20100603034312.5305.61000.sendpatchset@localhost.localdomain>
+	<1275568622.2870.89.camel@localhost>
+	<4C085D45.6040001@redhat.com>
+	<1275661552.2095.13.camel@achroite.uk.solarflarecom.com>
+	<4C0CB325.2040704@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tom Herbert <therbert@google.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Yakov Lerner <iler.ml@gmail.com>
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
+	herbert.xu@redhat.com, nhorman@redhat.com, davem@davemloft.net
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:52292 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751588Ab0FGKcQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 06:32:16 -0400
-Received: by fxm8 with SMTP id 8so1928395fxm.19
-        for <netdev@vger.kernel.org>; Mon, 07 Jun 2010 03:32:14 -0700 (PDT)
-In-Reply-To: <87eigjgrcw.fsf@basil.nowhere.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55077 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751424Ab0FGLA4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jun 2010 07:00:56 -0400
+In-Reply-To: <4C0CB325.2040704@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 07 juin 2010 =C3=A0 10:49 +0200, Andi Kleen a =C3=A9crit :
-> Eric Dumazet <eric.dumazet@gmail.com> writes:
+On Mon, 07 Jun 2010 16:51:49 +0800
+Cong Wang <amwang@redhat.com> wrote:
+
+> > Now that I look at the patch again, I see you're using a static (i.e.
+> > global) variable to 'back up' the non-zero (enabled) value of num_lro.
+> > This is introducing a bug!  The correct value is apparently set in
+> > mlx4_en_get_profile(); you would need to replicate that.
 > >
-> > BTW, another problem of /proc/net/tcp is the buffer size used by ne=
-tstat
-> > utility : 1024 bytes instead of PAGE_SIZE, making O(N^2) behavior e=
-ven
-> > more palpable.
->=20
-> That would be easily fixable in netstat.
->=20
-> But I'm not sure net-tools is still maintained as a separate package,
-> afaik the standard procedure is to submit a patch to a big distributi=
-on
-> and the others take it from there.
+> 
+> Oh, probably, but unfortunately 'num_lro' is static so only visible
+> in en_main.c.
 
-Well, it seems this is fixed in latest netstat, sorry for the noise (I
-still have machines with RHEL 4)
+So just remove "static" and make it global :-)
 
-
-
+Stanislaw
