@@ -1,70 +1,45 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [PATCH] netconsole: queue console messages to send later
-Date: Mon, 07 Jun 2010 15:21:31 -0500
-Message-ID: <1275942091.26597.85.camel@calx>
-References: <24059.1275417767@death.nxdomain.ibm.com>
-	 <1275938692-26997-1-git-send-email-fleitner@redhat.com>
-	 <1275940248.26597.70.camel@calx>  <20100607130015.15555744@nehalam>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [Linux-ATM-General] RX/close vcc race with
+ solos/atmtcp/usbatm/he
+Date: Mon, 07 Jun 2010 21:49:52 +0100
+Message-ID: <1275943792.17903.5119.camel@macbook.infradead.org>
+References: <201006071637.o57GbqWd002514@thirdoffive.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Flavio Leitner <fleitner@redhat.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>, Jay Vosburgh <fubar@us.ibm.com>,
-	Flavio Leitner <fbl@sysclose.org>,
-	Andy Gospodarek <gospo@redhat.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Jeff Moyer <jmoyer@redhat.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	bridge@lists.linux-foundation.org,
-	bonding-devel@lists.sourceforge.net
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100607130015.15555744@nehalam>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
+To: chas3@users.sourceforge.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:44128 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751896Ab0FGUty (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 16:49:54 -0400
+In-Reply-To: <201006071637.o57GbqWd002514@thirdoffive.cmf.nrl.navy.mil>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-06-07 at 13:00 -0700, Stephen Hemminger wrote:
-> On Mon, 07 Jun 2010 14:50:48 -0500
-> Matt Mackall <mpm@selenic.com> wrote:
-> 
-> > On Mon, 2010-06-07 at 16:24 -0300, Flavio Leitner wrote:
-> > > There are some networking drivers that hold a lock in the
-> > > transmit path. Therefore, if a console message is printed
-> > > after that, netconsole will push it through the transmit path,
-> > > resulting in a deadlock.
-> > 
-> > This is an ongoing pain we've known about since before introducing the
-> > netpoll code to the tree.
-> > 
-> > My take has always been that any form of queueing is contrary to the
-> > goal of netpoll: timely delivery of messages even during machine-killing
-> > situations like oopses. There may never be a second chance to deliver
-> > the message as the machine may be locked solid. And there may be no
-> > other way to get the message out of the box in such situations. Adding
-> > queueing is a throwing-the-baby-out-with-the-bathwater fix.
-> > 
-> > I think Dave agrees with me here, and I believe he's said in the past
-> > that drivers trying to print messages in such contexts should be
-> > considered buggy.
-> > 
-> 
-> Because it to hard to fix all possible device configurations.
-> There should be any way to detect recursion and just drop the message to
-> avoid deadlock.
+On Mon, 2010-06-07 at 12:37 -0400, Chas Williams (CONTRACTOR) wrote:
+> i dont understand.  if you do a sock_hold() in find_vcc(), and then call
+> vcc->push() you should be able to call vcc->push() and then sock_put(). 
 
-Open to suggestions. The locks in question are driver-internal. There
-also may not be any actual recursion taking place:
+Holding the reference doesn't stop the problem. The problem is
 
-driver path a takes private lock x
-driver path a attempts printk
-printk calls into netconsole
-netconsole calls into driver path b
-driver path b attempts to take lock x -> deadlock
+ vcc_release()
+ --> vcc_destroy_socket()
+   --> br2684_push(vcc, NULL)
+         sets vcc->user_back = NULL
+         (which it what causes the oops when try try to feed it any
+          subsequent packets).
 
-So we can't even try to walk back the stack looking for such nonsense.
-Though we could perhaps force queuing of all messages -from- the driver
-bound to netconsole. Tricky, and not quite foolproof.
+ Only _later_ does vcc_release() call sock_put().
+
+It doesn't _matter_ that the tasklet is holding a reference on the
+socket, because it's not the sk_free() which is causing the problem. 
+
+Just making dev->ops->close() wait for the tasklet is perfectly
+sufficient. That call happens from vcc_destroy_socket() before the call
+to br2684_push(), and all is well.
 
 -- 
-Mathematics is the supreme nostalgia of our time.
+dwmw2
+
