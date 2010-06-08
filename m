@@ -1,269 +1,55 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: 2.6.35-rc2-git1 - include/linux/cgroup.h:534 invoked
- rcu_dereference_check() without protection!
-Date: Tue, 08 Jun 2010 15:34:35 +0200
-Message-ID: <1276004075.2987.208.camel@twins>
-References: <AANLkTin2pPqOUx--9fIX3BH3e-cU6oCRufijcx_4ozx5@mail.gmail.com>
-	 <20100608001929.GF2387@linux.vnet.ibm.com>
-	 <AANLkTikl13cJNuU32JzRarrUnoh5DYHr-Tbnv9B-UjsG@mail.gmail.com>
-	 <1275986441.5408.111.camel@twins>
-	 <AANLkTimXVlgzHivCQberLdrFP8BH_nJzt8_ozUNHG_aI@mail.gmail.com>
+From: Kay Sievers <kay.sievers@vrfy.org>
+Subject: Re: [RFC][PATCH] Fix another namespace issue with devices assigned to
+	classes
+Date: Tue, 8 Jun 2010 15:54:56 +0200
+Message-ID: <AANLkTinev96yxFCFSdDdT89jjgYR4ChUCMU2-aSj8kkh@mail.gmail.com>
+References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
+	<20100602154608.GB12361@kroah.com> <1275493693.3915.12.camel@jlt3.sipsolutions.net>
+	<m1ljaxxvcj.fsf@fess.ebiederm.org> <1275495677.3915.16.camel@jlt3.sipsolutions.net>
+	<m14ohlxu51.fsf@fess.ebiederm.org> <1275498007.3915.20.camel@jlt3.sipsolutions.net>
+	<m1ocftwdp7.fsf@fess.ebiederm.org> <1275501157.3915.22.camel@jlt3.sipsolutions.net>
+	<m1y6exux6x.fsf@fess.ebiederm.org> <1275506732.3915.41.camel@jlt3.sipsolutions.net>
+	<m16321t4ke.fsf@fess.ebiederm.org> <m17hmhrl6v.fsf_-_@fess.ebiederm.org>
+	<1275634452.5189.1.camel@jlt3.sipsolutions.net> <AANLkTingSwM7e8ldyT1FplF5WCHBsCBCwNkb5ZPHe6hB@mail.gmail.com>
+	<1275640113.9953.8.camel@jlt3.sipsolutions.net> <AANLkTin6ub4k4QYSMnGLRw7lxQaz23Xmo2GQC1RrUf-X@mail.gmail.com>
+	<1275829701.3615.54.camel@jlt3.sipsolutions.net> <AANLkTinUAR2gkY7ipgXKy-pMHcmLuouEeyXxnP97U_7N@mail.gmail.com>
+	<1275903773.29978.1.camel@jlt3.sipsolutions.net> <AANLkTin_qjU0-xXfMDYeYWRd0BmvT4OIdK4S_GQ3ZYUi@mail.gmail.com>
+	<1275905686.29978.3.camel@jlt3.sipsolutions.net> <AANLkTikMDvpEzrtFVue8gStudKONxuQmVx9B2w1JM1vO@mail.gmail.com>
+	<1275910905.29978.7.camel@jlt3.sipsolutions.net> <1275913563.1823.1.camel@yio.site>
+	<1275914205.29978.10.camel@jlt3.sipsolutions.net> <AANLkTilqB2sAyfBTLhYT_a2_TySGay4FFG6SGJUZ1o_4@mail.gmail.com>
+	<1275989260.3706.115.camel@jlt3.sipsolutions.net> <AANLkTinMauFsJTKS3eT-pT44KQ8PSf3HJLS8CZIeHmxP@mail.gmail.com>
+	<1275990325.3706.116.camel@jlt3.sipsolutions.net> <1275998127.1899.38.camel@yio.site>
+	<1275998603.3706.118.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: paulmck@linux.vnet.ibm.com, Vivek Goyal <vgoyal@redhat.com>,
-	Eric Paris <eparis@redhat.com>,
-	Lai Jiangshan <laijs@cn.fujitsu.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	LKML <linux-kernel@vger.kernel.org>, nauman@google.com,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	Jens Axboe <jens.axboe@oracle.com>,
-	Gui Jianfeng <guijianfeng@cn.fujitsu.com>,
-	Li Zefan <lizf@cn.fujitsu.com>,
-	Johannes Berg <johannes@sipsolutions.net>
-To: Miles Lane <miles.lane@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTimXVlgzHivCQberLdrFP8BH_nJzt8_ozUNHG_aI@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:42082 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755138Ab0FHNzM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jun 2010 09:55:12 -0400
+Received: by gye5 with SMTP id 5so3056292gye.19
+        for <netdev@vger.kernel.org>; Tue, 08 Jun 2010 06:55:11 -0700 (PDT)
+In-Reply-To: <1275998603.3706.118.camel@jlt3.sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-06-08 at 09:14 -0400, Miles Lane wrote:
+On Tue, Jun 8, 2010 at 14:03, Johannes Berg <johannes@sipsolutions.net> wrote:
+> On Tue, 2010-06-08 at 13:55 +0200, Kay Sievers wrote:
+>
+>> Ok, this needs testing.
+>>
+>> Please let me know, if that works for you so far.
+>
+> Will do. Just a question: none of this seems to pin the module? So can I
+> be sure if I rmmod the module that the release function will still be
+> around etc.?
 
->   CC      kernel/sched.o
-> kernel/sched.c: In function =E2=80=98task_group=E2=80=99:
-> kernel/sched.c:321: error: implicit declaration of function =E2=80=98=
-task_rq=E2=80=99
-> kernel/sched.c:321: error: invalid type argument of =E2=80=98->=E2=80=
-=99 (have =E2=80=98int=E2=80=99)
-> make[1]: *** [kernel/sched.o] Error 1
->=20
-> I had to apply with fuzz.  Did it mess up?
+Oh, sorry, that's something very specific to network devices, that the
+module can be unloaded while the devices it has created are still in
+use. I am not sure right now what's needed to make this work in a
+single module.
 
-
-No, I probably did.. task_rq() is defined on line 636 or thereabouts,
-and this function landed around line 320.
-
-Ahh, and it compiled here because I have CGROUP_SCHED=3Dy, but
-PROVE_RCU=3Dn, so that whole check expression disappears and is never
-evaluated...
-
-/me fixes
-
----
-Subject: sched: PROVE_RCU vs cpu_cgroup
-=46rom: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Date: Tue Jun 08 11:40:42 CEST 2010
-
-PROVE_RCU has a few issues with the cpu_cgroup because the scheduler
-typically holds rq->lock around the css rcu derefs but the generic
-cgroup code doesn't (and can't) know about that lock.
-
-Provide means to add extra checks to the css dereference and use that
-in the scheduler to annotate its users.
-
-The addition of rq->lock to these checks is correct because the
-cgroup_subsys::attach() method takes the rq->lock for each task it
-moves, therefore by holding that lock, we ensure the task is pinned to
-the current cgroup and the RCU dereference is valid.
-
-That leaves one genuine race in __sched_setscheduler() where we used
-task_group() without holding any of the required locks and thus raced
-with the cgroup code. Solve this by moving the check under the rq->lock=
-=2E
-
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
----
- include/linux/cgroup.h |   20 +++++---
- kernel/sched.c         |  115 +++++++++++++++++++++++++---------------=
----------
- 2 files changed, 73 insertions(+), 62 deletions(-)
-
-Index: linux-2.6/include/linux/cgroup.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
---- linux-2.6.orig/include/linux/cgroup.h
-+++ linux-2.6/include/linux/cgroup.h
-@@ -525,13 +525,21 @@ static inline struct cgroup_subsys_state
- 	return cgrp->subsys[subsys_id];
- }
-=20
--static inline struct cgroup_subsys_state *task_subsys_state(
--	struct task_struct *task, int subsys_id)
-+/*
-+ * function to get the cgroup_subsys_state which allows for extra
-+ * rcu_dereference_check() conditions, such as locks used during the
-+ * cgroup_subsys::attach() methods.
-+ */
-+#define task_subsys_state_check(task, subsys_id, __c)			\
-+	rcu_dereference_check(task->cgroups->subsys[subsys_id],		\
-+			      rcu_read_lock_held() ||			\
-+			      lockdep_is_held(&task->alloc_lock) ||	\
-+			      cgroup_lock_is_held() || (__c))
-+
-+static inline struct cgroup_subsys_state *
-+task_subsys_state(struct task_struct *task, int subsys_id)
- {
--	return rcu_dereference_check(task->cgroups->subsys[subsys_id],
--				     rcu_read_lock_held() ||
--				     lockdep_is_held(&task->alloc_lock) ||
--				     cgroup_lock_is_held());
-+	return task_subsys_state_check(task, subsys_id, false);
- }
-=20
- static inline struct cgroup* task_cgroup(struct task_struct *task,
-Index: linux-2.6/kernel/sched.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
---- linux-2.6.orig/kernel/sched.c
-+++ linux-2.6/kernel/sched.c
-@@ -306,52 +306,6 @@ static int init_task_group_load =3D INIT_T
-  */
- struct task_group init_task_group;
-=20
--/* return group to which a task belongs */
--static inline struct task_group *task_group(struct task_struct *p)
--{
--	struct task_group *tg;
--
--#ifdef CONFIG_CGROUP_SCHED
--	tg =3D container_of(task_subsys_state(p, cpu_cgroup_subsys_id),
--				struct task_group, css);
--#else
--	tg =3D &init_task_group;
--#endif
--	return tg;
--}
--
--/* Change a task's cfs_rq and parent entity if it moves across CPUs/gr=
-oups */
--static inline void set_task_rq(struct task_struct *p, unsigned int cpu=
-)
--{
--	/*
--	 * Strictly speaking this rcu_read_lock() is not needed since the
--	 * task_group is tied to the cgroup, which in turn can never go away
--	 * as long as there are tasks attached to it.
--	 *
--	 * However since task_group() uses task_subsys_state() which is an
--	 * rcu_dereference() user, this quiets CONFIG_PROVE_RCU.
--	 */
--	rcu_read_lock();
--#ifdef CONFIG_FAIR_GROUP_SCHED
--	p->se.cfs_rq =3D task_group(p)->cfs_rq[cpu];
--	p->se.parent =3D task_group(p)->se[cpu];
--#endif
--
--#ifdef CONFIG_RT_GROUP_SCHED
--	p->rt.rt_rq  =3D task_group(p)->rt_rq[cpu];
--	p->rt.parent =3D task_group(p)->rt_se[cpu];
--#endif
--	rcu_read_unlock();
--}
--
--#else
--
--static inline void set_task_rq(struct task_struct *p, unsigned int cpu=
-) { }
--static inline struct task_group *task_group(struct task_struct *p)
--{
--	return NULL;
--}
--
- #endif	/* CONFIG_CGROUP_SCHED */
-=20
- /* CFS-related fields in a runqueue */
-@@ -644,6 +598,49 @@ static inline int cpu_of(struct rq *rq)
- #define cpu_curr(cpu)		(cpu_rq(cpu)->curr)
- #define raw_rq()		(&__raw_get_cpu_var(runqueues))
-=20
-+#ifdef CONFIG_CGROUP_SCHED
-+
-+/*
-+ * Return the group to which this tasks belongs.
-+ *
-+ * We use task_subsys_state_check() and extend the RCU verification
-+ * with lockdep_is_held(&task_rq(p)->lock) because cpu_cgroup_attach()
-+ * holds that lock for each task it moves into the cgroup. Therefore
-+ * by holding that lock, we pin the task to the current cgroup.
-+ */
-+static inline struct task_group *task_group(struct task_struct *p)
-+{
-+	struct cgroup_subsys_state *css;
-+
-+	css =3D task_subsys_state_check(p, cpu_cgroup_subsys_id,
-+			lockdep_is_held(&task_rq(p)->lock));
-+	return container_of(css, struct task_group, css);
-+}
-+
-+/* Change a task's cfs_rq and parent entity if it moves across CPUs/gr=
-oups */
-+static inline void set_task_rq(struct task_struct *p, unsigned int cpu=
-)
-+{
-+#ifdef CONFIG_FAIR_GROUP_SCHED
-+	p->se.cfs_rq =3D task_group(p)->cfs_rq[cpu];
-+	p->se.parent =3D task_group(p)->se[cpu];
-+#endif
-+
-+#ifdef CONFIG_RT_GROUP_SCHED
-+	p->rt.rt_rq  =3D task_group(p)->rt_rq[cpu];
-+	p->rt.parent =3D task_group(p)->rt_se[cpu];
-+#endif
-+}
-+
-+#else /* CONFIG_CGROUP_SCHED */
-+
-+static inline void set_task_rq(struct task_struct *p, unsigned int cpu=
-) { }
-+static inline struct task_group *task_group(struct task_struct *p)
-+{
-+	return NULL;
-+}
-+
-+#endif /* CONFIG_CGROUP_SCHED */
-+
- inline void update_rq_clock(struct rq *rq)
- {
- 	if (!rq->skip_clock_update)
-@@ -4465,16 +4462,6 @@ recheck:
- 	}
-=20
- 	if (user) {
--#ifdef CONFIG_RT_GROUP_SCHED
--		/*
--		 * Do not allow realtime tasks into groups that have no runtime
--		 * assigned.
--		 */
--		if (rt_bandwidth_enabled() && rt_policy(policy) &&
--				task_group(p)->rt_bandwidth.rt_runtime =3D=3D 0)
--			return -EPERM;
--#endif
--
- 		retval =3D security_task_setscheduler(p, policy, param);
- 		if (retval)
- 			return retval;
-@@ -4490,6 +4477,22 @@ recheck:
- 	 * runqueue lock must be held.
- 	 */
- 	rq =3D __task_rq_lock(p);
-+
-+#ifdef CONFIG_RT_GROUP_SCHED
-+	if (user) {
-+		/*
-+		 * Do not allow realtime tasks into groups that have no runtime
-+		 * assigned.
-+		 */
-+		if (rt_bandwidth_enabled() && rt_policy(policy) &&
-+				task_group(p)->rt_bandwidth.rt_runtime =3D=3D 0) {
-+			__task_rq_unlock(rq);
-+			raw_spin_unlock_irqrestore(&p->pi_lock, flags);
-+			return -EPERM;
-+		}
-+	}
-+#endif
-+
- 	/* recheck policy now with rq lock held */
- 	if (unlikely(oldpolicy !=3D -1 && oldpolicy !=3D p->policy)) {
- 		policy =3D oldpolicy =3D -1;
+Kay
