@@ -1,51 +1,129 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH -next] enic: fix pci_alloc_consistent argument
-Date: Tue, 8 Jun 2010 10:00:20 -0700
-Message-ID: <20100608100020.7d79e932.randy.dunlap@oracle.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH] bnx2: Fix compiler warning in
+ bnx2_disable_forced_2g5().
+Date: Tue, 8 Jun 2010 10:21:30 -0700
+Message-ID: <1276017690-5442-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Scott Feldman <scofeldm@cisco.com>,
-	Vasanthy Kolluri <vkolluri@cisco.com>,
-	Roopa Prabhu <roprabhu@cisco.co>
-To: netdev <netdev@vger.kernel.org>
+Cc: prarit@redhat.com, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet10.oracle.com ([148.87.113.121]:27575 "EHLO
-	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753642Ab0FHRCe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jun 2010 13:02:34 -0400
+Received: from mms3.broadcom.com ([216.31.210.19]:2140 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752971Ab0FHRTd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jun 2010 13:19:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+drivers/net/bnx2.c: In function 'bnx2_disable_forced_2g5':
+drivers/net/bnx2.c:1489: warning: 'bmcr' may be used uninitialized in this function
 
-Fix build warning on i386 (32-bit) with 32-bit dma_addr_t:
+We fix it by checking return values from all bnx2_read_phy() and proceeding
+to do read-modify-write only if the read operation is successful.
 
-drivers/net/enic/vnic_dev.c: In function 'vnic_dev_init_prov':
-drivers/net/enic/vnic_dev.c:716: warning: passing argument 3 of 'pci_alloc_consistent' from incompatible pointer type
-include/asm-generic/pci-dma-compat.h:16: note: expected 'dma_addr_t *' but argument is of type 'u64 *'
+The related bnx2_enable_forced_2g5() is also fixed the same way.
 
-Now builds without warnings on i386 and on x86_64.
-
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-Cc:	Scott Feldman <scofeldm@cisco.com>
-Cc:	Vasanthy Kolluri <vkolluri@cisco.com>
-Cc:	Roopa Prabhu <roprabhu@cisco.com>
+Reported-by: Prarit Bhargava <prarit@redhat.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/enic/vnic_dev.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/bnx2.c |   43 ++++++++++++++++++++++++++++---------------
+ 1 files changed, 28 insertions(+), 15 deletions(-)
 
---- linux-next-20100608.orig/drivers/net/enic/vnic_dev.c
-+++ linux-next-20100608/drivers/net/enic/vnic_dev.c
-@@ -709,7 +709,7 @@ int vnic_dev_init_prov(struct vnic_dev *
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 949d7a9..522de9f 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -1446,7 +1446,8 @@ bnx2_test_and_disable_2g5(struct bnx2 *bp)
+ static void
+ bnx2_enable_forced_2g5(struct bnx2 *bp)
  {
- 	u64 a0, a1 = len;
- 	int wait = 1000;
--	u64 prov_pa;
-+	dma_addr_t prov_pa;
- 	void *prov_buf;
- 	int ret;
+-	u32 bmcr;
++	u32 uninitialized_var(bmcr);
++	int err;
  
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+ 	if (!(bp->phy_flags & BNX2_PHY_FLAG_2_5G_CAPABLE))
+ 		return;
+@@ -1456,22 +1457,28 @@ bnx2_enable_forced_2g5(struct bnx2 *bp)
+ 
+ 		bnx2_write_phy(bp, MII_BNX2_BLK_ADDR,
+ 			       MII_BNX2_BLK_ADDR_SERDES_DIG);
+-		bnx2_read_phy(bp, MII_BNX2_SERDES_DIG_MISC1, &val);
+-		val &= ~MII_BNX2_SD_MISC1_FORCE_MSK;
+-		val |= MII_BNX2_SD_MISC1_FORCE | MII_BNX2_SD_MISC1_FORCE_2_5G;
+-		bnx2_write_phy(bp, MII_BNX2_SERDES_DIG_MISC1, val);
++		if (!bnx2_read_phy(bp, MII_BNX2_SERDES_DIG_MISC1, &val)) {
++			val &= ~MII_BNX2_SD_MISC1_FORCE_MSK;
++			val |= MII_BNX2_SD_MISC1_FORCE |
++				MII_BNX2_SD_MISC1_FORCE_2_5G;
++			bnx2_write_phy(bp, MII_BNX2_SERDES_DIG_MISC1, val);
++		}
+ 
+ 		bnx2_write_phy(bp, MII_BNX2_BLK_ADDR,
+ 			       MII_BNX2_BLK_ADDR_COMBO_IEEEB0);
+-		bnx2_read_phy(bp, bp->mii_bmcr, &bmcr);
++		err = bnx2_read_phy(bp, bp->mii_bmcr, &bmcr);
+ 
+ 	} else if (CHIP_NUM(bp) == CHIP_NUM_5708) {
+-		bnx2_read_phy(bp, bp->mii_bmcr, &bmcr);
+-		bmcr |= BCM5708S_BMCR_FORCE_2500;
++		err = bnx2_read_phy(bp, bp->mii_bmcr, &bmcr);
++		if (!err)
++			bmcr |= BCM5708S_BMCR_FORCE_2500;
+ 	} else {
+ 		return;
+ 	}
+ 
++	if (err)
++		return;
++
+ 	if (bp->autoneg & AUTONEG_SPEED) {
+ 		bmcr &= ~BMCR_ANENABLE;
+ 		if (bp->req_duplex == DUPLEX_FULL)
+@@ -1483,7 +1490,8 @@ bnx2_enable_forced_2g5(struct bnx2 *bp)
+ static void
+ bnx2_disable_forced_2g5(struct bnx2 *bp)
+ {
+-	u32 bmcr;
++	u32 uninitialized_var(bmcr);
++	int err;
+ 
+ 	if (!(bp->phy_flags & BNX2_PHY_FLAG_2_5G_CAPABLE))
+ 		return;
+@@ -1493,21 +1501,26 @@ bnx2_disable_forced_2g5(struct bnx2 *bp)
+ 
+ 		bnx2_write_phy(bp, MII_BNX2_BLK_ADDR,
+ 			       MII_BNX2_BLK_ADDR_SERDES_DIG);
+-		bnx2_read_phy(bp, MII_BNX2_SERDES_DIG_MISC1, &val);
+-		val &= ~MII_BNX2_SD_MISC1_FORCE;
+-		bnx2_write_phy(bp, MII_BNX2_SERDES_DIG_MISC1, val);
++		if (!bnx2_read_phy(bp, MII_BNX2_SERDES_DIG_MISC1, &val)) {
++			val &= ~MII_BNX2_SD_MISC1_FORCE;
++			bnx2_write_phy(bp, MII_BNX2_SERDES_DIG_MISC1, val);
++		}
+ 
+ 		bnx2_write_phy(bp, MII_BNX2_BLK_ADDR,
+ 			       MII_BNX2_BLK_ADDR_COMBO_IEEEB0);
+-		bnx2_read_phy(bp, bp->mii_bmcr, &bmcr);
++		err = bnx2_read_phy(bp, bp->mii_bmcr, &bmcr);
+ 
+ 	} else if (CHIP_NUM(bp) == CHIP_NUM_5708) {
+-		bnx2_read_phy(bp, bp->mii_bmcr, &bmcr);
+-		bmcr &= ~BCM5708S_BMCR_FORCE_2500;
++		err = bnx2_read_phy(bp, bp->mii_bmcr, &bmcr);
++		if (!err)
++			bmcr &= ~BCM5708S_BMCR_FORCE_2500;
+ 	} else {
+ 		return;
+ 	}
+ 
++	if (err)
++		return;
++
+ 	if (bp->autoneg & AUTONEG_SPEED)
+ 		bmcr |= BMCR_SPEED1000 | BMCR_ANENABLE | BMCR_ANRESTART;
+ 	bnx2_write_phy(bp, bp->mii_bmcr, bmcr);
+-- 
+1.6.4.GIT
+
+
