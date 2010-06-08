@@ -1,96 +1,83 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: 2.6.35-rc2-git1 - lib/idr.c:605 invoked
+Subject: Re: 2.6.35-rc2-git1 - include/linux/cgroup.h:534 invoked
  rcu_dereference_check() without protection!
-Date: Mon, 7 Jun 2010 17:12:34 -0700
-Message-ID: <20100608001234.GE2387@linux.vnet.ibm.com>
-References: <AANLkTim06fRB-Kvm12v2umq8MxRxbcl3gdbNsiRTDmia@mail.gmail.com>
+Date: Mon, 7 Jun 2010 17:19:29 -0700
+Message-ID: <20100608001929.GF2387@linux.vnet.ibm.com>
+References: <AANLkTin2pPqOUx--9fIX3BH3e-cU6oCRufijcx_4ozx5@mail.gmail.com>
 Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Vivek Goyal <vgoyal@redhat.com>, Eric Paris <eparis@redhat.com>,
-	David Woodhouse <dwmw2@infradead.org>,
 	Lai Jiangshan <laijs@cn.fujitsu.com>,
 	Ingo Molnar <mingo@elte.hu>,
 	Peter Zijlstra <peterz@infradead.org>,
 	LKML <linux-kernel@vger.kernel.org>, nauman@google.com,
 	eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	Jens Axboe <axboe@kernel.dk>,
+	Jens Axboe <jens.axboe@oracle.com>,
 	Gui Jianfeng <guijianfeng@cn.fujitsu.com>,
 	Li Zefan <lizf@cn.fujitsu.com>,
 	Johannes Berg <johannes@sipsolutions.net>
 To: Miles Lane <miles.lane@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <AANLkTim06fRB-Kvm12v2umq8MxRxbcl3gdbNsiRTDmia@mail.gmail.com>
+In-Reply-To: <AANLkTin2pPqOUx--9fIX3BH3e-cU6oCRufijcx_4ozx5@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 07, 2010 at 02:23:17PM -0400, Miles Lane wrote:
-> [    2.677955] [ INFO: suspicious rcu_dereference_check() usage. ]
-> [    2.679089] ---------------------------------------------------
-> [    2.680276] lib/idr.c:605 invoked rcu_dereference_check() without protection!
-> [    2.681499]
-> [    2.681500] other info that might help us debug this:
-> [    2.681501]
-> [    2.685509]
-> [    2.685510] rcu_scheduler_active = 1, debug_locks = 1
-> [    2.688221] 1 lock held by swapper/1:
-> [    2.689587]  #0:  (mtd_table_mutex){+.+...}, at:
-> [<ffffffff812bea45>] register_mtd_user+0x1a/0x69
-> [    2.691096]
-> [    2.691098] stack backtrace:
-> [    2.694059] Pid: 1, comm: swapper Not tainted 2.6.35-rc2-git1 #8
-> [    2.695601] Call Trace:
-> [    2.697243]  [<ffffffff81064e9c>] lockdep_rcu_dereference+0x9d/0xa5
-> [    2.698868]  [<ffffffff811b9c86>] idr_get_next+0x60/0x124
-> [    2.700556]  [<ffffffff812be779>] __mtd_next_device+0x1b/0x1d
-> [    2.702238]  [<ffffffff812bea7c>] register_mtd_user+0x51/0x69
-> [    2.703964]  [<ffffffff816cca45>] init_mtdchar+0xb3/0xd3
-> [    2.705686]  [<ffffffff816cc992>] ? init_mtdchar+0x0/0xd3
-> [    2.707470]  [<ffffffff810001ef>] do_one_initcall+0x59/0x14e
-> [    2.709255]  [<ffffffff816a768a>] kernel_init+0x144/0x1ce
-> [    2.711082]  [<ffffffff81003054>] kernel_thread_helper+0x4/0x10
-> [    2.712862]  [<ffffffff813ca480>] ? restore_args+0x0/0x30
-> [    2.714647]  [<ffffffff816a7546>] ? kernel_init+0x0/0x1ce
-> [    2.716415]  [<ffffffff81003050>] ? kernel_thread_helper+0x0/0x10
+On Mon, Jun 07, 2010 at 02:14:25PM -0400, Miles Lane wrote:
+> Hi All,
+>=20
+> I just reproduced a warning I reported quite a while ago.=A0 Is a pat=
+ch
+> for this in the pipeline?
 
-This looks like a new one!  Does the following patch take care of it?
+I proposed a patch, thinking that it was a false positive.  Peter Zijls=
+tra
+pointed out that there was a real race, and proposed an alternative pat=
+ch,
+which may be found at http://lkml.org/lkml/2010/4/22/603.
+
+Could you please test Peter's patch and let us know if it cures the pro=
+blem?
 
 							Thanx, Paul
 
-------------------------------------------------------------------------
-
-commit 2d54a6c31b72c902b09d365e9c66205a5c07e549
-Author: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-Date:   Mon Jun 7 17:09:45 2010 -0700
-
-    idr: fix RCU lockdep splat in idr_get_next()
-    
-    Convert to rcu_dereference_raw() given that many callers may have many
-    different locking models.
-    
-    Located-by: Miles Lane <miles.lane@gmail.com>
-    Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-
-diff --git a/lib/idr.c b/lib/idr.c
-index 2eb1dca..f099f25 100644
---- a/lib/idr.c
-+++ b/lib/idr.c
-@@ -599,7 +599,7 @@ void *idr_get_next(struct idr *idp, int *nextidp)
- 	/* find first ent */
- 	n = idp->layers * IDR_BITS;
- 	max = 1 << n;
--	p = rcu_dereference(idp->top);
-+	p = rcu_dereference_raw(idp->top);
- 	if (!p)
- 		return NULL;
- 
-@@ -607,7 +607,7 @@ void *idr_get_next(struct idr *idp, int *nextidp)
- 		while (n > 0 && p) {
- 			n -= IDR_BITS;
- 			*paa++ = p;
--			p = rcu_dereference(p->ary[(id >> n) & IDR_MASK]);
-+			p = rcu_dereference_raw(p->ary[(id >> n) & IDR_MASK]);
- 		}
- 
- 		if (p) {
+> [=A0=A0=A0 0.167267] [ INFO: suspicious rcu_dereference_check() usage=
+=2E ]
+> [=A0=A0=A0 0.167396] ------------------------------------------------=
+---
+> [=A0=A0=A0 0.167526] include/linux/cgroup.h:534 invoked
+> rcu_dereference_check() without protection!
+> [=A0=A0=A0 0.167728]
+> [=A0=A0=A0 0.167729] other info that might help us debug this:
+> [=A0=A0=A0 0.167731]
+> [=A0=A0=A0 0.168092]
+> [=A0=A0=A0 0.168093] rcu_scheduler_active =3D 1, debug_locks =3D 1
+> [=A0=A0=A0 0.168337] no locks held by watchdog/0/5.
+> [=A0=A0=A0 0.168462]
+> [=A0=A0=A0 0.168463] stack backtrace:
+> [=A0=A0=A0 0.168704] Pid: 5, comm: watchdog/0 Not tainted 2.6.35-rc2-=
+git1 #8
+> [=A0=A0=A0 0.168834] Call Trace:
+> [=A0=A0=A0 0.168965]=A0 [<ffffffff81064e9c>] lockdep_rcu_dereference+=
+0x9d/0xa5
+> [=A0=A0=A0 0.169100]=A0 [<ffffffff8102c1ce>] task_subsys_state+0x59/0=
+x70
+> [=A0=A0=A0 0.169232]=A0 [<ffffffff8103189b>] __sched_setscheduler+0x1=
+9d/0x2f8
+> [=A0=A0=A0 0.169365]=A0 [<ffffffff8102a5ef>] ? need_resched+0x1e/0x28
+> [=A0=A0=A0 0.169497]=A0 [<ffffffff813c7d01>] ? schedule+0x586/0x619
+> [=A0=A0=A0 0.169628]=A0 [<ffffffff81081c33>] ? watchdog+0x0/0x8c
+> [=A0=A0=A0 0.169758]=A0 [<ffffffff81031a11>] sched_setscheduler+0xe/0=
+x10
+> [=A0=A0=A0 0.169889]=A0 [<ffffffff81081c5d>] watchdog+0x2a/0x8c
+> [=A0=A0=A0 0.170010]=A0 [<ffffffff81081c33>] ? watchdog+0x0/0x8c
+> [=A0=A0=A0 0.170141]=A0 [<ffffffff81054a82>] kthread+0x89/0x91
+> [=A0=A0=A0 0.170274]=A0 [<ffffffff81003054>] kernel_thread_helper+0x4=
+/0x10
+> [=A0=A0=A0 0.170405]=A0 [<ffffffff813ca480>] ? restore_args+0x0/0x30
+> [=A0=A0=A0 0.170536]=A0 [<ffffffff810549f9>] ? kthread+0x0/0x91
+> [=A0=A0=A0 0.170667]=A0 [<ffffffff81003050>] ? kernel_thread_helper+0=
+x0/0x10
+> [    0.176751] lockdep: fixing up alternatives.
