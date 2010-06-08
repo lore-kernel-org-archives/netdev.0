@@ -1,89 +1,64 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: RE: [PATCH 11/12] sfc: Only count bad packets in rx_errors
-Date: Tue, 8 Jun 2010 02:20:06 -0700
-Message-ID: <2DFD360E328B3941911E6D28B085D990107C9DA893@SJEXCHCCR01.corp.ad.broadcom.com>
-References: <1275426967.2114.25.camel@achroite.uk.solarflarecom.com>
- <1275427265.2114.35.camel@achroite.uk.solarflarecom.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC][PATCH] Fix another namespace issue with devices assigned
+ to  classes
+Date: Tue, 08 Jun 2010 11:27:40 +0200
+Message-ID: <1275989260.3706.115.camel@jlt3.sipsolutions.net>
+References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
+	 <20100602154608.GB12361@kroah.com>
+	 <1275493693.3915.12.camel@jlt3.sipsolutions.net>
+	 <m1ljaxxvcj.fsf@fess.ebiederm.org>
+	 <1275495677.3915.16.camel@jlt3.sipsolutions.net>
+	 <m14ohlxu51.fsf@fess.ebiederm.org>
+	 <1275498007.3915.20.camel@jlt3.sipsolutions.net>
+	 <m1ocftwdp7.fsf@fess.ebiederm.org>
+	 <1275501157.3915.22.camel@jlt3.sipsolutions.net>
+	 <m1y6exux6x.fsf@fess.ebiederm.org>
+	 <1275506732.3915.41.camel@jlt3.sipsolutions.net>
+	 <m16321t4ke.fsf@fess.ebiederm.org> <m17hmhrl6v.fsf_-_@fess.ebiederm.org>
+	 <1275634452.5189.1.camel@jlt3.sipsolutions.net>
+	 <AANLkTingSwM7e8ldyT1FplF5WCHBsCBCwNkb5ZPHe6hB@mail.gmail.com>
+	 <1275640113.9953.8.camel@jlt3.sipsolutions.net>
+	 <AANLkTin6ub4k4QYSMnGLRw7lxQaz23Xmo2GQC1RrUf-X@mail.gmail.com>
+	 <1275829701.3615.54.camel@jlt3.sipsolutions.net>
+	 <AANLkTinUAR2gkY7ipgXKy-pMHcmLuouEeyXxnP97U_7N@mail.gmail.com>
+	 <1275903773.29978.1.camel@jlt3.sipsolutions.net>
+	 <AANLkTin_qjU0-xXfMDYeYWRd0BmvT4OIdK4S_GQ3ZYUi@mail.gmail.com>
+	 <1275905686.29978.3.camel@jlt3.sipsolutions.net>
+	 <AANLkTikMDvpEzrtFVue8gStudKONxuQmVx9B2w1JM1vO@mail.gmail.com>
+	 <1275910905.29978.7.camel@jlt3.sipsolutions.net>
+	 <1275913563.1823.1.camel@yio.site>
+	 <1275914205.29978.10.camel@jlt3.sipsolutions.net>
+	 <AANLkTilqB2sAyfBTLhYT_a2_TySGay4FFG6SGJUZ1o_4@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "Ben Hutchings" <bhutchings@solarflare.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
+To: Kay Sievers <kay.sievers@vrfy.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1706 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752012Ab0FHJUU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jun 2010 05:20:20 -0400
-In-Reply-To: <1275427265.2114.35.camel@achroite.uk.solarflarecom.com>
-Content-Language: en-US
+Received: from he.sipsolutions.net ([78.46.109.217]:40582 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751738Ab0FHJ2g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jun 2010 05:28:36 -0400
+In-Reply-To: <AANLkTilqB2sAyfBTLhYT_a2_TySGay4FFG6SGJUZ1o_4@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Mon, 2010-06-07 at 14:54 +0200, Kay Sievers wrote:
 
-Different drivers include different errors in stats->rx_errors:
+> > I see you remove the driver. Does this mean that in sysfs these devices
+> > wouldn't have a driver symlink? ISTR that we needed that for userspace,
+> > but I'm not entirely sure, and I don't have all the relevant userspace
+> > in my test setup.
+> 
+> Yeah, if you need the driver, you need to use bus device, as you do
+> now. The driver needs to be registered with the core, and the probe
+> function needs to tell to bind to the devices while registered. You
+> can not manually assign this.
 
-  bxn2	  bnx2x	  ixgbx	  sfc		  dnet	  atlx
-----------------------------------------------------------------------
-rx_length	rx_length	rx_length	rx_length	rx_length	rx_length
-rx_over	rx_over							rx_over
-rx_frame	rx_frame			rx_frame	rx_frame	rx_frame
-rx_crc	rx_crc	rx_crc	rx_crc			rx_crc
-		rx_fifo							rx_fifo
-		rx_missed							rx_missed
-						rx_symbol
-								unsup_opcd
-----------------------------------------------------------------------
-Is there any documentation which defines what should this statistic include?
+So I spoke to Jouni and he says that he doesn't remember needing the
+driver, so I guess we don't care. Can I get you to submit that patch
+properly? Send it to linux-wireless@vger.kernel.org please.
 
-Thanks
-Dmitry
-
-
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Ben Hutchings
-Sent: Wednesday, June 02, 2010 12:21 AM
-To: David Miller
-Cc: netdev@vger.kernel.org; linux-net-drivers@solarflare.com
-Subject: [PATCH 11/12] sfc: Only count bad packets in rx_errors
-
-rx_errors is defined as 'bad packets received', but we are currently
-including various overflow errors as well.
-
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/sfc/efx.c |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index aae3347..26b0cc2 100644
---- a/drivers/net/sfc/efx.c
-+++ b/drivers/net/sfc/efx.c
-@@ -1518,11 +1518,8 @@ static struct net_device_stats *efx_net_stats(struct net_device *net_dev)
- 	stats->tx_window_errors = mac_stats->tx_late_collision;
- 
- 	stats->rx_errors = (stats->rx_length_errors +
--			    stats->rx_over_errors +
- 			    stats->rx_crc_errors +
- 			    stats->rx_frame_errors +
--			    stats->rx_fifo_errors +
--			    stats->rx_missed_errors +
- 			    mac_stats->rx_symbol_error);
- 	stats->tx_errors = (stats->tx_window_errors +
- 			    mac_stats->tx_bad);
--- 
-1.6.2.5
-
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+johannes
 
