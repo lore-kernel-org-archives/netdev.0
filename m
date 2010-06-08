@@ -1,57 +1,132 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [Linux-ATM-General] RX/close vcc race with
- solos/atmtcp/usbatm/he
-Date: Tue, 08 Jun 2010 17:25:26 +0100
-Message-ID: <1276014326.22896.3.camel@macbook.infradead.org>
-References: <201006081505.o58F5Pt5006703@thirdoffive.cmf.nrl.navy.mil>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: 2.6.35-rc2-git1 - lib/idr.c:605 invoked
+ rcu_dereference_check() without protection!
+Date: Tue, 8 Jun 2010 09:25:32 -0700
+Message-ID: <20100608162532.GB2397@linux.vnet.ibm.com>
+References: <AANLkTim06fRB-Kvm12v2umq8MxRxbcl3gdbNsiRTDmia@mail.gmail.com>
+ <20100608001234.GE2387@linux.vnet.ibm.com>
+ <AANLkTikPcIzd_gQ3XVT8zdy2Gyxibx3wx_twlaxJA3cz@mail.gmail.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
-To: chas3@users.sourceforge.net
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Vivek Goyal <vgoyal@redhat.com>, Eric Paris <eparis@redhat.com>,
+	David Woodhouse <dwmw2@infradead.org>,
+	Lai Jiangshan <laijs@cn.fujitsu.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	Peter Zijlstra <peterz@infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>, nauman@google.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	Jens Axboe <axboe@kernel.dk>,
+	Gui Jianfeng <guijianfeng@cn.fujitsu.com>,
+	Li Zefan <lizf@cn.fujitsu.com>,
+	Johannes Berg <johannes@sipsolutions.net>
+To: Miles Lane <miles.lane@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:57220 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751716Ab0FHQZa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jun 2010 12:25:30 -0400
-In-Reply-To: <201006081505.o58F5Pt5006703@thirdoffive.cmf.nrl.navy.mil>
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:42179 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754041Ab0FHQZf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jun 2010 12:25:35 -0400
+Content-Disposition: inline
+In-Reply-To: <AANLkTikPcIzd_gQ3XVT8zdy2Gyxibx3wx_twlaxJA3cz@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-06-08 at 11:05 -0400, Chas Williams (CONTRACTOR) wrote:
-> In message <1275943792.17903.5119.camel@macbook.infradead.org>,David Woodhouse 
-> writes:
-> >On Mon, 2010-06-07 at 12:37 -0400, Chas Williams (CONTRACTOR) wrote:
-> >> i dont understand.  if you do a sock_hold() in find_vcc(), and then call
-> >> vcc->push() you should be able to call vcc->push() and then sock_put(). 
+On Tue, Jun 08, 2010 at 12:28:15AM -0400, Miles Lane wrote:
+> On Mon, Jun 7, 2010 at 8:12 PM, Paul E. McKenney
+> <paulmck@linux.vnet.ibm.com> wrote:
+> > On Mon, Jun 07, 2010 at 02:23:17PM -0400, Miles Lane wrote:
+> >> [ =A0 =A02.677955] [ INFO: suspicious rcu_dereference_check() usag=
+e. ]
+> >> [ =A0 =A02.679089] -----------------------------------------------=
+----
+> >> [ =A0 =A02.680276] lib/idr.c:605 invoked rcu_dereference_check() w=
+ithout protection!
+> >> [ =A0 =A02.681499]
+> >> [ =A0 =A02.681500] other info that might help us debug this:
+> >> [ =A0 =A02.681501]
+> >> [ =A0 =A02.685509]
+> >> [ =A0 =A02.685510] rcu_scheduler_active =3D 1, debug_locks =3D 1
+> >> [ =A0 =A02.688221] 1 lock held by swapper/1:
+> >> [ =A0 =A02.689587] =A0#0: =A0(mtd_table_mutex){+.+...}, at:
+> >> [<ffffffff812bea45>] register_mtd_user+0x1a/0x69
+> >> [ =A0 =A02.691096]
+> >> [ =A0 =A02.691098] stack backtrace:
+> >> [ =A0 =A02.694059] Pid: 1, comm: swapper Not tainted 2.6.35-rc2-gi=
+t1 #8
+> >> [ =A0 =A02.695601] Call Trace:
+> >> [ =A0 =A02.697243] =A0[<ffffffff81064e9c>] lockdep_rcu_dereference=
++0x9d/0xa5
+> >> [ =A0 =A02.698868] =A0[<ffffffff811b9c86>] idr_get_next+0x60/0x124
+> >> [ =A0 =A02.700556] =A0[<ffffffff812be779>] __mtd_next_device+0x1b/=
+0x1d
+> >> [ =A0 =A02.702238] =A0[<ffffffff812bea7c>] register_mtd_user+0x51/=
+0x69
+> >> [ =A0 =A02.703964] =A0[<ffffffff816cca45>] init_mtdchar+0xb3/0xd3
+> >> [ =A0 =A02.705686] =A0[<ffffffff816cc992>] ? init_mtdchar+0x0/0xd3
+> >> [ =A0 =A02.707470] =A0[<ffffffff810001ef>] do_one_initcall+0x59/0x=
+14e
+> >> [ =A0 =A02.709255] =A0[<ffffffff816a768a>] kernel_init+0x144/0x1ce
+> >> [ =A0 =A02.711082] =A0[<ffffffff81003054>] kernel_thread_helper+0x=
+4/0x10
+> >> [ =A0 =A02.712862] =A0[<ffffffff813ca480>] ? restore_args+0x0/0x30
+> >> [ =A0 =A02.714647] =A0[<ffffffff816a7546>] ? kernel_init+0x0/0x1ce
+> >> [ =A0 =A02.716415] =A0[<ffffffff81003050>] ? kernel_thread_helper+=
+0x0/0x10
 > >
-> >Holding the reference doesn't stop the problem. The problem is
+> > This looks like a new one! =A0Does the following patch take care of=
+ it?
 > >
-> > vcc_release()
-> > --> vcc_destroy_socket()
-> >   --> br2684_push(vcc, NULL)
-> >         sets vcc->user_back = NULL
-> >         (which it what causes the oops when try try to feed it any
-> >          subsequent packets).
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0Thanx, Paul
 > >
-> > Only _later_ does vcc_release() call sock_put().
-> 
-> hmm... perhaps this routine needs to take the vcc_sklist_lock because
-> it is going to modify the vcc.  or we need to use locking on the vcc
-> itself. 
+> > -------------------------------------------------------------------=
+-----
+> >
+> > commit 2d54a6c31b72c902b09d365e9c66205a5c07e549
+> > Author: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> > Date: =A0 Mon Jun 7 17:09:45 2010 -0700
+> >
+> > =A0 =A0idr: fix RCU lockdep splat in idr_get_next()
+> >
+> > =A0 =A0Convert to rcu_dereference_raw() given that many callers may=
+ have many
+> > =A0 =A0different locking models.
+> >
+> > =A0 =A0Located-by: Miles Lane <miles.lane@gmail.com>
+> > =A0 =A0Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> >
+> > diff --git a/lib/idr.c b/lib/idr.c
+> > index 2eb1dca..f099f25 100644
+> > --- a/lib/idr.c
+> > +++ b/lib/idr.c
+> > @@ -599,7 +599,7 @@ void *idr_get_next(struct idr *idp, int *nextid=
+p)
+> > =A0 =A0 =A0 =A0/* find first ent */
+> > =A0 =A0 =A0 =A0n =3D idp->layers * IDR_BITS;
+> > =A0 =A0 =A0 =A0max =3D 1 << n;
+> > - =A0 =A0 =A0 p =3D rcu_dereference(idp->top);
+> > + =A0 =A0 =A0 p =3D rcu_dereference_raw(idp->top);
+> > =A0 =A0 =A0 =A0if (!p)
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return NULL;
+> >
+> > @@ -607,7 +607,7 @@ void *idr_get_next(struct idr *idp, int *nextid=
+p)
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0while (n > 0 && p) {
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0n -=3D IDR_BITS;
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*paa++ =3D p;
+> > - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 p =3D rcu_dereference=
+(p->ary[(id >> n) & IDR_MASK]);
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 p =3D rcu_dereference=
+_raw(p->ary[(id >> n) & IDR_MASK]);
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+> >
+> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if (p) {
+> >
+>=20
+> Tested.  Looks good!
 
-Or move the ->push(vcc, NULL) and anything else which destroys the
-state, so that it happens later. Use a real socket destructor function
-which will be called from sk_free() after the last sock_put().
+Thank you very much for both locating this one and for testing the fix!
+I have added your Tested-by.
 
-> you took a reference to an object inside a hashed list and didnt do
-> anything to prevent the object from leaving the hashed list. that is
-> stil not correct IMHO.
-
-Yeah yeah, but I fixed that already with the RCU-like approach of
-synchronising with the tasklet on dev->ops->close(). So I don't _need_
-the reference.
-
--- 
-dwmw2
-
+							Thanx, Paul
