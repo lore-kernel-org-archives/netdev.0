@@ -1,146 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: RFS seems to have incompatiblities with bridged vlans
-Date: Tue, 08 Jun 2010 16:18:41 +0200
-Message-ID: <1276006721.2486.141.camel@edumazet-laptop>
-References: <62C40338-045A-417E-9B90-E59A320E1343@dlh.net>
-	 <20100607145910.2458ac87@nehalam>  <4C0D7312.1020300@intel.com>
+From: Kay Sievers <kay.sievers@vrfy.org>
+Subject: Re: [RFC][PATCH] Fix another namespace issue with devices assigned to
+	classes
+Date: Tue, 8 Jun 2010 16:21:24 +0200
+Message-ID: <AANLkTikB0Amzi61JLxdY5HL-2s_nbYo3JH8vXooXzHdQ@mail.gmail.com>
+References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
+	<20100602154608.GB12361@kroah.com> <1275493693.3915.12.camel@jlt3.sipsolutions.net>
+	<m1ljaxxvcj.fsf@fess.ebiederm.org> <1275495677.3915.16.camel@jlt3.sipsolutions.net>
+	<m14ohlxu51.fsf@fess.ebiederm.org> <1275498007.3915.20.camel@jlt3.sipsolutions.net>
+	<m1ocftwdp7.fsf@fess.ebiederm.org> <1275501157.3915.22.camel@jlt3.sipsolutions.net>
+	<m1y6exux6x.fsf@fess.ebiederm.org> <1275506732.3915.41.camel@jlt3.sipsolutions.net>
+	<m16321t4ke.fsf@fess.ebiederm.org> <m17hmhrl6v.fsf_-_@fess.ebiederm.org>
+	<1275634452.5189.1.camel@jlt3.sipsolutions.net> <AANLkTingSwM7e8ldyT1FplF5WCHBsCBCwNkb5ZPHe6hB@mail.gmail.com>
+	<1275640113.9953.8.camel@jlt3.sipsolutions.net> <AANLkTin6ub4k4QYSMnGLRw7lxQaz23Xmo2GQC1RrUf-X@mail.gmail.com>
+	<1275829701.3615.54.camel@jlt3.sipsolutions.net> <AANLkTinUAR2gkY7ipgXKy-pMHcmLuouEeyXxnP97U_7N@mail.gmail.com>
+	<1275903773.29978.1.camel@jlt3.sipsolutions.net> <AANLkTin_qjU0-xXfMDYeYWRd0BmvT4OIdK4S_GQ3ZYUi@mail.gmail.com>
+	<1275905686.29978.3.camel@jlt3.sipsolutions.net> <AANLkTikMDvpEzrtFVue8gStudKONxuQmVx9B2w1JM1vO@mail.gmail.com>
+	<1275910905.29978.7.camel@jlt3.sipsolutions.net> <1275913563.1823.1.camel@yio.site>
+	<1275914205.29978.10.camel@jlt3.sipsolutions.net> <AANLkTilqB2sAyfBTLhYT_a2_TySGay4FFG6SGJUZ1o_4@mail.gmail.com>
+	<1275989260.3706.115.camel@jlt3.sipsolutions.net> <AANLkTinMauFsJTKS3eT-pT44KQ8PSf3HJLS8CZIeHmxP@mail.gmail.com>
+	<1275990325.3706.116.camel@jlt3.sipsolutions.net> <1275998127.1899.38.camel@yio.site>
+	<1275998603.3706.118.camel@jlt3.sipsolutions.net> <AANLkTinev96yxFCFSdDdT89jjgYR4ChUCMU2-aSj8kkh@mail.gmail.com>
+	<1276005970.3706.132.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Peter Lieven <pl@dlh.net>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: John Fastabend <john.r.fastabend@intel.com>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:40878 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755354Ab0FHOSr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jun 2010 10:18:47 -0400
-Received: by fxm8 with SMTP id 8so2921730fxm.19
-        for <netdev@vger.kernel.org>; Tue, 08 Jun 2010 07:18:45 -0700 (PDT)
-In-Reply-To: <4C0D7312.1020300@intel.com>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:41407 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755384Ab0FHOVk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jun 2010 10:21:40 -0400
+Received: by yxl31 with SMTP id 31so806148yxl.19
+        for <netdev@vger.kernel.org>; Tue, 08 Jun 2010 07:21:39 -0700 (PDT)
+In-Reply-To: <1276005970.3706.132.camel@jlt3.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 07 juin 2010 =C3=A0 15:30 -0700, John Fastabend a =C3=A9crit :
+On Tue, Jun 8, 2010 at 16:06, Johannes Berg <johannes@sipsolutions.net> wrote:
+> On Tue, 2010-06-08 at 15:54 +0200, Kay Sievers wrote:
+>> On Tue, Jun 8, 2010 at 14:03, Johannes Berg <johannes@sipsolutions.net> wrote:
+>> > On Tue, 2010-06-08 at 13:55 +0200, Kay Sievers wrote:
+>> >
+>> >> Ok, this needs testing.
+>> >>
+>> >> Please let me know, if that works for you so far.
+>> >
+>> > Will do. Just a question: none of this seems to pin the module? So can I
+>> > be sure if I rmmod the module that the release function will still be
+>> > around etc.?
+>>
+>> Oh, sorry, that's something very specific to network devices, that the
+>> module can be unloaded while the devices it has created are still in
+>> use. I am not sure right now what's needed to make this work in a
+>> single module.
+>
+> Well they will be unregistered and everything, but once all the netdevs
+> are gone etc. the devices you create in the patch might stick around
+> because somebody has them open in sysfs, and I see nothing that would
+> pin the module in that case?
 
-> There is always a possibility that the underlying device sets the=20
-> queue_mapping to be greater then num_cpus.  Also I suspect the same=20
-> issue exists with bonding devices.  Maybe something like the followin=
-g=20
-> is worth while? compile tested only,
->=20
-> [PATCH] 8021q: vlan reassigns dev without check queue_mapping
->=20
-> recv path reassigns skb->dev without sanity checking the
-> queue_mapping field.  This can result in the queue_mapping
-> field being set incorrectly if the new dev supports less
-> queues then the underlying device.
->=20
-> This patch just resets the queue_mapping to 0 which should
-> resolve this issue?  Any thoughts?
->=20
-> The same issue could happen on bonding devices as well.
->=20
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
->=20
->   net/8021q/vlan_core.c |    6 ++++++
->   1 files changed, 6 insertions(+), 0 deletions(-)
->=20
-> diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-> index bd537fc..ad309f8 100644
-> --- a/net/8021q/vlan_core.c
-> +++ b/net/8021q/vlan_core.c
-> @@ -21,6 +21,9 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, struct=20
-> vlan_group *grp,
->   	if (!skb->dev)
->   		goto drop;
->=20
-> +	if (unlikely(skb->queue_mapping >=3D skb->dev->real_num_tx_queues))
-> +		skb_set_queue_mapping(skb, 0);
-> +
->   	return (polling ? netif_receive_skb(skb) : netif_rx(skb));
->=20
->   drop:
-> @@ -93,6 +96,9 @@ vlan_gro_common(struct napi_struct *napi, struct=20
-> vlan_group *grp,
->   	if (!skb->dev)
->   		goto drop;
->=20
-> +	if (unlikely(skb->queue_mapping >=3D skb->dev->real_num_tx_queues))
-> +		skb_set_queue_mapping(skb, 0);
-> +
->   	for (p =3D napi->gro_list; p; p =3D p->next) {
->   		NAPI_GRO_CB(p)->same_flow =3D
->   			p->dev =3D=3D skb->dev && !compare_ether_header(
-> --
+That's what I mean, I have no idea how to solve that with network
+devices. I don't think any other subsytem allows to unload the module,
+when devices, the module has created, are in use.
 
-Only a workaround, added in hot path in a otherwise 'good' driver
-(multiqueue enabled and ready)
+With this patch, it is likely to fail, even without sysfs, just when
+the netif is still in up, and the module is unloaded.
 
-eth0  -------> bond / bridge ---------> vlan.id
-(nbtxq=3D8)      (ntxbq=3D1)        (nbtxq=3DX)
+The current code uses the in-core class_create() logic, which was only
+meant for devices with a device node, and which is cleaned up by the
+core itself. That's why this issue never appeared before.
 
-X is capped to 1 because of bond/bridge, while bond has no "queue"
-(LLTX driver)
+But as said, I have no idea how to solve that with a single module. It
+might not work at all without moving stuff into the core. That people
+use device_create() with no major/minor might indicate that something
+else is needed here. :)
 
-Solutions :
-
-1) queue_mapping could be silently tested in get_rps_cpu()...
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 6f330ce..3a3f7f6 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2272,14 +2272,11 @@ static int get_rps_cpu(struct net_device *dev, =
-struct sk_buff *skb,
-=20
- 	if (skb_rx_queue_recorded(skb)) {
- 		u16 index =3D skb_get_rx_queue(skb);
--		if (unlikely(index >=3D dev->num_rx_queues)) {
--			if (net_ratelimit()) {
--				pr_warning("%s received packet on queue "
--					"%u, but number of RX queues is %u\n",
--					dev->name, index, dev->num_rx_queues);
--			}
--			goto done;
--		}
-+		if (WARN_ONCE(index >=3D dev->num_rx_queues,
-+				KERN_WARNING "%s received packet on queue %u, "
-+				"but number of RX queues is %u\n",
-+				dev->name, index, dev->num_rx_queues))
-+			index %=3D dev->num_rx_queues;
- 		rxqueue =3D dev->_rx + index;
- 	} else
- 		rxqueue =3D dev->_rx;
-
-
-
-2) bond/bridge should setup more queues, just in case.
-   We probably need to be able to make things more dynamic,
-   (propagate nbtxq between layers) but not for 2.6.35
-
-
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
-_main.c
-index 5e12462..ce813dd 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -5012,8 +5012,8 @@ int bond_create(struct net *net, const char *name=
-)
-=20
- 	rtnl_lock();
-=20
--	bond_dev =3D alloc_netdev(sizeof(struct bonding), name ? name : "",
--				bond_setup);
-+	bond_dev =3D alloc_netdev_mq(sizeof(struct bonding), name ? name : ""=
-,
-+				   bond_setup, max(64, nr_cpu_ids));
- 	if (!bond_dev) {
- 		pr_err("%s: eek! can't alloc netdev!\n", name);
- 		rtnl_unlock();
-
-
+Kay
