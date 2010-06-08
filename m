@@ -1,69 +1,43 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH net-next-2.6 v2] pkt_sched: gen_estimator: kill
- est_lock rwlock
-Date: Tue, 8 Jun 2010 23:18:06 +0200
-Message-ID: <20100608211806.GB3496@del.dom.local>
-References: <20100608121546.GA9392@ff.dom.local>
- <1276000052.2475.307.camel@edumazet-laptop>
- <20100608124052.GB9392@ff.dom.local>
- <4C0E9A2E.9080109@gmail.com>
- <1276026329.2439.2.camel@edumazet-laptop>
- <20100608202405.GA3496@del.dom.local>
- <1276030354.2439.8.camel@edumazet-laptop>
+From: Tim Gardner <tim.gardner@canonical.com>
+Subject: 2.6.35-rc2, CONFIG_RPS is filling the dmesg log
+Date: Tue, 08 Jun 2010 14:55:26 -0600
+Message-ID: <4C0EAE3E.4070708@canonical.com>
+Reply-To: tim.gardner@canonical.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.154]:15164 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750925Ab0FHVSL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jun 2010 17:18:11 -0400
-Received: by fg-out-1718.google.com with SMTP id l26so1600187fgb.1
-        for <netdev@vger.kernel.org>; Tue, 08 Jun 2010 14:18:10 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1276030354.2439.8.camel@edumazet-laptop>
+Received: from mail.tpi.com ([70.99.223.143]:2020 "EHLO mail.tpi.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932094Ab0FHV0g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jun 2010 17:26:36 -0400
+Received: from [10.0.2.5] (unknown [10.0.2.5])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client did not present a certificate)
+	by mail.tpi.com (Postfix) with ESMTP id 4056723D6D8
+	for <netdev@vger.kernel.org>; Tue,  8 Jun 2010 13:54:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 08, 2010 at 10:52:34PM +0200, Eric Dumazet wrote:
-> 
-> > Such a changelog is a documentation for future, just like this one,
-> > crucial for this suject:
-> > http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=0929c2dd83317813425b937fbc0041013b8685ff
-> > 
-> > There is no reason to make people (our?) life harder with describing
-> > unexistent bugs.
-> > 
-> 
-> Now you are telling me there is no bug, and I am lying ?
-> 
+With 2.6.35-rc2 my dmesg log is being flooded with messages like this:
 
-I didn't question freeing stats_lock (great catch BTW!).
+br0 received packet on queue 4, but number of RX queues is 1
 
-> > > 
-> > > I am really lost by your comments Jarek.
-> > > 
-> > > Maybe you could provide an alternative patch, so that we can make some
-> > > progress ?
-> > > 
-> > 
-> > No, I only meant fixing the title and changelog if you have any problem
-> > with separating it for two parts.
-> 
-> I am suggesting you rewrite this Changelog, as being part of the patch,
-> since I still miss your point, sorry, I must be very dumb tonight.
-> 
-> Then, add your Signed-off-by.
-> 
-> This is normal iterative process.
-> 
+This machine is bridged for KVM and has 2 igb network adapters.
 
-No understado - no Englisch ;-)
+The root cause appears to be CONFIG_RPS=y and the fact that none of the 
+drivers that call skb_record_rx_queue() perform their net device 
+allocation using alloc_netdev_mq(), thereby initializing num_rx_queues 
+to a maximum of 1.
 
-Sorry,
-Jarek P.
+Given that this is early RPS days, is the warning in get_rps_cpu() 
+really necessary? It would appear that _all_ of the multi-receive queue 
+devices that call skb_record_rx_queue() will cause this log noise.
+
+By the way, how do you turn off CONFIG_RPS? The only way I could get it 
+disabled was to change the default in net/Kconfig to 'n'.
+
+rtg
+-- 
+Tim Gardner tim.gardner@canonical.com
