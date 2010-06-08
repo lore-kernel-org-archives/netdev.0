@@ -1,134 +1,61 @@
-From: Sven Wegener <sven.wegener@stealer.net>
-Subject: [PATCH] ipvs: Add missing locking during connection table hashing
- and unhashing
-Date: Tue, 8 Jun 2010 08:29:28 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1006080828290.18946@titan.stealer.net>
-References: <alpine.LNX.2.00.1005202243480.22717@titan.stealer.net> <20100524235637.GG4794@verge.net.au>
+From: "Figo.zhang" <zhangtianfei@leadcoretech.com>
+Subject: [PATCH] fix a race at the end of NAPI
+Date: Tue, 08 Jun 2010 14:48:39 +0800
+Message-ID: <1275979719.1927.4.camel@myhost>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>,
-	Wensong Zhang <wensong@linux-vs.org>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20100524235637.GG4794@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [61.172.199.14] ([61.172.199.14]:63811 "EHLO
+	LC-SHMAIL-01.SHANGHAI.LEADCORETECH.COM" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752935Ab0FHHAU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jun 2010 03:00:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The code that hashes and unhashes connections from the connection table
-is missing locking of the connection being modified, which opens up a
-race condition and results in memory corruption when this race condition
-is hit.
 
-Here is what happens in pretty verbose form:
+fix a race at the end of NAPI complete processing. it had better do __napi_complete() 
+first before re-enable interrupt.
 
-CPU 0					CPU 1
-------------				------------
-An active connection is terminated and
-we schedule ip_vs_conn_expire() on this
-CPU to expire this connection.
+Signed-off-by: Figo.zhang <figo1802@gmail.com>
+--- 
+ drivers/net/8139cp.c  |    2 +-
+ drivers/net/8139too.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-					IRQ assignment is changed to this CPU,
-					but the expire timer stays scheduled on
-					the other CPU.
-
-					New connection from same ip:port comes
-					in right before the timer expires, we
-					find the inactive connection in our
-					connection table and get a reference to
-					it. We proper lock the connection in
-					tcp_state_transition() and read the
-					connection flags in set_tcp_state().
-
-ip_vs_conn_expire() gets called, we
-unhash the connection from our
-connection table and remove the hashed
-flag in ip_vs_conn_unhash(), without
-proper locking!
-
-					While still holding proper locks we
-					write the connection flags in
-					set_tcp_state() and this sets the hashed
-					flag again.
-
-ip_vs_conn_expire() fails to expire the
-connection, because the other CPU has
-incremented the reference count. We try
-to re-insert the connection into our
-connection table, but this fails in
-ip_vs_conn_hash(), because the hashed
-flag has been set by the other CPU. We
-re-schedule execution of
-ip_vs_conn_expire(). Now this connection
-has the hashed flag set, but isn't
-actually hashed in our connection table
-and has a dangling list_head.
-
-					We drop the reference we held on the
-					connection and schedule the expire timer
-					for timeouting the connection on this
-					CPU. Further packets won't be able to
-					find this connection in our connection
-					table.
-
-					ip_vs_conn_expire() gets called again,
-					we think it's already hashed, but the
-					list_head is dangling and while removing
-					the connection from our connection table
-					we write to the memory location where
-					this list_head points to.
-
-The result will probably be a kernel oops at some other point in time.
-
-Signed-off-by: Sven Wegener <sven.wegener@stealer.net>
-Cc: stable@kernel.org
-Acked-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_conn.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
-
-This race condition is pretty subtle, but it can be triggered remotely.
-It needs the IRQ assignment change or another circumstance where packets
-coming from the same ip:port for the same service are being processed on
-different CPUs. And it involves hitting the exact time at which
-ip_vs_conn_expire() gets called. It can be avoided by making sure that
-all packets from one connection are always processed on the same CPU and
-can be made harder to exploit by changing the connection timeouts to
-some custom values.
-
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index d8f7e8e..ff04e9e 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -162,6 +162,7 @@ static inline int ip_vs_conn_hash(struct ip_vs_conn *cp)
- 	hash = ip_vs_conn_hashkey(cp->af, cp->protocol, &cp->caddr, cp->cport);
+diff --git a/drivers/net/8139cp.c b/drivers/net/8139cp.c
+old mode 100644
+new mode 100755
+index 9c14975..284a5f4
+--- a/drivers/net/8139cp.c
++++ b/drivers/net/8139cp.c
+@@ -598,8 +598,8 @@ rx_next:
+ 			goto rx_status_loop;
  
- 	ct_write_lock(hash);
-+	spin_lock(&cp->lock);
- 
- 	if (!(cp->flags & IP_VS_CONN_F_HASHED)) {
- 		list_add(&cp->c_list, &ip_vs_conn_tab[hash]);
-@@ -174,6 +175,7 @@ static inline int ip_vs_conn_hash(struct ip_vs_conn *cp)
- 		ret = 0;
+ 		spin_lock_irqsave(&cp->lock, flags);
+-		cpw16_f(IntrMask, cp_intr_mask);
+ 		__napi_complete(napi);
++		cpw16_f(IntrMask, cp_intr_mask);
+ 		spin_unlock_irqrestore(&cp->lock, flags);
  	}
  
-+	spin_unlock(&cp->lock);
- 	ct_write_unlock(hash);
- 
- 	return ret;
-@@ -193,6 +195,7 @@ static inline int ip_vs_conn_unhash(struct ip_vs_conn *cp)
- 	hash = ip_vs_conn_hashkey(cp->af, cp->protocol, &cp->caddr, cp->cport);
- 
- 	ct_write_lock(hash);
-+	spin_lock(&cp->lock);
- 
- 	if (cp->flags & IP_VS_CONN_F_HASHED) {
- 		list_del(&cp->c_list);
-@@ -202,6 +205,7 @@ static inline int ip_vs_conn_unhash(struct ip_vs_conn *cp)
- 	} else
- 		ret = 0;
- 
-+	spin_unlock(&cp->lock);
- 	ct_write_unlock(hash);
- 
- 	return ret;
+diff --git a/drivers/net/8139too.c b/drivers/net/8139too.c
+old mode 100644
+new mode 100755
+index 4ba7293..a7bca8c
+--- a/drivers/net/8139too.c
++++ b/drivers/net/8139too.c
+@@ -2088,8 +2088,8 @@ static int rtl8139_poll(struct napi_struct *napi, int budget)
+ 		 * again when we think we are done.
+ 		 */
+ 		spin_lock_irqsave(&tp->lock, flags);
+-		RTL_W16_F(IntrMask, rtl8139_intr_mask);
+ 		__napi_complete(napi);
++		RTL_W16_F(IntrMask, rtl8139_intr_mask);
+ 		spin_unlock_irqrestore(&tp->lock, flags);
+ 	}
+ 	spin_unlock(&tp->rx_lock);
+
+
