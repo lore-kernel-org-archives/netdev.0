@@ -1,70 +1,96 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: 2.6.35-rc2-git1 - net/mac80211/sta_info.c:125 invoked
+Subject: Re: 2.6.35-rc2-git1 - lib/idr.c:605 invoked
  rcu_dereference_check() without protection!
-Date: Mon, 7 Jun 2010 16:59:42 -0700
-Message-ID: <20100607235941.GD2387@linux.vnet.ibm.com>
-References: <AANLkTintKf_9C1sBsUac6Prvb1nWn7nWszatJ8yUb-VM@mail.gmail.com>
+Date: Mon, 7 Jun 2010 17:12:34 -0700
+Message-ID: <20100608001234.GE2387@linux.vnet.ibm.com>
+References: <AANLkTim06fRB-Kvm12v2umq8MxRxbcl3gdbNsiRTDmia@mail.gmail.com>
 Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Vivek Goyal <vgoyal@redhat.com>, Eric Paris <eparis@redhat.com>,
+	David Woodhouse <dwmw2@infradead.org>,
 	Lai Jiangshan <laijs@cn.fujitsu.com>,
 	Ingo Molnar <mingo@elte.hu>,
 	Peter Zijlstra <peterz@infradead.org>,
 	LKML <linux-kernel@vger.kernel.org>, nauman@google.com,
 	eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	Jens Axboe <jens.axboe@oracle.com>,
+	Jens Axboe <axboe@kernel.dk>,
 	Gui Jianfeng <guijianfeng@cn.fujitsu.com>,
 	Li Zefan <lizf@cn.fujitsu.com>,
 	Johannes Berg <johannes@sipsolutions.net>
 To: Miles Lane <miles.lane@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:58504 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750834Ab0FGX7p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jun 2010 19:59:45 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <AANLkTintKf_9C1sBsUac6Prvb1nWn7nWszatJ8yUb-VM@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <AANLkTim06fRB-Kvm12v2umq8MxRxbcl3gdbNsiRTDmia@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 07, 2010 at 02:25:44PM -0400, Miles Lane wrote:
-> [   43.478812] [ INFO: suspicious rcu_dereference_check() usage. ]
-> [   43.478815] ---------------------------------------------------
-> [   43.478820] net/mac80211/sta_info.c:125 invoked
-> rcu_dereference_check() without protection!
-> [   43.478824]
-> [   43.478824] other info that might help us debug this:
-> [   43.478826]
-> [   43.478829]
-> [   43.478830] rcu_scheduler_active = 1, debug_locks = 1
-> [   43.478834] no locks held by NetworkManager/4017.
+On Mon, Jun 07, 2010 at 02:23:17PM -0400, Miles Lane wrote:
+> [    2.677955] [ INFO: suspicious rcu_dereference_check() usage. ]
+> [    2.679089] ---------------------------------------------------
+> [    2.680276] lib/idr.c:605 invoked rcu_dereference_check() without protection!
+> [    2.681499]
+> [    2.681500] other info that might help us debug this:
+> [    2.681501]
+> [    2.685509]
+> [    2.685510] rcu_scheduler_active = 1, debug_locks = 1
+> [    2.688221] 1 lock held by swapper/1:
+> [    2.689587]  #0:  (mtd_table_mutex){+.+...}, at:
+> [<ffffffff812bea45>] register_mtd_user+0x1a/0x69
+> [    2.691096]
+> [    2.691098] stack backtrace:
+> [    2.694059] Pid: 1, comm: swapper Not tainted 2.6.35-rc2-git1 #8
+> [    2.695601] Call Trace:
+> [    2.697243]  [<ffffffff81064e9c>] lockdep_rcu_dereference+0x9d/0xa5
+> [    2.698868]  [<ffffffff811b9c86>] idr_get_next+0x60/0x124
+> [    2.700556]  [<ffffffff812be779>] __mtd_next_device+0x1b/0x1d
+> [    2.702238]  [<ffffffff812bea7c>] register_mtd_user+0x51/0x69
+> [    2.703964]  [<ffffffff816cca45>] init_mtdchar+0xb3/0xd3
+> [    2.705686]  [<ffffffff816cc992>] ? init_mtdchar+0x0/0xd3
+> [    2.707470]  [<ffffffff810001ef>] do_one_initcall+0x59/0x14e
+> [    2.709255]  [<ffffffff816a768a>] kernel_init+0x144/0x1ce
+> [    2.711082]  [<ffffffff81003054>] kernel_thread_helper+0x4/0x10
+> [    2.712862]  [<ffffffff813ca480>] ? restore_args+0x0/0x30
+> [    2.714647]  [<ffffffff816a7546>] ? kernel_init+0x0/0x1ce
+> [    2.716415]  [<ffffffff81003050>] ? kernel_thread_helper+0x0/0x10
 
-Hmmm...  Johannes's update has been merged, and it requires that callers
-either be in an RCU read-side critical section or hold either the
-->sta_lock or the ->sta_mtx, and this thread does none of this.
-
-Johannes, any thoughts?
+This looks like a new one!  Does the following patch take care of it?
 
 							Thanx, Paul
 
-> [   43.478837] stack backtrace:
-> [   43.478842] Pid: 4017, comm: NetworkManager Not tainted 2.6.35-rc2-git1 #8
-> [   43.478846] Call Trace:
-> [   43.478849]  <IRQ>  [<ffffffff81064e9c>] lockdep_rcu_dereference+0x9d/0xa5
-> [   43.478876]  [<ffffffffa010cb3c>] sta_info_get_bss+0x71/0x12d [mac80211]
-> [   43.478889]  [<ffffffffa010cc0d>] ieee80211_find_sta+0x15/0x2f [mac80211]
-> [   43.478902]  [<ffffffffa019ae16>] iwlagn_tx_queue_reclaim+0xe7/0x1bb [iwlagn]
-> [   43.478909]  [<ffffffff8106530b>] ? mark_lock+0x2d/0x262
-> [   43.478920]  [<ffffffffa019e270>] iwlagn_rx_reply_tx+0x4cd/0x58a [iwlagn]
-> [   43.478928]  [<ffffffff811ca313>] ? is_swiotlb_buffer+0x2e/0x3b
-> [   43.478937]  [<ffffffffa0192ec2>] iwl_rx_handle+0x161/0x2bf [iwlagn]
-> [   43.478946]  [<ffffffffa019370a>] iwl_irq_tasklet+0x2eb/0x408 [iwlagn]
-> [   43.478953]  [<ffffffff8103f892>] tasklet_action+0xa7/0x10f
-> [   43.478960]  [<ffffffff810404cf>] __do_softirq+0x148/0x25a
-> [   43.478966]  [<ffffffff8100314c>] call_softirq+0x1c/0x28
-> [   43.478972]  [<ffffffff81004d20>] do_softirq+0x38/0x80
-> [   43.478977]  [<ffffffff8103ffd0>] irq_exit+0x45/0x94
-> [   43.478983]  [<ffffffff81004465>] do_IRQ+0xad/0xc4
-> [   43.478989]  [<ffffffff813ca3d3>] ret_from_intr+0x0/0xf
-> [   43.478993]  <EOI>
+------------------------------------------------------------------------
+
+commit 2d54a6c31b72c902b09d365e9c66205a5c07e549
+Author: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Date:   Mon Jun 7 17:09:45 2010 -0700
+
+    idr: fix RCU lockdep splat in idr_get_next()
+    
+    Convert to rcu_dereference_raw() given that many callers may have many
+    different locking models.
+    
+    Located-by: Miles Lane <miles.lane@gmail.com>
+    Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+
+diff --git a/lib/idr.c b/lib/idr.c
+index 2eb1dca..f099f25 100644
+--- a/lib/idr.c
++++ b/lib/idr.c
+@@ -599,7 +599,7 @@ void *idr_get_next(struct idr *idp, int *nextidp)
+ 	/* find first ent */
+ 	n = idp->layers * IDR_BITS;
+ 	max = 1 << n;
+-	p = rcu_dereference(idp->top);
++	p = rcu_dereference_raw(idp->top);
+ 	if (!p)
+ 		return NULL;
+ 
+@@ -607,7 +607,7 @@ void *idr_get_next(struct idr *idp, int *nextidp)
+ 		while (n > 0 && p) {
+ 			n -= IDR_BITS;
+ 			*paa++ = p;
+-			p = rcu_dereference(p->ary[(id >> n) & IDR_MASK]);
++			p = rcu_dereference_raw(p->ary[(id >> n) & IDR_MASK]);
+ 		}
+ 
+ 		if (p) {
