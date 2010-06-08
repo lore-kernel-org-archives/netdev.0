@@ -1,55 +1,68 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [v5 Patch 1/3] netpoll: add generic support for bridge and bonding
- devices
-Date: Tue, 08 Jun 2010 16:36:06 +0800
-Message-ID: <4C0E00F6.8020409@redhat.com>
-References: <4C062CBD.7090906@redhat.com>	<20100604191841.GM7497@gospo.rdu.redhat.com>	<4C0CC29D.9070507@redhat.com> <20100607.030108.235696592.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] icmp: RCU conversion in icmp_address_reply()
+Date: Tue, 08 Jun 2010 10:34:35 +0200
+Message-ID: <1275986075.2475.73.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: andy@greyhouse.net, fubar@us.ibm.com, fbl@sysclose.org,
-	linux-kernel@vger.kernel.org, mpm@selenic.com,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	gospo@redhat.com, nhorman@tuxdriver.com, jmoyer@redhat.com,
-	shemminger@linux-foundation.org,
-	bonding-devel@lists.sourceforge.net
+Cc: netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34447 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751533Ab0FHIcf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jun 2010 04:32:35 -0400
-In-Reply-To: <20100607.030108.235696592.davem@davemloft.net>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:50545 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751999Ab0FHIei (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jun 2010 04:34:38 -0400
+Received: by fxm8 with SMTP id 8so2663562fxm.19
+        for <netdev@vger.kernel.org>; Tue, 08 Jun 2010 01:34:37 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/07/10 18:01, David Miller wrote:
-> From: Cong Wang<amwang@redhat.com>
-> Date: Mon, 07 Jun 2010 17:57:49 +0800
->
->> Hmm, I still feel like this way is ugly, although it may work.
->> I guess David doesn't like it either.
->
-> Of course I don't like it. :-)
->
-> I suspect the locking scheme will need to be changed.
->
-> Besides, if we're going to hack this up and do write lock attempts in
-> the read locking paths, there is no point in using a rwlock any more.
-> And I'm personally in disfavor of all rwlock usage anyways (it dirties
-> the cacheline for readers just as equally for writers, and if the
-> critically protected code path is short enough, that shared cache
-> line atomic operation will be the predominant cost).
->
-> So I'd say, 1) make this a spinlock and 2) try to use RCU for the
-> read path.
->
-> That would fix everything.
+- rcu_read_lock() already held by caller
+- use __in_dev_get_rcu() instead of in_dev_get() / in_dev_put()
+- remove goto out;
 
-Yeah, agreed. Even not talking about netconsole, bonding code
-does have locking problems, netconsole just makes this problem
-clear.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/icmp.c |   12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index d65e921..bdb6c71 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -925,6 +925,7 @@ static void icmp_address(struct sk_buff *skb)
+ /*
+  * RFC1812 (4.3.3.9).	A router SHOULD listen all replies, and complain
+  *			loudly if an inconsistency is found.
++ * called with rcu_read_lock()
+  */
+ 
+ static void icmp_address_reply(struct sk_buff *skb)
+@@ -935,12 +936,12 @@ static void icmp_address_reply(struct sk_buff *skb)
+ 	struct in_ifaddr *ifa;
+ 
+ 	if (skb->len < 4 || !(rt->rt_flags&RTCF_DIRECTSRC))
+-		goto out;
++		return;
+ 
+-	in_dev = in_dev_get(dev);
++	in_dev = __in_dev_get_rcu(dev);
+ 	if (!in_dev)
+-		goto out;
+-	rcu_read_lock();
++		return;
++
+ 	if (in_dev->ifa_list &&
+ 	    IN_DEV_LOG_MARTIANS(in_dev) &&
+ 	    IN_DEV_FORWARD(in_dev)) {
+@@ -958,9 +959,6 @@ static void icmp_address_reply(struct sk_buff *skb)
+ 			       mp, dev->name, &rt->rt_src);
+ 		}
+ 	}
+-	rcu_read_unlock();
+-	in_dev_put(in_dev);
+-out:;
+ }
+ 
+ static void icmp_discard(struct sk_buff *skb)
 
-I will try your suggestions above.
 
-Thanks!
