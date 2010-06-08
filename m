@@ -1,135 +1,59 @@
-From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Subject: [RFC PATCH 1/5] irq: add tracepoint to softirq_raise
-Date: Tue, 08 Jun 2010 14:27:20 +0900
-Message-ID: <4C0DD4B8.6080507@jp.fujitsu.com>
-References: <4C0DD43F.9090902@jp.fujitsu.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH v7 01/19] Add a new structure for skb buffer from
+	external.
+Date: Tue, 8 Jun 2010 15:27:44 +1000
+Message-ID: <20100608052744.GA21547@gondor.apana.org.au>
+References: <1275732899-5423-1-git-send-email-xiaohui.xin@intel.com> <20100606161348.427822fb@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kaneshige.kenji@jp.fujitsu.com,
-	izumi.taku@jp.fujitsu.com, laijs@cn.fujitsu.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail7.fujitsu.co.jp ([192.51.44.37]:57614 "EHLO
-	fgwmail7.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752428Ab0FHF1R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jun 2010 01:27:17 -0400
-Received: from m4.gw.fujitsu.co.jp ([10.0.50.74])
-	by fgwmail7.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o585RE4Y017629
-	for <netdev@vger.kernel.org> (envelope-from sanagi.koki@jp.fujitsu.com);
-	Tue, 8 Jun 2010 14:27:14 +0900
-Received: from smail (m4 [127.0.0.1])
-	by outgoing.m4.gw.fujitsu.co.jp (Postfix) with ESMTP id B9C4F45DE7B
-	for <netdev@vger.kernel.org>; Tue,  8 Jun 2010 14:27:13 +0900 (JST)
-Received: from s4.gw.fujitsu.co.jp (s4.gw.fujitsu.co.jp [10.0.50.94])
-	by m4.gw.fujitsu.co.jp (Postfix) with ESMTP id 8C4E945DE79
-	for <netdev@vger.kernel.org>; Tue,  8 Jun 2010 14:27:13 +0900 (JST)
-Received: from s4.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
-	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id 5B7511DB803F
-	for <netdev@vger.kernel.org>; Tue,  8 Jun 2010 14:27:13 +0900 (JST)
-Received: from ml14.s.css.fujitsu.com (ml14.s.css.fujitsu.com [10.249.87.104])
-	by s4.gw.fujitsu.co.jp (Postfix) with ESMTP id 062AA1DB803E
-	for <netdev@vger.kernel.org>; Tue,  8 Jun 2010 14:27:13 +0900 (JST)
-In-Reply-To: <4C0DD43F.9090902@jp.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com, mingo@elte.hu,
+	davem@davemloft.net, jdike@linux.intel.com
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100606161348.427822fb@nehalam>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds tracepoint to softirq_raise.
-This is a same patch Lai Jiangshan submitted.
-http://marc.info/?l=linux-kernel&m=126026122728732&w=2
+On Sun, Jun 06, 2010 at 04:13:48PM -0700, Stephen Hemminger wrote:
+> Still not sure this is a good idea for a couple of reasons:
+> 
+> 1. We already have lots of special cases with skb's (frags and fraglist),
+>    and skb's travel through a lot of different parts of the kernel.  So any
+>    new change like this creates lots of exposed points for new bugs. Look
+>    at cases like MD5 TCP and netfilter, and forwarding these SKB's to ipsec
+>    and ppp and ...
+> 
+> 2. SKB's can have infinite lifetime in the kernel. If these buffers come from
+>    a fixed size pool in an external device, they can easily all get tied up
+>    if you have a slow listener. What happens then?
 
-Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
----
- include/linux/interrupt.h  |    8 +++++++-
- include/trace/events/irq.h |   34 +++++++++++++++++++++++++++++++---
- 2 files changed, 38 insertions(+), 4 deletions(-)
+I agree with Stephen on this.
 
-diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-index c233113..1cb5726 100644
---- a/include/linux/interrupt.h
-+++ b/include/linux/interrupt.h
-@@ -18,6 +18,7 @@
- #include <asm/atomic.h>
- #include <asm/ptrace.h>
- #include <asm/system.h>
-+#include <trace/events/irq.h>
- 
- /*
-  * These correspond to the IORESOURCE_IRQ_* defines in
-@@ -402,7 +403,12 @@ asmlinkage void do_softirq(void);
- asmlinkage void __do_softirq(void);
- extern void open_softirq(int nr, void (*action)(struct softirq_action *));
- extern void softirq_init(void);
--#define __raise_softirq_irqoff(nr) do { or_softirq_pending(1UL << (nr)); } while (0)
-+static inline void __raise_softirq_irqoff(unsigned int nr)
-+{
-+	trace_softirq_raise(nr);
-+	or_softirq_pending(1UL << nr);
-+}
-+
- extern void raise_softirq_irqoff(unsigned int nr);
- extern void raise_softirq(unsigned int nr);
- extern void wakeup_softirqd(void);
-diff --git a/include/trace/events/irq.h b/include/trace/events/irq.h
-index 0e4cfb6..7cb7435 100644
---- a/include/trace/events/irq.h
-+++ b/include/trace/events/irq.h
-@@ -5,7 +5,9 @@
- #define _TRACE_IRQ_H
- 
- #include <linux/tracepoint.h>
--#include <linux/interrupt.h>
-+
-+struct irqaction;
-+struct softirq_action;
- 
- #define softirq_name(sirq) { sirq##_SOFTIRQ, #sirq }
- #define show_softirq_name(val)				\
-@@ -82,6 +84,32 @@ TRACE_EVENT(irq_handler_exit,
- 		  __entry->irq, __entry->ret ? "handled" : "unhandled")
- );
- 
-+/**
-+ * softirq_raise - called immediately when a softirq is raised
-+ * @nr: softirq vector number
-+ *
-+ * Tracepoint for tracing when softirq action is raised.
-+ * Also, when used in combination with the softirq_entry tracepoint
-+ * we can determine the softirq raise latency.
-+ */
-+TRACE_EVENT(softirq_raise,
-+
-+	TP_PROTO(unsigned int nr),
-+
-+	TP_ARGS(nr),
-+
-+	TP_STRUCT__entry(
-+		__field(	unsigned int,	vec	)
-+	),
-+
-+	TP_fast_assign(
-+		__entry->vec	= nr;
-+	),
-+
-+	TP_printk("vec=%d [action=%s]", __entry->vec,
-+		show_softirq_name(__entry->vec))
-+);
-+
- DECLARE_EVENT_CLASS(softirq,
- 
- 	TP_PROTO(struct softirq_action *h, struct softirq_action *vec),
-@@ -89,11 +117,11 @@ DECLARE_EVENT_CLASS(softirq,
- 	TP_ARGS(h, vec),
- 
- 	TP_STRUCT__entry(
--		__field(	int,	vec			)
-+		__field(	unsigned int,	vec	)
- 	),
- 
- 	TP_fast_assign(
--		__entry->vec = (int)(h - vec);
-+		__entry->vec = (unsigned int)(h - vec);
- 	),
- 
- 	TP_printk("vec=%d [action=%s]", __entry->vec,
+FWIW I don't think we even need the external pages concept in
+order to implement zero-copy receive (which I gather is the intent
+here).
 
+Here is one way to do it, simply construct a completely non-linear
+packet in the driver, as you would if you were using the GRO frags
+interface (grep for napi_gro_frags under drivers/net for examples).
+
+This way you can transfer the entire contents of the packet without
+copying through to the other side, provided that the host stack does
+not modify the packet.
+
+If the host side did modify the packet then we have to incur the
+memory cost anyway.
+
+IOW I think the only feature provided by the external pages
+construct is allowing the skb->head area to be shared without
+copying.  I'm claiming that this can be done by simply making
+skb->head empty.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
