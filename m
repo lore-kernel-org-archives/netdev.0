@@ -1,86 +1,49 @@
-From: Flavio Leitner <fbl@sysclose.org>
-Subject: Re: [PATCH] netconsole: queue console messages to send later
-Date: Mon, 7 Jun 2010 21:37:07 -0300
-Message-ID: <20100608003707.GA30604@sysclose.org>
-References: <24059.1275417767@death.nxdomain.ibm.com>
- <1275938692-26997-1-git-send-email-fleitner@redhat.com>
- <20100607.165024.135517125.davem@davemloft.net>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH net-2.6] pkt_sched: gen_estimator: add a new lock
+Date: Tue, 8 Jun 2010 09:00:45 +0800
+Message-ID: <AANLkTik7k__McJk8VCu0WP1RYEDHUfBJA4dyGYQTUmBV@mail.gmail.com>
+References: <1275921171.2545.102.camel@edumazet-laptop> <AANLkTimgmYjA7Xp19gycRHDXmwP1w1twn92cfT08tCv2@mail.gmail.com>
+	<1275924638.2545.121.camel@edumazet-laptop> <1275926151.2545.126.camel@edumazet-laptop>
+	<1275929761.2545.159.camel@edumazet-laptop> <1275931108.2545.168.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, amwang@redhat.com, fubar@us.ibm.com,
-	mpm@selenic.com, gospo@redhat.com, nhorman@tuxdriver.com,
-	jmoyer@redhat.com, shemminger@linux-foundation.org,
-	linux-kernel@vger.kernel.org, bridge@lists.linux-foundation.org,
-	bonding-devel@lists.sourceforge.net
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100607.165024.135517125.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-px0-f174.google.com ([209.85.212.174]:44320 "EHLO
+	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751848Ab0FHBBF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jun 2010 21:01:05 -0400
+Received: by pxi8 with SMTP id 8so1356429pxi.19
+        for <netdev@vger.kernel.org>; Mon, 07 Jun 2010 18:01:05 -0700 (PDT)
+In-Reply-To: <1275931108.2545.168.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 07, 2010 at 04:50:24PM -0700, David Miller wrote:
-> From: Flavio Leitner <fleitner@redhat.com>
-> Date: Mon,  7 Jun 2010 16:24:52 -0300
-> 
-> > There are some networking drivers that hold a lock in the
-> > transmit path. Therefore, if a console message is printed
-> > after that, netconsole will push it through the transmit path,
-> > resulting in a deadlock.
-> > 
-> > This patch fixes the re-injection problem by queuing the console
-> > messages in a preallocated circular buffer and then scheduling a
-> > workqueue to send them later with another context.
-> > 
-> > Signed-off-by: Flavio Leitner <fleitner@redhat.com>
-> 
-> You absolutely and positively MUST NOT do this.  Otherwise netconsole
-> becomes completely useless.  Your idea has been proposed several times
-> as far back as 6 years ago, it was unacceptable then and it's
-> unacceptable now.
-> 
-> The whole point of netconsole is that we may be deep in an interrupt
-> or other atomic context, the machine is about to hard hang, and it's
-> absolutely essential that we get out any and all kernel logging
-> messages that we can, immediately.
+On Tue, Jun 8, 2010 at 1:18 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+>
+> [PATCH net-2.6] pkt_sched: gen_estimator: add a new lock
+>
+> gen_kill_estimator() / gen_new_estimator() is not always called with
+> RTNL held.
+>
+> net/netfilter/xt_RATEEST.c is one user of these API that do not hold
+> RTNL, so random corruptions can occur between "tc" and "iptables"
+>
+> Add a new fine grained lock instead of trying to use RTNL in xt_RATEEST
+>
 
-Got it. I've never assumed that netconsole would work reliable on 
-such situations, so I thought as we have better ways now it would
-be helpful. See another idea below.
+Why not use RTNL in xt_RATEEST? It seems xt_RATEEST misuse the APIs.
 
-> There may not be another timer or workqueue able to execute after the
-> printk() we're trying to emit.  We may never get to that point.
+and I think gen_replace_estimator is expected to be an atomic operation.
 
-What if in the netpoll, before we push the skb to the driver, we check
-for a bit saying that it's already pushing another skb. In this case,
-queue the new skb inside of netpoll and soon as the first call returns
-and try to clear the bit, it will send the next skb?
-
-printk("message 1")
-...
-netconsole called
-netpoll sets the flag bit
-pushes to the bonding driver which does another printk("message 2")
-netconsole called again
-netpoll checks for the flag, queue the message, returns.
-so, bonding can finish up to send the first message
-netpoll is about to return, checks for new queued messages, and pushes them.
-bonding finishes up to send the second message
-....
-
-No deadlocks, skbs are ordered and still under the same opportunity
-to send something. Does it sound acceptable?
-It's off the top of my head, so probably this idea has some problems.
-
-
-> Fix the locking in the drivers or layers that cause the issue instead
-> of breaking netconsole.
-
-Someday, somewhere, I know because I did this before, someone will
-use a debugging printk() and will see the entire box hanging with
-absolutely no message in any console because of this problem. 
-I'm not saying that fixing driver isn't the right way to go but
-it seems not enough to me.
+And gen_estimator_active() is also assumed to be called with RTNL locked.
 
 -- 
-Flavio
+Regards,
+Changli Gao(xiaosuo@gmail.com)
