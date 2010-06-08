@@ -1,62 +1,25 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC][PATCH] Fix another namespace issue with devices assigned
- to  classes
-Date: Tue, 08 Jun 2010 14:03:23 +0200
-Message-ID: <1275998603.3706.118.camel@jlt3.sipsolutions.net>
-References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
-	 <20100602154608.GB12361@kroah.com>
-	 <1275493693.3915.12.camel@jlt3.sipsolutions.net>
-	 <m1ljaxxvcj.fsf@fess.ebiederm.org>
-	 <1275495677.3915.16.camel@jlt3.sipsolutions.net>
-	 <m14ohlxu51.fsf@fess.ebiederm.org>
-	 <1275498007.3915.20.camel@jlt3.sipsolutions.net>
-	 <m1ocftwdp7.fsf@fess.ebiederm.org>
-	 <1275501157.3915.22.camel@jlt3.sipsolutions.net>
-	 <m1y6exux6x.fsf@fess.ebiederm.org>
-	 <1275506732.3915.41.camel@jlt3.sipsolutions.net>
-	 <m16321t4ke.fsf@fess.ebiederm.org> <m17hmhrl6v.fsf_-_@fess.ebiederm.org>
-	 <1275634452.5189.1.camel@jlt3.sipsolutions.net>
-	 <AANLkTingSwM7e8ldyT1FplF5WCHBsCBCwNkb5ZPHe6hB@mail.gmail.com>
-	 <1275640113.9953.8.camel@jlt3.sipsolutions.net>
-	 <AANLkTin6ub4k4QYSMnGLRw7lxQaz23Xmo2GQC1RrUf-X@mail.gmail.com>
-	 <1275829701.3615.54.camel@jlt3.sipsolutions.net>
-	 <AANLkTinUAR2gkY7ipgXKy-pMHcmLuouEeyXxnP97U_7N@mail.gmail.com>
-	 <1275903773.29978.1.camel@jlt3.sipsolutions.net>
-	 <AANLkTin_qjU0-xXfMDYeYWRd0BmvT4OIdK4S_GQ3ZYUi@mail.gmail.com>
-	 <1275905686.29978.3.camel@jlt3.sipsolutions.net>
-	 <AANLkTikMDvpEzrtFVue8gStudKONxuQmVx9B2w1JM1vO@mail.gmail.com>
-	 <1275910905.29978.7.camel@jlt3.sipsolutions.net>
-	 <1275913563.1823.1.camel@yio.site>
-	 <1275914205.29978.10.camel@jlt3.sipsolutions.net>
-	 <AANLkTilqB2sAyfBTLhYT_a2_TySGay4FFG6SGJUZ1o_4@mail.gmail.com>
-	 <1275989260.3706.115.camel@jlt3.sipsolutions.net>
-	 <AANLkTinMauFsJTKS3eT-pT44KQ8PSf3HJLS8CZIeHmxP@mail.gmail.com>
-	 <1275990325.3706.116.camel@jlt3.sipsolutions.net>
-	 <1275998127.1899.38.camel@yio.site>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH nf-next-2.6] xt_rateest: Better struct xt_rateest layout
+Date: Tue, 08 Jun 2010 14:12:36 +0200
+Message-ID: <4C0E33B4.1030501@trash.net>
+References: <1275941837.2775.7.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
-To: Kay Sievers <kay.sievers@vrfy.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:53522 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754945Ab0FHMDc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jun 2010 08:03:32 -0400
-In-Reply-To: <1275998127.1899.38.camel@yio.site>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1275941837.2775.7.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2010-06-08 at 13:55 +0200, Kay Sievers wrote:
-
-> Ok, this needs testing.
+On 07.06.2010 22:17, Eric Dumazet wrote:
+> We currently dirty two cache lines in struct xt_rateest, this hurts SMP
+> performance.
 > 
-> Please let me know, if that works for you so far.
+> This patch moves lock/bstats/rstats at beginning of structure so that
+> they share a single cache line.
 
-Will do. Just a question: none of this seems to pin the module? So can I
-be sure if I rmmod the module that the release function will still be
-around etc.?
-
-johannes
-
+Applied, thanks Eric.
