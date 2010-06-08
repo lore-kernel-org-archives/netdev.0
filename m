@@ -1,73 +1,73 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC][PATCH] Fix another namespace issue with devices assigned
- to  classes
-Date: Tue, 08 Jun 2010 11:45:25 +0200
-Message-ID: <1275990325.3706.116.camel@jlt3.sipsolutions.net>
-References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
-	 <20100602154608.GB12361@kroah.com>
-	 <1275493693.3915.12.camel@jlt3.sipsolutions.net>
-	 <m1ljaxxvcj.fsf@fess.ebiederm.org>
-	 <1275495677.3915.16.camel@jlt3.sipsolutions.net>
-	 <m14ohlxu51.fsf@fess.ebiederm.org>
-	 <1275498007.3915.20.camel@jlt3.sipsolutions.net>
-	 <m1ocftwdp7.fsf@fess.ebiederm.org>
-	 <1275501157.3915.22.camel@jlt3.sipsolutions.net>
-	 <m1y6exux6x.fsf@fess.ebiederm.org>
-	 <1275506732.3915.41.camel@jlt3.sipsolutions.net>
-	 <m16321t4ke.fsf@fess.ebiederm.org> <m17hmhrl6v.fsf_-_@fess.ebiederm.org>
-	 <1275634452.5189.1.camel@jlt3.sipsolutions.net>
-	 <AANLkTingSwM7e8ldyT1FplF5WCHBsCBCwNkb5ZPHe6hB@mail.gmail.com>
-	 <1275640113.9953.8.camel@jlt3.sipsolutions.net>
-	 <AANLkTin6ub4k4QYSMnGLRw7lxQaz23Xmo2GQC1RrUf-X@mail.gmail.com>
-	 <1275829701.3615.54.camel@jlt3.sipsolutions.net>
-	 <AANLkTinUAR2gkY7ipgXKy-pMHcmLuouEeyXxnP97U_7N@mail.gmail.com>
-	 <1275903773.29978.1.camel@jlt3.sipsolutions.net>
-	 <AANLkTin_qjU0-xXfMDYeYWRd0BmvT4OIdK4S_GQ3ZYUi@mail.gmail.com>
-	 <1275905686.29978.3.camel@jlt3.sipsolutions.net>
-	 <AANLkTikMDvpEzrtFVue8gStudKONxuQmVx9B2w1JM1vO@mail.gmail.com>
-	 <1275910905.29978.7.camel@jlt3.sipsolutions.net>
-	 <1275913563.1823.1.camel@yio.site>
-	 <1275914205.29978.10.camel@jlt3.sipsolutions.net>
-	 <AANLkTilqB2sAyfBTLhYT_a2_TySGay4FFG6SGJUZ1o_4@mail.gmail.com>
-	 <1275989260.3706.115.camel@jlt3.sipsolutions.net>
-	 <AANLkTinMauFsJTKS3eT-pT44KQ8PSf3HJLS8CZIeHmxP@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCHv2 1/2] net: Enable 64-bit net device statistics on
+ 32-bit architectures
+Date: Tue, 08 Jun 2010 12:35:28 +0100
+Message-ID: <1275996928.14011.83.camel@localhost>
+References: <1275689093.2095.36.camel@achroite.uk.solarflarecom.com>
+	 <20100607.211829.63035366.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
-To: Kay Sievers <kay.sievers@vrfy.org>
+Cc: shemminger@vyatta.com, arnd@arndb.de, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:51620 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752629Ab0FHJpc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jun 2010 05:45:32 -0400
-In-Reply-To: <AANLkTinMauFsJTKS3eT-pT44KQ8PSf3HJLS8CZIeHmxP@mail.gmail.com>
+Received: from mail.solarflare.com ([216.237.3.220]:16878 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751406Ab0FHLfg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jun 2010 07:35:36 -0400
+In-Reply-To: <20100607.211829.63035366.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-06-08 at 11:30 +0200, Kay Sievers wrote:
-> On Tue, Jun 8, 2010 at 11:27, Johannes Berg <johannes@sipsolutions.net> wrote:
-> > On Mon, 2010-06-07 at 14:54 +0200, Kay Sievers wrote:
-> >
-> >> > I see you remove the driver. Does this mean that in sysfs these devices
-> >> > wouldn't have a driver symlink? ISTR that we needed that for userspace,
-> >> > but I'm not entirely sure, and I don't have all the relevant userspace
-> >> > in my test setup.
-> >>
-> >> Yeah, if you need the driver, you need to use bus device, as you do
-> >> now. The driver needs to be registered with the core, and the probe
-> >> function needs to tell to bind to the devices while registered. You
-> >> can not manually assign this.
-> >
-> > So I spoke to Jouni and he says that he doesn't remember needing the
-> > driver, so I guess we don't care. Can I get you to submit that patch
-> > properly? Send it to linux-wireless@vger.kernel.org please.
+On Mon, 2010-06-07 at 21:18 -0700, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Fri, 04 Jun 2010 23:04:53 +0100
 > 
-> Sure, you mean the patch that changes the hwsim code, or the one I
-> talked about to properly create a virtual bus parent?
+> > +#if BITS_PER_LONG == 64
+> > +#define NET_DEVICE_STATS_DEFINE(name)	u64 name
+> > +#elif defined(__LITTLE_ENDIAN)
+> > +#define NET_DEVICE_STATS_DEFINE(name)	u32 name, pad_ ## name
+> > +#else
+> > +#define NET_DEVICE_STATS_DEFINE(name)	u32 pad_ ## name, name
+> > +#endif
+> > +
+>  ...
+> > +	NET_DEVICE_STATS_DEFINE(rx_packets);
+> > +	NET_DEVICE_STATS_DEFINE(tx_packets);
+> > +	NET_DEVICE_STATS_DEFINE(rx_bytes);
+>  ...
+> >  	static const char fmt[] = "%30s %12lu\n";
+> > +	static const char fmt64[] = "%30s %12llu\n";
+>  ...
+> > +	seq_printf(seq, fmt64, "total frames received", stats->rx_packets);
+> > +	seq_printf(seq, fmt64, "total bytes received", stats->rx_bytes);
+> > +	seq_printf(seq, fmt64, "Broadcast/Multicast Rcvd", stats->multicast);
+> 
+> I guess you only built this on a 64-bit platform that defines u64 as a
+> long long type.
 
-The hwsim one you pasted earlier.
+There was some disussion of formatting u64 / unsigned long long in the
+past and I thought the outcome of that was that u64 should always be
+defined as unsigned long long.  (See commits fe33332 and 9018113.)
 
-johannes
+[...]
+> And the whole tree needs to be inspected to make sure there isn't going
+> to be fallout in areas your patch didn't take care of wrt. printf format
+> strings and the like.
+> 
+> What was always "unsigned long" is now a variable type, therefore using
+> a fixed printf format string is impossible unless you always cast these
+> things when passed in as printf arguments.
+
+Yes, that's true if there are drivers out there printing members of
+net_device_stats.  I admit I haven't checked for that.  (Hmm, might be
+time to try Coccinelle.)
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
