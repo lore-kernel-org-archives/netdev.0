@@ -1,41 +1,66 @@
-From: Stephen Clark <sclark46@earthlink.net>
-Subject: asus laptop sound to soft
-Date: Tue, 08 Jun 2010 14:05:22 -0400
-Message-ID: <4C0E8662.5000604@earthlink.net>
-Reply-To: sclark46@earthlink.net
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: RE: [PATCH 11/12] sfc: Only count bad packets in rx_errors
+Date: Tue, 08 Jun 2010 19:09:31 +0100
+Message-ID: <1276020571.2185.52.camel@achroite.uk.solarflarecom.com>
+References: <1275426967.2114.25.camel@achroite.uk.solarflarecom.com>
+	 <1275427265.2114.35.camel@achroite.uk.solarflarecom.com>
+	 <2DFD360E328B3941911E6D28B085D990107C9DA893@SJEXCHCCR01.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-To: Takashi Iwai <tiwai@suse.de>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Dmitry Kravkov <dmitry@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-galgo.atl.sa.earthlink.net ([209.86.89.61]:52862 "EHLO
-	elasmtp-galgo.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751857Ab0FHSGV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jun 2010 14:06:21 -0400
+Received: from exchange.solarflare.com ([216.237.3.220]:43734 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751539Ab0FHSJd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jun 2010 14:09:33 -0400
+In-Reply-To: <2DFD360E328B3941911E6D28B085D990107C9DA893@SJEXCHCCR01.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, 2010-06-08 at 02:20 -0700, Dmitry Kravkov wrote:
+> Hi,
+> 
+> Different drivers include different errors in stats->rx_errors:
 
-When I play music on my Asus Z96F laptop using kde volume control set to max
-I can barely hear the music. Same with pulse audio volume control set to 100%.
+Your table didn't line up when display here.  It appears you used
+6-space tabs so I've expanded them to spaces on that assumption:
 
-But if I run the gnome-volume-control it lets me move the volume past 100% and I
-can then hear it without any obvious distortion.
+>   bxn2        bnx2x       ixgbx       sfc         dnet        atlx
+> ----------------------------------------------------------------------
+> rx_length   rx_length   rx_length   rx_length   rx_length   rx_length
+> rx_over     rx_over                                         rx_over
+> rx_frame    rx_frame                rx_frame    rx_frame    rx_frame
+> rx_crc      rx_crc      rx_crc      rx_crc                  rx_crc
+>             rx_fifo                                         rx_fifo
+>             rx_missed                                       rx_missed
+>                                     rx_symbol
+>                                                 unsup_opcd
+> ----------------------------------------------------------------------
+> Is there any documentation which defines what should this statistic include?
 
-How is it decided what is 100% especially if the volume can be made louder than
-100% without any distortion ?
+My references are the comments on the structure (in <linux/if_link.h>
+and <linux/netdevice.h>) and an email by Donald Becker
+<http://www.uwsg.iu.edu/hypermail/linux/net/0003.3/0154.html>.  The
+comments could probably be expanded.
 
-Inquiring minds want to know :).
+Note also that some of the statistics are combined as follows in
+/proc/net/dev, which is what ifconfig uses:
 
+Heading/subheading  Summed statistics
+-----------------------------------------------------------------------------------------------
+Receive/drop        rx_dropped, rx_missed_errors
+Receive/frame       rx_length_errors, rx_over_errors, rx_crc_errors, rx_frame_errors
+Transmit/carrier    tx_carrier_errors, tx_aborted_errors, tx_window_errors, tx_heartbeat_errors
+
+Something that doesn't make sense to me is that rx_over_errors is
+included under 'frame' rather than under 'drop'.
+
+Ben.
 
 -- 
-
-"They that give up essential liberty to obtain temporary safety,
-deserve neither liberty nor safety."  (Ben Franklin)
-
-"The course of history shows that as a government grows, liberty
-decreases."  (Thomas Jefferson)
-
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
