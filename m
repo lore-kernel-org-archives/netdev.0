@@ -1,54 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: RFS seems to have incompatiblities with bridged vlans
-Date: Wed, 09 Jun 2010 06:42:33 +0200
-Message-ID: <1276058553.2439.469.camel@edumazet-laptop>
-References: <62C40338-045A-417E-9B90-E59A320E1343@dlh.net>
-	 <20100607145910.2458ac87@nehalam>	<4C0D7312.1020300@intel.com>
-	 <1276006721.2486.141.camel@edumazet-laptop>
-	 <AANLkTiluIibUglhf28JAeSLzBC0E1Zw0STPoqFTbXcev@mail.gmail.com>
-	 <4C0ED931.6030402@canonical.com>  <4C0EE99B.8030300@intel.com>
+From: Rami Rosen <ramirose@gmail.com>
+Subject: [PATCH net-next-2.6] [PPPOE] cleanup: remove pppoe_xmit()
+	declaration.
+Date: Wed, 9 Jun 2010 08:07:56 +0300
+Message-ID: <AANLkTim_Jg51_xyfeLD3m4i88TGv8B2SRHFZ-H31w1YK@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "tim.gardner@canonical.com" <tim.gardner@canonical.com>,
-	Tom Herbert <therbert@google.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Peter Lieven <pl@dlh.net>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: John Fastabend <john.r.fastabend@intel.com>
+Content-Type: multipart/mixed; boundary=0016e6da2eb68de8b8048891e32b
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:41831 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751106Ab0FIEmj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 00:42:39 -0400
-Received: by wyf28 with SMTP id 28so614867wyf.19
-        for <netdev@vger.kernel.org>; Tue, 08 Jun 2010 21:42:38 -0700 (PDT)
-In-Reply-To: <4C0EE99B.8030300@intel.com>
+Received: from mail-ww0-f46.google.com ([74.125.82.46]:57198 "EHLO
+	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751385Ab0FIFH5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 01:07:57 -0400
+Received: by wwb28 with SMTP id 28so1068573wwb.19
+        for <netdev@vger.kernel.org>; Tue, 08 Jun 2010 22:07:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 08 juin 2010 =C3=A0 18:08 -0700, John Fastabend a =C3=A9crit :
+--0016e6da2eb68de8b8048891e32b
+Content-Type: text/plain; charset=ISO-8859-1
 
+Hi,
+There is no need for pppoe_xmit() forward declaration in
+drivers/net/pppoe.c. This patch removes this  pppoe_xmit() declaration.
 
->=20
-> The bonding driver is already multiq per Andy Gospodarek's patch comm=
-it bb1d912,=20
-> but unless the bond and bridge devices use the max num_rx_queues of t=
-here=20
-> underlying devices this could still go wrong.
->=20
-
-This patch is in net-next-2.6, it is not scheduled for 2.6.35
-
-We need some fix for 2.6.35
-
-> The bonding driver would possibly need to increase num_rx_queues and=20
-> num_tx_queues when a device is enslaved or be set to some maximum at =
-init for=20
-> this to work right.
-
-Thats a bit complex and definitly not 2.6.35 material.
+Regards,
+Rami Rosen
 
 
 
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
+
+--0016e6da2eb68de8b8048891e32b
+Content-Type: text/plain; charset=US-ASCII; name="patch.txt"
+Content-Disposition: attachment; filename="patch.txt"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_ga7p6wk70
+
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3BwcG9lLmMgYi9kcml2ZXJzL25ldC9wcHBvZS5jDQpp
+bmRleCA3ZWJiOGU4Li4zNDRlZjMzIDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvcHBwb2UuYw0K
+KysrIGIvZHJpdmVycy9uZXQvcHBwb2UuYw0KQEAgLTg5LDcgKzg5LDYgQEANCiAjZGVmaW5lIFBQ
+UE9FX0hBU0hfU0laRSAoMSA8PCBQUFBPRV9IQVNIX0JJVFMpDQogI2RlZmluZSBQUFBPRV9IQVNI
+X01BU0sJKFBQUE9FX0hBU0hfU0laRSAtIDEpDQogDQotc3RhdGljIGludCBwcHBvZV94bWl0KHN0
+cnVjdCBwcHBfY2hhbm5lbCAqY2hhbiwgc3RydWN0IHNrX2J1ZmYgKnNrYik7DQogc3RhdGljIGlu
+dCBfX3BwcG9lX3htaXQoc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKTsNCiAN
+CiBzdGF0aWMgY29uc3Qgc3RydWN0IHByb3RvX29wcyBwcHBvZV9vcHM7DQo=
+--0016e6da2eb68de8b8048891e32b--
