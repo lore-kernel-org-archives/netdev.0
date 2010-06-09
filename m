@@ -1,58 +1,45 @@
-From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Subject: RE: [RFC PATCH v7 01/19] Add a new structure for skb buffer from
- external.
-Date: Wed, 9 Jun 2010 16:29:28 +0800
-Message-ID: <F2E9EB7348B8264F86B6AB8151CE2D791100848F17@shsmsx502.ccr.corp.intel.com>
-References: <1275732899-5423-1-git-send-email-xiaohui.xin@intel.com>
- <20100606161348.427822fb@nehalam>
+From: Nick Piggin <npiggin@suse.de>
+Subject: Re: [PATCH][RFC] Infrastructure for compact call location
+ representation
+Date: Wed, 9 Jun 2010 18:44:17 +1000
+Message-ID: <20100609084417.GW26335@laptop>
+References: <20100608003052.GA29377@dvomlehn-lnx2.corp.sa.net>
+ <20100608084456.4da00349@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David VomLehn <dvomlehn@cisco.com>, to@dvomlehn-lnx2.corp.sa.net,
+	netdev@vger.kernel.org
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:50423 "EHLO mga02.intel.com"
+Received: from cantor.suse.de ([195.135.220.2]:58282 "EHLO mx1.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751370Ab0FII3r convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 04:29:47 -0400
-In-Reply-To: <20100606161348.427822fb@nehalam>
-Content-Language: en-US
+	id S1756952Ab0FIIoV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jun 2010 04:44:21 -0400
+Content-Disposition: inline
+In-Reply-To: <20100608084456.4da00349@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Stephen Hemminger [mailto:shemminger@vyatta.com]
->Sent: Monday, June 07, 2010 7:14 AM
->To: Xin, Xiaohui
->Cc: netdev@vger.kernel.org; kvm@vger.kernel.org; linux-kernel@vger.kernel.org;
->mst@redhat.com; mingo@elte.hu; davem@davemloft.net; herbert@gondor.apana.org.au;
->jdike@linux.intel.com
->Subject: Re: [RFC PATCH v7 01/19] Add a new structure for skb buffer from external.
->
->Still not sure this is a good idea for a couple of reasons:
->
->1. We already have lots of special cases with skb's (frags and fraglist),
->   and skb's travel through a lot of different parts of the kernel.  So any
->   new change like this creates lots of exposed points for new bugs. Look
->   at cases like MD5 TCP and netfilter, and forwarding these SKB's to ipsec
->   and ppp and ...
->
+On Tue, Jun 08, 2010 at 08:44:56AM -0700, Stephen Hemminger wrote:
+> On Mon, 7 Jun 2010 17:30:52 -0700
+> David VomLehn <dvomlehn@cisco.com> wrote:
+> > History
+> > v2	Support small callsite IDs and split out out-of-band parameter
+> > 	parsing.
+> > V1	Initial release
+> > 
+> > Signed-off-by: David VomLehn <dvomlehn@cisco.com>
+> 
+> This is really Linux Kernel Mailing List material (not just netdev). And it will
+> be a hard sell to get it accepted, because it is basically an alternative call
+> tracing mechanism, and there are already several of these in use or under development
+> (see perf and ftrace).
 
-Yes, I agree on your concern at some extent. But the skbs which use external pages in our cases have short travels which start from NIC driver and then forward to the guest immediately. It will not travel into host kernel stack or any filters which may avoid many problems you have mentioned here.
+What about a generic extension or layer on top of stacktrace that
+does caching and unique IDs for stack traces. This way you can get
+callsites or _full_ stack traces if required, and it shouldn't require
+any extra magic in the net functions.
 
-Another point is that we try to make the solution more generic to different NIC drivers, then many drivers may use the way without modifications.
-  
->2. SKB's can have infinite lifetime in the kernel. If these buffers come from
->   a fixed size pool in an external device, they can easily all get tied up
->   if you have a slow listener. What happens then?
+You would need a hash for stack traces to check for an existing trace,
+and an idr to assign ids to traces.
 
-The pool is not fixed size, it's the size of usable buffers submitted by guest virtio-net driver. Guest virtio-net will check how much buffers are filled and do resubmit. What a slow listener mean? A slow NIC driver?
-
-Thanks
-Xiaohui
