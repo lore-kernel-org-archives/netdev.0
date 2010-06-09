@@ -1,51 +1,49 @@
-From: David VomLehn <dvomlehn@cisco.com>
-Subject: Re: [PATCH][RFC] Infrastructure for compact call location
-	representation
-Date: Wed, 9 Jun 2010 11:13:17 -0700
-Message-ID: <20100609181317.GB19804@dvomlehn-lnx2.corp.sa.net>
-References: <20100608003052.GA29377@dvomlehn-lnx2.corp.sa.net> <874ohc65es.fsf@basil.nowhere.org>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: 2.6.35-rc2-git1 - include/linux/cgroup.h:534 invoked
+ rcu_dereference_check() without protection!
+Date: Wed, 09 Jun 2010 20:15:11 +0200
+Message-ID: <1276107311.1745.66.camel@laptop>
+References: <AANLkTin2pPqOUx--9fIX3BH3e-cU6oCRufijcx_4ozx5@mail.gmail.com>
+	 <20100608001929.GF2387@linux.vnet.ibm.com>
+	 <AANLkTikl13cJNuU32JzRarrUnoh5DYHr-Tbnv9B-UjsG@mail.gmail.com>
+	 <1275986441.5408.111.camel@twins>
+	 <AANLkTimXVlgzHivCQberLdrFP8BH_nJzt8_ozUNHG_aI@mail.gmail.com>
+	 <1276004075.2987.208.camel@twins>
+	 <AANLkTil6ucLZ0A6tWx-OQt_2EeKnx8nSx6rIg2t1L2t5@mail.gmail.com>
+	 <1276097068.1745.13.camel@laptop>
+	 <AANLkTinl2JKUX6859Ioa1y0DqHWXH5TrkissQ8BAF4cP@mail.gmail.com>
+	 <AANLkTilpM9O373rA0cw_wTYVfTiDPbjaKHScAGlt7IAr@mail.gmail.com>
+	 <1276106229.1745.65.camel@laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Andi Kleen <andi@firstfloor.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: paulmck@linux.vnet.ibm.com, Vivek Goyal <vgoyal@redhat.com>,
+	Eric Paris <eparis@redhat.com>,
+	Lai Jiangshan <laijs@cn.fujitsu.com>,
+	Ingo Molnar <mingo@elte.hu>,
+	LKML <linux-kernel@vger.kernel.org>, nauman@google.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	Jens Axboe <jens.axboe@oracle.com>,
+	Gui Jianfeng <guijianfeng@cn.fujitsu.com>,
+	Li Zefan <lizf@cn.fujitsu.com>,
+	Johannes Berg <johannes@sipsolutions.net>
+To: Miles Lane <miles.lane@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-1.cisco.com ([171.71.176.70]:25091 "EHLO
-	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758078Ab0FISNR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 14:13:17 -0400
-Content-Disposition: inline
-In-Reply-To: <874ohc65es.fsf@basil.nowhere.org>
+Received: from bombadil.infradead.org ([18.85.46.34]:41268 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754991Ab0FISPo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 14:15:44 -0400
+In-Reply-To: <1276106229.1745.65.camel@laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 09, 2010 at 02:17:47AM -0500, Andi Kleen wrote:
-> David VomLehn <dvomlehn@cisco.com> writes:
-> 
-> First your mailer generates broken cc addresses like
-> "netdev@vger.kernel.org"@cisco.com
-> 
-> > This patch allows the location of a call to be recorded as a small integer,
-> > with each call location ("callsite") assigned a new value the first time
-> > the code in that location is executed. Locations can be recorded as a
-> > an address or as a __FILE__/__LINE__ pair. The later is easier to read, but
-> > requires significantly more space.
-> 
-> Seems overly complicated.
-> 
-> How about using a hash of __FILE__, __LINE__ instead? 
-> With some care you can write it in a way that it gets completely
-> evaluated by gcc at compile time, so it's just a constant then.
-> 
-> That may use a few more bits then, but that's far better
-> than having so much runtime overhead for this.
+On Wed, 2010-06-09 at 19:57 +0200, Peter Zijlstra wrote:
+> +       /*
+> +        * We're not in the pid-hash yet so no cgroup attach races, and the
+> +        * cgroup is pinned by the parent running this.
+> +        *
+> +        * Silence PROVE_RCU.
+> +        */ 
 
-The same indexing scheme is employed whether it is configured for reporting
-an address or the __FILE__/__LINE__ pair. The __FILE__/__LINE__ data is
-stored statically at compile time, but since the __FILE__ values are strings
-and may be pretty long, it can use a significant amount of space in the
-string table. Performance wise, the key difference is that reporting an
-address means that, the first time you go through a callsite, it stores
-the return address. This doesn't need to be repeated during subsequent
-calls, so the performance difference is miniscule.
--- 
-David VL
+Hum,.. not sure that's actually true though, the parent itself is still
+susceptible to races afaict..
