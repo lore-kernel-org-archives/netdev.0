@@ -1,99 +1,30 @@
-From: Jens Axboe <jaxboe@fusionio.com>
-Subject: Re: 2.6.35-rc2-git2: Reported regressions from 2.6.34
-Date: Wed, 09 Jun 2010 09:53:22 +0200
-Message-ID: <4C0F4872.7090909@fusionio.com>
-References: <Rlf_Qjov7bG.A.a8F.I8rDMB@chimera> <alpine.LFD.2.00.1006081814240.4506@i5.linux-foundation.org>
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Subject: Re: [stable] Please apply ucc_geth patches to 2.6.32-stable
+Date: Wed, 9 Jun 2010 11:02:55 +0300
+Message-ID: <AANLkTin_EvlveCvbCZ0vH54UEP479ufQ-irFqXSOnT0R@mail.gmail.com>
+References: <20100609071623.GC20057@colossus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, Carl Worth <cworth@cworth.org>,
-	Eric Anholt <eric@anholt.net>,
-	Venkatesh Pallipadi <venki@google.com>,
-	Dave Airlie <airlied@gmail.com>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	Ingo Molnar <mingo@elte.hu>,
-	=?ISO-8859-15?Q?David_H=E4rdeman?= <david@hardeman.nu>,
-	Mauro Carvalho Chehab <mchehab@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Maciej Rutecki <maciej.rutecki@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.sourceforge.net>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.1006081814240.4506@i5.linux-foundation.org>
-Sender: linux-acpi-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-kernel@vger.kernel.org, stable@kernel.org,
+	avorontsov@ru.mvista.com,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Petri Lehtinen <petri.lehtinen@inoi.fi>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100609071623.GC20057@colossus>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2010-06-09 03:53, Linus Torvalds wrote:
->> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16129
->> Subject	: BUG: using smp_processor_id() in preemptible [00000000] code: jbd2/sda2
->> Submitter	: Jan Kreuzer <kontrollator@gmx.de>
->> Date		: 2010-06-05 06:15 (4 days old)
-> 
-> This seems to have been introduced by
-> 
-> 	commit 7cbaef9c83e58bbd4bdd534b09052b6c5ec457d5
-> 	Author: Ingo Molnar <mingo@elte.hu>
-> 	Date:   Sat Nov 8 17:05:38 2008 +0100
-> 
-> 	    sched: optimize sched_clock() a bit
->     
-> 	    sched_clock() uses cycles_2_ns() needlessly - which is an irq-disabling
-> 	    variant of __cycles_2_ns().
->     
-> 	    Most of the time sched_clock() is called with irqs disabled already.
-> 	    The few places that call it with irqs enabled need to be updated.
->     
-> 	    Signed-off-by: Ingo Molnar <mingo@elte.hu>
-> 
-> and this seems to be one of those calling cases that need to be updated.
-> 
-> Ingo? The call trace is:
-> 
-> 	BUG: using smp_processor_id() in preemptible [00000000] code: jbd2/sda2-8/337
-> 	caller is native_sched_clock+0x3c/0x68
-> 	Pid: 337, comm: jbd2/sda2-8 Not tainted 2.6.35-rc1jan+ #4
-> 	Call Trace:
-> 	[<ffffffff812362c5>] debug_smp_processor_id+0xc9/0xe4
-> 	[<ffffffff8101059d>] native_sched_clock+0x3c/0x68
-> 	[<ffffffff8101043d>] sched_clock+0x9/0xd
-> 	[<ffffffff81212d7a>] blk_rq_init+0x97/0xa3
-> 	[<ffffffff81214d71>] get_request+0x1c4/0x2d0
-> 	[<ffffffff81214ea6>] get_request_wait+0x29/0x1a6
-> 	[<ffffffff81215537>] __make_request+0x338/0x45b
-> 	[<ffffffff812147c2>] generic_make_request+0x2bb/0x330
-> 	[<ffffffff81214909>] submit_bio+0xd2/0xef
-> 	[<ffffffff811413cb>] submit_bh+0xf4/0x116
-> 	[<ffffffff81144853>] block_write_full_page_endio+0x89/0x96
-> 	[<ffffffff81144875>] block_write_full_page+0x15/0x17
-> 	[<ffffffff8119b00a>] ext4_writepage+0x356/0x36b
-> 	[<ffffffff810e1f91>] __writepage+0x1a/0x39
-> 	[<ffffffff810e32a6>] write_cache_pages+0x20d/0x346
-> 	[<ffffffff810e3406>] generic_writepages+0x27/0x29
-> 	[<ffffffff811ca279>] journal_submit_data_buffers+0x110/0x17d
-> 	[<ffffffff811ca986>] jbd2_journal_commit_transaction+0x4cb/0x156d
-> 	[<ffffffff811d0cba>] kjournald2+0x147/0x37a
-> 
-> (from the bugzilla thing)
+On Wed, Jun 9, 2010 at 10:16 AM, Petri Lehtinen <petri.lehtinen@inoi.fi> wrote:
+> The following three patches fix some serious flaws in the ucc_geth
+> network driver in 2.6.32. From oldest to newest:
+>
+> 7583605b6d29f1f7f6fc505b883328089f3485ad ucc_geth: Fix empty TX queue processing
+> 08b5e1c91ce95793c59a59529a362a1bcc81faae ucc_geth: Fix netdev watchdog triggering on link changes
+> 34692421bc7d6145ef383b014860f4fde10b7505 ucc_geth: Fix full TX queue processing
+>
+> They apply cleanly on top of 2.6.32-stable master. They were also
+> originally Cc'd to be included in 2.6.32-stable.
 
-This should be fixed by commit 28f4197e which was merged on friday.
-
->> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16122
->> Subject	: 2.6.35-rc1: WARNING at fs/fs-writeback.c:1142 __mark_inode_dirty+0x103/0x170
->> Submitter	: Larry Finger <Larry.Finger@lwfinger.net>
->> Date		: 2010-06-04 13:18 (5 days old)
-> 
-> Jens?
-
-Looking into this one.
-
--- 
-Jens Axboe
-
+You forgot to CC stable@kernel.org, netdev, and the original author of
+those patches.
