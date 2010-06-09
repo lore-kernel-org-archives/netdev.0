@@ -1,84 +1,68 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC PATCH 1/2] mac80211: make max_network_latency notifier
- atomic safe
-Date: Wed, 09 Jun 2010 12:42:08 +0200
-Message-ID: <1276080128.14580.5.camel@jlt3.sipsolutions.net>
-References: <1276074915-26879-1-git-send-email-florian@mickler.org>
-	 <1276076287.3727.15.camel@jlt3.sipsolutions.net>
-	 <20100609122050.1dd18132@schatten.dmk.lab>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: [Patch 2/2] mlx4: add dynamic LRO disable support
+Date: Wed, 9 Jun 2010 12:49:50 +0200
+Message-ID: <20100609104950.GB2599@dhcp-lab-161.englab.brq.redhat.com>
+References: <20100603034303.5305.55552.sendpatchset@localhost.localdomain> <20100603034312.5305.61000.sendpatchset@localhost.localdomain> <1275568622.2870.89.camel@localhost> <4C085D45.6040001@redhat.com> <1275661552.2095.13.camel@achroite.uk.solarflarecom.com> <4C0F5D97.5030605@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: pm list <linux-pm@lists.linux-foundation.org>,
-	james.bottomley@suse.de, markgross@thegnar.org,
-	mgross@linux.intel.com,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Javier Cardona <javier@cozybit.com>, Jouni Malinen <j@w1.fi>,
-	Rui Paulo <rpaulo@gmail.com>,
-	Kalle Valo <kalle.valo@nokia.com>,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
-To: Florian Mickler <florian@mickler.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100609122050.1dd18132@schatten.dmk.lab>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
+	herbert.xu@redhat.com, nhorman@redhat.com, davem@davemloft.net
+To: Cong Wang <amwang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:21032 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752463Ab0FIKvL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jun 2010 06:51:11 -0400
+Content-Disposition: inline
+In-Reply-To: <4C0F5D97.5030605@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-06-09 at 12:20 +0200, Florian Mickler wrote:
-> On Wed, 09 Jun 2010 11:38:07 +0200
-> Johannes Berg <johannes@sipsolutions.net> wrote:
-> 
-> > On Wed, 2010-06-09 at 11:15 +0200, florian@mickler.org wrote:
-> > > In order to have the pm_qos framework be callable from interrupt
-> > > context, all listeners have to also be callable in that context.
-> > 
-> > That makes no sense at all. Why add work structs _everywhere_ in the
-> > callees and make the API harder to use and easy to get wrong completely,
-> > instead of just adding a single work struct that will be queued from the
-> > caller and dealing with the locking complexity etc. just once.
+Hi Amerigo
 
+Sorry for being silent in this thread before.
 
-> There are only two listeners at the moment. I suspect that most future
-> uses of the framework need to be atomic, as the driver that
-> requests a specific quality of service probably doesn't want to get into
-> races with the provider of that service(listener). So i suspected the
-> network listener to be the special case.  
+On Wed, Jun 09, 2010 at 05:23:35PM +0800, Cong Wang wrote:
+>>>> Is that flag test actually unsafe - and if so, how is testing num_lro
+>>>> any better?  Perhaps access to net_device::features should be wrapped
+>>>> with ACCESS_ONCE() to ensure that reads and writes are atomic.
+>>>>
+>>>
+>>> At least, I don't find there is any race with 'num_lro', thus
+>>> no lock is needed.
+>>
+>> In both cases there is a race condition but it is harmless so long as
+>> the read and the write are atomic.  There is a general assumption in
+>> networking code that this is the case for int and long.  Personally I
+>> would prefer to see this made explicit using ACCESS_ONCE(), but I don't
+>> see any specific problem in mlx4 (not that I'm familiar with this driver
+>> either).
+>
+> I read this email again.
+>
+> I think you misunderstood the race condition here. Even read and write
+> are atomic here, the race still exists. One can just set NETIF_F_LRO
+> asynchronously right before mlx4 check this flag in mlx4_en_process_rx_cq()
+> which doesn't take rtnl_lock.
 
-Well even if it doesn't _want_ to race with it, a lot of drivers like
-USB drivers etc. can't really do anything without deferring to a
-workqueue.
+If so, it's better to stop device before modify LRO settings. I suggest
+something like that in mlx4_ethtool_op_set_flags:
 
-And what's the race anyway? You get one update, defer the work, and if
-another update happens inbetween you just read the new value when the
-work finally runs -- and you end up doing it only once instead of twice.
-That doesn't seem like a problem.
+if (!!(data & ETH_FLAG_LRO) != !!(dev->features & NETIF_F_LRO)) {
+	/* Need to toggle LRO */
 
-> The race between service-provider and qos-requester for non-atomic
-> contextes is already there, isn't it? so, locking complexity shouldn't
-> be worse than before.
+	if (netdev_running(dev)) {
+               mutex_lock(&mdev->state_lock);
+               mlx4_en_stop_port(dev);
+               rc = mlx4_en_start_port(dev);
+               if (rc)
+                       en_err(priv, "Failed to restart port\n");
+	}
 
-I have no idea how it works now? I thought you can't request an update
-from an atomic context.
+	dev->features ^= NETIF_F_LRO;
 
-However, if you request a QoS value, it is fundamentally that -- a
-request. There's no guarantee as to when or how it will be honoured.
+	if (netdev_running(dev))
+               mutex_unlock(&mdev->state_lock);
+}
 
-> But my first approach to this is seen here:
-> https://lists.linux-foundation.org/pipermail/linux-pm/2010-June/026902.html
-
-Icky too.
-
-> A third possibility would be to make it dependent on the
-> type of the constraint, if blocking notifiers are allowed or not. 
-> But that would sacrifice API consistency (update_request for one
-> constraint is allowed to be called in interrupt context and
-> update_request for another would be not).
-
-I don't see what's wrong with the fourth possibility: Allow calling
-pm_qos_update_request() from atomic context, but change _it_ to schedule
-off a work that calls the blocking notifier chain. That avoids the
-complexity in notify-API users since they have process context, and also
-in request-API users since they can call it from any context.
-
-johannes
+Stanislaw
