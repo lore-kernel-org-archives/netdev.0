@@ -1,230 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] pkt_sched: gen_kill_estimator() rcu fixes
-Date: Wed, 09 Jun 2010 14:09:23 +0200
-Message-ID: <1276085363.2442.125.camel@edumazet-laptop>
-References: <1275921171.2545.102.camel@edumazet-laptop>
-	 <AANLkTimgmYjA7Xp19gycRHDXmwP1w1twn92cfT08tCv2@mail.gmail.com>
-	 <1275924638.2545.121.camel@edumazet-laptop>
-	 <1275926151.2545.126.camel@edumazet-laptop>
-	 <1275929761.2545.159.camel@edumazet-laptop>
-	 <1276076415.2442.92.camel@edumazet-laptop>
-	 <1276077416.2442.97.camel@edumazet-laptop>
-	 <20100609104100.GB7308@ff.dom.local>
+From: Florian Mickler <florian@mickler.org>
+Subject: Re: [RFC PATCH 1/2] mac80211: make max_network_latency notifier
+ atomic safe
+Date: Wed, 9 Jun 2010 14:16:43 +0200
+Message-ID: <20100609141643.14e9aedc@schatten.dmk.lab>
+References: <1276074915-26879-1-git-send-email-florian@mickler.org>
+	<1276076287.3727.15.camel@jlt3.sipsolutions.net>
+	<20100609122050.1dd18132@schatten.dmk.lab>
+	<1276080128.14580.5.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:48640 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753764Ab0FIMJb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 08:09:31 -0400
-Received: by wyb40 with SMTP id 40so57441wyb.19
-        for <netdev@vger.kernel.org>; Wed, 09 Jun 2010 05:09:29 -0700 (PDT)
-In-Reply-To: <20100609104100.GB7308@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: pm list <linux-pm@lists.linux-foundation.org>,
+	james.bottomley@suse.de, markgross@thegnar.org,
+	mgross@linux.intel.com,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Javier Cardona <javier@cozybit.com>, Jouni Malinen <j@w1.fi>,
+	Rui Paulo <rpaulo@gmail.com>,
+	Kalle Valo <kalle.valo@nokia.com>,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1276080128.14580.5.camel@jlt3.sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 09 juin 2010 =C3=A0 10:41 +0000, Jarek Poplawski a =C3=A9cr=
-it :
+On Wed, 09 Jun 2010 12:42:08 +0200
+Johannes Berg <johannes@sipsolutions.net> wrote:
 
-> Spelling suggestion: xt_rateest_free_rcu?
->=20
-> Since it's only 3 places I'd consider adding little comments,
-> who needs this call_rcu (like in qdisc_destroy).
->=20
-> Anyway this patch looks OK to me.
->=20
+> On Wed, 2010-06-09 at 12:20 +0200, Florian Mickler wrote:
+> 
+> > A third possibility would be to make it dependent on the
+> > type of the constraint, if blocking notifiers are allowed or not. 
+> > But that would sacrifice API consistency (update_request for one
+> > constraint is allowed to be called in interrupt context and
+> > update_request for another would be not).
+> 
+> I don't see what's wrong with the fourth possibility: Allow calling
+> pm_qos_update_request() from atomic context, but change _it_ to schedule
+> off a work that calls the blocking notifier chain. That avoids the
+> complexity in notify-API users since they have process context, and also
+> in request-API users since they can call it from any context.
+> 
+> johannes
 
-Thanks for reviewing, you are right about typo and adding some comments=
-=2E
+That was also my first idea, but then I thought about qos and thought
+atomic notification are necessary.
+Do you see any value in having atomic
+notification? 
 
-What about following ?
+I have the following situation before my eyes:
 
-[PATCH v2] pkt_sched: gen_kill_estimator() rcu fixes
+	Driver A gets an interrupt and needs (to service that
+	interrupt) the cpu to guarantee a latency of X because the
+	device is a bit icky.
 
-gen_kill_estimator() API is incomplete or not well documented, since
-caller should make sure an RCU grace period is respected before
-freeing stats_lock.
+Now, in that situation, if we don't immediately (without scheduling in
+between) notify the system to be in that latency-mode the driver won't
+function properly. Is this a realistic scene?
 
-This was partially addressed in commit 5d944c640b4=20
-(gen_estimator: deadlock fix), but same problem exist for all
-gen_kill_estimator() users, if lock they use is not already RCU
-protected.
+At the moment we only have process context notification and only 2
+listeners.
 
-A code review shows xt_RATEEST.c, act_api.c, act_police.c have this
-problem. Other are ok because they use qdisc lock, already RCU
-protected.
+I think providing for atomic as well as "relaxed" notification could be
+useful. 
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- include/net/act_api.h              |    2 ++
- include/net/netfilter/xt_rateest.h |    1 +
- net/core/gen_estimator.c           |    1 +
- net/netfilter/xt_RATEEST.c         |   12 +++++++++++-
- net/sched/act_api.c                |   11 ++++++++++-
- net/sched/act_police.c             |   12 +++++++++++-
- 6 files changed, 36 insertions(+), 3 deletions(-)
+If atomic notification is deemed unnecessary, I have no
+problems to just use schedule_work() in update request.
+Anyway, it is probably best to split this. I.e. first make
+update_request callable from atomic contexts with doing the
+schedule_work in update_request and then
+as an add on provide for constraints_objects with atomic notifications.
 
-diff --git a/include/net/act_api.h b/include/net/act_api.h
-index c05fd71..bab385f 100644
---- a/include/net/act_api.h
-+++ b/include/net/act_api.h
-@@ -20,6 +20,7 @@ struct tcf_common {
- 	struct gnet_stats_queue		tcfc_qstats;
- 	struct gnet_stats_rate_est	tcfc_rate_est;
- 	spinlock_t			tcfc_lock;
-+	struct rcu_head			tcfc_rcu;
- };
- #define tcf_next	common.tcfc_next
- #define tcf_index	common.tcfc_index
-@@ -32,6 +33,7 @@ struct tcf_common {
- #define tcf_qstats	common.tcfc_qstats
- #define tcf_rate_est	common.tcfc_rate_est
- #define tcf_lock	common.tcfc_lock
-+#define tcf_rcu		common.tcfc_rcu
-=20
- struct tcf_police {
- 	struct tcf_common	common;
-diff --git a/include/net/netfilter/xt_rateest.h b/include/net/netfilter=
-/xt_rateest.h
-index ddbf37e..5e14277 100644
---- a/include/net/netfilter/xt_rateest.h
-+++ b/include/net/netfilter/xt_rateest.h
-@@ -9,6 +9,7 @@ struct xt_rateest {
- 	struct gnet_estimator		params;
- 	struct gnet_stats_rate_est	rstats;
- 	struct gnet_stats_basic_packed	bstats;
-+	struct rcu_head			rcu;
- };
-=20
- extern struct xt_rateest *xt_rateest_lookup(const char *name);
-diff --git a/net/core/gen_estimator.c b/net/core/gen_estimator.c
-index 785e527..9fbe7f7 100644
---- a/net/core/gen_estimator.c
-+++ b/net/core/gen_estimator.c
-@@ -263,6 +263,7 @@ static void __gen_kill_estimator(struct rcu_head *h=
-ead)
-  *
-  * Removes the rate estimator specified by &bstats and &rate_est.
-  *
-+ * Note : Caller should respect an RCU grace period before freeing sta=
-ts_lock
-  */
- void gen_kill_estimator(struct gnet_stats_basic_packed *bstats,
- 			struct gnet_stats_rate_est *rate_est)
-diff --git a/net/netfilter/xt_RATEEST.c b/net/netfilter/xt_RATEEST.c
-index 69c01e1..de079ab 100644
---- a/net/netfilter/xt_RATEEST.c
-+++ b/net/netfilter/xt_RATEEST.c
-@@ -60,13 +60,22 @@ struct xt_rateest *xt_rateest_lookup(const char *na=
-me)
- }
- EXPORT_SYMBOL_GPL(xt_rateest_lookup);
-=20
-+static void xt_rateest_free_rcu(struct rcu_head *head)
-+{
-+	kfree(container_of(head, struct xt_rateest, rcu));
-+}
-+
- void xt_rateest_put(struct xt_rateest *est)
- {
- 	mutex_lock(&xt_rateest_mutex);
- 	if (--est->refcnt =3D=3D 0) {
- 		hlist_del(&est->list);
- 		gen_kill_estimator(&est->bstats, &est->rstats);
--		kfree(est);
-+		/*
-+		 * gen_estimator est_timer() might access est->lock or bstats,
-+		 * wait a RCU grace period before freeing 'est'
-+		 */
-+		call_rcu(&est->rcu, xt_rateest_free_rcu);
- 	}
- 	mutex_unlock(&xt_rateest_mutex);
- }
-@@ -179,6 +188,7 @@ static int __init xt_rateest_tg_init(void)
- static void __exit xt_rateest_tg_fini(void)
- {
- 	xt_unregister_target(&xt_rateest_tg_reg);
-+	rcu_barrier(); /* Wait for completion of call_rcu()'s (xt_rateest_fre=
-e_rcu) */
- }
-=20
-=20
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 972378f..23b25f8 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -26,6 +26,11 @@
- #include <net/act_api.h>
- #include <net/netlink.h>
-=20
-+static void tcf_common_free_rcu(struct rcu_head *head)
-+{
-+	kfree(container_of(head, struct tcf_common, tcfc_rcu));
-+}
-+
- void tcf_hash_destroy(struct tcf_common *p, struct tcf_hashinfo *hinfo=
-)
- {
- 	unsigned int h =3D tcf_hash(p->tcfc_index, hinfo->hmask);
-@@ -38,7 +43,11 @@ void tcf_hash_destroy(struct tcf_common *p, struct t=
-cf_hashinfo *hinfo)
- 			write_unlock_bh(hinfo->lock);
- 			gen_kill_estimator(&p->tcfc_bstats,
- 					   &p->tcfc_rate_est);
--			kfree(p);
-+			/*
-+			 * gen_estimator est_timer() might access p->tcfc_lock
-+			 * or bstats, wait a RCU grace period before freeing p
-+			 */
-+			call_rcu(&p->tcfc_rcu, tcf_common_free_rcu);
- 			return;
- 		}
- 	}
-diff --git a/net/sched/act_police.c b/net/sched/act_police.c
-index 654f73d..537a487 100644
---- a/net/sched/act_police.c
-+++ b/net/sched/act_police.c
-@@ -97,6 +97,11 @@ nla_put_failure:
- 	goto done;
- }
-=20
-+static void tcf_police_free_rcu(struct rcu_head *head)
-+{
-+	kfree(container_of(head, struct tcf_police, tcf_rcu));
-+}
-+
- static void tcf_police_destroy(struct tcf_police *p)
- {
- 	unsigned int h =3D tcf_hash(p->tcf_index, POL_TAB_MASK);
-@@ -113,7 +118,11 @@ static void tcf_police_destroy(struct tcf_police *=
-p)
- 				qdisc_put_rtab(p->tcfp_R_tab);
- 			if (p->tcfp_P_tab)
- 				qdisc_put_rtab(p->tcfp_P_tab);
--			kfree(p);
-+			/*
-+			 * gen_estimator est_timer() might access p->tcf_lock
-+			 * or bstats, wait a RCU grace period before freeing p
-+			 */
-+			call_rcu(&p->tcf_rcu, tcf_police_free_rcu);
- 			return;
- 		}
- 	}
-@@ -397,6 +406,7 @@ static void __exit
- police_cleanup_module(void)
- {
- 	tcf_unregister_action(&act_police_ops);
-+	rcu_barrier(); /* Wait for completion of call_rcu()'s (tcf_police_fre=
-e_rcu) */
- }
-=20
- module_init(police_init_module);
-
-
+Flo
