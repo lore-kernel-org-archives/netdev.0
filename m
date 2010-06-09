@@ -1,56 +1,46 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch 2/2] mlx4: add dynamic LRO disable support
-Date: Wed, 09 Jun 2010 17:23:35 +0800
-Message-ID: <4C0F5D97.5030605@redhat.com>
-References: <20100603034303.5305.55552.sendpatchset@localhost.localdomain>	 <20100603034312.5305.61000.sendpatchset@localhost.localdomain>	 <1275568622.2870.89.camel@localhost>  <4C085D45.6040001@redhat.com> <1275661552.2095.13.camel@achroite.uk.solarflarecom.com>
+From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Subject: Re: 2.6.35-rc2-git2: Reported regressions from 2.6.34
+Date: Wed, 9 Jun 2010 11:22:35 +0200
+Message-ID: <201006091122.35304.rjw@sisk.pl>
+References: <Rlf_Qjov7bG.A.a8F.I8rDMB@chimera> <AANLkTiksbL1qHg7Q0A-6TbX0uUrxra4jctUoIGVk5vnE@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert.xu@redhat.com, nhorman@redhat.com,
-	sgruszka@redhat.com, davem@davemloft.net
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7183 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755513Ab0FIJTj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jun 2010 05:19:39 -0400
-In-Reply-To: <1275661552.2095.13.camel@achroite.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, dmonakhov-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <AANLkTiksbL1qHg7Q0A-6TbX0uUrxra4jctUoIGVk5vnE-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 06/04/10 22:25, Ben Hutchings wrote:
-> On Fri, 2010-06-04 at 09:56 +0800, Cong Wang wrote:
->> On 06/03/10 20:37, Ben Hutchings wrote:
->>> On Wed, 2010-06-02 at 23:39 -0400, Amerigo Wang wrote:
->>>> This patch adds dynamic LRO diable support for mlx4 net driver.
->>>> It also fixes a bug of mlx4, which checks NETIF_F_LRO flag in rx
->>>> path without rtnl lock.
->>> [...]
->>>
->>> Is that flag test actually unsafe - and if so, how is testing num_lro
->>> any better?  Perhaps access to net_device::features should be wrapped
->>> with ACCESS_ONCE() to ensure that reads and writes are atomic.
->>>
->>
->> At least, I don't find there is any race with 'num_lro', thus
->> no lock is needed.
->
-> In both cases there is a race condition but it is harmless so long as
-> the read and the write are atomic.  There is a general assumption in
-> networking code that this is the case for int and long.  Personally I
-> would prefer to see this made explicit using ACCESS_ONCE(), but I don't
-> see any specific problem in mlx4 (not that I'm familiar with this driver
-> either).
+On Wednesday 09 June 2010, Sedat Dilek wrote:
+> The patch from [1] is still missing.
+> 
+>    "cpufreq-call-nr_iowait_cpu-with-disabled-preemption.patch" from
+> Dmitry Monakhoc
+> 
+> Tested-by: Sedat Dilek <sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Tested-by Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> 
+> I have already reported this issue on LKML [2] and cpufreq ML [3].
+> 
+> - Sedat -
+> 
+> [1] http://www.spinics.net/lists/cpufreq/msg01631.html
+> [2] http://lkml.org/lkml/2010/5/31/77
+> [3] http://www.spinics.net/lists/cpufreq/msg01637.html
 
-I read this email again.
+Thanks, added.
 
-I think you misunderstood the race condition here. Even read and write
-are atomic here, the race still exists. One can just set NETIF_F_LRO
-asynchronously right before mlx4 check this flag in mlx4_en_process_rx_cq()
-which doesn't take rtnl_lock.
-
-Also, I don't think ACCESS_ONCE() can make things atomic here.
-
-Am I missing something?
-
-Thanks.
+Rafael
