@@ -1,64 +1,53 @@
-From: David VomLehn <dvomlehn@cisco.com>
-Subject: Re: [PATCH][RFC] Infrastructure for compact call location
-	representation
-Date: Wed, 9 Jun 2010 11:22:44 -0700
-Message-ID: <20100609182244.GC19804@dvomlehn-lnx2.corp.sa.net>
-References: <20100608003052.GA29377@dvomlehn-lnx2.corp.sa.net> <20100608084456.4da00349@nehalam> <20100609084417.GW26335@laptop>
+From: Steve Fink <sphink@gmail.com>
+Subject: ss -p is much too slow
+Date: Wed, 9 Jun 2010 11:42:38 -0700
+Message-ID: <AANLkTikd3VaSUa-pxzyi7_fND40vQ-L79X7yv19jj3y0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	to@dvomlehn-lnx2.corp.sa.net, netdev@vger.kernel.org
-To: Nick Piggin <npiggin@suse.de>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-1.cisco.com ([171.71.176.70]:16886 "EHLO
-	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751998Ab0FISWo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 14:22:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20100609084417.GW26335@laptop>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:46092 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758067Ab0FISmj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 14:42:39 -0400
+Received: by yxl31 with SMTP id 31so1164979yxl.19
+        for <netdev@vger.kernel.org>; Wed, 09 Jun 2010 11:42:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 09, 2010 at 03:44:17AM -0500, Nick Piggin wrote:
-> On Tue, Jun 08, 2010 at 08:44:56AM -0700, Stephen Hemminger wrote:
-> > On Mon, 7 Jun 2010 17:30:52 -0700
-> > David VomLehn <dvomlehn@cisco.com> wrote:
-> > > History
-> > > v2	Support small callsite IDs and split out out-of-band parameter
-> > > 	parsing.
-> > > V1	Initial release
-> > > 
-> > > Signed-off-by: David VomLehn <dvomlehn@cisco.com>
-> > 
-> > This is really Linux Kernel Mailing List material (not just netdev). And it will
-> > be a hard sell to get it accepted, because it is basically an alternative call
-> > tracing mechanism, and there are already several of these in use or under development
-> > (see perf and ftrace).
-> 
-> What about a generic extension or layer on top of stacktrace that
-> does caching and unique IDs for stack traces. This way you can get
-> callsites or _full_ stack traces if required, and it shouldn't require
-> any extra magic in the net functions.
+I was recently working with a monitoring system, and one check
+involved displaying what process(es) were listening on specific ports.
+I was using a single call to ss -lntp and processing the output, but
+it would often take several minutes to respond. netstat -lntp, on the
+other hand, was immediate. I had a few thousand processes running on
+the machine, and it could take 7 minutes or so.
 
-Since the code calls BUG() when it detects an error, you already get the
-full stack trace of the location where the problem is detected. The question
-is the relative cost and benefits of a full stack trace of the previous
-sk_buff state modification. Since I'm working in a MIPS processor
-environment, I am rather prejudiced against doing any stack trace I don't
-have to; for now, at least, they are *very* expensive on MIPS.
+On closer inspection, it appears that ss -p does a quadratic scan. It
+rescans every entry in /proc/*/fd/* repeatedly (once per listening
+port? per process? I don't remember what I figured out.)
 
-The two times this code (or its ancestor) has found problems in a deployed
-software stack, the engineers reported they there were able to immediately
-find and fix the problem. This suggests that we don't need to take on the
-complexity of the stack backtrace, at least for now. If this gets added to
-the mainline and people find they need the extra information, I'd be all
-for it.
+I humbly suggest that this is not a good idea.
 
-> You would need a hash for stack traces to check for an existing trace,
-> and an idr to assign ids to traces.
+I am currently running iproute-2.6.27-2.fc10.i386, though my real test
+case was on a different machine. I don't have a newer version to check
+right now.
 
-Once you have the trace, it should be pretty easy to do this. In theory there
-could be a huge number of unique stack traces, but I don't that this would
-be the case in practice.
--- 
-David VL
+% strace ss -lntp |& fgrep /proc/3768/fd/10
+readlink("/proc/3768/fd/10", "socket:[16214]"..., 63) = 14
+readlink("/proc/3768/fd/10", "socket:[16214]"..., 63) = 14
+readlink("/proc/3768/fd/10", "socket:[16214]"..., 63) = 14
+readlink("/proc/3768/fd/10", "socket:[16214]"..., 63) = 14
+readlink("/proc/3768/fd/10", "socket:[16214]"..., 63) = 14
+readlink("/proc/3768/fd/10", "socket:[16214]"..., 63) = 14
+readlink("/proc/3768/fd/10", "socket:[16214]"..., 63) = 14
+readlink("/proc/3768/fd/10", "socket:[16214]"..., 63) = 14
+readlink("/proc/3768/fd/10", "socket:[16214]"..., 63) = 14
+readlink("/proc/3768/fd/10", "socket:[16214]"..., 63) = 14
+readlink("/proc/3768/fd/10", "socket:[16214]"..., 63) = 14
+readlink("/proc/3768/fd/10", "socket:[16214]"..., 63) = 14
+readlink("/proc/3768/fd/10", "socket:[16214]"..., 63) = 14
+readlink("/proc/3768/fd/10", "socket:[16214]"..., 63) = 14
+readlink("/proc/3768/fd/10", "socket:[16214]"..., 63) = 14
+readlink("/proc/3768/fd/10", "socket:[16214]"..., 63) = 14
+readlink("/proc/3768/fd/10", "socket:[16214]"..., 63) = 14
+readlink("/proc/3768/fd/10", "socket:[16214]"..., 63) = 14
