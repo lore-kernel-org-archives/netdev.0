@@ -1,92 +1,120 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.35-rc2-git2: Reported regressions from 2.6.34
-Date: Wed, 9 Jun 2010 11:06:11 +0200
-Message-ID: <201006091106.11232.rjw@sisk.pl>
-References: <Rlf_Qjov7bG.A.a8F.I8rDMB@chimera>
-	<alpine.LFD.2.00.1006081814240.4506@i5.linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Venkatesh Pallipadi <venki@google.com>,
-	DRI <dri-devel@lists.sourceforge.net>,
-	Mauro Carvalho Chehab <mchehab@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux ACPI <linux-acpi@vger.kernel.org>, Jens Axboe <jaxboe@fusionio.com>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>, David,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Carl Worth <cworth@cworth.org>,
-	=?iso-8859-15?q?H=E4rdeman?= <david@hardeman.nu>,
-	Network Development <netdev@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Maciej Rutecki <maciej.rutecki@gmail.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <dri-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <alpine.LFD.2.00.1006081814240.4506@i5.linux-foundation.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/dri-devel>,
-	<mailto:dri-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=dri-devel>
-List-Post: <mailto:dri-devel@lists.sourceforge.net>
-List-Help: <mailto:dri-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/dri-devel>,
-	<mailto:dri-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.sourceforge.net
+From: florian@mickler.org
+Subject: [RFC PATCH 1/2] mac80211: make max_network_latency notifier atomic safe
+Date: Wed,  9 Jun 2010 11:15:13 +0200
+Message-ID: <1276074915-26879-1-git-send-email-florian@mickler.org>
+Cc: james.bottomley@suse.de, markgross@thegnar.org,
+	mgross@linux.intel.com, Florian Mickler <florian@mickler.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Javier Cardona <javier@cozybit.com>, Jouni Malinen <j@w1.fi>,
+	Rui Paulo <rpaulo@gmail.com>,
+	Kalle Valo <kalle.valo@nokia.com>,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: pm list <linux-pm@lists.linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 09 June 2010, Linus Torvalds wrote:
-> 
-> [ Added lots of cc's to direct specific people to look at the regressions 
->   that may or may not be theirs... ]
-> 
-> On Wed, 9 Jun 2010, Rafael J. Wysocki wrote:
-> >
-> >  * Quite a few of the already reported regressions may be related to the bug
-> >    fixed by 386f40c86d6c8d5b717ef20620af1a750d0dacb4 (Revert "tty: fix a little
-> >    bug in scrup, vt.c"), so reporters please retest with this commit applied.]
-> 
-> From a quick look, most of them look unrelated to that unfortunate bug. 
-> It's hard to tell for sure, of course (memory corruption can do pretty 
-> much anything), but I'm not seeing the 07200720.. pattern at least.
-> 
-> And some of them do seem to be bisected to likely culprits and/or have 
-> patches that are claimed to have fixed them.
-> 
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16163
-> > Subject	: [2.6.35-rc1 Regression] i915: Commit cfecde causes VGA to stay off
-> > Submitter	: David John <davidjon@xenontk.org>
-> > Date		: 2010-06-02 12:52 (7 days old)
-> > Message-ID	: <4C065423.3000202@xenontk.org>
-> > References	: http://marc.info/?l=linux-kernel&m=127548313828613&w=2
-> 
-> That has a "reverting the commit fixes it", and a confirmation from Nick 
-> Bowler.
-> 
-> Eric, Carl: should I just revert that commit? Or do you have a fix?
+In order to have the pm_qos framework be callable from interrupt
+context, all listeners have to also be callable in that context.
 
-This one is reported to have been fixed already.  Closed now.
+This patch schedules the update of the latency value via
+ieee80211_max_network_latency() for execution on
+the global workqueue (using schedule_work()).
 
-...
-> 
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16104
-> > Subject	: Radeon KMS does not start after merge of the new PM-Code
-> > Submitter	: Jan Kreuzer <kontrollator@gmx.de>
-> > Date		: 2010-06-02 07:47 (7 days old)
-> 
-> This one also has a patch in Bugzilla, I think Airlie is just waiting to 
-> calm down his queue and already removed the dependency on the temperature 
-> code. DaveA?
+As there was no synchronization/locking between the listener and the
+caller of pm_qos_update_request before, there should be no new races
+uncovered by this. Although the timing probably changes.
 
-This should be fixed by commit f8ed8b4c5d30b5214f185997131b06e35f6f7113, so
-closing now.
+Signed-off-by: Florian Mickler <florian@mickler.org>
+---
 
-Rafael
+This needs some networking expertise to check the reasoning above and
+judge the implementation.
 
-------------------------------------------------------------------------------
-ThinkGeek and WIRED's GeekDad team up for the Ultimate 
-GeekDad Father's Day Giveaway. ONE MASSIVE PRIZE to the 
-lucky parental unit.  See the prize list and enter to win: 
-http://p.sf.net/sfu/thinkgeek-promo
---
+ net/mac80211/ieee80211_i.h |    4 +++-
+ net/mac80211/main.c        |    5 +++--
+ net/mac80211/mlme.c        |   20 +++++++++++++++-----
+ 3 files changed, 21 insertions(+), 8 deletions(-)
+
+diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
+index 1a9e2da..3d2155a 100644
+--- a/net/mac80211/ieee80211_i.h
++++ b/net/mac80211/ieee80211_i.h
+@@ -851,6 +851,7 @@ struct ieee80211_local {
+ 	struct work_struct dynamic_ps_disable_work;
+ 	struct timer_list dynamic_ps_timer;
+ 	struct notifier_block network_latency_notifier;
++	struct work_struct network_latency_notifier_work;
+ 
+ 	int user_power_level; /* in dBm */
+ 	int power_constr_level; /* in dBm */
+@@ -994,8 +995,9 @@ ieee80211_rx_result ieee80211_sta_rx_mgmt(struct ieee80211_sub_if_data *sdata,
+ void ieee80211_send_pspoll(struct ieee80211_local *local,
+ 			   struct ieee80211_sub_if_data *sdata);
+ void ieee80211_recalc_ps(struct ieee80211_local *local, s32 latency);
+-int ieee80211_max_network_latency(struct notifier_block *nb,
++int ieee80211_max_network_latency_notification(struct notifier_block *nb,
+ 				  unsigned long data, void *dummy);
++void ieee80211_max_network_latency(struct work_struct *w);
+ void ieee80211_sta_process_chanswitch(struct ieee80211_sub_if_data *sdata,
+ 				      struct ieee80211_channel_sw_ie *sw_elem,
+ 				      struct ieee80211_bss *bss,
+diff --git a/net/mac80211/main.c b/net/mac80211/main.c
+index 22a384d..5cded3a 100644
+--- a/net/mac80211/main.c
++++ b/net/mac80211/main.c
+@@ -607,9 +607,10 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
+ 	rtnl_unlock();
+ 
+ 	ieee80211_led_init(local);
+-
++	INIT_WORK(&local->network_latency_notifier_work,
++			ieee80211_max_network_latency);
+ 	local->network_latency_notifier.notifier_call =
+-		ieee80211_max_network_latency;
++		ieee80211_max_network_latency_notification;
+ 	result = pm_qos_add_notifier(PM_QOS_NETWORK_LATENCY,
+ 				     &local->network_latency_notifier);
+ 
+diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
+index 0839c4e..feb6134 100644
+--- a/net/mac80211/mlme.c
++++ b/net/mac80211/mlme.c
+@@ -1953,17 +1953,27 @@ void ieee80211_mlme_notify_scan_completed(struct ieee80211_local *local)
+ 	rcu_read_unlock();
+ }
+ 
+-int ieee80211_max_network_latency(struct notifier_block *nb,
+-				  unsigned long data, void *dummy)
++void ieee80211_max_network_latency(struct work_struct *w)
+ {
+-	s32 latency_usec = (s32) data;
++	s32 latency_usec = (s32) atomic_long_read(&w->data);
+ 	struct ieee80211_local *local =
+-		container_of(nb, struct ieee80211_local,
+-			     network_latency_notifier);
++		container_of(w, struct ieee80211_local,
++			     network_latency_notifier_work);
+ 
+ 	mutex_lock(&local->iflist_mtx);
+ 	ieee80211_recalc_ps(local, latency_usec);
+ 	mutex_unlock(&local->iflist_mtx);
++}
++
++/* the notifier might be called from interrupt context */
++int ieee80211_max_network_latency_notification(struct notifier_block *nb,
++				  unsigned long data, void *dummy)
++{
++	struct ieee80211_local *local =
++		container_of(nb, struct ieee80211_local,
++				network_latency_notifier);
++	atomic_long_set(&local->network_latency_notifier_work.data, data);
++	schedule_work(&local->network_latency_notifier_work);
+ 
+ 	return 0;
+ }
+-- 
+1.7.1
