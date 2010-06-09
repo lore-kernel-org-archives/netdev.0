@@ -1,76 +1,65 @@
-From: Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>
-Subject: RE: [v2 Patch 1/2] s2io: add dynamic LRO disable support
-Date: Wed, 9 Jun 2010 11:52:53 -0700
-Message-ID: <FCA91A92EE52B041906A0358FC28FCC38EF13E71B8@FRE1EXCH02.hq.exar.com>
-References: <20100609100928.6573.14199.sendpatchset@localhost.localdomain>
- <1276092058.2093.1.camel@achroite.uk.solarflarecom.com>
+From: Luciano Coelho <luciano.coelho@nokia.com>
+Subject: Re: [PATCH v3] netfilter: Xtables: idletimer target implementation
+Date: Wed, 09 Jun 2010 21:42:19 +0300
+Message-ID: <1276108939.11199.23.camel@powerslave>
+References: <1275592445-15555-1-git-send-email-luciano.coelho@nokia.com>
+	 <4C0F9B17.10504@trash.net> <1276096275.31892.117.camel@chilepepper>
+	 <alpine.LSU.2.01.1006091716170.30265@obet.zrqbmnf.qr>
+	 <1276105707.11199.12.camel@powerslave>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sgruszka@redhat.com" <sgruszka@redhat.com>,
-	"herbert.xu@redhat.com" <herbert.xu@redhat.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	Amerigo Wang <amwang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.exar.com ([204.154.183.83]:32192 "EHLO smtp1.exar.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751470Ab0FISw4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 14:52:56 -0400
-In-Reply-To: <1276092058.2093.1.camel@achroite.uk.solarflarecom.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: ext Patrick McHardy <kaber@trash.net>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Timo Teras <timo.teras@iki.fi>
+To: ext Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1276105707.11199.12.camel@powerslave>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> On Wed, 2010-06-09 at 06:05 -0400, Amerigo Wang wrote:
-> [...]
-> > +static int s2io_ethtool_set_flags(struct net_device *dev, u32 data)
-> > +{
-> > +   struct s2io_nic *sp = netdev_priv(dev);
-> > +   int rc = 0;
-> > +   int changed = 0;
-> > +
-> > +   if (data & ETH_FLAG_LRO) {
-> > +           if (lro_enable) {
-> > +                   if (!(dev->features & NETIF_F_LRO)) {
-> > +                           dev->features |= NETIF_F_LRO;
-> > +                           changed = 1;
-> > +                   }
-> > +           } else
-> > +                   rc = -EINVAL;
-> > +   } else if (dev->features & NETIF_F_LRO) {
-> > +           dev->features &= ~NETIF_F_LRO;
-> > +           changed = 1;
-> > +   }
-> > +
-> > +   if (changed && netif_running(dev)) {
-> > +           s2io_stop_all_tx_queue(sp);
-> > +           s2io_card_down(sp);
-> > +           sp->lro = dev->features & NETIF_F_LRO;
-> > +           rc = s2io_card_up(sp);
-> > +           s2io_start_all_tx_queue(sp);
-> [...]
->
-> Is it safe to call s2io_start_all_tx_queue() if s2io_card_up() failed?
-Ben,
-Good point. If s2io_card_up() fails the chip will not be accessed, so it's safe but all transmit skbs will be freed without the user knowing the reason for failing to transmit or receive for that matter.  The other option is to return with a failure and get the watchdog timer reset the adapter.
+On Wed, 2010-06-09 at 19:48 +0200, Coelho Luciano (Nokia-D/Helsinki)
+wrote:
+> On Wed, 2010-06-09 at 17:18 +0200, ext Jan Engelhardt wrote:
+> > >> > +	timer = __idletimer_tg_find_by_label(info->label);
+> > >> > +	if (!timer) {
+> > >> > +		spin_unlock(&list_lock);
+> > >> > +		timer = idletimer_tg_create(info);
+> > >> >   
+> > >> 
+> > >> How does this prevent creating the same timer twice?
+> > >
+> > >The timer will only be created if __idletimer_tg_find_by_label() returns
+> > >NULL, which means that no timer with that label has been found.  "info"
+> > >won't be the same if info->label is different, right? Or can it change
+> > >on the fly?
+> > 
+> > One thing to be generally aware about is that things could potentially
+> > be instantiated by another entity between the time a label was looked up
+> > with negative result and the time one tries to add it.
+> > It may thus be required to extend keeping the lock until after
+> > idletimer_tg_create, in other words, lookup and create must be atomic
+> > to the rest of the world.
+> 
+> Ahh, sure! I missed the actual point of Patrick's question.  I had the
+> idletimer_tg_create() inside the lock, but when I added the
+> sysfs_create_file() there (which can sleep), I screwed up with the
+> locking.
+> 
+> I'll move the sysfs file creation to outside that function so I can keep
+> the lock until after the timer is added to the list.  Thanks for
+> clarifying!
 
-Ram
->
-> Ben.
->
-> --
-> Ben Hutchings, Senior Software Engineer, Solarflare Communications
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
+Hmmm... after struggling with this for a while, I think it's not really
+possible to simply create the sysfs file outside of the lock, because if
+the sysfs creation fails, we will again risk a race condition.
+
+I think the only way is to delay the sysfs file creation and do it in a
+workqueue.
 
 
-The information and any attached documents contained in this message
-may be confidential and/or legally privileged.  The message is
-intended solely for the addressee(s).  If you are not the intended
-recipient, you are hereby notified that any use, dissemination, or
-reproduction is strictly prohibited and may be unlawful.  If you are
-not the intended recipient, please contact the sender immediately by
-return e-mail and destroy all copies of the original message.
+-- 
+Cheers,
+Luca.
+
