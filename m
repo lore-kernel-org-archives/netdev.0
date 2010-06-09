@@ -1,68 +1,79 @@
-From: Florian Mickler <florian@mickler.org>
-Subject: Re: [RFC PATCH 1/2] mac80211: make max_network_latency notifier
- atomic safe
-Date: Wed, 9 Jun 2010 12:20:50 +0200
-Message-ID: <20100609122050.1dd18132@schatten.dmk.lab>
-References: <1276074915-26879-1-git-send-email-florian@mickler.org>
-	<1276076287.3727.15.camel@jlt3.sipsolutions.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH] pkt_sched: gen_kill_estimator() rcu fixes
+Date: Wed, 9 Jun 2010 10:41:00 +0000
+Message-ID: <20100609104100.GB7308@ff.dom.local>
+References: <1275921171.2545.102.camel@edumazet-laptop> <AANLkTimgmYjA7Xp19gycRHDXmwP1w1twn92cfT08tCv2@mail.gmail.com> <1275924638.2545.121.camel@edumazet-laptop> <1275926151.2545.126.camel@edumazet-laptop> <1275929761.2545.159.camel@edumazet-laptop> <1276076415.2442.92.camel@edumazet-laptop> <1276077416.2442.97.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: pm list <linux-pm@lists.linux-foundation.org>,
-	james.bottomley@suse.de, markgross@thegnar.org,
-	mgross@linux.intel.com,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Javier Cardona <javier@cozybit.com>, Jouni Malinen <j@w1.fi>,
-	Rui Paulo <rpaulo@gmail.com>,
-	Kalle Valo <kalle.valo@nokia.com>,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Changli Gao <xiaosuo@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ist.d-labs.de ([213.239.218.44]:42937 "EHLO mx01.d-labs.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754218Ab0FIKVJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jun 2010 06:21:09 -0400
-In-Reply-To: <1276076287.3727.15.camel@jlt3.sipsolutions.net>
+Received: from fg-out-1718.google.com ([72.14.220.155]:34848 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757518Ab0FIKlE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 06:41:04 -0400
+Received: by fg-out-1718.google.com with SMTP id l26so1727080fgb.1
+        for <netdev@vger.kernel.org>; Wed, 09 Jun 2010 03:41:02 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1276077416.2442.97.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 09 Jun 2010 11:38:07 +0200
-Johannes Berg <johannes@sipsolutions.net> wrote:
-
-> On Wed, 2010-06-09 at 11:15 +0200, florian@mickler.org wrote:
-> > In order to have the pm_qos framework be callable from interrupt
-> > context, all listeners have to also be callable in that context.
+On Wed, Jun 09, 2010 at 11:56:56AM +0200, Eric Dumazet wrote:
+...
+> Updated patch follows :
 > 
-> That makes no sense at all. Why add work structs _everywhere_ in the
-> callees and make the API harder to use and easy to get wrong completely,
-> instead of just adding a single work struct that will be queued from the
-> caller and dealing with the locking complexity etc. just once.
+> [PATCH] pkt_sched: gen_kill_estimator() rcu fixes
 > 
-> johannes
+> gen_kill_estimator() API is a bit misleading, since caller
 
-Just to defend this approach, but I'm certainly not married to it
-(hence RFC):
+I'd call it incomplete or simply buggy. Plus a tiny note below.
 
-There are only two listeners at the moment. I suspect that most future
-uses of the framework need to be atomic, as the driver that
-requests a specific quality of service probably doesn't want to get into
-races with the provider of that service(listener). So i suspected the
-network listener to be the special case.  
+> should make sure an RCU grace period is respected before
+> freeing stats_lock.
+> 
+> This was partially addressed in commit 5d944c640b4 
+> (gen_estimator: deadlock fix), but same problem exist for all
+> gen_kill_estimator() users, if lock they use is not already rcu
+> protected.
+> 
+> A code review shows xt_RATEEST.c, act_api.c, act_police.c have this
+> problem. Other are ok because they use qdisc lock.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+...
+> diff --git a/net/netfilter/xt_RATEEST.c b/net/netfilter/xt_RATEEST.c
+> index 69c01e1..096b18b 100644
+> --- a/net/netfilter/xt_RATEEST.c
+> +++ b/net/netfilter/xt_RATEEST.c
+> @@ -60,13 +60,18 @@ struct xt_rateest *xt_rateest_lookup(const char *name)
+>  }
+>  EXPORT_SYMBOL_GPL(xt_rateest_lookup);
+>  
+> +static void xt_rateeset_free_rcu(struct rcu_head *head)
+> +{
+> +	kfree(container_of(head, struct xt_rateest, rcu));
+> +}
+> +
+>  void xt_rateest_put(struct xt_rateest *est)
+>  {
+>  	mutex_lock(&xt_rateest_mutex);
+>  	if (--est->refcnt == 0) {
+>  		hlist_del(&est->list);
+>  		gen_kill_estimator(&est->bstats, &est->rstats);
+> -		kfree(est);
+> +		call_rcu(&est->rcu, xt_rateeset_free_rcu);
 
-The race between service-provider and qos-requester for non-atomic
-contextes is already there, isn't it? so, locking complexity shouldn't
-be worse than before.
+Spelling suggestion: xt_rateest_free_rcu?
 
-But my first approach to this is seen here:
-https://lists.linux-foundation.org/pipermail/linux-pm/2010-June/026902.html
+Since it's only 3 places I'd consider adding little comments,
+who needs this call_rcu (like in qdisc_destroy).
 
-A third possibility would be to make it dependent on the
-type of the constraint, if blocking notifiers are allowed or not. 
-But that would sacrifice API consistency (update_request for one
-constraint is allowed to be called in interrupt context and
-update_request for another would be not).
+Anyway this patch looks OK to me.
 
-Cheers,
-Flo
+Jarek P.
