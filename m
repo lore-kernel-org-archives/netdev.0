@@ -1,266 +1,203 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: RFS seems to have incompatiblities with bridged vlans
-Date: Tue, 8 Jun 2010 18:52:37 -0700
-Message-ID: <AANLkTilIzRt94SiNlcAbI6tFx2-V3XcnhWtlIG8pXIGG@mail.gmail.com>
-References: <62C40338-045A-417E-9B90-E59A320E1343@dlh.net>
-	<20100607145910.2458ac87@nehalam>
-	<4C0D7312.1020300@intel.com>
-	<1276006721.2486.141.camel@edumazet-laptop>
-	<AANLkTiluIibUglhf28JAeSLzBC0E1Zw0STPoqFTbXcev@mail.gmail.com>
-	<4C0ED931.6030402@canonical.com>
-	<4C0EE99B.8030300@intel.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: 2.6.35-rc2-git2: Reported regressions from 2.6.34
+Date: Tue, 8 Jun 2010 18:53:55 -0700 (PDT)
+Message-ID: <alpine.LFD.2.00.1006081814240.4506@i5.linux-foundation.org>
+References: <Rlf_Qjov7bG.A.a8F.I8rDMB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "tim.gardner@canonical.com" <tim.gardner@canonical.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Peter Lieven <pl@dlh.net>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:3513 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751133Ab0FIBwl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jun 2010 21:52:41 -0400
-Received: from wpaz29.hot.corp.google.com (wpaz29.hot.corp.google.com [172.24.198.93])
-	by smtp-out.google.com with ESMTP id o591qdWp021531
-	for <netdev@vger.kernel.org>; Tue, 8 Jun 2010 18:52:39 -0700
-Received: from pvg11 (pvg11.prod.google.com [10.241.210.139])
-	by wpaz29.hot.corp.google.com with ESMTP id o591qc03003048
-	for <netdev@vger.kernel.org>; Tue, 8 Jun 2010 18:52:38 -0700
-Received: by pvg11 with SMTP id 11so2035151pvg.36
-        for <netdev@vger.kernel.org>; Tue, 08 Jun 2010 18:52:37 -0700 (PDT)
-In-Reply-To: <4C0EE99B.8030300@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-15"
+Content-Transfer-Encoding: quoted-printable
+Cc: DRI <dri-devel@lists.sourceforge.net>,
+        Linux SCSI List <linux-scsi@vger.kernel.org>,
+        Network Development <netdev@vger.kernel.org>,
+        Linux Wireless List <linux-wireless@vger.kernel.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Linux ACPI <linux-acpi@vger.kernel.org>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Kernel Testers List <kernel-testers@vger.kernel.org>,
+        Linux PM List <linux-pm@lists.linux-foundation.org>,
+        Maciej Rutecki <maciej.rutecki@gmail.com>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>, Carl Worth <cworth@cworth.org>,
+        Eric Anholt <eric@anholt.net>, Venkatesh Pallipadi <venki@google.com>,
+        Jens Axboe <jaxboe@fusionio.com>
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+In-Reply-To: <Rlf_Qjov7bG.A.a8F.I8rDMB@chimera>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
->
-> Problem with this is it doesn't address mis-aligned num_rx_queues. =A0=
-=46or
-> example with the bonding driver defaulting to 16 queues now. We could=
- end up
-> with a base driver with 16+ queues and a bond with 16. =A0Then we hav=
-e the
-> same issue again.
->
-> =A0eth0 =A0-------> bond / bridge ---------> vlan.id
-> (nbrxq=3D64) =A0 =A0 =A0(nbrxq=3D16) =A0 =A0 =A0 =A0 =A0 =A0 =A0(nbrx=
-q=3DX)
->
 
-I don't think the intent is to solve this alignment problem here.  If
-a driver allocates multiple queues, it should set the queue mapping
-accordingly.  If this isn't the case, the meaning of queue mapping is
-ambiguous (which driver is it relative to?), and using the value for
-rps_cpus is probably not going to work well-- hacking the
-queue-mapping to be a legal value in get_rps_cpus doesn't seem like
-the right answer.
 
->>>
->>> On Tue, Jun 8, 2010 at 7:18 AM, Eric Dumazet<eric.dumazet@gmail.com=
+[ Added lots of cc's to direct specific people to look at the regressions =
+
+  that may or may not be theirs... ]
+
+On Wed, 9 Jun 2010, Rafael J. Wysocki wrote:
 >
->>> =A0wrote:
->>>>
->>>> Le lundi 07 juin 2010 =E0 15:30 -0700, John Fastabend a =E9crit :
->>>>
->>>>> There is always a possibility that the underlying device sets the
->>>>> queue_mapping to be greater then num_cpus. =A0Also I suspect the =
-same
->>>>> issue exists with bonding devices. =A0Maybe something like the fo=
-llowing
->>>>> is worth while? compile tested only,
->>>>>
->>>>> [PATCH] 8021q: vlan reassigns dev without check queue_mapping
->>>>>
->>>>> recv path reassigns skb->dev without sanity checking the
->>>>> queue_mapping field. =A0This can result in the queue_mapping
->>>>> field being set incorrectly if the new dev supports less
->>>>> queues then the underlying device.
->>>>>
->>>>> This patch just resets the queue_mapping to 0 which should
->>>>> resolve this issue? =A0Any thoughts?
->>>>>
->>>>> The same issue could happen on bonding devices as well.
->>>>>
->>>>> Signed-off-by: John Fastabend<john.r.fastabend@intel.com>
->>>>> ---
->>>>>
->>>>> =A0 net/8021q/vlan_core.c | =A0 =A06 ++++++
->>>>> =A0 1 files changed, 6 insertions(+), 0 deletions(-)
->>>>>
->>>>> diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
->>>>> index bd537fc..ad309f8 100644
->>>>> --- a/net/8021q/vlan_core.c
->>>>> +++ b/net/8021q/vlan_core.c
->>>>> @@ -21,6 +21,9 @@ int __vlan_hwaccel_rx(struct sk_buff *skb, stru=
-ct
->>>>> vlan_group *grp,
->>>>> =A0 =A0 =A0 if (!skb->dev)
->>>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto drop;
->>>>>
->>>>> + =A0 =A0 if (unlikely(skb->queue_mapping>=3D skb->dev->real_num_=
-tx_queues))
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 skb_set_queue_mapping(skb, 0);
->>>>> +
->>>>> =A0 =A0 =A0 return (polling ? netif_receive_skb(skb) : netif_rx(s=
-kb));
->>>>>
->>>>> =A0 drop:
->>>>> @@ -93,6 +96,9 @@ vlan_gro_common(struct napi_struct *napi, struc=
-t
->>>>> vlan_group *grp,
->>>>> =A0 =A0 =A0 if (!skb->dev)
->>>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto drop;
->>>>>
->>>>> + =A0 =A0 if (unlikely(skb->queue_mapping>=3D skb->dev->real_num_=
-tx_queues))
->>>>> + =A0 =A0 =A0 =A0 =A0 =A0 skb_set_queue_mapping(skb, 0);
->>>>> +
->>>>> =A0 =A0 =A0 for (p =3D napi->gro_list; p; p =3D p->next) {
->>>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 NAPI_GRO_CB(p)->same_flow =3D
->>>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 p->dev =3D=3D skb->de=
-v&& =A0!compare_ether_header(
->>>>> --
->>>>
->>>> Only a workaround, added in hot path in a otherwise 'good' driver
->>>> (multiqueue enabled and ready)
+>  * Quite a few of the already reported regressions may be related to the =
+bug
+>    fixed by 386f40c86d6c8d5b717ef20620af1a750d0dacb4 (Revert "tty: fix a =
+little
+>    bug in scrup, vt.c"), so reporters please retest with this commit appl=
+ied.]
+
+>From a quick look, most of them look unrelated to that unfortunate bug. =
+
+It's hard to tell for sure, of course (memory corruption can do pretty =
+
+much anything), but I'm not seeing the 07200720.. pattern at least.
+
+And some of them do seem to be bisected to likely culprits and/or have =
+
+patches that are claimed to have fixed them.
+
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16163
+> Subject	: [2.6.35-rc1 Regression] i915: Commit cfecde causes VGA to stay =
+off
+> Submitter	: David John <davidjon@xenontk.org>
+> Date		: 2010-06-02 12:52 (7 days old)
+> Message-ID	: <4C065423.3000202@xenontk.org>
+> References	: http://marc.info/?l=3Dlinux-kernel&m=3D127548313828613&w=3D2
+
+That has a "reverting the commit fixes it", and a confirmation from Nick =
+
+Bowler.
+
+Eric, Carl: should I just revert that commit? Or do you have a fix?
+
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16145
+> Subject	: Unable to boot after "ACPI: Don't let acpi_pad needlessly mark =
+TSC unstable"
+> Submitter	: Tom Gundersen <teg@jklm.no>
+> Date		: 2010-06-07 13:11 (2 days old)
+> Handled-By	: Venkatesh Pallipadi <venki@google.com>
+
+Hmm. This does seem to be a properly bisected commit, but at the same time =
+
+it looks from the bugzilla like it's just pure luck on that machine that =
+
+the acpi_pad driver happened to mark TSC unstable - so while the commit =
+
+bisected is the real one, it's not the "deeper reason" for the problem.
+
+Venki, any updates?
+
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16129
+> Subject	: BUG: using smp_processor_id() in preemptible [00000000] code: j=
+bd2/sda2
+> Submitter	: Jan Kreuzer <kontrollator@gmx.de>
+> Date		: 2010-06-05 06:15 (4 days old)
+
+This seems to have been introduced by
+
+	commit 7cbaef9c83e58bbd4bdd534b09052b6c5ec457d5
+	Author: Ingo Molnar <mingo@elte.hu>
+	Date:   Sat Nov 8 17:05:38 2008 +0100
+
+	    sched: optimize sched_clock() a bit
+    =
+
+	    sched_clock() uses cycles_2_ns() needlessly - which is an irq-disabling
+	    variant of __cycles_2_ns().
+    =
+
+	    Most of the time sched_clock() is called with irqs disabled already.
+	    The few places that call it with irqs enabled need to be updated.
+    =
+
+	    Signed-off-by: Ingo Molnar <mingo@elte.hu>
+
+and this seems to be one of those calling cases that need to be updated.
+
+Ingo? The call trace is:
+
+	BUG: using smp_processor_id() in preemptible [00000000] code: jbd2/sda2-8/=
+337
+	caller is native_sched_clock+0x3c/0x68
+	Pid: 337, comm: jbd2/sda2-8 Not tainted 2.6.35-rc1jan+ #4
+	Call Trace:
+	[<ffffffff812362c5>] debug_smp_processor_id+0xc9/0xe4
+	[<ffffffff8101059d>] native_sched_clock+0x3c/0x68
+	[<ffffffff8101043d>] sched_clock+0x9/0xd
+	[<ffffffff81212d7a>] blk_rq_init+0x97/0xa3
+	[<ffffffff81214d71>] get_request+0x1c4/0x2d0
+	[<ffffffff81214ea6>] get_request_wait+0x29/0x1a6
+	[<ffffffff81215537>] __make_request+0x338/0x45b
+	[<ffffffff812147c2>] generic_make_request+0x2bb/0x330
+	[<ffffffff81214909>] submit_bio+0xd2/0xef
+	[<ffffffff811413cb>] submit_bh+0xf4/0x116
+	[<ffffffff81144853>] block_write_full_page_endio+0x89/0x96
+	[<ffffffff81144875>] block_write_full_page+0x15/0x17
+	[<ffffffff8119b00a>] ext4_writepage+0x356/0x36b
+	[<ffffffff810e1f91>] __writepage+0x1a/0x39
+	[<ffffffff810e32a6>] write_cache_pages+0x20d/0x346
+	[<ffffffff810e3406>] generic_writepages+0x27/0x29
+	[<ffffffff811ca279>] journal_submit_data_buffers+0x110/0x17d
+	[<ffffffff811ca986>] jbd2_journal_commit_transaction+0x4cb/0x156d
+	[<ffffffff811d0cba>] kjournald2+0x147/0x37a
+
+(from the bugzilla thing)
+
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16122
+> Subject	: 2.6.35-rc1: WARNING at fs/fs-writeback.c:1142 __mark_inode_dirt=
+y+0x103/0x170
+> Submitter	: Larry Finger <Larry.Finger@lwfinger.net>
+> Date		: 2010-06-04 13:18 (5 days old)
+
+Jens?
+
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16120
+> Subject	: Oops: 0000 [#1] SMP, unable to handle kernel NULL pointer deref=
+erence at (null)
+> Submitter	: Alex Zhavnerchik <alex.vizor@gmail.com>
+> Date		: 2010-06-04 09:25 (5 days old)
+> Handled-By	: Eric Dumazet <eric.dumazet@gmail.com>
+
+This one seems to have a patch in bugzilla.
+
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16104
+> Subject	: Radeon KMS does not start after merge of the new PM-Code
+> Submitter	: Jan Kreuzer <kontrollator@gmx.de>
+> Date		: 2010-06-02 07:47 (7 days old)
+
+This one also has a patch in Bugzilla, I think Airlie is just waiting to =
+
+calm down his queue and already removed the dependency on the temperature =
+
+code. DaveA?
+
+> Bug-Entry     : http://bugzilla.kernel.org/show_bug.cgi?id=3D16161
+> Subject       : [2.6.35-rc1 regression] sysfs: cannot create duplicate fi=
+lename ... XVR-600 related?
+> Submitter     : Mikael Pettersson <mikpe@it.uu.se>
+> Date          : 2010-06-01 19:57 (8 days old)
+> Message-ID    : <19461.26166.427857.612983@pilspetsen.it.uu.se>
+> References    : http://marc.info/?l=3Dlinux-kernel&m=3D127542227511925&w=
+=3D2
 >
-> Agreed thanks!
->
->>>>
->>>> eth0 =A0-------> =A0bond / bridge ---------> =A0vlan.id
->>>> (nbtxq=3D8) =A0 =A0 =A0(ntxbq=3D1) =A0 =A0 =A0 =A0(nbtxq=3DX)
->>>>
->>>> X is capped to 1 because of bond/bridge, while bond has no "queue"
->>>> (LLTX driver)
->>>>
->>>> Solutions :
->>>>
->>>> 1) queue_mapping could be silently tested in get_rps_cpu()...
->>>>
->>>> diff --git a/net/core/dev.c b/net/core/dev.c
->>>> index 6f330ce..3a3f7f6 100644
->>>> --- a/net/core/dev.c
->>>> +++ b/net/core/dev.c
->>>> @@ -2272,14 +2272,11 @@ static int get_rps_cpu(struct net_device *=
-dev,
->>>> struct sk_buff *skb,
->>>>
->>>> =A0 =A0 =A0 =A0if (skb_rx_queue_recorded(skb)) {
->>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0u16 index =3D skb_get_rx_queue(skb)=
-;
->>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (unlikely(index>=3D dev->num_rx_q=
-ueues)) {
->>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (net_ratelimit())=
- {
->>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 pr_w=
-arning("%s received packet on queue
->>>> "
->>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 "%u, but number of RX queues is
->>>> %u\n",
->>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 dev->name, index,
->>>> dev->num_rx_queues);
->>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
->>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto done;
->>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (WARN_ONCE(index>=3D dev->num_rx_=
-queues,
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 KERN=
-_WARNING "%s received packet on
->>>> queue %u, "
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 "but=
- number of RX queues is %u\n",
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dev-=
->name, index, dev->num_rx_queues))
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 index %=3D dev->num_=
-rx_queues;
->>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rxqueue =3D dev->_rx + index;
->>>> =A0 =A0 =A0 =A0} else
->>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rxqueue =3D dev->_rx;
->>>>
->>>>
->
-> Looks good to me.
->
->>>>
->>>> 2) bond/bridge should setup more queues, just in case.
->>>> =A0 We probably need to be able to make things more dynamic,
->>>> =A0 (propagate nbtxq between layers) but not for 2.6.35
->>>>
->>>>
->
-> The bonding driver is already multiq per Andy Gospodarek's patch comm=
-it
-> bb1d912, but unless the bond and bridge devices use the max num_rx_qu=
-eues of
-> there underlying devices this could still go wrong.
->
-> The bonding driver would possibly need to increase num_rx_queues and
-> num_tx_queues when a device is enslaved or be set to some maximum at =
-init
-> for this to work right.
->
->>>>
->>>> diff --git a/drivers/net/bonding/bond_main.c
->>>> b/drivers/net/bonding/bond_main.c
->>>> index 5e12462..ce813dd 100644
->>>> --- a/drivers/net/bonding/bond_main.c
->>>> +++ b/drivers/net/bonding/bond_main.c
->>>> @@ -5012,8 +5012,8 @@ int bond_create(struct net *net, const char =
-*name)
->>>>
->>>> =A0 =A0 =A0 =A0rtnl_lock();
->>>>
->>>> - =A0 =A0 =A0 bond_dev =3D alloc_netdev(sizeof(struct bonding), na=
-me ? name :
->>>> "",
->>>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 bond=
-_setup);
->>>> + =A0 =A0 =A0 bond_dev =3D alloc_netdev_mq(sizeof(struct bonding),=
- name ? name :
->>>> "",
->>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0bond_setup, max(64, nr_cpu_ids));
->>>> =A0 =A0 =A0 =A0if (!bond_dev) {
->>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0pr_err("%s: eek! can't alloc netdev=
-!\n", name);
->>>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rtnl_unlock();
->>>>
->>>>
->>>> --
->>>> To unsubscribe from this list: send the line "unsubscribe netdev" =
-in
->>>> the body of a message to majordomo@vger.kernel.org
->>>> More majordomo info at =A0http://vger.kernel.org/majordomo-info.ht=
-ml
->>>>
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe netdev" i=
-n
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at =A0http://vger.kernel.org/majordomo-info.htm=
-l
->>
->> Huh, so you guys are looking at the same issue (only my issue is RPS=
-). See
->> http://marc.info/?l=3Dlinux-netdev&m=3D127603240621028&w=3D2. I'm in=
- favor of
->> dropping the warning when no queues have been allocated.
->>
->> How about this (see attached).
->
-> Prefer Eric's patch see first comment.
->
-> Thanks,
-> John
->
->>
->> rtg
->>
->>
->
->
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16090
+> Subject	: sysfs: cannot create duplicate filename
+> Submitter	: Tobias <devnull@plzk.org>
+> Date		: 2010-06-01 15:59 (8 days old)
+> Handled-By	: Jesse Barnes <jbarnes@virtuousgeek.org>
+
+These two look related. Both are related to that "slot" thing in sysfs =
+
+PCI, but only one of them is marked as Jesse's. Jesse?
+
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16037
+> Subject	: NULL Pointer dereference in __ir_input_register/budget_ci_attach
+> Submitter	: Sean Finney <seanius@debian.org>
+> Date		: 2010-05-23 19:52 (17 days old)
+
+Perhaps related to commit 13c24497086418010bf4f76378bcae241d7f59cd?
+
+David H=E4rdeman, Mauro Carvalho Chehab added to cc.
+
+				Linus
