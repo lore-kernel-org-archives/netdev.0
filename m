@@ -1,39 +1,59 @@
-From: Bob Copeland <me@bobcopeland.com>
-Subject: Re: [ath5k-devel] [PATCH] [ath5k][leds] Ability to disable leds
-	support. If leds support enabled do not force mac802.11 leds layer selection.
-Date: Wed, 9 Jun 2010 09:58:37 -0400
-Message-ID: <AANLkTilrYYHjcMEhhrP7zjcLoo-TNczozxJSNRkDvSZy@mail.gmail.com>
-References: <4c0f4326.0a41df0a.7bde.ffffeef2@mx.google.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [v2 Patch 1/2] s2io: add dynamic LRO disable support
+Date: Wed, 09 Jun 2010 15:00:58 +0100
+Message-ID: <1276092058.2093.1.camel@achroite.uk.solarflarecom.com>
+References: <20100609100928.6573.14199.sendpatchset@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: ath5k-devel@lists.ath5k.org, Kalle Valo <kalle.valo@iki.fi>,
-	linux-wireless@vger.kernel.org,
-	GeunSik Lim <geunsik.lim@samsung.com>,
-	Jiri Slaby <jirislaby@gmail.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Keng-Yu Lin <keng-yu.lin@canonical.com>,
-	netdev@vger.kernel.org, Jiri Kosina <jkosina@suse.cz>,
-	Shahar Or <shahar@shahar-or.co.il>,
-	linux-kernel@vger.kernel.org, Luca Verdesca <magooz@salug.it>
-To: Dmytro Milinevskyy <milinevskyy@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4c0f4326.0a41df0a.7bde.ffffeef2@mx.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sgruszka@redhat.com,
+	herbert.xu@redhat.com, Ramkrishna.Vepa@exar.com,
+	davem@davemloft.net
+To: Amerigo Wang <amwang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:46969 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753128Ab0FIOBD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 10:01:03 -0400
+In-Reply-To: <20100609100928.6573.14199.sendpatchset@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 9, 2010 at 3:31 AM, Dmytro Milinevskyy
-<milinevskyy@gmail.com> wrote:
-> However if the leds support was enabled do not force selection of 802.11 leds layer.
+On Wed, 2010-06-09 at 06:05 -0400, Amerigo Wang wrote:
+[...]
+> +static int s2io_ethtool_set_flags(struct net_device *dev, u32 data)
+> +{
+> +	struct s2io_nic *sp = netdev_priv(dev);
+> +	int rc = 0;
+> +	int changed = 0;
+> +
+> +	if (data & ETH_FLAG_LRO) {
+> +		if (lro_enable) {
+> +			if (!(dev->features & NETIF_F_LRO)) {
+> +				dev->features |= NETIF_F_LRO;
+> +				changed = 1;
+> +			}
+> +		} else
+> +			rc = -EINVAL;
+> +	} else if (dev->features & NETIF_F_LRO) {
+> +		dev->features &= ~NETIF_F_LRO;
+> +		changed = 1;
+> +	}
+> +
+> +	if (changed && netif_running(dev)) {
+> +		s2io_stop_all_tx_queue(sp);
+> +		s2io_card_down(sp);
+> +		sp->lro = dev->features & NETIF_F_LRO;
+> +		rc = s2io_card_up(sp);
+> +		s2io_start_all_tx_queue(sp);
+[...]
 
-I don't understand this part.  What's the point of enabling software LEDs
-if nothing triggers them?
+Is it safe to call s2io_start_all_tx_queue() if s2io_card_up() failed?
 
-Also, we can probably build hardware LEDs (hw_set_ledstate) in regardless.
-It's a pure register write and doesn't require the rest of the LED machinery.
-
-I assume you are doing this to reduce the size of the module.  If so, can
-you include size(1) output in the commit message?
+Ben.
 
 -- 
-Bob Copeland %% www.bobcopeland.com
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
