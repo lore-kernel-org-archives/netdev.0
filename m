@@ -1,74 +1,60 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: Re: [v2 Patch 2/2] mlx4: add dynamic LRO disable support
-Date: Wed, 9 Jun 2010 13:05:57 +0200
-Message-ID: <20100609110556.GC2599@dhcp-lab-161.englab.brq.redhat.com>
-References: <20100609100928.6573.14199.sendpatchset@localhost.localdomain> <20100609100938.6573.73536.sendpatchset@localhost.localdomain>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-2.6 v2] pkt_sched: gen_estimator: add a new lock
+Date: Wed, 9 Jun 2010 11:33:29 +0000
+Message-ID: <20100609113329.GC7308@ff.dom.local>
+References: <1275921171.2545.102.camel@edumazet-laptop> <AANLkTimgmYjA7Xp19gycRHDXmwP1w1twn92cfT08tCv2@mail.gmail.com> <1275924638.2545.121.camel@edumazet-laptop> <1275926151.2545.126.camel@edumazet-laptop> <1275929761.2545.159.camel@edumazet-laptop> <1275931108.2545.168.camel@edumazet-laptop> <1276076350.2442.90.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, herbert.xu@redhat.com,
-	bhutchings@solarflare.com, Ramkrishna.Vepa@exar.com,
-	davem@davemloft.net
-To: Amerigo Wang <amwang@redhat.com>,
-	David Miller <davem@davemloft.net>
+Cc: Changli Gao <xiaosuo@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56594 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752966Ab0FILHU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jun 2010 07:07:20 -0400
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:33349 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757296Ab0FILdd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 07:33:33 -0400
+Received: by fxm8 with SMTP id 8so3504104fxm.19
+        for <netdev@vger.kernel.org>; Wed, 09 Jun 2010 04:33:31 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20100609100938.6573.73536.sendpatchset@localhost.localdomain>
+In-Reply-To: <1276076350.2442.90.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 09, 2010 at 06:05:34AM -0400, Amerigo Wang wrote:
-> diff --git a/drivers/net/mlx4/en_ethtool.c b/drivers/net/mlx4/en_ethtool.c
-> index d5afd03..2c77805 100644
-> --- a/drivers/net/mlx4/en_ethtool.c
-> +++ b/drivers/net/mlx4/en_ethtool.c
-> @@ -387,6 +387,37 @@ static void mlx4_en_get_ringparam(struct net_device *dev,
->  	param->tx_pending = mdev->profile.prof[priv->port].tx_ring_size;
->  }
->  
-> +static int mlx4_ethtool_op_set_flags(struct net_device *dev, u32 data)
-> +{
-> +	struct mlx4_en_priv *priv = netdev_priv(dev);
-> +	struct mlx4_en_dev *mdev = priv->mdev;
-> +	int rc = 0;
-> +	int changed = 0;
+On Wed, Jun 09, 2010 at 11:39:10AM +0200, Eric Dumazet wrote:
+...
+> Here is v2 of patch, adding protection in gen_estimator_active() as
+> well.
+> 
+> [PATCH net-2.6 v2] pkt_sched: gen_estimator: add a new lock
+> 
+> gen_kill_estimator() / gen_new_estimator() is not always called with
+> RTNL held.
+> 
+> net/netfilter/xt_RATEEST.c is one user of these API that do not hold
+> RTNL, so random corruptions can occur between "tc" and "iptables".
+> 
+> Add a new fine grained lock instead of trying to use RTNL in netfilter.
+
+Btw, maybe it's a different case, but RTNL happens in netfilter already
+(nf_conntrack_helper.c, nf_conntrack_proto.c).
+
+It would be nice to mention Changli's argument that
+gen_replace_estimator isn't atomic operation after this change.
+
+> @@ -312,8 +315,14 @@ EXPORT_SYMBOL(gen_replace_estimator);
+>  bool gen_estimator_active(const struct gnet_stats_basic_packed *bstats,
+>  			  const struct gnet_stats_rate_est *rate_est)
+>  {
+> +	bool res;
 > +
-> +	if (data & ETH_FLAG_LRO) {
-> +		if (!(dev->features & NETIF_F_LRO)) {
-> +			dev->features |= NETIF_F_LRO;
-> +			changed = 1;
-> +			mdev->profile.num_lro = min_t(int, num_lro , MLX4_EN_MAX_LRO_DESCRIPTORS);
+>  	ASSERT_RTNL();
 
-I do not understand why you override mdev->profile.num_lro in v2 patch.
-If in Rx patch NETIF_F_LRO flag is used we do not need this IMHO.
+This line should go away as well.
 
-> +		}
-> +	} else if (dev->features & NETIF_F_LRO) {
-> +		dev->features &= ~NETIF_F_LRO;
-> +		changed = 1;
-> +		mdev->profile.num_lro = 0;
-> +	}
-[snip]
->  const struct ethtool_ops mlx4_en_ethtool_ops = {
->  	.get_drvinfo = mlx4_en_get_drvinfo,
->  	.get_settings = mlx4_en_get_settings,
-> @@ -415,7 +446,7 @@ const struct ethtool_ops mlx4_en_ethtool_ops = {
->  	.get_ringparam = mlx4_en_get_ringparam,
->  	.set_ringparam = mlx4_en_set_ringparam,
->  	.get_flags = ethtool_op_get_flags,
-> -	.set_flags = ethtool_op_set_flags,
-> +	.set_flags = mlx4_ethtool_op_set_flags,
->  };
+I'm OK with this patch unless there is an alternative xt_RATEEST RTNL
+fix available.
 
-Since we modify .set_flags, please assure we return -EOPNOTSUPP
-if someone will try to setup ETH_FLAG_NTUPLE and ETH_FLAG_RXHASH.
-
-BTW: seems default ethtool_op_set_flags introduce a bug on many
-devices regarding ETH_FLAG_RXHASH. I think default should
-be EOPNOTSUPP, and these few devices that actually support RXHASH
-should have custom ethtool_ops->set_flags
-
-Stanislaw
+Jarek P.
