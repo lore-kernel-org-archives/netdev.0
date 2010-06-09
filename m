@@ -1,79 +1,84 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] pkt_sched: gen_kill_estimator() rcu fixes
-Date: Wed, 9 Jun 2010 10:41:00 +0000
-Message-ID: <20100609104100.GB7308@ff.dom.local>
-References: <1275921171.2545.102.camel@edumazet-laptop> <AANLkTimgmYjA7Xp19gycRHDXmwP1w1twn92cfT08tCv2@mail.gmail.com> <1275924638.2545.121.camel@edumazet-laptop> <1275926151.2545.126.camel@edumazet-laptop> <1275929761.2545.159.camel@edumazet-laptop> <1276076415.2442.92.camel@edumazet-laptop> <1276077416.2442.97.camel@edumazet-laptop>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC PATCH 1/2] mac80211: make max_network_latency notifier
+ atomic safe
+Date: Wed, 09 Jun 2010 12:42:08 +0200
+Message-ID: <1276080128.14580.5.camel@jlt3.sipsolutions.net>
+References: <1276074915-26879-1-git-send-email-florian@mickler.org>
+	 <1276076287.3727.15.camel@jlt3.sipsolutions.net>
+	 <20100609122050.1dd18132@schatten.dmk.lab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:34848 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757518Ab0FIKlE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 06:41:04 -0400
-Received: by fg-out-1718.google.com with SMTP id l26so1727080fgb.1
-        for <netdev@vger.kernel.org>; Wed, 09 Jun 2010 03:41:02 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1276077416.2442.97.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: pm list <linux-pm@lists.linux-foundation.org>,
+	james.bottomley@suse.de, markgross@thegnar.org,
+	mgross@linux.intel.com,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Javier Cardona <javier@cozybit.com>, Jouni Malinen <j@w1.fi>,
+	Rui Paulo <rpaulo@gmail.com>,
+	Kalle Valo <kalle.valo@nokia.com>,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
+To: Florian Mickler <florian@mickler.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100609122050.1dd18132@schatten.dmk.lab>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 09, 2010 at 11:56:56AM +0200, Eric Dumazet wrote:
-...
-> Updated patch follows :
+On Wed, 2010-06-09 at 12:20 +0200, Florian Mickler wrote:
+> On Wed, 09 Jun 2010 11:38:07 +0200
+> Johannes Berg <johannes@sipsolutions.net> wrote:
 > 
-> [PATCH] pkt_sched: gen_kill_estimator() rcu fixes
-> 
-> gen_kill_estimator() API is a bit misleading, since caller
+> > On Wed, 2010-06-09 at 11:15 +0200, florian@mickler.org wrote:
+> > > In order to have the pm_qos framework be callable from interrupt
+> > > context, all listeners have to also be callable in that context.
+> > 
+> > That makes no sense at all. Why add work structs _everywhere_ in the
+> > callees and make the API harder to use and easy to get wrong completely,
+> > instead of just adding a single work struct that will be queued from the
+> > caller and dealing with the locking complexity etc. just once.
 
-I'd call it incomplete or simply buggy. Plus a tiny note below.
 
-> should make sure an RCU grace period is respected before
-> freeing stats_lock.
-> 
-> This was partially addressed in commit 5d944c640b4 
-> (gen_estimator: deadlock fix), but same problem exist for all
-> gen_kill_estimator() users, if lock they use is not already rcu
-> protected.
-> 
-> A code review shows xt_RATEEST.c, act_api.c, act_police.c have this
-> problem. Other are ok because they use qdisc lock.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
-...
-> diff --git a/net/netfilter/xt_RATEEST.c b/net/netfilter/xt_RATEEST.c
-> index 69c01e1..096b18b 100644
-> --- a/net/netfilter/xt_RATEEST.c
-> +++ b/net/netfilter/xt_RATEEST.c
-> @@ -60,13 +60,18 @@ struct xt_rateest *xt_rateest_lookup(const char *name)
->  }
->  EXPORT_SYMBOL_GPL(xt_rateest_lookup);
->  
-> +static void xt_rateeset_free_rcu(struct rcu_head *head)
-> +{
-> +	kfree(container_of(head, struct xt_rateest, rcu));
-> +}
-> +
->  void xt_rateest_put(struct xt_rateest *est)
->  {
->  	mutex_lock(&xt_rateest_mutex);
->  	if (--est->refcnt == 0) {
->  		hlist_del(&est->list);
->  		gen_kill_estimator(&est->bstats, &est->rstats);
-> -		kfree(est);
-> +		call_rcu(&est->rcu, xt_rateeset_free_rcu);
+> There are only two listeners at the moment. I suspect that most future
+> uses of the framework need to be atomic, as the driver that
+> requests a specific quality of service probably doesn't want to get into
+> races with the provider of that service(listener). So i suspected the
+> network listener to be the special case.  
 
-Spelling suggestion: xt_rateest_free_rcu?
+Well even if it doesn't _want_ to race with it, a lot of drivers like
+USB drivers etc. can't really do anything without deferring to a
+workqueue.
 
-Since it's only 3 places I'd consider adding little comments,
-who needs this call_rcu (like in qdisc_destroy).
+And what's the race anyway? You get one update, defer the work, and if
+another update happens inbetween you just read the new value when the
+work finally runs -- and you end up doing it only once instead of twice.
+That doesn't seem like a problem.
 
-Anyway this patch looks OK to me.
+> The race between service-provider and qos-requester for non-atomic
+> contextes is already there, isn't it? so, locking complexity shouldn't
+> be worse than before.
 
-Jarek P.
+I have no idea how it works now? I thought you can't request an update
+from an atomic context.
+
+However, if you request a QoS value, it is fundamentally that -- a
+request. There's no guarantee as to when or how it will be honoured.
+
+> But my first approach to this is seen here:
+> https://lists.linux-foundation.org/pipermail/linux-pm/2010-June/026902.html
+
+Icky too.
+
+> A third possibility would be to make it dependent on the
+> type of the constraint, if blocking notifiers are allowed or not. 
+> But that would sacrifice API consistency (update_request for one
+> constraint is allowed to be called in interrupt context and
+> update_request for another would be not).
+
+I don't see what's wrong with the fourth possibility: Allow calling
+pm_qos_update_request() from atomic context, but change _it_ to schedule
+off a work that calls the blocking notifier chain. That avoids the
+complexity in notify-API users since they have process context, and also
+in request-API users since they can call it from any context.
+
+johannes
