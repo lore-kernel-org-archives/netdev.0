@@ -1,120 +1,56 @@
-From: florian@mickler.org
-Subject: [RFC PATCH 1/2] mac80211: make max_network_latency notifier atomic safe
-Date: Wed,  9 Jun 2010 11:15:13 +0200
-Message-ID: <1276074915-26879-1-git-send-email-florian@mickler.org>
-Cc: james.bottomley@suse.de, markgross@thegnar.org,
-	mgross@linux.intel.com, Florian Mickler <florian@mickler.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Javier Cardona <javier@cozybit.com>, Jouni Malinen <j@w1.fi>,
-	Rui Paulo <rpaulo@gmail.com>,
-	Kalle Valo <kalle.valo@nokia.com>,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: pm list <linux-pm@lists.linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch 2/2] mlx4: add dynamic LRO disable support
+Date: Wed, 09 Jun 2010 17:23:35 +0800
+Message-ID: <4C0F5D97.5030605@redhat.com>
+References: <20100603034303.5305.55552.sendpatchset@localhost.localdomain>	 <20100603034312.5305.61000.sendpatchset@localhost.localdomain>	 <1275568622.2870.89.camel@localhost>  <4C085D45.6040001@redhat.com> <1275661552.2095.13.camel@achroite.uk.solarflarecom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, herbert.xu@redhat.com, nhorman@redhat.com,
+	sgruszka@redhat.com, davem@davemloft.net
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:7183 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755513Ab0FIJTj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jun 2010 05:19:39 -0400
+In-Reply-To: <1275661552.2095.13.camel@achroite.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In order to have the pm_qos framework be callable from interrupt
-context, all listeners have to also be callable in that context.
+On 06/04/10 22:25, Ben Hutchings wrote:
+> On Fri, 2010-06-04 at 09:56 +0800, Cong Wang wrote:
+>> On 06/03/10 20:37, Ben Hutchings wrote:
+>>> On Wed, 2010-06-02 at 23:39 -0400, Amerigo Wang wrote:
+>>>> This patch adds dynamic LRO diable support for mlx4 net driver.
+>>>> It also fixes a bug of mlx4, which checks NETIF_F_LRO flag in rx
+>>>> path without rtnl lock.
+>>> [...]
+>>>
+>>> Is that flag test actually unsafe - and if so, how is testing num_lro
+>>> any better?  Perhaps access to net_device::features should be wrapped
+>>> with ACCESS_ONCE() to ensure that reads and writes are atomic.
+>>>
+>>
+>> At least, I don't find there is any race with 'num_lro', thus
+>> no lock is needed.
+>
+> In both cases there is a race condition but it is harmless so long as
+> the read and the write are atomic.  There is a general assumption in
+> networking code that this is the case for int and long.  Personally I
+> would prefer to see this made explicit using ACCESS_ONCE(), but I don't
+> see any specific problem in mlx4 (not that I'm familiar with this driver
+> either).
 
-This patch schedules the update of the latency value via
-ieee80211_max_network_latency() for execution on
-the global workqueue (using schedule_work()).
+I read this email again.
 
-As there was no synchronization/locking between the listener and the
-caller of pm_qos_update_request before, there should be no new races
-uncovered by this. Although the timing probably changes.
+I think you misunderstood the race condition here. Even read and write
+are atomic here, the race still exists. One can just set NETIF_F_LRO
+asynchronously right before mlx4 check this flag in mlx4_en_process_rx_cq()
+which doesn't take rtnl_lock.
 
-Signed-off-by: Florian Mickler <florian@mickler.org>
----
+Also, I don't think ACCESS_ONCE() can make things atomic here.
 
-This needs some networking expertise to check the reasoning above and
-judge the implementation.
+Am I missing something?
 
- net/mac80211/ieee80211_i.h |    4 +++-
- net/mac80211/main.c        |    5 +++--
- net/mac80211/mlme.c        |   20 +++++++++++++++-----
- 3 files changed, 21 insertions(+), 8 deletions(-)
-
-diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
-index 1a9e2da..3d2155a 100644
---- a/net/mac80211/ieee80211_i.h
-+++ b/net/mac80211/ieee80211_i.h
-@@ -851,6 +851,7 @@ struct ieee80211_local {
- 	struct work_struct dynamic_ps_disable_work;
- 	struct timer_list dynamic_ps_timer;
- 	struct notifier_block network_latency_notifier;
-+	struct work_struct network_latency_notifier_work;
- 
- 	int user_power_level; /* in dBm */
- 	int power_constr_level; /* in dBm */
-@@ -994,8 +995,9 @@ ieee80211_rx_result ieee80211_sta_rx_mgmt(struct ieee80211_sub_if_data *sdata,
- void ieee80211_send_pspoll(struct ieee80211_local *local,
- 			   struct ieee80211_sub_if_data *sdata);
- void ieee80211_recalc_ps(struct ieee80211_local *local, s32 latency);
--int ieee80211_max_network_latency(struct notifier_block *nb,
-+int ieee80211_max_network_latency_notification(struct notifier_block *nb,
- 				  unsigned long data, void *dummy);
-+void ieee80211_max_network_latency(struct work_struct *w);
- void ieee80211_sta_process_chanswitch(struct ieee80211_sub_if_data *sdata,
- 				      struct ieee80211_channel_sw_ie *sw_elem,
- 				      struct ieee80211_bss *bss,
-diff --git a/net/mac80211/main.c b/net/mac80211/main.c
-index 22a384d..5cded3a 100644
---- a/net/mac80211/main.c
-+++ b/net/mac80211/main.c
-@@ -607,9 +607,10 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
- 	rtnl_unlock();
- 
- 	ieee80211_led_init(local);
--
-+	INIT_WORK(&local->network_latency_notifier_work,
-+			ieee80211_max_network_latency);
- 	local->network_latency_notifier.notifier_call =
--		ieee80211_max_network_latency;
-+		ieee80211_max_network_latency_notification;
- 	result = pm_qos_add_notifier(PM_QOS_NETWORK_LATENCY,
- 				     &local->network_latency_notifier);
- 
-diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
-index 0839c4e..feb6134 100644
---- a/net/mac80211/mlme.c
-+++ b/net/mac80211/mlme.c
-@@ -1953,17 +1953,27 @@ void ieee80211_mlme_notify_scan_completed(struct ieee80211_local *local)
- 	rcu_read_unlock();
- }
- 
--int ieee80211_max_network_latency(struct notifier_block *nb,
--				  unsigned long data, void *dummy)
-+void ieee80211_max_network_latency(struct work_struct *w)
- {
--	s32 latency_usec = (s32) data;
-+	s32 latency_usec = (s32) atomic_long_read(&w->data);
- 	struct ieee80211_local *local =
--		container_of(nb, struct ieee80211_local,
--			     network_latency_notifier);
-+		container_of(w, struct ieee80211_local,
-+			     network_latency_notifier_work);
- 
- 	mutex_lock(&local->iflist_mtx);
- 	ieee80211_recalc_ps(local, latency_usec);
- 	mutex_unlock(&local->iflist_mtx);
-+}
-+
-+/* the notifier might be called from interrupt context */
-+int ieee80211_max_network_latency_notification(struct notifier_block *nb,
-+				  unsigned long data, void *dummy)
-+{
-+	struct ieee80211_local *local =
-+		container_of(nb, struct ieee80211_local,
-+				network_latency_notifier);
-+	atomic_long_set(&local->network_latency_notifier_work.data, data);
-+	schedule_work(&local->network_latency_notifier_work);
- 
- 	return 0;
- }
--- 
-1.7.1
+Thanks.
