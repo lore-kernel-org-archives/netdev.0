@@ -1,104 +1,101 @@
-From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Subject: RE: [RFC PATCH v7 01/19] Add a new structure for skb buffer from
- external.
-Date: Wed, 9 Jun 2010 17:22:12 +0800
-Message-ID: <F2E9EB7348B8264F86B6AB8151CE2D791100848F73@shsmsx502.ccr.corp.intel.com>
-References: <1275732899-5423-1-git-send-email-xiaohui.xin@intel.com>
- <20100606161348.427822fb@nehalam> <87pr03gu1c.fsf@basil.nowhere.org>
- <40119F5E-A745-4C50-8053-D5A701266AD5@earthlink.net>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: 2.6.35-rc2-git2: Reported regressions from 2.6.34
+Date: Wed, 9 Jun 2010 11:32:49 +0200
+Message-ID: <20100609093249.GA17026@elte.hu>
+References: <Rlf_Qjov7bG.A.a8F.I8rDMB@chimera>
+ <alpine.LFD.2.00.1006081814240.4506@i5.linux-foundation.org>
+ <4C0F4872.7090909@fusionio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>
-To: Mitchell Erblich <erblichs@earthlink.net>,
-	Andi Kleen <andi@firstfloor.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:54361 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756924Ab0FIJWl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 05:22:41 -0400
-In-Reply-To: <40119F5E-A745-4C50-8053-D5A701266AD5@earthlink.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Carl Worth <cworth@cworth.org>,
+	Eric Anholt <eric@anholt.net>,
+	Venkatesh Pallipadi <venki@google.com>,
+	Dave Airlie <airlied@gmail.com>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>,
+	David H?rdeman <david@hardeman.nu>,
+	Mauro Carvalho Chehab <mchehab@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.sourceforge.net>
+To: Jens Axboe <jaxboe@fusionio.com>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4C0F4872.7090909@fusionio.com>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: Mitchell Erblich [mailto:erblichs@earthlink.net]
->Sent: Monday, June 07, 2010 4:17 PM
->To: Andi Kleen
->Cc: Stephen Hemminger; Xin, Xiaohui; netdev@vger.kernel.org; kvm@vger.kernel.org;
->linux-kernel@vger.kernel.org; mst@redhat.com; mingo@elte.hu; davem@davemloft.net;
->herbert@gondor.apana.org.au; jdike@linux.intel.com
->Subject: Re: [RFC PATCH v7 01/19] Add a new structure for skb buffer from external.
->
->
->On Jun 7, 2010, at 12:51 AM, Andi Kleen wrote:
->
->> Stephen Hemminger <shemminger@vyatta.com> writes:
->>
->>> Still not sure this is a good idea for a couple of reasons:
->>>
->>> 1. We already have lots of special cases with skb's (frags and fraglist),
->>>   and skb's travel through a lot of different parts of the kernel.  So any
->>>   new change like this creates lots of exposed points for new bugs. Look
->>>   at cases like MD5 TCP and netfilter, and forwarding these SKB's to ipsec
->>>   and ppp and ...
->>>
->>> 2. SKB's can have infinite lifetime in the kernel. If these buffers come from
->>>   a fixed size pool in an external device, they can easily all get tied up
->>>   if you have a slow listener. What happens then?
->>
->> 3. If they come from an internal pool what happens when the kernel runs
->> low on memory? How is that pool balanced against other kernel
->> memory users?
->>
->> -Andi
->>
->> --
->> ak@linux.intel.com -- Speaking for myself only.
->
->In general,
->
->When an internal pool is created/used, their SHOULD be a reason.
->Maybe, to keep allocation latency to a min, OR ...
->
-The internal pool here is a collection of user buffers submitted
-by guest virtio-net driver. Guest put buffers here and driver get
-buffers from it. If guest submit more buffers then driver needs,
-we need somewhere to put the buffers, it's the internal pool here
-to deal with. 
 
->Now IMO,
->
->internal pool objects should have a ref count and
->if that count is 0, then under memory pressure and/or num
->of objects are above a high water mark, then they are freed,
->
->OR if there is a last reference age field, then the object is to be
->cleaned if dirty, then freed,
->
->Else, the pool is allowed to grow if the number of objects in the
->pool is below a set max (max COULD equal Infinity).
+* Jens Axboe <jaxboe@fusionio.com> wrote:
 
-Thanks for the thoughts.
+> On 2010-06-09 03:53, Linus Torvalds wrote:
+> >> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16129
+> >> Subject	: BUG: using smp_processor_id() in preemptible [00000000] code: jbd2/sda2
+> >> Submitter	: Jan Kreuzer <kontrollator@gmx.de>
+> >> Date		: 2010-06-05 06:15 (4 days old)
+> > 
+> > This seems to have been introduced by
+> > 
+> > 	commit 7cbaef9c83e58bbd4bdd534b09052b6c5ec457d5
+> > 	Author: Ingo Molnar <mingo@elte.hu>
+> > 	Date:   Sat Nov 8 17:05:38 2008 +0100
+> > 
+> > 	    sched: optimize sched_clock() a bit
+> >     
+> > 	    sched_clock() uses cycles_2_ns() needlessly - which is an irq-disabling
+> > 	    variant of __cycles_2_ns().
+> >     
+> > 	    Most of the time sched_clock() is called with irqs disabled already.
+> > 	    The few places that call it with irqs enabled need to be updated.
+> >     
+> > 	    Signed-off-by: Ingo Molnar <mingo@elte.hu>
+> > 
+> > and this seems to be one of those calling cases that need to be updated.
+> > 
+> > Ingo? The call trace is:
+> > 
+> > 	BUG: using smp_processor_id() in preemptible [00000000] code: jbd2/sda2-8/337
+> > 	caller is native_sched_clock+0x3c/0x68
+> > 	Pid: 337, comm: jbd2/sda2-8 Not tainted 2.6.35-rc1jan+ #4
+> > 	Call Trace:
+> > 	[<ffffffff812362c5>] debug_smp_processor_id+0xc9/0xe4
+> > 	[<ffffffff8101059d>] native_sched_clock+0x3c/0x68
+> > 	[<ffffffff8101043d>] sched_clock+0x9/0xd
+> > 	[<ffffffff81212d7a>] blk_rq_init+0x97/0xa3
+> > 	[<ffffffff81214d71>] get_request+0x1c4/0x2d0
+> > 	[<ffffffff81214ea6>] get_request_wait+0x29/0x1a6
+> > 	[<ffffffff81215537>] __make_request+0x338/0x45b
+> > 	[<ffffffff812147c2>] generic_make_request+0x2bb/0x330
+> > 	[<ffffffff81214909>] submit_bio+0xd2/0xef
+> > 	[<ffffffff811413cb>] submit_bh+0xf4/0x116
+> > 	[<ffffffff81144853>] block_write_full_page_endio+0x89/0x96
+> > 	[<ffffffff81144875>] block_write_full_page+0x15/0x17
+> > 	[<ffffffff8119b00a>] ext4_writepage+0x356/0x36b
+> > 	[<ffffffff810e1f91>] __writepage+0x1a/0x39
+> > 	[<ffffffff810e32a6>] write_cache_pages+0x20d/0x346
+> > 	[<ffffffff810e3406>] generic_writepages+0x27/0x29
+> > 	[<ffffffff811ca279>] journal_submit_data_buffers+0x110/0x17d
+> > 	[<ffffffff811ca986>] jbd2_journal_commit_transaction+0x4cb/0x156d
+> > 	[<ffffffff811d0cba>] kjournald2+0x147/0x37a
+> > 
+> > (from the bugzilla thing)
+> 
+> This should be fixed by commit 28f4197e which was merged on friday.
 
-Basically, the size of the internal pool is not decided by the pool itself,
-To add/delete the objects in the pool is not a task of the pool itself too. 
-It's decided by guest virtio-net driver and vhost-net driver both, and 
-decided by the guest receive speed and submit speed.
-The max size of the pool is limited by the virtqueue buffer numbers.
+The scheduler commit adding local_clock() (for .36) is:
 
-Thanks
-Xiaohui
+  c676329: sched_clock: Add local_clock() API and improve documentation
 
->
->
->
->Mitchell Erblich
+So once that is upstream the block IO statistics code can use that.
+
+Thanks,
+
+	Ingo
