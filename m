@@ -1,73 +1,77 @@
-From: Carl Worth <cworth-4HiWtcSh4w0dnm+yROfE0A@public.gmane.org>
-Subject: Re: 2.6.35-rc2-git2: Reported regressions from 2.6.34
-Date: Tue, 08 Jun 2010 19:38:11 -0700
-Message-ID: <87hbldhqwc.fsf@yoom.home.cworth.org>
-References: <Rlf_Qjov7bG.A.a8F.I8rDMB@chimera> <alpine.LFD.2.00.1006081814240.4506@i5.linux-foundation.org>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [PATCH] r8169: fix random mdio_write failures
+Date: Wed, 9 Jun 2010 10:47:01 +0800
+Message-ID: <BD599B881C1D407DA7BC93A9244650B0@realtek.com.tw>
+References: <4C0A1736.9030209@iki.fi>     <1275733273-28321-1-git-send-email-timo.teras@iki.fi>     <20100605124103.GA3213@electric-eye.fr.zoreil.com>     <4C31B2E3BE2B481DB749C669DFE23645@realtek.com.tw>     <20100607215115.GA6583@electric-eye.fr.zoreil.com> <4C0DDDCC.6010500@iki.fi>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="=-=-=";
-	micalg=pgp-sha1; protocol="application/pgp-signature"
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>, Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>,
-	Venkatesh Pallipadi <venki-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Jens Axboe <jaxboe@fusionio.c
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LFD.2.00.1006081814240.4506-GpypE611fyS63QaFMGN2QEqCLAeBNdoH@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
+To: =?iso-8859-1?Q?'Timo_Ter=E4s'?= <timo.teras@iki.fi>,
+	'Francois Romieu' <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtitmf2.realtek.com ([60.250.210.236]:1753 "EHLO
+	mf2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751810Ab0FICrF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jun 2010 22:47:05 -0400
+In-Reply-To: <4C0DDDCC.6010500@iki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---=-=-=
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, 8 Jun 2010 18:53:55 -0700 (PDT), Linus Torvalds <torvalds@linux-fou=
-ndation.org> wrote:
-> And some of them do seem to be bisected to likely culprits and/or have=20
-> patches that are claimed to have fixed them.
->=20
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16163
-> > Subject	: [2.6.35-rc1 Regression] i915: Commit cfecde causes VGA to sta=
-y off
-> > Submitter	: David John <davidjon-XRr60H37pjdAfugRpC6u6w@public.gmane.org>
-> > Date		: 2010-06-02 12:52 (7 days old)
-> > Message-ID	: <4C065423.3000202-XRr60H37pjdAfugRpC6u6w@public.gmane.org>
-> > References	: http://marc.info/?l=3Dlinux-kernel&m=3D127548313828613&w=
-=3D2
->=20
-> That has a "reverting the commit fixes it", and a confirmation from Nick=
+I think the major point is that it needs a delay (20 us) after both rea=
+d and
+write completed indiacation before next command.
+It needs almost 100 us for the indication to be completed, so our engin=
+eer
+suggests us to check the indication per 100 us.
+However, it is  ok to reduce the timer from 100 us to 25 us for checkin=
+g .
 =20
-> Bowler.
+Best Regards,
+Hayes
+
+
+-----Original Message-----
+=46rom: Timo Ter=E4s [mailto:timo.teras@gmail.com] On Behalf Of Timo Te=
+ras
+Sent: Tuesday, June 08, 2010 2:06 PM
+To: Francois Romieu
+Cc: Hayeswang; netdev@vger.kernel.org; davem@davemloft.net
+Subject: Re: [PATCH] r8169: fix random mdio_write failures
+
+On 06/08/2010 12:51 AM, Francois Romieu wrote:
+> hayeswang <hayeswang@realtek.com> :
+>> Our hardware engineer suggests that check the completed indication=20
+>> per 100 micro seconds. And it needs 20 micro seconds delay after the=
+=20
+>> completed indication for the next command.
 >=20
-> Eric, Carl: should I just revert that commit? Or do you have a fix?
+> Should we do the same for mdio_read as well (100 us per iteration + a=
+n=20
+> extra 20 us) ?
 
-I'm not aware of any real fix here. That commit isn't supposed to change
-much, but it clearly unmasks some broken driver code.
+Well, doing 100us per iteration will increase the latency that the code
+notices "write complete" which slows down things. It'll also slightly
+decrease bus traffic which is good. But I'd be just fine with 25us per
+iteration. It sounds unlikely that polling the status register would sl=
+ow
+down the actual write operation (if that is the case then 100us would b=
+e
+desirable).
 
-So reverting it for now to hide the broken code from poor users does
-seem a good plan to me, (unless Eric has any updates or alternate
-suggestions).
+Changing my 25us to 20us would good. The original 25us was just a guess=
+=2E
+The comment should be probably also updated that those delays are from
+realtek hw specs then.
 
-=2DCarl
+Would you like me to send a patch?
 
-=2D-=20
-carl.d.worth-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+- Timo
 
---=-=-=
-Content-Type: application/pgp-signature
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
 
-iD8DBQFMDv6T6JDdNq8qSWgRAm2CAJ9p30+Roeli4N7Gv4rKjfxQKvMIOgCeOZfE
-GPPsJXno4b3GCgHuFmrqKk8=
-=2APO
------END PGP SIGNATURE-----
---=-=-=--
+
+------Please consider the environment before printing this e-mail.=20
+
+
+
