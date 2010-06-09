@@ -1,56 +1,52 @@
-From: Dmytro Milinevskyy <milinevskyy@gmail.com>
-Subject: Re: [ath5k-devel] [PATCH] [ath5k][leds] Ability to disable leds
-	support. If leds support enabled do not force mac802.11 leds layer selection.
-Date: Wed, 9 Jun 2010 17:43:48 +0300
-Message-ID: <AANLkTimXqdkQxv_Y1JaleTTWNsDIQHQaPn8HR7efOupb@mail.gmail.com>
-References: <4c0f4326.0a41df0a.7bde.ffffeef2@mx.google.com>
-	<AANLkTilrYYHjcMEhhrP7zjcLoo-TNczozxJSNRkDvSZy@mail.gmail.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH 1/2] Export firmware assigned labels of network devices
+ to sysfs
+Date: Wed, 9 Jun 2010 08:02:40 -0700
+Message-ID: <20100609150240.GA20705@kroah.com>
+References: <20100528115520.GA24114@littleblue.us.dell.com>
+ <20100528154041.GA27186@kroah.com>
+ <20100528181100.GA12806@auslistsprd01.us.dell.com>
+ <20100528222745.GA28678@kroah.com>
+ <20100529045140.GA22563@mdomsch-pws380.aus.amer.dell.com>
+ <20100609041709.GA7280@auslistsprd01.us.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ath5k-devel@lists.ath5k.org, Kalle Valo <kalle.valo@iki.fi>,
-	linux-wireless@vger.kernel.org,
-	GeunSik Lim <geunsik.lim@samsung.com>,
-	Jiri Slaby <jirislaby@gmail.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Keng-Yu Lin <keng-yu.lin@canonical.com>,
-	netdev@vger.kernel.org, Jiri Kosina <jkosina@suse.cz>,
-	Shahar Or <shahar@shahar-or.co.il>,
-	linux-kernel@vger.kernel.org, Luca Verdesca <magooz@salug.it>
-To: Bob Copeland <me@bobcopeland.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTilrYYHjcMEhhrP7zjcLoo-TNczozxJSNRkDvSZy@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "K, Narendra" <Narendra_K@Dell.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-hotplug@vger.kernel.org" <linux-hotplug@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"Hargrave, Jordan" <Jordan_Hargrave@Dell.com>,
+	"Rose, Charles" <Charles_Rose@Dell.com>,
+	"Nijhawan, Vijay" <Vijay_Nijhawan@Dell.com>
+To: Matt Domsch <Matt_Domsch@Dell.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kroah.org ([198.145.64.141]:46137 "EHLO coco.kroah.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756082Ab0FIPIi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jun 2010 11:08:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20100609041709.GA7280@auslistsprd01.us.dell.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi, Bob.
+On Tue, Jun 08, 2010 at 11:17:09PM -0500, Matt Domsch wrote:
+> On Fri, May 28, 2010 at 11:51:40PM -0500, Domsch, Matt wrote:
+> > On Fri, May 28, 2010 at 05:27:45PM -0500, Greg KH wrote:
+> > > Care to post that ECN publically?  And no, the Linux Foundation does not
+> > > have a PCI-SIG membership, the PCI-SIG keeps forbidding it.  Other
+> > > operating systems are allowed to join but not Linux.  Strange but
+> > > true...
+> > 
+> > I'm looking into it, and should know more next week.
+> 
+> I'm advised that I cannot post the ECN publically, due to it being an
+> in-progress work item of a SIG working group, and therefore falls
+> under the confidentiality rules that SIG members agree to.  Members of
+> the PCI SIG have access, which unfortunately is not everyone.
 
-=46or instance I don't use 802.11 leds layer and trigger leds from
-userspace according to my purposes.
+Then we can't properly review this, sorry.  How about waiting until the
+ECN is finalized?  Then we could review and possibly accept this.
 
--- Dima
+thanks,
 
-On Wed, Jun 9, 2010 at 4:58 PM, Bob Copeland <me@bobcopeland.com> wrote=
-:
-> On Wed, Jun 9, 2010 at 3:31 AM, Dmytro Milinevskyy
-> <milinevskyy@gmail.com> wrote:
->> However if the leds support was enabled do not force selection of 80=
-2.11 leds layer.
->
-> I don't understand this part. =A0What's the point of enabling softwar=
-e LEDs
-> if nothing triggers them?
->
-> Also, we can probably build hardware LEDs (hw_set_ledstate) in regard=
-less.
-> It's a pure register write and doesn't require the rest of the LED ma=
-chinery.
->
-> I assume you are doing this to reduce the size of the module. =A0If s=
-o, can
-> you include size(1) output in the commit message?
->
-> --
-> Bob Copeland %% www.bobcopeland.com
->
+greg k-h
