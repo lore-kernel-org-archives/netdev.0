@@ -1,57 +1,95 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: 2.6.35-rc2-git1 - include/linux/cgroup.h:534 invoked
- rcu_dereference_check() without protection!
-Date: Wed, 09 Jun 2010 17:24:28 +0200
-Message-ID: <1276097068.1745.13.camel@laptop>
-References: <AANLkTin2pPqOUx--9fIX3BH3e-cU6oCRufijcx_4ozx5@mail.gmail.com>
-	 <20100608001929.GF2387@linux.vnet.ibm.com>
-	 <AANLkTikl13cJNuU32JzRarrUnoh5DYHr-Tbnv9B-UjsG@mail.gmail.com>
-	 <1275986441.5408.111.camel@twins>
-	 <AANLkTimXVlgzHivCQberLdrFP8BH_nJzt8_ozUNHG_aI@mail.gmail.com>
-	 <1276004075.2987.208.camel@twins>
-	 <AANLkTil6ucLZ0A6tWx-OQt_2EeKnx8nSx6rIg2t1L2t5@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 2.6.35-rc2, CONFIG_RPS is filling the dmesg log
+Date: Wed, 09 Jun 2010 17:27:26 +0200
+Message-ID: <1276097246.2442.186.camel@edumazet-laptop>
+References: <4C0EAE3E.4070708@canonical.com>
+	 <4C0F96B4.2000307@canonical.com>
+	 <1276090953.2442.140.camel@edumazet-laptop>  <4C0FB1D3.60901@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: paulmck@linux.vnet.ibm.com, Vivek Goyal <vgoyal@redhat.com>,
-	Eric Paris <eparis@redhat.com>,
-	Lai Jiangshan <laijs@cn.fujitsu.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	LKML <linux-kernel@vger.kernel.org>, nauman@google.com,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	Jens Axboe <jens.axboe@oracle.com>,
-	Gui Jianfeng <guijianfeng@cn.fujitsu.com>,
-	Li Zefan <lizf@cn.fujitsu.com>,
-	Johannes Berg <johannes@sipsolutions.net>
-To: Miles Lane <miles.lane@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTil6ucLZ0A6tWx-OQt_2EeKnx8nSx6rIg2t1L2t5@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: tim.gardner@canonical.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f46.google.com ([74.125.82.46]:42002 "EHLO
+	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753790Ab0FIP1a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 11:27:30 -0400
+Received: by wwb31 with SMTP id 31so353212wwb.19
+        for <netdev@vger.kernel.org>; Wed, 09 Jun 2010 08:27:29 -0700 (PDT)
+In-Reply-To: <4C0FB1D3.60901@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-06-09 at 11:11 -0400, Miles Lane wrote:
-> 
-> Sorry.  I misunderstood this message when I first read it.  I didn't
-> realize this message include a new version of the patch.
-> Anyhow, I just tried to apply the patch to 2.6.35-rc2-git3 and got this:
-> 
-> # patch -p1 -l -F 20 --dry-run < ../5.patch
-> patching file include/linux/cgroup.h
-> patching file kernel/sched.c
-> Hunk #1 succeeded at 306 with fuzz 1.
-> Hunk #3 FAILED at 4462.
-> Hunk #4 succeeded at 4487 with fuzz 3.
-> 1 out of 4 hunks FAILED -- saving rejects to file kernel/sched.c.rej
+Le mercredi 09 juin 2010 =C3=A0 09:22 -0600, Tim Gardner a =C3=A9crit :
+> On 06/09/2010 07:42 AM, Eric Dumazet wrote:
+> > Le mercredi 09 juin 2010 =C3=A0 07:27 -0600, Tim Gardner a =C3=A9cr=
+it :
+> >> On 06/08/2010 02:55 PM, Tim Gardner wrote:
+> >>> With 2.6.35-rc2 my dmesg log is being flooded with messages like =
+this:
+> >>>
+> >>> br0 received packet on queue 4, but number of RX queues is 1
+> >>>
+> >>> This machine is bridged for KVM and has 2 igb network adapters.
+> >>>
+> >>> The root cause appears to be CONFIG_RPS=3Dy and the fact that non=
+e of the
+> >>> drivers that call skb_record_rx_queue() perform their net device
+> >>> allocation using alloc_netdev_mq(), thereby initializing num_rx_q=
+ueues
+> >>> to a maximum of 1.
+> >>>
+> >>> Given that this is early RPS days, is the warning in get_rps_cpu(=
+)
+> >>> really necessary? It would appear that _all_ of the multi-receive=
+ queue
+> >>> devices that call skb_record_rx_queue() will cause this log noise=
+=2E
+> >>>
+> >>> By the way, how do you turn off CONFIG_RPS? The only way I could =
+get it
+> >>> disabled was to change the default in net/Kconfig to 'n'.
+> >>>
+> >>> rtg
+> >>
+> >> This is the route that I'm taking with Ubuntu in the short term. I=
+'ll
+> >> have lots of server testers complaining pretty soon if I don't tak=
+e care
+> >> of this now. It does keep my server logs from filling.
+> >>
+> >> rtg
+> >>
+> >
+> > Probably fine, but your commit message is not exact :
+> >
+> >    So far no users of skb_record_rx_queue() use alloc_netdev_mq() f=
+or
+> >    network device initialization, so don't print a warning about nu=
+m_rx_queues
+> >    imbalances in get_rps_cpu() unless they have actually been alloc=
+ated.
+> >
+> > In fact, drivers that use skb_record_rx_queue() did use alloc_netde=
+v_mq().
+> >
+> > Problem is : packets going thru bridge/bonding that are not yet
+> > multiqueue enabled. If R[PF]S enabled for these "virtual devices",
+> > we trigger the get_rps_cpu() warning.
+> >
+> > Also, in a bonding setup, we still have a problem
+> > because all tx packets will go thru tx queue 0 (dev_pick_tx() job)
+> >
+> > (That might be good to know that for Ubuntu server testers)
+> >
+>=20
+> How about this?
+>=20
 
-Weird.. it seems to apply without trouble to Linus' git tree.
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-root@twins:/usr/src/linux-2.6# git checkout -f origin/master
-HEAD is now at 84f7586... Merge branch 'for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/ieee1394/linux1394-2.6
-root@twins:/usr/src/linux-2.6# quilt push
-Applying patch patches/sched-rcu-validation.patch
-patching file include/linux/cgroup.h
-patching file kernel/sched.c
+Thanks !
 
-Now at patch patches/sched-rcu-validation.patch
-root@twins:/usr/src/linux-2.6# git describe
-v2.6.35-rc2-54-g84f7586
+
+
