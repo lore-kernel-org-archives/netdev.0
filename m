@@ -1,28 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.25-rc2 pull request, stop log noise from CONFIG_RPS
-Date: Wed, 09 Jun 2010 12:57:52 -0700 (PDT)
-Message-ID: <20100609.125752.71103958.davem@davemloft.net>
-References: <20100609195110.02FEAF89E9@sepang.rtg.net>
+From: Alexander Schell <alexschell000@yahoo.cn>
+Subject: Business Offer, Call Me
+Date: Wed, 09 Jun 2010 14:26:31 -0500
+Message-ID: <20100609142631.a8rlc5ucxwk8cgs8@174.121.227.54>
+Reply-To: alexschell0012@yahoo.cn
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset=ISO-8859-1;
+	DelSp="Yes";
+	format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: timg@tpi.com
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41101
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932212Ab0FIT5l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 15:57:41 -0400
-In-Reply-To: <20100609195110.02FEAF89E9@sepang.rtg.net>
+Received: from 15.db.79ae.static.theplanet.com ([174.121.219.21]:56002 "EHLO
+	web.webtapells.net" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1756424Ab0FIUAz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 16:00:55 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: timg@tpi.com (Tim Gardner)
-Date: Wed,  9 Jun 2010 13:51:09 -0600 (MDT)
 
-> Please consider applying this patch in order to stop
-> log noise under certain configurations.
 
-Yes, dealing with this is in my queue.  I would have integrated this
-sooner but I was travelling yesterday. :)
+Dear,
+
+
+I know it will be of much interest to you, this is the reason I contacted you.
+
+
+I want to transfer a certain amount of money from my bank here in England to
+any country you may suggest and I would required your full co-operation to
+transfer the money.
+
+
+Call me on +44 701 11 64380, or contact via e-mail alexschell0011@yahoo.cn to
+discuss about this proposal with you.
+
+
+If you are interesting, I will discuss with you about the details and
+procedures of the transaction.
+
+
+Look forward to discussing this opportunity further with you in more detail
+shortly.
+
+
+Sincerely,
+
+Alexander Schell.
+Tel: +44 701 11 64380
+
+
+
+
 
