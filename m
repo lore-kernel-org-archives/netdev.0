@@ -1,146 +1,78 @@
-From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Subject: RE: [RFC PATCH v7 11/19] Use callback to deal with
- skb_release_data() specially.
-Date: Wed, 9 Jun 2010 15:30:37 +0800
-Message-ID: <F2E9EB7348B8264F86B6AB8151CE2D791100848EA1@shsmsx502.ccr.corp.intel.com>
-References: <1275732899-5423-1-git-send-email-xiaohui.xin@intel.com>
-	 <1275732899-5423-2-git-send-email-xiaohui.xin@intel.com>
-	 <1275732899-5423-3-git-send-email-xiaohui.xin@intel.com>
-	 <1275732899-5423-4-git-send-email-xiaohui.xin@intel.com>
-	 <1275732899-5423-5-git-send-email-xiaohui.xin@intel.com>
-	 <1275732899-5423-6-git-send-email-xiaohui.xin@intel.com>
-	 <1275732899-5423-7-git-send-email-xiaohui.xin@intel.com>
-	 <1275732899-5423-8-git-send-email-xiaohui.xin@intel.com>
-	 <1275732899-5423-9-git-send-email-xiaohui.xin@intel.com>
-	 <1275732899-5423-10-git-send-email-xiaohui.xin@intel.com>
-	 <1275732899-5423-11-git-send-email-xiaohui.xin@intel.com>
- <1275749773.5238.244.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: pkt_sched: gen_estimator: more fuel for Jarek and Changli
+Date: Wed, 09 Jun 2010 09:36:04 +0200
+Message-ID: <1276068964.2442.15.camel@edumazet-laptop>
+References: <20100608121546.GA9392@ff.dom.local>
+	 <1276000052.2475.307.camel@edumazet-laptop>
+	 <20100608124052.GB9392@ff.dom.local> <4C0E9A2E.9080109@gmail.com>
+	 <1276026329.2439.2.camel@edumazet-laptop>
+	 <20100608202405.GA3496@del.dom.local>
+	 <1276030354.2439.8.camel@edumazet-laptop>
+	 <1276063997.2439.650.camel@edumazet-laptop>
+	 <20100609065134.GA6679@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1275749773.5238.244.camel@edumazet-laptop>
-Content-Language: en-US
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Changli Gao <xiaosuo@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:37146 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752775Ab0FIHgI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 03:36:08 -0400
+Received: by fxm8 with SMTP id 8so3376881fxm.19
+        for <netdev@vger.kernel.org>; Wed, 09 Jun 2010 00:36:06 -0700 (PDT)
+In-Reply-To: <20100609065134.GA6679@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
->Sent: Saturday, June 05, 2010 10:56 PM
->To: Xin, Xiaohui
->Cc: netdev@vger.kernel.org; kvm@vger.kernel.org; linux-kernel@vger.ker=
-nel.org;
->mst@redhat.com; mingo@elte.hu; davem@davemloft.net; herbert@gondor.apa=
-na.org.au;
->jdike@linux.intel.com
->Subject: Re: [RFC PATCH v7 11/19] Use callback to deal with skb_releas=
-e_data() specially.
->
->Le samedi 05 juin 2010 =E0 18:14 +0800, xiaohui.xin@intel.com a =E9cri=
-t :
->> From: Xin Xiaohui <xiaohui.xin@intel.com>
->>
->> If buffer is external, then use the callback to destruct
->> buffers.
->>
->> Signed-off-by: Xin Xiaohui <xiaohui.xin@intel.com>
->> Signed-off-by: Zhao Yu <yzhao81new@gmail.com>
->> Reviewed-by: Jeff Dike <jdike@linux.intel.com>
->> ---
->>  net/core/skbuff.c |   11 +++++++++++
->>  1 files changed, 11 insertions(+), 0 deletions(-)
->>
->> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
->> index 37587f0..418457c 100644
->> --- a/net/core/skbuff.c
->> +++ b/net/core/skbuff.c
->> @@ -385,6 +385,11 @@ static void skb_clone_fraglist(struct sk_buff *=
-skb)
->>
->>  static void skb_release_data(struct sk_buff *skb)
->>  {
->> +	/* check if the skb has external buffers, we have use destructor_a=
-rg
->> +	 * here to indicate
->> +	 */
->> +	struct skb_external_page *ext_page =3D skb_shinfo(skb)->destructor=
-_arg;
->> +
->
->Oh well. This is v7 of your series, and nobody complained yet ?
->
->This is a new cache miss on a _critical_ path.
+Le mercredi 09 juin 2010 =C3=A0 06:51 +0000, Jarek Poplawski a =C3=A9cr=
+it :
+> On Wed, Jun 09, 2010 at 08:13:17AM +0200, Eric Dumazet wrote:
+> >=20
+> > With un-modified kernel, I ran following scripts on my machine
+>=20
+> Why not modified with your other patch quite obviously needed by
+> rateest?:
+>=20
 
-Ok, I would remove the declaration here to avoid the new cache miss.
+=46irst patch is obvious, but I cooked same script to trigger both bugs=
+,
+because you needed some evidences.
 
->
->
->>  	if (!skb->cloned ||
->>  	    !atomic_sub_return(skb->nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 :=
- 1,
->>  			       &skb_shinfo(skb)->dataref)) {
->> @@ -397,6 +402,12 @@ static void skb_release_data(struct sk_buff *sk=
-b)
->>  		if (skb_has_frags(skb))
->>  			skb_drop_fraglist(skb);
->>
->> +		/* if the skb has external buffers, use destructor here,
->> +		 * since after that skb->head will be kfree, in case skb->head
->> +		 * from external buffer cannot use kfree to destroy.
->> +		 */
->
->Why not deferring here the access to skb_shinfo(skb)->destructor_arg ?
+> > [PATCH net-2.6] pkt_sched: gen_estimator: add a new lock
+> >=20
+> > gen_kill_estimator() / gen_new_estimator() is not always called wit=
+h
+> > RTNL held.
+>=20
+> Btw, I agree with Changli that adding RTNL to rateest (if possible),
+> and doing the RTNL replacement later, seems more proper.
+>=20
 
-And references skb_shinfo(skb)->destructor_arg here.
+I wont be the guy adding RTNL to netfilter, thats for sure. That would
+be a step backward.=20
+Sometimes, the 'obvious' fix is also a dumb one.
+Do you really think I didnt had this idea too ?
 
->
->> +		if (dev_is_mpassthru(skb->dev) && ext_page && ext_page->dtor)
->> +			ext_page->dtor(ext_page);
->>  		kfree(skb->head);
->>  	}
->>  }
->
->if (dev_is_mpassthru(skb->dev)) {
->	struct skb_external_page *ext_page =3D
->				skb_shinfo(skb)->destructor_arg;
->	if (ext_page && ext_page->dtor)
->		ext_page->dtor(ext_page);
->}
->
->destructor_arg should me moved before frags[] if you really want to us=
-e it.
+xt_RATEEST is an unfortunate domain intersection (netfilter / sched).
 
-Thanks for the patch. But why destructor_arg before frags[] is better t=
-han after frags[]?
-skb_release_data() will reference both of them........
+We can solve this using a fine grained lock, instead of interesting
+lockdep issues, yet to be discovered.
 
->
->diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
->index bf243fc..b136d90 100644
->--- a/include/linux/skbuff.h
->+++ b/include/linux/skbuff.h
->@@ -202,10 +202,11 @@ struct skb_shared_info {
->         */
->        atomic_t        dataref;
->
->-       skb_frag_t      frags[MAX_SKB_FRAGS];
->        /* Intermediate layers must ensure that destructor_arg
->         * remains valid until skb destructor */
->        void *          destructor_arg;
->+
->+       skb_frag_t      frags[MAX_SKB_FRAGS];
-> };
->
-> /* We divide dataref into two halves.  The higher 16 bits hold refere=
-nces
->
->
+You can submit your patch, but I wont Ack it, I'll Nack it for all thes=
+e
+reasons.
+
+Why dont we remove all locks we have 'because we can use RTNL and be
+with it' ?
+
+qdisc_mod_lock could be removed quite instantly, qdisc_base could be
+protected by RTNL... And so on...
+
+
 
