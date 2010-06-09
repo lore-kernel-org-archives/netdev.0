@@ -1,81 +1,61 @@
-From: Paul LeoNerd Evans <leonerd@leonerd.org.uk>
-Subject: Packet capture and Bonding asymmetries
-Date: Wed, 9 Jun 2010 22:27:04 +0100
-Message-ID: <20100609212704.GY11110@cel.leo>
+From: Luciano Coelho <luciano.coelho@nokia.com>
+Subject: Re: [PATCH v3] netfilter: Xtables: idletimer target implementation
+Date: Thu, 10 Jun 2010 00:28:40 +0300
+Message-ID: <1276118920.11199.53.camel@powerslave>
+References: <1275592445-15555-1-git-send-email-luciano.coelho@nokia.com>
+	 <4C0F9B17.10504@trash.net> <1276096275.31892.117.camel@chilepepper>
+	 <alpine.LSU.2.01.1006091716170.30265@obet.zrqbmnf.qr>
+	 <1276105707.11199.12.camel@powerslave>
+	 <1276108939.11199.23.camel@powerslave>
+	 <alpine.LSU.2.01.1006092304270.16916@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="Wn0J+vu9+NMIXK57"
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cel.leonerd.org.uk ([81.187.167.226]:57933 "EHLO cel.leo"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752125Ab0FIV1I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jun 2010 17:27:08 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: ext Patrick McHardy <kaber@trash.net>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Timo Teras <timo.teras@iki.fi>
+To: ext Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LSU.2.01.1006092304270.16916@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+On Wed, 2010-06-09 at 23:05 +0200, ext Jan Engelhardt wrote:
+> On Wednesday 2010-06-09 20:42, Luciano Coelho wrote:
+> >
+> >> I'll move the sysfs file creation to outside that function so I can keep
+> >> the lock until after the timer is added to the list.  Thanks for
+> >> clarifying!
+> >
+> >Hmmm... after struggling with this for a while, I think it's not really
+> >possible to simply create the sysfs file outside of the lock, because if
+> >the sysfs creation fails, we will again risk a race condition.
+> 
+> Well if sysfs_add can return an error code when a file already
+> exists (instead of adding it again), it's much easier. Try checking.
+
+Unfortunately sysfs_add and sysfs_create will throw a kernel warning if
+we try to create a file that already exists.  But this was not really
+the problem.
+
+Now I just throw an WARN_ON if the sysfs file creation fails, the other
+sysfs functions I'm calling can handle this situation.  This shouldn't
+happen in normal cases and, if it does, the timer will run normally, but
+there won't be a sysfs file associated with it (and there won't be any
+notification).
+
+As I just wrote in another email, I thought I had figured out a way to
+do it without a workqueue.  But now that I looked into the code again, I
+think there might still be some race conditions... For example: If
+someone deletes the timer immediately after I released the lock and
+before I created the sysfs entry... The deletion won't cause problems if
+the file is not there, it will just nop.  But the creation of the file
+after the timer has been deleted will cause the file to be dangling in
+sysfs without any timer associated with it... :(
 
 
---Wn0J+vu9+NMIXK57
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+-- 
+Cheers,
+Luca.
 
-We use ethernet bonding to bond eth0 + eth1 into bond0, in an
-active/standby failover pair. Given this is for redundancy, we put the
-two physical ethernet links into different switches that follow
-different paths in the data centre.
-
-Given this topology, it can be really useful to know which physical
-interface packets are received on. It seems the bonding driver doesn't
-make this happen:
-
-  # uname -r
-  2.6.31.12
-
-  # head -1 /proc/net/bonding/bond0=20
-  Ethernet Channel Bonding Driver: v3.5.0 (November 4, 2008)
-
-  # pktdump -f icmp
-  [15:27:12] RX(bond0): ICMP| 192.168.57.6->192.168.57.1 echo-request seq=
-=3D1
-  [15:27:12] TX(bond0): ICMP| 192.168.57.1->192.168.57.6 echo-reply seq=3D1
-  [15:27:12] TX(eth0): ICMP| 192.168.57.1->192.168.57.6 echo-reply seq=3D1
-
-I.e. when we transmit we see both the virtual bond0 interface and the
-physical eth0 doing so; but when we receive only the virtual bond0
-appears to do so.
-
-I believe this should be fixable with a one-line patch; just adding a
-call to netif_nit_deliver(skb) from within the bonding driver... though
-just offhand I'm unable to find exactly the line where packets received
-on slaves gets passed up to the master. :)
-
-Can anyone advise on the sensibility or otherwise of this plan? I really
-would like the behaviour where I can see how packets are received - is
-this a good plan to acheive it?
-
-I may sometime have a hack at writing a patch for this anyway, presuming
-no major objections...
-
---=20
-Paul "LeoNerd" Evans
-
-leonerd@leonerd.org.uk
-ICQ# 4135350       |  Registered Linux# 179460
-http://www.leonerd.org.uk/
-
---Wn0J+vu9+NMIXK57
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iD8DBQFMEAcovLS2TC8cBo0RAtUBAJ9nNbb6greft9Z+xmF2OfmuQ1dU4QCfTFya
-PrwoQqSc7E25GUgon6A96ak=
-=UzJX
------END PGP SIGNATURE-----
-
---Wn0J+vu9+NMIXK57--
