@@ -1,30 +1,52 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: fix mdio_read and update mdio_write according to
- hw specs
-Date: Wed, 9 Jun 2010 08:18:25 +0200
-Message-ID: <20100609061825.GA7087@electric-eye.fr.zoreil.com>
-References: <BD599B881C1D407DA7BC93A9244650B0@realtek.com.tw>
- <1276060930-15697-1-git-send-email-timo.teras@iki.fi>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: 2.6.35-rc2-git2: Reported regressions from 2.6.34
+Date: Wed, 09 Jun 2010 08:36:12 +0200
+Message-ID: <1276065372.2439.700.camel@edumazet-laptop>
+References: <Rlf_Qjov7bG.A.a8F.I8rDMB@chimera>
+	 <alpine.LFD.2.00.1006081814240.4506@i5.linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Hayeswang <hayeswang@realtek.com>
-To: Timo =?utf-8?B?VGVyw6Rz?= <timo.teras@iki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 30.185.140-88.rev.gaoland.net ([88.140.185.30]:51488 "EHLO
-	electric-eye.fr.zoreil.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752701Ab0FIGT1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 02:19:27 -0400
-Content-Disposition: inline
-In-Reply-To: <1276060930-15697-1-git-send-email-timo.teras@iki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>, Carl Worth <cworth-4HiWtcSh4w0dnm+yROfE0A@public.gmane.org>,
+	Eric Anholt <eric-WhKQ6XTQaPysTnJN9+BGXg@public.gmane.org>,
+	Venkatesh Pallipadi <venki-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Jens Axboe <jaxboe-5c4llco8/ftWk0Htik3J/w@public.gmane.org>,
+	Dave Airlie <airlied-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Jesse Barnes <jbarnes-Y1mF5jBUw70BENJcbMCuUQ@public.gmane.org>,
+	Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>,
+	David =?ISO-8859-1?Q?H=E4rdeman?= <david-0WFrdVpeebksCylrc8G9yg@public.gmane.org>,
+	Mauro Carvalho Chehab <mchehab-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <alpine.LFD.2.00.1006081814240.4506-GpypE611fyS63QaFMGN2QEqCLAeBNdoH@public.gmane.org>
+Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Timo Ter=C3=A4s <timo.teras@iki.fi> :
-> Realtek confirmed that a 20us delay is needed after mdio_read and
-> mdio_write operations. Reduce the delay in mdio_write, and add it
-> to mdio_read too. Also add a comment that the 20us is from hw specs.
+Le mardi 08 juin 2010 =C3=A0 18:53 -0700, Linus Torvalds a =C3=A9crit :
+
+> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D16120
+> > Subject	: Oops: 0000 [#1] SMP, unable to handle kernel NULL pointer=
+ dereference at (null)
+> > Submitter	: Alex Zhavnerchik <alex.vizor-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > Date		: 2010-06-04 09:25 (5 days old)
+> > Handled-By	: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 >=20
-> Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
+> This one seems to have a patch in bugzilla.
 
-Acked-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Yep, commit 035320d54758e21227987e3aae0d46e7a04f4ddc in David net-2.6
+tree, i'll be included in its next pull request.
+
+http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-2.6.git;a=3Dcommi=
+t;h=3D035320d54758e21227987e3aae0d46e7a04f4ddc
+
+Thanks
