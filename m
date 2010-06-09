@@ -1,65 +1,63 @@
-From: Luciano Coelho <luciano.coelho@nokia.com>
-Subject: Re: [PATCH v3] netfilter: Xtables: idletimer target implementation
-Date: Wed, 09 Jun 2010 21:42:19 +0300
-Message-ID: <1276108939.11199.23.camel@powerslave>
-References: <1275592445-15555-1-git-send-email-luciano.coelho@nokia.com>
-	 <4C0F9B17.10504@trash.net> <1276096275.31892.117.camel@chilepepper>
-	 <alpine.LSU.2.01.1006091716170.30265@obet.zrqbmnf.qr>
-	 <1276105707.11199.12.camel@powerslave>
+From: Anton Vorontsov <avorontsov@mvista.com>
+Subject: [PATCH] gianfar: Revive the driver for eTSEC devices (disable
+ timestamping)
+Date: Wed, 9 Jun 2010 23:32:19 +0400
+Message-ID: <20100609193219.GA8629@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: ext Patrick McHardy <kaber@trash.net>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Timo Teras <timo.teras@iki.fi>
-To: ext Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1276105707.11199.12.camel@powerslave>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: Manfred Rudigier <Manfred.Rudigier@omicron.at>,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from imap.ru.mvista.com ([213.79.90.228]:27427 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751551Ab0FITcU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 15:32:20 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-06-09 at 19:48 +0200, Coelho Luciano (Nokia-D/Helsinki)
-wrote:
-> On Wed, 2010-06-09 at 17:18 +0200, ext Jan Engelhardt wrote:
-> > >> > +	timer = __idletimer_tg_find_by_label(info->label);
-> > >> > +	if (!timer) {
-> > >> > +		spin_unlock(&list_lock);
-> > >> > +		timer = idletimer_tg_create(info);
-> > >> >   
-> > >> 
-> > >> How does this prevent creating the same timer twice?
-> > >
-> > >The timer will only be created if __idletimer_tg_find_by_label() returns
-> > >NULL, which means that no timer with that label has been found.  "info"
-> > >won't be the same if info->label is different, right? Or can it change
-> > >on the fly?
-> > 
-> > One thing to be generally aware about is that things could potentially
-> > be instantiated by another entity between the time a label was looked up
-> > with negative result and the time one tries to add it.
-> > It may thus be required to extend keeping the lock until after
-> > idletimer_tg_create, in other words, lookup and create must be atomic
-> > to the rest of the world.
-> 
-> Ahh, sure! I missed the actual point of Patrick's question.  I had the
-> idletimer_tg_create() inside the lock, but when I added the
-> sysfs_create_file() there (which can sleep), I screwed up with the
-> locking.
-> 
-> I'll move the sysfs file creation to outside that function so I can keep
-> the lock until after the timer is added to the list.  Thanks for
-> clarifying!
+Since commit cc772ab7cdcaa24d1fae332d92a1602788644f7a ("gianfar: Add
+hardware RX timestamping support"), the driver no longer works on
+at least MPC8313ERDB and MPC8568EMDS boards (and possibly much more
+boards as well).
 
-Hmmm... after struggling with this for a while, I think it's not really
-possible to simply create the sysfs file outside of the lock, because if
-the sysfs creation fails, we will again risk a race condition.
+That's how MPC8313 Reference Manual describes RCTRL_TS_ENABLE bit:
 
-I think the only way is to delay the sysfs file creation and do it in a
-workqueue.
+  Timestamp incoming packets as padding bytes. PAL field is set
+  to 8 if the PAL field is programmed to less than 8. Must be set
+  to zero if TMR_CTRL[TE]=0.
 
+I see that the commit above sets this bit, but it doesn't handle
+TMR_CTRL. Manfred probably had this bit set by the firmware for
+his boards. But obviously this isn't true for all boards in the
+wild.
 
+Also, I recall that Freescale BSPs were explicitly disabling the
+timestamping because of a performance drop.
+
+For now, the best way to deal with this is just disable the
+timestamping, and later we can discuss proper device tree bindings
+and implement enabling this feature via some property.
+
+Signed-off-by: Anton Vorontsov <avorontsov@mvista.com>
+---
+ drivers/net/gianfar.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 1830f31..46c69cd 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -747,8 +747,7 @@ static int gfar_of_init(struct of_device *ofdev, struct net_device **pdev)
+ 			FSL_GIANFAR_DEV_HAS_CSUM |
+ 			FSL_GIANFAR_DEV_HAS_VLAN |
+ 			FSL_GIANFAR_DEV_HAS_MAGIC_PACKET |
+-			FSL_GIANFAR_DEV_HAS_EXTENDED_HASH |
+-			FSL_GIANFAR_DEV_HAS_TIMER;
++			FSL_GIANFAR_DEV_HAS_EXTENDED_HASH;
+ 
+ 	ctype = of_get_property(np, "phy-connection-type", NULL);
+ 
 -- 
-Cheers,
-Luca.
-
+1.7.0.5
