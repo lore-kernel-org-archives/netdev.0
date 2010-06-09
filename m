@@ -1,66 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: no reassembly for outgoing packets on RAW socket
-Date: Wed, 09 Jun 2010 16:16:42 +0200
-Message-ID: <4C0FA24A.7060907@trash.net>
-References: <20100604112708.GA1958@jolsa.lab.eng.brq.redhat.com> <4C08EB85.3050900@trash.net> <20100607145558.GA1939@jolsa.lab.eng.brq.redhat.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: 2.6.35-rc2-git2: Reported regressions from 2.6.34
+Date: Wed, 9 Jun 2010 07:24:12 -0700 (PDT)
+Message-ID: <alpine.LFD.2.00.1006090719440.4506@i5.linux-foundation.org>
+References: <Rlf_Qjov7bG.A.a8F.I8rDMB@chimera> <alpine.LFD.2.00.1006081814240.4506@i5.linux-foundation.org> <201006091106.11232.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>
-To: Jiri Olsa <jolsa@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100607145558.GA1939@jolsa.lab.eng.brq.redhat.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Carl Worth <cworth@cworth.org>, Eric Anholt <eric@anholt.net>,
+	Venkatesh Pallipadi <venki@google.com>,
+	Jens Axboe <jaxboe@fusionio.com>,
+	Dave Airlie <airlied@gmail.com>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>,
+	Ingo Molnar <mingo@elte.hu>,
+	=?ISO-8859-15?Q?David__H=E4rdeman?= <david@hardeman.nu>,
+	Mauro Carvalho Chehab <mchehab@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.sourceforge.net>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <201006091106.11232.rjw@sisk.pl>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jiri Olsa wrote:
-> On Fri, Jun 04, 2010 at 02:03:17PM +0200, Patrick McHardy wrote:
->   
->> Jiri Olsa wrote:
->>     
->>> hi,
->>>
->>> I'd like to be able to sendout a single IP packet with MF flag set.
->>>
->>> When using RAW sockets the packet will get stuck in the
->>> netfilter (NF_INET_LOCAL_OUT nf_defrag_ipv4 reassembly unit)
->>> and wont ever make it out..
->>>
->>> I made a change which bypass the outgoing reassembly for
->>> RAW sockets, but I'm not sure wether it's too invasive..
->>>       
->> That would break reassembly (and thus connection tracking) for cases
->> where its really intended.
->>
->>     
->>> Is there any standard for RAW sockets behaviour?
->>> Or another way around? :)
->>>       
->> You could use the NOTRACK target to bypass connection tracking.
->>     
->
-> ok,
->
-> I tried the NOTRACK target, but the packet is still going
-> throught reassembly, because the RAW filter has lower priority
-> then the connection track defragmentation..
->   
 
-Right.
-> I was able to get it bypassed by attached patch and following
-> command:
->
-> 	iptables -v -t raw -A OUTPUT -p icmp -j NOTRACK
->
-> again, not sure if this is too invasive ;)
->   
 
-Well, we can't change it in the mainline kernel.
-> If this is not the way, I'd appreciatte any hint..  my goal is
-> to put malformed packet on the wire (more frags bit set for a
-> non fragmented packet)
+On Wed, 9 Jun 2010, Rafael J. Wysocki wrote:
+> > 
+> > That has a "reverting the commit fixes it", and a confirmation from Nick 
+> > Bowler.
+> > 
+> > Eric, Carl: should I just revert that commit? Or do you have a fix?
+> 
+> This one is reported to have been fixed already.  Closed now.
 
-I don't have any good suggestions besides adding a flag to the IPCB
-and skipping defragmentation based on that.
+Heh. That "fixed already" is actually the revert. Carl acked it.
+
+> This should be fixed by commit f8ed8b4c5d30b5214f185997131b06e35f6f7113, so
+> closing now.
+
+Good, that was in yesterday's drm pull.
+
+		Linus
