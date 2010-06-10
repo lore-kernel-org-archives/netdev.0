@@ -1,42 +1,46 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] ip: ip_ra_control() rcu fix
-Date: Thu, 10 Jun 2010 04:15:09 +0200
-Message-ID: <1276136109.2475.9.camel@edumazet-laptop>
+Subject: Re: [PATCH net-next-2.6] ip: ip_ra_control() rcu fix
+Date: Thu, 10 Jun 2010 04:21:07 +0200
+Message-ID: <1276136467.2475.13.camel@edumazet-laptop>
 References: <1275916328.2545.64.camel@edumazet-laptop>
 	 <20100607.212612.35795010.davem@davemloft.net>
+	 <1276136109.2475.9.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:49724 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755529Ab0FJCPS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 22:15:18 -0400
-Received: by wyb40 with SMTP id 40so644340wyb.19
-        for <netdev@vger.kernel.org>; Wed, 09 Jun 2010 19:15:17 -0700 (PDT)
-In-Reply-To: <20100607.212612.35795010.davem@davemloft.net>
+Received: from mail-ww0-f46.google.com ([74.125.82.46]:36907 "EHLO
+	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932117Ab0FJCVL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 22:21:11 -0400
+Received: by wwb18 with SMTP id 18so93470wwb.19
+        for <netdev@vger.kernel.org>; Wed, 09 Jun 2010 19:21:10 -0700 (PDT)
+In-Reply-To: <1276136109.2475.9.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 07 juin 2010 =C3=A0 21:26 -0700, David Miller a =C3=A9crit :=20
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Mon, 07 Jun 2010 15:12:08 +0200
+Le jeudi 10 juin 2010 =C3=A0 04:15 +0200, Eric Dumazet a =C3=A9crit :
+
+> [PATCH net-next-2.6] ip: ip_ra_control() rcu fix
 >=20
-> > Straightforward conversion to RCU.
-> >=20
-> > One rwlock becomes a spinlock, and is static.
-> >=20
-> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> commit 66018506e15b (ip: Router Alert RCU conversion) introduced RCU
+> lookups to ip_call_ra_chain(). It missed proper deinit phase :
+> When ip_ra_control() deletes an ip_ra_chain, it should make sure
+> ip_call_ra_chain() users can not start to use socket during the rcu
+> grace period. It should also delay the sock_put() after the grace
+> period, or we risk a premature socket freeing and corruptions, as
+> raw sockets are not rcu protected yet.
 >=20
-> Applied.
+> This delay avoids using expensive atomic_inc_not_return() in
 
-Hmm, rcu is tricky, I should re-read all my previous patches :(
+Grrr... should be atomic_inc_not_zero(), sorry for the typo in
+ChangeLog :(
 
-Here is a followup on this patch, thanks !
 
-[PATCH net-next-2.6] ip: ip_ra_control() rcu fix
+
+[PATCH net-next-2.6 v2] ip: ip_ra_control() rcu fix
 
 commit 66018506e15b (ip: Router Alert RCU conversion) introduced RCU
 lookups to ip_call_ra_chain(). It missed proper deinit phase :
@@ -46,7 +50,7 @@ grace period. It should also delay the sock_put() after the grace
 period, or we risk a premature socket freeing and corruptions, as
 raw sockets are not rcu protected yet.
 
-This delay avoids using expensive atomic_inc_not_return() in
+This delay avoids using expensive atomic_inc_not_zero() in
 ip_call_ra_chain().
 
 Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
@@ -54,7 +58,6 @@ Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
  include/net/ip.h       |    5 ++++-
  net/ipv4/ip_sockglue.c |   19 +++++++++++++++----
  2 files changed, 19 insertions(+), 5 deletions(-)
-
 
 diff --git a/include/net/ip.h b/include/net/ip.h
 index 9982c97..d52f011 100644
