@@ -1,41 +1,60 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: Re: [patch] enic: cleanup vic_provinfo_alloc()
-Date: Thu, 10 Jun 2010 11:32:30 +0200
-Message-ID: <20100610093230.GM5483@bicker>
-References: <20100610075903.GL5483@bicker> <4C10AEE9.4090804@bfs.de>
+From: Sonic Zhang <sonic.adi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v3] netdev:bfin_mac: reclaim and
+	free tx skb as soon as possible after transfer
+Date: Thu, 10 Jun 2010 17:44:02 +0800
+Message-ID: <AANLkTikBpghBJ7P4Lg080a7lM4eE2jRy4OvtzmjRgODO@mail.gmail.com>
+References: <1275907104.9082.1.camel@eight.analog.com>
+	<20100607.212238.209978119.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Scott Feldman <scofeldm@cisco.com>,
-	Vasanthy Kolluri <vkolluri@cisco.com>,
-	Roopa Prabhu <roprabhu@cisco.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: walter harms <wharms@bfs.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:62523 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752361Ab0FJJcl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jun 2010 05:32:41 -0400
-Content-Disposition: inline
-In-Reply-To: <4C10AEE9.4090804@bfs.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+In-Reply-To: <20100607.212238.209978119.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://blackfin.uclinux.org/mailman/options/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://blackfin.uclinux.org/pipermail/uclinux-dist-devel>
+List-Post: <mailto:uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+List-Help: <mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=help>
+List-Subscribe: <https://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=subscribe>
+Sender: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+Errors-To: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 10, 2010 at 11:22:49AM +0200, walter harms wrote:
-> > +	vp = kzalloc(VIC_PROVINFO_MAX_DATA, flags);
-> > +	if (!vp)
-> >  		return NULL;
-> >  
-> >  	memcpy(vp->oui, oui, sizeof(vp->oui));
-> > --
-> 
-> 
-> This looks like memdup() ?
-> 
+On Tue, Jun 8, 2010 at 12:22 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> From: sonic zhang <sonic.adi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Mon, 7 Jun 2010 18:38:24 +0800
+>
+>>
+>> + =A0 =A0 if (timer_pending(&lp->tx_reclaim_timer))
+>> + =A0 =A0 =A0 =A0 =A0 =A0 del_timer(&(lp->tx_reclaim_timer));
+>> +
+>
+> Please remove the excess parenthesis around lp->tx_reclaim_timer being
+> passed to del_timer().
+>
+> Also, you can unconditionally call del_timer(). =A0If the timer isn't run=
+ning
+> the call won't do anything.
 
-No.  VIC_PROVINFO_MAX_DATA is larger than sizeof(vp->oui).
+OK
 
-regards,
-dan carpenter
+>
+> But you have to do something to make sure you don't race with the code th=
+at
+> enables the timer, f.e. what keeps the timer from being scheduled right
+> after you make this del_timer() call?
+>
+Sorry, I don't understand. If the timer is removed from the timer base
+list,  how can it be scheduled? Timeout callbacks are scheduled only
+in __run_timers() in soft irq handler.  Timer base list is protected
+by a spinlock. After a timer is removed from the list, __run_timers()
+won't triggers it any more.
 
-> re,
->  wh
+Does I miss something here?
+
+Thanks
+
+Sonic
