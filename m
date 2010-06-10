@@ -1,37 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: fix mdio_read and update mdio_write according
- to hw specs
-Date: Wed, 09 Jun 2010 17:32:19 -0700 (PDT)
-Message-ID: <20100609.173219.39173328.davem@davemloft.net>
-References: <BD599B881C1D407DA7BC93A9244650B0@realtek.com.tw>
-	<1276060930-15697-1-git-send-email-timo.teras@iki.fi>
-	<20100609061825.GA7087@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: timo.teras@iki.fi, netdev@vger.kernel.org, hayeswang@realtek.com
-To: romieu@fr.zoreil.com
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: [PATCH] tc: revert "echo" in install target
+Date: Wed,  9 Jun 2010 20:52:03 -0400
+Message-ID: <1276131123-18040-1-git-send-email-vapier@gentoo.org>
+Cc: Andreas Henriksson <andreas@fatal.se>
+To: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57111
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756410Ab0FJAcI convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jun 2010 20:32:08 -0400
-In-Reply-To: <20100609061825.GA7087@electric-eye.fr.zoreil.com>
+Received: from smtp.gentoo.org ([140.211.166.183]:55521 "EHLO smtp.gentoo.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753213Ab0FJAwb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jun 2010 20:52:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Francois Romieu <romieu@fr.zoreil.com>
-Date: Wed, 9 Jun 2010 08:18:25 +0200
+The recent commit "iproute2: add option to build m_xt as a tc module"
+(ab814d635529787) looks like it wrongly included debug changes in the
+install target.  So drop the `echo` so the tc binary actually gets
+installed again.
 
-> Timo Ter=E4s <timo.teras@iki.fi> :
->> Realtek confirmed that a 20us delay is needed after mdio_read and
->> mdio_write operations. Reduce the delay in mdio_write, and add it
->> to mdio_read too. Also add a comment that the 20us is from hw specs.
->>=20
->> Signed-off-by: Timo Ter=E4s <timo.teras@iki.fi>
->=20
-> Acked-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+---
+ tc/Makefile |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
-I think you meant "Acked-by: " :-)  I fixed this and committed
-Timo's patch, thanks everyone!
+diff --git a/tc/Makefile b/tc/Makefile
+index 01a16fc..3aa9f26 100644
+--- a/tc/Makefile
++++ b/tc/Makefile
+@@ -99,10 +99,10 @@ libtc.a: $(TCLIB)
+ 	$(AR) rcs $@ $(TCLIB)
+ 
+ install: all
+-	echo mkdir -p $(MODDESTDIR)
+-	echo install -m 0755 tc $(DESTDIR)$(SBINDIR)
++	mkdir -p $(MODDESTDIR)
++	install -m 0755 tc $(DESTDIR)$(SBINDIR)
+ 	for i in $(TCSO); \
+-	do echo install -m 755 $$i $(MODDESTDIR); \
++	do install -m 755 $$i $(MODDESTDIR); \
+ 	done
+ 	if [ ! -f $(MODDESTDIR)/m_ipt.so ]; then \
+ 	if [ -f $(MODDESTDIR)/m_xt.so ]; \
+-- 
+1.7.1
+
