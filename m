@@ -1,75 +1,66 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: no reassembly for outgoing packets on RAW socket
-Date: Thu, 10 Jun 2010 12:04:56 +0200
-Message-ID: <4C10B8C8.2050201@trash.net>
-References: <20100604112708.GA1958@jolsa.lab.eng.brq.redhat.com> <4C08EB85.3050900@trash.net> <20100607145558.GA1939@jolsa.lab.eng.brq.redhat.com> <4C0FA24A.7060907@trash.net> <20100610065631.GA1915@jolsa.lab.eng.brq.redhat.com> <4C10ACDC.6010108@trash.net> <20100610095312.GC1915@jolsa.lab.eng.brq.redhat.com>
+Subject: Re: [PATCH v3] netfilter: Xtables: idletimer target implementation
+Date: Thu, 10 Jun 2010 12:07:16 +0200
+Message-ID: <4C10B954.9080603@trash.net>
+References: <1275592445-15555-1-git-send-email-luciano.coelho@nokia.com>	 <4C0F9B17.10504@trash.net> <1276096275.31892.117.camel@chilepepper>	 <alpine.LSU.2.01.1006091716170.30265@obet.zrqbmnf.qr>	 <1276105707.11199.12.camel@powerslave> <1276108939.11199.23.camel@powerslave>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>
-To: Jiri Olsa <jolsa@redhat.com>
+Cc: ext Jan Engelhardt <jengelh@medozas.de>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Timo Teras <timo.teras@iki.fi>
+To: Luciano Coelho <luciano.coelho@nokia.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100610095312.GC1915@jolsa.lab.eng.brq.redhat.com>
+In-Reply-To: <1276108939.11199.23.camel@powerslave>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jiri Olsa wrote:
-> On Thu, Jun 10, 2010 at 11:14:04AM +0200, Patrick McHardy wrote:
+Luciano Coelho wrote:
+> On Wed, 2010-06-09 at 19:48 +0200, Coelho Luciano (Nokia-D/Helsinki)
+> wrote:
 >   
->> Jiri Olsa wrote:
+>> On Wed, 2010-06-09 at 17:18 +0200, ext Jan Engelhardt wrote:
 >>     
->>> On Wed, Jun 09, 2010 at 04:16:42PM +0200, Patrick McHardy wrote:
->>>   
->>>       
->>>>> If this is not the way, I'd appreciatte any hint..  my goal is
->>>>> to put malformed packet on the wire (more frags bit set for a
->>>>> non fragmented packet)
->>>>>       
+>>>>>> +	timer = __idletimer_tg_find_by_label(info->label);
+>>>>>> +	if (!timer) {
+>>>>>> +		spin_unlock(&list_lock);
+>>>>>> +		timer = idletimer_tg_create(info);
+>>>>>>   
+>>>>>>             
+>>>>> How does this prevent creating the same timer twice?
 >>>>>           
->>>> I don't have any good suggestions besides adding a flag to the IPCB
->>>> and skipping defragmentation based on that.
->>>>     
+>>>> The timer will only be created if __idletimer_tg_find_by_label() returns
+>>>> NULL, which means that no timer with that label has been found.  "info"
+>>>> won't be the same if info->label is different, right? Or can it change
+>>>> on the fly?
 >>>>         
->>> ok,
->>>
->>> I can see a way when I set this via setsockopt to the socket,
->>> and check the value before the defragmentation..  would such a new
->>> setsock option be acceptable?
->>>
->>> I'm not sure I can see a way via IPCB, AFAICS it's for skb bound flags
->>> which arise during the skb processing.
->>>   
+>>> One thing to be generally aware about is that things could potentially
+>>> be instantiated by another entity between the time a label was looked up
+>>> with negative result and the time one tries to add it.
+>>> It may thus be required to extend keeping the lock until after
+>>> idletimer_tg_create, in other words, lookup and create must be atomic
+>>> to the rest of the world.
 >>>       
->> Yes, a socket option is basically what I was suggesting, using the
->> IPCB to mark the packet. But just marking the socket is fine of
->> course.
+>> Ahh, sure! I missed the actual point of Patrick's question.  I had the
+>> idletimer_tg_create() inside the lock, but when I added the
+>> sysfs_create_file() there (which can sleep), I screwed up with the
+>> locking.
 >>
->>
+>> I'll move the sysfs file creation to outside that function so I can keep
+>> the lock until after the timer is added to the list.  Thanks for
+>> clarifying!
 >>     
 >
-> one last thought before the socket option.. :)
+> Hmmm... after struggling with this for a while, I think it's not really
+> possible to simply create the sysfs file outside of the lock, because if
+> the sysfs creation fails, we will again risk a race condition.
 >
-> there's IP_HDRINCL option which is enabled for RAW sockets
-> (can be disabled later by setsockopt)
->
-> The 'man 7 ip' says:
-> 	"the user supplies an IP header in front of the user data"
->
-> but does not mention the outgoing defragmentation.
->
-> It kind of looks to me more appropriate to preserve the user suplied
-> IP header.. moreover if there's a way to switch this off and have
-> netfilter defragmentation + connection tracking for RAW socket.
->
-> please check the following patch..
-> (there's no special need for the IPSKB_NODEFRAG, it could check the
-> socket->hdrincl flag directly..)
->
-> thoughts?
+> I think the only way is to delay the sysfs file creation and do it in a
+> workqueue.
+>   
 
-My main concern is that users might expect netfilter to properly
-track fragmented packets created using IP_HDRINCL.
-
-
+Why don't you simply use a mutex instead of the spinlock? It would be better
+to only do the lookup once and store the timer pointer in the target
+structure
+anyways.
