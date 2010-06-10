@@ -1,51 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2 -next] niu: always include of_device.h
-Date: Wed, 09 Jun 2010 17:29:25 -0700 (PDT)
-Message-ID: <20100609.172925.183044544.davem@davemloft.net>
-References: <20100609.110638.112605100.davem@davemloft.net>
-	<20100609154409.bf024c0c.randy.dunlap@oracle.com>
-	<AANLkTikuIgeSMC5_IzAQGEQRso4udBvBGPcioAiArWb5@mail.gmail.com>
+Subject: Re: [PATCH] r8169: fix mdio_read and update mdio_write according
+ to hw specs
+Date: Wed, 09 Jun 2010 17:32:19 -0700 (PDT)
+Message-ID: <20100609.173219.39173328.davem@davemloft.net>
+References: <BD599B881C1D407DA7BC93A9244650B0@realtek.com.tw>
+	<1276060930-15697-1-git-send-email-timo.teras@iki.fi>
+	<20100609061825.GA7087@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: randy.dunlap@oracle.com, sfr@canb.auug.org.au,
-	netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: grant.likely@secretlab.ca
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTikuIgeSMC5_IzAQGEQRso4udBvBGPcioAiArWb5@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: timo.teras@iki.fi, netdev@vger.kernel.org, hayeswang@realtek.com
+To: romieu@fr.zoreil.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57111
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756410Ab0FJAcI convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jun 2010 20:32:08 -0400
+In-Reply-To: <20100609061825.GA7087@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Grant Likely <grant.likely@secretlab.ca>
-Date: Wed, 9 Jun 2010 17:45:54 -0600
+=46rom: Francois Romieu <romieu@fr.zoreil.com>
+Date: Wed, 9 Jun 2010 08:18:25 +0200
 
-> On Wed, Jun 9, 2010 at 4:44 PM, Randy Dunlap <randy.dunlap@oracle.com=
-> wrote:
->> From: Randy Dunlap <randy.dunlap@oracle.com>
->>
->> The niu driver uses struct of_device when built on any arch, not
->> only SPARC64, so always #include <linux/of_device.h>.
->>
->> drivers/net/niu.c:9700: warning: 'struct of_device' declared inside =
-parameter list
->> drivers/net/niu.c:9700: warning: its scope is only this definition o=
-r declaration, which is probably not what you want
->> drivers/net/niu.c:9716: warning: assignment from incompatible pointe=
-r type
->>
->> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
->> Cc: =A0 =A0 Grant Likely <grant.likely@secretlab.ca>
->> Cc: =A0 =A0 Dave Miller <davem@davemloft.net>
->> ---
->> =A0drivers/net/niu.c | =A0 =A03 ---
+> Timo Ter=E4s <timo.teras@iki.fi> :
+>> Realtek confirmed that a 20us delay is needed after mdio_read and
+>> mdio_write operations. Reduce the delay in mdio_write, and add it
+>> to mdio_read too. Also add a comment that the 20us is from hw specs.
+>>=20
+>> Signed-off-by: Timo Ter=E4s <timo.teras@iki.fi>
 >=20
-> Looks okay to me (but I haven't build tested it yet).  The bulk of
-> of_device.h is compiled out when CONFIG_OF_DEVICE is not selected.
->=20
-> David, are you okay with me taking this via my tree as it depends on
-> Randy's other patch?
+> Acked-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-Yep, that's totally fine with me:
-
-Acked-by: David S. Miller <davem@davemloft.net>
+I think you meant "Acked-by: " :-)  I fixed this and committed
+Timo's patch, thanks everyone!
