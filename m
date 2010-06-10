@@ -1,46 +1,45 @@
-From: Jiri Olsa <jolsa@redhat.com>
-Subject: Re: no reassembly for outgoing packets on RAW socket
-Date: Thu, 10 Jun 2010 08:57:02 +0200
-Message-ID: <20100610065702.GB1915@jolsa.lab.eng.brq.redhat.com>
-References: <20100604112708.GA1958@jolsa.lab.eng.brq.redhat.com>
- <4C08EB85.3050900@trash.net>
- <20100607145558.GA1939@jolsa.lab.eng.brq.redhat.com>
- <4C0FA24A.7060907@trash.net>
- <alpine.LSU.2.01.1006091713260.30265@obet.zrqbmnf.qr>
- <4C0FB068.9090700@trash.net>
- <alpine.LSU.2.01.1006091719010.30265@obet.zrqbmnf.qr>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch] enic: cleanup vic_provinfo_alloc()
+Date: Thu, 10 Jun 2010 09:59:03 +0200
+Message-ID: <20100610075903.GL5483@bicker>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: Vasanthy Kolluri <vkolluri@cisco.com>,
+	Roopa Prabhu <roprabhu@cisco.com>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Scott Feldman <scofeldm@cisco.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f46.google.com ([74.125.82.46]:58364 "EHLO
+	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752396Ab0FJH7Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jun 2010 03:59:24 -0400
 Content-Disposition: inline
-In-Reply-To: <alpine.LSU.2.01.1006091719010.30265@obet.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 09, 2010 at 05:20:37PM +0200, Jan Engelhardt wrote:
-> 
-> On Wednesday 2010-06-09 17:16, Patrick McHardy wrote:
-> >Jan Engelhardt wrote:
-> >> On Wednesday 2010-06-09 16:16, Patrick McHardy wrote:
-> >>>>> You could use the NOTRACK target to bypass connection tracking.
-> >>>>>         
-> >>>> I tried the NOTRACK target, but the packet is still going
-> >>>> throught reassembly, because the RAW filter has lower priority
-> >>>> then the connection track defragmentation..
-> >>>
-> >>> Right.
-> >>
-> >> Blech. That reminds me of
-> >> http://marc.info/?l=netfilter-devel&m=126581823826735&w=2
-> >
-> >We already fixed that.
-> 
-> I know, and I posted it for the understanding of the OP
-> as to why RAW is after DEFRAG.
+If oui were a null variable then vic_provinfo_alloc() would leak memory.
+But this function is only called from one place and oui is not null so 
+I removed the check.
 
-thanks, it's helpful
-jirka
+I also moved the memory allocation down a line so it was easier to spot.
+(No one ever reads variable declarations).
+
+Signed-off-by: Dan Carpenter <error27@gmail.com>
+
+diff --git a/drivers/net/enic/vnic_vic.c b/drivers/net/enic/vnic_vic.c
+index d769772..0a35085 100644
+--- a/drivers/net/enic/vnic_vic.c
++++ b/drivers/net/enic/vnic_vic.c
+@@ -25,9 +25,10 @@
+ 
+ struct vic_provinfo *vic_provinfo_alloc(gfp_t flags, u8 *oui, u8 type)
+ {
+-	struct vic_provinfo *vp = kzalloc(VIC_PROVINFO_MAX_DATA, flags);
++	struct vic_provinfo *vp;
+ 
+-	if (!vp || !oui)
++	vp = kzalloc(VIC_PROVINFO_MAX_DATA, flags);
++	if (!vp)
+ 		return NULL;
+ 
+ 	memcpy(vp->oui, oui, sizeof(vp->oui));
