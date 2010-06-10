@@ -1,74 +1,81 @@
-From: Petko Manolov <petkan@nucleusys.com>
-Subject: Re: Bug#584238: linux-image-2.6.32-3-486: When using USB to Ethernet
- nework adapter later on get error: blocked for more than 120 seconds
-Date: Thu, 10 Jun 2010 09:49:25 +0300 (EEST)
-Message-ID: <alpine.DEB.2.00.1006100948380.2033@bender.nucleusys.com>
-References: <20100602144551.2330.64473.reportbug@debian-laptop.localdomain> <1275521053.2870.70.camel@localhost> <87aar4e49d.fsf@debian-laptop.localdomain>
+From: Jiri Olsa <jolsa@redhat.com>
+Subject: Re: no reassembly for outgoing packets on RAW socket
+Date: Thu, 10 Jun 2010 08:56:31 +0200
+Message-ID: <20100610065631.GA1915@jolsa.lab.eng.brq.redhat.com>
+References: <20100604112708.GA1958@jolsa.lab.eng.brq.redhat.com>
+ <4C08EB85.3050900@trash.net>
+ <20100607145558.GA1939@jolsa.lab.eng.brq.redhat.com>
+ <4C0FA24A.7060907@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Ben Hutchings <ben@decadent.org.uk>, 584238@bugs.debian.org,
-	Petko Manolov <petkan@users.sourceforge.net>,
-	netdev <netdev@vger.kernel.org>
-To: Paul Chany <csanyipal@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lan.nucleusys.com ([78.83.248.164]:51154 "EHLO
-	zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754633Ab0FJGuF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jun 2010 02:50:05 -0400
-In-Reply-To: <87aar4e49d.fsf@debian-laptop.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4C0FA24A.7060907@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The project ain't dead yet, i has moved into the mainline long time ago.
+On Wed, Jun 09, 2010 at 04:16:42PM +0200, Patrick McHardy wrote:
+> Jiri Olsa wrote:
+> > On Fri, Jun 04, 2010 at 02:03:17PM +0200, Patrick McHardy wrote:
+> >   
+> >> Jiri Olsa wrote:
+> >>     
+> >>> hi,
+> >>>
+> >>> I'd like to be able to sendout a single IP packet with MF flag set.
+> >>>
+> >>> When using RAW sockets the packet will get stuck in the
+> >>> netfilter (NF_INET_LOCAL_OUT nf_defrag_ipv4 reassembly unit)
+> >>> and wont ever make it out..
+> >>>
+> >>> I made a change which bypass the outgoing reassembly for
+> >>> RAW sockets, but I'm not sure wether it's too invasive..
+> >>>       
+> >> That would break reassembly (and thus connection tracking) for cases
+> >> where its really intended.
+> >>
+> >>     
+> >>> Is there any standard for RAW sockets behaviour?
+> >>> Or another way around? :)
+> >>>       
+> >> You could use the NOTRACK target to bypass connection tracking.
+> >>     
+> >
+> > ok,
+> >
+> > I tried the NOTRACK target, but the packet is still going
+> > throught reassembly, because the RAW filter has lower priority
+> > then the connection track defragmentation..
+> >   
+> 
+> Right.
+> > I was able to get it bypassed by attached patch and following
+> > command:
+> >
+> > 	iptables -v -t raw -A OUTPUT -p icmp -j NOTRACK
+> >
+> > again, not sure if this is too invasive ;)
+> >   
+> 
+> Well, we can't change it in the mainline kernel.
+> > If this is not the way, I'd appreciatte any hint..  my goal is
+> > to put malformed packet on the wire (more frags bit set for a
+> > non fragmented packet)
+> 
+> I don't have any good suggestions besides adding a flag to the IPCB
+> and skipping defragmentation based on that.
+ok,
 
+I can see a way when I set this via setsockopt to the socket,
+and check the value before the defragmentation..  would such a new
+setsock option be acceptable?
 
- 		Petko
+I'm not sure I can see a way via IPCB, AFAICS it's for skb bound flags
+which arise during the skb processing.
 
-
-On Wed, 9 Jun 2010, Paul Chany wrote:
-
-> Ben Hutchings <ben@decadent.org.uk> writes:
->
->> On Wed, 2010-06-02 at 16:45 +0200, Paul Chany wrote:
->>> Package: linux-2.6
->>> Version: 2.6.32-9
->>> Severity: normal
->>> Tags: squeeze
->>>
->>> When using USB to Ethernet adapter later on get error on console:
->>>
->>> [11531.988248] INOF: task khubd:618 blocked for more than 120 seconds.
->>> [11531.988377] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this
->>> message.
->>> [11531.990656] INFO: task pegasus:1156 blocked for more than 120 seconds.
->>> [11531.990722] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this
->>> message.
->>>
->>> After that I can't reconfigure anymore network, nor reboot the system with the command:
->>> sudo shutdown -t 1 -r now
->>> because the system hangs forever.
->>>
->>> It is not help if I unplug and plug in again the network adapter, it is not recognised by
->>> the kernel anymore.
->>
->> I'm forwarding this to the pegasus driver developers so they can comment
->> on it.
->>
->> Debian kernel version 2.6.32-9 is closely based on stable kernel
->> 2.6.32.9.
->
-> It seems that the developers dont' responds for this bugreport at all.
-> Is the pegasus kernel driver a dead project now?
-> There in their projectpage: http://pegasus2.sourceforge.net/
-> one can see that that pegasus is available
-> only for kernels 2.4 and 2.5 but not for 2.6, right?
->
-> In the meantime I can to reboot every hour or so because of this buggish
-> driver.
->
-> -- 
-> Regards,
-> Paul Chany
-> You can freely correct my English.
-> http://csanyi-pal.info
->
+thanks,
+jirka
