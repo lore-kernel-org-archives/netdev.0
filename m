@@ -1,7 +1,7 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 5/7] netpoll: Add ndo_netpoll_setup
-Date: Thu, 10 Jun 2010 22:42:05 +1000
-Message-ID: <E1OMh5B-0004Ni-DS@gondolin.me.apana.org.au>
+Subject: [PATCH 4/7] netpoll: Add locking for netpoll_setup/cleanup
+Date: Thu, 10 Jun 2010 22:42:04 +1000
+Message-ID: <E1OMh5A-0004NX-9w@gondolin.me.apana.org.au>
 References: <20100610124047.GA16658@gondor.apana.org.au>
 To: "Michael S. Tsirkin" <mst@redhat.com>,
 	Qianfeng Zhang <frzhang@redhat.com>,
@@ -9,70 +9,245 @@ To: "Michael S. Tsirkin" <mst@redhat.com>,
 	WANG Cong <amwang@redhat.com>,
 	Stephen He
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:52029 "EHLO
+Received: from ringil.hengli.com.au ([216.59.3.182]:52024 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758965Ab0FJMmI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jun 2010 08:42:08 -0400
+	with ESMTP id S1758758Ab0FJMmH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jun 2010 08:42:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netpoll: Add ndo_netpoll_setup
+netpoll: Add locking for netpoll_setup/cleanup
 
-This patch adds ndo_netpoll_setup as the initialisation primitive
-to complement ndo_netpoll_cleanup.
+As it stands, netpoll_setup and netpoll_cleanup have no locking
+protection whatsoever.  So chaos ensures if two entities try to
+perform them on the same device.
+
+This patch adds RTNL to the equation.  The code has be rearranged
+so that bits that do not need RTNL protection are now moved to
+the top of netpoll_setup.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/linux/netdevice.h |    2 ++
- net/core/netpoll.c        |   10 ++++++++++
- 2 files changed, 12 insertions(+)
+ net/core/netpoll.c |  151 ++++++++++++++++++++++++++---------------------------
+ 1 file changed, 76 insertions(+), 75 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 40291f3..619d3f1 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -728,6 +728,8 @@ struct net_device_ops {
- 						        unsigned short vid);
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	void                    (*ndo_poll_controller)(struct net_device *dev);
-+	int			(*ndo_netpoll_setup)(struct net_device *dev,
-+						     struct netpoll_info *info);
- 	void			(*ndo_netpoll_cleanup)(struct net_device *dev);
- #endif
- 	int			(*ndo_set_vf_mac)(struct net_device *dev,
 diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 9dcd767..c445896 100644
+index 4b7623d..9dcd767 100644
 --- a/net/core/netpoll.c
 +++ b/net/core/netpoll.c
-@@ -729,6 +729,7 @@ int netpoll_setup(struct netpoll *np)
+@@ -729,7 +729,6 @@ int netpoll_setup(struct netpoll *np)
  	struct net_device *ndev = NULL;
  	struct in_device *in_dev;
  	struct netpoll_info *npinfo;
-+	const struct net_device_ops *ops;
+-	struct netpoll *npe, *tmp;
  	unsigned long flags;
  	int err;
  
-@@ -828,6 +829,13 @@ int netpoll_setup(struct netpoll *np)
- 		INIT_DELAYED_WORK(&npinfo->tx_work, queue_process);
+@@ -741,38 +740,6 @@ int netpoll_setup(struct netpoll *np)
+ 		return -ENODEV;
+ 	}
  
- 		atomic_set(&npinfo->refcnt, 1);
+-	np->dev = ndev;
+-	if (!ndev->npinfo) {
+-		npinfo = kmalloc(sizeof(*npinfo), GFP_KERNEL);
+-		if (!npinfo) {
+-			err = -ENOMEM;
+-			goto put;
+-		}
+-
+-		npinfo->rx_flags = 0;
+-		INIT_LIST_HEAD(&npinfo->rx_np);
+-
+-		spin_lock_init(&npinfo->rx_lock);
+-		skb_queue_head_init(&npinfo->arp_tx);
+-		skb_queue_head_init(&npinfo->txq);
+-		INIT_DELAYED_WORK(&npinfo->tx_work, queue_process);
+-
+-		atomic_set(&npinfo->refcnt, 1);
+-	} else {
+-		npinfo = ndev->npinfo;
+-		atomic_inc(&npinfo->refcnt);
+-	}
+-
+-	npinfo->netpoll = np;
+-
+-	if ((ndev->priv_flags & IFF_DISABLE_NETPOLL) ||
+-	    !ndev->netdev_ops->ndo_poll_controller) {
+-		printk(KERN_ERR "%s: %s doesn't support polling, aborting.\n",
+-		       np->name, np->dev_name);
+-		err = -ENOTSUPP;
+-		goto release;
+-	}
+-
+ 	if (!netif_running(ndev)) {
+ 		unsigned long atmost, atleast;
+ 
+@@ -786,7 +753,7 @@ int netpoll_setup(struct netpoll *np)
+ 		if (err) {
+ 			printk(KERN_ERR "%s: failed to open %s\n",
+ 			       np->name, ndev->name);
+-			goto release;
++			goto put;
+ 		}
+ 
+ 		atleast = jiffies + HZ/10;
+@@ -823,7 +790,7 @@ int netpoll_setup(struct netpoll *np)
+ 			printk(KERN_ERR "%s: no IP address for %s, aborting\n",
+ 			       np->name, np->dev_name);
+ 			err = -EDESTADDRREQ;
+-			goto release;
++			goto put;
+ 		}
+ 
+ 		np->local_ip = in_dev->ifa_list->ifa_local;
+@@ -831,6 +798,43 @@ int netpoll_setup(struct netpoll *np)
+ 		printk(KERN_INFO "%s: local IP %pI4\n", np->name, &np->local_ip);
+ 	}
+ 
++	np->dev = ndev;
 +
-+		ops = np->dev->netdev_ops;
-+		if (ops->ndo_netpoll_setup) {
-+			err = ops->ndo_netpoll_setup(ndev, npinfo);
-+			if (err)
-+				goto free_npinfo;
++	/* fill up the skb queue */
++	refill_skbs();
++
++	rtnl_lock();
++	if ((ndev->priv_flags & IFF_DISABLE_NETPOLL) ||
++	    !ndev->netdev_ops->ndo_poll_controller) {
++		printk(KERN_ERR "%s: %s doesn't support polling, aborting.\n",
++		       np->name, np->dev_name);
++		err = -ENOTSUPP;
++		goto unlock;
++	}
++
++	if (!ndev->npinfo) {
++		npinfo = kmalloc(sizeof(*npinfo), GFP_KERNEL);
++		if (!npinfo) {
++			err = -ENOMEM;
++			goto unlock;
 +		}
- 	} else {
- 		npinfo = ndev->npinfo;
- 		atomic_inc(&npinfo->refcnt);
-@@ -848,6 +856,8 @@ int netpoll_setup(struct netpoll *np)
++
++		npinfo->rx_flags = 0;
++		INIT_LIST_HEAD(&npinfo->rx_np);
++
++		spin_lock_init(&npinfo->rx_lock);
++		skb_queue_head_init(&npinfo->arp_tx);
++		skb_queue_head_init(&npinfo->txq);
++		INIT_DELAYED_WORK(&npinfo->tx_work, queue_process);
++
++		atomic_set(&npinfo->refcnt, 1);
++	} else {
++		npinfo = ndev->npinfo;
++		atomic_inc(&npinfo->refcnt);
++	}
++
++	npinfo->netpoll = np;
++
+ 	if (np->rx_hook) {
+ 		spin_lock_irqsave(&npinfo->rx_lock, flags);
+ 		npinfo->rx_flags |= NETPOLL_RX_ENABLED;
+@@ -838,24 +842,14 @@ int netpoll_setup(struct netpoll *np)
+ 		spin_unlock_irqrestore(&npinfo->rx_lock, flags);
+ 	}
+ 
+-	/* fill up the skb queue */
+-	refill_skbs();
+-
+ 	/* last thing to do is link it to the net device structure */
+ 	rcu_assign_pointer(ndev->npinfo, npinfo);
++	rtnl_unlock();
  
  	return 0;
  
-+free_npinfo:
-+	kfree(npinfo);
- unlock:
- 	rtnl_unlock();
+- release:
+-	if (!ndev->npinfo) {
+-		spin_lock_irqsave(&npinfo->rx_lock, flags);
+-		list_for_each_entry_safe(npe, tmp, &npinfo->rx_np, rx) {
+-			npe->dev = NULL;
+-		}
+-		spin_unlock_irqrestore(&npinfo->rx_lock, flags);
+-
+-		kfree(npinfo);
+-	}
++unlock:
++	rtnl_unlock();
  put:
+ 	dev_put(ndev);
+ 	return err;
+@@ -872,43 +866,50 @@ void netpoll_cleanup(struct netpoll *np)
+ {
+ 	struct netpoll_info *npinfo;
+ 	unsigned long flags;
++	int free = 0;
+ 
+-	if (np->dev) {
+-		npinfo = np->dev->npinfo;
+-		if (npinfo) {
+-			if (!list_empty(&npinfo->rx_np)) {
+-				spin_lock_irqsave(&npinfo->rx_lock, flags);
+-				list_del(&np->rx);
+-				if (list_empty(&npinfo->rx_np))
+-					npinfo->rx_flags &= ~NETPOLL_RX_ENABLED;
+-				spin_unlock_irqrestore(&npinfo->rx_lock, flags);
+-			}
++	if (!np->dev)
++		return;
+ 
+-			if (atomic_dec_and_test(&npinfo->refcnt)) {
+-				const struct net_device_ops *ops;
++	rtnl_lock();
++	npinfo = np->dev->npinfo;
++	if (npinfo) {
++		if (!list_empty(&npinfo->rx_np)) {
++			spin_lock_irqsave(&npinfo->rx_lock, flags);
++			list_del(&np->rx);
++			if (list_empty(&npinfo->rx_np))
++				npinfo->rx_flags &= ~NETPOLL_RX_ENABLED;
++			spin_unlock_irqrestore(&npinfo->rx_lock, flags);
++		}
+ 
+-				ops = np->dev->netdev_ops;
+-				if (ops->ndo_netpoll_cleanup)
+-					ops->ndo_netpoll_cleanup(np->dev);
++		free = atomic_dec_and_test(&npinfo->refcnt);
++		if (free) {
++			const struct net_device_ops *ops;
+ 
+-				rcu_assign_pointer(np->dev->npinfo, NULL);
++			ops = np->dev->netdev_ops;
++			if (ops->ndo_netpoll_cleanup)
++				ops->ndo_netpoll_cleanup(np->dev);
+ 
+-				/* avoid racing with NAPI reading npinfo */
+-				synchronize_rcu_bh();
++			rcu_assign_pointer(np->dev->npinfo, NULL);
++		}
++	}
++	rtnl_unlock();
+ 
+-				skb_queue_purge(&npinfo->arp_tx);
+-				skb_queue_purge(&npinfo->txq);
+-				cancel_rearming_delayed_work(&npinfo->tx_work);
++	if (free) {
++		/* avoid racing with NAPI reading npinfo */
++		synchronize_rcu_bh();
+ 
+-				/* clean after last, unfinished work */
+-				__skb_queue_purge(&npinfo->txq);
+-				kfree(npinfo);
+-			}
+-		}
++		skb_queue_purge(&npinfo->arp_tx);
++		skb_queue_purge(&npinfo->txq);
++		cancel_rearming_delayed_work(&npinfo->tx_work);
+ 
+-		dev_put(np->dev);
++		/* clean after last, unfinished work */
++		__skb_queue_purge(&npinfo->txq);
++		kfree(npinfo);
+ 	}
+ 
++	dev_put(np->dev);
++
+ 	np->dev = NULL;
+ }
+ 
