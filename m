@@ -1,44 +1,83 @@
 From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH] netem: fix installs of dist files
-Date: Wed,  9 Jun 2010 20:52:09 -0400
-Message-ID: <1276131129-18079-1-git-send-email-vapier@gentoo.org>
+Subject: [PATCH] dnet: fix strict aliasing warnings
+Date: Wed,  9 Jun 2010 20:52:41 -0400
+Message-ID: <1276131161-18135-1-git-send-email-vapier@gentoo.org>
 To: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:55528 "EHLO smtp.gentoo.org"
+Received: from smtp.gentoo.org ([140.211.166.183]:55565 "EHLO smtp.gentoo.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755785Ab0FJAwg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jun 2010 20:52:36 -0400
+	id S1755785Ab0FJAxI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jun 2010 20:53:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The tc program searches LIBDIR by default for the .dist files, and that
-defaults to /usr/lib.  But the netem subdir has /lib/ hardcoded which
-means the default build+install results in the files not being found.
-
-Further, these are plain text files which are read at runtime, so it
-doesn't make sense to give them executable bits.
+Recent gcc doesn't like it when you cast char pointers to uint16_t
+pointers and then dereference it.  So use memcpy() instead and let
+gcc take care of optimizing things away (when appropriate).  This
+should also fix alignment issues on arches where gcc packs the char
+pointer tighter than 16bits.
 
 Signed-off-by: Mike Frysinger <vapier@gentoo.org>
 ---
- netem/Makefile |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ lib/dnet_ntop.c |    8 ++++++--
+ lib/dnet_pton.c |    5 ++++-
+ 2 files changed, 10 insertions(+), 3 deletions(-)
 
-diff --git a/netem/Makefile b/netem/Makefile
-index b6ccfc6..e52e125 100644
---- a/netem/Makefile
-+++ b/netem/Makefile
-@@ -20,9 +20,9 @@ stats: stats.c
- 	$(HOSTCC) $(CCOPTS) -I../include -o $@ $@.c -lm
+diff --git a/lib/dnet_ntop.c b/lib/dnet_ntop.c
+index 9500df8..507a7eb 100644
+--- a/lib/dnet_ntop.c
++++ b/lib/dnet_ntop.c
+@@ -1,4 +1,5 @@
+ #include <errno.h>
++#include <string.h>
+ #include <sys/types.h>
+ #include <netinet/in.h>
  
- install: all
--	mkdir -p $(DESTDIR)/lib/tc
-+	mkdir -p $(DESTDIR)$(LIBDIR)/tc
- 	for i in $(DISTDATA); \
--	do install -m 755 $$i $(DESTDIR)/lib/tc; \
-+	do install -m 644 $$i $(DESTDIR)$(LIBDIR)/tc; \
- 	done
+@@ -35,11 +36,14 @@ static __inline__ int do_digit(char *str, u_int16_t *addr, u_int16_t scale, size
  
- clean:
+ static const char *dnet_ntop1(const struct dn_naddr *dna, char *str, size_t len)
+ {
+-	u_int16_t addr = dn_ntohs(*(u_int16_t *)dna->a_addr);
+-	u_int16_t area = addr >> 10;
++	u_int16_t addr, area;
+ 	size_t pos = 0;
+ 	int started = 0;
+ 
++	memcpy(&addr, dna->a_addr, sizeof(addr));
++	addr = dn_ntohs(addr);
++	area = addr >> 10;
++
+ 	if (dna->a_len != 2)
+ 		return NULL;
+ 
+diff --git a/lib/dnet_pton.c b/lib/dnet_pton.c
+index bd7727a..7385756 100644
+--- a/lib/dnet_pton.c
++++ b/lib/dnet_pton.c
+@@ -1,4 +1,5 @@
+ #include <errno.h>
++#include <string.h>
+ #include <sys/types.h>
+ #include <netinet/in.h>
+ 
+@@ -37,6 +38,7 @@ static int dnet_num(const char *src, u_int16_t * dst)
+ 
+ static int dnet_pton1(const char *src, struct dn_naddr *dna)
+ {
++	u_int16_t addr;
+ 	u_int16_t area = 0;
+ 	u_int16_t node = 0;
+ 	int pos;
+@@ -48,7 +50,8 @@ static int dnet_pton1(const char *src, struct dn_naddr *dna)
+ 	if ((pos == 0) || (node > 1023))
+ 		return 0;
+ 	dna->a_len = 2;
+-	*(u_int16_t *)dna->a_addr = dn_htons((area << 10) | node);
++	addr = dn_htons((area << 10) | node);
++	memcpy(dna->a_addr, &addr, sizeof(addr));
+ 
+ 	return 1;
+ }
 -- 
 1.7.1
 
