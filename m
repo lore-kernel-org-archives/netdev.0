@@ -1,83 +1,69 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH] dnet: fix strict aliasing warnings
-Date: Wed,  9 Jun 2010 20:52:41 -0400
-Message-ID: <1276131161-18135-1-git-send-email-vapier@gentoo.org>
-To: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] [PATCH] ucc_geth: fix for RX skb buffers recycling
+Date: Wed, 09 Jun 2010 18:02:40 -0700 (PDT)
+Message-ID: <20100609.180240.59675642.davem@davemloft.net>
+References: <1275935894-30483-1-git-send-email-geomatsi@gmail.com>
+	<1275935894-30483-2-git-send-email-geomatsi@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, leoli@freescale.com,
+	avorontsov@ru.mvista.com
+To: geomatsi@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:55565 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755785Ab0FJAxI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jun 2010 20:53:08 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56207
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754869Ab0FJBC3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jun 2010 21:02:29 -0400
+In-Reply-To: <1275935894-30483-2-git-send-email-geomatsi@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recent gcc doesn't like it when you cast char pointers to uint16_t
-pointers and then dereference it.  So use memcpy() instead and let
-gcc take care of optimizing things away (when appropriate).  This
-should also fix alignment issues on arches where gcc packs the char
-pointer tighter than 16bits.
+From: Sergey Matyukevich <geomatsi@gmail.com>
+Date: Mon,  7 Jun 2010 22:38:14 +0400
 
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
----
- lib/dnet_ntop.c |    8 ++++++--
- lib/dnet_pton.c |    5 ++++-
- 2 files changed, 10 insertions(+), 3 deletions(-)
+> This patch implements a proper recycling of skb buffers belonging to RX error
+> path. The suggested fix actually follows the recycling scheme implemented for
+> TX skb buffers in the same driver (see 'ucc_geth_tx' function): skb buffers
+> are checked by 'skb_recycle_check' function and deleted if can't be recycled.
+> 
+> This problem in recycling of skb buffers was discovered by accident in a setup
+> when ethernet interface on one link end was full-duplex while another was
+> half-duplex. In this case numerous corrupted frames were received by
+> full-duplex interface due to late collisions. RX skb buffers with error
+> frames were not properly recycled, that is why overflow occured from time to
+> time on the next use of those buffers. Here is example of crush dump:
 
-diff --git a/lib/dnet_ntop.c b/lib/dnet_ntop.c
-index 9500df8..507a7eb 100644
---- a/lib/dnet_ntop.c
-+++ b/lib/dnet_ntop.c
-@@ -1,4 +1,5 @@
- #include <errno.h>
-+#include <string.h>
- #include <sys/types.h>
- #include <netinet/in.h>
- 
-@@ -35,11 +36,14 @@ static __inline__ int do_digit(char *str, u_int16_t *addr, u_int16_t scale, size
- 
- static const char *dnet_ntop1(const struct dn_naddr *dna, char *str, size_t len)
- {
--	u_int16_t addr = dn_ntohs(*(u_int16_t *)dna->a_addr);
--	u_int16_t area = addr >> 10;
-+	u_int16_t addr, area;
- 	size_t pos = 0;
- 	int started = 0;
- 
-+	memcpy(&addr, dna->a_addr, sizeof(addr));
-+	addr = dn_ntohs(addr);
-+	area = addr >> 10;
-+
- 	if (dna->a_len != 2)
- 		return NULL;
- 
-diff --git a/lib/dnet_pton.c b/lib/dnet_pton.c
-index bd7727a..7385756 100644
---- a/lib/dnet_pton.c
-+++ b/lib/dnet_pton.c
-@@ -1,4 +1,5 @@
- #include <errno.h>
-+#include <string.h>
- #include <sys/types.h>
- #include <netinet/in.h>
- 
-@@ -37,6 +38,7 @@ static int dnet_num(const char *src, u_int16_t * dst)
- 
- static int dnet_pton1(const char *src, struct dn_naddr *dna)
- {
-+	u_int16_t addr;
- 	u_int16_t area = 0;
- 	u_int16_t node = 0;
- 	int pos;
-@@ -48,7 +50,8 @@ static int dnet_pton1(const char *src, struct dn_naddr *dna)
- 	if ((pos == 0) || (node > 1023))
- 		return 0;
- 	dna->a_len = 2;
--	*(u_int16_t *)dna->a_addr = dn_htons((area << 10) | node);
-+	addr = dn_htons((area << 10) | node);
-+	memcpy(dna->a_addr, &addr, sizeof(addr));
- 
- 	return 1;
- }
--- 
-1.7.1
+The lack of skb_recycle_check() is not the true cause of this bug.
+You should never, ever, need to make skb_recycle_check() tests on
+packets in this situation.  Once the skb pointers are properly adjusted
+it will have sufficient room.
 
+And that points to what the real problem is, the problem is the
+skb->data assignment.  It's trying to get the SKB data pointers back
+into the same state they are in when dev_alloc_skb() returns a packet
+buffer.
+
+But this assignment isn't accomplishing that, in fact it's corrupting
+the SKB because after adjusting skb->data, skb->tail and skb->len will
+become incorrect.  And this is what you need to fix.
+
+That's why you get the skb_put() over panics, not because you lack
+a skb_recycle_check() call here.
+
+In fact, what your patch makes happen is that the error packets will
+never get recycled.  The skb_recycle_check() will always fail.
+
+Please fix this bug properly by correctly restoring the SKB pointers
+and lengths to their initial state, then you can retain the
+unconditional queueing of the error packet onto the recycle list.
+
+Once you do that, all of the checks done by skb_recycle_check() are
+superfluous and will always pass, and we know this.  The buffer is
+not fragmented, there aren't any clones or external references to it,
+and once you fix up the data pointers properly it will have enough
+room as necessary for the RX buffer size the driver is currently using.
+
+There are numerous helper routines in linux/skbuff.h that can be used
+to do this properly, which will adjust a pointer and make the
+corresponding adjustment to skb->len as well when necessary.
