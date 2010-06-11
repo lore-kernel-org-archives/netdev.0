@@ -1,31 +1,44 @@
 From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
-Subject: [patch 2.6.35] WiMAX pull request
-Date: Fri, 11 Jun 2010 12:03:05 -0700
-Message-ID: <cover.1276282933.git.inaky.perez-gonzalez@intel.com>
-Cc: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-To: netdev@vger.kernel.org, wimax@linuxwimax.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:6815 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756458Ab0FKTHE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Jun 2010 15:07:04 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [patch 2.6.35] wimax/i2400m: fix missing endian correction read in fw
+	loader
+Date: Fri, 11 Jun 2010 12:03:06 -0700
+Message-ID: <a385a53e659b35ebee604889e21c40e5c336941f.1276282933.git.inaky.perez-gonzalez@intel.com>
+References: <cover.1276282933.git.inaky.perez-gonzalez@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+To: netdev@vger.kernel.org,
+	wimax@linuxwimax.org
+Return-path: <wimax-bounces@linuxwimax.org>
+In-Reply-To: <cover.1276282933.git.inaky.perez-gonzalez@intel.com>
+List-Unsubscribe: <http://lists.linuxwimax.org/options/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxwimax.org/pipermail/wimax>
+List-Post: <mailto:wimax@linuxwimax.org>
+List-Help: <mailto:wimax-request@linuxwimax.org?subject=help>
+List-Subscribe: <http://lists.linuxwimax.org/listinfo/wimax>,
+	<mailto:wimax-request@linuxwimax.org?subject=subscribe>
+Sender: wimax-bounces@linuxwimax.org
+Errors-To: wimax-bounces@linuxwimax.org
+List-Id: netdev.vger.kernel.org
 
-From: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
-
-The following changes since commit 3a24934f065d23145f1c9c70da9f630c7a37795f:
-  Inaky Perez-Gonzalez (1):
-        wimax/i2400m: fix bad race condition check in RX path
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/inaky/wimax.git wimax-2.6.35.y
-
-Patches follow for reviewing convenience.
-
-Inaky Perez-Gonzalez (1):
-      wimax/i2400m: fix missing endian correction read in fw loader
-
- drivers/net/wimax/i2400m/fw.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+RnJvbTogSW5ha3kgUGVyZXotR29uemFsZXogPGluYWt5LnBlcmV6LWdvbnphbGV6QGludGVsLmNv
+bT4KCmkyNDAwbV9md19oZHJfY2hlY2soKSB3YXMgYWNjZXNzaW5nIGhhcmR3YXJlIGZpZWxkCmJj
+Zl9oZHItPm1vZHVsZV90eXBlIChsaXR0bGUgZW5kaWFuIDMyKSB3aXRob3V0IGNvbnZlcnRpbmcg
+dG8gaG9zdApieXRlIHNleC4KClJlcG9ydGVkLWJ5OiDQlNCw0L3QuNC70LjQvSDQnNC40YXQsNC4
+0LsgPG1kYW5pbGluQG5zZy5uZXQucnU+CgpTaWduZWQtb2ZmLWJ5OiBJbmFreSBQZXJlei1Hb256
+YWxleiA8aW5ha3lAbGludXguaW50ZWwuY29tPgotLS0KIGRyaXZlcnMvbmV0L3dpbWF4L2kyNDAw
+bS9mdy5jIHwgICAgMiArLQogMSBmaWxlcyBjaGFuZ2VkLCAxIGluc2VydGlvbnMoKyksIDEgZGVs
+ZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvd2ltYXgvaTI0MDBtL2Z3LmMgYi9k
+cml2ZXJzL25ldC93aW1heC9pMjQwMG0vZncuYwppbmRleCAzZjI4M2JmLi4xMTQ5MTM1IDEwMDY0
+NAotLS0gYS9kcml2ZXJzL25ldC93aW1heC9pMjQwMG0vZncuYworKysgYi9kcml2ZXJzL25ldC93
+aW1heC9pMjQwMG0vZncuYwpAQCAtMTE5Miw3ICsxMTkyLDcgQEAgaW50IGkyNDAwbV9md19oZHJf
+Y2hlY2soc3RydWN0IGkyNDAwbSAqaTI0MDBtLAogCXVuc2lnbmVkIG1vZHVsZV90eXBlLCBoZWFk
+ZXJfbGVuLCBtYWpvcl92ZXJzaW9uLCBtaW5vcl92ZXJzaW9uLAogCQltb2R1bGVfaWQsIG1vZHVs
+ZV92ZW5kb3IsIGRhdGUsIHNpemU7CiAKLQltb2R1bGVfdHlwZSA9IGJjZl9oZHItPm1vZHVsZV90
+eXBlOworCW1vZHVsZV90eXBlID0gbGUzMl90b19jcHUoYmNmX2hkci0+bW9kdWxlX3R5cGUpOwog
+CWhlYWRlcl9sZW4gPSBzaXplb2YodTMyKSAqIGxlMzJfdG9fY3B1KGJjZl9oZHItPmhlYWRlcl9s
+ZW4pOwogCW1ham9yX3ZlcnNpb24gPSAobGUzMl90b19jcHUoYmNmX2hkci0+aGVhZGVyX3ZlcnNp
+b24pICYgMHhmZmZmMDAwMCkKIAkJPj4gMTY7Ci0tIAoxLjYuNi4xCgpfX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwp3aW1heCBtYWlsaW5nIGxpc3QKd2ltYXhA
+bGludXh3aW1heC5vcmcKaHR0cDovL2xpc3RzLmxpbnV4d2ltYXgub3JnL2xpc3RpbmZvL3dpbWF4
