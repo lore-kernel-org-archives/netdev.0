@@ -1,40 +1,73 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: no reassembly for outgoing packets on RAW socket
-Date: Fri, 11 Jun 2010 11:53:32 +0200 (CEST)
-Message-ID: <alpine.LSU.2.01.1006111152230.30433@obet.zrqbmnf.qr>
-References: <20100604112708.GA1958@jolsa.lab.eng.brq.redhat.com> <4C08EB85.3050900@trash.net> <20100607145558.GA1939@jolsa.lab.eng.brq.redhat.com> <4C0FA24A.7060907@trash.net> <20100610065631.GA1915@jolsa.lab.eng.brq.redhat.com> <4C10ACDC.6010108@trash.net>
- <20100610095312.GC1915@jolsa.lab.eng.brq.redhat.com> <4C10B8C8.2050201@trash.net> <20100611081604.GA1739@jolsa.Belkin>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [RFC][PATCH] Fix another namespace issue with devices assigned
+ to  classes
+Date: Fri, 11 Jun 2010 11:55:51 +0200
+Message-ID: <1276250151.3640.11.camel@jlt3.sipsolutions.net>
+References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
+	 <20100602154608.GB12361@kroah.com>
+	 <1275493693.3915.12.camel@jlt3.sipsolutions.net>
+	 <m1ljaxxvcj.fsf@fess.ebiederm.org>
+	 <1275495677.3915.16.camel@jlt3.sipsolutions.net>
+	 <m14ohlxu51.fsf@fess.ebiederm.org>
+	 <1275498007.3915.20.camel@jlt3.sipsolutions.net>
+	 <m1ocftwdp7.fsf@fess.ebiederm.org>
+	 <1275501157.3915.22.camel@jlt3.sipsolutions.net>
+	 <m1y6exux6x.fsf@fess.ebiederm.org>
+	 <1275506732.3915.41.camel@jlt3.sipsolutions.net>
+	 <m16321t4ke.fsf@fess.ebiederm.org> <m17hmhrl6v.fsf_-_@fess.ebiederm.org>
+	 <1275634452.5189.1.camel@jlt3.sipsolutions.net>
+	 <AANLkTingSwM7e8ldyT1FplF5WCHBsCBCwNkb5ZPHe6hB@mail.gmail.com>
+	 <1275640113.9953.8.camel@jlt3.sipsolutions.net>
+	 <AANLkTin6ub4k4QYSMnGLRw7lxQaz23Xmo2GQC1RrUf-X@mail.gmail.com>
+	 <1275829701.3615.54.camel@jlt3.sipsolutions.net>
+	 <AANLkTinUAR2gkY7ipgXKy-pMHcmLuouEeyXxnP97U_7N@mail.gmail.com>
+	 <1275903773.29978.1.camel@jlt3.sipsolutions.net>
+	 <AANLkTin_qjU0-xXfMDYeYWRd0BmvT4OIdK4S_GQ3ZYUi@mail.gmail.com>
+	 <1275905686.29978.3.camel@jlt3.sipsolutions.net>
+	 <AANLkTikMDvpEzrtFVue8gStudKONxuQmVx9B2w1JM1vO@mail.gmail.com>
+	 <1275910905.29978.7.camel@jlt3.sipsolutions.net>
+	 <1275913563.1823.1.camel@yio.site>
+	 <1275914205.29978.10.camel@jlt3.sipsolutions.net>
+	 <AANLkTilqB2sAyfBTLhYT_a2_TySGay4FFG6SGJUZ1o_4@mail.gmail.com>
+	 <1275989260.3706.115.camel@jlt3.sipsolutions.net>
+	 <AANLkTinMauFsJTKS3eT-pT44KQ8PSf3HJLS8CZIeHmxP@mail.gmail.com>
+	 <1275990325.3706.116.camel@jlt3.sipsolutions.net>
+	 <1275998127.1899.38.camel@yio.site>
+	 <1275998603.3706.118.camel@jlt3.sipsolutions.net>
+	 <AANLkTinev96yxFCFSdDdT89jjgYR4ChUCMU2-aSj8kkh@mail.gmail.com>
+	 <1276005970.3706.132.camel@jlt3.sipsolutions.net>
+	 <AANLkTikB0Amzi61JLxdY5HL-2s_nbYo3JH8vXooXzHdQ@mail.gmail.com>
+	 <1276007174.3706.133.camel@jlt3.sipsolutions.net>
+	 <AANLkTikNEzJHPrOUK6DKMoWvcblTBInaIhVbk96OtZxe@mail.gmail.com>
+	 <1276009590.3706.135.camel@jlt3.sipsolutions.net>
+	 <AANLkTimSqF4D4jPj-HzOjl1vxjf2T7YvlGdR6zcJZ9Pp@mail.gmail.com>
+	 <1276014816.3706.137.camel@jlt3.sipsolutions.net>
+	 <AANLkTilUd2Bp1h4SzlW5f5KevoRM-os_fQrivLHbZyKY@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>
-To: Jiri Olsa <jolsa@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100611081604.GA1739@jolsa.Belkin>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
+To: Kay Sievers <kay.sievers@vrfy.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from he.sipsolutions.net ([78.46.109.217]:36999 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755903Ab0FKJz5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jun 2010 05:55:57 -0400
+In-Reply-To: <AANLkTilUd2Bp1h4SzlW5f5KevoRM-os_fQrivLHbZyKY@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2010-06-08 at 18:39 +0200, Kay Sievers wrote:
 
-On Friday 2010-06-11 10:16, Jiri Olsa wrote:
->
->I prepared the patch implementing IP_NODEFRAG option for IPv4 socket.
->
->Also I just got an idea, that there could be no reassembly if there are
->no rules for connection tracing set.. not sure how can I check that best
->so far.. any idea?
->
->@@ -572,6 +572,14 @@ static int do_ip_setsockopt(struct sock *sk, int level,
-> 		}
-> 		inet->hdrincl = val ? 1 : 0;
-> 		break;
->+	case IP_NODEFRAG:
->+		if (sk->sk_type != SOCK_RAW) {
->+			err = -ENOPROTOOPT;
->+			break;
->+		}
->+		inet->nodefrag = val ? 1 : 0;
->+		printk("IP_NODEFRAG %p -> %d\n", inet, inet->nodefrag);
->+		break;
+> That all works if you have two modules, like almost all buses have.
+> That's what I meant, that we need to add stuff to the core to be able
+> to cleanup bus devices internally too, if we use everything in a
+> single module, which is also supposed to cleanup on unload, like the
+> network devices like to do.
 
-You want to get rid of this printk otherwise it spews the logs.
+Or some "wait for bus to be cleaned up" we can call in the module exit
+maybe?
+
+johannes
+
