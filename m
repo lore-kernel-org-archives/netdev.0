@@ -1,38 +1,41 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [0/8] netpoll/bridge fixes
-Date: Fri, 11 Jun 2010 12:11:42 +1000
-Message-ID: <20100611021142.GA24490@gondor.apana.org.au>
-References: <20100610124047.GA16658@gondor.apana.org.au> <20100610074912.1303e3da@nehalam> <20100610215643.GA22048@gondor.apana.org.au> <20100610145915.721a86b7@nehalam> <20100610224839.GA22469@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+Subject: [PATCH 2/8] bridge: Remove redundant npinfo NULL setting
+Date: Fri, 11 Jun 2010 12:12:43 +1000
+Message-ID: <E1OMtjf-0006OS-P3@gondolin.me.apana.org.au>
+References: <20100611021142.GA24490@gondor.apana.org.au>
+To: "Michael S. Tsirkin" <mst@redhat.com>,
 	Qianfeng Zhang <frzhang@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	WANG Cong <amwang@redhat.com>, Matt Mackall <mpm@selenic.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+	WANG Cong <amwang@redhat.com>,
+	Stephen He
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:38000 "EHLO
+Received: from ringil.hengli.com.au ([216.59.3.182]:38008 "EHLO
 	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1760075Ab0FKCLu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jun 2010 22:11:50 -0400
-Content-Disposition: inline
-In-Reply-To: <20100610224839.GA22469@gondor.apana.org.au>
+	with ESMTP id S1754745Ab0FKCMp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jun 2010 22:12:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 11, 2010 at 08:48:39AM +1000, Herbert Xu wrote:
-> On Thu, Jun 10, 2010 at 02:59:15PM -0700, Stephen Hemminger wrote:
-> >
-> > Okay, then add a comment where in_irq is used?
-> 
-> Actually let me put it into a wrapper.  I'll respin the patches.
+bridge: Remove redundant npinfo NULL setting
 
-OK here is a repost.  And this time it really is 8 patches :)
-I've tested it lightly.
+Now that netpoll always zaps npinfo we no longer needs to do it
+in bridge.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
+
+ net/bridge/br_device.c |    1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index eedf2c9..dce0611 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -231,7 +231,6 @@ void br_netpoll_cleanup(struct net_device *dev)
+ 	struct net_bridge_port *p, *n;
+ 	const struct net_device_ops *ops;
+ 
+-	br->dev->npinfo = NULL;
+ 	list_for_each_entry_safe(p, n, &br->port_list, list) {
+ 		if (p->dev) {
+ 			ops = p->dev->netdev_ops;
