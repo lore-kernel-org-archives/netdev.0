@@ -1,48 +1,73 @@
-From: jellyaaa <wgdaaa@126.com>
-Subject: puzzled of the congestion control window of Scalable TCP
-Date: Thu, 10 Jun 2010 18:15:35 -0700 (PDT)
-Message-ID: <28850421.post@talk.nabble.com>
+From: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Subject: [PATCH] virtio_net: implements ethtool_ops.get_drvinfo
+Date: Fri, 11 Jun 2010 10:29:02 +0900
+Message-ID: <4C11915E.6090201@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	rusty@rustcorp.com.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kuber.nabble.com ([216.139.236.158]:54454 "EHLO
-	kuber.nabble.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760024Ab0FKBPg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jun 2010 21:15:36 -0400
-Received: from isper.nabble.com ([192.168.236.156])
-	by kuber.nabble.com with esmtp (Exim 4.63)
-	(envelope-from <lists@nabble.com>)
-	id 1OMsqN-0000pW-4q
-	for netdev@vger.kernel.org; Thu, 10 Jun 2010 18:15:35 -0700
+Received: from fgwmail7.fujitsu.co.jp ([192.51.44.37]:47393 "EHLO
+	fgwmail7.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754052Ab0FKB3N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jun 2010 21:29:13 -0400
+Received: from m6.gw.fujitsu.co.jp ([10.0.50.76])
+	by fgwmail7.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o5B1TCG6024441
+	for <netdev@vger.kernel.org> (envelope-from izumi.taku@jp.fujitsu.com);
+	Fri, 11 Jun 2010 10:29:12 +0900
+Received: from smail (m6 [127.0.0.1])
+	by outgoing.m6.gw.fujitsu.co.jp (Postfix) with ESMTP id 0246045DE54
+	for <netdev@vger.kernel.org>; Fri, 11 Jun 2010 10:29:12 +0900 (JST)
+Received: from s6.gw.fujitsu.co.jp (s6.gw.fujitsu.co.jp [10.0.50.96])
+	by m6.gw.fujitsu.co.jp (Postfix) with ESMTP id C657845DE51
+	for <netdev@vger.kernel.org>; Fri, 11 Jun 2010 10:29:11 +0900 (JST)
+Received: from s6.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
+	by s6.gw.fujitsu.co.jp (Postfix) with ESMTP id 8E574E08003
+	for <netdev@vger.kernel.org>; Fri, 11 Jun 2010 10:29:11 +0900 (JST)
+Received: from m105.s.css.fujitsu.com (m105.s.css.fujitsu.com [10.249.87.105])
+	by s6.gw.fujitsu.co.jp (Postfix) with ESMTP id 460251DB8016
+	for <netdev@vger.kernel.org>; Fri, 11 Jun 2010 10:29:11 +0900 (JST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch implements ethtool_ops.get_drvinfo interface of virtio_net driver.
 
-I am now doing something related to the STCP (Scalable TCP). By pringking the
-dynamic snd_cwnd in linux (kernel 2.6.18) ,the result puzzled me . Theoryly,
-if any congestion occurs, the snd_cwnd = snd_cwnd * 0.875,but I haven't got
-the result I expected. The snd_cwnd changes like this :
+Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
+---
+ drivers/net/virtio_net.c |   13 +++++++++++++
+ 1 file changed, 13 insertions(+)
 
-snd_cwnd = 1 , snd_ssthresh = 2147483647
-snd_cwnd = 2 , snd_ssthresh = 2147483647
-snd_cwnd = 3, snd_ssthresh = 2147483647
-......
-snd_cwnd = 19022, snd_ssthresh = 2147483647      // keeping this value for
-several ms 
-snd_cwnd = 1769, snd_ssthresh = 16645        // congestion occurs 
-snd_cwnd = 1770, snd_ssthresh = 16645                  
-......
+Index: net-next.35/drivers/net/virtio_net.c
+===================================================================
+--- net-next.35.orig/drivers/net/virtio_net.c
++++ net-next.35/drivers/net/virtio_net.c
+@@ -701,6 +701,18 @@ static int virtnet_close(struct net_devi
+ 	return 0;
+ }
 
++static void virtnet_get_drvinfo(struct net_device *dev,
++				struct ethtool_drvinfo *drvinfo)
++{
++	struct virtnet_info *vi = netdev_priv(dev);
++	struct virtio_device *vdev = vi->vdev;
++
++	strncpy(drvinfo->driver, KBUILD_MODNAME, 32);
++	strncpy(drvinfo->version, "N/A", 32);
++	strncpy(drvinfo->fw_version, "N/A", 32);
++	strncpy(drvinfo->bus_info, dev_name(&vdev->dev), 32);
++}
++
+ static int virtnet_set_tx_csum(struct net_device *dev, u32 data)
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+@@ -813,6 +825,7 @@ static void virtnet_vlan_rx_kill_vid(str
+ }
 
->From the above data. when congestion occurs , snd_ssthresh = 16645 ~=~
-19022*0.875=16626 corresponds  to the theory calculated result. no problems. 
-but what is the mean of snd_cwnd = 1770? how this value is calculated .who
-(where )calculated it ?
-
-
--- 
-View this message in context: http://old.nabble.com/puzzled-of-the-congestion-control-window-of-Scalable-TCP-tp28850421p28850421.html
-Sent from the netdev mailing list archive at Nabble.com.
+ static const struct ethtool_ops virtnet_ethtool_ops = {
++	.get_drvinfo = virtnet_get_drvinfo,
+ 	.set_tx_csum = virtnet_set_tx_csum,
+ 	.set_sg = ethtool_op_set_sg,
+ 	.set_tso = ethtool_op_set_tso,
 
