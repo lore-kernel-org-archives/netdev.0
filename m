@@ -1,34 +1,48 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [0/8] netpoll/bridge fixes
-Date: Fri, 11 Jun 2010 08:48:39 +1000
-Message-ID: <20100610224839.GA22469@gondor.apana.org.au>
-References: <20100610124047.GA16658@gondor.apana.org.au> <20100610074912.1303e3da@nehalam> <20100610215643.GA22048@gondor.apana.org.au> <20100610145915.721a86b7@nehalam>
+From: jellyaaa <wgdaaa@126.com>
+Subject: puzzled of the congestion control window of Scalable TCP
+Date: Thu, 10 Jun 2010 18:15:35 -0700 (PDT)
+Message-ID: <28850421.post@talk.nabble.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Qianfeng Zhang <frzhang@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	WANG Cong <amwang@redhat.com>, Matt Mackall <mpm@selenic.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:51018 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759895Ab0FJWss (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jun 2010 18:48:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20100610145915.721a86b7@nehalam>
+Received: from kuber.nabble.com ([216.139.236.158]:54454 "EHLO
+	kuber.nabble.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760024Ab0FKBPg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jun 2010 21:15:36 -0400
+Received: from isper.nabble.com ([192.168.236.156])
+	by kuber.nabble.com with esmtp (Exim 4.63)
+	(envelope-from <lists@nabble.com>)
+	id 1OMsqN-0000pW-4q
+	for netdev@vger.kernel.org; Thu, 10 Jun 2010 18:15:35 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 10, 2010 at 02:59:15PM -0700, Stephen Hemminger wrote:
->
-> Okay, then add a comment where in_irq is used?
 
-Actually let me put it into a wrapper.  I'll respin the patches.
+I am now doing something related to the STCP (Scalable TCP). By pringking the
+dynamic snd_cwnd in linux (kernel 2.6.18) ,the result puzzled me . Theoryly,
+if any congestion occurs, the snd_cwnd = snd_cwnd * 0.875,but I haven't got
+the result I expected. The snd_cwnd changes like this :
 
-Thanks,
+snd_cwnd = 1 , snd_ssthresh = 2147483647
+snd_cwnd = 2 , snd_ssthresh = 2147483647
+snd_cwnd = 3, snd_ssthresh = 2147483647
+......
+snd_cwnd = 19022, snd_ssthresh = 2147483647      // keeping this value for
+several ms 
+snd_cwnd = 1769, snd_ssthresh = 16645        // congestion occurs 
+snd_cwnd = 1770, snd_ssthresh = 16645                  
+......
+
+
+>From the above data. when congestion occurs , snd_ssthresh = 16645 ~=~
+19022*0.875=16626 corresponds  to the theory calculated result. no problems. 
+but what is the mean of snd_cwnd = 1770? how this value is calculated .who
+(where )calculated it ?
+
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+View this message in context: http://old.nabble.com/puzzled-of-the-congestion-control-window-of-Scalable-TCP-tp28850421p28850421.html
+Sent from the netdev mailing list archive at Nabble.com.
+
