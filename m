@@ -1,45 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: deliver skbs on inactive slaves to exact
- matches
-Date: Thu, 10 Jun 2010 22:31:13 -0700 (PDT)
-Message-ID: <20100610.223113.200377963.davem@davemloft.net>
-References: <20100603193011.4916.12354.stgit@jf-dev2-dcblab>
+Subject: Re: [PATCH net-next-2.6] ip: ip_ra_control() rcu fix
+Date: Thu, 10 Jun 2010 22:48:55 -0700 (PDT)
+Message-ID: <20100610.224855.212696344.davem@davemloft.net>
+References: <20100607.212612.35795010.davem@davemloft.net>
+	<1276136109.2475.9.camel@edumazet-laptop>
+	<1276136467.2475.13.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, nhorman@tuxdriver.com,
-	bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: john.r.fastabend@intel.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39983
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52038
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754860Ab0FKFbC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jun 2010 01:31:02 -0400
-In-Reply-To: <20100603193011.4916.12354.stgit@jf-dev2-dcblab>
+	by vger.kernel.org with ESMTP id S1751819Ab0FKFso (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jun 2010 01:48:44 -0400
+In-Reply-To: <1276136467.2475.13.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
-Date: Thu, 03 Jun 2010 12:30:11 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 10 Jun 2010 04:21:07 +0200
 
-> Currently, the accelerated receive path for VLAN's will
-> drop packets if the real device is an inactive slave and
-> is not one of the special pkts tested for in
-> skb_bond_should_drop().  This behavior is different then
-> the non-accelerated path and for pkts over a bonded vlan.
- ...
-> This patch adds a sk_buff flag which is used for tagging
-> skbs that would previously been dropped and allows the
-> skb to continue to skb_netif_recv().  Here we add
-> logic to check for the deliver_no_wcard flag and if it
-> is set only deliver to handlers that match exactly.  This
-> makes both paths above consistent and gives pkt handlers
-> a way to identify skbs that come from inactive slaves.
-> Without this patch in some configurations skbs will be
-> delivered to handlers with exact matches and in others
-> be dropped out right in the vlan path.
- ...
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> [PATCH net-next-2.6 v2] ip: ip_ra_control() rcu fix
+> 
+> commit 66018506e15b (ip: Router Alert RCU conversion) introduced RCU
+> lookups to ip_call_ra_chain(). It missed proper deinit phase :
+> When ip_ra_control() deletes an ip_ra_chain, it should make sure
+> ip_call_ra_chain() users can not start to use socket during the rcu
+> grace period. It should also delay the sock_put() after the grace
+> period, or we risk a premature socket freeing and corruptions, as
+> raw sockets are not rcu protected yet.
+> 
+> This delay avoids using expensive atomic_inc_not_zero() in
+> ip_call_ra_chain().
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-I can't figure out a better way to fix this myself so I've
-applied your patch, thanks John!
+Applied, thanks Eric.
