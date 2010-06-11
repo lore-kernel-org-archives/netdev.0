@@ -1,50 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 2/2] x86: Align skb w/ start of cache line
- on newer core 2/Xeon Arch
-Date: Thu, 10 Jun 2010 22:20:06 -0700 (PDT)
-Message-ID: <20100610.222006.242136751.davem@davemloft.net>
-References: <20100602222506.12962.49240.stgit@localhost.localdomain>
-	<1275518650.29413.43.camel@edumazet-laptop>
-	<80769D7B14936844A23C0C43D9FBCF0F2562CD2555@orsmsx501.amr.corp.intel.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC PATCH v7 01/19] Add a new structure for skb buffer from
+	external.
+Date: Fri, 11 Jun 2010 15:21:12 +1000
+Message-ID: <20100611052112.GA25649@gondor.apana.org.au>
+References: <1275732899-5423-1-git-send-email-xiaohui.xin@intel.com> <20100606161348.427822fb@nehalam> <20100608052744.GA21547@gondor.apana.org.au> <F2E9EB7348B8264F86B6AB8151CE2D791100848F9F@shsmsx502.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, jeffrey.t.kirsher@intel.com,
-	mingo@redhat.com, tglx@linutronix.de, hpa@zytor.com,
-	x86@kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, gospo@redhat.com
-To: alexander.h.duyck@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47128
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753456Ab0FKFT5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jun 2010 01:19:57 -0400
-In-Reply-To: <80769D7B14936844A23C0C43D9FBCF0F2562CD2555@orsmsx501.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"jdike@linux.intel.com" <jdike@linux.intel.com>
+To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D791100848F9F@shsmsx502.ccr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
-Date: Wed, 2 Jun 2010 16:55:16 -0700
-
-> Eric Dumazet wrote:
->> 
->> But... L1_CACHE_BYTES is 64 on MCORE2, so this matches current
->> NET_SKB_PAD definition...
->> 
->> #ifndef NET_SKB_PAD
->> #define NET_SKB_PAD 64
->> #endif
+On Wed, Jun 09, 2010 at 05:54:02PM +0800, Xin, Xiaohui wrote:
 >
-> I admit the current definition is redundant, but NET_SKB_PAD had
-> been 32 until your recent change of the value, and prior to 2.6.30
-> the value was 16.  If the value were to change again it would
-> silently break the cacheline alignment which is provided by this
-> patch.  If we were to define NET_SKB_PAD using L1_CACHE_BYTES in
-> skbuff.h then I might be more inclined to to pull the NET_SKB_PAD
-> change, but right now I would prefer to treat NET_SKB_PAD as a magic
-> number that coincidently is the same size as the L1 cache on MCORE2.
+> I'm not sure if I understand your way correctly:
+> 1) Does the way only deal with driver with SG feature? Since packet 
+> is non-linear...
 
-Eric, why don't we do that?  Make NET_SKB_PAD's define L1_CACHE_BYTES.
+No the hardware doesn't have to support SG.  You just need to
+place the entire packet contents in a page instead of skb->head.
 
-Reading the comments you added when the default value was changed to
-64, this seems to even be your overall intent. :-)
+> 2) Is skb->data still pointing to guest user buffers?
+> If yes, how to avoid the modifications to net core change to skb?
+
+skb->data would not point to guest user buffers.  In the common
+case the packet is not modified on its way to the guest so this
+is not an issue.
+
+In the rare case where it is modified, you only have to copy the
+bits which are modified and the cost of that is inconsequential
+since you have to write to that memory anyway.
+
+> 3) In our way only parts of drivers need be modified to support zero-copy.
+> and here, need we modify all the drivers?
+
+If you're asking the portion of each driver supporting zero-copy
+that needs to be modified, then AFAICS this doesn't change that
+very much at all.
+
+> I think to make skb->head empty at first will cause more effort to pass the check with 
+> skb header. Have I missed something here? I really make the skb->head NULL
+> just before kfree(skb) in skb_release_data(), it's done by callback we have made for skb.
+
+No I'm not suggesting you set it to NULL.  It should have some
+memory allocated, but skb_headlen(skb) should be zero.
+
+Please have a look at how the napi_gro_frags interface works (e.g.,
+in drivers/net/cxgb3/sge.c).  This is exactly the model that I am
+suggesting.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
