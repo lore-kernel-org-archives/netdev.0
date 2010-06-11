@@ -1,80 +1,124 @@
-From: Salvador Fandino <salvador@qindel.com>
-Subject: Re: [PATCH] allow to configure tcp_retries1 and tcp_retries2 per
- TCP socket
-Date: Fri, 11 Jun 2010 12:43:47 +0200
-Message-ID: <4C121363.6080401@qindel.com>
-References: <1276186161.2419.10.camel@topo> <87bpbi4ycc.fsf@basil.nowhere.org>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: [PATCH] Phytec PCM027: register CAN resources
+Date: Fri, 11 Jun 2010 13:46:16 +0200
+Message-ID: <1276256776-17068-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@firstfloor.org, vger.kernel.org@firstfloor.org
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.qindel.com ([62.97.67.18]:53231 "EHLO thor.int.qindel.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756167Ab0FKKoF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Jun 2010 06:44:05 -0400
-In-Reply-To: <87bpbi4ycc.fsf@basil.nowhere.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Juergen Beisert <jbe-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 06/10/2010 07:00 PM, Andi Kleen wrote:
-> Salvador Fandino<salvador@qindel.com>  writes:
->
->
->    
->> The included patch adds support for setting the tcp_retries1 and
->> tcp_retries2 options in a per socket fashion as it is done for the
->> keepalive options TCP_KEEPIDLE, TCP_KEEPCNT and TCP_KEEPINTVL.
->>
->> The issue I am trying to solve is that when a socket has data queued for
->> delivering, the keepalive logic is not triggered. Instead, the
->> tcp_retries1/2 parameters are used to determine how many delivering
->> attempts should be performed before giving up.
->>      
-> And why exactly do you need new tunables to solve this?
->    
+From: Juergen Beisert <jbe-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 
-How else could it be solved?
+applies to current net-next-2.6
+(which includes Wolfgang's patche "can: sja1000 platform data fixes")
 
-I can think of making the retransmission logic to also honor the 
-keepalive settings, switching to sending packets every keepintvl seconds 
-when the elapsed time goes over keepidle and abort after keepcnt.
-
-Or, make retransmits_timed_out() also consider 
-(keepidle+keepcnt*keepintvl) as a ceiling.
-
-But frankly, I don't like any one of them. IMO, leaving alone backward 
-compatibility issues, it would make more sense to do it the other way 
-and change the keepalive logic to follow the same sending pattern used 
-for data retransmissions, using keepidle, retries1 and retries2 as its 
-parameters.
-
-Well, another option would be to use keepcnt as retries2 when defined in 
-tcp_sock. IMO it would make sense, but could be confusing for the user.
+cheers, Marc
 
 
->> The patch is very straight forward and just replicates similar
->> functionality. There is one thing I am not completely sure and is if the
->> new per-socket fields should go into inet_connection_sock instead of
->> into tcp_sock.
->>      
-> tcp_sock is already quite big (>2k on 64bit)
->
-> IMHO any new fields in there need very good justification.
->    
+>From 66af2a1778a468610e25403336cc27650fddef2a Mon Sep 17 00:00:00 2001
+From: Juergen Beisert <jbe-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Date: Fri, 11 Jun 2010 13:27:03 +0200
+Subject: [PATCH] Phytec PCM027: register CAN resources
 
-If this is a problem, there are some room for optimization in the 
-inet_connection_sock and tcp_sock structures. For instance, 
-keepalive_time and keepalive_intvl are limited to MAX_KEEPALIVE_TIME * 
-HZ, that is 32767 * 1000 ==> 25 bits, so they would fit in a u32.
+This patch adds resources for the SJA1000 platform device.
 
-retries1 and retries2 fields also fit in u32 and actually, a per socket 
-retries1 field is not absolutely required because the check against 
-retries2 is always performed, so the impact of this patch on the 
-structure size could be limited to 4 bytes.
+Signed-off-by: Juergen Beisert <jbe-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+---
+ arch/arm/mach-pxa/include/mach/pcm027.h |    2 +-
+ arch/arm/mach-pxa/pcm027.c              |   40 ++++++++++++++++++++++++++++++-
+ 2 files changed, 40 insertions(+), 2 deletions(-)
 
-- Salva
-
-
+diff --git a/arch/arm/mach-pxa/include/mach/pcm027.h b/arch/arm/mach-pxa/include/mach/pcm027.h
+index 0408326..b65fcc4 100644
+--- a/arch/arm/mach-pxa/include/mach/pcm027.h
++++ b/arch/arm/mach-pxa/include/mach/pcm027.h
+@@ -49,7 +49,7 @@
+ /* CAN controller SJA1000 (unsupported yet) */
+ #define PCM027_CAN_IRQ_GPIO	114
+ #define PCM027_CAN_IRQ		IRQ_GPIO(PCM027_CAN_IRQ_GPIO)
+-#define PCM027_CAN_IRQ_EDGE	IRQ_TYPE_EDGE_FALLING
++#define PCM027_CAN_IRQ_EDGE	IORESOURCE_IRQ_LOWEDGE
+ #define PCM027_CAN_PHYS		0x22000000
+ #define PCM027_CAN_SIZE		0x100
+ 
+diff --git a/arch/arm/mach-pxa/pcm027.c b/arch/arm/mach-pxa/pcm027.c
+index 2190af0..2ef7686 100644
+--- a/arch/arm/mach-pxa/pcm027.c
++++ b/arch/arm/mach-pxa/pcm027.c
+@@ -26,6 +26,7 @@
+ #include <linux/spi/spi.h>
+ #include <linux/spi/max7301.h>
+ #include <linux/leds.h>
++#include <linux/can/platform/sja1000.h>
+ 
+ #include <asm/mach-types.h>
+ #include <asm/mach/arch.h>
+@@ -204,13 +205,50 @@ static struct platform_device pcm027_led_dev = {
+ #endif /* CONFIG_LEDS_GPIO */
+ 
+ /*
++ * SJA1000 CAN controller
++ */
++#if defined(CONFIG_CAN_SJA1000_PLATFORM) || defined(CONFIG_CAN_SJA1000_PLATFORM_MODULE)
++static struct resource pcm027_sja1000_resources[] = {
++	[0] = {
++		.start	= PCM027_CAN_PHYS,
++		.end	= PCM027_CAN_PHYS + PCM027_CAN_SIZE - 1,
++		.flags	= IORESOURCE_MEM,
++	},
++	[1] = {
++		.start	= PCM027_CAN_IRQ,
++		.end	= PCM027_CAN_IRQ,
++		.flags	= IORESOURCE_IRQ | PCM027_CAN_IRQ_EDGE,
++	},
++};
++
++static struct sja1000_platform_data pcm027_sja1000_platform_data = {
++	.osc_freq	= 16000000,
++	.ocr		= OCR_TX1_PULLDOWN | OCR_TX0_PUSHPULL,
++	.cdr		= CDR_CBP,
++};
++
++static struct platform_device pcm027_sja1000_device = {
++	.name		= "sja1000_platform",
++	.dev = {
++		.platform_data = &pcm027_sja1000_platform_data,
++	},
++	.num_resources	= ARRAY_SIZE(pcm027_sja1000_resources),
++	.resource	= pcm027_sja1000_resources,
++};
++#endif /* CONFIG_CAN_SJA1000_PLATFORM || CONFIG_CAN_SJA1000_PLATFORM_MODULE */
++
++
++/*
+  * declare the available device resources on this board
+  */
+ static struct platform_device *devices[] __initdata = {
+ 	&smc91x_device,
+ 	&pcm027_flash,
+ #ifdef CONFIG_LEDS_GPIO
+-	&pcm027_led_dev
++	&pcm027_led_dev,
++#endif
++#if defined(CONFIG_CAN_SJA1000_PLATFORM) || defined(CONFIG_CAN_SJA1000_PLATFORM_MODULE)
++	&pcm027_sja1000_device,
+ #endif
+ };
+ 
+-- 
+1.7.1
