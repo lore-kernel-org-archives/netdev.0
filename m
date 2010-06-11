@@ -1,41 +1,50 @@
-From: Qianfeng Zhang <frzhang@redhat.com>
-Subject: fired  a  bug report  on  bugzilla.redhat.com
-Date: Fri, 11 Jun 2010 11:08:11 +0800
-Message-ID: <4C11A89B.30101@redhat.com>
-References: <20100611021142.GA24490@gondor.apana.org.au> <E1OMtjm-0006PK-D6@gondolin.me.apana.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH 2/2] x86: Align skb w/ start of cache line
+ on newer core 2/Xeon Arch
+Date: Thu, 10 Jun 2010 22:20:06 -0700 (PDT)
+Message-ID: <20100610.222006.242136751.davem@davemloft.net>
+References: <20100602222506.12962.49240.stgit@localhost.localdomain>
+	<1275518650.29413.43.camel@edumazet-laptop>
+	<80769D7B14936844A23C0C43D9FBCF0F2562CD2555@orsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	WANG Cong <amwang@redhat.com>, Matt Mackall <mpm@selenic.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Herbert Xu <herbert@gondor.hengli.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, jeffrey.t.kirsher@intel.com,
+	mingo@redhat.com, tglx@linutronix.de, hpa@zytor.com,
+	x86@kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, gospo@redhat.com
+To: alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3179 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752128Ab0FKDGZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jun 2010 23:06:25 -0400
-In-Reply-To: <E1OMtjm-0006PK-D6@gondolin.me.apana.org.au>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47128
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753456Ab0FKFT5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jun 2010 01:19:57 -0400
+In-Reply-To: <80769D7B14936844A23C0C43D9FBCF0F2562CD2555@orsmsx501.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
-Thanks everybody. I justly logged a bug report, here it is
+From: "Duyck, Alexander H" <alexander.h.duyck@intel.com>
+Date: Wed, 2 Jun 2010 16:55:16 -0700
 
-https://bugzilla.redhat.com/show_bug.cgi?id=3D602927
+> Eric Dumazet wrote:
+>> 
+>> But... L1_CACHE_BYTES is 64 on MCORE2, so this matches current
+>> NET_SKB_PAD definition...
+>> 
+>> #ifndef NET_SKB_PAD
+>> #define NET_SKB_PAD 64
+>> #endif
+>
+> I admit the current definition is redundant, but NET_SKB_PAD had
+> been 32 until your recent change of the value, and prior to 2.6.30
+> the value was 16.  If the value were to change again it would
+> silently break the cacheline alignment which is provided by this
+> patch.  If we were to define NET_SKB_PAD using L1_CACHE_BYTES in
+> skbuff.h then I might be more inclined to to pull the NET_SKB_PAD
+> change, but right now I would prefer to treat NET_SKB_PAD as a magic
+> number that coincidently is the same size as the L1 cache on MCORE2.
 
+Eric, why don't we do that?  Make NET_SKB_PAD's define L1_CACHE_BYTES.
 
-Qianfeng  Zhang (=E5=BC=A0=E5=89=8D=E9=94=8B)=20
-Senior  Solution  Architect
-Linux Platform & Infrastructure
-RedHat  Software,  Beijing
-Phone:    010-65339374
-Mobile:   13911823595
-Email:   frzhang@redhat.com
-
-
-
-
+Reading the comments you added when the default value was changed to
+64, this seems to even be your overall intent. :-)
