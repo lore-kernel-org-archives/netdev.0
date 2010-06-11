@@ -1,40 +1,31 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2010-06-09
-Date: Fri, 11 Jun 2010 11:34:47 -0700 (PDT)
-Message-ID: <20100611.113447.27795939.davem@davemloft.net>
-References: <20100609211251.GC2452@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100609211251.GC2452-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Subject: [patch 2.6.35] WiMAX pull request
+Date: Fri, 11 Jun 2010 12:03:05 -0700
+Message-ID: <cover.1276282933.git.inaky.perez-gonzalez@intel.com>
+Cc: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
+To: netdev@vger.kernel.org, wimax@linuxwimax.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:6815 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756458Ab0FKTHE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Jun 2010 15:07:04 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Wed, 9 Jun 2010 17:12:51 -0400
+From: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>
 
-> Dave,
->=20
-> Here is the usual, frightening, monstrous post-window pull request...
-> Along with the usual batch of driver updates, there are also some DMA
-> state API conversions from FUJITA Tomonori, some cleanups from Julia
-> Lawall and Joe Perches, some SSB changes from Larry Finger and Rafa=A9=
-=A9
-> Mi=A9=A9ecki, and a number of mac80211 changes from Johannes Berg.  A=
-ll of it
-> has had at least one cycle through linux-next and most of it has been
-> there for several days.  This also includes the same wireless-2.6 pul=
-l I
-> sent you previously so as to resolve some merge conflicts.
->=20
-> Please let me know if there are problems!
+The following changes since commit 3a24934f065d23145f1c9c70da9f630c7a37795f:
+  Inaky Perez-Gonzalez (1):
+        wimax/i2400m: fix bad race condition check in RX path
 
-Pulled, thanks JOhn.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/inaky/wimax.git wimax-2.6.35.y
+
+Patches follow for reviewing convenience.
+
+Inaky Perez-Gonzalez (1):
+      wimax/i2400m: fix missing endian correction read in fw loader
+
+ drivers/net/wimax/i2400m/fw.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
