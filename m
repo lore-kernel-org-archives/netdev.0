@@ -1,73 +1,289 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC][PATCH] Fix another namespace issue with devices assigned
- to  classes
-Date: Fri, 11 Jun 2010 11:55:51 +0200
-Message-ID: <1276250151.3640.11.camel@jlt3.sipsolutions.net>
-References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
-	 <20100602154608.GB12361@kroah.com>
-	 <1275493693.3915.12.camel@jlt3.sipsolutions.net>
-	 <m1ljaxxvcj.fsf@fess.ebiederm.org>
-	 <1275495677.3915.16.camel@jlt3.sipsolutions.net>
-	 <m14ohlxu51.fsf@fess.ebiederm.org>
-	 <1275498007.3915.20.camel@jlt3.sipsolutions.net>
-	 <m1ocftwdp7.fsf@fess.ebiederm.org>
-	 <1275501157.3915.22.camel@jlt3.sipsolutions.net>
-	 <m1y6exux6x.fsf@fess.ebiederm.org>
-	 <1275506732.3915.41.camel@jlt3.sipsolutions.net>
-	 <m16321t4ke.fsf@fess.ebiederm.org> <m17hmhrl6v.fsf_-_@fess.ebiederm.org>
-	 <1275634452.5189.1.camel@jlt3.sipsolutions.net>
-	 <AANLkTingSwM7e8ldyT1FplF5WCHBsCBCwNkb5ZPHe6hB@mail.gmail.com>
-	 <1275640113.9953.8.camel@jlt3.sipsolutions.net>
-	 <AANLkTin6ub4k4QYSMnGLRw7lxQaz23Xmo2GQC1RrUf-X@mail.gmail.com>
-	 <1275829701.3615.54.camel@jlt3.sipsolutions.net>
-	 <AANLkTinUAR2gkY7ipgXKy-pMHcmLuouEeyXxnP97U_7N@mail.gmail.com>
-	 <1275903773.29978.1.camel@jlt3.sipsolutions.net>
-	 <AANLkTin_qjU0-xXfMDYeYWRd0BmvT4OIdK4S_GQ3ZYUi@mail.gmail.com>
-	 <1275905686.29978.3.camel@jlt3.sipsolutions.net>
-	 <AANLkTikMDvpEzrtFVue8gStudKONxuQmVx9B2w1JM1vO@mail.gmail.com>
-	 <1275910905.29978.7.camel@jlt3.sipsolutions.net>
-	 <1275913563.1823.1.camel@yio.site>
-	 <1275914205.29978.10.camel@jlt3.sipsolutions.net>
-	 <AANLkTilqB2sAyfBTLhYT_a2_TySGay4FFG6SGJUZ1o_4@mail.gmail.com>
-	 <1275989260.3706.115.camel@jlt3.sipsolutions.net>
-	 <AANLkTinMauFsJTKS3eT-pT44KQ8PSf3HJLS8CZIeHmxP@mail.gmail.com>
-	 <1275990325.3706.116.camel@jlt3.sipsolutions.net>
-	 <1275998127.1899.38.camel@yio.site>
-	 <1275998603.3706.118.camel@jlt3.sipsolutions.net>
-	 <AANLkTinev96yxFCFSdDdT89jjgYR4ChUCMU2-aSj8kkh@mail.gmail.com>
-	 <1276005970.3706.132.camel@jlt3.sipsolutions.net>
-	 <AANLkTikB0Amzi61JLxdY5HL-2s_nbYo3JH8vXooXzHdQ@mail.gmail.com>
-	 <1276007174.3706.133.camel@jlt3.sipsolutions.net>
-	 <AANLkTikNEzJHPrOUK6DKMoWvcblTBInaIhVbk96OtZxe@mail.gmail.com>
-	 <1276009590.3706.135.camel@jlt3.sipsolutions.net>
-	 <AANLkTimSqF4D4jPj-HzOjl1vxjf2T7YvlGdR6zcJZ9Pp@mail.gmail.com>
-	 <1276014816.3706.137.camel@jlt3.sipsolutions.net>
-	 <AANLkTilUd2Bp1h4SzlW5f5KevoRM-os_fQrivLHbZyKY@mail.gmail.com>
+From: sonic zhang <sonic.adi@gmail.com>
+Subject: [PATCH v4] netdev:bfin_mac: reclaim and free tx skb as soon as
+	possible after transfer
+Date: Fri, 11 Jun 2010 18:05:02 +0800
+Message-ID: <1276250702.30044.2.camel@eight.analog.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
-To: Kay Sievers <kay.sievers@vrfy.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	uclinux-dist-devel <uclinux-dist-devel@blackfin.uclinux.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:36999 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755903Ab0FKJz5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jun 2010 05:55:57 -0400
-In-Reply-To: <AANLkTilUd2Bp1h4SzlW5f5KevoRM-os_fQrivLHbZyKY@mail.gmail.com>
+Received: from nwd2mail11.analog.com ([137.71.25.57]:20119 "EHLO
+	nwd2mail11.analog.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755942Ab0FKJ6B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jun 2010 05:58:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-06-08 at 18:39 +0200, Kay Sievers wrote:
+>From 4779e43a5a8446f695f8d6f5a006cfb45dc093d8 Mon Sep 17 00:00:00 2001
+From: Sonic Zhang <sonic.zhang@analog.com>
+Date: Fri, 11 Jun 2010 17:44:31 +0800
+Subject: [PATCH v4] netdev:bfin_mac: reclaim and free tx skb as soon as possible after transfer
 
-> That all works if you have two modules, like almost all buses have.
-> That's what I meant, that we need to add stuff to the core to be able
-> to cleanup bus devices internally too, if we use everything in a
-> single module, which is also supposed to cleanup on unload, like the
-> network devices like to do.
+SKBs hold onto resources that can't be held indefinitely, such as TCP
+socket references and netfilter conntrack state.  So if a packet is left
+in TX ring for a long time, there might be a TCP socket that cannot be
+closed and freed up.
 
-Or some "wait for bus to be cleaned up" we can call in the module exit
-maybe?
+Current blackfin EMAC driver always reclaim and free used tx skbs in future
+transfers. The problem is that future transfer may not come as soon as
+possible. This patch start a timer after transfer to reclaim and free skb.
+There is nearly no performance drop with this patch.
 
-johannes
+TX interrupt is not enabled because of a strange behavior of the Blackfin EMAC.
+If EMAC TX transfer control is turned on, endless TX interrupts are triggered
+no matter if TX DMA is enabled or not. Since DMA walks down the ring automatically,
+TX transfer control can't be turned off in the middle. The only way is to disable
+TX interrupt completely.
+
+Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+---
+ drivers/net/bfin_mac.c |  123 +++++++++++++++++++++++++++++++-----------------
+ drivers/net/bfin_mac.h |    5 ++
+ 2 files changed, 85 insertions(+), 43 deletions(-)
+
+diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
+index 368f333..012613f 100644
+--- a/drivers/net/bfin_mac.c
++++ b/drivers/net/bfin_mac.c
+@@ -922,61 +922,73 @@ static void bfin_mac_hwtstamp_init(struct net_device *netdev)
+ # define bfin_tx_hwtstamp(dev, skb)
+ #endif
+ 
+-static void adjust_tx_list(void)
++static inline void _tx_reclaim_skb(void)
++{
++	do {
++		tx_list_head->desc_a.config &= ~DMAEN;
++		tx_list_head->status.status_word = 0;
++		if (tx_list_head->skb) {
++			dev_kfree_skb(tx_list_head->skb);
++			tx_list_head->skb = NULL;
++		}
++		tx_list_head = tx_list_head->next;
++
++	} while (tx_list_head->status.status_word != 0);
++}
++
++static void tx_reclaim_skb(struct bfin_mac_local *lp)
+ {
+ 	int timeout_cnt = MAX_TIMEOUT_CNT;
+ 
+-	if (tx_list_head->status.status_word != 0 &&
+-	    current_tx_ptr != tx_list_head) {
+-		goto adjust_head;	/* released something, just return; */
+-	}
++	if (tx_list_head->status.status_word != 0)
++		_tx_reclaim_skb();
+ 
+-	/*
+-	 * if nothing released, check wait condition
+-	 * current's next can not be the head,
+-	 * otherwise the dma will not stop as we want
+-	 */
+-	if (current_tx_ptr->next->next == tx_list_head) {
++	if (current_tx_ptr->next == tx_list_head) {
+ 		while (tx_list_head->status.status_word == 0) {
++			/* slow down polling to avoid too many queue stop. */
+ 			udelay(10);
+-			if (tx_list_head->status.status_word != 0 ||
+-			    !(bfin_read_DMA2_IRQ_STATUS() & DMA_RUN)) {
+-				goto adjust_head;
+-			}
+-			if (timeout_cnt-- < 0) {
+-				printk(KERN_ERR DRV_NAME
+-				": wait for adjust tx list head timeout\n");
++			/* reclaim skb if DMA is not running. */
++			if (!(bfin_read_DMA2_IRQ_STATUS() & DMA_RUN))
++				break;
++			if (timeout_cnt-- < 0)
+ 				break;
+-			}
+-		}
+-		if (tx_list_head->status.status_word != 0) {
+-			goto adjust_head;
+ 		}
++
++		if (timeout_cnt >= 0)
++			_tx_reclaim_skb();
++		else
++			netif_stop_queue(lp->ndev);
+ 	}
+ 
+-	return;
++	if (current_tx_ptr->next != tx_list_head &&
++		netif_queue_stopped(lp->ndev))
++		netif_wake_queue(lp->ndev);
++
++	if (tx_list_head != current_tx_ptr) {
++		/* shorten the timer interval if tx queue is stopped */
++		if (netif_queue_stopped(lp->ndev))
++			lp->tx_reclaim_timer.expires =
++				jiffies + (TX_RECLAIM_JIFFIES >> 4);
++		else
++			lp->tx_reclaim_timer.expires =
++				jiffies + TX_RECLAIM_JIFFIES;
++
++		mod_timer(&lp->tx_reclaim_timer,
++			lp->tx_reclaim_timer.expires);
++	}
+ 
+-adjust_head:
+-	do {
+-		tx_list_head->desc_a.config &= ~DMAEN;
+-		tx_list_head->status.status_word = 0;
+-		if (tx_list_head->skb) {
+-			dev_kfree_skb(tx_list_head->skb);
+-			tx_list_head->skb = NULL;
+-		} else {
+-			printk(KERN_ERR DRV_NAME
+-			       ": no sk_buff in a transmitted frame!\n");
+-		}
+-		tx_list_head = tx_list_head->next;
+-	} while (tx_list_head->status.status_word != 0 &&
+-		 current_tx_ptr != tx_list_head);
+ 	return;
++}
+ 
++static void tx_reclaim_skb_timeout(unsigned long lp)
++{
++	tx_reclaim_skb((struct bfin_mac_local *)lp);
+ }
+ 
+ static int bfin_mac_hard_start_xmit(struct sk_buff *skb,
+ 				struct net_device *dev)
+ {
++	struct bfin_mac_local *lp = netdev_priv(dev);
+ 	u16 *data;
+ 	u32 data_align = (unsigned long)(skb->data) & 0x3;
+ 	union skb_shared_tx *shtx = skb_tx(skb);
+@@ -1009,8 +1021,6 @@ static int bfin_mac_hard_start_xmit(struct sk_buff *skb,
+ 			skb->len);
+ 		current_tx_ptr->desc_a.start_addr =
+ 			(u32)current_tx_ptr->packet;
+-		if (current_tx_ptr->status.status_word != 0)
+-			current_tx_ptr->status.status_word = 0;
+ 		blackfin_dcache_flush_range(
+ 			(u32)current_tx_ptr->packet,
+ 			(u32)(current_tx_ptr->packet + skb->len + 2));
+@@ -1022,6 +1032,9 @@ static int bfin_mac_hard_start_xmit(struct sk_buff *skb,
+ 	 */
+ 	SSYNC();
+ 
++	/* always clear status buffer before start tx dma */
++	current_tx_ptr->status.status_word = 0;
++
+ 	/* enable this packet's dma */
+ 	current_tx_ptr->desc_a.config |= DMAEN;
+ 
+@@ -1037,13 +1050,14 @@ static int bfin_mac_hard_start_xmit(struct sk_buff *skb,
+ 	bfin_write_EMAC_OPMODE(bfin_read_EMAC_OPMODE() | TE);
+ 
+ out:
+-	adjust_tx_list();
+-
+ 	bfin_tx_hwtstamp(dev, skb);
+ 
+ 	current_tx_ptr = current_tx_ptr->next;
+ 	dev->stats.tx_packets++;
+ 	dev->stats.tx_bytes += (skb->len);
++
++	tx_reclaim_skb(lp);
++
+ 	return NETDEV_TX_OK;
+ }
+ 
+@@ -1167,8 +1181,11 @@ real_rx:
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void bfin_mac_poll(struct net_device *dev)
+ {
++	struct bfin_mac_local *lp = netdev_priv(dev);
++
+ 	disable_irq(IRQ_MAC_RX);
+ 	bfin_mac_interrupt(IRQ_MAC_RX, dev);
++	tx_reclaim_skb(lp);
+ 	enable_irq(IRQ_MAC_RX);
+ }
+ #endif				/* CONFIG_NET_POLL_CONTROLLER */
+@@ -1232,12 +1249,27 @@ static int bfin_mac_enable(void)
+ /* Our watchdog timed out. Called by the networking layer */
+ static void bfin_mac_timeout(struct net_device *dev)
+ {
++	struct bfin_mac_local *lp = netdev_priv(dev);
++
+ 	pr_debug("%s: %s\n", dev->name, __func__);
+ 
+ 	bfin_mac_disable();
+ 
+-	/* reset tx queue */
+-	tx_list_tail = tx_list_head->next;
++	del_timer(&lp->tx_reclaim_timer);
++
++	/* reset tx queue and free skb */
++	while (tx_list_head != current_tx_ptr) {
++		tx_list_head->desc_a.config &= ~DMAEN;
++		tx_list_head->status.status_word = 0;
++		if (tx_list_head->skb) {
++			dev_kfree_skb(tx_list_head->skb);
++			tx_list_head->skb = NULL;
++		}
++		tx_list_head = tx_list_head->next;
++	}
++
++	if (netif_queue_stopped(lp->ndev))
++		netif_wake_queue(lp->ndev);
+ 
+ 	bfin_mac_enable();
+ 
+@@ -1430,6 +1462,7 @@ static int __devinit bfin_mac_probe(struct platform_device *pdev)
+ 	SET_NETDEV_DEV(ndev, &pdev->dev);
+ 	platform_set_drvdata(pdev, ndev);
+ 	lp = netdev_priv(ndev);
++	lp->ndev = ndev;
+ 
+ 	/* Grab the MAC address in the MAC */
+ 	*(__le32 *) (&(ndev->dev_addr[0])) = cpu_to_le32(bfin_read_EMAC_ADDRLO());
+@@ -1485,6 +1518,10 @@ static int __devinit bfin_mac_probe(struct platform_device *pdev)
+ 	ndev->netdev_ops = &bfin_mac_netdev_ops;
+ 	ndev->ethtool_ops = &bfin_mac_ethtool_ops;
+ 
++	init_timer(&lp->tx_reclaim_timer);
++	lp->tx_reclaim_timer.data = (unsigned long)lp;
++	lp->tx_reclaim_timer.function = tx_reclaim_skb_timeout;
++
+ 	spin_lock_init(&lp->lock);
+ 
+ 	/* now, enable interrupts */
+diff --git a/drivers/net/bfin_mac.h b/drivers/net/bfin_mac.h
+index 1ae7b82..04e4050 100644
+--- a/drivers/net/bfin_mac.h
++++ b/drivers/net/bfin_mac.h
+@@ -13,9 +13,12 @@
+ #include <linux/net_tstamp.h>
+ #include <linux/clocksource.h>
+ #include <linux/timecompare.h>
++#include <linux/timer.h>
+ 
+ #define BFIN_MAC_CSUM_OFFLOAD
+ 
++#define TX_RECLAIM_JIFFIES (HZ / 5)
++
+ struct dma_descriptor {
+ 	struct dma_descriptor *next_dma_desc;
+ 	unsigned long start_addr;
+@@ -68,6 +71,8 @@ struct bfin_mac_local {
+ 
+ 	int wol;		/* Wake On Lan */
+ 	int irq_wake_requested;
++	struct timer_list tx_reclaim_timer;
++	struct net_device *ndev;
+ 
+ 	/* MII and PHY stuffs */
+ 	int old_link;          /* used by bf537_adjust_link */
+-- 
+1.6.0
+
+
 
