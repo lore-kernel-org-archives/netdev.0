@@ -1,66 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC PATCH v7 01/19] Add a new structure for skb buffer from
-	external.
-Date: Fri, 11 Jun 2010 15:21:12 +1000
-Message-ID: <20100611052112.GA25649@gondor.apana.org.au>
-References: <1275732899-5423-1-git-send-email-xiaohui.xin@intel.com> <20100606161348.427822fb@nehalam> <20100608052744.GA21547@gondor.apana.org.au> <F2E9EB7348B8264F86B6AB8151CE2D791100848F9F@shsmsx502.ccr.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: deliver skbs on inactive slaves to exact
+ matches
+Date: Thu, 10 Jun 2010 22:31:13 -0700 (PDT)
+Message-ID: <20100610.223113.200377963.davem@davemloft.net>
+References: <20100603193011.4916.12354.stgit@jf-dev2-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>
-To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D791100848F9F@shsmsx502.ccr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: fubar@us.ibm.com, nhorman@tuxdriver.com,
+	bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: john.r.fastabend@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39983
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754860Ab0FKFbC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jun 2010 01:31:02 -0400
+In-Reply-To: <20100603193011.4916.12354.stgit@jf-dev2-dcblab>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 09, 2010 at 05:54:02PM +0800, Xin, Xiaohui wrote:
->
-> I'm not sure if I understand your way correctly:
-> 1) Does the way only deal with driver with SG feature? Since packet 
-> is non-linear...
+From: John Fastabend <john.r.fastabend@intel.com>
+Date: Thu, 03 Jun 2010 12:30:11 -0700
 
-No the hardware doesn't have to support SG.  You just need to
-place the entire packet contents in a page instead of skb->head.
+> Currently, the accelerated receive path for VLAN's will
+> drop packets if the real device is an inactive slave and
+> is not one of the special pkts tested for in
+> skb_bond_should_drop().  This behavior is different then
+> the non-accelerated path and for pkts over a bonded vlan.
+ ...
+> This patch adds a sk_buff flag which is used for tagging
+> skbs that would previously been dropped and allows the
+> skb to continue to skb_netif_recv().  Here we add
+> logic to check for the deliver_no_wcard flag and if it
+> is set only deliver to handlers that match exactly.  This
+> makes both paths above consistent and gives pkt handlers
+> a way to identify skbs that come from inactive slaves.
+> Without this patch in some configurations skbs will be
+> delivered to handlers with exact matches and in others
+> be dropped out right in the vlan path.
+ ...
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 
-> 2) Is skb->data still pointing to guest user buffers?
-> If yes, how to avoid the modifications to net core change to skb?
-
-skb->data would not point to guest user buffers.  In the common
-case the packet is not modified on its way to the guest so this
-is not an issue.
-
-In the rare case where it is modified, you only have to copy the
-bits which are modified and the cost of that is inconsequential
-since you have to write to that memory anyway.
-
-> 3) In our way only parts of drivers need be modified to support zero-copy.
-> and here, need we modify all the drivers?
-
-If you're asking the portion of each driver supporting zero-copy
-that needs to be modified, then AFAICS this doesn't change that
-very much at all.
-
-> I think to make skb->head empty at first will cause more effort to pass the check with 
-> skb header. Have I missed something here? I really make the skb->head NULL
-> just before kfree(skb) in skb_release_data(), it's done by callback we have made for skb.
-
-No I'm not suggesting you set it to NULL.  It should have some
-memory allocated, but skb_headlen(skb) should be zero.
-
-Please have a look at how the napi_gro_frags interface works (e.g.,
-in drivers/net/cxgb3/sge.c).  This is exactly the model that I am
-suggesting.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I can't figure out a better way to fix this myself so I've
+applied your patch, thanks John!
