@@ -1,33 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] enic: cleanup vic_provinfo_alloc()
-Date: Fri, 11 Jun 2010 18:37:53 -0700 (PDT)
-Message-ID: <20100611.183753.13760714.davem@davemloft.net>
-References: <20100610075903.GL5483@bicker>
+Subject: Re: [PATCH] bnx2: Fix compiler warning in
+ bnx2_disable_forced_2g5().
+Date: Fri, 11 Jun 2010 18:38:08 -0700 (PDT)
+Message-ID: <20100611.183808.58442382.davem@davemloft.net>
+References: <1276017690-5442-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: scofeldm@cisco.com, vkolluri@cisco.com, roprabhu@cisco.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: error27@gmail.com
+Cc: prarit@redhat.com, netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42274
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42277
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751745Ab0FLBhm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jun 2010 21:37:42 -0400
-In-Reply-To: <20100610075903.GL5483@bicker>
+	by vger.kernel.org with ESMTP id S1751745Ab0FLBh5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jun 2010 21:37:57 -0400
+In-Reply-To: <1276017690-5442-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <error27@gmail.com>
-Date: Thu, 10 Jun 2010 09:59:03 +0200
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Tue, 8 Jun 2010 10:21:30 -0700
 
-> If oui were a null variable then vic_provinfo_alloc() would leak memory.
-> But this function is only called from one place and oui is not null so 
-> I removed the check.
+> drivers/net/bnx2.c: In function 'bnx2_disable_forced_2g5':
+> drivers/net/bnx2.c:1489: warning: 'bmcr' may be used uninitialized in this function
 > 
-> I also moved the memory allocation down a line so it was easier to spot.
-> (No one ever reads variable declarations).
+> We fix it by checking return values from all bnx2_read_phy() and proceeding
+> to do read-modify-write only if the read operation is successful.
 > 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> The related bnx2_enable_forced_2g5() is also fixed the same way.
+> 
+> Reported-by: Prarit Bhargava <prarit@redhat.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
 Applied to net-next-2.6, thanks.
