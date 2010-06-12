@@ -1,41 +1,27 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: hamachi on offer
-Date: Sat, 12 Jun 2010 11:51:25 +0200
-Message-ID: <20100612095125.GA16967@basil.fritz.box>
+From: Markus Trippelsdorf <markus@trippelsdorf.de>
+Subject: mpd client timeouts (bisected) 2.6.35-rc3
+Date: Sat, 12 Jun 2010 12:28:02 +0200
+Message-ID: <20100612102802.GA1782@arch.tripp.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:36369 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753478Ab0FLJva (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jun 2010 05:51:30 -0400
-Received: from basil.firstfloor.org (p5B3C8BD9.dip0.t-ipconnect.de [91.60.139.217])
-	by one.firstfloor.org (Postfix) with ESMTP id 767701EE801C
-	for <netdev@vger.kernel.org>; Sat, 12 Jun 2010 11:51:26 +0200 (CEST)
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: john.r.fastabend@intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Commit 597a264b1a9c7e36d1728f677c66c5c1f7e3b837:
+=BBnet: deliver skbs on inactive slaves to exact matches=AB
 
-I found an old hamachi (Packet Engines GNIC II) PCI GigE card while
-going through old junk. 
+causes large timeouts when mpd clients try to connect to a locally
+running mpd (music player demon) on my machine. This makes it=20
+impossible to control mpd.
 
-That was one of the first Gigabit drivers in Linux (hamachi.c), but 
-probably hasn't seen much use in the last years and it's unclear if the 
-driver still works.
+I bisected this down to the commit mentioned above.
+Reverting the commit from 2.6.35-rc3 also solves the problem.
 
-If anyone is interested in maintaining the driver I would be willing to 
-ship the card for free to them. The card is still a quite respectable Gigabit
-Ethernet card.
-
-The main drawback is that it has a fiber PHY, not copper, so one would 
-need a suitable fiber switch or run it loopback with another fiber card.
-
-I believe documentation is also still available.
-
-Please only serious offers if you want to actually work with the code.
-
-Thanks,
--Andi
+--=20
+Markus
