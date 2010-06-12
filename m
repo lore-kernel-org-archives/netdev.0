@@ -1,33 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: mpd client timeouts (bisected) 2.6.35-rc3
-Date: Sat, 12 Jun 2010 14:58:35 -0700 (PDT)
-Message-ID: <20100612.145835.123986343.davem@davemloft.net>
-References: <20100612102802.GA1782@arch.tripp.de>
+Subject: Re: [PATCH -next] enic: fix pci_alloc_consistent argument
+Date: Sat, 12 Jun 2010 15:24:46 -0700 (PDT)
+Message-ID: <20100612.152446.173856802.davem@davemloft.net>
+References: <20100608100020.7d79e932.randy.dunlap@oracle.com>
+	<C8340A5F.38161%scofeldm@cisco.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: john.r.fastabend@intel.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: markus@trippelsdorf.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100612102802.GA1782@arch.tripp.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: randy.dunlap@oracle.com, netdev@vger.kernel.org,
+	vkolluri@cisco.com, roprabhu@cisco.co
+To: scofeldm@cisco.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33218
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752761Ab0FLWYg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jun 2010 18:24:36 -0400
+In-Reply-To: <C8340A5F.38161%scofeldm@cisco.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Markus Trippelsdorf <markus@trippelsdorf.de>
-Date: Sat, 12 Jun 2010 12:28:02 +0200
+From: Scott Feldman <scofeldm@cisco.com>
+Date: Tue, 08 Jun 2010 14:55:27 -0700
 
-> Commit 597a264b1a9c7e36d1728f677c66c5c1f7e3b837:
-> =BBnet: deliver skbs on inactive slaves to exact matches=AB
->=20
-> causes large timeouts when mpd clients try to connect to a locally
-> running mpd (music player demon) on my machine. This makes it=20
-> impossible to control mpd.
->=20
-> I bisected this down to the commit mentioned above.
-> Reverting the commit from 2.6.35-rc3 also solves the problem.
+> On 6/8/10 10:00 AM, "Randy Dunlap" <randy.dunlap@oracle.com> wrote:
+> 
+>> From: Randy Dunlap <randy.dunlap@oracle.com>
+>> 
+>> Fix build warning on i386 (32-bit) with 32-bit dma_addr_t:
+>> 
+>> drivers/net/enic/vnic_dev.c: In function 'vnic_dev_init_prov':
+>> drivers/net/enic/vnic_dev.c:716: warning: passing argument 3 of
+>> 'pci_alloc_consistent' from incompatible pointer type
+>> include/asm-generic/pci-dma-compat.h:16: note: expected 'dma_addr_t *' but
+>> argument is of type 'u64 *'
+>> 
+>> Now builds without warnings on i386 and on x86_64.
+>> 
+>> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+>> Cc: Scott Feldman <scofeldm@cisco.com>
+>> Cc: Vasanthy Kolluri <vkolluri@cisco.com>
+>> Cc: Roopa Prabhu <roprabhu@cisco.com>
+>> ---
+>>  drivers/net/enic/vnic_dev.c |    2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> Acked-by: Scott Feldman <scofeldm@cisco.com>
 
-John, find an easy and fast way to fix this or else I am
-going to revert.
-
-Thanks.
+I'm applying this to net-2.6 since it's also a bug fix, as
+passing a u64 pointer in here will make pci_alloc_consistent()
+write garbage since it expects a dma_addr_t there which as
+on i386 could be 32-bit.
