@@ -1,120 +1,79 @@
-From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Subject: RE: [RFC PATCH v7 01/19] Add a new structure for skb buffer from
-	external.
-Date: Sat, 12 Jun 2010 17:31:10 +0800
-Message-ID: <F2E9EB7348B8264F86B6AB8151CE2D791210AA4475@shsmsx502.ccr.corp.intel.com>
-References: <1275732899-5423-1-git-send-email-xiaohui.xin@intel.com>
- <20100606161348.427822fb@nehalam>
- <20100608052744.GA21547@gondor.apana.org.au>
- <F2E9EB7348B8264F86B6AB8151CE2D791100848F9F@shsmsx502.ccr.corp.intel.com>
- <20100611052112.GA25649@gondor.apana.org.au>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: Re: Weak host model vs .interface down
+Date: Sat, 12 Jun 2010 11:34:29 +0200
+Message-ID: <OF2A0A973C.4B473348-ONC1257740.0033CC90-C1257740.00349888@transmode.se>
+References: <OF1D06F11A.44DE8C5A-ONC125773F.00437856-C125773F.004425B9@transmode.se>	<4C126514.30905@hp.com>
+	<OFE6F71D1A.A94BE06C-ONC125773F.005C80CF-C125773F.005DF884@transmode.se>	<4C126EC6.9000506@hp.com>
+	<OF73173D19.3439A8A1-ONC125773F.006BA38C-C125773F.006C31A4@transmode.se> <20100612092748.5fed4baf@lk-netdev.nosense.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org, Rick Jones <rick.jones2@hp.com>
+To: Mark Smith <lk-netdev@lk-netdev.nosense.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:39839 "EHLO mga01.intel.com"
+Received: from gw1.transmode.se ([213.115.205.20]:38963 "EHLO gw1.transmode.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752939Ab0FLJbP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jun 2010 05:31:15 -0400
-In-Reply-To: <20100611052112.GA25649@gondor.apana.org.au>
-Content-Language: en-US
+	id S1752939Ab0FLJjX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Jun 2010 05:39:23 -0400
+In-Reply-To: <20100612092748.5fed4baf@lk-netdev.nosense.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Herbert Xu [mailto:herbert@gondor.apana.org.au]
->Sent: Friday, June 11, 2010 1:21 PM
->To: Xin, Xiaohui
->Cc: Stephen Hemminger; netdev@vger.kernel.org; kvm@vger.kernel.org;
->linux-kernel@vger.kernel.org; mst@redhat.com; mingo@elte.hu; davem@davemloft.net;
->jdike@linux.intel.com
->Subject: Re: [RFC PATCH v7 01/19] Add a new structure for skb buffer from external.
+Mark Smith <lk-netdev@lk-netdev.nosense.org> wrote on 2010/06/12 01:57:48:
 >
->On Wed, Jun 09, 2010 at 05:54:02PM +0800, Xin, Xiaohui wrote:
->>
->> I'm not sure if I understand your way correctly:
->> 1) Does the way only deal with driver with SG feature? Since packet
->> is non-linear...
+> On Fri, 11 Jun 2010 21:41:45 +0200
+> Joakim Tjernlund <joakim.tjernlund@transmode.se> wrote:
 >
->No the hardware doesn't have to support SG.  You just need to
->place the entire packet contents in a page instead of skb->head.
+> > Rick Jones <rick.jones2@hp.com> wrote on 2010/06/11 19:13:42:
+> > >
+> > > > The weak model doesn't go into such detail, it is assumption/impl. detail
+> > > > to assume that the ip address still is part of the system even when the interface
+> > > > is down. One could just as well define interface down as temporarly removing
+> > > > the IP address from the system too. This makes make much more sense to me and
+> > > > if you always want the system to answer on a IP adress you make it an IP alias.
+> > > >
+> > > > Since the current behaviour is a problem to me and routers in general, can
+> > > > we change this? What is the current usage model which needs it to stay as is?
+> > >
+> > > Router != end-system  so I wouldn't think the weak or strong end-system model
+> > > would apply to a router.  I think Stephen already posted a patch to allow that
+> > > for when one's box was a router rather than an end-system.
+> >
+> > Not really an anwser to what I was asking but I choose to read that as
+> > you agree with me. The rest is an impl. detail. :)
+> > Stephen's patch is good but I would not mind making I/F down removing the
+> > IP address from the system unconditionally.
+> >
 >
->> 2) Is skb->data still pointing to guest user buffers?
->> If yes, how to avoid the modifications to net core change to skb?
+> I've asked the same question a few years back and got the same answer.
+> I accept the strong host / weak host argument, however I've also
+> thought about the problem a bit more, and why people get confused about
+> it.
 >
->skb->data would not point to guest user buffers.  In the common
->case the packet is not modified on its way to the guest so this
->is not an issue.
+> The problem is the mental model. Assigning an IP address to an
+> interface implies that the IP address as attached and associated with
+> the interface and therefore the state of the interface. That is
+> certainly the case for people like me who work with networking
+> equipment, typically routers, which follow the strong host model. It is
+> very convenient to know that by shutting down an interface the
+> associated IP address stops working too. Other measures, such as
+> ACLing, or writing down and deleting and then having put it back, are
+> relatively much more effort and error prone.
+
+Very well put!
+
 >
->In the rare case where it is modified, you only have to copy the
->bits which are modified and the cost of that is inconsequential
->since you have to write to that memory anyway.
+> While I'm sure past operational history is likely to make this
+> impractical, it would be far more intuitive for weak host model IP
+> address assignments to be made to a single, forced always up virtual
+> interface on the host, and strong host IP address assignments made to
+> any other "non-weak host" interfaces.
 >
->> 3) In our way only parts of drivers need be modified to support zero-copy.
->> and here, need we modify all the drivers?
->
->If you're asking the portion of each driver supporting zero-copy
->that needs to be modified, then AFAICS this doesn't change that
->very much at all.
->
->> I think to make skb->head empty at first will cause more effort to pass the check with
->> skb header. Have I missed something here? I really make the skb->head NULL
->> just before kfree(skb) in skb_release_data(), it's done by callback we have made for skb.
->
->No I'm not suggesting you set it to NULL.  It should have some
->memory allocated, but skb_headlen(skb) should be zero.
->
->Please have a look at how the napi_gro_frags interface works (e.g.,
->in drivers/net/cxgb3/sge.c).  This is exactly the model that I am
->suggesting.
->
->Cheers,
->--
->Visit Openswan at http://www.openswan.org/
->Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
->Home Page: http://gondor.apana.org.au/~herbert/
->PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> It'd be an interesting experiment to see if loopback could be used as a
+> "host interface" in the weak host model.
 
-Herbert,
-I explained what I think the thought in your mind here, please clarify if 
-something missed.
+Or you can use the dummy I/F too. I have used lo/dummy to assign a host/system
+address and it works fine. I am not aware of any limitations but if there are
+I am sure someone will point them out :)
 
-1) Modify driver from netdev_alloc_skb() to alloc user pages if dev is zero-copyed.
-  If the driver support PS mode, then modify alloc_page() too.
-2) Add napi_gro_frags() in driver to receive the user pages instead of driver's receiving 
-function.
-3) napi_gro_frags() will allocate small skb and pull the header data from 
-the first page to skb->data.
-
-Is above the way what you have suggested?
-I have thought something in detail about the way.
-
-1) The first page will have an offset after the header is copied into allocated kernel skb. 
-The offset should be recalculated when the user page data is transferred to guest. This 
-may modify some of the gro code.
-
-2) napi_gro_frags() may remove a page when it's data is totally be pulled, but we cannot 
-put a user page as normally. This may modify the gro code too.
-
-3) When the user buffer returned to guest, some of them need to be appended a vnet header.
-That means for some pages, the vnet header room should be reserved when allocated.
-But we cannot know which one will be used as the first page when allocated. If we reserved vnet header for each page, since the set_skb_frag() in guest driver only use the offset 0 for second pages, then page data will be wrong.
-
-4) Since the user buffer pages should be released, so we still need a dtor callback to do that, and then I still need a place to hold it. How do you think about to put it in skb_shinfo?
-
-Currently I can only think of this.
-How do you think about then?
-
-Thanks
-Xiaohui 
-
-
+ Jocke
 
