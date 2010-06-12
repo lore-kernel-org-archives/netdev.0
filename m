@@ -1,37 +1,33 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [PATCH] tcp: unify tcp flag macros
-Date: Sat, 12 Jun 2010 23:33:57 +0200 (CEST)
-Message-ID: <alpine.LSU.2.01.1006122327420.4502@obet.zrqbmnf.qr>
-References: <1276322372-12584-1-git-send-email-xiaosuo@gmail.com> <alpine.LSU.2.01.1006121017380.28286@obet.zrqbmnf.qr> <AANLkTikZSn5zJYNPU2mdcBiyY7jfBOvq0f1khlbue4JD@mail.gmail.com> <20100612.141715.220059291.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: mpd client timeouts (bisected) 2.6.35-rc3
+Date: Sat, 12 Jun 2010 14:58:35 -0700 (PDT)
+Message-ID: <20100612.145835.123986343.davem@davemloft.net>
+References: <20100612102802.GA1782@arch.tripp.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: xiaosuo@gmail.com, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from borg.medozas.de ([188.40.89.202]:47717 "EHLO borg.medozas.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752491Ab0FLVd6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Jun 2010 17:33:58 -0400
-In-Reply-To: <20100612.141715.220059291.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: john.r.fastabend@intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: markus@trippelsdorf.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100612102802.GA1782@arch.tripp.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Saturday 2010-06-12 23:17, David Miller wrote:
->
->> The same macros are definied by BSDs too. So I think it is better to
->> keep them the same.
->
->That is an absolutely meaningless argument.
->
->This is a "net/*.h" header, not something in "linux/*.h"
->that application in userspace might want access to.
->
->It's entirely private to the kernel, therefore we do what
->makes the most sense (from a cleanliness and namespace
->perspective) rather than "what other people do."
+=46rom: Markus Trippelsdorf <markus@trippelsdorf.de>
+Date: Sat, 12 Jun 2010 12:28:02 +0200
 
-And we'd also need to fight netinet/in.h in userspace programs,
-because they do already define TH_*.
+> Commit 597a264b1a9c7e36d1728f677c66c5c1f7e3b837:
+> =BBnet: deliver skbs on inactive slaves to exact matches=AB
+>=20
+> causes large timeouts when mpd clients try to connect to a locally
+> running mpd (music player demon) on my machine. This makes it=20
+> impossible to control mpd.
+>=20
+> I bisected this down to the commit mentioned above.
+> Reverting the commit from 2.6.35-rc3 also solves the problem.
 
+John, find an easy and fast way to fix this or else I am
+going to revert.
+
+Thanks.
