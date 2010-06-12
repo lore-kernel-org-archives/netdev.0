@@ -1,77 +1,37 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: Broken rndis_host with #define DEBUG (by
- a475f603d23392f386e45cf377b17c30ed3bbb80)
-Date: Sat, 12 Jun 2010 14:10:38 -0700
-Message-ID: <1276377038.21640.67.camel@Joe-Laptop.home>
-References: <20100612233907.2036688tfjxqq9hc@hayate.sektori.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: unify tcp flag macros
+Date: Sat, 12 Jun 2010 14:17:15 -0700 (PDT)
+Message-ID: <20100612.141715.220059291.davem@davemloft.net>
+References: <1276322372-12584-1-git-send-email-xiaosuo@gmail.com>
+	<alpine.LSU.2.01.1006121017380.28286@obet.zrqbmnf.qr>
+	<AANLkTikZSn5zJYNPU2mdcBiyY7jfBOvq0f1khlbue4JD@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S.Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	David Brownell <dbrownell@users.sourceforge.net>
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Cc: jengelh@medozas.de, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: xiaosuo@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:1093 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752343Ab0FLVKl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Jun 2010 17:10:41 -0400
-In-Reply-To: <20100612233907.2036688tfjxqq9hc@hayate.sektori.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43025
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752343Ab0FLVRG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jun 2010 17:17:06 -0400
+In-Reply-To: <AANLkTikZSn5zJYNPU2mdcBiyY7jfBOvq0f1khlbue4JD@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2010-06-12 at 23:39 +0300, Jussi Kivilinna wrote:
-> Commit a475f603d23392f386e45cf377b17c30ed3bbb80 "drivers/net/usb: Use  
-> netif_<level> logging facilities" causes problems with rndis_host.
-> 
-> rndis_host oopses with #define DEBUG, in generic_rndis_bind() when  
-> calling netif_dbg(). Problem is that (netdev)->dev.parent is NULL  
-> (used in netdev_printk) while generic_rndis_bind is called.
+From: Changli Gao <xiaosuo@gmail.com>
+Date: Sat, 12 Jun 2010 17:21:09 +0800
 
-Thanks.
+> The same macros are definied by BSDs too. So I think it is better to
+> keep them the same.
 
-Here's a revert until these macros get converted to functions.
+That is an absolutely meaningless argument.
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/usb/rndis_host.c |   14 ++++++++------
- 1 files changed, 8 insertions(+), 6 deletions(-)
+This is a "net/*.h" header, not something in "linux/*.h"
+that application in userspace might want access to.
 
-diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
-index 28d3ee1..49c3044 100644
---- a/drivers/net/usb/rndis_host.c
-+++ b/drivers/net/usb/rndis_host.c
-@@ -342,8 +342,8 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
- 
- 	dev->maxpacket = usb_maxpacket(dev->udev, dev->out, 1);
- 	if (dev->maxpacket == 0) {
--		netif_dbg(dev, probe, dev->net,
--			  "dev->maxpacket can't be 0\n");
-+		if (netif_msg_probe(dev))
-+			dev_dbg(&intf->dev, "dev->maxpacket can't be 0\n");
- 		retval = -EINVAL;
- 		goto fail_and_release;
- 	}
-@@ -401,15 +401,17 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
- 	}
- 	if ((flags & FLAG_RNDIS_PHYM_WIRELESS) &&
- 			*phym != RNDIS_PHYSICAL_MEDIUM_WIRELESS_LAN) {
--		netif_dbg(dev, probe, dev->net,
--			  "driver requires wireless physical medium, but device is not\n");
-+		if (netif_msg_probe(dev))
-+			dev_dbg(&intf->dev, "driver requires wireless "
-+				"physical medium, but device is not.\n");
- 		retval = -ENODEV;
- 		goto halt_fail_and_release;
- 	}
- 	if ((flags & FLAG_RNDIS_PHYM_NOT_WIRELESS) &&
- 			*phym == RNDIS_PHYSICAL_MEDIUM_WIRELESS_LAN) {
--		netif_dbg(dev, probe, dev->net,
--			  "driver requires non-wireless physical medium, but device is wireless.\n");
-+		if (netif_msg_probe(dev))
-+			dev_dbg(&intf->dev, "driver requires non-wireless "
-+				"physical medium, but device is wireless.\n");
- 		retval = -ENODEV;
- 		goto halt_fail_and_release;
- 	}
-
-
+It's entirely private to the kernel, therefore we do what
+makes the most sense (from a cleanliness and namespace
+perspective) rather than "what other people do."
