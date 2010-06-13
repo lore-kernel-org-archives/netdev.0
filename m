@@ -1,39 +1,53 @@
-From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [net-next PATCH] bnx2x: Fix link problem with some DACs
-Date: Sun, 13 Jun 2010 14:43:05 +0300
-Message-ID: <1276429385.13056.13.camel@lb-tlvb-yanivr.il.broadcom.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: [PATCH 0/8] Support unix domain sockets across namespaces
+Date: Sun, 13 Jun 2010 06:25:32 -0700
+Message-ID: <m1hbl7hxo3.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Serge Hallyn <serue@us.ibm.com>,
+	Linux Containers <containers@lists.osdl.org>,
+	Daniel Lezcano <daniel.lezcano@free.fr>,
+	<netdev@vger.kernel.org>, Pavel Emelyanov <xemul@parallels.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4686 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753242Ab0FMJme (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Jun 2010 05:42:34 -0400
+Received: from out01.mta.xmission.com ([166.70.13.231]:39585 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752088Ab0FMNZo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jun 2010 09:25:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change 2wire transfer rate of SFP+ module EEPROM from 400Khz to 100Khz since some DACs(direct attached cables) do not work at 400Khz.
 
-Reported-by: Krzysztof Oldzki <ole@ans.pl>
-Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+This patchset takes a addressing all of the issues that crop up with
+unix domain sockets when the senders and receivers are in separate
+namespaces.
+
+Without this patchset we can report the wrong pid and uid
+values in our unix domain credentials.
+
+As a finally this patchset removes the now unnecessary restriction
+that we only allow unix domain sockets between processes in the
+same network namespace.
+
+Eric W. Biederman (8):
+      scm: Reorder scm_cookie.
+      user_ns: Introduce user_nsmap_uid and user_ns_map_gid.
+      sock: Introduce cred_to_ucred
+      af_unix: Allow SO_PEERCRED to work across namespaces.
+      af_netlink: Add needed scm_destroy after scm_send.
+      scm: Capture the full credentials of the scm sender.
+      af_unix: Allow credentials to work across user and pid namespaces.
+      af_unix: Allow connecting to sockets in other network namespaces.
+
 ---
-diff --git a/drivers/net/bnx2x_link.c b/drivers/net/bnx2x_link.c
-index a22a7e0..9b15b64 100644
---- a/drivers/net/bnx2x_link.c
-+++ b/drivers/net/bnx2x_link.c
-@@ -4274,7 +4274,7 @@ static u8 bnx2x_ext_phy_init(struct link_params *params, struct link_vars *vars)
- 				       ext_phy_addr,
- 				       MDIO_PMA_DEVAD,
- 				       MDIO_PMA_REG_8727_TWO_WIRE_SLAVE_ADDR,
--				       0xa001);
-+				       0xa101);
- 
- 			/* Set TX PreEmphasis if needed */
- 			if ((params->feature_config_flags &
-
-
-
+ include/linux/socket.h         |    5 ++
+ include/linux/user_namespace.h |   14 ++++++
+ include/net/af_unix.h          |    4 +-
+ include/net/scm.h              |   30 ++++++++++--
+ include/net/sock.h             |    3 +-
+ kernel/user_namespace.c        |   44 ++++++++++++++++++
+ net/core/scm.c                 |   24 ++++++++++
+ net/core/sock.c                |   32 +++++++++++---
+ net/netlink/af_netlink.c       |   11 +++-
+ net/unix/af_unix.c             |   97 +++++++++++++++++++++++++---------------
+ 10 files changed, 211 insertions(+), 53 deletions(-)
