@@ -1,263 +1,101 @@
 From: Alan Ott <alan@signal11.us>
-Subject: [PATCH 1/1] Bluetooth: hidp: Add support for hidraw HIDIOCGFEATURE and HIDIOCSFEATURE
-Date: Sun, 13 Jun 2010 18:20:01 -0400
-Message-ID: <1276467601-9066-1-git-send-email-alan__25950.6544135094$1276469244$gmane$org@signal11.us>
-Cc: Alan Ott <alan@signal11.us>
+Subject: [PATCH 0/1] Bluetooth: hidp: Add support for hidraw HIDIOCGFEATURE  and HIDIOCSFEATURE
+Date: Sun, 13 Jun 2010 18:18:45 -0400
+Message-ID: <4C155945.1030500__24282.5099536732$1276469245$gmane$org@signal11.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 To: Marcel Holtmann <marcel@holtmann.org>,
-	David S Miller <davem@davemloft.net>,
+	"David S. Miller" <davem@davemloft.net>,
 	Jiri Kosina <jkosina@suse.cz>,
 	Michael Poole <mdpoole@troilus.org>,
-	Bastien Nocera <hadess@hadess.net>,
+	Bastien Nocera <hadess@hadess.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from core.signal11.us ([64.251.29.136]:37088 "EHLO core.signal11.us"
+Received: from core.signal11.us ([64.251.29.136]:37089 "EHLO core.signal11.us"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753852Ab0FMWrA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753881Ab0FMWrA (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sun, 13 Jun 2010 18:47:00 -0400
 Received: from localhost (localhost.localdomain [127.0.0.1])
-	by core.signal11.us (Postfix) with SMTP id CA557104302
-	for <netdev@vger.kernel.org>; Sun, 13 Jun 2010 18:20:06 -0400 (EDT)
+	by core.signal11.us (Postfix) with SMTP id 0C0AE104301
+	for <netdev@vger.kernel.org>; Sun, 13 Jun 2010 18:18:44 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support or getting and setting feature reports for bluetooth
-HID devices from HIDRAW.
+This patch adds support to the bluetooth hidp module for getting and 
+setting FEATURE reports from hidraw, as requested by Jiri Kosina. This 
+patch depends on the patch named:
 
-Signed-off-by: Alan Ott <alan@signal11.us>
----
- net/bluetooth/hidp/core.c |  121 +++++++++++++++++++++++++++++++++++++++++++--
- net/bluetooth/hidp/hidp.h |    8 +++
- 2 files changed, 125 insertions(+), 4 deletions(-)
+   [PATCH v2] HID: Add Support for Setting and Getting Feature Reports 
+from hidraw
 
-diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
-index bfe641b..0f068a0 100644
---- a/net/bluetooth/hidp/core.c
-+++ b/net/bluetooth/hidp/core.c
-@@ -36,6 +36,7 @@
- #include <linux/file.h>
- #include <linux/init.h>
- #include <linux/wait.h>
-+#include <linux/mutex.h>
- #include <net/sock.h>
- 
- #include <linux/input.h>
-@@ -313,6 +314,93 @@ static int hidp_send_report(struct hidp_session *session, struct hid_report *rep
- 	return hidp_queue_report(session, buf, rsize);
- }
- 
-+static int hidp_get_raw_report(struct hid_device *hid,
-+		unsigned char report_number,
-+		unsigned char *data, size_t count,
-+		unsigned char report_type)
-+{
-+	struct hidp_session *session = hid->driver_data;
-+	struct sk_buff *skb;
-+	size_t len;
-+	int numbered_reports = hid->report_enum[report_type].numbered;
-+
-+	switch (report_type) {
-+	case HID_FEATURE_REPORT:
-+		report_type = HIDP_TRANS_GET_REPORT | HIDP_DATA_RTYPE_FEATURE;
-+		break;
-+	case HID_INPUT_REPORT:
-+		report_type = HIDP_TRANS_GET_REPORT | HIDP_DATA_RTYPE_INPUT;
-+		break;
-+	case HID_OUTPUT_REPORT:
-+		report_type = HIDP_TRANS_GET_REPORT | HIDP_DATA_RTYPE_OUPUT;
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	if (mutex_lock_interruptible(&session->report_mutex))
-+		return -ERESTARTSYS;
-+
-+	/* Set up our wait, and send the report request to the device. */
-+	session->waiting_report_type = report_type & HIDP_DATA_RTYPE_MASK;
-+	session->waiting_report_number = numbered_reports ? report_number : -1;
-+	set_bit(HIDP_WAITING_FOR_RETURN, &session->flags);
-+	data[0] = report_number;
-+	if (hidp_send_ctrl_message(hid->driver_data, report_type, data, 1))
-+		goto err_eio;
-+
-+	/* Wait for the return of the report. The returned report
-+	   gets put in session->report_return.  */
-+	while (test_bit(HIDP_WAITING_FOR_RETURN, &session->flags)) {
-+		int res;
-+
-+		res = wait_event_interruptible_timeout(session->report_queue,
-+			!test_bit(HIDP_WAITING_FOR_RETURN, &session->flags),
-+			5*HZ);
-+		if (res == 0) {
-+			/* timeout */
-+			goto err_eio;
-+		}
-+		if (res < 0) {
-+			/* signal */
-+			goto err_restartsys;
-+		}
-+	}
-+
-+	skb = session->report_return;
-+	if (skb) {
-+		if (numbered_reports) {
-+			/* Strip off the report number. */
-+			size_t rpt_len = skb->len-1;
-+			len = rpt_len < count ? rpt_len : count;
-+			memcpy(data, skb->data+1, len);
-+		} else {
-+			len = skb->len < count ? skb->len : count;
-+			memcpy(data, skb->data, len);
-+		}
-+
-+		kfree_skb(skb);
-+		session->report_return = NULL;
-+	} else {
-+		/* Device returned a HANDSHAKE, indicating  protocol error. */
-+		len = -EIO;
-+	}
-+
-+	clear_bit(HIDP_WAITING_FOR_RETURN, &session->flags);
-+	mutex_unlock(&session->report_mutex);
-+
-+	return len;
-+
-+err_restartsys:
-+	clear_bit(HIDP_WAITING_FOR_RETURN, &session->flags);
-+	mutex_unlock(&session->report_mutex);
-+	return -ERESTARTSYS;
-+err_eio:
-+	clear_bit(HIDP_WAITING_FOR_RETURN, &session->flags);
-+	mutex_unlock(&session->report_mutex);
-+	return -EIO;
-+}
-+
- static int hidp_output_raw_report(struct hid_device *hid, unsigned char *data, size_t count,
- 		unsigned char report_type)
- {
-@@ -367,6 +455,10 @@ static void hidp_process_handshake(struct hidp_session *session,
- 	case HIDP_HSHK_ERR_INVALID_REPORT_ID:
- 	case HIDP_HSHK_ERR_UNSUPPORTED_REQUEST:
- 	case HIDP_HSHK_ERR_INVALID_PARAMETER:
-+		if (test_bit(HIDP_WAITING_FOR_RETURN, &session->flags)) {
-+			clear_bit(HIDP_WAITING_FOR_RETURN, &session->flags);
-+			wake_up_interruptible(&session->report_queue);
-+		}
- 		/* FIXME: Call into SET_ GET_ handlers here */
- 		break;
- 
-@@ -403,9 +495,11 @@ static void hidp_process_hid_control(struct hidp_session *session,
- 	}
- }
- 
--static void hidp_process_data(struct hidp_session *session, struct sk_buff *skb,
-+/* Returns true if the passed-in skb should be freed by the caller. */
-+static int hidp_process_data(struct hidp_session *session, struct sk_buff *skb,
- 				unsigned char param)
- {
-+	int done_with_skb = 1;
- 	BT_DBG("session %p skb %p len %d param 0x%02x", session, skb, skb->len, param);
- 
- 	switch (param) {
-@@ -417,7 +511,6 @@ static void hidp_process_data(struct hidp_session *session, struct sk_buff *skb,
- 
- 		if (session->hid)
- 			hid_input_report(session->hid, HID_INPUT_REPORT, skb->data, skb->len, 0);
--
- 		break;
- 
- 	case HIDP_DATA_RTYPE_OTHER:
-@@ -429,12 +522,27 @@ static void hidp_process_data(struct hidp_session *session, struct sk_buff *skb,
- 		__hidp_send_ctrl_message(session,
- 			HIDP_TRANS_HANDSHAKE | HIDP_HSHK_ERR_INVALID_PARAMETER, NULL, 0);
- 	}
-+
-+	if (test_bit(HIDP_WAITING_FOR_RETURN, &session->flags) &&
-+				param == session->waiting_report_type) {
-+		if (session->waiting_report_number < 0 ||
-+		    session->waiting_report_number == skb->data[0]) {
-+			/* hidp_get_raw_report() is waiting on this report. */
-+			session->report_return = skb;
-+			done_with_skb = 0;
-+			clear_bit(HIDP_WAITING_FOR_RETURN, &session->flags);
-+			wake_up_interruptible(&session->report_queue);
-+		}
-+	}
-+
-+	return done_with_skb;
- }
- 
- static void hidp_recv_ctrl_frame(struct hidp_session *session,
- 					struct sk_buff *skb)
- {
- 	unsigned char hdr, type, param;
-+	int free_skb = 1;
- 
- 	BT_DBG("session %p skb %p len %d", session, skb, skb->len);
- 
-@@ -454,7 +562,7 @@ static void hidp_recv_ctrl_frame(struct hidp_session *session,
- 		break;
- 
- 	case HIDP_TRANS_DATA:
--		hidp_process_data(session, skb, param);
-+		free_skb = hidp_process_data(session, skb, param);
- 		break;
- 
- 	default:
-@@ -463,7 +571,8 @@ static void hidp_recv_ctrl_frame(struct hidp_session *session,
- 		break;
- 	}
- 
--	kfree_skb(skb);
-+	if (free_skb)
-+		kfree_skb(skb);
- }
- 
- static void hidp_recv_intr_frame(struct hidp_session *session,
-@@ -797,6 +906,7 @@ static int hidp_setup_hid(struct hidp_session *session,
- 	hid->dev.parent = hidp_get_device(session);
- 	hid->ll_driver = &hidp_hid_driver;
- 
-+	hid->hid_get_raw_report = hidp_get_raw_report;
- 	hid->hid_output_raw_report = hidp_output_raw_report;
- 
- 	err = hid_add_device(hid);
-@@ -857,6 +967,9 @@ int hidp_add_connection(struct hidp_connadd_req *req, struct socket *ctrl_sock,
- 	skb_queue_head_init(&session->ctrl_transmit);
- 	skb_queue_head_init(&session->intr_transmit);
- 
-+	mutex_init(&session->report_mutex);
-+	init_waitqueue_head(&session->report_queue);
-+
- 	session->flags   = req->flags & (1 << HIDP_BLUETOOTH_VENDOR_ID);
- 	session->idle_to = req->idle_to;
- 
-diff --git a/net/bluetooth/hidp/hidp.h b/net/bluetooth/hidp/hidp.h
-index 8d934a1..00e71dd 100644
---- a/net/bluetooth/hidp/hidp.h
-+++ b/net/bluetooth/hidp/hidp.h
-@@ -80,6 +80,7 @@
- #define HIDP_VIRTUAL_CABLE_UNPLUG	0
- #define HIDP_BOOT_PROTOCOL_MODE		1
- #define HIDP_BLUETOOTH_VENDOR_ID	9
-+#define	HIDP_WAITING_FOR_RETURN		10
- 
- struct hidp_connadd_req {
- 	int   ctrl_sock;	// Connected control socket
-@@ -154,6 +155,13 @@ struct hidp_session {
- 	struct sk_buff_head ctrl_transmit;
- 	struct sk_buff_head intr_transmit;
- 
-+	/* Used in hidp_get_raw_report() */
-+	int waiting_report_type; /* HIDP_DATA_RTYPE_* */
-+	int waiting_report_number; /* -1 for not numbered */
-+	struct mutex report_mutex;
-+	struct sk_buff *report_return;
-+	wait_queue_head_t report_queue;
-+
- 	/* Report descriptor */
- 	__u8 *rd_data;
- 	uint rd_size;
--- 
-1.7.0.4
+I have a couple of concerns with this patch, which I hope someone here 
+can clarify and/or help me with.
+
+1. Is it ok to use test_bit()/set_bit()/clear_bit() on session->flags, 
+when other parts in the code may not be using these functions to access 
+it? This currently isn't a problem because the other code which uses 
+flags only sets bits at initialization time (and deletion time). best I 
+can tell, flags is never actually used or read other than by my new code 
+(using the *_bit() functions). The solution here may be to change the 
+other code to use the *_bit() functions to access flags.
+
+2. Is the loop in hidp_get_raw_report() sufficient without a mutex, 
+since I'm synchronizing with the atomic call to test_bit() (and 
+clear_bit())? I have convinced myself that in this case, with one 
+reader, and one writer, to one pointer, synchronized with 
+wait_event_interruptible_timeout() and atomic access through test_bit(), 
+that a mutex is not needed.
+
+3. A blocking, synchronous GET_REPORT transfer was easy when I 
+implemented this for USB because data is both sent and received as part 
+of a single control transfer. Because of the nature of Bluetooth 
+however, where it is viewed more as an asynchronous network device, and 
+with hidraw allowing multiple handles to a single device to exist, there 
+could be a race when two handles call the hidp_get_raw_report() function 
+concurrently, requesting the same report. I've convinced myself that 
+this is not a problem, because since both callers requested the same 
+report, the worst that could happen is that one could get a report which 
+is slightly out of date.
+
+Consider the following case:
+     1. Client 1 requests report (Userspace call to HIDIOCGFEATURE)
+     2. Client 2 requests report (Userspace call to HIDIOCGFEATURE)
+     3. Client 1's report is returned, and delivered to BOTH clients
+     4. Client 2's report is returned (and discarded)
+
+Note here that Client 1's report and Client 2's report are the same 
+report, ie: they reflect the state of the same data on the device, just 
+at different times. In this case, they are indeed exactly the same data, 
+but consider this case:
+     1. Client 1 requests report (Userspace call to HIDIOCGFEATURE)
+     2. Client 2 SETS report (Userspace call to HIDIOCSFEATURE)
+     2. Client 2 requests report (Userspace call to HIDIOCGFEATURE)
+     3. Client 1's report is returned, and delivered to Clients 1 and 2
+     4. Client 2's report is returned
+
+In this case, client 2 receives OLD data (since it set new data, and the 
+call to write the reports is currently not synchronous). To make writes 
+synchronous, we'd run into the same problem, of two writes happening 
+concurrently, and the 2nd one receiving the ACK from the first one.
+
+The questions here are:
+1. Is this a problem? It's only an issues if two handles (in two 
+separate threads) are reading and writing the device concurrently. I'd 
+expect that there would be bigger problems in this case than receiving 
+an old report.
+2. If this is a problem, is there a way to synchronize on the control 
+socket for the device (as opposed to just this session)? In this case 
+GET_REPORT and SET_REPORT would lock access to the control socket (for 
+all clients accessing the device) while they are active.
+
+Your feedback is most appreciated,
+
+Alan.
+
+
+
+
+
+
 
 
