@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 7/8] af_unix: Allow credentials to work across user and pid namespaces.
-Date: Sun, 13 Jun 2010 06:34:33 -0700
-Message-ID: <m17hm3giom.fsf@fess.ebiederm.org>
+Subject: [PATCH 8/8] af_unix: Allow connecting to sockets in other network namespaces.
+Date: Sun, 13 Jun 2010 06:35:48 -0700
+Message-ID: <m11vcbgimj.fsf@fess.ebiederm.org>
 References: <m1hbl7hxo3.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -11,165 +11,81 @@ Cc: Serge Hallyn <serue@us.ibm.com>,
 	<netdev@vger.kernel.org>, Pavel Emelyanov <xemul@parallels.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:48356 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753835Ab0FMNeh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jun 2010 09:34:37 -0400
+Received: from out02.mta.xmission.com ([166.70.13.232]:48093 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753745Ab0FMNfw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jun 2010 09:35:52 -0400
 In-Reply-To: <m1hbl7hxo3.fsf@fess.ebiederm.org> (Eric W. Biederman's message of "Sun\, 13 Jun 2010 06\:25\:32 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-In unix_skb_parms store pointers to struct pid and struct cred instead
-of raw uid, gid, and pid values, then translate the credentials on
-reception into values that are meaningful in the receiving processes
+Remove the restriction that only allows connecting to a unix domain
+socket identified by unix path that is in the same network namespace.
+
+Crossing network namespaces is always tricky and we did not support
+this at first, because of a strict policy of don't mix the namespaces.
+Later after Pavel proposed this we did not support this because no one
+had performed the audit to make certain using unix domain sockets
+across namespaces is safe.
+
+What fundamentally makes connecting to af_unix sockets in other
+namespaces is safe is that you have to have the proper permissions on
+the unix domain socket inode that lives in the filesystem.  If you
+want strict isolation you just don't create inodes where unfriendlys
+can get at them, or with permissions that allow unfriendlys to open
+them.  All nicely handled for us by the mount namespace and other
+standard file system facilities.
+
+I looked through unix domain sockets and they are a very controlled
+environment so none of the work that goes on in dev_forward_skb to
+make crossing namespaces safe appears needed, we are not loosing
+controll of the skb and so do not need to set up the skb to look like
+it is comming in fresh from the outside world.  Further the fields in
+struct unix_skb_parms should not have any problems crossing network
 namespaces.
+
+Now that we handle SCM_CREDENTIALS in a way that gives useable values
+across namespaces.  There does not appear to be any operational
+problems with encouraging the use of unix domain sockets across
+containers either.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- include/net/af_unix.h |    4 +-
- net/unix/af_unix.c    |   53 ++++++++++++++++++++++++++++--------------------
- 2 files changed, 33 insertions(+), 24 deletions(-)
+ net/unix/af_unix.c |    7 ++-----
+ 1 files changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/af_unix.h b/include/net/af_unix.h
-index 1614d78..59d636c 100644
---- a/include/net/af_unix.h
-+++ b/include/net/af_unix.h
-@@ -23,7 +23,8 @@ struct unix_address {
- };
- 
- struct unix_skb_parms {
--	struct ucred		creds;		/* Skb credentials	*/
-+	struct pid		*pid;		/* Skb credentials	*/
-+	const struct cred	*cred;
- 	struct scm_fp_list	*fp;		/* Passed files		*/
- #ifdef CONFIG_SECURITY_NETWORK
- 	u32			secid;		/* Security ID		*/
-@@ -31,7 +32,6 @@ struct unix_skb_parms {
- };
- 
- #define UNIXCB(skb) 	(*(struct unix_skb_parms*)&((skb)->cb))
--#define UNIXCREDS(skb)	(&UNIXCB((skb)).creds)
- #define UNIXSID(skb)	(&UNIXCB((skb)).secid)
- 
- #define unix_state_lock(s)	spin_lock(&unix_sk(s)->lock)
 diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 028fa25..78d412a 100644
+index 78d412a..4aaff40 100644
 --- a/net/unix/af_unix.c
 +++ b/net/unix/af_unix.c
-@@ -1315,18 +1315,20 @@ static void unix_detach_fds(struct scm_cookie *scm, struct sk_buff *skb)
- 	int i;
- 
- 	scm->fp = UNIXCB(skb).fp;
--	skb->destructor = sock_wfree;
- 	UNIXCB(skb).fp = NULL;
- 
- 	for (i = scm->fp->count-1; i >= 0; i--)
- 		unix_notinflight(scm->fp->fp[i]);
+@@ -282,7 +282,7 @@ static inline struct sock *unix_find_socket_byname(struct net *net,
+ 	return s;
  }
  
--static void unix_destruct_fds(struct sk_buff *skb)
-+static void unix_destruct_scm(struct sk_buff *skb)
+-static struct sock *unix_find_socket_byinode(struct net *net, struct inode *i)
++static struct sock *unix_find_socket_byinode(struct inode *i)
  {
- 	struct scm_cookie scm;
- 	memset(&scm, 0, sizeof(scm));
--	unix_detach_fds(&scm, skb);
-+	scm.pid  = UNIXCB(skb).pid;
-+	scm.cred = UNIXCB(skb).cred;
-+	if (UNIXCB(skb).fp)
-+		unix_detach_fds(&scm, skb);
+ 	struct sock *s;
+ 	struct hlist_node *node;
+@@ -292,9 +292,6 @@ static struct sock *unix_find_socket_byinode(struct net *net, struct inode *i)
+ 		    &unix_socket_table[i->i_ino & (UNIX_HASH_SIZE - 1)]) {
+ 		struct dentry *dentry = unix_sk(s)->dentry;
  
- 	/* Alas, it calls VFS */
- 	/* So fscking what? fput() had been SMP-safe since the last Summer */
-@@ -1349,10 +1351,22 @@ static int unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
- 
- 	for (i = scm->fp->count-1; i >= 0; i--)
- 		unix_inflight(scm->fp->fp[i]);
--	skb->destructor = unix_destruct_fds;
- 	return 0;
- }
- 
-+static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb, bool send_fds)
-+{
-+	int err = 0;
-+	UNIXCB(skb).pid  = get_pid(scm->pid);
-+	UNIXCB(skb).cred = get_cred(scm->cred);
-+	UNIXCB(skb).fp = NULL;
-+ 	if (scm->fp && send_fds)
-+ 		err = unix_attach_fds(scm, skb);
-+ 
-+	skb->destructor = unix_destruct_scm;
-+ 	return err;
-+}
-+
- /*
-  *	Send AF_UNIX data.
-  */
-@@ -1409,12 +1423,9 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 	if (skb == NULL)
- 		goto out;
- 
--	memcpy(UNIXCREDS(skb), &siocb->scm->creds, sizeof(struct ucred));
--	if (siocb->scm->fp) {
--		err = unix_attach_fds(siocb->scm, skb);
--		if (err)
--			goto out_free;
--	}
-+	err = unix_scm_to_skb(siocb->scm, skb, true);
-+	if (err)
-+		goto out_free;
- 	unix_get_secdata(siocb->scm, skb);
- 
- 	skb_reset_transport_header(skb);
-@@ -1584,16 +1595,14 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 		 */
- 		size = min_t(int, size, skb_tailroom(skb));
- 
--		memcpy(UNIXCREDS(skb), &siocb->scm->creds, sizeof(struct ucred));
-+		
- 		/* Only send the fds in the first buffer */
--		if (siocb->scm->fp && !fds_sent) {
--			err = unix_attach_fds(siocb->scm, skb);
--			if (err) {
--				kfree_skb(skb);
--				goto out_err;
--			}
--			fds_sent = true;
-+		err = unix_scm_to_skb(siocb->scm, skb, !fds_sent);
-+		if (err) {
-+			kfree_skb(skb);
-+			goto out_err;
- 		}
-+		fds_sent = true;
- 
- 		err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
- 		if (err) {
-@@ -1710,7 +1719,7 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
- 		siocb->scm = &tmp_scm;
- 		memset(&tmp_scm, 0, sizeof(tmp_scm));
- 	}
--	siocb->scm->creds = *UNIXCREDS(skb);
-+	scm_set_cred(siocb->scm, UNIXCB(skb).pid, UNIXCB(skb).cred);
- 	unix_set_secdata(siocb->scm, skb);
- 
- 	if (!(flags & MSG_PEEK)) {
-@@ -1859,14 +1868,14 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
- 
- 		if (check_creds) {
- 			/* Never glue messages from different writers */
--			if (memcmp(UNIXCREDS(skb), &siocb->scm->creds,
--				   sizeof(siocb->scm->creds)) != 0) {
-+			if ((UNIXCB(skb).pid  != siocb->scm->pid) ||
-+			    (UNIXCB(skb).cred != siocb->scm->cred)) {
- 				skb_queue_head(&sk->sk_receive_queue, skb);
- 				break;
- 			}
- 		} else {
- 			/* Copy credentials */
--			siocb->scm->creds = *UNIXCREDS(skb);
-+			scm_set_cred(siocb->scm, UNIXCB(skb).pid, UNIXCB(skb).cred);
- 			check_creds = 1;
- 		}
+-		if (!net_eq(sock_net(s), net))
+-			continue;
+-
+ 		if (dentry && dentry->d_inode == i) {
+ 			sock_hold(s);
+ 			goto found;
+@@ -757,7 +754,7 @@ static struct sock *unix_find_other(struct net *net,
+ 		err = -ECONNREFUSED;
+ 		if (!S_ISSOCK(inode->i_mode))
+ 			goto put_fail;
+-		u = unix_find_socket_byinode(net, inode);
++		u = unix_find_socket_byinode(inode);
+ 		if (!u)
+ 			goto put_fail;
  
 -- 
 1.6.5.2.143.g8cc62
