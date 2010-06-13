@@ -1,51 +1,49 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 1/4] net/phy/marvell: Expose IDs and flags in a .h and
- add dns323 LEDs setup flag
-Date: Sun, 13 Jun 2010 16:02:35 +1000
-Message-ID: <1276408955.1962.578.camel@pasglop>
-References: <1276391423.1962.263.camel@pasglop>
-	 <20100613052831.GA17012@pengutronix.de>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: mpd client timeouts (bisected) 2.6.35-rc3
+Date: Sun, 13 Jun 2010 01:05:27 -0700
+Message-ID: <4C149147.3080808@intel.com>
+References: <20100612102802.GA1782@arch.tripp.de> <20100612.145835.123986343.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hvr@gnu.org,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Nicolas Pitre <nico@fluxnic.net>,
-	David Miller <davem@davemloft.net>
-To: Wolfram Sang <w.sang@pengutronix.de>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "markus@trippelsdorf.de" <markus@trippelsdorf.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:56427 "EHLO gate.crashing.org"
+Received: from mga01.intel.com ([192.55.52.88]:23922 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751513Ab0FMGCy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Jun 2010 02:02:54 -0400
-In-Reply-To: <20100613052831.GA17012@pengutronix.de>
+	id S1751704Ab0FMIF3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Jun 2010 04:05:29 -0400
+In-Reply-To: <20100612.145835.123986343.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2010-06-13 at 07:28 +0200, Wolfram Sang wrote:
-> On Sun, Jun 13, 2010 at 11:10:23AM +1000, Benjamin Herrenschmidt wrote:
-> > This moves the various known Marvell PHY IDs to include/linux/marvell_phy.h
-> > along with dev_flags definitions for use by the driver.
-> > 
-> > I then added a flag that changes the PHY init code to setup the LEDs
-> > config to the values needed to operate a dns323 rev C1 NAS.
-> > 
-> > I moved the existing "resistance" flag to the .h as well, though I've
-> > been unable to find whoever sets this to convert it to use that constant.
-> > 
-> > Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> 
-> That should do for now.
-> 
-> Reviewed-by: Wolfram Sang <w.sang@pengutronix.de>
+David Miller wrote:
+> From: Markus Trippelsdorf <markus@trippelsdorf.de>
+> Date: Sat, 12 Jun 2010 12:28:02 +0200
+>=20
+>> Commit 597a264b1a9c7e36d1728f677c66c5c1f7e3b837:
+>> =BBnet: deliver skbs on inactive slaves to exact matches=AB
+>>
+>> causes large timeouts when mpd clients try to connect to a locally
+>> running mpd (music player demon) on my machine. This makes it=20
+>> impossible to control mpd.
+>>
+>> I bisected this down to the commit mentioned above.
+>> Reverting the commit from 2.6.35-rc3 also solves the problem.
+>=20
+> John, find an easy and fast way to fix this or else I am
+> going to revert.
+>=20
+> Thanks.
 
-Thanks.
+Looks like skbs are hitting loopback_xmit() with deliver_no_wcard set. =
+ Then in=20
+the receive path these skbs are only delivered to exact matches.  Not s=
+ure why=20
+this bit is set here, I'll track this down first thing tomorrow.
 
-Dave, any objection to having that go via the arm tree along with the
-rest of my patches to support the dns323 since they depend on this one ?
-
-Cheers,
-Ben.
-
-
+Thanks,
+John.
