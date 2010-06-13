@@ -1,9 +1,8 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH 2/8] user_ns: Introduce user_nsmap_uid and user_ns_map_gid.
-Date: Sun, 13 Jun 2010 06:28:03 -0700
-Message-ID: <m17hm3hxjw.fsf_-_@fess.ebiederm.org>
+Subject: [PATCH 3/8] sock: Introduce cred_to_ucred
+Date: Sun, 13 Jun 2010 06:28:59 -0700
+Message-ID: <m139wrhxic.fsf@fess.ebiederm.org>
 References: <m1hbl7hxo3.fsf@fess.ebiederm.org>
-	<m1d3vvhxlj.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Serge Hallyn <serue@us.ibm.com>,
@@ -12,126 +11,80 @@ Cc: Serge Hallyn <serue@us.ibm.com>,
 	<netdev@vger.kernel.org>, Pavel Emelyanov <xemul@parallels.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:40862 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752407Ab0FMN2I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jun 2010 09:28:08 -0400
-In-Reply-To: <m1d3vvhxlj.fsf@fess.ebiederm.org> (Eric W. Biederman's message of "Sun\, 13 Jun 2010 06\:27\:04 -0700")
+Received: from out02.mta.xmission.com ([166.70.13.232]:38278 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753706Ab0FMN3F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jun 2010 09:29:05 -0400
+In-Reply-To: <m1hbl7hxo3.fsf@fess.ebiederm.org> (Eric W. Biederman's message of "Sun\, 13 Jun 2010 06\:25\:32 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Define what happens when a we view a uid from one user_namespace
-in another user_namepece.
-
-- If the user namespaces are the same no mapping is necessary.
-
-- For most cases of difference use overflowuid and overflowgid,
-  the uid and gid currently used for 16bit apis when we have a 32bit uid
-  that does fit in 16bits.  Effectively the situation is the same,
-  we want to return a uid or gid that is not assigned to any user.
-
-- For the case when we happen to be mapping the uid or gid of the
-  creator of the target user namespace use uid 0 and gid as confusing
-  that user with root is not a problem.
+To keep the coming code clear and to allow both the sock
+code and the scm code to share the logic introduce a
+fuction to translate from struct cred to struct ucred.
 
 Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- include/linux/user_namespace.h |   14 ++++++++++++
- kernel/user_namespace.c        |   44 ++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 58 insertions(+), 0 deletions(-)
+ include/linux/socket.h |    5 +++++
+ net/core/sock.c        |   14 ++++++++++++++
+ 2 files changed, 19 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/user_namespace.h b/include/linux/user_namespace.h
-index cc4f453..8178156 100644
---- a/include/linux/user_namespace.h
-+++ b/include/linux/user_namespace.h
-@@ -36,6 +36,9 @@ static inline void put_user_ns(struct user_namespace *ns)
- 		kref_put(&ns->kref, free_user_ns);
- }
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index 032a19e..a2fada9 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -24,6 +24,9 @@ struct __kernel_sockaddr_storage {
+ #include <linux/types.h>		/* pid_t			*/
+ #include <linux/compiler.h>		/* __user			*/
  
-+uid_t user_ns_map_uid(struct user_namespace *to, const struct cred *cred, uid_t uid);
-+gid_t user_ns_map_gid(struct user_namespace *to, const struct cred *cred, gid_t gid);
++struct pid;
++struct cred;
 +
- #else
+ #define __sockaddr_check_size(size)	\
+ 	BUILD_BUG_ON(((size) > sizeof(struct __kernel_sockaddr_storage)))
  
- static inline struct user_namespace *get_user_ns(struct user_namespace *ns)
-@@ -52,6 +55,17 @@ static inline void put_user_ns(struct user_namespace *ns)
+@@ -309,6 +312,8 @@ struct ucred {
+ #define IPX_TYPE	1
+ 
+ #ifdef __KERNEL__
++extern void cred_to_ucred(struct pid *pid, const struct cred *cred, struct ucred *ucred);
++
+ extern int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len);
+ extern int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
+ 			       int offset, int len);
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 7effa1e..9e229d8 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -110,6 +110,7 @@
+ #include <linux/tcp.h>
+ #include <linux/init.h>
+ #include <linux/highmem.h>
++#include <linux/user_namespace.h>
+ 
+ #include <asm/uaccess.h>
+ #include <asm/system.h>
+@@ -734,6 +735,19 @@ set_rcvbuf:
+ EXPORT_SYMBOL(sock_setsockopt);
+ 
+ 
++void cred_to_ucred(struct pid *pid, const struct cred *cred,
++		   struct ucred *ucred)
++{
++	ucred->pid = pid_vnr(pid);
++	ucred->uid = ucred->gid = -1;
++	if (cred) {
++		struct user_namespace *current_ns = current_user_ns();
++
++		ucred->uid = user_ns_map_uid(current_ns, cred, cred->euid);
++		ucred->gid = user_ns_map_gid(current_ns, cred, cred->egid);
++	}
++}
++
+ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 		    char __user *optval, int __user *optlen)
  {
- }
- 
-+static inline uid_t user_ns_map_uid(struct user_namespace *to,
-+	const struct cred *cred, uid_t uid)
-+{
-+	return uid;
-+}
-+static inline gid_t user_ns_map_gid(struct user_namespace *to,
-+	const struct cred *cred, gid_t gid)
-+{
-+	return gid;
-+}
-+
- #endif
- 
- #endif /* _LINUX_USER_H */
-diff --git a/kernel/user_namespace.c b/kernel/user_namespace.c
-index 076c7c8..825abfb 100644
---- a/kernel/user_namespace.c
-+++ b/kernel/user_namespace.c
-@@ -9,6 +9,7 @@
- #include <linux/nsproxy.h>
- #include <linux/slab.h>
- #include <linux/user_namespace.h>
-+#include <linux/highuid.h>
- #include <linux/cred.h>
- 
- /*
-@@ -82,3 +83,46 @@ void free_user_ns(struct kref *kref)
- 	schedule_work(&ns->destroyer);
- }
- EXPORT_SYMBOL(free_user_ns);
-+
-+uid_t user_ns_map_uid(struct user_namespace *to, const struct cred *cred, uid_t uid)
-+{
-+	struct user_namespace *tmp;
-+
-+	if (likely(to == cred->user->user_ns))
-+		return uid;
-+
-+
-+	/* Is cred->user the creator of the target user_ns
-+	 * or the creator of one of it's parents?
-+	 */
-+	for ( tmp = to; tmp != &init_user_ns;
-+	      tmp = tmp->creator->user_ns ) {
-+		if (cred->user == tmp->creator) {
-+			return (uid_t)0;
-+		}
-+	}
-+
-+	/* No useful relationship so no mapping */
-+	return overflowuid;
-+}
-+
-+gid_t user_ns_map_gid(struct user_namespace *to, const struct cred *cred, gid_t gid)
-+{
-+	struct user_namespace *tmp;
-+
-+	if (likely(to == cred->user->user_ns))
-+		return gid;
-+
-+	/* Is cred->user the creator of the target user_ns
-+	 * or the creator of one of it's parents?
-+	 */
-+	for ( tmp = to; tmp != &init_user_ns;
-+	      tmp = tmp->creator->user_ns ) {
-+		if (cred->user == tmp->creator) {
-+			return (gid_t)0;
-+		}
-+	}
-+
-+	/* No useful relationship so no mapping */
-+	return overflowgid;
-+}
 -- 
 1.6.5.2.143.g8cc62
 
