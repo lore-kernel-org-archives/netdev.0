@@ -1,66 +1,55 @@
-From: "markus@trippelsdorf.de" <markus@trippelsdorf.de>
-Subject: Re: mpd client timeouts (bisected) 2.6.35-rc3
-Date: Sun, 13 Jun 2010 22:59:22 +0200
-Message-ID: <20100613205922.GA1806@arch.tripp.de>
-References: <20100612102802.GA1782@arch.tripp.de>
- <20100612.145835.123986343.davem@davemloft.net>
- <4C149147.3080808@intel.com>
- <4C15414E.5090201@intel.com>
+From: =?UTF-8?B?S3J6eXN6dG9mIE9sxJlkemtp?= <ole@ans.pl>
+Subject: Re: [net-next PATCH] bnx2x: Fix link problem with some DACs
+Date: Sun, 13 Jun 2010 23:27:55 +0200
+Message-ID: <4C154D5B.8000004@ans.pl>
+References: <1276429385.13056.13.camel@lb-tlvb-yanivr.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	yanmin_zhang@linux.intel.com, alex.shi@intel.com,
-	tim.c.chen@intel.com
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4C15414E.5090201@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Yaniv Rosner <yanivr@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bizon.gios.gov.pl ([195.187.34.71]:59611 "EHLO
+	bizon.gios.gov.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752044Ab0FMV2J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jun 2010 17:28:09 -0400
+In-Reply-To: <1276429385.13056.13.camel@lb-tlvb-yanivr.il.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 13, 2010 at 01:36:30PM -0700, John Fastabend wrote:
-> John Fastabend wrote:
-> >David Miller wrote:
-> >>From: Markus Trippelsdorf <markus@trippelsdorf.de>
-> >>Date: Sat, 12 Jun 2010 12:28:02 +0200
-> >>
-> >>>Commit 597a264b1a9c7e36d1728f677c66c5c1f7e3b837:
-> >>>=BBnet: deliver skbs on inactive slaves to exact matches=AB
-> >>>
-> >>>causes large timeouts when mpd clients try to connect to a locally
-> >>>running mpd (music player demon) on my machine. This makes it
-> >>>impossible to control mpd.
-> >>>
-> >>>I bisected this down to the commit mentioned above.
-> >>>Reverting the commit from 2.6.35-rc3 also solves the problem.
-> >>John, find an easy and fast way to fix this or else I am
-> >>going to revert.
-> >>
-> >>Thanks.
-> >
-> >Looks like skbs are hitting loopback_xmit() with deliver_no_wcard
-> >set.  Then in the receive path these skbs are only delivered to
-> >exact matches.  Not sure why this bit is set here, I'll track this
-> >down first thing tomorrow.
-> >
-> >Thanks,
-> >John.
-> >--
->=20
-> Needed to set the wcard bit in copy_skb_header otherwise it will not
-> be cleared when called from skb_clone.  Which then hits the loopback
-> device gets pushed into the rx path and is eventually dropped. The
-> following patch fixes this. Hopefully, this is easy and fast enough
-> for you Dave.
->=20
->=20
-> [PATCH] net: fix deliver_no_wcard regression on loopback device
+On 2010-06-13 13:43, Yaniv Rosner wrote:
+> Change 2wire transfer rate of SFP+ module EEPROM from 400Khz to 100Kh=
+z since some DACs(direct attached cables) do not work at 400Khz.
+>
+> Reported-by: Krzysztof Oldzki <ole@ans.pl>
+> Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> ---
+> diff --git a/drivers/net/bnx2x_link.c b/drivers/net/bnx2x_link.c
+> index a22a7e0..9b15b64 100644
+> --- a/drivers/net/bnx2x_link.c
+> +++ b/drivers/net/bnx2x_link.c
+> @@ -4274,7 +4274,7 @@ static u8 bnx2x_ext_phy_init(struct link_params=
+ *params, struct link_vars *vars)
+>   				       ext_phy_addr,
+>   				       MDIO_PMA_DEVAD,
+>   				       MDIO_PMA_REG_8727_TWO_WIRE_SLAVE_ADDR,
+> -				       0xa001);
+> +				       0xa101);
+>
+>   			/* Set TX PreEmphasis if needed */
+>   			if ((params->feature_config_flags&
 
-This solves the problem here. Thanks.
+Tested-by: Krzysztof Piotr Oledzki <ole@ans.pl>
 
-Tested-by: Markus Trippelsdorf <markus@trippelsdorf.de>
---=20
-Markus
+However, I believe the comment before this code should also be changed,=
+=20
+because it is now: "Set 2-wire transfer rate to 400Khz since 100Khz
+is not operational ".
+
+Thanks.
+
+Best regards,
+
+			Krzysztof Ol=C4=99dzki
