@@ -1,70 +1,102 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] ipv6: RCU changes in ipv6_get_mtu() and
- ip6_dst_hoplimit()
-Date: Mon, 14 Jun 2010 16:46:20 +0200
-Message-ID: <1276526780.2478.101.camel@edumazet-laptop>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH v4] netfilter: Xtables: idletimer target implementation
+Date: Mon, 14 Jun 2010 16:48:50 +0200
+Message-ID: <4C164152.8080103@trash.net>
+References: <1276264913-429-1-git-send-email-luciano.coelho@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: netfilter@vger.kernel.org, netdev@vger.kernel.org,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Timo Teras <timo.teras@iki.fi>
+To: Luciano Coelho <luciano.coelho@nokia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:38247 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752580Ab0FNOqZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 10:46:25 -0400
-Received: by wwb18 with SMTP id 18so3903708wwb.19
-        for <netdev@vger.kernel.org>; Mon, 14 Jun 2010 07:46:23 -0700 (PDT)
+Received: from stinky.trash.net ([213.144.137.162]:51825 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754483Ab0FNOtP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 10:49:15 -0400
+In-Reply-To: <1276264913-429-1-git-send-email-luciano.coelho@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use RCU to avoid atomic ops on idev refcnt in ipv6_get_mtu()
-and ip6_dst_hoplimit() 
+Luciano Coelho wrote:
+> +static int idletimer_tg_create(struct idletimer_tg_info *info)
+> +{
+> +	int ret;
+> +
+> +	info->timer = kmalloc(sizeof(*info->timer), GFP_ATOMIC);
+> +	if (!info->timer) {
+> +		pr_debug("couldn't alloc timer\n");
+> +		ret = -ENOMEM;
+> +		goto out;
+> +	}
+> +
+> +	info->timer->attr.attr.name = kstrdup(info->label, GFP_ATOMIC);
+>   
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv6/route.c |   19 +++++++++++--------
- 1 file changed, 11 insertions(+), 8 deletions(-)
+These two allocations don't need GFP_ATOMIC AFAICT.
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index f770285..8f2d040 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1084,11 +1084,11 @@ static int ipv6_get_mtu(struct net_device *dev)
- 	int mtu = IPV6_MIN_MTU;
- 	struct inet6_dev *idev;
- 
--	idev = in6_dev_get(dev);
--	if (idev) {
-+	rcu_read_lock();
-+	idev = __in6_dev_get(dev);
-+	if (idev)
- 		mtu = idev->cnf.mtu6;
--		in6_dev_put(idev);
--	}
-+	rcu_read_unlock();
- 	return mtu;
- }
- 
-@@ -1097,12 +1097,15 @@ int ip6_dst_hoplimit(struct dst_entry *dst)
- 	int hoplimit = dst_metric(dst, RTAX_HOPLIMIT);
- 	if (hoplimit < 0) {
- 		struct net_device *dev = dst->dev;
--		struct inet6_dev *idev = in6_dev_get(dev);
--		if (idev) {
-+		struct inet6_dev *idev;
-+
-+		rcu_read_lock();
-+		idev = __in6_dev_get(dev);
-+		if (idev)
- 			hoplimit = idev->cnf.hop_limit;
--			in6_dev_put(idev);
--		} else
-+		else
- 			hoplimit = dev_net(dev)->ipv6.devconf_all->hop_limit;
-+		rcu_read_unlock();
- 	}
- 	return hoplimit;
- }
+> +	if (!info->timer->attr.attr.name) {
+> +		pr_debug("couldn't alloc attribute name\n");
+> +		ret = -ENOMEM;
+> +		goto out_free_timer;
+> +	}
+> +	info->timer->attr.attr.mode = S_IRUGO;
+> +	info->timer->attr.show = idletimer_tg_show;
+> +
+> +	ret = sysfs_create_file(idletimer_tg_kobj, &info->timer->attr.attr);
+> +	if (ret < 0) {
+> +		pr_debug("couldn't add file to sysfs");
+> +		goto out_free_attr;
+> +	}
+> +
+> +	list_add(&info->timer->entry, &idletimer_tg_list);
+> +
+> +	setup_timer(&info->timer->timer, idletimer_tg_expired,
+> +		    (unsigned long) info->timer);
+> +	info->timer->refcnt = 1;
+> +
+> +	mod_timer(&info->timer->timer,
+> +		  msecs_to_jiffies(info->timeout * 1000) + jiffies);
+> +
+> +	INIT_WORK(&info->timer->work, idletimer_tg_work);
+> +
+> +	return 0;
+> +
+> +out_free_attr:
+> +	kfree(info->timer->attr.attr.name);
+> +out_free_timer:
+> +	kfree(info->timer);
+> +out:
+> +	return ret;
+> +}
+> +
+> +/*
+> + * The actual xt_tables plugin.
+> + */
+> +static unsigned int idletimer_tg_target(struct sk_buff *skb,
+> +					 const struct xt_action_param *par)
+> +{
+> +	const struct idletimer_tg_info *info = par->targinfo;
+> +
+> +	pr_debug("resetting timer %s, timeout period %u\n",
+> +		 info->label, info->timeout);
+> +
+> +	mutex_lock(&list_mutex);
+>   
 
+You can't take the mutex in the target function. What is it supposed to
+protect again?
+
+> +
+> +	BUG_ON(!info->timer);
+> +
+> +	mod_timer(&info->timer->timer,
+> +		  msecs_to_jiffies(info->timeout * 1000) + jiffies);
+> +
+> +	mutex_unlock(&list_mutex);
+> +
+> +	return XT_CONTINUE;
+> +}
+> +
 
