@@ -1,102 +1,68 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH v4] netfilter: Xtables: idletimer target implementation
-Date: Mon, 14 Jun 2010 16:48:50 +0200
-Message-ID: <4C164152.8080103@trash.net>
-References: <1276264913-429-1-git-send-email-luciano.coelho@nokia.com>
+From: Ajit Khaparde <ajitk@serverengines.com>
+Subject: [PATCH net-next-2.6] be2net: enable ipv6 tso support
+Date: Mon, 14 Jun 2010 20:26:07 +0530
+Message-ID: <20100614145557.GA12552@serverengines.com>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netfilter@vger.kernel.org, netdev@vger.kernel.org,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Timo Teras <timo.teras@iki.fi>
-To: Luciano Coelho <luciano.coelho@nokia.com>
+Content-Type: text/plain; charset=us-ascii
+To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51825 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754483Ab0FNOtP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 10:49:15 -0400
-In-Reply-To: <1276264913-429-1-git-send-email-luciano.coelho@nokia.com>
+Received: from segment-124-30.sify.net ([124.30.166.146]:33039 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752580Ab0FNO4J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 10:56:09 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Luciano Coelho wrote:
-> +static int idletimer_tg_create(struct idletimer_tg_info *info)
-> +{
-> +	int ret;
-> +
-> +	info->timer = kmalloc(sizeof(*info->timer), GFP_ATOMIC);
-> +	if (!info->timer) {
-> +		pr_debug("couldn't alloc timer\n");
-> +		ret = -ENOMEM;
-> +		goto out;
-> +	}
-> +
-> +	info->timer->attr.attr.name = kstrdup(info->label, GFP_ATOMIC);
->   
+Add ipv6 support to the be2net driver.
 
-These two allocations don't need GFP_ATOMIC AFAICT.
+Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+---
+ drivers/net/benet/be_hw.h   |    2 +-
+ drivers/net/benet/be_main.c |    6 ++++--
+ 2 files changed, 5 insertions(+), 3 deletions(-)
 
-> +	if (!info->timer->attr.attr.name) {
-> +		pr_debug("couldn't alloc attribute name\n");
-> +		ret = -ENOMEM;
-> +		goto out_free_timer;
-> +	}
-> +	info->timer->attr.attr.mode = S_IRUGO;
-> +	info->timer->attr.show = idletimer_tg_show;
-> +
-> +	ret = sysfs_create_file(idletimer_tg_kobj, &info->timer->attr.attr);
-> +	if (ret < 0) {
-> +		pr_debug("couldn't add file to sysfs");
-> +		goto out_free_attr;
-> +	}
-> +
-> +	list_add(&info->timer->entry, &idletimer_tg_list);
-> +
-> +	setup_timer(&info->timer->timer, idletimer_tg_expired,
-> +		    (unsigned long) info->timer);
-> +	info->timer->refcnt = 1;
-> +
-> +	mod_timer(&info->timer->timer,
-> +		  msecs_to_jiffies(info->timeout * 1000) + jiffies);
-> +
-> +	INIT_WORK(&info->timer->work, idletimer_tg_work);
-> +
-> +	return 0;
-> +
-> +out_free_attr:
-> +	kfree(info->timer->attr.attr.name);
-> +out_free_timer:
-> +	kfree(info->timer);
-> +out:
-> +	return ret;
-> +}
-> +
-> +/*
-> + * The actual xt_tables plugin.
-> + */
-> +static unsigned int idletimer_tg_target(struct sk_buff *skb,
-> +					 const struct xt_action_param *par)
-> +{
-> +	const struct idletimer_tg_info *info = par->targinfo;
-> +
-> +	pr_debug("resetting timer %s, timeout period %u\n",
-> +		 info->label, info->timeout);
-> +
-> +	mutex_lock(&list_mutex);
->   
-
-You can't take the mutex in the target function. What is it supposed to
-protect again?
-
-> +
-> +	BUG_ON(!info->timer);
-> +
-> +	mod_timer(&info->timer->timer,
-> +		  msecs_to_jiffies(info->timeout * 1000) + jiffies);
-> +
-> +	mutex_unlock(&list_mutex);
-> +
-> +	return XT_CONTINUE;
-> +}
-> +
+diff --git a/drivers/net/benet/be_hw.h b/drivers/net/benet/be_hw.h
+index 063026d..0683967 100644
+--- a/drivers/net/benet/be_hw.h
++++ b/drivers/net/benet/be_hw.h
+@@ -192,7 +192,7 @@ struct amap_eth_hdr_wrb {
+ 	u8 event;
+ 	u8 crc;
+ 	u8 forward;
+-	u8 ipsec;
++	u8 lso6;
+ 	u8 mgmt;
+ 	u8 ipcs;
+ 	u8 udpcs;
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 3225774..01eb447 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -373,10 +373,12 @@ static void wrb_fill_hdr(struct be_eth_hdr_wrb *hdr, struct sk_buff *skb,
+ 
+ 	AMAP_SET_BITS(struct amap_eth_hdr_wrb, crc, hdr, 1);
+ 
+-	if (skb_shinfo(skb)->gso_segs > 1 && skb_shinfo(skb)->gso_size) {
++	if (skb_is_gso(skb)) {
+ 		AMAP_SET_BITS(struct amap_eth_hdr_wrb, lso, hdr, 1);
+ 		AMAP_SET_BITS(struct amap_eth_hdr_wrb, lso_mss,
+ 			hdr, skb_shinfo(skb)->gso_size);
++		if (skb_is_gso_v6(skb))
++			AMAP_SET_BITS(struct amap_eth_hdr_wrb, lso6, hdr, 1);
+ 	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
+ 		if (is_tcp_pkt(skb))
+ 			AMAP_SET_BITS(struct amap_eth_hdr_wrb, tcpcs, hdr, 1);
+@@ -2186,7 +2188,7 @@ static void be_netdev_init(struct net_device *netdev)
+ 
+ 	netdev->features |= NETIF_F_SG | NETIF_F_HW_VLAN_RX | NETIF_F_TSO |
+ 		NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_FILTER | NETIF_F_HW_CSUM |
+-		NETIF_F_GRO;
++		NETIF_F_GRO | NETIF_F_TSO6;
+ 
+ 	netdev->vlan_features |= NETIF_F_SG | NETIF_F_TSO | NETIF_F_HW_CSUM;
+ 
+-- 
+1.7.0.4
 
