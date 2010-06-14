@@ -1,59 +1,73 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [net-next PATCH] bnx2x: Fix link problem with some DACs
-Date: Mon, 14 Jun 2010 17:49:56 +0900
-Message-ID: <20100614084956.GC25374@verge.net.au>
-References: <1276511188.13056.26.camel@lb-tlvb-yanivr.il.broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] ip_frag: Remove some atomic ops
+Date: Mon, 14 Jun 2010 11:02:24 +0200
+Message-ID: <1276506144.2478.40.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Yaniv Rosner <yanivr@broadcom.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:46813 "EHLO koto.vergenet.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755124Ab0FNIt7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jun 2010 04:49:59 -0400
-Content-Disposition: inline
-In-Reply-To: <1276511188.13056.26.camel@lb-tlvb-yanivr.il.broadcom.com>
+Received: from mail-ww0-f46.google.com ([74.125.82.46]:51470 "EHLO
+	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755517Ab0FNJC2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 05:02:28 -0400
+Received: by wwb18 with SMTP id 18so3557555wwb.19
+        for <netdev@vger.kernel.org>; Mon, 14 Jun 2010 02:02:27 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 14, 2010 at 01:26:28PM +0300, Yaniv Rosner wrote:
-> Change 2wire transfer rate of SFP+ module EEPROM from 400Khz to 100Khz since some DACs(direct attached cables) do not work at 400Khz.
-> 
-> Reported-by: Krzysztof Oldzki <ole@ans.pl>
-> Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
-> ---
-> diff --git a/drivers/net/bnx2x_link.c b/drivers/net/bnx2x_link.c
-> index ff70be8..600bc44 100644
-> --- a/drivers/net/bnx2x_link.c
-> +++ b/drivers/net/bnx2x_link.c
-> @@ -4266,14 +4266,15 @@ static u8 bnx2x_ext_phy_init(struct link_params *params, struct link_vars *vars)
->  					       MDIO_PMA_REG_10G_CTRL2, 0x0008);
->  			}
->  
-> -			/* Set 2-wire transfer rate to 400Khz since 100Khz
-> -			is not operational */
+Instead of doing one atomic operation per frag, we can factorize them.
 
-Doesn't the above comment indicate there is some HW where 100Khz doesn't work?
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/ip_fragment.c |    3 +--
+ net/ipv6/reassembly.c  |    3 +--
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
-> +			/* Set 2-wire transfer rate of SFP+ module EEPROM
-> +			to 100Khz since some DACs(direct attached cables) do
-> +			not work at 400Khz.*/
->  			bnx2x_cl45_write(bp, params->port,
->  				       ext_phy_type,
->  				       ext_phy_addr,
->  				       MDIO_PMA_DEVAD,
->  				       MDIO_PMA_REG_8727_TWO_WIRE_SLAVE_ADDR,
-> -				       0xa101);
-> +				       0xa001);
->  
->  			/* Set TX PreEmphasis if needed */
->  			if ((params->feature_config_flags &
-> 
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index 75347ea..963c368 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -556,7 +556,6 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
+ 
+ 	skb_shinfo(head)->frag_list = head->next;
+ 	skb_push(head, head->data - skb_network_header(head));
+-	atomic_sub(head->truesize, &qp->q.net->mem);
+ 
+ 	for (fp=head->next; fp; fp = fp->next) {
+ 		head->data_len += fp->len;
+@@ -566,8 +565,8 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
+ 		else if (head->ip_summed == CHECKSUM_COMPLETE)
+ 			head->csum = csum_add(head->csum, fp->csum);
+ 		head->truesize += fp->truesize;
+-		atomic_sub(fp->truesize, &qp->q.net->mem);
+ 	}
++	atomic_sub(head->truesize, &qp->q.net->mem);
+ 
+ 	head->next = NULL;
+ 	head->dev = dev;
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index 6d4292f..a630506 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -524,7 +524,6 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *prev,
+ 	skb_shinfo(head)->frag_list = head->next;
+ 	skb_reset_transport_header(head);
+ 	skb_push(head, head->data - skb_network_header(head));
+-	atomic_sub(head->truesize, &fq->q.net->mem);
+ 
+ 	for (fp=head->next; fp; fp = fp->next) {
+ 		head->data_len += fp->len;
+@@ -534,8 +533,8 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *prev,
+ 		else if (head->ip_summed == CHECKSUM_COMPLETE)
+ 			head->csum = csum_add(head->csum, fp->csum);
+ 		head->truesize += fp->truesize;
+-		atomic_sub(fp->truesize, &fq->q.net->mem);
+ 	}
++	atomic_sub(head->truesize, &fq->q.net->mem);
+ 
+ 	head->next = NULL;
+ 	head->dev = dev;
+
+
