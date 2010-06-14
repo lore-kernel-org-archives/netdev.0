@@ -1,79 +1,71 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] fragment: add fast path
-Date: Mon, 14 Jun 2010 18:15:28 +0800
-Message-ID: <AANLkTinFc9HqkyWa9Q6k9hzEeDkjjwIyKeztvzHRx-BU@mail.gmail.com>
-References: <1276470995-21713-1-git-send-email-xiaosuo@gmail.com>
-	<1276493743.2448.41.camel@edumazet-laptop> <AANLkTimN1-uyAvpxgpno55XoyPzBptdZimz-MA-0MCWZ@mail.gmail.com>
-	<1276499096.2478.25.camel@edumazet-laptop>
+From: Alan Ott <alan@signal11.us>
+Subject: Re: [PATCH 0/1] Bluetooth: hidp: Add support for hidraw HIDIOCGFEATURE  and HIDIOCSFEATURE
+Date: Mon, 14 Jun 2010 07:45:00 -0400
+Message-ID: <4C16163C.4080606__13542.2134808779$1276515946$gmane$org@signal11.us>
+References: <4C155945.1030500@signal11.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Marcel Holtmann <marcel@holtmann.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Michael Poole <mdpoole@troilus.org>,
+	Bastien Nocera <hadess@hadess.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:36926 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755469Ab0FNKPu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 06:15:50 -0400
-Received: by vws14 with SMTP id 14so468879vws.19
-        for <netdev@vger.kernel.org>; Mon, 14 Jun 2010 03:15:48 -0700 (PDT)
-In-Reply-To: <1276499096.2478.25.camel@edumazet-laptop>
+Received: from core.signal11.us ([64.251.29.136]:58735 "EHLO core.signal11.us"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753049Ab0FNLpF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jun 2010 07:45:05 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by core.signal11.us (Postfix) with SMTP id B52B11042FD
+	for <netdev@vger.kernel.org>; Mon, 14 Jun 2010 07:45:03 -0400 (EDT)
+In-Reply-To: <4C155945.1030500@signal11.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 14, 2010 at 3:04 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
+On 06/13/2010 06:18 PM, Alan Ott wrote:
+> 3. A blocking, synchronous GET_REPORT transfer was easy when I 
+> implemented this for USB because data is both sent and received as 
+> part of a single control transfer. Because of the nature of Bluetooth 
+> however, where it is viewed more as an asynchronous network device, 
+> and with hidraw allowing multiple handles to a single device to exist, 
+> there could be a race when two handles call the hidp_get_raw_report() 
+> function concurrently, requesting the same report. I've convinced 
+> myself that this is not a problem, because since both callers 
+> requested the same report, the worst that could happen is that one 
+> could get a report which is slightly out of date.
 >
+> Consider the following case:
+>     1. Client 1 requests report (Userspace call to HIDIOCGFEATURE)
+>     2. Client 2 requests report (Userspace call to HIDIOCGFEATURE)
+>     3. Client 1's report is returned, and delivered to BOTH clients
+>     4. Client 2's report is returned (and discarded)
 >
-> Concept of 'fast path' has changed over years. It used to be cpu
-> instructions and cycles, its now number of memory transactions.
+> Note here that Client 1's report and Client 2's report are the same 
+> report, ie: they reflect the state of the same data on the device, 
+> just at different times. In this case, they are indeed exactly the 
+> same data, but consider this case:
+>     1. Client 1 requests report (Userspace call to HIDIOCGFEATURE)
+>     2. Client 2 SETS report (Userspace call to HIDIOCSFEATURE)
+>     2. Client 2 requests report (Userspace call to HIDIOCGFEATURE)
+>     3. Client 1's report is returned, and delivered to Clients 1 and 2
+>     4. Client 2's report is returned
 >
-> The only thing we need to address are the cache lines we must bring i=
-nto
-> cpu caches, and keep code short.
+> In this case, client 2 receives OLD data (since it set new data, and 
+> the call to write the reports is currently not synchronous). To make 
+> writes synchronous, we'd run into the same problem, of two writes 
+> happening concurrently, and the 2nd one receiving the ACK from the 
+> first one.
 >
-> These days, one cache line miss -> more than one hundred instructions
-> that could be done during cpu stall. cpu cycles are cheap if code
-> already in instruction cache.
->
-> Adding a test to avoid entering a NULL loop (no fragment is stored ye=
-t)
-> just bloats the code, making it larger than necessary.
->
-> You dont need the else branch :
->
-> if (prev) {
-> =A0 =A0 =A0 =A0if (FRAG_CB(prev)->offset < offset) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0next =3D NULL;
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0goto found;
-> =A0 =A0 =A0 =A0}
-> else {
-> =A0 =A0 =A0 =A0next =3D NULL;
-> =A0 =A0 =A0 =A0goto found;
-> }
->
-> Just write :
->
-> next =3D NULL;
-> if (prev && FRAG_CB(prev)->offset < offset)
-> =A0 =A0 =A0 =A0goto found;
+> Alan.
 >
 
-Thanks:
+I just remembered to look at the hidraw.c source, to see that the call 
+to the hid_get_raw_report() function pointer (which points to 
+hidp_get_raw_report()) is called with a global mutex held. I believe 
+this will prevent the race mentioned in #3 above in the case that all 
+clients are communicating with the device using hidraw. Of course, the 
+situation above could still occur if one of the clients represents an 
+actual driver (which isn't subject to the hidraw mutex).
 
-I think the following code is better:
 
-if (!prev || FRAG_CB(prev)->offset < offset) {
-      next =3D NULL;
-      goto found;
-}
-
-
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
