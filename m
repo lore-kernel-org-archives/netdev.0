@@ -1,69 +1,73 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [RFC] [PATCH] ethtool: Flags for fibre speed switching
-Date: Mon, 14 Jun 2010 20:26:02 +0100
-Message-ID: <1276543562.2074.41.camel@achroite.uk.solarflarecom.com>
+From: =?ISO-8859-15?Q?Thomas_B=E4chler?= <thomas@archlinux.org>
+Subject: Re: [2.6.35-rc3 regression] TCP connections on 'lo' interface randomly
+ stall
+Date: Mon, 14 Jun 2010 21:36:05 +0200
+Message-ID: <4C1684A5.1050705@archlinux.org>
+References: <4C167093.2030308@archlinux.org> <20100614112319.9a2758f2.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@redhat.com>,
-	sf-linux-drivers <linux-net-drivers@solarflare.com>
-To: netdev <netdev@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="------------enig61395B3B7D5AAB741C96C400"
+Cc: "David S. Miller" <davem@davemloft.net>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Randy Dunlap <randy.dunlap@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:31945 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753513Ab0FNT0H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 15:26:07 -0400
+Received: from gerolde.archlinux.org ([66.211.214.132]:52845 "EHLO
+	archlinux.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753740Ab0FNTgL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 15:36:11 -0400
+In-Reply-To: <20100614112319.9a2758f2.randy.dunlap@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ethtool.h currently defines only SUPPORTED_FIBRE to cover all fibre
-modes.  However, SFP+ slots support both 1G and 10G fibre modules and
-some modules are dual-speed.  Some drivers use the BASE-T flags for SFP+
-modules of all media types, but this is strictly incorrect and can be
-confusing as there are real BASE-T modules for SFP+.  There should be
-distinct flags for fibre modes.  However I'm not sure whether it's worth
-defining flags for each fibre mode (there are quite a few) or only for
-each speed.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig61395B3B7D5AAB741C96C400
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: quoted-printable
 
-Similarly there is only ADVERTISED_FIBRE to cover all fibre modes.
-Although there is no AN protocol for fibre, an SFP+ NIC effectively
-autonegotiates its speed with the module.  By default, an SFP+ NIC will
-accept both 1G and 10G modules and switch speed automatically.  With a
-dual-speed module, the NIC driver can allow forcing the speed through
-ethtool, but unless it maintains some hidden state it must reset the
-speed whenever the module is hotplugged (perhaps accidentally).  So it
-should be possible for the administrator to control speed selection in a
-sticky way through the advertising mask.
+Am 14.06.2010 20:23, schrieb Randy Dunlap:
+> On Mon, 14 Jun 2010 20:10:27 +0200 Thomas B=E4chler wrote:
+>=20
+>> With 2.6.35-rc3, I cannot use TCP over the 'lo' interface any more. Th=
+is
+>> is reproduced easily by running 'ssh localhost' and executing a few
+>> commands inside the ssh session (if you are able to log in, 'ls -lhFR =
+/'
+>> does a good job) - the connection will stall completely after a very
+>> short time. As far as I can see, all applications are affected.
+>>
+>> It also seems that once a service is "stalled", I cannot open a new
+>> connection to the same TCP port anymore. However, I can open a
+>> connection to a different port until that one is stalled, too.
+>>
+>> Running wireshark, I can see that TCP retransmissions are sent, but
+>> never acknowledged.
+>>
+>> Bisection (starting with 7908a9e as good and v2.6.35-rc3 as bad) leads=
 
-Ben.
+>> to the following commit. Please CC me on replies to this issue. Thanks=
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 2c8af09..e3decb9 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -664,6 +664,9 @@ struct ethtool_ops {
- #define SUPPORTED_10000baseKX4_Full	(1 << 18)
- #define SUPPORTED_10000baseKR_Full	(1 << 19)
- #define SUPPORTED_10000baseR_FEC	(1 << 20)
-+#define SUPPORTED_1000_FIBRE		(1 << 21)
-+#define SUPPORTED_10000_FIBRE		(1 << 22)
-+#define SUPPORTED_40000_FIBRE		(1 << 23)
- 
- /* Indicates what features are advertised by the interface. */
- #define ADVERTISED_10baseT_Half		(1 << 0)
-@@ -687,6 +690,9 @@ struct ethtool_ops {
- #define ADVERTISED_10000baseKX4_Full	(1 << 18)
- #define ADVERTISED_10000baseKR_Full	(1 << 19)
- #define ADVERTISED_10000baseR_FEC	(1 << 20)
-+#define ADVERTISED_1000_FIBRE		(1 << 21)
-+#define ADVERTISED_10000_FIBRE		(1 << 22)
-+#define ADVERTISED_40000_FIBRE		(1 << 23)
- 
- /* The following are all involved in forcing a particular link
-  * mode for the device for setting things.  When getting the
+>> for your help.
+>=20
+> Does this patch fix it for you?
+> http://lkml.org/lkml/2010/6/13/155
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Yes, it seems to fix it. Thanks.
 
+
+--------------enig61395B3B7D5AAB741C96C400
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEAREIAAYFAkwWhKUACgkQEda5KzHP/VBZZgCgzF/P12iv5i71688GBkixwoyj
+wvIAn1Oqe7rJ868YXDCQZPsTDsA+7Bzc
+=mYy7
+-----END PGP SIGNATURE-----
+
+--------------enig61395B3B7D5AAB741C96C400--
