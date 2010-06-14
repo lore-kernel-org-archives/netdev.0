@@ -1,53 +1,64 @@
-From: Arturas <arturasl@res.lt>
-Subject: Re: BUG: unable to handle kernel paging request at 000041ed00000001
-Date: Mon, 14 Jun 2010 12:27:34 +0300
-Message-ID: <96E62960-9EF8-4F05-92DD-2D7477D0D78B@res.lt>
-References: <9D7251E7-0EFD-4645-BC30-A96191D1046E@res.lt> <1276185609.2448.12.camel@edumazet-laptop> <80C864F3-B075-4E3A-B72E-6FCD945A8058@res.lt> <1276504295.2478.35.camel@edumazet-laptop>
-Mime-Version: 1.0 (Apple Message framework v1078)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Subject: [PATCH 1/3] netxen: fix memory leaks in error path
+Date: Mon, 14 Jun 2010 02:39:03 -0700
+Message-ID: <1276508345-17070-2-git-send-email-amit.salecha@qlogic.com>
+References: <1276508345-17070-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx.res.lt ([84.32.72.39]:51383 "EHLO mx.res.lt"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754126Ab0FNJ1h convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 05:27:37 -0400
-In-Reply-To: <1276504295.2478.35.camel@edumazet-laptop>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:55822 "HELO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1755878Ab0FNJjG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jun 2010 05:39:06 -0400
+In-Reply-To: <1276508345-17070-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Fixes memory leak in error path when memory allocation
+for adapter data structures fails.
 
-On Jun 14, 2010, at 11:31 AM, Eric Dumazet wrote:
-> But your problem is about bridge, not bonding (see trace).
-I want it for performance reason, not because of this bug.
-Bridge isn't a bottleneck for me, but bonding may be and not to me only,
-but for many people. I believe that performance gain would be more 
-than 1% on cpu? :-)
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+---
+ drivers/net/netxen/netxen_nic_ctx.c  |    3 ++-
+ drivers/net/netxen/netxen_nic_init.c |    4 ++--
+ 2 files changed, 4 insertions(+), 3 deletions(-)
 
-> 
-> And 2.6.34 wont accept such changes, its already released.
-It can be as a separate patch or I can test 2.3.35 if it would accept
-such change. I just need a stable kernel with good performance :-)
-
-> 
->> I also have another issue with NMI. On older machine with 5500 xeons i 
->> have almost no overhead with nmi_watchdog enabled, but on this it is about twice.
->> without nmi enabled cpu peak average is 30%, and with nmi enabled i have 53%.
->> When traffic is not passing all cpus are idling at 100%.
->> Maybe overhead could be a little bit smaller? :-)
->> 
-> 
-> I am a bit lost here, NMI have litle to do with network stack ;)
-May this be related to very recent cpu? As i understand NMI depends on CPU.
-
-> 
-> 
-> Could you please test another patch ?
-Applied, it's working correctly for now. If i'll get a warning i'll write you or maybe I
-shouldn't get it if a patch is correct?
-
-> 
-> Before calling sk_tx_queue_set(sk, queue_index); we should check if dst
-> dev is current device.
+diff --git a/drivers/net/netxen/netxen_nic_ctx.c b/drivers/net/netxen/netxen_nic_ctx.c
+index f26e547..3a41b6a 100644
+--- a/drivers/net/netxen/netxen_nic_ctx.c
++++ b/drivers/net/netxen/netxen_nic_ctx.c
+@@ -629,7 +629,8 @@ int netxen_alloc_hw_resources(struct netxen_adapter *adapter)
+ 	if (addr == NULL) {
+ 		dev_err(&pdev->dev, "%s: failed to allocate tx desc ring\n",
+ 				netdev->name);
+-		return -ENOMEM;
++		err = -ENOMEM;
++		goto err_out_free;
+ 	}
+ 
+ 	tx_ring->desc_head = (struct cmd_desc_type0 *)addr;
+diff --git a/drivers/net/netxen/netxen_nic_init.c b/drivers/net/netxen/netxen_nic_init.c
+index 045a7c8..e08527f 100644
+--- a/drivers/net/netxen/netxen_nic_init.c
++++ b/drivers/net/netxen/netxen_nic_init.c
+@@ -218,7 +218,7 @@ int netxen_alloc_sw_resources(struct netxen_adapter *adapter)
+ 	if (cmd_buf_arr == NULL) {
+ 		dev_err(&pdev->dev, "%s: failed to allocate cmd buffer ring\n",
+ 		       netdev->name);
+-		return -ENOMEM;
++		goto err_out;
+ 	}
+ 	memset(cmd_buf_arr, 0, TX_BUFF_RINGSIZE(tx_ring));
+ 	tx_ring->cmd_buf_arr = cmd_buf_arr;
+@@ -230,7 +230,7 @@ int netxen_alloc_sw_resources(struct netxen_adapter *adapter)
+ 	if (rds_ring == NULL) {
+ 		dev_err(&pdev->dev, "%s: failed to allocate rds ring struct\n",
+ 		       netdev->name);
+-		return -ENOMEM;
++		goto err_out;
+ 	}
+ 	recv_ctx->rds_rings = rds_ring;
+ 
+-- 
+1.6.0.2
 
