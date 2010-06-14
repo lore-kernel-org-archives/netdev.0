@@ -1,55 +1,55 @@
-From: Sergey Matyukevich <geomatsi@gmail.com>
-Subject: [PATCH v2] ucc_geth: fix for RX skb buffers recycling
-Date: Mon, 14 Jun 2010 20:35:20 +0400
-Message-ID: <20100614203520.23a02c25@realm>
-References: <1275935894-30483-1-git-send-email-geomatsi@gmail.com>
-	<1275935894-30483-2-git-send-email-geomatsi@gmail.com>
-	<20100609.180240.59675642.davem@davemloft.net>
+From: Borislav Petkov <bp@alien8.de>
+Subject: Re: New issues in 2.6.35-rc{1,2}
+Date: Mon, 14 Jun 2010 18:43:20 +0200
+Message-ID: <20100614164320.GA4392@a1.tnic>
+References: <20100614161904.GE31910@schottelius.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leoli@freescale.com,
-	avorontsov@ru.mvista.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:62513 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756214Ab0FNQjq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 12:39:46 -0400
-Received: by bwz7 with SMTP id 7so2199702bwz.19
-        for <netdev@vger.kernel.org>; Mon, 14 Jun 2010 09:39:44 -0700 (PDT)
-In-Reply-To: <20100609.180240.59675642.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org
+To: Nico Schottelius <nico-linux-20100614@schottelius.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100614161904.GE31910@schottelius.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello David,
+From: Nico Schottelius <nico-linux-20100614@schottelius.org>
+Date: Mon, Jun 14, 2010 at 06:19:04PM +0200
 
-Could you please consider the second, simplified, version of the patch
-for ucc_geth driver regarding proper RX error skb buffer recycling.
+Ccing netdev.
 
+> Hey devs!
+> 
+> In both of these versions, the update of the carrier flag seems
+> to be "different" than before (linux-2.6.34-08528-gb3f2f6c):
+> 
+> wlan0 (iwlagn) does not recognize it's disconnected
+> and eth0 (e1000e) does only react correctly after I restarted
+> dhcpcd (isc):
+> 
+> [11:20] kr:pm# dhcpcd eth0 
+> dhcpcd: version 5.2.2 starting
+> dhcpcd: eth0: waiting for carrier
+> ^Cdhcpcd: received SIGINT, stopping
+> dhcpcd: eth0: removing interface
+> [11:20] kr:pm# dhcpcd eth0
+> dhcpcd: version 5.2.2 starting
+> dhcpcd: eth0: broadcasting for a lease
+> dhcpcd: eth0: offered 129.132.102.115 from 129.132.65.12
+> dhcpcd: eth0: ignoring offer of 129.132.102.115 from 129.132.57.97
+> dhcpcd: eth0: acknowledged 129.132.102.115 from 129.132.65.12
+> dhcpcd: eth0: checking for 129.132.102.115
+> dhcpcd: eth0: leased 129.132.102.115 for 86400 seconds
+> dhcpcd: forking to background
+> 
+> It's known that iwlagn has problems after suspend/resume,
+> but new is that both nics do not notify dhcpcd that the link
+> has gone. I'm not sure what / where broke here, just see that
+> dhcpcd noticed it before and now doesn't anymore.
 
-This patch implements a proper modification of RX skb buffers before
-recycling. Adjusting only skb->data is not enough because after that
-skb->tail and skb->len become incorrect.
+Had the same dhcpcd issue here both with e1000e and bnx2 and definitely
+after the .35 merge window. dhclient doesn't seem affected.
 
-Signed-off-by: Sergey Matyukevich <geomatsi@gmail.com>
----
- drivers/net/ucc_geth.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 4a34833..807470e 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -3215,6 +3215,8 @@ static int ucc_geth_rx(struct ucc_geth_private *ugeth, u8 rxQ, int rx_work_limit
- 					   __func__, __LINE__, (u32) skb);
- 			if (skb) {
- 				skb->data = skb->head + NET_SKB_PAD;
-+				skb->len = 0;
-+				skb_reset_tail_pointer(skb);
- 				__skb_queue_head(&ugeth->rx_recycle, skb);
- 			}
- 
 -- 
-1.6.2.5
-
+Regards/Gruss,
+Boris.
