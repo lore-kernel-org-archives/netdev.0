@@ -1,51 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/4] net/phy/marvell: Expose IDs and flags in a .h and
- add dns323 LEDs setup flag
-Date: Mon, 14 Jun 2010 09:13:20 -0700 (PDT)
-Message-ID: <20100614.091320.59687255.davem@davemloft.net>
-References: <1276391423.1962.263.camel@pasglop>
-	<20100613052831.GA17012@pengutronix.de>
-	<1276408955.1962.578.camel@pasglop>
+From: Sergey Matyukevich <geomatsi@gmail.com>
+Subject: [PATCH v2] ucc_geth: fix for RX skb buffers recycling
+Date: Mon, 14 Jun 2010 20:35:20 +0400
+Message-ID: <20100614203520.23a02c25@realm>
+References: <1275935894-30483-1-git-send-email-geomatsi@gmail.com>
+	<1275935894-30483-2-git-send-email-geomatsi@gmail.com>
+	<20100609.180240.59675642.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: w.sang@pengutronix.de, netdev@vger.kernel.org, hvr@gnu.org,
-	linux-arm-kernel@lists.infradead.org, nico@fluxnic.net
-To: benh@kernel.crashing.org
+Cc: netdev@vger.kernel.org, leoli@freescale.com,
+	avorontsov@ru.mvista.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33610
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751401Ab0FNQNJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 12:13:09 -0400
-In-Reply-To: <1276408955.1962.578.camel@pasglop>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:62513 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756214Ab0FNQjq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 12:39:46 -0400
+Received: by bwz7 with SMTP id 7so2199702bwz.19
+        for <netdev@vger.kernel.org>; Mon, 14 Jun 2010 09:39:44 -0700 (PDT)
+In-Reply-To: <20100609.180240.59675642.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Sun, 13 Jun 2010 16:02:35 +1000
+Hello David,
 
-> On Sun, 2010-06-13 at 07:28 +0200, Wolfram Sang wrote:
->> On Sun, Jun 13, 2010 at 11:10:23AM +1000, Benjamin Herrenschmidt wrote:
->> > This moves the various known Marvell PHY IDs to include/linux/marvell_phy.h
->> > along with dev_flags definitions for use by the driver.
->> > 
->> > I then added a flag that changes the PHY init code to setup the LEDs
->> > config to the values needed to operate a dns323 rev C1 NAS.
->> > 
->> > I moved the existing "resistance" flag to the .h as well, though I've
->> > been unable to find whoever sets this to convert it to use that constant.
->> > 
->> > Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
->> 
->> That should do for now.
->> 
->> Reviewed-by: Wolfram Sang <w.sang@pengutronix.de>
-> 
-> Thanks.
-> 
-> Dave, any objection to having that go via the arm tree along with the
-> rest of my patches to support the dns323 since they depend on this one ?
+Could you please consider the second, simplified, version of the patch
+for ucc_geth driver regarding proper RX error skb buffer recycling.
 
-No problem:
 
-Acked-by: David S. Miller <davem@davemloft.net>
+This patch implements a proper modification of RX skb buffers before
+recycling. Adjusting only skb->data is not enough because after that
+skb->tail and skb->len become incorrect.
+
+Signed-off-by: Sergey Matyukevich <geomatsi@gmail.com>
+---
+ drivers/net/ucc_geth.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 4a34833..807470e 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3215,6 +3215,8 @@ static int ucc_geth_rx(struct ucc_geth_private *ugeth, u8 rxQ, int rx_work_limit
+ 					   __func__, __LINE__, (u32) skb);
+ 			if (skb) {
+ 				skb->data = skb->head + NET_SKB_PAD;
++				skb->len = 0;
++				skb_reset_tail_pointer(skb);
+ 				__skb_queue_head(&ugeth->rx_recycle, skb);
+ 			}
+ 
+-- 
+1.6.2.5
+
