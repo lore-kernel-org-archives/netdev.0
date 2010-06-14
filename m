@@ -1,58 +1,111 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] vlan_dev: VLAN 0 should be treated as "no vlan tag" (802.1p
- packet)
-Date: Mon, 14 Jun 2010 19:11:31 +0200
-Message-ID: <4C1662C3.3070708@trash.net>
-References: <c25bca517739ada31d698235c3a4d045@dondevamos.com>	 <1276466190.14011.223.camel@localhost>	 <5c6d1ac43fd8ad25661ebfba57c02174@dondevamos.com> <1276534945.2074.11.camel@achroite.uk.solarflarecom.com>
+From: =?ISO-8859-15?Q?Thomas_B=E4chler?= <thomas@archlinux.org>
+Subject: [2.6.35-rc3 regression] TCP connections on 'lo' interface randomly
+ stall
+Date: Mon, 14 Jun 2010 20:10:27 +0200
+Message-ID: <4C167093.2030308@archlinux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Pedro Garcia <pedro.netdev@dondevamos.com>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54470 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756358Ab0FNRLd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 13:11:33 -0400
-In-Reply-To: <1276534945.2074.11.camel@achroite.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="------------enig0E745B6FA7B0E9915C32A877"
+To: "David S. Miller" <davem@davemloft.net>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ben Hutchings wrote:
-> On Mon, 2010-06-14 at 18:49 +0200, Pedro Garcia wrote:
->   
->> On Sun, 13 Jun 2010 22:56:30 +0100, Ben Hutchings
->> <bhutchings@solarflare.com> wrote:
->>     
->>> I have no particular opinion on this change, but you need to read and
->>> follow Documentation/SubmittingPatches.
->>>
->>> Ben.
->>>       
->> Sorry, first kernel patch, and I did not know about it. I resubmit with
->> the correct style / format:
->>     
-> [...]
->
-> Sorry, no you haven't.
->
-> - Networking changes go through David Miller's net-next-2.6 tree so you
-> need to use that as the baseline, not 2.6.26
-> - Patches should be applicable with -p1, not -p0 (so if you use diff,
-> you should run it from one directory level up)
-> - The patch was word-wrapped
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig0E745B6FA7B0E9915C32A877
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: quoted-printable
 
-Additionally:
+With 2.6.35-rc3, I cannot use TCP over the 'lo' interface any more. This
+is reproduced easily by running 'ssh localhost' and executing a few
+commands inside the ssh session (if you are able to log in, 'ls -lhFR /'
+does a good job) - the connection will stall completely after a very
+short time. As far as I can see, all applications are affected.
 
-- please use the proper comment style, meaning each line begins
-  with a '*'
+It also seems that once a service is "stalled", I cannot open a new
+connection to the same TCP port anymore. However, I can open a
+connection to a different port until that one is stalled, too.
 
-- the pr_debug statements may be useful for debugging, but are
-  a bit excessive for the final version
+Running wireshark, I can see that TCP retransmissions are sent, but
+never acknowledged.
 
-- + /* 2010-06-13: Pedro Garcia
+Bisection (starting with 7908a9e as good and v2.6.35-rc3 as bad) leads
+to the following commit. Please CC me on replies to this issue. Thanks
+for your help.
 
-   We have changelogs for this, simply explaining what the code
-   does is enough.
+commit 597a264b1a9c7e36d1728f677c66c5c1f7e3b837
+Author: John Fastabend <john.r.fastabend@intel.com>
+Date:   Thu Jun 3 09:30:11 2010 +0000
 
-- Please CC the maintainer (which is me)
+    net: deliver skbs on inactive slaves to exact matches
+
+    Currently, the accelerated receive path for VLAN's will
+    drop packets if the real device is an inactive slave and
+    is not one of the special pkts tested for in
+    skb_bond_should_drop().  This behavior is different then
+    the non-accelerated path and for pkts over a bonded vlan.
+
+    For example,
+
+    vlanx -> bond0 -> ethx
+
+    will be dropped in the vlan path and not delivered to any
+    packet handlers at all.  However,
+
+    bond0 -> vlanx -> ethx
+
+    and
+
+    bond0 -> ethx
+
+    will be delivered to handlers that match the exact dev,
+    because the VLAN path checks the real_dev which is not a
+    slave and netif_recv_skb() doesn't drop frames but only
+    delivers them to exact matches.
+
+    This patch adds a sk_buff flag which is used for tagging
+    skbs that would previously been dropped and allows the
+    skb to continue to skb_netif_recv().  Here we add
+    logic to check for the deliver_no_wcard flag and if it
+    is set only deliver to handlers that match exactly.  This
+    makes both paths above consistent and gives pkt handlers
+    a way to identify skbs that come from inactive slaves.
+    Without this patch in some configurations skbs will be
+    delivered to handlers with exact matches and in others
+    be dropped out right in the vlan path.
+
+    I have tested the following 4 configurations in failover modes
+    and load balancing modes.
+
+    # bond0 -> ethx
+
+    # vlanx -> bond0 -> ethx
+
+    # bond0 -> vlanx -> ethx
+
+    # bond0 -> ethx
+                |
+      vlanx -> --
+
+    Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+
+--------------enig0E745B6FA7B0E9915C32A877
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEAREIAAYFAkwWcJQACgkQEda5KzHP/VDWtgCgt20soZcPEd8dPAENrBhrPZoI
+bbgAn1FSKH9tiLjPxPODpVCN1iDhuOsL
+=mJ5g
+-----END PGP SIGNATURE-----
+
+--------------enig0E745B6FA7B0E9915C32A877--
