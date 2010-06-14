@@ -1,101 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] vlan_dev: VLAN 0 should be treated as "no vlan tag"
- (802.1p packet)
-Date: Mon, 14 Jun 2010 21:12:52 +0200
-Message-ID: <1276542772.2444.13.camel@edumazet-laptop>
-References: <c25bca517739ada31d698235c3a4d045@dondevamos.com>
-	 <1276466190.14011.223.camel@localhost>
-	 <5c6d1ac43fd8ad25661ebfba57c02174@dondevamos.com>
-	 <1276534945.2074.11.camel@achroite.uk.solarflarecom.com>
-	 <4C1662C3.3070708@trash.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [RFC] [PATCH] ethtool: Flags for fibre speed switching
+Date: Mon, 14 Jun 2010 20:26:02 +0100
+Message-ID: <1276543562.2074.41.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Pedro Garcia <pedro.netdev@dondevamos.com>,
-	netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@redhat.com>,
+	sf-linux-drivers <linux-net-drivers@solarflare.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:35454 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753486Ab0FNTM5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 15:12:57 -0400
-Received: by wyb40 with SMTP id 40so4180129wyb.19
-        for <netdev@vger.kernel.org>; Mon, 14 Jun 2010 12:12:55 -0700 (PDT)
-In-Reply-To: <4C1662C3.3070708@trash.net>
+Received: from exchange.solarflare.com ([216.237.3.220]:31945 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753513Ab0FNT0H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 15:26:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 14 juin 2010 =C3=A0 19:11 +0200, Patrick McHardy a =C3=A9crit =
-:
-> Ben Hutchings wrote:
-> > On Mon, 2010-06-14 at 18:49 +0200, Pedro Garcia wrote:
-> >  =20
-> >> On Sun, 13 Jun 2010 22:56:30 +0100, Ben Hutchings
-> >> <bhutchings@solarflare.com> wrote:
-> >>    =20
-> >>> I have no particular opinion on this change, but you need to read=
- and
-> >>> follow Documentation/SubmittingPatches.
-> >>>
-> >>> Ben.
-> >>>      =20
-> >> Sorry, first kernel patch, and I did not know about it. I resubmit=
- with
-> >> the correct style / format:
-> >>    =20
-> > [...]
-> >
-> > Sorry, no you haven't.
-> >
-> > - Networking changes go through David Miller's net-next-2.6 tree so=
- you
-> > need to use that as the baseline, not 2.6.26
-> > - Patches should be applicable with -p1, not -p0 (so if you use dif=
-f,
-> > you should run it from one directory level up)
-> > - The patch was word-wrapped
->=20
-> Additionally:
->=20
-> - please use the proper comment style, meaning each line begins
->   with a '*'
->=20
-> - the pr_debug statements may be useful for debugging, but are
->   a bit excessive for the final version
->=20
-> - + /* 2010-06-13: Pedro Garcia
->=20
->    We have changelogs for this, simply explaining what the code
->    does is enough.
->=20
-> - Please CC the maintainer (which is me)
-> --
+ethtool.h currently defines only SUPPORTED_FIBRE to cover all fibre
+modes.  However, SFP+ slots support both 1G and 10G fibre modules and
+some modules are dual-speed.  Some drivers use the BASE-T flags for SFP+
+modules of all media types, but this is strictly incorrect and can be
+confusing as there are real BASE-T modules for SFP+.  There should be
+distinct flags for fibre modes.  However I'm not sure whether it's worth
+defining flags for each fibre mode (there are quite a few) or only for
+each speed.
 
-Pedro, we have two kind of vlan setups :
+Similarly there is only ADVERTISED_FIBRE to cover all fibre modes.
+Although there is no AN protocol for fibre, an SFP+ NIC effectively
+autonegotiates its speed with the module.  By default, an SFP+ NIC will
+accept both 1G and 10G modules and switch speed automatically.  With a
+dual-speed module, the NIC driver can allow forcing the speed through
+ethtool, but unless it maintains some hidden state it must reset the
+speed whenever the module is hotplugged (perhaps accidentally).  So it
+should be possible for the administrator to control speed selection in a
+sticky way through the advertising mask.
 
-accelerated and non accelerated ones.
+Ben.
 
-Your patch address non accelated ones only, since you only touch
-vlan_skb_recv()
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 2c8af09..e3decb9 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -664,6 +664,9 @@ struct ethtool_ops {
+ #define SUPPORTED_10000baseKX4_Full	(1 << 18)
+ #define SUPPORTED_10000baseKR_Full	(1 << 19)
+ #define SUPPORTED_10000baseR_FEC	(1 << 20)
++#define SUPPORTED_1000_FIBRE		(1 << 21)
++#define SUPPORTED_10000_FIBRE		(1 << 22)
++#define SUPPORTED_40000_FIBRE		(1 << 23)
+ 
+ /* Indicates what features are advertised by the interface. */
+ #define ADVERTISED_10baseT_Half		(1 << 0)
+@@ -687,6 +690,9 @@ struct ethtool_ops {
+ #define ADVERTISED_10000baseKX4_Full	(1 << 18)
+ #define ADVERTISED_10000baseKR_Full	(1 << 19)
+ #define ADVERTISED_10000baseR_FEC	(1 << 20)
++#define ADVERTISED_1000_FIBRE		(1 << 21)
++#define ADVERTISED_10000_FIBRE		(1 << 22)
++#define ADVERTISED_40000_FIBRE		(1 << 23)
+ 
+ /* The following are all involved in forcing a particular link
+  * mode for the device for setting things.  When getting the
 
-Accelerated vlan can follow these paths :
-
-1) NAPI devices
-
-vlan_gro_receive() -> vlan_gro_common()
-
-2) non NAPI devices
-
-__vlan_hwaccel_rx()=20
-
-So you might also patch __vlan_hwaccel_rx() and vlan_gro_common()
-
-Please merge following bits to your patch submission :
-
-http://kerneltrap.org/mailarchive/linux-netdev/2010/5/23/6277868
-
-
-Good luck for your first patch !
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
