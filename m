@@ -1,42 +1,59 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: potential race in virtio ring?
-Date: Mon, 14 Jun 2010 16:59:12 +0300
-Message-ID: <20100614135912.GA25015@redhat.com>
+Subject: Re: [PATCH v2] net: deliver skbs on inactive slaves to exact
+	matches
+Date: Mon, 14 Jun 2010 17:10:12 +0300
+Message-ID: <20100614141012.GA25547@redhat.com>
+References: <20100603193011.4916.12354.stgit@jf-dev2-dcblab> <20100614132120.GA24785@redhat.com> <1276522483.2478.88.camel@edumazet-laptop> <1276522708.2478.89.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: virtualization@lists.linux-foundation.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Jiri Pirko <jpirko@redhat.com>, Shirley Ma <xma@us.ibm.com>,
-	netdev@vger.kernel.org, linux-kernel@vge
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: John Fastabend <john.r.fastabend@intel.com>, fubar@us.ibm.com,
+	davem@davemloft.net, nhorman@tuxdriver.com,
+	bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:49481 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751097Ab0FNOPL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jun 2010 10:15:11 -0400
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1276522708.2478.89.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
-I was going over the vring code and noticed, that
-the ring has this check:
+On Mon, Jun 14, 2010 at 03:38:28PM +0200, Eric Dumazet wrote:
+> Le lundi 14 juin 2010 =E0 15:34 +0200, Eric Dumazet a =E9crit :
+>=20
+> > [PATCH] net: fix deliver_no_wcard regression on loopback device
+> >=20
+> > deliver_no_wcard is not being set in skb_copy_header.
+> > In the skb_cloned case it is not being cleared and
+> > may cause the skb to be dropped when the loopback device
+> > pushes it back up the stack.
+> >=20
+> > Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> > Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+> Oh I forgot :
+>=20
+> Tested-by: Markus Trippelsdorf <markus@trippelsdorf.de>
 
-irqreturn_t vring_interrupt(int irq, void *_vq)
-{
-        struct vring_virtqueue *vq = to_vvq(_vq);
-        
-        if (!more_used(vq)) {
-                pr_debug("virtqueue interrupt with no work for %p\n", vq);
-                return IRQ_NONE;
+Grr. Could have saved myself a bit of time if I guessed
+it's related.
 
-
-static inline bool more_used(const struct vring_virtqueue *vq)
-{               
-        return vq->last_used_idx != vq->vring.used->idx;
-}               
-
-My concern is that with virtio net, more_used is called
-on a CPU different from the one that polls the vq.
-This might mean that last_used_idx value might be stale.
-Could this lead to a missed interrupt?
-
-Thanks,
-
--- 
-MST
+> > ---
+> > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> > index 9f07e74..bcf2fa3 100644
+> > --- a/net/core/skbuff.c
+> > +++ b/net/core/skbuff.c
+> > @@ -532,6 +532,7 @@ static void __copy_skb_header(struct sk_buff *n=
+ew, const struct sk_buff *old)
+> >  	new->ip_summed		=3D old->ip_summed;
+> >  	skb_copy_queue_mapping(new, old);
+> >  	new->priority		=3D old->priority;
+> > +	new->deliver_no_wcard	=3D old->deliver_no_wcard;
+> >  #if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
+> >  	new->ipvs_property	=3D old->ipvs_property;
+> >  #endif
+> >=20
+>=20
