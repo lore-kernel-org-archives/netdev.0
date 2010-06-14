@@ -1,78 +1,92 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [RFC][PATCH] Fix another namespace issue with devices assigned
- to  classes
-Date: Mon, 14 Jun 2010 11:20:47 +0200
-Message-ID: <1276507247.3926.13.camel@jlt3.sipsolutions.net>
-References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
-	 <20100602154608.GB12361@kroah.com>
-	 <1275493693.3915.12.camel@jlt3.sipsolutions.net>
-	 <m1ljaxxvcj.fsf@fess.ebiederm.org>
-	 <1275495677.3915.16.camel@jlt3.sipsolutions.net>
-	 <m14ohlxu51.fsf@fess.ebiederm.org>
-	 <1275498007.3915.20.camel@jlt3.sipsolutions.net>
-	 <m1ocftwdp7.fsf@fess.ebiederm.org>
-	 <1275501157.3915.22.camel@jlt3.sipsolutions.net>
-	 <m1y6exux6x.fsf@fess.ebiederm.org>
-	 <1275506732.3915.41.camel@jlt3.sipsolutions.net>
-	 <m16321t4ke.fsf@fess.ebiederm.org> <m17hmhrl6v.fsf_-_@fess.ebiederm.org>
-	 <1275634452.5189.1.camel@jlt3.sipsolutions.net>
-	 <AANLkTingSwM7e8ldyT1FplF5WCHBsCBCwNkb5ZPHe6hB@mail.gmail.com>
-	 <1275640113.9953.8.camel@jlt3.sipsolutions.net>
-	 <AANLkTin6ub4k4QYSMnGLRw7lxQaz23Xmo2GQC1RrUf-X@mail.gmail.com>
-	 <1275829701.3615.54.camel@jlt3.sipsolutions.net>
-	 <AANLkTinUAR2gkY7ipgXKy-pMHcmLuouEeyXxnP97U_7N@mail.gmail.com>
-	 <1275903773.29978.1.camel@jlt3.sipsolutions.net>
-	 <AANLkTin_qjU0-xXfMDYeYWRd0BmvT4OIdK4S_GQ3ZYUi@mail.gmail.com>
-	 <1275905686.29978.3.camel@jlt3.sipsolutions.net>
-	 <AANLkTikMDvpEzrtFVue8gStudKONxuQmVx9B2w1JM1vO@mail.gmail.com>
-	 <1275910905.29978.7.camel@jlt3.sipsolutions.net>
-	 <1275913563.1823.1.camel@yio.site>
-	 <1275914205.29978.10.camel@jlt3.sipsolutions.net>
-	 <AANLkTilqB2sAyfBTLhYT_a2_TySGay4FFG6SGJUZ1o_4@mail.gmail.com>
-	 <1275989260.3706.115.camel@jlt3.sipsolutions.net>
-	 <AANLkTinMauFsJTKS3eT-pT44KQ8PSf3HJLS8CZIeHmxP@mail.gmail.com>
-	 <1275990325.3706.116.camel@jlt3.sipsolutions.net>
-	 <1275998127.1899.38.camel@yio.site>
-	 <1275998603.3706.118.camel@jlt3.sipsolutions.net>
-	 <AANLkTinev96yxFCFSdDdT89jjgYR4ChUCMU2-aSj8kkh@mail.gmail.com>
-	 <1276005970.3706.132.camel@jlt3.sipsolutions.net>
-	 <AANLkTikB0Amzi61JLxdY5HL-2s_nbYo3JH8vXooXzHdQ@mail.gmail.com>
-	 <1276007174.3706.133.camel@jlt3.sipsolutions.net>
-	 <AANLkTikNEzJHPrOUK6DKMoWvcblTBInaIhVbk96OtZxe@mail.gmail.com>
-	 <1276009590.3706.135.camel@jlt3.sipsolutions.net>
-	 <AANLkTimSqF4D4jPj-HzOjl1vxjf2T7YvlGdR6zcJZ9Pp@mail.gmail.com>
-	 <1276014816.3706.137.camel@jlt3.sipsolutions.net>
-	 <AANLkTilUd2Bp1h4SzlW5f5KevoRM-os_fQrivLHbZyKY@mail.gmail.com>
-	 <1276250151.3640.11.camel@jlt3.sipsolutions.net>
-	 <AANLkTil4IvOiDHnLwAaeseEPVgYp-EF5TK1HfHitY3-H@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] ipfrag : frag_kfree_skb() cleanup
+Date: Mon, 14 Jun 2010 11:22:43 +0200
+Message-ID: <1276507363.2478.43.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
-To: Kay Sievers <kay.sievers@vrfy.org>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:39724 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755768Ab0FNJUx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 05:20:53 -0400
-In-Reply-To: <AANLkTil4IvOiDHnLwAaeseEPVgYp-EF5TK1HfHitY3-H@mail.gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:41147 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755784Ab0FNJWq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 05:22:46 -0400
+Received: by wyb40 with SMTP id 40so3601154wyb.19
+        for <netdev@vger.kernel.org>; Mon, 14 Jun 2010 02:22:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-06-14 at 11:13 +0200, Kay Sievers wrote:
+Third param (work) is unused, remove it.
 
-> That would block the rmmod process until the resources are cleaned up,
-> wouldn't it?
+Remove __inline__ and inline qualifiers.
 
-Yes, would that be so bad?
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/ip_fragment.c |    9 +++------
+ net/ipv6/reassembly.c  |    7 ++-----
+ 2 files changed, 5 insertions(+), 11 deletions(-)
 
-> The network devices can do this because the cleanup code is always
-> compiled-in, for a module cleaning up itself, this is kind of
-> complicated, isn't it?
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index 75347ea..7e660dd 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -124,11 +124,8 @@ static int ip4_frag_match(struct inet_frag_queue *q, void *a)
+ }
+ 
+ /* Memory Tracking Functions. */
+-static __inline__ void frag_kfree_skb(struct netns_frags *nf,
+-		struct sk_buff *skb, int *work)
++static void frag_kfree_skb(struct netns_frags *nf, struct sk_buff *skb)
+ {
+-	if (work)
+-		*work -= skb->truesize;
+ 	atomic_sub(skb->truesize, &nf->mem);
+ 	kfree_skb(skb);
+ }
+@@ -309,7 +306,7 @@ static int ip_frag_reinit(struct ipq *qp)
+ 	fp = qp->q.fragments;
+ 	do {
+ 		struct sk_buff *xp = fp->next;
+-		frag_kfree_skb(qp->q.net, fp, NULL);
++		frag_kfree_skb(qp->q.net, fp);
+ 		fp = xp;
+ 	} while (fp);
+ 
+@@ -446,7 +443,7 @@ static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
+ 				qp->q.fragments = next;
+ 
+ 			qp->q.meat -= free_it->len;
+-			frag_kfree_skb(qp->q.net, free_it, NULL);
++			frag_kfree_skb(qp->q.net, free_it);
+ 		}
+ 	}
+ 
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index 6d4292f..f967978 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -150,11 +150,8 @@ int ip6_frag_match(struct inet_frag_queue *q, void *a)
+ EXPORT_SYMBOL(ip6_frag_match);
+ 
+ /* Memory Tracking Functions. */
+-static inline void frag_kfree_skb(struct netns_frags *nf,
+-		struct sk_buff *skb, int *work)
++static void frag_kfree_skb(struct netns_frags *nf, struct sk_buff *skb)
+ {
+-	if (work)
+-		*work -= skb->truesize;
+ 	atomic_sub(skb->truesize, &nf->mem);
+ 	kfree_skb(skb);
+ }
+@@ -392,7 +389,7 @@ static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
+ 				fq->q.fragments = next;
+ 
+ 			fq->q.meat -= free_it->len;
+-			frag_kfree_skb(fq->q.net, free_it, NULL);
++			frag_kfree_skb(fq->q.net, free_it);
+ 		}
+ 	}
+ 
 
-It just needs a wait_for_bus_exit() function that the module calls in
-_exit?
-
-johannes
 
