@@ -1,46 +1,59 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: Re: [PATCH 4/8] af_unix: Allow SO_PEERCRED to work across namespaces.
-Date: Mon, 14 Jun 2010 15:37:57 +0200
-Message-ID: <4C1630B5.4000301@free.fr>
-References: <m1hbl7hxo3.fsf@fess.ebiederm.org> <m1r5kbgivt.fsf@fess.ebiederm.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] net: deliver skbs on inactive slaves to exact
+ matches
+Date: Mon, 14 Jun 2010 15:38:28 +0200
+Message-ID: <1276522708.2478.89.camel@edumazet-laptop>
+References: <20100603193011.4916.12354.stgit@jf-dev2-dcblab>
+	 <20100614132120.GA24785@redhat.com>
+	 <1276522483.2478.88.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Serge Hallyn <serue@us.ibm.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	netdev@vger.kernel.org, Pavel Emelyanov <xemul@parallels.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: John Fastabend <john.r.fastabend@intel.com>, fubar@us.ibm.com,
+	davem@davemloft.net, nhorman@tuxdriver.com,
+	bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.uk.ibm.com ([194.196.100.163]:52261 "EHLO
-	mtagate3.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754006Ab0FNNiD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 09:38:03 -0400
-Received: from d06nrmr1806.portsmouth.uk.ibm.com (d06nrmr1806.portsmouth.uk.ibm.com [9.149.39.193])
-	by mtagate3.uk.ibm.com (8.13.1/8.13.1) with ESMTP id o5EDc277010491
-	for <netdev@vger.kernel.org>; Mon, 14 Jun 2010 13:38:02 GMT
-Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
-	by d06nrmr1806.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o5EDc2Kr1306762
-	for <netdev@vger.kernel.org>; Mon, 14 Jun 2010 14:38:02 +0100
-Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av02.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id o5EDc1vM018294
-	for <netdev@vger.kernel.org>; Mon, 14 Jun 2010 14:38:02 +0100
-In-Reply-To: <m1r5kbgivt.fsf@fess.ebiederm.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:49941 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753963Ab0FNNie (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 09:38:34 -0400
+Received: by wyb40 with SMTP id 40so3854765wyb.19
+        for <netdev@vger.kernel.org>; Mon, 14 Jun 2010 06:38:33 -0700 (PDT)
+In-Reply-To: <1276522483.2478.88.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/13/2010 03:30 PM, Eric W. Biederman wrote:
-> Use struct pid and struct cred to store the peer credentials on struct
-> sock.  This gives enough information to convert the peer credential
-> information to a value relative to whatever namespace the socket is in
-> at the time.
->
-> This removes nasty surprises when using SO_PEERCRED on socket
-> connetions where the processes on either side are in different pid and
-> user namespaces.
->
-> Signed-off-by: Eric W. Biederman<ebiederm@xmission.com>
->    
+Le lundi 14 juin 2010 =C3=A0 15:34 +0200, Eric Dumazet a =C3=A9crit :
 
-Acked-by: Daniel Lezcano <daniel.lezcano@free.fr>
+> [PATCH] net: fix deliver_no_wcard regression on loopback device
+>=20
+> deliver_no_wcard is not being set in skb_copy_header.
+> In the skb_cloned case it is not being cleared and
+> may cause the skb to be dropped when the loopback device
+> pushes it back up the stack.
+>=20
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+Oh I forgot :
+
+Tested-by: Markus Trippelsdorf <markus@trippelsdorf.de>
+
+> ---
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 9f07e74..bcf2fa3 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -532,6 +532,7 @@ static void __copy_skb_header(struct sk_buff *new=
+, const struct sk_buff *old)
+>  	new->ip_summed		=3D old->ip_summed;
+>  	skb_copy_queue_mapping(new, old);
+>  	new->priority		=3D old->priority;
+> +	new->deliver_no_wcard	=3D old->deliver_no_wcard;
+>  #if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
+>  	new->ipvs_property	=3D old->ipvs_property;
+>  #endif
+>=20
+
 
