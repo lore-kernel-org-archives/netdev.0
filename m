@@ -1,29 +1,46 @@
-From: YOSHIFUJI Hideaki <hideaki@yoshifuji.org>
-Subject: Re: [PATCH net-next-2.6] ipv6: RCU changes in ipv6_get_mtu() and
- ip6_dst_hoplimit()
-Date: Tue, 15 Jun 2010 00:18:24 +0900
-Message-ID: <4C164840.5010900@yoshifuji.org>
-References: <1276526780.2478.101.camel@edumazet-laptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH] net: Fix error in comment on net_device_ops::ndo_get_stats
+Date: Mon, 14 Jun 2010 16:19:41 +0100
+Message-ID: <1276528781.2074.0.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:33932 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754839Ab0FNPSg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 11:18:36 -0400
-In-Reply-To: <1276526780.2478.101.camel@edumazet-laptop>
+Received: from mail.solarflare.com ([216.237.3.220]:16816 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755790Ab0FNPTp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 11:19:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(2010/06/14 23:46), Eric Dumazet wrote:
-> Use RCU to avoid atomic ops on idev refcnt in ipv6_get_mtu()
-> and ip6_dst_hoplimit()
->
-> Signed-off-by: Eric Dumazet<eric.dumazet@gmail.com>
-Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+ndo_get_stats still returns struct net_device_stats *; there is
+no struct net_device_stats64.
 
---yoshfuji
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ include/linux/netdevice.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index d85a38e..4164285 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -671,7 +671,7 @@ struct netdev_rx_queue {
+  *	1. Define @ndo_get_stats64 to update a rtnl_link_stats64 structure
+  *	   (which should normally be dev->stats64) and return a ponter to
+  *	   it. The structure must not be changed asynchronously.
+- *	2. Define @ndo_get_stats to update a net_device_stats64 structure
++ *	2. Define @ndo_get_stats to update a net_device_stats structure
+  *	   (which should normally be dev->stats) and return a pointer to
+  *	   it. The structure may be changed asynchronously only if each
+  *	   field is written atomically.
+-- 
+1.6.2.5
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
