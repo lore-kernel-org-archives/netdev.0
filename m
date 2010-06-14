@@ -1,73 +1,56 @@
-From: =?ISO-8859-15?Q?Thomas_B=E4chler?= <thomas@archlinux.org>
-Subject: Re: [2.6.35-rc3 regression] TCP connections on 'lo' interface randomly
- stall
-Date: Mon, 14 Jun 2010 21:36:05 +0200
-Message-ID: <4C1684A5.1050705@archlinux.org>
-References: <4C167093.2030308@archlinux.org> <20100614112319.9a2758f2.randy.dunlap@oracle.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] vlan_dev: VLAN 0 should be treated as "no vlan tag"
+ (802.1p packet)
+Date: Mon, 14 Jun 2010 12:42:53 -0700
+Message-ID: <1276544573.4897.6.camel@Joe-Laptop.home>
+References: <c25bca517739ada31d698235c3a4d045@dondevamos.com>
+	 <1276466190.14011.223.camel@localhost>
+	 <5c6d1ac43fd8ad25661ebfba57c02174@dondevamos.com>
+	 <1276534945.2074.11.camel@achroite.uk.solarflarecom.com>
+	 <4C1662C3.3070708@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="------------enig61395B3B7D5AAB741C96C400"
-Cc: "David S. Miller" <davem@davemloft.net>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Randy Dunlap <randy.dunlap@oracle.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
+To: Pedro Garcia <pedro.netdev@dondevamos.com>,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gerolde.archlinux.org ([66.211.214.132]:52845 "EHLO
-	archlinux.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753740Ab0FNTgL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 15:36:11 -0400
-In-Reply-To: <20100614112319.9a2758f2.randy.dunlap@oracle.com>
+Received: from mail.perches.com ([173.55.12.10]:1128 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750937Ab0FNTm4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jun 2010 15:42:56 -0400
+In-Reply-To: <4C1662C3.3070708@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig61395B3B7D5AAB741C96C400
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: quoted-printable
+On Mon, 2010-06-14 at 19:11 +0200, Patrick McHardy wrote:
+> Ben Hutchings wrote:
+> > On Mon, 2010-06-14 at 18:49 +0200, Pedro Garcia wrote:
+> >> On Sun, 13 Jun 2010 22:56:30 +0100, Ben Hutchings
+> >> <bhutchings@solarflare.com> wrote:
+> >>> I have no particular opinion on this change, but you need to read and
+> >>> follow Documentation/SubmittingPatches.
+> >> Sorry, first kernel patch, and I did not know about it. I resubmit with
+> >> the correct style / format:
+> > Sorry, no you haven't.
+> > - Networking changes go through David Miller's net-next-2.6 tree so you
+> > need to use that as the baseline, not 2.6.26
+> > - Patches should be applicable with -p1, not -p0 (so if you use diff,
+> > you should run it from one directory level up)
+> > - The patch was word-wrapped
 
-Am 14.06.2010 20:23, schrieb Randy Dunlap:
-> On Mon, 14 Jun 2010 20:10:27 +0200 Thomas B=E4chler wrote:
->=20
->> With 2.6.35-rc3, I cannot use TCP over the 'lo' interface any more. Th=
-is
->> is reproduced easily by running 'ssh localhost' and executing a few
->> commands inside the ssh session (if you are able to log in, 'ls -lhFR =
-/'
->> does a good job) - the connection will stall completely after a very
->> short time. As far as I can see, all applications are affected.
->>
->> It also seems that once a service is "stalled", I cannot open a new
->> connection to the same TCP port anymore. However, I can open a
->> connection to a different port until that one is stalled, too.
->>
->> Running wireshark, I can see that TCP retransmissions are sent, but
->> never acknowledged.
->>
->> Bisection (starting with 7908a9e as good and v2.6.35-rc3 as bad) leads=
+Pedro, you could use git format-patch and git send-email
+http://linux.yyz.us/git-howto.html
+http://www.kernel.org/pub/software/scm/git/docs/git-format-patch.html
 
->> to the following commit. Please CC me on replies to this issue. Thanks=
+> Additionally:
+> - the pr_debug statements may be useful for debugging, but are
+>   a bit excessive for the final version
 
->> for your help.
->=20
-> Does this patch fix it for you?
-> http://lkml.org/lkml/2010/6/13/155
+Patrick, what's wrong with pr_debug?
+Do you prefer pr_devel?
 
-Yes, it seems to fix it. Thanks.
+> - Please CC the maintainer (which is me)
 
+scripts/get_maintainer.pl 
 
---------------enig61395B3B7D5AAB741C96C400
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEAREIAAYFAkwWhKUACgkQEda5KzHP/VBZZgCgzF/P12iv5i71688GBkixwoyj
-wvIAn1Oqe7rJ868YXDCQZPsTDsA+7Bzc
-=mYy7
------END PGP SIGNATURE-----
-
---------------enig61395B3B7D5AAB741C96C400--
