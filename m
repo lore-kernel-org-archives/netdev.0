@@ -1,63 +1,52 @@
-From: Mitchell Erblich <erblichs@earthlink.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH] fragment: add fast path
-Date: Sun, 13 Jun 2010 23:19:06 -0700
-Message-ID: <238161C5-A583-42E7-AE40-34314D22F31E@earthlink.net>
-References: <1276470995-21713-1-git-send-email-xiaosuo@gmail.com> <20100613.181857.189703148.davem@davemloft.net> <4C15BAE5.6010900@linux-ipv6.org>
-Mime-Version: 1.0 (Apple Message framework v1078)
-Content-Type: text/plain; charset=us-ascii
+Date: Mon, 14 Jun 2010 08:40:37 +0200
+Message-ID: <1276497637.2478.1.camel@edumazet-laptop>
+References: <1276470995-21713-1-git-send-email-xiaosuo@gmail.com>
+	 <1276493743.2448.41.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, xiaosuo@gmail.com,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	kaber@trash.net, netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-kukur.atl.sa.earthlink.net ([209.86.89.65]:37809 "EHLO
-	elasmtp-kukur.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753046Ab0FNGT1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 02:19:27 -0400
-In-Reply-To: <4C15BAE5.6010900@linux-ipv6.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:52152 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751253Ab0FNGkl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 02:40:41 -0400
+Received: by wyb40 with SMTP id 40so3460917wyb.19
+        for <netdev@vger.kernel.org>; Sun, 13 Jun 2010 23:40:39 -0700 (PDT)
+In-Reply-To: <1276493743.2448.41.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Jun 13, 2010, at 10:15 PM, YOSHIFUJI Hideaki wrote:
 
-> David Miller wrote:
->>> As the fragments are usually in order,
->> In what universe does this happen "usually"?
->> Linux has been outputting fragments in reverse order for more than 10
->> years.
->> I'm not applying this patch.
+> I am not sure why we need "struct inet_skb_parm h;" field in struct
+> ipfrag_skb_cb... 
 > 
-> Dave,  I know we've been sending in reverse order, of course.
-> And, as far as I know, it seems Linux is the only implementation
-> which sends fragments in reverse order.
+> I probably need to wakeup this monday morning ?
 > 
-> This is receiving side.  I think we should accept the fact
-> that Linux is not the only implementation, no?
+> Untested patch follows, only compiled.
 > 
-> --yoshfuji
+
+Oh well, I see light now I woke up ;)
+
+> [PATCH] frags: Remove unecessary bits
+> 
+> While trying to move 'offset' to the beginning of frag CB, I found
+> inet_skb_parm field was unused.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+
+Wrong patch of course.
+
+We need some comment or document better why its there..
 
 
-Group,
-
-With respect to IPv4 and PATH MTU, aren't we
-unlikely to generate packet frags?
-
-With respect to IPv6, aren't  frags are less likely 
-(intermediate nodes are not allowed to frag 
-(rfc 2460, sect 4.5 Frag header)) as I would
-expect the source to use the PATH MTU?
-
-Thus, a faster path is to support the largest Jumbo
-MTUs (MTU >=9000: 16,110 : 14,336 : 10,240)
-where possible for bulk data transfers with
-proper page orders, IMO.
-
-Mitchell Erblich
-
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
