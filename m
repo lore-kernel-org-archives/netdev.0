@@ -1,41 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH] e1000: Fix message logging defect
-Date: Sun, 13 Jun 2010 18:21:18 -0700 (PDT)
-Message-ID: <20100613.182118.183044035.davem@davemloft.net>
-References: <20100611225148.31194.61945.stgit@localhost.localdomain>
+Subject: Re: [net-2.6 PATCH] ixgbe: fix for race with 8259(8|9) during
+ shutdown
+Date: Sun, 13 Jun 2010 18:21:26 -0700 (PDT)
+Message-ID: <20100613.182126.39175323.davem@davemloft.net>
+References: <20100611232029.31430.75582.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, joe@perches.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com,
+	asaitou@users.sourceforge.net, donald.c.skidmore@intel.com
 To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58326
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58332
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753351Ab0FNBVH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jun 2010 21:21:07 -0400
-In-Reply-To: <20100611225148.31194.61945.stgit@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1754948Ab0FNBVP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jun 2010 21:21:15 -0400
+In-Reply-To: <20100611232029.31430.75582.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 11 Jun 2010 15:51:49 -0700
+Date: Fri, 11 Jun 2010 16:20:29 -0700
 
-> From: Joe Perches <joe@perches.com>
+> From: Don Skidmore <donald.c.skidmore@intel.com>
 > 
-> commit 675ad47375c76a7c3be4ace9554d92cd55518ced
-> removed the capability to use ethtool.set_msglevel to
-> control the types of messages emitted by the driver.
+> There is a small window where the watchdog could be running as the
+> interface is brought down on a NIC with two ports wired back to back.
+> If ixgbe_update_status is then called can lead to a panic.  This patch
+> allows the update to bail if we are in that condition.
 > 
-> That commit should probably be reverted.
+> This issue was orignally reported and fix proposed by Akihiko Saitou.
 > 
-> If not, then this patch fixes a message logging defect
-> introduced by converting a printk without KERN_<level>
-> to e_info.
-> 
-> This also reduces text by about 200 bytes.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
+> CC: Akihiko Saitou <asaitou@users.sourceforge.net>
+> Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
 > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
 Applied.
