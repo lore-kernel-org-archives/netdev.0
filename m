@@ -1,97 +1,68 @@
-From: Petr Lautrbach <plautrba@redhat.com>
-Subject: [PATCH] iproute: fix tc generating ipv6 priority filter
-Date: Mon, 14 Jun 2010 15:36:28 +0200
-Message-ID: <1276522588-23727-1-git-send-email-plautrba@redhat.com>
-Cc: netdev@vger.kernel.org, Petr Lautrbach <plautrba@redhat.com>
-To: shemminger@osdl.org
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Subject: Re: [PATCH 8/8] af_unix: Allow connecting to sockets in other network
+ namespaces.
+Date: Mon, 14 Jun 2010 15:37:31 +0200
+Message-ID: <4C16309B.3010908@free.fr>
+References: <m1hbl7hxo3.fsf@fess.ebiederm.org> <m11vcbgimj.fsf@fess.ebiederm.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Serge Hallyn <serue@us.ibm.com>,
+	Linux Containers <containers@lists.osdl.org>,
+	netdev@vger.kernel.org, Pavel Emelyanov <xemul@parallels.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11155 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751097Ab0FNNhB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jun 2010 09:37:01 -0400
+Received: from mtagate5.uk.ibm.com ([194.196.100.165]:58234 "EHLO
+	mtagate5.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753888Ab0FNNhp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jun 2010 09:37:45 -0400
+Received: from d06nrmr1407.portsmouth.uk.ibm.com (d06nrmr1407.portsmouth.uk.ibm.com [9.149.38.185])
+	by mtagate5.uk.ibm.com (8.13.1/8.13.1) with ESMTP id o5EDbiqI010628
+	for <netdev@vger.kernel.org>; Mon, 14 Jun 2010 13:37:44 GMT
+Received: from d06av02.portsmouth.uk.ibm.com (d06av02.portsmouth.uk.ibm.com [9.149.37.228])
+	by d06nrmr1407.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o5EDbicV663626
+	for <netdev@vger.kernel.org>; Mon, 14 Jun 2010 14:37:44 +0100
+Received: from d06av02.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av02.portsmouth.uk.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id o5EDbhjc017195
+	for <netdev@vger.kernel.org>; Mon, 14 Jun 2010 14:37:44 +0100
+In-Reply-To: <m11vcbgimj.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds ipv6 filter priority/traffic class function 
-static int parse_ip6_class(int *argc_p, char ***argv_p, struct tc_u32_sel *sel) 
-shifting filter value to 5th bit and ignoring "at" as header position 
-is exactly given.
+On 06/13/2010 03:35 PM, Eric W. Biederman wrote:
+> Remove the restriction that only allows connecting to a unix domain
+> socket identified by unix path that is in the same network namespace.
+>
+> Crossing network namespaces is always tricky and we did not support
+> this at first, because of a strict policy of don't mix the namespaces.
+> Later after Pavel proposed this we did not support this because no one
+> had performed the audit to make certain using unix domain sockets
+> across namespaces is safe.
+>
+> What fundamentally makes connecting to af_unix sockets in other
+> namespaces is safe is that you have to have the proper permissions on
+> the unix domain socket inode that lives in the filesystem.  If you
+> want strict isolation you just don't create inodes where unfriendlys
+> can get at them, or with permissions that allow unfriendlys to open
+> them.  All nicely handled for us by the mount namespace and other
+> standard file system facilities.
+>
+> I looked through unix domain sockets and they are a very controlled
+> environment so none of the work that goes on in dev_forward_skb to
+> make crossing namespaces safe appears needed, we are not loosing
+> controll of the skb and so do not need to set up the skb to look like
+> it is comming in fresh from the outside world.  Further the fields in
+> struct unix_skb_parms should not have any problems crossing network
+> namespaces.
+>
+> Now that we handle SCM_CREDENTIALS in a way that gives useable values
+> across namespaces.  There does not appear to be any operational
+> problems with encouraging the use of unix domain sockets across
+> containers either.
+>
+> Signed-off-by: Eric W. Biederman<ebiederm@xmission.com>
+>    
 
-Signed-off-by: Petr Lautrbach <plautrba@redhat.com>
----
-Hello,
-
-According to [1], tc doesn't generate right filters for IPv6 
-"priority".
-
-Priority or Traffic Classes is 8 bits starting at 5th bit 
-based on RFC 2460 [2]. There is parse_u8(&argc, &argv, sel, 4, 0)
-function used in current version, which shifts filter by 4 bytes 
-instead of 4 bits.
-
-[1] https://bugzilla.redhat.com/show_bug.cgi?id=584913
-[2] http://www.faqs.org/rfcs/rfc2460.html
-
- tc/f_u32.c |   39 ++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 38 insertions(+), 1 deletions(-)
-
-diff --git a/tc/f_u32.c b/tc/f_u32.c
-index 4f5f74e..31e13b5 100644
---- a/tc/f_u32.c
-+++ b/tc/f_u32.c
-@@ -403,6 +403,43 @@ static int parse_ip6_addr(int *argc_p, char ***argv_p,
- 	return res;
- }
- 
-+static int parse_ip6_class(int *argc_p, char ***argv_p, struct tc_u32_sel *sel)
-+{
-+	int res = -1;
-+	int argc = *argc_p;
-+	char **argv = *argv_p;
-+	__u32 key;
-+	__u32 mask;
-+	int off = 0;
-+	int offmask = 0;
-+
-+	if (argc < 2)
-+		return -1;
-+
-+	if (get_u32(&key, *argv, 0))
-+		return -1;
-+	argc--; argv++;
-+
-+	if (get_u32(&mask, *argv, 16))
-+		return -1;
-+	argc--; argv++;
-+
-+	if (key > 0xFF || mask > 0xFF)
-+		return -1;
-+
-+	key <<= 20;
-+	mask <<= 20;
-+	key = htonl(key);
-+	mask = htonl(mask);
-+
-+	if (res = pack_key(sel, key, mask, off, offmask) < 0)
-+		return -1;
-+
-+	*argc_p = argc;
-+	*argv_p = argv;
-+	return 0;
-+}
-+
- static int parse_ether_addr(int *argc_p, char ***argv_p,
- 			    struct tc_u32_sel *sel, int off)
- {
-@@ -522,7 +559,7 @@ static int parse_ip6(int *argc_p, char ***argv_p, struct tc_u32_sel *sel)
- 		res = parse_ip6_addr(&argc, &argv, sel, 24);
- 	} else if (strcmp(*argv, "priority") == 0) {
- 		NEXT_ARG();
--		res = parse_u8(&argc, &argv, sel, 4, 0);
-+		res = parse_ip6_class(&argc, &argv, sel);
- 	} else if (strcmp(*argv, "protocol") == 0) {
- 		NEXT_ARG();
- 		res = parse_u8(&argc, &argv, sel, 6, 0);
--- 
-1.7.1
+Acked-by: Daniel Lezcano <daniel.lezcano@free.fr>
 
