@@ -1,88 +1,282 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [v2 Patch 2/2] mlx4: add dynamic LRO disable support
-Date: Tue, 15 Jun 2010 16:35:35 +0800
-Message-ID: <4C173B57.70601@redhat.com>
-References: <20100609100928.6573.14199.sendpatchset@localhost.localdomain> <20100609100938.6573.73536.sendpatchset@localhost.localdomain> <20100609110556.GC2599@dhcp-lab-161.englab.brq.redhat.com>
+From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: [PATCH 2/2] Driver core: reduce duplicated code
+Date: Tue, 15 Jun 2010 10:47:56 +0200
+Message-ID: <1276591677-4678-2-git-send-email-u.kleine-koenig@pengutronix.de>
+References: <1276591677-4678-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	nhorman@redhat.com, herbert.xu@redhat.com,
-	bhutchings@solarflare.com, Ramkrishna.Vepa@exar.com
-To: Stanislaw Gruszka <sgruszka@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:64218 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755846Ab0FOIbd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jun 2010 04:31:33 -0400
-In-Reply-To: <20100609110556.GC2599@dhcp-lab-161.englab.brq.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Greg Kroah-Hartman <gregkh@suse.de>,
+	Magnus Damm <damm@opensource.se>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Paul Mundt <lethal@linux-sh.org>,
+	Dmitry Torokhov <dtor@mail.ru>,
+	=?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>,
+	Eric Miao <eric.y.miao@gmail.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1276591677-4678-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/09/10 19:05, Stanislaw Gruszka wrote:
-> On Wed, Jun 09, 2010 at 06:05:34AM -0400, Amerigo Wang wrote:
->> diff --git a/drivers/net/mlx4/en_ethtool.c b/drivers/net/mlx4/en_ethtool.c
->> index d5afd03..2c77805 100644
->> --- a/drivers/net/mlx4/en_ethtool.c
->> +++ b/drivers/net/mlx4/en_ethtool.c
->> @@ -387,6 +387,37 @@ static void mlx4_en_get_ringparam(struct net_device *dev,
->>   	param->tx_pending = mdev->profile.prof[priv->port].tx_ring_size;
->>   }
->>
->> +static int mlx4_ethtool_op_set_flags(struct net_device *dev, u32 data)
->> +{
->> +	struct mlx4_en_priv *priv = netdev_priv(dev);
->> +	struct mlx4_en_dev *mdev = priv->mdev;
->> +	int rc = 0;
->> +	int changed = 0;
->> +
->> +	if (data&  ETH_FLAG_LRO) {
->> +		if (!(dev->features&  NETIF_F_LRO)) {
->> +			dev->features |= NETIF_F_LRO;
->> +			changed = 1;
->> +			mdev->profile.num_lro = min_t(int, num_lro , MLX4_EN_MAX_LRO_DESCRIPTORS);
->
-> I do not understand why you override mdev->profile.num_lro in v2 patch.
-> If in Rx patch NETIF_F_LRO flag is used we do not need this IMHO.
+This makes the two similar functions platform_device_register_simple
+and platform_device_register_data one line inline functions using a new
+generic function platform_device_register_resndata.
 
-Oh, I thought you meant this in our previous disccussion. :-/
-I will drop this line.
+Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+---
+ drivers/base/platform.c         |  102 ++++++++++---------------------=
+--------
+ include/linux/platform_device.h |   62 ++++++++++++++++++++++--
+ 2 files changed, 83 insertions(+), 81 deletions(-)
 
->
->> +		}
->> +	} else if (dev->features&  NETIF_F_LRO) {
->> +		dev->features&= ~NETIF_F_LRO;
->> +		changed = 1;
->> +		mdev->profile.num_lro = 0;
->> +	}
-> [snip]
->>   const struct ethtool_ops mlx4_en_ethtool_ops = {
->>   	.get_drvinfo = mlx4_en_get_drvinfo,
->>   	.get_settings = mlx4_en_get_settings,
->> @@ -415,7 +446,7 @@ const struct ethtool_ops mlx4_en_ethtool_ops = {
->>   	.get_ringparam = mlx4_en_get_ringparam,
->>   	.set_ringparam = mlx4_en_set_ringparam,
->>   	.get_flags = ethtool_op_get_flags,
->> -	.set_flags = ethtool_op_set_flags,
->> +	.set_flags = mlx4_ethtool_op_set_flags,
->>   };
->
-> Since we modify .set_flags, please assure we return -EOPNOTSUPP
-> if someone will try to setup ETH_FLAG_NTUPLE and ETH_FLAG_RXHASH.
-
-
-Yeah, good point!
-
->
-> BTW: seems default ethtool_op_set_flags introduce a bug on many
-> devices regarding ETH_FLAG_RXHASH. I think default should
-> be EOPNOTSUPP, and these few devices that actually support RXHASH
-> should have custom ethtool_ops->set_flags
-
-Hmm, you mean this?
-
-  if (data & ETH_FLAG_RXHASH)
-+    if (!ops->set_flags)
-+        return -EOPNOTSUPP;
-....
-
+diff --git a/drivers/base/platform.c b/drivers/base/platform.c
+index 26eb69d..23a5853 100644
+--- a/drivers/base/platform.c
++++ b/drivers/base/platform.c
+@@ -344,108 +344,56 @@ void platform_device_unregister(struct platform_=
+device *pdev)
+ EXPORT_SYMBOL_GPL(platform_device_unregister);
+=20
+ /**
+- * platform_device_register_simple - add a platform-level device and i=
+ts resources
+- * @name: base name of the device we're adding
+- * @id: instance id
+- * @res: set of resources that needs to be allocated for the device
+- * @num: number of resources
+- *
+- * This function creates a simple platform device that requires minima=
+l
+- * resource and memory management. Canned release function freeing mem=
+ory
+- * allocated for the device allows drivers using such devices to be
+- * unloaded without waiting for the last reference to the device to be
+- * dropped.
++ * platform_device_register_resndata - add a platform-level device wit=
+h
++ * resources and platform-specific data
+  *
+- * This interface is primarily intended for use with legacy drivers wh=
+ich
+- * probe hardware directly.  Because such drivers create sysfs device =
+nodes
+- * themselves, rather than letting system infrastructure handle such d=
+evice
+- * enumeration tasks, they don't fully conform to the Linux driver mod=
+el.
+- * In particular, when such drivers are built as modules, they can't b=
+e
+- * "hotplugged".
+- *
+- * Returns &struct platform_device pointer on success, or ERR_PTR() on=
+ error.
+- */
+-struct platform_device *platform_device_register_simple(const char *na=
+me,
+-							int id,
+-							const struct resource *res,
+-							unsigned int num)
+-{
+-	struct platform_device *pdev;
+-	int retval;
+-
+-	pdev =3D platform_device_alloc(name, id);
+-	if (!pdev) {
+-		retval =3D -ENOMEM;
+-		goto error;
+-	}
+-
+-	if (num) {
+-		retval =3D platform_device_add_resources(pdev, res, num);
+-		if (retval)
+-			goto error;
+-	}
+-
+-	retval =3D platform_device_add(pdev);
+-	if (retval)
+-		goto error;
+-
+-	return pdev;
+-
+-error:
+-	platform_device_put(pdev);
+-	return ERR_PTR(retval);
+-}
+-EXPORT_SYMBOL_GPL(platform_device_register_simple);
+-
+-/**
+- * platform_device_register_data - add a platform-level device with pl=
+atform-specific data
+  * @parent: parent device for the device we're adding
+  * @name: base name of the device we're adding
+  * @id: instance id
++ * @res: set of resources that needs to be allocated for the device
++ * @num: number of resources
+  * @data: platform specific data for this platform device
+  * @size: size of platform specific data
+  *
+- * This function creates a simple platform device that requires minima=
+l
+- * resource and memory management. Canned release function freeing mem=
+ory
+- * allocated for the device allows drivers using such devices to be
+- * unloaded without waiting for the last reference to the device to be
+- * dropped.
+- *
+  * Returns &struct platform_device pointer on success, or ERR_PTR() on=
+ error.
+  */
+-struct platform_device *platform_device_register_data(
++struct platform_device *platform_device_register_resndata(
+ 		struct device *parent,
+ 		const char *name, int id,
++		const struct resource *res, unsigned int num,
+ 		const void *data, size_t size)
+ {
++	int ret =3D -ENOMEM;
+ 	struct platform_device *pdev;
+-	int retval;
+=20
+ 	pdev =3D platform_device_alloc(name, id);
+-	if (!pdev) {
+-		retval =3D -ENOMEM;
+-		goto error;
+-	}
++	if (!pdev)
++		goto err;
+=20
+ 	pdev->dev.parent =3D parent;
+=20
++	if (num) {
++		ret =3D platform_device_add_resources(pdev, res, num);
++		if (ret)
++			goto err;
++	}
++
+ 	if (size) {
+-		retval =3D platform_device_add_data(pdev, data, size);
+-		if (retval)
+-			goto error;
++		ret =3D platform_device_add_data(pdev, data, size);
++		if (ret)
++			goto err;
+ 	}
+=20
+-	retval =3D platform_device_add(pdev);
+-	if (retval)
+-		goto error;
++	ret =3D platform_device_add(pdev);
++	if (ret) {
++err:
++		platform_device_put(pdev);
++		return ERR_PTR(ret);
++	}
+=20
+ 	return pdev;
+-
+-error:
+-	platform_device_put(pdev);
+-	return ERR_PTR(retval);
+ }
+-EXPORT_SYMBOL_GPL(platform_device_register_data);
++EXPORT_SYMBOL_GPL(platform_device_register_resndata);
+=20
+ static int platform_drv_probe(struct device *_dev)
+ {
+diff --git a/include/linux/platform_device.h b/include/linux/platform_d=
+evice.h
+index 5417944..d7ecad0 100644
+--- a/include/linux/platform_device.h
++++ b/include/linux/platform_device.h
+@@ -43,10 +43,64 @@ extern struct resource *platform_get_resource_bynam=
+e(struct platform_device *, u
+ extern int platform_get_irq_byname(struct platform_device *, const cha=
+r *);
+ extern int platform_add_devices(struct platform_device **, int);
+=20
+-extern struct platform_device *platform_device_register_simple(const c=
+har *, int id,
+-					const struct resource *, unsigned int);
+-extern struct platform_device *platform_device_register_data(struct de=
+vice *,
+-		const char *, int, const void *, size_t);
++extern struct platform_device *platform_device_register_resndata(
++		struct device *parent, const char *name, int id,
++		const struct resource *res, unsigned int num,
++		const void *data, size_t size);
++
++/**
++ * platform_device_register_simple - add a platform-level device and i=
+ts resources
++ * @name: base name of the device we're adding
++ * @id: instance id
++ * @res: set of resources that needs to be allocated for the device
++ * @num: number of resources
++ *
++ * This function creates a simple platform device that requires minima=
+l
++ * resource and memory management. Canned release function freeing mem=
+ory
++ * allocated for the device allows drivers using such devices to be
++ * unloaded without waiting for the last reference to the device to be
++ * dropped.
++ *
++ * This interface is primarily intended for use with legacy drivers wh=
+ich
++ * probe hardware directly.  Because such drivers create sysfs device =
+nodes
++ * themselves, rather than letting system infrastructure handle such d=
+evice
++ * enumeration tasks, they don't fully conform to the Linux driver mod=
+el.
++ * In particular, when such drivers are built as modules, they can't b=
+e
++ * "hotplugged".
++ *
++ * Returns &struct platform_device pointer on success, or ERR_PTR() on=
+ error.
++ */
++static inline struct platform_device *platform_device_register_simple(
++		const char *name, int id,
++		const struct resource *res, unsigned int num)
++{
++	return platform_device_register_resndata(NULL, name, id,
++			res, num, NULL, 0);
++}
++
++/**
++ * platform_device_register_data - add a platform-level device with pl=
+atform-specific data
++ * @parent: parent device for the device we're adding
++ * @name: base name of the device we're adding
++ * @id: instance id
++ * @data: platform specific data for this platform device
++ * @size: size of platform specific data
++ *
++ * This function creates a simple platform device that requires minima=
+l
++ * resource and memory management. Canned release function freeing mem=
+ory
++ * allocated for the device allows drivers using such devices to be
++ * unloaded without waiting for the last reference to the device to be
++ * dropped.
++ *
++ * Returns &struct platform_device pointer on success, or ERR_PTR() on=
+ error.
++ */
++static inline struct platform_device *platform_device_register_data(
++		struct device *parent, const char *name, int id,
++		const void *data, size_t size)
++{
++	return platform_device_register_resndata(parent, name, id,
++			NULL, 0, data, size);
++}
+=20
+ extern struct platform_device *platform_device_alloc(const char *name,=
+ int id);
+ extern int platform_device_add_resources(struct platform_device *pdev,
+--=20
+1.7.1
