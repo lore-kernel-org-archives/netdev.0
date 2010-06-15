@@ -1,84 +1,59 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: udp: Fix bogus UFO packet generation
-Date: Tue, 15 Jun 2010 15:15:30 +0300
-Message-ID: <20100615121530.GC2361@redhat.com>
-References: <20100615115225.GA7239@gondor.apana.org.au>
+From: Luciano Coelho <luciano.coelho@nokia.com>
+Subject: Re: [PATCH v5] netfilter: Xtables: idletimer target implementation
+Date: Tue, 15 Jun 2010 15:34:12 +0300
+Message-ID: <1276605252.1580.50.camel@powerslave>
+References: <1276593679-9576-1-git-send-email-luciano.coelho@nokia.com>
+	 <4C1769F1.40506@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.hengli.com.au>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jengelh@medozas.de" <jengelh@medozas.de>,
+	Timo Teras <timo.teras@iki.fi>
+To: ext Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57610 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751633Ab0FOMUJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jun 2010 08:20:09 -0400
-Content-Disposition: inline
-In-Reply-To: <20100615115225.GA7239@gondor.apana.org.au>
+Received: from smtp.nokia.com ([192.100.122.230]:29860 "EHLO
+	mgw-mx03.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754568Ab0FOMkw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 08:40:52 -0400
+In-Reply-To: <4C1769F1.40506@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 15, 2010 at 09:52:25PM +1000, Herbert Xu wrote:
-> Hi:
+On Tue, 2010-06-15 at 13:54 +0200, ext Patrick McHardy wrote:
+> Two final comments:
 > 
-> udp: Fix bogus UFO packet generation
+> Luciano Coelho wrote:
+> > diff --git a/include/linux/netfilter/xt_IDLETIMER.h b/include/linux/netfilter/xt_IDLETIMER.h
+> > new file mode 100644
+> > index 0000000..3e1aa1b
+> > --- /dev/null
+> > +++ b/include/linux/netfilter/xt_IDLETIMER.h
 > 
-> It has been reported that the new UFO software fallback path
-> fails under certain conditions with NFS.  I tracked the problem
-> down to the generation of UFO packets that are smaller than the
-> MTU.  The software fallback path simply discards these packets.
-> 
-> This patch fixes the problem by not generating such packets on
-> the UFO path.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> This file needs to be added to Kbuild to make sure it gets installed
+> during "make headers_install".
 
-FWIW
-Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Yes, thanks for pointing out.  I'll add it.
 
 
-> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-> index 9a4a6c9..041d41d 100644
-> --- a/net/ipv4/ip_output.c
-> +++ b/net/ipv4/ip_output.c
-> @@ -873,8 +873,10 @@ int ip_append_data(struct sock *sk,
->  	    !exthdrlen)
->  		csummode = CHECKSUM_PARTIAL;
->  
-> +	skb = skb_peek_tail(&sk->sk_write_queue);
-> +
->  	inet->cork.length += length;
-> -	if (((length> mtu) || !skb_queue_empty(&sk->sk_write_queue)) &&
-> +	if (((length > mtu) || (skb && skb_is_gso(skb))) &&
->  	    (sk->sk_protocol == IPPROTO_UDP) &&
->  	    (rt->u.dst.dev->features & NETIF_F_UFO)) {
->  		err = ip_ufo_append_data(sk, getfrag, from, length, hh_len,
-> @@ -892,7 +894,7 @@ int ip_append_data(struct sock *sk,
->  	 * adding appropriate IP header.
->  	 */
->  
-> -	if ((skb = skb_peek_tail(&sk->sk_write_queue)) == NULL)
-> +	if (!skb)
->  		goto alloc_new_skb;
->  
->  	while (length > 0) {
-> @@ -1121,7 +1123,8 @@ ssize_t	ip_append_page(struct sock *sk, struct page *page,
->  		return -EINVAL;
->  
->  	inet->cork.length += size;
-> -	if ((sk->sk_protocol == IPPROTO_UDP) &&
-> +	if ((size + skb->len > mtu) &&
-> +	    (sk->sk_protocol == IPPROTO_UDP) &&
->  	    (rt->u.dst.dev->features & NETIF_F_UFO)) {
->  		skb_shinfo(skb)->gso_size = mtu - fragheaderlen;
->  		skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
+> > +static void idletimer_tg_destroy(const struct xt_tgdtor_param *par)
+> > +{
+> > +	const struct idletimer_tg_info *info = par->targinfo;
+> > +
+> > +	pr_debug("destroy targinfo %s\n", info->label);
+> > +
+> > +	mutex_lock(&list_mutex);
+> > +	if (!info->timer) {
+> >   
 > 
-> Cheers,
-> -- 
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> This doesn't seem to be possible.
+
+As usual, you're right.  I'll remove this useless check.
+
+v6 coming soon!
+
+-- 
+Cheers,
+Luca.
+
