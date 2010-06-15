@@ -1,57 +1,150 @@
-From: Luciano Coelho <luciano.coelho@nokia.com>
-Subject: Re: [PATCH v6] netfilter: Xtables: idletimer target implementation
-Date: Tue, 15 Jun 2010 16:18:54 +0300
-Message-ID: <1276607934.1580.58.camel@powerslave>
-References: <1276605926-11598-1-git-send-email-luciano.coelho@nokia.com>
-	 <4C177A89.7060301@trash.net>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH net-next-2.6 2/3] macvlan: use rx_handler_data pointer to
+ store macvlan_port pointer V2
+Date: Tue, 15 Jun 2010 15:27:57 +0200
+Message-ID: <20100615132756.GA3797@psychotron.lab.eng.brq.redhat.com>
+References: <20100610133412.GC2618@psychotron.lab.eng.brq.redhat.com>
+ <20100610133547.GE2618@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jengelh@medozas.de" <jengelh@medozas.de>,
-	Timo Teras <timo.teras@iki.fi>
-To: ext Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4C177A89.7060301@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, shemminger@vyatta.com, kaber@trash.net,
+	eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:58028 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755297Ab0FON2F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jun 2010 09:28:05 -0400
+Content-Disposition: inline
+In-Reply-To: <20100610133547.GE2618@psychotron.lab.eng.brq.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-06-15 at 15:05 +0200, ext Patrick McHardy wrote:
-> Luciano Coelho wrote:
-> > This patch implements an idletimer Xtables target that can be used to
-> > identify when interfaces have been idle for a certain period of time.
-> >
-> > Timers are identified by labels and are created when a rule is set with a new
-> > label.  The rules also take a timeout value (in seconds) as an option.  If
-> > more than one rule uses the same timer label, the timer will be restarted
-> > whenever any of the rules get a hit.
-> >
-> > One entry for each timer is created in sysfs.  This attribute contains the
-> > timer remaining for the timer to expire.  The attributes are located under
-> > the xt_idletimer class:
-> >
-> > /sys/class/xt_idletimer/timers/<label>
-> >
-> > When the timer expires, the target module sends a sysfs notification to the
-> > userspace, which can then decide what to do (eg. disconnect to save power).
-> >   
-> 
-> Applied with a minor compiler warning fix:
-> 
->   CC [M]  net/netfilter/xt_IDLETIMER.o
-> net/netfilter/xt_IDLETIMER.c:255: warning: initialization from 
-> incompatible pointer type
-> 
-> The struct xt_tgchk_param argument to ->checkentry is const.
+Register macvlan_port pointer as rx_handler data pointer. As macvlan_port is
+removed from struct net_device, another netdev priv_flag is added to indicate
+the device serves as a macvlan port.
 
-Oops, missed that one.  Thanks for fixing it.
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+Acked-by: Patrick McHardy <kaber@trash.net>
+---
+v1->v2:
+	- coding style corrections
 
-And thanks a lot for bearing with a netfilter newbie, providing lots of
-good comments and generally helping me with this component! I really
-appreciate it.
+ drivers/net/macvlan.c     |   28 ++++++++++++++++------------
+ include/linux/if.h        |    1 +
+ include/linux/netdevice.h |    2 --
+ 3 files changed, 17 insertions(+), 14 deletions(-)
 
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 87a3bf6..e096875 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -40,6 +40,11 @@ struct macvlan_port {
+ 	struct rcu_head		rcu;
+ };
+ 
++#define macvlan_port_get_rcu(dev) \
++	((struct macvlan_port *) rcu_dereference(dev->rx_handler_data))
++#define macvlan_port_get(dev) ((struct macvlan_port *) dev->rx_handler_data)
++#define macvlan_port_exists(dev) (dev->priv_flags & IFF_MACVLAN_PORT)
++
+ static struct macvlan_dev *macvlan_hash_lookup(const struct macvlan_port *port,
+ 					       const unsigned char *addr)
+ {
+@@ -155,7 +160,7 @@ static struct sk_buff *macvlan_handle_frame(struct sk_buff *skb)
+ 	struct net_device *dev;
+ 	unsigned int len;
+ 
+-	port = rcu_dereference(skb->dev->macvlan_port);
++	port = macvlan_port_get_rcu(skb->dev);
+ 	if (is_multicast_ether_addr(eth->h_dest)) {
+ 		src = macvlan_hash_lookup(port, eth->h_source);
+ 		if (!src)
+@@ -530,14 +535,12 @@ static int macvlan_port_create(struct net_device *dev)
+ 	INIT_LIST_HEAD(&port->vlans);
+ 	for (i = 0; i < MACVLAN_HASH_SIZE; i++)
+ 		INIT_HLIST_HEAD(&port->vlan_hash[i]);
+-	rcu_assign_pointer(dev->macvlan_port, port);
+ 
+-	err = netdev_rx_handler_register(dev, macvlan_handle_frame, NULL);
+-	if (err) {
+-		rcu_assign_pointer(dev->macvlan_port, NULL);
++	err = netdev_rx_handler_register(dev, macvlan_handle_frame, port);
++	if (err)
+ 		kfree(port);
+-	}
+ 
++	dev->priv_flags |= IFF_MACVLAN_PORT;
+ 	return err;
+ }
+ 
+@@ -551,10 +554,10 @@ static void macvlan_port_rcu_free(struct rcu_head *head)
+ 
+ static void macvlan_port_destroy(struct net_device *dev)
+ {
+-	struct macvlan_port *port = dev->macvlan_port;
++	struct macvlan_port *port = macvlan_port_get(dev);
+ 
++	dev->priv_flags &= ~IFF_MACVLAN_PORT;
+ 	netdev_rx_handler_unregister(dev);
+-	rcu_assign_pointer(dev->macvlan_port, NULL);
+ 	call_rcu(&port->rcu, macvlan_port_rcu_free);
+ }
+ 
+@@ -633,12 +636,12 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
+ 	if (!tb[IFLA_ADDRESS])
+ 		random_ether_addr(dev->dev_addr);
+ 
+-	if (lowerdev->macvlan_port == NULL) {
++	if (!macvlan_port_exists(lowerdev)) {
+ 		err = macvlan_port_create(lowerdev);
+ 		if (err < 0)
+ 			return err;
+ 	}
+-	port = lowerdev->macvlan_port;
++	port = macvlan_port_get(lowerdev);
+ 
+ 	vlan->lowerdev = lowerdev;
+ 	vlan->dev      = dev;
+@@ -748,10 +751,11 @@ static int macvlan_device_event(struct notifier_block *unused,
+ 	struct macvlan_dev *vlan, *next;
+ 	struct macvlan_port *port;
+ 
+-	port = dev->macvlan_port;
+-	if (port == NULL)
++	if (!macvlan_port_exists(dev))
+ 		return NOTIFY_DONE;
+ 
++	port = macvlan_port_get(dev);
++
+ 	switch (event) {
+ 	case NETDEV_CHANGE:
+ 		list_for_each_entry(vlan, &port->vlans, list)
+diff --git a/include/linux/if.h b/include/linux/if.h
+index be350e6..31f2e27 100644
+--- a/include/linux/if.h
++++ b/include/linux/if.h
+@@ -73,6 +73,7 @@
+ #define IFF_DONT_BRIDGE 0x800		/* disallow bridging this ether dev */
+ #define IFF_IN_NETPOLL	0x1000		/* whether we are processing netpoll */
+ #define IFF_DISABLE_NETPOLL	0x2000	/* disable netpoll at run-time */
++#define IFF_MACVLAN_PORT	0x4000	/* device used as macvlan port */
+ 
+ #define IF_GET_IFACE	0x0001		/* for querying only */
+ #define IF_GET_PROTO	0x0002
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index cb2c4e7..d8d00fa 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1047,8 +1047,6 @@ struct net_device {
+ 
+ 	/* bridge stuff */
+ 	struct net_bridge_port	*br_port;
+-	/* macvlan */
+-	struct macvlan_port	*macvlan_port;
+ 	/* GARP */
+ 	struct garp_port	*garp_port;
+ 
 -- 
-Cheers,
-Luca.
+1.7.0.1
 
