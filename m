@@ -1,89 +1,104 @@
 From: kaber@trash.net
-Subject: [PATCH 02/17] netfilter: xt_statistic: remove nth_lock spinlock
-Date: Tue, 15 Jun 2010 17:38:28 +0200
-Message-ID: <1276616323-20880-3-git-send-email-kaber@trash.net>
+Subject: [PATCH 12/17] netfilter: nfnetlink_log: RCU conversion, part 2
+Date: Tue, 15 Jun 2010 17:38:38 +0200
+Message-ID: <1276616323-20880-13-git-send-email-kaber@trash.net>
 References: <1276616323-20880-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42167 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757671Ab0FOP3x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 11:29:53 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1276616323-20880-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
 
-Use atomic_cmpxchg() to avoid dirtying a shared location.
+- must use atomic_inc_not_zero() in instance_lookup_get()
 
-xt_statistic_priv smp aligned to avoid sharing same cache line with
-other stuff.
+- must use hlist_add_head_rcu() instead of hlist_add_head()
+
+- must use hlist_del_rcu() instead of hlist_del()
+
+- Introduce NFULNL_COPY_DISABLED to stop lockless reader from using an
+instance, before we do final instance_put() on it.
 
 Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/xt_statistic.c |   19 +++++++++----------
- 1 files changed, 9 insertions(+), 10 deletions(-)
+ include/linux/netfilter/nfnetlink_log.h |    1 +
+ net/netfilter/nfnetlink_log.c           |   18 ++++++++++++------
+ 2 files changed, 13 insertions(+), 6 deletions(-)
 
-diff --git a/net/netfilter/xt_statistic.c b/net/netfilter/xt_statistic.c
-index 96e62b8..42ecb71 100644
---- a/net/netfilter/xt_statistic.c
-+++ b/net/netfilter/xt_statistic.c
-@@ -18,8 +18,8 @@
- #include <linux/netfilter/x_tables.h>
+diff --git a/include/linux/netfilter/nfnetlink_log.h b/include/linux/netfilter/nfnetlink_log.h
+index d3bab7a..1d0b84a 100644
+--- a/include/linux/netfilter/nfnetlink_log.h
++++ b/include/linux/netfilter/nfnetlink_log.h
+@@ -89,6 +89,7 @@ enum nfulnl_attr_config {
+ #define NFULNL_COPY_NONE	0x00
+ #define NFULNL_COPY_META	0x01
+ #define NFULNL_COPY_PACKET	0x02
++#define NFULNL_COPY_DISABLED	0x03
  
- struct xt_statistic_priv {
--	uint32_t count;
--};
-+	atomic_t count;
-+} ____cacheline_aligned_in_smp;
+ #define NFULNL_CFG_F_SEQ	0x0001
+ #define NFULNL_CFG_F_SEQ_GLOBAL	0x0002
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+index 8ec23ec..fb86a51 100644
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@ -109,8 +109,8 @@ instance_lookup_get(u_int16_t group_num)
  
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Patrick McHardy <kaber@trash.net>");
-@@ -27,13 +27,12 @@ MODULE_DESCRIPTION("Xtables: statistics-based matching (\"Nth\", random)");
- MODULE_ALIAS("ipt_statistic");
- MODULE_ALIAS("ip6t_statistic");
+ 	rcu_read_lock_bh();
+ 	inst = __instance_lookup(group_num);
+-	if (inst)
+-		instance_get(inst);
++	if (inst && !atomic_inc_not_zero(&inst->use))
++		inst = NULL;
+ 	rcu_read_unlock_bh();
  
--static DEFINE_SPINLOCK(nth_lock);
--
- static bool
- statistic_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 	return inst;
+@@ -171,7 +171,7 @@ instance_create(u_int16_t group_num, int pid)
+ 	inst->copy_mode 	= NFULNL_COPY_PACKET;
+ 	inst->copy_range 	= NFULNL_COPY_RANGE_MAX;
+ 
+-	hlist_add_head(&inst->hlist,
++	hlist_add_head_rcu(&inst->hlist,
+ 		       &instance_table[instance_hashfn(group_num)]);
+ 
+ 	spin_unlock_bh(&instances_lock);
+@@ -185,18 +185,23 @@ out_unlock:
+ 
+ static void __nfulnl_flush(struct nfulnl_instance *inst);
+ 
++/* called with BH disabled */
+ static void
+ __instance_destroy(struct nfulnl_instance *inst)
  {
- 	const struct xt_statistic_info *info = par->matchinfo;
- 	bool ret = info->flags & XT_STATISTIC_INVERT;
-+	int nval, oval;
+ 	/* first pull it out of the global list */
+-	hlist_del(&inst->hlist);
++	hlist_del_rcu(&inst->hlist);
  
- 	switch (info->mode) {
- 	case XT_STATISTIC_MODE_RANDOM:
-@@ -41,12 +40,12 @@ statistic_mt(const struct sk_buff *skb, struct xt_action_param *par)
- 			ret = !ret;
+ 	/* then flush all pending packets from skb */
+ 
+-	spin_lock_bh(&inst->lock);
++	spin_lock(&inst->lock);
++
++	/* lockless readers wont be able to use us */
++	inst->copy_mode = NFULNL_COPY_DISABLED;
++
+ 	if (inst->skb)
+ 		__nfulnl_flush(inst);
+-	spin_unlock_bh(&inst->lock);
++	spin_unlock(&inst->lock);
+ 
+ 	/* and finally put the refcount */
+ 	instance_put(inst);
+@@ -624,6 +629,7 @@ nfulnl_log_packet(u_int8_t pf,
+ 		size += nla_total_size(data_len);
  		break;
- 	case XT_STATISTIC_MODE_NTH:
--		spin_lock_bh(&nth_lock);
--		if (info->master->count++ == info->u.nth.every) {
--			info->master->count = 0;
-+		do {
-+			oval = atomic_read(&info->master->count);
-+			nval = (oval == info->u.nth.every) ? 0 : oval + 1;
-+		} while (atomic_cmpxchg(&info->master->count, oval, nval) != oval);
-+		if (nval == 0)
- 			ret = !ret;
--		}
--		spin_unlock_bh(&nth_lock);
- 		break;
+ 
++	case NFULNL_COPY_DISABLED:
+ 	default:
+ 		goto unlock_and_release;
  	}
- 
-@@ -64,7 +63,7 @@ static int statistic_mt_check(const struct xt_mtchk_param *par)
- 	info->master = kzalloc(sizeof(*info->master), GFP_KERNEL);
- 	if (info->master == NULL)
- 		return -ENOMEM;
--	info->master->count = info->u.nth.count;
-+	atomic_set(&info->master->count, info->u.nth.count);
- 
- 	return 0;
- }
 -- 
 1.7.0.4
 
