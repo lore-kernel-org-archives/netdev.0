@@ -1,51 +1,36 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Tue, 15 Jun 2010 13:42:32 +1000
-Message-ID: <20100615134232.20eac3fa.sfr@canb.auug.org.au>
-References: <20100615120052.7202f20d.sfr@canb.auug.org.au>
-	<20100614.191356.193722104.davem@davemloft.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH for-2.6.35] virtio_net: fix oom handling on tx
+Date: Tue, 15 Jun 2010 13:53:29 +0930
+Message-ID: <201006151353.30529.rusty@rustcorp.com.au>
+References: <20100610152041.GA3480@redhat.com> <20100610104653.1aed2ecc@nehalam> <20100610190343.GC4044@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Tue__15_Jun_2010_13_42_32_+1000_2UsFFEqGZz9DzUZq"
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, andy@greyhouse.net,
-	emil.s.tantilov@intel.com, jeffrey.t.kirsher@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100614.191356.193722104.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	virtualization@lists.linux-foundation.org,
+	Jiri Pirko <jpirko@redhat.com>, Shirley Ma <xma@us.ibm.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100610190343.GC4044@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Tue__15_Jun_2010_13_42_32_+1000_2UsFFEqGZz9DzUZq
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Fri, 11 Jun 2010 04:33:43 am Michael S. Tsirkin wrote:
+> On Thu, Jun 10, 2010 at 10:46:53AM -0700, Stephen Hemminger wrote:
+> > It makes more sense to have the device increment tx_droppped, 
+> > and return NETDEV_TX_OK. Skip the message (or make it a pr_debug()). 
+> > Network devices do not guarantee packet delivery, and if out of
+> > resources then holding more data in the
+> > queue is going to hurt not help the situation.
 
-Hi Dave,
+Yes, actually oom should be a ratelimited message and TX_OK, the other
+case is a "should never happen" logic bug which warrants an error and
+I don't care what it returns (whatever's easiest).
 
-On Mon, 14 Jun 2010 19:13:56 -0700 (PDT) David Miller <davem@davemloft.net>=
- wrote:
->
-> I'll incorporate your merge and build fixups when I merge net-2.6 into
-> net-next-2.6 later tonight, thanks Stephen!
+Please fix both at once since you're touching it.
 
-Great, thanks.
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Tue__15_Jun_2010_13_42_32_+1000_2UsFFEqGZz9DzUZq
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iEYEARECAAYFAkwW9qgACgkQjjKRsyhoI8xKsQCglbSw5mDJAEe0D2oNFN61+jT/
-krUAnRQnTZso4jicUKp6pKlnnYRAg+lJ
-=BBxR
------END PGP SIGNATURE-----
-
---Signature=_Tue__15_Jun_2010_13_42_32_+1000_2UsFFEqGZz9DzUZq--
+Thanks,
+Rusty.
