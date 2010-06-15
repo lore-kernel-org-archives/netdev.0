@@ -1,192 +1,220 @@
 From: kaber@trash.net
-Subject: [PATCH 11/17] netfilter: nfnetlink_log: RCU conversion
-Date: Tue, 15 Jun 2010 17:38:37 +0200
-Message-ID: <1276616323-20880-12-git-send-email-kaber@trash.net>
+Subject: [PATCH 09/17] netfilter: ip6_queue: rwlock to spinlock conversion
+Date: Tue, 15 Jun 2010 17:38:35 +0200
+Message-ID: <1276616323-20880-10-git-send-email-kaber@trash.net>
 References: <1276616323-20880-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42172 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932276Ab0FOP34 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 11:29:56 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1276616323-20880-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
 
-- instances_lock becomes a spinlock
-- lockless lookups
+Converts queue_lock rwlock to a spinlock.
 
-While nfnetlink_log probably not performance critical, using less
-rwlocks in our code is always welcomed...
+(readlocked part can be changed by reads of integer values)
+
+One atomic operation instead of four per ipq_enqueue_packet() call.
 
 Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/nfnetlink_log.c |   49 ++++++++++++++++++++++------------------
- 1 files changed, 27 insertions(+), 22 deletions(-)
+ net/ipv6/netfilter/ip6_queue.c |   57 +++++++++++++++++----------------------
+ 1 files changed, 25 insertions(+), 32 deletions(-)
 
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index fc9a211..8ec23ec 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -66,9 +66,10 @@ struct nfulnl_instance {
- 	u_int16_t group_num;		/* number of this queue */
- 	u_int16_t flags;
- 	u_int8_t copy_mode;
-+	struct rcu_head rcu;
- };
+diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
+index 8c20174..413ab07 100644
+--- a/net/ipv6/netfilter/ip6_queue.c
++++ b/net/ipv6/netfilter/ip6_queue.c
+@@ -43,7 +43,7 @@ typedef int (*ipq_cmpfn)(struct nf_queue_entry *, unsigned long);
  
--static DEFINE_RWLOCK(instances_lock);
-+static DEFINE_SPINLOCK(instances_lock);
- static atomic_t global_seq;
+ static unsigned char copy_mode __read_mostly = IPQ_COPY_NONE;
+ static unsigned int queue_maxlen __read_mostly = IPQ_QMAX_DEFAULT;
+-static DEFINE_RWLOCK(queue_lock);
++static DEFINE_SPINLOCK(queue_lock);
+ static int peer_pid __read_mostly;
+ static unsigned int copy_range __read_mostly;
+ static unsigned int queue_total;
+@@ -73,10 +73,10 @@ __ipq_set_mode(unsigned char mode, unsigned int range)
+ 		break;
  
- #define INSTANCE_BUCKETS	16
-@@ -88,7 +89,7 @@ __instance_lookup(u_int16_t group_num)
- 	struct nfulnl_instance *inst;
+ 	case IPQ_COPY_PACKET:
+-		copy_mode = mode;
++		if (range > 0xFFFF)
++			range = 0xFFFF;
+ 		copy_range = range;
+-		if (copy_range > 0xFFFF)
+-			copy_range = 0xFFFF;
++		copy_mode = mode;
+ 		break;
  
- 	head = &instance_table[instance_hashfn(group_num)];
--	hlist_for_each_entry(inst, pos, head, hlist) {
-+	hlist_for_each_entry_rcu(inst, pos, head, hlist) {
- 		if (inst->group_num == group_num)
- 			return inst;
+ 	default:
+@@ -102,7 +102,7 @@ ipq_find_dequeue_entry(unsigned long id)
+ {
+ 	struct nf_queue_entry *entry = NULL, *i;
+ 
+-	write_lock_bh(&queue_lock);
++	spin_lock_bh(&queue_lock);
+ 
+ 	list_for_each_entry(i, &queue_list, list) {
+ 		if ((unsigned long)i == id) {
+@@ -116,7 +116,7 @@ ipq_find_dequeue_entry(unsigned long id)
+ 		queue_total--;
  	}
-@@ -106,22 +107,26 @@ instance_lookup_get(u_int16_t group_num)
- {
- 	struct nfulnl_instance *inst;
  
--	read_lock_bh(&instances_lock);
-+	rcu_read_lock_bh();
- 	inst = __instance_lookup(group_num);
- 	if (inst)
- 		instance_get(inst);
--	read_unlock_bh(&instances_lock);
-+	rcu_read_unlock_bh();
- 
- 	return inst;
+-	write_unlock_bh(&queue_lock);
++	spin_unlock_bh(&queue_lock);
+ 	return entry;
  }
  
-+static void nfulnl_instance_free_rcu(struct rcu_head *head)
-+{
-+	kfree(container_of(head, struct nfulnl_instance, rcu));
-+	module_put(THIS_MODULE);
-+}
-+
+@@ -137,9 +137,9 @@ __ipq_flush(ipq_cmpfn cmpfn, unsigned long data)
  static void
- instance_put(struct nfulnl_instance *inst)
+ ipq_flush(ipq_cmpfn cmpfn, unsigned long data)
  {
--	if (inst && atomic_dec_and_test(&inst->use)) {
--		kfree(inst);
--		module_put(THIS_MODULE);
--	}
-+	if (inst && atomic_dec_and_test(&inst->use))
-+		call_rcu_bh(&inst->rcu, nfulnl_instance_free_rcu);
+-	write_lock_bh(&queue_lock);
++	spin_lock_bh(&queue_lock);
+ 	__ipq_flush(cmpfn, data);
+-	write_unlock_bh(&queue_lock);
++	spin_unlock_bh(&queue_lock);
  }
  
- static void nfulnl_timer(unsigned long data);
-@@ -132,7 +137,7 @@ instance_create(u_int16_t group_num, int pid)
- 	struct nfulnl_instance *inst;
- 	int err;
+ static struct sk_buff *
+@@ -153,9 +153,7 @@ ipq_build_packet_message(struct nf_queue_entry *entry, int *errp)
+ 	struct nlmsghdr *nlh;
+ 	struct timeval tv;
  
--	write_lock_bh(&instances_lock);
-+	spin_lock_bh(&instances_lock);
- 	if (__instance_lookup(group_num)) {
- 		err = -EEXIST;
- 		goto out_unlock;
-@@ -169,12 +174,12 @@ instance_create(u_int16_t group_num, int pid)
- 	hlist_add_head(&inst->hlist,
- 		       &instance_table[instance_hashfn(group_num)]);
+-	read_lock_bh(&queue_lock);
+-
+-	switch (copy_mode) {
++	switch (ACCESS_ONCE(copy_mode)) {
+ 	case IPQ_COPY_META:
+ 	case IPQ_COPY_NONE:
+ 		size = NLMSG_SPACE(sizeof(*pmsg));
+@@ -163,26 +161,21 @@ ipq_build_packet_message(struct nf_queue_entry *entry, int *errp)
  
--	write_unlock_bh(&instances_lock);
-+	spin_unlock_bh(&instances_lock);
+ 	case IPQ_COPY_PACKET:
+ 		if (entry->skb->ip_summed == CHECKSUM_PARTIAL &&
+-		    (*errp = skb_checksum_help(entry->skb))) {
+-			read_unlock_bh(&queue_lock);
++		    (*errp = skb_checksum_help(entry->skb)))
+ 			return NULL;
+-		}
+-		if (copy_range == 0 || copy_range > entry->skb->len)
++
++		data_len = ACCESS_ONCE(copy_range);
++		if (data_len == 0 || data_len > entry->skb->len)
+ 			data_len = entry->skb->len;
+-		else
+-			data_len = copy_range;
  
- 	return inst;
+ 		size = NLMSG_SPACE(sizeof(*pmsg) + data_len);
+ 		break;
  
- out_unlock:
--	write_unlock_bh(&instances_lock);
-+	spin_unlock_bh(&instances_lock);
- 	return ERR_PTR(err);
+ 	default:
+ 		*errp = -EINVAL;
+-		read_unlock_bh(&queue_lock);
+ 		return NULL;
+ 	}
+ 
+-	read_unlock_bh(&queue_lock);
+-
+ 	skb = alloc_skb(size, GFP_ATOMIC);
+ 	if (!skb)
+ 		goto nlmsg_failure;
+@@ -242,7 +235,7 @@ ipq_enqueue_packet(struct nf_queue_entry *entry, unsigned int queuenum)
+ 	if (nskb == NULL)
+ 		return status;
+ 
+-	write_lock_bh(&queue_lock);
++	spin_lock_bh(&queue_lock);
+ 
+ 	if (!peer_pid)
+ 		goto err_out_free_nskb;
+@@ -266,14 +259,14 @@ ipq_enqueue_packet(struct nf_queue_entry *entry, unsigned int queuenum)
+ 
+ 	__ipq_enqueue_entry(entry);
+ 
+-	write_unlock_bh(&queue_lock);
++	spin_unlock_bh(&queue_lock);
+ 	return status;
+ 
+ err_out_free_nskb:
+ 	kfree_skb(nskb);
+ 
+ err_out_unlock:
+-	write_unlock_bh(&queue_lock);
++	spin_unlock_bh(&queue_lock);
+ 	return status;
  }
  
-@@ -200,9 +205,9 @@ __instance_destroy(struct nfulnl_instance *inst)
- static inline void
- instance_destroy(struct nfulnl_instance *inst)
+@@ -342,9 +335,9 @@ ipq_set_mode(unsigned char mode, unsigned int range)
  {
--	write_lock_bh(&instances_lock);
-+	spin_lock_bh(&instances_lock);
- 	__instance_destroy(inst);
--	write_unlock_bh(&instances_lock);
-+	spin_unlock_bh(&instances_lock);
+ 	int status;
+ 
+-	write_lock_bh(&queue_lock);
++	spin_lock_bh(&queue_lock);
+ 	status = __ipq_set_mode(mode, range);
+-	write_unlock_bh(&queue_lock);
++	spin_unlock_bh(&queue_lock);
+ 	return status;
  }
  
- static int
-@@ -672,7 +677,7 @@ nfulnl_rcv_nl_event(struct notifier_block *this,
- 		int i;
+@@ -441,11 +434,11 @@ __ipq_rcv_skb(struct sk_buff *skb)
+ 	if (security_netlink_recv(skb, CAP_NET_ADMIN))
+ 		RCV_SKB_FAIL(-EPERM);
  
- 		/* destroy all instances for this pid */
--		write_lock_bh(&instances_lock);
-+		spin_lock_bh(&instances_lock);
- 		for  (i = 0; i < INSTANCE_BUCKETS; i++) {
- 			struct hlist_node *tmp, *t2;
- 			struct nfulnl_instance *inst;
-@@ -684,7 +689,7 @@ nfulnl_rcv_nl_event(struct notifier_block *this,
- 					__instance_destroy(inst);
- 			}
+-	write_lock_bh(&queue_lock);
++	spin_lock_bh(&queue_lock);
+ 
+ 	if (peer_pid) {
+ 		if (peer_pid != pid) {
+-			write_unlock_bh(&queue_lock);
++			spin_unlock_bh(&queue_lock);
+ 			RCV_SKB_FAIL(-EBUSY);
  		}
--		write_unlock_bh(&instances_lock);
-+		spin_unlock_bh(&instances_lock);
+ 	} else {
+@@ -453,7 +446,7 @@ __ipq_rcv_skb(struct sk_buff *skb)
+ 		peer_pid = pid;
+ 	}
+ 
+-	write_unlock_bh(&queue_lock);
++	spin_unlock_bh(&queue_lock);
+ 
+ 	status = ipq_receive_peer(NLMSG_DATA(nlh), type,
+ 				  nlmsglen - NLMSG_LENGTH(0));
+@@ -498,10 +491,10 @@ ipq_rcv_nl_event(struct notifier_block *this,
+ 	struct netlink_notify *n = ptr;
+ 
+ 	if (event == NETLINK_URELEASE && n->protocol == NETLINK_IP6_FW) {
+-		write_lock_bh(&queue_lock);
++		spin_lock_bh(&queue_lock);
+ 		if ((net_eq(n->net, &init_net)) && (n->pid == peer_pid))
+ 			__ipq_reset();
+-		write_unlock_bh(&queue_lock);
++		spin_unlock_bh(&queue_lock);
  	}
  	return NOTIFY_DONE;
  }
-@@ -861,19 +866,19 @@ static struct hlist_node *get_first(struct iter_state *st)
- 
- 	for (st->bucket = 0; st->bucket < INSTANCE_BUCKETS; st->bucket++) {
- 		if (!hlist_empty(&instance_table[st->bucket]))
--			return instance_table[st->bucket].first;
-+			return rcu_dereference_bh(instance_table[st->bucket].first);
- 	}
- 	return NULL;
- }
- 
- static struct hlist_node *get_next(struct iter_state *st, struct hlist_node *h)
+@@ -528,7 +521,7 @@ static ctl_table ipq_table[] = {
+ #ifdef CONFIG_PROC_FS
+ static int ip6_queue_show(struct seq_file *m, void *v)
  {
--	h = h->next;
-+	h = rcu_dereference_bh(h->next);
- 	while (!h) {
- 		if (++st->bucket >= INSTANCE_BUCKETS)
- 			return NULL;
+-	read_lock_bh(&queue_lock);
++	spin_lock_bh(&queue_lock);
  
--		h = instance_table[st->bucket].first;
-+		h = rcu_dereference_bh(instance_table[st->bucket].first);
- 	}
- 	return h;
- }
-@@ -890,9 +895,9 @@ static struct hlist_node *get_idx(struct iter_state *st, loff_t pos)
- }
+ 	seq_printf(m,
+ 		      "Peer PID          : %d\n"
+@@ -546,7 +539,7 @@ static int ip6_queue_show(struct seq_file *m, void *v)
+ 		      queue_dropped,
+ 		      queue_user_dropped);
  
- static void *seq_start(struct seq_file *seq, loff_t *pos)
--	__acquires(instances_lock)
-+	__acquires(rcu_bh)
- {
--	read_lock_bh(&instances_lock);
-+	rcu_read_lock_bh();
- 	return get_idx(seq->private, *pos);
+-	read_unlock_bh(&queue_lock);
++	spin_unlock_bh(&queue_lock);
+ 	return 0;
  }
  
-@@ -903,9 +908,9 @@ static void *seq_next(struct seq_file *s, void *v, loff_t *pos)
- }
- 
- static void seq_stop(struct seq_file *s, void *v)
--	__releases(instances_lock)
-+	__releases(rcu_bh)
- {
--	read_unlock_bh(&instances_lock);
-+	rcu_read_unlock_bh();
- }
- 
- static int seq_show(struct seq_file *s, void *v)
 -- 
 1.7.0.4
 
