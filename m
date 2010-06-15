@@ -1,103 +1,81 @@
 From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH 02/12] phylib: do not filter phy_mii_ioctl()
-Date: Tue, 15 Jun 2010 10:26:54 -0600
-Message-ID: <AANLkTiliSFzs0dowKbMW-dqcmwEncHT98vGyEmXE3O3Q@mail.gmail.com>
+Subject: Re: [PATCH 03/12] phylib: add a driver method for the SIOCSHWTSTAMP
+	ioctl.
+Date: Tue, 15 Jun 2010 10:27:59 -0600
+Message-ID: <AANLkTiml5FyHstY-0ZPHxFDvA349BZv3TeX9gXtURFFN@mail.gmail.com>
 References: <cover.1276615626.git.richard.cochran@omicron.at>
-	<4cd127a2aa2c40a1b573e079e0624f10d1d94867.1276615626.git.richard.cochran@omicron.at>
+	<77fe18d640e35dcbfad1e117a4321f935500d5ac.1276615626.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org,
+	linux-arm-kernel@lists.infradead.org,
 	Krzysztof Halasa <khc@pm.waw.pl>
 To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <4cd127a2aa2c40a1b573e079e0624f10d1d94867.1276615626.git.richard.cochran@omicron.at>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
-	<mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Sender: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f204.google.com ([209.85.211.204]:40408 "EHLO
+	mail-yw0-f204.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751015Ab0FOQ2U convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 12:28:20 -0400
+Received: by ywh42 with SMTP id 42so4790369ywh.15
+        for <netdev@vger.kernel.org>; Tue, 15 Jun 2010 09:28:19 -0700 (PDT)
+In-Reply-To: <77fe18d640e35dcbfad1e117a4321f935500d5ac.1276615626.git.richard.cochran@omicron.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 15, 2010 at 10:07 AM, Richard Cochran
+On Tue, Jun 15, 2010 at 10:08 AM, Richard Cochran
 <richardcochran@gmail.com> wrote:
-> Two maverick drivers filter the ioctl commands passed to phy_mii_ioctl().
-> This is unnecessary since phylib will check the command in any case.
+> This patch adds a phy driver method for configuring hardware time sta=
+mping.
+> Drivers may optionally implement this function.
 >
 > Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 
-At a glance, looks okay to me.
+Adding an ioctl to the userspace ABI.  Make sure you cc: linux-kernel
+on the next spin of this series.
+
+g.
 
 > ---
-> =A0drivers/net/cpmac.c =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 =A05 +----
-> =A0drivers/net/stmmac/stmmac_main.c | =A0 22 ++++++++--------------
-> =A02 files changed, 9 insertions(+), 18 deletions(-)
+> =A0drivers/net/phy/phy.c | =A0 =A05 +++++
+> =A0include/linux/phy.h =A0 | =A0 =A03 +++
+> =A02 files changed, 8 insertions(+), 0 deletions(-)
 >
-> diff --git a/drivers/net/cpmac.c b/drivers/net/cpmac.c
-> index d4c5ca4..0e47ca1 100644
-> --- a/drivers/net/cpmac.c
-> +++ b/drivers/net/cpmac.c
-> @@ -846,11 +846,8 @@ static int cpmac_ioctl(struct net_device *dev, struc=
-t ifreq *ifr, int cmd)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -EINVAL;
-> =A0 =A0 =A0 =A0if (!priv->phy)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -EINVAL;
-> - =A0 =A0 =A0 if ((cmd =3D=3D SIOCGMIIPHY) || (cmd =3D=3D SIOCGMIIREG) ||
-> - =A0 =A0 =A0 =A0 =A0 (cmd =3D=3D SIOCSMIIREG))
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 return phy_mii_ioctl(priv->phy, ifr, cmd);
+> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+> index bd88d81..5130db8 100644
+> --- a/drivers/net/phy/phy.c
+> +++ b/drivers/net/phy/phy.c
+> @@ -361,6 +361,11 @@ int phy_mii_ioctl(struct phy_device *phydev,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
 >
-> - =A0 =A0 =A0 return -EOPNOTSUPP;
-> + =A0 =A0 =A0 return phy_mii_ioctl(priv->phy, ifr, cmd);
-> =A0}
->
-> =A0static int cpmac_get_settings(struct net_device *dev, struct ethtool_c=
-md *cmd)
-> diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac=
-_main.c
-> index 6af7471..acf0616 100644
-> --- a/drivers/net/stmmac/stmmac_main.c
-> +++ b/drivers/net/stmmac/stmmac_main.c
-> @@ -1437,24 +1437,18 @@ static void stmmac_poll_controller(struct net_dev=
-ice *dev)
-> =A0static int stmmac_ioctl(struct net_device *dev, struct ifreq *rq, int =
-cmd)
-> =A0{
-> =A0 =A0 =A0 =A0struct stmmac_priv *priv =3D netdev_priv(dev);
-> - =A0 =A0 =A0 int ret =3D -EOPNOTSUPP;
-> + =A0 =A0 =A0 int ret;
->
-> =A0 =A0 =A0 =A0if (!netif_running(dev))
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -EINVAL;
->
-> - =A0 =A0 =A0 switch (cmd) {
-> - =A0 =A0 =A0 case SIOCGMIIPHY:
-> - =A0 =A0 =A0 case SIOCGMIIREG:
-> - =A0 =A0 =A0 case SIOCSMIIREG:
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!priv->phydev)
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EINVAL;
-> -
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 spin_lock(&priv->lock);
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 ret =3D phy_mii_ioctl(priv->phydev, rq, cmd=
-);
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 spin_unlock(&priv->lock);
-> - =A0 =A0 =A0 default:
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
-> - =A0 =A0 =A0 }
-> + =A0 =A0 =A0 if (!priv->phydev)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EINVAL;
+> + =A0 =A0 =A0 case SIOCSHWTSTAMP:
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (phydev->drv->hwtstamp)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return phydev->drv->hwt=
+stamp(phydev, ifr);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* fall through */
 > +
-> + =A0 =A0 =A0 spin_lock(&priv->lock);
-> + =A0 =A0 =A0 ret =3D phy_mii_ioctl(priv->phydev, rq, cmd);
-> + =A0 =A0 =A0 spin_unlock(&priv->lock);
-> +
-> =A0 =A0 =A0 =A0return ret;
-> =A0}
+> =A0 =A0 =A0 =A0default:
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -EOPNOTSUPP;
+> =A0 =A0 =A0 =A0}
+> diff --git a/include/linux/phy.h b/include/linux/phy.h
+> index d63736a..a5e9df1 100644
+> --- a/include/linux/phy.h
+> +++ b/include/linux/phy.h
+> @@ -402,6 +402,9 @@ struct phy_driver {
+> =A0 =A0 =A0 =A0/* Clears up any memory if needed */
+> =A0 =A0 =A0 =A0void (*remove)(struct phy_device *phydev);
 >
+> + =A0 =A0 =A0 /* Handles SIOCSHWTSTAMP ioctl for hardware time stampi=
+ng. */
+> + =A0 =A0 =A0 int (*hwtstamp)(struct phy_device *phydev, struct ifreq=
+ *ifr);
+> +
+> =A0 =A0 =A0 =A0struct device_driver driver;
+> =A0};
+> =A0#define to_phy_driver(d) container_of(d, struct phy_driver, driver=
+)
 > --
 > 1.6.3.3
 >
@@ -110,7 +88,6 @@ cmd)
 
 
 
--- =
-
+--=20
 Grant Likely, B.Sc., P.Eng.
 Secret Lab Technologies Ltd.
