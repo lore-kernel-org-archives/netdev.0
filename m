@@ -1,93 +1,40 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH 03/12] phylib: add a driver method for the SIOCSHWTSTAMP
-	ioctl.
-Date: Tue, 15 Jun 2010 10:27:59 -0600
-Message-ID: <AANLkTiml5FyHstY-0ZPHxFDvA349BZv3TeX9gXtURFFN@mail.gmail.com>
-References: <cover.1276615626.git.richard.cochran@omicron.at>
-	<77fe18d640e35dcbfad1e117a4321f935500d5ac.1276615626.git.richard.cochran@omicron.at>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH net-next-2.6 3/3] bridge: use rx_handler_data pointer to
+ store net_bridge_port pointer V2
+Date: Tue, 15 Jun 2010 09:30:35 -0700
+Message-ID: <20100615093035.6f54c085@nehalam>
+References: <20100610133412.GC2618@psychotron.lab.eng.brq.redhat.com>
+	<20100610133628.GF2618@psychotron.lab.eng.brq.redhat.com>
+	<20100615132833.GB3797@psychotron.lab.eng.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	linuxppc-dev@lists.ozlabs.org,
-	linux-arm-kernel@lists.infradead.org,
-	Krzysztof Halasa <khc@pm.waw.pl>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net,
+	eric.dumazet@gmail.com
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f204.google.com ([209.85.211.204]:40408 "EHLO
-	mail-yw0-f204.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751015Ab0FOQ2U convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 12:28:20 -0400
-Received: by ywh42 with SMTP id 42so4790369ywh.15
-        for <netdev@vger.kernel.org>; Tue, 15 Jun 2010 09:28:19 -0700 (PDT)
-In-Reply-To: <77fe18d640e35dcbfad1e117a4321f935500d5ac.1276615626.git.richard.cochran@omicron.at>
+Received: from mail.vyatta.com ([76.74.103.46]:52788 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755971Ab0FOQai (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jun 2010 12:30:38 -0400
+In-Reply-To: <20100615132833.GB3797@psychotron.lab.eng.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 15, 2010 at 10:08 AM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> This patch adds a phy driver method for configuring hardware time sta=
-mping.
-> Drivers may optionally implement this function.
->
-> Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
+On Tue, 15 Jun 2010 15:28:34 +0200
+Jiri Pirko <jpirko@redhat.com> wrote:
 
-Adding an ioctl to the userspace ABI.  Make sure you cc: linux-kernel
-on the next spin of this series.
+> diff --git a/drivers/net/ksz884x.c b/drivers/net/ksz884x.c
+> index 7805bbf..e7f4703 100644
+> --- a/drivers/net/ksz884x.c
+> +++ b/drivers/net/ksz884x.c
+> @@ -5718,7 +5718,7 @@ static void dev_set_promiscuous(struct net_device *dev, struct dev_priv *priv,
+>  		 * from the bridge.
+>  		 */
+>  		if ((hw->features & STP_SUPPORT) && !promiscuous &&
+> -				dev->br_port) {
+> +		    dev->priv_flags & IFF_BRIDGE_PORT) {
 
-g.
-
-> ---
-> =A0drivers/net/phy/phy.c | =A0 =A05 +++++
-> =A0include/linux/phy.h =A0 | =A0 =A03 +++
-> =A02 files changed, 8 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-> index bd88d81..5130db8 100644
-> --- a/drivers/net/phy/phy.c
-> +++ b/drivers/net/phy/phy.c
-> @@ -361,6 +361,11 @@ int phy_mii_ioctl(struct phy_device *phydev,
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0break;
->
-> + =A0 =A0 =A0 case SIOCSHWTSTAMP:
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (phydev->drv->hwtstamp)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return phydev->drv->hwt=
-stamp(phydev, ifr);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* fall through */
-> +
-> =A0 =A0 =A0 =A0default:
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -EOPNOTSUPP;
-> =A0 =A0 =A0 =A0}
-> diff --git a/include/linux/phy.h b/include/linux/phy.h
-> index d63736a..a5e9df1 100644
-> --- a/include/linux/phy.h
-> +++ b/include/linux/phy.h
-> @@ -402,6 +402,9 @@ struct phy_driver {
-> =A0 =A0 =A0 =A0/* Clears up any memory if needed */
-> =A0 =A0 =A0 =A0void (*remove)(struct phy_device *phydev);
->
-> + =A0 =A0 =A0 /* Handles SIOCSHWTSTAMP ioctl for hardware time stampi=
-ng. */
-> + =A0 =A0 =A0 int (*hwtstamp)(struct phy_device *phydev, struct ifreq=
- *ifr);
-> +
-> =A0 =A0 =A0 =A0struct device_driver driver;
-> =A0};
-> =A0#define to_phy_driver(d) container_of(d, struct phy_driver, driver=
-)
-> --
-> 1.6.3.3
->
->
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
->
-
-
-
---=20
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+I like this patch except for one thing. The mask here should be surrounded
+by paren's to avoid the possible confusion about && and & in same if
+statement.  The C precedence rules allow this but humans get confused.
