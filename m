@@ -1,7 +1,7 @@
 From: kaber@trash.net
-Subject: [PATCH 03/17] netfilter: vmalloc_node cleanup
-Date: Tue, 15 Jun 2010 17:38:29 +0200
-Message-ID: <1276616323-20880-4-git-send-email-kaber@trash.net>
+Subject: [PATCH 04/17] netfilter: xt_rateest: Better struct xt_rateest layout
+Date: Tue, 15 Jun 2010 17:38:30 +0200
+Message-ID: <1276616323-20880-5-git-send-email-kaber@trash.net>
 References: <1276616323-20880-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
@@ -12,103 +12,43 @@ List-Id: netdev.vger.kernel.org
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
 
-Using vmalloc_node(size, numa_node_id()) for temporary storage is not
-needed. vmalloc(size) is more respectful of user NUMA policy.
+We currently dirty two cache lines in struct xt_rateest, this hurts SMP
+performance.
+
+This patch moves lock/bstats/rstats at beginning of structure so that
+they share a single cache line.
 
 Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/ipv4/netfilter/arp_tables.c |    7 +++----
- net/ipv4/netfilter/ip_tables.c  |    4 ++--
- net/ipv6/netfilter/ip6_tables.c |    7 +++----
- 3 files changed, 8 insertions(+), 10 deletions(-)
+ include/net/netfilter/xt_rateest.h |   10 +++++++---
+ 1 files changed, 7 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index 1ac01b1..16c0ba0 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -758,7 +758,7 @@ static struct xt_counters *alloc_counters(const struct xt_table *table)
- 	 * about).
- 	 */
- 	countersize = sizeof(struct xt_counters) * private->number;
--	counters = vmalloc_node(countersize, numa_node_id());
-+	counters = vmalloc(countersize);
+diff --git a/include/net/netfilter/xt_rateest.h b/include/net/netfilter/xt_rateest.h
+index ddbf37e..b1d780e 100644
+--- a/include/net/netfilter/xt_rateest.h
++++ b/include/net/netfilter/xt_rateest.h
+@@ -2,13 +2,17 @@
+ #define _XT_RATEEST_H
  
- 	if (counters == NULL)
- 		return ERR_PTR(-ENOMEM);
-@@ -1005,8 +1005,7 @@ static int __do_replace(struct net *net, const char *name,
- 	struct arpt_entry *iter;
+ struct xt_rateest {
++	/* keep lock and bstats on same cache line to speedup xt_rateest_tg() */
++	struct gnet_stats_basic_packed	bstats;
++	spinlock_t			lock;
++	/* keep rstats and lock on same cache line to speedup xt_rateest_mt() */
++	struct gnet_stats_rate_est	rstats;
++
++	/* following fields not accessed in hot path */
+ 	struct hlist_node		list;
+ 	char				name[IFNAMSIZ];
+ 	unsigned int			refcnt;
+-	spinlock_t			lock;
+ 	struct gnet_estimator		params;
+-	struct gnet_stats_rate_est	rstats;
+-	struct gnet_stats_basic_packed	bstats;
+ };
  
- 	ret = 0;
--	counters = vmalloc_node(num_counters * sizeof(struct xt_counters),
--				numa_node_id());
-+	counters = vmalloc(num_counters * sizeof(struct xt_counters));
- 	if (!counters) {
- 		ret = -ENOMEM;
- 		goto out;
-@@ -1159,7 +1158,7 @@ static int do_add_counters(struct net *net, const void __user *user,
- 	if (len != size + num_counters * sizeof(struct xt_counters))
- 		return -EINVAL;
- 
--	paddc = vmalloc_node(len - size, numa_node_id());
-+	paddc = vmalloc(len - size);
- 	if (!paddc)
- 		return -ENOMEM;
- 
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index 63958f3..7c0b8ad 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -928,7 +928,7 @@ static struct xt_counters *alloc_counters(const struct xt_table *table)
- 	   (other than comefrom, which userspace doesn't care
- 	   about). */
- 	countersize = sizeof(struct xt_counters) * private->number;
--	counters = vmalloc_node(countersize, numa_node_id());
-+	counters = vmalloc(countersize);
- 
- 	if (counters == NULL)
- 		return ERR_PTR(-ENOMEM);
-@@ -1352,7 +1352,7 @@ do_add_counters(struct net *net, const void __user *user,
- 	if (len != size + num_counters * sizeof(struct xt_counters))
- 		return -EINVAL;
- 
--	paddc = vmalloc_node(len - size, numa_node_id());
-+	paddc = vmalloc(len - size);
- 	if (!paddc)
- 		return -ENOMEM;
- 
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 6f517bd..82945ef 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -943,7 +943,7 @@ static struct xt_counters *alloc_counters(const struct xt_table *table)
- 	   (other than comefrom, which userspace doesn't care
- 	   about). */
- 	countersize = sizeof(struct xt_counters) * private->number;
--	counters = vmalloc_node(countersize, numa_node_id());
-+	counters = vmalloc(countersize);
- 
- 	if (counters == NULL)
- 		return ERR_PTR(-ENOMEM);
-@@ -1213,8 +1213,7 @@ __do_replace(struct net *net, const char *name, unsigned int valid_hooks,
- 	struct ip6t_entry *iter;
- 
- 	ret = 0;
--	counters = vmalloc_node(num_counters * sizeof(struct xt_counters),
--				numa_node_id());
-+	counters = vmalloc(num_counters * sizeof(struct xt_counters));
- 	if (!counters) {
- 		ret = -ENOMEM;
- 		goto out;
-@@ -1368,7 +1367,7 @@ do_add_counters(struct net *net, const void __user *user, unsigned int len,
- 	if (len != size + num_counters * sizeof(struct xt_counters))
- 		return -EINVAL;
- 
--	paddc = vmalloc_node(len - size, numa_node_id());
-+	paddc = vmalloc(len - size);
- 	if (!paddc)
- 		return -ENOMEM;
- 
+ extern struct xt_rateest *xt_rateest_lookup(const char *name);
 -- 
 1.7.0.4
 
