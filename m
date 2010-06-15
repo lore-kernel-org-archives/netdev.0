@@ -1,7 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH 11/12] ptp: Added a clock driver for the IXP46x.
-Date: Tue, 15 Jun 2010 18:10:27 +0200
-Message-ID: <0c03ef3e283c6b3ef58feaf1f77ccb0fd605010b.1276615626.git.richard.cochran@omicron.at>
+Subject: [PATCH 12/12] ptp: Added a clock driver for the National
+ Semiconductor PHYTER.
+Date: Tue, 15 Jun 2010 18:10:45 +0200
+Message-ID: <37f5015b186bdd51f8451ade042f90c8b39a5cc8.1276615626.git.richard.cochran@omicron.at>
 References: <cover.1276615626.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -12,494 +13,117 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-fx0-f46.google.com ([209.85.161.46]:43726 "EHLO
 	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751916Ab0FOQJi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 12:09:38 -0400
+	with ESMTP id S1754837Ab0FOQJy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 12:09:54 -0400
 Received: by mail-fx0-f46.google.com with SMTP id 10so266600fxm.19
-        for <netdev@vger.kernel.org>; Tue, 15 Jun 2010 09:09:37 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Tue, 15 Jun 2010 09:09:53 -0700 (PDT)
 Content-Disposition: inline
 In-Reply-To: <cover.1276615626.git.richard.cochran@omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a driver for the hardware time stamping unit found on the
-IXP465. Only the basic clock operations are implemented.
+This patch adds support for the PTP clock found on the DP83640. Only the
+basic clock operations have been implemented.
 
 Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 ---
- arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h |   67 +++++++
- drivers/net/arm/ixp4xx_eth.c                  |  194 +++++++++++++++++++++
- drivers/ptp/Kconfig                           |   13 ++
- drivers/ptp/Makefile                          |    1 +
- drivers/ptp/ptp_ixp46x.c                      |  231 +++++++++++++++++++++++++
- 5 files changed, 506 insertions(+), 0 deletions(-)
- create mode 100644 arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h
- create mode 100644 drivers/ptp/ptp_ixp46x.c
+ drivers/net/phy/Kconfig   |   11 +++
+ drivers/net/phy/dp83640.c |  158 ++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 168 insertions(+), 1 deletions(-)
 
-diff --git a/arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h b/arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h
-new file mode 100644
-index 0000000..7fb02b6
---- /dev/null
-+++ b/arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h
-@@ -0,0 +1,67 @@
-+/*
-+ * PTP 1588 clock using the IXP46X
-+ *
-+ * Copyright (C) 2010 OMICRON electronics GmbH
-+ *
-+ *  This program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2 of the License, or
-+ *  (at your option) any later version.
-+ *
-+ *  This program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with this program; if not, write to the Free Software
-+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-+ */
-+
-+#ifndef _IXP46X_TS_H_
-+#define _IXP46X_TS_H_
-+
-+#define DEFAULT_ADDEND 0xF0000029
-+#define TICKS_NS_SHIFT 4
-+
-+struct ixp46x_channel_ctl {
-+	u32 Ch_Control; /* 0x40 Time Synchronization Channel Control */
-+	u32 Ch_Event;   /* 0x44 Time Synchronization Channel Event */
-+	u32 TxSnapLo;   /* 0x48 Transmit Snapshot Low Register */
-+	u32 TxSnapHi;   /* 0x4C Transmit Snapshot High Register */
-+	u32 RxSnapLo;   /* 0x50 Receive Snapshot Low Register */
-+	u32 RxSnapHi;   /* 0x54 Receive Snapshot High Register */
-+	u32 SrcUUIDLo;  /* 0x58 Source UUID0 Low Register */
-+	u32 SrcUUIDHi;  /* 0x5C Sequence Identifier/Source UUID0 High */
-+};
-+
-+struct ixp46x_ts_regs {
-+	u32 Control;     /* 0x00 Time Sync Control Register */
-+	u32 Event;       /* 0x04 Time Sync Event Register */
-+	u32 Addend;      /* 0x08 Time Sync Addend Register */
-+	u32 Accum;       /* 0x0C Time Sync Accumulator Register */
-+	u32 Test;        /* 0x10 Time Sync Test Register */
-+	u32 Unused;      /* 0x14 */
-+	u32 RSysTime_Lo; /* 0x18 RawSystemTime_Low Register */
-+	u32 RSysTimeHi;  /* 0x1C RawSystemTime_High Register */
-+	u32 SysTimeLo;   /* 0x20 SystemTime_Low Register */
-+	u32 SysTimeHi;   /* 0x24 SystemTime_High Register */
-+	u32 TrgtLo;      /* 0x28 TargetTime_Low Register */
-+	u32 TrgtHi;      /* 0x2C TargetTime_High Register */
-+	u32 ASMSLo;      /* 0x30 Auxiliary Slave Mode Snapshot Low  */
-+	u32 ASMSHi;      /* 0x34 Auxiliary Slave Mode Snapshot High */
-+	u32 AMMSLo;      /* 0x38 Auxiliary Master Mode Snapshot Low */
-+	u32 AMMSHi;      /* 0x3C Auxiliary Master Mode Snapshot High */
-+
-+	struct ixp46x_channel_ctl channel[3];
-+};
-+
-+/* 0x40 Time Synchronization Channel Control Register Bits */
-+#define MASTER_MODE   (1<<0)
-+#define TIMESTAMP_ALL (1<<1)
-+
-+/* 0x44 Time Synchronization Channel Event Register Bits */
-+#define TX_SNAPSHOT_LOCKED (1<<0)
-+#define RX_SNAPSHOT_LOCKED (1<<1)
-+
-+#endif
-diff --git a/drivers/net/arm/ixp4xx_eth.c b/drivers/net/arm/ixp4xx_eth.c
-index 4f1cc71..2201960 100644
---- a/drivers/net/arm/ixp4xx_eth.c
-+++ b/drivers/net/arm/ixp4xx_eth.c
-@@ -30,9 +30,12 @@
- #include <linux/etherdevice.h>
- #include <linux/io.h>
- #include <linux/kernel.h>
-+#include <linux/net_tstamp.h>
- #include <linux/phy.h>
- #include <linux/platform_device.h>
-+#include <linux/ptp_classify.h>
- #include <linux/slab.h>
-+#include <mach/ixp46x_ts.h>
- #include <mach/npe.h>
- #include <mach/qmgr.h>
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 430cab1..507c68a 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -79,9 +79,20 @@ config NATIONAL_PHY
  
-@@ -67,6 +70,14 @@
- #define RXFREE_QUEUE(port_id)	(NPE_ID(port_id) + 26)
- #define TXDONE_QUEUE		31
- 
-+#define PTP_SLAVE_MODE		1
-+#define PTP_MASTER_MODE		2
-+#define PORT2CHANNEL(p)		1
-+/*
-+ * PHYSICAL_ID(p->id) ?
-+ * TODO - Figure out correct mapping.
-+ */
-+
- /* TX Control Registers */
- #define TX_CNTRL0_TX_EN		0x01
- #define TX_CNTRL0_HALFDUPLEX	0x02
-@@ -171,6 +182,8 @@ struct port {
- 	int id;			/* logical port ID */
- 	int speed, duplex;
- 	u8 firmware[4];
-+	int hwts_tx_en;
-+	int hwts_rx_en;
- };
- 
- /* NPE message structure */
-@@ -246,6 +259,170 @@ static int ports_open;
- static struct port *npe_port_tab[MAX_NPES];
- static struct dma_pool *dma_pool;
- 
-+static struct sock_filter ptp_filter[] = {
-+	PTP_FILTER
-+};
-+
-+static int match(struct sk_buff *skb, u16 uid_hi, u32 uid_lo, u16 seq)
-+{
-+	unsigned int type;
-+	u16 *hi, *id;
-+	u8 *lo, *data = skb->data;
-+
-+	type = sk_run_filter(skb, ptp_filter, ARRAY_SIZE(ptp_filter));
-+
-+	if (PTP_CLASS_V1_IPV4 == type) {
-+
-+		id = (u16 *)(data + 42 + 30);
-+		hi = (u16 *)(data + 42 + 22);
-+		lo = data + 42 + 24;
-+
-+		return (uid_hi == *hi &&
-+			0 == memcmp(&uid_lo, lo, sizeof(uid_lo)) &&
-+			seq == *id);
-+	}
-+
-+	return 0;
-+}
-+
-+static void do_rx_timestamp(struct port *port, struct sk_buff *skb)
-+{
-+	struct skb_shared_hwtstamps *shhwtstamps;
-+	struct ixp46x_ts_regs *regs;
-+	u64 ns;
-+	u32 ch, hi, lo, val;
-+	u16 uid, seq;
-+
-+	if (!port->hwts_rx_en)
-+		return;
-+
-+	ch = PORT2CHANNEL(port);
-+
-+	regs = (struct ixp46x_ts_regs __iomem *) IXP4XX_TIMESYNC_BASE_VIRT;
-+
-+	val = __raw_readl(&regs->channel[ch].Ch_Event);
-+
-+	if (!(val & RX_SNAPSHOT_LOCKED))
-+		return;
-+
-+	lo = __raw_readl(&regs->channel[ch].SrcUUIDLo);
-+	hi = __raw_readl(&regs->channel[ch].SrcUUIDHi);
-+
-+	uid = hi & 0xffff;
-+	seq = (hi >> 16) & 0xffff;
-+
-+	if (!match(skb, htons(uid), htonl(lo), htons(seq)))
-+		goto out;
-+
-+	lo = __raw_readl(&regs->channel[ch].RxSnapLo);
-+	hi = __raw_readl(&regs->channel[ch].RxSnapHi);
-+	ns = ((u64) hi) << 32;
-+	ns |= lo;
-+	ns <<= TICKS_NS_SHIFT;
-+
-+	shhwtstamps = skb_hwtstamps(skb);
-+	memset(shhwtstamps, 0, sizeof(*shhwtstamps));
-+	shhwtstamps->hwtstamp = ns_to_ktime(ns);
-+out:
-+	__raw_writel(RX_SNAPSHOT_LOCKED, &regs->channel[ch].Ch_Event);
-+}
-+
-+static void do_tx_timestamp(struct port *port, struct sk_buff *skb)
-+{
-+#ifdef __ARMEB__
-+	struct skb_shared_hwtstamps shhwtstamps;
-+	struct ixp46x_ts_regs *regs;
-+	union skb_shared_tx *shtx;
-+	u64 ns;
-+	u32 ch, cnt, hi, lo, val;
-+
-+	shtx = skb_tx(skb);
-+
-+	if (!shtx->in_progress)
-+		return;
-+
-+	ch = PORT2CHANNEL(port);
-+
-+	regs = (struct ixp46x_ts_regs __iomem *) IXP4XX_TIMESYNC_BASE_VIRT;
-+
-+	/*
-+	 * This really stinks, but we have to poll for the Tx time stamp.
-+	 * Usually, the time stamp is ready after 4 to 6 microseconds.
-+	 */
-+	for (cnt = 0; cnt < 100; cnt++) {
-+		val = __raw_readl(&regs->channel[ch].Ch_Event);
-+		if (val & TX_SNAPSHOT_LOCKED)
-+			break;
-+		udelay(1);
-+	}
-+	if (!(val & TX_SNAPSHOT_LOCKED)) {
-+		shtx->in_progress = 0;
-+		return;
-+	}
-+
-+	lo = __raw_readl(&regs->channel[ch].TxSnapLo);
-+	hi = __raw_readl(&regs->channel[ch].TxSnapHi);
-+	ns = ((u64) hi) << 32;
-+	ns |= lo;
-+	ns <<= TICKS_NS_SHIFT;
-+
-+	memset(&shhwtstamps, 0, sizeof(shhwtstamps));
-+	shhwtstamps.hwtstamp = ns_to_ktime(ns);
-+	skb_tstamp_tx(skb, &shhwtstamps);
-+
-+	__raw_writel(TX_SNAPSHOT_LOCKED, &regs->channel[ch].Ch_Event);
-+#endif
-+}
-+
-+static int hwtstamp_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
-+{
-+	struct hwtstamp_config cfg;
-+	struct ixp46x_ts_regs *regs;
-+	struct port *port = netdev_priv(netdev);
-+	int ch;
-+
-+	if (copy_from_user(&cfg, ifr->ifr_data, sizeof(cfg)))
-+		return -EFAULT;
-+
-+	if (cfg.flags) /* reserved for future extensions */
-+		return -EINVAL;
-+
-+	ch = PORT2CHANNEL(port);
-+	regs = (struct ixp46x_ts_regs __iomem *) IXP4XX_TIMESYNC_BASE_VIRT;
-+
-+	switch (cfg.tx_type) {
-+	case HWTSTAMP_TX_OFF:
-+		port->hwts_tx_en = 0;
-+		break;
-+	case HWTSTAMP_TX_ON:
-+		port->hwts_tx_en = 1;
-+		break;
-+	default:
-+		return -ERANGE;
-+	}
-+
-+	switch (cfg.rx_filter) {
-+	case HWTSTAMP_FILTER_NONE:
-+		port->hwts_rx_en = 0;
-+		break;
-+	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
-+		port->hwts_rx_en = PTP_SLAVE_MODE;
-+		__raw_writel(0, &regs->channel[ch].Ch_Control);
-+		break;
-+	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
-+		port->hwts_rx_en = PTP_MASTER_MODE;
-+		__raw_writel(MASTER_MODE, &regs->channel[ch].Ch_Control);
-+		break;
-+	default:
-+		return -ERANGE;
-+	}
-+
-+	/* Clear out any old time stamps. */
-+	__raw_writel(TX_SNAPSHOT_LOCKED | RX_SNAPSHOT_LOCKED,
-+		     &regs->channel[ch].Ch_Event);
-+
-+	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
-+}
- 
- static int ixp4xx_mdio_cmd(struct mii_bus *bus, int phy_id, int location,
- 			   int write, u16 cmd)
-@@ -573,6 +750,7 @@ static int eth_poll(struct napi_struct *napi, int budget)
- 
- 		debug_pkt(dev, "eth_poll", skb->data, skb->len);
- 
-+		do_rx_timestamp(port, skb);
- 		skb->protocol = eth_type_trans(skb, dev);
- 		dev->stats.rx_packets++;
- 		dev->stats.rx_bytes += skb->len;
-@@ -652,6 +830,7 @@ static int eth_xmit(struct sk_buff *skb, struct net_device *dev)
- 	void *mem;
- 	u32 phys;
- 	struct desc *desc;
-+	union skb_shared_tx *shtx;
- 
- #if DEBUG_TX
- 	printk(KERN_DEBUG "%s: eth_xmit\n", dev->name);
-@@ -665,6 +844,10 @@ static int eth_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	debug_pkt(dev, "eth_xmit", skb->data, skb->len);
- 
-+	shtx = skb_tx(skb);
-+	if (unlikely(shtx->hardware && port->hwts_tx_en))
-+		shtx->in_progress = 1;
-+
- 	len = skb->len;
- #ifdef __ARMEB__
- 	offset = 0; /* no need to keep alignment */
-@@ -728,6 +911,9 @@ static int eth_xmit(struct sk_buff *skb, struct net_device *dev)
- #if DEBUG_TX
- 	printk(KERN_DEBUG "%s: eth_xmit end\n", dev->name);
- #endif
-+
-+	do_tx_timestamp(port, skb);
-+
- 	return NETDEV_TX_OK;
- }
- 
-@@ -783,6 +969,9 @@ static int eth_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
- 	if (!netif_running(dev))
- 		return -EINVAL;
- 
-+	if (cpu_is_ixp46x() && cmd == SIOCSHWTSTAMP)
-+		return hwtstamp_ioctl(dev, req, cmd);
-+
- 	return phy_mii_ioctl(port->phydev, req, cmd);
- }
- 
-@@ -1171,6 +1360,11 @@ static int __devinit eth_init_one(struct platform_device *pdev)
- 	char phy_id[MII_BUS_ID_SIZE + 3];
- 	int err;
- 
-+	if (sk_chk_filter(ptp_filter, ARRAY_SIZE(ptp_filter))) {
-+		pr_err("ixp4xx_eth: bad ptp filter\n");
-+		return -EINVAL;
-+	}
-+
- 	if (!(dev = alloc_etherdev(sizeof(struct port))))
- 		return -ENOMEM;
- 
-diff --git a/drivers/ptp/Kconfig b/drivers/ptp/Kconfig
-index 3b7bd73..9fb35f6 100644
---- a/drivers/ptp/Kconfig
-+++ b/drivers/ptp/Kconfig
-@@ -48,4 +48,17 @@ config PTP_1588_CLOCK_GIANFAR
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called gianfar_ptp.
- 
-+config PTP_1588_CLOCK_IXP46X
-+	tristate "Intel IXP46x as PTP clock"
+ config DP83640_PHY
+ 	tristate "Driver for the National Semiconductor DP83640 PHYTER"
 +	depends on PTP_1588_CLOCK
-+	depends on IXP4XX_ETH
-+	help
-+	  This driver adds support for using the IXP46X as a PTP
++	depends on NETWORK_PHY_TIMESTAMPING
+ 	---help---
+ 	  Supports the DP83640 PHYTER with IEEE 1588 features.
+ 
++	  This driver adds support for using the DP83640 as a PTP
 +	  clock. This clock is only useful if your PTP programs are
 +	  getting hardware time stamps on the PTP Ethernet packets
 +	  using the SO_TIMESTAMPING API.
 +
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called ptp_ixp46x.
++	  In order for this to work, your MAC driver must also
++	  implement the the skb_tx_timetamp() and skb_rx_timetamp()
++	  functions.
 +
- endmenu
-diff --git a/drivers/ptp/Makefile b/drivers/ptp/Makefile
-index 1651d52..5018f58 100644
---- a/drivers/ptp/Makefile
-+++ b/drivers/ptp/Makefile
-@@ -4,3 +4,4 @@
- 
- obj-$(CONFIG_PTP_1588_CLOCK)		+= ptp_clock.o
- obj-$(CONFIG_PTP_1588_CLOCK_LINUX)	+= ptp_linux.o
-+obj-$(CONFIG_PTP_1588_CLOCK_IXP46X)	+= ptp_ixp46x.o
-diff --git a/drivers/ptp/ptp_ixp46x.c b/drivers/ptp/ptp_ixp46x.c
-new file mode 100644
-index 0000000..22c5bc3
---- /dev/null
-+++ b/drivers/ptp/ptp_ixp46x.c
-@@ -0,0 +1,231 @@
-+/*
-+ * PTP 1588 clock using the IXP46X
-+ *
-+ * Copyright (C) 2010 OMICRON electronics GmbH
-+ *
-+ *  This program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2 of the License, or
-+ *  (at your option) any later version.
-+ *
-+ *  This program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with this program; if not, write to the Free Software
-+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-+ */
-+#include <linux/device.h>
-+#include <linux/err.h>
-+#include <linux/init.h>
-+#include <linux/io.h>
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+
+ config STE10XP
+ 	depends on PHYLIB
+ 	tristate "Driver for STMicroelectronics STe10Xp PHYs"
+diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
+index a3217ea..21eadc3 100644
+--- a/drivers/net/phy/dp83640.c
++++ b/drivers/net/phy/dp83640.c
+@@ -26,6 +26,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/phy.h>
+ #include <linux/ptp_classify.h>
 +#include <linux/ptp_clock_kernel.h>
-+#include <mach/ixp46x_ts.h>
+ 
+ #include "dp83640_reg.h"
+ 
+@@ -45,10 +46,13 @@ struct rxts {
+ };
+ 
+ struct dp83640_private {
++	struct phy_device *phydev;
+ 	int hwts_tx_en;
+ 	int hwts_rx_en;
+ 	int layer;
+ 	int version;
++	/* protects PTP_TDR register from concurrent access */
++	spinlock_t ptp_tdr_lock;
+ 	/* protects extended registers from concurrent access */
+ 	spinlock_t extreg_lock;
+ 	int page;
+@@ -60,6 +64,9 @@ struct dp83640_private {
+ 
+ /* globals */
+ 
++static struct ptp_clock *dp83640_clock;
++DEFINE_SPINLOCK(clock_lock); /* protects the one and only dp83640_clock */
 +
-+DEFINE_SPINLOCK(register_lock);
-+
-+/*
-+ * Register access functions
-+ */
-+
-+static inline u32 ixp_read(volatile unsigned __iomem *addr)
+ static struct sock_filter ptp_filter[] = {
+ 	PTP_FILTER
+ };
+@@ -99,6 +106,129 @@ static void ext_write(struct phy_device *phydev, int page, u32 regnum, u16 val)
+ 	spin_unlock(&dp83640->extreg_lock);
+ }
+ 
++static int tdr_write(struct dp83640_private *dp83640,
++		     struct timespec *ts, u16 cmd)
 +{
-+	u32 val;
-+	val = __raw_readl(addr);
-+	return val;
++	struct phy_device *phydev = dp83640->phydev;
++
++	spin_lock(&dp83640->ptp_tdr_lock);
++
++	ext_write(phydev, PAGE4, PTP_TDR, ts->tv_nsec & 0xffff);/* ns[15:0] */
++	ext_write(phydev, PAGE4, PTP_TDR, ts->tv_nsec >> 16);   /* ns[31:16] */
++	ext_write(phydev, PAGE4, PTP_TDR, ts->tv_sec & 0xffff); /* sec[15:0] */
++	ext_write(phydev, PAGE4, PTP_TDR, ts->tv_sec >> 16);    /* sec[31:16] */
++
++	ext_write(phydev, PAGE4, PTP_CTL, cmd);
++
++	spin_unlock(&dp83640->ptp_tdr_lock);
++
++	return 0;
 +}
 +
-+static inline void ixp_write(volatile unsigned __iomem *addr, u32 val)
++/* ptp clock methods */
++
++static int ptp_dp83640_adjfreq(void *priv, s32 ppb)
 +{
-+	__raw_writel(val, addr);
-+}
-+
-+static u64 sys_time_read(struct ixp46x_ts_regs *regs)
-+{
-+	u64 ns;
-+	u32 lo, hi;
-+
-+	lo = ixp_read(&regs->SysTimeLo);
-+	hi = ixp_read(&regs->SysTimeHi);
-+
-+	ns = ((u64) hi) << 32;
-+	ns |= lo;
-+	ns <<= TICKS_NS_SHIFT;
-+
-+	return ns;
-+}
-+
-+static void sys_time_write(struct ixp46x_ts_regs *regs, u64 ns)
-+{
-+	u32 hi, lo;
-+
-+	ns >>= TICKS_NS_SHIFT;
-+	hi = ns >> 32;
-+	lo = ns & 0xffffffff;
-+
-+	ixp_write(&regs->SysTimeLo, lo);
-+	ixp_write(&regs->SysTimeHi, hi);
-+}
-+
-+/*
-+ * PTP clock operations
-+ */
-+
-+static int ptp_ixp_adjfreq(void *priv, s32 ppb)
-+{
-+	u64 adj;
-+	u32 diff, addend;
++	struct dp83640_private *dp83640 = priv;
++	struct phy_device *phydev = dp83640->phydev;
++	u64 rate;
 +	int neg_adj = 0;
-+	struct ixp46x_ts_regs *regs = priv;
++	u16 hi, lo;
 +
 +	if (!ppb)
 +		return 0;
@@ -508,145 +132,152 @@ index 0000000..22c5bc3
 +		neg_adj = 1;
 +		ppb = -ppb;
 +	}
-+	addend = DEFAULT_ADDEND;
-+	adj = addend;
-+	adj *= ppb;
-+	diff = div_u64(adj, 1000000000ULL);
++	rate = ppb;
++	rate <<= 26;
++	rate = div_u64(rate, 1953125);
 +
-+	addend = neg_adj ? addend - diff : addend + diff;
++	hi = (rate >> 16) & PTP_RATE_HI_MASK;
++	if (neg_adj)
++		hi |= PTP_RATE_DIR;
 +
-+	ixp_write(&regs->Addend, addend);
++	lo = rate & 0xffff;
 +
-+	return 0;
-+}
-+
-+static int ptp_ixp_adjtime(void *priv, struct timespec *ts)
-+{
-+	s64 delta, now;
-+	unsigned long flags;
-+	struct ixp46x_ts_regs *regs = priv;
-+
-+	delta = 1000000000LL * ts->tv_sec;
-+	delta += ts->tv_nsec;
-+
-+	spin_lock_irqsave(&register_lock, flags);
-+
-+	now = sys_time_read(regs);
-+	now += delta;
-+	sys_time_write(regs, now);
-+
-+	spin_unlock_irqrestore(&register_lock, flags);
++	ext_write(phydev, PAGE4, PTP_RATEH, hi);
++	ext_write(phydev, PAGE4, PTP_RATEL, lo);
 +
 +	return 0;
 +}
 +
-+static int ptp_ixp_gettime(void *priv, struct timespec *ts)
++static int ptp_dp83640_adjtime(void *priv, struct timespec *ts)
 +{
-+	u64 ns;
-+	u32 remainder;
-+	unsigned long flags;
-+	struct ixp46x_ts_regs *regs = priv;
-+
-+	spin_lock_irqsave(&register_lock, flags);
-+
-+	ns = sys_time_read(regs);
-+
-+	spin_unlock_irqrestore(&register_lock, flags);
-+
-+	ts->tv_sec = div_u64_rem(ns, 1000000000, &remainder);
-+	ts->tv_nsec = remainder;
-+	return 0;
++	return tdr_write(priv, ts, PTP_STEP_CLK);
 +}
 +
-+static int ptp_ixp_settime(void *priv, struct timespec *ts)
++static int ptp_dp83640_gettime(void *priv, struct timespec *ts)
 +{
-+	u64 ns;
-+	unsigned long flags;
-+	struct ixp46x_ts_regs *regs = priv;
++	struct dp83640_private *dp83640 = priv;
++	struct phy_device *phydev = dp83640->phydev;
++	unsigned int val[4];
 +
-+	ns = ts->tv_sec * 1000000000ULL;
-+	ns += ts->tv_nsec;
++	spin_lock(&dp83640->ptp_tdr_lock);
 +
-+	spin_lock_irqsave(&register_lock, flags);
++	ext_write(phydev, PAGE4, PTP_CTL, PTP_RD_CLK);
 +
-+	sys_time_write(regs, ns);
++	val[0] = ext_read(phydev, PAGE4, PTP_TDR); /* ns[15:0] */
++	val[1] = ext_read(phydev, PAGE4, PTP_TDR); /* ns[31:16] */
++	val[2] = ext_read(phydev, PAGE4, PTP_TDR); /* sec[15:0] */
++	val[3] = ext_read(phydev, PAGE4, PTP_TDR); /* sec[31:16] */
 +
-+	spin_unlock_irqrestore(&register_lock, flags);
++	spin_unlock(&dp83640->ptp_tdr_lock);
++
++	ts->tv_nsec = val[0] | (val[1] << 16);
++	ts->tv_sec  = val[2] | (val[3] << 16);
 +
 +	return 0;
 +}
 +
-+static int ptp_ixp_gettimer(void *priv, int index, struct itimerspec *ts)
++static int ptp_dp83640_settime(void *priv, struct timespec *ts)
 +{
-+	/* We do not offer any ancillary features at all. */
++	return tdr_write(priv, ts, PTP_LOAD_CLK);
++}
++
++static int ptp_dp83640_gettimer(void *priv, int index, struct itimerspec *ts)
++{
++	/* We do not (yet) offer any ancillary features. */
 +	return -EOPNOTSUPP;
 +}
 +
-+static int ptp_ixp_settimer(void *p, int i, int abs, struct itimerspec *ts)
++static int ptp_dp83640_settimer(void *p, int i, int abs, struct itimerspec *ts)
 +{
-+	/* We do not offer any ancillary features at all. */
++	/* We do not (yet) offer any ancillary features. */
 +	return -EOPNOTSUPP;
 +}
 +
-+static int ptp_ixp_enable(void *priv, struct ptp_clock_request *rq, int on)
++static int ptp_dp83640_enable(void *priv, struct ptp_clock_request *rq, int on)
 +{
-+	/* We do not offer any ancillary features at all. */
++	/* We do not (yet) offer any ancillary features. */
 +	return -EOPNOTSUPP;
 +}
 +
-+static struct ptp_clock_info ptp_ixp_caps = {
++static struct ptp_clock_info ptp_dp83640_caps = {
 +	.owner		= THIS_MODULE,
-+	.name		= "IXP46X timer",
-+	.max_adj	= 512000,
++	.name		= "dp83640 timer",
++	.max_adj	= 1953124,
 +	.n_alarm	= 0,
 +	.n_ext_ts	= 0,
 +	.n_per_out	= 0,
 +	.pps		= 0,
 +	.priv		= NULL,
-+	.adjfreq	= ptp_ixp_adjfreq,
-+	.adjtime	= ptp_ixp_adjtime,
-+	.gettime	= ptp_ixp_gettime,
-+	.settime	= ptp_ixp_settime,
-+	.gettimer	= ptp_ixp_gettimer,
-+	.settimer	= ptp_ixp_settimer,
-+	.enable		= ptp_ixp_enable,
++	.adjfreq	= ptp_dp83640_adjfreq,
++	.adjtime	= ptp_dp83640_adjtime,
++	.gettime	= ptp_dp83640_gettime,
++	.settime	= ptp_dp83640_settime,
++	.gettimer	= ptp_dp83640_gettimer,
++	.settimer	= ptp_dp83640_settimer,
++	.enable		= ptp_dp83640_enable,
 +};
 +
-+/* module operations */
++/* time stamping methods */
 +
-+static struct {
-+	struct ixp46x_ts_regs *regs;
-+	struct ptp_clock *ptp_clock;
-+} ixp_clock;
+ static int expired(struct rxts *rxts)
+ {
+ 	return time_after(jiffies, rxts->tmo);
+@@ -144,6 +274,7 @@ static int match(struct sk_buff *skb, unsigned int type, struct rxts *rxts)
+ static int dp83640_probe(struct phy_device *phydev)
+ {
+ 	struct dp83640_private *dp83640;
++	unsigned long flags;
+ 	int i;
+ 
+ 	if (sk_chk_filter(ptp_filter, ARRAY_SIZE(ptp_filter))) {
+@@ -155,8 +286,9 @@ static int dp83640_probe(struct phy_device *phydev)
+ 	if (!dp83640)
+ 		return -ENOMEM;
+ 
++	dp83640->phydev = phydev;
++	spin_lock_init(&dp83640->ptp_tdr_lock);
+ 	spin_lock_init(&dp83640->extreg_lock);
+-
+ 	INIT_LIST_HEAD(&dp83640->rxts);
+ 	INIT_LIST_HEAD(&dp83640->pool);
+ 
+@@ -165,12 +297,36 @@ static int dp83640_probe(struct phy_device *phydev)
+ 
+ 	phydev->priv = dp83640;
+ 
++	spin_lock_irqsave(&clock_lock, flags);
 +
-+static void __exit ptp_ixp_exit(void)
-+{
-+	ptp_clock_unregister(ixp_clock.ptp_clock);
-+}
++	if (!dp83640_clock) {
++		ptp_dp83640_caps.priv = dp83640;
++		dp83640_clock = ptp_clock_register(&ptp_dp83640_caps);
++		if (IS_ERR(dp83640_clock)) {
++			spin_unlock_irqrestore(&clock_lock, flags);
++			kfree(dp83640);
++			return PTR_ERR(dp83640_clock);
++		}
++	}
++	spin_unlock_irqrestore(&clock_lock, flags);
 +
-+static int __init ptp_ixp_init(void)
-+{
-+	ixp_clock.regs = 
-+		(struct ixp46x_ts_regs __iomem *)IXP4XX_TIMESYNC_BASE_VIRT;
+ 	return 0;
+ }
+ 
+ static void dp83640_remove(struct phy_device *phydev)
+ {
+ 	struct dp83640_private *dp83640 = phydev->priv;
++	unsigned long flags;
 +
-+	ptp_ixp_caps.priv = ixp_clock.regs;
++	spin_lock_irqsave(&clock_lock, flags);
 +
-+	ixp_clock.ptp_clock = ptp_clock_register(&ptp_ixp_caps);
++	if (ptp_dp83640_caps.priv == dp83640) {
++		ptp_clock_unregister(dp83640_clock);
++		dp83640_clock = NULL;
++		ptp_dp83640_caps.priv = NULL;
++	}
++	spin_unlock_irqrestore(&clock_lock, flags);
 +
-+	if (IS_ERR(ixp_clock.ptp_clock))
-+		return PTR_ERR(ixp_clock.ptp_clock);
-+
-+	ixp_write(&ixp_clock.regs->Addend, DEFAULT_ADDEND);
-+
-+	return 0;
-+}
-+
-+module_init(ptp_ixp_init);
-+module_exit(ptp_ixp_exit);
-+
-+MODULE_AUTHOR("Richard Cochran <richard.cochran@omicron.at>");
-+MODULE_DESCRIPTION("PTP clock using the IXP46X timer");
-+MODULE_LICENSE("GPL");
+ 	kfree(dp83640);
+ }
+ 
 -- 
 1.6.3.3
 
