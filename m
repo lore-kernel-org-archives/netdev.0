@@ -1,31 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ethtool: Revert incorrect indentation changes
-Date: Mon, 14 Jun 2010 23:13:41 -0700 (PDT)
-Message-ID: <20100614.231341.183052688.davem@davemloft.net>
-References: <1276541606.2074.12.camel@achroite.uk.solarflarecom.com>
+Subject: Re: [PATCH net-next-2.6] loopback: Implement 64bit stats on 32bit
+ arches
+Date: Mon, 14 Jun 2010 23:14:12 -0700 (PDT)
+Message-ID: <20100614.231412.39191304.davem@davemloft.net>
+References: <1276531162.2478.121.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: chavey@google.com, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35922
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35927
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751946Ab0FOGN3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 02:13:29 -0400
-In-Reply-To: <1276541606.2074.12.camel@achroite.uk.solarflarecom.com>
+	by vger.kernel.org with ESMTP id S1750874Ab0FOGOB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 02:14:01 -0400
+In-Reply-To: <1276531162.2478.121.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Mon, 14 Jun 2010 19:53:26 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 14 Jun 2010 17:59:22 +0200
 
-> commit 97f8aefbbfb5aa5c9944e5fa8149f1fdaf71c7b6 "net: fix ethtool
-> coding style errors and warnings" changed the indentation of several
-> macro definitions in ethtool.h.  These definitions line up in the diff
-> where there is an extra character at the start of each line, but not
-> in the resulting file.
+> Uses a seqcount_t to synchronize stat producer and consumer, for packets
+> and bytes counter, now u64 types.
 > 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> (dropped counter being rarely used, stay a native "unsigned long" type)
+> 
+> No noticeable performance impact on x86, as it only adds two increments
+> per frame. It might be more expensive on arches where smp_wmb() is not
+> free.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied.
+Applied, but I suspect we might end up eventually needing to
+abstract this kind of technique in a common place so other
+spots can use it.
