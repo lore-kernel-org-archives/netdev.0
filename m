@@ -1,38 +1,41 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: IPv6 stops working after ethtool diagnostic
-Date: Tue, 15 Jun 2010 12:25:39 -0600
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FF43AAD92@rrsmsx501.amr.corp.intel.com>
-References: <EA929A9653AAE14F841771FB1DE5A1365FF43AAD0F@rrsmsx501.amr.corp.intel.com>
- <1276625792.2078.12.camel@achroite.uk.solarflarecom.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC patch net/next] net: Hoist assigns from if?
+Date: Tue, 15 Jun 2010 11:28:05 -0700
+Message-ID: <1276626485.1586.96.camel@Joe-Laptop.home>
+References: <1276580526.30434.330.camel@edumazet-laptop>
+	 <20100614.225910.104075511.davem@davemloft.net>
+	 <1276618932.1586.64.camel@Joe-Laptop.home>
+	 <20100615.102305.28825768.davem@davemloft.net>
+	 <1276625060.2541.166.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:40744 "EHLO mga03.intel.com"
+Received: from mail.perches.com ([173.55.12.10]:1144 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755553Ab0FOSZl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 14:25:41 -0400
-In-Reply-To: <1276625792.2078.12.camel@achroite.uk.solarflarecom.com>
-Content-Language: en-US
+	id S1754268Ab0FOS2I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jun 2010 14:28:08 -0400
+In-Reply-To: <1276625060.2541.166.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings wrote:
-> On Tue, 2010-06-15 at 12:05 -0600, Tantilov, Emil S wrote:
->> We ran into a problem on net-next where IPv6 traffic fails after
->> running ethtool -t: 
-> 
-> Are you going to report which driver is responsible for eth0 or are
-> are you going to let us guess?
+On Tue, 2010-06-15 at 20:04 +0200, Eric Dumazet wrote:
+> I am very old school, and use a text editor I co-wrote in
+> 1986 ;)
 
-Yeah - should've mention that. In my tests so far this does not appear to be driver specific issue. I was able to reproduce with e1000e, igb, ixgbe and bnx2.
+I gave up writing my own text editors in the 70's,
+but finger habits are hard to break.
 
-Thanks,
-Emil
+> Hmm ?
+
+Move up to the (late?) 80's... ;)
+
+> Oh well...
+
+Perhaps a new git blame based command would be useful
+	git blame -L <range> ---history 
+kind of an expanded, human friendly --incremental.
+Show how the file range appeared with each previous revision.
 
