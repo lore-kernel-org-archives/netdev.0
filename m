@@ -1,55 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [v2 Patch 1/2] s2io: add dynamic LRO disable support
-Date: Tue, 15 Jun 2010 10:21:43 -0700 (PDT)
-Message-ID: <20100615.102143.246547843.davem@davemloft.net>
-References: <FCA91A92EE52B041906A0358FC28FCC38EF13E71B8@FRE1EXCH02.hq.exar.com>
-	<4C173932.7010101@redhat.com>
-	<FCA91A92EE52B041906A0358FC28FCC38EF15A949F@FRE1EXCH02.hq.exar.com>
+Subject: Re: [RFC patch net/next] net: Hoist assigns from if?
+Date: Tue, 15 Jun 2010 10:23:05 -0700 (PDT)
+Message-ID: <20100615.102305.28825768.davem@davemloft.net>
+References: <1276580526.30434.330.camel@edumazet-laptop>
+	<20100614.225910.104075511.davem@davemloft.net>
+	<1276618932.1586.64.camel@Joe-Laptop.home>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, bhutchings@solarflare.com,
-	netdev@vger.kernel.org, nhorman@redhat.com, sgruszka@redhat.com,
-	herbert.xu@redhat.com
-To: Ramkrishna.Vepa@exar.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56072
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57795
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754397Ab0FORVc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 13:21:32 -0400
-In-Reply-To: <FCA91A92EE52B041906A0358FC28FCC38EF15A949F@FRE1EXCH02.hq.exar.com>
+	by vger.kernel.org with ESMTP id S1757991Ab0FORWy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 13:22:54 -0400
+In-Reply-To: <1276618932.1586.64.camel@Joe-Laptop.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>
-Date: Tue, 15 Jun 2010 09:07:47 -0700
+From: Joe Perches <joe@perches.com>
+Date: Tue, 15 Jun 2010 09:22:12 -0700
 
-> Yes, this will work.
+> On Mon, 2010-06-14 at 22:59 -0700, David Miller wrote:
+>> But that to me just means that until git has a friendlier way to
+>> walk backwards through blame information for a line to skip past
+>> the cleanup crapola, we shouldn't make a lot of these kinds of
+>> changes.
 > 
-> Thanks,
-> Ram
-> 
-> The information and any attached documents contained in this message
-> may be confidential and/or legally privileged.  The message is
-> intended solely for the addressee(s).  If you are not the intended
-> recipient, you are hereby notified that any use, dissemination, or
-> reproduction is strictly prohibited and may be unlawful.  If you are
-> not the intended recipient, please contact the sender immediately by
-> return e-mail and destroy all copies of the original message.
+> What do you think is missing from the gitk file viewer?
 
-Please, your legal notice is 10 times larger than what you're actually
-saying.
+I don't use the gitk file viewer, I use "git blame".
 
-That is rediculious.  Even more rediculious is using such a notice for
-a posting to a public mailing list that is published and duplicated
-hundreds and hundreds of times to public archive sites and elsewhere.
+Requiring a GUI to get at the information I need is unacceptable.  I
+often work remotely and use text consoles for everything, even email
+and web browsing.
 
-Your notice has no meaning in this context, so not only is it wasteful
-and annoying, it's useless.
-
-Please us a gmail or yahoo email account to post to these mailing lists
-if you can't avoid attaching this legal notice to your postings here.
-
-It's wasting bandwidth and people's time unnecessarily.
-
-Thank you.
