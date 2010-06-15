@@ -1,60 +1,55 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH v5] netfilter: Xtables: idletimer target implementation
-Date: Tue, 15 Jun 2010 13:54:25 +0200
-Message-ID: <4C1769F1.40506@trash.net>
-References: <1276593679-9576-1-git-send-email-luciano.coelho@nokia.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: Introduce u64_stats_sync
+ infrastructure
+Date: Tue, 15 Jun 2010 14:12:52 +0200
+Message-ID: <1276603972.2541.99.camel@edumazet-laptop>
+References: <1276531162.2478.121.camel@edumazet-laptop>
+	 <20100614.231412.39191304.davem@davemloft.net>
+	 <1276596856.2541.84.camel@edumazet-laptop> <20100615102541.GH6138@laptop>
+	 <1276598605.2541.96.camel@edumazet-laptop>  <20100615110413.GJ6138@laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	jengelh@medozas.de, Timo Teras <timo.teras@iki.fi>
-To: Luciano Coelho <luciano.coelho@nokia.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1276593679-9576-1-git-send-email-luciano.coelho@nokia.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	bhutchings@solarflare.com
+To: Nick Piggin <npiggin@suse.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:43123 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753246Ab0FOMSt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 08:18:49 -0400
+Received: by mail-wy0-f174.google.com with SMTP id 40so4729058wyb.19
+        for <netdev@vger.kernel.org>; Tue, 15 Jun 2010 05:18:48 -0700 (PDT)
+In-Reply-To: <20100615110413.GJ6138@laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Two final comments:
+Le mardi 15 juin 2010 =C3=A0 21:04 +1000, Nick Piggin a =C3=A9crit :
 
-Luciano Coelho wrote:
-> diff --git a/include/linux/netfilter/xt_IDLETIMER.h b/include/linux/netfilter/xt_IDLETIMER.h
-> new file mode 100644
-> index 0000000..3e1aa1b
-> --- /dev/null
-> +++ b/include/linux/netfilter/xt_IDLETIMER.h
+> So if you have a regular seqlock, the sequence:
+>=20
+> write_seqcount_begin
+> stat1++
+> stat2--
+> write_seqcount_end
+>=20
+> do read_seqcount_begin
+>   sum =3D stat1+stat2;
+> while (read_seqcount_retry)
+> BUG_ON(sum !=3D 0);
+>=20
+> This code is OK. But if it is using your stat sync, then it is buggy.
+> This is obvious to you of course, but someone who doesn't consider
+> the implementation might get caught out.
+>=20
+> I guess all my other points are properties of seqcount code itself,
+> but they are not documented really well with the seqlock API
+> unfortunately.
+>=20
 
-This file needs to be added to Kbuild to make sure it gets installed
-during "make headers_install".
+Yep, not counting fact that stat_sync is a noop on 64 bits anyway, so
+external synchronization is pretty much needed (and probably already
+present on all path were I need this stuff. If not, it must be fixed)
 
-> +static void idletimer_tg_destroy(const struct xt_tgdtor_param *par)
-> +{
-> +	const struct idletimer_tg_info *info = par->targinfo;
-> +
-> +	pr_debug("destroy targinfo %s\n", info->label);
-> +
-> +	mutex_lock(&list_mutex);
-> +	if (!info->timer) {
->   
 
-This doesn't seem to be possible.
-
-> +		mutex_unlock(&list_mutex);
-> +		return;
-> +	}
-> +
-> +	if (--info->timer->refcnt == 0) {
-> +		pr_debug("deleting timer %s\n", info->label);
-> +
-> +		list_del(&info->timer->entry);
-> +		del_timer_sync(&info->timer->timer);
-> +		sysfs_remove_file(idletimer_tg_kobj, &info->timer->attr.attr);
-> +		kfree(info->timer->attr.attr.name);
-> +		kfree(info->timer);
-> +	} else {
-> +		pr_debug("decreased refcnt of timer %s to %u\n",
-> +			 info->label, info->timer->refcnt);
-> +	}
-> +
-> +	mutex_unlock(&list_mutex);
-> +}
 
