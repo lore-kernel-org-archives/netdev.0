@@ -1,39 +1,64 @@
 From: kaber@trash.net
-Subject: [PATCH 00/17] netfilter: netfilter update
-Date: Tue, 15 Jun 2010 17:38:26 +0200
-Message-ID: <1276616323-20880-1-git-send-email-kaber@trash.net>
+Subject: [PATCH 13/17] netfilter: kill redundant check code in which setting ip_summed value
+Date: Tue, 15 Jun 2010 17:38:39 +0200
+Message-ID: <1276616323-20880-14-git-send-email-kaber@trash.net>
+References: <1276616323-20880-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42165 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:42187 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757631Ab0FOP3x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 11:29:53 -0400
+	with ESMTP id S932281Ab0FOP34 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 11:29:56 -0400
+In-Reply-To: <1276616323-20880-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-following is a first netfilter update for net-next, containing:
+From: Shan Wei <shanwei@cn.fujitsu.com>
 
-- RCU conversions for nfnetlink_log, nfnetlink_queue, ip_queue, ip6_queue
-  and ipt_CLUSTERIP from Eric
+If the returned csum value is 0, We has set ip_summed with
+CHECKSUM_UNNECESSARY flag in __skb_checksum_complete_head().
 
-- conversion of the untracked conntrack structure to per-cpu data, from Eric
+So this patch kills the check and changes to return to upper
+caller directly.
 
-- removal of the nth_lock spinlock, from Eric
+Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ net/ipv4/netfilter.c |    4 +---
+ net/ipv6/netfilter.c |    4 +---
+ 2 files changed, 2 insertions(+), 6 deletions(-)
 
-- conversion of bridge netfilter to skb_set_noref, from Eric
+diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
+index 07de855..acd1ea8 100644
+--- a/net/ipv4/netfilter.c
++++ b/net/ipv4/netfilter.c
+@@ -212,9 +212,7 @@ static __sum16 nf_ip_checksum_partial(struct sk_buff *skb, unsigned int hook,
+ 		skb->csum = csum_tcpudp_nofold(iph->saddr, iph->daddr, protocol,
+ 					       skb->len - dataoff, 0);
+ 		skb->ip_summed = CHECKSUM_NONE;
+-		csum = __skb_checksum_complete_head(skb, dataoff + len);
+-		if (!csum)
+-			skb->ip_summed = CHECKSUM_UNNECESSARY;
++		return __skb_checksum_complete_head(skb, dataoff + len);
+ 	}
+ 	return csum;
+ }
+diff --git a/net/ipv6/netfilter.c b/net/ipv6/netfilter.c
+index a74951c..7155b24 100644
+--- a/net/ipv6/netfilter.c
++++ b/net/ipv6/netfilter.c
+@@ -151,9 +151,7 @@ static __sum16 nf_ip6_checksum_partial(struct sk_buff *skb, unsigned int hook,
+ 							 protocol,
+ 							 csum_sub(0, hsum)));
+ 		skb->ip_summed = CHECKSUM_NONE;
+-		csum = __skb_checksum_complete_head(skb, dataoff + len);
+-		if (!csum)
+-			skb->ip_summed = CHECKSUM_UNNECESSARY;
++		return __skb_checksum_complete_head(skb, dataoff + len);
+ 	}
+ 	return csum;
+ };
+-- 
+1.7.0.4
 
-- a new IDLETIMER target, which can be used to trigger sysfs notifications
-  when a certain xtables rule hasn't been hit for a specific time, from
-  Luciano Coelho
-
-- removal of some atomic ops in netfilter IPv6 defragmentation, from Shan Wei
-
-- minor cleanups in xt_sctp and the netfilter checksumming function, from
-  Shan Wei
-
-Please pull from:
-
-git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
-
-Thanks!
