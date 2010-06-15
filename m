@@ -1,54 +1,39 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] bridge: fdb cleanup runs too often
-Date: Tue, 15 Jun 2010 09:14:12 -0700
-Message-ID: <20100615091412.17e0d656@nehalam>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC patch net/next] net: Hoist assigns from if?
+Date: Tue, 15 Jun 2010 09:22:12 -0700
+Message-ID: <1276618932.1586.64.camel@Joe-Laptop.home>
+References: <1276561234.4897.38.camel@Joe-Laptop.home>
+	 <1276580526.30434.330.camel@edumazet-laptop>
+	 <20100614.225910.104075511.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:37386 "EHLO mail.vyatta.com"
+Received: from mail.perches.com ([173.55.12.10]:1135 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752358Ab0FOQOO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jun 2010 12:14:14 -0400
+	id S1755925Ab0FOQWP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jun 2010 12:22:15 -0400
+In-Reply-To: <20100614.225910.104075511.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 2010-06-14 at 22:59 -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 15 Jun 2010 07:42:06 +0200
+> > It's hard to point out the origin of a particular
+> > bug/code, and we have to spend precious time playing with complex git
+> > commands to go over cleanup patches.
 
-It is common in end-node, non STP bridges to set forwarding
-delay to zero; which causes the forwarding database cleanup
-to run every clock tick. Change to run only as soon as needed
-or at next ageing timer interval which ever is sooner.
+Eric, can you explain your process please.
 
-Use round_jiffies_up macro rather than attempting round up
-by changing value.
+[]
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> But that to me just means that until git has a friendlier way to
+> walk backwards through blame information for a line to skip past
+> the cleanup crapola, we shouldn't make a lot of these kinds of
+> changes.
 
----
-This is 2.6.35 bug fix, and should also be considered
-for stable because of the performance impact.
+What do you think is missing from the gitk file viewer?
 
---- a/net/bridge/br_fdb.c	2010-06-15 08:47:57.624465674 -0700
-+++ b/net/bridge/br_fdb.c	2010-06-15 08:53:45.407855065 -0700
-@@ -128,7 +128,7 @@ void br_fdb_cleanup(unsigned long _data)
- {
- 	struct net_bridge *br = (struct net_bridge *)_data;
- 	unsigned long delay = hold_time(br);
--	unsigned long next_timer = jiffies + br->forward_delay;
-+	unsigned long next_timer = jiffies + br->ageing_time;
- 	int i;
- 
- 	spin_lock_bh(&br->hash_lock);
-@@ -149,9 +149,7 @@ void br_fdb_cleanup(unsigned long _data)
- 	}
- 	spin_unlock_bh(&br->hash_lock);
- 
--	/* Add HZ/4 to ensure we round the jiffies upwards to be after the next
--	 * timer, otherwise we might round down and will have no-op run. */
--	mod_timer(&br->gc_timer, round_jiffies(next_timer + HZ/4));
-+	mod_timer(&br->gc_timer, round_jiffies_up(next_timer));
- }
- 
- /* Completely flush all dynamic entries in forwarding database.*/
