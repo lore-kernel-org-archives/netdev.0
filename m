@@ -1,50 +1,42 @@
-From: "Yaniv Rosner" <yaniv.rosner@broadcom.com>
-Subject: RE: [net-next PATCH] bnx2x: Fix link problem with some DACs
-Date: Mon, 14 Jun 2010 23:12:00 -0700
-Message-ID: <41FDA5AFCC66094F83A3D9545495A2A410711A024D@SJEXCHCCR01.corp.ad.broadcom.com>
-References: <1276511188.13056.26.camel@lb-tlvb-yanivr.il.broadcom.com>
- <20100614.230728.189694464.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] ipv6: RCU changes in ipv6_get_mtu() and
+ ip6_dst_hoplimit()
+Date: Tue, 15 Jun 2010 08:12:37 +0200
+Message-ID: <1276582357.30434.332.camel@edumazet-laptop>
+References: <1276526780.2478.101.camel@edumazet-laptop>
+	 <4C164840.5010900@yoshifuji.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: YOSHIFUJI Hideaki <hideaki@yoshifuji.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4637 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751576Ab0FOGMO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 02:12:14 -0400
-In-Reply-To: <20100614.230728.189694464.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-ww0-f46.google.com ([74.125.82.46]:42866 "EHLO
+	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751576Ab0FOGMo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 02:12:44 -0400
+Received: by wwb18 with SMTP id 18so4456730wwb.19
+        for <netdev@vger.kernel.org>; Mon, 14 Jun 2010 23:12:42 -0700 (PDT)
+In-Reply-To: <4C164840.5010900@yoshifuji.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sure Dave,
-I'll fix and send it again.
+Le mardi 15 juin 2010 =C3=A0 00:18 +0900, YOSHIFUJI Hideaki a =C3=A9cri=
+t :
+> (2010/06/14 23:46), Eric Dumazet wrote:
+> > Use RCU to avoid atomic ops on idev refcnt in ipv6_get_mtu()
+> > and ip6_dst_hoplimit()
+> >
+> > Signed-off-by: Eric Dumazet<eric.dumazet@gmail.com>
+> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+>=20
+> --yoshfuji
 
------Original Message-----
-From: David Miller [mailto:davem@davemloft.net] 
-Sent: Tuesday, June 15, 2010 9:07 AM
-To: Yaniv Rosner
-Cc: netdev@vger.kernel.org
-Subject: Re: [net-next PATCH] bnx2x: Fix link problem with some DACs
+Gah, sorry not having CC you at least for ipv6 stuff !
 
-From: "Yaniv Rosner" <yanivr@broadcom.com>
-Date: Mon, 14 Jun 2010 13:26:28 +0300
+Thanks !
 
-> -			/* Set 2-wire transfer rate to 400Khz since 100Khz
-> -			is not operational */
-> +			/* Set 2-wire transfer rate of SFP+ module EEPROM
-> +			to 100Khz since some DACs(direct attached cables) do
-> +			not work at 400Khz.*/
-
-This is not the correct way to format a multi-line comment.
-It should be:
-
-			/* Set 2-wire transfer rate of SFP+ module EEPROM
-			 * to 100Khz since some DACs(direct attached cables) do
-			 * not work at 400Khz.
-			 */
 
 
