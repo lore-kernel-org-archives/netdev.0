@@ -1,54 +1,43 @@
-From: kaber@trash.net
-Subject: [PATCH 04/17] netfilter: xt_rateest: Better struct xt_rateest layout
-Date: Tue, 15 Jun 2010 17:38:30 +0200
-Message-ID: <1276616323-20880-5-git-send-email-kaber@trash.net>
-References: <1276616323-20880-1-git-send-email-kaber@trash.net>
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1276616323-20880-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: "Jan-Bernd Themann" <ossthema@de.ibm.com>
+Subject: [PATCH 1/2] ehea: fix delayed packet processing
+Date: Tue, 15 Jun 2010 17:35:16 +0200
+Message-ID: <201006151735.17258.ossthema@de.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	linux-kernel@vger.kernel.org, tklein@linux.ibm.com,
+	Andre Detsch <adetsch@br.ibm.com>, themann@de.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
+In the eHEA poll function an rmb() is required. Without that some packets
+on the receive queue are not seen and thus delayed until the next interrupt
+is handled for the same receive queue.
 
-We currently dirty two cache lines in struct xt_rateest, this hurts SMP
-performance.
+Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
 
-This patch moves lock/bstats/rstats at beginning of structure so that
-they share a single cache line.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/net/netfilter/xt_rateest.h |   10 +++++++---
- 1 files changed, 7 insertions(+), 3 deletions(-)
+Patch created against 2.6.35-rc3
 
-diff --git a/include/net/netfilter/xt_rateest.h b/include/net/netfilter/xt_rateest.h
-index ddbf37e..b1d780e 100644
---- a/include/net/netfilter/xt_rateest.h
-+++ b/include/net/netfilter/xt_rateest.h
-@@ -2,13 +2,17 @@
- #define _XT_RATEEST_H
+ drivers/net/ehea/ehea_main.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
+index f547894..fd890fa 100644
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -867,6 +867,7 @@ static int ehea_poll(struct napi_struct *napi, int budget)
+ 		ehea_reset_cq_ep(pr->send_cq);
+ 		ehea_reset_cq_n1(pr->recv_cq);
+ 		ehea_reset_cq_n1(pr->send_cq);
++		rmb();
+ 		cqe = ehea_poll_rq1(pr->qp, &wqe_index);
+ 		cqe_skb = ehea_poll_cq(pr->send_cq);
  
- struct xt_rateest {
-+	/* keep lock and bstats on same cache line to speedup xt_rateest_tg() */
-+	struct gnet_stats_basic_packed	bstats;
-+	spinlock_t			lock;
-+	/* keep rstats and lock on same cache line to speedup xt_rateest_mt() */
-+	struct gnet_stats_rate_est	rstats;
-+
-+	/* following fields not accessed in hot path */
- 	struct hlist_node		list;
- 	char				name[IFNAMSIZ];
- 	unsigned int			refcnt;
--	spinlock_t			lock;
- 	struct gnet_estimator		params;
--	struct gnet_stats_rate_est	rstats;
--	struct gnet_stats_basic_packed	bstats;
- };
- 
- extern struct xt_rateest *xt_rateest_lookup(const char *name);
 -- 
-1.7.0.4
-
+1.7.0
