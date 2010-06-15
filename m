@@ -1,82 +1,36 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH 05/12] phylib: Allow reading and writing a mii bus from
-	atomic context.
-Date: Tue, 15 Jun 2010 12:29:15 -0600
-Message-ID: <AANLkTin8RI4UKzA58k_qER_urdwnD037u5GZrVQS8IoS@mail.gmail.com>
-References: <cover.1276615626.git.richard.cochran@omicron.at>
-	<1b8219e7d7993d0e8204b94e959477e3007534ce.1276615626.git.richard.cochran@omicron.at>
-	<AANLkTikeae2t4KmnawOCo2LqfSI57BKjNnUayY09DfEC@mail.gmail.com>
-	<20100615170806.GB10668@riccoc20.at.omicron.at>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [0/8] netpoll/bridge fixes
+Date: Tue, 15 Jun 2010 11:39:40 -0700 (PDT)
+Message-ID: <20100615.113940.245399246.davem@davemloft.net>
+References: <20100610145915.721a86b7@nehalam>
+	<20100610224839.GA22469@gondor.apana.org.au>
+	<20100611021142.GA24490@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	linuxppc-dev@lists.ozlabs.org,
-	linux-arm-kernel@lists.infradead.org,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, mst@redhat.com, frzhang@redhat.com,
+	netdev@vger.kernel.org, amwang@redhat.com, mpm@selenic.com
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:47923 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754716Ab0FOS3g convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 14:29:36 -0400
-Received: by gye5 with SMTP id 5so3438840gye.19
-        for <netdev@vger.kernel.org>; Tue, 15 Jun 2010 11:29:35 -0700 (PDT)
-In-Reply-To: <20100615170806.GB10668@riccoc20.at.omicron.at>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47028
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757391Ab0FOSja (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 14:39:30 -0400
+In-Reply-To: <20100611021142.GA24490@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 15, 2010 at 11:08 AM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> On Tue, Jun 15, 2010 at 10:43:08AM -0600, Grant Likely wrote:
->> On Tue, Jun 15, 2010 at 10:08 AM, Richard Cochran
->> <richardcochran@gmail.com> wrote:
->> > In order to support hardware time stamping from a PHY, it is neces=
-sary to
->> > read from the PHY while running in_interrupt(). This patch allows =
-a mii
->> > bus to operate in an atomic context. An mii_bus driver may declare=
- itself
->> > capable for this mode. Drivers which do not do this will remain wi=
-th the
->> > default that bus operations may sleep.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Fri, 11 Jun 2010 12:11:42 +1000
+
+> On Fri, Jun 11, 2010 at 08:48:39AM +1000, Herbert Xu wrote:
+>> On Thu, Jun 10, 2010 at 02:59:15PM -0700, Stephen Hemminger wrote:
 >> >
->> > Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
->>
->> Last I checked, the MDIO bus is very slow. =A0Is this really a good
->> idea? =A0How much latency does MDIO access have on the hardware you =
-are
->> working with?
->
-> Yes, MDIO access is slow, and it can vary (eg bit banging
-> implementations). It clear that getting PHY timestamps is costly, but
-> for applications that want PTP synchronization, one is willing to pay
-> the price.
->
->> I also don't like the idea of taking a spin lock during MDIO
->> operations, and the dual locking mode in the core code.
->
-> Originally, the phylib used a spinlock for this. It was replaced with
-> a mutex in 35b5f6b1a82b5c586e0b24c711dc6ba944e88ef1 in order to
-> accommodate mdio busses that may need to sleep. So, keeping the optio=
-n
-> to use a spinlock is similar to the previous implementation.
+>> > Okay, then add a comment where in_irq is used?
+>> 
+>> Actually let me put it into a wrapper.  I'll respin the patches.
+> 
+> OK here is a repost.  And this time it really is 8 patches :)
+> I've tested it lightly.
 
-That's right, and I fully agree with that change.  To me, going back
-to allowing spin locks is a regression because it adds a new source of
-scheduling latency.  Using a mutex forces users to take into account
-the slow nature of MDIO access.  For existing callers, this isn't a
-problem because they already are designed for this characteristic.  A
-new user which depends on atomic access should use a different API
-which doesn't take the lock with the understanding that it is may
-return a failure if it doesn't support it or if it cannot perform the
-operation atomically.
-
-That still leaves the troubling MDIO induced latency issue.
-
-g.
-
---=20
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
+All applied to net-next-2.6, thanks Herbert.
