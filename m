@@ -1,40 +1,44 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next-2.6 3/3] bridge: use rx_handler_data pointer to
- store net_bridge_port pointer V2
-Date: Tue, 15 Jun 2010 09:30:35 -0700
-Message-ID: <20100615093035.6f54c085@nehalam>
-References: <20100610133412.GC2618@psychotron.lab.eng.brq.redhat.com>
-	<20100610133628.GF2618@psychotron.lab.eng.brq.redhat.com>
-	<20100615132833.GB3797@psychotron.lab.eng.brq.redhat.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 03/12] phylib: add a driver method for the
+ SIOCSHWTSTAMP ioctl.
+Date: Tue, 15 Jun 2010 18:34:09 +0200
+Message-ID: <20100615163409.GA10668@riccoc20.at.omicron.at>
+References: <cover.1276615626.git.richard.cochran@omicron.at>
+ <77fe18d640e35dcbfad1e117a4321f935500d5ac.1276615626.git.richard.cochran@omicron.at>
+ <AANLkTiml5FyHstY-0ZPHxFDvA349BZv3TeX9gXtURFFN@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net,
-	eric.dumazet@gmail.com
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	linuxppc-dev@lists.ozlabs.org,
+	linux-arm-kernel@lists.infradead.org,
+	Krzysztof Halasa <khc@pm.waw.pl>
+To: Grant Likely <grant.likely@secretlab.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:52788 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755971Ab0FOQai (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jun 2010 12:30:38 -0400
-In-Reply-To: <20100615132833.GB3797@psychotron.lab.eng.brq.redhat.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:60755 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754025Ab0FOQdT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 12:33:19 -0400
+Received: by fxm10 with SMTP id 10so287079fxm.19
+        for <netdev@vger.kernel.org>; Tue, 15 Jun 2010 09:33:18 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <AANLkTiml5FyHstY-0ZPHxFDvA349BZv3TeX9gXtURFFN@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 15 Jun 2010 15:28:34 +0200
-Jiri Pirko <jpirko@redhat.com> wrote:
+On Tue, Jun 15, 2010 at 10:27:59AM -0600, Grant Likely wrote:
+> On Tue, Jun 15, 2010 at 10:08 AM, Richard Cochran
+> <richardcochran@gmail.com> wrote:
+> > This patch adds a phy driver method for configuring hardware time stamping.
+> > Drivers may optionally implement this function.
+> >
+> > Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
+> 
+> Adding an ioctl to the userspace ABI.  Make sure you cc: linux-kernel
+> on the next spin of this series.
 
-> diff --git a/drivers/net/ksz884x.c b/drivers/net/ksz884x.c
-> index 7805bbf..e7f4703 100644
-> --- a/drivers/net/ksz884x.c
-> +++ b/drivers/net/ksz884x.c
-> @@ -5718,7 +5718,7 @@ static void dev_set_promiscuous(struct net_device *dev, struct dev_priv *priv,
->  		 * from the bridge.
->  		 */
->  		if ((hw->features & STP_SUPPORT) && !promiscuous &&
-> -				dev->br_port) {
-> +		    dev->priv_flags & IFF_BRIDGE_PORT) {
+Not sure what you mean. SIOCSHWTSTAMP is a standard socket option as
+of 2.6.30. The patch just makes it possible for PHY drivers to
+implement this option.
 
-I like this patch except for one thing. The mask here should be surrounded
-by paren's to avoid the possible confusion about && and & in same if
-statement.  The C precedence rules allow this but humans get confused.
+Richard
+
