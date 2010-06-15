@@ -1,282 +1,78 @@
-From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: [PATCH 2/2] Driver core: reduce duplicated code
-Date: Tue, 15 Jun 2010 10:47:56 +0200
-Message-ID: <1276591677-4678-2-git-send-email-u.kleine-koenig@pengutronix.de>
-References: <1276591677-4678-1-git-send-email-u.kleine-koenig@pengutronix.de>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch 2/2] mlx4: add dynamic LRO disable support
+Date: Tue, 15 Jun 2010 16:53:27 +0800
+Message-ID: <4C173F87.7000704@redhat.com>
+References: <20100603034303.5305.55552.sendpatchset@localhost.localdomain> <20100603034312.5305.61000.sendpatchset@localhost.localdomain> <1275568622.2870.89.camel@localhost> <4C085D45.6040001@redhat.com> <1275661552.2095.13.camel@achroite.uk.solarflarecom.com> <4C0F5D97.5030605@redhat.com> <20100609104950.GB2599@dhcp-lab-161.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Greg Kroah-Hartman <gregkh@suse.de>,
-	Magnus Damm <damm@opensource.se>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Paul Mundt <lethal@linux-sh.org>,
-	Dmitry Torokhov <dtor@mail.ru>,
-	=?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>,
-	Eric Miao <eric.y.miao@gmail.com>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1276591677-4678-1-git-send-email-u.kleine-koenig@pengutronix.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
+	herbert.xu@redhat.com, nhorman@redhat.com, davem@davemloft.net
+To: Stanislaw Gruszka <sgruszka@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:49028 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753160Ab0FOIt1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jun 2010 04:49:27 -0400
+In-Reply-To: <20100609104950.GB2599@dhcp-lab-161.englab.brq.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This makes the two similar functions platform_device_register_simple
-and platform_device_register_data one line inline functions using a new
-generic function platform_device_register_resndata.
+On 06/09/10 18:49, Stanislaw Gruszka wrote:
+> Hi Amerigo
+>
+> Sorry for being silent in this thread before.
+>
+> On Wed, Jun 09, 2010 at 05:23:35PM +0800, Cong Wang wrote:
+>>>>> Is that flag test actually unsafe - and if so, how is testing num_lro
+>>>>> any better?  Perhaps access to net_device::features should be wrapped
+>>>>> with ACCESS_ONCE() to ensure that reads and writes are atomic.
+>>>>>
+>>>>
+>>>> At least, I don't find there is any race with 'num_lro', thus
+>>>> no lock is needed.
+>>>
+>>> In both cases there is a race condition but it is harmless so long as
+>>> the read and the write are atomic.  There is a general assumption in
+>>> networking code that this is the case for int and long.  Personally I
+>>> would prefer to see this made explicit using ACCESS_ONCE(), but I don't
+>>> see any specific problem in mlx4 (not that I'm familiar with this driver
+>>> either).
+>>
+>> I read this email again.
+>>
+>> I think you misunderstood the race condition here. Even read and write
+>> are atomic here, the race still exists. One can just set NETIF_F_LRO
+>> asynchronously right before mlx4 check this flag in mlx4_en_process_rx_cq()
+>> which doesn't take rtnl_lock.
+>
+> If so, it's better to stop device before modify LRO settings. I suggest
+> something like that in mlx4_ethtool_op_set_flags:
+>
+> if (!!(data&  ETH_FLAG_LRO) != !!(dev->features&  NETIF_F_LRO)) {
 
-Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
----
- drivers/base/platform.c         |  102 ++++++++++---------------------=
---------
- include/linux/platform_device.h |   62 ++++++++++++++++++++++--
- 2 files changed, 83 insertions(+), 81 deletions(-)
 
-diff --git a/drivers/base/platform.c b/drivers/base/platform.c
-index 26eb69d..23a5853 100644
---- a/drivers/base/platform.c
-+++ b/drivers/base/platform.c
-@@ -344,108 +344,56 @@ void platform_device_unregister(struct platform_=
-device *pdev)
- EXPORT_SYMBOL_GPL(platform_device_unregister);
-=20
- /**
-- * platform_device_register_simple - add a platform-level device and i=
-ts resources
-- * @name: base name of the device we're adding
-- * @id: instance id
-- * @res: set of resources that needs to be allocated for the device
-- * @num: number of resources
-- *
-- * This function creates a simple platform device that requires minima=
-l
-- * resource and memory management. Canned release function freeing mem=
-ory
-- * allocated for the device allows drivers using such devices to be
-- * unloaded without waiting for the last reference to the device to be
-- * dropped.
-+ * platform_device_register_resndata - add a platform-level device wit=
-h
-+ * resources and platform-specific data
-  *
-- * This interface is primarily intended for use with legacy drivers wh=
-ich
-- * probe hardware directly.  Because such drivers create sysfs device =
-nodes
-- * themselves, rather than letting system infrastructure handle such d=
-evice
-- * enumeration tasks, they don't fully conform to the Linux driver mod=
-el.
-- * In particular, when such drivers are built as modules, they can't b=
-e
-- * "hotplugged".
-- *
-- * Returns &struct platform_device pointer on success, or ERR_PTR() on=
- error.
-- */
--struct platform_device *platform_device_register_simple(const char *na=
-me,
--							int id,
--							const struct resource *res,
--							unsigned int num)
--{
--	struct platform_device *pdev;
--	int retval;
--
--	pdev =3D platform_device_alloc(name, id);
--	if (!pdev) {
--		retval =3D -ENOMEM;
--		goto error;
--	}
--
--	if (num) {
--		retval =3D platform_device_add_resources(pdev, res, num);
--		if (retval)
--			goto error;
--	}
--
--	retval =3D platform_device_add(pdev);
--	if (retval)
--		goto error;
--
--	return pdev;
--
--error:
--	platform_device_put(pdev);
--	return ERR_PTR(retval);
--}
--EXPORT_SYMBOL_GPL(platform_device_register_simple);
--
--/**
-- * platform_device_register_data - add a platform-level device with pl=
-atform-specific data
-  * @parent: parent device for the device we're adding
-  * @name: base name of the device we're adding
-  * @id: instance id
-+ * @res: set of resources that needs to be allocated for the device
-+ * @num: number of resources
-  * @data: platform specific data for this platform device
-  * @size: size of platform specific data
-  *
-- * This function creates a simple platform device that requires minima=
-l
-- * resource and memory management. Canned release function freeing mem=
-ory
-- * allocated for the device allows drivers using such devices to be
-- * unloaded without waiting for the last reference to the device to be
-- * dropped.
-- *
-  * Returns &struct platform_device pointer on success, or ERR_PTR() on=
- error.
-  */
--struct platform_device *platform_device_register_data(
-+struct platform_device *platform_device_register_resndata(
- 		struct device *parent,
- 		const char *name, int id,
-+		const struct resource *res, unsigned int num,
- 		const void *data, size_t size)
- {
-+	int ret =3D -ENOMEM;
- 	struct platform_device *pdev;
--	int retval;
-=20
- 	pdev =3D platform_device_alloc(name, id);
--	if (!pdev) {
--		retval =3D -ENOMEM;
--		goto error;
--	}
-+	if (!pdev)
-+		goto err;
-=20
- 	pdev->dev.parent =3D parent;
-=20
-+	if (num) {
-+		ret =3D platform_device_add_resources(pdev, res, num);
-+		if (ret)
-+			goto err;
-+	}
-+
- 	if (size) {
--		retval =3D platform_device_add_data(pdev, data, size);
--		if (retval)
--			goto error;
-+		ret =3D platform_device_add_data(pdev, data, size);
-+		if (ret)
-+			goto err;
- 	}
-=20
--	retval =3D platform_device_add(pdev);
--	if (retval)
--		goto error;
-+	ret =3D platform_device_add(pdev);
-+	if (ret) {
-+err:
-+		platform_device_put(pdev);
-+		return ERR_PTR(ret);
-+	}
-=20
- 	return pdev;
--
--error:
--	platform_device_put(pdev);
--	return ERR_PTR(retval);
- }
--EXPORT_SYMBOL_GPL(platform_device_register_data);
-+EXPORT_SYMBOL_GPL(platform_device_register_resndata);
-=20
- static int platform_drv_probe(struct device *_dev)
- {
-diff --git a/include/linux/platform_device.h b/include/linux/platform_d=
-evice.h
-index 5417944..d7ecad0 100644
---- a/include/linux/platform_device.h
-+++ b/include/linux/platform_device.h
-@@ -43,10 +43,64 @@ extern struct resource *platform_get_resource_bynam=
-e(struct platform_device *, u
- extern int platform_get_irq_byname(struct platform_device *, const cha=
-r *);
- extern int platform_add_devices(struct platform_device **, int);
-=20
--extern struct platform_device *platform_device_register_simple(const c=
-har *, int id,
--					const struct resource *, unsigned int);
--extern struct platform_device *platform_device_register_data(struct de=
-vice *,
--		const char *, int, const void *, size_t);
-+extern struct platform_device *platform_device_register_resndata(
-+		struct device *parent, const char *name, int id,
-+		const struct resource *res, unsigned int num,
-+		const void *data, size_t size);
-+
-+/**
-+ * platform_device_register_simple - add a platform-level device and i=
-ts resources
-+ * @name: base name of the device we're adding
-+ * @id: instance id
-+ * @res: set of resources that needs to be allocated for the device
-+ * @num: number of resources
-+ *
-+ * This function creates a simple platform device that requires minima=
-l
-+ * resource and memory management. Canned release function freeing mem=
-ory
-+ * allocated for the device allows drivers using such devices to be
-+ * unloaded without waiting for the last reference to the device to be
-+ * dropped.
-+ *
-+ * This interface is primarily intended for use with legacy drivers wh=
-ich
-+ * probe hardware directly.  Because such drivers create sysfs device =
-nodes
-+ * themselves, rather than letting system infrastructure handle such d=
-evice
-+ * enumeration tasks, they don't fully conform to the Linux driver mod=
-el.
-+ * In particular, when such drivers are built as modules, they can't b=
-e
-+ * "hotplugged".
-+ *
-+ * Returns &struct platform_device pointer on success, or ERR_PTR() on=
- error.
-+ */
-+static inline struct platform_device *platform_device_register_simple(
-+		const char *name, int id,
-+		const struct resource *res, unsigned int num)
-+{
-+	return platform_device_register_resndata(NULL, name, id,
-+			res, num, NULL, 0);
-+}
-+
-+/**
-+ * platform_device_register_data - add a platform-level device with pl=
-atform-specific data
-+ * @parent: parent device for the device we're adding
-+ * @name: base name of the device we're adding
-+ * @id: instance id
-+ * @data: platform specific data for this platform device
-+ * @size: size of platform specific data
-+ *
-+ * This function creates a simple platform device that requires minima=
-l
-+ * resource and memory management. Canned release function freeing mem=
-ory
-+ * allocated for the device allows drivers using such devices to be
-+ * unloaded without waiting for the last reference to the device to be
-+ * dropped.
-+ *
-+ * Returns &struct platform_device pointer on success, or ERR_PTR() on=
- error.
-+ */
-+static inline struct platform_device *platform_device_register_data(
-+		struct device *parent, const char *name, int id,
-+		const void *data, size_t size)
-+{
-+	return platform_device_register_resndata(parent, name, id,
-+			NULL, 0, data, size);
-+}
-=20
- extern struct platform_device *platform_device_alloc(const char *name,=
- int id);
- extern int platform_device_add_resources(struct platform_device *pdev,
---=20
-1.7.1
+What does this line mean? This is to ignore all other flags, right?
+
+> 	/* Need to toggle LRO */
+>
+> 	if (netdev_running(dev)) {
+>                 mutex_lock(&mdev->state_lock);
+>                 mlx4_en_stop_port(dev);
+>                 rc = mlx4_en_start_port(dev);
+>                 if (rc)
+>                         en_err(priv, "Failed to restart port\n");
+> 	}
+>
+> 	dev->features ^= NETIF_F_LRO;
+>
+> 	if (netdev_running(dev))
+>                 mutex_unlock(&mdev->state_lock);
+> }
+>
+
+I don't think mdev->state_lock is used to protect dev->feature.
+rtnl_lock is. I think switching to mlx4_ethtool_op_set_flags()
+from the default one has already solved this.
+
+Thanks!
