@@ -1,42 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] ipv6: RCU changes in ipv6_get_mtu() and
- ip6_dst_hoplimit()
-Date: Tue, 15 Jun 2010 08:12:37 +0200
-Message-ID: <1276582357.30434.332.camel@edumazet-laptop>
-References: <1276526780.2478.101.camel@edumazet-laptop>
-	 <4C164840.5010900@yoshifuji.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] inetpeer: various changes
+Date: Mon, 14 Jun 2010 23:13:31 -0700 (PDT)
+Message-ID: <20100614.231331.112591806.davem@davemloft.net>
+References: <1276580121.30434.322.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: YOSHIFUJI Hideaki <hideaki@yoshifuji.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:42866 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751576Ab0FOGMo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 02:12:44 -0400
-Received: by wwb18 with SMTP id 18so4456730wwb.19
-        for <netdev@vger.kernel.org>; Mon, 14 Jun 2010 23:12:42 -0700 (PDT)
-In-Reply-To: <4C164840.5010900@yoshifuji.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35917
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751946Ab0FOGNU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 02:13:20 -0400
+In-Reply-To: <1276580121.30434.322.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 15 juin 2010 =C3=A0 00:18 +0900, YOSHIFUJI Hideaki a =C3=A9cri=
-t :
-> (2010/06/14 23:46), Eric Dumazet wrote:
-> > Use RCU to avoid atomic ops on idev refcnt in ipv6_get_mtu()
-> > and ip6_dst_hoplimit()
-> >
-> > Signed-off-by: Eric Dumazet<eric.dumazet@gmail.com>
-> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
->=20
-> --yoshfuji
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 15 Jun 2010 07:35:21 +0200
 
-Gah, sorry not having CC you at least for ipv6 stuff !
+> Try to reduce cache line contentions in peer management, to reduce IP
+> defragmentation overhead.
+> 
+> - peer_fake_node is marked 'const' to make sure its not modified.
+>   (tested with CONFIG_DEBUG_RODATA=y)
+> 
+> - Group variables in two structures to reduce number of dirtied cache
+> lines. One named "peers" for avl tree root, its number of entries, and
+> associated lock. (candidate for RCU conversion)
+> 
+> - A second one named "unused_peers" for unused list and its lock 
+> 
+> - Add a !list_empty() test in unlink_from_unused() to avoid taking lock
+> when entry is not unused.
+> 
+> - Use atomic_dec_and_lock() in inet_putpeer() to avoid taking lock in
+> some cases.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Thanks !
-
-
-
+Applied.
