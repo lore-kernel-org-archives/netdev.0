@@ -1,49 +1,47 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 6/8] scm: Capture the full credentials of the scm sender.
-Date: Tue, 15 Jun 2010 02:53:57 -0700
-Message-ID: <m1r5k8bozu.fsf@fess.ebiederm.org>
-References: <m1hbl7hxo3.fsf@fess.ebiederm.org>
-	<m1d3vvgirx.fsf@fess.ebiederm.org> <4C173510.4030007@openvz.org>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [0/8] netpoll/bridge fixes
+Date: Tue, 15 Jun 2010 18:17:52 +0800
+Message-ID: <4C175350.7090309@redhat.com>
+References: <20100610124047.GA16658@gondor.apana.org.au> <20100610074912.1303e3da@nehalam> <20100610215643.GA22048@gondor.apana.org.au> <20100610145915.721a86b7@nehalam> <20100610224839.GA22469@gondor.apana.org.au> <20100611021142.GA24490@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Serge Hallyn <serue@us.ibm.com>,
-	Linux Containers <containers@lists.osdl.org>,
-	Daniel Lezcano <daniel.lezcano@free.fr>, netdev@vger.kernel.org
-To: Pavel Emelyanov <xemul@openvz.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Qianfeng Zhang <frzhang@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Matt Mackall <mpm@selenic.com>
+To: Herbert Xu <herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:41562 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752635Ab0FOJyH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 05:54:07 -0400
-In-Reply-To: <4C173510.4030007@openvz.org> (Pavel Emelyanov's message of "Tue\, 15 Jun 2010 12\:08\:48 +0400")
+Received: from mx1.redhat.com ([209.132.183.28]:58085 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754114Ab0FOKOJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jun 2010 06:14:09 -0400
+In-Reply-To: <20100611021142.GA24490@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pavel Emelyanov <xemul@openvz.org> writes:
-
->> +static __inline__ void scm_destroy_cred(struct scm_cookie *scm)
->> +{
->> +	put_pid(scm->pid);
->> +	scm->pid  = NULL;
->> +
->> +	if (scm->cred)
->> +		put_cred(scm->cred);
->> +	scm->cred = NULL;
->> +}
->> +
->>  static __inline__ void scm_destroy(struct scm_cookie *scm)
->>  {
->> +	scm_destroy_cred(scm);
->>  	if (scm && scm->fp)
->>  		__scm_destroy(scm);
->>  }
+On 06/11/10 10:11, Herbert Xu wrote:
+> On Fri, Jun 11, 2010 at 08:48:39AM +1000, Herbert Xu wrote:
+>> On Thu, Jun 10, 2010 at 02:59:15PM -0700, Stephen Hemminger wrote:
+>>>
+>>> Okay, then add a comment where in_irq is used?
+>>
+>> Actually let me put it into a wrapper.  I'll respin the patches.
 >
-> I'm a bit worried by the "if (scm" check. It makes me think scm can
-> be NULL here and thus scm_destroy_cred can oops.
+> OK here is a repost.  And this time it really is 8 patches :)
+> I've tested it lightly.
+>
 
-Interesting point.  I just looked at all of the callers and scm
-appears to always be valid.
+(Sorry for the delay, I was on vacation.)
 
-Eric
+Thanks much for your nice work!
+
+Patch 1-7 look great for me, so,
+
+Reviewed-by: WANG Cong <amwang@redhat.com>
+
+I don't quite understand patch 8, will reply to it separately.
+
+Thank you.
 
