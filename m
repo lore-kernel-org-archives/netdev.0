@@ -1,50 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: IP_NODEFRAG option for IPv4 socket
-Date: Tue, 15 Jun 2010 11:49:33 +0200
-Message-ID: <1276595373.2541.58.camel@edumazet-laptop>
-References: <4C0FA24A.7060907@trash.net>
-	 <20100610065631.GA1915@jolsa.lab.eng.brq.redhat.com>
-	 <4C10ACDC.6010108@trash.net>
-	 <20100610095312.GC1915@jolsa.lab.eng.brq.redhat.com>
-	 <4C10B8C8.2050201@trash.net> <20100611081604.GA1739@jolsa.Belkin>
-	 <alpine.LSU.2.01.1006111152230.30433@obet.zrqbmnf.qr>
-	 <20100611131038.GB1739@jolsa.Belkin> <20100615065335.GA8840@jolsa.Belkin>
-	 <1276586029.2541.12.camel@edumazet-laptop>
-	 <20100615091715.GB8840@jolsa.Belkin>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH 6/8] scm: Capture the full credentials of the scm sender.
+Date: Tue, 15 Jun 2010 02:53:57 -0700
+Message-ID: <m1r5k8bozu.fsf@fess.ebiederm.org>
+References: <m1hbl7hxo3.fsf@fess.ebiederm.org>
+	<m1d3vvgirx.fsf@fess.ebiederm.org> <4C173510.4030007@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jan Engelhardt <jengelh@medozas.de>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>
-To: Jiri Olsa <jolsa@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20100615091715.GB8840@jolsa.Belkin>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Serge Hallyn <serue@us.ibm.com>,
+	Linux Containers <containers@lists.osdl.org>,
+	Daniel Lezcano <daniel.lezcano@free.fr>, netdev@vger.kernel.org
+To: Pavel Emelyanov <xemul@openvz.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out01.mta.xmission.com ([166.70.13.231]:41562 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752635Ab0FOJyH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 05:54:07 -0400
+In-Reply-To: <4C173510.4030007@openvz.org> (Pavel Emelyanov's message of "Tue\, 15 Jun 2010 12\:08\:48 +0400")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 15 juin 2010 =C3=A0 11:18 +0200, Jiri Olsa a =C3=A9crit :
+Pavel Emelyanov <xemul@openvz.org> writes:
 
-> > Hmm... what about cloning ?
->=20
-> I think as this is the property of the socket (not skb),
-> it has no affect for cloning
->=20
+>> +static __inline__ void scm_destroy_cred(struct scm_cookie *scm)
+>> +{
+>> +	put_pid(scm->pid);
+>> +	scm->pid  = NULL;
+>> +
+>> +	if (scm->cred)
+>> +		put_cred(scm->cred);
+>> +	scm->cred = NULL;
+>> +}
+>> +
+>>  static __inline__ void scm_destroy(struct scm_cookie *scm)
+>>  {
+>> +	scm_destroy_cred(scm);
+>>  	if (scm && scm->fp)
+>>  		__scm_destroy(scm);
+>>  }
+>
+> I'm a bit worried by the "if (scm" check. It makes me think scm can
+> be NULL here and thus scm_destroy_cred can oops.
 
-Sorry, I was thinking of sk_clone(). I sometime forgets sock_copy() cop=
-y
-all fields.
+Interesting point.  I just looked at all of the callers and scm
+appears to always be valid.
 
-This is a non issue for raw sockets, if IP_NODEFRAG is limited to RAW
-sockets now and in the future.
+Eric
 
-
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
