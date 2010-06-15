@@ -1,8 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH 05/12] phylib: Allow reading and writing a mii bus from
- atomic context.
-Date: Tue, 15 Jun 2010 18:08:46 +0200
-Message-ID: <1b8219e7d7993d0e8204b94e959477e3007534ce.1276615626.git.richard.cochran@omicron.at>
+Subject: [PATCH 06/12] ptp: add a BPF to help drivers detect PTP packets.
+Date: Tue, 15 Jun 2010 18:09:00 +0200
+Message-ID: <ff2f84e46a207813113e2d5b422ecb28848c9c8c.1276615626.git.richard.cochran@omicron.at>
 References: <cover.1276615626.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -13,125 +12,151 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-fx0-f46.google.com ([209.85.161.46]:43726 "EHLO
 	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753559Ab0FOQHz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 12:07:55 -0400
+	with ESMTP id S1753593Ab0FOQIK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 12:08:10 -0400
 Received: by mail-fx0-f46.google.com with SMTP id 10so266600fxm.19
-        for <netdev@vger.kernel.org>; Tue, 15 Jun 2010 09:07:54 -0700 (PDT)
+        for <netdev@vger.kernel.org>; Tue, 15 Jun 2010 09:08:09 -0700 (PDT)
 Content-Disposition: inline
 In-Reply-To: <cover.1276615626.git.richard.cochran@omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In order to support hardware time stamping from a PHY, it is necessary to
-read from the PHY while running in_interrupt(). This patch allows a mii
-bus to operate in an atomic context. An mii_bus driver may declare itself
-capable for this mode. Drivers which do not do this will remain with the
-default that bus operations may sleep.
+Certain kinds of hardware time stamping units in both MACs and PHYs have
+the limitation that they can only time stamp PTP packets. Drivers for such
+hardware are left with the task of correctly matching skbs to time stamps.
+This patch adds a BPF that drivers can use to classify PTP packets when
+needed.
 
 Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 ---
- drivers/net/phy/mdio_bus.c |   35 ++++++++++++++++++++++++++++-------
- include/linux/phy.h        |   13 +++++++++++--
- 2 files changed, 39 insertions(+), 9 deletions(-)
+ include/linux/ptp_classify.h |  118 ++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 118 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/ptp_classify.h
 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 6a6b819..441be7d 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -36,6 +36,22 @@
- #include <asm/irq.h>
- #include <asm/uaccess.h>
- 
-+static inline void mdiobus_lock(struct mii_bus *bus)
-+{
-+	if (MDIOBUS_SLEEPS_RW == bus->locktype)
-+		mutex_lock(&bus->mdio_lock.m);
-+	else
-+		spin_lock(&bus->mdio_lock.s);
-+}
+diff --git a/include/linux/ptp_classify.h b/include/linux/ptp_classify.h
+new file mode 100644
+index 0000000..e68efc3
+--- /dev/null
++++ b/include/linux/ptp_classify.h
+@@ -0,0 +1,118 @@
++/*
++ * PTP 1588 support
++ *
++ * This file implements a BPF that recognizes PTP event messages.
++ *
++ * Copyright (C) 2010 OMICRON electronics GmbH
++ *
++ *  This program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2 of the License, or
++ *  (at your option) any later version.
++ *
++ *  This program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this program; if not, write to the Free Software
++ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++ */
 +
-+static inline void mdiobus_unlock(struct mii_bus *bus)
-+{
-+	if (MDIOBUS_SLEEPS_RW == bus->locktype)
-+		mutex_unlock(&bus->mdio_lock.m);
-+	else
-+		spin_unlock(&bus->mdio_lock.s);
-+}
++#ifndef _PTP_CLASSIFY_H_
++#define _PTP_CLASSIFY_H_
 +
- /**
-  * mdiobus_alloc - allocate a mii_bus structure
-  *
-@@ -107,7 +123,10 @@ int mdiobus_register(struct mii_bus *bus)
- 		return -EINVAL;
- 	}
- 
--	mutex_init(&bus->mdio_lock);
-+	if (MDIOBUS_SLEEPS_RW == bus->locktype)
-+		mutex_init(&bus->mdio_lock.m);
-+	else
-+		spin_lock_init(&bus->mdio_lock.s);
- 
- 	if (bus->reset)
- 		bus->reset(bus);
-@@ -212,11 +231,12 @@ int mdiobus_read(struct mii_bus *bus, int addr, u32 regnum)
- {
- 	int retval;
- 
--	BUG_ON(in_interrupt());
-+	if (MDIOBUS_SLEEPS_RW == bus->locktype)
-+		BUG_ON(in_interrupt());
- 
--	mutex_lock(&bus->mdio_lock);
-+	mdiobus_lock(bus);
- 	retval = bus->read(bus, addr, regnum);
--	mutex_unlock(&bus->mdio_lock);
-+	mdiobus_unlock(bus);
- 
- 	return retval;
- }
-@@ -237,11 +257,12 @@ int mdiobus_write(struct mii_bus *bus, int addr, u32 regnum, u16 val)
- {
- 	int err;
- 
--	BUG_ON(in_interrupt());
-+	if (MDIOBUS_SLEEPS_RW == bus->locktype)
-+		BUG_ON(in_interrupt());
- 
--	mutex_lock(&bus->mdio_lock);
-+	mdiobus_lock(bus);
- 	err = bus->write(bus, addr, regnum, val);
--	mutex_unlock(&bus->mdio_lock);
-+	mdiobus_unlock(bus);
- 
- 	return err;
- }
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 7a8caac..352b030 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -98,11 +98,20 @@ struct mii_bus {
- 	int (*write)(struct mii_bus *bus, int phy_id, int regnum, u16 val);
- 	int (*reset)(struct mii_bus *bus);
- 
-+	/* Indicates whether bus may be used from an atomic context. */
-+	enum {
-+		MDIOBUS_SLEEPS_RW,
-+		MDIOBUS_ATOMIC_RW
-+	} locktype;
++#include <linux/if_ether.h>
++#include <linux/if_vlan.h>
++#include <linux/filter.h>
++#ifdef __KERNEL__
++#include <linux/in.h>
++#else
++#include <netinet/in.h>
++#endif
 +
- 	/*
--	 * A lock to ensure that only one thing can read/write
-+	 * A lock or mutex to ensure that only one thing can read/write
- 	 * the MDIO bus at a time
- 	 */
--	struct mutex mdio_lock;
-+	union {
-+		struct mutex m;
-+		spinlock_t s;
-+	} mdio_lock;
- 
- 	struct device *parent;
- 	enum {
++#define PTP_CLASS_NONE  0x00 /* not a PTP event message */
++#define PTP_CLASS_V1    0x01 /* protocol version 1 */
++#define PTP_CLASS_V2    0x02 /* protocol version 2 */
++#define PTP_CLASS_VMASK 0x0f /* max protocol version is 15 */
++#define PTP_CLASS_IPV4  0x10 /* event in an IPV4 UDP packet */
++#define PTP_CLASS_IPV6  0x20 /* event in an IPV6 UDP packet */
++#define PTP_CLASS_L2    0x30 /* event in a L2 packet */
++#define PTP_CLASS_VLAN  0x40 /* event in a VLAN tagged L2 packet */
++#define PTP_CLASS_PMASK 0xf0 /* mask for the packet type field */
++
++#define PTP_CLASS_V1_IPV4 (PTP_CLASS_V1 | PTP_CLASS_IPV4)
++#define PTP_CLASS_V1_IPV6 (PTP_CLASS_V1 | PTP_CLASS_IPV6) /*probably DNE*/
++#define PTP_CLASS_V2_IPV4 (PTP_CLASS_V2 | PTP_CLASS_IPV4)
++#define PTP_CLASS_V2_IPV6 (PTP_CLASS_V2 | PTP_CLASS_IPV6)
++#define PTP_CLASS_V2_L2   (PTP_CLASS_V2 | PTP_CLASS_L2)
++#define PTP_CLASS_V2_VLAN (PTP_CLASS_V2 | PTP_CLASS_VLAN)
++
++#define PTP_EV_PORT 319
++
++#define OFF_ETYPE	12
++#define OFF_IHL		14
++#define OFF_FRAG	20
++#define OFF_PROTO4	23
++#define OFF_NEXT	6
++#define OFF_UDP_DST	2
++
++#define IP6_HLEN	40
++#define UDP_HLEN	8
++
++#define RELOFF_DST4	(ETH_HLEN + OFF_UDP_DST)
++#define OFF_DST6	(ETH_HLEN + IP6_HLEN + OFF_UDP_DST)
++#define OFF_PTP6	(ETH_HLEN + IP6_HLEN + UDP_HLEN)
++
++#define OP_AND	(BPF_ALU | BPF_AND  | BPF_K)
++#define OP_JEQ	(BPF_JMP | BPF_JEQ  | BPF_K)
++#define OP_JSET	(BPF_JMP | BPF_JSET | BPF_K)
++#define OP_LDB	(BPF_LD  | BPF_B    | BPF_ABS)
++#define OP_LDH	(BPF_LD  | BPF_H    | BPF_ABS)
++#define OP_LDHI	(BPF_LD  | BPF_H    | BPF_IND)
++#define OP_LDX	(BPF_LDX | BPF_B    | BPF_MSH)
++#define OP_OR	(BPF_ALU | BPF_OR   | BPF_K)
++#define OP_RETA	(BPF_RET | BPF_A)
++#define OP_RETK	(BPF_RET | BPF_K)
++
++#define PTP_FILTER \
++	{OP_LDH,	0,   0, OFF_ETYPE		}, /*              */ \
++	{OP_JEQ,	0,  12, ETH_P_IP		}, /* f goto L20   */ \
++	{OP_LDB,	0,   0, OFF_PROTO4		}, /*              */ \
++	{OP_JEQ,	0,   9, IPPROTO_UDP		}, /* f goto L10   */ \
++	{OP_LDH,	0,   0, OFF_FRAG		}, /*              */ \
++	{OP_JSET,	7,   0, 0x1fff			}, /* t goto L11   */ \
++	{OP_LDX,	0,   0, OFF_IHL			}, /*              */ \
++	{OP_LDHI,	0,   0, RELOFF_DST4		}, /*              */ \
++	{OP_JEQ,	0,   4, PTP_EV_PORT		}, /* f goto L12   */ \
++	{OP_LDHI,	0,   0, ETH_HLEN + UDP_HLEN	}, /*              */ \
++	{OP_AND,	0,   0, PTP_CLASS_VMASK		}, /*              */ \
++	{OP_OR,		0,   0, PTP_CLASS_IPV4		}, /*              */ \
++	{OP_RETA,	0,   0, 0			}, /*              */ \
++/*L1x*/	{OP_RETK,	0,   0, PTP_CLASS_NONE		}, /*              */ \
++/*L20*/	{OP_JEQ,	0,   9, ETH_P_IPV6		}, /* f goto L40   */ \
++	{OP_LDB,	0,   0, ETH_HLEN + OFF_NEXT	}, /*              */ \
++	{OP_JEQ,	0,   6, IPPROTO_UDP		}, /* f goto L30   */ \
++	{OP_LDH,	0,   0, OFF_DST6		}, /*              */ \
++	{OP_JEQ,	0,   4, PTP_EV_PORT		}, /* f goto L31   */ \
++	{OP_LDH,	0,   0, OFF_PTP6		}, /*              */ \
++	{OP_AND,	0,   0, PTP_CLASS_VMASK		}, /*              */ \
++	{OP_OR,		0,   0, PTP_CLASS_IPV6		}, /*              */ \
++	{OP_RETA,	0,   0, 0			}, /*              */ \
++/*L3x*/	{OP_RETK,	0,   0, PTP_CLASS_NONE		}, /*              */ \
++/*L40*/	{OP_JEQ,	0,   6, ETH_P_8021Q		}, /* f goto L50   */ \
++	{OP_LDH,	0,   0, OFF_ETYPE + 4		}, /*              */ \
++	{OP_JEQ,	0,   9, ETH_P_1588		}, /* f goto L60   */ \
++	{OP_LDH,	0,   0, ETH_HLEN + VLAN_HLEN	}, /*              */ \
++	{OP_AND,	0,   0, PTP_CLASS_VMASK		}, /*              */ \
++	{OP_OR,		0,   0, PTP_CLASS_VLAN		}, /*              */ \
++	{OP_RETA,	0,   0, 0			}, /*              */ \
++/*L50*/	{OP_JEQ,	0,   4, ETH_P_1588		}, /* f goto L61   */ \
++	{OP_LDH,	0,   0, ETH_HLEN		}, /*              */ \
++	{OP_AND,	0,   0, PTP_CLASS_VMASK		}, /*              */ \
++	{OP_OR,		0,   0, PTP_CLASS_L2		}, /*              */ \
++	{OP_RETA,	0,   0, 0			}, /*              */ \
++/*L6x*/	{OP_RETK,	0,   0, PTP_CLASS_NONE		},
++
++#endif
 -- 
 1.6.3.3
 
