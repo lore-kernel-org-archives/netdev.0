@@ -1,127 +1,114 @@
 From: kaber@trash.net
-Subject: [PATCH 06/17] netfilter: nf_conntrack: per_cpu untracking
-Date: Tue, 15 Jun 2010 17:38:32 +0200
-Message-ID: <1276616323-20880-7-git-send-email-kaber@trash.net>
+Subject: [PATCH 03/17] netfilter: vmalloc_node cleanup
+Date: Tue, 15 Jun 2010 17:38:29 +0200
+Message-ID: <1276616323-20880-4-git-send-email-kaber@trash.net>
 References: <1276616323-20880-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:42173 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932250Ab0FOP3y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 11:29:54 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1276616323-20880-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
 
-NOTRACK makes all cpus share a cache line on nf_conntrack_untracked
-twice per packet, slowing down performance.
-
-This patch converts it to a per_cpu variable.
+Using vmalloc_node(size, numa_node_id()) for temporary storage is not
+needed. vmalloc(size) is more respectful of user NUMA policy.
 
 Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/net/netfilter/nf_conntrack.h |    5 +--
- net/netfilter/nf_conntrack_core.c    |   36 ++++++++++++++++++++++++---------
- 2 files changed, 28 insertions(+), 13 deletions(-)
+ net/ipv4/netfilter/arp_tables.c |    7 +++----
+ net/ipv4/netfilter/ip_tables.c  |    4 ++--
+ net/ipv6/netfilter/ip6_tables.c |    7 +++----
+ 3 files changed, 8 insertions(+), 10 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index 3bc38c7..84a4b6f 100644
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -261,11 +261,10 @@ extern s16 (*nf_ct_nat_offset)(const struct nf_conn *ct,
- 			       u32 seq);
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+index 1ac01b1..16c0ba0 100644
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -758,7 +758,7 @@ static struct xt_counters *alloc_counters(const struct xt_table *table)
+ 	 * about).
+ 	 */
+ 	countersize = sizeof(struct xt_counters) * private->number;
+-	counters = vmalloc_node(countersize, numa_node_id());
++	counters = vmalloc(countersize);
  
- /* Fake conntrack entry for untracked connections */
-+DECLARE_PER_CPU(struct nf_conn, nf_conntrack_untracked);
- static inline struct nf_conn *nf_ct_untracked_get(void)
- {
--	extern struct nf_conn nf_conntrack_untracked;
--
--	return &nf_conntrack_untracked;
-+	return &__raw_get_cpu_var(nf_conntrack_untracked);
- }
- extern void nf_ct_untracked_status_or(unsigned long bits);
+ 	if (counters == NULL)
+ 		return ERR_PTR(-ENOMEM);
+@@ -1005,8 +1005,7 @@ static int __do_replace(struct net *net, const char *name,
+ 	struct arpt_entry *iter;
  
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 6c1da21..9c66141 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -62,8 +62,8 @@ EXPORT_SYMBOL_GPL(nf_conntrack_htable_size);
- unsigned int nf_conntrack_max __read_mostly;
- EXPORT_SYMBOL_GPL(nf_conntrack_max);
+ 	ret = 0;
+-	counters = vmalloc_node(num_counters * sizeof(struct xt_counters),
+-				numa_node_id());
++	counters = vmalloc(num_counters * sizeof(struct xt_counters));
+ 	if (!counters) {
+ 		ret = -ENOMEM;
+ 		goto out;
+@@ -1159,7 +1158,7 @@ static int do_add_counters(struct net *net, const void __user *user,
+ 	if (len != size + num_counters * sizeof(struct xt_counters))
+ 		return -EINVAL;
  
--struct nf_conn nf_conntrack_untracked;
--EXPORT_SYMBOL_GPL(nf_conntrack_untracked);
-+DEFINE_PER_CPU(struct nf_conn, nf_conntrack_untracked);
-+EXPORT_PER_CPU_SYMBOL(nf_conntrack_untracked);
+-	paddc = vmalloc_node(len - size, numa_node_id());
++	paddc = vmalloc(len - size);
+ 	if (!paddc)
+ 		return -ENOMEM;
  
- static int nf_conntrack_hash_rnd_initted;
- static unsigned int nf_conntrack_hash_rnd;
-@@ -1183,10 +1183,21 @@ static void nf_ct_release_dying_list(struct net *net)
- 	spin_unlock_bh(&nf_conntrack_lock);
- }
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 63958f3..7c0b8ad 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -928,7 +928,7 @@ static struct xt_counters *alloc_counters(const struct xt_table *table)
+ 	   (other than comefrom, which userspace doesn't care
+ 	   about). */
+ 	countersize = sizeof(struct xt_counters) * private->number;
+-	counters = vmalloc_node(countersize, numa_node_id());
++	counters = vmalloc(countersize);
  
-+static int untrack_refs(void)
-+{
-+	int cnt = 0, cpu;
-+
-+	for_each_possible_cpu(cpu) {
-+		struct nf_conn *ct = &per_cpu(nf_conntrack_untracked, cpu);
-+
-+		cnt += atomic_read(&ct->ct_general.use) - 1;
-+	}
-+	return cnt;
-+}
-+
- static void nf_conntrack_cleanup_init_net(void)
- {
--	/* wait until all references to nf_conntrack_untracked are dropped */
--	while (atomic_read(&nf_conntrack_untracked.ct_general.use) > 1)
-+	while (untrack_refs() > 0)
- 		schedule();
+ 	if (counters == NULL)
+ 		return ERR_PTR(-ENOMEM);
+@@ -1352,7 +1352,7 @@ do_add_counters(struct net *net, const void __user *user,
+ 	if (len != size + num_counters * sizeof(struct xt_counters))
+ 		return -EINVAL;
  
- 	nf_conntrack_helper_fini();
-@@ -1323,14 +1334,17 @@ module_param_call(hashsize, nf_conntrack_set_hashsize, param_get_uint,
+-	paddc = vmalloc_node(len - size, numa_node_id());
++	paddc = vmalloc(len - size);
+ 	if (!paddc)
+ 		return -ENOMEM;
  
- void nf_ct_untracked_status_or(unsigned long bits)
- {
--	nf_conntrack_untracked.status |= bits;
-+	int cpu;
-+
-+	for_each_possible_cpu(cpu)
-+		per_cpu(nf_conntrack_untracked, cpu).status |= bits;
- }
- EXPORT_SYMBOL_GPL(nf_ct_untracked_status_or);
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 6f517bd..82945ef 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -943,7 +943,7 @@ static struct xt_counters *alloc_counters(const struct xt_table *table)
+ 	   (other than comefrom, which userspace doesn't care
+ 	   about). */
+ 	countersize = sizeof(struct xt_counters) * private->number;
+-	counters = vmalloc_node(countersize, numa_node_id());
++	counters = vmalloc(countersize);
  
- static int nf_conntrack_init_init_net(void)
- {
- 	int max_factor = 8;
--	int ret;
-+	int ret, cpu;
+ 	if (counters == NULL)
+ 		return ERR_PTR(-ENOMEM);
+@@ -1213,8 +1213,7 @@ __do_replace(struct net *net, const char *name, unsigned int valid_hooks,
+ 	struct ip6t_entry *iter;
  
- 	/* Idea from tcp.c: use 1/16384 of memory.  On i386: 32MB
- 	 * machine has 512 buckets. >= 1GB machines have 16384 buckets. */
-@@ -1369,10 +1383,12 @@ static int nf_conntrack_init_init_net(void)
- 		goto err_extend;
- #endif
- 	/* Set up fake conntrack: to never be deleted, not in any hashes */
--#ifdef CONFIG_NET_NS
--	nf_conntrack_untracked.ct_net = &init_net;
--#endif
--	atomic_set(&nf_conntrack_untracked.ct_general.use, 1);
-+	for_each_possible_cpu(cpu) {
-+		struct nf_conn *ct = &per_cpu(nf_conntrack_untracked, cpu);
-+
-+		write_pnet(&ct->ct_net, &init_net);
-+		atomic_set(&ct->ct_general.use, 1);
-+	}
- 	/*  - and look it like as a confirmed connection */
- 	nf_ct_untracked_status_or(IPS_CONFIRMED | IPS_UNTRACKED);
- 	return 0;
+ 	ret = 0;
+-	counters = vmalloc_node(num_counters * sizeof(struct xt_counters),
+-				numa_node_id());
++	counters = vmalloc(num_counters * sizeof(struct xt_counters));
+ 	if (!counters) {
+ 		ret = -ENOMEM;
+ 		goto out;
+@@ -1368,7 +1367,7 @@ do_add_counters(struct net *net, const void __user *user, unsigned int len,
+ 	if (len != size + num_counters * sizeof(struct xt_counters))
+ 		return -EINVAL;
+ 
+-	paddc = vmalloc_node(len - size, numa_node_id());
++	paddc = vmalloc(len - size);
+ 	if (!paddc)
+ 		return -ENOMEM;
+ 
 -- 
 1.7.0.4
 
