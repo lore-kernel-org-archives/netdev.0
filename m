@@ -1,52 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] pktgen: receive packets and process incoming rate
-Date: Tue, 15 Jun 2010 14:59:48 -0700 (PDT)
-Message-ID: <20100615.145948.68117816.davem@davemloft.net>
-References: <1275483650.2725.173.camel@edumazet-laptop>
-	<4C065C7C.4000506@gmail.com>
-	<4C10F117.60800@gmail.com>
+Subject: Re: [PATCH v4] netdev:bfin_mac: reclaim and free tx skb as soon as
+ possible after transfer
+Date: Tue, 15 Jun 2010 15:04:27 -0700 (PDT)
+Message-ID: <20100615.150427.27816860.davem@davemloft.net>
+References: <1276250702.30044.2.camel@eight.analog.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, robert@herjulf.net,
-	jens.laas@its.uu.se, voravit@kth.se
-To: daniel.turull@gmail.com
+Cc: netdev@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org
+To: sonic.adi@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53885
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39497
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754688Ab0FOV7i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 17:59:38 -0400
-In-Reply-To: <4C10F117.60800@gmail.com>
+	by vger.kernel.org with ESMTP id S1754353Ab0FOWEQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 18:04:16 -0400
+In-Reply-To: <1276250702.30044.2.camel@eight.analog.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Turull <daniel.turull@gmail.com>
-Date: Thu, 10 Jun 2010 16:05:11 +0200
+From: sonic zhang <sonic.adi@gmail.com>
+Date: Fri, 11 Jun 2010 18:05:02 +0800
 
-> This patch adds receiver part to pktgen taking advantages of SMP systems
-> with multiple rx queues:
-> - Creation of new proc file  /proc/net/pktgen/pgrx to control and display the receiver.
-> - It uses PER-CPU variable to store the results per each CPU.
-> - Results displayed per CPU and aggregated.
-> - The packet handler is add in the protocols handlers (dev_add_pack())
-> - Available statistics: packets and bytes received, work time and rate
-> - Only process pktgen packets
-> - It is possible to select the incoming interface 
-> - Documentation updated with the new commands to control the receiver part.
+>>From 4779e43a5a8446f695f8d6f5a006cfb45dc093d8 Mon Sep 17 00:00:00 2001
+> From: Sonic Zhang <sonic.zhang@analog.com>
+> Date: Fri, 11 Jun 2010 17:44:31 +0800
+> Subject: [PATCH v4] netdev:bfin_mac: reclaim and free tx skb as soon as possible after transfer
 > 
-> Signed-off-by: Daniel Turull <daniel.turull@gmail.com>
+> SKBs hold onto resources that can't be held indefinitely, such as TCP
+> socket references and netfilter conntrack state.  So if a packet is left
+> in TX ring for a long time, there might be a TCP socket that cannot be
+> closed and freed up.
+> 
+> Current blackfin EMAC driver always reclaim and free used tx skbs in future
+> transfers. The problem is that future transfer may not come as soon as
+> possible. This patch start a timer after transfer to reclaim and free skb.
+> There is nearly no performance drop with this patch.
+> 
+> TX interrupt is not enabled because of a strange behavior of the Blackfin EMAC.
+> If EMAC TX transfer control is turned on, endless TX interrupts are triggered
+> no matter if TX DMA is enabled or not. Since DMA walks down the ring automatically,
+> TX transfer control can't be turned off in the middle. The only way is to disable
+> TX interrupt completely.
+> 
+> Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
 
-I completely disagree with this patch on two levels:
-
-1) pktgen is for "generating" packets, not receiving them.
-   Trying to put lipstick on a pig is never a good idea.
-
-2) The information it gathers and shows is completely useless.
-   What's interesting as "RX work cost" is what happens deep
-   down in the netif_receive_skb() code paths, IP input, routing,
-   netfilter, whatever... but that is not what this thing is
-   measuring at all.
-
-Sorry, I'm not applying this.  You can probably do something more
-clever with tracepoints.
-
+Applied to net-next-2.6, thanks.
