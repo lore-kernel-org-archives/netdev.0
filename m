@@ -1,41 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC patch net/next] net: Hoist assigns from if?
-Date: Mon, 14 Jun 2010 22:59:10 -0700 (PDT)
-Message-ID: <20100614.225910.104075511.davem@davemloft.net>
-References: <1276561234.4897.38.camel@Joe-Laptop.home>
-	<1276580526.30434.330.camel@edumazet-laptop>
+Subject: Re: [net-next PATCH] bnx2x: Fix link problem with some DACs
+Date: Mon, 14 Jun 2010 23:07:28 -0700 (PDT)
+Message-ID: <20100614.230728.189694464.davem@davemloft.net>
+References: <1276511188.13056.26.camel@lb-tlvb-yanivr.il.broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: yanivr@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46348
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54296
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750874Ab0FOF7A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 01:59:00 -0400
-In-Reply-To: <1276580526.30434.330.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1750855Ab0FOGHQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 02:07:16 -0400
+In-Reply-To: <1276511188.13056.26.camel@lb-tlvb-yanivr.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 15 Jun 2010 07:42:06 +0200
+From: "Yaniv Rosner" <yanivr@broadcom.com>
+Date: Mon, 14 Jun 2010 13:26:28 +0300
 
-> Quite honestly, this kind of patch sucks, because it pollutes 'git
-> blame' output. Its hard to point out the origin of a particular
-> bug/code, and we have to spend precious time playing with complex git
-> commands to go over cleanup patches.
+> -			/* Set 2-wire transfer rate to 400Khz since 100Khz
+> -			is not operational */
+> +			/* Set 2-wire transfer rate of SFP+ module EEPROM
+> +			to 100Khz since some DACs(direct attached cables) do
+> +			not work at 400Khz.*/
 
-I have to agree with Eric on this.
+This is not the correct way to format a multi-line comment.
+It should be:
 
-Pundits of these changes will argue that this is a deficiency in
-git itself.
-
-But that to me just means that until git has a friendlier way to
-walk backwards through blame information for a line to skip past
-the cleanup crapola, we shouldn't make a lot of these kinds of
-changes.
-
-So that means I'm really not excited to see this kind of patch
-submitted, it's just noise that hurts scanning through history
-and thus hurts development.
+			/* Set 2-wire transfer rate of SFP+ module EEPROM
+			 * to 100Khz since some DACs(direct attached cables) do
+			 * not work at 400Khz.
+			 */
