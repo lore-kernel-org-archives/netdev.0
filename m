@@ -1,98 +1,101 @@
-From: Pedro Garcia <pedro.netdev@dondevamos.com>
-Subject: Re: [PATCH] =?UTF-8?Q?vlan=5Fdev=3A=20VLAN=20=30=20should=20be=20treated?=
- =?UTF-8?Q?=20as=20=22no=20vlan=20tag=22=20=28=38=30=32=2E=31p=20packet=29?=
-Date: Wed, 16 Jun 2010 15:28:55 +0200
-Message-ID: <6b5ed8108cebb1865c85e03d3244b6ed@dondevamos.com>
-References: <c25bca517739ada31d698235c3a4d045@dondevamos.com>	 <1276466190.14011.223.camel@localhost>	 <5c6d1ac43fd8ad25661ebfba57c02174@dondevamos.com>	 <1276534945.2074.11.camel@achroite.uk.solarflarecom.com>	 <4C1662C3.3070708@trash.net> <1276542772.2444.13.camel@edumazet-laptop>	 <311b59aee7d648c6124a84b5ca06ac60@dondevamos.com> <1276679284.2632.22.camel@edumazet-laptop> <4C18B898.4000307@trash.net>
+From: Einar EL Lueck <ELELUECK@de.ibm.com>
+Subject: ipv6: netif_carrier_(on|off) with traces afterwards
+Date: Wed, 16 Jun 2010 15:29:49 +0200
+Message-ID: <OF3A036420.64516D4F-ONC1257744.00492A34-C1257744.004A240B@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Patrick McHardy <kaber@trash.net>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 13.Red-213-97-209.staticIP.rima-tde.net ([213.97.209.13]:36806
-	"EHLO smtp1.dondevamos.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754787Ab0FPN26 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 09:28:58 -0400
-In-Reply-To: <4C18B898.4000307@trash.net>
+Received: from mtagate7.de.ibm.com ([195.212.17.167]:46791 "EHLO
+	mtagate7.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755414Ab0FPN3w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 09:29:52 -0400
+Received: from d12nrmr1607.megacenter.de.ibm.com (d12nrmr1607.megacenter.de.ibm.com [9.149.167.49])
+	by mtagate7.de.ibm.com (8.13.1/8.13.1) with ESMTP id o5GDTpTK024728
+	for <netdev@vger.kernel.org>; Wed, 16 Jun 2010 13:29:51 GMT
+Received: from d12av02.megacenter.de.ibm.com (d12av02.megacenter.de.ibm.com [9.149.165.228])
+	by d12nrmr1607.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o5GDTpTU1110200
+	for <netdev@vger.kernel.org>; Wed, 16 Jun 2010 15:29:51 +0200
+Received: from d12av02.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.13.3) with ESMTP id o5GDTogl022140
+	for <netdev@vger.kernel.org>; Wed, 16 Jun 2010 15:29:50 +0200
+Received: from d12ml064.megacenter.de.ibm.com (d12ml064.megacenter.de.ibm.com [9.149.167.10])
+	by d12av02.megacenter.de.ibm.com (8.12.11.20060308/8.12.11) with ESMTP id o5GDToX8022130
+	for <netdev@vger.kernel.org>; Wed, 16 Jun 2010 15:29:50 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 16 Jun 2010 13:42:16 +0200, Patrick McHardy <kaber@trash.net>
-wrote:
-> Eric Dumazet wrote:
->> Le mercredi 16 juin 2010 =C3=A0 10:49 +0200, Pedro Garcia a =C3=A9cr=
-it :
->>> Here it is again. I added the modifications in
->>> http://kerneltrap.org/mailarchive/linux-netdev/2010/5/23/6277868 fo=
-r HW
->>> accelerated incoming packets (it did not apply cleanly on the last
->>> version of
->>> the kernel, so I applied manually). Now, if the VLAN 0 is not
->>> explicitly created by the user, VLAN 0 packets will be treated as n=
-o
->>> VLAN (802.1p packets), instead of dropping them.
->>>
->>> The patch is now for two files: vlan_core (accel) and vlan_dev (non
->>> accel)
->>>
->>> I can not test on HW accelerated devices, so if someone can check i=
-t I
->>> will appreciate (even though in the thread above it looked like yes=
-).
->>> For non accel I tessted in 2.6.26. Now the patch is for
->>> net-next-2.6, and it compiles OK, but I a have to setup a test
->>> environment to check it is still OK (should, but better to test).
->>>
->>> Signed-off-by: Pedro Garcia <pedro.netdev@dondevamos.com>
->>>    =20
->>
->> OK, the patch itself is correct.
->>  =20
->=20
-> Yes, looks fine to me as well.
->=20
->> Now, could you please send it again with a proper changelog ?
->>
->> In this changelog, please explain why patch is needed, and
->> keep lines short (< 72 chars), like the one you did in your first ma=
-il.
->>
->> I'll then add my Signed-off-by, since I wrote the accelerated part ;=
-)
->>
->> Note : I wonder if another patch is needed, in case 8021q module is
->> _not_ loaded. We probably should accept vlan 0 frames in this case ?
->>  =20
->=20
-> I agree that this would be best for consistency, but that would mean
-> adding more special cases to __netif_receive_skb().
 
-In my understanding, 802.1p is a "subset" of 802.1q, and they share the=
-=20
-protocol number. We can do a 802.1p module, but in the end it will end
-up reusing most of the code in 802.1q.
+Hi,
+With IPv6 addresses configured and and a network card doing
+netif_carrier_off|on we see afterwards in 2.6.34 on S/390 some traces in
+fib.
 
-In any case defining a VLAN 0 ends up usually in problems with which ta=
-ble=20
-the ARP entries get stored in. This patch solves the problem to whom=20
-is not using VLAN 0 explicitly, but if somebody is using VLAN 0 tagging
-it will work (whatever "work" means) as before.
+Example sequence of operations:
+ip -6 addr add fd00:10:30:49:4008:ffff:35:2/80 dev eth1
+ip link set eth1 up
+ip link set eth1 down
+# the following lines have as effect netif_carrier_off and then on (among
+other stuff)
+echo 0 > /sys/bus/ccwgroup/drivers/qeth/devices/0.0.e300/online
+echo 1 > /sys/bus/ccwgroup/drivers/qeth/devices/0.0.e300/online
+# end of plugging
+ip link set eth1  up
+ip link set eth1 down
+=> at this point we get the following trace:
 
-Probably a definitive fix would be not to allow the definition of VLAN =
-0=20
-in 802.1q module and provide some other way to tag priority packets wit=
-hout
-using a subinterface (maybe in the same module or a new 8021p one). I a=
-m=20
-having a look at the kernel to see what happens if we load two modules =
-for=20
-the same protocol.=20
+Badness
+at /home/autobuild/BUILD/linux-2.6.34-20100531/net/ipv6/ip6_fib.c:1160
+Modules linked in: qeth_l2 sunrpc qeth_l3 binfmt_misc dm_multipath scsi_dh
+dm_mod ipv6 qeth ccwgroup
+CPU: 9 Not tainted 2.6.34-43.x.20100531-s390xperformance #1
+Process ip (pid: 18144, task: 000000007c304238, ksp: 00000000033af428)
+Krnl PSW : 0704200180000000 000003c0018c05a4 (fib6_del+0x60/0x3f8 [ipv6])
+           R:0 T:1 IO:1 EX:1 Key:0 M:1 W:0 P:0 AS:0 CC:2 PM:0 EA:3
+Krnl GPRS: 0000000000000000 0000000000000002 000000007b58a700
+0000000000830398
+           0000000000830398 0000000000000001 0000000000000000
+0000000000830398
+           000003c0018bba5e 00000000033af480 0000000071ff2780
+000000007b58a700
+           000003c0018a7000 000003c0018e4d50 00000000033af398
+00000000033af2e0
+Krnl Code: 000003c0018c0598: eb6ff1000004       lmg     %r6,%r15,256(%r15)
+           000003c0018c059e: 07f4               bcr     15,%r4
+           000003c0018c05a0: a7f40001           brc     15,3c0018c05a2
+          >000003c0018c05a4: a728fffe           lhi     %r2,-2
+           000003c0018c05a8: a7f4fff3           brc     15,3c0018c058e
+           000003c0018c05ac: b90200aa           ltgr    %r10,%r10
+           000003c0018c05b0: a784ffed           brc     8,3c0018c058a
+           000003c0018c05b4: e32033b00020       cg      %r2,944(%r3)
+Call Trace:
+([<0000000000000020>] 0x20)
+ [<000003c0018bb9c6>] __ip6_del_rt+0x6e/0xc8 [ipv6]
+ [<000003c0018bba5e>] ip6_del_rt+0x3e/0x4c [ipv6]
+ [<000003c0018b4448>] __ipv6_ifa_notify+0x13c/0x1d4 [ipv6]
+ [<000003c0018b7072>] addrconf_ifdown+0x3b2/0x5f0 [ipv6]
+ [<000003c0018b8b2c>] addrconf_notify+0xb4/0x944 [ipv6]
+ [<00000000004fb6aa>] notifier_call_chain+0x5a/0xa0
+ [<000000000016675a>] raw_notifier_call_chain+0x2a/0x3c
+ [<0000000000459194>] __dev_notify_flags+0x88/0xac
+ [<0000000000459200>] dev_change_flags+0x48/0x70
+ [<00000000004664d4>] do_setlink+0x35c/0x60c
+ [<00000000004678fa>] rtnl_newlink+0x446/0x574
+ [<000000000047c89c>] netlink_rcv_skb+0xdc/0xf0
+ [<00000000004671a8>] rtnetlink_rcv+0x3c/0x48
+ [<000000000047c35e>] netlink_unicast+0x352/0x3ac
+ [<000000000047cebe>] netlink_sendmsg+0x22a/0x35c
+ [<00000000004414c4>] sock_sendmsg+0xdc/0x100
+ [<00000000004417ca>] SyS_sendmsg+0x182/0x2d4
+ [<000000000043f17c>] SyS_socketcall+0x150/0x338
+ [<0000000000119346>] sysc_noemu+0x10/0x16
+ [<0000004e1271c71a>] 0x4e1271c71a
+Last Breaking-Event-Address:
+ [<000003c0018c05a0>] fib6_del+0x5c/0x3f8 [ipv6]
 
-By the way, the changelog I have to write is just the text before the=20
-patch?
+Has anybody seen effects like this before on other platforms, or has
+anybody suggestions for the root cause?
 
+Thanks,
+Einar.
 
-Pedro
