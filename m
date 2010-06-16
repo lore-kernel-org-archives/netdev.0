@@ -1,48 +1,59 @@
-From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 04/12] phylib: add a way to make PHY time stamps possible.
-Date: Wed, 16 Jun 2010 08:29:40 +0200
-Message-ID: <20100616062940.GC2887@riccoc20.at.omicron.at>
-References: <cover.1276615626.git.richard.cochran@omicron.at>
-	<27c0ad283f025c2bb71e7ceb71be07f969939429.1276615626.git.richard.cochran@omicron.at>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: linux-next: build warning after merge of the final tree (net
+ tree related)
+Date: Wed, 16 Jun 2010 16:30:01 +1000
+Message-ID: <20100616163001.c504331f.sfr@canb.auug.org.au>
+References: <20100616134848.3edd4a25.sfr@canb.auug.org.au>
+	<20100616035630.GB17440@gondor.apana.org.au>
+	<20100615.214406.45904170.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <27c0ad283f025c2bb71e7ceb71be07f969939429.1276615626.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Wed__16_Jun_2010_16_30_01_+1000_FCbIh5YgOOfeQtjn"
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100615.214406.45904170.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 15, 2010 at 06:08:20PM +0200, Richard Cochran wrote:
+--Signature=_Wed__16_Jun_2010_16_30_01_+1000_FCbIh5YgOOfeQtjn
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> +static inline void skb_tx_timetamp(struct phy_device *phy, struct sk_buff *skb)
-> +{
-> +	union skb_shared_tx *shtx = skb_tx(skb);
-> +
-> +	if (shtx->hardware && phy && phy->drv->txtstamp)
-> +		phy->drv->txtstamp(phy, skb);
-> +
-> +	if (shtx->software && !shtx->in_progress)
-> +		skb_tstamp_tx(skb, NULL);
-> +}
+On Tue, 15 Jun 2010 21:44:06 -0700 (PDT) David Miller <davem@davemloft.net>=
+ wrote:
+>
+> From: Herbert Xu <herbert@gondor.apana.org.au>
+> Date: Wed, 16 Jun 2010 13:56:30 +1000
+>=20
+> > bridge: Add const to dummy br_netpoll_send_skb
+> >=20
+> > The version of br_netpoll_send_skb used when netpoll is off is
+> > missing a const thus causing a warning.
+> >=20
+> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+>=20
+> Applied.
 
-I forgot to mention this patch also provides a way to fix the broken
-software timestamp fallback mode of the SO_TIMESTAMPING API.
+Thanks guys.
 
-We would have to add this inline call to every MAC driver in an
-appropriate spot within the hard_xmit function. It is not too pretty,
-but providing this as a compile time option will promote
-standardization of the SO_TIMESTAMPING API for applications.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
-Richard
+--Signature=_Wed__16_Jun_2010_16_30_01_+1000_FCbIh5YgOOfeQtjn
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAkwYb2kACgkQjjKRsyhoI8yjXACfe4YNP9IUcImdB93/ExpMILi/
+o0wAoKfmDdgXrl3ApwDu8N4n2qnHm5lv
+=IuBj
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__16_Jun_2010_16_30_01_+1000_FCbIh5YgOOfeQtjn--
