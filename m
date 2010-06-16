@@ -1,125 +1,75 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 08/12] ptp: Added a brand new class driver for ptp
- clocks.
-Date: Wed, 16 Jun 2010 16:22:24 +0200
-Message-ID: <20100616142224.GA4146@riccoc20.at.omicron.at>
-References: <cover.1276615626.git.richard.cochran@omicron.at>
- <4a030d2bace90f089f2f3f61496b918c6f1dfb52.1276615626.git.richard.cochran@omicron.at>
- <AANLkTin4lYghEWhjzEyARvYDgHaXdniwLbfyZ4jY0rwm@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] vlan_dev: VLAN 0 should be treated as "no vlan tag"
+ (802.1p packet)
+Date: Wed, 16 Jun 2010 16:24:19 +0200
+Message-ID: <1276698259.2632.88.camel@edumazet-laptop>
+References: <c25bca517739ada31d698235c3a4d045@dondevamos.com>
+	 <1276466190.14011.223.camel@localhost>
+	 <5c6d1ac43fd8ad25661ebfba57c02174@dondevamos.com>
+	 <1276534945.2074.11.camel@achroite.uk.solarflarecom.com>
+	 <4C1662C3.3070708@trash.net> <1276542772.2444.13.camel@edumazet-laptop>
+	 <311b59aee7d648c6124a84b5ca06ac60@dondevamos.com>
+	 <1276679284.2632.22.camel@edumazet-laptop> <4C18B898.4000307@trash.net>
+	 <6b5ed8108cebb1865c85e03d3244b6ed@dondevamos.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	linuxppc-dev@lists.ozlabs.org,
-	linux-arm-kernel@lists.infradead.org,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Grant Likely <grant.likely@secretlab.ca>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Pedro Garcia <pedro.netdev@dondevamos.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.152]:61366 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752691Ab0FPOVg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 10:21:36 -0400
-Received: by fg-out-1718.google.com with SMTP id l26so1556906fgb.1
-        for <netdev@vger.kernel.org>; Wed, 16 Jun 2010 07:21:35 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <AANLkTin4lYghEWhjzEyARvYDgHaXdniwLbfyZ4jY0rwm@mail.gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:47086 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753147Ab0FPOYX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 10:24:23 -0400
+Received: by wyb40 with SMTP id 40so5740825wyb.19
+        for <netdev@vger.kernel.org>; Wed, 16 Jun 2010 07:24:22 -0700 (PDT)
+In-Reply-To: <6b5ed8108cebb1865c85e03d3244b6ed@dondevamos.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 15, 2010 at 11:00:10AM -0600, Grant Likely wrote:
-> 
-> Question from an ignorant reviewer:  Why a new interface instead of
-> working with the existing high resolution timers infrastructure?
+Le mercredi 16 juin 2010 =C3=A0 15:28 +0200, Pedro Garcia a =C3=A9crit =
+:
 
-Short answer: Timers are only one part of the PTP API. If you offer
-the PTP clock as a Linux clock source, then you could just use the
-existing POSIX timers. However, we decided not to offer the PTP clock
-in that way. The following excerpts from an upcoming paper explain
-why:
+>=20
+> In my understanding, 802.1p is a "subset" of 802.1q, and they share t=
+he=20
+> protocol number. We can do a 802.1p module, but in the end it will en=
+d
+> up reusing most of the code in 802.1q.
+>=20
 
-\subsection{Basic Clock Operations}
+I was more thinking of a default ETH_P_8021Q rx handler (aka
+vlan_skb_recv_minimal) with minimum handling (only accept vid=3D0 frame=
+s),
+being overridden by real 8021q handler if module loaded/present.
 
-   Based on our experience with a number of commercially available
-   hardware clocks, we identified a set of four basic clock
-   operations. Besides simply setting or getting the clock's time
-   value, two additional operations are needed for clock control.
-   Once a PTP slave has an initial estimate of the offset to its
-   master, it typically would need to shift the clock by the offset
-   atomically.  Also, the servo loop of a slave periodically needs to
-   adjust the clock frequency.
+> In any case defining a VLAN 0 ends up usually in problems with which =
+table=20
+> the ARP entries get stored in. This patch solves the problem to whom=20
+> is not using VLAN 0 explicitly, but if somebody is using VLAN 0 taggi=
+ng
+> it will work (whatever "work" means) as before.
+>=20
+> Probably a definitive fix would be not to allow the definition of VLA=
+N 0=20
+> in 802.1q module and provide some other way to tag priority packets w=
+ithout
+> using a subinterface (maybe in the same module or a new 8021p one). I=
+ am=20
+> having a look at the kernel to see what happens if we load two module=
+s for=20
+> the same protocol.=20
+>=20
+> By the way, the changelog I have to write is just the text before the=
+=20
+> patch?
 
-\subsection{Ancillary Clock Features}
+Yes, you can take a look on any patch around for examples, like...
 
-   Perhaps the most challenging design issue was deciding how to offer
-   a PTP clock's capabilities to the GNU/Linux operating system.  As
-   John Eidson pointed out~\cite{eidson2006measurement}, modern
-   operating systems provide surprisingly little support for
-   programming based on absolute time.  As the IEEE 1588 standard is
-   being applied to a wide variety of test, measurement, and control
-   applications, we can imagine many possible ways to use an embedded
-   computer equipped with a PTP hardware clock.  We do not expect that
-   any API will be able to cover every conceivable application of this
-   technology.  However, the design presented here does cover common
-   use cases based on the capabilities of currently available hardware
-   clocks.
+git show 6e327c11a91d190650df9aabe7d3694d4838bfa1
 
-   The design allows user space programs to control all of a clock's
-   ancillary features.  Programs may create one-shot or periodic
-   alarms, with signal delivery on expiration.  \Timestamps on
-   external events are provided via a First In, First Out (FIFO)
-   interface.  If the clock has output signals, then their periods are
-   configurable from user space.  Synchronization of the Linux system
-   time via the PPS subsystem may be enabled or disabled as desired.
+Check Documentation/SubmittingPatches   section 2)
 
-\subsection{Synchronizing the Linux System Clock}
 
-   One important question that needed to be addressed was, now that we
-   have a precise time source, how do we synchronize the Linux kernel
-   to it?  The Linux kernel offers a modular clock infrastructure
-   comprising ``clock sources'' and ``clock event devices.'' Clock
-   sources provide a monotonically increasing time base, and clock
-   event devices are used to schedule the next interrupt for various
-   timer events.
-
-   We considered but ultimately rejected the idea of offering the PTP
-   clock to the Linux kernel as a combined clock source and clock
-   event device.  The one great advantage of this approach would have
-   been that it obviates the need for synchronization when the PTP
-   clock is selected as the system timer.
-
-   However, this approach is problematic when using certain kinds of
-   clock hardware. For example, physical layer (PHY) chip based clocks
-   can only be accessed by the relatively slow 16 bit wide MDIO
-   bus. Such a clock would not be suitable for providing high
-   resolution timers, which are now a standard Linux kernel feature.
-   Furthermore, we cannot even be sure that a given hardware clock
-   will offer any interrupt to the system at all.
-
-   Instead, we elected to use the Pulse Per Second (PPS) subsystem as
-   a method to optionally synchronize the Linux system time to the PTP
-   clock.  This method is feasible even for clocks that do not offer
-   fast register access, such as the PHY clocks.  Of course, the main
-   disadvantage of this approach is that the Linux system time will
-   not be exactly synchronized to the PTP clock time.  Since PTP
-   clocks can be synchronized an order of magnitude better than the
-   typical operating system scheduling latency, we expect that this
-   method will still yield acceptable results for many applications.
-   Applications with more demanding time requirements may use the new
-   PTP interfaces directly when needed.
-
-\subsection{System Calls or Character Device}
-
-   When adding new functionality to an operating system, a basic design
-   decision is how user space programs will call into the kernel.  For
-   the Linux kernel, two different ways come into question, namely
-   system calls or as a ``character device.''  In an attempt to make
-   the PTP clock API easy to understand, we patterned it after the
-   existing Network Time Protocol (NTP) and the POSIX timer APIs, as
-   described in Section~\ref{UserAPI}.  Both of these services are
-   exported to the user space as system calls.  However, we decided to
-   offer the PTP clock as a character device because extending the NTP
-   and POSIX interfaces seemed impractical.  In addition, the
-   character device's \fn{read()} method provides a
-   convenient way to deliver time stamped events to user space
-   programs.
 
