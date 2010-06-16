@@ -1,38 +1,42 @@
-From: Nick Bowler <nbowler@elliptictech.com>
-Subject: Re: 2.6.35-rc3: Reported regressions 2.6.33 -> 2.6.34
-Date: Wed, 16 Jun 2010 14:30:51 -0400
-Message-ID: <20100616183051.GA19635@elliptictech.com>
-References: <g77CuMUl7QI.A.5wF.V5OFMB@chimera>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless-2.6 2010-06-16
+Date: Wed, 16 Jun 2010 11:50:08 -0700 (PDT)
+Message-ID: <20100616.115008.226776050.davem@davemloft.net>
+References: <20100616182847.GB3138@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Maciej Rutecki <maciej.rutecki@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.sourceforge.net>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <g77CuMUl7QI.A.5wF.V5OFMB@chimera>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43756
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932615Ab0FPSt5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 14:49:57 -0400
+In-Reply-To: <20100616182847.GB3138@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16:45 Sun 13 Jun     , Rafael J. Wysocki wrote:
->  * This report has been delayed, because I had to go through all of the
->    entries and filter out the fixed ones, invalid ones etc.  Of course, I might
->    have missed some, but hopefully not too many.
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 16 Jun 2010 14:28:48 -0400
 
-This regression from 2.6.33 still seems to be missing from the list, and
-is still present in 2.6.35-rc3.
+> Here is another passel of of fixes intended for 2.6.35.  Included are
+> some build warning fixes, a PCI identifier, a fix for premature
+> IRQs during hostap initialization, a fix for a warning caused by
+> failing to cancel a scan watchdog in iwlwifi, a fix for a null
+> pointer dereference in iwlwifi, and a fix for a race condition in
+> the same driver.  Also included is the MAINTAINERS change for the
+> orphaning of the older Intel wireless drivers.  All but the last few
+> warning fixes have spent some time in linux-next already.
+> 
+> Please let me know if there are problems!
 
-  r600 CS checker rejects narrow FBO renderbuffers.
-  https://bugs.freedesktop.org/show_bug.cgi?id=27609
+The patches removing unused function variables just to kill compile
+warnings are not appropriate, _at_ _all_.  They don't fix any real
+bug, and they definitely don't fix entries in the regression list do
+they?
 
--- 
-Nick Bowler, Elliptic Technologies (http://www.elliptictech.com/)
+Kill all of those and resend this pull request.
+
+Thanks.
