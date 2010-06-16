@@ -1,43 +1,44 @@
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Subject: [PATCH net-next-2.6 2/2] qlcnic: Bumped up version number
-Date: Wed, 16 Jun 2010 12:07:36 -0700
-Message-ID: <alpine.OSX.2.00.1006161205230.15485@macintosh-2.qlogic.org>
+From: Maciej Rutecki <maciej.rutecki@gmail.com>
+Subject: Re: [REGRESSION]linux-2.6.35-rc3 in net/core/dev.c
+Date: Wed, 16 Jun 2010 21:27:03 +0200
+Message-ID: <201006162127.03412.maciej.rutecki@gmail.com>
+References: <201006131625.55481.mitov@issp.bas.bg>
+Reply-To: maciej.rutecki@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Dept_NX_Linux_NIC_Driver <Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Marin Mitov <mitov@issp.bas.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexcashub1.qlogic.com ([198.70.193.61]:34095 "EHLO
-	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758747Ab0FPTHp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 15:07:45 -0400
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:38223 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759415Ab0FPT1J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 15:27:09 -0400
+In-Reply-To: <201006131625.55481.mitov@issp.bas.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Changed the driver version number to 5.0.4
+On niedziela, 13 czerwca 2010 o 15:25:54 Marin Mitov wrote:
+> Hi all,
+> 
+> I am using ssh with port redirection to log on host_at_work:
+> 
+> ssh -L20110:mail:110 host_at_work
+> 
+> With linux-2.6.35-rc3, when I telnet to localhost I get:
+> 
+> telnet localhost 20110
+> Trying 127.0.0.1...
+> telnet: connect to address 127.0.0.1: Connection timed out
+> 
+> but the connection at host_at_work stays ESTABLISHED
+> 
 
+I created a Bugzilla entry at 
+https://bugzilla.kernel.org/show_bug.cgi?id=16229
+for your bug report, please add your address to the CC list in there, thanks!
 
-Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
----
- drivers/net/qlcnic/qlcnic.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
-index eb1bdb2..7d31caa 100644
---- a/drivers/net/qlcnic/qlcnic.h
-+++ b/drivers/net/qlcnic/qlcnic.h
-@@ -51,8 +51,8 @@
- 
- #define _QLCNIC_LINUX_MAJOR 5
- #define _QLCNIC_LINUX_MINOR 0
--#define _QLCNIC_LINUX_SUBVERSION 3
--#define QLCNIC_LINUX_VERSIONID  "5.0.3"
-+#define _QLCNIC_LINUX_SUBVERSION 4
-+#define QLCNIC_LINUX_VERSIONID  "5.0.4"
- #define QLCNIC_DRV_IDC_VER  0x01
- 
- #define QLCNIC_VERSION_CODE(a, b, c)	(((a) << 24) + ((b) << 16) + (c))
 -- 
-1.6.0.2
-
+Maciej Rutecki
+http://www.maciek.unixy.pl
