@@ -1,35 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/8] Support unix domain sockets across namespaces
-Date: Wed, 16 Jun 2010 15:15:36 -0700 (PDT)
-Message-ID: <20100616.151536.70195214.davem@davemloft.net>
-References: <m1hbl7hxo3.fsf@fess.ebiederm.org>
+From: Mike Christie <michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org>
+Subject: Re: [PATCH 3/3] cxgb4i_v4.3 : main driver files
+Date: Wed, 16 Jun 2010 17:19:02 -0500
+Message-ID: <4C194DD6.7090706@cs.wisc.edu>
+References: <1275973167-8640-1-git-send-email-rakesh@chelsio.com> <1275973167-8640-2-git-send-email-rakesh@chelsio.com> <1275973167-8640-3-git-send-email-rakesh@chelsio.com> <1275973167-8640-4-git-send-email-rakesh@chelsio.com>
+Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: serue@us.ibm.com, containers@lists.osdl.org,
-	daniel.lezcano@free.fr, netdev@vger.kernel.org, xemul@parallels.com
-To: ebiederm@xmission.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53024
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754548Ab0FPWPZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 18:15:25 -0400
-In-Reply-To: <m1hbl7hxo3.fsf@fess.ebiederm.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Cc: Rakesh Ranjan <rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, LK-NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        LK-SCSIDev <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Karen Xie <kxie-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
+        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        James Bottomley <James.Bottomley-JuX6DAaQMKPCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>,
+        Anish Bhatt <anish-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Return-path: <open-iscsi+bncCLPJla3WGRDQmuXgBBoEwSSDEg-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+In-Reply-To: <1275973167-8640-4-git-send-email-rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+List-Post: <http://groups.google.com/group/open-iscsi/post?hl=en_US>,
+	<mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/?hl=en_US>, <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/open-iscsi?hl=en_US>
+Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/open-iscsi/subscribe?hl=en_US>,
+	<mailto:open-iscsi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <http://groups.google.com/group/open-iscsi/subscribe?hl=en_US>,
+	<mailto:open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Sun, 13 Jun 2010 06:25:32 -0700
+On 06/07/2010 11:59 PM, Rakesh Ranjan wrote:
+> From: Rakesh Ranjan<rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+>
+>
+> Signed-off-by: Rakesh Ranjan<rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+> ---
+>   drivers/scsi/cxgbi/cxgb4i.h         |  175 +++++
+>   drivers/scsi/cxgbi/cxgb4i_ddp.c     |  653 ++++++++++++++++
+>   drivers/scsi/cxgbi/cxgb4i_init.c    |  317 ++++++++
+>   drivers/scsi/cxgbi/cxgb4i_offload.c | 1409 +++++++++++++++++++++++++++++++++++
+>   4 files changed, 2554 insertions(+), 0 deletions(-)
+>   create mode 100644 drivers/scsi/cxgbi/cxgb4i.h
+>   create mode 100644 drivers/scsi/cxgbi/cxgb4i_ddp.c
+>   create mode 100644 drivers/scsi/cxgbi/cxgb4i_init.c
+>   create mode 100644 drivers/scsi/cxgbi/cxgb4i_offload.c
+>
 
-> This patchset takes a addressing all of the issues that crop up with
-> unix domain sockets when the senders and receivers are in separate
-> namespaces.
-> 
-> Without this patchset we can report the wrong pid and uid
-> values in our unix domain credentials.
-> 
-> As a finally this patchset removes the now unnecessary restriction
-> that we only allow unix domain sockets between processes in the
-> same network namespace.
+Do you think you can look through this patch and identify the places 
+where you basically just copied a cxgb3i function or copied it but 
+renamed some stuff and then move these type of things to the lib patch?
 
-Looks good, all applied to net-next-2.6, thanks Eric.
+A lot of the scatter list stuff for example looks the same in each driver.
+
+ddp_find_unused_entries - cxgb4i_ddp_find_unused_entries
+ddp_unmark_entries - cxgb4i_ddp_unmark_entries
+cxgb3i_ddp_find_page_index - cxgb4i_ddp_find_page_index
+cxgb3i_ddp_adjust_page_table - cxgb4i_ddp_adjust_page_table
+..... (lots of the ddp code looks duplicated).
+
+The *_offload.c code looks the same.
+
+-- 
+You received this message because you are subscribed to the Google Groups "open-iscsi" group.
+To post to this group, send email to open-iscsi-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+To unsubscribe from this group, send email to open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
+For more options, visit this group at http://groups.google.com/group/open-iscsi?hl=en.
