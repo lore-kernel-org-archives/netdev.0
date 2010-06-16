@@ -1,46 +1,94 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [0/8] netpoll/bridge fixes
-Date: Wed, 16 Jun 2010 08:16:10 +0200
-Message-ID: <1276668970.19249.60.camel@edumazet-laptop>
-References: <20100610145915.721a86b7@nehalam>
-	 <20100610224839.GA22469@gondor.apana.org.au>
-	 <20100611021142.GA24490@gondor.apana.org.au>
-	 <20100615.113940.245399246.davem@davemloft.net>
-	 <1276657139.19249.50.camel@edumazet-laptop>
-	 <1276657400.19249.53.camel@edumazet-laptop>
-	 <20100616033336.GA17440@gondor.apana.org.au>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 05/12] phylib: Allow reading and writing a mii bus from
+	atomic context.
+Date: Wed, 16 Jun 2010 08:20:19 +0200
+Message-ID: <20100616062019.GB2887@riccoc20.at.omicron.at>
+References: <cover.1276615626.git.richard.cochran@omicron.at>
+	<1b8219e7d7993d0e8204b94e959477e3007534ce.1276615626.git.richard.cochran@omicron.at>
+	<AANLkTikeae2t4KmnawOCo2LqfSI57BKjNnUayY09DfEC@mail.gmail.com>
+	<20100615170806.GB10668@riccoc20.at.omicron.at>
+	<AANLkTin8RI4UKzA58k_qER_urdwnD037u5GZrVQS8IoS@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	shemminger@vyatta.com, mst@redhat.com, frzhang@redhat.com,
-	netdev@vger.kernel.org, amwang@redhat.com, mpm@selenic.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:49689 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756024Ab0FPGQQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 02:16:16 -0400
-Received: by wwb18 with SMTP id 18so5358027wwb.19
-        for <netdev@vger.kernel.org>; Tue, 15 Jun 2010 23:16:14 -0700 (PDT)
-In-Reply-To: <20100616033336.GA17440@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
+To: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <AANLkTin8RI4UKzA58k_qER_urdwnD037u5GZrVQS8IoS-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 16 juin 2010 =C3=A0 13:33 +1000, Herbert Xu a =C3=A9crit :
-> On Wed, Jun 16, 2010 at 05:03:20AM +0200, Eric Dumazet wrote:
-> >
-> > I wonder how these patches were tested, Herbert ?
->=20
-> You know, not everyone enables RCU debugging...
->=20
+> That's right, and I fully agree with that change.  To me, going back
+> to allowing spin locks is a regression because it adds a new source of
+> scheduling latency.
 
-Hmm, this was not an attack Herbert, just a suggestion, I now turn on
-RCU lockdep debugging when doing RCU changes, it can helps ;)
+I think that the change was not about reducing scheduling
+latency. Rather, the idea was simply to allow mdio bus drivers that
+sleep. Here is the change log message:
 
-> Anyway, this patch should fix the problems you've spotted.
->=20
+    commit 35b5f6b1a82b5c586e0b24c711dc6ba944e88ef1
 
-Thanks
+    PHYLIB: Locking fixes for PHY I/O potentially sleeping
+    
+    PHY read/write functions can potentially sleep (e.g., a PHY accessed
+    via I2C).  The following changes were made to account for this:
+    
+        * Change spin locks to mutex locks
+        * Add a BUG_ON() to phy_read() phy_write() to warn against
+          calling them from an interrupt context.
+        * Use work queue for PHY state machine handling since
+          it can potentially sleep
+        * Change phydev lock from spinlock to mutex
 
+The fundamental issue is this: Fro the SO_TIMESTAMPING API, receive
+timestamps must appear in a control message along with the packet
+data. Only the MAC driver (or the PHY driver) knows how to get the
+timestamp. The stack calls the MAC driver via its napi poll
+function. During the call, the driver must provide the skb with Rx
+timestamp.
+
+The only reasonable way to do this is to have the driver fetch the
+timestamp durng the napi poll function. For MAC drivers with fast
+register access, the performance penalty is small. For PHY drivers
+with must go via the MDIO bus, the performance penalty is obviously
+larger, and the user must be willing to live with it.
+
+You might suggest the alternate that the driver would defer the
+netif_receive_skb() callback until a work queue completes, providing
+the Rx timestamp. The driver would then call netif_receive_skb() at
+some later time.
+
+However, there are a number of problems with this idea:
+
+1. It is really icky for the drivers to be creating new skb queues for
+   this purpose. MAC drivers would have to maintain such queues on
+   behalf of the PHY drivers, but only when the PHYs support
+   timestamping. Yuck.
+
+2. There is a (soft) real time constraint on the delivery of the PTP
+   packets to the user space application. Basicly, delays and jitter
+   in the time to receive the packet negatively affect the clock servo
+   loop.
+
+3. It cannot work for many kinds of PTP timestamping hardware. Some of
+   hardware only timestamps PTP packets. That means that not every
+   received packet will have a timestamp. Such hardware provides some
+   key data from the packet (like PTP UUID and sequence number) with
+   the timestamp. Software must match this information to a particular
+   packet. In order to defer a skb, the driver must first obtain the
+   timestamp information. This is a catch-22.
+
+Having said all that, I am still open to suggestions...
+
+Richard
