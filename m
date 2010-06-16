@@ -1,60 +1,54 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build warnings after merge of the net tree
-Date: Wed, 16 Jun 2010 13:38:54 +1000
-Message-ID: <20100616133854.1bbbbb37.sfr@canb.auug.org.au>
+Subject: linux-next: build warning after merge of the final tree (net tree
+ related)
+Date: Wed, 16 Jun 2010 13:48:48 +1000
+Message-ID: <20100616134848.3edd4a25.sfr@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: multipart/signed; protocol="application/pgp-signature";
  micalg="PGP-SHA1";
- boundary="Signature=_Wed__16_Jun_2010_13_38_54_+1000_mlmjYNNFlOR/cK6T"
+ boundary="Signature=_Wed__16_Jun_2010_13_48_48_+1000_6znWOPAIaCPcEy.j"
 Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>
+	Herbert Xu <herbert@gondor.apana.org.au>
 To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <linux-next-owner@vger.kernel.org>
 Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Wed__16_Jun_2010_13_38_54_+1000_mlmjYNNFlOR/cK6T
+--Signature=_Wed__16_Jun_2010_13_48_48_+1000_6znWOPAIaCPcEy.j
 Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
 Hi Dave,
 
-After merging the net tree, today's linux-next build (x86_64 allmodconfig)
-produced these warnings:
+After merging the final tree, today's linux-next build (powerpc
+ppc44x_defconfig) produced this warning:
 
-In file included from drivers/usb/gadget/ether.c:123:
-drivers/usb/gadget/rndis.c: In function 'gen_ndis_query_resp':
-drivers/usb/gadget/rndis.c:197: warning: assignment from incompatible point=
-er type
-In file included from drivers/usb/gadget/multi.c:67:
-drivers/usb/gadget/rndis.c: In function 'gen_ndis_query_resp':
-drivers/usb/gadget/rndis.c:197: warning: assignment from incompatible point=
-er type
-In file included from drivers/usb/gadget/g_ffs.c:30:
-drivers/usb/gadget/rndis.c: In function 'gen_ndis_query_resp':
-drivers/usb/gadget/rndis.c:197: warning: assignment from incompatible point=
-er type
+net/bridge/br_forward.c: In function '__br_deliver':
+net/bridge/br_forward.c:76: warning: passing argument 1 of 'br_netpoll_send=
+_skb' discards qualifiers from pointer target type
+net/bridge/br_private.h:308: note: expected 'struct net_bridge_port *' but =
+argument is of type 'const struct net_bridge_port *'
 
-Introduced by commit be1f3c2c027cc5ad735df6a45a542ed1db7ec48b ("net:
-Enable 64-bit net device statistics on 32-bit architectures").  This is a
-call to dev_get_stats() and the return value is being assigned to a
-"struct net_device_stats *".
+Introduced by commit 91d2c34a4eed32876ca333b0ca44f3bc56645805 ("bridge:
+Fix netpoll support").
 
+By the way, that function (br_netpoll_send_skb) is only used in that one
+file, so could be static in there.
 --=20
 Cheers,
 Stephen Rothwell                    sfr@canb.auug.org.au
 http://www.canb.auug.org.au/~sfr/
 
---Signature=_Wed__16_Jun_2010_13_38_54_+1000_mlmjYNNFlOR/cK6T
+--Signature=_Wed__16_Jun_2010_13_48_48_+1000_6znWOPAIaCPcEy.j
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.10 (GNU/Linux)
 
-iEYEARECAAYFAkwYR04ACgkQjjKRsyhoI8wLqACfTy3XaBsmvmBUChhuf1XeTze0
-ZKMAoK+heaf5UztEnxGlCaIER9q937RZ
-=y7pG
+iEYEARECAAYFAkwYSaAACgkQjjKRsyhoI8z1EACgjvxDGfxcBf+enX5IIF9T3wa9
+7cgAoKXwB0Cs6nyaWDuMh2d2vZEK1C+Q
+=mDz+
 -----END PGP SIGNATURE-----
 
---Signature=_Wed__16_Jun_2010_13_38_54_+1000_mlmjYNNFlOR/cK6T--
+--Signature=_Wed__16_Jun_2010_13_48_48_+1000_6znWOPAIaCPcEy.j--
