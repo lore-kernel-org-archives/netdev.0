@@ -1,67 +1,60 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [0/8] netpoll/bridge fixes
-Date: Wed, 16 Jun 2010 13:33:36 +1000
-Message-ID: <20100616033336.GA17440@gondor.apana.org.au>
-References: <20100610145915.721a86b7@nehalam> <20100610224839.GA22469@gondor.apana.org.au> <20100611021142.GA24490@gondor.apana.org.au> <20100615.113940.245399246.davem@davemloft.net> <1276657139.19249.50.camel@edumazet-laptop> <1276657400.19249.53.camel@edumazet-laptop>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build warnings after merge of the net tree
+Date: Wed, 16 Jun 2010 13:38:54 +1000
+Message-ID: <20100616133854.1bbbbb37.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	shemminger@vyatta.com, mst@redhat.com, frzhang@redhat.com,
-	netdev@vger.kernel.org, amwang@redhat.com, mpm@selenic.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:35153 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754985Ab0FPDdx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 23:33:53 -0400
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Wed__16_Jun_2010_13_38_54_+1000_mlmjYNNFlOR/cK6T"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--Signature=_Wed__16_Jun_2010_13_38_54_+1000_mlmjYNNFlOR/cK6T
+Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
-In-Reply-To: <1276657400.19249.53.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-On Wed, Jun 16, 2010 at 05:03:20AM +0200, Eric Dumazet wrote:
->
-> I wonder how these patches were tested, Herbert ?
+Hi Dave,
 
-You know, not everyone enables RCU debugging...
+After merging the net tree, today's linux-next build (x86_64 allmodconfig)
+produced these warnings:
 
-Anyway, this patch should fix the problems you've spotted.
+In file included from drivers/usb/gadget/ether.c:123:
+drivers/usb/gadget/rndis.c: In function 'gen_ndis_query_resp':
+drivers/usb/gadget/rndis.c:197: warning: assignment from incompatible point=
+er type
+In file included from drivers/usb/gadget/multi.c:67:
+drivers/usb/gadget/rndis.c: In function 'gen_ndis_query_resp':
+drivers/usb/gadget/rndis.c:197: warning: assignment from incompatible point=
+er type
+In file included from drivers/usb/gadget/g_ffs.c:30:
+drivers/usb/gadget/rndis.c: In function 'gen_ndis_query_resp':
+drivers/usb/gadget/rndis.c:197: warning: assignment from incompatible point=
+er type
 
-netpoll: Use correct primitives for RCU dereferencing
+Introduced by commit be1f3c2c027cc5ad735df6a45a542ed1db7ec48b ("net:
+Enable 64-bit net device statistics on 32-bit architectures").  This is a
+call to dev_get_stats() and the return value is being assigned to a
+"struct net_device_stats *".
 
-Now that RCU debugging checks for matching rcu_dereference calls
-and rcu_read_lock, we need to use the correct primitives or face
-nasty warnings.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+--Signature=_Wed__16_Jun_2010_13_38_54_+1000_mlmjYNNFlOR/cK6T
+Content-Type: application/pgp-signature
 
-diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
-index 4c77fe7..413742c 100644
---- a/include/linux/netpoll.h
-+++ b/include/linux/netpoll.h
-@@ -64,7 +64,7 @@ static inline bool netpoll_rx(struct sk_buff *skb)
- 	bool ret = false;
- 
- 	rcu_read_lock_bh();
--	npinfo = rcu_dereference(skb->dev->npinfo);
-+	npinfo = rcu_dereference_bh(skb->dev->npinfo);
- 
- 	if (!npinfo || (list_empty(&npinfo->rx_np) && !npinfo->rx_flags))
- 		goto out;
-@@ -82,7 +82,7 @@ out:
- 
- static inline int netpoll_rx_on(struct sk_buff *skb)
- {
--	struct netpoll_info *npinfo = rcu_dereference(skb->dev->npinfo);
-+	struct netpoll_info *npinfo = rcu_dereference_bh(skb->dev->npinfo);
- 
- 	return npinfo && (!list_empty(&npinfo->rx_np) || npinfo->rx_flags);
- }
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+iEYEARECAAYFAkwYR04ACgkQjjKRsyhoI8wLqACfTy3XaBsmvmBUChhuf1XeTze0
+ZKMAoK+heaf5UztEnxGlCaIER9q937RZ
+=y7pG
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__16_Jun_2010_13_38_54_+1000_mlmjYNNFlOR/cK6T--
