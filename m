@@ -1,7 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 2/8] e1000e: cleanup e1000_sw_lcd_config_ich8lan()
-Date: Wed, 16 Jun 2010 16:26:17 -0700
-Message-ID: <20100616232615.4834.11982.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 3/8] e1000e: separate out PHY statistics register
+	updates
+Date: Wed, 16 Jun 2010 16:26:41 -0700
+Message-ID: <20100616232639.4834.11424.stgit@localhost.localdomain>
 References: <20100616232523.4834.84849.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,76 +12,260 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.westchester.pa.mail.comcast.net ([76.96.62.96]:48650
-	"EHLO qmta09.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759156Ab0FPX0j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 19:26:39 -0400
+Received: from qmta03.westchester.pa.mail.comcast.net ([76.96.62.32]:33320
+	"EHLO qmta03.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759156Ab0FPX1E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 19:27:04 -0400
 In-Reply-To: <20100616232523.4834.84849.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Do not acquire and release the PHY unnecessarily for parts that return
-from this workaround without actually accessing the PHY registers.
+The 82577/82578 parts have half-duplex statistics in PHY registers.  These
+need only be read when in half-duplex and should all be read at once rather
+than one at a time to prevent excessive cycles of acquiring/releasing the
+PHY semaphore.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/ich8lan.c |   32 +++++++++++++++++++-------------
- 1 files changed, 19 insertions(+), 13 deletions(-)
+ drivers/net/e1000e/e1000.h   |    1 
+ drivers/net/e1000e/ich8lan.c |    1 
+ drivers/net/e1000e/netdev.c  |  171 ++++++++++++++++++++++++++++++------------
+ 3 files changed, 126 insertions(+), 47 deletions(-)
 
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index c0b3db4..79e7c4c 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -421,6 +421,7 @@ struct e1000_info {
+ #define FLAG2_HAS_PHY_WAKEUP              (1 << 1)
+ #define FLAG2_IS_DISCARDING               (1 << 2)
+ #define FLAG2_DISABLE_ASPM_L1             (1 << 3)
++#define FLAG2_HAS_PHY_STATS               (1 << 4)
+ 
+ #define E1000_RX_DESC_PS(R, i)	    \
+ 	(&(((union e1000_rx_desc_packet_split *)((R).desc))[i]))
 diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index b2507d9..5d8fad3 100644
+index 5d8fad3..70cd681 100644
 --- a/drivers/net/e1000e/ich8lan.c
 +++ b/drivers/net/e1000e/ich8lan.c
-@@ -820,14 +820,6 @@ static s32 e1000_sw_lcd_config_ich8lan(struct e1000_hw *hw)
- 	s32 ret_val = 0;
- 	u16 word_addr, reg_data, reg_addr, phy_page = 0;
+@@ -3503,6 +3503,7 @@ struct e1000_info e1000_pch_info = {
+ 				  | FLAG_HAS_JUMBO_FRAMES
+ 				  | FLAG_DISABLE_FC_PAUSE_TIME /* errata */
+ 				  | FLAG_APME_IN_WUC,
++	.flags2			= FLAG2_HAS_PHY_STATS,
+ 	.pba			= 26,
+ 	.max_hw_frame_size	= 4096,
+ 	.get_variants		= e1000_get_variants_ich8lan,
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 57a7e41..b4c431d 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -3672,6 +3672,110 @@ static void e1000_update_phy_info(unsigned long data)
+ }
  
--	if (!(hw->mac.type == e1000_ich8lan && phy->type == e1000_phy_igp_3) &&
--		!(hw->mac.type == e1000_pchlan))
--		return ret_val;
--
--	ret_val = hw->phy.ops.acquire(hw);
--	if (ret_val)
--		return ret_val;
--
- 	/*
- 	 * Initialize the PHY from the NVM on ICH platforms.  This
- 	 * is needed due to an issue where the NVM configuration is
-@@ -835,12 +827,26 @@ static s32 e1000_sw_lcd_config_ich8lan(struct e1000_hw *hw)
- 	 * Therefore, after each PHY reset, we will load the
- 	 * configuration data out of the NVM manually.
- 	 */
--	if ((adapter->pdev->device == E1000_DEV_ID_ICH8_IGP_M_AMT) ||
--	    (adapter->pdev->device == E1000_DEV_ID_ICH8_IGP_M) ||
--	    (hw->mac.type == e1000_pchlan))
-+	switch (hw->mac.type) {
-+	case e1000_ich8lan:
-+		if (phy->type != e1000_phy_igp_3)
-+			return ret_val;
-+
-+		if (adapter->pdev->device == E1000_DEV_ID_ICH8_IGP_AMT) {
-+			sw_cfg_mask = E1000_FEXTNVM_SW_CONFIG;
-+			break;
-+		}
-+		/* Fall-thru */
-+	case e1000_pchlan:
- 		sw_cfg_mask = E1000_FEXTNVM_SW_CONFIG_ICH8M;
--	else
--		sw_cfg_mask = E1000_FEXTNVM_SW_CONFIG;
-+		break;
-+	default:
-+		return ret_val;
-+	}
+ /**
++ * e1000e_update_phy_stats - Update the PHY statistics counters
++ * @adapter: board private structure
++ **/
++static void e1000e_update_phy_stats(struct e1000_adapter *adapter)
++{
++	struct e1000_hw *hw = &adapter->hw;
++	s32 ret_val;
++	u16 phy_data;
 +
 +	ret_val = hw->phy.ops.acquire(hw);
 +	if (ret_val)
-+		return ret_val;
++		return;
++
++	hw->phy.addr = 1;
++
++#define HV_PHY_STATS_PAGE	778
++	/*
++	 * A page set is expensive so check if already on desired page.
++	 * If not, set to the page with the PHY status registers.
++	 */
++	ret_val = e1000e_read_phy_reg_mdic(hw, IGP01E1000_PHY_PAGE_SELECT,
++					   &phy_data);
++	if (ret_val)
++		goto release;
++	if (phy_data != (HV_PHY_STATS_PAGE << IGP_PAGE_SHIFT)) {
++		ret_val = e1000e_write_phy_reg_mdic(hw,
++						    IGP01E1000_PHY_PAGE_SELECT,
++						    (HV_PHY_STATS_PAGE <<
++						     IGP_PAGE_SHIFT));
++		if (ret_val)
++			goto release;
++	}
++
++	/* Read/clear the upper 16-bit registers and read/accumulate lower */
++
++	/* Single Collision Count */
++	e1000e_read_phy_reg_mdic(hw, HV_SCC_UPPER & MAX_PHY_REG_ADDRESS,
++				 &phy_data);
++	ret_val = e1000e_read_phy_reg_mdic(hw,
++					   HV_SCC_LOWER & MAX_PHY_REG_ADDRESS,
++					   &phy_data);
++	if (!ret_val)
++		adapter->stats.scc += phy_data;
++
++	/* Excessive Collision Count */
++	e1000e_read_phy_reg_mdic(hw, HV_ECOL_UPPER & MAX_PHY_REG_ADDRESS,
++				 &phy_data);
++	ret_val = e1000e_read_phy_reg_mdic(hw,
++					   HV_ECOL_LOWER & MAX_PHY_REG_ADDRESS,
++					   &phy_data);
++	if (!ret_val)
++		adapter->stats.ecol += phy_data;
++
++	/* Multiple Collision Count */
++	e1000e_read_phy_reg_mdic(hw, HV_MCC_UPPER & MAX_PHY_REG_ADDRESS,
++				 &phy_data);
++	ret_val = e1000e_read_phy_reg_mdic(hw,
++					   HV_MCC_LOWER & MAX_PHY_REG_ADDRESS,
++					   &phy_data);
++	if (!ret_val)
++		adapter->stats.mcc += phy_data;
++
++	/* Late Collision Count */
++	e1000e_read_phy_reg_mdic(hw, HV_LATECOL_UPPER & MAX_PHY_REG_ADDRESS,
++				 &phy_data);
++	ret_val = e1000e_read_phy_reg_mdic(hw,
++					   HV_LATECOL_LOWER &
++					   MAX_PHY_REG_ADDRESS,
++					   &phy_data);
++	if (!ret_val)
++		adapter->stats.latecol += phy_data;
++
++	/* Collision Count - also used for adaptive IFS */
++	e1000e_read_phy_reg_mdic(hw, HV_COLC_UPPER & MAX_PHY_REG_ADDRESS,
++				 &phy_data);
++	ret_val = e1000e_read_phy_reg_mdic(hw,
++					   HV_COLC_LOWER & MAX_PHY_REG_ADDRESS,
++					   &phy_data);
++	if (!ret_val)
++		hw->mac.collision_delta = phy_data;
++
++	/* Defer Count */
++	e1000e_read_phy_reg_mdic(hw, HV_DC_UPPER & MAX_PHY_REG_ADDRESS,
++				 &phy_data);
++	ret_val = e1000e_read_phy_reg_mdic(hw,
++					   HV_DC_LOWER & MAX_PHY_REG_ADDRESS,
++					   &phy_data);
++	if (!ret_val)
++		adapter->stats.dc += phy_data;
++
++	/* Transmit with no CRS */
++	e1000e_read_phy_reg_mdic(hw, HV_TNCRS_UPPER & MAX_PHY_REG_ADDRESS,
++				 &phy_data);
++	ret_val = e1000e_read_phy_reg_mdic(hw,
++					   HV_TNCRS_LOWER & MAX_PHY_REG_ADDRESS,
++					   &phy_data);
++	if (!ret_val)
++		adapter->stats.tncrs += phy_data;
++
++release:
++	hw->phy.ops.release(hw);
++}
++
++/**
+  * e1000e_update_stats - Update the board statistics counters
+  * @adapter: board private structure
+  **/
+@@ -3680,7 +3784,6 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
+ 	struct net_device *netdev = adapter->netdev;
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	struct pci_dev *pdev = adapter->pdev;
+-	u16 phy_data;
  
- 	data = er32(FEXTNVM);
- 	if (!(data & sw_cfg_mask))
+ 	/*
+ 	 * Prevent stats update while adapter is being reset, or if the pci
+@@ -3700,34 +3803,27 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
+ 	adapter->stats.roc += er32(ROC);
+ 
+ 	adapter->stats.mpc += er32(MPC);
+-	if ((hw->phy.type == e1000_phy_82578) ||
+-	    (hw->phy.type == e1000_phy_82577)) {
+-		e1e_rphy(hw, HV_SCC_UPPER, &phy_data);
+-		if (!e1e_rphy(hw, HV_SCC_LOWER, &phy_data))
+-			adapter->stats.scc += phy_data;
+-
+-		e1e_rphy(hw, HV_ECOL_UPPER, &phy_data);
+-		if (!e1e_rphy(hw, HV_ECOL_LOWER, &phy_data))
+-			adapter->stats.ecol += phy_data;
+-
+-		e1e_rphy(hw, HV_MCC_UPPER, &phy_data);
+-		if (!e1e_rphy(hw, HV_MCC_LOWER, &phy_data))
+-			adapter->stats.mcc += phy_data;
+-
+-		e1e_rphy(hw, HV_LATECOL_UPPER, &phy_data);
+-		if (!e1e_rphy(hw, HV_LATECOL_LOWER, &phy_data))
+-			adapter->stats.latecol += phy_data;
+-
+-		e1e_rphy(hw, HV_DC_UPPER, &phy_data);
+-		if (!e1e_rphy(hw, HV_DC_LOWER, &phy_data))
+-			adapter->stats.dc += phy_data;
+-	} else {
+-		adapter->stats.scc += er32(SCC);
+-		adapter->stats.ecol += er32(ECOL);
+-		adapter->stats.mcc += er32(MCC);
+-		adapter->stats.latecol += er32(LATECOL);
+-		adapter->stats.dc += er32(DC);
++
++	/* Half-duplex statistics */
++	if (adapter->link_duplex == HALF_DUPLEX) {
++		if (adapter->flags2 & FLAG2_HAS_PHY_STATS) {
++			e1000e_update_phy_stats(adapter);
++		} else {
++			adapter->stats.scc += er32(SCC);
++			adapter->stats.ecol += er32(ECOL);
++			adapter->stats.mcc += er32(MCC);
++			adapter->stats.latecol += er32(LATECOL);
++			adapter->stats.dc += er32(DC);
++
++			hw->mac.collision_delta = er32(COLC);
++
++			if ((hw->mac.type != e1000_82574) &&
++			    (hw->mac.type != e1000_82583))
++				adapter->stats.tncrs += er32(TNCRS);
++		}
++		adapter->stats.colc += hw->mac.collision_delta;
+ 	}
++
+ 	adapter->stats.xonrxc += er32(XONRXC);
+ 	adapter->stats.xontxc += er32(XONTXC);
+ 	adapter->stats.xoffrxc += er32(XOFFRXC);
+@@ -3745,28 +3841,9 @@ void e1000e_update_stats(struct e1000_adapter *adapter)
+ 
+ 	hw->mac.tx_packet_delta = er32(TPT);
+ 	adapter->stats.tpt += hw->mac.tx_packet_delta;
+-	if ((hw->phy.type == e1000_phy_82578) ||
+-	    (hw->phy.type == e1000_phy_82577)) {
+-		e1e_rphy(hw, HV_COLC_UPPER, &phy_data);
+-		if (!e1e_rphy(hw, HV_COLC_LOWER, &phy_data))
+-			hw->mac.collision_delta = phy_data;
+-	} else {
+-		hw->mac.collision_delta = er32(COLC);
+-	}
+-	adapter->stats.colc += hw->mac.collision_delta;
+ 
+ 	adapter->stats.algnerrc += er32(ALGNERRC);
+ 	adapter->stats.rxerrc += er32(RXERRC);
+-	if ((hw->phy.type == e1000_phy_82578) ||
+-	    (hw->phy.type == e1000_phy_82577)) {
+-		e1e_rphy(hw, HV_TNCRS_UPPER, &phy_data);
+-		if (!e1e_rphy(hw, HV_TNCRS_LOWER, &phy_data))
+-			adapter->stats.tncrs += phy_data;
+-	} else {
+-		if ((hw->mac.type != e1000_82574) &&
+-		    (hw->mac.type != e1000_82583))
+-			adapter->stats.tncrs += er32(TNCRS);
+-	}
+ 	adapter->stats.cexterr += er32(CEXTERR);
+ 	adapter->stats.tsctc += er32(TSCTC);
+ 	adapter->stats.tsctfc += er32(TSCTFC);
 
