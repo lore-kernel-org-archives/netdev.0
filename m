@@ -1,64 +1,48 @@
-From: Mike Christie <michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org>
-Subject: Re: [PATCH 3/3] cxgb4i_v4.3 : main driver files
-Date: Wed, 16 Jun 2010 17:19:02 -0500
-Message-ID: <4C194DD6.7090706@cs.wisc.edu>
-References: <1275973167-8640-1-git-send-email-rakesh@chelsio.com> <1275973167-8640-2-git-send-email-rakesh@chelsio.com> <1275973167-8640-3-git-send-email-rakesh@chelsio.com> <1275973167-8640-4-git-send-email-rakesh@chelsio.com>
-Reply-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: patch "net: deliver skbs on inactive slaves to exact matches"
+ stalls 	nfs mounts
+Date: Wed, 16 Jun 2010 15:36:33 -0700
+Message-ID: <4C1951F1.9010004@intel.com>
+References: <AANLkTil5gBFkXgmImU1Mt8uJXKTTNCen8NtzWpBxaYdq@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Cc: Rakesh Ranjan <rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>, LK-NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        LK-SCSIDev <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-        LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Karen Xie <kxie-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
-        David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-        James Bottomley <James.Bottomley-JuX6DAaQMKPCXq6kfMZ53/egYHeGw8Jk@public.gmane.org>,
-        Anish Bhatt <anish-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-Return-path: <open-iscsi+bncCLPJla3WGRDQmuXgBBoEwSSDEg-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-In-Reply-To: <1275973167-8640-4-git-send-email-rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-List-Post: <http://groups.google.com/group/open-iscsi/post?hl=en_US>,
-	<mailto:open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/?hl=en_US>, <mailto:open-iscsi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/open-iscsi?hl=en_US>
-Sender: open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/open-iscsi/subscribe?hl=en_US>,
-	<mailto:open-iscsi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <http://groups.google.com/group/open-iscsi/subscribe?hl=en_US>,
-	<mailto:open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	NFS list <linux-nfs@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Fred Isaman <iisaman@netapp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:12175 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759400Ab0FPWgf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jun 2010 18:36:35 -0400
+In-Reply-To: <AANLkTil5gBFkXgmImU1Mt8uJXKTTNCen8NtzWpBxaYdq@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/07/2010 11:59 PM, Rakesh Ranjan wrote:
-> From: Rakesh Ranjan<rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
->
->
-> Signed-off-by: Rakesh Ranjan<rakesh-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-> ---
->   drivers/scsi/cxgbi/cxgb4i.h         |  175 +++++
->   drivers/scsi/cxgbi/cxgb4i_ddp.c     |  653 ++++++++++++++++
->   drivers/scsi/cxgbi/cxgb4i_init.c    |  317 ++++++++
->   drivers/scsi/cxgbi/cxgb4i_offload.c | 1409 +++++++++++++++++++++++++++++++++++
->   4 files changed, 2554 insertions(+), 0 deletions(-)
->   create mode 100644 drivers/scsi/cxgbi/cxgb4i.h
->   create mode 100644 drivers/scsi/cxgbi/cxgb4i_ddp.c
->   create mode 100644 drivers/scsi/cxgbi/cxgb4i_init.c
->   create mode 100644 drivers/scsi/cxgbi/cxgb4i_offload.c
->
+Fred Isaman wrote:
+> I am using vmware fusion 3.1.0 on a macbook pro host with a fedora 12
+> guest running a 2.6.35-rc3 based kernel,  Upgrading from rc2 to rc3
+> introduced a long delay when the guest attempts an nfs mount (~120
+> secs).  Reverting patch 597a264b1a9c7e36d1728f677c66c5c1f7e3b837
+> "net: deliver skbs on inactive slaves to exact matches" changes back
+> to normal behavior.
+> 
+> Fred
 
-Do you think you can look through this patch and identify the places 
-where you basically just copied a cxgb3i function or copied it but 
-renamed some stuff and then move these type of things to the lib patch?
+This should be fixed here,
 
-A lot of the scatter list stuff for example looks the same in each driver.
+ From e897082fe7a5b591dc4dd5599ac39081a7c8e482 Mon Sep 17 00:00:00 2001
+From: John Fastabend <john.r.fastabend@intel.com>
+Date: Sun, 13 Jun 2010 10:36:30 +0000
+Subject: [PATCH] net: fix deliver_no_wcard regression on loopback device
 
-ddp_find_unused_entries - cxgb4i_ddp_find_unused_entries
-ddp_unmark_entries - cxgb4i_ddp_unmark_entries
-cxgb3i_ddp_find_page_index - cxgb4i_ddp_find_page_index
-cxgb3i_ddp_adjust_page_table - cxgb4i_ddp_adjust_page_table
-..... (lots of the ddp code looks duplicated).
+deliver_no_wcard is not being set in skb_copy_header.
+In the skb_cloned case it is not being cleared and
+may cause the skb to be dropped when the loopback device
+pushes it back up the stack.
 
-The *_offload.c code looks the same.
-
--- 
-You received this message because you are subscribed to the Google Groups "open-iscsi" group.
-To post to this group, send email to open-iscsi-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-To unsubscribe from this group, send email to open-iscsi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-For more options, visit this group at http://groups.google.com/group/open-iscsi?hl=en.
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Tested-by: Markus Trippelsdorf <markus@trippelsdorf.de>
+Signed-off-by: David S. Miller <davem@davemloft.net>
