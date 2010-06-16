@@ -1,49 +1,37 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: Proposed linux kernel changes : scaling  tcp/ip stack
-Date: Wed, 16 Jun 2010 11:10:07 +0200
-Message-ID: <87fx0nwdg0.fsf@basil.nowhere.org>
-References: <FDFFEFAB-A741-4232-821E-17BFAE5CAFAC@earthlink.net>
-	<1275556440.2456.19.camel@edumazet-laptop>
-	<97746864-ED54-4A12-AFE7-752AA6E41CDD@earthlink.net>
+From: Christian Kujau <lists@nerdbynature.de>
+Subject: Re: mpd client timeouts (bisected) 2.6.35-rc3
+Date: Wed, 16 Jun 2010 03:01:22 -0700 (PDT)
+Message-ID: <alpine.DEB.2.01.1006160255070.3964@bogon.housecafe.de>
+References: <20100612102802.GA1782@arch.tripp.de> <20100612.145835.123986343.davem@davemloft.net> <4C149147.3080808@intel.com> <4C15414E.5090201@intel.com> <20100613205922.GA1806@arch.tripp.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: Mitchell Erblich <erblichs@earthlink.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	David Miller <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	yanmin_zhang@linux.intel.com, alex.shi@intel.com,
+	tim.c.chen@intel.com
+To: "markus@trippelsdorf.de" <markus@trippelsdorf.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:51329 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752931Ab0FPJKM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 05:10:12 -0400
-In-Reply-To: <97746864-ED54-4A12-AFE7-752AA6E41CDD@earthlink.net> (Mitchell Erblich's message of "Tue\, 15 Jun 2010 20\:11\:42 -0700")
+Received: from moutng.kundenserver.de ([212.227.126.187]:62703 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752555Ab0FPKBZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 06:01:25 -0400
+In-Reply-To: <20100613205922.GA1806@arch.tripp.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mitchell Erblich <erblichs@earthlink.net> writes:
->
-> Summary: Don't use last free pages for TCP ACKs with GFP_ATOMIC for our
-> sk buf allocs. 1 line change in tcp_output.c with a new gfp.h arg, and a change
-> in the generic kernel. TBD.
->
-> This change should have no effect with normal available kernel mem allocs.
->
-> Assuming memory pressure ( WAITING for clean memory) we should be allocating
-> our last pages for input skbufs and not for xmit allocs.
+On Sun, 13 Jun 2010 at 22:59, markus@trippelsdorf.de wrote:
+> This solves the problem here. Thanks.
 
-How about you instrument a kernel and measure if this really happens
-frequently under reasonable loads?  That is you can probably
-use the existing dropped page counters in netstat 
-Stephen added some time ago.
+Not sure if this is related, but I've noticed connection timeouts and 
+connections going in FIN_WAIT2 state (most of them SSH tunnels) with 
+2.6.35. Going back to 2.6.34 or applying John's (and Eric's) patch 
+does seem to fix this issue.
 
-Since soft irqs cannot really wait exhausted GFP_ATOMIC would normally
-lead to dropped packets. FWIW I am not aware of any serious dropped
-packets problem on normal loads.
-
-Running a kernel with nearly zero free memory is dangerous anyways
--- pretty much any kernel service can fail arbitarily --
-if this happened frequently I suspect we would need generic
-VM solution for it.
-
--Andi
-
+Thanks,
+Christian.
 -- 
-ak@linux.intel.com -- Speaking for myself only.
+BOFH excuse #168:
+
+le0: no carrier: transceiver cable problem?
