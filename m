@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: bridge: Fix OOM crash in deliver_clone
-Date: Tue, 15 Jun 2010 21:43:18 -0700 (PDT)
-Message-ID: <20100615.214318.91346815.davem@davemloft.net>
-References: <20100616040219.GA18000@gondor.apana.org.au>
+Subject: Re: linux-next: build warning after merge of the final tree (net
+ tree related)
+Date: Tue, 15 Jun 2010 21:44:06 -0700 (PDT)
+Message-ID: <20100615.214406.45904170.davem@davemloft.net>
+References: <20100616134848.3edd4a25.sfr@canb.auug.org.au>
+	<20100616035630.GB17440@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mwagner@redhat.com
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
 To: herbert@gondor.apana.org.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44977
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751123Ab0FPEnI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 00:43:08 -0400
-In-Reply-To: <20100616040219.GA18000@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20100616035630.GB17440@gondor.apana.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Wed, 16 Jun 2010 14:02:19 +1000
+Date: Wed, 16 Jun 2010 13:56:30 +1000
 
-> Hi Dave:
+> bridge: Add const to dummy br_netpoll_send_skb
 > 
-> bridge: Fix OOM crash in deliver_clone
+> The version of br_netpoll_send_skb used when netpoll is off is
+> missing a const thus causing a warning.
 > 
-> The bridge multicast patches introduced an OOM crash in the forward
-> path, when deliver_clone fails to clone the skb.
-> 
-> This patch fixes it.
-> 
-> Reported-by: Mark Wagner <mwagner@redhat.com>
 > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied, thanks.
+Applied.
