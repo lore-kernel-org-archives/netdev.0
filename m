@@ -1,67 +1,42 @@
-From: Fred Isaman <iisaman@netapp.com>
-Subject: Re: patch "net: deliver skbs on inactive slaves to exact matches"
-	stalls nfs mounts
-Date: Wed, 16 Jun 2010 19:11:26 -0400
-Message-ID: <AANLkTilPhEimzqFTShuhDagR4axuGwhcL5m7m_ETFvw_@mail.gmail.com>
-References: <AANLkTil5gBFkXgmImU1Mt8uJXKTTNCen8NtzWpBxaYdq@mail.gmail.com>
-	<4C1951F1.9010004@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/8] Support unix domain sockets across namespaces
+Date: Wed, 16 Jun 2010 16:17:06 -0700 (PDT)
+Message-ID: <20100616.161706.229750834.davem@davemloft.net>
+References: <m1hbl7hxo3.fsf@fess.ebiederm.org>
+	<20100616.151536.70195214.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	NFS list <linux-nfs@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: John Fastabend <john.r.fastabend@intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: serue@us.ibm.com, containers@lists.osdl.org,
+	daniel.lezcano@free.fr, netdev@vger.kernel.org, xemul@parallels.com
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.159]:8632 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753829Ab0FPXL2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 19:11:28 -0400
-In-Reply-To: <4C1951F1.9010004@intel.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41640
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754462Ab0FPXQ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 19:16:58 -0400
+In-Reply-To: <20100616.151536.70195214.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 16, 2010 at 6:36 PM, John Fastabend
-<john.r.fastabend@intel.com> wrote:
-> Fred Isaman wrote:
->>
->> I am using vmware fusion 3.1.0 on a macbook pro host with a fedora 1=
-2
->> guest running a 2.6.35-rc3 based kernel, =A0Upgrading from rc2 to rc=
-3
->> introduced a long delay when the guest attempts an nfs mount (~120
->> secs). =A0Reverting patch 597a264b1a9c7e36d1728f677c66c5c1f7e3b837
->> "net: deliver skbs on inactive slaves to exact matches" changes back
->> to normal behavior.
->>
->> Fred
->
-> This should be fixed here,
+From: David Miller <davem@davemloft.net>
+Date: Wed, 16 Jun 2010 15:15:36 -0700 (PDT)
 
-OK, thanks.
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Sun, 13 Jun 2010 06:25:32 -0700
+> 
+>> This patchset takes a addressing all of the issues that crop up with
+>> unix domain sockets when the senders and receivers are in separate
+>> namespaces.
+>> 
+>> Without this patchset we can report the wrong pid and uid
+>> values in our unix domain credentials.
+>> 
+>> As a finally this patchset removes the now unnecessary restriction
+>> that we only allow unix domain sockets between processes in the
+>> same network namespace.
+> 
+> Looks good, all applied to net-next-2.6, thanks Eric.
 
-=46red
-
->
-> From e897082fe7a5b591dc4dd5599ac39081a7c8e482 Mon Sep 17 00:00:00 200=
-1
-> From: John Fastabend <john.r.fastabend@intel.com>
-> Date: Sun, 13 Jun 2010 10:36:30 +0000
-> Subject: [PATCH] net: fix deliver_no_wcard regression on loopback dev=
-ice
->
-> deliver_no_wcard is not being set in skb_copy_header.
-> In the skb_cloned case it is not being cleared and
-> may cause the skb to be dropped when the loopback device
-> pushes it back up the stack.
->
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Tested-by: Markus Trippelsdorf <markus@trippelsdorf.de>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-nfs" =
-in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
+I had to add a module export of cred_to_ucread to fix the allmodconfig
+build since AF_UNIX makes a reference to it.
