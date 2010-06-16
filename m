@@ -1,100 +1,171 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [0/8] netpoll/bridge fixes
-Date: Wed, 16 Jun 2010 05:03:20 +0200
-Message-ID: <1276657400.19249.53.camel@edumazet-laptop>
-References: <20100610145915.721a86b7@nehalam>
-	 <20100610224839.GA22469@gondor.apana.org.au>
-	 <20100611021142.GA24490@gondor.apana.org.au>
-	 <20100615.113940.245399246.davem@davemloft.net>
-	 <1276657139.19249.50.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+From: Mitchell Erblich <erblichs@earthlink.net>
+Subject: Re: Proposed linux kernel changes : scaling  tcp/ip stack
+Date: Tue, 15 Jun 2010 20:11:42 -0700
+Message-ID: <97746864-ED54-4A12-AFE7-752AA6E41CDD@earthlink.net>
+References: <FDFFEFAB-A741-4232-821E-17BFAE5CAFAC@earthlink.net> <1275556440.2456.19.camel@edumazet-laptop>
+Mime-Version: 1.0 (Apple Message framework v1078)
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	herbert@gondor.apana.org.au, shemminger@vyatta.com, mst@redhat.com,
-	frzhang@redhat.com, netdev@vger.kernel.org, amwang@redhat.com,
-	mpm@selenic.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:36897 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752288Ab0FPDDZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 23:03:25 -0400
-Received: by wwb18 with SMTP id 18so5302528wwb.19
-        for <netdev@vger.kernel.org>; Tue, 15 Jun 2010 20:03:24 -0700 (PDT)
-In-Reply-To: <1276657139.19249.50.camel@edumazet-laptop>
+Received: from elasmtp-masked.atl.sa.earthlink.net ([209.86.89.68]:38349 "EHLO
+	elasmtp-masked.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752317Ab0FPDLo convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jun 2010 23:11:44 -0400
+In-Reply-To: <1275556440.2456.19.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 16 juin 2010 =C3=A0 04:59 +0200, Eric Dumazet a =C3=A9crit =
-:
-> Le mardi 15 juin 2010 =C3=A0 11:39 -0700, David Miller a =C3=A9crit :
-> > From: Herbert Xu <herbert@gondor.apana.org.au>
-> > Date: Fri, 11 Jun 2010 12:11:42 +1000
-> >=20
-> > > On Fri, Jun 11, 2010 at 08:48:39AM +1000, Herbert Xu wrote:
-> > >> On Thu, Jun 10, 2010 at 02:59:15PM -0700, Stephen Hemminger wrot=
-e:
-> > >> >
-> > >> > Okay, then add a comment where in_irq is used?
-> > >>=20
-> > >> Actually let me put it into a wrapper.  I'll respin the patches.
-> > >=20
-> > > OK here is a repost.  And this time it really is 8 patches :)
-> > > I've tested it lightly.
-> >=20
-> > All applied to net-next-2.6, thanks Herbert.
+
+On Jun 3, 2010, at 2:14 AM, Eric Dumazet wrote:
+
+> Le jeudi 03 juin 2010 =E0 01:16 -0700, Mitchell Erblich a =E9crit :
+>> To whom it may concern,
+>>=20
+>> First, my assumption is to keep this discussion local to just a few =
+tcp/ip
+>> developers to see if there is any consensus that the below is a logi=
+cal=20
+>> approach. Please also pass this email if there is a "owner(s)" of th=
+is stack
+>> to identify if a case exists for the below possible changes.
+>>=20
+>> I am not currently on the linux kernel mail group.
+>> 		=09
+>> I have experience with modifications of the Linux tcp/ip stack, and =
+have
+>> merged the changes into the company's local tree and left the possib=
+le=20
+>> global integration to others.
+>>=20
+>> I have been approached by a number of companies about scaling the
+>> stack with the assumption of a number of cpu cores. At present, I fi=
+nd extra
+>> time on my hands and am considering looking into this area on my own=
+=2E
+>>=20
+>> The first assumption is that if extra cores are available, that a si=
+ngle
+>> received homogeneous flow of a large number of packets/segments per
+>> second (pps) can be split into non-equal flows. This split can in ef=
+fect
+>> allow a larger recv'd pps rate at the same core load while splitting=
+ off
+>> other workloads, such as xmit'ing pure ACKs.
+>>=20
+>> Simply, again assuming Amdahl's law (and not looking to equalize the=
+ load
+>> between cores), and creating logical separations where in a many cor=
+e=20
+>> system, different cores could have new kernel threads  that operate =
+in=20
+>> parallel within the tcp/ip stack. The initial separation points woul=
+d be at=20
+>> the ip/tcp layer boundry and where any recv'd sk/pkt would generate =
+some=20
+>> form of output.
+>>=20
+>> The ip/tcp layer would be split like the vintage AT&T STREAMs protoc=
+ol,
+>> with some form of queuing & scheduling, would be needed. In addition=
+,
+>> the queuing/schedullng of other kernel threads would occur within ip=
+ & tcp
+>> to separate the I/O.
+>>=20
+>> A possible validation test is to identify the max recv'd pps rate wi=
+thin the
+>> tcp/ip modules within normal flow TCP established state with normal =
+order=20
+>> of say 64byte non fragmented segments, before and after each=20
+>> incremental change. Or the same rate with fewer core/cpu cycles.
+>>=20
+>> I am willing to have a private git Linux.org tree that concentrates =
+proposed
+>> changes into this tree and if there is willingness, a seen want/need=
+ then identify
+>> how to implement the merge.
+>=20
+> Hi Mitchell
+>=20
+> We work everyday to improve network stack, and standard linux tree is
+> pretty scalable, you dont need to setup a separate git tree for that.
+>=20
+> Our beloved maintainer David S. Miller handles two trees, net-2.6 and
+> net-next-2.6 where we put all our changes.
+>=20
+> http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-next-2.6.git
+> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next-2.6.git
+>=20
+> I suggest you read the last patches (say .. about 10.000 of them), to
+> have an idea of things we did during last years.
+>=20
+> keywords : RCU, multiqueue, RPS, percpu data, lockless algos, cache l=
+ine
+> placement...
+>=20
+> Its nice to see another man joining the team !
+>=20
+> Thanks
 >=20
 
-=46or this second splat, I dont know yet how to fix it, its 5 in the
-morning here, I need a sleep ;)
 
-At this point, no rcu_lock is held.
+Lets start with a two part Linux kernel change and a tcp input/output c=
+hange:
 
-I wonder how these patches were tested, Herbert ?
+2 Parts: 2nd part TBD
 
-[   74.431712]=20
-[   74.431713] =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D
-[   74.431717] [ INFO: suspicious rcu_dereference_check() usage. ]
-[   74.431719] ---------------------------------------------------
-[   74.431722] include/linux/netpoll.h:85 invoked rcu_dereference_check=
-() without protection!
-[   74.431725]=20
-[   74.431726] other info that might help us debug this:
-[   74.431727]=20
-[   74.431730]=20
-[   74.431730] rcu_scheduler_active =3D 1, debug_locks =3D 1
-[   74.431733] no locks held by swapper/0.
-[   74.431735]=20
-[   74.431736] stack backtrace:
-[   74.431739] Pid: 0, comm: swapper Not tainted 2.6.35-rc1-00508-gdbe3=
-a24-dirty #78
-[   74.431742] Call Trace:
-[   74.431748]  [<c132cf0c>] ? printk+0xf/0x13
-[   74.431754]  [<c1059ac6>] lockdep_rcu_dereference+0x74/0x7d
-[   74.431759]  [<c1297628>] __napi_gro_receive+0x4d/0xf6
-[   74.431764]  [<c12977a3>] napi_gro_receive+0x19/0x24
-[   74.431775]  [<f805d83f>] bnx2x_rx_int+0x101b/0x124e [bnx2x]
-[   74.431781]  [<c1050ffc>] ? async_thread+0x198/0x1de
-[   74.431787]  [<c129580f>] ? net_tx_action+0x9a/0x12a
-[   74.431797]  [<f805f267>] bnx2x_poll+0x5d/0x18b [bnx2x]
-[   74.431801]  [<c1297360>] ? net_rx_action+0x1e4/0x21a
-[   74.431805]  [<c105ccb2>] ? trace_hardirqs_on_caller+0xe2/0x11c
-[   74.431810]  [<c1297218>] net_rx_action+0x9c/0x21a
-[   74.431814]  [<c1039a21>] __do_softirq+0x126/0x277
-[   74.431819]  [<c10398fb>] ? __do_softirq+0x0/0x277
-[   74.431821]  <IRQ>  [<c1039c0d>] ? irq_exit+0x38/0x74
-[   74.431828]  [<c1003d1f>] ? do_IRQ+0x87/0x9b
-[   74.431833]  [<c1002d2e>] ? common_interrupt+0x2e/0x34
-[   74.431838]  [<c105007b>] ? sched_clock_local+0x3f/0x11f
-[   74.431843]  [<c11ba45b>] ? acpi_idle_enter_bm+0x271/0x2a0
-[   74.431848]  [<c12797bd>] ? cpuidle_idle_call+0x76/0x151
-[   74.431852]  [<c1001565>] ? cpu_idle+0x49/0x76
-[   74.431857]  [<c1319ece>] ? rest_init+0xd6/0xdb
-[   74.431861]  [<c156579f>] ? start_kernel+0x31b/0x320
-[   74.431865]  [<c15650c9>] ? i386_start_kernel+0xc9/0xd0
+Summary: Don't use last free pages for TCP ACKs with GFP_ATOMIC for our
+sk buf allocs. 1 line change in tcp_output.c with a new gfp.h arg, and =
+a change
+in the generic kernel. TBD.
+
+This change should have no effect with normal available kernel mem allo=
+cs.
+
+Assuming memory pressure ( WAITING for clean memory) we should be alloc=
+ating
+our last pages for input skbufs and not for xmit allocs.
+
+By delaying skbuf allocations when we have low kmem, we secondarily slo=
+w down the
+tcp flow : if in slow start (SS) we are almost doing a DELACK, else CA =
+should/could
+decrease the number of in-flight ACKs and the peer should do burst avoi=
+dance
+if our later ack increases the window in a larger chunk..
+
+And use the last pages to decrease the chance of dropping a input pkt o=
+r
+running out of recv descriptors, because of mem back pressure.
+
+The change could check for some form of mem pressure before the alloc,
+but the alloc in itself should suffice. We could also do a ECN type che=
+ck before
+the alloc.
+
+Now the kicker.  I want a GFP_KERNEL with NO_SLEEP OR a GFP_ATOMIC and
+NOT use emergency pools, thus CAN FAIL, to have 0 other secondary effec=
+ts
+and change just the 1 arg.
+
+code : tcp_output.c : tcp_send_ack()
+   line : buff =3D alloc_skb(MAX_TCP_HDR, GFP_KERNEL_NSLEEP);   /* with=
+ a NO SLEEP */
+
+Suggestions, feedback??
+
+Mitchell Erblich
 
 
+
+
+
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
