@@ -1,51 +1,98 @@
-From: Nick Piggin <npiggin@suse.de>
-Subject: rt hash table / rt hash locks question
-Date: Wed, 16 Jun 2010 20:46:33 +1000
-Message-ID: <20100616104633.GW6138@laptop>
+From: Heiko Gerstung <heiko.gerstung@meinberg.de>
+Subject: DMFE Driver in current kernel
+Date: Wed, 16 Jun 2010 12:52:21 +0200
+Message-ID: <4C18ACE5.8040008@meinberg.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:44813 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753888Ab0FPKqh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jun 2010 06:46:37 -0400
-Received: from relay2.suse.de (charybdis-ext.suse.de [195.135.221.2])
-	by mx2.suse.de (Postfix) with ESMTP id E6BF88980B
-	for <netdev@vger.kernel.org>; Wed, 16 Jun 2010 12:46:35 +0200 (CEST)
-Content-Disposition: inline
+Received: from alster074.server4you.de ([62.75.216.94]:33015 "EHLO
+	server2.meinberg.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753994Ab0FPLC6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 07:02:58 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by server2.meinberg.de (Postfix) with ESMTP id ACEF41EC4667
+	for <netdev@vger.kernel.org>; Wed, 16 Jun 2010 12:52:33 +0200 (CEST)
+Received: from server2.meinberg.de ([127.0.0.1])
+	by localhost (server2.meinberg.de [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id YSENgMB1MV6D for <netdev@vger.kernel.org>;
+	Wed, 16 Jun 2010 12:52:22 +0200 (CEST)
+Received: from gateway.py.meinberg.de (unknown [217.5.178.130])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(Client did not present a certificate)
+	by server2.meinberg.de (Postfix) with ESMTP id 0AFC91EC462F
+	for <netdev@vger.kernel.org>; Wed, 16 Jun 2010 12:52:22 +0200 (CEST)
+Received: from [172.16.3.102] (pc-heiko.py.meinberg.de [172.16.3.102])
+	by gateway.py.meinberg.de (Postfix) with ESMTP id B097A13BB62
+	for <netdev@vger.kernel.org>; Wed, 16 Jun 2010 12:52:21 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm just converting this scalable dentry/inode hash table to a more
-compact form. I was previously using a dumb spinlock per bucket,
-but this doubles the size of the tables so isn't production quality.
+Dear netdev members,
 
-What I've done at the moment is to use a bit_spinlock in bit 0 of each
-list pointer of the table. Bit spinlocks are now pretty nice because
-we can do __bit_spin_unlock() which gives non-atomic store with release
-ordering, so it should be almost as fast as spinlock.
+I apologize for contacting this list, I was pointed here by Tobias
+Ringstroem who is listed as the current maintainer for the dmfe network
+driver but he told me that this is not true anymore. I believe that
+probably no one is looking at this driver anymore, and he suggested tha=
+t
+I should contact you guys because he cannot help me.
 
-But I look at rt hash and it seems you use a small hash on the side
-for spinlocks. So I wonder, pros for each:
+Here is my long worded story: We are a manufacturer of special network
+appliances used for time synchronization and in our LANTIME time server
+appliances we are currently using GNU Linux on an embedded i386 CPU
+board with a Davicom network chip.
 
-- bitlocks have effectively zero storage
-- bitlocks hit the same cacheline that the hash walk hits.
-- in RCU list, locked hash walks usually followed by hash modification,
-  bitlock should have brought in the line for exclusive.
-- bitlock number of locks scales with hash size
-- spinlocks may be slightly better at the cacheline level (bitops
-  sometimes require explicit load which may not acquire exclusive
-  line on some archs). On x86 ll/sc architectures, this shouldn't
-  be a problem.
-- spinlocks better debugging (could be overcome with a LOCKDEP
-  option to revert to spinlocks, but a bit ugly).
-- in practice, contention due to aliasing in buckets to lock mapping
-  is probably fairly minor.
+I am desperately missing an important feature in the dmfe driver (which
+lists you as the current maintainer): I would want to be able to change
+network speed and duplex settings without having to unload/reload the
+kernel module, preferably by using ethtool.
 
-Net code is obviously tested and tuned well, but instinctively I would
-have tought bitlocks are the better way to go. Any comments on this?
+Would anyone here interested in adding support for this into the driver=
+?
 
-Thanks,
-Nick
+If yes, we would want to pay for this (and of course we would love
+to see that these changes are included in the next kernel version, if
+possible). If nobody on this list is interested in this job, I would
+appreciate recommendations regarding where to look for someone. If I do
+not manage to find anyone for this task, I will try it on my own.
+Pointers to suitable documentation or hints would be appreciated!
+
+I know that this is a pretty old chip, but it seems that it is still
+used in a number of embedded systems and since we want to be able to
+upgrade our existing units in the field with our new firmware, I really
+would like to get this functionality into the driver.
+
+Another point I am looking for is how to get the asix driver to play
+nice when used in combination with active-backup bonding. As it seems,
+the current driver does not work unless I put the bonding interface int=
+o
+promiscuous mode (which I find out by accident when I used tcpdump for
+debugging). If anyone has an idea how to improve this, I would be very
+grateful, too.
+
+Thanks for your time,
+  Heiko
+
+
+--=20
+
+Heiko Gerstung
+
+*MEINBERG Funkuhren* GmbH & Co. KG
+Lange Wand 9
+D-31812 Bad Pyrmont, Germany
+Phone: +49 (0)5281 9309-25
+=46ax: +49 (0)5281 9309-30
+Amtsgericht Hannover 17HRA 100322
+Gesch=C3=A4ftsf=C3=BChrer/Managing Directors: G=C3=BCnter Meinberg, Wer=
+ner Meinberg,
+Andre Hartmann, Heiko Gerstung
+Email: heiko.gerstung@meinberg.de <mailto:heiko.gerstung@meinberg.de>
+Web: www.meinberg.de <http://www.meinberg.de>
+
+-----------------------------------------------------------------------=
+-
+*MEINBERG - Accurate Time Worldwide*
+
 
