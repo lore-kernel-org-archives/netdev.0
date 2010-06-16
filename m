@@ -1,313 +1,241 @@
 From: Dimitris Michailidis <dm@chelsio.com>
-Subject: [PATCH net-next 8/9] cxgb4: update FW definitions
-Date: Wed, 16 Jun 2010 15:01:15 -0700
-Message-ID: <1276725676-31514-9-git-send-email-dm@chelsio.com>
+Subject: [PATCH net-next 3/9] cxgb4: implement EEH
+Date: Wed, 16 Jun 2010 15:01:10 -0700
+Message-ID: <1276725676-31514-4-git-send-email-dm@chelsio.com>
 References: <1276725676-31514-1-git-send-email-dm@chelsio.com>
  <1276725676-31514-2-git-send-email-dm@chelsio.com>
  <1276725676-31514-3-git-send-email-dm@chelsio.com>
- <1276725676-31514-4-git-send-email-dm@chelsio.com>
- <1276725676-31514-5-git-send-email-dm@chelsio.com>
- <1276725676-31514-6-git-send-email-dm@chelsio.com>
- <1276725676-31514-7-git-send-email-dm@chelsio.com>
- <1276725676-31514-8-git-send-email-dm@chelsio.com>
 Cc: Dimitris Michailidis <dm@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:1748 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:9762 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759780Ab0FPWBS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 18:01:18 -0400
+	with ESMTP id S1759307Ab0FPWBR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 18:01:17 -0400
 Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
-	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o5GM1JEC032136
-	for <netdev@vger.kernel.org>; Wed, 16 Jun 2010 15:01:19 -0700
-In-Reply-To: <1276725676-31514-8-git-send-email-dm@chelsio.com>
+	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o5GM1I6s032121
+	for <netdev@vger.kernel.org>; Wed, 16 Jun 2010 15:01:18 -0700
+In-Reply-To: <1276725676-31514-3-git-send-email-dm@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update to latest FW API.  Most changes here pertain to port types and
-querying FW for parameter values.
+Implement the pci_error_handlers methods for EEH.
 
 Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
 ---
- drivers/net/cxgb4/cxgb4_main.c |   55 ++++++++++++++++++++++++++++++---------
- drivers/net/cxgb4/cxgb4_uld.h  |    2 +
- drivers/net/cxgb4/t4_hw.c      |    6 ++--
- drivers/net/cxgb4/t4fw_api.h   |   36 +++++++++++++++++++------
- 4 files changed, 74 insertions(+), 25 deletions(-)
+ drivers/net/cxgb4/cxgb4.h      |    1 +
+ drivers/net/cxgb4/cxgb4_main.c |  108 +++++++++++++++++++++++++++++++++++++++-
+ drivers/net/cxgb4/l2t.c        |    7 +++
+ drivers/net/cxgb4/t4_hw.c      |   11 +++-
+ 4 files changed, 124 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/net/cxgb4/cxgb4.h b/drivers/net/cxgb4/cxgb4.h
+index bfa1366..5e37c1e 100644
+--- a/drivers/net/cxgb4/cxgb4.h
++++ b/drivers/net/cxgb4/cxgb4.h
+@@ -650,6 +650,7 @@ void t4_intr_disable(struct adapter *adapter);
+ void t4_intr_clear(struct adapter *adapter);
+ int t4_slow_intr_handler(struct adapter *adapter);
+ 
++int t4_wait_dev_ready(struct adapter *adap);
+ int t4_link_start(struct adapter *adap, unsigned int mbox, unsigned int port,
+ 		  struct link_config *lc);
+ int t4_restart_aneg(struct adapter *adap, unsigned int mbox, unsigned int port);
 diff --git a/drivers/net/cxgb4/cxgb4_main.c b/drivers/net/cxgb4/cxgb4_main.c
-index eb1492f..352c770 100644
+index 60f6ea0..baf4f0a 100644
 --- a/drivers/net/cxgb4/cxgb4_main.c
 +++ b/drivers/net/cxgb4/cxgb4_main.c
-@@ -216,7 +216,7 @@ void t4_os_link_changed(struct adapter *adapter, int port_id, int link_stat)
- void t4_os_portmod_changed(const struct adapter *adap, int port_id)
- {
- 	static const char *mod_str[] = {
--		NULL, "LR", "SR", "ER", "passive DA", "active DA"
-+		NULL, "LR", "SR", "ER", "passive DA", "active DA", "LRM"
- 	};
+@@ -2483,6 +2483,7 @@ static void cxgb_down(struct adapter *adapter)
+ 	t4_intr_disable(adapter);
+ 	cancel_work_sync(&adapter->tid_release_task);
+ 	adapter->tid_release_task_busy = false;
++	adapter->tid_release_head = NULL;
  
- 	const struct net_device *dev = adap->port[port_id];
-@@ -224,7 +224,7 @@ void t4_os_portmod_changed(const struct adapter *adap, int port_id)
- 
- 	if (pi->mod_type == FW_PORT_MOD_TYPE_NONE)
- 		netdev_info(dev, "port module unplugged\n");
--	else
-+	else if (pi->mod_type < ARRAY_SIZE(mod_str))
- 		netdev_info(dev, "%s module inserted\n", mod_str[pi->mod_type]);
+ 	if (adapter->flags & USING_MSIX) {
+ 		free_msix_queue_irqs(adapter);
+@@ -2907,6 +2908,108 @@ bye:	if (ret != -ETIMEDOUT && ret != -EIO)
+ 	return ret;
  }
  
-@@ -1234,7 +1234,8 @@ static unsigned int from_fw_linkcaps(unsigned int type, unsigned int caps)
- {
- 	unsigned int v = 0;
- 
--	if (type == FW_PORT_TYPE_BT_SGMII || type == FW_PORT_TYPE_BT_XAUI) {
-+	if (type == FW_PORT_TYPE_BT_SGMII || type == FW_PORT_TYPE_BT_XFI ||
-+	    type == FW_PORT_TYPE_BT_XAUI) {
- 		v |= SUPPORTED_TP;
- 		if (caps & FW_PORT_CAP_SPEED_100M)
- 			v |= SUPPORTED_100baseT_Full;
-@@ -1250,7 +1251,10 @@ static unsigned int from_fw_linkcaps(unsigned int type, unsigned int caps)
- 			v |= SUPPORTED_10000baseKX4_Full;
- 	} else if (type == FW_PORT_TYPE_KR)
- 		v |= SUPPORTED_Backplane | SUPPORTED_10000baseKR_Full;
--	else if (type == FW_PORT_TYPE_FIBER)
-+	else if (type == FW_PORT_TYPE_BP_AP)
-+		v |= SUPPORTED_Backplane | SUPPORTED_10000baseR_FEC;
-+	else if (type == FW_PORT_TYPE_FIBER_XFI ||
-+		 type == FW_PORT_TYPE_FIBER_XAUI || type == FW_PORT_TYPE_SFP)
- 		v |= SUPPORTED_FIBRE;
- 
- 	if (caps & FW_PORT_CAP_ANEG)
-@@ -1276,13 +1280,19 @@ static int get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	const struct port_info *p = netdev_priv(dev);
- 
- 	if (p->port_type == FW_PORT_TYPE_BT_SGMII ||
-+	    p->port_type == FW_PORT_TYPE_BT_XFI ||
- 	    p->port_type == FW_PORT_TYPE_BT_XAUI)
- 		cmd->port = PORT_TP;
--	else if (p->port_type == FW_PORT_TYPE_FIBER)
-+	else if (p->port_type == FW_PORT_TYPE_FIBER_XFI ||
-+		 p->port_type == FW_PORT_TYPE_FIBER_XAUI)
- 		cmd->port = PORT_FIBRE;
--	else if (p->port_type == FW_PORT_TYPE_TWINAX)
--		cmd->port = PORT_DA;
--	else
-+	else if (p->port_type == FW_PORT_TYPE_SFP) {
-+		if (p->mod_type == FW_PORT_MOD_TYPE_TWINAX_PASSIVE ||
-+		    p->mod_type == FW_PORT_MOD_TYPE_TWINAX_ACTIVE)
-+			cmd->port = PORT_DA;
-+		else
-+			cmd->port = PORT_FIBRE;
-+	} else
- 		cmd->port = PORT_OTHER;
- 
- 	if (p->mdio_addr >= 0) {
-@@ -2814,14 +2824,20 @@ static int adap_init0(struct adapter *adap)
- 	for (v = 1; v < SGE_NCOUNTERS; v++)
- 		adap->sge.counter_val[v] = min(intr_cnt[v - 1],
- 					       THRESHOLD_3_MASK);
--	ret = adap_init1(adap, &c);
--	if (ret < 0)
--		goto bye;
--
- #define FW_PARAM_DEV(param) \
- 	(FW_PARAMS_MNEM(FW_PARAMS_MNEM_DEV) | \
- 	 FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DEV_##param))
- 
-+	params[0] = FW_PARAM_DEV(CCLK);
-+	ret = t4_query_params(adap, 0, 0, 0, 1, params, val);
-+	if (ret < 0)
-+		goto bye;
-+	adap->params.vpd.cclk = val[0];
++/* EEH callbacks */
 +
-+	ret = adap_init1(adap, &c);
-+	if (ret < 0)
-+		goto bye;
++static pci_ers_result_t eeh_err_detected(struct pci_dev *pdev,
++					 pci_channel_state_t state)
++{
++	int i;
++	struct adapter *adap = pci_get_drvdata(pdev);
 +
- #define FW_PARAM_PFVF(param) \
- 	(FW_PARAMS_MNEM(FW_PARAMS_MNEM_PFVF) | \
- 	 FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_PFVF_##param))
-@@ -2874,6 +2890,18 @@ static int adap_init0(struct adapter *adap)
- 		adap->vres.rq.size = val[3] - val[2] + 1;
- 		adap->vres.pbl.start = val[4];
- 		adap->vres.pbl.size = val[5] - val[4] + 1;
++	if (!adap)
++		goto out;
 +
-+		params[0] = FW_PARAM_PFVF(SQRQ_START);
-+		params[1] = FW_PARAM_PFVF(SQRQ_END);
-+		params[2] = FW_PARAM_PFVF(CQ_START);
-+		params[3] = FW_PARAM_PFVF(CQ_END);
-+		ret = t4_query_params(adap, 0, 0, 0, 4, params, val);
++	rtnl_lock();
++	adap->flags &= ~FW_OK;
++	notify_ulds(adap, CXGB4_STATE_START_RECOVERY);
++	for_each_port(adap, i) {
++		struct net_device *dev = adap->port[i];
++
++		netif_device_detach(dev);
++		netif_carrier_off(dev);
++	}
++	if (adap->flags & FULL_INIT_DONE)
++		cxgb_down(adap);
++	rtnl_unlock();
++	pci_disable_device(pdev);
++out:	return state == pci_channel_io_perm_failure ?
++		PCI_ERS_RESULT_DISCONNECT : PCI_ERS_RESULT_NEED_RESET;
++}
++
++static pci_ers_result_t eeh_slot_reset(struct pci_dev *pdev)
++{
++	int i, ret;
++	struct fw_caps_config_cmd c;
++	struct adapter *adap = pci_get_drvdata(pdev);
++
++	if (!adap) {
++		pci_restore_state(pdev);
++		pci_save_state(pdev);
++		return PCI_ERS_RESULT_RECOVERED;
++	}
++
++	if (pci_enable_device(pdev)) {
++		dev_err(&pdev->dev, "cannot reenable PCI device after reset\n");
++		return PCI_ERS_RESULT_DISCONNECT;
++	}
++
++	pci_set_master(pdev);
++	pci_restore_state(pdev);
++	pci_save_state(pdev);
++	pci_cleanup_aer_uncorrect_error_status(pdev);
++
++	if (t4_wait_dev_ready(adap) < 0)
++		return PCI_ERS_RESULT_DISCONNECT;
++	if (t4_fw_hello(adap, 0, 0, MASTER_MUST, NULL))
++		return PCI_ERS_RESULT_DISCONNECT;
++	adap->flags |= FW_OK;
++	if (adap_init1(adap, &c))
++		return PCI_ERS_RESULT_DISCONNECT;
++
++	for_each_port(adap, i) {
++		struct port_info *p = adap2pinfo(adap, i);
++
++		ret = t4_alloc_vi(adap, 0, p->tx_chan, 0, 0, 1, NULL, NULL);
 +		if (ret < 0)
-+			goto bye;
-+		adap->vres.qp.start = val[0];
-+		adap->vres.qp.size = val[1] - val[0] + 1;
-+		adap->vres.cq.start = val[2];
-+		adap->vres.cq.size = val[3] - val[2] + 1;
- 	}
- 	if (c.iscsicaps) {
- 		params[0] = FW_PARAM_PFVF(ISCSI_START);
-@@ -3194,7 +3222,8 @@ static int __devinit enable_msix(struct adapter *adap)
- static void __devinit print_port_info(struct adapter *adap)
++			return PCI_ERS_RESULT_DISCONNECT;
++		p->viid = ret;
++		p->xact_addr_filt = -1;
++	}
++
++	t4_load_mtus(adap, adap->params.mtus, adap->params.a_wnd,
++		     adap->params.b_wnd);
++	if (cxgb_up(adap))
++		return PCI_ERS_RESULT_DISCONNECT;
++	return PCI_ERS_RESULT_RECOVERED;
++}
++
++static void eeh_resume(struct pci_dev *pdev)
++{
++	int i;
++	struct adapter *adap = pci_get_drvdata(pdev);
++
++	if (!adap)
++		return;
++
++	rtnl_lock();
++	for_each_port(adap, i) {
++		struct net_device *dev = adap->port[i];
++
++		if (netif_running(dev)) {
++			link_start(dev);
++			cxgb_set_rxmode(dev);
++		}
++		netif_device_attach(dev);
++	}
++	rtnl_unlock();
++}
++
++static struct pci_error_handlers cxgb4_eeh = {
++	.error_detected = eeh_err_detected,
++	.slot_reset     = eeh_slot_reset,
++	.resume         = eeh_resume,
++};
++
+ static inline bool is_10g_port(const struct link_config *lc)
  {
- 	static const char *base[] = {
--		"R", "KX4", "T", "KX", "T", "KR", "CX4"
-+		"R XFI", "R XAUI", "T SGMII", "T XFI", "T XAUI", "KX4", "CX4",
-+		"KX", "KR", "KR SFP+", "KR FEC"
- 	};
+ 	return (lc->supported & FW_PORT_CAP_SPEED_10G) != 0;
+@@ -3154,8 +3257,10 @@ static int __devinit init_one(struct pci_dev *pdev,
  
- 	int i;
-diff --git a/drivers/net/cxgb4/cxgb4_uld.h b/drivers/net/cxgb4/cxgb4_uld.h
-index 5b98546..0dc0866 100644
---- a/drivers/net/cxgb4/cxgb4_uld.h
-+++ b/drivers/net/cxgb4/cxgb4_uld.h
-@@ -185,6 +185,8 @@ struct cxgb4_virt_res {                      /* virtualized HW resources */
- 	struct cxgb4_range stag;
- 	struct cxgb4_range rq;
- 	struct cxgb4_range pbl;
-+	struct cxgb4_range qp;
-+	struct cxgb4_range cq;
+ 	/* We control everything through PF 0 */
+ 	func = PCI_FUNC(pdev->devfn);
+-	if (func > 0)
++	if (func > 0) {
++		pci_save_state(pdev);        /* to restore SR-IOV later */
+ 		goto sriov;
++	}
+ 
+ 	err = pci_enable_device(pdev);
+ 	if (err) {
+@@ -3396,6 +3501,7 @@ static struct pci_driver cxgb4_driver = {
+ 	.id_table = cxgb4_pci_tbl,
+ 	.probe    = init_one,
+ 	.remove   = __devexit_p(remove_one),
++	.err_handler = &cxgb4_eeh,
  };
  
- /*
+ static int __init cxgb4_init_module(void)
+diff --git a/drivers/net/cxgb4/l2t.c b/drivers/net/cxgb4/l2t.c
+index 9f96724..5b990d2 100644
+--- a/drivers/net/cxgb4/l2t.c
++++ b/drivers/net/cxgb4/l2t.c
+@@ -310,6 +310,13 @@ static void t4_l2e_free(struct l2t_entry *e)
+ 			neigh_release(e->neigh);
+ 			e->neigh = NULL;
+ 		}
++		while (e->arpq_head) {
++			struct sk_buff *skb = e->arpq_head;
++
++			e->arpq_head = skb->next;
++			kfree(skb);
++		}
++		e->arpq_tail = NULL;
+ 	}
+ 	spin_unlock_bh(&e->lock);
+ 
 diff --git a/drivers/net/cxgb4/t4_hw.c b/drivers/net/cxgb4/t4_hw.c
-index 5c058ea..d92129b 100644
+index 5c81c55..0c8a84a 100644
 --- a/drivers/net/cxgb4/t4_hw.c
 +++ b/drivers/net/cxgb4/t4_hw.c
-@@ -2580,7 +2580,7 @@ int t4_alloc_vi(struct adapter *adap, unsigned int mbox, unsigned int port,
+@@ -221,6 +221,13 @@ int t4_wr_mbox_meat(struct adapter *adap, int mbox, const void *cmd, int size,
+ 	if ((size & 15) || size > MBOX_LEN)
+ 		return -EINVAL;
+ 
++	/*
++	 * If the device is off-line, as in EEH, commands will time out.
++	 * Fail them early so we don't waste time waiting.
++	 */
++	if (adap->pdev->error_state != pci_channel_io_normal)
++		return -EIO;
++
+ 	v = MBOWNER_GET(t4_read_reg(adap, ctl_reg));
+ 	for (i = 0; v == MBOX_OWNER_NONE && i < 3; i++)
+ 		v = MBOWNER_GET(t4_read_reg(adap, ctl_reg));
+@@ -3045,7 +3052,7 @@ static void __devinit init_link_config(struct link_config *lc,
  	}
- 	if (rss_size)
- 		*rss_size = FW_VI_CMD_RSSSIZE_GET(ntohs(c.rsssize_pkd));
--	return ntohs(c.viid_pkd);
-+	return FW_VI_CMD_VIID_GET(ntohs(c.type_viid));
  }
  
- /**
-@@ -2603,7 +2603,7 @@ int t4_free_vi(struct adapter *adap, unsigned int mbox, unsigned int pf,
- 			    FW_CMD_EXEC | FW_VI_CMD_PFN(pf) |
- 			    FW_VI_CMD_VFN(vf));
- 	c.alloc_to_len16 = htonl(FW_VI_CMD_FREE | FW_LEN16(c));
--	c.viid_pkd = htons(FW_VI_CMD_VIID(viid));
-+	c.type_viid = htons(FW_VI_CMD_VIID(viid));
- 	return t4_wr_mbox(adap, mbox, &c, sizeof(c), &c);
- }
+-static int __devinit wait_dev_ready(struct adapter *adap)
++int t4_wait_dev_ready(struct adapter *adap)
+ {
+ 	if (t4_read_reg(adap, PL_WHOAMI) != 0xffffffff)
+ 		return 0;
+@@ -3093,7 +3100,7 @@ int __devinit t4_prep_adapter(struct adapter *adapter)
+ {
+ 	int ret;
  
-@@ -3169,7 +3169,7 @@ int __devinit t4_port_init(struct adapter *adap, int mbox, int pf, int vf)
- 		p->mdio_addr = (ret & FW_PORT_CMD_MDIOCAP) ?
- 			FW_PORT_CMD_MDIOADDR_GET(ret) : -1;
- 		p->port_type = FW_PORT_CMD_PTYPE_GET(ret);
--		p->mod_type = FW_PORT_CMD_MODTYPE_GET(ret);
-+		p->mod_type = FW_PORT_MOD_TYPE_NA;
+-	ret = wait_dev_ready(adapter);
++	ret = t4_wait_dev_ready(adapter);
+ 	if (ret < 0)
+ 		return ret;
  
- 		init_link_config(&p->link_cfg, ntohs(c.u.info.pcap));
- 		j++;
-diff --git a/drivers/net/cxgb4/t4fw_api.h b/drivers/net/cxgb4/t4fw_api.h
-index 63991d6..a6643c6 100644
---- a/drivers/net/cxgb4/t4fw_api.h
-+++ b/drivers/net/cxgb4/t4fw_api.h
-@@ -51,7 +51,6 @@ enum fw_wr_opcodes {
- 	FW_CMD_WR                      = 0x10,
- 	FW_ETH_TX_PKT_VM_WR            = 0x11,
- 	FW_RI_RES_WR                   = 0x0c,
--	FW_RI_INIT_WR                  = 0x0d,
- 	FW_RI_RDMA_WRITE_WR            = 0x14,
- 	FW_RI_SEND_WR                  = 0x15,
- 	FW_RI_RDMA_READ_WR             = 0x16,
-@@ -59,6 +58,7 @@ enum fw_wr_opcodes {
- 	FW_RI_BIND_MW_WR               = 0x18,
- 	FW_RI_FR_NSMR_WR               = 0x19,
- 	FW_RI_INV_LSTAG_WR             = 0x1a,
-+	FW_RI_WR                       = 0x0d,
- 	FW_LASTC2E_WR                  = 0x40
- };
- 
-@@ -475,7 +475,13 @@ enum fw_params_param_pfvf {
- 	FW_PARAMS_PARAM_PFVF_PBL_END	= 0x12,
- 	FW_PARAMS_PARAM_PFVF_L2T_START = 0x13,
- 	FW_PARAMS_PARAM_PFVF_L2T_END = 0x14,
-+	FW_PARAMS_PARAM_PFVF_SQRQ_START = 0x15,
-+	FW_PARAMS_PARAM_PFVF_SQRQ_END	= 0x16,
-+	FW_PARAMS_PARAM_PFVF_CQ_START	= 0x17,
-+	FW_PARAMS_PARAM_PFVF_CQ_END	= 0x18,
- 	FW_PARAMS_PARAM_PFVF_SCHEDCLASS_ETH = 0x20,
-+	FW_PARAMS_PARAM_PFVF_VIID       = 0x24,
-+	FW_PARAMS_PARAM_PFVF_CPMASK     = 0x25,
- };
- 
- /*
-@@ -804,16 +810,16 @@ struct fw_eq_ofld_cmd {
- struct fw_vi_cmd {
- 	__be32 op_to_vfn;
- 	__be32 alloc_to_len16;
--	__be16 viid_pkd;
-+	__be16 type_viid;
- 	u8 mac[6];
- 	u8 portid_pkd;
- 	u8 nmac;
- 	u8 nmac0[6];
- 	__be16 rsssize_pkd;
- 	u8 nmac1[6];
--	__be16 r7;
-+	__be16 idsiiq_pkd;
- 	u8 nmac2[6];
--	__be16 r8;
-+	__be16 idseiq_pkd;
- 	u8 nmac3[6];
- 	__be64 r9;
- 	__be64 r10;
-@@ -824,6 +830,7 @@ struct fw_vi_cmd {
- #define FW_VI_CMD_ALLOC (1U << 31)
- #define FW_VI_CMD_FREE (1U << 30)
- #define FW_VI_CMD_VIID(x) ((x) << 0)
-+#define FW_VI_CMD_VIID_GET(x) ((x) & 0xfff)
- #define FW_VI_CMD_PORTID(x) ((x) << 4)
- #define FW_VI_CMD_RSSSIZE_GET(x) (((x) >> 0) & 0x7ff)
- 
-@@ -1136,6 +1143,11 @@ struct fw_port_cmd {
- 			__be32 lstatus_to_modtype;
- 			__be16 pcap;
- 			__be16 acap;
-+			__be16 mtu;
-+			__u8   cbllen;
-+			__u8   r9;
-+			__be32 r10;
-+			__be64 r11;
- 		} info;
- 		struct fw_port_ppp {
- 			__be32 pppen_to_ncsich;
-@@ -1196,14 +1208,17 @@ struct fw_port_cmd {
- #define FW_PORT_CMD_NCSICH(x) ((x) << 4)
- 
- enum fw_port_type {
--	FW_PORT_TYPE_FIBER,
--	FW_PORT_TYPE_KX4,
-+	FW_PORT_TYPE_FIBER_XFI,
-+	FW_PORT_TYPE_FIBER_XAUI,
- 	FW_PORT_TYPE_BT_SGMII,
--	FW_PORT_TYPE_KX,
-+	FW_PORT_TYPE_BT_XFI,
- 	FW_PORT_TYPE_BT_XAUI,
--	FW_PORT_TYPE_KR,
-+	FW_PORT_TYPE_KX4,
- 	FW_PORT_TYPE_CX4,
--	FW_PORT_TYPE_TWINAX,
-+	FW_PORT_TYPE_KX,
-+	FW_PORT_TYPE_KR,
-+	FW_PORT_TYPE_SFP,
-+	FW_PORT_TYPE_BP_AP,
- 
- 	FW_PORT_TYPE_NONE = FW_PORT_CMD_PTYPE_MASK
- };
-@@ -1213,6 +1228,9 @@ enum fw_port_module_type {
- 	FW_PORT_MOD_TYPE_LR,
- 	FW_PORT_MOD_TYPE_SR,
- 	FW_PORT_MOD_TYPE_ER,
-+	FW_PORT_MOD_TYPE_TWINAX_PASSIVE,
-+	FW_PORT_MOD_TYPE_TWINAX_ACTIVE,
-+	FW_PORT_MOD_TYPE_LRM,
- 
- 	FW_PORT_MOD_TYPE_NONE = FW_PORT_CMD_MODTYPE_MASK
- };
 -- 
 1.5.4
 
