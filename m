@@ -1,7 +1,8 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 1/8] e1000e: cleanup ethtool loopback setup code
-Date: Wed, 16 Jun 2010 16:25:55 -0700
-Message-ID: <20100616232523.4834.84849.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 2/8] e1000e: cleanup e1000_sw_lcd_config_ich8lan()
+Date: Wed, 16 Jun 2010 16:26:17 -0700
+Message-ID: <20100616232615.4834.11982.stgit@localhost.localdomain>
+References: <20100616232523.4834.84849.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -10,129 +11,76 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta02.westchester.pa.mail.comcast.net ([76.96.62.24]:51380
-	"EHLO qmta02.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752936Ab0FPX0P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 19:26:15 -0400
+Received: from qmta09.westchester.pa.mail.comcast.net ([76.96.62.96]:48650
+	"EHLO qmta09.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759156Ab0FPX0j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 19:26:39 -0400
+In-Reply-To: <20100616232523.4834.84849.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Refactor the loopback setup code to first handle the only 10/100 PHY
-supported by the driver if applicable and then handle the 1Gig PHYs in a
-switch statement for PHY-specific setups.
+Do not acquire and release the PHY unnecessarily for parts that return
+from this workaround without actually accessing the PHY registers.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/ethtool.c |   74 ++++++++++++++++++++++++------------------
- 1 files changed, 42 insertions(+), 32 deletions(-)
+ drivers/net/e1000e/ich8lan.c |   32 +++++++++++++++++++-------------
+ 1 files changed, 19 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index 2c52121..86c6a26 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -1263,33 +1263,36 @@ static int e1000_integrated_phy_loopback(struct e1000_adapter *adapter)
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index b2507d9..5d8fad3 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -820,14 +820,6 @@ static s32 e1000_sw_lcd_config_ich8lan(struct e1000_hw *hw)
+ 	s32 ret_val = 0;
+ 	u16 word_addr, reg_data, reg_addr, phy_page = 0;
  
- 	hw->mac.autoneg = 0;
- 
--	/* Workaround: K1 must be disabled for stable 1Gbps operation */
--	if (hw->mac.type == e1000_pchlan)
--		e1000_configure_k1_ich8lan(hw, false);
+-	if (!(hw->mac.type == e1000_ich8lan && phy->type == e1000_phy_igp_3) &&
+-		!(hw->mac.type == e1000_pchlan))
+-		return ret_val;
 -
--	if (hw->phy.type == e1000_phy_m88) {
--		/* Auto-MDI/MDIX Off */
--		e1e_wphy(hw, M88E1000_PHY_SPEC_CTRL, 0x0808);
--		/* reset to update Auto-MDI/MDIX */
--		e1e_wphy(hw, PHY_CONTROL, 0x9140);
--		/* autoneg off */
--		e1e_wphy(hw, PHY_CONTROL, 0x8140);
--	} else if (hw->phy.type == e1000_phy_gg82563)
--		e1e_wphy(hw, GG82563_PHY_KMRN_MODE_CTRL, 0x1CC);
+-	ret_val = hw->phy.ops.acquire(hw);
+-	if (ret_val)
+-		return ret_val;
 -
--	ctrl_reg = er32(CTRL);
--
--	switch (hw->phy.type) {
--	case e1000_phy_ife:
-+	if (hw->phy.type == e1000_phy_ife) {
- 		/* force 100, set loopback */
- 		e1e_wphy(hw, PHY_CONTROL, 0x6100);
- 
- 		/* Now set up the MAC to the same speed/duplex as the PHY. */
-+		ctrl_reg = er32(CTRL);
- 		ctrl_reg &= ~E1000_CTRL_SPD_SEL; /* Clear the speed sel bits */
- 		ctrl_reg |= (E1000_CTRL_FRCSPD | /* Set the Force Speed Bit */
- 			     E1000_CTRL_FRCDPX | /* Set the Force Duplex Bit */
- 			     E1000_CTRL_SPD_100 |/* Force Speed to 100 */
- 			     E1000_CTRL_FD);	 /* Force Duplex to FULL */
+ 	/*
+ 	 * Initialize the PHY from the NVM on ICH platforms.  This
+ 	 * is needed due to an issue where the NVM configuration is
+@@ -835,12 +827,26 @@ static s32 e1000_sw_lcd_config_ich8lan(struct e1000_hw *hw)
+ 	 * Therefore, after each PHY reset, we will load the
+ 	 * configuration data out of the NVM manually.
+ 	 */
+-	if ((adapter->pdev->device == E1000_DEV_ID_ICH8_IGP_M_AMT) ||
+-	    (adapter->pdev->device == E1000_DEV_ID_ICH8_IGP_M) ||
+-	    (hw->mac.type == e1000_pchlan))
++	switch (hw->mac.type) {
++	case e1000_ich8lan:
++		if (phy->type != e1000_phy_igp_3)
++			return ret_val;
 +
-+		ew32(CTRL, ctrl_reg);
-+		udelay(500);
-+
-+		return 0;
++		if (adapter->pdev->device == E1000_DEV_ID_ICH8_IGP_AMT) {
++			sw_cfg_mask = E1000_FEXTNVM_SW_CONFIG;
++			break;
++		}
++		/* Fall-thru */
++	case e1000_pchlan:
+ 		sw_cfg_mask = E1000_FEXTNVM_SW_CONFIG_ICH8M;
+-	else
+-		sw_cfg_mask = E1000_FEXTNVM_SW_CONFIG;
++		break;
++	default:
++		return ret_val;
 +	}
 +
-+	/* Specific PHY configuration for loopback */
-+	switch (hw->phy.type) {
-+	case e1000_phy_m88:
-+		/* Auto-MDI/MDIX Off */
-+		e1e_wphy(hw, M88E1000_PHY_SPEC_CTRL, 0x0808);
-+		/* reset to update Auto-MDI/MDIX */
-+		e1e_wphy(hw, PHY_CONTROL, 0x9140);
-+		/* autoneg off */
-+		e1e_wphy(hw, PHY_CONTROL, 0x8140);
-+		break;
-+	case e1000_phy_gg82563:
-+		e1e_wphy(hw, GG82563_PHY_KMRN_MODE_CTRL, 0x1CC);
- 		break;
- 	case e1000_phy_bm:
- 		/* Set Default MAC Interface speed to 1GB */
-@@ -1312,23 +1315,30 @@ static int e1000_integrated_phy_loopback(struct e1000_adapter *adapter)
- 		/* Set Early Link Enable */
- 		e1e_rphy(hw, PHY_REG(769, 20), &phy_reg);
- 		e1e_wphy(hw, PHY_REG(769, 20), phy_reg | 0x0400);
--		/* fall through */
-+		break;
-+	case e1000_phy_82577:
-+	case e1000_phy_82578:
-+		/* Workaround: K1 must be disabled for stable 1Gbps operation */
-+		e1000_configure_k1_ich8lan(hw, false);
-+		break;
- 	default:
--		/* force 1000, set loopback */
--		e1e_wphy(hw, PHY_CONTROL, 0x4140);
--		mdelay(250);
-+		break;
-+	}
++	ret_val = hw->phy.ops.acquire(hw);
++	if (ret_val)
++		return ret_val;
  
--		/* Now set up the MAC to the same speed/duplex as the PHY. */
--		ctrl_reg = er32(CTRL);
--		ctrl_reg &= ~E1000_CTRL_SPD_SEL; /* Clear the speed sel bits */
--		ctrl_reg |= (E1000_CTRL_FRCSPD | /* Set the Force Speed Bit */
--			     E1000_CTRL_FRCDPX | /* Set the Force Duplex Bit */
--			     E1000_CTRL_SPD_1000 |/* Force Speed to 1000 */
--			     E1000_CTRL_FD);	 /* Force Duplex to FULL */
-+	/* force 1000, set loopback */
-+	e1e_wphy(hw, PHY_CONTROL, 0x4140);
-+	mdelay(250);
- 
--		if (adapter->flags & FLAG_IS_ICH)
--			ctrl_reg |= E1000_CTRL_SLU;	/* Set Link Up */
--	}
-+	/* Now set up the MAC to the same speed/duplex as the PHY. */
-+	ctrl_reg = er32(CTRL);
-+	ctrl_reg &= ~E1000_CTRL_SPD_SEL; /* Clear the speed sel bits */
-+	ctrl_reg |= (E1000_CTRL_FRCSPD | /* Set the Force Speed Bit */
-+		     E1000_CTRL_FRCDPX | /* Set the Force Duplex Bit */
-+		     E1000_CTRL_SPD_1000 |/* Force Speed to 1000 */
-+		     E1000_CTRL_FD);	 /* Force Duplex to FULL */
-+
-+	if (adapter->flags & FLAG_IS_ICH)
-+		ctrl_reg |= E1000_CTRL_SLU;	/* Set Link Up */
- 
- 	if (hw->phy.media_type == e1000_media_type_copper &&
- 	    hw->phy.type == e1000_phy_m88) {
+ 	data = er32(FEXTNVM);
+ 	if (!(data & sw_cfg_mask))
 
