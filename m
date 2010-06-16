@@ -1,48 +1,63 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 12/12] ptp: Added a clock driver for the National
- Semiconductor PHYTER.
-Date: Wed, 16 Jun 2010 12:05:39 +0200
-Message-ID: <20100616100539.GA3569@riccoc20.at.omicron.at>
-References: <cover.1276615626.git.richard.cochran@omicron.at>
- <37f5015b186bdd51f8451ade042f90c8b39a5cc8.1276615626.git.richard.cochran@omicron.at>
- <AANLkTilqd-wxqMWDxssC-XMDJqZ8iIiSrvp2t8xARAQV@mail.gmail.com>
-Mime-Version: 1.0
+From: Arturas <arturasl@res.lt>
+Subject: Re: BUG: unable to handle kernel paging request at 000041ed00000001
+Date: Wed, 16 Jun 2010 13:25:24 +0300
+Message-ID: <20890DF2-B0EA-4C80-A64C-83F44E95DD6E@res.lt>
+References: <9D7251E7-0EFD-4645-BC30-A96191D1046E@res.lt> <1276185609.2448.12.camel@edumazet-laptop> <80C864F3-B075-4E3A-B72E-6FCD945A8058@res.lt> <1276504295.2478.35.camel@edumazet-laptop> <96E62960-9EF8-4F05-92DD-2D7477D0D78B@res.lt>
+Mime-Version: 1.0 (Apple Message framework v1081)
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	linuxppc-dev@lists.ozlabs.org,
-	linux-arm-kernel@lists.infradead.org,
-	Krzysztof Halasa <khc@pm.waw.pl>
-To: Grant Likely <grant.likely@secretlab.ca>
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:55913 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752200Ab0FPKEx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 06:04:53 -0400
-Received: by fxm10 with SMTP id 10so616871fxm.19
-        for <netdev@vger.kernel.org>; Wed, 16 Jun 2010 03:04:52 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <AANLkTilqd-wxqMWDxssC-XMDJqZ8iIiSrvp2t8xARAQV@mail.gmail.com>
+Received: from mx.res.lt ([84.32.72.39]:56760 "EHLO mx.res.lt"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758051Ab0FPKZ1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 06:25:27 -0400
+In-Reply-To: <96E62960-9EF8-4F05-92DD-2D7477D0D78B@res.lt>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 15, 2010 at 12:49:13PM -0600, Grant Likely wrote:
-> Won't this break things for existing DP83640 users?
+Your new patch doesn't show any warnings about tx queue 
+and everything is working as expected.
 
-Nope, the driver was only added five patches ago, and it only offers
-the timestamping stuff. The standard PHY functions just call the
-generic functions, so the PHY works fine even without this driver.
+On Jun 14, 2010, at 12:27 PM, Arturas wrote:
 
-> > +static struct ptp_clock *dp83640_clock;
-> > +DEFINE_SPINLOCK(clock_lock); /* protects the one and only dp83640_clock */
 > 
-> Why only one?  Is it not possible to have 2 of these PHYs in a system?
+> On Jun 14, 2010, at 11:31 AM, Eric Dumazet wrote:
+>> But your problem is about bridge, not bonding (see trace).
+> I want it for performance reason, not because of this bug.
+> Bridge isn't a bottleneck for me, but bonding may be and not to me only,
+> but for many people. I believe that performance gain would be more 
+> than 1% on cpu? :-)
+> 
+>> 
+>> And 2.6.34 wont accept such changes, its already released.
+> It can be as a separate patch or I can test 2.3.35 if it would accept
+> such change. I just need a stable kernel with good performance :-)
+> 
+>> 
+>>> I also have another issue with NMI. On older machine with 5500 xeons i 
+>>> have almost no overhead with nmi_watchdog enabled, but on this it is about twice.
+>>> without nmi enabled cpu peak average is 30%, and with nmi enabled i have 53%.
+>>> When traffic is not passing all cpus are idling at 100%.
+>>> Maybe overhead could be a little bit smaller? :-)
+>>> 
+>> 
+>> I am a bit lost here, NMI have litle to do with network stack ;)
+> May this be related to very recent cpu? As i understand NMI depends on CPU.
+> 
+>> 
+>> 
+>> Could you please test another patch ?
+> Applied, it's working correctly for now. If i'll get a warning i'll write you or maybe I
+> shouldn't get it if a patch is correct?
+> 
+>> 
+>> Before calling sk_tx_queue_set(sk, queue_index); we should check if dst
+>> dev is current device.
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Yes, you can have multiple PHYs, but only one PTP clock.
-
-If you do use multiple PHYs, then you must wire their clocks together
-and adjust the PTP clock on only one of the PHYs.
-
-
-Thanks for your other comments,
-
-Richard
