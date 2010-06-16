@@ -1,35 +1,64 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] broadcom: Add 5241 support
-Date: Wed, 16 Jun 2010 16:35:09 +0100
-Message-ID: <1276702509.2114.35.camel@achroite.uk.solarflarecom.com>
-References: <1276699126-8168-1-git-send-email-dbaryshkov@gmail.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: ipv6: netif_carrier_(on|off) with traces afterwards
+Date: Wed, 16 Jun 2010 09:55:45 -0600
+Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FF43AB7B9@rrsmsx501.amr.corp.intel.com>
+References: <OF3A036420.64516D4F-ONC1257744.00492A34-C1257744.004A240B@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
-To: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: NetDev <netdev@vger.kernel.org>
+To: Einar EL Lueck <ELELUECK@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:56694 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758772Ab0FPPfO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 11:35:14 -0400
-In-Reply-To: <1276699126-8168-1-git-send-email-dbaryshkov@gmail.com>
+Received: from mga02.intel.com ([134.134.136.20]:6995 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755071Ab0FPPzw convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 11:55:52 -0400
+In-Reply-To: <OF3A036420.64516D4F-ONC1257744.00492A34-C1257744.004A240B@de.ibm.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-06-16 at 18:38 +0400, Dmitry Eremin-Solenikov wrote:
-> This patch adds the 5241 PHY ID to the broadcom module.
-[...]
+>-----Original Message-----
+>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
+>Behalf Of Einar EL Lueck
+>Sent: Wednesday, June 16, 2010 6:30 AM
+>To: netdev@vger.kernel.org
+>Subject: ipv6: netif_carrier_(on|off) with traces afterwards
+>
+>
+>Hi,
+>With IPv6 addresses configured and and a network card doing
+>netif_carrier_off|on we see afterwards in 2.6.34 on S/390 some traces in
+>fib.
+>
+>Example sequence of operations:
+>ip -6 addr add fd00:10:30:49:4008:ffff:35:2/80 dev eth1
+>ip link set eth1 up
+>ip link set eth1 down
+># the following lines have as effect netif_carrier_off and then on (among
+>other stuff)
+>echo 0 > /sys/bus/ccwgroup/drivers/qeth/devices/0.0.e300/online
+>echo 1 > /sys/bus/ccwgroup/drivers/qeth/devices/0.0.e300/online
+># end of plugging
+>ip link set eth1  up
+>ip link set eth1 down
+>=> at this point we get the following trace:
+>
+>Badness
+>at /home/autobuild/BUILD/linux-2.6.34-20100531/net/ipv6/ip6_fib.c:1160
 
-You need to add the ID and mask to the module device ID table
-(broadcom_tbl) as well.
+<snip>
 
-Ben.
+>
+>Has anybody seen effects like this before on other platforms, or has
+>anybody suggestions for the root cause?
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I had similar issues. The following patches fixed it for me:
+
+http://marc.info/?l=linux-netdev&m=127472600330413
+
+http://marc.info/?l=linux-netdev&m=127472599530407
+
+Thanks,
+Emil
 
