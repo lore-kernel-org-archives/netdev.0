@@ -1,71 +1,49 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: 2.6.35-rc2-git2: Reported regressions from 2.6.34
-Date: Wed, 16 Jun 2010 14:34:27 -0700
-Message-ID: <20100616143427.a0323701.akpm@linux-foundation.org>
-References: <Rlf_Qjov7bG.A.a8F.I8rDMB@chimera>
-	<AANLkTiksbL1qHg7Q0A-6TbX0uUrxra4jctUoIGVk5vnE@mail.gmail.com>
-	<201006091122.35304.rjw@sisk.pl>
-	<20100616134231.23ff30da.akpm@linux-foundation.org>
-	<AANLkTil-X5IMZMer7fHVPOMalsTJNliv-gMimzKmJ3Od@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] gianfar: Fix setup of RX time stamping
+Date: Wed, 16 Jun 2010 14:40:15 -0700 (PDT)
+Message-ID: <20100616.144015.260092207.davem@davemloft.net>
+References: <95DC1AA8EC908B48939B72CF375AA5E3F03D8C46@alice.at.omicron.at>
+	<20100611122023.GA1598@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Sedat Dilek <sedat.dilek@googlemail.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Maciej Rutecki <maciej.rutecki@gmail.com>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.sourceforge.net>, dmonakhov@openvz.org
-To: sedat.dilek@gmail.com
-Return-path: <linux-acpi-owner@vger.kernel.org>
-In-Reply-To: <AANLkTil-X5IMZMer7fHVPOMalsTJNliv-gMimzKmJ3Od@mail.gmail.com>
-Sender: linux-acpi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Manfred.Rudigier@omicron.at, richard.cochran@omicron.at,
+	netdev@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: cbouatmailru@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55667
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754749Ab0FPVkE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 17:40:04 -0400
+In-Reply-To: <20100611122023.GA1598@oksana.dev.rtsoft.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 16 Jun 2010 23:00:37 +0200
-Sedat Dilek <sedat.dilek@googlemail.com> wrote:
+From: Anton Vorontsov <cbouatmailru@gmail.com>
+Date: Fri, 11 Jun 2010 16:20:23 +0400
 
-> On Wed, Jun 16, 2010 at 10:42 PM, Andrew Morton
-> <akpm@linux-foundation.org> wrote:
-> > On Wed, 9 Jun 2010 11:22:35 +0200
-> > "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> >
-> >> On Wednesday 09 June 2010, Sedat Dilek wrote:
-> >> > The patch from [1] is still missing.
-> >> >
-> >> > __ __"cpufreq-call-nr_iowait_cpu-with-disabled-preemption.patch" from
-> >> > Dmitry Monakhoc
-> >> >
-> >> > Tested-by: Sedat Dilek <sedat.dilek@gmail.com>
-> >> > Tested-by Maciej Rutecki <maciej.rutecki@gmail.com>
-> >> >
-> >> > I have already reported this issue on LKML [2] and cpufreq ML [3].
-> >> >
-> >> > - Sedat -
-> >> >
-> >> > [1] http://www.spinics.net/lists/cpufreq/msg01631.html
-> >> > [2] http://lkml.org/lkml/2010/5/31/77
-> >> > [3] http://www.spinics.net/lists/cpufreq/msg01637.html
-> >>
-> >> Thanks, added.
-> >
-> > I just merged a different patch whcih should address this:
->
-> How do cpu-freq related stuff find its way into mainline?
-> Is there a GIT repository/branch on <git.kernel.org> where you can pull from?
+> On Fri, Jun 11, 2010 at 01:49:05PM +0200, Manfred Rudigier wrote:
+>> Previously the RCTRL_TS_ENABLE bit was set unconditionally. However, if
+>> the RCTRL_TS_ENABLE is set without TMR_CTRL[TE], the driver does not work
+>> properly on some boards (Anton had problems with the MPC8313ERDB and
+>> MPC8568EMDS).
+>> 
+>> With this patch the bit will only be set if requested from user space
+>> with the SIOCSHWTSTAMP ioctl command, meaning that time stamping is
+>> disabled during normal operation. Users who are not interested in time
+>> stamps will not experience problems with buggy CPU revisions or
+>> performance drops any more.
+>> 
+>> The setting of TMR_CTRL[TE] is still up to the user. This is considered
+>> safe because users wanting HW timestamps must initialize the eTSEC clock
+>> first anyway, e.g. with the recently submitted PTP clock driver.
+>> 
+>> Signed-off-by: Manfred Rudigier <manfred.rudigier@omicron.at>
+>> ---
 > 
+> Looks OK. I tested that it doesn't break anything, but I didn't
+> test the timestamping functionality. So
+> 
+> Reviewed-by: Anton Vorontsov <cbouatmailru@gmail.com>
 
-(top-posting repaired.  Please don't)
-
-Usually via the cpufreq git tree, mailing list and maintainer, as
-described in ./MAINTAINERS.
-
-But for a patch like this one, I'll just scoot it into mainline unless
-Dave happens to grab it before I do that.
-
+Applied, thanks guys.
