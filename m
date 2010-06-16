@@ -1,25 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 0/2] qlcnic: Bug fixes
-Date: Wed, 16 Jun 2010 14:46:03 -0700 (PDT)
-Message-ID: <20100616.144603.102553343.davem@davemloft.net>
-References: <alpine.OSX.2.00.1006161155350.15485@macintosh-2.qlogic.org>
+Subject: Re: [PATCH] Clear IFF_XMIT_DST_RELEASE for teql interfaces
+Date: Wed, 16 Jun 2010 14:47:48 -0700 (PDT)
+Message-ID: <20100616.144748.179940335.davem@davemloft.net>
+References: <1276676668-10256-1-git-send-email-tom@compton.nu>
+	<1276694745.3862.1.camel@bigi>
+	<1276697660.2632.79.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: anirban.chakraborty@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59694
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753954Ab0FPVpv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 17:45:51 -0400
-In-Reply-To: <alpine.OSX.2.00.1006161155350.15485@macintosh-2.qlogic.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hadi@cyberus.ca, tom@compton.nu, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, shemminger@vyatta.com, kaber@trash.net,
+	tj@kernel.org, linux-kernel@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1276697660.2632.79.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-Date: Wed, 16 Jun 2010 12:07:17 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 16 Jun 2010 16:14:20 +0200
 
-> Please apply the two patches to net-next.
+> Please David, could you add bugzilla entry in commit ?
+> 
+> https://bugzilla.kernel.org/show_bug.cgi?id=16183
+> 
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Both applied, thank you.
+Done and applied, thanks everyone.
