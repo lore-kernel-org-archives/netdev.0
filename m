@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 6/8] e1000e: enable support for EEE on 82579
-Date: Wed, 16 Jun 2010 16:27:49 -0700
-Message-ID: <20100616232747.4834.46491.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 7/8] e1000e: update copyright information
+Date: Wed, 16 Jun 2010 16:28:11 -0700
+Message-ID: <20100616232809.4834.20440.stgit@localhost.localdomain>
 References: <20100616232523.4834.84849.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,170 +11,184 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta08.emeryville.ca.mail.comcast.net ([76.96.30.80]:56641 "EHLO
-	qmta08.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759454Ab0FPX2J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 19:28:09 -0400
+Received: from qmta06.westchester.pa.mail.comcast.net ([76.96.62.56]:41452
+	"EHLO qmta06.westchester.pa.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754484Ab0FPX2c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 19:28:32 -0400
 In-Reply-To: <20100616232523.4834.84849.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-This patch enables IEEE802.3az (a.k.a. Energy Efficient Ethernet) on the
-new 82579 LOMs.  An optional module parameter is provided to disable the
-feature if desired.
-
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/e1000.h   |    1 +
- drivers/net/e1000e/hw.h      |    1 +
- drivers/net/e1000e/ich8lan.c |   41 ++++++++++++++++++++++++++++++++++++++++-
- drivers/net/e1000e/param.c   |   28 ++++++++++++++++++++++++++++
- 4 files changed, 70 insertions(+), 1 deletions(-)
+ drivers/net/e1000e/82571.c   |    2 +-
+ drivers/net/e1000e/defines.h |    2 +-
+ drivers/net/e1000e/e1000.h   |    2 +-
+ drivers/net/e1000e/es2lan.c  |    2 +-
+ drivers/net/e1000e/ethtool.c |    2 +-
+ drivers/net/e1000e/hw.h      |    2 +-
+ drivers/net/e1000e/ich8lan.c |    2 +-
+ drivers/net/e1000e/lib.c     |    2 +-
+ drivers/net/e1000e/netdev.c  |    4 ++--
+ drivers/net/e1000e/param.c   |    2 +-
+ drivers/net/e1000e/phy.c     |    2 +-
+ 11 files changed, 12 insertions(+), 12 deletions(-)
 
+diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
+index f654db9..a4a0d2b 100644
+--- a/drivers/net/e1000e/82571.c
++++ b/drivers/net/e1000e/82571.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2009 Intel Corporation.
++  Copyright(c) 1999 - 2010 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+diff --git a/drivers/net/e1000e/defines.h b/drivers/net/e1000e/defines.h
+index 5a6de34..307a72f 100644
+--- a/drivers/net/e1000e/defines.h
++++ b/drivers/net/e1000e/defines.h
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2009 Intel Corporation.
++  Copyright(c) 1999 - 2010 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
 diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index 0e59f15..c233496 100644
+index c233496..328b7f4 100644
 --- a/drivers/net/e1000e/e1000.h
 +++ b/drivers/net/e1000e/e1000.h
-@@ -423,6 +423,7 @@ struct e1000_info {
- #define FLAG2_IS_DISCARDING               (1 << 2)
- #define FLAG2_DISABLE_ASPM_L1             (1 << 3)
- #define FLAG2_HAS_PHY_STATS               (1 << 4)
-+#define FLAG2_HAS_EEE                     (1 << 5)
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
  
- #define E1000_RX_DESC_PS(R, i)	    \
- 	(&(((union e1000_rx_desc_packet_split *)((R).desc))[i]))
+   Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2009 Intel Corporation.
++  Copyright(c) 1999 - 2010 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
+index 38d79a6..45aebb4 100644
+--- a/drivers/net/e1000e/es2lan.c
++++ b/drivers/net/e1000e/es2lan.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2009 Intel Corporation.
++  Copyright(c) 1999 - 2010 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
+index 312c704..db86850 100644
+--- a/drivers/net/e1000e/ethtool.c
++++ b/drivers/net/e1000e/ethtool.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2009 Intel Corporation.
++  Copyright(c) 1999 - 2010 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
 diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
-index 96116ce..eecb2ec 100644
+index eecb2ec..0cd569a 100644
 --- a/drivers/net/e1000e/hw.h
 +++ b/drivers/net/e1000e/hw.h
-@@ -937,6 +937,7 @@ struct e1000_dev_spec_ich8lan {
- 	bool kmrn_lock_loss_workaround_enabled;
- 	struct e1000_shadow_ram shadow_ram[E1000_ICH8_SHADOW_RAM_WORDS];
- 	bool nvm_k1_enabled;
-+	bool eee_disable;
- };
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
  
- struct e1000_hw {
+   Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2009 Intel Corporation.
++  Copyright(c) 1999 - 2010 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
 diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index 8274499..5e55de0 100644
+index 5e55de0..c7292a1 100644
 --- a/drivers/net/e1000e/ich8lan.c
 +++ b/drivers/net/e1000e/ich8lan.c
-@@ -131,6 +131,10 @@
- /* PHY Power Management Control */
- #define HV_PM_CTRL		PHY_REG(770, 17)
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
  
-+/* PHY Low Power Idle Control */
-+#define I82579_LPI_CTRL			PHY_REG(772, 20)
-+#define I82579_LPI_CTRL_ENABLE_MASK	0x6000
-+
- /* Strapping Option Register - RO */
- #define E1000_STRAP                     0x0000C
- #define E1000_STRAP_SMBUS_ADDRESS_MASK  0x00FE0000
-@@ -569,6 +573,35 @@ static s32 e1000_init_mac_params_ich8lan(struct e1000_adapter *adapter)
- }
+   Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2009 Intel Corporation.
++  Copyright(c) 1999 - 2010 Intel Corporation.
  
- /**
-+ *  e1000_set_eee_pchlan - Enable/disable EEE support
-+ *  @hw: pointer to the HW structure
-+ *
-+ *  Enable/disable EEE based on setting in dev_spec structure.  The bits in
-+ *  the LPI Control register will remain set only if/when link is up.
-+ **/
-+static s32 e1000_set_eee_pchlan(struct e1000_hw *hw)
-+{
-+	s32 ret_val = 0;
-+	u16 phy_reg;
-+
-+	if (hw->phy.type != e1000_phy_82579)
-+		goto out;
-+
-+	ret_val = e1e_rphy(hw, I82579_LPI_CTRL, &phy_reg);
-+	if (ret_val)
-+		goto out;
-+
-+	if (hw->dev_spec.ich8lan.eee_disable)
-+		phy_reg &= ~I82579_LPI_CTRL_ENABLE_MASK;
-+	else
-+		phy_reg |= I82579_LPI_CTRL_ENABLE_MASK;
-+
-+	ret_val = e1e_wphy(hw, I82579_LPI_CTRL, phy_reg);
-+out:
-+	return ret_val;
-+}
-+
-+/**
-  *  e1000_check_for_copper_link_ich8lan - Check for link (Copper)
-  *  @hw: pointer to the HW structure
-  *
-@@ -625,6 +658,11 @@ static s32 e1000_check_for_copper_link_ich8lan(struct e1000_hw *hw)
- 	 */
- 	e1000e_check_downshift(hw);
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
+index a968e3a..df4a279 100644
+--- a/drivers/net/e1000e/lib.c
++++ b/drivers/net/e1000e/lib.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
  
-+	/* Enable/Disable EEE after link up */
-+	ret_val = e1000_set_eee_pchlan(hw);
-+	if (ret_val)
-+		goto out;
-+
- 	/*
- 	 * If we are forcing speed/duplex, then we simply return since
- 	 * we have already determined whether we have link or not.
-@@ -3820,7 +3858,8 @@ struct e1000_info e1000_pch2_info = {
- 				  | FLAG_HAS_FLASH
- 				  | FLAG_HAS_JUMBO_FRAMES
- 				  | FLAG_APME_IN_WUC,
--	.flags2			= FLAG2_HAS_PHY_STATS,
-+	.flags2			= FLAG2_HAS_PHY_STATS
-+				  | FLAG2_HAS_EEE,
- 	.pba			= 18,
- 	.max_hw_frame_size	= DEFAULT_JUMBO,
- 	.get_variants		= e1000_get_variants_ich8lan,
+   Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2009 Intel Corporation.
++  Copyright(c) 1999 - 2010 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index f296f6f..77747c7 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2009 Intel Corporation.
++  Copyright(c) 1999 - 2010 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+@@ -6028,7 +6028,7 @@ static int __init e1000_init_module(void)
+ 	int ret;
+ 	pr_info("Intel(R) PRO/1000 Network Driver - %s\n",
+ 		e1000e_driver_version);
+-	pr_info("Copyright (c) 1999 - 2009 Intel Corporation.\n");
++	pr_info("Copyright (c) 1999 - 2010 Intel Corporation.\n");
+ 	ret = pci_register_driver(&e1000_driver);
+ 
+ 	return ret;
 diff --git a/drivers/net/e1000e/param.c b/drivers/net/e1000e/param.c
-index a150e48..a748460 100644
+index a748460..593251c 100644
 --- a/drivers/net/e1000e/param.c
 +++ b/drivers/net/e1000e/param.c
-@@ -161,6 +161,15 @@ E1000_PARAM(WriteProtectNVM, "Write-protect NVM [WARNING: disabling this can lea
- E1000_PARAM(CrcStripping, "Enable CRC Stripping, disable if your BMC needs " \
-                           "the CRC");
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
  
-+/*
-+ * Enable/disable EEE (a.k.a. IEEE802.3az)
-+ *
-+ * Valid Range: 0, 1
-+ *
-+ * Default Value: 1
-+ */
-+E1000_PARAM(EEE, "Enable/disable on parts that support the feature");
-+
- struct e1000_option {
- 	enum { enable_option, range_option, list_option } type;
- 	const char *name;
-@@ -477,4 +486,23 @@ void __devinit e1000e_check_options(struct e1000_adapter *adapter)
- 			}
- 		}
- 	}
-+	{ /* EEE for parts supporting the feature */
-+		static const struct e1000_option opt = {
-+			.type = enable_option,
-+			.name = "EEE Support",
-+			.err  = "defaulting to Enabled",
-+			.def  = OPTION_ENABLED
-+		};
-+
-+		if (adapter->flags2 & FLAG2_HAS_EEE) {
-+			/* Currently only supported on 82579 */
-+			if (num_EEE > bd) {
-+				unsigned int eee = EEE[bd];
-+				e1000_validate_option(&eee, &opt, adapter);
-+				hw->dev_spec.ich8lan.eee_disable = !eee;
-+			} else {
-+				hw->dev_spec.ich8lan.eee_disable = !opt.def;
-+			}
-+		}
-+	}
- }
+   Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2009 Intel Corporation.
++  Copyright(c) 1999 - 2010 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
+diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
+index e471357..3d3dc0c 100644
+--- a/drivers/net/e1000e/phy.c
++++ b/drivers/net/e1000e/phy.c
+@@ -1,7 +1,7 @@
+ /*******************************************************************************
+ 
+   Intel PRO/1000 Linux driver
+-  Copyright(c) 1999 - 2009 Intel Corporation.
++  Copyright(c) 1999 - 2010 Intel Corporation.
+ 
+   This program is free software; you can redistribute it and/or modify it
+   under the terms and conditions of the GNU General Public License,
 
