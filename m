@@ -1,380 +1,205 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless-2.6 2010-06-16 v2
-Date: Wed, 16 Jun 2010 16:13:00 -0400
-Message-ID: <20100616201300.GD3138@tuxdriver.com>
-References: <20100616182847.GB3138@tuxdriver.com>
- <20100616.115008.226776050.davem@davemloft.net>
+From: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Subject: Re: 2.6.35-rc2-git2: Reported regressions from 2.6.34
+Date: Wed, 16 Jun 2010 13:42:31 -0700
+Message-ID: <20100616134231.23ff30da.akpm@linux-foundation.org>
+References: <Rlf_Qjov7bG.A.a8F.I8rDMB@chimera>
+	<AANLkTiksbL1qHg7Q0A-6TbX0uUrxra4jctUoIGVk5vnE@mail.gmail.com>
+	<201006091122.35304.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100616.115008.226776050.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, dmonakhov-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org
+To: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <201006091122.35304.rjw-KKrjLPT3xs0@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 16, 2010 at 11:50:08AM -0700, David Miller wrote:
-> From: "John W. Linville" <linville@tuxdriver.com>
-> Date: Wed, 16 Jun 2010 14:28:48 -0400
-> 
-> > Here is another passel of of fixes intended for 2.6.35.  Included are
-> > some build warning fixes, a PCI identifier, a fix for premature
-> > IRQs during hostap initialization, a fix for a warning caused by
-> > failing to cancel a scan watchdog in iwlwifi, a fix for a null
-> > pointer dereference in iwlwifi, and a fix for a race condition in
-> > the same driver.  Also included is the MAINTAINERS change for the
-> > orphaning of the older Intel wireless drivers.  All but the last few
-> > warning fixes have spent some time in linux-next already.
+On Wed, 9 Jun 2010 11:22:35 +0200
+"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org> wrote:
+
+> On Wednesday 09 June 2010, Sedat Dilek wrote:
+> > The patch from [1] is still missing.
 > > 
-> > Please let me know if there are problems!
+> >    "cpufreq-call-nr_iowait_cpu-with-disabled-preemption.patch" from
+> > Dmitry Monakhoc
+> > 
+> > Tested-by: Sedat Dilek <sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > Tested-by Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> > 
+> > I have already reported this issue on LKML [2] and cpufreq ML [3].
+> > 
+> > - Sedat -
+> > 
+> > [1] http://www.spinics.net/lists/cpufreq/msg01631.html
+> > [2] http://lkml.org/lkml/2010/5/31/77
+> > [3] http://www.spinics.net/lists/cpufreq/msg01637.html
 > 
-> The patches removing unused function variables just to kill compile
-> warnings are not appropriate, _at_ _all_.  They don't fix any real
-> bug, and they definitely don't fix entries in the regression list do
-> they?
-> 
-> Kill all of those and resend this pull request.
+> Thanks, added.
 
-Fair enough...I dropped the warning fixes for the unused variables.
-But I kept the ones related to uninitialized variables, since
-those seem potentially more dangerous to ignore.  Hopefully that
-is acceptable.
+I just merged a different patch whcih should address this:
 
-Please let me know if there are problems!
 
-John
+From: Sergey Senozhatsky <sergey.senozhatsky-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
+Fix
+
+ BUG: using smp_processor_id() in preemptible [00000000] code: s2disk/3392
+ caller is nr_iowait_cpu+0xe/0x1e
+ Pid: 3392, comm: s2disk Not tainted 2.6.35-rc3-dbg-00106-ga75e02b #2
+ Call Trace:
+ [<c1184c55>] debug_smp_processor_id+0xa5/0xbc
+ [<c10282a5>] nr_iowait_cpu+0xe/0x1e
+ [<c104ab7c>] update_ts_time_stats+0x32/0x6c
+ [<c104ac73>] get_cpu_idle_time_us+0x36/0x58
+ [<c124229b>] get_cpu_idle_time+0x12/0x74
+ [<c1242963>] cpufreq_governor_dbs+0xc3/0x2dc
+ [<c1240437>] __cpufreq_governor+0x51/0x85
+ [<c1241190>] __cpufreq_set_policy+0x10c/0x13d
+ [<c12413d3>] cpufreq_add_dev_interface+0x212/0x233
+ [<c1241b1e>] ? handle_update+0x0/0xd
+ [<c1241a18>] cpufreq_add_dev+0x34b/0x35a
+ [<c103c973>] ? schedule_delayed_work_on+0x11/0x13
+ [<c12c14db>] cpufreq_cpu_callback+0x59/0x63
+ [<c1042f39>] notifier_call_chain+0x26/0x48
+ [<c1042f7d>] __raw_notifier_call_chain+0xe/0x10
+ [<c102efb9>] __cpu_notify+0x15/0x29
+ [<c102efda>] cpu_notify+0xd/0xf
+ [<c12bfb30>] _cpu_up+0xaf/0xd2
+ [<c12b3ad4>] enable_nonboot_cpus+0x3d/0x94
+ [<c1055eef>] hibernation_snapshot+0x104/0x1a2
+ [<c1058b49>] snapshot_ioctl+0x24b/0x53e
+ [<c1028ad1>] ? sub_preempt_count+0x7c/0x89
+ [<c10ab91d>] vfs_ioctl+0x2e/0x8c
+ [<c10588fe>] ? snapshot_ioctl+0x0/0x53e
+ [<c10ac2c7>] do_vfs_ioctl+0x42f/0x45a
+ [<c10a0ba5>] ? fsnotify_modify+0x4f/0x5a
+ [<c11e9dc3>] ? tty_write+0x0/0x1d0
+ [<c10a12d6>] ? vfs_write+0xa2/0xda
+ [<c10ac333>] sys_ioctl+0x41/0x62
+ [<c10027d3>] sysenter_do_call+0x12/0x2d
+
+The initial fix was to use get_cpu/put_cpu in nr_iowait_cpu.  However,
+Arjan stated that "the bug is that it needs to be nr_iowait_cpu(int cpu)".
+
+This patch introduces nr_iowait_cpu(int cpu) and changes to it callers.
+
+akpm: addresses about 30,000,000 different bug reports.
+
+Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: Arjan van de Ven <arjan-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Cc: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Cc: Maxim Levitsky <maximlevitsky-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Cc: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
+Cc: Jiri Slaby <jslaby-AlSwsSmVLrQ@public.gmane.org>
+Signed-off-by: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
 ---
 
-The following changes since commit fed396a585d8e1870b326f2e8e1888a72957abb8:
-  Herbert Xu (1):
-        bridge: Fix OOM crash in deliver_clone
+ drivers/cpuidle/governors/menu.c |   10 ++++++++--
+ include/linux/sched.h            |    2 +-
+ kernel/sched.c                   |    4 ++--
+ kernel/time/tick-sched.c         |    4 +++-
+ 4 files changed, 14 insertions(+), 6 deletions(-)
 
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
-
-Christoph Fritz (1):
-      mac80211: fix warn, enum may be used uninitialized
-
-Joerg Albert (1):
-      p54pci: add Symbol AP-300 minipci adapters pciid
-
-John W. Linville (1):
-      iwlwifi: cancel scan watchdog in iwl_bg_abort_scan
-
-Prarit Bhargava (1):
-      libertas_tf: Fix warning in lbtf_rx for stats struct
-
-Reinette Chatre (1):
-      iwlwifi: serialize station management actions
-
-Shanyu Zhao (1):
-      iwlagn: verify flow id in compressed BA packet
-
-Tim Gardner (1):
-      hostap: Protect against initialization interrupt
-
-Zhu Yi (1):
-      wireless: orphan ipw2x00 drivers
-
- MAINTAINERS                                 |   10 ++--------
- drivers/net/wireless/hostap/hostap_cs.c     |   15 +++++++++++++--
- drivers/net/wireless/hostap/hostap_hw.c     |   13 +++++++++++++
- drivers/net/wireless/hostap/hostap_wlan.h   |    2 +-
- drivers/net/wireless/iwlwifi/iwl-agn-tx.c   |    5 +++++
- drivers/net/wireless/iwlwifi/iwl-agn.c      |    8 ++++++--
- drivers/net/wireless/iwlwifi/iwl-scan.c     |    1 +
- drivers/net/wireless/iwlwifi/iwl-sta.c      |    4 ++++
- drivers/net/wireless/iwlwifi/iwl3945-base.c |    9 +++++++--
- drivers/net/wireless/libertas_tf/main.c     |    2 +-
- drivers/net/wireless/p54/p54pci.c           |    2 ++
- net/mac80211/work.c                         |    2 +-
- 12 files changed, 56 insertions(+), 17 deletions(-)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 83be538..837a754 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -2966,20 +2966,14 @@ F:	drivers/net/ixgb/
- F:	drivers/net/ixgbe/
+diff -puN drivers/cpuidle/governors/menu.c~cpuidle-avoid-using-smp_processor_id-in-preemptible-code-nr_iowait_cpu drivers/cpuidle/governors/menu.c
+--- a/drivers/cpuidle/governors/menu.c~cpuidle-avoid-using-smp_processor_id-in-preemptible-code-nr_iowait_cpu
++++ a/drivers/cpuidle/governors/menu.c
+@@ -137,15 +137,18 @@ static inline int which_bucket(unsigned 
+ {
+ 	int bucket = 0;
  
- INTEL PRO/WIRELESS 2100 NETWORK CONNECTION SUPPORT
--M:	Reinette Chatre <reinette.chatre@intel.com>
--M:	Intel Linux Wireless <ilw@linux.intel.com>
- L:	linux-wireless@vger.kernel.org
--W:	http://ipw2100.sourceforge.net
--S:	Odd Fixes
-+S:	Orphan
- F:	Documentation/networking/README.ipw2100
- F:	drivers/net/wireless/ipw2x00/ipw2100.*
- 
- INTEL PRO/WIRELESS 2915ABG NETWORK CONNECTION SUPPORT
--M:	Reinette Chatre <reinette.chatre@intel.com>
--M:	Intel Linux Wireless <ilw@linux.intel.com>
- L:	linux-wireless@vger.kernel.org
--W:	http://ipw2200.sourceforge.net
--S:	Odd Fixes
-+S:	Orphan
- F:	Documentation/networking/README.ipw2200
- F:	drivers/net/wireless/ipw2x00/ipw2200.*
- 
-diff --git a/drivers/net/wireless/hostap/hostap_cs.c b/drivers/net/wireless/hostap/hostap_cs.c
-index db72461..29b31a6 100644
---- a/drivers/net/wireless/hostap/hostap_cs.c
-+++ b/drivers/net/wireless/hostap/hostap_cs.c
-@@ -594,6 +594,7 @@ static int prism2_config(struct pcmcia_device *link)
- 	local_info_t *local;
- 	int ret = 1;
- 	struct hostap_cs_priv *hw_priv;
-+	unsigned long flags;
- 
- 	PDEBUG(DEBUG_FLOW, "prism2_config()\n");
- 
-@@ -625,9 +626,15 @@ static int prism2_config(struct pcmcia_device *link)
- 	local->hw_priv = hw_priv;
- 	hw_priv->link = link;
- 
-+	/*
-+	 * Make sure the IRQ handler cannot proceed until at least
-+	 * dev->base_addr is initialized.
-+	 */
-+	spin_lock_irqsave(&local->irq_init_lock, flags);
-+
- 	ret = pcmcia_request_irq(link, prism2_interrupt);
- 	if (ret)
--		goto failed;
-+		goto failed_unlock;
- 
++	int cpu = get_cpu();
  	/*
- 	 * This actually configures the PCMCIA socket -- setting up
-@@ -636,11 +643,13 @@ static int prism2_config(struct pcmcia_device *link)
+ 	 * We keep two groups of stats; one with no
+ 	 * IO pending, one without.
+ 	 * This allows us to calculate
+ 	 * E(duration)|iowait
  	 */
- 	ret = pcmcia_request_configuration(link, &link->conf);
- 	if (ret)
--		goto failed;
-+		goto failed_unlock;
+-	if (nr_iowait_cpu())
++	if (nr_iowait_cpu(cpu))
+ 		bucket = BUCKETS/2;
  
- 	dev->irq = link->irq;
- 	dev->base_addr = link->io.BasePort1;
- 
-+	spin_unlock_irqrestore(&local->irq_init_lock, flags);
++	put_cpu();
 +
- 	/* Finally, report what we've done */
- 	printk(KERN_INFO "%s: index 0x%02x: ",
- 	       dev_info, link->conf.ConfigIndex);
-@@ -667,6 +676,8 @@ static int prism2_config(struct pcmcia_device *link)
+ 	if (duration < 10)
+ 		return bucket;
+ 	if (duration < 100)
+@@ -169,13 +172,16 @@ static inline int which_bucket(unsigned 
+ static inline int performance_multiplier(void)
+ {
+ 	int mult = 1;
++	int cpu = get_cpu();
  
- 	return ret;
+ 	/* for higher loadavg, we are more reluctant */
  
-+ failed_unlock:
-+	 spin_unlock_irqrestore(&local->irq_init_lock, flags);
-  failed:
- 	kfree(hw_priv);
- 	prism2_release((u_long)link);
-diff --git a/drivers/net/wireless/hostap/hostap_hw.c b/drivers/net/wireless/hostap/hostap_hw.c
-index ff9b5c8..2f999fc 100644
---- a/drivers/net/wireless/hostap/hostap_hw.c
-+++ b/drivers/net/wireless/hostap/hostap_hw.c
-@@ -2621,6 +2621,18 @@ static irqreturn_t prism2_interrupt(int irq, void *dev_id)
- 	iface = netdev_priv(dev);
- 	local = iface->local;
+ 	mult += 2 * get_loadavg();
  
-+	/* Detect early interrupt before driver is fully configued */
-+	spin_lock(&local->irq_init_lock);
-+	if (!dev->base_addr) {
-+		if (net_ratelimit()) {
-+			printk(KERN_DEBUG "%s: Interrupt, but dev not configured\n",
-+			       dev->name);
-+		}
-+		spin_unlock(&local->irq_init_lock);
-+		return IRQ_HANDLED;
-+	}
-+	spin_unlock(&local->irq_init_lock);
+ 	/* for IO wait tasks (per cpu!) we add 5x each */
+-	mult += 10 * nr_iowait_cpu();
++	mult += 10 * nr_iowait_cpu(cpu);
 +
- 	prism2_io_debug_add(dev, PRISM2_IO_DEBUG_CMD_INTERRUPT, 0, 0);
++	put_cpu();
  
- 	if (local->func->card_present && !local->func->card_present(local)) {
-@@ -3138,6 +3150,7 @@ prism2_init_local_data(struct prism2_helper_functions *funcs, int card_idx,
- 	spin_lock_init(&local->cmdlock);
- 	spin_lock_init(&local->baplock);
- 	spin_lock_init(&local->lock);
-+	spin_lock_init(&local->irq_init_lock);
- 	mutex_init(&local->rid_bap_mtx);
+ 	return mult;
+ }
+diff -puN include/linux/sched.h~cpuidle-avoid-using-smp_processor_id-in-preemptible-code-nr_iowait_cpu include/linux/sched.h
+--- a/include/linux/sched.h~cpuidle-avoid-using-smp_processor_id-in-preemptible-code-nr_iowait_cpu
++++ a/include/linux/sched.h
+@@ -139,7 +139,7 @@ extern int nr_processes(void);
+ extern unsigned long nr_running(void);
+ extern unsigned long nr_uninterruptible(void);
+ extern unsigned long nr_iowait(void);
+-extern unsigned long nr_iowait_cpu(void);
++extern unsigned long nr_iowait_cpu(int cpu);
+ extern unsigned long this_cpu_load(void);
  
- 	if (card_idx < 0 || card_idx >= MAX_PARM_DEVICES)
-diff --git a/drivers/net/wireless/hostap/hostap_wlan.h b/drivers/net/wireless/hostap/hostap_wlan.h
-index 3d23891..1ba33be 100644
---- a/drivers/net/wireless/hostap/hostap_wlan.h
-+++ b/drivers/net/wireless/hostap/hostap_wlan.h
-@@ -654,7 +654,7 @@ struct local_info {
- 	rwlock_t iface_lock; /* hostap_interfaces read lock; use write lock
- 			      * when removing entries from the list.
- 			      * TX and RX paths can use read lock. */
--	spinlock_t cmdlock, baplock, lock;
-+	spinlock_t cmdlock, baplock, lock, irq_init_lock;
- 	struct mutex rid_bap_mtx;
- 	u16 infofid; /* MAC buffer id for info frame */
- 	/* txfid, intransmitfid, next_txtid, and next_alloc are protected by
-diff --git a/drivers/net/wireless/iwlwifi/iwl-agn-tx.c b/drivers/net/wireless/iwlwifi/iwl-agn-tx.c
-index a732f10..7d614c4 100644
---- a/drivers/net/wireless/iwlwifi/iwl-agn-tx.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-agn-tx.c
-@@ -1299,6 +1299,11 @@ void iwlagn_rx_reply_compressed_ba(struct iwl_priv *priv,
- 	sta_id = ba_resp->sta_id;
- 	tid = ba_resp->tid;
- 	agg = &priv->stations[sta_id].tid[tid].agg;
-+	if (unlikely(agg->txq_id != scd_flow)) {
-+		IWL_ERR(priv, "BA scd_flow %d does not match txq_id %d\n",
-+			scd_flow, agg->txq_id);
-+		return;
-+	}
  
- 	/* Find index just before block-ack window */
- 	index = iwl_queue_dec_wrap(ba_resp_scd_ssn & 0xff, txq->q.n_bd);
-diff --git a/drivers/net/wireless/iwlwifi/iwl-agn.c b/drivers/net/wireless/iwlwifi/iwl-agn.c
-index 7726e67..24aff65 100644
---- a/drivers/net/wireless/iwlwifi/iwl-agn.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-agn.c
-@@ -3391,10 +3391,12 @@ static int iwlagn_mac_sta_add(struct ieee80211_hw *hw,
- 	int ret;
- 	u8 sta_id;
+diff -puN kernel/sched.c~cpuidle-avoid-using-smp_processor_id-in-preemptible-code-nr_iowait_cpu kernel/sched.c
+--- a/kernel/sched.c~cpuidle-avoid-using-smp_processor_id-in-preemptible-code-nr_iowait_cpu
++++ a/kernel/sched.c
+@@ -2864,9 +2864,9 @@ unsigned long nr_iowait(void)
+ 	return sum;
+ }
  
--	sta_priv->common.sta_id = IWL_INVALID_STATION;
--
- 	IWL_DEBUG_INFO(priv, "received request to add station %pM\n",
- 			sta->addr);
-+	mutex_lock(&priv->mutex);
-+	IWL_DEBUG_INFO(priv, "proceeding to add station %pM\n",
-+			sta->addr);
-+	sta_priv->common.sta_id = IWL_INVALID_STATION;
+-unsigned long nr_iowait_cpu(void)
++unsigned long nr_iowait_cpu(int cpu)
+ {
+-	struct rq *this = this_rq();
++	struct rq *this = cpu_rq(cpu);
+ 	return atomic_read(&this->nr_iowait);
+ }
  
- 	atomic_set(&sta_priv->pending_frames, 0);
- 	if (vif->type == NL80211_IFTYPE_AP)
-@@ -3406,6 +3408,7 @@ static int iwlagn_mac_sta_add(struct ieee80211_hw *hw,
- 		IWL_ERR(priv, "Unable to add station %pM (%d)\n",
- 			sta->addr, ret);
- 		/* Should we return success if return code is EEXIST ? */
-+		mutex_unlock(&priv->mutex);
- 		return ret;
+diff -puN kernel/time/tick-sched.c~cpuidle-avoid-using-smp_processor_id-in-preemptible-code-nr_iowait_cpu kernel/time/tick-sched.c
+--- a/kernel/time/tick-sched.c~cpuidle-avoid-using-smp_processor_id-in-preemptible-code-nr_iowait_cpu
++++ a/kernel/time/tick-sched.c
+@@ -159,10 +159,12 @@ update_ts_time_stats(struct tick_sched *
+ 	ktime_t delta;
+ 
+ 	if (ts->idle_active) {
++		int cpu = get_cpu();
+ 		delta = ktime_sub(now, ts->idle_entrytime);
+ 		ts->idle_sleeptime = ktime_add(ts->idle_sleeptime, delta);
+-		if (nr_iowait_cpu() > 0)
++		if (nr_iowait_cpu(cpu) > 0)
+ 			ts->iowait_sleeptime = ktime_add(ts->iowait_sleeptime, delta);
++		put_cpu();
+ 		ts->idle_entrytime = now;
  	}
  
-@@ -3415,6 +3418,7 @@ static int iwlagn_mac_sta_add(struct ieee80211_hw *hw,
- 	IWL_DEBUG_INFO(priv, "Initializing rate scaling for station %pM\n",
- 		       sta->addr);
- 	iwl_rs_rate_init(priv, sta, sta_id);
-+	mutex_unlock(&priv->mutex);
- 
- 	return 0;
- }
-diff --git a/drivers/net/wireless/iwlwifi/iwl-scan.c b/drivers/net/wireless/iwlwifi/iwl-scan.c
-index 5d3f51f..386c5f9 100644
---- a/drivers/net/wireless/iwlwifi/iwl-scan.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-scan.c
-@@ -491,6 +491,7 @@ void iwl_bg_abort_scan(struct work_struct *work)
- 
- 	mutex_lock(&priv->mutex);
- 
-+	cancel_delayed_work_sync(&priv->scan_check);
- 	set_bit(STATUS_SCAN_ABORTING, &priv->status);
- 	iwl_send_scan_abort(priv);
- 
-diff --git a/drivers/net/wireless/iwlwifi/iwl-sta.c b/drivers/net/wireless/iwlwifi/iwl-sta.c
-index 83a2636..c27c13f 100644
---- a/drivers/net/wireless/iwlwifi/iwl-sta.c
-+++ b/drivers/net/wireless/iwlwifi/iwl-sta.c
-@@ -1373,10 +1373,14 @@ int iwl_mac_sta_remove(struct ieee80211_hw *hw,
- 
- 	IWL_DEBUG_INFO(priv, "received request to remove station %pM\n",
- 			sta->addr);
-+	mutex_lock(&priv->mutex);
-+	IWL_DEBUG_INFO(priv, "proceeding to remove station %pM\n",
-+			sta->addr);
- 	ret = iwl_remove_station(priv, sta_common->sta_id, sta->addr);
- 	if (ret)
- 		IWL_ERR(priv, "Error removing station %pM\n",
- 			sta->addr);
-+	mutex_unlock(&priv->mutex);
- 	return ret;
- }
- EXPORT_SYMBOL(iwl_mac_sta_remove);
-diff --git a/drivers/net/wireless/iwlwifi/iwl3945-base.c b/drivers/net/wireless/iwlwifi/iwl3945-base.c
-index 6c353ca..a27872d 100644
---- a/drivers/net/wireless/iwlwifi/iwl3945-base.c
-+++ b/drivers/net/wireless/iwlwifi/iwl3945-base.c
-@@ -3437,10 +3437,13 @@ static int iwl3945_mac_sta_add(struct ieee80211_hw *hw,
- 	bool is_ap = vif->type == NL80211_IFTYPE_STATION;
- 	u8 sta_id;
- 
--	sta_priv->common.sta_id = IWL_INVALID_STATION;
--
- 	IWL_DEBUG_INFO(priv, "received request to add station %pM\n",
- 			sta->addr);
-+	mutex_lock(&priv->mutex);
-+	IWL_DEBUG_INFO(priv, "proceeding to add station %pM\n",
-+			sta->addr);
-+	sta_priv->common.sta_id = IWL_INVALID_STATION;
-+
- 
- 	ret = iwl_add_station_common(priv, sta->addr, is_ap, &sta->ht_cap,
- 				     &sta_id);
-@@ -3448,6 +3451,7 @@ static int iwl3945_mac_sta_add(struct ieee80211_hw *hw,
- 		IWL_ERR(priv, "Unable to add station %pM (%d)\n",
- 			sta->addr, ret);
- 		/* Should we return success if return code is EEXIST ? */
-+		mutex_unlock(&priv->mutex);
- 		return ret;
- 	}
- 
-@@ -3457,6 +3461,7 @@ static int iwl3945_mac_sta_add(struct ieee80211_hw *hw,
- 	IWL_DEBUG_INFO(priv, "Initializing rate scaling for station %pM\n",
- 		       sta->addr);
- 	iwl3945_rs_rate_init(priv, sta, sta_id);
-+	mutex_unlock(&priv->mutex);
- 
- 	return 0;
- }
-diff --git a/drivers/net/wireless/libertas_tf/main.c b/drivers/net/wireless/libertas_tf/main.c
-index 6a04c21..817fffc 100644
---- a/drivers/net/wireless/libertas_tf/main.c
-+++ b/drivers/net/wireless/libertas_tf/main.c
-@@ -549,7 +549,7 @@ int lbtf_rx(struct lbtf_private *priv, struct sk_buff *skb)
- 
- 	prxpd = (struct rxpd *) skb->data;
- 
--	stats.flag = 0;
-+	memset(&stats, 0, sizeof(stats));
- 	if (!(prxpd->status & cpu_to_le16(MRVDRV_RXPD_STATUS_OK)))
- 		stats.flag |= RX_FLAG_FAILED_FCS_CRC;
- 	stats.freq = priv->cur_freq;
-diff --git a/drivers/net/wireless/p54/p54pci.c b/drivers/net/wireless/p54/p54pci.c
-index 07c4528..a5ea89c 100644
---- a/drivers/net/wireless/p54/p54pci.c
-+++ b/drivers/net/wireless/p54/p54pci.c
-@@ -41,6 +41,8 @@ static DEFINE_PCI_DEVICE_TABLE(p54p_table) = {
- 	{ PCI_DEVICE(0x1260, 0x3877) },
- 	/* Intersil PRISM Javelin/Xbow Wireless LAN adapter */
- 	{ PCI_DEVICE(0x1260, 0x3886) },
-+	/* Intersil PRISM Xbow Wireless LAN adapter (Symbol AP-300) */
-+	{ PCI_DEVICE(0x1260, 0xffff) },
- 	{ },
- };
- 
-diff --git a/net/mac80211/work.c b/net/mac80211/work.c
-index be3d4a6..b025dc7 100644
---- a/net/mac80211/work.c
-+++ b/net/mac80211/work.c
-@@ -715,7 +715,7 @@ static void ieee80211_work_rx_queued_mgmt(struct ieee80211_local *local,
- 	struct ieee80211_rx_status *rx_status;
- 	struct ieee80211_mgmt *mgmt;
- 	struct ieee80211_work *wk;
--	enum work_action rma;
-+	enum work_action rma = WORK_ACT_NONE;
- 	u16 fc;
- 
- 	rx_status = (struct ieee80211_rx_status *) skb->cb;
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+_
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
