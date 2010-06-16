@@ -1,125 +1,94 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] virtio_net: implements ethtool_ops.get_drvinfo
-Date: Wed, 16 Jun 2010 11:24:59 +0930
-Message-ID: <201006161125.00297.rusty@rustcorp.com.au>
-References: <4C11915E.6090201@jp.fujitsu.com> <201006151358.12071.rusty@rustcorp.com.au> <4C170D9E.5090407@jp.fujitsu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] inetpeer: do not use zero refcnt for freed
+ entries
+Date: Wed, 16 Jun 2010 04:45:24 +0200
+Message-ID: <1276656324.19249.39.camel@edumazet-laptop>
+References: <1276626194.2541.186.camel@edumazet-laptop>
+	 <20100615.142506.02275206.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-2022-jp"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Taku Izumi <izumi.taku@jp.fujitsu.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:53559 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753653Ab0FPBzI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jun 2010 21:55:08 -0400
-In-Reply-To: <4C170D9E.5090407@jp.fujitsu.com>
+Received: from mail-ww0-f46.google.com ([74.125.82.46]:59433 "EHLO
+	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755151Ab0FPCpa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jun 2010 22:45:30 -0400
+Received: by wwb18 with SMTP id 18so5297487wwb.19
+        for <netdev@vger.kernel.org>; Tue, 15 Jun 2010 19:45:28 -0700 (PDT)
+In-Reply-To: <20100615.142506.02275206.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 15 Jun 2010 02:50:30 pm Taku Izumi wrote:
-> Hi Rusty,
-> 
-> (2010/06/15 13:28), Rusty Russell wrote:
-> > On Fri, 11 Jun 2010 10:59:02 am Taku Izumi wrote:
-> >> This patch implements ethtool_ops.get_drvinfo interface of virtio_net driver.
-> >>
-> >> Signed-off-by: Taku Izumi<izumi.taku@jp.fujitsu.com>
-> > 
-> > Hi Taku!
-> > 
-> >     Does this have any useful effect?
-> 
-> I often use "ethtool -i" command to check what driver controls the ehternet device.
-> But because current virtio_net driver doesn't support "ethtool -i", it becomes the
-> following:
-> 
-> 	# ethtool -i eth3
-> 	Cannot get driver information: Operation not supported
-> 
-> My patch simply adds the "ethtool -i" support. The following is the result when
-> using the virtio_net driver with my patch applied to.
-> 
-> 	# ethtool -i eth3
-> 	driver: virtio_net
-> 	version: N/A
-> 	firmware-version: N/A
-> 	bus-info: virtio0
-> 
-> Personally, "-i" is one of the most frequently-used option, and
-> most network drivers support "ethtool -i", so I think virtio_net also should do.
+Le mardi 15 juin 2010 =C3=A0 14:25 -0700, David Miller a =C3=A9crit :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 15 Jun 2010 20:23:14 +0200
+>=20
+> > inetpeer currently uses an AVL tree protected by an rwlock.
+> >=20
+> > It's possible to make most lookups use RCU
+>  ...
+> > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+> Applied, nice work Eric.
 
-Thanks, Taku.
+Thanks David !
 
-I put this explanation in the commit message, and changed 32 to ARRAY_SIZE().
-It's queued for sending to DaveM for the next merge window.
+Re-reading patch I realize refcnt is expected to be 0 for unused entrie=
+s
+(obviously), so we should use a different marker for 'about to be freed=
+'
+ones.
 
-Result below.
+Thanks
 
-Thanks!
-Rusty.
+[PATCH net-next-2.6] inetpeer: do not use zero refcnt for freed entries
 
-Subject: virtio_net: implements ethtool_ops.get_drvinfo
-Date: Fri, 11 Jun 2010 10:29:02 +0900
-From: Taku Izumi <izumi.taku@jp.fujitsu.com>
+=46ollowup of commit aa1039e73cc2 (inetpeer: RCU conversion)
 
-I often use "ethtool -i" command to check what driver controls the
-ehternet device.  But because current virtio_net driver doesn't
-support "ethtool -i", it becomes the following:
+Unused inet_peer entries have a null refcnt.
 
-        # ethtool -i eth3
-        Cannot get driver information: Operation not supported
+Using atomic_inc_not_zero() in rcu lookups is not going to work for
+them, and slow path is taken.
 
-This patch simply adds the "ethtool -i" support. The following is the
-result when using the virtio_net driver with my patch applied to.
+=46ix this using -1 marker instead of 0 for deleted entries.
 
-        # ethtool -i eth3
-        driver: virtio_net
-        version: N/A
-        firmware-version: N/A
-        bus-info: virtio0
-
-Personally, "-i" is one of the most frequently-used option, and most
-network drivers support "ethtool -i", so I think virtio_net also
-should do.
-
-Signed-off-by: Taku Izumi <izumi.taku@jp.fujitsu.com>
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au> (use ARRAY_SIZE)
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- 0 files changed
+ net/ipv4/inetpeer.c |   10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
-Index: net-next.35/drivers/net/virtio_net.c
-===================================================================
---- net-next.35.orig/drivers/net/virtio_net.c
-+++ net-next.35/drivers/net/virtio_net.c
-@@ -701,6 +701,19 @@ static int virtnet_close(struct net_devi
- 	return 0;
- }
- 
-+static void virtnet_get_drvinfo(struct net_device *dev,
-+				struct ethtool_drvinfo *drvinfo)
-+{
-+	struct virtnet_info *vi = netdev_priv(dev);
-+	struct virtio_device *vdev = vi->vdev;
-+
-+	strncpy(drvinfo->driver, KBUILD_MODNAME, ARRAY_SIZE(drvinfo->driver));
-+	strncpy(drvinfo->version, "N/A", ARRAY_SIZE(drvinfo->version));
-+	strncpy(drvinfo->fw_version, "N/A", ARRAY_SIZE(drvinfo->fw_version));
-+	strncpy(drvinfo->bus_info, dev_name(&vdev->dev),
-+		ARRAY_SIZE(drvinfo->bus_info));
-+}
-+
- static int virtnet_set_tx_csum(struct net_device *dev, u32 data)
- {
- 	struct virtnet_info *vi = netdev_priv(dev);
-@@ -813,6 +825,7 @@ static void virtnet_vlan_rx_kill_vid(str
- }
- 
- static const struct ethtool_ops virtnet_ethtool_ops = {
-+	.get_drvinfo = virtnet_get_drvinfo,
- 	.set_tx_csum = virtnet_set_tx_csum,
- 	.set_sg = ethtool_op_set_sg,
- 	.set_tso = ethtool_op_set_tso,
+diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
+index 58fbc7e..39a14ba 100644
+--- a/net/ipv4/inetpeer.c
++++ b/net/ipv4/inetpeer.c
+@@ -187,7 +187,12 @@ static struct inet_peer *lookup_rcu_bh(__be32 dadd=
+r)
+=20
+ 	while (u !=3D peer_avl_empty) {
+ 		if (daddr =3D=3D u->v4daddr) {
+-			if (unlikely(!atomic_inc_not_zero(&u->refcnt)))
++			/* Before taking a reference, check if this entry was
++			 * deleted, unlink_from_pool() sets refcnt=3D-1 to make
++			 * distinction between an unused entry (refcnt=3D0) and
++			 * a freed one.
++			 */
++			if (unlikely(!atomic_add_unless(&u->refcnt, 1, -1)))
+ 				u =3D NULL;
+ 			return u;
+ 		}
+@@ -322,8 +327,9 @@ static void unlink_from_pool(struct inet_peer *p)
+ 	 * in cleanup() function to prevent sudden disappearing.  If we can
+ 	 * atomically (because of lockless readers) take this last reference,
+ 	 * it's safe to remove the node and free it later.
++	 * We use refcnt=3D-1 to alert lockless readers this entry is deleted=
+=2E
+ 	 */
+-	if (atomic_cmpxchg(&p->refcnt, 1, 0) =3D=3D 1) {
++	if (atomic_cmpxchg(&p->refcnt, 1, -1) =3D=3D 1) {
+ 		struct inet_peer **stack[PEER_MAXDEPTH];
+ 		struct inet_peer ***stackptr, ***delp;
+ 		if (lookup(p->v4daddr, stack) !=3D p)
+
+
