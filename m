@@ -1,63 +1,95 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] vlan_dev: VLAN 0 should be treated as "no vlan tag" (802.1p
- packet)
-Date: Wed, 16 Jun 2010 13:42:16 +0200
-Message-ID: <4C18B898.4000307@trash.net>
-References: <c25bca517739ada31d698235c3a4d045@dondevamos.com>	 <1276466190.14011.223.camel@localhost>	 <5c6d1ac43fd8ad25661ebfba57c02174@dondevamos.com>	 <1276534945.2074.11.camel@achroite.uk.solarflarecom.com>	 <4C1662C3.3070708@trash.net> <1276542772.2444.13.camel@edumazet-laptop>	 <311b59aee7d648c6124a84b5ca06ac60@dondevamos.com> <1276679284.2632.22.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: rt hash table / rt hash locks question
+Date: Wed, 16 Jun 2010 14:27:38 +0200
+Message-ID: <1276691258.2632.55.camel@edumazet-laptop>
+References: <20100616104633.GW6138@laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pedro Garcia <pedro.netdev@dondevamos.com>, netdev@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Nick Piggin <npiggin@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:38266 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758668Ab0FPLmU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 07:42:20 -0400
-In-Reply-To: <1276679284.2632.22.camel@edumazet-laptop>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:34651 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754402Ab0FPM1o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 08:27:44 -0400
+Received: by wyb40 with SMTP id 40so5632510wyb.19
+        for <netdev@vger.kernel.org>; Wed, 16 Jun 2010 05:27:42 -0700 (PDT)
+In-Reply-To: <20100616104633.GW6138@laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> Le mercredi 16 juin 2010 =C3=A0 10:49 +0200, Pedro Garcia a =C3=A9cri=
-t :
->> Here it is again. I added the modifications in http://kerneltrap.org=
-/mailarchive/linux-netdev/2010/5/23/6277868 for HW accelerated incoming=
- packets (it did not apply cleanly on the last version of
->> the kernel, so I applied manually). Now, if the VLAN 0 is not explic=
-itly created by the user, VLAN 0 packets will be treated as no VLAN (80=
-2.1p packets), instead of dropping them.
->>
->> The patch is now for two files: vlan_core (accel) and vlan_dev (non =
-accel)
->>
->> I can not test on HW accelerated devices, so if someone can check it=
- I will appreciate (even though in the thread above it looked like yes)=
-=2E For non accel I tessted in 2.6.26. Now the patch is for
->> net-next-2.6, and it compiles OK, but I a have to setup a test envir=
-onment to check it is still OK (should, but better to test).
->>
->> Signed-off-by: Pedro Garcia <pedro.netdev@dondevamos.com>
->>    =20
->
-> OK, the patch itself is correct.
->  =20
+Le mercredi 16 juin 2010 =C3=A0 20:46 +1000, Nick Piggin a =C3=A9crit :
+> I'm just converting this scalable dentry/inode hash table to a more
+> compact form. I was previously using a dumb spinlock per bucket,
+> but this doubles the size of the tables so isn't production quality.
+>=20
 
-Yes, looks fine to me as well.
+Yes, we had this in the past (one rwlock or spinlock per hash chain),
+and it was not very good with LOCKDEP on.
 
-> Now, could you please send it again with a proper changelog ?
->
-> In this changelog, please explain why patch is needed, and
-> keep lines short (< 72 chars), like the one you did in your first mai=
-l.
->
-> I'll then add my Signed-off-by, since I wrote the accelerated part ;)
->
-> Note : I wonder if another patch is needed, in case 8021q module is
-> _not_ loaded. We probably should accept vlan 0 frames in this case ?
->  =20
+> What I've done at the moment is to use a bit_spinlock in bit 0 of eac=
+h
+> list pointer of the table. Bit spinlocks are now pretty nice because
+> we can do __bit_spin_unlock() which gives non-atomic store with relea=
+se
+> ordering, so it should be almost as fast as spinlock.
+>=20
+> But I look at rt hash and it seems you use a small hash on the side
+> for spinlocks. So I wonder, pros for each:
+>=20
+> - bitlocks have effectively zero storage
+    yes but a mask is needed to get head pointer. Special care also mus=
+t
+be taken when insert/delete a node in chain, keeping this bit set.
 
-I agree that this would be best for consistency, but that would mean
-adding more special cases to __netif_receive_skb().
+> - bitlocks hit the same cacheline that the hash walk hits.
+    yes
+> - in RCU list, locked hash walks usually followed by hash modificatio=
+n,
+>   bitlock should have brought in the line for exclusive.
+    But we usually perform a read only lookup, _then_ take the lock, to
+perform a new lookup before insert. So at time we would take the
+bitlock, cache line is in shared state. With spinlocks, we always use
+the exclusive mode, but on a separate cache line...
+
+> - bitlock number of locks scales with hash size
+    Yes, but concurrency is more a function of online cpus, given we us=
+e
+jhash.=20
+
+> - spinlocks may be slightly better at the cacheline level (bitops
+>   sometimes require explicit load which may not acquire exclusive
+>   line on some archs). On x86 ll/sc architectures, this shouldn't
+>   be a problem.
+    Yes, you can add fairness (if ticket spinlocks variant used), but o=
+n
+route cache I really doubt it can make a difference.
+
+> - spinlocks better debugging (could be overcome with a LOCKDEP
+>   option to revert to spinlocks, but a bit ugly).
+	Definitely a good thing.
+
+> - in practice, contention due to aliasing in buckets to lock mapping
+>   is probably fairly minor.
+     Agreed
+>=20
+> Net code is obviously tested and tuned well, but instinctively I woul=
+d
+> have tought bitlocks are the better way to go. Any comments on this?
+
+Well, to be honest, this code is rather old, and at time I wrote it,
+bitlocks were probably not available.
+
+You can add :
+
+- One downside of the hashed spinlocks is the X86_INTERNODE_CACHE_SHIFT
+being 12 on X86_VSMP : All locks are probably in same internode block :=
+(
+
+- Another downside is all locks are currently on a single NUMA node,
+since we kmalloc() them in one contiguous chunk.
+
+So I guess it would be worth to try :)
+
+
