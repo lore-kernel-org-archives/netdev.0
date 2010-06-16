@@ -1,87 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [0/8] netpoll/bridge fixes
-Date: Wed, 16 Jun 2010 08:21:21 +0200
-Message-ID: <1276669281.19249.62.camel@edumazet-laptop>
-References: <20100610145915.721a86b7@nehalam>
-	 <20100610224839.GA22469@gondor.apana.org.au>
-	 <20100611021142.GA24490@gondor.apana.org.au>
-	 <20100615.113940.245399246.davem@davemloft.net>
-	 <1276657139.19249.50.camel@edumazet-laptop>
-	 <20100616050808.GD2911@linux.vnet.ibm.com>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 04/12] phylib: add a way to make PHY time stamps possible.
+Date: Wed, 16 Jun 2010 08:29:40 +0200
+Message-ID: <20100616062940.GC2887@riccoc20.at.omicron.at>
+References: <cover.1276615626.git.richard.cochran@omicron.at>
+	<27c0ad283f025c2bb71e7ceb71be07f969939429.1276615626.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
-	shemminger@vyatta.com, mst@redhat.com, frzhang@redhat.com,
-	netdev@vger.kernel.org, amwang@redhat.com, mpm@selenic.com
-To: paulmck@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:50728 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756232Ab0FPGVc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 02:21:32 -0400
-Received: by wwb18 with SMTP id 18so5360121wwb.19
-        for <netdev@vger.kernel.org>; Tue, 15 Jun 2010 23:21:31 -0700 (PDT)
-In-Reply-To: <20100616050808.GD2911@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <27c0ad283f025c2bb71e7ceb71be07f969939429.1276615626.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 15 juin 2010 =C3=A0 22:08 -0700, Paul E. McKenney a =C3=A9crit=
- :
-> On Wed, Jun 16, 2010 at 04:58:59AM +0200, Eric Dumazet wrote:
-> >=20
-> > Paul, could you please explain if current lockdep rules are correct=
-, or could be relaxed ?
-> >=20
-> > I thought :
-> >=20
-> > rcu_read_lock_bh();
-> >=20
-> > was a shorthand to
-> >=20
-> > local_disable_bh();
-> > rcu_read_lock();
->=20
-> In CONFIG_TREE_RCU and CONFIG_TINY_RCU, rcu_read_lock_bh() is actuall=
-y
-> shorthand for only local_disable_bh().  Therefore, rcu_dereference()
-> will scream if only rcu_read_lock_bh() is held.
->=20
-> However, in CONFIG_PREEMPT_TREE_RCU, rcu_read_lock_bh() is its own
-> mechanism that does local_disable_bh() but has its own set of grace
-> periods, independent of those of rcu_read_lock().
->=20
-> > Why lockdep is not able to make a correct diagnostic ?
->=20
-> Here is the situation I am concerned about:
->=20
-> o	Task 0 does rcu_read_lock(), then p=3Drcu_dereference_bh().
-> 	If we make the change you are asking for, rcu_dereference_bh()
-> 	is OK with this.
->=20
-> o	Task 0 now is preempted before finishing its RCU read-side
-> 	critical section.
->=20
-> o	Task 1 removes the data element referenced by pointer p,
-> 	then invokes synchronize_rcu_bh().
->=20
-> o	Task 0 does not block synchronize_rcu_bh(), so the grace
-> 	period completes.
->=20
-> o	Task 1 frees up the data element referenced by pointer p,
-> 	which might be reallocated as some other type, unmapped,
-> 	or whatever else.
->=20
-> o	Task 0 resumes, and is sadly disappointed when the data
-> 	element referenced by pointer p has been swept out from
-> 	under it.
->=20
-> Or am I missing something here?
->=20
+On Tue, Jun 15, 2010 at 06:08:20PM +0200, Richard Cochran wrote:
 
-Nice thing with RCU is that I learn new things every day ;)
+> +static inline void skb_tx_timetamp(struct phy_device *phy, struct sk_buff *skb)
+> +{
+> +	union skb_shared_tx *shtx = skb_tx(skb);
+> +
+> +	if (shtx->hardware && phy && phy->drv->txtstamp)
+> +		phy->drv->txtstamp(phy, skb);
+> +
+> +	if (shtx->software && !shtx->in_progress)
+> +		skb_tstamp_tx(skb, NULL);
+> +}
 
-Thanks Paul, I'll try to remember all the details ! ;)
+I forgot to mention this patch also provides a way to fix the broken
+software timestamp fallback mode of the SO_TIMESTAMPING API.
 
+We would have to add this inline call to every MAC driver in an
+appropriate spot within the hard_xmit function. It is not too pretty,
+but providing this as a compile time option will promote
+standardization of the SO_TIMESTAMPING API for applications.
 
-
+Richard
