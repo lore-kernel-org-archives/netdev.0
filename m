@@ -1,94 +1,101 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: Re: bnx2 fails to compile on parisc because of missing
- get_dma_ops()
-Date: Thu, 17 Jun 2010 23:05:59 +0900
-Message-ID: <20100617230435J.fujita.tomonori@lab.ntt.co.jp>
-References: <1276780336.2789.6.camel@mulgrave.site>
-	<C27F8246C663564A84BB7AB3439772421B79CBCA21@IRVEXCHCCR01.corp.ad.broadcom.com>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: RE: [PATCH] vlan_dev: VLAN 0 should be treated as "no vlan tag"
+ (802.1p packet)
+Date: Thu, 17 Jun 2010 07:08:52 -0700
+Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDC69DDEB4@SJEXCHCCR02.corp.ad.broadcom.com>
+References: <c25bca517739ada31d698235c3a4d045@dondevamos.com>
+ <201006161624.12101.arnd@arndb.de> <4C18ED97.3060702@trash.net>
+ <201006162026.28900.arnd@arndb.de>
+ <1276714691.2970.9.camel@edumazet-laptop>
+ <8628FE4E7912BF47A96AE7DD7BAC0AADDDC69DDE7E@SJEXCHCCR02.corp.ad.broadcom.com>
+ <1276770518.2519.1.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: JBottomley@Novell.com, fujita.tomonori@lab.ntt.co.jp,
-	vapier@gentoo.org, netdev@vger.kernel.org,
-	linux-parisc@vger.kernel.org, linux-kernel@vger.kernel.org
-To: mchan@broadcom.com
-Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <C27F8246C663564A84BB7AB3439772421B79CBCA21@IRVEXCHCCR01.corp.ad.broadcom.com>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: "Arnd Bergmann" <arnd@arndb.de>,
+	"Patrick McHardy" <kaber@trash.net>,
+	"Pedro Garcia" <pedro.netdev@dondevamos.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Ben Hutchings" <bhutchings@solarflare.com>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3852 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752215Ab0FQOJI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jun 2010 10:09:08 -0400
+In-Reply-To: <1276770518.2519.1.camel@edumazet-laptop>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 17 Jun 2010 06:30:39 -0700
-"Michael Chan" <mchan@broadcom.com> wrote:
-
-> James Bottomley wrote:
-> 
-> > On Thu, 2010-06-17 at 05:54 -0700, Michael Chan wrote:
-> > > This prefetch improves performance noticeably when the driver is
-> > > handling incoming 64-byte packets at a sustained rate.
-> >
-> > So why not do it unconditionally?  The worst that can happen
-> > is that you
-> > pull in a stale cache line which will get cleaned in the
-> > dma_sync, thus
-> > slightly degrading performance on incoherent architectures.
-> 
-> The original patch was an unconditional prefetch.  There was
-> some discussion that it might not be correct if the DMA wasn't
-> sync'ed yet on some archs.  If the concensus is that it is ok to
-> do so, that would be the simplest solution.
-
-As James said, it just adds useless prefetch on incoherent
-architectures. sync_single_for_cpu is called later so we can see the
-correct data. One useless prefetch is unlikely to lead performance
-drop.
-
-You might prefer this v2.
-
-=
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: [PATCH v2] bnx2: fix dma_get_ops compilation breakage
-
-This removes dma_get_ops() prefetch optimization in bnx2.
-
-bnx2 uses dma_get_ops() to see if dma_sync_single_for_cpu() is
-noop. bnx2 does prefetch if it's noop.
-
-But dma_get_ops() isn't available on all the architectures (only the
-architectures that uses dma_map_ops struct have it). Using
-dma_get_ops() in drivers leads to compilation breakage on many
-archtectures.
-
-This patch removes dma_get_ops() and changes bnx2 to do prefetch on
-all the architectures. This adds useless prefetch on incoherent
-architectures but this is harmless. It is also unlikely to cause the
-performance drop.
-
-Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
----
- drivers/net/bnx2.c |   10 ++++------
- 1 files changed, 4 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 949d7a9..85f1692 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -3099,12 +3099,10 @@ bnx2_rx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
- 		skb = rx_buf->skb;
- 		prefetchw(skb);
- 
--		if (!get_dma_ops(&pdev->dev)->sync_single_for_cpu) {
--			next_rx_buf =
--				&rxr->rx_buf_ring[
--					RX_RING_IDX(NEXT_RX_BD(sw_cons))];
--			prefetch(next_rx_buf->desc);
--		}
-+		next_rx_buf =
-+			&rxr->rx_buf_ring[RX_RING_IDX(NEXT_RX_BD(sw_cons))];
-+		prefetch(next_rx_buf->desc);
-+
- 		rx_buf->skb = NULL;
- 
- 		dma_addr = dma_unmap_addr(rx_buf, mapping);
--- 
-1.6.5
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
+ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uDQo+
+IEJlaGFsZiBPZiBFcmljIER1bWF6ZXQNCj4gU2VudDogVGh1cnNkYXksIEp1bmUgMTcsIDIwMTAg
+MToyOSBQTQ0KPiBUbzogVmxhZGlzbGF2IFpvbG90YXJvdg0KPiBDYzogQXJuZCBCZXJnbWFubjsg
+UGF0cmljayBNY0hhcmR5OyBQZWRybyBHYXJjaWE7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IEJl
+bg0KPiBIdXRjaGluZ3MNCj4gU3ViamVjdDogUkU6IFtQQVRDSF0gdmxhbl9kZXY6IFZMQU4gMCBz
+aG91bGQgYmUgdHJlYXRlZCBhcyAibm8gdmxhbiB0YWciDQo+ICg4MDIuMXAgcGFja2V0KQ0KPiAN
+Cj4gTGUgamV1ZGkgMTcganVpbiAyMDEwIMOgIDAxOjU2IC0wNzAwLCBWbGFkaXNsYXYgWm9sb3Rh
+cm92IGEgw6ljcml0IDoNCj4gPg0KPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4g
+PiA+IEZyb206IG5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYtb3du
+ZXJAdmdlci5rZXJuZWwub3JnXQ0KPiBPbg0KPiA+ID4gQmVoYWxmIE9mIEVyaWMgRHVtYXpldA0K
+PiA+ID4gU2VudDogV2VkbmVzZGF5LCBKdW5lIDE2LCAyMDEwIDk6NTggUE0NCj4gPiA+IFRvOiBB
+cm5kIEJlcmdtYW5uDQo+ID4gPiBDYzogUGF0cmljayBNY0hhcmR5OyBQZWRybyBHYXJjaWE7IG5l
+dGRldkB2Z2VyLmtlcm5lbC5vcmc7IEJlbiBIdXRjaGluZ3MNCj4gPiA+IFN1YmplY3Q6IFJlOiBb
+UEFUQ0hdIHZsYW5fZGV2OiBWTEFOIDAgc2hvdWxkIGJlIHRyZWF0ZWQgYXMgIm5vIHZsYW4gdGFn
+Ig0KPiA+ID4gKDgwMi4xcCBwYWNrZXQpDQo+ID4gPg0KPiA+ID4gTGUgbWVyY3JlZGkgMTYganVp
+biAyMDEwIMOgIDIwOjI2ICswMjAwLCBBcm5kIEJlcmdtYW5uIGEgw6ljcml0IDoNCj4gPiA+ID4g
+T24gV2VkbmVzZGF5IDE2IEp1bmUgMjAxMCAxNzoyODoyMyBQYXRyaWNrIE1jSGFyZHkgd3JvdGU6
+DQo+ID4gPiA+DQo+ID4gPiA+ID4gU2luY2Ugd2UgZG9uJ3QgaGF2ZSBhbnkgc3BlY2lhbCBWTEFO
+IGhhbmRsaW5nIGluIHRoZSBicmlkZ2luZyBjb2RlLCBJDQo+ID4gPiA+ID4gZ3Vlc3MgaXQgY29t
+ZXMgZG93biB0byBvcHRpb25hbGx5IHVzaW5nIGEgZGlmZmVyZW50IGV0aGVydHlwZSB2YWx1ZQ0K
+PiA+ID4gPiA+ICgweDg4YTgpIGluIHRoZSBWTEFOIGNvZGUuIFdlIHByb2JhYmx5IGFsc28gbmVl
+ZCBzb21lIGluZGljYXRpb24gZnJvbQ0KPiA+ID4gPiA+IGRldmljZSBkcml2ZXJzIHdoZXRoZXIg
+dGhleSBhcmUgYWJsZSB0byBhZGQgdGhlc2UgaGVhZGVycyB0byBhdm9pZA0KPiA+ID4gPiA+IHRy
+eWluZyB0byBvZmZsb2FkIHRhZ2dpbmcgaW4gY2FzZSB0aGV5J3JlIG5vdC4NCj4gPiA+ID4NCj4g
+PiA+ID4gSXQncyBwcm9iYWJseSBhIGxpdHRsZSBtb3JlIHRoYW4ganVzdCBzdXBwb3J0aW5nIHRo
+ZSBuZXcgZXRoZXJ0eXBlLCBidXQNCj4gbm90DQo+ID4gPiA+IG11Y2guIFRoZSBvdXRlciB0YWcg
+Y2FuIGJlIGhhbmRsZWQgbGlrZSBvdXIgY3VycmVudCBWTEFOIG1vZHVsZSBkb2VzLA0KPiA+ID4g
+PiBidXQgdGhlIHN0YW5kYXJkIGRvZXMgbm90IGFsbG93IGEgcmVndWxhciBmcmFtZSB0byBiZSBl
+bmNhcHN1bGF0ZWQNCj4gPiA+IGRpcmVjdGx5LA0KPiA+ID4gPiBidXQgcmF0aGVyIHJlcXVpcmVz
+IG9uZSBvZg0KPiA+ID4gPg0KPiA+ID4gPiAxLiBJbiA4MDIuMWFkOiBhbiA4MDIuMVEgVkxBTiB0
+YWcgKGV0aGVydHlwZSAweDgxMDApIGZvbGxvd2VkIGJ5IHRoZQ0KPiBmcmFtZQ0KPiA+ID4gPiAy
+LiBJbiA4MDIuMWFoOiBBIHNlcnZpY2UgdGFnIChldGhlcnR5cGUgMHg4OGU3KSBmb2xsb3dlZCBi
+eSB0aGUgODAyLjFRDQo+IFZMQU4NCj4gPiA+IHRhZw0KPiA+ID4gPiAgICBhbmQgdGhlbiB0aGUg
+ZnJhbWUuDQo+ID4gPiA+DQo+ID4gPiA+IE1heWJlIHdoYXQgd2UgY2FuIGRvIGlzIGV4dGVuZCB0
+aGUgdmxhbiBjb2RlIHRvIHVuZGVyc3RhbmQgYWxsIHRocmVlDQo+IGZyYW1lDQo+ID4gPiA+IGZv
+cm1hdHMgKHEsIGFkIGFuZCBhaCkgb3IgYXQgbGVhc3QgdGhlIGZpcnN0IHR3byBzbyB3ZSBjb25m
+aWd1cmUgYm90aA0KPiB0aGUNCj4gPiA+ID4gcHJvdmlkZXIgVklEIGFuZCB0aGUgQ3VzdG9tZXIg
+VklEIGZvciB0aGUgaW50ZXJmYWNlIGluIGNhc2Ugb2YgODAyLjFhZA0KPiBidXQNCj4gPiA+ID4g
+b25seSB0aGUgcmVndWxhciBWSUQgaW4gODAyLjFRLg0KPiA+ID4gPg0KPiA+ID4gPiBEZXZpY2Ug
+ZHJpdmVycyBjYW4gdGhlbiBmbGFnIHdoZXRoZXIgdGhleSBzdXBwb3J0IGJvdGggZm9ybWF0cyBv
+ciBqdXN0DQo+ID4gPiA+IHRoZSByZWd1bGFyIFEgdGFnLg0KPiA+ID4gPg0KPiA+ID4gPiAJQXJu
+ZA0KPiA+ID4NCj4gPiA+IFNwZWFraW5nIG9mIGRldmljZSBkcml2ZXJzLCBJIHNlZSBibngyICho
+YXJkd2FyZSBhY2NlbGVyYXRlZCkgaXMgYWJsZSB0bw0KPiA+ID4gaW5zZXJ0IGEgODAyMXEgdGFn
+IGluIGNhc2Ugbm8gdmxncnAgaXMgZGVmaW5lZCAodGhlIDgyMDFxIHRhZyB0aGF0IHdhcw0KPiA+
+ID4gcmVtb3ZlZCBieSBOSUMpLi4uIGludGVyZXN0aW5nIHBpbmcgcG9uZyBnYW1lcywgc2luY2Ug
+b3VyIDgwMjFxIHN0YWNrDQo+ID4gPiB3aWxsIHJlbW92ZSBpdCBhZ2FpbiwgZXZlbnR1YWxseS4N
+Cj4gPiA+DQo+ID4gPiBTbyBWTEFOIDAgJ3Byb2JsZW0nIG9uIGJueDIgY291bGQgYmUgc29sdmVk
+IHdpdGggZm9sbG93aW5nIHBhdGNoDQo+ID4gPiAoYXZvaWRpbmcgdGhpcyBpbnNlcnQgaWYgdnRh
+Zz09MCkNCj4gPiA+DQo+ID4gPg0KPiA+ID4NCj4gPiA+IGRpZmYgLS1naXQgYS9kcml2ZXJzL25l
+dC9ibngyLmMgYi9kcml2ZXJzL25ldC9ibngyLmMNCj4gPiA+IGluZGV4IDUyMmRlOWYuLmI1ZDRk
+MDUgMTAwNjQ0DQo+ID4gPiAtLS0gYS9kcml2ZXJzL25ldC9ibngyLmMNCj4gPiA+ICsrKyBiL2Ry
+aXZlcnMvbmV0L2JueDIuYw0KPiA+ID4gQEAgLTMxOTIsNyArMzE5Miw3IEBAIGJueDJfcnhfaW50
+KHN0cnVjdCBibngyICpicCwgc3RydWN0IGJueDJfbmFwaQ0KPiAqYm5hcGksDQo+ID4gPiBpbnQg
+YnVkZ2V0KQ0KPiA+ID4gIAkJCQlod192bGFuID0gMTsNCj4gPiA+ICAJCQllbHNlDQo+ID4gPiAg
+I2VuZGlmDQo+ID4gPiAtCQkJew0KPiA+ID4gKwkJCWlmICh2dGFnKSB7DQo+ID4gPiAgCQkJCXN0
+cnVjdCB2bGFuX2V0aGhkciAqdmUgPSAoc3RydWN0IHZsYW5fZXRoaGRyICopDQo+ID4gPiAgCQkJ
+CQlfX3NrYl9wdXNoKHNrYiwgNCk7DQo+ID4gPg0KPiA+ID4NCj4gPiA+DQo+ID4gPiAtLQ0KPiA+
+DQo+ID4gVGhpcyB3YXkgdSB3aWxsIGxvb3NlIGFsbCB0aGUgcHJpb3JpdHkgaW5mb3JtYXRpb24g
+dGhhdCB3YXMgb24gdGhlIFZMQU4NCj4gaGVhZGVyLg0KPiANCj4gMTZiaXRzIHZ0YWcgPSAwIDog
+dGhlcmUgaXMgbm8gcHJpb3JpdHkgaW5mb3JtYXRpb24uDQoNCkFjY29yZGluZyB0byBJRUVFIDgw
+Mi4xcCBQQ1A9MCBpcyBsZWdhbCBwcmlvcml0eSwgQ0ZJIGJpdCBpcyB1c3VhbGx5IHplcm8uIFNv
+LCBWVEFHPTAgd291bGQgbWFyayBhIHByaW9yaXR5IHRhZ2dlZCBmcmFtZSB3aXRoIGEgcHJpb3Jp
+dHkgMCBhbmQgaXQgc2hvdWxkIGJlIGhhbmRsZWQgZGlmZmVyZW50bHkgdGhhbiBhIGZyYW1lIHdp
+dGggbm8gcHJpb3JpdHkgYXQgYWxsIGFuZCB5b3VyIHBhdGNoIHdpbGwgcHJldmVudCBpdC4NCg0K
+PiANCj4gDQo+IA0KPiAtLQ0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0
+aGUgbGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2IiBpbg0KPiB0aGUgYm9keSBvZiBhIG1lc3NhZ2Ug
+dG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZw0KPiBNb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBo
+dHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwNCg0K
 
