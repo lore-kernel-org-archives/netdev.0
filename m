@@ -1,50 +1,58 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 8/8] bridge: Fix netpoll support
-Date: Thu, 17 Jun 2010 20:38:19 +1000
-Message-ID: <20100617103819.GA1252@gondor.apana.org.au>
-References: <20100611021142.GA24490@gondor.apana.org.au> <E1OMtjm-0006PK-D6@gondolin.me.apana.org.au> <4C1755C1.3060804@redhat.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [v2 Patch 2/2] mlx4: add dynamic LRO disable support
+Date: Thu, 17 Jun 2010 18:48:35 +0800
+Message-ID: <4C19FD83.8050507@redhat.com>
+References: <20100609100928.6573.14199.sendpatchset@localhost.localdomain>	<20100609100938.6573.73536.sendpatchset@localhost.localdomain>	<20100609110556.GC2599@dhcp-lab-161.englab.brq.redhat.com>	<4C173B57.70601@redhat.com> <20100615121414.26056d15@dhcp-lab-109.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Qianfeng Zhang <frzhang@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Matt Mackall <mpm@selenic.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	nhorman@redhat.com, herbert.xu@redhat.com,
+	bhutchings@solarflare.com, Ramkrishna.Vepa@exar.com
+To: Stanislaw Gruszka <sgruszka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:51739 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755140Ab0FQKia (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jun 2010 06:38:30 -0400
-Content-Disposition: inline
-In-Reply-To: <4C1755C1.3060804@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:30653 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759573Ab0FQKog (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jun 2010 06:44:36 -0400
+In-Reply-To: <20100615121414.26056d15@dhcp-lab-109.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 15, 2010 at 06:28:17PM +0800, Cong Wang wrote:
->
->> This allows us to do away with the npinfo juggling that caused
->> problem number 1.
+On 06/15/10 18:14, Stanislaw Gruszka wrote:
+> On Tue, 15 Jun 2010 16:35:35 +0800
+> Cong Wang<amwang@redhat.com>  wrote:
+>>> BTW: seems default ethtool_op_set_flags introduce a bug on many
+>>> devices regarding ETH_FLAG_RXHASH. I think default should
+>>> be EOPNOTSUPP, and these few devices that actually support RXHASH
+>>> should have custom ethtool_ops->set_flags
 >>
->> Incidentally this patch fixes number 2 by bypassing unsafe code
->> such as multicast snooping and netfilter.
+>> Hmm, you mean this?
+>>
+>>    if (data&  ETH_FLAG_RXHASH)
+>> +    if (!ops->set_flags)
+>> +        return -EOPNOTSUPP;
+>> ....
 >
-> Not sure if I understand problem 2) and 3), this patch is not easy
-> to review. So, what's the point of adding ->np to struct net_bridge_port?
-> since we already have p->dev->npinfo->netpoll?
+> Not really, but I do not have good idea how patch with fix should
+> looks.
+>
+> I dislike fact that we setup ->feature that are not in real supported by
+> particular device instead of returning EOPNOTSUPP. This actually include
+> both flags NETIF_F_LRO and NETIF_F_RXHASH.
+>
+> Perhaps ethtool_op_set_flags should be removed and drivers should use
+> only custom version. In particular seems e1000e and sfc use this
+> function improperly and should have NULL as .set_flags.
 
-A netpoll_info structure always maps to one and only one net_device
-structure.  While each net_device may have multiple netpoll
-structures attached.
 
-You must not share netpoll or netpoll_info structures between
-devices since that breaks other users (netconsole or anything
-else) from attaching to those devices.
+This depends on if what ethtool_op_set_flags() does is common for
+net drivers.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+>
+> I will think more about that and maybe cook some patches.
+>
+
+Yes, please. Cc me when you post patches.
+
+Thanks.
