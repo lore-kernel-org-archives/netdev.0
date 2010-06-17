@@ -1,26 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: bnx2 fails to compile on parisc because of missing
- get_dma_ops()
-Date: Thu, 17 Jun 2010 08:52:58 -0700 (PDT)
-Message-ID: <20100617.085258.104046759.davem@davemloft.net>
-References: <C27F8246C663564A84BB7AB3439772421B79CBCA21@IRVEXCHCCR01.corp.ad.broadcom.com>
-	<20100617230435J.fujita.tomonori@lab.ntt.co.jp>
-	<20100617234855R.fujita.tomonori@lab.ntt.co.jp>
+Subject: Re: [PATCH NEXT 0/5]qlcnic: fixes
+Date: Thu, 17 Jun 2010 08:58:37 -0700 (PDT)
+Message-ID: <20100617.085837.189715279.davem@davemloft.net>
+References: <1276779402-496-1-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, JBottomley@novell.com, vapier@gentoo.org,
-	netdev@vger.kernel.org, linux-parisc@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: fujita.tomonori@lab.ntt.co.jp
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100617234855R.fujita.tomonori@lab.ntt.co.jp>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
+To: amit.salecha@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56332
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756416Ab0FQP60 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jun 2010 11:58:26 -0400
+In-Reply-To: <1276779402-496-1-git-send-email-amit.salecha@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Date: Thu, 17 Jun 2010 23:50:36 +0900
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Date: Thu, 17 Jun 2010 05:56:37 -0700
 
-> Oops, some typos.
+> 
+> Hi
+>    Sending series of 5 patches, mainly to improve rx performance and
+>    fix netif_stop_queue race.
+> 
+>    Please apply them on net-next.
 
-I've applied the patch with the typos fixed, thanks!
+All applied, thank you.
