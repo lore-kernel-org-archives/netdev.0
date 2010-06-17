@@ -1,114 +1,101 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: bnx2 fails to compile on parisc because of missing
- get_dma_ops()
-Date: Thu, 17 Jun 2010 07:42:29 -0700
-Message-ID: <C27F8246C663564A84BB7AB3439772421B79CBCA22@IRVEXCHCCR01.corp.ad.broadcom.com>
-References: <20100617230435J.fujita.tomonori@lab.ntt.co.jp>
+From: Einar EL Lueck <ELELUECK@de.ibm.com>
+Subject: RE: ipv6: netif_carrier_(on|off) with traces afterwards
+Date: Thu, 17 Jun 2010 16:50:05 +0200
+Message-ID: <OFD4E8B395.2268B8B1-ONC1257745.00516577-C1257745.00517D27@de.ibm.com>
+References: <OF3A036420.64516D4F-ONC1257744.00492A34-C1257744.004A240B@de.ibm.com> <EA929A9653AAE14F841771FB1DE5A1365FF43AB7B9@rrsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "JBottomley@Novell.com" <JBottomley@Novell.com>,
-	"vapier@gentoo.org" <vapier@gentoo.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "'FUJITA Tomonori'" <fujita.tomonori@lab.ntt.co.jp>,
-	"'davem@davemloft.net'" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Cc: NetDev <netdev@vger.kernel.org>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2273 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756007Ab0FQOmq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jun 2010 10:42:46 -0400
-In-Reply-To: <20100617230435J.fujita.tomonori@lab.ntt.co.jp>
-Content-Language: en-US
+Received: from mtagate2.de.ibm.com ([195.212.17.162]:45174 "EHLO
+	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760185Ab0FQOuI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jun 2010 10:50:08 -0400
+Received: from d12nrmr1707.megacenter.de.ibm.com (d12nrmr1707.megacenter.de.ibm.com [9.149.167.81])
+	by mtagate2.de.ibm.com (8.13.1/8.13.1) with ESMTP id o5HEo757032273
+	for <netdev@vger.kernel.org>; Thu, 17 Jun 2010 14:50:07 GMT
+Received: from d12av05.megacenter.de.ibm.com (d12av05.megacenter.de.ibm.com [9.149.165.216])
+	by d12nrmr1707.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o5HEo72H1589420
+	for <netdev@vger.kernel.org>; Thu, 17 Jun 2010 16:50:07 +0200
+Received: from d12av05.megacenter.de.ibm.com (loopback [127.0.0.1])
+	by d12av05.megacenter.de.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o5HEo63n007784
+	for <netdev@vger.kernel.org>; Thu, 17 Jun 2010 16:50:06 +0200
+In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FF43AB7B9@rrsmsx501.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-FUJITA Tomonori wrote:
+"Tantilov, Emil S" <emil.s.tantilov@intel.com> wrote on 06/16/2010 05:55:45
+PM:
 
-> On Thu, 17 Jun 2010 06:30:39 -0700
-> "Michael Chan" <mchan@broadcom.com> wrote:
+> From:
 >
-> > James Bottomley wrote:
+> "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+>
+> To:
+>
+> Einar EL Lueck/Germany/IBM@IBMDE
+>
+> Cc:
+>
+> NetDev <netdev@vger.kernel.org>
+>
+> Date:
+>
+> 06/16/2010 05:55 PM
+>
+> Subject:
+>
+> RE: ipv6: netif_carrier_(on|off) with traces afterwards
+>
+> >-----Original Message-----
+> >From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+On
+> >Behalf Of Einar EL Lueck
+> >Sent: Wednesday, June 16, 2010 6:30 AM
+> >To: netdev@vger.kernel.org
+> >Subject: ipv6: netif_carrier_(on|off) with traces afterwards
 > >
-> > > On Thu, 2010-06-17 at 05:54 -0700, Michael Chan wrote:
-> > > > This prefetch improves performance noticeably when the driver is
-> > > > handling incoming 64-byte packets at a sustained rate.
-> > >
-> > > So why not do it unconditionally?  The worst that can happen
-> > > is that you
-> > > pull in a stale cache line which will get cleaned in the
-> > > dma_sync, thus
-> > > slightly degrading performance on incoherent architectures.
 > >
-> > The original patch was an unconditional prefetch.  There was
-> > some discussion that it might not be correct if the DMA wasn't
-> > sync'ed yet on some archs.  If the concensus is that it is ok to
-> > do so, that would be the simplest solution.
+> >Hi,
+> >With IPv6 addresses configured and and a network card doing
+> >netif_carrier_off|on we see afterwards in 2.6.34 on S/390 some traces in
+> >fib.
+> >
+> >Example sequence of operations:
+> >ip -6 addr add fd00:10:30:49:4008:ffff:35:2/80 dev eth1
+> >ip link set eth1 up
+> >ip link set eth1 down
+> ># the following lines have as effect netif_carrier_off and then on
+(among
+> >other stuff)
+> >echo 0 > /sys/bus/ccwgroup/drivers/qeth/devices/0.0.e300/online
+> >echo 1 > /sys/bus/ccwgroup/drivers/qeth/devices/0.0.e300/online
+> ># end of plugging
+> >ip link set eth1  up
+> >ip link set eth1 down
+> >=> at this point we get the following trace:
+> >
+> >Badness
+> >at /home/autobuild/BUILD/linux-2.6.34-20100531/net/ipv6/ip6_fib.c:1160
 >
-> As James said, it just adds useless prefetch on incoherent
-> architectures. sync_single_for_cpu is called later so we can see the
-> correct data. One useless prefetch is unlikely to lead performance
-> drop.
+> <snip>
 >
-> You might prefer this v2.
+> >
+> >Has anybody seen effects like this before on other platforms, or has
+> >anybody suggestions for the root cause?
+>
+> I had similar issues. The following patches fixed it for me:
+>
+> http://marc.info/?l=linux-netdev&m=127472600330413
+>
+> http://marc.info/?l=linux-netdev&m=127472599530407
+>
+> Thanks,
+> Emil
+>
 
-Yes, thanks.
-Acked-by: Michael Chan <mchan@broadcom.com>
-
->
-> =
-> From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-> Subject: [PATCH v2] bnx2: fix dma_get_ops compilation breakage
->
-> This removes dma_get_ops() prefetch optimization in bnx2.
->
-> bnx2 uses dma_get_ops() to see if dma_sync_single_for_cpu() is
-> noop. bnx2 does prefetch if it's noop.
->
-> But dma_get_ops() isn't available on all the architectures (only the
-> architectures that uses dma_map_ops struct have it). Using
-> dma_get_ops() in drivers leads to compilation breakage on many
-> archtectures.
->
-> This patch removes dma_get_ops() and changes bnx2 to do prefetch on
-> all the architectures. This adds useless prefetch on incoherent
-> architectures but this is harmless. It is also unlikely to cause the
-> performance drop.
->
-> Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-> ---
->  drivers/net/bnx2.c |   10 ++++------
->  1 files changed, 4 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-> index 949d7a9..85f1692 100644
-> --- a/drivers/net/bnx2.c
-> +++ b/drivers/net/bnx2.c
-> @@ -3099,12 +3099,10 @@ bnx2_rx_int(struct bnx2 *bp, struct
-> bnx2_napi *bnapi, int budget)
->               skb = rx_buf->skb;
->               prefetchw(skb);
->
-> -             if (!get_dma_ops(&pdev->dev)->sync_single_for_cpu) {
-> -                     next_rx_buf =
-> -                             &rxr->rx_buf_ring[
-> -
-> RX_RING_IDX(NEXT_RX_BD(sw_cons))];
-> -                     prefetch(next_rx_buf->desc);
-> -             }
-> +             next_rx_buf =
-> +
-> &rxr->rx_buf_ring[RX_RING_IDX(NEXT_RX_BD(sw_cons))];
-> +             prefetch(next_rx_buf->desc);
-> +
->               rx_buf->skb = NULL;
->
->               dma_addr = dma_unmap_addr(rx_buf, mapping);
-> --
-> 1.6.5
->
->
->
+Fixed it for me, too.
+Thanks,
+Einar.
 
