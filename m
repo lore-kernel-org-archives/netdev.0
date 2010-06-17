@@ -1,51 +1,81 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [net-next-2.6 PATCH] net: consolidate netif_needs_gso() checks
-Date: Thu, 17 Jun 2010 20:18:57 +1000
-Message-ID: <20100617101857.GA1053@gondor.apana.org.au>
-References: <20100617001804.5155.30862.stgit@localhost.localdomain>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [0/8] netpoll/bridge fixes
+Date: Thu, 17 Jun 2010 13:18:30 +0300
+Message-ID: <20100617101830.GJ7912@redhat.com>
+References: <1276657139.19249.50.camel@edumazet-laptop> <1276657400.19249.53.camel@edumazet-laptop> <20100616033336.GA17440@gondor.apana.org.au> <20100615.214702.57478137.davem@davemloft.net> <20100616230249.GJ2457@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
-	bphilips@novell.com, John Fastabend <john.r.fastabend@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.hengli.com.au,
+	eric.dumazet@gmail.com, shemminger@vyatta.com, frzhang@redhat.com,
+	netdev@vger.kernel.org, amwang@redhat.com, mpm@selenic.com
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([216.59.3.182]:49816 "EHLO
-	arnor.apana.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757970Ab0FQKTG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jun 2010 06:19:06 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:39759 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755423Ab0FQKYG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jun 2010 06:24:06 -0400
 Content-Disposition: inline
-In-Reply-To: <20100617001804.5155.30862.stgit@localhost.localdomain>
+In-Reply-To: <20100616230249.GJ2457@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 16, 2010 at 05:18:12PM -0700, Jeff Kirsher wrote:
-> From: John Fastabend <john.r.fastabend@intel.com>
+On Wed, Jun 16, 2010 at 04:02:49PM -0700, Paul E. McKenney wrote:
+> On Tue, Jun 15, 2010 at 09:47:02PM -0700, David Miller wrote:
+> > From: Herbert Xu <herbert@gondor.apana.org.au>
+> > Date: Wed, 16 Jun 2010 13:33:36 +1000
+> > 
+> > > On Wed, Jun 16, 2010 at 05:03:20AM +0200, Eric Dumazet wrote:
+> > >>
+> > >> I wonder how these patches were tested, Herbert ?
+> > > 
+> > > You know, not everyone enables RCU debugging...
+> > 
+> > Even though I'm as guilty as you, I have to agree with Eric that
+> > especially us core folks should be running with the various lock
+> > debugging options on all the time.
+> > 
+> > Maybe someone should add the RCU debugging config option to
+> > Documentation/SubmitChecklist :-)
 > 
-> netif_needs_gso() is checked twice in the TX path once,
-> before submitting the skb to the qdisc and once after
-> it is dequeued from the qdisc just before calling
-> ndo_hard_start().  This opens a window for a user to
-> change the gso/tso or tx checksum settings that can
-> cause netif_needs_gso to be true in one check and false
-> in the other.
+> How about the following added to Documentation/RCU/checklist.txt?
 > 
-> Specifically, changing TX checksum setting may cause
-> the warning in skb_gso_segment() to be triggered if
-> the checksum is calculated earlier.
+> The first is in mainline, the second partly there, and the third
+> is still languishing in my tree.  I did manage to remove a dependency
+> on other maintainers, so things will hopefully move a bit faster.
 > 
-> This consolidates the netif_needs_gso() calls so that
-> the stack only checks if gso is needed in
-> dev_hard_start_xmit().
+> 							Thanx, Paul
 > 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> diff --git a/Documentation/RCU/checklist.txt b/Documentation/RCU/checklist.txt
+> index 790d1a8..c7c6788 100644
+> --- a/Documentation/RCU/checklist.txt
+> +++ b/Documentation/RCU/checklist.txt
+> @@ -365,3 +365,26 @@ over a rather long period of time, but improvements are always welcome!
+>  	and the compiler to freely reorder code into and out of RCU
+>  	read-side critical sections.  It is the responsibility of the
+>  	RCU update-side primitives to deal with this.
+> +
+> +17.	Use CONFIG_PROVE_RCU, CONFIG_DEBUG_OBJECTS_RCU_HEAD, and
+> +	the __rcu sparse checks to validate your RCU code.  These
+> +	can help find problems as follows:
+> +
+> +	CONFIG_PROVE_RCU: check that accesses to RCU-protected data
+> +		structures are carried out under the proper RCU
+> +		read-side critical section, while holding the right
+> +		combination of locks, or whatever other conditions
+> +		are appropriate.
+> +
+> +	CONFIG_DEBUG_OBJECTS_RCU_HEAD: check that you don't pass the
+> +		same object to call_rcu() (or friends) before an RCU
+> +		grace period has elapsed since the last time that you
+> +		passed that same object to call_rcu() (or friends).
+> +
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+Cool, will this also work with synchronize etc?
 
-Thanks!
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> +	__rcu sparse checks: tag the pointer to the RCU-protected data
+> +		structure with __rcu, and sparse will warn you if you
+> +		access that pointer without the services of one of the
+> +		variants of rcu_dereference().
+> +
+> +	These debugging aids can help you find problems that are
+> +	otherwise extremely difficult to spot.
