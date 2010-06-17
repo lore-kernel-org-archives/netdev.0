@@ -1,103 +1,138 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [0/8] netpoll/bridge fixes
-Date: Thu, 17 Jun 2010 14:26:43 -0700
-Message-ID: <20100617212643.GF2348@linux.vnet.ibm.com>
-References: <1276657139.19249.50.camel@edumazet-laptop>
- <1276657400.19249.53.camel@edumazet-laptop>
- <20100616033336.GA17440@gondor.apana.org.au>
- <20100615.214702.57478137.davem@davemloft.net>
- <20100616230249.GJ2457@linux.vnet.ibm.com>
- <20100617101830.GJ7912@redhat.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH] PCI: MSI: Remove unsafe and unnecessary hardware
+ access
+Date: Thu, 17 Jun 2010 16:58:57 -0700
+Message-ID: <1276819137.9345.14.camel@HP1>
+References: <1276564403.19104.28.camel@HP1>
+ <1276802196.2083.12.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, herbert@gondor.hengli.com.au,
-	eric.dumazet@gmail.com, shemminger@vyatta.com, frzhang@redhat.com,
-	netdev@vger.kernel.org, amwang@redhat.com, mpm@selenic.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Jesse Barnes" <jbarnes@virtuousgeek.org>,
+	"Matthew Wilcox" <matthew@wil.cx>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Ben Hutchings" <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e8.ny.us.ibm.com ([32.97.182.138]:37615 "EHLO e8.ny.us.ibm.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4636 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757670Ab0FQV0q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jun 2010 17:26:46 -0400
-Received: from d01relay03.pok.ibm.com (d01relay03.pok.ibm.com [9.56.227.235])
-	by e8.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id o5HLFDlO030207
-	for <netdev@vger.kernel.org>; Thu, 17 Jun 2010 17:15:13 -0400
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay03.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o5HLQjha134746
-	for <netdev@vger.kernel.org>; Thu, 17 Jun 2010 17:26:45 -0400
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o5HLQi6d011274
-	for <netdev@vger.kernel.org>; Thu, 17 Jun 2010 17:26:45 -0400
-Content-Disposition: inline
-In-Reply-To: <20100617101830.GJ7912@redhat.com>
+	id S1760887Ab0FQX71 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jun 2010 19:59:27 -0400
+In-Reply-To: <1276802196.2083.12.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 17, 2010 at 01:18:30PM +0300, Michael S. Tsirkin wrote:
-> On Wed, Jun 16, 2010 at 04:02:49PM -0700, Paul E. McKenney wrote:
-> > On Tue, Jun 15, 2010 at 09:47:02PM -0700, David Miller wrote:
-> > > From: Herbert Xu <herbert@gondor.apana.org.au>
-> > > Date: Wed, 16 Jun 2010 13:33:36 +1000
-> > > 
-> > > > On Wed, Jun 16, 2010 at 05:03:20AM +0200, Eric Dumazet wrote:
-> > > >>
-> > > >> I wonder how these patches were tested, Herbert ?
-> > > > 
-> > > > You know, not everyone enables RCU debugging...
-> > > 
-> > > Even though I'm as guilty as you, I have to agree with Eric that
-> > > especially us core folks should be running with the various lock
-> > > debugging options on all the time.
-> > > 
-> > > Maybe someone should add the RCU debugging config option to
-> > > Documentation/SubmitChecklist :-)
-> > 
-> > How about the following added to Documentation/RCU/checklist.txt?
-> > 
-> > The first is in mainline, the second partly there, and the third
-> > is still languishing in my tree.  I did manage to remove a dependency
-> > on other maintainers, so things will hopefully move a bit faster.
-> > 
-> > 							Thanx, Paul
-> > 
-> > diff --git a/Documentation/RCU/checklist.txt b/Documentation/RCU/checklist.txt
-> > index 790d1a8..c7c6788 100644
-> > --- a/Documentation/RCU/checklist.txt
-> > +++ b/Documentation/RCU/checklist.txt
-> > @@ -365,3 +365,26 @@ over a rather long period of time, but improvements are always welcome!
-> >  	and the compiler to freely reorder code into and out of RCU
-> >  	read-side critical sections.  It is the responsibility of the
-> >  	RCU update-side primitives to deal with this.
-> > +
-> > +17.	Use CONFIG_PROVE_RCU, CONFIG_DEBUG_OBJECTS_RCU_HEAD, and
-> > +	the __rcu sparse checks to validate your RCU code.  These
-> > +	can help find problems as follows:
-> > +
-> > +	CONFIG_PROVE_RCU: check that accesses to RCU-protected data
-> > +		structures are carried out under the proper RCU
-> > +		read-side critical section, while holding the right
-> > +		combination of locks, or whatever other conditions
-> > +		are appropriate.
-> > +
-> > +	CONFIG_DEBUG_OBJECTS_RCU_HEAD: check that you don't pass the
-> > +		same object to call_rcu() (or friends) before an RCU
-> > +		grace period has elapsed since the last time that you
-> > +		passed that same object to call_rcu() (or friends).
-> > +
+
+On Thu, 2010-06-17 at 12:16 -0700, Ben Hutchings wrote:
+> During suspend on an SMP system, {read,write}_msi_msg_desc() may be
+> called to mask and unmask interrupts on a device that is already in a
+> reduced power state.  At this point memory-mapped registers including
+> MSI-X tables are not accessible, and config space may not be fully
+> functional either.
 > 
-> Cool, will this also work with synchronize etc?
+> While a device is in a reduced power state its interrupts are
+> effectively masked and its MSI(-X) state will be restored when it is
+> brought back to D0.  Therefore these functions can simply read and
+> write msi_desc::msg for devices not in D0.
+> 
+> Further, read_msi_msg_desc() should only ever be used to update a
+> previously written message, so it can always read msi_desc::msg
+> and never needs to touch the hardware.
+> 
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
-Unfortunately, it will not.  With call_rcu() and friends you can tag
-the struct rcu_head and track it.  With synchronize_rcu() and friends,
-there is nothing to track.  :-(
+This works for me too.  Thanks Ben.
 
-							Thanx, Paul
+> ---
+> On Mon, 2010-06-14 at 18:13 -0700, Michael Chan wrote: 
+> > I'm debugging the bnx2 driver which doesn't work after suspend/resume if
+> > it is running in MSI-X mode.  The problem is that during suspend, the
+> > MSI-X vectors are disabled by the following sequence on x86:
+> > 
+> > take_cpu_down() -> cpu_disable_common() -> fixup_irqs()
+> >
+> > The MSI-X address/data used to disable the vectors are remembered in the
+> > above sequence. During resume, these address/data are then programmed
+> > back to the device during pci_restore_state(), causing all the vectors
+> > to remain disabled.
+> 
+> That's not quite what I see.  What I see is that the message is read
+> back from the table *after* the driver's suspend method has been called.
+> At this point the device is already in D3 and memory-mapped registers
+> are not accessible, so we get random bits as the message.  At least,
+> that's what I see happening with the sfc driver.
+> 
+> > Some drivers call free_irq() during suspend and request_irq() during
+> > resume, and that should avoid the problem.  bnx2 and some other drivers
+> > do not do that.  These drivers rely on pci_restore_state() to restore
+> > the MSI-X vectors to the same working state before suspend.
+> > 
+> > What's the right way to fix this?  Thanks.
+> 
+> This is my attempt, which works for sfc.  See if it works for bnx2.
+> 
+> Ben.
+> 
+>  drivers/pci/msi.c |   34 +++++++++++-----------------------
+>  1 files changed, 11 insertions(+), 23 deletions(-)
+> 
+> diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
+> index 77b68ea..03f04dc 100644
+> --- a/drivers/pci/msi.c
+> +++ b/drivers/pci/msi.c
+> @@ -196,30 +196,15 @@ void unmask_msi_irq(unsigned int irq)
+>  void read_msi_msg_desc(struct irq_desc *desc, struct msi_msg *msg)
+>  {
+>  	struct msi_desc *entry = get_irq_desc_msi(desc);
+> -	if (entry->msi_attrib.is_msix) {
+> -		void __iomem *base = entry->mask_base +
+> -			entry->msi_attrib.entry_nr * PCI_MSIX_ENTRY_SIZE;
+>  
+> -		msg->address_lo = readl(base + PCI_MSIX_ENTRY_LOWER_ADDR);
+> -		msg->address_hi = readl(base + PCI_MSIX_ENTRY_UPPER_ADDR);
+> -		msg->data = readl(base + PCI_MSIX_ENTRY_DATA);
+> -	} else {
+> -		struct pci_dev *dev = entry->dev;
+> -		int pos = entry->msi_attrib.pos;
+> -		u16 data;
+> +	/* We do not touch the hardware (which may not even be
+> +	 * accessible at the moment) but return the last message
+> +	 * written.  Assert that this is valid, assuming that
+> +	 * valid messages are not all-zeroes. */
+> +	BUG_ON(!(entry->msg.address_hi | entry->msg.address_lo |
+> +		 entry->msg.data));
+>  
+> -		pci_read_config_dword(dev, msi_lower_address_reg(pos),
+> -					&msg->address_lo);
+> -		if (entry->msi_attrib.is_64) {
+> -			pci_read_config_dword(dev, msi_upper_address_reg(pos),
+> -						&msg->address_hi);
+> -			pci_read_config_word(dev, msi_data_reg(pos, 1), &data);
+> -		} else {
+> -			msg->address_hi = 0;
+> -			pci_read_config_word(dev, msi_data_reg(pos, 0), &data);
+> -		}
+> -		msg->data = data;
+> -	}
+> +	*msg = entry->msg;
+>  }
+>  
+>  void read_msi_msg(unsigned int irq, struct msi_msg *msg)
+> @@ -232,7 +217,10 @@ void read_msi_msg(unsigned int irq, struct msi_msg *msg)
+>  void write_msi_msg_desc(struct irq_desc *desc, struct msi_msg *msg)
+>  {
+>  	struct msi_desc *entry = get_irq_desc_msi(desc);
+> -	if (entry->msi_attrib.is_msix) {
+> +
+> +	if (entry->dev->current_state != PCI_D0) {
+> +		/* Don't touch the hardware now */
+> +	} else if (entry->msi_attrib.is_msix) {
+>  		void __iomem *base;
+>  		base = entry->mask_base +
+>  			entry->msi_attrib.entry_nr * PCI_MSIX_ENTRY_SIZE;
+> -- 
+> 1.6.2.5
+> 
+> 
 
-> > +	__rcu sparse checks: tag the pointer to the RCU-protected data
-> > +		structure with __rcu, and sparse will warn you if you
-> > +		access that pointer without the services of one of the
-> > +		variants of rcu_dereference().
-> > +
-> > +	These debugging aids can help you find problems that are
-> > +	otherwise extremely difficult to spot.
+
