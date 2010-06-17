@@ -1,41 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] ehea: fix delayed packet processing
-Date: Wed, 16 Jun 2010 18:05:40 -0700 (PDT)
-Message-ID: <20100616.180540.116379677.davem@davemloft.net>
-References: <201006151735.17258.ossthema@de.ibm.com>
-	<6663.1276620347@death.nxdomain.ibm.com>
+Subject: Re: udp: Add UFO to NETIF_F_SOFTWARE_GSO
+Date: Wed, 16 Jun 2010 18:08:12 -0700 (PDT)
+Message-ID: <20100616.180812.212689313.davem@davemloft.net>
+References: <20100615062104.GA4779@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ossthema@de.ibm.com, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org, linux-kernel@vger.kernel.org,
-	tklein@linux.ibm.com, adetsch@br.ibm.com, themann@de.ibm.com
-To: fubar@us.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6663.1276620347@death.nxdomain.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57002
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755009Ab0FQBIB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jun 2010 21:08:01 -0400
+In-Reply-To: <20100615062104.GA4779@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jay Vosburgh <fubar@us.ibm.com>
-Date: Tue, 15 Jun 2010 09:45:47 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Tue, 15 Jun 2010 16:21:04 +1000
 
-> Jan-Bernd Themann <ossthema@de.ibm.com> wrote:
+> udp: Add UFO to NETIF_F_SOFTWARE_GSO
 > 
->>In the eHEA poll function an rmb() is required. Without that some packets
->>on the receive queue are not seen and thus delayed until the next interrupt
->>is handled for the same receive queue.
->>
->>Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
+> This patch adds UFO to the list of GSO features with a software
+> fallback.  This allows UFO to be used even if the hardware does
+> not support it.
 > 
-> 	To add a bit of background, this could manifest during a netperf
-> TCP_RR or UDP_RR on an otherwise idle network.  TCP would occasionally
-> retransmit, but then both the original segment and the retransmission
-> would simultaneously appear at the receiver.  For UDP_RR, message sizes
-> in excess of the mtu would occasionally "lose" an IP fragment, and
-> eventually IP reassembly would time out.
+> In particular, this allows us to test the UFO fallback, as it
+> has been reported to not work in some cases.
 > 
-> 	-J
-> 
-> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied.
+Applied to net-next-2.6, thanks.
