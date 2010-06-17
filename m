@@ -1,101 +1,51 @@
-From: Einar EL Lueck <ELELUECK@de.ibm.com>
-Subject: RE: ipv6: netif_carrier_(on|off) with traces afterwards
-Date: Thu, 17 Jun 2010 16:50:05 +0200
-Message-ID: <OFD4E8B395.2268B8B1-ONC1257745.00516577-C1257745.00517D27@de.ibm.com>
-References: <OF3A036420.64516D4F-ONC1257744.00492A34-C1257744.004A240B@de.ibm.com> <EA929A9653AAE14F841771FB1DE5A1365FF43AB7B9@rrsmsx501.amr.corp.intel.com>
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Subject: Re: bnx2 fails to compile on parisc because of missing
+ get_dma_ops()
+Date: Thu, 17 Jun 2010 23:50:35 +0900
+Message-ID: <20100617234520S.fujita.tomonori@lab.ntt.co.jp>
+References: <C27F8246C663564A84BB7AB3439772421B79CBCA1E@IRVEXCHCCR01.corp.ad.broadcom.com>
+	<20100617211946A.fujita.tomonori@lab.ntt.co.jp>
+	<20100617.073653.193708702.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: NetDev <netdev@vger.kernel.org>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate2.de.ibm.com ([195.212.17.162]:45174 "EHLO
-	mtagate2.de.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760185Ab0FQOuI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jun 2010 10:50:08 -0400
-Received: from d12nrmr1707.megacenter.de.ibm.com (d12nrmr1707.megacenter.de.ibm.com [9.149.167.81])
-	by mtagate2.de.ibm.com (8.13.1/8.13.1) with ESMTP id o5HEo757032273
-	for <netdev@vger.kernel.org>; Thu, 17 Jun 2010 14:50:07 GMT
-Received: from d12av05.megacenter.de.ibm.com (d12av05.megacenter.de.ibm.com [9.149.165.216])
-	by d12nrmr1707.megacenter.de.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o5HEo72H1589420
-	for <netdev@vger.kernel.org>; Thu, 17 Jun 2010 16:50:07 +0200
-Received: from d12av05.megacenter.de.ibm.com (loopback [127.0.0.1])
-	by d12av05.megacenter.de.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o5HEo63n007784
-	for <netdev@vger.kernel.org>; Thu, 17 Jun 2010 16:50:06 +0200
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A1365FF43AB7B9@rrsmsx501.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: fujita.tomonori@lab.ntt.co.jp, mchan@broadcom.com,
+	lethal@linux-sh.org, vapier@gentoo.org, JBottomley@novell.com,
+	netdev@vger.kernel.org, linux-parisc@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-parisc-owner@vger.kernel.org>
+In-Reply-To: <20100617.073653.193708702.davem@davemloft.net>
+Sender: linux-parisc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-"Tantilov, Emil S" <emil.s.tantilov@intel.com> wrote on 06/16/2010 05:55:45
-PM:
+On Thu, 17 Jun 2010 07:36:53 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-> From:
->
-> "Tantilov, Emil S" <emil.s.tantilov@intel.com>
->
-> To:
->
-> Einar EL Lueck/Germany/IBM@IBMDE
->
-> Cc:
->
-> NetDev <netdev@vger.kernel.org>
->
-> Date:
->
-> 06/16/2010 05:55 PM
->
-> Subject:
->
-> RE: ipv6: netif_carrier_(on|off) with traces afterwards
->
-> >-----Original Message-----
-> >From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-On
-> >Behalf Of Einar EL Lueck
-> >Sent: Wednesday, June 16, 2010 6:30 AM
-> >To: netdev@vger.kernel.org
-> >Subject: ipv6: netif_carrier_(on|off) with traces afterwards
-> >
-> >
-> >Hi,
-> >With IPv6 addresses configured and and a network card doing
-> >netif_carrier_off|on we see afterwards in 2.6.34 on S/390 some traces in
-> >fib.
-> >
-> >Example sequence of operations:
-> >ip -6 addr add fd00:10:30:49:4008:ffff:35:2/80 dev eth1
-> >ip link set eth1 up
-> >ip link set eth1 down
-> ># the following lines have as effect netif_carrier_off and then on
-(among
-> >other stuff)
-> >echo 0 > /sys/bus/ccwgroup/drivers/qeth/devices/0.0.e300/online
-> >echo 1 > /sys/bus/ccwgroup/drivers/qeth/devices/0.0.e300/online
-> ># end of plugging
-> >ip link set eth1  up
-> >ip link set eth1 down
-> >=> at this point we get the following trace:
-> >
-> >Badness
-> >at /home/autobuild/BUILD/linux-2.6.34-20100531/net/ipv6/ip6_fib.c:1160
->
-> <snip>
->
-> >
-> >Has anybody seen effects like this before on other platforms, or has
-> >anybody suggestions for the root cause?
->
-> I had similar issues. The following patches fixed it for me:
->
-> http://marc.info/?l=linux-netdev&m=127472600330413
->
-> http://marc.info/?l=linux-netdev&m=127472599530407
->
-> Thanks,
-> Emil
->
+> From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+> Date: Thu, 17 Jun 2010 21:21:13 +0900
+> 
+> > On Wed, 16 Jun 2010 23:24:44 -0700
+> > "Michael Chan" <mchan@broadcom.com> wrote:
+> > 
+> >> David, why is dma_is_consistent() always returning 1 on sparc?  The
+> >> streaming DMA is not consistent.
+> > 
+> > I think that there are some confusion about dma_is_consistent(). Some
+> > architectures think that dma_is_consistent() is supposed to return 1
+> > if they can allocate coherent memory (note that some architectures
+> > can't allocate coherent memory).
+> 
+> Right, and that's why it's defined this way.
+> 
+> If the desired meaning is different, just me know and I'll fix the
+> sparc definition.
 
-Fixed it for me, too.
-Thanks,
-Einar.
+I think that there are some other architectures do the same. We need
+to make sure that all the architectures define dma_is_consistent() in
+the same meaning if drivers need it. However, I'm not sure we really
+need dma_is_consistent(). There is only one user of it (and I think we
+could remove it).
 
+In the bnx2 case, we can simply prefetch on all the archs (or just
+remove the optimization).
