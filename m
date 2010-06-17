@@ -1,55 +1,57 @@
-From: James Bottomley <JBottomley@Novell.com>
-Subject: Re: bnx2 fails to compile on parisc because of missing
- get_dma_ops()
-Date: Thu, 17 Jun 2010 08:12:16 -0500
-Message-ID: <1276780336.2789.6.camel@mulgrave.site>
-References: <C27F8246C663564A84BB7AB3439772421B79CBCA1F@IRVEXCHCCR01.corp.ad.broadcom.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: pull request: wireless-2.6 2010-06-16 v2
+Date: Thu, 17 Jun 2010 07:48:56 -0400
+Message-ID: <20100617114856.GA4009@tuxdriver.com>
+References: <20100616182847.GB3138@tuxdriver.com>
+ <20100616.115008.226776050.davem@davemloft.net>
+ <20100616201300.GD3138@tuxdriver.com>
+ <AANLkTinbJD3bWYSJ3aZZIDi1cUE_BOvLI-iUQtPF50Hm@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: 'FUJITA Tomonori' <fujita.tomonori@lab.ntt.co.jp>,
-	"vapier@gentoo.org" <vapier@gentoo.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <C27F8246C663564A84BB7AB3439772421B79CBCA1F@IRVEXCHCCR01.corp.ad.broadcom.com>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: sedat.dilek@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:55257 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753403Ab0FQNPK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jun 2010 09:15:10 -0400
+Content-Disposition: inline
+In-Reply-To: <AANLkTinbJD3bWYSJ3aZZIDi1cUE_BOvLI-iUQtPF50Hm@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-06-17 at 05:54 -0700, Michael Chan wrote:
-> FUJITA Tomonori wrote:
+On Thu, Jun 17, 2010 at 12:57:22AM +0200, Sedat Dilek wrote:
+> Quick feedback:
 > 
-> > From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-> > Date: Thu, 17 Jun 2010 13:06:15 +0900
-> > Subject: [PATCH] bnx2: fix dma_get_ops compilation breakage
-> >
-> > This removes dma_get_ops() prefetch optimization in bnx2.
-> >
-> > bnx2 uses dma_get_ops() to see if dma_sync_single_for_cpu() is
-> > noop. bnx2 does prefetch if it's noop.
-> >
-> > But dma_get_ops() isn't available on all the architectures (only the
-> > architectures that uses dma_map_ops struct have it). Using
-> > dma_get_ops() in drivers leads to compilation breakage on many
-> > archtectures.
-> >
-> > Currently, we don't have a way to see if dma_sync_single_for_cpu() is
-> > noop. If it can improve the performance notably, we can add the new
-> > DMA API for it.
+> I have applied latest wireless-2.6 master GIT against 2.6.35-rc3:
 > 
-> This prefetch improves performance noticeably when the driver is
-> handling incoming 64-byte packets at a sustained rate.
+> wireless-2.6/0001-iwlwifi-serialize-station-management-actions.patch
+> wireless-2.6/0002-iwlagn-verify-flow-id-in-compressed-BA-packet.patch
+> wireless-2.6/0003-libertas_tf-Fix-warning-in-lbtf_rx-for-stats-struct.patch
+> wireless-2.6/0004-p54pci-add-Symbol-AP-300-minipci-adapters-pciid.patch
+> wireless-2.6/0005-wireless-orphan-ipw2x00-drivers.patch
+> wireless-2.6/0006-iwlwifi-cancel-scan-watchdog-in-iwl_bg_abort_scan.patch
+> wireless-2.6/0007-hostap-Protect-against-initialization-interrupt.patch
+> wireless-2.6/0008-mac80211-fix-warn-enum-may-be-used-uninitialized.patch
+> 
+> Unfortunately, I get here an issue with iwl3945 (full dmesg attached):
+> 
+> [ dmesg ]
+> [   26.423844]  [<f924b2f1>] ? iwl_tx_cmd_complete+0x51/0x1c5 [iwlcore]
+> ...
+> [   26.432470] iwl3945 0000:10:00.0: Can't stop Rx DMA.
+> 
+> Hope this helps.
 
-So why not do it unconditionally?  The worst that can happen is that you
-pull in a stale cache line which will get cleaned in the dma_sync, thus
-slightly degrading performance on incoherent architectures.
+I think a full bug report at bugzilla.kernel.org would help more. :-)
 
-Alternatively, come up with a dma prefetch infrastructure ... all you're
-really doing is hinting to the architecture that you'll sync this region
-next.
+In that report, please include the full output of dmesg and a
+description of what you were doing when message above appeared.
 
-James
+Thanks,
 
-
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
