@@ -1,81 +1,55 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 2/5] qlcnic: change driver description
-Date: Thu, 17 Jun 2010 05:56:39 -0700
-Message-ID: <1276779402-496-3-git-send-email-amit.salecha@qlogic.com>
-References: <1276779402-496-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	Sritej Velaga <sritej.velaga@qlogic.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:64004 "HELO unm84.unmin.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1751040Ab0FQM4n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jun 2010 08:56:43 -0400
-In-Reply-To: <1276779402-496-1-git-send-email-amit.salecha@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: James Bottomley <JBottomley@Novell.com>
+Subject: Re: bnx2 fails to compile on parisc because of missing
+ get_dma_ops()
+Date: Thu, 17 Jun 2010 08:12:16 -0500
+Message-ID: <1276780336.2789.6.camel@mulgrave.site>
+References: <C27F8246C663564A84BB7AB3439772421B79CBCA1F@IRVEXCHCCR01.corp.ad.broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: 'FUJITA Tomonori' <fujita.tomonori@lab.ntt.co.jp>,
+	"vapier@gentoo.org" <vapier@gentoo.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <linux-parisc-owner@vger.kernel.org>
+In-Reply-To: <C27F8246C663564A84BB7AB3439772421B79CBCA1F@IRVEXCHCCR01.corp.ad.broadcom.com>
+Sender: linux-parisc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sritej Velaga <sritej.velaga@qlogic.com>
+On Thu, 2010-06-17 at 05:54 -0700, Michael Chan wrote:
+> FUJITA Tomonori wrote:
+> 
+> > From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+> > Date: Thu, 17 Jun 2010 13:06:15 +0900
+> > Subject: [PATCH] bnx2: fix dma_get_ops compilation breakage
+> >
+> > This removes dma_get_ops() prefetch optimization in bnx2.
+> >
+> > bnx2 uses dma_get_ops() to see if dma_sync_single_for_cpu() is
+> > noop. bnx2 does prefetch if it's noop.
+> >
+> > But dma_get_ops() isn't available on all the architectures (only the
+> > architectures that uses dma_map_ops struct have it). Using
+> > dma_get_ops() in drivers leads to compilation breakage on many
+> > archtectures.
+> >
+> > Currently, we don't have a way to see if dma_sync_single_for_cpu() is
+> > noop. If it can improve the performance notably, we can add the new
+> > DMA API for it.
+> 
+> This prefetch improves performance noticeably when the driver is
+> handling incoming 64-byte packets at a sustained rate.
 
-o Remove extra printing of mac address
-o This driver also supports NIC only Qlogic adapters.
+So why not do it unconditionally?  The worst that can happen is that you
+pull in a stale cache line which will get cleaned in the dma_sync, thus
+slightly degrading performance on incoherent architectures.
 
-Signed-off-by: Sritej Velaga <sritej.velaga@qlogic.com>
-Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
----
- drivers/net/qlcnic/qlcnic_ctx.c  |    5 ++---
- drivers/net/qlcnic/qlcnic_main.c |    8 ++++----
- 2 files changed, 6 insertions(+), 7 deletions(-)
+Alternatively, come up with a dma prefetch infrastructure ... all you're
+really doing is hinting to the architecture that you'll sync this region
+next.
 
-diff --git a/drivers/net/qlcnic/qlcnic_ctx.c b/drivers/net/qlcnic/qlcnic_ctx.c
-index 42feb23..90ed6fb 100644
---- a/drivers/net/qlcnic/qlcnic_ctx.c
-+++ b/drivers/net/qlcnic/qlcnic_ctx.c
-@@ -589,11 +589,10 @@ int qlcnic_get_mac_address(struct qlcnic_adapter *adapter, u8 *mac)
- 			0,
- 			QLCNIC_CDRP_CMD_MAC_ADDRESS);
- 
--	if (err == QLCNIC_RCODE_SUCCESS) {
-+	if (err == QLCNIC_RCODE_SUCCESS)
- 		qlcnic_fetch_mac(adapter, QLCNIC_ARG1_CRB_OFFSET,
- 				QLCNIC_ARG2_CRB_OFFSET, 0, mac);
--		dev_info(&adapter->pdev->dev, "MAC address: %pM\n", mac);
--	} else {
-+	else {
- 		dev_err(&adapter->pdev->dev,
- 			"Failed to get mac address%d\n", err);
- 		err = -EIO;
-diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
-index 128a0a7..28ed28c 100644
---- a/drivers/net/qlcnic/qlcnic_main.c
-+++ b/drivers/net/qlcnic/qlcnic_main.c
-@@ -35,14 +35,14 @@
- #include <linux/inetdevice.h>
- #include <linux/sysfs.h>
- 
--MODULE_DESCRIPTION("QLogic 10 GbE Converged Ethernet Driver");
-+MODULE_DESCRIPTION("QLogic 1/10 GbE Converged/Intelligent Ethernet Driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(QLCNIC_LINUX_VERSIONID);
- MODULE_FIRMWARE(QLCNIC_UNIFIED_ROMIMAGE_NAME);
- 
- char qlcnic_driver_name[] = "qlcnic";
--static const char qlcnic_driver_string[] = "QLogic Converged Ethernet Driver v"
--    QLCNIC_LINUX_VERSIONID;
-+static const char qlcnic_driver_string[] = "QLogic 1/10 GbE "
-+	"Converged/Intelligent Ethernet Driver v" QLCNIC_LINUX_VERSIONID;
- 
- static int port_mode = QLCNIC_PORT_MODE_AUTO_NEG;
- 
-@@ -661,7 +661,7 @@ static void get_brd_name(struct qlcnic_adapter *adapter, char *name)
- 	}
- 
- 	if (!found)
--		name = "Unknown";
-+		sprintf(name, "%pM Gigabit Ethernet", adapter->mac_addr);
- }
- 
- static void
--- 
-1.6.0.2
+James
+
 
