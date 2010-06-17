@@ -1,64 +1,42 @@
-From: "Shi, Alex" <alex.shi@intel.com>
-Subject: RE: mpd client timeouts (bisected) 2.6.35-rc3
-Date: Thu, 17 Jun 2010 13:16:56 +0800
-Message-ID: <6E3BC7F7C9A4BF4286DD4C043110F30B18EBD46A25@shsmsx502.ccr.corp.intel.com>
-References: <20100612102802.GA1782@arch.tripp.de>
- <20100612.145835.123986343.davem@davemloft.net> <4C149147.3080808@intel.com>
- <4C15414E.5090201@intel.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: bnx2 fails to compile on parisc because of missing
+ get_dma_ops()
+Date: Wed, 16 Jun 2010 23:24:44 -0700
+Message-ID: <C27F8246C663564A84BB7AB3439772421B79CBCA1E@IRVEXCHCCR01.corp.ad.broadcom.com>
+References: <C27F8246C663564A84BB7AB3439772421B79CBCA1D@IRVEXCHCCR01.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+Cc: "'Mike Frysinger'" <vapier@gentoo.org>,
+	"James Bottomley" <JBottomley@novell.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"yanmin_zhang@linux.intel.com" <yanmin_zhang@linux.intel.com>,
-	"Chen, Tim C" <tim.c.chen@intel.com>
-To: "Fastabend, John R" <john.r.fastabend@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"markus@trippelsdorf.de" <markus@trippelsdorf.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C15414E.5090201@intel.com>
+	"linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"FUJITA Tomonori" <fujita.tomonori@lab.ntt.co.jp>
+To: "'davem@davemloft.net'" <davem@davemloft.net>,
+	"'Paul Mundt'" <lethal@linux-sh.org>
+Return-path: <linux-parisc-owner@vger.kernel.org>
+In-Reply-To: <C27F8246C663564A84BB7AB3439772421B79CBCA1D@IRVEXCHCCR01.corp.ad.broadcom.com>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-parisc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-It fixed the aim7/specjbb2005 issues! 
+Michael Chan wrote:
+>
+> Paul Mundt wrote:
+>
+> > If you want to have a micro-optimization for the consistent DMA
+> > case, you can check dma_is_consistent(), which is part of the API and
+> > will be variable on certain platform configurations (ie, some may be
+> > consistent with PCI but not on other busses, etc.)
+> >
+> >
+>
+> Thanks for the tip.  I didn't know about the dma_is_consistent() API.
+> I'll use this to fix it then.
+>
 
-Tested-by: Alex Shi <alex.shi@intel.com>
+David, why is dma_is_consistent() always returning 1 on sparc?  The
+streaming DMA is not consistent.
 
-
-Regards! 
-Alex  
-
->
->Needed to set the wcard bit in copy_skb_header otherwise it will not be cleared
->when called from skb_clone.  Which then hits the loopback device gets pushed
->into the rx path and is eventually dropped. The following patch fixes this.
->Hopefully, this is easy and fast enough for you Dave.
->
->
->[PATCH] net: fix deliver_no_wcard regression on loopback device
->
->deliver_no_wcard is not being set in skb_copy_header.
->In the skb_cloned case it is not being cleared and
->may cause the skb to be dropped when the loopback device
->pushes it back up the stack.
->
->Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->---
->
->  net/core/skbuff.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
->
->diff --git a/net/core/skbuff.c b/net/core/skbuff.c
->index 9f07e74..bcf2fa3 100644
->--- a/net/core/skbuff.c
->+++ b/net/core/skbuff.c
->@@ -532,6 +532,7 @@ static void __copy_skb_header(struct sk_buff *new, const
->struct sk_buff *old)
->  	new->ip_summed		= old->ip_summed;
->  	skb_copy_queue_mapping(new, old);
->  	new->priority		= old->priority;
->+	new->deliver_no_wcard	= old->deliver_no_wcard;
->  #if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
->  	new->ipvs_property	= old->ipvs_property;
->  #endif
