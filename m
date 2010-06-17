@@ -1,81 +1,127 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [0/8] netpoll/bridge fixes
-Date: Thu, 17 Jun 2010 13:18:30 +0300
-Message-ID: <20100617101830.GJ7912@redhat.com>
-References: <1276657139.19249.50.camel@edumazet-laptop> <1276657400.19249.53.camel@edumazet-laptop> <20100616033336.GA17440@gondor.apana.org.au> <20100615.214702.57478137.davem@davemloft.net> <20100616230249.GJ2457@linux.vnet.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH] vlan_dev: VLAN 0 should be treated as "no vlan tag"
+ (802.1p packet)
+Date: Thu, 17 Jun 2010 12:28:38 +0200
+Message-ID: <1276770518.2519.1.camel@edumazet-laptop>
+References: <c25bca517739ada31d698235c3a4d045@dondevamos.com>
+	 <201006161624.12101.arnd@arndb.de> <4C18ED97.3060702@trash.net>
+	 <201006162026.28900.arnd@arndb.de>
+	 <1276714691.2970.9.camel@edumazet-laptop>
+	 <8628FE4E7912BF47A96AE7DD7BAC0AADDDC69DDE7E@SJEXCHCCR02.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, herbert@gondor.hengli.com.au,
-	eric.dumazet@gmail.com, shemminger@vyatta.com, frzhang@redhat.com,
-	netdev@vger.kernel.org, amwang@redhat.com, mpm@selenic.com
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arnd Bergmann <arnd@arndb.de>, Patrick McHardy <kaber@trash.net>,
+	Pedro Garcia <pedro.netdev@dondevamos.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Vladislav Zolotarov <vladz@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39759 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755423Ab0FQKYG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jun 2010 06:24:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20100616230249.GJ2457@linux.vnet.ibm.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:43714 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754456Ab0FQK2n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jun 2010 06:28:43 -0400
+Received: by wyf19 with SMTP id 19so31949wyf.19
+        for <netdev@vger.kernel.org>; Thu, 17 Jun 2010 03:28:41 -0700 (PDT)
+In-Reply-To: <8628FE4E7912BF47A96AE7DD7BAC0AADDDC69DDE7E@SJEXCHCCR02.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 16, 2010 at 04:02:49PM -0700, Paul E. McKenney wrote:
-> On Tue, Jun 15, 2010 at 09:47:02PM -0700, David Miller wrote:
-> > From: Herbert Xu <herbert@gondor.apana.org.au>
-> > Date: Wed, 16 Jun 2010 13:33:36 +1000
-> > 
-> > > On Wed, Jun 16, 2010 at 05:03:20AM +0200, Eric Dumazet wrote:
-> > >>
-> > >> I wonder how these patches were tested, Herbert ?
-> > > 
-> > > You know, not everyone enables RCU debugging...
-> > 
-> > Even though I'm as guilty as you, I have to agree with Eric that
-> > especially us core folks should be running with the various lock
-> > debugging options on all the time.
-> > 
-> > Maybe someone should add the RCU debugging config option to
-> > Documentation/SubmitChecklist :-)
-> 
-> How about the following added to Documentation/RCU/checklist.txt?
-> 
-> The first is in mainline, the second partly there, and the third
-> is still languishing in my tree.  I did manage to remove a dependency
-> on other maintainers, so things will hopefully move a bit faster.
-> 
-> 							Thanx, Paul
-> 
-> diff --git a/Documentation/RCU/checklist.txt b/Documentation/RCU/checklist.txt
-> index 790d1a8..c7c6788 100644
-> --- a/Documentation/RCU/checklist.txt
-> +++ b/Documentation/RCU/checklist.txt
-> @@ -365,3 +365,26 @@ over a rather long period of time, but improvements are always welcome!
->  	and the compiler to freely reorder code into and out of RCU
->  	read-side critical sections.  It is the responsibility of the
->  	RCU update-side primitives to deal with this.
-> +
-> +17.	Use CONFIG_PROVE_RCU, CONFIG_DEBUG_OBJECTS_RCU_HEAD, and
-> +	the __rcu sparse checks to validate your RCU code.  These
-> +	can help find problems as follows:
-> +
-> +	CONFIG_PROVE_RCU: check that accesses to RCU-protected data
-> +		structures are carried out under the proper RCU
-> +		read-side critical section, while holding the right
-> +		combination of locks, or whatever other conditions
-> +		are appropriate.
-> +
-> +	CONFIG_DEBUG_OBJECTS_RCU_HEAD: check that you don't pass the
-> +		same object to call_rcu() (or friends) before an RCU
-> +		grace period has elapsed since the last time that you
-> +		passed that same object to call_rcu() (or friends).
-> +
+Le jeudi 17 juin 2010 =C3=A0 01:56 -0700, Vladislav Zolotarov a =C3=A9c=
+rit :
+>=20
+> > -----Original Message-----
+> > From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel=
+=2Eorg] On
+> > Behalf Of Eric Dumazet
+> > Sent: Wednesday, June 16, 2010 9:58 PM
+> > To: Arnd Bergmann
+> > Cc: Patrick McHardy; Pedro Garcia; netdev@vger.kernel.org; Ben Hutc=
+hings
+> > Subject: Re: [PATCH] vlan_dev: VLAN 0 should be treated as "no vlan=
+ tag"
+> > (802.1p packet)
+> >=20
+> > Le mercredi 16 juin 2010 =C3=A0 20:26 +0200, Arnd Bergmann a =C3=A9=
+crit :
+> > > On Wednesday 16 June 2010 17:28:23 Patrick McHardy wrote:
+> > >
+> > > > Since we don't have any special VLAN handling in the bridging c=
+ode, I
+> > > > guess it comes down to optionally using a different ethertype v=
+alue
+> > > > (0x88a8) in the VLAN code. We probably also need some indicatio=
+n from
+> > > > device drivers whether they are able to add these headers to av=
+oid
+> > > > trying to offload tagging in case they're not.
+> > >
+> > > It's probably a little more than just supporting the new ethertyp=
+e, but not
+> > > much. The outer tag can be handled like our current VLAN module d=
+oes,
+> > > but the standard does not allow a regular frame to be encapsulate=
+d
+> > directly,
+> > > but rather requires one of
+> > >
+> > > 1. In 802.1ad: an 802.1Q VLAN tag (ethertype 0x8100) followed by =
+the frame
+> > > 2. In 802.1ah: A service tag (ethertype 0x88e7) followed by the 8=
+02.1Q VLAN
+> > tag
+> > >    and then the frame.
+> > >
+> > > Maybe what we can do is extend the vlan code to understand all th=
+ree frame
+> > > formats (q, ad and ah) or at least the first two so we configure =
+both the
+> > > provider VID and the Customer VID for the interface in case of 80=
+2.1ad but
+> > > only the regular VID in 802.1Q.
+> > >
+> > > Device drivers can then flag whether they support both formats or=
+ just
+> > > the regular Q tag.
+> > >
+> > > 	Arnd
+> >=20
+> > Speaking of device drivers, I see bnx2 (hardware accelerated) is ab=
+le to
+> > insert a 8021q tag in case no vlgrp is defined (the 8201q tag that =
+was
+> > removed by NIC)... interesting ping pong games, since our 8021q sta=
+ck
+> > will remove it again, eventually.
+> >=20
+> > So VLAN 0 'problem' on bnx2 could be solved with following patch
+> > (avoiding this insert if vtag=3D=3D0)
+> >=20
+> >=20
+> >=20
+> > diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+> > index 522de9f..b5d4d05 100644
+> > --- a/drivers/net/bnx2.c
+> > +++ b/drivers/net/bnx2.c
+> > @@ -3192,7 +3192,7 @@ bnx2_rx_int(struct bnx2 *bp, struct bnx2_napi=
+ *bnapi,
+> > int budget)
+> >  				hw_vlan =3D 1;
+> >  			else
+> >  #endif
+> > -			{
+> > +			if (vtag) {
+> >  				struct vlan_ethhdr *ve =3D (struct vlan_ethhdr *)
+> >  					__skb_push(skb, 4);
+> >=20
+> >=20
+> >=20
+> > --
+>=20
+> This way u will loose all the priority information that was on the VL=
+AN header.
 
-Cool, will this also work with synchronize etc?
+16bits vtag =3D 0 : there is no priority information.
 
-> +	__rcu sparse checks: tag the pointer to the RCU-protected data
-> +		structure with __rcu, and sparse will warn you if you
-> +		access that pointer without the services of one of the
-> +		variants of rcu_dereference().
-> +
-> +	These debugging aids can help you find problems that are
-> +	otherwise extremely difficult to spot.
+
+
