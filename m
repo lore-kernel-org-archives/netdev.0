@@ -1,199 +1,242 @@
-From: Eran Liberty <liberty@extricom.com>
-Subject: [PATCH] gainfar.c : skb_over_panic
-Date: Thu, 17 Jun 2010 19:32:54 +0300
-Message-ID: <4C1A4E36.5060902@extricom.com>
+From: sjur.brandeland@stericsson.com
+Subject: [PATCH net-next-2.6 1/4] caif: Bugfix not all services uses flow-ctrl.
+Date: Thu, 17 Jun 2010 18:55:38 +0200
+Message-ID: <1276793741-20278-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000009090106040501010003"
-To: galak@kernel.crashing.org, netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN
+Content-Transfer-Encoding: 7BIT
+Cc: linus.walleij@stericsson.com,
+	Sjur Braendeland <sjur.brandeland@stericsson.com>
+To: sjurbr@gmail.com, netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.extricom.com ([212.235.17.194]:36545 "HELO
-	smtp.extricom.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with SMTP id S933068Ab0FQQzd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jun 2010 12:55:33 -0400
+Received: from thalia-smout.broadpark.no ([80.202.8.21]:37367 "EHLO
+	thalia-smout.broadpark.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760291Ab0FQQz6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jun 2010 12:55:58 -0400
+Received: from ignis-smin.broadpark.no ([unknown] [80.202.8.11])
+ by thalia-smout.broadpark.no
+ (Sun Java(tm) System Messaging Server 7u3-12.01 64bit (built Oct 15 2009))
+ with ESMTP id <0L4600FGM4D70S90@thalia-smout.broadpark.no> for
+ netdev@vger.kernel.org; Thu, 17 Jun 2010 18:55:55 +0200 (CEST)
+Received: from localhost.localdomain ([unknown] [84.49.77.207])
+ by ignis-smin.broadpark.no
+ (Sun Java(tm) System Messaging Server 7u3-12.01 64bit (built Oct 15 2009))
+ with ESMTP id <0L4600ITZ4D6RO21@ignis-smin.broadpark.no> for
+ netdev@vger.kernel.org; Thu, 17 Jun 2010 18:55:55 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------000009090106040501010003
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+From: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
-Hi Kumar,
+Flow control is not used by all CAIF services.
+The usage of flow control is now part of the gerneal
+initialization function for CAIF Services.
 
-I have demonstrated skb_over_panic with linux 2.6.32.15 on a mpc8548 
-based product.
-
---------------- skb_over_panic snip ---------------
-[  949.759344] skb_over_panic: text:c020fcec len:1474 put:1474 head:d8dc4000
-data:d8dc4140 tail:0xd8dc4822 end:0xd8dc4760 dev:eth0
-[  949.770913] ------------[ cut here ]------------
-[  949.775522] kernel BUG at net/core/skbuff.c:127!
-[  949.780132] Oops: Exception in kernel mode, sig: 5 [#1]
-[  949.785347] EXTRICOM85xx
-[  949.787870] Modules linked in: ...
-[  949.806518] NIP: c02325bc LR: c02325bc CTR: c01f01f4
-[  949.811475] REGS: d9a59bb0 TRAP: 0700   Tainted: P            (2.6.32.15)
-[  949.818253] MSR: 00029000 <EE,ME,CE>  CR: 24004422  XER: 20000000
-[  949.824364] TASK = d9a2a580[1877] 'insmod' THREAD: d9a58000
-[  949.829753] GPR00: c02325bc d9a59c60 d9a2a580 00000089 0000f1d1 ffffffff
-c01ed50c 0000f1d1
-[  949.838132] GPR08: 00000030 c04accb4 0000f1d1 00004000 84004422 10019100
-100936f8 dc3152f0
-[  949.846510] GPR16: 00000040 00029000 c041fa14 dc315340 00000001 c041fa00
-0000000a d9a65800
-[  949.854887] GPR24: d9a58000 0000003f d9e42480 dc315000 d9a65950 000005c2
-d9d05900 d8dc4260
-[  949.863461] NIP [c02325bc] skb_over_panic+0x48/0x5c
-[  949.868331] LR [c02325bc] skb_over_panic+0x48/0x5c
-[  949.873111] Call Trace:
-[  949.875551] [d9a59c60] [c02325bc] skb_over_panic+0x48/0x5c (unreliable)
-[  949.882166] [d9a59c70] [c0233cf8] skb_put+0x5c/0x60
-[  949.887051] [d9a59c80] [c020fcec] gfar_clean_rx_ring+0x210/0x444
-[  949.893054] [d9a59cd0] [c0211620] gfar_poll+0x238/0x364
-[  949.898284] [d9a59d20] [c02403e4] net_rx_action+0x8c/0x178
-[  949.903773] [d9a59d50] [c004278c] __do_softirq+0xa0/0x110
-[  949.909171] [d9a59d90] [c0004c24] do_softirq+0x54/0x58
-[  949.914306] [d9a59da0] [c0042604] irq_exit+0x98/0x9c
-[  949.919267] [d9a59db0] [c0004edc] do_IRQ+0x9c/0xb4
-[  949.924060] [d9a59dd0] [c000fe8c] ret_from_except+0x0/0x18
-[  949.929544] [d9a59e90] [c00685d0] load_module+0x64/0x1638
-[  949.934938] [d9a59f20] [c0069c28] sys_init_module+0x84/0x218
-[  949.940593] [d9a59f40] [c000f838] ret_from_syscall+0x0/0x3c
-[  949.946159] Instruction dump:
-[  949.949121] 80a30054 2f800000 80e300a0 810300a4 81630098 8143009c 
-419e0020
-3c60c042
-[  949.956889] 90010008 7d695b78 38633b2c 4be0b2fd <0fe00000> 48000000 
-3d20c03f
-38090970
-[  949.964835] Kernel panic - not syncing: Fatal exception in interrupt
-[  949.971179] Call Trace:
-[  949.973619] [d9a59a00] [c0006ff0] show_stack+0x44/0x16c (unreliable)
-[  949.979972] [d9a59a40] [c003c8b4] panic+0x90/0x168
-[  949.984759] [d9a59a90] [c000ceb8] die+0x164/0x19c
-[  949.989459] [d9a59ab0] [c000d174] _exception+0x120/0x144
-[  949.994768] [d9a59ba0] [c000fe40] ret_from_except_full+0x0/0x4c
-[  950.000685] [d9a59c60] [c02325bc] skb_over_panic+0x48/0x5c
-[  950.006166] [d9a59c70] [c0233cf8] skb_put+0x5c/0x60
-[  950.011042] [d9a59c80] [c020fcec] gfar_clean_rx_ring+0x210/0x444
-[  950.017045] [d9a59cd0] [c0211620] gfar_poll+0x238/0x364
-[  950.022267] [d9a59d20] [c02403e4] net_rx_action+0x8c/0x178
-[  950.027750] [d9a59d50] [c004278c] __do_softirq+0xa0/0x110
-[  950.033145] [d9a59d90] [c0004c24] do_softirq+0x54/0x58
-[  950.038279] [d9a59da0] [c0042604] irq_exit+0x98/0x9c
-[  950.043239] [d9a59db0] [c0004edc] do_IRQ+0x9c/0xb4
-[  950.048027] [d9a59dd0] [c000fe8c] ret_from_except+0x0/0x18
-[  950.053508] [d9a59e90] [c00685d0] load_module+0x64/0x1638
-[  950.058902] [d9a59f20] [c0069c28] sys_init_module+0x84/0x218
-[  950.064558] [d9a59f40] [c000f838] ret_from_syscall+0x0/0x3c
-[  950.070126] Rebooting in 1 seconds..
-[  951.067504] ------------[ cut here ]------------
-
-
-The skb_over_panic occurs due to calling skb_put() within 
-gfar_clean_rx_ring(). This happens if (and only if) shortly prior to the 
-event and a few lined above the skb_put(), an skb was queued back to the 
-priv->rx_recycle queue due to RXBD_LAST or RXBD_ERR status.
-
---------------- driver/net/gianfar.c: gfar_clean_rx_ring() ---------------
-1851                 if (unlikely(!newskb || !(bdp->status & RXBD_LAST) ||
-1852                                  bdp->status & RXBD_ERR)) {
-1853                         count_errors(bdp->status, dev);
-1854
-1855                         if (unlikely(!newskb))
-1856                                 newskb = skb;
-1857                         else if (skb) {
-1858                                 /*
-1859                                  * We need to reset ->data to what it
-1860                                  * was before gfar_new_skb() re-aligned
-1861                                  * it to an RXBUF_ALIGNMENT boundary
-1862                                  * before we put the skb back on the
-1863                                  * recycle list.
-1864                                  */
-1865                                 skb->data = skb->head + NET_SKB_PAD;
-
-This happens first...
-
-1866                                 __skb_queue_head(&priv->rx_recycle, 
-skb);
-1867                         }
-1868                 } else {
-1869                         /* Increment the number of packets */
-1870                         dev->stats.rx_packets++;
-1871                         howmany++;
-1872
-1873                         if (likely(skb)) {
-1874                                 pkt_len = bdp->length - ETH_FCS_LEN;
-1875                                 /* Remove the FCS from the packet 
-length */
-
-After relatively short time this will create skb_over_panic
-
-1876                                 skb_put(skb, pkt_len);
-1877                                 dev->stats.rx_bytes += pkt_len;
-1878
-1879                                 if (in_irq() || irqs_disabled())
-
---------------------------------------------------------------------------
-
-As seen in line 1865 there is an attempt to fix the skb prior to its 
-re-queuing but we can look at gfar_clean_tx_ring() where it calls 
-skb_recycle_check() prior to re-queuing, which looks more professional.
-
---------------- driver/net/gianfar.c: gfar_clean_tx_ring() ---------------
-1621                 if (skb_queue_len(&priv->rx_recycle) < 
-priv->rx_ring_size &&
-1622                                 skb_recycle_check(skb, 
-priv->rx_buffer_size +
-1623                                         RXBUF_ALIGNMENT))
-1624                         __skb_queue_head(&priv->rx_recycle, skb);
-1625                 else
-1626                         dev_kfree_skb_any(skb);
---------------------------------------------------------------------------
-
-Duplicating the above code for the gfar_clean_rx_ring() function 
-effectively eliminated the  skb_over_run and thus I propose the attached 
-patch
-
--- Liberty
-<https://svn.extricom.com/lxr/ident?v=linux-2.6.32.15;i=gfar_clean_rx_ring>
-
---------------000009090106040501010003
-Content-Type: text/x-diff;
- name="gianfar_skb_over_panic.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="gianfar_skb_over_panic.patch"
-
+Signed-off-by: Sjur Braendeland@stericsson.com
 ---
- drivers/net/gianfar.c |   16 +++++++---------
- 1 file changed, 7 insertions(+), 9 deletions(-)
+ include/net/caif/cfsrvl.h |    6 ++++--
+ net/caif/cfctrl.c         |    2 +-
+ net/caif/cfdbgl.c         |    2 +-
+ net/caif/cfdgml.c         |    2 +-
+ net/caif/cfrfml.c         |   12 ++++--------
+ net/caif/cfsrvl.c         |   14 ++++++++++++--
+ net/caif/cfutill.c        |    2 +-
+ net/caif/cfveil.c         |    2 +-
+ net/caif/cfvidl.c         |    2 +-
+ 9 files changed, 26 insertions(+), 18 deletions(-)
 
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -1854,15 +1854,13 @@
- 			if (unlikely(!newskb))
- 				newskb = skb;
- 			else if (skb) {
--				/*
--				 * We need to reset ->data to what it
--				 * was before gfar_new_skb() re-aligned
--				 * it to an RXBUF_ALIGNMENT boundary
--				 * before we put the skb back on the
--				 * recycle list.
--				 */
--				skb->data = skb->head + NET_SKB_PAD;
--				__skb_queue_head(&priv->rx_recycle, skb);
-+				if (skb_queue_len(&priv->rx_recycle) < priv->rx_ring_size &&
-+						skb_recycle_check(skb, priv->rx_buffer_size +
-+							RXBUF_ALIGNMENT)) {
-+					__skb_queue_head(&priv->rx_recycle, skb);
-+				} else {
-+					dev_kfree_skb_any(skb);
-+				}
- 			}
- 		} else {
- 			/* Increment the number of packets */
+diff --git a/include/net/caif/cfsrvl.h b/include/net/caif/cfsrvl.h
+index 2dc9eb1..5d921f5 100644
+--- a/include/net/caif/cfsrvl.h
++++ b/include/net/caif/cfsrvl.h
+@@ -16,6 +16,7 @@ struct cfsrvl {
+ 	bool open;
+ 	bool phy_flow_on;
+ 	bool modem_flow_on;
++	bool supports_flowctrl;
+ 	struct dev_info dev_info;
+ 	struct kref ref;
+ };
+@@ -30,8 +31,9 @@ struct cflayer *cfdbgl_create(u8 linkid, struct dev_info *dev_info);
+ bool cfsrvl_phyid_match(struct cflayer *layer, int phyid);
+ void cfservl_destroy(struct cflayer *layer);
+ void cfsrvl_init(struct cfsrvl *service,
+-		 u8 channel_id,
+-		 struct dev_info *dev_info);
++			u8 channel_id,
++			struct dev_info *dev_info,
++			bool supports_flowctrl);
+ bool cfsrvl_ready(struct cfsrvl *service, int *err);
+ u8 cfsrvl_getphyid(struct cflayer *layer);
+ 
+diff --git a/net/caif/cfctrl.c b/net/caif/cfctrl.c
+index fcfda98..107c4b2 100644
+--- a/net/caif/cfctrl.c
++++ b/net/caif/cfctrl.c
+@@ -43,7 +43,7 @@ struct cflayer *cfctrl_create(void)
+ 	memset(&dev_info, 0, sizeof(dev_info));
+ 	dev_info.id = 0xff;
+ 	memset(this, 0, sizeof(*this));
+-	cfsrvl_init(&this->serv, 0, &dev_info);
++	cfsrvl_init(&this->serv, 0, &dev_info, false);
+ 	atomic_set(&this->req_seq_no, 1);
+ 	atomic_set(&this->rsp_seq_no, 1);
+ 	this->serv.layer.receive = cfctrl_recv;
+diff --git a/net/caif/cfdbgl.c b/net/caif/cfdbgl.c
+index ab6b6dc..676648c 100644
+--- a/net/caif/cfdbgl.c
++++ b/net/caif/cfdbgl.c
+@@ -22,7 +22,7 @@ struct cflayer *cfdbgl_create(u8 channel_id, struct dev_info *dev_info)
+ 	}
+ 	caif_assert(offsetof(struct cfsrvl, layer) == 0);
+ 	memset(dbg, 0, sizeof(struct cfsrvl));
+-	cfsrvl_init(dbg, channel_id, dev_info);
++	cfsrvl_init(dbg, channel_id, dev_info, false);
+ 	dbg->layer.receive = cfdbgl_receive;
+ 	dbg->layer.transmit = cfdbgl_transmit;
+ 	snprintf(dbg->layer.name, CAIF_LAYER_NAME_SZ - 1, "dbg%d", channel_id);
+diff --git a/net/caif/cfdgml.c b/net/caif/cfdgml.c
+index 5319484..32d9f0d 100644
+--- a/net/caif/cfdgml.c
++++ b/net/caif/cfdgml.c
+@@ -30,7 +30,7 @@ struct cflayer *cfdgml_create(u8 channel_id, struct dev_info *dev_info)
+ 	}
+ 	caif_assert(offsetof(struct cfsrvl, layer) == 0);
+ 	memset(dgm, 0, sizeof(struct cfsrvl));
+-	cfsrvl_init(dgm, channel_id, dev_info);
++	cfsrvl_init(dgm, channel_id, dev_info, true);
+ 	dgm->layer.receive = cfdgml_receive;
+ 	dgm->layer.transmit = cfdgml_transmit;
+ 	snprintf(dgm->layer.name, CAIF_LAYER_NAME_SZ - 1, "dgm%d", channel_id);
+diff --git a/net/caif/cfrfml.c b/net/caif/cfrfml.c
+index fd27b17..689cbfd 100644
+--- a/net/caif/cfrfml.c
++++ b/net/caif/cfrfml.c
+@@ -23,30 +23,26 @@
+ 
+ static int cfrfml_receive(struct cflayer *layr, struct cfpkt *pkt);
+ static int cfrfml_transmit(struct cflayer *layr, struct cfpkt *pkt);
+-static int cfservl_modemcmd(struct cflayer *layr, enum caif_modemcmd ctrl);
+ 
+ struct cflayer *cfrfml_create(u8 channel_id, struct dev_info *dev_info)
+ {
+ 	struct cfsrvl *rfm = kmalloc(sizeof(struct cfsrvl), GFP_ATOMIC);
++
+ 	if (!rfm) {
+ 		pr_warning("CAIF: %s(): Out of memory\n", __func__);
+ 		return NULL;
+ 	}
++
+ 	caif_assert(offsetof(struct cfsrvl, layer) == 0);
++
+ 	memset(rfm, 0, sizeof(struct cfsrvl));
+-	cfsrvl_init(rfm, channel_id, dev_info);
+-	rfm->layer.modemcmd = cfservl_modemcmd;
++	cfsrvl_init(rfm, channel_id, dev_info, false);
+ 	rfm->layer.receive = cfrfml_receive;
+ 	rfm->layer.transmit = cfrfml_transmit;
+ 	snprintf(rfm->layer.name, CAIF_LAYER_NAME_SZ, "rfm%d", channel_id);
+ 	return &rfm->layer;
+ }
+ 
+-static int cfservl_modemcmd(struct cflayer *layr, enum caif_modemcmd ctrl)
+-{
+-       return -EPROTO;
+-}
+-
+ static int cfrfml_receive(struct cflayer *layr, struct cfpkt *pkt)
+ {
+ 	u8 tmp;
+diff --git a/net/caif/cfsrvl.c b/net/caif/cfsrvl.c
+index 6e5b707..7aa1f03 100644
+--- a/net/caif/cfsrvl.c
++++ b/net/caif/cfsrvl.c
+@@ -24,8 +24,10 @@ static void cfservl_ctrlcmd(struct cflayer *layr, enum caif_ctrlcmd ctrl,
+ 				int phyid)
+ {
+ 	struct cfsrvl *service = container_obj(layr);
++
+ 	caif_assert(layr->up != NULL);
+ 	caif_assert(layr->up->ctrlcmd != NULL);
++
+ 	switch (ctrl) {
+ 	case CAIF_CTRLCMD_INIT_RSP:
+ 		service->open = true;
+@@ -89,9 +91,14 @@ static void cfservl_ctrlcmd(struct cflayer *layr, enum caif_ctrlcmd ctrl,
+ static int cfservl_modemcmd(struct cflayer *layr, enum caif_modemcmd ctrl)
+ {
+ 	struct cfsrvl *service = container_obj(layr);
++
+ 	caif_assert(layr != NULL);
+ 	caif_assert(layr->dn != NULL);
+ 	caif_assert(layr->dn->transmit != NULL);
++
++	if (!service->supports_flowctrl)
++		return 0;
++
+ 	switch (ctrl) {
+ 	case CAIF_MODEMCMD_FLOW_ON_REQ:
+ 		{
+@@ -153,8 +160,10 @@ void cfservl_destroy(struct cflayer *layer)
+ }
+ 
+ void cfsrvl_init(struct cfsrvl *service,
+-		 u8 channel_id,
+-		 struct dev_info *dev_info)
++			u8 channel_id,
++			struct dev_info *dev_info,
++			bool supports_flowctrl
++			)
+ {
+ 	caif_assert(offsetof(struct cfsrvl, layer) == 0);
+ 	service->open = false;
+@@ -164,6 +173,7 @@ void cfsrvl_init(struct cfsrvl *service,
+ 	service->layer.ctrlcmd = cfservl_ctrlcmd;
+ 	service->layer.modemcmd = cfservl_modemcmd;
+ 	service->dev_info = *dev_info;
++	service->supports_flowctrl = supports_flowctrl;
+ 	kref_init(&service->ref);
+ }
+ 
+diff --git a/net/caif/cfutill.c b/net/caif/cfutill.c
+index 5fd2c9e..ce525ca 100644
+--- a/net/caif/cfutill.c
++++ b/net/caif/cfutill.c
+@@ -31,7 +31,7 @@ struct cflayer *cfutill_create(u8 channel_id, struct dev_info *dev_info)
+ 	}
+ 	caif_assert(offsetof(struct cfsrvl, layer) == 0);
+ 	memset(util, 0, sizeof(struct cfsrvl));
+-	cfsrvl_init(util, channel_id, dev_info);
++	cfsrvl_init(util, channel_id, dev_info, true);
+ 	util->layer.receive = cfutill_receive;
+ 	util->layer.transmit = cfutill_transmit;
+ 	snprintf(util->layer.name, CAIF_LAYER_NAME_SZ - 1, "util1");
+diff --git a/net/caif/cfveil.c b/net/caif/cfveil.c
+index e04f7d9..637cb0e 100644
+--- a/net/caif/cfveil.c
++++ b/net/caif/cfveil.c
+@@ -30,7 +30,7 @@ struct cflayer *cfvei_create(u8 channel_id, struct dev_info *dev_info)
+ 	}
+ 	caif_assert(offsetof(struct cfsrvl, layer) == 0);
+ 	memset(vei, 0, sizeof(struct cfsrvl));
+-	cfsrvl_init(vei, channel_id, dev_info);
++	cfsrvl_init(vei, channel_id, dev_info, true);
+ 	vei->layer.receive = cfvei_receive;
+ 	vei->layer.transmit = cfvei_transmit;
+ 	snprintf(vei->layer.name, CAIF_LAYER_NAME_SZ - 1, "vei%d", channel_id);
+diff --git a/net/caif/cfvidl.c b/net/caif/cfvidl.c
+index 89ad4ea..ada6ee2 100644
+--- a/net/caif/cfvidl.c
++++ b/net/caif/cfvidl.c
+@@ -27,7 +27,7 @@ struct cflayer *cfvidl_create(u8 channel_id, struct dev_info *dev_info)
+ 	caif_assert(offsetof(struct cfsrvl, layer) == 0);
+ 
+ 	memset(vid, 0, sizeof(struct cfsrvl));
+-	cfsrvl_init(vid, channel_id, dev_info);
++	cfsrvl_init(vid, channel_id, dev_info, false);
+ 	vid->layer.receive = cfvidl_receive;
+ 	vid->layer.transmit = cfvidl_transmit;
+ 	snprintf(vid->layer.name, CAIF_LAYER_NAME_SZ - 1, "vid1");
+-- 
+1.6.3.3
 
---------------000009090106040501010003--
