@@ -1,30 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] ehea: Fix kernel deadlock in DLPAR-mem processing
-Date: Wed, 16 Jun 2010 18:05:47 -0700 (PDT)
-Message-ID: <20100616.180547.200372207.davem@davemloft.net>
-References: <201006151735.43144.ossthema@de.ibm.com>
+Subject: Re: [PATCH 1/2] ehea: fix delayed packet processing
+Date: Wed, 16 Jun 2010 18:05:40 -0700 (PDT)
+Message-ID: <20100616.180540.116379677.davem@davemloft.net>
+References: <201006151735.17258.ossthema@de.ibm.com>
+	<6663.1276620347@death.nxdomain.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	linux-kernel@vger.kernel.org, tklein@linux.ibm.com,
-	adetsch@br.ibm.com, themann@de.ibm.com
-To: ossthema@de.ibm.com
+Cc: ossthema@de.ibm.com, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, linux-kernel@vger.kernel.org,
+	tklein@linux.ibm.com, adetsch@br.ibm.com, themann@de.ibm.com
+To: fubar@us.ibm.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201006151735.43144.ossthema@de.ibm.com>
+In-Reply-To: <6663.1276620347@death.nxdomain.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Jan-Bernd Themann" <ossthema@de.ibm.com>
-Date: Tue, 15 Jun 2010 17:35:42 +0200
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Tue, 15 Jun 2010 09:45:47 -0700
 
-> Port reset operations and memory add/remove operations need to 
-> be serialized to avoid a kernel deadlock. The deadlock is caused
-> by calling the napi_disable() function twice.
-> Therefore we have to employ the dlpar_mem_lock in the ehea_reset_port
-> function as well
+> Jan-Bernd Themann <ossthema@de.ibm.com> wrote:
 > 
+>>In the eHEA poll function an rmb() is required. Without that some packets
+>>on the receive queue are not seen and thus delayed until the next interrupt
+>>is handled for the same receive queue.
+>>
+>>Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
 > 
-> Signed-off-by: Jan-Bernd Themann <themann@de.ibm.com>
+> 	To add a bit of background, this could manifest during a netperf
+> TCP_RR or UDP_RR on an otherwise idle network.  TCP would occasionally
+> retransmit, but then both the original segment and the retransmission
+> would simultaneously appear at the receiver.  For UDP_RR, message sizes
+> in excess of the mtu would occasionally "lose" an IP fragment, and
+> eventually IP reassembly would time out.
+> 
+> 	-J
+> 
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
 Applied.
