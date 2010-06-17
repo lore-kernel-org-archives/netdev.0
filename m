@@ -1,80 +1,123 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: RE: [PATCH] vlan_dev: VLAN 0 should be treated as "no vlan tag"
- (802.1p packet)
-Date: Thu, 17 Jun 2010 01:56:26 -0700
-Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDC69DDE7E@SJEXCHCCR02.corp.ad.broadcom.com>
-References: <c25bca517739ada31d698235c3a4d045@dondevamos.com>
- <201006161624.12101.arnd@arndb.de> <4C18ED97.3060702@trash.net>
- <201006162026.28900.arnd@arndb.de>
- <1276714691.2970.9.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "Patrick McHardy" <kaber@trash.net>,
-	"Pedro Garcia" <pedro.netdev@dondevamos.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Ben Hutchings" <bhutchings@solarflare.com>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Arnd Bergmann" <arnd@arndb.de>
+From: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Subject: [PATCH v2 1/2] broadcom: move all PHY_ID's to header
+Date: Thu, 17 Jun 2010 13:02:23 +0400
+Message-ID: <1276765344-12675-1-git-send-email-dbaryshkov@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1333 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932663Ab0FQI4o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jun 2010 04:56:44 -0400
-In-Reply-To: <1276714691.2970.9.camel@edumazet-laptop>
-Content-Language: en-US
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:34516 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753324Ab0FQJCW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jun 2010 05:02:22 -0400
+Received: by fxm10 with SMTP id 10so1391832fxm.19
+        for <netdev@vger.kernel.org>; Thu, 17 Jun 2010 02:02:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
-ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uDQo+
-IEJlaGFsZiBPZiBFcmljIER1bWF6ZXQNCj4gU2VudDogV2VkbmVzZGF5LCBKdW5lIDE2LCAyMDEw
-IDk6NTggUE0NCj4gVG86IEFybmQgQmVyZ21hbm4NCj4gQ2M6IFBhdHJpY2sgTWNIYXJkeTsgUGVk
-cm8gR2FyY2lhOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBCZW4gSHV0Y2hpbmdzDQo+IFN1Ympl
-Y3Q6IFJlOiBbUEFUQ0hdIHZsYW5fZGV2OiBWTEFOIDAgc2hvdWxkIGJlIHRyZWF0ZWQgYXMgIm5v
-IHZsYW4gdGFnIg0KPiAoODAyLjFwIHBhY2tldCkNCj4gDQo+IExlIG1lcmNyZWRpIDE2IGp1aW4g
-MjAxMCDDoCAyMDoyNiArMDIwMCwgQXJuZCBCZXJnbWFubiBhIMOpY3JpdCA6DQo+ID4gT24gV2Vk
-bmVzZGF5IDE2IEp1bmUgMjAxMCAxNzoyODoyMyBQYXRyaWNrIE1jSGFyZHkgd3JvdGU6DQo+ID4N
-Cj4gPiA+IFNpbmNlIHdlIGRvbid0IGhhdmUgYW55IHNwZWNpYWwgVkxBTiBoYW5kbGluZyBpbiB0
-aGUgYnJpZGdpbmcgY29kZSwgSQ0KPiA+ID4gZ3Vlc3MgaXQgY29tZXMgZG93biB0byBvcHRpb25h
-bGx5IHVzaW5nIGEgZGlmZmVyZW50IGV0aGVydHlwZSB2YWx1ZQ0KPiA+ID4gKDB4ODhhOCkgaW4g
-dGhlIFZMQU4gY29kZS4gV2UgcHJvYmFibHkgYWxzbyBuZWVkIHNvbWUgaW5kaWNhdGlvbiBmcm9t
-DQo+ID4gPiBkZXZpY2UgZHJpdmVycyB3aGV0aGVyIHRoZXkgYXJlIGFibGUgdG8gYWRkIHRoZXNl
-IGhlYWRlcnMgdG8gYXZvaWQNCj4gPiA+IHRyeWluZyB0byBvZmZsb2FkIHRhZ2dpbmcgaW4gY2Fz
-ZSB0aGV5J3JlIG5vdC4NCj4gPg0KPiA+IEl0J3MgcHJvYmFibHkgYSBsaXR0bGUgbW9yZSB0aGFu
-IGp1c3Qgc3VwcG9ydGluZyB0aGUgbmV3IGV0aGVydHlwZSwgYnV0IG5vdA0KPiA+IG11Y2guIFRo
-ZSBvdXRlciB0YWcgY2FuIGJlIGhhbmRsZWQgbGlrZSBvdXIgY3VycmVudCBWTEFOIG1vZHVsZSBk
-b2VzLA0KPiA+IGJ1dCB0aGUgc3RhbmRhcmQgZG9lcyBub3QgYWxsb3cgYSByZWd1bGFyIGZyYW1l
-IHRvIGJlIGVuY2Fwc3VsYXRlZA0KPiBkaXJlY3RseSwNCj4gPiBidXQgcmF0aGVyIHJlcXVpcmVz
-IG9uZSBvZg0KPiA+DQo+ID4gMS4gSW4gODAyLjFhZDogYW4gODAyLjFRIFZMQU4gdGFnIChldGhl
-cnR5cGUgMHg4MTAwKSBmb2xsb3dlZCBieSB0aGUgZnJhbWUNCj4gPiAyLiBJbiA4MDIuMWFoOiBB
-IHNlcnZpY2UgdGFnIChldGhlcnR5cGUgMHg4OGU3KSBmb2xsb3dlZCBieSB0aGUgODAyLjFRIFZM
-QU4NCj4gdGFnDQo+ID4gICAgYW5kIHRoZW4gdGhlIGZyYW1lLg0KPiA+DQo+ID4gTWF5YmUgd2hh
-dCB3ZSBjYW4gZG8gaXMgZXh0ZW5kIHRoZSB2bGFuIGNvZGUgdG8gdW5kZXJzdGFuZCBhbGwgdGhy
-ZWUgZnJhbWUNCj4gPiBmb3JtYXRzIChxLCBhZCBhbmQgYWgpIG9yIGF0IGxlYXN0IHRoZSBmaXJz
-dCB0d28gc28gd2UgY29uZmlndXJlIGJvdGggdGhlDQo+ID4gcHJvdmlkZXIgVklEIGFuZCB0aGUg
-Q3VzdG9tZXIgVklEIGZvciB0aGUgaW50ZXJmYWNlIGluIGNhc2Ugb2YgODAyLjFhZCBidXQNCj4g
-PiBvbmx5IHRoZSByZWd1bGFyIFZJRCBpbiA4MDIuMVEuDQo+ID4NCj4gPiBEZXZpY2UgZHJpdmVy
-cyBjYW4gdGhlbiBmbGFnIHdoZXRoZXIgdGhleSBzdXBwb3J0IGJvdGggZm9ybWF0cyBvciBqdXN0
-DQo+ID4gdGhlIHJlZ3VsYXIgUSB0YWcuDQo+ID4NCj4gPiAJQXJuZA0KPiANCj4gU3BlYWtpbmcg
-b2YgZGV2aWNlIGRyaXZlcnMsIEkgc2VlIGJueDIgKGhhcmR3YXJlIGFjY2VsZXJhdGVkKSBpcyBh
-YmxlIHRvDQo+IGluc2VydCBhIDgwMjFxIHRhZyBpbiBjYXNlIG5vIHZsZ3JwIGlzIGRlZmluZWQg
-KHRoZSA4MjAxcSB0YWcgdGhhdCB3YXMNCj4gcmVtb3ZlZCBieSBOSUMpLi4uIGludGVyZXN0aW5n
-IHBpbmcgcG9uZyBnYW1lcywgc2luY2Ugb3VyIDgwMjFxIHN0YWNrDQo+IHdpbGwgcmVtb3ZlIGl0
-IGFnYWluLCBldmVudHVhbGx5Lg0KPiANCj4gU28gVkxBTiAwICdwcm9ibGVtJyBvbiBibngyIGNv
-dWxkIGJlIHNvbHZlZCB3aXRoIGZvbGxvd2luZyBwYXRjaA0KPiAoYXZvaWRpbmcgdGhpcyBpbnNl
-cnQgaWYgdnRhZz09MCkNCj4gDQo+IA0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2Ju
-eDIuYyBiL2RyaXZlcnMvbmV0L2JueDIuYw0KPiBpbmRleCA1MjJkZTlmLi5iNWQ0ZDA1IDEwMDY0
-NA0KPiAtLS0gYS9kcml2ZXJzL25ldC9ibngyLmMNCj4gKysrIGIvZHJpdmVycy9uZXQvYm54Mi5j
-DQo+IEBAIC0zMTkyLDcgKzMxOTIsNyBAQCBibngyX3J4X2ludChzdHJ1Y3QgYm54MiAqYnAsIHN0
-cnVjdCBibngyX25hcGkgKmJuYXBpLA0KPiBpbnQgYnVkZ2V0KQ0KPiAgCQkJCWh3X3ZsYW4gPSAx
-Ow0KPiAgCQkJZWxzZQ0KPiAgI2VuZGlmDQo+IC0JCQl7DQo+ICsJCQlpZiAodnRhZykgew0KPiAg
-CQkJCXN0cnVjdCB2bGFuX2V0aGhkciAqdmUgPSAoc3RydWN0IHZsYW5fZXRoaGRyICopDQo+ICAJ
-CQkJCV9fc2tiX3B1c2goc2tiLCA0KTsNCj4gDQo+IA0KPiANCj4gLS0NCg0KVGhpcyB3YXkgdSB3
-aWxsIGxvb3NlIGFsbCB0aGUgcHJpb3JpdHkgaW5mb3JtYXRpb24gdGhhdCB3YXMgb24gdGhlIFZM
-QU4gaGVhZGVyLg0KDQo+IFRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBs
-aW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGluDQo+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBt
-YWpvcmRvbW9Admdlci5rZXJuZWwub3JnDQo+IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6
-Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0KDQo=
+Move all PHY IDs to brcmphy.h header for completeness and unification of code.
+
+Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+---
+ drivers/net/phy/broadcom.c |   24 ++++++++++++------------
+ include/linux/brcmphy.h    |    6 ++++++
+ 2 files changed, 18 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+index cecdbbd..b743d37 100644
+--- a/drivers/net/phy/broadcom.c
++++ b/drivers/net/phy/broadcom.c
+@@ -685,7 +685,7 @@ static int brcm_fet_config_intr(struct phy_device *phydev)
+ }
+ 
+ static struct phy_driver bcm5411_driver = {
+-	.phy_id		= 0x00206070,
++	.phy_id		= PHY_ID_BCM5411,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5411",
+ 	.features	= PHY_GBIT_FEATURES |
+@@ -700,7 +700,7 @@ static struct phy_driver bcm5411_driver = {
+ };
+ 
+ static struct phy_driver bcm5421_driver = {
+-	.phy_id		= 0x002060e0,
++	.phy_id		= PHY_ID_BCM5421,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5421",
+ 	.features	= PHY_GBIT_FEATURES |
+@@ -715,7 +715,7 @@ static struct phy_driver bcm5421_driver = {
+ };
+ 
+ static struct phy_driver bcm5461_driver = {
+-	.phy_id		= 0x002060c0,
++	.phy_id		= PHY_ID_BCM5461,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5461",
+ 	.features	= PHY_GBIT_FEATURES |
+@@ -730,7 +730,7 @@ static struct phy_driver bcm5461_driver = {
+ };
+ 
+ static struct phy_driver bcm5464_driver = {
+-	.phy_id		= 0x002060b0,
++	.phy_id		= PHY_ID_BCM5464,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5464",
+ 	.features	= PHY_GBIT_FEATURES |
+@@ -745,7 +745,7 @@ static struct phy_driver bcm5464_driver = {
+ };
+ 
+ static struct phy_driver bcm5481_driver = {
+-	.phy_id		= 0x0143bca0,
++	.phy_id		= PHY_ID_BCM5481,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5481",
+ 	.features	= PHY_GBIT_FEATURES |
+@@ -760,7 +760,7 @@ static struct phy_driver bcm5481_driver = {
+ };
+ 
+ static struct phy_driver bcm5482_driver = {
+-	.phy_id		= 0x0143bcb0,
++	.phy_id		= PHY_ID_BCM5482,
+ 	.phy_id_mask	= 0xfffffff0,
+ 	.name		= "Broadcom BCM5482",
+ 	.features	= PHY_GBIT_FEATURES |
+@@ -910,12 +910,12 @@ module_init(broadcom_init);
+ module_exit(broadcom_exit);
+ 
+ static struct mdio_device_id broadcom_tbl[] = {
+-	{ 0x00206070, 0xfffffff0 },
+-	{ 0x002060e0, 0xfffffff0 },
+-	{ 0x002060c0, 0xfffffff0 },
+-	{ 0x002060b0, 0xfffffff0 },
+-	{ 0x0143bca0, 0xfffffff0 },
+-	{ 0x0143bcb0, 0xfffffff0 },
++	{ PHY_ID_BCM5411, 0xfffffff0 },
++	{ PHY_ID_BCM5421, 0xfffffff0 },
++	{ PHY_ID_BCM5461, 0xfffffff0 },
++	{ PHY_ID_BCM5464, 0xfffffff0 },
++	{ PHY_ID_BCM5482, 0xfffffff0 },
++	{ PHY_ID_BCM5482, 0xfffffff0 },
+ 	{ PHY_ID_BCM50610, 0xfffffff0 },
+ 	{ PHY_ID_BCM50610M, 0xfffffff0 },
+ 	{ PHY_ID_BCM57780, 0xfffffff0 },
+diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
+index 7f437ca..c14c3a1 100644
+--- a/include/linux/brcmphy.h
++++ b/include/linux/brcmphy.h
+@@ -1,6 +1,12 @@
+ #define PHY_ID_BCM50610			0x0143bd60
+ #define PHY_ID_BCM50610M		0x0143bd70
+ #define PHY_ID_BCMAC131			0x0143bc70
++#define PHY_ID_BCM5481			0x0143bca0
++#define PHY_ID_BCM5482			0x0143bcb0
++#define PHY_ID_BCM5411			0x00206070
++#define PHY_ID_BCM5421			0x002060e0
++#define PHY_ID_BCM5464			0x002060b0
++#define PHY_ID_BCM5461			0x002060c0
+ #define PHY_ID_BCM57780			0x03625d90
+ 
+ #define PHY_BCM_OUI_MASK		0xfffffc00
+-- 
+1.7.1
 
