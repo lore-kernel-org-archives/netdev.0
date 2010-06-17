@@ -1,42 +1,80 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: bnx2 fails to compile on parisc because of missing
- get_dma_ops()
-Date: Wed, 16 Jun 2010 23:24:44 -0700
-Message-ID: <C27F8246C663564A84BB7AB3439772421B79CBCA1E@IRVEXCHCCR01.corp.ad.broadcom.com>
-References: <C27F8246C663564A84BB7AB3439772421B79CBCA1D@IRVEXCHCCR01.corp.ad.broadcom.com>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: RE: [PATCH] vlan_dev: VLAN 0 should be treated as "no vlan tag"
+ (802.1p packet)
+Date: Thu, 17 Jun 2010 01:56:26 -0700
+Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDC69DDE7E@SJEXCHCCR02.corp.ad.broadcom.com>
+References: <c25bca517739ada31d698235c3a4d045@dondevamos.com>
+ <201006161624.12101.arnd@arndb.de> <4C18ED97.3060702@trash.net>
+ <201006162026.28900.arnd@arndb.de>
+ <1276714691.2970.9.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "'Mike Frysinger'" <vapier@gentoo.org>,
-	"James Bottomley" <JBottomley@novell.com>,
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: "Patrick McHardy" <kaber@trash.net>,
+	"Pedro Garcia" <pedro.netdev@dondevamos.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"FUJITA Tomonori" <fujita.tomonori@lab.ntt.co.jp>
-To: "'davem@davemloft.net'" <davem@davemloft.net>,
-	"'Paul Mundt'" <lethal@linux-sh.org>
-Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <C27F8246C663564A84BB7AB3439772421B79CBCA1D@IRVEXCHCCR01.corp.ad.broadcom.com>
+	"Ben Hutchings" <bhutchings@solarflare.com>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Arnd Bergmann" <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:1333 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932663Ab0FQI4o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jun 2010 04:56:44 -0400
+In-Reply-To: <1276714691.2970.9.camel@edumazet-laptop>
 Content-Language: en-US
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Michael Chan wrote:
->
-> Paul Mundt wrote:
->
-> > If you want to have a micro-optimization for the consistent DMA
-> > case, you can check dma_is_consistent(), which is part of the API and
-> > will be variable on certain platform configurations (ie, some may be
-> > consistent with PCI but not on other busses, etc.)
-> >
-> >
->
-> Thanks for the tip.  I didn't know about the dma_is_consistent() API.
-> I'll use this to fix it then.
->
-
-David, why is dma_is_consistent() always returning 1 on sparc?  The
-streaming DMA is not consistent.
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogbmV0ZGV2LW93bmVyQHZn
+ZXIua2VybmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uDQo+
+IEJlaGFsZiBPZiBFcmljIER1bWF6ZXQNCj4gU2VudDogV2VkbmVzZGF5LCBKdW5lIDE2LCAyMDEw
+IDk6NTggUE0NCj4gVG86IEFybmQgQmVyZ21hbm4NCj4gQ2M6IFBhdHJpY2sgTWNIYXJkeTsgUGVk
+cm8gR2FyY2lhOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBCZW4gSHV0Y2hpbmdzDQo+IFN1Ympl
+Y3Q6IFJlOiBbUEFUQ0hdIHZsYW5fZGV2OiBWTEFOIDAgc2hvdWxkIGJlIHRyZWF0ZWQgYXMgIm5v
+IHZsYW4gdGFnIg0KPiAoODAyLjFwIHBhY2tldCkNCj4gDQo+IExlIG1lcmNyZWRpIDE2IGp1aW4g
+MjAxMCDDoCAyMDoyNiArMDIwMCwgQXJuZCBCZXJnbWFubiBhIMOpY3JpdCA6DQo+ID4gT24gV2Vk
+bmVzZGF5IDE2IEp1bmUgMjAxMCAxNzoyODoyMyBQYXRyaWNrIE1jSGFyZHkgd3JvdGU6DQo+ID4N
+Cj4gPiA+IFNpbmNlIHdlIGRvbid0IGhhdmUgYW55IHNwZWNpYWwgVkxBTiBoYW5kbGluZyBpbiB0
+aGUgYnJpZGdpbmcgY29kZSwgSQ0KPiA+ID4gZ3Vlc3MgaXQgY29tZXMgZG93biB0byBvcHRpb25h
+bGx5IHVzaW5nIGEgZGlmZmVyZW50IGV0aGVydHlwZSB2YWx1ZQ0KPiA+ID4gKDB4ODhhOCkgaW4g
+dGhlIFZMQU4gY29kZS4gV2UgcHJvYmFibHkgYWxzbyBuZWVkIHNvbWUgaW5kaWNhdGlvbiBmcm9t
+DQo+ID4gPiBkZXZpY2UgZHJpdmVycyB3aGV0aGVyIHRoZXkgYXJlIGFibGUgdG8gYWRkIHRoZXNl
+IGhlYWRlcnMgdG8gYXZvaWQNCj4gPiA+IHRyeWluZyB0byBvZmZsb2FkIHRhZ2dpbmcgaW4gY2Fz
+ZSB0aGV5J3JlIG5vdC4NCj4gPg0KPiA+IEl0J3MgcHJvYmFibHkgYSBsaXR0bGUgbW9yZSB0aGFu
+IGp1c3Qgc3VwcG9ydGluZyB0aGUgbmV3IGV0aGVydHlwZSwgYnV0IG5vdA0KPiA+IG11Y2guIFRo
+ZSBvdXRlciB0YWcgY2FuIGJlIGhhbmRsZWQgbGlrZSBvdXIgY3VycmVudCBWTEFOIG1vZHVsZSBk
+b2VzLA0KPiA+IGJ1dCB0aGUgc3RhbmRhcmQgZG9lcyBub3QgYWxsb3cgYSByZWd1bGFyIGZyYW1l
+IHRvIGJlIGVuY2Fwc3VsYXRlZA0KPiBkaXJlY3RseSwNCj4gPiBidXQgcmF0aGVyIHJlcXVpcmVz
+IG9uZSBvZg0KPiA+DQo+ID4gMS4gSW4gODAyLjFhZDogYW4gODAyLjFRIFZMQU4gdGFnIChldGhl
+cnR5cGUgMHg4MTAwKSBmb2xsb3dlZCBieSB0aGUgZnJhbWUNCj4gPiAyLiBJbiA4MDIuMWFoOiBB
+IHNlcnZpY2UgdGFnIChldGhlcnR5cGUgMHg4OGU3KSBmb2xsb3dlZCBieSB0aGUgODAyLjFRIFZM
+QU4NCj4gdGFnDQo+ID4gICAgYW5kIHRoZW4gdGhlIGZyYW1lLg0KPiA+DQo+ID4gTWF5YmUgd2hh
+dCB3ZSBjYW4gZG8gaXMgZXh0ZW5kIHRoZSB2bGFuIGNvZGUgdG8gdW5kZXJzdGFuZCBhbGwgdGhy
+ZWUgZnJhbWUNCj4gPiBmb3JtYXRzIChxLCBhZCBhbmQgYWgpIG9yIGF0IGxlYXN0IHRoZSBmaXJz
+dCB0d28gc28gd2UgY29uZmlndXJlIGJvdGggdGhlDQo+ID4gcHJvdmlkZXIgVklEIGFuZCB0aGUg
+Q3VzdG9tZXIgVklEIGZvciB0aGUgaW50ZXJmYWNlIGluIGNhc2Ugb2YgODAyLjFhZCBidXQNCj4g
+PiBvbmx5IHRoZSByZWd1bGFyIFZJRCBpbiA4MDIuMVEuDQo+ID4NCj4gPiBEZXZpY2UgZHJpdmVy
+cyBjYW4gdGhlbiBmbGFnIHdoZXRoZXIgdGhleSBzdXBwb3J0IGJvdGggZm9ybWF0cyBvciBqdXN0
+DQo+ID4gdGhlIHJlZ3VsYXIgUSB0YWcuDQo+ID4NCj4gPiAJQXJuZA0KPiANCj4gU3BlYWtpbmcg
+b2YgZGV2aWNlIGRyaXZlcnMsIEkgc2VlIGJueDIgKGhhcmR3YXJlIGFjY2VsZXJhdGVkKSBpcyBh
+YmxlIHRvDQo+IGluc2VydCBhIDgwMjFxIHRhZyBpbiBjYXNlIG5vIHZsZ3JwIGlzIGRlZmluZWQg
+KHRoZSA4MjAxcSB0YWcgdGhhdCB3YXMNCj4gcmVtb3ZlZCBieSBOSUMpLi4uIGludGVyZXN0aW5n
+IHBpbmcgcG9uZyBnYW1lcywgc2luY2Ugb3VyIDgwMjFxIHN0YWNrDQo+IHdpbGwgcmVtb3ZlIGl0
+IGFnYWluLCBldmVudHVhbGx5Lg0KPiANCj4gU28gVkxBTiAwICdwcm9ibGVtJyBvbiBibngyIGNv
+dWxkIGJlIHNvbHZlZCB3aXRoIGZvbGxvd2luZyBwYXRjaA0KPiAoYXZvaWRpbmcgdGhpcyBpbnNl
+cnQgaWYgdnRhZz09MCkNCj4gDQo+IA0KPiANCj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2Ju
+eDIuYyBiL2RyaXZlcnMvbmV0L2JueDIuYw0KPiBpbmRleCA1MjJkZTlmLi5iNWQ0ZDA1IDEwMDY0
+NA0KPiAtLS0gYS9kcml2ZXJzL25ldC9ibngyLmMNCj4gKysrIGIvZHJpdmVycy9uZXQvYm54Mi5j
+DQo+IEBAIC0zMTkyLDcgKzMxOTIsNyBAQCBibngyX3J4X2ludChzdHJ1Y3QgYm54MiAqYnAsIHN0
+cnVjdCBibngyX25hcGkgKmJuYXBpLA0KPiBpbnQgYnVkZ2V0KQ0KPiAgCQkJCWh3X3ZsYW4gPSAx
+Ow0KPiAgCQkJZWxzZQ0KPiAgI2VuZGlmDQo+IC0JCQl7DQo+ICsJCQlpZiAodnRhZykgew0KPiAg
+CQkJCXN0cnVjdCB2bGFuX2V0aGhkciAqdmUgPSAoc3RydWN0IHZsYW5fZXRoaGRyICopDQo+ICAJ
+CQkJCV9fc2tiX3B1c2goc2tiLCA0KTsNCj4gDQo+IA0KPiANCj4gLS0NCg0KVGhpcyB3YXkgdSB3
+aWxsIGxvb3NlIGFsbCB0aGUgcHJpb3JpdHkgaW5mb3JtYXRpb24gdGhhdCB3YXMgb24gdGhlIFZM
+QU4gaGVhZGVyLg0KDQo+IFRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBs
+aW5lICJ1bnN1YnNjcmliZSBuZXRkZXYiIGluDQo+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBt
+YWpvcmRvbW9Admdlci5rZXJuZWwub3JnDQo+IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6
+Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0KDQo=
 
