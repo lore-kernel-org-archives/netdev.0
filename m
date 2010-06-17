@@ -1,109 +1,127 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH] CAN: Add Flexcan CAN controller driver
-Date: Thu, 17 Jun 2010 21:12:11 +0200
-Message-ID: <4C1A738B.5050600@grandegger.com>
-References: <1276784480-32340-1-git-send-email-mkl@pengutronix.de>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH] PCI: MSI: Remove unsafe and unnecessary hardware access
+Date: Thu, 17 Jun 2010 20:16:36 +0100
+Message-ID: <1276802196.2083.12.camel@achroite.uk.solarflarecom.com>
+References: <1276564403.19104.28.camel@HP1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1276784480-32340-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: Michael Chan <mchan@broadcom.com>, Matthew Wilcox <matthew@wil.cx>,
+	linux-pci@vger.kernel.org, netdev@vger.kernel.org
+To: Jesse Barnes <jbarnes@virtuousgeek.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1276564403.19104.28.camel@HP1>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/17/2010 04:21 PM, Marc Kleine-Budde wrote:
-> From: Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-> 
-> This core is found on some Freescale SoCs and also some Coldfire
-> SoCs. Support for Coldfire is missing though at the moment as
-> they have an older revision of the core which does not have RX FIFO
-> support.
-> 
-> Signed-off-by: Sascha Hauer <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-> Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-> ---
->  drivers/net/can/Kconfig              |    6 +
->  drivers/net/can/Makefile             |    1 +
->  drivers/net/can/flexcan.c            | 1010 ++++++++++++++++++++++++++++++++++
->  include/linux/can/platform/flexcan.h |   20 +
->  4 files changed, 1037 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/net/can/flexcan.c
->  create mode 100644 include/linux/can/platform/flexcan.h
-> 
-> diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
-> index 05b7517..3d932a4 100644
-> --- a/drivers/net/can/Kconfig
-> +++ b/drivers/net/can/Kconfig
-> @@ -63,6 +63,12 @@ config CAN_BFIN
->  	  To compile this driver as a module, choose M here: the
->  	  module will be called bfin_can.
->  
-> +config CAN_FLEXCAN
-> +	tristate "Support for Freescale FLEXCAN based chips"
-> +	depends on CAN_DEV
-> +	---help---
-> +	  Say Y here if you want to support for Freescale FlexCAN.
-> +
->  source "drivers/net/can/mscan/Kconfig"
->  
->  source "drivers/net/can/sja1000/Kconfig"
-> diff --git a/drivers/net/can/Makefile b/drivers/net/can/Makefile
-> index 7a702f2..5bf3621 100644
-> --- a/drivers/net/can/Makefile
-> +++ b/drivers/net/can/Makefile
-> @@ -15,5 +15,6 @@ obj-$(CONFIG_CAN_AT91)		+= at91_can.o
->  obj-$(CONFIG_CAN_TI_HECC)	+= ti_hecc.o
->  obj-$(CONFIG_CAN_MCP251X)	+= mcp251x.o
->  obj-$(CONFIG_CAN_BFIN)		+= bfin_can.o
-> +obj-$(CONFIG_CAN_FLEXCAN)	+= flexcan.o
->  
->  ccflags-$(CONFIG_CAN_DEBUG_DEVICES) := -DDEBUG
-> diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-> new file mode 100644
-> index 0000000..f341989
-> --- /dev/null
-> +++ b/drivers/net/can/flexcan.c
-> @@ -0,0 +1,1010 @@
-> +/*
-> + * flexcan.c - FLEXCAN CAN controller driver
-> + *
-> + * Copyright (c) 2005-2006 Varma Electronics Oy
-> + * Copyright (c) 2009 Sascha Hauer, Pengutronix
-> + * Copyright (c) 2010 Marc Kleine-Budde, Pengutronix
-> + *
-> + * Based on code originally by Andrey Volkov <avolkov-ppI4tVfbJvJWk0Htik3J/w@public.gmane.org>
-> + *
-> + * LICENCE:
-> + *  This program is free software; you can redistribute it and/or modify
-> + *  it under the terms of the GNU General Public License as published by
-> + *  the Free Software Foundation; either version 2 of the License, or
-> + *  (at your option) any later version.
-> + *
-> + *  This program is distributed in the hope that it will be useful,
-> + *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-> + *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> + *  GNU General Public License for more details.
-> + *
-> + *  You should have received a copy of the GNU General Public License
-> + *  along with this program; if not, write to the Free Software
-> + *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-> + *
-> + */
-...
-> +MODULE_AUTHOR("Sascha Hauer <kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, "
-> +	      "Marc Kleine-Budde <kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>");
-> +MODULE_LICENSE("GPL v2");
+During suspend on an SMP system, {read,write}_msi_msg_desc() may be
+called to mask and unmask interrupts on a device that is already in a
+reduced power state.  At this point memory-mapped registers including
+MSI-X tables are not accessible, and config space may not be fully
+functional either.
 
-This does not match to the license text above.
+While a device is in a reduced power state its interrupts are
+effectively masked and its MSI(-X) state will be restored when it is
+brought back to D0.  Therefore these functions can simply read and
+write msi_desc::msg for devices not in D0.
 
-Wolfgang.
+Further, read_msi_msg_desc() should only ever be used to update a
+previously written message, so it can always read msi_desc::msg
+and never needs to touch the hardware.
+
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+On Mon, 2010-06-14 at 18:13 -0700, Michael Chan wrote: 
+> I'm debugging the bnx2 driver which doesn't work after suspend/resume if
+> it is running in MSI-X mode.  The problem is that during suspend, the
+> MSI-X vectors are disabled by the following sequence on x86:
+> 
+> take_cpu_down() -> cpu_disable_common() -> fixup_irqs()
+>
+> The MSI-X address/data used to disable the vectors are remembered in the
+> above sequence. During resume, these address/data are then programmed
+> back to the device during pci_restore_state(), causing all the vectors
+> to remain disabled.
+
+That's not quite what I see.  What I see is that the message is read
+back from the table *after* the driver's suspend method has been called.
+At this point the device is already in D3 and memory-mapped registers
+are not accessible, so we get random bits as the message.  At least,
+that's what I see happening with the sfc driver.
+
+> Some drivers call free_irq() during suspend and request_irq() during
+> resume, and that should avoid the problem.  bnx2 and some other drivers
+> do not do that.  These drivers rely on pci_restore_state() to restore
+> the MSI-X vectors to the same working state before suspend.
+> 
+> What's the right way to fix this?  Thanks.
+
+This is my attempt, which works for sfc.  See if it works for bnx2.
+
+Ben.
+
+ drivers/pci/msi.c |   34 +++++++++++-----------------------
+ 1 files changed, 11 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
+index 77b68ea..03f04dc 100644
+--- a/drivers/pci/msi.c
++++ b/drivers/pci/msi.c
+@@ -196,30 +196,15 @@ void unmask_msi_irq(unsigned int irq)
+ void read_msi_msg_desc(struct irq_desc *desc, struct msi_msg *msg)
+ {
+ 	struct msi_desc *entry = get_irq_desc_msi(desc);
+-	if (entry->msi_attrib.is_msix) {
+-		void __iomem *base = entry->mask_base +
+-			entry->msi_attrib.entry_nr * PCI_MSIX_ENTRY_SIZE;
+ 
+-		msg->address_lo = readl(base + PCI_MSIX_ENTRY_LOWER_ADDR);
+-		msg->address_hi = readl(base + PCI_MSIX_ENTRY_UPPER_ADDR);
+-		msg->data = readl(base + PCI_MSIX_ENTRY_DATA);
+-	} else {
+-		struct pci_dev *dev = entry->dev;
+-		int pos = entry->msi_attrib.pos;
+-		u16 data;
++	/* We do not touch the hardware (which may not even be
++	 * accessible at the moment) but return the last message
++	 * written.  Assert that this is valid, assuming that
++	 * valid messages are not all-zeroes. */
++	BUG_ON(!(entry->msg.address_hi | entry->msg.address_lo |
++		 entry->msg.data));
+ 
+-		pci_read_config_dword(dev, msi_lower_address_reg(pos),
+-					&msg->address_lo);
+-		if (entry->msi_attrib.is_64) {
+-			pci_read_config_dword(dev, msi_upper_address_reg(pos),
+-						&msg->address_hi);
+-			pci_read_config_word(dev, msi_data_reg(pos, 1), &data);
+-		} else {
+-			msg->address_hi = 0;
+-			pci_read_config_word(dev, msi_data_reg(pos, 0), &data);
+-		}
+-		msg->data = data;
+-	}
++	*msg = entry->msg;
+ }
+ 
+ void read_msi_msg(unsigned int irq, struct msi_msg *msg)
+@@ -232,7 +217,10 @@ void read_msi_msg(unsigned int irq, struct msi_msg *msg)
+ void write_msi_msg_desc(struct irq_desc *desc, struct msi_msg *msg)
+ {
+ 	struct msi_desc *entry = get_irq_desc_msi(desc);
+-	if (entry->msi_attrib.is_msix) {
++
++	if (entry->dev->current_state != PCI_D0) {
++		/* Don't touch the hardware now */
++	} else if (entry->msi_attrib.is_msix) {
+ 		void __iomem *base;
+ 		base = entry->mask_base +
+ 			entry->msi_attrib.entry_nr * PCI_MSIX_ENTRY_SIZE;
+-- 
+1.6.2.5
+
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
