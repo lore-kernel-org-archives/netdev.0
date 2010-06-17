@@ -1,213 +1,94 @@
-From: Konstantin Khorenko <khorenko@openvz.org>
-Subject: tcp: sending reset to the already closed socket
-Date: Thu, 17 Jun 2010 17:37:06 +0400
-Message-ID: <4C1A2502.1030502@openvz.org>
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Subject: Re: bnx2 fails to compile on parisc because of missing
+ get_dma_ops()
+Date: Thu, 17 Jun 2010 23:05:59 +0900
+Message-ID: <20100617230435J.fujita.tomonori@lab.ntt.co.jp>
+References: <1276780336.2789.6.camel@mulgrave.site>
+	<C27F8246C663564A84BB7AB3439772421B79CBCA21@IRVEXCHCCR01.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020603030707080607020508"
-Cc: "David S. Miller" <davem@davemloft.net>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:43721 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932803Ab0FQNhP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jun 2010 09:37:15 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
---------------020603030707080607020508
-Content-Type: text/plain; charset=KOI8-R
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: JBottomley@Novell.com, fujita.tomonori@lab.ntt.co.jp,
+	vapier@gentoo.org, netdev@vger.kernel.org,
+	linux-parisc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: mchan@broadcom.com
+Return-path: <linux-parisc-owner@vger.kernel.org>
+In-Reply-To: <C27F8246C663564A84BB7AB3439772421B79CBCA21@IRVEXCHCCR01.corp.ad.broadcom.com>
+Sender: linux-parisc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi All,
+On Thu, 17 Jun 2010 06:30:39 -0700
+"Michael Chan" <mchan@broadcom.com> wrote:
 
-i've found that tcp_close() can be called for an already closed socket, but still sends reset in this case (tcp_send_active_reset()) which seems to be incorrect.
-Moreover, a packet with reset is sent with different source port as original port number has been already cleared on socket.
-Besides that incrementing stat counter for LINUX_MIB_TCPABORTONCLOSE also does not look correct in this case.
+> James Bottomley wrote:
+> 
+> > On Thu, 2010-06-17 at 05:54 -0700, Michael Chan wrote:
+> > > This prefetch improves performance noticeably when the driver is
+> > > handling incoming 64-byte packets at a sustained rate.
+> >
+> > So why not do it unconditionally?  The worst that can happen
+> > is that you
+> > pull in a stale cache line which will get cleaned in the
+> > dma_sync, thus
+> > slightly degrading performance on incoherent architectures.
+> 
+> The original patch was an unconditional prefetch.  There was
+> some discussion that it might not be correct if the DMA wasn't
+> sync'ed yet on some archs.  If the concensus is that it is ok to
+> do so, that would be the simplest solution.
 
-Initially this issue was found on 2.6.18-x RHEL5 kernel, but the same seems to be true for the current mainstream kernel (checked on 2.6.35-rc3).
-Please, correct me if i missed something.
+As James said, it just adds useless prefetch on incoherent
+architectures. sync_single_for_cpu is called later so we can see the
+correct data. One useless prefetch is unlikely to lead performance
+drop.
 
-How that happens:
-1) the server receives a packet for socket in TCP_CLOSE_WAIT state that triggers a tcp_reset():
+You might prefer this v2.
 
-Call Trace:
- <IRQ>  [<ffffffff8025b9b9>] tcp_reset+0x12f/0x1e8
- [<ffffffff80046125>] tcp_rcv_state_process+0x1c0/0xa08
- [<ffffffff8003eb22>] tcp_v4_do_rcv+0x310/0x37a
- [<ffffffff80028bea>] tcp_v4_rcv+0x74d/0xb43
- [<ffffffff8024ef4c>] ip_local_deliver_finish+0x0/0x259
- [<ffffffff80037131>] ip_local_deliver+0x200/0x2f4
- [<ffffffff8003843c>] ip_rcv+0x64c/0x69f
- [<ffffffff80021d89>] netif_receive_skb+0x4c4/0x4fa
- [<ffffffff80032eca>] process_backlog+0x90/0xec
- [<ffffffff8000cc50>] net_rx_action+0xbb/0x1f1
- [<ffffffff80012d3a>] __do_softirq+0xf5/0x1ce
- [<ffffffff8001147a>] handle_IRQ_event+0x56/0xb0
- [<ffffffff8006334c>] call_softirq+0x1c/0x28
- [<ffffffff80070476>] do_softirq+0x2c/0x85
- [<ffffffff80070441>] do_IRQ+0x149/0x152
- [<ffffffff80062665>] ret_from_intr+0x0/0xa
- <EOI>  [<ffffffff80008a2e>] __handle_mm_fault+0x6cd/0x1303
- [<ffffffff80008903>] __handle_mm_fault+0x5a2/0x1303
- [<ffffffff80033a9d>] cache_free_debugcheck+0x21f/0x22e
- [<ffffffff8006a263>] do_page_fault+0x49a/0x7dc
- [<ffffffff80066487>] thread_return+0x89/0x174
- [<ffffffff800c5aee>] audit_syscall_exit+0x341/0x35c
- [<ffffffff80062e39>] error_exit+0x0/0x84
+=
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Subject: [PATCH v2] bnx2: fix dma_get_ops compilation breakage
 
-tcp_rcv_state_process()
-...  // (sk_state == TCP_CLOSE_WAIT here)
-...
-        /* step 2: check RST bit */
-        if(th->rst) {
-                tcp_reset(sk);
-                goto discard;
-        }
-...
----------------------------------
-tcp_rcv_state_process
- tcp_reset
-  tcp_done
-   tcp_set_state(sk, TCP_CLOSE);
-     inet_put_port
-      __inet_put_port
-       inet_sk(sk)->num = 0;
+This removes dma_get_ops() prefetch optimization in bnx2.
 
-   sk->sk_shutdown = SHUTDOWN_MASK;
+bnx2 uses dma_get_ops() to see if dma_sync_single_for_cpu() is
+noop. bnx2 does prefetch if it's noop.
 
+But dma_get_ops() isn't available on all the architectures (only the
+architectures that uses dma_map_ops struct have it). Using
+dma_get_ops() in drivers leads to compilation breakage on many
+archtectures.
 
-2) After that the process (socket owner) tries to write something to that socket and "inet_autobind" sets a _new_ (which differs from the original!) port number for the socket:
+This patch removes dma_get_ops() and changes bnx2 to do prefetch on
+all the architectures. This adds useless prefetch on incoherent
+architectures but this is harmless. It is also unlikely to cause the
+performance drop.
 
- Call Trace:
-  [<ffffffff80255a12>] inet_bind_hash+0x33/0x5f
-  [<ffffffff80257180>] inet_csk_get_port+0x216/0x268
-  [<ffffffff8026bcc9>] inet_autobind+0x22/0x8f
-  [<ffffffff80049140>] inet_sendmsg+0x27/0x57
-  [<ffffffff8003a9d9>] do_sock_write+0xae/0xea
-  [<ffffffff80226ac7>] sock_writev+0xdc/0xf6
-  [<ffffffff800680c7>] _spin_lock_irqsave+0x9/0xe
-  [<ffffffff8001fb49>] __pollwait+0x0/0xdd
-  [<ffffffff8008d533>] default_wake_function+0x0/0xe
-  [<ffffffff800a4f10>] autoremove_wake_function+0x0/0x2e
-  [<ffffffff800f0b49>] do_readv_writev+0x163/0x274
-  [<ffffffff80066538>] thread_return+0x13a/0x174
-  [<ffffffff800145d8>] tcp_poll+0x0/0x1c9
-  [<ffffffff800c56d3>] audit_syscall_entry+0x180/0x1b3
-  [<ffffffff800f0dd0>] sys_writev+0x49/0xe4
-  [<ffffffff800622dd>] tracesys+0xd5/0xe0
-
-
-3) sendmsg fails at last with -EPIPE (=> 'write' returns -EPIPE in userspace):
-
-F: tcp_sendmsg1 -EPIPE: sk=ffff81000bda00d0, sport=49847, old_state=7, new_state=7, sk_err=0, sk_shutdown=3
-
-Call Trace:
- [<ffffffff80027557>] tcp_sendmsg+0xcb/0xe87
- [<ffffffff80033300>] release_sock+0x10/0xae
- [<ffffffff8016f20f>] vgacon_cursor+0x0/0x1a7
- [<ffffffff8026bd32>] inet_autobind+0x8b/0x8f
- [<ffffffff8003a9d9>] do_sock_write+0xae/0xea
- [<ffffffff80226ac7>] sock_writev+0xdc/0xf6
- [<ffffffff800680c7>] _spin_lock_irqsave+0x9/0xe
- [<ffffffff8001fb49>] __pollwait+0x0/0xdd
- [<ffffffff8008d533>] default_wake_function+0x0/0xe
- [<ffffffff800a4f10>] autoremove_wake_function+0x0/0x2e
- [<ffffffff800f0b49>] do_readv_writev+0x163/0x274
- [<ffffffff80066538>] thread_return+0x13a/0x174
- [<ffffffff800145d8>] tcp_poll+0x0/0x1c9
- [<ffffffff800c56d3>] audit_syscall_entry+0x180/0x1b3
- [<ffffffff800f0dd0>] sys_writev+0x49/0xe4
- [<ffffffff800622dd>] tracesys+0xd5/0xe0
-
-tcp_sendmsg()
-...
-        /* Wait for a connection to finish. */
-        if ((1 << sk->sk_state) & ~(TCPF_ESTABLISHED | TCPF_CLOSE_WAIT)) {
-                int old_state = sk->sk_state;
-                if ((err = sk_stream_wait_connect(sk, &timeo)) != 0) {
-if (f_d && (err == -EPIPE)) {
-        printk("F: tcp_sendmsg1 -EPIPE: sk=%p, sport=%u, old_state=%d, new_state=%d, "
-                "sk_err=%d, sk_shutdown=%d\n",
-                sk, ntohs(inet_sk(sk)->sport), old_state, sk->sk_state,
-                sk->sk_err, sk->sk_shutdown);
-        dump_stack();
-}
-                        goto out_err;
-                }
-        }
-...
-
-4) Then the process (socket owner) understands that it's time to close that socket and does that (and thus triggers sending reset packet):
-
-Call Trace:
-...
- [<ffffffff80032077>] dev_queue_xmit+0x343/0x3d6
- [<ffffffff80034698>] ip_output+0x351/0x384
- [<ffffffff80251ae9>] dst_output+0x0/0xe
- [<ffffffff80036ec6>] ip_queue_xmit+0x567/0x5d2
- [<ffffffff80095700>] vprintk+0x21/0x33
- [<ffffffff800070f0>] check_poison_obj+0x2e/0x206
- [<ffffffff80013587>] poison_obj+0x36/0x45
- [<ffffffff8025dea6>] tcp_send_active_reset+0x15/0x14d
- [<ffffffff80023481>] dbg_redzone1+0x1c/0x25
- [<ffffffff8025dea6>] tcp_send_active_reset+0x15/0x14d
- [<ffffffff8000ca94>] cache_alloc_debugcheck_after+0x189/0x1c8
- [<ffffffff80023405>] tcp_transmit_skb+0x764/0x786
- [<ffffffff8025df8a>] tcp_send_active_reset+0xf9/0x14d
- [<ffffffff80258ff1>] tcp_close+0x39a/0x960
- [<ffffffff8026be12>] inet_release+0x69/0x80
- [<ffffffff80059b31>] sock_release+0x4f/0xcf
- [<ffffffff80059d4c>] sock_close+0x2c/0x30
- [<ffffffff800133c9>] __fput+0xac/0x197
- [<ffffffff800252bc>] filp_close+0x59/0x61
- [<ffffffff8001eff6>] sys_close+0x85/0xc7
- [<ffffffff800622dd>] tracesys+0xd5/0xe0
-
-
-So, in brief:
-* a received packet for socket in TCP_CLOSE_WAIT state triggers tcp_reset() which clears inet_sk(sk)->num and put socket into TCP_CLOSE state
-* an attempt to write to that socket forces inet_autobind() to get a new port (but the write itself fails with -EPIPE)
-* tcp_close() called for socket in TCP_CLOSE state sends an active reset via socket with newly allocated port
-
-
-Please, take a look at this and if nothing is missed, here is a patch with the fix.
-
-Thank you.
-
---
-Best regards,
-
-Konstantin Khorenko
-
---------------020603030707080607020508
-Content-Type: text/plain;
- name="diff-net-tcp-reset-on-close-20100617"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="diff-net-tcp-reset-on-close-20100617"
-
-net: do not send reset to already closed tcp sockets
-
-This adds an additional check in tcp_close() for already closed
-sockets. We do not want to send anything to closed sockets.
-
-Signed-off-by: Konstantin Khorenko <khorenko@openvz.org>
+Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 ---
+ drivers/net/bnx2.c |   10 ++++------
+ 1 files changed, 4 insertions(+), 6 deletions(-)
 
---- ./net/ipv4/tcp.c.reset	2010-05-17 01:17:36.000000000 +0400
-+++ ./net/ipv4/tcp.c	2010-06-17 16:42:11.000000000 +0400
-@@ -1898,6 +1898,10 @@ void tcp_close(struct sock *sk, long tim
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 949d7a9..85f1692 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -3099,12 +3099,10 @@ bnx2_rx_int(struct bnx2 *bp, struct bnx2_napi *bnapi, int budget)
+ 		skb = rx_buf->skb;
+ 		prefetchw(skb);
  
- 	sk_mem_reclaim(sk);
- 
-+	/* If socket has been already reset (e.g. in tcp_reset()) - kill it. */
-+	if (sk->sk_state == TCP_CLOSE)
-+		goto adjudge_to_death;
+-		if (!get_dma_ops(&pdev->dev)->sync_single_for_cpu) {
+-			next_rx_buf =
+-				&rxr->rx_buf_ring[
+-					RX_RING_IDX(NEXT_RX_BD(sw_cons))];
+-			prefetch(next_rx_buf->desc);
+-		}
++		next_rx_buf =
++			&rxr->rx_buf_ring[RX_RING_IDX(NEXT_RX_BD(sw_cons))];
++		prefetch(next_rx_buf->desc);
 +
- 	/* As outlined in RFC 2525, section 2.17, we send a RST here because
- 	 * data was lost. To witness the awful effects of the old behavior of
- 	 * always doing a FIN, run an older 2.1.x kernel or 2.0.x, start a bulk
+ 		rx_buf->skb = NULL;
+ 
+ 		dma_addr = dma_unmap_addr(rx_buf, mapping);
+-- 
+1.6.5
 
---------------020603030707080607020508--
