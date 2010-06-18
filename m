@@ -1,61 +1,51 @@
-From: =?utf-8?q?Eric=20B=C3=A9nard?= <eric@eukrea.com>
-Subject: [PATCH 1/2] net/fec: clean suspend/resume
-Date: Fri, 18 Jun 2010 16:19:54 +0200
-Message-ID: <1276870795-21594-1-git-send-email-eric@eukrea.com>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Subject: RE: [Bugme-new] [Bug 16187] New: Carrier detection failed in	dhcpcd
+ when link is up
+Date: Fri, 18 Jun 2010 08:04:36 -0700
+Message-ID: <8DD2590731AB5D4C9DBF71A877482A900158F12BEA@orsmsx509.amr.corp.intel.com>
+References: <bug-16187-10286@https.bugzilla.kernel.org/>
+ <20100615142418.f47e8abd.akpm@linux-foundation.org>
+ <20100618061641.GA7039@lackof.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, s.hauer@pengutronix.de, amit.kucheria@canonical.com,
-	davem@davemloft.net, linux-arm-kernel@lists.infradead.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Kyle McMartin <kyle@mcmartin.ca>,
+	"bugzilla-daemon@bugzilla.kernel.org"
+	<bugzilla-daemon@bugzilla.kernel.org>,
+	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>,
+	"casteyde.christian@free.fr" <casteyde.christian@free.fr>
+To: Grant Grundler <grundler@parisc-linux.org>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:36764 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933599Ab0FRPEj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jun 2010 11:04:39 -0400
+In-Reply-To: <20100618061641.GA7039@lackof.org>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Q29tbWl0IDU5ZDQyODliODNiMTEzNzlkODY3ZTJmNzE0NjkwNGIxOWNjOTY0MDQgY29udmVydGVk
-IGZlYyB0byBkZXZfcG1fb3BzIGJ1dApkaWRuJ3QgdXBkYXRlIHRoZSBzdXNwZW5kL3Jlc3VtZSBm
-dW5jdGlvbnMgdGh1cyBsZWFkaW5nIHRvIHRoZSBmb2xsb3dpbmcgd2FybmluZyA6CiJpbml0aWFs
-aXphdGlvbiBmcm9tIGluY29tcGF0aWJsZSBwb2ludGVyIHR5cGUiIHdoZW4gQ09ORklHX1BNIGlz
-IHNldC4KClRoaXMgcGF0Y2ggYWxzbyBmaXhlIGEgZmV3IGluZGVudGF0aW9uIGFuZCBzdHlsZSBh
-cm91bmQgQ09ORklHX1BNIGFyZWEuCgpTaWduZWQtb2ZmLWJ5OiBFcmljIELDqW5hcmQgPGVyaWNA
-ZXVrcmVhLmNvbT4KQ2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcKQ2M6IGRhdmVtQGRhdmVtbG9m
-dC5uZXQKQ2M6IGFtaXQua3VjaGVyaWFAY2Fub25pY2FsLmNvbQpDYzogcy5oYXVlckBwZW5ndXRy
-b25peC5kZQpDYzogbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnCi0tLQogZHJp
-dmVycy9uZXQvZmVjLmMgfCAgIDMwICsrKysrKysrKysrKy0tLS0tLS0tLS0tLS0tLS0tLQogMSBm
-aWxlcyBjaGFuZ2VkLCAxMiBpbnNlcnRpb25zKCspLCAxOCBkZWxldGlvbnMoLSkKCmRpZmYgLS1n
-aXQgYS9kcml2ZXJzL25ldC9mZWMuYyBiL2RyaXZlcnMvbmV0L2ZlYy5jCmluZGV4IGEzY2FlNGUu
-LmI0YWZkN2EgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2ZlYy5jCisrKyBiL2RyaXZlcnMvbmV0
-L2ZlYy5jCkBAIC0xMzYwLDExICsxMzYwLDEwIEBAIGZlY19kcnZfcmVtb3ZlKHN0cnVjdCBwbGF0
-Zm9ybV9kZXZpY2UgKnBkZXYpCiB9CiAKICNpZmRlZiBDT05GSUdfUE0KLQogc3RhdGljIGludAot
-ZmVjX3N1c3BlbmQoc3RydWN0IHBsYXRmb3JtX2RldmljZSAqZGV2LCBwbV9tZXNzYWdlX3Qgc3Rh
-dGUpCitmZWNfc3VzcGVuZChzdHJ1Y3QgZGV2aWNlICpkZXYpCiB7Ci0Jc3RydWN0IG5ldF9kZXZp
-Y2UgKm5kZXYgPSBwbGF0Zm9ybV9nZXRfZHJ2ZGF0YShkZXYpOworCXN0cnVjdCBuZXRfZGV2aWNl
-ICpuZGV2ID0gZGV2X2dldF9kcnZkYXRhKGRldik7CiAJc3RydWN0IGZlY19lbmV0X3ByaXZhdGUg
-KmZlcDsKIAogCWlmIChuZGV2KSB7CkBAIC0xMzc3LDkgKzEzNzYsOSBAQCBmZWNfc3VzcGVuZChz
-dHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpkZXYsIHBtX21lc3NhZ2VfdCBzdGF0ZSkKIH0KIAogc3Rh
-dGljIGludAotZmVjX3Jlc3VtZShzdHJ1Y3QgcGxhdGZvcm1fZGV2aWNlICpkZXYpCitmZWNfcmVz
-dW1lKHN0cnVjdCBkZXZpY2UgKmRldikKIHsKLQlzdHJ1Y3QgbmV0X2RldmljZSAqbmRldiA9IHBs
-YXRmb3JtX2dldF9kcnZkYXRhKGRldik7CisJc3RydWN0IG5ldF9kZXZpY2UgKm5kZXYgPSBkZXZf
-Z2V0X2RydmRhdGEoZGV2KTsKIAlzdHJ1Y3QgZmVjX2VuZXRfcHJpdmF0ZSAqZmVwOwogCiAJaWYg
-KG5kZXYpIHsKQEAgLTEzOTksMjMgKzEzOTgsMTggQEAgc3RhdGljIGNvbnN0IHN0cnVjdCBkZXZf
-cG1fb3BzIGZlY19wbV9vcHMgPSB7CiAJLnBvd2Vyb2ZmCT0gZmVjX3N1c3BlbmQsCiAJLnJlc3Rv
-cmUJPSBmZWNfcmVzdW1lLAogfTsKLQotI2RlZmluZSBGRUNfUE1fT1BTICgmZmVjX3BtX29wcykK
-LQotI2Vsc2UgLyogIUNPTkZJR19QTSAqLwotCi0jZGVmaW5lIEZFQ19QTV9PUFMgTlVMTAotCi0j
-ZW5kaWYgLyogIUNPTkZJR19QTSAqLworI2VuZGlmCiAKIHN0YXRpYyBzdHJ1Y3QgcGxhdGZvcm1f
-ZHJpdmVyIGZlY19kcml2ZXIgPSB7CiAJLmRyaXZlcgk9IHsKLQkJLm5hbWUgICAgPSAiZmVjIiwK
-LQkJLm93bmVyCSA9IFRISVNfTU9EVUxFLAotCQkucG0JCSA9IEZFQ19QTV9PUFMsCisJCS5uYW1l
-CT0gImZlYyIsCisJCS5vd25lcgk9IFRISVNfTU9EVUxFLAorI2lmZGVmIENPTkZJR19QTQorCQku
-cG0JPSAmZmVjX3BtX29wcywKKyNlbmRpZgogCX0sCi0JLnByb2JlICAgPSBmZWNfcHJvYmUsCi0J
-LnJlbW92ZSAgPSBfX2RldmV4aXRfcChmZWNfZHJ2X3JlbW92ZSksCisJLnByb2JlCT0gZmVjX3By
-b2JlLAorCS5yZW1vdmUJPSBfX2RldmV4aXRfcChmZWNfZHJ2X3JlbW92ZSksCiB9OwogCiBzdGF0
-aWMgaW50IF9faW5pdAotLSAKMS42LjMuMwoKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fCmxpbnV4LWFybS1rZXJuZWwgbWFpbGluZyBsaXN0CmxpbnV4LWFy
-bS1rZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9yZwpodHRwOi8vbGlzdHMuaW5mcmFkZWFkLm9yZy9t
-YWlsbWFuL2xpc3RpbmZvL2xpbnV4LWFybS1rZXJuZWwK
+On Thursday, June 17, 2010 11:17 PM, Grant Grundler wrote:
+> On Tue, Jun 15, 2010 at 02:24:18PM -0700, Andrew Morton wrote:
+>> 
+>> (switched to email.  Please respond via emailed reply-to-all, not
+>> via the bugzilla web interface).
+> 
+> I've resync to linus' tree (2.6.35-rc3) and reviewed the output of:
+>     git diff v2.6.34 drivers/net/tulip/
+> 
+> I don't see anything that would affect how link state
+> changes get reported to user space.
+> 
+> I'm not inclined to believe this is a tulip "bug" unless
+> core netdev behavior changed and tulip is not longer
+> doing the right thing.
+> 
+> hth,
+> grant
+
+I don't believe this is a tulip specific bug - the same thing has been reported against e1000e and bnx2 (IIRC); I have not had the time to investigate further.
+
+Bruce.
