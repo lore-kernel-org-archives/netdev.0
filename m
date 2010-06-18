@@ -1,8 +1,9 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 1/4] e1000e: avoid polling h/w registers during
-	link negotiation
-Date: Thu, 17 Jun 2010 21:58:43 -0700
-Message-ID: <20100618045804.6728.37945.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 2/4] e1000e: do not touch PHY page 800 registers
+	when link speed is 1000Mbps
+Date: Thu, 17 Jun 2010 21:59:06 -0700
+Message-ID: <20100618045904.6728.18894.stgit@localhost.localdomain>
+References: <20100618045804.6728.37945.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,144 +12,40 @@ Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta11.emeryville.ca.mail.comcast.net ([76.96.27.211]:38006
-	"EHLO qmta11.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752119Ab0FRE7F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jun 2010 00:59:05 -0400
+Received: from qmta03.emeryville.ca.mail.comcast.net ([76.96.30.32]:52254 "EHLO
+	qmta03.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752408Ab0FRE7Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jun 2010 00:59:25 -0400
+In-Reply-To: <20100618045804.6728.37945.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Avoid touching hardware registers when possible, otherwise link negotiation
-can get messed up when user-level scripts are rapidly polling the driver to
-see if/when link is up.  Use the saved link state information instead when
-possible.
+The PHY on 82577/82578 has issues when the registers on page 800 are
+accessed when in gigabit mode.  Do not clear the Wakeup Control register
+when resetting the part since it is on page 800 (and will be cleared on
+reset anyway).
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/e1000.h   |    1 -
- drivers/net/e1000e/ethtool.c |   54 ++++++++++++++++++++++--------------------
- drivers/net/e1000e/netdev.c  |    2 +-
- 3 files changed, 29 insertions(+), 28 deletions(-)
+ drivers/net/e1000e/netdev.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index 328b7f4..9ee133f 100644
---- a/drivers/net/e1000e/e1000.h
-+++ b/drivers/net/e1000e/e1000.h
-@@ -461,7 +461,6 @@ extern int e1000e_setup_tx_resources(struct e1000_adapter *adapter);
- extern void e1000e_free_rx_resources(struct e1000_adapter *adapter);
- extern void e1000e_free_tx_resources(struct e1000_adapter *adapter);
- extern void e1000e_update_stats(struct e1000_adapter *adapter);
--extern bool e1000e_has_link(struct e1000_adapter *adapter);
- extern void e1000e_set_interrupt_capability(struct e1000_adapter *adapter);
- extern void e1000e_reset_interrupt_capability(struct e1000_adapter *adapter);
- extern void e1000e_disable_aspm(struct pci_dev *pdev, u16 state);
-diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-index db86850..77c5829 100644
---- a/drivers/net/e1000e/ethtool.c
-+++ b/drivers/net/e1000e/ethtool.c
-@@ -118,7 +118,6 @@ static int e1000_get_settings(struct net_device *netdev,
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
- 	struct e1000_hw *hw = &adapter->hw;
--	u32 status;
- 
- 	if (hw->phy.media_type == e1000_media_type_copper) {
- 
-@@ -156,22 +155,29 @@ static int e1000_get_settings(struct net_device *netdev,
- 		ecmd->transceiver = XCVR_EXTERNAL;
- 	}
- 
--	status = er32(STATUS);
--	if (status & E1000_STATUS_LU) {
--		if (status & E1000_STATUS_SPEED_1000)
--			ecmd->speed = 1000;
--		else if (status & E1000_STATUS_SPEED_100)
--			ecmd->speed = 100;
--		else
--			ecmd->speed = 10;
-+	ecmd->speed = -1;
-+	ecmd->duplex = -1;
- 
--		if (status & E1000_STATUS_FD)
--			ecmd->duplex = DUPLEX_FULL;
--		else
--			ecmd->duplex = DUPLEX_HALF;
-+	if (netif_running(netdev)) {
-+		if (netif_carrier_ok(netdev)) {
-+			ecmd->speed = adapter->link_speed;
-+			ecmd->duplex = adapter->link_duplex - 1;
-+		}
- 	} else {
--		ecmd->speed = -1;
--		ecmd->duplex = -1;
-+		u32 status = er32(STATUS);
-+		if (status & E1000_STATUS_LU) {
-+			if (status & E1000_STATUS_SPEED_1000)
-+				ecmd->speed = 1000;
-+			else if (status & E1000_STATUS_SPEED_100)
-+				ecmd->speed = 100;
-+			else
-+				ecmd->speed = 10;
-+
-+			if (status & E1000_STATUS_FD)
-+				ecmd->duplex = DUPLEX_FULL;
-+			else
-+				ecmd->duplex = DUPLEX_HALF;
-+		}
- 	}
- 
- 	ecmd->autoneg = ((hw->phy.media_type == e1000_media_type_fiber) ||
-@@ -179,7 +185,7 @@ static int e1000_get_settings(struct net_device *netdev,
- 
- 	/* MDI-X => 2; MDI =>1; Invalid =>0 */
- 	if ((hw->phy.media_type == e1000_media_type_copper) &&
--	    !hw->mac.get_link_status)
-+	    netif_carrier_ok(netdev))
- 		ecmd->eth_tp_mdix = hw->phy.is_mdix ? ETH_TP_MDI_X :
- 		                                      ETH_TP_MDI;
- 	else
-@@ -191,19 +197,15 @@ static int e1000_get_settings(struct net_device *netdev,
- static u32 e1000_get_link(struct net_device *netdev)
- {
- 	struct e1000_adapter *adapter = netdev_priv(netdev);
--	struct e1000_mac_info *mac = &adapter->hw.mac;
-+	struct e1000_hw *hw = &adapter->hw;
- 
- 	/*
--	 * If the link is not reported up to netdev, interrupts are disabled,
--	 * and so the physical link state may have changed since we last
--	 * looked. Set get_link_status to make sure that the true link
--	 * state is interrogated, rather than pulling a cached and possibly
--	 * stale link state from the driver.
-+	 * Avoid touching hardware registers when possible, otherwise
-+	 * link negotiation can get messed up when user-level scripts
-+	 * are rapidly polling the driver to see if link is up.
- 	 */
--	if (!netif_carrier_ok(netdev))
--		mac->get_link_status = 1;
--
--	return e1000e_has_link(adapter);
-+	return netif_running(netdev) ? netif_carrier_ok(netdev) :
-+	    !!(er32(STATUS) & E1000_STATUS_LU);
- }
- 
- static int e1000_set_spd_dplx(struct e1000_adapter *adapter, u16 spddplx)
 diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 8faf224..2a71889 100644
+index 2a71889..aa14976 100644
 --- a/drivers/net/e1000e/netdev.c
 +++ b/drivers/net/e1000e/netdev.c
-@@ -3964,7 +3964,7 @@ static void e1000_print_link_info(struct e1000_adapter *adapter)
- 	       ((ctrl & E1000_CTRL_TFCE) ? "TX" : "None" )));
- }
+@@ -3184,8 +3184,6 @@ void e1000e_reset(struct e1000_adapter *adapter)
+ 		e1000_get_hw_control(adapter);
  
--bool e1000e_has_link(struct e1000_adapter *adapter)
-+static bool e1000e_has_link(struct e1000_adapter *adapter)
- {
- 	struct e1000_hw *hw = &adapter->hw;
- 	bool link_active = 0;
+ 	ew32(WUC, 0);
+-	if (adapter->flags2 & FLAG2_HAS_PHY_WAKEUP)
+-		e1e_wphy(&adapter->hw, BM_WUC, 0);
+ 
+ 	if (mac->ops.init_hw(hw))
+ 		e_err("Hardware Error\n");
 
