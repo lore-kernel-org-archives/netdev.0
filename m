@@ -1,138 +1,109 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH] PCI: MSI: Remove unsafe and unnecessary hardware
- access
-Date: Thu, 17 Jun 2010 16:58:57 -0700
-Message-ID: <1276819137.9345.14.camel@HP1>
-References: <1276564403.19104.28.camel@HP1>
- <1276802196.2083.12.camel@achroite.uk.solarflarecom.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [PATCH v2 2/2] broadcom: Add 5241 support
+Date: Thu, 17 Jun 2010 18:22:49 -0700
+Message-ID: <20100618012249.GB30449@mcarlson.broadcom.com>
+References: <1276765344-12675-1-git-send-email-dbaryshkov@gmail.com>
+ <1276765344-12675-2-git-send-email-dbaryshkov@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Jesse Barnes" <jbarnes@virtuousgeek.org>,
-	"Matthew Wilcox" <matthew@wil.cx>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Ben Hutchings" <bhutchings@solarflare.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Matthew Carlson" <mcarlson@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>
+To: "Dmitry Eremin-Solenikov" <dbaryshkov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4636 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:1883 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760887Ab0FQX71 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jun 2010 19:59:27 -0400
-In-Reply-To: <1276802196.2083.12.camel@achroite.uk.solarflarecom.com>
+	id S1751098Ab0FRBXE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jun 2010 21:23:04 -0400
+In-Reply-To: <1276765344-12675-2-git-send-email-dbaryshkov@gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Jun 17, 2010 at 02:02:24AM -0700, Dmitry Eremin-Solenikov wrote:
+> This patch adds the 5241 PHY ID to the broadcom module.
 
-On Thu, 2010-06-17 at 12:16 -0700, Ben Hutchings wrote:
-> During suspend on an SMP system, {read,write}_msi_msg_desc() may be
-> called to mask and unmask interrupts on a device that is already in a
-> reduced power state.  At this point memory-mapped registers including
-> MSI-X tables are not accessible, and config space may not be fully
-> functional either.
-> 
-> While a device is in a reduced power state its interrupts are
-> effectively masked and its MSI(-X) state will be restored when it is
-> brought back to D0.  Therefore these functions can simply read and
-> write msi_desc::msg for devices not in D0.
-> 
-> Further, read_msi_msg_desc() should only ever be used to update a
-> previously written message, so it can always read msi_desc::msg
-> and never needs to touch the hardware.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+This looks O.K. to me.  I'm curious, do the LEDs behave as
+you expect them to?
 
-This works for me too.  Thanks Ben.
-
+> Signed-off-by: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
 > ---
-> On Mon, 2010-06-14 at 18:13 -0700, Michael Chan wrote: 
-> > I'm debugging the bnx2 driver which doesn't work after suspend/resume if
-> > it is running in MSI-X mode.  The problem is that during suspend, the
-> > MSI-X vectors are disabled by the following sequence on x86:
-> > 
-> > take_cpu_down() -> cpu_disable_common() -> fixup_irqs()
-> >
-> > The MSI-X address/data used to disable the vectors are remembered in the
-> > above sequence. During resume, these address/data are then programmed
-> > back to the device during pci_restore_state(), causing all the vectors
-> > to remain disabled.
+>  drivers/net/phy/broadcom.c |   22 ++++++++++++++++++++++
+>  include/linux/brcmphy.h    |    1 +
+>  2 files changed, 23 insertions(+), 0 deletions(-)
 > 
-> That's not quite what I see.  What I see is that the message is read
-> back from the table *after* the driver's suspend method has been called.
-> At this point the device is already in D3 and memory-mapped registers
-> are not accessible, so we get random bits as the message.  At least,
-> that's what I see happening with the sfc driver.
-> 
-> > Some drivers call free_irq() during suspend and request_irq() during
-> > resume, and that should avoid the problem.  bnx2 and some other drivers
-> > do not do that.  These drivers rely on pci_restore_state() to restore
-> > the MSI-X vectors to the same working state before suspend.
-> > 
-> > What's the right way to fix this?  Thanks.
-> 
-> This is my attempt, which works for sfc.  See if it works for bnx2.
-> 
-> Ben.
-> 
->  drivers/pci/msi.c |   34 +++++++++++-----------------------
->  1 files changed, 11 insertions(+), 23 deletions(-)
-> 
-> diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
-> index 77b68ea..03f04dc 100644
-> --- a/drivers/pci/msi.c
-> +++ b/drivers/pci/msi.c
-> @@ -196,30 +196,15 @@ void unmask_msi_irq(unsigned int irq)
->  void read_msi_msg_desc(struct irq_desc *desc, struct msi_msg *msg)
->  {
->  	struct msi_desc *entry = get_irq_desc_msi(desc);
-> -	if (entry->msi_attrib.is_msix) {
-> -		void __iomem *base = entry->mask_base +
-> -			entry->msi_attrib.entry_nr * PCI_MSIX_ENTRY_SIZE;
+> diff --git a/drivers/net/phy/broadcom.c b/drivers/net/phy/broadcom.c
+> index b743d37..4accd83 100644
+> --- a/drivers/net/phy/broadcom.c
+> +++ b/drivers/net/phy/broadcom.c
+> @@ -834,6 +834,21 @@ static struct phy_driver bcmac131_driver = {
+>  	.driver		= { .owner = THIS_MODULE },
+>  };
 >  
-> -		msg->address_lo = readl(base + PCI_MSIX_ENTRY_LOWER_ADDR);
-> -		msg->address_hi = readl(base + PCI_MSIX_ENTRY_UPPER_ADDR);
-> -		msg->data = readl(base + PCI_MSIX_ENTRY_DATA);
-> -	} else {
-> -		struct pci_dev *dev = entry->dev;
-> -		int pos = entry->msi_attrib.pos;
-> -		u16 data;
-> +	/* We do not touch the hardware (which may not even be
-> +	 * accessible at the moment) but return the last message
-> +	 * written.  Assert that this is valid, assuming that
-> +	 * valid messages are not all-zeroes. */
-> +	BUG_ON(!(entry->msg.address_hi | entry->msg.address_lo |
-> +		 entry->msg.data));
->  
-> -		pci_read_config_dword(dev, msi_lower_address_reg(pos),
-> -					&msg->address_lo);
-> -		if (entry->msi_attrib.is_64) {
-> -			pci_read_config_dword(dev, msi_upper_address_reg(pos),
-> -						&msg->address_hi);
-> -			pci_read_config_word(dev, msi_data_reg(pos, 1), &data);
-> -		} else {
-> -			msg->address_hi = 0;
-> -			pci_read_config_word(dev, msi_data_reg(pos, 0), &data);
-> -		}
-> -		msg->data = data;
-> -	}
-> +	*msg = entry->msg;
->  }
->  
->  void read_msi_msg(unsigned int irq, struct msi_msg *msg)
-> @@ -232,7 +217,10 @@ void read_msi_msg(unsigned int irq, struct msi_msg *msg)
->  void write_msi_msg_desc(struct irq_desc *desc, struct msi_msg *msg)
->  {
->  	struct msi_desc *entry = get_irq_desc_msi(desc);
-> -	if (entry->msi_attrib.is_msix) {
+> +static struct phy_driver bcm5241_driver = {
+> +	.phy_id		= PHY_ID_BCM5241,
+> +	.phy_id_mask	= 0xfffffff0,
+> +	.name		= "Broadcom BCM5241",
+> +	.features	= PHY_BASIC_FEATURES |
+> +			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
+> +	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+> +	.config_init	= brcm_fet_config_init,
+> +	.config_aneg	= genphy_config_aneg,
+> +	.read_status	= genphy_read_status,
+> +	.ack_interrupt	= brcm_fet_ack_interrupt,
+> +	.config_intr	= brcm_fet_config_intr,
+> +	.driver		= { .owner = THIS_MODULE },
+> +};
 > +
-> +	if (entry->dev->current_state != PCI_D0) {
-> +		/* Don't touch the hardware now */
-> +	} else if (entry->msi_attrib.is_msix) {
->  		void __iomem *base;
->  		base = entry->mask_base +
->  			entry->msi_attrib.entry_nr * PCI_MSIX_ENTRY_SIZE;
+>  static int __init broadcom_init(void)
+>  {
+>  	int ret;
+> @@ -868,8 +883,13 @@ static int __init broadcom_init(void)
+>  	ret = phy_driver_register(&bcmac131_driver);
+>  	if (ret)
+>  		goto out_ac131;
+> +	ret = phy_driver_register(&bcm5241_driver);
+> +	if (ret)
+> +		goto out_5241;
+>  	return ret;
+>  
+> +out_5241:
+> +	phy_driver_unregister(&bcmac131_driver);
+>  out_ac131:
+>  	phy_driver_unregister(&bcm57780_driver);
+>  out_57780:
+> @@ -894,6 +914,7 @@ out_5411:
+>  
+>  static void __exit broadcom_exit(void)
+>  {
+> +	phy_driver_unregister(&bcm5241_driver);
+>  	phy_driver_unregister(&bcmac131_driver);
+>  	phy_driver_unregister(&bcm57780_driver);
+>  	phy_driver_unregister(&bcm50610m_driver);
+> @@ -920,6 +941,7 @@ static struct mdio_device_id broadcom_tbl[] = {
+>  	{ PHY_ID_BCM50610M, 0xfffffff0 },
+>  	{ PHY_ID_BCM57780, 0xfffffff0 },
+>  	{ PHY_ID_BCMAC131, 0xfffffff0 },
+> +	{ PHY_ID_BCM5241, 0xfffffff0 },
+>  	{ }
+>  };
+>  
+> diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
+> index c14c3a1..b840a49 100644
+> --- a/include/linux/brcmphy.h
+> +++ b/include/linux/brcmphy.h
+> @@ -1,5 +1,6 @@
+>  #define PHY_ID_BCM50610			0x0143bd60
+>  #define PHY_ID_BCM50610M		0x0143bd70
+> +#define PHY_ID_BCM5241			0x0143bc30
+>  #define PHY_ID_BCMAC131			0x0143bc70
+>  #define PHY_ID_BCM5481			0x0143bca0
+>  #define PHY_ID_BCM5482			0x0143bcb0
 > -- 
-> 1.6.2.5
+> 1.7.1
 > 
 > 
-
 
