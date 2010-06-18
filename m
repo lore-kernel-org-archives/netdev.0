@@ -1,32 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2010-06-17
-Date: Fri, 18 Jun 2010 09:01:28 -0700 (PDT)
-Message-ID: <20100618.090128.48507643.davem@davemloft.net>
-References: <20100617210242.GB2368@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100617210242.GB2368-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: [PATCH net-next 0/9] cxgb4 update v2
+Date: Fri, 18 Jun 2010 13:05:26 -0700
+Message-ID: <1276891535-13967-1-git-send-email-dm@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:28151 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933072Ab0FRUMU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jun 2010 16:12:20 -0400
+Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
+	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o5IKCJQE018644
+	for <netdev@vger.kernel.org>; Fri, 18 Jun 2010 13:12:20 -0700
+Received: from darkside.asicdesigners.com (localhost.localdomain [127.0.0.1])
+	by darkside.asicdesigners.com (8.13.4/8.13.4) with ESMTP id o5IK5ZFQ014009
+	for <netdev@vger.kernel.org>; Fri, 18 Jun 2010 13:05:35 -0700
+Received: (from dm@localhost)
+	by darkside.asicdesigners.com (8.13.4/8.13.4/Submit) id o5IK5ZrN014008
+	for netdev@vger.kernel.org; Fri, 18 Jun 2010 13:05:35 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Thu, 17 Jun 2010 17:02:42 -0400
 
-> Another week, another bunch of patches intende for 2.6.36...
-> This week's batch includes the usual updates to ath5k, ath9k,
-> iwlwifi, rt2x00, and other drivers.  Also included are a lot of
-> cleanup/maintenance for mac80211 from Johannes and some IBSS-related
-> changes from Teemu, as well as a number of other patches from a
-> variety of contributors.
-> 
-> Please let me know if there are problems!
+Here's v2 of the cxgb4 series.  Of the 9 patches patch 8 has been updated to
+fix the iw_cxgb4 breakage and the rest are as before.
 
-Pulled, thanks JOhn.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ drivers/net/cxgb4/cxgb4.h      |    6 +-
+ drivers/net/cxgb4/cxgb4_main.c |  281 ++++++++++++++++++++++++++++++----------
+ drivers/net/cxgb4/cxgb4_uld.h  |    2 +
+ drivers/net/cxgb4/l2t.c        |    7 +
+ drivers/net/cxgb4/t4_hw.c      |   94 ++++++++++----
+ drivers/net/cxgb4/t4_hw.h      |    2 -
+ drivers/net/cxgb4/t4_regs.h    |    3 +
+ drivers/net/cxgb4/t4fw_api.h   |   34 ++++-
+ 8 files changed, 325 insertions(+), 104 deletions(-)
