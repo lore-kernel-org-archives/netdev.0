@@ -1,67 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC PATCH v7 01/19] Add a new structure for skb buffer from
-	external.
-Date: Fri, 18 Jun 2010 15:59:29 +1000
-Message-ID: <20100618055929.GA11333@gondor.apana.org.au>
-References: <1275732899-5423-1-git-send-email-xiaohui.xin@intel.com> <20100606161348.427822fb@nehalam> <20100608052744.GA21547@gondor.apana.org.au> <F2E9EB7348B8264F86B6AB8151CE2D791100848F9F@shsmsx502.ccr.corp.intel.com> <20100611052112.GA25649@gondor.apana.org.au> <F2E9EB7348B8264F86B6AB8151CE2D791210AA4475@shsmsx502.ccr.corp.intel.com> <F2E9EB7348B8264F86B6AB8151CE2D79134F9AA999@shsmsx502.ccr.corp.intel.com> <20100617112119.GB1515@gondor.apana.org.au> <F2E9EB7348B8264F86B6AB8151CE2D7915089FE4CC@shsmsx502.ccr.corp.intel.com>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: [Bugme-new] [Bug 16187] New: Carrier detection failed in
+	dhcpcd when link is up
+Date: Fri, 18 Jun 2010 00:16:41 -0600
+Message-ID: <20100618061641.GA7039@lackof.org>
+References: <bug-16187-10286@https.bugzilla.kernel.org/> <20100615142418.f47e8abd.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>,
-	Rusty Russell <rusty@rustcorp.com.au>
-To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, Grant Grundler <grundler@parisc-linux.org>,
+	Kyle McMartin <kyle@mcmartin.ca>,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, casteyde.christian@free.fr
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from complete.lackof.org ([198.49.126.79]:39189 "EHLO
+	complete.lackof.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753262Ab0FRGQ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jun 2010 02:16:56 -0400
 Content-Disposition: inline
-In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D7915089FE4CC@shsmsx502.ccr.corp.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20100615142418.f47e8abd.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 18, 2010 at 01:26:49PM +0800, Xin, Xiaohui wrote:
->
-> Herbert,
-> I have questions about the idea above:
-> 1) Since netdev_alloc_skb() is still there, and we only modify alloc_page(), 
-> then we don't need napi_gro_frags() any more, the driver's original receiving 
-> function is ok. Right?
-
-Well I was actually thinking about converting all drivers that
-need this to napi_gro_frags.  But now that you mention it, yes
-we could still keep the old interface to minimise the work.
-
-> 2) Is napi_gro_frags() only suitable for TCP protocol packet? 
-> I have done a small test for ixgbe driver to let it only allocate paged buffers 
-> and found kernel hangs when napi_gro_frags() receives an ARP packet.
-
-It should work with any packet.  In fact, I'm pretty sure the
-other drivers (e.g., cxgb3) use that interface for all packets.
-
-> 3) As I have mentioned above, with this idea, netdev_alloc_skb() will allocate 
-> as usual, the data pointed by skb->data will be copied into the first guest buffer. 
-> That means we should reserve sufficient room in guest buffer. For PS mode 
-> supported driver (for example ixgbe), the room will be more than 128. After 128bytes, 
-> we will put the first frag data. Look into virtio-net.c the function page_to_skb()  
-> and receive_mergeable(), that means we should modify guest virtio-net driver to 
-> compute the offset as the parameter for skb_set_frag().
+On Tue, Jun 15, 2010 at 02:24:18PM -0700, Andrew Morton wrote:
 > 
-> How do you think about this? Attached is a patch to how to modify the guest driver.
-> I reserve 512 bytes as an example, and transfer the header len of the skb in hdr->hdr_len.
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
 
-Expanding the buffer size to 512 bytes to accomodate PS mode
-looks reasonable to me.
+I've resync to linus' tree (2.6.35-rc3) and reviewed the output of:
+    git diff v2.6.34 drivers/net/tulip/
 
-However, I don't think we should increase the copy threshold to
-512 bytes at the same time.  I don't have any figures myself but
-I think if we are to make such a change it should be a separate
-one and come with supporting numbers.
+I don't see anything that would affect how link state
+changes get reported to user space.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I'm not inclined to believe this is a tulip "bug" unless
+core netdev behavior changed and tulip is not longer
+doing the right thing.
+
+hth,
+grant
