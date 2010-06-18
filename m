@@ -1,61 +1,154 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch 2/2] mlx4: add dynamic LRO disable support
-Date: Fri, 18 Jun 2010 11:10:31 +0800
-Message-ID: <4C1AE3A7.6010004@redhat.com>
-References: <20100603034303.5305.55552.sendpatchset@localhost.localdomain> <20100603034312.5305.61000.sendpatchset@localhost.localdomain> <1275568622.2870.89.camel@localhost> <4C085D45.6040001@redhat.com> <1275661552.2095.13.camel@achroite.uk.solarflarecom.com> <4C0F5D97.5030605@redhat.com> <20100609104950.GB2599@dhcp-lab-161.englab.brq.redhat.com> <4C173F87.7000704@redhat.com> <20100615113926.30d0cd01@dhcp-lab-109.englab.brq.redhat.com> <4C19FEE4.4000804@redhat.com> <20100617120318.GA4059@dhcp-lab-161.englab.brq.redhat.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 PATCH 1/4] e1000e: avoid polling h/w registers during
+	link negotiation
+Date: Thu, 17 Jun 2010 21:58:43 -0700
+Message-ID: <20100618045804.6728.37945.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
-	herbert.xu@redhat.com, nhorman@redhat.com, davem@davemloft.net
-To: Stanislaw Gruszka <sgruszka@redhat.com>
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29687 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755611Ab0FRD3Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jun 2010 23:29:24 -0400
-In-Reply-To: <20100617120318.GA4059@dhcp-lab-161.englab.brq.redhat.com>
+Received: from qmta11.emeryville.ca.mail.comcast.net ([76.96.27.211]:38006
+	"EHLO qmta11.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752119Ab0FRE7F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jun 2010 00:59:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/17/10 20:03, Stanislaw Gruszka wrote:
-> On Thu, Jun 17, 2010 at 06:54:28PM +0800, Cong Wang wrote:
->>>> I don't think mdev->state_lock is used to protect dev->feature.
->>>> rtnl_lock is. I think switching to mlx4_ethtool_op_set_flags()
->>>> from the default one has already solved this.
->>>
->>> Ahh, you have right, may intention was use it to stop and start
->>> port. Code rather should look like below:
->>>
->>> 	if (netdev_running(dev)) {
->>> 		mutex_lock(&mdev->state_lock);
->>> 		mlx4_en_stop_port(dev);
->>> 	}
->>>
->>> 	dev->features ^= NETIF_F_LRO;
->>>
->>> 	if (netdev_running(dev)) {
->>> 		rc = mlx4_en_start_port(dev);
->>> 		mutex_unlock(&mdev->state_lock);
->>>    		if (rc)
->>> 		en_err(priv, "Failed to restart port\n");
->>> 	}
->>>
->>
->> Hmm, you mean ->features should be changed after port is stopped?
->
-> Actually not ->features variable, but NETIF_F_LRO bit, as only this
-> bit is used in rx path.
->
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Yeah, this is what I meant.
+Avoid touching hardware registers when possible, otherwise link negotiation
+can get messed up when user-level scripts are rapidly polling the driver to
+see if/when link is up.  Use the saved link state information instead when
+possible.
 
->> Why?
->
-> For reasons you talked before in this thread :) to do not change
-> LRO in the middle of receiving packages.
->
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
 
-Ohh... I missed this, seems reasonable, will fix this in the next update.
+ drivers/net/e1000e/e1000.h   |    1 -
+ drivers/net/e1000e/ethtool.c |   54 ++++++++++++++++++++++--------------------
+ drivers/net/e1000e/netdev.c  |    2 +-
+ 3 files changed, 29 insertions(+), 28 deletions(-)
 
-Thanks.
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index 328b7f4..9ee133f 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -461,7 +461,6 @@ extern int e1000e_setup_tx_resources(struct e1000_adapter *adapter);
+ extern void e1000e_free_rx_resources(struct e1000_adapter *adapter);
+ extern void e1000e_free_tx_resources(struct e1000_adapter *adapter);
+ extern void e1000e_update_stats(struct e1000_adapter *adapter);
+-extern bool e1000e_has_link(struct e1000_adapter *adapter);
+ extern void e1000e_set_interrupt_capability(struct e1000_adapter *adapter);
+ extern void e1000e_reset_interrupt_capability(struct e1000_adapter *adapter);
+ extern void e1000e_disable_aspm(struct pci_dev *pdev, u16 state);
+diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
+index db86850..77c5829 100644
+--- a/drivers/net/e1000e/ethtool.c
++++ b/drivers/net/e1000e/ethtool.c
+@@ -118,7 +118,6 @@ static int e1000_get_settings(struct net_device *netdev,
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
+-	u32 status;
+ 
+ 	if (hw->phy.media_type == e1000_media_type_copper) {
+ 
+@@ -156,22 +155,29 @@ static int e1000_get_settings(struct net_device *netdev,
+ 		ecmd->transceiver = XCVR_EXTERNAL;
+ 	}
+ 
+-	status = er32(STATUS);
+-	if (status & E1000_STATUS_LU) {
+-		if (status & E1000_STATUS_SPEED_1000)
+-			ecmd->speed = 1000;
+-		else if (status & E1000_STATUS_SPEED_100)
+-			ecmd->speed = 100;
+-		else
+-			ecmd->speed = 10;
++	ecmd->speed = -1;
++	ecmd->duplex = -1;
+ 
+-		if (status & E1000_STATUS_FD)
+-			ecmd->duplex = DUPLEX_FULL;
+-		else
+-			ecmd->duplex = DUPLEX_HALF;
++	if (netif_running(netdev)) {
++		if (netif_carrier_ok(netdev)) {
++			ecmd->speed = adapter->link_speed;
++			ecmd->duplex = adapter->link_duplex - 1;
++		}
+ 	} else {
+-		ecmd->speed = -1;
+-		ecmd->duplex = -1;
++		u32 status = er32(STATUS);
++		if (status & E1000_STATUS_LU) {
++			if (status & E1000_STATUS_SPEED_1000)
++				ecmd->speed = 1000;
++			else if (status & E1000_STATUS_SPEED_100)
++				ecmd->speed = 100;
++			else
++				ecmd->speed = 10;
++
++			if (status & E1000_STATUS_FD)
++				ecmd->duplex = DUPLEX_FULL;
++			else
++				ecmd->duplex = DUPLEX_HALF;
++		}
+ 	}
+ 
+ 	ecmd->autoneg = ((hw->phy.media_type == e1000_media_type_fiber) ||
+@@ -179,7 +185,7 @@ static int e1000_get_settings(struct net_device *netdev,
+ 
+ 	/* MDI-X => 2; MDI =>1; Invalid =>0 */
+ 	if ((hw->phy.media_type == e1000_media_type_copper) &&
+-	    !hw->mac.get_link_status)
++	    netif_carrier_ok(netdev))
+ 		ecmd->eth_tp_mdix = hw->phy.is_mdix ? ETH_TP_MDI_X :
+ 		                                      ETH_TP_MDI;
+ 	else
+@@ -191,19 +197,15 @@ static int e1000_get_settings(struct net_device *netdev,
+ static u32 e1000_get_link(struct net_device *netdev)
+ {
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+-	struct e1000_mac_info *mac = &adapter->hw.mac;
++	struct e1000_hw *hw = &adapter->hw;
+ 
+ 	/*
+-	 * If the link is not reported up to netdev, interrupts are disabled,
+-	 * and so the physical link state may have changed since we last
+-	 * looked. Set get_link_status to make sure that the true link
+-	 * state is interrogated, rather than pulling a cached and possibly
+-	 * stale link state from the driver.
++	 * Avoid touching hardware registers when possible, otherwise
++	 * link negotiation can get messed up when user-level scripts
++	 * are rapidly polling the driver to see if link is up.
+ 	 */
+-	if (!netif_carrier_ok(netdev))
+-		mac->get_link_status = 1;
+-
+-	return e1000e_has_link(adapter);
++	return netif_running(netdev) ? netif_carrier_ok(netdev) :
++	    !!(er32(STATUS) & E1000_STATUS_LU);
+ }
+ 
+ static int e1000_set_spd_dplx(struct e1000_adapter *adapter, u16 spddplx)
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 8faf224..2a71889 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -3964,7 +3964,7 @@ static void e1000_print_link_info(struct e1000_adapter *adapter)
+ 	       ((ctrl & E1000_CTRL_TFCE) ? "TX" : "None" )));
+ }
+ 
+-bool e1000e_has_link(struct e1000_adapter *adapter)
++static bool e1000e_has_link(struct e1000_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	bool link_active = 0;
+
