@@ -1,32 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: BUG: double spinlock in "drivers/net/3c505.c"
-Date: Thu, 17 Jun 2010 20:12:16 -0700 (PDT)
-Message-ID: <20100617.201216.115931147.davem@davemloft.net>
-References: <201006071517.28744.strakh@ispras.ru>
-	<1276003605.3916.14.camel@lovely>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH 8/8] bridge: Fix netpoll support
+Date: Fri, 18 Jun 2010 11:06:19 +0800
+Message-ID: <4C1AE2AB.50609@redhat.com>
+References: <20100611021142.GA24490@gondor.apana.org.au> <E1OMtjm-0006PK-D6@gondolin.me.apana.org.au> <4C1755C1.3060804@redhat.com> <20100617103819.GA1252@gondor.apana.org.au> <4C19FF98.5080105@redhat.com> <20100617105526.GA1440@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: strakh@ispras.ru, philb@gnu.org, craigs@ineluki.apana.org.au,
-	tridge@nimbus.anu.edu.au, Alan.Cox@linux.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: chf.fritz@googlemail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1276003605.3916.14.camel@lovely>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Qianfeng Zhang <frzhang@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Matt Mackall <mpm@selenic.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Herbert Xu <herbert@gondor.hengli.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:55502 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757183Ab0FRDZx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jun 2010 23:25:53 -0400
+In-Reply-To: <20100617105526.GA1440@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Fritz <chf.fritz@googlemail.com>
-Date: Tue, 08 Jun 2010 15:26:45 +0200
+On 06/17/10 18:55, Herbert Xu wrote:
+> On Thu, Jun 17, 2010 at 06:57:28PM +0800, Cong Wang wrote:
+>>
+>> Hmm, I get it now. So this helps to fix problem 3)?
+>
+> Yes, by allocating real netpoll structures for each device that
+> we're polling, instead of sharing a single one amongst all of
+> them.
+>
+> This is also the basis of the solution of the use-after-free bug.
+>
 
-> On Mon, 2010-06-07 at 15:17 +0400, Alexander Strakh wrote: 
->> 	KERNEL_VERSION: 2.6.35-rc1
->>         SUBJECT: duble spinlock  in function elp_start_xmit
-> 
-> Not only in elp_start_xmit. This driver is for a pretty old and slow isa
-> ethernet card and I think nobody cares. To quote a comment from the
-> source: "[...] the concurrency protection is particularly awful".
-
-Indeed, I spent some time trying to unravel the locking mess
-for these call chains to check_3c505_dma() and it was just
-too much to sanely cure.
+Looks reasonable.
+Thank you for your patch!
