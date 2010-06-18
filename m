@@ -1,82 +1,143 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH] socketcan: add a driver for FlexCAN controllers.
-Date: Fri, 18 Jun 2010 13:04:07 +0200
-Message-ID: <4C1B52A7.3060607@grandegger.com>
-References: <20100617105201.GA2015@bluebox.local>	<4C1B4098.3090800@grandegger.com>
-	<4C1B4796.3060506@pengutronix.de> <4C1B4B85.3010905@grandegger.com>
-	<4C1B4DF0.2090103@pengutronix.de>
+From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Subject: Re: Distributed Switch Architecture(DSA)
+Date: Fri, 18 Jun 2010 13:09:32 +0200
+Message-ID: <OF8E185B56.9B8AB610-ONC1257746.003A78DF-C1257746.003D4C6C@transmode.se>
+References: <OF4DC5B7A3.2D318B4E-ONC1257746.00253DA6-C1257746.002714B0@transmode.se> <20100618073309.GB14513@mail.wantstofly.org> <OF68B8EEAD.B003EFE7-ONC1257746.003109DB-C1257746.0032D371@transmode.se> <20100618095923.GC14513@mail.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4C1B4DF0.2090103-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw1.transmode.se ([213.115.205.20]:32986 "EHLO gw1.transmode.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760023Ab0FRLJh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jun 2010 07:09:37 -0400
+In-Reply-To: <20100618095923.GC14513@mail.wantstofly.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/18/2010 12:44 PM, Marc Kleine-Budde wrote:
-> Wolfgang Grandegger wrote:
->> On 06/18/2010 12:16 PM, Marc Kleine-Budde wrote:
->>> Wolfgang Grandegger wrote:
->>>> Hi Hans-J=FCrgen,
->>>>
->>>> On 06/17/2010 12:52 PM, Hans J. Koch wrote:
->>>>> This adds a driver for FlexCAN based CAN controllers,
->>>>> e.g. found in Freescale i.MX35 SoCs.
->>>>>
->>>>> The original version of this driver was posted by Sascha Hauer in Jul=
-y 2009:
->>>>> http://kerneltrap.org/mailarchive/linux-netdev/2009/7/29/6251621
->>>>>
->>>>> I took this version, added NAPI support, and fixed some problems found
->>>>> during testing. Well, here is the result. Please review.
->>>> I briefly browsed the patch and various bits and pieces are missing or
->>>> not correctly implemented. Marc already pointed out a few of them:
->>>>
->>>> - I do not find can_put/get_echo_skb functions in the code. How is
->>>>   IFF_ECHO supposed to work?
->>> the driver uses hardware loopback
->>
->> OK, then
->>
->>   dev =3D alloc_candev(sizeof(struct flexcan_priv), 0);
->>
->> should be used (and TX_ECHO_SKB_MAX removed) in Hans-J=FCrgens driver.
->>
->>>> - Support for CAN_CTRLMODE_BERR_REPORTING and do_get_berr_counter()
->>>>   seems to be missing.
->>>>
->>>> - Make use of alloc_can_skb() and alloc_can_err_skb().
->>> the last two points are already addressed in my version of the driver.
->>
->> I do not see support for CAN_CTRLMODE_BERR_REPORTING in your driver
->> (which has nothing to do with do_get_berr_counter).
-> =
+Lennert Buytenhek <buytenh@wantstofly.org> wrote on 2010/06/18 11:59:23:
+>
+> On Fri, Jun 18, 2010 at 11:15:09AM +0200, Joakim Tjernlund wrote:
+>
+> > > > I am trying to wrap my head around DSA and I need some help.
+> > > >
+> > > > Assume the example from Lennert:
+> > > >
+> > > >        +-----------+       +-----------+
+> > > >        |           | RGMII |           |
+> > > >        |           +-------+           +------ 1000baseT MDI ("WAN")
+> > > >        |           |       |  6-port   +------ 1000baseT MDI ("LAN1")
+> > > >        |    CPU    |       |  ethernet +------ 1000baseT MDI ("LAN2")
+> > > >        |           |MIImgmt|  switch   +------ 1000baseT MDI ("LAN3")
+> > > >        |           +-------+  w/5 PHYs +------ 1000baseT MDI ("LAN4")
+> > > >        |           |       |           |
+> > > >        +-----------+       +-----------+
+> > > >
+> > > > If I understand this correctly I get at least 5 virtual I/Fs corresponding
+> > > > to WAN, LAN1-4, but how is the RGMII I/F modelled?
+> > >
+> > > The RGMII interface is just the interface that your "real" network
+> > > driver exports.  In the case of the Kirkwood 6281 A0 Reference Design
+> > > (which I developed this code on), that would be eth0.  After the DSA
+> > > driver is instantiated, you don't send or receive over eth0 directly
+> > > anymore -- eth0 becomes purely a transport for DSA-tagged packets.
+> >
+> > hmm, but how do I send normal pkgs form the CPU to the switch then?
+>
+> Define what you mean by 'normal pkgs'.
 
-> oh yes...sorry, got confused.
-> =
+An ethernet broadcast pkg flooded onto all ports.
+A normal ethernet host DST address would be looked up by
+the switch HW and sent to the appropriate port.
 
-> However I implemented CAN_CTRLMODE_BERR_REPORTING, i.e. turning of the
-> bit error interrupts by default. This has the effect that no bus warning
-> and bus passive interrupt was signalled.
-> =
+>
+>
+> > I envision I would get some interface in the CPU I can set an IP address
+> > on and use as a normal I/F which would be switched by the HW switch to
+> > the appropriate port.
+>
+> Yes, these are the DSA/slave interfaces created by net/dsa/slave.c.
+> You are free to attach IP addresses to the wan/lanX interfaces, and
+> things will work as you'd expect them to.
 
-> I should add a comment to my driver.
+Not sure what to expect here actually.
 
-I'm confused, CAN_CTRLMODE_BERR_REPORTING means that the user can enable
-bus error reporting, which seems not be handled in the driver your sent.
-See:
+>
+>
+> > > > I guess I will have one "real" ethX I/F which maps to RGMII but do I
+> > > > get one virtual I/F too?
+> > >
+> > > You get a virtual interface for each of the ports on the switch (that
+> > > are not CPU or inter-switch ports), i.e. all ports on the right of the
+> > > diagram -- wan, lan1, lan2, lan3, lan4.  These interfaces are created
+> > > by net/dsa/slave.c and are called DSA interfaces or slave interfaces.
+> > >
+> > >
+> > > > What use are these virtual I/Fs? Just to read status from the
+> > > > corresponding ports?
+> > >
+> > > That's one of the purposes, yes.  There's a polling routine that
+> > > periodically checks the status of each of the ports on the switch (via
+> > > the MII management interface) and feeds back that status to the virtual
+> > > interfaces.  I.e. if you plug a cable into lan3, you'll see a syslog
+> > > message about the link on the virtual interface lan3 having come up,
+> > > with the link speed, etc.
+> > >
+> > >
+> > > > Can one TX and RX network pkgs over these I/Fs too?
+> > >
+> > > Sure -- that's the whole point.
+> >
+> > TX:ing pkgs on such virtual I/F would go directly to the port, bypassing
+> > normal switching?
+>
+> Define what you mean by 'normal switching'.
+>
+>
+> > What about RX? What decides which pkg to route through the switch and
+> > which pgk to send up to the virtual I/F?
+>
+> By default, which is until you enable bridging on some subset of the
+> ports, all ports have their own address database, and all received
+> packets are passed directly up to the CPU, where the DSA code will
+> then make those packets be received on the DSA slave interfaces.
 
-http://lxr.linux.no/linux/drivers/net/can/sja1000/sja1000.c#L134
-http://lxr.linux.no/linux/drivers/net/can/sja1000/sja1000.c#L588
+ah, so until I enable bridging, all ports are viewed as a separate
+network I/F?
+Once I create a linux bridge device and add the virtual I/Fs, one
+enables the bridge function.
+One drawback with that is that you kill the bridge when you reboot
+linux.
 
-Wolfgang.
+>
+>
+> > > > Now I want to add STP/RSTP to the switch. How would one do that?
+> > >
+> > > First, you'll want the hardware bridging patches that I posted to
+> > > netdev@ a while back, e.g.:
+> > >
+> > >    http://patchwork.ozlabs.org/patch/16578/
+> >
+> > I see, will have to study this a bit closer. One question though,
+> > does this disable MAC learning in the linux bridge?
+>
+> No, why should it?
+
+Doesn't the HW switch handle all MAC leaning? Why duplicate
+this in the SW bridge?
+I figured the HW switch would offload the SW bridge this task.
+
+>
+>
+> > Do you have any idea how to do DSA on a Broadcom switch?
+>
+> I have no idea.  When I originally submitted the DSA code for merging,
+> I contacted Broadcom people about adding support for Broadcom switch
+> chips to it, but I never heard back from them.
+
+OK. With DSA, how does one configure VLANs, policing and parameters in the
+HW switch that don't map or exist in the linux bridge?
+
+ Jocke
+
