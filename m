@@ -1,38 +1,61 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: Re: [PATCH 8/8] bridge: Fix netpoll support
-Date: Fri, 18 Jun 2010 11:06:19 +0800
-Message-ID: <4C1AE2AB.50609@redhat.com>
-References: <20100611021142.GA24490@gondor.apana.org.au> <E1OMtjm-0006PK-D6@gondolin.me.apana.org.au> <4C1755C1.3060804@redhat.com> <20100617103819.GA1252@gondor.apana.org.au> <4C19FF98.5080105@redhat.com> <20100617105526.GA1440@gondor.apana.org.au>
+Subject: Re: [Patch 2/2] mlx4: add dynamic LRO disable support
+Date: Fri, 18 Jun 2010 11:10:31 +0800
+Message-ID: <4C1AE3A7.6010004@redhat.com>
+References: <20100603034303.5305.55552.sendpatchset@localhost.localdomain> <20100603034312.5305.61000.sendpatchset@localhost.localdomain> <1275568622.2870.89.camel@localhost> <4C085D45.6040001@redhat.com> <1275661552.2095.13.camel@achroite.uk.solarflarecom.com> <4C0F5D97.5030605@redhat.com> <20100609104950.GB2599@dhcp-lab-161.englab.brq.redhat.com> <4C173F87.7000704@redhat.com> <20100615113926.30d0cd01@dhcp-lab-109.englab.brq.redhat.com> <4C19FEE4.4000804@redhat.com> <20100617120318.GA4059@dhcp-lab-161.englab.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Qianfeng Zhang <frzhang@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Matt Mackall <mpm@selenic.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Herbert Xu <herbert@gondor.hengli.com.au>
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
+	herbert.xu@redhat.com, nhorman@redhat.com, davem@davemloft.net
+To: Stanislaw Gruszka <sgruszka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55502 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:29687 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757183Ab0FRDZx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jun 2010 23:25:53 -0400
-In-Reply-To: <20100617105526.GA1440@gondor.apana.org.au>
+	id S1755611Ab0FRD3Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jun 2010 23:29:24 -0400
+In-Reply-To: <20100617120318.GA4059@dhcp-lab-161.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/17/10 18:55, Herbert Xu wrote:
-> On Thu, Jun 17, 2010 at 06:57:28PM +0800, Cong Wang wrote:
+On 06/17/10 20:03, Stanislaw Gruszka wrote:
+> On Thu, Jun 17, 2010 at 06:54:28PM +0800, Cong Wang wrote:
+>>>> I don't think mdev->state_lock is used to protect dev->feature.
+>>>> rtnl_lock is. I think switching to mlx4_ethtool_op_set_flags()
+>>>> from the default one has already solved this.
+>>>
+>>> Ahh, you have right, may intention was use it to stop and start
+>>> port. Code rather should look like below:
+>>>
+>>> 	if (netdev_running(dev)) {
+>>> 		mutex_lock(&mdev->state_lock);
+>>> 		mlx4_en_stop_port(dev);
+>>> 	}
+>>>
+>>> 	dev->features ^= NETIF_F_LRO;
+>>>
+>>> 	if (netdev_running(dev)) {
+>>> 		rc = mlx4_en_start_port(dev);
+>>> 		mutex_unlock(&mdev->state_lock);
+>>>    		if (rc)
+>>> 		en_err(priv, "Failed to restart port\n");
+>>> 	}
+>>>
 >>
->> Hmm, I get it now. So this helps to fix problem 3)?
+>> Hmm, you mean ->features should be changed after port is stopped?
 >
-> Yes, by allocating real netpoll structures for each device that
-> we're polling, instead of sharing a single one amongst all of
-> them.
->
-> This is also the basis of the solution of the use-after-free bug.
+> Actually not ->features variable, but NETIF_F_LRO bit, as only this
+> bit is used in rx path.
 >
 
-Looks reasonable.
-Thank you for your patch!
+Yeah, this is what I meant.
+
+>> Why?
+>
+> For reasons you talked before in this thread :) to do not change
+> LRO in the middle of receiving packages.
+>
+
+Ohh... I missed this, seems reasonable, will fix this in the next update.
+
+Thanks.
