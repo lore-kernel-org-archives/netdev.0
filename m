@@ -1,41 +1,35 @@
-From: "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
-Subject: Re: potential bug in bnep_net_set_mc_list()
-Date: Fri, 18 Jun 2010 21:22:13 -0300
-Message-ID: <20100619002213.GC14514@vigoh>
-References: <20100618230916.GA5467@bicker>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+Subject: [PATCH] Bluetooth: Bring back var 'i' increment
+Date: Fri, 18 Jun 2010 21:24:00 -0300
+Message-ID: <1276907040-23229-1-git-send-email-padovan@profusion.mobi>
+References: <20100619002213.GC14514@vigoh>
+Cc: gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20100618230916.GA5467@bicker>
+In-Reply-To: <20100619002213.GC14514@vigoh>
 Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dan,
+commit ff6e2163f28a1094fb5ca5950fe2b43c3cf6bc7a accidentally added a
+regression on the bnep code. Fixing it.
 
-* Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> [2010-06-19 01:09:17 +0200]:
+Signed-off-by: Gustavo F. Padovan <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+---
+ net/bluetooth/bnep/netdev.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-> This is from ff6e2163f28a: "net: convert multiple drivers to use
-> netdev_for_each_mc_addr, part7"
-> 
-> net/bluetooth/bnep/netdev.c
->    101                  i = 0;
->    102                  netdev_for_each_mc_addr(ha, dev) {
->    103                          if (i == BNEP_MAX_MULTICAST_FILTERS)
->                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> 
->    104                                  break;
->    105                          memcpy(__skb_put(skb, ETH_ALEN), ha->addr, ETH_ALEN);
->    106                          memcpy(__skb_put(skb, ETH_ALEN), ha->addr, ETH_ALEN);
->    107                  }
-> 
-> "i" is never incremented here so the check is always false.
-
-Bring back the increment should fix this. I'll send a fix for this.
-
+diff --git a/net/bluetooth/bnep/netdev.c b/net/bluetooth/bnep/netdev.c
+index 0faad5c..8c100c9 100644
+--- a/net/bluetooth/bnep/netdev.c
++++ b/net/bluetooth/bnep/netdev.c
+@@ -104,6 +104,8 @@ static void bnep_net_set_mc_list(struct net_device *dev)
+ 				break;
+ 			memcpy(__skb_put(skb, ETH_ALEN), ha->addr, ETH_ALEN);
+ 			memcpy(__skb_put(skb, ETH_ALEN), ha->addr, ETH_ALEN);
++
++			i++;
+ 		}
+ 		r->len = htons(skb->len - len);
+ 	}
 -- 
-Gustavo F. Padovan
-http://padovan.org
+1.6.4.4
