@@ -1,125 +1,275 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: Distributed Switch Architecture(DSA)
-Date: Sat, 19 Jun 2010 18:56:43 +0200
-Message-ID: <20100619165642.GP14513@mail.wantstofly.org>
-References: <OF4DC5B7A3.2D318B4E-ONC1257746.00253DA6-C1257746.002714B0@transmode.se> <20100618073309.GB14513@mail.wantstofly.org> <OF68B8EEAD.B003EFE7-ONC1257746.003109DB-C1257746.0032D371@transmode.se> <20100618095923.GC14513@mail.wantstofly.org> <OF8E185B56.9B8AB610-ONC1257746.003A78DF-C1257746.003D4C6C@transmode.se> <20100618121223.GH14513@mail.wantstofly.org> <OF4FC7639D.8FBCAF3B-ONC1257746.004AF9D3-C1257746.005397F6@transmode.se> <20100618201243.GK14513@mail.wantstofly.org> <OF27FDE4E4.06C565FF-ONC1257747.004A175A-C1257747.004EF252@transmode.se>
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: Re: [PATCH 1/1] Bluetooth: hidp: Add support for hidraw HIDIOCGFEATURE
+ and HIDIOCSFEATURE
+Date: Sat, 19 Jun 2010 19:49:57 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1006191947100.13809@pobox.suse.cz>
+References: <1276467601-9066-1-git-send-email-alan@signal11.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw.wantstofly.org ([80.101.37.227]:53713 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751027Ab0FSQ4r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jun 2010 12:56:47 -0400
-Content-Disposition: inline
-In-Reply-To: <OF27FDE4E4.06C565FF-ONC1257747.004A175A-C1257747.004EF252@transmode.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Marcel Holtmann <marcel@holtmann.org>,
+	David S Miller <davem@davemloft.net>,
+	Michael Poole <mdpoole@troilus.org>,
+	Bastien Nocera <hadess@hadess.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Alan Ott <alan@signal11.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1276467601-9066-1-git-send-email-alan@signal11.us>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 19, 2010 at 04:22:18PM +0200, Joakim Tjernlund wrote:
+On Sun, 13 Jun 2010, Alan Ott wrote:
 
-> > > > > OK. With DSA, how does one configure VLANs, policing and
-> > > > > parameters in the HW switch that don't map or exist in the
-> > > > > linux bridge?
-> > > >
-> > > > The idea is to use existing kernel interface for this as much as
-> > > > possible.  So e.g. if you do:
-> > > >
-> > > >    vconfig add lan1 123
-> > > >    vconfig add lan2 123
-> > > >    brctl addbr br123
-> > > >    brctl addif br123 lan1.123
-> > > >    brctl addif br123 lan2.123
-> > > >
-> > > > Then the DSA code (or some userspace netlink listener helper, or some
-> > > > combination of both) should ideally also detect that VLAN 123 on
-> > > > interfaces lan1 and lan2 are to be bridged together, and program the
-> > > > switch chip accordingly.  I think all VLAN configurations that at least
-> > > > the Marvell hardware supports can be expressed this way.
-> > >
-> > > Yes, but I image that this breaks down when you want to do something
-> > > a bit more advanced. For example I don't think linux VLANs supports
-> > > "shared VLAN learning"(SVL) and to configure a HW switch to do SVL
-> > > one would first have to impl. that in Linux VLAN and then add the DSA
-> > > code to get the config to the switch.
-> >
-> > Yes.  But that's really the best way to do it, in my humble opinion.
+> This patch adds support or getting and setting feature reports for bluetooth
+> HID devices from HIDRAW.
 > 
-> I will buy that for the moment. I can't see a better way either if
-> you truly want to integrate a HW switch into linux. I just wish
-> Linux VLANs had some support for SVL too
+> Signed-off-by: Alan Ott <alan@signal11.us>
 
-You know how to fix that. :)
+Marcel, any word on this please? We already have USB counterpart in, so 
+it'd be nice to finalize the Bluetooth part as well.
 
+Thanks.
 
-> > If you don't go the host networking stack integration route, you end
-> > up with something like the vendor drivers.  Which work fine for most
-> > scenarios.. until you want to do something like talking TCP/IP using
-> > the host TCP stack over some of the switch ports, at which point the
-> > lack of host networking stack integration comes to bite you.
+> ---
+>  net/bluetooth/hidp/core.c |  121 +++++++++++++++++++++++++++++++++++++++++++--
+>  net/bluetooth/hidp/hidp.h |    8 +++
+>  2 files changed, 125 insertions(+), 4 deletions(-)
 > 
-> Just doing STP will bite you :)
-
-Most people deal with this by running a userland STP daemon that uses
-raw sockets to inject manually (i.e. in userspace) DSA-tagged packets
-onto the eth0 (or whatever) interface.  This "works" (for some
-definitions of 'works') for UDP apps such as a DHCP server as well --
-this crappy approach unfortunately only really breaks down for TCP.
-
-
-> > > Not sure how one would express whether VLAN tags should be stripped
-> > > off or not when egressing the HW switch's physical port.
-> >
-> > If you transmit a packet onto 'lan', it will be sent to the switch chip
-> > with an "untagged" DSA tag.  If you transmit a packet onto 'lan.123',
-> > it will be sent to the switch chip with a "tagged" DSA tag.  See
-> > net/dsa/tag_dsa.c for details.
+> diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
+> index bfe641b..0f068a0 100644
+> --- a/net/bluetooth/hidp/core.c
+> +++ b/net/bluetooth/hidp/core.c
+> @@ -36,6 +36,7 @@
+>  #include <linux/file.h>
+>  #include <linux/init.h>
+>  #include <linux/wait.h>
+> +#include <linux/mutex.h>
+>  #include <net/sock.h>
+>  
+>  #include <linux/input.h>
+> @@ -313,6 +314,93 @@ static int hidp_send_report(struct hidp_session *session, struct hid_report *rep
+>  	return hidp_queue_report(session, buf, rsize);
+>  }
+>  
+> +static int hidp_get_raw_report(struct hid_device *hid,
+> +		unsigned char report_number,
+> +		unsigned char *data, size_t count,
+> +		unsigned char report_type)
+> +{
+> +	struct hidp_session *session = hid->driver_data;
+> +	struct sk_buff *skb;
+> +	size_t len;
+> +	int numbered_reports = hid->report_enum[report_type].numbered;
+> +
+> +	switch (report_type) {
+> +	case HID_FEATURE_REPORT:
+> +		report_type = HIDP_TRANS_GET_REPORT | HIDP_DATA_RTYPE_FEATURE;
+> +		break;
+> +	case HID_INPUT_REPORT:
+> +		report_type = HIDP_TRANS_GET_REPORT | HIDP_DATA_RTYPE_INPUT;
+> +		break;
+> +	case HID_OUTPUT_REPORT:
+> +		report_type = HIDP_TRANS_GET_REPORT | HIDP_DATA_RTYPE_OUPUT;
+> +		break;
+> +	default:
+> +		return -EINVAL;
+> +	}
+> +
+> +	if (mutex_lock_interruptible(&session->report_mutex))
+> +		return -ERESTARTSYS;
+> +
+> +	/* Set up our wait, and send the report request to the device. */
+> +	session->waiting_report_type = report_type & HIDP_DATA_RTYPE_MASK;
+> +	session->waiting_report_number = numbered_reports ? report_number : -1;
+> +	set_bit(HIDP_WAITING_FOR_RETURN, &session->flags);
+> +	data[0] = report_number;
+> +	if (hidp_send_ctrl_message(hid->driver_data, report_type, data, 1))
+> +		goto err_eio;
+> +
+> +	/* Wait for the return of the report. The returned report
+> +	   gets put in session->report_return.  */
+> +	while (test_bit(HIDP_WAITING_FOR_RETURN, &session->flags)) {
+> +		int res;
+> +
+> +		res = wait_event_interruptible_timeout(session->report_queue,
+> +			!test_bit(HIDP_WAITING_FOR_RETURN, &session->flags),
+> +			5*HZ);
+> +		if (res == 0) {
+> +			/* timeout */
+> +			goto err_eio;
+> +		}
+> +		if (res < 0) {
+> +			/* signal */
+> +			goto err_restartsys;
+> +		}
+> +	}
+> +
+> +	skb = session->report_return;
+> +	if (skb) {
+> +		if (numbered_reports) {
+> +			/* Strip off the report number. */
+> +			size_t rpt_len = skb->len-1;
+> +			len = rpt_len < count ? rpt_len : count;
+> +			memcpy(data, skb->data+1, len);
+> +		} else {
+> +			len = skb->len < count ? skb->len : count;
+> +			memcpy(data, skb->data, len);
+> +		}
+> +
+> +		kfree_skb(skb);
+> +		session->report_return = NULL;
+> +	} else {
+> +		/* Device returned a HANDSHAKE, indicating  protocol error. */
+> +		len = -EIO;
+> +	}
+> +
+> +	clear_bit(HIDP_WAITING_FOR_RETURN, &session->flags);
+> +	mutex_unlock(&session->report_mutex);
+> +
+> +	return len;
+> +
+> +err_restartsys:
+> +	clear_bit(HIDP_WAITING_FOR_RETURN, &session->flags);
+> +	mutex_unlock(&session->report_mutex);
+> +	return -ERESTARTSYS;
+> +err_eio:
+> +	clear_bit(HIDP_WAITING_FOR_RETURN, &session->flags);
+> +	mutex_unlock(&session->report_mutex);
+> +	return -EIO;
+> +}
+> +
+>  static int hidp_output_raw_report(struct hid_device *hid, unsigned char *data, size_t count,
+>  		unsigned char report_type)
+>  {
+> @@ -367,6 +455,10 @@ static void hidp_process_handshake(struct hidp_session *session,
+>  	case HIDP_HSHK_ERR_INVALID_REPORT_ID:
+>  	case HIDP_HSHK_ERR_UNSUPPORTED_REQUEST:
+>  	case HIDP_HSHK_ERR_INVALID_PARAMETER:
+> +		if (test_bit(HIDP_WAITING_FOR_RETURN, &session->flags)) {
+> +			clear_bit(HIDP_WAITING_FOR_RETURN, &session->flags);
+> +			wake_up_interruptible(&session->report_queue);
+> +		}
+>  		/* FIXME: Call into SET_ GET_ handlers here */
+>  		break;
+>  
+> @@ -403,9 +495,11 @@ static void hidp_process_hid_control(struct hidp_session *session,
+>  	}
+>  }
+>  
+> -static void hidp_process_data(struct hidp_session *session, struct sk_buff *skb,
+> +/* Returns true if the passed-in skb should be freed by the caller. */
+> +static int hidp_process_data(struct hidp_session *session, struct sk_buff *skb,
+>  				unsigned char param)
+>  {
+> +	int done_with_skb = 1;
+>  	BT_DBG("session %p skb %p len %d param 0x%02x", session, skb, skb->len, param);
+>  
+>  	switch (param) {
+> @@ -417,7 +511,6 @@ static void hidp_process_data(struct hidp_session *session, struct sk_buff *skb,
+>  
+>  		if (session->hid)
+>  			hid_input_report(session->hid, HID_INPUT_REPORT, skb->data, skb->len, 0);
+> -
+>  		break;
+>  
+>  	case HIDP_DATA_RTYPE_OTHER:
+> @@ -429,12 +522,27 @@ static void hidp_process_data(struct hidp_session *session, struct sk_buff *skb,
+>  		__hidp_send_ctrl_message(session,
+>  			HIDP_TRANS_HANDSHAKE | HIDP_HSHK_ERR_INVALID_PARAMETER, NULL, 0);
+>  	}
+> +
+> +	if (test_bit(HIDP_WAITING_FOR_RETURN, &session->flags) &&
+> +				param == session->waiting_report_type) {
+> +		if (session->waiting_report_number < 0 ||
+> +		    session->waiting_report_number == skb->data[0]) {
+> +			/* hidp_get_raw_report() is waiting on this report. */
+> +			session->report_return = skb;
+> +			done_with_skb = 0;
+> +			clear_bit(HIDP_WAITING_FOR_RETURN, &session->flags);
+> +			wake_up_interruptible(&session->report_queue);
+> +		}
+> +	}
+> +
+> +	return done_with_skb;
+>  }
+>  
+>  static void hidp_recv_ctrl_frame(struct hidp_session *session,
+>  					struct sk_buff *skb)
+>  {
+>  	unsigned char hdr, type, param;
+> +	int free_skb = 1;
+>  
+>  	BT_DBG("session %p skb %p len %d", session, skb, skb->len);
+>  
+> @@ -454,7 +562,7 @@ static void hidp_recv_ctrl_frame(struct hidp_session *session,
+>  		break;
+>  
+>  	case HIDP_TRANS_DATA:
+> -		hidp_process_data(session, skb, param);
+> +		free_skb = hidp_process_data(session, skb, param);
+>  		break;
+>  
+>  	default:
+> @@ -463,7 +571,8 @@ static void hidp_recv_ctrl_frame(struct hidp_session *session,
+>  		break;
+>  	}
+>  
+> -	kfree_skb(skb);
+> +	if (free_skb)
+> +		kfree_skb(skb);
+>  }
+>  
+>  static void hidp_recv_intr_frame(struct hidp_session *session,
+> @@ -797,6 +906,7 @@ static int hidp_setup_hid(struct hidp_session *session,
+>  	hid->dev.parent = hidp_get_device(session);
+>  	hid->ll_driver = &hidp_hid_driver;
+>  
+> +	hid->hid_get_raw_report = hidp_get_raw_report;
+>  	hid->hid_output_raw_report = hidp_output_raw_report;
+>  
+>  	err = hid_add_device(hid);
+> @@ -857,6 +967,9 @@ int hidp_add_connection(struct hidp_connadd_req *req, struct socket *ctrl_sock,
+>  	skb_queue_head_init(&session->ctrl_transmit);
+>  	skb_queue_head_init(&session->intr_transmit);
+>  
+> +	mutex_init(&session->report_mutex);
+> +	init_waitqueue_head(&session->report_queue);
+> +
+>  	session->flags   = req->flags & (1 << HIDP_BLUETOOTH_VENDOR_ID);
+>  	session->idle_to = req->idle_to;
+>  
+> diff --git a/net/bluetooth/hidp/hidp.h b/net/bluetooth/hidp/hidp.h
+> index 8d934a1..00e71dd 100644
+> --- a/net/bluetooth/hidp/hidp.h
+> +++ b/net/bluetooth/hidp/hidp.h
+> @@ -80,6 +80,7 @@
+>  #define HIDP_VIRTUAL_CABLE_UNPLUG	0
+>  #define HIDP_BOOT_PROTOCOL_MODE		1
+>  #define HIDP_BLUETOOTH_VENDOR_ID	9
+> +#define	HIDP_WAITING_FOR_RETURN		10
+>  
+>  struct hidp_connadd_req {
+>  	int   ctrl_sock;	// Connected control socket
+> @@ -154,6 +155,13 @@ struct hidp_session {
+>  	struct sk_buff_head ctrl_transmit;
+>  	struct sk_buff_head intr_transmit;
+>  
+> +	/* Used in hidp_get_raw_report() */
+> +	int waiting_report_type; /* HIDP_DATA_RTYPE_* */
+> +	int waiting_report_number; /* -1 for not numbered */
+> +	struct mutex report_mutex;
+> +	struct sk_buff *report_return;
+> +	wait_queue_head_t report_queue;
+> +
+>  	/* Report descriptor */
+>  	__u8 *rd_data;
+>  	uint rd_size;
+> -- 
+> 1.7.0.4
 > 
-> Ah, now I get it, thanks.
-> However, how does this work for LAN to LAN pkgs? LAN1 and LAN2 could be
-> in the same VLAN but one is implicit(port) VLAN and the
-> other is explicit.
-
-If you tell the HW switch to forward these packets, they will never
-appear at the CPU interface, so the DSA tagging/untagging doesn't enter
-the picture.
-
-
-> How do I config the HW switch to do that?
-
-Tell the switch that the vlan is native on one of the ports but not on
-the other.  It's been a while since I looked at the chip docs but there
-are ways of doing this.
-
-
-> > > Furthermore, suppose one have a big HW switch, 48 ports, and lots of
-> > > VLANs in that HW switch one would have to create a lot of virtual I/Fs
-> > > and VLANs in linux just to configure the HW switch. This wastes
-> > > resources on the CPU.
-> >
-> > Where the 'resource waste' is on the order of a couple of tens or
-> > hundreds of kilobytes of RAM.  If this is a problem for your host
-> > CPU, I think you have bigger problems anyway.
 > 
-> That is not a very good argument, this is how bloat builds.
 
-If you have a better way of getting all the features while spending
-less resources, please step forward with your ideas.  The current design
-is the best I could come up with, but I'm sure it's not optimal in its
-current form.
-
-
-> > > > To configure things like ingress/egress rate limiting and such in the
-> > > > switch chip for which there is no Linux counterpart interface, I suppose
-> > > > some sysfs interface or so might suffice.
-> > >
-> > > Yes, there are aspects of a HW switch that doesn't map into DSA currently.
-> > > Perhaps one should add some framework to support this?
-> >
-> > Sounds good.
-> 
-> Any idea how such an framework should look like? What transport
-> mechanism is suitable to talk to a user space daemon?
-
-Have a look at netlink.
+-- 
+Jiri Kosina
+SUSE Labs, Novell Inc.
