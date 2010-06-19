@@ -1,47 +1,42 @@
-From: "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH] Bluetooth: Bring back var 'i' increment
-Date: Fri, 18 Jun 2010 21:28:07 -0300
-Message-ID: <20100619002807.GD14514@vigoh>
-References: <20100619002213.GC14514@vigoh>
- <1276907040-23229-1-git-send-email-padovan@profusion.mobi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org
-To: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1276907040-23229-1-git-send-email-padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: "Justin P. Mattock" <justinmattock@gmail.com>
+Subject: [PATCH] Fix a typo in netlink.h
+Date: Fri, 18 Jun 2010 21:29:53 -0700
+Message-ID: <1276921793-24147-1-git-send-email-justinmattock@gmail.com>
+Cc: netdev@vger.kernel.org,
+	"Justin P. Mattock" <justinmattock@gmail.com>
+To: trivial@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-px0-f174.google.com ([209.85.212.174]:60979 "EHLO
+	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751151Ab0FSEaD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jun 2010 00:30:03 -0400
+Received: by pxi12 with SMTP id 12so690150pxi.19
+        for <netdev@vger.kernel.org>; Fri, 18 Jun 2010 21:30:02 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Gustavo F. Padovan <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org> [2010-06-18 21:24:00 -0300]:
+Fix a typo in include/net/netlink.h 
+should be finalize instead of finanlize
 
-> commit ff6e2163f28a1094fb5ca5950fe2b43c3cf6bc7a accidentally added a
-> regression on the bnep code. Fixing it.
-> 
-> Signed-off-by: Gustavo F. Padovan <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-> ---
->  net/bluetooth/bnep/netdev.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/bluetooth/bnep/netdev.c b/net/bluetooth/bnep/netdev.c
-> index 0faad5c..8c100c9 100644
-> --- a/net/bluetooth/bnep/netdev.c
-> +++ b/net/bluetooth/bnep/netdev.c
-> @@ -104,6 +104,8 @@ static void bnep_net_set_mc_list(struct net_device *dev)
->  				break;
->  			memcpy(__skb_put(skb, ETH_ALEN), ha->addr, ETH_ALEN);
->  			memcpy(__skb_put(skb, ETH_ALEN), ha->addr, ETH_ALEN);
-> +
-> +			i++;
->  		}
->  		r->len = htons(skb->len - len);
->  	}
-> -- 
+ Signed-off-by: Justin P. Mattock <justinmattock@gmail.com>
 
-Marcel, if you want I can carry the fix on my tree for -next.
+---
+ include/net/netlink.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
+diff --git a/include/net/netlink.h b/include/net/netlink.h
+index 4fc05b5..f3b201d 100644
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -35,7 +35,7 @@
+  *   nlmsg_new()			create a new netlink message
+  *   nlmsg_put()			add a netlink message to an skb
+  *   nlmsg_put_answer()			callback based nlmsg_put()
+- *   nlmsg_end()			finanlize netlink message
++ *   nlmsg_end()			finalize netlink message
+  *   nlmsg_get_pos()			return current position in message
+  *   nlmsg_trim()			trim part of message
+  *   nlmsg_cancel()			cancel message construction
 -- 
-Gustavo F. Padovan
-http://padovan.org
+1.7.1.rc1.21.gf3bd6
+
