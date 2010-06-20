@@ -1,7 +1,7 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] Driver-core: Always create class directories fixing the  broken network drivers.
-Date: Sun, 20 Jun 2010 05:29:02 -0700
-Message-ID: <m1hbkx6g6p.fsf@fess.ebiederm.org>
+Subject: [PATCH] Driver-core: Always create network class directories in get_device_parent.
+Date: Sun, 20 Jun 2010 05:46:54 -0700
+Message-ID: <m1ocf5hnwh.fsf_-_@fess.ebiederm.org>
 References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
 	<1275998127.1899.38.camel@yio.site>
 	<1275998603.3706.118.camel@jlt3.sipsolutions.net>
@@ -26,52 +26,66 @@ References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Johannes Berg <johannes@sipsolutions.net>,
-	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
-To: Kay Sievers <kay.sievers@vrfy.org>
+	netdev <netdev@vger.kernel.org>,
+	Kay Sievers <kay.sievers@vrfy.org>
+To: Greg KH <greg@kroah.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:58119 "EHLO
+Received: from out01.mta.xmission.com ([166.70.13.231]:47402 "EHLO
 	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751108Ab0FTM3N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jun 2010 08:29:13 -0400
+	with ESMTP id S1753441Ab0FTMrB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jun 2010 08:47:01 -0400
 In-Reply-To: <AANLkTikZAKZA9mfb7RjaqNFnX8gCM3A9PTfH350botL8@mail.gmail.com> (Kay Sievers's message of "Sun\, 20 Jun 2010 13\:46\:20 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Kay Sievers <kay.sievers@vrfy.org> writes:
 
-> On Sun, Jun 20, 2010 at 13:33, Johannes Berg <johannes@sipsolutions.net> wrote:
->> On Sun, 2010-06-20 at 12:52 +0200, Kay Sievers wrote:
->>
->>> As mentioned earlier, It's pretty fragile to change things in this
->>> area, and I prefer the broken network driver-core interactions to be
->>> fixed instead - even when they are more complicated.
->>
->> Can you _please_ offer a proper way to fix it then?
->
-> Sorry, I have no real experience with the issues created by the
-> assumption that network driver need to be able to get unloaded while
-> in use. That's very special, always requires a
-> compiled-into-the-kernel part of the subsystem, and makes it hard to
-> work with, as we can not use any of the usual core infrastructure to
-> solve that.
+In get_device_parent there was added check to not add a class
+directory when a class device was put under another class device.  The
+check was put in place as a just in case measure to not break old
+userspace if any existing code happened to depend on it.  Devices in
+the input subsystem are affected by this code path so there is a
+reasonable chance that some piece of user space will break if we just
+remove this kludge.
 
-So please look at https://bugzilla.kernel.org/show_bug.cgi?id=16215
+At the same time there are at least two network drivers that have
+potential unnecessary namespace conflicts because class directories
+have not been created for their network devices.
 
-That simply creates and destroys the network device as things come
-and go.
+With the introduction of tagged sysfs directories for properly
+handling network namespace support this omission in creating the class
+directories went from a bad thing in terms of namespace pollution, to
+actually breaking device_remove.
 
-I think the bnep case is much more serious because it is real hardware
-not a testing simulation, and it is the second instance of this.
+Currently there are two reported network device drivers that break
+because the class directory was not created by the device layer.  The
+usb bnep driver and the mac80211_hwsim driver.
 
-Calling the change broken when I can boot up and run X in that
-configuration just fine is a vast overstatement.  Especially
-when you don't acknowledge that the device layer is broken.
+Every solution proposed changes the sysfs layout for the affected
+devices, and thus has the potential to break userspace.
 
-I will agree that insane amounts of backwards compatibility are a good
-idea.  So I will cook up a version of my patch that adds a hack to the
-device layer to only apply this change to devices of class net.
+Since we are changing the sysfs layout anyway, and since we are now
+talking about several devices all with the same problem, all caused by
+the same over convservative bit of code.  Let's fix the device layer
+for network devices.
 
-That should save let us postpone the architectural dreams for another
-day.
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+---
+ drivers/base/core.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Eric
+diff --git a/drivers/base/core.c b/drivers/base/core.c
+index 9630fbd..ffb8443 100644
+--- a/drivers/base/core.c
++++ b/drivers/base/core.c
+@@ -673,7 +673,7 @@ static struct kobject *get_device_parent(struct device *dev,
+ 		 */
+ 		if (parent == NULL)
+ 			parent_kobj = virtual_device_parent(dev);
+-		else if (parent->class)
++		else if (parent->class && (strcmp(dev->class->name, "net") != 0))
+ 			return &parent->kobj;
+ 		else
+ 			parent_kobj = &parent->kobj;
+-- 
+1.6.5.2.143.g8cc62
+
