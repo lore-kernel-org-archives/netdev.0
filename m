@@ -1,91 +1,68 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] Driver-core: Always create network class directories in get_device_parent.
-Date: Sun, 20 Jun 2010 05:46:54 -0700
-Message-ID: <m1ocf5hnwh.fsf_-_@fess.ebiederm.org>
-References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
-	<1275998127.1899.38.camel@yio.site>
-	<1275998603.3706.118.camel@jlt3.sipsolutions.net>
-	<AANLkTinev96yxFCFSdDdT89jjgYR4ChUCMU2-aSj8kkh@mail.gmail.com>
-	<1276005970.3706.132.camel@jlt3.sipsolutions.net>
-	<AANLkTikB0Amzi61JLxdY5HL-2s_nbYo3JH8vXooXzHdQ@mail.gmail.com>
-	<1276007174.3706.133.camel@jlt3.sipsolutions.net>
-	<AANLkTikNEzJHPrOUK6DKMoWvcblTBInaIhVbk96OtZxe@mail.gmail.com>
-	<1276009590.3706.135.camel@jlt3.sipsolutions.net>
-	<AANLkTimSqF4D4jPj-HzOjl1vxjf2T7YvlGdR6zcJZ9Pp@mail.gmail.com>
-	<1276014816.3706.137.camel@jlt3.sipsolutions.net>
-	<AANLkTilUd2Bp1h4SzlW5f5KevoRM-os_fQrivLHbZyKY@mail.gmail.com>
-	<1276250151.3640.11.camel@jlt3.sipsolutions.net>
-	<AANLkTil4IvOiDHnLwAaeseEPVgYp-EF5TK1HfHitY3-H@mail.gmail.com>
-	<1276507247.3926.13.camel@jlt3.sipsolutions.net>
-	<bug-16215-7251@https.bugzilla.kernel.org/>
-	<AANLkTin2sci1gSmwx-tjazYGFAcUNRKhJFI7Bt0KvVe3@mail.gmail.com>
-	<m139wiuswa.fsf_-_@fess.ebiederm.org>
-	<AANLkTilVHF0dITpB3yJYaCnGPonhdl7NWnb-P12RAFTs@mail.gmail.com>
-	<1277033628.3642.1.camel@jlt3.sipsolutions.net>
-	<AANLkTikZAKZA9mfb7RjaqNFnX8gCM3A9PTfH350botL8@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH v7 01/19] Add a new structure for skb buffer from
+	external.
+Date: Sun, 20 Jun 2010 15:48:48 +0300
+Message-ID: <20100620124848.GE5285@redhat.com>
+References: <20100618055929.GA11333@gondor.apana.org.au> <F2E9EB7348B8264F86B6AB8151CE2D7915089FE573@shsmsx502.ccr.corp.intel.com> <20100620100631.GB4578@redhat.com> <20100620103235.GA31284@gondor.apana.org.au> <20100620103909.GA5285@redhat.com> <20100620110254.GA31484@gondor.apana.org.au> <20100620111124.GB5285@redhat.com> <20100620113609.GA31693@gondor.apana.org.au> <20100620114719.GC5285@redhat.com> <20100620115926.GA31849@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	netdev <netdev@vger.kernel.org>,
-	Kay Sievers <kay.sievers@vrfy.org>
-To: Greg KH <greg@kroah.com>
+Cc: "Xin, Xiaohui" <xiaohui.xin@intel.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mingo@elte.hu" <mingo@elte.hu>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"jdike@linux.intel.com" <jdike@linux.intel.com>,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: Herbert Xu <herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:47402 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753441Ab0FTMrB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jun 2010 08:47:01 -0400
-In-Reply-To: <AANLkTikZAKZA9mfb7RjaqNFnX8gCM3A9PTfH350botL8@mail.gmail.com> (Kay Sievers's message of "Sun\, 20 Jun 2010 13\:46\:20 +0200")
+Received: from mx1.redhat.com ([209.132.183.28]:13608 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753091Ab0FTMyI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Jun 2010 08:54:08 -0400
+Content-Disposition: inline
+In-Reply-To: <20100620115926.GA31849@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sun, Jun 20, 2010 at 09:59:26PM +1000, Herbert Xu wrote:
+> On Sun, Jun 20, 2010 at 02:47:19PM +0300, Michael S. Tsirkin wrote:
+> >
+> > Let's do this then.  So far the virtio spec avoided making layout
+> > assumptions, leaving guests lay out data as they see fit.
+> > Isn't it possible to keep supporting this with zero copy for hardware
+> > that can issue DMA at arbitrary addresses?
+> 
+> I think you're mistaken with respect to what is being proposed.
+> Raising 512 bytes isn't a hard constraint, it is merely an
+> optimisation for Intel NICs because their PS mode can produce
+> a head fragment of up to 512 bytes.
+> 
+Thanks for the clarification. So what is discussed here is
+the API changes that will enable this optimization?
+Of couse, it makes sense to consider this to try and avoid code churn
+in the future.
 
-In get_device_parent there was added check to not add a class
-directory when a class device was put under another class device.  The
-check was put in place as a just in case measure to not break old
-userspace if any existing code happened to depend on it.  Devices in
-the input subsystem are affected by this code path so there is a
-reasonable chance that some piece of user space will break if we just
-remove this kludge.
+As a side note, I hope to see a basic zero copy implementation with
+GSO/GRO that beats copy in host convincingly before work is started on
+further optimizations, though.
 
-At the same time there are at least two network drivers that have
-potential unnecessary namespace conflicts because class directories
-have not been created for their network devices.
+> If the guest didn't allocate 512 bytes it wouldn't be the end of
+> the world, it'd just mean that we'd either copy whatever is in
+> the head fragment,
+I don't know how much will copying the head cost.
 
-With the introduction of tagged sysfs directories for properly
-handling network namespace support this omission in creating the class
-directories went from a bad thing in terms of namespace pollution, to
-actually breaking device_remove.
+> or we waste 4096-X bytes of memory where X
+> is the number of bytes in the head.
 
-Currently there are two reported network device drivers that break
-because the class directory was not created by the device layer.  The
-usb bnep driver and the mac80211_hwsim driver.
+This seems mostly harmless - and guest can always do a copy internally
+to save memory, correct?
+Note also that we lock a full page to allow DMA, anyway.
 
-Every solution proposed changes the sysfs layout for the affected
-devices, and thus has the potential to break userspace.
-
-Since we are changing the sysfs layout anyway, and since we are now
-talking about several devices all with the same problem, all caused by
-the same over convservative bit of code.  Let's fix the device layer
-for network devices.
-
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
----
- drivers/base/core.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/base/core.c b/drivers/base/core.c
-index 9630fbd..ffb8443 100644
---- a/drivers/base/core.c
-+++ b/drivers/base/core.c
-@@ -673,7 +673,7 @@ static struct kobject *get_device_parent(struct device *dev,
- 		 */
- 		if (parent == NULL)
- 			parent_kobj = virtual_device_parent(dev);
--		else if (parent->class)
-+		else if (parent->class && (strcmp(dev->class->name, "net") != 0))
- 			return &parent->kobj;
- 		else
- 			parent_kobj = &parent->kobj;
--- 
-1.6.5.2.143.g8cc62
-
+> Cheers,
+> -- 
+> Visit Openswan at http://www.openswan.org/
+> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
