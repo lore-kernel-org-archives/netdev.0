@@ -1,78 +1,69 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: Distributed Switch Architecture(DSA)
-Date: Sun, 20 Jun 2010 16:41:31 +0200
-Message-ID: <OFE5DDA53C.8EDE0B1A-ONC1257748.00467368-C1257748.0050B4A2@transmode.se>
-References: <20100618073309.GB14513@mail.wantstofly.org> <OF68B8EEAD.B003EFE7-ONC1257746.003109DB-C1257746.0032D371@transmode.se> <20100618095923.GC14513@mail.wantstofly.org> <OF8E185B56.9B8AB610-ONC1257746.003A78DF-C1257746.003D4C6C@transmode.se> <20100618121223.GH14513@mail.wantstofly.org> <OF4FC7639D.8FBCAF3B-ONC1257746.004AF9D3-C1257746.005397F6@transmode.se> <20100618201243.GK14513@mail.wantstofly.org> <OF27FDE4E4.06C565FF-ONC1257747.004A175A-C1257747.004EF252@transmode.se> <20100619165642.GP14513@mail.wantstofly.org> <OF9D3E1FC3.D7320E72-ONC1257747.0066095A-C1257747.006751E1@transmode.se> <20100619185739.GQ14513@mail.wantstofly.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC PATCH v7 01/19] Add a new structure for skb buffer from
+ external.
+Date: Sun, 20 Jun 2010 16:19:14 +0100
+Message-ID: <1277047154.14011.880.camel@localhost>
+References: <F2E9EB7348B8264F86B6AB8151CE2D7915089FE4CC@shsmsx502.ccr.corp.intel.com>
+	 <20100618055929.GA11333@gondor.apana.org.au>
+	 <F2E9EB7348B8264F86B6AB8151CE2D7915089FE573@shsmsx502.ccr.corp.intel.com>
+	 <20100620100631.GB4578@redhat.com>
+	 <20100620103235.GA31284@gondor.apana.org.au>
+	 <20100620103909.GA5285@redhat.com>
+	 <20100620110254.GA31484@gondor.apana.org.au>
+	 <20100620111124.GB5285@redhat.com>
+	 <20100620113609.GA31693@gondor.apana.org.au>
+	 <20100620114719.GC5285@redhat.com>
+	 <20100620115926.GA31849@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	"Xin, Xiaohui" <xiaohui.xin@intel.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mingo@elte.hu" <mingo@elte.hu>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"jdike@linux.intel.com" <jdike@linux.intel.com>,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:50942 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754725Ab0FTOnS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Jun 2010 10:43:18 -0400
-In-Reply-To: <20100619185739.GQ14513@mail.wantstofly.org>
+Received: from mail.solarflare.com ([216.237.3.220]:47211 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755226Ab0FTPTU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jun 2010 11:19:20 -0400
+In-Reply-To: <20100620115926.GA31849@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Lennert Buytenhek <buytenh@wantstofly.org> wrote on 2010/06/19 20:57:39:
->
-> On Sat, Jun 19, 2010 at 08:48:31PM +0200, Joakim Tjernlund wrote:
->
-> > > > > > Not sure how one would express whether VLAN tags should be stripped
-> > > > > > off or not when egressing the HW switch's physical port.
-> > > > >
-> > > > > If you transmit a packet onto 'lan', it will be sent to the switch chip
-> > > > > with an "untagged" DSA tag.  If you transmit a packet onto 'lan.123',
-> > > > > it will be sent to the switch chip with a "tagged" DSA tag.  See
-> > > > > net/dsa/tag_dsa.c for details.
-> > > >
-> > > > Ah, now I get it, thanks.
-> > > > However, how does this work for LAN to LAN pkgs? LAN1 and LAN2 could be
-> > > > in the same VLAN but one is implicit(port) VLAN and the
-> > > > other is explicit.
-> > >
-> > > If you tell the HW switch to forward these packets, they will never
-> > > appear at the CPU interface, so the DSA tagging/untagging doesn't enter
-> > > the picture.
+On Sun, 2010-06-20 at 21:59 +1000, Herbert Xu wrote:
+> On Sun, Jun 20, 2010 at 02:47:19PM +0300, Michael S. Tsirkin wrote:
 > >
-> > "tell the HW switch"? Doesn't DSA do that already?
->
-> Not in its current iteration, as I've explained in previous emails.
+> > Let's do this then.  So far the virtio spec avoided making layout
+> > assumptions, leaving guests lay out data as they see fit.
+> > Isn't it possible to keep supporting this with zero copy for hardware
+> > that can issue DMA at arbitrary addresses?
+> 
+> I think you're mistaken with respect to what is being proposed.
+> Raising 512 bytes isn't a hard constraint, it is merely an
+> optimisation for Intel NICs because their PS mode can produce
+> a head fragment of up to 512 bytes.
+> 
+> If the guest didn't allocate 512 bytes it wouldn't be the end of
+> the world, it'd just mean that we'd either copy whatever is in
+> the head fragment, or we waste 4096-X bytes of memory where X
+> is the number of bytes in the head.
 
-Sorry, I didn't quite get that.
+If I understand correctly what this 'PS mode' is (I haven't seen the
+documentation for it), it is a feature that Microsoft requested from
+hardware vendors for use in Hyper-V.  As a result, the SFC9000 family
+and presumably other controllers also implement something similar.
 
->
->
-> > If not, what is the point of DSA then if it doesn't use the native
-> > forwarding capabilities of the HW switch?
->
-> The point is and always was to provide a framework for proper integration
-> of hardware switch chips into the Linux kernel.  This framework doesn't
-> become useless just because it doesn't already support every single
-> hardware feature at this point.
+Ben.
 
-Right, sorry if I sounded a bit harsh.
-
-So DSA currently does a very minimal config of the HW switch to get
-things going.
-If you want to do something more fancy one has to
-add a control plane to DSA which would possibly talk
-to a user space app. Is that correct?
-
->
->
-> > > > How do I config the HW switch to do that?
-> > >
-> > > Tell the switch that the vlan is native on one of the ports but not on
-> > > the other.  It's been a while since I looked at the chip docs but there
-> > > are ways of doing this.
-> >
-> > The current DSA impl. does not support this? There should be some
-> > way to manage this within the DSA framework.
->
-> Have you even tried the DSA code?
-
-Not yet and I don't have any MV HW either :(
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
