@@ -1,44 +1,54 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH v7 01/19] Add a new structure for skb buffer from
-	external.
-Date: Sun, 20 Jun 2010 14:11:24 +0300
-Message-ID: <20100620111124.GB5285@redhat.com>
-References: <F2E9EB7348B8264F86B6AB8151CE2D791210AA4475@shsmsx502.ccr.corp.intel.com> <F2E9EB7348B8264F86B6AB8151CE2D79134F9AA999@shsmsx502.ccr.corp.intel.com> <20100617112119.GB1515@gondor.apana.org.au> <F2E9EB7348B8264F86B6AB8151CE2D7915089FE4CC@shsmsx502.ccr.corp.intel.com> <20100618055929.GA11333@gondor.apana.org.au> <F2E9EB7348B8264F86B6AB8151CE2D7915089FE573@shsmsx502.ccr.corp.intel.com> <20100620100631.GB4578@redhat.com> <20100620103235.GA31284@gondor.apana.org.au> <20100620103909.GA5285@redhat.com> <20100620110254.GA31484@gondor.apana.org.au>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] Driver-core: Always create class directories fixing
+ the broken network drivers.
+Date: Sun, 20 Jun 2010 13:33:48 +0200
+Message-ID: <1277033628.3642.1.camel@jlt3.sipsolutions.net>
+References: <1275484611.3915.11.camel@jlt3.sipsolutions.net>
+	 <1275914205.29978.10.camel@jlt3.sipsolutions.net>
+	 <AANLkTilqB2sAyfBTLhYT_a2_TySGay4FFG6SGJUZ1o_4@mail.gmail.com>
+	 <1275989260.3706.115.camel@jlt3.sipsolutions.net>
+	 <AANLkTinMauFsJTKS3eT-pT44KQ8PSf3HJLS8CZIeHmxP@mail.gmail.com>
+	 <1275990325.3706.116.camel@jlt3.sipsolutions.net>
+	 <1275998127.1899.38.camel@yio.site>
+	 <1275998603.3706.118.camel@jlt3.sipsolutions.net>
+	 <AANLkTinev96yxFCFSdDdT89jjgYR4ChUCMU2-aSj8kkh@mail.gmail.com>
+	 <1276005970.3706.132.camel@jlt3.sipsolutions.net>
+	 <AANLkTikB0Amzi61JLxdY5HL-2s_nbYo3JH8vXooXzHdQ@mail.gmail.com>
+	 <1276007174.3706.133.camel@jlt3.sipsolutions.net>
+	 <AANLkTikNEzJHPrOUK6DKMoWvcblTBInaIhVbk96OtZxe@mail.gmail.com>
+	 <1276009590.3706.135.camel@jlt3.sipsolutions.net>
+	 <AANLkTimSqF4D4jPj-HzOjl1vxjf2T7YvlGdR6zcJZ9Pp@mail.gmail.com>
+	 <1276014816.3706.137.camel@jlt3.sipsolutions.net>
+	 <AANLkTilUd2Bp1h4SzlW5f5KevoRM-os_fQrivLHbZyKY@mail.gmail.com>
+	 <1276250151.3640.11.camel@jlt3.sipsolutions.net>
+	 <AANLkTil4IvOiDHnLwAaeseEPVgYp-EF5TK1HfHitY3-H@mail.gmail.com>
+	 <1276507247.3926.13.camel@jlt3.sipsolutions.net>
+	 <bug-16215-7251@https.bugzilla.kernel.org/>
+	 <AANLkTin2sci1gSmwx-tjazYGFAcUNRKhJFI7Bt0KvVe3@mail.gmail.com>
+	 <m139wiuswa.fsf_-_@fess.ebiederm.org>
+	 <AANLkTilVHF0dITpB3yJYaCnGPonhdl7NWnb-P12RAFTs@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Xin, Xiaohui" <xiaohui.xin@intel.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mingo@elte.hu" <mingo@elte.hu>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>,
-	Rusty Russell <rusty@rustcorp.com.au>
-To: Herbert Xu <herbert@gondor.hengli.com.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100620110254.GA31484@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
+To: Kay Sievers <kay.sievers@vrfy.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from he.sipsolutions.net ([78.46.109.217]:46906 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751051Ab0FTLdz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jun 2010 07:33:55 -0400
+In-Reply-To: <AANLkTilVHF0dITpB3yJYaCnGPonhdl7NWnb-P12RAFTs@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 20, 2010 at 09:02:54PM +1000, Herbert Xu wrote:
-> On Sun, Jun 20, 2010 at 01:39:09PM +0300, Michael S. Tsirkin wrote:
-> >
-> > > It's just like migrating from a backend that supports TSO
-> > > to one that doesn't.
-> > 
-> > Exactly. We don't support such migration.
-> 
-> Well that's something that has to be addressed in the virtio_net.
+On Sun, 2010-06-20 at 12:52 +0200, Kay Sievers wrote:
 
-Rather than modifying all guests, it seems much easier not to assume
-specific buffer layout in host.  Copying network header around seems a
-small cost.
+> As mentioned earlier, It's pretty fragile to change things in this
+> area, and I prefer the broken network driver-core interactions to be
+> fixed instead - even when they are more complicated.
 
-> Cheers,
-> -- 
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Can you _please_ offer a proper way to fix it then?
+
+johannes
+
