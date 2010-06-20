@@ -1,53 +1,33 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next-2.6 PATCH 1/8] e1000e: cleanup ethtool loopback setup
-	code
-Date: Sun, 20 Jun 2010 00:32:20 -0700
-Message-ID: <AANLkTik2Rait7ugcDt36ncwqdO-fZrr9iM8usecAyBAC@mail.gmail.com>
-References: <20100616232523.4834.84849.stgit@localhost.localdomain>
-	<20100618.221512.102550313.davem@davemloft.net>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH] net: optimize Berkeley Packet Filter (BPF) processing
+Date: Sun, 20 Jun 2010 11:50:20 +0200
+Message-ID: <20100620095019.GA32223@nuttenaction>
+References: <1277003136-5522-1-git-send-email-hagen@jauu.net>
+ <20100619221611.784f7dbc@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	bruce.w.allan@intel.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:48264 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753109Ab0FTHcV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jun 2010 03:32:21 -0400
-Received: by iwn9 with SMTP id 9so2416598iwn.19
-        for <netdev@vger.kernel.org>; Sun, 20 Jun 2010 00:32:20 -0700 (PDT)
-In-Reply-To: <20100618.221512.102550313.davem@davemloft.net>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:44425 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756429Ab0FTJuW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jun 2010 05:50:22 -0400
+Content-Disposition: inline
+In-Reply-To: <20100619221611.784f7dbc@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 18, 2010 at 22:15, David Miller <davem@davemloft.net> wrote=
-:
->
-> I've applied this series however:
->
-> 1) Please address Ben's concerns about turning EEE on by default
-> =C2=A0 given that standardization is not complete yet.
->
-> 2) I hate module parameters, I'd rather you create a new ethtool
-> =C2=A0 feature bit and thus allow the setting to be modified at run
-> =C2=A0 time. =C2=A0Please create a new ethtool control flag, and remo=
-ve
-> =C2=A0 this module option.
->
-> Thanks.
-> --
+* Stephen Hemminger | 2010-06-19 22:16:11 [-0700]:
 
-Thank you Dave.  I know that Bruce (and company) are actively looking
-into your first point.  I would think that he would have either a
-response or update on the status come Monday/Tuesday.
+>I don't think this works because it breaks ABI compatibility for applications tha
+>use older versions.
 
-Regarding option 2, understood and I will work out with Bruce on when
-and who will do the work.  I will be taking a look at it tomorrow
-(later today), if I am not able to come up with a patch in the near
-future.  I will return to working on it by Wednesday.
+Are you sure Stephen? It is a one-to-one mapping of the ABI but maybe it was
+too late yesterday ... ;-)
 
---=20
-Cheers,
-Jeff
+
+-- 
+Hagen Paul Pfeifer <hagen@jauu.net>  ||  http://jauu.net/
+Telephone: +49 174 5455209           ||  Key Id: 0x98350C22
+Key Fingerprint: 490F 557B 6C48 6D7E 5706 2EA2 4A22 8D45 9835 0C22
