@@ -1,33 +1,89 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH] net: optimize Berkeley Packet Filter (BPF) processing
-Date: Sun, 20 Jun 2010 11:50:20 +0200
-Message-ID: <20100620095019.GA32223@nuttenaction>
-References: <1277003136-5522-1-git-send-email-hagen@jauu.net>
- <20100619221611.784f7dbc@nehalam>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH v7 01/19] Add a new structure for skb buffer from
+	external.
+Date: Sun, 20 Jun 2010 13:06:32 +0300
+Message-ID: <20100620100631.GB4578@redhat.com>
+References: <20100606161348.427822fb@nehalam> <20100608052744.GA21547@gondor.apana.org.au> <F2E9EB7348B8264F86B6AB8151CE2D791100848F9F@shsmsx502.ccr.corp.intel.com> <20100611052112.GA25649@gondor.apana.org.au> <F2E9EB7348B8264F86B6AB8151CE2D791210AA4475@shsmsx502.ccr.corp.intel.com> <F2E9EB7348B8264F86B6AB8151CE2D79134F9AA999@shsmsx502.ccr.corp.intel.com> <20100617112119.GB1515@gondor.apana.org.au> <F2E9EB7348B8264F86B6AB8151CE2D7915089FE4CC@shsmsx502.ccr.corp.intel.com> <20100618055929.GA11333@gondor.apana.org.au> <F2E9EB7348B8264F86B6AB8151CE2D7915089FE573@shsmsx502.ccr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:44425 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756429Ab0FTJuW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jun 2010 05:50:22 -0400
+Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mingo@elte.hu" <mingo@elte.hu>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"jdike@linux.intel.com" <jdike@linux.intel.com>,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: "Xin, Xiaohui" <xiaohui.xin@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20100619221611.784f7dbc@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D7915089FE573@shsmsx502.ccr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-* Stephen Hemminger | 2010-06-19 22:16:11 [-0700]:
+On Fri, Jun 18, 2010 at 03:14:18PM +0800, Xin, Xiaohui wrote:
+> >-----Original Message-----
+> >From: Herbert Xu [mailto:herbert@gondor.apana.org.au]
+> >Sent: Friday, June 18, 2010 1:59 PM
+> >To: Xin, Xiaohui
+> >Cc: Stephen Hemminger; netdev@vger.kernel.org; kvm@vger.kernel.org;
+> >linux-kernel@vger.kernel.org; mst@redhat.com; mingo@elte.hu; davem@davemloft.net;
+> >jdike@linux.intel.com; Rusty Russell
+> >Subject: Re: [RFC PATCH v7 01/19] Add a new structure for skb buffer from external.
+> >
+> >On Fri, Jun 18, 2010 at 01:26:49PM +0800, Xin, Xiaohui wrote:
+> >>
+> >> Herbert,
+> >> I have questions about the idea above:
+> >> 1) Since netdev_alloc_skb() is still there, and we only modify alloc_page(),
+> >> then we don't need napi_gro_frags() any more, the driver's original receiving
+> >> function is ok. Right?
+> >
+> >Well I was actually thinking about converting all drivers that
+> >need this to napi_gro_frags.  But now that you mention it, yes
+> >we could still keep the old interface to minimise the work.
+> >
+> >> 2) Is napi_gro_frags() only suitable for TCP protocol packet?
+> >> I have done a small test for ixgbe driver to let it only allocate paged buffers
+> >> and found kernel hangs when napi_gro_frags() receives an ARP packet.
+> >
+> >It should work with any packet.  In fact, I'm pretty sure the
+> >other drivers (e.g., cxgb3) use that interface for all packets.
+> >
+> Thanks for the verification. By the way, does that mean that nearly all drivers can use the 
+> same napi_gro_frags() to receive buffers though currently each driver has it's own receiving 
+> function?
+> 
+> >> 3) As I have mentioned above, with this idea, netdev_alloc_skb() will allocate
+> >> as usual, the data pointed by skb->data will be copied into the first guest buffer.
+> >> That means we should reserve sufficient room in guest buffer. For PS mode
+> >> supported driver (for example ixgbe), the room will be more than 128. After 128bytes,
+> >> we will put the first frag data. Look into virtio-net.c the function page_to_skb()
+> >> and receive_mergeable(), that means we should modify guest virtio-net driver to
+> >> compute the offset as the parameter for skb_set_frag().
+> >>
+> >> How do you think about this? Attached is a patch to how to modify the guest driver.
+> >> I reserve 512 bytes as an example, and transfer the header len of the skb in hdr->hdr_len.
+> >
+> >Expanding the buffer size to 512 bytes to accomodate PS mode
+> >looks reasonable to me.
+> >
+> >However, I don't think we should increase the copy threshold to
+> >512 bytes at the same time.  I don't have any figures myself but
+> >I think if we are to make such a change it should be a separate
+> >one and come with supporting numbers.
+> >
+> Let me have a look to see if I can retain the copy threshold as 128 bytes 
+> and copy the header data safely.
 
->I don't think this works because it breaks ABI compatibility for applications tha
->use older versions.
-
-Are you sure Stephen? It is a one-to-one mapping of the ABI but maybe it was
-too late yesterday ... ;-)
+Changing the guest virtio to match the backend is a problem,
+this breaks migration etc.
 
 
--- 
-Hagen Paul Pfeifer <hagen@jauu.net>  ||  http://jauu.net/
-Telephone: +49 174 5455209           ||  Key Id: 0x98350C22
-Key Fingerprint: 490F 557B 6C48 6D7E 5706 2EA2 4A22 8D45 9835 0C22
+> >Cheers,
+> >--
+> >Visit Openswan at http://www.openswan.org/
+> >Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+> >Home Page: http://gondor.apana.org.au/~herbert/
+> >PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
