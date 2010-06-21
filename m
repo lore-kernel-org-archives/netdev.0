@@ -1,155 +1,172 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 3/5] isdn/gigaset: correct CAPI DATA_B3 Delivery Confirmation
-Date: Tue, 22 Jun 2010 01:54:50 +0200 (CEST)
-Message-ID: <20100622-patch-gigaset-03.tilman@imap.cc>
+Subject: [PATCH 4/5] isdn/gigaset: encode HLC and BC together
+Date: Tue, 22 Jun 2010 01:55:05 +0200 (CEST)
+Message-ID: <20100622-patch-gigaset-04.tilman@imap.cc>
 References: <20100622-patch-gigaset-00.tilman@imap.cc>
 Cc: Hansjoerg Lipp <hjlipp@web.de>, Karsten Keil <keil@b1-systems.de>,
 	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, stable@vger.kernel.org
 To: Karsten Keil <isdn@linux-pingi.de>,
 	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gimli.pxnet.com ([89.1.7.7]:38343 "EHLO mail.pxnet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932919Ab0FVAEm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jun 2010 20:04:42 -0400
 In-Reply-To: <20100622-patch-gigaset-00.tilman@imap.cc>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The Gigaset CAPI driver handled all DATA_B3_REQ messages as if the
-Delivery Confirmation flag bit was set, delaying the emission of the
-DATA_B3_CONF reply until the data was actually transmitted. Some
-CAPI applications (notably Asterisk) aren't happy with that
-behaviour. Change it to actually evaluate the Delivery Confirmation
-flag as described the CAPI specification.
+Adapt to buggy device firmware which accepts setting HLC only in the
+same command line as BC, by encoding HLC and BC in a single command
+if both are specified, and rejecting HLC without BC.
 
 Impact: bugfix
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 ---
- drivers/isdn/gigaset/capi.c |   83 ++++++++++++++++++++++++++----------------
- 1 files changed, 51 insertions(+), 32 deletions(-)
+ drivers/isdn/gigaset/capi.c     |   83 +++++++++++++++++++++++---------------
+ drivers/isdn/gigaset/ev-layer.c |    4 +-
+ drivers/isdn/gigaset/gigaset.h  |    5 +-
+ 3 files changed, 53 insertions(+), 39 deletions(-)
 
 diff --git a/drivers/isdn/gigaset/capi.c b/drivers/isdn/gigaset/capi.c
-index cb55ead..e685123 100644
+index e685123..7d9549e 100644
 --- a/drivers/isdn/gigaset/capi.c
 +++ b/drivers/isdn/gigaset/capi.c
-@@ -320,6 +320,39 @@ static const char *format_ie(const char *ie)
- 	return result;
- }
+@@ -1166,7 +1166,7 @@ static void do_connect_req(struct gigaset_capi_ctr *iif,
+ 	char **commands;
+ 	char *s;
+ 	u8 *pp;
+-	int i, l;
++	int i, l, lbc, lhlc;
+ 	u16 info;
  
-+/*
-+ * emit DATA_B3_CONF message
-+ */
-+static void send_data_b3_conf(struct cardstate *cs, struct capi_ctr *ctr,
-+			      u16 appl, u16 msgid, int channel,
-+			      u16 handle, u16 info)
-+{
-+	struct sk_buff *cskb;
-+	u8 *msg;
-+
-+	cskb = alloc_skb(CAPI_DATA_B3_CONF_LEN, GFP_ATOMIC);
-+	if (!cskb) {
-+		dev_err(cs->dev, "%s: out of memory\n", __func__);
-+		return;
-+	}
-+	/* frequent message, avoid _cmsg overhead */
-+	msg = __skb_put(cskb, CAPI_DATA_B3_CONF_LEN);
-+	CAPIMSG_SETLEN(msg, CAPI_DATA_B3_CONF_LEN);
-+	CAPIMSG_SETAPPID(msg, appl);
-+	CAPIMSG_SETCOMMAND(msg, CAPI_DATA_B3);
-+	CAPIMSG_SETSUBCOMMAND(msg,  CAPI_CONF);
-+	CAPIMSG_SETMSGID(msg, msgid);
-+	CAPIMSG_SETCONTROLLER(msg, ctr->cnr);
-+	CAPIMSG_SETPLCI_PART(msg, channel);
-+	CAPIMSG_SETNCCI_PART(msg, 1);
-+	CAPIMSG_SETHANDLE_CONF(msg, handle);
-+	CAPIMSG_SETINFO_CONF(msg, info);
-+
-+	/* emit message */
-+	dump_rawmsg(DEBUG_MCMD, __func__, msg);
-+	capi_ctr_handle_message(ctr, appl, cskb);
-+}
-+
- 
- /*
-  * driver interface functions
-@@ -340,7 +373,6 @@ void gigaset_skb_sent(struct bc_state *bcs, struct sk_buff *dskb)
- 	struct gigaset_capi_ctr *iif = cs->iif;
- 	struct gigaset_capi_appl *ap = bcs->ap;
- 	unsigned char *req = skb_mac_header(dskb);
--	struct sk_buff *cskb;
- 	u16 flags;
- 
- 	/* update statistics */
-@@ -357,34 +389,17 @@ void gigaset_skb_sent(struct bc_state *bcs, struct sk_buff *dskb)
- 		return;
+ 	/* decode message */
+@@ -1293,43 +1293,60 @@ static void do_connect_req(struct gigaset_capi_ctr *iif,
+ 		goto error;
  	}
  
--	/* ToDo: honor unset "delivery confirmation" bit */
+-	/* check/encode parameter: BC */
+-	if (cmsg->BC && cmsg->BC[0]) {
+-		/* explicit BC overrides CIP */
+-		l = 2*cmsg->BC[0] + 7;
 +	/*
-+	 * send DATA_B3_CONF if "delivery confirmation" bit was set in request;
-+	 * otherwise it has already been sent by do_data_b3_req()
++	 * check/encode parameters: BC & HLC
++	 * must be encoded together as device doesn't accept HLC separately
++	 * explicit parameters override values derived from CIP
 +	 */
- 	flags = CAPIMSG_FLAGS(req);
--
--	/* build DATA_B3_CONF message */
--	cskb = alloc_skb(CAPI_DATA_B3_CONF_LEN, GFP_ATOMIC);
--	if (!cskb) {
--		dev_err(cs->dev, "%s: out of memory\n", __func__);
--		return;
++
++	/* determine lengths */
++	if (cmsg->BC && cmsg->BC[0])		/* BC specified explicitly */
++		lbc = 2*cmsg->BC[0];
++	else if (cip2bchlc[cmsg->CIPValue].bc)	/* BC derived from CIP */
++		lbc = strlen(cip2bchlc[cmsg->CIPValue].bc);
++	else					/* no BC */
++		lbc = 0;
++	if (cmsg->HLC && cmsg->HLC[0])		/* HLC specified explicitly */
++		lhlc = 2*cmsg->HLC[0];
++	else if (cip2bchlc[cmsg->CIPValue].hlc)	/* HLC derived from CIP */
++		lhlc = strlen(cip2bchlc[cmsg->CIPValue].hlc);
++	else					/* no HLC */
++		lhlc = 0;
++
++	if (lbc) {
++		/* have BC: allocate and assemble command string */
++		l = lbc + 7;		/* "^SBC=" + value + "\r" + null byte */
++		if (lhlc)
++			l += lhlc + 7;	/* ";^SHLC=" + value */
+ 		commands[AT_BC] = kmalloc(l, GFP_KERNEL);
+ 		if (!commands[AT_BC])
+ 			goto oom;
+ 		strcpy(commands[AT_BC], "^SBC=");
+-		decode_ie(cmsg->BC, commands[AT_BC]+5);
++		if (cmsg->BC && cmsg->BC[0])	/* BC specified explicitly */
++			decode_ie(cmsg->BC, commands[AT_BC] + 5);
++		else				/* BC derived from CIP */
++			strcpy(commands[AT_BC] + 5,
++			       cip2bchlc[cmsg->CIPValue].bc);
++		if (lhlc) {
++			strcpy(commands[AT_BC] + lbc + 5, ";^SHLC=");
++			if (cmsg->HLC && cmsg->HLC[0])
++				/* HLC specified explicitly */
++				decode_ie(cmsg->HLC,
++					  commands[AT_BC] + lbc + 12);
++			else	/* HLC derived from CIP */
++				strcpy(commands[AT_BC] + lbc + 12,
++				       cip2bchlc[cmsg->CIPValue].hlc);
++		}
+ 		strcpy(commands[AT_BC] + l - 2, "\r");
+-	} else if (cip2bchlc[cmsg->CIPValue].bc) {
+-		l = strlen(cip2bchlc[cmsg->CIPValue].bc) + 7;
+-		commands[AT_BC] = kmalloc(l, GFP_KERNEL);
+-		if (!commands[AT_BC])
+-			goto oom;
+-		snprintf(commands[AT_BC], l, "^SBC=%s\r",
+-			 cip2bchlc[cmsg->CIPValue].bc);
 -	}
--	/* frequent message, avoid _cmsg overhead */
--	CAPIMSG_SETLEN(cskb->data, CAPI_DATA_B3_CONF_LEN);
--	CAPIMSG_SETAPPID(cskb->data, ap->id);
--	CAPIMSG_SETCOMMAND(cskb->data, CAPI_DATA_B3);
--	CAPIMSG_SETSUBCOMMAND(cskb->data,  CAPI_CONF);
--	CAPIMSG_SETMSGID(cskb->data, CAPIMSG_MSGID(req));
--	CAPIMSG_SETCONTROLLER(cskb->data, iif->ctr.cnr);
--	CAPIMSG_SETPLCI_PART(cskb->data, bcs->channel + 1);
--	CAPIMSG_SETNCCI_PART(cskb->data, 1);
--	CAPIMSG_SETHANDLE_CONF(cskb->data, CAPIMSG_HANDLE_REQ(req));
--	if (flags & ~CAPI_FLAGS_DELIVERY_CONFIRMATION)
--		CAPIMSG_SETINFO_CONF(cskb->data,
--				     CapiFlagsNotSupportedByProtocol);
--	else
--		CAPIMSG_SETINFO_CONF(cskb->data, CAPI_NOERROR);
 -
--	/* emit message */
--	dump_rawmsg(DEBUG_LLDATA, "DATA_B3_CONF", cskb->data);
--	capi_ctr_handle_message(&iif->ctr, ap->id, cskb);
-+	if (flags & CAPI_FLAGS_DELIVERY_CONFIRMATION)
-+		send_data_b3_conf(cs, &iif->ctr, ap->id, CAPIMSG_MSGID(req),
-+				  bcs->channel + 1, CAPIMSG_HANDLE_REQ(req),
-+				  (flags & ~CAPI_FLAGS_DELIVERY_CONFIRMATION) ?
-+					CapiFlagsNotSupportedByProtocol :
-+					CAPI_NOERROR);
- }
- EXPORT_SYMBOL_GPL(gigaset_skb_sent);
+-	/* check/encode parameter: HLC */
+-	if (cmsg->HLC && cmsg->HLC[0]) {
+-		/* explicit HLC overrides CIP */
+-		l = 2*cmsg->HLC[0] + 7;
+-		commands[AT_HLC] = kmalloc(l, GFP_KERNEL);
+-		if (!commands[AT_HLC])
+-			goto oom;
+-		strcpy(commands[AT_HLC], "^SHLC=");
+-		decode_ie(cmsg->HLC, commands[AT_HLC]+5);
+-		strcpy(commands[AT_HLC] + l - 2, "\r");
+-	} else if (cip2bchlc[cmsg->CIPValue].hlc) {
+-		l = strlen(cip2bchlc[cmsg->CIPValue].hlc) + 7;
+-		commands[AT_HLC] = kmalloc(l, GFP_KERNEL);
+-		if (!commands[AT_HLC])
+-			goto oom;
+-		snprintf(commands[AT_HLC], l, "^SHLC=%s\r",
+-			 cip2bchlc[cmsg->CIPValue].hlc);
+-	}
++	} else {
++		/* no BC */
++		if (lhlc) {
++			dev_notice(cs->dev, "%s: cannot set HLC without BC\n",
++				   "CONNECT_REQ");
++			info = CapiIllMessageParmCoding; /* ? */
++			goto error;
++		}
++	}
  
-@@ -1795,6 +1810,8 @@ static void do_data_b3_req(struct gigaset_capi_ctr *iif,
- 	u16 msglen = CAPIMSG_LEN(skb->data);
- 	u16 datalen = CAPIMSG_DATALEN(skb->data);
- 	u16 flags = CAPIMSG_FLAGS(skb->data);
-+	u16 msgid = CAPIMSG_MSGID(skb->data);
-+	u16 handle = CAPIMSG_HANDLE_REQ(skb->data);
+ 	/* check/encode parameter: B Protocol */
+ 	if (cmsg->BProtocol == CAPI_DEFAULT) {
+diff --git a/drivers/isdn/gigaset/ev-layer.c b/drivers/isdn/gigaset/ev-layer.c
+index 206c380..ceaef9a 100644
+--- a/drivers/isdn/gigaset/ev-layer.c
++++ b/drivers/isdn/gigaset/ev-layer.c
+@@ -282,9 +282,7 @@ struct reply_t gigaset_tab_cid[] =
+ /* dial */
+ {EV_DIAL,	 -1,  -1, -1,			 -1, -1, {ACT_DIAL} },
+ {RSP_INIT,	  0,   0, SEQ_DIAL,		601,  5, {ACT_CMD+AT_BC} },
+-{RSP_OK,	601, 601, -1,			602,  5, {ACT_CMD+AT_HLC} },
+-{RSP_NULL,	602, 602, -1,			603,  5, {ACT_CMD+AT_PROTO} },
+-{RSP_OK,	602, 602, -1,			603,  5, {ACT_CMD+AT_PROTO} },
++{RSP_OK,	601, 601, -1,			603,  5, {ACT_CMD+AT_PROTO} },
+ {RSP_OK,	603, 603, -1,			604,  5, {ACT_CMD+AT_TYPE} },
+ {RSP_OK,	604, 604, -1,			605,  5, {ACT_CMD+AT_MSN} },
+ {RSP_NULL,	605, 605, -1,			606,  5, {ACT_CMD+AT_CLIP} },
+diff --git a/drivers/isdn/gigaset/gigaset.h b/drivers/isdn/gigaset/gigaset.h
+index f77ec54..c4e6c26 100644
+--- a/drivers/isdn/gigaset/gigaset.h
++++ b/drivers/isdn/gigaset/gigaset.h
+@@ -186,10 +186,9 @@ void gigaset_dbg_buffer(enum debuglevel level, const unsigned char *msg,
+ #define AT_BC		3
+ #define AT_PROTO	4
+ #define AT_TYPE		5
+-#define AT_HLC		6
+-#define AT_CLIP		7
++#define AT_CLIP		6
+ /* total number */
+-#define AT_NUM		8
++#define AT_NUM		7
  
- 	/* frequent message, avoid _cmsg overhead */
- 	dump_rawmsg(DEBUG_LLDATA, "DATA_B3_REQ", skb->data);
-@@ -1845,12 +1862,14 @@ static void do_data_b3_req(struct gigaset_capi_ctr *iif,
- 		return;
- 	}
- 
--	/* DATA_B3_CONF reply will be sent by gigaset_skb_sent() */
--
- 	/*
--	 * ToDo: honor unset "delivery confirmation" bit
--	 * (send DATA_B3_CONF immediately?)
-+	 * DATA_B3_CONF will be sent by gigaset_skb_sent() only if "delivery
-+	 * confirmation" bit is set; otherwise we have to send it now
- 	 */
-+	if (!(flags & CAPI_FLAGS_DELIVERY_CONFIRMATION))
-+		send_data_b3_conf(cs, &iif->ctr, ap->id, msgid, channel, handle,
-+				  flags ? CapiFlagsNotSupportedByProtocol
-+					: CAPI_NOERROR);
- }
- 
- /*
+ /* variables in struct at_state_t */
+ #define VAR_ZSAU	0
 -- 
 1.6.5.3.298.g39add
+
