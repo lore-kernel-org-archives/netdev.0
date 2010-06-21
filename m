@@ -1,183 +1,137 @@
 From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH 2/2] syncookies: add support for ECN
-Date: Mon, 21 Jun 2010 23:48:45 +0200
-Message-ID: <1277156925-7295-2-git-send-email-fw@strlen.de>
-References: <1277156925-7295-1-git-send-email-fw@strlen.de>
+Subject: [PATCH 1/2] syncookies: do not store rcv_wscale in tcp timestamp
+Date: Mon, 21 Jun 2010 23:48:44 +0200
+Message-ID: <1277156925-7295-1-git-send-email-fw@strlen.de>
 Cc: Florian Westphal <fw@strlen.de>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:40541 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:40540 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932653Ab0FUVvF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jun 2010 17:51:05 -0400
-In-Reply-To: <1277156925-7295-1-git-send-email-fw@strlen.de>
+	by vger.kernel.org with ESMTP id S932653Ab0FUVvA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jun 2010 17:51:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allows use of ECN when syncookies are in effect by encoding ecn_ok
-into the syn-ack tcp timestamp.
+As pointed out by Fernando Gont there is no need to encode rcv_wscale
+into the cookie.
 
-While at it, remove a uneeded #ifdef CONFIG_SYN_COOKIES.
-With CONFIG_SYN_COOKIES=nm want_cookie is ifdef'd to 0 and gcc
-removes the "if (0)".
+We did not use the restored rcv_wscale anyway; it is recomputed
+via tcp_select_initial_window().
+
+Thus we can save 4 bits in the ts option space by removing rcv_wscale.
+In case window scaling was not supported, we set the (invalid) wscale
+value 0xf.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- include/net/tcp.h     |    2 +-
- net/ipv4/syncookies.c |   15 ++++++++++-----
- net/ipv4/tcp_ipv4.c   |    6 ++----
- net/ipv6/syncookies.c |    5 +++--
- net/ipv6/tcp_ipv6.c   |    2 +-
- 5 files changed, 17 insertions(+), 13 deletions(-)
+ net/ipv4/syncookies.c |   35 ++++++++++++++---------------------
+ net/ipv6/syncookies.c |    1 -
+ 2 files changed, 14 insertions(+), 22 deletions(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 18c246c..c2f96c2 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -464,7 +464,7 @@ extern __u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb,
- 				     __u16 *mss);
- 
- extern __u32 cookie_init_timestamp(struct request_sock *req);
--extern bool cookie_check_timestamp(struct tcp_options_received *tcp_opt);
-+extern bool cookie_check_timestamp(struct tcp_options_received *opt, bool *);
- 
- /* From net/ipv6/syncookies.c */
- extern struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb);
 diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
-index 8896329..650cace 100644
+index 51b5662..8896329 100644
 --- a/net/ipv4/syncookies.c
 +++ b/net/ipv4/syncookies.c
-@@ -19,7 +19,7 @@
+@@ -18,8 +18,8 @@
+ #include <net/tcp.h>
  #include <net/route.h>
  
- /* Timestamps: lowest bits store TCP options */
--#define TSBITS 5
-+#define TSBITS 6
+-/* Timestamps: lowest 9 bits store TCP options */
+-#define TSBITS 9
++/* Timestamps: lowest bits store TCP options */
++#define TSBITS 5
  #define TSMASK (((__u32)1 << TSBITS) - 1)
  
  extern int sysctl_tcp_syncookies;
-@@ -73,6 +73,7 @@ __u32 cookie_init_timestamp(struct request_sock *req)
+@@ -58,7 +58,7 @@ static u32 cookie_hash(__be32 saddr, __be32 daddr, __be16 sport, __be16 dport,
  
- 	options = ireq->wscale_ok ? ireq->snd_wscale : 0xf;
- 	options |= ireq->sack_ok << 4;
-+	options |= ireq->ecn_ok << 5;
+ /*
+  * when syncookies are in effect and tcp timestamps are enabled we encode
+- * tcp options in the lowest 9 bits of the timestamp value that will be
++ * tcp options in the lower bits of the timestamp value that will be
+  * sent in the syn-ack.
+  * Since subsequent timestamps use the normal tcp_time_stamp value, we
+  * must make sure that the resulting initial timestamp is <= tcp_time_stamp.
+@@ -70,11 +70,9 @@ __u32 cookie_init_timestamp(struct request_sock *req)
+ 	u32 options = 0;
+ 
+ 	ireq = inet_rsk(req);
+-	if (ireq->wscale_ok) {
+-		options = ireq->snd_wscale;
+-		options |= ireq->rcv_wscale << 4;
+-	}
+-	options |= ireq->sack_ok << 8;
++
++	options = ireq->wscale_ok ? ireq->snd_wscale : 0xf;
++	options |= ireq->sack_ok << 4;
  
  	ts = ts_now & ~TSMASK;
  	ts |= options;
-@@ -226,11 +227,11 @@ static inline struct sock *get_cookie_sock(struct sock *sk, struct sk_buff *skb,
+@@ -227,15 +225,14 @@ static inline struct sock *get_cookie_sock(struct sock *sk, struct sk_buff *skb,
+  * additional tcp options in the timestamp.
   * This extracts these options from the timestamp echo.
   *
-  * The lowest 4 bits store snd_wscale.
-- * The next lsb is for sack_ok
-+ * next 2 bits indicate SACK and ECN support.
+- * The lowest 4 bits are for snd_wscale
+- * The next 4 lsb are for rcv_wscale
++ * The lowest 4 bits store snd_wscale.
+  * The next lsb is for sack_ok
   *
   * return false if we decode an option that should not be.
   */
--bool cookie_check_timestamp(struct tcp_options_received *tcp_opt)
-+bool cookie_check_timestamp(struct tcp_options_received *tcp_opt, bool *ecn_ok)
+ bool cookie_check_timestamp(struct tcp_options_received *tcp_opt)
  {
- 	/* echoed timestamp, lowest bits contain options */
+-	/* echoed timestamp, 9 lowest bits contain options */
++	/* echoed timestamp, lowest bits contain options */
  	u32 options = tcp_opt->rcv_tsecr & TSMASK;
-@@ -244,6 +245,9 @@ bool cookie_check_timestamp(struct tcp_options_received *tcp_opt)
+ 
+ 	if (!tcp_opt->saw_tstamp)  {
+@@ -246,20 +243,17 @@ bool cookie_check_timestamp(struct tcp_options_received *tcp_opt)
+ 	if (!sysctl_tcp_timestamps)
  		return false;
  
+-	tcp_opt->snd_wscale = options & 0xf;
+-	options >>= 4;
+-	tcp_opt->rcv_wscale = options & 0xf;
+-
  	tcp_opt->sack_ok = (options >> 4) & 0x1;
-+	*ecn_ok = (options >> 5) & 1;
-+	if (*ecn_ok && !sysctl_tcp_ecn)
-+		return false;
  
  	if (tcp_opt->sack_ok && !sysctl_tcp_sack)
  		return false;
-@@ -272,6 +276,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 	int mss;
- 	struct rtable *rt;
- 	__u8 rcv_wscale;
-+	bool ecn_ok;
  
- 	if (!sysctl_tcp_syncookies || !th->ack || th->rst)
- 		goto out;
-@@ -288,7 +293,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 	memset(&tcp_opt, 0, sizeof(tcp_opt));
- 	tcp_parse_options(skb, &tcp_opt, &hash_location, 0);
+-	if (tcp_opt->snd_wscale || tcp_opt->rcv_wscale) {
+-		tcp_opt->wscale_ok = 1;
+-		return sysctl_tcp_window_scaling != 0;
+-	}
+-	return true;
++	if ((options & 0xf) == 0xf)
++		return true; /* no window scaling */
++
++	tcp_opt->wscale_ok = 1;
++	tcp_opt->snd_wscale = options & 0xf;
++	return sysctl_tcp_window_scaling != 0;
+ }
+ EXPORT_SYMBOL(cookie_check_timestamp);
  
--	if (!cookie_check_timestamp(&tcp_opt))
-+	if (!cookie_check_timestamp(&tcp_opt, &ecn_ok))
- 		goto out;
- 
- 	ret = NULL;
-@@ -305,7 +310,7 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
- 	ireq->rmt_port		= th->source;
- 	ireq->loc_addr		= ip_hdr(skb)->daddr;
+@@ -313,7 +307,6 @@ struct sock *cookie_v4_check(struct sock *sk, struct sk_buff *skb,
  	ireq->rmt_addr		= ip_hdr(skb)->saddr;
--	ireq->ecn_ok		= 0;
-+	ireq->ecn_ok		= ecn_ok;
+ 	ireq->ecn_ok		= 0;
  	ireq->snd_wscale	= tcp_opt.snd_wscale;
+-	ireq->rcv_wscale	= tcp_opt.rcv_wscale;
  	ireq->sack_ok		= tcp_opt.sack_ok;
  	ireq->wscale_ok		= tcp_opt.wscale_ok;
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 2e41e6f..8fa32f5 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1328,14 +1328,12 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 	if (security_inet_conn_request(sk, skb, req))
- 		goto drop_and_free;
- 
--	if (!want_cookie)
-+	if (!want_cookie || tmp_opt.tstamp_ok)
- 		TCP_ECN_create_request(req, tcp_hdr(skb));
- 
- 	if (want_cookie) {
--#ifdef CONFIG_SYN_COOKIES
--		req->cookie_ts = tmp_opt.tstamp_ok;
--#endif
- 		isn = cookie_v4_init_sequence(sk, skb, &req->mss);
-+		req->cookie_ts = tmp_opt.tstamp_ok;
- 	} else if (!isn) {
- 		struct inet_peer *peer = NULL;
- 
+ 	ireq->tstamp_ok		= tcp_opt.saw_tstamp;
 diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
-index 84d818c..09fd34f 100644
+index c7ee574..84d818c 100644
 --- a/net/ipv6/syncookies.c
 +++ b/net/ipv6/syncookies.c
-@@ -164,6 +164,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 	int mss;
- 	struct dst_entry *dst;
- 	__u8 rcv_wscale;
-+	bool ecn_ok;
- 
- 	if (!sysctl_tcp_syncookies || !th->ack || th->rst)
- 		goto out;
-@@ -180,7 +181,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 	memset(&tcp_opt, 0, sizeof(tcp_opt));
- 	tcp_parse_options(skb, &tcp_opt, &hash_location, 0);
- 
--	if (!cookie_check_timestamp(&tcp_opt))
-+	if (!cookie_check_timestamp(&tcp_opt, &ecn_ok))
- 		goto out;
- 
- 	ret = NULL;
-@@ -215,7 +216,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
- 
- 	req->expires = 0UL;
+@@ -217,7 +217,6 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
  	req->retrans = 0;
--	ireq->ecn_ok		= 0;
-+	ireq->ecn_ok		= ecn_ok;
+ 	ireq->ecn_ok		= 0;
  	ireq->snd_wscale	= tcp_opt.snd_wscale;
+-	ireq->rcv_wscale	= tcp_opt.rcv_wscale;
  	ireq->sack_ok		= tcp_opt.sack_ok;
  	ireq->wscale_ok		= tcp_opt.wscale_ok;
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index f875345..5ebc27e 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1269,7 +1269,7 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 	treq = inet6_rsk(req);
- 	ipv6_addr_copy(&treq->rmt_addr, &ipv6_hdr(skb)->saddr);
- 	ipv6_addr_copy(&treq->loc_addr, &ipv6_hdr(skb)->daddr);
--	if (!want_cookie)
-+	if (!want_cookie || tmp_opt.tstamp_ok)
- 		TCP_ECN_create_request(req, tcp_hdr(skb));
- 
- 	if (!isn) {
+ 	ireq->tstamp_ok		= tcp_opt.saw_tstamp;
 -- 
 1.7.1
 
