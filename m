@@ -1,46 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] lasi82596: fix netdev_mc_count conversion
-Date: Mon, 21 Jun 2010 13:50:50 -0700 (PDT)
-Message-ID: <20100621.135050.48492866.davem@davemloft.net>
-References: <20100619223524.GA6018@p100.box>
-	<20100619224139.GA6158@p100.box>
+Subject: Re: [net-next-2.6 PATCH] net: consolidate netif_needs_gso() checks
+Date: Mon, 21 Jun 2010 13:55:09 -0700 (PDT)
+Message-ID: <20100621.135509.260072870.davem@davemloft.net>
+References: <20100617001804.5155.30862.stgit@localhost.localdomain>
+	<20100617101857.GA1053@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, torvalds@linux-foundation.org,
-	linux-parisc@vger.kernel.org, kyle@mcmartin.ca, jpirko@redhat.com,
-	netdev@vger.kernel.org
-To: deller@gmx.de
-Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <20100619224139.GA6158@p100.box>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com, john.r.fastabend@intel.com
+To: herbert@gondor.apana.org.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50863
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758466Ab0FUUy5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jun 2010 16:54:57 -0400
+In-Reply-To: <20100617101857.GA1053@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Helge Deller <deller@gmx.de>
-Date: Sun, 20 Jun 2010 00:41:39 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 17 Jun 2010 20:18:57 +1000
 
-> Fix commit 4cd24eaf0 (net: use netdev_mc_count and netdev_mc_empty when
-> appropriate)
+> On Wed, Jun 16, 2010 at 05:18:12PM -0700, Jeff Kirsher wrote:
+>> From: John Fastabend <john.r.fastabend@intel.com>
+>> 
+>> netif_needs_gso() is checked twice in the TX path once,
+>> before submitting the skb to the qdisc and once after
+>> it is dequeued from the qdisc just before calling
+>> ndo_hard_start().  This opens a window for a user to
+>> change the gso/tso or tx checksum settings that can
+>> cause netif_needs_gso to be true in one check and false
+>> in the other.
+>> 
+>> Specifically, changing TX checksum setting may cause
+>> the warning in skb_gso_segment() to be triggered if
+>> the checksum is calculated earlier.
+>> 
+>> This consolidates the netif_needs_gso() calls so that
+>> the stack only checks if gso is needed in
+>> dev_hard_start_xmit().
+>> 
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 > 
-> Signed-off-by: Helge Deller <deller@gmx.de>
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied, please CC: netdev@vger.kernel.org when posting networking
-patches in the future, thanks.
-
-> CC: Linus Torvalds <torvalds@linux-foundation.org>
-> CC: Kyle McMartin <kyle@mcmartin.ca>
-> CC: "David S. Miller" <davem@davemloft.net>
-> CC: Jiri Pirko <jpirko@redhat.com>
-> 
-> --- a/drivers/net/lib82596.c
-> +++ b/drivers/net/lib82596.c
-> @@ -1343,7 +1343,7 @@ static void set_multicast_list(struct net_device *dev)
->  	DEB(DEB_MULTI,
->  	    printk(KERN_DEBUG
->  		   "%s: set multicast list, %d entries, promisc %s, allmulti %s\n",
-> -		   dev->name, dev->mc_count,
-> +		   dev->name, netdev_mc_count(dev),
->  		   dev->flags & IFF_PROMISC ? "ON" : "OFF",
->  		   dev->flags & IFF_ALLMULTI ? "ON" : "OFF"));
->  
-> 
+Applied, thanks!
