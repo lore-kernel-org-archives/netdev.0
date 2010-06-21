@@ -1,40 +1,39 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: Re: 2.6.35-rc3: Reported regressions from 2.6.34
-Date: Mon, 21 Jun 2010 20:56:08 +0200
-Message-ID: <201006212056.09000.rjw@sisk.pl>
-References: <lc60d4toGTL.A.QzD._LpHMB@chimera> <20100621135857.GA21159@elliptictech.com>
+From: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
+Subject: Re: PATCH: uninitialized memory access in tcp_parse_options
+Date: Mon, 21 Jun 2010 21:10:46 +0200
+Message-ID: <1277147446.9469.67.camel@localhost.localdomain>
+References: <1277127249.9469.53.camel@localhost.localdomain>
+	 <3E37AD8C-208F-42B8-AA04-E0B294D909A8@earthlink.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	DRI <dri-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Nick Bowler <nbowler-7BP4RkwGw0uXmMXjJBpWqg@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100621135857.GA21159-7BP4RkwGw0uXmMXjJBpWqg@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Mitchell Erblich <erblichs@earthlink.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1-relais-roc.national.inria.fr ([192.134.164.82]:5472 "EHLO
+	mail1-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758193Ab0FUTKu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jun 2010 15:10:50 -0400
+In-Reply-To: <3E37AD8C-208F-42B8-AA04-E0B294D909A8@earthlink.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday, June 21, 2010, Nick Bowler wrote:
-> On 00:11 Mon 21 Jun     , Rafael J. Wysocki wrote:
-> > If you know of any other unresolved regressions from 2.6.34, please let us
-> > know either and we'll add them to the list.  Also, please let us know
-> > if any of the entries below are invalid.
+On Mon, 2010-06-21 at 11:02 -0700, Mitchell Erblich wrote:
+
+> 		The standard default for TCP with IPv4 is 536, which
+> 		translates to 576 MTU.
 > 
-> Didn't see this one in the list:
-> 
->   Why is kslowd accumulating so much CPU time?
->   http://thread.gmane.org/gmane.linux.kernel/996907
+> 		Thus, why don't you init mss to 536?
 
-Thanks, I'm going to add it to the list.
+I don't know: I am not a tcp expert and I am not sure I really
+understand the way this function is expected to be used by callers but I
+sent a patch to make sure that someone would feel compelled to find the
+right fix. It looks like callers of this function are expected to
+initialize the fields themselves so, the idea of doing the
+initialization in tcp_parse_options is probably bad.
 
-Rafael
+Mathieu
+-- 
+Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
+Tel: +33 4 9238 5056
+
