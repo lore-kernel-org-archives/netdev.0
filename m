@@ -1,58 +1,70 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH for-2.6.35] virtio_net: fix oom handling on tx
-Date: Mon, 21 Jun 2010 13:53:29 +0300
-Message-ID: <20100621105329.GA9506@redhat.com>
-References: <20100610152041.GA3480@redhat.com> <201006211213.49600.rusty@rustcorp.com.au> <20100621083315.GA8665@redhat.com> <201006211953.44724.rusty@rustcorp.com.au>
+From: Guillaume Gaudonville <guillaume.gaudonville@6wind.com>
+Subject: [PATCH] kernel 2.6.35: ixgbe: skip non IPv4 packets in ATR filter
+Date: Mon, 21 Jun 2010 15:05:02 +0200
+Message-ID: <4C1F637E.8010005@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	virtualization@lists.linux-foundation.org,
-	Jiri Pirko <jpirko@redhat.com>, Shirley Ma <xma@us.ibm.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Chilakala, Mallikarjuna" <mallikarjuna.chilakala@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30346 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757620Ab0FUK7M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jun 2010 06:59:12 -0400
-Content-Disposition: inline
-In-Reply-To: <201006211953.44724.rusty@rustcorp.com.au>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:36153 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757828Ab0FUM5T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jun 2010 08:57:19 -0400
+Received: by wyb33 with SMTP id 33so2220956wyb.19
+        for <netdev@vger.kernel.org>; Mon, 21 Jun 2010 05:57:18 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 21, 2010 at 07:53:43PM +0930, Rusty Russell wrote:
-> On Mon, 21 Jun 2010 06:03:16 pm Michael S. Tsirkin wrote:
-> > On Mon, Jun 21, 2010 at 12:13:49PM +0930, Rusty Russell wrote:
-> > > -		return NETDEV_TX_BUSY;
-> > > +		kfree_skb(skb);
-> > > +		return NETDEV_TX_OK;
-> > 
-> > If we do so, let's increment the dropped counter and/or error counter?
-> 
-> Yep, here's the extra change:
+Hello,
 
-Looks good to me.
+In driver ixgbe, ixgbe_atr may cause crashes for non-ipv4 packets. Just 
+add a test to check skb->protocol:
 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -571,14 +571,16 @@ static netdev_tx_t start_xmit(struct sk_
->  	/* This can happen with OOM and indirect buffers. */
->  	if (unlikely(capacity < 0)) {
->  		if (net_ratelimit()) {
-> -			if (likely(capacity == -ENOMEM))
-> +			if (likely(capacity == -ENOMEM)) {
->  				dev_warn(&dev->dev,
->  					 "TX queue failure: out of memory\n");
-> -			else
-> +			} else {
-> +				dev->stats.tx_fifo_errors++;
->  				dev_warn(&dev->dev,
->  					 "Unexpected TX queue failure: %d\n",
->  					 capacity);
->  		}
-> +		dev->stats.tx_dropped++;
->  		kfree_skb(skb);
->  		return NETDEV_TX_OK;
->  	}
+ From fcb81aa89b6819f95349a4ed8c30f0629430aa1d Mon Sep 17 00:00:00 2001
+From: Guillaume Gaudonville <guillaume.gaudonville@6wind.com>
+Date: Thu, 17 Jun 2010 16:02:14 +0200
+Subject: [PATCH] ixgbe: skip non IPv4 packets in ATR filter
+
+It may crash on short packets due to ip_hdr() access.
+
+Signed-off-by: Guillaume Gaudonville <guillaume.gaudonville@6wind.com>
+---
+ drivers/net/ixgbe/ixgbe_main.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index b2af2f6..3581dbe 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -6019,7 +6019,6 @@ static void ixgbe_tx_queue(struct ixgbe_adapter 
+*adapter,
+ static void ixgbe_atr(struct ixgbe_adapter *adapter, struct sk_buff *skb,
+                      int queue, u32 tx_flags)
+ {
+-       /* Right now, we support IPv4 only */
+        struct ixgbe_atr_input atr_input;
+        struct tcphdr *th;
+        struct iphdr *iph = ip_hdr(skb);
+@@ -6028,6 +6027,10 @@ static void ixgbe_atr(struct ixgbe_adapter 
+*adapter, struct sk_buff *skb,
+        u32 src_ipv4_addr, dst_ipv4_addr;
+        u8 l4type = 0;
+ 
++       /* Right now, we support IPv4 only */
++       if (skb->protocol != htons(ETH_P_IP))
++               return;
++
+        /* check if we're UDP or TCP */
+        if (iph->protocol == IPPROTO_TCP) {
+                th = tcp_hdr(skb);
+-- 
+1.5.6.5
+
+-- 
+Guillaume Gaudonville
+guillaume.gaudonville@6wind.com
+
