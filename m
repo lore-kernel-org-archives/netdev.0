@@ -1,59 +1,98 @@
-From: Andreas Klauer <Andreas.Klauer@metamorpher.de>
-Subject: Re: 2.6.34 + IPv6: Oops?
-Date: Mon, 21 Jun 2010 22:04:13 +0200
-Message-ID: <20100621200413.GA2280@EIS>
-References: <20100619175352.GA8482@EIS>
- <20100621153018.GA2433@EIS>
- <20100621162518.GA5972@nuttenaction>
- <20100621102508.2075d677@nehalam>
+From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [ethtool PATCH] ethtool: Support n-tuple filter programming
+Date: Mon, 21 Jun 2010 13:31:46 -0700 (Pacific Daylight Time)
+Message-ID: <Pine.WNT.4.64.1006211326380.4956@PPWASKIE-MOBL2.amr.corp.intel.com>
+References: <20100204075101.16661.95658.stgit@localhost.localdomain>
+ <1277150272.2100.47.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>, netdev@vger.kernel.org,
-	Octavian Purdila <opurdila@ixiacom.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay03.ispgateway.de ([80.67.18.15]:41036 "EHLO
-	smtprelay03.ispgateway.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751852Ab0FUUFG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jun 2010 16:05:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20100621102508.2075d677@nehalam>
+Received: from mga01.intel.com ([192.55.52.88]:22641 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752828Ab0FUUb6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jun 2010 16:31:58 -0400
+In-Reply-To: <1277150272.2100.47.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 21, 2010 at 10:25:08AM -0700, Stephen Hemminger wrote:
-> It is not handling the case of ifp == NULL.
-> 
-> Maybe the following (move the assignment into the if block).
-> 
-> --- a/net/ipv6/ndisc.c	2010-06-21 10:22:20.825637690 -0700
-> +++ b/net/ipv6/ndisc.c	2010-06-21 10:24:31.573011996 -0700
-> @@ -586,6 +586,7 @@ static void ndisc_send_na(struct net_dev
->  		src_addr = solicited_addr;
->  		if (ifp->flags & IFA_F_OPTIMISTIC)
->  			override = 0;
-> +		inc_opt |= ifp->idev->cnf.force_tllao;
->  		in6_ifa_put(ifp);
->  	} else {
->  		if (ipv6_dev_get_saddr(dev_net(dev), dev, daddr,
-> @@ -599,7 +600,6 @@ static void ndisc_send_na(struct net_dev
->  	icmp6h.icmp6_solicited = solicited;
->  	icmp6h.icmp6_override = override;
->  
-> -	inc_opt |= ifp->idev->cnf.force_tllao;
->  	__ndisc_send(dev, neigh, daddr, src_addr,
->  		     &icmp6h, solicited_addr,
->  		     inc_opt ? ND_OPT_TARGET_LL_ADDR : 0);
-> 
-> 
-> 
+On Mon, 21 Jun 2010, Ben Hutchings wrote:
 
-Thanks a lot! This fix seems to work fine for me (tested locally only).
-I'll see what happens when I apply it to my server tomorrow.
+> On Wed, 2010-02-03 at 23:51 -0800, Jeff Kirsher wrote:
+>> From: Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>
+>>
+>> Program underlying ethernet devices with n-tuple flow classification
+>> filters.
+>>
+>> This also adds a new flag to ethtool_flags, allowing n-tuple
+>> programming to be toggled using the set_flags call.
+>
+> I just noticed a problem with the implementation which makes me wonder
+> whether this was tested at all:
 
-Curious though as to why I wasn't able to reproduce it when compiling 
-the kernel with Gentoo's GCC. It doesn't look like it should make any 
-difference. Maybe I made a mistake when I tested it with Gentoo.
+Yes, it was tested.  We didn't hit every corner case, which I think your 
+catch below is a corner case issue.  Our hardware can only do so much.
 
-Regards
-Andreas Klauer
+>
+> [...]
+>> +static struct cmdline_info cmdline_ntuple[] = {
+>> +	{ "src-ip", CMDL_INT, &ntuple_fs.h_u.tcp_ip4_spec.ip4src, NULL },
+>> +	{ "src-ip-mask", CMDL_UINT, &ntuple_fs.m_u.tcp_ip4_spec.ip4src, NULL },
+>> +	{ "dst-ip", CMDL_INT, &ntuple_fs.h_u.tcp_ip4_spec.ip4dst, NULL },
+>> +	{ "dst-ip-mask", CMDL_UINT, &ntuple_fs.m_u.tcp_ip4_spec.ip4dst, NULL },
+>> +	{ "src-port", CMDL_INT, &ntuple_fs.h_u.tcp_ip4_spec.psrc, NULL },
+>> +	{ "src-port-mask", CMDL_UINT, &ntuple_fs.m_u.tcp_ip4_spec.psrc, NULL },
+>> +	{ "dst-port", CMDL_INT, &ntuple_fs.h_u.tcp_ip4_spec.pdst, NULL },
+>> +	{ "dst-port-mask", CMDL_UINT, &ntuple_fs.m_u.tcp_ip4_spec.pdst, NULL },
+>> +	{ "vlan", CMDL_INT, &ntuple_fs.vlan_tag, NULL },
+>> +	{ "vlan-mask", CMDL_UINT, &ntuple_fs.vlan_tag_mask, NULL },
+>> +	{ "user-def", CMDL_INT, &ntuple_fs.data, NULL },
+>> +	{ "user-def-mask", CMDL_UINT, &ntuple_fs.data_mask, NULL },
+>> +	{ "action", CMDL_INT, &ntuple_fs.action, NULL },
+>> +};
+> [...]
+>> +                       if (mode == MODE_SNTUPLE) {
+>> +                               if (!strcmp(argp[i], "flow-type")) {
+>> +                                       i += 1;
+>> +                                       if (i >= argc) {
+>> +                                               show_usage(1);
+>> +                                               break;
+>> +                                       }
+>> +                                       ntuple_fs.flow_type =
+>> +                                                   rxflow_str_to_type(argp[i]);
+>> +                                       i += 1;
+>> +                                       parse_generic_cmdline(argc, argp, i,
+>> +                                               &sntuple_changed,
+>> +                                               cmdline_ntuple,
+>> +                                               ARRAY_SIZE(cmdline_ntuple));
+>> +                                       i = argc;
+>> +                                       break;
+>> +                               } else {
+>> +                                       show_usage(1);
+>> +                               }
+>> +                               break;
+>> +                       }
+> [...]
+>
+> parse_generic_cmdline() will write an int for each argument defined with
+> type CMDL_INT or CMDL_UINT.  But the fields in ntuple_fs are not all of
+> type int (or even 32-bit) - some of them are 16-bit or 64-bit, and some
+> of them are big-endian.  I also wonder whether anyone really wants to
+> enter an IPv4 address as a single integer.
+
+The assignment is broken since 'p' is an int.  That can be fixed.  Also, 
+we can fix the 64-bit field.  I added the user-defined field to be 64-bit 
+so that we weren't locking anyone down.  My hardware only uses 2 bytes, so 
+I was only able to test that.
+
+When this was proposed, we added the IPv4 address as a single int.  People 
+seemed ok with it at the time, so we went with it.  If you have a 
+different approach, please present it.
+
+Cheers,
+-PJ
