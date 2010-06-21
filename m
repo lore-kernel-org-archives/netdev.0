@@ -1,80 +1,47 @@
-From: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
-Subject: PATCH: uninitialized memory access in tcp_parse_options
-Date: Mon, 21 Jun 2010 15:34:09 +0200
-Message-ID: <1277127249.9469.53.camel@localhost.localdomain>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [PATCH] NET: MIPSsim: Fix modpost warning.
+Date: Mon, 21 Jun 2010 14:44:50 +0100
+Message-ID: <20100621134450.GA10265@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-woEUGfWk49wmJMHdz7Ig"
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:5229 "EHLO
-	mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932275Ab0FUNn5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jun 2010 09:43:57 -0400
+Received: from h5.dl5rb.org.uk ([81.2.74.5]:59743 "EHLO h5.dl5rb.org.uk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932388Ab0FUNpA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jun 2010 09:45:00 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+$ make CONFIG_DEBUG_SECTION_MISMATCH=y
+[...]
+WARNING: drivers/net/built-in.o(.data+0x0): Section mismatch in reference from the variable mipsnet_driver to the function .init.text:mipsnet_probe()
+The variable mipsnet_driver references
+the function __init mipsnet_probe()
+If the reference is valid then annotate the
+variable with __init* or __refdata (see linux/init.h) or name the variable:
+*_template, *_timer, *_sht, *_ops, *_probe, *_probe_one, *_console,
+[...]
 
---=-woEUGfWk49wmJMHdz7Ig
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Fixed by making mipsnet_probe __devinit.
 
-valgrind reports the following error:
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
 
-==15996== Conditional jump or move depends on uninitialised value(s)
-==15996==    at 0x6E63E4C: tcp_parse_options (tcp_input.c:3776)
-==15996==    by 0x6E856A3: tcp_check_req (tcp_minisocks.c:532)
-==15996==    by 0x6E7F0C6: tcp_v4_hnd_req (tcp_ipv4.c:1492)
-==15996==    by 0x6E7F55A: tcp_v4_do_rcv (tcp_ipv4.c:1571)
-==15996==    by 0x6E808C5: tcp_v4_rcv (tcp_ipv4.c:1690)
-==15996==    by 0x6E2DA7B: ip_local_deliver_finish (ip_input.c:231)
-==15996==    by 0x6E2DE0C: ip_local_deliver (netfilter.h:206)
-==15996==    by 0x6E2E940: ip_rcv_finish (dst.h:255)
-==15996==    by 0x6E2F17C: ip_rcv (netfilter.h:206)
-==15996==    by 0x6D53D0E: __netif_receive_skb (dev.c:2873)
-==15996==    by 0x6D5521F: process_backlog (dev.c:3305)
-==15996==    by 0x6D55A20: net_rx_action (dev.c:3435)
+ drivers/net/mipsnet.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-The attached patch (generated against net-next-2.6) fixes that error by
-making sure that user_mss is correctly initialized at the start of
-tcp_parse_options, just like saw_tstamp is initialized at the start of
-this function. To try to be coherent, this patch also removes the
-redundant initialization of saw_tstamp from the caller, tcp_check_req.
-
-hope this helps,
-Mathieu
--- 
-Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
-Tel: +33 4 9238 5056
-
---=-woEUGfWk49wmJMHdz7Ig
-Content-Disposition: attachment; filename="tcp-options.patch"
-Content-Type: text/x-patch; name="tcp-options.patch"; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index ae3ec15..8b713ab 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3751,6 +3751,7 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
+diff --git a/drivers/net/mipsnet.c b/drivers/net/mipsnet.c
+index 8e9704f..869f0ea 100644
+--- a/drivers/net/mipsnet.c
++++ b/drivers/net/mipsnet.c
+@@ -247,7 +247,7 @@ static const struct net_device_ops mipsnet_netdev_ops = {
+ 	.ndo_set_mac_address	= eth_mac_addr,
+ };
  
- 	ptr = (unsigned char *)(th + 1);
- 	opt_rx->saw_tstamp = 0;
-+	opt_rx->user_mss = 0;
- 
- 	while (length > 0) {
- 		int opcode = *ptr++;
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 794c2e1..21e47e7 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -527,7 +527,6 @@ struct sock *tcp_check_req(struct sock *sk, struct sk_buff *skb,
- 	__be32 flg = tcp_flag_word(th) & (TCP_FLAG_RST|TCP_FLAG_SYN|TCP_FLAG_ACK);
- 	int paws_reject = 0;
- 
--	tmp_opt.saw_tstamp = 0;
- 	if (th->doff > (sizeof(struct tcphdr)>>2)) {
- 		tcp_parse_options(skb, &tmp_opt, &hash_location, 0);
- 
-
---=-woEUGfWk49wmJMHdz7Ig--
-
+-static int __init mipsnet_probe(struct platform_device *dev)
++static int __devinit mipsnet_probe(struct platform_device *dev)
+ {
+ 	struct net_device *netdev;
+ 	int err;
