@@ -1,37 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET: MIPSsim: Fix modpost warning.
-Date: Mon, 21 Jun 2010 13:40:36 -0700 (PDT)
-Message-ID: <20100621.134036.71123880.davem@davemloft.net>
-References: <20100621134450.GA10265@linux-mips.org>
+Subject: Re: [net-next-2.6 PATCH 1/4] e1000e: avoid polling h/w registers
+ during link negotiation
+Date: Mon, 21 Jun 2010 13:43:01 -0700 (PDT)
+Message-ID: <20100621.134301.104067615.davem@davemloft.net>
+References: <20100618045804.6728.37945.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ralf@linux-mips.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	bruce.w.allan@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38055
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52927
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758458Ab0FUUkY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jun 2010 16:40:24 -0400
-In-Reply-To: <20100621134450.GA10265@linux-mips.org>
+	by vger.kernel.org with ESMTP id S1752828Ab0FUUmt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jun 2010 16:42:49 -0400
+In-Reply-To: <20100618045804.6728.37945.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ralf Baechle <ralf@linux-mips.org>
-Date: Mon, 21 Jun 2010 14:44:50 +0100
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 17 Jun 2010 21:58:43 -0700
 
-> $ make CONFIG_DEBUG_SECTION_MISMATCH=y
-> [...]
-> WARNING: drivers/net/built-in.o(.data+0x0): Section mismatch in reference from the variable mipsnet_driver to the function .init.text:mipsnet_probe()
-> The variable mipsnet_driver references
-> the function __init mipsnet_probe()
-> If the reference is valid then annotate the
-> variable with __init* or __refdata (see linux/init.h) or name the variable:
-> *_template, *_timer, *_sht, *_ops, *_probe, *_probe_one, *_console,
-> [...]
+> From: Bruce Allan <bruce.w.allan@intel.com>
 > 
-> Fixed by making mipsnet_probe __devinit.
+> Avoid touching hardware registers when possible, otherwise link negotiation
+> can get messed up when user-level scripts are rapidly polling the driver to
+> see if/when link is up.  Use the saved link state information instead when
+> possible.
 > 
-> Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+> Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Applied, thanks Ralf.
+Applied.
