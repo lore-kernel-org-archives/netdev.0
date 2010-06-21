@@ -1,70 +1,33 @@
-From: Mitchell Erblich <erblichs@earthlink.net>
-Subject: Code flow: tcp_input.c : tcp_prune_queue : Dropping frames
-Date: Mon, 21 Jun 2010 14:25:09 -0700
-Message-ID: <A76B6C17-B457-4DCA-82C6-A801E1E4D25B@earthlink.net>
-Mime-Version: 1.0 (Apple Message framework v1081)
+From: Kyle McMartin <kyle@mcmartin.ca>
+Subject: Re: [PATCH] lasi82596: fix netdev_mc_count conversion
+Date: Mon, 21 Jun 2010 17:33:09 -0400
+Message-ID: <20100621213309.GB20317@bombadil.infradead.org>
+References: <20100619223524.GA6018@p100.box> <20100619224139.GA6158@p100.box> <20100621.135050.48492866.davem@davemloft.net>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-galgo.atl.sa.earthlink.net ([209.86.89.61]:35070 "EHLO
-	elasmtp-galgo.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758492Ab0FUVZv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jun 2010 17:25:51 -0400
-Received: from [71.202.111.27] (helo=[192.168.1.3])
-	by elasmtp-galgo.atl.sa.earthlink.net with esmtpsa (TLSv1:AES128-SHA:128)
-	(Exim 4.67)
-	(envelope-from <erblichs@earthlink.net>)
-	id 1OQoUq-000195-DJ
-	for netdev@vger.kernel.org; Mon, 21 Jun 2010 17:25:36 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: deller@gmx.de, linux-kernel@vger.kernel.org,
+	torvalds@linux-foundation.org, linux-parisc@vger.kernel.org,
+	kyle@mcmartin.ca, jpirko@redhat.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-parisc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100621.135050.48492866.davem@davemloft.net>
+Sender: linux-parisc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-group,
+On Mon, Jun 21, 2010 at 01:50:50PM -0700, David Miller wrote:
+> From: Helge Deller <deller@gmx.de>
+> Date: Sun, 20 Jun 2010 00:41:39 +0200
+> 
+> > Fix commit 4cd24eaf0 (net: use netdev_mc_count and netdev_mc_empty when
+> > appropriate)
+> > 
+> > Signed-off-by: Helge Deller <deller@gmx.de>
+> 
+> Applied, please CC: netdev@vger.kernel.org when posting networking
+> patches in the future, thanks.
+> 
 
-The tcp_prune_queue() calls tcp_collapse() is called to
-prevent frames/pkts from being dropped due to buffer
-?"ooo"? overcommit.
+Thanks for catching this, Dave.
 
-However, tcp_collapse() calls alloc_skb() with GFP_ATOMIC
-which can grab the last of reserveable memory.
-
-nskb = alloc_skb(copy + header, GFP_ATOMIC); 
-if (!nskb) 
-     return; 
-
-It should be called with GFP_NOWAIT to keep the NON-SLEEP
-aspect of the mem reservation, but not grap the last bits of mem.
-
-Because, if the over-commit was that bad, all other allocations
-have ALREADY STARTED TO FAIL. The system SHOULD be
-dead.
-
-Secondly, if the alloc failed, why try to do the reclaim?
-
-Thus, 
-
-  tcp_collapse() should return int instead of void and the
-  alloc return should return -1 upon failure.
-
-  tcp_prune_queue_should check for the return and skip
-  sk_mem_reclaim().
-
-  Why not some logging message?
-  Didn't see one.
-
-  Rename ofo to "ooo" as this is known as "out-of-order".
-
-  Lastly, follow-up should be done to identify the GFP_ mem
-  type and SHOULD not be alloc'ing mem with ATOMIC
-  for an "out-of-order" queue as this COULD be a form of
-  DENIAL of Service (DoS) attack.
-
-Mitchell Erblich
-
-   
-
-
-
-
-
+--Kyle
