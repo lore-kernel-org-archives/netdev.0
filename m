@@ -1,111 +1,65 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH for-2.6.35] virtio_net: fix oom handling on tx
-Date: Mon, 21 Jun 2010 11:33:16 +0300
-Message-ID: <20100621083315.GA8665@redhat.com>
-References: <20100610152041.GA3480@redhat.com> <20100610104653.1aed2ecc@nehalam> <20100610190343.GC4044@redhat.com> <201006211213.49600.rusty@rustcorp.com.au>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: [v3 Patch 2/2] mlx4: add dynamic LRO disable support
+Date: Mon, 21 Jun 2010 11:02:15 +0200
+Message-ID: <20100621090214.GB3240@dhcp-lab-161.englab.brq.redhat.com>
+References: <20100618105935.6496.4725.sendpatchset@localhost.localdomain> <20100618105945.6496.67648.sendpatchset@localhost.localdomain> <20100618110910.GA4347@dhcp-lab-161.englab.brq.redhat.com> <4C1ECD04.20609@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	virtualization@lists.linux-foundation.org,
-	Jiri Pirko <jpirko@redhat.com>, Shirley Ma <xma@us.ibm.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, herbert.xu@redhat.com,
+	bhutchings@solarflare.com, Ramkrishna.Vepa@exar.com,
+	davem@davemloft.net
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21778 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:2732 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753449Ab0FUIid (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jun 2010 04:38:33 -0400
+	id S1756308Ab0FUJDi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jun 2010 05:03:38 -0400
 Content-Disposition: inline
-In-Reply-To: <201006211213.49600.rusty@rustcorp.com.au>
+In-Reply-To: <4C1ECD04.20609@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 21, 2010 at 12:13:49PM +0930, Rusty Russell wrote:
-> On Fri, 11 Jun 2010 04:33:43 am Michael S. Tsirkin wrote:
-> > > > > @@ -572,12 +571,14 @@ again:
-> > > > > 
-> > > > >  	/* This can happen with OOM and indirect buffers. */
-> > > > >  	if (unlikely(capacity < 0)) {
-> > > > > -		netif_stop_queue(dev);
-> > > > > -		dev_warn(&dev->dev, "Unexpected full queue\n");
-> > > > > -		if (unlikely(!virtqueue_enable_cb(vi->svq))) {
-> > > > > -			virtqueue_disable_cb(vi->svq);
-> > > > > -			netif_start_queue(dev);
-> > > > > -			goto again;
-> > > > > +		if (net_ratelimit()) {
-> > > > > +			if (likely(capacity == -ENOMEM))
-> > > > > +				dev_warn(&dev->dev,
-> > > > > +					 "TX queue failure: out of memory\n");
-> > > > > +			else
-> > > > > +				dev_warn(&dev->dev,
-> > > > > +					 "Unexpected TX queue failure: %d\n",
-> > > > > +					 capacity);
-> ...
-> > 
-> > Well, I only keep the existing behaviour around.
-> 
-> Actually, it *does* change behavior, as the comment indicates.  So let's
-> fix the whole thing.  AFAICT wth TX_BUSY we'll get called again RSN, and
-> that's not really useful for OOM.
-> 
-> This is what I have:
-> 
-> Subject: virtio_net: fix oom handling on tx
-> Date: Thu, 10 Jun 2010 18:20:41 +0300
-> From: "Michael S. Tsirkin" <mst@redhat.com>
-> 
-> virtio net will never try to overflow the TX ring, so the only reason
-> add_buf may fail is out of memory. Thus, we can not stop the
-> device until some request completes - there's no guarantee anything
-> at all is outstanding.
-> 
-> Make the error message clearer as well: error here does not
-> indicate queue full.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au> (...and avoid TX_BUSY)
-> Cc: stable@kernel.org
-> ---
->  drivers/net/virtio_net.c |   18 ++++++++++--------
->  1 file changed, 10 insertions(+), 8 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -562,7 +562,6 @@ static netdev_tx_t start_xmit(struct sk_
->  	struct virtnet_info *vi = netdev_priv(dev);
->  	int capacity;
->  
-> -again:
->  	/* Free up any pending old buffers before queueing new ones. */
->  	free_old_xmit_skbs(vi);
->  
-> @@ -571,14 +570,17 @@ again:
->  
->  	/* This can happen with OOM and indirect buffers. */
->  	if (unlikely(capacity < 0)) {
-> -		netif_stop_queue(dev);
-> -		dev_warn(&dev->dev, "Unexpected full queue\n");
-> -		if (unlikely(!virtqueue_enable_cb(vi->svq))) {
-> -			virtqueue_disable_cb(vi->svq);
-> -			netif_start_queue(dev);
-> -			goto again;
-> +		if (net_ratelimit()) {
-> +			if (likely(capacity == -ENOMEM))
-> +				dev_warn(&dev->dev,
-> +					 "TX queue failure: out of memory\n");
-> +			else
-> +				dev_warn(&dev->dev,
-> +					 "Unexpected TX queue failure: %d\n",
-> +					 capacity);
->  		}
-> -		return NETDEV_TX_BUSY;
-> +		kfree_skb(skb);
-> +		return NETDEV_TX_OK;
+On Mon, Jun 21, 2010 at 10:23:00AM +0800, Cong Wang wrote:
+> On 06/18/10 19:09, Stanislaw Gruszka wrote:
+>> On Fri, Jun 18, 2010 at 06:55:38AM -0400, Amerigo Wang wrote:
+>>> +static int mlx4_ethtool_op_set_flags(struct net_device *dev, u32 data)
+>>> +{
+>>> +	struct mlx4_en_priv *priv = netdev_priv(dev);
+>>> +	struct mlx4_en_dev *mdev = priv->mdev;
+>>> +	int rc = 0;
+>>> +	int changed = 0;
+>>> +
+>>> +	if (data&  (ETH_FLAG_NTUPLE | ETH_FLAG_RXHASH))
+>>> +		return -EOPNOTSUPP;
 
-If we do so, let's increment the dropped counter and/or error counter?
+As we are here, better would be
+	if (data & ~ETH_FLAG_LRO)
+		return -EOPNOTSUPP;
+code will persist correct when someone add new flags.
 
->  	}
->  	virtqueue_kick(vi->svq);
->  
+>>> +
+>>> +	if (data&  ETH_FLAG_LRO) {
+>>> +		if (!(dev->features&  NETIF_F_LRO))
+>>> +			changed = 1;
+>>> +	} else if (dev->features&  NETIF_F_LRO) {
+>>> +		changed = 1;
+>>> +		mdev->profile.num_lro = 0;
+>>
+>> Everything fine except that, what for you zero num_lro value?
+>>
+>> If we set it to zero it will stay zero and we will not create
+>> proper number of lro descriptors in mlx4_en_create_rx_ring()
+>> (called from mlx4_en_set_ringparam() ->   mlx4_en_alloc_resources())
+>> when someone enable LRO again on.
+>>
+>
+> Huh? Isn't ->num_lro which controls LRO of mlx4 driver?
+
+It is, but only in mlx4_en_add() just before register_netdev(),
+when we setup default dev->features. Otherwise dev->features
+tells if LRO is enabled or disabled.
+
+This realize me, that we should not dev->features |= NETIF_F_LRO
+if mdev->profile.num_lro == 0 .
+
+Stanislaw
