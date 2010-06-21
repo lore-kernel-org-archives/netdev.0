@@ -1,42 +1,49 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] net: optimize Berkeley Packet Filter (BPF) processing
-Date: Mon, 21 Jun 2010 10:15:33 +0800
-Message-ID: <AANLkTinNDMrpDUxQGjQTReuN7EyIPYNnpfO77jRFIjM7@mail.gmail.com>
-References: <1277003136-5522-1-git-send-email-hagen@jauu.net>
-	<20100619221611.784f7dbc@nehalam> <20100620095019.GA32223@nuttenaction>
-	<20100620.150928.245399526.davem@davemloft.net> <20100620215743.GA4036@nuttenaction>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [v3 Patch 2/2] mlx4: add dynamic LRO disable support
+Date: Mon, 21 Jun 2010 10:23:00 +0800
+Message-ID: <4C1ECD04.20609@redhat.com>
+References: <20100618105935.6496.4725.sendpatchset@localhost.localdomain> <20100618105945.6496.67648.sendpatchset@localhost.localdomain> <20100618110910.GA4347@dhcp-lab-161.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, shemminger@vyatta.com,
-	netdev@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Hagen Paul Pfeifer <hagen@jauu.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, herbert.xu@redhat.com,
+	bhutchings@solarflare.com, Ramkrishna.Vepa@exar.com,
+	davem@davemloft.net
+To: Stanislaw Gruszka <sgruszka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:45721 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757600Ab0FUCPy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jun 2010 22:15:54 -0400
-Received: by vws3 with SMTP id 3so349468vws.19
-        for <netdev@vger.kernel.org>; Sun, 20 Jun 2010 19:15:53 -0700 (PDT)
-In-Reply-To: <20100620215743.GA4036@nuttenaction>
+Received: from mx1.redhat.com ([209.132.183.28]:29706 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757767Ab0FUCTB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Jun 2010 22:19:01 -0400
+In-Reply-To: <20100618110910.GA4347@dhcp-lab-161.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 21, 2010 at 5:57 AM, Hagen Paul Pfeifer <hagen@jauu.net> wrote:
-> * David Miller | 2010-06-20 15:09:28 [-0700]:
+On 06/18/10 19:09, Stanislaw Gruszka wrote:
+> On Fri, Jun 18, 2010 at 06:55:38AM -0400, Amerigo Wang wrote:
+>> +static int mlx4_ethtool_op_set_flags(struct net_device *dev, u32 data)
+>> +{
+>> +	struct mlx4_en_priv *priv = netdev_priv(dev);
+>> +	struct mlx4_en_dev *mdev = priv->mdev;
+>> +	int rc = 0;
+>> +	int changed = 0;
+>> +
+>> +	if (data&  (ETH_FLAG_NTUPLE | ETH_FLAG_RXHASH))
+>> +		return -EOPNOTSUPP;
+>> +
+>> +	if (data&  ETH_FLAG_LRO) {
+>> +		if (!(dev->features&  NETIF_F_LRO))
+>> +			changed = 1;
+>> +	} else if (dev->features&  NETIF_F_LRO) {
+>> +		changed = 1;
+>> +		mdev->profile.num_lro = 0;
 >
->>I think from this perspective, the change is fine too, nothing visible
->>to the user is being changed here.
+> Everything fine except that, what for you zero num_lro value?
 >
-> Fine! I have a fundamental question: can we start to use a C language
-> extension, known as "Labels as Values" in the kernel? I checked this and at
-> least gcc, llvm and icc support this extension (btw: c1x[1] don't mention
-> this):
+> If we set it to zero it will stay zero and we will not create
+> proper number of lro descriptors in mlx4_en_create_rx_ring()
+> (called from mlx4_en_set_ringparam() ->   mlx4_en_alloc_resources())
+> when someone enable LRO again on.
 >
 
-FYI: FreeBSD goes even further, and its BPF implementation exploits
-JIT in two architectures: i386 and amd64.
-
--- 
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+Huh? Isn't ->num_lro which controls LRO of mlx4 driver?
