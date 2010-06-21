@@ -1,60 +1,82 @@
-From: Mitchell Erblich <erblichs@earthlink.net>
-Subject: Re: PATCH: uninitialized memory access in tcp_parse_options
-Date: Mon, 21 Jun 2010 11:02:08 -0700
-Message-ID: <3E37AD8C-208F-42B8-AA04-E0B294D909A8@earthlink.net>
-References: <1277127249.9469.53.camel@localhost.localdomain>
-Mime-Version: 1.0 (Apple Message framework v1081)
-Content-Type: text/plain; charset=us-ascii
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [PATCH net-next-2.6] sfc: Implement ethtool register dump operation
+Date: Mon, 21 Jun 2010 14:08:51 -0400
+Message-ID: <4C1FAAB3.8000403@garzik.org>
+References: <1277125613.2100.9.camel@achroite.uk.solarflarecom.com> <4C1FA3C1.4020006@garzik.org> <1277142725.2100.36.camel@achroite.uk.solarflarecom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-scoter.atl.sa.earthlink.net ([209.86.89.67]:57506 "EHLO
-	elasmtp-scoter.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752093Ab0FUSCN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jun 2010 14:02:13 -0400
-In-Reply-To: <1277127249.9469.53.camel@localhost.localdomain>
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:64610 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753365Ab0FUSIy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jun 2010 14:08:54 -0400
+Received: by gxk26 with SMTP id 26so1027788gxk.19
+        for <netdev@vger.kernel.org>; Mon, 21 Jun 2010 11:08:53 -0700 (PDT)
+In-Reply-To: <1277142725.2100.36.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mathieu Lacage,
+On 06/21/2010 01:52 PM, Ben Hutchings wrote:
+> On Mon, 2010-06-21 at 13:39 -0400, Jeff Garzik wrote:
+>> On 06/21/2010 09:06 AM, Ben Hutchings wrote:
+>>> Signed-off-by: Ben Hutchings<bhutchings@solarflare.com>
+>>> ---
+>>>    drivers/net/sfc/ethtool.c |   16 +++
+>>>    drivers/net/sfc/io.h      |    7 +
+>>>    drivers/net/sfc/nic.c     |  266 +++++++++++++++++++++++++++++++++++++++++++++
+>>>    drivers/net/sfc/nic.h     |    3 +
+>>>    4 files changed, 292 insertions(+), 0 deletions(-)
+>>>
+>>> diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
+>>> index 22026bf..81b7f39 100644
+>>> --- a/drivers/net/sfc/ethtool.c
+>>> +++ b/drivers/net/sfc/ethtool.c
+>>> @@ -242,6 +242,20 @@ static void efx_ethtool_get_drvinfo(struct net_device *net_dev,
+>>>    	strlcpy(info->bus_info, pci_name(efx->pci_dev), sizeof(info->bus_info));
+>>>    }
+>>>
+>>> +static int efx_ethtool_get_regs_len(struct net_device *net_dev)
+>>> +{
+>>> +	return efx_nic_get_regs_len(netdev_priv(net_dev));
+>>> +}
+>>> +
+>>> +static void efx_ethtool_get_regs(struct net_device *net_dev,
+>>> +				 struct ethtool_regs *regs, void *buf)
+>>> +{
+>>> +	struct efx_nic *efx = netdev_priv(net_dev);
+>>> +
+>>> +	regs->version = efx->type->revision;
+>>> +	efx_nic_get_regs(efx, buf);
+>>
+>> regs->version is really the version of hardware register dump exported
+>> to userspace.  You might want to hardcode this in the driver, to be
+>> changed when efx_nic_regs[] array changes, rather than tying
+>> regs->version directly to the SFC hardware architecture revision.
+>>
+>> However, if that limitation is OK with you, ie. ethtool register dump
+>> code will change when h/w arch rev changes, then
+>
+> This is exactly what we want, as the set of defined registers (and
+> fields within each register) will change in each architecture revision.
+> (It may not change in each chip revision, but efx_nic_type::revision is
+> supposed to reflect the architecture revision.)
+>
+> Although this code doesn't include an explicit format version, we can
+> consider the current format to be version 0 and increment it if we ever
+> want to make changes to the format for existing NIC revisions.
 
-		The standard default for TCP with IPv4 is 536, which
-		translates to 576 MTU.
+Yep -- that's the intented purpose.  If you ever want to dump additional 
+registers or information, it might be useful to avoid a hard coupling 
+with the hardware arch revision.
 
-		Thus, why don't you init mss to 536?
+Either way is fine, of course.
 
-		Mitchell Erblich
-		===============
+	Jeff
 
-On Jun 21, 2010, at 6:34 AM, Mathieu Lacage wrote:
 
-> valgrind reports the following error:
-> 
-> ==15996== Conditional jump or move depends on uninitialised value(s)
-> ==15996==    at 0x6E63E4C: tcp_parse_options (tcp_input.c:3776)
-> ==15996==    by 0x6E856A3: tcp_check_req (tcp_minisocks.c:532)
-> ==15996==    by 0x6E7F0C6: tcp_v4_hnd_req (tcp_ipv4.c:1492)
-> ==15996==    by 0x6E7F55A: tcp_v4_do_rcv (tcp_ipv4.c:1571)
-> ==15996==    by 0x6E808C5: tcp_v4_rcv (tcp_ipv4.c:1690)
-> ==15996==    by 0x6E2DA7B: ip_local_deliver_finish (ip_input.c:231)
-> ==15996==    by 0x6E2DE0C: ip_local_deliver (netfilter.h:206)
-> ==15996==    by 0x6E2E940: ip_rcv_finish (dst.h:255)
-> ==15996==    by 0x6E2F17C: ip_rcv (netfilter.h:206)
-> ==15996==    by 0x6D53D0E: __netif_receive_skb (dev.c:2873)
-> ==15996==    by 0x6D5521F: process_backlog (dev.c:3305)
-> ==15996==    by 0x6D55A20: net_rx_action (dev.c:3435)
-> 
-> The attached patch (generated against net-next-2.6) fixes that error by
-> making sure that user_mss is correctly initialized at the start of
-> tcp_parse_options, just like saw_tstamp is initialized at the start of
-> this function. To try to be coherent, this patch also removes the
-> redundant initialization of saw_tstamp from the caller, tcp_check_req.
-> 
-> hope this helps,
-> Mathieu
-> -- 
-> Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
-> Tel: +33 4 9238 5056
-> <tcp-options.patch>
+
 
