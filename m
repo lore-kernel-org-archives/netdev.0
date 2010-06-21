@@ -1,59 +1,507 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [Bugme-new] [Bug 16257] New: sysfs changes break hwsim and bnep drivers
-Date: Mon, 21 Jun 2010 17:05:21 -0700
-Message-ID: <m14ogwc4ou.fsf@fess.ebiederm.org>
-References: <bug-16257-10286@https.bugzilla.kernel.org/>
-	<20100621150826.762ac9f2.akpm@linux-foundation.org>
-	<m1mxuodo0n.fsf@fess.ebiederm.org> <20100621222938.GA20583@suse.de>
-	<m1eig0dmhk.fsf@fess.ebiederm.org> <20100621231058.GA1066@suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	"Maciej W. Rozycki" <macro@linux-mips.org>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
-To: Greg KH <gregkh@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:60063 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932523Ab0FVAFc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jun 2010 20:05:32 -0400
-In-Reply-To: <20100621231058.GA1066@suse.de> (Greg KH's message of "Mon\, 21 Jun 2010 16\:10\:58 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: [PATCH 1/5] isdn/gigaset: honor CAPI application's buffer size request
+Date: Tue, 22 Jun 2010 01:54:19 +0200 (CEST)
+Message-ID: <20100622-patch-gigaset-01.tilman@imap.cc>
+References: <20100622-patch-gigaset-00.tilman@imap.cc>
+Cc: Hansjoerg Lipp <hjlipp@web.de>, Karsten Keil <keil@b1-systems.de>,
+	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100622-patch-gigaset-00.tilman@imap.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Greg KH <gregkh@suse.de> writes:
+Fix the Gigaset CAPI driver to limit the length of a connection's
+payload data receive buffers to the corresponding CAPI application's
+data buffer size, as some real-life CAPI applications tend to be
+rather unhappy if they receive bigger data blocks than requested.
 
-> On Mon, Jun 21, 2010 at 03:55:35PM -0700, Eric W. Biederman wrote:
->> Greg KH <gregkh@suse.de> writes:
->> 
->> > I _really_ do not like this patch.
->> >
->> > The correct thing is to fix the modules that are affected, and that's
->> > only the wireless testing module, right?  Or is there something else?
->> >
->> > And if that code is properly converted to a bus, what needs to change in
->> > the driver core?
->> 
->> The usb bnep driver.
->
-> Odd, what is bnep doing differently here from all other network drivers?
-> Is it trying to stack the bluetooth class in the middle somehow?
-> Shouldn't this be easy to fix up in the driver itself?
+Impact: bugfix
+Signed-off-by: Tilman Schmidt <tilman@imap.cc>
+---
+ drivers/isdn/gigaset/asyncdata.c |   44 ++++++-----------------
+ drivers/isdn/gigaset/capi.c      |    8 ++++
+ drivers/isdn/gigaset/common.c    |   32 ++++------------
+ drivers/isdn/gigaset/gigaset.h   |   29 +++++++++++----
+ drivers/isdn/gigaset/i4l.c       |   21 +++++++++++
+ drivers/isdn/gigaset/isocdata.c  |   72 +++++++++++++------------------------
+ 6 files changed, 94 insertions(+), 112 deletions(-)
 
-The cause of all of the failures is a class device with a class device
-parent, instead of a bus device parent.  Which causes the net/ directory 
-not to be created for us to put the network devices under.
-
-I don't have a clue about how that driver works, and I don't know how many
-other drivers that do something strange like this are out there lurking.
-
-I have not been involved previously in any changes from class device to
-bus device so I don't have a clue how difficult it would.  All I know
-is that with the mac80211_hwsim driver we had first had two people who
-really knew what they were doing and it was hard enough there still
-isn't a working conversion away from class devices.
-
-Eric
+diff --git a/drivers/isdn/gigaset/asyncdata.c b/drivers/isdn/gigaset/asyncdata.c
+index c5016bd..c3b1dc3 100644
+--- a/drivers/isdn/gigaset/asyncdata.c
++++ b/drivers/isdn/gigaset/asyncdata.c
+@@ -126,26 +126,6 @@ static unsigned lock_loop(unsigned numbytes, struct inbuf_t *inbuf)
+ 	return numbytes;
+ }
+ 
+-/* set up next receive skb for data mode
+- */
+-static void new_rcv_skb(struct bc_state *bcs)
+-{
+-	struct cardstate *cs = bcs->cs;
+-	unsigned short hw_hdr_len = cs->hw_hdr_len;
+-
+-	if (bcs->ignore) {
+-		bcs->skb = NULL;
+-		return;
+-	}
+-
+-	bcs->skb = dev_alloc_skb(SBUFSIZE + hw_hdr_len);
+-	if (bcs->skb == NULL) {
+-		dev_warn(cs->dev, "could not allocate new skb\n");
+-		return;
+-	}
+-	skb_reserve(bcs->skb, hw_hdr_len);
+-}
+-
+ /* process a block of received bytes in HDLC data mode
+  * (mstate != MS_LOCKED && !(inputstate & INS_command) && proto2 == L2_HDLC)
+  * Collect HDLC frames, undoing byte stuffing and watching for DLE escapes.
+@@ -159,8 +139,8 @@ static unsigned hdlc_loop(unsigned numbytes, struct inbuf_t *inbuf)
+ 	struct cardstate *cs = inbuf->cs;
+ 	struct bc_state *bcs = cs->bcs;
+ 	int inputstate = bcs->inputstate;
+-	__u16 fcs = bcs->fcs;
+-	struct sk_buff *skb = bcs->skb;
++	__u16 fcs = bcs->rx_fcs;
++	struct sk_buff *skb = bcs->rx_skb;
+ 	unsigned char *src = inbuf->data + inbuf->head;
+ 	unsigned procbytes = 0;
+ 	unsigned char c;
+@@ -245,8 +225,7 @@ byte_stuff:
+ 
+ 				/* prepare reception of next frame */
+ 				inputstate &= ~INS_have_data;
+-				new_rcv_skb(bcs);
+-				skb = bcs->skb;
++				skb = gigaset_new_rx_skb(bcs);
+ 			} else {
+ 				/* empty frame (7E 7E) */
+ #ifdef CONFIG_GIGASET_DEBUG
+@@ -255,8 +234,7 @@ byte_stuff:
+ 				if (!skb) {
+ 					/* skipped (?) */
+ 					gigaset_isdn_rcv_err(bcs);
+-					new_rcv_skb(bcs);
+-					skb = bcs->skb;
++					skb = gigaset_new_rx_skb(bcs);
+ 				}
+ 			}
+ 
+@@ -279,11 +257,11 @@ byte_stuff:
+ #endif
+ 		inputstate |= INS_have_data;
+ 		if (skb) {
+-			if (skb->len == SBUFSIZE) {
++			if (skb->len >= bcs->rx_bufsize) {
+ 				dev_warn(cs->dev, "received packet too long\n");
+ 				dev_kfree_skb_any(skb);
+ 				/* skip remainder of packet */
+-				bcs->skb = skb = NULL;
++				bcs->rx_skb = skb = NULL;
+ 			} else {
+ 				*__skb_put(skb, 1) = c;
+ 				fcs = crc_ccitt_byte(fcs, c);
+@@ -292,7 +270,7 @@ byte_stuff:
+ 	}
+ 
+ 	bcs->inputstate = inputstate;
+-	bcs->fcs = fcs;
++	bcs->rx_fcs = fcs;
+ 	return procbytes;
+ }
+ 
+@@ -308,18 +286,18 @@ static unsigned iraw_loop(unsigned numbytes, struct inbuf_t *inbuf)
+ 	struct cardstate *cs = inbuf->cs;
+ 	struct bc_state *bcs = cs->bcs;
+ 	int inputstate = bcs->inputstate;
+-	struct sk_buff *skb = bcs->skb;
++	struct sk_buff *skb = bcs->rx_skb;
+ 	unsigned char *src = inbuf->data + inbuf->head;
+ 	unsigned procbytes = 0;
+ 	unsigned char c;
+ 
+ 	if (!skb) {
+ 		/* skip this block */
+-		new_rcv_skb(bcs);
++		gigaset_new_rx_skb(bcs);
+ 		return numbytes;
+ 	}
+ 
+-	while (procbytes < numbytes && skb->len < SBUFSIZE) {
++	while (procbytes < numbytes && skb->len < bcs->rx_bufsize) {
+ 		c = *src++;
+ 		procbytes++;
+ 
+@@ -343,7 +321,7 @@ static unsigned iraw_loop(unsigned numbytes, struct inbuf_t *inbuf)
+ 	if (inputstate & INS_have_data) {
+ 		gigaset_skb_rcvd(bcs, skb);
+ 		inputstate &= ~INS_have_data;
+-		new_rcv_skb(bcs);
++		gigaset_new_rx_skb(bcs);
+ 	}
+ 
+ 	bcs->inputstate = inputstate;
+diff --git a/drivers/isdn/gigaset/capi.c b/drivers/isdn/gigaset/capi.c
+index 8f78f15..245a608 100644
+--- a/drivers/isdn/gigaset/capi.c
++++ b/drivers/isdn/gigaset/capi.c
+@@ -80,6 +80,7 @@ struct gigaset_capi_appl {
+ 	struct list_head ctrlist;
+ 	struct gigaset_capi_appl *bcnext;
+ 	u16 id;
++	struct capi_register_params rp;
+ 	u16 nextMessageNumber;
+ 	u32 listenInfoMask;
+ 	u32 listenCIPmask;
+@@ -945,6 +946,7 @@ static void gigaset_register_appl(struct capi_ctr *ctr, u16 appl,
+ 		return;
+ 	}
+ 	ap->id = appl;
++	ap->rp = *rp;
+ 
+ 	list_add(&ap->ctrlist, &iif->appls);
+ }
+@@ -1166,6 +1168,9 @@ static void do_connect_req(struct gigaset_capi_ctr *iif,
+ 	}
+ 	ap->bcnext = NULL;
+ 	bcs->ap = ap;
++	bcs->rx_bufsize = ap->rp.datablklen;
++	dev_kfree_skb(bcs->rx_skb);
++	gigaset_new_rx_skb(bcs);
+ 	cmsg->adr.adrPLCI |= (bcs->channel + 1) << 8;
+ 
+ 	/* build command table */
+@@ -1435,6 +1440,9 @@ static void do_connect_resp(struct gigaset_capi_ctr *iif,
+ 					CapiCallGivenToOtherApplication);
+ 		ap->bcnext = NULL;
+ 		bcs->ap = ap;
++		bcs->rx_bufsize = ap->rp.datablklen;
++		dev_kfree_skb(bcs->rx_skb);
++		gigaset_new_rx_skb(bcs);
+ 		bcs->chstate |= CHS_NOTIFY_LL;
+ 
+ 		/* check/encode B channel protocol */
+diff --git a/drivers/isdn/gigaset/common.c b/drivers/isdn/gigaset/common.c
+index f6f45f2..9778fab 100644
+--- a/drivers/isdn/gigaset/common.c
++++ b/drivers/isdn/gigaset/common.c
+@@ -399,8 +399,8 @@ static void gigaset_freebcs(struct bc_state *bcs)
+ 	gig_dbg(DEBUG_INIT, "clearing bcs[%d]->at_state", bcs->channel);
+ 	clear_at_state(&bcs->at_state);
+ 	gig_dbg(DEBUG_INIT, "freeing bcs[%d]->skb", bcs->channel);
+-	dev_kfree_skb(bcs->skb);
+-	bcs->skb = NULL;
++	dev_kfree_skb(bcs->rx_skb);
++	bcs->rx_skb = NULL;
+ 
+ 	for (i = 0; i < AT_NUM; ++i) {
+ 		kfree(bcs->commands[i]);
+@@ -634,19 +634,10 @@ static struct bc_state *gigaset_initbcs(struct bc_state *bcs,
+ 	bcs->emptycount = 0;
+ #endif
+ 
+-	gig_dbg(DEBUG_INIT, "allocating bcs[%d]->skb", channel);
+-	bcs->fcs = PPP_INITFCS;
++	bcs->rx_bufsize = 0;
++	bcs->rx_skb = NULL;
++	bcs->rx_fcs = PPP_INITFCS;
+ 	bcs->inputstate = 0;
+-	if (cs->ignoreframes) {
+-		bcs->skb = NULL;
+-	} else {
+-		bcs->skb = dev_alloc_skb(SBUFSIZE + cs->hw_hdr_len);
+-		if (bcs->skb != NULL)
+-			skb_reserve(bcs->skb, cs->hw_hdr_len);
+-		else
+-			pr_err("out of memory\n");
+-	}
+-
+ 	bcs->channel = channel;
+ 	bcs->cs = cs;
+ 
+@@ -663,11 +654,6 @@ static struct bc_state *gigaset_initbcs(struct bc_state *bcs,
+ 		return bcs;
+ 
+ 	gig_dbg(DEBUG_INIT, "  failed");
+-
+-	gig_dbg(DEBUG_INIT, "  freeing bcs[%d]->skb", channel);
+-	dev_kfree_skb(bcs->skb);
+-	bcs->skb = NULL;
+-
+ 	return NULL;
+ }
+ 
+@@ -839,14 +825,12 @@ void gigaset_bcs_reinit(struct bc_state *bcs)
+ 	bcs->emptycount = 0;
+ #endif
+ 
+-	bcs->fcs = PPP_INITFCS;
++	bcs->rx_fcs = PPP_INITFCS;
+ 	bcs->chstate = 0;
+ 
+ 	bcs->ignore = cs->ignoreframes;
+-	if (bcs->ignore) {
+-		dev_kfree_skb(bcs->skb);
+-		bcs->skb = NULL;
+-	}
++	dev_kfree_skb(bcs->rx_skb);
++	bcs->rx_skb = NULL;
+ 
+ 	cs->ops->reinitbcshw(bcs);
+ }
+diff --git a/drivers/isdn/gigaset/gigaset.h b/drivers/isdn/gigaset/gigaset.h
+index 05947f9..f77ec54 100644
+--- a/drivers/isdn/gigaset/gigaset.h
++++ b/drivers/isdn/gigaset/gigaset.h
+@@ -45,10 +45,6 @@
+ #define MAX_EVENTS 64		/* size of event queue */
+ 
+ #define RBUFSIZE 8192
+-#define SBUFSIZE 4096		/* sk_buff payload size */
+-
+-#define TRANSBUFSIZE 768	/* bytes per skb for transparent receive */
+-#define MAX_BUF_SIZE (SBUFSIZE - 2)	/* Max. size of a data packet from LL */
+ 
+ /* compile time options */
+ #define GIG_MAJOR 0
+@@ -380,8 +376,10 @@ struct bc_state {
+ 
+ 	struct at_state_t at_state;
+ 
+-	__u16 fcs;
+-	struct sk_buff *skb;
++	/* receive buffer */
++	unsigned rx_bufsize;		/* max size accepted by application */
++	struct sk_buff *rx_skb;
++	__u16 rx_fcs;
+ 	int inputstate;			/* see INS_XXXX */
+ 
+ 	int channel;
+@@ -801,8 +799,23 @@ static inline void gigaset_bchannel_up(struct bc_state *bcs)
+ 	gigaset_schedule_event(bcs->cs);
+ }
+ 
+-/* handling routines for sk_buff */
+-/* ============================= */
++/* set up next receive skb for data mode */
++static inline struct sk_buff *gigaset_new_rx_skb(struct bc_state *bcs)
++{
++	struct cardstate *cs = bcs->cs;
++	unsigned short hw_hdr_len = cs->hw_hdr_len;
++
++	if (bcs->ignore) {
++		bcs->rx_skb = NULL;
++	} else {
++		bcs->rx_skb = dev_alloc_skb(bcs->rx_bufsize + hw_hdr_len);
++		if (bcs->rx_skb == NULL)
++			dev_warn(cs->dev, "could not allocate skb\n");
++		else
++			skb_reserve(bcs->rx_skb, hw_hdr_len);
++	}
++	return bcs->rx_skb;
++}
+ 
+ /* append received bytes to inbuf */
+ int gigaset_fill_inbuf(struct inbuf_t *inbuf, const unsigned char *src,
+diff --git a/drivers/isdn/gigaset/i4l.c b/drivers/isdn/gigaset/i4l.c
+index c22e5ac..f01c3c2 100644
+--- a/drivers/isdn/gigaset/i4l.c
++++ b/drivers/isdn/gigaset/i4l.c
+@@ -16,7 +16,10 @@
+ #include "gigaset.h"
+ #include <linux/isdnif.h>
+ 
++#define SBUFSIZE	4096	/* sk_buff payload size */
++#define TRANSBUFSIZE	768	/* bytes per skb for transparent receive */
+ #define HW_HDR_LEN	2	/* Header size used to store ack info */
++#define MAX_BUF_SIZE	(SBUFSIZE - HW_HDR_LEN)	/* max data packet from LL */
+ 
+ /* == Handling of I4L IO =====================================================*/
+ 
+@@ -231,6 +234,15 @@ static int command_from_LL(isdn_ctrl *cntrl)
+ 			dev_err(cs->dev, "ISDN_CMD_DIAL: channel not free\n");
+ 			return -EBUSY;
+ 		}
++		switch (bcs->proto2) {
++		case L2_HDLC:
++			bcs->rx_bufsize = SBUFSIZE;
++			break;
++		default:			/* assume transparent */
++			bcs->rx_bufsize = TRANSBUFSIZE;
++		}
++		dev_kfree_skb(bcs->rx_skb);
++		gigaset_new_rx_skb(bcs);
+ 
+ 		commands = kzalloc(AT_NUM*(sizeof *commands), GFP_ATOMIC);
+ 		if (!commands) {
+@@ -314,6 +326,15 @@ static int command_from_LL(isdn_ctrl *cntrl)
+ 			return -EINVAL;
+ 		}
+ 		bcs = cs->bcs + ch;
++		switch (bcs->proto2) {
++		case L2_HDLC:
++			bcs->rx_bufsize = SBUFSIZE;
++			break;
++		default:			/* assume transparent */
++			bcs->rx_bufsize = TRANSBUFSIZE;
++		}
++		dev_kfree_skb(bcs->rx_skb);
++		gigaset_new_rx_skb(bcs);
+ 		if (!gigaset_add_event(cs, &bcs->at_state,
+ 				       EV_ACCEPT, NULL, 0, NULL))
+ 			return -ENOMEM;
+diff --git a/drivers/isdn/gigaset/isocdata.c b/drivers/isdn/gigaset/isocdata.c
+index 16fd3bd..2dfd346 100644
+--- a/drivers/isdn/gigaset/isocdata.c
++++ b/drivers/isdn/gigaset/isocdata.c
+@@ -500,19 +500,18 @@ int gigaset_isoc_buildframe(struct bc_state *bcs, unsigned char *in, int len)
+  */
+ static inline void hdlc_putbyte(unsigned char c, struct bc_state *bcs)
+ {
+-	bcs->fcs = crc_ccitt_byte(bcs->fcs, c);
+-	if (unlikely(bcs->skb == NULL)) {
++	bcs->rx_fcs = crc_ccitt_byte(bcs->rx_fcs, c);
++	if (bcs->rx_skb == NULL)
+ 		/* skipping */
+ 		return;
+-	}
+-	if (unlikely(bcs->skb->len == SBUFSIZE)) {
++	if (bcs->rx_skb->len >= bcs->rx_bufsize) {
+ 		dev_warn(bcs->cs->dev, "received oversized packet discarded\n");
+ 		bcs->hw.bas->giants++;
+-		dev_kfree_skb_any(bcs->skb);
+-		bcs->skb = NULL;
++		dev_kfree_skb_any(bcs->rx_skb);
++		bcs->rx_skb = NULL;
+ 		return;
+ 	}
+-	*__skb_put(bcs->skb, 1) = c;
++	*__skb_put(bcs->rx_skb, 1) = c;
+ }
+ 
+ /* hdlc_flush
+@@ -521,18 +520,13 @@ static inline void hdlc_putbyte(unsigned char c, struct bc_state *bcs)
+ static inline void hdlc_flush(struct bc_state *bcs)
+ {
+ 	/* clear skb or allocate new if not skipping */
+-	if (likely(bcs->skb != NULL))
+-		skb_trim(bcs->skb, 0);
+-	else if (!bcs->ignore) {
+-		bcs->skb = dev_alloc_skb(SBUFSIZE + bcs->cs->hw_hdr_len);
+-		if (bcs->skb)
+-			skb_reserve(bcs->skb, bcs->cs->hw_hdr_len);
+-		else
+-			dev_err(bcs->cs->dev, "could not allocate skb\n");
+-	}
++	if (bcs->rx_skb != NULL)
++		skb_trim(bcs->rx_skb, 0);
++	else
++		gigaset_new_rx_skb(bcs);
+ 
+ 	/* reset packet state */
+-	bcs->fcs = PPP_INITFCS;
++	bcs->rx_fcs = PPP_INITFCS;
+ }
+ 
+ /* hdlc_done
+@@ -549,7 +543,7 @@ static inline void hdlc_done(struct bc_state *bcs)
+ 		hdlc_flush(bcs);
+ 		return;
+ 	}
+-	procskb = bcs->skb;
++	procskb = bcs->rx_skb;
+ 	if (procskb == NULL) {
+ 		/* previous error */
+ 		gig_dbg(DEBUG_ISO, "%s: skb=NULL", __func__);
+@@ -560,8 +554,8 @@ static inline void hdlc_done(struct bc_state *bcs)
+ 		bcs->hw.bas->runts++;
+ 		dev_kfree_skb_any(procskb);
+ 		gigaset_isdn_rcv_err(bcs);
+-	} else if (bcs->fcs != PPP_GOODFCS) {
+-		dev_notice(cs->dev, "frame check error (0x%04x)\n", bcs->fcs);
++	} else if (bcs->rx_fcs != PPP_GOODFCS) {
++		dev_notice(cs->dev, "frame check error\n");
+ 		bcs->hw.bas->fcserrs++;
+ 		dev_kfree_skb_any(procskb);
+ 		gigaset_isdn_rcv_err(bcs);
+@@ -574,13 +568,8 @@ static inline void hdlc_done(struct bc_state *bcs)
+ 		bcs->hw.bas->goodbytes += len;
+ 		gigaset_skb_rcvd(bcs, procskb);
+ 	}
+-
+-	bcs->skb = dev_alloc_skb(SBUFSIZE + cs->hw_hdr_len);
+-	if (bcs->skb)
+-		skb_reserve(bcs->skb, cs->hw_hdr_len);
+-	else
+-		dev_err(cs->dev, "could not allocate skb\n");
+-	bcs->fcs = PPP_INITFCS;
++	gigaset_new_rx_skb(bcs);
++	bcs->rx_fcs = PPP_INITFCS;
+ }
+ 
+ /* hdlc_frag
+@@ -597,8 +586,8 @@ static inline void hdlc_frag(struct bc_state *bcs, unsigned inbits)
+ 	dev_notice(bcs->cs->dev, "received partial byte (%d bits)\n", inbits);
+ 	bcs->hw.bas->alignerrs++;
+ 	gigaset_isdn_rcv_err(bcs);
+-	__skb_trim(bcs->skb, 0);
+-	bcs->fcs = PPP_INITFCS;
++	__skb_trim(bcs->rx_skb, 0);
++	bcs->rx_fcs = PPP_INITFCS;
+ }
+ 
+ /* bit counts lookup table for HDLC bit unstuffing
+@@ -847,7 +836,6 @@ static inline void hdlc_unpack(unsigned char *src, unsigned count,
+ static inline void trans_receive(unsigned char *src, unsigned count,
+ 				 struct bc_state *bcs)
+ {
+-	struct cardstate *cs = bcs->cs;
+ 	struct sk_buff *skb;
+ 	int dobytes;
+ 	unsigned char *dst;
+@@ -857,17 +845,11 @@ static inline void trans_receive(unsigned char *src, unsigned count,
+ 		hdlc_flush(bcs);
+ 		return;
+ 	}
+-	skb = bcs->skb;
+-	if (unlikely(skb == NULL)) {
+-		bcs->skb = skb = dev_alloc_skb(SBUFSIZE + cs->hw_hdr_len);
+-		if (!skb) {
+-			dev_err(cs->dev, "could not allocate skb\n");
+-			return;
+-		}
+-		skb_reserve(skb, cs->hw_hdr_len);
+-	}
++	skb = bcs->rx_skb;
++	if (skb == NULL)
++		skb = gigaset_new_rx_skb(bcs);
+ 	bcs->hw.bas->goodbytes += skb->len;
+-	dobytes = TRANSBUFSIZE - skb->len;
++	dobytes = bcs->rx_bufsize - skb->len;
+ 	while (count > 0) {
+ 		dst = skb_put(skb, count < dobytes ? count : dobytes);
+ 		while (count > 0 && dobytes > 0) {
+@@ -879,14 +861,10 @@ static inline void trans_receive(unsigned char *src, unsigned count,
+ 			dump_bytes(DEBUG_STREAM_DUMP,
+ 				   "rcv data", skb->data, skb->len);
+ 			gigaset_skb_rcvd(bcs, skb);
+-			bcs->skb = skb =
+-				dev_alloc_skb(SBUFSIZE + cs->hw_hdr_len);
+-			if (!skb) {
+-				dev_err(cs->dev, "could not allocate skb\n");
++			skb = gigaset_new_rx_skb(bcs);
++			if (skb == NULL)
+ 				return;
+-			}
+-			skb_reserve(skb, cs->hw_hdr_len);
+-			dobytes = TRANSBUFSIZE;
++			dobytes = bcs->rx_bufsize;
+ 		}
+ 	}
+ }
+-- 
+1.6.5.3.298.g39add
