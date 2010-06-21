@@ -1,145 +1,70 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 16187] New: Carrier detection failed in dhcpcd
- when link is up
-Date: Mon, 21 Jun 2010 14:21:38 -0700
-Message-ID: <20100621142138.3416b5d0.akpm@linux-foundation.org>
-References: <bug-16187-10286@https.bugzilla.kernel.org/>
-	<20100615142418.f47e8abd.akpm@linux-foundation.org>
-	<20100618061641.GA7039@lackof.org>
-	<8DD2590731AB5D4C9DBF71A877482A900158F12BEA@orsmsx509.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+From: Mitchell Erblich <erblichs@earthlink.net>
+Subject: Code flow: tcp_input.c : tcp_prune_queue : Dropping frames
+Date: Mon, 21 Jun 2010 14:25:09 -0700
+Message-ID: <A76B6C17-B457-4DCA-82C6-A801E1E4D25B@earthlink.net>
+Mime-Version: 1.0 (Apple Message framework v1081)
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Grant Grundler <grundler@parisc-linux.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Kyle McMartin <kyle@mcmartin.ca>,
-	"bugzilla-daemon@bugzilla.kernel.org"
-	<bugzilla-daemon@bugzilla.kernel.org>,
-	"bugme-daemon@bugzilla.kernel.org" <bugme-daemon@bugzilla.kernel.org>,
-	"casteyde.christian@free.fr" <casteyde.christian@free.fr>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: "Allan, Bruce W" <bruce.w.allan@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:48833 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758444Ab0FUVWr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jun 2010 17:22:47 -0400
-In-Reply-To: <8DD2590731AB5D4C9DBF71A877482A900158F12BEA@orsmsx509.amr.corp.intel.com>
+Received: from elasmtp-galgo.atl.sa.earthlink.net ([209.86.89.61]:35070 "EHLO
+	elasmtp-galgo.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758492Ab0FUVZv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jun 2010 17:25:51 -0400
+Received: from [71.202.111.27] (helo=[192.168.1.3])
+	by elasmtp-galgo.atl.sa.earthlink.net with esmtpsa (TLSv1:AES128-SHA:128)
+	(Exim 4.67)
+	(envelope-from <erblichs@earthlink.net>)
+	id 1OQoUq-000195-DJ
+	for netdev@vger.kernel.org; Mon, 21 Jun 2010 17:25:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 18 Jun 2010 08:04:36 -0700
-"Allan, Bruce W" <bruce.w.allan@intel.com> wrote:
+group,
 
-> On Thursday, June 17, 2010 11:17 PM, Grant Grundler wrote:
-> > On Tue, Jun 15, 2010 at 02:24:18PM -0700, Andrew Morton wrote:
-> >> 
-> >> (switched to email.  Please respond via emailed reply-to-all, not
-> >> via the bugzilla web interface).
-> > 
-> > I've resync to linus' tree (2.6.35-rc3) and reviewed the output of:
-> >     git diff v2.6.34 drivers/net/tulip/
-> > 
-> > I don't see anything that would affect how link state
-> > changes get reported to user space.
-> > 
-> > I'm not inclined to believe this is a tulip "bug" unless
-> > core netdev behavior changed and tulip is not longer
-> > doing the right thing.
-> > 
-> > hth,
-> > grant
-> 
-> I don't believe this is a tulip specific bug - the same thing has been reported against e1000e and bnx2 (IIRC); I have not had the time to investigate further.
+The tcp_prune_queue() calls tcp_collapse() is called to
+prevent frames/pkts from being dropped due to buffer
+?"ooo"? overcommit.
 
-So it's affecting three drivers.
+However, tcp_collapse() calls alloc_skb() with GFP_ATOMIC
+which can grab the last of reserveable memory.
 
-One thing which changed in there recently is
+nskb = alloc_skb(copy + header, GFP_ATOMIC); 
+if (!nskb) 
+     return; 
 
-: commit b2db756449f63f98049587f7ede4a8e85e0c79b1
-: Author:     YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-: AuthorDate: Sat Mar 20 16:11:12 2010 -0700
-: Commit:     David S. Miller <davem@davemloft.net>
-: CommitDate: Sat Mar 20 16:11:12 2010 -0700
-:
-:    ipv6: Reduce timer events for addrconf_verify().
+It should be called with GFP_NOWAIT to keep the NON-SLEEP
+aspect of the mem reservation, but not grap the last bits of mem.
 
-So perhaps someone could test the simple reversion patch, below?
+Because, if the over-commit was that bad, all other allocations
+have ALREADY STARTED TO FAIL. The system SHOULD be
+dead.
 
-I couldn't locate these e1000e and bnx2 bug reports so I couldn't cc
-the reporters :(
+Secondly, if the alloc failed, why try to do the reclaim?
 
-I'm seeing several patches on netdev "use netif_carrier_off to prevent
-tx timeout".  Is that related?
+Thus, 
+
+  tcp_collapse() should return int instead of void and the
+  alloc return should return -1 upon failure.
+
+  tcp_prune_queue_should check for the return and skip
+  sk_mem_reclaim().
+
+  Why not some logging message?
+  Didn't see one.
+
+  Rename ofo to "ooo" as this is known as "out-of-order".
+
+  Lastly, follow-up should be done to identify the GFP_ mem
+  type and SHOULD not be alloc'ing mem with ATOMIC
+  for an "out-of-order" queue as this COULD be a form of
+  DENIAL of Service (DoS) attack.
+
+Mitchell Erblich
+
+   
 
 
- net/ipv6/addrconf.c |   27 ++++-----------------------
- 1 file changed, 4 insertions(+), 23 deletions(-)
 
-diff -puN net/ipv6/addrconf.c~revert-2 net/ipv6/addrconf.c
---- a/net/ipv6/addrconf.c~revert-2
-+++ a/net/ipv6/addrconf.c
-@@ -100,10 +100,6 @@
- #define	INFINITY_LIFE_TIME	0xFFFFFFFF
- #define TIME_DELTA(a, b) ((unsigned long)((long)(a) - (long)(b)))
- 
--#define ADDRCONF_TIMER_FUZZ_MINUS	(HZ > 50 ? HZ/50 : 1)
--#define ADDRCONF_TIMER_FUZZ		(HZ / 4)
--#define ADDRCONF_TIMER_FUZZ_MAX		(HZ)
--
- #ifdef CONFIG_SYSCTL
- static void addrconf_sysctl_register(struct inet6_dev *idev);
- static void addrconf_sysctl_unregister(struct inet6_dev *idev);
-@@ -3159,15 +3155,15 @@ int ipv6_chk_home_addr(struct net *net, 
- 
- static void addrconf_verify(unsigned long foo)
- {
--	unsigned long now, next, next_sec, next_sched;
- 	struct inet6_ifaddr *ifp;
- 	struct hlist_node *node;
-+	unsigned long now, next;
- 	int i;
- 
- 	rcu_read_lock_bh();
- 	spin_lock(&addrconf_verify_lock);
- 	now = jiffies;
--	next = round_jiffies_up(now + ADDR_CHECK_FREQUENCY);
-+	next = now + ADDR_CHECK_FREQUENCY;
- 
- 	del_timer(&addr_chk_timer);
- 
-@@ -3181,8 +3177,7 @@ restart:
- 				continue;
- 
- 			spin_lock(&ifp->lock);
--			/* We try to batch several events at once. */
--			age = (now - ifp->tstamp + ADDRCONF_TIMER_FUZZ_MINUS) / HZ;
-+			age = (now - ifp->tstamp) / HZ;
- 
- 			if (ifp->valid_lft != INFINITY_LIFE_TIME &&
- 			    age >= ifp->valid_lft) {
-@@ -3252,21 +3247,7 @@ restart:
- 		}
- 	}
- 
--	next_sec = round_jiffies_up(next);
--	next_sched = next;
--
--	/* If rounded timeout is accurate enough, accept it. */
--	if (time_before(next_sec, next + ADDRCONF_TIMER_FUZZ))
--		next_sched = next_sec;
--
--	/* And minimum interval is ADDRCONF_TIMER_FUZZ_MAX. */
--	if (time_before(next_sched, jiffies + ADDRCONF_TIMER_FUZZ_MAX))
--		next_sched = jiffies + ADDRCONF_TIMER_FUZZ_MAX;
--
--	ADBG((KERN_DEBUG "now = %lu, schedule = %lu, rounded schedule = %lu => %lu\n",
--	      now, next, next_sec, next_sched));
--
--	addr_chk_timer.expires = next_sched;
-+	addr_chk_timer.expires = time_before(next, jiffies + HZ) ? jiffies + HZ : next;
- 	add_timer(&addr_chk_timer);
- 	spin_unlock(&addrconf_verify_lock);
- 	rcu_read_unlock_bh();
-_
+
 
