@@ -1,121 +1,54 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [RFC net-2.6 PATCH] ixgbe: need to purge skb qdisc lists when
-	changing real_num_tx_queues
-Date: Sun, 20 Jun 2010 22:25:20 -0700
-Message-ID: <20100621052520.2417.65984.stgit@jf-dev1-dcblab>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the tip tree with the net tree
+Date: Mon, 21 Jun 2010 16:16:09 +1000
+Message-ID: <20100621161609.935d0085.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:31408 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752954Ab0FUFZK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jun 2010 01:25:10 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Mon__21_Jun_2010_16_16_09_+1000_NEGrOnCn9kXH9th6"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Jiri Pirko <jpirko@redhat.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch exports dev_deactivate() symbol.
+--Signature=_Mon__21_Jun_2010_16_16_09_+1000_NEGrOnCn9kXH9th6
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-The qdisc needs to be purged when real_num_tx_queues is
-changed so that skbs do not hit ndo_start_xmit with
-queue_mappings corresponding to tx_rings already freed.
+Hi all,
 
-real_num_tx_queues is changed when dynamically enabling or
-disabling DCB or FCoE.  To purge the qdisc use dev_deactivate().
+Today's linux-next merge of the tip tree got a conflict in
+net/bridge/br_fdb.c net/bridge/netfilter/ebt_redirect.c
+net/bridge/netfilter/ebt_ulog.c net/bridge/netfilter/ebtables.c
+net/netfilter/nfnetlink_log.c between commit
+f350a0a87374418635689471606454abc7beaa3a ("bridge: use rx_handler_data
+pointer to store net_bridge_port pointer") from the net tree and commit
+81bdf5bd7349bd4523538cbd7878f334bc2bfe14 ("net: Make accesses to
+->br_port safe for sparse RCU") from the tip tree.
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
+The net tree commit looks like a superset of the tip tree commit, so I
+effectively reverted the tip tree commit.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
- drivers/net/ixgbe/ixgbe_dcb_nl.c |    9 +++++++--
- drivers/net/ixgbe/ixgbe_fcoe.c   |    9 +++++++--
- net/sched/sch_generic.c          |    1 +
- 3 files changed, 15 insertions(+), 4 deletions(-)
+--Signature=_Mon__21_Jun_2010_16_16_09_+1000_NEGrOnCn9kXH9th6
+Content-Type: application/pgp-signature
 
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
-index 71da325..0d6854c 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c
-@@ -28,6 +28,7 @@
- 
- #include "ixgbe.h"
- #include <linux/dcbnl.h>
-+#include <net/pkt_sched.h>
- #include "ixgbe_dcb_82598.h"
- #include "ixgbe_dcb_82599.h"
- 
-@@ -126,8 +127,10 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
- 			goto out;
- 		}
- 
--		if (netif_running(netdev))
-+		if (netif_running(netdev)) {
-+			dev_deactivate(netdev);
- 			netdev->netdev_ops->ndo_stop(netdev);
-+		}
- 		ixgbe_clear_interrupt_scheme(adapter);
- 
- 		if (adapter->hw.mac.type == ixgbe_mac_82598EB) {
-@@ -146,8 +149,10 @@ static u8 ixgbe_dcbnl_set_state(struct net_device *netdev, u8 state)
- 	} else {
- 		/* Turn off DCB */
- 		if (adapter->flags & IXGBE_FLAG_DCB_ENABLED) {
--			if (netif_running(netdev))
-+			if (netif_running(netdev)) {
-+				dev_deactivate(netdev);
- 				netdev->netdev_ops->ndo_stop(netdev);
-+			}
- 			ixgbe_clear_interrupt_scheme(adapter);
- 
- 			adapter->hw.fc.requested_mode = adapter->last_lfc_mode;
-diff --git a/drivers/net/ixgbe/ixgbe_fcoe.c b/drivers/net/ixgbe/ixgbe_fcoe.c
-index 45182ab..181f158 100644
---- a/drivers/net/ixgbe/ixgbe_fcoe.c
-+++ b/drivers/net/ixgbe/ixgbe_fcoe.c
-@@ -33,6 +33,7 @@
- #include <linux/if_ether.h>
- #include <linux/gfp.h>
- #include <linux/if_vlan.h>
-+#include <net/sch_generic.h>
- #include <scsi/scsi_cmnd.h>
- #include <scsi/scsi_device.h>
- #include <scsi/fc/fc_fs.h>
-@@ -615,8 +616,10 @@ int ixgbe_fcoe_enable(struct net_device *netdev)
- 		goto out_enable;
- 
- 	DPRINTK(DRV, INFO, "Enabling FCoE offload features.\n");
--	if (netif_running(netdev))
-+	if (netif_running(netdev)) {
-+		dev_deactivate(netdev);
- 		netdev->netdev_ops->ndo_stop(netdev);
-+	}
- 
- 	ixgbe_clear_interrupt_scheme(adapter);
- 
-@@ -661,8 +664,10 @@ int ixgbe_fcoe_disable(struct net_device *netdev)
- 		goto out_disable;
- 
- 	DPRINTK(DRV, INFO, "Disabling FCoE offload features.\n");
--	if (netif_running(netdev))
-+	if (netif_running(netdev)) {
-+		dev_deactivate(netdev);
- 		netdev->netdev_ops->ndo_stop(netdev);
-+	}
- 
- 	ixgbe_clear_interrupt_scheme(adapter);
- 
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index a63029e..53ca3ac 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -804,6 +804,7 @@ void dev_deactivate(struct net_device *dev)
- 	while (some_qdisc_is_busy(dev))
- 		yield();
- }
-+EXPORT_SYMBOL(dev_deactivate);
- 
- static void dev_init_scheduler_queue(struct net_device *dev,
- 				     struct netdev_queue *dev_queue,
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
 
+iEYEARECAAYFAkwfA6kACgkQjjKRsyhoI8wegQCgr4/t9h1BRhdYciQ7nJhDUVMx
+90QAmgIdEfl3Jv6rN/sXnoNwC93wL9Xk
+=TIs3
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__21_Jun_2010_16_16_09_+1000_NEGrOnCn9kXH9th6--
