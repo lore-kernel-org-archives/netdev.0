@@ -1,65 +1,59 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: Re: [v4 Patch 1/2] s2io: add dynamic LRO disable support
-Date: Tue, 22 Jun 2010 14:31:02 +0200
-Message-ID: <20100622143102.68a59849@dhcp-lab-109.englab.brq.redhat.com>
-References: <20100622085415.5566.22523.sendpatchset@localhost.localdomain>
-	<1277207080.2091.2.camel@achroite.uk.solarflarecom.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: [PATCH] phylib: Add autoload support for the LXT973 phy.
+Date: Tue, 22 Jun 2010 13:38:13 +0100
+Message-ID: <1277210293.21798.11.camel@localhost>
+References: <20100531130932.GA15845@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Amerigo Wang <amwang@redhat.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, herbert.xu@redhat.com,
-	Ramkrishna.Vepa@exar.com, davem@davemloft.net
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45548 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755884Ab0FVMbO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jun 2010 08:31:14 -0400
-In-Reply-To: <1277207080.2091.2.camel@achroite.uk.solarflarecom.com>
+Received: from casper.infradead.org ([85.118.1.10]:32959 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751158Ab0FVMiQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jun 2010 08:38:16 -0400
+In-Reply-To: <20100531130932.GA15845@riccoc20.at.omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 22 Jun 2010 12:44:40 +0100
-Ben Hutchings <bhutchings@solarflare.com> wrote:
+Commit e13647c1 (phylib: Add support for the LXT973 phy.) added a new ID
+but neglected to also add it to the MODULE_DEVICE_TABLE.
 
-> On Tue, 2010-06-22 at 04:50 -0400, Amerigo Wang wrote:
-> > This patch adds dynamic LRO diable support for s2io net driver.
-> > 
-> > (I don't have s2io card, so only did compiling test. Anyone who wants
-> > to test this is more than welcome.)
-> > 
-> > This is based on Neil's initial work, and heavily modified
-> > based on Ramkrishna's suggestions.
-> [...]
-> > +static int s2io_ethtool_set_flags(struct net_device *dev, u32 data)
-> > +{
-> > +	struct s2io_nic *sp = netdev_priv(dev);
-> > +	int rc = 0;
-> > +	int changed = 0;
-> > +
-> > +	if (data & ~ETH_FLAG_LRO)
-> > +		return -EOPNOTSUPP;
-> > +
-> > +	if (data & ETH_FLAG_LRO) {
-> > +		if (lro_enable) {
-> > +			if (!(dev->features & NETIF_F_LRO)) {
-> > +				dev->features |= NETIF_F_LRO;
-> > +				changed = 1;
-> > +			}
-> > +		} else
-> > +			rc = -EOPNOTSUPP;
-> 
-> Should lro_enable=0 really prevent enabling it later?  This seems
-> unusual.
+Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+---
+When I did this stuff, I did wonder if we should make this happen
+automatically somehow. I pondered some dirty macro hack in
+phy_driver_register() which would do it somehow, but couldn't come up
+with anything that'd work.
 
-We are doing this in bnx2x. Current Amerigo patch change to the
-same behavior mlx4. For me that have sense - if you want to disallow
-LRO - use module option.
+Removing the phy_id and phy_id_mask from struct phy_driver and having a
+pointer to a match table would suck, since each driver only really
+matches one device/mask. (Even where a single C file has multiple
+drivers, they often differ in some methods or flags.)
 
-In this case however lro_enable variable looks obsolete from times
-where there was no ethtool possibility to dynamic set/unset LRO.
-Perhaps it should be removed at all, but maybe not as part
-of that patch.
+The best option I can come up with right now, is probably to remove
+phy_id and phy_id_mask from phy_driver and put a pointer to the driver
+into the ID table, and take the ID table as the argument to
+phy_driver_register(). I'm not sure I like that very much though -- I'd
+prefer that we just remember to update the table and don't need to be
+forced :)
 
-Stanislaw
+(Another cheap option is to pass the ID table as an extra argument to
+the existing phy_device_register(), I suppose, and it can just print a
+warning if it doesn't find the same phy_id and phy_id_mask in the table)
+
+diff --git a/drivers/net/phy/lxt.c b/drivers/net/phy/lxt.c
+index dbd0034..29c39ff 100644
+--- a/drivers/net/phy/lxt.c
++++ b/drivers/net/phy/lxt.c
+@@ -226,6 +226,7 @@ module_exit(lxt_exit);
+ static struct mdio_device_id lxt_tbl[] = {
+ 	{ 0x78100000, 0xfffffff0 },
+ 	{ 0x001378e0, 0xfffffff0 },
++	{ 0x00137a10, 0xfffffff0 },
+ 	{ }
+ };
+ 
+
+
