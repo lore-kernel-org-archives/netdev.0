@@ -1,45 +1,39 @@
-From: Dimitris Michailidis <dm@chelsio.com>
-Subject: Re: [PATCH] cxgb4: fix kfree(skb)
-Date: Tue, 22 Jun 2010 00:09:31 -0700
-Message-ID: <4C2061AB.3000400@chelsio.com>
-References: <20100622070551.GA10062@hera.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [patch v2.2 1/4] [PATCH v2.1 1/4] netfilter: xt_ipvs
+ (netfilter matcher for IPVS)
+Date: Tue, 22 Jun 2010 16:13:27 +0900
+Message-ID: <20100622071326.GB9928@verge.net.au>
+References: <20100501032014.406353538@vergenet.net>
+ <20100501032120.298829234@vergenet.net>
+ <4BDC543F.7060500@trash.net>
+ <AANLkTikIzHuzxo4z1_8_fEGLBC2-0Uz0X8SOc8n2msuX@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Denis Kirjanov <dkirjanov@hera.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:11850 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752807Ab0FVHL7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jun 2010 03:11:59 -0400
-In-Reply-To: <20100622070551.GA10062@hera.kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netfilter@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
+	Julius Volz <julius.volz@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>
+To: Hannes Eder <heder@google.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <AANLkTikIzHuzxo4z1_8_fEGLBC2-0Uz0X8SOc8n2msuX@mail.gmail.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Denis Kirjanov wrote:
-> Use kfree_skb for skb pointers
-> Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
-
-Yes, thank you.
-
-Acked-by: Dimitris Michailidis <dm@chelsio.com>
-
-> ---
-> drivers/net/cxgb4/l2t.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
+On Mon, May 03, 2010 at 01:29:46PM +0200, Hannes Eder wrote:
+> Thank you for picking this series of patches up again and thanks for
+> the feedback.
 > 
-> diff --git a/drivers/net/cxgb4/l2t.c b/drivers/net/cxgb4/l2t.c
-> index 5b990d2..e8f0f55 100644
-> --- a/drivers/net/cxgb4/l2t.c
-> +++ b/drivers/net/cxgb4/l2t.c
-> @@ -314,7 +314,7 @@ static void t4_l2e_free(struct l2t_entry *e)
->  			struct sk_buff *skb = e->arpq_head;
->  
->  			e->arpq_head = skb->next;
-> -			kfree(skb);
-> +			kfree_skb(skb);
->  		}
->  		e->arpq_tail = NULL;
->  	}
+> I'll send an updated version in the next days.
+
+Hi Hanes,
+
+more than a few days seems to have passed.
+Do you have time to fix the patches up?
+If not, I'll take a stab at it.
+
+Thanks
 
