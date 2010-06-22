@@ -1,81 +1,46 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [Bugme-new] [Bug 16257] New: sysfs changes break hwsim and
- bnep drivers
-Date: Mon, 21 Jun 2010 20:56:31 -0700
-Message-ID: <20100622035631.GA3755@suse.de>
-References: <bug-16257-10286@https.bugzilla.kernel.org/>
- <20100621150826.762ac9f2.akpm@linux-foundation.org>
- <m1mxuodo0n.fsf@fess.ebiederm.org>
- <20100621222938.GA20583@suse.de>
- <m1eig0dmhk.fsf@fess.ebiederm.org>
- <20100621231058.GA1066@suse.de>
- <m14ogwc4ou.fsf@fess.ebiederm.org>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] [PATCH 0/5] late Gigaset fixes for 2.6.35
+Date: Mon, 21 Jun 2010 21:02:41 -0700
+Message-ID: <20100622040241.GB4151@kroah.com>
+References: <20100622-patch-gigaset-00.tilman@imap.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	"Maciej W. Rozycki" <macro@linux-mips.org>,
-	Kay Sievers <kay.sievers@vrfy.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Greg KH <greg@kroah.com>, netdev <netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: Karsten Keil <isdn@linux-pingi.de>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, i4ldeveloper@listserv.isdn4linux.de,
+	Hansjoerg Lipp <hjlipp@web.de>,
+	Karsten Keil <keil@b1-systems.de>, stable@kernel.org
+To: Tilman Schmidt <tilman@imap.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:38030 "EHLO mx2.suse.de"
+Received: from kroah.org ([198.145.64.141]:38536 "EHLO coco.kroah.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758690Ab0FVD6g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jun 2010 23:58:36 -0400
+	id S1750949Ab0FVEEx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jun 2010 00:04:53 -0400
 Content-Disposition: inline
-In-Reply-To: <m14ogwc4ou.fsf@fess.ebiederm.org>
+In-Reply-To: <20100622-patch-gigaset-00.tilman@imap.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 21, 2010 at 05:05:21PM -0700, Eric W. Biederman wrote:
-> Greg KH <gregkh@suse.de> writes:
+On Tue, Jun 22, 2010 at 02:28:41AM +0200, Tilman Schmidt wrote:
+> Karsten, David,
 > 
-> > On Mon, Jun 21, 2010 at 03:55:35PM -0700, Eric W. Biederman wrote:
-> >> Greg KH <gregkh@suse.de> writes:
-> >> 
-> >> > I _really_ do not like this patch.
-> >> >
-> >> > The correct thing is to fix the modules that are affected, and that's
-> >> > only the wireless testing module, right?  Or is there something else?
-> >> >
-> >> > And if that code is properly converted to a bus, what needs to change in
-> >> > the driver core?
-> >> 
-> >> The usb bnep driver.
-> >
-> > Odd, what is bnep doing differently here from all other network drivers?
-> > Is it trying to stack the bluetooth class in the middle somehow?
-> > Shouldn't this be easy to fix up in the driver itself?
+> following are five patches to the Gigaset driver fixing reported
+> problems with two CAPI applications (Asterisk and capifax). They
+> fix serious bugs, though not technically regressions, and I would
+> therefore appreciate if they could still make it into release
+> 2.6.35. Otherwise please queue them for the first stable cycle.
 > 
-> The cause of all of the failures is a class device with a class device
-> parent, instead of a bus device parent.  Which causes the net/ directory 
-> not to be created for us to put the network devices under.
-> 
-> I don't have a clue about how that driver works, and I don't know how many
-> other drivers that do something strange like this are out there lurking.
-> 
-> I have not been involved previously in any changes from class device to
-> bus device so I don't have a clue how difficult it would.  All I know
-> is that with the mac80211_hwsim driver we had first had two people who
-> really knew what they were doing and it was hard enough there still
-> isn't a working conversion away from class devices.
+> These should also go into 2.6.34-stable. They apply cleanly to
+> 2.6.34 except for some offsets in file drivers/isdn/gigaset/capi.c.
 
-But what caused the breakage here?
-
-Does this only show up if you enable network namespaces?  Or is it a
-problem with the "normal" kernel configuration of no network namespaces?
-
-The only thing that changed here was your network namespace work, what
-caused this problem to show up?  Was it bisectable down to a single
-patch?
-
-Classes on top of classes should never have originally worked, I guess
-we just let them slide by accident, and we can go and fix them up as
-they are found.  But for now, for .35, it would be good to find the root
-cause of the problem here.  It might be as simple as putting a
-CONFIG_BROKEN on network namespaces until we get this working, right?
+To get a patch in the -stable tree, please just add a simple:
+	Cc: stable <stable@kernel.org>
+to the body of the patch in the signed-off-by area.  That way, when the
+patches go to Linus, I get automatically notified of them and you don't
+have to do anything.  If you don't, then I have to go and dig and watch
+the tree to see if they are really applied or not, which, when
+confronted with 200+ patches that need to be manually watched for this
+way, does not scale...
 
 thanks,
 
