@@ -1,69 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Link-local address handling for IPv4
-Date: Tue, 22 Jun 2010 19:21:35 +0200
-Message-ID: <1277227295.3057.697.camel@edumazet-laptop>
-References: <0199E0D51A61344794750DC57738F58E739702DDAE@GVW1118EXC.americas.hpqcorp.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6 v2] net: Introduce u64_stats_sync
+ infrastructure
+Date: Tue, 22 Jun 2010 10:24:55 -0700 (PDT)
+Message-ID: <20100622.102455.232729115.davem@davemloft.net>
+References: <1276598605.2541.96.camel@edumazet-laptop>
+	<20100615110413.GJ6138@laptop>
+	<1276608594.2541.119.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: "Fischer, Anna" <anna.fischer@hp.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: npiggin@suse.de, netdev@vger.kernel.org, bhutchings@solarflare.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:40299 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756697Ab0FVRVj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jun 2010 13:21:39 -0400
-Received: by mail-wy0-f174.google.com with SMTP id 11so50906wyi.19
-        for <netdev@vger.kernel.org>; Tue, 22 Jun 2010 10:21:38 -0700 (PDT)
-In-Reply-To: <0199E0D51A61344794750DC57738F58E739702DDAE@GVW1118EXC.americas.hpqcorp.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53229
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756697Ab0FVRYo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jun 2010 13:24:44 -0400
+In-Reply-To: <1276608594.2541.119.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 22 juin 2010 =C3=A0 13:17 +0000, Fischer, Anna a =C3=A9crit :
-> Hi,
->=20
-> Does the Linux kernel network stack do any specific handling of=20
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 15 Jun 2010 15:29:54 +0200
 
-> link-local address configuration and handling according to RFC 3927?
+> diff --git a/include/linux/u64_stats_sync.h b/include/linux/u64_stats_sync.h
+> index e69de29..5a4f318 100644
+> --- a/include/linux/u64_stats_sync.h
+> +++ b/include/linux/u64_stats_sync.h
+> @@ -0,0 +1,107 @@
+> +#ifndef _LINUX_U64_STATS_SYNC_H
+> +#define _LINUX_U64_STATS_SYNC_H
+> +
 
->  I know that there is user-level code like Zeroconf / Avahi and these
+That's a really weird patch hunk for a newly added file.
 
->  tools create ARP sockets directly on the specified network interface=
-s=20
+The hunk header is saying that the new file start 1 line
+in.  Which doesn't make any sense, and GIT reject this
+saying that you're trying to make a modification to a
+file which doesn't exist.
 
-> in order to support link-local address handling. But if I do not=20
-
-> run any of these tools, does the kernel's ARP code take care of this,=
- too?
->=20
-
-There is no RFC 3927 support in kernel, you need user space support (or
-switch to DHCP ;) )
-
-Note that ARP replies MUST also be broadcasted for this particular
-169.254/16 network (RFC 3927, 2.5), you need a kernel patch too, this
-was discussed 4 years ago on netdev, and nothing was decided/changed.
-
-http://marc.info/?l=3Dlinux-netdev&m=3D114427223811197&w=3D2
-
-
-BTW I believe that our forwarding path doesnt test source/destination
-address not being part of 169.254/16 network, I am not sure it
-is a real problem or not. A netfilter rule can fix it eventually.
-
-7.  Router Considerations
-
-   A router MUST NOT forward a packet with an IPv4 Link-Local source or
-   destination address, irrespective of the router's default route
-   configuration or routes obtained from dynamic routing protocols.
-
-   A router which receives a packet with an IPv4 Link-Local source or
-   destination address MUST NOT forward the packet.  This prevents
-   forwarding of packets back onto the network segment from which they
-   originated, or to any other segment.
-
-
-
-
-
-
+I applied this by hand, but I really wonder how you managed
+to create such a patch :-)
