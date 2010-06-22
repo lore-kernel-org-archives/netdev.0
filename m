@@ -1,61 +1,32 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [ethtool PATCH] ethtool: Support n-tuple filter programming
-Date: Tue, 22 Jun 2010 12:45:45 +0100
-Message-ID: <1277207145.2091.3.camel@achroite.uk.solarflarecom.com>
-References: <20100204075101.16661.95658.stgit@localhost.localdomain>
-	 <1277150272.2100.47.camel@achroite.uk.solarflarecom.com>
-	 <Pine.WNT.4.64.1006211326380.4956@PPWASKIE-MOBL2.amr.corp.intel.com>
+From: Andreas Klauer <Andreas.Klauer@metamorpher.de>
+Subject: Re: 2.6.34 + IPv6: Oops?
+Date: Tue, 22 Jun 2010 14:29:10 +0200
+Message-ID: <20100622122910.GA8399@EIS>
+References: <20100619175352.GA8482@EIS>
+ <20100621153018.GA2433@EIS>
+ <20100621162518.GA5972@nuttenaction>
+ <20100621102508.2075d677@nehalam>
+ <20100621200413.GA2280@EIS>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"jeff@garzik.org" <jeff@garzik.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>
-To: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Hagen Paul Pfeifer <hagen@jauu.net>, netdev@vger.kernel.org,
+	Octavian Purdila <opurdila@ixiacom.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:30424 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754562Ab0FVLpt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jun 2010 07:45:49 -0400
-In-Reply-To: <Pine.WNT.4.64.1006211326380.4956@PPWASKIE-MOBL2.amr.corp.intel.com>
+Received: from smtprelay03.ispgateway.de ([80.67.18.15]:35313 "EHLO
+	smtprelay03.ispgateway.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751158Ab0FVM3O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jun 2010 08:29:14 -0400
+Content-Disposition: inline
+In-Reply-To: <20100621200413.GA2280@EIS>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-06-21 at 13:31 -0700, Peter P Waskiewicz Jr wrote:
-> On Mon, 21 Jun 2010, Ben Hutchings wrote:
-> 
-> > On Wed, 2010-02-03 at 23:51 -0800, Jeff Kirsher wrote:
-> >> From: Peter Waskiewicz <peter.p.waskiewicz.jr@intel.com>
-> >>
-> >> Program underlying ethernet devices with n-tuple flow classification
-> >> filters.
-> >>
-> >> This also adds a new flag to ethtool_flags, allowing n-tuple
-> >> programming to be toggled using the set_flags call.
-> >
-> > I just noticed a problem with the implementation which makes me wonder
-> > whether this was tested at all:
-> 
-> Yes, it was tested.  We didn't hit every corner case, which I think your 
-> catch below is a corner case issue.  Our hardware can only do so much.
+On Mon, Jun 21, 2010 at 10:04:13PM +0200, Andreas Klauer wrote:
+> Thanks a lot! This fix seems to work fine for me (tested locally only).
+> I'll see what happens when I apply it to my server tomorrow.
 
-It's not a corner case.  You have added options that cannot work
-correctly.
+The fix also works for my server.
 
-[...]
-> When this was proposed, we added the IPv4 address as a single int.  People 
-> seemed ok with it at the time, so we went with it.  If you have a 
-> different approach, please present it.
-
-And you don't think it matters that the address has to be written
-differently on big- and little-endian architectures?
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Thank you
+Andreas Klauer
