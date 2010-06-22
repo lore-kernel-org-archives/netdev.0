@@ -1,48 +1,74 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: [PATCH] ISDN: hysdn, fix potential NULL dereference
-Date: Tue, 22 Jun 2010 13:41:36 +0200
-Message-ID: <1277206896-27197-1-git-send-email-jslaby@suse.cz>
-Cc: linux-kernel@vger.kernel.org, jirislaby@gmail.com,
-	Jiri Slaby <jslaby@suse.cz>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: isdn@linux-pingi.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [v4 Patch 1/2] s2io: add dynamic LRO disable support
+Date: Tue, 22 Jun 2010 12:44:40 +0100
+Message-ID: <1277207080.2091.2.camel@achroite.uk.solarflarecom.com>
+References: <20100622085415.5566.22523.sendpatchset@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sgruszka@redhat.com,
+	herbert.xu@redhat.com, Ramkrishna.Vepa@exar.com,
+	davem@davemloft.net
+To: Amerigo Wang <amwang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:30399 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752714Ab0FVLoo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jun 2010 07:44:44 -0400
+In-Reply-To: <20100622085415.5566.22523.sendpatchset@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stanse found that lp is dereferenced earlier than checked for being
-NULL in hysdn_rx_netpkt. Move the initialization below the test.
+On Tue, 2010-06-22 at 04:50 -0400, Amerigo Wang wrote:
+> This patch adds dynamic LRO diable support for s2io net driver.
+> 
+> (I don't have s2io card, so only did compiling test. Anyone who wants
+> to test this is more than welcome.)
+> 
+> This is based on Neil's initial work, and heavily modified
+> based on Ramkrishna's suggestions.
+[...]
+> +static int s2io_ethtool_set_flags(struct net_device *dev, u32 data)
+> +{
+> +	struct s2io_nic *sp = netdev_priv(dev);
+> +	int rc = 0;
+> +	int changed = 0;
+> +
+> +	if (data & ~ETH_FLAG_LRO)
+> +		return -EOPNOTSUPP;
+> +
+> +	if (data & ETH_FLAG_LRO) {
+> +		if (lro_enable) {
+> +			if (!(dev->features & NETIF_F_LRO)) {
+> +				dev->features |= NETIF_F_LRO;
+> +				changed = 1;
+> +			}
+> +		} else
+> +			rc = -EOPNOTSUPP;
 
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-Cc: Karsten Keil <isdn@linux-pingi.de>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Stephen Hemminger <shemminger@vyatta.com>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: netdev@vger.kernel.org
----
- drivers/isdn/hysdn/hysdn_net.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+Should lro_enable=0 really prevent enabling it later?  This seems
+unusual.
 
-diff --git a/drivers/isdn/hysdn/hysdn_net.c b/drivers/isdn/hysdn/hysdn_net.c
-index 72eb926..feec8d8 100644
---- a/drivers/isdn/hysdn/hysdn_net.c
-+++ b/drivers/isdn/hysdn/hysdn_net.c
-@@ -187,12 +187,13 @@ void
- hysdn_rx_netpkt(hysdn_card * card, unsigned char *buf, unsigned short len)
- {
- 	struct net_local *lp = card->netif;
--	struct net_device *dev = lp->dev;
-+	struct net_device *dev;
- 	struct sk_buff *skb;
- 
- 	if (!lp)
- 		return;		/* non existing device */
- 
-+	dev = lp->dev;
- 	dev->stats.rx_bytes += len;
- 
- 	skb = dev_alloc_skb(len);
+> +	} else if (dev->features & NETIF_F_LRO) {
+> +		dev->features &= ~NETIF_F_LRO;
+> +		changed = 1;
+> +	}
+> +
+> +	if (changed && netif_running(dev)) {
+> +		s2io_stop_all_tx_queue(sp);
+> +		s2io_card_down(sp);
+> +		sp->lro = dev->features & NETIF_F_LRO;
+[...]
+
+This means s2io_nic::lro and ring_info::lro can have the value
+NETIF_F_LRO, where previously they would only have the value 0 or 1.  I
+don't know whether this could be a problem, but the safe thing to do is
+to coerce the value by writing !!(dev->features & NETIF_F_LRO).
+
+Ben.
+
 -- 
-1.7.1
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
