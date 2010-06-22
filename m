@@ -1,47 +1,75 @@
-From: "Justin P. Mattock" <justinmattock@gmail.com>
-Subject: Re: [PATCH 1/5 v2]wireless:hostap_main.c warning: variable 'iface'
- set but not used
-Date: Tue, 22 Jun 2010 11:34:30 -0700
-Message-ID: <4C210236.3030401@gmail.com>
-References: <1277157733-14071-1-git-send-email-justinmattock@gmail.com> <20100622181320.GD2583@tuxdriver.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Can I limit number of rx queues for igb (and other Intel drivers)?
+Date: Tue, 22 Jun 2010 12:54:20 -0700
+Message-ID: <4C2114EC.9040306@candelatech.com>
+References: <4C1BF5AA.8010209@candelatech.com> <EDC0E76513226749BFBC9C3FB031318FD7874B40@orsmsx508.amr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+Cc: NetDev <netdev@vger.kernel.org>
+To: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:53829 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752349Ab0FVSeX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jun 2010 14:34:23 -0400
-In-Reply-To: <20100622181320.GD2583@tuxdriver.com>
+Received: from mail.candelatech.com ([208.74.158.172]:52026 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751901Ab0FVTyZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jun 2010 15:54:25 -0400
+In-Reply-To: <EDC0E76513226749BFBC9C3FB031318FD7874B40@orsmsx508.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/22/2010 11:13 AM, John W. Linville wrote:
-> On Mon, Jun 21, 2010 at 03:02:13PM -0700, Justin P. Mattock wrote:
->> This is a resend from version one due to trying a different approach
->> than the original(probably important to leave netdev_priv() in).
->>
->> In any case have a look, if there's another approach let me know
->> and ill test it out. The below patch fixes a warning im seeing
->> when compiling with gcc 4.6.0
->>
->> CC [M]  drivers/net/wireless/hostap/hostap_main.o
->> drivers/net/wireless/hostap/hostap_main.c: In function 'hostap_set_multicast_list_queue':
->> drivers/net/wireless/hostap/hostap_main.c:744:27: warning: variable 'iface' set but not used
->>   Signed-off-by: Justin P. Mattock<justinmattock@gmail.com>
+On 06/21/2010 04:35 PM, Wyborny, Carolyn wrote:
 >
-> I already applied the other version to wireless-next-2.6.  I can't
-> imagine what you mean to accomplish by leaving in a call to netdev_priv
-> w/o assigning the result to something.
 >
-> John
+>> -----Original Message-----
+>> From: netdev-owner@vger.kernel.org
+>> [mailto:netdev-owner@vger.kernel.org] On Behalf Of Ben Greear
+>> Sent: Friday, June 18, 2010 3:40 PM
+>> To: NetDev
+>> Subject: Can I limit number of rx queues for igb (and other
+>> Intel drivers)?
+>>
+>> I'm using pktgen to send a stream of packets with varying
+>> source and destination
+>> IP addresses.  It appears that the fancy rx logic of the NIC
+>> (I'm using igb for this test)
+>> causes the received packets to appear on random rx queues and
+>> so be received out
+>> of order in the network core.
+>>
+>> I do not see the out-of-order issue when using a single
+>> source/dest IP address
+>> for the pktgen packets.
+>>
+>> So, is there a way to tell igb to use only a single rx queue?
+>>
+>> Thanks,
+>> Ben
+>>
+>> --
+>> Ben Greear<greearb@candelatech.com>
+>> Candela Technologies Inc  http://www.candelatech.com
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+> Hello,
+>
+> There is not a way to tell igb to use a single queue and ethtool does not currently have a way to do this.
+>
+> We also maintain an out of kernel version of the driver at SourceForge that has module parameters to do this.
+>
+> If you need to do this with the kernel version, we'd need to modify ethtool to be able to do this.
 
-alright..
-as for the netdev_priv, I was getting confused on this one.
+A module parameter would be OK, but an ethtool command to change this live
+would be really nice!  It may be a day or two before I get back to testing
+this, but will try your out-of-tree driver with proper mod-parm invocation
+then.
 
-Thanks for taking the time to look at this.
+Thanks,
+Ben
 
-Justin P. Mattock
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
