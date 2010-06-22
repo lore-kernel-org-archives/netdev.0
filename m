@@ -1,128 +1,48 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 1/2] dccp: remove unused function argument
-Date: Tue, 22 Jun 2010 13:14:34 +0200
-Message-ID: <1277205275-5862-2-git-send-email-gerrit@erg.abdn.ac.uk>
-References: <ccid3_4_tfrc_slow_slow_start_issue>
- <1277205275-5862-1-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
-	Gerrit Renker <gerrit@erg.abdn.ac.uk>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:64399 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752364Ab0FVL2f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jun 2010 07:28:35 -0400
-In-Reply-To: <1277205275-5862-1-git-send-email-gerrit@erg.abdn.ac.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: [PATCH] ISDN: hysdn, fix potential NULL dereference
+Date: Tue, 22 Jun 2010 13:41:36 +0200
+Message-ID: <1277206896-27197-1-git-send-email-jslaby@suse.cz>
+Cc: linux-kernel@vger.kernel.org, jirislaby@gmail.com,
+	Jiri Slaby <jslaby@suse.cz>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: isdn@linux-pingi.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This removes an unused 'sk' argument from several option-inserting functions.
+Stanse found that lp is dereferenced earlier than checked for being
+NULL in hysdn_rx_netpkt. Move the initialization below the test.
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Cc: Karsten Keil <isdn@linux-pingi.de>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: netdev@vger.kernel.org
 ---
- net/dccp/ackvec.c      |    2 +-
- net/dccp/ccids/ccid3.c |    4 ++--
- net/dccp/dccp.h        |   12 ++++--------
- net/dccp/options.c     |   14 ++++++--------
- 4 files changed, 13 insertions(+), 19 deletions(-)
+ drivers/isdn/hysdn/hysdn_net.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
---- a/net/dccp/ackvec.c
-+++ b/net/dccp/ackvec.c
-@@ -82,7 +82,7 @@ int dccp_insert_option_ackvec(struct sock *sk, struct sk_buff *skb)
- 	elapsed_time = delta / 10;
- 
- 	if (elapsed_time != 0 &&
--	    dccp_insert_option_elapsed_time(sk, skb, elapsed_time))
-+	    dccp_insert_option_elapsed_time(skb, elapsed_time))
- 		return -1;
- 
- 	avr = dccp_ackvec_record_new();
---- a/net/dccp/ccids/ccid3.c
-+++ b/net/dccp/ccids/ccid3.c
-@@ -715,9 +715,9 @@ static int ccid3_hc_rx_insert_options(struct sock *sk, struct sk_buff *skb)
- 	x_recv = htonl(hc->rx_x_recv);
- 	pinv   = htonl(hc->rx_pinv);
- 
--	if (dccp_insert_option(sk, skb, TFRC_OPT_LOSS_EVENT_RATE,
-+	if (dccp_insert_option(skb, TFRC_OPT_LOSS_EVENT_RATE,
- 			       &pinv, sizeof(pinv)) ||
--	    dccp_insert_option(sk, skb, TFRC_OPT_RECEIVE_RATE,
-+	    dccp_insert_option(skb, TFRC_OPT_RECEIVE_RATE,
- 			       &x_recv, sizeof(x_recv)))
- 		return -1;
- 
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -446,16 +446,12 @@ extern void dccp_feat_list_purge(struct list_head *fn_list);
- 
- extern int dccp_insert_options(struct sock *sk, struct sk_buff *skb);
- extern int dccp_insert_options_rsk(struct dccp_request_sock*, struct sk_buff*);
--extern int dccp_insert_option_elapsed_time(struct sock *sk,
--					    struct sk_buff *skb,
--					    u32 elapsed_time);
-+extern int dccp_insert_option_elapsed_time(struct sk_buff *skb, u32 elapsed);
- extern u32 dccp_timestamp(void);
- extern void dccp_timestamping_init(void);
--extern int dccp_insert_option_timestamp(struct sock *sk,
--					 struct sk_buff *skb);
--extern int dccp_insert_option(struct sock *sk, struct sk_buff *skb,
--			       unsigned char option,
--			       const void *value, unsigned char len);
-+extern int dccp_insert_option_timestamp(struct sk_buff *skb);
-+extern int dccp_insert_option(struct sk_buff *skb, unsigned char option,
-+			      const void *value, unsigned char len);
- 
- #ifdef CONFIG_SYSCTL
- extern int dccp_sysctl_init(void);
---- a/net/dccp/options.c
-+++ b/net/dccp/options.c
-@@ -299,9 +299,8 @@ static inline u8 dccp_ndp_len(const u64 ndp)
- 	return likely(ndp <= USHRT_MAX) ? 2 : (ndp <= UINT_MAX ? 4 : 6);
- }
- 
--int dccp_insert_option(struct sock *sk, struct sk_buff *skb,
--			const unsigned char option,
--			const void *value, const unsigned char len)
-+int dccp_insert_option(struct sk_buff *skb, const unsigned char option,
-+		       const void *value, const unsigned char len)
+diff --git a/drivers/isdn/hysdn/hysdn_net.c b/drivers/isdn/hysdn/hysdn_net.c
+index 72eb926..feec8d8 100644
+--- a/drivers/isdn/hysdn/hysdn_net.c
++++ b/drivers/isdn/hysdn/hysdn_net.c
+@@ -187,12 +187,13 @@ void
+ hysdn_rx_netpkt(hysdn_card * card, unsigned char *buf, unsigned short len)
  {
- 	unsigned char *to;
+ 	struct net_local *lp = card->netif;
+-	struct net_device *dev = lp->dev;
++	struct net_device *dev;
+ 	struct sk_buff *skb;
  
-@@ -354,8 +353,7 @@ static inline int dccp_elapsed_time_len(const u32 elapsed_time)
- 	return elapsed_time == 0 ? 0 : elapsed_time <= 0xFFFF ? 2 : 4;
- }
+ 	if (!lp)
+ 		return;		/* non existing device */
  
--int dccp_insert_option_elapsed_time(struct sock *sk, struct sk_buff *skb,
--				    u32 elapsed_time)
-+int dccp_insert_option_elapsed_time(struct sk_buff *skb, u32 elapsed_time)
- {
- 	const int elapsed_time_len = dccp_elapsed_time_len(elapsed_time);
- 	const int len = 2 + elapsed_time_len;
-@@ -386,13 +384,13 @@ int dccp_insert_option_elapsed_time(struct sock *sk, struct sk_buff *skb,
++	dev = lp->dev;
+ 	dev->stats.rx_bytes += len;
  
- EXPORT_SYMBOL_GPL(dccp_insert_option_elapsed_time);
- 
--int dccp_insert_option_timestamp(struct sock *sk, struct sk_buff *skb)
-+int dccp_insert_option_timestamp(struct sk_buff *skb)
- {
- 	__be32 now = htonl(dccp_timestamp());
- 	/* yes this will overflow but that is the point as we want a
- 	 * 10 usec 32 bit timer which mean it wraps every 11.9 hours */
- 
--	return dccp_insert_option(sk, skb, DCCPO_TIMESTAMP, &now, sizeof(now));
-+	return dccp_insert_option(skb, DCCPO_TIMESTAMP, &now, sizeof(now));
- }
- 
- EXPORT_SYMBOL_GPL(dccp_insert_option_timestamp);
-@@ -533,7 +531,7 @@ int dccp_insert_options(struct sock *sk, struct sk_buff *skb)
- 			 * Obtain RTT sample from Request/Response exchange.
- 			 * This is currently used in CCID 3 initialisation.
- 			 */
--			if (dccp_insert_option_timestamp(sk, skb))
-+			if (dccp_insert_option_timestamp(skb))
- 				return -1;
- 
- 		} else if (dp->dccps_hc_rx_ackvec != NULL &&
+ 	skb = dev_alloc_skb(len);
 -- 
-1.6.0.rc2
-
+1.7.1
