@@ -1,66 +1,61 @@
-From: Jeffrey Merkey <jeffmerkey@gmail.com>
-Subject: Re: 2.6.34 Crash in dmaengine_put()
-Date: Tue, 22 Jun 2010 10:36:28 -0600
-Message-ID: <AANLkTikIzdbNH83SkIxCxEL2NMZmfErq7s6WgAGPtbwi@mail.gmail.com>
-References: <AANLkTilCW2iqsNaWM9NYIomy8OxGC9jG40KpLcKMYTqL@mail.gmail.com>
-	<20100621202854.de928e0a.akpm@linux-foundation.org>
-	<AANLkTimsDSrEL8vT877pLYSa4A338p4Y8w0Ya6Xm7BFJ@mail.gmail.com>
-	<1277217804.3057.428.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] arp: RCU change in arp_solicit()
+Date: Tue, 22 Jun 2010 19:43:15 +0200
+Message-ID: <1277228595.3057.730.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org,
-	Dan Williams <dan.j.williams@intel.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1277217804.3057.428.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:61739 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751515Ab0FVRnV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jun 2010 13:43:21 -0400
+Received: by wyi11 with SMTP id 11so68843wyi.19
+        for <netdev@vger.kernel.org>; Tue, 22 Jun 2010 10:43:19 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->
->> OK. =A0This bug occurs if you OR in the IFF_UP flag while creating
->> virtual interfaces without going through the normal ifup/ifdown
->> scripts. =A0Looks like a hole. =A0I will post the trace shortly. =A0=
-It's
->> easy to reproduce, take the dummy net driver, OR in the IFF_UP flag =
-in
->> dummy_setup, and watch the kernel crash.
->>
->
-> Then dont do that ?
->
-> No need to send us a trace, unless you use a pristine kernel.
->
-> IFF_UP changes rules are very strict, dont try to avoid them and clai=
-m
-> there is a hole or something wrong.
->
-> Check __dev_open() , __dev_close() and __dev_change_flags() were OR/A=
-ND
-> IFF_UP is done by core network.
->
-> Net drivers are not allowed to change IFF_UP themselves.
->
-> (DE-600 & DE-620 being the exceptions to confirm this rule, of course=
-)
->
+Avoid two atomic ops in arp_solicit()
 
-Gee.  OK, its a bug.  I see the crash when unregister_netdev is
-called.  Changing a flag in a driver should not cause the kernel to
-crash.  You should check the code.  The dmaengine registration should
-have nothing to do with registering a netdev -- period.  I have coded
-arounnd it but its damn convenient to create virtual drivers on the
-fly and mark them as UP without needing to configure a bunch of text
-scripts to bring one up or down.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/arp.c |   12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
-The code itself is busted because it has a check if the dmaengine ref
-count goes negative.  If you are going to have a registration layer
-the rest of the OS should not have to wonder about its disconnected
-state.  The busted code is right at the top of dmaengine_put where it
-decrements the ref count then immediately jumps to a bug.  Need a
-better way here I think to prevent needless crashes.  Someone could
-just alter this flag remotely and crash a server -- HOLE - :)
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index cf78f41..09ead1b 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -333,11 +333,14 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ 	struct net_device *dev = neigh->dev;
+ 	__be32 target = *(__be32*)neigh->primary_key;
+ 	int probes = atomic_read(&neigh->probes);
+-	struct in_device *in_dev = in_dev_get(dev);
++	struct in_device *in_dev;
+ 
+-	if (!in_dev)
++	rcu_read_lock();
++	in_dev = __in_dev_get_rcu(dev);
++	if (!in_dev) {
++		rcu_read_unlock();
+ 		return;
+-
++	}
+ 	switch (IN_DEV_ARP_ANNOUNCE(in_dev)) {
+ 	default:
+ 	case 0:		/* By default announce any local IP */
+@@ -358,9 +361,8 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
+ 	case 2:		/* Avoid secondary IPs, get a primary/preferred one */
+ 		break;
+ 	}
++	rcu_read_unlock();
+ 
+-	if (in_dev)
+-		in_dev_put(in_dev);
+ 	if (!saddr)
+ 		saddr = inet_select_addr(dev, target, RT_SCOPE_LINK);
+ 
 
-Jeff
+
