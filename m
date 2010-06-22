@@ -1,40 +1,47 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: Re: bnx2 fails to compile on parisc because of missing
-	get_dma_ops()
-Date: Tue, 22 Jun 2010 11:14:45 -0600
-Message-ID: <20100622171445.GB8644@lackof.org>
-References: <20100617.073653.193708702.davem@davemloft.net> <20100617234520S.fujita.tomonori@lab.ntt.co.jp> <20100617153051.GB8964@linux-sh.org> <20100622152823R.fujita.tomonori@lab.ntt.co.jp>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] ipv4: sysctl to block responding on down
+ interface
+Date: Tue, 22 Jun 2010 10:15:37 -0700 (PDT)
+Message-ID: <20100622.101537.245382806.davem@davemloft.net>
+References: <OF1D06F11A.44DE8C5A-ONC125773F.00437856-C125773F.004425B9@transmode.se>
+	<20100611084854.0680c014@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lethal@linux-sh.org, davem@davemloft.net, mchan@broadcom.com,
-	vapier@gentoo.org, JBottomley@novell.com, netdev@vger.kernel.org,
-	linux-parisc@vger.kernel.org, linux-kernel@vger.kernel.org
-To: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Return-path: <linux-parisc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20100622152823R.fujita.tomonori@lab.ntt.co.jp>
-Sender: linux-parisc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: joakim.tjernlund@transmode.se, netdev@vger.kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58669
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756498Ab0FVRPZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jun 2010 13:15:25 -0400
+In-Reply-To: <20100611084854.0680c014@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 22, 2010 at 03:30:08PM +0900, FUJITA Tomonori wrote:
-...
-> > I don't see any harm in letting drivers know whether we can support
-> > consistent DMA allocs for a given struct device or not though, even if
-> > the micro-optimization is marginal at best.
-> 
-> I'm happier with exporting less DMA APIs to drivers because looks like
-> new original ways to use the APIs wrongly can be always invented.
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Fri, 11 Jun 2010 08:48:54 -0700
 
-Agree.
+> The initial problem report was for a management application that used ICMP
+> to check link availability.
 
-...
-> There are architectures that need to turn off the CPU cache for
-> coherent memory, I can't find none of them that see if an address is
-> coherent or not in dma_is_consistent().
+That application is buggy, and even if we apply this patch it will
+only properly function when speaking to systems in a non-default
+configuration.  And, it would be a non-default setting which, by your
+own admission below, cannot function properly in valid interface
+configurations.
 
-parisc "knows" primarily based on chipset and then checks CPU model.
-We hook in the correct dma_ops early in boot before any device drivers
-are probed.
+It's easier to fix the app to work in all cases than to add another
+sysctl knob hack for a segment of the world that can't seem to wrap
+their head around the fact that our behavior is valid, specified, and
+an explicit design decision meant to increase the chances of
+successful communication between two systems.
 
-hth,
-grant
+> The default is disabled to maintain compatibility with previous behavior.
+> This is not recommended for server systems because it makes fail over more
+> difficult, and does not account for configurations where multiple interfaces
+> have the same IP address.
+
+The fact that the syctl knob, when enabled, can't even function properly
+in this "multiple interfaces with same address" case is another reason I
+have decided to not apply this.
