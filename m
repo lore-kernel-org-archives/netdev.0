@@ -1,66 +1,116 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 2.6.34 Crash in dmaengine_put()
-Date: Tue, 22 Jun 2010 16:43:24 +0200
-Message-ID: <1277217804.3057.428.camel@edumazet-laptop>
-References: <AANLkTilCW2iqsNaWM9NYIomy8OxGC9jG40KpLcKMYTqL@mail.gmail.com>
-	 <20100621202854.de928e0a.akpm@linux-foundation.org>
-	 <AANLkTimsDSrEL8vT877pLYSa4A338p4Y8w0Ya6Xm7BFJ@mail.gmail.com>
+From: Mike McCormack <mikem@ring3k.org>
+Subject: Re: [PATCH] sky2: enable rx/tx in sky2_phy_reinit()
+Date: Tue, 22 Jun 2010 23:57:56 +0900
+Message-ID: <AANLkTilzHA_URoZONtMf6A9-IRV4wA2ncr0b8Jff1ge9@mail.gmail.com>
+References: <20100617022158.GA4135@jenkins.ifup.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-kernel@vger.kernel.org,
-	Dan Williams <dan.j.williams@intel.com>,
-	netdev <netdev@vger.kernel.org>
-To: Jeffrey Merkey <jeffmerkey@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTimsDSrEL8vT877pLYSa4A338p4Y8w0Ya6Xm7BFJ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: Brandon Philips <brandon@ifup.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:59953 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755622Ab0FVO55 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jun 2010 10:57:57 -0400
+Received: by gwaa12 with SMTP id a12so1049334gwa.19
+        for <netdev@vger.kernel.org>; Tue, 22 Jun 2010 07:57:57 -0700 (PDT)
+In-Reply-To: <20100617022158.GA4135@jenkins.ifup.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 22 juin 2010 =C3=A0 08:08 -0600, Jeffrey Merkey a =C3=A9crit :
+Tested, and verified that it fixes the bug reported.
 
-Please dont top post on lkml (or netdev) messages
+Tested-by: Mike McCormack <mikem@ring3k.org>
 
-> OK.  This bug occurs if you OR in the IFF_UP flag while creating
-> virtual interfaces without going through the normal ifup/ifdown
-> scripts.  Looks like a hole.  I will post the trace shortly.  It's
-> easy to reproduce, take the dummy net driver, OR in the IFF_UP flag i=
-n
-> dummy_setup, and watch the kernel crash.
->=20
-
-Then dont do that ?
-
-No need to send us a trace, unless you use a pristine kernel.
-
-IFF_UP changes rules are very strict, dont try to avoid them and claim
-there is a hole or something wrong.
-
-Check __dev_open() , __dev_close() and __dev_change_flags() were OR/AND
-IFF_UP is done by core network.
-
-Net drivers are not allowed to change IFF_UP themselves.
-
-(DE-600 & DE-620 being the exceptions to confirm this rule, of course)
-
-
-> Jeff
->=20
-> On Mon, Jun 21, 2010 at 9:28 PM, Andrew Morton
-> <akpm@linux-foundation.org> wrote:
-> > On Mon, 21 Jun 2010 20:57:40 -0600 Jeffrey Merkey <jeffmerkey@gmail=
-=2Ecom> wrote:
-> >
-> >> If someone sets the IFF_UP flags in the netdev structure without g=
-oing
-> >> through ifup userspace stuff, during unregister of the the netdev
-> >> the dmaengine-put code will decrement the reference counter negati=
-ve,
-> >> and crash at BUG! in the driver/dma/dmaengine.c code.  This seems
-> >> busted.
-> >>
-> >
-> > Please send a copy of the kernel BUG trace.
-> >
-> -
+On 17 June 2010 11:21, Brandon Philips <brandon@ifup.org> wrote:
+> sky2_phy_reinit is called by the ethtool helpers sky2_set_settings,
+> sky2_nway_reset and sky2_set_pauseparam when netif_running.
+>
+> However, at the end of sky2_phy_init GM_GP_CTRL has GM_GPCR_RX_ENA an=
+d
+> GM_GPCR_TX_ENA cleared. So, doing these commands causes the device to
+> stop working:
+>
+> $ ethtool -r eth0
+> $ ethtool -A eth0 autoneg off
+>
+> Fix this issue by enabling Rx/Tx after running sky2_phy_init in
+> sky2_phy_reinit.
+>
+> Signed-off-by: Brandon Philips <bphilips@suse.de>
+> Tested-by: Brandon Philips <bphilips@suse.de>
+> Cc: stable@kernel.org
+>
+> ---
+> =C2=A0drivers/net/sky2.c | =C2=A0 19 ++++++++++++++-----
+> =C2=A01 files changed, 14 insertions(+), 5 deletions(-)
+>
+> diff --git a/drivers/net/sky2.c b/drivers/net/sky2.c
+> index 2111c7b..7985165 100644
+> --- a/drivers/net/sky2.c
+> +++ b/drivers/net/sky2.c
+> @@ -717,11 +717,24 @@ static void sky2_phy_power_down(struct sky2_hw =
+*hw, unsigned port)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRIT=
+E_OFF);
+> =C2=A0}
+>
+> +/* Enable Rx/Tx */
+> +static void sky2_enable_rx_tx(struct sky2_port *sky2)
+> +{
+> + =C2=A0 =C2=A0 =C2=A0 struct sky2_hw *hw =3D sky2->hw;
+> + =C2=A0 =C2=A0 =C2=A0 unsigned port =3D sky2->port;
+> + =C2=A0 =C2=A0 =C2=A0 u16 reg;
+> +
+> + =C2=A0 =C2=A0 =C2=A0 reg =3D gma_read16(hw, port, GM_GP_CTRL);
+> + =C2=A0 =C2=A0 =C2=A0 reg |=3D GM_GPCR_RX_ENA | GM_GPCR_TX_ENA;
+> + =C2=A0 =C2=A0 =C2=A0 gma_write16(hw, port, GM_GP_CTRL, reg);
+> +}
+> +
+> =C2=A0/* Force a renegotiation */
+> =C2=A0static void sky2_phy_reinit(struct sky2_port *sky2)
+> =C2=A0{
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0spin_lock_bh(&sky2->phy_lock);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0sky2_phy_init(sky2->hw, sky2->port);
+> + =C2=A0 =C2=A0 =C2=A0 sky2_enable_rx_tx(sky2);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0spin_unlock_bh(&sky2->phy_lock);
+> =C2=A0}
+>
+> @@ -2040,7 +2053,6 @@ static void sky2_link_up(struct sky2_port *sky2=
+)
+> =C2=A0{
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct sky2_hw *hw =3D sky2->hw;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0unsigned port =3D sky2->port;
+> - =C2=A0 =C2=A0 =C2=A0 u16 reg;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0static const char *fc_name[] =3D {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0[FC_NONE] =C2=A0=
+ =C2=A0 =C2=A0 =3D "none",
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0[FC_TX] =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =3D "tx",
+> @@ -2048,10 +2060,7 @@ static void sky2_link_up(struct sky2_port *sky=
+2)
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0[FC_BOTH] =C2=A0=
+ =C2=A0 =C2=A0 =3D "both",
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0};
+>
+> - =C2=A0 =C2=A0 =C2=A0 /* enable Rx/Tx */
+> - =C2=A0 =C2=A0 =C2=A0 reg =3D gma_read16(hw, port, GM_GP_CTRL);
+> - =C2=A0 =C2=A0 =C2=A0 reg |=3D GM_GPCR_RX_ENA | GM_GPCR_TX_ENA;
+> - =C2=A0 =C2=A0 =C2=A0 gma_write16(hw, port, GM_GP_CTRL, reg);
+> + =C2=A0 =C2=A0 =C2=A0 sky2_enable_rx_tx(sky2);
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0gm_phy_write(hw, port, PHY_MARV_INT_MASK, =
+PHY_M_DEF_MSK);
+>
+> --
+> 1.7.1
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =C2=A0http://vger.kernel.org/majordomo-info.ht=
+ml
+>
