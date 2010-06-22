@@ -1,59 +1,61 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH] phylib: Add autoload support for the LXT973 phy.
-Date: Tue, 22 Jun 2010 13:38:13 +0100
-Message-ID: <1277210293.21798.11.camel@localhost>
-References: <20100531130932.GA15845@riccoc20.at.omicron.at>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:32959 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751158Ab0FVMiQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jun 2010 08:38:16 -0400
-In-Reply-To: <20100531130932.GA15845@riccoc20.at.omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Petri Lehtinen <petri.lehtinen@inoi.fi>
+Subject: [PATCH 3/3] ucc_geth: Fix full TX queue processing
+Date: Tue, 22 Jun 2010 16:02:32 +0300
+Message-ID: <1277211752-14265-4-git-send-email-petri.lehtinen@inoi.fi>
+References: <1277211752-14265-1-git-send-email-petri.lehtinen@inoi.fi>
+Cc: stable@kernel.org, netdev@vger.kernel.org,
+	Jiajun Wu <b06378@freescale.com>,
+	Anton Vorontsov <avorontsov@ru.mvista.com>,
+	Stable <stable@vger.kernel.org>, "[2.6.32]"@mail.srv.inoi.fi,
+	"David S. Miller" <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1277211752-14265-1-git-send-email-petri.lehtinen@inoi.fi>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit e13647c1 (phylib: Add support for the LXT973 phy.) added a new ID
-but neglected to also add it to the MODULE_DEVICE_TABLE.
+From: Jiajun Wu <b06378@freescale.com>
 
-Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
+commit 7583605b6d29f1f7f6fc505b883328089f3485ad ("ucc_geth: Fix empty
+TX queue processing") fixed empty TX queue mishandling, but didn't
+account another corner case: when TX queue becomes full.
+
+Without this patch the driver will stop transmiting when TX queue
+becomes full since 'bd == ugeth->txBd[txQ]' actually checks for
+two things: queue empty or full.
+
+Let's better check for NULL skb, which unambiguously signals an empty
+queue.
+
+Signed-off-by: Jiajun Wu <b06378@freescale.com>
+Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
+Cc: Stable <stable@vger.kernel.org> [2.6.32]
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+(cherry picked from commit 34692421bc7d6145ef383b014860f4fde10b7505)
 ---
-When I did this stuff, I did wonder if we should make this happen
-automatically somehow. I pondered some dirty macro hack in
-phy_driver_register() which would do it somehow, but couldn't come up
-with anything that'd work.
+ drivers/net/ucc_geth.c |    5 ++---
+ 1 files changed, 2 insertions(+), 3 deletions(-)
 
-Removing the phy_id and phy_id_mask from struct phy_driver and having a
-pointer to a match table would suck, since each driver only really
-matches one device/mask. (Even where a single C file has multiple
-drivers, they often differ in some methods or flags.)
-
-The best option I can come up with right now, is probably to remove
-phy_id and phy_id_mask from phy_driver and put a pointer to the driver
-into the ID table, and take the ID table as the argument to
-phy_driver_register(). I'm not sure I like that very much though -- I'd
-prefer that we just remember to update the table and don't need to be
-forced :)
-
-(Another cheap option is to pass the ID table as an extra argument to
-the existing phy_device_register(), I suppose, and it can just print a
-warning if it doesn't find the same phy_id and phy_id_mask in the table)
-
-diff --git a/drivers/net/phy/lxt.c b/drivers/net/phy/lxt.c
-index dbd0034..29c39ff 100644
---- a/drivers/net/phy/lxt.c
-+++ b/drivers/net/phy/lxt.c
-@@ -226,6 +226,7 @@ module_exit(lxt_exit);
- static struct mdio_device_id lxt_tbl[] = {
- 	{ 0x78100000, 0xfffffff0 },
- 	{ 0x001378e0, 0xfffffff0 },
-+	{ 0x00137a10, 0xfffffff0 },
- 	{ }
- };
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 5077fd9..b4b25ff 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3276,13 +3276,12 @@ static int ucc_geth_tx(struct net_device *dev, u8 txQ)
+ 		/* Handle the transmitted buffer and release */
+ 		/* the BD to be used with the current frame  */
  
-
-
+-		if (bd == ugeth->txBd[txQ]) /* queue empty? */
++		skb = ugeth->tx_skbuff[txQ][ugeth->skb_dirtytx[txQ]];
++		if (!skb)
+ 			break;
+ 
+ 		dev->stats.tx_packets++;
+ 
+-		skb = ugeth->tx_skbuff[txQ][ugeth->skb_dirtytx[txQ]];
+-
+ 		if (skb_queue_len(&ugeth->rx_recycle) < RX_BD_RING_LEN &&
+ 			     skb_recycle_check(skb,
+ 				    ugeth->ug_info->uf_info.max_rx_buf_length +
+-- 
+1.7.1
