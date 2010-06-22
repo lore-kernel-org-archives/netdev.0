@@ -1,81 +1,105 @@
-From: Petri Lehtinen <petri.lehtinen@inoi.fi>
-Subject: [PATCH 2/3] ucc_geth: Fix netdev watchdog triggering on link changes
-Date: Tue, 22 Jun 2010 16:02:31 +0300
-Message-ID: <1277211752-14265-3-git-send-email-petri.lehtinen@inoi.fi>
-References: <1277211752-14265-1-git-send-email-petri.lehtinen@inoi.fi>
-Cc: stable@kernel.org, netdev@vger.kernel.org,
-	Anton Vorontsov <avorontsov@ru.mvista.com>,
-	Stable <stable@vger.kernel.org>, "[2.6.32]"@mail.srv.inoi.fi,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1277211752-14265-1-git-send-email-petri.lehtinen@inoi.fi>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: amit.salecha@qlogic.com
+Subject: [PATCH NEXT 5/8] qlcnic: dont free host resources during fw recovery
+Date: Tue, 22 Jun 2010 06:19:02 -0700
+Message-ID: <1277212745-26857-6-git-send-email-amit.salecha@qlogic.com>
+References: <1277212745-26857-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	Amit Kumar Salecha <amit.salecha@qlogic.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:52374 "HELO unm84.unmin.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1754974Ab0FVNTI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jun 2010 09:19:08 -0400
+In-Reply-To: <1277212745-26857-1-git-send-email-amit.salecha@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Anton Vorontsov <avorontsov@ru.mvista.com>
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
 
-Since commit 864fdf884e82bacbe8ca5e93bd43393a61d2e2b4 ("ucc_geth:
-Fix hangs after switching from full to half duplex") ucc_geth driver
-disables the controller during MAC configuration changes. Though,
-disabling the controller might take quite awhile, and so the netdev
-watchdog might get upset:
+There is no need to free/alloc host resources during firmware
+recovery.
 
- NETDEV WATCHDOG: eth2 (ucc_geth): transmit queue 0 timed out
- ------------[ cut here ]------------
- Badness at c02729a8 [verbose debug info unavailable]
- NIP: c02729a8 LR: c02729a8 CTR: c01b6088
- REGS: c0451c40 TRAP: 0700   Not tainted  (2.6.32-trunk-8360e)
- [...]
- NIP [c02729a8] dev_watchdog+0x280/0x290
- LR [c02729a8] dev_watchdog+0x280/0x290
- Call Trace:
- [c0451cf0] [c02729a8] dev_watchdog+0x280/0x290 (unreliable)
- [c0451d50] [c00377c4] run_timer_softirq+0x164/0x224
- [c0451da0] [c0032a38] __do_softirq+0xb8/0x13c
- [c0451df0] [c00065cc] do_softirq+0xa0/0xac
- [c0451e00] [c003280c] irq_exit+0x7c/0x9c
- [c0451e10] [c00640c4] __ipipe_sync_stage+0x248/0x24c
- [...]
-
-This patch fixes the issue by detaching the netdev during the
-time we change the configuration.
-
-Reported-by: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-Signed-off-by: Anton Vorontsov <avorontsov@ru.mvista.com>
-Tested-by: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>
-Cc: Stable <stable@vger.kernel.org> [2.6.32]
-Signed-off-by: David S. Miller <davem@davemloft.net>
-
-(cherry picked from commit 08b5e1c91ce95793c59a59529a362a1bcc81faae)
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 ---
- drivers/net/ucc_geth.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+ drivers/net/qlcnic/qlcnic_main.c |   32 +++-----------------------------
+ 1 files changed, 3 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 20aa5b5..5077fd9 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -1563,7 +1563,10 @@ static int ugeth_disable(struct ucc_geth_private *ugeth, enum comm_dir mode)
+diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
+index 38d8fe0..c4602fa 100644
+--- a/drivers/net/qlcnic/qlcnic_main.c
++++ b/drivers/net/qlcnic/qlcnic_main.c
+@@ -1392,8 +1392,6 @@ static int __qlcnic_shutdown(struct pci_dev *pdev)
  
- static void ugeth_quiesce(struct ucc_geth_private *ugeth)
- {
--	/* Wait for and prevent any further xmits. */
-+	/* Prevent any further xmits, plus detach the device. */
-+	netif_device_detach(ugeth->ndev);
-+
-+	/* Wait for any current xmits to finish. */
- 	netif_tx_disable(ugeth->ndev);
+ 	cancel_work_sync(&adapter->tx_timeout_task);
  
- 	/* Disable the interrupt to avoid NAPI rescheduling. */
-@@ -1577,7 +1580,7 @@ static void ugeth_activate(struct ucc_geth_private *ugeth)
- {
- 	napi_enable(&ugeth->napi);
- 	enable_irq(ugeth->ug_info->uf_info.irq);
--	netif_tx_wake_all_queues(ugeth->ndev);
-+	netif_device_attach(ugeth->ndev);
+-	qlcnic_detach(adapter);
+-
+ 	qlcnic_clr_all_drv_state(adapter);
+ 
+ 	clear_bit(__QLCNIC_RESETTING, &adapter->state);
+@@ -1454,28 +1452,16 @@ qlcnic_resume(struct pci_dev *pdev)
+ 	}
+ 
+ 	if (netif_running(netdev)) {
+-		err = qlcnic_attach(adapter);
+-		if (err)
+-			goto err_out;
+-
+ 		err = qlcnic_up(adapter, netdev);
+ 		if (err)
+-			goto err_out_detach;
+-
++			goto done;
+ 
+ 		qlcnic_config_indev_addr(netdev, NETDEV_UP);
+ 	}
+-
++done:
+ 	netif_device_attach(netdev);
+ 	qlcnic_schedule_work(adapter, qlcnic_fw_poll_work, FW_POLL_DELAY);
+ 	return 0;
+-
+-err_out_detach:
+-	qlcnic_detach(adapter);
+-err_out:
+-	qlcnic_clr_all_drv_state(adapter);
+-	netif_device_attach(netdev);
+-	return err;
  }
+ #endif
  
- /* Called every time the controller might need to be made
+@@ -2426,10 +2412,6 @@ qlcnic_detach_work(struct work_struct *work)
+ 
+ 	qlcnic_down(adapter, netdev);
+ 
+-	rtnl_lock();
+-	qlcnic_detach(adapter);
+-	rtnl_unlock();
+-
+ 	status = QLCRD32(adapter, QLCNIC_PEG_HALT_STATUS1);
+ 
+ 	if (status & QLCNIC_RCODE_FATAL_ERROR)
+@@ -2518,18 +2500,10 @@ qlcnic_attach_work(struct work_struct *work)
+ 	struct qlcnic_adapter *adapter = container_of(work,
+ 				struct qlcnic_adapter, fw_work.work);
+ 	struct net_device *netdev = adapter->netdev;
+-	int err;
+ 
+ 	if (netif_running(netdev)) {
+-		err = qlcnic_attach(adapter);
+-		if (err)
+-			goto done;
+-
+-		err = qlcnic_up(adapter, netdev);
+-		if (err) {
+-			qlcnic_detach(adapter);
++		if (qlcnic_up(adapter, netdev))
+ 			goto done;
+-		}
+ 
+ 		qlcnic_config_indev_addr(netdev, NETDEV_UP);
+ 	}
 -- 
-1.7.1
+1.6.0.2
+
