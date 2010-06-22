@@ -1,99 +1,128 @@
 From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 2/2] dccp: make implementation of Syn-RTT symmetric
-Date: Tue, 22 Jun 2010 13:14:35 +0200
-Message-ID: <1277205275-5862-3-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: [PATCH 1/2] dccp: remove unused function argument
+Date: Tue, 22 Jun 2010 13:14:34 +0200
+Message-ID: <1277205275-5862-2-git-send-email-gerrit@erg.abdn.ac.uk>
 References: <ccid3_4_tfrc_slow_slow_start_issue>
  <1277205275-5862-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1277205275-5862-2-git-send-email-gerrit@erg.abdn.ac.uk>
 Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
 	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:64371 "EHLO erg.abdn.ac.uk"
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:64399 "EHLO erg.abdn.ac.uk"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753419Ab0FVL1f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jun 2010 07:27:35 -0400
-In-Reply-To: <1277205275-5862-2-git-send-email-gerrit@erg.abdn.ac.uk>
+	id S1752364Ab0FVL2f (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jun 2010 07:28:35 -0400
+In-Reply-To: <1277205275-5862-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is thanks to Andre Noll who reported the issue and helped testing.
-
-The Syn-RTT sampled during the initial handshake currently only works for
-the client sending the DCCP-Request. TFRC penalizes the absence of an RTT
-sample with a very slow initial speed (1 packet per second), which delays
-slow-start significantly, resulting in sluggish performance.
-
-This patch mirrors the "Syn RTT" principle by adding a timestamp also onto
-the DCCP-Response, producing an RTT sample  when the (Data)Ack completing
-the handshake arrives.
-
-Also changed the documentation to 'TFRC' since Syn RTTs are also used by CCID-4.
+This removes an unused 'sk' argument from several option-inserting functions.
 
 Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 ---
- net/dccp/input.c   |   13 +++++++++++--
- net/dccp/options.c |    6 +++++-
- 2 files changed, 16 insertions(+), 3 deletions(-)
+ net/dccp/ackvec.c      |    2 +-
+ net/dccp/ccids/ccid3.c |    4 ++--
+ net/dccp/dccp.h        |   12 ++++--------
+ net/dccp/options.c     |   14 ++++++--------
+ 4 files changed, 13 insertions(+), 19 deletions(-)
 
---- a/net/dccp/input.c
-+++ b/net/dccp/input.c
-@@ -430,7 +430,7 @@ static int dccp_rcv_request_sent_state_process(struct sock *sk,
- 		if (dccp_parse_options(sk, NULL, skb))
- 			return 1;
+--- a/net/dccp/ackvec.c
++++ b/net/dccp/ackvec.c
+@@ -82,7 +82,7 @@ int dccp_insert_option_ackvec(struct sock *sk, struct sk_buff *skb)
+ 	elapsed_time = delta / 10;
  
--		/* Obtain usec RTT sample from SYN exchange (used by CCID 3) */
-+		/* Obtain usec RTT sample from SYN exchange (used by TFRC). */
- 		if (likely(dp->dccps_options_received.dccpor_timestamp_echo))
- 			dp->dccps_syn_rtt = dccp_sample_rtt(sk, 10 * (tstamp -
- 			    dp->dccps_options_received.dccpor_timestamp_echo));
-@@ -535,6 +535,8 @@ static int dccp_rcv_respond_partopen_state_process(struct sock *sk,
- 						   const struct dccp_hdr *dh,
- 						   const unsigned len)
- {
-+	struct dccp_sock *dp = dccp_sk(sk);
-+	u32 sample = dp->dccps_options_received.dccpor_timestamp_echo;
- 	int queued = 0;
+ 	if (elapsed_time != 0 &&
+-	    dccp_insert_option_elapsed_time(sk, skb, elapsed_time))
++	    dccp_insert_option_elapsed_time(skb, elapsed_time))
+ 		return -1;
  
- 	switch (dh->dccph_type) {
-@@ -559,7 +561,14 @@ static int dccp_rcv_respond_partopen_state_process(struct sock *sk,
- 		if (sk->sk_state == DCCP_PARTOPEN)
- 			inet_csk_clear_xmit_timer(sk, ICSK_TIME_DACK);
+ 	avr = dccp_ackvec_record_new();
+--- a/net/dccp/ccids/ccid3.c
++++ b/net/dccp/ccids/ccid3.c
+@@ -715,9 +715,9 @@ static int ccid3_hc_rx_insert_options(struct sock *sk, struct sk_buff *skb)
+ 	x_recv = htonl(hc->rx_x_recv);
+ 	pinv   = htonl(hc->rx_pinv);
  
--		dccp_sk(sk)->dccps_osr = DCCP_SKB_CB(skb)->dccpd_seq;
-+		/* Obtain usec RTT sample from SYN exchange (used by TFRC). */
-+		if (likely(sample)) {
-+			long delta = dccp_timestamp() - sample;
-+
-+			dp->dccps_syn_rtt = dccp_sample_rtt(sk, 10 * delta);
-+		}
-+
-+		dp->dccps_osr = DCCP_SKB_CB(skb)->dccpd_seq;
- 		dccp_set_state(sk, DCCP_OPEN);
+-	if (dccp_insert_option(sk, skb, TFRC_OPT_LOSS_EVENT_RATE,
++	if (dccp_insert_option(skb, TFRC_OPT_LOSS_EVENT_RATE,
+ 			       &pinv, sizeof(pinv)) ||
+-	    dccp_insert_option(sk, skb, TFRC_OPT_RECEIVE_RATE,
++	    dccp_insert_option(skb, TFRC_OPT_RECEIVE_RATE,
+ 			       &x_recv, sizeof(x_recv)))
+ 		return -1;
  
- 		if (dh->dccph_type == DCCP_PKT_DATAACK ||
+--- a/net/dccp/dccp.h
++++ b/net/dccp/dccp.h
+@@ -446,16 +446,12 @@ extern void dccp_feat_list_purge(struct list_head *fn_list);
+ 
+ extern int dccp_insert_options(struct sock *sk, struct sk_buff *skb);
+ extern int dccp_insert_options_rsk(struct dccp_request_sock*, struct sk_buff*);
+-extern int dccp_insert_option_elapsed_time(struct sock *sk,
+-					    struct sk_buff *skb,
+-					    u32 elapsed_time);
++extern int dccp_insert_option_elapsed_time(struct sk_buff *skb, u32 elapsed);
+ extern u32 dccp_timestamp(void);
+ extern void dccp_timestamping_init(void);
+-extern int dccp_insert_option_timestamp(struct sock *sk,
+-					 struct sk_buff *skb);
+-extern int dccp_insert_option(struct sock *sk, struct sk_buff *skb,
+-			       unsigned char option,
+-			       const void *value, unsigned char len);
++extern int dccp_insert_option_timestamp(struct sk_buff *skb);
++extern int dccp_insert_option(struct sk_buff *skb, unsigned char option,
++			      const void *value, unsigned char len);
+ 
+ #ifdef CONFIG_SYSCTL
+ extern int dccp_sysctl_init(void);
 --- a/net/dccp/options.c
 +++ b/net/dccp/options.c
-@@ -529,7 +529,7 @@ int dccp_insert_options(struct sock *sk, struct sk_buff *skb)
- 		if (DCCP_SKB_CB(skb)->dccpd_type == DCCP_PKT_REQUEST) {
- 			/*
- 			 * Obtain RTT sample from Request/Response exchange.
--			 * This is currently used in CCID 3 initialisation.
-+			 * This is currently used for TFRC initialisation.
- 			 */
- 			if (dccp_insert_option_timestamp(skb))
- 				return -1;
-@@ -562,6 +562,10 @@ int dccp_insert_options_rsk(struct dccp_request_sock *dreq, struct sk_buff *skb)
- 	if (dccp_feat_insert_opts(NULL, dreq, skb))
- 		return -1;
+@@ -299,9 +299,8 @@ static inline u8 dccp_ndp_len(const u64 ndp)
+ 	return likely(ndp <= USHRT_MAX) ? 2 : (ndp <= UINT_MAX ? 4 : 6);
+ }
  
-+	/* Obtain RTT sample from Response/Ack exchange (used by TFRC). */
-+	if (dccp_insert_option_timestamp(skb))
-+		return -1;
-+
- 	if (dreq->dreq_timestamp_echo != 0 &&
- 	    dccp_insert_option_timestamp_echo(NULL, dreq, skb))
- 		return -1;
+-int dccp_insert_option(struct sock *sk, struct sk_buff *skb,
+-			const unsigned char option,
+-			const void *value, const unsigned char len)
++int dccp_insert_option(struct sk_buff *skb, const unsigned char option,
++		       const void *value, const unsigned char len)
+ {
+ 	unsigned char *to;
+ 
+@@ -354,8 +353,7 @@ static inline int dccp_elapsed_time_len(const u32 elapsed_time)
+ 	return elapsed_time == 0 ? 0 : elapsed_time <= 0xFFFF ? 2 : 4;
+ }
+ 
+-int dccp_insert_option_elapsed_time(struct sock *sk, struct sk_buff *skb,
+-				    u32 elapsed_time)
++int dccp_insert_option_elapsed_time(struct sk_buff *skb, u32 elapsed_time)
+ {
+ 	const int elapsed_time_len = dccp_elapsed_time_len(elapsed_time);
+ 	const int len = 2 + elapsed_time_len;
+@@ -386,13 +384,13 @@ int dccp_insert_option_elapsed_time(struct sock *sk, struct sk_buff *skb,
+ 
+ EXPORT_SYMBOL_GPL(dccp_insert_option_elapsed_time);
+ 
+-int dccp_insert_option_timestamp(struct sock *sk, struct sk_buff *skb)
++int dccp_insert_option_timestamp(struct sk_buff *skb)
+ {
+ 	__be32 now = htonl(dccp_timestamp());
+ 	/* yes this will overflow but that is the point as we want a
+ 	 * 10 usec 32 bit timer which mean it wraps every 11.9 hours */
+ 
+-	return dccp_insert_option(sk, skb, DCCPO_TIMESTAMP, &now, sizeof(now));
++	return dccp_insert_option(skb, DCCPO_TIMESTAMP, &now, sizeof(now));
+ }
+ 
+ EXPORT_SYMBOL_GPL(dccp_insert_option_timestamp);
+@@ -533,7 +531,7 @@ int dccp_insert_options(struct sock *sk, struct sk_buff *skb)
+ 			 * Obtain RTT sample from Request/Response exchange.
+ 			 * This is currently used in CCID 3 initialisation.
+ 			 */
+-			if (dccp_insert_option_timestamp(sk, skb))
++			if (dccp_insert_option_timestamp(skb))
+ 				return -1;
+ 
+ 		} else if (dp->dccps_hc_rx_ackvec != NULL &&
 -- 
 1.6.0.rc2
 
