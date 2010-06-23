@@ -1,45 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] snmp: fix SNMP_ADD_STATS()
-Date: Wed, 23 Jun 2010 12:32:03 +0200
-Message-ID: <1277289123.2469.278.camel@edumazet-laptop>
+From: Andi Kleen <ak@linux.intel.com>
+Subject: Re: [PATCH 31/40] trace syscalls: Convert various generic compat
+ syscalls
+Date: Wed, 23 Jun 2010 12:37:44 +0200
+Message-ID: <4C21E3F8.9000405@linux.intel.com>
+References: <1277287401-28571-1-git-send-email-imunsie@au1.ibm.com> <1277287401-28571-32-git-send-email-imunsie@au1.ibm.com> <4C21DFBA.2070202@linux.intel.com> <20100623102931.GB5242@nowhere>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:41093 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752264Ab0FWKcI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jun 2010 06:32:08 -0400
-Received: by wwc33 with SMTP id 33so860336wwc.19
-        for <netdev@vger.kernel.org>; Wed, 23 Jun 2010 03:32:06 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Ian Munsie <imunsie@au1.ibm.com>, linux-kernel@vger.kernel.org,
+ linuxppc-dev@ozlabs.org, Jason Baron <jbaron@redhat.com>,
+ Steven Rostedt <rostedt@goodmis.org>,
+ Ingo Molnar <mingo@redhat.com>,
+ Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+ Paul Mackerras <paulus@samba.org>,
+ Michael Ellerman <michael@ellerman.id.au>,
+ Alexander Viro <viro@zeniv.linux.org.uk>,
+ Andrew Morton <akpm@linux-foundation.org>,
+ Jeff Moyer <jmoyer@redhat.com>, David Howells <dhowells@redhat.com>,
+ Oleg Nesterov <oleg@redhat.com>,
+ Arnd Bergmann <arnd@arndb.de>, "David S. Miller" <davem@davemloft.net>,
+ Greg Kroah-Hartman <gregkh@suse.de>,
+ Dinakar Guniguntala <dino@in.ibm.com>,
+ Thomas Gleixner <tglx@linutronix.de>,
+ Ingo Molnar <mingo@elte.hu>, Eric Biederman <ebiederm@xmission.com>,
+ Simon Kagstrom <simon.kagstrom@netinsight.net>,
+ WANG Cong <amwang@redhat.com>, Sam Ravnborg <sam@ravnborg.o
+To: Frederic Weisbecker <fweisbec@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20100623102931.GB5242@nowhere>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-commit aa2ea0586d9d (tcp: fix outsegs stat for TSO segments) incorrectly
-assumed SNMP_ADD_STATS() was used from BH context.
+, Frederic Weisbecker wrote:
+> On Wed, Jun 23, 2010 at 12:19:38PM +0200, Andi Kleen wrote:
+>> , Ian Munsie wrote:
+>>> From: Ian Munsie<imunsie@au1.ibm.com>
+>>>
+>>> This patch converts numerous trivial compat syscalls through the generic
+>>> kernel code to use the COMPAT_SYSCALL_DEFINE family of macros.
+>>
+>> Why? This just makes the code look uglier and the functions harder
+>> to grep for.
+>
+>
+> Because it makes them usable with syscall tracing.
 
-Fix this using mib[!in_softirq()] instead of mib[0]
+Ok that information is missing in the changelog then.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Tom Herbert <therbert@google.com>
----
- include/net/snmp.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Also I hope the uglification<->usefullness factor is really worth it.
+The patch is certainly no slouch on the uglification side.
 
-diff --git a/include/net/snmp.h b/include/net/snmp.h
-index 92456f1..899003d 100644
---- a/include/net/snmp.h
-+++ b/include/net/snmp.h
-@@ -134,7 +134,7 @@ struct linux_xfrm_mib {
- #define SNMP_ADD_STATS_USER(mib, field, addend)	\
- 			this_cpu_add(mib[1]->mibs[field], addend)
- #define SNMP_ADD_STATS(mib, field, addend)	\
--			this_cpu_add(mib[0]->mibs[field], addend)
-+			this_cpu_add(mib[!in_softirq()]->mibs[field], addend)
- /*
-  * Use "__typeof__(*mib[0]) *ptr" instead of "__typeof__(mib[0]) ptr"
-  * to make @ptr a non-percpu pointer.
+It also has maintenance costs, e.g. I doubt ctags and cscope
+will be able to deal with these kinds of macros, so it has a
+high cost for everyone using these tools. For those
+it would be actually better if you used separate annotation
+that does not confuse standard C parsers.
 
+-Andi
 
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
