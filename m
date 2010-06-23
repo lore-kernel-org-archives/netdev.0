@@ -1,84 +1,57 @@
-From: Li Zefan <lizf@cn.fujitsu.com>
-Subject: Re: [PATCH] sched: silence PROVE_RCU in sched_fork()
-Date: Wed, 23 Jun 2010 15:25:50 +0800
-Message-ID: <4C21B6FE.8060801@cn.fujitsu.com>
-References: <AANLkTin2pPqOUx--9fIX3BH3e-cU6oCRufijcx_4ozx5@mail.gmail.com>	 <20100608001929.GF2387@linux.vnet.ibm.com>	 <AANLkTikl13cJNuU32JzRarrUnoh5DYHr-Tbnv9B-UjsG@mail.gmail.com>	 <1275986441.5408.111.camel@twins>	 <AANLkTimXVlgzHivCQberLdrFP8BH_nJzt8_ozUNHG_aI@mail.gmail.com>	 <1276004075.2987.208.camel@twins>	 <AANLkTil6ucLZ0A6tWx-OQt_2EeKnx8nSx6rIg2t1L2t5@mail.gmail.com>	 <1276097068.1745.13.camel@laptop>	 <AANLkTinl2JKUX6859Ioa1y0DqHWXH5TrkissQ8BAF4cP@mail.gmail.com>	 <AANLkTilpM9O373rA0cw_wTYVfTiDPbjaKHScAGlt7IAr@mail.gmail.com>	 <1276106229.1745.65.camel@laptop> <1276107311.1745.66.camel@laptop>	 <AANLkTilG5bjN5QaOChmuVN6vT7kMK4eGaV-DvPynBn_t@mail.gmail.com>	 <1276118458.1745.144.camel@laptop>	 <AANLkTilsDv59zbL7rbAgJByz_vSnZ0QlbK3dVJUX2VYQ@mail.gmail.com> <1277199893.1875.690.ca
- mel@laptop>
+From: "Dong, Eddie" <eddie.dong@intel.com>
+Subject: RE: [RFC PATCH v7 01/19] Add a new structure for skb buffer from
+	external.
+Date: Wed, 23 Jun 2010 16:09:40 +0800
+Message-ID: <1A42CE6F5F474C41B63392A5F80372B21F58CD9A@shsmsx501.ccr.corp.intel.com>
+References: <1275732899-5423-1-git-send-email-xiaohui.xin@intel.com>
+ <20100606161348.427822fb@nehalam>
+ <20100608052744.GA21547@gondor.apana.org.au>
+ <F2E9EB7348B8264F86B6AB8151CE2D791100848F9F@shsmsx502.ccr.corp.intel.com>
+ <20100611052112.GA25649@gondor.apana.org.au>
+ <F2E9EB7348B8264F86B6AB8151CE2D791210AA4475@shsmsx502.ccr.corp.intel.com>
+ <F2E9EB7348B8264F86B6AB8151CE2D79134F9AA999@shsmsx502.ccr.corp.intel.com>
+ <20100617112119.GB1515@gondor.apana.org.au>
+ <F2E9EB7348B8264F86B6AB8151CE2D7915089FE4CC@shsmsx502.ccr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Miles Lane <miles.lane@gmail.com>, paulmck@linux.vnet.ibm.com,
-	Vivek Goyal <vgoyal@redhat.com>,
-	Eric Paris <eparis@redhat.com>,
-	Lai Jiangshan <laijs@cn.fujitsu.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	LKML <linux-kernel@vger.kernel.org>, nauman@google.com,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	Jens Axboe <jens.axboe@oracle.com>,
-	Gui Jianfeng <guijianfeng@cn.fujitsu.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	Paul Menage <menage@google.com>
-To: Peter Zijlstra <peterz@infradead.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"jdike@linux.intel.com" <jdike@linux.intel.com>,
+	"Dong, Eddie" <eddie.dong@intel.com>
+To: "Xin, Xiaohui" <xiaohui.xin@intel.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1277199893.1875.690.camel@laptop>
+In-Reply-To: <F2E9EB7348B8264F86B6AB8151CE2D7915089FE4CC@shsmsx502.ccr.corp.intel.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Peter Zijlstra wrote:
-> Paul Menage, Li Zefan, any comments?
+
+> 3) As I have mentioned above, with this idea, netdev_alloc_skb() will
+> allocate 
+> as usual, the data pointed by skb->data will be copied into the first
+> guest buffer. 
+> That means we should reserve sufficient room in guest buffer. For PS
+> mode 
+> supported driver (for example ixgbe), the room will be more than 128.
+> After 128bytes, 
+> we will put the first frag data. Look into virtio-net.c the function
+> page_to_skb() 
+> and receive_mergeable(), that means we should modify guest virtio-net
+> driver to 
+> compute the offset as the parameter for skb_set_frag().
 > 
+> How do you think about this? Attached is a patch to how to modify the
+> guest driver. 
+> I reserve 512 bytes as an example, and transfer the header len of the
+> skb in hdr->hdr_len. 
 > 
-> ---
-> Because cgroup_fork() is ran before sched_fork() [ from copy_process() ]
-> and the child's pid is not yet visible the child is pinned to its
-> cgroup. Therefore we can silence this warning.
-> 
-
-The explanation is correct.
-
-We silenced another warning according to the same reason.
-
-See freezer_fork() in kernel/cgroup_freezer.c
-
-> A nicer solution would be moving cgroup_fork() to right after
-> dup_task_struct() and exclude PF_STARTING from task_subsys_state().
-> 
-
-Seems PF_STARTING is set in copy_flags(), that's after dup_task_struct() and
-before cgroup_fork(). But it's cleared after copy_process(), that's after
-the task is linked into tasklist, so this doesn't seem work...
-
-> Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-
-For this patch:
-
-Reviewed-by: Li Zefan <lizf@cn.fujitsu.com>
-
-> ---
->  kernel/sched.c |    9 +++++++++
->  1 files changed, 9 insertions(+), 0 deletions(-)
-> 
-> diff --git a/kernel/sched.c b/kernel/sched.c
-> index b697606..2e79518 100644
-> --- a/kernel/sched.c
-> +++ b/kernel/sched.c
-> @@ -2561,7 +2561,16 @@ void sched_fork(struct task_struct *p, int clone_flags)
->  	if (p->sched_class->task_fork)
->  		p->sched_class->task_fork(p);
->  
-> +	/*
-> +	 * The child is not yet in the pid-hash so no cgroup attach races,
-> +	 * and the cgroup is pinned to this child due to cgroup_fork()
-> +	 * is ran before sched_fork().
-> +	 *
-> +	 * Silence PROVE_RCU.
-> +	 */
-> +	rcu_read_lock();
->  	set_task_cpu(p, cpu);
-> +	rcu_read_unlock();
->  
->  #if defined(CONFIG_SCHEDSTATS) || defined(CONFIG_TASK_DELAY_ACCT)
->  	if (likely(sched_info_on()))
-> 
-> 
-> 
+Xiaohui & Herbert:
+	Mixing copy of head & 0-copy of bulk data imposes additional challange to find the guest buffer. The backend driver may be unable to find a spare guest buffer from virtqueue at that time which may block the receiving process then.
+	Can't we completely eliminate netdev_alloc_skb here? Assigning guest buffer at this time makes life much easier.
+Thx, Eddie
