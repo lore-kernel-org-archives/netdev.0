@@ -1,49 +1,49 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [PATCH 31/40] trace syscalls: Convert various generic compat
- syscalls
-Date: Wed, 23 Jun 2010 08:51:45 -0700
-Message-ID: <4C222D91.9030803@zytor.com>
-References: <1277287401-28571-1-git-send-email-imunsie@au1.ibm.com> <1277287401-28571-32-git-send-email-imunsie@au1.ibm.com> <4C21DFBA.2070202@linux.intel.com> <20100623102931.GB5242@nowhere> <4C21E3F8.9000405@linux.intel.com> <20100623113806.GD5242@nowhere>
+From: "Gerd v. Egidy" <lists@egidy.de>
+Subject: Question about xfrm by MARK feature
+Date: Wed, 23 Jun 2010 18:03:16 +0200
+Message-ID: <201006231803.17261.lists@egidy.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@linux.intel.com>, Ian Munsie <imunsie@au1.ibm.com>,
-        linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-        Jason Baron <jbaron@redhat.com>, Steven Rostedt <rostedt@goodmis.org>,
-        Ingo Molnar <mingo@redhat.com>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Paul Mackerras <paulus@samba.org>,
-        Michael Ellerman <michael@ellerman.id.au>,
-        Alexander Viro <viro@zeniv.linux.org.uk>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Jeff Moyer <jmoyer@redhat.com>, David Howells <dhowells@redhat.com>,
-        Oleg Nesterov <oleg@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Greg Kroah-Hartman <gregkh@suse.de>,
-        Dinakar Guniguntala <dino@in.ibm.com>,
-        Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>,
-        Eric Biederman <ebie
-To: Frederic Weisbecker <fweisbec@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20100623113806.GD5242@nowhere>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: timo.teras@iki.fi, kaber@trash.net, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: jamal <hadi@cyberus.ca>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rs02.intra2net.com ([81.169.173.116]:52888 "EHLO
+	rs02.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753230Ab0FWQJI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jun 2010 12:09:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/23/2010 04:38 AM, Frederic Weisbecker wrote:
-> 
-> I haven't heard any complains about existing syscalls wrappers.
-> 
+Hi Jamal,
 
-Then you truly haven't been listening.
+while looking through the 2.6.34 changelog I found the xfrm by MARK feature 
+you developed in february. I'm currently working on NAT for ipsec connections 
+and thought your feature might help me.
 
-	-hpa
+For example I have 2 different remote networks with the same ip network each 
+and both of them have a tunnel to the same local network. I map their IPs to 
+something different so I can distinguish them in the local network. But after 
+the nat the xfrm code sees two tunnels with exactly the same values. So this 
+can't work.
+
+But if I understood your feature correctly, I can now mark the packets (e.g. 
+in iptables with ... -j MARK --set-mark 1) and have xfrm select the correct 
+ipsec tunnel via the mark. Correct?
+
+But does your feature also set the mark on packets decrypted by xfrm? I need 
+some way to find out from which tunnel the packet came to correctly treat it. 
+
+Do you know if any of the ipsec solutions for linux (e.g. strongswan, 
+openswan, racoon) already have support for this feature or are developing on 
+it?
+
+Kind regards,
+
+Gerd
 
 -- 
-H. Peter Anvin, Intel Open Source Technology Center
-I work for Intel.  I don't speak on their behalf.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Address (better: trap) for people I really don't want to get mail from:
+jonas@cactusamerica.com
