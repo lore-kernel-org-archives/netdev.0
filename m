@@ -1,44 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: linux-next: manual merge of the net tree with the net-current
-	tree
-Date: Wed, 23 Jun 2010 14:14:33 +1000
-Message-ID: <20100623041433.GB30067@gondor.apana.org.au>
-References: <20100623125116.1370bdd4.sfr@canb.auug.org.au>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] phylib: Add autoload support for the LXT973 phy.
+Date: Wed, 23 Jun 2010 07:37:23 +0200
+Message-ID: <20100623053723.GA3404@riccoc20.at.omicron.at>
+References: <20100531130932.GA15845@riccoc20.at.omicron.at>
+ <1277210293.21798.11.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
+Cc: netdev@vger.kernel.org
+To: David Woodhouse <dwmw2@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:55658 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750873Ab0FWE4R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jun 2010 00:56:17 -0400
+Received: from fg-out-1718.google.com ([72.14.220.154]:37792 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751327Ab0FWFh1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jun 2010 01:37:27 -0400
+Received: by fg-out-1718.google.com with SMTP id d23so1510490fga.1
+        for <netdev@vger.kernel.org>; Tue, 22 Jun 2010 22:37:26 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20100623125116.1370bdd4.sfr@canb.auug.org.au>
+In-Reply-To: <1277210293.21798.11.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 23, 2010 at 12:51:16PM +1000, Stephen Rothwell wrote:
-> Hi all,
-> 
-> Today's linux-next merge of the net tree got a conflict in
-> net/ipv4/ip_output.c between commit
-> 26cde9f7e2747b6d254b704594eed87ab959afa5 ("udp: Fix bogus UFO packet
-> generation") from the net-current tree and commit
-> d8d1f30b95a635dbd610dcc5eb641aca8f4768cf ("net-next: remove useless union
-> keyword") from the net tree.
-> 
-> Just context changes. I fixed it up (see below) and can carry the fix as
-> necessary.
+On Tue, Jun 22, 2010 at 01:38:13PM +0100, David Woodhouse wrote:
+> prefer that we just remember to update the table and don't need to be
+> forced :)
 
-Looks good to me.
+Oops, and thanks for catching this.
+
+>  static struct mdio_device_id lxt_tbl[] = {
+>  	{ 0x78100000, 0xfffffff0 },
+>  	{ 0x001378e0, 0xfffffff0 },
+> +	{ 0x00137a10, 0xfffffff0 },
+>  	{ }
+>  };
+
+Question about the whole PHY MODULE_DEVICE_TABLE system:
+
+I recently posted a phy driver for the National Semiconductor
+DP83640. During development, I used drivers/net/arm/ixp4xx_eth.c as
+the MAC driver, which was linked into the kernel (not a module). I
+noticed that the phy driver's probe function only gets called if the
+phy driver is also statically linked, but not when it is loaded as a
+module.
+
+Is this the correct behavior?
 
 Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+Richard
