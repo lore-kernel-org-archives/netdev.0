@@ -1,32 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net - IP_NODEFRAG option for IPv4 socket
-Date: Wed, 23 Jun 2010 12:31:35 -0700 (PDT)
-Message-ID: <20100623.123135.48523240.davem@davemloft.net>
-References: <1276600052-16499-1-git-send-email-jolsa@redhat.com>
-	<1276600052-16499-2-git-send-email-jolsa@redhat.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH 1/2] syncookies: do not store rcv_wscale in tcp
+ timestamp
+Date: Wed, 23 Jun 2010 22:28:00 +0200
+Message-ID: <20100623202759.GA3581@nuttenaction>
+References: <1277156925-7295-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, jengelh@medozas.de, kaber@trash.net,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	linux-man@vger.kernel.org
-To: jolsa@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60987
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753405Ab0FWTbX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jun 2010 15:31:23 -0400
-In-Reply-To: <1276600052-16499-2-git-send-email-jolsa@redhat.com>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:45743 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752666Ab0FWU2D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jun 2010 16:28:03 -0400
+Content-Disposition: inline
+In-Reply-To: <1277156925-7295-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Olsa <jolsa@redhat.com>
-Date: Tue, 15 Jun 2010 13:07:31 +0200
+* Florian Westphal | 2010-06-21 23:48:44 [+0200]:
 
-> this patch is implementing IP_NODEFRAG option for IPv4 socket.
-> The reason is, there's no other way to send out the packet with user
-> customized header of the reassembly part.
-> 
-> Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+>As pointed out by Fernando Gont there is no need to encode rcv_wscale
+>into the cookie.
+>
+>We did not use the restored rcv_wscale anyway; it is recomputed
+>via tcp_select_initial_window().
 
-Applied to net-next-2.6, thanks!
+I speculate that this behavior was and is not correct. I suppose that their is
+a race between the SYN/ACK where we initial force a particular window scale
+and the next time where we recalculate the window via tcp_select_initial_window().
+
+If the user change net.core.rmem_max or net.ipv4.tcp_rmem in between this
+time, the recalculated window scale (rcv_wscale) can be smaller. But the
+receiver still operates with the initial window scale and can overshot the
+granted window - and bang.
+
+There are several solutions: encode rcv_wscale into the syn cookie and don't
+recalculate or disable window scaling and don't transmit any scaling option
+when SYN cookies are active.
+
+HGN
