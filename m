@@ -1,51 +1,40 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] ipv6: remove ipv6_statistics
-Date: Wed, 23 Jun 2010 14:51:25 +0200
-Message-ID: <1277297485.2469.584.camel@edumazet-laptop>
+From: "Justin P. Mattock" <justinmattock@gmail.com>
+Subject: Re: BUG: unable to handle kernel NULL pointer dereference at 00000000000000a0
+Date: Wed, 23 Jun 2010 07:41:07 -0700
+Message-ID: <4C221D03.9050006@gmail.com>
+References: <AANLkTilf41JrFwN1veRDifNA78S2LQ6SO0g3YLOONd2W@mail.gmail.com> <20100623141622.GC15205@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	"Denis V.Lunev" <den@openvz.org>,
-	Alexey Dobriyan <adobriyan@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:36106 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751367Ab0FWMva (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jun 2010 08:51:30 -0400
-Received: by wyi11 with SMTP id 11so724164wyi.19
-        for <netdev@vger.kernel.org>; Wed, 23 Jun 2010 05:51:28 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100623141622.GC15205@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit 9261e5370112 (ipv6: making ip and icmp statistics per/namespace)
-forgot to remove ipv6_statistics variable.
+On 06/23/2010 07:16 AM, John W. Linville wrote:
+> On Tue, Jun 22, 2010 at 04:16:53PM -0700, Justin Mattock wrote:
+>> I remember ipsec was able to work cleanly on my machines probably
+>> about 4/6 months ago
+>> now I get this:
+>
+> <snip>
+>
+> Perhaps netdev would be a more appropriate list than linux-wireless
+> for this?
+>
+> John
 
-commit bc417d99bf27 (ipv6: remove stale MIB definitions) took care of
-icmpv6_statistics & icmpv6msg_statistics
+alright added the cc's..
+almost done bisecting..hopefully this points to
+the right area..(if not I'll re-bisect until I get this).
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Denis V. Lunev <den@openvz.org>
-CC: Alexey Dobriyan <adobriyan@gmail.com>
-CC: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
----
- net/ipv6/ipv6_sockglue.c |    2 --
- 1 files changed, 2 deletions(-)
+as for the troubled machines I've a macbookpro2,2(no proprietary
+stuff) and an imac9,1 with broadcom-sta(blah) both
+seem to hit this right when the ipsec transaction starts
+with ssh, vncviewer..(last good kernel I have is
+2.6.33-rc5-01007-ge9449d8).
 
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index bd43f01..a7f66bc 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -55,8 +55,6 @@
- 
- #include <asm/uaccess.h>
- 
--DEFINE_SNMP_STAT(struct ipstats_mib, ipv6_statistics) __read_mostly;
--
- struct ip6_ra_chain *ip6_ra_chain;
- DEFINE_RWLOCK(ip6_ra_lock);
- 
-
-
+Justin P. Mattock
