@@ -1,65 +1,39 @@
-From: Andi Kleen <ak@linux.intel.com>
-Subject: Re: [PATCH 31/40] trace syscalls: Convert various generic compat
- syscalls
-Date: Wed, 23 Jun 2010 12:37:44 +0200
-Message-ID: <4C21E3F8.9000405@linux.intel.com>
-References: <1277287401-28571-1-git-send-email-imunsie@au1.ibm.com> <1277287401-28571-32-git-send-email-imunsie@au1.ibm.com> <4C21DFBA.2070202@linux.intel.com> <20100623102931.GB5242@nowhere>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] net: add dependency on fw class module
+Date: Wed, 23 Jun 2010 12:19:01 +0100
+Message-ID: <1277291941.26161.9.camel@localhost>
+References: <1277276075-29322-1-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ian Munsie <imunsie@au1.ibm.com>, linux-kernel@vger.kernel.org,
- linuxppc-dev@ozlabs.org, Jason Baron <jbaron@redhat.com>,
- Steven Rostedt <rostedt@goodmis.org>,
- Ingo Molnar <mingo@redhat.com>,
- Benjamin Herrenschmidt <benh@kernel.crashing.org>,
- Paul Mackerras <paulus@samba.org>,
- Michael Ellerman <michael@ellerman.id.au>,
- Alexander Viro <viro@zeniv.linux.org.uk>,
- Andrew Morton <akpm@linux-foundation.org>,
- Jeff Moyer <jmoyer@redhat.com>, David Howells <dhowells@redhat.com>,
- Oleg Nesterov <oleg@redhat.com>,
- Arnd Bergmann <arnd@arndb.de>, "David S. Miller" <davem@davemloft.net>,
- Greg Kroah-Hartman <gregkh@suse.de>,
- Dinakar Guniguntala <dino@in.ibm.com>,
- Thomas Gleixner <tglx@linutronix.de>,
- Ingo Molnar <mingo@elte.hu>, Eric Biederman <ebiederm@xmission.com>,
- Simon Kagstrom <simon.kagstrom@netinsight.net>,
- WANG Cong <amwang@redhat.com>, Sam Ravnborg <sam@ravnborg.o
-To: Frederic Weisbecker <fweisbec@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20100623102931.GB5242@nowhere>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	ameen.rahman@qlogic.com,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+To: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:43613 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750999Ab0FWLTJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jun 2010 07:19:09 -0400
+In-Reply-To: <1277276075-29322-1-git-send-email-amit.salecha@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-, Frederic Weisbecker wrote:
-> On Wed, Jun 23, 2010 at 12:19:38PM +0200, Andi Kleen wrote:
->> , Ian Munsie wrote:
->>> From: Ian Munsie<imunsie@au1.ibm.com>
->>>
->>> This patch converts numerous trivial compat syscalls through the generic
->>> kernel code to use the COMPAT_SYSCALL_DEFINE family of macros.
->>
->> Why? This just makes the code look uglier and the functions harder
->> to grep for.
->
->
-> Because it makes them usable with syscall tracing.
+On Tue, 2010-06-22 at 23:54 -0700, Amit Kumar Salecha wrote:
+> From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+> 
+> netxen_nic and qlcnic driver depends on firmware_class module.
+[...]
 
-Ok that information is missing in the changelog then.
+By the way, I noticed that these drivers are very similar, and it looks
+like qlcnic has code for a bunch of NetXen boards even though it doesn't
+include their device IDs in its device ID table.  Have you considered
+merging the two?
 
-Also I hope the uglification<->usefullness factor is really worth it.
-The patch is certainly no slouch on the uglification side.
+Ben.
 
-It also has maintenance costs, e.g. I doubt ctags and cscope
-will be able to deal with these kinds of macros, so it has a
-high cost for everyone using these tools. For those
-it would be actually better if you used separate annotation
-that does not confuse standard C parsers.
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
--Andi
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
