@@ -1,39 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] gainfar.c : skb_over_panic
-Date: Wed, 23 Jun 2010 11:27:26 -0700 (PDT)
-Message-ID: <20100623.112726.193704241.davem@davemloft.net>
-References: <4C1F2D39.9050804@extricom.com>
-	<20100621.134733.115953029.davem@davemloft.net>
-	<4C2249E6.4030202@extricom.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH net-next-2.6] netfilter: allow nf_tproxy_core module to be
+ removed
+Date: Wed, 23 Jun 2010 20:35:04 +0200
+Message-ID: <20100623183503.GE2687@psychotron.bos.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: galak@kernel.crashing.org, netdev@vger.kernel.org
-To: liberty@extricom.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kaber@trash.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47302
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752036Ab0FWS1O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jun 2010 14:27:14 -0400
-In-Reply-To: <4C2249E6.4030202@extricom.com>
+Received: from mx1.redhat.com ([209.132.183.28]:27601 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752860Ab0FWSfJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jun 2010 14:35:09 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eran Liberty <liberty@extricom.com>
-Date: Wed, 23 Jun 2010 20:52:38 +0300
 
-> David Miller wrote:
->> At this stage in the code we know exactly what modifications, if any,
->> we've made to the SKB state.  Therefore it makes sense to only fix
->> up the tiny amount of changes we've made instead of doing a complete
->> skb_recycle_call() which seems entirely excessive in this situation.
->>
->>   
-> Agreed.
-> 
-> Attached is the corrected patch for the gianfar.c
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-Can you formally submit this with a proper commit message and
-"Signed-off-by: " tag as per linux/Documentation/SubmittingPatches?
-
-THanks.
+diff --git a/net/netfilter/nf_tproxy_core.c b/net/netfilter/nf_tproxy_core.c
+index 5490fc3..ec6737c 100644
+--- a/net/netfilter/nf_tproxy_core.c
++++ b/net/netfilter/nf_tproxy_core.c
+@@ -89,7 +89,12 @@ static int __init nf_tproxy_init(void)
+ 	return 0;
+ }
+ 
++static void __exit nf_tproxy_exit(void)
++{
++}
++
+ module_init(nf_tproxy_init);
++module_exit(nf_tproxy_exit);
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Krisztian Kovacs");
