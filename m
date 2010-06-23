@@ -1,39 +1,34 @@
-From: "Gerd v. Egidy" <lists@egidy.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: Question about xfrm by MARK feature
-Date: Thu, 24 Jun 2010 00:13:57 +0200
-Message-ID: <201006240013.58261.lists@egidy.de>
-References: <201006231803.17261.lists@egidy.de> <4C223310.6090006@trash.net>
+Date: Thu, 24 Jun 2010 08:16:33 +1000
+Message-ID: <20100623221633.GA9237@gondor.apana.org.au>
+References: <201006231803.17261.lists@egidy.de> <4C223310.6090006@trash.net> <201006240013.58261.lists@egidy.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: jamal <hadi@cyberus.ca>, timo.teras@iki.fi,
-	herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
+	timo.teras@iki.fi, netdev@vger.kernel.org
+To: "Gerd v. Egidy" <lists@egidy.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rs02.intra2net.com ([81.169.173.116]:42139 "EHLO
-	rs02.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753509Ab0FWWOC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jun 2010 18:14:02 -0400
-In-Reply-To: <4C223310.6090006@trash.net>
+Received: from helcar.apana.org.au ([209.40.204.226]:60841 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753455Ab0FWWQr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jun 2010 18:16:47 -0400
+Content-Disposition: inline
+In-Reply-To: <201006240013.58261.lists@egidy.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > But does your feature also set the mark on packets decrypted by xfrm? I
-> > need some way to find out from which tunnel the packet came to correctly
-> > treat it.
+On Thu, Jun 24, 2010 at 12:13:57AM +0200, Gerd v. Egidy wrote:
 > 
-> You should be able to use the policy match to distinguish the tunnels,
-> f.i. by matching on the tunnel endpoints.
+> That would work for endpoints with fixed ips. But as soon as the endpoint has a 
+> dynamic ip, I'd have to change the iptables depending on the vpns currently 
+> connected. This is something I want to avoid in any case. 
 
-That would work for endpoints with fixed ips. But as soon as the endpoint has a 
-dynamic ip, I'd have to change the iptables depending on the vpns currently 
-connected. This is something I want to avoid in any case. 
+That's what reqids are for.
 
-Reason is that I'd have to introduce some kind of locking around the calls to 
-iptables. Otherwise two connections established or disconnected nearly 
-simultaneously could result in loss of the rules for one of them.
-
-Kind regards,
-
-Gerd
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
