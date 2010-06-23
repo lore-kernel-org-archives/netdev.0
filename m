@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] netfilter: allow nf_tproxy_core module to
- be removed
-Date: Wed, 23 Jun 2010 11:55:58 -0700 (PDT)
-Message-ID: <20100623.115558.189705237.davem@davemloft.net>
-References: <20100623183503.GE2687@psychotron.bos.redhat.com>
-	<20100623184611.GG27132@Chamillionaire.breakpoint.cc>
+Subject: Re: [PATCH NEXT 0/8]qlcnic: driver update
+Date: Wed, 23 Jun 2010 12:04:29 -0700 (PDT)
+Message-ID: <20100623.120429.39171086.davem@davemloft.net>
+References: <1277212745-26857-1-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jpirko@redhat.com, netdev@vger.kernel.org, kaber@trash.net
-To: fw@strlen.de
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com
+To: amit.salecha@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60932
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32768
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751423Ab0FWSzq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jun 2010 14:55:46 -0400
-In-Reply-To: <20100623184611.GG27132@Chamillionaire.breakpoint.cc>
+	by vger.kernel.org with ESMTP id S1751322Ab0FWTER (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jun 2010 15:04:17 -0400
+In-Reply-To: <1277212745-26857-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
-Date: Wed, 23 Jun 2010 20:46:11 +0200
+From: amit.salecha@qlogic.com
+Date: Tue, 22 Jun 2010 06:18:57 -0700
 
-> tproxy assigns skb->destructor, what prevents module unload while such skbs may
-> still be around?
+>   Major changes:
+>   1) Previously device context were created in probe and released in remove.
+>      Now create during interface up and release in interface down.
+>   2) Dont deallocate and allocate host memory during device reset.
+>   3) Offload tx timeout recovery to fw recovery functions. Later will
+>      check fw health before doing tx timeout recovery.
+> 
+>   Series of 8 patches. Please apply them on net-next branch.
 
-The only reference to nf_tproxy_core.ko is for the symbol, "nf_tproxy_assign_sock".
-xt_TPROXY.c, which references this symbol, thus creates a symbol dependency on this
-module, so xt_TPROXY.o needs to unload before nf_tproxy_core.ko can unload, and
-xt_TPROXY.o has it's own manner for handling module references properly.
+All applied, thank you.
