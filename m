@@ -1,48 +1,45 @@
-From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Subject: Re: [PATCH 31/40] trace syscalls: Convert various generic compat syscalls
-Date: Wed, 23 Jun 2010 19:30:47 +0900 (JST)
-Message-ID: <20100623192930.B5A9.A69D9226@jp.fujitsu.com>
-References: <1277287401-28571-32-git-send-email-imunsie@au1.ibm.com> <4C21DFBA.2070202@linux.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] snmp: fix SNMP_ADD_STATS()
+Date: Wed, 23 Jun 2010 12:32:03 +0200
+Message-ID: <1277289123.2469.278.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kosaki.motohiro@jp.fujitsu.com, Ian Munsie <imunsie@au1.ibm.com>,
-        linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-        Jason Baron <jbaron@redhat.com>,
-        Frederic Weisbecker <fweisbec@gmail.com>,
-        Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@redhat.com>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Paul Mackerras <paulus@samba.org>,
-        Michael Ellerman <michael@ellerman.id.au>,
-        Alexander Viro <viro@zeniv.linux.org.uk>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Jeff Moyer <jmoyer@redhat.com>, David Howells <dhowells@redhat.com>,
-        Oleg Nesterov <oleg@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-        "David S. Miller" <davem@davemloft.net>,
-        Greg Kroah-Hartman <gregkh@suse.de>,
-        Dinakar Guniguntala <dino@in.ibm.com>,
-        Thomas Gleixner <tglx@linutronix.de>, Ingo Mol
-To: Andi Kleen <ak@linux.intel.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <4C21DFBA.2070202@linux.intel.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f46.google.com ([74.125.82.46]:41093 "EHLO
+	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752264Ab0FWKcI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jun 2010 06:32:08 -0400
+Received: by wwc33 with SMTP id 33so860336wwc.19
+        for <netdev@vger.kernel.org>; Wed, 23 Jun 2010 03:32:06 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> , Ian Munsie wrote:
-> > From: Ian Munsie<imunsie@au1.ibm.com>
-> >
-> > This patch converts numerous trivial compat syscalls through the generic
-> > kernel code to use the COMPAT_SYSCALL_DEFINE family of macros.
-> 
-> Why? This just makes the code look uglier and the functions harder
-> to grep for.
+commit aa2ea0586d9d (tcp: fix outsegs stat for TSO segments) incorrectly
+assumed SNMP_ADD_STATS() was used from BH context.
 
-I guess trace-syscall feature need to override COMPAT_SYSCALL_DEFINE. but
-It's only guess...
+Fix this using mib[!in_softirq()] instead of mib[0]
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Tom Herbert <therbert@google.com>
+---
+ include/net/snmp.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/net/snmp.h b/include/net/snmp.h
+index 92456f1..899003d 100644
+--- a/include/net/snmp.h
++++ b/include/net/snmp.h
+@@ -134,7 +134,7 @@ struct linux_xfrm_mib {
+ #define SNMP_ADD_STATS_USER(mib, field, addend)	\
+ 			this_cpu_add(mib[1]->mibs[field], addend)
+ #define SNMP_ADD_STATS(mib, field, addend)	\
+-			this_cpu_add(mib[0]->mibs[field], addend)
++			this_cpu_add(mib[!in_softirq()]->mibs[field], addend)
+ /*
+  * Use "__typeof__(*mib[0]) *ptr" instead of "__typeof__(mib[0]) ptr"
+  * to make @ptr a non-percpu pointer.
 
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
