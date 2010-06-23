@@ -1,40 +1,45 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: iproute addr flush question
-Date: Tue, 22 Jun 2010 15:46:21 -0700
-Message-ID: <4C213D3D.8040108@candelatech.com>
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Subject: Re: bnx2 fails to compile on parisc because of missing
+ get_dma_ops()
+Date: Wed, 23 Jun 2010 09:38:27 +0900
+Message-ID: <20100623093638R.fujita.tomonori@lab.ntt.co.jp>
+References: <20100617153051.GB8964@linux-sh.org>
+	<20100622152823R.fujita.tomonori@lab.ntt.co.jp>
+	<1277227564.9374.7.camel@mulgrave.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: NetDev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:45740 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751654Ab0FVWqW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jun 2010 18:46:22 -0400
-Received: from [71.117.12.23] (pool-71-117-12-23.sttlwa.dsl-w.verizon.net [71.117.12.23])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id o5MMkLcp029716
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 22 Jun 2010 15:46:21 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: fujita.tomonori@lab.ntt.co.jp, lethal@linux-sh.org,
+	davem@davemloft.net, mchan@broadcom.com, vapier@gentoo.org,
+	netdev@vger.kernel.org, linux-parisc@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: James.Bottomley@HansenPartnership.com
+Return-path: <linux-parisc-owner@vger.kernel.org>
+In-Reply-To: <1277227564.9374.7.camel@mulgrave.site>
+Sender: linux-parisc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Is this supposed to work?  I was hoping there was some way to
-flush all secondary IPs with a single command:
+On Tue, 22 Jun 2010 12:26:04 -0500
+James Bottomley <James.Bottomley@HansenPartnership.com> wrote:
 
-[root@atom lanforge]# ./local/sbin/ip addr flush dev eth5 secondary
-[root@atom lanforge]#  ip addr show dev eth5
-8: eth5: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state DOWN qlen 1000
-     link/ether 00:90:0b:13:f4:e9 brd ff:ff:ff:ff:ff:ff
-     inet 6.6.6.1/24 brd 6.6.6.255 scope global eth5
-     inet 6.6.6.2/24 scope global secondary eth5
-     inet 6.6.6.3/24 scope global secondary eth5
+> > As I wrote, there is only one user of this API and we can remove it
+> > easily. Then I'm not sure it's worth fixing dma_is_consistent() in
+> > many architectures. I prefer to add this to
+> > feature-removal-schedule.txt to see if driver writers oppose.
+> 
+> Let me check our two drivers: lasi and 53c700; they're the only ones we
+> support on the architecture that can't do any coherence.  I think we
+> don't need to tell because the dma_sync_cache calls which replace
+> coherent memory handling are indirected on the platform so we don't need
+> a global dma_is_coherent() flag.
 
-This is .34 kernel and .34 matching iproute.
+There is only one place where 53c700 uses dma_is_consistent() (lasi
+doesn't use it):
 
-Thanks,
-Ben
+	BUG_ON(!dma_is_consistent(hostdata->dev, pScript) && L1_CACHE_BYTES < dma_get_cache_alignment());
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+I think that we can remove the above checking since the existing
+parisc systems that can't allocate coherent memory pass this checking.
+
+53c700 and lasi call dma_cache_sync() unconditionally so we can live
+without dma_is_consistent().
