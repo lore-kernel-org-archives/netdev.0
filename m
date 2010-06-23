@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: add dependency on fw class module
-Date: Wed, 23 Jun 2010 11:52:50 -0700 (PDT)
-Message-ID: <20100623.115250.104045736.davem@davemloft.net>
-References: <1277276075-29322-1-git-send-email-amit.salecha@qlogic.com>
+Subject: Re: [PATCH net-next-2.6] netfilter: allow nf_tproxy_core module to
+ be removed
+Date: Wed, 23 Jun 2010 11:55:58 -0700 (PDT)
+Message-ID: <20100623.115558.189705237.davem@davemloft.net>
+References: <20100623183503.GE2687@psychotron.bos.redhat.com>
+	<20100623184611.GG27132@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	anirban.chakraborty@qlogic.com
-To: amit.salecha@qlogic.com
+Cc: jpirko@redhat.com, netdev@vger.kernel.org, kaber@trash.net
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60927
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60932
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751322Ab0FWSwi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jun 2010 14:52:38 -0400
-In-Reply-To: <1277276075-29322-1-git-send-email-amit.salecha@qlogic.com>
+	by vger.kernel.org with ESMTP id S1751423Ab0FWSzq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jun 2010 14:55:46 -0400
+In-Reply-To: <20100623184611.GG27132@Chamillionaire.breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Date: Tue, 22 Jun 2010 23:54:35 -0700
+From: Florian Westphal <fw@strlen.de>
+Date: Wed, 23 Jun 2010 20:46:11 +0200
 
-> From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-> 
-> netxen_nic and qlcnic driver depends on firmware_class module.
-> 
-> Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+> tproxy assigns skb->destructor, what prevents module unload while such skbs may
+> still be around?
 
-Applied, thank you.
+The only reference to nf_tproxy_core.ko is for the symbol, "nf_tproxy_assign_sock".
+xt_TPROXY.c, which references this symbol, thus creates a symbol dependency on this
+module, so xt_TPROXY.o needs to unload before nf_tproxy_core.ko can unload, and
+xt_TPROXY.o has it's own manner for handling module references properly.
