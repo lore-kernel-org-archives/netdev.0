@@ -1,47 +1,52 @@
-From: Amit Salecha <amit.salecha@qlogic.com>
-Subject: RE: [PATCH] net: add dependency on fw class module
-Date: Wed, 23 Jun 2010 06:49:18 -0500
-Message-ID: <99737F4847ED0A48AECC9F4A1974A4B80F82CB7A51@MNEXMB2.qlogic.org>
-References: <1277276075-29322-1-git-send-email-amit.salecha@qlogic.com>
- <1277291941.26161.9.camel@localhost>
+From: Andi Kleen <ak@linux.intel.com>
+Subject: Re: [PATCH 31/40] trace syscalls: Convert various generic compat
+ syscalls
+Date: Wed, 23 Jun 2010 14:35:38 +0200
+Message-ID: <4C21FF9A.2040207@linux.intel.com>
+References: <1277287401-28571-1-git-send-email-imunsie@au1.ibm.com> <1277287401-28571-32-git-send-email-imunsie@au1.ibm.com> <4C21DFBA.2070202@linux.intel.com> <20100623102931.GB5242@nowhere> <4C21E3F8.9000405@linux.intel.com> <20100623113806.GD5242@nowhere>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ameen Rahman <ameen.rahman@qlogic.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from avexcashub1.qlogic.com ([198.70.193.61]:2545 "EHLO
-	avexcashub1.qlogic.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751322Ab0FWLt0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jun 2010 07:49:26 -0400
-In-Reply-To: <1277291941.26161.9.camel@localhost>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ian Munsie <imunsie@au1.ibm.com>, linux-kernel@vger.kernel.org,
+ linuxppc-dev@ozlabs.org, Jason Baron <jbaron@redhat.com>,
+ Steven Rostedt <rostedt@goodmis.org>,
+ Ingo Molnar <mingo@redhat.com>,
+ Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+ Paul Mackerras <paulus@samba.org>,
+ Michael Ellerman <michael@ellerman.id.au>,
+ Alexander Viro <viro@zeniv.linux.org.uk>,
+ Andrew Morton <akpm@linux-foundation.org>,
+ Jeff Moyer <jmoyer@redhat.com>, David Howells <dhowells@redhat.com>,
+ Oleg Nesterov <oleg@redhat.com>,
+ Arnd Bergmann <arnd@arndb.de>, "David S. Miller" <davem@davemloft.net>,
+ Greg Kroah-Hartman <gregkh@suse.de>,
+ Dinakar Guniguntala <dino@in.ibm.com>,
+ Thomas Gleixner <tglx@linutronix.de>,
+ Ingo Molnar <mingo@elte.hu>, Eric Biederman <ebiederm@xmission.com>,
+ Simon Kagstrom <simon.kagstrom@netinsight.net>,
+ WANG Cong <amwang@redhat.com>, Sam Ravnborg <sam@ravnborg.o
+To: Frederic Weisbecker <fweisbec@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20100623113806.GD5242@nowhere>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-QWN0dWFsbHkgdGhhdCBpcyBub3QgYWN0dWFsbHkgcmVmbGVjdCB0byBib2FyZCB0eXBlLg0KImJv
-YXJkX3R5cGUiIGlzIGEgZW5jb2RpbmcgdG8gZmluZCBvdXQgbnVtYmVyIG9mIHBoeXNpY2FsIHBv
-cnQgYW5kIHBoeSBzcGVlZC4NCg0KTlgzMDMxIChuZXR4ZW5fbmljKSBhbmQgUUxPR0lDIENOQSAo
-cWxjbmljKSBkZXZpY2UgaGF2ZSBzb21lIGNvbW1vbiBib2FyZCBmb3JtLg0KDQpCdXQgbm90IGFs
-bCBib2FyZCB0eXBlcyBhcmUgdmFsaWQgZm9yIFFMT0dJQyBDTkEgZGV2aWNlLiBXZSB3aWxsIGNs
-ZWFuIHRoaXMgdXAuDQoNClRoYW5rcyBmb3IgcG9pbnRpbmcgdGhpcyBvdXQuDQoNCi1BbWl0DQoN
-Ci0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWlsdG86
-Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0gDQpTZW50OiBXZWRuZXNkYXksIEp1bmUgMjMsIDIw
-MTAgNDo0OSBQTQ0KVG86IEFtaXQgU2FsZWNoYQ0KQ2M6IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IG5l
-dGRldkB2Z2VyLmtlcm5lbC5vcmc7IEFtZWVuIFJhaG1hbjsgQW5pcmJhbiBDaGFrcmFib3J0eQ0K
-U3ViamVjdDogUmU6IFtQQVRDSF0gbmV0OiBhZGQgZGVwZW5kZW5jeSBvbiBmdyBjbGFzcyBtb2R1
-bGUNCg0KT24gVHVlLCAyMDEwLTA2LTIyIGF0IDIzOjU0IC0wNzAwLCBBbWl0IEt1bWFyIFNhbGVj
-aGEgd3JvdGU6DQo+IEZyb206IEFuaXJiYW4gQ2hha3JhYm9ydHkgPGFuaXJiYW4uY2hha3JhYm9y
-dHlAcWxvZ2ljLmNvbT4NCj4gDQo+IG5ldHhlbl9uaWMgYW5kIHFsY25pYyBkcml2ZXIgZGVwZW5k
-cyBvbiBmaXJtd2FyZV9jbGFzcyBtb2R1bGUuDQpbLi4uXQ0KDQpCeSB0aGUgd2F5LCBJIG5vdGlj
-ZWQgdGhhdCB0aGVzZSBkcml2ZXJzIGFyZSB2ZXJ5IHNpbWlsYXIsIGFuZCBpdCBsb29rcw0KbGlr
-ZSBxbGNuaWMgaGFzIGNvZGUgZm9yIGEgYnVuY2ggb2YgTmV0WGVuIGJvYXJkcyBldmVuIHRob3Vn
-aCBpdCBkb2Vzbid0DQppbmNsdWRlIHRoZWlyIGRldmljZSBJRHMgaW4gaXRzIGRldmljZSBJRCB0
-YWJsZS4gIEhhdmUgeW91IGNvbnNpZGVyZWQNCm1lcmdpbmcgdGhlIHR3bz8NCg0KQmVuLg0KDQot
-LSANCkJlbiBIdXRjaGluZ3MsIFNlbmlvciBTb2Z0d2FyZSBFbmdpbmVlciwgU29sYXJmbGFyZSBD
-b21tdW5pY2F0aW9ucw0KTm90IHNwZWFraW5nIGZvciBteSBlbXBsb3llcjsgdGhhdCdzIHRoZSBt
-YXJrZXRpbmcgZGVwYXJ0bWVudCdzIGpvYi4NClRoZXkgYXNrZWQgdXMgdG8gbm90ZSB0aGF0IFNv
-bGFyZmxhcmUgcHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJrZWQuDQoNCg==
+
+>
+> I haven't heard any complains about existing syscalls wrappers.
+
+At least for me they always interrupt my grepping.
+
+>
+> What kind of annotations could solve that?
+
+If you put the annotation in a separate macro and leave the original
+prototype alone. Then C parsers could still parse it.
+
+-Andi
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
