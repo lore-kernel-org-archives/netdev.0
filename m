@@ -1,45 +1,63 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: Re: bnx2 fails to compile on parisc because of missing
- get_dma_ops()
-Date: Wed, 23 Jun 2010 09:38:27 +0900
-Message-ID: <20100623093638R.fujita.tomonori@lab.ntt.co.jp>
-References: <20100617153051.GB8964@linux-sh.org>
-	<20100622152823R.fujita.tomonori@lab.ntt.co.jp>
-	<1277227564.9374.7.camel@mulgrave.site>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net tree with the net-current tree
+Date: Wed, 23 Jun 2010 12:51:16 +1000
+Message-ID: <20100623125116.1370bdd4.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: fujita.tomonori@lab.ntt.co.jp, lethal@linux-sh.org,
-	davem@davemloft.net, mchan@broadcom.com, vapier@gentoo.org,
-	netdev@vger.kernel.org, linux-parisc@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: James.Bottomley@HansenPartnership.com
-Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <1277227564.9374.7.camel@mulgrave.site>
-Sender: linux-parisc-owner@vger.kernel.org
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Changli Gao <xiaosuo@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 22 Jun 2010 12:26:04 -0500
-James Bottomley <James.Bottomley@HansenPartnership.com> wrote:
+Hi all,
 
-> > As I wrote, there is only one user of this API and we can remove it
-> > easily. Then I'm not sure it's worth fixing dma_is_consistent() in
-> > many architectures. I prefer to add this to
-> > feature-removal-schedule.txt to see if driver writers oppose.
-> 
-> Let me check our two drivers: lasi and 53c700; they're the only ones we
-> support on the architecture that can't do any coherence.  I think we
-> don't need to tell because the dma_sync_cache calls which replace
-> coherent memory handling are indirected on the platform so we don't need
-> a global dma_is_coherent() flag.
+Today's linux-next merge of the net tree got a conflict in
+net/ipv4/ip_output.c between commit
+26cde9f7e2747b6d254b704594eed87ab959afa5 ("udp: Fix bogus UFO packet
+generation") from the net-current tree and commit
+d8d1f30b95a635dbd610dcc5eb641aca8f4768cf ("net-next: remove useless union
+keyword") from the net tree.
 
-There is only one place where 53c700 uses dma_is_consistent() (lasi
-doesn't use it):
+Just context changes. I fixed it up (see below) and can carry the fix as
+necessary.
 
-	BUG_ON(!dma_is_consistent(hostdata->dev, pScript) && L1_CACHE_BYTES < dma_get_cache_alignment());
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-I think that we can remove the above checking since the existing
-parisc systems that can't allocate coherent memory pass this checking.
-
-53c700 and lasi call dma_cache_sync() unconditionally so we can live
-without dma_is_consistent().
+diff --cc net/ipv4/ip_output.c
+index 041d41d,6cbeb2e..0000000
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@@ -873,12 -873,10 +873,12 @@@ int ip_append_data(struct sock *sk
+  	    !exthdrlen)
+  		csummode = CHECKSUM_PARTIAL;
+  
+ +	skb = skb_peek_tail(&sk->sk_write_queue);
+ +
+  	inet->cork.length += length;
+ -	if (((length> mtu) || !skb_queue_empty(&sk->sk_write_queue)) &&
+ +	if (((length > mtu) || (skb && skb_is_gso(skb))) &&
+  	    (sk->sk_protocol == IPPROTO_UDP) &&
+- 	    (rt->u.dst.dev->features & NETIF_F_UFO)) {
++ 	    (rt->dst.dev->features & NETIF_F_UFO)) {
+  		err = ip_ufo_append_data(sk, getfrag, from, length, hh_len,
+  					 fragheaderlen, transhdrlen, mtu,
+  					 flags);
+@@@ -1123,9 -1121,8 +1123,9 @@@ ssize_t	ip_append_page(struct sock *sk
+  		return -EINVAL;
+  
+  	inet->cork.length += size;
+ -	if ((sk->sk_protocol == IPPROTO_UDP) &&
+ +	if ((size + skb->len > mtu) &&
+ +	    (sk->sk_protocol == IPPROTO_UDP) &&
+- 	    (rt->u.dst.dev->features & NETIF_F_UFO)) {
++ 	    (rt->dst.dev->features & NETIF_F_UFO)) {
+  		skb_shinfo(skb)->gso_size = mtu - fragheaderlen;
+  		skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
+  	}
