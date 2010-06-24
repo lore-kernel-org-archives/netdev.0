@@ -1,34 +1,41 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next-2.6 5/5] sfc: Record hardware RX hash on each
- skb where possible
-Date: Thu, 24 Jun 2010 16:18:28 +0100
-Message-ID: <1277392708.2100.3.camel@achroite.uk.solarflarecom.com>
-References: <1277328447.2101.7.camel@achroite.uk.solarflarecom.com>
-	 <1277328688.2101.12.camel@achroite.uk.solarflarecom.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH net-next-2.6] netfilter: allow nf_tproxy_core module to
+ be removed
+Date: Thu, 24 Jun 2010 17:29:29 +0200
+Message-ID: <4C2379D9.2080608@trash.net>
+References: <20100623183503.GE2687@psychotron.bos.redhat.com>	<20100623184611.GG27132@Chamillionaire.breakpoint.cc> <20100623.115558.189705237.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+Cc: fw@strlen.de, jpirko@redhat.com, netdev@vger.kernel.org,
+	Balazs Scheidler <bazsi@balabit.hu>,
+	KOVACS Krisztian <hidden@sch.bme.hu>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:59921 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754149Ab0FXPSc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jun 2010 11:18:32 -0400
-In-Reply-To: <1277328688.2101.12.camel@achroite.uk.solarflarecom.com>
+Received: from stinky.trash.net ([213.144.137.162]:35896 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754161Ab0FXP3e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jun 2010 11:29:34 -0400
+In-Reply-To: <20100623.115558.189705237.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David,
+David Miller wrote:
+> From: Florian Westphal <fw@strlen.de>
+> Date: Wed, 23 Jun 2010 20:46:11 +0200
+>
+>   
+>> tproxy assigns skb->destructor, what prevents module unload while such skbs may
+>> still be around?
+>>     
+>
+> The only reference to nf_tproxy_core.ko is for the symbol, "nf_tproxy_assign_sock".
+> xt_TPROXY.c, which references this symbol, thus creates a symbol dependency on this
+> module, so xt_TPROXY.o needs to unload before nf_tproxy_core.ko can unload, and
+> xt_TPROXY.o has it's own manner for handling module references properly.
+>   
 
-Unfortunately, this version of the patch can hit a hardware bug that
-results in bogus hashes.  Let me know whether you've applied it, and
-I'll send an incremental or a replacement patch.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I don't see anything waiting for skbs in flight using the tproxy
+destructor in either xt_TPROXY or nf_tproxy_core though, so I think
+Florian is correct.
 
