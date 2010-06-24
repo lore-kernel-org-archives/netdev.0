@@ -1,78 +1,143 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net: use this_cpu_ptr()
-Date: Thu, 24 Jun 2010 12:52:37 +0200
-Message-ID: <1277376757.2816.272.camel@edumazet-laptop>
+Subject: [PATCH net-next-2.6 2/4] net: u64_stats_fetch_begin_bh() and
+ u64_stats_fetch_retry_bh()
+Date: Thu, 24 Jun 2010 12:54:06 +0200
+Message-ID: <1277376846.2816.283.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:45008 "EHLO
+Received: from mail-ww0-f46.google.com ([74.125.82.46]:50894 "EHLO
 	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754559Ab0FXKwm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jun 2010 06:52:42 -0400
-Received: by wwi17 with SMTP id 17so92006wwi.19
-        for <netdev@vger.kernel.org>; Thu, 24 Jun 2010 03:52:39 -0700 (PDT)
+	with ESMTP id S1754559Ab0FXKyJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jun 2010 06:54:09 -0400
+Received: by wwi17 with SMTP id 17so93042wwi.19
+        for <netdev@vger.kernel.org>; Thu, 24 Jun 2010 03:54:08 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-use this_cpu_ptr(p) instead of per_cpu_ptr(p, smp_processor_id())
+- Must disable preemption in case of 32bit UP in u64_stats_fetch_begin()
+and u64_stats_fetch_retry()
+
+- Add new u64_stats_fetch_begin_bh() and u64_stats_fetch_retry_bh() for
+network usage, disabling BH on 32bit UP only.
 
 Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- net/core/flow.c     |    4 ++--
- net/ipv4/ip_input.c |    2 +-
- net/ipv4/tcp.c      |    2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
+ include/linux/u64_stats_sync.h |   59 +++++++++++++++++++++++--------
+ 1 file changed, 44 insertions(+), 15 deletions(-)
 
-diff --git a/net/core/flow.c b/net/core/flow.c
-index 1619006..8c7c91a 100644
---- a/net/core/flow.c
-+++ b/net/core/flow.c
-@@ -222,7 +222,7 @@ flow_cache_lookup(struct net *net, struct flowi *key, u16 family, u8 dir,
- 	unsigned int hash;
+diff --git a/include/linux/u64_stats_sync.h b/include/linux/u64_stats_sync.h
+index 201d319..00c1592 100644
+--- a/include/linux/u64_stats_sync.h
++++ b/include/linux/u64_stats_sync.h
+@@ -27,6 +27,9 @@
+  *    (On UP, there is no seqcount_t protection, a reader allowing interrupts could
+  *     read partial values)
+  *
++ * 7) For softirq uses, readers can use u64_stats_fetch_begin_bh() and
++ *    u64_stats_fetch_retry_bh() helpers
++ *
+  * Usage :
+  *
+  * Stats producer (writer) should use following template granted it already got
+@@ -58,54 +61,80 @@
+  */
+ #include <linux/seqlock.h>
  
- 	local_bh_disable();
--	fcp = per_cpu_ptr(fc->percpu, smp_processor_id());
-+	fcp = this_cpu_ptr(fc->percpu);
+-#if BITS_PER_LONG==32 && defined(CONFIG_SMP)
+ struct u64_stats_sync {
++#if BITS_PER_LONG==32 && defined(CONFIG_SMP)
+ 	seqcount_t	seq;
++#endif
+ };
  
- 	fle = NULL;
- 	flo = NULL;
-@@ -302,7 +302,7 @@ static void flow_cache_flush_tasklet(unsigned long data)
- 	LIST_HEAD(gc_list);
- 	int i, deleted = 0;
+ static void inline u64_stats_update_begin(struct u64_stats_sync *syncp)
+ {
++#if BITS_PER_LONG==32 && defined(CONFIG_SMP)
+ 	write_seqcount_begin(&syncp->seq);
++#endif
+ }
  
--	fcp = per_cpu_ptr(fc->percpu, smp_processor_id());
-+	fcp = this_cpu_ptr(fc->percpu);
- 	for (i = 0; i < flow_cache_hash_size(fc); i++) {
- 		hlist_for_each_entry_safe(fle, entry, tmp,
- 					  &fcp->hash_table[i], u.hlist) {
-diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-index db47a5a..d859bcc 100644
---- a/net/ipv4/ip_input.c
-+++ b/net/ipv4/ip_input.c
-@@ -342,7 +342,7 @@ static int ip_rcv_finish(struct sk_buff *skb)
+ static void inline u64_stats_update_end(struct u64_stats_sync *syncp)
+ {
++#if BITS_PER_LONG==32 && defined(CONFIG_SMP)
+ 	write_seqcount_end(&syncp->seq);
++#endif
+ }
  
- #ifdef CONFIG_NET_CLS_ROUTE
- 	if (unlikely(skb_dst(skb)->tclassid)) {
--		struct ip_rt_acct *st = per_cpu_ptr(ip_rt_acct, smp_processor_id());
-+		struct ip_rt_acct *st = this_cpu_ptr(ip_rt_acct);
- 		u32 idx = skb_dst(skb)->tclassid;
- 		st[idx&0xFF].o_packets++;
- 		st[idx&0xFF].o_bytes += skb->len;
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 779d40c..b9e721c 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2958,7 +2958,7 @@ struct tcp_md5sig_pool *tcp_get_md5sig_pool(void)
- 	spin_unlock(&tcp_md5sig_pool_lock);
+ static unsigned int inline u64_stats_fetch_begin(const struct u64_stats_sync *syncp)
+ {
++#if BITS_PER_LONG==32 && defined(CONFIG_SMP)
+ 	return read_seqcount_begin(&syncp->seq);
++#else
++#if BITS_PER_LONG==32
++	preempt_disable();
++#endif
++	return 0;
++#endif
+ }
  
- 	if (p)
--		return *per_cpu_ptr(p, smp_processor_id());
-+		return *this_cpu_ptr(p);
+ static bool inline u64_stats_fetch_retry(const struct u64_stats_sync *syncp,
+ 					 unsigned int start)
+ {
++#if BITS_PER_LONG==32 && defined(CONFIG_SMP)
+ 	return read_seqcount_retry(&syncp->seq, start);
+-}
+-
+ #else
+-struct u64_stats_sync {
+-};
+-
+-static void inline u64_stats_update_begin(struct u64_stats_sync *syncp)
+-{
+-}
+-
+-static void inline u64_stats_update_end(struct u64_stats_sync *syncp)
+-{
++#if BITS_PER_LONG==32
++	preempt_enable();
++#endif
++	return false;
++#endif
+ }
  
- 	local_bh_enable();
- 	return NULL;
+-static unsigned int inline u64_stats_fetch_begin(const struct u64_stats_sync *syncp)
++/*
++ * In case softirq handlers can update u64 counters, readers can use following helpers
++ * - SMP 32bit arches use seqcount protection, irq safe.
++ * - UP 32bit must disable BH.
++ * - 64bit have no problem atomically reading u64 values, irq safe.
++ */
++static unsigned int inline u64_stats_fetch_begin_bh(const struct u64_stats_sync *syncp)
+ {
++#if BITS_PER_LONG==32 && defined(CONFIG_SMP)
++	return read_seqcount_begin(&syncp->seq);
++#else
++#if BITS_PER_LONG==32
++	local_bh_disable();
++#endif
+ 	return 0;
++#endif
+ }
+ 
+-static bool inline u64_stats_fetch_retry(const struct u64_stats_sync *syncp,
++static bool inline u64_stats_fetch_retry_bh(const struct u64_stats_sync *syncp,
+ 					 unsigned int start)
+ {
++#if BITS_PER_LONG==32 && defined(CONFIG_SMP)
++	return read_seqcount_retry(&syncp->seq, start);
++#else
++#if BITS_PER_LONG==32
++	local_bh_enable();
++#endif
+ 	return false;
+-}
+ #endif
++}
+ 
+ #endif /* _LINUX_U64_STATS_SYNC_H */
 
 
