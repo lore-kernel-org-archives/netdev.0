@@ -1,146 +1,82 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH 3/3] vhost: apply cpumask and cgroup to vhost pollers
-Date: Thu, 24 Jun 2010 15:45:51 -0700
-Message-ID: <1277419551.27868.27.camel@w-sridhar.beaverton.ibm.com>
-References: <20100527131254.GB7974@redhat.com> <4BFE9ABA.6030907@kernel.org>
-	 <20100527163954.GA21710@redhat.com> <4BFEA434.6080405@kernel.org>
-	 <20100527173207.GA21880@redhat.com> <4BFEE216.2070807@kernel.org>
-	 <20100528150830.GB21880@redhat.com> <4BFFE742.2060205@kernel.org>
-	 <20100530112925.GB27611@redhat.com> <4C02C99D.9070204@kernel.org>
-	 <20100624081135.GA937@redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH net-next] MAINTAINERS: b43 updates
+Date: Thu, 24 Jun 2010 16:45:02 -0700
+Message-ID: <1277423102.1654.107.camel@Joe-Laptop.home>
+References: <cover.1276988387.git.joe@perches.com>
+	 <20100624185339.GC2368@tuxdriver.com>
+	 <1277408432.1654.80.camel@Joe-Laptop.home>  <4C23B877.4060209@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Tejun Heo <tj@kernel.org>, Oleg Nesterov <oleg@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100624081135.GA937@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Stefano Brivio <stefano.brivio@polimi.it>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mb@bu3sch.de, zajec5@gmail.com
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:1290 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753789Ab0FXXpG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jun 2010 19:45:06 -0400
+In-Reply-To: <4C23B877.4060209@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-06-24 at 11:11 +0300, Michael S. Tsirkin wrote:
-> On Sun, May 30, 2010 at 10:25:01PM +0200, Tejun Heo wrote:
-> > Apply the cpumask and cgroup of the initializing task to the created
-> > vhost poller.
-> > 
-> > Based on Sridhar Samudrala's patch.
-> > 
-> > Cc: Michael S. Tsirkin <mst@redhat.com>
-> > Cc: Sridhar Samudrala <samudrala.sridhar@gmail.com>
-> 
-> 
-> I wanted to apply this, but modpost fails:
-> ERROR: "sched_setaffinity" [drivers/vhost/vhost_net.ko] undefined!
-> ERROR: "sched_getaffinity" [drivers/vhost/vhost_net.ko] undefined!
-> 
-> Did you try building as a module?
+On Thu, 2010-06-24 at 14:56 -0500, Larry Finger wrote:
+> The primary arbitrator for patches to the subtle parts of b43 is Michael
+> Buesch; however, he is no longer an official MAINTAINER. I can ACK some
+> things; however, any changes that are associated with my reverse
+> engineering of the Broadcom drivers are off limits.
 
-In my original implementation, i had these calls in workqueue.c.
-Now that these are moved to vhost.c which can be built as a module,
-these symbols need to be exported.
-The following patch fixes the build issue with vhost as a module.
+Add Stefano Brivio's name and email address to CREDITS
+Removed Stefano Brivio's from B43 MAINTAINERS
+Added the b43 development mailing lists
+Changed B43 status to "Odd Fixes"
 
-Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ CREDITS     |    4 ++++
+ MAINTAINERS |    5 +++--
+ 2 files changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/kernel/sched.c b/kernel/sched.c
-index 3c2a54f..15a0c6f 100644
---- a/kernel/sched.c
-+++ b/kernel/sched.c
-@@ -4837,6 +4837,7 @@ out_put_task:
- 	put_online_cpus();
- 	return retval;
- }
-+EXPORT_SYMBOL_GPL(sched_setaffinity);
+diff --git a/CREDITS b/CREDITS
+index 72b4878..30215f0 100644
+--- a/CREDITS
++++ b/CREDITS
+@@ -495,6 +495,10 @@ S: Kopmansg 2
+ S: 411 13  Goteborg
+ S: Sweden
  
- static int get_user_cpu_mask(unsigned long __user *user_mask_ptr,
-unsigned len,
- 			     struct cpumask *new_mask)
-@@ -4900,6 +4901,7 @@ out_unlock:
++N: Stefano Brivio
++E: stefano.brivio@polimi.it
++D: B43 wireless driver
++
+ N: Paul Bristow
+ E: paul@paulbristow.net
+ W: http://paulbristow.net/linux/idefloppy.html
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 6d119c9..5bc296c 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -1225,16 +1225,17 @@ F:	include/net/ax25.h
+ F:	net/ax25/
  
- 	return retval;
- }
-+EXPORT_SYMBOL_GPL(sched_getaffinity);
+ B43 WIRELESS DRIVER
+-M:	Stefano Brivio <stefano.brivio@polimi.it>
+ L:	linux-wireless@vger.kernel.org
++L:	b43-dev@lists.infradead.org
+ W:	http://linuxwireless.org/en/users/Drivers/b43
+-S:	Maintained
++S:	Odd Fixes
+ F:	drivers/net/wireless/b43/
  
- /**
-  * sys_sched_getaffinity - get the cpu affinity of a process
+ B43LEGACY WIRELESS DRIVER
+ M:	Larry Finger <Larry.Finger@lwfinger.net>
+ M:	Stefano Brivio <stefano.brivio@polimi.it>
+ L:	linux-wireless@vger.kernel.org
++L:	b43-dev@lists.infradead.org
+ W:	http://linuxwireless.org/en/users/Drivers/b43
+ S:	Maintained
+ F:	drivers/net/wireless/b43legacy/
 
 
-> > ---
-> >  drivers/vhost/vhost.c |   36 +++++++++++++++++++++++++++++++-----
-> >  1 file changed, 31 insertions(+), 5 deletions(-)
-> > 
-> > Index: work/drivers/vhost/vhost.c
-> > ===================================================================
-> > --- work.orig/drivers/vhost/vhost.c
-> > +++ work/drivers/vhost/vhost.c
-> > @@ -23,6 +23,7 @@
-> >  #include <linux/highmem.h>
-> >  #include <linux/slab.h>
-> >  #include <linux/kthread.h>
-> > +#include <linux/cgroup.h>
-> > 
-> >  #include <linux/net.h>
-> >  #include <linux/if_packet.h>
-> > @@ -176,12 +177,30 @@ repeat:
-> >  long vhost_dev_init(struct vhost_dev *dev,
-> >  		    struct vhost_virtqueue *vqs, int nvqs)
-> >  {
-> > -	struct task_struct *poller;
-> > -	int i;
-> > +	struct task_struct *poller = NULL;
-> > +	cpumask_var_t mask;
-> > +	int i, ret = -ENOMEM;
-> > +
-> > +	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
-> > +		goto out;
-> > 
-> >  	poller = kthread_create(vhost_poller, dev, "vhost-%d", current->pid);
-> > -	if (IS_ERR(poller))
-> > -		return PTR_ERR(poller);
-> > +	if (IS_ERR(poller)) {
-> > +		ret = PTR_ERR(poller);
-> > +		goto out;
-> > +	}
-> > +
-> > +	ret = sched_getaffinity(current->pid, mask);
-> > +	if (ret)
-> > +		goto out;
-> > +
-> > +	ret = sched_setaffinity(poller->pid, mask);
-> > +	if (ret)
-> > +		goto out;
-> > +
-> > +	ret = cgroup_attach_task_current_cg(poller);
-> > +	if (ret)
-> > +		goto out;
-> > 
-> >  	dev->vqs = vqs;
-> >  	dev->nvqs = nvqs;
-> > @@ -202,7 +221,14 @@ long vhost_dev_init(struct vhost_dev *de
-> >  			vhost_poll_init(&dev->vqs[i].poll,
-> >  					dev->vqs[i].handle_kick, POLLIN, dev);
-> >  	}
-> > -	return 0;
-> > +
-> > +	wake_up_process(poller);	/* avoid contributing to loadavg */
-> > +	ret = 0;
-> > +out:
-> > +	if (ret)
-> > +		kthread_stop(poller);
-> > +	free_cpumask_var(mask);
-> > +	return ret;
-> >  }
-> > 
-> >  /* Caller should have device mutex */
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
