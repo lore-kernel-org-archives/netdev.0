@@ -1,111 +1,130 @@
-From: Sebastien Jan <s-jan@ti.com>
-Subject: [PATCH] smsc95xx: Add module parameter to override MAC address
-Date: Thu, 24 Jun 2010 10:14:14 +0200
-Message-ID: <1277367254-9345-1-git-send-email-s-jan@ti.com>
-Cc: linux-omap@vger.kernel.org, Sebastien Jan <s-jan@ti.com>
-To: Steve Glendinning <steve.glendinning@smsc.com>,
-	netdev@vger.kernel.org
+From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+Subject: [RFC PATCH v2 1/5] irq: add tracepoint to softirq_raise
+Date: Thu, 24 Jun 2010 17:16:27 +0900
+Message-ID: <4C23145B.30805@jp.fujitsu.com>
+References: <4C2312A8.9060903@jp.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, scott.a.mcmillan@intel.com,
+	kaneshige.kenji@jp.fujitsu.com, izumi.taku@jp.fujitsu.com,
+	linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:39183 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751048Ab0FXIQZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jun 2010 04:16:25 -0400
+Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:53118 "EHLO
+	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751048Ab0FXIQ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jun 2010 04:16:28 -0400
+In-Reply-To: <4C2312A8.9060903@jp.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Define a new module parameter 'macaddr' to override the MAC address
-fetched either from eeprom, or randomly generated.
+This patch adds a tracepoint to raising of softirq.
+This is useful if you want to detect which hard interrupt raise softirq
+and lets you know a time between raising softirq and performing softirq.
+Combinating with other tracepoint, it lets us know a process of packets
+(See patch 0/5).
 
-The expected MAC address shall be in the 01:23:45:67:89:AB format.
+          <idle>-0     [001] 241229.957184: softirq_raise: vec=3 [action=NET_RX]
+          <idle>-0     [000] 241229.993399: softirq_raise: vec=1 [action=TIMER]
+          <idle>-0     [000] 241229.993400: softirq_raise: vec=9 [action=RCU]
 
-Signed-off-by: Sebastien Jan <s-jan@ti.com>
+This is a same patch Lai Jiangshan submitted.
+http://marc.info/?l=linux-kernel&m=126026122728732&w=2
+
+Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
 ---
- drivers/net/usb/smsc95xx.c |   56 ++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 56 insertions(+), 0 deletions(-)
+ include/linux/interrupt.h  |    8 +++++++-
+ include/trace/events/irq.h |   34 +++++++++++++++++++++++++++++++---
+ 2 files changed, 38 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index 3135af6..0ba06d9 100644
---- a/drivers/net/usb/smsc95xx.c
-+++ b/drivers/net/usb/smsc95xx.c
-@@ -46,6 +46,7 @@
- #define SMSC95XX_INTERNAL_PHY_ID	(1)
- #define SMSC95XX_TX_OVERHEAD		(8)
- #define SMSC95XX_TX_OVERHEAD_CSUM	(12)
-+#define MAC_ADDR_LEN			(6)
+diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
+index c233113..1cb5726 100644
+--- a/include/linux/interrupt.h
++++ b/include/linux/interrupt.h
+@@ -18,6 +18,7 @@
+ #include <asm/atomic.h>
+ #include <asm/ptrace.h>
+ #include <asm/system.h>
++#include <trace/events/irq.h>
  
- struct smsc95xx_priv {
- 	u32 mac_cr;
-@@ -63,6 +64,10 @@ static int turbo_mode = true;
- module_param(turbo_mode, bool, 0644);
- MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx transaction");
- 
-+static char *macaddr = ":";
-+module_param(macaddr, charp, 0);
-+MODULE_PARM_DESC(macaddr, "MAC address");
-+
- static int smsc95xx_read_reg(struct usbnet *dev, u32 index, u32 *data)
- {
- 	u32 *buf = kmalloc(4, GFP_KERNEL);
-@@ -637,8 +642,59 @@ static int smsc95xx_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
- 	return generic_mii_ioctl(&dev->mii, if_mii(rq), cmd, NULL);
- }
- 
-+/* Check the macaddr module parameter for a MAC address */
-+static int smsc95xx_is_macaddr_param(struct usbnet *dev, u8 *dev_mac)
+ /*
+  * These correspond to the IORESOURCE_IRQ_* defines in
+@@ -402,7 +403,12 @@ asmlinkage void do_softirq(void);
+ asmlinkage void __do_softirq(void);
+ extern void open_softirq(int nr, void (*action)(struct softirq_action *));
+ extern void softirq_init(void);
+-#define __raise_softirq_irqoff(nr) do { or_softirq_pending(1UL << (nr)); } while (0)
++static inline void __raise_softirq_irqoff(unsigned int nr)
 +{
-+	int i, j, got_num, num;
-+	u8 mtbl[MAC_ADDR_LEN];
-+
-+	if (macaddr[0] == ':')
-+		return 0;
-+
-+	i = 0;
-+	j = 0;
-+	num = 0;
-+	got_num = 0;
-+	while (j < MAC_ADDR_LEN) {
-+		if (macaddr[i] && macaddr[i] != ':') {
-+			got_num++;
-+			if ('0' <= macaddr[i] && macaddr[i] <= '9')
-+				num = num * 16 + macaddr[i] - '0';
-+			else if ('A' <= macaddr[i] && macaddr[i] <= 'F')
-+				num = num * 16 + 10 + macaddr[i] - 'A';
-+			else if ('a' <= macaddr[i] && macaddr[i] <= 'f')
-+				num = num * 16 + 10 + macaddr[i] - 'a';
-+			else
-+				break;
-+			i++;
-+		} else if (got_num == 2) {
-+			mtbl[j++] = (u8) num;
-+			num = 0;
-+			got_num = 0;
-+			i++;
-+		} else {
-+			break;
-+		}
-+	}
-+
-+	if (j == MAC_ADDR_LEN && !macaddr[i]) {
-+		netif_dbg(dev, ifup, dev->net, "Overriding MAC address with: "
-+		"%02x:%02x:%02x:%02x:%02x:%02x\n", mtbl[0], mtbl[1], mtbl[2],
-+						mtbl[3], mtbl[4], mtbl[5]);
-+		for (i = 0; i < MAC_ADDR_LEN; i++)
-+			dev_mac[i] = mtbl[i];
-+		return 1;
-+	} else {
-+		return 0;
-+	}
++	trace_softirq_raise(nr);
++	or_softirq_pending(1UL << nr);
 +}
 +
- static void smsc95xx_init_mac_address(struct usbnet *dev)
- {
-+	/* Check module parameters */
-+	if (smsc95xx_is_macaddr_param(dev, dev->net->dev_addr))
-+		return;
+ extern void raise_softirq_irqoff(unsigned int nr);
+ extern void raise_softirq(unsigned int nr);
+ extern void wakeup_softirqd(void);
+diff --git a/include/trace/events/irq.h b/include/trace/events/irq.h
+index 0e4cfb6..7cb7435 100644
+--- a/include/trace/events/irq.h
++++ b/include/trace/events/irq.h
+@@ -5,7 +5,9 @@
+ #define _TRACE_IRQ_H
+ 
+ #include <linux/tracepoint.h>
+-#include <linux/interrupt.h>
 +
- 	/* try reading mac address from EEPROM */
- 	if (smsc95xx_read_eeprom(dev, EEPROM_MAC_OFFSET, ETH_ALEN,
- 			dev->net->dev_addr) == 0) {
--- 
-1.6.3.3
++struct irqaction;
++struct softirq_action;
+ 
+ #define softirq_name(sirq) { sirq##_SOFTIRQ, #sirq }
+ #define show_softirq_name(val)				\
+@@ -82,6 +84,32 @@ TRACE_EVENT(irq_handler_exit,
+ 		  __entry->irq, __entry->ret ? "handled" : "unhandled")
+ );
+ 
++/**
++ * softirq_raise - called immediately when a softirq is raised
++ * @nr: softirq vector number
++ *
++ * Tracepoint for tracing when softirq action is raised.
++ * Also, when used in combination with the softirq_entry tracepoint
++ * we can determine the softirq raise latency.
++ */
++TRACE_EVENT(softirq_raise,
++
++	TP_PROTO(unsigned int nr),
++
++	TP_ARGS(nr),
++
++	TP_STRUCT__entry(
++		__field(	unsigned int,	vec	)
++	),
++
++	TP_fast_assign(
++		__entry->vec	= nr;
++	),
++
++	TP_printk("vec=%d [action=%s]", __entry->vec,
++		show_softirq_name(__entry->vec))
++);
++
+ DECLARE_EVENT_CLASS(softirq,
+ 
+ 	TP_PROTO(struct softirq_action *h, struct softirq_action *vec),
+@@ -89,11 +117,11 @@ DECLARE_EVENT_CLASS(softirq,
+ 	TP_ARGS(h, vec),
+ 
+ 	TP_STRUCT__entry(
+-		__field(	int,	vec			)
++		__field(	unsigned int,	vec	)
+ 	),
+ 
+ 	TP_fast_assign(
+-		__entry->vec = (int)(h - vec);
++		__entry->vec = (unsigned int)(h - vec);
+ 	),
+ 
+ 	TP_printk("vec=%d [action=%s]", __entry->vec,
+
 
