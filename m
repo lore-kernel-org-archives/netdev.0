@@ -1,130 +1,107 @@
-From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Subject: [RFC PATCH v2 1/5] irq: add tracepoint to softirq_raise
-Date: Thu, 24 Jun 2010 17:16:27 +0900
-Message-ID: <4C23145B.30805@jp.fujitsu.com>
-References: <4C2312A8.9060903@jp.fujitsu.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 3/3] vhost: apply cpumask and cgroup to vhost pollers
+Date: Thu, 24 Jun 2010 11:11:35 +0300
+Message-ID: <20100624081135.GA937@redhat.com>
+References: <20100527131254.GB7974@redhat.com> <4BFE9ABA.6030907@kernel.org> <20100527163954.GA21710@redhat.com> <4BFEA434.6080405@kernel.org> <20100527173207.GA21880@redhat.com> <4BFEE216.2070807@kernel.org> <20100528150830.GB21880@redhat.com> <4BFFE742.2060205@kernel.org> <20100530112925.GB27611@redhat.com> <4C02C99D.9070204@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, scott.a.mcmillan@intel.com,
-	kaneshige.kenji@jp.fujitsu.com, izumi.taku@jp.fujitsu.com,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:53118 "EHLO
-	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751048Ab0FXIQ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jun 2010 04:16:28 -0400
-In-Reply-To: <4C2312A8.9060903@jp.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Oleg Nesterov <oleg@redhat.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4C02C99D.9070204@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds a tracepoint to raising of softirq.
-This is useful if you want to detect which hard interrupt raise softirq
-and lets you know a time between raising softirq and performing softirq.
-Combinating with other tracepoint, it lets us know a process of packets
-(See patch 0/5).
-
-          <idle>-0     [001] 241229.957184: softirq_raise: vec=3 [action=NET_RX]
-          <idle>-0     [000] 241229.993399: softirq_raise: vec=1 [action=TIMER]
-          <idle>-0     [000] 241229.993400: softirq_raise: vec=9 [action=RCU]
-
-This is a same patch Lai Jiangshan submitted.
-http://marc.info/?l=linux-kernel&m=126026122728732&w=2
-
-Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
----
- include/linux/interrupt.h  |    8 +++++++-
- include/trace/events/irq.h |   34 +++++++++++++++++++++++++++++++---
- 2 files changed, 38 insertions(+), 4 deletions(-)
-
-diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-index c233113..1cb5726 100644
---- a/include/linux/interrupt.h
-+++ b/include/linux/interrupt.h
-@@ -18,6 +18,7 @@
- #include <asm/atomic.h>
- #include <asm/ptrace.h>
- #include <asm/system.h>
-+#include <trace/events/irq.h>
- 
- /*
-  * These correspond to the IORESOURCE_IRQ_* defines in
-@@ -402,7 +403,12 @@ asmlinkage void do_softirq(void);
- asmlinkage void __do_softirq(void);
- extern void open_softirq(int nr, void (*action)(struct softirq_action *));
- extern void softirq_init(void);
--#define __raise_softirq_irqoff(nr) do { or_softirq_pending(1UL << (nr)); } while (0)
-+static inline void __raise_softirq_irqoff(unsigned int nr)
-+{
-+	trace_softirq_raise(nr);
-+	or_softirq_pending(1UL << nr);
-+}
-+
- extern void raise_softirq_irqoff(unsigned int nr);
- extern void raise_softirq(unsigned int nr);
- extern void wakeup_softirqd(void);
-diff --git a/include/trace/events/irq.h b/include/trace/events/irq.h
-index 0e4cfb6..7cb7435 100644
---- a/include/trace/events/irq.h
-+++ b/include/trace/events/irq.h
-@@ -5,7 +5,9 @@
- #define _TRACE_IRQ_H
- 
- #include <linux/tracepoint.h>
--#include <linux/interrupt.h>
-+
-+struct irqaction;
-+struct softirq_action;
- 
- #define softirq_name(sirq) { sirq##_SOFTIRQ, #sirq }
- #define show_softirq_name(val)				\
-@@ -82,6 +84,32 @@ TRACE_EVENT(irq_handler_exit,
- 		  __entry->irq, __entry->ret ? "handled" : "unhandled")
- );
- 
-+/**
-+ * softirq_raise - called immediately when a softirq is raised
-+ * @nr: softirq vector number
-+ *
-+ * Tracepoint for tracing when softirq action is raised.
-+ * Also, when used in combination with the softirq_entry tracepoint
-+ * we can determine the softirq raise latency.
-+ */
-+TRACE_EVENT(softirq_raise,
-+
-+	TP_PROTO(unsigned int nr),
-+
-+	TP_ARGS(nr),
-+
-+	TP_STRUCT__entry(
-+		__field(	unsigned int,	vec	)
-+	),
-+
-+	TP_fast_assign(
-+		__entry->vec	= nr;
-+	),
-+
-+	TP_printk("vec=%d [action=%s]", __entry->vec,
-+		show_softirq_name(__entry->vec))
-+);
-+
- DECLARE_EVENT_CLASS(softirq,
- 
- 	TP_PROTO(struct softirq_action *h, struct softirq_action *vec),
-@@ -89,11 +117,11 @@ DECLARE_EVENT_CLASS(softirq,
- 	TP_ARGS(h, vec),
- 
- 	TP_STRUCT__entry(
--		__field(	int,	vec			)
-+		__field(	unsigned int,	vec	)
- 	),
- 
- 	TP_fast_assign(
--		__entry->vec = (int)(h - vec);
-+		__entry->vec = (unsigned int)(h - vec);
- 	),
- 
- 	TP_printk("vec=%d [action=%s]", __entry->vec,
+On Sun, May 30, 2010 at 10:25:01PM +0200, Tejun Heo wrote:
+> Apply the cpumask and cgroup of the initializing task to the created
+> vhost poller.
+> 
+> Based on Sridhar Samudrala's patch.
+> 
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Cc: Sridhar Samudrala <samudrala.sridhar@gmail.com>
 
 
+I wanted to apply this, but modpost fails:
+ERROR: "sched_setaffinity" [drivers/vhost/vhost_net.ko] undefined!
+ERROR: "sched_getaffinity" [drivers/vhost/vhost_net.ko] undefined!
+
+Did you try building as a module?
+
+> ---
+>  drivers/vhost/vhost.c |   36 +++++++++++++++++++++++++++++++-----
+>  1 file changed, 31 insertions(+), 5 deletions(-)
+> 
+> Index: work/drivers/vhost/vhost.c
+> ===================================================================
+> --- work.orig/drivers/vhost/vhost.c
+> +++ work/drivers/vhost/vhost.c
+> @@ -23,6 +23,7 @@
+>  #include <linux/highmem.h>
+>  #include <linux/slab.h>
+>  #include <linux/kthread.h>
+> +#include <linux/cgroup.h>
+> 
+>  #include <linux/net.h>
+>  #include <linux/if_packet.h>
+> @@ -176,12 +177,30 @@ repeat:
+>  long vhost_dev_init(struct vhost_dev *dev,
+>  		    struct vhost_virtqueue *vqs, int nvqs)
+>  {
+> -	struct task_struct *poller;
+> -	int i;
+> +	struct task_struct *poller = NULL;
+> +	cpumask_var_t mask;
+> +	int i, ret = -ENOMEM;
+> +
+> +	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
+> +		goto out;
+> 
+>  	poller = kthread_create(vhost_poller, dev, "vhost-%d", current->pid);
+> -	if (IS_ERR(poller))
+> -		return PTR_ERR(poller);
+> +	if (IS_ERR(poller)) {
+> +		ret = PTR_ERR(poller);
+> +		goto out;
+> +	}
+> +
+> +	ret = sched_getaffinity(current->pid, mask);
+> +	if (ret)
+> +		goto out;
+> +
+> +	ret = sched_setaffinity(poller->pid, mask);
+> +	if (ret)
+> +		goto out;
+> +
+> +	ret = cgroup_attach_task_current_cg(poller);
+> +	if (ret)
+> +		goto out;
+> 
+>  	dev->vqs = vqs;
+>  	dev->nvqs = nvqs;
+> @@ -202,7 +221,14 @@ long vhost_dev_init(struct vhost_dev *de
+>  			vhost_poll_init(&dev->vqs[i].poll,
+>  					dev->vqs[i].handle_kick, POLLIN, dev);
+>  	}
+> -	return 0;
+> +
+> +	wake_up_process(poller);	/* avoid contributing to loadavg */
+> +	ret = 0;
+> +out:
+> +	if (ret)
+> +		kthread_stop(poller);
+> +	free_cpumask_var(mask);
+> +	return ret;
+>  }
+> 
+>  /* Caller should have device mutex */
