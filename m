@@ -1,36 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC PATCH v7 01/19] Add a new structure for skb buffer from
-	external.
-Date: Thu, 24 Jun 2010 20:08:36 +1000
-Message-ID: <20100624100836.GA16220@gondor.apana.org.au>
-References: <20100608052744.GA21547@gondor.apana.org.au> <F2E9EB7348B8264F86B6AB8151CE2D791100848F9F@shsmsx502.ccr.corp.intel.com> <20100611052112.GA25649@gondor.apana.org.au> <F2E9EB7348B8264F86B6AB8151CE2D791210AA4475@shsmsx502.ccr.corp.intel.com> <F2E9EB7348B8264F86B6AB8151CE2D79134F9AA999@shsmsx502.ccr.corp.intel.com> <20100617112119.GB1515@gondor.apana.org.au> <F2E9EB7348B8264F86B6AB8151CE2D7915089FE4CC@shsmsx502.ccr.corp.intel.com> <1A42CE6F5F474C41B63392A5F80372B21F58CD9A@shsmsx501.ccr.corp.intel.com> <20100623095254.GA32491@gondor.apana.org.au> <1A42CE6F5F474C41B63392A5F80372B21F58CE7F@shsmsx501.ccr.corp.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] net: u64_stats_sync improvements
+Date: Thu, 24 Jun 2010 12:04:38 +0200
+Message-ID: <1277373878.2816.177.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Xin, Xiaohui" <xiaohui.xin@intel.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>
-To: "Dong, Eddie" <eddie.dong@intel.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1A42CE6F5F474C41B63392A5F80372B21F58CE7F@shsmsx501.ccr.corp.intel.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:61310 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752918Ab0FXKLj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jun 2010 06:11:39 -0400
+Received: by wyi11 with SMTP id 11so1515494wyi.19
+        for <netdev@vger.kernel.org>; Thu, 24 Jun 2010 03:11:37 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 23, 2010 at 06:05:41PM +0800, Dong, Eddie wrote:
-> 
-> I mean once the frontend side driver post the buffers to the backend driver, the backend driver will "immediately" use that buffers to compose skb or gro_frags and post them to the assigned host NIC driver as receive buffers. In that case, if the backend driver recieves a packet from the NIC that requires to do copy, it may be unable to find additional free guest buffer because all of them are already used by the NIC driver. We have to reserve some guest buffers for the possible copy even if the buffer address is not identified by original skb :(
+- Add a comment about interrupts:
 
-OK I see what you mean.  Can you tell me how does Xiaohui's
-previous patch-set deal with this problem?
+6) If counter might be written by an interrupt, readers should block
+interrupts.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+- Fix a typo in sample of use.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/linux/u64_stats_sync.h |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/u64_stats_sync.h b/include/linux/u64_stats_sync.h
+index d050515..201d319 100644
+--- a/include/linux/u64_stats_sync.h
++++ b/include/linux/u64_stats_sync.h
+@@ -23,6 +23,10 @@
+  *    pure reads. But if they have to fetch many values, it's better to not allow
+  *    preemptions/interruptions to avoid many retries.
+  *
++ * 6) If counter might be written by an interrupt, readers should block interrupts.
++ *    (On UP, there is no seqcount_t protection, a reader allowing interrupts could
++ *     read partial values)
++ *
+  * Usage :
+  *
+  * Stats producer (writer) should use following template granted it already got
+@@ -46,7 +50,7 @@
+  *         start = u64_stats_fetch_begin(&stats->syncp);
+  *         tbytes = stats->bytes64; // non atomic operation
+  *         tpackets = stats->packets64; // non atomic operation
+- * } while (u64_stats_fetch_retry(&stats->lock, syncp));
++ * } while (u64_stats_fetch_retry(&stats->syncp, start));
+  *
+  *
+  * Example of use in drivers/net/loopback.c, using per_cpu containers,
+
+
