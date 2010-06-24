@@ -1,240 +1,130 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net-next-2.6 2/2] 3c59x: Use fine-grained locks for MII and
- windowed register access
-Date: Thu, 24 Jun 2010 00:55:41 +0100
-Message-ID: <1277337341.26161.18.camel@localhost>
-References: <1277337161.26161.14.camel@localhost>
+From: Sam Cannell <sam.cannell@catalyst.net.nz>
+Subject: Generic receive offload with igb driver breaks IPv6
+Date: Thu, 24 Jun 2010 12:24:34 +1200
+Message-ID: <1277339074.23391.4.camel@spathi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org,
-	Chase Douglas <chase.douglas@canonical.com>,
-	Arne Nordmark <nordmark@mech.kth.se>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-sf2nMNyZ0BTUql8nBwsH"
+To: netdev@vger.kernel.org, e1000g-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:35297 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751458Ab0FWXzq convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jun 2010 19:55:46 -0400
-In-Reply-To: <1277337161.26161.14.camel@localhost>
+Received: from bertrand.catalyst.net.nz ([202.78.240.40]:49870 "EHLO
+	mail.catalyst.net.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753332Ab0FXA2C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jun 2010 20:28:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This avoids scheduling in atomic context and also means that IRQs
-will only be deferred for relatively short periods of time.
 
-Previously discussed in:
-http://article.gmane.org/gmane.linux.network/155024
+--=-sf2nMNyZ0BTUql8nBwsH
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Reported-by: Arne Nordmark <nordmark@mech.kth.se>
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-Tested-by: Arne Nordmark <nordmark@mech.kth.se> [against 2.6.32]
----
- drivers/net/3c59x.c |   66 ++++++++++++++++++++++++++++++---------------------
- 1 files changed, 39 insertions(+), 27 deletions(-)
+Hi,
 
-diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
-index beddef9..f4a3fb1 100644
---- a/drivers/net/3c59x.c
-+++ b/drivers/net/3c59x.c
-@@ -644,9 +644,15 @@ struct vortex_private {
- 	u16 deferred;						/* Resend these interrupts when we
- 										 * bale from the ISR */
- 	u16 io_size;						/* Size of PCI region (for release_region) */
--	spinlock_t lock;					/* Serialise access to device & its vortex_private */
--	struct mii_if_info mii;				/* MII lib hooks/info */
--	int window;					/* Register window */
-+
-+	/* Serialises access to hardware other than MII and variables below.
-+	 * The lock hierarchy is rtnl_lock > lock > mii_lock > window_lock. */
-+	spinlock_t lock;
-+
-+	spinlock_t mii_lock;		/* Serialises access to MII */
-+	struct mii_if_info mii;		/* MII lib hooks/info */
-+	spinlock_t window_lock;		/* Serialises access to windowed regs */
-+	int window;			/* Register window */
- };
- 
- static void window_set(struct vortex_private *vp, int window)
-@@ -661,15 +667,23 @@ static void window_set(struct vortex_private *vp, int window)
- static u ## size							\
- window_read ## size(struct vortex_private *vp, int window, int addr)	\
- {									\
-+	unsigned long flags;						\
-+	u ## size ret;							\
-+	spin_lock_irqsave(&vp->window_lock, flags);			\
- 	window_set(vp, window);						\
--	return ioread ## size(vp->ioaddr + addr);			\
-+	ret = ioread ## size(vp->ioaddr + addr);			\
-+	spin_unlock_irqrestore(&vp->window_lock, flags);		\
-+	return ret;							\
- }									\
- static void								\
- window_write ## size(struct vortex_private *vp, u ## size value,	\
- 		     int window, int addr)				\
- {									\
-+	unsigned long flags;						\
-+	spin_lock_irqsave(&vp->window_lock, flags);			\
- 	window_set(vp, window);						\
- 	iowrite ## size(value, vp->ioaddr + addr);			\
-+	spin_unlock_irqrestore(&vp->window_lock, flags);		\
- }
- DEFINE_WINDOW_IO(8)
- DEFINE_WINDOW_IO(16)
-@@ -1784,7 +1798,6 @@ vortex_timer(unsigned long data)
- 		pr_debug("dev->watchdog_timeo=%d\n", dev->watchdog_timeo);
- 	}
- 
--	disable_irq_lockdep(dev->irq);
- 	media_status = window_read16(vp, 4, Wn4_Media);
- 	switch (dev->if_port) {
- 	case XCVR_10baseT:  case XCVR_100baseTx:  case XCVR_100baseFx:
-@@ -1805,10 +1818,7 @@ vortex_timer(unsigned long data)
- 	case XCVR_MII: case XCVR_NWAY:
- 		{
- 			ok = 1;
--			/* Interrupts are already disabled */
--			spin_lock(&vp->lock);
- 			vortex_check_media(dev, 0);
--			spin_unlock(&vp->lock);
- 		}
- 		break;
- 	  default:					/* Other media types handled by Tx timeouts. */
-@@ -1827,6 +1837,8 @@ vortex_timer(unsigned long data)
- 	if (!ok) {
- 		unsigned int config;
- 
-+		spin_lock_irq(&vp->lock);
-+
- 		do {
- 			dev->if_port = media_tbl[dev->if_port].next;
- 		} while ( ! (vp->available_media & media_tbl[dev->if_port].mask));
-@@ -1855,6 +1867,8 @@ vortex_timer(unsigned long data)
- 		if (vortex_debug > 1)
- 			pr_debug("wrote 0x%08x to Wn3_Config\n", config);
- 		/* AKPM: FIXME: Should reset Rx & Tx here.  P60 of 3c90xc.pdf */
-+
-+		spin_unlock_irq(&vp->lock);
- 	}
- 
- leave_media_alone:
-@@ -1862,7 +1876,6 @@ leave_media_alone:
- 	  pr_debug("%s: Media selection timer finished, %s.\n",
- 			 dev->name, media_tbl[dev->if_port].name);
- 
--	enable_irq_lockdep(dev->irq);
- 	mod_timer(&vp->timer, RUN_AT(next_tick));
- 	if (vp->deferred)
- 		iowrite16(FakeIntr, ioaddr + EL3_CMD);
-@@ -2051,9 +2064,11 @@ vortex_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		int len = (skb->len + 3) & ~3;
- 		vp->tx_skb_dma = pci_map_single(VORTEX_PCI(vp), skb->data, len,
- 						PCI_DMA_TODEVICE);
-+		spin_lock_irq(&vp->window_lock);
- 		window_set(vp, 7);
- 		iowrite32(vp->tx_skb_dma, ioaddr + Wn7_MasterAddr);
- 		iowrite16(len, ioaddr + Wn7_MasterLen);
-+		spin_unlock_irq(&vp->window_lock);
- 		vp->tx_skb = skb;
- 		iowrite16(StartDMADown, ioaddr + EL3_CMD);
- 		/* netif_wake_queue() will be called at the DMADone interrupt. */
-@@ -2225,6 +2240,7 @@ vortex_interrupt(int irq, void *dev_id)
- 		pr_debug("%s: interrupt, status %4.4x, latency %d ticks.\n",
- 			   dev->name, status, ioread8(ioaddr + Timer));
- 
-+	spin_lock(&vp->window_lock);
- 	window_set(vp, 7);
- 
- 	do {
-@@ -2285,6 +2301,8 @@ vortex_interrupt(int irq, void *dev_id)
- 		iowrite16(AckIntr | IntReq | IntLatch, ioaddr + EL3_CMD);
- 	} while ((status = ioread16(ioaddr + EL3_STATUS)) & (IntLatch | RxComplete));
- 
-+	spin_unlock(&vp->window_lock);
-+
- 	if (vortex_debug > 4)
- 		pr_debug("%s: exiting interrupt, status %4.4x.\n",
- 			   dev->name, status);
-@@ -2806,37 +2824,22 @@ static void update_stats(void __iomem *ioaddr, struct net_device *dev)
- static int vortex_nway_reset(struct net_device *dev)
- {
- 	struct vortex_private *vp = netdev_priv(dev);
--	unsigned long flags;
--	int rc;
- 
--	spin_lock_irqsave(&vp->lock, flags);
--	rc = mii_nway_restart(&vp->mii);
--	spin_unlock_irqrestore(&vp->lock, flags);
--	return rc;
-+	return mii_nway_restart(&vp->mii);
- }
- 
- static int vortex_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct vortex_private *vp = netdev_priv(dev);
--	unsigned long flags;
--	int rc;
- 
--	spin_lock_irqsave(&vp->lock, flags);
--	rc = mii_ethtool_gset(&vp->mii, cmd);
--	spin_unlock_irqrestore(&vp->lock, flags);
--	return rc;
-+	return mii_ethtool_gset(&vp->mii, cmd);
- }
- 
- static int vortex_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct vortex_private *vp = netdev_priv(dev);
--	unsigned long flags;
--	int rc;
- 
--	spin_lock_irqsave(&vp->lock, flags);
--	rc = mii_ethtool_sset(&vp->mii, cmd);
--	spin_unlock_irqrestore(&vp->lock, flags);
--	return rc;
-+	return mii_ethtool_sset(&vp->mii, cmd);
- }
- 
- static u32 vortex_get_msglevel(struct net_device *dev)
-@@ -3059,6 +3062,8 @@ static int mdio_read(struct net_device *dev, int phy_id, int location)
- 	int read_cmd = (0xf6 << 10) | (phy_id << 5) | location;
- 	unsigned int retval = 0;
- 
-+	spin_lock_bh(&vp->mii_lock);
-+
- 	if (mii_preamble_required)
- 		mdio_sync(vp, 32);
- 
-@@ -3082,6 +3087,9 @@ static int mdio_read(struct net_device *dev, int phy_id, int location)
- 			       4, Wn4_PhysicalMgmt);
- 		mdio_delay(vp);
- 	}
-+
-+	spin_unlock_bh(&vp->mii_lock);
-+
- 	return retval & 0x20000 ? 0xffff : retval>>1 & 0xffff;
- }
- 
-@@ -3091,6 +3099,8 @@ static void mdio_write(struct net_device *dev, int phy_id, int location, int val
- 	int write_cmd = 0x50020000 | (phy_id << 23) | (location << 18) | value;
- 	int i;
- 
-+	spin_lock_bh(&vp->mii_lock);
-+
- 	if (mii_preamble_required)
- 		mdio_sync(vp, 32);
- 
-@@ -3111,6 +3121,8 @@ static void mdio_write(struct net_device *dev, int phy_id, int location, int val
- 			       4, Wn4_PhysicalMgmt);
- 		mdio_delay(vp);
- 	}
-+
-+	spin_unlock_bh(&vp->mii_lock);
- }
- 
- /* ACPI: Advanced Configuration and Power Interface. */
--- 
-1.7.1
+We've recently been having some speed issues through one of our routers
+(running Ubuntu's 2.6.32-22-server kernel)
 
+It seems that fragmented TCPv6 packets entering the router through an
+Intel 82575EB interface (igb driver) are reassembled by GRO.  The
+resulting packet, being larger than 1500 bytes, is unable to be
+forwarded out the outgoing interface.  The router sends back a 'packet
+too big' error, which means nothing to the sender because as far as it's
+concerned, every packet is smaller than the MTU.
+
+This slows down HTTP across a 100mbps network to around 10kbps -- the
+speeds return to normal when gro is disabled on the router's receiving
+interface.
+
+
+
+For instance:
+
+
+[Capture from sender]
+No.     Time        Source                Destination           Protocol
+Info
+      1 0.000000    2404:130:80:10::10
+2404:130:0:1000:227:eff:fe0b:4918 TCP      [TCP segment of a reassembled
+PDU]
+
+Frame 1 (1514 bytes on wire, 1514 bytes captured)
+Ethernet II, Src: Xensourc_65:30:fe (00:16:3e:65:30:fe), Dst:
+Xensourc_f6:80:47 (00:16:3e:f6:80:47)
+Internet Protocol Version 6
+Transmission Control Protocol, Src Port: http (80), Dst Port: 51793
+(51793), Seq: 1, Ack: 1, Len: 1428
+
+No.     Time        Source                Destination           Protocol
+Info
+      2 0.000000    2404:130:80:10::10
+2404:130:0:1000:227:eff:fe0b:4918 TCP      [TCP segment of a reassembled
+PDU]
+
+Frame 2 (1514 bytes on wire, 1514 bytes captured)
+Ethernet II, Src: Xensourc_65:30:fe (00:16:3e:65:30:fe), Dst:
+Xensourc_f6:80:47 (00:16:3e:f6:80:47)
+Internet Protocol Version 6
+Transmission Control Protocol, Src Port: http (80), Dst Port: 51793
+(51793), Seq: 1429, Ack: 1, Len: 1428
+
+No.     Time        Source                Destination           Protocol
+Info
+      3 0.000000    2404:130:0:10::1      2404:130:80:10::10    ICMPv6
+Too big
+
+Frame 3 (1294 bytes on wire, 1294 bytes captured)
+Ethernet II, Src: Xensourc_f6:80:47 (00:16:3e:f6:80:47), Dst:
+Xensourc_65:30:fe (00:16:3e:65:30:fe)
+Internet Protocol Version 6
+Internet Control Message Protocol v6
+
+
+
+[Capture from router]
+No.     Time        Source                Destination           Protocol
+Info
+      1 0.000000    2404:130:80:10::10
+2404:130:0:1000:227:eff:fe0b:4918 TCP      [TCP segment of a reassembled
+PDU]
+
+Frame 1 (2942 bytes on wire, 2942 bytes captured)
+Ethernet II, Src: Xensourc_f6:80:46 (00:16:3e:f6:80:46), Dst:
+SunMicro_40:43:33 (00:21:28:40:43:33)
+Internet Protocol Version 6
+Transmission Control Protocol, Src Port: http (80), Dst Port: 51793
+(51793), Seq: 1, Ack: 1, Len: 2856
+
+No.     Time        Source                Destination           Protocol
+Info
+      2 0.000035    2404:130:0:10::1      2404:130:80:10::10    ICMPv6
+Too big
+
+Frame 2 (1294 bytes on wire, 1294 bytes captured)
+Ethernet II, Src: SunMicro_40:43:33 (00:21:28:40:43:33), Dst:
+Xensourc_f6:80:46 (00:16:3e:f6:80:46)
+Internet Protocol Version 6
+Internet Control Message Protocol v6
+
+
+
+Any thoughts?  I've also posted this to both net-dev and e1000-devel as
+I'm not sure whether it's driver-specific or something to do with gro
+itself.
+
+Thanks,
+
+Sam
+
+--=-sf2nMNyZ0BTUql8nBwsH
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (SunOS)
+
+iEYEABECAAYFAkwipbwACgkQcuIanIzWkBLznQCfeQEXlxPqLnVznVg2130xukFp
+m7oAniQNHGXy/ebbujCdiUTE09P+8+3q
+=LOz/
+-----END PGP SIGNATURE-----
+
+--=-sf2nMNyZ0BTUql8nBwsH--
 
