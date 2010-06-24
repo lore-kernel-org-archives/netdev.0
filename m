@@ -1,95 +1,80 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH] s2io: read rx_packets count from the hardware stats
-Date: Fri, 25 Jun 2010 01:32:32 +0200
-Message-ID: <20100624233230.5864.67401.stgit@leela.lan>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH net-next] MAINTAINERS: b43 updates
+Date: Thu, 24 Jun 2010 18:53:02 -0500
+Message-ID: <4C23EFDE.3000702@lwfinger.net>
+References: <cover.1276988387.git.joe@perches.com>	 <20100624185339.GC2368@tuxdriver.com>	 <1277408432.1654.80.camel@Joe-Laptop.home>  <4C23B877.4060209@lwfinger.net> <1277423102.1654.107.camel@Joe-Laptop.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>,
-	Sivakumar Subramani <sivakumar.subramani@exar.com>,
-	Sreenivasa Honnur <sreenivasa.honnur@exar.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2623 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750997Ab0FXXtX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jun 2010 19:49:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Stefano Brivio <stefano.brivio@polimi.it>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, mb@bu3sch.de, zajec5@gmail.com
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1277423102.1654.107.camel@Joe-Laptop.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Most of the statistics the s2io driver provides in /proc/net/dev
-it reads directly from the hardware counters. For some reason it does
-not do that for rx_packets. It counts rx_packets purely in software.
+On 06/24/2010 06:45 PM, Joe Perches wrote:
+> On Thu, 2010-06-24 at 14:56 -0500, Larry Finger wrote:
+>> The primary arbitrator for patches to the subtle parts of b43 is Michael
+>> Buesch; however, he is no longer an official MAINTAINER. I can ACK some
+>> things; however, any changes that are associated with my reverse
+>> engineering of the Broadcom drivers are off limits.
+> 
+> Add Stefano Brivio's name and email address to CREDITS
+> Removed Stefano Brivio's from B43 MAINTAINERS
+> Added the b43 development mailing lists
+> Changed B43 status to "Odd Fixes"
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  CREDITS     |    4 ++++
+>  MAINTAINERS |    5 +++--
+>  2 files changed, 7 insertions(+), 2 deletions(-)
+> 
+> diff --git a/CREDITS b/CREDITS
+> index 72b4878..30215f0 100644
+> --- a/CREDITS
+> +++ b/CREDITS
+> @@ -495,6 +495,10 @@ S: Kopmansg 2
+>  S: 411 13  Goteborg
+>  S: Sweden
+>  
+> +N: Stefano Brivio
+> +E: stefano.brivio@polimi.it
+> +D: B43 wireless driver
+> +
+>  N: Paul Bristow
+>  E: paul@paulbristow.net
+>  W: http://paulbristow.net/linux/idefloppy.html
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index 6d119c9..5bc296c 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -1225,16 +1225,17 @@ F:	include/net/ax25.h
+>  F:	net/ax25/
+>  
+>  B43 WIRELESS DRIVER
+> -M:	Stefano Brivio <stefano.brivio@polimi.it>
+>  L:	linux-wireless@vger.kernel.org
+> +L:	b43-dev@lists.infradead.org
+>  W:	http://linuxwireless.org/en/users/Drivers/b43
+> -S:	Maintained
+> +S:	Odd Fixes
+>  F:	drivers/net/wireless/b43/
+>  
+>  B43LEGACY WIRELESS DRIVER
+>  M:	Larry Finger <Larry.Finger@lwfinger.net>
+>  M:	Stefano Brivio <stefano.brivio@polimi.it>
+>  L:	linux-wireless@vger.kernel.org
+> +L:	b43-dev@lists.infradead.org
+>  W:	http://linuxwireless.org/en/users/Drivers/b43
+>  S:	Maintained
+>  F:	drivers/net/wireless/b43legacy/
 
-A customer reported a bug where in /proc/net/dev the 'multicast' counter
-was increasing faster than 'packets' ( = rx_packets in the source code).
-This confuses userspace, especially snmpd.
+NACK. I never said that b43 is unmaintained. It is definitely getting much
+more than "odd fixes".
 
-The hardware provides a counter for the total number of received
-frames (RMAC_VLD_FRMS) which the driver can use for the rx_packets
-statistic. By reading both statistics from the hardware it makes sure
-that all multicast frames are included in the total.
-
-The customer tested a patch like this (only modified for RHEL5) with
-S2io Inc. Xframe II 10Gbps Ethernet (rev 02)
-and it fixed the problem.
-
-Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
----
-
- drivers/net/s2io.c |   11 ++++++-----
- drivers/net/s2io.h |    1 -
- 2 files changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
-index 668327c..eefc4b2 100644
---- a/drivers/net/s2io.c
-+++ b/drivers/net/s2io.c
-@@ -4919,6 +4919,10 @@ static struct net_device_stats *s2io_get_stats(struct net_device *dev)
- 		sp->stats.tx_packets;
- 	sp->stats.tx_packets = le32_to_cpu(stats->tmac_frms);
- 
-+	dev->stats.rx_packets += le32_to_cpu(stats->rmac_vld_frms) -
-+		sp->stats.rx_packets;
-+	sp->stats.rx_packets = le32_to_cpu(stats->rmac_vld_frms);
-+
- 	dev->stats.tx_errors += le32_to_cpu(stats->tmac_any_err_frms) -
- 		sp->stats.tx_errors;
- 	sp->stats.tx_errors = le32_to_cpu(stats->tmac_any_err_frms);
-@@ -4935,12 +4939,11 @@ static struct net_device_stats *s2io_get_stats(struct net_device *dev)
- 		sp->stats.rx_length_errors;
- 	sp->stats.rx_length_errors = le64_to_cpu(stats->rmac_long_frms);
- 
--	/* collect per-ring rx_packets and rx_bytes */
--	dev->stats.rx_packets = dev->stats.rx_bytes = 0;
-+	/* collect per-ring rx_bytes */
-+	dev->stats.rx_bytes = 0;
- 	for (i = 0; i < config->rx_ring_num; i++) {
- 		struct ring_info *ring = &mac_control->rings[i];
- 
--		dev->stats.rx_packets += ring->rx_packets;
- 		dev->stats.rx_bytes += ring->rx_bytes;
- 	}
- 
-@@ -7455,8 +7458,6 @@ static int rx_osm_handler(struct ring_info *ring_data, struct RxD_t * rxdp)
- 		}
- 	}
- 
--	/* Updating statistics */
--	ring_data->rx_packets++;
- 	rxdp->Host_Control = 0;
- 	if (sp->rxd_mode == RXD_MODE_1) {
- 		int len = RXD_GET_BUFFER0_SIZE_1(rxdp->Control_2);
-diff --git a/drivers/net/s2io.h b/drivers/net/s2io.h
-index 47c36e0..4da9ab8 100644
---- a/drivers/net/s2io.h
-+++ b/drivers/net/s2io.h
-@@ -747,7 +747,6 @@ struct ring_info {
- 	struct buffAdd **ba;
- 
- 	/* per-Ring statistics */
--	unsigned long rx_packets;
- 	unsigned long rx_bytes;
- } ____cacheline_aligned;
- 
-
+Larry
