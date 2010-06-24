@@ -1,50 +1,58 @@
-From: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
-Subject: [PATCH] xfrm: check bundle policy existance before dereferencing it
-Date: Thu, 24 Jun 2010 08:45:19 +0300
-Message-ID: <1277358319-9868-1-git-send-email-timo.teras@iki.fi>
-References: <4C22805A.3080307@gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH 1/2] syncookies: do not store rcv_wscale in tcp
+ timestamp
+Date: Thu, 24 Jun 2010 09:53:04 +0200
+Message-ID: <20100624075304.GH27132@Chamillionaire.breakpoint.cc>
+References: <1277156925-7295-1-git-send-email-fw@strlen.de>
+ <20100623202759.GA3581@nuttenaction>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
-To: netdev@vger.kernel.org,
-	"Justin P. Mattock" <justinmattock@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"John W.Linville" <linville@tuxdriver.com>,
-	Linux Kernel Mailing List <l
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C22805A.3080307@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
+	Ilpo =?iso-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+To: Hagen Paul Pfeifer <hagen@jauu.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:39079 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753950Ab0FXHxH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jun 2010 03:53:07 -0400
+Content-Disposition: inline
+In-Reply-To: <20100623202759.GA3581@nuttenaction>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46ix the bundle validation code to not assume having a valid policy.
-When we have multiple transformations for a xfrm policy, the bundle
-instance will be a chain of bundles with only the first one having
-the policy reference. When policy_genid is bumped it will expire the
-first bundle in the chain which is equivalent of expiring the whole
-chain.
+Hagen Paul Pfeifer <hagen@jauu.net> wrote:
+> * Florian Westphal | 2010-06-21 23:48:44 [+0200]:
+> 
+> >As pointed out by Fernando Gont there is no need to encode rcv_wscale
+> >into the cookie.
+> >
+> >We did not use the restored rcv_wscale anyway; it is recomputed
+> >via tcp_select_initial_window().
+> 
+> I speculate that this behavior was and is not correct. I suppose that their is
+> a race between the SYN/ACK where we initial force a particular window scale
+> and the next time where we recalculate the window via tcp_select_initial_window().
 
-Reported-bisected-and-tested-by: Justin P. Mattock <justinmattock@gmail=
-=2Ecom>
-Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
----
- net/xfrm/xfrm_policy.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+Yes, but it is not the only one. We also do a route lookup to get the
+current window size.
 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 4bf27d9..af1c173 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -2300,7 +2300,8 @@ int xfrm_bundle_ok(struct xfrm_policy *pol, struc=
-t xfrm_dst *first,
- 			return 0;
- 		if (xdst->xfrm_genid !=3D dst->xfrm->genid)
- 			return 0;
--		if (xdst->policy_genid !=3D atomic_read(&xdst->pols[0]->genid))
-+		if (xdst->num_pols > 0 &&
-+		    xdst->policy_genid !=3D atomic_read(&xdst->pols[0]->genid))
- 			return 0;
-=20
- 		if (strict && fl &&
---=20
-1.7.0.4
+> If the user change net.core.rmem_max or net.ipv4.tcp_rmem in between this
+> time, the recalculated window scale (rcv_wscale) can be smaller. But the
+> receiver still operates with the initial window scale and can overshot the
+> granted window - and bang.
+
+Why "bang"?
+Sure, its not nice, but is it such a severe problem that we have to keep
+rcv_wscale around in the timestamp?
+
+> There are several solutions: encode rcv_wscale into the syn cookie and don't
+> recalculate
+
+I would prefer to avoid having to keep rcv_wscale in the timstamp for the sake of
+a sysctl change. At the moment the state eats up 9 bits in the timestamp and I don't
+like to grow it (which has to be done iff we want to support more options in the future).
+
+>  or disable window scaling and don't transmit any scaling option
+> when SYN cookies are active.
+
+No, I would rather see this patch rejected than that.
