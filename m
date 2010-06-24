@@ -1,97 +1,111 @@
-From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Subject: [RFC PATCH v2 0/5] netdev: show a process of packets
-Date: Thu, 24 Jun 2010 17:09:12 +0900
-Message-ID: <4C2312A8.9060903@jp.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, scott.a.mcmillan@intel.com,
-	kaneshige.kenji@jp.fujitsu.com, izumi.taku@jp.fujitsu.com
-To: netdev@vger.kernel.org
+From: Sebastien Jan <s-jan@ti.com>
+Subject: [PATCH] smsc95xx: Add module parameter to override MAC address
+Date: Thu, 24 Jun 2010 10:14:14 +0200
+Message-ID: <1277367254-9345-1-git-send-email-s-jan@ti.com>
+Cc: linux-omap@vger.kernel.org, Sebastien Jan <s-jan@ti.com>
+To: Steve Glendinning <steve.glendinning@smsc.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fgwmail5.fujitsu.co.jp ([192.51.44.35]:52778 "EHLO
-	fgwmail5.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750991Ab0FXIJY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jun 2010 04:09:24 -0400
-Received: from m6.gw.fujitsu.co.jp ([10.0.50.76])
-	by fgwmail5.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o5O89LVB031357
-	for <netdev@vger.kernel.org> (envelope-from sanagi.koki@jp.fujitsu.com);
-	Thu, 24 Jun 2010 17:09:21 +0900
-Received: from smail (m6 [127.0.0.1])
-	by outgoing.m6.gw.fujitsu.co.jp (Postfix) with ESMTP id 7FFC745DE53
-	for <netdev@vger.kernel.org>; Thu, 24 Jun 2010 17:09:21 +0900 (JST)
-Received: from s6.gw.fujitsu.co.jp (s6.gw.fujitsu.co.jp [10.0.50.96])
-	by m6.gw.fujitsu.co.jp (Postfix) with ESMTP id 4E83945DE51
-	for <netdev@vger.kernel.org>; Thu, 24 Jun 2010 17:09:21 +0900 (JST)
-Received: from s6.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
-	by s6.gw.fujitsu.co.jp (Postfix) with ESMTP id 32EE9E08002
-	for <netdev@vger.kernel.org>; Thu, 24 Jun 2010 17:09:21 +0900 (JST)
-Received: from ml13.s.css.fujitsu.com (ml13.s.css.fujitsu.com [10.249.87.103])
-	by s6.gw.fujitsu.co.jp (Postfix) with ESMTP id D25011DB8015
-	for <netdev@vger.kernel.org>; Thu, 24 Jun 2010 17:09:20 +0900 (JST)
+Received: from devils.ext.ti.com ([198.47.26.153]:39183 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751048Ab0FXIQZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jun 2010 04:16:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-CHANGE-LOG since v1:
-    1) fix to enable "perf trace record netdev-times" run with a script.
-    2) add some options to "perf trace report netdev-times". A detail is in
-       PATCH 5/5.
+Define a new module parameter 'macaddr' to override the MAC address
+fetched either from eeprom, or randomly generated.
 
-These patch-set adds tracepoints to show us a process of packets.
-Using these tracepoints and existing points, we can get the time when
-packet passes through some points in transmit or receive sequence.
-For example, this is an output of perf script which is attached by patch 5/5.
+The expected MAC address shall be in the 01:23:45:67:89:AB format.
 
-79074.756672832sec cpu=1
-irq_entry(+0.000000msec,irq=77:eth3)
-         |------------softirq_raise(+0.001277msec)
-irq_exit (+0.002278msec)     |
-                             |
-                      softirq_entry(+0.003562msec)
-                             |
-                             |---netif_receive_skb(+0.006279msec,len=100)
-                             |            |
-                             |   skb_copy_datagram_iovec(+0.038778msec, 2285:sshd)
-                             |
-                      napi_poll_exit(+0.017160msec, eth3)
-                             |
-                      softirq_exit(+0.018248msec)
+Signed-off-by: Sebastien Jan <s-jan@ti.com>
+---
+ drivers/net/usb/smsc95xx.c |   56 ++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 56 insertions(+), 0 deletions(-)
 
-The above is a receive side. Like this, it can show receive sequence from
-interrupt(irq_entry) to application(skb_copy_datagram_iovec). There are 8
-tracepoints in this side. All events except for skb_copy_datagram_iovec can be
-associated with each other by CPU number. skb_copy_datagram_iovec can be
-associated with netif_receive_skb by skbaddr.
-This script shows one NET_RX softirq and events related to it. All relative
-time bases on first irq_entry which raise NET_RX softirq.
-
-   dev    len      dev_queue_xmit|----------|dev_hard_start_xmit|-----|free_skb
-                         |             |                           |
-   eth3   114  79044.417123332sec     0.005242msec          0.103843msec
-   eth3   114  79044.580090422sec     0.002306msec          0.103632msec
-   eth3   114  79044.719078251sec     0.002288msec          0.104093msec
-
-The above is a transmit side. There are three tracepoints in this side.
-Point1 is before putting a packet to Qdisc. point2 is after ndo_start_xmit in
-dev_hard_start_xmit. It indicates finishing putting a packet to driver.
-point3 is in consume_skb and dev_kfree_skb_irq. It indicates freeing a
-transmitted packet.
-Values of this script are, from left, device name, length of a packet, a time of
-point1, an interval time between point1 and point2 and an interval time between
-point2 and point3.
-
-These times are useful to analyze a performance or to detect a point where
-packet delays. For example,
-- NET_RX softirq calling is late.
-- Application is late to take a packet.
-- It takes much time to put a transmitting packet to driver
-  (It may be caused by packed queue)
-
-And also, these tracepoint help us to investigate a network driver's trouble
-from memory dump because ftrace records it to memory. And ftrace is so light
-even if always trace on. So, in a case investigating a problem which doesn't
-reproduce, it is useful.
-
-Thanks,
-Koki Sanagi.
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 3135af6..0ba06d9 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -46,6 +46,7 @@
+ #define SMSC95XX_INTERNAL_PHY_ID	(1)
+ #define SMSC95XX_TX_OVERHEAD		(8)
+ #define SMSC95XX_TX_OVERHEAD_CSUM	(12)
++#define MAC_ADDR_LEN			(6)
+ 
+ struct smsc95xx_priv {
+ 	u32 mac_cr;
+@@ -63,6 +64,10 @@ static int turbo_mode = true;
+ module_param(turbo_mode, bool, 0644);
+ MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx transaction");
+ 
++static char *macaddr = ":";
++module_param(macaddr, charp, 0);
++MODULE_PARM_DESC(macaddr, "MAC address");
++
+ static int smsc95xx_read_reg(struct usbnet *dev, u32 index, u32 *data)
+ {
+ 	u32 *buf = kmalloc(4, GFP_KERNEL);
+@@ -637,8 +642,59 @@ static int smsc95xx_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
+ 	return generic_mii_ioctl(&dev->mii, if_mii(rq), cmd, NULL);
+ }
+ 
++/* Check the macaddr module parameter for a MAC address */
++static int smsc95xx_is_macaddr_param(struct usbnet *dev, u8 *dev_mac)
++{
++	int i, j, got_num, num;
++	u8 mtbl[MAC_ADDR_LEN];
++
++	if (macaddr[0] == ':')
++		return 0;
++
++	i = 0;
++	j = 0;
++	num = 0;
++	got_num = 0;
++	while (j < MAC_ADDR_LEN) {
++		if (macaddr[i] && macaddr[i] != ':') {
++			got_num++;
++			if ('0' <= macaddr[i] && macaddr[i] <= '9')
++				num = num * 16 + macaddr[i] - '0';
++			else if ('A' <= macaddr[i] && macaddr[i] <= 'F')
++				num = num * 16 + 10 + macaddr[i] - 'A';
++			else if ('a' <= macaddr[i] && macaddr[i] <= 'f')
++				num = num * 16 + 10 + macaddr[i] - 'a';
++			else
++				break;
++			i++;
++		} else if (got_num == 2) {
++			mtbl[j++] = (u8) num;
++			num = 0;
++			got_num = 0;
++			i++;
++		} else {
++			break;
++		}
++	}
++
++	if (j == MAC_ADDR_LEN && !macaddr[i]) {
++		netif_dbg(dev, ifup, dev->net, "Overriding MAC address with: "
++		"%02x:%02x:%02x:%02x:%02x:%02x\n", mtbl[0], mtbl[1], mtbl[2],
++						mtbl[3], mtbl[4], mtbl[5]);
++		for (i = 0; i < MAC_ADDR_LEN; i++)
++			dev_mac[i] = mtbl[i];
++		return 1;
++	} else {
++		return 0;
++	}
++}
++
+ static void smsc95xx_init_mac_address(struct usbnet *dev)
+ {
++	/* Check module parameters */
++	if (smsc95xx_is_macaddr_param(dev, dev->net->dev_addr))
++		return;
++
+ 	/* try reading mac address from EEPROM */
+ 	if (smsc95xx_read_eeprom(dev, EEPROM_MAC_OFFSET, ETH_ALEN,
+ 			dev->net->dev_addr) == 0) {
+-- 
+1.6.3.3
 
