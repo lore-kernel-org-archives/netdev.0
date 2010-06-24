@@ -1,107 +1,88 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 3/3] vhost: apply cpumask and cgroup to vhost pollers
-Date: Thu, 24 Jun 2010 11:11:35 +0300
-Message-ID: <20100624081135.GA937@redhat.com>
-References: <20100527131254.GB7974@redhat.com> <4BFE9ABA.6030907@kernel.org> <20100527163954.GA21710@redhat.com> <4BFEA434.6080405@kernel.org> <20100527173207.GA21880@redhat.com> <4BFEE216.2070807@kernel.org> <20100528150830.GB21880@redhat.com> <4BFFE742.2060205@kernel.org> <20100530112925.GB27611@redhat.com> <4C02C99D.9070204@kernel.org>
+From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+Subject: [RFC PATCH v2 2/5] napi: convert trace_napi_poll to TRACE_EVENT
+Date: Thu, 24 Jun 2010 17:17:33 +0900
+Message-ID: <4C23149D.6080703@jp.fujitsu.com>
+References: <4C2312A8.9060903@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oleg Nesterov <oleg@redhat.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4C02C99D.9070204@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, scott.a.mcmillan@intel.com,
+	kaneshige.kenji@jp.fujitsu.com, izumi.taku@jp.fujitsu.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fgwmail7.fujitsu.co.jp ([192.51.44.37]:53905 "EHLO
+	fgwmail7.fujitsu.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752028Ab0FXIRh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jun 2010 04:17:37 -0400
+Received: from m5.gw.fujitsu.co.jp ([10.0.50.75])
+	by fgwmail7.fujitsu.co.jp (Fujitsu Gateway) with ESMTP id o5O8HZaG018329
+	for <netdev@vger.kernel.org> (envelope-from sanagi.koki@jp.fujitsu.com);
+	Thu, 24 Jun 2010 17:17:36 +0900
+Received: from smail (m5 [127.0.0.1])
+	by outgoing.m5.gw.fujitsu.co.jp (Postfix) with ESMTP id 8B4FD45DE52
+	for <netdev@vger.kernel.org>; Thu, 24 Jun 2010 17:17:35 +0900 (JST)
+Received: from s5.gw.fujitsu.co.jp (s5.gw.fujitsu.co.jp [10.0.50.95])
+	by m5.gw.fujitsu.co.jp (Postfix) with ESMTP id 2790245DE4F
+	for <netdev@vger.kernel.org>; Thu, 24 Jun 2010 17:17:35 +0900 (JST)
+Received: from s5.gw.fujitsu.co.jp (localhost.localdomain [127.0.0.1])
+	by s5.gw.fujitsu.co.jp (Postfix) with ESMTP id 973111DB803C
+	for <netdev@vger.kernel.org>; Thu, 24 Jun 2010 17:17:33 +0900 (JST)
+Received: from m108.s.css.fujitsu.com (m108.s.css.fujitsu.com [10.249.87.108])
+	by s5.gw.fujitsu.co.jp (Postfix) with ESMTP id 474E91DB803F
+	for <netdev@vger.kernel.org>; Thu, 24 Jun 2010 17:17:30 +0900 (JST)
+In-Reply-To: <4C2312A8.9060903@jp.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, May 30, 2010 at 10:25:01PM +0200, Tejun Heo wrote:
-> Apply the cpumask and cgroup of the initializing task to the created
-> vhost poller.
-> 
-> Based on Sridhar Samudrala's patch.
-> 
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Cc: Sridhar Samudrala <samudrala.sridhar@gmail.com>
+This patch converts trace_napi_poll from DECLARE_EVENT to TRACE_EVENT.
+This lets you know how long napi_poll takes.
 
+          <idle>-0     [001] 241302.750777: napi_poll: napi poll on napi struct f6acc480 for device eth3
+          <idle>-0     [000] 241302.852389: napi_poll: napi poll on napi struct f5d0d70c for device eth1
+          <idle>-0     [000] 241302.852389: napi_poll: napi poll on napi struct f5d0d20c for device eth1
 
-I wanted to apply this, but modpost fails:
-ERROR: "sched_setaffinity" [drivers/vhost/vhost_net.ko] undefined!
-ERROR: "sched_getaffinity" [drivers/vhost/vhost_net.ko] undefined!
+This is a same patch Neil Horman submitted.
+http://marc.info/?l=linux-kernel&m=125978157926853&w=2
 
-Did you try building as a module?
+Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+---
+ include/trace/events/napi.h |   23 +++++++++++++++++++++--
+ 1 files changed, 21 insertions(+), 2 deletions(-)
 
-> ---
->  drivers/vhost/vhost.c |   36 +++++++++++++++++++++++++++++++-----
->  1 file changed, 31 insertions(+), 5 deletions(-)
-> 
-> Index: work/drivers/vhost/vhost.c
-> ===================================================================
-> --- work.orig/drivers/vhost/vhost.c
-> +++ work/drivers/vhost/vhost.c
-> @@ -23,6 +23,7 @@
->  #include <linux/highmem.h>
->  #include <linux/slab.h>
->  #include <linux/kthread.h>
-> +#include <linux/cgroup.h>
-> 
->  #include <linux/net.h>
->  #include <linux/if_packet.h>
-> @@ -176,12 +177,30 @@ repeat:
->  long vhost_dev_init(struct vhost_dev *dev,
->  		    struct vhost_virtqueue *vqs, int nvqs)
->  {
-> -	struct task_struct *poller;
-> -	int i;
-> +	struct task_struct *poller = NULL;
-> +	cpumask_var_t mask;
-> +	int i, ret = -ENOMEM;
-> +
-> +	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
-> +		goto out;
-> 
->  	poller = kthread_create(vhost_poller, dev, "vhost-%d", current->pid);
-> -	if (IS_ERR(poller))
-> -		return PTR_ERR(poller);
-> +	if (IS_ERR(poller)) {
-> +		ret = PTR_ERR(poller);
-> +		goto out;
-> +	}
-> +
-> +	ret = sched_getaffinity(current->pid, mask);
-> +	if (ret)
-> +		goto out;
-> +
-> +	ret = sched_setaffinity(poller->pid, mask);
-> +	if (ret)
-> +		goto out;
-> +
-> +	ret = cgroup_attach_task_current_cg(poller);
-> +	if (ret)
-> +		goto out;
-> 
->  	dev->vqs = vqs;
->  	dev->nvqs = nvqs;
-> @@ -202,7 +221,14 @@ long vhost_dev_init(struct vhost_dev *de
->  			vhost_poll_init(&dev->vqs[i].poll,
->  					dev->vqs[i].handle_kick, POLLIN, dev);
->  	}
-> -	return 0;
-> +
-> +	wake_up_process(poller);	/* avoid contributing to loadavg */
-> +	ret = 0;
-> +out:
-> +	if (ret)
-> +		kthread_stop(poller);
-> +	free_cpumask_var(mask);
-> +	return ret;
->  }
-> 
->  /* Caller should have device mutex */
+diff --git a/include/trace/events/napi.h b/include/trace/events/napi.h
+index 188deca..512a057 100644
+--- a/include/trace/events/napi.h
++++ b/include/trace/events/napi.h
+@@ -6,10 +6,29 @@
+ 
+ #include <linux/netdevice.h>
+ #include <linux/tracepoint.h>
++#include <linux/ftrace.h>
++
++#define NO_DEV "(no_device)"
++
++TRACE_EVENT(napi_poll,
+ 
+-DECLARE_TRACE(napi_poll,
+ 	TP_PROTO(struct napi_struct *napi),
+-	TP_ARGS(napi));
++
++	TP_ARGS(napi),
++
++	TP_STRUCT__entry(
++		__field(	struct napi_struct *,	napi)
++		__string(	dev_name, napi->dev ? napi->dev->name : NO_DEV)
++	),
++
++	TP_fast_assign(
++		__entry->napi = napi;
++		__assign_str(dev_name, napi->dev ? napi->dev->name : NO_DEV);
++	),
++
++	TP_printk("napi poll on napi struct %p for device %s",
++		__entry->napi, __get_str(dev_name))
++);
+ 
+ #endif /* _TRACE_NAPI_H_ */
+ 
+
