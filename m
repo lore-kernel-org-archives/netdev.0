@@ -1,42 +1,67 @@
-From: Andi Kleen <andi@firstfloor.org>
+From: Jay Vosburgh <fubar@us.ibm.com>
 Subject: Re: [PATCH 2.6.35] bonding: prevent netpoll over bonded interfaces
-Date: Sat, 26 Jun 2010 00:31:50 +0200
-Message-ID: <87y6e2d9rd.fsf@basil.nowhere.org>
-References: <20100625195044.GQ7497@gospo.rdu.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, amwang@redhat.com, fubar@us.ibm.com
-To: Andy Gospodarek <andy@greyhouse.net>
+Date: Fri, 25 Jun 2010 15:52:28 -0700
+Message-ID: <22059.1277506348@death.nxdomain.ibm.com>
+References: <20100625195044.GQ7497@gospo.rdu.redhat.com> <87y6e2d9rd.fsf@basil.nowhere.org>
+Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	amwang@redhat.com
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:33011 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751791Ab0FYWbw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jun 2010 18:31:52 -0400
-In-Reply-To: <20100625195044.GQ7497@gospo.rdu.redhat.com> (Andy Gospodarek's
-	message of "Fri, 25 Jun 2010 15:50:44 -0400")
+Received: from e39.co.us.ibm.com ([32.97.110.160]:46041 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752088Ab0FYWwd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jun 2010 18:52:33 -0400
+Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
+	by e39.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id o5PMhGVR008856
+	for <netdev@vger.kernel.org>; Fri, 25 Jun 2010 16:43:16 -0600
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o5PMqWeQ134824
+	for <netdev@vger.kernel.org>; Fri, 25 Jun 2010 16:52:32 -0600
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o5PMtebv022846
+	for <netdev@vger.kernel.org>; Fri, 25 Jun 2010 16:55:40 -0600
+In-reply-to: <87y6e2d9rd.fsf@basil.nowhere.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Andy Gospodarek <andy@greyhouse.net> writes:
+Andi Kleen <andi@firstfloor.org> wrote:
 
-> Support for netpoll over bonded interfaces was added here:
+>Andy Gospodarek <andy@greyhouse.net> writes:
 >
-> 	commit f6dc31a85cd46a959bdd987adad14c3b645e03c1
-> 	Author: WANG Cong <amwang@redhat.com>
-> 	Date:   Thu May 6 00:48:51 2010 -0700
+>> Support for netpoll over bonded interfaces was added here:
+>>
+>> 	commit f6dc31a85cd46a959bdd987adad14c3b645e03c1
+>> 	Author: WANG Cong <amwang@redhat.com>
+>> 	Date:   Thu May 6 00:48:51 2010 -0700
+>>
+>> 	    bonding: make bonding support netpoll
+>>
+>> but it is bad enough that we should probably just disable netpoll over
+>> bonding until some of the locking logic in the bonding driver is changed
+>> or converted completely to RCU.  Simple actions like changing the active
+>> slave in active-backup mode will hang the box if a high enough printk
+>> debugging level is enabled.
 >
-> 	    bonding: make bonding support netpoll
->
-> but it is bad enough that we should probably just disable netpoll over
-> bonding until some of the locking logic in the bonding driver is changed
-> or converted completely to RCU.  Simple actions like changing the active
-> slave in active-backup mode will hang the box if a high enough printk
-> debugging level is enabled.
+>Normally you just need to prevent the printks when called from poll
+>context. That's not rocket science.
 
-Normally you just need to prevent the printks when called from poll
-context. That's not rocket science.
+	The problem with bonding is that its own printks will come back
+into bonding via netpoll and deadlock in various ways.  Without re-doing
+the locking, the fix would really be to make every printk in bonding
+happen without holding any locks.  Converting the driver to RCU is
+probably the only way to resolve this, and that's at least verging on
+rocket science.
 
--Andi
+	I'm in favor of the patch; netpoll over bonding is sufficiently
+unstable that I'm comfortable requiring that it be explicitly enabled by
+the user.  I'd also be comfortable with a patch that removes netpoll for
+bonding, but I don't mind leaving the netpoll stuff there for use by
+those who want to live dangerously.
 
--- 
-ak@linux.intel.com -- Speaking for myself only.
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
