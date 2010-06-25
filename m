@@ -1,67 +1,38 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH 2.6.35] bonding: prevent netpoll over bonded interfaces
-Date: Fri, 25 Jun 2010 15:52:28 -0700
-Message-ID: <22059.1277506348@death.nxdomain.ibm.com>
-References: <20100625195044.GQ7497@gospo.rdu.redhat.com> <87y6e2d9rd.fsf@basil.nowhere.org>
-Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	amwang@redhat.com
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:46041 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752088Ab0FYWwd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jun 2010 18:52:33 -0400
-Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
-	by e39.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id o5PMhGVR008856
-	for <netdev@vger.kernel.org>; Fri, 25 Jun 2010 16:43:16 -0600
-Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
-	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o5PMqWeQ134824
-	for <netdev@vger.kernel.org>; Fri, 25 Jun 2010 16:52:32 -0600
-Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o5PMtebv022846
-	for <netdev@vger.kernel.org>; Fri, 25 Jun 2010 16:55:40 -0600
-In-reply-to: <87y6e2d9rd.fsf@basil.nowhere.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg KH <greg@kroah.com>
+Subject: Re: [stable] Please apply ucc_geth patches to 2.6.32-stable
+Date: Fri, 25 Jun 2010 15:52:25 -0700
+Message-ID: <20100625225225.GI10683@kroah.com>
+References: <20100609071623.GC20057@colossus>
+ <AANLkTin_EvlveCvbCZ0vH54UEP479ufQ-irFqXSOnT0R@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Petri Lehtinen <petri.lehtinen@inoi.fi>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, avorontsov@ru.mvista.com,
+	linux-kernel@vger.kernel.org, stable@kernel.org
+To: Pekka Enberg <penberg@cs.helsinki.fi>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <AANLkTin_EvlveCvbCZ0vH54UEP479ufQ-irFqXSOnT0R@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Andi Kleen <andi@firstfloor.org> wrote:
+On Wed, Jun 09, 2010 at 11:02:55AM +0300, Pekka Enberg wrote:
+> On Wed, Jun 9, 2010 at 10:16 AM, Petri Lehtinen <petri.lehtinen@inoi.fi> wrote:
+> > The following three patches fix some serious flaws in the ucc_geth
+> > network driver in 2.6.32. From oldest to newest:
+> >
+> > 7583605b6d29f1f7f6fc505b883328089f3485ad ucc_geth: Fix empty TX queue processing
+> > 08b5e1c91ce95793c59a59529a362a1bcc81faae ucc_geth: Fix netdev watchdog triggering on link changes
+> > 34692421bc7d6145ef383b014860f4fde10b7505 ucc_geth: Fix full TX queue processing
+> >
+> > They apply cleanly on top of 2.6.32-stable master. They were also
+> > originally Cc'd to be included in 2.6.32-stable.
+> 
+> You forgot to CC stable@kernel.org, netdev, and the original author of
+> those patches.
 
->Andy Gospodarek <andy@greyhouse.net> writes:
->
->> Support for netpoll over bonded interfaces was added here:
->>
->> 	commit f6dc31a85cd46a959bdd987adad14c3b645e03c1
->> 	Author: WANG Cong <amwang@redhat.com>
->> 	Date:   Thu May 6 00:48:51 2010 -0700
->>
->> 	    bonding: make bonding support netpoll
->>
->> but it is bad enough that we should probably just disable netpoll over
->> bonding until some of the locking logic in the bonding driver is changed
->> or converted completely to RCU.  Simple actions like changing the active
->> slave in active-backup mode will hang the box if a high enough printk
->> debugging level is enabled.
->
->Normally you just need to prevent the printks when called from poll
->context. That's not rocket science.
+Wierd that our script didn't pick these up, sorry about that.  Now
+applied.
 
-	The problem with bonding is that its own printks will come back
-into bonding via netpoll and deadlock in various ways.  Without re-doing
-the locking, the fix would really be to make every printk in bonding
-happen without holding any locks.  Converting the driver to RCU is
-probably the only way to resolve this, and that's at least verging on
-rocket science.
-
-	I'm in favor of the patch; netpoll over bonding is sufficiently
-unstable that I'm comfortable requiring that it be explicitly enabled by
-the user.  I'd also be comfortable with a patch that removes netpoll for
-bonding, but I don't mind leaving the netpoll stuff there for use by
-those who want to live dangerously.
-
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+greg k-h
