@@ -1,66 +1,57 @@
-From: =?UTF-8?B?TWljaGFlbCBCw7xzY2g=?= <mb@bu3sch.de>
-Subject: Re: [PATCH 0/3] b43: logging cleanups
-Date: Fri, 25 Jun 2010 15:28:04 +0200
-Message-ID: <4C24AEE4.4090700@bu3sch.de>
-References: <cover.1276988387.git.joe@perches.com>	 <20100624185339.GC2368@tuxdriver.com> <1277408432.1654.80.camel@Joe-Laptop.home> (sfid-20100624_214041_280758_2585CA6E)
+From: =?ISO-8859-1?Q?Michael_B=FCsch?= <mb@bu3sch.de>
+Subject: Re: [PATCH] b43: Add SDIO_DEVICE() for EW-CG1102GC
+Date: Fri, 25 Jun 2010 15:29:37 +0200
+Message-ID: <4C24AF41.3080101@bu3sch.de>
+References: <20100625093254.9484.69877.sendpatchset@t400s> (sfid-20100625_113248_442184_13EC6E79)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "John W. Linville" <linville@tuxdriver.com>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>,
 	Stefano Brivio <stefano.brivio@polimi.it>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Larry.Finger@lwfinger.net,
-	zajec5@gmail.com
-To: Joe Perches <joe@perches.com>
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Albert Herranz <albert_herranz@yahoo.es>
+To: Magnus Damm <magnus.damm@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1277408432.1654.80.camel@Joe-Laptop.home> (sfid-20100624_214041_280758_2585CA6E)
+In-Reply-To: <20100625093254.9484.69877.sendpatchset@t400s> (sfid-20100625_113248_442184_13EC6E79)
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/24/2010 09:40 PM, Joe Perches wrote:
-> On Thu, 2010-06-24 at 14:53 -0400, John W. Linville wrote:
->> On Sat, Jun 19, 2010 at 04:30:08PM -0700, Joe Perches wrote:
->>> Just some small cleanups
->>> Joe Perches (3):
->>>    drivers/net/wireless/b43: Use local ratelimit_state
->>>    drivers/net/wireless/b43: Logging cleanups
->>>    drivers/net/wireless/b43: Rename b43_debug to b43_debugging
->> Any of the b43 guys want to express an opinion on these?
-
-The cleanups, well, exchange one name for the other. I don't have a
-strong opinion on one or the other. So in the end I don't see why
-that stuff should be renamed. However, in the end I really do not care.
-
-I'm not sure why we need an additional ratelimit here. Is it a policy
-that every kernel driver should have local ratelimiting? If not, why
-do you think b43 needs its own ratelimiting? Note that b43 does not
-output a single line to dmesg in normal operation, after init has
-finished (and ratelimit is disabled in init).
-
-> Stefano, are you active here?
-> Your last ack for b43 was Feb 2008.
-> There have been 400+ commits to b43 without your ack.
+On 06/25/2010 11:32 AM, Magnus Damm wrote:
+> From: Magnus Damm<damm@opensource.se>
 >
-> Should your name be moved from MAINTAINERS to CREDITS?
+> This patch enables the EW-CG1102GC SDIO card in the b43 driver.
 >
-> $ ./scripts/get_maintainer.pl --rolestats -f drivers/net/wireless/b43=
-/
-> Stefano Brivio<stefano.brivio@polimi.it>  (maintainer:B43 WIRELESS DR=
-IVER)
-> "John W. Linville"<linville@tuxdriver.com>  (maintainer:NETWORKING [W=
-IREL...,commit_signer:204/240=3D85%)
-> "Rafa=C5=82 Mi=C5=82ecki"<zajec5@gmail.com>  (commit_signer:83/240=3D=
-35%)
-> "G=C3=A1bor Stefanik"<netrolller.3d@gmail.com>  (commit_signer:44/240=
-=3D18%)
-> Michael Buesch<mb@bu3sch.de>  (commit_signer:39/240=3D16%)
-> Larry Finger<Larry.Finger@lwfinger.net>  (commit_signer:13/240=3D5%)
-> linux-wireless@vger.kernel.org (open list:B43 WIRELESS DRIVER)
-> netdev@vger.kernel.org (open list:NETWORKING DRIVERS)
-> linux-kernel@vger.kernel.org (open list)
+> b43-sdio mmc0:0001:1: Chip ID 14e4:4318
+> ssb: Core 0 found: ChipCommon (cc 0x800, rev 0x0D, vendor 0x4243)
+> ssb: Core 1 found: IEEE 802.11 (cc 0x812, rev 0x09, vendor 0x4243)
+> ssb: Core 2 found: PCI (cc 0x804, rev 0x0C, vendor 0x4243)
+> ssb: Core 3 found: PCMCIA (cc 0x80D, rev 0x07, vendor 0x4243)
+> b43-phy0: Broadcom 4318 WLAN found (core revision 9)
+> b43-phy0 debug: Found PHY: Analog 3, Type 2, Revision 7
+> b43-phy0 debug: Found Radio: Manuf 0x17F, Version 0x2050, Revision 8
+>
+> Tested with openfwwf-5.2 using a SuperH SDHI host controller.
+>
+> Signed-off-by: Magnus Damm<damm@opensource.se>
+> ---
+>
+>   drivers/net/wireless/b43/sdio.c |    1 +
+>   1 file changed, 1 insertion(+)
+>
+> --- 0001/drivers/net/wireless/b43/sdio.c
+> +++ work/drivers/net/wireless/b43/sdio.c	2010-06-25 18:20:46.000000000 +0900
+> @@ -182,6 +182,7 @@ static void b43_sdio_remove(struct sdio_
+>
+>   static const struct sdio_device_id b43_sdio_ids[] = {
+>   	{ SDIO_DEVICE(0x02d0, 0x044b) }, /* Nintendo Wii WLAN daughter card */
+> +	{ SDIO_DEVICE(0x0092, 0x0004) }, /* C-guys, Inc. EW-CG1102GC */
+>   	{ },
+>   };
+>
+>
 
-I think these statistics are almost worthless for b43.
+ack
 
---=20
+-- 
 Greetings Michael.
