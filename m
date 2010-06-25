@@ -1,7 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 1/4] sfc: Fix reading of inserted hash
-Date: Fri, 25 Jun 2010 18:05:33 +0100
-Message-ID: <1277485533.2094.14.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH net-next-2.6 2/4] sfc: Move siena_nic_data::ipv6_rss_key to
+ efx_nic::rx_hash_key
+Date: Fri, 25 Jun 2010 18:05:43 +0100
+Message-ID: <1277485543.2094.15.camel@achroite.uk.solarflarecom.com>
 References: <1277485434.2094.13.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,87 +10,105 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:20303 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:20338 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756520Ab0FYRFg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jun 2010 13:05:36 -0400
+	with ESMTP id S1756520Ab0FYRFq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jun 2010 13:05:46 -0400
 In-Reply-To: <1277485434.2094.13.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The hash appears immediately before the packet data, not at the
-beginning of the buffer. This means we can easily use negative offsets
-from the start of packet data, so adjust the data and length at the
-top of __efx_rx_packet() instead of wherever we consume the hash.
+We will use this hash key for Toeplitz IPv4 hashing too.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/rx.c       |   11 ++++++-----
- drivers/net/sfc/selftest.c |    3 ---
- 2 files changed, 6 insertions(+), 8 deletions(-)
+ drivers/net/sfc/efx.c        |    3 +++
+ drivers/net/sfc/net_driver.h |    1 +
+ drivers/net/sfc/nic.h        |    1 -
+ drivers/net/sfc/siena.c      |   12 ++++--------
+ 4 files changed, 8 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/sfc/rx.c b/drivers/net/sfc/rx.c
-index 0fb9835..799c461 100644
---- a/drivers/net/sfc/rx.c
-+++ b/drivers/net/sfc/rx.c
-@@ -104,9 +104,9 @@ static inline unsigned int efx_rx_buf_size(struct efx_nic *efx)
- static inline u32 efx_rx_buf_hash(struct efx_rx_buffer *buf)
- {
- #if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) || NET_IP_ALIGN % 4 == 0
--	return __le32_to_cpup((const __le32 *)buf->data);
-+	return __le32_to_cpup((const __le32 *)(buf->data - 4));
- #else
--	const u8 *data = (const u8 *)buf->data;
-+	const u8 *data = (const u8 *)(buf->data - 4);
- 	return ((u32)data[0]       |
- 		(u32)data[1] << 8  |
- 		(u32)data[2] << 16 |
-@@ -469,8 +469,6 @@ static void efx_rx_packet_lro(struct efx_channel *channel,
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index d68f061..2a90bf9 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -1134,6 +1134,9 @@ static int efx_probe_nic(struct efx_nic *efx)
+ 	 * in MSI-X interrupts. */
+ 	efx_probe_interrupts(efx);
  
- 		if (efx->net_dev->features & NETIF_F_RXHASH)
- 			skb->rxhash = efx_rx_buf_hash(rx_buf);
--		rx_buf->data += efx->type->rx_buffer_hash_size;
--		rx_buf->len -= efx->type->rx_buffer_hash_size;
- 
- 		skb_shinfo(skb)->frags[0].page = page;
- 		skb_shinfo(skb)->frags[0].page_offset =
-@@ -577,6 +575,9 @@ void __efx_rx_packet(struct efx_channel *channel,
- 	struct efx_nic *efx = channel->efx;
- 	struct sk_buff *skb;
- 
-+	rx_buf->data += efx->type->rx_buffer_hash_size;
-+	rx_buf->len -= efx->type->rx_buffer_hash_size;
++	if (efx->n_channels > 1)
++		get_random_bytes(&efx->rx_hash_key, sizeof(efx->rx_hash_key));
 +
- 	/* If we're in loopback test, then pass the packet directly to the
- 	 * loopback layer, and free the rx_buf here
- 	 */
-@@ -589,11 +590,11 @@ void __efx_rx_packet(struct efx_channel *channel,
- 	if (rx_buf->skb) {
- 		prefetch(skb_shinfo(rx_buf->skb));
+ 	efx_set_channels(efx);
+ 	efx->net_dev->real_num_tx_queues = efx->n_tx_channels;
  
-+		skb_reserve(rx_buf->skb, efx->type->rx_buffer_hash_size);
- 		skb_put(rx_buf->skb, rx_buf->len);
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
+index 8b17c92..ba272a4 100644
+--- a/drivers/net/sfc/net_driver.h
++++ b/drivers/net/sfc/net_driver.h
+@@ -733,6 +733,7 @@ struct efx_nic {
+ 	unsigned n_tx_channels;
+ 	unsigned int rx_buffer_len;
+ 	unsigned int rx_buffer_order;
++	u8 rx_hash_key[40];
  
- 		if (efx->net_dev->features & NETIF_F_RXHASH)
- 			rx_buf->skb->rxhash = efx_rx_buf_hash(rx_buf);
--		skb_pull(rx_buf->skb, efx->type->rx_buffer_hash_size);
+ 	unsigned int_error_count;
+ 	unsigned long int_error_expire;
+diff --git a/drivers/net/sfc/nic.h b/drivers/net/sfc/nic.h
+index 534461f..a39822d 100644
+--- a/drivers/net/sfc/nic.h
++++ b/drivers/net/sfc/nic.h
+@@ -142,7 +142,6 @@ struct siena_nic_data {
+ 	u32 fw_build;
+ 	struct efx_mcdi_iface mcdi;
+ 	int wol_filter_id;
+-	u8 ipv6_rss_key[40];
+ };
  
- 		/* Move past the ethernet header. rx_buf->data still points
- 		 * at the ethernet header */
-diff --git a/drivers/net/sfc/selftest.c b/drivers/net/sfc/selftest.c
-index 0399be2..85f015f 100644
---- a/drivers/net/sfc/selftest.c
-+++ b/drivers/net/sfc/selftest.c
-@@ -258,9 +258,6 @@ void efx_loopback_rx_packet(struct efx_nic *efx,
+ extern void siena_print_fwver(struct efx_nic *efx, char *buf, size_t len);
+diff --git a/drivers/net/sfc/siena.c b/drivers/net/sfc/siena.c
+index f1741b4..7fd258c 100644
+--- a/drivers/net/sfc/siena.c
++++ b/drivers/net/sfc/siena.c
+@@ -285,9 +285,6 @@ static int siena_probe_nic(struct efx_nic *efx)
+ 		goto fail5;
+ 	}
  
- 	payload = &state->payload;
- 
--	buf_ptr += efx->type->rx_buffer_hash_size;
--	pkt_len -= efx->type->rx_buffer_hash_size;
+-	get_random_bytes(&nic_data->ipv6_rss_key,
+-			 sizeof(nic_data->ipv6_rss_key));
 -
- 	received = (struct efx_loopback_payload *) buf_ptr;
- 	received->ip.saddr = payload->ip.saddr;
- 	if (state->offload_csum)
+ 	return 0;
+ 
+ fail5:
+@@ -307,7 +304,6 @@ fail1:
+  */
+ static int siena_init_nic(struct efx_nic *efx)
+ {
+-	struct siena_nic_data *nic_data = efx->nic_data;
+ 	efx_oword_t temp;
+ 	int rc;
+ 
+@@ -336,16 +332,16 @@ static int siena_init_nic(struct efx_nic *efx)
+ 	efx_writeo(efx, &temp, FR_AZ_RX_CFG);
+ 
+ 	/* Enable IPv6 RSS */
+-	BUILD_BUG_ON(sizeof(nic_data->ipv6_rss_key) !=
++	BUILD_BUG_ON(sizeof(efx->rx_hash_key) <
+ 		     2 * sizeof(temp) + FRF_CZ_RX_RSS_IPV6_TKEY_HI_WIDTH / 8 ||
+ 		     FRF_CZ_RX_RSS_IPV6_TKEY_HI_LBN != 0);
+-	memcpy(&temp, nic_data->ipv6_rss_key, sizeof(temp));
++	memcpy(&temp, efx->rx_hash_key, sizeof(temp));
+ 	efx_writeo(efx, &temp, FR_CZ_RX_RSS_IPV6_REG1);
+-	memcpy(&temp, nic_data->ipv6_rss_key + sizeof(temp), sizeof(temp));
++	memcpy(&temp, efx->rx_hash_key + sizeof(temp), sizeof(temp));
+ 	efx_writeo(efx, &temp, FR_CZ_RX_RSS_IPV6_REG2);
+ 	EFX_POPULATE_OWORD_2(temp, FRF_CZ_RX_RSS_IPV6_THASH_ENABLE, 1,
+ 			     FRF_CZ_RX_RSS_IPV6_IP_THASH_ENABLE, 1);
+-	memcpy(&temp, nic_data->ipv6_rss_key + 2 * sizeof(temp),
++	memcpy(&temp, efx->rx_hash_key + 2 * sizeof(temp),
+ 	       FRF_CZ_RX_RSS_IPV6_TKEY_HI_WIDTH / 8);
+ 	efx_writeo(efx, &temp, FR_CZ_RX_RSS_IPV6_REG3);
+ 
 -- 
 1.6.2.5
 
