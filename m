@@ -1,72 +1,102 @@
-From: "Gerd v. Egidy" <lists@egidy.de>
-Subject: Re: Question about xfrm by MARK feature
-Date: Fri, 25 Jun 2010 09:35:30 +0200
-Message-ID: <201006250935.30967.lists@egidy.de>
-References: <201006231803.17261.lists@egidy.de> <1277381094.3455.92.camel@bigi>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH 6/8] netpoll: Allow netpoll_setup/cleanup recursion
+Date: Fri, 25 Jun 2010 10:08:56 +0200
+Message-ID: <1277453336.22715.2154.camel@twins>
+References: <20100624182123.45264dfe.akpm@linux-foundation.org>
+	 <20100624.203006.35035648.davem@davemloft.net>
+	 <20100624205059.a28756b0.akpm@linux-foundation.org>
+	 <20100624.212713.242141362.davem@davemloft.net>
+	 <20100624214204.a85c8ba2.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: timo.teras@iki.fi, kaber@trash.net, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.hengli.com.au,
+	mst@redhat.com, frzhang@redhat.com, netdev@vger.kernel.org,
+	amwang@redhat.com, shemminger@vyatta.com, mpm@selenic.com,
+	paulmck@linux.vnet.ibm.com, mingo@elte.hu
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rs02.intra2net.com ([81.169.173.116]:57944 "EHLO
-	rs02.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751734Ab0FYHfe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jun 2010 03:35:34 -0400
-In-Reply-To: <1277381094.3455.92.camel@bigi>
+Received: from casper.infradead.org ([85.118.1.10]:48291 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753268Ab0FYIRL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jun 2010 04:17:11 -0400
+In-Reply-To: <20100624214204.a85c8ba2.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jamal,
+On Thu, 2010-06-24 at 21:42 -0700, Andrew Morton wrote:
+> That being said, I wonder why Herbert didn't hit this in his testing. 
+> I suspect that he'd enabled lockdep, which hid the bug.  I haven't
+> worked out _why_ lockdep hides the double-mutex_unlock bug, but it's a
+> pretty bad thing to do. 
 
-thanks for your detailed answer.
+Most weird indeed, lockdep is supposed so shout its lungs out when
+someone wants to unlock a lock that isn't actually owned by him (and it
+not being locked at all certainly implies you're not the owner).
 
-> > For example I have 2 different remote networks with the same ip network
-> > each and both of them have a tunnel to the same local network.
-> 
-> It seems "Same IP network" means that two remote locations will have
-> exactly same IP address?
+In fact, the below patch results in the below splat -- its also
+something that's tested by the locking self-test:
 
-yes
+/*
+ * Double unlock:
+ */
+#define E()                                     \
+                                                \
+        LOCK(A);                                \
+        UNLOCK(A);                              \
+        UNLOCK(A); /* fail */
 
-> This is hard of course - but nat may do it..
-> There's also the nat zones feature that Patrick introduced a while back
-> that may help you
 
-I'm using Patricks conntrack zones. And Patrick helped me with a input chain 
-in the nat table. The other cases with e.g. a ip clash between local and 
-remote net already work.
+---
+ kernel/timer.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-So only the case with two remotes and same ips is missing.
+diff --git a/kernel/timer.c b/kernel/timer.c
+index ee3f116..0496f71 100644
+--- a/kernel/timer.c
++++ b/kernel/timer.c
+@@ -1334,6 +1334,8 @@ SYSCALL_DEFINE0(getpid)
+ 	return task_tgid_vnr(current);
+ }
+ 
++static DEFINE_MUTEX(foo);
++
+ /*
+  * Accessing ->real_parent is not SMP-safe, it could
+  * change from under us. However, we can use a stale
+@@ -1344,6 +1346,10 @@ SYSCALL_DEFINE0(getppid)
+ {
+ 	int pid;
+ 
++	mutex_lock(&foo);
++	mutex_unlock(&foo);
++	mutex_unlock(&foo);
++
+ 	rcu_read_lock();
+ 	pid = task_tgid_vnr(current->real_parent);
+ 	rcu_read_unlock();
 
-> > I map their IPs to
-> > something different so I can distinguish them in the local network. But
-> > after the nat the xfrm code sees two tunnels with exactly the same
-> > values. So this can't work.
-> 
-> Can you look at the incoming encrypted packet headers and tell if they
-> are from different remotes? If not, are different remotes coming in via
-> a different network device? If yes, you can install a tc rule to mark
-> them as they come in before decryption 
 
-I planned to avoid looking at the remote gateway ip (to even allow two 
-different remote gateways hiding natted behind the same ip) but that would be 
-a good fallback solution if my other ideas don't work out.
 
-> and that mark should stay with
-> them even after they get decrypted.
+=====================================
+[ BUG: bad unlock balance detected! ]
+-------------------------------------
+init/1 is trying to release lock (foo) at:
+[<ffffffff815bf3b6>] mutex_unlock+0xe/0x10
+but there are no more locks to release!
 
-Didn't know that, very good.
+other info that might help us debug this:
+no locks held by init/1.
 
-I just contacted the strongswan maintainers about reqids and marks. Let's see 
-if this works out...
+stack backtrace:
+Pid: 1, comm: init Not tainted 2.6.35-rc3-tip-01034-g5205803-dirty #399
+Call Trace:
+ [<ffffffff815bf3b6>] ? mutex_unlock+0xe/0x10
+ [<ffffffff8106d718>] print_unlock_inbalance_bug+0xd6/0xe1
+ [<ffffffff815bf3b6>] ? mutex_unlock+0xe/0x10
+ [<ffffffff8106e8c6>] lock_release+0xdb/0x196
+ [<ffffffff815bf32f>] __mutex_unlock_slowpath+0xc1/0x13a
+ [<ffffffff815bf3b6>] mutex_unlock+0xe/0x10
+ [<ffffffff8104f262>] sys_getppid+0x34/0xd8
+ [<ffffffff81002cdb>] system_call_fastpath+0x16/0x1b
 
-Kind regards,
-
-Gerd
-
--- 
-Address (better: trap) for people I really don't want to get mail from:
-jonas@cactusamerica.com
