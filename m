@@ -1,35 +1,43 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: SO_REUSEPORT
-Date: Fri, 25 Jun 2010 10:39:26 -0700
-Message-ID: <AANLkTikKKoS6YPWmIuNAdFIOhXi6d3qIf-Nsci3UaCGN@mail.gmail.com>
-References: <AANLkTimxGK93hnV9-jGZAeeJ_JnrWCTaq-dkDvfUW6St@mail.gmail.com>
-	<06r8f7-jsn.ln1@chipmunk.wormnet.eu>
-	<4C2231B5.10401@athenacr.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] smsc95xx: Add module parameter to override MAC address
+Date: Fri, 25 Jun 2010 11:17:22 -0700 (PDT)
+Message-ID: <20100625.111722.27801210.davem@davemloft.net>
+References: <4C2452ED.8020307@ti.com>
+	<OF60E8D688.255F8F16-ON8025774D.002E17AA-8025774D.002FEC33@smsc.com>
+	<4C24BB34.3010601@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Alexander Clouter <alex@digriz.org.uk>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Brian Bloniarz <bmb@athenacr.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4C2231B5.10401@athenacr.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Steve.Glendinning@smsc.com, horms@verge.net.au,
+	linux-omap@vger.kernel.org, netdev@vger.kernel.org,
+	Ian.Saturley@smsc.com
+To: s-jan@ti.com
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <4C24BB34.3010601@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> Of course this depends on what you are doing, but my opinion is that the
->> functionality has been unneeded so far by people in the kernel, so *I*
->> must be doing something wrong ;)
->
-> Tom Herbert gave a pretty great description of why you
-> might want this functionality in his original patch submission:
->
-> http://kerneltrap.org/mailarchive/linux-netdev/2010/4/19/6274993
->
-> If you follow that thread though, there wasn't consensus about
-> the best architecture & API for it, and nothing has made it
-> yet.
->
-I am planning to get back to this as the patch still needs some work
-and isn't quite robust or optimized yet.  Some restructuring is needed
-in the socket hash lists.  The UDP implementation in the patch will
-work okay, and the TCP works as long as the number of listeners isn't
-changing.
+From: Sebastien Jan <s-jan@ti.com>
+Date: Fri, 25 Jun 2010 16:20:36 +0200
+
+> Hi Steve,
+> 
+> Thanks for your answer.
+> 
+> On 06/25/2010 10:43 AM, Steve.Glendinning@smsc.com wrote:
+> [...]
+>> I can see you have a different use case, but I don't think this specific
+>> driver is the place for this logic.  I'd rather see it added to either
+>> the usbnet framework or (preferably) the netdev framework so *all*
+>> ethernet drivers can do this the same way.  otherwise we could end up
+>> with slight variations of this code in every single driver!
+> 
+> I perfectly understand your concerns. Unfortunately, I will probably not be
+> able to implement these changes into the netdev framework. However, I'd be 
+> happy to make some tests if someone proposes such changes.
+
+I don't think such logic belongs anywhere other than an initrd.
+
+We have mechanisms by which to handle this already, and contrary to
+what many people claim it is not at all so hard to create a custom
+initrd.
