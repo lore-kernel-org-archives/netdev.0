@@ -1,35 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net tree with the net-current
- tree
-Date: Fri, 25 Jun 2010 11:22:39 -0700 (PDT)
-Message-ID: <20100625.112239.98879902.davem@davemloft.net>
-References: <20100623125116.1370bdd4.sfr@canb.auug.org.au>
+From: Matt Domsch <Matt_Domsch@dell.com>
+Subject: LPC track "User visible challenges in Networking" - topics wanted
+Date: Fri, 25 Jun 2010 13:27:44 -0500
+Message-ID: <20100625182744.GC4046@auslistsprd01.us.dell.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, herbert@gondor.apana.org.au,
-	xiaosuo@gmail.com, eric.dumazet@gmail.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20100623125116.1370bdd4.sfr@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ausxippc101.us.dell.com ([143.166.85.207]:57149 "EHLO
+	ausxippc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752974Ab0FYS1q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jun 2010 14:27:46 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 23 Jun 2010 12:51:16 +1000
+Greetings.  I've been asked to organize a track for the Linux Plumbers
+Conference [1], November 3-5, 2010 in Cambridge, MA.  As I'm still
+pursuing my "Deterministic Network Device Naming" problem, that's one
+topic for the track.  Dan Williams of NetworkManager fame has agreed
+to submit a topic.
 
-> Hi all,
-> 
-> Today's linux-next merge of the net tree got a conflict in
-> net/ipv4/ip_output.c between commit
-> 26cde9f7e2747b6d254b704594eed87ab959afa5 ("udp: Fix bogus UFO packet
-> generation") from the net-current tree and commit
-> d8d1f30b95a635dbd610dcc5eb641aca8f4768cf ("net-next: remove useless union
-> keyword") from the net tree.
-> 
-> Just context changes. I fixed it up (see below) and can carry the fix as
-> necessary.
+I'm actively soliciting more ideas for presentation and conversation
+to fill a ~2.5 hour mini-conference.
 
-I recently merged net-2.6 into net-next-2.6, let me know if the problem
-persists.
+If you have a challenge that you think would benefit from discussion
+at the Plumbers Conference, please add your idea to the wiki [2], and
+drop me a note.
+
+Thanks,
+Matt
+
+
+[1] http://www.linuxplumbersconf.org/2010/
+[2] http://wiki.linuxplumbersconf.org/2010:topics
+
+-- 
+Matt Domsch
+Technology Strategist
+Dell | Office of the CTO
