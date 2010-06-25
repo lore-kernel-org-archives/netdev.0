@@ -1,57 +1,42 @@
-From: KOVACS Krisztian <hidden@sch.bme.hu>
-Subject: Re: [PATCH net-next-2.6] netfilter: allow nf_tproxy_core module to be
- removed
-Date: Fri, 25 Jun 2010 09:56:57 +0200
-Message-ID: <4C246149.3090603@sch.bme.hu>
-References: <20100623183503.GE2687@psychotron.bos.redhat.com>
- <20100623184611.GG27132@Chamillionaire.breakpoint.cc>
- <20100623.115558.189705237.davem@davemloft.net> <4C2379D9.2080608@trash.net>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [v4 Patch 1/2] s2io: add dynamic LRO disable support
+Date: Fri, 25 Jun 2010 17:01:36 +0800
+Message-ID: <4C247070.9030003@redhat.com>
+References: <20100622085415.5566.22523.sendpatchset@localhost.localdomain> <20100625043343.GB2739@exar.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: David Miller <davem@davemloft.net>, fw@strlen.de,
-	jpirko@redhat.com, netdev@vger.kernel.org,
-	Balazs Scheidler <bazsi@balabit.hu>
-To: Patrick McHardy <kaber@trash.net>
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sgruszka@redhat.com" <sgruszka@redhat.com>,
+	"herbert.xu@redhat.com" <herbert.xu@redhat.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Jon Mason <jon.mason@exar.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from balu.sch.bme.hu ([152.66.208.40]:47576 "EHLO balu.sch.bme.hu"
+Received: from mx1.redhat.com ([209.132.183.28]:1051 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751558Ab0FYI5G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jun 2010 04:57:06 -0400
-Received: from [IPv6:::1] ([152.66.208.86])
- by balu.sch.bme.hu (Sun Java System Messaging Server 6.2-7.05 (built Sep  5
- 2006)) with ESMTPSA id <0L4K00EKF8QXQDC0@balu.sch.bme.hu> for
- netdev@vger.kernel.org; Fri, 25 Jun 2010 09:57:01 +0200 (CEST)
-In-reply-to: <4C2379D9.2080608@trash.net>
+	id S1752113Ab0FYI5e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jun 2010 04:57:34 -0400
+In-Reply-To: <20100625043343.GB2739@exar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-On 06/24/2010 05:29 PM, Patrick McHardy wrote:
-> David Miller wrote:
->> From: Florian Westphal <fw@strlen.de>
->> Date: Wed, 23 Jun 2010 20:46:11 +0200
+On 06/25/10 12:33, Jon Mason wrote:
+> On Tue, Jun 22, 2010 at 01:50:07AM -0700, Amerigo Wang wrote:
 >>
->>> tproxy assigns skb->destructor, what prevents module unload while
->>> such skbs may
->>> still be around?
+>> This patch adds dynamic LRO diable support for s2io net driver.
 >>
->> The only reference to nf_tproxy_core.ko is for the symbol,
->> "nf_tproxy_assign_sock".
->> xt_TPROXY.c, which references this symbol, thus creates a symbol
->> dependency on this
->> module, so xt_TPROXY.o needs to unload before nf_tproxy_core.ko can
->> unload, and
->> xt_TPROXY.o has it's own manner for handling module references properly.
+>> (I don't have s2io card, so only did compiling test. Anyone who wants
+>> to test this is more than welcome.)
 >
-> I don't see anything waiting for skbs in flight using the tproxy
-> destructor in either xt_TPROXY or nf_tproxy_core though, so I think
-> Florian is correct.
+> Unfortunately the patch did not quite work, mostly due to NETIF_F_LRO
+> needing to be added at probe time to the device features.  I was able
+> to modify the patch to get it working, and will respond seperately
+> with the working patch.
+>
 
-Yes, I think Florian and Patrick's right. Right now there's nothing 
-preventing xt_TPROXY and nf_tproxy_core from being removed while there 
-are skbs in flight with the tproxy destructor set.
+Thanks very much, Jon!
 
--- 
-KOVACS Krisztian
+I am very pleased to see this patch gets tested. :)
