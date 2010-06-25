@@ -1,66 +1,111 @@
 From: Casey Leedom <leedom@chelsio.com>
-Subject: [PATCH 0/9] New cxgb4vf network driver for Chelsio T4 Virtual Function NIC
-Date: Fri, 25 Jun 2010 15:07:48 -0700
-Message-ID: <201006251507.48604.leedom@chelsio.com>
+Subject: [PATCH 1/9] cxgb4vf: small changes to message processing structures/macros
+Date: Fri, 25 Jun 2010 15:09:38 -0700
+Message-ID: <201006251509.38893.leedom@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:2832 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:27106 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751253Ab0FYWHt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jun 2010 18:07:49 -0400
+	with ESMTP id S1752166Ab0FYWJj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jun 2010 18:09:39 -0400
 Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
-	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o5PM7n9N019360
-	for <netdev@vger.kernel.org>; Fri, 25 Jun 2010 15:07:49 -0700
+	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o5PM9eaG019373
+	for <netdev@vger.kernel.org>; Fri, 25 Jun 2010 15:09:40 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series introduces a new network driver for the Chelsio T4 PCI-E
-SR-IOV Virtual Function NIC.  The patches are against net-next as of commit
-39c9cf07077146b14ab077a0e27c869c6f0e6199.
+Split cpl_tx_pkt_lso into core message structure and encapsulated message,
+make RSPD_LEN macro match other response descriptor macros.
 
-This driver "depends" on the cxgb4 NIC driver only in-so-far as the cxgb4
-driver needs to "provision" chip resources for each of the Virtual Functions
-and the cxgb4 driver must enable the PCI-E SR-IOV functionality.  After that
-the new "cxgb4vf" driver operates completely independently.  (It will often
-be the case that the cxgb4vf driver will be operating withing a Virtual
-Machine via "PCI Pass Through."
+Signed-off-by: Casey Leedom
+---
+ drivers/net/cxgb4/sge.c    |    4 ++--
+ drivers/net/cxgb4/t4_hw.h  |    4 +++-
+ drivers/net/cxgb4/t4_msg.h |   14 ++++++++++++--
+ 3 files changed, 17 insertions(+), 5 deletions(-)
 
-This is my first submission to Linux so I apologize in advance for any
-mistakes.  I looked at many submissions to see how to do this but I
-anticipate that I've almost certainly missed something critical.  Please
-correct me on anything I've done wrong and I will happily fix them.  Thanks
-in advance for you patience and understanding.
-
-There is one part of this submission where I needed to make a big guess
-regarding driver policies and procedures so I'll draw your attention to
-that.  There are several header files which both the cxgb4 and cxgb4vf
-drivers need to operate (T4 hardware register definitions, message
-structures, etc.)  This patch series leaves those files in place within the
-cxgb4 driver directory (with a few tiny modifications to add new
-definitions) and the cxgb4vf driver includes them via "../cxgb4/xxx.h" I
-found a couple of similar usages but I couldn't determine what the official
-policy was.
-
-Again, thank you for your time and consideration.
-
-Casey Leedom
-
- drivers/net/Kconfig                |   23 +
- drivers/net/Makefile               |    1 +
- drivers/net/cxgb4/cxgb4_main.c     |  106 ++
- drivers/net/cxgb4/t4_hw.c          |    2 +-
- drivers/net/cxgb4/t4_hw.h          |   39 +
- drivers/net/cxgb4/t4_regs.h        |    3 +
- drivers/net/cxgb4/t4fw_api.h       |   27 +-
- drivers/net/cxgb4vf/Makefile       |    7 +
- drivers/net/cxgb4vf/adapter.h      |  540 +++++++
- drivers/net/cxgb4vf/cxgb4vf_main.c | 2906 ++++++++++++++++++++++++++++++++++++
- drivers/net/cxgb4vf/sge.c          | 2460 ++++++++++++++++++++++++++++++
- drivers/net/cxgb4vf/t4vf_common.h  |  273 ++++
- drivers/net/cxgb4vf/t4vf_defs.h    |  121 ++
- drivers/net/cxgb4vf/t4vf_hw.c      | 1333 +++++++++++++++++
- 14 files changed, 7834 insertions(+), 7 deletions(-)
+diff --git a/drivers/net/cxgb4/sge.c b/drivers/net/cxgb4/sge.c
+index d1f8f22..4388f72 100644
+--- a/drivers/net/cxgb4/sge.c
++++ b/drivers/net/cxgb4/sge.c
+@@ -931,7 +931,7 @@ out_free:	dev_kfree_skb(skb);
+ 
+ 	ssi = skb_shinfo(skb);
+ 	if (ssi->gso_size) {
+-		struct cpl_tx_pkt_lso *lso = (void *)wr;
++		struct cpl_tx_pkt_lso_core *lso = (void *)(wr + 1);
+ 		bool v6 = (ssi->gso_type & SKB_GSO_TCPV6) != 0;
+ 		int l3hdr_len = skb_network_header_len(skb);
+ 		int eth_xtra_len = skb_network_offset(skb) - ETH_HLEN;
+@@ -1718,7 +1718,7 @@ static int process_responses(struct sge_rspq *q, int 
+budget)
+ 					free_rx_bufs(q->adap, &rxq->fl, 1);
+ 					q->offset = 0;
+ 				}
+-				len &= RSPD_LEN;
++				len = RSPD_LEN(len);
+ 			}
+ 			si.tot_len = len;
+ 
+diff --git a/drivers/net/cxgb4/t4_hw.h b/drivers/net/cxgb4/t4_hw.h
+index f886677..98c02be 100644
+--- a/drivers/net/cxgb4/t4_hw.h
++++ b/drivers/net/cxgb4/t4_hw.h
+@@ -88,11 +88,13 @@ struct rsp_ctrl {
+ };
+ 
+ #define RSPD_NEWBUF 0x80000000U
+-#define RSPD_LEN    0x7fffffffU
++#define RSPD_LEN(x) (((x) >> 0) & 0x7fffffffU)
++#define RSPD_QID(x) RSPD_LEN(x)
+ 
+ #define RSPD_GEN(x)  ((x) >> 7)
+ #define RSPD_TYPE(x) (((x) >> 4) & 3)
+ 
+ #define QINTR_CNT_EN       0x1
+ #define QINTR_TIMER_IDX(x) ((x) << 1)
++#define QINTR_TIMER_IDX_GET(x) (((x) << 1) & 0x7)
+ #endif /* __T4_HW_H */
+diff --git a/drivers/net/cxgb4/t4_msg.h b/drivers/net/cxgb4/t4_msg.h
+index 7a981b8..623932b 100644
+--- a/drivers/net/cxgb4/t4_msg.h
++++ b/drivers/net/cxgb4/t4_msg.h
+@@ -443,8 +443,7 @@ struct cpl_tx_pkt {
+ 
+ #define cpl_tx_pkt_xt cpl_tx_pkt
+ 
+-struct cpl_tx_pkt_lso {
+-	WR_HDR;
++struct cpl_tx_pkt_lso_core {
+ 	__be32 lso_ctrl;
+ #define LSO_TCPHDR_LEN(x) ((x) << 0)
+ #define LSO_IPHDR_LEN(x)  ((x) << 4)
+@@ -460,6 +459,12 @@ struct cpl_tx_pkt_lso {
+ 	/* encapsulated CPL (TX_PKT, TX_PKT_XT or TX_DATA) follows here */
+ };
+ 
++struct cpl_tx_pkt_lso {
++	WR_HDR;
++	struct cpl_tx_pkt_lso_core c;
++	/* encapsulated CPL (TX_PKT, TX_PKT_XT or TX_DATA) follows here */
++};
++
+ struct cpl_iscsi_hdr {
+ 	union opcode_tid ot;
+ 	__be16 pdu_len_ddp;
+@@ -623,6 +628,11 @@ struct cpl_fw6_msg {
+ 	__be64 data[4];
+ };
+ 
++/* cpl_fw6_msg.type values */
++enum {
++	FW6_TYPE_CMD_RPL = 0,
++};
++
+ enum {
+ 	ULP_TX_MEM_READ = 2,
+ 	ULP_TX_MEM_WRITE = 3,
