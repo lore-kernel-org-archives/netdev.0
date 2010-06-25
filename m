@@ -1,34 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] Bluetooth: Bring back var 'i' increment
-Date: Thu, 24 Jun 2010 22:08:51 -0700 (PDT)
-Message-ID: <20100624.220851.68145958.davem@davemloft.net>
-References: <20100619002213.GC14514@vigoh>
-	<1276907040-23229-1-git-send-email-padovan@profusion.mobi>
-	<20100619002807.GD14514@vigoh>
+From: Sebastien Jan <s-jan@ti.com>
+Subject: Re: [PATCH] smsc95xx: Add module parameter to override MAC address
+Date: Fri, 25 Jun 2010 08:55:41 +0200
+Message-ID: <4C2452ED.8020307@ti.com>
+References: <1277367254-9345-1-git-send-email-s-jan@ti.com> <20100625012520.GA12650@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org
-To: gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20100619002807.GD14514@vigoh>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Steve Glendinning <steve.glendinning@smsc.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from comal.ext.ti.com ([198.47.26.152]:56885 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751474Ab0FYG5n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jun 2010 02:57:43 -0400
+In-Reply-To: <20100625012520.GA12650@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
-Date: Fri, 18 Jun 2010 21:28:07 -0300
-
-> * Gustavo F. Padovan <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org> [2010-06-18 21:24:00 -0300]:
+On 06/25/2010 03:25 AM, Simon Horman wrote:
+> On Thu, Jun 24, 2010 at 10:14:14AM +0200, Sebastien Jan wrote:
+>> Define a new module parameter 'macaddr' to override the MAC address
+>> fetched either from eeprom, or randomly generated.
+>>
+>> The expected MAC address shall be in the 01:23:45:67:89:AB format.
 > 
->> commit ff6e2163f28a1094fb5ca5950fe2b43c3cf6bc7a accidentally added a
->> regression on the bnep code. Fixing it.
->> 
->> Signed-off-by: Gustavo F. Padovan <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
- ...
-> Marcel, if you want I can carry the fix on my tree for -next.
+> I'm confused as to why this is desirable when the mac address
+> can already be configured after module insertion via
+> smsc95xx_netdev_ops.eth_mac_addr().
 
-I'll apply this bug fix to net-2.6 so it doesn't just rot like it is
-currently.
-
-Thanks.
+For example for booting over NFS using a pre-defined MAC address, with 
+a minimal setup (no initrd). Or is there another way to force a MAC
+address for this use-case?
