@@ -1,44 +1,50 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Question about xfrm by MARK feature
-Date: Fri, 25 Jun 2010 08:43:15 -0400
-Message-ID: <1277469795.5438.5.camel@bigi>
-References: <201006231803.17261.lists@egidy.de>
-	 <1277381094.3455.92.camel@bigi>  <201006250935.30967.lists@egidy.de>
-Reply-To: hadi@cyberus.ca
+From: =?UTF-8?B?TWljaGFlbCBCw7xzY2g=?= <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: Re: [PATCH net-next] MAINTAINERS: b43 updates
+Date: Fri, 25 Jun 2010 15:22:28 +0200
+Message-ID: <4C24AD94.8030101@bu3sch.de>
+References: <cover.1276988387.git.joe@perches.com>	 <20100624185339.GC2368@tuxdriver.com>	 <1277408432.1654.80.camel@Joe-Laptop.home> <4C23B877.4060209@lwfinger.net>	 <1277423102.1654.107.camel@Joe-Laptop.home> <4C23EFDE.3000702@lwfinger.net> <1277423829.1654.111.camel@Joe-Laptop.home> <4C241770.6030701@lwfinger.net> (sfid-20100625_044106_571980_FFFFFFFFAF5EC8B1)
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: timo.teras@iki.fi, kaber@trash.net, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
-To: "Gerd v. Egidy" <lists@egidy.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:64545 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753206Ab0FYMnV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jun 2010 08:43:21 -0400
-Received: by vws9 with SMTP id 9so3849221vws.19
-        for <netdev@vger.kernel.org>; Fri, 25 Jun 2010 05:43:20 -0700 (PDT)
-In-Reply-To: <201006250935.30967.lists@egidy.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Stefano Brivio <stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	=?UTF-8?B?R8OhYm9yIFN0ZWY=?= =?UTF-8?B?YW5paw==?=
+	<netrolller.3d-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <4C241770.6030701-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> (sfid-20100625_044106_571980_FFFFFFFFAF5EC8B1)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Gerd,
+On 06/25/2010 04:41 AM, Larry Finger wrote:
+> On 06/24/2010 06:57 PM, Joe Perches wrote:
+>> On Thu, 2010-06-24 at 18:53 -0500, Larry Finger wrote:
+>>> I never said that b43 is unmaintained. It is definitely getting much
+>>> more than "odd fixes".
+>>
+>> If Stefano isn't maintaining it, who is?
+>
+> We are working on that.
 
-On Fri, 2010-06-25 at 09:35 +0200, Gerd v. Egidy wrote:
+Well, there are some developers working on the driver and there
+are some developers that do not actively work on the driver but used
+to work on it in the past (that includes me). Neither of them is an
+official maintainer (yet). I used to be a maintainer, but I dropped
+my official MAINTAINERS file entry, because I do not actively work
+on b43 anymore. However, I still read the patches going into the driver
+and comment on them as appropriate.
+So well. I think b43 does not have a maintainer. But it's
+not unmaintained. There are lots of people working on it. I don't think
+an official maintainer is needed. Patches are sent directly to John
+(the wireless maintainer) and the b43 development crew reviews them.
+There's no problem with that.
 
-> I planned to avoid looking at the remote gateway ip (to even allow two 
-> different remote gateways hiding natted behind the same ip) but that would be 
-> a good fallback solution if my other ideas don't work out.
-> 
-
-Doesnt have to be a remote IP...
-If you can somehow even map a remote to some MAC address or incoming
-virtual interface (such as a VLAN) that would do it as well.
-Alternatively, you should probably look at namespaces  - i just find it
-more usable when you have overlapping/conflicting ip addresses. You
-of course will have to run strongswan per namespace if you dont want to
-hack strongswan.
-
-cheers,
-jamal
-
+-- 
+Greetings Michael.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
