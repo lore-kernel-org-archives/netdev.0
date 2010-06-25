@@ -1,100 +1,67 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: [PATCH 2.6.35] bonding: prevent netpoll over bonded interfaces
-Date: Fri, 25 Jun 2010 15:50:44 -0400
-Message-ID: <20100625195044.GQ7497@gospo.rdu.redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH v2 4/5] skb: add tracepoints to freeing skb
+Date: Fri, 25 Jun 2010 22:05:47 +0200
+Message-ID: <1277496347.2481.12.camel@edumazet-laptop>
+References: <4C2312A8.9060903@jp.fujitsu.com>
+	 <4C23FF55.3090604@jp.fujitsu.com> <1277441711.2481.3.camel@edumazet-laptop>
+	 <4C2456DA.8030200@jp.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, amwang@redhat.com, fubar@us.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62389 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932317Ab0FYTur (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jun 2010 15:50:47 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, kaneshige.kenji@jp.fujitsu.com,
+	izumi.taku@jp.fujitsu.com, netdev <netdev@vger.kernel.org>
+To: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4C2456DA.8030200@jp.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Le vendredi 25 juin 2010 =C3=A0 16:12 +0900, Koki Sanagi a =C3=A9crit :
 
-Support for netpoll over bonded interfaces was added here:
+> > You might add a trace point to skb_free_datagram_locked() too, sinc=
+e it
+> > contains an inlined consume_skb()
+> >=20
+>=20
+> I think it is contrary.
 
-	commit f6dc31a85cd46a959bdd987adad14c3b645e03c1
-	Author: WANG Cong <amwang@redhat.com>
-	Date:   Thu May 6 00:48:51 2010 -0700
+I think you are _very_ wrong.
 
-	    bonding: make bonding support netpoll
+> skb_free_datagram_locked() contains consume_skb(), so tracepoint isn'=
+t needed.
+> Because skb_free_datagram_locked() can be traced by trace_consume_skb=
+().
+>=20
+>=20
+>=20
 
-but it is bad enough that we should probably just disable netpoll over
-bonding until some of the locking logic in the bonding driver is changed
-or converted completely to RCU.  Simple actions like changing the active
-slave in active-backup mode will hang the box if a high enough printk
-debugging level is enabled.
+Koki, it would be good if you worked on net-next-2.6, so that my commen=
+t
+applies.
 
-Keeping the old code around will be good for anyone that wants to work
-on it (and for after the RCU conversion), so I propose this small patch
-rather than ripping it all out.
+Also, not sending this kind of patches on netdev is not going to help
+very much.
 
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+Who is supposed to review them on lkml and Ack them ?=20
 
----
- drivers/net/bonding/bond_main.c |   33 ++++++++++++++++++++++-----------
- 1 files changed, 22 insertions(+), 11 deletions(-)
+Nobody.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 5e12462..c3d98dd 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -168,7 +168,7 @@ static int arp_ip_count;
- static int bond_mode	= BOND_MODE_ROUNDROBIN;
- static int xmit_hashtype = BOND_XMIT_POLICY_LAYER2;
- static int lacp_fast;
--
-+static int disable_netpoll = 1;
- 
- const struct bond_parm_tbl bond_lacp_tbl[] = {
- {	"slow",		AD_LACP_SLOW},
-@@ -1742,15 +1742,23 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	bond_set_carrier(bond);
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
--	if (slaves_support_netpoll(bond_dev)) {
--		bond_dev->priv_flags &= ~IFF_DISABLE_NETPOLL;
--		if (bond_dev->npinfo)
--			slave_dev->npinfo = bond_dev->npinfo;
--	} else if (!(bond_dev->priv_flags & IFF_DISABLE_NETPOLL)) {
-+	/*
-+	 * Netpoll and bonding is broken, make sure it is not initialized
-+	 * until it is fixed.
-+	 */
-+	if (disable_netpoll) {
- 		bond_dev->priv_flags |= IFF_DISABLE_NETPOLL;
--		pr_info("New slave device %s does not support netpoll\n",
--			slave_dev->name);
--		pr_info("Disabling netpoll support for %s\n", bond_dev->name);
-+	} else {
-+		if (slaves_support_netpoll(bond_dev)) {
-+			bond_dev->priv_flags &= ~IFF_DISABLE_NETPOLL;
-+			if (bond_dev->npinfo)
-+				slave_dev->npinfo = bond_dev->npinfo;
-+		} else if (!(bond_dev->priv_flags & IFF_DISABLE_NETPOLL)) {
-+			bond_dev->priv_flags |= IFF_DISABLE_NETPOLL;
-+			pr_info("New slave device %s does not support netpoll\n",
-+				slave_dev->name);
-+			pr_info("Disabling netpoll support for %s\n", bond_dev->name);
-+		}
- 	}
- #endif
- 	read_unlock(&bond->lock);
-@@ -1950,8 +1958,11 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	read_lock_bh(&bond->lock);
--	if (slaves_support_netpoll(bond_dev))
--		bond_dev->priv_flags &= ~IFF_DISABLE_NETPOLL;
-+
-+	 /* Make sure netpoll over stays disabled until fixed. */
-+	if (!disable_netpoll)
-+		if (slaves_support_netpoll(bond_dev))
-+				bond_dev->priv_flags &= ~IFF_DISABLE_NETPOLL;
- 	read_unlock_bh(&bond->lock);
- 	if (slave_dev->netdev_ops->ndo_netpoll_cleanup)
- 		slave_dev->netdev_ops->ndo_netpoll_cleanup(slave_dev);
+Please build your future network related patches against net-next-2.6,
+and send them to nedev and David Miller, the official network
+maintainer, as stated in MAINTAINERS file.
+
+NETWORKING [GENERAL]
+M:      "David S. Miller" <davem@davemloft.net>
+L:      netdev@vger.kernel.org
+W:      http://www.linuxfoundation.org/en/Net
+W:      http://patchwork.ozlabs.org/project/netdev/list/
+T:      git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6=
+=2Egit
+T:      git git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-nex=
+t-2.6.git
+S:      Maintained
+=46:      net/
+=46:      include/net/
+=46:      include/linux/in.h
+=46:      include/linux/net.h
+=46:      include/linux/netdevice.h
