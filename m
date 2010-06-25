@@ -1,42 +1,43 @@
-From: akpm@linux-foundation.org
-Subject: [patch 1/1] fix "netpoll: Allow netpoll_setup/cleanup recursion"
-Date: Thu, 24 Jun 2010 20:54:01 -0700
-Message-ID: <201006250353.o5P3rwti014499@imap1.linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 6/8] netpoll: Allow netpoll_setup/cleanup recursion
+Date: Thu, 24 Jun 2010 21:27:13 -0700 (PDT)
+Message-ID: <20100624.212713.242141362.davem@davemloft.net>
+References: <20100624182123.45264dfe.akpm@linux-foundation.org>
+	<20100624.203006.35035648.davem@davemloft.net>
+	<20100624205059.a28756b0.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ANSI_X3.4-1968
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	herbert@gondor.hengli.com.au
-To: davem@davemloft.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.hengli.com.au, mst@redhat.com, frzhang@redhat.com,
+	netdev@vger.kernel.org, amwang@redhat.com, shemminger@vyatta.com,
+	mpm@selenic.com, paulmck@linux.vnet.ibm.com,
+	a.p.zijlstra@chello.nl, mingo@elte.hu
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:56704 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754602Ab0FYDyF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jun 2010 23:54:05 -0400
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49272
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750754Ab0FYE1B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jun 2010 00:27:01 -0400
+In-Reply-To: <20100624205059.a28756b0.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Andrew Morton <akpm@linux-foundation.org>
+Date: Thu, 24 Jun 2010 20:50:59 -0700
 
-Remove rtnl_unlock() which had no corresponding rtnl_lock().
+> What happens if you want to actually *drop* a patch from net-next? 
+> Surely that happens?
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
+I've only respun the tree on two or three occasions and that was
+because I made some significant error myself and screwed up the
+GIT tree somehow.
 
- net/core/netpoll.c |    1 -
- 1 file changed, 1 deletion(-)
+We've fixed much worse bugs than this one weeks after the changes
+causing them went in, life goes on.
 
-diff -puN net/core/netpoll.c~fix-netpoll-allow-netpoll_setup-cleanup-recursion net/core/netpoll.c
---- a/net/core/netpoll.c~fix-netpoll-allow-netpoll_setup-cleanup-recursion
-+++ a/net/core/netpoll.c
-@@ -748,7 +748,6 @@ int __netpoll_setup(struct netpoll *np)
- 
- 	/* last thing to do is link it to the net device structure */
- 	rcu_assign_pointer(ndev->npinfo, npinfo);
--	rtnl_unlock();
- 
- 	return 0;
- 
-_
+And the fact that it took two weeks of it being in -next before
+anyone even reported it says how wide a net this particular bug
+covers :-)  (hint: personally I've still never used netconsole
+even one single time, and it's been around for what, something
+like 6 years?)
+
