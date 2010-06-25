@@ -1,71 +1,81 @@
-From: "Xin, Xiaohui" <xiaohui.xin@intel.com>
-Subject: RE: [RFC PATCH v7 01/19] Add a new structure for skb buffer from
-	external.
-Date: Fri, 25 Jun 2010 10:07:34 +0800
-Message-ID: <F2E9EB7348B8264F86B6AB8151CE2D7916AFE9AE7C@shsmsx502.ccr.corp.intel.com>
-References: <20100608052744.GA21547@gondor.apana.org.au>
- <F2E9EB7348B8264F86B6AB8151CE2D791100848F9F@shsmsx502.ccr.corp.intel.com>
- <20100611052112.GA25649@gondor.apana.org.au>
- <F2E9EB7348B8264F86B6AB8151CE2D791210AA4475@shsmsx502.ccr.corp.intel.com>
- <F2E9EB7348B8264F86B6AB8151CE2D79134F9AA999@shsmsx502.ccr.corp.intel.com>
- <20100617112119.GB1515@gondor.apana.org.au>
- <F2E9EB7348B8264F86B6AB8151CE2D7915089FE4CC@shsmsx502.ccr.corp.intel.com>
- <1A42CE6F5F474C41B63392A5F80372B21F58CD9A@shsmsx501.ccr.corp.intel.com>
- <20100623095254.GA32491@gondor.apana.org.au>
- <1A42CE6F5F474C41B63392A5F80372B21F58CE7F@shsmsx501.ccr.corp.intel.com>
- <20100624100836.GA16220@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"mst@redhat.com" <mst@redhat.com>, "mingo@elte.hu" <mingo@elte.hu>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"jdike@linux.intel.com" <jdike@linux.intel.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-	"Dong, Eddie" <eddie.dong@intel.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH v3] act_mirred: don't clone skb when skb isn't shared
+Date: Fri, 25 Jun 2010 10:25:12 +0800
+Message-ID: <1277432712-2869-1-git-send-email-xiaosuo@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Jamal Hadi Salim <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:15973 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753156Ab0FYCIm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jun 2010 22:08:42 -0400
-In-Reply-To: <20100624100836.GA16220@gondor.apana.org.au>
-Content-Language: en-US
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:48733 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754284Ab0FYC0X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jun 2010 22:26:23 -0400
+Received: by pvg2 with SMTP id 2so635686pvg.19
+        for <netdev@vger.kernel.org>; Thu, 24 Jun 2010 19:26:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Herbert,
-That's why I have sent you the patch for guest virtio-net driver. I reserved 512 bytes in each page, then I can always have the space to copy and avoid the backend memory used up issue.
+don't clone skb when skb isn't shared
 
-Thanks
-Xiaohui
+When the tcf_action is TC_ACT_STOLEN, and the skb isn't shared, we don't need
+to clone a new skb. As the skb will be freed after this function returns, we
+can use it freely once we get a reference to it.
 
->-----Original Message-----
->From: Herbert Xu [mailto:herbert@gondor.apana.org.au]
->Sent: Thursday, June 24, 2010 6:09 PM
->To: Dong, Eddie
->Cc: Xin, Xiaohui; Stephen Hemminger; netdev@vger.kernel.org; kvm@vger.kernel.org;
->linux-kernel@vger.kernel.org; mst@redhat.com; mingo@elte.hu; davem@davemloft.net;
->jdike@linux.intel.com
->Subject: Re: [RFC PATCH v7 01/19] Add a new structure for skb buffer from external.
->
->On Wed, Jun 23, 2010 at 06:05:41PM +0800, Dong, Eddie wrote:
->>
->> I mean once the frontend side driver post the buffers to the backend driver, the backend
->driver will "immediately" use that buffers to compose skb or gro_frags and post them to the
->assigned host NIC driver as receive buffers. In that case, if the backend driver recieves a
->packet from the NIC that requires to do copy, it may be unable to find additional free guest
->buffer because all of them are already used by the NIC driver. We have to reserve some guest
->buffers for the possible copy even if the buffer address is not identified by original skb :(
->
->OK I see what you mean.  Can you tell me how does Xiaohui's
->previous patch-set deal with this problem?
->
->Thanks,
->--
->Visit Openswan at http://www.openswan.org/
->Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
->Home Page: http://gondor.apana.org.au/~herbert/
->PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+ include/net/sch_generic.h |   11 +++++++++--
+ net/sched/act_mirred.c    |    6 +++---
+ 2 files changed, 12 insertions(+), 5 deletions(-)
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index b35301b..977ec06 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -594,9 +594,16 @@ static inline u32 qdisc_l2t(struct qdisc_rate_table* rtab, unsigned int pktlen)
+ }
+ 
+ #ifdef CONFIG_NET_CLS_ACT
+-static inline struct sk_buff *skb_act_clone(struct sk_buff *skb, gfp_t gfp_mask)
++static inline struct sk_buff *skb_act_clone(struct sk_buff *skb, gfp_t gfp_mask,
++					    int action)
+ {
+-	struct sk_buff *n = skb_clone(skb, gfp_mask);
++	struct sk_buff *n;
++
++	if ((action == TC_ACT_STOLEN || action == TC_ACT_QUEUED) &&
++	    !skb_shared(skb))
++		n = skb_get(skb);
++	else
++		n = skb_clone(skb, gfp_mask);
+ 
+ 	if (n) {
+ 		n->tc_verd = SET_TC_VERD(n->tc_verd, 0);
+diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
+index c0b6863..2e9a7b9 100644
+--- a/net/sched/act_mirred.c
++++ b/net/sched/act_mirred.c
+@@ -169,13 +169,13 @@ static int tcf_mirred(struct sk_buff *skb, struct tc_action *a,
+ 		goto out;
+ 	}
+ 
+-	skb2 = skb_act_clone(skb, GFP_ATOMIC);
++	at = G_TC_AT(skb->tc_verd);
++	skb2 = skb_act_clone(skb, GFP_ATOMIC, m->tcf_action);
+ 	if (skb2 == NULL)
+ 		goto out;
+ 
+ 	m->tcf_bstats.bytes += qdisc_pkt_len(skb2);
+ 	m->tcf_bstats.packets++;
+-	at = G_TC_AT(skb->tc_verd);
+ 	if (!(at & AT_EGRESS)) {
+ 		if (m->tcfm_ok_push)
+ 			skb_push(skb2, skb2->dev->hard_header_len);
+@@ -185,8 +185,8 @@ static int tcf_mirred(struct sk_buff *skb, struct tc_action *a,
+ 	if (m->tcfm_eaction != TCA_EGRESS_MIRROR)
+ 		skb2->tc_verd = SET_TC_FROM(skb2->tc_verd, at);
+ 
+-	skb2->dev = dev;
+ 	skb2->skb_iif = skb->dev->ifindex;
++	skb2->dev = dev;
+ 	dev_queue_xmit(skb2);
+ 	err = 0;
+ 
