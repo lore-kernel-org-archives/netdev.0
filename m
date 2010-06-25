@@ -1,32 +1,72 @@
-From: Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>
-Subject: RE: [PATCH] vxge: fix memory leak in vxge_alloc_msix() error path
- {nodisc}
-Date: Fri, 25 Jun 2010 00:21:48 -0700
-Message-ID: <FCA91A92EE52B041906A0358FC28FCC38EF1837D08@FRE1EXCH02.hq.exar.com>
-References: <20100624161344.0847a7ca@leela>
+From: "Gerd v. Egidy" <lists@egidy.de>
+Subject: Re: Question about xfrm by MARK feature
+Date: Fri, 25 Jun 2010 09:35:30 +0200
+Message-ID: <201006250935.30967.lists@egidy.de>
+References: <201006231803.17261.lists@egidy.de> <1277381094.3455.92.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Michal Schmidt <mschmidt@redhat.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: timo.teras@iki.fi, kaber@trash.net, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.exar.com ([204.154.183.83]:33347 "EHLO smtp1.exar.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751679Ab0FYHVu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jun 2010 03:21:50 -0400
-In-Reply-To: <20100624161344.0847a7ca@leela>
-Content-Language: en-US
+Received: from rs02.intra2net.com ([81.169.173.116]:57944 "EHLO
+	rs02.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751734Ab0FYHfe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jun 2010 03:35:34 -0400
+In-Reply-To: <1277381094.3455.92.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> When pci_enable_msix() returned ret<0, entries and vxge_entries were
-> leaked.
-> While at it, use the centralized exit idiom in the function.
-> 
-> Not tested. It compiles OK.
-> 
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+Hi Jamal,
 
-Reviewed and tested the patch. Thanks!
+thanks for your detailed answer.
 
-Acked-by: Ram Vepa <ram.vepa@exar.com>
+> > For example I have 2 different remote networks with the same ip network
+> > each and both of them have a tunnel to the same local network.
+> 
+> It seems "Same IP network" means that two remote locations will have
+> exactly same IP address?
+
+yes
+
+> This is hard of course - but nat may do it..
+> There's also the nat zones feature that Patrick introduced a while back
+> that may help you
+
+I'm using Patricks conntrack zones. And Patrick helped me with a input chain 
+in the nat table. The other cases with e.g. a ip clash between local and 
+remote net already work.
+
+So only the case with two remotes and same ips is missing.
+
+> > I map their IPs to
+> > something different so I can distinguish them in the local network. But
+> > after the nat the xfrm code sees two tunnels with exactly the same
+> > values. So this can't work.
+> 
+> Can you look at the incoming encrypted packet headers and tell if they
+> are from different remotes? If not, are different remotes coming in via
+> a different network device? If yes, you can install a tc rule to mark
+> them as they come in before decryption 
+
+I planned to avoid looking at the remote gateway ip (to even allow two 
+different remote gateways hiding natted behind the same ip) but that would be 
+a good fallback solution if my other ideas don't work out.
+
+> and that mark should stay with
+> them even after they get decrypted.
+
+Didn't know that, very good.
+
+I just contacted the strongswan maintainers about reqids and marks. Let's see 
+if this works out...
+
+Kind regards,
+
+Gerd
+
+-- 
+Address (better: trap) for people I really don't want to get mail from:
+jonas@cactusamerica.com
