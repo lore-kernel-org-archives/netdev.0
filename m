@@ -1,39 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 6/8] netpoll: Allow netpoll_setup/cleanup recursion
-Date: Thu, 24 Jun 2010 21:52:06 -0700 (PDT)
-Message-ID: <20100624.215206.258121498.davem@davemloft.net>
-References: <20100624205059.a28756b0.akpm@linux-foundation.org>
-	<20100624.212713.242141362.davem@davemloft.net>
-	<20100624214204.a85c8ba2.akpm@linux-foundation.org>
+Subject: Re: tcp: sending reset to the already closed socket
+Date: Thu, 24 Jun 2010 21:56:33 -0700 (PDT)
+Message-ID: <20100624.215633.233693894.davem@davemloft.net>
+References: <4C1A2502.1030502@openvz.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.hengli.com.au, mst@redhat.com, frzhang@redhat.com,
-	netdev@vger.kernel.org, amwang@redhat.com, shemminger@vyatta.com,
-	mpm@selenic.com, paulmck@linux.vnet.ibm.com,
-	a.p.zijlstra@chello.nl, mingo@elte.hu
-To: akpm@linux-foundation.org
+Cc: netdev@vger.kernel.org
+To: khorenko@openvz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33871
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43291
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751307Ab0FYEvy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jun 2010 00:51:54 -0400
-In-Reply-To: <20100624214204.a85c8ba2.akpm@linux-foundation.org>
+	by vger.kernel.org with ESMTP id S1750877Ab0FYE4X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jun 2010 00:56:23 -0400
+In-Reply-To: <4C1A2502.1030502@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Thu, 24 Jun 2010 21:42:04 -0700
 
-> I'd imagine that netconsole would get in the way rather a lot for net
-> developers, but it's really useful!
+Your email was a better commit message (lots of useful traces and
+information and analysis, that will be useful to someone in the future
+looking at this commit) than your patch's actual commit message which
+was terse and non-descriptive.  :-)
 
-I have a fully logging stable serial or hypervisor console on every
-one of my boxes, why would I even bother?
+So I combined the two :-)
 
-> That being said, I wonder why Herbert didn't hit this in his testing. 
-> I suspect that he'd enabled lockdep, which hid the bug.  I haven't
-> worked out _why_ lockdep hides the double-mutex_unlock bug, but it's a
-> pretty bad thing to do.
+I've applied this to net-next-2.6, if this problem causes serious
+documentable grief for a significant number of real users we can
+toss it into net-2.6 or -stable later.
 
-Yes, definitely something to look into.
+Thanks!
