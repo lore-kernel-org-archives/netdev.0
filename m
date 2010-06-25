@@ -1,35 +1,32 @@
-From: Sebastien Jan <s-jan@ti.com>
-Subject: Re: [PATCH] smsc95xx: Add module parameter to override MAC address
-Date: Fri, 25 Jun 2010 08:55:41 +0200
-Message-ID: <4C2452ED.8020307@ti.com>
-References: <1277367254-9345-1-git-send-email-s-jan@ti.com> <20100625012520.GA12650@verge.net.au>
+From: Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>
+Subject: RE: [PATCH] vxge: fix memory leak in vxge_alloc_msix() error path
+ {nodisc}
+Date: Fri, 25 Jun 2010 00:21:48 -0700
+Message-ID: <FCA91A92EE52B041906A0358FC28FCC38EF1837D08@FRE1EXCH02.hq.exar.com>
+References: <20100624161344.0847a7ca@leela>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Steve Glendinning <steve.glendinning@smsc.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Michal Schmidt <mschmidt@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:56885 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751474Ab0FYG5n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jun 2010 02:57:43 -0400
-In-Reply-To: <20100625012520.GA12650@verge.net.au>
+Received: from webmail.exar.com ([204.154.183.83]:33347 "EHLO smtp1.exar.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751679Ab0FYHVu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jun 2010 03:21:50 -0400
+In-Reply-To: <20100624161344.0847a7ca@leela>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/25/2010 03:25 AM, Simon Horman wrote:
-> On Thu, Jun 24, 2010 at 10:14:14AM +0200, Sebastien Jan wrote:
->> Define a new module parameter 'macaddr' to override the MAC address
->> fetched either from eeprom, or randomly generated.
->>
->> The expected MAC address shall be in the 01:23:45:67:89:AB format.
+> When pci_enable_msix() returned ret<0, entries and vxge_entries were
+> leaked.
+> While at it, use the centralized exit idiom in the function.
 > 
-> I'm confused as to why this is desirable when the mac address
-> can already be configured after module insertion via
-> smsc95xx_netdev_ops.eth_mac_addr().
+> Not tested. It compiles OK.
+> 
+> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
 
-For example for booting over NFS using a pre-defined MAC address, with 
-a minimal setup (no initrd). Or is there another way to force a MAC
-address for this use-case?
+Reviewed and tested the patch. Thanks!
+
+Acked-by: Ram Vepa <ram.vepa@exar.com>
