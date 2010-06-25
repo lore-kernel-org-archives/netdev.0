@@ -1,40 +1,49 @@
-From: Matt Domsch <Matt_Domsch@dell.com>
-Subject: LPC track "User visible challenges in Networking" - topics wanted
-Date: Fri, 25 Jun 2010 13:27:44 -0500
-Message-ID: <20100625182744.GC4046@auslistsprd01.us.dell.com>
+From: Michal Humpula <michal.humpula@hudrydum.cz>
+Subject: nonlocal_bind & IPv6
+Date: Fri, 25 Jun 2010 20:43:45 +0200
+Message-ID: <201006252043.45581.michal.humpula@hudrydum.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausxippc101.us.dell.com ([143.166.85.207]:57149 "EHLO
-	ausxippc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752974Ab0FYS1q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jun 2010 14:27:46 -0400
-Content-Disposition: inline
+Received: from hudrydum.cz ([88.208.90.178]:55582 "EHLO hudrydum.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756723Ab0FYSwN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jun 2010 14:52:13 -0400
+Received: from mekka.localnet (mekka.hudrydum.local [192.168.1.1])
+	by hudrydum.cz (Postfix) with ESMTPSA id B6E36368F4
+	for <netdev@vger.kernel.org>; Fri, 25 Jun 2010 20:43:46 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greetings.  I've been asked to organize a track for the Linux Plumbers
-Conference [1], November 3-5, 2010 in Cambridge, MA.  As I'm still
-pursuing my "Deterministic Network Device Naming" problem, that's one
-topic for the track.  Dan Williams of NetworkManager fame has agreed
-to submit a topic.
+Hi, 
 
-I'm actively soliciting more ideas for presentation and conversation
-to fill a ~2.5 hour mini-conference.
+I was just wondering, what's wrong with this?
 
-If you have a challenge that you think would benefit from discussion
-at the Plumbers Conference, please add your idea to the wiki [2], and
-drop me a note.
+*** linux-2.6.34/net/ipv6/af_inet6.c    2010-05-16 23:17:36.000000000 +0200
+--- linux-2.6.34-hack/net/ipv6/af_inet6.c       2010-06-25 19:50:19.000000000 +0200
+***************
+*** 345,354 ****
+--- 345,356 ----
+                        if (!(addr_type & IPV6_ADDR_MULTICAST)) {
+                                if (!ipv6_chk_addr(net, &addr->sin6_addr,
+                                                   dev, 0)) {
++           if (!sysctl_ip_nonlocal_bind) {
+                                        err = -EADDRNOTAVAIL;
+                                        goto out_unlock;
+            }
+                                }
++                       }
+                        rcu_read_unlock();
+                }
+        }
 
-Thanks,
-Matt
+Motivation: just want to balance one IPv6 address between two nodes with the help of 
+keepalived the same way I do it with IPv4 without the need of restarting the daemons 
+binding on that IP.
 
+Regards
 
-[1] http://www.linuxplumbersconf.org/2010/
-[2] http://wiki.linuxplumbersconf.org/2010:topics
-
--- 
-Matt Domsch
-Technology Strategist
-Dell | Office of the CTO
+Michal Humpula
