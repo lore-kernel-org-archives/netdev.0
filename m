@@ -1,77 +1,57 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [v4 Patch 1/2] s2io: add dynamic LRO disable support
-Date: Fri, 25 Jun 2010 16:59:58 +0800
-Message-ID: <4C24700E.5010301@redhat.com>
-References: <20100622085415.5566.22523.sendpatchset@localhost.localdomain> <1277207080.2091.2.camel@achroite.uk.solarflarecom.com>
+From: KOVACS Krisztian <hidden@sch.bme.hu>
+Subject: Re: [PATCH net-next-2.6] netfilter: allow nf_tproxy_core module to be
+ removed
+Date: Fri, 25 Jun 2010 09:56:57 +0200
+Message-ID: <4C246149.3090603@sch.bme.hu>
+References: <20100623183503.GE2687@psychotron.bos.redhat.com>
+ <20100623184611.GG27132@Chamillionaire.breakpoint.cc>
+ <20100623.115558.189705237.davem@davemloft.net> <4C2379D9.2080608@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sgruszka@redhat.com,
-	herbert.xu@redhat.com, Ramkrishna.Vepa@exar.com,
-	davem@davemloft.net
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>, fw@strlen.de,
+	jpirko@redhat.com, netdev@vger.kernel.org,
+	Balazs Scheidler <bazsi@balabit.hu>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54966 "EHLO mx1.redhat.com"
+Received: from balu.sch.bme.hu ([152.66.208.40]:47576 "EHLO balu.sch.bme.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752006Ab0FYIz4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jun 2010 04:55:56 -0400
-In-Reply-To: <1277207080.2091.2.camel@achroite.uk.solarflarecom.com>
+	id S1751558Ab0FYI5G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jun 2010 04:57:06 -0400
+Received: from [IPv6:::1] ([152.66.208.86])
+ by balu.sch.bme.hu (Sun Java System Messaging Server 6.2-7.05 (built Sep  5
+ 2006)) with ESMTPSA id <0L4K00EKF8QXQDC0@balu.sch.bme.hu> for
+ netdev@vger.kernel.org; Fri, 25 Jun 2010 09:57:01 +0200 (CEST)
+In-reply-to: <4C2379D9.2080608@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/22/10 19:44, Ben Hutchings wrote:
-> On Tue, 2010-06-22 at 04:50 -0400, Amerigo Wang wrote:
->> This patch adds dynamic LRO diable support for s2io net driver.
+Hi,
+
+On 06/24/2010 05:29 PM, Patrick McHardy wrote:
+> David Miller wrote:
+>> From: Florian Westphal <fw@strlen.de>
+>> Date: Wed, 23 Jun 2010 20:46:11 +0200
 >>
->> (I don't have s2io card, so only did compiling test. Anyone who wants
->> to test this is more than welcome.)
+>>> tproxy assigns skb->destructor, what prevents module unload while
+>>> such skbs may
+>>> still be around?
 >>
->> This is based on Neil's initial work, and heavily modified
->> based on Ramkrishna's suggestions.
-> [...]
->> +static int s2io_ethtool_set_flags(struct net_device *dev, u32 data)
->> +{
->> +	struct s2io_nic *sp = netdev_priv(dev);
->> +	int rc = 0;
->> +	int changed = 0;
->> +
->> +	if (data&  ~ETH_FLAG_LRO)
->> +		return -EOPNOTSUPP;
->> +
->> +	if (data&  ETH_FLAG_LRO) {
->> +		if (lro_enable) {
->> +			if (!(dev->features&  NETIF_F_LRO)) {
->> +				dev->features |= NETIF_F_LRO;
->> +				changed = 1;
->> +			}
->> +		} else
->> +			rc = -EOPNOTSUPP;
+>> The only reference to nf_tproxy_core.ko is for the symbol,
+>> "nf_tproxy_assign_sock".
+>> xt_TPROXY.c, which references this symbol, thus creates a symbol
+>> dependency on this
+>> module, so xt_TPROXY.o needs to unload before nf_tproxy_core.ko can
+>> unload, and
+>> xt_TPROXY.o has it's own manner for handling module references properly.
 >
-> Should lro_enable=0 really prevent enabling it later?  This seems
-> unusual.
->
+> I don't see anything waiting for skbs in flight using the tproxy
+> destructor in either xt_TPROXY or nf_tproxy_core though, so I think
+> Florian is correct.
 
-I agree with Stanislaw on this point.
+Yes, I think Florian and Patrick's right. Right now there's nothing 
+preventing xt_TPROXY and nf_tproxy_core from being removed while there 
+are skbs in flight with the tproxy destructor set.
 
-
->> +	} else if (dev->features&  NETIF_F_LRO) {
->> +		dev->features&= ~NETIF_F_LRO;
->> +		changed = 1;
->> +	}
->> +
->> +	if (changed&&  netif_running(dev)) {
->> +		s2io_stop_all_tx_queue(sp);
->> +		s2io_card_down(sp);
->> +		sp->lro = dev->features&  NETIF_F_LRO;
-> [...]
->
-> This means s2io_nic::lro and ring_info::lro can have the value
-> NETIF_F_LRO, where previously they would only have the value 0 or 1.  I
-> don't know whether this could be a problem, but the safe thing to do is
-> to coerce the value by writing !!(dev->features&  NETIF_F_LRO).
->
-
-Yeah, agreed.
-It seems that Jon already fixed this when he updated the patch.
-
-Thanks!
+-- 
+KOVACS Krisztian
