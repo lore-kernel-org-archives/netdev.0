@@ -1,156 +1,73 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH v2] fragment: add fast path
-Date: Fri, 25 Jun 2010 10:54:32 +0800
-Message-ID: <1277434472-2845-1-git-send-email-xiaosuo@gmail.com>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	Mitchell Erblich <erblichs@earthlink.net>,
-	Changli Gao <xiaosuo@gmail.com>
-To: David Miller <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: + fix-netpoll-allow-netpoll_setup-cleanup-recursion.patch
+	added to -mm tree
+Date: Fri, 25 Jun 2010 13:00:43 +1000
+Message-ID: <20100625030043.GA26269@gondor.apana.org.au>
+References: <201006250121.o5P1La69008693@imap1.linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: mm-commits@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:50040 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751083Ab0FYCzp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jun 2010 22:55:45 -0400
-Received: by pwj8 with SMTP id 8so2137895pwj.19
-        for <netdev@vger.kernel.org>; Thu, 24 Jun 2010 19:55:45 -0700 (PDT)
+Received: from helcar.apana.org.au ([209.40.204.226]:54412 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754027Ab0FYDAu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jun 2010 23:00:50 -0400
+Content-Disposition: inline
+In-Reply-To: <201006250121.o5P1La69008693@imap1.linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-add fast path
+On Thu, Jun 24, 2010 at 05:52:47PM -0700, akpm@linux-foundation.org wrote:
+> 
+> The patch titled
+>      fix "netpoll: Allow netpoll_setup/cleanup recursion"
+> has been added to the -mm tree.  Its filename is
+>      fix-netpoll-allow-netpoll_setup-cleanup-recursion.patch
+> 
+> Before you just go and hit "reply", please:
+>    a) Consider who else should be cc'ed
+>    b) Prefer to cc a suitable mailing list as well
+>    c) Ideally: find the original patch on the mailing list and do a
+>       reply-to-all to that, adding suitable additional cc's
+> 
+> *** Remember to use Documentation/SubmitChecklist when testing your code ***
+> 
+> See http://userweb.kernel.org/~akpm/stuff/added-to-mm.txt to find
+> out what to do about this
+> 
+> The current -mm tree may be found at http://userweb.kernel.org/~akpm/mmotm/
+> 
+> ------------------------------------------------------
+> Subject: fix "netpoll: Allow netpoll_setup/cleanup recursion"
+> From: Andrew Morton <akpm@linux-foundation.org>
+> 
+> Remove rtnl_unlock() which had no corresponding rtnl_lock().
+> 
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
-As the fragments are sent in order in most of OSes, such as Windows, Darwin and
-FreeBSD, it is likely the new fragments are at the end of the inet_frag_queue.
-In the fast path, we check if the skb at the end of the inet_frag_queue is the
-prev we expect.
+Thanks for catching this Andrew!
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- include/net/inet_frag.h |    1 +
- net/ipv4/ip_fragment.c  |   12 ++++++++++++
- net/ipv6/reassembly.c   |   11 +++++++++++
- 3 files changed, 24 insertions(+)
-diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index 39f2dc9..16ff29a 100644
---- a/include/net/inet_frag.h
-+++ b/include/net/inet_frag.h
-@@ -20,6 +20,7 @@ struct inet_frag_queue {
- 	atomic_t		refcnt;
- 	struct timer_list	timer;      /* when will this queue expire? */
- 	struct sk_buff		*fragments; /* list of received fragments */
-+	struct sk_buff		*fragments_tail;
- 	ktime_t			stamp;
- 	int			len;        /* total length of orig datagram */
- 	int			meat;
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 858d346..dbe8999 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -314,6 +314,7 @@ static int ip_frag_reinit(struct ipq *qp)
- 	qp->q.len = 0;
- 	qp->q.meat = 0;
- 	qp->q.fragments = NULL;
-+	qp->q.fragments_tail = NULL;
- 	qp->iif = 0;
- 
- 	return 0;
-@@ -386,6 +387,11 @@ static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
- 	 * in the chain of fragments so far.  We must know where to put
- 	 * this fragment, right?
- 	 */
-+	prev = qp->q.fragments_tail;
-+	if (!prev || FRAG_CB(prev)->offset < offset) {
-+			next = NULL;
-+			goto found;
-+	}
- 	prev = NULL;
- 	for (next = qp->q.fragments; next != NULL; next = next->next) {
- 		if (FRAG_CB(next)->offset >= offset)
-@@ -393,6 +399,7 @@ static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
- 		prev = next;
- 	}
- 
-+found:
- 	/* We found where to put this one.  Check for overlap with
- 	 * preceding fragment, and, if needed, align things so that
- 	 * any overlaps are eliminated.
-@@ -451,6 +458,8 @@ static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
- 
- 	/* Insert this fragment in the chain of fragments. */
- 	skb->next = next;
-+	if (!next)
-+		qp->q.fragments_tail = skb;
- 	if (prev)
- 		prev->next = skb;
- 	else
-@@ -504,6 +513,8 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
- 			goto out_nomem;
- 
- 		fp->next = head->next;
-+		if (!fp->next)
-+			qp->q.fragments_tail = fp;
- 		prev->next = fp;
- 
- 		skb_morph(head, qp->q.fragments);
-@@ -574,6 +585,7 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
- 	iph->tot_len = htons(len);
- 	IP_INC_STATS_BH(net, IPSTATS_MIB_REASMOKS);
- 	qp->q.fragments = NULL;
-+	qp->q.fragments_tail = NULL;
- 	return 0;
- 
- out_nomem:
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index 0b97230..b832f7b 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -333,6 +333,11 @@ static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
- 	 * in the chain of fragments so far.  We must know where to put
- 	 * this fragment, right?
- 	 */
-+	prev = fq->q.fragments_tail;
-+	if (!prev || FRAG6_CB(prev)->offset < offset) {
-+			next = NULL;
-+			goto found;
-+	}
- 	prev = NULL;
- 	for(next = fq->q.fragments; next != NULL; next = next->next) {
- 		if (FRAG6_CB(next)->offset >= offset)
-@@ -340,6 +345,7 @@ static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
- 		prev = next;
- 	}
- 
-+found:
- 	/* We found where to put this one.  Check for overlap with
- 	 * preceding fragment, and, if needed, align things so that
- 	 * any overlaps are eliminated.
-@@ -397,6 +403,8 @@ static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
- 
- 	/* Insert this fragment in the chain of fragments. */
- 	skb->next = next;
-+	if (!next)
-+		fq->q.fragments_tail = skb;
- 	if (prev)
- 		prev->next = skb;
- 	else
-@@ -463,6 +471,8 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *prev,
- 			goto out_oom;
- 
- 		fp->next = head->next;
-+		if (!fp->next)
-+			fq->q.fragments_tail = fp;
- 		prev->next = fp;
- 
- 		skb_morph(head, fq->q.fragments);
-@@ -549,6 +559,7 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *prev,
- 	IP6_INC_STATS_BH(net, __in6_dev_get(dev), IPSTATS_MIB_REASMOKS);
- 	rcu_read_unlock();
- 	fq->q.fragments = NULL;
-+	fq->q.fragments_tail = NULL;
- 	return 1;
- 
- out_oversize:
+> ---
+> 
+>  net/core/netpoll.c |    1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff -puN net/core/netpoll.c~fix-netpoll-allow-netpoll_setup-cleanup-recursion net/core/netpoll.c
+> --- a/net/core/netpoll.c~fix-netpoll-allow-netpoll_setup-cleanup-recursion
+> +++ a/net/core/netpoll.c
+> @@ -748,7 +748,6 @@ int __netpoll_setup(struct netpoll *np)
+>  
+>  	/* last thing to do is link it to the net device structure */
+>  	rcu_assign_pointer(ndev->npinfo, npinfo);
+> -	rtnl_unlock();
+>  
+>  	return 0;
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
