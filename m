@@ -1,81 +1,34 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH v3] act_mirred: don't clone skb when skb isn't shared
-Date: Fri, 25 Jun 2010 10:25:12 +0800
-Message-ID: <1277432712-2869-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Jamal Hadi Salim <hadi@cyberus.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:48733 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754284Ab0FYC0X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jun 2010 22:26:23 -0400
-Received: by pvg2 with SMTP id 2so635686pvg.19
-        for <netdev@vger.kernel.org>; Thu, 24 Jun 2010 19:26:22 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH net-next] MAINTAINERS: b43 updates
+Date: Thu, 24 Jun 2010 21:41:52 -0500
+Message-ID: <4C241770.6030701@lwfinger.net>
+References: <cover.1276988387.git.joe@perches.com>	 <20100624185339.GC2368@tuxdriver.com>	 <1277408432.1654.80.camel@Joe-Laptop.home> <4C23B877.4060209@lwfinger.net>	 <1277423102.1654.107.camel@Joe-Laptop.home> <4C23EFDE.3000702@lwfinger.net> <1277423829.1654.111.camel@Joe-Laptop.home>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Stefano Brivio <stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org, zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	=?UTF-8?B?R8OhYm9yIFN0ZWZhbmlr?= <netrolller.3d-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1277423829.1654.111.camel-AkRN8/LKpobuYGix6ZUp1Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-don't clone skb when skb isn't shared
+On 06/24/2010 06:57 PM, Joe Perches wrote:
+> On Thu, 2010-06-24 at 18:53 -0500, Larry Finger wrote:
+>> I never said that b43 is unmaintained. It is definitely getting much
+>> more than "odd fixes".
+> 
+> If Stefano isn't maintaining it, who is?
 
-When the tcf_action is TC_ACT_STOLEN, and the skb isn't shared, we don't need
-to clone a new skb. As the skb will be freed after this function returns, we
-can use it freely once we get a reference to it.
+We are working on that.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- include/net/sch_generic.h |   11 +++++++++--
- net/sched/act_mirred.c    |    6 +++---
- 2 files changed, 12 insertions(+), 5 deletions(-)
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index b35301b..977ec06 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -594,9 +594,16 @@ static inline u32 qdisc_l2t(struct qdisc_rate_table* rtab, unsigned int pktlen)
- }
- 
- #ifdef CONFIG_NET_CLS_ACT
--static inline struct sk_buff *skb_act_clone(struct sk_buff *skb, gfp_t gfp_mask)
-+static inline struct sk_buff *skb_act_clone(struct sk_buff *skb, gfp_t gfp_mask,
-+					    int action)
- {
--	struct sk_buff *n = skb_clone(skb, gfp_mask);
-+	struct sk_buff *n;
-+
-+	if ((action == TC_ACT_STOLEN || action == TC_ACT_QUEUED) &&
-+	    !skb_shared(skb))
-+		n = skb_get(skb);
-+	else
-+		n = skb_clone(skb, gfp_mask);
- 
- 	if (n) {
- 		n->tc_verd = SET_TC_VERD(n->tc_verd, 0);
-diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index c0b6863..2e9a7b9 100644
---- a/net/sched/act_mirred.c
-+++ b/net/sched/act_mirred.c
-@@ -169,13 +169,13 @@ static int tcf_mirred(struct sk_buff *skb, struct tc_action *a,
- 		goto out;
- 	}
- 
--	skb2 = skb_act_clone(skb, GFP_ATOMIC);
-+	at = G_TC_AT(skb->tc_verd);
-+	skb2 = skb_act_clone(skb, GFP_ATOMIC, m->tcf_action);
- 	if (skb2 == NULL)
- 		goto out;
- 
- 	m->tcf_bstats.bytes += qdisc_pkt_len(skb2);
- 	m->tcf_bstats.packets++;
--	at = G_TC_AT(skb->tc_verd);
- 	if (!(at & AT_EGRESS)) {
- 		if (m->tcfm_ok_push)
- 			skb_push(skb2, skb2->dev->hard_header_len);
-@@ -185,8 +185,8 @@ static int tcf_mirred(struct sk_buff *skb, struct tc_action *a,
- 	if (m->tcfm_eaction != TCA_EGRESS_MIRROR)
- 		skb2->tc_verd = SET_TC_FROM(skb2->tc_verd, at);
- 
--	skb2->dev = dev;
- 	skb2->skb_iif = skb->dev->ifindex;
-+	skb2->dev = dev;
- 	dev_queue_xmit(skb2);
- 	err = 0;
- 
+Larry
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
