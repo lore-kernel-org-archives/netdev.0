@@ -1,37 +1,37 @@
 From: Casey Leedom <leedom@chelsio.com>
-Subject: [PATCH 6/9] cxgb4vf: Add T4 Virtual Function Scatter-Gather Engine DMA code
-Date: Fri, 25 Jun 2010 15:13:28 -0700
-Message-ID: <201006251513.28268.leedom@chelsio.com>
+Subject: [PATCH 7/9] cxgb4vf: Add main T4 PCI-E SR-IOV Virtual Function driver for cxgb4vf
+Date: Fri, 25 Jun 2010 15:14:15 -0700
+Message-ID: <201006251514.15692.leedom@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:8386 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:17955 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756714Ab0FYWN3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jun 2010 18:13:29 -0400
+	with ESMTP id S1756563Ab0FYWOQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jun 2010 18:14:16 -0400
 Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
-	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o5PMDT50019419
-	for <netdev@vger.kernel.org>; Fri, 25 Jun 2010 15:13:29 -0700
+	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o5PMEHCq019431
+	for <netdev@vger.kernel.org>; Fri, 25 Jun 2010 15:14:17 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add T4 Virtual Function Scatter-Gather Engine DMA code.
+Add main T4 PCI-E SR-IOV Virtual Function driver for "cxgb4vf".
 
 Signed-off-by: Casey Leedom
 ---
- drivers/net/cxgb4vf/sge.c | 2460 
-+++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 2460 insertions(+), 0 deletions(-)
+ drivers/net/cxgb4vf/adapter.h      |  540 +++++++
+ drivers/net/cxgb4vf/cxgb4vf_main.c | 2906 ++++++++++++++++++++++++++++++++++++
+ 2 files changed, 3446 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/cxgb4vf/sge.c b/drivers/net/cxgb4vf/sge.c
+diff --git a/drivers/net/cxgb4vf/adapter.h b/drivers/net/cxgb4vf/adapter.h
 new file mode 100644
-index 0000000..f857d20
+index 0000000..8ea0196
 --- /dev/null
-+++ b/drivers/net/cxgb4vf/sge.c
-@@ -0,0 +1,2460 @@
++++ b/drivers/net/cxgb4vf/adapter.h
+@@ -0,0 +1,540 @@
 +/*
 + * This file is part of the Chelsio T4 PCI-E SR-IOV Virtual Function Ethernet
 + * driver for Linux.
@@ -67,2428 +67,3421 @@ index 0000000..f857d20
 + * SOFTWARE.
 + */
 +
++/*
++ * This file should not be included directly.  Include t4vf_common.h instead.
++ */
++
++#ifndef __CXGB4VF_ADAPTER_H__
++#define __CXGB4VF_ADAPTER_H__
++
++#include <linux/pci.h>
++#include <linux/spinlock.h>
 +#include <linux/skbuff.h>
++#include <linux/if_ether.h>
++#include <linux/netdevice.h>
++
++#include "../cxgb4/t4_hw.h"
++
++/*
++ * Constants of the implementation.
++ */
++enum {
++	MAX_NPORTS	= 1,		/* max # of "ports" */
++	MAX_PORT_QSETS	= 8,		/* max # of Queue Sets / "port" */
++	MAX_ETH_QSETS	= MAX_NPORTS*MAX_PORT_QSETS,
++
++	/*
++	 * MSI-X interrupt index usage.
++	 */
++	MSIX_FW		= 0,		/* MSI-X index for firmware Q */
++	MSIX_NIQFLINT	= 1,		/* MSI-X index base for Ingress Qs */
++	MSIX_EXTRAS	= 1,
++	MSIX_ENTRIES	= MAX_ETH_QSETS + MSIX_EXTRAS,
++
++	/*
++	 * The maximum number of Ingress and Egress Queues is determined by
++	 * the maximum number of "Queue Sets" which we support plus any
++	 * ancillary queues.  Each "Queue Set" requires one Ingress Queue
++	 * for RX Packet Ingress Event notifications and two Egress Queues for
++	 * a Free List and an Ethernet TX list.
++	 */
++	INGQ_EXTRAS	= 2,		/* firmware event queue and */
++					/*   forwarded interrupts */
++	MAX_INGQ	= MAX_ETH_QSETS+INGQ_EXTRAS,
++	MAX_EGRQ	= MAX_ETH_QSETS*2,
++};
++
++/*
++ * Forward structure definition references.
++ */
++struct adapter;
++struct sge_eth_rxq;
++struct sge_rspq;
++
++/*
++ * Per-"port" information.  This is really per-Virtual Interface information
++ * but the use of the "port" nomanclature makes it easier to go back and forth
++ * between the PF and VF drivers ...
++ */
++struct port_info {
++	struct adapter *adapter;	/* our adapter */
++	struct vlan_group *vlan_grp;	/* out VLAN group */
++	u16 viid;			/* virtual interface ID */
++	s16 xact_addr_filt;		/* index of our MAC address filter */
++	u16 rss_size;			/* size of VI's RSS table slice */
++	u8 pidx;			/* index into adapter port[] */
++	u8 port_id;			/* physical port ID */
++	u8 rx_offload;			/* CSO, etc. */
++	u8 nqsets;			/* # of "Queue Sets" */
++	u8 first_qset;			/* index of first "Queue Set" */
++	struct link_config link_cfg;	/* physical port configuration */
++};
++
++/* port_info.rx_offload flags */
++enum {
++	RX_CSO = 1 << 0,
++};
++
++/*
++ * Scatter Gather Engine resources for the "adapter".  Our ingress and egress
++ * queues are organized into "Queue Sets" with one ingress and one egress
++ * queue per Queue Set.  These Queue Sets are aportionable between the "ports"
++ * (Virtual Interfaces).  One extra ingress queue is used to receive
++ * asynchronous messages from the firmware.  Note that the "Queue IDs" that we
++ * use here are really "Relative Queue IDs" which are returned as part of the
++ * firmware command to allocate queues.  These queue IDs are relative to the
++ * absolute Queue ID base of the section of the Queue ID space allocated to
++ * the PF/VF.
++ */
++
++/*
++ * SGE free-list queue state.
++ */
++struct rx_sw_desc;
++struct sge_fl {
++	unsigned int avail;		/* # of available RX buffers */
++	unsigned int pend_cred;		/* new buffers since last FL DB ring */
++	unsigned int cidx;		/* consumer index */
++	unsigned int pidx;		/* producer index */
++	unsigned long alloc_failed;	/* # of buffer allocation failures */
++	unsigned long large_alloc_failed;
++	unsigned long starving;		/* # of times FL was found starving */
++
++	/*
++	 * Write-once/infrequently fields.
++	 * -------------------------------
++	 */
++
++	unsigned int cntxt_id;		/* SGE relative QID for the free list */
++	unsigned int abs_id;		/* SGE absolute QID for the free list */
++	unsigned int size;		/* capacity of free list */
++	struct rx_sw_desc *sdesc;	/* address of SW RX descriptor ring */
++	__be64 *desc;			/* address of HW RX descriptor ring */
++	dma_addr_t addr;		/* PCI bus address of hardware ring */
++};
++
++/*
++ * An ingress packet gather list.
++ */
++struct pkt_gl {
++	skb_frag_t frags[MAX_SKB_FRAGS];
++	void *va;			/* virtual address of first byte */
++	unsigned int nfrags;		/* # of fragments */
++	unsigned int tot_len;		/* total length of fragments */
++};
++
++typedef int (*rspq_handler_t)(struct sge_rspq *, const __be64 *,
++			      const struct pkt_gl *);
++
++/*
++ * State for an SGE Response Queue.
++ */
++struct sge_rspq {
++	struct napi_struct napi;	/* NAPI scheduling control */
++	const __be64 *cur_desc;		/* current descriptor in queue */
++	unsigned int cidx;		/* consumer index */
++	u8 gen;				/* current generation bit */
++	u8 next_intr_params;		/* holdoff params for next interrupt */
++	int offset;			/* offset into current FL buffer */
++
++	unsigned int unhandled_irqs;	/* bogus interrupts */
++
++	/*
++	 * Write-once/infrequently fields.
++	 * -------------------------------
++	 */
++
++	u8 intr_params;			/* interrupt holdoff parameters */
++	u8 pktcnt_idx;			/* interrupt packet threshold */
++	u8 idx;				/* queue index within its group */
++	u16 cntxt_id;			/* SGE rel QID for the response Q */
++	u16 abs_id;			/* SGE abs QID for the response Q */
++	__be64 *desc;			/* address of hardware response ring */
++	dma_addr_t phys_addr;		/* PCI bus address of ring */
++	unsigned int iqe_len;		/* entry size */
++	unsigned int size;		/* capcity of response Q */
++	struct adapter *adapter;	/* our adapter */
++	struct net_device *netdev;	/* associated net device */
++	rspq_handler_t handler;		/* the handler for this response Q */
++};
++
++/*
++ * Ethernet queue statistics
++ */
++struct sge_eth_stats {
++	unsigned long pkts;		/* # of ethernet packets */
++	unsigned long lro_pkts;		/* # of LRO super packets */
++	unsigned long lro_merged;	/* # of wire packets merged by LRO */
++	unsigned long rx_cso;		/* # of Rx checksum offloads */
++	unsigned long vlan_ex;		/* # of Rx VLAN extractions */
++	unsigned long rx_drops;		/* # of packets dropped due to no mem */
++};
++
++/*
++ * State for an Ethernet Receive Queue.
++ */
++struct sge_eth_rxq {
++	struct sge_rspq rspq;		/* Response Queue */
++	struct sge_fl fl;		/* Free List */
++	struct sge_eth_stats stats;	/* receive statistics */
++};
++
++/*
++ * SGE Transmit Queue state.  This contains all of the resources associated
++ * with the hardware status of a TX Queue which is a circular ring of hardware
++ * TX Descriptors.  For convenience, it also contains a pointer to a parallel
++ * "Software Descriptor" array but we don't know anything about it here other
++ * than its type name.
++ */
++struct tx_desc {
++	/*
++	 * Egress Queues are measured in units of SGE_EQ_IDXSIZE by the
++	 * hardware: Sizes, Producer and Consumer indices, etc.
++	 */
++	__be64 flit[SGE_EQ_IDXSIZE/sizeof(__be64)];
++};
++struct tx_sw_desc;
++struct sge_txq {
++	unsigned int in_use;		/* # of in-use TX descriptors */
++	unsigned int size;		/* # of descriptors */
++	unsigned int cidx;		/* SW consumer index */
++	unsigned int pidx;		/* producer index */
++	unsigned long stops;		/* # of times queue has been stopped */
++	unsigned long restarts;		/* # of queue restarts */
++
++	/*
++	 * Write-once/infrequently fields.
++	 * -------------------------------
++	 */
++
++	unsigned int cntxt_id;		/* SGE relative QID for the TX Q */
++	unsigned int abs_id;		/* SGE absolute QID for the TX Q */
++	struct tx_desc *desc;		/* address of HW TX descriptor ring */
++	struct tx_sw_desc *sdesc;	/* address of SW TX descriptor ring */
++	struct sge_qstat *stat;		/* queue status entry */
++	dma_addr_t phys_addr;		/* PCI bus address of hardware ring */
++};
++
++/*
++ * State for an Ethernet Transmit Queue.
++ */
++struct sge_eth_txq {
++	struct sge_txq q;		/* SGE TX Queue */
++	struct netdev_queue *txq;	/* associated netdev TX queue */
++	unsigned long tso;		/* # of TSO requests */
++	unsigned long tx_cso;		/* # of TX checksum offloads */
++	unsigned long vlan_ins;		/* # of TX VLAN insertions */
++	unsigned long mapping_err;	/* # of I/O MMU packet mapping errors */
++};
++
++/*
++ * The complete set of Scatter/Gather Engine resources.
++ */
++struct sge {
++	/*
++	 * Our "Queue Sets" ...
++	 */
++	struct sge_eth_txq ethtxq[MAX_ETH_QSETS];
++	struct sge_eth_rxq ethrxq[MAX_ETH_QSETS];
++
++	/*
++	 * Extra ingress queues for asynchronous firmware events and
++	 * forwarded interrupts (when in MSI mode).
++	 */
++	struct sge_rspq fw_evtq ____cacheline_aligned_in_smp;
++
++	struct sge_rspq intrq ____cacheline_aligned_in_smp;
++	spinlock_t intrq_lock;
++
++	/*
++	 * State for managing "starving Free Lists" -- Free Lists which have
++	 * fallen below a certain threshold of buffers available to the
++	 * hardware and attempts to refill them up to that threshold have
++	 * failed.  We have a regular "slow tick" timer process which will
++	 * make periodic attempts to refill these starving Free Lists ...
++	 */
++	DECLARE_BITMAP(starving_fl, MAX_EGRQ);
++	struct timer_list rx_timer;
++
++	/*
++	 * State for cleaning up completed TX descriptors.
++	 */
++	struct timer_list tx_timer;
++
++	/*
++	 * Write-once/infrequently fields.
++	 * -------------------------------
++	 */
++
++	u16 max_ethqsets;		/* # of available Ethernet queue sets */
++	u16 ethqsets;			/* # of active Ethernet queue sets */
++	u16 ethtxq_rover;		/* Tx queue to clean up next */
++	u16 timer_val[SGE_NTIMERS];	/* interrupt holdoff timer array */
++	u8 counter_val[SGE_NCOUNTERS];	/* interrupt RX threshold array */
++
++	/*
++	 * Reverse maps from Absolute Queue IDs to associated queue pointers.
++	 * The absolute Queue IDs are in a compact range which start at a
++	 * [potentially large] Base Queue ID.  We perform the reverse map by
++	 * first converting the Absolute Queue ID into a Relative Queue ID by
++	 * subtracting off the Base Queue ID and then use a Relative Queue ID
++	 * indexed table to get the pointer to the corresponding software
++	 * queue structure.
++	 */
++	unsigned int egr_base;
++	unsigned int ingr_base;
++	void *egr_map[MAX_EGRQ];
++	struct sge_rspq *ingr_map[MAX_INGQ];
++};
++
++/*
++ * Utility macros to convert Absolute- to Relative-Queue indices and Egress-
++ * and Ingress-Queues.  The EQ_MAP() and IQ_MAP() macros which provide
++ * pointers to Ingress- and Egress-Queues can be used as both L- and R-values
++ */
++#define EQ_IDX(s, abs_id) ((unsigned int)((abs_id) - (s)->egr_base))
++#define IQ_IDX(s, abs_id) ((unsigned int)((abs_id) - (s)->ingr_base))
++
++#define EQ_MAP(s, abs_id) ((s)->egr_map[EQ_IDX(s, abs_id)])
++#define IQ_MAP(s, abs_id) ((s)->ingr_map[IQ_IDX(s, abs_id)])
++
++/*
++ * Macro to iterate across Queue Sets ("rxq" is a historic misnomer).
++ */
++#define for_each_ethrxq(sge, iter) \
++	for (iter = 0; iter < (sge)->ethqsets; iter++)
++
++/*
++ * Per-"adapter" (Virtual Function) information.
++ */
++struct adapter {
++	/* PCI resources */
++	void __iomem *regs;
++	struct pci_dev *pdev;
++	struct device *pdev_dev;
++
++	/* "adapter" resources */
++	unsigned long registered_device_map;
++	unsigned long open_device_map;
++	unsigned long flags;
++	struct adapter_params params;
++
++	/* queue and interrupt resources */
++	struct {
++		unsigned short vec;
++		char desc[22];
++	} msix_info[MSIX_ENTRIES];
++	struct sge sge;
++
++	/* Linux network device resources */
++	struct net_device *port[MAX_NPORTS];
++	const char *name;
++	unsigned int msg_enable;
++
++	/* debugfs resources */
++	struct dentry *debugfs_root;
++
++	/* various locks */
++	spinlock_t stats_lock;
++};
++
++enum { /* adapter flags */
++	FULL_INIT_DONE     = (1UL << 0),
++	USING_MSI          = (1UL << 1),
++	USING_MSIX         = (1UL << 2),
++	QUEUES_BOUND       = (1UL << 3),
++};
++
++/*
++ * The following register read/write routine definitions are required by
++ * the common code.
++ */
++
++/**
++ * t4_read_reg - read a HW register
++ * @adapter: the adapter
++ * @reg_addr: the register address
++ *
++ * Returns the 32-bit value of the given HW register.
++ */
++static inline u32 t4_read_reg(struct adapter *adapter, u32 reg_addr)
++{
++	return readl(adapter->regs + reg_addr);
++}
++
++/**
++ * t4_write_reg - write a HW register
++ * @adapter: the adapter
++ * @reg_addr: the register address
++ * @val: the value to write
++ *
++ * Write a 32-bit value into the given HW register.
++ */
++static inline void t4_write_reg(struct adapter *adapter, u32 reg_addr, u32 val)
++{
++	writel(val, adapter->regs + reg_addr);
++}
++
++#ifndef readq
++static inline u64 readq(const volatile void __iomem *addr)
++{
++	return readl(addr) + ((u64)readl(addr + 4) << 32);
++}
++
++static inline void writeq(u64 val, volatile void __iomem *addr)
++{
++	writel(val, addr);
++	writel(val >> 32, addr + 4);
++}
++#endif
++
++/**
++ * t4_read_reg64 - read a 64-bit HW register
++ * @adapter: the adapter
++ * @reg_addr: the register address
++ *
++ * Returns the 64-bit value of the given HW register.
++ */
++static inline u64 t4_read_reg64(struct adapter *adapter, u32 reg_addr)
++{
++	return readq(adapter->regs + reg_addr);
++}
++
++/**
++ * t4_write_reg64 - write a 64-bit HW register
++ * @adapter: the adapter
++ * @reg_addr: the register address
++ * @val: the value to write
++ *
++ * Write a 64-bit value into the given HW register.
++ */
++static inline void t4_write_reg64(struct adapter *adapter, u32 reg_addr,
++				  u64 val)
++{
++	writeq(val, adapter->regs + reg_addr);
++}
++
++/**
++ * port_name - return the string name of a port
++ * @adapter: the adapter
++ * @pidx: the port index
++ *
++ * Return the string name of the selected port.
++ */
++static inline const char *port_name(struct adapter *adapter, int pidx)
++{
++	return adapter->port[pidx]->name;
++}
++
++/**
++ * t4_os_set_hw_addr - store a port's MAC address in SW
++ * @adapter: the adapter
++ * @pidx: the port index
++ * @hw_addr: the Ethernet address
++ *
++ * Store the Ethernet address of the given port in SW.  Called by the common
++ * code when it retrieves a port's Ethernet address from EEPROM.
++ */
++static inline void t4_os_set_hw_addr(struct adapter *adapter, int pidx,
++				     u8 hw_addr[])
++{
++	memcpy(adapter->port[pidx]->dev_addr, hw_addr, ETH_ALEN);
++	memcpy(adapter->port[pidx]->perm_addr, hw_addr, ETH_ALEN);
++}
++
++/**
++ * netdev2pinfo - return the port_info structure associated with a net_device
++ * @dev: the netdev
++ *
++ * Return the struct port_info associated with a net_device
++ */
++static inline struct port_info *netdev2pinfo(const struct net_device *dev)
++{
++	return netdev_priv(dev);
++}
++
++/**
++ * adap2pinfo - return the port_info of a port
++ * @adap: the adapter
++ * @pidx: the port index
++ *
++ * Return the port_info structure for the adapter.
++ */
++static inline struct port_info *adap2pinfo(struct adapter *adapter, int pidx)
++{
++	return netdev_priv(adapter->port[pidx]);
++}
++
++/**
++ * netdev2adap - return the adapter structure associated with a net_device
++ * @dev: the netdev
++ *
++ * Return the struct adapter associated with a net_device
++ */
++static inline struct adapter *netdev2adap(const struct net_device *dev)
++{
++	return netdev2pinfo(dev)->adapter;
++}
++
++/*
++ * OS "Callback" function declarations.  These are functions that the OS code
++ * is "contracted" to provide for the common code.
++ */
++void t4vf_os_link_changed(struct adapter *, int, int);
++
++/*
++ * SGE function prototype declarations.
++ */
++int t4vf_sge_alloc_rxq(struct adapter *, struct sge_rspq *, bool,
++		       struct net_device *, int,
++		       struct sge_fl *, rspq_handler_t);
++int t4vf_sge_alloc_eth_txq(struct adapter *, struct sge_eth_txq *,
++			   struct net_device *, struct netdev_queue *,
++			   unsigned int);
++void t4vf_free_sge_resources(struct adapter *);
++
++int t4vf_eth_xmit(struct sk_buff *, struct net_device *);
++int t4vf_ethrx_handler(struct sge_rspq *, const __be64 *,
++		       const struct pkt_gl *);
++
++irq_handler_t t4vf_intr_handler(struct adapter *);
++irqreturn_t t4vf_sge_intr_msix(int, void *);
++
++int t4vf_sge_init(struct adapter *);
++void t4vf_sge_start(struct adapter *);
++void t4vf_sge_stop(struct adapter *);
++
++#endif /* __CXGB4VF_ADAPTER_H__ */
+diff --git a/drivers/net/cxgb4vf/cxgb4vf_main.c 
+b/drivers/net/cxgb4vf/cxgb4vf_main.c
+new file mode 100644
+index 0000000..bd73ff5
+--- /dev/null
++++ b/drivers/net/cxgb4vf/cxgb4vf_main.c
+@@ -0,0 +1,2906 @@
++/*
++ * This file is part of the Chelsio T4 PCI-E SR-IOV Virtual Function Ethernet
++ * driver for Linux.
++ *
++ * Copyright (c) 2009-2010 Chelsio Communications, Inc. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include <linux/version.h>
++#include <linux/module.h>
++#include <linux/moduleparam.h>
++#include <linux/init.h>
++#include <linux/pci.h>
++#include <linux/dma-mapping.h>
 +#include <linux/netdevice.h>
 +#include <linux/etherdevice.h>
-+#include <linux/if_vlan.h>
-+#include <linux/ip.h>
-+#include <net/ipv6.h>
-+#include <net/tcp.h>
-+#include <linux/dma-mapping.h>
++#include <linux/debugfs.h>
++#include <linux/ethtool.h>
 +
 +#include "t4vf_common.h"
 +#include "t4vf_defs.h"
 +
 +#include "../cxgb4/t4_regs.h"
-+#include "../cxgb4/t4fw_api.h"
 +#include "../cxgb4/t4_msg.h"
 +
 +/*
-+ * Decoded Adapter Parameters.
++ * Generic information about the driver.
 + */
-+static u32 FL_PG_ORDER;		/* large page allocation size */
-+static u32 STAT_LEN;		/* length of status page at ring end */
-+static u32 PKTSHIFT;		/* padding between CPL and packet data */
-+static u32 FL_ALIGN;		/* response queue message alignment */
++#define DRV_VERSION "1.0.0"
++#define DRV_DESC "Chelsio T4 Virtual Function (VF) Network Driver"
 +
 +/*
-+ * Constants ...
++ * Module Parameters.
++ * ==================
 + */
++
++/*
++ * Default ethtool "message level" for adapters.
++ */
++#define DFLT_MSG_ENABLE (NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK | \
++			 NETIF_MSG_TIMER | NETIF_MSG_IFDOWN | NETIF_MSG_IFUP |\
++			 NETIF_MSG_RX_ERR | NETIF_MSG_TX_ERR)
++
++static int dflt_msg_enable = DFLT_MSG_ENABLE;
++
++module_param(dflt_msg_enable, int, 0644);
++MODULE_PARM_DESC(dflt_msg_enable,
++		 "default adapter ethtool message level bitmap");
++
++/*
++ * The driver uses the best interrupt scheme available on a platform in the
++ * order MSI-X then MSI.  This parameter determines which of these schemes the
++ * driver may consider as follows:
++ *
++ *     msi = 2: choose from among MSI-X and MSI
++ *     msi = 1: only consider MSI interrupts
++ *
++ * Note that unlike the Physical Function driver, this Virtual Function driver
++ * does _not_ support legacy INTx interrupts (this limitation is mandated by
++ * the PCI-E SR-IOV standard).
++ */
++#define MSI_MSIX	2
++#define MSI_MSI		1
++#define MSI_DEFAULT	MSI_MSIX
++
++static int msi = MSI_DEFAULT;
++
++module_param(msi, int, 0644);
++MODULE_PARM_DESC(msi, "whether to use MSI-X or MSI");
++
++/*
++ * Fundamental constants.
++ * ======================
++ */
++
 +enum {
++	MAX_TXQ_ENTRIES		= 16384,
++	MAX_RSPQ_ENTRIES	= 16384,
++	MAX_RX_BUFFERS		= 16384,
++
++	MIN_TXQ_ENTRIES		= 32,
++	MIN_RSPQ_ENTRIES	= 128,
++	MIN_FL_ENTRIES		= 16,
++
 +	/*
-+	 * Egress Queue sizes, producer and consumer indices are all in units
-+	 * of Egress Context Units bytes.  Note that as far as the hardware is
-+	 * concerned, the free list is an Egress Queue (the host produces free
-+	 * buffers which the hardware consumes) and free list entries are
-+	 * 64-bit PCI DMA addresses.
++	 * For purposes of manipulating the Free List size we need to
++	 * recognize that Free Lists are actually Egress Queues (the host
++	 * produces free buffers which the hardware consumes), Egress Queues
++	 * indices are all in units of Egress Context Units bytes, and free
++	 * list entries are 64-bit PCI DMA addresses.  And since the state of
++	 * the Producer Index == the Consumer Index implies an EMPTY list, we
++	 * always have at least one Egress Unit's worth of Free List entries
++	 * unused.  See sge.c for more details ...
 +	 */
 +	EQ_UNIT = SGE_EQ_IDXSIZE,
 +	FL_PER_EQ_UNIT = EQ_UNIT / sizeof(__be64),
-+	TXD_PER_EQ_UNIT = EQ_UNIT / sizeof(__be64),
-+
-+	/*
-+	 * Max number of TX descriptors we clean up at a time.  Should be
-+	 * modest as freeing skbs isn't cheap and it happens while holding
-+	 * locks.  We just need to free packets faster than they arrive, we
-+	 * eventually catch up and keep the amortized cost reasonable.
-+	 */
-+	MAX_TX_RECLAIM = 16,
-+
-+	/*
-+	 * Max number of Rx buffers we replenish at a time.  Again keep this
-+	 * modest, allocating buffers isn't cheap either.
-+	 */
-+	MAX_RX_REFILL = 16,
-+
-+	/*
-+	 * Period of the Rx queue check timer.  This timer is infrequent as it
-+	 * has something to do only when the system experiences severe memory
-+	 * shortage.
-+	 */
-+	RX_QCHECK_PERIOD = (HZ / 2),
-+
-+	/*
-+	 * Period of the TX queue check timer and the maximum number of TX
-+	 * descriptors to be reclaimed by the TX timer.
-+	 */
-+	TX_QCHECK_PERIOD = (HZ / 2),
-+	MAX_TIMER_TX_RECLAIM = 100,
-+
-+	/*
-+	 * An FL with <= FL_STARVE_THRES buffers is starving and a periodic
-+	 * timer will attempt to refill it.
-+	 */
-+	FL_STARVE_THRES = 4,
-+
-+	/*
-+	 * Suspend an Ethernet TX queue with fewer available descriptors than
-+	 * this.  We always want to have room for a maximum sized packet:
-+	 * inline immediate data + MAX_SKB_FRAGS. This is the same as
-+	 * calc_tx_flits() for a TSO packet with nr_frags == MAX_SKB_FRAGS
-+	 * (see that function and its helpers for a description of the
-+	 * calculation).
-+	 */
-+	ETHTXQ_MAX_FRAGS = MAX_SKB_FRAGS + 1,
-+	ETHTXQ_MAX_SGL_LEN = ((3 * (ETHTXQ_MAX_FRAGS-1))/2 +
-+				   ((ETHTXQ_MAX_FRAGS-1) & 1) +
-+				   2),
-+	ETHTXQ_MAX_HDR = (sizeof(struct fw_eth_tx_pkt_vm_wr) +
-+			  sizeof(struct cpl_tx_pkt_lso_core) +
-+			  sizeof(struct cpl_tx_pkt_core)) / sizeof(__be64),
-+	ETHTXQ_MAX_FLITS = ETHTXQ_MAX_SGL_LEN + ETHTXQ_MAX_HDR,
-+
-+	ETHTXQ_STOP_THRES = 1 + DIV_ROUND_UP(ETHTXQ_MAX_FLITS, TXD_PER_EQ_UNIT),
-+
-+	/*
-+	 * Max TX descriptor space we allow for an Ethernet packet to be
-+	 * inlined into a WR.  This is limited by the maximum value which
-+	 * we can specify for immediate data in the firmware Ethernet TX
-+	 * Work Request.
-+	 */
-+	MAX_IMM_TX_PKT_LEN = FW_WR_IMMDLEN_MASK,
-+
-+	/*
-+	 * Max size of a WR sent through a control TX queue.
-+	 */
-+	MAX_CTRL_WR_LEN = 256,
-+
-+	/*
-+	 * Maximum amount of data which we'll ever need to inline into a
-+	 * TX ring: max(MAX_IMM_TX_PKT_LEN, MAX_CTRL_WR_LEN).
-+	 */
-+	MAX_IMM_TX_LEN = (MAX_IMM_TX_PKT_LEN > MAX_CTRL_WR_LEN
-+			  ? MAX_IMM_TX_PKT_LEN
-+			  : MAX_CTRL_WR_LEN),
-+
-+	/*
-+	 * For incoming packets less than RX_COPY_THRES, we copy the data into
-+	 * an skb rather than referencing the data.  We allocate enough
-+	 * in-line room in skb's to accommodate pulling in RX_PULL_LEN bytes
-+	 * of the data (header).
-+	 */
-+	RX_COPY_THRES = 256,
-+	RX_PULL_LEN = 128,
++	MIN_FL_RESID = FL_PER_EQ_UNIT,
 +};
 +
 +/*
-+ * Can't define this in the above enum because PKTSHIFT isn't a constant in
-+ * the VF Driver ...
++ * Global driver state.
++ * ====================
 + */
-+#define RX_PKT_PULL_LEN (RX_PULL_LEN + PKTSHIFT)
++
++static struct dentry *cxgb4vf_debugfs_root;
 +
 +/*
-+ * Software state per TX descriptor.
++ * OS "Callback" functions.
++ * ========================
 + */
-+struct tx_sw_desc {
-+	struct sk_buff *skb;		/* socket buffer of TX data source */
-+	struct ulptx_sgl *sgl;		/* scatter/gather list in TX Queue */
-+};
 +
 +/*
-+ * Software state per RX Free List descriptor.  We keep track of the allocated
-+ * FL page, its size, and its PCI DMA address (if the page is mapped).  The FL
-+ * page size and its PCI DMA mapped state are stored in the low bits of the
-+ * PCI DMA address as per below.
++ * The link status has changed on the indicated "port" (Virtual Interface).
 + */
-+struct rx_sw_desc {
-+	struct page *page;		/* Free List page buffer */
-+	dma_addr_t dma_addr;		/* PCI DMA address (if mapped) */
-+					/*   and flags (see below) */
-+};
-+
-+/*
-+ * The low bits of rx_sw_desc.dma_addr have special meaning.  Note that the
-+ * SGE also uses the low 4 bits to determine the size of the buffer.  It uses
-+ * those bits to index into the SGE_FL_BUFFER_SIZE[index] register array.
-+ * Since we only use SGE_FL_BUFFER_SIZE0 and SGE_FL_BUFFER_SIZE1, these low 4
-+ * bits can only contain a 0 or a 1 to indicate which size buffer we're giving
-+ * to the SGE.  Thus, our software state of "is the buffer mapped for DMA" is
-+ * maintained in an inverse sense so the hardware never sees that bit high.
-+ */
-+enum {
-+	RX_LARGE_BUF    = 1 << 0,	/* buffer is SGE_FL_BUFFER_SIZE[1] */
-+	RX_UNMAPPED_BUF = 1 << 1,	/* buffer is not mapped */
-+};
-+
-+/**
-+ *	get_buf_addr - return DMA buffer address of software descriptor
-+ *	@sdesc: pointer to the software buffer descriptor
-+ *
-+ *	Return the DMA buffer address of a software descriptor (stripping out
-+ *	our low-order flag bits).
-+ */
-+static inline dma_addr_t get_buf_addr(const struct rx_sw_desc *sdesc)
++void t4vf_os_link_changed(struct adapter *adapter, int pidx, int link_ok)
 +{
-+	return sdesc->dma_addr & ~(dma_addr_t)(RX_LARGE_BUF | RX_UNMAPPED_BUF);
-+}
-+
-+/**
-+ *	is_buf_mapped - is buffer mapped for DMA?
-+ *	@sdesc: pointer to the software buffer descriptor
-+ *
-+ *	Determine whether the buffer associated with a software descriptor in
-+ *	mapped for DMA or not.
-+ */
-+static inline bool is_buf_mapped(const struct rx_sw_desc *sdesc)
-+{
-+	return !(sdesc->dma_addr & RX_UNMAPPED_BUF);
-+}
-+
-+/**
-+ *	need_skb_unmap - does the platform need unmapping of sk_buffs?
-+ *
-+ *	Returns true if the platfrom needs sk_buff unmapping.  The compiler
-+ *	optimizes away unecessary code if this returns true.
-+ */
-+static inline int need_skb_unmap(void)
-+{
-+	/*
-+	 * This structure is used to tell if the platfrom needs buffer
-+	 * unmapping by checking if DECLARE_PCI_UNMAP_ADDR defines anything.
-+	 */
-+	struct dummy {
-+		DECLARE_PCI_UNMAP_ADDR(addr);
-+	};
-+
-+	return sizeof(struct dummy) != 0;
-+}
-+
-+/**
-+ *	txq_avail - return the number of available slots in a TX queue
-+ *	@tq: the TX queue
-+ *
-+ *	Returns the number of available descriptors in a TX queue.
-+ */
-+static inline unsigned int txq_avail(const struct sge_txq *tq)
-+{
-+	return tq->size - 1 - tq->in_use;
-+}
-+
-+/**
-+ *	fl_cap - return the capacity of a Free List
-+ *	@fl: the Free List
-+ *
-+ *	Returns the capacity of a Free List.  The capacity is less than the
-+ *	size because an Egress Queue Index Unit worth of descriptors needs to
-+ *	be left unpopulated, otherwise the Producer and Consumer indices PIDX
-+ *	and CIDX will match and the hardware will think the FL is empty.
-+ */
-+static inline unsigned int fl_cap(const struct sge_fl *fl)
-+{
-+	return fl->size - FL_PER_EQ_UNIT;
-+}
-+
-+/**
-+ *	fl_starving - return whether a Free List is starving.
-+ *	@fl: the Free List
-+ *
-+ *	Tests specified Free List to see whether the number of buffers
-+ *	available to the hardware has falled below our "starvation"
-+ *	threshhold.
-+ */
-+static inline bool fl_starving(const struct sge_fl *fl)
-+{
-+	return fl->avail - fl->pend_cred <= FL_STARVE_THRES;
-+}
-+
-+/**
-+ *	map_skb -  map an skb for DMA to the device
-+ *	@dev: the egress net device
-+ *	@skb: the packet to map
-+ *	@addr: a pointer to the base of the DMA mapping array
-+ *
-+ *	Map an skb for DMA to the device and return an array of DMA addresses.
-+ */
-+static int map_skb(struct device *dev, const struct sk_buff *skb,
-+		   dma_addr_t *addr)
-+{
-+	const skb_frag_t *fp, *end;
-+	const struct skb_shared_info *si;
-+
-+	*addr = dma_map_single(dev, skb->data, skb_headlen(skb), DMA_TO_DEVICE);
-+	if (dma_mapping_error(dev, *addr))
-+		goto out_err;
-+
-+	si = skb_shinfo(skb);
-+	end = &si->frags[si->nr_frags];
-+	for (fp = si->frags; fp < end; fp++) {
-+		*++addr = dma_map_page(dev, fp->page, fp->page_offset, fp->size,
-+				       DMA_TO_DEVICE);
-+		if (dma_mapping_error(dev, *addr))
-+			goto unwind;
-+	}
-+	return 0;
-+
-+unwind:
-+	while (fp-- > si->frags)
-+		dma_unmap_page(dev, *--addr, fp->size, DMA_TO_DEVICE);
-+	dma_unmap_single(dev, addr[-1], skb_headlen(skb), DMA_TO_DEVICE);
-+
-+out_err:
-+	return -ENOMEM;
-+}
-+
-+static void unmap_sgl(struct device *dev, const struct sk_buff *skb,
-+		      const struct ulptx_sgl *sgl, const struct sge_txq *tq)
-+{
-+	const struct ulptx_sge_pair *p;
-+	unsigned int nfrags = skb_shinfo(skb)->nr_frags;
-+
-+	if (likely(skb_headlen(skb)))
-+		dma_unmap_single(dev, be64_to_cpu(sgl->addr0),
-+				 be32_to_cpu(sgl->len0), DMA_TO_DEVICE);
-+	else {
-+		dma_unmap_page(dev, be64_to_cpu(sgl->addr0),
-+			       be32_to_cpu(sgl->len0), DMA_TO_DEVICE);
-+		nfrags--;
-+	}
++	struct net_device *dev = adapter->port[pidx];
 +
 +	/*
-+	 * the complexity below is because of the possibility of a wrap-around
-+	 * in the middle of an SGL
++	 * If the port is disabled or the current recorded "link up"
++	 * status matches the new status, just return.
 +	 */
-+	for (p = sgl->sge; nfrags >= 2; nfrags -= 2) {
-+		if (likely((u8 *)(p + 1) <= (u8 *)tq->stat)) {
-+unmap:
-+			dma_unmap_page(dev, be64_to_cpu(p->addr[0]),
-+				       be32_to_cpu(p->len[0]), DMA_TO_DEVICE);
-+			dma_unmap_page(dev, be64_to_cpu(p->addr[1]),
-+				       be32_to_cpu(p->len[1]), DMA_TO_DEVICE);
-+			p++;
-+		} else if ((u8 *)p == (u8 *)tq->stat) {
-+			p = (const struct ulptx_sge_pair *)tq->desc;
-+			goto unmap;
-+		} else if ((u8 *)p + 8 == (u8 *)tq->stat) {
-+			const __be64 *addr = (const __be64 *)tq->desc;
-+
-+			dma_unmap_page(dev, be64_to_cpu(addr[0]),
-+				       be32_to_cpu(p->len[0]), DMA_TO_DEVICE);
-+			dma_unmap_page(dev, be64_to_cpu(addr[1]),
-+				       be32_to_cpu(p->len[1]), DMA_TO_DEVICE);
-+			p = (const struct ulptx_sge_pair *)&addr[2];
-+		} else {
-+			const __be64 *addr = (const __be64 *)tq->desc;
-+
-+			dma_unmap_page(dev, be64_to_cpu(p->addr[0]),
-+				       be32_to_cpu(p->len[0]), DMA_TO_DEVICE);
-+			dma_unmap_page(dev, be64_to_cpu(addr[0]),
-+				       be32_to_cpu(p->len[1]), DMA_TO_DEVICE);
-+			p = (const struct ulptx_sge_pair *)&addr[1];
-+		}
-+	}
-+	if (nfrags) {
-+		__be64 addr;
-+
-+		if ((u8 *)p == (u8 *)tq->stat)
-+			p = (const struct ulptx_sge_pair *)tq->desc;
-+		addr = ((u8 *)p + 16 <= (u8 *)tq->stat
-+			? p->addr[0]
-+			: *(const __be64 *)tq->desc);
-+		dma_unmap_page(dev, be64_to_cpu(addr), be32_to_cpu(p->len[0]),
-+			       DMA_TO_DEVICE);
-+	}
-+}
-+
-+/**
-+ *	free_tx_desc - reclaims TX descriptors and their buffers
-+ *	@adapter: the adapter
-+ *	@tq: the TX queue to reclaim descriptors from
-+ *	@n: the number of descriptors to reclaim
-+ *	@unmap: whether the buffers should be unmapped for DMA
-+ *
-+ *	Reclaims TX descriptors from an SGE TX queue and frees the associated
-+ *	TX buffers.  Called with the TX queue lock held.
-+ */
-+static void free_tx_desc(struct adapter *adapter, struct sge_txq *tq,
-+			 unsigned int n, bool unmap)
-+{
-+	struct tx_sw_desc *sdesc;
-+	unsigned int cidx = tq->cidx;
-+	struct device *dev = adapter->pdev_dev;
-+
-+	const int need_unmap = need_skb_unmap() && unmap;
-+
-+	sdesc = &tq->sdesc[cidx];
-+	while (n--) {
-+		/*
-+		 * If we kept a reference to the original TX skb, we need to
-+		 * unmap it from PCI DMA space (if required) and free it.
-+		 */
-+		if (sdesc->skb) {
-+			if (need_unmap)
-+				unmap_sgl(dev, sdesc->skb, sdesc->sgl, tq);
-+			kfree_skb(sdesc->skb);
-+			sdesc->skb = NULL;
-+		}
-+
-+		sdesc++;
-+		if (++cidx == tq->size) {
-+			cidx = 0;
-+			sdesc = tq->sdesc;
-+		}
-+	}
-+	tq->cidx = cidx;
-+}
-+
-+/*
-+ * Return the number of reclaimable descriptors in a TX queue.
-+ */
-+static inline int reclaimable(const struct sge_txq *tq)
-+{
-+	int hw_cidx = be16_to_cpu(tq->stat->cidx);
-+	int reclaimable = hw_cidx - tq->cidx;
-+	if (reclaimable < 0)
-+		reclaimable += tq->size;
-+	return reclaimable;
-+}
-+
-+/**
-+ *	reclaim_completed_tx - reclaims completed TX descriptors
-+ *	@adapter: the adapter
-+ *	@tq: the TX queue to reclaim completed descriptors from
-+ *	@unmap: whether the buffers should be unmapped for DMA
-+ *
-+ *	Reclaims TX descriptors that the SGE has indicated it has processed,
-+ *	and frees the associated buffers if possible.  Called with the TX
-+ *	queue locked.
-+ */
-+static inline void reclaim_completed_tx(struct adapter *adapter,
-+					struct sge_txq *tq,
-+					bool unmap)
-+{
-+	int avail = reclaimable(tq);
-+
-+	if (avail) {
-+		/*
-+		 * Limit the amount of clean up work we do at a time to keep
-+		 * the TX lock hold time O(1).
-+		 */
-+		if (avail > MAX_TX_RECLAIM)
-+			avail = MAX_TX_RECLAIM;
-+
-+		free_tx_desc(adapter, tq, avail, unmap);
-+		tq->in_use -= avail;
-+	}
-+}
-+
-+/**
-+ *	get_buf_size - return the size of an RX Free List buffer.
-+ *	@sdesc: pointer to the software buffer descriptor
-+ */
-+static inline int get_buf_size(const struct rx_sw_desc *sdesc)
-+{
-+	return FL_PG_ORDER > 0 && (sdesc->dma_addr & RX_LARGE_BUF)
-+		? (PAGE_SIZE << FL_PG_ORDER)
-+		: PAGE_SIZE;
-+}
-+
-+/**
-+ *	free_rx_bufs - free RX buffers on an SGE Free List
-+ *	@adapter: the adapter
-+ *	@fl: the SGE Free List to free buffers from
-+ *	@n: how many buffers to free
-+ *
-+ *	Release the next @n buffers on an SGE Free List RX queue.   The
-+ *	buffers must be made inaccessible to hardware before calling this
-+ *	function.
-+ */
-+static void free_rx_bufs(struct adapter *adapter, struct sge_fl *fl, int n)
-+{
-+	while (n--) {
-+		struct rx_sw_desc *sdesc = &fl->sdesc[fl->cidx];
-+
-+		if (is_buf_mapped(sdesc))
-+			dma_unmap_page(adapter->pdev_dev, get_buf_addr(sdesc),
-+				       get_buf_size(sdesc), PCI_DMA_FROMDEVICE);
-+		put_page(sdesc->page);
-+		sdesc->page = NULL;
-+		if (++fl->cidx == fl->size)
-+			fl->cidx = 0;
-+		fl->avail--;
-+	}
-+}
-+
-+/**
-+ *	unmap_rx_buf - unmap the current RX buffer on an SGE Free List
-+ *	@adapter: the adapter
-+ *	@fl: the SGE Free List
-+ *
-+ *	Unmap the current buffer on an SGE Free List RX queue.   The
-+ *	buffer must be made inaccessible to HW before calling this function.
-+ *
-+ *	This is similar to @free_rx_bufs above but does not free the buffer.
-+ *	Do note that the FL still loses any further access to the buffer.
-+ *	This is used predominantly to "transfer ownership" of an FL buffer
-+ *	to another entity (typically an skb's fragment list).
-+ */
-+static void unmap_rx_buf(struct adapter *adapter, struct sge_fl *fl)
-+{
-+	struct rx_sw_desc *sdesc = &fl->sdesc[fl->cidx];
-+
-+	if (is_buf_mapped(sdesc))
-+		dma_unmap_page(adapter->pdev_dev, get_buf_addr(sdesc),
-+			       get_buf_size(sdesc), PCI_DMA_FROMDEVICE);
-+	sdesc->page = NULL;
-+	if (++fl->cidx == fl->size)
-+		fl->cidx = 0;
-+	fl->avail--;
-+}
-+
-+/**
-+ *	ring_fl_db - righ doorbell on free list
-+ *	@adapter: the adapter
-+ *	@fl: the Free List whose doorbell should be rung ...
-+ *
-+ *	Tell the Scatter Gather Engine that there are new free list entries
-+ *	available.
-+ */
-+static inline void ring_fl_db(struct adapter *adapter, struct sge_fl *fl)
-+{
-+	/*
-+	 * The SGE keeps track of its Producer and Consumer Indices in terms
-+	 * of Egress Queue Units so we can only tell it about integral numbers
-+	 * of multiples of Free List Entries per Egress Queue Units ...
-+	 */
-+	if (fl->pend_cred >= FL_PER_EQ_UNIT) {
-+		wmb();
-+		t4_write_reg(adapter, T4VF_SGE_BASE_ADDR + SGE_VF_KDOORBELL,
-+			     DBPRIO |
-+			     QID(fl->cntxt_id) |
-+			     PIDX(fl->pend_cred / FL_PER_EQ_UNIT));
-+		fl->pend_cred %= FL_PER_EQ_UNIT;
-+	}
-+}
-+
-+/**
-+ *	set_rx_sw_desc - initialize software RX buffer descriptor
-+ *	@sdesc: pointer to the softwore RX buffer descriptor
-+ *	@page: pointer to the page data structure backing the RX buffer
-+ *	@dma_addr: PCI DMA address (possibly with low-bit flags)
-+ */
-+static inline void set_rx_sw_desc(struct rx_sw_desc *sdesc, struct page *page,
-+				  dma_addr_t dma_addr)
-+{
-+	sdesc->page = page;
-+	sdesc->dma_addr = dma_addr;
-+}
-+
-+/*
-+ * Support for poisoning RX buffers ...
-+ */
-+#define POISON_BUF_VAL -1
-+
-+static inline void poison_buf(struct page *page, size_t sz)
-+{
-+#if POISON_BUF_VAL >= 0
-+	memset(page_address(page), POISON_BUF_VAL, sz);
-+#endif
-+}
-+
-+/**
-+ *	refill_fl - refill an SGE RX buffer ring
-+ *	@adapter: the adapter
-+ *	@fl: the Free List ring to refill
-+ *	@n: the number of new buffers to allocate
-+ *	@gfp: the gfp flags for the allocations
-+ *
-+ *	(Re)populate an SGE free-buffer queue with up to @n new packet buffers,
-+ *	allocated with the supplied gfp flags.  The caller must assure that
-+ *	@n does not exceed the queue's capacity -- i.e. (cidx == pidx) _IN
-+ *	EGRESS QUEUE UNITS_ indicates an empty Free List!  Returns the number
-+ *	of buffers allocated.  If afterwards the queue is found critically low,
-+ *	mark it as starving in the bitmap of starving FLs.
-+ */
-+static unsigned int refill_fl(struct adapter *adapter, struct sge_fl *fl,
-+			      int n, gfp_t gfp)
-+{
-+	struct page *page;
-+	dma_addr_t dma_addr;
-+	unsigned int cred = fl->avail;
-+	__be64 *d = &fl->desc[fl->pidx];
-+	struct rx_sw_desc *sdesc = &fl->sdesc[fl->pidx];
-+
-+	/*
-+	 * Sanity: ensure that the result of adding n Free List buffers
-+	 * won't result in wrapping the SGE's Producer Index around to
-+	 * it's Consumer Index thereby indicating an empty Free List ...
-+	 */
-+	BUG_ON(fl->avail + n > fl->size - FL_PER_EQ_UNIT);
-+
-+	/*
-+	 * If we support large pages, prefer large buffers and fail over to
-+	 * small pages if we can't allocate large pages to satisfy the refill.
-+	 * If we don't support large pages, drop directly into the small page
-+	 * allocation code.
-+	 */
-+	if (FL_PG_ORDER == 0)
-+		goto alloc_small_pages;
-+
-+	while (n) {
-+		page = alloc_pages(gfp | __GFP_COMP | __GFP_NOWARN,
-+				   FL_PG_ORDER);
-+		if (unlikely(!page)) {
-+			/*
-+			 * We've failed inour attempt to allocate a "large
-+			 * page".  Fail over to the "small page" allocation
-+			 * below.
-+			 */
-+			fl->large_alloc_failed++;
-+			break;
-+		}
-+		poison_buf(page, PAGE_SIZE << FL_PG_ORDER);
-+
-+		dma_addr = dma_map_page(adapter->pdev_dev, page, 0,
-+					PAGE_SIZE << FL_PG_ORDER,
-+					PCI_DMA_FROMDEVICE);
-+		if (unlikely(dma_mapping_error(adapter->pdev_dev, dma_addr))) {
-+			/*
-+			 * We've run out of DMA mapping space.  Free up the
-+			 * buffer and return with what we've managed to put
-+			 * into the free list.  We don't want to fail over to
-+			 * the small page allocation below in this case
-+			 * because DMA mapping resources are typically
-+			 * critical resources once they become scarse.
-+			 */
-+			__free_pages(page, FL_PG_ORDER);
-+			goto out;
-+		}
-+		dma_addr |= RX_LARGE_BUF;
-+		*d++ = cpu_to_be64(dma_addr);
-+
-+		set_rx_sw_desc(sdesc, page, dma_addr);
-+		sdesc++;
-+
-+		fl->avail++;
-+		if (++fl->pidx == fl->size) {
-+			fl->pidx = 0;
-+			sdesc = fl->sdesc;
-+			d = fl->desc;
-+		}
-+		n--;
-+	}
-+
-+alloc_small_pages:
-+	while (n--) {
-+		page = __netdev_alloc_page(adapter->port[0],
-+					   gfp | __GFP_NOWARN);
-+		if (unlikely(!page)) {
-+			fl->alloc_failed++;
-+			break;
-+		}
-+		poison_buf(page, PAGE_SIZE);
-+
-+		dma_addr = dma_map_page(adapter->pdev_dev, page, 0, PAGE_SIZE,
-+				       PCI_DMA_FROMDEVICE);
-+		if (unlikely(dma_mapping_error(adapter->pdev_dev, dma_addr))) {
-+			netdev_free_page(adapter->port[0], page);
-+			break;
-+		}
-+		*d++ = cpu_to_be64(dma_addr);
-+
-+		set_rx_sw_desc(sdesc, page, dma_addr);
-+		sdesc++;
-+
-+		fl->avail++;
-+		if (++fl->pidx == fl->size) {
-+			fl->pidx = 0;
-+			sdesc = fl->sdesc;
-+			d = fl->desc;
-+		}
-+	}
-+
-+out:
-+	/*
-+	 * Update our accounting state to incorporate the new Free List
-+	 * buffers, tell the hardware about them and return the number of
-+	 * bufers which we were able to allocate.
-+	 */
-+	cred = fl->avail - cred;
-+	fl->pend_cred += cred;
-+	ring_fl_db(adapter, fl);
-+
-+	if (unlikely(fl_starving(fl))) {
-+		smp_wmb();
-+		set_bit(fl->cntxt_id, adapter->sge.starving_fl);
-+	}
-+
-+	return cred;
-+}
-+
-+/*
-+ * Refill a Free List to its capacity or the Maximum Refill Increment,
-+ * whichever is smaller ...
-+ */
-+static inline void __refill_fl(struct adapter *adapter, struct sge_fl *fl)
-+{
-+	refill_fl(adapter, fl,
-+		  min((unsigned int)MAX_RX_REFILL, fl_cap(fl) - fl->avail),
-+		  GFP_ATOMIC);
-+}
-+
-+/**
-+ *	alloc_ring - allocate resources for an SGE descriptor ring
-+ *	@dev: the PCI device's core device
-+ *	@nelem: the number of descriptors
-+ *	@hwsize: the size of each hardware descriptor
-+ *	@swsize: the size of each software descriptor
-+ *	@busaddrp: the physical PCI bus address of the allocated ring
-+ *	@swringp: return address pointer for software ring
-+ *	@stat_size: extra space in hardware ring for status information
-+ *
-+ *	Allocates resources for an SGE descriptor ring, such as TX queues,
-+ *	free buffer lists, response queues, etc.  Each SGE ring requires
-+ *	space for its hardware descriptors plus, optionally, space for software
-+ *	state associated with each hardware entry (the metadata).  The function
-+ *	returns three values: the virtual address for the hardware ring (the
-+ *	return value of the function), the PCI bus address of the hardware
-+ *	ring (in *busaddrp), and the address of the software ring (in swringp).
-+ *	Both the hardware and software rings are returned zeroed out.
-+ */
-+static void *alloc_ring(struct device *dev, size_t nelem, size_t hwsize,
-+			size_t swsize, dma_addr_t *busaddrp, void *swringp,
-+			size_t stat_size)
-+{
-+	/*
-+	 * Allocate the hardware ring and PCI DMA bus address space for said.
-+	 */
-+	size_t hwlen = nelem * hwsize + stat_size;
-+	void *hwring = dma_alloc_coherent(dev, hwlen, busaddrp, GFP_KERNEL);
-+
-+	if (!hwring)
-+		return NULL;
-+
-+	/*
-+	 * If the caller wants a software ring, allocate it and return a
-+	 * pointer to it in *swringp.
-+	 */
-+	BUG_ON((swsize != 0) != (swringp != NULL));
-+	if (swsize) {
-+		void *swring = kcalloc(nelem, swsize, GFP_KERNEL);
-+
-+		if (!swring) {
-+			dma_free_coherent(dev, hwlen, hwring, *busaddrp);
-+			return NULL;
-+		}
-+		*(void **)swringp = swring;
-+	}
-+
-+	/*
-+	 * Zero out the hardware ring and return its address as our function
-+	 * value.
-+	 */
-+	memset(hwring, 0, hwlen);
-+	return hwring;
-+}
-+
-+/**
-+ *	sgl_len - calculates the size of an SGL of the given capacity
-+ *	@n: the number of SGL entries
-+ *
-+ *	Calculates the number of flits (8-byte units) needed for a Direct
-+ *	Scatter/Gather List that can hold the given number of entries.
-+ */
-+static inline unsigned int sgl_len(unsigned int n)
-+{
-+	/*
-+	 * A Direct Scatter Gather List uses 32-bit lengths and 64-bit PCI DMA
-+	 * addresses.  The DSGL Work Request starts off with a 32-bit DSGL
-+	 * ULPTX header, then Length0, then Address0, then, for 1 <= i <= N,
-+	 * repeated sequences of { Length[i], Length[i+1], Address[i],
-+	 * Address[i+1] } (this ensures that all addresses are on 64-bit
-+	 * boundaries).  If N is even, then Length[N+1] should be set to 0 and
-+	 * Address[N+1] is omitted.
-+	 *
-+	 * The following calculation incorporates all of the above.  It's
-+	 * somewhat hard to follow but, briefly: the "+2" accounts for the
-+	 * first two flits which include the DSGL header, Length0 and
-+	 * Address0; the "(3*(n-1))/2" covers the main body of list entries (3
-+	 * flits for every pair of the remaining N) +1 if (n-1) is odd; and
-+	 * finally the "+((n-1)&1)" adds the one remaining flit needed if
-+	 * (n-1) is odd ...
-+	 */
-+	n--;
-+	return (3 * n) / 2 + (n & 1) + 2;
-+}
-+
-+/**
-+ *	flits_to_desc - returns the num of TX descriptors for the given flits
-+ *	@flits: the number of flits
-+ *
-+ *	Returns the number of TX descriptors needed for the supplied number
-+ *	of flits.
-+ */
-+static inline unsigned int flits_to_desc(unsigned int flits)
-+{
-+	BUG_ON(flits > SGE_MAX_WR_LEN / sizeof(__be64));
-+	return DIV_ROUND_UP(flits, TXD_PER_EQ_UNIT);
-+}
-+
-+/**
-+ *	is_eth_imm - can an Ethernet packet be sent as immediate data?
-+ *	@skb: the packet
-+ *
-+ *	Returns whether an Ethernet packet is small enough to fit completely as
-+ *	immediate data.
-+ */
-+static inline int is_eth_imm(const struct sk_buff *skb)
-+{
-+	/*
-+	 * The VF Driver uses the FW_ETH_TX_PKT_VM_WR firmware Work Request
-+	 * which does not accommodate immediate data.  We could dike out all
-+	 * of the support code for immediate data but that would tie our hands
-+	 * too much if we ever want to enhace the firmware.  It would also
-+	 * create more differences between the PF and VF Drivers.
-+	 */
-+	return false;
-+}
-+
-+/**
-+ *	calc_tx_flits - calculate the number of flits for a packet TX WR
-+ *	@skb: the packet
-+ *
-+ *	Returns the number of flits needed for a TX Work Request for the
-+ *	given Ethernet packet, including the needed WR and CPL headers.
-+ */
-+static inline unsigned int calc_tx_flits(const struct sk_buff *skb)
-+{
-+	unsigned int flits;
-+
-+	/*
-+	 * If the skb is small enough, we can pump it out as a work request
-+	 * with only immediate data.  In that case we just have to have the
-+	 * TX Packet header plus the skb data in the Work Request.
-+	 */
-+	if (is_eth_imm(skb))
-+		return DIV_ROUND_UP(skb->len + sizeof(struct cpl_tx_pkt),
-+				    sizeof(__be64));
-+
-+	/*
-+	 * Otherwise, we're going to have to construct a Scatter gather list
-+	 * of the skb body and fragments.  We also include the flits necessary
-+	 * for the TX Packet Work Request and CPL.  We always have a firmware
-+	 * Write Header (incorporated as part of the cpl_tx_pkt_lso and
-+	 * cpl_tx_pkt structures), followed by either a TX Packet Write CPL
-+	 * message or, if we're doing a Large Send Offload, an LSO CPL message
-+	 * with an embeded TX Packet Write CPL message.
-+	 */
-+	flits = sgl_len(skb_shinfo(skb)->nr_frags + 1);
-+	if (skb_shinfo(skb)->gso_size)
-+		flits += (sizeof(struct fw_eth_tx_pkt_vm_wr) +
-+			  sizeof(struct cpl_tx_pkt_lso_core) +
-+			  sizeof(struct cpl_tx_pkt_core)) / sizeof(__be64);
-+	else
-+		flits += (sizeof(struct fw_eth_tx_pkt_vm_wr) +
-+			  sizeof(struct cpl_tx_pkt_core)) / sizeof(__be64);
-+	return flits;
-+}
-+
-+/**
-+ *	write_sgl - populate a Scatter/Gather List for a packet
-+ *	@skb: the packet
-+ *	@tq: the TX queue we are writing into
-+ *	@sgl: starting location for writing the SGL
-+ *	@end: points right after the end of the SGL
-+ *	@start: start offset into skb main-body data to include in the SGL
-+ *	@addr: the list of DMA bus addresses for the SGL elements
-+ *
-+ *	Generates a Scatter/Gather List for the buffers that make up a packet.
-+ *	The caller must provide adequate space for the SGL that will be written.
-+ *	The SGL includes all of the packet's page fragments and the data in its
-+ *	main body except for the first @start bytes.  @pos must be 16-byte
-+ *	aligned and within a TX descriptor with available space.  @end points
-+ *	write after the end of the SGL but does not account for any potential
-+ *	wrap around, i.e., @end > @tq->stat.
-+ */
-+static void write_sgl(const struct sk_buff *skb, struct sge_txq *tq,
-+		      struct ulptx_sgl *sgl, u64 *end, unsigned int start,
-+		      const dma_addr_t *addr)
-+{
-+	unsigned int i, len;
-+	struct ulptx_sge_pair *to;
-+	const struct skb_shared_info *si = skb_shinfo(skb);
-+	unsigned int nfrags = si->nr_frags;
-+	struct ulptx_sge_pair buf[MAX_SKB_FRAGS / 2 + 1];
-+
-+	len = skb_headlen(skb) - start;
-+	if (likely(len)) {
-+		sgl->len0 = htonl(len);
-+		sgl->addr0 = cpu_to_be64(addr[0] + start);
-+		nfrags++;
-+	} else {
-+		sgl->len0 = htonl(si->frags[0].size);
-+		sgl->addr0 = cpu_to_be64(addr[1]);
-+	}
-+
-+	sgl->cmd_nsge = htonl(ULPTX_CMD(ULP_TX_SC_DSGL) |
-+			      ULPTX_NSGE(nfrags));
-+	if (likely(--nfrags == 0))
++	if (!netif_running(dev) || link_ok == netif_carrier_ok(dev))
 +		return;
-+	/*
-+	 * Most of the complexity below deals with the possibility we hit the
-+	 * end of the queue in the middle of writing the SGL.  For this case
-+	 * only we create the SGL in a temporary buffer and then copy it.
-+	 */
-+	to = (u8 *)end > (u8 *)tq->stat ? buf : sgl->sge;
-+
-+	for (i = (nfrags != si->nr_frags); nfrags >= 2; nfrags -= 2, to++) {
-+		to->len[0] = cpu_to_be32(si->frags[i].size);
-+		to->len[1] = cpu_to_be32(si->frags[++i].size);
-+		to->addr[0] = cpu_to_be64(addr[i]);
-+		to->addr[1] = cpu_to_be64(addr[++i]);
-+	}
-+	if (nfrags) {
-+		to->len[0] = cpu_to_be32(si->frags[i].size);
-+		to->len[1] = cpu_to_be32(0);
-+		to->addr[0] = cpu_to_be64(addr[i + 1]);
-+	}
-+	if (unlikely((u8 *)end > (u8 *)tq->stat)) {
-+		unsigned int part0 = (u8 *)tq->stat - (u8 *)sgl->sge, part1;
-+
-+		if (likely(part0))
-+			memcpy(sgl->sge, buf, part0);
-+		part1 = (u8 *)end - (u8 *)tq->stat;
-+		memcpy(tq->desc, (u8 *)buf + part0, part1);
-+		end = (void *)tq->desc + part1;
-+	}
-+	if ((uintptr_t)end & 8)           /* 0-pad to multiple of 16 */
-+		*(u64 *)end = 0;
-+}
-+
-+/**
-+ *	check_ring_tx_db - check and potentially ring a TX queue's doorbell
-+ *	@adapter: the adapter
-+ *	@tq: the TX queue
-+ *	@n: number of new descriptors to give to HW
-+ *
-+ *	Ring the doorbel for a TX queue.
-+ */
-+static inline void ring_tx_db(struct adapter *adapter, struct sge_txq *tq,
-+			      int n)
-+{
-+	/*
-+	 * Warn if we write doorbells with the wrong priority and write
-+	 * descriptors before telling HW.
-+	 */
-+	WARN_ON((QID(tq->cntxt_id) | PIDX(n)) & DBPRIO);
-+	wmb();
-+	t4_write_reg(adapter, T4VF_SGE_BASE_ADDR + SGE_VF_KDOORBELL,
-+		     QID(tq->cntxt_id) | PIDX(n));
-+}
-+
-+/**
-+ *	inline_tx_skb - inline a packet's data into TX descriptors
-+ *	@skb: the packet
-+ *	@tq: the TX queue where the packet will be inlined
-+ *	@pos: starting position in the TX queue to inline the packet
-+ *
-+ *	Inline a packet's contents directly into TX descriptors, starting at
-+ *	the given position within the TX DMA ring.
-+ *	Most of the complexity of this operation is dealing with wrap arounds
-+ *	in the middle of the packet we want to inline.
-+ */
-+static void inline_tx_skb(const struct sk_buff *skb, const struct sge_txq *tq,
-+			  void *pos)
-+{
-+	u64 *p;
-+	int left = (void *)tq->stat - pos;
-+
-+	if (likely(skb->len <= left)) {
-+		if (likely(!skb->data_len))
-+			skb_copy_from_linear_data(skb, pos, skb->len);
-+		else
-+			skb_copy_bits(skb, 0, pos, skb->len);
-+		pos += skb->len;
-+	} else {
-+		skb_copy_bits(skb, 0, pos, left);
-+		skb_copy_bits(skb, left, tq->desc, skb->len - left);
-+		pos = (void *)tq->desc + (skb->len - left);
-+	}
-+
-+	/* 0-pad to multiple of 16 */
-+	p = PTR_ALIGN(pos, 8);
-+	if ((uintptr_t)p & 8)
-+		*p = 0;
-+}
-+
-+/*
-+ * Figure out what HW csum a packet wants and return the appropriate control
-+ * bits.
-+ */
-+static u64 hwcsum(const struct sk_buff *skb)
-+{
-+	int csum_type;
-+	const struct iphdr *iph = ip_hdr(skb);
-+
-+	if (iph->version == 4) {
-+		if (iph->protocol == IPPROTO_TCP)
-+			csum_type = TX_CSUM_TCPIP;
-+		else if (iph->protocol == IPPROTO_UDP)
-+			csum_type = TX_CSUM_UDPIP;
-+		else {
-+nocsum:
-+			/*
-+			 * unknown protocol, disable HW csum
-+			 * and hope a bad packet is detected
-+			 */
-+			return TXPKT_L4CSUM_DIS;
-+		}
-+	} else {
-+		/*
-+		 * this doesn't work with extension headers
-+		 */
-+		const struct ipv6hdr *ip6h = (const struct ipv6hdr *)iph;
-+
-+		if (ip6h->nexthdr == IPPROTO_TCP)
-+			csum_type = TX_CSUM_TCPIP6;
-+		else if (ip6h->nexthdr == IPPROTO_UDP)
-+			csum_type = TX_CSUM_UDPIP6;
-+		else
-+			goto nocsum;
-+	}
-+
-+	if (likely(csum_type >= TX_CSUM_TCPIP))
-+		return TXPKT_CSUM_TYPE(csum_type) |
-+			TXPKT_IPHDR_LEN(skb_network_header_len(skb)) |
-+			TXPKT_ETHHDR_LEN(skb_network_offset(skb) - ETH_HLEN);
-+	else {
-+		int start = skb_transport_offset(skb);
-+
-+		return TXPKT_CSUM_TYPE(csum_type) |
-+			TXPKT_CSUM_START(start) |
-+			TXPKT_CSUM_LOC(start + skb->csum_offset);
-+	}
-+}
-+
-+/*
-+ * Stop an Ethernet TX queue and record that state change.
-+ */
-+static void txq_stop(struct sge_eth_txq *txq)
-+{
-+	netif_tx_stop_queue(txq->txq);
-+	txq->q.stops++;
-+}
-+
-+/*
-+ * Advance our software state for a TX queue by adding n in use descriptors.
-+ */
-+static inline void txq_advance(struct sge_txq *tq, unsigned int n)
-+{
-+	tq->in_use += n;
-+	tq->pidx += n;
-+	if (tq->pidx >= tq->size)
-+		tq->pidx -= tq->size;
-+}
-+
-+/**
-+ *	t4vf_eth_xmit - add a packet to an Ethernet TX queue
-+ *	@skb: the packet
-+ *	@dev: the egress net device
-+ *
-+ *	Add a packet to an SGE Ethernet TX queue.  Runs with softirqs disabled.
-+ */
-+int t4vf_eth_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	u64 cntrl, *end;
-+	int qidx, credits;
-+	unsigned int flits, ndesc;
-+	struct adapter *adapter;
-+	struct sge_eth_txq *txq;
-+	const struct port_info *pi;
-+	struct fw_eth_tx_pkt_vm_wr *wr;
-+	struct cpl_tx_pkt_core *cpl;
-+	const struct skb_shared_info *ssi;
-+	dma_addr_t addr[MAX_SKB_FRAGS + 1];
-+	const size_t fw_hdr_copy_len = (sizeof(wr->ethmacdst) +
-+					sizeof(wr->ethmacsrc) +
-+					sizeof(wr->ethtype) +
-+					sizeof(wr->vlantci));
 +
 +	/*
-+	 * The chip minimum packet length is 10 octets but the firmware
-+	 * command that we are using requires that we copy the Ethernet header
-+	 * (including the VLAN tag) into the header so we reject anything
-+	 * smaller than that ...
++	 * Tell the OS that the link status has changed and print a short
++	 * informative message on the console about the event.
 +	 */
-+	if (unlikely(skb->len < fw_hdr_copy_len))
-+		goto out_free;
++	if (link_ok) {
++		const char *s;
++		const char *fc;
++		const struct port_info *pi = netdev_priv(dev);
 +
-+	/*
-+	 * Figure out which TX Queue we're going to use.
-+	 */
-+	pi = netdev_priv(dev);
-+	adapter = pi->adapter;
-+	qidx = skb_get_queue_mapping(skb);
-+	BUG_ON(qidx >= pi->nqsets);
-+	txq = &adapter->sge.ethtxq[pi->first_qset + qidx];
++		netif_carrier_on(dev);
 +
-+	/*
-+	 * Take this opportunity to reclaim any TX Descriptors whose DMA
-+	 * transfers have completed.
-+	 */
-+	reclaim_completed_tx(adapter, &txq->q, true);
-+
-+	/*
-+	 * Calculate the number of flits and TX Descriptors we're going to
-+	 * need along with how many TX Descriptors will be left over after
-+	 * we inject our Work Request.
-+	 */
-+	flits = calc_tx_flits(skb);
-+	ndesc = flits_to_desc(flits);
-+	credits = txq_avail(&txq->q) - ndesc;
-+
-+	if (unlikely(credits < 0)) {
-+		/*
-+		 * Not enough room for this packet's Work Request.  Stop the
-+		 * TX Queue and return a "busy" condition.  The queue will get
-+		 * started later on when the firmware informs us that space
-+		 * has opened up.
-+		 */
-+		txq_stop(txq);
-+		dev_err(adapter->pdev_dev,
-+			"%s: TX ring %u full while queue awake!\n",
-+			dev->name, qidx);
-+		return NETDEV_TX_BUSY;
-+	}
-+
-+	if (!is_eth_imm(skb) &&
-+	    unlikely(map_skb(adapter->pdev_dev, skb, addr) < 0)) {
-+		/*
-+		 * We need to map the skb into PCI DMA space (because it can't
-+		 * be in-lined directly into the Work Request) and the mapping
-+		 * operation failed.  Record the error and drop the packet.
-+		 */
-+		txq->mapping_err++;
-+		goto out_free;
-+	}
-+
-+	if (unlikely(credits < ETHTXQ_STOP_THRES)) {
-+		/*
-+		 * After we're done injecting the Work Request for this
-+		 * packet, we'll be below our "stop threshhold" so stop the TX
-+		 * Queue now.  The queue will get started later on when the
-+		 * firmware informs us that space has opened up.
-+		 */
-+		txq_stop(txq);
-+	}
-+
-+	/*
-+	 * Start filling in our Work Request.  Note that we do _not_ handle
-+	 * the WR Header wrapping around the TX Descriptor Ring.  If our
-+	 * maximum header size ever exceeds one TX Descriptor, we'll need to
-+	 * do something else here.
-+	 */
-+	BUG_ON(DIV_ROUND_UP(ETHTXQ_MAX_HDR, TXD_PER_EQ_UNIT) > 1);
-+	wr = (void *)&txq->q.desc[txq->q.pidx];
-+	wr->equiq_to_len16 = cpu_to_be32(FW_WR_LEN16(DIV_ROUND_UP(flits, 2)));
-+	wr->r3[0] = cpu_to_be64(0);
-+	wr->r3[1] = cpu_to_be64(0);
-+	skb_copy_from_linear_data(skb, (void *)wr->ethmacdst, fw_hdr_copy_len);
-+	end = (u64 *)wr + flits;
-+
-+	/*
-+	 * If this is a Large Send Offload packet we'll put in an LSO CPL
-+	 * message with an encapsulated TX Packet CPL message.  Otherwise we
-+	 * just use a TX Packet CPL message.
-+	 */
-+	ssi = skb_shinfo(skb);
-+	if (ssi->gso_size) {
-+		struct cpl_tx_pkt_lso_core *lso = (void *)(wr + 1);
-+		bool v6 = (ssi->gso_type & SKB_GSO_TCPV6) != 0;
-+		int l3hdr_len = skb_network_header_len(skb);
-+		int eth_xtra_len = skb_network_offset(skb) - ETH_HLEN;
-+
-+		wr->op_immdlen =
-+			cpu_to_be32(FW_WR_OP(FW_ETH_TX_PKT_VM_WR) |
-+				    FW_WR_IMMDLEN(sizeof(*lso) +
-+						  sizeof(*cpl)));
-+		/*
-+		 * Fill in the LSO CPL message.
-+		 */
-+		lso->lso_ctrl =
-+			cpu_to_be32(LSO_OPCODE(CPL_TX_PKT_LSO) |
-+				    LSO_FIRST_SLICE |
-+				    LSO_LAST_SLICE |
-+				    LSO_IPV6(v6) |
-+				    LSO_ETHHDR_LEN(eth_xtra_len/4) |
-+				    LSO_IPHDR_LEN(l3hdr_len/4) |
-+				    LSO_TCPHDR_LEN(tcp_hdr(skb)->doff));
-+		lso->ipid_ofst = cpu_to_be16(0);
-+		lso->mss = cpu_to_be16(ssi->gso_size);
-+		lso->seqno_offset = cpu_to_be32(0);
-+		lso->len = cpu_to_be32(skb->len);
-+
-+		/*
-+		 * Set up TX Packet CPL pointer, control word and perform
-+		 * accounting.
-+		 */
-+		cpl = (void *)(lso + 1);
-+		cntrl = (TXPKT_CSUM_TYPE(v6 ? TX_CSUM_TCPIP6 : TX_CSUM_TCPIP) |
-+			 TXPKT_IPHDR_LEN(l3hdr_len) |
-+			 TXPKT_ETHHDR_LEN(eth_xtra_len));
-+		txq->tso++;
-+		txq->tx_cso += ssi->gso_segs;
-+	} else {
-+		int len;
-+
-+		len = is_eth_imm(skb) ? skb->len + sizeof(*cpl) : sizeof(*cpl);
-+		wr->op_immdlen =
-+			cpu_to_be32(FW_WR_OP(FW_ETH_TX_PKT_VM_WR) |
-+				    FW_WR_IMMDLEN(len));
-+
-+		/*
-+		 * Set up TX Packet CPL pointer, control word and perform
-+		 * accounting.
-+		 */
-+		cpl = (void *)(wr + 1);
-+		if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+			cntrl = hwcsum(skb) | TXPKT_IPCSUM_DIS;
-+			txq->tx_cso++;
-+		} else
-+			cntrl = TXPKT_L4CSUM_DIS | TXPKT_IPCSUM_DIS;
-+	}
-+
-+	/*
-+	 * If there's a VLAN tag present, add that to the list of things to
-+	 * do in this Work Request.
-+	 */
-+	if (vlan_tx_tag_present(skb)) {
-+		txq->vlan_ins++;
-+		cntrl |= TXPKT_VLAN_VLD | TXPKT_VLAN(vlan_tx_tag_get(skb));
-+	}
-+
-+	/*
-+	 * Fill in the TX Packet CPL message header.
-+	 */
-+	cpl->ctrl0 = cpu_to_be32(TXPKT_OPCODE(CPL_TX_PKT_XT) |
-+				 TXPKT_INTF(pi->port_id) |
-+				 TXPKT_PF(0));
-+	cpl->pack = cpu_to_be16(0);
-+	cpl->len = cpu_to_be16(skb->len);
-+	cpl->ctrl1 = cpu_to_be64(cntrl);
-+
-+#ifdef T4_TRACE
-+	T4_TRACE5(adapter->tb[txq->q.cntxt_id & 7],
-+		  "eth_xmit: ndesc %u, credits %u, pidx %u, len %u, frags %u",
-+		  ndesc, credits, txq->q.pidx, skb->len, ssi->nr_frags);
-+#endif
-+
-+	/*
-+	 * Fill in the body of the TX Packet CPL message with either in-lined
-+	 * data or a Scatter/Gather List.
-+	 */
-+	if (is_eth_imm(skb)) {
-+		/*
-+		 * In-line the packet's data and free the skb since we don't
-+		 * need it any longer.
-+		 */
-+		inline_tx_skb(skb, &txq->q, cpl + 1);
-+		dev_kfree_skb(skb);
-+	} else {
-+		/*
-+		 * Write the skb's Scatter/Gather list into the TX Packet CPL
-+		 * message and retain a pointer to the skb so we can free it
-+		 * later when its DMA completes.  (We store the skb pointer
-+		 * in the Software Descriptor corresponding to the last TX
-+		 * Descriptor used by the Work Request.)
-+		 *
-+		 * The retained skb will be freed when the corresponding TX
-+		 * Descriptors are reclaimed after their DMAs complete.
-+		 * However, this could take quite a while since, in general,
-+		 * the hardware is set up to be lazy about sending DMA
-+		 * completion notifications to us and we mostly perform TX
-+		 * reclaims in the transmit routine.
-+		 *
-+		 * This is good for performamce but means that we rely on new
-+		 * TX packets arriving to run the destructors of completed
-+		 * packets, which open up space in their sockets' send queues.
-+		 * Sometimes we do not get such new packets causing TX to
-+		 * stall.  A single UDP transmitter is a good example of this
-+		 * situation.  We have a clean up timer that periodically
-+		 * reclaims completed packets but it doesn't run often enough
-+		 * (nor do we want it to) to prevent lengthy stalls.  A
-+		 * solution to this problem is to run the destructor early,
-+		 * after the packet is queued but before it's DMAd.  A con is
-+		 * that we lie to socket memory accounting, but the amount of
-+		 * extra memory is reasonable (limited by the number of TX
-+		 * descriptors), the packets do actually get freed quickly by
-+		 * new packets almost always, and for protocols like TCP that
-+		 * wait for acks to really free up the data the extra memory
-+		 * is even less.  On the positive side we run the destructors
-+		 * on the sending CPU rather than on a potentially different
-+		 * completing CPU, usually a good thing.  We also run them
-+		 * without holding our TX queue lock, unlike what
-+		 * reclaim_completed_tx() would otherwise do.
-+		 *
-+		 * XXX Actually the above is somewhat incorrect since we don't
-+		 * XXX yet have a periodic timer which reclaims TX Descriptors.
-+		 * XXX What's our plan for this?
-+		 * XXX
-+		 * XXX Also, we don't currently have a TX Queue lock but
-+		 * XXX that may be the result of not having any current
-+		 * XXX asynchronous path for reclaiming completed TX
-+		 * XXX Descriptors ...
-+		 *
-+		 * Run the destructor before telling the DMA engine about the
-+		 * packet to make sure it doesn't complete and get freed
-+		 * prematurely.
-+		 */
-+		struct ulptx_sgl *sgl = (struct ulptx_sgl *)(cpl + 1);
-+		struct sge_txq *tq = &txq->q;
-+		int last_desc;
-+
-+		/*
-+		 * If the Work Request header was an exact multiple of our TX
-+		 * Descriptor length, then it's possible that the starting SGL
-+		 * pointer lines up exactly with the end of our TX Descriptor
-+		 * ring.  If that's the case, wrap around to the beginning
-+		 * here ...
-+		 */
-+		if (unlikely((void *)sgl == (void *)tq->stat)) {
-+			sgl = (void *)tq->desc;
-+			end = (void *)((void *)tq->desc +
-+				       ((void *)end - (void *)tq->stat));
-+		}
-+
-+		write_sgl(skb, tq, sgl, end, 0, addr);
-+		skb_orphan(skb);
-+
-+		last_desc = tq->pidx + ndesc - 1;
-+		if (last_desc >= tq->size)
-+			last_desc -= tq->size;
-+		tq->sdesc[last_desc].skb = skb;
-+		tq->sdesc[last_desc].sgl = sgl;
-+	}
-+
-+	/*
-+	 * Advance our internal TX Queue state, tell the hardware about
-+	 * the new TX descriptors and return success.
-+	 */
-+	txq_advance(&txq->q, ndesc);
-+	dev->trans_start = jiffies;
-+	ring_tx_db(adapter, &txq->q, ndesc);
-+	return NETDEV_TX_OK;
-+
-+out_free:
-+	/*
-+	 * An error of some sort happened.  Free the TX skb and tell the
-+	 * OS that we've "dealt" with the packet ...
-+	 */
-+	dev_kfree_skb(skb);
-+	return NETDEV_TX_OK;
-+}
-+
-+/**
-+ *	t4vf_pktgl_free - free a packet gather list
-+ *	@gl: the gather list
-+ *
-+ *	Releases the pages of a packet gather list.  We do not own the last
-+ *	page on the list and do not free it.
-+ */
-+void t4vf_pktgl_free(const struct pkt_gl *gl)
-+{
-+	int frag;
-+
-+	frag = gl->nfrags - 1;
-+	while (frag--)
-+		put_page(gl->frags[frag].page);
-+}
-+
-+/**
-+ *	copy_frags - copy fragments from gather list into skb_shared_info
-+ *	@si: destination skb shared info structure
-+ *	@gl: source internal packet gather list
-+ *	@offset: packet start offset in first page
-+ *
-+ *	Copy an internal packet gather list into a Linux skb_shared_info
-+ *	structure.
-+ */
-+static inline void copy_frags(struct skb_shared_info *si,
-+			      const struct pkt_gl *gl,
-+			      unsigned int offset)
-+{
-+	unsigned int n;
-+
-+	/* usually there's just one frag */
-+	si->frags[0].page = gl->frags[0].page;
-+	si->frags[0].page_offset = gl->frags[0].page_offset + offset;
-+	si->frags[0].size = gl->frags[0].size - offset;
-+	si->nr_frags = gl->nfrags;
-+
-+	n = gl->nfrags - 1;
-+	if (n)
-+		memcpy(&si->frags[1], &gl->frags[1], n * sizeof(skb_frag_t));
-+
-+	/* get a reference to the last page, we don't own it */
-+	get_page(gl->frags[n].page);
-+}
-+
-+/**
-+ *	do_gro - perform Generic Receive Offload ingress packet processing
-+ *	@rxq: ingress RX Ethernet Queue
-+ *	@gl: gather list for ingress packet
-+ *	@pkt: CPL header for last packet fragment
-+ *
-+ *	Perform Generic Receive Offload (GRO) ingress packet processing.
-+ *	We use the standard Linux GRO interfaces for this.
-+ */
-+static void do_gro(struct sge_eth_rxq *rxq, const struct pkt_gl *gl,
-+		   const struct cpl_rx_pkt *pkt)
-+{
-+	int ret;
-+	struct sk_buff *skb;
-+
-+	skb = napi_get_frags(&rxq->rspq.napi);
-+	if (unlikely(!skb)) {
-+		t4vf_pktgl_free(gl);
-+		rxq->stats.rx_drops++;
-+		return;
-+	}
-+
-+	copy_frags(skb_shinfo(skb), gl, PKTSHIFT);
-+	skb->len = gl->tot_len - PKTSHIFT;
-+	skb->data_len = skb->len;
-+	skb->truesize += skb->data_len;
-+	skb->ip_summed = CHECKSUM_UNNECESSARY;
-+	skb_record_rx_queue(skb, rxq->rspq.idx);
-+
-+	if (unlikely(pkt->vlan_ex)) {
-+		struct port_info *pi = netdev_priv(rxq->rspq.netdev);
-+		struct vlan_group *grp = pi->vlan_grp;
-+
-+		rxq->stats.vlan_ex++;
-+		if (likely(grp)) {
-+			ret = vlan_gro_frags(&rxq->rspq.napi, grp,
-+					     be16_to_cpu(pkt->vlan));
-+			goto stats;
-+		}
-+	}
-+	ret = napi_gro_frags(&rxq->rspq.napi);
-+
-+stats:
-+	if (ret == GRO_HELD)
-+		rxq->stats.lro_pkts++;
-+	else if (ret == GRO_MERGED || ret == GRO_MERGED_FREE)
-+		rxq->stats.lro_merged++;
-+	rxq->stats.pkts++;
-+	rxq->stats.rx_cso++;
-+}
-+
-+/**
-+ *	t4vf_ethrx_handler - process an ingress ethernet packet
-+ *	@rspq: the response queue that received the packet
-+ *	@rsp: the response queue descriptor holding the RX_PKT message
-+ *	@gl: the gather list of packet fragments
-+ *
-+ *	Process an ingress ethernet packet and deliver it to the stack.
-+ */
-+int t4vf_ethrx_handler(struct sge_rspq *rspq, const __be64 *rsp,
-+		       const struct pkt_gl *gl)
-+{
-+	struct sk_buff *skb;
-+	struct port_info *pi;
-+	struct skb_shared_info *ssi;
-+	const struct cpl_rx_pkt *pkt = (void *)&rsp[1];
-+	bool csum_ok = pkt->csum_calc && !pkt->err_vec;
-+	unsigned int len = be16_to_cpu(pkt->len);
-+	struct sge_eth_rxq *rxq = container_of(rspq, struct sge_eth_rxq, rspq);
-+
-+	/*
-+	 * If this is a good TCP packet and we have Generic Receive Offload
-+	 * enabled, handle the packet in the GRO path.
-+	 */
-+	if ((pkt->l2info & cpu_to_be32(RXF_TCP)) &&
-+	    (rspq->netdev->features & NETIF_F_GRO) && csum_ok &&
-+	    !pkt->ip_frag) {
-+		do_gro(rxq, gl, pkt);
-+		return 0;
-+	}
-+
-+	/*
-+	 * If the ingress packet is small enough, allocate an skb large enough
-+	 * for all of the data and copy it inline.  Otherwise, allocate an skb
-+	 * with enough room to pull in the header and reference the rest of
-+	 * the data via the skb fragment list.
-+	 */
-+	if (len <= RX_COPY_THRES) {
-+		/* small packets have only one fragment */
-+		skb = alloc_skb(gl->frags[0].size, GFP_ATOMIC);
-+		if (!skb)
-+			goto nomem;
-+		__skb_put(skb, gl->frags[0].size);
-+		skb_copy_to_linear_data(skb, gl->va, gl->frags[0].size);
-+	} else {
-+		skb = alloc_skb(RX_PKT_PULL_LEN, GFP_ATOMIC);
-+		if (!skb)
-+			goto nomem;
-+		__skb_put(skb, RX_PKT_PULL_LEN);
-+		skb_copy_to_linear_data(skb, gl->va, RX_PKT_PULL_LEN);
-+
-+		ssi = skb_shinfo(skb);
-+		ssi->frags[0].page = gl->frags[0].page;
-+		ssi->frags[0].page_offset = (gl->frags[0].page_offset +
-+					     RX_PKT_PULL_LEN);
-+		ssi->frags[0].size = gl->frags[0].size - RX_PKT_PULL_LEN;
-+		if (gl->nfrags > 1)
-+			memcpy(&ssi->frags[1], &gl->frags[1],
-+			       (gl->nfrags-1) * sizeof(skb_frag_t));
-+		ssi->nr_frags = gl->nfrags;
-+		skb->len = len + PKTSHIFT;
-+		skb->data_len = skb->len - RX_PKT_PULL_LEN;
-+		skb->truesize += skb->data_len;
-+
-+		/* Get a reference for the last page, we don't own it */
-+		get_page(gl->frags[gl->nfrags - 1].page);
-+	}
-+
-+	__skb_pull(skb, PKTSHIFT);
-+	skb->protocol = eth_type_trans(skb, rspq->netdev);
-+	skb_record_rx_queue(skb, rspq->idx);
-+	skb->dev->last_rx = jiffies;                  /* XXX removed 2.6.29 */
-+	pi = netdev_priv(skb->dev);
-+	rxq->stats.pkts++;
-+
-+	if (csum_ok && (pi->rx_offload & RX_CSO) && !pkt->err_vec &&
-+	    (be32_to_cpu(pkt->l2info) & (RXF_UDP|RXF_TCP))) {
-+		if (!pkt->ip_frag)
-+			skb->ip_summed = CHECKSUM_UNNECESSARY;
-+		else {
-+			__sum16 c = (__force __sum16)pkt->csum;
-+			skb->csum = csum_unfold(c);
-+			skb->ip_summed = CHECKSUM_COMPLETE;
-+		}
-+		rxq->stats.rx_cso++;
-+	} else
-+		skb->ip_summed = CHECKSUM_NONE;
-+
-+	if (unlikely(pkt->vlan_ex)) {
-+		struct vlan_group *grp = pi->vlan_grp;
-+
-+		rxq->stats.vlan_ex++;
-+		if (likely(grp))
-+			vlan_hwaccel_receive_skb(skb, grp,
-+						 be16_to_cpu(pkt->vlan));
-+		else
-+			dev_kfree_skb_any(skb);
-+	} else
-+		netif_receive_skb(skb);
-+
-+	return 0;
-+
-+nomem:
-+	t4vf_pktgl_free(gl);
-+	rxq->stats.rx_drops++;
-+	return 0;
-+}
-+
-+/**
-+ *	is_new_response - check if a response is newly written
-+ *	@rc: the response control descriptor
-+ *	@rspq: the response queue
-+ *
-+ *	Returns true if a response descriptor contains a yet unprocessed
-+ *	response.
-+ */
-+static inline bool is_new_response(const struct rsp_ctrl *rc,
-+				   const struct sge_rspq *rspq)
-+{
-+	return RSPD_GEN(rc->type_gen) == rspq->gen;
-+}
-+
-+/**
-+ *	restore_rx_bufs - put back a packet's RX buffers
-+ *	@gl: the packet gather list
-+ *	@fl: the SGE Free List
-+ *	@nfrags: how many fragments in @si
-+ *
-+ *	Called when we find out that the current packet, @si, can't be
-+ *	processed right away for some reason.  This is a very rare event and
-+ *	there's no effort to make this suspension/resumption process
-+ *	particularly efficient.
-+ *
-+ *	We implement the suspension by putting all of the RX buffers associated
-+ *	with the current packet back on the original Free List.  The buffers
-+ *	have already been unmapped and are left unmapped, we mark them as
-+ *	unmapped in order to prevent further unmapping attempts.  (Effectively
-+ *	this function undoes the series of @unmap_rx_buf calls which were done
-+ *	to create the current packet's gather list.)  This leaves us ready to
-+ *	restart processing of the packet the next time we start processing the
-+ *	RX Queue ...
-+ */
-+static void restore_rx_bufs(const struct pkt_gl *gl, struct sge_fl *fl,
-+			    int frags)
-+{
-+	struct rx_sw_desc *sdesc;
-+
-+	while (frags--) {
-+		if (fl->cidx == 0)
-+			fl->cidx = fl->size - 1;
-+		else
-+			fl->cidx--;
-+		sdesc = &fl->sdesc[fl->cidx];
-+		sdesc->page = gl->frags[frags].page;
-+		sdesc->dma_addr |= RX_UNMAPPED_BUF;
-+		fl->avail++;
-+	}
-+}
-+
-+/**
-+ *	rspq_next - advance to the next entry in a response queue
-+ *	@rspq: the queue
-+ *
-+ *	Updates the state of a response queue to advance it to the next entry.
-+ */
-+static inline void rspq_next(struct sge_rspq *rspq)
-+{
-+	rspq->cur_desc = (void *)rspq->cur_desc + rspq->iqe_len;
-+	if (unlikely(++rspq->cidx == rspq->size)) {
-+		rspq->cidx = 0;
-+		rspq->gen ^= 1;
-+		rspq->cur_desc = rspq->desc;
-+	}
-+}
-+
-+/**
-+ *	process_responses - process responses from an SGE response queue
-+ *	@rspq: the ingress response queue to process
-+ *	@budget: how many responses can be processed in this round
-+ *
-+ *	Process responses from a Scatter Gather Engine response queue up to
-+ *	the supplied budget.  Responses include received packets as well as
-+ *	control messages from firmware or hardware.
-+ *
-+ *	Additionally choose the interrupt holdoff time for the next interrupt
-+ *	on this queue.  If the system is under memory shortage use a fairly
-+ *	long delay to help recovery.
-+ */
-+int process_responses(struct sge_rspq *rspq, int budget)
-+{
-+	struct sge_eth_rxq *rxq = container_of(rspq, struct sge_eth_rxq, rspq);
-+	int budget_left = budget;
-+
-+	while (likely(budget_left)) {
-+		int ret, rsp_type;
-+		const struct rsp_ctrl *rc;
-+
-+		rc = (void *)rspq->cur_desc + (rspq->iqe_len - sizeof(*rc));
-+		if (!is_new_response(rc, rspq))
++		switch (pi->link_cfg.speed) {
++		case SPEED_10000:
++			s = "10Gbps";
 +			break;
 +
-+		/*
-+		 * Figure out what kind of response we've received from the
-+		 * SGE.
-+		 */
-+		rmb();
-+		rsp_type = RSPD_TYPE(rc->type_gen);
-+		if (likely(rsp_type == RSP_TYPE_FLBUF)) {
-+			skb_frag_t *fp;
-+			struct pkt_gl gl;
-+			const struct rx_sw_desc *sdesc;
-+			u32 bufsz, frag;
-+			u32 len = be32_to_cpu(rc->pldbuflen_qid);
++		case SPEED_1000:
++			s = "1000Mbps";
++			break;
 +
-+			/*
-+			 * If we get a "new buffer" message from the SGE we
-+			 * need to move on to the next Free List buffer.
-+			 */
-+			if (len & RSPD_NEWBUF) {
-+				/*
-+				 * We get one "new buffer" message when we
-+				 * first start up a queue so we need to ignore
-+				 * it when our offset into the buffer is 0.
-+				 */
-+				if (likely(rspq->offset > 0)) {
-+					free_rx_bufs(rspq->adapter, &rxq->fl,
-+						     1);
-+					rspq->offset = 0;
-+				}
-+				len = RSPD_LEN(len);
-+			}
++		case SPEED_100:
++			s = "100Mbps";
++			break;
 +
-+			/*
-+			 * Gather packet fragments.
-+			 */
-+			for (frag = 0, fp = gl.frags; /**/; frag++, fp++) {
-+				BUG_ON(frag >= MAX_SKB_FRAGS);
-+				BUG_ON(rxq->fl.avail == 0);
-+				sdesc = &rxq->fl.sdesc[rxq->fl.cidx];
-+				bufsz = get_buf_size(sdesc);
-+				fp->page = sdesc->page;
-+				fp->page_offset = rspq->offset;
-+				fp->size = min(bufsz, len);
-+				len -= fp->size;
-+				if (!len)
-+					break;
-+				unmap_rx_buf(rspq->adapter, &rxq->fl);
-+			}
-+			gl.nfrags = frag+1;
-+
-+			/*
-+			 * Last buffer remains mapped so explicitly make it
-+			 * coherent for CPU access and start preloading first
-+			 * cache line ...
-+			 */
-+			dma_sync_single_for_cpu(rspq->adapter->pdev_dev,
-+						get_buf_addr(sdesc),
-+						fp->size, DMA_FROM_DEVICE);
-+			gl.va = (page_address(gl.frags[0].page) +
-+				 gl.frags[0].page_offset);
-+			prefetch(gl.va);
-+
-+			/*
-+			 * Hand the new ingress packet to the handler for
-+			 * this Response Queue.
-+			 */
-+			ret = rspq->handler(rspq, rspq->cur_desc, &gl);
-+			if (likely(ret == 0))
-+				rspq->offset += ALIGN(fp->size, FL_ALIGN);
-+			else
-+				restore_rx_bufs(&gl, &rxq->fl, frag);
-+		} else if (likely(rsp_type == RSP_TYPE_CPL)) {
-+			ret = rspq->handler(rspq, rspq->cur_desc, NULL);
-+		} else {
-+			WARN_ON(rsp_type > RSP_TYPE_CPL);
-+			ret = 0;
-+		}
-+
-+		if (unlikely(ret)) {
-+			/*
-+			 * Couldn't process descriptor, back off for recovery.
-+			 * We use the SGE's last timer which has the longest
-+			 * interrupt coalescing value ...
-+			 */
-+			const int NOMEM_TIMER_IDX = SGE_NTIMERS-1;
-+			rspq->next_intr_params =
-+				QINTR_TIMER_IDX(NOMEM_TIMER_IDX);
++		default:
++			s = "unknown";
 +			break;
 +		}
 +
-+		rspq_next(rspq);
-+		budget_left--;
-+	}
-+
-+	/*
-+	 * If this is a Response Queue with an associated Free List and
-+	 * at least two Egress Queue units available in the Free List
-+	 * for new buffer pointers, refill the Free List.
-+	 */
-+	if (rspq->offset >= 0 &&
-+	    rxq->fl.size - rxq->fl.avail >= 2*FL_PER_EQ_UNIT)
-+		__refill_fl(rspq->adapter, &rxq->fl);
-+	return budget - budget_left;
-+}
-+
-+/**
-+ *	napi_rx_handler - the NAPI handler for RX processing
-+ *	@napi: the napi instance
-+ *	@budget: how many packets we can process in this round
-+ *
-+ *	Handler for new data events when using NAPI.  This does not need any
-+ *	locking or protection from interrupts as data interrupts are off at
-+ *	this point and other adapter interrupts do not interfere (the latter
-+ *	in not a concern at all with MSI-X as non-data interrupts then have
-+ *	a separate handler).
-+ */
-+static int napi_rx_handler(struct napi_struct *napi, int budget)
-+{
-+	unsigned int intr_params;
-+	struct sge_rspq *rspq = container_of(napi, struct sge_rspq, napi);
-+	int work_done = process_responses(rspq, budget);
-+
-+	if (likely(work_done < budget)) {
-+		napi_complete(napi);
-+		intr_params = rspq->next_intr_params;
-+		rspq->next_intr_params = rspq->intr_params;
-+	} else
-+		intr_params = QINTR_TIMER_IDX(SGE_TIMER_UPD_CIDX);
-+
-+	t4_write_reg(rspq->adapter,
-+		     T4VF_SGE_BASE_ADDR + SGE_VF_GTS,
-+		     CIDXINC(work_done) |
-+		     INGRESSQID((u32)rspq->cntxt_id) |
-+		     SEINTARM(intr_params));
-+	return work_done;
-+}
-+
-+/*
-+ * The MSI-X interrupt handler for an SGE response queue for the NAPI case
-+ * (i.e., response queue serviced by NAPI polling).
-+ */
-+irqreturn_t t4vf_sge_intr_msix(int irq, void *cookie)
-+{
-+	struct sge_rspq *rspq = cookie;
-+
-+	napi_schedule(&rspq->napi);
-+	return IRQ_HANDLED;
-+}
-+
-+/*
-+ * Process the indirect interrupt entries in the interrupt queue and kick off
-+ * NAPI for each queue that has generated an entry.
-+ */
-+static unsigned int process_intrq(struct adapter *adapter)
-+{
-+	struct sge *s = &adapter->sge;
-+	struct sge_rspq *intrq = &s->intrq;
-+	unsigned int work_done;
-+
-+	spin_lock(&adapter->sge.intrq_lock);
-+	for (work_done = 0; ; work_done++) {
-+		const struct rsp_ctrl *rc;
-+		unsigned int qid, iq_idx;
-+		struct sge_rspq *rspq;
-+
-+		/*
-+		 * Grab the next response from the interrupt queue and bail
-+		 * out if it's not a new response.
-+		 */
-+		rc = (void *)intrq->cur_desc + (intrq->iqe_len - sizeof(*rc));
-+		if (!is_new_response(rc, intrq))
++		switch (pi->link_cfg.fc) {
++		case PAUSE_RX:
++			fc = "RX";
 +			break;
 +
-+		/*
-+		 * If the response isn't a forwarded interrupt message issue a
-+		 * error and go on to the next response message.  This should
-+		 * never happen ...
-+		 */
-+		rmb();
-+		if (unlikely(RSPD_TYPE(rc->type_gen) != RSP_TYPE_INTR)) {
-+			dev_err(adapter->pdev_dev,
-+				"Unexpected INTRQ response type %d\n",
-+				RSPD_TYPE(rc->type_gen));
-+			continue;
++		case PAUSE_TX:
++			fc = "TX";
++			break;
++
++		case PAUSE_RX|PAUSE_TX:
++			fc = "RX/TX";
++			break;
++
++		default:
++			fc = "no";
++			break;
 +		}
 +
-+		/*
-+		 * Extract the Queue ID from the interrupt message and perform
-+		 * sanity checking to make sure it really refers to one of our
-+		 * Ingress Queues which is active and matches the queue's ID.
-+		 * None of these error conditions should ever happen so we may
-+		 * want to either make them fatal and/or conditionalized under
-+		 * DEBUG.
-+		 */
-+		qid = RSPD_QID(be32_to_cpu(rc->pldbuflen_qid));
-+		iq_idx = IQ_IDX(s, qid);
-+		if (unlikely(iq_idx >= MAX_INGQ)) {
-+			dev_err(adapter->pdev_dev,
-+				"Ingress QID %d out of range\n", qid);
-+			continue;
-+		}
-+		rspq = s->ingr_map[iq_idx];
-+		if (unlikely(rspq == NULL)) {
-+			dev_err(adapter->pdev_dev,
-+				"Ingress QID %d RSPQ=NULL\n", qid);
-+			continue;
-+		}
-+		if (unlikely(rspq->abs_id != qid)) {
-+			dev_err(adapter->pdev_dev,
-+				"Ingress QID %d refers to RSPQ %d\n",
-+				qid, rspq->abs_id);
-+			continue;
-+		}
-+
-+		/*
-+		 * Schedule NAPI processing on the indicated Response Queue
-+		 * and move on to the next entry in the Forwarded Interrupt
-+		 * Queue.
-+		 */
-+		napi_schedule(&rspq->napi);
-+		rspq_next(intrq);
++		printk(KERN_INFO "%s: link up, %s, full-duplex, %s PAUSE\n",
++		       dev->name, s, fc);
++	} else {
++		netif_carrier_off(dev);
++		printk(KERN_INFO "%s: link down\n", dev->name);
 +	}
-+
-+	t4_write_reg(adapter, T4VF_SGE_BASE_ADDR + SGE_VF_GTS,
-+		     CIDXINC(work_done) |
-+		     INGRESSQID(intrq->cntxt_id) |
-+		     SEINTARM(intrq->intr_params));
-+
-+	spin_unlock(&adapter->sge.intrq_lock);
-+
-+	return work_done;
 +}
 +
 +/*
-+ * The MSI interrupt handler handles data events from SGE response queues as
-+ * well as error and other async events as they all use the same MSI vector.
++ * Net device operations.
++ * ======================
 + */
-+irqreturn_t t4vf_intr_msi(int irq, void *cookie)
-+{
-+	struct adapter *adapter = cookie;
 +
-+	process_intrq(adapter);
-+	return IRQ_HANDLED;
-+}
-+
-+/**
-+ *	t4vf_intr_handler - select the top-level interrupt handler
-+ *	@adapter: the adapter
-+ *
-+ *	Selects the top-level interrupt handler based on the type of interrupts
-+ *	(MSI-X or MSI).
++/*
++ * Record our new VLAN Group and enable/disable hardware VLAN Tag extraction
++ * based on whether the specified VLAN Group pointer is NULL or not.
 + */
-+irq_handler_t t4vf_intr_handler(struct adapter *adapter)
-+{
-+	BUG_ON((adapter->flags & (USING_MSIX|USING_MSI)) == 0);
-+	if (adapter->flags & USING_MSIX)
-+		return t4vf_sge_intr_msix;
-+	else
-+		return t4vf_intr_msi;
-+}
-+
-+/**
-+ *	sge_rx_timer_cb - perform periodic maintenance of SGE RX queues
-+ *	@data: the adapter
-+ *
-+ *	Runs periodically from a timer to perform maintenance of SGE RX queues.
-+ *
-+ *	a) Replenishes RX queues that have run out due to memory shortage.
-+ *	Normally new RX buffers are added when existing ones are consumed but
-+ *	when out of memory a queue can become empty.  We schedule NAPI to do
-+ *	the actual refill.
-+ */
-+static void sge_rx_timer_cb(unsigned long data)
-+{
-+	struct adapter *adapter = (struct adapter *)data;
-+	struct sge *s = &adapter->sge;
-+	unsigned int i;
-+
-+	/*
-+	 * Scan the "Starving Free Lists" flag array looking for any Free
-+	 * Lists in need of more free buffers.  If we find one and it's not
-+	 * being actively polled, then bump its "starving" counter and attempt
-+	 * to refill it.  If we're successful in adding enough buffers to push
-+	 * the Free List over the starving threshold, then we can clear its
-+	 * "starving" status.
-+	 */
-+	for (i = 0; i < ARRAY_SIZE(s->starving_fl); i++) {
-+		unsigned long m;
-+
-+		for (m = s->starving_fl[i]; m; m &= m - 1) {
-+			unsigned int id = __ffs(m) + i * BITS_PER_LONG;
-+			struct sge_fl *fl = s->egr_map[id];
-+
-+			clear_bit(id, s->starving_fl);
-+			smp_mb__after_clear_bit();
-+
-+			/*
-+			 * Since we are accessing fl without a lock there's a
-+			 * small probability of a false positive where we
-+			 * schedule napi but the FL is no longer starving.
-+			 * No biggie.
-+			 */
-+			if (fl_starving(fl)) {
-+				struct sge_eth_rxq *rxq;
-+
-+				rxq = container_of(fl, struct sge_eth_rxq, fl);
-+				if (napi_reschedule(&rxq->rspq.napi))
-+					fl->starving++;
-+				else
-+					set_bit(id, s->starving_fl);
-+			}
-+		}
-+	}
-+
-+	/*
-+	 * Reschedule the next scan for starving Free Lists ...
-+	 */
-+	mod_timer(&s->rx_timer, jiffies + RX_QCHECK_PERIOD);
-+}
-+
-+/**
-+ *	sge_tx_timer_cb - perform periodic maintenance of SGE Tx queues
-+ *	@data: the adapter
-+ *
-+ *	Runs periodically from a timer to perform maintenance of SGE TX queues.
-+ *
-+ *	b) Reclaims completed Tx packets for the Ethernet queues.  Normally
-+ *	packets are cleaned up by new Tx packets, this timer cleans up packets
-+ *	when no new packets are being submitted.  This is essential for pktgen,
-+ *	at least.
-+ */
-+static void sge_tx_timer_cb(unsigned long data)
-+{
-+	struct adapter *adapter = (struct adapter *)data;
-+	struct sge *s = &adapter->sge;
-+	unsigned int i, budget;
-+
-+	budget = MAX_TIMER_TX_RECLAIM;
-+	i = s->ethtxq_rover;
-+	do {
-+		struct sge_eth_txq *txq = &s->ethtxq[i];
-+
-+		if (reclaimable(&txq->q) && __netif_tx_trylock(txq->txq)) {
-+			int avail = reclaimable(&txq->q);
-+
-+			if (avail > budget)
-+				avail = budget;
-+
-+			free_tx_desc(adapter, &txq->q, avail, true);
-+			txq->q.in_use -= avail;
-+			__netif_tx_unlock(txq->txq);
-+
-+			budget -= avail;
-+			if (!budget)
-+				break;
-+		}
-+
-+		i++;
-+		if (i >= s->ethqsets)
-+			i = 0;
-+	} while (i != s->ethtxq_rover);
-+	s->ethtxq_rover = i;
-+
-+	/*
-+	 * If we found too many reclaimable packets schedule a timer in the
-+	 * near future to continue where we left off.  Otherwise the next timer
-+	 * will be at its normal interval.
-+	 */
-+	mod_timer(&s->tx_timer, jiffies + (budget ? TX_QCHECK_PERIOD : 2));
-+}
-+
-+/**
-+ *	t4vf_sge_alloc_rxq - allocate an SGE RX Queue
-+ *	@adapter: the adapter
-+ *	@rspq: pointer to to the new rxq's Response Queue to be filled in
-+ *	@iqasynch: if 0, a normal rspq; if 1, an asynchronous event queue
-+ *	@dev: the network device associated with the new rspq
-+ *	@intr_dest: MSI-X vector index (overriden in MSI mode)
-+ *	@fl: pointer to the new rxq's Free List to be filled in
-+ *	@hnd: the interrupt handler to invoke for the rspq
-+ */
-+int t4vf_sge_alloc_rxq(struct adapter *adapter, struct sge_rspq *rspq,
-+		       bool iqasynch, struct net_device *dev,
-+		       int intr_dest,
-+		       struct sge_fl *fl, rspq_handler_t hnd)
++static void cxgb4vf_vlan_rx_register(struct net_device *dev,
++				     struct vlan_group *grp)
 +{
 +	struct port_info *pi = netdev_priv(dev);
-+	struct fw_iq_cmd cmd, rpl;
-+	int ret, iqandst, flsz = 0;
++
++	pi->vlan_grp = grp;
++	t4vf_set_rxmode(pi->adapter, pi->viid, -1, -1, -1, -1, grp != NULL, 0);
++}
++
++/*
++ * Perform the MAC and PHY actions needed to enable a "port" (Virtual
++ * Interface).
++ */
++static int link_start(struct net_device *dev)
++{
++	int ret;
++	struct port_info *pi = netdev_priv(dev);
 +
 +	/*
-+	 * If we're using MSI interrupts and we're not initializing the
-+	 * Forwarded Interrupt Queue itself, then set up this queue for
-+	 * indirect interrupts to the Forwarded Interrupt Queue.  Obviously
-+	 * the Forwarded Interrupt Queue must be set up before any other
-+	 * ingress queue ...
++	 * We do not set address filters and promiscuity here, the stack does
++	 * that step explicitly.
 +	 */
-+	if ((adapter->flags & USING_MSI) && rspq != &adapter->sge.intrq) {
-+		iqandst = SGE_INTRDST_IQ;
-+		intr_dest = adapter->sge.intrq.abs_id;
-+	} else
-+		iqandst = SGE_INTRDST_PCI;
++	ret = t4vf_set_rxmode(pi->adapter, pi->viid, dev->mtu, -1, -1, -1, -1,
++			      true);
++	if (ret == 0) {
++		ret = t4vf_change_mac(pi->adapter, pi->viid,
++				      pi->xact_addr_filt, dev->dev_addr, true);
++		if (ret >= 0) {
++			pi->xact_addr_filt = ret;
++			ret = 0;
++		}
++	}
 +
 +	/*
-+	 * Allocate the hardware ring for the Response Queue.  The size needs
-+	 * to be a multiple of 16 which includes the mandatory status entry
-+	 * (regardless of whether the Status Page capabilities are enabled or
-+	 * not).
++	 * We don't need to actually "start the link" itself since the
++	 * firmware will do that for us when the first Virtual Interface
++	 * is enabled on a port.
 +	 */
-+	rspq->size = roundup(rspq->size, 16);
-+	rspq->desc = alloc_ring(adapter->pdev_dev, rspq->size, rspq->iqe_len,
-+				0, &rspq->phys_addr, NULL, 0);
-+	if (!rspq->desc)
-+		return -ENOMEM;
++	if (ret == 0)
++		ret = t4vf_enable_vi(pi->adapter, pi->viid, true, true);
++	return ret;
++}
++
++/*
++ * Name the MSI-X interrupts.
++ */
++static void name_msix_vecs(struct adapter *adapter)
++{
++	int namelen = sizeof(adapter->msix_info[0].desc) - 1;
++	int pidx;
 +
 +	/*
-+	 * Fill in the Ingress Queue Command.  Note: Ideally this code would
-+	 * be in t4vf_hw.c but there are so many parameters and dependencies
-+	 * on our Linux SGE state that we would end up having to pass tons of
-+	 * parameters.  We'll have to think about how this might be migrated
-+	 * into OS-independent common code ...
++	 * Firmware events.
 +	 */
-+	memset(&cmd, 0, sizeof(cmd));
-+	cmd.op_to_vfn = cpu_to_be32(FW_CMD_OP(FW_IQ_CMD) |
-+				    FW_CMD_REQUEST |
-+				    FW_CMD_WRITE |
-+				    FW_CMD_EXEC);
-+	cmd.alloc_to_len16 = cpu_to_be32(FW_IQ_CMD_ALLOC |
-+					 FW_IQ_CMD_IQSTART(1) |
-+					 FW_LEN16(cmd));
-+	cmd.type_to_iqandstindex =
-+		cpu_to_be32(FW_IQ_CMD_TYPE(FW_IQ_TYPE_FL_INT_CAP) |
-+			    FW_IQ_CMD_IQASYNCH(iqasynch) |
-+			    FW_IQ_CMD_VIID(pi->viid) |
-+			    FW_IQ_CMD_IQANDST(iqandst) |
-+			    FW_IQ_CMD_IQANUS(1) |
-+			    FW_IQ_CMD_IQANUD(SGE_UPDATEDEL_INTR) |
-+			    FW_IQ_CMD_IQANDSTINDEX(intr_dest));
-+	cmd.iqdroprss_to_iqesize =
-+		cpu_to_be16(FW_IQ_CMD_IQPCIECH(pi->port_id) |
-+			    FW_IQ_CMD_IQGTSMODE |
-+			    FW_IQ_CMD_IQINTCNTTHRESH(rspq->pktcnt_idx) |
-+			    FW_IQ_CMD_IQESIZE(ilog2(rspq->iqe_len) - 4));
-+	cmd.iqsize = cpu_to_be16(rspq->size);
-+	cmd.iqaddr = cpu_to_be64(rspq->phys_addr);
++	snprintf(adapter->msix_info[MSIX_FW].desc, namelen,
++		 "%s-FWeventq", adapter->name);
++	adapter->msix_info[MSIX_FW].desc[namelen] = 0;
 +
-+	if (fl) {
++	/*
++	 * Ethernet queues.
++	 */
++	for_each_port(adapter, pidx) {
++		struct net_device *dev = adapter->port[pidx];
++		const struct port_info *pi = netdev_priv(dev);
++		int qs, msi;
++
++		for (qs = 0, msi = MSIX_NIQFLINT;
++		     qs < pi->nqsets;
++		     qs++, msi++) {
++			snprintf(adapter->msix_info[msi].desc, namelen,
++				 "%s-%d", dev->name, qs);
++			adapter->msix_info[msi].desc[namelen] = 0;
++		}
++	}
++}
++
++/*
++ * Request all of our MSI-X resources.
++ */
++static int request_msix_queue_irqs(struct adapter *adapter)
++{
++	struct sge *s = &adapter->sge;
++	int rxq, msi, err;
++
++	/*
++	 * Firmware events.
++	 */
++	err = request_irq(adapter->msix_info[MSIX_FW].vec, t4vf_sge_intr_msix,
++			  0, adapter->msix_info[MSIX_FW].desc, &s->fw_evtq);
++	if (err)
++		return err;
++
++	/*
++	 * Ethernet queues.
++	 */
++	msi = MSIX_NIQFLINT;
++	for_each_ethrxq(s, rxq) {
++		err = request_irq(adapter->msix_info[msi].vec,
++				  t4vf_sge_intr_msix, 0,
++				  adapter->msix_info[msi].desc,
++				  &s->ethrxq[rxq].rspq);
++		if (err)
++			goto err_free_irqs;
++		msi++;
++	}
++	return 0;
++
++err_free_irqs:
++	while (--rxq >= 0)
++		free_irq(adapter->msix_info[--msi].vec, &s->ethrxq[rxq].rspq);
++	free_irq(adapter->msix_info[MSIX_FW].vec, &s->fw_evtq);
++	return err;
++}
++
++/*
++ * Free our MSI-X resources.
++ */
++static void free_msix_queue_irqs(struct adapter *adapter)
++{
++	struct sge *s = &adapter->sge;
++	int rxq, msi;
++
++	free_irq(adapter->msix_info[MSIX_FW].vec, &s->fw_evtq);
++	msi = MSIX_NIQFLINT;
++	for_each_ethrxq(s, rxq)
++		free_irq(adapter->msix_info[msi++].vec,
++			 &s->ethrxq[rxq].rspq);
++}
++
++/*
++ * Turn on NAPI and start up interrupts on a response queue.
++ */
++static void qenable(struct sge_rspq *rspq)
++{
++	napi_enable(&rspq->napi);
++
++	/*
++	 * 0-increment the Going To Sleep register to start the timer and
++	 * enable interrupts.
++	 */
++	t4_write_reg(rspq->adapter, T4VF_SGE_BASE_ADDR + SGE_VF_GTS,
++		     CIDXINC(0) |
++		     SEINTARM(rspq->intr_params) |
++		     INGRESSQID(rspq->cntxt_id));
++}
++
++/*
++ * Enable NAPI scheduling and interrupt generation for all Receive Queues.
++ */
++static void enable_rx(struct adapter *adapter)
++{
++	int rxq;
++	struct sge *s = &adapter->sge;
++
++	for_each_ethrxq(s, rxq)
++		qenable(&s->ethrxq[rxq].rspq);
++	qenable(&s->fw_evtq);
++
++	/*
++	 * The interrupt queue doesn't use NAPI so we do the 0-increment of
++	 * its Going To Sleep register here to get it started.
++	 */
++	if (adapter->flags & USING_MSI)
++		t4_write_reg(adapter, T4VF_SGE_BASE_ADDR + SGE_VF_GTS,
++			     CIDXINC(0) |
++			     SEINTARM(s->intrq.intr_params) |
++			     INGRESSQID(s->intrq.cntxt_id));
++
++}
++
++/*
++ * Wait until all NAPI handlers are descheduled.
++ */
++static void quiesce_rx(struct adapter *adapter)
++{
++	struct sge *s = &adapter->sge;
++	int rxq;
++
++	for_each_ethrxq(s, rxq)
++		napi_disable(&s->ethrxq[rxq].rspq.napi);
++	napi_disable(&s->fw_evtq.napi);
++}
++
++/*
++ * Response queue handler for the firmware event queue.
++ */
++static int fwevtq_handler(struct sge_rspq *rspq, const __be64 *rsp,
++			  const struct pkt_gl *gl)
++{
++	/*
++	 * Extract response opcode and get pointer to CPL message body.
++	 */
++	struct adapter *adapter = rspq->adapter;
++	u8 opcode = ((const struct rss_header *)rsp)->opcode;
++	void *cpl = (void *)(rsp + 1);
++
++	switch (opcode) {
++	case CPL_FW6_MSG: {
 +		/*
-+		 * Allocate the ring for the hardware free list (with space
-+		 * for its status page) along with the associated software
-+		 * descriptor ring.  The free list size needs to be a multiple
-+		 * of the Egress Queue Unit.
++		 * We've received an asynchronous message from the firmware.
 +		 */
-+		fl->size = roundup(fl->size, FL_PER_EQ_UNIT);
-+		fl->desc = alloc_ring(adapter->pdev_dev, fl->size,
-+				      sizeof(__be64), sizeof(struct rx_sw_desc),
-+				      &fl->addr, &fl->sdesc, STAT_LEN);
-+		if (!fl->desc) {
-+			ret = -ENOMEM;
-+			goto err;
++		const struct cpl_fw6_msg *fw_msg = cpl;
++		if (fw_msg->type == FW6_TYPE_CMD_RPL)
++			t4vf_handle_fw_rpl(adapter, fw_msg->data);
++		break;
++	}
++
++	case CPL_SGE_EGR_UPDATE: {
++		/*
++		 * We've received an Egress Queue status update message.
++		 * We get these, as the SGE is currently configured, when
++		 * the firmware passes certain points in processing our
++		 * TX Ethernet Queue.  We use these updates to determine
++		 * when we may need to restart a TX Ethernet Queue which
++		 * was stopped for lack of free slots ...
++		 */
++		const struct cpl_sge_egr_update *p = (void *)cpl;
++		unsigned int qid = EGR_QID(be32_to_cpu(p->opcode_qid));
++		struct sge *s = &adapter->sge;
++		struct sge_txq *tq;
++		struct sge_eth_txq *txq;
++		unsigned int eq_idx;
++		int hw_cidx, reclaimable, in_use;
++
++		/*
++		 * Perform sanity checking on the Queue ID to make sure it
++		 * really refers to one of our TX Ethernet Egress Queues which
++		 * is active and matches the queue's ID.  None of these error
++		 * conditions should ever happen so we may want to either make
++		 * them fatal and/or conditionalized under DEBUG.
++		 */
++		eq_idx = EQ_IDX(s, qid);
++		if (unlikely(eq_idx >= MAX_EGRQ)) {
++			dev_err(adapter->pdev_dev,
++				"Egress Update QID %d out of range\n", qid);
++			break;
++		}
++		tq = s->egr_map[eq_idx];
++		if (unlikely(tq == NULL)) {
++			dev_err(adapter->pdev_dev,
++				"Egress Update QID %d TXQ=NULL\n", qid);
++			break;
++		}
++		txq = container_of(tq, struct sge_eth_txq, q);
++		if (unlikely(tq->abs_id != qid)) {
++			dev_err(adapter->pdev_dev,
++				"Egress Update QID %d refers to TXQ %d\n",
++				qid, tq->abs_id);
++			break;
 +		}
 +
 +		/*
-+		 * Calculate the size of the hardware free list ring plus
-+		 * status page (which the SGE will place at the end of the
-+		 * free list ring) in Egress Queue Units.
++		 * Skip TX Queues which aren't stopped.
 +		 */
-+		flsz = (fl->size / FL_PER_EQ_UNIT +
-+			STAT_LEN / EQ_UNIT);
++		if (likely(!netif_tx_queue_stopped(txq->txq)))
++			break;
 +
 +		/*
-+		 * Fill in all the relevant firmware Ingress Queue Command
-+		 * fields for the free list.
++		 * Skip stopped TX Queues which have more than half of their
++		 * DMA rings occupied with unacknowledged writes.
 +		 */
-+		cmd.iqns_to_fl0congen =
-+			cpu_to_be32(
-+				FW_IQ_CMD_FL0HOSTFCMODE(SGE_HOSTFCMODE_NONE) |
-+				FW_IQ_CMD_FL0PACKEN |
-+				FW_IQ_CMD_FL0PADEN);
-+		cmd.fl0dcaen_to_fl0cidxfthresh =
-+			cpu_to_be16(
-+				FW_IQ_CMD_FL0FBMIN(SGE_FETCHBURSTMIN_64B) |
-+				FW_IQ_CMD_FL0FBMAX(SGE_FETCHBURSTMAX_512B));
-+		cmd.fl0size = cpu_to_be16(flsz);
-+		cmd.fl0addr = cpu_to_be64(fl->addr);
++		hw_cidx = be16_to_cpu(txq->q.stat->cidx);
++		reclaimable = hw_cidx - txq->q.cidx;
++		if (reclaimable < 0)
++			reclaimable += txq->q.size;
++		in_use = txq->q.in_use - reclaimable;
++		if (in_use >= txq->q.size/2)
++			break;
++
++		/*
++		 * Restart a stopped TX Queue which has less than half of its
++		 * TX ring in use ...
++		 */
++		txq->q.restarts++;
++		netif_tx_wake_queue(txq->txq);
++		break;
 +	}
 +
-+	/*
-+	 * Issue the firmware Ingress Queue Command and extract the results if
-+	 * it completes successfully.
-+	 */
-+	ret = t4vf_wr_mbox(adapter, &cmd, sizeof(cmd), &rpl);
-+	if (ret)
-+		goto err;
-+
-+	netif_napi_add(dev, &rspq->napi, napi_rx_handler, 64);
-+	rspq->cur_desc = rspq->desc;
-+	rspq->cidx = 0;
-+	rspq->gen = 1;
-+	rspq->next_intr_params = rspq->intr_params;
-+	rspq->cntxt_id = be16_to_cpu(rpl.iqid);
-+	rspq->abs_id = be16_to_cpu(rpl.physiqid);
-+	rspq->size--;			/* subtract status entry */
-+	rspq->adapter = adapter;
-+	rspq->netdev = dev;
-+	rspq->handler = hnd;
-+
-+	/* set offset to -1 to distinguish ingress queues without FL */
-+	rspq->offset = fl ? 0 : -1;
-+
-+	if (fl) {
-+		fl->cntxt_id = be16_to_cpu(rpl.fl0id);
-+		fl->avail = 0;
-+		fl->pend_cred = 0;
-+		fl->pidx = 0;
-+		fl->cidx = 0;
-+		fl->alloc_failed = 0;
-+		fl->large_alloc_failed = 0;
-+		fl->starving = 0;
-+		refill_fl(adapter, fl, fl_cap(fl), GFP_KERNEL);
++	default:
++		dev_err(adapter->pdev_dev,
++			"unexpected CPL %#x on FW event queue\n", opcode);
 +	}
 +
 +	return 0;
++}
 +
-+err:
++/*
++ * Allocate SGE TX/RX response queues.  Determine how many sets of SGE queues
++ * to use and initializes them.  We support multiple "Queue Sets" per port if
++ * we have MSI-X, otherwise just one queue set per port.
++ */
++static int setup_sge_queues(struct adapter *adapter)
++{
++	struct sge *s = &adapter->sge;
++	int err, pidx, msix;
++
 +	/*
-+	 * An error occurred.  Clean up our partial allocation state and
-+	 * return the error.
++	 * Clear "Queue Set" Free List Starving and TX Queue Mapping Error
++	 * state.
 +	 */
-+	if (rspq->desc) {
-+		dma_free_coherent(adapter->pdev_dev, rspq->size * rspq->iqe_len,
-+				  rspq->desc, rspq->phys_addr);
-+		rspq->desc = NULL;
++	bitmap_zero(s->starving_fl, MAX_EGRQ);
++
++	/*
++	 * If we're using MSI interrupt mode we need to set up a "forwarded
++	 * interrupt" queue which we'll set up with our MSI vector.  The rest
++	 * of the ingress queues will be set up to forward their interrupts to
++	 * this queue ...  This must be first since t4vf_sge_alloc_rxq() uses
++	 * the intrq's queue ID as the interrupt forwarding queue for the
++	 * subsequent calls ...
++	 */
++	if (adapter->flags & USING_MSI) {
++		err = t4vf_sge_alloc_rxq(adapter, &s->intrq, false,
++					 adapter->port[0], 0, NULL, NULL);
++		if (err)
++			goto err_free_queues;
 +	}
-+	if (fl && fl->desc) {
-+		kfree(fl->sdesc);
-+		fl->sdesc = NULL;
-+		dma_free_coherent(adapter->pdev_dev, flsz * EQ_UNIT,
-+				  fl->desc, fl->addr);
-+		fl->desc = NULL;
++
++	/*
++	 * Allocate our ingress queue for asynchronous firmware messages.
++	 */
++	err = t4vf_sge_alloc_rxq(adapter, &s->fw_evtq, true, adapter->port[0],
++				 MSIX_FW, NULL, fwevtq_handler);
++	if (err)
++		goto err_free_queues;
++
++	/*
++	 * Allocate each "port"'s initial Queue Sets.  These can be changed
++	 * later on ... up to the point where any interface on the adapter is
++	 * brought up at which point lots of things get nailed down
++	 * permanently ...
++	 */
++	msix = MSIX_NIQFLINT;
++	for_each_port(adapter, pidx) {
++		struct net_device *dev = adapter->port[pidx];
++		struct port_info *pi = netdev_priv(dev);
++		struct sge_eth_rxq *rxq = &s->ethrxq[pi->first_qset];
++		struct sge_eth_txq *txq = &s->ethtxq[pi->first_qset];
++		int nqsets = (adapter->flags & USING_MSIX) ? pi->nqsets : 1;
++		int qs;
++
++		for (qs = 0; qs < nqsets; qs++, rxq++, txq++) {
++			err = t4vf_sge_alloc_rxq(adapter, &rxq->rspq, false,
++						 dev, msix++,
++						 &rxq->fl, t4vf_ethrx_handler);
++			if (err)
++				goto err_free_queues;
++
++			err = t4vf_sge_alloc_eth_txq(adapter, txq, dev,
++					     netdev_get_tx_queue(dev, qs),
++					     s->fw_evtq.cntxt_id);
++			if (err)
++				goto err_free_queues;
++
++			rxq->rspq.idx = qs;
++			memset(&rxq->stats, 0, sizeof(rxq->stats));
++		}
++	}
++
++	/*
++	 * Create the reverse mappings for the queues.
++	 */
++	s->egr_base = s->ethtxq[0].q.abs_id - s->ethtxq[0].q.cntxt_id;
++	s->ingr_base = s->ethrxq[0].rspq.abs_id - s->ethrxq[0].rspq.cntxt_id;
++	IQ_MAP(s, s->fw_evtq.abs_id) = &s->fw_evtq;
++	for_each_port(adapter, pidx) {
++		struct net_device *dev = adapter->port[pidx];
++		struct port_info *pi = netdev_priv(dev);
++		struct sge_eth_rxq *rxq = &s->ethrxq[pi->first_qset];
++		struct sge_eth_txq *txq = &s->ethtxq[pi->first_qset];
++		int nqsets = (adapter->flags & USING_MSIX) ? pi->nqsets : 1;
++		int qs;
++
++		for (qs = 0; qs < nqsets; qs++, rxq++, txq++) {
++			IQ_MAP(s, rxq->rspq.abs_id) = &rxq->rspq;
++			EQ_MAP(s, txq->q.abs_id) = &txq->q;
++
++			/*
++			 * The FW_IQ_CMD doesn't return the Absolute Queue IDs
++			 * for Free Lists but since all of the Egress Queues
++			 * (including Free Lists) have Relative Queue IDs
++			 * which are computed as Absolute - Base Queue ID, we
++			 * can synthesize the Absolute Queue IDs for the Free
++			 * Lists.  This is useful for debugging purposes when
++			 * we want to dump Queue Contexts via the PF Driver.
++			 */
++			rxq->fl.abs_id = rxq->fl.cntxt_id + s->egr_base;
++			EQ_MAP(s, rxq->fl.abs_id) = &rxq->fl;
++		}
++	}
++	return 0;
++
++err_free_queues:
++	t4vf_free_sge_resources(adapter);
++	return err;
++}
++
++/*
++ * Set up Receive Side Scaling (RSS) to distribute packets to multiple receive
++ * queues.  We configure the RSS CPU lookup table to distribute to the number
++ * of HW receive queues, and the response queue lookup table to narrow that
++ * down to the response queues actually configured for each "port" (Virtual
++ * Interface).  We always configure the RSS mapping for all ports since the
++ * mapping table has plenty of entries.
++ */
++static int setup_rss(struct adapter *adapter)
++{
++	int pidx;
++
++	for_each_port(adapter, pidx) {
++		struct port_info *pi = adap2pinfo(adapter, pidx);
++		struct sge_eth_rxq *rxq = &adapter->sge.ethrxq[pi->first_qset];
++		u16 rss[MAX_PORT_QSETS];
++		int qs, err;
++
++		for (qs = 0; qs < pi->nqsets; qs++)
++			rss[qs] = rxq[qs].rspq.abs_id;
++
++		err = t4vf_config_rss_range(adapter, pi->viid,
++					    0, pi->rss_size, rss, pi->nqsets);
++		if (err)
++			return err;
++
++		/*
++		 * Perform Global RSS Mode-specific initialization.
++		 */
++		switch (adapter->params.rss.mode) {
++		case FW_RSS_GLB_CONFIG_CMD_MODE_BASICVIRTUAL:
++			/*
++			 * If Tunnel All Lookup isn't specified in the global
++			 * RSS Configuration, then we need to specify a
++			 * default Ingress Queue for any ingress packets which
++			 * aren't hashed.  We'll use our first ingress queue
++			 * ...
++			 */
++			if (!adapter->params.rss.u.basicvirtual.tnlalllookup) {
++				union rss_vi_config config;
++				err = t4vf_read_rss_vi_config(adapter,
++							      pi->viid,
++							      &config);
++				if (err)
++					return err;
++				config.basicvirtual.defaultq =
++					rxq[0].rspq.abs_id;
++				err = t4vf_write_rss_vi_config(adapter,
++							       pi->viid,
++							       &config);
++				if (err)
++					return err;
++			}
++			break;
++		}
++	}
++
++	return 0;
++}
++
++/*
++ * Bring the adapter up.  Called whenever we go from no "ports" open to having
++ * one open.  This function performs the actions necessary to make an adapter
++ * operational, such as completing the initialization of HW modules, and
++ * enabling interrupts.  Must be called with the rtnl lock held.  (Note that
++ * this is called "cxgb_up" in the PF Driver.)
++ */
++static int adapter_up(struct adapter *adapter)
++{
++	int err;
++
++	/*
++	 * If this is the first time we've been called, perform basic
++	 * adapter setup.  Once we've done this, many of our adapter
++	 * parameters can no longer be changed ...
++	 */
++	if ((adapter->flags & FULL_INIT_DONE) == 0) {
++		err = setup_sge_queues(adapter);
++		if (err)
++			return err;
++		err = setup_rss(adapter);
++		if (err) {
++			t4vf_free_sge_resources(adapter);
++			return err;
++		}
++
++		if (adapter->flags & USING_MSIX)
++			name_msix_vecs(adapter);
++		adapter->flags |= FULL_INIT_DONE;
++	}
++
++	/*
++	 * Acquire our interrupt resources.  We only support MSI-X and MSI.
++	 */
++	BUG_ON((adapter->flags & (USING_MSIX|USING_MSI)) == 0);
++	if (adapter->flags & USING_MSIX)
++		err = request_msix_queue_irqs(adapter);
++	else
++		err = request_irq(adapter->pdev->irq,
++				  t4vf_intr_handler(adapter), 0,
++				  adapter->name, adapter);
++	if (err) {
++		dev_err(adapter->pdev_dev, "request_irq failed, err %d\n",
++			err);
++		return err;
++	}
++
++	/*
++	 * Enable NAPI ingress processing and return success.
++	 */
++	enable_rx(adapter);
++	t4vf_sge_start(adapter);
++	return 0;
++}
++
++/*
++ * Bring the adapter down.  Called whenever the last "port" (Virtual
++ * Interface) closed.  (Note that this routine is called "cxgb_down" in the PF
++ * Driver.)
++ */
++static void adapter_down(struct adapter *adapter)
++{
++	/*
++	 * Free interrupt resources.
++	 */
++	if (adapter->flags & USING_MSIX)
++		free_msix_queue_irqs(adapter);
++	else
++		free_irq(adapter->pdev->irq, adapter);
++
++	/*
++	 * Wait for NAPI handlers to finish.
++	 */
++	quiesce_rx(adapter);
++}
++
++/*
++ * Start up a net device.
++ */
++static int cxgb4vf_open(struct net_device *dev)
++{
++	int err;
++	struct port_info *pi = netdev_priv(dev);
++	struct adapter *adapter = pi->adapter;
++
++	/*
++	 * If this is the first interface that we're opening on the "adapter",
++	 * bring the "adapter" up now.
++	 */
++	if (adapter->open_device_map == 0) {
++		err = adapter_up(adapter);
++		if (err)
++			return err;
++	}
++
++	/*
++	 * Note that this interface is up and start everything up ...
++	 */
++	dev->real_num_tx_queues = pi->nqsets;
++	set_bit(pi->port_id, &adapter->open_device_map);
++	link_start(dev);
++	netif_tx_start_all_queues(dev);
++	return 0;
++}
++
++/*
++ * Shut down a net device.  This routine is called "cxgb_close" in the PF
++ * Driver ...
++ */
++static int cxgb4vf_stop(struct net_device *dev)
++{
++	int ret;
++	struct port_info *pi = netdev_priv(dev);
++	struct adapter *adapter = pi->adapter;
++
++	netif_tx_stop_all_queues(dev);
++	netif_carrier_off(dev);
++	ret = t4vf_enable_vi(adapter, pi->viid, false, false);
++	pi->link_cfg.link_ok = 0;
++
++	clear_bit(pi->port_id, &adapter->open_device_map);
++	if (adapter->open_device_map == 0)
++		adapter_down(adapter);
++	return 0;
++}
++
++/*
++ * Translate our basic statistics into the standard "ifconfig" statistics.
++ */
++static struct net_device_stats *cxgb4vf_get_stats(struct net_device *dev)
++{
++	struct t4vf_port_stats stats;
++	struct port_info *pi = netdev2pinfo(dev);
++	struct adapter *adapter = pi->adapter;
++	struct net_device_stats *ns = &dev->stats;
++	int err;
++
++	spin_lock(&adapter->stats_lock);
++	err = t4vf_get_port_stats(adapter, pi->pidx, &stats);
++	spin_unlock(&adapter->stats_lock);
++
++	memset(ns, 0, sizeof(*ns));
++	if (err)
++		return ns;
++
++	ns->tx_bytes = (stats.tx_bcast_bytes + stats.tx_mcast_bytes +
++			stats.tx_ucast_bytes + stats.tx_offload_bytes);
++	ns->tx_packets = (stats.tx_bcast_frames + stats.tx_mcast_frames +
++			  stats.tx_ucast_frames + stats.tx_offload_frames);
++	ns->rx_bytes = (stats.rx_bcast_bytes + stats.rx_mcast_bytes +
++			stats.rx_ucast_bytes);
++	ns->rx_packets = (stats.rx_bcast_frames + stats.rx_mcast_frames +
++			  stats.rx_ucast_frames);
++	ns->multicast = stats.rx_mcast_frames;
++	ns->tx_errors = stats.tx_drop_frames;
++	ns->rx_errors = stats.rx_err_frames;
++
++	return ns;
++}
++
++/*
++ * Collect up to maxaddrs worth of a netdevice's unicast addresses into an
++ * array of addrss pointers and return the number collected.
++ */
++static inline int collect_netdev_uc_list_addrs(const struct net_device *dev,
++					       const u8 **addr,
++					       unsigned int maxaddrs)
++{
++	unsigned int naddr = 0;
++	const struct netdev_hw_addr *ha;
++
++	for_each_dev_addr(dev, ha) {
++		addr[naddr++] = ha->addr;
++		if (naddr >= maxaddrs)
++			break;
++	}
++	return naddr;
++}
++
++/*
++ * Collect up to maxaddrs worth of a netdevice's multicast addresses into an
++ * array of addrss pointers and return the number collected.
++ */
++static inline int collect_netdev_mc_list_addrs(const struct net_device *dev,
++					       const u8 **addr,
++					       unsigned int maxaddrs)
++{
++	unsigned int naddr = 0;
++	const struct netdev_hw_addr *ha;
++
++	netdev_for_each_mc_addr(ha, dev) {
++		addr[naddr++] = ha->addr;
++		if (naddr >= maxaddrs)
++			break;
++	}
++	return naddr;
++}
++
++/*
++ * Configure the exact and hash address filters to handle a port's multicast
++ * and secondary unicast MAC addresses.
++ */
++static int set_addr_filters(const struct net_device *dev, bool sleep)
++{
++	u64 mhash = 0;
++	u64 uhash = 0;
++	bool free = true;
++	u16 filt_idx[7];
++	const u8 *addr[7];
++	int ret, naddr = 0;
++	const struct port_info *pi = netdev_priv(dev);
++
++	/* first do the secondary unicast addresses */
++	naddr = collect_netdev_uc_list_addrs(dev, addr, ARRAY_SIZE(addr));
++	if (naddr > 0) {
++		ret = t4vf_alloc_mac_filt(pi->adapter, pi->viid, free,
++					  naddr, addr, filt_idx, &uhash, sleep);
++		if (ret < 0)
++			return ret;
++
++		free = false;
++	}
++
++	/* next set up the multicast addresses */
++	naddr = collect_netdev_mc_list_addrs(dev, addr, ARRAY_SIZE(addr));
++	if (naddr > 0) {
++		ret = t4vf_alloc_mac_filt(pi->adapter, pi->viid, free,
++					  naddr, addr, filt_idx, &mhash, sleep);
++		if (ret < 0)
++			return ret;
++	}
++
++	return t4vf_set_addr_hash(pi->adapter, pi->viid, uhash != 0,
++				  uhash | mhash, sleep);
++}
++
++/*
++ * Set RX properties of a port, such as promiscruity, address filters, and MTU.
++ * If @mtu is -1 it is left unchanged.
++ */
++static int set_rxmode(struct net_device *dev, int mtu, bool sleep_ok)
++{
++	int ret;
++	struct port_info *pi = netdev_priv(dev);
++
++	ret = set_addr_filters(dev, sleep_ok);
++	if (ret == 0)
++		ret = t4vf_set_rxmode(pi->adapter, pi->viid, -1,
++				      (dev->flags & IFF_PROMISC) != 0,
++				      (dev->flags & IFF_ALLMULTI) != 0,
++				      1, -1, sleep_ok);
++	return ret;
++}
++
++/*
++ * Set the current receive modes on the device.
++ */
++static void cxgb4vf_set_rxmode(struct net_device *dev)
++{
++	/* unfortunately we can't return errors to the stack */
++	set_rxmode(dev, -1, false);
++}
++
++/*
++ * Find the entry in the interrupt holdoff timer value array which comes
++ * closest to the specified interrupt holdoff value.
++ */
++static int closest_timer(const struct sge *s, int us)
++{
++	int i, timer_idx = 0, min_delta = INT_MAX;
++
++	for (i = 0; i < ARRAY_SIZE(s->timer_val); i++) {
++		int delta = us - s->timer_val[i];
++		if (delta < 0)
++			delta = -delta;
++		if (delta < min_delta) {
++			min_delta = delta;
++			timer_idx = i;
++		}
++	}
++	return timer_idx;
++}
++
++static int closest_thres(const struct sge *s, int thres)
++{
++	int i, delta, pktcnt_idx = 0, min_delta = INT_MAX;
++
++	for (i = 0; i < ARRAY_SIZE(s->counter_val); i++) {
++		delta = thres - s->counter_val[i];
++		if (delta < 0)
++			delta = -delta;
++		if (delta < min_delta) {
++			min_delta = delta;
++			pktcnt_idx = i;
++		}
++	}
++	return pktcnt_idx;
++}
++
++/*
++ * Return a queue's interrupt hold-off time in us.  0 means no timer.
++ */
++static unsigned int qtimer_val(const struct adapter *adapter,
++			       const struct sge_rspq *rspq)
++{
++	unsigned int timer_idx = QINTR_TIMER_IDX_GET(rspq->intr_params);
++
++	return timer_idx < SGE_NTIMERS
++		? adapter->sge.timer_val[timer_idx]
++		: 0;
++}
++
++/**
++ *	set_rxq_intr_params - set a queue's interrupt holdoff parameters
++ *	@adapter: the adapter
++ *	@rspq: the RX response queue
++ *	@us: the hold-off time in us, or 0 to disable timer
++ *	@cnt: the hold-off packet count, or 0 to disable counter
++ *
++ *	Sets an RX response queue's interrupt hold-off time and packet count.
++ *	At least one of the two needs to be enabled for the queue to generate
++ *	interrupts.
++ */
++static int set_rxq_intr_params(struct adapter *adapter, struct sge_rspq *rspq,
++			       unsigned int us, unsigned int cnt)
++{
++	unsigned int timer_idx;
++
++	/*
++	 * If both the interrupt holdoff timer and count are specified as
++	 * zero, default to a holdoff count of 1 ...
++	 */
++	if ((us | cnt) == 0)
++		cnt = 1;
++
++	/*
++	 * If an interrupt holdoff count has been specified, then find the
++	 * closest configured holdoff count and use that.  If the response
++	 * queue has already been created, then update its queue context
++	 * parameters ...
++	 */
++	if (cnt) {
++		int err;
++		u32 v, pktcnt_idx;
++
++		pktcnt_idx = closest_thres(&adapter->sge, cnt);
++		if (rspq->desc && rspq->pktcnt_idx != pktcnt_idx) {
++			v = FW_PARAMS_MNEM(FW_PARAMS_MNEM_DMAQ) |
++			    FW_PARAMS_PARAM_X(
++					FW_PARAMS_PARAM_DMAQ_IQ_INTCNTTHRESH) |
++			    FW_PARAMS_PARAM_YZ(rspq->cntxt_id);
++			err = t4vf_set_params(adapter, 1, &v, &pktcnt_idx);
++			if (err)
++				return err;
++		}
++		rspq->pktcnt_idx = pktcnt_idx;
++	}
++
++	/*
++	 * Compute the closest holdoff timer index from the supplied holdoff
++	 * timer value.
++	 */
++	timer_idx = (us == 0
++		     ? SGE_TIMER_RSTRT_CNTR
++		     : closest_timer(&adapter->sge, us));
++
++	/*
++	 * Update the response queue's interrupt coalescing parameters and
++	 * return success.
++	 */
++	rspq->intr_params = (QINTR_TIMER_IDX(timer_idx) |
++			     (cnt > 0 ? QINTR_CNT_EN : 0));
++	return 0;
++}
++
++/*
++ * Return a version number to identify the type of adapter.  The scheme is:
++ * - bits 0..9: chip version
++ * - bits 10..15: chip revision
++ */
++static inline unsigned int mk_adap_vers(const struct adapter *adapter)
++{
++	/*
++	 * Chip version 4, revision 0x3f (cxgb4vf).
++	 */
++	return 4 | (0x3f << 10);
++}
++
++/*
++ * Execute the specified ioctl command.
++ */
++static int cxgb4vf_do_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
++{
++	int ret = 0;
++
++	switch (cmd) {
++	    /*
++	     * The VF Driver doesn't have access to any of the other
++	     * common Ethernet device ioctl()'s (like reading/writing
++	     * PHY registers, etc.
++	     */
++
++	default:
++		ret = -EOPNOTSUPP;
++		break;
 +	}
 +	return ret;
 +}
 +
-+/**
-+ *	t4vf_sge_alloc_eth_txq - allocate an SGE Ethernet TX Queue
-+ *	@adapter: the adapter
-+ *	@txq: pointer to the new txq to be filled in
-+ *	@devq: the network TX queue associated with the new txq
-+ *	@iqid: the relative ingress queue ID to which events relating to
-+ *		the new txq should be directed
++/*
++ * Change the device's MTU.
 + */
-+int t4vf_sge_alloc_eth_txq(struct adapter *adapter, struct sge_eth_txq *txq,
-+			   struct net_device *dev, struct netdev_queue *devq,
-+			   unsigned int iqid)
++static int cxgb4vf_change_mtu(struct net_device *dev, int new_mtu)
 +{
-+	int ret, nentries;
-+	struct fw_eq_eth_cmd cmd, rpl;
++	int ret;
 +	struct port_info *pi = netdev_priv(dev);
 +
-+	/*
-+	 * Calculate the size of the hardware TX Queue (including the
-+	 * status age on the end) in units of TX Descriptors.
-+	 */
-+	nentries = txq->q.size + STAT_LEN / sizeof(struct tx_desc);
++	/* accommodate SACK */
++	if (new_mtu < 81)
++		return -EINVAL;
 +
-+	/*
-+	 * Allocate the hardware ring for the TX ring (with space for its
-+	 * status page) along with the associated software descriptor ring.
-+	 */
-+	txq->q.desc = alloc_ring(adapter->pdev_dev, txq->q.size,
-+				 sizeof(struct tx_desc),
-+				 sizeof(struct tx_sw_desc),
-+				 &txq->q.phys_addr, &txq->q.sdesc, STAT_LEN);
-+	if (!txq->q.desc)
-+		return -ENOMEM;
++	ret = t4vf_set_rxmode(pi->adapter, pi->viid, new_mtu,
++			      -1, -1, -1, -1, true);
++	if (!ret)
++		dev->mtu = new_mtu;
++	return ret;
++}
 +
-+	/*
-+	 * Fill in the Egress Queue Command.  Note: As with the direct use of
-+	 * the firmware Ingress Queue COmmand above in our RXQ allocation
-+	 * routine, ideally, this code would be in t4vf_hw.c.  Again, we'll
-+	 * have to see if there's some reasonable way to parameterize it
-+	 * into the common code ...
-+	 */
-+	memset(&cmd, 0, sizeof(cmd));
-+	cmd.op_to_vfn = cpu_to_be32(FW_CMD_OP(FW_EQ_ETH_CMD) |
-+				    FW_CMD_REQUEST |
-+				    FW_CMD_WRITE |
-+				    FW_CMD_EXEC);
-+	cmd.alloc_to_len16 = cpu_to_be32(FW_EQ_ETH_CMD_ALLOC |
-+					 FW_EQ_ETH_CMD_EQSTART |
-+					 FW_LEN16(cmd));
-+	cmd.viid_pkd = cpu_to_be32(FW_EQ_ETH_CMD_VIID(pi->viid));
-+	cmd.fetchszm_to_iqid =
-+		cpu_to_be32(FW_EQ_ETH_CMD_HOSTFCMODE(SGE_HOSTFCMODE_STPG) |
-+			    FW_EQ_ETH_CMD_PCIECHN(pi->port_id) |
-+			    FW_EQ_ETH_CMD_IQID(iqid));
-+	cmd.dcaen_to_eqsize =
-+		cpu_to_be32(FW_EQ_ETH_CMD_FBMIN(SGE_FETCHBURSTMIN_64B) |
-+			    FW_EQ_ETH_CMD_FBMAX(SGE_FETCHBURSTMAX_512B) |
-+			    FW_EQ_ETH_CMD_CIDXFTHRESH(SGE_CIDXFLUSHTHRESH_32) |
-+			    FW_EQ_ETH_CMD_EQSIZE(nentries));
-+	cmd.eqaddr = cpu_to_be64(txq->q.phys_addr);
++/*
++ * Change the devices MAC address.
++ */
++static int cxgb4vf_set_mac_addr(struct net_device *dev, void *_addr)
++{
++	int ret;
++	struct sockaddr *addr = _addr;
++	struct port_info *pi = netdev_priv(dev);
 +
-+	/*
-+	 * Issue the firmware Egress Queue Command and extract the results if
-+	 * it completes successfully.
-+	 */
-+	ret = t4vf_wr_mbox(adapter, &cmd, sizeof(cmd), &rpl);
-+	if (ret) {
-+		/*
-+		 * The girmware Ingress Queue Command failed for some reason.
-+		 * Free up our partial allocation state and return the error.
-+		 */
-+		kfree(txq->q.sdesc);
-+		txq->q.sdesc = NULL;
-+		dma_free_coherent(adapter->pdev_dev,
-+				  nentries * sizeof(struct tx_desc),
-+				  txq->q.desc, txq->q.phys_addr);
-+		txq->q.desc = NULL;
++	if (!is_valid_ether_addr(addr->sa_data))
++		return -EINVAL;
++
++	ret = t4vf_change_mac(pi->adapter, pi->viid, pi->xact_addr_filt,
++			      addr->sa_data, true);
++	if (ret < 0)
 +		return ret;
-+	}
 +
-+	txq->q.in_use = 0;
-+	txq->q.cidx = 0;
-+	txq->q.pidx = 0;
-+	txq->q.stat = (void *)&txq->q.desc[txq->q.size];
-+	txq->q.cntxt_id = FW_EQ_ETH_CMD_EQID_GET(be32_to_cpu(rpl.eqid_pkd));
-+	txq->q.abs_id =
-+		FW_EQ_ETH_CMD_PHYSEQID_GET(be32_to_cpu(rpl.physeqid_pkd));
-+	txq->txq = devq;
-+	txq->tso = 0;
-+	txq->tx_cso = 0;
-+	txq->vlan_ins = 0;
-+	txq->q.stops = 0;
-+	txq->q.restarts = 0;
-+	txq->mapping_err = 0;
++	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
++	pi->xact_addr_filt = ret;
 +	return 0;
 +}
 +
 +/*
-+ * Free the DMA map resources associated with a TX queue.
++ * Return a TX Queue on which to send the specified skb.
 + */
-+static void free_txq(struct adapter *adapter, struct sge_txq *tq)
++static u16 cxgb4vf_select_queue(struct net_device *dev, struct sk_buff *skb)
 +{
-+	dma_free_coherent(adapter->pdev_dev,
-+			  tq->size * sizeof(*tq->desc) + STAT_LEN,
-+			  tq->desc, tq->phys_addr);
-+	tq->cntxt_id = 0;
-+	tq->sdesc = NULL;
-+	tq->desc = NULL;
++	/*
++	 * XXX For now just use the default hash but we probably want to
++	 * XXX look at other possibilities ...
++	 */
++	return skb_tx_hash(dev, skb);
++}
++
++#ifdef CONFIG_NET_POLL_CONTROLLER
++/*
++ * Poll all of our receive queues.  This is called outside of normal interrupt
++ * context.
++ */
++static void cxgb4vf_poll_controller(struct net_device *dev)
++{
++	struct port_info *pi = netdev_priv(dev);
++	struct adapter *adapter = pi->adapter;
++
++	if (adapter->flags & USING_MSIX) {
++		struct sge_eth_rxq *rxq;
++		int nqsets;
++
++		rxq = &adapter->sge.ethrxq[pi->first_qset];
++		for (nqsets = pi->nqsets; nqsets; nqsets--) {
++			t4vf_sge_intr_msix(0, &rxq->rspq);
++			rxq++;
++		}
++	} else
++		t4vf_intr_handler(adapter)(0, adapter);
++}
++#endif
++
++/*
++ * Ethtool operations.
++ * ===================
++ *
++ * Note that we don't support any ethtool operations which change the physical
++ * state of the port to which we're linked.
++ */
++
++/*
++ * Return current port link settings.
++ */
++static int cxgb4vf_get_settings(struct net_device *dev,
++				struct ethtool_cmd *cmd)
++{
++	const struct port_info *pi = netdev_priv(dev);
++
++	cmd->supported = pi->link_cfg.supported;
++	cmd->advertising = pi->link_cfg.advertising;
++	cmd->speed = netif_carrier_ok(dev) ? pi->link_cfg.speed : -1;
++	cmd->duplex = DUPLEX_FULL;
++
++	cmd->port = (cmd->supported & SUPPORTED_TP) ? PORT_TP : PORT_FIBRE;
++	cmd->phy_address = pi->port_id;
++	cmd->transceiver = XCVR_EXTERNAL;
++	cmd->autoneg = pi->link_cfg.autoneg;
++	cmd->maxtxpkt = 0;
++	cmd->maxrxpkt = 0;
++	return 0;
 +}
 +
 +/*
-+ * Free the resources associated with a response queue (possibly including a
-+ * free list).
++ * Return our driver information.
 + */
-+static void free_rspq_fl(struct adapter *adapter, struct sge_rspq *rspq,
-+			 struct sge_fl *fl)
++static void cxgb4vf_get_drvinfo(struct net_device *dev,
++				struct ethtool_drvinfo *drvinfo)
 +{
-+	unsigned int flid = fl ? fl->cntxt_id : 0xffff;
++	struct adapter *adapter = netdev2adap(dev);
 +
-+	t4vf_iq_free(adapter, FW_IQ_TYPE_FL_INT_CAP,
-+		     rspq->cntxt_id, flid, 0xffff);
-+	dma_free_coherent(adapter->pdev_dev, (rspq->size + 1) * rspq->iqe_len,
-+			  rspq->desc, rspq->phys_addr);
-+	netif_napi_del(&rspq->napi);
-+	rspq->netdev = NULL;
-+	rspq->cntxt_id = 0;
-+	rspq->abs_id = 0;
-+	rspq->desc = NULL;
-+
-+	if (fl) {
-+		free_rx_bufs(adapter, fl, fl->avail);
-+		dma_free_coherent(adapter->pdev_dev,
-+				  fl->size * sizeof(*fl->desc) + STAT_LEN,
-+				  fl->desc, fl->addr);
-+		kfree(fl->sdesc);
-+		fl->sdesc = NULL;
-+		fl->cntxt_id = 0;
-+		fl->desc = NULL;
-+	}
++	strcpy(drvinfo->driver, KBUILD_MODNAME);
++	strcpy(drvinfo->version, DRV_VERSION);
++	strcpy(drvinfo->bus_info, pci_name(to_pci_dev(dev->dev.parent)));
++	snprintf(drvinfo->fw_version, sizeof(drvinfo->fw_version),
++		 "%u.%u.%u.%u, TP %u.%u.%u.%u",
++		 FW_HDR_FW_VER_MAJOR_GET(adapter->params.dev.fwrev),
++		 FW_HDR_FW_VER_MINOR_GET(adapter->params.dev.fwrev),
++		 FW_HDR_FW_VER_MICRO_GET(adapter->params.dev.fwrev),
++		 FW_HDR_FW_VER_BUILD_GET(adapter->params.dev.fwrev),
++		 FW_HDR_FW_VER_MAJOR_GET(adapter->params.dev.tprev),
++		 FW_HDR_FW_VER_MINOR_GET(adapter->params.dev.tprev),
++		 FW_HDR_FW_VER_MICRO_GET(adapter->params.dev.tprev),
++		 FW_HDR_FW_VER_BUILD_GET(adapter->params.dev.tprev));
 +}
 +
-+/**
-+ *	t4vf_free_sge_resources - free SGE resources
-+ *	@adapter: the adapter
-+ *
-+ *	Frees resources used by the SGE queue sets.
++/*
++ * Return current adapter message level.
 + */
-+void t4vf_free_sge_resources(struct adapter *adapter)
++static u32 cxgb4vf_get_msglevel(struct net_device *dev)
 +{
++	return netdev2adap(dev)->msg_enable;
++}
++
++/*
++ * Set current adapter message level.
++ */
++static void cxgb4vf_set_msglevel(struct net_device *dev, u32 msglevel)
++{
++	netdev2adap(dev)->msg_enable = msglevel;
++}
++
++/*
++ * Return the device's current Queue Set ring size parameters along with the
++ * allowed maximum values.  Since ethtool doesn't understand the concept of
++ * multi-queue devices, we just return the current values associated with the
++ * first Queue Set.
++ */
++static void cxgb4vf_get_ringparam(struct net_device *dev,
++				  struct ethtool_ringparam *rp)
++{
++	const struct port_info *pi = netdev_priv(dev);
++	const struct sge *s = &pi->adapter->sge;
++
++	rp->rx_max_pending = MAX_RX_BUFFERS;
++	rp->rx_mini_max_pending = MAX_RSPQ_ENTRIES;
++	rp->rx_jumbo_max_pending = 0;
++	rp->tx_max_pending = MAX_TXQ_ENTRIES;
++
++	rp->rx_pending = s->ethrxq[pi->first_qset].fl.size - MIN_FL_RESID;
++	rp->rx_mini_pending = s->ethrxq[pi->first_qset].rspq.size;
++	rp->rx_jumbo_pending = 0;
++	rp->tx_pending = s->ethtxq[pi->first_qset].q.size;
++}
++
++/*
++ * Set the Queue Set ring size parameters for the device.  Again, since
++ * ethtool doesn't allow for the concept of multiple queues per device, we'll
++ * apply these new values across all of the Queue Sets associated with the
++ * device -- after vetting them of course!
++ */
++static int cxgb4vf_set_ringparam(struct net_device *dev,
++				 struct ethtool_ringparam *rp)
++{
++	const struct port_info *pi = netdev_priv(dev);
++	struct adapter *adapter = pi->adapter;
 +	struct sge *s = &adapter->sge;
-+	struct sge_eth_rxq *rxq = s->ethrxq;
-+	struct sge_eth_txq *txq = s->ethtxq;
-+	struct sge_rspq *evtq = &s->fw_evtq;
-+	struct sge_rspq *intrq = &s->intrq;
 +	int qs;
 +
-+	for (qs = 0; qs < adapter->sge.ethqsets; qs++) {
-+		if (rxq->rspq.desc)
-+			free_rspq_fl(adapter, &rxq->rspq, &rxq->fl);
-+		if (txq->q.desc) {
-+			t4vf_eth_eq_free(adapter, txq->q.cntxt_id);
-+			free_tx_desc(adapter, &txq->q, txq->q.in_use, true);
-+			kfree(txq->q.sdesc);
-+			free_txq(adapter, &txq->q);
-+		}
-+	}
-+	if (evtq->desc)
-+		free_rspq_fl(adapter, evtq, NULL);
-+	if (intrq->desc)
-+		free_rspq_fl(adapter, intrq, NULL);
-+}
-+
-+/**
-+ *	t4vf_sge_start - enable SGE operation
-+ *	@adapter: the adapter
-+ *
-+ *	Start tasklets and timers associated with the DMA engine.
-+ */
-+void t4vf_sge_start(struct adapter *adapter)
-+{
-+	adapter->sge.ethtxq_rover = 0;
-+	mod_timer(&adapter->sge.rx_timer, jiffies + RX_QCHECK_PERIOD);
-+	mod_timer(&adapter->sge.tx_timer, jiffies + TX_QCHECK_PERIOD);
-+}
-+
-+/**
-+ *	t4vf_sge_stop - disable SGE operation
-+ *	@adapter: the adapter
-+ *
-+ *	Stop tasklets and timers associated with the DMA engine.  Note that
-+ *	this is effective only if measures have been taken to disable any HW
-+ *	events that may restart them.
-+ */
-+void t4vf_sge_stop(struct adapter *adapter)
-+{
-+	struct sge *s = &adapter->sge;
-+
-+	if (s->rx_timer.function)
-+		del_timer_sync(&s->rx_timer);
-+	if (s->tx_timer.function)
-+		del_timer_sync(&s->tx_timer);
-+}
-+
-+/**
-+ *	t4vf_sge_init - initialize SGE
-+ *	@adapter: the adapter
-+ *
-+ *	Performs SGE initialization needed every time after a chip reset.
-+ *	We do not initialize any of the queue sets here, instead the driver
-+ *	top-level must request those individually.  We also do not enable DMA
-+ *	here, that should be done after the queues have been set up.
-+ */
-+int t4vf_sge_init(struct adapter *adapter)
-+{
-+	struct sge_params *sge_params = &adapter->params.sge;
-+	u32 fl0 = sge_params->sge_fl_buffer_size[0];
-+	u32 fl1 = sge_params->sge_fl_buffer_size[1];
-+	struct sge *s = &adapter->sge;
-+
-+	/*
-+	 * Start by vetting the basic SGE parameters which have been set up by
-+	 * the Physical Function Driver.  Ideally we should be able to deal
-+	 * with _any_ configuration.  Practice is different ...
-+	 */
-+	if (fl0 != PAGE_SIZE || (fl1 != 0 && fl1 <= fl0)) {
-+		dev_err(adapter->pdev_dev, "bad SGE FL buffer sizes [%d, %d]\n",
-+			fl0, fl1);
++	if (rp->rx_pending > MAX_RX_BUFFERS ||
++	    rp->rx_jumbo_pending ||
++	    rp->tx_pending > MAX_TXQ_ENTRIES ||
++	    rp->rx_mini_pending > MAX_RSPQ_ENTRIES ||
++	    rp->rx_mini_pending < MIN_RSPQ_ENTRIES ||
++	    rp->rx_pending < MIN_FL_ENTRIES ||
++	    rp->tx_pending < MIN_TXQ_ENTRIES)
 +		return -EINVAL;
++
++	if (adapter->flags & FULL_INIT_DONE)
++		return -EBUSY;
++
++	for (qs = pi->first_qset; qs < pi->first_qset + pi->nqsets; qs++) {
++		s->ethrxq[qs].fl.size = rp->rx_pending + MIN_FL_RESID;
++		s->ethrxq[qs].rspq.size = rp->rx_mini_pending;
++		s->ethtxq[qs].q.size = rp->tx_pending;
 +	}
-+	if ((sge_params->sge_control & RXPKTCPLMODE) == 0) {
-+		dev_err(adapter->pdev_dev, "bad SGE CPL MODE\n");
-+		return -EINVAL;
++	return 0;
++}
++
++/*
++ * Return the interrupt holdoff timer and count for the first Queue Set on the
++ * device.  Our extension ioctl() (the cxgbtool interface) allows the
++ * interrupt holdoff timer to be read on all of the device's Queue Sets.
++ */
++static int cxgb4vf_get_coalesce(struct net_device *dev,
++				struct ethtool_coalesce *coalesce)
++{
++	const struct port_info *pi = netdev_priv(dev);
++	const struct adapter *adapter = pi->adapter;
++	const struct sge_rspq *rspq = &adapter->sge.ethrxq[pi->first_qset].rspq;
++
++	coalesce->rx_coalesce_usecs = qtimer_val(adapter, rspq);
++	coalesce->rx_max_coalesced_frames =
++		((rspq->intr_params & QINTR_CNT_EN)
++		 ? adapter->sge.counter_val[rspq->pktcnt_idx]
++		 : 0);
++	return 0;
++}
++
++/*
++ * Set the RX interrupt holdoff timer and count for the first Queue Set on the
++ * interface.  Our extension ioctl() (the cxgbtool interface) allows us to set
++ * the interrupt holdoff timer on any of the device's Queue Sets.
++ */
++static int cxgb4vf_set_coalesce(struct net_device *dev,
++				struct ethtool_coalesce *coalesce)
++{
++	const struct port_info *pi = netdev_priv(dev);
++	struct adapter *adapter = pi->adapter;
++
++	return set_rxq_intr_params(adapter,
++				   &adapter->sge.ethrxq[pi->first_qset].rspq,
++				   coalesce->rx_coalesce_usecs,
++				   coalesce->rx_max_coalesced_frames);
++}
++
++/*
++ * Report current port link pause parameter settings.
++ */
++static void cxgb4vf_get_pauseparam(struct net_device *dev,
++				   struct ethtool_pauseparam *pauseparam)
++{
++	struct port_info *pi = netdev_priv(dev);
++
++	pauseparam->autoneg = (pi->link_cfg.requested_fc & PAUSE_AUTONEG) != 0;
++	pauseparam->rx_pause = (pi->link_cfg.fc & PAUSE_RX) != 0;
++	pauseparam->tx_pause = (pi->link_cfg.fc & PAUSE_TX) != 0;
++}
++
++/*
++ * Return whether RX Checksum Offloading is currently enabled for the device.
++ */
++static u32 cxgb4vf_get_rx_csum(struct net_device *dev)
++{
++	struct port_info *pi = netdev_priv(dev);
++
++	return (pi->rx_offload & RX_CSO) != 0;
++}
++
++/*
++ * Turn RX Checksum Offloading on or off for the device.
++ */
++static int cxgb4vf_set_rx_csum(struct net_device *dev, u32 csum)
++{
++	struct port_info *pi = netdev_priv(dev);
++
++	if (csum)
++		pi->rx_offload |= RX_CSO;
++	else
++		pi->rx_offload &= ~RX_CSO;
++	return 0;
++}
++
++/*
++ * Identify the port by blinking the port's LED.
++ */
++static int cxgb4vf_phys_id(struct net_device *dev, u32 id)
++{
++	struct port_info *pi = netdev_priv(dev);
++
++	return t4vf_identify_port(pi->adapter, pi->viid, 5);
++}
++
++/*
++ * Port stats maintained per queue of the port.
++ */
++struct queue_port_stats {
++	u64 tso;
++	u64 tx_csum;
++	u64 rx_csum;
++	u64 vlan_ex;
++	u64 vlan_ins;
++};
++
++/*
++ * Strings for the ETH_SS_STATS statistics set ("ethtool -S").  Note that
++ * these need to match the order of statistics returned by
++ * t4vf_get_port_stats().
++ */
++static const char stats_strings[][ETH_GSTRING_LEN] = {
++	/*
++	 * These must match the layout of the t4vf_port_stats structure.
++	 */
++	"TxBroadcastBytes  ",
++	"TxBroadcastFrames ",
++	"TxMulticastBytes  ",
++	"TxMulticastFrames ",
++	"TxUnicastBytes    ",
++	"TxUnicastFrames   ",
++	"TxDroppedFrames   ",
++	"TxOffloadBytes    ",
++	"TxOffloadFrames   ",
++	"RxBroadcastBytes  ",
++	"RxBroadcastFrames ",
++	"RxMulticastBytes  ",
++	"RxMulticastFrames ",
++	"RxUnicastBytes    ",
++	"RxUnicastFrames   ",
++	"RxErrorFrames     ",
++
++	/*
++	 * These are accumulated per-queue statistics and must match the
++	 * order of the fields in the queue_port_stats structure.
++	 */
++	"TSO               ",
++	"TxCsumOffload     ",
++	"RxCsumGood        ",
++	"VLANextractions   ",
++	"VLANinsertions    ",
++};
++
++/*
++ * Return the number of statistics in the specified statistics set.
++ */
++static int cxgb4vf_get_sset_count(struct net_device *dev, int sset)
++{
++	switch (sset) {
++	case ETH_SS_STATS:
++		return ARRAY_SIZE(stats_strings);
++	default:
++		return -EOPNOTSUPP;
++	}
++	/*NOTREACHED*/
++}
++
++/*
++ * Return the strings for the specified statistics set.
++ */
++static void cxgb4vf_get_strings(struct net_device *dev,
++				u32 sset,
++				u8 *data)
++{
++	switch (sset) {
++	case ETH_SS_STATS:
++		memcpy(data, stats_strings, sizeof(stats_strings));
++		break;
++	}
++}
++
++/*
++ * Small utility routine to accumulate queue statistics across the queues of
++ * a "port".
++ */
++static void collect_sge_port_stats(const struct adapter *adapter,
++				   const struct port_info *pi,
++				   struct queue_port_stats *stats)
++{
++	const struct sge_eth_txq *txq = &adapter->sge.ethtxq[pi->first_qset];
++	const struct sge_eth_rxq *rxq = &adapter->sge.ethrxq[pi->first_qset];
++	int qs;
++
++	memset(stats, 0, sizeof(*stats));
++	for (qs = 0; qs < pi->nqsets; qs++, rxq++, txq++) {
++		stats->tso += txq->tso;
++		stats->tx_csum += txq->tx_cso;
++		stats->rx_csum += rxq->stats.rx_cso;
++		stats->vlan_ex += rxq->stats.vlan_ex;
++		stats->vlan_ins += txq->vlan_ins;
++	}
++}
++
++/*
++ * Return the ETH_SS_STATS statistics set.
++ */
++static void cxgb4vf_get_ethtool_stats(struct net_device *dev,
++				      struct ethtool_stats *stats,
++				      u64 *data)
++{
++	struct port_info *pi = netdev2pinfo(dev);
++	struct adapter *adapter = pi->adapter;
++	int err = t4vf_get_port_stats(adapter, pi->pidx,
++				      (struct t4vf_port_stats *)data);
++	if (err)
++		memset(data, 0, sizeof(struct t4vf_port_stats));
++
++	data += sizeof(struct t4vf_port_stats) / sizeof(u64);
++	collect_sge_port_stats(adapter, pi, (struct queue_port_stats *)data);
++}
++
++/*
++ * Return the size of our register map.
++ */
++static int cxgb4vf_get_regs_len(struct net_device *dev)
++{
++	return T4VF_REGMAP_SIZE;
++}
++
++/*
++ * Dump a block of registers, start to end inclusive, into a buffer.
++ */
++static void reg_block_dump(struct adapter *adapter, void *regbuf,
++			   unsigned int start, unsigned int end)
++{
++	u32 *bp = regbuf + start - T4VF_REGMAP_START;
++
++	for ( ; start <= end; start += sizeof(u32)) {
++		/*
++		 * Avoid reading the Mailbox Control register since that
++		 * can trigger a Mailbox Ownership Arbitration cycle and
++		 * interfere with communication with the firmware.
++		 */
++		if (start == T4VF_CIM_BASE_ADDR + CIM_VF_EXT_MAILBOX_CTRL)
++			*bp++ = 0xffff;
++		else
++			*bp++ = t4_read_reg(adapter, start);
++	}
++}
++
++/*
++ * Copy our entire register map into the provided buffer.
++ */
++static void cxgb4vf_get_regs(struct net_device *dev,
++			     struct ethtool_regs *regs,
++			     void *regbuf)
++{
++	struct adapter *adapter = netdev2adap(dev);
++
++	regs->version = mk_adap_vers(adapter);
++
++	/*
++	 * Fill in register buffer with our register map.
++	 */
++	memset(regbuf, 0, T4VF_REGMAP_SIZE);
++
++	reg_block_dump(adapter, regbuf,
++		       T4VF_SGE_BASE_ADDR + T4VF_MOD_MAP_SGE_FIRST,
++		       T4VF_SGE_BASE_ADDR + T4VF_MOD_MAP_SGE_LAST);
++	reg_block_dump(adapter, regbuf,
++		       T4VF_MPS_BASE_ADDR + T4VF_MOD_MAP_MPS_FIRST,
++		       T4VF_MPS_BASE_ADDR + T4VF_MOD_MAP_MPS_LAST);
++	reg_block_dump(adapter, regbuf,
++		       T4VF_PL_BASE_ADDR + T4VF_MOD_MAP_PL_FIRST,
++		       T4VF_PL_BASE_ADDR + T4VF_MOD_MAP_PL_LAST);
++	reg_block_dump(adapter, regbuf,
++		       T4VF_CIM_BASE_ADDR + T4VF_MOD_MAP_CIM_FIRST,
++		       T4VF_CIM_BASE_ADDR + T4VF_MOD_MAP_CIM_LAST);
++
++	reg_block_dump(adapter, regbuf,
++		       T4VF_MBDATA_BASE_ADDR + T4VF_MBDATA_FIRST,
++		       T4VF_MBDATA_BASE_ADDR + T4VF_MBDATA_LAST);
++}
++
++/*
++ * Report current Wake On LAN settings.
++ */
++static void cxgb4vf_get_wol(struct net_device *dev,
++			    struct ethtool_wolinfo *wol)
++{
++	wol->supported = 0;
++	wol->wolopts = 0;
++	memset(&wol->sopass, 0, sizeof(wol->sopass));
++}
++
++/*
++ * Set TCP Segmentation Offloading feature capabilities.
++ */
++static int cxgb4vf_set_tso(struct net_device *dev, u32 tso)
++{
++	if (tso)
++		dev->features |= NETIF_F_TSO | NETIF_F_TSO6;
++	else
++		dev->features &= ~(NETIF_F_TSO | NETIF_F_TSO6);
++	return 0;
++}
++
++static struct ethtool_ops cxgb4vf_ethtool_ops = {
++	.get_settings		= cxgb4vf_get_settings,
++	.get_drvinfo		= cxgb4vf_get_drvinfo,
++	.get_msglevel		= cxgb4vf_get_msglevel,
++	.set_msglevel		= cxgb4vf_set_msglevel,
++	.get_ringparam		= cxgb4vf_get_ringparam,
++	.set_ringparam		= cxgb4vf_set_ringparam,
++	.get_coalesce		= cxgb4vf_get_coalesce,
++	.set_coalesce		= cxgb4vf_set_coalesce,
++	.get_pauseparam		= cxgb4vf_get_pauseparam,
++	.get_rx_csum		= cxgb4vf_get_rx_csum,
++	.set_rx_csum		= cxgb4vf_set_rx_csum,
++	.set_tx_csum		= ethtool_op_set_tx_ipv6_csum,
++	.set_sg			= ethtool_op_set_sg,
++	.get_link		= ethtool_op_get_link,
++	.get_strings		= cxgb4vf_get_strings,
++	.phys_id		= cxgb4vf_phys_id,
++	.get_sset_count		= cxgb4vf_get_sset_count,
++	.get_ethtool_stats	= cxgb4vf_get_ethtool_stats,
++	.get_regs_len		= cxgb4vf_get_regs_len,
++	.get_regs		= cxgb4vf_get_regs,
++	.get_wol		= cxgb4vf_get_wol,
++	.set_tso		= cxgb4vf_set_tso,
++};
++
++/*
++ * /sys/kernel/debug/cxgb4vf support code and data.
++ * ================================================
++ */
++
++/*
++ * Show SGE Queue Set information.  We display QPL Queues Sets per line.
++ */
++#define QPL	4
++
++static int sge_qinfo_show(struct seq_file *seq, void *v)
++{
++	struct adapter *adapter = seq->private;
++	int eth_entries = DIV_ROUND_UP(adapter->sge.ethqsets, QPL);
++	int qs, r = (uintptr_t)v - 1;
++
++	if (r)
++		seq_putc(seq, '\n');
++
++	#define S3(fmt_spec, s, v) \
++		do {\
++			seq_printf(seq, "%-12s", s); \
++			for (qs = 0; qs < n; ++qs) \
++				seq_printf(seq, " %16" fmt_spec, v); \
++			seq_putc(seq, '\n'); \
++		} while (0)
++	#define S(s, v)		S3("s", s, v)
++	#define T(s, v)		S3("u", s, txq[qs].v)
++	#define R(s, v)		S3("u", s, rxq[qs].v)
++
++	if (r < eth_entries) {
++		const struct sge_eth_rxq *rxq = &adapter->sge.ethrxq[r * QPL];
++		const struct sge_eth_txq *txq = &adapter->sge.ethtxq[r * QPL];
++		int n = min(QPL, adapter->sge.ethqsets - QPL * r);
++
++		S("QType:", "Ethernet");
++		S("Interface:",
++		  (rxq[qs].rspq.netdev
++		   ? rxq[qs].rspq.netdev->name
++		   : "N/A"));
++		S3("d", "Port:",
++		   (rxq[qs].rspq.netdev
++		    ? ((struct port_info *)
++		       netdev_priv(rxq[qs].rspq.netdev))->port_id
++		    : -1));
++		T("TxQ ID:", q.abs_id);
++		T("TxQ size:", q.size);
++		T("TxQ inuse:", q.in_use);
++		T("TxQ PIdx:", q.pidx);
++		T("TxQ CIdx:", q.cidx);
++		R("RspQ ID:", rspq.abs_id);
++		R("RspQ size:", rspq.size);
++		R("RspQE size:", rspq.iqe_len);
++		S3("u", "Intr delay:", qtimer_val(adapter, &rxq[qs].rspq));
++		S3("u", "Intr pktcnt:",
++		   adapter->sge.counter_val[rxq[qs].rspq.pktcnt_idx]);
++		R("RspQ CIdx:", rspq.cidx);
++		R("RspQ Gen:", rspq.gen);
++		R("FL ID:", fl.abs_id);
++		R("FL size:", fl.size - MIN_FL_RESID);
++		R("FL avail:", fl.avail);
++		R("FL PIdx:", fl.pidx);
++		R("FL CIdx:", fl.cidx);
++		return 0;
 +	}
 +
-+	/*
-+	 * Now translate the adapter parameters into our internal forms.
-+	 */
-+	if (fl1)
-+		FL_PG_ORDER = ilog2(fl1) - PAGE_SHIFT;
-+	STAT_LEN = ((sge_params->sge_control & EGRSTATUSPAGESIZE) ? 128 : 64);
-+	PKTSHIFT = PKTSHIFT_GET(sge_params->sge_control);
-+	FL_ALIGN = 1 << (INGPADBOUNDARY_GET(sge_params->sge_control) +
-+			 INGPADBOUNDARY_SHIFT);
++	r -= eth_entries;
++	if (r == 0) {
++		const struct sge_rspq *evtq = &adapter->sge.fw_evtq;
 +
-+	/*
-+	 * Set up tasklet timers.
-+	 */
-+	setup_timer(&s->rx_timer, sge_rx_timer_cb, (unsigned long)adapter);
-+	setup_timer(&s->tx_timer, sge_tx_timer_cb, (unsigned long)adapter);
++		seq_printf(seq, "%-12s %16s\n", "QType:", "FW event queue");
++		seq_printf(seq, "%-12s %16u\n", "RspQ ID:", evtq->abs_id);
++		seq_printf(seq, "%-12s %16u\n", "Intr delay:",
++			   qtimer_val(adapter, evtq));
++		seq_printf(seq, "%-12s %16u\n", "Intr pktcnt:",
++			   adapter->sge.counter_val[evtq->pktcnt_idx]);
++		seq_printf(seq, "%-12s %16u\n", "RspQ Cidx:", evtq->cidx);
++		seq_printf(seq, "%-12s %16u\n", "RspQ Gen:", evtq->gen);
++	} else if (r == 1) {
++		const struct sge_rspq *intrq = &adapter->sge.intrq;
 +
-+	/*
-+	 * Initialize Forwarded Interrupt Queue lock.
-+	 */
-+	spin_lock_init(&s->intrq_lock);
++		seq_printf(seq, "%-12s %16s\n", "QType:", "Interrupt Queue");
++		seq_printf(seq, "%-12s %16u\n", "RspQ ID:", intrq->abs_id);
++		seq_printf(seq, "%-12s %16u\n", "Intr delay:",
++			   qtimer_val(adapter, intrq));
++		seq_printf(seq, "%-12s %16u\n", "Intr pktcnt:",
++			   adapter->sge.counter_val[intrq->pktcnt_idx]);
++		seq_printf(seq, "%-12s %16u\n", "RspQ Cidx:", intrq->cidx);
++		seq_printf(seq, "%-12s %16u\n", "RspQ Gen:", intrq->gen);
++	}
++
++	#undef R
++	#undef T
++	#undef S
++	#undef S3
 +
 +	return 0;
 +}
++
++/*
++ * Return the number of "entries" in our "file".  We group the multi-Queue
++ * sections with QPL Queue Sets per "entry".  The sections of the output are:
++ *
++ *     Ethernet RX/TX Queue Sets
++ *     Firmware Event Queue
++ *     Forwarded Interrupt Queue (if in MSI mode)
++ */
++static int sge_queue_entries(const struct adapter *adapter)
++{
++	return DIV_ROUND_UP(adapter->sge.ethqsets, QPL) + 1 +
++		((adapter->flags & USING_MSI) != 0);
++}
++
++static void *sge_queue_start(struct seq_file *seq, loff_t *pos)
++{
++	int entries = sge_queue_entries(seq->private);
++
++	return *pos < entries ? (void *)((uintptr_t)*pos + 1) : NULL;
++}
++
++static void sge_queue_stop(struct seq_file *seq, void *v)
++{
++}
++
++static void *sge_queue_next(struct seq_file *seq, void *v, loff_t *pos)
++{
++	int entries = sge_queue_entries(seq->private);
++
++	++*pos;
++	return *pos < entries ? (void *)((uintptr_t)*pos + 1) : NULL;
++}
++
++static const struct seq_operations sge_qinfo_seq_ops = {
++	.start = sge_queue_start,
++	.next  = sge_queue_next,
++	.stop  = sge_queue_stop,
++	.show  = sge_qinfo_show
++};
++
++static int sge_qinfo_open(struct inode *inode, struct file *file)
++{
++	int res = seq_open(file, &sge_qinfo_seq_ops);
++
++	if (!res) {
++		struct seq_file *seq = file->private_data;
++		seq->private = inode->i_private;
++	}
++	return res;
++}
++
++static const struct file_operations sge_qinfo_debugfs_fops = {
++	.owner   = THIS_MODULE,
++	.open    = sge_qinfo_open,
++	.read    = seq_read,
++	.llseek  = seq_lseek,
++	.release = seq_release,
++};
++
++/*
++ * Show SGE Queue Set statistics.  We display QPL Queues Sets per line.
++ */
++#define QPL	4
++
++static int sge_qstats_show(struct seq_file *seq, void *v)
++{
++	struct adapter *adapter = seq->private;
++	int eth_entries = DIV_ROUND_UP(adapter->sge.ethqsets, QPL);
++	int qs, r = (uintptr_t)v - 1;
++
++	if (r)
++		seq_putc(seq, '\n');
++
++	#define S3(fmt, s, v) \
++		do { \
++			seq_printf(seq, "%-16s", s); \
++			for (qs = 0; qs < n; ++qs) \
++				seq_printf(seq, " %8" fmt, v); \
++			seq_putc(seq, '\n'); \
++		} while (0)
++	#define S(s, v)		S3("s", s, v)
++
++	#define T3(fmt, s, v)	S3(fmt, s, txq[qs].v)
++	#define T(s, v)		T3("lu", s, v)
++
++	#define R3(fmt, s, v)	S3(fmt, s, rxq[qs].v)
++	#define R(s, v)		R3("lu", s, v)
++
++	if (r < eth_entries) {
++		const struct sge_eth_rxq *rxq = &adapter->sge.ethrxq[r * QPL];
++		const struct sge_eth_txq *txq = &adapter->sge.ethtxq[r * QPL];
++		int n = min(QPL, adapter->sge.ethqsets - QPL * r);
++
++		S("QType:", "Ethernet");
++		S("Interface:",
++		  (rxq[qs].rspq.netdev
++		   ? rxq[qs].rspq.netdev->name
++		   : "N/A"));
++		R3("u", "RspQNullInts", rspq.unhandled_irqs);
++		R("RxPackets:", stats.pkts);
++		R("RxCSO:", stats.rx_cso);
++		R("VLANxtract:", stats.vlan_ex);
++		R("LROmerged:", stats.lro_merged);
++		R("LROpackets:", stats.lro_pkts);
++		R("RxDrops:", stats.rx_drops);
++		T("TSO:", tso);
++		T("TxCSO:", tx_cso);
++		T("VLANins:", vlan_ins);
++		T("TxQFull:", q.stops);
++		T("TxQRestarts:", q.restarts);
++		T("TxMapErr:", mapping_err);
++		R("FLAllocErr:", fl.alloc_failed);
++		R("FLLrgAlcErr:", fl.large_alloc_failed);
++		R("FLStarving:", fl.starving);
++		return 0;
++	}
++
++	r -= eth_entries;
++	if (r == 0) {
++		const struct sge_rspq *evtq = &adapter->sge.fw_evtq;
++
++		seq_printf(seq, "%-8s %16s\n", "QType:", "FW event queue");
++		/* no real response queue statistics available to display */
++		seq_printf(seq, "%-16s %8u\n", "RspQ CIdx:", evtq->cidx);
++		seq_printf(seq, "%-16s %8u\n", "RspQ Gen:", evtq->gen);
++	} else if (r == 1) {
++		const struct sge_rspq *intrq = &adapter->sge.intrq;
++
++		seq_printf(seq, "%-8s %16s\n", "QType:", "Interrupt Queue");
++		/* no real response queue statistics available to display */
++		seq_printf(seq, "%-16s %8u\n", "RspQ CIdx:", intrq->cidx);
++		seq_printf(seq, "%-16s %8u\n", "RspQ Gen:", intrq->gen);
++	}
++
++	#undef R
++	#undef T
++	#undef S
++	#undef R3
++	#undef T3
++	#undef S3
++
++	return 0;
++}
++
++/*
++ * Return the number of "entries" in our "file".  We group the multi-Queue
++ * sections with QPL Queue Sets per "entry".  The sections of the output are:
++ *
++ *     Ethernet RX/TX Queue Sets
++ *     Firmware Event Queue
++ *     Forwarded Interrupt Queue (if in MSI mode)
++ */
++static int sge_qstats_entries(const struct adapter *adapter)
++{
++	return DIV_ROUND_UP(adapter->sge.ethqsets, QPL) + 1 +
++		((adapter->flags & USING_MSI) != 0);
++}
++
++static void *sge_qstats_start(struct seq_file *seq, loff_t *pos)
++{
++	int entries = sge_qstats_entries(seq->private);
++
++	return *pos < entries ? (void *)((uintptr_t)*pos + 1) : NULL;
++}
++
++static void sge_qstats_stop(struct seq_file *seq, void *v)
++{
++}
++
++static void *sge_qstats_next(struct seq_file *seq, void *v, loff_t *pos)
++{
++	int entries = sge_qstats_entries(seq->private);
++
++	(*pos)++;
++	return *pos < entries ? (void *)((uintptr_t)*pos + 1) : NULL;
++}
++
++static const struct seq_operations sge_qstats_seq_ops = {
++	.start = sge_qstats_start,
++	.next  = sge_qstats_next,
++	.stop  = sge_qstats_stop,
++	.show  = sge_qstats_show
++};
++
++static int sge_qstats_open(struct inode *inode, struct file *file)
++{
++	int res = seq_open(file, &sge_qstats_seq_ops);
++
++	if (res == 0) {
++		struct seq_file *seq = file->private_data;
++		seq->private = inode->i_private;
++	}
++	return res;
++}
++
++static const struct file_operations sge_qstats_proc_fops = {
++	.owner   = THIS_MODULE,
++	.open    = sge_qstats_open,
++	.read    = seq_read,
++	.llseek  = seq_lseek,
++	.release = seq_release,
++};
++
++/*
++ * Show PCI-E SR-IOV Virtual Function Resource Limits.
++ */
++static int resources_show(struct seq_file *seq, void *v)
++{
++	struct adapter *adapter = seq->private;
++	struct vf_resources *vfres = &adapter->params.vfres;
++
++	#define S(desc, fmt, var) \
++		seq_printf(seq, "%-60s " fmt "\n", \
++			   desc " (" #var "):", vfres->var)
++
++	S("Virtual Interfaces", "%d", nvi);
++	S("Egress Queues", "%d", neq);
++	S("Ethernet Control", "%d", nethctrl);
++	S("Ingress Queues/w Free Lists/Interrupts", "%d", niqflint);
++	S("Ingress Queues", "%d", niq);
++	S("Traffic Class", "%d", tc);
++	S("Port Access Rights Mask", "%#x", pmask);
++	S("MAC Address Filters", "%d", nexactf);
++	S("Firmware Command Read Capabilities", "%#x", r_caps);
++	S("Firmware Command Write/Execute Capabilities", "%#x", wx_caps);
++
++	#undef S
++
++	return 0;
++}
++
++static int resources_open(struct inode *inode, struct file *file)
++{
++	return single_open(file, resources_show, inode->i_private);
++}
++
++static const struct file_operations resources_proc_fops = {
++	.owner   = THIS_MODULE,
++	.open    = resources_open,
++	.read    = seq_read,
++	.llseek  = seq_lseek,
++	.release = single_release,
++};
++
++/*
++ * Show Virtual Interfaces.
++ */
++static int interfaces_show(struct seq_file *seq, void *v)
++{
++	if (v == SEQ_START_TOKEN) {
++		seq_puts(seq, "Interface  Port   VIID\n");
++	} else {
++		struct adapter *adapter = seq->private;
++		int pidx = (uintptr_t)v - 2;
++		struct net_device *dev = adapter->port[pidx];
++		struct port_info *pi = netdev_priv(dev);
++
++		seq_printf(seq, "%9s  %4d  %#5x\n",
++			   dev->name, pi->port_id, pi->viid);
++	}
++	return 0;
++}
++
++static inline void *interfaces_get_idx(struct adapter *adapter, loff_t pos)
++{
++	return pos <= adapter->params.nports
++		? (void *)(uintptr_t)(pos + 1)
++		: NULL;
++}
++
++static void *interfaces_start(struct seq_file *seq, loff_t *pos)
++{
++	return *pos
++		? interfaces_get_idx(seq->private, *pos)
++		: SEQ_START_TOKEN;
++}
++
++static void *interfaces_next(struct seq_file *seq, void *v, loff_t *pos)
++{
++	(*pos)++;
++	return interfaces_get_idx(seq->private, *pos);
++}
++
++static void interfaces_stop(struct seq_file *seq, void *v)
++{
++}
++
++static const struct seq_operations interfaces_seq_ops = {
++	.start = interfaces_start,
++	.next  = interfaces_next,
++	.stop  = interfaces_stop,
++	.show  = interfaces_show
++};
++
++static int interfaces_open(struct inode *inode, struct file *file)
++{
++	int res = seq_open(file, &interfaces_seq_ops);
++
++	if (res == 0) {
++		struct seq_file *seq = file->private_data;
++		seq->private = inode->i_private;
++	}
++	return res;
++}
++
++static const struct file_operations interfaces_proc_fops = {
++	.owner   = THIS_MODULE,
++	.open    = interfaces_open,
++	.read    = seq_read,
++	.llseek  = seq_lseek,
++	.release = seq_release,
++};
++
++/*
++ * /sys/kernel/debugfs/cxgb4vf/ files list.
++ */
++struct cxgb4vf_debugfs_entry {
++	const char *name;		/* name of debugfs node */
++	mode_t mode;			/* file system mode */
++	const struct file_operations *fops;
++};
++
++static struct cxgb4vf_debugfs_entry debugfs_files[] = {
++	{ "sge_qinfo",  S_IRUGO, &sge_qinfo_debugfs_fops },
++	{ "sge_qstats", S_IRUGO, &sge_qstats_proc_fops },
++	{ "resources",  S_IRUGO, &resources_proc_fops },
++	{ "interfaces", S_IRUGO, &interfaces_proc_fops },
++};
++
++/*
++ * Module and device initialization and cleanup code.
++ * ==================================================
++ */
++
++/*
++ * Set up out /sys/kernel/debug/cxgb4vf sub-nodes.  We assume that the
++ * directory (debugfs_root) has already been set up.
++ */
++static int __devinit setup_debugfs(struct adapter *adapter)
++{
++	int i;
++
++	BUG_ON(adapter->debugfs_root == NULL);
++
++	/*
++	 * Debugfs support is best effort.
++	 */
++	for (i = 0; i < ARRAY_SIZE(debugfs_files); i++)
++		(void)debugfs_create_file(debugfs_files[i].name,
++				  debugfs_files[i].mode,
++				  adapter->debugfs_root,
++				  (void *)adapter,
++				  debugfs_files[i].fops);
++
++	return 0;
++}
++
++/*
++ * Tear down the /sys/kernel/debug/cxgb4vf sub-nodes created above.  We leave
++ * it to our caller to tear down the directory (debugfs_root).
++ */
++static void __devexit cleanup_debugfs(struct adapter *adapter)
++{
++	BUG_ON(adapter->debugfs_root == NULL);
++
++	/*
++	 * Unlike our sister routine cleanup_proc(), we don't need to remove
++	 * individual entries because a call will be made to
++	 * debugfs_remove_recursive().  We just need to clean up any ancillary
++	 * persistent state.
++	 */
++	/* nothing to do */
++}
++
++/*
++ * Perform early "adapter" initialization.  This is where we discover what
++ * adapter parameters we're going to be using and initialize basic adapter
++ * hardware support.
++ */
++static int adap_init0(struct adapter *adapter)
++{
++	struct vf_resources *vfres = &adapter->params.vfres;
++	struct sge_params *sge_params = &adapter->params.sge;
++	struct sge *s = &adapter->sge;
++	unsigned int ethqsets;
++	int err;
++
++	/*
++	 * Wait for the device to become ready before proceeding ...
++	 */
++	err = t4vf_wait_dev_ready(adapter);
++	if (err) {
++		dev_err(adapter->pdev_dev, "device didn't become ready:"
++			" err=%d\n", err);
++		return err;
++	}
++
++	/*
++	 * Grab basic operational parameters.  These will predominantly have
++	 * been set up by the Physical Function Driver or will be hard coded
++	 * into the adapter.  We just have to live with them ...  Note that
++	 * we _must_ get our VPD parameters before our SGE parameters because
++	 * we need to know the adapter's core clock from the VPD in order to
++	 * properly decode the SGE Timer Values.
++	 */
++	err = t4vf_get_dev_params(adapter);
++	if (err) {
++		dev_err(adapter->pdev_dev, "unable to retrieve adapter"
++			" device parameters: err=%d\n", err);
++		return err;
++	}
++	err = t4vf_get_vpd_params(adapter);
++	if (err) {
++		dev_err(adapter->pdev_dev, "unable to retrieve adapter"
++			" VPD parameters: err=%d\n", err);
++		return err;
++	}
++	err = t4vf_get_sge_params(adapter);
++	if (err) {
++		dev_err(adapter->pdev_dev, "unable to retrieve adapter"
++			" SGE parameters: err=%d\n", err);
++		return err;
++	}
++	err = t4vf_get_rss_glb_config(adapter);
++	if (err) {
++		dev_err(adapter->pdev_dev, "unable to retrieve adapter"
++			" RSS parameters: err=%d\n", err);
++		return err;
++	}
++	if (adapter->params.rss.mode !=
++	    FW_RSS_GLB_CONFIG_CMD_MODE_BASICVIRTUAL) {
++		dev_err(adapter->pdev_dev, "unable to operate with global RSS"
++			" mode %d\n", adapter->params.rss.mode);
++		return -EINVAL;
++	}
++	err = t4vf_sge_init(adapter);
++	if (err) {
++		dev_err(adapter->pdev_dev, "unable to use adapter parameters:"
++			" err=%d\n", err);
++		return err;
++	}
++
++	/*
++	 * Retrieve our RX interrupt holdoff timer values and counter
++	 * threshold values from the SGE parameters.
++	 */
++	s->timer_val[0] = core_ticks_to_us(adapter,
++		TIMERVALUE0_GET(sge_params->sge_timer_value_0_and_1));
++	s->timer_val[1] = core_ticks_to_us(adapter,
++		TIMERVALUE1_GET(sge_params->sge_timer_value_0_and_1));
++	s->timer_val[2] = core_ticks_to_us(adapter,
++		TIMERVALUE0_GET(sge_params->sge_timer_value_2_and_3));
++	s->timer_val[3] = core_ticks_to_us(adapter,
++		TIMERVALUE1_GET(sge_params->sge_timer_value_2_and_3));
++	s->timer_val[4] = core_ticks_to_us(adapter,
++		TIMERVALUE0_GET(sge_params->sge_timer_value_4_and_5));
++	s->timer_val[5] = core_ticks_to_us(adapter,
++		TIMERVALUE1_GET(sge_params->sge_timer_value_4_and_5));
++
++	s->counter_val[0] =
++		THRESHOLD_0_GET(sge_params->sge_ingress_rx_threshold);
++	s->counter_val[1] =
++		THRESHOLD_1_GET(sge_params->sge_ingress_rx_threshold);
++	s->counter_val[2] =
++		THRESHOLD_2_GET(sge_params->sge_ingress_rx_threshold);
++	s->counter_val[3] =
++		THRESHOLD_3_GET(sge_params->sge_ingress_rx_threshold);
++
++	/*
++	 * Grab our Virtual Interface resource allocation, extract the
++	 * features that we're interested in and do a bit of sanity testing on
++	 * what we discover.
++	 */
++	err = t4vf_get_vfres(adapter);
++	if (err) {
++		dev_err(adapter->pdev_dev, "unable to get virtual interface"
++			" resources: err=%d\n", err);
++		return err;
++	}
++
++	/*
++	 * The number of "ports" which we support is equal to the number of
++	 * Virtual Interfaces with which we've been provisioned.
++	 */
++	adapter->params.nports = vfres->nvi;
++	if (adapter->params.nports > MAX_NPORTS) {
++		dev_warn(adapter->pdev_dev, "only using %d of %d allowed"
++			 " virtual interfaces\n", MAX_NPORTS,
++			 adapter->params.nports);
++		adapter->params.nports = MAX_NPORTS;
++	}
++
++	/*
++	 * We need to reserve a number of the ingress queues with Free List
++	 * and Interrupt capabilities for special interrupt purposes (like
++	 * asynchronous firmware messages, or forwarded interrupts if we're
++	 * using MSI).  The rest of the FL/Intr-capable ingress queues will be
++	 * matched up one-for-one with Ethernet/Control egress queues in order
++	 * to form "Queue Sets" which will be aportioned between the "ports".
++	 * For each Queue Set, we'll need the ability to allocate two Egress
++	 * Contexts -- one for the Ingress Queue Free List and one for the TX
++	 * Ethernet Queue.
++	 */
++	ethqsets = vfres->niqflint - INGQ_EXTRAS;
++	if (vfres->nethctrl != ethqsets) {
++		dev_warn(adapter->pdev_dev, "unequal number of [available]"
++			 " ingress/egress queues (%d/%d); using minimum for"
++			 " number of Queue Sets\n", ethqsets, vfres->nethctrl);
++		ethqsets = min(vfres->nethctrl, ethqsets);
++	}
++	if (vfres->neq < ethqsets*2) {
++		dev_warn(adapter->pdev_dev, "Not enough Egress Contexts (%d)"
++			 " to support Queue Sets (%d); reducing allowed Queue"
++			 " Sets\n", vfres->neq, ethqsets);
++		ethqsets = vfres->neq/2;
++	}
++	if (ethqsets > MAX_ETH_QSETS) {
++		dev_warn(adapter->pdev_dev, "only using %d of %d allowed Queue"
++			 " Sets\n", MAX_ETH_QSETS, adapter->sge.max_ethqsets);
++		ethqsets = MAX_ETH_QSETS;
++	}
++	if (vfres->niq != 0 || vfres->neq > ethqsets*2) {
++		dev_warn(adapter->pdev_dev, "unused resources niq/neq (%d/%d)"
++			 " ignored\n", vfres->niq, vfres->neq - ethqsets*2);
++	}
++	adapter->sge.max_ethqsets = ethqsets;
++
++	/*
++	 * Check for various parameter sanity issues.  Most checks simply
++	 * result in us using fewer resources than our provissioning but we
++	 * do need at least  one "port" with which to work ...
++	 */
++	if (adapter->sge.max_ethqsets < adapter->params.nports) {
++		dev_warn(adapter->pdev_dev, "only using %d of %d available"
++			 " virtual interfaces (too few Queue Sets)\n",
++			 adapter->sge.max_ethqsets, adapter->params.nports);
++		adapter->params.nports = adapter->sge.max_ethqsets;
++	}
++	if (adapter->params.nports == 0) {
++		dev_err(adapter->pdev_dev, "no virtual interfaces configured/"
++			"usable!\n");
++		return -EINVAL;
++	}
++	return 0;
++}
++
++static inline void init_rspq(struct sge_rspq *rspq, u8 timer_idx,
++			     u8 pkt_cnt_idx, unsigned int size,
++			     unsigned int iqe_size)
++{
++	rspq->intr_params = (QINTR_TIMER_IDX(timer_idx) |
++			     (pkt_cnt_idx < SGE_NCOUNTERS ? QINTR_CNT_EN : 0));
++	rspq->pktcnt_idx = (pkt_cnt_idx < SGE_NCOUNTERS
++			    ? pkt_cnt_idx
++			    : 0);
++	rspq->iqe_len = iqe_size;
++	rspq->size = size;
++}
++
++/*
++ * Perform default configuration of DMA queues depending on the number and
++ * type of ports we found and the number of available CPUs.  Most settings can
++ * be modified by the admin via ethtool and cxgbtool prior to the adapter
++ * being brought up for the first time.
++ */
++static void __devinit cfg_queues(struct adapter *adapter)
++{
++	struct sge *s = &adapter->sge;
++	int q10g, n10g, qidx, pidx, qs;
++
++	/*
++	 * We should not be called till we know how many Queue Sets we can
++	 * support.  In particular, this means that we need to know what kind
++	 * of interrupts we'll be using ...
++	 */
++	BUG_ON((adapter->flags & (USING_MSIX|USING_MSI)) == 0);
++
++	/*
++	 * Count the number of 10GbE Virtual Interfaces that we have.
++	 */
++	n10g = 0;
++	for_each_port(adapter, pidx)
++		n10g += is_10g_port(&adap2pinfo(adapter, pidx)->link_cfg);
++
++	/*
++	 * We default to 1 queue per non-10G port and up to # of cores queues
++	 * per 10G port.
++	 */
++	if (n10g == 0)
++		q10g = 0;
++	else {
++		int n1g = (adapter->params.nports - n10g);
++		q10g = (adapter->sge.max_ethqsets - n1g) / n10g;
++		if (q10g > num_online_cpus())
++			q10g = num_online_cpus();
++	}
++
++	/*
++	 * Allocate the "Queue Sets" to the various Virtual Interfaces.
++	 * The layout will be established in setup_sge_queues() when the
++	 * adapter is brough up for the first time.
++	 */
++	qidx = 0;
++	for_each_port(adapter, pidx) {
++		struct port_info *pi = adap2pinfo(adapter, pidx);
++
++		pi->first_qset = qidx;
++		pi->nqsets = is_10g_port(&pi->link_cfg) ? q10g : 1;
++		qidx += pi->nqsets;
++	}
++	s->ethqsets = qidx;
++
++	/*
++	 * Set up default Queue Set parameters ...  Start off with the
++	 * shortest interrupt holdoff timer.
++	 */
++	for (qs = 0; qs < s->max_ethqsets; qs++) {
++		struct sge_eth_rxq *rxq = &s->ethrxq[qs];
++		struct sge_eth_txq *txq = &s->ethtxq[qs];
++
++		init_rspq(&rxq->rspq, 0, 0, 1024, L1_CACHE_BYTES);
++		rxq->fl.size = 72;
++		txq->q.size = 1024;
++	}
++
++	/*
++	 * The firmware event queue is used for link state changes and
++	 * notifications of TX DMA completions.
++	 */
++	init_rspq(&s->fw_evtq, SGE_TIMER_RSTRT_CNTR, 0, 512,
++		  L1_CACHE_BYTES);
++
++	/*
++	 * The forwarded interrupt queue is used when we're in MSI interrupt
++	 * mode.  In this mode all interrupts associated with RX queues will
++	 * be forwarded to a single queue which we'll associate with our MSI
++	 * interrupt vector.  The messages dropped in the forwarded interrupt
++	 * queue will indicate which ingress queue needs servicing ...  This
++	 * queue needs to be large enough to accommodate all of the ingress
++	 * queues which are forwarding their interrupt (+1 to prevent the PIDX
++	 * from equalling the CIDX if every ingress queue has an outstanding
++	 * interrupt).  The queue doesn't need to be any larger because no
++	 * ingress queue will ever have more than one outstanding interrupt at
++	 * any time ...
++	 */
++	init_rspq(&s->intrq, SGE_TIMER_RSTRT_CNTR, 0, MSIX_ENTRIES + 1,
++		  L1_CACHE_BYTES);
++}
++
++/*
++ * Reduce the number of Ethernet queues across all ports to at most n.
++ * n provides at least one queue per port.
++ */
++static void __devinit reduce_ethqs(struct adapter *adapter, int n)
++{
++	int i;
++	struct port_info *pi;
++
++	/*
++	 * While we have too many active Ether Queue Sets, interate across the
++	 * "ports" and reduce their individual Queue Set allocations.
++	 */
++	BUG_ON(n < adapter->params.nports);
++	while (n < adapter->sge.ethqsets)
++		for_each_port(adapter, i) {
++			pi = adap2pinfo(adapter, i);
++			if (pi->nqsets > 1) {
++				pi->nqsets--;
++				adapter->sge.ethqsets--;
++				if (adapter->sge.ethqsets <= n)
++					break;
++			}
++		}
++
++	/*
++	 * Reassign the starting Queue Sets for each of the "ports" ...
++	 */
++	n = 0;
++	for_each_port(adapter, i) {
++		pi = adap2pinfo(adapter, i);
++		pi->first_qset = n;
++		n += pi->nqsets;
++	}
++}
++
++/*
++ * We need to grab enough MSI-X vectors to cover our interrupt needs.  Ideally
++ * we get a separate MSI-X vector for every "Queue Set" plus any extras we
++ * need.  Minimally we need one for every Virtual Interface plus those needed
++ * for our "extras".  Note that this process may lower the maximum number of
++ * allowed Queue Sets ...
++ */
++static int __devinit enable_msix(struct adapter *adapter)
++{
++	int i, err, want, need;
++	struct msix_entry entries[MSIX_ENTRIES];
++	struct sge *s = &adapter->sge;
++
++	for (i = 0; i < MSIX_ENTRIES; ++i)
++		entries[i].entry = i;
++
++	/*
++	 * We _want_ enough MSI-X interrupts to cover all of our "Queue Sets"
++	 * plus those needed for our "extras" (for example, the firmware
++	 * message queue).  We _need_ at least one "Queue Set" per Virtual
++	 * Interface plus those needed for our "extras".  So now we get to see
++	 * if the song is right ...
++	 */
++	want = s->max_ethqsets + MSIX_EXTRAS;
++	need = adapter->params.nports + MSIX_EXTRAS;
++	while ((err = pci_enable_msix(adapter->pdev, entries, want)) >= need)
++		want = err;
++
++	if (err == 0) {
++		int nqsets = want - MSIX_EXTRAS;
++		if (nqsets < s->max_ethqsets) {
++			dev_warn(adapter->pdev_dev, "only enough MSI-X vectors"
++				 " for %d Queue Sets\n", nqsets);
++			s->max_ethqsets = nqsets;
++			if (nqsets < s->ethqsets)
++				reduce_ethqs(adapter, nqsets);
++		}
++		for (i = 0; i < want; ++i)
++			adapter->msix_info[i].vec = entries[i].vector;
++	} else if (err > 0) {
++		pci_disable_msix(adapter->pdev);
++		dev_info(adapter->pdev_dev, "only %d MSI-X vectors left,"
++			 " not using MSI-X\n", err);
++	}
++	return err;
++}
++
++#ifdef HAVE_NET_DEVICE_OPS
++static const struct net_device_ops cxgb4vf_netdev_ops	= {
++	.ndo_open		= cxgb4vf_open,
++	.ndo_stop		= cxgb4vf_stop,
++	.ndo_start_xmit		= t4vf_eth_xmit,
++	.ndo_get_stats		= cxgb4vf_get_stats,
++	.ndo_set_rx_mode	= cxgb4vf_set_rxmode,
++	.ndo_set_mac_address	= cxgb4vf_set_mac_addr,
++	.ndo_select_queue	= cxgb4vf_select_queue,
++	.ndo_validate_addr	= eth_validate_addr,
++	.ndo_do_ioctl		= cxgb4vf_do_ioctl,
++	.ndo_change_mtu		= cxgb4vf_change_mtu,
++	.ndo_vlan_rx_register	= cxgb4vf_vlan_rx_register,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller	= cxgb4vf_poll_controller,
++#endif
++};
++#endif
++
++/*
++ * "Probe" a device: initialize a device and construct all kernel and driver
++ * state needed to manage the device.  This routine is called "init_one" in
++ * the PF Driver ...
++ */
++static int __devinit cxgb4vf_pci_probe(struct pci_dev *pdev,
++				       const struct pci_device_id *ent)
++{
++	static int version_printed;
++
++	int pci_using_dac;
++	int err, pidx;
++	unsigned int pmask;
++	struct adapter *adapter;
++	struct port_info *pi;
++	struct net_device *netdev;
++
++	/*
++	 * Vet our module parameters.
++	 */
++	if (msi != MSI_MSIX && msi != MSI_MSI) {
++		dev_err(&pdev->dev, "bad module parameter msi=%d; must be %d"
++			" (MSI-X or MSI) or %d (MSI)\n", msi, MSI_MSIX,
++			MSI_MSI);
++		err = -EINVAL;
++		goto err_out;
++	}
++
++	/*
++	 * Print our driver banner the first time we're called to initialize a
++	 * device.
++	 */
++	if (version_printed == 0) {
++		printk(KERN_INFO "%s - version %s\n", DRV_DESC, DRV_VERSION);
++		version_printed = 1;
++	}
++
++	/*
++	 * Reserve PCI resources for the device.  If we can't get them some
++	 * other driver may have already claimed the device ...
++	 */
++	err = pci_request_regions(pdev, KBUILD_MODNAME);
++	if (err) {
++		dev_err(&pdev->dev, "cannot obtain PCI resources\n");
++		return err;
++	}
++
++	/*
++	 * Initialize generic PCI device state.
++	 */
++	err = pci_enable_device(pdev);
++	if (err) {
++		dev_err(&pdev->dev, "cannot enable PCI device\n");
++		goto err_release_regions;
++	}
++
++	/*
++	 * Set up our DMA mask: try for 64-bit address masking first and
++	 * fall back to 32-bit if we can't get 64 bits ...
++	 */
++	err = pci_set_dma_mask(pdev, DMA_BIT_MASK(64));
++	if (err == 0) {
++		err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64));
++		if (err) {
++			dev_err(&pdev->dev, "unable to obtain 64-bit DMA for"
++				" coherent allocations\n");
++			goto err_disable_device;
++		}
++		pci_using_dac = 1;
++	} else {
++		err = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
++		if (err != 0) {
++			dev_err(&pdev->dev, "no usable DMA configuration\n");
++			goto err_disable_device;
++		}
++		pci_using_dac = 0;
++	}
++
++	/*
++	 * Enable bus mastering for the device ...
++	 */
++	pci_set_master(pdev);
++
++	/*
++	 * Allocate our adapter data structure and attach it to the device.
++	 */
++	adapter = kzalloc(sizeof(*adapter), GFP_KERNEL);
++	if (!adapter) {
++		err = -ENOMEM;
++		goto err_disable_device;
++	}
++	pci_set_drvdata(pdev, adapter);
++	adapter->pdev = pdev;
++	adapter->pdev_dev = &pdev->dev;
++
++	/*
++	 * Initialize SMP data synchronization resources.
++	 */
++	spin_lock_init(&adapter->stats_lock);
++
++	/*
++	 * Map our I/O registers in BAR0.
++	 */
++	adapter->regs = pci_ioremap_bar(pdev, 0);
++	if (!adapter->regs) {
++		dev_err(&pdev->dev, "cannot map device registers\n");
++		err = -ENOMEM;
++		goto err_free_adapter;
++	}
++
++	/*
++	 * Initialize adapter level features.
++	 */
++	adapter->name = pci_name(pdev);
++	adapter->msg_enable = dflt_msg_enable;
++	err = adap_init0(adapter);
++	if (err)
++		goto err_unmap_bar;
++
++	/*
++	 * Allocate our "adapter ports" and stitch everything together.
++	 */
++	pmask = adapter->params.vfres.pmask;
++	for_each_port(adapter, pidx) {
++		int port_id, viid;
++
++		/*
++		 * We simplistically allocate our virtual interfaces
++		 * sequentially across the port numbers to which we have
++		 * access rights.  This should be configurable in some manner
++		 * ...
++		 */
++		if (pmask == 0)
++			break;
++		port_id = ffs(pmask) - 1;
++		pmask &= ~(1 << port_id);
++		viid = t4vf_alloc_vi(adapter, port_id);
++		if (viid < 0) {
++			dev_err(&pdev->dev, "cannot allocate VI for port %d:"
++				" err=%d\n", port_id, viid);
++			err = viid;
++			goto err_free_dev;
++		}
++
++		/*
++		 * Allocate our network device and stitch things together.
++		 */
++		netdev = alloc_etherdev_mq(sizeof(struct port_info),
++					   MAX_PORT_QSETS);
++		if (netdev == NULL) {
++			dev_err(&pdev->dev, "cannot allocate netdev for"
++				" port %d\n", port_id);
++			t4vf_free_vi(adapter, viid);
++			err = -ENOMEM;
++			goto err_free_dev;
++		}
++		adapter->port[pidx] = netdev;
++		SET_NETDEV_DEV(netdev, &pdev->dev);
++		pi = netdev_priv(netdev);
++		pi->adapter = adapter;
++		pi->pidx = pidx;
++		pi->port_id = port_id;
++		pi->viid = viid;
++
++		/*
++		 * Initialize the starting state of our "port" and register
++		 * it.
++		 */
++		pi->xact_addr_filt = -1;
++		pi->rx_offload = RX_CSO;
++		netif_carrier_off(netdev);
++		netif_tx_stop_all_queues(netdev);
++		netdev->irq = pdev->irq;
++
++		netdev->features = (NETIF_F_SG | NETIF_F_TSO | NETIF_F_TSO6 |
++				    NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
++				    NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX |
++				    NETIF_F_GRO);
++		if (pci_using_dac)
++			netdev->features |= NETIF_F_HIGHDMA;
++		netdev->vlan_features =
++			(netdev->features &
++			 ~(NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX));
++
++#ifdef HAVE_NET_DEVICE_OPS
++		netdev->netdev_ops = &cxgb4vf_netdev_ops;
++#else
++		netdev->vlan_rx_register = cxgb4vf_vlan_rx_register;
++		netdev->open = cxgb4vf_open;
++		netdev->stop = cxgb4vf_stop;
++		netdev->hard_start_xmit = t4vf_eth_xmit;
++		netdev->get_stats = cxgb4vf_get_stats;
++		netdev->set_rx_mode = cxgb4vf_set_rxmode;
++		netdev->do_ioctl = cxgb4vf_do_ioctl;
++		netdev->change_mtu = cxgb4vf_change_mtu;
++		netdev->set_mac_address = cxgb4vf_set_mac_addr;
++		netdev->select_queue = cxgb4vf_select_queue;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++		netdev->poll_controller = cxgb4vf_poll_controller;
++#endif
++#endif
++		SET_ETHTOOL_OPS(netdev, &cxgb4vf_ethtool_ops);
++
++		/*
++		 * Initialize the hardware/software state for the port.
++		 */
++		err = t4vf_port_init(adapter, pidx);
++		if (err) {
++			dev_err(&pdev->dev, "cannot initialize port %d\n",
++				pidx);
++			goto err_free_dev;
++		}
++	}
++
++	/*
++	 * The "card" is now ready to go.  If any errors occur during device
++	 * registration we do not fail the whole "card" but rather proceed
++	 * only with the ports we manage to register successfully.  However we
++	 * must register at least one net device.
++	 */
++	for_each_port(adapter, pidx) {
++		netdev = adapter->port[pidx];
++		if (netdev == NULL)
++			continue;
++
++		err = register_netdev(netdev);
++		if (err) {
++			dev_warn(&pdev->dev, "cannot register net device %s,"
++				 " skipping\n", netdev->name);
++			continue;
++		}
++
++		set_bit(pidx, &adapter->registered_device_map);
++	}
++	if (adapter->registered_device_map == 0) {
++		dev_err(&pdev->dev, "could not register any net devices\n");
++		goto err_free_dev;
++	}
++
++	/*
++	 * Set up our debugfs entries.
++	 */
++	if (cxgb4vf_debugfs_root) {
++		adapter->debugfs_root =
++			debugfs_create_dir(pci_name(pdev),
++					   cxgb4vf_debugfs_root);
++		if (adapter->debugfs_root == NULL)
++			dev_warn(&pdev->dev, "could not create debugfs"
++				 " directory");
++		else
++			setup_debugfs(adapter);
++	}
++
++	/*
++	 * See what interrupts we'll be using.  If we've been configured to
++	 * use MSI-X interrupts, try to enable them but fall back to using
++	 * MSI interrupts if we can't enable MSI-X interrupts.  If we can't
++	 * get MSI interrupts we bail with the error.
++	 */
++	if (msi == MSI_MSIX && enable_msix(adapter) == 0)
++		adapter->flags |= USING_MSIX;
++	else {
++		err = pci_enable_msi(pdev);
++		if (err) {
++			dev_err(&pdev->dev, "Unable to allocate %s interrupts;"
++				" err=%d\n",
++				msi == MSI_MSIX ? "MSI-X or MSI" : "MSI", err);
++			goto err_free_debugfs;
++		}
++		adapter->flags |= USING_MSI;
++	}
++
++	/*
++	 * Now that we know how many "ports" we have and what their types are,
++	 * and how many Queue Sets we can support, we can configure our queue
++	 * resources.
++	 */
++	cfg_queues(adapter);
++
++	/*
++	 * Print a short notice on the existance and configuration of the new
++	 * VF network device ...
++	 */
++	for_each_port(adapter, pidx) {
++		dev_info(adapter->pdev_dev, "%s: Chelsio VF NIC PCIe %s\n",
++			 adapter->port[pidx]->name,
++			 (adapter->flags & USING_MSIX) ? "MSI-X" :
++			 (adapter->flags & USING_MSI)  ? "MSI" : "");
++	}
++
++	/*
++	 * Return success!
++	 */
++	return 0;
++
++	/*
++	 * Error recovery and exit code.  Unwind state that's been created
++	 * so far and return the error.
++	 */
++
++err_free_debugfs:
++	if (adapter->debugfs_root) {
++		cleanup_debugfs(adapter);
++		debugfs_remove_recursive(adapter->debugfs_root);
++	}
++
++err_free_dev:
++	for_each_port(adapter, pidx) {
++		netdev = adapter->port[pidx];
++		if (netdev == NULL)
++			continue;
++		pi = netdev_priv(netdev);
++		t4vf_free_vi(adapter, pi->viid);
++		if (test_bit(pidx, &adapter->registered_device_map))
++			unregister_netdev(netdev);
++		free_netdev(netdev);
++	}
++
++err_unmap_bar:
++	iounmap(adapter->regs);
++
++err_free_adapter:
++	kfree(adapter);
++	pci_set_drvdata(pdev, NULL);
++
++err_disable_device:
++	pci_disable_device(pdev);
++	pci_clear_master(pdev);
++
++err_release_regions:
++	pci_release_regions(pdev);
++	pci_set_drvdata(pdev, NULL);
++
++err_out:
++	return err;
++}
++
++/*
++ * "Remove" a device: tear down all kernel and driver state created in the
++ * "probe" routine and quiesce the device (disable interrupts, etc.).  (Note
++ * that this is called "remove_one" in the PF Driver.)
++ */
++static void __devexit cxgb4vf_pci_remove(struct pci_dev *pdev)
++{
++	struct adapter *adapter = pci_get_drvdata(pdev);
++
++	/*
++	 * Tear down driver state associated with device.
++	 */
++	if (adapter) {
++		int pidx;
++
++		/*
++		 * Stop all of our activity.  Unregister network port,
++		 * disable interrupts, etc.
++		 */
++		for_each_port(adapter, pidx)
++			if (test_bit(pidx, &adapter->registered_device_map))
++				unregister_netdev(adapter->port[pidx]);
++		t4vf_sge_stop(adapter);
++		if (adapter->flags & USING_MSIX) {
++			pci_disable_msix(adapter->pdev);
++			adapter->flags &= ~USING_MSIX;
++		} else if (adapter->flags & USING_MSI) {
++			pci_disable_msi(adapter->pdev);
++			adapter->flags &= ~USING_MSI;
++		}
++
++		/*
++		 * Tear down our debugfs entries.
++		 */
++		if (adapter->debugfs_root) {
++			cleanup_debugfs(adapter);
++			debugfs_remove_recursive(adapter->debugfs_root);
++		}
++
++		/*
++		 * Free all of the various resources which we've acquired ...
++		 */
++		t4vf_free_sge_resources(adapter);
++		for_each_port(adapter, pidx) {
++			struct net_device *netdev = adapter->port[pidx];
++			struct port_info *pi;
++
++			if (netdev == NULL)
++				continue;
++
++			pi = netdev_priv(netdev);
++			t4vf_free_vi(adapter, pi->viid);
++			free_netdev(netdev);
++		}
++		iounmap(adapter->regs);
++		kfree(adapter);
++		pci_set_drvdata(pdev, NULL);
++	}
++
++	/*
++	 * Disable the device and release its PCI resources.
++	 */
++	pci_disable_device(pdev);
++	pci_clear_master(pdev);
++	pci_release_regions(pdev);
++}
++
++/*
++ * PCI Device registration data structures.
++ */
++#define CH_DEVICE(devid, idx) \
++	{ PCI_VENDOR_ID_CHELSIO, devid, PCI_ANY_ID, PCI_ANY_ID, 0, 0, idx }
++
++static struct pci_device_id cxgb4vf_pci_tbl[] = {
++	CH_DEVICE(0xb000, 0),	/* PE10K FPGA */
++	CH_DEVICE(0x4800, 0),	/* T440-dbg */
++	CH_DEVICE(0x4801, 0),	/* T420-cr */
++	CH_DEVICE(0x4802, 0),	/* T422-cr */
++	{ 0, }
++};
++
++MODULE_DESCRIPTION(DRV_DESC);
++MODULE_AUTHOR("Chelsio Communications");
++MODULE_LICENSE("Dual BSD/GPL");
++MODULE_VERSION(DRV_VERSION);
++MODULE_DEVICE_TABLE(pci, cxgb4vf_pci_tbl);
++
++static struct pci_driver cxgb4vf_driver = {
++	.name		= KBUILD_MODNAME,
++	.id_table	= cxgb4vf_pci_tbl,
++	.probe		= cxgb4vf_pci_probe,
++	.remove		= __devexit_p(cxgb4vf_pci_remove),
++};
++
++/*
++ * Initialize global driver state.
++ */
++static int __init cxgb4vf_module_init(void)
++{
++	int ret;
++
++	/* Debugfs support is optional, just warn if this fails */
++	cxgb4vf_debugfs_root = debugfs_create_dir(KBUILD_MODNAME, NULL);
++	if (!cxgb4vf_debugfs_root)
++		printk(KERN_WARNING KBUILD_MODNAME ": could not create"
++		       " debugfs entry, continuing\n");
++
++	ret = pci_register_driver(&cxgb4vf_driver);
++	if (ret < 0)
++		debugfs_remove(cxgb4vf_debugfs_root);
++	return ret;
++}
++
++/*
++ * Tear down global driver state.
++ */
++static void __exit cxgb4vf_module_exit(void)
++{
++	pci_unregister_driver(&cxgb4vf_driver);
++	debugfs_remove(cxgb4vf_debugfs_root);
++}
++
++module_init(cxgb4vf_module_init);
++module_exit(cxgb4vf_module_exit);
