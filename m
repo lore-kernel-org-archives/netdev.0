@@ -1,153 +1,57 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] sched: export sched_set/getaffinity (was Re: [PATCH 3/3]
-	vhost: apply cpumask and cgroup to vhost pollers)
-Date: Fri, 25 Jun 2010 13:10:22 +0300
-Message-ID: <20100625101022.GA16321@redhat.com>
-References: <20100527163954.GA21710@redhat.com> <4BFEA434.6080405@kernel.org> <20100527173207.GA21880@redhat.com> <4BFEE216.2070807@kernel.org> <20100528150830.GB21880@redhat.com> <4BFFE742.2060205@kernel.org> <20100530112925.GB27611@redhat.com> <4C02C99D.9070204@kernel.org> <20100624081135.GA937@redhat.com> <1277419551.27868.27.camel@w-sridhar.beaverton.ibm.com>
+Subject: Re: [RFC PATCH v7 01/19] Add a new structure for skb buffer from
+	external.
+Date: Fri, 25 Jun 2010 14:06:30 +0300
+Message-ID: <20100625110629.GB16444@redhat.com>
+References: <20100611052112.GA25649@gondor.apana.org.au> <F2E9EB7348B8264F86B6AB8151CE2D791210AA4475@shsmsx502.ccr.corp.intel.com> <F2E9EB7348B8264F86B6AB8151CE2D79134F9AA999@shsmsx502.ccr.corp.intel.com> <20100617112119.GB1515@gondor.apana.org.au> <F2E9EB7348B8264F86B6AB8151CE2D7915089FE4CC@shsmsx502.ccr.corp.intel.com> <1A42CE6F5F474C41B63392A5F80372B21F58CD9A@shsmsx501.ccr.corp.intel.com> <20100623095254.GA32491@gondor.apana.org.au> <1A42CE6F5F474C41B63392A5F80372B21F58CE7F@shsmsx501.ccr.corp.intel.com> <20100624100836.GA16220@gondor.apana.org.au> <1A42CE6F5F474C41B63392A5F80372B21F58D666@shsmsx501.ccr.corp.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Tejun Heo <tj@kernel.org>, Oleg Nesterov <oleg@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
+Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
+	"Xin, Xiaohui" <xiaohui.xin@intel.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Ingo Molnar <mingo@elte.hu>, Andi Kleen <ak@linux.intel.com>
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2951 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752844Ab0FYKPw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jun 2010 06:15:52 -0400
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"mingo@elte.hu" <mingo@elte.hu>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"jdike@linux.intel.com" <jdike@linux.intel.com>
+To: "Dong, Eddie" <eddie.dong@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1277419551.27868.27.camel@w-sridhar.beaverton.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1A42CE6F5F474C41B63392A5F80372B21F58D666@shsmsx501.ccr.corp.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 24, 2010 at 03:45:51PM -0700, Sridhar Samudrala wrote:
-> On Thu, 2010-06-24 at 11:11 +0300, Michael S. Tsirkin wrote:
-> > On Sun, May 30, 2010 at 10:25:01PM +0200, Tejun Heo wrote:
-> > > Apply the cpumask and cgroup of the initializing task to the created
-> > > vhost poller.
-> > > 
-> > > Based on Sridhar Samudrala's patch.
-> > > 
-> > > Cc: Michael S. Tsirkin <mst@redhat.com>
-> > > Cc: Sridhar Samudrala <samudrala.sridhar@gmail.com>
+On Fri, Jun 25, 2010 at 09:03:46AM +0800, Dong, Eddie wrote:
+> Herbert Xu wrote:
+> > On Wed, Jun 23, 2010 at 06:05:41PM +0800, Dong, Eddie wrote:
+> >> 
+> >> I mean once the frontend side driver post the buffers to the backend
+> >> driver, the backend driver will "immediately" use that buffers to
+> >> compose skb or gro_frags and post them to the assigned host NIC
+> >> driver as receive buffers. In that case, if the backend driver
+> >> recieves a packet from the NIC that requires to do copy, it may be
+> >> unable to find additional free guest buffer because all of them are
+> >> already used by the NIC driver. We have to reserve some guest
+> >> buffers for the possible copy even if the buffer address is not
+> >> identified by original skb :(        
 > > 
+> > OK I see what you mean.  Can you tell me how does Xiaohui's
+> > previous patch-set deal with this problem?
 > > 
-> > I wanted to apply this, but modpost fails:
-> > ERROR: "sched_setaffinity" [drivers/vhost/vhost_net.ko] undefined!
-> > ERROR: "sched_getaffinity" [drivers/vhost/vhost_net.ko] undefined!
-> > 
-> > Did you try building as a module?
+> > Thanks,
 > 
-> In my original implementation, i had these calls in workqueue.c.
-> Now that these are moved to vhost.c which can be built as a module,
-> these symbols need to be exported.
-> The following patch fixes the build issue with vhost as a module.
+> In current patch, each SKB for the assigned device (SRIOV VF or NIC or a complete queue pairs) uses the buffer from guest, so it eliminates copy completely in software and requires hardware to do so. If we can have an additonal place to store the buffer per skb (may cause copy later on), we can do copy later on or re-post the buffer to assigned NIC driver later on. But that may be not very clean either :(
+> BTW, some hardware may require certain level of packet copy such as for broadcast packets in very old VMDq device, which is not addressed in previous Xiaohui's patch yet. We may address this by implementing an additional virtqueue between guest and host for slow path (broadcast packets only here) with additinal complexity in FE/BE driver. 
 > 
-> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+> Thx, Eddie
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+guest posts a large number of buffers to the host.
+Host can use them any way it wants to, and in any order,
+for example reserve half the buffers for the copy.
 
-Works for me. To simplify dependencies, I'd like to queue this
-together with the chost patches through net-next.
-Ack to this?
+This might waste some memory if buffers are used
+only partially, but let's worry about this later.
 
-> diff --git a/kernel/sched.c b/kernel/sched.c
-> index 3c2a54f..15a0c6f 100644
-> --- a/kernel/sched.c
-> +++ b/kernel/sched.c
-> @@ -4837,6 +4837,7 @@ out_put_task:
->  	put_online_cpus();
->  	return retval;
->  }
-> +EXPORT_SYMBOL_GPL(sched_setaffinity);
->  
->  static int get_user_cpu_mask(unsigned long __user *user_mask_ptr,
-> unsigned len,
->  			     struct cpumask *new_mask)
-> @@ -4900,6 +4901,7 @@ out_unlock:
->  
->  	return retval;
->  }
-> +EXPORT_SYMBOL_GPL(sched_getaffinity);
->  
->  /**
->   * sys_sched_getaffinity - get the cpu affinity of a process
-> 
-> 
-> > > ---
-> > >  drivers/vhost/vhost.c |   36 +++++++++++++++++++++++++++++++-----
-> > >  1 file changed, 31 insertions(+), 5 deletions(-)
-> > > 
-> > > Index: work/drivers/vhost/vhost.c
-> > > ===================================================================
-> > > --- work.orig/drivers/vhost/vhost.c
-> > > +++ work/drivers/vhost/vhost.c
-> > > @@ -23,6 +23,7 @@
-> > >  #include <linux/highmem.h>
-> > >  #include <linux/slab.h>
-> > >  #include <linux/kthread.h>
-> > > +#include <linux/cgroup.h>
-> > > 
-> > >  #include <linux/net.h>
-> > >  #include <linux/if_packet.h>
-> > > @@ -176,12 +177,30 @@ repeat:
-> > >  long vhost_dev_init(struct vhost_dev *dev,
-> > >  		    struct vhost_virtqueue *vqs, int nvqs)
-> > >  {
-> > > -	struct task_struct *poller;
-> > > -	int i;
-> > > +	struct task_struct *poller = NULL;
-> > > +	cpumask_var_t mask;
-> > > +	int i, ret = -ENOMEM;
-> > > +
-> > > +	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
-> > > +		goto out;
-> > > 
-> > >  	poller = kthread_create(vhost_poller, dev, "vhost-%d", current->pid);
-> > > -	if (IS_ERR(poller))
-> > > -		return PTR_ERR(poller);
-> > > +	if (IS_ERR(poller)) {
-> > > +		ret = PTR_ERR(poller);
-> > > +		goto out;
-> > > +	}
-> > > +
-> > > +	ret = sched_getaffinity(current->pid, mask);
-> > > +	if (ret)
-> > > +		goto out;
-> > > +
-> > > +	ret = sched_setaffinity(poller->pid, mask);
-> > > +	if (ret)
-> > > +		goto out;
-> > > +
-> > > +	ret = cgroup_attach_task_current_cg(poller);
-> > > +	if (ret)
-> > > +		goto out;
-> > > 
-> > >  	dev->vqs = vqs;
-> > >  	dev->nvqs = nvqs;
-> > > @@ -202,7 +221,14 @@ long vhost_dev_init(struct vhost_dev *de
-> > >  			vhost_poll_init(&dev->vqs[i].poll,
-> > >  					dev->vqs[i].handle_kick, POLLIN, dev);
-> > >  	}
-> > > -	return 0;
-> > > +
-> > > +	wake_up_process(poller);	/* avoid contributing to loadavg */
-> > > +	ret = 0;
-> > > +out:
-> > > +	if (ret)
-> > > +		kthread_stop(poller);
-> > > +	free_cpumask_var(mask);
-> > > +	return ret;
-> > >  }
-> > > 
-> > >  /* Caller should have device mutex */
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+MST
