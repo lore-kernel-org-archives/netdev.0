@@ -1,71 +1,82 @@
-From: Andrew Morton <akpm@linux-foundation.org>
+From: Ingo Molnar <mingo@elte.hu>
 Subject: Re: [PATCH 6/8] netpoll: Allow netpoll_setup/cleanup recursion
-Date: Fri, 25 Jun 2010 01:42:53 -0700
-Message-ID: <20100625014253.698d9ff5.akpm@linux-foundation.org>
+Date: Fri, 25 Jun 2010 10:46:47 +0200
+Message-ID: <20100625084647.GA4914@elte.hu>
 References: <20100624182123.45264dfe.akpm@linux-foundation.org>
-	<20100624.203006.35035648.davem@davemloft.net>
-	<20100624205059.a28756b0.akpm@linux-foundation.org>
-	<20100624.212713.242141362.davem@davemloft.net>
-	<20100624214204.a85c8ba2.akpm@linux-foundation.org>
-	<1277453336.22715.2154.camel@twins>
+ <20100624.203006.35035648.davem@davemloft.net>
+ <20100624205059.a28756b0.akpm@linux-foundation.org>
+ <20100624.212713.242141362.davem@davemloft.net>
+ <20100624214204.a85c8ba2.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, herbert@gondor.hengli.com.au,
 	mst@redhat.com, frzhang@redhat.com, netdev@vger.kernel.org,
 	amwang@redhat.com, shemminger@vyatta.com, mpm@selenic.com,
-	paulmck@linux.vnet.ibm.com, mingo@elte.hu
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:39681 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751750Ab0FYIn0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jun 2010 04:43:26 -0400
-In-Reply-To: <1277453336.22715.2154.camel@twins>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	paulmck@linux.vnet.ibm.com, a.p.zijlstra@chello.nl,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20100624214204.a85c8ba2.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 25 Jun 2010 10:08:56 +0200 Peter Zijlstra <peterz@infradead.org> wrote:
 
-> On Thu, 2010-06-24 at 21:42 -0700, Andrew Morton wrote:
-> > That being said, I wonder why Herbert didn't hit this in his testing. 
-> > I suspect that he'd enabled lockdep, which hid the bug.  I haven't
-> > worked out _why_ lockdep hides the double-mutex_unlock bug, but it's a
-> > pretty bad thing to do. 
+* Andrew Morton <akpm@linux-foundation.org> wrote:
+
+> On Thu, 24 Jun 2010 21:27:13 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
 > 
-> Most weird indeed, lockdep is supposed so shout its lungs out when
-> someone wants to unlock a lock that isn't actually owned by him (and it
-> not being locked at all certainly implies you're not the owner).
+> > From: Andrew Morton <akpm@linux-foundation.org>
+> > Date: Thu, 24 Jun 2010 20:50:59 -0700
+> > 
+> > > What happens if you want to actually *drop* a patch from net-next? 
+> > > Surely that happens?
+> > 
+> > I've only respun the tree on two or three occasions and that was
+> > because I made some significant error myself and screwed up the
+> > GIT tree somehow.
+> > 
+> > We've fixed much worse bugs than this one weeks after the changes
+> > causing them went in, life goes on.
 > 
-> In fact, the below patch results in the below splat -- its also
-> something that's tested by the locking self-test:
+> Still sucks - this is a quite ugly drawback to how we're using git. 
+> I've hit bisection holes several times which held up the show. 
+> Sometimes you can make them go away by fiddling the .config, other
+> times I've hunted down the fix and manually applied it for each
+> iteration.  It makes me feel all guilty each time I ask some poor sap
+> to bisect a bug for us.
 
-When I enabled lockdep, the bug actually went away.  Is it possible
-that when lockdep detects this bug, it prevents mutex.count from going
-from 1 to 2?
+One solution would be, for really grave bugs that introduce a significant 
+window of bisection breakage, to add a special tag:
 
-It could be that lockdep _did_ detect (and correct!) the bug.  But
-because I had no usable console output at the time, I didn't see it.
+  Fixes-Bug: SHA1
 
-I did notice that the taint output was "G W".  So something warned
-about something, but I don't know what.  But that was happening with
-lockdep disabled.
+Which could then be parsed by a special variant of git bisect and which would 
+try to cherry-pick all Fixes-Bug commits into the bisection point.
 
+But there are numerous disadvantages that:
 
-> @@ -1344,6 +1346,10 @@ SYSCALL_DEFINE0(getppid)
->  {
->  	int pid;
->  
-> +	mutex_lock(&foo);
-> +	mutex_unlock(&foo);
-> +	mutex_unlock(&foo);
-> +
->  	rcu_read_lock();
->  	pid = task_tgid_vnr(current->real_parent);
->  	rcu_read_unlock();
+ - The bisection itself would be slower (maybe not a big issue for most 
+   bisection sessions)
 
-It'd be interesting to add
+ - Such cherry-picked trees wouldnt be precisely the same thing as the tree 
+   as-it-was-there.
 
-	printk("%d:%d\n", __LINE__, atomic_read(&foo.count));
+ - Awkward combination bugs could ensue
 
-after the mutex_unlock()s.
+ - The cherry-pick may fail or may mis-apply things.
+
+ - If the Fixes-Bug tag is typoed or misconstrued then that might not be found 
+   until someone tries a bisection and fails ... leading to awkward 
+   add-the-tag-again-to-some-commit scenarios.
+
+My gut feeling is that we really dont want to go there. As painful as 
+bisection breakages are, they are relatively rare (compared to regular 
+regressions), and the value of testing _that precise_ sha1 is a fundamental 
+thing - git bisect shouldnt interact and reorder fixes.
+
+If a bug wasnt found sooner then it either didnt matter that much, or the tree 
+QA was bad. Neither of those factors forces a change in the development model.
+
+	Ingo
