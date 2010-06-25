@@ -1,34 +1,156 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH net-next] MAINTAINERS: b43 updates
-Date: Thu, 24 Jun 2010 21:41:52 -0500
-Message-ID: <4C241770.6030701@lwfinger.net>
-References: <cover.1276988387.git.joe@perches.com>	 <20100624185339.GC2368@tuxdriver.com>	 <1277408432.1654.80.camel@Joe-Laptop.home> <4C23B877.4060209@lwfinger.net>	 <1277423102.1654.107.camel@Joe-Laptop.home> <4C23EFDE.3000702@lwfinger.net> <1277423829.1654.111.camel@Joe-Laptop.home>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Stefano Brivio <stefano.brivio-hl5o88x/ua9eoWH0uzbU5w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org, zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	=?UTF-8?B?R8OhYm9yIFN0ZWZhbmlr?= <netrolller.3d-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1277423829.1654.111.camel-AkRN8/LKpobuYGix6ZUp1Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH v2] fragment: add fast path
+Date: Fri, 25 Jun 2010 10:54:32 +0800
+Message-ID: <1277434472-2845-1-git-send-email-xiaosuo@gmail.com>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	Mitchell Erblich <erblichs@earthlink.net>,
+	Changli Gao <xiaosuo@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:50040 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751083Ab0FYCzp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jun 2010 22:55:45 -0400
+Received: by pwj8 with SMTP id 8so2137895pwj.19
+        for <netdev@vger.kernel.org>; Thu, 24 Jun 2010 19:55:45 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/24/2010 06:57 PM, Joe Perches wrote:
-> On Thu, 2010-06-24 at 18:53 -0500, Larry Finger wrote:
->> I never said that b43 is unmaintained. It is definitely getting much
->> more than "odd fixes".
-> 
-> If Stefano isn't maintaining it, who is?
+add fast path
 
-We are working on that.
+As the fragments are sent in order in most of OSes, such as Windows, Darwin and
+FreeBSD, it is likely the new fragments are at the end of the inet_frag_queue.
+In the fast path, we check if the skb at the end of the inet_frag_queue is the
+prev we expect.
 
-Larry
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+ include/net/inet_frag.h |    1 +
+ net/ipv4/ip_fragment.c  |   12 ++++++++++++
+ net/ipv6/reassembly.c   |   11 +++++++++++
+ 3 files changed, 24 insertions(+)
+diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+index 39f2dc9..16ff29a 100644
+--- a/include/net/inet_frag.h
++++ b/include/net/inet_frag.h
+@@ -20,6 +20,7 @@ struct inet_frag_queue {
+ 	atomic_t		refcnt;
+ 	struct timer_list	timer;      /* when will this queue expire? */
+ 	struct sk_buff		*fragments; /* list of received fragments */
++	struct sk_buff		*fragments_tail;
+ 	ktime_t			stamp;
+ 	int			len;        /* total length of orig datagram */
+ 	int			meat;
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index 858d346..dbe8999 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -314,6 +314,7 @@ static int ip_frag_reinit(struct ipq *qp)
+ 	qp->q.len = 0;
+ 	qp->q.meat = 0;
+ 	qp->q.fragments = NULL;
++	qp->q.fragments_tail = NULL;
+ 	qp->iif = 0;
+ 
+ 	return 0;
+@@ -386,6 +387,11 @@ static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
+ 	 * in the chain of fragments so far.  We must know where to put
+ 	 * this fragment, right?
+ 	 */
++	prev = qp->q.fragments_tail;
++	if (!prev || FRAG_CB(prev)->offset < offset) {
++			next = NULL;
++			goto found;
++	}
+ 	prev = NULL;
+ 	for (next = qp->q.fragments; next != NULL; next = next->next) {
+ 		if (FRAG_CB(next)->offset >= offset)
+@@ -393,6 +399,7 @@ static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
+ 		prev = next;
+ 	}
+ 
++found:
+ 	/* We found where to put this one.  Check for overlap with
+ 	 * preceding fragment, and, if needed, align things so that
+ 	 * any overlaps are eliminated.
+@@ -451,6 +458,8 @@ static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
+ 
+ 	/* Insert this fragment in the chain of fragments. */
+ 	skb->next = next;
++	if (!next)
++		qp->q.fragments_tail = skb;
+ 	if (prev)
+ 		prev->next = skb;
+ 	else
+@@ -504,6 +513,8 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
+ 			goto out_nomem;
+ 
+ 		fp->next = head->next;
++		if (!fp->next)
++			qp->q.fragments_tail = fp;
+ 		prev->next = fp;
+ 
+ 		skb_morph(head, qp->q.fragments);
+@@ -574,6 +585,7 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
+ 	iph->tot_len = htons(len);
+ 	IP_INC_STATS_BH(net, IPSTATS_MIB_REASMOKS);
+ 	qp->q.fragments = NULL;
++	qp->q.fragments_tail = NULL;
+ 	return 0;
+ 
+ out_nomem:
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index 0b97230..b832f7b 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -333,6 +333,11 @@ static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
+ 	 * in the chain of fragments so far.  We must know where to put
+ 	 * this fragment, right?
+ 	 */
++	prev = fq->q.fragments_tail;
++	if (!prev || FRAG6_CB(prev)->offset < offset) {
++			next = NULL;
++			goto found;
++	}
+ 	prev = NULL;
+ 	for(next = fq->q.fragments; next != NULL; next = next->next) {
+ 		if (FRAG6_CB(next)->offset >= offset)
+@@ -340,6 +345,7 @@ static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
+ 		prev = next;
+ 	}
+ 
++found:
+ 	/* We found where to put this one.  Check for overlap with
+ 	 * preceding fragment, and, if needed, align things so that
+ 	 * any overlaps are eliminated.
+@@ -397,6 +403,8 @@ static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
+ 
+ 	/* Insert this fragment in the chain of fragments. */
+ 	skb->next = next;
++	if (!next)
++		fq->q.fragments_tail = skb;
+ 	if (prev)
+ 		prev->next = skb;
+ 	else
+@@ -463,6 +471,8 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *prev,
+ 			goto out_oom;
+ 
+ 		fp->next = head->next;
++		if (!fp->next)
++			fq->q.fragments_tail = fp;
+ 		prev->next = fp;
+ 
+ 		skb_morph(head, fq->q.fragments);
+@@ -549,6 +559,7 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *prev,
+ 	IP6_INC_STATS_BH(net, __in6_dev_get(dev), IPSTATS_MIB_REASMOKS);
+ 	rcu_read_unlock();
+ 	fq->q.fragments = NULL;
++	fq->q.fragments_tail = NULL;
+ 	return 1;
+ 
+ out_oversize:
