@@ -1,152 +1,99 @@
-From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Subject: Re: [RFC PATCH v2 1/5] irq: add tracepoint to softirq_raise
-Date: Fri, 25 Jun 2010 09:49:47 +0900
-Message-ID: <4C23FD2B.30204@jp.fujitsu.com>
-References: <4C2312A8.9060903@jp.fujitsu.com>	 <4C23145B.30805@jp.fujitsu.com> <1277406914.9181.67.camel@gandalf.stny.rr.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH net-next 2/6] cnic: Unify IRQ code for all hardware
+ types.
+Date: Thu, 24 Jun 2010 17:58:38 -0700
+Message-ID: <1277427522-17306-2-git-send-email-mchan@broadcom.com>
+References: <1277427522-17306-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	scott.a.mcmillan@intel.com, kaneshige.kenji@jp.fujitsu.com,
-	izumi.taku@jp.fujitsu.com, linux-kernel@vger.kernel.org
-To: rostedt@goodmis.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1277406914.9181.67.camel@gandalf.stny.rr.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:3199 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754029Ab0FYA4T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jun 2010 20:56:19 -0400
+In-Reply-To: <1277427522-17306-1-git-send-email-mchan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Steven,
+By creating a common cnic_doirq().
 
-Sorry, I submitted other patches to only netdev.
-I'll resubmit soon all patches to linux-kernel.
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/cnic.c |   33 ++++++++++++++++++++-------------
+ 1 files changed, 20 insertions(+), 13 deletions(-)
 
-(2010/06/25 4:15), Steven Rostedt wrote:
-> Hi Koki,
-> 
-> Your subject says 1/5 but I do not see any other patches.
-> 
-> 
-> On Thu, 2010-06-24 at 17:16 +0900, Koki Sanagi wrote:
->> This patch adds a tracepoint to raising of softirq.
->> This is useful if you want to detect which hard interrupt raise softirq
->> and lets you know a time between raising softirq and performing softirq.
->> Combinating with other tracepoint, it lets us know a process of packets
->> (See patch 0/5).
->>
->>           <idle>-0     [001] 241229.957184: softirq_raise: vec=3 [action=NET_RX]
->>           <idle>-0     [000] 241229.993399: softirq_raise: vec=1 [action=TIMER]
->>           <idle>-0     [000] 241229.993400: softirq_raise: vec=9 [action=RCU]
->>
->> This is a same patch Lai Jiangshan submitted.
->> http://marc.info/?l=linux-kernel&m=126026122728732&w=2
->>
->> Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
->> ---
->>  include/linux/interrupt.h  |    8 +++++++-
->>  include/trace/events/irq.h |   34 +++++++++++++++++++++++++++++++---
->>  2 files changed, 38 insertions(+), 4 deletions(-)
->>
->> diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
->> index c233113..1cb5726 100644
->> --- a/include/linux/interrupt.h
->> +++ b/include/linux/interrupt.h
->> @@ -18,6 +18,7 @@
->>  #include <asm/atomic.h>
->>  #include <asm/ptrace.h>
->>  #include <asm/system.h>
->> +#include <trace/events/irq.h>
->>  
->>  /*
->>   * These correspond to the IORESOURCE_IRQ_* defines in
->> @@ -402,7 +403,12 @@ asmlinkage void do_softirq(void);
->>  asmlinkage void __do_softirq(void);
->>  extern void open_softirq(int nr, void (*action)(struct softirq_action *));
->>  extern void softirq_init(void);
->> -#define __raise_softirq_irqoff(nr) do { or_softirq_pending(1UL << (nr)); } while (0)
->> +static inline void __raise_softirq_irqoff(unsigned int nr)
->> +{
->> +	trace_softirq_raise(nr);
->> +	or_softirq_pending(1UL << nr);
->> +}
->> +
->>  extern void raise_softirq_irqoff(unsigned int nr);
->>  extern void raise_softirq(unsigned int nr);
->>  extern void wakeup_softirqd(void);
->> diff --git a/include/trace/events/irq.h b/include/trace/events/irq.h
->> index 0e4cfb6..7cb7435 100644
->> --- a/include/trace/events/irq.h
->> +++ b/include/trace/events/irq.h
->> @@ -5,7 +5,9 @@
->>  #define _TRACE_IRQ_H
->>  
->>  #include <linux/tracepoint.h>
->> -#include <linux/interrupt.h>
->> +
->> +struct irqaction;
->> +struct softirq_action;
->>  
->>  #define softirq_name(sirq) { sirq##_SOFTIRQ, #sirq }
->>  #define show_softirq_name(val)				\
->> @@ -82,6 +84,32 @@ TRACE_EVENT(irq_handler_exit,
->>  		  __entry->irq, __entry->ret ? "handled" : "unhandled")
->>  );
->>  
->> +/**
->> + * softirq_raise - called immediately when a softirq is raised
->> + * @nr: softirq vector number
->> + *
->> + * Tracepoint for tracing when softirq action is raised.
->> + * Also, when used in combination with the softirq_entry tracepoint
->> + * we can determine the softirq raise latency.
->> + */
->> +TRACE_EVENT(softirq_raise,
->> +
->> +	TP_PROTO(unsigned int nr),
->> +
->> +	TP_ARGS(nr),
->> +
->> +	TP_STRUCT__entry(
->> +		__field(	unsigned int,	vec	)
->> +	),
->> +
->> +	TP_fast_assign(
->> +		__entry->vec	= nr;
->> +	),
->> +
->> +	TP_printk("vec=%d [action=%s]", __entry->vec,
->> +		show_softirq_name(__entry->vec))
-> 
-> Hmm, is there a way to reuse a DECLARE_EVENT_CLASS here?
-> 
->> +);
->> +
->>  DECLARE_EVENT_CLASS(softirq,
->>  
->>  	TP_PROTO(struct softirq_action *h, struct softirq_action *vec),
->> @@ -89,11 +117,11 @@ DECLARE_EVENT_CLASS(softirq,
->>  	TP_ARGS(h, vec),
->>  
->>  	TP_STRUCT__entry(
->> -		__field(	int,	vec			)
->> +		__field(	unsigned int,	vec	)
->>  	),
->>  
->>  	TP_fast_assign(
->> -		__entry->vec = (int)(h - vec);
->> +		__entry->vec = (unsigned int)(h - vec);
-> 
-> Just curious, did you see the original as a bug?
-> 
-> -- Steve
-> 
->>  	),
->>  
->>  	TP_printk("vec=%d [action=%s]", __entry->vec,
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
+index 23395fa..bd92a24 100644
+--- a/drivers/net/cnic.c
++++ b/drivers/net/cnic.c
+@@ -2188,6 +2188,9 @@ static void cnic_chk_pkt_rings(struct cnic_local *cp)
+ 	u16 tx_cons = *cp->tx_cons_ptr;
+ 	int comp = 0;
+ 
++	if (!test_bit(CNIC_F_CNIC_UP, &cp->dev->flags))
++		return;
++
+ 	if (cp->tx_cons != tx_cons || cp->rx_cons != rx_cons) {
+ 		if (test_bit(CNIC_LCL_FL_L2_WAIT, &cp->cnic_local_flags))
+ 			comp = cnic_l2_completion(cp);
+@@ -2284,20 +2287,28 @@ done:
+ 		BNX2_PCICFG_INT_ACK_CMD_INDEX_VALID | cp->last_status_idx);
+ }
+ 
++static void cnic_doirq(struct cnic_dev *dev)
++{
++	struct cnic_local *cp = dev->cnic_priv;
++	u16 prod = cp->kcq_prod_idx & MAX_KCQ_IDX;
++
++	if (likely(test_bit(CNIC_F_CNIC_UP, &dev->flags))) {
++		prefetch(cp->status_blk.gen);
++		prefetch(&cp->kcq[KCQ_PG(prod)][KCQ_IDX(prod)]);
++
++		tasklet_schedule(&cp->cnic_irq_task);
++	}
++}
++
+ static irqreturn_t cnic_irq(int irq, void *dev_instance)
+ {
+ 	struct cnic_dev *dev = dev_instance;
+ 	struct cnic_local *cp = dev->cnic_priv;
+-	u16 prod = cp->kcq_prod_idx & MAX_KCQ_IDX;
+ 
+ 	if (cp->ack_int)
+ 		cp->ack_int(dev);
+ 
+-	prefetch(cp->status_blk.gen);
+-	prefetch(&cp->kcq[KCQ_PG(prod)][KCQ_IDX(prod)]);
+-
+-	if (likely(test_bit(CNIC_F_CNIC_UP, &dev->flags)))
+-		tasklet_schedule(&cp->cnic_irq_task);
++	cnic_doirq(dev);
+ 
+ 	return IRQ_HANDLED;
+ }
+@@ -2373,15 +2384,11 @@ static int cnic_service_bnx2x(void *data, void *status_blk)
+ {
+ 	struct cnic_dev *dev = data;
+ 	struct cnic_local *cp = dev->cnic_priv;
+-	u16 prod = cp->kcq_prod_idx & MAX_KCQ_IDX;
+ 
+-	if (likely(test_bit(CNIC_F_CNIC_UP, &dev->flags))) {
+-		prefetch(cp->status_blk.bnx2x);
+-		prefetch(&cp->kcq[KCQ_PG(prod)][KCQ_IDX(prod)]);
++	if (!(cp->ethdev->drv_state & CNIC_DRV_STATE_USING_MSIX))
++		cnic_doirq(dev);
+ 
+-		tasklet_schedule(&cp->cnic_irq_task);
+-		cnic_chk_pkt_rings(cp);
+-	}
++	cnic_chk_pkt_rings(cp);
+ 
+ 	return 0;
+ }
+-- 
+1.6.4.GIT
+
+
