@@ -1,78 +1,47 @@
-From: Jiri Olsa <jolsa@redhat.com>
-Subject: [PATCH 2/2 v2] man - IP_NODEFRAG option for IPv4 socket
-Date: Sat, 26 Jun 2010 15:13:15 -0400
-Message-ID: <20100626191315.GA2076@jolsa.nomadprime.subscribe.loganwifi.com>
-References: <1276600052-16499-1-git-send-email-jolsa@redhat.com>
- <1276600052-16499-3-git-send-email-jolsa@redhat.com>
- <AANLkTim4N5rc8Sn_uo5bXsb9vjvKd3GTQD3p-1uApbB8@mail.gmail.com>
- <20100626.095857.137828263.davem@davemloft.net>
+From: Michal Humpula <michal.humpula@hudrydum.cz>
+Subject: Re: nonlocal_bind & IPv6
+Date: Sat, 26 Jun 2010 22:42:16 +0200
+Message-ID: <201006262242.16346.michal.humpula@hudrydum.cz>
+References: <201006252043.45581.michal.humpula@hudrydum.cz> <201006252110.08508.michal.humpula@hudrydum.cz> <20100626132540.GA30133@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mtk.manpages@gmail.com, eric.dumazet@gmail.com, jengelh@medozas.de,
-	kaber@trash.net, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, linux-man@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13761 "EHLO mx1.redhat.com"
+Received: from hudrydum.cz ([88.208.90.178]:47776 "EHLO hudrydum.cz"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751245Ab0FZTNY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Jun 2010 15:13:24 -0400
-Content-Disposition: inline
-In-Reply-To: <20100626.095857.137828263.davem@davemloft.net>
+	id S1753187Ab0FZUmW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Jun 2010 16:42:22 -0400
+In-Reply-To: <20100626132540.GA30133@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 26, 2010 at 09:58:57AM -0700, David Miller wrote:
-> From: Michael Kerrisk <mtk.manpages@gmail.com>
-> Date: Sat, 26 Jun 2010 15:01:03 +0200
->=20
-> >> =A0sent from this socket.
-> >> +.TP
-> >> +.BR IP_NODEFRAG " (since Linux 2.6)"
-> >=20
-> > here, we'd write the exact version in which the flag is added. It
-> > looks like that might be 2.36, right?
->=20
-> It'll show up in 2.6.36
->=20
-> I doubt I'll be alive when we make it to 2.36 :-)
+On Saturday 26 of June 2010 15:25:40 Simon Horman wrote:
+> On Fri, Jun 25, 2010 at 09:10:08PM +0200, Michal Humpula wrote:
+> > Ok, more detail example.
+> > 
+> > Let on each node be an apache (just for an example), and you configure
+> > VirtualHost for specific IP. So when node A fails, keepalived move IP to
+> > the node B and everything is still running. No need for restart of apache
+> > or anything else. There is a probably a better solution, but I can't find
+> > anything more simple than the posted patch:)
+> 
+> Not an answer to your original question, but that sounds like a problem
+> that can be resolved using IP_TRANSPARENT. Although I have only tested
+> that feature in conjunction with IPv4, it seems to support IPv6 too.
+> 
+> See Documentation/networking/tproxy.txt
 
-:) ok, attaching changed patch
+Thanks for redirection. I don't think that IP_TRANSPARENT is suited well for my problem, 
+but I did find the IP_FREEBIND in the process. Unfortunately it seems that both are 
+enabled only for IPv4 and IPv6 mapped addresses. 
 
-thanks,
-jirka
+So, is there any reason why IP_FREEBIND or nonlocal_bind sysctl is not in current IPv6 
+kernel implementation?
 
----
-hi,
-
-this patch adds description for IP_NODEFRAG option for IPv4 socket.
-
-wbr,
-jirka
-
-
-Signed-off-by: Jiri Olsa <jolsa@redhat.com>
----
- man7/ip.7 |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
-
-diff --git a/man7/ip.7 b/man7/ip.7
-index 34f7e80..12c0d5b 100644
---- a/man7/ip.7
-+++ b/man7/ip.7
-@@ -705,6 +705,12 @@ socket option (see
- .BR IP_TTL " (since Linux 1.0)"
- Set or retrieve the current time-to-live field that is used in every p=
-acket
- sent from this socket.
-+.TP
-+.BR IP_NODEFRAG " (since Linux 2.6.36)"
-+If enabled, the reassembly of outgoing packets is disabled in the netf=
-ilter layer.
-+Only valid for
-+.B SOCK_RAW
-+sockets.
- .\" FIXME Document IP_XFRM_POLICY
- .\" Since Linux 2.5.48
- .\" Needs CAP_NET_ADMIN
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
