@@ -1,79 +1,30 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH 2/2] ipv6: Use interface max_desync_factor instead of
- static default
-Date: Sat, 26 Jun 2010 22:42:55 +0100
-Message-ID: <1277588575.26161.311.camel@localhost>
-References: <1277588267.26161.300.camel@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, 514646@bugs.debian.org,
-	Piotr Lewandowski <piotr.lewandowski@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: [PATCH] ip: correctly report 802.15.4 link type
+Date: Sat, 26 Jun 2010 13:51:08 -1000
+Message-ID: <7q2rynq4hva9nlyv9hdbhr26.1277596268239@email.android.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:57671 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754146Ab0FZVnD convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Jun 2010 17:43:03 -0400
-In-Reply-To: <1277588267.26161.300.camel@localhost>
+Received: from mail.vyatta.com ([76.74.103.46]:55752 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752824Ab0FZXvU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Jun 2010 19:51:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-max_desync_factor can be configured per-interface, but nothing is
-using the value.
-
-Reported-by: Piotr Lewandowski <piotr.lewandowski@gmail.com>
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
-Also compile-tested only.
-
-Note that there is nothing to stop temp_prefered_lft being set smaller
-than max_desync_factor, which can result in underflow in calculation of
-tmp_prefered_lft in ipv6_create_tempaddr().  However, the same applies
-to the current static variable desync_factor.
-
-Ben.
-
- net/ipv6/addrconf.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 1459eed..ec8c92f 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -121,8 +121,6 @@ static inline void addrconf_sysctl_unregister(struct inet6_dev *idev)
- static int __ipv6_regen_rndid(struct inet6_dev *idev);
- static int __ipv6_try_regen_rndid(struct inet6_dev *idev, struct in6_addr *tmpaddr);
- static void ipv6_regen_rndid(unsigned long data);
--
--static int desync_factor = MAX_DESYNC_FACTOR * HZ;
- #endif
- 
- static int ipv6_generate_eui64(u8 *eui, struct net_device *dev);
-@@ -890,7 +888,8 @@ retry:
- 			      idev->cnf.temp_valid_lft);
- 	tmp_prefered_lft = min_t(__u32,
- 				 ifp->prefered_lft,
--				 idev->cnf.temp_prefered_lft - desync_factor / HZ);
-+				 idev->cnf.temp_prefered_lft -
-+				 idev->cnf.max_desync_factor);
- 	tmp_plen = ifp->prefix_len;
- 	max_addresses = idev->cnf.max_addresses;
- 	tmp_cstamp = ifp->cstamp;
-@@ -1650,7 +1649,8 @@ static void ipv6_regen_rndid(unsigned long data)
- 
- 	expires = jiffies +
- 		idev->cnf.temp_prefered_lft * HZ -
--		idev->cnf.regen_max_retry * idev->cnf.dad_transmits * idev->nd_parms->retrans_time - desync_factor;
-+		idev->cnf.regen_max_retry * idev->cnf.dad_transmits * idev->nd_parms->retrans_time -
-+		idev->cnf.max_desync_factor * HZ;
- 	if (time_before(expires, jiffies)) {
- 		printk(KERN_WARNING
- 			"ipv6_regen_rndid(): too short regeneration interval; timer disabled for %s.\n",
--- 
-1.7.1
-
+T0sgYnV0IGxvbmctdGVybSBmaXggaXMgdG8gZ2V0IHJpZCBvZiBoYXJkY29kZWQgdGFibGUKCkph
+biBFbmdlbGhhcmR0IDxqZW5nZWxoQG1lZG96YXMuZGU+IHdyb3RlOgoKPlVwIHVudGlsIG5vdywg
+dGhlICJoYXJkd3BhbiIgZGV2aWNlcyB3ZXJlIGRpc3BsYXllZCBhcyBsaW5rL1s4MDRdLgo+Cj5T
+aWduZWQtb2ZmLWJ5OiBKYW4gRW5nZWxoYXJkdCA8amVuZ2VsaEBtZWRvemFzLmRlPgo+LS0tCj4g
+bGliL2xsX3R5cGVzLmMgfCAgICAzICsrKwo+IDEgZmlsZXMgY2hhbmdlZCwgMyBpbnNlcnRpb25z
+KCspLCAwIGRlbGV0aW9ucygtKQo+Cj5kaWZmIC0tZ2l0IGEvbGliL2xsX3R5cGVzLmMgYi9saWIv
+bGxfdHlwZXMuYwo+aW5kZXggODQ2Y2RiMC4uMWNjNDZiNiAxMDA2NDQKPi0tLSBhL2xpYi9sbF90
+eXBlcy5jCj4rKysgYi9saWIvbGxfdHlwZXMuYwo+QEAgLTEyNSw2ICsxMjUsOSBAQCBfX1BGKElF
+RUU4MDIxMV9QUklTTSxpZWVlODAyLjExL3ByaXNtKQo+ICNpZmRlZiBBUlBIUkRfSUVFRTgwMjEx
+X1JBRElPVEFQCj4gX19QRihJRUVFODAyMTFfUkFESU9UQVAsaWVlZTgwMi4xMS9yYWRpb3RhcCkK
+PiAjZW5kaWYKPisjaWZkZWYgQVJQSFJEX0lFRUU4MDIxNTQKPitfX1BGKElFRUU4MDIxNTQsIGll
+ZWU4MDIuMTUuNCkKPisjZW5kaWYKPiAjaWZkZWYgQVJQSFJEX05PTkUKPiBfX1BGKE5PTkUsIG5v
+bmUpCj4gI2VuZGlmCj4tLSAKPjEuNy4xCj4K
 
