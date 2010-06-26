@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 0/4] More sfc changes for 2.6.36
-Date: Fri, 25 Jun 2010 21:08:53 -0700 (PDT)
-Message-ID: <20100625.210853.214236525.davem@davemloft.net>
-References: <1277485434.2094.13.camel@achroite.uk.solarflarecom.com>
+Subject: Re: [PATCH v2] caif-driver: Add CAIF-SPI Protocol driver.
+Date: Fri, 25 Jun 2010 21:12:23 -0700 (PDT)
+Message-ID: <20100625.211223.232914661.davem@davemloft.net>
+References: <1277157484-29981-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
+Cc: sjurbr@gmail.com, netdev@vger.kernel.org, marcel@holtmann.org,
+	daniel.martensson@stericsson.com, linus.walleij@stericsson.com
+To: sjur.brandeland@stericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40850
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40855
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750894Ab0FZEIk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jun 2010 00:08:40 -0400
-In-Reply-To: <1277485434.2094.13.camel@achroite.uk.solarflarecom.com>
+	by vger.kernel.org with ESMTP id S1750758Ab0FZEMK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jun 2010 00:12:10 -0400
+In-Reply-To: <1277157484-29981-1-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Fri, 25 Jun 2010 18:03:54 +0100
+From: sjur.brandeland@stericsson.com
+Date: Mon, 21 Jun 2010 23:58:04 +0200
 
-> Ben Hutchings (4):
->   sfc: Fix reading of inserted hash
->   sfc: Move siena_nic_data::ipv6_rss_key to efx_nic::rx_hash_key
->   sfc: Use Toeplitz IPv4 hash for RSS and hash insertion
->   sfc: Log clearer error messages for hardware monitor
+> David Miller wrote:
+>>You should never set CONFIG_* defines from the Makefile
+>>commands, always set them in your Kconfig statements.
+> 
+> Changes from last version: Removed CONFIG_* defines from Makefile.
 
-All applied, thanks.
+Surrounding a config options with "if XXX" protection is not the
+proper way to protect config options.  Simply add a proper "Depends"
+specification to it.
