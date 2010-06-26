@@ -1,93 +1,86 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: PATCH: uninitialized memory access in tcp_parse_options
-Date: Sat, 26 Jun 2010 07:58:04 +0200
-Message-ID: <1277531884.2481.22.camel@edumazet-laptop>
-References: <1277127249.9469.53.camel@localhost.localdomain>
+From: Michael Kerrisk <mtk.manpages@gmail.com>
+Subject: Re: [PATCH 2/2] man - IP_NODEFRAG option for IPv4 socket
+Date: Sat, 26 Jun 2010 15:01:03 +0200
+Message-ID: <AANLkTim4N5rc8Sn_uo5bXsb9vjvKd3GTQD3p-1uApbB8@mail.gmail.com>
+References: <1276600052-16499-1-git-send-email-jolsa@redhat.com>
+	<1276600052-16499-3-git-send-email-jolsa@redhat.com>
+Reply-To: mtk.manpages@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f46.google.com ([74.125.82.46]:41827 "EHLO
-	mail-ww0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751798Ab0FZF6K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jun 2010 01:58:10 -0400
-Received: by wwi17 with SMTP id 17so1511978wwi.19
-        for <netdev@vger.kernel.org>; Fri, 25 Jun 2010 22:58:09 -0700 (PDT)
-In-Reply-To: <1277127249.9469.53.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, jengelh@medozas.de, kaber@trash.net,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-man@vger.kernel.org
+To: Jiri Olsa <jolsa@redhat.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1276600052-16499-3-git-send-email-jolsa@redhat.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 21 juin 2010 =C3=A0 15:34 +0200, Mathieu Lacage a =C3=A9crit :
-> valgrind reports the following error:
->=20
-> =3D=3D15996=3D=3D Conditional jump or move depends on uninitialised v=
-alue(s)
-> =3D=3D15996=3D=3D    at 0x6E63E4C: tcp_parse_options (tcp_input.c:377=
-6)
-> =3D=3D15996=3D=3D    by 0x6E856A3: tcp_check_req (tcp_minisocks.c:532=
-)
-> =3D=3D15996=3D=3D    by 0x6E7F0C6: tcp_v4_hnd_req (tcp_ipv4.c:1492)
-> =3D=3D15996=3D=3D    by 0x6E7F55A: tcp_v4_do_rcv (tcp_ipv4.c:1571)
-> =3D=3D15996=3D=3D    by 0x6E808C5: tcp_v4_rcv (tcp_ipv4.c:1690)
-> =3D=3D15996=3D=3D    by 0x6E2DA7B: ip_local_deliver_finish (ip_input.=
-c:231)
-> =3D=3D15996=3D=3D    by 0x6E2DE0C: ip_local_deliver (netfilter.h:206)
-> =3D=3D15996=3D=3D    by 0x6E2E940: ip_rcv_finish (dst.h:255)
-> =3D=3D15996=3D=3D    by 0x6E2F17C: ip_rcv (netfilter.h:206)
-> =3D=3D15996=3D=3D    by 0x6D53D0E: __netif_receive_skb (dev.c:2873)
-> =3D=3D15996=3D=3D    by 0x6D5521F: process_backlog (dev.c:3305)
-> =3D=3D15996=3D=3D    by 0x6D55A20: net_rx_action (dev.c:3435)
->=20
-> The attached patch (generated against net-next-2.6) fixes that error =
-by
-> making sure that user_mss is correctly initialized at the start of
-> tcp_parse_options, just like saw_tstamp is initialized at the start o=
-f
-> this function. To try to be coherent, this patch also removes the
-> redundant initialization of saw_tstamp from the caller, tcp_check_req=
-=2E
->=20
-> hope this helps,
-> Mathieu
+Hi Jiri,
 
+Thanks for this patch. See below.
 
-Mathieu, this valgrind splat is a false positive, and your fix is not
-necessary or at the right place.
+On Tue, Jun 15, 2010 at 1:07 PM, Jiri Olsa <jolsa@redhat.com> wrote:
+> hi,
+>
+> this patch adds description for IP_NODEFRAG option for IPv4 socket.
+>
+> wbr,
+> jirka
+>
+>
+> Signed-off-by: Jiri Olsa <jolsa@redhat.com>
+> ---
+> =A0man7/ip.7 | =A0 =A06 ++++++
+> =A01 files changed, 6 insertions(+), 0 deletions(-)
+>
+> diff --git a/man7/ip.7 b/man7/ip.7
+> index 34f7e80..12c0d5b 100644
+> --- a/man7/ip.7
+> +++ b/man7/ip.7
+> @@ -705,6 +705,12 @@ socket option (see
+> =A0.BR IP_TTL " (since Linux 1.0)"
+> =A0Set or retrieve the current time-to-live field that is used in eve=
+ry packet
+> =A0sent from this socket.
+> +.TP
+> +.BR IP_NODEFRAG " (since Linux 2.6)"
 
-In tcp_check_req(), we call tcp_parse_options() only to get the
-saw_tstamp indication. So only initialize this field to 0 before callin=
-g
-tcp_parse_options()
+here, we'd write the exact version in which the flag is added. It
+looks like that might be 2.36, right?
 
-If you want to avoid valgrind false positive at this point, without
-introducing bug for other tcp_parse_options() callers, a better fix
-would be following patch.
+Otherwise, this patch looks fine.
 
-Thanks
+Cheers,
 
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 794c2e1..4e758ac 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -520,14 +520,13 @@ struct sock *tcp_check_req(struct sock *sk, struc=
-t sk_buff *skb,
- 			   struct request_sock *req,
- 			   struct request_sock **prev)
- {
--	struct tcp_options_received tmp_opt;
-+	struct tcp_options_received tmp_opt =3D {0};
- 	u8 *hash_location;
- 	struct sock *child;
- 	const struct tcphdr *th =3D tcp_hdr(skb);
- 	__be32 flg =3D tcp_flag_word(th) & (TCP_FLAG_RST|TCP_FLAG_SYN|TCP_FLA=
-G_ACK);
- 	int paws_reject =3D 0;
-=20
--	tmp_opt.saw_tstamp =3D 0;
- 	if (th->doff > (sizeof(struct tcphdr)>>2)) {
- 		tcp_parse_options(skb, &tmp_opt, &hash_location, 0);
-=20
+Michael
 
 
+
+> +If enabled, the reassembly of outgoing packets is disabled in the ne=
+tfilter layer.
+> +Only valid for
+> +.B SOCK_RAW
+> +sockets.
+> =A0.\" FIXME Document IP_XFRM_POLICY
+> =A0.\" Since Linux 2.5.48
+> =A0.\" Needs CAP_NET_ADMIN
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-man" =
+in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
+
+
+
+--=20
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Author of "The Linux Programming Interface" http://blog.man7.org/
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
