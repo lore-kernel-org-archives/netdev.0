@@ -1,37 +1,36 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: nonlocal_bind & IPv6
-Date: Sat, 26 Jun 2010 23:25:40 +1000
-Message-ID: <20100626132540.GA30133@verge.net.au>
-References: <201006252043.45581.michal.humpula@hudrydum.cz>
- <30fe1fa984e52f4cca318e54f9d97a21@chewa.net>
- <201006252110.08508.michal.humpula@hudrydum.cz>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 2/2] man - IP_NODEFRAG option for IPv4 socket
+Date: Sat, 26 Jun 2010 09:58:57 -0700 (PDT)
+Message-ID: <20100626.095857.137828263.davem@davemloft.net>
+References: <1276600052-16499-1-git-send-email-jolsa@redhat.com>
+	<1276600052-16499-3-git-send-email-jolsa@redhat.com>
+	<AANLkTim4N5rc8Sn_uo5bXsb9vjvKd3GTQD3p-1uApbB8@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: =?utf-8?B?UsOpbWk=?= Denis-Courmont <remi@remlab.net>,
-	netdev@vger.kernel.org
-To: Michal Humpula <michal.humpula@hudrydum.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:35847 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755427Ab0FZNyd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jun 2010 09:54:33 -0400
-Content-Disposition: inline
-In-Reply-To: <201006252110.08508.michal.humpula@hudrydum.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, jengelh-nopoi9nDyk+ELgA04lAiVw@public.gmane.org,
+	kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <AANLkTim4N5rc8Sn_uo5bXsb9vjvKd3GTQD3p-1uApbB8-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 25, 2010 at 09:10:08PM +0200, Michal Humpula wrote:
-> Ok, more detail example. 
-> 
-> Let on each node be an apache (just for an example), and you configure
-> VirtualHost for specific IP. So when node A fails, keepalived move IP to
-> the node B and everything is still running. No need for restart of apache
-> or anything else. There is a probably a better solution, but I can't find
-> anything more simple than the posted patch:)
+=46rom: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Sat, 26 Jun 2010 15:01:03 +0200
 
-Not an answer to your original question, but that sounds like a problem
-that can be resolved using IP_TRANSPARENT. Although I have only tested
-that feature in conjunction with IPv4, it seems to support IPv6 too.
+>> =A0sent from this socket.
+>> +.TP
+>> +.BR IP_NODEFRAG " (since Linux 2.6)"
+>=20
+> here, we'd write the exact version in which the flag is added. It
+> looks like that might be 2.36, right?
 
-See Documentation/networking/tproxy.txt
+It'll show up in 2.6.36
 
+I doubt I'll be alive when we make it to 2.36 :-)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
