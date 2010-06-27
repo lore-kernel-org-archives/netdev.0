@@ -1,37 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vxge: fix memory leak in vxge_alloc_msix() error path
- {nodisc}
-Date: Sat, 26 Jun 2010 22:12:39 -0700 (PDT)
-Message-ID: <20100626.221239.35808969.davem@davemloft.net>
-References: <20100624161344.0847a7ca@leela>
-	<FCA91A92EE52B041906A0358FC28FCC38EF1837D08@FRE1EXCH02.hq.exar.com>
+Subject: Re: [PATCH] ISDN: hysdn, fix potential NULL dereference
+Date: Sat, 26 Jun 2010 22:12:53 -0700 (PDT)
+Message-ID: <20100626.221253.85403037.davem@davemloft.net>
+References: <1277206896-27197-1-git-send-email-jslaby@suse.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mschmidt@redhat.com, netdev@vger.kernel.org
-To: Ramkrishna.Vepa@exar.com
+Cc: isdn@linux-pingi.de, linux-kernel@vger.kernel.org,
+	jirislaby@gmail.com, shemminger@vyatta.com, kaber@trash.net,
+	netdev@vger.kernel.org
+To: jslaby@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60429
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60433
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751084Ab0F0FMc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jun 2010 01:12:32 -0400
-In-Reply-To: <FCA91A92EE52B041906A0358FC28FCC38EF1837D08@FRE1EXCH02.hq.exar.com>
+	by vger.kernel.org with ESMTP id S1751495Ab0F0FMk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jun 2010 01:12:40 -0400
+In-Reply-To: <1277206896-27197-1-git-send-email-jslaby@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>
-Date: Fri, 25 Jun 2010 00:21:48 -0700
+From: Jiri Slaby <jslaby@suse.cz>
+Date: Tue, 22 Jun 2010 13:41:36 +0200
 
->> When pci_enable_msix() returned ret<0, entries and vxge_entries were
->> leaked.
->> While at it, use the centralized exit idiom in the function.
->> 
->> Not tested. It compiles OK.
->> 
->> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+> Stanse found that lp is dereferenced earlier than checked for being
+> NULL in hysdn_rx_netpkt. Move the initialization below the test.
 > 
-> Reviewed and tested the patch. Thanks!
-> 
-> Acked-by: Ram Vepa <ram.vepa@exar.com>
+> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
 
 Applied.
