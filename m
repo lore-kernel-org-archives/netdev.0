@@ -1,77 +1,54 @@
-From: Shreyas Bhatewara <sbhatewara@vmware.com>
-Subject: RE: [PATCH -next] vmxnet3: fail when try to setup unsupported
- features
-Date: Mon, 28 Jun 2010 10:45:57 -0700
-Message-ID: <89E2752CFA8EC044846EB8499819134102BCC3C10A@EXCH-MBX-4.vmware.com>
-References: <20100628112942.0c919746@dhcp-lab-109.englab.brq.redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-2.6 1/2] ethtool: Fix potential kernel buffer overflow
+ in ETHTOOL_GRXCLSRLALL
+Date: Mon, 28 Jun 2010 19:44:07 +0100
+Message-ID: <1277750647.2089.19.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Amerigo Wang <amwang@redhat.com>
-To: Stanislaw Gruszka <sgruszka@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Santwona Behera <santwona.behera@sun.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-1.vmware.com ([65.115.85.69]:31150 "EHLO
-	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753110Ab0F1RrS convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jun 2010 13:47:18 -0400
-In-Reply-To: <20100628112942.0c919746@dhcp-lab-109.englab.brq.redhat.com>
-Content-Language: en-US
+Received: from mail.solarflare.com ([216.237.3.220]:57212 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751735Ab0F1SoL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jun 2010 14:44:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Stanislaw Gruszka [mailto:sgruszka@redhat.com]
-> Sent: Monday, June 28, 2010 2:30 AM
-> To: netdev@vger.kernel.org
-> Cc: Amerigo Wang; Shreyas Bhatewara
-> Subject: [PATCH -next] vmxnet3: fail when try to setup unsupported
-> features
-> 
-> Return EOPNOTSUPP in ethtool_ops->set_flags.
-> 
-> Fix coding style while at it.
-> 
-> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
-> ---
->  drivers/net/vmxnet3/vmxnet3_ethtool.c |    9 +++++++--
->  1 files changed, 7 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c
-> b/drivers/net/vmxnet3/vmxnet3_ethtool.c
-> index 3935c44..8a71a21 100644
-> --- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
-> +++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
-> @@ -276,16 +276,21 @@ vmxnet3_get_strings(struct net_device *netdev,
-> u32 stringset, u8 *buf)
->  }
-> 
->  static u32
-> -vmxnet3_get_flags(struct net_device *netdev) {
-> +vmxnet3_get_flags(struct net_device *netdev)
-> +{
->  	return netdev->features;
->  }
-> 
->  static int
-> -vmxnet3_set_flags(struct net_device *netdev, u32 data) {
-> +vmxnet3_set_flags(struct net_device *netdev, u32 data)
-> +{
->  	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
->  	u8 lro_requested = (data & ETH_FLAG_LRO) == 0 ? 0 : 1;
->  	u8 lro_present = (netdev->features & NETIF_F_LRO) == 0 ? 0 : 1;
-> 
-> +	if (data & ~ETH_FLAG_LRO)
-> +		return -EOPNOTSUPP;
-> +
->  	if (lro_requested ^ lro_present) {
->  		/* toggle the LRO feature*/
->  		netdev->features ^= NETIF_F_LRO;
-> --
-> 1.5.5.6
+On a 32-bit machine, info.rule_cnt >= 0x40000000 leads to integer
+overflow and the buffer may be smaller than needed.  Since
+ETHTOOL_GRXCLSRLALL is unprivileged, this can presumably be used for at
+least denial of service.
+
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+Cc: stable@kernel.org
+---
+ net/core/ethtool.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index a0f4964..a3a7e9a 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -347,8 +347,9 @@ static noinline_for_stack int ethtool_get_rxnfc(struct net_device *dev,
+ 
+ 	if (info.cmd == ETHTOOL_GRXCLSRLALL) {
+ 		if (info.rule_cnt > 0) {
+-			rule_buf = kmalloc(info.rule_cnt * sizeof(u32),
+-					   GFP_USER);
++			if (info.rule_cnt <= KMALLOC_MAX_SIZE / sizeof(u32))
++				rule_buf = kmalloc(info.rule_cnt * sizeof(u32),
++						   GFP_USER);
+ 			if (!rule_buf)
+ 				return -ENOMEM;
+ 		}
+-- 
+1.6.2.5
 
 
-Does not make sense to me. Switching LRO on/off is supported from the driver, why should the function return -EOPNOTSUPP ?
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-->Shreyas
