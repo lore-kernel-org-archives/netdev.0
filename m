@@ -1,96 +1,53 @@
-From: Mitchell Erblich <erblichs@earthlink.net>
-Subject: Re: b44: Reset due to FIFO overflow.
-Date: Mon, 28 Jun 2010 02:33:26 -0700
-Message-ID: <5E7CE189-1002-4723-ACB2-D537B71BA5F3@earthlink.net>
-References: <AANLkTinwnTw3Yqy3POghliZDRmRYUfJL6Gy67GNNLiYv@mail.gmail.com> <1277716394.4235.235.camel@edumazet-laptop>
-Mime-Version: 1.0 (Apple Message framework v1081)
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: James Courtier-Dutton <james.dutton@gmail.com>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: [PATCH -next] netxen: fail when try to setup unsupported features
+Date: Mon, 28 Jun 2010 11:33:29 +0200
+Message-ID: <20100628113329.3206bdbe@dhcp-lab-109.englab.brq.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Amerigo Wang <amwang@redhat.com>,
+	Amit Kumar Salecha <amit.salecha@qlogic.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-curtail.atl.sa.earthlink.net ([209.86.89.64]:37318 "EHLO
-	elasmtp-curtail.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750867Ab0F1Jdf convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jun 2010 05:33:35 -0400
-In-Reply-To: <1277716394.4235.235.camel@edumazet-laptop>
+Received: from mx1.redhat.com ([209.132.183.28]:63528 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750867Ab0F1Jdm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jun 2010 05:33:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+---
+ drivers/net/netxen/netxen_nic_ethtool.c |   13 ++++++++++---
+ 1 files changed, 10 insertions(+), 3 deletions(-)
 
-On Jun 28, 2010, at 2:13 AM, Eric Dumazet wrote:
+diff --git a/drivers/net/netxen/netxen_nic_ethtool.c b/drivers/net/netxen/netxen_nic_ethtool.c
+index 20f7c58..6d94ee5 100644
+--- a/drivers/net/netxen/netxen_nic_ethtool.c
++++ b/drivers/net/netxen/netxen_nic_ethtool.c
+@@ -887,12 +887,19 @@ static int netxen_nic_set_flags(struct net_device *netdev, u32 data)
+ 	struct netxen_adapter *adapter = netdev_priv(netdev);
+ 	int hw_lro;
+ 
++	if (data & ~ETH_FLAG_LRO)
++		return -EOPNOTSUPP;
++
+ 	if (!(adapter->capabilities & NX_FW_CAPABILITY_HW_LRO))
+ 		return -EINVAL;
+ 
+-	ethtool_op_set_flags(netdev, data);
+-
+-	hw_lro = (data & ETH_FLAG_LRO) ? NETXEN_NIC_LRO_ENABLED : 0;
++	if (data & ETH_FLAG_LRO) {
++		hw_lro = NETXEN_NIC_LRO_ENABLED;
++		netdev->features |= NETIF_F_LRO;
++	} else {
++		hw_lro = 0;
++		netdev->features &= ~NETIF_F_LRO;
++	}
+ 
+ 	if (netxen_config_hw_lro(adapter, hw_lro))
+ 		return -EIO;
+-- 
+1.5.5.6
 
-> Le lundi 28 juin 2010 =E0 08:41 +0100, James Courtier-Dutton a =E9cri=
-t :
->> Hi,
->>=20
->> Reference:
->> https://bugs.launchpad.net/ubuntu/+source/linux/+bug/279102
->>=20
->> I can see this bug and can reproduce it 100% on demand.
->> The problem seems to be that when the b44 has a incoming FIFO buffer
->> overflow, it resets the entire card, dis-associates with the access
->> point and therefore takes some time before it can pass traffic again=
-=2E
->> Can anyone point me to some code that would just recover the FIFO
->> instead of reset the entire card?
->>=20
->> I am a kernel developer, but I don't have any data sheets on this ca=
-rd
->> so was hoping someone with more knowledge of its workings, could hel=
-p
->> me.
->>=20
->> I can then test it, and see if it is a good fix or not.
->>=20
->=20
-> Hi
->=20
-> Problem is we dont know if a Receive Fifo overflow is a minor or majo=
-r
-> indication from b44 chip.
->=20
-> A minor indication would be : Chip tells us one or more frame were lo=
-st.
-> No special action needed from driver.
->=20
-> A major indication (as of current implemented in b44 driver) is :
-> I am completely out of order and need a reset. Please do it.
->=20
-> Patch to switch from major to minor indication is easy, but we dont k=
-now
-> if its valid or not.
->=20
-> diff --git a/drivers/net/b44.h b/drivers/net/b44.h
-> index e1905a4..514dc3a 100644
-> --- a/drivers/net/b44.h
-> +++ b/drivers/net/b44.h
-> @@ -42,7 +42,7 @@
-> #define  ISTAT_EMAC		0x04000000 /* EMAC Interrupt */
-> #define  ISTAT_MII_WRITE	0x08000000 /* MII Write Interrupt */
-> #define  ISTAT_MII_READ		0x10000000 /* MII Read Interrupt */
-> -#define  ISTAT_ERRORS (ISTAT_DSCE|ISTAT_DATAE|ISTAT_DPE|ISTAT_RDU|IS=
-TAT_RFO|ISTAT_TFU)
-> +#define  ISTAT_ERRORS (ISTAT_DSCE|ISTAT_DATAE|ISTAT_DPE|ISTAT_RDU|IS=
-TAT_TFU)
-> #define B44_IMASK	0x0024UL /* Interrupt Mask */
-> #define  IMASK_DEF		(ISTAT_ERRORS | ISTAT_TO | ISTAT_RX | ISTAT_TX)
-> #define B44_GPTIMER	0x0028UL /* General Purpose Timer */
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
-Why wouldn't the ability to recv frames after a Recv FIFO overflow
- indicate that a reset is NOT required?
-
-Thus,  should't it be an indication of congestion if associated with a =
-single
-flow and either speed up (reduce latency to service) the recv side or=20
-slow down the xmit side?
-
-Mitchell Erblich
