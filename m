@@ -1,37 +1,44 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: [PATCH net-next-2.6] ipv4: sysctl to block responding on down interface
-Date: Mon, 28 Jun 2010 21:03:13 +0200
-Message-ID: <OF62B30BCC.F8523B86-ONC1257750.00687496-C1257750.0068AA27@transmode.se>
-References: <OF1D06F11A.44DE8C5A-ONC125773F.00437856-C125773F.004425B9@transmode.se> <20100611084854.0680c014@nehalam>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH linux-2.6.35-rc3] micrel phy driver
+Date: Mon, 28 Jun 2010 20:23:47 +0100
+Message-ID: <1277753027.2089.22.camel@achroite.uk.solarflarecom.com>
+References: <C43529A246480145B0A6D0234BDB0F0D0212A2@MELANITE.micrel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Choi, David" <David.Choi@Micrel.Com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:42903 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751145Ab0F1TF0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jun 2010 15:05:26 -0400
-In-Reply-To: <20100611084854.0680c014@nehalam>
+Received: from mail.solarflare.com ([216.237.3.220]:59298 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750834Ab0F1TXv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jun 2010 15:23:51 -0400
+In-Reply-To: <C43529A246480145B0A6D0234BDB0F0D0212A2@MELANITE.micrel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <shemminger@vyatta.com> wrote on 2010/06/11 17:48:54:
->
-> When Linux is used as a router, it is undesirable for the kernel to process
-> incoming packets when the address assigned to the interface is down.
-> The initial problem report was for a management application that used ICMP
-> to check link availability.
->
-> The default is disabled to maintain compatibility with previous behavior.
-> This is not recommended for server systems because it makes fail over more
-> difficult, and does not account for configurations where multiple interfaces
-> have the same IP address.
->
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+On Mon, 2010-06-28 at 11:51 -0700, Choi, David wrote:
+[...]
+> @@ -106,8 +233,12 @@ MODULE_LICENSE("GPL");
+>  
+>  static struct mdio_device_id micrel_tbl[] = {
+>  	{ PHY_ID_KSZ9021, 0x000fff10 },
+> -	{ PHY_ID_VSC8201, 0x00fffff0 },
+>  	{ PHY_ID_KS8001, 0x00fffff0 },
+> +	{ PHY_ID_KSZ9021, 0x000fff10 },
+> +	{ PHY_ID_KS8001, 0x00fffff0 },
+> +	{ PHY_ID_KS8737, 0x00fffff0 },
+> +	{ PHY_ID_KS8041, 0x00fffff0 },
+> +	{ PHY_ID_KS8051, 0x00fffff0 },
+>  	{ }
+>  };
 
-Ping David et. all?
-I too want this.
+You're duplicating the device IDs for KSZ9021 and KS8001.
 
- Jocke
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
