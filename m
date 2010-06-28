@@ -1,436 +1,182 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH 3/4] phylib: preserve ifreq parameter when calling generic
- phy_mii_ioctl()
-Date: Mon, 28 Jun 2010 17:34:48 +0200
-Message-ID: <afdf77462776103b0078edb17ca441237c8a49cd.1277737223.git.richard.cochran@omicron.at>
+Subject: [PATCH 4/4] phylib: Allow reading and writing a mii bus from
+ atomic context.
+Date: Mon, 28 Jun 2010 17:35:07 +0200
+Message-ID: <ad79e07520acb5ecd6029747e74da6e468f3b249.1277737223.git.richard.cochran@omicron.at>
 References: <cover.1277737222.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:34857 "EHLO
+Received: from fg-out-1718.google.com ([72.14.220.159]:17909 "EHLO
 	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755219Ab0F1Pes (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jun 2010 11:34:48 -0400
-Received: by fg-out-1718.google.com with SMTP id e21so498225fga.1
-        for <netdev@vger.kernel.org>; Mon, 28 Jun 2010 08:34:46 -0700 (PDT)
+	with ESMTP id S1755247Ab0F1PfH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jun 2010 11:35:07 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so359213fgg.1
+        for <netdev@vger.kernel.org>; Mon, 28 Jun 2010 08:35:05 -0700 (PDT)
 Content-Disposition: inline
 In-Reply-To: <cover.1277737222.git.richard.cochran@omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The phy_mii_ioctl() function unnecessarily throws away the original ifreq.
-We need access to the ifreq in order to support PHYs that can perform
-hardware time stamping.
+In order to support hardware time stamping from a PHY, it is necessary to
+read from the PHY while running in_interrupt(). This patch allows a mii
+bus to operate in an atomic context. An mii_bus driver may declare itself
+capable for this mode. Drivers which do not do this will remain with the
+default that bus operations may sleep.
 
-Two maverick drivers filter the ioctl commands passed to phy_mii_ioctl().
-This is unnecessary since phylib will check the command in any case.
+Before commit 35b5f6b1a82b5c586e0b24c711dc6ba944e88ef1 mii bus
+operations were protected with spin locks. That commit replaced the
+locks with mutexs in order to accommodate i2c buses that need to
+sleep. Thus, this patch restores the original behavior as a run time
+option.
 
 Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 ---
- drivers/net/arm/ixp4xx_eth.c           |    3 ++-
- drivers/net/au1000_eth.c               |    2 +-
- drivers/net/bcm63xx_enet.c             |    2 +-
- drivers/net/cpmac.c                    |    5 +----
- drivers/net/dnet.c                     |    2 +-
- drivers/net/ethoc.c                    |    2 +-
- drivers/net/fec.c                      |    2 +-
- drivers/net/fec_mpc52xx.c              |    2 +-
- drivers/net/fs_enet/fs_enet-main.c     |    3 +--
- drivers/net/gianfar.c                  |    2 +-
- drivers/net/macb.c                     |    2 +-
- drivers/net/mv643xx_eth.c              |    2 +-
- drivers/net/octeon/octeon_mgmt.c       |    2 +-
- drivers/net/phy/phy.c                  |    8 +++++++-
- drivers/net/sb1250-mac.c               |    2 +-
- drivers/net/sh_eth.c                   |    2 +-
- drivers/net/smsc911x.c                 |    2 +-
- drivers/net/smsc9420.c                 |    2 +-
- drivers/net/stmmac/stmmac_main.c       |   22 ++++++++--------------
- drivers/net/tc35815.c                  |    2 +-
- drivers/net/tg3.c                      |    2 +-
- drivers/net/ucc_geth.c                 |    2 +-
- drivers/staging/octeon/ethernet-mdio.c |    2 +-
- include/linux/phy.h                    |    2 +-
- net/dsa/slave.c                        |    3 +--
- 25 files changed, 39 insertions(+), 43 deletions(-)
+ drivers/net/fsl_pq_mdio.c  |    4 +-
+ drivers/net/phy/mdio_bus.c |   45 +++++++++++++++++++++++++++++++++++++------
+ include/linux/phy.h        |   15 ++++++++++++-
+ 3 files changed, 53 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/arm/ixp4xx_eth.c b/drivers/net/arm/ixp4xx_eth.c
-index ee2f842..4f1cc71 100644
---- a/drivers/net/arm/ixp4xx_eth.c
-+++ b/drivers/net/arm/ixp4xx_eth.c
-@@ -782,7 +782,8 @@ static int eth_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
+diff --git a/drivers/net/fsl_pq_mdio.c b/drivers/net/fsl_pq_mdio.c
+index b4c41d7..0b34f50 100644
+--- a/drivers/net/fsl_pq_mdio.c
++++ b/drivers/net/fsl_pq_mdio.c
+@@ -145,7 +145,7 @@ static int fsl_pq_mdio_reset(struct mii_bus *bus)
+ 	struct fsl_pq_mdio __iomem *regs = fsl_pq_mdio_get_regs(bus);
+ 	int timeout = PHY_INIT_TIMEOUT;
  
- 	if (!netif_running(dev))
- 		return -EINVAL;
--	return phy_mii_ioctl(port->phydev, if_mii(req), cmd);
+-	mutex_lock(&bus->mdio_lock);
++	mdiobus_lock(bus);
+ 
+ 	/* Reset the management interface */
+ 	out_be32(&regs->miimcfg, MIIMCFG_RESET);
+@@ -157,7 +157,7 @@ static int fsl_pq_mdio_reset(struct mii_bus *bus)
+ 	while ((in_be32(&regs->miimind) & MIIMIND_BUSY) && timeout--)
+ 		cpu_relax();
+ 
+-	mutex_unlock(&bus->mdio_lock);
++	mdiobus_unlock(bus);
+ 
+ 	if (timeout < 0) {
+ 		printk(KERN_ERR "%s: The MII Bus is stuck!\n",
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 6a6b819..ad6bed8 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -37,6 +37,32 @@
+ #include <asm/uaccess.h>
+ 
+ /**
++ * mdiobus_lock - locks a given bus for read or write operations.
++ * @bus: target mii_bus
++ */
++void mdiobus_lock(struct mii_bus *bus)
++{
++	if (MDIOBUS_SLEEPS_RW == bus->locktype)
++		mutex_lock(&bus->lock.m);
++	else
++		spin_lock(&bus->lock.s);
++}
++EXPORT_SYMBOL(mdiobus_lock);
 +
-+	return phy_mii_ioctl(port->phydev, req, cmd);
- }
- 
- /* ethtool support */
-diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
-index ece6128..386d4fe 100644
---- a/drivers/net/au1000_eth.c
-+++ b/drivers/net/au1000_eth.c
-@@ -978,7 +978,7 @@ static int au1000_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 	if (!aup->phy_dev)
- 		return -EINVAL; /* PHY not controllable */
- 
--	return phy_mii_ioctl(aup->phy_dev, if_mii(rq), cmd);
-+	return phy_mii_ioctl(aup->phy_dev, rq, cmd);
- }
- 
- static const struct net_device_ops au1000_netdev_ops = {
-diff --git a/drivers/net/bcm63xx_enet.c b/drivers/net/bcm63xx_enet.c
-index faf5add..0d2c5da 100644
---- a/drivers/net/bcm63xx_enet.c
-+++ b/drivers/net/bcm63xx_enet.c
-@@ -1496,7 +1496,7 @@ static int bcm_enet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 	if (priv->has_phy) {
- 		if (!priv->phydev)
- 			return -ENODEV;
--		return phy_mii_ioctl(priv->phydev, if_mii(rq), cmd);
-+		return phy_mii_ioctl(priv->phydev, rq, cmd);
- 	} else {
- 		struct mii_if_info mii;
- 
-diff --git a/drivers/net/cpmac.c b/drivers/net/cpmac.c
-index 3c58db5..0e47ca1 100644
---- a/drivers/net/cpmac.c
-+++ b/drivers/net/cpmac.c
-@@ -846,11 +846,8 @@ static int cpmac_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
++/**
++ * mdiobus_unlock - unlocks a given bus for read or write operations.
++ * @bus: target mii_bus
++ */
++void mdiobus_unlock(struct mii_bus *bus)
++{
++	if (MDIOBUS_SLEEPS_RW == bus->locktype)
++		mutex_unlock(&bus->lock.m);
++	else
++		spin_unlock(&bus->lock.s);
++}
++EXPORT_SYMBOL(mdiobus_unlock);
++
++/**
+  * mdiobus_alloc - allocate a mii_bus structure
+  *
+  * Description: called by a bus driver to allocate an mii_bus
+@@ -107,7 +133,10 @@ int mdiobus_register(struct mii_bus *bus)
  		return -EINVAL;
- 	if (!priv->phy)
- 		return -EINVAL;
--	if ((cmd == SIOCGMIIPHY) || (cmd == SIOCGMIIREG) ||
--	    (cmd == SIOCSMIIREG))
--		return phy_mii_ioctl(priv->phy, if_mii(ifr), cmd);
- 
--	return -EOPNOTSUPP;
-+	return phy_mii_ioctl(priv->phy, ifr, cmd);
- }
- 
- static int cpmac_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-diff --git a/drivers/net/dnet.c b/drivers/net/dnet.c
-index 8b0f50b..4ea7141 100644
---- a/drivers/net/dnet.c
-+++ b/drivers/net/dnet.c
-@@ -797,7 +797,7 @@ static int dnet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 	if (!phydev)
- 		return -ENODEV;
- 
--	return phy_mii_ioctl(phydev, if_mii(rq), cmd);
-+	return phy_mii_ioctl(phydev, rq, cmd);
- }
- 
- static void dnet_get_drvinfo(struct net_device *dev,
-diff --git a/drivers/net/ethoc.c b/drivers/net/ethoc.c
-index 37ce8ac..d9f3106 100644
---- a/drivers/net/ethoc.c
-+++ b/drivers/net/ethoc.c
-@@ -732,7 +732,7 @@ static int ethoc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 		phy = priv->phy;
  	}
  
--	return phy_mii_ioctl(phy, mdio, cmd);
-+	return phy_mii_ioctl(phy, ifr, cmd);
- }
+-	mutex_init(&bus->mdio_lock);
++	if (MDIOBUS_SLEEPS_RW == bus->locktype)
++		mutex_init(&bus->lock.m);
++	else
++		spin_lock_init(&bus->lock.s);
  
- static int ethoc_config(struct net_device *dev, struct ifmap *map)
-diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index a3cae4e..f24f49e 100644
---- a/drivers/net/fec.c
-+++ b/drivers/net/fec.c
-@@ -828,7 +828,7 @@ static int fec_enet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 	if (!phydev)
- 		return -ENODEV;
- 
--	return phy_mii_ioctl(phydev, if_mii(rq), cmd);
-+	return phy_mii_ioctl(phydev, rq, cmd);
- }
- 
- static void fec_enet_free_buffers(struct net_device *dev)
-diff --git a/drivers/net/fec_mpc52xx.c b/drivers/net/fec_mpc52xx.c
-index 25e6cc6..fdbf148 100644
---- a/drivers/net/fec_mpc52xx.c
-+++ b/drivers/net/fec_mpc52xx.c
-@@ -826,7 +826,7 @@ static int mpc52xx_fec_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 	if (!priv->phydev)
- 		return -ENOTSUPP;
- 
--	return phy_mii_ioctl(priv->phydev, if_mii(rq), cmd);
-+	return phy_mii_ioctl(priv->phydev, rq, cmd);
- }
- 
- static const struct net_device_ops mpc52xx_fec_netdev_ops = {
-diff --git a/drivers/net/fs_enet/fs_enet-main.c b/drivers/net/fs_enet/fs_enet-main.c
-index 309a0ea..f08cff9 100644
---- a/drivers/net/fs_enet/fs_enet-main.c
-+++ b/drivers/net/fs_enet/fs_enet-main.c
-@@ -963,12 +963,11 @@ static const struct ethtool_ops fs_ethtool_ops = {
- static int fs_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 	if (bus->reset)
+ 		bus->reset(bus);
+@@ -212,11 +241,12 @@ int mdiobus_read(struct mii_bus *bus, int addr, u32 regnum)
  {
- 	struct fs_enet_private *fep = netdev_priv(dev);
--	struct mii_ioctl_data *mii = (struct mii_ioctl_data *)&rq->ifr_data;
+ 	int retval;
  
- 	if (!netif_running(dev))
- 		return -EINVAL;
+-	BUG_ON(in_interrupt());
++	if (MDIOBUS_SLEEPS_RW == bus->locktype)
++		BUG_ON(in_interrupt());
  
--	return phy_mii_ioctl(fep->phydev, mii, cmd);
-+	return phy_mii_ioctl(fep->phydev, rq, cmd);
+-	mutex_lock(&bus->mdio_lock);
++	mdiobus_lock(bus);
+ 	retval = bus->read(bus, addr, regnum);
+-	mutex_unlock(&bus->mdio_lock);
++	mdiobus_unlock(bus);
+ 
+ 	return retval;
  }
- 
- extern int fs_mii_connect(struct net_device *dev);
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index 8a17bf0..252cb75 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -833,7 +833,7 @@ static int gfar_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 	if (!priv->phydev)
- 		return -ENODEV;
- 
--	return phy_mii_ioctl(priv->phydev, if_mii(rq), cmd);
-+	return phy_mii_ioctl(priv->phydev, rq, cmd);
- }
- 
- static unsigned int reverse_bitmap(unsigned int bit_map, unsigned int max_qs)
-diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-index 40797fb..ff2f158 100644
---- a/drivers/net/macb.c
-+++ b/drivers/net/macb.c
-@@ -1082,7 +1082,7 @@ static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 	if (!phydev)
- 		return -ENODEV;
- 
--	return phy_mii_ioctl(phydev, if_mii(rq), cmd);
-+	return phy_mii_ioctl(phydev, rq, cmd);
- }
- 
- static const struct net_device_ops macb_netdev_ops = {
-diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
-index e345ec8..e3ab182 100644
---- a/drivers/net/mv643xx_eth.c
-+++ b/drivers/net/mv643xx_eth.c
-@@ -2452,7 +2452,7 @@ static int mv643xx_eth_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 	struct mv643xx_eth_private *mp = netdev_priv(dev);
- 
- 	if (mp->phy != NULL)
--		return phy_mii_ioctl(mp->phy, if_mii(ifr), cmd);
-+		return phy_mii_ioctl(mp->phy, ifr, cmd);
- 
- 	return -EOPNOTSUPP;
- }
-diff --git a/drivers/net/octeon/octeon_mgmt.c b/drivers/net/octeon/octeon_mgmt.c
-index 000e792..73a2671 100644
---- a/drivers/net/octeon/octeon_mgmt.c
-+++ b/drivers/net/octeon/octeon_mgmt.c
-@@ -620,7 +620,7 @@ static int octeon_mgmt_ioctl(struct net_device *netdev,
- 	if (!p->phydev)
- 		return -EINVAL;
- 
--	return phy_mii_ioctl(p->phydev, if_mii(rq), cmd);
-+	return phy_mii_ioctl(p->phydev, rq, cmd);
- }
- 
- static void octeon_mgmt_adjust_link(struct net_device *netdev)
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 64be466..5130db8 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -309,8 +309,9 @@ EXPORT_SYMBOL(phy_ethtool_gset);
-  * current state.  Use at own risk.
-  */
- int phy_mii_ioctl(struct phy_device *phydev,
--		struct mii_ioctl_data *mii_data, int cmd)
-+		struct ifreq *ifr, int cmd)
+@@ -237,11 +267,12 @@ int mdiobus_write(struct mii_bus *bus, int addr, u32 regnum, u16 val)
  {
-+	struct mii_ioctl_data *mii_data = if_mii(ifr);
- 	u16 val = mii_data->val_in;
+ 	int err;
  
- 	switch (cmd) {
-@@ -360,6 +361,11 @@ int phy_mii_ioctl(struct phy_device *phydev,
- 		}
- 		break;
+-	BUG_ON(in_interrupt());
++	if (MDIOBUS_SLEEPS_RW == bus->locktype)
++		BUG_ON(in_interrupt());
  
-+	case SIOCSHWTSTAMP:
-+		if (phydev->drv->hwtstamp)
-+			return phydev->drv->hwtstamp(phydev, ifr);
-+		/* fall through */
-+
- 	default:
- 		return -EOPNOTSUPP;
- 	}
-diff --git a/drivers/net/sb1250-mac.c b/drivers/net/sb1250-mac.c
-index 1f3acc3..e585c3f 100644
---- a/drivers/net/sb1250-mac.c
-+++ b/drivers/net/sb1250-mac.c
-@@ -2532,7 +2532,7 @@ static int sbmac_mii_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 	if (!netif_running(dev) || !sc->phy_dev)
- 		return -EINVAL;
+-	mutex_lock(&bus->mdio_lock);
++	mdiobus_lock(bus);
+ 	err = bus->write(bus, addr, regnum, val);
+-	mutex_unlock(&bus->mdio_lock);
++	mdiobus_unlock(bus);
  
--	return phy_mii_ioctl(sc->phy_dev, if_mii(rq), cmd);
-+	return phy_mii_ioctl(sc->phy_dev, rq, cmd);
+ 	return err;
  }
- 
- static int sbmac_close(struct net_device *dev)
-diff --git a/drivers/net/sh_eth.c b/drivers/net/sh_eth.c
-index 501a55f..8279f8e 100644
---- a/drivers/net/sh_eth.c
-+++ b/drivers/net/sh_eth.c
-@@ -1233,7 +1233,7 @@ static int sh_eth_do_ioctl(struct net_device *ndev, struct ifreq *rq,
- 	if (!phydev)
- 		return -ENODEV;
- 
--	return phy_mii_ioctl(phydev, if_mii(rq), cmd);
-+	return phy_mii_ioctl(phydev, rq, cmd);
- }
- 
- #if defined(SH_ETH_HAS_TSU)
-diff --git a/drivers/net/smsc911x.c b/drivers/net/smsc911x.c
-index cc55974..56dc2ff 100644
---- a/drivers/net/smsc911x.c
-+++ b/drivers/net/smsc911x.c
-@@ -1538,7 +1538,7 @@ static int smsc911x_do_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 	if (!netif_running(dev) || !pdata->phy_dev)
- 		return -EINVAL;
- 
--	return phy_mii_ioctl(pdata->phy_dev, if_mii(ifr), cmd);
-+	return phy_mii_ioctl(pdata->phy_dev, ifr, cmd);
- }
- 
- static int
-diff --git a/drivers/net/smsc9420.c b/drivers/net/smsc9420.c
-index 6cdee6a..b09ee1c 100644
---- a/drivers/net/smsc9420.c
-+++ b/drivers/net/smsc9420.c
-@@ -245,7 +245,7 @@ static int smsc9420_do_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 	if (!netif_running(dev) || !pd->phy_dev)
- 		return -EINVAL;
- 
--	return phy_mii_ioctl(pd->phy_dev, if_mii(ifr), cmd);
-+	return phy_mii_ioctl(pd->phy_dev, ifr, cmd);
- }
- 
- static int smsc9420_ethtool_get_settings(struct net_device *dev,
-diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
-index a31d580..acf0616 100644
---- a/drivers/net/stmmac/stmmac_main.c
-+++ b/drivers/net/stmmac/stmmac_main.c
-@@ -1437,24 +1437,18 @@ static void stmmac_poll_controller(struct net_device *dev)
- static int stmmac_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
--	int ret = -EOPNOTSUPP;
-+	int ret;
- 
- 	if (!netif_running(dev))
- 		return -EINVAL;
- 
--	switch (cmd) {
--	case SIOCGMIIPHY:
--	case SIOCGMIIREG:
--	case SIOCSMIIREG:
--		if (!priv->phydev)
--			return -EINVAL;
--
--		spin_lock(&priv->lock);
--		ret = phy_mii_ioctl(priv->phydev, if_mii(rq), cmd);
--		spin_unlock(&priv->lock);
--	default:
--		break;
--	}
-+	if (!priv->phydev)
-+		return -EINVAL;
-+
-+	spin_lock(&priv->lock);
-+	ret = phy_mii_ioctl(priv->phydev, rq, cmd);
-+	spin_unlock(&priv->lock);
-+
- 	return ret;
- }
- 
-diff --git a/drivers/net/tc35815.c b/drivers/net/tc35815.c
-index be08b75..99e423a 100644
---- a/drivers/net/tc35815.c
-+++ b/drivers/net/tc35815.c
-@@ -2066,7 +2066,7 @@ static int tc35815_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 		return -EINVAL;
- 	if (!lp->phy_dev)
- 		return -ENODEV;
--	return phy_mii_ioctl(lp->phy_dev, if_mii(rq), cmd);
-+	return phy_mii_ioctl(lp->phy_dev, rq, cmd);
- }
- 
- static void tc35815_chip_reset(struct net_device *dev)
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 289cdc5..d4163f2 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -10954,7 +10954,7 @@ static int tg3_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 		if (!(tp->tg3_flags3 & TG3_FLG3_PHY_CONNECTED))
- 			return -EAGAIN;
- 		phydev = tp->mdio_bus->phy_map[TG3_PHY_MII_ADDR];
--		return phy_mii_ioctl(phydev, data, cmd);
-+		return phy_mii_ioctl(phydev, ifr, cmd);
- 	}
- 
- 	switch (cmd) {
-diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
-index 538148a..639aae5 100644
---- a/drivers/net/ucc_geth.c
-+++ b/drivers/net/ucc_geth.c
-@@ -3712,7 +3712,7 @@ static int ucc_geth_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 	if (!ugeth->phydev)
- 		return -ENODEV;
- 
--	return phy_mii_ioctl(ugeth->phydev, if_mii(rq), cmd);
-+	return phy_mii_ioctl(ugeth->phydev, rq, cmd);
- }
- 
- static const struct net_device_ops ucc_geth_netdev_ops = {
-diff --git a/drivers/staging/octeon/ethernet-mdio.c b/drivers/staging/octeon/ethernet-mdio.c
-index 7e0be8d..10a82ef 100644
---- a/drivers/staging/octeon/ethernet-mdio.c
-+++ b/drivers/staging/octeon/ethernet-mdio.c
-@@ -113,7 +113,7 @@ int cvm_oct_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- 	if (!priv->phydev)
- 		return -EINVAL;
- 
--	return phy_mii_ioctl(priv->phydev, if_mii(rq), cmd);
-+	return phy_mii_ioctl(priv->phydev, rq, cmd);
- }
- 
- static void cvm_oct_adjust_link(struct net_device *dev)
 diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 3566bde..7a8caac 100644
+index 7a8caac..93ea55f 100644
 --- a/include/linux/phy.h
 +++ b/include/linux/phy.h
-@@ -505,7 +505,7 @@ void phy_stop_machine(struct phy_device *phydev);
- int phy_ethtool_sset(struct phy_device *phydev, struct ethtool_cmd *cmd);
- int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd);
- int phy_mii_ioctl(struct phy_device *phydev,
--		struct mii_ioctl_data *mii_data, int cmd);
-+		struct ifreq *ifr, int cmd);
- int phy_start_interrupts(struct phy_device *phydev);
- void phy_print_status(struct phy_device *phydev);
- struct phy_device* phy_device_create(struct mii_bus *bus, int addr, int phy_id);
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 8fdca56..64ca2a6 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -164,10 +164,9 @@ out:
- static int dsa_slave_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
--	struct mii_ioctl_data *mii_data = if_mii(ifr);
+@@ -98,11 +98,20 @@ struct mii_bus {
+ 	int (*write)(struct mii_bus *bus, int phy_id, int regnum, u16 val);
+ 	int (*reset)(struct mii_bus *bus);
  
- 	if (p->phy != NULL)
--		return phy_mii_ioctl(p->phy, mii_data, cmd);
-+		return phy_mii_ioctl(p->phy, ifr, cmd);
++	/* Indicates whether bus may be used from an atomic context. */
++	enum {
++		MDIOBUS_SLEEPS_RW,
++		MDIOBUS_ATOMIC_RW
++	} locktype;
++
+ 	/*
+-	 * A lock to ensure that only one thing can read/write
++	 * A lock or mutex to ensure that only one thing can read/write
+ 	 * the MDIO bus at a time
+ 	 */
+-	struct mutex mdio_lock;
++	union {
++		struct mutex m;
++		spinlock_t s;
++	} lock;
  
- 	return -EOPNOTSUPP;
- }
+ 	struct device *parent;
+ 	enum {
+@@ -127,6 +136,8 @@ struct mii_bus {
+ };
+ #define to_mii_bus(d) container_of(d, struct mii_bus, dev)
+ 
++void mdiobus_lock(struct mii_bus *bus);
++void mdiobus_unlock(struct mii_bus *bus);
+ struct mii_bus *mdiobus_alloc(void);
+ int mdiobus_register(struct mii_bus *bus);
+ void mdiobus_unregister(struct mii_bus *bus);
 -- 
 1.7.0.4
 
