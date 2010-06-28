@@ -1,40 +1,58 @@
 From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: [PATCH -next] bnx2x: fail when try to setup unsupported features
-Date: Mon, 28 Jun 2010 11:28:11 +0200
-Message-ID: <20100628112811.29881285@dhcp-lab-109.englab.brq.redhat.com>
+Subject: [PATCH -next] vmxnet3: fail when try to setup unsupported features
+Date: Mon, 28 Jun 2010 11:29:42 +0200
+Message-ID: <20100628112942.0c919746@dhcp-lab-109.englab.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: Amerigo Wang <amwang@redhat.com>,
-	Eilon Greenstein <eilong@broadcom.com>
+	Shreyas Bhatewara <sbhatewara@vmware.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55035 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:13720 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750992Ab0F1J2S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jun 2010 05:28:18 -0400
+	id S1751020Ab0F1J3s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jun 2010 05:29:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Return EOPNOTSUPP in ethtool_ops->set_flags.
+
+Fix coding style while at it.
+
 Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
 ---
- drivers/net/bnx2x_main.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ drivers/net/vmxnet3/vmxnet3_ethtool.c |    9 +++++++--
+ 1 files changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/bnx2x_main.c b/drivers/net/bnx2x_main.c
-index 57ff5b3..0809f6c 100644
---- a/drivers/net/bnx2x_main.c
-+++ b/drivers/net/bnx2x_main.c
-@@ -10982,6 +10982,9 @@ static int bnx2x_set_flags(struct net_device *dev, u32 data)
- 	int changed = 0;
- 	int rc = 0;
+diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+index 3935c44..8a71a21 100644
+--- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
++++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+@@ -276,16 +276,21 @@ vmxnet3_get_strings(struct net_device *netdev, u32 stringset, u8 *buf)
+ }
  
-+	if (data & ~(ETH_FLAG_LRO | ETH_FLAG_RXHASH))
+ static u32
+-vmxnet3_get_flags(struct net_device *netdev) {
++vmxnet3_get_flags(struct net_device *netdev)
++{
+ 	return netdev->features;
+ }
+ 
+ static int
+-vmxnet3_set_flags(struct net_device *netdev, u32 data) {
++vmxnet3_set_flags(struct net_device *netdev, u32 data)
++{
+ 	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
+ 	u8 lro_requested = (data & ETH_FLAG_LRO) == 0 ? 0 : 1;
+ 	u8 lro_present = (netdev->features & NETIF_F_LRO) == 0 ? 0 : 1;
+ 
++	if (data & ~ETH_FLAG_LRO)
 +		return -EOPNOTSUPP;
 +
- 	if (bp->recovery_state != BNX2X_RECOVERY_DONE) {
- 		printk(KERN_ERR "Handling parity error recovery. Try again later\n");
- 		return -EAGAIN;
+ 	if (lro_requested ^ lro_present) {
+ 		/* toggle the LRO feature*/
+ 		netdev->features ^= NETIF_F_LRO;
 -- 
 1.5.5.6
 
