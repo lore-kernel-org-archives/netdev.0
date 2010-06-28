@@ -1,57 +1,133 @@
-From: James Bottomley <James.Bottomley@suse.de>
-Subject: Re: [linux-pm] [PATCH 3/3] pm_qos: get rid of the allocation in
- pm_qos_add_request()
-Date: Mon, 28 Jun 2010 17:10:49 -0500
-Message-ID: <1277763049.10879.204.camel@mulgrave.site>
-References: <1277746434.10879.191.camel@mulgrave.site>
-	 <1277747088.10879.201.camel@mulgrave.site> <201006282359.18045.rjw@sisk.pl>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [PATCHv2] vhost-net: add dhclient work-around from userspace
+Date: Mon, 28 Jun 2010 15:19:41 -0700
+Message-ID: <1277763581.23755.16.camel@w-sridhar.beaverton.ibm.com>
+References: <20100628100807.GA30685@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Takashi Iwai <tiwai@suse.de>, netdev@vger.kernel.org,
-	linux-pm@lists.linux-foundation.org, markgross@thegnar.org
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Cc: Aristeu Rozanski <arozansk@redhat.com>,
+	Herbert Xu <herbert.xu@redhat.com>,
+	Juan Quintela <quintela@redhat.com>,
+	"David S. Miller" <davem@redhat.com>, kvm@vger.kernel.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ykaul@redhat.com, markmc@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:55713 "EHLO mx1.suse.de"
+Received: from e8.ny.us.ibm.com ([32.97.182.138]:57404 "EHLO e8.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752537Ab0F1WKz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jun 2010 18:10:55 -0400
-In-Reply-To: <201006282359.18045.rjw@sisk.pl>
+	id S1753292Ab0F1WTp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jun 2010 18:19:45 -0400
+In-Reply-To: <20100628100807.GA30685@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-06-28 at 23:59 +0200, Rafael J. Wysocki wrote:
-> On Monday, June 28, 2010, James Bottomley wrote:
-> > Since every caller has to squirrel away the returned pointer anyway,
-> > they might as well supply the memory area.  This fixes a bug in a few of
-> > the call sites where the returned pointer was dereferenced without
-> > checking it for NULL (which gets returned if the kzalloc failed).
-> > 
-> > I'd like to hear how sound and netdev feels about this: it will add
-> > about two more pointers worth of data to struct netdev and struct
-> > snd_pcm_substream .. but I think it's worth it.  If you're OK, I'll add
-> > your acks and send through the pm tree.
-> > 
-> > This also looks to me like an android independent clean up (even though
-> > it renders the request_add atomically callable).  I also added include
-> > guards to include/linux/pm_qos_params.h
-> > 
-> > cc: netdev@vger.kernel.org
-> > cc: Takashi Iwai <tiwai@suse.de>
-> > Signed-off-by: James Bottomley <James.Bottomley@suse.de>
+On Mon, 2010-06-28 at 13:08 +0300, Michael S. Tsirkin wrote:
+> Userspace virtio server has the following hack
+> so guests rely on it, and we have to replicate it, too:
 > 
-> I like all of the patches in this series, thanks a lot for doing this!
+> Use port number to detect incoming IPv4 DHCP response packets,
+> and fill in the checksum for these.
 > 
-> I guess it might be worth sending a CC to the LKML next round so that people
-> can see [1/3] (I don't expect any objections, but anyway it would be nice).
+> The issue we are solving is that on linux guests, some apps
+> that use recvmsg with AF_PACKET sockets, don't know how to
+> handle CHECKSUM_PARTIAL;
+> The interface to return the relevant information was added
+> in 8dc4194474159660d7f37c495e3fc3f10d0db8cc,
+> and older userspace does not use it.
+> One important user of recvmsg with AF_PACKET is dhclient,
+> so we add a work-around just for DHCP.
+> 
+> Don't bother applying the hack to IPv6 as userspace virtio does not
+> have a work-around for that - let's hope guests will do the right
+> thing wrt IPv6.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+> 
+> Dave, I'm going to put this patch on the vhost tree,
+> no need for you to bother merging it - you'll get
+> it with a pull request.
+> 
+> 
+>  drivers/vhost/net.c |   44 +++++++++++++++++++++++++++++++++++++++++++-
+>  1 files changed, 43 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index cc19595..03bba6a 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -24,6 +24,10 @@
+>  #include <linux/if_tun.h>
+>  #include <linux/if_macvlan.h>
+> 
+> +#include <linux/ip.h>
+> +#include <linux/udp.h>
+> +#include <linux/netdevice.h>
+> +
+>  #include <net/sock.h>
+> 
+>  #include "vhost.h"
+> @@ -186,6 +190,44 @@ static void handle_tx(struct vhost_net *net)
+>  	unuse_mm(net->dev.mm);
+>  }
+> 
+> +static int peek_head(struct sock *sk)
 
-I cc'd the latest owners of plist.h ... although Daniel Walker has
-apparently since left MontaVista, Thomas Gleixner is still current ...
-and he can speak for the RT people, who are the primary plist users.
+This routine is doing more than just peeking the head of sk's receive
+queue. May be this should be named similar to what qemu calls
+'work_around_broken_dhclient()'
+> +{
+> +	struct sk_buff *skb;
+> +
+> +	lock_sock(sk);
+> +	skb = skb_peek(&sk->sk_receive_queue);
+> +	if (unlikely(!skb)) {
+> +		release_sock(sk);
+> +		return 0;
+> +	}
+> +	/* Userspace virtio server has the following hack so
+> +	 * guests rely on it, and we have to replicate it, too: */
+> +	/* Use port number to detect incoming IPv4 DHCP response packets,
+> +	 * and fill in the checksum. */
+> +
+> +	/* The issue we are solving is that on linux guests, some apps
+> +	 * that use recvmsg with AF_PACKET sockets, don't know how to
+> +	 * handle CHECKSUM_PARTIAL;
+> +	 * The interface to return the relevant information was added in
+> +	 * 8dc4194474159660d7f37c495e3fc3f10d0db8cc,
+> +	 * and older userspace does not use it.
+> +	 * One important user of recvmsg with AF_PACKET is dhclient,
+> +	 * so we add a work-around just for DHCP. */
+> +	if (skb->ip_summed == CHECKSUM_PARTIAL &&
+> +	    skb_headlen(skb) >= skb_transport_offset(skb) +
+> +				sizeof(struct udphdr) &&
+> +	    udp_hdr(skb)->dest == htons(68) &&
+> +	    skb_network_header_len(skb) >= sizeof(struct iphdr) &&
+> +	    ip_hdr(skb)->protocol == IPPROTO_UDP &&
+> +	    skb->protocol == htons(ETH_P_IP)) {
 
-I can do another round and cc lkml, I was just hoping this would be the
-last revision.
+Isn't it more logical to check for skb->protocol, followed by ip_hdr and
+then udp_hdr?
 
-James
-
+> +		skb_checksum_help(skb);
+> +		/* Restore ip_summed value: tun passes it to user. */
+> +		skb->ip_summed = CHECKSUM_PARTIAL;
+> +	}
+> +	release_sock(sk);
+> +	return 1;
+> +}
+> +
+>  /* Expects to be always run from workqueue - which acts as
+>   * read-size critical section for our kind of RCU. */
+>  static void handle_rx(struct vhost_net *net)
+> @@ -222,7 +264,7 @@ static void handle_rx(struct vhost_net *net)
+>  	vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) ?
+>  		vq->log : NULL;
+> 
+> -	for (;;) {
+> +	while (peek_head(sock->sk)) {
+>  		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
+>  					 ARRAY_SIZE(vq->iov),
+>  					 &out, &in,
 
