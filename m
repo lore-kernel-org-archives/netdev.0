@@ -1,143 +1,67 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-2.6 2/2] ethtool: Fix potential user buffer overflow
- for ETHTOOL_{G,S}RXFH
-Date: Mon, 28 Jun 2010 19:45:58 +0100
-Message-ID: <1277750759.2089.21.camel@achroite.uk.solarflarecom.com>
-References: <1277750647.2089.19.camel@achroite.uk.solarflarecom.com>
+From: Andreas Steffen <andreas.steffen@hsr.ch>
+Subject: static inline int xfrm_mark_get() broken
+Date: Mon, 28 Jun 2010 20:46:49 +0200
+Message-ID: <4C28EE19.2090502@hsr.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Santwona Behera <santwona.behera@sun.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed;
+	boundary="------------020600090607000701070809"
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:57298 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751735Ab0F1SqC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jun 2010 14:46:02 -0400
-In-Reply-To: <1277750647.2089.19.camel@achroite.uk.solarflarecom.com>
+Received: from hsrmx1.hsr.ch ([152.96.36.50]:48665 "EHLO hsrmx1.hsr.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751145Ab0F1S55 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jun 2010 14:57:57 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by hsrmx1.hsr.ch (Postfix) with ESMTP id 8A42321085F
+	for <netdev@vger.kernel.org>; Mon, 28 Jun 2010 20:46:53 +0200 (CEST)
+Received: from hsrmx1.hsr.ch ([127.0.0.1])
+	by localhost (hsrmx1.hsr.ch [127.0.0.1]) (amavisd-new, port 10024)
+	with LMTP id zkqYOHEV-747 for <netdev@vger.kernel.org>;
+	Mon, 28 Jun 2010 20:46:51 +0200 (CEST)
+Received: from sid00101.hsr.ch (sid00100.hsr.ch [152.96.20.160])
+	by hsrmx1.hsr.ch (Postfix) with ESMTP id CCCCB210840
+	for <netdev@vger.kernel.org>; Mon, 28 Jun 2010 20:46:51 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-struct ethtool_rxnfc was originally defined in 2.6.27 for the
-ETHTOOL_{G,S}RXFH command with only the cmd, flow_type and data
-fields.  It was then extended in 2.6.30 to support various additional
-commands.  These commands should have been defined to use a new
-structure, but it is too late to change that now.
+--------------020600090607000701070809
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Since user-space may still be using the old structure definition
-for the ETHTOOL_{G,S}RXFH commands, and since they do not need the
-additional fields, only copy the originally defined fields to and
-from user-space.
+Hi,
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-Cc: stable@kernel.org
----
- include/linux/ethtool.h |    2 ++
- net/core/ethtool.c      |   36 +++++++++++++++++++++++++++---------
- 2 files changed, 29 insertions(+), 9 deletions(-)
+experimenting with the new XFRM_MARK feature of the 2.6.34 kernel
+I found out that the extraction of the mark mask might accidentally
+work on 64 bit platforms but on 32 bit platforms the function is
+awfully broken. The rather trivial patch attached to this mail fixes
+the problem. Otherwise the XFRM_MARK feature seems quite promising!
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 2c8af09..07f9808 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -379,6 +379,8 @@ struct ethtool_rxnfc {
- 	__u32				flow_type;
- 	/* The rx flow hash value or the rule DB size */
- 	__u64				data;
-+	/* The following fields are not valid and must not be used for
-+	 * the ETHTOOL_{G,X}RXFH commands. */
- 	struct ethtool_rx_flow_spec	fs;
- 	__u32				rule_cnt;
- 	__u32				rule_locs[0];
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index a3a7e9a..75e4ffe 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -318,23 +318,33 @@ out:
- }
- 
- static noinline_for_stack int ethtool_set_rxnfc(struct net_device *dev,
--						void __user *useraddr)
-+						u32 cmd, void __user *useraddr)
+Best regards
+
+Andreas
+
+======================================================================
+Andreas Steffen                         e-mail: andreas.steffen@hsr.ch
+Institute for Internet Technologies and Applications
+Hochschule fuer Technik Rapperswil      phone:  +41 55 222 42 68
+CH-8640 Rapperswil (Switzerland)        mobile: +41 76 340 25 56
+===========================================================[ITA-HSR]==
+
+--------------020600090607000701070809
+Content-Type: text/x-patch; name="xfrm.h.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="xfrm.h.diff"
+
+--- linux/include/net/xfrm.h.ori	2010-06-28 18:53:28.229489876 +0200
++++ linux/include/net/xfrm.h	2010-06-28 18:53:50.745487383 +0200
+@@ -1587,7 +1587,7 @@
+ static inline int xfrm_mark_get(struct nlattr **attrs, struct xfrm_mark *m)
  {
--	struct ethtool_rxnfc cmd;
-+	struct ethtool_rxnfc info;
-+	size_t info_size = sizeof(info);
+ 	if (attrs[XFRMA_MARK])
+-		memcpy(m, nla_data(attrs[XFRMA_MARK]), sizeof(m));
++		memcpy(m, nla_data(attrs[XFRMA_MARK]), sizeof(struct xfrm_mark));
+ 	else
+ 		m->v = m->m = 0;
  
- 	if (!dev->ethtool_ops->set_rxnfc)
- 		return -EOPNOTSUPP;
- 
--	if (copy_from_user(&cmd, useraddr, sizeof(cmd)))
-+	/* struct ethtool_rxnfc was originally defined for
-+	 * ETHTOOL_{G,S}RXFH with only the cmd, flow_type and data
-+	 * members.  User-space might still be using that
-+	 * definition. */
-+	if (cmd == ETHTOOL_SRXFH)
-+		info_size = (offsetof(struct ethtool_rxnfc, data) +
-+			     sizeof(info.data));
-+
-+	if (copy_from_user(&info, useraddr, info_size))
- 		return -EFAULT;
- 
--	return dev->ethtool_ops->set_rxnfc(dev, &cmd);
-+	return dev->ethtool_ops->set_rxnfc(dev, &info);
- }
- 
- static noinline_for_stack int ethtool_get_rxnfc(struct net_device *dev,
--						void __user *useraddr)
-+						u32 cmd, void __user *useraddr)
- {
- 	struct ethtool_rxnfc info;
-+	size_t info_size = sizeof(info);
- 	const struct ethtool_ops *ops = dev->ethtool_ops;
- 	int ret;
- 	void *rule_buf = NULL;
-@@ -342,7 +352,15 @@ static noinline_for_stack int ethtool_get_rxnfc(struct net_device *dev,
- 	if (!ops->get_rxnfc)
- 		return -EOPNOTSUPP;
- 
--	if (copy_from_user(&info, useraddr, sizeof(info)))
-+	/* struct ethtool_rxnfc was originally defined for
-+	 * ETHTOOL_{G,S}RXFH with only the cmd, flow_type and data
-+	 * members.  User-space might still be using that
-+	 * definition. */
-+	if (cmd == ETHTOOL_GRXFH)
-+		info_size = (offsetof(struct ethtool_rxnfc, data) +
-+			     sizeof(info.data));
-+
-+	if (copy_from_user(&info, useraddr, info_size))
- 		return -EFAULT;
- 
- 	if (info.cmd == ETHTOOL_GRXCLSRLALL) {
-@@ -360,7 +378,7 @@ static noinline_for_stack int ethtool_get_rxnfc(struct net_device *dev,
- 		goto err_out;
- 
- 	ret = -EFAULT;
--	if (copy_to_user(useraddr, &info, sizeof(info)))
-+	if (copy_to_user(useraddr, &info, info_size))
- 		goto err_out;
- 
- 	if (rule_buf) {
-@@ -1517,12 +1535,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_GRXCLSRLCNT:
- 	case ETHTOOL_GRXCLSRULE:
- 	case ETHTOOL_GRXCLSRLALL:
--		rc = ethtool_get_rxnfc(dev, useraddr);
-+		rc = ethtool_get_rxnfc(dev, ethcmd, useraddr);
- 		break;
- 	case ETHTOOL_SRXFH:
- 	case ETHTOOL_SRXCLSRLDEL:
- 	case ETHTOOL_SRXCLSRLINS:
--		rc = ethtool_set_rxnfc(dev, useraddr);
-+		rc = ethtool_set_rxnfc(dev, ethcmd, useraddr);
- 		break;
- 	case ETHTOOL_GGRO:
- 		rc = ethtool_get_gro(dev, useraddr);
--- 
-1.6.2.5
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+--------------020600090607000701070809--
