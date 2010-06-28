@@ -1,133 +1,236 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCHv2] vhost-net: add dhclient work-around from userspace
-Date: Mon, 28 Jun 2010 15:19:41 -0700
-Message-ID: <1277763581.23755.16.camel@w-sridhar.beaverton.ibm.com>
-References: <20100628100807.GA30685@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ss -p is much too slow
+Date: Mon, 28 Jun 2010 16:21:39 -0700 (PDT)
+Message-ID: <20100628.162139.59679342.davem@davemloft.net>
+References: <AANLkTikd3VaSUa-pxzyi7_fND40vQ-L79X7yv19jj3y0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Aristeu Rozanski <arozansk@redhat.com>,
-	Herbert Xu <herbert.xu@redhat.com>,
-	Juan Quintela <quintela@redhat.com>,
-	"David S. Miller" <davem@redhat.com>, kvm@vger.kernel.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ykaul@redhat.com, markmc@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: netdev@vger.kernel.org, stephen.hemminger@vyatta.com
+To: sphink@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e8.ny.us.ibm.com ([32.97.182.138]:57404 "EHLO e8.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753292Ab0F1WTp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jun 2010 18:19:45 -0400
-In-Reply-To: <20100628100807.GA30685@redhat.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38749
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751145Ab0F1XV0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jun 2010 19:21:26 -0400
+In-Reply-To: <AANLkTikd3VaSUa-pxzyi7_fND40vQ-L79X7yv19jj3y0@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-06-28 at 13:08 +0300, Michael S. Tsirkin wrote:
-> Userspace virtio server has the following hack
-> so guests rely on it, and we have to replicate it, too:
-> 
-> Use port number to detect incoming IPv4 DHCP response packets,
-> and fill in the checksum for these.
-> 
-> The issue we are solving is that on linux guests, some apps
-> that use recvmsg with AF_PACKET sockets, don't know how to
-> handle CHECKSUM_PARTIAL;
-> The interface to return the relevant information was added
-> in 8dc4194474159660d7f37c495e3fc3f10d0db8cc,
-> and older userspace does not use it.
-> One important user of recvmsg with AF_PACKET is dhclient,
-> so we add a work-around just for DHCP.
-> 
-> Don't bother applying the hack to IPv6 as userspace virtio does not
-> have a work-around for that - let's hope guests will do the right
-> thing wrt IPv6.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
-> 
-> Dave, I'm going to put this patch on the vhost tree,
-> no need for you to bother merging it - you'll get
-> it with a pull request.
-> 
-> 
->  drivers/vhost/net.c |   44 +++++++++++++++++++++++++++++++++++++++++++-
->  1 files changed, 43 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index cc19595..03bba6a 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -24,6 +24,10 @@
->  #include <linux/if_tun.h>
->  #include <linux/if_macvlan.h>
-> 
-> +#include <linux/ip.h>
-> +#include <linux/udp.h>
-> +#include <linux/netdevice.h>
-> +
->  #include <net/sock.h>
-> 
->  #include "vhost.h"
-> @@ -186,6 +190,44 @@ static void handle_tx(struct vhost_net *net)
->  	unuse_mm(net->dev.mm);
->  }
-> 
-> +static int peek_head(struct sock *sk)
+From: Steve Fink <sphink@gmail.com>
+Date: Wed, 9 Jun 2010 11:42:38 -0700
 
-This routine is doing more than just peeking the head of sk's receive
-queue. May be this should be named similar to what qemu calls
-'work_around_broken_dhclient()'
-> +{
-> +	struct sk_buff *skb;
-> +
-> +	lock_sock(sk);
-> +	skb = skb_peek(&sk->sk_receive_queue);
-> +	if (unlikely(!skb)) {
-> +		release_sock(sk);
-> +		return 0;
-> +	}
-> +	/* Userspace virtio server has the following hack so
-> +	 * guests rely on it, and we have to replicate it, too: */
-> +	/* Use port number to detect incoming IPv4 DHCP response packets,
-> +	 * and fill in the checksum. */
-> +
-> +	/* The issue we are solving is that on linux guests, some apps
-> +	 * that use recvmsg with AF_PACKET sockets, don't know how to
-> +	 * handle CHECKSUM_PARTIAL;
-> +	 * The interface to return the relevant information was added in
-> +	 * 8dc4194474159660d7f37c495e3fc3f10d0db8cc,
-> +	 * and older userspace does not use it.
-> +	 * One important user of recvmsg with AF_PACKET is dhclient,
-> +	 * so we add a work-around just for DHCP. */
-> +	if (skb->ip_summed == CHECKSUM_PARTIAL &&
-> +	    skb_headlen(skb) >= skb_transport_offset(skb) +
-> +				sizeof(struct udphdr) &&
-> +	    udp_hdr(skb)->dest == htons(68) &&
-> +	    skb_network_header_len(skb) >= sizeof(struct iphdr) &&
-> +	    ip_hdr(skb)->protocol == IPPROTO_UDP &&
-> +	    skb->protocol == htons(ETH_P_IP)) {
-
-Isn't it more logical to check for skb->protocol, followed by ip_hdr and
-then udp_hdr?
-
-> +		skb_checksum_help(skb);
-> +		/* Restore ip_summed value: tun passes it to user. */
-> +		skb->ip_summed = CHECKSUM_PARTIAL;
-> +	}
-> +	release_sock(sk);
-> +	return 1;
-> +}
-> +
->  /* Expects to be always run from workqueue - which acts as
->   * read-size critical section for our kind of RCU. */
->  static void handle_rx(struct vhost_net *net)
-> @@ -222,7 +264,7 @@ static void handle_rx(struct vhost_net *net)
->  	vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) ?
->  		vq->log : NULL;
+> On closer inspection, it appears that ss -p does a quadratic scan. It
+> rescans every entry in /proc/*/fd/* repeatedly (once per listening
+> port? per process? I don't remember what I figured out.)
 > 
-> -	for (;;) {
-> +	while (peek_head(sock->sk)) {
->  		head = vhost_get_vq_desc(&net->dev, vq, vq->iov,
->  					 ARRAY_SIZE(vq->iov),
->  					 &out, &in,
+> I humbly suggest that this is not a good idea.
 
+Yep, this is junk.  Please give this patch a try:
+
+ss: Avoid quadradic complexity with '-p'
+
+Scan the process list of open sockets once, and store in a hash
+table to be used by subsequent find_user() calls.
+
+Reported-by: Steve Fink <sphink@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/misc/ss.c b/misc/ss.c
+index 8a9663c..482b6bb 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -195,90 +195,147 @@ static FILE *ephemeral_ports_open(void)
+ 	return generic_proc_open("PROC_IP_LOCAL_PORT_RANGE", "sys/net/ipv4/ip_local_port_range");
+ }
+ 
+-int find_users(unsigned ino, char *buf, int buflen)
++struct user_ent {
++	struct user_ent	*next;
++	unsigned int	ino;
++	int		pid;
++	int		fd;
++	char		process[0];
++};
++
++#define USER_ENT_HASH_SIZE	256
++struct user_ent *user_ent_hash[USER_ENT_HASH_SIZE];
++
++static int user_ent_hashfn(unsigned int ino)
+ {
+-	char pattern[64];
+-	int  pattern_len;
+-	char *ptr = buf;
+-	char name[1024];
+-	DIR *dir;
+-	struct dirent *d;
+-	int cnt = 0;
+-	int nameoff;
++	int val = (ino >> 24) ^ (ino >> 16) ^ (ino >> 8) ^ ino;
+ 
+-	if (!ino)
+-		return 0;
++	return val & (USER_ENT_HASH_SIZE - 1);
++}
++
++static void user_ent_add(unsigned int ino, const char *process, int pid, int fd)
++{
++	struct user_ent *p, **pp;
++	int str_len;
+ 
+-	sprintf(pattern, "socket:[%u]", ino);
+-	pattern_len = strlen(pattern);
++	str_len = strlen(process) + 1;
++	p = malloc(sizeof(struct user_ent) + str_len);
++	if (!p)
++		abort();
++	p->next = NULL;
++	p->ino = ino;
++	p->pid = pid;
++	p->fd = fd;
++	strcpy(p->process, process);
++
++	pp = &user_ent_hash[user_ent_hashfn(ino)];
++	p->next = *pp;
++	*pp = p;
++}
+ 
+-	strncpy(name, getenv("PROC_ROOT") ? : "/proc/", sizeof(name)/2);
+-	name[sizeof(name)/2] = 0;
+-	if (strlen(name) == 0 ||
+-	    name[strlen(name)-1] != '/')
++static void user_ent_hash_build(void)
++{
++	const char *root = getenv("PROC_ROOT") ? : "/proc/";
++	struct dirent *d;
++	char name[1024];
++	int nameoff;
++	DIR *dir;
++
++	strcpy(name, root);
++	if (strlen(name) == 0 || name[strlen(name)-1] != '/')
+ 		strcat(name, "/");
++
+ 	nameoff = strlen(name);
+-	if ((dir = opendir(name)) == NULL)
+-		return 0;
++
++	dir = opendir(name);
++	if (!dir)
++		return;
+ 
+ 	while ((d = readdir(dir)) != NULL) {
+-		DIR *dir1;
+ 		struct dirent *d1;
+-		int pid;
+-		int pos;
+-		char crap;
+ 		char process[16];
++		int pid, pos;
++		DIR *dir1;
++		char crap;
+ 
+ 		if (sscanf(d->d_name, "%d%c", &pid, &crap) != 1)
+ 			continue;
+ 
+-		sprintf(name+nameoff, "%d/fd/", pid);
++		sprintf(name + nameoff, "%d/fd/", pid);
+ 		pos = strlen(name);
+ 		if ((dir1 = opendir(name)) == NULL)
+ 			continue;
+ 
+-		process[0] = 0;
++		process[0] = '\0';
+ 
+ 		while ((d1 = readdir(dir1)) != NULL) {
+-			int fd, n;
++			const char *pattern = "socket:[";
++			unsigned int ino;
+ 			char lnk[64];
++			int fd, n;
+ 
+ 			if (sscanf(d1->d_name, "%d%c", &fd, &crap) != 1)
+ 				continue;
+ 
+ 			sprintf(name+pos, "%d", fd);
+ 			n = readlink(name, lnk, sizeof(lnk)-1);
+-			if (n != pattern_len ||
+-			    memcmp(lnk, pattern, n))
++			if (strncmp(lnk, pattern, strlen(pattern)))
+ 				continue;
+ 
+-			if (ptr-buf >= buflen-1)
+-				break;
++			sscanf(lnk, "socket:[%u]", &ino);
+ 
+-			if (process[0] == 0) {
++			if (process[0] == '\0') {
+ 				char tmp[1024];
+ 				FILE *fp;
+-				snprintf(tmp, sizeof(tmp), "%s/%d/stat",
+-					 getenv("PROC_ROOT") ? : "/proc", pid);
++
++				snprintf(tmp, sizeof(tmp), "%s/%d/stat", root, pid);
+ 				if ((fp = fopen(tmp, "r")) != NULL) {
+ 					fscanf(fp, "%*d (%[^)])", process);
+ 					fclose(fp);
+ 				}
+ 			}
+ 
+-			snprintf(ptr, buflen-(ptr-buf), "(\"%s\",%d,%d),", process, pid, fd);
+-			ptr += strlen(ptr);
+-			cnt++;
++			user_ent_add(ino, process, pid, fd);
+ 		}
+ 		closedir(dir1);
+ 	}
+ 	closedir(dir);
++}
++
++int find_users(unsigned ino, char *buf, int buflen)
++{
++	struct user_ent *p;
++	int cnt = 0;
++	char *ptr;
++
++	if (!ino)
++		return 0;
++
++	p = user_ent_hash[user_ent_hashfn(ino)];
++	ptr = buf;
++	while (p) {
++		if (p->ino != ino)
++			goto next;
++
++		if (ptr - buf >= buflen - 1)
++			break;
++
++		snprintf(ptr, buflen - (ptr - buf),
++			 "(\"%s\",%d,%d),",
++			 p->process, p->pid, p->fd);
++		ptr += strlen(ptr);
++		cnt++;
++
++	next:
++		p = p->next;
++	}
++
+ 	if (ptr != buf)
+-		ptr[-1] = 0;
++		ptr[-1] = '\0';
++
+ 	return cnt;
+ }
+ 
+-
+ /* Get stats from slab */
+ 
+ struct slabstat
+@@ -2476,6 +2533,7 @@ int main(int argc, char *argv[])
+ 			break;
+ 		case 'p':
+ 			show_users++;
++			user_ent_hash_build();
+ 			break;
+ 		case 'd':
+ 			current_filter.dbs |= (1<<DCCP_DB);
