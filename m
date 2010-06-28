@@ -1,84 +1,62 @@
-From: James Courtier-Dutton <james.dutton@gmail.com>
-Subject: Re: b44: Reset due to FIFO overflow.
-Date: Mon, 28 Jun 2010 11:24:32 +0100
-Message-ID: <AANLkTik6YBO7bVAy0NjdQGomYBsY-e8PqZ3-Je_vyx7B@mail.gmail.com>
-References: <AANLkTinwnTw3Yqy3POghliZDRmRYUfJL6Gy67GNNLiYv@mail.gmail.com>
-	<1277716394.4235.235.camel@edumazet-laptop>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: Re: [RFC][BUG-FIX] the problem of checksum checking in UDP protocol
+Date: Mon, 28 Jun 2010 18:49:36 +0800
+Message-ID: <4C287E40.40906@cn.fujitsu.com>
+References: <4C19E634.3030703@cn.fujitsu.com> <1277530086.2481.15.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"Ronciak, John" <john.ronciak@intel.com>, netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:48642 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751921Ab0F1KYe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jun 2010 06:24:34 -0400
-Received: by fxm14 with SMTP id 14so502344fxm.19
-        for <netdev@vger.kernel.org>; Mon, 28 Jun 2010 03:24:32 -0700 (PDT)
-In-Reply-To: <1277716394.4235.235.camel@edumazet-laptop>
+Received: from cn.fujitsu.com ([222.73.24.84]:53758 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751589Ab0F1KvU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jun 2010 06:51:20 -0400
+In-Reply-To: <1277530086.2481.15.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 28 June 2010 10:13, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> Hi
->
-> Problem is we dont know if a Receive Fifo overflow is a minor or majo=
-r
-> indication from b44 chip.
->
-> A minor indication would be : Chip tells us one or more frame were lo=
-st.
-> No special action needed from driver.
->
-> A major indication (as of current implemented in b44 driver) is :
-> I am completely out of order and need a reset. Please do it.
->
-> Patch to switch from major to minor indication is easy, but we dont k=
-now
-> if its valid or not.
->
-> diff --git a/drivers/net/b44.h b/drivers/net/b44.h
-> index e1905a4..514dc3a 100644
-> --- a/drivers/net/b44.h
-> +++ b/drivers/net/b44.h
-> @@ -42,7 +42,7 @@
-> =C2=A0#define =C2=A0ISTAT_EMAC =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A00x04000000 /* EMAC Interrupt */
-> =C2=A0#define =C2=A0ISTAT_MII_WRITE =C2=A0 =C2=A0 =C2=A0 0x08000000 /=
-* MII Write Interrupt */
-> =C2=A0#define =C2=A0ISTAT_MII_READ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A00x10000000 /* MII Read Interrupt */
-> -#define =C2=A0ISTAT_ERRORS (ISTAT_DSCE|ISTAT_DATAE|ISTAT_DPE|ISTAT_R=
-DU|ISTAT_RFO|ISTAT_TFU)
-> +#define =C2=A0ISTAT_ERRORS (ISTAT_DSCE|ISTAT_DATAE|ISTAT_DPE|ISTAT_R=
-DU|ISTAT_TFU)
-> =C2=A0#define B44_IMASK =C2=A0 =C2=A0 =C2=A00x0024UL /* Interrupt Mas=
-k */
-> =C2=A0#define =C2=A0IMASK_DEF =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- (ISTAT_ERRORS | ISTAT_TO | ISTAT_RX | ISTAT_TX)
-> =C2=A0#define B44_GPTIMER =C2=A0 =C2=A00x0028UL /* General Purpose Ti=
-mer */
->
->
->
+Eric Dumazet wrote, at 06/26/2010 01:28 PM:
+>> (This patch is not complete, it's just for my idea.)
+>> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+>> index 1dd1aff..47f7e86 100644
+>> --- a/net/ipv6/udp.c
+>> +++ b/net/ipv6/udp.c
+>> @@ -723,6 +723,10 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+>>                 if (ulen < skb->len) {
+>>                         if (pskb_trim_rcsum(skb, ulen))
+>>                                 goto short_packet;
+>> +
+>> +                       if (skb_csum_unnecessary(skb))
+>> +                               skb->ip_summed = CHECKSUM_NONE;
+>> +
+>>                         saddr = &ipv6_hdr(skb)->saddr;
+>>                         daddr = &ipv6_hdr(skb)->daddr;
+>>                         uh = udp_hdr(skb);
+>>
+> 
+> I really dont know if this fix is the right one.
+> 
+> pskb_trim_rcsum() already contains a check. Should this check be changed
+> to include yours ?
 
-Ok, are you saying that all I have to do is apply this patch,
-reproduce the problem condition, and if it recovers OK, then we can go
-with this fix?
-If so, I will try it out after work.
+Oh..... I don't think so.
+pskb_trim_rcsum() is also used when IPv4/IPv6 protocol receiving packets
+and reassembling fragments. IP protocol does the right check and should
+trust CHECKSUM_UNNECESSARY flag that drivers set, So we no need to 
+change IP protocol.
+If we add the skb_csum_unnecessary(skb) check into pskb_trim_rcsum() and
+reset ip_summed with CHECKSUM_NONE, the checksum check that NIC hardward 
+has done is wasted.
 
-I will probably add a printk in before the ISTAT_ERRORS test, to
-inform me when that ISTAT_RFO has actually happened.
+Only for UDP protocol over IPv4/IPv6, and length parameter is lower than
+skb->len, We reset ip_summed with CHECKSUM_NONE.
 
-But is doing nothing the right thing?
-I would have thought that one would have to at least start and stop
-the FIFO in order for the write/read pointers to be in the correct
-positions or at least change the read pointer to do the equivalent of
-flush the buffer.
-Is there any of this sort of control over the FIFO possible?
 
-Kind Regards
+-- 
+Best Regards
+-----
+Shan Wei
 
-James
