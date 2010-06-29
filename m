@@ -1,89 +1,156 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [iproute2] iproute2: Allow 'ip addr flush' to loop more than
- 10 times.
-Date: Tue, 29 Jun 2010 08:10:43 -0700
-Message-ID: <4C2A0CF3.9020204@candelatech.com>
-References: <1277790959-28075-1-git-send-email-greearb@candelatech.com>	<20100628.231204.229752207.davem@davemloft.net>	<4C29925B.9090008@candelatech.com> <20100628.233600.242129599.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: greearb@gmail.com, netdev@vger.kernel.org
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH v3] fragment: add fast path for in-order fragments
+Date: Tue, 29 Jun 2010 22:39:37 +0800
+Message-ID: <1277822377-742-1-git-send-email-xiaosuo@gmail.com>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	Mitchell Erblich <erblichs@earthlink.net>,
+	Changli Gao <xiaosuo@gmail.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:34713 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756522Ab0F2PKu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 11:10:50 -0400
-In-Reply-To: <20100628.233600.242129599.davem@davemloft.net>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:59307 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756503Ab0F2PMP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 11:12:15 -0400
+Received: by pwj8 with SMTP id 8so3880397pwj.19
+        for <netdev@vger.kernel.org>; Tue, 29 Jun 2010 08:12:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/28/2010 11:36 PM, David Miller wrote:
-> From: Ben Greear<greearb@candelatech.com>
-> Date: Mon, 28 Jun 2010 23:27:39 -0700
->
->> I'm not sure I understand how this loop could have run forever
->> anyway, unless some other process(es) was constantly adding
->> addresses at the same time?  Or maybe some ipv6 auto config thing?
->>
->> It appears there is already code to detect when the loop
->> is done (flushing ~70 IPv4 addresses with -l 0 was one of my
->> test cases, and worked as expected).
->
-> What happens is that we are simply limited by how many addresses
-> we can delete in one go, and that limit is 4096 bytes of netlink
-> message size.
->
-> So we have to iterate, reusing that buffer each time, to get them all
-> done.
->
-> The limit exists because meanwhile it is possible that some other
-> entity could add addresses and thus cause us to loop forever and
-> never actually delete all of the addresses because every time we
-> delete a bunch the other entity adds more.
->
-> I can understand the reasoning behind the limit, because if this is
-> run by something automated it's not like someone is at the command
-> line and hit Ctrl-C to break out of a looping instance.
->
-> But practically speaking I bet this never happens.
->
-> So what makes sense to me is:
->
-> 1) Loop forever by default.
->
-> 2) When the number of loops exceeds a threshold (calculated by the
->     number of addresses we see the first dump, divided by the number
->     of deletes we can squeeze into the 4096 byte message), we emit
->     a warning.
->
-> 3) A hard limit, off by default, it available via your "-l" new option.
->
-> But seriously we can determine forward progress quite easily I think.
->
-> Each loop, we see if the dump returns a smaller number of addresses
-> than the last iteration.  If so, we just keep going.
->
-> If the number of addresses increases, I think we can bail in this
-> case.
->
-> This logic would only ever trigger iff another entity is adding a
-> large number of addresses simultaneously with our flush.  And frankly
-> speaking the person doing the flush probably doesn't expect that to be
-> happening.  You're flushing all of the addresses so you can start with
-> a clean slate and then add specific addresses back, or whatever.
+add fast path for in-order fragments
 
-If I understand your proposal properly, this would seem to be
-somewhat O(N^2) if we have large numbers of addresses, and I'm
-hoping to support thousands of IPs with decent performance.
+As the fragments are sent in order in most of OSes, such as Windows, Darwin and
+FreeBSD, it is likely the new fragments are at the end of the inet_frag_queue.
+In the fast path, we check if the skb at the end of the inet_frag_queue is the
+prev we expect.
 
-What do you think about improving the kernel side so that we can send
-a single netlink msg to delete all addresses on an interface, and just
-let the kernel do the looping/locking needed to make it happen?
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+ include/net/inet_frag.h |    1 +
+ net/ipv4/ip_fragment.c  |   12 ++++++++++++
+ net/ipv6/reassembly.c   |   11 +++++++++++
+ 3 files changed, 24 insertions(+)
+diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+index 39f2dc9..16ff29a 100644
+--- a/include/net/inet_frag.h
++++ b/include/net/inet_frag.h
+@@ -20,6 +20,7 @@ struct inet_frag_queue {
+ 	atomic_t		refcnt;
+ 	struct timer_list	timer;      /* when will this queue expire? */
+ 	struct sk_buff		*fragments; /* list of received fragments */
++	struct sk_buff		*fragments_tail;
+ 	ktime_t			stamp;
+ 	int			len;        /* total length of orig datagram */
+ 	int			meat;
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index 858d346..dbe8999 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -314,6 +314,7 @@ static int ip_frag_reinit(struct ipq *qp)
+ 	qp->q.len = 0;
+ 	qp->q.meat = 0;
+ 	qp->q.fragments = NULL;
++	qp->q.fragments_tail = NULL;
+ 	qp->iif = 0;
+ 
+ 	return 0;
+@@ -386,6 +387,11 @@ static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
+ 	 * in the chain of fragments so far.  We must know where to put
+ 	 * this fragment, right?
+ 	 */
++	prev = qp->q.fragments_tail;
++	if (!prev || FRAG_CB(prev)->offset < offset) {
++		next = NULL;
++		goto found;
++	}
+ 	prev = NULL;
+ 	for (next = qp->q.fragments; next != NULL; next = next->next) {
+ 		if (FRAG_CB(next)->offset >= offset)
+@@ -393,6 +399,7 @@ static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
+ 		prev = next;
+ 	}
+ 
++found:
+ 	/* We found where to put this one.  Check for overlap with
+ 	 * preceding fragment, and, if needed, align things so that
+ 	 * any overlaps are eliminated.
+@@ -451,6 +458,8 @@ static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
+ 
+ 	/* Insert this fragment in the chain of fragments. */
+ 	skb->next = next;
++	if (!next)
++		qp->q.fragments_tail = skb;
+ 	if (prev)
+ 		prev->next = skb;
+ 	else
+@@ -504,6 +513,8 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
+ 			goto out_nomem;
+ 
+ 		fp->next = head->next;
++		if (!fp->next)
++			qp->q.fragments_tail = fp;
+ 		prev->next = fp;
+ 
+ 		skb_morph(head, qp->q.fragments);
+@@ -574,6 +585,7 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
+ 	iph->tot_len = htons(len);
+ 	IP_INC_STATS_BH(net, IPSTATS_MIB_REASMOKS);
+ 	qp->q.fragments = NULL;
++	qp->q.fragments_tail = NULL;
+ 	return 0;
+ 
+ out_nomem:
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index 0b97230..b832f7b 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -333,6 +333,11 @@ static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
+ 	 * in the chain of fragments so far.  We must know where to put
+ 	 * this fragment, right?
+ 	 */
++	prev = fq->q.fragments_tail;
++	if (!prev || FRAG6_CB(prev)->offset < offset) {
++		next = NULL;
++		goto found;
++	}
+ 	prev = NULL;
+ 	for(next = fq->q.fragments; next != NULL; next = next->next) {
+ 		if (FRAG6_CB(next)->offset >= offset)
+@@ -340,6 +345,7 @@ static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
+ 		prev = next;
+ 	}
+ 
++found:
+ 	/* We found where to put this one.  Check for overlap with
+ 	 * preceding fragment, and, if needed, align things so that
+ 	 * any overlaps are eliminated.
+@@ -397,6 +403,8 @@ static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
+ 
+ 	/* Insert this fragment in the chain of fragments. */
+ 	skb->next = next;
++	if (!next)
++		fq->q.fragments_tail = skb;
+ 	if (prev)
+ 		prev->next = skb;
+ 	else
+@@ -463,6 +471,8 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *prev,
+ 			goto out_oom;
+ 
+ 		fp->next = head->next;
++		if (!fp->next)
++			fq->q.fragments_tail = fp;
+ 		prev->next = fp;
+ 
+ 		skb_morph(head, fq->q.fragments);
+@@ -549,6 +559,7 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *prev,
+ 	IP6_INC_STATS_BH(net, __in6_dev_get(dev), IPSTATS_MIB_REASMOKS);
+ 	rcu_read_unlock();
+ 	fq->q.fragments = NULL;
++	fq->q.fragments_tail = NULL;
+ 	return 1;
+ 
+ out_oversize:
