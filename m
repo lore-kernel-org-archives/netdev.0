@@ -1,47 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [v4 Patch 2/2] mlx4: add dynamic LRO disable support
-Date: Mon, 28 Jun 2010 23:04:59 -0700 (PDT)
-Message-ID: <20100628.230459.232745316.davem@davemloft.net>
-References: <20100622085415.5566.22523.sendpatchset@localhost.localdomain>
-	<20100622085426.5566.51436.sendpatchset@localhost.localdomain>
+Subject: Re: [iproute2] iproute2: Allow 'ip addr flush' to loop more than
+ 10 times.
+Date: Mon, 28 Jun 2010 23:12:04 -0700 (PDT)
+Message-ID: <20100628.231204.229752207.davem@davemloft.net>
+References: <1277790959-28075-1-git-send-email-greearb@candelatech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sgruszka@redhat.com,
-	herbert.xu@redhat.com, bhutchings@solarflare.com,
-	Ramkrishna.Vepa@exar.com
-To: amwang@redhat.com
+Cc: netdev@vger.kernel.org, greearb@candelatech.com
+To: greearb@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53701
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49819
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751950Ab0F2GEs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 02:04:48 -0400
-In-Reply-To: <20100622085426.5566.51436.sendpatchset@localhost.localdomain>
+	by vger.kernel.org with ESMTP id S1751336Ab0F2GLv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 02:11:51 -0400
+In-Reply-To: <1277790959-28075-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amerigo Wang <amwang@redhat.com>
-Date: Tue, 22 Jun 2010 04:50:17 -0400
+From: greearb@gmail.com
+Date: Mon, 28 Jun 2010 22:55:59 -0700
 
+> From: Ben Greear <greearb@candelatech.com>
 > 
-> This patch adds dynamic LRO diable support for mlx4 net driver.
-> It also fixes a bug of mlx4, which checks NETIF_F_LRO flag in rx
-> path without rtnl lock.
+> The default remains at 10 for backwards compatibility.
 > 
-> (I don't have mlx4 card, so only did compiling test. Anyone who wants
-> to test this is more than welcome.)
+> For instance:
+>  # ip addr flush dev eth2
+>  *** Flush remains incomplete after 10 rounds. ***
+>  # ip -l 20 addr flush dev eth2
+>  *** Flush remains incomplete after 20 rounds. ***
+>  # ip -loops 0 addr flush dev eth2
+>  #
 > 
-> This is based on Neil's initial work too, and heavily modified based
-> on Stanislaw's suggestions.
+> This is useful for getting rid of large numbers of IP
+> addresses in scripts.
 > 
-> Signed-off-by: WANG Cong <amwang@redhat.com>
-> Signed-off-by: Neil Horman <nhorman@redhat.com>
-> Acked-by: Neil Horman <nhorman@redhat.com>
-> Reviewed-by: Stanislaw Gruszka <sgruszka@redhat.com>
-> Cc: Ben Hutchings <bhutchings@solarflare.com>
+> Signed-off-by: Ben Greear <greearb@candelatech.com>
 
-Applied to net-next-2.6
+I would suggest to instead add some logic to this code to detect that
+forward progress is being made.
 
-I'd really like the module options to just die as the dynamic
-ethtool mechanism should be the only knob for this for consistency
-with the rest of the drivers.
+I really don't see any value in having a hard limit that triggers on a
+bulk delete when no other address changing activity is happening in
+the system.
