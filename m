@@ -1,60 +1,62 @@
-From: Alexander Clouter <alex@digriz.org.uk>
-Subject: Re: [iproute2] iproute2:  Allow 'ip addr flush' to loop more than 10 times.
-Date: Tue, 29 Jun 2010 09:03:49 +0100
-Message-ID: <50mof7-b9p.ln1@chipmunk.wormnet.eu>
-References: <1277790959-28075-1-git-send-email-greearb@candelatech.com>
-To: netdev@vger.kernel.org
+From: James Courtier-Dutton <james.dutton@gmail.com>
+Subject: Re: b44: Reset due to FIFO overflow.
+Date: Tue, 29 Jun 2010 09:42:38 +0100
+Message-ID: <AANLkTilpvEEMH086gZPW3UqWEOWy7Jhtx_Mnqz99vBDb@mail.gmail.com>
+References: <AANLkTinwnTw3Yqy3POghliZDRmRYUfJL6Gy67GNNLiYv@mail.gmail.com>
+	<1277716394.4235.235.camel@edumazet-laptop>
+	<AANLkTik6YBO7bVAy0NjdQGomYBsY-e8PqZ3-Je_vyx7B@mail.gmail.com>
+	<1277723471.4235.393.camel@edumazet-laptop>
+	<AANLkTikVEwIj2Jjk8YMan4sHDNxpzhK3tlvpuAxYybSI@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:60400 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753896Ab0F2IaE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jun 2010 04:30:04 -0400
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1OTWCh-000771-Rz
-	for netdev@vger.kernel.org; Tue, 29 Jun 2010 10:30:03 +0200
-Received: from chipmunk.wormnet.eu ([195.195.131.226])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 29 Jun 2010 10:30:03 +0200
-Received: from alex by chipmunk.wormnet.eu with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 29 Jun 2010 10:30:03 +0200
+Received: from fg-out-1718.google.com ([72.14.220.155]:27333 "EHLO
+	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754025Ab0F2Imk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 04:42:40 -0400
+Received: by fg-out-1718.google.com with SMTP id 19so582971fgg.1
+        for <netdev@vger.kernel.org>; Tue, 29 Jun 2010 01:42:39 -0700 (PDT)
+In-Reply-To: <AANLkTikVEwIj2Jjk8YMan4sHDNxpzhK3tlvpuAxYybSI@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-greearb@gmail.com wrote:
-> 
-> The default remains at 10 for backwards compatibility.
-> 
-> For instance:
-> # ip addr flush dev eth2
-> *** Flush remains incomplete after 10 rounds. ***
-> # ip -l 20 addr flush dev eth2
-> *** Flush remains incomplete after 20 rounds. ***
-> # ip -loops 0 addr flush dev eth2
-> #
-> 
-> This is useful for getting rid of large numbers of IP
-> addresses in scripts.
-> 
-Maybe I am missing a trick, but what is wrong with putting this trivial 
-logic into the script:
+On 28 June 2010 22:37, James Courtier-Dutton <james.dutton@gmail.com> wrote:
+>
+> I tried the patch.
+> I also tried without the patch, but bypassed the hw reset in the RFO case.
+>
+> In both cases, the hardware did not recover from the overflow.
+> An "ifconfig eth0 down" then "ifconfig eth0 up" was required to bring
+> it back to life, I.e. A manual hw reset.
+>
+> What I did find is that once the RFO state is reached, it is not cleared.
+> I think we need to find a way to clear the RFO state.
+> The RFO state is cleared after a HW reset.
+>
+> Kind Regards
+>
+> James
+>
 
-ip addr show ${DEV} | awk '/inet6? / { print $2 }' | xargs -I{} ip addr del '{}' dev ${DEV}
+Under further analysis, I have found that RFO is not cleared by a
+write to bw32(bp, B44_ISTAT, istat);
+whereas most other conditions should be cleared by this.
 
-You can probably speed things up with '-P' too, '-P 2' gives me a huge 
-huge speed up for the work I do with 'ip route'.
+So, I went searching in the hardware reset functions for when the RFO
+was cleared.
 
-If you still have addresses on your interface after the above command, 
-your looping approach probably would have failed also.
+I found it:
+A call to this:
+ssb_device_enable(bp->sdev, 0)
+in the b44_chip_reset function is what actually clears the RFO.
+So, does anyone have any data sheets on the ssb ?
+The ssb looks to me like the DMA engine.
 
-Why the need to cram more functionality and options into iproute when 
-it is something that can be pushed into the wrapper script? 
+On a more positive note, if we can get the ssb to reset without the
+phy resetting, we could have our smooth recovery achieved.
 
-Cheers
+Kind Regards
 
--- 
-Alexander Clouter
-.sigmonster says: Lend money to a bad debtor and he will hate you.
-
+James
