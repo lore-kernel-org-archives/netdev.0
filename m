@@ -1,38 +1,89 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH net-next-2.6] snmp: 64bit ipstats_mib for all arches
-Date: Wed, 30 Jun 2010 00:07:14 +0900
-Message-ID: <4C2A0C22.4010202@linux-ipv6.org>
-References: <1277398051.2816.644.camel@edumazet-laptop> <1277819286.3531.555.camel@edumazet-laptop>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [iproute2] iproute2: Allow 'ip addr flush' to loop more than
+ 10 times.
+Date: Tue, 29 Jun 2010 08:10:43 -0700
+Message-ID: <4C2A0CF3.9020204@candelatech.com>
+References: <1277790959-28075-1-git-send-email-greearb@candelatech.com>	<20100628.231204.229752207.davem@davemloft.net>	<4C29925B.9090008@candelatech.com> <20100628.233600.242129599.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: greearb@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:32776 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755236Ab0F2PHR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 11:07:17 -0400
-In-Reply-To: <1277819286.3531.555.camel@edumazet-laptop>
+Received: from mail.candelatech.com ([208.74.158.172]:34713 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756522Ab0F2PKu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 11:10:50 -0400
+In-Reply-To: <20100628.233600.242129599.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 06/28/2010 11:36 PM, David Miller wrote:
+> From: Ben Greear<greearb@candelatech.com>
+> Date: Mon, 28 Jun 2010 23:27:39 -0700
+>
+>> I'm not sure I understand how this loop could have run forever
+>> anyway, unless some other process(es) was constantly adding
+>> addresses at the same time?  Or maybe some ipv6 auto config thing?
+>>
+>> It appears there is already code to detect when the loop
+>> is done (flushing ~70 IPv4 addresses with -l 0 was one of my
+>> test cases, and worked as expected).
+>
+> What happens is that we are simply limited by how many addresses
+> we can delete in one go, and that limit is 4096 bytes of netlink
+> message size.
+>
+> So we have to iterate, reusing that buffer each time, to get them all
+> done.
+>
+> The limit exists because meanwhile it is possible that some other
+> entity could add addresses and thus cause us to loop forever and
+> never actually delete all of the addresses because every time we
+> delete a bunch the other entity adds more.
+>
+> I can understand the reasoning behind the limit, because if this is
+> run by something automated it's not like someone is at the command
+> line and hit Ctrl-C to break out of a looping instance.
+>
+> But practically speaking I bet this never happens.
+>
+> So what makes sense to me is:
+>
+> 1) Loop forever by default.
+>
+> 2) When the number of loops exceeds a threshold (calculated by the
+>     number of addresses we see the first dump, divided by the number
+>     of deletes we can squeeze into the 4096 byte message), we emit
+>     a warning.
+>
+> 3) A hard limit, off by default, it available via your "-l" new option.
+>
+> But seriously we can determine forward progress quite easily I think.
+>
+> Each loop, we see if the dump returns a smaller number of addresses
+> than the last iteration.  If so, we just keep going.
+>
+> If the number of addresses increases, I think we can bail in this
+> case.
+>
+> This logic would only ever trigger iff another entity is adding a
+> large number of addresses simultaneously with our flush.  And frankly
+> speaking the person doing the flush probably doesn't expect that to be
+> happening.  You're flushing all of the addresses so you can start with
+> a clean slate and then add specific addresses back, or whatever.
 
-Thank you for doing this work!
+If I understand your proposal properly, this would seem to be
+somewhat O(N^2) if we have large numbers of addresses, and I'm
+hoping to support thousands of IPs with decent performance.
 
-Eric Dumazet wrote:
-> /proc/net/snmp and /proc/net/netstat expose SNMP counters.
-> 
-> Width of these counters is either 32 or 64 bits, depending on the size
-> of "unsigned long" in kernel.
-> 
-> This means user program parsing these files must already be prepared to
-> deal with 64bit values, regardless of user program being 32 or 64 bit.
+What do you think about improving the kernel side so that we can send
+a single netlink msg to delete all addresses on an interface, and just
+let the kernel do the looping/locking needed to make it happen?
 
-Well, I'm rather not in favor of breaking user-space apps.
-How about leaving legacy procfs as-is and fix netlink-side only?
+Thanks,
+Ben
 
---yoshfuji
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
