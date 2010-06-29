@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/9] New cxgb4vf network driver for Chelsio T4 Virtual
- Function NIC
-Date: Tue, 29 Jun 2010 00:01:42 -0700 (PDT)
-Message-ID: <20100629.000142.52193526.davem@davemloft.net>
-References: <201006251507.48604.leedom@chelsio.com>
+Subject: Re: [PATCH 1/2] caif: Kconfig and Makefile fixes
+Date: Tue, 29 Jun 2010 00:08:56 -0700 (PDT)
+Message-ID: <20100629.000856.13749890.davem@davemloft.net>
+References: <20100625.211223.232914661.davem@davemloft.net>
+	<1277587889-17314-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: leedom@chelsio.com
+Cc: sjurbr@gmail.com, netdev@vger.kernel.org, marcel@holtmann.org,
+	daniel.martensson@stericsson.com, linus.walleij@stericsson.com
+To: sjur.brandeland@stericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47806
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43136
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753281Ab0F2HB3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 03:01:29 -0400
-In-Reply-To: <201006251507.48604.leedom@chelsio.com>
+	by vger.kernel.org with ESMTP id S1752213Ab0F2HIo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 03:08:44 -0400
+In-Reply-To: <1277587889-17314-1-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: sjur.brandeland@stericsson.com
+Date: Sat, 26 Jun 2010 23:31:28 +0200
 
-Applied, but this submission was a mess.
+> From: Sjur Braendeland <sjur.brandeland@stericsson.com>
+> 
+> Use "depends on" instead of "if" in Kconfig files.
+> Fixed CAIF debug flag, and removed unnecessary clean-* options.
+> 
+> Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
-First, your email client broke up long lines in the patch
-with newlines, thus corrupting the patch.
-
-Secondly, patch #3 ("cxgb4vf: Add new macros and definitions for
-hardware constants") did not apply cleanly to net-next-2.6,
-there were line differences.
-
-I fixed these up, but next time I will just toss the patch
-set back at you to fix up.
+Applied.
