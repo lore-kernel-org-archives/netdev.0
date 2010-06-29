@@ -1,55 +1,45 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: [PATCH 1/1] Bluetooth: hidp: Add support for hidraw HIDIOCGFEATURE
- and HIDIOCSFEATURE
-Date: Tue, 29 Jun 2010 10:50:24 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1006291047560.13809@pobox.suse.cz>
-References: <1276467601-9066-1-git-send-email-alan@signal11.us> <20100628131437.bde782b6.ospite@studenti.unina.it> <20100629.001216.91341775.davem@davemloft.net>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: [PATCH -next] vmxnet3: fail when try to setup unsupported
+	features
+Date: Tue, 29 Jun 2010 11:15:20 +0200
+Message-ID: <20100629091519.GA2555@dhcp-lab-161.englab.brq.redhat.com>
+References: <20100628112942.0c919746@dhcp-lab-109.englab.brq.redhat.com> <89E2752CFA8EC044846EB8499819134102BCC3C10A@EXCH-MBX-4.vmware.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: ospite@studenti.unina.it, alan@signal11.us, marcel@holtmann.org,
-	mdpoole@troilus.org, hadess@hadess.net, eric.dumazet@gmail.com,
-	linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Amerigo Wang <amwang@redhat.com>
+To: Shreyas Bhatewara <sbhatewara@vmware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:40898 "EHLO mx1.suse.de"
+Received: from mx1.redhat.com ([209.132.183.28]:36862 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754241Ab0F2Iu1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jun 2010 04:50:27 -0400
-In-Reply-To: <20100629.001216.91341775.davem@davemloft.net>
+	id S1753912Ab0F2JQR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jun 2010 05:16:17 -0400
+Content-Disposition: inline
+In-Reply-To: <89E2752CFA8EC044846EB8499819134102BCC3C10A@EXCH-MBX-4.vmware.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 29 Jun 2010, David Miller wrote:
-
-> >> This patch adds support or getting and setting feature reports for bluetooth
-> >> HID devices from HIDRAW.
-> >> 
-> >> Signed-off-by: Alan Ott <alan@signal11.us>
-> >> ---
+On Mon, Jun 28, 2010 at 10:45:57AM -0700, Shreyas Bhatewara wrote:
+> > +vmxnet3_set_flags(struct net_device *netdev, u32 data)
+> > +{
+> >  	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
+> >  	u8 lro_requested = (data & ETH_FLAG_LRO) == 0 ? 0 : 1;
+> >  	u8 lro_present = (netdev->features & NETIF_F_LRO) == 0 ? 0 : 1;
 > > 
-> > Ping.
+> > +	if (data & ~ETH_FLAG_LRO)
+> > +		return -EOPNOTSUPP;
+> > +
+> >  	if (lro_requested ^ lro_present) {
+> >  		/* toggle the LRO feature*/
+> >  		netdev->features ^= NETIF_F_LRO;
+> > --
+> > 1.5.5.6
 > 
-> We effectively don't have a bluetooth maintainer at the current point in 
-> time.  I've tried to let patches sit for a while hoping the listed 
-> maintainer would do something, at least occaisionally, but that simply 
-> isn't happening.
+> 
+> Does not make sense to me. Switching LRO on/off is supported from the driver, why should the function return -EOPNOTSUPP ?
 
-Frankly, I don't understand what exactly the current situation with 
-in-kernel bluetooth stack is anyway. 
+We return EOPNOTSUPP only if someone will try to setup other features
+than LRO, if data == ETH_FLAG_LRO we will turn LRO on, and turn it off
+when data == 0. 
 
-What is the relation between what we have in net/bluetooth and the tree at 
-[1], which seems to be quite actively developed?
-
-> So I'll just pick patches up directly as I find time to review them, but 
-> I have to warn that for me it's going to be done in a very low priority 
-> way because I really don't find bluetooth all that exciting. :-)
-
-If needed, I can at least take over the net/bluetooth/hidp part, as I 
-maintain the rest of the HID code anyway.
-
-[1] http://git.kernel.org/?p=bluetooth/bluez.git;a=summary
-
--- 
-Jiri Kosina
-SUSE Labs, Novell Inc.
+Stanislaw
