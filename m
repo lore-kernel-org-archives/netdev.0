@@ -1,46 +1,53 @@
-From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-Subject: [PATCH] net/core: use htons for skb->protocol
-Date: Tue, 29 Jun 2010 18:32:46 +0200
-Message-ID: <20100629163246.GA18647@Chamillionaire.breakpoint.cc>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next] qlcnic: fail when try to setup unsupported
+ features
+Date: Tue, 29 Jun 2010 09:59:32 -0700 (PDT)
+Message-ID: <20100629.095932.186303178.davem@davemloft.net>
+References: <20100628161412.7d9d0e4f@dhcp-lab-109.englab.brq.redhat.com>
+	<1277734724.2089.10.camel@achroite.uk.solarflarecom.com>
+	<1277822484.2112.19.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sgruszka@redhat.com, amit.salecha@qlogic.com,
+	netdev@vger.kernel.org, amwang@redhat.com,
+	anirban.chakraborty@qlogic.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:43413 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756581Ab0F2Qcr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 12:32:47 -0400
-Received: id: bigeasy by Chamillionaire.breakpoint.cc with local
-	(easymta 1.00 BETA 1)
-	id 1OTdjq-0004vQ-FU
-	for netdev@vger.kernel.org; Tue, 29 Jun 2010 18:32:46 +0200
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38729
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932200Ab0F2Q7T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 12:59:19 -0400
+In-Reply-To: <1277822484.2112.19.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Tue, 29 Jun 2010 15:41:24 +0100
 
-This is only noticed by people that are not doing everything correct in
-the first place.
+> On Mon, 2010-06-28 at 15:18 +0100, Ben Hutchings wrote:
+>> On Mon, 2010-06-28 at 16:14 +0200, Stanislaw Gruszka wrote:
+>> [...]
+>> > My plan is something like that:
+>> > 
+>> > static const struct ethtool_ops my_ethtool_ops = {
+>> >         .get_flags              = ethtool_op_get_flags,
+>> >         .set_flags              = ethtool_op_set_flags,
+>> > 	.supported_flags	= ETH_FLAG_LRO
+>> > }
+>> > 
+>> > Plus op->supported_flags check in ethtool_op_set_flags. That will allow
+>> > to define flags per driver. There is also possible to add supported_flags
+>> > to netdev, but I would like to avoid that - in such case drivers can use
+>> > custom .set_flags function.
+>> 
+>> Sounds good to me.
+> 
+> On second thoughts, this is not going work - supported_flags may need to
+> be different for different chips handled by the same driver.  In fact,
+> this is already the case in sfc.  So I think you should do what I
+> suggested previously - add a supported_flags parameter to
+> ethtool_op_set_flags.
 
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
----
- net/core/dev.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 2b3bf53..78ad37c 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1541,7 +1541,8 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
- 				if (net_ratelimit())
- 					printk(KERN_CRIT "protocol %04x is "
- 					       "buggy, dev %s\n",
--					       skb2->protocol, dev->name);
-+					       htons(skb2->protocol),
-+					       dev->name);
- 				skb_reset_network_header(skb2);
- 			}
- 
--- 
-1.7.0.4
+I think this is necessary too, otherwise we'll need to have N copies of
+ethtool_ops in a driver in this situation.
