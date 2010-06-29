@@ -1,63 +1,61 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: Re: [PATCH -next] qlcnic: fail when try to setup unsupported
- features
-Date: Tue, 29 Jun 2010 17:00:25 +0200
-Message-ID: <20100629170025.7a130e28@dhcp-lab-109.englab.brq.redhat.com>
-References: <20100628113134.0c5208b0@dhcp-lab-109.englab.brq.redhat.com>
-	<99737F4847ED0A48AECC9F4A1974A4B80F82CB7D46@MNEXMB2.qlogic.org>
-	<20100628145819.74d22d5f@dhcp-lab-109.englab.brq.redhat.com>
-	<99737F4847ED0A48AECC9F4A1974A4B80F82CB7D4E@MNEXMB2.qlogic.org>
-	<20100628161412.7d9d0e4f@dhcp-lab-109.englab.brq.redhat.com>
-	<1277734724.2089.10.camel@achroite.uk.solarflarecom.com>
-	<1277822484.2112.19.camel@achroite.uk.solarflarecom.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [iproute2] iproute2:  Allow 'ip addr flush' to loop more than
+ 10 times.
+Date: Tue, 29 Jun 2010 08:04:34 -0700
+Message-ID: <4C2A0B82.7020701@candelatech.com>
+References: <1277790959-28075-1-git-send-email-greearb@candelatech.com> <50mof7-b9p.ln1@chipmunk.wormnet.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Amit Salecha <amit.salecha@qlogic.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Amerigo Wang <amwang@redhat.com>,
-	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev@vger.kernel.org
+To: Alexander Clouter <alex@digriz.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54692 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756410Ab0F2PAf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jun 2010 11:00:35 -0400
-In-Reply-To: <1277822484.2112.19.camel@achroite.uk.solarflarecom.com>
+Received: from mail.candelatech.com ([208.74.158.172]:35046 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755799Ab0F2PEp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 11:04:45 -0400
+In-Reply-To: <50mof7-b9p.ln1@chipmunk.wormnet.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 29 Jun 2010 15:41:24 +0100
-Ben Hutchings <bhutchings@solarflare.com> wrote:
+On 06/29/2010 01:03 AM, Alexander Clouter wrote:
+> greearb@gmail.com wrote:
+>>
+>> The default remains at 10 for backwards compatibility.
+>>
+>> For instance:
+>> # ip addr flush dev eth2
+>> *** Flush remains incomplete after 10 rounds. ***
+>> # ip -l 20 addr flush dev eth2
+>> *** Flush remains incomplete after 20 rounds. ***
+>> # ip -loops 0 addr flush dev eth2
+>> #
+>>
+>> This is useful for getting rid of large numbers of IP
+>> addresses in scripts.
+>>
+> Maybe I am missing a trick, but what is wrong with putting this trivial
+> logic into the script:
+>
+> ip addr show ${DEV} | awk '/inet6? / { print $2 }' | xargs -I{} ip addr del '{}' dev ${DEV}
 
-> On Mon, 2010-06-28 at 15:18 +0100, Ben Hutchings wrote:
-> > On Mon, 2010-06-28 at 16:14 +0200, Stanislaw Gruszka wrote:
-> > [...]
-> > > My plan is something like that:
-> > > 
-> > > static const struct ethtool_ops my_ethtool_ops = {
-> > >         .get_flags              = ethtool_op_get_flags,
-> > >         .set_flags              = ethtool_op_set_flags,
-> > > 	.supported_flags	= ETH_FLAG_LRO
-> > > }
-> > > 
-> > > Plus op->supported_flags check in ethtool_op_set_flags. That will allow
-> > > to define flags per driver. There is also possible to add supported_flags
-> > > to netdev, but I would like to avoid that - in such case drivers can use
-> > > custom .set_flags function.
-> > 
-> > Sounds good to me.
-> 
-> On second thoughts, this is not going work - supported_flags may need to
-> be different for different chips handled by the same driver.  
+This isn't going to be fast if you have thousands of addresses.
 
-I thought about driver custom ethtool_ops::set_flags in that case.
+> You can probably speed things up with '-P' too, '-P 2' gives me a huge
+> huge speed up for the work I do with 'ip route'.
 
-> In fact,
-> this is already the case in sfc.  So I think you should do what I
-> suggested previously - add a supported_flags parameter to
-> ethtool_op_set_flags.
+Where are you using the -P at?  It's not a supported option of 'ip'
+as far as I can tell.
 
-What about call from net/core/ethtool.c ? 
+> Why the need to cram more functionality and options into iproute when
+> it is something that can be pushed into the wrapper script?
 
-Stanislaw
+Speed and ease of use.
+
+Thanks,
+Ben
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
