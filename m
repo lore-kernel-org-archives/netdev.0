@@ -1,28 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] gianfar: Implement workaround for eTSEC74 erratum
-Date: Tue, 29 Jun 2010 15:16:26 -0700 (PDT)
-Message-ID: <20100629.151626.90794001.davem@davemloft.net>
-References: <20100629205959.GA10905@oksana.dev.rtsoft.ru>
+Subject: Re: [PATCH] net/core: use htons for skb->protocol
+Date: Tue, 29 Jun 2010 15:17:40 -0700 (PDT)
+Message-ID: <20100629.151740.135534374.davem@davemloft.net>
+References: <20100629163246.GA18647@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: manfred.rudigier@omicron.at, Sandeep.Kumar@freescale.com,
-	afleming@freescale.com, netdev@vger.kernel.org,
-	linuxppc-dev@ozlabs.org
-To: avorontsov@mvista.com
+Cc: netdev@vger.kernel.org
+To: sebastian@breakpoint.cc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41098
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39936
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756172Ab0F2WQN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 18:16:13 -0400
-In-Reply-To: <20100629205959.GA10905@oksana.dev.rtsoft.ru>
+	by vger.kernel.org with ESMTP id S1754537Ab0F2WR1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 18:17:27 -0400
+In-Reply-To: <20100629163246.GA18647@Chamillionaire.breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Date: Tue, 29 Jun 2010 18:32:46 +0200
 
-I really don't see any value at all to this config option,
-the errata fixup code should be there all the time.
+> From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+> 
+> This is only noticed by people that are not doing everything correct in
+> the first place.
+> 
+> Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-It really does no harm to be there in the cases where it isn't
-used, and forcing users to turn this on is just another
-obscure way to end up with an incorrect configuration.
+It's in network byte order so you should use ntohs().
