@@ -1,64 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] ipv4: sysctl to block responding on down
- interface
-Date: Mon, 28 Jun 2010 20:01:05 -0700 (PDT)
-Message-ID: <20100628.200105.115936568.davem@davemloft.net>
-References: <OF0640B724.BFF8DEB7-ONC1257750.00728ECF-C1257750.00742EFA@transmode.se>
-	<20100628.145744.39186500.davem@davemloft.net>
-	<OFA9AE9CDE.69224382-ONC1257750.007F44EA-C1257750.0081210A@transmode.se>
+Subject: Re: [RFC net-2.6 PATCH] ixgbe: need to purge skb qdisc lists when
+ changing real_num_tx_queues
+Date: Mon, 28 Jun 2010 21:19:30 -0700 (PDT)
+Message-ID: <20100628.211930.102546288.davem@davemloft.net>
+References: <20100621052520.2417.65984.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	shemminger@vyatta.com
-To: joakim.tjernlund@transmode.se
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com
+To: john.r.fastabend@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53713
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34965
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751501Ab0F2DAw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jun 2010 23:00:52 -0400
-In-Reply-To: <OFA9AE9CDE.69224382-ONC1257750.007F44EA-C1257750.0081210A@transmode.se>
+	by vger.kernel.org with ESMTP id S1750734Ab0F2ETR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 00:19:17 -0400
+In-Reply-To: <20100621052520.2417.65984.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Date: Tue, 29 Jun 2010 01:30:26 +0200
+From: John Fastabend <john.r.fastabend@intel.com>
+Date: Sun, 20 Jun 2010 22:25:20 -0700
 
-> This is an strict interpretation of the weak host model and does not
-> answer my questions. Mind to elaborate why such a strict view and
-> what is gained by answering on an IP address which has been "downed"?
+> This patch exports dev_deactivate() symbol.
+> 
+> The qdisc needs to be purged when real_num_tx_queues is
+> changed so that skbs do not hit ndo_start_xmit with
+> queue_mappings corresponding to tx_rings already freed.
+> 
+> real_num_tx_queues is changed when dynamically enabling or
+> disabling DCB or FCoE.  To purge the qdisc use dev_deactivate().
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 
-IP addresses are never "downed" just as your default route is not
-"downed" when you take down an interface.
+Whatever it is that needs to happen when real_num_tx_queues changes
+outght to be transparent to drivers.
 
-Rather, hosts are configured with an IP address and when they are so
-configured they respond to it and can generate local application
-sourced packets with that IP address as a source.
-
-And what this means is that even in situations where hosts are
-slightly mis-configured communication between them can still be
-possible.  That's the goal of the weak host model, to get a host
-respond to IP datagrams in every situation where such an act is
-plausible.
-
-All of the design decisions we've made in the networking in this area
-are meant to increase the likelyhood of successful communication
-between two hosts.
-
-And in the 10+ years this behavior has existed, I know for sure that
-people have ended up with a working networking because of the way we
-do things.
-
-So from that perspective it doesn't matter one iota what you or any
-other particular entity wish things to be, since 10+ years of having
-this behavior is ingrained enough that changing it is guarenteed to
-break someone's setup so we absolutely can't do it.
-
-This topic comes up at least once every few months, therefore someone
-should post a FAQ somewhere because it's tiring to explain over and
-over again why this is a good design decision and why the default
-behavior is never going to change.
-
-The RFCs allow both models equally, and just because many other
-system does things the other way doesn't make it any better or more
-valid than what Linux is doing.
+Therefore we should hide all of these details behind a well named
+interface drivers can call when they need to change real_num_tx_queues.
