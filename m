@@ -1,47 +1,46 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [iproute2] iproute2:  Allow 'ip addr flush' to loop more than
- 10 times.
-Date: Tue, 29 Jun 2010 09:30:57 -0700
-Message-ID: <4C2A1FC1.9010403@candelatech.com>
-References: <1277790959-28075-1-git-send-email-greearb@candelatech.com> <50mof7-b9p.ln1@chipmunk.wormnet.eu> <4C2A0B82.7020701@candelatech.com> <38hpf7-map.ln1@chipmunk.wormnet.eu>
+From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Subject: [PATCH] net/core: use htons for skb->protocol
+Date: Tue, 29 Jun 2010 18:32:46 +0200
+Message-ID: <20100629163246.GA18647@Chamillionaire.breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Alexander Clouter <alex@digriz.org.uk>
+Content-Type: text/plain; charset=iso-8859-15
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:34702 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755782Ab0F2QbI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 12:31:08 -0400
-In-Reply-To: <38hpf7-map.ln1@chipmunk.wormnet.eu>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:43413 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756581Ab0F2Qcr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 12:32:47 -0400
+Received: id: bigeasy by Chamillionaire.breakpoint.cc with local
+	(easymta 1.00 BETA 1)
+	id 1OTdjq-0004vQ-FU
+	for netdev@vger.kernel.org; Tue, 29 Jun 2010 18:32:46 +0200
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/29/2010 08:48 AM, Alexander Clouter wrote:
-> Ben Greear<greearb@candelatech.com>  wrote:
->>
->>>> This is useful for getting rid of large numbers of IP
->>>> addresses in scripts.
->>>>
->>> Maybe I am missing a trick, but what is wrong with putting this trivial
->>> logic into the script:
->>>
->>> ip addr show ${DEV} | awk '/inet6? / { print $2 }' | xargs -I{} ip addr del '{}' dev ${DEV}
->>
->> This isn't going to be fast if you have thousands of addresses.
->>
-> Obviously not like-for-like but:
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-You might try comparing against -batch mode v/s individual
-calls to ip.
+This is only noticed by people that are not doing everything correct in
+the first place.
 
-I'd enjoy adding/removing thousands of IP addrs in < 1 second,
-but got a bit of work to do before I get there I think.
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ net/core/dev.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-Thanks,
-Ben
-
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 2b3bf53..78ad37c 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1541,7 +1541,8 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
+ 				if (net_ratelimit())
+ 					printk(KERN_CRIT "protocol %04x is "
+ 					       "buggy, dev %s\n",
+-					       skb2->protocol, dev->name);
++					       htons(skb2->protocol),
++					       dev->name);
+ 				skb_reset_network_header(skb2);
+ 			}
+ 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+1.7.0.4
