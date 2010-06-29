@@ -1,62 +1,55 @@
-From: James Courtier-Dutton <james.dutton@gmail.com>
-Subject: Re: b44: Reset due to FIFO overflow.
-Date: Tue, 29 Jun 2010 09:42:38 +0100
-Message-ID: <AANLkTilpvEEMH086gZPW3UqWEOWy7Jhtx_Mnqz99vBDb@mail.gmail.com>
-References: <AANLkTinwnTw3Yqy3POghliZDRmRYUfJL6Gy67GNNLiYv@mail.gmail.com>
-	<1277716394.4235.235.camel@edumazet-laptop>
-	<AANLkTik6YBO7bVAy0NjdQGomYBsY-e8PqZ3-Je_vyx7B@mail.gmail.com>
-	<1277723471.4235.393.camel@edumazet-laptop>
-	<AANLkTikVEwIj2Jjk8YMan4sHDNxpzhK3tlvpuAxYybSI@mail.gmail.com>
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: Re: [PATCH 1/1] Bluetooth: hidp: Add support for hidraw HIDIOCGFEATURE
+ and HIDIOCSFEATURE
+Date: Tue, 29 Jun 2010 10:50:24 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1006291047560.13809@pobox.suse.cz>
+References: <1276467601-9066-1-git-send-email-alan@signal11.us> <20100628131437.bde782b6.ospite@studenti.unina.it> <20100629.001216.91341775.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: ospite@studenti.unina.it, alan@signal11.us, marcel@holtmann.org,
+	mdpoole@troilus.org, hadess@hadess.net, eric.dumazet@gmail.com,
+	linux-bluetooth@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fg-out-1718.google.com ([72.14.220.155]:27333 "EHLO
-	fg-out-1718.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754025Ab0F2Imk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 04:42:40 -0400
-Received: by fg-out-1718.google.com with SMTP id 19so582971fgg.1
-        for <netdev@vger.kernel.org>; Tue, 29 Jun 2010 01:42:39 -0700 (PDT)
-In-Reply-To: <AANLkTikVEwIj2Jjk8YMan4sHDNxpzhK3tlvpuAxYybSI@mail.gmail.com>
+Received: from cantor.suse.de ([195.135.220.2]:40898 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754241Ab0F2Iu1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jun 2010 04:50:27 -0400
+In-Reply-To: <20100629.001216.91341775.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 28 June 2010 22:37, James Courtier-Dutton <james.dutton@gmail.com> wrote:
->
-> I tried the patch.
-> I also tried without the patch, but bypassed the hw reset in the RFO case.
->
-> In both cases, the hardware did not recover from the overflow.
-> An "ifconfig eth0 down" then "ifconfig eth0 up" was required to bring
-> it back to life, I.e. A manual hw reset.
->
-> What I did find is that once the RFO state is reached, it is not cleared.
-> I think we need to find a way to clear the RFO state.
-> The RFO state is cleared after a HW reset.
->
-> Kind Regards
->
-> James
->
+On Tue, 29 Jun 2010, David Miller wrote:
 
-Under further analysis, I have found that RFO is not cleared by a
-write to bw32(bp, B44_ISTAT, istat);
-whereas most other conditions should be cleared by this.
+> >> This patch adds support or getting and setting feature reports for bluetooth
+> >> HID devices from HIDRAW.
+> >> 
+> >> Signed-off-by: Alan Ott <alan@signal11.us>
+> >> ---
+> > 
+> > Ping.
+> 
+> We effectively don't have a bluetooth maintainer at the current point in 
+> time.  I've tried to let patches sit for a while hoping the listed 
+> maintainer would do something, at least occaisionally, but that simply 
+> isn't happening.
 
-So, I went searching in the hardware reset functions for when the RFO
-was cleared.
+Frankly, I don't understand what exactly the current situation with 
+in-kernel bluetooth stack is anyway. 
 
-I found it:
-A call to this:
-ssb_device_enable(bp->sdev, 0)
-in the b44_chip_reset function is what actually clears the RFO.
-So, does anyone have any data sheets on the ssb ?
-The ssb looks to me like the DMA engine.
+What is the relation between what we have in net/bluetooth and the tree at 
+[1], which seems to be quite actively developed?
 
-On a more positive note, if we can get the ssb to reset without the
-phy resetting, we could have our smooth recovery achieved.
+> So I'll just pick patches up directly as I find time to review them, but 
+> I have to warn that for me it's going to be done in a very low priority 
+> way because I really don't find bluetooth all that exciting. :-)
 
-Kind Regards
+If needed, I can at least take over the net/bluetooth/hidp part, as I 
+maintain the rest of the HID code anyway.
 
-James
+[1] http://git.kernel.org/?p=bluetooth/bluez.git;a=summary
+
+-- 
+Jiri Kosina
+SUSE Labs, Novell Inc.
