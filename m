@@ -1,57 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 2/2] caif-driver: Add CAIF-SPI Protocol driver.
-Date: Tue, 29 Jun 2010 00:10:20 -0700 (PDT)
-Message-ID: <20100629.001020.58427550.davem@davemloft.net>
-References: <20100625.211223.232914661.davem@davemloft.net>
-	<1277587889-17314-1-git-send-email-sjur.brandeland@stericsson.com>
-	<1277587889-17314-2-git-send-email-sjur.brandeland@stericsson.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/1] Bluetooth: hidp: Add support for hidraw
+ HIDIOCGFEATURE and HIDIOCSFEATURE
+Date: Tue, 29 Jun 2010 00:12:16 -0700 (PDT)
+Message-ID: <20100629.001216.91341775.davem@davemloft.net>
+References: <1276467601-9066-1-git-send-email-alan@signal11.us>
+	<20100628131437.bde782b6.ospite@studenti.unina.it>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sjurbr@gmail.com, netdev@vger.kernel.org, marcel@holtmann.org,
-	daniel.martensson@stericsson.com, linus.walleij@stericsson.com
-To: sjur.brandeland@stericsson.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43141
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752729Ab0F2HKG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 03:10:06 -0400
-In-Reply-To: <1277587889-17314-2-git-send-email-sjur.brandeland@stericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, jkosina-AlSwsSmVLrQ@public.gmane.org,
+	mdpoole-IZmAEv5cUt1AfugRpC6u6w@public.gmane.org, hadess-0MeiytkfxGOsTnJN9+BGXg@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: ospite-aNJ+ML1ZbiP93QAQaVx+gl6hYfS7NtTn@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100628131437.bde782b6.ospite-aNJ+ML1ZbiP93QAQaVx+gl6hYfS7NtTn@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: sjur.brandeland@stericsson.com
-Date: Sat, 26 Jun 2010 23:31:29 +0200
+From: Antonio Ospite <ospite-aNJ+ML1ZbiP93QAQaVx+gl6hYfS7NtTn@public.gmane.org>
+Date: Mon, 28 Jun 2010 13:14:37 +0200
 
-> From: Sjur Braendeland <sjur.brandeland@stericsson.com>
+> On Sun, 13 Jun 2010 18:20:01 -0400
+> Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org> wrote:
 > 
-> This patch introduces the CAIF SPI Protocol Driver for
-> CAIF Link Layer.
+>> This patch adds support or getting and setting feature reports for bluetooth
+>> HID devices from HIDRAW.
+>> 
+>> Signed-off-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+>> ---
 > 
-> This driver implements a platform driver to accommodate for a
-> platform specific SPI device. A general platform driver is not
-> possible as there are no SPI Slave side Kernel API defined.
-> A sample CAIF SPI Platform device can be found in
-> .../Documentation/networking/caif/spi_porting.txt
-> 
-> Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
+> Ping.
 
-Applied, but:
+We effectively don't have a bluetooth maintainer at the current point
+in time.  I've tried to let patches sit for a while hoping the listed
+maintainer would do something, at least occaisionally, but that simply
+isn't happening.
 
-> +
-> +config CAIF_SPI_SYNC
-> +	bool "Next command and length in start of frame"
-> +	depends on CAIF_SPI_SLAVE
-> +	default n
-> +	---help---
-> +	Putting the next command and length in the start of the frame can
-> +	help to synchronize to the next transfer in case of over or under-runs.
-> +	This option also needs to be enabled on the modem.
-> +
-
-This adds an extra new-line at the end of the file, which I corrected
-when applying this.
-
-GIT warns when trying to apply a patch with this problem,
-checkpatch.pl probably does too, so you really can (in an automated
-way) prevent these things from showing up in your submission.
+So I'll just pick patches up directly as I find time to review them,
+but I have to warn that for me it's going to be done in a very low
+priority way because I really don't find bluetooth all that exciting. :-)
