@@ -1,46 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [iproute2] iproute2: Allow 'ip addr flush' to loop more than
- 10 times.
-Date: Mon, 28 Jun 2010 23:12:04 -0700 (PDT)
-Message-ID: <20100628.231204.229752207.davem@davemloft.net>
-References: <1277790959-28075-1-git-send-email-greearb@candelatech.com>
+Subject: Re: [PATCH net-next-2.6 2/2] 3c59x: Use fine-grained locks for MII
+ and windowed register access
+Date: Mon, 28 Jun 2010 23:18:12 -0700 (PDT)
+Message-ID: <20100628.231812.35040625.davem@davemloft.net>
+References: <20100624140057.GJ5570@secunet.com>
+	<1277426759.26161.179.camel@localhost>
+	<20100625082447.GK5570@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, greearb@candelatech.com
-To: greearb@gmail.com
+Cc: ben@decadent.org.uk, netdev@vger.kernel.org,
+	chase.douglas@canonical.com, nordmark@mech.kth.se
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49819
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47962
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751336Ab0F2GLv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 02:11:51 -0400
-In-Reply-To: <1277790959-28075-1-git-send-email-greearb@candelatech.com>
+	by vger.kernel.org with ESMTP id S1752045Ab0F2GSC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 02:18:02 -0400
+In-Reply-To: <20100625082447.GK5570@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: greearb@gmail.com
-Date: Mon, 28 Jun 2010 22:55:59 -0700
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Fri, 25 Jun 2010 10:24:47 +0200
 
-> From: Ben Greear <greearb@candelatech.com>
-> 
-> The default remains at 10 for backwards compatibility.
-> 
-> For instance:
->  # ip addr flush dev eth2
->  *** Flush remains incomplete after 10 rounds. ***
->  # ip -l 20 addr flush dev eth2
->  *** Flush remains incomplete after 20 rounds. ***
->  # ip -loops 0 addr flush dev eth2
->  #
-> 
-> This is useful for getting rid of large numbers of IP
-> addresses in scripts.
-> 
-> Signed-off-by: Ben Greear <greearb@candelatech.com>
+> These locks are not needed, why you want to have them arround?
 
-I would suggest to instead add some logic to this code to detect that
-forward progress is being made.
+Steffen I think you are being overly picky of Ben's changes.
 
-I really don't see any value in having a hard limit that triggers on a
-bulk delete when no other address changing activity is happening in
-the system.
+I'd rather have too much locking during device probe and
+initialization than a subtle bug that occurs because later on someone
+decides to move IRQ enabling earlier in the chip init path and now
+we get strange hangs that take forever to diagnose.
+
+I mean, extra locking in probe/init paths... ugh, there are so many
+more important things to worry about!
+
+Once Ben posts a new version of this second patch with the
+proper spin_lock_init() calls added I am going to apply both
+of his changes.
