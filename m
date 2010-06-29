@@ -1,39 +1,44 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: Re: [RFC][BUG-FIX] the problem of checksum checking in UDP protocol
-Date: Tue, 29 Jun 2010 14:39:39 +0800
-Message-ID: <4C29952B.6070704@cn.fujitsu.com>
-References: <4C19E634.3030703@cn.fujitsu.com>	 <1277530086.2481.15.camel@edumazet-laptop>  <4C287E40.40906@cn.fujitsu.com> <1277757512.4235.750.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] s2io: read rx_packets count from the hardware stats
+Date: Mon, 28 Jun 2010 23:52:23 -0700 (PDT)
+Message-ID: <20100628.235223.191401839.davem@davemloft.net>
+References: <20100624233230.5864.67401.stgit@leela.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"Ronciak, John" <john.ronciak@intel.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Ramkrishna.Vepa@exar.com,
+	sivakumar.subramani@exar.com, sreenivasa.honnur@exar.com
+To: mschmidt@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:54416 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751629Ab0F2Glc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 02:41:32 -0400
-In-Reply-To: <1277757512.4235.750.camel@edumazet-laptop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59196
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751967Ab0F2GwK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 02:52:10 -0400
+In-Reply-To: <20100624233230.5864.67401.stgit@leela.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote, at 06/29/2010 04:38 AM:
-> If a change is needed, I would vote for a change in NIC firmware,
+From: Michal Schmidt <mschmidt@redhat.com>
+Date: Fri, 25 Jun 2010 01:32:32 +0200
 
-Eric, thanks for your explanation very much.
+> Most of the statistics the s2io driver provides in /proc/net/dev
+> it reads directly from the hardware counters. For some reason it does
+> not do that for rx_packets. It counts rx_packets purely in software.
+> 
+> A customer reported a bug where in /proc/net/dev the 'multicast' counter
+> was increasing faster than 'packets' ( = rx_packets in the source code).
+> This confuses userspace, especially snmpd.
+> 
+> The hardware provides a counter for the total number of received
+> frames (RMAC_VLD_FRMS) which the driver can use for the rx_packets
+> statistic. By reading both statistics from the hardware it makes sure
+> that all multicast frames are included in the total.
+> 
+> The customer tested a patch like this (only modified for RHEL5) with
+> S2io Inc. Xframe II 10Gbps Ethernet (rev 02)
+> and it fixed the problem.
+> 
+> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
 
-My solution is ugly. Modify UDP protocol stack is just a way to circumv=
-ent.=20
-Most in need of modification should be the NIC's fireware.=E3=80=80Howe=
-ver,
-such as the e1000e network card for years, and no serious problems have=
- been reported.
-
-So, I think this thread can be closed now.
-
---=20
-Best Regards
------
-Shan Wei
-
+Please also use the rmac_data_octets HW statistic for rx_bytes
+otherwise rx_bytes will be out of sync with the other stats too.
