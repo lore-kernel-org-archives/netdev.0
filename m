@@ -1,35 +1,35 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net-next-2.6 2/2] 3c59x: Use fine-grained locks for MII
- and windowed register access
-Date: Tue, 29 Jun 2010 08:39:32 +0200
-Message-ID: <20100629063932.GA10072@secunet.com>
-References: <20100624140057.GJ5570@secunet.com>
- <1277426759.26161.179.camel@localhost>
- <20100625082447.GK5570@secunet.com>
- <20100628.231812.35040625.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] act_mirred: don't clone skb when skb isn't shared
+Date: Mon, 28 Jun 2010 23:38:41 -0700 (PDT)
+Message-ID: <20100628.233841.27800650.davem@davemloft.net>
+References: <1277432712-2869-1-git-send-email-xiaosuo@gmail.com>
+	<1277469551.5438.0.camel@bigi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ben@decadent.org.uk, netdev@vger.kernel.org,
-	chase.douglas@canonical.com, nordmark@mech.kth.se
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: xiaosuo@gmail.com, netdev@vger.kernel.org
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:38930 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752363Ab0F2GiL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jun 2010 02:38:11 -0400
-Content-Disposition: inline
-In-Reply-To: <20100628.231812.35040625.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37664
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752928Ab0F2Gi2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 02:38:28 -0400
+In-Reply-To: <1277469551.5438.0.camel@bigi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 28, 2010 at 11:18:12PM -0700, David Miller wrote:
+From: jamal <hadi@cyberus.ca>
+Date: Fri, 25 Jun 2010 08:39:11 -0400
+
+> On Fri, 2010-06-25 at 10:25 +0800, Changli Gao wrote:
+>> don't clone skb when skb isn't shared
+>> 
+>> When the tcf_action is TC_ACT_STOLEN, and the skb isn't shared, we don't need
+>> to clone a new skb. As the skb will be freed after this function returns, we
+>> can use it freely once we get a reference to it.
+>> 
+>> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 > 
-> Once Ben posts a new version of this second patch with the
-> proper spin_lock_init() calls added I am going to apply both
-> of his changes.
+> Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
 
-Yes, of course apply them. It was just a recommendation to avoid the locks
-in the cases they are not needed. These patches are a real improvement,
-so I'm fine with them.
-
-Steffen
+Applied.
