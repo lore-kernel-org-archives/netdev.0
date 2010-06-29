@@ -1,43 +1,59 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: [PATCH net-next-2.6] ipv4: sysctl to block responding on down interface
-Date: Tue, 29 Jun 2010 01:30:26 +0200
-Message-ID: <OFA9AE9CDE.69224382-ONC1257750.007F44EA-C1257750.0081210A@transmode.se>
-References: <OF62B30BCC.F8523B86-ONC1257750.00687496-C1257750.0068AA27@transmode.se>	<1277754121.4235.673.camel@edumazet-laptop>
-	<OF0640B724.BFF8DEB7-ONC1257750.00728ECF-C1257750.00742EFA@transmode.se> <20100628.145744.39186500.davem@davemloft.net>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: IGB driver upgrade
+Date: Mon, 28 Jun 2010 17:00:18 -0700
+Message-ID: <4C293792.6070508@intel.com>
+References: <AANLkTim6kfnr6yNeUXlLHOztB-qjyvj50D4p7nebqj9r@mail.gmail.com> <AANLkTinUoQG4BWC4Q2UFDwGvAwYujlUXz6P-ZLkZozaQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	shemminger@vyatta.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: sbs <gexlie@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:50518 "EHLO gw1.transmode.se"
+Received: from mga14.intel.com ([143.182.124.37]:5401 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752300Ab0F1Xa5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jun 2010 19:30:57 -0400
-In-Reply-To: <20100628.145744.39186500.davem@davemloft.net>
+	id S1753620Ab0F2AAU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jun 2010 20:00:20 -0400
+In-Reply-To: <AANLkTinUoQG4BWC4Q2UFDwGvAwYujlUXz6P-ZLkZozaQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote on 2010/06/28 23:57:44:
->
-> From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-> Date: Mon, 28 Jun 2010 23:09:02 +0200
->
-> > To me it "ifconfig eth0 down" means not only to stop using the I/F
-> > but also any IP address associated with the I/F.
->
-> IP addresses are associated with the host, not a particular interface.
->
-> Therefore the state of the interface should not influence the behavior
-> of the IP address.
->
-> If you want the IP address to stop being responded to, delete the IP
-> address.
+sbs wrote:
+> Hello guys.
+> 
+> Is it possible to upgrade intel gigabit adapter's e1000 driver to
+> 2.2.9? This is the latest version according to Intel website.
+> 
+I assume you are referring to the igb driver since that is what is in 
+the subject and not the e1000 driver correct?
 
-This is an strict interpretation of the weak host model and does not
-answer my questions. Mind to elaborate why such a strict view and
-what is gained by answering on an IP address which has been "downed"?
-What types of apps use this property?
+> I've got a problem with 2.1.0-k2 drivers statically compiled into kernel.
+> 
+> Surely I can download drivers from intel and compile it as module, but
+> I need to compile it statically
+> Intel drivers do not provide sources for static compilation :(
+> 
+> Is it possible to upgrade drivers to igb-2.2.9 in the source tree and
+> allow the static compilation of them?
+> 
+Normally the upstream driver should be up to date with any fixes that 
+are in the standalone module.  What version of the kernel are you 
+currently running?  Also have your tried testing the older standalone 
+igb modules to see if the same issues exist there in either igb 2.1.9 or 
+  igb 2.0.6?  This would help us to determine what changes in the 
+standalone module might be missing from the in-kernel version of the driver.
 
- Jocke
+> Because having 2.1.0-k2 we experience some strange random freezes with
+> network interface which can be fixed only by restarting network.
+> 
+> 2.2.9 module has no such problems but we need to use static kernels
+> according to our policy.
 
+I have CCed our e1000-devel list.  In the future you may want to CC this 
+list as it will provide better visibility to the Intel wired networking 
+maintainers.
+
+Thanks,
+
+Alex
