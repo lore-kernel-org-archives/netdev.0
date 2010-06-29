@@ -1,115 +1,43 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] bonding: check if clients MAC addr has changed
-Date: Tue, 29 Jun 2010 08:03:20 -0700
-Message-ID: <13473.1277823800@death.nxdomain.ibm.com>
-References: <1277822481-25175-1-git-send-email-fleitner@redhat.com>
-Cc: bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Andy Gospodarek <gospo@redhat.com>
-To: Flavio Leitner <fleitner@redhat.com>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [PATCH 0/9] New cxgb4vf network driver for Chelsio T4 Virtual Function NIC
+Date: Tue, 29 Jun 2010 09:04:50 -0700
+Message-ID: <201006290904.50370.leedom@chelsio.com>
+References: <201006251507.48604.leedom@chelsio.com> <20100629.000142.52193526.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e8.ny.us.ibm.com ([32.97.182.138]:58296 "EHLO e8.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755958Ab0F2QDs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jun 2010 12:03:48 -0400
-Received: from d01relay03.pok.ibm.com (d01relay03.pok.ibm.com [9.56.227.235])
-	by e8.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id o5TEpYPc005358
-	for <netdev@vger.kernel.org>; Tue, 29 Jun 2010 10:51:34 -0400
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay03.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o5TF3RCh094516
-	for <netdev@vger.kernel.org>; Tue, 29 Jun 2010 11:03:29 -0400
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o5TF3OTp006160
-	for <netdev@vger.kernel.org>; Tue, 29 Jun 2010 12:03:26 -0300
-In-reply-to: <1277822481-25175-1-git-send-email-fleitner@redhat.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:21839 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753389Ab0F2QMU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 12:12:20 -0400
+In-Reply-To: <20100629.000142.52193526.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Flavio Leitner <fleitner@redhat.com> wrote:
+| From: David Miller <davem@davemloft.net>
+| Date: Tuesday, June 29, 2010 12:01 am
+| 
+| Applied, but this submission was a mess.
+| 
+| First, your email client broke up long lines in the patch
+| with newlines, thus corrupting the patch.
+| 
+| Secondly, patch #3 ("cxgb4vf: Add new macros and definitions for
+| hardware constants") did not apply cleanly to net-next-2.6,
+| there were line differences.
+| 
+| I fixed these up, but next time I will just toss the patch
+| set back at you to fix up.
 
->When two systems using bonding devices in adaptive load
->balancing (ALB) communicates with each other, an endless
->ping-pong of ARP replies starts between these two systems.
->
->What happens? In the ALB mode, bonding driver keeps track
->of each client connected in a hash table, so it can do the
->receive load balancing (RLB). This hash table is updated
->when an ARP reply is received, then it scans for the client
->entry, updates its MAC address and flag it to be announced
->later. Therefore, two seconds later, the alb monitor runs
->and send for each updated client entry two ARP replies
->updating this specific client. The same process happens on
->the receiving system, causing the endless ping-pong of arp
->replies.
->
->See more information including the relevant functions below:
->
->   System 1                          System 2
->    bond0                             bond0
->
->   ping <system2>
->    ARP request  --------->
->                           <--------- ARP reply
->
->+->rlb_arp_recv  <---------------------+   <--- loop begins
->|  rlb_update_entry_from_arp           |
->|  client_info->ntt = 1;               |
->|  bond_info->rx_ntt = 1;              |
->|                                      |
->|         <communication succeed>      |
->|                                      |
->|  bond_alb_monitor                    |
->|  rlb_update_rx_clients               |
->|  rlb_update_client                   |
->|  arp_create(ARPOP_REPLY)             |
->|   send ARP reply -------------->     V
->|   send ARP reply -------------->
->|                               rlb_arp_recv
->|                               rlb_update_entry_from_arp
->|                               client_info->ntt = 1;
->|                               bond_info->rx_ntt = 1;
->|                           < snipped, same as in system 1>
->+-------           <-------------- send ARP reply
->                   <-------------- send ARP reply
->
->Besides the unneeded networking traffic, this loop breaks
->a cluster because a backup system can't take over the IP
->address. There is always one system sending an ARP reply
->poisoning the network.
->
->This patch fixes the problem adding a check for the MAC
->address before updating it. Thus, if the MAC address didn't
->change, there is no need to update neither to announce it later.
->
->Signed-off-by: Flavio Leitner <fleitner@redhat.com>
->---
-> drivers/net/bonding/bond_alb.c |    3 ++-
-> 1 files changed, 2 insertions(+), 1 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
->index 40fdc41..67154bb 100644
->--- a/drivers/net/bonding/bond_alb.c
->+++ b/drivers/net/bonding/bond_alb.c
->@@ -340,7 +340,8 @@ static void rlb_update_entry_from_arp(struct bonding *bond, struct arp_pkt *arp)
->
-> 	if ((client_info->assigned) &&
-> 	    (client_info->ip_src == arp->ip_dst) &&
->-	    (client_info->ip_dst == arp->ip_src)) {
->+	    (client_info->ip_dst == arp->ip_src) &&
->+	    (memcmp(client_info->mac_dst, arp->mac_src, ETH_ALEN))) {
+  Thank you and I'm sorry for the mess. (sigh) I'm using the Kubuntu supplied 
+email client and I mistakenly assumed that its "Insert File" action would do the 
+right job.  I'll just use Thunderbird from now on.
 
-	This should use compare_ether_addr instead of memcmp.
+  Odd that patch #3 didn't apply cleanly.  I'll do a "pull" and verify correct 
+operation.
 
-	Other than that, this looks good, so add me to the updated patch:
-
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-
-	-J
-
-> 		/* update the clients MAC address */
-> 		memcpy(client_info->mac_dst, arp->mac_src, ETH_ALEN);
-> 		client_info->ntt = 1;
->-- 
->1.7.0.1
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Casey
