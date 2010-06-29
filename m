@@ -1,44 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] s2io: read rx_packets count from the hardware stats
-Date: Mon, 28 Jun 2010 23:52:23 -0700 (PDT)
-Message-ID: <20100628.235223.191401839.davem@davemloft.net>
-References: <20100624233230.5864.67401.stgit@leela.lan>
+Subject: Re: [PATCH 2.6.35] bonding: prevent netpoll over bonded interfaces
+Date: Mon, 28 Jun 2010 23:54:44 -0700 (PDT)
+Message-ID: <20100628.235444.241924787.davem@davemloft.net>
+References: <20100625195044.GQ7497@gospo.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Ramkrishna.Vepa@exar.com,
-	sivakumar.subramani@exar.com, sreenivasa.honnur@exar.com
-To: mschmidt@redhat.com
+Cc: netdev@vger.kernel.org, amwang@redhat.com, fubar@us.ibm.com
+To: andy@greyhouse.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59196
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48600
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751967Ab0F2GwK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 02:52:10 -0400
-In-Reply-To: <20100624233230.5864.67401.stgit@leela.lan>
+	by vger.kernel.org with ESMTP id S1752428Ab0F2Gyb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 02:54:31 -0400
+In-Reply-To: <20100625195044.GQ7497@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Schmidt <mschmidt@redhat.com>
-Date: Fri, 25 Jun 2010 01:32:32 +0200
+From: Andy Gospodarek <andy@greyhouse.net>
+Date: Fri, 25 Jun 2010 15:50:44 -0400
 
-> Most of the statistics the s2io driver provides in /proc/net/dev
-> it reads directly from the hardware counters. For some reason it does
-> not do that for rx_packets. It counts rx_packets purely in software.
 > 
-> A customer reported a bug where in /proc/net/dev the 'multicast' counter
-> was increasing faster than 'packets' ( = rx_packets in the source code).
-> This confuses userspace, especially snmpd.
+> Support for netpoll over bonded interfaces was added here:
 > 
-> The hardware provides a counter for the total number of received
-> frames (RMAC_VLD_FRMS) which the driver can use for the rx_packets
-> statistic. By reading both statistics from the hardware it makes sure
-> that all multicast frames are included in the total.
+> 	commit f6dc31a85cd46a959bdd987adad14c3b645e03c1
+> 	Author: WANG Cong <amwang@redhat.com>
+> 	Date:   Thu May 6 00:48:51 2010 -0700
 > 
-> The customer tested a patch like this (only modified for RHEL5) with
-> S2io Inc. Xframe II 10Gbps Ethernet (rev 02)
-> and it fixed the problem.
+> 	    bonding: make bonding support netpoll
 > 
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+> but it is bad enough that we should probably just disable netpoll over
+> bonding until some of the locking logic in the bonding driver is changed
+> or converted completely to RCU.  Simple actions like changing the active
+> slave in active-backup mode will hang the box if a high enough printk
+> debugging level is enabled.
+> 
+> Keeping the old code around will be good for anyone that wants to work
+> on it (and for after the RCU conversion), so I propose this small patch
+> rather than ripping it all out.
+> 
+> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 
-Please also use the rmac_data_octets HW statistic for rx_bytes
-otherwise rx_bytes will be out of sync with the other stats too.
+Applied, thanks a lot Andy.
