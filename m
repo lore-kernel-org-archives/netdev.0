@@ -1,43 +1,38 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH 0/9] New cxgb4vf network driver for Chelsio T4 Virtual Function NIC
-Date: Tue, 29 Jun 2010 09:04:50 -0700
-Message-ID: <201006290904.50370.leedom@chelsio.com>
-References: <201006251507.48604.leedom@chelsio.com> <20100629.000142.52193526.davem@davemloft.net>
+From: Andrew Gallatin <gallatin@myri.com>
+Subject: Re: [PATCH -next] myri10ge: clear NETIF_F_LRO bit directly
+Date: Tue, 29 Jun 2010 11:44:14 -0400
+Message-ID: <4C2A14CE.3090502@myri.com>
+References: <20100629163731.1d174b07@dhcp-lab-109.englab.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Amerigo Wang <amwang@redhat.com>,
+	Brice Goglin <brice@myri.com>
+To: Stanislaw Gruszka <sgruszka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:21839 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753389Ab0F2QMU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 12:12:20 -0400
-In-Reply-To: <20100629.000142.52193526.davem@davemloft.net>
+Received: from mailbox2.myri.com ([64.172.73.26]:1914 "EHLO myri.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752399Ab0F2QP3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jun 2010 12:15:29 -0400
+In-Reply-To: <20100629163731.1d174b07@dhcp-lab-109.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-| From: David Miller <davem@davemloft.net>
-| Date: Tuesday, June 29, 2010 12:01 am
-| 
-| Applied, but this submission was a mess.
-| 
-| First, your email client broke up long lines in the patch
-| with newlines, thus corrupting the patch.
-| 
-| Secondly, patch #3 ("cxgb4vf: Add new macros and definitions for
-| hardware constants") did not apply cleanly to net-next-2.6,
-| there were line differences.
-| 
-| I fixed these up, but next time I will just toss the patch
-| set back at you to fix up.
+Stanislaw Gruszka wrote:
+> Do not use ethtool_op_set_flags() to clear one bit in ->features.
+> Inform user about disabling LRO.
 
-  Thank you and I'm sorry for the mess. (sigh) I'm using the Kubuntu supplied 
-email client and I mistakenly assumed that its "Insert File" action would do the 
-right job.  I'll just use Thunderbird from now on.
+Thanks.. That simplifies things nicely.  But was
+direct manipulation of netdev->features ever discouraged,
+or has my use of ethtool_op_{get,set}_flags() to manipulate
+the features always been complete overkill?
 
-  Odd that patch #3 didn't apply cleanly.  I'll do a "pull" and verify correct 
-operation.
+> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
 
-Casey
+Acked-by: Andrew J. Gallatin <gallatin@myri.com>
+
+
+Thanks,
+
+Drew
+
