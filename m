@@ -1,43 +1,46 @@
 From: Casey Leedom <leedom@chelsio.com>
-Subject: [PATCH 0/2] cxgb4vf: small fixes to new driver
-Date: Tue, 29 Jun 2010 15:52:14 -0700
-Message-ID: <201006291552.14816.leedom@chelsio.com>
+Subject: Re: [PATCH 0/9] New cxgb4vf network driver for Chelsio T4 Virtual Function NIC
+Date: Tue, 29 Jun 2010 16:02:04 -0700
+Message-ID: <201006291602.04663.leedom@chelsio.com>
+References: <201006251507.48604.leedom@chelsio.com> <20100629.000142.52193526.davem@davemloft.net> <201006290904.50370.leedom@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:3368 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:20428 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751370Ab0F2W5m convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 18:57:42 -0400
-Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
-	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id o5TMvg2m018102
-	for <netdev@vger.kernel.org>; Tue, 29 Jun 2010 15:57:42 -0700
+	with ESMTP id S1751519Ab0F2XKl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 19:10:41 -0400
+In-Reply-To: <201006290904.50370.leedom@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From d9aed637fc8a9f1bf1bccf6f23aed0342870f868 Mon Sep 17 00:00:00 2001
-From: Casey Leedom <leedom@chelsio.com>
-Date: Tue, 29 Jun 2010 15:41:14 -0700
-Subject: [PATCH 0/2] cxgb4vf: small fixes to new driver
+| From: Casey Leedom <leedom@chelsio.com>
+| Date: Tuesday, June 29, 2010 09:04 am
+| 
+|   Thank you and I'm sorry for the mess. (sigh) I'm using the Kubuntu
+| supplied email client and I mistakenly assumed that its "Insert File"
+| action would do the right job.  I'll just use Thunderbird from now on.
 
-  In my cxgb4vf driver testing I got very "lucky" and the use of an
-incorrect shift factor just happened to work for the packet size I was
-using. (sigh) (All of this happened because I had to translate our internal
-version of the driver to use the different constant names used in the
-kernel.org tree.)
+  Hopefully my latest effort at getting patches submitted will be better.  
+There's evidently a way to get git to mail them directly with which I'm fighting, 
+so in the mean time I disabled word wrap on my current mailer.  I will get 
+someone here to help me out with the git (and stgit) patch support.
 
-Casey Leedom (2):
-  Remove obsolete comment about the lack of a TX Timer Callback --
-    which we now _do_ have ...
+|   Odd that patch #3 didn't apply cleanly.  I'll do a "pull" and verify
+| correct operation.
 
-  Use correct shift factor for extracting the SGE DMA Ingress Padding  
-    Boundary.  Was accidentally using the register field's shift which
-    was close enough (4 instead of the propper value of 5) that it
-    actually sort of worked for various packet sizes ...
+  I did a complete new pull, compared the submitted and the pulled source and 
+found no differences.  I then did a thorough test run and discovered that I'd 
+accidentally translated one of our internal symbolic names into the wrong 
+kernel.org symbolic names.  By "luck" it worked for some packet sizes so I 
+didn't catch it. (sigh)  I've submitted patches for that bug and the deletion of 
+an obsolete comment which I forgot to get rid of earlier.
 
- drivers/net/cxgb4vf/sge.c |   15 ++-------------
- 1 files changed, 2 insertions(+), 13 deletions(-)
+  I hope these new patches apply cleanly.  If not, just drop them and I'll got 
+to remedial git school here and get someone to help me do it right.
 
+Casey
