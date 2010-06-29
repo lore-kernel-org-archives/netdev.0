@@ -1,91 +1,177 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [REGRESSION] e1000e stopped working
-Date: Tue, 29 Jun 2010 12:37:25 -0600
-Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FF4705C9D@rrsmsx501.amr.corp.intel.com>
-References: <1277659633.2989.2.camel@localhost.localdomain>
-	 <1277659785.4028.1.camel@localhost.localdomain>
-	 <1277660638.3321.1.camel@localhost.localdomain>
-	 <1277660831.3321.3.camel@localhost.localdomain>
-	 <8DD2590731AB5D4C9DBF71A877482A90015918F40A@orsmsx509.amr.corp.intel.com>
-	 <1277745247.12841.1.camel@localhost.localdomain>
-	 <8DD2590731AB5D4C9DBF71A877482A90015918FAB6@orsmsx509.amr.corp.intel.com>
- <1277807529.19417.2.camel@localhost.localdomain>
+From: Anton Vorontsov <avorontsov@mvista.com>
+Subject: [PATCH 1/3] gianfar: Implement workaround for eTSEC74 erratum
+Date: Wed, 30 Jun 2010 00:59:59 +0400
+Message-ID: <20100629205959.GA10905@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>
-To: Maxim Levitsky <maximlevitsky@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: Manfred Rudigier <manfred.rudigier@omicron.at>,
+	Sandeep Gopalpet <Sandeep.Kumar@freescale.com>,
+	Andy Fleming <afleming@freescale.com>, netdev@vger.kernel.org,
+	linuxppc-dev@ozlabs.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:18576 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754964Ab0F2Sh5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jun 2010 14:37:57 -0400
-In-Reply-To: <1277807529.19417.2.camel@localhost.localdomain>
-Content-Language: en-US
+Received: from imap.ru.mvista.com ([213.79.90.228]:21470 "EHLO
+	buildserver.ru.mvista.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755546Ab0F2VAE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 17:00:04 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-TWF4aW0gTGV2aXRza3kgd3JvdGU6DQo+IE9uIE1vbiwgMjAxMC0wNi0yOCBhdCAxODowOSAtMDcw
-MCwgQWxsYW4sIEJydWNlIFcgd3JvdGU6DQo+PiBPbiBNb25kYXksIEp1bmUgMjgsIDIwMTAgMTA6
-MTQgQU0sIE1heGltIExldml0c2t5IHdyb3RlOg0KPj4+IE9uIE1vbiwgMjAxMC0wNi0yOCBhdCAx
-MDowNCAtMDcwMCwgQWxsYW4sIEJydWNlIFcgd3JvdGU6DQo+Pj4+IE9uIFN1bmRheSwgSnVuZSAy
-NywgMjAxMCAxMDo0NyBBTSwgTWF4aW0gTGV2aXRza3kgd3JvdGU6DQo+Pj4+PiBPbiBTdW4sIDIw
-MTAtMDYtMjcgYXQgMjA6NDMgKzAzMDAsIE1heGltIExldml0c2t5IHdyb3RlOg0KPj4+Pj4+IE9u
-IFN1biwgMjAxMC0wNi0yNyBhdCAyMDoyOSArMDMwMCwgTWF4aW0gTGV2aXRza3kgd3JvdGU6DQo+
-Pj4+Pj4+IE9uIFN1biwgMjAxMC0wNi0yNyBhdCAyMDoyNyArMDMwMCwgTWF4aW0gTGV2aXRza3kg
-d3JvdGU6DQo+Pj4+Pj4+PiBKdXN0IHRoYXQsDQo+Pj4+Pj4+PiANCj4+Pj4+Pj4+IEl0IGRvZXNu
-J3QgcmVjZWl2ZSBhbnl0aGluZyBmcm9tIG15IGludGVybmV0IHJvdXRlciBkdXJpbmcNCj4+Pj4+
-Pj4+IERIQ1AuIA0KPj4+Pj4+Pj4gDQo+Pj4+Pj4+PiANCj4+Pj4+Pj4+IDAwOjE5LjAgRXRoZXJu
-ZXQgY29udHJvbGxlciBbMDIwMF06IEludGVsIENvcnBvcmF0aW9uIDgyNTY2REMNCj4+Pj4+Pj4+
-IAlHaWdhYml0IE5ldHdvcmsgQ29ubmVjdGlvbiBbODA4NjoxMDRiXSAocmV2IDAyKSBTdWJzeXN0
-ZW06DQo+Pj4+Pj4+PiAJSW50ZWwgQ29ycG9yYXRpb24gRGV2aWNlIFs4MDg2OjAwMDFdIENvbnRy
-b2w6IEkvTysgTWVtKw0KPj4+Pj4+Pj4gCUJ1c01hc3RlcisgU3BlY0N5Y2xlLSBNZW1XSU5WLSBW
-R0FTbm9vcC0gUGFyRXJyLSBTdGVwcGluZy0NCj4+Pj4+Pj4+IAlTRVJSLSBGYXN0QjJCLSBEaXNJ
-TlR4KyBTdGF0dXM6IENhcCsgNjZNSHotIFVERi0gRmFzdEIyQi0NCj4+Pj4+Pj4+IAlQYXJFcnIt
-IERFVlNFTD1mYXN0ID5UQWJvcnQtIDxUQWJvcnQtIDxNQWJvcnQtID5TRVJSLSA8UEVSUi0NCj4+
-Pj4+Pj4+IAlJTlR4LSAJTGF0ZW5jeTogMCBJbnRlcnJ1cHQ6IHBpbiBBIHJvdXRlZCB0byBJUlEg
-NDcgUmVnaW9uIDA6DQo+Pj4+Pj4+PiAJTWVtb3J5IGF0IDUwMzAwMDAwICgzMi1iaXQsIG5vbi1w
-cmVmZXRjaGFibGUpIFtzaXplPTEyOEtdDQo+Pj4+Pj4+PiAJUmVnaW9uIDE6IE1lbW9yeSBhdCA1
-MDMyNDAwMCAoMzItYml0LCBub24tcHJlZmV0Y2hhYmxlKQ0KPj4+Pj4+Pj4gCQlbc2l6ZT00S10g
-UmVnaW9uIDI6IEkvTyBwb3J0cyBhdCAzMGUwIFtzaXplPTMyXQ0KPj4+Pj4+Pj4gCQlDYXBhYmls
-aXRpZXM6IFtjOF0gUG93ZXIgTWFuYWdlbWVudCB2ZXJzaW9uIDIgRmxhZ3M6IFBNRUNsay0NCj4+
-Pj4+Pj4+IAlEU0krIEQxLSBEMi0gQXV4Q3VycmVudD0wbUEgUE1FKEQwKyxEMS0sRDItLEQzaG90
-KyxEM2NvbGQrKQ0KPj4+Pj4+Pj4gCQlTdGF0dXM6IEQwIFBNRS1FbmFibGUtIERTZWw9MCBEU2Nh
-bGU9MSBQTUUtIENhcGFiaWxpdGllczoNCj4+Pj4+Pj4+IAlbZDBdIE1lc3NhZ2UgU2lnbmFsbGVk
-IEludGVycnVwdHM6IE1hc2stIDY0Yml0KyBRdWV1ZT0wLzANCj4+Pj4+Pj4+IAlFbmFibGUrIEFk
-ZHJlc3M6IDAwMDAwMDAwZmVlMDEwMGMgIERhdGE6IDQxYzkgS2VybmVsIGRyaXZlcg0KPj4+Pj4+
-Pj4gaW4gdXNlOiBlMTAwMGUgS2VybmVsIG1vZHVsZXM6IGUxMDAwZSANCj4+Pj4+Pj4+IA0KPj4+
-Pj4+Pj4gSSB1c2UgdmFuaWxsYSB0cmVlLCBjb21taXQNCj4+Pj4+Pj4+IGJmMjkzNzY5NWZlMjMz
-MGJmZDg5MzNhMjMxMGU3YmRkMjU4MWRjMmUNCj4+Pj4+Pj4+IA0KPj4+Pj4+Pj4gDQo+Pj4+Pj4+
-PiBCZXN0IHJlZ2FyZHMsDQo+Pj4+Pj4+PiAJTWF4aW0gTGV2aXRza3kNCj4+Pj4+Pj4+IA0KPj4+
-Pj4+PiANCj4+Pj4+Pj4gSXQgYXBwZWFycyB0byB3b3JrIG5vdyBhZnRlciByZWJvb3QuDQo+Pj4+
-Pj4+IFdpbGwga2VlcCBhIGxvb2sgZm9yIHRoaXMuDQo+Pj4+Pj4+IA0KPj4+Pj4+PiBEaXNyZWdh
-cmQgZm9yIG5vdy4NCj4+Pj4+PiANCj4+Pj4+PiANCj4+Pj4+PiBKdXN0IHMycmFtIGN5Y2xlLCBw
-cm9ibGVtIGlzIGJhY2suDQo+Pj4+Pj4gRGlkIGZ1bGwgcmVib290IChwb3dlciBvZmYgdGhlbiBv
-biksIHNhbWUgdGhpbmcgY2FyZCBkb2Vzbid0DQo+Pj4+Pj4gd29yay4uLiANCj4+Pj4+PiANCj4+
-Pj4+IA0KPj4+Pj4gWWVwLCBzMnJhbSBzb21ldGltZXMgJ2ZpeGVzJywgc29tZXRpbWVzIGJyZWFr
-cyB0aGUgY2FyZC4NCj4+Pj4+IFNvbWV0aGluZyBnb3QgYnJva2VuIGluIGRldmljZSBpbml0aWFs
-aXphdGlvbiBwYXRoLg0KPj4+Pj4gDQo+Pj4+PiBCZXN0IHJlZ2FyZHMsDQo+Pj4+PiAgCU1heGlt
-IExldml0c2t5DQo+Pj4+IA0KPj4+PiBXaGF0IGRpc3RybyBhcmUgeW91IHVzaW5nPyAgSWYgUmVk
-SGF0LCBzaW5jZSB5b3UgYXJlIHVzaW5nIERIQ1ANCj4+Pj4gd2lsbCB5b3UgcGxlYXNlIHRyeSBw
-dXR0aW5nIGEgIkxJTktERUxBWT0xMCIgaW4gdGhlDQo+Pj4+IC9ldGMvc3lzY29uZmlnL25ldHdv
-cmstc2NyaXB0cy9pZmNmZy1ldGhYIGNvbmZpZyBmaWxlLg0KPj4+PiANCj4+PiBJIHVzZSB1YnVu
-dHUgOS4xMA0KPj4+IA0KPj4+PiBJcyB0aGVyZSBhbnl0aGluZyBpbiB0aGUgc3lzdGVtIGxvZyB0
-aGF0IG1pZ2h0IGhlbHAgbmFycm93IGRvd24gdGhlDQo+Pj4+IGlzc3VlPw0KPj4+IA0KPj4+IE5v
-dGhpbmcsIHJlYWxseSBub3RoaW5nLg0KPj4+IEl0IHNlZW1zIHRvIGRldGVjdCBsaW5rLCBkaGNw
-IGNsaWVudCBzZW5kcyByZXF1ZXN0cywgYnV0IGRvZXNuJ3QNCj4+PiByZWNpZXZlIGEgdGhpbmcg
-KGV2ZW4gdHJpZWQgcHJvbWlzYyBtb2RlIC0gZG9lc24ndCBoZWxwKQ0KPj4+IA0KPj4+IA0KPj4+
-IA0KPj4+IEJlc3QgcmVnYXJkcywNCj4+PiAJTWF4aW0gTGV2aXRza3kNCj4+IA0KPj4gU2luY2Ug
-eW91IHNheSB0aGlzIGlzIGEgcmVncmVzc2lvbiwgd2hlbiBkaWQgdGhpcyBsYXN0IHdvcmsgZm9y
-IHlvdQ0KPj4gd2l0aG91dCB0aGlzIHByb2JsZW0sIGkuZS4gd2hpY2ggZGlzdHJvLCB3aGljaCBr
-ZXJuZWw/IA0KPiANCj4gSSBhbHdheXMgY29tcGlsZSBrZXJuZWwsIGFuZCBsYXN0IGtlcm5lbCBJ
-IGNvbXBpbGVkIGhlcmUgd2FzIHZhbmlsbGENCj4gMi42LjMzLXJjNC4NCj4gSXQgd29ya3MganVz
-dCBmaW5lLg0KPiANCj4gSSBtb3N0bHkgdXNlIG15IGxhcHRvcCwgYW5kIHRoZXJlZm9yZSBkaWRu
-J3QgdXBkYXRlIGtlcm5lbCBvbiBteQ0KPiBkZXNrdG9wIGZvciBsb25nIHRpbWUuDQo+IA0KPiBJ
-ZiBJIGZpbmQgc29tZSBmcmVlIHRpbWUgSSB0cnkgdG8gYmlzZWN0IHRoZSBwcm9ibGVtLg0KDQpD
-b3VsZCB5b3UgcHJvdmlkZSBzb21lIGFkZGl0aW9uYWwgaW5mbyBhYm91dCB5b3VyIHNldHVwOg0K
-ZXRodG9vbCAtZSBldGgwDQpldGh0b29sIC1kIGV0aDANCmtlcm5lbCBjb25maWcgKGlmIHBvc3Np
-YmxlKQ0KDQpXaGF0IGlzIHRoZSBtb2RlbCBvZiB5b3VyIHN5c3RlbS9NQj8NCg0KVGhhbmtzLA0K
-RW1pbA0KDQo=
+MPC8313ECE says:
+
+"If MACCFG2[Huge Frame]=0 and the Ethernet controller receives frames
+ which are larger than MAXFRM, the controller truncates the frames to
+ length MAXFRM and marks RxBD[TR]=1 to indicate the error. The controller
+ also erroneously marks RxBD[TR]=1 if the received frame length is MAXFRM
+ or MAXFRM-1, even though those frames are not truncated.
+ No truncation or truncation error occurs if MACCFG2[Huge Frame]=1."
+
+There are two options to workaround the issue:
+
+"1. Set MACCFG2[Huge Frame]=1, so no truncation occurs for invalid large
+ frames. Software can determine if a frame is larger than MAXFRM by
+ reading RxBD[LG] or RxBD[Data Length].
+
+ 2. Set MAXFRM to 1538 (0x602) instead of the default 1536 (0x600), so
+ normal-length frames are not marked as truncated. Software can examine
+ RxBD[Data Length] to determine if the frame was larger than MAXFRM-2."
+
+This patch implements the first workaround option by setting HUGEFRAME
+bit, and gfar_clean_rx_ring() already checks the RxBD[Data Length].
+
+Signed-off-by: Anton Vorontsov <avorontsov@mvista.com>
+---
+ drivers/net/Kconfig   |   10 ++++++++++
+ drivers/net/gianfar.c |   36 ++++++++++++++++++++++++++++++++++--
+ drivers/net/gianfar.h |   11 +++++++++++
+ 3 files changed, 55 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index ce2fcdd..d3fcaba 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2400,6 +2400,16 @@ config GIANFAR
+ 	  This driver supports the Gigabit TSEC on the MPC83xx, MPC85xx,
+ 	  and MPC86xx family of chips, and the FEC on the 8540.
+ 
++config GIANFAR_ERRATA
++	bool "Gianfar Ethernet errata handling"
++	depends on GIANFAR && (PPC_MPC837x || PPC_MPC831x)
++	default y
++	help
++	  With this option enabled, gianfar driver will able to cope with
++	  some TSEC errata.
++
++	  If unsure, say Y.
++
+ config UCC_GETH
+ 	tristate "Freescale QE Gigabit Ethernet"
+ 	depends on QUICC_ENGINE
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 28b53d1..9c85d05 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -85,6 +85,7 @@
+ #include <linux/net_tstamp.h>
+ 
+ #include <asm/io.h>
++#include <asm/reg.h>
+ #include <asm/irq.h>
+ #include <asm/uaccess.h>
+ #include <linux/module.h>
+@@ -928,6 +929,31 @@ static void gfar_init_filer_table(struct gfar_private *priv)
+ 	}
+ }
+ 
++static void gfar_detect_errata(struct gfar_private *priv)
++{
++	struct device *dev = &priv->ofdev->dev;
++	unsigned int pvr = mfspr(SPRN_PVR);
++	unsigned int svr = mfspr(SPRN_SVR);
++	unsigned int mod = (svr >> 16) & 0xfff6; /* w/o E suffix */
++	unsigned int rev = svr & 0xffff;
++
++	/* MPC8313 Rev 2.0 and higher; All MPC837x */
++	if ((pvr == 0x80850010 && mod == 0x80b0 && rev >= 0x0020) ||
++			(pvr == 0x80861010 && (mod & 0xfff9) == 0x80c0))
++		priv->errata |= GFAR_ERRATA_74;
++
++	if (priv->errata) {
++#ifdef CONFIG_GIANFAR_ERRATA
++		dev_info(dev, "enabled errata workarounds, flags: 0x%x\n",
++			priv->errata);
++#else
++		dev_warn(dev, "consider enabling CONFIG_GIANFAR_ERRATA, "
++			 "flags: 0x%x\n", priv->errata);
++		WARN_ON(1);
++#endif /* CONFIG_GIANFAR_ERRATA */
++	}
++}
++
+ /* Set up the ethernet device structure, private data,
+  * and anything else we need before we start */
+ static int gfar_probe(struct of_device *ofdev,
+@@ -960,6 +986,8 @@ static int gfar_probe(struct of_device *ofdev,
+ 	dev_set_drvdata(&ofdev->dev, priv);
+ 	regs = priv->gfargrp[0].regs;
+ 
++	gfar_detect_errata(priv);
++
+ 	/* Stop the DMA engine now, in case it was running before */
+ 	/* (The firmware could have used it, and left it running). */
+ 	gfar_halt(dev);
+@@ -974,7 +1002,10 @@ static int gfar_probe(struct of_device *ofdev,
+ 	gfar_write(&regs->maccfg1, tempval);
+ 
+ 	/* Initialize MACCFG2. */
+-	gfar_write(&regs->maccfg2, MACCFG2_INIT_SETTINGS);
++	tempval = MACCFG2_INIT_SETTINGS;
++	if (gfar_has_errata(priv, 74))
++		tempval |= MACCFG2_HUGEFRAME | MACCFG2_LENGTHCHECK;
++	gfar_write(&regs->maccfg2, tempval);
+ 
+ 	/* Initialize ECNTRL */
+ 	gfar_write(&regs->ecntrl, ECNTRL_INIT_SETTINGS);
+@@ -2300,7 +2331,8 @@ static int gfar_change_mtu(struct net_device *dev, int new_mtu)
+ 	 * to allow huge frames, and to check the length */
+ 	tempval = gfar_read(&regs->maccfg2);
+ 
+-	if (priv->rx_buffer_size > DEFAULT_RX_BUFFER_SIZE)
++	if (priv->rx_buffer_size > DEFAULT_RX_BUFFER_SIZE ||
++			gfar_has_errata(priv, 74))
+ 		tempval |= (MACCFG2_HUGEFRAME | MACCFG2_LENGTHCHECK);
+ 	else
+ 		tempval &= ~(MACCFG2_HUGEFRAME | MACCFG2_LENGTHCHECK);
+diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
+index ac4a92e..d1e2986 100644
+--- a/drivers/net/gianfar.h
++++ b/drivers/net/gianfar.h
+@@ -1025,6 +1025,16 @@ struct gfar_priv_grp {
+ 	char int_name_er[GFAR_INT_NAME_MAX];
+ };
+ 
++enum gfar_errata {
++	GFAR_ERRATA_74		= 0x01,
++};
++
++#ifdef CONFIG_GIANFAR_ERRATA
++#define gfar_has_errata(priv, err) ((priv)->errata & GFAR_ERRATA_##err)
++#else
++#define gfar_has_errata(priv, err) 0
++#endif /* CONFIG_GIANFAR_ERRATA */
++
+ /* Struct stolen almost completely (and shamelessly) from the FCC enet source
+  * (Ok, that's not so true anymore, but there is a family resemblence)
+  * The GFAR buffer descriptors track the ring buffers.  The rx_bd_base
+@@ -1049,6 +1059,7 @@ struct gfar_private {
+ 	struct device_node *node;
+ 	struct net_device *ndev;
+ 	struct of_device *ofdev;
++	enum gfar_errata errata;
+ 
+ 	struct gfar_priv_grp gfargrp[MAXGROUPS];
+ 	struct gfar_priv_tx_q *tx_queue[MAX_TX_QS];
+-- 
+1.7.0.5
+
