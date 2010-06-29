@@ -1,94 +1,91 @@
-From: Flavio Leitner <fleitner@redhat.com>
-Subject: [PATCH v2] bonding: check if clients MAC addr has changed
-Date: Tue, 29 Jun 2010 15:24:39 -0300
-Message-ID: <1277835879-26834-1-git-send-email-fleitner@redhat.com>
-Cc: Flavio Leitner <fleitner@redhat.com>,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: bonding-devel@lists.sourceforge.net,
-	Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
-	Andy Gospodarek <gospo@redhat.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [REGRESSION] e1000e stopped working
+Date: Tue, 29 Jun 2010 12:37:25 -0600
+Message-ID: <EA929A9653AAE14F841771FB1DE5A1365FF4705C9D@rrsmsx501.amr.corp.intel.com>
+References: <1277659633.2989.2.camel@localhost.localdomain>
+	 <1277659785.4028.1.camel@localhost.localdomain>
+	 <1277660638.3321.1.camel@localhost.localdomain>
+	 <1277660831.3321.3.camel@localhost.localdomain>
+	 <8DD2590731AB5D4C9DBF71A877482A90015918F40A@orsmsx509.amr.corp.intel.com>
+	 <1277745247.12841.1.camel@localhost.localdomain>
+	 <8DD2590731AB5D4C9DBF71A877482A90015918FAB6@orsmsx509.amr.corp.intel.com>
+ <1277807529.19417.2.camel@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>
+To: Maxim Levitsky <maximlevitsky@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58631 "EHLO mx1.redhat.com"
+Received: from mga11.intel.com ([192.55.52.93]:18576 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754547Ab0F2SZI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jun 2010 14:25:08 -0400
+	id S1754964Ab0F2Sh5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jun 2010 14:37:57 -0400
+In-Reply-To: <1277807529.19417.2.camel@localhost.localdomain>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When two systems using bonding devices in adaptive load
-balancing (ALB) communicates with each other, an endless
-ping-pong of ARP replies starts between these two systems.
-
-What happens? In the ALB mode, bonding driver keeps track
-of each client connected in a hash table, so it can do the
-receive load balancing (RLB). This hash table is updated
-when an ARP reply is received, then it scans for the client
-entry, updates its MAC address and flag it to be announced
-later. Therefore, two seconds later, the alb monitor runs
-and send for each updated client entry two ARP replies
-updating this specific client. The same process happens on
-the receiving system, causing the endless ping-pong of arp
-replies.
-
-See more information including the relevant functions below:
-
-   System 1                          System 2
-    bond0                             bond0
-
-   ping <system2>
-    ARP request  --------->
-                           <--------- ARP reply
-
-+->rlb_arp_recv  <---------------------+   <--- loop begins
-|  rlb_update_entry_from_arp           |
-|  client_info->ntt = 1;               |
-|  bond_info->rx_ntt = 1;              |
-|                                      |
-|         <communication succeed>      |
-|                                      |
-|  bond_alb_monitor                    |
-|  rlb_update_rx_clients               |
-|  rlb_update_client                   |
-|  arp_create(ARPOP_REPLY)             |
-|   send ARP reply -------------->     V
-|   send ARP reply -------------->
-|                               rlb_arp_recv
-|                               rlb_update_entry_from_arp
-|                               client_info->ntt = 1;
-|                               bond_info->rx_ntt = 1;
-|                           < snipped, same as in system 1>
-+-------           <-------------- send ARP reply
-                   <-------------- send ARP reply
-
-Besides the unneeded networking traffic, this loop breaks
-a cluster because a backup system can't take over the IP
-address. There is always one system sending an ARP reply
-poisoning the network.
-
-This patch fixes the problem adding a check for the MAC
-address before updating it. Thus, if the MAC address didn't
-change, there is no need to update neither to announce it later.
-
-Signed-off-by: Flavio Leitner <fleitner@redhat.com>
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
----
- drivers/net/bonding/bond_alb.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 40fdc41..df48307 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -340,7 +340,8 @@ static void rlb_update_entry_from_arp(struct bonding *bond, struct arp_pkt *arp)
- 
- 	if ((client_info->assigned) &&
- 	    (client_info->ip_src == arp->ip_dst) &&
--	    (client_info->ip_dst == arp->ip_src)) {
-+	    (client_info->ip_dst == arp->ip_src) &&
-+	    (compare_ether_addr_64bits(client_info->mac_dst, arp->mac_src))) {
- 		/* update the clients MAC address */
- 		memcpy(client_info->mac_dst, arp->mac_src, ETH_ALEN);
- 		client_info->ntt = 1;
--- 
-1.7.0.1
-
+TWF4aW0gTGV2aXRza3kgd3JvdGU6DQo+IE9uIE1vbiwgMjAxMC0wNi0yOCBhdCAxODowOSAtMDcw
+MCwgQWxsYW4sIEJydWNlIFcgd3JvdGU6DQo+PiBPbiBNb25kYXksIEp1bmUgMjgsIDIwMTAgMTA6
+MTQgQU0sIE1heGltIExldml0c2t5IHdyb3RlOg0KPj4+IE9uIE1vbiwgMjAxMC0wNi0yOCBhdCAx
+MDowNCAtMDcwMCwgQWxsYW4sIEJydWNlIFcgd3JvdGU6DQo+Pj4+IE9uIFN1bmRheSwgSnVuZSAy
+NywgMjAxMCAxMDo0NyBBTSwgTWF4aW0gTGV2aXRza3kgd3JvdGU6DQo+Pj4+PiBPbiBTdW4sIDIw
+MTAtMDYtMjcgYXQgMjA6NDMgKzAzMDAsIE1heGltIExldml0c2t5IHdyb3RlOg0KPj4+Pj4+IE9u
+IFN1biwgMjAxMC0wNi0yNyBhdCAyMDoyOSArMDMwMCwgTWF4aW0gTGV2aXRza3kgd3JvdGU6DQo+
+Pj4+Pj4+IE9uIFN1biwgMjAxMC0wNi0yNyBhdCAyMDoyNyArMDMwMCwgTWF4aW0gTGV2aXRza3kg
+d3JvdGU6DQo+Pj4+Pj4+PiBKdXN0IHRoYXQsDQo+Pj4+Pj4+PiANCj4+Pj4+Pj4+IEl0IGRvZXNu
+J3QgcmVjZWl2ZSBhbnl0aGluZyBmcm9tIG15IGludGVybmV0IHJvdXRlciBkdXJpbmcNCj4+Pj4+
+Pj4+IERIQ1AuIA0KPj4+Pj4+Pj4gDQo+Pj4+Pj4+PiANCj4+Pj4+Pj4+IDAwOjE5LjAgRXRoZXJu
+ZXQgY29udHJvbGxlciBbMDIwMF06IEludGVsIENvcnBvcmF0aW9uIDgyNTY2REMNCj4+Pj4+Pj4+
+IAlHaWdhYml0IE5ldHdvcmsgQ29ubmVjdGlvbiBbODA4NjoxMDRiXSAocmV2IDAyKSBTdWJzeXN0
+ZW06DQo+Pj4+Pj4+PiAJSW50ZWwgQ29ycG9yYXRpb24gRGV2aWNlIFs4MDg2OjAwMDFdIENvbnRy
+b2w6IEkvTysgTWVtKw0KPj4+Pj4+Pj4gCUJ1c01hc3RlcisgU3BlY0N5Y2xlLSBNZW1XSU5WLSBW
+R0FTbm9vcC0gUGFyRXJyLSBTdGVwcGluZy0NCj4+Pj4+Pj4+IAlTRVJSLSBGYXN0QjJCLSBEaXNJ
+TlR4KyBTdGF0dXM6IENhcCsgNjZNSHotIFVERi0gRmFzdEIyQi0NCj4+Pj4+Pj4+IAlQYXJFcnIt
+IERFVlNFTD1mYXN0ID5UQWJvcnQtIDxUQWJvcnQtIDxNQWJvcnQtID5TRVJSLSA8UEVSUi0NCj4+
+Pj4+Pj4+IAlJTlR4LSAJTGF0ZW5jeTogMCBJbnRlcnJ1cHQ6IHBpbiBBIHJvdXRlZCB0byBJUlEg
+NDcgUmVnaW9uIDA6DQo+Pj4+Pj4+PiAJTWVtb3J5IGF0IDUwMzAwMDAwICgzMi1iaXQsIG5vbi1w
+cmVmZXRjaGFibGUpIFtzaXplPTEyOEtdDQo+Pj4+Pj4+PiAJUmVnaW9uIDE6IE1lbW9yeSBhdCA1
+MDMyNDAwMCAoMzItYml0LCBub24tcHJlZmV0Y2hhYmxlKQ0KPj4+Pj4+Pj4gCQlbc2l6ZT00S10g
+UmVnaW9uIDI6IEkvTyBwb3J0cyBhdCAzMGUwIFtzaXplPTMyXQ0KPj4+Pj4+Pj4gCQlDYXBhYmls
+aXRpZXM6IFtjOF0gUG93ZXIgTWFuYWdlbWVudCB2ZXJzaW9uIDIgRmxhZ3M6IFBNRUNsay0NCj4+
+Pj4+Pj4+IAlEU0krIEQxLSBEMi0gQXV4Q3VycmVudD0wbUEgUE1FKEQwKyxEMS0sRDItLEQzaG90
+KyxEM2NvbGQrKQ0KPj4+Pj4+Pj4gCQlTdGF0dXM6IEQwIFBNRS1FbmFibGUtIERTZWw9MCBEU2Nh
+bGU9MSBQTUUtIENhcGFiaWxpdGllczoNCj4+Pj4+Pj4+IAlbZDBdIE1lc3NhZ2UgU2lnbmFsbGVk
+IEludGVycnVwdHM6IE1hc2stIDY0Yml0KyBRdWV1ZT0wLzANCj4+Pj4+Pj4+IAlFbmFibGUrIEFk
+ZHJlc3M6IDAwMDAwMDAwZmVlMDEwMGMgIERhdGE6IDQxYzkgS2VybmVsIGRyaXZlcg0KPj4+Pj4+
+Pj4gaW4gdXNlOiBlMTAwMGUgS2VybmVsIG1vZHVsZXM6IGUxMDAwZSANCj4+Pj4+Pj4+IA0KPj4+
+Pj4+Pj4gSSB1c2UgdmFuaWxsYSB0cmVlLCBjb21taXQNCj4+Pj4+Pj4+IGJmMjkzNzY5NWZlMjMz
+MGJmZDg5MzNhMjMxMGU3YmRkMjU4MWRjMmUNCj4+Pj4+Pj4+IA0KPj4+Pj4+Pj4gDQo+Pj4+Pj4+
+PiBCZXN0IHJlZ2FyZHMsDQo+Pj4+Pj4+PiAJTWF4aW0gTGV2aXRza3kNCj4+Pj4+Pj4+IA0KPj4+
+Pj4+PiANCj4+Pj4+Pj4gSXQgYXBwZWFycyB0byB3b3JrIG5vdyBhZnRlciByZWJvb3QuDQo+Pj4+
+Pj4+IFdpbGwga2VlcCBhIGxvb2sgZm9yIHRoaXMuDQo+Pj4+Pj4+IA0KPj4+Pj4+PiBEaXNyZWdh
+cmQgZm9yIG5vdy4NCj4+Pj4+PiANCj4+Pj4+PiANCj4+Pj4+PiBKdXN0IHMycmFtIGN5Y2xlLCBw
+cm9ibGVtIGlzIGJhY2suDQo+Pj4+Pj4gRGlkIGZ1bGwgcmVib290IChwb3dlciBvZmYgdGhlbiBv
+biksIHNhbWUgdGhpbmcgY2FyZCBkb2Vzbid0DQo+Pj4+Pj4gd29yay4uLiANCj4+Pj4+PiANCj4+
+Pj4+IA0KPj4+Pj4gWWVwLCBzMnJhbSBzb21ldGltZXMgJ2ZpeGVzJywgc29tZXRpbWVzIGJyZWFr
+cyB0aGUgY2FyZC4NCj4+Pj4+IFNvbWV0aGluZyBnb3QgYnJva2VuIGluIGRldmljZSBpbml0aWFs
+aXphdGlvbiBwYXRoLg0KPj4+Pj4gDQo+Pj4+PiBCZXN0IHJlZ2FyZHMsDQo+Pj4+PiAgCU1heGlt
+IExldml0c2t5DQo+Pj4+IA0KPj4+PiBXaGF0IGRpc3RybyBhcmUgeW91IHVzaW5nPyAgSWYgUmVk
+SGF0LCBzaW5jZSB5b3UgYXJlIHVzaW5nIERIQ1ANCj4+Pj4gd2lsbCB5b3UgcGxlYXNlIHRyeSBw
+dXR0aW5nIGEgIkxJTktERUxBWT0xMCIgaW4gdGhlDQo+Pj4+IC9ldGMvc3lzY29uZmlnL25ldHdv
+cmstc2NyaXB0cy9pZmNmZy1ldGhYIGNvbmZpZyBmaWxlLg0KPj4+PiANCj4+PiBJIHVzZSB1YnVu
+dHUgOS4xMA0KPj4+IA0KPj4+PiBJcyB0aGVyZSBhbnl0aGluZyBpbiB0aGUgc3lzdGVtIGxvZyB0
+aGF0IG1pZ2h0IGhlbHAgbmFycm93IGRvd24gdGhlDQo+Pj4+IGlzc3VlPw0KPj4+IA0KPj4+IE5v
+dGhpbmcsIHJlYWxseSBub3RoaW5nLg0KPj4+IEl0IHNlZW1zIHRvIGRldGVjdCBsaW5rLCBkaGNw
+IGNsaWVudCBzZW5kcyByZXF1ZXN0cywgYnV0IGRvZXNuJ3QNCj4+PiByZWNpZXZlIGEgdGhpbmcg
+KGV2ZW4gdHJpZWQgcHJvbWlzYyBtb2RlIC0gZG9lc24ndCBoZWxwKQ0KPj4+IA0KPj4+IA0KPj4+
+IA0KPj4+IEJlc3QgcmVnYXJkcywNCj4+PiAJTWF4aW0gTGV2aXRza3kNCj4+IA0KPj4gU2luY2Ug
+eW91IHNheSB0aGlzIGlzIGEgcmVncmVzc2lvbiwgd2hlbiBkaWQgdGhpcyBsYXN0IHdvcmsgZm9y
+IHlvdQ0KPj4gd2l0aG91dCB0aGlzIHByb2JsZW0sIGkuZS4gd2hpY2ggZGlzdHJvLCB3aGljaCBr
+ZXJuZWw/IA0KPiANCj4gSSBhbHdheXMgY29tcGlsZSBrZXJuZWwsIGFuZCBsYXN0IGtlcm5lbCBJ
+IGNvbXBpbGVkIGhlcmUgd2FzIHZhbmlsbGENCj4gMi42LjMzLXJjNC4NCj4gSXQgd29ya3MganVz
+dCBmaW5lLg0KPiANCj4gSSBtb3N0bHkgdXNlIG15IGxhcHRvcCwgYW5kIHRoZXJlZm9yZSBkaWRu
+J3QgdXBkYXRlIGtlcm5lbCBvbiBteQ0KPiBkZXNrdG9wIGZvciBsb25nIHRpbWUuDQo+IA0KPiBJ
+ZiBJIGZpbmQgc29tZSBmcmVlIHRpbWUgSSB0cnkgdG8gYmlzZWN0IHRoZSBwcm9ibGVtLg0KDQpD
+b3VsZCB5b3UgcHJvdmlkZSBzb21lIGFkZGl0aW9uYWwgaW5mbyBhYm91dCB5b3VyIHNldHVwOg0K
+ZXRodG9vbCAtZSBldGgwDQpldGh0b29sIC1kIGV0aDANCmtlcm5lbCBjb25maWcgKGlmIHBvc3Np
+YmxlKQ0KDQpXaGF0IGlzIHRoZSBtb2RlbCBvZiB5b3VyIHN5c3RlbS9NQj8NCg0KVGhhbmtzLA0K
+RW1pbA0KDQo=
