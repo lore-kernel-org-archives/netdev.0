@@ -1,30 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] tcp: tso_fragment() might avoid GFP_ATOMIC
-Date: Mon, 28 Jun 2010 23:38:01 -0700 (PDT)
-Message-ID: <20100628.233801.02282025.davem@davemloft.net>
-References: <1277377222.2816.296.camel@edumazet-laptop>
+Subject: Re: [PATCH net-next-2.6] netfilter: allow nf_tproxy_core module to
+ be removed
+Date: Mon, 28 Jun 2010 23:38:17 -0700 (PDT)
+Message-ID: <20100628.233817.68140182.davem@davemloft.net>
+References: <20100623184611.GG27132@Chamillionaire.breakpoint.cc>
+	<20100623.115558.189705237.davem@davemloft.net>
+	<4C2379D9.2080608@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: fw@strlen.de, jpirko@redhat.com, netdev@vger.kernel.org,
+	bazsi@balabit.hu, hidden@sch.bme.hu
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37652
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37658
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752363Ab0F2Ghs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 02:37:48 -0400
-In-Reply-To: <1277377222.2816.296.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1752363Ab0F2GiE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 02:38:04 -0400
+In-Reply-To: <4C2379D9.2080608@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 24 Jun 2010 13:00:22 +0200
+From: Patrick McHardy <kaber@trash.net>
+Date: Thu, 24 Jun 2010 17:29:29 +0200
 
-> We can pass a gfp argument to tso_fragment() and avoid GFP_ATOMIC
-> allocations sometimes.
+> David Miller wrote:
+>> From: Florian Westphal <fw@strlen.de>
+>> Date: Wed, 23 Jun 2010 20:46:11 +0200
+>>
+>>   
+>>> tproxy assigns skb->destructor, what prevents module unload while such
+>>> skbs may
+>>> still be around?
+>>>     
+>>
+>> The only reference to nf_tproxy_core.ko is for the symbol,
+>> "nf_tproxy_assign_sock".
+>> xt_TPROXY.c, which references this symbol, thus creates a symbol
+>> dependency on this
+>> module, so xt_TPROXY.o needs to unload before nf_tproxy_core.ko can
+>> unload, and
+>> xt_TPROXY.o has it's own manner for handling module references
+>> properly.
+>>   
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> I don't see anything waiting for skbs in flight using the tproxy
+> destructor in either xt_TPROXY or nf_tproxy_core though, so I think
+> Florian is correct.
 
-Applied.
-
-Slow down Eric, you're on fire :-)
+Ok.
