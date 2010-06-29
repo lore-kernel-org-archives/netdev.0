@@ -1,58 +1,39 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [linux-pm] [PATCH 3/3] pm_qos: get rid of the allocation in pm_qos_add_request()
-Date: Tue, 29 Jun 2010 11:20:37 +0200
-Message-ID: <201006291120.37710.rjw@sisk.pl>
-References: <1277746434.10879.191.camel@mulgrave.site> <201006282359.18045.rjw@sisk.pl> <1277763049.10879.204.camel@mulgrave.site>
+From: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/1] Bluetooth: hidp: Add support for hidraw
+ HIDIOCGFEATURE and HIDIOCSFEATURE
+Date: Tue, 29 Jun 2010 12:07:42 +0300
+Message-ID: <20100629090742.GA2716@jh-x301>
+References: <1276467601-9066-1-git-send-email-alan@signal11.us>
+ <20100628131437.bde782b6.ospite@studenti.unina.it>
+ <20100629.001216.91341775.davem@davemloft.net>
+ <alpine.LNX.2.00.1006291047560.13809@pobox.suse.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Takashi Iwai <tiwai@suse.de>, netdev@vger.kernel.org,
-	linux-pm@lists.linux-foundation.org, markgross@thegnar.org
-To: James Bottomley <James.Bottomley@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:59686 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753007Ab0F2JWb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jun 2010 05:22:31 -0400
-In-Reply-To: <1277763049.10879.204.camel@mulgrave.site>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, ospite-aNJ+ML1ZbiP93QAQaVx+gl6hYfS7NtTn@public.gmane.org,
+	alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org, mdpoole-IZmAEv5cUt1AfugRpC6u6w@public.gmane.org,
+	hadess-0MeiytkfxGOsTnJN9+BGXg@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LNX.2.00.1006291047560.13809-ztGlSCb7Y1iN3ZZ/Hiejyg@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday, June 29, 2010, James Bottomley wrote:
-> On Mon, 2010-06-28 at 23:59 +0200, Rafael J. Wysocki wrote:
-> > On Monday, June 28, 2010, James Bottomley wrote:
-> > > Since every caller has to squirrel away the returned pointer anyway,
-> > > they might as well supply the memory area.  This fixes a bug in a few of
-> > > the call sites where the returned pointer was dereferenced without
-> > > checking it for NULL (which gets returned if the kzalloc failed).
-> > > 
-> > > I'd like to hear how sound and netdev feels about this: it will add
-> > > about two more pointers worth of data to struct netdev and struct
-> > > snd_pcm_substream .. but I think it's worth it.  If you're OK, I'll add
-> > > your acks and send through the pm tree.
-> > > 
-> > > This also looks to me like an android independent clean up (even though
-> > > it renders the request_add atomically callable).  I also added include
-> > > guards to include/linux/pm_qos_params.h
-> > > 
-> > > cc: netdev@vger.kernel.org
-> > > cc: Takashi Iwai <tiwai@suse.de>
-> > > Signed-off-by: James Bottomley <James.Bottomley@suse.de>
-> > 
-> > I like all of the patches in this series, thanks a lot for doing this!
-> > 
-> > I guess it might be worth sending a CC to the LKML next round so that people
-> > can see [1/3] (I don't expect any objections, but anyway it would be nice).
+Hi,
+
+On Tue, Jun 29, 2010, Jiri Kosina wrote:
+> Frankly, I don't understand what exactly the current situation with 
+> in-kernel bluetooth stack is anyway. 
 > 
-> I cc'd the latest owners of plist.h ... although Daniel Walker has
-> apparently since left MontaVista, Thomas Gleixner is still current ...
-> and he can speak for the RT people, who are the primary plist users.
-> 
-> I can do another round and cc lkml, I was just hoping this would be the
-> last revision.
+> What is the relation between what we have in net/bluetooth and the tree at 
+> [1], which seems to be quite actively developed?
 
-OK, let's see if there's any feedback on [3/3] from netdev and Takashi.
-If there's none, I'll just put the series into my linux-next branch.
+The difference is that the userspace part has essentially two
+maintainers (me and Marcel) whereas the kernel side only has one
+(Marcel). So even when Marcel is inactive I can at least take care of
+the userspace side. I'd volunteer for the kernel also but I don't really
+have any experience there (only 3-4 patches so far).
 
-Rafael
+Johan
