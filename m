@@ -1,28 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] Extend Time Stamping
-Date: Tue, 29 Jun 2010 15:31:34 -0700 (PDT)
-Message-ID: <20100629.153134.25136559.davem@davemloft.net>
-References: <cover.1277737222.git.richard.cochran@omicron.at>
+Subject: Re: [PATCH] net/Makefile: conditionally descend to wireless and
+ ieee802154
+Date: Tue, 29 Jun 2010 15:32:54 -0700 (PDT)
+Message-ID: <20100629.153254.63029948.davem@davemloft.net>
+References: <20100627120025.0232a9d0@absol.kitzblitz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: richardcochran@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55009
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751885Ab0F2WbV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 18:31:21 -0400
-In-Reply-To: <cover.1277737222.git.richard.cochran@omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kbuild@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: nikai@nikai.net
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <20100627120025.0232a9d0@absol.kitzblitz>
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Nicolas Kaiser <nikai@nikai.net>
+Date: Sun, 27 Jun 2010 12:00:25 +0200
 
-Richard, last round I told you:
+> Don't descend to wireless and ieee802154 unless they are actually used.
+> 
+> Signed-off-by: Nicolas Kaiser <nikai@nikai.net>
 
---------------------
-By this I mean you should provide these inline helpers by default
-then we can begin to put them into the drivers.
---------------------
-
-This means no config option.
+Applied.
