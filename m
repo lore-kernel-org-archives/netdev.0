@@ -1,92 +1,41 @@
-From: Flavio Leitner <fleitner@redhat.com>
-Subject: [PATCH] bonding: check if clients MAC addr has changed
-Date: Tue, 29 Jun 2010 11:41:21 -0300
-Message-ID: <1277822481-25175-1-git-send-email-fleitner@redhat.com>
-Cc: Flavio Leitner <fleitner@redhat.com>
-To: bonding-devel@lists.sourceforge.net,
-	Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
-	Andy Gospodarek <gospo@redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH -next] sfc: set/clear NETIF_F_RXHASH bit directly
+Date: Tue, 29 Jun 2010 15:43:29 +0100
+Message-ID: <1277822609.2112.22.camel@achroite.uk.solarflarecom.com>
+References: <20100629163520.642590bf@dhcp-lab-109.englab.brq.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Amerigo Wang <amwang@redhat.com>
+To: Stanislaw Gruszka <sgruszka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39458 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756222Ab0F2Omr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jun 2010 10:42:47 -0400
+Received: from mail.solarflare.com ([216.237.3.220]:50078 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756206Ab0F2Onc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 10:43:32 -0400
+In-Reply-To: <20100629163520.642590bf@dhcp-lab-109.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When two systems using bonding devices in adaptive load
-balancing (ALB) communicates with each other, an endless
-ping-pong of ARP replies starts between these two systems.
+On Tue, 2010-06-29 at 16:35 +0200, Stanislaw Gruszka wrote:
+> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+[...]
 
-What happens? In the ALB mode, bonding driver keeps track
-of each client connected in a hash table, so it can do the
-receive load balancing (RLB). This hash table is updated
-when an ARP reply is received, then it scans for the client
-entry, updates its MAC address and flag it to be announced
-later. Therefore, two seconds later, the alb monitor runs
-and send for each updated client entry two ARP replies
-updating this specific client. The same process happens on
-the receiving system, causing the endless ping-pong of arp
-replies.
+I don't think this is a positive change.
 
-See more information including the relevant functions below:
+Please change ethtool_op_set_flags; then in efx_ethtool_set_flags() you
+can do:
 
-   System 1                          System 2
-    bond0                             bond0
+-	if (data & ~supported)
+- 		return -EOPNOTSUPP;
+- 
+-	return ethtool_op_set_flags(net_dev, data);
++	return ethtool_op_set_flags(net_dev, data, supported);
 
-   ping <system2>
-    ARP request  --------->
-                           <--------- ARP reply
+Ben.
 
-+->rlb_arp_recv  <---------------------+   <--- loop begins
-|  rlb_update_entry_from_arp           |
-|  client_info->ntt = 1;               |
-|  bond_info->rx_ntt = 1;              |
-|                                      |
-|         <communication succeed>      |
-|                                      |
-|  bond_alb_monitor                    |
-|  rlb_update_rx_clients               |
-|  rlb_update_client                   |
-|  arp_create(ARPOP_REPLY)             |
-|   send ARP reply -------------->     V
-|   send ARP reply -------------->
-|                               rlb_arp_recv
-|                               rlb_update_entry_from_arp
-|                               client_info->ntt = 1;
-|                               bond_info->rx_ntt = 1;
-|                           < snipped, same as in system 1>
-+-------           <-------------- send ARP reply
-                   <-------------- send ARP reply
-
-Besides the unneeded networking traffic, this loop breaks
-a cluster because a backup system can't take over the IP
-address. There is always one system sending an ARP reply
-poisoning the network.
-
-This patch fixes the problem adding a check for the MAC
-address before updating it. Thus, if the MAC address didn't
-change, there is no need to update neither to announce it later.
-
-Signed-off-by: Flavio Leitner <fleitner@redhat.com>
----
- drivers/net/bonding/bond_alb.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 40fdc41..67154bb 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -340,7 +340,8 @@ static void rlb_update_entry_from_arp(struct bonding *bond, struct arp_pkt *arp)
- 
- 	if ((client_info->assigned) &&
- 	    (client_info->ip_src == arp->ip_dst) &&
--	    (client_info->ip_dst == arp->ip_src)) {
-+	    (client_info->ip_dst == arp->ip_src) &&
-+	    (memcmp(client_info->mac_dst, arp->mac_src, ETH_ALEN))) {
- 		/* update the clients MAC address */
- 		memcpy(client_info->mac_dst, arp->mac_src, ETH_ALEN);
- 		client_info->ntt = 1;
 -- 
-1.7.0.1
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
