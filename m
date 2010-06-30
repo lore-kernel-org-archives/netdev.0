@@ -1,207 +1,60 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH] ixgbe: add 1g PHY support for 82599
-Date: Tue, 29 Jun 2010 21:30:59 -0700
-Message-ID: <20100630043017.8987.49958.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH v2] x86: Align skb w/ start of cacheline on newer
+	core 2/Xeon Arch
+Date: Tue, 29 Jun 2010 21:38:00 -0700
+Message-ID: <20100630043728.9224.64191.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Don Skidmore <donald.c.skidmore@intel.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta14.emeryville.ca.mail.comcast.net ([76.96.27.212]:44321
-	"EHLO qmta14.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750743Ab0F3EbS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 00:31:18 -0400
+Received: from qmta06.emeryville.ca.mail.comcast.net ([76.96.30.56]:54009 "EHLO
+	qmta06.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750725Ab0F3Ei2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 00:38:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Add support for 1G SFP+ PHY's to 82599.
+x86 architectures can handle unaligned accesses in hardware, and it has
+been shown that unaligned DMA accesses can be expensive on Nehalem
+architectures.  As such we should overwrite NET_IP_ALIGN to resolve
+this issue.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: x86@kernel.org
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/ixgbe/ixgbe_82599.c   |   13 +++++++++++++
- drivers/net/ixgbe/ixgbe_ethtool.c |    7 +++++++
- drivers/net/ixgbe/ixgbe_phy.c     |   33 +++++++++++++++++++++++++++++----
- drivers/net/ixgbe/ixgbe_phy.h     |    1 +
- drivers/net/ixgbe/ixgbe_type.h    |    2 ++
- 5 files changed, 52 insertions(+), 4 deletions(-)
+ arch/x86/include/asm/system.h |    9 +++++++++
+ 1 files changed, 9 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
-index 976fd9e..0ee175a 100644
---- a/drivers/net/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ixgbe/ixgbe_82599.c
-@@ -206,6 +206,14 @@ static s32 ixgbe_get_link_capabilities_82599(struct ixgbe_hw *hw,
- 	s32 status = 0;
- 	u32 autoc = 0;
+diff --git a/arch/x86/include/asm/system.h b/arch/x86/include/asm/system.h
+index b8fe48e..b4293fc 100644
+--- a/arch/x86/include/asm/system.h
++++ b/arch/x86/include/asm/system.h
+@@ -457,4 +457,13 @@ static inline void rdtsc_barrier(void)
+ 	alternative(ASM_NOP3, "lfence", X86_FEATURE_LFENCE_RDTSC);
+ }
  
-+	/* Determine 1G link capabilities off of SFP+ type */
-+	if (hw->phy.sfp_type == ixgbe_sfp_type_1g_cu_core0 ||
-+	    hw->phy.sfp_type == ixgbe_sfp_type_1g_cu_core1) {
-+		*speed = IXGBE_LINK_SPEED_1GB_FULL;
-+		*negotiation = true;
-+		goto out;
-+	}
-+
- 	/*
- 	 * Determine link capabilities based on the stored value of AUTOC,
- 	 * which represents EEPROM defaults.  If AUTOC value has not been
-@@ -2087,6 +2095,7 @@ static u32 ixgbe_get_supported_physical_layer_82599(struct ixgbe_hw *hw)
- 	u32 pma_pmd_1g = autoc & IXGBE_AUTOC_1G_PMA_PMD_MASK;
- 	u16 ext_ability = 0;
- 	u8 comp_codes_10g = 0;
-+	u8 comp_codes_1g = 0;
- 
- 	hw->phy.ops.identify(hw);
- 
-@@ -2167,11 +2176,15 @@ sfp_check:
- 	case ixgbe_phy_sfp_intel:
- 	case ixgbe_phy_sfp_unknown:
- 		hw->phy.ops.read_i2c_eeprom(hw,
-+		      IXGBE_SFF_1GBE_COMP_CODES, &comp_codes_1g);
-+		hw->phy.ops.read_i2c_eeprom(hw,
- 		      IXGBE_SFF_10GBE_COMP_CODES, &comp_codes_10g);
- 		if (comp_codes_10g & IXGBE_SFF_10GBASESR_CAPABLE)
- 			physical_layer = IXGBE_PHYSICAL_LAYER_10GBASE_SR;
- 		else if (comp_codes_10g & IXGBE_SFF_10GBASELR_CAPABLE)
- 			physical_layer = IXGBE_PHYSICAL_LAYER_10GBASE_LR;
-+		else if (comp_codes_1g & IXGBE_SFF_1GBASET_CAPABLE)
-+			physical_layer = IXGBE_PHYSICAL_LAYER_1000BASE_T;
- 		break;
- 	default:
- 		break;
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index 873b45e..2e88fc6 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -234,6 +234,13 @@ static int ixgbe_get_settings(struct net_device *netdev,
- 		case ixgbe_sfp_type_not_present:
- 			ecmd->port = PORT_NONE;
- 			break;
-+		case ixgbe_sfp_type_1g_cu_core0:
-+		case ixgbe_sfp_type_1g_cu_core1:
-+			ecmd->port = PORT_TP;
-+			ecmd->supported = SUPPORTED_TP;
-+			ecmd->advertising = (ADVERTISED_1000baseT_Full |
-+			                     ADVERTISED_TP);
-+			break;
- 		case ixgbe_sfp_type_unknown:
- 		default:
- 			ecmd->port = PORT_OTHER;
-diff --git a/drivers/net/ixgbe/ixgbe_phy.c b/drivers/net/ixgbe/ixgbe_phy.c
-index 48325a5..6c0d42e 100644
---- a/drivers/net/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ixgbe/ixgbe_phy.c
-@@ -577,6 +577,8 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
- 		 * 6    SFP_SR/LR_CORE1 - 82599-specific
- 		 * 7    SFP_act_lmt_DA_CORE0 - 82599-specific
- 		 * 8    SFP_act_lmt_DA_CORE1 - 82599-specific
-+		 * 9    SFP_1g_cu_CORE0 - 82599-specific
-+		 * 10   SFP_1g_cu_CORE1 - 82599-specific
- 		 */
- 		if (hw->mac.type == ixgbe_mac_82598EB) {
- 			if (cable_tech & IXGBE_SFF_DA_PASSIVE_CABLE)
-@@ -625,6 +627,13 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
- 				else
- 					hw->phy.sfp_type =
- 					              ixgbe_sfp_type_srlr_core1;
-+			else if (comp_codes_1g & IXGBE_SFF_1GBASET_CAPABLE)
-+				if (hw->bus.lan_id == 0)
-+					hw->phy.sfp_type =
-+						ixgbe_sfp_type_1g_cu_core0;
-+				else
-+					hw->phy.sfp_type =
-+						ixgbe_sfp_type_1g_cu_core1;
- 			else
- 				hw->phy.sfp_type = ixgbe_sfp_type_unknown;
- 		}
-@@ -696,8 +705,10 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
- 			goto out;
- 		}
- 
--		/* 1G SFP modules are not supported */
--		if (comp_codes_10g == 0) {
-+		/* Verify supported 1G SFP modules */
-+		if (comp_codes_10g == 0 &&
-+		    !(hw->phy.sfp_type == ixgbe_sfp_type_1g_cu_core1 ||
-+		      hw->phy.sfp_type == ixgbe_sfp_type_1g_cu_core0)) {
- 			hw->phy.type = ixgbe_phy_sfp_unsupported;
- 			status = IXGBE_ERR_SFP_NOT_SUPPORTED;
- 			goto out;
-@@ -711,7 +722,9 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
- 
- 		/* This is guaranteed to be 82599, no need to check for NULL */
- 		hw->mac.ops.get_device_caps(hw, &enforce_sfp);
--		if (!(enforce_sfp & IXGBE_DEVICE_CAPS_ALLOW_ANY_SFP)) {
-+		if (!(enforce_sfp & IXGBE_DEVICE_CAPS_ALLOW_ANY_SFP) &&
-+		    !((hw->phy.sfp_type == ixgbe_sfp_type_1g_cu_core0) ||
-+		      (hw->phy.sfp_type == ixgbe_sfp_type_1g_cu_core1))) {
- 			/* Make sure we're a supported PHY type */
- 			if (hw->phy.type == ixgbe_phy_sfp_intel) {
- 				status = 0;
-@@ -742,6 +755,7 @@ s32 ixgbe_get_sfp_init_sequence_offsets(struct ixgbe_hw *hw,
-                                         u16 *data_offset)
- {
- 	u16 sfp_id;
-+	u16 sfp_type = hw->phy.sfp_type;
- 
- 	if (hw->phy.sfp_type == ixgbe_sfp_type_unknown)
- 		return IXGBE_ERR_SFP_NOT_SUPPORTED;
-@@ -753,6 +767,17 @@ s32 ixgbe_get_sfp_init_sequence_offsets(struct ixgbe_hw *hw,
- 	    (hw->phy.sfp_type == ixgbe_sfp_type_da_cu))
- 		return IXGBE_ERR_SFP_NOT_SUPPORTED;
- 
-+	/*
-+	 * Limiting active cables and 1G Phys must be initialized as
-+	 * SR modules
-+	 */
-+	if (sfp_type == ixgbe_sfp_type_da_act_lmt_core0 ||
-+	    sfp_type == ixgbe_sfp_type_1g_cu_core0)
-+		sfp_type = ixgbe_sfp_type_srlr_core0;
-+	else if (sfp_type == ixgbe_sfp_type_da_act_lmt_core1 ||
-+	         sfp_type == ixgbe_sfp_type_1g_cu_core1)
-+		sfp_type = ixgbe_sfp_type_srlr_core1;
-+
- 	/* Read offset to PHY init contents */
- 	hw->eeprom.ops.read(hw, IXGBE_PHY_INIT_OFFSET_NL, list_offset);
- 
-@@ -769,7 +794,7 @@ s32 ixgbe_get_sfp_init_sequence_offsets(struct ixgbe_hw *hw,
- 	hw->eeprom.ops.read(hw, *list_offset, &sfp_id);
- 
- 	while (sfp_id != IXGBE_PHY_INIT_END_NL) {
--		if (sfp_id == hw->phy.sfp_type) {
-+		if (sfp_id == sfp_type) {
- 			(*list_offset)++;
- 			hw->eeprom.ops.read(hw, *list_offset, data_offset);
- 			if ((!*data_offset) || (*data_offset == 0xFFFF)) {
-diff --git a/drivers/net/ixgbe/ixgbe_phy.h b/drivers/net/ixgbe/ixgbe_phy.h
-index ef4ba83..fb3898f 100644
---- a/drivers/net/ixgbe/ixgbe_phy.h
-+++ b/drivers/net/ixgbe/ixgbe_phy.h
-@@ -48,6 +48,7 @@
- #define IXGBE_SFF_DA_SPEC_ACTIVE_LIMITING    0x4
- #define IXGBE_SFF_1GBASESX_CAPABLE           0x1
- #define IXGBE_SFF_1GBASELX_CAPABLE           0x2
-+#define IXGBE_SFF_1GBASET_CAPABLE            0x8
- #define IXGBE_SFF_10GBASESR_CAPABLE          0x10
- #define IXGBE_SFF_10GBASELR_CAPABLE          0x20
- #define IXGBE_I2C_EEPROM_READ_MASK           0x100
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index cdd1998..9587d97 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -2214,6 +2214,8 @@ enum ixgbe_sfp_type {
- 	ixgbe_sfp_type_srlr_core1 = 6,
- 	ixgbe_sfp_type_da_act_lmt_core0 = 7,
- 	ixgbe_sfp_type_da_act_lmt_core1 = 8,
-+	ixgbe_sfp_type_1g_cu_core0 = 9,
-+	ixgbe_sfp_type_1g_cu_core1 = 10,
- 	ixgbe_sfp_type_not_present = 0xFFFE,
- 	ixgbe_sfp_type_unknown = 0xFFFF
- };
++#ifdef CONFIG_MCORE2
++/*
++ * We handle most unaligned accesses in hardware.  On the other hand
++ * unaligned DMA can be quite expensive on some Nehalem processors.
++ *
++ * Based on this we disable the IP header alignment in network drivers.
++ */
++#define NET_IP_ALIGN	0
++#endif
+ #endif /* _ASM_X86_SYSTEM_H */
 
