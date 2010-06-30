@@ -1,40 +1,34 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] act_mirred: combine duplicate code
-Date: Wed, 30 Jun 2010 06:24:02 -0400
-Message-ID: <1277893442.3509.16.camel@bigi>
-References: <1277888098-27632-1-git-send-email-xiaosuo@gmail.com>
+Subject: Re: [PATCH] act_nat: use stack variable
+Date: Wed, 30 Jun 2010 06:25:21 -0400
+Message-ID: <1277893521.3509.17.camel@bigi>
+References: <1277888829-30230-1-git-send-email-xiaosuo@gmail.com>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:42476 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751031Ab0F3KYH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 06:24:07 -0400
-Received: by qwi4 with SMTP id 4so228494qwi.19
-        for <netdev@vger.kernel.org>; Wed, 30 Jun 2010 03:24:05 -0700 (PDT)
-In-Reply-To: <1277888098-27632-1-git-send-email-xiaosuo@gmail.com>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:51081 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753202Ab0F3KZY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 06:25:24 -0400
+Received: by vws5 with SMTP id 5so802828vws.19
+        for <netdev@vger.kernel.org>; Wed, 30 Jun 2010 03:25:24 -0700 (PDT)
+In-Reply-To: <1277888829-30230-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-removed lkml
-
-On Wed, 2010-06-30 at 16:54 +0800, Changli Gao wrote:
-> act_mirred: combine duplicate code
+On Wed, 2010-06-30 at 17:07 +0800, Changli Gao wrote:
+> act_nat: use stack variable
 > 
-> tcf_bstats is updated in any way, so we can do it earlier to reduce the size of
-> the code.
+> structure tc_nat isn't too big for stack, so we can put it in stack.
+> 
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 
-There is one condition when !(dev->flags & IFF_UP) where we dont update
-the stats in current code. This changes with your patch. 
-It would make sense to actually update at that point (as you do) and
-additionally increment some other counter to track that like
-m->tcf_qstats.drops. I suggest resubmit with that change and add my
-signed-off.
+Doesnt look unreasonable - will let Herbert make the call..
 
 cheers,
 jamal
