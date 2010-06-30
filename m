@@ -1,49 +1,93 @@
-From: Brian King <brking@linux.vnet.ibm.com>
-Subject: [PATCH 1/1] ehea: Allocate stats buffer with GFP_KERNEL
-Date: Wed, 30 Jun 2010 16:59:12 -0500
-Message-ID: <201006302159.o5ULx8ow025348@d01av03.pok.ibm.com>
-Cc: osstklei@de.ibm.com, raisch@de.ibm.com, netdev@vger.kernel.org,
-	brking@linux.vnet.ibm.com
-To: ossthema@de.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:59122 "EHLO e7.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753562Ab0F3V7L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jun 2010 17:59:11 -0400
-Received: from d01relay07.pok.ibm.com (d01relay07.pok.ibm.com [9.56.227.147])
-	by e7.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id o5ULlA2v022404
-	for <netdev@vger.kernel.org>; Wed, 30 Jun 2010 17:47:10 -0400
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay07.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o5ULx9br2183210
-	for <netdev@vger.kernel.org>; Wed, 30 Jun 2010 17:59:09 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o5ULx99l025409
-	for <netdev@vger.kernel.org>; Wed, 30 Jun 2010 18:59:09 -0300
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Anthony Liguori <anthony@codemonkey.ws>
+Subject: Re: [PATCHv2] vhost-net: add dhclient work-around from userspace
+Date: Wed, 30 Jun 2010 17:08:11 -0500
+Message-ID: <4C2BC04B.3000100@codemonkey.ws>
+References: <20100628100807.GA30685@redhat.com> <20100629.003647.214219303.davem@davemloft.net> <20100629130439.GD3603@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, arozansk@redhat.com,
+	herbert.xu@redhat.com, quintela@redhat.com, kvm@vger.kernel.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ykaul@redhat.com, markmc@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100629130439.GD3603@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 06/29/2010 08:04 AM, Michael S. Tsirkin wrote:
+> On Tue, Jun 29, 2010 at 12:36:47AM -0700, David Miller wrote:
+>    
+>> From: "Michael S. Tsirkin"<mst@redhat.com>
+>> Date: Mon, 28 Jun 2010 13:08:07 +0300
+>>
+>>      
+>>> Userspace virtio server has the following hack
+>>> so guests rely on it, and we have to replicate it, too:
+>>>
+>>> Use port number to detect incoming IPv4 DHCP response packets,
+>>> and fill in the checksum for these.
+>>>
+>>> The issue we are solving is that on linux guests, some apps
+>>> that use recvmsg with AF_PACKET sockets, don't know how to
+>>> handle CHECKSUM_PARTIAL;
+>>> The interface to return the relevant information was added
+>>> in 8dc4194474159660d7f37c495e3fc3f10d0db8cc,
+>>> and older userspace does not use it.
+>>> One important user of recvmsg with AF_PACKET is dhclient,
+>>> so we add a work-around just for DHCP.
+>>>
+>>> Don't bother applying the hack to IPv6 as userspace virtio does not
+>>> have a work-around for that - let's hope guests will do the right
+>>> thing wrt IPv6.
+>>>
+>>> Signed-off-by: Michael S. Tsirkin<mst@redhat.com>
+>>>        
+>> Yikes, this is awful too.
+>>
+>> Nothing in the kernel should be mucking around with procotol packets
+>> like this by default.  In particular, what the heck does port 67 mean?
+>> Locally I can use it for whatever I want for my own purposes, I don't
+>> have to follow the conventions for service ports as specified by the
+>> IETF.
+>>
+>> But I can't have the packet checksum state be left alone for port 67
+>> traffic on a box using virtio because you have this hack there.
+>>
+>> And yes it's broken on machines using the qemu thing, but at least the
+>> hack there is restricted to userspace.
+>>      
+> Yes, and I think it was a mistake to add the hack there. This is what
+> prevented applications from using the new interface in the 3 years
+> since it was first introduced.
+>    
 
-Since ehea_get_stats calls ehea_h_query_ehea_port, which
-can sleep, we can also sleep when allocating a page in
-this function. This fixes some memory allocation failure
-warnings seen under low memory conditions.
+It's far more complicated than that.  dhclient is part of ISC's DHCP 
+package.  They do not have a public SCM and instead require you to join 
+their Software Guild to get access to it.
 
-Signed-off-by: Brian King <brking@linux.vnet.ibm.com>
----
+This problem was identified in one distribution and the patch was pushed 
+upstream but because they did not have a public SCM, most other 
+distributions did not see the fix until it appeared in a release.  ISC 
+has a pretty long release cycle historically.
 
- drivers/net/ehea/ehea_main.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ISC's had the fix for a long time but there was a 3-year gap in their 
+releases and since their SCM isn't public, users are stuck with the last 
+release.
 
-diff -puN drivers/net/ehea/ehea_main.c~ehea_get_stats_gfp drivers/net/ehea/ehea_main.c
---- linux-2.6/drivers/net/ehea/ehea_main.c~ehea_get_stats_gfp	2010-06-28 09:46:51.000000000 -0500
-+++ linux-2.6-bjking1/drivers/net/ehea/ehea_main.c	2010-06-28 09:46:51.000000000 -0500
-@@ -335,7 +335,7 @@ static struct net_device_stats *ehea_get
- 
- 	memset(stats, 0, sizeof(*stats));
- 
--	cb2 = (void *)get_zeroed_page(GFP_ATOMIC);
-+	cb2 = (void *)get_zeroed_page(GFP_KERNEL);
- 	if (!cb2) {
- 		ehea_error("no mem for cb2");
- 		goto out;
-_
+This hack makes sense in QEMU as we have a few hacks like this to fix 
+broken guests.  A primary use of virtualization is to run old 
+applications so it makes sense for us to do that.
+
+I don't think it makes sense for vhost to do this.  These guests are so 
+old that they don't have the requisite features to achieve really high 
+performance anyway.
+
+I've always thought making vhost totally transparent was a bad idea and 
+this is one of the reasons.  We can do a lot of ugly things in userspace 
+that we shouldn't be doing in the kernel.
+
+Regards,
+
+Anthony Liguori
