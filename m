@@ -1,47 +1,81 @@
-From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-Subject: [PATCH v2] net/core: use ntohs for skb->protocol
-Date: Wed, 30 Jun 2010 11:02:29 +0200
-Message-ID: <20100630090229.GB25541@Chamillionaire.breakpoint.cc>
-References: <20100629163246.GA18647@Chamillionaire.breakpoint.cc>
- <20100629.151740.135534374.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] act_nat: use stack variable
+Date: Wed, 30 Jun 2010 17:07:09 +0800
+Message-ID: <1277888829-30230-1-git-send-email-xiaosuo@gmail.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Jamal Hadi Salim <hadi@cyberus.ca>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:50309 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752079Ab0F3JCa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 05:02:30 -0400
-Content-Disposition: inline
-In-Reply-To: <20100629.151740.135534374.davem@davemloft.net>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:65286 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752079Ab0F3JJQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 05:09:16 -0400
+Received: by pvc7 with SMTP id 7so267597pvc.19
+        for <netdev@vger.kernel.org>; Wed, 30 Jun 2010 02:09:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+act_nat: use stack variable
 
-This is only noticed by people that are not doing everything correct in
-the first place.
+structure tc_nat isn't too big for stack, so we can put it in stack.
 
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
----
- net/core/dev.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index eb4be99..8e61dc5 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1537,7 +1537,8 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
- 				if (net_ratelimit())
- 					printk(KERN_CRIT "protocol %04x is "
- 					       "buggy, dev %s\n",
--					       skb2->protocol, dev->name);
-+					       ntohs(skb2->protocol),
-+					       dev->name);
- 				skb_reset_network_header(skb2);
- 			}
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+----
+ net/sched/act_nat.c |   31 ++++++++++---------------------
+ 1 file changed, 10 insertions(+), 21 deletions(-)
+diff --git a/net/sched/act_nat.c b/net/sched/act_nat.c
+index 5709494..0be49a4 100644
+--- a/net/sched/act_nat.c
++++ b/net/sched/act_nat.c
+@@ -265,40 +265,29 @@ static int tcf_nat_dump(struct sk_buff *skb, struct tc_action *a,
+ {
+ 	unsigned char *b = skb_tail_pointer(skb);
+ 	struct tcf_nat *p = a->priv;
+-	struct tc_nat *opt;
++	struct tc_nat opt;
+ 	struct tcf_t t;
+-	int s;
  
--- 
-1.6.6.1
-
+-	s = sizeof(*opt);
++	opt.old_addr = p->old_addr;
++	opt.new_addr = p->new_addr;
++	opt.mask = p->mask;
++	opt.flags = p->flags;
+ 
+-	/* netlink spinlocks held above us - must use ATOMIC */
+-	opt = kzalloc(s, GFP_ATOMIC);
+-	if (unlikely(!opt))
+-		return -ENOBUFS;
++	opt.index = p->tcf_index;
++	opt.action = p->tcf_action;
++	opt.refcnt = p->tcf_refcnt - ref;
++	opt.bindcnt = p->tcf_bindcnt - bind;
+ 
+-	opt->old_addr = p->old_addr;
+-	opt->new_addr = p->new_addr;
+-	opt->mask = p->mask;
+-	opt->flags = p->flags;
+-
+-	opt->index = p->tcf_index;
+-	opt->action = p->tcf_action;
+-	opt->refcnt = p->tcf_refcnt - ref;
+-	opt->bindcnt = p->tcf_bindcnt - bind;
+-
+-	NLA_PUT(skb, TCA_NAT_PARMS, s, opt);
++	NLA_PUT(skb, TCA_NAT_PARMS, sizeof(opt), &opt);
+ 	t.install = jiffies_to_clock_t(jiffies - p->tcf_tm.install);
+ 	t.lastuse = jiffies_to_clock_t(jiffies - p->tcf_tm.lastuse);
+ 	t.expires = jiffies_to_clock_t(p->tcf_tm.expires);
+ 	NLA_PUT(skb, TCA_NAT_TM, sizeof(t), &t);
+ 
+-	kfree(opt);
+-
+ 	return skb->len;
+ 
+ nla_put_failure:
+ 	nlmsg_trim(skb, b);
+-	kfree(opt);
+ 	return -1;
+ }
+ 
