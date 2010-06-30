@@ -1,63 +1,39 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 3/3] vmxnet3: Remove incorrect implementation
- of ethtool_ops::get_flags()
-Date: Wed, 30 Jun 2010 13:47:40 +0100
-Message-ID: <1277902060.2082.13.camel@achroite.uk.solarflarecom.com>
-References: <1277901872.2082.10.camel@achroite.uk.solarflarecom.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH net-next-2.6] netfilter: remove deprecated config option
+ NF_CT_ACCT
+Date: Wed, 30 Jun 2010 14:49:54 +0200
+Message-ID: <20100630124954.GA2582@psychotron.brq.redhat.com>
+References: <20100629154507.GA5260@psychotron.brq.redhat.com>
+ <4C2B3437.6000602@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Shreyas Bhatewara <sbhatewara@vmware.com>,
-	"VMware, Inc." <pv-drivers@vmware.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, ole@ans.pl
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:58742 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752562Ab0F3Mrn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 08:47:43 -0400
-In-Reply-To: <1277901872.2082.10.camel@achroite.uk.solarflarecom.com>
+Received: from mx1.redhat.com ([209.132.183.28]:40119 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751979Ab0F3MuK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jun 2010 08:50:10 -0400
+Content-Disposition: inline
+In-Reply-To: <4C2B3437.6000602@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Only some netdev feature flags correspond directly to ethtool feature
-flags.  ethtool_op_get_flags() does the right thing.
+Wed, Jun 30, 2010 at 02:10:31PM CEST, kaber@trash.net wrote:
+>Jiri Pirko wrote:
+>>This patch removes deprecated config option NF_CT_ACCT. The default value is set
+>>to 0 and warning message is put into connbytes_mt_init (connbytes selected
+>>NF_CT_ACCT to enable it by default).
+>
+>Thanks, I already have a patch queued in nf-next for this.
+>
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/vmxnet3/vmxnet3_ethtool.c |    8 +-------
- 1 files changed, 1 insertions(+), 7 deletions(-)
+Oh, I see that: d70a011dbbaa6335a19deb63ec3eb613f48faafd
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
-index 8a71a21..de1ba14 100644
---- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
-+++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
-@@ -275,12 +275,6 @@ vmxnet3_get_strings(struct net_device *netdev, u32 stringset, u8 *buf)
- 	}
- }
- 
--static u32
--vmxnet3_get_flags(struct net_device *netdev)
--{
--	return netdev->features;
--}
--
- static int
- vmxnet3_set_flags(struct net_device *netdev, u32 data)
- {
-@@ -559,7 +553,7 @@ static struct ethtool_ops vmxnet3_ethtool_ops = {
- 	.get_tso           = ethtool_op_get_tso,
- 	.set_tso           = ethtool_op_set_tso,
- 	.get_strings       = vmxnet3_get_strings,
--	.get_flags	   = vmxnet3_get_flags,
-+	.get_flags	   = ethtool_op_get_flags,
- 	.set_flags	   = vmxnet3_set_flags,
- 	.get_sset_count	   = vmxnet3_get_sset_count,
- 	.get_ethtool_stats = vmxnet3_get_ethtool_stats,
--- 
-1.6.2.5
+Apart your patch doesn't remove option from defconfigs (not sure if that's
+necessary or not), your patch also do not print warning in connbytes_mt_init.
+That would make connbytes silently non-functional. Therefore I think my patch is
+better (more complete).
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Jirka
 
