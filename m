@@ -1,37 +1,63 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] act_nat: use stack variable
-Date: Wed, 30 Jun 2010 18:30:05 +0800
-Message-ID: <20100630103005.GA24688@gondor.apana.org.au>
-References: <1277888829-30230-1-git-send-email-xiaosuo@gmail.com> <1277893521.3509.17.camel@bigi>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] igbvf: avoid name clash between PF and VF
+Date: Wed, 30 Jun 2010 11:44:39 +0100
+Message-ID: <1277894679.28819.60.camel@localhost>
+References: <4C2B0614.9040004@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, e1000-devel@lists.sourceforge.net,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	gregory.v.rose@intel.com, jeffrey.t.kirsher@intel.com,
+	Andy Gospodarek <gospo@redhat.com>
+To: Stefan Assmann <sassmann@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:54860 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751947Ab0F3KaO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 06:30:14 -0400
-Content-Disposition: inline
-In-Reply-To: <1277893521.3509.17.camel@bigi>
+Received: from exchange.solarflare.com ([216.237.3.220]:53572 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752367Ab0F3Koo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 06:44:44 -0400
+In-Reply-To: <4C2B0614.9040004@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 30, 2010 at 06:25:21AM -0400, jamal wrote:
-> On Wed, 2010-06-30 at 17:07 +0800, Changli Gao wrote:
-> > act_nat: use stack variable
-> > 
-> > structure tc_nat isn't too big for stack, so we can put it in stack.
-> > 
-> > Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+On Wed, 2010-06-30 at 10:53 +0200, Stefan Assmann wrote:
+> From: Stefan Assmann <sassmann@redhat.com>
 > 
-> Doesnt look unreasonable - will let Herbert make the call..
+> It looks like the VFs get initialized before all the PFs are. Therefore
+> the udev mapping MAC <-> ethX (for PFs) gets screwed because the VFs
+> may grab the ethX interface names (reserved by udev) for the PFs.
+> 
+> Example:
+> igb max_vfs=0
+> eth0      Link encap:Ethernet  HWaddr 00:13:20:F7:A5:9E
+> eth1      Link encap:Ethernet  HWaddr 00:13:20:F7:A5:9F
+> eth2      Link encap:Ethernet  HWaddr 00:13:20:F7:A5:A0
+> eth3      Link encap:Ethernet  HWaddr 00:13:20:F7:A5:A1
+> igb max_vfs=1
+> eth0      Link encap:Ethernet  HWaddr 00:13:20:F7:A5:9E
+> eth1      Link encap:Ethernet  HWaddr 0A:CF:41:69:F7:A9
+> eth2      Link encap:Ethernet  HWaddr 3A:FE:20:4C:2A:3B
+> eth3      Link encap:Ethernet  HWaddr C6:C3:B1:56:C9:A4
+> eth3_rename Link encap:Ethernet  HWaddr 00:13:20:F7:A5:9F
+> eth4      Link encap:Ethernet  HWaddr 6E:8A:8A:A3:5F:69
+> eth4_rename Link encap:Ethernet  HWaddr 00:13:20:F7:A5:A0
+> eth5_rename Link encap:Ethernet  HWaddr 00:13:20:F7:A5:A1
+> 
+> In the example above VF 0A:CF:41:69:F7:A9 grabs eth1 but udev
+> has a rule that says eth1 should be assigned PF 00:13:20:F7:A5:9F
+> (eth3_rename) and waits for the VF to disappear to rename eth3_rename
+> to eth1. Unfortunately eth1 is not going to disappear.
+> This is not a udev bug since udev doesn't create persistent rules for
+> VFs as their MAC address changes every reboot.
+[...]
 
-Looks good to me too.
+I think it is a bug in the udev rules: udev should rename the VFs even
+though their names won't be persistent.
 
-Thanks!
+Ben.
+
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
