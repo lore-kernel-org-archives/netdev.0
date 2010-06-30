@@ -1,35 +1,49 @@
-From: Brian Bloniarz <bmb@athenacr.com>
-Subject: Re: TCP not triggering a fast retransmit?
-Date: Wed, 30 Jun 2010 15:26:25 -0400
-Message-ID: <4C2B9A61.1000208@athenacr.com>
-References: <AANLkTinJC6uS1GTbKJWL9AlEs2e5GleQvJbTUZrsQHaE@mail.gmail.com>
+From: James Courtier-Dutton <james.dutton@gmail.com>
+Subject: Re: b44: Reset due to FIFO overflow.
+Date: Wed, 30 Jun 2010 20:35:55 +0100
+Message-ID: <AANLkTikHnPZ_mRxM3sJZltZ94pDA4X_2JULrbNaxxHOJ@mail.gmail.com>
+References: <AANLkTinwnTw3Yqy3POghliZDRmRYUfJL6Gy67GNNLiYv@mail.gmail.com>
+	<1277716394.4235.235.camel@edumazet-laptop>
+	<5E7CE189-1002-4723-ACB2-D537B71BA5F3@earthlink.net>
+	<1277719251.4235.306.camel@edumazet-laptop>
+	<AANLkTimK4mGdsSq206aqfusXPvnQczbYDlOWSYXAbOQJ@mail.gmail.com>
+	<1277723370.4235.388.camel@edumazet-laptop>
+	<ED315045-4A5D-4ECA-99C8-06B4714D8FA0@earthlink.net>
+	<1277788678.4235.1285.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jmatthews@greenplum.com,
-	Tim Heath <theath@greenplum.com>
-To: Ivan Novick <novickivan@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Mitchell Erblich <erblichs@earthlink.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sprinkles.athenacr.com ([64.95.46.210]:54013 "EHLO
-	sprinkles.inp.in.athenacr.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754953Ab0F3T00 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 15:26:26 -0400
-In-Reply-To: <AANLkTinJC6uS1GTbKJWL9AlEs2e5GleQvJbTUZrsQHaE@mail.gmail.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:38655 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756726Ab0F3Tf7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 15:35:59 -0400
+Received: by fxm14 with SMTP id 14so757814fxm.19
+        for <netdev@vger.kernel.org>; Wed, 30 Jun 2010 12:35:56 -0700 (PDT)
+In-Reply-To: <1277788678.4235.1285.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/30/2010 02:04 PM, Ivan Novick wrote:
-> I am wondering why did the sender not send more data?  If the sender
-> was to send more data and extend the window then it would seem the
-> duplicate acks or SACKS should trigger fast retransmit.
+On 29 June 2010 06:17, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> rx ring buffer is about 200 frames on b44. One single tcp flow should
+> fit.
+>
+> Limit is 511. James, did you try to increase rx ring ?
+>
+> ethtool -G eth0 rx 511
+>
 
-Hi Ivan,
+Any value given to that command results in a non operating NIC.
+rmmod b44
+modprobe b44 fixes that.
 
-Like you said, the receive window can't explain why the sender wouldn't
-send. The congestion window is another possible reason why the sender
-might not send, though it's sorta impossible to tell if that's really
-it from a small tcpdump. Maybe investigating the details of congestion
-control might yield something?
+I have narrowed down the problem now.
+I can now reset the RX fifo after the RFO in less than 20 ms without
+the Ethernet Link going down.
+When I get a moment, I will post a patch so other people can test it.
 
-HTH,
--Brian
+Kind Regards
+
+James
