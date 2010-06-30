@@ -1,112 +1,86 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 PATCH 2/4] e1000e: suppress compile warnings on certain
-	archs
-Date: Tue, 29 Jun 2010 21:12:30 -0700
-Message-ID: <20100630041228.8652.61761.stgit@localhost.localdomain>
-References: <20100630040959.8652.31147.stgit@localhost.localdomain>
+Subject: [net-next-2.6 PATCH 1/4] e1000e: don't inadvertently re-set
+	INTX_DISABLE
+Date: Tue, 29 Jun 2010 21:12:05 -0700
+Message-ID: <20100630040959.8652.31147.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Bruce Allan <bruce.w.allan@intel.com>,
+	Dean Nelson <dnelson@redhat.com>, stable@kernel.org,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta14.emeryville.ca.mail.comcast.net ([76.96.27.212]:41821
-	"EHLO qmta14.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750851Ab0F3EMt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 00:12:49 -0400
-In-Reply-To: <20100630040959.8652.31147.stgit@localhost.localdomain>
+Received: from qmta03.emeryville.ca.mail.comcast.net ([76.96.30.32]:45003 "EHLO
+	qmta03.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750725Ab0F3EM1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 00:12:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Dean Nelson <dnelson@redhat.com>
 
-Commit 84f4ee902ad3ee964b7b3a13d5b7cf9c086e9916 causes compile warnings on
-architectures that have unsigned long long's that are not 64-bit, e.g.
-ia64.
+Should e1000_test_msi() fail to see an msi interrupt, it attempts to
+fallback to legacy INTx interrupts. But an error in the code may prevent
+this from happening correctly.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Before calling e1000_test_msi_interrupt(), e1000_test_msi() disables SERR
+by clearing the SERR bit from the just read PCI_COMMAND bits as it writes
+them back out.
+
+Upon return from calling e1000_test_msi_interrupt(), it re-enables SERR
+by writing out the version of PCI_COMMAND it had previously read.
+
+The problem with this is that e1000_test_msi_interrupt() calls
+pci_disable_msi(), which eventually ends up in pci_intx(). And because
+pci_intx() was called with enable set to 1, the INTX_DISABLE bit gets
+cleared from PCI_COMMAND, which is what we want. But when we get back to
+e1000_test_msi(), the INTX_DISABLE bit gets inadvertently re-set because
+of the attempt by e1000_test_msi() to re-enable SERR.
+
+The solution is to have e1000_test_msi() re-read the PCI_COMMAND bits as
+part of its attempt to re-enable SERR.
+
+During debugging/testing of this issue I found that not all the systems
+I ran on had the SERR bit set to begin with. And on some of the systems
+the same could be said for the INTX_DISABLE bit. Needless to say these
+latter systems didn't have a problem falling back to legacy INTx
+interrupts with the code as is.
+
+Signed-off-by: Dean Nelson <dnelson@redhat.com>
+CC: stable@kernel.org
+Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
 
- drivers/net/e1000e/netdev.c |   38 +++++++++++++++++++++-----------------
- 1 files changed, 21 insertions(+), 17 deletions(-)
+ drivers/net/e1000e/netdev.c |   13 +++++++++----
+ 1 files changed, 9 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 3e53ca7..6aa795a 100644
+index 71592ed..3e53ca7 100644
 --- a/drivers/net/e1000e/netdev.c
 +++ b/drivers/net/e1000e/netdev.c
-@@ -224,10 +224,10 @@ static void e1000e_dump(struct e1000_adapter *adapter)
- 	buffer_info = &tx_ring->buffer_info[tx_ring->next_to_clean];
- 	printk(KERN_INFO " %5d %5X %5X %016llX %04X %3X %016llX\n",
- 		0, tx_ring->next_to_use, tx_ring->next_to_clean,
--		(u64)buffer_info->dma,
-+		(unsigned long long)buffer_info->dma,
- 		buffer_info->length,
- 		buffer_info->next_to_watch,
--		(u64)buffer_info->time_stamp);
-+		(unsigned long long)buffer_info->time_stamp);
+@@ -3439,13 +3439,18 @@ static int e1000_test_msi(struct e1000_adapter *adapter)
  
- 	/* Print TX Rings */
- 	if (!netif_msg_tx_done(adapter))
-@@ -279,9 +279,11 @@ static void e1000e_dump(struct e1000_adapter *adapter)
- 			"%04X  %3X %016llX %p",
- 		       (!(le64_to_cpu(u0->b) & (1<<29)) ? 'l' :
- 			((le64_to_cpu(u0->b) & (1<<20)) ? 'd' : 'c')), i,
--		       le64_to_cpu(u0->a), le64_to_cpu(u0->b),
--		       (u64)buffer_info->dma, buffer_info->length,
--		       buffer_info->next_to_watch, (u64)buffer_info->time_stamp,
-+		       (unsigned long long)le64_to_cpu(u0->a),
-+		       (unsigned long long)le64_to_cpu(u0->b),
-+		       (unsigned long long)buffer_info->dma,
-+		       buffer_info->length, buffer_info->next_to_watch,
-+		       (unsigned long long)buffer_info->time_stamp,
- 		       buffer_info->skb);
- 		if (i == tx_ring->next_to_use && i == tx_ring->next_to_clean)
- 			printk(KERN_CONT " NTC/U\n");
-@@ -356,19 +358,19 @@ rx_ring_summary:
- 				printk(KERN_INFO "RWB[0x%03X]     %016llX "
- 					"%016llX %016llX %016llX "
- 					"---------------- %p", i,
--					le64_to_cpu(u1->a),
--					le64_to_cpu(u1->b),
--					le64_to_cpu(u1->c),
--					le64_to_cpu(u1->d),
-+					(unsigned long long)le64_to_cpu(u1->a),
-+					(unsigned long long)le64_to_cpu(u1->b),
-+					(unsigned long long)le64_to_cpu(u1->c),
-+					(unsigned long long)le64_to_cpu(u1->d),
- 					buffer_info->skb);
- 			} else {
- 				printk(KERN_INFO "R  [0x%03X]     %016llX "
- 					"%016llX %016llX %016llX %016llX %p", i,
--					le64_to_cpu(u1->a),
--					le64_to_cpu(u1->b),
--					le64_to_cpu(u1->c),
--					le64_to_cpu(u1->d),
--					(u64)buffer_info->dma,
-+					(unsigned long long)le64_to_cpu(u1->a),
-+					(unsigned long long)le64_to_cpu(u1->b),
-+					(unsigned long long)le64_to_cpu(u1->c),
-+					(unsigned long long)le64_to_cpu(u1->d),
-+					(unsigned long long)buffer_info->dma,
- 					buffer_info->skb);
+ 	/* disable SERR in case the MSI write causes a master abort */
+ 	pci_read_config_word(adapter->pdev, PCI_COMMAND, &pci_cmd);
+-	pci_write_config_word(adapter->pdev, PCI_COMMAND,
+-			      pci_cmd & ~PCI_COMMAND_SERR);
++	if (pci_cmd & PCI_COMMAND_SERR)
++		pci_write_config_word(adapter->pdev, PCI_COMMAND,
++				      pci_cmd & ~PCI_COMMAND_SERR);
  
- 				if (netif_msg_pktdata(adapter))
-@@ -405,9 +407,11 @@ rx_ring_summary:
- 			buffer_info = &rx_ring->buffer_info[i];
- 			u0 = (struct my_u0 *)rx_desc;
- 			printk(KERN_INFO "Rl[0x%03X]    %016llX %016llX "
--				"%016llX %p",
--				i, le64_to_cpu(u0->a), le64_to_cpu(u0->b),
--				(u64)buffer_info->dma, buffer_info->skb);
-+				"%016llX %p", i,
-+				(unsigned long long)le64_to_cpu(u0->a),
-+				(unsigned long long)le64_to_cpu(u0->b),
-+				(unsigned long long)buffer_info->dma,
-+				buffer_info->skb);
- 			if (i == rx_ring->next_to_use)
- 				printk(KERN_CONT " NTU\n");
- 			else if (i == rx_ring->next_to_clean)
+ 	err = e1000_test_msi_interrupt(adapter);
+ 
+-	/* restore previous setting of command word */
+-	pci_write_config_word(adapter->pdev, PCI_COMMAND, pci_cmd);
++	/* re-enable SERR */
++	if (pci_cmd & PCI_COMMAND_SERR) {
++		pci_read_config_word(adapter->pdev, PCI_COMMAND, &pci_cmd);
++		pci_cmd |= PCI_COMMAND_SERR;
++		pci_write_config_word(adapter->pdev, PCI_COMMAND, pci_cmd);
++	}
+ 
+ 	/* success ! */
+ 	if (!err)
 
