@@ -1,38 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: TCP not triggering a fast retransmit?
-Date: Wed, 30 Jun 2010 14:22:56 -0700 (PDT)
-Message-ID: <20100630.142256.77345240.davem@davemloft.net>
-References: <AANLkTinJC6uS1GTbKJWL9AlEs2e5GleQvJbTUZrsQHaE@mail.gmail.com>
-	<1277931829.4878.9.camel@localhost>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] bridge: add per bridge device controls for invoking
+ iptables
+Date: Wed, 30 Jun 2010 14:24:40 -0700
+Message-ID: <20100630142440.68adfdb1@nehalam>
+References: <1277729220-11775-1-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: novickivan@gmail.com, netdev@vger.kernel.org,
-	jmatthews@greenplum.com, theath@greenplum.com,
-	herbert@gondor.apana.org.au
-To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org
+To: kaber@trash.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49960
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757226Ab0F3VWn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 17:22:43 -0400
-In-Reply-To: <1277931829.4878.9.camel@localhost>
+Received: from mail.vyatta.com ([76.74.103.46]:48737 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757226Ab0F3VYn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jun 2010 17:24:43 -0400
+In-Reply-To: <1277729220-11775-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 30 Jun 2010 22:03:49 +0100
+On Mon, 28 Jun 2010 14:47:00 +0200
+kaber@trash.net wrote:
 
-> In that packet capture I see TCP payload lengths which are 2, 3 and 4
-> times the usual MSS of 1448 bytes, which implies that GRO or LRO is in
-> use.  In RHEL 5.4 the TCP stack does not ACK often enough in this case
-> because it is missing this change:
+> From: Patrick McHardy <kaber@trash.net>
 > 
-> commit ff9b5e0f08cb650d113eef0c654f931c0a7ae730
-> Author: Herbert Xu <herbert@gondor.apana.org.au>
-> Date:   Thu Aug 31 15:11:02 2006 -0700
+> Support more fine grained control of bridge netfilter iptables invocation
+> by adding seperate brnf_call_*tables parameters for each device using the
+> sysfs interface. Packets are passed to layer 3 netfilter when either the
+> global parameter or the per bridge parameter is enabled.
 > 
->     [TCP]: Fix rcv mss estimate for LRO
+> Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-It certainly could be, I'll try make sure this gets rectified,
-thanks!
+Looks like a good idea.
+
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+
+-- 
