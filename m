@@ -1,38 +1,32 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: static inline int xfrm_mark_get() broken
-Date: Wed, 30 Jun 2010 16:01:21 +0900
-Message-ID: <20100630070121.GA26582@verge.net.au>
-References: <4C28EE19.2090502@hsr.ch>
- <20100630044637.GV2138@verge.net.au>
- <4C2AD009.40306@hsr.ch>
+From: Parav Pandit <paravpandit@yahoo.com>
+Subject: ip6 route output() and ip_route_output_key() by drivers
+Date: Wed, 30 Jun 2010 00:24:04 -0700 (PDT)
+Message-ID: <750794.80583.qm@web30108.mail.mud.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Steffen Andreas (asteffen@hsr.ch)" <asteffen@hsr.ch>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	jamal <hadi@cyberus.ca>
-To: Andreas Steffen <andreas.steffen@hsr.ch>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from koto.vergenet.net ([210.128.90.7]:41699 "EHLO koto.vergenet.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752398Ab0F3HBX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jun 2010 03:01:23 -0400
-Content-Disposition: inline
-In-Reply-To: <4C2AD009.40306@hsr.ch>
+Received: from web30108.mail.mud.yahoo.com ([209.191.69.40]:46698 "HELO
+	web30108.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752769Ab0F3Haq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 03:30:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 30, 2010 at 07:03:05AM +0200, Andreas Steffen wrote:
-> Hello Simon,
-> 
-> actually I don't care how this bug is going to be fixed, but with
-> sizeof(struct xfrm_mark) I'm dead certain that both the mark
-> value and mask are being copied. Actually in the next inline
-> function right below sizeof(struct xfrm_mark) is used, too:
-> 
-> static inline int xfrm_mark_put(struct sk_buff *skb, struct xfrm_mark *m)
-> {
->     if (m->m | m->v)
->        NLA_PUT(skb, XFRMA_MARK, sizeof(struct xfrm_mark), m);
->     return 0;
+Hi,
 
-In that case I withdraw my suggestion.
+Our device driver uses ip6 route output() and typecast the return value of dst_entry to rt6_info (similar to (net/ip6/icmp.c)
+
+Driver uses (a) rt6i_dst.addr, (b) rt6i_dst.plen and (c) rt6i_gateway to get the route entry (ip/mask, gw, netdev).
+
+Can anyone please confirm that drivers and/or netfilter kernel modules are allowed to use them? netdev drivers like : cnic.c, cxgb3, nes are using the ipv4 API (but not IPv6 API).
+
+Also ip_route_output_key() rtable and dst_entry doesn't seem to provide route entry's subnet mask/prefix value. how drivers/netfilter kernel module can get a ip/mask gateway value while given a destination IP address as input?
+
+I really appreciate your inputs. I hope I am asking it on the relevant mailing list.
+
+Regards,
+Parav Pandit
+
+
+      
