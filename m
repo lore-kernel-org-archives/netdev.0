@@ -1,39 +1,35 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: pull request: wireless-2.6 2010-06-30
-Date: Wed, 30 Jun 2010 21:15:04 +0200
-Message-ID: <1277925304.7823.16.camel@jlt3.sipsolutions.net>
-References: <20100630185319.GA2618@tuxdriver.com>
-	 <20100630.120551.170116973.davem@davemloft.net>
+From: Brian Bloniarz <bmb@athenacr.com>
+Subject: Re: TCP not triggering a fast retransmit?
+Date: Wed, 30 Jun 2010 15:26:25 -0400
+Message-ID: <4C2B9A61.1000208@athenacr.com>
+References: <AANLkTinJC6uS1GTbKJWL9AlEs2e5GleQvJbTUZrsQHaE@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100630.120551.170116973.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jmatthews@greenplum.com,
+	Tim Heath <theath@greenplum.com>
+To: Ivan Novick <novickivan@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sprinkles.athenacr.com ([64.95.46.210]:54013 "EHLO
+	sprinkles.inp.in.athenacr.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754953Ab0F3T00 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 15:26:26 -0400
+In-Reply-To: <AANLkTinJC6uS1GTbKJWL9AlEs2e5GleQvJbTUZrsQHaE@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-06-30 at 12:05 -0700, David Miller wrote:
+On 06/30/2010 02:04 PM, Ivan Novick wrote:
+> I am wondering why did the sender not send more data?  If the sender
+> was to send more data and extend the window then it would seem the
+> duplicate acks or SACKS should trigger fast retransmit.
 
-> > +	/*
-> > +	 * Receiving all multicast frames is always enabled by the
-> > +	 * default flags setup in iwl_connection_init_rx_config()
-> > +	 * since we currently do not support programming multicast
-> > +	 * filters into the device.
-> > +	 */
-> >  	*total_flags &= FIF_OTHER_BSS | FIF_ALLMULTI | FIF_PROMISC_IN_BSS |
-> >  			FIF_BCN_PRBRESP_PROMISC | FIF_CONTROL;
-> 
-> Note that this is an amazingly serious limitation.
-> 
-> This basically makes iwl chips unsuitable for use on networks where
-> real multicast use is common.
+Hi Ivan,
 
-Lots of wireless devices have this limitation unfortunately. I think we
--might- be able to have proper filters for iwl, but haven't found out
-quite how yet unfortunately, if it's actually implemented properly on
-the device and there's not just some fake API.
+Like you said, the receive window can't explain why the sender wouldn't
+send. The congestion window is another possible reason why the sender
+might not send, though it's sorta impossible to tell if that's really
+it from a small tcpdump. Maybe investigating the details of congestion
+control might yield something?
 
-johannes
+HTH,
+-Brian
