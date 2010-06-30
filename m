@@ -1,45 +1,29 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH] igbvf: avoid name clash between PF and VF
-Date: Wed, 30 Jun 2010 09:59:36 -0700
-Message-ID: <201006300959.37145.leedom@chelsio.com>
-References: <4C2B0614.9040004@redhat.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] usb: pegasus: fixed coding style issues
+Date: Wed, 30 Jun 2010 10:26:28 -0700 (PDT)
+Message-ID: <20100630.102628.133897384.davem@davemloft.net>
+References: <20100626185854.4a3eff43@absol.kitzblitz>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, e1000-devel@lists.sourceforge.net,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	gregory.v.rose@intel.com, jeffrey.t.kirsher@intel.com,
-	Andy Gospodarek <gospo@redhat.com>
-To: Stefan Assmann <sassmann@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:25214 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754769Ab0F3RA5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 13:00:57 -0400
-In-Reply-To: <4C2B0614.9040004@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: petkan-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: nikai-bVCNqDZ4lKNeoWH0uzbU5w@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20100626185854.4a3eff43-m0oTu1HmxXpuhsjpcywf5g@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-| From: Stefan Assmann <sassmann@redhat.com>
-| Date: Wednesday, June 30, 2010 01:53 am
-| 
-| This is not a udev bug since udev doesn't create persistent rules for
-| VFs as their MAC address changes every reboot.
-| 
-| To avoid this problem we could change the kernel name for the VFs and
-| thus avoid confusion between VFs and PFs.
-| 
-| I've already discussed this with Alexander Duyck and Greg Rose, so far
-| they have no objection. However this problem appears for all drivers that
-| support PFs and VFs and thus the changes should be applied consistently
-| to all of these drivers.
+From: Nicolas Kaiser <nikai-bVCNqDZ4lKNeoWH0uzbU5w@public.gmane.org>
+Date: Sat, 26 Jun 2010 18:58:54 +0200
 
-  I'm not sure that this problem affects "all drivers which support PFs and VFs."  
-I think that you might mean "all drivers which support PFs and VFs with non-
-persistent MAC addresses for the VFs."  For instance, the MAC addresses 
-associated with the new cxgb4vf VFs are persistent so, from what I understand of 
-the scenario you outlined, I don't think that they would trigger the problem you 
-describe.  Please correct me if I've missed something.  Thanks.
+> Fixed brace, static initialization, comment, whitespace and spacing
+> coding style issues.
+> 
+> Signed-off-by: Nicolas Kaiser <nikai-bVCNqDZ4lKNeoWH0uzbU5w@public.gmane.org>
 
-Casey
+Applied to net-next-2.6, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
