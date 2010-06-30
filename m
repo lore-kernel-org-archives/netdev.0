@@ -1,39 +1,65 @@
-From: Andreas Steffen <andreas.steffen@strongswan.org>
-Subject: [PATCH] xfrm: fix XFRMA_MARK extraction in xfrm_mark_get
-Date: Wed, 30 Jun 2010 09:57:34 +0200
-Message-ID: <4C2AF8EE.8030508@strongswan.org>
+From: ratheesh k <ratheesh.ksz@gmail.com>
+Subject: Re: nat bypass
+Date: Wed, 30 Jun 2010 14:54:32 +0530
+Message-ID: <AANLkTilxqHHiDfzQbewBe8cnTtvdB9CCTPn9EVCcAf5Q@mail.gmail.com>
+References: <AANLkTil_H1QeaCHQYhMjVRFiLwtqF9yLAJZ9BWecOIDW@mail.gmail.com>
+	<20100630023718.GU2138@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: jamal <hadi@cyberus.ca>, David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netfilter mailing list <netfilter@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sitav-80024.hsr.ch ([152.96.80.24]:42260 "EHLO strongswan.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752191Ab0F3JOi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jun 2010 05:14:38 -0400
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:53518 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754623Ab0F3JYd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 05:24:33 -0400
+In-Reply-To: <20100630023718.GU2138@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Determine the size of the xfrm_mark struct, not of its pointer.
+> Let me try and understand this.
+>
+> R is routing between 192.168.1.0/24 and 10.232.18.0/24.
+> As A is on the 192.168.1.0/24 side of R.
+> But to give A an 10.232.18.0/24 address (dynamically)?
+>
+> Why?
+>
 
-Signed-off-by: Andreas Steffen <andreas.steffen@strongswan.org>
----
- include/net/xfrm.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+=46or some clients , R should act as a mere bridge , Not a router .
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 1913af6..fc8f36d 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1586,7 +1586,7 @@ static inline struct xfrm_state *xfrm_input_state(struct sk_buff *skb)
- static inline int xfrm_mark_get(struct nlattr **attrs, struct xfrm_mark *m)
- {
- 	if (attrs[XFRMA_MARK])
--		memcpy(m, nla_data(attrs[XFRMA_MARK]), sizeof(m));
-+		memcpy(m, nla_data(attrs[XFRMA_MARK]), sizeof(struct xfrm_mark));
- 	else
- 		m->v = m->m = 0;
- 
--- 
-1.7.0.4
+
+On Wed, Jun 30, 2010 at 8:07 AM, Simon Horman <horms@verge.net.au> wrot=
+e:
+> On Mon, Jun 28, 2010 at 03:43:46PM +0530, ratheesh k wrote:
+>> Hi,
+>>
+>> =A0 A -------> R ------->S
+>>
+>> I have a linux machine A is connected to Linux machine R . Machine R
+>> is having two network interfaces and acting as a router .
+>> It has a dhcp server running =A0. It will assign ip in 192.168.1.0/2=
+4
+>> subnet to all machine connected on lan side ( A is connected also in
+>> lan side ) . Wan side of R is connected to HTTP server S . There is
+>> also a DHCP server running on S to assign ip in 10.232.18.0/24 subne=
+t
+>> . =A0Is there any way , in which NAT should be bypassed to get ip fr=
+om
+>> DHCP server running =A0on S . My question is : How can A will get =A0=
+an ip
+>> from 10.232.18.0/24 pool ip .?
+>> ebtables is an option ? How can we make it ?
+>> Is there any other optimal way ?
+>
+> Let me try and understand this.
+>
+> R is routing between 192.168.1.0/24 and 10.232.18.0/24.
+> As A is on the 192.168.1.0/24 side of R.
+> But to give A an 10.232.18.0/24 address (dynamically)?
+>
+> Why?
+>
+>
