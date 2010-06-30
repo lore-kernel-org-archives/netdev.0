@@ -1,29 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2] vhost-net: add dhclient work-around from userspace
-Date: Wed, 30 Jun 2010 14:30:14 -0700 (PDT)
-Message-ID: <20100630.143014.134109550.davem@davemloft.net>
-References: <20100628100807.GA30685@redhat.com>
-	<20100629.003647.214219303.davem@davemloft.net>
-	<20100629130439.GD3603@redhat.com>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: [net-next-2.6 PATCH v2] x86: Align skb w/ start of cacheline
+ on newer core 2/Xeon Arch
+Date: Wed, 30 Jun 2010 14:32:33 -0700
+Message-ID: <4C2BB7F1.6050009@zytor.com>
+References: <20100630043728.9224.64191.stgit@localhost.localdomain> <20100630.142832.51275605.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: arozansk@redhat.com, herbert.xu@redhat.com, quintela@redhat.com,
-	kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ykaul@redhat.com, markmc@redhat.com
-To: mst@redhat.com
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20100629130439.GD3603@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com, tglx@linutronix.de,
+	mingo@redhat.com, x86@kernel.org, alexander.h.duyck@intel.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from terminus.zytor.com ([198.137.202.10]:46047 "EHLO mail.zytor.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932123Ab0F3Vcy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jun 2010 17:32:54 -0400
+In-Reply-To: <20100630.142832.51275605.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Tue, 29 Jun 2010 16:04:39 +0300
+On 06/30/2010 02:28 PM, David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Tue, 29 Jun 2010 21:38:00 -0700
+> 
+>> From: Alexander Duyck <alexander.h.duyck@intel.com>
+>>
+>> x86 architectures can handle unaligned accesses in hardware, and it has
+>> been shown that unaligned DMA accesses can be expensive on Nehalem
+>> architectures.  As such we should overwrite NET_IP_ALIGN to resolve
+>> this issue.
+>>
+>> Cc: Thomas Gleixner <tglx@linutronix.de>
+>> Cc: Ingo Molnar <mingo@redhat.com>
+>> Cc: "H. Peter Anvin" <hpa@zytor.com>
+>> Cc: x86@kernel.org
+>> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> 
+> Can I get an x86'er ACK on this?  I can merge it in via net-next-2.6
+> which is probably most convenient for people who want to see the
+> networking performance effects of this change.
 
-> Since using the module involves updating the management tools
-> as well, if we go down this route it will be much less painful
-> for everyone to do push it upstream.
+Acked-by: H. Peter Anvin <hpa@zytor.com>
 
-Ok, you can make your case to Patrick McHardy and if he'll merge
-it into his netfilter GIT tree I guess I'll have to take it :)
+	-hpa
