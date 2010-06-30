@@ -1,175 +1,241 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 1/2] ethtool: Add support for control of RX
- flow hash indirection
-Date: Wed, 30 Jun 2010 16:05:23 +0100
-Message-ID: <1277910323.2082.14.camel@achroite.uk.solarflarecom.com>
+Subject: [PATCH net-next-2.6 2/2] sfc: Add support for RX flow hash control
+Date: Wed, 30 Jun 2010 16:06:28 +0100
+Message-ID: <1277910388.2082.15.camel@achroite.uk.solarflarecom.com>
+References: <1277910323.2082.14.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:7871 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:8023 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753377Ab0F3PF0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 11:05:26 -0400
+	with ESMTP id S1756105Ab0F3PGb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 11:06:31 -0400
+In-Reply-To: <1277910323.2082.14.camel@achroite.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Many NICs use an indirection table to map an RX flow hash value to one
-of an arbitrary number of queues (not necessarily a power of 2).  It
-can be useful to remove some queues from this indirection table so
-that they are only used for flows that are specifically filtered
-there.  It may also be useful to weight the mapping to account for
-user processes with the same CPU-affinity as the RX interrupts.
+Allow ethtool to query the number of RX rings, the fields used in RX
+flow hashing and the hash indirection table.
+
+Allow ethtool to update the RX flow hash indirection table.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- include/linux/ethtool.h |   15 +++++++++
- net/core/ethtool.c      |   80 +++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 95 insertions(+), 0 deletions(-)
+ drivers/net/sfc/efx.c        |    3 +
+ drivers/net/sfc/ethtool.c    |   90 ++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/sfc/net_driver.h |    2 +
+ drivers/net/sfc/nic.c        |   19 ++++-----
+ drivers/net/sfc/nic.h        |    1 +
+ 5 files changed, 105 insertions(+), 10 deletions(-)
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 2c8af09..3b089d8 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -384,6 +384,15 @@ struct ethtool_rxnfc {
- 	__u32				rule_locs[0];
- };
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index 2a90bf9..35b3f29 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -1121,6 +1121,7 @@ static void efx_set_channels(struct efx_nic *efx)
  
-+struct ethtool_rxfh_indir {
-+	__u32	cmd;
-+	/* On entry, this is the array size of the user buffer.  On
-+	 * return from ETHTOOL_GRXFHINDIR, this is the array size of
-+	 * the hardware indirection table. */
-+	__u32	size;
-+	__u32	ring_index[0];	/* ring/queue index for each hash value */
-+};
-+
- struct ethtool_rx_ntuple_flow_spec {
- 	__u32		 flow_type;
- 	union {
-@@ -576,6 +585,10 @@ struct ethtool_ops {
- 	int	(*set_rx_ntuple)(struct net_device *,
- 				 struct ethtool_rx_ntuple *);
- 	int	(*get_rx_ntuple)(struct net_device *, u32 stringset, void *);
-+	int	(*get_rxfh_indir)(struct net_device *,
-+				  struct ethtool_rxfh_indir *);
-+	int	(*set_rxfh_indir)(struct net_device *,
-+				  const struct ethtool_rxfh_indir *);
- };
- #endif /* __KERNEL__ */
+ static int efx_probe_nic(struct efx_nic *efx)
+ {
++	size_t i;
+ 	int rc;
  
-@@ -637,6 +650,8 @@ struct ethtool_ops {
- #define ETHTOOL_SRXNTUPLE	0x00000035 /* Add an n-tuple filter to device */
- #define ETHTOOL_GRXNTUPLE	0x00000036 /* Get n-tuple filters from device */
- #define ETHTOOL_GSSET_INFO	0x00000037 /* Get string set info */
-+#define ETHTOOL_GRXFHINDIR	0x00000038 /* Get RX flow hash indir'n table */
-+#define ETHTOOL_SRXFHINDIR	0x00000039 /* Set RX flow hash indir'n table */
+ 	netif_dbg(efx, probe, efx->net_dev, "creating NIC\n");
+@@ -1136,6 +1137,8 @@ static int efx_probe_nic(struct efx_nic *efx)
  
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index a0f4964..d978096 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -376,6 +376,80 @@ err_out:
- 	return ret;
+ 	if (efx->n_channels > 1)
+ 		get_random_bytes(&efx->rx_hash_key, sizeof(efx->rx_hash_key));
++	for (i = 0; i < ARRAY_SIZE(efx->rx_indir_table); i++)
++		efx->rx_indir_table[i] = i % efx->n_rx_channels;
+ 
+ 	efx_set_channels(efx);
+ 	efx->net_dev->real_num_tx_queues = efx->n_tx_channels;
+diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
+index 7693cfb..ab2510d 100644
+--- a/drivers/net/sfc/ethtool.c
++++ b/drivers/net/sfc/ethtool.c
+@@ -871,6 +871,93 @@ extern int efx_ethtool_reset(struct net_device *net_dev, u32 *flags)
+ 	return efx_reset(efx, method);
  }
  
-+static noinline_for_stack int ethtool_get_rxfh_indir(struct net_device *dev,
-+						     void __user *useraddr)
++static int
++efx_ethtool_get_rxnfc(struct net_device *net_dev,
++		      struct ethtool_rxnfc *info, void *rules __always_unused)
 +{
-+	struct ethtool_rxfh_indir *indir;
-+	u32 table_size;
-+	size_t full_size;
-+	int ret;
++	struct efx_nic *efx = netdev_priv(net_dev);
++	
++	switch (info->cmd) {
++	case ETHTOOL_GRXRINGS:
++		info->data = efx->n_rx_channels;
++		return 0;
 +
-+	if (!dev->ethtool_ops->get_rxfh_indir)
-+		return -EOPNOTSUPP;
++	case ETHTOOL_GRXFH: {
++		unsigned min_revision = 0;
 +
-+	if (copy_from_user(&table_size,
-+			   useraddr + offsetof(struct ethtool_rxfh_indir, size),
-+			   sizeof(table_size)))
-+		return -EFAULT;
-+
-+	if (table_size >
-+	    (KMALLOC_MAX_SIZE - sizeof(*indir)) / sizeof(*indir->ring_index))
-+		return -ENOMEM;
-+	full_size = sizeof(*indir) + sizeof(*indir->ring_index) * table_size;
-+	indir = kmalloc(full_size, GFP_USER);
-+	if (!indir)
-+		return -ENOMEM;
-+
-+	indir->cmd = ETHTOOL_GRXFHINDIR;
-+	indir->size = table_size;
-+	ret = dev->ethtool_ops->get_rxfh_indir(dev, indir);
-+	if (ret)
-+		goto out;
-+
-+	if (copy_to_user(useraddr, indir, full_size))
-+		ret = -EFAULT;
-+
-+out:
-+	kfree(indir);
-+	return ret;
-+}
-+
-+static noinline_for_stack int ethtool_set_rxfh_indir(struct net_device *dev,
-+						     void __user *useraddr)
-+{
-+	struct ethtool_rxfh_indir *indir;
-+	u32 table_size;
-+	size_t full_size;
-+	int ret;
-+
-+	if (!dev->ethtool_ops->set_rxfh_indir)
-+		return -EOPNOTSUPP;
-+
-+	if (copy_from_user(&table_size,
-+			   useraddr + offsetof(struct ethtool_rxfh_indir, size),
-+			   sizeof(table_size)))
-+		return -EFAULT;
-+
-+	if (table_size >
-+	    (KMALLOC_MAX_SIZE - sizeof(*indir)) / sizeof(*indir->ring_index))
-+		return -ENOMEM;
-+	full_size = sizeof(*indir) + sizeof(*indir->ring_index) * table_size;
-+	indir = kmalloc(full_size, GFP_USER);
-+	if (!indir)
-+		return -ENOMEM;
-+
-+	if (copy_from_user(indir, useraddr, full_size)) {
-+		ret = -EFAULT;
-+		goto out;
++		info->data = 0;
++		switch (info->flow_type) {
++		case TCP_V4_FLOW:
++			info->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++			/* fall through */
++		case UDP_V4_FLOW:
++		case SCTP_V4_FLOW:
++		case AH_ESP_V4_FLOW:
++		case IPV4_FLOW:
++			info->data |= RXH_IP_SRC | RXH_IP_DST;
++			min_revision = EFX_REV_FALCON_B0;
++			break;
++		case TCP_V6_FLOW:
++			info->data |= RXH_L4_B_0_1 | RXH_L4_B_2_3;
++			/* fall through */
++		case UDP_V6_FLOW:
++		case SCTP_V6_FLOW:
++		case AH_ESP_V6_FLOW:
++		case IPV6_FLOW:
++			info->data |= RXH_IP_SRC | RXH_IP_DST;
++			min_revision = EFX_REV_SIENA_A0;
++			break;
++		default:
++			break;
++		}
++		if (efx_nic_rev(efx) < min_revision)
++			info->data = 0;
++		return 0;
 +	}
 +
-+	ret = dev->ethtool_ops->set_rxfh_indir(dev, indir);
-+
-+out:
-+	kfree(indir);
-+	return ret;
++	default:
++		return -EOPNOTSUPP;
++	}
 +}
 +
- static void __rx_ntuple_filter_add(struct ethtool_rx_ntuple_list *list,
- 			struct ethtool_rx_ntuple_flow_spec *spec,
- 			struct ethtool_rx_ntuple_flow_spec_container *fsc)
-@@ -1544,6 +1618,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_GSSET_INFO:
- 		rc = ethtool_get_sset_info(dev, useraddr);
- 		break;
-+	case ETHTOOL_GRXFHINDIR:
-+		rc = ethtool_get_rxfh_indir(dev, useraddr);
-+		break;
-+	case ETHTOOL_SRXFHINDIR:
-+		rc = ethtool_set_rxfh_indir(dev, useraddr);
-+		break;
- 	default:
- 		rc = -EOPNOTSUPP;
++static int efx_ethtool_get_rxfh_indir(struct net_device *net_dev,
++				      struct ethtool_rxfh_indir *indir)
++{
++	struct efx_nic *efx = netdev_priv(net_dev);
++	size_t copy_size =
++		min_t(size_t, indir->size, ARRAY_SIZE(efx->rx_indir_table));
++
++	if (efx_nic_rev(efx) < EFX_REV_FALCON_B0)
++		return -EOPNOTSUPP;
++
++	indir->size = ARRAY_SIZE(efx->rx_indir_table);
++	memcpy(indir->ring_index, efx->rx_indir_table,
++	       copy_size * sizeof(indir->ring_index[0]));
++	return 0;
++}
++
++static int efx_ethtool_set_rxfh_indir(struct net_device *net_dev,
++				      const struct ethtool_rxfh_indir *indir)
++{
++	struct efx_nic *efx = netdev_priv(net_dev);
++	size_t i;
++
++	if (efx_nic_rev(efx) < EFX_REV_FALCON_B0)
++		return -EOPNOTSUPP;
++
++	/* Validate size and indices */
++	if (indir->size != ARRAY_SIZE(efx->rx_indir_table))
++		return -EINVAL;
++	for (i = 0; i < ARRAY_SIZE(efx->rx_indir_table); i++)
++		if (indir->ring_index[i] >= efx->n_rx_channels)
++			return -EINVAL;
++
++	memcpy(efx->rx_indir_table, indir->ring_index,
++	       sizeof(efx->rx_indir_table));
++	efx_nic_push_rx_indir_table(efx);
++	return 0;
++}
++
+ const struct ethtool_ops efx_ethtool_ops = {
+ 	.get_settings		= efx_ethtool_get_settings,
+ 	.set_settings		= efx_ethtool_set_settings,
+@@ -908,4 +995,7 @@ const struct ethtool_ops efx_ethtool_ops = {
+ 	.get_wol                = efx_ethtool_get_wol,
+ 	.set_wol                = efx_ethtool_set_wol,
+ 	.reset			= efx_ethtool_reset,
++	.get_rxnfc		= efx_ethtool_get_rxnfc,
++	.get_rxfh_indir		= efx_ethtool_get_rxfh_indir,
++	.set_rxfh_indir		= efx_ethtool_set_rxfh_indir,
+ };
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
+index ba272a4..64e7caa 100644
+--- a/drivers/net/sfc/net_driver.h
++++ b/drivers/net/sfc/net_driver.h
+@@ -647,6 +647,7 @@ union efx_multicast_hash {
+  * @n_tx_channels: Number of channels used for TX
+  * @rx_buffer_len: RX buffer length
+  * @rx_buffer_order: Order (log2) of number of pages for each RX buffer
++ * @rx_indir_table: Indirection table for RSS
+  * @int_error_count: Number of internal errors seen recently
+  * @int_error_expire: Time at which error count will be expired
+  * @irq_status: Interrupt status buffer
+@@ -734,6 +735,7 @@ struct efx_nic {
+ 	unsigned int rx_buffer_len;
+ 	unsigned int rx_buffer_order;
+ 	u8 rx_hash_key[40];
++	u32 rx_indir_table[128];
+ 
+ 	unsigned int_error_count;
+ 	unsigned long int_error_expire;
+diff --git a/drivers/net/sfc/nic.c b/drivers/net/sfc/nic.c
+index 3083657..f595d92 100644
+--- a/drivers/net/sfc/nic.c
++++ b/drivers/net/sfc/nic.c
+@@ -1484,22 +1484,21 @@ static irqreturn_t efx_msi_interrupt(int irq, void *dev_id)
+ /* Setup RSS indirection table.
+  * This maps from the hash value of the packet to RXQ
+  */
+-static void efx_setup_rss_indir_table(struct efx_nic *efx)
++void efx_nic_push_rx_indir_table(struct efx_nic *efx)
+ {
+-	int i = 0;
+-	unsigned long offset;
++	size_t i = 0;
+ 	efx_dword_t dword;
+ 
+ 	if (efx_nic_rev(efx) < EFX_REV_FALCON_B0)
+ 		return;
+ 
+-	for (offset = FR_BZ_RX_INDIRECTION_TBL;
+-	     offset < FR_BZ_RX_INDIRECTION_TBL + 0x800;
+-	     offset += 0x10) {
++	BUILD_BUG_ON(ARRAY_SIZE(efx->rx_indir_table) !=
++		     FR_BZ_RX_INDIRECTION_TBL_ROWS);
++
++	for (i = 0; i < FR_BZ_RX_INDIRECTION_TBL_ROWS; i++) {
+ 		EFX_POPULATE_DWORD_1(dword, FRF_BZ_IT_QUEUE,
+-				     i % efx->n_rx_channels);
+-		efx_writed(efx, &dword, offset);
+-		i++;
++				     efx->rx_indir_table[i]);
++		efx_writed_table(efx, &dword, FR_BZ_RX_INDIRECTION_TBL, i);
  	}
+ }
+ 
+@@ -1634,7 +1633,7 @@ void efx_nic_init_common(struct efx_nic *efx)
+ 	EFX_INVERT_OWORD(temp);
+ 	efx_writeo(efx, &temp, FR_AZ_FATAL_INTR_KER);
+ 
+-	efx_setup_rss_indir_table(efx);
++	efx_nic_push_rx_indir_table(efx);
+ 
+ 	/* Disable the ugly timer-based TX DMA backoff and allow TX DMA to be
+ 	 * controlled by the RX FIFO fill level. Set arbitration to one pkt/Q.
+diff --git a/drivers/net/sfc/nic.h b/drivers/net/sfc/nic.h
+index a39822d..0438dc9 100644
+--- a/drivers/net/sfc/nic.h
++++ b/drivers/net/sfc/nic.h
+@@ -207,6 +207,7 @@ extern void falcon_stop_nic_stats(struct efx_nic *efx);
+ extern void falcon_setup_xaui(struct efx_nic *efx);
+ extern int falcon_reset_xaui(struct efx_nic *efx);
+ extern void efx_nic_init_common(struct efx_nic *efx);
++extern void efx_nic_push_rx_indir_table(struct efx_nic *efx);
+ 
+ int efx_nic_alloc_buffer(struct efx_nic *efx, struct efx_buffer *buffer,
+ 			 unsigned int len);
 -- 
 1.6.2.5
-
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
