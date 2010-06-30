@@ -1,66 +1,95 @@
-From: Daniel Walker <dwalker@fifo99.com>
-Subject: Re: [PATCH 3/3] pm_qos: get rid of the allocation in
- pm_qos_add_request()
-Date: Wed, 30 Jun 2010 09:45:34 -0700
-Message-ID: <1277916334.30401.10.camel@c-dwalke-linux.qualcomm.com>
-References: <1277746434.10879.191.camel@mulgrave.site>
-	<1277747088.10879.201.camel@mulgrave.site>
-	<201006282359.18045.rjw@sisk.pl>
-	<1277763049.10879.204.camel@mulgrave.site>
+From: Bhavesh Davda <bhavesh@vmware.com>
+Subject: RE: [Pv-drivers] [PATCH net-next-2.6 3/3] vmxnet3: Remove incorrect
+ implementation of ethtool_ops::get_flags()
+Date: Wed, 30 Jun 2010 09:46:51 -0700
+Message-ID: <8B1F619C9F5F454E81D90D3C161698D7033625111F@EXCH-MBX-3.vmware.com>
+References: <1277901872.2082.10.camel@achroite.uk.solarflarecom.com>
+	 <1277902060.2082.13.camel@achroite.uk.solarflarecom.com>
+	 <8B1F619C9F5F454E81D90D3C161698D703362510AE@EXCH-MBX-3.vmware.com>
+ <1277913534.2082.28.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Takashi Iwai <tiwai@suse.de>, linux-pm@lists.linux-foundation.org,
-        markgross@thegnar.org, netdev@vger.kernel.org
-To: James Bottomley <James.Bottomley@suse.de>
-Return-path: <linux-pm-bounces@lists.linux-foundation.org>
-In-Reply-To: <1277763049.10879.204.camel@mulgrave.site>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
-List-Post: <mailto:linux-pm@lists.linux-foundation.org>
-List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.linux-foundation.org
-Errors-To: linux-pm-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	"VMware, Inc." <pv-drivers@vmware.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-outbound-1.vmware.com ([65.115.85.69]:32715 "EHLO
+	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754235Ab0F3Qqy convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jun 2010 12:46:54 -0400
+In-Reply-To: <1277913534.2082.28.camel@achroite.uk.solarflarecom.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-06-28 at 17:10 -0500, James Bottomley wrote:
-> On Mon, 2010-06-28 at 23:59 +0200, Rafael J. Wysocki wrote:
-> > On Monday, June 28, 2010, James Bottomley wrote:
-> > > Since every caller has to squirrel away the returned pointer anyway,
-> > > they might as well supply the memory area.  This fixes a bug in a few of
-> > > the call sites where the returned pointer was dereferenced without
-> > > checking it for NULL (which gets returned if the kzalloc failed).
-> > > 
-> > > I'd like to hear how sound and netdev feels about this: it will add
-> > > about two more pointers worth of data to struct netdev and struct
-> > > snd_pcm_substream .. but I think it's worth it.  If you're OK, I'll add
-> > > your acks and send through the pm tree.
-> > > 
-> > > This also looks to me like an android independent clean up (even though
-> > > it renders the request_add atomically callable).  I also added include
-> > > guards to include/linux/pm_qos_params.h
-> > > 
-> > > cc: netdev@vger.kernel.org
-> > > cc: Takashi Iwai <tiwai@suse.de>
-> > > Signed-off-by: James Bottomley <James.Bottomley@suse.de>
-> > 
-> > I like all of the patches in this series, thanks a lot for doing this!
-> > 
-> > I guess it might be worth sending a CC to the LKML next round so that people
-> > can see [1/3] (I don't expect any objections, but anyway it would be nice).
+> From: Ben Hutchings [mailto:bhutchings@solarflare.com]
+> Sent: Wednesday, June 30, 2010 8:59 AM
 > 
-> I cc'd the latest owners of plist.h ... although Daniel Walker has
-> apparently since left MontaVista, Thomas Gleixner is still current ...
-> and he can speak for the RT people, who are the primary plist users.
+> On Wed, 2010-06-30 at 08:44 -0700, Bhavesh Davda wrote:
+> > Thanks for fixing this, Ben! Had to look at ethtool-2.6.34 src to
+> > convince myself of the correctness. Looks good to me.
+> >
+> > Signed-off-by: Bhavesh Davda <bhavesh@vmware.com>
+> >
+> > ps: I do wonder, however, why not always use ethtool_op_get_flags for
+> > all drivers, and mask whatever is returned by the driver specific
+> > dev->ethtool_ops->get_flags with flags_dup_features instead of this
+> > approach?
 > 
-> I can do another round and cc lkml, I was just hoping this would be the
-> last revision.
+> I think you're right that ethtool_op_get_flags could be the implicit
+> default (i.e. used if ethtool_ops::get_flags is NULL) and drivers
+> should
+> not have to set it.  Following this change, no drivers in net-next-2.6
+> will be using any other implementation.  However, I don't think
+> ethtool_ops::get_flags should be removed - in future there are likely
+> to
+> be additional ethtool flags that do not correspond to net device
+> feature
+> flags, and some drivers will need a different implementation.
+> 
+> Ben.
+> 
 
-I'm still paying attention tho .. I didn't see anything objection worthy
-in the plist changes.. If you do send another round you might want to
-add Oleg Nesterov , most of the code was redone by him ..
+Hi Ben,
 
-Daniel
+I'm not suggesting nuking ethtool_ops::get_flags. What I was suggesting is *always* calling ethtool_ops_get_flags from dev_ethtool for case ETHTOOL_GFLAGS, but doing something like this simple patch:
+
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index a0f4964..f5da6ed 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -139,8 +139,9 @@ u32 ethtool_op_get_flags(struct net_device *dev)
+         * handling for flags which are not so easily handled
+         * by a simple masking operation
+         */
+-
+-       return dev->features & flags_dup_features;
++       return (dev->ethtool_ops->get_flags ?
++               dev->ethtool_ops->get_flags(dev) :
++               dev->features) & flags_dup_features;
+ }
+ EXPORT_SYMBOL(ethtool_op_get_flags);
+
+@@ -1495,9 +1496,7 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+                break;
+        case ETHTOOL_GFLAGS:
+                rc = ethtool_get_value(dev, useraddr, ethcmd,
+-                                      (dev->ethtool_ops->get_flags ?
+-                                       dev->ethtool_ops->get_flags :
+-                                       ethtool_op_get_flags));
++                                       ethtool_op_get_flags);
+                break;
+        case ETHTOOL_SFLAGS:
+                rc = ethtool_set_value(dev, useraddr,
+
+Plus nuking all such code in the netdev drivers:
+        .get_flags              = ethtool_op_get_flags,
+
+This is still pretty fragile and could lead to infinite recursion if some drivers are missed. But you get the idea.
+
+Thanks
+
+- Bhavesh
