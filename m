@@ -1,45 +1,74 @@
-From: Stanislaw Gruszka <sgruszka@redhat.com>
-Subject: Re: [PATCH -next] myri10ge: clear NETIF_F_LRO bit directly
-Date: Wed, 30 Jun 2010 13:26:22 +0200
-Message-ID: <20100630132622.499f41a0@dhcp-lab-109.englab.brq.redhat.com>
-References: <20100629163731.1d174b07@dhcp-lab-109.englab.brq.redhat.com>
-	<4C2A14CE.3090502@myri.com>
+From: Stephen Clark <sclark46@earthlink.net>
+Subject: Re: nat bypass
+Date: Wed, 30 Jun 2010 08:05:45 -0400
+Message-ID: <4C2B3319.5040306@earthlink.net>
+References: <AANLkTil_H1QeaCHQYhMjVRFiLwtqF9yLAJZ9BWecOIDW@mail.gmail.com>	<20100630023718.GU2138@verge.net.au> <AANLkTilxqHHiDfzQbewBe8cnTtvdB9CCTPn9EVCcAf5Q@mail.gmail.com>
+Reply-To: sclark46@earthlink.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Amerigo Wang <amwang@redhat.com>,
-	Brice Goglin <brice@myri.com>
-To: Andrew Gallatin <gallatin@myri.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16133 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752103Ab0F3L0s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jun 2010 07:26:48 -0400
-In-Reply-To: <4C2A14CE.3090502@myri.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Simon Horman <horms@verge.net.au>,
+	Netfilter mailing list <netfilter@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: ratheesh k <ratheesh.ksz@gmail.com>
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <AANLkTilxqHHiDfzQbewBe8cnTtvdB9CCTPn9EVCcAf5Q@mail.gmail.com>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 29 Jun 2010 11:44:14 -0400
-Andrew Gallatin <gallatin@myri.com> wrote:
+On 06/30/2010 05:24 AM, ratheesh k wrote:
+>> Let me try and understand this.
+>>
+>> R is routing between 192.168.1.0/24 and 10.232.18.0/24.
+>> As A is on the 192.168.1.0/24 side of R.
+>> But to give A an 10.232.18.0/24 address (dynamically)?
+>>
+>> Why?
+>>
+>
+> For some clients , R should act as a mere bridge , Not a router .
+>
+>
+> On Wed, Jun 30, 2010 at 8:07 AM, Simon Horman<horms@verge.net.au>  wrote:
+>> On Mon, Jun 28, 2010 at 03:43:46PM +0530, ratheesh k wrote:
+>>> Hi,
+>>>
+>>>    A ------->  R ------->S
+>>>
+>>> I have a linux machine A is connected to Linux machine R . Machine R
+>>> is having two network interfaces and acting as a router .
+>>> It has a dhcp server running  . It will assign ip in 192.168.1.0/24
+>>> subnet to all machine connected on lan side ( A is connected also in
+>>> lan side ) . Wan side of R is connected to HTTP server S . There is
+>>> also a DHCP server running on S to assign ip in 10.232.18.0/24 subnet
+>>> .  Is there any way , in which NAT should be bypassed to get ip from
+>>> DHCP server running  on S . My question is : How can A will get  an ip
+>>> from 10.232.18.0/24 pool ip .?
+>>> ebtables is an option ? How can we make it ?
+>>> Is there any other optimal way ?
+>>
+>> Let me try and understand this.
+>>
+>> R is routing between 192.168.1.0/24 and 10.232.18.0/24.
+>> As A is on the 192.168.1.0/24 side of R.
+>> But to give A an 10.232.18.0/24 address (dynamically)?
+>>
+>> Why?
+>>
+>>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+Will dhcprelay work for you?
 
-> Stanislaw Gruszka wrote:
-> > Do not use ethtool_op_set_flags() to clear one bit in ->features.
-> > Inform user about disabling LRO.
-> 
-> Thanks.. That simplifies things nicely.  But was
-> direct manipulation of netdev->features ever discouraged,
-> or has my use of ethtool_op_{get,set}_flags() to manipulate
-> the features always been complete overkill?
+-- 
 
-It was a bit overkill. Manipulate netdev->features is fine,
-many drivers do it.
+"They that give up essential liberty to obtain temporary safety,
+deserve neither liberty nor safety."  (Ben Franklin)
 
-> > Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
-> 
-> Acked-by: Andrew J. Gallatin <gallatin@myri.com>
+"The course of history shows that as a government grows, liberty
+decreases."  (Thomas Jefferson)
 
-Thanks. FYI: Ben Hutchings posted other patch spread over
-all drivers: http://patchwork.ozlabs.org/patch/57286/
-we most likely will use it to put this myri10ge bits in.
 
-Stanislaw
