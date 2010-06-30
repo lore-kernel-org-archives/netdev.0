@@ -1,45 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 1/8] e1000e: cleanup ethtool loopback
- setup code
-Date: Wed, 30 Jun 2010 16:06:15 -0700 (PDT)
-Message-ID: <20100630.160615.179276491.davem@davemloft.net>
-References: <20100616232523.4834.84849.stgit@localhost.localdomain>
-	<20100618.221512.102550313.davem@davemloft.net>
-	<8DD2590731AB5D4C9DBF71A877482A9001591F6130@orsmsx509.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+From: Mitchell Erblich <erblichs@earthlink.net>
+Subject: Re: TCP not triggering a fast retransmit?
+Date: Wed, 30 Jun 2010 16:10:10 -0700
+Message-ID: <3E6E92D2-B053-4E43-B2D8-C09701CBC923@earthlink.net>
+References: <AANLkTinJC6uS1GTbKJWL9AlEs2e5GleQvJbTUZrsQHaE@mail.gmail.com> <1277931829.4878.9.camel@localhost> <20100630.142256.77345240.davem@davemloft.net>
+Mime-Version: 1.0 (Apple Message framework v1081)
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org
-To: bruce.w.allan@intel.com
+Cc: bhutchings@solarflare.com, novickivan@gmail.com,
+	netdev@vger.kernel.org, jmatthews@greenplum.com,
+	theath@greenplum.com, herbert@gondor.apana.org.au
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58773
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755399Ab0F3XGE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 19:06:04 -0400
-In-Reply-To: <8DD2590731AB5D4C9DBF71A877482A9001591F6130@orsmsx509.amr.corp.intel.com>
+Received: from elasmtp-kukur.atl.sa.earthlink.net ([209.86.89.65]:46732 "EHLO
+	elasmtp-kukur.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754179Ab0F3XKW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 19:10:22 -0400
+In-Reply-To: <20100630.142256.77345240.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Date: Wed, 30 Jun 2010 15:41:19 -0700
 
-> I've been looking into your request number 2 above (as a reminder,
-> it had to do with a patch I submitted that added a module parameter
-> to e1000e in order to enable/disable Energy Efficient Ethernet for a
-> particular type of adapter).
+On Jun 30, 2010, at 2:22 PM, David Miller wrote:
+
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Wed, 30 Jun 2010 22:03:49 +0100
 > 
-> For this new ethtool feature bit/flag for EEE, would you prefer it be set via:
-> 1) the generic parameter setting option (e.g. -s ethX [eee on|off]),
-> 2) yet another new show/change option pair, or
-> 3) a new option that can set this new feature and be expandable to future features that are likewise not related to existing ethtool options (e.g. -F [eee on|off] [whizbang on|off])?
+>> In that packet capture I see TCP payload lengths which are 2, 3 and 4
+>> times the usual MSS of 1448 bytes, which implies that GRO or LRO is in
+>> use.  In RHEL 5.4 the TCP stack does not ACK often enough in this case
+>> because it is missing this change:
+>> 
+>> commit ff9b5e0f08cb650d113eef0c654f931c0a7ae730
+>> Author: Herbert Xu <herbert@gondor.apana.org.au>
+>> Date:   Thu Aug 31 15:11:02 2006 -0700
+>> 
+>>    [TCP]: Fix rcv mss estimate for LRO
 > 
-> For #2 or #3, it makes sense to use ethtool_op_[g|s]et_flags with
-> new ETH_FLAG_<feature> and NETIF_F_<feature> defines, but #1 can be
-> implemented that way or by using remaining reserved elements of
-> struct ethtool_cmd - if your preference is for #1, would you prefer
-> it be implemented with the former or latter?
+> It certainly could be, I'll try make sure this gets rectified,
+> thanks!
+> --
 
-I only have strong feelings about the kernel side, and an ETH_FLAG_* seems
-best for this since other devices will have this feature too.
+Guys,
 
-I don't think overloading parts of ethtool_cmd is wise.
+	I think you suggesting that:
+
+__tcp_ack_snd_chk() within tcp_input.c needs: 
+an ABC (Appropriate Byte Counting) Allman type check
+where the frame rcv'd computed size is 2x or larger
+(and no out of order queue) , then
+
+even if NOT in quickack mode, needs to be ACKed,
+with tcp_send_ack()
+
+and if in quickack mode, needs a mss incr seq number of ACKs where
+number of ACKs equals the number of the multiple of mss
+
+Note: without incrementing the SEQ between ACKs, it would result in
+a DupACK at the other end system,
+
+Correct?
+
+Mitchell Erblich
+
+
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
