@@ -1,36 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next-2.6] 3c59x: Use fine-grained locks for MII
- and windowed register access
-Date: Tue, 29 Jun 2010 23:15:31 -0700 (PDT)
-Message-ID: <20100629.231531.84378371.davem@davemloft.net>
-References: <20100625082447.GK5570@secunet.com>
-	<20100628.231812.35040625.davem@davemloft.net>
-	<1277861216.28819.36.camel@localhost>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org,
-	chase.douglas@canonical.com, nordmark@mech.kth.se
-To: ben@decadent.org.uk
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: RFC:  Allow 'ip' to run in daemon mode?
+Date: Tue, 29 Jun 2010 21:00:46 -1000
+Message-ID: <jqfv3n22gfvc4e8j9qgxednu.1277881246865@email.android.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+To: Ben Greear <greearb@candelatech.com>,
+	NetDev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59145
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752330Ab0F3GPS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 02:15:18 -0400
-In-Reply-To: <1277861216.28819.36.camel@localhost>
+Received: from mail.vyatta.com ([76.74.103.46]:50975 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752348Ab0F3HAz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jun 2010 03:00:55 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Wed, 30 Jun 2010 02:26:56 +0100
+d3JpdGUgYSBuZXcgc2VydmljZSByYXRoZXIgdGhhbiBibG9hdGluZyB0aGUgZXhpc3RpbmcgY29k
+ZSBvciBqdXN0IHVzZSBuZXRsaW5rIG9yIGxpYm5sCgpCZW4gR3JlZWFyIDxncmVlYXJiQGNhbmRl
+bGF0ZWNoLmNvbT4gd3JvdGU6Cgo+SSdtIGNvbnNpZGVyaW5nIG1vZGlmeWluZyAnaXAnIHRvIGJl
+IGFibGUgdG8gcnVuIGluIGRhZW1vbgo+bW9kZSBzbyB0aGF0IEkgY2FuIGRvIGxvdHMgb2YgSVAg
+Y29tbWFuZHMgd2l0aG91dCBoYXZpbmcgdG8KPnBheSB0aGUgc3RhcnR1cCBjb3N0IG9mIGlwcm91
+dGUuCj4KPlRoZSAtYmF0Y2ggb3B0aW9uIGFsbW9zdCB3b3JrcywgYnV0IGl0J3MgaGFyZCB0byBw
+cm9ncmFtYXRpY2FsbHkKPmZpZ3VyZSBvdXQgZmFpbHVyZSBjb2Rlcy4KPgo+SSdtIHRoaW5raW5n
+IGFib3V0IG1ha2luZyB0aGVzZSBjaGFuZ2VzOgo+Cj4xKSAgTW92ZSBhbGwgb2YgdGhlIGVycm9y
+IHByaW50aW5nIGNvZGUgaW50byBjb21tb24gbWV0aG9kcyAoYmFzaWNhbGx5LAo+ICAgIHdyYXAg
+cHJpbnRmKS4gIEluIGRhZW1vbiBtb2RlIHRoaXMgdGV4dCBjYW4gYmUgc2VudCBiYWNrIHRvIHRo
+ZQo+ICAgIGNhbGxpbmcgcHJvY2VzcywgYW5kIGluIG5vcm1hbCBtb2RlLCBpdCB3aWxsIGJlIHBy
+aW50ZWQgdG8gc3Rkb3V0L3N0ZGVycgo+ICAgIGFzIGl0IGlzIGN1cnJlbnRseS4KPgo+MikgIFJl
+bW92ZSBhbGwgb3IgbW9zdCBjYWxscyB0byAnZXhpdCcgYW5kIGluc3RlYWQgcmV0dXJuIGVycm9y
+IGNvZGVzCj4gICAgdG8gdGhlIGNhbGxpbmcgbG9naWMuCj4KPjMpICBBZGQgYWJpbGl0eSB0byBs
+aXN0ZW4gb24gYSB1bml4IHNvY2tldCBmb3IgY29tbWFuZHMsIGJhc2ljYWxseSB0cmVhdAo+ICAg
+IHRoZW0ganVzdCBsaWtlIGJhdGNoIGNvbW1hbmRzLCBvbmUgY29tbWFuZCBwZXIgcGFja2V0Lgo+
+Cj40KSAgUmV0dXJuIHdlbGwgZm9ybWF0dGVkIGVycm9yIGNvZGUgYW5kIHRleHQgcmVzcG9uc2Ug
+dG8gY2FsbGluZyBwcm9jZXNzCj4gICAgb3ZlciB0aGUgdW5peCBzb2NrZXQsIG1heWJlIHNvbWV0
+aGluZyBsaWtlOgo+Cj5SVjogW2Vycm5vIG9yIGVxdWl2LCB6ZXJvIGZvciBzdWNjZXNzXVxuCj5D
+TUQ6IFsgY29tbWFuZCBzdHJpbmcgdGhpcyByZWxhdGVzIHRvIF1cbgo+WyBPcHRpb25hbCBmcmVl
+IGZvcm0gdGV4dCBdCj4KPgo+RG9lcyBzb21ldGhpbmcgbGlrZSB0aGlzIGhhdmUgYW55IGNoYW5j
+ZSBvZiB1cHN0cmVhbSBpbmNsdXNpb24/Cj4KPlRoYW5rcywKPkJlbgo+Cj4tLSAKPkJlbiBHcmVl
+YXIgPGdyZWVhcmJAY2FuZGVsYXRlY2guY29tPgo+Q2FuZGVsYSBUZWNobm9sb2dpZXMgSW5jICBo
+dHRwOi8vd3d3LmNhbmRlbGF0ZWNoLmNvbQo=
 
-> This avoids scheduling in atomic context and also means that IRQs
-> will only be deferred for relatively short periods of time.
-> 
-> Previously discussed in:
-> http://article.gmane.org/gmane.linux.network/155024
-> 
-> Reported-by: Arne Nordmark <nordmark@mech.kth.se>
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-
-Applied.
