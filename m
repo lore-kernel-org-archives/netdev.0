@@ -1,36 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] act_mirred: combine duplicate code
-Date: Wed, 30 Jun 2010 12:13:08 -0700 (PDT)
-Message-ID: <20100630.121308.215555952.davem@davemloft.net>
-References: <1277888098-27632-1-git-send-email-xiaosuo@gmail.com>
-	<1277893442.3509.16.camel@bigi>
-	<1277894942.3509.25.camel@bigi>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: pull request: wireless-2.6 2010-06-30
+Date: Wed, 30 Jun 2010 21:15:04 +0200
+Message-ID: <1277925304.7823.16.camel@jlt3.sipsolutions.net>
+References: <20100630185319.GA2618@tuxdriver.com>
+	 <20100630.120551.170116973.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: xiaosuo@gmail.com, netdev@vger.kernel.org
-To: hadi@cyberus.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40683
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756492Ab0F3TMz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 15:12:55 -0400
-In-Reply-To: <1277894942.3509.25.camel@bigi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20100630.120551.170116973.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: jamal <hadi@cyberus.ca>
-Date: Wed, 30 Jun 2010 06:49:02 -0400
+On Wed, 2010-06-30 at 12:05 -0700, David Miller wrote:
 
-> On Wed, 2010-06-30 at 06:24 -0400, jamal wrote:
+> > +	/*
+> > +	 * Receiving all multicast frames is always enabled by the
+> > +	 * default flags setup in iwl_connection_init_rx_config()
+> > +	 * since we currently do not support programming multicast
+> > +	 * filters into the device.
+> > +	 */
+> >  	*total_flags &= FIF_OTHER_BSS | FIF_ALLMULTI | FIF_PROMISC_IN_BSS |
+> >  			FIF_BCN_PRBRESP_PROMISC | FIF_CONTROL;
 > 
->> m->tcf_qstats.drops.
+> Note that this is an amazingly serious limitation.
 > 
-> Sorry - this nagged me - we are already incrementing overlimits - we
-> should increment drops. Scratch that too. I am going to say your patch
-> as is:
-> signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+> This basically makes iwl chips unsuitable for use on networks where
+> real multicast use is common.
 
-Applied.
+Lots of wireless devices have this limitation unfortunately. I think we
+-might- be able to have proper filters for iwl, but haven't found out
+quite how yet unfortunately, if it's actually implemented properly on
+the device and there's not just some fake API.
 
-Jamal, please capitalize "Signed-off-by" in the future, thanks.
+johannes
