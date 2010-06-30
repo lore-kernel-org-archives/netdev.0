@@ -1,26 +1,37 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [ANNOUNCE] 7th Netfilter Workshop in Seville, Spain
-Date: Wed, 30 Jun 2010 12:06:30 +0200
-Message-ID: <4C2B1726.9020805@netfilter.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] xfrm: fix XFRMA_MARK extraction in xfrm_mark_get
+Date: Wed, 30 Jun 2010 06:07:25 -0400
+Message-ID: <1277892445.3509.2.camel@bigi>
+References: <4C2AF8EE.8030508@strongswan.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>,
-	Mail List - Netfilter <netfilter@vger.kernel.org>,
-	lwn@lwn.net, Linux Netdev List <netdev@vger.kernel.org>
-To: netfilter-announce@lists.netfilter.org
-Return-path: <netfilter-owner@vger.kernel.org>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>
+To: Andreas Steffen <andreas.steffen@strongswan.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:42910 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752551Ab0F3KHa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 06:07:30 -0400
+Received: by vws5 with SMTP id 5so788107vws.19
+        for <netdev@vger.kernel.org>; Wed, 30 Jun 2010 03:07:29 -0700 (PDT)
+In-Reply-To: <4C2AF8EE.8030508@strongswan.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On Wed, 2010-06-30 at 09:57 +0200, Andreas Steffen wrote:
+> Determine the size of the xfrm_mark struct, not of its pointer.
+> 
+> Signed-off-by: Andreas Steffen <andreas.steffen@strongswan.org>
 
-We're happy to announce the next Netfilter Workshop in the series. This
-year it will take place in Seville, Spain. We will provide you up to
-date information through our website:
+Good catch (you are right this was tested on 64 bit ;->).
+The preferred style would be what Simon mentioned. No biggie if
+you keep it this way - but if you resubmit, add:
+Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
 
-http://workshop.netfilter.org/2010/
+cheers,
+jamal
 
-On behalf of the Netfilter coreteam,
-Pablo!
+
