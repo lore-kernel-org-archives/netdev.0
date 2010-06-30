@@ -1,125 +1,256 @@
-From: Jon Mason <jon.mason@exar.com>
-Subject: Re: [PATCH] s2io: read rx_packets count from the hardware stats
-Date: Tue, 29 Jun 2010 19:54:54 -0500
-Message-ID: <20100630005454.GJ21324@exar.com>
-References: <20100624233230.5864.67401.stgit@leela.lan>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCHv2 net-next-2.6] 3c59x: Use fine-grained locks for MII and
+ windowed register access
+Date: Wed, 30 Jun 2010 02:26:56 +0100
+Message-ID: <1277861216.28819.36.camel@localhost>
+References: <20100624140057.GJ5570@secunet.com>
+	 <1277426759.26161.179.camel@localhost> <20100625082447.GK5570@secunet.com>
+	 <20100628.231812.35040625.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>,
-	Sivakumar Subramani <Sivakumar.Subramani@exar.com>,
-	Sreenivasa Honnur <Sreenivasa.Honnur@exar.com>
-To: Michal Schmidt <mschmidt@redhat.com>
+Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org,
+	chase.douglas@canonical.com, nordmark@mech.kth.se
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.exar.com ([204.154.183.83]:43027 "EHLO smtp1.exar.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751680Ab0F3A7x convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jun 2010 20:59:53 -0400
-Content-Disposition: inline
-In-Reply-To: <20100624233230.5864.67401.stgit@leela.lan>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:40131 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751180Ab0F3B1I convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jun 2010 21:27:08 -0400
+In-Reply-To: <20100628.231812.35040625.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 24, 2010 at 04:32:32PM -0700, Michal Schmidt wrote:
-> Most of the statistics the s2io driver provides in /proc/net/dev
-> it reads directly from the hardware counters. For some reason it does
-> not do that for rx_packets. It counts rx_packets purely in software.
->
-> A customer reported a bug where in /proc/net/dev the 'multicast' counter
-> was increasing faster than 'packets' ( = rx_packets in the source code).
-> This confuses userspace, especially snmpd.
->
-> The hardware provides a counter for the total number of received
-> frames (RMAC_VLD_FRMS) which the driver can use for the rx_packets
-> statistic. By reading both statistics from the hardware it makes sure
-> that all multicast frames are included in the total.
+This avoids scheduling in atomic context and also means that IRQs
+will only be deferred for relatively short periods of time.
 
-On the Xframe adapter, there is a issue with the multicast statistics
-counter.  It includes broadcast and pause frames in its count.  This
-is most likely the cause of the issue you are seeing.
+Previously discussed in:
+http://article.gmane.org/gmane.linux.network/155024
 
-While, looking over the patch you submitted, I noticed other issues
-with the s2io_get_stats function.  I have a patch that I will push
-soon that addresses the multicast issue, the issues I discovered, and
-the octet issues Dave suggested.
+Reported-by: Arne Nordmark <nordmark@mech.kth.se>
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+Added the missing spin_lock_init() calls.
 
-Thanks,
-Jon
+Ben.
 
->
-> The customer tested a patch like this (only modified for RHEL5) with
-> S2io Inc. Xframe II 10Gbps Ethernet (rev 02)
-> and it fixed the problem.
->
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
-> ---
->
->  drivers/net/s2io.c |   11 ++++++-----
->  drivers/net/s2io.h |    1 -
->  2 files changed, 6 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
-> index 668327c..eefc4b2 100644
-> --- a/drivers/net/s2io.c
-> +++ b/drivers/net/s2io.c
-> @@ -4919,6 +4919,10 @@ static struct net_device_stats *s2io_get_stats(struct net_device *dev)
->               sp->stats.tx_packets;
->       sp->stats.tx_packets = le32_to_cpu(stats->tmac_frms);
->
-> +     dev->stats.rx_packets += le32_to_cpu(stats->rmac_vld_frms) -
-> +             sp->stats.rx_packets;
-> +     sp->stats.rx_packets = le32_to_cpu(stats->rmac_vld_frms);
-> +
->       dev->stats.tx_errors += le32_to_cpu(stats->tmac_any_err_frms) -
->               sp->stats.tx_errors;
->       sp->stats.tx_errors = le32_to_cpu(stats->tmac_any_err_frms);
-> @@ -4935,12 +4939,11 @@ static struct net_device_stats *s2io_get_stats(struct net_device *dev)
->               sp->stats.rx_length_errors;
->       sp->stats.rx_length_errors = le64_to_cpu(stats->rmac_long_frms);
->
-> -     /* collect per-ring rx_packets and rx_bytes */
-> -     dev->stats.rx_packets = dev->stats.rx_bytes = 0;
-> +     /* collect per-ring rx_bytes */
-> +     dev->stats.rx_bytes = 0;
->       for (i = 0; i < config->rx_ring_num; i++) {
->               struct ring_info *ring = &mac_control->rings[i];
->
-> -             dev->stats.rx_packets += ring->rx_packets;
->               dev->stats.rx_bytes += ring->rx_bytes;
->       }
->
-> @@ -7455,8 +7458,6 @@ static int rx_osm_handler(struct ring_info *ring_data, struct RxD_t * rxdp)
->               }
->       }
->
-> -     /* Updating statistics */
-> -     ring_data->rx_packets++;
->       rxdp->Host_Control = 0;
->       if (sp->rxd_mode == RXD_MODE_1) {
->               int len = RXD_GET_BUFFER0_SIZE_1(rxdp->Control_2);
-> diff --git a/drivers/net/s2io.h b/drivers/net/s2io.h
-> index 47c36e0..4da9ab8 100644
-> --- a/drivers/net/s2io.h
-> +++ b/drivers/net/s2io.h
-> @@ -747,7 +747,6 @@ struct ring_info {
->       struct buffAdd **ba;
->
->       /* per-Ring statistics */
-> -     unsigned long rx_packets;
->       unsigned long rx_bytes;
->  } ____cacheline_aligned;
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ drivers/net/3c59x.c |   68 ++++++++++++++++++++++++++++++--------------------
+ 1 files changed, 41 insertions(+), 27 deletions(-)
 
-The information and any attached documents contained in this message
-may be confidential and/or legally privileged.  The message is
-intended solely for the addressee(s).  If you are not the intended
-recipient, you are hereby notified that any use, dissemination, or
-reproduction is strictly prohibited and may be unlawful.  If you are
-not the intended recipient, please contact the sender immediately by
-return e-mail and destroy all copies of the original message.
+diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+index beddef9..069a03f 100644
+--- a/drivers/net/3c59x.c
++++ b/drivers/net/3c59x.c
+@@ -644,9 +644,15 @@ struct vortex_private {
+ 	u16 deferred;						/* Resend these interrupts when we
+ 										 * bale from the ISR */
+ 	u16 io_size;						/* Size of PCI region (for release_region) */
+-	spinlock_t lock;					/* Serialise access to device & its vortex_private */
+-	struct mii_if_info mii;				/* MII lib hooks/info */
+-	int window;					/* Register window */
++
++	/* Serialises access to hardware other than MII and variables below.
++	 * The lock hierarchy is rtnl_lock > lock > mii_lock > window_lock. */
++	spinlock_t lock;
++
++	spinlock_t mii_lock;		/* Serialises access to MII */
++	struct mii_if_info mii;		/* MII lib hooks/info */
++	spinlock_t window_lock;		/* Serialises access to windowed regs */
++	int window;			/* Register window */
+ };
+ 
+ static void window_set(struct vortex_private *vp, int window)
+@@ -661,15 +667,23 @@ static void window_set(struct vortex_private *vp, int window)
+ static u ## size							\
+ window_read ## size(struct vortex_private *vp, int window, int addr)	\
+ {									\
++	unsigned long flags;						\
++	u ## size ret;							\
++	spin_lock_irqsave(&vp->window_lock, flags);			\
+ 	window_set(vp, window);						\
+-	return ioread ## size(vp->ioaddr + addr);			\
++	ret = ioread ## size(vp->ioaddr + addr);			\
++	spin_unlock_irqrestore(&vp->window_lock, flags);		\
++	return ret;							\
+ }									\
+ static void								\
+ window_write ## size(struct vortex_private *vp, u ## size value,	\
+ 		     int window, int addr)				\
+ {									\
++	unsigned long flags;						\
++	spin_lock_irqsave(&vp->window_lock, flags);			\
+ 	window_set(vp, window);						\
+ 	iowrite ## size(value, vp->ioaddr + addr);			\
++	spin_unlock_irqrestore(&vp->window_lock, flags);		\
+ }
+ DEFINE_WINDOW_IO(8)
+ DEFINE_WINDOW_IO(16)
+@@ -1181,6 +1195,8 @@ static int __devinit vortex_probe1(struct device *gendev,
+ 	}
+ 
+ 	spin_lock_init(&vp->lock);
++	spin_lock_init(&vp->mii_lock);
++	spin_lock_init(&vp->window_lock);
+ 	vp->gendev = gendev;
+ 	vp->mii.dev = dev;
+ 	vp->mii.mdio_read = mdio_read;
+@@ -1784,7 +1800,6 @@ vortex_timer(unsigned long data)
+ 		pr_debug("dev->watchdog_timeo=%d\n", dev->watchdog_timeo);
+ 	}
+ 
+-	disable_irq_lockdep(dev->irq);
+ 	media_status = window_read16(vp, 4, Wn4_Media);
+ 	switch (dev->if_port) {
+ 	case XCVR_10baseT:  case XCVR_100baseTx:  case XCVR_100baseFx:
+@@ -1805,10 +1820,7 @@ vortex_timer(unsigned long data)
+ 	case XCVR_MII: case XCVR_NWAY:
+ 		{
+ 			ok = 1;
+-			/* Interrupts are already disabled */
+-			spin_lock(&vp->lock);
+ 			vortex_check_media(dev, 0);
+-			spin_unlock(&vp->lock);
+ 		}
+ 		break;
+ 	  default:					/* Other media types handled by Tx timeouts. */
+@@ -1827,6 +1839,8 @@ vortex_timer(unsigned long data)
+ 	if (!ok) {
+ 		unsigned int config;
+ 
++		spin_lock_irq(&vp->lock);
++
+ 		do {
+ 			dev->if_port = media_tbl[dev->if_port].next;
+ 		} while ( ! (vp->available_media & media_tbl[dev->if_port].mask));
+@@ -1855,6 +1869,8 @@ vortex_timer(unsigned long data)
+ 		if (vortex_debug > 1)
+ 			pr_debug("wrote 0x%08x to Wn3_Config\n", config);
+ 		/* AKPM: FIXME: Should reset Rx & Tx here.  P60 of 3c90xc.pdf */
++
++		spin_unlock_irq(&vp->lock);
+ 	}
+ 
+ leave_media_alone:
+@@ -1862,7 +1878,6 @@ leave_media_alone:
+ 	  pr_debug("%s: Media selection timer finished, %s.\n",
+ 			 dev->name, media_tbl[dev->if_port].name);
+ 
+-	enable_irq_lockdep(dev->irq);
+ 	mod_timer(&vp->timer, RUN_AT(next_tick));
+ 	if (vp->deferred)
+ 		iowrite16(FakeIntr, ioaddr + EL3_CMD);
+@@ -2051,9 +2066,11 @@ vortex_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		int len = (skb->len + 3) & ~3;
+ 		vp->tx_skb_dma = pci_map_single(VORTEX_PCI(vp), skb->data, len,
+ 						PCI_DMA_TODEVICE);
++		spin_lock_irq(&vp->window_lock);
+ 		window_set(vp, 7);
+ 		iowrite32(vp->tx_skb_dma, ioaddr + Wn7_MasterAddr);
+ 		iowrite16(len, ioaddr + Wn7_MasterLen);
++		spin_unlock_irq(&vp->window_lock);
+ 		vp->tx_skb = skb;
+ 		iowrite16(StartDMADown, ioaddr + EL3_CMD);
+ 		/* netif_wake_queue() will be called at the DMADone interrupt. */
+@@ -2225,6 +2242,7 @@ vortex_interrupt(int irq, void *dev_id)
+ 		pr_debug("%s: interrupt, status %4.4x, latency %d ticks.\n",
+ 			   dev->name, status, ioread8(ioaddr + Timer));
+ 
++	spin_lock(&vp->window_lock);
+ 	window_set(vp, 7);
+ 
+ 	do {
+@@ -2285,6 +2303,8 @@ vortex_interrupt(int irq, void *dev_id)
+ 		iowrite16(AckIntr | IntReq | IntLatch, ioaddr + EL3_CMD);
+ 	} while ((status = ioread16(ioaddr + EL3_STATUS)) & (IntLatch | RxComplete));
+ 
++	spin_unlock(&vp->window_lock);
++
+ 	if (vortex_debug > 4)
+ 		pr_debug("%s: exiting interrupt, status %4.4x.\n",
+ 			   dev->name, status);
+@@ -2806,37 +2826,22 @@ static void update_stats(void __iomem *ioaddr, struct net_device *dev)
+ static int vortex_nway_reset(struct net_device *dev)
+ {
+ 	struct vortex_private *vp = netdev_priv(dev);
+-	unsigned long flags;
+-	int rc;
+ 
+-	spin_lock_irqsave(&vp->lock, flags);
+-	rc = mii_nway_restart(&vp->mii);
+-	spin_unlock_irqrestore(&vp->lock, flags);
+-	return rc;
++	return mii_nway_restart(&vp->mii);
+ }
+ 
+ static int vortex_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+ 	struct vortex_private *vp = netdev_priv(dev);
+-	unsigned long flags;
+-	int rc;
+ 
+-	spin_lock_irqsave(&vp->lock, flags);
+-	rc = mii_ethtool_gset(&vp->mii, cmd);
+-	spin_unlock_irqrestore(&vp->lock, flags);
+-	return rc;
++	return mii_ethtool_gset(&vp->mii, cmd);
+ }
+ 
+ static int vortex_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+ 	struct vortex_private *vp = netdev_priv(dev);
+-	unsigned long flags;
+-	int rc;
+ 
+-	spin_lock_irqsave(&vp->lock, flags);
+-	rc = mii_ethtool_sset(&vp->mii, cmd);
+-	spin_unlock_irqrestore(&vp->lock, flags);
+-	return rc;
++	return mii_ethtool_sset(&vp->mii, cmd);
+ }
+ 
+ static u32 vortex_get_msglevel(struct net_device *dev)
+@@ -3059,6 +3064,8 @@ static int mdio_read(struct net_device *dev, int phy_id, int location)
+ 	int read_cmd = (0xf6 << 10) | (phy_id << 5) | location;
+ 	unsigned int retval = 0;
+ 
++	spin_lock_bh(&vp->mii_lock);
++
+ 	if (mii_preamble_required)
+ 		mdio_sync(vp, 32);
+ 
+@@ -3082,6 +3089,9 @@ static int mdio_read(struct net_device *dev, int phy_id, int location)
+ 			       4, Wn4_PhysicalMgmt);
+ 		mdio_delay(vp);
+ 	}
++
++	spin_unlock_bh(&vp->mii_lock);
++
+ 	return retval & 0x20000 ? 0xffff : retval>>1 & 0xffff;
+ }
+ 
+@@ -3091,6 +3101,8 @@ static void mdio_write(struct net_device *dev, int phy_id, int location, int val
+ 	int write_cmd = 0x50020000 | (phy_id << 23) | (location << 18) | value;
+ 	int i;
+ 
++	spin_lock_bh(&vp->mii_lock);
++
+ 	if (mii_preamble_required)
+ 		mdio_sync(vp, 32);
+ 
+@@ -3111,6 +3123,8 @@ static void mdio_write(struct net_device *dev, int phy_id, int location, int val
+ 			       4, Wn4_PhysicalMgmt);
+ 		mdio_delay(vp);
+ 	}
++
++	spin_unlock_bh(&vp->mii_lock);
+ }
+ 
+ /* ACPI: Advanced Configuration and Power Interface. */
+-- 
+1.7.1
+
+
+-- 
+Ben Hutchings
+Once a job is fouled up, anything done to improve it makes it worse.
