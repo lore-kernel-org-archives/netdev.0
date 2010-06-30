@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] fragment: add fast path for in-order fragments
-Date: Wed, 30 Jun 2010 13:44:51 -0700 (PDT)
-Message-ID: <20100630.134451.141232923.davem@davemloft.net>
-References: <1277822377-742-1-git-send-email-xiaosuo@gmail.com>
+Subject: Re: [RFC] [PATCH] ethtool: Change ethtool_op_set_flags to validate
+ flags
+Date: Wed, 30 Jun 2010 13:47:41 -0700 (PDT)
+Message-ID: <20100630.134741.37566671.davem@davemloft.net>
+References: <1277823923.2112.26.camel@achroite.uk.solarflarecom.com>
+	<1277827261.2112.48.camel@achroite.uk.solarflarecom.com>
+	<20100630132111.72559f9f@dhcp-lab-109.englab.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org, erblichs@earthlink.net
-To: xiaosuo@gmail.com
+Cc: bhutchings@solarflare.com, amit.salecha@qlogic.com,
+	netdev@vger.kernel.org, amwang@redhat.com,
+	anirban.chakraborty@qlogic.com
+To: sgruszka@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36866
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35535
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754380Ab0F3Uoj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 16:44:39 -0400
-In-Reply-To: <1277822377-742-1-git-send-email-xiaosuo@gmail.com>
+	by vger.kernel.org with ESMTP id S1752867Ab0F3Ur2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 16:47:28 -0400
+In-Reply-To: <20100630132111.72559f9f@dhcp-lab-109.englab.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Tue, 29 Jun 2010 22:39:37 +0800
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Date: Wed, 30 Jun 2010 13:21:11 +0200
 
-> add fast path for in-order fragments
+> On Tue, 29 Jun 2010 17:01:01 +0100
+> Ben Hutchings <bhutchings@solarflare.com> wrote:
 > 
-> As the fragments are sent in order in most of OSes, such as Windows, Darwin and
-> FreeBSD, it is likely the new fragments are at the end of the inet_frag_queue.
-> In the fast path, we check if the skb at the end of the inet_frag_queue is the
-> prev we expect.
+>> This is the sort of change I'd like to see.
+...
+> Looks good for me as well.
 > 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> Reviewed-by: Stanislaw Gruszka <sgruszka@redhat.com>
 
-Applied, thanks.
+Me too.
+
+Ben, please submit this formally.
