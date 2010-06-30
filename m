@@ -1,45 +1,64 @@
-From: Ivan Novick <novickivan@gmail.com>
-Subject: Re: TCP not triggering a fast retransmit?
-Date: Wed, 30 Jun 2010 13:14:04 -0700
-Message-ID: <AANLkTimpofANvn-sDZrE3kdq9owzYe8DJa8OfuVK04cM@mail.gmail.com>
-References: <AANLkTinJC6uS1GTbKJWL9AlEs2e5GleQvJbTUZrsQHaE@mail.gmail.com>
-	<9E73042B-BF54-48FD-8755-C215FD03C9AE@earthlink.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] vlan_dev: VLAN 0 should be treated as "no vlan tag"
+ (802.1p packet)
+Date: Wed, 30 Jun 2010 13:16:16 -0700 (PDT)
+Message-ID: <20100630.131616.233403329.davem@davemloft.net>
+References: <311b59aee7d648c6124a84b5ca06ac60@dondevamos.com>
+	<1276679284.2632.22.camel@edumazet-laptop>
+	<c38a6e1add643eb78bd0d28ee3984cf4@dondevamos.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, jmatthews@greenplum.com,
-	Tim Heath <theath@greenplum.com>
-To: Mitchell Erblich <erblichs@earthlink.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kaber@trash.net, bhutchings@solarflare.com,
+	eric.dumazet@gmail.com
+To: pedro.netdev@dondevamos.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:38625 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755198Ab0F3UOF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 16:14:05 -0400
-Received: by vws5 with SMTP id 5so1405933vws.19
-        for <netdev@vger.kernel.org>; Wed, 30 Jun 2010 13:14:04 -0700 (PDT)
-In-Reply-To: <9E73042B-BF54-48FD-8755-C215FD03C9AE@earthlink.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46161
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754743Ab0F3UQD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 16:16:03 -0400
+In-Reply-To: <c38a6e1add643eb78bd0d28ee3984cf4@dondevamos.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 30, 2010 at 1:06 PM, Mitchell Erblich
-<erblichs@earthlink.net> wrote:
-> On Jun 30, 2010, at 11:04 AM, Ivan Novick wrote:
-=2E.. snip ...
-> Sometimes, adding tracing within the tcps, can identify if.
-> the tcp flow has periods of idleness,
-> the tcp flow is/has been application limited versus network limited,
-> whether the flow is in SS or CA?
-> CA normally has DELayed ACks, which reduces the number
-> =A0 =A0of ACKs to 1/2 or more,
-> Whether Fast re-xmit is triggered by 2 or 3 DupAcks.
-> whether any burst avoidance has occured,
-> etc,
+From: Pedro Garcia <pedro.netdev@dondevamos.com>
+Date: Mon, 28 Jun 2010 01:21:19 +0200
 
-Hi Mitchell,
+> Last version of the patch. Now I think it is OK, of course pending 
+> Eric's signed-off-by for the accel HW part.
 
-When you say adding tracing within the tcps... what method are you
-referring to, to add this tracing?  Is it some tool or setting or are
-you talking about adding custom debugging output to the kernel?
+Eric, please review.
 
-Cheers,
-Ivan
+> 
+> If this is too long for a changelog, tell me and I will try to sum it
+> up:
+
+To me, not commit message is too long, the more the better. :)
+
+> +       if ((event == NETDEV_UP) &&
+> +           (dev->features & NETIF_F_HW_VLAN_FILTER) &&
+> +           (dev->netdev_ops->ndo_vlan_rx_add_vid)) {
+
+There is no reason to surround this final NULL pointer check with
+parenthesis, it just makes reading it confusing.
+> +       if (vlan_dev)
+> +               skb->dev = vlan_dev;
+> +       else
+> +               if (vlan_id)
+> +                       goto drop;
+
+Please format this as:
+
+	if (a)
+		b;
+	else if (c)
+		d;
+
+
+> +       if (vlan_dev)
+> +               skb->dev = vlan_dev;
+> +       else
+> +               if (vlan_id)
+> +                       goto drop;
+
+Same here.
