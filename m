@@ -1,35 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] ipv4: sysctl to block responding on down
- interface
-Date: Wed, 30 Jun 2010 13:58:16 -0700 (PDT)
-Message-ID: <20100630.135816.106800276.davem@davemloft.net>
-References: <20100611084854.0680c014@nehalam>
-	<20100622.101537.245382806.davem@davemloft.net>
-	<20100630135535.0e3a5ea1@nehalam>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: TCP not triggering a fast retransmit?
+Date: Wed, 30 Jun 2010 22:03:49 +0100
+Message-ID: <1277931829.4878.9.camel@localhost>
+References: <AANLkTinJC6uS1GTbKJWL9AlEs2e5GleQvJbTUZrsQHaE@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: joakim.tjernlund@transmode.se, netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org, jmatthews@greenplum.com,
+	Tim Heath <theath@greenplum.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Ivan Novick <novickivan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45621
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755243Ab0F3U6D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 16:58:03 -0400
-In-Reply-To: <20100630135535.0e3a5ea1@nehalam>
+Received: from exchange.solarflare.com ([216.237.3.220]:34017 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752561Ab0F3VD6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jun 2010 17:03:58 -0400
+In-Reply-To: <AANLkTinJC6uS1GTbKJWL9AlEs2e5GleQvJbTUZrsQHaE@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Wed, 30 Jun 2010 13:55:35 -0700
-
->> The fact that the syctl knob, when enabled, can't even function properly
->> in this "multiple interfaces with same address" case is another reason I
->> have decided to not apply this.
+On Wed, 2010-06-30 at 11:04 -0700, Ivan Novick wrote:
+> Hello all,
 > 
-> We already have sysctl knobs that exist to work around broken printer TCP,
-> middleboxes and other broken stacks; my opinion this is just another one
-> of those types of workarounds.
+> Attached is a packet capture from my application that is running on
+> RedHat Enterprise Linux 5.4
+> 
+> I am seeing a Retransmission timeout but I was hoping this case would
+> go into fast retransmit and not RTO.
+> 
+> I am wondering why did the sender not send more data?  If the sender
+> was to send more data and extend the window then it would seem the
+> duplicate acks or SACKS should trigger fast retransmit.
+[...]
 
-But that sysctl knob for the printer workaround doesn't break legitimate
-configurations like this one does.
+In that packet capture I see TCP payload lengths which are 2, 3 and 4
+times the usual MSS of 1448 bytes, which implies that GRO or LRO is in
+use.  In RHEL 5.4 the TCP stack does not ACK often enough in this case
+because it is missing this change:
+
+commit ff9b5e0f08cb650d113eef0c654f931c0a7ae730
+Author: Herbert Xu <herbert@gondor.apana.org.au>
+Date:   Thu Aug 31 15:11:02 2006 -0700
+
+    [TCP]: Fix rcv mss estimate for LRO
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
