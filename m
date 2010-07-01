@@ -1,38 +1,71 @@
-From: Denis Kirjanov <dkirjanov@hera.kernel.org>
-Subject: [RESEND][PATCH] cxgb4: Use kfree_skb for skb pointers
-Date: Thu, 1 Jul 2010 09:45:52 +0000
-Message-ID: <20100701094552.GA6188@hera.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH repost] sched: export sched_set/getaffinity to modules
+Date: Thu, 1 Jul 2010 14:07:08 +0300
+Message-ID: <20100701110708.GA27368@redhat.com>
+References: <4BFEA434.6080405@kernel.org>
+ <20100527173207.GA21880@redhat.com>
+ <4BFEE216.2070807@kernel.org>
+ <20100528150830.GB21880@redhat.com>
+ <4BFFE742.2060205@kernel.org>
+ <20100530112925.GB27611@redhat.com>
+ <4C02C99D.9070204@kernel.org>
+ <20100624081135.GA937@redhat.com>
+ <1277419551.27868.27.camel@w-sridhar.beaverton.ibm.com>
+ <20100625101022.GA16321@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:50015 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752037Ab0GAJp4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Jul 2010 05:45:56 -0400
+Cc: Sridhar Samudrala <sri@us.ibm.com>, Tejun Heo <tj@kernel.org>,
+	Oleg Nesterov <oleg@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Andi Kleen <ak@linux.intel.com>
+To: Ingo Molnar <mingo@elte.hu>, Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20100625101022.GA16321@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use kfree_skb for skb pointers
+Author: Sridhar Samudrala <sri@us.ibm.com>
 
-Acked-by: Dimitris Michailidis <dm@chelsio.com> 
-Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
+sched: export sched_set/getaffinity to modules
+
+vhost-net driver wants to copy the affinity from the
+owner thread to thread it creates. Export
+sched_set/get affinity to modules to make this possible
+when vhost is built as a module.
+
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
 ---
-drivers/net/cxgb4/l2t.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/cxgb4/l2t.c b/drivers/net/cxgb4/l2t.c
-index 5b990d2..e8f0f55 100644
---- a/drivers/net/cxgb4/l2t.c
-+++ b/drivers/net/cxgb4/l2t.c
-@@ -314,7 +314,7 @@ static void t4_l2e_free(struct l2t_entry *e)
- 			struct sk_buff *skb = e->arpq_head;
+I'm not sure the previous time made it clear what exactly is the
+proposed change, so reposting.  Info, Peter, could you ack merging the
+following through the net-next tree please?
+
+diff --git a/kernel/sched.c b/kernel/sched.c
+index d484081..3759391 100644
+--- a/kernel/sched.c
++++ b/kernel/sched.c
+@@ -4744,6 +4744,7 @@ out_put_task:
+ 	put_online_cpus();
+ 	return retval;
+ }
++EXPORT_SYMBOL_GPL(sched_setaffinity);
  
- 			e->arpq_head = skb->next;
--			kfree(skb);
-+			kfree_skb(skb);
- 		}
- 		e->arpq_tail = NULL;
- 	}
+ static int get_user_cpu_mask(unsigned long __user *user_mask_ptr, unsigned len,
+ 			     struct cpumask *new_mask)
+@@ -4807,6 +4808,7 @@ out_unlock:
+ 
+ 	return retval;
+ }
++EXPORT_SYMBOL_GPL(sched_getaffinity);
+ 
+ /**
+  * sys_sched_getaffinity - get the cpu affinity of a process
