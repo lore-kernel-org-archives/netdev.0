@@ -1,71 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] vlan_dev: VLAN 0 should be treated as "no vlan tag"
- (802.1p packet)
-Date: Thu, 01 Jul 2010 22:19:14 +0200
-Message-ID: <1278015554.2782.11.camel@edumazet-laptop>
-References: <311b59aee7d648c6124a84b5ca06ac60@dondevamos.com>
-	 <1276679284.2632.22.camel@edumazet-laptop>
-	 <c38a6e1add643eb78bd0d28ee3984cf4@dondevamos.com>
-	 <20100630.131616.233403329.davem@davemloft.net>
-	 <a372414c0d74e9ab599d095627353d94@dondevamos.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [net-next-2.6 PATCH v2] x86: Align skb w/ start of cacheline
+ on newer core 2/Xeon Arch
+Date: Thu, 01 Jul 2010 13:37:27 -0700
+Message-ID: <4C2CFC87.6020003@intel.com>
+References: <20100630043728.9224.64191.stgit@localhost.localdomain> <87tyojzbjm.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>
-To: Pedro Garcia <pedro.netdev@dondevamos.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"bphilips@novell.com" <bphilips@novell.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:55865 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756738Ab0GAUTU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jul 2010 16:19:20 -0400
-Received: by ewy23 with SMTP id 23so884288ewy.19
-        for <netdev@vger.kernel.org>; Thu, 01 Jul 2010 13:19:19 -0700 (PDT)
-In-Reply-To: <a372414c0d74e9ab599d095627353d94@dondevamos.com>
+Received: from mga01.intel.com ([192.55.52.88]:57255 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756014Ab0GAUh3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Jul 2010 16:37:29 -0400
+In-Reply-To: <87tyojzbjm.fsf@basil.nowhere.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 01 juillet 2010 =C3=A0 20:47 +0200, Pedro Garcia a =C3=A9crit =
-:
-> The patch with the modifications suggested by David.
->=20
-> - Without the 8021q module loaded in the kernel, all 802.1p packets=20
-> (VLAN 0 but QoS tagging) are silently discarded (as expected, as=20
-> the protocol is not loaded).
->=20
-> - Without this patch in 8021q module, these packets are forwarded to=20
-> the module, but they are discarded also if VLAN 0 is not configured,
-> which should not be the default behaviour, as VLAN 0 is not really
-> a VLANed packet but a 802.1p packet. Defining VLAN 0 makes it almost
-> impossible to communicate with mixed 802.1p and non 802.1p devices on
-> the same network due to arp table issues.
->=20
-> - Changed logic to skip vlan specific code in vlan_skb_recv if VLAN=20
-> is 0 and we have not defined a VLAN with ID 0, but we accept the=20
-> packet with the encapsulated proto and pass it later to netif_rx.
->=20
-> - In the vlan device event handler, added some logic to add VLAN 0=20
-> to HW filter in devices that support it (this prevented any traffic
-> in VLAN 0 to reach the stack in e1000e with HW filter under 2.6.35,
-> and probably also with other HW filtered cards, so we fix it here).
->=20
-> - In the vlan unregister logic, prevent the elimination of VLAN 0=20
-> in devices with HW filter.
->=20
-> - The default behaviour is to ignore the VLAN 0 tagging and accept
-> the packet as if it was not tagged, but we can still define a=20
-> VLAN 0 if desired (so it is backwards compatible).
->=20
-> Signed-off-by: Pedro Garcia <pedro.netdev@dondevamos.com>
+Andi Kleen wrote:
+> Jeff Kirsher <jeffrey.t.kirsher@intel.com> writes:
+> 
+> 
+> Sorry for the late comment.
+> 
+>>  
+>> +#ifdef CONFIG_MCORE2
+>> +/*
+>> + * We handle most unaligned accesses in hardware.  On the other hand
+>> + * unaligned DMA can be quite expensive on some Nehalem processors.
+>> + *
+>> + * Based on this we disable the IP header alignment in network drivers.
+>> + */
+>> +#define NET_IP_ALIGN	0
+>> +#endif
+>>  #endif /* _ASM_X86_SYSTEM_H */
+> 
+> The ifdef should be imho dropped and the option be made unconditional
+> for all x86. I am not aware of any x86 core where unalignment is really
+> slow. This would increase the chance of it actually working on many
+> configurations which do not necessarily optimize for Core2.
+> 
+> -Andi
 
+Seems to make sense to me.  I will see about generating a patch that 
+drops the check for CONFIG_MCORE2.
 
-Seems fine but you need to respin your patch against latest net-next-2.=
-6
-tree.
+Thanks,
 
-Check your tree got commit 9618e2ffd78aaa (vlan: 64 bit rx counters)
-
-Thanks !
-
-
+Alex
