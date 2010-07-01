@@ -1,95 +1,242 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH repost] sched: export sched_set/getaffinity to modules
-Date: Thu, 1 Jul 2010 16:39:57 +0300
-Message-ID: <20100701133956.GD32223@redhat.com>
-References: <20100625101022.GA16321@redhat.com>
- <20100701110708.GA27368@redhat.com>
- <1277983179.1917.10.camel@laptop>
- <1277984603.1917.15.camel@laptop>
- <20100701115507.GA31333@redhat.com>
- <20100701122340.GB31333@redhat.com>
- <1277987657.1917.32.camel@laptop>
- <1277988395.1917.47.camel@laptop>
- <20100701130816.GB32223@redhat.com>
- <1277991024.1917.108.camel@laptop>
+From: Ajit Khaparde <ajitk@serverengines.com>
+Subject: [PATCH net-next-2.6] be2net: changes to properly provide phy
+ details
+Date: Thu, 1 Jul 2010 19:21:00 +0530
+Message-ID: <20100701135049.GA4518@serverengines.com>
+Reply-To: Ajit Khaparde <ajitk@serverengines.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>, Sridhar Samudrala <sri@us.ibm.com>,
-	Tejun Heo <tj@kernel.org>, Oleg Nesterov <oleg@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Andi Kleen <ak@linux.intel.com>
-To: Peter Zijlstra <peterz@infradead.org>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46851 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751941Ab0GANpj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Jul 2010 09:45:39 -0400
+Received: from segment-124-30.sify.net ([124.30.166.146]:10317 "EHLO
+	akhaparde.serverengines.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752548Ab0GANvF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jul 2010 09:51:05 -0400
 Content-Disposition: inline
-In-Reply-To: <1277991024.1917.108.camel@laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 01, 2010 at 03:30:24PM +0200, Peter Zijlstra wrote:
-> On Thu, 2010-07-01 at 16:08 +0300, Michael S. Tsirkin wrote:
-> > On Thu, Jul 01, 2010 at 02:46:35PM +0200, Peter Zijlstra wrote:
-> > > On Thu, 2010-07-01 at 14:34 +0200, Peter Zijlstra wrote:
-> > > > On Thu, 2010-07-01 at 15:23 +0300, Michael S. Tsirkin wrote:
-> > > > > 
-> > > > > The patch using this is here:
-> > > > > http://www.mail-archive.com/kvm@vger.kernel.org/msg35411.html
-> > > > > 
-> > > > > It simply copies the affinity from the parent when thread is created.
-> > > > 
-> > > > Sounds like policy, not something the kernel should do..
-> > > 
-> > > The alternative would be using clone() instead of thread_create() and
-> > > inherit everything from the creating task.
-> > > Inheriting from kthreadd and then undoing some aspects just sounds
-> > > like daft policy that really ought to be in userspace.
-> > 
-> > Yes, that's basically what this patchset is trying to do:
-> > create a workqueue inheriting everything from the creating task.
-> > Sridhar started with an API to do exactly this:
-> > http://linux.derkeiler.com/Mailing-Lists/Kernel/2010-05/msg07478.html
-> > 
-> > Then we switched to raw kthread to avoid stepping on cwq toes.
-> > Maybe it makes sense to add kthread_clone (in addition to
-> > kthread_create) that would do what you suggest?
-> > If yes, any hints on an implementation?
-> 
-> I think that's called kernel_thread() see
-> kernel/kthread.c:create_kthread().
-> 
-> Doing the whole kthreadd dance and then copying bits and pieces back
-> sounds very fragile, so yeah, something like that should work.
+be2net driver is currently not showing correct phy details in certain cases.
+This patch fixes it.
 
+Signed-off-by: Ajit Khaparde <ajitk@serverengines.com>
+---
+ drivers/net/benet/be.h         |    1 +
+ drivers/net/benet/be_cmds.c    |   35 +++++++++++++++++++++++++
+ drivers/net/benet/be_cmds.h    |   27 +++++++++++++++++++
+ drivers/net/benet/be_ethtool.c |   55 +++++++++++++++++++++++++++++----------
+ 4 files changed, 104 insertions(+), 14 deletions(-)
 
-Thanks!
-Sridhar, Tejun, have the time to look into this approach?
-
-> The other issue to consider is the thread group status of these things,
-> I think it would be best if these threads were still considered part of
-> the process that spawned them so that they would die nicely when the
-> process gets whacked.
-
-The proposed patch kills the thread when the fd is closed,
-so I think this already works without making it part of the process.
-
-> At which point one could wonder if the kthread interface makes any
-> sense, why not let userspace fork tasks and let them call into the
-> kernel to perform work...
-
-One thing I wanted to avoid is letting userspace know
-just how many threads are there. We are using a single one
-now, but we used to have threads per-cpu, and we might
-switch to a thread per virtqueue in the future.
-IMO all this should ideally be transparent to userspace.
-
+diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
+index b46be49..1a0d2d0 100644
+--- a/drivers/net/benet/be.h
++++ b/drivers/net/benet/be.h
+@@ -282,6 +282,7 @@ struct be_adapter {
+ 	int link_speed;
+ 	u8 port_type;
+ 	u8 transceiver;
++	u8 autoneg;
+ 	u8 generation;		/* BladeEngine ASIC generation */
+ 	u32 flash_status;
+ 	struct completion flash_compl;
+diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
+index 65e3260..344e062 100644
+--- a/drivers/net/benet/be_cmds.c
++++ b/drivers/net/benet/be_cmds.c
+@@ -1695,3 +1695,38 @@ int be_cmd_get_seeprom_data(struct be_adapter *adapter,
+ 	spin_unlock_bh(&adapter->mcc_lock);
+ 	return status;
+ }
++
++int be_cmd_get_phy_info(struct be_adapter *adapter, struct be_dma_mem *cmd)
++{
++	struct be_mcc_wrb *wrb;
++	struct be_cmd_req_get_phy_info *req;
++	struct be_sge *sge;
++	int status;
++
++	spin_lock_bh(&adapter->mcc_lock);
++
++	wrb = wrb_from_mccq(adapter);
++	if (!wrb) {
++		status = -EBUSY;
++		goto err;
++	}
++
++	req = cmd->va;
++	sge = nonembedded_sgl(wrb);
++
++	be_wrb_hdr_prepare(wrb, sizeof(*req), false, 1,
++				OPCODE_COMMON_GET_PHY_DETAILS);
++
++	be_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
++			OPCODE_COMMON_GET_PHY_DETAILS,
++			sizeof(*req));
++
++	sge->pa_hi = cpu_to_le32(upper_32_bits(cmd->dma));
++	sge->pa_lo = cpu_to_le32(cmd->dma & 0xFFFFFFFF);
++	sge->len = cpu_to_le32(cmd->size);
++
++	status = be_mcc_notify_wait(adapter);
++err:
++	spin_unlock_bh(&adapter->mcc_lock);
++	return status;
++}
+diff --git a/drivers/net/benet/be_cmds.h b/drivers/net/benet/be_cmds.h
+index 763dc19..912a058 100644
+--- a/drivers/net/benet/be_cmds.h
++++ b/drivers/net/benet/be_cmds.h
+@@ -144,6 +144,7 @@ struct be_mcc_mailbox {
+ #define OPCODE_COMMON_ENABLE_DISABLE_BEACON		69
+ #define OPCODE_COMMON_GET_BEACON_STATE			70
+ #define OPCODE_COMMON_READ_TRANSRECV_DATA		73
++#define OPCODE_COMMON_GET_PHY_DETAILS			102
+ 
+ #define OPCODE_ETH_ACPI_CONFIG				2
+ #define OPCODE_ETH_PROMISCUOUS				3
+@@ -869,6 +870,30 @@ struct be_cmd_resp_seeprom_read {
+ 	u8 seeprom_data[BE_READ_SEEPROM_LEN];
+ };
+ 
++enum {
++	PHY_TYPE_CX4_10GB = 0,
++	PHY_TYPE_XFP_10GB,
++	PHY_TYPE_SFP_1GB,
++	PHY_TYPE_SFP_PLUS_10GB,
++	PHY_TYPE_KR_10GB,
++	PHY_TYPE_KX4_10GB,
++	PHY_TYPE_BASET_10GB,
++	PHY_TYPE_BASET_1GB,
++	PHY_TYPE_DISABLED = 255
++};
++
++struct be_cmd_req_get_phy_info {
++	struct be_cmd_req_hdr hdr;
++	u8 rsvd0[24];
++};
++struct be_cmd_resp_get_phy_info {
++	struct be_cmd_req_hdr hdr;
++	u16 phy_type;
++	u16 interface_type;
++	u32 misc_params;
++	u32 future_use[4];
++};
++
+ extern int be_pci_fnum_get(struct be_adapter *adapter);
+ extern int be_cmd_POST(struct be_adapter *adapter);
+ extern int be_cmd_mac_addr_query(struct be_adapter *adapter, u8 *mac_addr,
+@@ -947,4 +972,6 @@ extern int be_cmd_get_seeprom_data(struct be_adapter *adapter,
+ 				struct be_dma_mem *nonemb_cmd);
+ extern int be_cmd_set_loopback(struct be_adapter *adapter, u8 port_num,
+ 				u8 loopback_type, u8 enable);
++extern int be_cmd_get_phy_info(struct be_adapter *adapter,
++		struct be_dma_mem *cmd);
+ 
+diff --git a/drivers/net/benet/be_ethtool.c b/drivers/net/benet/be_ethtool.c
+index 200e985..c0ade24 100644
+--- a/drivers/net/benet/be_ethtool.c
++++ b/drivers/net/benet/be_ethtool.c
+@@ -314,10 +314,13 @@ static int be_get_sset_count(struct net_device *netdev, int stringset)
+ static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+-	u8 mac_speed = 0, connector = 0;
++	struct be_dma_mem phy_cmd;
++	struct be_cmd_resp_get_phy_info *resp;
++	u8 mac_speed = 0;
+ 	u16 link_speed = 0;
+ 	bool link_up = false;
+ 	int status;
++	u16 intf_type;
+ 
+ 	if (adapter->link_speed < 0) {
+ 		status = be_cmd_link_status_query(adapter, &link_up,
+@@ -337,40 +340,57 @@ static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 			}
+ 		}
+ 
+-		status = be_cmd_read_port_type(adapter, adapter->port_num,
+-						&connector);
++		phy_cmd.size = sizeof(struct be_cmd_req_get_phy_info);
++		phy_cmd.va = pci_alloc_consistent(adapter->pdev, phy_cmd.size,
++					&phy_cmd.dma);
++		if (!phy_cmd.va) {
++			dev_err(&adapter->pdev->dev, "Memory alloc failure\n");
++			return -ENOMEM;
++		}
++		status = be_cmd_get_phy_info(adapter, &phy_cmd);
+ 		if (!status) {
+-			switch (connector) {
+-			case 7:
++			resp = (struct be_cmd_resp_get_phy_info *) phy_cmd.va;
++			intf_type = le16_to_cpu(resp->interface_type);
++
++			switch (intf_type) {
++			case PHY_TYPE_XFP_10GB:
++			case PHY_TYPE_SFP_1GB:
++			case PHY_TYPE_SFP_PLUS_10GB:
+ 				ecmd->port = PORT_FIBRE;
+-				ecmd->transceiver = XCVR_EXTERNAL;
+-				break;
+-			case 0:
+-				ecmd->port = PORT_TP;
+-				ecmd->transceiver = XCVR_EXTERNAL;
+ 				break;
+ 			default:
+ 				ecmd->port = PORT_TP;
+-				ecmd->transceiver = XCVR_INTERNAL;
+ 				break;
+ 			}
+-		} else {
+-			ecmd->port = PORT_AUI;
++
++			switch (intf_type) {
++			case PHY_TYPE_KR_10GB:
++			case PHY_TYPE_KX4_10GB:
++				ecmd->autoneg = AUTONEG_ENABLE;
+ 			ecmd->transceiver = XCVR_INTERNAL;
++				break;
++			default:
++				ecmd->autoneg = AUTONEG_DISABLE;
++				ecmd->transceiver = XCVR_EXTERNAL;
++				break;
++			}
+ 		}
+ 
+ 		/* Save for future use */
+ 		adapter->link_speed = ecmd->speed;
+ 		adapter->port_type = ecmd->port;
+ 		adapter->transceiver = ecmd->transceiver;
++		adapter->autoneg = ecmd->autoneg;
++		pci_free_consistent(adapter->pdev, phy_cmd.size,
++					phy_cmd.va, phy_cmd.dma);
+ 	} else {
+ 		ecmd->speed = adapter->link_speed;
+ 		ecmd->port = adapter->port_type;
+ 		ecmd->transceiver = adapter->transceiver;
++		ecmd->autoneg = adapter->autoneg;
+ 	}
+ 
+ 	ecmd->duplex = DUPLEX_FULL;
+-	ecmd->autoneg = AUTONEG_DISABLE;
+ 	ecmd->phy_address = adapter->port_num;
+ 	switch (ecmd->port) {
+ 	case PORT_FIBRE:
+@@ -384,6 +404,13 @@ static int be_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 		break;
+ 	}
+ 
++	if (ecmd->autoneg) {
++		ecmd->supported |= SUPPORTED_1000baseT_Full;
++		ecmd->supported |= SUPPORTED_Autoneg;
++		ecmd->advertising |= (ADVERTISED_10000baseT_Full |
++				ADVERTISED_1000baseT_Full);
++	}
++
+ 	return 0;
+ }
+ 
 -- 
-MST
+1.7.0.4
+
