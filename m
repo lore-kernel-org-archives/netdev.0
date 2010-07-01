@@ -1,53 +1,74 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH repost] sched: export sched_set/getaffinity to modules
-Date: Thu, 01 Jul 2010 16:55:35 +0200
-Message-ID: <1277996135.1917.198.camel@laptop>
-References: <1277983179.1917.10.camel@laptop>
-	 <1277984603.1917.15.camel@laptop> <20100701115507.GA31333@redhat.com>
-	 <20100701122340.GB31333@redhat.com> <1277987657.1917.32.camel@laptop>
-	 <1277988395.1917.47.camel@laptop> <20100701130816.GB32223@redhat.com>
-	 <1277991024.1917.108.camel@laptop> <20100701133956.GD32223@redhat.com>
-	 <4C2CA5C5.4040402@kernel.org> <20100701144624.GA11171@redhat.com>
-	 <4C2CABF2.2020801@kernel.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: RFC:  Allow 'ip' to run in daemon mode?
+Date: Thu, 01 Jul 2010 08:41:45 -0700
+Message-ID: <4C2CB739.3020001@candelatech.com>
+References: <4C2A1291.7000203@candelatech.com> <20100701070753.GA15216@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Oleg Nesterov <oleg@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>, Ingo Molnar <mingo@elte.hu>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Andi Kleen <ak@linux.intel.com>
-To: Tejun Heo <tj@kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: NetDev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:55555 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755462Ab0GAOz5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jul 2010 10:55:57 -0400
-In-Reply-To: <4C2CABF2.2020801@kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:54368 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756589Ab0GAPl7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jul 2010 11:41:59 -0400
+In-Reply-To: <20100701070753.GA15216@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-07-01 at 16:53 +0200, Tejun Heo wrote:
-> Hello,
-> 
-> On 07/01/2010 04:46 PM, Oleg Nesterov wrote:
-> >> It might be a good idea to make the function take extra clone flags
-> >> but anyways once created cloned task can be treated the same way as
-> >> other kthreads, so nothing else needs to be changed.
-> > 
-> > This makes kthread_stop() work. Otherwise the new thread is just
-> > the CLONE_VM child of the caller, and the caller is the user-mode
-> > task doing ioctl() ?
-> 
-> Hmmm, indeed.  It makes the attribute inheritance work but circumvents
-> the whole reason there is kthreadd.
+On 07/01/2010 12:07 AM, Simon Horman wrote:
+> On Tue, Jun 29, 2010 at 08:34:41AM -0700, Ben Greear wrote:
+>> I'm considering modifying 'ip' to be able to run in daemon
+>> mode so that I can do lots of IP commands without having to
+>> pay the startup cost of iproute.
+>>
+>> The -batch option almost works, but it's hard to programatically
+>> figure out failure codes.
+>>
+>> I'm thinking about making these changes:
+>>
+>> 1)  Move all of the error printing code into common methods (basically,
+>>     wrap printf).  In daemon mode this text can be sent back to the
+>>     calling process, and in normal mode, it will be printed to stdout/stderr
+>>     as it is currently.
+>>
+>> 2)  Remove all or most calls to 'exit' and instead return error codes
+>>     to the calling logic.
+>>
+>> 3)  Add ability to listen on a unix socket for commands, basically treat
+>>     them just like batch commands, one command per packet.
+>>
+>> 4)  Return well formatted error code and text response to calling process
+>>     over the unix socket, maybe something like:
+>>
+>> RV: [errno or equiv, zero for success]\n
+>> CMD: [ command string this relates to ]\n
+>> [ Optional free form text ]
+>>
+>>
+>> Does something like this have any chance of upstream inclusion?
+>
+> Hi Ben,
+>
+> can't you achieve as much by omitting 3) and using stdio (cleanly)?
+> Or in other words, fix batch mode rather than adding another mode.
+> Or are you worried about backwards-compatibility?
 
-I thought the whole reason there was threadd was to avoid the
-inheritance? So avoiding the avoiding of inheritance seems like the goal
-here, no?
+I think the most of the work will be in steps 1 and 2.  Adding a listening
+socket and dealing with that is probably 50-100 lines of code.
+
+I'd be happy to attempt steps 1, 2, and possibly 4 for standard iproute2.
+If the unix socket thing still isn't wanted, it would be relatively easy for me
+to carry a patch to enable it in my own code.
+
+I think a lot of folks are scraping the output of 'ip', so backwards compat of
+the error messages is a concern.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
