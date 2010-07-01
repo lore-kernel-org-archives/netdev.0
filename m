@@ -1,56 +1,72 @@
-From: leitao@linux.vnet.ibm.com
-Subject: [PATCH 2/2] qlge: fix a eeh handler to not add a pending timer
-Date: Thu,  1 Jul 2010 10:00:18 -0300
-Message-ID: <3d4d609f65c74c269e056c5fbe2fe4b174023059.1277936929.git.root@sanx1002.austin.ibm.com>
-References: <e687077281d05d3a2da49431b7c0ff0b1076f3e6.1277936929.git.root@sanx1002.austin.ibm.com>
-Cc: netdev@vger.kernel.org, Breno Leitao <leitao@linux.vnet.ibm.com>,
-	Ron Mercer <ron.mercer@qlogic.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp04.br.ibm.com ([32.104.18.25]:38118 "EHLO
-	e24smtp04.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755524Ab0GANAZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jul 2010 09:00:25 -0400
-Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
-	by e24smtp04.br.ibm.com (8.14.4/8.13.1) with ESMTP id o61CwpJo015780
-	for <netdev@vger.kernel.org>; Thu, 1 Jul 2010 09:58:51 -0300
-Received: from d24av01.br.ibm.com (d24av01.br.ibm.com [9.8.31.91])
-	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o61D0LdR3633238
-	for <netdev@vger.kernel.org>; Thu, 1 Jul 2010 10:00:21 -0300
-Received: from d24av01.br.ibm.com (loopback [127.0.0.1])
-	by d24av01.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o61D07bj000380
-	for <netdev@vger.kernel.org>; Thu, 1 Jul 2010 10:00:08 -0300
-In-Reply-To: <e687077281d05d3a2da49431b7c0ff0b1076f3e6.1277936929.git.root@sanx1002.austin.ibm.com>
-In-Reply-To: <e687077281d05d3a2da49431b7c0ff0b1076f3e6.1277936929.git.root@sanx1002.austin.ibm.com>
-References: <e687077281d05d3a2da49431b7c0ff0b1076f3e6.1277936929.git.root@sanx1002.austin.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH repost] sched: export sched_set/getaffinity to modules
+Date: Thu, 01 Jul 2010 15:07:26 +0200
+Message-ID: <1277989646.1917.77.camel@laptop>
+References: <20100530112925.GB27611@redhat.com>
+	 <4C02C99D.9070204@kernel.org> <20100624081135.GA937@redhat.com>
+	 <1277419551.27868.27.camel@w-sridhar.beaverton.ibm.com>
+	 <20100625101022.GA16321@redhat.com> <20100701110708.GA27368@redhat.com>
+	 <1277983179.1917.10.camel@laptop> <1277984603.1917.15.camel@laptop>
+	 <20100701115507.GA31333@redhat.com> <1277987563.1917.28.camel@laptop>
+	 <20100701125038.GA32223@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: Ingo Molnar <mingo@elte.hu>, Sridhar Samudrala <sri@us.ibm.com>,
+	Tejun Heo <tj@kernel.org>, Oleg Nesterov <oleg@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Andi Kleen <ak@linux.intel.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20100701125038.GA32223@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On some ocasions the function qlge_io_resume() tries to add a
-pending timer, which causes the system to hit the BUG() on
-add_timer() function.
+On Thu, 2010-07-01 at 15:50 +0300, Michael S. Tsirkin wrote:
+> On Thu, Jul 01, 2010 at 02:32:43PM +0200, Peter Zijlstra wrote:
+> > On Thu, 2010-07-01 at 14:55 +0300, Michael S. Tsirkin wrote:
+> > 
+> > > >  - why can't it set the kernel thread's affinity too?
+> > > 
+> > > It can. However: the threads are started internally by the driver
+> > > when qemu does an ioctl.  What we want to do is give it a sensible
+> > > default affinity. management tool can later tweak it if it wants to.
+> > 
+> > So have that ioctl return the tid of that new fancy thread and then set
+> > its affinity, stuff it in cgroup, whatever you fancy.
+> > 
+> > > >  - what happens if someone changes the tasks' affinity?
+> > > 
+> > > We would normally create a cgroup including all internal
+> > > tasks, making it easy to find and change affinity for
+> > > them all if necessary. 
+> > 
+> > And to stuff them in a cgroup you also need the tid, at which point it
+> > might as well set the affinity from userspace, right?
+> 
+> We also put it in a cgroup transparently. I think that it's actually
+> important to do it on thread creation: if we don't, malicious userspace
+> can create large amount of work exceeding the cgroup limits.
+> 
+> And the same applies so the affinity, right? If the qemu process
+> is limited to a set of CPUs, isn't it important to make
+> the kernel thread that does work our behalf limited to the same
+> set of CPUs?
 
-This patch removes the timer during the EEH recovery.
+I'm not sure we have anything like this, but I wouldn't think so, if a
+driver creates a kthread and manages to inject tons of work its not
+typically limited to whatever limits apply to the task that supplied the
+work.
 
-Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
----
- drivers/net/qlge/qlge_main.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+Take the encryption threads for example, those don't run in the context
+of whoever provides the data to be encrypted (file,net whatever) and
+thus the task responsible could consume heaps more resources than when
+it would have to do the encryption itself.
 
-diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-index 509dadc..d10bcef 100644
---- a/drivers/net/qlge/qlge_main.c
-+++ b/drivers/net/qlge/qlge_main.c
-@@ -4712,6 +4712,8 @@ static void ql_eeh_close(struct net_device *ndev)
- 		netif_stop_queue(ndev);
- 	}
- 
-+	/* Disabling the timer */
-+	del_timer_sync(&qdev->timer);
- 	if (test_bit(QL_ADAPTER_UP, &qdev->flags))
- 		cancel_delayed_work_sync(&qdev->asic_reset_work);
- 	cancel_delayed_work_sync(&qdev->mpi_reset_work);
--- 
-1.6.5.2
-
+That's how kthreads work.
