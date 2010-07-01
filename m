@@ -1,65 +1,71 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH repost] sched: export sched_set/getaffinity to modules
-Date: Thu, 1 Jul 2010 15:50:38 +0300
-Message-ID: <20100701125038.GA32223@redhat.com>
-References: <20100530112925.GB27611@redhat.com>
- <4C02C99D.9070204@kernel.org>
- <20100624081135.GA937@redhat.com>
- <1277419551.27868.27.camel@w-sridhar.beaverton.ibm.com>
- <20100625101022.GA16321@redhat.com>
- <20100701110708.GA27368@redhat.com>
- <1277983179.1917.10.camel@laptop>
- <1277984603.1917.15.camel@laptop>
- <20100701115507.GA31333@redhat.com>
- <1277987563.1917.28.camel@laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ingo Molnar <mingo@elte.hu>, Sridhar Samudrala <sri@us.ibm.com>,
-	Tejun Heo <tj@kernel.org>, Oleg Nesterov <oleg@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Andi Kleen <ak@linux.intel.com>
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1277987563.1917.28.camel@laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: leitao@linux.vnet.ibm.com
+Subject: [PATCH 1/2] qlge: Replacing add_timer() to mod_timer()
+Date: Thu,  1 Jul 2010 10:00:17 -0300
+Message-ID: <e687077281d05d3a2da49431b7c0ff0b1076f3e6.1277936929.git.root@sanx1002.austin.ibm.com>
+Cc: netdev@vger.kernel.org, Breno Leitao <leitao@linux.vnet.ibm.com>,
+	Ron Mercer <ron.mercer@qlogic.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e24smtp05.br.ibm.com ([32.104.18.26]:53246 "EHLO
+	e24smtp05.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753789Ab0GANAY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jul 2010 09:00:24 -0400
+Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
+	by e24smtp05.br.ibm.com (8.14.4/8.13.1) with ESMTP id o61Cxu5U025421
+	for <netdev@vger.kernel.org>; Thu, 1 Jul 2010 09:59:56 -0300
+Received: from d24av01.br.ibm.com (d24av01.br.ibm.com [9.8.31.91])
+	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id o61D0KKE4034754
+	for <netdev@vger.kernel.org>; Thu, 1 Jul 2010 10:00:21 -0300
+Received: from d24av01.br.ibm.com (loopback [127.0.0.1])
+	by d24av01.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id o61D07H0000367
+	for <netdev@vger.kernel.org>; Thu, 1 Jul 2010 10:00:08 -0300
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 01, 2010 at 02:32:43PM +0200, Peter Zijlstra wrote:
-> On Thu, 2010-07-01 at 14:55 +0300, Michael S. Tsirkin wrote:
-> 
-> > >  - why can't it set the kernel thread's affinity too?
-> > 
-> > It can. However: the threads are started internally by the driver
-> > when qemu does an ioctl.  What we want to do is give it a sensible
-> > default affinity. management tool can later tweak it if it wants to.
-> 
-> So have that ioctl return the tid of that new fancy thread and then set
-> its affinity, stuff it in cgroup, whatever you fancy.
-> 
-> > >  - what happens if someone changes the tasks' affinity?
-> > 
-> > We would normally create a cgroup including all internal
-> > tasks, making it easy to find and change affinity for
-> > them all if necessary. 
-> 
-> And to stuff them in a cgroup you also need the tid, at which point it
-> might as well set the affinity from userspace, right?
+Currently qlge driver calls add_timer() instead of mod_timer().
+This patch changes add_timer() to mod_timer(), which seems a better
+solution.
 
-We also put it in a cgroup transparently. I think that it's actually
-important to do it on thread creation: if we don't, malicious userspace
-can create large amount of work exceeding the cgroup limits.
+Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+---
+ drivers/net/qlge/qlge_main.c |    9 +++------
+ 1 files changed, 3 insertions(+), 6 deletions(-)
 
-And the same applies so the affinity, right? If the qemu process
-is limited to a set of CPUs, isn't it important to make
-the kernel thread that does work our behalf limited to the same
-set of CPUs?
-
+diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
+index fa4b24c..509dadc 100644
+--- a/drivers/net/qlge/qlge_main.c
++++ b/drivers/net/qlge/qlge_main.c
+@@ -4611,8 +4611,7 @@ static void ql_timer(unsigned long data)
+ 		return;
+ 	}
+ 
+-	qdev->timer.expires = jiffies + (5*HZ);
+-	add_timer(&qdev->timer);
++	mod_timer(&qdev->timer, jiffies + (5*HZ));
+ }
+ 
+ static int __devinit qlge_probe(struct pci_dev *pdev,
+@@ -4808,8 +4807,7 @@ static void qlge_io_resume(struct pci_dev *pdev)
+ 		netif_err(qdev, ifup, qdev->ndev,
+ 			  "Device was not running prior to EEH.\n");
+ 	}
+-	qdev->timer.expires = jiffies + (5*HZ);
+-	add_timer(&qdev->timer);
++	mod_timer(&qdev->timer, jiffies + (5*HZ));
+ 	netif_device_attach(ndev);
+ }
+ 
+@@ -4871,8 +4869,7 @@ static int qlge_resume(struct pci_dev *pdev)
+ 			return err;
+ 	}
+ 
+-	qdev->timer.expires = jiffies + (5*HZ);
+-	add_timer(&qdev->timer);
++	mod_timer(&qdev->timer, jiffies + (5*HZ));
+ 	netif_device_attach(ndev);
+ 
+ 	return 0;
 -- 
-MST
+1.6.5.2
+
