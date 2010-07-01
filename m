@@ -1,71 +1,50 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH repost] sched: export sched_set/getaffinity to modules
-Date: Thu, 01 Jul 2010 13:19:39 +0200
-Message-ID: <1277983179.1917.10.camel@laptop>
-References: <4BFEA434.6080405@kernel.org>
-	 <20100527173207.GA21880@redhat.com> <4BFEE216.2070807@kernel.org>
-	 <20100528150830.GB21880@redhat.com> <4BFFE742.2060205@kernel.org>
-	 <20100530112925.GB27611@redhat.com> <4C02C99D.9070204@kernel.org>
-	 <20100624081135.GA937@redhat.com>
-	 <1277419551.27868.27.camel@w-sridhar.beaverton.ibm.com>
-	 <20100625101022.GA16321@redhat.com>  <20100701110708.GA27368@redhat.com>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH net-next-2.6] ipv4: sysctl to block responding on down interface
+Date: Thu, 01 Jul 2010 13:23:21 +0200
+Message-ID: <871vbn1m52.fsf@basil.nowhere.org>
+References: <OF1D06F11A.44DE8C5A-ONC125773F.00437856-C125773F.004425B9@transmode.se>
+	<20100611084854.0680c014@nehalam>
+	<OF62B30BCC.F8523B86-ONC1257750.00687496-C1257750.0068AA27@transmode.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Ingo Molnar <mingo@elte.hu>, Sridhar Samudrala <sri@us.ibm.com>,
-	Tejun Heo <tj@kernel.org>, Oleg Nesterov <oleg@redhat.com>,
-	netdev <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
-	Jiri Kosina <jkosina@suse.cz>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Andi Kleen <ak@linux.intel.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20100701110708.GA27368@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from one.firstfloor.org ([213.235.205.2]:35170 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755295Ab0GALX1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jul 2010 07:23:27 -0400
+In-Reply-To: <OF62B30BCC.F8523B86-ONC1257750.00687496-C1257750.0068AA27@transmode.se>
+	(Joakim Tjernlund's message of "Mon, 28 Jun 2010 21:03:13 +0200")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-07-01 at 14:07 +0300, Michael S. Tsirkin wrote:
-> Author: Sridhar Samudrala <sri@us.ibm.com>
-> 
-> sched: export sched_set/getaffinity to modules
-> 
-> vhost-net driver wants to copy the affinity from the
-> owner thread to thread it creates. Export
-> sched_set/get affinity to modules to make this possible
-> when vhost is built as a module.
-> 
-> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> 
-> ---
-> 
-> I'm not sure the previous time made it clear what exactly is the
-> proposed change, so reposting.  Info, Peter, could you ack merging the
-> following through the net-next tree please?
-> 
-> diff --git a/kernel/sched.c b/kernel/sched.c
-> index d484081..3759391 100644
-> --- a/kernel/sched.c
-> +++ b/kernel/sched.c
-> @@ -4744,6 +4744,7 @@ out_put_task:
->  	put_online_cpus();
->  	return retval;
->  }
-> +EXPORT_SYMBOL_GPL(sched_setaffinity);
->  
->  static int get_user_cpu_mask(unsigned long __user *user_mask_ptr, unsigned len,
->  			     struct cpumask *new_mask)
-> @@ -4807,6 +4808,7 @@ out_unlock:
->  
->  	return retval;
->  }
-> +EXPORT_SYMBOL_GPL(sched_getaffinity);
->  
->  /**
->   * sys_sched_getaffinity - get the cpu affinity of a process
+Joakim Tjernlund <joakim.tjernlund@transmode.se> writes:
 
-Urgh,.. so why again is that a good idea?
+> Stephen Hemminger <shemminger@vyatta.com> wrote on 2010/06/11 17:48:54:
+>>
+>> When Linux is used as a router, it is undesirable for the kernel to process
+>> incoming packets when the address assigned to the interface is down.
+>> The initial problem report was for a management application that used ICMP
+>> to check link availability.
+>>
+>> The default is disabled to maintain compatibility with previous behavior.
+>> This is not recommended for server systems because it makes fail over more
+>> difficult, and does not account for configurations where multiple interfaces
+>> have the same IP address.
+>>
+>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>
+> Ping David et. all?
+> I too want this.
+
+Doesn't arpfilter enable this already? If you set in on the still up
+interfaces those will not answer to other IP addresses.
+
+This only works on the ARP level, so it has to wait until the arp
+cache in the remote host times out.
+
+-Andi
+-- 
+ak@linux.intel.com -- Speaking for myself only.
