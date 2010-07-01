@@ -1,71 +1,45 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] nf_conntrack_reasm: add fast path for in-order fragments
-Date: Thu,  1 Jul 2010 11:58:30 +0800
-Message-ID: <1277956710-22313-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Mitchell Erblich <erblichs@earthlink.net>,
-	Changli Gao <xiaosuo@gmail.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sathya Perla <sathyap@serverengines.com>
+Subject: Re: [net-next-2.6 PATCH] be2net: memory barrier fixes on IBM p7
+ platform
+Date: Thu, 01 Jul 2010 11:53:55 +0530
+Message-ID: <1277965435.4345.0.camel@ubuntu.ubuntu-domain>
+References: <20100629101117.GA2338@serverengines.com>
+	 <20100630.132749.218066997.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail142.messagelabs.com ([216.82.249.99]:3597 "EHLO
+	mail142.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753620Ab0GAGYT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jul 2010 02:24:19 -0400
+In-Reply-To: <20100630.132749.218066997.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-nf_conntrack_reasm: add fast path for in-order fragments
+On Wed, 2010-06-30 at 13:27 -0700, David Miller wrote:
+> > -
+> > +	
+> > +	rmb();
+> 
+> That first addition does nothing but add erroneous trailing
+> whitespace.
+> 
+> You can physically see that something must be wrong here just by look
+> at this patch chunk, please review things more thoroughly before
+> submitting in the future.
+> 
+Will do, thanks.
 
-As the fragments are sent in order in most of OSes, such as Windows, Darwin and
-FreeBSD, it is likely the new fragments are at the end of the inet_frag_queue.
-In the fast path, we check if the skb at the end of the inet_frag_queue is the
-prev we expect.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-----
- net/ipv6/netfilter/nf_conntrack_reasm.c |    9 +++++++++
- 1 file changed, 9 insertions(+)
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index 9254008..098a050 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -269,6 +269,11 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
- 	 * in the chain of fragments so far.  We must know where to put
- 	 * this fragment, right?
- 	 */
-+	prev = fq->q.fragments_tail;
-+	if (!prev || NFCT_FRAG6_CB(prev)->offset < offset) {
-+		next = NULL;
-+		goto found;
-+	}
- 	prev = NULL;
- 	for (next = fq->q.fragments; next != NULL; next = next->next) {
- 		if (NFCT_FRAG6_CB(next)->offset >= offset)
-@@ -276,6 +281,7 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
- 		prev = next;
- 	}
- 
-+found:
- 	/* We found where to put this one.  Check for overlap with
- 	 * preceding fragment, and, if needed, align things so that
- 	 * any overlaps are eliminated.
-@@ -341,6 +347,8 @@ static int nf_ct_frag6_queue(struct nf_ct_frag6_queue *fq, struct sk_buff *skb,
- 
- 	/* Insert this fragment in the chain of fragments. */
- 	skb->next = next;
-+	if (!next)
-+		fq->q.fragments_tail = skb;
- 	if (prev)
- 		prev->next = skb;
- 	else
-@@ -464,6 +472,7 @@ nf_ct_frag6_reasm(struct nf_ct_frag6_queue *fq, struct net_device *dev)
- 					  head->csum);
- 
- 	fq->q.fragments = NULL;
-+	fq->q.fragments_tail = NULL;
- 
- 	/* all original skbs are linked into the NFCT_FRAG6_CB(head).orig */
- 	fp = skb_shinfo(head)->frag_list;
+
+___________________________________________________________________________________
+This message, together with any attachment(s), contains confidential and proprietary information of
+ServerEngines Corporation and is intended only for the designated recipient(s) named above. Any unauthorized
+review, printing, retention, copying, disclosure or distribution is strictly prohibited.  If you are not the
+intended recipient of this message, please immediately advise the sender by reply email message and
+delete all copies of this message and any attachment(s). Thank you.
+
