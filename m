@@ -1,45 +1,58 @@
-From: Sathya Perla <sathyap@serverengines.com>
-Subject: Re: [net-next-2.6 PATCH] be2net: memory barrier fixes on IBM p7
- platform
-Date: Thu, 01 Jul 2010 11:53:55 +0530
-Message-ID: <1277965435.4345.0.camel@ubuntu.ubuntu-domain>
-References: <20100629101117.GA2338@serverengines.com>
-	 <20100630.132749.218066997.davem@davemloft.net>
+From: Stefan Assmann <sassmann@redhat.com>
+Subject: Re: [PATCH] igbvf: avoid name clash between PF and VF
+Date: Thu, 01 Jul 2010 08:37:01 +0200
+Message-ID: <4C2C378D.4090806@redhat.com>
+References: <4C2B0614.9040004@redhat.com> <201006300959.37145.leedom@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, e1000-devel@lists.sourceforge.net,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	gregory.v.rose@intel.com, jeffrey.t.kirsher@intel.com,
+	Andy Gospodarek <gospo@redhat.com>
+To: Casey Leedom <leedom@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail142.messagelabs.com ([216.82.249.99]:3597 "EHLO
-	mail142.messagelabs.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753620Ab0GAGYT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jul 2010 02:24:19 -0400
-In-Reply-To: <20100630.132749.218066997.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:36156 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751383Ab0GAGhf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Jul 2010 02:37:35 -0400
+In-Reply-To: <201006300959.37145.leedom@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-06-30 at 13:27 -0700, David Miller wrote:
-> > -
-> > +	
-> > +	rmb();
+On 30.06.2010 18:59, Casey Leedom wrote:
+> | From: Stefan Assmann <sassmann@redhat.com>
+> | Date: Wednesday, June 30, 2010 01:53 am
+> | 
+> | This is not a udev bug since udev doesn't create persistent rules for
+> | VFs as their MAC address changes every reboot.
+> | 
+> | To avoid this problem we could change the kernel name for the VFs and
+> | thus avoid confusion between VFs and PFs.
+> | 
+> | I've already discussed this with Alexander Duyck and Greg Rose, so far
+> | they have no objection. However this problem appears for all drivers that
+> | support PFs and VFs and thus the changes should be applied consistently
+> | to all of these drivers.
 > 
-> That first addition does nothing but add erroneous trailing
-> whitespace.
+>   I'm not sure that this problem affects "all drivers which support PFs and VFs."  
+> I think that you might mean "all drivers which support PFs and VFs with non-
+> persistent MAC addresses for the VFs."  For instance, the MAC addresses 
+> associated with the new cxgb4vf VFs are persistent so, from what I understand of 
+> the scenario you outlined, I don't think that they would trigger the problem you 
+> describe.  Please correct me if I've missed something.  Thanks.
 > 
-> You can physically see that something must be wrong here just by look
-> at this patch chunk, please review things more thoroughly before
-> submitting in the future.
-> 
-Will do, thanks.
+> Casey
 
+You're correct, the problem shouldn't occur with cxgb4vf and therefore
+this change shouldn't be necessary. However we might consider a
+consistent naming scheme for VFs in all drivers. But I don't have a
+strong opinion about this, either way would be fine by me.
 
-
-___________________________________________________________________________________
-This message, together with any attachment(s), contains confidential and proprietary information of
-ServerEngines Corporation and is intended only for the designated recipient(s) named above. Any unauthorized
-review, printing, retention, copying, disclosure or distribution is strictly prohibited.  If you are not the
-intended recipient of this message, please immediately advise the sender by reply email message and
-delete all copies of this message and any attachment(s). Thank you.
-
+  Stefan
+--
+Stefan Assmann         | Red Hat GmbH
+Software Engineer      | Otto-Hahn-Strasse 20, 85609 Dornach
+                       | HR: Amtsgericht Muenchen HRB 153243
+                       | GF: Brendan Lane, Charlie Peters,
+sassmann at redhat.com |     Michael Cunningham, Charles Cachera
