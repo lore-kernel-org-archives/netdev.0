@@ -1,10 +1,11 @@
-From: Oleg Nesterov <oleg@redhat.com>
+From: Tejun Heo <tj@kernel.org>
 Subject: Re: [PATCH repost] sched: export sched_set/getaffinity to modules
-Date: Thu, 1 Jul 2010 16:46:24 +0200
-Message-ID: <20100701144624.GA11171@redhat.com>
-References: <1277983179.1917.10.camel@laptop> <1277984603.1917.15.camel@laptop> <20100701115507.GA31333@redhat.com> <20100701122340.GB31333@redhat.com> <1277987657.1917.32.camel@laptop> <1277988395.1917.47.camel@laptop> <20100701130816.GB32223@redhat.com> <1277991024.1917.108.camel@laptop> <20100701133956.GD32223@redhat.com> <4C2CA5C5.4040402@kernel.org>
+Date: Thu, 01 Jul 2010 16:53:38 +0200
+Message-ID: <4C2CABF2.2020801@kernel.org>
+References: <1277983179.1917.10.camel@laptop> <1277984603.1917.15.camel@laptop> <20100701115507.GA31333@redhat.com> <20100701122340.GB31333@redhat.com> <1277987657.1917.32.camel@laptop> <1277988395.1917.47.camel@laptop> <20100701130816.GB32223@redhat.com> <1277991024.1917.108.camel@laptop> <20100701133956.GD32223@redhat.com> <4C2CA5C5.4040402@kernel.org> <20100701144624.GA11171@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Cc: "Michael S. Tsirkin" <mst@redhat.com>,
 	Peter Zijlstra <peterz@infradead.org>,
 	Ingo Molnar <mingo@elte.hu>,
@@ -17,46 +18,27 @@ Cc: "Michael S. Tsirkin" <mst@redhat.com>,
 	Jiri Kosina <jkosina@suse.cz>,
 	Thomas Gleixner <tglx@linutronix.de>,
 	Andi Kleen <ak@linux.intel.com>
-To: Tejun Heo <tj@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11819 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751246Ab0GAOvW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Jul 2010 10:51:22 -0400
-Content-Disposition: inline
-In-Reply-To: <4C2CA5C5.4040402@kernel.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Oleg Nesterov <oleg@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20100701144624.GA11171@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/01, Tejun Heo wrote:
->
-> All that's necessary is shortcutting indirection through kthreadd.
-> ie. An exported function which looks like the following,
->
->  struct kthread_clone_or_whatever(int (*threadfn).....)
->  {
-> 	struct kthread_create_info create;
-> 	int pid;
->
-> 	INIT create;
->
-> 	pid = kernel_thread(kthread, &create, CLONE_FS...);
-> 	if (pid < 0)
-> 		return ERROR;
-> 	wait_for_completion(&create.done);
->
-> 	if (!IS_ERR(create.result))
-> 		SET NAME;
-> 	return create.result;
->  }
->
-> It might be a good idea to make the function take extra clone flags
-> but anyways once created cloned task can be treated the same way as
-> other kthreads, so nothing else needs to be changed.
+Hello,
 
-This makes kthread_stop() work. Otherwise the new thread is just
-the CLONE_VM child of the caller, and the caller is the user-mode
-task doing ioctl() ?
+On 07/01/2010 04:46 PM, Oleg Nesterov wrote:
+>> It might be a good idea to make the function take extra clone flags
+>> but anyways once created cloned task can be treated the same way as
+>> other kthreads, so nothing else needs to be changed.
+> 
+> This makes kthread_stop() work. Otherwise the new thread is just
+> the CLONE_VM child of the caller, and the caller is the user-mode
+> task doing ioctl() ?
 
-Oleg.
+Hmmm, indeed.  It makes the attribute inheritance work but circumvents
+the whole reason there is kthreadd.
 
+Thanks.
+
+-- 
+tejun
