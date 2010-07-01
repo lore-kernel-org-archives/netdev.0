@@ -1,53 +1,65 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: [PATCH net-next-2.6] ipv4: sysctl to block responding on down interface
-Date: Thu, 1 Jul 2010 13:48:06 +0200
-Message-ID: <OF62725CEB.B49F22DB-ONC1257753.003F7EAD-C1257753.0040D41F@transmode.se>
-References: <OF1D06F11A.44DE8C5A-ONC125773F.00437856-C125773F.004425B9@transmode.se>	<20100611084854.0680c014@nehalam>
-	<OF62B30BCC.F8523B86-ONC1257750.00687496-C1257750.0068AA27@transmode.se> <871vbn1m52.fsf@basil.nowhere.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH repost] sched: export sched_set/getaffinity to modules
+Date: Thu, 1 Jul 2010 14:55:07 +0300
+Message-ID: <20100701115507.GA31333@redhat.com>
+References: <20100528150830.GB21880@redhat.com>
+ <4BFFE742.2060205@kernel.org>
+ <20100530112925.GB27611@redhat.com>
+ <4C02C99D.9070204@kernel.org>
+ <20100624081135.GA937@redhat.com>
+ <1277419551.27868.27.camel@w-sridhar.beaverton.ibm.com>
+ <20100625101022.GA16321@redhat.com>
+ <20100701110708.GA27368@redhat.com>
+ <1277983179.1917.10.camel@laptop>
+ <1277984603.1917.15.camel@laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:40245 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751680Ab0GALvU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Jul 2010 07:51:20 -0400
-In-Reply-To: <871vbn1m52.fsf@basil.nowhere.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ingo Molnar <mingo@elte.hu>, Sridhar Samudrala <sri@us.ibm.com>,
+	Tejun Heo <tj@kernel.org>, Oleg Nesterov <oleg@redhat.com>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Andi Kleen <ak@linux.intel.com>
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1277984603.1917.15.camel@laptop>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Andi Kleen <andi@firstfloor.org> wrote on 2010/07/01 13:23:21:
->
-> Joakim Tjernlund <joakim.tjernlund@transmode.se> writes:
->
-> > Stephen Hemminger <shemminger@vyatta.com> wrote on 2010/06/11 17:48:54:
-> >>
-> >> When Linux is used as a router, it is undesirable for the kernel to process
-> >> incoming packets when the address assigned to the interface is down.
-> >> The initial problem report was for a management application that used ICMP
-> >> to check link availability.
-> >>
-> >> The default is disabled to maintain compatibility with previous behavior.
-> >> This is not recommended for server systems because it makes fail over more
-> >> difficult, and does not account for configurations where multiple interfaces
-> >> have the same IP address.
-> >>
-> >> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> >
-> > Ping David et. all?
-> > I too want this.
->
-> Doesn't arpfilter enable this already? If you set in on the still up
-> interfaces those will not answer to other IP addresses.
->
-> This only works on the ARP level, so it has to wait until the arp
-> cache in the remote host times out.
+On Thu, Jul 01, 2010 at 01:43:23PM +0200, Peter Zijlstra wrote:
+> On Thu, 2010-07-01 at 13:19 +0200, Peter Zijlstra wrote:
+> > On Thu, 2010-07-01 at 14:07 +0300, Michael S. Tsirkin wrote:
+> > > Author: Sridhar Samudrala <sri@us.ibm.com>
+> > > 
+> > > sched: export sched_set/getaffinity to modules
+> > > 
+> > > vhost-net driver wants to copy the affinity from the
+> > > owner thread to thread it creates. Export
+> > > sched_set/get affinity to modules to make this possible
+> > > when vhost is built as a module.
+> 
+> > Urgh,.. so why again is that a good idea?
+> 
+> In particular:
+>  - who sets the affinity of the task? 
 
-I tried that but it didn't work, but I didn't think of clearing
-the ARP cache.
-Anyhow, such methods seems worse than just doing ifconfig 0.0.0.0
+management tools do this when they start qemu.
 
-  Jocke
+>  - why can't it set the kernel thread's affinity too?
 
+It can. However: the threads are started internally by the driver
+when qemu does an ioctl.  What we want to do is give it a sensible
+default affinity. management tool can later tweak it if it wants to.
+
+>  - what happens if someone changes the tasks' affinity?
+
+We would normally create a cgroup including all internal
+tasks, making it easy to find and change affinity for
+them all if necessary.
+
+> So no, I don't think this is a sensible thing to do at all.
