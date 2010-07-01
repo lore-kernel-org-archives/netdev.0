@@ -1,58 +1,57 @@
-From: Stefan Assmann <sassmann@redhat.com>
-Subject: Re: [PATCH] igbvf: avoid name clash between PF and VF
-Date: Thu, 01 Jul 2010 08:37:01 +0200
-Message-ID: <4C2C378D.4090806@redhat.com>
-References: <4C2B0614.9040004@redhat.com> <201006300959.37145.leedom@chelsio.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: RFC:  Allow 'ip' to run in daemon mode?
+Date: Thu, 1 Jul 2010 16:07:53 +0900
+Message-ID: <20100701070753.GA15216@verge.net.au>
+References: <4C2A1291.7000203@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, e1000-devel@lists.sourceforge.net,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	gregory.v.rose@intel.com, jeffrey.t.kirsher@intel.com,
-	Andy Gospodarek <gospo@redhat.com>
-To: Casey Leedom <leedom@chelsio.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: NetDev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36156 "EHLO mx1.redhat.com"
+Received: from koto.vergenet.net ([210.128.90.7]:42950 "EHLO koto.vergenet.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751383Ab0GAGhf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 1 Jul 2010 02:37:35 -0400
-In-Reply-To: <201006300959.37145.leedom@chelsio.com>
+	id S1754168Ab0GAHHz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Jul 2010 03:07:55 -0400
+Content-Disposition: inline
+In-Reply-To: <4C2A1291.7000203@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 30.06.2010 18:59, Casey Leedom wrote:
-> | From: Stefan Assmann <sassmann@redhat.com>
-> | Date: Wednesday, June 30, 2010 01:53 am
-> | 
-> | This is not a udev bug since udev doesn't create persistent rules for
-> | VFs as their MAC address changes every reboot.
-> | 
-> | To avoid this problem we could change the kernel name for the VFs and
-> | thus avoid confusion between VFs and PFs.
-> | 
-> | I've already discussed this with Alexander Duyck and Greg Rose, so far
-> | they have no objection. However this problem appears for all drivers that
-> | support PFs and VFs and thus the changes should be applied consistently
-> | to all of these drivers.
+On Tue, Jun 29, 2010 at 08:34:41AM -0700, Ben Greear wrote:
+> I'm considering modifying 'ip' to be able to run in daemon
+> mode so that I can do lots of IP commands without having to
+> pay the startup cost of iproute.
 > 
->   I'm not sure that this problem affects "all drivers which support PFs and VFs."  
-> I think that you might mean "all drivers which support PFs and VFs with non-
-> persistent MAC addresses for the VFs."  For instance, the MAC addresses 
-> associated with the new cxgb4vf VFs are persistent so, from what I understand of 
-> the scenario you outlined, I don't think that they would trigger the problem you 
-> describe.  Please correct me if I've missed something.  Thanks.
+> The -batch option almost works, but it's hard to programatically
+> figure out failure codes.
 > 
-> Casey
+> I'm thinking about making these changes:
+> 
+> 1)  Move all of the error printing code into common methods (basically,
+>    wrap printf).  In daemon mode this text can be sent back to the
+>    calling process, and in normal mode, it will be printed to stdout/stderr
+>    as it is currently.
+> 
+> 2)  Remove all or most calls to 'exit' and instead return error codes
+>    to the calling logic.
+> 
+> 3)  Add ability to listen on a unix socket for commands, basically treat
+>    them just like batch commands, one command per packet.
+> 
+> 4)  Return well formatted error code and text response to calling process
+>    over the unix socket, maybe something like:
+> 
+> RV: [errno or equiv, zero for success]\n
+> CMD: [ command string this relates to ]\n
+> [ Optional free form text ]
+> 
+> 
+> Does something like this have any chance of upstream inclusion?
 
-You're correct, the problem shouldn't occur with cxgb4vf and therefore
-this change shouldn't be necessary. However we might consider a
-consistent naming scheme for VFs in all drivers. But I don't have a
-strong opinion about this, either way would be fine by me.
+Hi Ben,
 
-  Stefan
---
-Stefan Assmann         | Red Hat GmbH
-Software Engineer      | Otto-Hahn-Strasse 20, 85609 Dornach
-                       | HR: Amtsgericht Muenchen HRB 153243
-                       | GF: Brendan Lane, Charlie Peters,
-sassmann at redhat.com |     Michael Cunningham, Charles Cachera
+can't you achieve as much by omitting 3) and using stdio (cleanly)?
+Or in other words, fix batch mode rather than adding another mode.
+Or are you worried about backwards-compatibility?
+
