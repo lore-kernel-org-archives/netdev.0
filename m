@@ -1,49 +1,47 @@
 From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH net-next-2.6] ipv4: sysctl to block responding on down interface
-Date: Thu, 01 Jul 2010 13:23:21 +0200
-Message-ID: <871vbn1m52.fsf@basil.nowhere.org>
-References: <OF1D06F11A.44DE8C5A-ONC125773F.00437856-C125773F.004425B9@transmode.se>
-	<20100611084854.0680c014@nehalam>
-	<OF62B30BCC.F8523B86-ONC1257750.00687496-C1257750.0068AA27@transmode.se>
+Subject: Re: [net-next-2.6 PATCH v2] x86: Align skb w/ start of cacheline on newer core 2/Xeon Arch
+Date: Thu, 01 Jul 2010 13:28:13 +0200
+Message-ID: <87tyojzbjm.fsf@basil.nowhere.org>
+References: <20100630043728.9224.64191.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
+	bphilips@novell.com, Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:35170 "EHLO
+Received: from one.firstfloor.org ([213.235.205.2]:41279 "EHLO
 	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755295Ab0GALX1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jul 2010 07:23:27 -0400
-In-Reply-To: <OF62B30BCC.F8523B86-ONC1257750.00687496-C1257750.0068AA27@transmode.se>
-	(Joakim Tjernlund's message of "Mon, 28 Jun 2010 21:03:13 +0200")
+	with ESMTP id S1753330Ab0GAL2Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jul 2010 07:28:16 -0400
+In-Reply-To: <20100630043728.9224.64191.stgit@localhost.localdomain> (Jeff
+	Kirsher's message of "Tue, 29 Jun 2010 21:38:00 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joakim Tjernlund <joakim.tjernlund@transmode.se> writes:
+Jeff Kirsher <jeffrey.t.kirsher@intel.com> writes:
 
-> Stephen Hemminger <shemminger@vyatta.com> wrote on 2010/06/11 17:48:54:
->>
->> When Linux is used as a router, it is undesirable for the kernel to process
->> incoming packets when the address assigned to the interface is down.
->> The initial problem report was for a management application that used ICMP
->> to check link availability.
->>
->> The default is disabled to maintain compatibility with previous behavior.
->> This is not recommended for server systems because it makes fail over more
->> difficult, and does not account for configurations where multiple interfaces
->> have the same IP address.
->>
->> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->
-> Ping David et. all?
-> I too want this.
 
-Doesn't arpfilter enable this already? If you set in on the still up
-interfaces those will not answer to other IP addresses.
+Sorry for the late comment.
 
-This only works on the ARP level, so it has to wait until the arp
-cache in the remote host times out.
+>  
+> +#ifdef CONFIG_MCORE2
+> +/*
+> + * We handle most unaligned accesses in hardware.  On the other hand
+> + * unaligned DMA can be quite expensive on some Nehalem processors.
+> + *
+> + * Based on this we disable the IP header alignment in network drivers.
+> + */
+> +#define NET_IP_ALIGN	0
+> +#endif
+>  #endif /* _ASM_X86_SYSTEM_H */
+
+The ifdef should be imho dropped and the option be made unconditional
+for all x86. I am not aware of any x86 core where unalignment is really
+slow. This would increase the chance of it actually working on many
+configurations which do not necessarily optimize for Core2.
 
 -Andi
 -- 
