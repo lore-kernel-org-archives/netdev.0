@@ -1,9 +1,8 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [PATCH repost] sched: export sched_set/getaffinity to modules
-Date: Thu, 1 Jul 2010 14:55:07 +0300
-Message-ID: <20100701115507.GA31333@redhat.com>
-References: <20100528150830.GB21880@redhat.com>
- <4BFFE742.2060205@kernel.org>
+Date: Thu, 1 Jul 2010 15:23:40 +0300
+Message-ID: <20100701122340.GB31333@redhat.com>
+References: <4BFFE742.2060205@kernel.org>
  <20100530112925.GB27611@redhat.com>
  <4C02C99D.9070204@kernel.org>
  <20100624081135.GA937@redhat.com>
@@ -12,6 +11,7 @@ References: <20100528150830.GB21880@redhat.com>
  <20100701110708.GA27368@redhat.com>
  <1277983179.1917.10.camel@laptop>
  <1277984603.1917.15.camel@laptop>
+ <20100701115507.GA31333@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Ingo Molnar <mingo@elte.hu>, Sridhar Samudrala <sri@us.ibm.com>,
@@ -27,39 +27,48 @@ Cc: Ingo Molnar <mingo@elte.hu>, Sridhar Samudrala <sri@us.ibm.com>,
 To: Peter Zijlstra <peterz@infradead.org>
 Return-path: <kvm-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1277984603.1917.15.camel@laptop>
+In-Reply-To: <20100701115507.GA31333@redhat.com>
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 01, 2010 at 01:43:23PM +0200, Peter Zijlstra wrote:
-> On Thu, 2010-07-01 at 13:19 +0200, Peter Zijlstra wrote:
-> > On Thu, 2010-07-01 at 14:07 +0300, Michael S. Tsirkin wrote:
-> > > Author: Sridhar Samudrala <sri@us.ibm.com>
-> > > 
-> > > sched: export sched_set/getaffinity to modules
-> > > 
-> > > vhost-net driver wants to copy the affinity from the
-> > > owner thread to thread it creates. Export
-> > > sched_set/get affinity to modules to make this possible
-> > > when vhost is built as a module.
+On Thu, Jul 01, 2010 at 02:55:07PM +0300, Michael S. Tsirkin wrote:
+> On Thu, Jul 01, 2010 at 01:43:23PM +0200, Peter Zijlstra wrote:
+> > On Thu, 2010-07-01 at 13:19 +0200, Peter Zijlstra wrote:
+> > > On Thu, 2010-07-01 at 14:07 +0300, Michael S. Tsirkin wrote:
+> > > > Author: Sridhar Samudrala <sri@us.ibm.com>
+> > > > 
+> > > > sched: export sched_set/getaffinity to modules
+> > > > 
+> > > > vhost-net driver wants to copy the affinity from the
+> > > > owner thread to thread it creates. Export
+> > > > sched_set/get affinity to modules to make this possible
+> > > > when vhost is built as a module.
+> > 
+> > > Urgh,.. so why again is that a good idea?
+> > 
+> > In particular:
+> >  - who sets the affinity of the task? 
 > 
-> > Urgh,.. so why again is that a good idea?
+> management tools do this when they start qemu.
 > 
-> In particular:
->  - who sets the affinity of the task? 
+> >  - why can't it set the kernel thread's affinity too?
+> 
+> It can. However: the threads are started internally by the driver
+> when qemu does an ioctl.  What we want to do is give it a sensible
+> default affinity. management tool can later tweak it if it wants to.
+> 
+> >  - what happens if someone changes the tasks' affinity?
+> 
+> We would normally create a cgroup including all internal
+> tasks, making it easy to find and change affinity for
+> them all if necessary.
+> 
+> > So no, I don't think this is a sensible thing to do at all.
 
-management tools do this when they start qemu.
+The patch using this is here:
+http://www.mail-archive.com/kvm@vger.kernel.org/msg35411.html
 
->  - why can't it set the kernel thread's affinity too?
+It simply copies the affinity from the parent when thread is created.
 
-It can. However: the threads are started internally by the driver
-when qemu does an ioctl.  What we want to do is give it a sensible
-default affinity. management tool can later tweak it if it wants to.
-
->  - what happens if someone changes the tasks' affinity?
-
-We would normally create a cgroup including all internal
-tasks, making it easy to find and change affinity for
-them all if necessary.
-
-> So no, I don't think this is a sensible thing to do at all.
+-- 
+MST
