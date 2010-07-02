@@ -1,79 +1,61 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH net-2.6 1/2] Revert "rndis_host: Poll status channel before
- control channel"
-Date: Fri, 02 Jul 2010 23:39:21 +0100
-Message-ID: <1278110361.4878.73.camel@localhost>
+Subject: [PATCH net-2.6 2/2] usbnet: Set parent device early for
+ netdev_printk()
+Date: Fri, 02 Jul 2010 23:40:50 +0100
+Message-ID: <1278110450.4878.75.camel@localhost>
+References: <1278110361.4878.73.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev <netdev@vger.kernel.org>,
-	=?ISO-8859-1?Q?Lu=EDs?= Picciochi Oliveira <pitxyoki@gmail.com>
+	=?ISO-8859-1?Q?Lu=EDs?= Picciochi Oliveira <pitxyoki@gmail.com>,
+	Joe Perches <joe@perches.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:58229 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:58236 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752807Ab0GBWj1 convert rfc822-to-8bit
+	by vger.kernel.org with ESMTP id S1753241Ab0GBWky convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Jul 2010 18:39:27 -0400
+	Fri, 2 Jul 2010 18:40:54 -0400
+In-Reply-To: <1278110361.4878.73.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit c17b274dc2aa538b68c1f02b01a3c4e124b435ba.
-
-That change was reported to break rndis_wlan support for the WUSB54GS.
+netdev_printk() follows the net_device's parent device pointer, so
+we must set that earlier than we previously did.
 
 Reported-by: Lu=C3=ADs Picciochi Oliveira <pitxyoki@gmail.com>
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
- drivers/net/usb/rndis_host.c |   18 ++++++------------
- 1 files changed, 6 insertions(+), 12 deletions(-)
+ drivers/net/usb/usbnet.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.=
-c
-index 28d3ee1..dd8a4ad 100644
---- a/drivers/net/usb/rndis_host.c
-+++ b/drivers/net/usb/rndis_host.c
-@@ -104,10 +104,8 @@ static void rndis_msg_indicate(struct usbnet *dev,=
- struct rndis_indicate *msg,
- int rndis_command(struct usbnet *dev, struct rndis_msg_hdr *buf, int b=
-uflen)
- {
- 	struct cdc_state	*info =3D (void *) &dev->data;
--	struct usb_cdc_notification notification;
- 	int			master_ifnum;
- 	int			retval;
--	int			partial;
- 	unsigned		count;
- 	__le32			rsp;
- 	u32			xid =3D 0, msg_len, request_id;
-@@ -135,17 +133,13 @@ int rndis_command(struct usbnet *dev, struct rndi=
-s_msg_hdr *buf, int buflen)
- 	if (unlikely(retval < 0 || xid =3D=3D 0))
- 		return retval;
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index a95c73d..81c76ad 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1293,6 +1293,9 @@ usbnet_probe (struct usb_interface *udev, const s=
+truct usb_device_id *prod)
+ 		goto out;
+ 	}
 =20
--	/* Some devices don't respond on the control channel until
--	 * polled on the status channel, so do that first. */
--	retval =3D usb_interrupt_msg(
--		dev->udev,
--		usb_rcvintpipe(dev->udev, dev->status->desc.bEndpointAddress),
--		&notification, sizeof(notification), &partial,
--		RNDIS_CONTROL_TIMEOUT_MS);
--	if (unlikely(retval < 0))
--		return retval;
-+	// FIXME Seems like some devices discard responses when
-+	// we time out and cancel our "get response" requests...
-+	// so, this is fragile.  Probably need to poll for status.
++	/* netdev_printk() needs this so do it as early as possible */
++	SET_NETDEV_DEV(net, &udev->dev);
++
+ 	dev =3D netdev_priv(net);
+ 	dev->udev =3D xdev;
+ 	dev->intf =3D udev;
+@@ -1377,8 +1380,6 @@ usbnet_probe (struct usb_interface *udev, const s=
+truct usb_device_id *prod)
+ 		dev->rx_urb_size =3D dev->hard_mtu;
+ 	dev->maxpacket =3D usb_maxpacket (dev->udev, dev->out, 1);
 =20
--	/* Poll the control channel; the request probably completed immediate=
-ly */
-+	/* ignore status endpoint, just poll the control channel;
-+	 * the request probably completed immediately
-+	 */
- 	rsp =3D buf->msg_type | RNDIS_MSG_COMPLETION;
- 	for (count =3D 0; count < 10; count++) {
- 		memset(buf, 0, CONTROL_BUFFER_SIZE);
+-	SET_NETDEV_DEV(net, &udev->dev);
+-
+ 	if ((dev->driver_info->flags & FLAG_WLAN) !=3D 0)
+ 		SET_NETDEV_DEVTYPE(net, &wlan_type);
+ 	if ((dev->driver_info->flags & FLAG_WWAN) !=3D 0)
 --=20
 1.7.1
-
 
 
