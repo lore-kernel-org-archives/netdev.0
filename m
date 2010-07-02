@@ -1,62 +1,55 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-2.6] net: Fix definition of netif_vdbg() when
- VERBOSE_DEBUG is defined
-Date: Fri, 02 Jul 2010 18:08:44 +0100
-Message-ID: <1278090524.2095.41.camel@achroite.uk.solarflarecom.com>
+From: Peter Kosyh <p.kosyh@gmail.com>
+Subject: [PATCHv2] xfrm: fix xfrm by MARK logic
+Date: Fri, 2 Jul 2010 21:47:55 +0400
+Message-ID: <20100702174755.GA12509@myhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	Joe Perches <joe@perches.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=koi8-r
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:41609 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751025Ab0GBRIs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jul 2010 13:08:48 -0400
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:53970 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757448Ab0GBRsF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jul 2010 13:48:05 -0400
+Received: by bwz1 with SMTP id 1so1728637bwz.19
+        for <netdev@vger.kernel.org>; Fri, 02 Jul 2010 10:48:02 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netif_vdbg() was originally defined as entirely equivalent to
-netdev_vdbg(), but I assume that it was intended to take the same
-parameters as netif_dbg() etc.  (Currently it is only used by the
-sfc driver, in which I worked on that assumption.)
+From: Peter Kosyh <p.kosyh@gmail.com>
 
-In commit a4ed89c I changed the definition used when VERBOSE_DEBUG is
-not defined, but I failed to notice that the definition used when
-VERBOSE_DEBUG is defined was also not as I expected.  Change that to
-match netif_dbg() as well.
+While using xfrm by MARK feature in
+2.6.34 - 2.6.35 kernels, the mark 
+is always cleared in flowi structure via memset in 
+_decode_session4 (net/ipv4/xfrm4_policy.c), so
+the policy lookup fails.
+IPv6 code is affected by this bug too.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+Signed-off-by: Peter Kosyh <p.kosyh@gmail.com>
 ---
-Since there are no users of this macro in net-2.6, this should be safe
-to change.  If you don't want to make this change in net-2.6 then please
-revert a4ed89c in net-2.6 and apply this in net-next-2.6 so that the two
-alternate definitions are consistent in each tree.
 
-Ben.
-
- include/linux/netdevice.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 8fa5e5a..f823fd8 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2352,7 +2352,7 @@ do {								\
- #endif
+diff -uprN linux-2.6.35-rc3.orig/net/ipv4/xfrm4_policy.c linux-2.6.35-rc3/net/ipv4/xfrm4_policy.c
+--- linux-2.6.35-rc3.orig/net/ipv4/xfrm4_policy.c	2010-06-12 06:14:04.000000000 +0400
++++ linux-2.6.35-rc3/net/ipv4/xfrm4_policy.c	2010-07-02 20:20:49.000000000 +0400
+@@ -108,6 +108,8 @@ _decode_session4(struct sk_buff *skb, st
+ 	u8 *xprth = skb_network_header(skb) + iph->ihl * 4;
  
- #if defined(VERBOSE_DEBUG)
--#define netif_vdbg	netdev_dbg
-+#define netif_vdbg	netif_dbg
- #else
- #define netif_vdbg(priv, type, dev, format, args...)		\
- ({								\
--- 
-1.6.2.5
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+ 	memset(fl, 0, sizeof(struct flowi));
++	fl->mark = skb->mark;
++
+ 	if (!(iph->frag_off & htons(IP_MF | IP_OFFSET))) {
+ 		switch (iph->protocol) {
+ 		case IPPROTO_UDP:
+diff -uprN linux-2.6.35-rc3.orig/net/ipv6/xfrm6_policy.c linux-2.6.35-rc3/net/ipv6/xfrm6_policy.c
+--- linux-2.6.35-rc3.orig/net/ipv6/xfrm6_policy.c	2010-06-12 06:14:04.000000000 +0400
++++ linux-2.6.35-rc3/net/ipv6/xfrm6_policy.c	2010-07-02 20:20:22.000000000 +0400
+@@ -124,6 +124,8 @@ _decode_session6(struct sk_buff *skb, st
+ 	u8 nexthdr = nh[IP6CB(skb)->nhoff];
+ 
+ 	memset(fl, 0, sizeof(struct flowi));
++	fl->mark = skb->mark;
++
+ 	ipv6_addr_copy(&fl->fl6_dst, reverse ? &hdr->saddr : &hdr->daddr);
+ 	ipv6_addr_copy(&fl->fl6_src, reverse ? &hdr->daddr : &hdr->saddr);
+ 
