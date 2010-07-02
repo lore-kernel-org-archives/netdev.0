@@ -1,15 +1,15 @@
 From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-Subject: [PATCH 2/8] net/gianfar: use generic recycling infrasstructure
-Date: Fri,  2 Jul 2010 21:20:15 +0200
-Message-ID: <1278098421-21296-3-git-send-email-sebastian@breakpoint.cc>
+Subject: [PATCH 5/8] net/ucc_geth: use generic recycling infrastructure
+Date: Fri,  2 Jul 2010 21:20:18 +0200
+Message-ID: <1278098421-21296-6-git-send-email-sebastian@breakpoint.cc>
 References: <1278098421-21296-1-git-send-email-sebastian@breakpoint.cc>
 Cc: tglx@linutronix.de,
 	Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:41199 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:41205 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756411Ab0GBTUf (ORCPT
+	by vger.kernel.org with ESMTP id S1757401Ab0GBTUf (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jul 2010 15:20:35 -0400
 In-Reply-To: <1278098421-21296-1-git-send-email-sebastian@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
@@ -19,119 +19,106 @@ From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- drivers/net/gianfar.c         |   28 ++++++++--------------------
- drivers/net/gianfar.h         |    2 --
- drivers/net/gianfar_ethtool.c |    1 +
- 3 files changed, 9 insertions(+), 22 deletions(-)
+ drivers/net/ucc_geth.c |   30 ++++++++----------------------
+ drivers/net/ucc_geth.h |    2 --
+ 2 files changed, 8 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
-index fccb7a3..1a1a249 100644
---- a/drivers/net/gianfar.c
-+++ b/drivers/net/gianfar.c
-@@ -1148,6 +1148,9 @@ static int gfar_probe(struct of_device *ofdev,
- 		priv->rx_queue[i]->rxic = DEFAULT_RXIC;
- 	}
- 
-+	net_recycle_init(dev, DEFAULT_RX_RING_SIZE,
-+			priv->rx_buffer_size + RXBUF_ALIGNMENT);
-+
- 	/* enable filer if using multiple RX queues*/
- 	if(priv->num_rx_queues > 1)
- 		priv->rx_filer_enable = 1;
-@@ -1768,7 +1771,7 @@ static void free_skb_resources(struct gfar_private *priv)
- 			sizeof(struct rxbd8) * priv->total_rx_ring_size,
- 			priv->tx_queue[0]->tx_bd_base,
- 			priv->tx_queue[0]->tx_bd_dma_base);
--	skb_queue_purge(&priv->rx_recycle);
-+	net_recycle_cleanup(priv->ndev);
- }
- 
- void gfar_start(struct net_device *dev)
-@@ -1949,8 +1952,6 @@ static int gfar_enet_open(struct net_device *dev)
- 
- 	enable_napi(priv);
- 
--	skb_queue_head_init(&priv->rx_recycle);
--
- 	/* Initialize a bunch of registers */
- 	init_registers(dev);
- 
-@@ -2366,6 +2367,7 @@ static int gfar_change_mtu(struct net_device *dev, int new_mtu)
- 		stop_gfar(dev);
- 
- 	priv->rx_buffer_size = tempsize;
-+	net_recycle_size(dev, tempsize + RXBUF_ALIGNMENT);
- 
- 	dev->mtu = new_mtu;
- 
-@@ -2498,16 +2500,7 @@ static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
- 			bdp = next_txbd(bdp, base, tx_ring_size);
- 		}
- 
--		/*
--		 * If there's room in the queue (limit it to rx_buffer_size)
--		 * we add this skb back into the pool, if it's the right size
--		 */
--		if (skb_queue_len(&priv->rx_recycle) < rx_queue->rx_ring_size &&
--				skb_recycle_check(skb, priv->rx_buffer_size +
--					RXBUF_ALIGNMENT))
--			__skb_queue_head(&priv->rx_recycle, skb);
--		else
--			dev_kfree_skb_any(skb);
-+		net_recycle_add(dev, skb);
- 
- 		tx_queue->tx_skbuff[skb_dirtytx] = NULL;
- 
-@@ -2573,14 +2566,9 @@ static void gfar_new_rxbdp(struct gfar_priv_rx_q *rx_queue, struct rxbd8 *bdp,
- struct sk_buff * gfar_new_skb(struct net_device *dev)
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index dc32a62..9d6097b 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -210,10 +210,7 @@ static struct sk_buff *get_new_skb(struct ucc_geth_private *ugeth,
  {
- 	unsigned int alignamount;
--	struct gfar_private *priv = netdev_priv(dev);
  	struct sk_buff *skb = NULL;
  
--	skb = __skb_dequeue(&priv->rx_recycle);
+-	skb = __skb_dequeue(&ugeth->rx_recycle);
 -	if (!skb)
--		skb = netdev_alloc_skb(dev,
--				priv->rx_buffer_size + RXBUF_ALIGNMENT);
--
-+	skb = net_recycle_get(dev);
- 	if (!skb)
+-		skb = dev_alloc_skb(ugeth->ug_info->uf_info.max_rx_buf_length +
+-				    UCC_GETH_RX_DATA_BUF_ALIGNMENT);
++	skb = net_recycle_get(ugeth->ndev);
+ 	if (skb == NULL)
  		return NULL;
  
-@@ -2753,7 +2741,7 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
- 				 * recycle list.
- 				 */
- 				skb_reserve(skb, -GFAR_CB(skb)->alignamount);
--				__skb_queue_head(&priv->rx_recycle, skb);
-+				net_recycle_add(dev, skb);
- 			}
- 		} else {
- 			/* Increment the number of packets */
-diff --git a/drivers/net/gianfar.h b/drivers/net/gianfar.h
-index 710810e..66f8c04 100644
---- a/drivers/net/gianfar.h
-+++ b/drivers/net/gianfar.h
-@@ -1068,8 +1068,6 @@ struct gfar_private {
+@@ -1992,8 +1989,6 @@ static void ucc_geth_memclean(struct ucc_geth_private *ugeth)
+ 		iounmap(ugeth->ug_regs);
+ 		ugeth->ug_regs = NULL;
+ 	}
+-
+-	skb_queue_purge(&ugeth->rx_recycle);
+ }
  
- 	u32 cur_filer_idx;
+ static void ucc_geth_set_multi(struct net_device *dev)
+@@ -2069,6 +2064,7 @@ static void ucc_geth_stop(struct ucc_geth_private *ugeth)
+ 	ugeth->phydev = NULL;
+ 
+ 	ucc_geth_memclean(ugeth);
++	net_recycle_cleanup(ugeth->ndev);
+ }
+ 
+ static int ucc_struct_init(struct ucc_geth_private *ugeth)
+@@ -2205,9 +2201,6 @@ static int ucc_struct_init(struct ucc_geth_private *ugeth)
+ 			ugeth_err("%s: Failed to ioremap regs.", __func__);
+ 		return -ENOMEM;
+ 	}
+-
+-	skb_queue_head_init(&ugeth->rx_recycle);
+-
+ 	return 0;
+ }
+ 
+@@ -3213,12 +3206,8 @@ static int ucc_geth_rx(struct ucc_geth_private *ugeth, u8 rxQ, int rx_work_limit
+ 			if (netif_msg_rx_err(ugeth))
+ 				ugeth_err("%s, %d: ERROR!!! skb - 0x%08x",
+ 					   __func__, __LINE__, (u32) skb);
+-			if (skb) {
+-				skb->data = skb->head + NET_SKB_PAD;
+-				skb->len = 0;
+-				skb_reset_tail_pointer(skb);
+-				__skb_queue_head(&ugeth->rx_recycle, skb);
+-			}
++			if (skb)
++				net_recycle_add(dev, skb);
+ 
+ 			ugeth->rx_skbuff[rxQ][ugeth->skb_currx[rxQ]] = NULL;
+ 			dev->stats.rx_dropped++;
+@@ -3288,13 +3277,7 @@ static int ucc_geth_tx(struct net_device *dev, u8 txQ)
+ 
+ 		dev->stats.tx_packets++;
+ 
+-		if (skb_queue_len(&ugeth->rx_recycle) < RX_BD_RING_LEN &&
+-			     skb_recycle_check(skb,
+-				    ugeth->ug_info->uf_info.max_rx_buf_length +
+-				    UCC_GETH_RX_DATA_BUF_ALIGNMENT))
+-			__skb_queue_head(&ugeth->rx_recycle, skb);
+-		else
+-			dev_kfree_skb(skb);
++		net_recycle_add(dev, skb);
+ 
+ 		ugeth->tx_skbuff[txQ][ugeth->skb_dirtytx[txQ]] = NULL;
+ 		ugeth->skb_dirtytx[txQ] =
+@@ -3929,6 +3912,9 @@ static int ucc_geth_probe(struct of_device* ofdev, const struct of_device_id *ma
+ 	netif_napi_add(dev, &ugeth->napi, ucc_geth_poll, 64);
+ 	dev->mtu = 1500;
+ 
++	net_recycle_init(dev, RX_BD_RING_LEN, ug_info->uf_info.max_rx_buf_length
++			+ UCC_GETH_RX_DATA_BUF_ALIGNMENT);
++
+ 	ugeth->msg_enable = netif_msg_init(debug.msg_enable, UGETH_MSG_DEFAULT);
+ 	ugeth->phy_interface = phy_interface;
+ 	ugeth->max_speed = max_speed;
+diff --git a/drivers/net/ucc_geth.h b/drivers/net/ucc_geth.h
+index 05a9558..07c0816 100644
+--- a/drivers/net/ucc_geth.h
++++ b/drivers/net/ucc_geth.h
+@@ -1213,8 +1213,6 @@ struct ucc_geth_private {
+ 	/* index of the first skb which hasn't been transmitted yet. */
+ 	u16 skb_dirtytx[NUM_TX_QUEUES];
  
 -	struct sk_buff_head rx_recycle;
 -
- 	struct vlan_group *vlgrp;
- 
- 
-diff --git a/drivers/net/gianfar_ethtool.c b/drivers/net/gianfar_ethtool.c
-index 9bda023..8a6d567 100644
---- a/drivers/net/gianfar_ethtool.c
-+++ b/drivers/net/gianfar_ethtool.c
-@@ -508,6 +508,7 @@ static int gfar_sringparam(struct net_device *dev, struct ethtool_ringparam *rva
- 		priv->tx_queue[i]->tx_ring_size = rvals->tx_pending;
- 		priv->tx_queue[i]->num_txbdfree = priv->tx_queue[i]->tx_ring_size;
- 	}
-+	net_recycle_qlen(dev, rvals->rx_pending);
- 
- 	/* Rebuild the rings with the new size */
- 	if (dev->flags & IFF_UP) {
+ 	struct ugeth_mii_info *mii_info;
+ 	struct phy_device *phydev;
+ 	phy_interface_t phy_interface;
 -- 
 1.6.6.1
 
