@@ -1,15 +1,15 @@
 From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-Subject: [PATCH 1/8] net: implement generic rx recycling
-Date: Fri,  2 Jul 2010 21:20:14 +0200
-Message-ID: <1278098421-21296-2-git-send-email-sebastian@breakpoint.cc>
+Subject: [PATCH 3/8] net/mv643xx: use generic recycling infrastructure
+Date: Fri,  2 Jul 2010 21:20:16 +0200
+Message-ID: <1278098421-21296-4-git-send-email-sebastian@breakpoint.cc>
 References: <1278098421-21296-1-git-send-email-sebastian@breakpoint.cc>
 Cc: tglx@linutronix.de,
 	Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:41197 "EHLO
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:41201 "EHLO
 	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751220Ab0GBTUf (ORCPT
+	by vger.kernel.org with ESMTP id S1756526Ab0GBTUf (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jul 2010 15:20:35 -0400
 In-Reply-To: <1278098421-21296-1-git-send-email-sebastian@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
@@ -17,122 +17,99 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-the code is basically what other drivers like gianfar are using right
-now.
-
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- include/linux/netdevice.h |   67 +++++++++++++++++++++++++++++++++++++--------
- net/core/dev.c            |    1 +
- 2 files changed, 56 insertions(+), 12 deletions(-)
+ drivers/net/mv643xx_eth.c |   27 +++++++++------------------
+ 1 files changed, 9 insertions(+), 18 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 8fa5e5a..4fa400b 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -595,6 +595,18 @@ struct netdev_rx_queue {
- } ____cacheline_aligned_in_smp;
- #endif /* CONFIG_RPS */
+diff --git a/drivers/net/mv643xx_eth.c b/drivers/net/mv643xx_eth.c
+index 82b720f..a58ba48 100644
+--- a/drivers/net/mv643xx_eth.c
++++ b/drivers/net/mv643xx_eth.c
+@@ -404,8 +404,6 @@ struct mv643xx_eth_private {
+ 	u8 work_rx_refill;
  
-+/* Use this variant when it is known for sure that it
-+ * is executing from hardware interrupt context or with hardware interrupts
-+ * disabled.
-+ */
-+extern void dev_kfree_skb_irq(struct sk_buff *skb);
-+
-+/* Use this variant in places where it could be invoked
-+ * from either hardware interrupt or other context, with hardware interrupts
-+ * either disabled or enabled.
-+ */
-+extern void dev_kfree_skb_any(struct sk_buff *skb);
-+
- /*
-  * This structure defines the management hooks for network devices.
-  * The following hooks can be defined; unless noted otherwise, they are
-@@ -1077,9 +1089,52 @@ struct net_device {
- #endif
- 	/* n-tuple filter list attached to this device */
- 	struct ethtool_rx_ntuple_list ethtool_ntuple_list;
-+	struct sk_buff_head rx_recycle;
-+	u32 rx_rec_skbs_max;
-+	u32 rx_rec_skb_size;
- };
- #define to_net_dev(d) container_of(d, struct net_device, dev)
- 
-+static inline void net_recycle_init(struct net_device *dev, u32 qlen, u32 size)
-+{
-+	dev->rx_rec_skbs_max = qlen;
-+	dev->rx_rec_skb_size = size;
-+}
-+
-+static inline void net_recycle_size(struct net_device *dev, u32 size)
-+{
-+	dev->rx_rec_skb_size = size;
-+}
-+
-+static inline void net_recycle_qlen(struct net_device *dev, u32 qlen)
-+{
-+	dev->rx_rec_skbs_max = qlen;
-+}
-+
-+static inline void net_recycle_cleanup(struct net_device *dev)
-+{
-+	skb_queue_purge(&dev->rx_recycle);
-+}
-+
-+static inline void net_recycle_add(struct net_device *dev, struct sk_buff *skb)
-+{
-+	if (skb_queue_len(&dev->rx_recycle) < dev->rx_rec_skbs_max &&
-+			skb_recycle_check(skb, dev->rx_rec_skb_size))
-+		__skb_queue_head(&dev->rx_recycle, skb);
-+	else
-+		dev_kfree_skb_any(skb);
-+}
-+
-+static inline struct sk_buff *net_recycle_get(struct net_device *dev)
-+{
-+	struct sk_buff *skb;
-+
-+	skb = __skb_dequeue(&dev->rx_recycle);
-+	if (skb)
-+		return skb;
-+	return netdev_alloc_skb(dev, dev->rx_rec_skb_size);
-+}
-+
- #define	NETDEV_ALIGN		32
- 
- static inline
-@@ -1672,18 +1727,6 @@ static inline int netif_is_multiqueue(const struct net_device *dev)
- 	return (dev->num_tx_queues > 1);
- }
- 
--/* Use this variant when it is known for sure that it
-- * is executing from hardware interrupt context or with hardware interrupts
-- * disabled.
-- */
--extern void dev_kfree_skb_irq(struct sk_buff *skb);
+ 	int skb_size;
+-	struct sk_buff_head rx_recycle;
 -
--/* Use this variant in places where it could be invoked
-- * from either hardware interrupt or other context, with hardware interrupts
-- * either disabled or enabled.
-- */
--extern void dev_kfree_skb_any(struct sk_buff *skb);
+ 	/*
+ 	 * RX state.
+ 	 */
+@@ -649,6 +647,7 @@ err:
+ static int rxq_refill(struct rx_queue *rxq, int budget)
+ {
+ 	struct mv643xx_eth_private *mp = rxq_to_mp(rxq);
++	struct net_device *dev = mp->dev;
+ 	int refilled;
+ 
+ 	refilled = 0;
+@@ -658,10 +657,7 @@ static int rxq_refill(struct rx_queue *rxq, int budget)
+ 		struct rx_desc *rx_desc;
+ 		int size;
+ 
+-		skb = __skb_dequeue(&mp->rx_recycle);
+-		if (skb == NULL)
+-			skb = dev_alloc_skb(mp->skb_size);
 -
- #define HAVE_NETIF_RX 1
- extern int		netif_rx(struct sk_buff *skb);
- extern int		netif_rx_ni(struct sk_buff *skb);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index e85cc5f..db9acd5 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5404,6 +5404,7 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
++		skb = net_recycle_get(dev);
+ 		if (skb == NULL) {
+ 			mp->oom = 1;
+ 			goto oom;
+@@ -921,6 +917,7 @@ out:
+ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
+ {
+ 	struct mv643xx_eth_private *mp = txq_to_mp(txq);
++	struct net_device *dev = mp->dev;
+ 	struct netdev_queue *nq = netdev_get_tx_queue(mp->dev, txq->index);
+ 	int reclaimed;
  
- 	netdev_init_queues(dev);
+@@ -967,14 +964,8 @@ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
+ 				       desc->byte_cnt, DMA_TO_DEVICE);
+ 		}
  
-+	skb_queue_head_init(&dev->rx_recycle);
- 	INIT_LIST_HEAD(&dev->ethtool_ntuple_list.list);
- 	dev->ethtool_ntuple_list.count = 0;
- 	INIT_LIST_HEAD(&dev->napi_list);
+-		if (skb != NULL) {
+-			if (skb_queue_len(&mp->rx_recycle) <
+-					mp->rx_ring_size &&
+-			    skb_recycle_check(skb, mp->skb_size))
+-				__skb_queue_head(&mp->rx_recycle, skb);
+-			else
+-				dev_kfree_skb(skb);
+-		}
++		if (skb)
++			net_recycle_add(dev, skb);
+ 	}
+ 
+ 	__netif_tx_unlock(nq);
+@@ -1563,7 +1554,7 @@ mv643xx_eth_set_ringparam(struct net_device *dev, struct ethtool_ringparam *er)
+ 
+ 	mp->rx_ring_size = er->rx_pending < 4096 ? er->rx_pending : 4096;
+ 	mp->tx_ring_size = er->tx_pending < 4096 ? er->tx_pending : 4096;
+-
++	net_recycle_qlen(dev, mp->rx_ring_size);
+ 	if (netif_running(dev)) {
+ 		mv643xx_eth_stop(dev);
+ 		if (mv643xx_eth_open(dev)) {
+@@ -2344,9 +2335,9 @@ static int mv643xx_eth_open(struct net_device *dev)
+ 
+ 	mv643xx_eth_recalc_skb_size(mp);
+ 
+-	napi_enable(&mp->napi);
++	net_recycle_init(mp->dev, mp->rx_ring_size, mp->skb_size);
+ 
+-	skb_queue_head_init(&mp->rx_recycle);
++	napi_enable(&mp->napi);
+ 
+ 	mp->int_mask = INT_EXT;
+ 
+@@ -2442,7 +2433,7 @@ static int mv643xx_eth_stop(struct net_device *dev)
+ 	mib_counters_update(mp);
+ 	del_timer_sync(&mp->mib_counters_timer);
+ 
+-	skb_queue_purge(&mp->rx_recycle);
++	net_recycle_cleanup(dev);
+ 
+ 	for (i = 0; i < mp->rxq_count; i++)
+ 		rxq_deinit(mp->rxq + i);
 -- 
 1.6.6.1
 
