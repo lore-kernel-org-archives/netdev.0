@@ -1,55 +1,73 @@
-From: Peter Kosyh <p.kosyh@gmail.com>
-Subject: [PATCHv2] xfrm: fix xfrm by MARK logic
-Date: Fri, 2 Jul 2010 21:47:55 +0400
-Message-ID: <20100702174755.GA12509@myhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Karl Hiramoto <karl@hiramoto.org>
+Subject: [PATCH 3/6] atm/idt77105.c: call atm_dev_signal_change() when signal changes.
+Date: Fri,  2 Jul 2010 19:47:07 +0200
+Message-ID: <1278092830-10473-4-git-send-email-karl@hiramoto.org>
+References: <1278092830-10473-1-git-send-email-karl@hiramoto.org>
+Cc: nathan@traverse.com.au, Karl Hiramoto <karl@hiramoto.org>
+To: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	chas@cmf.nrl.navy.mil
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:53970 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757448Ab0GBRsF (ORCPT
+Received: from hapkido.dreamhost.com ([66.33.216.122]:36887 "EHLO
+	hapkido.dreamhost.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756671Ab0GBRsF (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jul 2010 13:48:05 -0400
-Received: by bwz1 with SMTP id 1so1728637bwz.19
-        for <netdev@vger.kernel.org>; Fri, 02 Jul 2010 10:48:02 -0700 (PDT)
-Content-Disposition: inline
+Received: from homiemail-a32.g.dreamhost.com (caiajhbdcagg.dreamhost.com [208.97.132.66])
+	by hapkido.dreamhost.com (Postfix) with ESMTP id A9CB8179504
+	for <netdev@vger.kernel.org>; Fri,  2 Jul 2010 10:48:05 -0700 (PDT)
+In-Reply-To: <1278092830-10473-1-git-send-email-karl@hiramoto.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Kosyh <p.kosyh@gmail.com>
+Propagate changes to upper atm layer.
 
-While using xfrm by MARK feature in
-2.6.34 - 2.6.35 kernels, the mark 
-is always cleared in flowi structure via memset in 
-_decode_session4 (net/ipv4/xfrm4_policy.c), so
-the policy lookup fails.
-IPv6 code is affected by this bug too.
-
-Signed-off-by: Peter Kosyh <p.kosyh@gmail.com>
+Signed-off-by: Karl Hiramoto <karl@hiramoto.org>
 ---
+ drivers/atm/idt77105.c |   11 ++++++-----
+ 1 files changed, 6 insertions(+), 5 deletions(-)
 
-diff -uprN linux-2.6.35-rc3.orig/net/ipv4/xfrm4_policy.c linux-2.6.35-rc3/net/ipv4/xfrm4_policy.c
---- linux-2.6.35-rc3.orig/net/ipv4/xfrm4_policy.c	2010-06-12 06:14:04.000000000 +0400
-+++ linux-2.6.35-rc3/net/ipv4/xfrm4_policy.c	2010-07-02 20:20:49.000000000 +0400
-@@ -108,6 +108,8 @@ _decode_session4(struct sk_buff *skb, st
- 	u8 *xprth = skb_network_header(skb) + iph->ihl * 4;
- 
- 	memset(fl, 0, sizeof(struct flowi));
-+	fl->mark = skb->mark;
-+
- 	if (!(iph->frag_off & htons(IP_MF | IP_OFFSET))) {
- 		switch (iph->protocol) {
- 		case IPPROTO_UDP:
-diff -uprN linux-2.6.35-rc3.orig/net/ipv6/xfrm6_policy.c linux-2.6.35-rc3/net/ipv6/xfrm6_policy.c
---- linux-2.6.35-rc3.orig/net/ipv6/xfrm6_policy.c	2010-06-12 06:14:04.000000000 +0400
-+++ linux-2.6.35-rc3/net/ipv6/xfrm6_policy.c	2010-07-02 20:20:22.000000000 +0400
-@@ -124,6 +124,8 @@ _decode_session6(struct sk_buff *skb, st
- 	u8 nexthdr = nh[IP6CB(skb)->nhoff];
- 
- 	memset(fl, 0, sizeof(struct flowi));
-+	fl->mark = skb->mark;
-+
- 	ipv6_addr_copy(&fl->fl6_dst, reverse ? &hdr->saddr : &hdr->daddr);
- 	ipv6_addr_copy(&fl->fl6_src, reverse ? &hdr->daddr : &hdr->saddr);
- 
+diff --git a/drivers/atm/idt77105.c b/drivers/atm/idt77105.c
+index dab5cf5..bca9cb8 100644
+--- a/drivers/atm/idt77105.c
++++ b/drivers/atm/idt77105.c
+@@ -126,7 +126,7 @@ static void idt77105_restart_timer_func(unsigned long dummy)
+                 istat = GET(ISTAT); /* side effect: clears all interrupt status bits */
+                 if (istat & IDT77105_ISTAT_GOODSIG) {
+                     /* Found signal again */
+-                    dev->signal = ATM_PHY_SIG_FOUND;
++                    atm_dev_signal_change(dev, ATM_PHY_SIG_FOUND);
+ 	            printk(KERN_NOTICE "%s(itf %d): signal detected again\n",
+                         dev->type,dev->number);
+                     /* flush the receive FIFO */
+@@ -222,7 +222,7 @@ static void idt77105_int(struct atm_dev *dev)
+             /* Rx Signal Condition Change - line went up or down */
+             if (istat & IDT77105_ISTAT_GOODSIG) {   /* signal detected again */
+                 /* This should not happen (restart timer does it) but JIC */
+-                dev->signal = ATM_PHY_SIG_FOUND;
++		atm_dev_signal_change(dev, ATM_PHY_SIG_FOUND);
+             } else {    /* signal lost */
+                 /*
+                  * Disable interrupts and stop all transmission and
+@@ -235,7 +235,7 @@ static void idt77105_int(struct atm_dev *dev)
+                     IDT77105_MCR_DRIC|
+                     IDT77105_MCR_HALTTX
+                     ) & ~IDT77105_MCR_EIP, MCR);
+-                dev->signal = ATM_PHY_SIG_LOST;
++		atm_dev_signal_change(dev, ATM_PHY_SIG_LOST);
+ 	        printk(KERN_NOTICE "%s(itf %d): signal lost\n",
+                     dev->type,dev->number);
+             }
+@@ -272,8 +272,9 @@ static int idt77105_start(struct atm_dev *dev)
+ 	memset(&PRIV(dev)->stats,0,sizeof(struct idt77105_stats));
+         
+         /* initialise dev->signal from Good Signal Bit */
+-        dev->signal = GET(ISTAT) & IDT77105_ISTAT_GOODSIG ? ATM_PHY_SIG_FOUND :
+-	  ATM_PHY_SIG_LOST;
++	atm_dev_signal_change(dev,
++		GET(ISTAT) & IDT77105_ISTAT_GOODSIG ?
++		ATM_PHY_SIG_FOUND : ATM_PHY_SIG_LOST);
+ 	if (dev->signal == ATM_PHY_SIG_LOST)
+ 		printk(KERN_WARNING "%s(itf %d): no signal\n",dev->type,
+ 		    dev->number);
+-- 
+1.7.1
+
