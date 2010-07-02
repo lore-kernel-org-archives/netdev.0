@@ -1,39 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next-2.6 2010-07-01
-Date: Thu, 01 Jul 2010 17:35:50 -0700 (PDT)
-Message-ID: <20100701.173550.172604489.davem@davemloft.net>
-References: <20100701181526.GA2356@tuxdriver.com>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: [net-next-2.6 PATCH] x86: Drop CONFIG_MCORE2 check around setting
+ of	NET_IP_ALIGN
+Date: Thu, 01 Jul 2010 18:15:13 -0700
+Message-ID: <4C2D3DA1.8040303@zytor.com>
+References: <20100701232742.15934.49030.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: davem@davemloft.net, netdev@vger.kernel.org, gospo@redhat.com,
+	bphilips@novell.com, Andi Kleen <ak@linux.intel.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>, x86@kernel.org,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34915
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750965Ab0GBAfi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 1 Jul 2010 20:35:38 -0400
-In-Reply-To: <20100701181526.GA2356@tuxdriver.com>
+Received: from terminus.zytor.com ([198.137.202.10]:57086 "EHLO mail.zytor.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752570Ab0GBBPk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 1 Jul 2010 21:15:40 -0400
+In-Reply-To: <20100701232742.15934.49030.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Thu, 1 Jul 2010 14:15:27 -0400
-
-> Two weeks since the last request, plenty of new stuff intended for
-> 2.6.36...
+On 07/01/2010 04:28 PM, Jeff Kirsher wrote:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
 > 
-> Included are the usual bunch of driver updates, including a big
-> dump from the rt2x00 team.  This also includes cfg80211 support
-> for libertas, a flurry of (mostly trivial) stuff from me, and a
-> wireless-2.6 pull to resolve some patch dependencies.
+> This patch removes the CONFIG_MCORE2 check from around NET_IP_ALIGN.  It is
+> based on a suggestion from Andi Kleen.  The assumption is that there are
+> not any x86 cores where unaligned access is really slow, and this change
+> would allow for a performance improvement to still exist on configurations
+> that are not necessarily optimized for Core 2.
 > 
-> Please let me know if there are problems!
+> Cc: Andi Kleen <ak@linux.intel.com>
+> Cc: Thomas Gleixner <tglx@linutronix.de>
+> Cc: Ingo Molnar <mingo@redhat.com>
+> Cc: "H. Peter Anvin" <hpa@zytor.com>
+> Cc: x86@kernel.org
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-This failed to pull cleanly, I got a conflict in
-drivers/net/wireless/libertas/host.h  It was the
-usual "__packed" vs. "__attribute__((packed))" thing.
+Acked-by: H. Peter Anvin <hpa@zytor.com>
 
-I resolved it but I wonder if this happened because you
-did the wireless-2.6 --> wireless-next-2.6 merge here.
+	-hpa
