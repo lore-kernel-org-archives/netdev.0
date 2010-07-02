@@ -1,49 +1,49 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: bnx2/5709: Strange interrupts spread
-Date: Fri, 2 Jul 2010 13:58:31 -0700
-Message-ID: <1278104311.11828.12.camel@HP1>
-References: <AANLkTiniNNPV9ztxXHtX4np7PIZabkm0I4v5O29chf8i@mail.gmail.com>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH repost] sched: export sched_set/getaffinity to modules
+Date: Fri, 2 Jul 2010 23:06:37 +0200
+Message-ID: <20100702210637.GA12433@redhat.com>
+References: <1277988395.1917.47.camel@laptop> <20100701130816.GB32223@redhat.com> <1277991024.1917.108.camel@laptop> <20100701133956.GD32223@redhat.com> <4C2CA5C5.4040402@kernel.org> <20100701144624.GA11171@redhat.com> <4C2CABF2.2020801@kernel.org> <1277996135.1917.198.camel@laptop> <4C2E2987.9040702@us.ibm.com> <1278094270.1917.288.camel@laptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Christophe Ngo Van Duc" <cngovanduc@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4942 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754533Ab0GBU7Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 2 Jul 2010 16:59:16 -0400
-In-Reply-To: <AANLkTiniNNPV9ztxXHtX4np7PIZabkm0I4v5O29chf8i@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sridhar Samudrala <sri@us.ibm.com>, Tejun Heo <tj@kernel.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>, Ingo Molnar <mingo@elte.hu>,
+	netdev <netdev@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>,
+	"kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Dmitri Vorobiev <dmitri.vorobiev@movial.com>,
+	Jiri Kosina <jkosina@suse.cz>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Andi Kleen <ak@linux.intel.com>
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1278094270.1917.288.camel@laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-On Fri, 2010-07-02 at 13:33 -0700, Christophe Ngo Van Duc wrote:
-> On eth2 (external card) all interrupts goes to CPU0
+On 07/02, Peter Zijlstra wrote:
 >
+> On Fri, 2010-07-02 at 11:01 -0700, Sridhar Samudrala wrote:
+> >
+> >  Does  it (Tejun's kthread_clone() patch) also  inherit the
+> > cgroup of the caller?
 >
->            CPU0       CPU1       CPU2       CPU3       CPU4       CPU5       CPU6       CPU7
->   80:   46973077          0          0          0          0          0          0          0   PCI-MSI-edge      eth2-0
->   81:          0          0          0          0          0          0          0          0   PCI-MSI-edge      eth2-1
->   82:          0          0          0          0          0          0          0          0   PCI-MSI-edge      eth2-2
->   83:          0          0          0          0          0          0          0          0   PCI-MSI-edge      eth2-3
->   84:          0          0          0          0          0          0          0          0   PCI-MSI-edge      eth2-4
->   85:          0          0          0          0          0          0          0          0   PCI-MSI-edge      eth2-5
->   86:          0          0       2445          0         37          0       8463         13   PCI-MSI-edge      eth2-6
->   87:          0          0          0          0          0          0          0          0   PCI-MSI-edge      eth2-7
+> Of course, its a simple do_fork() which inherits everything just as you
+> would expect from a similar sys_clone()/sys_fork() call.
 
-Reformatted your output
+Yes. And I'm afraid it can inherit more than we want. IIUC, this is called
+from ioctl(), right?
 
-> If I understand correctly the RSS hash is used to dispatch the packets
-> into the different queues running on the different CPU.
+Then the new thread becomes the natural child of the caller, and it shares
+->mm with the parent. And files, dup_fd() without CLONE_FS.
 
-It looks like most interrupts go to eth2-0, a few go to eth2-6.  The rx
-ring for eth2-0 is for non-IP packets.  The RSS hash will hash IP
-packets and place them on eth2-1 to eth2-7.  eth2-0 also handles tx
-interrupts for TX ring 0.  TX traffic is hashed by the stack.
+Signals. Say, if you send SIGKILL to this new thread, it can't sleep in
+TASK_INTERRUPTIBLE or KILLABLE after that. And this SIGKILL can be sent
+just because the parent gets SIGQUIT or abother coredumpable signal.
+Or the new thread can recieve SIGSTOP via ^Z.
 
-What kind of traffic is passing through eth2?
+Perhaps this is OK, I do not know. Just to remind that kernel_thread()
+is merely clone(CLONE_VM).
 
-Thanks.
-
-
+Oleg.
