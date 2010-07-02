@@ -1,73 +1,79 @@
-From: Christophe Ngo Van Duc <cngovanduc@gmail.com>
-Subject: Re: bnx2/5709: Strange interrupts spread
-Date: Fri, 2 Jul 2010 19:12:29 -0300
-Message-ID: <AANLkTimTcqANb3HQuC1W6VHWTh0ixO1lXAmVrmP6OZy2@mail.gmail.com>
-References: <AANLkTiniNNPV9ztxXHtX4np7PIZabkm0I4v5O29chf8i@mail.gmail.com>
-	<1278104311.11828.12.camel@HP1>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH net-2.6 1/2] Revert "rndis_host: Poll status channel before
+ control channel"
+Date: Fri, 02 Jul 2010 23:39:21 +0100
+Message-ID: <1278110361.4878.73.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Michael Chan <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	=?ISO-8859-1?Q?Lu=EDs?= Picciochi Oliveira <pitxyoki@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:57965 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752700Ab0GBWMb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jul 2010 18:12:31 -0400
-Received: by wwb24 with SMTP id 24so650698wwb.1
-        for <netdev@vger.kernel.org>; Fri, 02 Jul 2010 15:12:30 -0700 (PDT)
-In-Reply-To: <1278104311.11828.12.camel@HP1>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:58229 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752807Ab0GBWj1 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 2 Jul 2010 18:39:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi
+This reverts commit c17b274dc2aa538b68c1f02b01a3c4e124b435ba.
 
-Well that's the strange thing: it is IP traffic. The only difference
-with eth0 and eth1 is that eth2 and eth3 belongs to a bridge (br0).
+That change was reported to break rndis_wlan support for the WUSB54GS.
 
-Best Regards,
-Christophe.
+Reported-by: Lu=C3=ADs Picciochi Oliveira <pitxyoki@gmail.com>
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+ drivers/net/usb/rndis_host.c |   18 ++++++------------
+ 1 files changed, 6 insertions(+), 12 deletions(-)
 
-On 7/2/10, Michael Chan <mchan@broadcom.com> wrote:
->
-> On Fri, 2010-07-02 at 13:33 -0700, Christophe Ngo Van Duc wrote:
->> On eth2 (external card) all interrupts goes to CPU0
->>
->>
->>            CPU0       CPU1       CPU2       CPU3       CPU4       CPU5
->>   CPU6       CPU7
->>   80:   46973077          0          0          0          0          0
->>       0          0   PCI-MSI-edge      eth2-0
->>   81:          0          0          0          0          0          0
->>       0          0   PCI-MSI-edge      eth2-1
->>   82:          0          0          0          0          0          0
->>       0          0   PCI-MSI-edge      eth2-2
->>   83:          0          0          0          0          0          0
->>       0          0   PCI-MSI-edge      eth2-3
->>   84:          0          0          0          0          0          0
->>       0          0   PCI-MSI-edge      eth2-4
->>   85:          0          0          0          0          0          0
->>       0          0   PCI-MSI-edge      eth2-5
->>   86:          0          0       2445          0         37          0
->>    8463         13   PCI-MSI-edge      eth2-6
->>   87:          0          0          0          0          0          0
->>       0          0   PCI-MSI-edge      eth2-7
->
-> Reformatted your output
->
->> If I understand correctly the RSS hash is used to dispatch the packets
->> into the different queues running on the different CPU.
->
-> It looks like most interrupts go to eth2-0, a few go to eth2-6.  The rx
-> ring for eth2-0 is for non-IP packets.  The RSS hash will hash IP
-> packets and place them on eth2-1 to eth2-7.  eth2-0 also handles tx
-> interrupts for TX ring 0.  TX traffic is hashed by the stack.
->
-> What kind of traffic is passing through eth2?
->
-> Thanks.
->
->
->
+diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.=
+c
+index 28d3ee1..dd8a4ad 100644
+--- a/drivers/net/usb/rndis_host.c
++++ b/drivers/net/usb/rndis_host.c
+@@ -104,10 +104,8 @@ static void rndis_msg_indicate(struct usbnet *dev,=
+ struct rndis_indicate *msg,
+ int rndis_command(struct usbnet *dev, struct rndis_msg_hdr *buf, int b=
+uflen)
+ {
+ 	struct cdc_state	*info =3D (void *) &dev->data;
+-	struct usb_cdc_notification notification;
+ 	int			master_ifnum;
+ 	int			retval;
+-	int			partial;
+ 	unsigned		count;
+ 	__le32			rsp;
+ 	u32			xid =3D 0, msg_len, request_id;
+@@ -135,17 +133,13 @@ int rndis_command(struct usbnet *dev, struct rndi=
+s_msg_hdr *buf, int buflen)
+ 	if (unlikely(retval < 0 || xid =3D=3D 0))
+ 		return retval;
+=20
+-	/* Some devices don't respond on the control channel until
+-	 * polled on the status channel, so do that first. */
+-	retval =3D usb_interrupt_msg(
+-		dev->udev,
+-		usb_rcvintpipe(dev->udev, dev->status->desc.bEndpointAddress),
+-		&notification, sizeof(notification), &partial,
+-		RNDIS_CONTROL_TIMEOUT_MS);
+-	if (unlikely(retval < 0))
+-		return retval;
++	// FIXME Seems like some devices discard responses when
++	// we time out and cancel our "get response" requests...
++	// so, this is fragile.  Probably need to poll for status.
+=20
+-	/* Poll the control channel; the request probably completed immediate=
+ly */
++	/* ignore status endpoint, just poll the control channel;
++	 * the request probably completed immediately
++	 */
+ 	rsp =3D buf->msg_type | RNDIS_MSG_COMPLETION;
+ 	for (count =3D 0; count < 10; count++) {
+ 		memset(buf, 0, CONTROL_BUFFER_SIZE);
+--=20
+1.7.1
 
--- 
-Sent from my mobile device
+
+
