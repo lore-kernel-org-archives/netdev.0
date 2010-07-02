@@ -1,66 +1,44 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-2.6 2/2] usbnet: Set parent device early for
- netdev_printk()
-Date: Fri, 02 Jul 2010 23:56:26 +0100
-Message-ID: <1278111386.4878.77.camel@localhost>
-References: <1278110361.4878.73.camel@localhost>
-	 <1278110450.4878.75.camel@localhost>
+From: Jesse Barnes <jbarnes@virtuousgeek.org>
+Subject: Re: [PATCH] PCI: MSI: Remove unsafe and unnecessary hardware access
+Date: Fri, 2 Jul 2010 16:16:34 -0700
+Message-ID: <20100702161634.2529ad4e@virtuousgeek.org>
+References: <1276564403.19104.28.camel@HP1>
+	<1276802196.2083.12.camel@achroite.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-qGm15R6nlkPEyXKUFR7j"
-Cc: netdev <netdev@vger.kernel.org>,
-	=?ISO-8859-1?Q?Lu=EDs?= Picciochi Oliveira <pitxyoki@gmail.com>,
-	Joe Perches <joe@perches.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:56049 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753336Ab0GBW4c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 2 Jul 2010 18:56:32 -0400
-In-Reply-To: <1278110450.4878.75.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Michael Chan <mchan@broadcom.com>, Matthew Wilcox <matthew@wil.cx>,
+	linux-pci@vger.kernel.org, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1276802196.2083.12.camel@achroite.uk.solarflarecom.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, 17 Jun 2010 20:16:36 +0100
+Ben Hutchings <bhutchings@solarflare.com> wrote:
 
---=-qGm15R6nlkPEyXKUFR7j
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> During suspend on an SMP system, {read,write}_msi_msg_desc() may be
+> called to mask and unmask interrupts on a device that is already in a
+> reduced power state.  At this point memory-mapped registers including
+> MSI-X tables are not accessible, and config space may not be fully
+> functional either.
+> 
+> While a device is in a reduced power state its interrupts are
+> effectively masked and its MSI(-X) state will be restored when it is
+> brought back to D0.  Therefore these functions can simply read and
+> write msi_desc::msg for devices not in D0.
+> 
+> Further, read_msi_msg_desc() should only ever be used to update a
+> previously written message, so it can always read msi_desc::msg
+> and never needs to touch the hardware.
+> 
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 
-On Fri, 2010-07-02 at 23:40 +0100, Ben Hutchings wrote:
-> netdev_printk() follows the net_device's parent device pointer, so
-> we must set that earlier than we previously did.
->=20
-> Reported-by: Lu=C3=ADs Picciochi Oliveira <pitxyoki@gmail.com>
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-[...]
+Applied to my linux-next branch, thanks.
 
-This should also go into a stable update for 2.6.34.
+Matthew, let me know if you have an issue with this.
 
-Ben.
-
---=20
-Ben Hutchings
-Once a job is fouled up, anything done to improve it makes it worse.
-
---=-qGm15R6nlkPEyXKUFR7j
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQIVAwUATC5uhOe/yOyVhhEJAQI2yg//dh93RyzRbj4Ntyip4ap/wfXu187N0V3p
-Gly4u9P/5dqSXdvjsb3U1ah+X2/F6a2sDoRWKqtnTwP4jZSc7NkE3/7iocrKUc5e
-IMTlZ3JFNXcJgybCfK7YQCh1tMp9yuHLCnYsybvbZf6NxKe8cCWCR1a6NyDoofa5
-BYbl3GqIRyVBrqF9z1HOx9nifE3I8GvCtiqWZCG2gPVEJbyvEL/pBGxLF7R5ZQTK
-mwUPadWZ97l1r+GYc+IEUqpPL62nEfCOQWoU26dpKM7JgYiPONtso86xA6Iommnt
-ZdljztHRHf1eEqcS2SJSKikSCZP2q4K6mgsvN0m5aJRk3W5aNojvwYgVk2Wd94sv
-gHRXA9Az5p4or0WZWqdoJdFcy5qDOT5yBpcDb71Oq2h4ZUwFmkUv23esiRUcwVQz
-C5f7BFqvH/r1oC+JLyRgZEp38QFDRPDDZ4XObC4Y11J8bYGV6TUcW7g3+MJWtFf9
-u1sYLNgODcGg/9H0Vw9zJ948ko0KKM9qrXAwrAzdCJQUoFZwkb6oG8OulQ/lqmTS
-cjGF48aAtvZ3DQklTyBaOi8M4FUUBSVRp4tMqyk0ccQRlnoltf/CDSkadx5K4JrL
-eZn9jrz4rQgy45dyz/HRALPxGHifAJNb1sAjl3e1lQBKzYhSO49pPrnYBPbDvg4H
-AvvUZ+ubzXM=
-=9W6L
------END PGP SIGNATURE-----
-
---=-qGm15R6nlkPEyXKUFR7j--
+Thanks,
+-- 
+Jesse Barnes, Intel Open Source Technology Center
